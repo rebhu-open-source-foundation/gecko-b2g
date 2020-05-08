@@ -212,6 +212,26 @@ class GonkAudioPortCallback : public AudioSystem::AudioPortCallback {
   virtual void onServiceDied() {}
 };
 
+// We need to store GonkAudioPortCallback instance in AudioManager class, but
+// we don't want to expose android::sp in the header, so add a holder to hide
+// it. If there are more similar cases in the future, we need a private
+// AudioManager class instead.
+class AudioPortCallbackHolder {
+ public:
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(AudioPortCallbackHolder);
+
+  android::sp<AudioSystem::AudioPortCallback> Callback() {
+    if (!mCallback) {
+      mCallback = new GonkAudioPortCallback();
+    }
+    return mCallback;
+  }
+
+ private:
+  ~AudioPortCallbackHolder(){};
+  android::sp<AudioSystem::AudioPortCallback> mCallback;
+};
+
 void AudioManager::HandleAudioFlingerDied() {
   // Disable volume change notification
   mIsVolumeInited = false;
@@ -706,7 +726,9 @@ void AudioManager::ReleaseWakeLock() {
 
 static StaticRefPtr<AudioManager> sAudioManager;
 
-AudioManager::AudioManager() : mObserver(new HeadphoneSwitchObserver()) {
+AudioManager::AudioManager()
+    : mObserver(new HeadphoneSwitchObserver()),
+      mAudioPortCallbackHolder(new AudioPortCallbackHolder()) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!sAudioManager);
 
@@ -715,8 +737,7 @@ AudioManager::AudioManager() : mObserver(new HeadphoneSwitchObserver()) {
   }
 
   AudioSystem::setErrorCallback(BinderDeadCallback);
-  // android::sp<GonkAudioPortCallback> callback = new GonkAudioPortCallback();
-  // AudioSystem::addAudioPortCallback(callback);
+  AudioSystem::addAudioPortCallback(mAudioPortCallbackHolder->Callback());
 
   // Create VolumeStreamStates
   for (uint32_t loop = 0; loop < AUDIO_STREAM_CNT; ++loop) {
@@ -800,7 +821,7 @@ AudioManager::~AudioManager() {
   MOZ_ASSERT(!sAudioManager);
 
   AudioSystem::setErrorCallback(nullptr);
-  AudioSystem::removeAudioPortCallback(nullptr);
+  AudioSystem::removeAudioPortCallback(mAudioPortCallbackHolder->Callback());
   hal::UnregisterSwitchObserver(hal::SWITCH_HEADPHONES, mObserver.get());
   hal::UnregisterSwitchObserver(hal::SWITCH_LINEOUT, mObserver.get());
 
@@ -977,8 +998,7 @@ AudioManager::SetForceForUse(int32_t aUsage, int32_t aForce) {
   // or removing) SetForcespeaker() only switch between devices (ex: FM switch
   // to speaker) so still have to manually call it.
   if (enableRadio == true && aUsage == AUDIO_POLICY_FORCE_FOR_MEDIA) {
-    android::sp<GonkAudioPortCallback> callback = new GonkAudioPortCallback();
-    callback->onAudioPortListUpdate();
+    mAudioPortCallbackHolder->Callback()->onAudioPortListUpdate();
   }
   return status ? NS_ERROR_FAILURE : NS_OK;
 }

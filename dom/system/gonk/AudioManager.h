@@ -36,6 +36,7 @@ typedef Observer<SwitchEvent> SwitchObserver;
 namespace dom {
 namespace gonk {
 
+class AudioPortCallbackHolder;
 class VolumeInitCallback;
 
 class AudioManager final : public nsIAudioManager, public nsIObserver {
@@ -143,6 +144,7 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
 
  private:
   UniquePtr<mozilla::hal::SwitchObserver> mObserver;
+  RefPtr<AudioPortCallbackHolder> mAudioPortCallbackHolder;
 #ifdef MOZ_B2G_RIL
   bool mMuteCallToRIL = false;
   // mIsMicMuted is only used for toggling mute call to RIL.
