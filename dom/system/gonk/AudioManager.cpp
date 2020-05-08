@@ -230,7 +230,7 @@ void AudioManager::HandleAudioFlingerDied() {
 
   // Indicate to audio HAL that we start the reconfiguration phase after a media
   // server crash
-  AudioSystem::setParameters(0, android::String8("restarting=true"));
+  SetParameters("restarting=true");
 
   // Restore device connection states
   SetAllDeviceConnectionStates();
@@ -248,7 +248,7 @@ void AudioManager::HandleAudioFlingerDied() {
   }
 
   // Indicate the end of reconfiguration phase to audio HAL
-  AudioSystem::setParameters(0, android::String8("restarting=true"));
+  SetParameters("restarting=true");
 
   // Enable volume change notification
   mIsVolumeInited = true;
@@ -355,17 +355,6 @@ static void BinderDeadCallback(android::status_t aErr) {
       });
 
   NS_DispatchToMainThread(runnable);
-}
-
-static nsresult SetAudioSystemParameters(
-    audio_io_handle_t ioHandle, const android::String8& keyValuePairs) {
-  android::status_t audioStatus = AudioSystem::setParameters(0, keyValuePairs);
-  if (audioStatus != android::NO_ERROR) {
-    LOG("Failed to set parameter: %s, error status: %d", keyValuePairs.string(),
-        audioStatus);
-    return NS_ERROR_FAILURE;
-  }
-  return NS_OK;
 }
 
 bool AudioManager::IsFmOutConnected() {
@@ -486,9 +475,7 @@ void AudioManager::HandleBluetoothStatusChanged(nsISupports* aSubject,
           static_cast<BluetoothHfpManagerBase*>(aSubject);
       int btSampleRate =
           hfp->IsWbsEnabled() ? kBtWideBandSampleRate : kBtSampleRate;
-      android::String8 cmd;
-      cmd.appendFormat("bt_samplerate=%d", btSampleRate);
-      AudioSystem::setParameters(0, cmd);
+      SetParameters("bt_samplerate=%d", btSampleRate);
       SetForceForUse(nsIAudioManager::USE_COMMUNICATION,
                      nsIAudioManager::FORCE_BT_SCO);
     } else {
@@ -510,11 +497,8 @@ void AudioManager::HandleBluetoothStatusChanged(nsISupports* aSubject,
             }
             self->UpdateDeviceConnectionState(
                 isConnected, AUDIO_DEVICE_OUT_BLUETOOTH_A2DP, aAddress);
-
-            android::String8 cmd("bluetooth_enabled=false");
-            AudioSystem::setParameters(0, cmd);
-            cmd.setTo("A2dpSuspended=true");
-            AudioSystem::setParameters(0, cmd);
+            self->SetParameters("bluetooth_enabled=false");
+            self->SetParameters("A2dpSuspended=true");
             self->mA2dpSwitchDone = true;
           });
       MessageLoop::current()->PostDelayedTask(runnable.forget(), 1000);
@@ -523,10 +507,8 @@ void AudioManager::HandleBluetoothStatusChanged(nsISupports* aSubject,
     } else {
       UpdateDeviceConnectionState(isConnected, AUDIO_DEVICE_OUT_BLUETOOTH_A2DP,
                                   aAddress);
-      android::String8 cmd("bluetooth_enabled=true");
-      AudioSystem::setParameters(0, cmd);
-      cmd.setTo("A2dpSuspended=false");
-      AudioSystem::setParameters(0, cmd);
+      SetParameters("bluetooth_enabled=true");
+      SetParameters("A2dpSuspended=false");
       mA2dpSwitchDone = true;
       if (AudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA) ==
           AUDIO_POLICY_FORCE_NO_BT_A2DP) {
@@ -540,27 +522,21 @@ void AudioManager::HandleBluetoothStatusChanged(nsISupports* aSubject,
     UpdateDeviceConnectionState(
         isConnected, AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET, aAddress);
   } else if (!strcmp(aTopic, BLUETOOTH_HFP_NREC_STATUS_CHANGED_ID)) {
-    android::String8 cmd;
     BluetoothHfpManagerBase* hfp =
         static_cast<BluetoothHfpManagerBase*>(aSubject);
     if (hfp->IsNrecEnabled()) {
       // TODO: (Bug 880785) Replace <unknown> with remote Bluetooth device name
-      cmd.setTo("bt_headset_name=<unknown>;bt_headset_nrec=on");
-      AudioSystem::setParameters(0, cmd);
+      SetParameters("bt_headset_name=<unknown>;bt_headset_nrec=on");
     } else {
-      cmd.setTo("bt_headset_name=<unknown>;bt_headset_nrec=off");
-      AudioSystem::setParameters(0, cmd);
+      SetParameters("bt_headset_name=<unknown>;bt_headset_nrec=off");
     }
   } else if (!strcmp(aTopic, BLUETOOTH_HFP_WBS_STATUS_CHANGED_ID)) {
-    android::String8 cmd;
     BluetoothHfpManagerBase* hfp =
         static_cast<BluetoothHfpManagerBase*>(aSubject);
     if (hfp->IsWbsEnabled()) {
-      cmd.setTo("bt_wbs=on");
-      AudioSystem::setParameters(0, cmd);
+      SetParameters("bt_wbs=on");
     } else {
-      cmd.setTo("bt_wbs=off");
-      AudioSystem::setParameters(0, cmd);
+      SetParameters("bt_wbs=off");
     }
   }
 #endif
@@ -610,13 +586,11 @@ nsresult AudioManager::Observe(nsISupports* aSubject, const char* aTopic,
 #ifdef PRODUCT_MANUFACTURER_MTK
   // Notify screen state to audio HAL in order to save power when screen is off.
   else if (!strcmp(aTopic, SCREEN_STATE_CHANGED)) {
-    android::String8 cmd;
     if (NS_LITERAL_STRING("on").Equals(aData)) {
-      cmd.setTo("screen_state=on");
+      SetParameters("screen_state=on");
     } else {
-      cmd.setTo("screen_state=off");
+      SetParameters("screen_state=off");
     }
-    SetAudioSystemParameters(0, cmd);
     return NS_OK;
   }
 #endif
@@ -963,19 +937,15 @@ AudioManager::GetHeadsetState(int32_t* aHeadsetState) {
 
 NS_IMETHODIMP
 AudioManager::SetTtyMode(uint16_t aTtyMode) {
-  android::String8 cmd;
   if (aTtyMode == nsIAudioManager::TTY_MODE_FULL) {
-    cmd.setTo("tty_mode=tty_full");
+    SetParameters("tty_mode=tty_full");
   } else if (aTtyMode == nsIAudioManager::TTY_MODE_HCO) {
-    cmd.setTo("tty_mode=tty_hco");
+    SetParameters("tty_mode=tty_hco");
   } else if (aTtyMode == nsIAudioManager::TTY_MODE_VCO) {
-    cmd.setTo("tty_mode=tty_vco");
+    SetParameters("tty_mode=tty_vco");
   } else {
-    cmd.setTo("tty_mode=tty_off");
+    SetParameters("tty_mode=tty_off");
   }
-
-  SetAudioSystemParameters(0, cmd);
-
   return NS_OK;
 }
 
@@ -1030,10 +1000,7 @@ void AudioManager::SetVendorFmVolumeIndex(bool aMute) {
   uint32_t device = GetDeviceForSprdFm();
   uint32_t volIndex =
       aMute ? 0 : mStreamStates[AUDIO_STREAM_MUSIC]->GetVolumeIndex(device);
-  android::String8 cmd;
-  cmd.appendFormat("FM_Volume=%d", volIndex);
-  LOG("At %d, cmd %s", __LINE__, cmd.string());
-  SetAudioSystemParameters(0, cmd);
+  SetParameters("FM_Volume=%d", volIndex);
 #endif
 }
 
@@ -1549,22 +1516,44 @@ void AudioManager::VolumeStreamState::RestoreVolumeIndexToAllDevices() {
 
 NS_IMETHODIMP
 AudioManager::SetHacMode(bool aHacMode) {
-  android::String8 cmd;
   if (aHacMode) {
-    cmd.setTo("HACSetting=ON");
+    SetParameters("HACSetting=ON");
   } else {
-    cmd.setTo("HACSetting=OFF");
+    SetParameters("HACSetting=OFF");
   }
+  return NS_OK;
+}
 
-  SetAudioSystemParameters(0, cmd);
-
+static nsresult SetAudioSystemParameters(
+    audio_io_handle_t aIoHandle, const android::String8& aKeyValuePairs) {
+  LOG("Set audio system parameter: %s", aKeyValuePairs.string());
+  android::status_t status =
+      AudioSystem::setParameters(aIoHandle, aKeyValuePairs);
+  if (status != android::OK) {
+    LOG("Failed to set parameter: %s, error status: %d",
+        aKeyValuePairs.string(), status);
+    return NS_ERROR_FAILURE;
+  }
   return NS_OK;
 }
 
 NS_IMETHODIMP
-AudioManager::SetParameters(const nsACString& keyValuePairs) {
-  LOG("Set parameter: %s", ToNewCString(keyValuePairs));
-  android::String8 cmd(ToNewCString(keyValuePairs));
+AudioManager::SetParameters(const nsACString& aKeyValuePairs) {
+  android::String8 cmd(aKeyValuePairs.Data(), aKeyValuePairs.Length());
+  return SetAudioSystemParameters(0, cmd);
+}
+
+nsresult AudioManager::SetParameters(const char* aFormat, ...) {
+  va_list args;
+  va_start(args, aFormat);
+  android::String8 cmd;
+  android::status_t status = cmd.appendFormatV(aFormat, args);
+  va_end(args);
+
+  if (status != android::OK) {
+    LOG("Invalid parameter, error status: %d", status);
+    return NS_ERROR_FAILURE;
+  }
   return SetAudioSystemParameters(0, cmd);
 }
 

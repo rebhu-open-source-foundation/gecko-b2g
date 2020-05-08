@@ -175,6 +175,8 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
   void CreateWakeLock();
   void ReleaseWakeLock();
 
+  nsresult SetParameters(const char* aFormat, ...);
+
   AudioManager();
   ~AudioManager();
 
