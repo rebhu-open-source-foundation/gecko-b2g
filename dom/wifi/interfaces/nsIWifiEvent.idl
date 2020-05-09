@@ -10,14 +10,14 @@ interface nsIStateChanged;
 [scriptable, uuid(3f97bbaf-ec6f-4cc4-a9b0-f6e67aa78dc4)]
 interface nsIWifiEvent : nsISupports
 {
-  /* Connection failure reason code */
+  /** Connection failure reason code */
   const unsigned long AUTH_FAILURE_UNKNOWN = 0;
   const unsigned long AUTH_FAILURE_NONE = 1;
   const unsigned long AUTH_FAILURE_TIMEOUT = 2;
   const unsigned long AUTH_FAILURE_WRONG_KEY = 3;
   const unsigned long AUTH_FAILURE_EAP_FAILURE = 4;
 
-  /* Error code for EAP or EAP Method as per RFC-4186 10.18 */
+  /** Error code for EAP or EAP Method as per RFC-4186 10.18 */
   const unsigned long ERROR_CODE_NONE = -1;
   const unsigned long ERROR_EAP_SIM_GENERAL_FAILURE_AFTER_AUTH = 0;
   const unsigned long ERROR_EAP_SIM_TEMPORARILY_DENIED = 1026;
@@ -31,12 +31,13 @@ interface nsIWifiEvent : nsISupports
   readonly attribute AString name;
 
   /**
-   * Contain the network bssid as event parameter.
+   * Use for event that contains network BSSID.
    */
   readonly attribute AString bssid;
 
   /**
-   * Wether the onDisconnected event from supplicant is generated locally.
+   * Use for onDisconnected event to indicate if the disconnection is
+   * triggered locally.
    */
   readonly attribute boolean locallyGenerated;
 
@@ -67,7 +68,7 @@ interface nsIWifiEvent : nsISupports
   readonly attribute long errorCode;
 
   /**
-   * Whether failure is due to timeout rather  response from the AP.
+   * Whether failure is due to timeout rather response from the AP.
    * Refer to onAssociationRejected.
    */
   readonly attribute boolean timeout;
@@ -76,4 +77,18 @@ interface nsIWifiEvent : nsISupports
    * Indicate supplicant state change event.
    */
   readonly attribute nsIStateChanged stateChanged;
+
+  /**
+   * Use for onNetworkEapSimUmtsAuthRequest event to get UMTS authentication
+   * parameters. (Refer RFC 4187)
+   */
+  readonly attribute AString rand;
+
+  readonly attribute AString autn;
+
+  /**
+   * Use for onNetworkEapSimGsmAuthRequest event to get GSM authentication
+   * parameters. (Refer RFC 4186)
+   */
+  Array<AString> getGsmRands();
 };

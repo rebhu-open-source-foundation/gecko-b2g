@@ -147,12 +147,14 @@ Result_t WificondControl::TearDownSoftapInterface(
     WIFI_LOGE(LOG_TAG, "No valid interface handler");
     return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
+
   bool success = false;
   if (!mWificond->tearDownApInterface(aIfaceName, &success).isOk()) {
     WIFI_LOGE(LOG_TAG,
               "Failed to teardown ap interface due to remote exception");
     return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
+
   if (!success) {
     WIFI_LOGE(LOG_TAG, "Failed to teardown ap interface");
     return nsIWifiResult::ERROR_COMMAND_FAILED;
@@ -193,17 +195,21 @@ Result_t WificondControl::SetupClientIface(
   if (result != nsIWifiResult::SUCCESS) {
     return result;
   }
+
   if (!mWificond->createClientInterface(aIfaceName, &mClientInterface).isOk()) {
     WIFI_LOGE(LOG_TAG, "Failed to create client interface");
     return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
+
   if (!mClientInterface->getWifiScannerImpl(&mScanner).isOk()) {
     WIFI_LOGE(LOG_TAG, "Failed to get WificondScannerImpl");
     return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
+
   if (!mScanner->subscribeScanEvents(aScanCallback).isOk()) {
     WIFI_LOGE(LOG_TAG, "subscribe scan event failed");
   }
+
   if (!mScanner->subscribePnoScanEvents(aPnoScanCallback).isOk()) {
     WIFI_LOGE(LOG_TAG, "subscribe pno scan event failed");
   }
@@ -219,6 +225,7 @@ Result_t WificondControl::SetupApIface(
   if (result != nsIWifiResult::SUCCESS) {
     return result;
   }
+
   if (!mWificond->createApInterface(aIfaceName, &mApInterface).isOk()) {
     WIFI_LOGE(LOG_TAG, "Failed to create ap interface");
     return nsIWifiResult::ERROR_COMMAND_FAILED;
@@ -349,15 +356,18 @@ Result_t WificondControl::GetChannelsForBand(uint32_t aBandMask,
   if (mWificond == nullptr) {
     return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
+
   std::unique_ptr<std::vector<int32_t>> channels;
   if (aBandMask & nsIScanSettings::BAND_2_4_GHZ) {
     mWificond->getAvailable2gChannels(&channels);
     aChannels.insert(aChannels.end(), (*channels).begin(), (*channels).end());
   }
+
   if (aBandMask & nsIScanSettings::BAND_5_GHZ) {
     mWificond->getAvailable5gNonDFSChannels(&channels);
     aChannels.insert(aChannels.end(), (*channels).begin(), (*channels).end());
   }
+
   if (aBandMask & nsIScanSettings::BAND_5_GHZ_DFS) {
     mWificond->getAvailable5gNonDFSChannels(&channels);
     aChannels.insert(aChannels.end(), (*channels).begin(), (*channels).end());

@@ -110,6 +110,7 @@ Result_t SupplicantStaManager::InitServiceManager() {
     mServiceManagerDeathRecipient =
         new ServiceManagerDeathRecipient(s_Instance);
   }
+
   Return<bool> linked =
       mServiceManager->linkToDeath(mServiceManagerDeathRecipient, 0);
   if (!linked || !linked.isOk()) {
@@ -136,6 +137,7 @@ Result_t SupplicantStaManager::InitSupplicantInterface() {
     if (mSupplicantDeathRecipient == nullptr) {
       mSupplicantDeathRecipient = new SupplicantDeathRecipient(s_Instance);
     }
+
     if (mSupplicantDeathRecipient != nullptr) {
       mDeathRecipientCookie = mDeathRecipientCookie + 1;
       Return<bool> linked = mSupplicant->linkToDeath(mSupplicantDeathRecipient,
@@ -320,9 +322,11 @@ Result_t SupplicantStaManager::FindIfaceOfType(
     response = status;
     iface_infos = infos;
   });
+
   if (response.code != SupplicantStatusCode::SUCCESS) {
     return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
+
   for (const auto& info : iface_infos) {
     if (info.type == aDesired) {
       *aInfo = info;
@@ -346,6 +350,7 @@ android::sp<ISupplicantStaIface> SupplicantStaManager::GetSupplicantStaIface() {
   if (mSupplicant == nullptr) {
     return nullptr;
   }
+
   ISupplicant::IfaceInfo info;
   if (FindIfaceOfType(SupplicantNameSpace::IfaceType::STA, &info) !=
       nsIWifiResult::SUCCESS) {
@@ -442,10 +447,11 @@ android::sp<SupplicantStaNetwork> SupplicantStaManager::CreateStaNetwork() {
               response.code);
     return nullptr;
   }
-  return new SupplicantStaNetwork(staNetwork.get());
+  return new SupplicantStaNetwork(mInterfaceName, mCallback.get(),
+                                  staNetwork.get());
 }
 
-android::sp<SupplicantStaNetwork> SupplicantStaManager::GetNetwork(
+android::sp<SupplicantStaNetwork> SupplicantStaManager::GetStaNetwork(
     uint32_t aNetId) {
   if (mSupplicantStaIface == nullptr) {
     return nullptr;
@@ -467,7 +473,18 @@ android::sp<SupplicantStaNetwork> SupplicantStaManager::GetNetwork(
               response.code);
     return nullptr;
   }
-  return new SupplicantStaNetwork(staNetwork.get());
+  return new SupplicantStaNetwork(mInterfaceName, mCallback.get(),
+                                  staNetwork.get());
+}
+
+android::sp<SupplicantStaNetwork> SupplicantStaManager::GetCurrentNetwork() {
+  std::unordered_map<std::string,
+                     android::sp<SupplicantStaNetwork>>::const_iterator found =
+      mCurrentNetwork.find(mInterfaceName);
+  if (found == mCurrentNetwork.end()) {
+    return nullptr;
+  }
+  return mCurrentNetwork.at(mInterfaceName);
 }
 
 Result_t SupplicantStaManager::ConnectToNetwork(ConfigurationOptions* aConfig) {
@@ -481,15 +498,12 @@ Result_t SupplicantStaManager::ConnectToNetwork(ConfigurationOptions* aConfig) {
   if (existConfig != mCurrentConfiguration.end() &&
       CompareConfiguration(mCurrentConfiguration.at(mInterfaceName), config)) {
     WIFI_LOGD(LOG_TAG, "Same network, do not need to create a new one");
-    std::unordered_map<std::string,
-                       android::sp<SupplicantStaNetwork>>::const_iterator
-        existNetwork = mCurrentNetwork.find(mInterfaceName);
 
-    if (existNetwork == mCurrentNetwork.end()) {
+    staNetwork = GetCurrentNetwork();
+    if (staNetwork == nullptr) {
       WIFI_LOGE(LOG_TAG, "Network is not available");
       return nsIWifiResult::ERROR_COMMAND_FAILED;
     }
-    staNetwork = mCurrentNetwork.at(mInterfaceName);
   } else {
     mCurrentConfiguration.erase(mInterfaceName);
     mCurrentNetwork.erase(mInterfaceName);
@@ -508,6 +522,7 @@ Result_t SupplicantStaManager::ConnectToNetwork(ConfigurationOptions* aConfig) {
       return nsIWifiResult::ERROR_INVALID_INTERFACE;
     }
   }
+
   // set network configuration into supplicant
   result = staNetwork->SetConfiguration(config);
   if (result != nsIWifiResult::SUCCESS) {
@@ -544,27 +559,20 @@ Result_t SupplicantStaManager::Disconnect() {
 Result_t SupplicantStaManager::EnableNetwork() {
   android::sp<SupplicantStaNetwork> network;
 
-  std::unordered_map<std::string,
-                     android::sp<SupplicantStaNetwork>>::const_iterator found =
-      mCurrentNetwork.find(mInterfaceName);
-  if (found == mCurrentNetwork.end()) {
+  network = GetCurrentNetwork();
+  if (network == nullptr) {
     return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
-
-  network = mCurrentNetwork.at(mInterfaceName);
   return network->EnableNetwork();
 }
 
 Result_t SupplicantStaManager::DisableNetwork() {
   android::sp<SupplicantStaNetwork> network;
-  std::unordered_map<std::string,
-                     android::sp<SupplicantStaNetwork>>::const_iterator found =
-      mCurrentNetwork.find(mInterfaceName);
-  if (found == mCurrentNetwork.end()) {
+
+  network = GetCurrentNetwork();
+  if (network == nullptr) {
     return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
-
-  network = mCurrentNetwork.at(mInterfaceName);
   return network->DisableNetwork();
 }
 
@@ -622,6 +630,70 @@ Result_t SupplicantStaManager::RoamToNetwork(ConfigurationOptions* aConfig) {
   return (result == nsIWifiResult::SUCCESS) ? Reassociate() : result;
 }
 
+Result_t SupplicantStaManager::SendEapSimIdentityResponse(
+    SimIdentityRespDataOptions* aIdentity) {
+  android::sp<SupplicantStaNetwork> network;
+
+  network = GetCurrentNetwork();
+  if (network == nullptr) {
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  }
+  return network->SendEapSimIdentityResponse(aIdentity);
+}
+
+Result_t SupplicantStaManager::SendEapSimGsmAuthResponse(
+    const nsTArray<SimGsmAuthRespDataOptions>& aGsmAuthResp) {
+  android::sp<SupplicantStaNetwork> network;
+
+  network = GetCurrentNetwork();
+  if (network == nullptr) {
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  }
+  return network->SendEapSimGsmAuthResponse(aGsmAuthResp);
+}
+
+Result_t SupplicantStaManager::SendEapSimGsmAuthFailure() {
+  android::sp<SupplicantStaNetwork> network;
+
+  network = GetCurrentNetwork();
+  if (network == nullptr) {
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  }
+  return network->SendEapSimGsmAuthFailure();
+}
+
+Result_t SupplicantStaManager::SendEapSimUmtsAuthResponse(
+    SimUmtsAuthRespDataOptions* aUmtsAuthResp) {
+  android::sp<SupplicantStaNetwork> network;
+
+  network = GetCurrentNetwork();
+  if (network == nullptr) {
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  }
+  return network->SendEapSimUmtsAuthResponse(aUmtsAuthResp);
+}
+
+Result_t SupplicantStaManager::SendEapSimUmtsAutsResponse(
+    SimUmtsAutsRespDataOptions* aUmtsAutsResp) {
+  android::sp<SupplicantStaNetwork> network;
+
+  network = GetCurrentNetwork();
+  if (network == nullptr) {
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  }
+  return network->SendEapSimUmtsAutsResponse(aUmtsAutsResp);
+}
+
+Result_t SupplicantStaManager::SendEapSimUmtsAuthFailure() {
+  android::sp<SupplicantStaNetwork> network;
+
+  network = GetCurrentNetwork();
+  if (network == nullptr) {
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  }
+  return network->SendEapSimUmtsAuthFailure();
+}
+
 /**
  * P2P functions
  */
@@ -629,6 +701,7 @@ android::sp<ISupplicantP2pIface> SupplicantStaManager::GetSupplicantP2pIface() {
   if (mSupplicant == nullptr) {
     return nullptr;
   }
+
   ISupplicant::IfaceInfo info;
   if (FindIfaceOfType(SupplicantNameSpace::IfaceType::P2P, &info) !=
       nsIWifiResult::SUCCESS) {
@@ -644,6 +717,7 @@ android::sp<ISupplicantP2pIface> SupplicantStaManager::GetSupplicantP2pIface() {
           p2p_iface = ISupplicantP2pIface::castFrom(iface);
         }
       });
+
   if (response.code != SupplicantStatusCode::SUCCESS) {
     return nullptr;
   }
@@ -676,6 +750,7 @@ void SupplicantStaManager::SupplicantServiceDiedHandler(int32_t aCookie) {
     WIFI_LOGD(LOG_TAG, "Ignoring stale death recipient notification");
     return;
   }
+
   // TODO: notify supplicant has died.
   if (mDeathEventHandler != nullptr) {
     mDeathEventHandler->OnDeath();

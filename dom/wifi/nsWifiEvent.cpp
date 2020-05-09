@@ -26,6 +26,10 @@ void nsWifiEvent::updateStateChanged(nsStateChanged* aStateChanged) {
   mStateChanged = aStateChanged;
 }
 
+void nsWifiEvent::updateGsmRands(const nsTArray<nsString>& aGsmRands) {
+  mGsmRands = aGsmRands.Clone();
+}
+
 NS_IMETHODIMP
 nsWifiEvent::GetName(nsAString& aName) {
   aName = mName;
@@ -78,6 +82,24 @@ NS_IMETHODIMP
 nsWifiEvent::GetStateChanged(nsIStateChanged** aStateChanged) {
   RefPtr<nsIStateChanged> stateChanged(mStateChanged);
   stateChanged.forget(aStateChanged);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsWifiEvent::GetRand(nsAString& aRand) {
+  aRand = mRand;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsWifiEvent::GetAutn(nsAString& aAutn) {
+  aAutn = mAutn;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsWifiEvent::GetGsmRands(nsTArray<nsString>& aGsmRands) {
+  aGsmRands = mGsmRands.Clone();
   return NS_OK;
 }
 

@@ -90,8 +90,19 @@ class SupplicantStaManager
   Result_t RemoveNetworks();
   Result_t RoamToNetwork(ConfigurationOptions* aConfig);
 
+  Result_t SendEapSimIdentityResponse(SimIdentityRespDataOptions* aIdentity);
+  Result_t SendEapSimGsmAuthResponse(
+      const nsTArray<SimGsmAuthRespDataOptions>& aGsmAuthResp);
+  Result_t SendEapSimGsmAuthFailure();
+  Result_t SendEapSimUmtsAuthResponse(
+      SimUmtsAuthRespDataOptions* aUmtsAuthResp);
+  Result_t SendEapSimUmtsAutsResponse(
+      SimUmtsAutsRespDataOptions* aUmtsAutsResp);
+  Result_t SendEapSimUmtsAuthFailure();
+
   android::sp<SupplicantStaNetwork> CreateStaNetwork();
-  android::sp<SupplicantStaNetwork> GetNetwork(uint32_t aNetId);
+  android::sp<SupplicantStaNetwork> GetStaNetwork(uint32_t aNetId);
+  android::sp<SupplicantStaNetwork> GetCurrentNetwork();
 
   // death event handler
   void RegisterDeathHandler(SupplicantDeathEventHandler* aHandler);

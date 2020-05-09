@@ -21,15 +21,15 @@ NS_IMPL_ISUPPORTS(nsWifiResult, nsIWifiResult)
 nsWifiResult::nsWifiResult() : mId(0), mStatus(false) {}
 
 void nsWifiResult::updateScanResults(
-    nsTArray<RefPtr<nsScanResult>>& aScanResults) {
+    const nsTArray<RefPtr<nsScanResult>>& aScanResults) {
   mScanResults = aScanResults.Clone();
 }
 
-void nsWifiResult::updateChannels(nsTArray<int32_t>& aChannels) {
+void nsWifiResult::updateChannels(const nsTArray<int32_t>& aChannels) {
   mChannels = aChannels.Clone();
 }
 
-void nsWifiResult::updateSignalPoll(nsTArray<int32_t>& aSignalPoll) {
+void nsWifiResult::updateSignalPoll(const nsTArray<int32_t>& aSignalPoll) {
   mSignalPoll = aSignalPoll.Clone();
 }
 

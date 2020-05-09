@@ -7,14 +7,6 @@
 [scriptable, uuid(391e476b-8620-4abf-8701-7b058dc78fc2)]
 interface nsIWifiConfiguration: nsISupports
 {
-  /** ParamSizeLimits */
-  const long SSID_MAX_LEN_IN_BYTES = 32;
-  const long PSK_PASSPHRASE_MIN_LEN_IN_BYTES = 8;
-  const long PSK_PASSPHRASE_MAX_LEN_IN_BYTES = 63;
-  const long WEP_KEYS_MAX_NUM = 4;
-  const long WEP40_KEY_LEN_IN_BYTES = 5;
-  const long WEP104_KEY_LEN_IN_BYTES = 13;
-
   /** KeyMgmtMask */
   const long KEYMGMT_WPA_EAP   = (1 << 0);
   const long KEYMGMT_WPA_PSK   = (1 << 1);
@@ -23,43 +15,6 @@ interface nsIWifiConfiguration: nsISupports
   const long KEYMGMT_FT_EAP    = (1 << 5);
   const long KEYMGMT_FT_PSK    = (1 << 6);
   const long KEYMGMT_OSEN      = (1 << 15);
-
-  /** ProtoMask */
-  const long PROTO_WPA  = (1 << 0);
-  const long PROTO_RSN  = (1 << 1);
-  const long PROTO_OSEN = (1 << 3);
-
-  /** GroupCipherMask */
-  const long GROUPCIPHER_WEP40        = (1 << 1);
-  const long GROUPCIPHER_WEP104       = (1 << 2);
-  const long GROUPCIPHER_TKIP         = (1 << 3);
-  const long GROUPCIPHER_CCMP         = (1 << 4);
-  const long GROUPCIPHER_GTK_NOT_USED = (1 << 14);
-
-  /** PairwiseCipherMask */
-  const long PAIRWISECIPHER_NONE = (1 << 0);
-  const long PAIRWISECIPHER_TKIP = (1 << 3);
-  const long PAIRWISECIPHER_CCMP = (1 << 4);
-
-  /** EapMethod */
-  const long EAP_PEAP           = 0;
-  const long EAP_TLS            = 1;
-  const long EAP_TTLS           = 2;
-  const long EAP_PWD            = 3;
-  const long EAP_SIM            = 4;
-  const long EAP_AKA            = 5;
-  const long EAP_AKA_PRIME      = 6;
-  const long EAP_WFA_UNAUTH_TLS = 7;
-
-  /** EapPhase2Method */
-  const long PHASE2_NONE      = 0;
-  const long PHASE2_PAP       = 1;
-  const long PHASE2_MSPAP     = 2;
-  const long PHASE2_MSPAPV2   = 3;
-  const long PHASE2_GTC       = 4;
-  const long PHASE2_SIM       = 5;
-  const long PHASE2_AKA       = 6;
-  const long PHASE2_AKA_PRIME = 7;
 
   readonly attribute long    netId;
   readonly attribute AString ssid;
@@ -70,13 +25,13 @@ interface nsIWifiConfiguration: nsISupports
   readonly attribute long    wepTxKeyIndex;
   readonly attribute boolean scanSsid;
   readonly attribute boolean pmf;
-  readonly attribute long    proto;
+  readonly attribute AString proto;
   readonly attribute AString authAlg;
-  readonly attribute long    groupCipher;
-  readonly attribute long    pairwiseCipher;
+  readonly attribute AString groupCipher;
+  readonly attribute AString pairwiseCipher;
 
-  readonly attribute long    eap;
-  readonly attribute long    eapPhase2;
+  readonly attribute AString eap;
+  readonly attribute AString eapPhase2;
   readonly attribute AString identity;
   readonly attribute AString anonymousId;
   readonly attribute AString password;
@@ -90,6 +45,7 @@ interface nsIWifiConfiguration: nsISupports
   readonly attribute AString altSubjectMatch;
   readonly attribute AString domainSuffixMatch;
   readonly attribute boolean proactiveKeyCaching;
+  readonly attribute long    simIndex;
 };
 
 [scriptable, uuid(2677465d-1061-483d-9d59-107339bb9b2b)]
@@ -281,7 +237,7 @@ interface nsILinkLayerRadioStats : nsISupports
   readonly attribute unsigned long rxTimeInMs;
 
   /**
-   *  Total time for which the radio is awake due to scan.
+   * Total time for which the radio is awake due to scan.
    */
   readonly attribute unsigned long onTimeInMsForScan;
 

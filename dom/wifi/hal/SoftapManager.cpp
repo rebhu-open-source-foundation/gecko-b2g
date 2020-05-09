@@ -63,10 +63,12 @@ Result_t SoftapManager::InitInterface() {
   if (mHostapd != nullptr) {
     return nsIWifiResult::SUCCESS;
   }
+
   Result_t result = InitServiceManager();
   if (result != nsIWifiResult::SUCCESS) {
     return result;
   }
+
   // start hostapd daemon through lazy HAL.
   IHostapd_1_1::getService();
   return nsIWifiResult::SUCCESS;
@@ -90,6 +92,7 @@ Result_t SoftapManager::InitServiceManager() {
     // service already existed.
     return nsIWifiResult::SUCCESS;
   }
+
   mHostapd = nullptr;
   mServiceManager =
       ::android::hidl::manager::V1_0::IServiceManager::getService();
@@ -135,6 +138,7 @@ Result_t SoftapManager::InitHostapdInterface() {
   if (mHostapdDeathRecipient == nullptr) {
     mHostapdDeathRecipient = new HostapdDeathRecipient(s_Instance);
   }
+
   if (mHostapdDeathRecipient != nullptr) {
     Return<bool> linked =
         mHostapd->linkToDeath(mHostapdDeathRecipient, 0 /*cookie*/);
@@ -174,6 +178,7 @@ Result_t SoftapManager::StartSoftap(const std::string& aInterfaceName,
     WIFI_LOGE(LOG_TAG, "Invalid configuration");
     return nsIWifiResult::ERROR_INVALID_ARGS;
   }
+
   mCountryCode = aCountryCode;
   if (aSoftapConfig->mBand == nsISoftapConfiguration::AP_BAND_5GHZ) {
     if (mCountryCode.empty()) {
@@ -181,6 +186,7 @@ Result_t SoftapManager::StartSoftap(const std::string& aInterfaceName,
       return nsIWifiResult::ERROR_COMMAND_FAILED;
     }
   }
+
   if (mHostapd == nullptr) {
     return InitHostapdInterface();
   }
@@ -221,6 +227,7 @@ Result_t SoftapManager::StartSoftap(const std::string& aInterfaceName,
     WIFI_LOGD(LOG_TAG, "Invalid softap security type");
     networkParams.encryptionType = IHostapd::EncryptionType::NONE;
   }
+
   HostapdStatus response;
   mHostapd->addAccessPoint_1_1(
       ifaceParams_1_1, networkParams,

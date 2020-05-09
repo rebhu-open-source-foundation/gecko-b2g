@@ -23,6 +23,7 @@ class nsWifiEvent final : public nsIWifiEvent {
   explicit nsWifiEvent(const nsAString& aName);
 
   void updateStateChanged(nsStateChanged* aStateChanged);
+  void updateGsmRands(const nsTArray<nsString>& aGsmRands);
 
   nsString mName;
   nsString mBssid;
@@ -33,6 +34,9 @@ class nsWifiEvent final : public nsIWifiEvent {
   int32_t mErrorCode;
   bool mTimeout;
   RefPtr<nsIStateChanged> mStateChanged;
+  nsString mRand;
+  nsString mAutn;
+  nsTArray<nsString> mGsmRands;
 
  private:
   ~nsWifiEvent() {}

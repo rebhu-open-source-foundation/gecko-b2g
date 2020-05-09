@@ -84,53 +84,6 @@ const ERROR_NOT_SUPPORTED = Ci.nsIWifiResult.ERROR_NOT_SUPPORTED;
 const ERROR_TIMEOUT = Ci.nsIWifiResult.ERROR_TIMEOUT;
 const ERROR_UNKNOWN = Ci.nsIWifiResult.ERROR_UNKNOWN;
 
-const SSID_MAX_LEN_IN_BYTES = Ci.nsIWifiConfiguration.SSID_MAX_LEN_IN_BYTES;
-const PSK_PASSPHRASE_MIN_LEN_IN_BYTES = Ci.nsIWifiConfiguration.PSK_PASSPHRASE_MIN_LEN_IN_BYTES;
-const PSK_PASSPHRASE_MAX_LEN_IN_BYTES = Ci.nsIWifiConfiguration.PSK_PASSPHRASE_MAX_LEN_IN_BYTES;
-const WEP_KEYS_MAX_NUM = Ci.nsIWifiConfiguration.WEP_KEYS_MAX_NUM;
-const WEP40_KEY_LEN_IN_BYTES = Ci.nsIWifiConfiguration.WEP40_KEY_LEN_IN_BYTES;
-const WEP104_KEY_LEN_IN_BYTES = Ci.nsIWifiConfiguration.WEP104_KEY_LEN_IN_BYTES;
-
-const KEYMGMT_WPA_EAP = Ci.nsIWifiConfiguration.KEYMGMT_WPA_EAP;
-const KEYMGMT_WPA_PSK = Ci.nsIWifiConfiguration.KEYMGMT_WPA_PSK;
-const KEYMGMT_NONE = Ci.nsIWifiConfiguration.KEYMGMT_NONE;
-const KEYMGMT_IEEE8021X = Ci.nsIWifiConfiguration.KEYMGMT_IEEE8021X;
-const KEYMGMT_FT_EAP = Ci.nsIWifiConfiguration.KEYMGMT_FT_EAP;
-const KEYMGMT_FT_PSK = Ci.nsIWifiConfiguration.KEYMGMT_FT_PSK;
-const KEYMGMT_OSEN = Ci.nsIWifiConfiguration.KEYMGMT_OSEN;
-
-const PROTO_WPA = Ci.nsIWifiConfiguration.PROTO_WPA;
-const PROTO_RSN = Ci.nsIWifiConfiguration.PROTO_RSN;
-const PROTO_OSEN = Ci.nsIWifiConfiguration.PROTO_OSEN;
-
-const GROUPCIPHER_WEP40 = Ci.nsIWifiConfiguration.GROUPCIPHER_WEP40;
-const GROUPCIPHER_WEP104 = Ci.nsIWifiConfiguration.GROUPCIPHER_WEP104;
-const GROUPCIPHER_TKIP = Ci.nsIWifiConfiguration.GROUPCIPHER_TKIP;
-const GROUPCIPHER_CCMP = Ci.nsIWifiConfiguration.GROUPCIPHER_CCMP;
-const GROUPCIPHER_GTK_NOT_USED = Ci.nsIWifiConfiguration.GROUPCIPHER_GTK_NOT_USED;
-
-const PAIRWISECIPHER_NONE = Ci.nsIWifiConfiguration.PAIRWISECIPHER_NONE;
-const PAIRWISECIPHER_TKIP = Ci.nsIWifiConfiguration.PAIRWISECIPHER_TKIP;
-const PAIRWISECIPHER_CCMP = Ci.nsIWifiConfiguration.PAIRWISECIPHER_CCMP;
-
-const EAP_PEAP = Ci.nsIWifiConfiguration.EAP_PEAP;
-const EAP_TLS = Ci.nsIWifiConfiguration.EAP_TLS;
-const EAP_TTLS = Ci.nsIWifiConfiguration.EAP_TTLS;
-const EAP_PWD = Ci.nsIWifiConfiguration.EAP_PWD;
-const EAP_SIM = Ci.nsIWifiConfiguration.EAP_SIM;
-const EAP_AKA = Ci.nsIWifiConfiguration.EAP_AKA;
-const EAP_AKA_PRIME = Ci.nsIWifiConfiguration.EAP_AKA_PRIME;
-const EAP_WFA_UNAUTH_TLS = Ci.nsIWifiConfiguration.EAP_WFA_UNAUTH_TLS;
-
-const PHASE2_NONE = Ci.nsIWifiConfiguration.PHASE2_NONE;
-const PHASE2_PAP = Ci.nsIWifiConfiguration.PHASE2_PAP;
-const PHASE2_MSPAP = Ci.nsIWifiConfiguration.PHASE2_MSPAP;
-const PHASE2_MSPAPV2 = Ci.nsIWifiConfiguration.PHASE2_MSPAPV2;
-const PHASE2_GTC = Ci.nsIWifiConfiguration.PHASE2_GTC;
-const PHASE2_SIM = Ci.nsIWifiConfiguration.PHASE2_SIM;
-const PHASE2_AKA = Ci.nsIWifiConfiguration.PHASE2_AKA;
-const PHASE2_AKA_PRIME = Ci.nsIWifiConfiguration.PHASE2_AKA_PRIME;
-
 const AP_BAND_24GHZ = Ci.nsISoftapConfiguration.AP_BAND_24GHZ;
 const AP_BAND_5GHZ = Ci.nsISoftapConfiguration.AP_BAND_5GHZ;
 const AP_BAND_ANY = Ci.nsISoftapConfiguration.AP_BAND_ANY;
@@ -154,6 +107,7 @@ const AUTH_FAILURE_TIMEOUT = Ci.nsIWifiEvent.AUTH_FAILURE_TIMEOUT;
 const AUTH_FAILURE_WRONG_KEY = Ci.nsIWifiEvent.AUTH_FAILURE_WRONG_KEY;
 const AUTH_FAILURE_EAP_FAILURE = Ci.nsIWifiEvent.AUTH_FAILURE_EAP_FAILURE;
 
+const ERROR_EAP_SIM_NOT_SUBSCRIBED = Ci.nsIWifiEvent.ERROR_EAP_SIM_NOT_SUBSCRIBED;
 const ERROR_EAP_SIM_VENDOR_SPECIFIC_EXPIRED_CERT = Ci.nsIWifiEvent.ERROR_EAP_SIM_VENDOR_SPECIFIC_EXPIRED_CERT;
 
 const WIFIWORKER_CONTRACTID = "@mozilla.org/wifi/worker;1";
@@ -282,9 +236,12 @@ XPCOMUtils.defineLazyServiceGetter(
 //                                    "@mozilla.org/mobileconnection/mobileconnectionservice;1",
 //                                    "nsIMobileConnectionService");
 
-// XPCOMUtils.defineLazyServiceGetter(this, "gIccService",
-//                                    "@mozilla.org/icc/iccservice;1",
-//                                    "nsIIccService");
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gIccService",
+  "@mozilla.org/icc/iccservice;1",
+  "nsIIccService"
+);
 
 // XPCOMUtils.defineLazyServiceGetter(this, "gPowerManagerService",
 //                                    "@mozilla.org/power/powermanagerservice;1",
@@ -1212,28 +1169,32 @@ var WifiManager = (function() {
       }
     } else if (eventData.includes("SUPPLICANT_AUTH_FAILURE")) {
       let reasonCode = event.reason;
-      let errorCode = event.errorCode;
       let disableReason = WifiConfigManager.DISABLED_AUTHENTICATION_FAILURE;
-      WifiConfigManager.getNetworkConfiguration(manager.targetNetworkId, function(network) {
-        if (reasonCode == AUTH_FAILURE_WRONG_KEY) {
-          if (network && network.hasEverConnected) {
-            debug("Network " + manager.targetNetworkId + " is ever connected");
-          } else {
-            disableReason = WifiConfigManager.DISABLED_BY_WRONG_PASSWORD;
-          }
-        } else if (reasonCode == AUTH_FAILURE_EAP_FAILURE) {
-          // TODO: handle eap failure here
-        }
-        WifiConfigManager.updateNetworkSelectionStatus(
-          manager.targetNetworkId, disableReason,
-          function(doDisable) {
-            if (doDisable) {
-              notify("networkdisable", {
-                reason: WifiConfigManager.DISABLED_AUTHENTICATION_FAILURE,
-              });
+      WifiConfigManager.getNetworkConfiguration(
+        manager.targetNetworkId,
+        function(network) {
+          if (reasonCode == AUTH_FAILURE_WRONG_KEY) {
+            if (network && network.hasEverConnected) {
+              debug("Network " + manager.targetNetworkId + " is ever connected");
+            } else {
+              disableReason = WifiConfigManager.DISABLED_BY_WRONG_PASSWORD;
             }
-          });
-      });
+          } else if (reasonCode == AUTH_FAILURE_EAP_FAILURE) {
+            if (event.errorCode == ERROR_EAP_SIM_NOT_SUBSCRIBED) {
+              disableReason =
+                WifiConfigManager.DISABLED_AUTHENTICATION_NO_SUBSCRIBED;
+            }
+          }
+          WifiConfigManager.updateNetworkSelectionStatus(
+            manager.targetNetworkId, disableReason,
+            function(doDisable) {
+              if (doDisable) {
+                notify("networkdisable", {
+                  reason: WifiConfigManager.DISABLED_AUTHENTICATION_FAILURE,
+                });
+              }
+            });
+        });
     } else if (eventData.includes("SUPPLICANT_ASSOC_REJECT")) {
       if (manager.wpsStarted) {
         return true;
@@ -1256,6 +1217,32 @@ var WifiManager = (function() {
             }
           });
       }
+    } else if (eventData.includes("EAP_SIM_GSM_AUTH_REQUEST")) {
+      let rands = event.getGsmRands();
+      WifiConfigManager.getNetworkConfiguration(
+        manager.targetNetworkId,
+        function(network) {
+          let simIndex = network.simIndex || 1;
+          simGsmAuthRequest(simIndex, rands);
+        });
+    } else if (eventData.includes("EAP_SIM_UMTS_AUTH_REQUEST")) {
+      WifiConfigManager.getNetworkConfiguration(
+        manager.targetNetworkId,
+        function(network) {
+          let simIndex = network.simIndex || 1;
+          simUmtsAuthRequest(simIndex, event.rand, event.autn);
+        });
+    } else if (eventData.includes("EAP_SIM_IDENTITY_REQUEST")) {
+      WifiConfigManager.getNetworkConfiguration(
+        manager.targetNetworkId,
+        function(network) {
+          let simIndex = network.simIndex || 1;
+          simIdentityRequest(
+            manager.targetNetworkId,
+            simIndex,
+            getIdentityPrefix(network.eap)
+          );
+        });
     } else if (eventData.includes("HOTSPOT_CLIENT_CHANGED")) {
       notify("stationinfoupdate", { station: event.numStations });
     } else if (eventData.includes("WPS-TIMEOUT")) {
@@ -1361,7 +1348,12 @@ var WifiManager = (function() {
 
   // EAP-SIM/AKA/AKA': convert string from base64 to byte.
   function base64Tobytes(str) {
-    let octects = atob(str.replace(/-/g, "+").replace(/_/g, "/"));
+    let octects = atob(
+      str
+        .replace(/-/g, "+")
+        .replace(/_/g, "/")
+        .replace(/\r?\n|\r/g, "")
+    );
     return octects;
   }
 
@@ -1374,217 +1366,186 @@ var WifiManager = (function() {
     return hexs;
   }
 
-  function simIdentityRequest(networkId, eapMethod) {
-    wifiCommand.getNetworkVariable(networkId, "sim_num", function(sim_num) {
-      sim_num = sim_num || 1;
-      // For SIM & AKA/AKA' EAP method Only, get identity from ICC
-      let icc = gIccService.getIccByServiceId(sim_num - 1);
-      if (!icc || !icc.iccInfo || !icc.iccInfo.mcc || !icc.iccInfo.mnc) {
-        debug("SIM is not ready or iccInfo is invalid");
-        WifiConfigManager.updateNetworkSelectionStatus(
-          networkId,
-          WifiConfigManager.DISABLED_AUTHENTICATION_NO_CREDENTIALS,
-          function(doDisable) {
-            if (doDisable) {
-              manager.disableNetwork(function() {});
-            }
-          }
-        );
-        return;
-      }
-
-      // imsi, mcc, mnc
-      let imsi = icc.imsi;
-      let mcc = icc.iccInfo.mcc;
-      let mnc = icc.iccInfo.mnc;
-      if (mnc.length === 2) {
-        mnc = "0" + mnc;
-      }
-
-      let identity =
-        eapMethod +
-        imsi +
-        "@wlan.mnc" +
-        mnc +
-        ".mcc" +
-        mcc +
-        ".3gppnetwork.org";
-      debug("identity = " + identity);
-      wifiCommand.simIdentityResponse(networkId, identity, function() {});
-    });
+  // EAP-SIM/AKA/AKA': get identity prefix value.
+  function getIdentityPrefix(eapMethod) {
+    // Prefix value:
+    // "\0" for Encrypted Identity
+    // "0" for EAP-AKA Identity
+    // "1" for EAP-SIM Identity
+    // "6" for EAP-AKA' Identity
+    if (eapMethod == "SIM") {
+      return "1";
+    } else if (eapMethod == "AKA") {
+      return "0";
+    } else if (eapMethod == "AKA'") {
+      return "6";
+    }
+    return "\0";
   }
 
-  function simAuthRequest(requestName) {
-    let matchGsm = /SIM-([0-9]*):GSM-AUTH((:[0-9a-f]+)+) needed for SSID (.+)/.exec(
-      requestName
-    );
-    let matchUmts = /SIM-([0-9]*):UMTS-AUTH:([0-9a-f]+):([0-9a-f]+) needed for SSID (.+)/.exec(
-      requestName
-    );
-    // EAP-SIM
-    if (matchGsm) {
-      let networkId = parseInt(matchGsm[1]);
-      let data = matchGsm[2].split(":");
-      let authResponse = "";
-      let count = 0;
-
-      wifiCommand.getNetworkVariable(networkId, "sim_num", function(sim_num) {
-        sim_num = sim_num || 1;
-        let icc = gIccService.getIccByServiceId(sim_num - 1);
-        for (let value in data) {
-          let challenge = data[value];
-          if (!challenge.length) {
-            continue;
+  function simIdentityRequest(networkId, simIndex, prefix) {
+    // For SIM & AKA/AKA' EAP method Only, get identity from ICC
+    let icc = gIccService.getIccByServiceId(simIndex - 1);
+    if (!icc || !icc.iccInfo || !icc.iccInfo.mcc || !icc.iccInfo.mnc) {
+      debug("SIM is not ready or iccInfo is invalid");
+      WifiConfigManager.updateNetworkSelectionStatus(
+        networkId,
+        WifiConfigManager.DISABLED_AUTHENTICATION_NO_CREDENTIALS,
+        function(doDisable) {
+          if (doDisable) {
+            manager.disableNetwork(function() {});
           }
-          let base64Challenge = gsmHexToBase64(challenge);
-          debug("base64Challenge = " + base64Challenge);
+        }
+      );
+      return;
+    }
 
-          // Try USIM first for authentication.
-          icc.getIccAuthentication(
-            Ci.nsIIcc.APPTYPE_USIM,
-            Ci.nsIIcc.AUTHTYPE_EAP_SIM,
-            base64Challenge,
-            {
-              notifyAuthResponse(iccResponse) {
-                debug("Receive USIM iccResponse: " + iccResponse);
-                iccResponseReady(iccResponse);
-              },
-              notifyError(aErrorMsg) {
-                debug("Receive USIM iccResponse error: " + aErrorMsg);
-                // In case of failure, retry as a simple SIM.
-                icc.getIccAuthentication(
-                  Ci.nsIIcc.APPTYPE_SIM,
-                  Ci.nsIIcc.AUTHTYPE_EAP_SIM,
-                  base64Challenge,
-                  {
-                    notifyAuthResponse(iccResponse) {
-                      debug("Receive SIM iccResponse: " + iccResponse);
-                      iccResponseReady(iccResponse);
-                    },
-                    notifyError(aErrorMsg) {
-                      debug("Receive SIM iccResponse error: " + aErrorMsg);
-                      wifiCommand.simAuthFailedResponse(
-                        networkId,
-                        function() {}
-                      );
-                    },
-                  }
-                );
-              },
-            }
-          );
-        }
-      });
+    // imsi, mcc, mnc
+    let imsi = icc.imsi;
+    let mcc = icc.iccInfo.mcc;
+    let mnc =
+      icc.iccInfo.mnc.length === 2 ? "0" + icc.iccInfo.mnc : icc.iccInfo.mnc;
+    let identity = {
+      identity:
+        prefix + imsi + "@wlan.mnc" + mnc + ".mcc" + mcc + ".3gppnetwork.org",
+    };
 
-      function iccResponseReady(iccResponse) {
-        if (!iccResponse || iccResponse.length <= 4) {
-          debug("bad response - " + iccResponse);
-          wifiCommand.simAuthFailedResponse(networkId, function() {});
-          return;
-        }
-        let result = base64Tobytes(iccResponse);
-        let sres_len = result.charCodeAt(0);
-        let sres = bytesToHex(result, 1, sres_len);
-        let kc_offset = 1 + sres_len;
-        let kc_len = result.charCodeAt(kc_offset);
-        if (
-          sres_len >= result.length ||
-          kc_offset >= result.length ||
-          kc_offset + kc_len > result.length
-        ) {
-          debug("malfomed response - " + iccResponse);
-          wifiCommand.simAuthFailedResponse(networkId, function() {});
-          return;
-        }
-        let kc = bytesToHex(result, 1 + kc_offset, kc_len);
-        debug("kc:" + kc + ", sres:" + sres);
-        authResponse = authResponse + ":" + kc + ":" + sres;
-        count++;
-        if (count == 3) {
-          debug("Supplicant Response -" + authResponse);
-          wifiCommand.simAuthResponse(
-            networkId,
-            "GSM-AUTH",
-            authResponse,
-            function() {}
-          );
-        }
+    debug("identity = " + uneval(identity));
+    wifiCommand.simIdentityResponse(identity, function() {});
+  }
+
+  function simGsmAuthRequest(simIndex, data) {
+    let authResponse = [];
+    let count = 0;
+
+    let icc = gIccService.getIccByServiceId(simIndex - 1);
+    for (let value in data) {
+      let challenge = data[value];
+      if (!challenge.length) {
+        continue;
       }
+      let base64Challenge = gsmHexToBase64(challenge);
+      debug("base64Challenge = " + base64Challenge);
 
-      // EAP-AKA/AKA'
-    } else if (matchUmts) {
-      let networkId = parseInt(matchUmts[1]);
-      let rand = matchUmts[2];
-      let authn = matchUmts[3];
-
-      wifiCommand.getNetworkVariable(networkId, "sim_num", function(sim_num) {
-        let icc = gIccService.getIccByServiceId(sim_num - 1);
-        if (rand == null || authn == null) {
-          debug("null rand or authn");
-          return;
+      // Try USIM first for authentication.
+      icc.getIccAuthentication(
+        Ci.nsIIcc.APPTYPE_USIM,
+        Ci.nsIIcc.AUTHTYPE_EAP_SIM,
+        base64Challenge,
+        {
+          notifyAuthResponse(iccResponse) {
+            debug("Receive USIM iccResponse: " + iccResponse);
+            iccResponseReady(iccResponse);
+          },
+          notifyError(aErrorMsg) {
+            debug("Receive USIM iccResponse error: " + aErrorMsg);
+            // In case of failure, retry as a simple SIM.
+            icc.getIccAuthentication(
+              Ci.nsIIcc.APPTYPE_SIM,
+              Ci.nsIIcc.AUTHTYPE_EAP_SIM,
+              base64Challenge,
+              {
+                notifyAuthResponse(iccResponse) {
+                  debug("Receive SIM iccResponse: " + iccResponse);
+                  iccResponseReady(iccResponse);
+                },
+                notifyError(aErrorMsg) {
+                  debug("Receive SIM iccResponse error: " + aErrorMsg);
+                  wifiCommand.simGsmAuthFailure(function() {});
+                },
+              }
+            );
+          },
         }
-        let base64Challenge = umtsHexToBase64(rand, authn);
-        debug("base64Challenge = " + base64Challenge);
+      );
+    }
 
-        icc.getIccAuthentication(
-          Ci.nsIIcc.APPTYPE_USIM,
-          Ci.nsIIcc.AUTHTYPE_EAP_AKA,
-          base64Challenge,
-          {
-            notifyAuthResponse(iccResponse) {
-              debug("Receive iccResponse: " + iccResponse);
-              iccResponseReady(iccResponse);
-            },
-            notifyError(aErrorMsg) {
-              debug("Receive iccResponse error: " + aErrorMsg);
-            },
-          }
-        );
-      });
-
-      function iccResponseReady(iccResponse) {
-        if (!iccResponse || iccResponse.length <= 4) {
-          debug("bad response - " + iccResponse);
-          wifiCommand.simAuthFailedResponse(networkId, function() {});
-          return;
-        }
-        let result = base64Tobytes(iccResponse);
-        let tag = result.charCodeAt(0);
-        if (tag == 0xdb) {
-          debug("successful 3G authentication ");
-          let res_len = result.charCodeAt(1);
-          let res = bytesToHex(result, 2, res_len);
-          let ck_len = result.charCodeAt(res_len + 2);
-          let ck = bytesToHex(result, res_len + 3, ck_len);
-          let ik_len = result.charCodeAt(res_len + ck_len + 3);
-          let ik = bytesToHex(result, res_len + ck_len + 4, ik_len);
-          debug("ik:" + ik + " ck:" + ck + " res:" + res);
-          let authResponse = ":" + ik + ":" + ck + ":" + res;
-          wifiCommand.simAuthResponse(
-            networkId,
-            "UMTS-AUTH",
-            authResponse,
-            function() {}
-          );
-        } else if (tag == 0xdc) {
-          debug("synchronisation failure");
-          let auts_len = result.charCodeAt(1);
-          let auts = bytesToHex(result, 2, auts_len);
-          debug("auts:" + auts);
-          let authResponse = ":" + auts;
-          wifiCommand.simAuthResponse(
-            networkId,
-            "UMTS-AUTS",
-            authResponse,
-            function() {}
-          );
-        } else {
-          debug("bad authResponse - unknown tag = " + tag);
-          wifiCommand.umtsAuthFailedResponse(networkId, function() {});
-        }
+    function iccResponseReady(iccResponse) {
+      if (!iccResponse || iccResponse.length <= 4) {
+        debug("bad response - " + iccResponse);
+        wifiCommand.simGsmAuthFailure(function() {});
+        return;
       }
-    } else {
-      debug("couldn't parse SIM auth request - " + requestName);
+      let result = base64Tobytes(iccResponse);
+      let sres_len = result.charCodeAt(0);
+      let sres = bytesToHex(result, 1, sres_len);
+      let kc_offset = 1 + sres_len;
+      let kc_len = result.charCodeAt(kc_offset);
+      if (
+        sres_len >= result.length ||
+        kc_offset >= result.length ||
+        kc_offset + kc_len > result.length
+      ) {
+        debug("malfomed response - " + iccResponse);
+        wifiCommand.simGsmAuthFailure(function() {});
+        return;
+      }
+      let kc = bytesToHex(result, 1 + kc_offset, kc_len);
+      debug("kc:" + kc + ", sres:" + sres);
+      authResponse[count] = { kc, sres };
+      count++;
+      if (count == 3) {
+        debug("Supplicant Response -" + uneval(authResponse));
+        wifiCommand.simGsmAuthResponse(authResponse, function() {});
+      }
+    }
+  }
+
+  function simUmtsAuthRequest(simIndex, rand, autn) {
+    let icc = gIccService.getIccByServiceId(simIndex - 1);
+    if (rand == null || autn == null) {
+      debug("null rand or autn");
+      return;
+    }
+
+    let base64Challenge = umtsHexToBase64(rand, autn);
+    debug("base64Challenge = " + base64Challenge);
+
+    icc.getIccAuthentication(
+      Ci.nsIIcc.APPTYPE_USIM,
+      Ci.nsIIcc.AUTHTYPE_EAP_AKA,
+      base64Challenge,
+      {
+        notifyAuthResponse(iccResponse) {
+          debug("Receive iccResponse: " + iccResponse);
+          iccResponseReady(iccResponse);
+        },
+        notifyError(aErrorMsg) {
+          debug("Receive iccResponse error: " + aErrorMsg);
+        },
+      }
+    );
+
+    function iccResponseReady(iccResponse) {
+      if (!iccResponse || iccResponse.length <= 4) {
+        debug("bad response - " + iccResponse);
+        wifiCommand.simUmtsAuthFailure(function() {});
+        return;
+      }
+      let result = base64Tobytes(iccResponse);
+      let tag = result.charCodeAt(0);
+      if (tag == 0xdb) {
+        debug("successful 3G authentication ");
+        let res_len = result.charCodeAt(1);
+        let res = bytesToHex(result, 2, res_len);
+        let ck_len = result.charCodeAt(res_len + 2);
+        let ck = bytesToHex(result, res_len + 3, ck_len);
+        let ik_len = result.charCodeAt(res_len + ck_len + 3);
+        let ik = bytesToHex(result, res_len + ck_len + 4, ik_len);
+        debug("ik:" + ik + " ck:" + ck + " res:" + res);
+        let authResponse = { res, ik, ck };
+        wifiCommand.simUmtsAuthResponse(authResponse, function() {});
+      } else if (tag == 0xdc) {
+        debug("synchronisation failure");
+        let auts_len = result.charCodeAt(1);
+        let auts = bytesToHex(result, 2, auts_len);
+        debug("auts:" + auts);
+        let authResponse = { auts };
+        wifiCommand.simUmtsAutsResponse(authResponse, function() {});
+      } else {
+        debug("bad authResponse - unknown tag = " + tag);
+        wifiCommand.simUmtsAuthFailure(function() {});
+      }
     }
   }
 
@@ -2545,7 +2506,7 @@ function WifiWorker() {
       }
 
       if (net.eap === "SIM" || net.eap === "AKA" || net.eap === "AKA'") {
-        configured.sim_num = net.sim_num = net.sim_num || 1;
+        configured.simIndex = net.simIndex = net.simIndex || 1;
       }
 
       if (hasValidProperty("phase1")) {
@@ -4934,7 +4895,7 @@ var debug;
 function updateDebug() {
   if (DEBUG) {
     debug = function(s) {
-      console.log("-*- WifiWorker component: ", s, "\n");
+      dump("-*- WifiWorker component: " + s + "\n");
     };
   } else {
     debug = function(s) {};

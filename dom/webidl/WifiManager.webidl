@@ -64,7 +64,7 @@ dictionary NetworkProperties {
   DOMString serverCertificate;
   DOMString subjectMatch;
   DOMString userCertificate;
-  long simNum;
+  long simIndex;
   DOMString wapiPsk;
   DOMString pskType;
   DOMString wapiAsCertificate;
@@ -112,7 +112,7 @@ interface WifiNetwork {
   attribute DOMString? serverCertificate;
   attribute DOMString? subjectMatch;
   attribute DOMString? userCertificate;
-  attribute long? simNum;
+  attribute long? simIndex;
   attribute DOMString? wapiPsk;
   attribute DOMString? pskType;
   attribute DOMString? wapiAsCertificate;

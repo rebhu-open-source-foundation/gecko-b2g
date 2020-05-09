@@ -13,14 +13,16 @@ nsWifiConfiguration::nsWifiConfiguration(
     int32_t aNetId, const nsAString& aSsid, const nsAString& aBssid,
     const nsAString& aKeyManagement, const nsAString& aPsk,
     const nsAString& aWepKey, int32_t aWepTxKeyIndex, bool aScanSsid, bool aPmf,
-    int32_t aProto, const nsAString& aAuthAlg, int32_t aGroupCipher,
-    int32_t aPairwiseCipher, int32_t aEap, int32_t aEapPhase2,
+    const nsAString& aProto, const nsAString& aAuthAlg,
+    const nsAString& aGroupCipher, const nsAString& aPairwiseCipher,
+    const nsAString& aEap, const nsAString& aEapPhase2,
     const nsAString& aIdentity, const nsAString& aAnonymousId,
     const nsAString& aPassword, const nsAString& aClientCert,
     const nsAString& aCaCert, const nsAString& aCaPath,
     const nsAString& aSubjectMatch, const nsAString& aEngineId, bool aEngine,
     const nsAString& aPrivateKeyId, const nsAString& aAltSubjectMatch,
-    const nsAString& aDomainSuffixMatch, bool aProactiveKeyCaching) {
+    const nsAString& aDomainSuffixMatch, bool aProactiveKeyCaching,
+    int32_t aSimIndex) {
   mNetId = aNetId;
   mSsid = aSsid;
   mBssid = aBssid;
@@ -48,6 +50,7 @@ nsWifiConfiguration::nsWifiConfiguration(
   mAltSubjectMatch = aAltSubjectMatch;
   mDomainSuffixMatch = aDomainSuffixMatch;
   mProactiveKeyCaching = aProactiveKeyCaching;
+  mSimIndex = aSimIndex;
 }
 
 NS_IMETHODIMP
@@ -105,8 +108,8 @@ nsWifiConfiguration::GetKeyManagement(nsAString& aKeyManagement) {
 }
 
 NS_IMETHODIMP
-nsWifiConfiguration::GetProto(int32_t* aProto) {
-  *aProto = mProto;
+nsWifiConfiguration::GetProto(nsAString& aProto) {
+  aProto = mProto;
   return NS_OK;
 }
 
@@ -117,26 +120,26 @@ nsWifiConfiguration::GetAuthAlg(nsAString& aAuthAlg) {
 }
 
 NS_IMETHODIMP
-nsWifiConfiguration::GetGroupCipher(int32_t* aGroupCipher) {
-  *aGroupCipher = mGroupCipher;
+nsWifiConfiguration::GetGroupCipher(nsAString& aGroupCipher) {
+  aGroupCipher = mGroupCipher;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsWifiConfiguration::GetPairwiseCipher(int32_t* aPairwiseCipher) {
-  *aPairwiseCipher = mPairwiseCipher;
+nsWifiConfiguration::GetPairwiseCipher(nsAString& aPairwiseCipher) {
+  aPairwiseCipher = mPairwiseCipher;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsWifiConfiguration::GetEap(int32_t* aEap) {
-  *aEap = mEap;
+nsWifiConfiguration::GetEap(nsAString& aEap) {
+  aEap = mEap;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsWifiConfiguration::GetEapPhase2(int32_t* aEapPhase2) {
-  *aEapPhase2 = mEapPhase2;
+nsWifiConfiguration::GetEapPhase2(nsAString& aEapPhase2) {
+  aEapPhase2 = mEapPhase2;
   return NS_OK;
 }
 
@@ -215,6 +218,12 @@ nsWifiConfiguration::GetDomainSuffixMatch(nsAString& aDomainSuffixMatch) {
 NS_IMETHODIMP
 nsWifiConfiguration::GetProactiveKeyCaching(bool* aProactiveKeyCaching) {
   *aProactiveKeyCaching = mProactiveKeyCaching;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsWifiConfiguration::GetSimIndex(int32_t* aSimIndex) {
+  *aSimIndex = mSimIndex;
   return NS_OK;
 }
 

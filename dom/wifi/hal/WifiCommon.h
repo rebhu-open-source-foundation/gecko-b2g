@@ -83,12 +83,12 @@ struct ConfigurationOptions {
     COPY_OPT_FIELD(mWepTxKeyIndex, 0)
     COPY_OPT_FIELD(mScanSsid, false)
     COPY_OPT_FIELD(mPmf, false)
-    COPY_OPT_FIELD(mProto, 0)
+    COPY_OPT_FIELD(mProto, EmptyString())
     COPY_OPT_FIELD(mAuthAlg, EmptyString())
-    COPY_OPT_FIELD(mGroupCipher, 0)
-    COPY_OPT_FIELD(mPairwiseCipher, 0)
-    COPY_OPT_FIELD(mEap, 0)
-    COPY_OPT_FIELD(mEapPhase2, 0)
+    COPY_OPT_FIELD(mGroupCipher, EmptyString())
+    COPY_OPT_FIELD(mPairwiseCipher, EmptyString())
+    COPY_OPT_FIELD(mEap, EmptyString())
+    COPY_OPT_FIELD(mEapPhase2, EmptyString())
     COPY_OPT_FIELD(mIdentity, EmptyString())
     COPY_OPT_FIELD(mAnonymousId, EmptyString())
     COPY_OPT_FIELD(mPassword, EmptyString())
@@ -102,6 +102,7 @@ struct ConfigurationOptions {
     COPY_OPT_FIELD(mAltSubjectMatch, EmptyString())
     COPY_OPT_FIELD(mDomainSuffixMatch, EmptyString())
     COPY_OPT_FIELD(mProactiveKeyCaching, false)
+    COPY_OPT_FIELD(mSimIndex, 0)
   }
 
   int32_t  mNetId;
@@ -116,12 +117,12 @@ struct ConfigurationOptions {
   int32_t  mWepTxKeyIndex;
   bool     mScanSsid;
   bool     mPmf;
-  int32_t  mProto;
+  nsString mProto;
   nsString mAuthAlg;
-  int32_t  mGroupCipher;
-  int32_t  mPairwiseCipher;
-  int32_t  mEap;
-  int32_t  mEapPhase2;
+  nsString mGroupCipher;
+  nsString mPairwiseCipher;
+  nsString mEap;
+  nsString mEapPhase2;
   nsString mIdentity;
   nsString mAnonymousId;
   nsString mPassword;
@@ -135,6 +136,7 @@ struct ConfigurationOptions {
   nsString mAltSubjectMatch;
   nsString mDomainSuffixMatch;
   bool     mProactiveKeyCaching;
+  int32_t  mSimIndex;
 };
 
 struct SoftapConfigurationOptions {
@@ -285,6 +287,56 @@ struct RoamingConfigurationOptions {
   nsTArray<nsString> mSsidWhitelist;
 };
 
+struct SimIdentityRespDataOptions {
+ public:
+  SimIdentityRespDataOptions() = default;
+
+  SimIdentityRespDataOptions(const mozilla::dom::SimIdentityRespData& aOther) {
+    COPY_OPT_FIELD(mIdentity, EmptyString())
+  }
+
+  nsString mIdentity;
+};
+
+struct SimGsmAuthRespDataOptions {
+ public:
+  SimGsmAuthRespDataOptions() = default;
+
+  SimGsmAuthRespDataOptions(const mozilla::dom::SimGsmAuthRespData& aOther) {
+    COPY_OPT_FIELD(mKc, EmptyString())
+    COPY_OPT_FIELD(mSres, EmptyString())
+  }
+
+  nsString mKc;
+  nsString mSres;
+};
+
+struct SimUmtsAuthRespDataOptions {
+ public:
+  SimUmtsAuthRespDataOptions() = default;
+
+  SimUmtsAuthRespDataOptions(const mozilla::dom::SimUmtsAuthRespData& aOther) {
+    COPY_OPT_FIELD(mRes, EmptyString())
+    COPY_OPT_FIELD(mIk, EmptyString())
+    COPY_OPT_FIELD(mCk, EmptyString())
+  }
+
+  nsString mRes;
+  nsString mIk;
+  nsString mCk;
+};
+
+struct SimUmtsAutsRespDataOptions {
+ public:
+  SimUmtsAutsRespDataOptions() = default;
+
+  SimUmtsAutsRespDataOptions(const mozilla::dom::SimUmtsAutsRespData& aOther) {
+    COPY_OPT_FIELD(mAuts, EmptyString())
+  }
+
+  nsString mAuts;
+};
+
 // Needed to add a copy constructor to WifiCommandOptions.
 struct CommandOptions {
  public:
@@ -297,6 +349,18 @@ struct CommandOptions {
     COPY_FIELD(mBtCoexistenceMode)
     COPY_FIELD(mBandMask)
     COPY_FIELD(mScanType)
+
+    mIdentityResp = SimIdentityRespDataOptions(aOther.mIdentityResp);
+    mUmtsAuthResp = SimUmtsAuthRespDataOptions(aOther.mUmtsAuthResp);
+    mUmtsAutsResp = SimUmtsAutsRespDataOptions(aOther.mUmtsAutsResp);
+    if (aOther.mGsmAuthResp.WasPassed()) {
+      mozilla::dom::Sequence<mozilla::dom::SimGsmAuthRespData> const&
+          currentValue = aOther.mGsmAuthResp.InternalValue();
+      for (size_t i = 0; i < currentValue.Length(); i++) {
+        SimGsmAuthRespDataOptions gsmResponse(currentValue[i]);
+        mGsmAuthResp.AppendElement(std::move(gsmResponse));
+      }
+    }
 
     mConfig = ConfigurationOptions(aOther.mConfig);
     mSoftapConfig = SoftapConfigurationOptions(aOther.mSoftapConfig);
@@ -315,6 +379,11 @@ struct CommandOptions {
     mBtCoexistenceMode = aOther.mBtCoexistenceMode;
     mBandMask = aOther.mBandMask;
     mScanType = aOther.mScanType;
+
+    mIdentityResp = SimIdentityRespDataOptions(aOther.mIdentityResp);
+    mUmtsAuthResp = SimUmtsAuthRespDataOptions(aOther.mUmtsAuthResp);
+    mUmtsAutsResp = SimUmtsAutsRespDataOptions(aOther.mUmtsAutsResp);
+    mGsmAuthResp = aOther.mGsmAuthResp.Clone();
 
     mConfig = ConfigurationOptions(aOther.mConfig);
     mSoftapConfig = SoftapConfigurationOptions(aOther.mSoftapConfig);
@@ -335,6 +404,11 @@ struct CommandOptions {
   uint32_t mBandMask;
   uint32_t mScanType;
 
+  SimIdentityRespDataOptions mIdentityResp;
+  SimUmtsAuthRespDataOptions mUmtsAuthResp;
+  SimUmtsAutsRespDataOptions mUmtsAutsResp;
+  nsTArray<SimGsmAuthRespDataOptions> mGsmAuthResp;
+
   ConfigurationOptions mConfig;
   SoftapConfigurationOptions mSoftapConfig;
   SupplicantDebugLevelOptions mDebugLevel;
@@ -354,6 +428,9 @@ int32_t ConvertMacToByteArray(const std::string& mac, T& out);
 
 template <typename T>
 int32_t ConvertHexStringToBytes(const std::string& in, T& out);
+
+template <typename T>
+int32_t ConvertHexStringToByteArray(const std::string& in, T& out);
 
 void Dequote(std::string& s);
 

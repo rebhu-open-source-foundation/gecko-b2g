@@ -54,6 +54,12 @@ const WIFI_CMD_REMOVE_NETWORKS = Ci.nsIWifiCommand.REMOVE_NETWORKS;
 const WIFI_CMD_START_ROAMING = Ci.nsIWifiCommand.START_ROAMING;
 const WIFI_CMD_START_RSSI_MONITORING = Ci.nsIWifiCommand.START_RSSI_MONITORING;
 const WIFI_CMD_STOP_RSSI_MONITORING = Ci.nsIWifiCommand.STOP_RSSI_MONITORING;
+const WIFI_CMD_IDENTITY_RESPONSE = Ci.nsIWifiCommand.SEND_IDENTITY_RESPONSE;
+const WIFI_CMD_GSM_AUTH_RESPONSE = Ci.nsIWifiCommand.SEND_GSM_AUTH_RESPONSE;
+const WIFI_CMD_GSM_AUTH_FAILURE = Ci.nsIWifiCommand.SEND_GSM_AUTH_FAILURE;
+const WIFI_CMD_UMTS_AUTH_RESPONSE = Ci.nsIWifiCommand.SEND_UMTS_AUTH_RESPONSE;
+const WIFI_CMD_UMTS_AUTS_RESPONSE = Ci.nsIWifiCommand.SEND_UMTS_AUTS_RESPONSE;
+const WIFI_CMD_UMTS_AUTH_FAILURE = Ci.nsIWifiCommand.SEND_UMTS_AUTH_FAILURE;
 const WIFI_CMD_START_SOFTAP = Ci.nsIWifiCommand.START_SOFTAP;
 const WIFI_CMD_STOP_SOFTAP = Ci.nsIWifiCommand.STOP_SOFTAP;
 const WIFI_CMD_GET_AP_IFACE = Ci.nsIWifiCommand.GET_AP_IFACE;
@@ -224,6 +230,30 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
 
   command.stopRssiMonitoring = function(callback) {
     doCommand(WIFI_CMD_STOP_RSSI_MONITORING, callback);
+  };
+
+  command.simIdentityResponse = function(identity, callback) {
+    doCommandWithParams(WIFI_CMD_IDENTITY_RESPONSE, "identityResp", identity, callback);
+  };
+
+  command.simGsmAuthResponse = function(response, callback) {
+    doCommandWithParams(WIFI_CMD_GSM_AUTH_RESPONSE, "gsmAuthResp", response, callback);
+  };
+
+  command.simGsmAuthFailure = function(callback) {
+    doCommand(WIFI_CMD_GSM_AUTH_FAILURE, callback);
+  };
+
+  command.simUmtsAuthResponse = function(response, callback) {
+    doCommandWithParams(WIFI_CMD_UMTS_AUTH_RESPONSE, "umtsAuthResp", response, callback);
+  };
+
+  command.simUmtsAutsResponse = function(response, callback) {
+    doCommandWithParams(WIFI_CMD_UMTS_AUTS_RESPONSE, "umtsAutsResp", response, callback);
+  };
+
+  command.simUmtsAuthFailure = function(callback) {
+    doCommand(WIFI_CMD_UMTS_AUTH_FAILURE, callback);
   };
 
   command.startSoftap = function(config, callback) {

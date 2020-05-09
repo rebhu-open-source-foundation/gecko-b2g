@@ -24,9 +24,9 @@ class nsWifiResult final : public nsIWifiResult {
 
   nsWifiResult();
 
-  void updateScanResults(nsTArray<RefPtr<nsScanResult>>& aScanResults);
-  void updateChannels(nsTArray<int32_t>& aChannels);
-  void updateSignalPoll(nsTArray<int32_t>& aSignalPoll);
+  void updateScanResults(const nsTArray<RefPtr<nsScanResult>>& aScanResults);
+  void updateChannels(const nsTArray<int32_t>& aChannels);
+  void updateSignalPoll(const nsTArray<int32_t>& aSignalPoll);
   void updateLinkLayerStats(nsLinkLayerStats* aLinkLayerStats);
 
   uint32_t mId;

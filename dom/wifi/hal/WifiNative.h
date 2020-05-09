@@ -81,6 +81,21 @@ class WifiNative {
   Result_t DisableNetwork();
   Result_t RemoveNetworks();
   Result_t StartRoaming(ConfigurationOptions* aConfig);
+  Result_t SendEapSimIdentityResponse(SimIdentityRespDataOptions* aIdentity);
+  Result_t SendEapSimGsmAuthResponse(
+      const nsTArray<SimGsmAuthRespDataOptions>& aGsmAuthResp);
+  Result_t SendEapSimGsmAuthFailure();
+  Result_t SendEapSimUmtsAuthResponse(
+      SimUmtsAuthRespDataOptions* aUmtsAuthResp);
+  Result_t SendEapSimUmtsAutsResponse(
+      SimUmtsAutsRespDataOptions* aUmtsAutsResp);
+  Result_t SendEapSimUmtsAuthFailure();
+
+
+  SimIdentityRespDataOptions mIdentityResp;
+  SimUmtsAuthRespDataOptions mUmtsAuthResp;
+  SimUmtsAutsRespDataOptions mUmtsAutsResp;
+  nsTArray<SimGsmAuthRespDataOptions> mGsmAuthResp;
 
   Result_t StartSoftAp(SoftapConfigurationOptions* aSoftapConfig,
                        nsAString& aIfaceName);

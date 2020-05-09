@@ -608,7 +608,7 @@ WifiNetwork.api = {
   phase2: "rw",
   serverCertificate: "rw",
   userCertificate: "rw",
-  sim_num: "rw",
+  simIndex: "rw",
   wapi_psk: "rw",
   pskType: "rw",
   wapiAsCertificate: "rw",

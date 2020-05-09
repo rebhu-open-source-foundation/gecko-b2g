@@ -285,11 +285,11 @@ Result_t WifiHal::ConfigChipAndCreateIface(
   });
 
   mWifi->getChip(chipIds[0],
-                 [&, this](const WifiStatus& status,
-                           const android::sp<IWifiChip>& chip) mutable {
-                   response = status;
-                   mWifiChip = chip;
-                 });
+      [&, this](const WifiStatus& status,
+                const android::sp<IWifiChip>& chip) mutable {
+        response = status;
+        mWifiChip = chip;
+      });
 
   if (mWifiChip == nullptr) {
     WIFI_LOGE(LOG_TAG, "Failed to get wifi chip with error %d", response.code);

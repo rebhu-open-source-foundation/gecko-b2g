@@ -165,21 +165,15 @@ bool WifiNative::ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
       std::string bssid_str = ConvertMacToString(result.bssid);
       nsString ssid(NS_ConvertUTF8toUTF16(ssid_str.c_str()));
       nsString bssid(NS_ConvertUTF8toUTF16(bssid_str.c_str()));
-      uint32_t frequency = result.frequency;
-      uint32_t tsf = result.tsf;
-      uint32_t capability = result.capability;
-
-      int32_t signal = result.signal_mbm;
-      bool associated = result.associated;
 
       size_t ie_size = result.info_element.size();
       nsTArray<uint8_t> info_element(ie_size);
       for (auto& element : result.info_element) {
         info_element.AppendElement(element);
       }
-      RefPtr<nsScanResult> scanResult =
-          new nsScanResult(ssid, bssid, info_element, frequency, tsf,
-                           capability, signal, associated);
+      RefPtr<nsScanResult> scanResult = new nsScanResult(
+          ssid, bssid, info_element, result.frequency, result.tsf,
+          result.capability, result.signal_mbm, result.associated);
       scanResults.AppendElement(scanResult);
     }
     aResult->updateScanResults(scanResults);
@@ -210,6 +204,18 @@ bool WifiNative::ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
     aResult->mStatus = RemoveNetworks();
   } else if (aOptions.mCmd == nsIWifiCommand::START_ROAMING) {
     aResult->mStatus = StartRoaming(&aOptions.mConfig);
+  } else if (aOptions.mCmd == nsIWifiCommand::SEND_IDENTITY_RESPONSE) {
+    aResult->mStatus = SendEapSimIdentityResponse(&aOptions.mIdentityResp);
+  } else if (aOptions.mCmd == nsIWifiCommand::SEND_GSM_AUTH_RESPONSE) {
+    aResult->mStatus = SendEapSimGsmAuthResponse(aOptions.mGsmAuthResp);
+  } else if (aOptions.mCmd == nsIWifiCommand::SEND_GSM_AUTH_FAILURE) {
+    aResult->mStatus = SendEapSimGsmAuthFailure();
+  } else if (aOptions.mCmd == nsIWifiCommand::SEND_UMTS_AUTH_RESPONSE) {
+    aResult->mStatus = SendEapSimUmtsAuthResponse(&aOptions.mUmtsAuthResp);
+  } else if (aOptions.mCmd == nsIWifiCommand::SEND_UMTS_AUTS_RESPONSE) {
+    aResult->mStatus = SendEapSimUmtsAutsResponse(&aOptions.mUmtsAutsResp);
+  } else if (aOptions.mCmd == nsIWifiCommand::SEND_UMTS_AUTH_FAILURE) {
+    aResult->mStatus = SendEapSimUmtsAuthFailure();
   } else if (aOptions.mCmd == nsIWifiCommand::START_SOFTAP) {
     aResult->mStatus =
         StartSoftAp(&aOptions.mSoftapConfig, aResult->mApInterface);
@@ -622,6 +628,34 @@ Result_t WifiNative::StartRoaming(ConfigurationOptions* aConfig) {
   return result;
 }
 
+Result_t WifiNative::SendEapSimIdentityResponse(
+    SimIdentityRespDataOptions* aIdentity) {
+  return s_SupplicantStaManager->SendEapSimIdentityResponse(aIdentity);
+}
+
+Result_t WifiNative::SendEapSimGsmAuthResponse(
+    const nsTArray<SimGsmAuthRespDataOptions>& aGsmAuthResp) {
+  return s_SupplicantStaManager->SendEapSimGsmAuthResponse(aGsmAuthResp);
+}
+
+Result_t WifiNative::SendEapSimGsmAuthFailure() {
+  return s_SupplicantStaManager->SendEapSimGsmAuthFailure();
+}
+
+Result_t WifiNative::SendEapSimUmtsAuthResponse(
+    SimUmtsAuthRespDataOptions* aUmtsAuthResp) {
+  return s_SupplicantStaManager->SendEapSimUmtsAuthResponse(aUmtsAuthResp);
+}
+
+Result_t WifiNative::SendEapSimUmtsAutsResponse(
+    SimUmtsAutsRespDataOptions* aUmtsAutsResp) {
+  return s_SupplicantStaManager->SendEapSimUmtsAutsResponse(aUmtsAutsResp);
+}
+
+Result_t WifiNative::SendEapSimUmtsAuthFailure() {
+  return s_SupplicantStaManager->SendEapSimUmtsAuthFailure();
+}
+
 /**
  * To enable wifi hotspot
  *
@@ -643,6 +677,7 @@ Result_t WifiNative::StartSoftAp(SoftapConfigurationOptions* aSoftapConfig,
   if (result != nsIWifiResult::SUCCESS) {
     return result;
   }
+
   result = StartAndConnectHostapd();
   if (result != nsIWifiResult::SUCCESS) {
     return result;
@@ -653,6 +688,7 @@ Result_t WifiNative::StartSoftAp(SoftapConfigurationOptions* aSoftapConfig,
     WIFI_LOGE(LOG_TAG, "Failed to create AP interface");
     return result;
   }
+
   mSoftapEventService = SoftapEventService::CreateService(mApInterfaceName);
   if (mSoftapEventService == nullptr) {
     WIFI_LOGE(LOG_TAG, "Failed to create softap event service");
@@ -669,6 +705,7 @@ Result_t WifiNative::StartSoftAp(SoftapConfigurationOptions* aSoftapConfig,
     s_WificondControl->TearDownSoftapInterface(mApInterfaceName);
     return result;
   }
+
   // Up to now, ap interface should be ready to setup country code.
   std::string countryCode =
       NS_ConvertUTF16toUTF8(aSoftapConfig->mCountryCode).get();
@@ -707,19 +744,23 @@ Result_t WifiNative::StopSoftAp() {
     WIFI_LOGE(LOG_TAG, "Failed to stop softap");
     return result;
   }
+
   if (mSoftapEventService) {
     mSoftapEventService->UnregisterEventCallback();
   }
+
   result = s_WificondControl->TearDownSoftapInterface(mApInterfaceName);
   if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to teardown ap interface in wificond");
     return result;
   }
+
   result = StopHostapd();
   if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to stop hostapd");
     return result;
   }
+
   result = s_WifiHal->TearDownInterface(wifiNameSpace::IfaceType::AP);
   if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to teardown softap interface");
@@ -736,6 +777,7 @@ Result_t WifiNative::StartAndConnectHostapd() {
     WIFI_LOGE(LOG_TAG, "Failed to initialize hostapd interface");
     return result;
   }
+
   bool connected = false;
   int32_t connectTries = 0;
   while (!connected && connectTries++ < CONNECTION_RETRY_TIMES) {

@@ -18,6 +18,12 @@ dictionary WifiCommandOptions
   unsigned long  bandMask = 0;
   unsigned long  scanType = 0;
 
+  /** EAP-SIM/AKA/AKA' */
+  SimIdentityRespData          identityResp = {};
+  sequence<SimGsmAuthRespData> gsmAuthResp;
+  SimUmtsAuthRespData          umtsAuthResp = {};
+  SimUmtsAutsRespData          umtsAutsResp = {};
+
   WifiConfiguration    config = {};
   SoftapConfiguration  softapConfig = {};
   SupplicantDebugLevel debugLevel = {};
@@ -59,14 +65,14 @@ dictionary WifiConfiguration
   long      wepTxKeyIndex;
   boolean   scanSsid;
   boolean   pmf;
-  long      proto;
+  DOMString proto;
   DOMString authAlg;
-  long      groupCipher;
-  long      pairwiseCipher;
+  DOMString groupCipher;
+  DOMString pairwiseCipher;
 
   /* EAP */
-  long      eap;
-  long      eapPhase2;
+  DOMString eap;
+  DOMString eapPhase2;
   DOMString identity;
   DOMString anonymousId;
   DOMString password;
@@ -80,6 +86,7 @@ dictionary WifiConfiguration
   DOMString altSubjectMatch;
   DOMString domainSuffixMatch;
   boolean   proactiveKeyCaching;
+  long      simIndex;
 };
 
 /**
@@ -160,4 +167,46 @@ dictionary RoamingConfiguration
    * List of SSID's that are whitelisted for roaming.
    */
   sequence<DOMString> ssidWhitelist;
+};
+
+/**
+ * The dictionary holds the parameters for identity response.
+ */
+[GenerateInit]
+dictionary SimIdentityRespData
+{
+  DOMString identity;
+};
+
+/**
+ * The dictionary holds the parameters for GSM auth response.
+ * (Refer RFC 4186)
+ */
+[GenerateInit]
+dictionary SimGsmAuthRespData
+{
+  DOMString kc;
+  DOMString sres;
+};
+
+/**
+ * The dictionary holds the parameters for UMTS auth response.
+ * (Refer RFC 4187)
+ */
+[GenerateInit]
+dictionary SimUmtsAuthRespData
+{
+  DOMString res;
+  DOMString ik;
+  DOMString ck;
+};
+
+/**
+ * The dictionary holds the parameters for UMTS auts response.
+ * (Refer RFC 4187)
+ */
+[GenerateInit]
+dictionary SimUmtsAutsRespData
+{
+  DOMString auts;
 };
