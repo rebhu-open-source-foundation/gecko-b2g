@@ -81,14 +81,32 @@ export CLANG_PATH=${CLANG_PATH:-$HOME/.mozbuild/clang/bin}
 
 export PYTHON_PATH=${PYTHON_PATH:-/usr/bin}
 
-export CROSS_TOOLCHAIN_LINKER_PATH=${CROSS_TOOLCHAIN_LINKER_PATH=:-$GONK_PATH/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-$TARGET_GCC_VERSION/arm-linux-androideabi/bin}
+case $TARGET_ARCH in
+    arm)
+        ARCH_NAME="arm"
+        ARCH_DIR="arch-arm"
+        ARCH_ABI="androideabi"
+        ;;
+    x86_64)
+        ARCH_NAME="x86"
+        ARCH_DIR="arch-x86_64"
+        ARCH_ABI="android"
+        BINSUFFIX=64
+        ;;
+    *)
+        echo "Unsupported $TARGET_ARCH"
+        exit 1
+        ;;
+esac
+
+export ARCH_ABI
+
+export CROSS_TOOLCHAIN_LINKER_PATH=${CROSS_TOOLCHAIN_LINKER_PATH=:-$GONK_PATH/prebuilts/gcc/linux-x86/$ARCH_NAME/$TARGET_ARCH-linux-$ARCH_ABI-$TARGET_GCC_VERSION/$TARGET_ARCH-linux-$ARCH_ABI/bin}
 
 export PATH=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin:$GONK_PATH/prebuilts/linux-x86_64/bin/:$CLANG_PATH:$PYTHON_PATH:$CROSS_TOOLCHAIN_LINKER_PATH:$PATH
 
-SYSROOT=$ANDROID_NDK/platforms/$ANDROID_PLATFORM/arch-arm/
+SYSROOT=$ANDROID_NDK/platforms/$ANDROID_PLATFORM/$ARCH_DIR/
 GONK_LIBS=$GONK_PATH/out/target/product/$GONK_PRODUCT_NAME/obj/lib/
-
-ARCH_DIR="arch-arm"
 
 export GONK_PRODUCT=$GONK_PRODUCT_NAME
 
@@ -107,12 +125,12 @@ $HWC_DEFINE \
 -DGR_GL_USE_NEW_SHADER_SOURCE_SIGNATURE=1 \
 -isystem $GONK_PATH/bionic \
 -isystem $GONK_PATH/bionic/libc/$ARCH_DIR/include \
--isystem $ANDROID_NDK/platforms/$ANDROID_PLATFORM/arch-arm/usr/include \
+-isystem $ANDROID_NDK/platforms/$ANDROID_PLATFORM/$ARCH_DIR/usr/include \
 -isystem $GONK_PATH/bionic/libc/include/ \
 -isystem $GONK_PATH/bionic/libc/kernel/common \
 -isystem $GONK_PATH/bionic/libc/kernel/$ARCH_DIR \
 -isystem $GONK_PATH/bionic/libc/kernel/uapi/ \
--isystem $GONK_PATH/bionic/libc/kernel/uapi/asm-arm/ \
+-isystem $GONK_PATH/bionic/libc/kernel/uapi/asm-$ARCH_NAME/ \
 -isystem $GONK_PATH/bionic/libm/include \
 -I$GONK_PATH/system/core/libpixelflinger/include/ \
 -I$GONK_PATH/frameworks/av/include \
@@ -147,12 +165,12 @@ export CXXFLAGS="$CPPFLAGS -std=c++17"
 
 # export RUSTC_OPT_LEVEL=z
 
-GCC_LIB="-L$GONK_PATH/prebuilts/gcc/darwin-x86/arm/arm-linux-androideabi-4.9/lib/gcc/arm-linux-androideabi/4.9.x/"
+GCC_LIB="-L$GONK_PATH/prebuilts/gcc/linux-x86/$ARCH_NAME/$TARGET_ARCH-linux-$ARCH_ABI-4.9/lib/gcc/$TARGET_ARCH-linux-$ARCH_ABI/4.9.x/"
 
 export ANDROID_PLATFORM=$ANDROID_PLATFORM
 
 OBJ_LIB=$GONK_PATH/out/target/product/$GONK_PRODUCT_NAME/obj/lib
-SYS_LIB=$GONK_PATH/out/target/product/$GONK_PRODUCT_NAME/system/lib
+SYS_LIB=$GONK_PATH/out/target/product/$GONK_PRODUCT_NAME/system/lib$BINSUFFIX
 export SYS_LIB
 
 export LDFLAGS="-L$SYS_LIB -Wl,-rpath-link=$OBJ_LIB \
