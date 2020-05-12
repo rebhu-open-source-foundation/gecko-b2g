@@ -11,6 +11,8 @@ chrome.jar:
   content/arrow.svg                     (content/arrow.svg)
   content/settings.js                   (content/settings.js)
 * content/shell.html                    (content/shell.html)
+  content/shell_remote.html             (content/shell_remote.html)
+  content/shell_remote.js               (content/shell_remote.js)
   content/shell.js                      (content/shell.js)
   content/shell.css                     (content/shell.css)
 #ifndef ANDROID

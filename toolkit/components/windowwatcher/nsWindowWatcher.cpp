@@ -406,7 +406,8 @@ static bool CheckUserContextCompatibility(nsIDocShell* aDocShell) {
   return subjectPrincipal->GetUserContextId() == userContextId;
 }
 
-nsresult nsWindowWatcher::CreateChromeWindow(nsIWebBrowserChrome* aParentChrome,
+nsresult nsWindowWatcher::CreateChromeWindow(const WindowFeatures& aFeatures,
+                                             nsIWebBrowserChrome* aParentChrome,
                                              uint32_t aChromeFlags,
                                              nsIOpenWindowInfo* aOpenWindowInfo,
                                              nsIWebBrowserChrome** aResult) {
@@ -414,6 +415,13 @@ nsresult nsWindowWatcher::CreateChromeWindow(nsIWebBrowserChrome* aParentChrome,
   if (NS_WARN_IF(!windowCreator2)) {
     return NS_ERROR_UNEXPECTED;
   }
+
+  // B2G multi-screen support. mozDisplayId is returned from the
+  // "display-changed" event, it is also platform-dependent.
+#ifdef MOZ_WIDGET_GONK
+  uint32_t retval = aFeatures.GetInt("mozdisplayid");// lowercase of mozDisplayId
+  windowCreator2->SetScreenId(retval);
+#endif
 
   bool cancel = false;
   nsCOMPtr<nsIWebBrowserChrome> newWindowChrome;
@@ -539,7 +547,7 @@ nsWindowWatcher::OpenWindowWithRemoteTab(nsIRemoteTab* aRemoteTab,
   nsCOMPtr<nsIWebBrowserChrome> parentChrome(do_GetInterface(parentTreeOwner));
   nsCOMPtr<nsIWebBrowserChrome> newWindowChrome;
 
-  CreateChromeWindow(parentChrome, chromeFlags, aOpenWindowInfo,
+  CreateChromeWindow(features, parentChrome, chromeFlags, aOpenWindowInfo,
                      getter_AddRefs(newWindowChrome));
 
   if (NS_WARN_IF(!newWindowChrome)) {
@@ -947,7 +955,7 @@ nsresult nsWindowWatcher::OpenWindowInternal(
           do_QueryInterface(mWindowCreator));
       bool cancel = false;
       if (windowCreator2) {
-        rv = CreateChromeWindow(parentChrome, chromeFlags, openWindowInfo,
+        rv = CreateChromeWindow(features, parentChrome, chromeFlags, openWindowInfo,
                               getter_AddRefs(newChrome));
 
       } else {

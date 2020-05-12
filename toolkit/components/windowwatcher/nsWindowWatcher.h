@@ -106,7 +106,8 @@ class nsWindowWatcher : public nsIWindowWatcher,
       const mozilla::Maybe<float>& aOpenerFullZoom = mozilla::Nothing());
 
  private:
-  nsresult CreateChromeWindow(nsIWebBrowserChrome* aParentChrome,
+  nsresult CreateChromeWindow(const mozilla::dom::WindowFeatures& aFeatures,
+                              nsIWebBrowserChrome* aParentChrome,
                               uint32_t aChromeFlags,
                               nsIOpenWindowInfo* aOpenWindowInfo,
                               nsIWebBrowserChrome** aResult);

@@ -14,45 +14,16 @@ const { AppConstants } = ChromeUtils.import(
 ChromeUtils.import("resource://gre/modules/ActivitiesService.jsm");
 ChromeUtils.import("resource://gre/modules/AlarmService.jsm");
 ChromeUtils.import("resource://gre/modules/DownloadService.jsm");
-ChromeUtils.import("resource://gre/modules/NotificationDB.jsm");
-ChromeUtils.import("resource://gre/modules/ErrorPage.jsm");
-
-XPCOMUtils.defineLazyGetter(this, "MarionetteHelper", () => {
-  const { MarionetteHelper } = ChromeUtils.import(
-    "chrome://b2g/content/devtools/marionette.js"
-  );
-  return new MarionetteHelper(shell.contentBrowser);
-});
 
 const isGonk = AppConstants.platform === "gonk";
 
-if (isGonk) {
-  XPCOMUtils.defineLazyGetter(this, "libcutils", () => {
-    const { libcutils } = ChromeUtils.import(
-      "resource://gre/modules/systemlibs.js"
-    );
-    return libcutils;
-  });
+function debug(aStr) {
+  //console.log(`-*- ShellRemote.js: ${aStr}`);
 }
 
-try {
-  // For external screen rendered by a native buffer, event of display-changed
-  // (to tell a display is added), is fired after rendering the first drawble
-  // frame. Load the handler asap in order to ensure our system observe that
-  // event, and yes this is unfortunately a hack. So try not to delay loading
-  // this module.
-  if (isGonk && Services.prefs.getBoolPref('b2g.multiscreen.enabled')) {
-    Cu.import('resource://gre/modules/MultiscreenHandler.jsm');
-  }
-} catch(e) {}
-
-function debug(str) {
-  console.log(`-*- Shell.js: ${str}`);
-}
-
-var shell = {
+var remoteShell = {
   get startURL() {
-    let url = Services.prefs.getCharPref("b2g.system_startup_url");
+    let url = Services.prefs.getCharPref("b2g.multiscreen.system_remote_app_url");
     if (!url) {
       console.error(
         `Please set the b2g.system_startup_url preference properly`
@@ -81,19 +52,11 @@ var shell = {
 
     let systemAppFrame = document.createXULElement("browser");
     systemAppFrame.setAttribute("type", "chrome");
-    systemAppFrame.setAttribute("primary", "true");
     systemAppFrame.setAttribute("id", "systemapp");
-    systemAppFrame.setAttribute("forcemessagemanager", "true");
-    systemAppFrame.setAttribute("nodefaultsrc", "true");
+    systemAppFrame.setAttribute("src", "blank.html");
 
-    // Identify this `<browser>` element uniquely to Marionette, devtools, etc.
-    systemAppFrame.permanentKey = new (Cu.getGlobalForObject(
-      Services
-    ).Object)();
-    systemAppFrame.linkedBrowser = systemAppFrame;
-
-    document.body.prepend(systemAppFrame);
-    window.dispatchEvent(new CustomEvent("systemappframeprepended"));
+    debug(`Loading blank.html`);
+    document.body.appendChild(systemAppFrame);
 
     this.contentBrowser = systemAppFrame;
 
@@ -189,42 +152,17 @@ var shell = {
   // and <script defer>s are loaded and run.
   notifyContentWindowLoaded() {
     debug("notifyContentWindowLoaded");
-    // This will cause Gonk Widget to remove boot animation from the screen
-    // and reveals the page.
-    Services.obs.notifyObservers(null, "browser-ui-startup-complete");
   },
 };
-
-function toggle_bool_pref(name) {
-  let current = Services.prefs.getBoolPref(name);
-  Services.prefs.setBoolPref(name, !current);
-  debug(`${name} is now ${!current}`);
-}
 
 document.addEventListener(
   "DOMContentLoaded",
   () => {
-    if (shell.hasStarted()) {
-      // Should never happen!
-      console.error("Shell has already started but didn't initialize!!!");
+    if (remoteShell.hasStarted()) {
+      // Shoudl never happen!
+      console.error("ShellRemote has already started but didn't initialize!!!");
       return;
     }
-
-    document.addEventListener(
-      "keydown",
-      event => {
-        if (event.key == "AudioVolumeUp") {
-          console.log("Toggling GPU profiler display");
-          toggle_bool_pref("gfx.webrender.debug.profiler");
-          toggle_bool_pref("gfx.webrender.debug.compact-profiler");
-        }
-      },
-      true
-    );
-
-    // eslint-disable-next-line no-undef
-    RemoteDebugger.init(window);
-
     Services.obs.addObserver(browserWindowImpl => {
       debug("New web embedder created.");
       window.browserDOMWindow = browserWindowImpl;
@@ -236,34 +174,11 @@ document.addEventListener(
       }, 0);
     }, "web-embedder-created");
 
-    // Initialize Marionette server
-    Services.tm.idleDispatchToMainThread(() => {
-      Services.obs.notifyObservers(null, "marionette-startup-requested");
-    });
 
-    // Start the SIDL <-> Gecko bridge.
-    const { GeckoBridge } = ChromeUtils.import(
-      "resource://gre/modules/GeckoBridge.jsm"
-    );
-    GeckoBridge.start();
-
-    shell.start();
+    remoteShell.start();
   },
   { once: true }
 );
 
-// Install the self signed certificate for locally served apps.
-function setup_local_https() {
-  const { LocalDomains } = ChromeUtils.import(
-    "resource://gre/modules/LocalDomains.jsm"
-  );
 
-  LocalDomains.init();
-  if (LocalDomains.scan()) {
-    debug(`Updating local domains list to: ${LocalDomains.get()}`);
-    LocalDomains.update();
-  }
-}
 
-// We need to set this up early to be able to launch the homescreen.
-setup_local_https();
