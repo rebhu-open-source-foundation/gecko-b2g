@@ -439,7 +439,7 @@ void
 VibratorRunnable::Vibrate(const nsTArray<uint32_t> &pattern)
 {
   MonitorAutoLock lock(mMonitor);
-  mPattern = pattern;
+  mPattern.Assign(pattern);
   mIndex = 0;
   mMonitor.Notify();
 }

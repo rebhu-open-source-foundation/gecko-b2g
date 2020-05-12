@@ -119,13 +119,13 @@ CompositorVsyncScheduler::SetDisplay(bool aDisplayEnable)
   if (!CompositorThreadHolder::IsInCompositorThread()) {
     MOZ_ASSERT(NS_IsMainThread());
     MonitorAutoLock lock(mSetDisplayMonitor);
-    if (mSetDisplayTask == nullptr && CompositorThreadHolder::Loop()) {
-    RefPtr<CancelableRunnable> task =
-        NewCancelableRunnableMethod<bool>(
-            "layers::CompositorVsyncScheduler::SetDisplay", this,
-            &CompositorVsyncScheduler::SetDisplay, aDisplayEnable);
-    mSetDisplayTask = task;
-    ScheduleTask(task.forget());
+    if (mSetDisplayTask == nullptr) {
+      RefPtr<CancelableRunnable> task =
+          NewCancelableRunnableMethod<bool>(
+              "layers::CompositorVsyncScheduler::SetDisplay", this,
+              &CompositorVsyncScheduler::SetDisplay, aDisplayEnable);
+      mSetDisplayTask = task;
+      CompositorThread()->Dispatch(task.forget());
     }
     return;
   }
@@ -273,7 +273,7 @@ CompositorVsyncScheduler::SetNeedsComposite()
             "layers::CompositorVsyncScheduler::SetNeedsComposite", this,
             &CompositorVsyncScheduler::SetNeedsComposite);
     mSetNeedsCompositeTask = task;
-    ScheduleTask(task.forget());
+    CompositorThread()->Dispatch(task.forget());
     return;
   }
 

@@ -1429,10 +1429,19 @@ void gfxFT2FontList::FindFonts() {
   }
 
 #ifdef MOZ_WIDGET_GONK
+  {
     // Look for fonts in /system/fonts/hidden and preload them to the
     // user-font cache as data: URIs
+    nsCString root;
+    char* androidRoot = PR_GetEnv("ANDROID_ROOT");
+    if (androidRoot) {
+      root = androidRoot;
+    } else {
+      root = NS_LITERAL_CSTRING("/system");
+    }
     root.AppendLiteral("/hidden");
     FindFontsInDir(root, mFontNameCache.get());
+  }
 #endif
 
   // Look for fonts stored in omnijar, unless we're on a low-memory

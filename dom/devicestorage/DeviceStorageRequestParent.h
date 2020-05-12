@@ -124,7 +124,7 @@ class DeviceStorageRequestParent : public PDeviceStorageRequestParent {
         : CancelableRunnable(aParent),
           mStorageType(aStorageType),
           mRelPath(aRelPath),
-          mPaths(aPaths) {}
+          mPaths(aPaths.Clone()) {}
     virtual ~PostEnumerationSuccessEvent() {}
     virtual nsresult CancelableRun();
 
