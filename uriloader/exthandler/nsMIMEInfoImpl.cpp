@@ -362,7 +362,7 @@ nsMIMEInfoBase::LaunchWithURI(nsIURI* aURI,
 void nsMIMEInfoBase::CopyBasicDataTo(nsMIMEInfoBase* aOther) {
   aOther->mSchemeOrType = mSchemeOrType;
   aOther->mDefaultAppDescription = mDefaultAppDescription;
-  aOther->mExtensions = mExtensions;
+  aOther->mExtensions = mExtensions.Clone();
 }
 
 /* static */
@@ -424,6 +424,22 @@ nsMIMEInfoImpl::GetHasDefaultHandler(bool* _retval) {
   if (mDefaultApplication) {
     bool exists;
     *_retval = NS_SUCCEEDED(mDefaultApplication->Exists(&exists)) && exists;
+  }
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsMIMEInfoImpl::IsCurrentAppOSDefault(bool* _retval) {
+  *_retval = false;
+  if (mDefaultApplication) {
+    // Determine if the default executable is our executable.
+    EnsureAppDetailsAvailable();
+    bool isSame = false;
+    nsresult rv = mDefaultApplication->Equals(sOurAppFile, &isSame);
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
+    *_retval = isSame;
   }
   return NS_OK;
 }

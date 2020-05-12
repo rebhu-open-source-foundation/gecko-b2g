@@ -347,10 +347,14 @@ static bool EvalKernel(JSContext* cx, HandleValue v, EvalType evalType,
     esg.setNewScript(compiled);
   }
 
-  // Look up the newTarget from the frame iterator.
-  Value newTargetVal = NullValue();
-  return ExecuteKernel(cx, esg.script(), *env, newTargetVal,
-                       NullFramePtr() /* evalInFrame */, vp.address());
+  // If this is a direct eval we need to use the caller's newTarget.
+  RootedValue newTargetVal(cx);
+  if (esg.script()->isDirectEvalInFunction()) {
+    newTargetVal = caller.newTarget();
+  }
+
+  return ExecuteKernel(cx, esg.script(), env, newTargetVal,
+                       NullFramePtr() /* evalInFrame */, vp);
 }
 
 bool js::DirectEvalStringFromIon(JSContext* cx, HandleObject env,
@@ -450,8 +454,8 @@ bool js::DirectEvalStringFromIon(JSContext* cx, HandleObject env,
     esg.setNewScript(compiled);
   }
 
-  return ExecuteKernel(cx, esg.script(), *env, newTargetValue,
-                       NullFramePtr() /* evalInFrame */, vp.address());
+  return ExecuteKernel(cx, esg.script(), env, newTargetValue,
+                       NullFramePtr() /* evalInFrame */, vp);
 }
 
 bool js::IndirectEval(JSContext* cx, unsigned argc, Value* vp) {
@@ -501,8 +505,8 @@ static bool ExecuteInExtensibleLexicalEnvironment(JSContext* cx,
   }
 
   RootedValue rval(cx);
-  return ExecuteKernel(cx, script, *env, UndefinedValue(),
-                       NullFramePtr() /* evalInFrame */, rval.address());
+  return ExecuteKernel(cx, script, env, UndefinedHandleValue,
+                       NullFramePtr() /* evalInFrame */, &rval);
 }
 
 JS_FRIEND_API bool js::ExecuteInFrameScriptEnvironment(

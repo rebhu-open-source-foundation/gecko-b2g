@@ -831,10 +831,6 @@ nsresult nsWindowWatcher::OpenWindowInternal(
       nsCOMPtr<nsIWindowProvider> provider;
       if (parentTreeOwner) {
         provider = do_GetInterface(parentTreeOwner);
-      } else if (XRE_IsContentProcess()) {
-        // we're in a content process but we don't have a tabchild we can
-        // use.
-        provider = nsContentUtils::GetWindowProviderForContentProcess();
       }
 
       if (provider) {
@@ -872,6 +868,12 @@ nsresult nsWindowWatcher::OpenWindowInternal(
   bool newWindowShouldBeModal = false;
   bool parentIsModal = false;
   if (!newBC) {
+    if (XRE_IsContentProcess()) {
+      // If our window provider failed to provide a window in the content
+      // process, we cannot recover. Reject the window open request and bail.
+      return NS_OK;
+    }
+
     windowIsNew = true;
     isNewToplevelWindow = true;
 
@@ -1070,8 +1072,9 @@ nsresult nsWindowWatcher::OpenWindowInternal(
     if (subjectPrincipal &&
         !nsContentUtils::IsSystemOrExpandedPrincipal(subjectPrincipal) &&
         newBC->IsContent()) {
-      MOZ_DIAGNOSTIC_ASSERT(subjectPrincipal->OriginAttributesRef() ==
-                            newBC->OriginAttributesRef());
+      MOZ_DIAGNOSTIC_ASSERT(
+          subjectPrincipal->OriginAttributesRef().EqualsIgnoringFPD(
+              newBC->OriginAttributesRef()));
     }
 
     bool autoPrivateBrowsing =
@@ -1170,8 +1173,7 @@ nsresult nsWindowWatcher::OpenWindowInternal(
         doc = parentWindow->GetExtantDoc();
       }
       if (doc) {
-        nsCOMPtr<nsIReferrerInfo> referrerInfo = new ReferrerInfo();
-        referrerInfo->InitWithDocument(doc);
+        auto referrerInfo = MakeRefPtr<ReferrerInfo>(*doc);
         loadState->SetReferrerInfo(referrerInfo);
       }
     }

@@ -65,6 +65,17 @@ bool js::frontend::EmitScriptThingsVector(JSContext* cx,
     uint32_t i;
     mozilla::Span<JS::GCCellPtr>& output;
 
+    bool operator()(const ClosedOverBinding& data) {
+      JSAtom* atom = data;
+      output[i] = JS::GCCellPtr(atom);
+      return true;
+    }
+
+    bool operator()(const NullScriptThing& data) {
+      output[i] = JS::GCCellPtr(nullptr);
+      return true;
+    }
+
     bool operator()(const BigIntIndex& index) {
       BigIntCreationData& data = compilationInfo.bigIntData[index];
       BigInt* bi = data.createBigInt(cx);
@@ -112,7 +123,6 @@ bool js::frontend::EmitScriptThingsVector(JSContext* cx,
       // of publishDeferredFunctions, which currently happens before BCE begins.
       // Once we can do LazyScriptCreationData::create without referencing the
       // functionbox, then we should be able to do JSFunction allocation here.
-      MOZ_ASSERT(!data.is<FunctionCreationData>());
       output[i] = JS::GCCellPtr(data.as<JSFunction*>());
       return true;
     }

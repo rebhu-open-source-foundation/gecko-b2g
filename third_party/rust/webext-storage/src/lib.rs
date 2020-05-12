@@ -10,6 +10,7 @@ mod db;
 pub mod error;
 mod schema;
 pub mod store;
+mod sync;
 
 // This is what we roughly expect the "bridge" used by desktop to do.
 // It's primarily here to avoid dead-code warnings (but I don't want to disable
@@ -22,5 +23,7 @@ pub fn delme_demo_usage() -> error::Result<()> {
     store.get("ext-id", json!({}))?;
     store.remove("ext-id", json!({}))?;
     store.clear("ext-id")?;
+    // and it might even...
+    store.wipe_all()?;
     Ok(())
 }

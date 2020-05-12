@@ -334,6 +334,7 @@ AbortReasonOr<WarpScriptSnapshot*> WarpOracle::createScriptSnapshot(
                        "GetElemSuper with profiling is not supported on x86");
         }
 #endif
+        MOZ_TRY(maybeInlineIC(opSnapshots, script, loc));
         break;
       }
 
@@ -386,6 +387,39 @@ AbortReasonOr<WarpScriptSnapshot*> WarpOracle::createScriptSnapshot(
         break;
       }
 
+      case JSOp::NewArray: {
+        // TODO: optimize ICEntry lookup.
+        const ICEntry& entry = script->jitScript()->icEntryFromPCOffset(offset);
+        auto* stub = entry.fallbackStub()->toNewArray_Fallback();
+        if (ArrayObject* templateObj = stub->templateObject()) {
+          // Only inline elements are supported without a VM call.
+          size_t numInlineElements =
+              gc::GetGCKindSlots(templateObj->asTenured().getAllocKind()) -
+              ObjectElements::VALUES_PER_HEADER;
+          bool useVMCall = loc.getNewArrayLength() > numInlineElements;
+          if (!AddOpSnapshot<WarpNewArray>(alloc_, opSnapshots, offset,
+                                           templateObj, useVMCall)) {
+            return abort(AbortReason::Alloc);
+          }
+        }
+        break;
+      }
+
+      case JSOp::NewObject:
+      case JSOp::NewObjectWithGroup:
+      case JSOp::NewInit: {
+        // TODO: optimize ICEntry lookup.
+        const ICEntry& entry = script->jitScript()->icEntryFromPCOffset(offset);
+        auto* stub = entry.fallbackStub()->toNewObject_Fallback();
+        if (JSObject* templateObj = stub->templateObject()) {
+          if (!AddOpSnapshot<WarpNewObject>(alloc_, opSnapshots, offset,
+                                            templateObj)) {
+            return abort(AbortReason::Alloc);
+          }
+        }
+        break;
+      }
+
       case JSOp::GetName:
       case JSOp::GetGName:
       case JSOp::GetProp:
@@ -393,10 +427,15 @@ AbortReasonOr<WarpScriptSnapshot*> WarpOracle::createScriptSnapshot(
       case JSOp::Length:
       case JSOp::GetElem:
       case JSOp::CallElem:
+      case JSOp::SetProp:
+      case JSOp::StrictSetProp:
       case JSOp::ToNumeric:
       case JSOp::Pos:
       case JSOp::Inc:
       case JSOp::Dec:
+      case JSOp::Neg:
+      case JSOp::BitNot:
+      case JSOp::Iter:
       case JSOp::Eq:
       case JSOp::Ne:
       case JSOp::Lt:
@@ -405,7 +444,42 @@ AbortReasonOr<WarpScriptSnapshot*> WarpOracle::createScriptSnapshot(
       case JSOp::Ge:
       case JSOp::StrictEq:
       case JSOp::StrictNe:
+      case JSOp::BindName:
+      case JSOp::BindGName:
+      case JSOp::Add:
+      case JSOp::Sub:
+      case JSOp::Mul:
+      case JSOp::Div:
+      case JSOp::Mod:
+      case JSOp::Pow:
+      case JSOp::BitAnd:
+      case JSOp::BitOr:
+      case JSOp::BitXor:
+      case JSOp::Lsh:
+      case JSOp::Rsh:
+      case JSOp::Ursh:
+      case JSOp::In:
+      case JSOp::HasOwn:
+      case JSOp::Instanceof:
+      case JSOp::GetPropSuper:
+      case JSOp::InitProp:
+      case JSOp::InitLockedProp:
+      case JSOp::InitHiddenProp:
+      case JSOp::InitElem:
+      case JSOp::InitHiddenElem:
+      case JSOp::InitElemInc:
+      case JSOp::SetName:
+      case JSOp::StrictSetName:
+      case JSOp::SetGName:
+      case JSOp::StrictSetGName:
+      case JSOp::InitGLexical:
+      case JSOp::SetElem:
+      case JSOp::StrictSetElem:
         MOZ_TRY(maybeInlineIC(opSnapshots, script, loc));
+        break;
+
+      case JSOp::InitElemArray:
+        // WarpBuilder does not use an IC for this op.
         break;
 
       case JSOp::Nop:
@@ -445,20 +519,6 @@ AbortReasonOr<WarpScriptSnapshot*> WarpOracle::createScriptSnapshot(
       case JSOp::InitLexical:
       case JSOp::GetArg:
       case JSOp::SetArg:
-      case JSOp::Neg:
-      case JSOp::BitNot:
-      case JSOp::Add:
-      case JSOp::Sub:
-      case JSOp::Mul:
-      case JSOp::Div:
-      case JSOp::Mod:
-      case JSOp::Pow:
-      case JSOp::BitAnd:
-      case JSOp::BitOr:
-      case JSOp::BitXor:
-      case JSOp::Lsh:
-      case JSOp::Rsh:
-      case JSOp::Ursh:
       case JSOp::JumpTarget:
       case JSOp::LoopHead:
       case JSOp::IfEq:
@@ -492,7 +552,6 @@ AbortReasonOr<WarpScriptSnapshot*> WarpOracle::createScriptSnapshot(
       case JSOp::SetAliasedVar:
       case JSOp::InitAliasedLexical:
       case JSOp::EnvCallee:
-      case JSOp::Iter:
       case JSOp::IterNext:
       case JSOp::MoreIter:
       case JSOp::EndIter:
@@ -504,17 +563,6 @@ AbortReasonOr<WarpScriptSnapshot*> WarpOracle::createScriptSnapshot(
       case JSOp::FunApply:
       case JSOp::New:
       case JSOp::SuperCall:
-      case JSOp::BindName:
-      case JSOp::BindGName:
-      case JSOp::SetProp:
-      case JSOp::StrictSetProp:
-      case JSOp::SetName:
-      case JSOp::StrictSetName:
-      case JSOp::SetGName:
-      case JSOp::StrictSetGName:
-      case JSOp::InitGLexical:
-      case JSOp::SetElem:
-      case JSOp::StrictSetElem:
       case JSOp::DelProp:
       case JSOp::StrictDelProp:
       case JSOp::DelElem:
@@ -535,10 +583,6 @@ AbortReasonOr<WarpScriptSnapshot*> WarpOracle::createScriptSnapshot(
       case JSOp::InitHomeObject:
       case JSOp::SuperBase:
       case JSOp::SuperFun:
-      case JSOp::NewArray:
-      case JSOp::NewObject:
-      case JSOp::NewObjectWithGroup:
-      case JSOp::NewInit:
       case JSOp::InitPropGetter:
       case JSOp::InitPropSetter:
       case JSOp::InitHiddenPropGetter:
@@ -547,21 +591,9 @@ AbortReasonOr<WarpScriptSnapshot*> WarpOracle::createScriptSnapshot(
       case JSOp::InitElemSetter:
       case JSOp::InitHiddenElemGetter:
       case JSOp::InitHiddenElemSetter:
-      case JSOp::In:
-      case JSOp::HasOwn:
-      case JSOp::Instanceof:
       case JSOp::NewTarget:
       case JSOp::CheckIsObj:
-      case JSOp::CheckIsCallable:
       case JSOp::CheckObjCoercible:
-      case JSOp::GetPropSuper:
-      case JSOp::InitProp:
-      case JSOp::InitLockedProp:
-      case JSOp::InitHiddenProp:
-      case JSOp::InitElem:
-      case JSOp::InitHiddenElem:
-      case JSOp::InitElemArray:
-      case JSOp::InitElemInc:
       case JSOp::FunWithProto:
       case JSOp::SpreadCall:
       case JSOp::SpreadNew:
@@ -632,7 +664,6 @@ AbortReasonOr<Ok> WarpOracle::maybeInlineIC(WarpOpSnapshotList& snapshots,
   }
 
   // TODO: check stub's hit count if we're not doing eager compilation.
-  // TODO: check stub data for nursery pointers.
   // TODO: don't inline if the IC had unhandled cases => CacheIR is incomplete.
   // TOOD: have a consistent bailout => invalidate story. Set a flag on the IC?
 
@@ -655,6 +686,12 @@ AbortReasonOr<Ok> WarpOracle::maybeInlineIC(WarpOpSnapshotList& snapshots,
       MOZ_CRASH("Unexpected stub");
   }
 
+  // TODO: we don't support stubs with nursery pointers for now. Handling this
+  // well requires special machinery. See bug 1631267.
+  if (stub->stubDataHasNurseryPointers(stubInfo)) {
+    return Ok();
+  }
+
   // Only create a snapshots if all opcodes are supported by the transpiler.
   CacheIRReader reader(stubInfo);
   while (reader.more()) {
@@ -671,8 +708,9 @@ AbortReasonOr<Ok> WarpOracle::maybeInlineIC(WarpOpSnapshotList& snapshots,
 
       default:
         // Unsupported opcode.
-        JitSpew(JitSpew_WarpTranspiler, "unsupported CacheIR opcode: %s",
-                CacheIROpNames[size_t(op)]);
+        JitSpew(JitSpew_WarpTranspiler,
+                "unsupported CacheIR opcode: %s @ JSOp::%s",
+                CacheIROpNames[size_t(op)], CodeName(loc.getOp()));
         return Ok();
     }
   }

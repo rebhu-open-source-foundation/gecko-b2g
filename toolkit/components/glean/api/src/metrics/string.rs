@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use glean_core::CommonMetricData;
+use super::CommonMetricData;
 
 /// A string metric.
 ///
@@ -34,7 +34,7 @@ use glean_core::CommonMetricData;
 /// browser::search_engine.set("websearch");
 /// ```
 #[derive(Clone, Debug)]
-pub struct StringMetric(glean_core::metrics::StringMetric);
+pub struct StringMetric(pub(crate) glean_core::metrics::StringMetric);
 
 impl StringMetric {
     /// Create a new string metric.

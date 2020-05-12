@@ -1553,7 +1553,7 @@ void nsWindow::NativeMoveResizeWaylandPopup(GdkPoint* aPosition,
   int32_t p2a = AppUnitsPerCSSPixel() / gfxPlatformGtk::GetFontScaleFactor();
   if (popupFrame) {
 #ifdef MOZ_WAYLAND
-    anchorRect = LayoutDeviceIntRect::FromAppUnitsToNearest(
+    anchorRect = LayoutDeviceIntRect::FromAppUnitsToOutside(
         popupFrame->GetAnchorRect(), p2a);
 #endif
   }
@@ -1852,7 +1852,7 @@ void nsWindow::MoveToWorkspace(const nsAString& workspaceIDStr) {
   xevent.xclient.message_type = type;
   xevent.xclient.format = 32;
   xevent.xclient.data.l[0] = value;
-  xevent.xclient.data.l[1] = CurrentTime;
+  xevent.xclient.data.l[1] = X11CurrentTime;
   xevent.xclient.data.l[2] = 0;
   xevent.xclient.data.l[3] = 0;
   xevent.xclient.data.l[4] = 0;
@@ -4161,11 +4161,8 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
       // gfxVars, used below.
       Unused << gfxPlatform::GetPlatform();
 
-      bool useWebRender =
-          gfx::gfxVars::UseWebRender() && AllowWebRenderForThisWindow();
-
       mIsAccelerated = ComputeShouldAccelerate();
-      MOZ_ASSERT(mIsAccelerated | !useWebRender);
+      bool useWebRender = gfx::gfxVars::UseWebRender() && mIsAccelerated;
 
       if (mWindowType == eWindowType_toplevel) {
         // We enable titlebar rendering for toplevel windows only.
@@ -7720,6 +7717,9 @@ nsWindow::CSDSupportLevel nsWindow::GetSystemCSDSupportLevel(
     // GNOME Flashback (fallback)
     if (strstr(currentDesktop, "GNOME-Flashback:GNOME") != nullptr) {
       sCSDSupportLevel = aIsPIPWindow ? CSD_SUPPORT_CLIENT : CSD_SUPPORT_SYSTEM;
+      // Pop Linux Bug 1629198
+    } else if (strstr(currentDesktop, "pop:GNOME") != nullptr) {
+      sCSDSupportLevel = CSD_SUPPORT_CLIENT;
       // gnome-shell
     } else if (strstr(currentDesktop, "GNOME") != nullptr) {
       sCSDSupportLevel = aIsPIPWindow ? CSD_SUPPORT_CLIENT : CSD_SUPPORT_SYSTEM;

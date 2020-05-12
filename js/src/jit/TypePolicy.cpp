@@ -813,6 +813,26 @@ bool ToInt32Policy::staticAdjustInputs(TempAllocator& alloc,
   return true;
 }
 
+bool ToBigIntPolicy::staticAdjustInputs(TempAllocator& alloc,
+                                        MInstruction* ins) {
+  MOZ_ASSERT(ins->isToBigInt());
+
+  MDefinition* in = ins->getOperand(0);
+  switch (in->type()) {
+    case MIRType::BigInt:
+    case MIRType::Value:
+      // No need for boxing for these types.
+      return true;
+    default:
+      // Any other types need to be boxed.
+      break;
+  }
+
+  in = BoxAt(alloc, ins, in);
+  ins->replaceOperand(0, in);
+  return true;
+}
+
 bool ToStringPolicy::staticAdjustInputs(TempAllocator& alloc,
                                         MInstruction* ins) {
   MOZ_ASSERT(ins->isToString());
@@ -826,6 +846,35 @@ bool ToStringPolicy::staticAdjustInputs(TempAllocator& alloc,
 
   // TODO remove the following line once 966957 has landed
   EnsureOperandNotFloat32(alloc, ins, 0);
+
+  return true;
+}
+
+bool ToInt64Policy::staticAdjustInputs(TempAllocator& alloc,
+                                       MInstruction* ins) {
+  MOZ_ASSERT(ins->isToInt64());
+
+  MDefinition* input = ins->getOperand(0);
+  MIRType type = input->type();
+
+  switch (type) {
+    case MIRType::BigInt: {
+      auto* replace = MTruncateBigIntToInt64::New(alloc, input);
+      ins->block()->insertBefore(ins, replace);
+      ins->replaceOperand(0, replace);
+      break;
+    }
+    // No need for boxing for these types, because they are handled specially
+    // when this instruction is lowered to LIR.
+    case MIRType::Boolean:
+    case MIRType::String:
+    case MIRType::Int64:
+    case MIRType::Value:
+      break;
+    default:
+      ins->replaceOperand(0, BoxAt(alloc, ins, ins->getOperand(0)));
+      break;
+  }
 
   return true;
 }
@@ -915,6 +964,18 @@ bool StoreUnboxedScalarPolicy::adjustValueInput(TempAllocator& alloc,
                                                 Scalar::Type writeType,
                                                 MDefinition* value,
                                                 int valueOperand) {
+  if (Scalar::isBigIntType(writeType)) {
+    if (value->type() == MIRType::BigInt) {
+      return true;
+    }
+
+    auto* replace = MToBigInt::New(alloc, value);
+    ins->block()->insertBefore(ins, replace);
+    ins->replaceOperand(valueOperand, replace);
+
+    return replace->typePolicy()->adjustInputs(alloc, replace);
+  }
+
   MDefinition* curValue = value;
   // First, ensure the value is int32, boolean, double or Value.
   // The conversion is based on TypedArrayObjectTemplate::setElementTail.
@@ -1001,7 +1062,7 @@ bool StoreUnboxedScalarPolicy::adjustInputs(TempAllocator& alloc,
   }
 
   MStoreUnboxedScalar* store = ins->toStoreUnboxedScalar();
-  MOZ_ASSERT(IsValidElementsType(store->elements(), store->offsetAdjustment()));
+  MOZ_ASSERT(store->elements()->type() == MIRType::Elements);
   MOZ_ASSERT(store->index()->type() == MIRType::Int32);
 
   return adjustValueInput(alloc, store, store->writeType(), store->value(), 2);
@@ -1151,7 +1212,9 @@ bool TypedArrayIndexPolicy::adjustInputs(TempAllocator& alloc,
   _(TestPolicy)                \
   _(ToDoublePolicy)            \
   _(ToInt32Policy)             \
+  _(ToBigIntPolicy)            \
   _(ToStringPolicy)            \
+  _(ToInt64Policy)             \
   _(TypeBarrierPolicy)         \
   _(TypedArrayIndexPolicy)
 

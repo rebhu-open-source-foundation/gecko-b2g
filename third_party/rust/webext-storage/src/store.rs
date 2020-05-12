@@ -5,10 +5,12 @@
 use crate::api::{self, StorageChanges};
 use crate::db::StorageDb;
 use crate::error::*;
+use crate::sync;
 use std::path::Path;
 use std::result;
 
 use serde_json::Value as JsonValue;
+use sql_support::SqlInterruptHandle;
 
 /// A store is used to access `storage.sync` data. It manages an underlying
 /// database connection, and exposes methods for reading and writing storage
@@ -40,6 +42,11 @@ impl Store {
         Ok(Self {
             db: StorageDb::new_memory(db_path)?,
         })
+    }
+
+    /// Returns an interrupt handle for this store.
+    pub fn interrupt_handle(&self) -> SqlInterruptHandle {
+        self.db.interrupt_handle()
     }
 
     /// Sets one or more JSON key-value pairs for an extension ID. Returns a
@@ -91,6 +98,20 @@ impl Store {
         let result = api::clear(&tx, ext_id)?;
         tx.commit()?;
         Ok(result)
+    }
+
+    /// Wipe all local data without syncing or returning any information about
+    /// the deletion.
+    pub fn wipe_all(&self) -> Result<()> {
+        let tx = self.db.unchecked_transaction()?;
+        api::wipe_all(&tx)?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Returns a bridged sync engine for Desktop for this store.
+    pub fn bridged_engine(&self) -> sync::BridgedEngine<'_> {
+        sync::BridgedEngine::new(&self.db)
     }
 
     /// Closes the store and its database connection. See the docs for

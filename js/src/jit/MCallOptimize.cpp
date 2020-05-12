@@ -2120,11 +2120,9 @@ IonBuilder::InliningResult IonBuilder::inlineStrFromCharCode(
 
   MDefinition* codeUnit = callInfo.getArg(0);
   if (codeUnit->type() != MIRType::Int32) {
-    // MTruncateToInt32 will always bail for objects, symbols and BigInts, so
-    // don't try to inline String.fromCharCode() for these value types.
-    if (codeUnit->mightBeType(MIRType::Object) ||
-        codeUnit->mightBeType(MIRType::Symbol) ||
-        codeUnit->mightBeType(MIRType::BigInt)) {
+    // Don't try inline String.fromCharCode() for types which may lead to a
+    // bailout in MTruncateToInt32.
+    if (MTruncateToInt32::mightHaveSideEffects(codeUnit)) {
       return InliningStatus_NotInlined;
     }
 
@@ -3519,17 +3517,11 @@ IonBuilder::InliningResult IonBuilder::inlineToInteger(CallInfo& callInfo) {
 
   // Only optimize cases where |input| contains only number, null, undefined, or
   // boolean.
-  if (input->mightBeType(MIRType::Object) ||
-      input->mightBeType(MIRType::String) ||
-      input->mightBeType(MIRType::Symbol) ||
-      input->mightBeType(MIRType::BigInt) || input->mightBeMagicType()) {
+  if (!input->definitelyType({MIRType::Int32, MIRType::Double, MIRType::Float32,
+                              MIRType::Null, MIRType::Undefined,
+                              MIRType::Boolean})) {
     return InliningStatus_NotInlined;
   }
-
-  MOZ_ASSERT(input->type() == MIRType::Value ||
-             input->type() == MIRType::Null ||
-             input->type() == MIRType::Undefined ||
-             input->type() == MIRType::Boolean || IsNumberType(input->type()));
 
   // Only optimize cases where the output is int32 or double.
   MIRType returnType = getInlineReturnType();
@@ -3665,16 +3657,12 @@ IonBuilder::InliningResult IonBuilder::inlineAtomicsCompareExchange(
   // avoid bad bailouts with MTruncateToInt32, see
   // https://bugzilla.mozilla.org/show_bug.cgi?id=1141986#c20.
   MDefinition* oldval = callInfo.getArg(2);
-  if (oldval->mightBeType(MIRType::Object) ||
-      oldval->mightBeType(MIRType::Symbol) ||
-      oldval->mightBeType(MIRType::BigInt)) {
+  if (MTruncateToInt32::mightHaveSideEffects(oldval)) {
     return InliningStatus_NotInlined;
   }
 
   MDefinition* newval = callInfo.getArg(3);
-  if (newval->mightBeType(MIRType::Object) ||
-      newval->mightBeType(MIRType::Symbol) ||
-      newval->mightBeType(MIRType::BigInt)) {
+  if (MTruncateToInt32::mightHaveSideEffects(newval)) {
     return InliningStatus_NotInlined;
   }
 
@@ -3712,9 +3700,7 @@ IonBuilder::InliningResult IonBuilder::inlineAtomicsExchange(
   }
 
   MDefinition* value = callInfo.getArg(2);
-  if (value->mightBeType(MIRType::Object) ||
-      value->mightBeType(MIRType::Symbol) ||
-      value->mightBeType(MIRType::BigInt)) {
+  if (MTruncateToInt32::mightHaveSideEffects(value)) {
     return InliningStatus_NotInlined;
   }
 
@@ -3795,9 +3781,7 @@ IonBuilder::InliningResult IonBuilder::inlineAtomicsStore(CallInfo& callInfo) {
     return InliningStatus_NotInlined;
   }
 
-  if (value->mightBeType(MIRType::Object) ||
-      value->mightBeType(MIRType::Symbol) ||
-      value->mightBeType(MIRType::BigInt)) {
+  if (MTruncateToInt32::mightHaveSideEffects(value)) {
     return InliningStatus_NotInlined;
   }
 
@@ -3840,9 +3824,7 @@ IonBuilder::InliningResult IonBuilder::inlineAtomicsBinop(
   }
 
   MDefinition* value = callInfo.getArg(2);
-  if (value->mightBeType(MIRType::Object) ||
-      value->mightBeType(MIRType::Symbol) ||
-      value->mightBeType(MIRType::BigInt)) {
+  if (MTruncateToInt32::mightHaveSideEffects(value)) {
     return InliningStatus_NotInlined;
   }
 
@@ -4016,10 +3998,18 @@ IonBuilder::InliningResult IonBuilder::inlineWasmCall(CallInfo& callInfo,
       inst.metadata(bestTier).lookupFuncExport(funcIndex);
   const wasm::FuncType& sig = funcExport.funcType();
 
+// Bug 1631656 - Don't try to inline with I64 args on 32-bit platforms because
+// it is more difficult (because it requires multiple LIR arguments per I64).
+#ifdef JS_64BIT
+  bool bigIntEnabled = inst.code().metadata().bigIntEnabled;
+#else
+  bool bigIntEnabled = false;
+#endif
+
   // Check that the function doesn't take or return non-compatible JS
   // argument types before adding nodes to the MIR graph, otherwise they'd be
   // dead code.
-  if (sig.hasI64ArgOrRet() ||
+  if ((sig.hasI64ArgOrRet() && !bigIntEnabled) ||
       sig.temporarilyUnsupportedReftypeForInlineEntry() ||
       !JitOptions.enableWasmIonFastCalls) {
     return InliningStatus_NotInlined;
@@ -4039,6 +4029,20 @@ IonBuilder::InliningResult IonBuilder::inlineWasmCall(CallInfo& callInfo,
   if (sig.results().length() > wasm::MaxResultsForJitInlineCall) {
     return InliningStatus_NotInlined;
   }
+
+  // Bug 1631650 - On 64-bit platforms, we give up inlining for I64 args
+  // spilled to the stack because it causes problems with register allocation.
+#if defined(ENABLE_WASM_BIGINT) && JS_BITS_PER_WORD == 64
+  if (sig.hasI64ArgOrRet()) {
+    ABIArgGenerator abi;
+    for (const auto& valType : sig.args()) {
+      ABIArg abiArg = abi.next(ToMIRType(valType));
+      if (abiArg.kind() == ABIArg::Stack) {
+        return InliningStatus_NotInlined;
+      }
+    }
+  }
+#endif
 
   auto* call = MIonToWasmCall::New(alloc(), inst.object(), funcExport);
   if (!call) {
@@ -4067,12 +4071,22 @@ IonBuilder::InliningResult IonBuilder::inlineWasmCall(CallInfo& callInfo,
       case wasm::ValType::I32:
         conversion = MTruncateToInt32::New(alloc(), arg);
         break;
+      case wasm::ValType::I64: {
+#ifdef ENABLE_WASM_BIGINT
+        conversion = MToInt64::New(alloc(), arg);
+        break;
+#else
+        MOZ_CRASH("impossible per above check");
+#endif
+      }
       case wasm::ValType::F32:
         conversion = MToFloat32::New(alloc(), arg);
         break;
       case wasm::ValType::F64:
         conversion = MToDouble::New(alloc(), arg);
         break;
+      case wasm::ValType::V128:
+        MOZ_CRASH("impossible per above check");
       case wasm::ValType::Ref:
         switch (sig.args()[i].refTypeKind()) {
           case wasm::RefType::Any:
@@ -4096,18 +4110,42 @@ IonBuilder::InliningResult IonBuilder::inlineWasmCall(CallInfo& callInfo,
             MOZ_CRASH("impossible per above check");
         }
         break;
-      case wasm::ValType::I64:
-        MOZ_CRASH("impossible per above check");
     }
 
     current->add(conversion);
     call->initArg(i, conversion);
   }
 
-  current->push(call);
   current->add(call);
 
+#ifdef ENABLE_WASM_BIGINT
+  // Add any post-function call conversions that are necessary.
+  MInstruction* postConversion = call;
+  const wasm::ValTypeVector& results = sig.results();
+  MOZ_ASSERT(results.length() <= 1, "Multi-value returns not supported.");
+  if (results.length() == 0) {
+    // No results to convert.
+  } else {
+    switch (results[0].kind()) {
+      case wasm::ValType::I64:
+        // Ion expects a BigInt from I64 types.
+        postConversion = MInt64ToBigInt::New(alloc(), call);
+
+        // Make non-movable so we can attach a resume point.
+        postConversion->setNotMovable();
+
+        current->add(postConversion);
+        break;
+      default:
+        break;
+    }
+  }
+  current->push(postConversion);
+  MOZ_TRY(resumeAfter(postConversion));
+#else
+  current->push(call);
   MOZ_TRY(resumeAfter(call));
+#endif
 
   callInfo.setImplicitlyUsedUnchecked();
 

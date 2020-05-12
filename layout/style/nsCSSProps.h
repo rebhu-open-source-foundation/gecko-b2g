@@ -123,6 +123,21 @@ class nsCSSProps {
       kSubpropertyTable[eCSSProperty_COUNT - eCSSProperty_COUNT_no_shorthands];
 
  public:
+  /**
+   * Returns true if the backdrop-filter pref and WebRender are enabled.
+   */
+  static bool IsBackdropFilterAvailable(JSContext*, JSObject*) {
+    return IsEnabled(eCSSProperty_backdrop_filter);
+  }
+
+  /**
+   * Recoumputes the enabled state of a pref. If aPrefName is nullptr,
+   * recomputes the state of all prefs in gPropertyEnabled.
+   * aClosure is the pref callback closure data, which is not used.
+   */
+  static void RecomputeEnabledState(const char* aPrefName,
+                                    void* aClosure = nullptr);
+
   static const nsCSSPropertyID* SubpropertyEntryFor(nsCSSPropertyID aProperty) {
     MOZ_ASSERT(eCSSProperty_COUNT_no_shorthands <= aProperty &&
                    aProperty < eCSSProperty_COUNT,

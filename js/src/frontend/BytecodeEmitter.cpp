@@ -114,12 +114,6 @@ BytecodeEmitter::BytecodeEmitter(BytecodeEmitter* parent, SharedContext* sc,
     // Functions have IC entries for type monitoring |this| and arguments.
     bytecodeSection().setNumICEntries(sc->asFunctionBox()->nargs() + 1);
   }
-
-  // TODO: standardize how "input" flags are initialized.
-  if (sc->isTopLevelContext()) {
-    bool isRunOnce = compilationInfo.options.isRunOnce;
-    sc->setTreatAsRunOnce(isRunOnce);
-  }
 }
 
 BytecodeEmitter::BytecodeEmitter(BytecodeEmitter* parent,
@@ -515,10 +509,6 @@ bool BytecodeEmitter::emitUnpickN(uint8_t n) {
 
 bool BytecodeEmitter::emitCheckIsObj(CheckIsObjectKind kind) {
   return emit2(JSOp::CheckIsObj, uint8_t(kind));
-}
-
-bool BytecodeEmitter::emitCheckIsCallable(CheckIsCallableKind kind) {
-  return emit2(JSOp::CheckIsCallable, uint8_t(kind));
 }
 
 /* Updates line number notes, not column notes. */
@@ -2443,27 +2433,12 @@ bool BytecodeEmitter::emitScript(ParseNode* body) {
     return false;
   }
 
-  RootedObject functionOrGlobal(cx);
-  if (sc->isFunctionBox()) {
-    functionOrGlobal = sc->asFunctionBox()->function();
-  } else {
-    functionOrGlobal = cx->global();
-  }
-
-  RootedScript script(
-      cx, JSScript::Create(cx, functionOrGlobal, compilationInfo.sourceObject,
-                           sc->getScriptExtent(), sc->immutableFlags()));
-  if (!script) {
-    return false;
-  }
-
+  // Create a Stencil and convert it into a JSScript.
+  SourceExtent extent = sc->getScriptExtent();
   BCEScriptStencil stencil(*this, std::move(immutableScriptData));
-  if (!JSScript::fullyInitFromStencil(cx, compilationInfo, script, stencil)) {
-    return false;
-  }
-  // Script is allocated now.
-  outputScript = script;
-  return true;
+  outputScript = stencil.intoScript(cx, compilationInfo, extent);
+
+  return !!outputScript;
 }
 
 js::UniquePtr<ImmutableScriptData> BytecodeEmitter::createImmutableScriptData(
@@ -5730,6 +5705,10 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitFunction(
       return false;
     }
 
+    // The function will become visible to script. Updates may need to be
+    // applied in FunctionBox::finish.
+    funbox->exposeScript = true;
+
     if (!funbox->emitBytecode) {
       return fe.emitLazy();
       //            [stack] FUN?
@@ -5739,13 +5718,6 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitFunction(
       //            [stack]
       return false;
     }
-
-    // Only propagate transitive compiler options (principals, version, etc)
-    // from the parent. The remaining values will use their defaults.
-    const JS::TransitiveCompileOptions& transitiveOptions = parser->options();
-    // Add input flags to funbox for JSSCript::Create call.
-    funbox->addToImmutableFlags(
-        ImmutableScriptFlags::fromCompileOptions(transitiveOptions));
 
     EmitterMode nestedMode = emitterMode;
     if (nestedMode == BytecodeEmitter::LazyFunction) {
@@ -5761,11 +5733,6 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitFunction(
     /* We measured the max scope depth when we parsed the function. */
     if (!bce2.emitFunctionScript(funNode, TopLevelFunction::No)) {
       return false;
-    }
-
-    // fieldInitializers are copied to the JSScript inside BytecodeEmitter
-    if (funbox->isLikelyConstructorWrapper()) {
-      bce2.getResultScript()->setIsLikelyConstructorWrapper();
     }
 
     if (!fe.emitNonLazyEnd()) {
@@ -6759,8 +6726,8 @@ bool BytecodeEmitter::emitExpressionStatement(UnaryNode* exprStmt) {
    */
   bool wantval = false;
   bool useful = false;
-  if (!sc->isFunctionBox()) {
-    useful = wantval = !parser->options().noScriptRval;
+  if (sc->isTopLevelContext()) {
+    useful = wantval = !sc->noScriptRval();
   }
 
   /* Don't eliminate expressions with side effects. */
@@ -9074,10 +9041,9 @@ const FieldInitializers& BytecodeEmitter::findFieldInitializersForCall() {
 
   for (AbstractScopePtrIter si(innermostScope()); si; si++) {
     if (si.abstractScopePtr().is<FunctionScope>()) {
-      JSFunction* fun = si.abstractScopePtr().canonicalFunction();
-      if (fun->isClassConstructor()) {
+      if (si.abstractScopePtr().isClassConstructor()) {
         const FieldInitializers& fieldInitializers =
-            fun->baseScript()->getFieldInitializers();
+            si.abstractScopePtr().fieldInitializers();
         MOZ_ASSERT(fieldInitializers.valid);
         return fieldInitializers;
       }
@@ -9736,7 +9702,7 @@ bool BytecodeEmitter::emitInitializeFunctionSpecialNames() {
   // Do nothing if the function doesn't have a this-binding (this
   // happens for instance if it doesn't use this/eval or if it's an
   // arrow function).
-  if (funbox->hasThisBinding()) {
+  if (funbox->functionHasThisBinding()) {
     if (!emitInitializeFunctionSpecialName(this, cx->names().dotThis,
                                            JSOp::FunctionThis)) {
       return false;

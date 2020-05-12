@@ -4,20 +4,30 @@
 from __future__ import absolute_import
 
 import time
-
-import pytest
 from datetime import datetime
-from mozunit import main
 from time import mktime
 
+import pytest
+from mozunit import main
+
+from taskgraph.optimize import seta
 from taskgraph.optimize.backstop import Backstop
 from taskgraph.optimize.bugbug import (
     BugBugPushSchedules,
-    BugbugTimeoutException,
     DisperseGroups,
     SkipUnlessDebug,
 )
 from taskgraph.task import Task
+from taskgraph.util.bugbug import (
+    BUGBUG_BASE_URL,
+    BugbugTimeoutException,
+    push_schedules,
+)
+
+
+@pytest.fixture(autouse=True)
+def clear_push_schedules_memoize():
+    push_schedules.clear()
 
 
 @pytest.fixture(scope='module')
@@ -151,6 +161,13 @@ def test_optimization_strategy(responses, params, opt, tasks, arg, expected):
         ['task-2'],
     ),
 
+    # tasks which are unknown to bugbug are selected
+    pytest.param(
+        (0.1,),
+        {'tasks': {'task-1': 0.9, 'task-3': 0.5}, 'known_tasks': ['task-1', 'task-3', 'task-4']},
+        ['task-2'],
+    ),
+
     # tasks containing groups selected
     pytest.param(
         (0.1,),
@@ -206,7 +223,7 @@ def test_optimization_strategy(responses, params, opt, tasks, arg, expected):
 ], ids=idfn)
 def test_bugbug_push_schedules(responses, params, args, data, expected):
     query = "/push/{branch}/{head_rev}/schedules".format(**params)
-    url = BugBugPushSchedules.BUGBUG_BASE_URL + query
+    url = BUGBUG_BASE_URL + query
 
     responses.add(
         responses.GET,
@@ -222,7 +239,7 @@ def test_bugbug_push_schedules(responses, params, args, data, expected):
 
 def test_bugbug_timeout(monkeypatch, responses, params):
     query = "/push/{branch}/{head_rev}/schedules".format(**params)
-    url = BugBugPushSchedules.BUGBUG_BASE_URL + query
+    url = BUGBUG_BASE_URL + query
     responses.add(
         responses.GET,
         url,
@@ -236,6 +253,26 @@ def test_bugbug_timeout(monkeypatch, responses, params):
     opt = BugBugPushSchedules(0.5)
     with pytest.raises(BugbugTimeoutException):
         opt.should_remove_task(default_tasks[0], params, None)
+
+
+def test_bugbug_fallback(monkeypatch, responses, params):
+    query = "/push/{branch}/{head_rev}/schedules".format(**params)
+    url = BUGBUG_BASE_URL + query
+    responses.add(
+        responses.GET,
+        url,
+        json={"ready": False},
+        status=202,
+    )
+
+    # Make sure the test runs fast.
+    monkeypatch.setattr(time, 'sleep', lambda i: None)
+
+    monkeypatch.setattr(seta, 'is_low_value_task', lambda l, p: l == default_tasks[0].label)
+
+    opt = BugBugPushSchedules(0.5, fallback=True)
+    assert opt.should_remove_task(default_tasks[0], params, None)
+    assert not opt.should_remove_task(default_tasks[1], params, None)
 
 
 def test_backstop(params):

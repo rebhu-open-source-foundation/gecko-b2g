@@ -12,6 +12,7 @@ import shutil
 from mozbuild.util import mkdir
 import mozpack.path as mozpath
 
+from mozperftest.utils import install_package
 from mozperftest.browser.noderunner import NodeRunner
 from mozperftest.browser.browsertime.setup import (
     system_prerequisites,
@@ -35,6 +36,7 @@ class BrowsertimeRunner(NodeRunner):
     arguments = {
         "cycles": {"type": int, "default": 1, "help": "Number of full cycles"},
         "iterations": {"type": int, "default": 1, "help": "Number of iterations"},
+        "geckodriver": {"type": str, "default": None, "help": "Path to geckodriver"},
         "binary": {
             "type": str,
             "default": None,
@@ -106,8 +108,7 @@ class BrowsertimeRunner(NodeRunner):
 
         # installing Python deps on the fly
         for dep in ("Pillow==%s" % PILLOW_VERSION, "pyssim==%s" % PYSSIM_VERSION):
-            if self._need_install(dep):
-                self.virtualenv_manager._run_pip(["install", dep])
+            install_package(self.virtualenv_manager, dep)
 
         # check if the browsertime package has been deployed correctly
         # for this we just check for the browsertime directory presence
@@ -249,6 +250,10 @@ class BrowsertimeRunner(NodeRunner):
                     )
                     return 1
 
+        geckodriver = self.get_arg("geckodriver")
+        if geckodriver is not None:
+            extra_args.extend(("--firefox.geckodriverPath", geckodriver))
+
         if extra_args:
             self.debug(
                 "Running browsertime with extra default arguments: {extra_args}",
@@ -266,7 +271,8 @@ class BrowsertimeRunner(NodeRunner):
             # Work around a `selenium-webdriver` issue where Browsertime
             # fails to find a Firefox binary even though we're going to
             # actually do things on an Android device.
-            # "--firefox.binaryPath", self.mach_cmd.get_binary_path(),
+            "--firefox.binaryPath",
+            self.node_path,
             "--firefox.android.package",
             app_name,
         ]
@@ -280,31 +286,32 @@ class BrowsertimeRunner(NodeRunner):
         self.setup()
         cycles = self.get_arg("cycles", 1)
         for cycle in range(1, cycles + 1):
+            # Build an output directory
+            output = self.get_arg("output")
+            if output is not None:
+                result_dir = pathlib.Path(output, f"browsertime-results-{cycle}")
+            else:
+                result_dir = pathlib.Path(
+                    self.topsrcdir, "artifacts", f"browsertime-results-{cycle}"
+                )
+            result_dir.mkdir(parents=True, exist_ok=True)
+            result_dir = result_dir.resolve()
+
+            # Run the test cycle
             metadata.run_hook("before_cycle", cycle=cycle)
             try:
-                metadata = self._one_cycle(metadata)
+                metadata = self._one_cycle(metadata, result_dir)
             finally:
                 metadata.run_hook("after_cycle", cycle=cycle)
         return metadata
 
-    def _one_cycle(self, metadata):
+    def _one_cycle(self, metadata, result_dir):
         profile = self.get_arg("profile-directory")
         test_script = self.get_arg("tests")[0]
-        output = self.get_arg("output")
-        if output is not None:
-            p = pathlib.Path(output)
-            p = p / "browsertime-results"
-            result_dir = str(p.resolve())
-        else:
-            result_dir = os.path.join(
-                self.topsrcdir, "artifacts", "browsertime-results"
-            )
-        if not os.path.exists(result_dir):
-            os.makedirs(result_dir, exist_ok=True)
 
         args = [
             "--resultDir",
-            result_dir,
+            str(result_dir),
             "--firefox.profileTemplate",
             profile,
             "--iterations",
@@ -335,5 +342,5 @@ class BrowsertimeRunner(NodeRunner):
         command = [self.browsertime_js] + extra + args
         self.info("Running browsertime with this command %s" % " ".join(command))
         self.node(command)
-        metadata.set_result(result_dir)
+        metadata.add_result({"results": str(result_dir), "name": "browsertime"})
         return metadata

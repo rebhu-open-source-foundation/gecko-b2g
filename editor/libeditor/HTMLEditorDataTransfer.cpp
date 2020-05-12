@@ -131,7 +131,7 @@ nsresult HTMLEditor::LoadHTML(const nsAString& aInputString) {
   }
 
   // Get the first range in the selection, for context:
-  RefPtr<nsRange> range = SelectionRefPtr()->GetRangeAt(0);
+  RefPtr<const nsRange> range = SelectionRefPtr()->GetRangeAt(0);
   if (NS_WARN_IF(!range)) {
     return NS_ERROR_FAILURE;
   }
@@ -312,7 +312,7 @@ nsresult HTMLEditor::DoInsertHTMLWithContext(
   if (!cellSelectionMode) {
     rv = DeleteSelectionAndPrepareToCreateNode();
     if (NS_FAILED(rv)) {
-      NS_WARNING("TextEditor::DeleteSelectionAndPrepareToCreateNode() failed");
+      NS_WARNING("HTMLEditor::DeleteSelectionAndPrepareToCreateNode() failed");
       return rv;
     }
 
@@ -420,13 +420,13 @@ nsresult HTMLEditor::DoInsertHTMLWithContext(
         MOZ_KnownLive(*pointToInsert.GetContainerAsContent()), pointToInsert,
         SplitAtEdges::eAllowToCreateEmptyContainer);
     if (splitNodeResult.Failed()) {
-      NS_WARNING("EditorBase::SplitNodeDeepWithTransaction() failed");
+      NS_WARNING("HTMLEditor::SplitNodeDeepWithTransaction() failed");
       return splitNodeResult.Rv();
     }
     pointToInsert = splitNodeResult.SplitPoint();
     if (!pointToInsert.IsSet()) {
       NS_WARNING(
-          "EditorBase::SplitNodeDeepWithTransaction() didn't return split "
+          "HTMLEditor::SplitNodeDeepWithTransaction() didn't return split "
           "point");
       return NS_ERROR_FAILURE;
     }
@@ -760,7 +760,7 @@ nsresult HTMLEditor::DoInsertHTMLWithContext(
       *linkElement, pointToPutCaret, SplitAtEdges::eDoNotCreateEmptyContainer);
   NS_WARNING_ASSERTION(
       splitLinkResult.Succeeded(),
-      "EditorBase::SplitNodeDeepWithTransaction() failed, but ignored");
+      "HTMLEditor::SplitNodeDeepWithTransaction() failed, but ignored");
   if (splitLinkResult.GetPreviousNode()) {
     EditorRawDOMPoint afterLeftLink(splitLinkResult.GetPreviousNode());
     if (afterLeftLink.AdvanceOffset()) {
@@ -2096,7 +2096,7 @@ nsresult HTMLEditor::PasteAsQuotationAsAction(int32_t aClipboardType,
       DeleteSelectionAndCreateElement(*nsGkAtoms::blockquote);
   if (!newBlockquoteElement) {
     NS_WARNING(
-        "TextEditor::DeleteSelectionAndCreateElement(nsGkAtoms::blockquote) "
+        "HTMLEditor::DeleteSelectionAndCreateElement(nsGkAtoms::blockquote) "
         "failed");
     return NS_ERROR_FAILURE;
   }
@@ -2494,7 +2494,7 @@ nsresult HTMLEditor::InsertAsPlaintextQuotation(const nsAString& aQuotedText,
       DeleteSelectionAndCreateElement(*nsGkAtoms::span);
   NS_WARNING_ASSERTION(
       newSpanElement,
-      "TextEditor::DeleteSelectionAndCreateElement() failed, but ignored");
+      "HTMLEditor::DeleteSelectionAndCreateElement() failed, but ignored");
 
   // If this succeeded, then set selection inside the pre
   // so the inserted text will end up there.
@@ -2742,7 +2742,7 @@ nsresult HTMLEditor::InsertAsCitedQuotationInternal(
   }
   if (!newBlockquoteElement) {
     NS_WARNING(
-        "TextEditor::DeleteSelectionAndCreateElement(nsGkAtoms::blockquote) "
+        "HTMLEditor::DeleteSelectionAndCreateElement(nsGkAtoms::blockquote) "
         "failed");
     return NS_ERROR_FAILURE;
   }

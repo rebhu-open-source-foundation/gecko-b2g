@@ -16,6 +16,7 @@
 #include "mozilla/LoadInfo.h"
 #include "mozilla/Logging.h"
 #include "mozilla/MemoryReporting.h"
+#include "mozilla/PreloadHashKey.h"
 #include "mozilla/ResultExtensions.h"
 #include "mozilla/SchedulerGroup.h"
 #include "mozilla/URLPreloader.h"
@@ -434,6 +435,10 @@ void SheetLoadData::ScheduleLoadEventIfNeeded() {
  * Style sheet reuse *
  *********************/
 
+static RefPtr<StyleSheet> CloneSheet(StyleSheet& aSheet) {
+  return aSheet.Clone(nullptr, nullptr, nullptr, nullptr);
+}
+
 bool LoaderReusableStyleSheets::FindReusableStyleSheet(
     nsIURI* aURL, RefPtr<StyleSheet>& aResult) {
   MOZ_ASSERT(aURL);
@@ -511,10 +516,6 @@ static void AssertIncompleteSheetMatches(const SheetLoadData& aData,
 
 auto Loader::Sheets::Lookup(SheetLoadDataHashKey& aKey, bool aSyncLoad)
     -> CacheResult {
-  auto CloneSheet = [](StyleSheet& aSheet) -> RefPtr<StyleSheet> {
-    return aSheet.Clone(nullptr, nullptr, nullptr, nullptr);
-  };
-
   nsIURI* uri = aKey.GetURI();
   // Try to find first in the XUL prototype cache.
 #ifdef MOZ_XUL
@@ -1551,9 +1552,8 @@ nsresult Loader::LoadSheet(SheetLoadData& aLoadData, SheetState aSheetState,
       cos->AddClassFlags(nsIClassOfService::Leader);
     }
     if (aIsPreload == IsPreload::FromLink) {
-      if (nsCOMPtr<nsISupportsPriority> sp = do_QueryInterface(channel)) {
-        sp->AdjustPriority(nsISupportsPriority::PRIORITY_HIGHEST);
-      }
+      StreamLoader::PrioritizeAsPreload(channel);
+      StreamLoader::AddLoadBackgroundFlag(channel);
     }
   }
 
@@ -1644,6 +1644,10 @@ nsresult Loader::LoadSheet(SheetLoadData& aLoadData, SheetState aSheetState,
 
   mSheets->mLoadingDatas.Put(&key, &aLoadData);
   aLoadData.mIsLoading = true;
+
+  auto preloadKey = PreloadHashKey::CreateAsStyle(aLoadData);
+  streamLoader->NotifyOpen(&preloadKey, channel, mDocument,
+                           aIsPreload == IsPreload::FromLink);
 
   return NS_OK;
 }
@@ -1853,7 +1857,14 @@ void Loader::DoSheetComplete(SheetLoadData& aLoadData,
           LOG(("  Putting sheet in XUL prototype cache"));
           NS_ASSERTION(sheet->IsComplete(),
                        "Should only be caching complete sheets");
-          cache->PutStyleSheet(sheet);
+          // We need to clone the sheet on insertion to the cache because
+          // if the original sheet has a cyclic reference this can cause
+          // leaks until shutdown since the global cache is not cycle-collected
+
+          // NOTE: If we stop cloning sheets before insertion, we need to change
+          // nsXULPrototypeCache::CollectMemoryReports() to stop using
+          // SizeOfIncludingThis() because it will no longer own the sheets.
+          cache->PutStyleSheet(CloneSheet(*sheet));
         }
       }
     } else {

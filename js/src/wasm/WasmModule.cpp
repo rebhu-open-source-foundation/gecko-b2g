@@ -811,7 +811,9 @@ bool Module::instantiateLocalTable(JSContext* cx, const TableDesc& td,
   SharedTable table;
   Rooted<WasmTableObject*> tableObj(cx);
   if (td.importedOrExported) {
-    tableObj.set(WasmTableObject::create(cx, td.limits, td.kind));
+    RootedObject proto(
+        cx, &cx->global()->getPrototype(JSProto_WasmTable).toObject());
+    tableObj.set(WasmTableObject::create(cx, td.limits, td.kind, proto));
     if (!tableObj) {
       return false;
     }
@@ -882,8 +884,10 @@ static bool EnsureExportedGlobalObject(JSContext* cx,
     val.set(Val(global.type()));
   }
 
+  RootedObject proto(
+      cx, &cx->global()->getPrototype(JSProto_WasmGlobal).toObject());
   RootedWasmGlobalObject go(
-      cx, WasmGlobalObject::create(cx, val, global.isMutable()));
+      cx, WasmGlobalObject::create(cx, val, global.isMutable(), proto));
   if (!go) {
     return false;
   }
@@ -1190,6 +1194,14 @@ static bool MakeStructField(JSContext* cx, const ValType& v, bool isMutable,
       t = GlobalObject::getOrCreateScalarTypeDescr(cx, cx->global(),
                                                    Scalar::Int32);
       break;
+    case ValType::V128:
+      // Align for v128 but allocate only an int32, three more int32 allocations
+      // will follow immediately.  JS will see four immutable int32 values but
+      // wasm knows it's a single v128.  See makeStructTypeDescrs(), below.
+      props.alignAsV128 = true;
+      t = GlobalObject::getOrCreateScalarTypeDescr(cx, cx->global(),
+                                                   Scalar::Int32);
+      break;
     case ValType::F32:
       t = GlobalObject::getOrCreateScalarTypeDescr(cx, cx->global(),
                                                    Scalar::Float32);
@@ -1286,6 +1298,28 @@ bool Module::makeStructTypeDescrs(
         }
         if (!MakeStructField(cx, ValType::I32, sf.isMutable, "_%d_high", k++,
                              &ids, &fieldTypeObjs, &fieldProps)) {
+          return false;
+        }
+      } else if (v.kind() == ValType::V128) {
+        // Ditto v128 fields.  These turn into four adjacent i32 fields, using
+        // the standard xyzw convention.
+        sf.isMutable = false;
+        allowConstruct = false;
+
+        if (!MakeStructField(cx, ValType::V128, sf.isMutable, "_%d_x", k, &ids,
+                             &fieldTypeObjs, &fieldProps)) {
+          return false;
+        }
+        if (!MakeStructField(cx, ValType::I32, sf.isMutable, "_%d_y", k, &ids,
+                             &fieldTypeObjs, &fieldProps)) {
+          return false;
+        }
+        if (!MakeStructField(cx, ValType::I32, sf.isMutable, "_%d_z", k, &ids,
+                             &fieldTypeObjs, &fieldProps)) {
+          return false;
+        }
+        if (!MakeStructField(cx, ValType::I32, sf.isMutable, "_%d_w", k++, &ids,
+                             &fieldTypeObjs, &fieldProps)) {
           return false;
         }
       } else {

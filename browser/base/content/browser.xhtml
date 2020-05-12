@@ -558,22 +558,23 @@
       </panelmultiview>
     </panel>
 
-    <panel id="confirmation-hint"
-           role="alert"
-           type="arrow"
-           hidden="true"
-           flip="slide"
-           position="bottomcenter topright"
-           tabspecific="true"
-           noautofocus="true">
-      <hbox id="confirmation-hint-checkmark-animation-container">
-       <image id="confirmation-hint-checkmark-image"/>
-      </hbox>
-      <vbox id="confirmation-hint-message-container">
-       <label id="confirmation-hint-message"/>
-       <label id="confirmation-hint-description"/>
-      </vbox>
-    </panel>
+    <html:template id="confirmation-hint-wrapper">
+      <panel id="confirmation-hint"
+             role="alert"
+             type="arrow"
+             flip="slide"
+             position="bottomcenter topright"
+             tabspecific="true"
+             noautofocus="true">
+        <hbox id="confirmation-hint-checkmark-animation-container">
+         <image id="confirmation-hint-checkmark-image"/>
+        </hbox>
+        <vbox id="confirmation-hint-message-container">
+         <label id="confirmation-hint-message"/>
+         <label id="confirmation-hint-description"/>
+        </vbox>
+      </panel>
+    </html:template>
 
     <menupopup id="pageActionContextMenu"
                onpopupshowing="BrowserPageActions.onContextMenuShowing(event, this);">
@@ -618,6 +619,7 @@
 #include ../../components/controlcenter/content/identityPanel.inc.xhtml
 #include ../../components/controlcenter/content/protectionsPanel.inc.xhtml
 #include ../../components/downloads/content/downloadsPanel.inc.xhtml
+#include ../../../devtools/startup/enableDevToolsPopup.inc.xhtml
 #include browser-allTabsMenu.inc.xhtml
 
     <hbox id="downloads-animation-container">
@@ -728,6 +730,7 @@
             <tabs id="tabbrowser-tabs"
                   is="tabbrowser-tabs"
                   flex="1"
+                  aria-multiselectable="true"
                   setfocus="false"
                   tooltip="tabbrowser-tab-tooltip"
                   stopwatchid="FX_TAB_CLICK_MS">
@@ -1036,20 +1039,12 @@
                        tooltiptext="&pageActionButton.tooltip;"
                        onmousedown="BrowserPageActions.mainButtonClicked(event);"
                        onkeypress="BrowserPageActions.mainButtonClicked(event);"/>
-                <hbox id="pocket-button-box"
-                      hidden="true"
-                      class="urlbar-icon-wrapper urlbar-page-action"
-                      onclick="BrowserPageActions.doCommandForAction(PageActions.actionForID('pocket'), event, this);">
-                  <image id="pocket-button"
-                         class="urlbar-icon"
-                         tooltiptext="&pocketButton.tooltiptext;"
-                         role="button"/>
-                  <hbox id="pocket-button-animatable-box">
-                    <image id="pocket-button-animatable-image"
-                           tooltiptext="&pocketButton.tooltiptext;"
-                           role="presentation"/>
-                  </hbox>
-                </hbox>
+                <image id="pocket-button"
+                       class="urlbar-icon urlbar-page-action"
+                       tooltiptext="&pocketButton.tooltiptext;"
+                       role="button"
+                       hidden="true"
+                       onclick="BrowserPageActions.doCommandForAction(PageActions.actionForID('pocket'), event, this);"/>
                 <hbox id="star-button-box"
                       hidden="true"
                       class="urlbar-icon-wrapper urlbar-page-action"
@@ -1398,9 +1393,11 @@
     <vbox id="browser-border-end" hidden="true" layer="true"/>
   </hbox>
 
-  <box id="customization-container" flex="1" hidden="true"><![CDATA[
+  <html:template id="customizationPanel">
+    <box id="customization-container" flex="1" hidden="true"><![CDATA[
 #include ../../components/customizableui/content/customizeMode.inc.xhtml
-  ]]></box>
+    ]]></box>
+  </html:template>
 
   <html:div id="fullscreen-and-pointerlock-wrapper">
     <html:div id="fullscreen-warning" class="pointerlockfswarning" hidden="true">

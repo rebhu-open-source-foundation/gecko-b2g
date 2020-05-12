@@ -57,6 +57,7 @@
 #include "mozilla/HashTable.h"
 #include "mozilla/LinkedList.h"
 #include "mozilla/NotNull.h"
+#include "mozilla/PreloadService.h"
 #include "mozilla/SegmentedVector.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/UniquePtr.h"
@@ -581,7 +582,7 @@ class Document : public nsINode,
   // checks to ensure that the intrinsic storage principal should really be
   // used here.  It is only designed to be used in very specific circumstances,
   // such as when inheriting the document/storage principal.
-  nsIPrincipal* IntrinsicStoragePrincipal() const {
+  nsIPrincipal* IntrinsicStoragePrincipal() final {
     return mIntrinsicStoragePrincipal;
   }
 
@@ -1138,6 +1139,11 @@ class Document : public nsINode,
    */
   uint32_t GetSandboxFlags() const { return mSandboxFlags; }
 
+  Maybe<nsILoadInfo::CrossOriginEmbedderPolicy> GetEmbedderPolicyFromHTTP()
+      const {
+    return mEmbedderPolicyFromHTTP;
+  }
+
   /**
    * Get string representation of sandbox flags (null if no flags are set)
    */
@@ -1522,10 +1528,13 @@ class Document : public nsINode,
   // parser inserted form control element.
   int32_t GetNextControlNumber() { return mNextControlNumber++; }
 
+  PreloadService& Preloads() { return mPreloadService; }
+
  protected:
   friend class nsUnblockOnloadEvent;
 
   nsresult InitCSP(nsIChannel* aChannel);
+  nsresult InitCOEP(nsIChannel* aChannel);
 
   nsresult InitFeaturePolicy(nsIChannel* aChannel);
 
@@ -1894,6 +1903,13 @@ class Document : public nsINode,
   void RequestFullscreen(UniquePtr<FullscreenRequest> aRequest,
                          bool applyFullScreenDirectly = false);
 
+ private:
+  void RequestFullscreenInContentProcess(UniquePtr<FullscreenRequest> aRequest,
+                                         bool applyFullScreenDirectly);
+  void RequestFullscreenInParentProcess(UniquePtr<FullscreenRequest> aRequest,
+                                        bool applyFullScreenDirectly);
+
+ public:
   // Removes all the elements with fullscreen flag set from the top layer, and
   // clears their fullscreen flag.
   void CleanupFullscreenState();
@@ -2897,7 +2913,11 @@ class Document : public nsINode,
    * when this image is for loading <picture> or <img srcset> images.
    */
   void MaybePreLoadImage(nsIURI* uri, const nsAString& aCrossOriginAttr,
-                         ReferrerPolicyEnum aReferrerPolicy, bool aIsImgSet);
+                         ReferrerPolicyEnum aReferrerPolicy, bool aIsImgSet,
+                         bool aLinkPreload);
+  void PreLoadImage(nsIURI* uri, const nsAString& aCrossOriginAttr,
+                    ReferrerPolicyEnum aReferrerPolicy, bool aIsImgSet,
+                    bool aLinkPreload);
 
   /**
    * Called by images to forget an image preload when they start doing
@@ -3715,11 +3735,8 @@ class Document : public nsINode,
    * the document element.
    * In XUL it happens at `DoneWalking`, during
    * `MozBeforeInitialXULLayout`.
-   *
-   * It triggers the initial translation of the
-   * document.
    */
-  void TriggerInitialDocumentTranslation();
+  void OnParsingCompleted();
 
   /**
    * This method is called when the initial translation
@@ -3727,7 +3744,7 @@ class Document : public nsINode,
    *
    * It unblocks the load event if translation was blocking it.
    */
-  void InitialDocumentTranslationCompleted();
+  void InitialTranslationCompleted();
 
   /**
    * Returns whether the document allows localization.
@@ -3747,7 +3764,7 @@ class Document : public nsINode,
  private:
   bool IsErrorPage() const;
 
-  void InitializeLocalization(Sequence<nsString>& aResourceIds);
+  void EnsureL10n();
 
   // Takes the bits from mStyleUseCounters if appropriate, and sets them in
   // mUseCounters.
@@ -3772,8 +3789,6 @@ class Document : public nsINode,
   already_AddRefed<mozilla::dom::FeaturePolicy> GetParentFeaturePolicy();
 
   FlashClassification DocumentFlashClassificationInternal();
-
-  Sequence<nsString> mL10nResources;
 
   // The application cache that this document is associated with, if
   // any.  This can change during the lifetime of the document.
@@ -4199,10 +4214,6 @@ class Document : public nsINode,
   typedef MozPromise<bool, bool, true> AutomaticStorageAccessGrantPromise;
   MOZ_MUST_USE RefPtr<AutomaticStorageAccessGrantPromise>
   AutomaticStorageAccessCanBeGranted();
-
-  // This should *ONLY* be used in GetCookie/SetCookie.
-  already_AddRefed<nsIChannel> CreateDummyChannelForCookies(
-      nsIURI* aContentURI);
 
   static void AddToplevelLoadingDocument(Document* aDoc);
   static void RemoveToplevelLoadingDocument(Document* aDoc);
@@ -4700,6 +4711,9 @@ class Document : public nsINode,
   // possible flags.
   uint32_t mSandboxFlags;
 
+  // The embedder policy obtained from parsing the HTTP response header.
+  Maybe<nsILoadInfo::CrossOriginEmbedderPolicy> mEmbedderPolicyFromHTTP;
+
   nsCString mContentLanguage;
 
   // The channel that got passed to Document::StartDocumentLoad(), if any.
@@ -5064,8 +5078,6 @@ class Document : public nsINode,
   // Pres shell resolution saved before creating a MobileViewportManager.
   float mSavedResolutionBeforeMVM;
 
-  bool mPendingInitialTranslation;
-
   nsCOMPtr<nsICookieJarSettings> mCookieJarSettings;
 
   bool mHasStoragePermission;
@@ -5092,11 +5104,14 @@ class Document : public nsINode,
   int32_t mNextFormNumber;
   int32_t mNextControlNumber;
 
+  // Scope preloads per document.  This is used by speculative loading as well.
+  PreloadService mPreloadService;
+
  public:
   // Needs to be public because the bindings code pokes at it.
   js::ExpandoAndGeneration mExpandoAndGeneration;
 
-  bool HasPendingInitialTranslation() { return mPendingInitialTranslation; }
+  bool HasPendingInitialTranslation();
 
   nsRefPtrHashtable<nsRefPtrHashKey<Element>, nsXULPrototypeElement>
       mL10nProtoElements;

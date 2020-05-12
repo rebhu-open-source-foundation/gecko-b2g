@@ -37,6 +37,8 @@ const {
 
 // Enable the Accessibility panel
 Services.prefs.setBoolPref("devtools.accessibility.enabled", true);
+// Disable auto-init
+Services.prefs.setBoolPref("devtools.accessibility.auto-init.enabled", false);
 
 const SIMULATION_MENU_BUTTON_ID = "#simulation-menu-button";
 const TREE_FILTERS_MENU_ID = "accessibility-tree-filters-menu";
@@ -105,6 +107,7 @@ function shutdownA11y() {
 registerCleanupFunction(async () => {
   info("Cleaning up...");
   await shutdownA11y();
+  Services.prefs.clearUserPref("devtools.accessibility.auto-init.enabled");
   Services.prefs.clearUserPref("devtools.accessibility.enabled");
 });
 
@@ -317,10 +320,13 @@ function relationsMatch(relations, expected) {
     let expTargets = expected[relationType];
     expTargets = Array.isArray(expTargets) ? expTargets : [expTargets];
 
-    let targets = relations[relationType];
+    let targets = relations ? relations[relationType] : [];
     targets = Array.isArray(targets) ? targets : [targets];
 
     for (const index in expTargets) {
+      if (!targets[index]) {
+        return false;
+      }
       if (
         expTargets[index].name !== targets[index].name ||
         expTargets[index].role !== targets[index].role
@@ -627,9 +633,14 @@ async function toggleMenuItem(doc, toolboxDoc, menuId, menuItemIndex) {
     menuItem.getAttribute("aria-checked") === "true" ? null : "true";
 
   // Make the menu visible first.
+  const onPopupShown = new Promise(r =>
+    toolboxDoc.addEventListener("popupshown", r, { once: true })
+  );
   EventUtils.synthesizeMouseAtCenter(menuButton, {}, panelWin);
-  await BrowserTestUtils.waitForCondition(
-    () => !!menuItem.offsetParent,
+  await onPopupShown;
+  const boundingRect = menuItem.getBoundingClientRect();
+  ok(
+    boundingRect.width > 0 && boundingRect.height > 0,
     "Menu item is visible."
   );
 

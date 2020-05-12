@@ -72,19 +72,39 @@ class SmooshScriptStencil : public ScriptStencil {
                          UniquePtr<ImmutableScriptData> immutableData) {
     natoms = result_.atoms.len;
 
+    // A global script is a top-level context.
+    bool isTopLevelContext = true;
+    const JS::ReadOnlyCompileOptions& options = compilationInfo_.options;
+
+    // The "input" flags are derived from options.
+    immutableFlags.setFlag(ImmutableFlags::IsForEval, result_.is_for_eval);
+    immutableFlags.setFlag(ImmutableFlags::IsModule, result_.is_module);
+    immutableFlags.setFlag(ImmutableFlags::IsFunction, false);
+    immutableFlags.setFlag(ImmutableFlags::SelfHosted, options.selfHostingMode);
+    immutableFlags.setFlag(ImmutableFlags::ForceStrict,
+                           options.forceStrictMode());
+    immutableFlags.setFlag(ImmutableFlags::HasNonSyntacticScope,
+                           result_.has_non_syntactic_scope);
+    if (isTopLevelContext) {
+      immutableFlags.setFlag(ImmutableFlags::NoScriptRval,
+                             options.noScriptRval);
+      immutableFlags.setFlag(ImmutableFlags::TreatAsRunOnce, options.isRunOnce);
+    }
+
+    // The parser-generated flags.
     immutableFlags.setFlag(ImmutableFlags::Strict, result_.strict);
+    immutableFlags.setFlag(ImmutableFlags::HasModuleGoal,
+                           result_.has_module_goal);
+    immutableFlags.setFlag(ImmutableFlags::HasInnerFunctions, false);
+    immutableFlags.setFlag(ImmutableFlags::HasDirectEval, false);
     immutableFlags.setFlag(ImmutableFlags::BindingsAccessedDynamically,
                            result_.bindings_accessed_dynamically);
     immutableFlags.setFlag(ImmutableFlags::HasCallSiteObj,
                            result_.has_call_site_obj);
-    immutableFlags.setFlag(ImmutableFlags::IsForEval, result_.is_for_eval);
-    immutableFlags.setFlag(ImmutableFlags::IsModule, result_.is_module);
-    immutableFlags.setFlag(ImmutableFlags::HasNonSyntacticScope,
-                           result_.has_non_syntactic_scope);
+
+    // TODO: The parser-generated flags for functions.
     immutableFlags.setFlag(ImmutableFlags::NeedsFunctionEnvironmentObjects,
                            result_.needs_function_environment_objects);
-    immutableFlags.setFlag(ImmutableFlags::HasModuleGoal,
-                           result_.has_module_goal);
 
     immutableScriptData = std::move(immutableData);
 
@@ -105,11 +125,6 @@ class SmooshScriptStencil : public ScriptStencil {
     }
 
     return true;
-  }
-
-  virtual bool finishGCThings(
-      JSContext* cx, mozilla::Span<JS::GCCellPtr> output) const override {
-    return EmitScriptThingsVector(cx, compilationInfo_, gcThings, output);
   }
 
   virtual void initAtomMap(GCPtrAtom* atoms) const override {
@@ -168,9 +183,6 @@ class SmooshScriptStencil : public ScriptStencil {
 
     return true;
   }
-
- public:
-  virtual void finishInnerFunctions() const override {}
 
  private:
   // Fill `compilationInfo_.scopeCreationData` with scope data, where
@@ -402,23 +414,6 @@ JSScript* Smoosh::compileGlobalScript(CompilationInfo& compilationInfo,
 
   *unimplemented = false;
 
-  RootedScriptSourceObject sso(cx,
-                               frontend::CreateScriptSourceObject(cx, options));
-  if (!sso) {
-    return nullptr;
-  }
-
-  RootedObject proto(cx);
-  if (!GetFunctionPrototype(cx, GeneratorKind::NotGenerator,
-                            FunctionAsyncKind::SyncFunction, &proto)) {
-    return nullptr;
-  }
-
-  SourceExtent extent = SourceExtent::makeGlobalExtent(length);
-  RootedScript script(
-      cx, JSScript::Create(cx, cx->global(), sso, extent,
-                           ImmutableScriptFlags::fromCompileOptions(options)));
-
   Vector<ScopeNote, 0, SystemAllocPolicy> scopeNotes;
   if (!scopeNotes.resize(smoosh.scope_notes.len)) {
     return nullptr;
@@ -452,12 +447,14 @@ JSScript* Smoosh::compileGlobalScript(CompilationInfo& compilationInfo,
     return nullptr;
   }
 
+  SourceExtent extent = SourceExtent::makeGlobalExtent(length);
   SmooshScriptStencil stencil(smoosh, compilationInfo);
   if (!stencil.init(cx, std::move(immutableScriptData))) {
     return nullptr;
   }
 
-  if (!JSScript::fullyInitFromStencil(cx, compilationInfo, script, stencil)) {
+  RootedScript script(cx, stencil.intoScript(cx, compilationInfo, extent));
+  if (!script) {
     return nullptr;
   }
 

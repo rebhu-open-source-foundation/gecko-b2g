@@ -211,30 +211,40 @@ function maybeReportErrorToGecko(error) {
  */
 class Localization {
   /**
-   * @param {Array<String>} resourceIds         - List of resource IDs
+   * `Activate` has to be called for this object to be usable.
    *
    * @returns {Localization}
    */
-  constructor(resourceIds = []) {
-    this.resourceIds = resourceIds;
-    this.generateBundles = defaultGenerateBundles;
-    this.generateBundlesSync = defaultGenerateBundlesSync;
+  constructor() {
+    this.resourceIds = [];
+    this.generateBundles = undefined;
+    this.generateBundlesSync = undefined;
+    this.isSync = undefined;
+    this.bundles = undefined;
   }
 
-  setGenerateBundles(generateBundles) {
+  /**
+   * Activate the instance of the `Localization` class.
+   *
+   * @param {bool}                    sync - Whether the instance should be
+   *                                         synchronous.
+   * @param {bool}                   eager - Whether the initial bundles should be
+   *                                         fetched eagerly.
+   * @param {Function}     generateBundles - Custom FluentBundle asynchronous generator.
+   * @param {Function} generateBundlesSync - Custom FluentBundle generator.
+   */
+  activate(sync, eager, generateBundles = defaultGenerateBundles, generateBundlesSync = defaultGenerateBundlesSync) {
+    if (this.bundles) {
+      throw new Error("Attempt to initialize an already initialized instance.");
+    }
     this.generateBundles = generateBundles;
-  }
-
-  setGenerateBundlesSync(generateBundlesSync) {
     this.generateBundlesSync = generateBundlesSync;
+    this.isSync = sync;
+    this.regenerateBundles(eager);
   }
 
   setIsSync(isSync) {
     this.isSync = isSync;
-  }
-
-  init(eager = false) {
-    this.onChange(eager);
   }
 
   cached(iterable) {
@@ -246,16 +256,35 @@ class Localization {
   }
 
   /**
-   * @param {Array<String>} resourceIds - List of resource IDs
-   * @param {bool}                eager - whether the I/O for new context should
-   *                                      begin eagerly
+   * @param {String} resourceId - Resource IDs
    */
-  addResourceIds(resourceIds, eager = false) {
-    this.resourceIds.push(...resourceIds);
-    this.onChange(eager);
+  addResourceId(resourceId) {
+    this.resourceIds.push(resourceId);
+    this.onChange();
     return this.resourceIds.length;
   }
 
+  /**
+   * @param {String} resourceId - Resource IDs
+   */
+  removeResourceId(resourceId) {
+    this.resourceIds = this.resourceIds.filter(r => r !== resourceId);
+    this.onChange();
+    return this.resourceIds.length;
+  }
+
+  /**
+   * @param {Array<String>} resourceIds - List of resource IDs
+   */
+  addResourceIds(resourceIds) {
+    this.resourceIds.push(...resourceIds);
+    this.onChange();
+    return this.resourceIds.length;
+  }
+
+  /**
+   * @param {Array<String>} resourceIds - List of resource IDs
+   */
   removeResourceIds(resourceIds) {
     this.resourceIds = this.resourceIds.filter(r => !resourceIds.includes(r));
     this.onChange();
@@ -275,6 +304,9 @@ class Localization {
    * @private
    */
   async formatWithFallback(keys, method) {
+    if (!this.bundles) {
+      throw new Error("Attempt to format on an uninitialized instance.");
+    }
     const translations = new Array(keys.length).fill(null);
     let hasAtLeastOneBundle = false;
 
@@ -314,6 +346,10 @@ class Localization {
     if (!this.isSync) {
       throw new Error("Can't use sync formatWithFallback when state is async.");
     }
+    if (!this.bundles) {
+      throw new Error("Attempt to format on an uninitialized instance.");
+    }
+
     const translations = new Array(keys.length).fill(null);
     let hasAtLeastOneBundle = false;
 
@@ -489,13 +525,19 @@ class Localization {
     }
   }
 
+  onChange() {
+    if (this.bundles) {
+      this.regenerateBundles(false);
+    }
+  }
+
   /**
    * This method should be called when there's a reason to believe
    * that language negotiation or available resources changed.
    *
    * @param {bool} eager - whether the I/O for new context should begin eagerly
    */
-  onChange(eager = false) {
+  regenerateBundles(eager = false) {
     let generateMessages = this.isSync ? this.generateBundlesSync : this.generateBundles;
     this.bundles = this.cached(generateMessages(this.resourceIds));
     if (eager) {
@@ -639,8 +681,8 @@ function keysFromBundle(method, bundle, keys, translations) {
  * Helper function which allows us to construct a new
  * Localization from Localization.
  */
-var getLocalization = (resourceIds) => {
-  return new Localization(resourceIds);
+var getLocalization = () => {
+  return new Localization();
 };
 
 this.Localization = Localization;

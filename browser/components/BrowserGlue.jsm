@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 var EXPORTED_SYMBOLS = [
+  "AboutHomeStartupCache",
   "BrowserGlue",
   "ContentPermissionPrompt",
   "DefaultBrowserCheck",
@@ -48,6 +49,12 @@ ChromeUtils.defineModuleGetter(
   "resource://gre/modules/NetUtil.jsm"
 );
 
+ChromeUtils.defineModuleGetter(
+  this,
+  "DeferredTask",
+  "resource://gre/modules/DeferredTask.jsm"
+);
+
 XPCOMUtils.defineLazyServiceGetter(
   this,
   "PushService",
@@ -55,7 +62,7 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIPushService"
 );
 
-const PREF_PDFJS_ENABLED_CACHE_STATE = "pdfjs.enabledCache.state";
+const PREF_PDFJS_ISDEFAULT_CACHE_STATE = "pdfjs.enabledCache.state";
 
 /**
  * Fission-compatible JSWindowActor implementations.
@@ -103,6 +110,66 @@ let ACTORS = {
     // that is used for snippets debugging.
     matches: ["about:home", "about:welcome", "about:newtab*"],
     remoteTypes: ["privilegedabout"],
+  },
+
+  AboutPlugins: {
+    parent: {
+      moduleURI: "resource:///actors/AboutPluginsParent.jsm",
+    },
+    child: {
+      moduleURI: "resource:///actors/AboutPluginsChild.jsm",
+
+      events: {
+        DOMWindowCreated: { capture: true },
+      },
+    },
+
+    matches: ["about:plugins"],
+  },
+
+  AboutPrivateBrowsing: {
+    parent: {
+      moduleURI: "resource:///actors/AboutPrivateBrowsingParent.jsm",
+    },
+    child: {
+      moduleURI: "resource:///actors/AboutPrivateBrowsingChild.jsm",
+
+      events: {
+        DOMWindowCreated: { capture: true },
+      },
+    },
+
+    matches: ["about:privatebrowsing"],
+  },
+
+  AboutProtections: {
+    parent: {
+      moduleURI: "resource:///actors/AboutProtectionsParent.jsm",
+    },
+    child: {
+      moduleURI: "resource:///actors/AboutProtectionsChild.jsm",
+
+      events: {
+        DOMWindowCreated: { capture: true },
+      },
+    },
+
+    matches: ["about:protections"],
+  },
+
+  AboutTabCrashed: {
+    parent: {
+      moduleURI: "resource:///actors/AboutTabCrashedParent.jsm",
+    },
+    child: {
+      moduleURI: "resource:///actors/AboutTabCrashedChild.jsm",
+
+      events: {
+        DOMWindowCreated: { capture: true },
+      },
+    },
+
+    matches: ["about:tabcrashed*"],
   },
 
   AboutWelcome: {
@@ -326,6 +393,7 @@ let ACTORS = {
     // Only matching web pages, as opposed to internal about:, chrome: or
     // resource: pages. See https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Match_patterns
     matches: ["*://*/*"],
+    messageManagerGroups: ["browsers"],
     allFrames: true,
   },
 
@@ -574,10 +642,6 @@ XPCOMUtils.defineLazyGetter(
 
 XPCOMUtils.defineLazyModuleGetters(this, {
   AboutCertViewerHandler: "resource://gre/modules/AboutCertViewerHandler.jsm",
-  AboutPrivateBrowsingHandler:
-    "resource:///modules/aboutpages/AboutPrivateBrowsingHandler.jsm",
-  AboutProtectionsHandler:
-    "resource:///modules/aboutpages/AboutProtectionsHandler.jsm",
   AddonManager: "resource://gre/modules/AddonManager.jsm",
   AppMenuNotifications: "resource://gre/modules/AppMenuNotifications.jsm",
   AsyncShutdown: "resource://gre/modules/AsyncShutdown.jsm",
@@ -1120,6 +1184,11 @@ BrowserGlue.prototype = {
 
   // cleanup (called on application shutdown)
   _dispose: function BG__dispose() {
+    // AboutHomeStartupCache might write to the cache during
+    // quit-application-granted, so we defer uninitialization
+    // until here.
+    AboutHomeStartupCache.uninit();
+
     let os = Services.obs;
     os.removeObserver(this, "notifications-open-settings");
     os.removeObserver(this, "final-ui-startup");
@@ -1213,13 +1282,8 @@ BrowserGlue.prototype = {
     // handle any UI migration
     this._migrateUI();
 
-    if (Services.prefs.prefHasUserValue(PREF_PDFJS_ENABLED_CACHE_STATE)) {
-      Services.ppmm.sharedData.set(
-        "pdfjs.enabled",
-        Services.prefs.getBoolPref(PREF_PDFJS_ENABLED_CACHE_STATE)
-      );
-    } else {
-      PdfJs.earlyInit(this._isNewProfile);
+    if (!Services.prefs.prefHasUserValue(PREF_PDFJS_ISDEFAULT_CACHE_STATE)) {
+      PdfJs.checkIsDefault(this._isNewProfile);
     }
 
     listeners.init();
@@ -1605,6 +1669,26 @@ BrowserGlue.prototype = {
     }
   },
 
+  _collectFirstPartyIsolationTelemetry() {
+    let update = aIsFirstPartyIsolated => {
+      Services.telemetry.scalarSet(
+        "privacy.feature.first_party_isolation_enabled",
+        aIsFirstPartyIsolated
+      );
+    };
+
+    XPCOMUtils.defineLazyPreferenceGetter(
+      this,
+      "_firstPartyIsolated",
+      "privacy.firstparty.isolate",
+      false,
+      (_data, _previous, latest) => {
+        update(latest);
+      }
+    );
+    update(this._firstPartyIsolated);
+  },
+
   // the first browser window has finished initializing
   _onFirstWindowLoaded: function BG__onFirstWindowLoaded(aWindow) {
     AboutNewTab.init();
@@ -1688,9 +1772,10 @@ BrowserGlue.prototype = {
 
     AboutCertViewerHandler.init();
 
-    AboutPrivateBrowsingHandler.init();
-
-    AboutProtectionsHandler.init();
+    Services.telemetry.setEventRecordingEnabled(
+      "security.ui.protections",
+      true
+    );
 
     PageActions.init();
 
@@ -1698,6 +1783,8 @@ BrowserGlue.prototype = {
     this._firstWindowLoaded();
 
     this._collectStartupConditionsTelemetry();
+
+    this._collectFirstPartyIsolationTelemetry();
 
     // Set the default favicon size for UI views that use the page-icon protocol.
     PlacesUtils.favicons.setDefaultIconURIPreferredSize(
@@ -1932,14 +2019,11 @@ BrowserGlue.prototype = {
       }
     }
 
-    AboutHomeStartupCache.uninit();
     BrowserUsageTelemetry.uninit();
     SearchTelemetry.uninit();
     PageThumbs.uninit();
     NewTabUtils.uninit();
     AboutCertViewerHandler.uninit();
-    AboutPrivateBrowsingHandler.uninit();
-    AboutProtectionsHandler.uninit();
 
     Normandy.uninit();
     RFPHelper.uninit();
@@ -2308,39 +2392,27 @@ BrowserGlue.prototype = {
       // Run TRR performance measurements for DoH.
       {
         task: () => {
-          if (
-            Services.prefs.getBoolPref("doh-rollout.trrRace.enabled", false)
-          ) {
-            if (
-              !Services.prefs.getBoolPref("doh-rollout.trrRace.complete", false)
-            ) {
-              new TRRRacer().run();
+          let enabledPref = "doh-rollout.trrRace.enabled";
+          let completePref = "doh-rollout.trrRace.complete";
+
+          if (Services.prefs.getBoolPref(enabledPref, false)) {
+            if (!Services.prefs.getBoolPref(completePref, false)) {
+              new TRRRacer().run(() => {
+                Services.prefs.setBoolPref(completePref, true);
+              });
             }
           } else {
-            Services.prefs.addObserver(
-              "doh-rollout.trrRace.enabled",
-              function observer() {
-                if (
-                  Services.prefs.getBoolPref(
-                    "doh-rollout.trrRace.enabled",
-                    false
-                  )
-                ) {
-                  Services.prefs.removeObserver(
-                    "doh-rollout.trrRace.enabled",
-                    observer
-                  );
-                  if (
-                    !Services.prefs.getBoolPref(
-                      "doh-rollout.trrRace.complete",
-                      false
-                    )
-                  ) {
-                    new TRRRacer().run();
-                  }
+            Services.prefs.addObserver(enabledPref, function observer() {
+              if (Services.prefs.getBoolPref(enabledPref, false)) {
+                Services.prefs.removeObserver(enabledPref, observer);
+
+                if (!Services.prefs.getBoolPref(completePref, false)) {
+                  new TRRRacer().run(() => {
+                    Services.prefs.setBoolPref(completePref, true);
+                  });
                 }
               }
-            );
+            });
           }
         },
       },
@@ -4782,6 +4854,7 @@ var AboutHomeStartupCache = {
   ABOUT_HOME_URI_STRING: "about:home",
   SCRIPT_EXTENSION: "script",
   ENABLED_PREF: "browser.startup.homepage.abouthome_cache.enabled",
+  PRELOADED_NEWTAB_PREF: "browser.newtab.preload",
   LOG_LEVEL_PREF: "browser.startup.homepage.abouthome_cache.loglevel",
 
   // It's possible that the layout of about:home will change such that
@@ -4796,17 +4869,20 @@ var AboutHomeStartupCache = {
 
   LOG_NAME: "AboutHomeStartupCache",
 
-  // The "privileged about content process" will send up a POPULATE_MESSAGE
-  // message through to the parent process message manager when it has something
-  // new to be written to the cache.
-  POPULATE_MESSAGE: "AboutHomeStartupCache:PopulateCache",
+  // These messages are used to request the "privileged about content process"
+  // to create the cached document, and then to receive that document.
+  CACHE_REQUEST_MESSAGE: "AboutHomeStartupCache:CacheRequest",
+  CACHE_RESPONSE_MESSAGE: "AboutHomeStartupCache:CacheResponse",
+
   // When a "privileged about content process" is launched, this message is
   // sent to give it some nsIInputStream's for the about:home document they
   // should load.
   SEND_STREAMS_MESSAGE: "AboutHomeStartupCache:InputStreams",
 
-  STATE_RESPONSE_MESSAGE: "AboutHomeStartupCache:State:Response",
-  STATE_REQUEST_MESSAGE: "AboutHomeStartupCache:State:Request",
+  // This time in ms is used to debounce messages that are broadcast to
+  // all about:newtab's, or the preloaded about:newtab. We use those
+  // messages as a signal that it's likely time to refresh the cache.
+  CACHE_DEBOUNCE_RATE_MS: 5000,
 
   // A reference to the nsICacheEntry to read from and write to.
   _cacheEntry: null,
@@ -4822,9 +4898,11 @@ var AboutHomeStartupCache = {
   // The script pipe is for the JavaScript that the HTML markup loads
   // to set its internal state.
   _scriptPipe: null,
+  _cacheDeferred: null,
 
   _enabled: false,
   _initted: false,
+  _hasWrittenThisSession: false,
 
   init() {
     if (this._initted) {
@@ -4837,6 +4915,13 @@ var AboutHomeStartupCache = {
       return;
     }
 
+    this.log = Log.repository.getLogger(this.LOG_NAME);
+    this.log.manageLevelFromPref(this.LOG_LEVEL_PREF);
+    this._appender = new Log.ConsoleAppender(new Log.BasicFormatter());
+    this.log.addAppender(this._appender);
+
+    this.log.trace("Initting.");
+
     // If the user is not configured to load about:home at startup, then
     // let's not bother with the cache - loading it needlessly is more likely
     // to hinder what we're actually trying to load.
@@ -4845,16 +4930,17 @@ var AboutHomeStartupCache = {
       Services.prefs.getIntPref("browser.startup.page") === 1;
 
     if (!willLoadAboutHome) {
+      this.log.trace("Not configured to load about:home by default.");
+      return;
+    }
+
+    if (!Services.prefs.getBoolPref(this.PRELOADED_NEWTAB_PREF, false)) {
+      this.log.trace("Preloaded about:newtab disabled.");
       return;
     }
 
     Services.obs.addObserver(this, "ipc:content-created");
-    Services.ppmm.addMessageListener(this.POPULATE_MESSAGE, this);
-    Services.ppmm.addMessageListener(this.STATE_REQUEST_MESSAGE, this);
-
-    this.log = Log.repository.getLogger(this.LOG_NAME);
-    this.log.manageLevelFromPref(this.LOG_LEVEL_PREF);
-    this.log.addAppender(new Log.ConsoleAppender(new Log.BasicFormatter()));
+    Services.obs.addObserver(this, "ipc:content-shutdown");
 
     let lci = Services.loadContextInfo.default;
     let storage = Services.cache2.diskCacheStorage(lci, false);
@@ -4869,6 +4955,19 @@ var AboutHomeStartupCache = {
       this.log.error("Failed to open about:home cache entry", e);
     }
 
+    this._cacheTask = new DeferredTask(async () => {
+      await this.cacheNow();
+    }, this.CACHE_DEBOUNCE_RATE_MS);
+
+    AsyncShutdown.quitApplicationGranted.addBlocker(
+      "AboutHomeStartupCache: Writing cache",
+      async () => {
+        await this.onShutdown();
+      },
+      () => this._cacheProgress
+    );
+
+    this._cacheDeferred = null;
     this._initted = true;
     this.log.trace("Initialized.");
   },
@@ -4879,14 +4978,23 @@ var AboutHomeStartupCache = {
     }
 
     Services.obs.removeObserver(this, "ipc:content-created");
-    Services.ppmm.removeMessageListener(this.POPULATE_MESSAGE, this);
-    Services.ppmm.removeMessageListener(this.STATE_REQUEST_MESSAGE, this);
+    Services.obs.removeObserver(this, "ipc:content-shutdown");
+
+    if (this._cacheTask) {
+      this._cacheTask.disarm();
+      this._cacheTask = null;
+    }
+
     this._pagePipe = null;
     this._scriptPipe = null;
     this._initted = false;
     this._cacheEntry = null;
-
+    this._hasWrittenThisSession = false;
     this.log.trace("Uninitialized.");
+    this.log.removeAppender(this._appender);
+    this.log = null;
+    this._appender = null;
+    this._cacheDeferred = null;
   },
 
   _aboutHomeURI: null,
@@ -4898,6 +5006,95 @@ var AboutHomeStartupCache = {
 
     this._aboutHomeURI = Services.io.newURI(this.ABOUT_HOME_URI_STRING);
     return this._aboutHomeURI;
+  },
+
+  // For the AsyncShutdown blocker, this is used to populate the progress
+  // value.
+  _cacheProgress: "Not yet begun",
+
+  /**
+   * Called by the AsyncShutdown blocker on quit-application-granted
+   * to potentially flush the most recent cache to disk. If one was
+   * never written during the session, one is generated and written
+   * before the async function resolves.
+   *
+   * @returns Promise
+   * @resolves undefined
+   *   If a cache has never been written, or a cache write is in
+   *   progress, resolves when the cache has been written. Otherwise,
+   *   resolves immediately.
+   */
+  async onShutdown() {
+    // If we never wrote this session, arm the task so that the next
+    // step can finalize.
+    if (!this._hasWrittenThisSession) {
+      this.log.trace("Never wrote a cache this session. Arming cache task.");
+      this._cacheTask.arm();
+    }
+
+    if (this._cacheTask.isArmed) {
+      this.log.trace("Finalizing cache task on shutdown");
+      await this._cacheTask.finalize();
+    }
+  },
+
+  /**
+   * Called by the _cacheTask DeferredTask to actually do the work of
+   * caching the about:home document.
+   *
+   * @returns Promise
+   * @resolves undefined
+   *   Resolves when a fresh version of the cache has been written.
+   */
+  async cacheNow() {
+    this._hasWrittenThisSession = true;
+    this._cacheProgress = "Getting cache streams";
+    let { pageInputStream, scriptInputStream } = await this.requestCache();
+
+    if (!pageInputStream || !scriptInputStream) {
+      this._cacheProgress = "Failed to get streams";
+      return;
+    }
+
+    this._cacheProgress = "Writing to cache";
+    await this.populateCache(pageInputStream, scriptInputStream);
+    this._cacheProgress = "Done";
+  },
+
+  /**
+   * Requests the cached document streams from the "privileged about content
+   * process".
+   *
+   * @returns Promise
+   * @resolves Object
+   *   Resolves with an Object with the following properties:
+   *
+   *   pageInputStream (nsIInputStream)
+   *     The page content to write to the cache, or null if request the streams
+   *     failed.
+   *
+   *   scriptInputStream (nsIInputStream)
+   *     The script content to write to the cache, or null if request the streams
+   *     failed.
+   */
+  requestCache() {
+    this.log.trace("Parent is requesting Activity Stream state object.");
+    if (!this._procManager) {
+      this.log.error("requestCache called with no _procManager!");
+      return { pageInputStream: null, scriptInputStream: null };
+    }
+
+    if (this._procManager.remoteType != E10SUtils.PRIVILEGEDABOUT_REMOTE_TYPE) {
+      this.log.error("Somehow got the wrong process type.");
+      return { pageInputStream: null, scriptInputStream: null };
+    }
+
+    let state = AboutNewTab.activityStream.store.getState();
+    return new Promise(resolve => {
+      this._cacheDeferred = resolve;
+      this.log.trace("Parent received cache streams.");
+      this._procManager.sendAsyncMessage(this.CACHE_REQUEST_MESSAGE, { state });
+    });
   },
 
   /**
@@ -5068,7 +5265,7 @@ var AboutHomeStartupCache = {
   },
 
   /**
-   * Called when we have received a POPULATE_MESSAGE from the "privileged
+   * Called when we have received a the cache values from the "privileged
    * about content process". The page and script streams are written to
    * the nsICacheEntry.
    *
@@ -5114,6 +5311,70 @@ var AboutHomeStartupCache = {
     });
   },
 
+  /**
+   * Called when a content process is created. If this is the "privileged
+   * about content process", then the cache streams will be sent to it.
+   *
+   * @param childID (Number)
+   *   The unique ID for the content process that was created, as passed by
+   *   ipc:content-created.
+   * @param procManager (ProcessMessageManager)
+   *   The ProcessMessageManager for the created content process.
+   */
+  onContentProcessCreated(childID, procManager) {
+    if (procManager.remoteType == E10SUtils.PRIVILEGEDABOUT_REMOTE_TYPE) {
+      this.log.trace(
+        `A privileged about content process is launching with ID ${childID}.` +
+          "Sending it the cache input streams."
+      );
+      this.sendCacheInputStreams(procManager);
+      procManager.addMessageListener(this.CACHE_RESPONSE_MESSAGE, this);
+      this._procManager = procManager;
+      this._procManagerID = childID;
+    }
+  },
+
+  /**
+   * Called when a content process is destroyed. Either it shut down normally,
+   * or it crshed. If this is the "privileged about content process", then some
+   * internal state is cleared.
+   *
+   * @param childID (Number)
+   *   The unique ID for the content process that was created, as passed by
+   *   ipc:content-shutdown.
+   */
+  onContentProcessShutdown(childID) {
+    if (this._procManagerID == childID) {
+      this._procManager.removeMessageListener(
+        this.CACHE_RESPONSE_MESSAGE,
+        this
+      );
+      this._procManager = null;
+      this._procManagerID = null;
+    }
+  },
+
+  /**
+   * Called externally by ActivityStreamMessageChannel anytime
+   * a message is broadcast to all about:newtabs, or sent to the
+   * preloaded about:newtab. This is used to determine if we need
+   * to refresh the cache.
+   */
+  onPreloadedNewTabMessage() {
+    if (!this._initted || !this._enabled) {
+      return;
+    }
+    this.log.trace("Preloaded about:newtab was updated.");
+
+    this._cacheTask.disarm();
+    this._cacheTask.arm();
+  },
+
+  QueryInterface: ChromeUtils.generateQI([
+    Ci.nsICacheEntryOpenallback,
+    Ci.nsIObserver,
+  ]),
+
   /** MessageListener **/
 
   receiveMessage(message) {
@@ -5125,43 +5386,36 @@ var AboutHomeStartupCache = {
       return;
     }
 
-    switch (message.name) {
-      case this.POPULATE_MESSAGE: {
-        let { pageInputStream, scriptInputStream } = message.data;
-        this.populateCache(pageInputStream, scriptInputStream);
-        break;
+    if (message.name == this.CACHE_RESPONSE_MESSAGE) {
+      this.log.trace("Parent received cache streams.");
+      if (!this._cacheDeferred) {
+        this.log.error("Parent doesn't have _cacheDeferred set up!");
+        return;
       }
-      case this.STATE_REQUEST_MESSAGE: {
-        this.log.trace("Parent got request for Activity Stream state object.");
-        let state = AboutNewTab.activityStream.store.getState();
-        message.target.sendAsyncMessage(this.STATE_RESPONSE_MESSAGE, { state });
-        break;
-      }
+
+      this._cacheDeferred(message.data);
+      this._cacheDeferred = null;
     }
   },
-
-  QueryInterface: ChromeUtils.generateQI([
-    Ci.nsICacheEntryOpenallback,
-    Ci.nsIObserver,
-  ]),
 
   /** nsIObserver **/
 
   observe(aSubject, aTopic, aData) {
-    if (aTopic != "ipc:content-created") {
-      return;
-    }
+    switch (aTopic) {
+      case "ipc:content-created": {
+        let childID = aData;
+        let procManager = aSubject
+          .QueryInterface(Ci.nsIInterfaceRequestor)
+          .getInterface(Ci.nsIMessageSender);
+        this.onContentProcessCreated(childID, procManager);
+        break;
+      }
 
-    let procManager = aSubject
-      .QueryInterface(Ci.nsIInterfaceRequestor)
-      .getInterface(Ci.nsIMessageSender);
-
-    if (procManager.remoteType == E10SUtils.PRIVILEGEDABOUT_REMOTE_TYPE) {
-      this.log.trace(
-        "A privileged about content process is launching. Sending it " +
-          "the cache input streams."
-      );
-      this.sendCacheInputStreams(procManager);
+      case "ipc:content-shutdown": {
+        let childID = aData;
+        this.onContentProcessShutdown(childID);
+        break;
+      }
     }
   },
 

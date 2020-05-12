@@ -1392,9 +1392,13 @@ class MacroAssemblerCompat : public vixl::MacroAssembler {
   }
 
   // See comment in MacroAssembler-x64.h.
-  void unboxGCThingForPreBarrierTrampoline(const Address& src, Register dest) {
+  void unboxGCThingForGCBarrier(const Address& src, Register dest) {
     loadPtr(src, dest);
     And(ARMRegister(dest, 64), ARMRegister(dest, 64),
+        Operand(JS::detail::ValueGCThingPayloadMask));
+  }
+  void unboxGCThingForGCBarrier(const ValueOperand& src, Register dest) {
+    And(ARMRegister(dest, 64), ARMRegister(src.valueReg(), 64),
         Operand(JS::detail::ValueGCThingPayloadMask));
   }
 
@@ -1633,6 +1637,13 @@ class MacroAssemblerCompat : public vixl::MacroAssembler {
     MOZ_ASSERT(value.valueReg() != scratch);
     splitSignExtTag(value, scratch);
     return testMagic(cond, scratch);
+  }
+  Condition testGCThing(Condition cond, const ValueOperand& value) {
+    vixl::UseScratchRegisterScope temps(this);
+    const Register scratch = temps.AcquireX().asUnsized();
+    MOZ_ASSERT(value.valueReg() != scratch);
+    splitSignExtTag(value, scratch);
+    return testGCThing(cond, scratch);
   }
   Condition testError(Condition cond, const ValueOperand& value) {
     return testMagic(cond, value);

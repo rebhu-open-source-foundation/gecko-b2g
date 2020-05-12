@@ -116,7 +116,7 @@
         </div>
         <div id="mobile-hanger" class="card-body hidden">
           <div class="body-wrapper">
-            <button class="exit-icon" data-l10n-id="protections-close-button"></button>
+            <button class="exit-icon" data-l10n-id="protections-close-button2"></button>
             <div id="etp-mobile-content">
               <img class="mobile-app-icon" src="chrome://browser/content/logos/etp-mobile.svg"/>
               <span>
@@ -191,14 +191,6 @@
                 <div id="full-report-link" class="monitor-view-full-report" data-l10n-id="full-report-link">
                   <a target="_blank" id="monitor-inline-link" data-l10n-name="monitor-inline-link" href=""></a>
                 </div>
-                <div class="monitor-breached-passwords hidden">
-                  <span data-type="breached-lockwise-passwords" class="number-of-breaches block">
-                    <!-- Display number of exposed stored passwords here. -->
-                  </span>
-                  <span id="password-warning">
-                    <a target="_blank" href="about:logins?entryPoint=aboutprotections" id="lockwise-link" data-l10n-name="lockwise-link"></a>
-                  </span>
-                </div>
               </div>
             </div>
           </div>
@@ -213,16 +205,26 @@
                 <!-- Insert Lockwise card title here. -->
               </h2>
               <p id="lockwise-header-content" class="content">
-                <!-- Insert Lockwise header content here. -->
+                <span>
+                  <!-- Insert Lockwise header content here. -->
+                </span>
+                <a target="_blank" id="lockwise-how-it-works" data-l10n-id="lockwise-how-it-works-link" href=""></a>
               </p>
             </div>
-            <button id="open-about-logins-button" class="primary" data-l10n-id="protection-report-view-logins-button"></button>
+            <button id="save-passwords-button" class="primary" data-l10n-id="protection-report-save-passwords-button"></button>
+            <div class="lockwise-scanned-wrapper">
+                <img class="icon-small" id="lockwise-scanned-icon" />
+                <span id="lockwise-scanned-text" class="content">
+                  <!-- Display message for stored logins here. -->
+                </span>
+              </div>
+            <button id="manage-passwords-button" class="primary" data-l10n-id="protection-report-manage-passwords-button"></button>
           </div>
         </div>
         <div class="card-body hidden">
           <div id="lockwise-body-content" class="body-wrapper">
             <div class="no-logins hidden">
-              <button class="exit-icon" data-l10n-id="protections-close-button"></button>
+              <button class="exit-icon" data-l10n-id="protections-close-button2"></button>
               <img class="mobile-app-icon" src="chrome://browser/content/logos/lockwise-mobile.svg"/>
               <span>
                 <h2 class="card-title" data-l10n-id="lockwise-mobile-app-title"></h2>
@@ -233,29 +235,6 @@
                     <a id="lockwise-ios-inline-link" target="_blank" data-l10n-name="lockwise-ios-inline-link"></a>
                   </span>
                 </p>
-              </span>
-            </div>
-            <div class="has-logins hidden">
-              <span class="number-of-logins block">
-                <!-- Display number of stored logins here. -->
-              </span>
-              <span class="passwords-stored-text">
-                <img class="icon-small" src= "chrome://browser/skin/login.svg"/>
-                <span id="lockwise-passwords-stored">
-                  <!-- Display message for stored logins here. -->
-                  <a target="_blank" id="lockwise-how-it-works" data-l10n-name="lockwise-how-it-works" href=""></a>
-                </span>
-              </span>
-              <span class="number-of-synced-devices block">
-                <!-- Display number of synced devices here. -->
-              </span>
-              <span class="synced-devices-text">
-                <img class="icon-small" src="chrome://browser/skin/sync.svg"/>
-                <span>
-                  <!-- Display message for status of synced devices here. -->
-                </span>
-                <a id="turn-on-sync" tabindex="0" class="hidden" href="" data-l10n-id="turn-on-sync"></a>
-                <a id="manage-devices" target="_blank" class="hidden" href="" data-l10n-id="manage-connected-devices"></a>
               </span>
             </div>
           </div>

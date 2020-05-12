@@ -33,8 +33,8 @@ class Localization : public nsIObserver,
   NS_DECL_NSIOBSERVER
 
   explicit Localization(nsIGlobalObject* aGlobal);
-  void Init(const Sequence<nsString>& aResourceIds, const bool aSync,
-            const BundleGenerator& aBundleGenerator, ErrorResult& aRv);
+  void Activate(const bool aSync, const bool aEager,
+                const BundleGenerator& aBundleGenerator);
 
   static already_AddRefed<Localization> Constructor(
       const GlobalObject& aGlobal, const Sequence<nsString>& aResourceIds,
@@ -46,12 +46,15 @@ class Localization : public nsIObserver,
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
+  uint32_t AddResourceId(const nsAString& aResourceId);
+  uint32_t RemoveResourceId(const nsAString& aResourceId);
+
   /**
    * Localization API
    *
    * Methods documentation in Localization.webidl
    */
-  uint32_t AddResourceIds(const nsTArray<nsString>& aResourceIds, bool aEager);
+  uint32_t AddResourceIds(const nsTArray<nsString>& aResourceIds);
 
   uint32_t RemoveResourceIds(const nsTArray<nsString>& aResourceIds);
 

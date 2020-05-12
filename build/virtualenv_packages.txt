@@ -77,7 +77,7 @@ mozilla.pth:config/mozunit
 mozilla.pth:dom/bindings
 mozilla.pth:dom/bindings/parser
 mozilla.pth:layout/tools/reftest
-mozilla.pth:other-licenses/ply/
+mozilla.pth:third_party/python/ply
 mozilla.pth:taskcluster
 mozilla.pth:testing
 mozilla.pth:testing/condprofile
@@ -110,4 +110,5 @@ mozilla.pth:third_party/python/pyasn1
 mozilla.pth:third_party/python/pyasn1-modules
 mozilla.pth:third_party/python/rsa
 mozilla.pth:toolkit/components/telemetry/tests/marionette/harness
+mozilla.pth:xpcom/idl-parser
 optional:packages.txt:comm/build/virtualenv_packages.txt

@@ -490,8 +490,8 @@ class JSTerm extends Component {
           },
 
           Esc: false,
-          "Cmd-F": false,
-          "Ctrl-F": false,
+          // Don't handle Ctrl/Cmd + F so it can be listened by a parent node
+          [Editor.accel("F")]: false,
         },
       });
 
@@ -798,9 +798,10 @@ class JSTerm extends Component {
     if (!addedCharacterMatchCompletion && !addedCharacterMatchPopupItem) {
       this.autocompletePopup.hidePopup();
     } else if (
-      completionText &&
       !change.canceled &&
-      (addedCharacterMatchCompletion || addedCharacterMatchPopupItem)
+      (completionText ||
+        addedCharacterMatchCompletion ||
+        addedCharacterMatchPopupItem)
     ) {
       // The completion text will be updated when the debounced autocomplete update action
       // is done, so in the meantime we set the pending value to pendingCompletionText.

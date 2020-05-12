@@ -231,7 +231,6 @@ class MacroAssemblerNone : public Assembler {
   }
 
   static bool SupportsFloatingPoint() { return false; }
-  static bool SupportsSimd() { return false; }
   static bool SupportsUnalignedAccesses() { return false; }
   static bool SupportsFastUnalignedAccesses() { return false; }
 
@@ -496,7 +495,8 @@ class MacroAssemblerNone : public Assembler {
     MOZ_CRASH();
   }
   void unboxNonDouble(const Address&, Register, JSValueType) { MOZ_CRASH(); }
-  void unboxGCThingForPreBarrierTrampoline(const Address&, Register) {
+  template <typename T>
+  void unboxGCThingForGCBarrier(const T&, Register) {
     MOZ_CRASH();
   }
   template <typename T>

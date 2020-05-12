@@ -134,11 +134,12 @@
 #  include "EHABIStackWalk.h"
 #endif
 
-// Linux builds use LUL, which uses DWARF info to unwind stacks.
-#if defined(GP_PLAT_amd64_linux) || defined(GP_PLAT_x86_linux) ||     \
-    defined(GP_PLAT_amd64_android) || defined(GP_PLAT_x86_android) || \
-    defined(GP_PLAT_mips64_linux) || defined(GP_PLAT_arm64_linux) ||  \
-    defined(GP_PLAT_arm64_android)
+// Linux/BSD builds use LUL, which uses DWARF info to unwind stacks.
+#if defined(GP_PLAT_amd64_linux) || defined(GP_PLAT_x86_linux) ||       \
+    defined(GP_PLAT_amd64_android) || defined(GP_PLAT_x86_android) ||   \
+    defined(GP_PLAT_mips64_linux) || defined(GP_PLAT_arm64_linux) ||    \
+    defined(GP_PLAT_arm64_android) || defined(GP_PLAT_amd64_freebsd) || \
+    defined(GP_PLAT_arm64_freebsd)
 #  define HAVE_NATIVE_UNWIND
 #  define USE_LUL_STACKWALK
 #  include "lul/LulMain.h"
@@ -172,7 +173,7 @@
 #  define VALGRIND_MAKE_MEM_DEFINED(_addr, _len) ((void)0)
 #endif
 
-#if defined(GP_OS_linux) || defined(GP_OS_android)
+#if defined(GP_OS_linux) || defined(GP_OS_android) || defined(GP_OS_freebsd)
 #  include <ucontext.h>
 #endif
 
@@ -242,7 +243,8 @@ static uint32_t AvailableFeatures() {
 // Default features common to all contexts (even if not available).
 static uint32_t DefaultFeatures() {
   return ProfilerFeature::Java | ProfilerFeature::JS | ProfilerFeature::Leaf |
-         ProfilerFeature::StackWalk | ProfilerFeature::Threads;
+         ProfilerFeature::StackWalk | ProfilerFeature::Threads |
+         ProfilerFeature::Screenshots;
 }
 
 // Extra default features when MOZ_PROFILER_STARTUP is set (even if not
@@ -606,6 +608,13 @@ struct LiveProfiledThreadData {
   UniquePtr<ProfiledThreadData> mProfiledThreadData;
 };
 
+// The buffer size is provided as a number of "entries", this is their size in
+// bytes.
+constexpr static uint32_t scBytesPerEntry = 8;
+
+// Expected maximum size needed to store one stack sample.
+constexpr static uint32_t scExpectedMaximumStackSize = 64 * 1024;
+
 // This class contains the profiler's global state that is valid only when the
 // profiler is active. When not instantiated, the profiler is inactive.
 //
@@ -614,6 +623,57 @@ struct LiveProfiledThreadData {
 //
 class ActivePS {
  private:
+  // We need to decide how many chunks of what size we want to fit in the given
+  // total maximum capacity for this process, in the (likely) context of
+  // multiple processes doing the same choice and having an inter-process
+  // mechanism to control the overal memory limit.
+
+  // Minimum chunk size allowed, enough for at least one stack.
+  constexpr static uint32_t scMinimumChunkSize = 2 * scExpectedMaximumStackSize;
+
+  // Ideally we want at least 2 unreleased chunks to work with (1 current and 1
+  // next), and 2 released chunks (so that one can be recycled when old, leaving
+  // one with some data).
+  constexpr static uint32_t scMinimumNumberOfChunks = 4;
+
+  // And we want to limit chunks to a maximum size, which is a compromise
+  // between:
+  // - A big size, which helps with reducing the rate of allocations and IPCs.
+  // - A small size, which helps with equalizing the duration of recorded data
+  //   (as the inter-process controller will discard the oldest chunks in all
+  //   Firefox processes).
+  constexpr static uint32_t scMaximumChunkSize = 1024 * 1024;
+
+ public:
+  // We should be able to store at least the minimum number of the smallest-
+  // possible chunks.
+  constexpr static uint32_t scMinimumBufferSize =
+      scMinimumNumberOfChunks * scMinimumChunkSize;
+  constexpr static uint32_t scMinimumBufferEntries =
+      scMinimumBufferSize / scBytesPerEntry;
+
+  // Limit to 2GiB.
+  constexpr static uint32_t scMaximumBufferSize = 2u * 1024u * 1024u * 1024u;
+  constexpr static uint32_t scMaximumBufferEntries =
+      scMaximumBufferSize / scBytesPerEntry;
+
+  constexpr static uint32_t ClampToAllowedEntries(uint32_t aEntries) {
+    if (aEntries <= scMinimumBufferEntries) {
+      return scMinimumBufferEntries;
+    }
+    if (aEntries >= scMaximumBufferEntries) {
+      return scMaximumBufferEntries;
+    }
+    return aEntries;
+  }
+
+ private:
+  constexpr static uint32_t ChunkSizeForEntries(uint32_t aEntries) {
+    return uint32_t(std::min(size_t(ClampToAllowedEntries(aEntries)) *
+                                 scBytesPerEntry / scMinimumNumberOfChunks,
+                             size_t(scMaximumChunkSize)));
+  }
+
   static uint32_t AdjustFeatures(uint32_t aFeatures, uint32_t aFilterCount) {
     // Filter out any features unavailable in this platform/configuration.
     aFeatures &= AvailableFeatures();
@@ -628,26 +688,6 @@ class ActivePS {
     return aFeatures;
   }
 
-  constexpr static uint32_t bytesPerEntry = 8;
-
-  // We need to decide how many chunks of what size we want to fit in the given
-  // total maximum capacity for this process, in the (likely) context of
-  // multiple processes doing the same choice and having an inter-process
-  // mechanism to control the overal memory limit.
-
-  // Ideally we want at least 2 unreleased chunks to work with (1 current and 1
-  // next), and 2 released chunks (so that one can be recycled when old, leaving
-  // one with some data).
-  constexpr static uint32_t minimumNumberOfChunks = 4;
-
-  // And we want to limit chunks to a maximum size, which is a compromise
-  // between:
-  // - A big size, which helps with reducing the rate of allocations and IPCs.
-  // - A small size, which helps with equalizing the duration of recorded data
-  //   (as the inter-process controller will discard the oldest chunks in all
-  //   Firefox processes).
-  constexpr static uint32_t maximumChunkSize = 1024 * 1024;
-
   ActivePS(PSLockRef aLock, PowerOfTwo32 aCapacity, double aInterval,
            uint32_t aFeatures, const char** aFilters, uint32_t aFilterCount,
            uint64_t aActiveBrowsingContextID, const Maybe<double>& aDuration)
@@ -658,9 +698,8 @@ class ActivePS {
         mFeatures(AdjustFeatures(aFeatures, aFilterCount)),
         mActiveBrowsingContextID(aActiveBrowsingContextID),
         mProfileBufferChunkManager(
-            aCapacity.Value() * bytesPerEntry,
-            std::min(aCapacity.Value() * bytesPerEntry / minimumNumberOfChunks,
-                     maximumChunkSize)),
+            size_t(ClampToAllowedEntries(aCapacity.Value())) * scBytesPerEntry,
+            ChunkSizeForEntries(aCapacity.Value())),
         mProfileBuffer([this]() -> ProfileChunkedBuffer& {
           CorePS::CoreBuffer().SetChunkManager(mProfileBufferChunkManager);
           return CorePS::CoreBuffer();
@@ -673,7 +712,7 @@ class ActivePS {
                                ? new ProfilerIOInterposeObserver()
                                : nullptr),
         mIsPaused(false)
-#if defined(GP_OS_linux)
+#if defined(GP_OS_linux) || defined(GP_OS_freebsd)
         ,
         mWasPaused(false)
 #endif
@@ -922,6 +961,14 @@ class ActivePS {
 
   PS_GET(const Vector<std::string>&, Filters)
 
+  // Not using PS_GET, because only the "Controlled" interface of
+  // `mProfileBufferChunkManager` should be exposed here.
+  static ProfileBufferControlledChunkManager& ControlledChunkManager(
+      PSLockRef) {
+    MOZ_ASSERT(sInstance);
+    return sInstance->mProfileBufferChunkManager;
+  }
+
   static void FulfillChunkRequests(PSLockRef) {
     MOZ_ASSERT(sInstance);
     sInstance->mProfileBufferChunkManager.FulfillChunkRequests();
@@ -1037,7 +1084,7 @@ class ActivePS {
 
   PS_GET_AND_SET(bool, IsPaused)
 
-#if defined(GP_OS_linux)
+#if defined(GP_OS_linux) || defined(GP_OS_freebsd)
   PS_GET_AND_SET(bool, WasPaused)
 #endif
 
@@ -1095,7 +1142,6 @@ class ActivePS {
     MOZ_ASSERT(sInstance);
     uint64_t bufferRangeStart = sInstance->mProfileBuffer.BufferRangeStart();
     // Discard exit profiles that were gathered before our buffer RangeStart.
-#ifdef MOZ_BASE_PROFILER
     // If we have started to overwrite our data from when the Base profile was
     // added, we should get rid of that Base profile because it's now older than
     // our oldest Gecko profile data.
@@ -1122,14 +1168,12 @@ class ActivePS {
                 sInstance->mBaseProfileThreads.get());
       sInstance->mBaseProfileThreads.reset();
     }
-#endif
     sInstance->mExitProfiles.eraseIf(
         [bufferRangeStart](const ExitProfile& aExitProfile) {
           return aExitProfile.mBufferPositionAtGatherTime < bufferRangeStart;
         });
   }
 
-#ifdef MOZ_BASE_PROFILER
   static void AddBaseProfileThreads(PSLockRef aLock,
                                     UniquePtr<char[]> aBaseProfileThreads) {
     MOZ_ASSERT(sInstance);
@@ -1149,7 +1193,6 @@ class ActivePS {
               sInstance->mBaseProfileThreads.get());
     return std::move(sInstance->mBaseProfileThreads);
   }
-#endif
 
   static void AddExitProfile(PSLockRef aLock, const nsCString& aExitProfile) {
     MOZ_ASSERT(sInstance);
@@ -1250,17 +1293,15 @@ class ActivePS {
   // Is the profiler paused?
   bool mIsPaused;
 
-#if defined(GP_OS_linux)
+#if defined(GP_OS_linux) || defined(GP_OS_freebsd)
   // Used to record whether the profiler was paused just before forking. False
   // at all times except just before/after forking.
   bool mWasPaused;
 #endif
 
-#ifdef MOZ_BASE_PROFILER
   // Optional startup profile thread array from BaseProfiler.
   UniquePtr<char[]> mBaseProfileThreads;
   ProfileBufferBlockIndex mGeckoIndexWhenBaseProfileAdded;
-#endif
 
   struct ExitProfile {
     nsCString mJSON;
@@ -1423,7 +1464,7 @@ class Registers {
   Address mSP;  // Stack pointer.
   Address mFP;  // Frame pointer.
   Address mLR;  // ARM link register.
-#if defined(GP_OS_linux) || defined(GP_OS_android)
+#if defined(GP_OS_linux) || defined(GP_OS_android) || defined(GP_OS_freebsd)
   // This contains all the registers, which means it duplicates the four fields
   // above. This is ok.
   ucontext_t* mContext;  // The context from the signal handler.
@@ -1766,57 +1807,10 @@ static void DoEHABIBacktrace(PSLockRef aLock,
   // WARNING: this function might be called while the profiler is inactive, and
   //          cannot rely on ActivePS.
 
-  const mcontext_t* mcontext = &aRegs.mContext->uc_mcontext;
-  mcontext_t savedContext;
-  const ProfilingStack& profilingStack =
-      aRegisteredThread.RacyRegisteredThread().ProfilingStack();
-
-  // The profiling stack contains an "EnterJIT" frame whenever we enter
-  // JIT code with profiling enabled; the stack pointer value points
-  // the saved registers.  We use this to unwind resume unwinding
-  // after encounting JIT code.
-  for (uint32_t i = profilingStack.stackSize(); i > 0; --i) {
-    // The profiling stack grows towards higher indices, so we iterate
-    // backwards (from callee to caller).
-    const js::ProfilingStackFrame& frame = profilingStack.frames[i - 1];
-    if (!frame.isJsFrame() && strcmp(frame.label(), "EnterJIT") == 0) {
-      // Found JIT entry frame.  Unwind up to that point (i.e., force
-      // the stack walk to stop before the block of saved registers;
-      // note that it yields nondecreasing stack pointers), then restore
-      // the saved state.
-      uint32_t* vSP = reinterpret_cast<uint32_t*>(frame.stackAddress());
-
-      aNativeStack.mCount +=
-          EHABIStackWalk(*mcontext, /* stackBase = */ vSP,
-                         aNativeStack.mSPs + aNativeStack.mCount,
-                         aNativeStack.mPCs + aNativeStack.mCount,
-                         MAX_NATIVE_FRAMES - aNativeStack.mCount);
-
-      memset(&savedContext, 0, sizeof(savedContext));
-
-      // See also: struct EnterJITStack in js/src/jit/arm/Trampoline-arm.cpp
-      savedContext.arm_r4 = *vSP++;
-      savedContext.arm_r5 = *vSP++;
-      savedContext.arm_r6 = *vSP++;
-      savedContext.arm_r7 = *vSP++;
-      savedContext.arm_r8 = *vSP++;
-      savedContext.arm_r9 = *vSP++;
-      savedContext.arm_r10 = *vSP++;
-      savedContext.arm_fp = *vSP++;
-      savedContext.arm_lr = *vSP++;
-      savedContext.arm_sp = reinterpret_cast<uint32_t>(vSP);
-      savedContext.arm_pc = savedContext.arm_lr;
-      mcontext = &savedContext;
-    }
-  }
-
-  // Now unwind whatever's left (starting from either the last EnterJIT frame
-  // or, if no EnterJIT was found, the original registers).
-  aNativeStack.mCount +=
-      EHABIStackWalk(*mcontext, const_cast<void*>(aRegisteredThread.StackTop()),
-                     aNativeStack.mSPs + aNativeStack.mCount,
-                     aNativeStack.mPCs + aNativeStack.mCount,
-                     MAX_NATIVE_FRAMES - aNativeStack.mCount);
+  aNativeStack.mCount =
+      EHABIStackWalk(aRegs.mContext->uc_mcontext,
+                     const_cast<void*>(aRegisteredThread.StackTop()),
+                     aNativeStack.mSPs, aNativeStack.mPCs, MAX_NATIVE_FRAMES);
 }
 #endif
 
@@ -1855,6 +1849,10 @@ static void DoLULBacktrace(PSLockRef aLock,
   startRegs.xip = lul::TaggedUWord(mc->gregs[REG_RIP]);
   startRegs.xsp = lul::TaggedUWord(mc->gregs[REG_RSP]);
   startRegs.xbp = lul::TaggedUWord(mc->gregs[REG_RBP]);
+#  elif defined(GP_PLAT_amd64_freebsd)
+  startRegs.xip = lul::TaggedUWord(mc->mc_rip);
+  startRegs.xsp = lul::TaggedUWord(mc->mc_rsp);
+  startRegs.xbp = lul::TaggedUWord(mc->mc_rbp);
 #  elif defined(GP_PLAT_arm_linux) || defined(GP_PLAT_arm_android)
   startRegs.r15 = lul::TaggedUWord(mc->arm_pc);
   startRegs.r14 = lul::TaggedUWord(mc->arm_lr);
@@ -1867,6 +1865,11 @@ static void DoLULBacktrace(PSLockRef aLock,
   startRegs.x29 = lul::TaggedUWord(mc->regs[29]);
   startRegs.x30 = lul::TaggedUWord(mc->regs[30]);
   startRegs.sp = lul::TaggedUWord(mc->sp);
+#  elif defined(GP_PLAT_arm64_freebsd)
+  startRegs.pc = lul::TaggedUWord(mc->mc_gpregs.gp_elr);
+  startRegs.x29 = lul::TaggedUWord(mc->mc_gpregs.gp_x[29]);
+  startRegs.x30 = lul::TaggedUWord(mc->mc_gpregs.gp_lr);
+  startRegs.sp = lul::TaggedUWord(mc->mc_gpregs.gp_sp);
 #  elif defined(GP_PLAT_x86_linux) || defined(GP_PLAT_x86_android)
   startRegs.xip = lul::TaggedUWord(mc->gregs[REG_EIP]);
   startRegs.xsp = lul::TaggedUWord(mc->gregs[REG_ESP]);
@@ -1913,13 +1916,15 @@ static void DoLULBacktrace(PSLockRef aLock,
   lul::StackImage stackImg;
 
   {
-#  if defined(GP_PLAT_amd64_linux) || defined(GP_PLAT_amd64_android)
+#  if defined(GP_PLAT_amd64_linux) || defined(GP_PLAT_amd64_android) || \
+      defined(GP_PLAT_amd64_freebsd)
     uintptr_t rEDZONE_SIZE = 128;
     uintptr_t start = startRegs.xsp.Value() - rEDZONE_SIZE;
 #  elif defined(GP_PLAT_arm_linux) || defined(GP_PLAT_arm_android)
     uintptr_t rEDZONE_SIZE = 0;
     uintptr_t start = startRegs.r13.Value() - rEDZONE_SIZE;
-#  elif defined(GP_PLAT_arm64_linux) || defined(GP_PLAT_arm64_android)
+#  elif defined(GP_PLAT_arm64_linux) || defined(GP_PLAT_arm64_android) || \
+      defined(GP_PLAT_arm64_freebsd)
     uintptr_t rEDZONE_SIZE = 0;
     uintptr_t start = startRegs.sp.Value() - rEDZONE_SIZE;
 #  elif defined(GP_PLAT_x86_linux) || defined(GP_PLAT_x86_android)
@@ -2533,13 +2538,11 @@ static void locked_profiler_stream_json_for_this_process(
     }
 #endif
 
-#ifdef MOZ_BASE_PROFILER
     UniquePtr<char[]> baseProfileThreads =
         ActivePS::MoveBaseProfileThreads(aLock);
     if (baseProfileThreads) {
       aWriter.Splice(baseProfileThreads.get());
     }
-#endif
   }
   aWriter.EndArray();
 
@@ -2623,9 +2626,7 @@ static void PrintUsageThenExit(int aExitCode) {
       "\n"
       "  MOZ_PROFILER_HELP\n"
       "  If set to any value, prints this message.\n"
-#ifdef MOZ_BASE_PROFILER
       "  Use MOZ_BASE_PROFILER_HELP for BaseProfiler help.\n"
-#endif
       "\n"
       "  MOZ_LOG\n"
       "  Enables logging. The levels of logging available are\n"
@@ -2636,13 +2637,13 @@ static void PrintUsageThenExit(int aExitCode) {
       "  profiler immediately on start-up.\n"
       "  Useful if you want profile code that runs very early.\n"
       "\n"
-      "  MOZ_PROFILER_STARTUP_ENTRIES=<1..>\n"
+      "  MOZ_PROFILER_STARTUP_ENTRIES=<%u..%u>\n"
       "  If MOZ_PROFILER_STARTUP is set, specifies the number of entries per\n"
       "  process in the profiler's circular buffer when the profiler is first\n"
       "  started.\n"
       "  If unset, the platform default is used:\n"
       "  %u entries per process, or %u when MOZ_PROFILER_STARTUP is set.\n"
-      "  (8 bytes per entry -> %u or %u total bytes per process)\n"
+      "  (%u bytes per entry -> %u or %u total bytes per process)\n"
       "\n"
       "  MOZ_PROFILER_STARTUP_DURATION=<1..>\n"
       "  If MOZ_PROFILER_STARTUP is set, specifies the maximum life time of\n"
@@ -2670,10 +2671,13 @@ static void PrintUsageThenExit(int aExitCode) {
       "\n"
       "    Features: (x=unavailable, D/d=default/unavailable,\n"
       "               S/s=MOZ_PROFILER_STARTUP extra default/unavailable)\n",
+      unsigned(ActivePS::scMinimumBufferEntries),
+      unsigned(ActivePS::scMaximumBufferEntries),
       unsigned(PROFILER_DEFAULT_ENTRIES.Value()),
       unsigned(PROFILER_DEFAULT_STARTUP_ENTRIES.Value()),
-      unsigned(PROFILER_DEFAULT_ENTRIES.Value() * 8),
-      unsigned(PROFILER_DEFAULT_STARTUP_ENTRIES.Value() * 8),
+      unsigned(scBytesPerEntry),
+      unsigned(PROFILER_DEFAULT_ENTRIES.Value() * scBytesPerEntry),
+      unsigned(PROFILER_DEFAULT_STARTUP_ENTRIES.Value() * scBytesPerEntry),
       PROFILER_MAX_INTERVAL);
 
 #define PRINT_FEATURE(n_, str_, Name_, desc_)                                  \
@@ -2762,7 +2766,7 @@ class Sampler {
       const TimeStamp& aNow, const Func& aProcessRegs);
 
  private:
-#if defined(GP_OS_linux) || defined(GP_OS_android)
+#if defined(GP_OS_linux) || defined(GP_OS_android) || defined(GP_OS_freebsd)
   // Used to restore the SIGPROF handler when ours is removed.
   struct sigaction mOldSigprofHandler;
 
@@ -2871,7 +2875,8 @@ class SamplerThread {
   // The OS-specific handle for the sampler thread.
 #if defined(GP_OS_windows)
   HANDLE mThread;
-#elif defined(GP_OS_darwin) || defined(GP_OS_linux) || defined(GP_OS_android)
+#elif defined(GP_OS_darwin) || defined(GP_OS_linux) || \
+    defined(GP_OS_android) || defined(GP_OS_freebsd)
   pthread_t mThread;
 #endif
 
@@ -2923,7 +2928,8 @@ void SamplerThread::Run() {
   // (This is to avoid touching the CorePS::CoreBuffer lock while a thread is
   // suspended, because that thread could be working with the CorePS::CoreBuffer
   // as well.)
-  mozilla::ProfileBufferChunkManagerSingle localChunkManager(65536);
+  mozilla::ProfileBufferChunkManagerSingle localChunkManager(
+      scExpectedMaximumStackSize);
   ProfileChunkedBuffer localBuffer(
       ProfileChunkedBuffer::ThreadSafety::WithoutMutex, localChunkManager);
   ProfileBuffer localProfileBuffer(localBuffer);
@@ -3346,7 +3352,7 @@ void SamplerThread::Run() {
 #  include "platform-win32.cpp"
 #elif defined(GP_OS_darwin)
 #  include "platform-macos.cpp"
-#elif defined(GP_OS_linux) || defined(GP_OS_android)
+#elif defined(GP_OS_linux) || defined(GP_OS_android) || defined(GP_OS_freebsd)
 #  include "platform-linux-android.cpp"
 #else
 #  error "bad platform"
@@ -3674,7 +3680,8 @@ void profiler_init(void* aStackTop) {
       if (errno == 0 && capacityLong > 0 &&
           static_cast<uint64_t>(capacityLong) <=
               static_cast<uint64_t>(INT32_MAX)) {
-        capacity = PowerOfTwo32(static_cast<uint32_t>(capacityLong));
+        capacity = PowerOfTwo32(ActivePS::ClampToAllowedEntries(
+            static_cast<uint32_t>(capacityLong)));
         LOG("- MOZ_PROFILER_STARTUP_ENTRIES = %u", unsigned(capacity.Value()));
       } else {
         LOG("- MOZ_PROFILER_STARTUP_ENTRIES not a valid integer: %s",
@@ -3776,6 +3783,8 @@ void profiler_shutdown(IsFastShutdown aIsFastShutdown) {
 
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
   MOZ_RELEASE_ASSERT(CorePS::Exists());
+
+  ProfilerParent::ProfilerWillStopIfStarted();
 
   // If the profiler is active we must get a handle to the SamplerThread before
   // ActivePS is destroyed, in order to delete it.
@@ -3920,6 +3929,15 @@ void profiler_get_start_params(int* aCapacity, Maybe<double>* aDuration,
   }
 }
 
+ProfileBufferControlledChunkManager* profiler_get_controlled_chunk_manager() {
+  MOZ_RELEASE_ASSERT(CorePS::Exists());
+  PSAutoLock lock(gPSMutex);
+  if (NS_WARN_IF(!ActivePS::Exists(lock))) {
+    return nullptr;
+  }
+  return &ActivePS::ControlledChunkManager(lock);
+}
+
 namespace mozilla {
 
 void GetProfilerEnvVarsForChildProcess(
@@ -3959,7 +3977,6 @@ void GetProfilerEnvVarsForChildProcess(
   }
   aSetEnv("MOZ_PROFILER_STARTUP_FILTERS", filtersString.c_str());
 
-#ifdef MOZ_BASE_PROFILER
   // Blindly copy MOZ_BASE_PROFILER_STARTUP* env-vars.
   auto copyEnv = [&](const char* aName) {
     const char* env = getenv(aName);
@@ -3975,7 +3992,6 @@ void GetProfilerEnvVarsForChildProcess(
   copyEnv("MOZ_BASE_PROFILER_STARTUP_FEATURES_BITFIELD");
   copyEnv("MOZ_BASE_PROFILER_STARTUP_FEATURES");
   copyEnv("MOZ_BASE_PROFILER_STARTUP_FILTERS");
-#endif
 }
 
 }  // namespace mozilla
@@ -4097,7 +4113,6 @@ static void TriggerPollJSSamplingOnMainThread() {
   }
 }
 
-#ifdef MOZ_BASE_PROFILER
 static bool HasMinimumLength(const char* aString, size_t aMinimumLength) {
   if (!aString) {
     return false;
@@ -4109,7 +4124,6 @@ static bool HasMinimumLength(const char* aString, size_t aMinimumLength) {
   }
   return true;
 }
-#endif  // MOZ_BASE_PROFILER
 
 static void locked_profiler_start(PSLockRef aLock, PowerOfTwo32 aCapacity,
                                   double aInterval, uint32_t aFeatures,
@@ -4139,7 +4153,6 @@ static void locked_profiler_start(PSLockRef aLock, PowerOfTwo32 aCapacity,
 
   MOZ_RELEASE_ASSERT(CorePS::Exists() && !ActivePS::Exists(aLock));
 
-#ifdef MOZ_BASE_PROFILER
   UniquePtr<char[]> baseprofile;
   if (baseprofiler::profiler_is_active()) {
     // Note that we still hold the lock, so the sampler cannot run yet and
@@ -4164,7 +4177,6 @@ static void locked_profiler_start(PSLockRef aLock, PowerOfTwo32 aCapacity,
     // TODO: Re-start BP after GP shutdown, to capture post-XPCOM shutdown.
     baseprofiler::profiler_stop();
   }
-#endif
 
 #if defined(GP_PLAT_amd64_windows)
   InitializeWin64ProfilerHooks();
@@ -4190,7 +4202,6 @@ static void locked_profiler_start(PSLockRef aLock, PowerOfTwo32 aCapacity,
   // ActivePS::Create can only succeed or crash.
   MOZ_ASSERT(ActivePS::Exists(aLock));
 
-#ifdef MOZ_BASE_PROFILER
   // An "empty" profile string may in fact contain 1 character (a newline), so
   // we want at least 2 characters to register a profile.
   if (HasMinimumLength(baseprofile.get(), 2)) {
@@ -4199,7 +4210,6 @@ static void locked_profiler_start(PSLockRef aLock, PowerOfTwo32 aCapacity,
     // corresponding Gecko Profiler thread.
     ActivePS::AddBaseProfileThreads(aLock, std::move(baseprofile));
   }
-#endif
 
   // Set up profiling for each registered thread, if appropriate.
   Maybe<int> mainThreadId;
@@ -4285,6 +4295,8 @@ void profiler_start(PowerOfTwo32 aCapacity, double aInterval,
                     const Maybe<double>& aDuration) {
   LOG("profiler_start");
 
+  ProfilerParent::ProfilerWillStopIfStarted();
+
   SamplerThread* samplerThread = nullptr;
   {
     PSAutoLock lock(gPSMutex);
@@ -4326,6 +4338,8 @@ void profiler_ensure_started(PowerOfTwo32 aCapacity, double aInterval,
                              uint64_t aActiveBrowsingContextID,
                              const Maybe<double>& aDuration) {
   LOG("profiler_ensure_started");
+
+  ProfilerParent::ProfilerWillStopIfStarted();
 
   bool startedProfiler = false;
   SamplerThread* samplerThread = nullptr;
@@ -4435,6 +4449,8 @@ void profiler_stop() {
   LOG("profiler_stop");
 
   MOZ_RELEASE_ASSERT(CorePS::Exists());
+
+  ProfilerParent::ProfilerWillStopIfStarted();
 
 #if defined(MOZ_REPLACE_MALLOC) && defined(MOZ_PROFILER_MEMORY)
   // Remove the hooks early, as native allocations (if they are on) can be
@@ -4810,10 +4826,9 @@ UniqueProfilerBacktrace profiler_get_backtrace() {
   regs.Clear();
 #endif
 
-  // 65536 bytes should be plenty for a single backtrace.
   auto bufferManager = MakeUnique<ProfileChunkedBuffer>(
       ProfileChunkedBuffer::ThreadSafety::WithoutMutex,
-      MakeUnique<ProfileBufferChunkManagerSingle>(65536));
+      MakeUnique<ProfileBufferChunkManagerSingle>(scExpectedMaximumStackSize));
   auto buffer = MakeUnique<ProfileBuffer>(*bufferManager);
 
   DoSyncSample(lock, *registeredThread, now, regs, *buffer.get());
@@ -4886,7 +4901,15 @@ void profiler_add_js_allocation_marker(JS::RecordAllocationInfo&& info) {
 }
 
 bool profiler_is_locked_on_current_thread() {
-  return gPSMutex.IsLockedOnCurrentThread();
+  // This function is used to help users avoid calling `profiler_...` functions
+  // when the profiler may already have a lock in place, which would prevent a
+  // 2nd recursive lock (resulting in a crash or a never-ending wait).
+  // So we must return `true` for any of:
+  // - The main profiler mutex, used by most functions, and/or
+  // - The buffer mutex, used directly in some functions without locking the
+  //   main mutex, e.g., marker-related functions.
+  return gPSMutex.IsLockedOnCurrentThread() ||
+         CorePS::CoreBuffer().IsThreadSafeAndLockedOnCurrentThread();
 }
 
 bool profiler_add_native_allocation_marker(int aMainThreadId, int64_t aSize,
@@ -4908,7 +4931,8 @@ void profiler_add_network_marker(
     mozilla::TimeStamp aStart, mozilla::TimeStamp aEnd, int64_t aCount,
     mozilla::net::CacheDisposition aCacheDisposition, uint64_t aInnerWindowID,
     const mozilla::net::TimingStruct* aTimings, nsIURI* aRedirectURI,
-    UniqueProfilerBacktrace aSource) {
+    UniqueProfilerBacktrace aSource,
+    const Maybe<nsDependentCString>& aContentType) {
   if (!profiler_can_accept_markers()) {
     return;
   }
@@ -4932,7 +4956,7 @@ void profiler_add_network_marker(
                            PromiseFlatCString(spec).get(), aType, aStart, aEnd,
                            aPriority, aCount, aCacheDisposition, aInnerWindowID,
                            aTimings, PromiseFlatCString(redirect_spec).get(),
-                           std::move(aSource)));
+                           std::move(aSource), aContentType));
 }
 
 void profiler_add_marker_for_thread(int aThreadId,

@@ -16,8 +16,6 @@ const { AppConstants } = ChromeUtils.import(
 );
 
 XPCOMUtils.defineLazyModuleGetters(this, {
-  AboutPrivateBrowsingHandler:
-    "resource:///modules/aboutpages/AboutPrivateBrowsingHandler.jsm",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.jsm",
   HeadlessShell: "resource:///modules/HeadlessShell.jsm",
   HomePage: "resource:///modules/HomePage.jsm",
@@ -421,7 +419,7 @@ nsBrowserContentHandler.prototype = {
     // scripts or applications handle the situation as if Firefox was not
     // already running.
     if (cmdLine.handleFlag("remote", true)) {
-      throw Cr.NS_ERROR_ABORT;
+      throw Components.Exception("", Cr.NS_ERROR_ABORT);
     }
 
     var uriparam;
@@ -515,9 +513,6 @@ nsBrowserContentHandler.prototype = {
         false
       );
       if (privateWindowParam) {
-        // Ensure we initialize the handler before trying to load
-        // about:privatebrowsing.
-        AboutPrivateBrowsingHandler.init();
         let forcePrivate = true;
         let resolvedURI;
         if (!PrivateBrowsingUtils.enabled) {
@@ -543,9 +538,6 @@ nsBrowserContentHandler.prototype = {
       }
       // NS_ERROR_INVALID_ARG is thrown when flag exists, but has no param.
       if (cmdLine.handleFlag("private-window", false)) {
-        // Ensure we initialize the handler before trying to load
-        // about:privatebrowsing.
-        AboutPrivateBrowsingHandler.init();
         openBrowserWindow(
           cmdLine,
           gSystemPrincipal,
@@ -886,7 +878,7 @@ nsBrowserContentHandler.prototype = {
         cmdLine.length != urlFlagIdx + 2 ||
         /firefoxurl(-[a-f0-9]+)?:/i.test(urlParam)
       ) {
-        throw Cr.NS_ERROR_ABORT;
+        throw Components.Exception("", Cr.NS_ERROR_ABORT);
       }
       var isDefault = false;
       try {
@@ -900,7 +892,7 @@ nsBrowserContentHandler.prototype = {
       if (isDefault) {
         // Firefox is already the default HTTP handler.
         // We don't have to show the instruction page.
-        throw Cr.NS_ERROR_ABORT;
+        throw Components.Exception("", Cr.NS_ERROR_ABORT);
       }
     }
   },

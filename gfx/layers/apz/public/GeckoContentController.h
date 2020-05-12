@@ -7,13 +7,14 @@
 #ifndef mozilla_layers_GeckoContentController_h
 #define mozilla_layers_GeckoContentController_h
 
-#include "InputData.h"                           // for PinchGestureInput
-#include "LayersTypes.h"                         // for ScrollDirection
-#include "Units.h"                               // for CSSPoint, CSSRect, etc
-#include "mozilla/Assertions.h"                  // for MOZ_ASSERT_HELPER2
-#include "mozilla/Attributes.h"                  // for MOZ_CAN_RUN_SCRIPT
-#include "mozilla/DefineEnum.h"                  // for MOZ_DEFINE_ENUM
-#include "mozilla/EventForwards.h"               // for Modifiers
+#include "InputData.h"              // for PinchGestureInput
+#include "LayersTypes.h"            // for ScrollDirection
+#include "Units.h"                  // for CSSPoint, CSSRect, etc
+#include "mozilla/Assertions.h"     // for MOZ_ASSERT_HELPER2
+#include "mozilla/Attributes.h"     // for MOZ_CAN_RUN_SCRIPT
+#include "mozilla/DefineEnum.h"     // for MOZ_DEFINE_ENUM
+#include "mozilla/EventForwards.h"  // for Modifiers
+#include "mozilla/layers/APZThreadUtils.h"
 #include "mozilla/layers/MatrixMessage.h"        // for MatrixMessage
 #include "mozilla/layers/RepaintRequest.h"       // for RepaintRequest
 #include "mozilla/layers/ScrollableLayerGuid.h"  // for ScrollableLayerGuid, etc
@@ -89,8 +90,9 @@ class GeckoContentController {
    * however it wishes. Note that this function is not called if the pinch is
    * prevented by content calling preventDefault() on the touch events, or via
    * use of the touch-action property.
-   * @param aType One of PINCHGESTURE_START, PINCHGESTURE_SCALE, or
-   *        PINCHGESTURE_END, indicating the phase of the pinch.
+   * @param aType One of PINCHGESTURE_START, PINCHGESTURE_SCALE,
+   *        PINCHGESTURE_FINGERLIFTED, or PINCHGESTURE_END, indicating the phase
+   *        of the pinch.
    * @param aGuid The guid of the APZ that is detecting the pinch. This is
    *        generally the root APZC for the layers id.
    * @param aSpanChange For the START or END event, this is always 0.
@@ -104,12 +106,14 @@ class GeckoContentController {
                                   Modifiers aModifiers) = 0;
 
   /**
-   * Schedules a runnable to run on the controller/UI thread at some time
+   * Schedules a runnable to run on the controller thread at some time
    * in the future.
    * This method must always be called on the controller thread.
    */
   virtual void PostDelayedTask(already_AddRefed<Runnable> aRunnable,
-                               int aDelayMs) = 0;
+                               int aDelayMs) {
+    APZThreadUtils::DelayedDispatch(std::move(aRunnable), aDelayMs);
+  }
 
   /**
    * Returns true if we are currently on the thread that can send repaint

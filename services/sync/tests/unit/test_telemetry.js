@@ -1225,6 +1225,7 @@ add_task(async function test_fxa_device_telem() {
     // Reset this, as our override doesn't check for sync being enabled.
     t.sanitizeFxaDeviceId = oldSanitizeFxaDeviceId;
     syncEnabled = false;
+    fxAccounts.telemetry._setHashedUID(false);
     devInfo = t.updateFxaDevices(fxaDevices);
     equal(devInfo.deviceID, undefined);
     equal(devInfo.devices.length, 5);
@@ -1240,6 +1241,23 @@ add_task(async function test_fxa_device_telem() {
     t.getFxaDevices = oldGetFxaDevices;
     t.syncIsEnabled = oldSyncIsEnabled;
     t.sanitizeFxaDeviceId = oldSanitizeFxaDeviceId;
+  }
+});
+
+add_task(async function test_sanitize_fxa_device_id() {
+  let t = get_sync_test_telemetry();
+  fxAccounts.telemetry._setHashedUID(false);
+  sinon.stub(t, "syncIsEnabled").callsFake(() => true);
+  const rawDeviceId = "raw one two three";
+  try {
+    equal(t.sanitizeFxaDeviceId(rawDeviceId), null);
+    fxAccounts.telemetry._setHashedUID("mock uid");
+    const sanitizedDeviceId = t.sanitizeFxaDeviceId(rawDeviceId);
+    ok(sanitizedDeviceId);
+    notEqual(sanitizedDeviceId, rawDeviceId);
+  } finally {
+    t.syncIsEnabled.restore();
+    fxAccounts.telemetry._setHashedUID(false);
   }
 });
 
@@ -1320,7 +1338,7 @@ add_task(async function test_deletion_request_ping() {
     await assertRecordedSyncDeviceID(undefined);
 
     // If we start up without knowing the hashed UID, it should stay undefined.
-    Services.obs.notifyObservers(null, "weave:service:ready");
+    telem.observe(null, "weave:service:ready");
     await assertRecordedSyncDeviceID(undefined);
 
     // But now let's say we've discovered the hashed UID from the server.
@@ -1328,16 +1346,16 @@ add_task(async function test_deletion_request_ping() {
     currentDeviceID = MOCK_DEVICE_ID1;
 
     // Now when we load up, we'll record the sync device id.
-    Services.obs.notifyObservers(null, "weave:service:ready");
+    telem.observe(null, "weave:service:ready");
     await assertRecordedSyncDeviceID(SANITIZED_DEVICE_ID1);
 
     // When the device-id changes we'll update it.
     currentDeviceID = MOCK_DEVICE_ID2;
-    Services.obs.notifyObservers(null, "fxaccounts:new_device_id");
+    telem.observe(null, "fxaccounts:new_device_id");
     await assertRecordedSyncDeviceID(SANITIZED_DEVICE_ID2);
 
-    // When the user signs out we'll clear it.0
-    Services.obs.notifyObservers(null, "fxaccounts:onlogout");
+    // When the user signs out we'll clear it.
+    telem.observe(null, "fxaccounts:onlogout");
     await assertRecordedSyncDeviceID("");
   } finally {
     fxAccounts.telemetry._setHashedUID(false);

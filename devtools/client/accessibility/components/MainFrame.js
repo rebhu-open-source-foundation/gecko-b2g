@@ -14,7 +14,12 @@ const {
 } = require("devtools/client/shared/vendor/react-dom-factories");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 const { connect } = require("devtools/client/shared/vendor/react-redux");
-const { reset } = require("devtools/client/accessibility/actions/ui");
+const {
+  enable,
+  reset,
+  updateCanBeEnabled,
+  updateCanBeDisabled,
+} = require("devtools/client/accessibility/actions/ui");
 
 // Localization
 const FluentReact = require("devtools/client/shared/vendor/fluent-react");
@@ -77,12 +82,16 @@ class MainFrame extends Component {
 
     this.resetAccessibility = this.resetAccessibility.bind(this);
     this.onPanelWindowResize = this.onPanelWindowResize.bind(this);
+    this.onCanBeEnabledChange = this.onCanBeEnabledChange.bind(this);
+    this.onCanBeDisabledChange = this.onCanBeDisabledChange.bind(this);
   }
 
   componentWillMount() {
     this.props.startListeningForLifecycleEvents({
       init: this.resetAccessibility,
       shutdown: this.resetAccessibility,
+      "can-be-enabled-change": this.onCanBeEnabledChange,
+      "can-be-disabled-change": this.onCanBeDisabledChange,
     });
     this.props.startListeningForAccessibilityEvents({
       "document-ready": this.resetAccessibility,
@@ -100,6 +109,8 @@ class MainFrame extends Component {
     this.props.stopListeningForLifecycleEvents({
       init: this.resetAccessibility,
       shutdown: this.resetAccessibility,
+      "can-be-enabled-change": this.onCanBeEnabledChange,
+      "can-be-disabled-change": this.onCanBeDisabledChange,
     });
     this.props.stopListeningForAccessibilityEvents({
       "document-ready": this.resetAccessibility,
@@ -110,6 +121,22 @@ class MainFrame extends Component {
   resetAccessibility() {
     const { dispatch, resetAccessiblity, supports } = this.props;
     dispatch(reset(resetAccessiblity, supports));
+  }
+
+  onCanBeEnabledChange(canBeEnabled) {
+    const {
+      enableAccessibility,
+      dispatch,
+      supports: { autoInit },
+    } = this.props;
+    dispatch(updateCanBeEnabled(canBeEnabled));
+    if (canBeEnabled && autoInit) {
+      dispatch(enable(enableAccessibility));
+    }
+  }
+
+  onCanBeDisabledChange(canBeDisabled) {
+    this.props.dispatch(updateCanBeDisabled(canBeDisabled));
   }
 
   get useLandscapeMode() {
@@ -143,16 +170,10 @@ class MainFrame extends Component {
       audit,
       enableAccessibility,
       disableAccessibility,
-      startListeningForLifecycleEvents,
-      stopListeningForLifecycleEvents,
     } = this.props;
 
     if (!enabled) {
-      return Description({
-        enableAccessibility,
-        startListeningForLifecycleEvents,
-        stopListeningForLifecycleEvents,
-      });
+      return Description({ enableAccessibility });
     }
 
     // Audit is currently running.
@@ -166,8 +187,6 @@ class MainFrame extends Component {
           audit,
           disableAccessibility,
           simulate,
-          startListeningForLifecycleEvents,
-          stopListeningForLifecycleEvents,
           toolboxDoc: toolbox.doc,
         }),
         isAuditing && AuditProgressOverlay(),

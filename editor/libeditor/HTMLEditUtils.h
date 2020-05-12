@@ -7,6 +7,7 @@
 #define HTMLEditUtils_h
 
 #include "mozilla/Attributes.h"
+#include "mozilla/dom/AbstractRange.h"
 #include "mozilla/dom/AncestorIterator.h"
 #include "mozilla/dom/Element.h"
 #include "nsGkAtoms.h"
@@ -194,6 +195,52 @@ class HTMLEditUtils final {
   static bool IsSingleLineContainer(nsINode& aNode);
 
   /**
+   * GetLastLeafChild() returns rightmost leaf content in aNode.  It depends on
+   * aChildBlockBoundary whether this scans into a block child or treat
+   * block as a leaf.
+   */
+  enum class ChildBlockBoundary {
+    // Even if there is a child block, keep scanning a leaf content in it.
+    Ignore,
+    // If there is a child block, return it.
+    TreatAsLeaf,
+  };
+  static nsIContent* GetLastLeafChild(nsINode& aNode,
+                                      ChildBlockBoundary aChildBlockBoundary) {
+    for (nsIContent* content = aNode.GetLastChild(); content;
+         content = content->GetLastChild()) {
+      if (aChildBlockBoundary == ChildBlockBoundary::TreatAsLeaf &&
+          HTMLEditUtils::IsBlockElement(*content)) {
+        return content;
+      }
+      if (!content->HasChildren()) {
+        return content;
+      }
+    }
+    return nullptr;
+  }
+
+  /**
+   * GetFirstLeafChild() returns leftmost leaf content in aNode.  It depends on
+   * aChildBlockBoundary whether this scans into a block child or treat
+   * block as a leaf.
+   */
+  static nsIContent* GetFirstLeafChild(nsINode& aNode,
+                                       ChildBlockBoundary aChildBlockBoundary) {
+    for (nsIContent* content = aNode.GetFirstChild(); content;
+         content = content->GetFirstChild()) {
+      if (aChildBlockBoundary == ChildBlockBoundary::TreatAsLeaf &&
+          HTMLEditUtils::IsBlockElement(*content)) {
+        return content;
+      }
+      if (!content->HasChildren()) {
+        return content;
+      }
+    }
+    return nullptr;
+  }
+
+  /**
    * GetAncestorBlockElement() returns parent or nearest ancestor of aContent
    * which is a block element.  If aAncestorLimiter is not nullptr,
    * this stops looking for the result when it meets the limiter.
@@ -264,6 +311,44 @@ class HTMLEditUtils final {
       }
     }
     return nullptr;
+  }
+
+  /**
+   * GetElementIfOnlyOneSelected() returns an element if aRange selects only
+   * the element node (and its descendants).
+   */
+  static Element* GetElementIfOnlyOneSelected(
+      const dom::AbstractRange& aRange) {
+    if (!aRange.IsPositioned()) {
+      return nullptr;
+    }
+    const RangeBoundary& start = aRange.StartRef();
+    const RangeBoundary& end = aRange.EndRef();
+    if (NS_WARN_IF(!start.IsSetAndValid()) ||
+        NS_WARN_IF(!end.IsSetAndValid()) ||
+        start.Container() != end.Container()) {
+      return nullptr;
+    }
+    nsIContent* childAtStart = start.GetChildAtOffset();
+    if (!childAtStart || !childAtStart->IsElement()) {
+      return nullptr;
+    }
+    // If start child is not the last sibling and only if end child is its
+    // next sibling, the start child is selected.
+    if (childAtStart->GetNextSibling()) {
+      return childAtStart->GetNextSibling() == end.GetChildAtOffset()
+                 ? childAtStart->AsElement()
+                 : nullptr;
+    }
+    // If start child is the last sibling and only if no child at the end,
+    // the start child is selected.
+    return !end.GetChildAtOffset() ? childAtStart->AsElement() : nullptr;
+  }
+
+  static Element* GetTableCellElementIfOnlyOneSelected(
+      const dom::AbstractRange& aRange) {
+    Element* element = HTMLEditUtils::GetElementIfOnlyOneSelected(aRange);
+    return element && HTMLEditUtils::IsTableCell(element) ? element : nullptr;
   }
 
   static EditAction GetEditActionForInsert(const nsAtom& aTagName);

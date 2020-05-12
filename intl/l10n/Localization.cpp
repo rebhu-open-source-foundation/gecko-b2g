@@ -43,37 +43,36 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(Localization)
 NS_INTERFACE_MAP_END
 
 Localization::Localization(nsIGlobalObject* aGlobal)
-    : mGlobal(aGlobal), mIsSync(false) {}
-
-void Localization::Init(const Sequence<nsString>& aResourceIds,
-                        const bool aSync,
-                        const BundleGenerator& aBundleGenerator,
-                        ErrorResult& aRv) {
+    : mGlobal(aGlobal), mIsSync(false) {
   nsCOMPtr<mozILocalizationJSM> jsm =
       do_ImportModule("resource://gre/modules/Localization.jsm");
   MOZ_RELEASE_ASSERT(jsm);
 
-  Unused << jsm->GetLocalization(aResourceIds, getter_AddRefs(mLocalization));
+  Unused << jsm->GetLocalization(getter_AddRefs(mLocalization));
   MOZ_RELEASE_ASSERT(mLocalization);
-  mLocalization->SetIsSync(aSync);
+}
 
+void Localization::Activate(const bool aSync, const bool aEager,
+                            const BundleGenerator& aBundleGenerator) {
   AutoJSContext cx;
+  JS::Rooted<JS::Value> generateBundlesJS(cx);
+  JS::Rooted<JS::Value> generateBundlesSyncJS(cx);
+
   if (aBundleGenerator.mGenerateBundles.WasPassed()) {
     GenerateBundles& generateBundles =
         aBundleGenerator.mGenerateBundles.Value();
-    JS::Rooted<JS::Value> generateBundlesJS(
-        cx, JS::ObjectValue(*generateBundles.CallbackOrNull()));
-    mLocalization->SetGenerateBundles(generateBundlesJS);
+    generateBundlesJS.set(JS::ObjectValue(*generateBundles.CallbackOrNull()));
   }
   if (aBundleGenerator.mGenerateBundlesSync.WasPassed()) {
     GenerateBundlesSync& generateBundlesSync =
         aBundleGenerator.mGenerateBundlesSync.Value();
-    JS::Rooted<JS::Value> generateBundlesSyncJS(
-        cx, JS::ObjectValue(*generateBundlesSync.CallbackOrNull()));
-    mLocalization->SetGenerateBundlesSync(generateBundlesSyncJS);
+    generateBundlesSyncJS.set(
+        JS::ObjectValue(*generateBundlesSync.CallbackOrNull()));
   }
+  mIsSync = aSync;
 
-  mLocalization->Init(true);
+  mLocalization->Activate(aSync, aEager, generateBundlesJS,
+                          generateBundlesSyncJS);
 
   RegisterObservers();
 }
@@ -90,11 +89,11 @@ already_AddRefed<Localization> Localization::Constructor(
 
   RefPtr<Localization> loc = new Localization(global);
 
-  loc->Init(aResourceIds, aSync, aBundleGenerator, aRv);
-
-  if (NS_WARN_IF(aRv.Failed())) {
-    return nullptr;
+  if (aResourceIds.Length()) {
+    loc->AddResourceIds(aResourceIds);
   }
+
+  loc->Activate(aSync, true, aBundleGenerator);
 
   return loc.forget();
 }
@@ -146,18 +145,35 @@ Localization::Observe(nsISupports* aSubject, const char* aTopic,
 
 void Localization::OnChange() {
   if (mLocalization) {
-    mLocalization->OnChange(false);
+    mLocalization->OnChange();
   }
+}
+
+uint32_t Localization::AddResourceId(const nsAString& aResourceId) {
+  uint32_t ret = 0;
+  mLocalization->AddResourceId(aResourceId, &ret);
+  return ret;
+}
+
+uint32_t Localization::RemoveResourceId(const nsAString& aResourceId) {
+  // We need to guard against a scenario where the
+  // mLocalization has been unlinked, but the elements
+  // are only now removed from DOM.
+  if (!mLocalization) {
+    return 0;
+  }
+  uint32_t ret = 0;
+  mLocalization->RemoveResourceId(aResourceId, &ret);
+  return ret;
 }
 
 /**
  * Localization API
  */
 
-uint32_t Localization::AddResourceIds(const nsTArray<nsString>& aResourceIds,
-                                      bool aEager) {
+uint32_t Localization::AddResourceIds(const nsTArray<nsString>& aResourceIds) {
   uint32_t ret = 0;
-  mLocalization->AddResourceIds(aResourceIds, aEager, &ret);
+  mLocalization->AddResourceIds(aResourceIds, &ret);
   return ret;
 }
 
@@ -198,6 +214,7 @@ already_AddRefed<Promise> Localization::FormatValue(
 }
 
 void Localization::SetIsSync(const bool aIsSync) {
+  mIsSync = aIsSync;
   mLocalization->SetIsSync(aIsSync);
 }
 

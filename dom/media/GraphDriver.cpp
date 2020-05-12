@@ -425,7 +425,9 @@ class AudioCallbackDriver::FallbackWrapper : public GraphInterface {
                "The audio driver can only enter stopping if it iterated the "
                "graph, which it can only do if there's no fallback driver");
     if (audioState != AudioStreamState::Running && result.IsStillProcessing()) {
-      mOwner->MaybeStartAudioStream();
+      if (audioState != AudioStreamState::Errored) {
+        mOwner->MaybeStartAudioStream();
+      }
       return result;
     }
 
@@ -973,6 +975,12 @@ long AudioCallbackDriver::DataCallback(const AudioDataValue* aInputBuffer,
 
   mBuffer.BufferFilled();
 
+#ifdef MOZ_SAMPLE_TYPE_FLOAT32
+  // Prevent returning NaN to the OS mixer, and propagating NaN into the reverse
+  // stream of the AEC.
+  NaNToZeroInPlace(aOutputBuffer, aFrames * mOutputChannelCount);
+#endif
+
   // Callback any observers for the AEC speaker data.  Note that one
   // (maybe) of these will be full-duplex, the others will get their input
   // data off separate cubeb callbacks.  Take care with how stuff is
@@ -1046,11 +1054,12 @@ void AudioCallbackDriver::StateCallback(cubeb_state aState) {
   LOG(LogLevel::Debug,
       ("AudioCallbackDriver(%p) State: %s", this, StateToString(aState)));
 
-  // Clear the flag for the not running
-  // states: stopped, drained, error.
+  // Clear the flag for the not running and error states (stopped, drained)
   AudioStreamState streamState = mAudioStreamState.exchange(
-      aState == CUBEB_STATE_STARTED ? AudioStreamState::Running
-                                    : AudioStreamState::None);
+      aState == CUBEB_STATE_STARTED
+          ? AudioStreamState::Running
+          : aState == CUBEB_STATE_ERROR ? AudioStreamState::Errored
+                                        : AudioStreamState::None);
 
   if (aState == CUBEB_STATE_ERROR) {
     // About to hand over control of the graph.  Do not start a new driver if
@@ -1099,22 +1108,17 @@ void AudioCallbackDriver::PanOutputIfNeeded(bool aMicrophoneActive) {
     return;
   }
 
-  int major,minor;
+  int major, minor;
   for (uint32_t i = 0; i < length; i++) {
     // skip the model name
     if (isalpha(name[i])) {
       continue;
     }
-    sscanf(name+i, "%d,%d", &major, &minor);
+    sscanf(name + i, "%d,%d", &major, &minor);
     break;
   }
 
-  enum MacbookModel {
-    MacBook,
-    MacBookPro,
-    MacBookAir,
-    NotAMacbook
-  };
+  enum MacbookModel { MacBook, MacBookPro, MacBookAir, NotAMacbook };
 
   MacbookModel model;
 
@@ -1240,6 +1244,7 @@ TimeDuration AudioCallbackDriver::AudioOutputLatency() {
 void AudioCallbackDriver::FallbackToSystemClockDriver() {
   MOZ_ASSERT(!ThreadRunning());
   MOZ_ASSERT(mAudioStreamState == AudioStreamState::None ||
+             mAudioStreamState == AudioStreamState::Errored ||
              mAudioStreamState == AudioStreamState::Pending);
   MOZ_ASSERT(mFallbackDriverState == FallbackDriverState::None);
   LOG(LogLevel::Debug,
@@ -1283,6 +1288,10 @@ void AudioCallbackDriver::FallbackDriverStopped(GraphTime aIterationStart,
 
 void AudioCallbackDriver::MaybeStartAudioStream() {
   AudioStreamState streamState = mAudioStreamState;
+  MOZ_ASSERT(
+      streamState != AudioStreamState::Errored,
+      "An errored stream must not attempted to be re-started, an error stream"
+      " has already beed started once");
   if (streamState != AudioStreamState::None) {
     LOG(LogLevel::Verbose,
         ("%p: AudioCallbackDriver %p Cannot re-init.", Graph(), this));

@@ -2,14 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::{fmt::Write, mem, sync::Arc};
+use std::{
+    fmt::Write,
+    mem,
+    sync::{Arc, Weak},
+};
 
 use atomic_refcell::AtomicRefCell;
-use interrupt_support::Interruptee;
 use moz_task::{DispatchOptions, Task, TaskRunnable, ThreadPtrHandle, ThreadPtrHolder};
 use nserror::nsresult;
 use nsstring::{nsACString, nsCString};
-use sync15_traits::{ApplyResults, BridgedEngine};
+use sync15_traits::{ApplyResults, BridgedEngine, Guid};
 use thin_vec::ThinVec;
 use xpcom::{
     interfaces::{
@@ -24,34 +27,30 @@ use crate::ferry::{Ferry, FerryResult};
 /// A ferry task sends (or ferries) an operation to a bridged engine on a
 /// background thread or task queue, and ferries back an optional result to
 /// a callback.
-pub struct FerryTask<N: ?Sized + BridgedEngine, S> {
-    engine: Arc<N>,
-    ferry: Ferry<S>,
+pub struct FerryTask<N: ?Sized + BridgedEngine> {
+    /// A ferry task holds a weak reference to the bridged engine, and upgrades
+    /// it to a strong reference when run on a background thread. This avoids
+    /// scheduled ferries blocking finalization: if the main thread holds the
+    /// only strong reference to the engine, it can be unwrapped (using
+    /// `Arc::try_unwrap`) and dropped, either on the main thread, or as part of
+    /// a teardown task.
+    engine: Weak<N>,
+    ferry: Ferry,
     callback: ThreadPtrHandle<mozIBridgedSyncEngineCallback>,
     result: AtomicRefCell<Result<FerryResult, N::Error>>,
 }
 
-impl<N, S> FerryTask<N, S>
+impl<N> FerryTask<N>
 where
     N: ?Sized + BridgedEngine + Send + Sync + 'static,
-    S: Interruptee + Send + Sync + 'static,
     N::Error: BridgedError,
 {
-    /// Creates a task to initialize the engine.
-    #[inline]
-    pub fn for_initialize(
-        engine: &Arc<N>,
-        callback: &mozIBridgedSyncEngineCallback,
-    ) -> error::Result<FerryTask<N, S>> {
-        Self::with_ferry(engine, Ferry::Initialize, callback)
-    }
-
     /// Creates a task to fetch the engine's last sync time, in milliseconds.
     #[inline]
     pub fn for_last_sync(
         engine: &Arc<N>,
         callback: &mozIBridgedSyncEngineCallback,
-    ) -> error::Result<FerryTask<N, S>> {
+    ) -> error::Result<FerryTask<N>> {
         Self::with_ferry(engine, Ferry::LastSync, callback)
     }
 
@@ -61,7 +60,7 @@ where
         engine: &Arc<N>,
         last_sync_millis: i64,
         callback: &mozIBridgedSyncEngineCallback,
-    ) -> error::Result<FerryTask<N, S>> {
+    ) -> error::Result<FerryTask<N>> {
         Self::with_ferry(engine, Ferry::SetLastSync(last_sync_millis), callback)
     }
 
@@ -70,7 +69,7 @@ where
     pub fn for_sync_id(
         engine: &Arc<N>,
         callback: &mozIBridgedSyncEngineCallback,
-    ) -> error::Result<FerryTask<N, S>> {
+    ) -> error::Result<FerryTask<N>> {
         Self::with_ferry(engine, Ferry::SyncId, callback)
     }
 
@@ -80,7 +79,7 @@ where
     pub fn for_reset_sync_id(
         engine: &Arc<N>,
         callback: &mozIBridgedSyncEngineCallback,
-    ) -> error::Result<FerryTask<N, S>> {
+    ) -> error::Result<FerryTask<N>> {
         Self::with_ferry(engine, Ferry::ResetSyncId, callback)
     }
 
@@ -92,7 +91,7 @@ where
         engine: &Arc<N>,
         new_sync_id: &nsACString,
         callback: &mozIBridgedSyncEngineCallback,
-    ) -> error::Result<FerryTask<N, S>> {
+    ) -> error::Result<FerryTask<N>> {
         Self::with_ferry(
             engine,
             Ferry::EnsureCurrentSyncId(std::str::from_utf8(new_sync_id)?.into()),
@@ -100,28 +99,29 @@ where
         )
     }
 
+    /// Creates a task to signal that the engine is about to sync.
+    #[inline]
+    pub fn for_sync_started(
+        engine: &Arc<N>,
+        callback: &mozIBridgedSyncEngineCallback,
+    ) -> error::Result<FerryTask<N>> {
+        Self::with_ferry(engine, Ferry::SyncStarted, callback)
+    }
+
     /// Creates a task to store incoming records.
     pub fn for_store_incoming(
         engine: &Arc<N>,
-        incoming_cleartexts: &[nsCString],
-        signal: &Arc<S>,
+        incoming_envelopes_json: &[nsCString],
         callback: &mozIBridgedSyncEngineCallback,
-    ) -> error::Result<FerryTask<N, S>> {
-        let incoming_cleartexts = incoming_cleartexts.iter().try_fold(
-            Vec::with_capacity(incoming_cleartexts.len()),
-            |mut cleartexts, cleartext| -> error::Result<_> {
-                // We need to clone the string for the task to take ownership
-                // of it, anyway; might as well convert to a Rust string while
-                // we're here.
-                cleartexts.push(std::str::from_utf8(&*cleartext)?.into());
-                Ok(cleartexts)
+    ) -> error::Result<FerryTask<N>> {
+        let incoming_envelopes = incoming_envelopes_json.iter().try_fold(
+            Vec::with_capacity(incoming_envelopes_json.len()),
+            |mut envelopes, envelope| -> error::Result<_> {
+                envelopes.push(serde_json::from_slice(&*envelope)?);
+                Ok(envelopes)
             },
         )?;
-        Self::with_ferry(
-            engine,
-            Ferry::StoreIncoming(incoming_cleartexts, Arc::clone(signal)),
-            callback,
-        )
+        Self::with_ferry(engine, Ferry::StoreIncoming(incoming_envelopes), callback)
     }
 
     /// Creates a task to mark a subset of outgoing records as uploaded. This
@@ -131,19 +131,15 @@ where
         engine: &Arc<N>,
         server_modified_millis: i64,
         uploaded_ids: &[nsCString],
-        signal: &Arc<S>,
         callback: &mozIBridgedSyncEngineCallback,
-    ) -> error::Result<FerryTask<N, S>> {
-        let uploaded_ids = uploaded_ids.iter().try_fold(
-            Vec::with_capacity(uploaded_ids.len()),
-            |mut ids, id| -> error::Result<_> {
-                ids.push(std::str::from_utf8(&*id)?.into());
-                Ok(ids)
-            },
-        )?;
+    ) -> error::Result<FerryTask<N>> {
+        let uploaded_ids = uploaded_ids
+            .iter()
+            .map(|id| Guid::from_slice(&*id))
+            .collect();
         Self::with_ferry(
             engine,
-            Ferry::SetUploaded(server_modified_millis, uploaded_ids, Arc::clone(signal)),
+            Ferry::SetUploaded(server_modified_millis, uploaded_ids),
             callback,
         )
     }
@@ -154,10 +150,9 @@ where
     #[inline]
     pub fn for_sync_finished(
         engine: &Arc<N>,
-        signal: &Arc<S>,
         callback: &mozIBridgedSyncEngineCallback,
-    ) -> error::Result<FerryTask<N, S>> {
-        Self::with_ferry(engine, Ferry::SyncFinished(Arc::clone(signal)), callback)
+    ) -> error::Result<FerryTask<N>> {
+        Self::with_ferry(engine, Ferry::SyncFinished, callback)
     }
 
     /// Creates a task to reset all local Sync state for the engine, without
@@ -166,7 +161,7 @@ where
     pub fn for_reset(
         engine: &Arc<N>,
         callback: &mozIBridgedSyncEngineCallback,
-    ) -> error::Result<FerryTask<N, S>> {
+    ) -> error::Result<FerryTask<N>> {
         Self::with_ferry(engine, Ferry::Reset, callback)
     }
 
@@ -175,17 +170,8 @@ where
     pub fn for_wipe(
         engine: &Arc<N>,
         callback: &mozIBridgedSyncEngineCallback,
-    ) -> error::Result<FerryTask<N, S>> {
+    ) -> error::Result<FerryTask<N>> {
         Self::with_ferry(engine, Ferry::Wipe, callback)
-    }
-
-    /// Creates a task to tear down the engine.
-    #[inline]
-    pub fn for_finalize(
-        engine: &Arc<N>,
-        callback: &mozIBridgedSyncEngineCallback,
-    ) -> error::Result<FerryTask<N, S>> {
-        Self::with_ferry(engine, Ferry::Finalize, callback)
     }
 
     /// Creates a task for a ferry. The `callback` is bound to the current
@@ -193,12 +179,12 @@ where
     /// background thread.
     fn with_ferry(
         engine: &Arc<N>,
-        ferry: Ferry<S>,
+        ferry: Ferry,
         callback: &mozIBridgedSyncEngineCallback,
-    ) -> error::Result<FerryTask<N, S>> {
+    ) -> error::Result<FerryTask<N>> {
         let name = ferry.name();
         Ok(FerryTask {
-            engine: Arc::clone(engine),
+            engine: Arc::downgrade(engine),
             ferry,
             callback: ThreadPtrHolder::new(
                 cstr!("mozIBridgedSyncEngineCallback"),
@@ -218,46 +204,64 @@ where
     }
 }
 
-impl<N, S> Task for FerryTask<N, S>
+impl<N> FerryTask<N>
 where
     N: ?Sized + BridgedEngine,
-    S: Interruptee,
+    N::Error: BridgedError,
+{
+    /// Runs the task on the background thread. This is split out into its own
+    /// method to make error handling easier.
+    fn inner_run(&self) -> Result<FerryResult, N::Error> {
+        let engine = match self.engine.upgrade() {
+            Some(outer) => outer,
+            None => return Err(Error::DidNotRun(self.ferry.name()).into()),
+        };
+        Ok(match &self.ferry {
+            Ferry::LastSync => FerryResult::LastSync(engine.last_sync()?),
+            Ferry::SetLastSync(last_sync_millis) => {
+                engine.set_last_sync(*last_sync_millis)?;
+                FerryResult::default()
+            }
+            Ferry::SyncId => FerryResult::SyncId(engine.sync_id()?),
+            Ferry::ResetSyncId => FerryResult::AssignedSyncId(engine.reset_sync_id()?),
+            Ferry::EnsureCurrentSyncId(new_sync_id) => {
+                FerryResult::AssignedSyncId(engine.ensure_current_sync_id(&*new_sync_id)?)
+            }
+            Ferry::SyncStarted => {
+                engine.sync_started()?;
+                FerryResult::default()
+            }
+            Ferry::StoreIncoming(incoming_envelopes) => {
+                engine.store_incoming(incoming_envelopes.as_slice())?;
+                FerryResult::default()
+            }
+            Ferry::SetUploaded(server_modified_millis, uploaded_ids) => {
+                engine.set_uploaded(*server_modified_millis, uploaded_ids.as_slice())?;
+                FerryResult::default()
+            }
+            Ferry::SyncFinished => {
+                engine.sync_finished()?;
+                FerryResult::default()
+            }
+            Ferry::Reset => {
+                engine.reset()?;
+                FerryResult::default()
+            }
+            Ferry::Wipe => {
+                engine.wipe()?;
+                FerryResult::default()
+            }
+        })
+    }
+}
+
+impl<N> Task for FerryTask<N>
+where
+    N: ?Sized + BridgedEngine,
     N::Error: BridgedError,
 {
     fn run(&self) {
-        *self.result.borrow_mut() = match &self.ferry {
-            Ferry::Initialize => self.engine.initialize().map(FerryResult::from),
-            Ferry::LastSync => self.engine.last_sync().map(FerryResult::LastSync),
-            Ferry::SetLastSync(last_sync_millis) => self
-                .engine
-                .set_last_sync(*last_sync_millis)
-                .map(FerryResult::from),
-            Ferry::SyncId => self.engine.sync_id().map(FerryResult::SyncId),
-            Ferry::ResetSyncId => self.engine.reset_sync_id().map(FerryResult::AssignedSyncId),
-            Ferry::EnsureCurrentSyncId(new_sync_id) => self
-                .engine
-                .ensure_current_sync_id(&*new_sync_id)
-                .map(FerryResult::AssignedSyncId),
-            Ferry::StoreIncoming(incoming_cleartexts, signal) => self
-                .engine
-                .store_incoming(incoming_cleartexts.as_slice(), signal.as_ref())
-                .map(FerryResult::from),
-            Ferry::SetUploaded(server_modified_millis, uploaded_ids, signal) => self
-                .engine
-                .set_uploaded(
-                    *server_modified_millis,
-                    uploaded_ids.as_slice(),
-                    signal.as_ref(),
-                )
-                .map(FerryResult::from),
-            Ferry::SyncFinished(signal) => self
-                .engine
-                .sync_finished(signal.as_ref())
-                .map(FerryResult::from),
-            Ferry::Reset => self.engine.reset().map(FerryResult::from),
-            Ferry::Wipe => self.engine.wipe().map(FerryResult::from),
-            Ferry::Finalize => self.engine.finalize().map(FerryResult::from),
-        };
+        *self.result.borrow_mut() = self.inner_run();
     }
 
     fn done(&self) -> Result<(), nsresult> {
@@ -280,39 +284,56 @@ where
 /// An apply task ferries incoming records to an engine on a background
 /// thread, and ferries back records to upload. It's separate from
 /// `FerryTask` because its callback type is different.
-pub struct ApplyTask<N: ?Sized + BridgedEngine, S> {
-    engine: Arc<N>,
-    signal: Arc<S>,
+pub struct ApplyTask<N: ?Sized + BridgedEngine> {
+    engine: Weak<N>,
     callback: ThreadPtrHandle<mozIBridgedSyncEngineApplyCallback>,
-    result: AtomicRefCell<Result<ApplyResults, N::Error>>,
+    result: AtomicRefCell<Result<Vec<String>, N::Error>>,
 }
 
-impl<N, S> ApplyTask<N, S>
+impl<N> ApplyTask<N>
 where
     N: ?Sized + BridgedEngine,
+    N::Error: BridgedError,
 {
     /// Returns the task name for debugging.
     pub fn name() -> &'static str {
         concat!(module_path!(), "apply")
     }
+
+    /// Runs the task on the background thread.
+    fn inner_run(&self) -> Result<Vec<String>, N::Error> {
+        let engine = match self.engine.upgrade() {
+            Some(outer) => outer,
+            None => return Err(Error::DidNotRun(Self::name()).into()),
+        };
+        let ApplyResults {
+            envelopes: outgoing_envelopes,
+            ..
+        } = engine.apply()?;
+        let outgoing_envelopes_json = outgoing_envelopes.iter().try_fold(
+            Vec::with_capacity(outgoing_envelopes.len()),
+            |mut envelopes, envelope| {
+                envelopes.push(serde_json::to_string(envelope)?);
+                Ok(envelopes)
+            },
+        )?;
+        Ok(outgoing_envelopes_json)
+    }
 }
 
-impl<N, S> ApplyTask<N, S>
+impl<N> ApplyTask<N>
 where
     N: ?Sized + BridgedEngine + Send + Sync + 'static,
-    S: Interruptee + Send + Sync + 'static,
     N::Error: BridgedError,
 {
     /// Creates a task. The `callback` is bound to the current thread, and will
     /// be called once, after the records are applied on the background thread.
     pub fn new(
         engine: &Arc<N>,
-        signal: &Arc<S>,
         callback: &mozIBridgedSyncEngineApplyCallback,
-    ) -> error::Result<ApplyTask<N, S>> {
+    ) -> error::Result<ApplyTask<N>> {
         Ok(ApplyTask {
-            engine: Arc::clone(engine),
-            signal: Arc::clone(signal),
+            engine: Arc::downgrade(engine),
             callback: ThreadPtrHolder::new(
                 cstr!("mozIBridgedSyncEngineApplyCallback"),
                 RefPtr::new(callback),
@@ -329,14 +350,13 @@ where
     }
 }
 
-impl<N, S> Task for ApplyTask<N, S>
+impl<N> Task for ApplyTask<N>
 where
     N: ?Sized + BridgedEngine,
-    S: Interruptee,
     N::Error: BridgedError,
 {
     fn run(&self) {
-        *self.result.borrow_mut() = self.engine.apply(self.signal.as_ref());
+        *self.result.borrow_mut() = self.inner_run();
     }
 
     fn done(&self) -> Result<(), nsresult> {
@@ -345,11 +365,8 @@ where
             &mut *self.result.borrow_mut(),
             Err(Error::DidNotRun(Self::name()).into()),
         ) {
-            Ok(ApplyResults {
-                records,
-                num_reconciled: _,
-            }) => {
-                let result = records
+            Ok(envelopes) => {
+                let result = envelopes
                     .into_iter()
                     .map(nsCString::from)
                     .collect::<ThinVec<_>>();

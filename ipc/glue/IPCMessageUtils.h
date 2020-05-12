@@ -610,6 +610,9 @@ struct ParamTraits<nsTArray<E>> {
 };
 
 template <typename E>
+struct ParamTraits<CopyableTArray<E>> : ParamTraits<nsTArray<E>> {};
+
+template <typename E>
 struct ParamTraits<FallibleTArray<E>> {
   typedef FallibleTArray<E> paramType;
 
@@ -636,6 +639,9 @@ template <typename E, size_t N>
 struct ParamTraits<AutoTArray<E, N>> : ParamTraits<nsTArray<E>> {
   typedef AutoTArray<E, N> paramType;
 };
+
+template <typename E, size_t N>
+struct ParamTraits<CopyableAutoTArray<E, N>> : ParamTraits<AutoTArray<E, N>> {};
 
 template <typename E, size_t N, typename AP>
 struct ParamTraits<mozilla::Vector<E, N, AP>> {

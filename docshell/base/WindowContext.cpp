@@ -6,6 +6,8 @@
 
 #include "mozilla/dom/WindowContext.h"
 #include "mozilla/dom/WindowGlobalActorsBinding.h"
+#include "mozilla/dom/WindowGlobalChild.h"
+#include "mozilla/dom/WindowGlobalParent.h"
 #include "mozilla/dom/SyncedContextInlines.h"
 #include "mozilla/dom/BrowsingContext.h"
 #include "mozilla/StaticPtr.h"
@@ -47,6 +49,18 @@ WindowGlobalParent* WindowContext::Canonical() {
 
 bool WindowContext::IsCached() const {
   return mBrowsingContext->mCurrentWindowContext != this;
+}
+
+WindowContext* WindowContext::GetParentWindowContext() {
+  return mBrowsingContext->GetParentWindowContext();
+}
+
+WindowContext* WindowContext::TopWindowContext() {
+  WindowContext* current = this;
+  while (current->GetParentWindowContext()) {
+    current = current->GetParentWindowContext();
+  }
+  return current;
 }
 
 nsIGlobalObject* WindowContext::GetParentObject() const {
@@ -94,29 +108,50 @@ void WindowContext::SendCommitTransaction(ContentChild* aChild,
   aChild->SendCommitWindowContextTransaction(this, aTxn, aEpoch);
 }
 
+bool WindowContext::CheckOnlyOwningProcessCanSet(ContentParent* aSource) {
+  if (mInProcess) {
+    return true;
+  }
+
+  if (XRE_IsParentProcess() && aSource) {
+    return Canonical()->GetContentParent() == aSource;
+  }
+
+  return false;
+}
+
+bool WindowContext::CanSet(FieldIndex<IDX_IsSecure>, const bool& aIsSecure,
+                           ContentParent* aSource) {
+  return CheckOnlyOwningProcessCanSet(aSource);
+}
+
+bool WindowContext::CanSet(FieldIndex<IDX_AllowMixedContent>,
+                           const bool& aAllowMixedContent,
+                           ContentParent* aSource) {
+  return CheckOnlyOwningProcessCanSet(aSource);
+}
+
+bool WindowContext::CanSet(FieldIndex<IDX_CookieBehavior>,
+                           const Maybe<uint32_t>& aValue,
+                           ContentParent* aSource) {
+  return CheckOnlyOwningProcessCanSet(aSource);
+}
+
+bool WindowContext::CanSet(FieldIndex<IDX_IsOnContentBlockingAllowList>,
+                           const bool& aValue, ContentParent* aSource) {
+  return CheckOnlyOwningProcessCanSet(aSource);
+}
+
 bool WindowContext::CanSet(FieldIndex<IDX_IsThirdPartyWindow>,
                            const bool& IsThirdPartyWindow,
                            ContentParent* aSource) {
-  return mBrowsingContext->CheckOnlyOwningProcessCanSet(aSource);
+  return CheckOnlyOwningProcessCanSet(aSource);
 }
 
 bool WindowContext::CanSet(FieldIndex<IDX_IsThirdPartyTrackingResourceWindow>,
                            const bool& aIsThirdPartyTrackingResourceWindow,
                            ContentParent* aSource) {
-  return mBrowsingContext->CheckOnlyOwningProcessCanSet(aSource);
-}
-
-already_AddRefed<WindowContext> WindowContext::Create(
-    WindowGlobalChild* aWindow) {
-  MOZ_RELEASE_ASSERT(XRE_IsContentProcess(),
-                     "Should be a WindowGlobalParent in the parent");
-
-  FieldTuple init;
-  mozilla::Get<IDX_OuterWindowId>(init) = aWindow->OuterWindowId();
-  RefPtr<WindowContext> context = new WindowContext(
-      aWindow->BrowsingContext(), aWindow->InnerWindowId(), std::move(init));
-  context->Init();
-  return context.forget();
+  return CheckOnlyOwningProcessCanSet(aSource);
 }
 
 void WindowContext::CreateFromIPC(IPCInitializer&& aInit) {
@@ -134,7 +169,8 @@ void WindowContext::CreateFromIPC(IPCInitializer&& aInit) {
   }
 
   RefPtr<WindowContext> context =
-      new WindowContext(bc, aInit.mInnerWindowId, std::move(aInit.mFields));
+      new WindowContext(bc, aInit.mInnerWindowId, aInit.mOuterWindowId,
+                        /* aInProcess */ false, std::move(aInit.mFields));
   context->Init();
 }
 
@@ -154,6 +190,7 @@ void WindowContext::Init() {
 
   // Register this to the browsing context.
   mBrowsingContext->RegisterWindowContext(this);
+  Group()->Register(this);
 }
 
 void WindowContext::Discard() {
@@ -167,15 +204,29 @@ void WindowContext::Discard() {
   mIsDiscarded = true;
   gWindowContexts->Remove(InnerWindowId());
   mBrowsingContext->UnregisterWindowContext(this);
+  Group()->Unregister(this);
+}
+
+WindowContext::IPCInitializer WindowContext::GetIPCInitializer() {
+  IPCInitializer init;
+  init.mInnerWindowId = mInnerWindowId;
+  init.mOuterWindowId = mOuterWindowId;
+  init.mBrowsingContextId = mBrowsingContext->Id();
+  init.mFields = mFields.Fields();
+  return init;
 }
 
 WindowContext::WindowContext(BrowsingContext* aBrowsingContext,
-                             uint64_t aInnerWindowId, FieldTuple&& aFields)
+                             uint64_t aInnerWindowId, uint64_t aOuterWindowId,
+                             bool aInProcess, FieldTuple&& aFields)
     : mFields(std::move(aFields)),
       mInnerWindowId(aInnerWindowId),
-      mBrowsingContext(aBrowsingContext) {
+      mOuterWindowId(aOuterWindowId),
+      mBrowsingContext(aBrowsingContext),
+      mInProcess(aInProcess) {
   MOZ_ASSERT(mBrowsingContext);
   MOZ_ASSERT(mInnerWindowId);
+  MOZ_ASSERT(mOuterWindowId);
 }
 
 WindowContext::~WindowContext() {
@@ -250,6 +301,7 @@ void IPDLParamTraits<dom::WindowContext::IPCInitializer>::Write(
     const dom::WindowContext::IPCInitializer& aInit) {
   // Write actor ID parameters.
   WriteIPDLParam(aMessage, aActor, aInit.mInnerWindowId);
+  WriteIPDLParam(aMessage, aActor, aInit.mOuterWindowId);
   WriteIPDLParam(aMessage, aActor, aInit.mBrowsingContextId);
   WriteIPDLParam(aMessage, aActor, aInit.mFields);
 }
@@ -259,6 +311,7 @@ bool IPDLParamTraits<dom::WindowContext::IPCInitializer>::Read(
     dom::WindowContext::IPCInitializer* aInit) {
   // Read actor ID parameters.
   return ReadIPDLParam(aMessage, aIterator, aActor, &aInit->mInnerWindowId) &&
+         ReadIPDLParam(aMessage, aIterator, aActor, &aInit->mOuterWindowId) &&
          ReadIPDLParam(aMessage, aIterator, aActor,
                        &aInit->mBrowsingContextId) &&
          ReadIPDLParam(aMessage, aIterator, aActor, &aInit->mFields);

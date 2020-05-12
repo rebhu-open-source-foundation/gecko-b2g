@@ -251,29 +251,6 @@ struct JS_PUBLIC_API JSContext : public JS::RootingContext,
   /* Clear the pending exception (if any) due to OOM. */
   void recoverFromOutOfMemory();
 
-  /*
-   * This variation of calloc will call the large-allocation-failure callback
-   * on OOM and retry the allocation.
-   */
-  template <typename T>
-  T* pod_arena_callocCanGC(arena_id_t arena, size_t numElems) {
-    T* p = maybe_pod_arena_calloc<T>(arena, numElems);
-    if (MOZ_LIKELY(!!p)) {
-      return p;
-    }
-    size_t bytes;
-    if (MOZ_UNLIKELY(!js::CalculateAllocSize<T>(numElems, &bytes))) {
-      reportAllocationOverflow();
-      return nullptr;
-    }
-    p = static_cast<T*>(
-        runtime()->onOutOfMemoryCanGC(js::AllocFunction::Calloc, arena, bytes));
-    if (!p) {
-      return nullptr;
-    }
-    return p;
-  }
-
   void reportAllocationOverflow() { js::ReportAllocationOverflow(this); }
 
   void noteTenuredAlloc() { allocsThisZoneSinceMinorGC_++; }
@@ -1098,19 +1075,15 @@ namespace js {
 
 /************************************************************************/
 
-/* AutoArrayRooter roots an external array of Values. */
-class MOZ_RAII AutoArrayRooter : public JS::AutoGCRooter {
+/*
+ * Encapsulates an external array of values and adds a trace method, for use in
+ * Rooted.
+ */
+class MOZ_STACK_CLASS ExternalValueArray {
  public:
-  AutoArrayRooter(JSContext* cx, size_t len,
-                  Value* vec MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-      : JS::AutoGCRooter(cx, JS::AutoGCRooter::Kind::Array),
-        array_(vec),
-        length_(len) {
-    MOZ_GUARD_OBJECT_NOTIFIER_INIT;
-  }
+  ExternalValueArray(size_t len, Value* vec) : array_(vec), length_(len) {}
 
   Value* begin() { return array_; }
-
   size_t length() { return length_; }
 
   void trace(JSTracer* trc);
@@ -1118,6 +1091,19 @@ class MOZ_RAII AutoArrayRooter : public JS::AutoGCRooter {
  private:
   Value* array_;
   size_t length_;
+};
+
+/* RootedExternalValueArray roots an external array of Values. */
+class MOZ_RAII RootedExternalValueArray
+    : public JS::Rooted<ExternalValueArray> {
+ public:
+  RootedExternalValueArray(JSContext* cx, size_t len,
+                           Value* vec MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+      : JS::Rooted<ExternalValueArray>(cx, ExternalValueArray(len, vec)) {
+    MOZ_GUARD_OBJECT_NOTIFIER_INIT;
+  }
+
+ private:
   MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
 

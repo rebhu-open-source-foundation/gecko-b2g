@@ -13,8 +13,8 @@ interface mixin LoadContextMixin {
   readonly attribute Element? topFrameElement;
 
   readonly attribute boolean isContent;
- 
-  [SetterThrows] 
+
+  [SetterThrows]
   attribute boolean usePrivateBrowsing;
 
   readonly attribute boolean useRemoteTabs;
@@ -60,6 +60,10 @@ interface BrowsingContext {
 
   readonly attribute WindowContext? currentWindowContext;
 
+  readonly attribute WindowContext? parentWindowContext;
+
+  readonly attribute WindowContext? topWindowContext;
+
   attribute [TreatNullAs=EmptyString] DOMString customUserAgent;
 
   /**
@@ -83,6 +87,11 @@ interface BrowsingContext {
   attribute float fullZoom;
 
   attribute float textZoom;
+
+  /**
+   * Whether this docshell should save entries in global history.
+   */
+  attribute boolean useGlobalHistory;
 
   // Extension to give chrome JS the ability to set the window screen
   // orientation while in RDM.

@@ -699,6 +699,68 @@ void ICStub::trace(JSTracer* trc) {
   }
 }
 
+bool ICStub::stubDataHasNurseryPointers(const CacheIRStubInfo* stubInfo) {
+  MOZ_ASSERT(IsCacheIRKind(kind()));
+
+  uint32_t field = 0;
+  size_t offset = 0;
+  while (true) {
+    StubField::Type fieldType = stubInfo->fieldType(field);
+    switch (fieldType) {
+      case StubField::Type::RawWord:
+      case StubField::Type::RawInt64:
+      case StubField::Type::DOMExpandoGeneration:
+        break;
+      case StubField::Type::Shape:
+        static_assert(std::is_convertible_v<Shape*, gc::TenuredCell*>,
+                      "Code assumes shapes are tenured");
+        break;
+      case StubField::Type::ObjectGroup:
+        static_assert(std::is_convertible_v<ObjectGroup*, gc::TenuredCell*>,
+                      "Code assumes groups are tenured");
+        break;
+      case StubField::Type::Symbol:
+        static_assert(std::is_convertible_v<JS::Symbol*, gc::TenuredCell*>,
+                      "Code assumes symbols are tenured");
+        break;
+      case StubField::Type::JSObject: {
+        JSObject* obj = stubInfo->getStubField<ICStub, JSObject*>(this, offset);
+        if (IsInsideNursery(obj)) {
+          return true;
+        }
+        break;
+      }
+      case StubField::Type::String: {
+        JSString* str = stubInfo->getStubField<ICStub, JSString*>(this, offset);
+        if (IsInsideNursery(str)) {
+          return true;
+        }
+        break;
+      }
+      case StubField::Type::Id: {
+#ifdef DEBUG
+        // jsid never contains nursery-allocated things.
+        jsid id = stubInfo->getStubField<ICStub, jsid>(this, offset);
+        MOZ_ASSERT_IF(id.isGCThing(),
+                      !IsInsideNursery(id.toGCCellPtr().asCell()));
+#endif
+        break;
+      }
+      case StubField::Type::Value: {
+        Value v = stubInfo->getStubField<ICStub, JS::Value>(this, offset);
+        if (v.isGCThing() && IsInsideNursery(v.toGCThing())) {
+          return true;
+        }
+        break;
+      }
+      case StubField::Type::Limit:
+        return false;  // Done. Didn't find any nursery pointers.
+    }
+    field++;
+    offset += StubField::sizeInBytes(fieldType);
+  }
+}
+
 // This helper handles ICState updates/transitions while attaching CacheIR
 // stubs.
 template <typename IRGenerator, typename... Args>
@@ -2851,7 +2913,7 @@ bool DoCallFallback(JSContext* cx, BaselineFrame* frame, ICCall_Fallback* stub,
 
   // Ensure vp array is rooted - we may GC in here.
   size_t numValues = argc + 2 + constructing;
-  AutoArrayRooter vpRoot(cx, numValues, vp);
+  RootedExternalValueArray vpRoot(cx, numValues, vp);
 
   CallArgs callArgs = CallArgsFromSp(argc + constructing, vp + numValues,
                                      constructing, ignoresReturnValue);
@@ -2988,7 +3050,7 @@ bool DoSpreadCallFallback(JSContext* cx, BaselineFrame* frame,
   FallbackICSpew(cx, stub, "SpreadCall(%s)", CodeName(op));
 
   // Ensure vp array is rooted - we may GC in here.
-  AutoArrayRooter vpRoot(cx, 3 + constructing, vp);
+  RootedExternalValueArray vpRoot(cx, 3 + constructing, vp);
 
   RootedValue callee(cx, vp[0]);
   RootedValue thisv(cx, vp[1]);
@@ -3750,7 +3812,7 @@ bool DoNewArrayFallback(JSContext* cx, BaselineFrame* frame,
     }
 
     if (!obj->isSingleton()) {
-      JSObject* templateObject =
+      ArrayObject* templateObject =
           NewArrayOperation(cx, script, pc, length, TenuredObject);
       if (!templateObject) {
         return false;

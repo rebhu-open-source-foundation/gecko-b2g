@@ -396,7 +396,7 @@ impl YamlFrameReader {
             txn.delete_font(font);
         }
 
-        wrench.api.update_resources(txn.resource_updates);
+        wrench.api.send_transaction(wrench.document_id, txn);
     }
 
     fn top_space_and_clip(&self) -> SpaceAndClipInfo {
@@ -777,7 +777,7 @@ impl YamlFrameReader {
             txn.add_image(image_key, descriptor, image_data, tiling);
         }
 
-        wrench.api.update_resources(txn.resource_updates);
+        wrench.api.send_transaction(wrench.document_id, txn);
         let val = (
             image_key,
             LayoutSize::new(descriptor.size.width as f32, descriptor.size.height as f32),
@@ -2114,8 +2114,8 @@ impl YamlFrameReader {
         let raster_space = yaml["raster-space"]
             .as_raster_space()
             .unwrap_or(RasterSpace::Screen);
-        let cache_tiles = yaml["cache"].as_bool().unwrap_or(false);
         let is_backdrop_root = yaml["backdrop-root"].as_bool().unwrap_or(false);
+        let is_blend_container = yaml["blend-container"].as_bool().unwrap_or(false);
 
         if is_root {
             if let Some(size) = yaml["scroll-offset"].as_point() {
@@ -2128,6 +2128,14 @@ impl YamlFrameReader {
         let filter_datas = yaml["filter-datas"].as_vec_filter_data().unwrap_or(vec![]);
         let filter_primitives = yaml["filter-primitives"].as_vec_filter_primitive().unwrap_or(vec![]);
 
+        let mut flags = StackingContextFlags::empty();
+        if is_backdrop_root {
+            flags |= StackingContextFlags::IS_BACKDROP_ROOT;
+        }
+        if is_blend_container {
+            flags |= StackingContextFlags::IS_BLEND_CONTAINER;
+        }
+
         dl.push_stacking_context(
             bounds.origin,
             *self.spatial_id_stack.last().unwrap(),
@@ -2139,8 +2147,7 @@ impl YamlFrameReader {
             &filter_datas,
             &filter_primitives,
             raster_space,
-            cache_tiles,
-            is_backdrop_root,
+            flags,
         );
 
         if !yaml["items"].is_badvalue() {

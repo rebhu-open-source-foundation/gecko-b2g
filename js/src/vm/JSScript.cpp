@@ -40,7 +40,8 @@
 #include "gc/FreeOp.h"
 #include "jit/BaselineJIT.h"
 #include "jit/Ion.h"
-#include "jit/IonCode.h"
+#include "jit/IonScript.h"
+#include "jit/JitCode.h"
 #include "jit/JitOptions.h"
 #include "jit/JitRealm.h"
 #include "js/CompileOptions.h"
@@ -1237,7 +1238,7 @@ XDRResult js::XDRLazyScript(XDRState<mode>* xdr, HandleScope enclosingScope,
         lazy->setEnclosingScope(enclosingScope);
       }
 
-      fun->initLazyScript(lazy);
+      fun->initScript(lazy);
     }
   }
 
@@ -4128,6 +4129,7 @@ PrivateScriptData* PrivateScriptData::new_(JSContext* cx, uint32_t ngcthings) {
 /* static */
 bool PrivateScriptData::InitFromStencil(
     JSContext* cx, js::HandleScript script,
+    js::frontend::CompilationInfo& compilationInfo,
     const frontend::ScriptStencil& stencil) {
   uint32_t ngcthings = stencil.gcThings.length();
 
@@ -4140,7 +4142,8 @@ bool PrivateScriptData::InitFromStencil(
 
   js::PrivateScriptData* data = script->data_;
   if (ngcthings) {
-    if (!stencil.finishGCThings(cx, data->gcthings())) {
+    if (!EmitScriptThingsVector(cx, compilationInfo, stencil.gcThings,
+                                data->gcthings())) {
       return false;
     }
   }
@@ -4274,13 +4277,18 @@ bool JSScript::fullyInitFromStencil(JSContext* cx,
   /* The counts of indexed things must be checked during code generation. */
   MOZ_ASSERT(stencil.natoms <= INDEX_LIMIT);
 
-  script->addToImmutableFlags(stencil.immutableFlags);
+  // Note: These flags should already be correct when the BaseScript was
+  // allocated, except that lazy BinAST parsing has incomplete set of flags.
+  MOZ_ASSERT_IF(!script->isBinAST(),
+                script->immutableFlags() == stencil.immutableFlags);
+  script->resetImmutableFlags(stencil.immutableFlags);
 
   // Derive initial mutable flags
   script->resetArgsUsageAnalysis();
 
   // Create and initialize PrivateScriptData
-  if (!PrivateScriptData::InitFromStencil(cx, script, stencil)) {
+  if (!PrivateScriptData::InitFromStencil(cx, script, compilationInfo,
+                                          stencil)) {
     return false;
   }
 
@@ -4301,19 +4309,11 @@ bool JSScript::fullyInitFromStencil(JSContext* cx,
         compilationInfo.funcData[*stencil.functionIndex].as<JSFunction*>();
     if (fun->isIncomplete()) {
       fun->initScript(script);
-    } else if (fun->hasSelfHostedLazyScript()) {
-      fun->clearSelfHostedLazyScript();
-      fun->initScript(script);
     } else {
       // We are delazifying in-place.
       MOZ_ASSERT(fun->baseScript() == script);
     }
   }
-
-  // Part of the parse result – the scope containing each inner function – must
-  // be stored in the inner function itself. Do this now that compilation is
-  // complete and can no longer fail.
-  stencil.finishInnerFunctions();
 
 #ifdef JS_STRUCTURED_SPEW
   // We want this to happen after line number initialization to allow filtering
@@ -5327,48 +5327,6 @@ BaseScript* BaseScript::CreateRawLazy(JSContext* cx, uint32_t ngcthings,
   }
 
   cx->realm()->scheduleDelazificationForDebugger();
-
-  return lazy;
-}
-
-/* static */
-BaseScript* BaseScript::CreateLazy(
-    JSContext* cx, const frontend::CompilationInfo& compilationInfo,
-    HandleFunction fun, HandleScriptSourceObject sourceObject,
-    const frontend::AtomVector& closedOverBindings,
-    const Vector<frontend::FunctionIndex>& innerFunctionIndexes,
-    const SourceExtent& extent, uint32_t immutableFlags) {
-  uint32_t ngcthings =
-      innerFunctionIndexes.length() + closedOverBindings.length();
-
-  BaseScript* lazy = BaseScript::CreateRawLazy(cx, ngcthings, fun, sourceObject,
-                                               extent, immutableFlags);
-  if (!lazy) {
-    return nullptr;
-  }
-
-  // Fill in gcthing data with inner functions followed by binding data.
-  mozilla::Span<JS::GCCellPtr> gcThings =
-      lazy->data_ ? lazy->data_->gcthings() : mozilla::Span<JS::GCCellPtr>();
-  auto iter = gcThings.begin();
-
-  for (const frontend::FunctionIndex& index : innerFunctionIndexes) {
-    // Assumes that the associated FunctionCreationData was already published.
-    JSFunction* fun = compilationInfo.funcData[index].as<JSFunction*>();
-    *iter++ = JS::GCCellPtr(fun);
-
-    fun->setEnclosingLazyScript(lazy);
-  }
-
-  for (JSAtom* binding : closedOverBindings) {
-    if (binding) {
-      *iter++ = JS::GCCellPtr(binding);
-    } else {
-      iter++;
-    }
-  }
-
-  MOZ_ASSERT(iter == gcThings.end());
 
   return lazy;
 }

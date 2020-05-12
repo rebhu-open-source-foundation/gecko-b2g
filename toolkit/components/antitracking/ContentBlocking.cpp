@@ -31,6 +31,7 @@
 #include "nsIOService.h"
 #include "nsIWebProgressListener.h"
 #include "nsScriptSecurityManager.h"
+#include "RejectForeignAllowList.h"
 
 namespace mozilla {
 
@@ -187,17 +188,15 @@ ContentBlocking::AllowAccessFor(
     return StorageAccessGrantPromise::CreateAndReject(false, __func__);
   }
 
-  Maybe<net::CookieJarSettingsArgs> cookieJarSetting =
-      parentWindowContext->GetCookieJarSettings();
-  if (cookieJarSetting.isNothing()) {
+  if (parentWindowContext->GetCookieBehavior().isNothing()) {
     LOG(
-        ("No cookiejar setting found for our parent window context, bailing "
+        ("No cookie behaviour found for our parent window context, bailing "
          "out early"));
     return StorageAccessGrantPromise::CreateAndReject(false, __func__);
   }
 
   // Only add storage permission when there is a reason to do so.
-  uint32_t behavior = cookieJarSetting->cookieBehavior();
+  uint32_t behavior = *parentWindowContext->GetCookieBehavior();
   if (!CookieJarSettings::IsRejectThirdPartyContexts(behavior)) {
     LOG(
         ("Disabled by network.cookie.cookieBehavior pref (%d), bailing out "
@@ -213,7 +212,7 @@ ContentBlocking::AllowAccessFor(
           nsICookieService::BEHAVIOR_REJECT_TRACKER_AND_PARTITION_FOREIGN);
 
   // No need to continue when we are already in the allow list.
-  if (cookieJarSetting->isOnContentBlockingAllowList()) {
+  if (parentWindowContext->GetIsOnContentBlockingAllowList()) {
     return StorageAccessGrantPromise::CreateAndResolve(true, __func__);
   }
 
@@ -322,6 +321,10 @@ ContentBlocking::AllowAccessFor(
       bool isThirdParty;
       nsCOMPtr<nsIPrincipal> principal =
           AntiTrackingUtils::GetPrincipal(aParentContext);
+      if (!principal) {
+        LOG(("Can't get the principal from the browsing context"));
+        return StorageAccessGrantPromise::CreateAndReject(false, __func__);
+      }
       Unused << trackingPrincipal->IsThirdPartyPrincipal(principal,
                                                          &isThirdParty);
       runInSameProcess = !isThirdParty;
@@ -358,7 +361,8 @@ ContentBlocking::AllowAccessFor(
                  // we don't call OnAllowAccessFor in the parent when this is
                  // triggered by the opener heuristic, so we have to do it here.
                  // See storePermission below for the reason.
-                 if (aReason == ContentBlockingNotifier::eOpener) {
+                 if (aReason == ContentBlockingNotifier::eOpener &&
+                     !bc->IsDiscarded()) {
                    MOZ_ASSERT(bc->IsInProcess());
                    ContentBlocking::OnAllowAccessFor(bc, trackingOrigin,
                                                      behavior, aReason);
@@ -956,6 +960,11 @@ bool ContentBlocking::ShouldAllowAccessFor(nsPIDOMWindowInner* aWindow,
     }
   } else {
     MOZ_ASSERT(CookieJarSettings::IsRejectThirdPartyWithExceptions(behavior));
+    if (RejectForeignAllowList::Check(document)) {
+      LOG(("This window is whitelisted for reject foreign"));
+      return true;
+    }
+
     blockedReason = nsIWebProgressListener::STATE_COOKIES_PARTITIONED_FOREIGN;
   }
 
@@ -1162,6 +1171,10 @@ bool ContentBlocking::ShouldAllowAccessFor(nsIChannel* aChannel, nsIURI* aURI,
     }
   } else {
     MOZ_ASSERT(CookieJarSettings::IsRejectThirdPartyWithExceptions(behavior));
+    if (httpChannel && RejectForeignAllowList::Check(httpChannel)) {
+      LOG(("This channel is whitelisted"));
+      return true;
+    }
     blockedReason = nsIWebProgressListener::STATE_COOKIES_BLOCKED_FOREIGN;
   }
 

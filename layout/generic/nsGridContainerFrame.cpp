@@ -653,6 +653,12 @@ struct nsGridContainerFrame::GridItemInfo {
   }
 
   /**
+   * Adjust our grid areas to account for removed auto-fit tracks in aAxis.
+   */
+  void AdjustForRemovedTracks(LogicalAxis aAxis,
+                              const nsTArray<uint32_t>& aNumRemovedTracks);
+
+  /**
    * If the item is [align|justify]-self:[last ]baseline aligned in the given
    * axis then set aBaselineOffset to the baseline offset and return aAlign.
    * Otherwise, return a fallback alignment.
@@ -875,6 +881,28 @@ struct nsGridContainerFrame::Subgrid {
   NS_DECLARE_FRAME_PROPERTY_DELETABLE(Prop, Subgrid)
 };
 using Subgrid = nsGridContainerFrame::Subgrid;
+
+void GridItemInfo::AdjustForRemovedTracks(
+    LogicalAxis aAxis, const nsTArray<uint32_t>& aNumRemovedTracks) {
+  const bool abspos = mFrame->HasAnyStateBits(NS_FRAME_OUT_OF_FLOW);
+  auto& lines = mArea.LineRangeForAxis(aAxis);
+  if (abspos) {
+    lines.AdjustAbsPosForRemovedTracks(aNumRemovedTracks);
+  } else {
+    lines.AdjustForRemovedTracks(aNumRemovedTracks);
+  }
+  if (IsSubgrid()) {
+    auto* subgrid = SubgridFrame()->GetProperty(Subgrid::Prop());
+    if (subgrid) {
+      auto& lines = subgrid->mArea.LineRangeForAxis(aAxis);
+      if (abspos) {
+        lines.AdjustAbsPosForRemovedTracks(aNumRemovedTracks);
+      } else {
+        lines.AdjustForRemovedTracks(aNumRemovedTracks);
+      }
+    }
+  }
+}
 
 /**
  * Track size data for use by subgrids (which don't do sizing of their own
@@ -1382,22 +1410,18 @@ class MOZ_STACK_CLASS nsGridContainerFrame::LineNameMap {
       mClampMaxLine = 1 + aRange->Extent();
       mRepeatAutoEnd = mRepeatAutoStart;
       const auto& styleSubgrid = aTracks.mTemplate.AsSubgrid();
-      const auto fillStart = styleSubgrid->fill_start;
-      // Use decltype so we do not rely on the exact type that was exposed from
-      // rust code.
-      mHasRepeatAuto =
-          fillStart != std::numeric_limits<decltype(fillStart)>::max();
+      const auto fillLen = styleSubgrid->fill_len;
+      mHasRepeatAuto = fillLen != 0;
       if (mHasRepeatAuto) {
         const auto& lineNameLists = styleSubgrid->names;
-        int32_t extraAutoFillLineCount = mClampMaxLine - lineNameLists.Length();
+        const int32_t extraAutoFillLineCount =
+            mClampMaxLine - lineNameLists.Length();
         // Maximum possible number of repeat name lists. This must be reduced
         // to a whole number of repetitions of the fill length.
-        const uint32_t possibleRepeatLength = std::max<int32_t>(
-            0, extraAutoFillLineCount + styleSubgrid->fill_len);
-        MOZ_ASSERT(styleSubgrid->fill_len > 0);
-        const uint32_t repeatRemainder =
-            possibleRepeatLength % styleSubgrid->fill_len;
-        mRepeatAutoStart = fillStart;
+        const uint32_t possibleRepeatLength =
+            std::max<int32_t>(0, extraAutoFillLineCount + fillLen);
+        const uint32_t repeatRemainder = possibleRepeatLength % fillLen;
+        mRepeatAutoStart = styleSubgrid->fill_start;
         mRepeatAutoEnd =
             mRepeatAutoStart + possibleRepeatLength - repeatRemainder;
       }
@@ -1410,7 +1434,21 @@ class MOZ_STACK_CLASS nsGridContainerFrame::LineNameMap {
       }
     }
     ExpandRepeatLineNames(!!aRange, aTracks);
-    mTemplateLinesEnd = mExpandedLineNames.Length() + mRepeatEndDelta;
+    if (mHasRepeatAuto) {
+      // We need mTemplateLinesEnd to be after all line names.
+      // mExpandedLineNames has one repetition of the repeat(auto-fit/fill)
+      // track name lists already, so we must subtract the number of repeat
+      // track name lists to get to the number of non-repeat tracks, minus 2
+      // because the first and last line name lists are shared with the
+      // preceding and following non-repeat line name lists. We then add
+      // mRepeatEndDelta to include the interior line name lists from repeat
+      // tracks.
+      mTemplateLinesEnd = mExpandedLineNames.Length() -
+                          (mTrackAutoRepeatLineNames.Length() - 2) +
+                          mRepeatEndDelta;
+    } else {
+      mTemplateLinesEnd = mExpandedLineNames.Length();
+    }
     MOZ_ASSERT(mHasRepeatAuto || mRepeatEndDelta <= 0);
     MOZ_ASSERT(!mHasRepeatAuto || aRange ||
                (mExpandedLineNames.Length() >= 2 &&
@@ -1899,13 +1937,13 @@ class MOZ_STACK_CLASS nsGridContainerFrame::LineNameMap {
   Span<const StyleOwnedSlice<StyleCustomIdent>> mTrackAutoRepeatLineNames;
   // The index of the repeat(auto-fill/fit) track, or zero if there is none.
   uint32_t mRepeatAutoStart;
-  // The (hypothetical) index of the last such repeat() track.
+  // The index one past the end of the repeat(auto-fill/fit) tracks. Equal to
+  // mRepeatAutoStart if there are no repeat(auto-fill/fit) tracks.
   uint32_t mRepeatAutoEnd;
-  // The difference between mTemplateLinesEnd and mExpandedLineNames.Length().
+  // The total number of repeat tracks minus 1.
   int32_t mRepeatEndDelta;
   // The end of the line name lists with repeat(auto-fill/fit) tracks accounted
-  // for.  It is equal to mExpandedLineNames.Length() when a repeat()
-  // track generates one track (making mRepeatEndDelta == 0).
+  // for.
   uint32_t mTemplateLinesEnd;
 
   // The parent line map, or null if this map isn't for a subgrid.
@@ -2566,7 +2604,7 @@ struct nsGridContainerFrame::Tracks {
   void Dump() const;
 #endif
 
-  AutoTArray<TrackSize, 32> mSizes;
+  CopyableAutoTArray<TrackSize, 32> mSizes;
   nscoord mContentBoxSize;
   nscoord mGridGap;
   // The first(last)-baseline for the first(last) track in this axis.
@@ -2717,8 +2755,8 @@ struct MOZ_STACK_CLASS nsGridContainerFrame::GridReflowInput {
         aGridContainerFrame->SetProperty(UsedTrackSizes::Prop(), prop);
       }
       prop->mCanResolveLineRangeSize = {true, true};
-      prop->mSizes[eLogicalAxisInline] = mCols.mSizes;
-      prop->mSizes[eLogicalAxisBlock] = mRows.mSizes;
+      prop->mSizes[eLogicalAxisInline] = mCols.mSizes.Clone();
+      prop->mSizes[eLogicalAxisBlock] = mRows.mSizes.Clone();
     }
 
     // Copy item data from each child's first-in-flow data in mSharedGridData.
@@ -3508,14 +3546,14 @@ void nsGridContainerFrame::UsedTrackSizes::ResolveSubgridTrackSizesForAxis(
     nsGridContainerFrame* aFrame, LogicalAxis aAxis, Subgrid* aSubgrid,
     gfxContext& aRC, nscoord aContentBoxSize) {
   GridReflowInput state(aFrame, aRC);
-  state.mGridItems = aSubgrid->mGridItems;
+  state.mGridItems = aSubgrid->mGridItems.Clone();
   Grid grid;
   grid.mGridColEnd = aSubgrid->mGridColEnd;
   grid.mGridRowEnd = aSubgrid->mGridRowEnd;
   state.CalculateTrackSizesForAxis(aAxis, grid, aContentBoxSize,
                                    SizingConstraint::NoConstraint);
   const auto& tracks = aAxis == eLogicalAxisInline ? state.mCols : state.mRows;
-  mSizes[aAxis] = tracks.mSizes;
+  mSizes[aAxis] = tracks.mSizes.Clone();
   mCanResolveLineRangeSize[aAxis] = tracks.mCanResolveLineRangeSize;
   MOZ_ASSERT(mCanResolveLineRangeSize[aAxis]);
 }
@@ -4775,7 +4813,7 @@ void nsGridContainerFrame::Grid::PlaceGridItems(
     const auto& cellMap = mCellMap;
     colAdjust = CalculateAdjustForAutoFitElements(
         &numEmptyCols, aState.mColFunctions, mGridColEnd + 1,
-        [cellMap](uint32_t i) -> bool { return cellMap.IsEmptyCol(i); });
+        [&cellMap](uint32_t i) -> bool { return cellMap.IsEmptyCol(i); });
   }
 
   // Do similar work for the row tracks, with the same logic.
@@ -4786,7 +4824,7 @@ void nsGridContainerFrame::Grid::PlaceGridItems(
     const auto& cellMap = mCellMap;
     rowAdjust = CalculateAdjustForAutoFitElements(
         &numEmptyRows, aState.mRowFunctions, mGridRowEnd + 1,
-        [cellMap](uint32_t i) -> bool { return cellMap.IsEmptyRow(i); });
+        [&cellMap](uint32_t i) -> bool { return cellMap.IsEmptyRow(i); });
   }
   MOZ_ASSERT((numEmptyCols > 0) == colAdjust.isSome());
   MOZ_ASSERT((numEmptyRows > 0) == rowAdjust.isSome());
@@ -4794,21 +4832,19 @@ void nsGridContainerFrame::Grid::PlaceGridItems(
   if (numEmptyCols || numEmptyRows) {
     // Adjust the line numbers in the grid areas.
     for (auto& item : aState.mGridItems) {
-      GridArea& area = item.mArea;
       if (numEmptyCols) {
-        area.mCols.AdjustForRemovedTracks(*colAdjust);
+        item.AdjustForRemovedTracks(eLogicalAxisInline, *colAdjust);
       }
       if (numEmptyRows) {
-        area.mRows.AdjustForRemovedTracks(*rowAdjust);
+        item.AdjustForRemovedTracks(eLogicalAxisBlock, *rowAdjust);
       }
     }
     for (auto& item : aState.mAbsPosItems) {
-      GridArea& area = item.mArea;
       if (numEmptyCols) {
-        area.mCols.AdjustAbsPosForRemovedTracks(*colAdjust);
+        item.AdjustForRemovedTracks(eLogicalAxisInline, *colAdjust);
       }
       if (numEmptyRows) {
-        area.mRows.AdjustAbsPosForRemovedTracks(*rowAdjust);
+        item.AdjustForRemovedTracks(eLogicalAxisBlock, *rowAdjust);
       }
     }
     // Adjust the grid size.
@@ -6261,7 +6297,7 @@ float nsGridContainerFrame::Tracks::FindFrUnitSize(
   }
   bool restart;
   float hypotheticalFrSize;
-  nsTArray<uint32_t> flexTracks(aFlexTracks);
+  nsTArray<uint32_t> flexTracks(aFlexTracks.Clone());
   uint32_t numFlexTracks = flexTracks.Length();
   do {
     restart = false;
@@ -6385,7 +6421,7 @@ void nsGridContainerFrame::Tracks::StretchFlexibleTracks(
         nscoord& base = mSizes[i].mBase;
         if (flexLength > base) {
           if (applyMinMax && origSizes.isNothing()) {
-            origSizes.emplace(mSizes);
+            origSizes.emplace(mSizes.Clone());
           }
           base = flexLength;
         }
@@ -6812,7 +6848,7 @@ void nsGridContainerFrame::GridReflowInput::AlignJustifyTracksInMasonryAxis(
   const auto masonryAxis = masonryAxisTracks.mAxis;
   auto gridAxis = GetOrthogonalAxis(masonryAxis);
   auto& gridAxisTracks = TracksFor(gridAxis);
-  AutoTArray<TrackSize, 2> savedSizes;
+  AutoTArray<TrackSize, 32> savedSizes;
   savedSizes.AppendElements(masonryAxisTracks.mSizes);
   auto wm = mWM;
   nscoord contentAreaStart = mBorderPadding.Start(masonryAxis, wm);
@@ -6975,7 +7011,7 @@ void nsGridContainerFrame::GridReflowInput::AlignJustifyTracksInMasonryAxis(
       }
     }
   }
-  masonryAxisTracks.mSizes = savedSizes;
+  masonryAxisTracks.mSizes = std::move(savedSizes);
 }
 
 /**
@@ -7881,7 +7917,7 @@ nscoord nsGridContainerFrame::MasonryLayout(GridReflowInput& aState,
   for (auto& sz : currentPos) {
     sz = fragStartPos;
   }
-  nsTArray<nscoord> lastPos(currentPos);
+  nsTArray<nscoord> lastPos(currentPos.Clone());
   nsTArray<GridItemInfo*> lastItems(gridAxisTrackCount);
   lastItems.SetLength(gridAxisTrackCount);
   PodZero(lastItems.Elements(), gridAxisTrackCount);
@@ -8635,8 +8671,8 @@ void nsGridContainerFrame::Reflow(nsPresContext* aPresContext,
     } else {
       auto* subgrid = GetProperty(Subgrid::Prop());
       MOZ_ASSERT(subgrid, "an ancestor forgot to call PlaceGridItems?");
-      gridReflowInput.mGridItems = subgrid->mGridItems;
-      gridReflowInput.mAbsPosItems = subgrid->mAbsPosItems;
+      gridReflowInput.mGridItems = subgrid->mGridItems.Clone();
+      gridReflowInput.mAbsPosItems = subgrid->mAbsPosItems.Clone();
       grid.mGridColEnd = subgrid->mGridColEnd;
       grid.mGridRowEnd = subgrid->mGridRowEnd;
     }
@@ -8864,7 +8900,7 @@ void nsGridContainerFrame::Reflow(nsPresContext* aPresContext,
     nsTArray<nscoord> colTrackSizes(colTrackCount);
     nsTArray<uint32_t> colTrackStates(colTrackCount);
     nsTArray<bool> colRemovedRepeatTracks(
-        gridReflowInput.mColFunctions.mRemovedRepeatTracks);
+        gridReflowInput.mColFunctions.mRemovedRepeatTracks.Clone());
     uint32_t col = 0;
     for (const TrackSize& sz : gridReflowInput.mCols.mSizes) {
       colTrackPositions.AppendElement(sz.mPosition);
@@ -8906,7 +8942,7 @@ void nsGridContainerFrame::Reflow(nsPresContext* aPresContext,
     nsTArray<nscoord> rowTrackSizes(rowTrackCount);
     nsTArray<uint32_t> rowTrackStates(rowTrackCount);
     nsTArray<bool> rowRemovedRepeatTracks(
-        gridReflowInput.mRowFunctions.mRemovedRepeatTracks);
+        gridReflowInput.mRowFunctions.mRemovedRepeatTracks.Clone());
     uint32_t row = 0;
     for (const TrackSize& sz : gridReflowInput.mRows.mSizes) {
       rowTrackPositions.AppendElement(sz.mPosition);
@@ -8988,7 +9024,7 @@ void nsGridContainerFrame::Reflow(nsPresContext* aPresContext,
           colLineNameMap.GetExplicitLineNamesAtIndex(
               col - colFunctions.mExplicitGridOffset);
 
-      columnLineNames.AppendElement(explicitNames);
+      columnLineNames.EmplaceBack(std::move(explicitNames));
     }
     // Get the explicit names that follow a repeat auto declaration.
     nsTArray<RefPtr<nsAtom>> colNamesFollowingRepeat;
@@ -9028,7 +9064,7 @@ void nsGridContainerFrame::Reflow(nsPresContext* aPresContext,
       nsTArray<RefPtr<nsAtom>> explicitNames =
           rowLineNameMap.GetExplicitLineNamesAtIndex(
               row - rowFunctions.mExplicitGridOffset);
-      rowLineNames.AppendElement(explicitNames);
+      rowLineNames.EmplaceBack(std::move(explicitNames));
     }
     // Get the explicit names that follow a repeat auto declaration.
     nsTArray<RefPtr<nsAtom>> rowNamesFollowingRepeat;
@@ -9309,8 +9345,8 @@ nscoord nsGridContainerFrame::IntrinsicISize(gfxContext* aRenderingContext,
     grid.PlaceGridItems(state, repeatSizing);  // XXX optimize
   } else {
     auto* subgrid = GetProperty(Subgrid::Prop());
-    state.mGridItems = subgrid->mGridItems;
-    state.mAbsPosItems = subgrid->mAbsPosItems;
+    state.mGridItems = subgrid->mGridItems.Clone();
+    state.mAbsPosItems = subgrid->mAbsPosItems.Clone();
     grid.mGridColEnd = subgrid->mGridColEnd;
     grid.mGridRowEnd = subgrid->mGridRowEnd;
   }
@@ -9748,7 +9784,7 @@ void nsGridContainerFrame::StoreUsedTrackSizes(
     uts = new UsedTrackSizes();
     SetProperty(UsedTrackSizes::Prop(), uts);
   }
-  uts->mSizes[aAxis] = aSizes;
+  uts->mSizes[aAxis] = aSizes.Clone();
   uts->mCanResolveLineRangeSize[aAxis] = true;
   // XXX is resetting these bits necessary?
   for (auto& sz : uts->mSizes[aAxis]) {

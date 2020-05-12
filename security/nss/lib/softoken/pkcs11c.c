@@ -1044,6 +1044,7 @@ sftk_CryptInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
             context->update = (SFTKCipher)(isEncrypt ? DES_Encrypt : DES_Decrypt);
             context->destroy = (SFTKDestroy)DES_DestroyContext;
             break;
+#ifndef NSS_DISABLE_DEPRECATED_SEED
         case CKM_SEED_CBC_PAD:
             context->doPad = PR_TRUE;
         /* fall thru */
@@ -1078,7 +1079,7 @@ sftk_CryptInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
             context->update = (SFTKCipher)(isEncrypt ? SEED_Encrypt : SEED_Decrypt);
             context->destroy = (SFTKDestroy)SEED_DestroyContext;
             break;
-
+#endif /* NSS_DISABLE_DEPRECATED_SEED */
         case CKM_CAMELLIA_CBC_PAD:
             context->doPad = PR_TRUE;
         /* fall thru */
@@ -2325,6 +2326,7 @@ sftk_InitCBCMac(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
             cbc_mechanism.pParameter = &ivBlock;
             cbc_mechanism.ulParameterLen = blockSize;
             break;
+#ifndef NSS_DISABLE_DEPRECATED_SEED
         case CKM_SEED_MAC_GENERAL:
             mac_bytes = *(CK_ULONG *)pMechanism->pParameter;
         /* fall through */
@@ -2335,6 +2337,7 @@ sftk_InitCBCMac(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
             cbc_mechanism.pParameter = &ivBlock;
             cbc_mechanism.ulParameterLen = blockSize;
             break;
+#endif /* NSS_DISABLE_DEPRECATED_SEED */
         case CKM_CAMELLIA_MAC_GENERAL:
             mac_bytes = *(CK_ULONG *)pMechanism->pParameter;
         /* fall through */
@@ -4215,10 +4218,12 @@ nsc_SetupBulkKeyGen(CK_MECHANISM_TYPE mechanism, CK_KEY_TYPE *key_type,
             *key_type = CKK_DES3;
             *key_length = 24;
             break;
+#ifndef NSS_DISABLE_DEPRECATED_SEED
         case CKM_SEED_KEY_GEN:
             *key_type = CKK_SEED;
             *key_length = 16;
             break;
+#endif /* NSS_DISABLE_DEPRECATED_SEED */
         case CKM_CAMELLIA_KEY_GEN:
             *key_type = CKK_CAMELLIA;
             if (*key_length == 0)
@@ -4530,7 +4535,9 @@ NSC_GenerateKey(CK_SESSION_HANDLE hSession,
         case CKM_RC2_KEY_GEN:
         case CKM_RC4_KEY_GEN:
         case CKM_GENERIC_SECRET_KEY_GEN:
+#ifndef NSS_DISABLE_DEPRECATED_SEED
         case CKM_SEED_KEY_GEN:
+#endif
         case CKM_CAMELLIA_KEY_GEN:
         case CKM_AES_KEY_GEN:
         case CKM_NSS_CHACHA20_KEY_GEN:
@@ -6968,6 +6975,8 @@ NSC_DeriveKey(CK_SESSION_HANDLE hSession,
     HASH_HashType hashType;
     CK_MECHANISM_TYPE hashMech;
     PRBool extractValue = PR_TRUE;
+    CK_NSS_IKE1_APP_B_PRF_DERIVE_PARAMS ikeAppB;
+    CK_NSS_IKE1_APP_B_PRF_DERIVE_PARAMS *pIkeAppB;
 
     CHECK_FORK();
 
@@ -7122,14 +7131,22 @@ NSC_DeriveKey(CK_SESSION_HANDLE hSession,
                                 key, keySize);
             break;
         case CKM_NSS_IKE1_APP_B_PRF_DERIVE:
-            if (pMechanism->ulParameterLen !=
+            pIkeAppB = (CK_NSS_IKE1_APP_B_PRF_DERIVE_PARAMS *)pMechanism->pParameter;
+            if (pMechanism->ulParameterLen ==
                 sizeof(CK_MECHANISM_TYPE)) {
+                ikeAppB.prfMechanism = *(CK_MECHANISM_TYPE *)pMechanism->pParameter;
+                ikeAppB.bHasKeygxy = PR_FALSE;
+                ikeAppB.hKeygxy = CK_INVALID_HANDLE;
+                ikeAppB.pExtraData = NULL;
+                ikeAppB.ulExtraDataLen = 0;
+                pIkeAppB = &ikeAppB;
+            } else if (pMechanism->ulParameterLen !=
+                       sizeof(CK_NSS_IKE1_APP_B_PRF_DERIVE_PARAMS)) {
                 crv = CKR_MECHANISM_PARAM_INVALID;
                 break;
             }
-            crv = sftk_ike1_appendix_b_prf(hSession, att,
-                                           (CK_MECHANISM_TYPE *)pMechanism->pParameter,
-                                           key, keySize);
+            crv = sftk_ike1_appendix_b_prf(hSession, att, pIkeAppB, key,
+                                           keySize);
             break;
         case CKM_NSS_IKE_PRF_PLUS_DERIVE:
             if (pMechanism->ulParameterLen !=
@@ -7813,6 +7830,7 @@ NSC_DeriveKey(CK_SESSION_HANDLE hSession,
             break;
         }
 
+#ifndef NSS_DISABLE_DEPRECATED_SEED
         case CKM_SEED_ECB_ENCRYPT_DATA:
         case CKM_SEED_CBC_ENCRYPT_DATA: {
             void *cipherInfo;
@@ -7859,6 +7877,7 @@ NSC_DeriveKey(CK_SESSION_HANDLE hSession,
             SEED_DestroyContext(cipherInfo, PR_TRUE);
             break;
         }
+#endif /* NSS_DISABLE_DEPRECATED_SEED */
 
         case CKM_CONCATENATE_BASE_AND_KEY: {
             SFTKObject *newKey;

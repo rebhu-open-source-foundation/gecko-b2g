@@ -88,7 +88,6 @@ class WindowProxyHolder;
   FIELD(Name, nsString)                                                      \
   FIELD(Closed, bool)                                                        \
   FIELD(IsActive, bool)                                                      \
-  FIELD(EmbedderPolicy, nsILoadInfo::CrossOriginEmbedderPolicy)              \
   FIELD(OpenerPolicy, nsILoadInfo::CrossOriginOpenerPolicy)                  \
   /* Current opener for the BrowsingContext. Weak reference */               \
   FIELD(OpenerId, uint64_t)                                                  \
@@ -115,6 +114,7 @@ class WindowProxyHolder;
   FIELD(AllowContentRetargeting, bool)                                       \
   FIELD(AllowContentRetargetingOnChildren, bool)                             \
   FIELD(ForceEnableTrackingProtection, bool)                                 \
+  FIELD(UseGlobalHistory, bool)                                              \
   /* These field are used to store the states of autoplay media request on   \
    * GeckoView only, and it would only be modified on the top level browsing \
    * context. */                                                             \
@@ -132,10 +132,7 @@ class WindowProxyHolder;
   FIELD(WatchedByDevtools, bool)                                             \
   FIELD(TextZoom, float)                                                     \
   /* See nsIRequest for possible flags. */                                   \
-  FIELD(DefaultLoadFlags, uint32_t)                                          \
-  /* Mixed-Content: If the corresponding documentURI is https,               \
-   * then this flag is true. */                                              \
-  FIELD(IsSecure, bool)
+  FIELD(DefaultLoadFlags, uint32_t)
 
 // BrowsingContext, in this context, is the cross process replicated
 // environment in which information about documents is stored. In
@@ -219,7 +216,6 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   bool IsDiscarded() const { return mIsDiscarded; }
 
   bool Windowless() const { return mWindowless; }
-  void SetWindowless();
 
   // Get the DocShell for this BrowsingContext if it is in-process, or
   // null if it's not.
@@ -306,9 +302,10 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   BrowsingContext* GetParent() const;
   BrowsingContext* Top();
 
-  // NOTE: Unlike `GetEmbedderWindowGlobal`, `GetParentWindow` does not cross
-  // toplevel content browser boundaries.
-  WindowContext* GetParentWindow() const { return mParentWindow; }
+  // NOTE: Unlike `GetEmbedderWindowGlobal`, `GetParentWindowContext` does not
+  // cross toplevel content browser boundaries.
+  WindowContext* GetParentWindowContext() const { return mParentWindow; }
+  WindowContext* GetTopWindowContext();
 
   already_AddRefed<BrowsingContext> GetOpener() const {
     RefPtr<BrowsingContext> opener(Get(GetOpenerId()));
@@ -383,6 +380,8 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   float FullZoom() const { return GetFullZoom(); }
   float TextZoom() const { return GetTextZoom(); }
+
+  bool UseGlobalHistory() const { return GetUseGlobalHistory(); }
 
   bool IsLoading();
 
@@ -615,6 +614,10 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   void AssertOriginAttributesMatchPrivateBrowsing();
 
+  // Assert that the BrowsingContext's LoadContext flags appear coherent
+  // relative to related BrowsingContexts.
+  void AssertCoherentLoadContext();
+
   friend class ::nsOuterWindowProxy;
   friend class ::nsGlobalWindowOuter;
   friend class WindowContext;
@@ -727,6 +730,9 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   bool CanSet(FieldIndex<IDX_DefaultLoadFlags>,
               const uint32_t& aDefaultLoadFlags, ContentParent* aSource);
   void DidSet(FieldIndex<IDX_DefaultLoadFlags>);
+
+  bool CanSet(FieldIndex<IDX_UseGlobalHistory>, const bool& aUseGlobalHistory,
+              ContentParent* aSource);
 
   template <size_t I, typename T>
   bool CanSet(FieldIndex<I>, const T&, ContentParent*) {

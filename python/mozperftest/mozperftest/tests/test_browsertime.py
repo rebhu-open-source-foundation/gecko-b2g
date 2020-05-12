@@ -17,6 +17,7 @@ def fetch(self, url):
     return os.path.join(HERE, "fetched_artifact.zip")
 
 
+@mock.patch("mozperftest.browser.browsertime.runner.install_package")
 @mock.patch(
     "mozperftest.browser.noderunner.NodeRunner.verify_node_install", new=lambda x: True
 )
@@ -25,8 +26,8 @@ def fetch(self, url):
     "mozperftest.browser.browsertime.runner.BrowsertimeRunner._setup_node_packages",
     new=lambda x, y: None,
 )
-def test_browser():
-    mach_cmd, metadata, env = get_running_env()
+def test_browser(*mocked):
+    mach_cmd, metadata, env = get_running_env(browsertime_geckodriver="GECKODRIVER")
     browser = env.layers[BROWSER]
     env.set_arg("tests", [EXAMPLE_TEST])
 
@@ -39,6 +40,8 @@ def test_browser():
     assert mach_cmd.run_process.call_count == 1
     # XXX more checks
     assert mach_cmd.run_process.call_args[0][-1][-1] == EXAMPLE_TEST
+    cmd = " ".join(mach_cmd.run_process.call_args[0][0])
+    assert "--firefox.geckodriverPath GECKODRIVER" in cmd
 
 
 def test_add_options():

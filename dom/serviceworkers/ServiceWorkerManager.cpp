@@ -1174,7 +1174,7 @@ ServiceWorkerManager::SendPushEvent(const nsACString& aOriginAttributes,
     // in practice this only affects JS callers that pass data, and we don't
     // have any right now, let's not worry about it.
     return SendPushEvent(aOriginAttributes, aScope, EmptyString(),
-                         Some(aDataBytes));
+                         Some(aDataBytes.Clone()));
   }
   MOZ_ASSERT(optional_argc == 0);
   return SendPushEvent(aOriginAttributes, aScope, EmptyString(), Nothing());
@@ -3075,7 +3075,8 @@ ServiceWorkerManager::PropagateUnregister(
 
 void ServiceWorkerManager::NotifyListenersOnRegister(
     nsIServiceWorkerRegistrationInfo* aInfo) {
-  nsTArray<nsCOMPtr<nsIServiceWorkerManagerListener>> listeners(mListeners);
+  nsTArray<nsCOMPtr<nsIServiceWorkerManagerListener>> listeners(
+      mListeners.Clone());
   for (size_t index = 0; index < listeners.Length(); ++index) {
     listeners[index]->OnRegister(aInfo);
   }
@@ -3083,7 +3084,8 @@ void ServiceWorkerManager::NotifyListenersOnRegister(
 
 void ServiceWorkerManager::NotifyListenersOnUnregister(
     nsIServiceWorkerRegistrationInfo* aInfo) {
-  nsTArray<nsCOMPtr<nsIServiceWorkerManagerListener>> listeners(mListeners);
+  nsTArray<nsCOMPtr<nsIServiceWorkerManagerListener>> listeners(
+      mListeners.Clone());
   for (size_t index = 0; index < listeners.Length(); ++index) {
     listeners[index]->OnUnregister(aInfo);
   }

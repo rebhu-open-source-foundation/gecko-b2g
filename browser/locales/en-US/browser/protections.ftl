@@ -64,44 +64,47 @@ fingerprinter-tab-content = Fingerprinters collect settings from your browser an
 cryptominer-tab-title = Cryptominers
 cryptominer-tab-content = Cryptominers use your system’s computing power to mine digital money. Cryptomining scripts drain your battery, slow down your computer, and can increase your energy bill. <a data-l10n-name="learn-more-link">Learn more</a>
 
-protections-close-button =
+protections-close-button2 =
   .aria-label = Close
-
+  .title = Close
+  
 mobile-app-title = Block ad trackers across more devices
 mobile-app-card-content = Use the mobile browser with built-in protection against ad tracking. 
 mobile-app-links = { -brand-product-name } Browser for <a data-l10n-name="android-mobile-inline-link">Android</a> and <a data-l10n-name="ios-mobile-inline-link">iOS</a>
 
 lockwise-title = Never forget a password again
-lockwise-title-logged-in = { -lockwise-brand-name }
+lockwise-title-logged-in2 = Password Management
 lockwise-header-content = { -lockwise-brand-name } securely stores your passwords in your browser.
 lockwise-header-content-logged-in = Securely store and sync your passwords to all your devices.
-protection-report-view-logins-button = View Logins
-  .title = Go to Saved Logins
+protection-report-save-passwords-button = Save Passwords
+  .title = Save Passwords on { -lockwise-brand-short-name }
+protection-report-manage-passwords-button = Manage Passwords
+  .title = Manage Passwords on { -lockwise-brand-short-name }
 lockwise-mobile-app-title = Take your passwords everywhere
 lockwise-no-logins-card-content = Use passwords saved in { -brand-short-name } on any device.
 lockwise-app-links = { -lockwise-brand-name } for <a data-l10n-name="lockwise-android-inline-link">Android</a> and <a data-l10n-name="lockwise-ios-inline-link">iOS</a>
 
-# This string is displayed after a large numeral that indicates the total number
-# of email addresses being monitored. Don’t add $count to
-# your localization, because it would result in the number showing twice.
-lockwise-passwords-stored =
+# Variables:
+# $count (Number) - Number of passwords exposed in data breaches.
+lockwise-scanned-text-breached-logins = 
   { $count ->
-     [one] Password stored securely <a data-l10n-name="lockwise-how-it-works">How it works</a>
-    *[other] Passwords stored securely <a data-l10n-name="lockwise-how-it-works">How it works</a>
+      [one] 1 password may have been exposed in a data breach.
+     *[other] { $count } passwords may have been exposed in a data breach.
   }
+
+# While English doesn't use the number in the plural form, you can add $count to your language
+# if needed for grammatical reasons.
+# Variables:
+# $count (Number) - Number of passwords stored in Lockwise.
+lockwise-scanned-text-no-breached-logins =
+  { $count ->
+     [one] 1 password stored securely.
+    *[other] Your passwords are being stored securely.
+  }
+lockwise-how-it-works-link = How it works
 
 turn-on-sync = Turn on { -sync-brand-short-name }…
   .title = Go to sync preferences
-
-manage-connected-devices = Manage devices…
-
-# Variables:
-#   $count (Number) - Number of devices connected with sync.
-lockwise-connected-device-status =
-  { $count ->
-     [one] Connected to { $count } device
-    *[other] Connected to { $count } devices
-  }
 
 monitor-title = Look out for data breaches
 monitor-link = How it works
@@ -138,15 +141,6 @@ info-exposed-passwords-found =
   }
 
 full-report-link = View full report on <a data-l10n-name="monitor-inline-link">{ -monitor-brand-name }</a>
-
-# This string is displayed after a large numeral that indicates the total number
-# of saved logins which may have been exposed. Don’t add $count to
-# your localization, because it would result in the number showing twice.
-password-warning =
-  { $count ->
-     [one] Saved login may have been exposed in a data breach. Change this password for better online security. <a data-l10n-name="lockwise-link">View Saved Logins</a>
-    *[other] Saved logins may have been exposed in a data breach. Change these passwords for better online security. <a data-l10n-name="lockwise-link">View Saved Logins</a>
-  }
 
 ## The title attribute is used to display the type of protection.
 ## The aria-label is spoken by screen readers to make the visual graph accessible to blind users.

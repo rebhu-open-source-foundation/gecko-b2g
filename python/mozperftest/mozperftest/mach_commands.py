@@ -2,8 +2,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import os
-import random
 from functools import partial
+import subprocess
+
 from mach.decorators import CommandProvider, Command
 from mozbuild.base import MachCommandBase, MachCommandConditions as conditions
 
@@ -16,25 +17,6 @@ def get_perftest_parser():
 
 @CommandProvider
 class Perftest(MachCommandBase):
-    def _build_test_list(self, tests, randomized=False):
-        res = []
-        for test in tests:
-            if os.path.isfile(test):
-                tests.append(test)
-            elif os.path.isdir(test):
-                for root, dirs, files in os.walk(test):
-                    for file in files:
-                        if not file.startswith("perftest"):
-                            continue
-                        res.append(os.path.join(root, file))
-        if not randomized:
-            res.sort()
-        else:
-            # random shuffling is used to make sure
-            # we don't always run tests in the same order
-            random.shuffle(res)
-        return res
-
     @Command(
         "perftest",
         category="testing",
@@ -42,36 +24,71 @@ class Perftest(MachCommandBase):
         description="Run any flavor of perftest",
         parser=get_perftest_parser,
     )
-    def run_perftest(
-        self, flavor="script", test_objects=None, resolve_tests=True, **kwargs
-    ):
-
+    def run_perftest(self, **kwargs):
         MachCommandBase._activate_virtualenv(self)
-        kwargs["tests"] = self._build_test_list(
-            kwargs["tests"], randomized=flavor != "doc"
-        )
 
-        if flavor == "doc":
-            from mozperftest.utils import install_package
+        from mozperftest.runner import run_tests
 
-            location = os.path.join(self.topsrcdir, "third_party", "python", "esprima")
-            install_package(self.virtualenv_manager, location)
+        run_tests(mach_cmd=self, **kwargs)
 
-            from mozperftest.scriptinfo import ScriptInfo
 
-            for test in kwargs["tests"]:
-                print(ScriptInfo(test))
-            return
+@CommandProvider
+class PerftestTests(MachCommandBase):
+    def _run_script(self, script, *args):
+        """Used to run the scripts in isolation.
 
-        from mozperftest import MachEnvironment, Metadata
-
-        kwargs["test_objects"] = test_objects
-        kwargs["resolve_tests"] = resolve_tests
-        env = MachEnvironment(self, flavor, **kwargs)
-        metadata = Metadata(self, env, flavor)
-        env.run_hook("before_runs")
+        Coverage needs to run in isolation so it's not
+        reimporting modules and produce wrong coverage info.
+        """
+        script = str(script.resolve())
+        args = [script] + list(args)
         try:
-            with env.frozen() as e:
-                e.run(metadata)
+            return subprocess.check_call(args) == 0
+        except subprocess.CalledProcessError:
+            return False
+
+    @Command(
+        "perftest-test",
+        category="testing",
+        conditions=[partial(conditions.is_buildapp_in, apps=["firefox", "android"])],
+        description="Run perftest tests",
+    )
+    def run_tests(self, **kwargs):
+        MachCommandBase._activate_virtualenv(self)
+
+        from mozperftest.utils import install_package
+
+        for name in ("pytest", "coverage", "black"):
+            install_package(self.virtualenv_manager, name)
+
+        from pathlib import Path
+
+        HERE = Path(__file__).parent.resolve()
+        tests = HERE / "tests"
+        venv_bin = Path(self.virtualenv_manager.virtualenv_root) / "bin"
+        pytest = venv_bin / "pytest"
+        coverage = venv_bin / "coverage"
+        black = venv_bin / "black"
+
+        # formatting the code with black
+        assert self._run_script(black, str(HERE))
+
+        # running pytest with coverage
+        old_value = os.environ.get("COVERAGE_RCFILE")
+        os.environ["COVERAGE_RCFILE"] = str(HERE / ".coveragerc")
+
+        # coverage is done in three steps:
+        # 1/ coverage erase => erase any previous coverage data
+        # 2/ coverae run pytest ... => run the tests and collect info
+        # 3/ coverage report => generate the report
+        try:
+            assert self._run_script(coverage, "erase")
+            args = ["run", str(pytest.resolve()), "-xs", str(tests.resolve())]
+            assert self._run_script(coverage, *args)
+            if not self._run_script(coverage, "report"):
+                raise ValueError("Coverage is too low!")
         finally:
-            env.run_hook("after_runs")
+            if old_value is not None:
+                os.environ["COVERAGE_RCFILE"] = old_value
+            else:
+                del os.environ["COVERAGE_RCFILE"]

@@ -524,7 +524,7 @@ extern "C" {
     fn wr_notifier_new_frame_ready(window_id: WrWindowId);
     fn wr_notifier_nop_frame_done(window_id: WrWindowId);
     fn wr_notifier_external_event(window_id: WrWindowId, raw_event: usize);
-    fn wr_schedule_render(window_id: WrWindowId, document_id_array: *const WrDocumentId, document_id_count: usize);
+    fn wr_schedule_render(window_id: WrWindowId);
     // NOTE: This moves away from pipeline_info.
     fn wr_finished_scene_build(
         window_id: WrWindowId,
@@ -889,7 +889,6 @@ extern "C" {
     fn apz_sample_transforms(
         window_id: WrWindowId,
         transaction: &mut Transaction,
-        document_id: WrDocumentId,
         epochs_being_rendered: &WrPipelineIdEpochs,
     );
     fn apz_deregister_sampler(window_id: WrWindowId);
@@ -939,8 +938,8 @@ impl SceneBuilderHooks for APZCallbacks {
         }
     }
 
-    fn post_resource_update(&self, document_ids: &Vec<DocumentId>) {
-        unsafe { wr_schedule_render(self.window_id, document_ids.as_ptr(), document_ids.len()) }
+    fn post_resource_update(&self, _document_ids: &Vec<DocumentId>) {
+        unsafe { wr_schedule_render(self.window_id) }
         unsafe {
             gecko_profiler_end_marker(b"SceneBuilding\0".as_ptr() as *const c_char);
         }
@@ -976,13 +975,12 @@ impl AsyncPropertySampler for SamplerCallback {
         unsafe { apz_register_sampler(self.window_id) }
     }
 
-    fn sample(&self, document_id: DocumentId, epochs_being_rendered: &FastHashMap<PipelineId, Epoch>) -> Vec<FrameMsg> {
+    fn sample(&self, _document_id: DocumentId, epochs_being_rendered: &FastHashMap<PipelineId, Epoch>) -> Vec<FrameMsg> {
         let mut transaction = Transaction::new();
         unsafe {
             apz_sample_transforms(
                 self.window_id,
                 &mut transaction,
-                document_id,
                 &epochs_being_rendered.iter().map(WrPipelineIdAndEpoch::from).collect(),
             )
         };
@@ -1481,7 +1479,7 @@ pub extern "C" fn wr_api_create_document(
     root_dh.ensure_hit_tester();
 
     *out_handle = Box::into_raw(Box::new(DocumentHandle::new(
-        root_dh.api.clone_sender().create_api_by_client(next_namespace_id()),
+        root_dh.api.create_sender().create_api_by_client(next_namespace_id()),
         root_dh.hit_tester.clone(),
         doc_size,
         layer,
@@ -1501,7 +1499,7 @@ pub extern "C" fn wr_api_clone(dh: &mut DocumentHandle, out_handle: &mut *mut Do
     dh.ensure_hit_tester();
 
     let handle = DocumentHandle {
-        api: dh.api.clone_sender().create_api_by_client(next_namespace_id()),
+        api: dh.api.create_sender().create_api_by_client(next_namespace_id()),
         document_id: dh.document_id,
         hit_tester: dh.hit_tester.clone(),
         hit_tester_request: None,
@@ -1936,7 +1934,7 @@ pub extern "C" fn wr_api_send_transaction(dh: &mut DocumentHandle, transaction: 
 
 #[no_mangle]
 pub unsafe extern "C" fn wr_api_send_transactions(
-    document_handles: *const *const DocumentHandle,
+    document_handles: *const *mut DocumentHandle,
     transactions: *const *mut Transaction,
     transaction_count: usize,
     is_async: bool,
@@ -2260,12 +2258,8 @@ pub struct WrStackingContextParams {
     pub reference_frame_kind: WrReferenceFrameKind,
     pub scrolling_relative_to: *const u64,
     pub prim_flags: PrimitiveFlags,
-    /// True if picture caching should be enabled for this stacking context.
-    pub cache_tiles: bool,
     pub mix_blend_mode: MixBlendMode,
-    /// True if this stacking context is a backdrop root.
-    /// https://drafts.fxtf.org/filter-effects-2/#BackdropRoot
-    pub is_backdrop_root: bool,
+    pub flags: StackingContextFlags,
 }
 
 #[no_mangle]
@@ -2389,8 +2383,7 @@ pub extern "C" fn wr_dp_push_stacking_context(
         &r_filter_datas,
         &[],
         glyph_raster_space,
-        params.cache_tiles,
-        params.is_backdrop_root,
+        params.flags,
     );
 
     result
@@ -2482,6 +2475,36 @@ pub extern "C" fn wr_dp_define_image_mask_clip_with_parent_clip_chain(
         .frame_builder
         .dl_builder
         .define_clip_image_mask(&parent.to_webrender(state.pipeline_id), mask);
+    WrClipId::from_webrender(clip_id)
+}
+
+#[no_mangle]
+pub extern "C" fn wr_dp_define_rounded_rect_clip_with_parent_clip_chain(
+    state: &mut WrState,
+    parent: &WrSpaceAndClipChain,
+    complex: ComplexClipRegion,
+) -> WrClipId {
+    debug_assert!(unsafe { is_in_main_thread() });
+
+    let clip_id = state
+        .frame_builder
+        .dl_builder
+        .define_clip_rounded_rect(&parent.to_webrender(state.pipeline_id), complex);
+    WrClipId::from_webrender(clip_id)
+}
+
+#[no_mangle]
+pub extern "C" fn wr_dp_define_rect_clip_with_parent_clip_chain(
+    state: &mut WrState,
+    parent: &WrSpaceAndClipChain,
+    clip_rect: LayoutRect,
+) -> WrClipId {
+    debug_assert!(unsafe { is_in_main_thread() });
+
+    let clip_id = state
+        .frame_builder
+        .dl_builder
+        .define_clip_rect(&parent.to_webrender(state.pipeline_id), clip_rect);
     WrClipId::from_webrender(clip_id)
 }
 

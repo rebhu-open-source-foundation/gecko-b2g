@@ -120,6 +120,8 @@ class BrowserParent final : public PBrowserParent,
    */
   static BrowserParent* GetFocused();
 
+  static BrowserParent* GetLastMouseRemoteTarget();
+
   static BrowserParent* GetFrom(nsFrameLoader* aFrameLoader);
 
   static BrowserParent* GetFrom(PBrowserParent* aBrowserParent);
@@ -411,6 +413,8 @@ class BrowserParent final : public PBrowserParent,
 
   mozilla::ipc::IPCResult RecvRequestFocus(const bool& aCanRaise,
                                            const CallerType aCallerType);
+
+  mozilla::ipc::IPCResult RecvWheelZoomChange(bool aIncrease);
 
   mozilla::ipc::IPCResult RecvLookUpDictionary(
       const nsString& aText, nsTArray<mozilla::FontRange>&& aFontRangeArray,
@@ -851,7 +855,12 @@ class BrowserParent final : public PBrowserParent,
   // Recomputes sFocus and returns it.
   static BrowserParent* UpdateFocus();
 
-  void OnSubFrameCrashed();
+  // Keeps track of which BrowserParent the real mouse event is sent to.
+  static BrowserParent* sLastMouseRemoteTarget;
+
+  // Unsetter for LastMouseRemoteTarget; only unsets if argument matches
+  // current sLastMouseRemoteTarget.
+  static void UnsetLastMouseRemoteTarget(BrowserParent* aBrowserParent);
 
   struct APZData {
     bool operator==(const APZData& aOther) {

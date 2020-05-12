@@ -2941,6 +2941,20 @@ class LValueToInt32 : public LInstructionHelper<1, BOX_PIECES, 2> {
   MInstruction* mir() const { return mir_->toInstruction(); }
 };
 
+// Convert a value to a BigInt.
+class LValueToBigInt : public LInstructionHelper<1, BOX_PIECES, 0> {
+ public:
+  LIR_HEADER(ValueToBigInt)
+  static const size_t Input = 0;
+
+  explicit LValueToBigInt(const LBoxAllocation& input)
+      : LInstructionHelper(classOpcode) {
+    setBoxOperand(Input, input);
+  }
+
+  MToBigInt* mir() const { return mir_->toToBigInt(); }
+};
+
 // Convert a double to an int32.
 //   Input: floating-point register
 //   Output: 32-bit integer
@@ -4340,6 +4354,25 @@ class LLoadUnboxedScalar : public LInstructionHelper<1, 2, 1> {
   const LDefinition* temp() { return getTemp(0); }
 };
 
+class LLoadUnboxedBigInt : public LInstructionHelper<1, 2, 1 + INT64_PIECES> {
+ public:
+  LIR_HEADER(LoadUnboxedBigInt)
+
+  LLoadUnboxedBigInt(const LAllocation& elements, const LAllocation& index,
+                     const LDefinition& temp, const LInt64Definition& temp64)
+      : LInstructionHelper(classOpcode) {
+    setOperand(0, elements);
+    setOperand(1, index);
+    setTemp(0, temp);
+    setInt64Temp(1, temp64);
+  }
+  const MLoadUnboxedScalar* mir() const { return mir_->toLoadUnboxedScalar(); }
+  const LAllocation* elements() { return getOperand(0); }
+  const LAllocation* index() { return getOperand(1); }
+  const LDefinition* temp() { return getTemp(0); }
+  const LInt64Definition temp64() { return getInt64Temp(1); }
+};
+
 class LLoadTypedArrayElementHole : public LInstructionHelper<BOX_PIECES, 2, 1> {
  public:
   LIR_HEADER(LoadTypedArrayElementHole)
@@ -4357,6 +4390,30 @@ class LLoadTypedArrayElementHole : public LInstructionHelper<BOX_PIECES, 2, 1> {
   const LAllocation* object() { return getOperand(0); }
   const LAllocation* index() { return getOperand(1); }
   const LDefinition* temp() { return getTemp(0); }
+};
+
+class LLoadTypedArrayElementHoleBigInt
+    : public LInstructionHelper<BOX_PIECES, 2, 1 + INT64_PIECES> {
+ public:
+  LIR_HEADER(LoadTypedArrayElementHoleBigInt)
+
+  LLoadTypedArrayElementHoleBigInt(const LAllocation& object,
+                                   const LAllocation& index,
+                                   const LDefinition& temp,
+                                   const LInt64Definition& temp64)
+      : LInstructionHelper(classOpcode) {
+    setOperand(0, object);
+    setOperand(1, index);
+    setTemp(0, temp);
+    setInt64Temp(1, temp64);
+  }
+  const MLoadTypedArrayElementHole* mir() const {
+    return mir_->toLoadTypedArrayElementHole();
+  }
+  const LAllocation* object() { return getOperand(0); }
+  const LAllocation* index() { return getOperand(1); }
+  const LDefinition* temp() { return getTemp(0); }
+  const LInt64Definition temp64() { return getInt64Temp(1); }
 };
 
 class LStoreUnboxedScalar : public LInstructionHelper<0, 3, 0> {
@@ -4377,6 +4434,28 @@ class LStoreUnboxedScalar : public LInstructionHelper<0, 3, 0> {
   const LAllocation* elements() { return getOperand(0); }
   const LAllocation* index() { return getOperand(1); }
   const LAllocation* value() { return getOperand(2); }
+};
+
+class LStoreUnboxedBigInt : public LInstructionHelper<0, 3, INT64_PIECES> {
+ public:
+  LIR_HEADER(StoreUnboxedBigInt)
+
+  LStoreUnboxedBigInt(const LAllocation& elements, const LAllocation& index,
+                      const LAllocation& value, const LInt64Definition& temp)
+      : LInstructionHelper(classOpcode) {
+    setOperand(0, elements);
+    setOperand(1, index);
+    setOperand(2, value);
+    setInt64Temp(0, temp);
+  }
+
+  const MStoreUnboxedScalar* mir() const {
+    return mir_->toStoreUnboxedScalar();
+  }
+  const LAllocation* elements() { return getOperand(0); }
+  const LAllocation* index() { return getOperand(1); }
+  const LAllocation* value() { return getOperand(2); }
+  LInt64Definition temp() { return getInt64Temp(0); }
 };
 
 class LStoreTypedArrayElementHole : public LInstructionHelper<0, 4, 1> {
@@ -4404,6 +4483,34 @@ class LStoreTypedArrayElementHole : public LInstructionHelper<0, 4, 1> {
   const LAllocation* index() { return getOperand(2); }
   const LAllocation* value() { return getOperand(3); }
   const LDefinition* spectreTemp() { return getTemp(0); }
+};
+
+class LStoreTypedArrayElementHoleBigInt
+    : public LInstructionHelper<0, 4, INT64_PIECES> {
+ public:
+  LIR_HEADER(StoreTypedArrayElementHoleBigInt)
+
+  LStoreTypedArrayElementHoleBigInt(const LAllocation& elements,
+                                    const LAllocation& length,
+                                    const LAllocation& index,
+                                    const LAllocation& value,
+                                    const LInt64Definition& temp)
+      : LInstructionHelper(classOpcode) {
+    setOperand(0, elements);
+    setOperand(1, length);
+    setOperand(2, index);
+    setOperand(3, value);
+    setInt64Temp(0, temp);
+  }
+
+  const MStoreTypedArrayElementHole* mir() const {
+    return mir_->toStoreTypedArrayElementHole();
+  }
+  const LAllocation* elements() { return getOperand(0); }
+  const LAllocation* length() { return getOperand(1); }
+  const LAllocation* index() { return getOperand(2); }
+  const LAllocation* value() { return getOperand(3); }
+  LInt64Definition temp() { return getInt64Temp(0); }
 };
 
 class LAtomicIsLockFree : public LInstructionHelper<1, 1, 0> {
@@ -5479,6 +5586,88 @@ class LGuardReceiverPolymorphic : public LInstructionHelper<1, 1, 1> {
   }
 };
 
+// Convert a Boolean to an Int64, following ToBigInt.
+class LBooleanToInt64 : public LInstructionHelper<INT64_PIECES, 1, 0> {
+ public:
+  LIR_HEADER(BooleanToInt64)
+
+  explicit LBooleanToInt64(const LAllocation& input)
+      : LInstructionHelper(classOpcode) {
+    setOperand(Input, input);
+  }
+
+  static const size_t Input = 0;
+
+  const MToInt64* mir() const { return mir_->toToInt64(); }
+};
+
+// Convert a String to an Int64, following ToBigInt.
+class LStringToInt64 : public LInstructionHelper<INT64_PIECES, 1, 0> {
+ public:
+  LIR_HEADER(StringToInt64)
+
+  explicit LStringToInt64(const LAllocation& input)
+      : LInstructionHelper(classOpcode) {
+    setOperand(Input, input);
+  }
+
+  static const size_t Input = 0;
+
+  const MToInt64* mir() const { return mir_->toToInt64(); }
+};
+
+// Simulate ToBigInt on a Value and produce a matching Int64.
+class LValueToInt64 : public LInstructionHelper<INT64_PIECES, BOX_PIECES, 1> {
+ public:
+  LIR_HEADER(ValueToInt64)
+
+  explicit LValueToInt64(const LBoxAllocation& input, const LDefinition& temp)
+      : LInstructionHelper(classOpcode) {
+    setBoxOperand(Input, input);
+    setTemp(0, temp);
+  }
+
+  static const size_t Input = 0;
+
+  const MToInt64* mir() const { return mir_->toToInt64(); }
+  const LDefinition* temp() { return getTemp(0); }
+};
+
+// Truncate a BigInt to an unboxed int64.
+class LTruncateBigIntToInt64 : public LInstructionHelper<INT64_PIECES, 1, 0> {
+ public:
+  LIR_HEADER(TruncateBigIntToInt64)
+
+  explicit LTruncateBigIntToInt64(const LAllocation& input)
+      : LInstructionHelper(classOpcode) {
+    setOperand(Input, input);
+  }
+
+  static const size_t Input = 0;
+
+  const MTruncateBigIntToInt64* mir() const {
+    return mir_->toTruncateBigIntToInt64();
+  }
+};
+
+// Create a new BigInt* from an unboxed int64.
+class LInt64ToBigInt : public LInstructionHelper<1, INT64_PIECES, 1> {
+ public:
+  LIR_HEADER(Int64ToBigInt)
+
+  LInt64ToBigInt(const LInt64Allocation& input, const LDefinition& temp)
+      : LInstructionHelper(classOpcode) {
+    setInt64Operand(Input, input);
+    setTemp(0, temp);
+  }
+
+  static const size_t Input = 0;
+
+  const MInt64ToBigInt* mir() const { return mir_->toInt64ToBigInt(); }
+  const LInt64Allocation input() { return getInt64Operand(Input); }
+  const LDefinition* temp() { return getTemp(0); }
+};
+
 // Guard that a value is in a TypeSet.
 class LTypeBarrierV : public LInstructionHelper<BOX_PIECES, BOX_PIECES, 2> {
  public:
@@ -5720,6 +5909,18 @@ class LGuardObjectIdentity : public LInstructionHelper<0, 2, 0> {
   const MGuardObjectIdentity* mir() const {
     return mir_->toGuardObjectIdentity();
   }
+};
+
+class LGuardSpecificAtom : public LInstructionHelper<0, 1, 0> {
+ public:
+  LIR_HEADER(GuardSpecificAtom)
+
+  explicit LGuardSpecificAtom(const LAllocation& str)
+      : LInstructionHelper(classOpcode) {
+    setOperand(0, str);
+  }
+  const LAllocation* str() { return getOperand(0); }
+  const MGuardSpecificAtom* mir() const { return mir_->toGuardSpecificAtom(); }
 };
 
 class LGuardShape : public LInstructionHelper<1, 1, 1> {
@@ -6909,6 +7110,34 @@ class LAssertResultV : public LInstructionHelper<0, BOX_PIECES, 0> {
   }
 };
 
+class LGuardValue : public LInstructionHelper<0, BOX_PIECES, 0> {
+ public:
+  LIR_HEADER(GuardValue)
+
+  explicit LGuardValue(const LBoxAllocation& input)
+      : LInstructionHelper(classOpcode) {
+    setBoxOperand(Input, input);
+  }
+
+  static const size_t Input = 0;
+
+  MGuardValue* mir() { return mir_->toGuardValue(); }
+};
+
+class LGuardNullOrUndefined : public LInstructionHelper<0, BOX_PIECES, 0> {
+ public:
+  LIR_HEADER(GuardNullOrUndefined)
+
+  explicit LGuardNullOrUndefined(const LBoxAllocation& input)
+      : LInstructionHelper(classOpcode) {
+    setBoxOperand(Input, input);
+  }
+
+  static const size_t Input = 0;
+
+  MGuardNullOrUndefined* mir() { return mir_->toGuardNullOrUndefined(); }
+};
+
 class LRecompileCheck : public LInstructionHelper<0, 0, 1> {
  public:
   LIR_HEADER(RecompileCheck)
@@ -7068,23 +7297,6 @@ class LCheckIsObj : public LInstructionHelper<0, BOX_PIECES, 0> {
   }
 
   MCheckIsObj* mir() const { return mir_->toCheckIsObj(); }
-};
-
-class LCheckIsCallable : public LInstructionHelper<0, BOX_PIECES, 1> {
- public:
-  LIR_HEADER(CheckIsCallable)
-
-  static const size_t CheckValue = 0;
-
-  LCheckIsCallable(const LBoxAllocation& value, const LDefinition& temp)
-      : LInstructionHelper(classOpcode) {
-    setBoxOperand(CheckValue, value);
-    setTemp(0, temp);
-  }
-
-  const LDefinition* temp() { return getTemp(0); }
-
-  MCheckIsCallable* mir() const { return mir_->toCheckIsCallable(); }
 };
 
 class LCheckObjCoercible : public LInstructionHelper<0, BOX_PIECES, 0> {
@@ -7278,6 +7490,14 @@ class LIonToWasmCallV : public LIonToWasmCallBase<BOX_PIECES> {
   LIonToWasmCallV(uint32_t numOperands, const LDefinition& temp,
                   const LDefinition& fp)
       : LIonToWasmCallBase<BOX_PIECES>(classOpcode, numOperands, temp, fp) {}
+};
+
+class LIonToWasmCallI64 : public LIonToWasmCallBase<INT64_PIECES> {
+ public:
+  LIR_HEADER(IonToWasmCallI64);
+  LIonToWasmCallI64(uint32_t numOperands, const LDefinition& temp,
+                    const LDefinition& fp)
+      : LIonToWasmCallBase<INT64_PIECES>(classOpcode, numOperands, temp, fp) {}
 };
 
 class LWasmBoxValue : public LInstructionHelper<1, BOX_PIECES, 0> {

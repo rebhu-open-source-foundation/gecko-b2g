@@ -107,17 +107,22 @@ extern bool enableSharedMemory;
 extern bool enableWasmBaseline;
 extern bool enableWasmIon;
 extern bool enableWasmCranelift;
+extern bool enableWasmReftypes;
 #ifdef ENABLE_WASM_GC
 extern bool enableWasmGc;
 #endif
 #ifdef ENABLE_WASM_MULTI_VALUE
 extern bool enableWasmMultiValue;
 #endif
+#ifdef ENABLE_WASM_SIMD
+extern bool enableWasmSimd;
+#endif
 extern bool enableWasmVerbose;
 extern bool enableTestWasmAwaitTier2;
 #ifdef ENABLE_WASM_BIGINT
 extern bool enableWasmBigInt;
 #endif
+extern bool enableSourcePragmas;
 extern bool enableAsyncStacks;
 extern bool enableStreams;
 extern bool enableReadableByteStreams;

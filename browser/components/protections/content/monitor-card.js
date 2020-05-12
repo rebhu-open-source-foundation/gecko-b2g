@@ -24,7 +24,6 @@ export default class MonitorClass {
   init() {
     // Wait for monitor data and display the card.
     this.getMonitorData();
-    RPMSendAsyncMessage("FetchMonitorData");
 
     let monitorReportLink = this.doc.getElementById("full-report-link");
     monitorReportLink.addEventListener("click", () => {
@@ -36,21 +35,13 @@ export default class MonitorClass {
     monitorAboutLink.addEventListener("click", () => {
       this.doc.sendTelemetryEvent("click", "mtr_about_link");
     });
-
-    let openLockwise = this.doc.getElementById("lockwise-link");
-    openLockwise.addEventListener("click", evt => {
-      this.doc.sendTelemetryEvent("click", "lw_open_breach_link");
-      RPMSendAsyncMessage("OpenAboutLogins");
-      evt.preventDefault();
-    });
   }
 
   /**
-   * Adds a listener for receiving the monitor data. Once received then display this data
-   * in the card.
+   * Retrieves the monitor data and displays this data in the card.
    **/
   getMonitorData() {
-    RPMAddMessageListener("SendMonitorData", ({ data: monitorData }) => {
+    RPMSendQuery("FetchMonitorData", {}).then(monitorData => {
       // Once data for the user is retrieved, display the monitor card.
       this.buildContent(monitorData);
 
@@ -161,28 +152,5 @@ export default class MonitorClass {
       "data-l10n-id",
       "info-exposed-passwords-found"
     );
-
-    // Display Lockwise section if there are any potential breached logins to report.
-    if (monitorData.potentiallyBreachedLogins > 0) {
-      const lockwiseSection = this.doc.querySelector(
-        ".monitor-breached-passwords"
-      );
-      const exposedLockwisePasswords = this.doc.querySelector(
-        "span[data-type='breached-lockwise-passwords']"
-      );
-
-      exposedLockwisePasswords.textContent =
-        monitorData.potentiallyBreachedLogins;
-
-      let breachedPasswordWarning = this.doc.getElementById("password-warning");
-
-      breachedPasswordWarning.setAttribute(
-        "data-l10n-args",
-        JSON.stringify({ count: monitorData.potentiallyBreachedLogins })
-      );
-      breachedPasswordWarning.setAttribute("data-l10n-id", "password-warning");
-
-      lockwiseSection.classList.remove("hidden");
-    }
   }
 }

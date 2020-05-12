@@ -11,7 +11,20 @@ exclude: true
 
 # GeckoView API Changelog.
 
-⚠️  breaking change
+⚠️  breaking change and deprecation notices
+
+## v78
+- Added [`WebExtensionController.installBuiltIn`][78.1] that allows installing an
+  extension that is bundled with the APK. This method is meant as a replacement
+  for [`GeckoRuntime.registerWebExtension`][67.15], ⚠️ which is now deprecated
+  and will be removed in GeckoView 81.
+- Added [`CookieBehavior.ACCEPT_FIRST_PARTY_AND_ISOLATE_OTHERS`][78.2] to allow
+  enabling dynamic first party isolation; this will block tracking cookies and
+  isolate all other third party cookies by keying them based on the first party
+  from which they are accessed.
+
+[78.1]: {{javadoc_uri}}/WebExtensionController.html#installBuiltIn-java.lang.String-
+[78.2]: {{javadoc_uri}}/ContentBlocking.CookieBehavior.html#ACCEPT_FIRST_PARTY_AND_ISOLATE_OTHERS
 
 ## v77
 - Added [`GeckoRuntime.appendAppNotesToCrashReport`][77.1] For adding app notes to the crash report.
@@ -675,4 +688,4 @@ exclude: true
 [65.24]: {{javadoc_uri}}/CrashReporter.html#sendCrashReport-android.content.Context-android.os.Bundle-java.lang.String-
 [65.25]: {{javadoc_uri}}/GeckoResult.html
 
-[api-version]: 562c75192093098207d596f83a159dcb9df2d3e6
+[api-version]: eb4c8f11b68ce54cf780c4f08cde5f7d2a048093

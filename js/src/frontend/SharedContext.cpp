@@ -21,11 +21,9 @@ namespace frontend {
 
 SharedContext::SharedContext(JSContext* cx, Kind kind,
                              CompilationInfo& compilationInfo,
-                             Directives directives, SourceExtent extent,
-                             ImmutableScriptFlags immutableFlags)
+                             Directives directives, SourceExtent extent)
     : cx_(cx),
       compilationInfo_(compilationInfo),
-      thisBinding_(ThisBinding::Global),
       extent(extent),
       allowNewTarget_(false),
       allowSuperProperty_(false),
@@ -34,23 +32,38 @@ SharedContext::SharedContext(JSContext* cx, Kind kind,
       inWith_(false),
       needsThisTDZChecks_(false),
       localStrict(false),
-      hasExplicitUseStrict_(false),
-      immutableFlags_(immutableFlags) {
+      hasExplicitUseStrict_(false) {
+  // Compute the script kind "input" flags.
   if (kind == Kind::FunctionBox) {
-    immutableFlags_.setFlag(ImmutableFlags::IsFunction);
+    setFlag(ImmutableFlags::IsFunction);
   } else if (kind == Kind::Module) {
     MOZ_ASSERT(!compilationInfo.options.nonSyntacticScope);
-    immutableFlags_.setFlag(ImmutableFlags::IsModule);
+    setFlag(ImmutableFlags::IsModule);
   } else if (kind == Kind::Eval) {
-    immutableFlags_.setFlag(ImmutableFlags::IsForEval);
+    setFlag(ImmutableFlags::IsForEval);
   } else {
     MOZ_ASSERT(kind == Kind::Global);
   }
 
-  immutableFlags_.setFlag(ImmutableFlags::Strict, directives.strict());
+  // Note: This is a mix of transitive and non-transitive options.
+  const JS::ReadOnlyCompileOptions& options = compilationInfo.options;
 
-  immutableFlags_.setFlag(ImmutableFlags::HasNonSyntacticScope,
-                          compilationInfo.options.nonSyntacticScope);
+  // Initialize the transitive "input" flags. These are applied to all
+  // SharedContext in this compilation and generally cannot be determined from
+  // the source text alone.
+  setFlag(ImmutableFlags::SelfHosted, options.selfHostingMode);
+  setFlag(ImmutableFlags::ForceStrict, options.forceStrictMode());
+  setFlag(ImmutableFlags::HasNonSyntacticScope, options.nonSyntacticScope);
+
+  // Initialize the non-transistive "input" flags if this is a top-level.
+  if (isTopLevelContext()) {
+    setFlag(ImmutableFlags::TreatAsRunOnce, options.isRunOnce);
+    setFlag(ImmutableFlags::NoScriptRval, options.noScriptRval);
+  }
+
+  // Initialize the strict flag. This may be updated by the parser as we observe
+  // further directives in the body.
+  setFlag(ImmutableFlags::Strict, directives.strict());
 }
 
 void SharedContext::computeAllowSyntax(Scope* scope) {
@@ -161,40 +174,48 @@ FunctionBox::FunctionBox(JSContext* cx, FunctionBox* traceListHead,
                          FunctionFlags flags, size_t index)
     : SharedContext(cx, Kind::FunctionBox, compilationInfo, directives, extent),
       traceLink_(traceListHead),
-      emitLink_(nullptr),
-      enclosingScope_(),
-      namedLambdaBindings_(nullptr),
-      functionScopeBindings_(nullptr),
-      extraVarScopeBindings_(nullptr),
+      explicitName_(explicitName),
       funcDataIndex_(index),
-      functionNode(nullptr),
-      length(0),
-      hasDestructuringArgs(false),
-      hasParameterExprs(false),
-      hasDuplicateParameters(false),
-      useAsm(false),
-      isAnnexB(false),
-      wasEmitted(false),
+      flags_(flags),
       emitBytecode(false),
-      usesArguments(false),
+      emitLazy(false),
+      wasEmitted(false),
+      exposeScript(false),
+      isAnnexB(false),
+      useAsm(false),
+      isAsmJSModule_(false),
+      hasParameterExprs(false),
+      hasDestructuringArgs(false),
+      hasDuplicateParameters(false),
+      hasExprBody_(false),
       usesApply(false),
       usesThis(false),
-      usesReturn(false),
-      hasExprBody_(false),
-      isAsmJSModule_(false),
-      nargs_(0),
-      explicitName_(explicitName),
-      flags_(flags) {
-  immutableFlags_.setFlag(ImmutableFlags::IsGenerator,
-                          generatorKind == GeneratorKind::Generator);
-  immutableFlags_.setFlag(ImmutableFlags::IsAsync,
-                          asyncKind == FunctionAsyncKind::AsyncFunction);
+      usesReturn(false) {
+  setFlag(ImmutableFlags::IsGenerator,
+          generatorKind == GeneratorKind::Generator);
+  setFlag(ImmutableFlags::IsAsync,
+          asyncKind == FunctionAsyncKind::AsyncFunction);
 }
 
-bool FunctionBox::hasFunctionCreationData() const {
+JSFunction* FunctionBox::createFunction(JSContext* cx) {
+  RootedObject proto(cx);
+  if (!GetFunctionPrototype(cx, generatorKind(), asyncKind(), &proto)) {
+    return nullptr;
+  }
+
+  RootedAtom atom(cx, explicitName());
+  gc::AllocKind allocKind = flags_.isExtended()
+                                ? gc::AllocKind::FUNCTION_EXTENDED
+                                : gc::AllocKind::FUNCTION;
+
+  return NewFunctionWithProto(cx, nullptr, nargs_, flags_, nullptr, atom, proto,
+                              allocKind, TenuredObject);
+}
+
+bool FunctionBox::hasFunctionStencil() const {
   return compilationInfo_.funcData[funcDataIndex_]
       .get()
-      .is<FunctionCreationData>();
+      .is<ScriptStencilBase>();
 }
 
 bool FunctionBox::hasFunction() const {
@@ -221,14 +242,13 @@ void FunctionBox::initStandaloneFunction(Scope* enclosingScope) {
 }
 
 void FunctionBox::initWithEnclosingParseContext(ParseContext* enclosing,
-                                                FunctionSyntaxKind kind,
-                                                bool isArrow,
-                                                bool allowSuperProperty) {
+                                                FunctionFlags flags,
+                                                FunctionSyntaxKind kind) {
   SharedContext* sc = enclosing->sc();
   useAsm = sc->isFunctionBox() && sc->asFunctionBox()->useAsmOrInsideUseAsm();
 
   // Arrow functions don't have their own `this` binding.
-  if (isArrow) {
+  if (flags.isArrow()) {
     allowNewTarget_ = sc->allowNewTarget();
     allowSuperProperty_ = sc->allowSuperProperty();
     allowSuperCall_ = sc->allowSuperCall();
@@ -237,7 +257,7 @@ void FunctionBox::initWithEnclosingParseContext(ParseContext* enclosing,
     thisBinding_ = sc->thisBinding();
   } else {
     allowNewTarget_ = true;
-    allowSuperProperty_ = allowSuperProperty;
+    allowSuperProperty_ = flags.allowSuperProperty();
 
     if (IsConstructorKind(kind)) {
       auto stmt =
@@ -270,8 +290,8 @@ void FunctionBox::initWithEnclosingParseContext(ParseContext* enclosing,
 }
 
 void FunctionBox::initFieldInitializer(ParseContext* enclosing,
-                                       Handle<FunctionCreationData> data) {
-  this->initWithEnclosingParseContext(enclosing, data,
+                                       FunctionFlags flags) {
+  this->initWithEnclosingParseContext(enclosing, flags,
                                       FunctionSyntaxKind::Method);
   allowArguments_ = false;
 }
@@ -321,7 +341,7 @@ void FunctionBox::finish() {
   if (!emitBytecode) {
     // Apply updates from FunctionEmitter::emitLazy().
     function()->setEnclosingScope(enclosingScope_.getExistingScope());
-    function()->baseScript()->setTreatAsRunOnce(treatAsRunOnce());
+    function()->baseScript()->initTreatAsRunOnce(treatAsRunOnce());
 
     if (fieldInitializers) {
       function()->baseScript()->setFieldInitializers(*fieldInitializers);
@@ -370,16 +390,11 @@ ModuleSharedContext::ModuleSharedContext(JSContext* cx, ModuleObject* module,
       bindings(cx),
       builder(builder) {
   thisBinding_ = ThisBinding::Module;
-  immutableFlags_.setFlag(ImmutableFlags::HasModuleGoal);
+  setFlag(ImmutableFlags::HasModuleGoal);
 }
 
-MutableHandle<FunctionCreationData> FunctionBox::functionCreationData() const {
-  MOZ_ASSERT(hasFunctionCreationData());
-  // Marked via CompilationData::funcData rooting.
-  return MutableHandle<FunctionCreationData>::fromMarkedLocation(
-      &compilationInfo_.funcData[funcDataIndex_]
-           .get()
-           .as<FunctionCreationData>());
+MutableHandle<ScriptStencilBase> FunctionBox::functionStencil() const {
+  return compilationInfo_.funcData[funcDataIndex_].as<ScriptStencilBase>();
 }
 
 }  // namespace frontend

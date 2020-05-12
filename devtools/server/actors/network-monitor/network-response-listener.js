@@ -4,7 +4,7 @@
 
 "use strict";
 
-const { Cc, Ci, Cr } = require("chrome");
+const { Cc, Ci, Cr, components: Components } = require("chrome");
 const ChromeUtils = require("ChromeUtils");
 const Services = require("Services");
 
@@ -83,7 +83,7 @@ NetworkResponseListener.prototype = {
     if (this._wrappedNotificationCallbacks) {
       return this._wrappedNotificationCallbacks.getInterface(iid);
     }
-    throw Cr.NS_ERROR_NO_INTERFACE;
+    throw Components.Exception("", Cr.NS_ERROR_NO_INTERFACE);
   },
 
   /**

@@ -119,7 +119,7 @@ TEST(TArray, int_AppendElements_TArray_Copy)
 {
   nsTArray<int> array;
 
-  const nsTArray<int> temp(DummyArray());
+  const nsTArray<int> temp(DummyArray().Clone());
   int* ptr = array.AppendElements(temp);
   ASSERT_EQ(&array[0], ptr);
   ASSERT_EQ(DummyArray(), array);
@@ -138,7 +138,7 @@ TEST(TArray, int_AppendElements_TArray_Copy_Fallible)
 {
   nsTArray<int> array;
 
-  const nsTArray<int> temp(DummyArray());
+  const nsTArray<int> temp(DummyArray().Clone());
   int* ptr = array.AppendElements(temp, fallible);
   ASSERT_EQ(&array[0], ptr);
   ASSERT_EQ(DummyArray(), array);
@@ -157,13 +157,13 @@ TEST(TArray, int_AppendElements_TArray_Rvalue)
 {
   nsTArray<int> array;
 
-  nsTArray<int> temp(DummyArray());
+  nsTArray<int> temp(DummyArray().Clone());
   int* ptr = array.AppendElements(std::move(temp));
   ASSERT_EQ(&array[0], ptr);
   ASSERT_EQ(DummyArray(), array);
   ASSERT_TRUE(temp.IsEmpty());
 
-  temp = DummyArray();
+  temp = DummyArray().Clone();
   ptr = array.AppendElements(std::move(temp));
   ASSERT_EQ(&array[DummyArray().Length()], ptr);
   nsTArray<int> expected;
@@ -177,13 +177,13 @@ TEST(TArray, int_AppendElements_TArray_Rvalue_Fallible)
 {
   nsTArray<int> array;
 
-  nsTArray<int> temp(DummyArray());
+  nsTArray<int> temp(DummyArray().Clone());
   int* ptr = array.AppendElements(std::move(temp), fallible);
   ASSERT_EQ(&array[0], ptr);
   ASSERT_EQ(DummyArray(), array);
   ASSERT_TRUE(temp.IsEmpty());
 
-  temp = DummyArray();
+  temp = DummyArray().Clone();
   ptr = array.AppendElements(std::move(temp), fallible);
   ASSERT_EQ(&array[DummyArray().Length()], ptr);
   nsTArray<int> expected;
@@ -197,13 +197,14 @@ TEST(TArray, int_AppendElements_FallibleArray_Rvalue)
 {
   nsTArray<int> array;
 
-  FallibleTArray<int> temp(DummyArray());
+  FallibleTArray<int> temp;
+  ASSERT_TRUE(temp.AppendElements(DummyArray(), fallible));
   int* ptr = array.AppendElements(std::move(temp));
   ASSERT_EQ(&array[0], ptr);
   ASSERT_EQ(DummyArray(), array);
   ASSERT_TRUE(temp.IsEmpty());
 
-  temp = DummyArray();
+  ASSERT_TRUE(temp.AppendElements(DummyArray(), fallible));
   ptr = array.AppendElements(std::move(temp));
   ASSERT_EQ(&array[DummyArray().Length()], ptr);
   nsTArray<int> expected;
@@ -217,13 +218,14 @@ TEST(TArray, int_AppendElements_FallibleArray_Rvalue_Fallible)
 {
   nsTArray<int> array;
 
-  FallibleTArray<int> temp(DummyArray());
+  FallibleTArray<int> temp;
+  ASSERT_TRUE(temp.AppendElements(DummyArray(), fallible));
   int* ptr = array.AppendElements(std::move(temp), fallible);
   ASSERT_EQ(&array[0], ptr);
   ASSERT_EQ(DummyArray(), array);
   ASSERT_TRUE(temp.IsEmpty());
 
-  temp = DummyArray();
+  ASSERT_TRUE(temp.AppendElements(DummyArray(), fallible));
   ptr = array.AppendElements(std::move(temp), fallible);
   ASSERT_EQ(&array[DummyArray().Length()], ptr);
   nsTArray<int> expected;
@@ -237,7 +239,7 @@ TEST(TArray, AppendElementsSpan)
 {
   nsTArray<int> array;
 
-  nsTArray<int> temp(DummyArray());
+  nsTArray<int> temp(DummyArray().Clone());
   Span<int> span = temp;
   array.AppendElements(span);
   ASSERT_EQ(DummyArray(), array);
@@ -487,7 +489,7 @@ TEST(TArray, int_Assign)
 
 TEST(TArray, int_AssignmentOperatorSelfAssignment)
 {
-  nsTArray<int> array;
+  CopyableTArray<int> array;
   array = DummyArray();
 
   array = *&array;

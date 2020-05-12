@@ -273,8 +273,16 @@ const NativeMessenger = {
 
   openNative(nativeApp, sender) {
     let context = ParentAPIManager.getContextById(sender.childId);
-    if (context.extension.hasPermission("geckoViewAddons")) {
-      return new GeckoViewConnection(sender, nativeApp);
+    let { extension } = context;
+    if (extension.hasPermission("geckoViewAddons")) {
+      let allowMessagingFromContent = extension.hasPermission(
+        "nativeMessagingFromContent"
+      );
+      return new GeckoViewConnection(
+        sender,
+        nativeApp,
+        allowMessagingFromContent
+      );
     } else if (sender.verified) {
       return new NativeApp(context, nativeApp);
     }
@@ -302,6 +310,7 @@ const NativeMessenger = {
       envType: sender.envType,
       frameId: sender.frameId,
       url: sender.actor.manager.documentURI.spec,
+      contextId: sender.id,
     };
     apiManager.global.tabGetSender(extension, target, sender);
 
@@ -1178,7 +1187,7 @@ class HiddenXULWindow {
       chromeShell.setOriginAttributes(attrs);
     }
 
-    chromeShell.useGlobalHistory = false;
+    windowlessBrowser.browsingContext.useGlobalHistory = false;
     chromeShell.loadURI("chrome://extensions/content/dummy.xhtml", {
       triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
     });

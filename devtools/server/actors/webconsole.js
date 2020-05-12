@@ -1011,11 +1011,12 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
    *         `resultID` field.
    */
   evaluateJSAsync: async function(request) {
+    const startTime = Date.now();
     // Use Date instead of UUID as this code is used by workers, which
     // don't have access to the UUID XPCOM component.
     // Also use a counter in order to prevent mixing up response when calling
     // evaluateJSAsync during the same millisecond.
-    const resultID = Date.now() + "-" + this._evalCounter++;
+    const resultID = startTime + "-" + this._evalCounter++;
 
     // Execute the evaluation in the next event loop in order to immediately
     // reply with the resultID.
@@ -1032,6 +1033,7 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
         this.emit("evaluationResult", {
           type: "evaluationResult",
           resultID,
+          startTime,
           ...response,
         });
         return;
@@ -1292,6 +1294,7 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
       exceptionMessage: this._createStringGrip(errorMessage),
       exceptionDocURL: errorDocURL,
       exceptionStack,
+      hasException: errorGrip !== null,
       errorMessageName,
       frame,
       helperResult: helperResult,
@@ -1693,7 +1696,7 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
       columnNumber = stack[0].columnNumber;
     }
 
-    return {
+    const result = {
       errorMessage: this._createStringGrip(pageError.errorMessage),
       errorMessageName: pageError.errorMessageName,
       exceptionDocURL: ErrorDocs.GetURL(pageError),
@@ -1714,6 +1717,21 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
       chromeContext: pageError.isFromChromeContext,
       cssSelectors: pageError.cssSelectors,
     };
+
+    // If the pageError does have an exception object, we want to return the grip for it,
+    // but only if we do manage to get the grip, as we're checking the property on the
+    // client to render things differently.
+    if (pageError.hasException) {
+      try {
+        const obj = this.makeDebuggeeValue(pageError.exception, true);
+        if (obj?.class !== "DeadObject") {
+          result.exception = this.createValueGrip(obj);
+          result.hasException = true;
+        }
+      } catch (e) {}
+    }
+
+    return result;
   },
 
   /**

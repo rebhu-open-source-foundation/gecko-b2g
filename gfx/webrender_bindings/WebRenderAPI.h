@@ -230,10 +230,6 @@ class WebRenderAPI final {
       RefPtr<widget::CompositorWidget>&& aWidget,
       const wr::WrWindowId& aWindowId, LayoutDeviceIntSize aSize);
 
-  static void SendTransactions(
-      const RenderRootArray<RefPtr<WebRenderAPI>>& aApis,
-      RenderRootArray<TransactionBuilder*>& aTxns);
-
   already_AddRefed<WebRenderAPI> CreateDocument(LayoutDeviceIntSize aSize,
                                                 int8_t aLayerIndex,
                                                 wr::RenderRoot aRenderRoot);
@@ -376,9 +372,8 @@ struct MOZ_STACK_CLASS StackingContextParams : public WrStackingContextParams {
             wr::WrReferenceFrameKind::Transform,
             nullptr,
             /* prim_flags = */ wr::PrimitiveFlags::IS_BACKFACE_VISIBLE,
-            /* cache_tiles = */ false,
             wr::MixBlendMode::Normal,
-            /* is_backdrop_root = */ false} {}
+            wr::StackingContextFlags{0}} {}
 
   void SetPreserve3D(bool aPreserve) {
     transform_style =
@@ -441,6 +436,8 @@ class DisplayListBuilder final {
       const nsTArray<wr::ComplexClipRegion>* aComplex = nullptr);
 
   wr::WrClipId DefineImageMaskClip(const wr::ImageMask& aMask);
+  wr::WrClipId DefineRoundedRectClip(const wr::ComplexClipRegion& aComplex);
+  wr::WrClipId DefineRectClip(wr::LayoutRect aClipRect);
 
   wr::WrSpatialId DefineStickyFrame(const wr::LayoutRect& aContentRect,
                                     const float* aTopMargin,

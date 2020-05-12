@@ -345,6 +345,34 @@ bool MDefinition::mightBeMagicType() const {
   return !resultTypeSet() || resultTypeSet()->hasType(TypeSet::MagicArgType());
 }
 
+bool MDefinition::definitelyType(std::initializer_list<MIRType> types) const {
+#ifdef DEBUG
+  // Only support specialized, non-magic types. Also disallow Int64, because
+  // TypeSet only supports types representable as JSValue.
+  auto isSpecializedNonMagic = [](MIRType type) {
+    return type <= MIRType::Object && type != MIRType::Int64;
+  };
+#endif
+
+  MOZ_ASSERT(types.size() > 0);
+  MOZ_ASSERT(std::all_of(types.begin(), types.end(), isSpecializedNonMagic));
+
+  if (type() == MIRType::Value) {
+    TemporaryTypeSet* resultTypes = resultTypeSet();
+    return resultTypes && !resultTypes->empty() && resultTypes->isSubset(types);
+  }
+
+  auto contains = [&types](MIRType type) {
+    return std::find(types.begin(), types.end(), type) != types.end();
+  };
+
+  if (type() == MIRType::ObjectOrNull) {
+    return contains(MIRType::Object) && contains(MIRType::Null);
+  }
+
+  return contains(type());
+}
+
 MDefinition* MInstruction::foldsToStore(TempAllocator& alloc) {
   if (!dependency()) {
     return nullptr;
@@ -3717,6 +3745,57 @@ bool MResumePoint::isRecoverableOperand(MUse* u) const {
   return block()->info().isRecoverableOperand(indexOf(u));
 }
 
+MDefinition* MTruncateBigIntToInt64::foldsTo(TempAllocator& alloc) {
+  MDefinition* input = getOperand(0);
+
+  if (input->isBox()) {
+    input = input->getOperand(0);
+  }
+
+  // If the operand converts an I64 to BigInt, drop both conversions.
+  if (input->isInt64ToBigInt()) {
+    return input->getOperand(0);
+  }
+
+  // Fold this operation if the input operand is constant.
+  if (input->isConstant()) {
+    return MConstant::NewInt64(
+        alloc, BigInt::toInt64(input->toConstant()->toBigInt()));
+  }
+
+  return this;
+}
+
+MDefinition* MToInt64::foldsTo(TempAllocator& alloc) {
+  MDefinition* input = getOperand(0);
+
+  if (input->isBox()) {
+    input = input->getOperand(0);
+  }
+
+  // Unwrap MInt64ToBigInt: MToInt64(MInt64ToBigInt(int64)) = int64.
+  if (input->isInt64ToBigInt()) {
+    return input->getOperand(0);
+  }
+
+  // When the input is an Int64 already, just return it.
+  if (input->type() == MIRType::Int64) {
+    return input;
+  }
+
+  // Fold this operation if the input operand is constant.
+  if (input->isConstant()) {
+    switch (input->type()) {
+      case MIRType::Boolean:
+        return MConstant::NewInt64(alloc, input->toConstant()->toBoolean());
+      default:
+        break;
+    }
+  }
+
+  return this;
+}
+
 MDefinition* MToNumberInt32::foldsTo(TempAllocator& alloc) {
   MDefinition* input = getOperand(0);
 
@@ -4687,7 +4766,7 @@ MNewArray::MNewArray(TempAllocator& alloc, CompilerConstraintList* constraints,
       pc_(pc),
       vmCall_(vmCall) {
   setResultType(MIRType::Object);
-  if (templateObject()) {
+  if (templateObject() && !JitOptions.warpBuilder) {
     if (TemporaryTypeSet* types =
             MakeSingletonTypeSet(alloc, constraints, templateObject())) {
       setResultTypeSet(types);
@@ -5534,7 +5613,7 @@ MDefinition* MIsNullOrUndefined::foldsTo(TempAllocator& alloc) {
     input = input->getOperand(0);
   }
 
-  if (input->type() == MIRType::Null || input->type() == MIRType::Undefined) {
+  if (input->definitelyType({MIRType::Null, MIRType::Undefined})) {
     return MConstant::New(alloc, BooleanValue(true));
   }
 
@@ -5637,9 +5716,7 @@ bool jit::ElementAccessIsTypedArray(CompilerConstraintList* constraints,
 
   *arrayType = types->getTypedArrayType(constraints);
 
-  // FIXME: https://bugzil.la/1536699
-  if (*arrayType == Scalar::MaxTypedArrayViewType ||
-      Scalar::isBigIntType(*arrayType)) {
+  if (*arrayType == Scalar::MaxTypedArrayViewType) {
     return false;
   }
 

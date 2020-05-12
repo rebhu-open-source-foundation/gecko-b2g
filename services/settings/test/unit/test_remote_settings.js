@@ -243,6 +243,16 @@ add_task(
 );
 add_task(clear_state);
 
+add_task(async function test_get_does_not_load_dump_when_pref_is_false() {
+  Services.prefs.setBoolPref("services.settings.load_dump", false);
+
+  const data = await clientWithDump.get();
+
+  equal(data.map(r => r.id).join(", "), "pt-BR, xx"); // No dump, 2 pulled from test server.
+  Services.prefs.clearUserPref("services.settings.load_dump");
+});
+add_task(clear_state);
+
 add_task(async function test_get_does_not_sync_if_empty_dump_is_provided() {
   if (IS_ANDROID) {
     // Skip test: we don't ship remote settings dumps on Android (see package-manifest).
@@ -941,7 +951,7 @@ wNuvFqc=
         ],
       },
     },
-    "GET:/v1/buckets/main/collections/password-fields/changeset?_expected=3001&_since=3000": {
+    "GET:/v1/buckets/main/collections/password-fields/changeset?_expected=3001&_since=%223000%22": {
       sampleHeaders: [
         "Access-Control-Allow-Origin: *",
         "Access-Control-Expose-Headers: Retry-After, Content-Length, Alert, Backoff",
@@ -969,7 +979,7 @@ wNuvFqc=
         ],
       },
     },
-    "GET:/v1/buckets/main/collections/password-fields/changeset?_expected=4001&_since=4000": {
+    "GET:/v1/buckets/main/collections/password-fields/changeset?_expected=4001&_since=%224000%22": {
       sampleHeaders: [
         "Access-Control-Allow-Origin: *",
         "Access-Control-Expose-Headers: Retry-After, Content-Length, Alert, Backoff",
@@ -989,7 +999,7 @@ wNuvFqc=
         ],
       },
     },
-    "GET:/v1/buckets/main/collections/password-fields/changeset?_expected=10000&_since=9999": {
+    "GET:/v1/buckets/main/collections/password-fields/changeset?_expected=10000&_since=%229999%22": {
       sampleHeaders: [
         "Access-Control-Allow-Origin: *",
         "Access-Control-Expose-Headers: Retry-After, Content-Length, Alert, Backoff",
@@ -1003,7 +1013,7 @@ wNuvFqc=
         error: "Service Unavailable",
       },
     },
-    "GET:/v1/buckets/main/collections/password-fields/changeset?_expected=10001&_since=10000": {
+    "GET:/v1/buckets/main/collections/password-fields/changeset?_expected=10001&_since=%2210000%22": {
       sampleHeaders: [
         "Access-Control-Allow-Origin: *",
         "Access-Control-Expose-Headers: Retry-After, Content-Length, Alert, Backoff",
@@ -1014,7 +1024,7 @@ wNuvFqc=
       status: { status: 200, statusText: "OK" },
       responseBody: "<invalid json",
     },
-    "GET:/v1/buckets/main/collections/password-fields/changeset?_expected=11001&_since=11000": {
+    "GET:/v1/buckets/main/collections/password-fields/changeset?_expected=11001&_since=%2211000%22": {
       sampleHeaders: [
         "Access-Control-Allow-Origin: *",
         "Access-Control-Expose-Headers: Retry-After, Content-Length, Alert, Backoff",
@@ -1175,7 +1185,7 @@ wNuvFqc=
         ],
       },
     },
-    "GET:/v1/buckets/main/collections/with-local-fields/changeset?_expected=3000&_since=2000": {
+    "GET:/v1/buckets/main/collections/with-local-fields/changeset?_expected=3000&_since=%222000%22": {
       sampleHeaders: [
         "Access-Control-Allow-Origin: *",
         "Access-Control-Expose-Headers: Retry-After, Content-Length, Alert, Backoff",

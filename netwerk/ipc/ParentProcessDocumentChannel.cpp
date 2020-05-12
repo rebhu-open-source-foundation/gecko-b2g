@@ -45,8 +45,6 @@ ParentProcessDocumentChannel::RedirectToRealChannel(
     channel->SetLoadGroup(mLoadGroup);
   }
 
-  mLastVisitInfo = mDocumentLoadListener->LastVisitInfo();
-  mRedirects = mDocumentLoadListener->Redirects();
   mStreamFilterEndpoints = std::move(aStreamFilterEndpoints);
 
   RefPtr<PDocumentChannelParent::RedirectToRealChannelPromise> p =
@@ -164,12 +162,16 @@ void ParentProcessDocumentChannel::DisconnectDocumentLoadListener() {
   if (!mDocumentLoadListener) {
     return;
   }
+  mDocumentLoadListener->DocumentChannelBridgeDisconnected();
+  mDocumentLoadListener = nullptr;
+  RemoveObserver();
+}
+
+void ParentProcessDocumentChannel::RemoveObserver() {
   if (nsCOMPtr<nsIObserverService> observerService =
           mozilla::services::GetObserverService()) {
     observerService->RemoveObserver(this, NS_HTTP_ON_MODIFY_REQUEST_TOPIC);
   }
-  mDocumentLoadListener->DocumentChannelBridgeDisconnected();
-  mDocumentLoadListener = nullptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

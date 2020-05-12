@@ -166,6 +166,7 @@ const PRIVILEGED_PERMS = new Set([
   "geckoViewAddons",
   "telemetry",
   "urlbar",
+  "nativeMessagingFromContent",
   "normandyAddonStudy",
   "networkStatus",
 ]);
@@ -635,7 +636,10 @@ class ExtensionData {
       this.manifest.permissions
     );
 
-    if (this.manifest.devtools_page) {
+    if (
+      this.manifest.devtools_page &&
+      !this.manifest.optional_permissions.includes("devtools")
+    ) {
       permissions.add("devtools");
     }
 
@@ -652,6 +656,10 @@ class ExtensionData {
   }
 
   get manifestOptionalPermissions() {
+    if (this.type !== "extension") {
+      return null;
+    }
+
     let { permissions, origins } = this.permissionsObject(
       this.manifest.optional_permissions
     );
@@ -1661,14 +1669,20 @@ class BootstrapScope {
   }
 
   async update(data, reason) {
-    // Retain any previously granted permissions that may have migrated into the optional list.
-    await ExtensionData.migratePermissions(
-      data.id,
-      data.oldPermissions,
-      data.oldOptionalPermissions,
-      data.userPermissions,
-      data.optionalPermissions
-    );
+    // Retain any previously granted permissions that may have migrated
+    // into the optional list.
+    if (data.oldPermissions !== null) {
+      // New permissions may be null, ensure we have an empty
+      // permission set in that case.
+      let emptyPermissions = { permissions: [], origins: [] };
+      await ExtensionData.migratePermissions(
+        data.id,
+        data.oldPermissions,
+        data.oldOptionalPermissions,
+        data.userPermissions || emptyPermissions,
+        data.optionalPermissions || emptyPermissions
+      );
+    }
 
     return Management.emit("update", {
       id: data.id,
@@ -2423,6 +2437,18 @@ class Extension extends ExtensionData {
           });
           this.permissions.add(PRIVATE_ALLOWED_PERMISSION);
         }
+      }
+
+      // Ensure devtools permission is set
+      if (
+        this.manifest.devtools_page &&
+        !this.manifest.optional_permissions.includes("devtools")
+      ) {
+        ExtensionPermissions.add(this.id, {
+          permissions: ["devtools"],
+          origins: [],
+        });
+        this.permissions.add("devtools");
       }
 
       GlobalManager.init(this);

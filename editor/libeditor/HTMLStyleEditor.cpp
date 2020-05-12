@@ -46,6 +46,8 @@ namespace mozilla {
 
 using namespace dom;
 
+using ChildBlockBoundary = HTMLEditUtils::ChildBlockBoundary;
+
 nsresult HTMLEditor::SetInlinePropertyAsAction(nsAtom& aProperty,
                                                nsAtom* aAttribute,
                                                const nsAString& aValue,
@@ -76,6 +78,10 @@ nsresult HTMLEditor::SetInlinePropertyAsAction(nsAtom& aProperty,
   }
 
   AutoPlaceholderBatch treatAsOneTransaction(*this);
+
+  nsAtom* property = &aProperty;
+  nsAtom* attribute = aAttribute;
+  nsAutoString value(aValue);
 
   if (&aProperty == nsGkAtoms::sup) {
     // Superscript and Subscript styles are mutually exclusive.
@@ -114,17 +120,34 @@ nsresult HTMLEditor::SetInlinePropertyAsAction(nsAtom& aProperty,
         return EditorBase::ToGenericNSResult(rv);
       }
     } else if (&aProperty == nsGkAtoms::font && aAttribute == nsGkAtoms::face) {
-      nsresult rv = RemoveInlinePropertyInternal(nsGkAtoms::tt, nullptr,
-                                                 RemoveRelatedElements::No);
-      if (NS_FAILED(rv)) {
-        NS_WARNING(
-            "HTMLEditor::RemoveInlinePropertyInternal(nsGkAtoms::tt, "
-            "RemoveRelatedElements::No) failed");
-        return EditorBase::ToGenericNSResult(rv);
+      if (!value.LowerCaseEqualsASCII("tt")) {
+        nsresult rv = RemoveInlinePropertyInternal(nsGkAtoms::tt, nullptr,
+                                                   RemoveRelatedElements::No);
+        if (NS_FAILED(rv)) {
+          NS_WARNING(
+              "HTMLEditor::RemoveInlinePropertyInternal(nsGkAtoms::tt, "
+              "RemoveRelatedElements::No) failed");
+          return EditorBase::ToGenericNSResult(rv);
+        }
+      } else {
+        nsresult rv = RemoveInlinePropertyInternal(
+            nsGkAtoms::font, nsGkAtoms::face, RemoveRelatedElements::No);
+        if (NS_FAILED(rv)) {
+          NS_WARNING(
+              "HTMLEditor::RemoveInlinePropertyInternal(nsGkAtoms::font, "
+              "nsGkAtoms::face, RemoveRelatedElements::No) failed");
+          return EditorBase::ToGenericNSResult(rv);
+        }
+        // Override property, attribute and value if the new font face value is
+        // "tt".
+        property = nsGkAtoms::tt;
+        attribute = nullptr;
+        value.Truncate();
       }
     }
   }
-  rv = SetInlinePropertyInternal(aProperty, aAttribute, aValue);
+  rv = SetInlinePropertyInternal(MOZ_KnownLive(*property),
+                                 MOZ_KnownLive(attribute), value);
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
                        "HTMLEditor::SetInlinePropertyInternal() failed");
   return EditorBase::ToGenericNSResult(rv);
@@ -427,7 +450,7 @@ nsresult HTMLEditor::SetInlinePropertyOnTextNode(
     }
     if (error.Failed()) {
       NS_WARNING_ASSERTION(error.ErrorCodeIs(NS_ERROR_EDITOR_DESTROYED),
-                           "EditorBase::SplitNodeWithTransaction() failed");
+                           "HTMLEditor::SplitNodeWithTransaction() failed");
       return error.StealNSResult();
     }
   }
@@ -443,7 +466,7 @@ nsresult HTMLEditor::SetInlinePropertyOnTextNode(
     }
     if (error.Failed()) {
       NS_WARNING_ASSERTION(error.ErrorCodeIs(NS_ERROR_EDITOR_DESTROYED),
-                           "EditorBase::SplitNodeWithTransaction() failed");
+                           "HTMLEditor::SplitNodeWithTransaction() failed");
       return error.StealNSResult();
     }
     Unused << newLeftNode;
@@ -460,7 +483,7 @@ nsresult HTMLEditor::SetInlinePropertyOnTextNode(
         return NS_ERROR_EDITOR_DESTROYED;
       }
       NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                           "EditorBase::MoveNodeToEndWithTransaction() failed");
+                           "HTMLEditor::MoveNodeToEndWithTransaction() failed");
       return rv;
     }
     sibling = GetNextHTMLSibling(textNodeForTheRange);
@@ -472,7 +495,7 @@ nsresult HTMLEditor::SetInlinePropertyOnTextNode(
         return NS_ERROR_EDITOR_DESTROYED;
       }
       NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                           "EditorBase::MoveNodeWithTransaction() failed");
+                           "HTMLEditor::MoveNodeWithTransaction() failed");
       return rv;
     }
   }
@@ -529,7 +552,7 @@ nsresult HTMLEditor::SetInlinePropertyOnNodeImpl(nsIContent& aContent,
                              &aValue)) {
     nsresult rv = MoveNodeToEndWithTransaction(aContent, *previousSibling);
     if (NS_FAILED(rv)) {
-      NS_WARNING("EditorBase::MoveNodeToEndWithTransaction() failed");
+      NS_WARNING("HTMLEditor::MoveNodeToEndWithTransaction() failed");
       return rv;
     }
     if (!IsSimpleModifiableNode(nextSibling, &aProperty, aAttribute, &aValue)) {
@@ -537,14 +560,14 @@ nsresult HTMLEditor::SetInlinePropertyOnNodeImpl(nsIContent& aContent,
     }
     rv = JoinNodesWithTransaction(*previousSibling, *nextSibling);
     NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                         "EditorBase::JoinNodesWithTransaction() failed");
+                         "HTMLEditor::JoinNodesWithTransaction() failed");
     return rv;
   }
   if (IsSimpleModifiableNode(nextSibling, &aProperty, aAttribute, &aValue)) {
     nsresult rv =
         MoveNodeWithTransaction(aContent, EditorDOMPoint(nextSibling, 0));
     NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                         "EditorBase::MoveNodeWithTransaction() failed");
+                         "HTMLEditor::MoveNodeWithTransaction() failed");
     return rv;
   }
 
@@ -579,7 +602,7 @@ nsresult HTMLEditor::SetInlinePropertyOnNodeImpl(nsIContent& aContent,
       spanElement = InsertContainerWithTransaction(aContent, *nsGkAtoms::span);
       if (!spanElement) {
         NS_WARNING(
-            "EditorBase::InsertContainerWithTransaction(nsGkAtoms::span) "
+            "HTMLEditor::InsertContainerWithTransaction(nsGkAtoms::span) "
             "failed");
         return NS_ERROR_FAILURE;
       }
@@ -609,7 +632,7 @@ nsresult HTMLEditor::SetInlinePropertyOnNodeImpl(nsIContent& aContent,
       aContent, aProperty, aAttribute ? *aAttribute : *nsGkAtoms::_empty,
       aValue);
   NS_WARNING_ASSERTION(newContainerElement,
-                       "EditorBase::InsertContainerWithTransaction() failed");
+                       "HTMLEditor::InsertContainerWithTransaction() failed");
   return newContainerElement ? NS_OK : NS_ERROR_FAILURE;
 }
 
@@ -809,7 +832,7 @@ SplitNodeResult HTMLEditor::SplitAncestorStyledInlineElementsAt(
         MOZ_KnownLive(content), result.SplitPoint(),
         SplitAtEdges::eAllowToCreateEmptyContainer);
     if (splitNodeResult.Failed()) {
-      NS_WARNING("EditorBase::SplitNodeDeepWithTransaction() failed");
+      NS_WARNING("HTMLEditor::SplitNodeDeepWithTransaction() failed");
       return splitNodeResult;
     }
     MOZ_ASSERT(splitNodeResult.Handled());
@@ -880,10 +903,10 @@ EditResult HTMLEditor::ClearStyleAt(const EditorDOMPoint& aPoint,
   // the next node.  The first example should become
   // `<p><b><i>a</i></b><b><i></i></b><b><i>bc</i></b></p>`.
   //                    ^^^^^^^^^^^^^^
-  nsIContent* leftmostChildOfNextNode =
-      GetLeftmostChild(splitResult.GetNextNode());
-  EditorDOMPoint atStartOfNextNode(leftmostChildOfNextNode
-                                       ? leftmostChildOfNextNode
+  nsIContent* firstLeafChildOfNextNode = HTMLEditUtils::GetFirstLeafChild(
+      *splitResult.GetNextNode(), ChildBlockBoundary::Ignore);
+  EditorDOMPoint atStartOfNextNode(firstLeafChildOfNextNode
+                                       ? firstLeafChildOfNextNode
                                        : splitResult.GetNextNode(),
                                    0);
   RefPtr<HTMLBRElement> brElement;
@@ -938,11 +961,13 @@ EditResult HTMLEditor::ClearStyleAt(const EditorDOMPoint& aPoint,
   // Now, we want to put `<br>` element into the empty split node if
   // it was in next node of the first split.
   // E.g., `<p><b><i>a</i></b><b><i><br></i></b><b><i>bc</i></b></p>`
-  nsIContent* leftmostChild =
-      GetLeftmostChild(splitResultAtStartOfNextNode.GetPreviousNode());
+  nsIContent* firstLeafChildOfPreviousNode = HTMLEditUtils::GetFirstLeafChild(
+      *splitResultAtStartOfNextNode.GetPreviousNode(),
+      ChildBlockBoundary::Ignore);
   EditorDOMPoint pointToPutCaret(
-      leftmostChild ? leftmostChild
-                    : splitResultAtStartOfNextNode.GetPreviousNode(),
+      firstLeafChildOfPreviousNode
+          ? firstLeafChildOfPreviousNode
+          : splitResultAtStartOfNextNode.GetPreviousNode(),
       0);
   // If the right node starts with a `<br>`, suck it out of right node and into
   // the left node left node.  This is so we you don't revert back to the
@@ -953,7 +978,7 @@ EditResult HTMLEditor::ClearStyleAt(const EditorDOMPoint& aPoint,
       return EditResult(NS_ERROR_EDITOR_DESTROYED);
     }
     if (NS_FAILED(rv)) {
-      NS_WARNING("EditorBase::MoveNodeWithTransaction() failed");
+      NS_WARNING("HTMLEditor::MoveNodeWithTransaction() failed");
       return EditResult(rv);
     }
     // Update the child.
@@ -1041,7 +1066,7 @@ nsresult HTMLEditor::RemoveStyleInside(Element& aElement, nsAtom* aProperty,
         }
         if (!spanElement) {
           NS_WARNING(
-              "EditorBase::InsertContainerWithTransaction(nsGkAtoms::span) "
+              "HTMLEditor::InsertContainerWithTransaction(nsGkAtoms::span) "
               "failed");
           return NS_ERROR_FAILURE;
         }
@@ -1073,7 +1098,7 @@ nsresult HTMLEditor::RemoveStyleInside(Element& aElement, nsAtom* aProperty,
         return NS_ERROR_EDITOR_DESTROYED;
       }
       if (NS_FAILED(rv)) {
-        NS_WARNING("EditorBase::RemoveContainerWithTransaction() failed");
+        NS_WARNING("HTMLEditor::RemoveContainerWithTransaction() failed");
         return rv;
       }
     }
@@ -1086,7 +1111,7 @@ nsresult HTMLEditor::RemoveStyleInside(Element& aElement, nsAtom* aProperty,
           return NS_ERROR_EDITOR_DESTROYED;
         }
         if (NS_FAILED(rv)) {
-          NS_WARNING("EditorBase::RemoveContainerWithTransaction() failed");
+          NS_WARNING("HTMLEditor::RemoveContainerWithTransaction() failed");
           return rv;
         }
       } else {
@@ -1128,7 +1153,7 @@ nsresult HTMLEditor::RemoveStyleInside(Element& aElement, nsAtom* aProperty,
       }
       NS_WARNING_ASSERTION(
           NS_SUCCEEDED(rvIgnored),
-          "EditorBase::RemoveContainerWithTransaction() failed, but ignored");
+          "HTMLEditor::RemoveContainerWithTransaction() failed, but ignored");
     }
   }
 
@@ -1141,7 +1166,7 @@ nsresult HTMLEditor::RemoveStyleInside(Element& aElement, nsAtom* aProperty,
       return NS_ERROR_EDITOR_DESTROYED;
     }
     NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                         "EditorBase::RemoveContainerWithTransaction() failed");
+                         "HTMLEditor::RemoveContainerWithTransaction() failed");
     return rv;
   }
 
@@ -2101,7 +2126,7 @@ nsresult HTMLEditor::RelativeFontChange(FontSize aDir) {
     if (NS_WARN_IF(!SelectionRefPtr()->RangeCount())) {
       return NS_OK;
     }
-    RefPtr<nsRange> firstRange = SelectionRefPtr()->GetRangeAt(0);
+    RefPtr<const nsRange> firstRange = SelectionRefPtr()->GetRangeAt(0);
     if (NS_WARN_IF(!firstRange) ||
         NS_WARN_IF(!firstRange->GetStartContainer())) {
       return NS_OK;
@@ -2259,7 +2284,7 @@ nsresult HTMLEditor::RelativeFontChangeOnTextNode(FontSize aDir,
     ErrorResult error;
     textNodeForTheRange = SplitNodeWithTransaction(atEnd, error);
     if (error.Failed()) {
-      NS_WARNING("EditorBase::SplitNodeWithTransaction() failed");
+      NS_WARNING("HTMLEditor::SplitNodeWithTransaction() failed");
       return error.StealNSResult();
     }
   }
@@ -2271,7 +2296,7 @@ nsresult HTMLEditor::RelativeFontChangeOnTextNode(FontSize aDir,
     ErrorResult error;
     nsCOMPtr<nsIContent> newLeftNode = SplitNodeWithTransaction(atStart, error);
     if (error.Failed()) {
-      NS_WARNING("EditorBase::SplitNodeWithTransaction() failed");
+      NS_WARNING("HTMLEditor::SplitNodeWithTransaction() failed");
       return error.StealNSResult();
     }
     Unused << newLeftNode;
@@ -2284,7 +2309,7 @@ nsresult HTMLEditor::RelativeFontChangeOnTextNode(FontSize aDir,
     // Previous sib is already right kind of inline node; slide this over
     nsresult rv = MoveNodeToEndWithTransaction(*textNodeForTheRange, *sibling);
     NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                         "EditorBase::MoveNodeToEndWithTransaction() failed");
+                         "HTMLEditor::MoveNodeToEndWithTransaction() failed");
     return rv;
   }
   sibling = GetNextHTMLSibling(textNodeForTheRange);
@@ -2293,7 +2318,7 @@ nsresult HTMLEditor::RelativeFontChangeOnTextNode(FontSize aDir,
     nsresult rv = MoveNodeWithTransaction(*textNodeForTheRange,
                                           EditorDOMPoint(sibling, 0));
     NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                         "EditorBase::MoveNodeWithTransaction() failed");
+                         "HTMLEditor::MoveNodeWithTransaction() failed");
     return rv;
   }
 
@@ -2301,7 +2326,7 @@ nsresult HTMLEditor::RelativeFontChangeOnTextNode(FontSize aDir,
   RefPtr<Element> newElement = InsertContainerWithTransaction(
       *textNodeForTheRange, MOZ_KnownLive(*nodeType));
   NS_WARNING_ASSERTION(newElement,
-                       "EditorBase::InsertContainerWithTransaction() failed");
+                       "HTMLEditor::InsertContainerWithTransaction() failed");
   return newElement ? NS_OK : NS_ERROR_FAILURE;
 }
 
@@ -2392,7 +2417,7 @@ nsresult HTMLEditor::RelativeFontChangeOnNode(int32_t aSizeChange,
     // in that case, just remove this node and pull up the children
     rv = RemoveContainerWithTransaction(MOZ_KnownLive(*aNode->AsElement()));
     NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                         "EditorBase::RemoveContainerWithTransaction() failed");
+                         "HTMLEditor::RemoveContainerWithTransaction() failed");
     return rv;
   }
 
@@ -2414,7 +2439,7 @@ nsresult HTMLEditor::RelativeFontChangeOnNode(int32_t aSizeChange,
       // it
       nsresult rv = MoveNodeToEndWithTransaction(*aNode, *sibling);
       NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                           "EditorBase::MoveNodeToEndWithTransaction() failed");
+                           "HTMLEditor::MoveNodeToEndWithTransaction() failed");
       return rv;
     }
 
@@ -2429,7 +2454,7 @@ nsresult HTMLEditor::RelativeFontChangeOnNode(int32_t aSizeChange,
     RefPtr<Element> newElement =
         InsertContainerWithTransaction(*aNode, MOZ_KnownLive(*atom));
     NS_WARNING_ASSERTION(newElement,
-                         "EditorBase::InsertContainerWithTransaction() failed");
+                         "HTMLEditor::InsertContainerWithTransaction() failed");
     return newElement ? NS_OK : NS_ERROR_FAILURE;
   }
 

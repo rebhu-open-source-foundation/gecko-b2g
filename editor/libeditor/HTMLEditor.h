@@ -46,12 +46,14 @@ class AutoSetTemporaryAncestorLimiter;
 class EditActionResult;
 class EditResult;
 class EmptyEditableFunctor;
+class JoinNodeTransaction;
 class ListElementSelectionState;
 class ListItemElementSelectionState;
 class MoveNodeResult;
 class ParagraphStateAtSelection;
 class ResizerSelectionListener;
 class Runnable;
+class SplitNodeTransaction;
 class SplitRangeOffFromNodeResult;
 class SplitRangeOffResult;
 class WSRunObject;
@@ -1168,6 +1170,43 @@ class HTMLEditor final : public TextEditor,
    */
   [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult OnModifyDocument();
 
+  /**
+   * DoSplitNode() creates a new node (left node) identical to an existing
+   * node (right node), and split the contents between the same point in both
+   * nodes.
+   *
+   * @param aStartOfRightNode   The point to split.  Its container will be
+   *                            the right node, i.e., become the new node's
+   *                            next sibling.  And the point will be start
+   *                            of the right node.
+   * @param aNewLeftNode        The new node called as left node, so, this
+   *                            becomes the container of aPointToSplit's
+   *                            previous sibling.
+   * @param aError              Must have not already failed.
+   *                            If succeed to insert aLeftNode before the
+   *                            right node and remove unnecessary contents
+   *                            (and collapse selection at end of the left
+   *                            node if necessary), returns no error.
+   *                            Otherwise, an error.
+   */
+  MOZ_CAN_RUN_SCRIPT void DoSplitNode(const EditorDOMPoint& aStartOfRightNode,
+                                      nsIContent& aNewLeftNode,
+                                      ErrorResult& aError);
+
+  /**
+   * DoJoinNodes() merges contents in aContentToJoin to aContentToKeep and
+   * remove aContentToJoin from the DOM tree.  aContentToJoin and aContentToKeep
+   * must have same parent, aParent.  Additionally, if one of aContentToJoin or
+   * aContentToKeep is a text node, the other must be a text node.
+   *
+   * @param aContentToKeep  The node that will remain after the join.
+   * @param aContentToJoin  The node that will be joined with aContentToKeep.
+   *                        There is no requirement that the two nodes be of the
+   *                        same type.
+   */
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
+  DoJoinNodes(nsIContent& aContentToKeep, nsIContent& aContentToJoin);
+
  protected:  // edit sub-action handler
   /**
    * CanHandleHTMLEditSubAction() checks whether there is at least one
@@ -1242,7 +1281,7 @@ class HTMLEditor final : public TextEditor,
    *                            should be inserted.
    */
   [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
-  CreateStyleForInsertText(dom::AbstractRange& aAbstractRange);
+  CreateStyleForInsertText(const dom::AbstractRange& aAbstractRange);
 
   /**
    * GetMostAncestorMailCiteElement() returns most-ancestor mail cite element.
@@ -1981,6 +2020,18 @@ class HTMLEditor final : public TextEditor,
   Element* GetInvisibleBRElementAt(const EditorDOMPointBase<PT, CT>& aPoint);
 
   /**
+   * JoinNodesWithTransaction() joins aLeftNode and aRightNode.  Content of
+   * aLeftNode will be merged into aRightNode.  Actual implemenation of this
+   * method is JoinNodesImpl().  So, see its explanation for the detail.
+   *
+   * @param aLeftNode   Will be removed from the DOM tree.
+   * @param aRightNode  The node which will be new container of the content of
+   *                    aLeftNode.
+   */
+  MOZ_CAN_RUN_SCRIPT nsresult JoinNodesWithTransaction(nsINode& aLeftNode,
+                                                       nsINode& aRightNode);
+
+  /**
    * JoinNearestEditableNodesWithTransaction() joins two editable nodes which
    * are themselves or the nearest editable node of aLeftNode and aRightNode.
    * XXX This method's behavior is odd.  For example, if user types Backspace
@@ -2007,29 +2058,210 @@ class HTMLEditor final : public TextEditor,
       EditorDOMPoint* aNewFirstChildOfRightNode);
 
   /**
-   * MoveNodeOrChildren() moves aContent to aPointToInsert.  If cannot insert
-   * aContent due to invalid relation, moves only its children recursively
-   * and removes aContent from the DOM tree.
+   * ReplaceContainerAndCloneAttributesWithTransaction() creates new element
+   * whose name is aTagName, copies all attributes from aOldContainer to the
+   * new element, moves all children in aOldContainer to the new element, then,
+   * removes aOldContainer from the DOM tree.
+   *
+   * @param aOldContainer       The element node which should be replaced
+   *                            with new element.
+   * @param aTagName            The name of new element node.
+   */
+  MOZ_CAN_RUN_SCRIPT already_AddRefed<Element>
+  ReplaceContainerAndCloneAttributesWithTransaction(Element& aOldContainer,
+                                                    nsAtom& aTagName) {
+    return ReplaceContainerWithTransactionInternal(
+        aOldContainer, aTagName, *nsGkAtoms::_empty, EmptyString(), true);
+  }
+
+  /**
+   * ReplaceContainerWithTransaction() creates new element whose name is
+   * aTagName, sets aAttributes of the new element to aAttributeValue, moves
+   * all children in aOldContainer to the new element, then, removes
+   * aOldContainer from the DOM tree.
+   *
+   * @param aOldContainer       The element node which should be replaced
+   *                            with new element.
+   * @param aTagName            The name of new element node.
+   * @param aAttribute          Attribute name to be set to the new element.
+   * @param aAttributeValue     Attribute value to be set to aAttribute.
+   */
+  MOZ_CAN_RUN_SCRIPT already_AddRefed<Element> ReplaceContainerWithTransaction(
+      Element& aOldContainer, nsAtom& aTagName, nsAtom& aAttribute,
+      const nsAString& aAttributeValue) {
+    return ReplaceContainerWithTransactionInternal(
+        aOldContainer, aTagName, aAttribute, aAttributeValue, false);
+  }
+
+  /**
+   * ReplaceContainerWithTransaction() creates new element whose name is
+   * aTagName, moves all children in aOldContainer to the new element, then,
+   * removes aOldContainer from the DOM tree.
+   *
+   * @param aOldContainer       The element node which should be replaced
+   *                            with new element.
+   * @param aTagName            The name of new element node.
+   */
+  MOZ_CAN_RUN_SCRIPT already_AddRefed<Element> ReplaceContainerWithTransaction(
+      Element& aOldContainer, nsAtom& aTagName) {
+    return ReplaceContainerWithTransactionInternal(
+        aOldContainer, aTagName, *nsGkAtoms::_empty, EmptyString(), false);
+  }
+
+  /**
+   * RemoveContainerWithTransaction() removes aElement from the DOM tree and
+   * moves all its children to the parent of aElement.
+   *
+   * @param aElement            The element to be removed.
+   */
+  MOZ_CAN_RUN_SCRIPT nsresult RemoveContainerWithTransaction(Element& aElement);
+
+  /**
+   * InsertContainerWithTransaction() creates new element whose name is
+   * aTagName, moves aContent into the new element, then, inserts the new
+   * element into where aContent was.
+   * Note that this method does not check if aContent is valid child of
+   * the new element.  So, callers need to guarantee it.
+   *
+   * @param aContent            The content which will be wrapped with new
+   *                            element.
+   * @param aTagName            Element name of new element which will wrap
+   *                            aContent and be inserted into where aContent
+   *                            was.
+   * @return                    The new element.
+   */
+  MOZ_CAN_RUN_SCRIPT already_AddRefed<Element> InsertContainerWithTransaction(
+      nsIContent& aContent, nsAtom& aTagName) {
+    return InsertContainerWithTransactionInternal(
+        aContent, aTagName, *nsGkAtoms::_empty, EmptyString());
+  }
+
+  /**
+   * InsertContainerWithTransaction() creates new element whose name is
+   * aTagName, sets its aAttribute to aAttributeValue, moves aContent into the
+   * new element, then, inserts the new element into where aContent was.
+   * Note that this method does not check if aContent is valid child of
+   * the new element.  So, callers need to guarantee it.
+   *
+   * @param aContent            The content which will be wrapped with new
+   *                            element.
+   * @param aTagName            Element name of new element which will wrap
+   *                            aContent and be inserted into where aContent
+   *                            was.
+   * @param aAttribute          Attribute which should be set to the new
+   *                            element.
+   * @param aAttributeValue     Value to be set to aAttribute.
+   * @return                    The new element.
+   */
+  MOZ_CAN_RUN_SCRIPT already_AddRefed<Element> InsertContainerWithTransaction(
+      nsIContent& aContent, nsAtom& aTagName, nsAtom& aAttribute,
+      const nsAString& aAttributeValue) {
+    return InsertContainerWithTransactionInternal(aContent, aTagName,
+                                                  aAttribute, aAttributeValue);
+  }
+
+  /**
+   * MoveNodeWithTransaction() moves aContent to aPointToInsert.
+   *
+   * @param aContent        The node to be moved.
+   */
+  MOZ_CAN_RUN_SCRIPT nsresult MoveNodeWithTransaction(
+      nsIContent& aContent, const EditorDOMPoint& aPointToInsert);
+
+  /**
+   * MoveNodeToEndWithTransaction() moves aContent to end of aNewContainer.
+   *
+   * @param aContent        The node to be moved.
+   * @param aNewContainer   The new container which will contain aContent as
+   *                        its last child.
+   */
+  MOZ_CAN_RUN_SCRIPT nsresult
+  MoveNodeToEndWithTransaction(nsIContent& aContent, nsINode& aNewContainer) {
+    EditorDOMPoint pointToInsert;
+    pointToInsert.SetToEndOf(&aNewContainer);
+    return MoveNodeWithTransaction(aContent, pointToInsert);
+  }
+
+  /**
+   * MoveNodeOrChildrenWithTransaction() moves aContent to aPointToInsert.  If
+   * cannot insert aContent due to invalid relation, moves only its children
+   * recursively and removes aContent from the DOM tree.
    *
    * @param aContent            Content which should be moved.
    * @param aPointToInsert      The point to be inserted aContent or its
    *                            descendants.
    */
   [[nodiscard]] MOZ_CAN_RUN_SCRIPT MoveNodeResult
-  MoveNodeOrChildren(nsIContent& aNode, const EditorDOMPoint& aPointToInsert);
+  MoveNodeOrChildrenWithTransaction(nsIContent& aNode,
+                                    const EditorDOMPoint& aPointToInsert);
 
   /**
-   * MoveContents() moves the children of aElement to aPointToInsert.  If
-   * cannot insert some children due to invalid relation, calls
-   * MoveNodeOrChildren() to remove the children but keep moving its children.
+   * MoveChildrenWithTransaction() moves the children of aElement to
+   * aPointToInsert.  If cannot insert some children due to invalid relation,
+   * calls MoveNodeOrChildrenWithTransaction() to remove the children but keep
+   * moving its children.
    *
    * @param aElement            Container element whose children should be
    *                            moved.
    * @param aPointToInsert      The point to be inserted children of aElement
    *                            or its descendants.
    */
-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT MoveNodeResult
-  MoveChildren(Element& aElement, const EditorDOMPoint& aPointToInsert);
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT MoveNodeResult MoveChildrenWithTransaction(
+      Element& aElement, const EditorDOMPoint& aPointToInsert);
+
+  /**
+   * MoveAllChildren() moves all children of aContainer to before
+   * aPointToInsert.GetChild().
+   * See explanation of MoveChildrenBetween() for the detail of the behavior.
+   *
+   * @param aContainer          The container node whose all children should
+   *                            be moved.
+   * @param aPointToInsert      The insertion point.  The container must not
+   *                            be a data node like a text node.
+   * @param aError              The result.  If this succeeds to move children,
+   *                            returns NS_OK.  Otherwise, an error.
+   */
+  void MoveAllChildren(nsINode& aContainer,
+                       const EditorRawDOMPoint& aPointToInsert,
+                       ErrorResult& aError);
+
+  /**
+   * MoveChildrenBetween() moves all children between aFirstChild and aLastChild
+   * to before aPointToInsert.GetChild(). If some children are moved to
+   * different container while this method moves other children, they are just
+   * ignored. If the child node referred by aPointToInsert is moved to different
+   * container while this method moves children, returns error.
+   *
+   * @param aFirstChild         The first child which should be moved to
+   *                            aPointToInsert.
+   * @param aLastChild          The last child which should be moved.  This
+   *                            must be a sibling of aFirstChild and it should
+   *                            be positioned after aFirstChild in the DOM tree
+   *                            order.
+   * @param aPointToInsert      The insertion point.  The container must not
+   *                            be a data node like a text node.
+   * @param aError              The result.  If this succeeds to move children,
+   *                            returns NS_OK.  Otherwise, an error.
+   */
+  void MoveChildrenBetween(nsIContent& aFirstChild, nsIContent& aLastChild,
+                           const EditorRawDOMPoint& aPointToInsert,
+                           ErrorResult& aError);
+
+  /**
+   * MovePreviousSiblings() moves all siblings before aChild (i.e., aChild
+   * won't be moved) to before aPointToInsert.GetChild().
+   * See explanation of MoveChildrenBetween() for the detail of the behavior.
+   *
+   * @param aChild              The node which is next sibling of the last
+   *                            node to be moved.
+   * @param aPointToInsert      The insertion point.  The container must not
+   *                            be a data node like a text node.
+   * @param aError              The result.  If this succeeds to move children,
+   *                            returns NS_OK.  Otherwise, an error.
+   */
+  void MovePreviousSiblings(nsIContent& aChild,
+                            const EditorRawDOMPoint& aPointToInsert,
+                            ErrorResult& aError);
 
   /**
    * MoveOneHardLineContents() moves the content in a hard line which contains
@@ -2054,6 +2286,56 @@ class HTMLEditor final : public TextEditor,
       const EditorDOMPoint& aPointInHardLine,
       const EditorDOMPoint& aPointToInsert,
       MoveToEndOfContainer aMoveToEndOfContainer = MoveToEndOfContainer::No);
+
+  /**
+   * SplitNodeWithTransaction() creates a transaction to create a new node
+   * (left node) identical to an existing node (right node), and split the
+   * contents between the same point in both nodes, then, execute the
+   * transaction.
+   *
+   * @param aStartOfRightNode   The point to split.  Its container will be
+   *                            the right node, i.e., become the new node's
+   *                            next sibling.  And the point will be start
+   *                            of the right node.
+   * @param aError              If succeed, returns no error.  Otherwise, an
+   *                            error.
+   */
+  MOZ_CAN_RUN_SCRIPT already_AddRefed<nsIContent> SplitNodeWithTransaction(
+      const EditorDOMPoint& aStartOfRightNode, ErrorResult& aResult);
+
+  enum class SplitAtEdges {
+    // SplitNodeDeepWithTransaction() won't split container element
+    // nodes at their edges.  I.e., when split point is start or end of
+    // container, it won't be split.
+    eDoNotCreateEmptyContainer,
+    // SplitNodeDeepWithTransaction() always splits containers even
+    // if the split point is at edge of a container.  E.g., if split point is
+    // start of an inline element, empty inline element is created as a new left
+    // node.
+    eAllowToCreateEmptyContainer,
+  };
+
+  /**
+   * SplitNodeDeepWithTransaction() splits aMostAncestorToSplit deeply.
+   *
+   * @param aMostAncestorToSplit        The most ancestor node which should be
+   *                                    split.
+   * @param aStartOfDeepestRightNode    The start point of deepest right node.
+   *                                    This point must be descendant of
+   *                                    aMostAncestorToSplit.
+   * @param aSplitAtEdges               Whether the caller allows this to
+   *                                    create empty container element when
+   *                                    split point is start or end of an
+   *                                    element.
+   * @return                            SplitPoint() returns split point in
+   *                                    aMostAncestorToSplit.  The point must
+   *                                    be good to insert something if the
+   *                                    caller want to do it.
+   */
+  MOZ_CAN_RUN_SCRIPT SplitNodeResult
+  SplitNodeDeepWithTransaction(nsIContent& aMostAncestorToSplit,
+                               const EditorDOMPoint& aDeepestStartOfRightNode,
+                               SplitAtEdges aSplitAtEdges);
 
   /**
    * JoinNodesDeepWithTransaction() joins aLeftNode and aRightNode "deeply".
@@ -2142,7 +2424,7 @@ class HTMLEditor final : public TextEditor,
                                   nsIEditor::EDirection aDirectionAndAmount);
 
   /**
-   * GetExtendedRangeToIncludeInvisibleNodes() returns extended range.
+   * GetRangeExtendedToIncludeInvisibleNodes() returns extended range.
    * If there are some invisible nodes around aAbstractRange, they may
    * be included.
    *
@@ -2150,7 +2432,7 @@ class HTMLEditor final : public TextEditor,
    *                            and must be positioned.
    * @return                    Extended range.
    */
-  already_AddRefed<dom::StaticRange> GetExtendedRangeToIncludeInvisibleNodes(
+  already_AddRefed<dom::StaticRange> GetRangeExtendedToIncludeInvisibleNodes(
       const dom::AbstractRange& aAbstractRange);
 
   /**
@@ -3352,6 +3634,82 @@ class HTMLEditor final : public TextEditor,
   InsertTextWithQuotationsInternal(const nsAString& aStringToInsert);
 
   /**
+   * ReplaceContainerWithTransactionInternal() is implementation of
+   * ReplaceContainerWithTransaction() and
+   * ReplaceContainerAndCloneAttributesWithTransaction().
+   *
+   * @param aOldContainer       The element which will be replaced with new
+   *                            element.
+   * @param aTagName            The name of new element node.
+   * @param aAttribute          Attribute name which will be set to the new
+   *                            element.  This will be ignored if
+   *                            aCloneAllAttributes is set to true.
+   * @param aAttributeValue     Attribute value which will be set to
+   *                            aAttribute.
+   * @param aCloneAllAttributes If true, all attributes of aOldContainer will
+   *                            be copied to the new element.
+   */
+  MOZ_CAN_RUN_SCRIPT already_AddRefed<Element>
+  ReplaceContainerWithTransactionInternal(Element& aElement, nsAtom& aTagName,
+                                          nsAtom& aAttribute,
+                                          const nsAString& aAttributeValue,
+                                          bool aCloneAllAttributes);
+
+  /**
+   * InsertContainerWithTransactionInternal() creates new element whose name is
+   * aTagName, moves aContent into the new element, then, inserts the new
+   * element into where aContent was.  If aAttribute is not nsGkAtoms::_empty,
+   * aAttribute of the new element will be set to aAttributeValue.
+   *
+   * @param aContent            The content which will be wrapped with new
+   *                            element.
+   * @param aTagName            Element name of new element which will wrap
+   *                            aContent and be inserted into where aContent
+   *                            was.
+   * @param aAttribute          Attribute which should be set to the new
+   *                            element.  If this is nsGkAtoms::_empty,
+   *                            this does not set any attributes to the new
+   *                            element.
+   * @param aAttributeValue     Value to be set to aAttribute.
+   * @return                    The new element.
+   */
+  MOZ_CAN_RUN_SCRIPT already_AddRefed<Element>
+  InsertContainerWithTransactionInternal(nsIContent& aContent, nsAtom& aTagName,
+                                         nsAtom& aAttribute,
+                                         const nsAString& aAttributeValue);
+
+  /**
+   * DeleteSelectionAndCreateElement() creates a element whose name is aTag.
+   * And insert it into the DOM tree after removing the selected content.
+   *
+   * @param aTag                The element name to be created.
+   * @return                    Created new element.
+   */
+  MOZ_CAN_RUN_SCRIPT already_AddRefed<Element> DeleteSelectionAndCreateElement(
+      nsAtom& aTag);
+
+  /**
+   * This method first deletes the selection, if it's not collapsed.  Then if
+   * the selection lies in a CharacterData node, it splits it.  If the
+   * selection is at this point collapsed in a CharacterData node, it's
+   * adjusted to be collapsed right before or after the node instead (which is
+   * always possible, since the node was split).
+   */
+  MOZ_CAN_RUN_SCRIPT nsresult DeleteSelectionAndPrepareToCreateNode();
+
+  /**
+   * PrepareToInsertBRElement() returns a point where new <br> element should
+   * be inserted.  If aPointToInsert points middle of a text node, this method
+   * splits the text node and returns the point before right node.
+   *
+   * @param aPointToInsert      Candidate point to insert new <br> element.
+   * @return                    Computed point to insert new <br> element.
+   *                            If something failed, this is unset.
+   */
+  MOZ_CAN_RUN_SCRIPT EditorDOMPoint
+  PrepareToInsertBRElement(const EditorDOMPoint& aPointToInsert);
+
+  /**
    * IndentAsSubAction() indents the content around Selection.
    */
   [[nodiscard]] MOZ_CAN_RUN_SCRIPT EditActionResult IndentAsSubAction();
@@ -3412,8 +3770,6 @@ class HTMLEditor final : public TextEditor,
   nsresult GetHTMLBackgroundColorState(bool* aMixed, nsAString& outColor);
 
   nsresult GetLastCellInRow(nsINode* aRowNode, nsINode** aCellNode);
-
-  static nsresult GetCellFromRange(nsRange* aRange, Element** aCell);
 
   /**
    * This sets background on the appropriate container element (table, cell,)
@@ -4487,10 +4843,12 @@ class HTMLEditor final : public TextEditor,
   friend class CSSEditUtils;
   friend class EditorBase;
   friend class EmptyEditableFunctor;
+  friend class JoinNodeTransaction;
   friend class ListElementSelectionState;
   friend class ListItemElementSelectionState;
   friend class ParagraphStateAtSelection;
   friend class SlurpBlobEventListener;
+  friend class SplitNodeTransaction;
   friend class TextEditor;
   friend class WSRunObject;
   friend class WSRunScanner;

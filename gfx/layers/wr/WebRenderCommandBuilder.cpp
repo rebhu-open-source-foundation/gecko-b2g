@@ -662,7 +662,7 @@ struct DIGroup {
        mInvalidRect.width, mInvalidRect.height);
 
     RenderRootStateManager* rootManager =
-        aWrManager->GetRenderRootStateManager(aBuilder.GetRenderRoot());
+        aWrManager->GetRenderRootStateManager();
     bool empty = aStartItem == aEndItem;
     if (empty) {
       ClearImageKey(rootManager, true);
@@ -1170,8 +1170,7 @@ void Grouper::ConstructGroups(nsDisplayListBuilder* aDisplayListBuilder,
         GP("Inner group size change\n");
         groupData->mFollowingGroup.ClearItems();
         groupData->mFollowingGroup.ClearImageKey(
-            aCommandBuilder->mManager->GetRenderRootStateManager(
-                aBuilder.GetRenderRoot()));
+            aCommandBuilder->mManager->GetRenderRootStateManager());
       }
       groupData->mFollowingGroup.mGroupBounds = currentGroup->mGroupBounds;
       groupData->mFollowingGroup.mAppUnitsPerDevPixel =
@@ -1201,8 +1200,7 @@ void Grouper::ConstructGroups(nsDisplayListBuilder* aDisplayListBuilder,
         // Note: this call to CreateWebRenderCommands can recurse back into
         // this function.
         RenderRootStateManager* manager =
-            aCommandBuilder->mManager->GetRenderRootStateManager(
-                aBuilder.GetRenderRoot());
+            aCommandBuilder->mManager->GetRenderRootStateManager();
         bool createdWRCommands = item->CreateWebRenderCommands(
             aBuilder, aResources, aSc, manager, mDisplayListBuilder);
         sIndent--;
@@ -1366,9 +1364,8 @@ static mozilla::gfx::IntRect ScaleToNearestPixelsOffset(
   return rect;
 }
 
-RenderRootStateManager* WebRenderCommandBuilder::GetRenderRootStateManager(
-    wr::RenderRoot aRenderRoot) {
-  return mManager->GetRenderRootStateManager(aRenderRoot);
+RenderRootStateManager* WebRenderCommandBuilder::GetRenderRootStateManager() {
+  return mManager->GetRenderRootStateManager();
 }
 
 void WebRenderCommandBuilder::DoGroupingForDisplayList(
@@ -1464,8 +1461,7 @@ void WebRenderCommandBuilder::DoGroupingForDisplayList(
     }
 
     group.ClearItems();
-    group.ClearImageKey(
-        mManager->GetRenderRootStateManager(aBuilder.GetRenderRoot()));
+    group.ClearImageKey(mManager->GetRenderRootStateManager());
   }
 
   ScrollableLayerGuid::ViewID scrollId = ScrollableLayerGuid::NULL_SCROLL_ID;
@@ -1534,9 +1530,8 @@ void WebRenderCommandBuilder::BuildWebRenderCommands(
     nsDisplayListBuilder* aDisplayListBuilder, WebRenderScrollData& aScrollData,
     WrFiltersHolder&& aFilters) {
   AUTO_PROFILER_LABEL_CATEGORY_PAIR(GRAPHICS_WRDisplayList);
-  wr::RenderRootArray<StackingContextHelper> rootScs;
-  MOZ_ASSERT(aBuilder.GetRenderRoot() == wr::RenderRoot::Default);
 
+  StackingContextHelper sc;
   aScrollData = WebRenderScrollData(mManager);
   MOZ_ASSERT(mLayerScrollData.empty());
   mClipManager.BeginBuild(mManager, aBuilder);
@@ -1548,20 +1543,14 @@ void WebRenderCommandBuilder::BuildWebRenderCommands(
   MOZ_ASSERT(mDumpIndent == 0);
 
   {
-    nsPresContext* presContext =
-        aDisplayListBuilder->RootReferenceFrame()->PresContext();
-    bool isTopLevelContent =
-        presContext->Document()->IsTopLevelContentDocument();
-
     wr::StackingContextParams params;
     params.mFilters = std::move(aFilters.filters);
     params.mFilterDatas = std::move(aFilters.filter_datas);
-    params.cache_tiles = isTopLevelContent;
     params.clip =
         wr::WrStackingContextClip::ClipChain(aBuilder.CurrentClipChainId());
 
-    StackingContextHelper pageRootSc(rootScs[wr::RenderRoot::Default], nullptr,
-                                     nullptr, nullptr, aBuilder, params);
+    StackingContextHelper pageRootSc(sc, nullptr, nullptr, nullptr, aBuilder,
+                                     params);
     if (ShouldDumpDisplayList(aDisplayListBuilder)) {
       mBuilderDumpIndex =
           aBuilder.Dump(mDumpIndent + 1, Some(mBuilderDumpIndex), Nothing());
@@ -1636,8 +1625,7 @@ void WebRenderCommandBuilder::CreateWebRenderCommands(
   }
 
   aItem->SetPaintRect(aItem->GetBuildingRect());
-  RenderRootStateManager* manager =
-      mManager->GetRenderRootStateManager(aBuilder.GetRenderRoot());
+  RenderRootStateManager* manager = mManager->GetRenderRootStateManager();
 
   // Note: this call to CreateWebRenderCommands can recurse back into
   // this function if the |item| is a wrapper for a sublist.
@@ -2312,10 +2300,8 @@ WebRenderCommandBuilder::GenerateFallbackData(
                                    PixelCastJustification::LayerIsImage))) {
           return nullptr;
         }
-        TakeExternalSurfaces(
-            recorder, fallbackData->mExternalSurfaces,
-            mManager->GetRenderRootStateManager(aBuilder.GetRenderRoot()),
-            aResources);
+        TakeExternalSurfaces(recorder, fallbackData->mExternalSurfaces,
+                             mManager->GetRenderRootStateManager(), aResources);
         fallbackData->SetBlobImageKey(key);
         fallbackData->SetFonts(fonts);
       } else {
@@ -2563,10 +2549,8 @@ Maybe<wr::ImageMask> WebRenderCommandBuilder::BuildWrMaskImage(
     maskData->ClearImageKey();
     maskData->mBlobKey = Some(key);
     maskData->mFonts = fonts;
-    TakeExternalSurfaces(
-        recorder, maskData->mExternalSurfaces,
-        mManager->GetRenderRootStateManager(aBuilder.GetRenderRoot()),
-        aResources);
+    TakeExternalSurfaces(recorder, maskData->mExternalSurfaces,
+                         mManager->GetRenderRootStateManager(), aResources);
     if (maskIsComplete) {
       maskData->mItemRect = itemRect;
       maskData->mMaskOffset = maskOffset;
