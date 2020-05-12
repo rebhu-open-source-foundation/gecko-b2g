@@ -7,7 +7,7 @@
 #define nsAppStartup_h__
 
 #include "nsIAppStartup.h"
-#include "nsIWindowCreator.h"
+#include "nsIWindowCreator2.h"
 #include "nsIObserver.h"
 #include "nsWeakReference.h"
 
@@ -28,13 +28,14 @@
   }
 
 class nsAppStartup final : public nsIAppStartup,
-                           public nsIWindowCreator,
+                           public nsIWindowCreator2,
                            public nsIObserver,
                            public nsSupportsWeakReference {
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIAPPSTARTUP
   NS_DECL_NSIWINDOWCREATOR
+  NS_DECL_NSIWINDOWCREATOR2
   NS_DECL_NSIOBSERVER
 
   nsAppStartup();

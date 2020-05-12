@@ -42,6 +42,8 @@
 #include "nsIWebBrowserChrome.h"
 #include "nsIWebNavigation.h"
 #include "nsIWindowCreator.h"
+#include "nsIWindowCreator2.h"
+#include "nsIXPConnect.h"
 #include "nsIXULRuntime.h"
 #include "nsPIDOMWindow.h"
 #include "nsIWindowProvider.h"
@@ -408,13 +410,14 @@ nsresult nsWindowWatcher::CreateChromeWindow(nsIWebBrowserChrome* aParentChrome,
                                              uint32_t aChromeFlags,
                                              nsIOpenWindowInfo* aOpenWindowInfo,
                                              nsIWebBrowserChrome** aResult) {
-  if (NS_WARN_IF(!mWindowCreator)) {
+  nsCOMPtr<nsIWindowCreator2> windowCreator2(do_QueryInterface(mWindowCreator));
+  if (NS_WARN_IF(!windowCreator2)) {
     return NS_ERROR_UNEXPECTED;
   }
 
   bool cancel = false;
   nsCOMPtr<nsIWebBrowserChrome> newWindowChrome;
-  nsresult rv = mWindowCreator->CreateChromeWindow(
+  nsresult rv = windowCreator2->CreateChromeWindow2(
       aParentChrome, aChromeFlags, aOpenWindowInfo, &cancel,
       getter_AddRefs(newWindowChrome));
 
@@ -508,7 +511,8 @@ nsWindowWatcher::OpenWindowWithRemoteTab(nsIRemoteTab* aRemoteTab,
     return NS_ERROR_UNEXPECTED;
   }
 
-  if (NS_WARN_IF(!mWindowCreator)) {
+  nsCOMPtr<nsIWindowCreator2> windowCreator2(do_QueryInterface(mWindowCreator));
+  if (NS_WARN_IF(!windowCreator2)) {
     return NS_ERROR_UNEXPECTED;
   }
 
@@ -932,14 +936,26 @@ nsresult nsWindowWatcher::OpenWindowInternal(
         parentTopInnerWindow->Suspend();
       }
 
-      /* We can give the window creator some hints. The only hint at this time
-         is whether the opening window is in a situation that's likely to mean
-         this is an unrequested popup window we're creating. However we're not
-         completely honest: we clear that indicator if the opener is chrome, so
-         that the downstream consumer can treat the indicator to mean simply
+      /* If the window creator is an nsIWindowCreator2, we can give it
+         some hints. The only hint at this time is whether the opening window
+         is in a situation that's likely to mean this is an unrequested
+         popup window we're creating. However we're not completely honest:
+         we clear that indicator if the opener is chrome, so that the
+         downstream consumer can treat the indicator to mean simply
          that the new window is subject to popup control. */
-      rv = CreateChromeWindow(parentChrome, chromeFlags, openWindowInfo,
+      nsCOMPtr<nsIWindowCreator2> windowCreator2(
+          do_QueryInterface(mWindowCreator));
+      bool cancel = false;
+      if (windowCreator2) {
+        rv = CreateChromeWindow(parentChrome, chromeFlags, openWindowInfo,
                               getter_AddRefs(newChrome));
+
+      } else {
+        rv = mWindowCreator->CreateChromeWindow(parentChrome, chromeFlags,
+                                                openWindowInfo, &cancel,
+                                                getter_AddRefs(newChrome));
+      }
+
       if (parentTopInnerWindow) {
         parentTopInnerWindow->Resume();
       }
