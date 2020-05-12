@@ -33,7 +33,7 @@
 #ifdef MOZ_B2G_CAMERA
 #  include "DOMCameraManager.h"
 #endif
-#ifndef DISABLE_WIFI
+#if defined(MOZ_WIDGET_GONK) && !defined(DISABLE_WIFI)
 #  include "mozilla/dom/WifiManagerBinding.h"
 #endif
 #ifdef MOZ_AUDIO_CHANNEL_MANAGER
@@ -84,7 +84,7 @@ class B2G final : public nsISupports, public nsWrapperCache {
 #ifdef MOZ_B2G_CAMERA
   nsDOMCameraManager* GetCameras(ErrorResult& aRv);
 #endif
-#ifndef DISABLE_WIFI
+#if defined(MOZ_WIDGET_GONK) && !defined(DISABLE_WIFI)
   WifiManager* GetWifiManager(ErrorResult& aRv);
 #endif
   static bool HasCameraSupport(JSContext* /* unused */, JSObject* aGlobal);
@@ -129,7 +129,7 @@ class B2G final : public nsISupports, public nsWrapperCache {
 #ifdef MOZ_B2G_CAMERA
   RefPtr<nsDOMCameraManager> mCameraManager;
 #endif
-#ifndef DISABLE_WIFI
+#if defined(MOZ_WIDGET_GONK) && !defined(DISABLE_WIFI)
   RefPtr<WifiManager> mWifiManager;
 #endif
 

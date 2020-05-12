@@ -1,17 +1,18 @@
+/* -*- Mode: IDL; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
 [Exposed=Window]
-interface WifiHasInternetEvent : Event
+interface CaptivePortalLoginEvent : Event
 {
-  constructor(DOMString type, optional WifiHasInternetEventInit eventInitDict = {});
+  constructor(DOMString type, optional CaptivePortalLoginEventInit eventInitDict = {});
 
   /**
-   * Returns whether or not wifi has internet.
+   * Returns whether or not captive portal login success or not.
    */
-  readonly attribute boolean hasInternet;
+  readonly attribute boolean loginSuccess;
 
   /**
    * Network object with a SSID field describing the network affected by
@@ -20,8 +21,8 @@ interface WifiHasInternetEvent : Event
   readonly attribute WifiNetwork? network;
 };
 
-dictionary WifiHasInternetEventInit : EventInit
+dictionary CaptivePortalLoginEventInit : EventInit
 {
-  boolean hasInternet = false;
+  boolean loginSuccess = false;
   WifiNetwork? network = null;
 };

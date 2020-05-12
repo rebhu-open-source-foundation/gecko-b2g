@@ -48,7 +48,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(B2G)
 #ifdef MOZ_B2G_CAMERA
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mCameraManager)
 #endif
-#ifndef DISABLE_WIFI
+#if defined(MOZ_WIDGET_GONK) && !defined(DISABLE_WIFI)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWifiManager)
 #endif
 #ifdef MOZ_AUDIO_CHANNEL_MANAGER
@@ -276,7 +276,7 @@ nsDOMCameraManager* B2G::GetCameras(ErrorResult& aRv) {
 }
 #endif // MOZ_B2G_CAMERA
 
-#ifndef DISABLE_WIFI
+#if defined(MOZ_WIDGET_GONK) && !defined(DISABLE_WIFI)
 WifiManager* B2G::GetWifiManager(ErrorResult& aRv) {
   if (!mWifiManager) {
     if (!mOwner) {
@@ -291,7 +291,7 @@ WifiManager* B2G::GetWifiManager(ErrorResult& aRv) {
   }
   return mWifiManager;
 }
-#endif
+#endif // MOZ_WIDGET_GONK && !DISABLE_WIFI
 
 /* static */
 bool B2G::HasCameraSupport(JSContext* /* unused */, JSObject* aGlobal) {
@@ -303,7 +303,7 @@ bool B2G::HasCameraSupport(JSContext* /* unused */, JSObject* aGlobal) {
 
 /* static */
 bool B2G::HasWifiManagerSupport(JSContext* /* unused */, JSObject* aGlobal) {
-#ifdef DISABLE_WIFI
+#if defined(MOZ_WIDGET_GONK) && !defined(DISABLE_WIFI)
   return false;
 #endif
   // On XBL scope, the global object is NOT |window|. So we have

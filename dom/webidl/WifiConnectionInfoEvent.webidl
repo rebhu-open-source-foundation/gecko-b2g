@@ -12,7 +12,7 @@ interface WifiConnectionInfoEvent : Event
   /**
    * Network object with an SSID field.
    */
-  readonly attribute any network;
+  readonly attribute WifiNetwork? network;
 
   /**
    * Strength of the signal to network, in dBm between -55 and -100 dBm.
@@ -37,7 +37,7 @@ interface WifiConnectionInfoEvent : Event
 
 dictionary WifiConnectionInfoEventInit : EventInit
 {
-  any network = null;
+  WifiNetwork? network = null;
   short signalStrength = 0;
   short relSignalStrength = 0;
   long linkSpeed = 0;

@@ -13,7 +13,7 @@ interface WifiStatusChangeEvent : Event
    * Network object with a SSID field describing the network affected by
    * this change. This might be null.
    */
-  readonly attribute any network;
+  readonly attribute WifiNetwork? network;
 
   /**
    * String describing the current status of the wifi manager. See above for
@@ -24,6 +24,6 @@ interface WifiStatusChangeEvent : Event
 
 dictionary WifiStatusChangeEventInit : EventInit
 {
-  any network = null;
+  WifiNetwork? network = null;
   DOMString status = "";
 };

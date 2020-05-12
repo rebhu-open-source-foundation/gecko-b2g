@@ -987,10 +987,6 @@ WEBIDL_FILES = [
     'WebXR.webidl',
     'WheelEvent.webidl',
     'WidevineCDMManifest.webidl',
-    'WifiCapabilities.webidl',
-    'WifiManager.webidl',
-    'WifiOptions.webidl',
-    'WifiP2pManager.webidl',
     'WindowOrWorkerGlobalScope.webidl',
     'WindowRoot.webidl',
     'Worker.webidl',
@@ -1149,13 +1145,6 @@ GENERATED_EVENTS_WEBIDL_FILES = [
     'UDPMessageEvent.webidl',
     'UserProximityEvent.webidl',
     'WebGLContextEvent.webidl',
-    'WifiConnectionInfoEvent.webidl',
-    'WifiHasInternetEvent.webidl',
-    'WifiOpenNetworkEvent.webidl',
-    'WifiP2pStatusChangeEvent.webidl',
-    'WifiScanResultEvent.webidl',
-    'WifiStationInfoEvent.webidl',
-    'WifiStatusChangeEvent.webidl',
     'XRInputSourceEvent.webidl',
     'XRInputSourcesChangeEvent.webidl',
     'XRReferenceSpaceEvent.webidl',
@@ -1180,14 +1169,26 @@ if CONFIG['MOZ_WEBSPEECH']:
 if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
     WEBIDL_FILES += [
         'MozSpeakerManager.webidl',
+        'WifiCapabilities.webidl',
+        'WifiManager.webidl',
+        'WifiOptions.webidl',
+        'WifiP2pManager.webidl',
     ]
     GENERATED_EVENTS_WEBIDL_FILES += [
+        'CaptivePortalLoginEvent.webidl',
         #'VideoCallCameraCapabilitiesChangeEvent.webidl',
         #'VideoCallPeerDimensionsEvent.webidl',
         #'VideoCallQualityEvent.webidl',
         #'VideoCallSessionChangeEvent.webidl',
         #'VideoCallSessionModifyRequestEvent.webidl',
         #'VideoCallSessionModifyResponseEvent.webidl',
+        'WifiConnectionInfoEvent.webidl',
+        'WifiHasInternetEvent.webidl',
+        'WifiOpenNetworkEvent.webidl',
+        'WifiP2pStatusChangeEvent.webidl',
+        'WifiScanResultEvent.webidl',
+        'WifiStationInfoEvent.webidl',
+        'WifiStatusChangeEvent.webidl',
     ]
 
 if CONFIG['MOZ_BUILD_APP'] in ['browser', 'comm/mail', 'mobile/android', 'xulrunner']:
