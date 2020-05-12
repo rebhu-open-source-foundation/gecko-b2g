@@ -121,7 +121,7 @@ const AP_SECURITY_WPA2 = Ci.nsISoftapConfiguration.SECURITY_WPA2;
 const LEVEL_EXCESSIVE = Ci.nsISupplicantDebugLevel.EXCESSIVE;
 const LEVEL_MSGDUMP = Ci.nsISupplicantDebugLevel.MSGDUMP;
 const LEVEL_DEBUG = Ci.nsISupplicantDebugLevel.DEBUG;
-const LEVEL_INFO = Ci.nsISupplicantDebugLevel.INOF;
+const LEVEL_INFO = Ci.nsISupplicantDebugLevel.INFO;
 const LEVEL_WARNING = Ci.nsISupplicantDebugLevel.WARNING;
 const LEVEL_ERROR = Ci.nsISupplicantDebugLevel.ERROR;
 
