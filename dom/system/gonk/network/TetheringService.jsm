@@ -645,10 +645,7 @@ TetheringService.prototype = {
     );
   },
 
-  getUSBTetheringConfiguration: function getWifiTetheringConfiguration(
-    aEnable,
-    aTetheringInterface
-  ) {
+  getUSBTetheringConfiguration(aEnable, aTetheringInterface) {
     let config = {};
     let params = this.tetheringConfig;
 
