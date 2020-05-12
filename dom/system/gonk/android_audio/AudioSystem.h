@@ -155,6 +155,9 @@ public:
 
     static const sp<IAudioPolicyService> get_audio_policy_service();
 
+    static float    getStreamVolumeDB(
+            audio_stream_type_t stream, int index, audio_devices_t device);
+
     static status_t setAssistantUid(uid_t uid);
 
     class AudioPortCallback : public RefBase

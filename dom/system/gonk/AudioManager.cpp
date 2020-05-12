@@ -380,13 +380,16 @@ static void BinderDeadCallback(android::status_t aErr) {
 }
 
 bool AudioManager::IsFmOutConnected() {
-#if defined(PRODUCT_MANUFACTURER_SPRD)
+#if defined(PRODUCT_MANUFACTURER_QUALCOMM)
+  return GetParameters("fm_status") == NS_LITERAL_CSTRING("fm_status=1");
+#elif defined(PRODUCT_MANUFACTURER_SPRD)
   return mConnectedDevices.Get(AUDIO_DEVICE_OUT_FM_HEADSET, nullptr) ||
          mConnectedDevices.Get(AUDIO_DEVICE_OUT_FM_SPEAKER, nullptr);
 #elif defined(PRODUCT_MANUFACTURER_MTK)
   return mConnectedDevices.Get(AUDIO_DEVICE_IN_FM_TUNER, nullptr);
 #else
-  return mConnectedDevices.Get(AUDIO_DEVICE_OUT_FM, nullptr);
+  MOZ_CRASH("FM radio not supported");
+  return false;
 #endif
 }
 
@@ -976,33 +979,17 @@ NS_IMETHODIMP
 AudioManager::SetForceForUse(int32_t aUsage, int32_t aForce) {
   android::status_t status = AudioSystem::setForceUse(
       (audio_policy_force_use_t)aUsage, (audio_policy_forced_cfg_t)aForce);
-#ifdef PRODUCT_MANUFACTURER_SPRD
-  // Sync force use between MEDIA and FM
-  if (aUsage == USE_MEDIA && status == NO_ERROR) {
-    // Mute FM when switching output paths. This can avoid pop noise caused
-    // by applying incorrect volume index, which is from the original path,
-    // to the new path.
-    SetVendorFmVolumeIndex(true);
-    status = AudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_FM,
-                                      (audio_policy_forced_cfg_t)aForce);
-  }
-#elif defined(PRODUCT_MANUFACTURER_MTK)
-  // Sync force use between MEDIA and FM
-  if (aUsage == USE_MEDIA && status == NO_ERROR) {
-    status = AudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_PROPRIETARY,
-                                      (audio_policy_forced_cfg_t)aForce);
-  }
-#endif
 
-  bool enableRadio = false;
-  GetFmRadioAudioEnabled(&enableRadio);
-  // AudioPortListUpdate will trigger only when there is a device change(adding
-  // or removing) SetForcespeaker() only switch between devices (ex: FM switch
-  // to speaker) so still have to manually call it.
-  if (enableRadio == true && aUsage == AUDIO_POLICY_FORCE_FOR_MEDIA) {
-    mAudioPortCallbackHolder->Callback()->onAudioPortListUpdate();
+  // AudioPortListUpdate may not be triggered after setting force use, so
+  // manually update cached devices here, and make sure this is done before
+  // SetFmRouting().
+  UpdateCachedActiveDevicesForStreams();
+  MaybeUpdateVolumeSettingToDatabase();
+
+  if (aUsage == USE_MEDIA) {
+    SetFmRouting();
   }
-  return status ? NS_ERROR_FAILURE : NS_OK;
+  return status == android::OK ? NS_OK : NS_ERROR_FAILURE;
 }
 
 NS_IMETHODIMP
@@ -1017,9 +1004,47 @@ AudioManager::GetFmRadioAudioEnabled(bool* aFmRadioAudioEnabled) {
   return NS_OK;
 }
 
+void AudioManager::SetFmRouting() {
+#if defined(PRODUCT_MANUFACTURER_QUALCOMM)
+  // Setting "fm_routing" restarts FM audio path, so only do it when FM audio is
+  // already enabled.
+  if (IsFmOutConnected()) {
+    SetParameters("fm_routing=%d", GetDeviceForFm() | AUDIO_DEVICE_OUT_FM);
+  }
+#elif defined(PRODUCT_MANUFACTURER_SPRD)
+  // Mute FM when switching output paths. This can avoid pop noise caused
+  // by applying incorrect volume index, which is from the original path,
+  // to the new path.
+  SetVendorFmVolumeIndex(true);
+  // Sync force use between MEDIA and FM
+  auto force = AudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA);
+  AudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_FM, force);
+#elif defined(PRODUCT_MANUFACTURER_MTK)
+  // Sync force use between MEDIA and FM
+  auto force = AudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA);
+  AudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_PROPRIETARY, force);
+#else
+  MOZ_CRASH("FM radio not supported");
+#endif
+}
+
 void AudioManager::SetVendorFmVolumeIndex(bool aMute) {
-#if defined(PRODUCT_MANUFACTURER_SPRD)
-  uint32_t device = GetDeviceForSprdFm();
+#if defined(PRODUCT_MANUFACTURER_QUALCOMM)
+  if (aMute) {
+    SetParameters("fm_mute=1");
+  } else {
+    uint32_t device = GetDeviceForFm();
+    uint32_t volIndex =
+        mStreamStates[AUDIO_STREAM_MUSIC]->GetVolumeIndex(device);
+    float volDb =
+        AudioSystem::getStreamVolumeDB(AUDIO_STREAM_MUSIC, volIndex, device);
+    // decibel to amplitude
+    float volume = (float)exp(volDb * 0.115129);
+    SetParameters("fm_volume=%f", volume);
+    SetParameters("fm_mute=0");
+  }
+#elif defined(PRODUCT_MANUFACTURER_SPRD)
+  uint32_t device = GetDeviceForFm();
   uint32_t volIndex =
       aMute ? 0 : mStreamStates[AUDIO_STREAM_MUSIC]->GetVolumeIndex(device);
   SetParameters("FM_Volume=%d", volIndex);
@@ -1028,7 +1053,20 @@ void AudioManager::SetVendorFmVolumeIndex(bool aMute) {
 
 NS_IMETHODIMP
 AudioManager::SetFmRadioAudioEnabled(bool aFmRadioAudioEnabled) {
-#if defined(PRODUCT_MANUFACTURER_SPRD)
+#if defined(PRODUCT_MANUFACTURER_QUALCOMM)
+  if (aFmRadioAudioEnabled) {
+    if (IsFmOutConnected()) {
+      // Stop FM audio and start it again with correct routing.
+      SetFmRouting();
+    } else {
+      // Just start FM audio with correct routing.
+      SetParameters("handle_fm=%d", GetDeviceForFm() | AUDIO_DEVICE_OUT_FM);
+    }
+  } else {
+    // Remove AUDIO_DEVICE_OUT_FM to stop FM audio. The device cannot be 0.
+    SetParameters("handle_fm=%d", GetDeviceForFm());
+  }
+#elif defined(PRODUCT_MANUFACTURER_SPRD)
   UpdateDeviceConnectionState(aFmRadioAudioEnabled, AUDIO_DEVICE_OUT_FM_HEADSET,
                               NS_LITERAL_CSTRING(""));
 
@@ -1038,8 +1076,7 @@ AudioManager::SetFmRadioAudioEnabled(bool aFmRadioAudioEnabled) {
   UpdateDeviceConnectionState(aFmRadioAudioEnabled, AUDIO_DEVICE_IN_FM_TUNER,
                               NS_LITERAL_CSTRING(""));
 #else
-  UpdateDeviceConnectionState(aFmRadioAudioEnabled, AUDIO_DEVICE_OUT_FM,
-                              NS_LITERAL_CSTRING(""));
+  MOZ_CRASH("FM radio not supported");
 #endif
 
   if (aFmRadioAudioEnabled) {
@@ -1312,25 +1349,27 @@ uint32_t AudioManager::GetDeviceForStream(int32_t aStream) {
   return device;
 }
 
-#ifdef PRODUCT_MANUFACTURER_SPRD
-uint32_t AudioManager::GetDeviceForSprdFm() {
-  uint32_t device = AUDIO_POLICY_FORCE_SPEAKER;
-
-  int32_t force = AudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_FM);
+uint32_t AudioManager::GetDeviceForFm() {
+#if defined(PRODUCT_MANUFACTURER_SPRD)
+  // On SPRD devices, FM radio only supports speaker or headphone path, so
+  // manually decide its routing.
+  auto force = AudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_FM);
   if (force == AUDIO_POLICY_FORCE_SPEAKER) {
-    device = AUDIO_DEVICE_OUT_SPEAKER;
-  } else {
-    if (mConnectedDevices.Get(AUDIO_DEVICE_OUT_WIRED_HEADSET, nullptr)) {
-      device = AUDIO_DEVICE_OUT_WIRED_HEADSET;
-    } else if (mConnectedDevices.Get(AUDIO_DEVICE_OUT_WIRED_HEADPHONE,
-                                     nullptr)) {
-      device = AUDIO_DEVICE_OUT_WIRED_HEADPHONE;
-    }
+    return AUDIO_DEVICE_OUT_SPEAKER;
   }
-
-  return device;
-}
+  if (mConnectedDevices.Get(AUDIO_DEVICE_OUT_WIRED_HEADSET, nullptr)) {
+    return AUDIO_DEVICE_OUT_WIRED_HEADSET;
+  }
+  if (mConnectedDevices.Get(AUDIO_DEVICE_OUT_WIRED_HEADPHONE, nullptr)) {
+    return AUDIO_DEVICE_OUT_WIRED_HEADPHONE;
+  }
+  // No headset/headphone plugged in. No force speaker.
+  return AUDIO_DEVICE_OUT_SPEAKER;
+#else
+  // Assume that FM radio supports the same routing of music stream.
+  return GetDeviceForStream(AUDIO_STREAM_MUSIC);
 #endif
+}
 
 /* static */
 uint32_t AudioManager::SelectDeviceFromDevices(uint32_t aOutDevices) {
@@ -1577,6 +1616,11 @@ nsresult AudioManager::SetParameters(const char* aFormat, ...) {
     return NS_ERROR_FAILURE;
   }
   return SetAudioSystemParameters(0, cmd);
+}
+
+nsAutoCString AudioManager::GetParameters(const char* aKeys) {
+  auto keyValuePairs = AudioSystem::getParameters(0, android::String8(aKeys));
+  return nsAutoCString(keyValuePairs.string());
 }
 
 } /* namespace gonk */

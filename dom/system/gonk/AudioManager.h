@@ -136,9 +136,7 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
   uint32_t GetSpecificVolumeCount();
   uint32_t GetDevicesForStream(int32_t aStream, bool aFromCache = true);
   uint32_t GetDeviceForStream(int32_t aStream);
-#ifdef PRODUCT_MANUFACTURER_SPRD
-  uint32_t GetDeviceForSprdFm();
-#endif
+  uint32_t GetDeviceForFm();
   // Choose one device as representative of active devices.
   static uint32_t SelectDeviceFromDevices(uint32_t aOutDevices);
 
@@ -154,6 +152,7 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
   void HandleBluetoothStatusChanged(nsISupports* aSubject, const char* aTopic,
                                     const nsCString aAddress);
 
+  void SetFmRouting();
   // If aMute is true, set FM volume to 0. Otherwise sync volume index
   // from music stream.
   void SetVendorFmVolumeIndex(bool aMute);
@@ -178,6 +177,7 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
   void ReleaseWakeLock();
 
   nsresult SetParameters(const char* aFormat, ...);
+  nsAutoCString GetParameters(const char* aKeys);
 
   AudioManager();
   ~AudioManager();
