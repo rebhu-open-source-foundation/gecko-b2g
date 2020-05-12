@@ -152,10 +152,15 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
   void HandleBluetoothStatusChanged(nsISupports* aSubject, const char* aTopic,
                                     const nsCString aAddress);
 
+  // Set FM output device according to the current routing of music stream.
   void SetFmRouting();
-  // If aMute is true, set FM volume to 0. Otherwise sync volume index
-  // from music stream.
-  void SetVendorFmVolumeIndex(bool aMute);
+  // Sync FM volume from music stream.
+  void UpdateFmVolume();
+  // Mute/unmute FM audio if supported. This is necessary when setting FM audio
+  // path on some platforms. Note that this is an internal API and should not be
+  // called directly.
+  void SetFmMuted(bool aMuted);
+
   // Append the audio output device to the volume setting string.
   nsAutoCString AppendDeviceToVolumeSetting(const char* aName,
                                             uint32_t aDevice);

@@ -1005,6 +1005,11 @@ AudioManager::GetFmRadioAudioEnabled(bool* aFmRadioAudioEnabled) {
 }
 
 void AudioManager::SetFmRouting() {
+  // Mute FM when switching output paths. This can avoid pop noise caused by the
+  // time gap between setting new path and setting the volume of the new path.
+  if (IsFmOutConnected()) {
+    SetFmMuted(true);
+  }
 #if defined(PRODUCT_MANUFACTURER_QUALCOMM)
   // Setting "fm_routing" restarts FM audio path, so only do it when FM audio is
   // already enabled.
@@ -1012,10 +1017,6 @@ void AudioManager::SetFmRouting() {
     SetParameters("fm_routing=%d", GetDeviceForFm() | AUDIO_DEVICE_OUT_FM);
   }
 #elif defined(PRODUCT_MANUFACTURER_SPRD)
-  // Mute FM when switching output paths. This can avoid pop noise caused
-  // by applying incorrect volume index, which is from the original path,
-  // to the new path.
-  SetVendorFmVolumeIndex(true);
   // Sync force use between MEDIA and FM
   auto force = AudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA);
   AudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_FM, force);
@@ -1026,33 +1027,52 @@ void AudioManager::SetFmRouting() {
 #else
   MOZ_CRASH("FM radio not supported");
 #endif
+  if (IsFmOutConnected()) {
+    SetFmMuted(false);
+  }
 }
 
-void AudioManager::SetVendorFmVolumeIndex(bool aMute) {
+void AudioManager::UpdateFmVolume() {
 #if defined(PRODUCT_MANUFACTURER_QUALCOMM)
-  if (aMute) {
-    SetParameters("fm_mute=1");
-  } else {
-    uint32_t device = GetDeviceForFm();
-    uint32_t volIndex =
-        mStreamStates[AUDIO_STREAM_MUSIC]->GetVolumeIndex(device);
-    float volDb =
-        AudioSystem::getStreamVolumeDB(AUDIO_STREAM_MUSIC, volIndex, device);
-    // decibel to amplitude
-    float volume = (float)exp(volDb * 0.115129);
-    SetParameters("fm_volume=%f", volume);
-    SetParameters("fm_mute=0");
-  }
+  uint32_t device = GetDeviceForFm();
+  uint32_t volIndex = mStreamStates[AUDIO_STREAM_MUSIC]->GetVolumeIndex(device);
+  float volDb =
+      AudioSystem::getStreamVolumeDB(AUDIO_STREAM_MUSIC, volIndex, device);
+  // decibel to amplitude
+  float volume = (float)exp(volDb * 0.115129);
+  SetParameters("fm_volume=%f", volume);
 #elif defined(PRODUCT_MANUFACTURER_SPRD)
   uint32_t device = GetDeviceForFm();
-  uint32_t volIndex =
-      aMute ? 0 : mStreamStates[AUDIO_STREAM_MUSIC]->GetVolumeIndex(device);
+  uint32_t volIndex = mStreamStates[AUDIO_STREAM_MUSIC]->GetVolumeIndex(device);
   SetParameters("FM_Volume=%d", volIndex);
 #endif
 }
 
+void AudioManager::SetFmMuted(bool aMuted) {
+#if defined(PRODUCT_MANUFACTURER_QUALCOMM)
+  // Update FM volume before unmuted.
+  if (!aMuted) {
+    UpdateFmVolume();
+  }
+  SetParameters("fm_mute=%d", aMuted);
+#elif defined(PRODUCT_MANUFACTURER_SPRD)
+  if (aMuted) {
+    // Is there a mute command?
+    SetParameters("FM_Volume=0");
+  } else {
+    UpdateFmVolume();
+  }
+#endif
+  // MTK platform handles FM volume internally, so no need to set muted here.
+}
+
 NS_IMETHODIMP
 AudioManager::SetFmRadioAudioEnabled(bool aFmRadioAudioEnabled) {
+  // Mute FM audio first, and unmute it after the correct routing and volume are
+  // set.
+  if (aFmRadioAudioEnabled) {
+    SetFmMuted(true);
+  }
 #if defined(PRODUCT_MANUFACTURER_QUALCOMM)
   if (aFmRadioAudioEnabled) {
     if (IsFmOutConnected()) {
@@ -1078,11 +1098,9 @@ AudioManager::SetFmRadioAudioEnabled(bool aFmRadioAudioEnabled) {
 #else
   MOZ_CRASH("FM radio not supported");
 #endif
-
   if (aFmRadioAudioEnabled) {
-    SetVendorFmVolumeIndex(false);
+    SetFmMuted(false);
   }
-
   return NS_OK;
 }
 
@@ -1153,22 +1171,14 @@ nsresult AudioManager::SetStreamVolumeIndex(int32_t aStream, uint32_t aIndex) {
   }
 
   int32_t streamAlias = sStreamVolumeAliasTbl[aStream];
-
-  nsresult rv;
   for (int32_t streamType = 0; streamType < AUDIO_STREAM_CNT; streamType++) {
     if (streamAlias == sStreamVolumeAliasTbl[streamType]) {
-      rv = mStreamStates[streamType]->SetVolumeIndexToActiveDevices(aIndex);
+      nsresult rv = mStreamStates[streamType]->SetVolumeIndexToActiveDevices(aIndex);
       if (NS_WARN_IF(NS_FAILED(rv))) {
         return rv;
       }
     }
   }
-
-  // Bug 17613, Sync FM volume with MUSIC volume for SPRD.
-  if (streamAlias == AUDIO_STREAM_MUSIC && IsFmOutConnected()) {
-    SetVendorFmVolumeIndex(false);
-  }
-
   MaybeUpdateVolumeSettingToDatabase();
   return NS_OK;
 }
@@ -1561,7 +1571,7 @@ nsresult AudioManager::VolumeStreamState::SetVolumeIndex(uint32_t aIndex,
 
   // when changing music volume,  also set FMradio volume.Just for SPRD FMradio.
   if ((AUDIO_STREAM_MUSIC == mStreamType) && mManager.IsFmOutConnected()) {
-    mManager.SetVendorFmVolumeIndex(false);
+    mManager.UpdateFmVolume();
   }
 
   return rv ? NS_ERROR_FAILURE : NS_OK;
