@@ -271,7 +271,6 @@ class NetdInitRunnable : public mozilla::Runnable {
 
       // Register netlink unsolicited event listener.
       gNetdUnsolService = new NetdUnsolService(NetworkUtils::NotifyNetdEvent);
-      mozilla::ClearOnShutdown(&gNetdUnsolService);
       Status status = gNetd->registerUnsolicitedEventListener(
         android::interface_cast<android::net::INetdUnsolicitedEventListener>(
         gNetdUnsolService));
@@ -279,6 +278,7 @@ class NetdInitRunnable : public mozilla::Runnable {
     } else {
       gNetd = nullptr;
       gDnsResolver = nullptr;
+      gNetdUnsolService = nullptr;
       if (IsNetdRunning()) {
         Property::Set("ctl.stop", "netd");
       }
