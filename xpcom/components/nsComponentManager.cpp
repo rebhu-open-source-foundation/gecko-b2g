@@ -363,9 +363,6 @@ extern const mozilla::Module kGaiaChromeModule;
 extern const mozilla::Module kRilWorkerServiceModule;
 #endif
 extern const mozilla::Module kAudioManagerModule;
-#ifdef HAS_KOOST_MODULES
-extern const mozilla::Module kDhcpServiceModule;
-#endif
 #endif
 
 static nsTArray<const mozilla::Module*>* sExtraStaticModules;
@@ -460,9 +457,6 @@ nsresult nsComponentManagerImpl::Init() {
   RegisterModule(&kRilWorkerServiceModule);
 #endif
   RegisterModule(&kAudioManagerModule);
-#ifdef HAS_KOOST_MODULES
-  RegisterModule(&kDhcpServiceModule);
-#endif
 #endif
 
   for (uint32_t i = 0; i < sExtraStaticModules->Length(); ++i) {

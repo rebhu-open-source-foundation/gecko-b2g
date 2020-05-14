@@ -765,11 +765,7 @@ var WifiManager = (function() {
 
     // Stop dhcpd when use static IP
     if (dhcpInfo != null) {
-#ifdef HAS_KOOST_MODULES
-      netUtil.stopDhcp(manager.ifname, function(success) {});
-#else
       netUtil.stopDhcp(manager.ifname, function() {});
-#endif
     }
 
     // Set ip, mask length, gateway, dns to network interface
@@ -1920,15 +1916,9 @@ var WifiManager = (function() {
     // If we got disconnected, kill the DHCP client in preparation for
     // reconnection.
     gNetworkService.resetConnections(manager.ifname, function() {
-#ifdef HAS_KOOST_MODULES
-      netUtil.stopDhcp(manager.ifname, function(success) {
-        callback();
-      });
-#else
       netUtil.stopDhcp(manager.ifname, function() {
         callback();
       });
-#endif
     });
   };
 
