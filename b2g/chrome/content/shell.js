@@ -14,6 +14,7 @@ const { AppConstants } = ChromeUtils.import(
 ChromeUtils.import("resource://gre/modules/ActivitiesService.jsm");
 ChromeUtils.import("resource://gre/modules/AlarmService.jsm");
 ChromeUtils.import("resource://gre/modules/DownloadService.jsm");
+ChromeUtils.import("resource://gre/modules/NotificationDB.jsm");
 
 const isGonk = AppConstants.platform === "gonk";
 
