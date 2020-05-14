@@ -146,7 +146,7 @@ VoicemailChild::RecvNotifyInfoChanged(const uint32_t& aServiceId,
 
   // Listeners may unregister itself upon a info changed event, so we make a
   // copy first.
-  nsTArray<nsCOMPtr<nsIVoicemailListener>> copy(mListeners);
+  nsTArray<nsCOMPtr<nsIVoicemailListener>> copy(mListeners.Clone());
   for (uint32_t i = 0; i < copy.Length(); i++) {
     copy[i]->NotifyInfoChanged(provider);
   }
@@ -173,7 +173,7 @@ VoicemailChild::RecvNotifyStatusChanged(const uint32_t& aServiceId,
 
   // Listeners may unregister itself upon a info changed event, so we make a
   // copy first.
-  nsTArray<nsCOMPtr<nsIVoicemailListener>> copy(mListeners);
+  nsTArray<nsCOMPtr<nsIVoicemailListener>> copy(mListeners.Clone());
   for (uint32_t i = 0; i < copy.Length(); i++) {
     copy[i]->NotifyStatusChanged(provider);
   }

@@ -80,7 +80,7 @@ mozilla::ipc::IPCResult CellBroadcastChild::RecvNotifyReceivedMessage(
   // UnregisterListener() could be triggered in
   // nsICellBroadcastListener::NotifyMessageReceived().
   // Make a immutable copy for notifying the event.
-  nsTArray<nsCOMPtr<nsICellBroadcastListener>> immutableListeners(mListeners);
+  nsTArray<nsCOMPtr<nsICellBroadcastListener>> immutableListeners(mListeners.Clone());
   for (uint32_t i = 0; i < immutableListeners.Length(); i++) {
     immutableListeners[i]->NotifyMessageReceived(aServiceId,
                                                  aGsmGeographicalScope,

@@ -180,7 +180,7 @@ CreateFileTaskParent::Create(FileSystemBase* aFileSystem,
   const FileSystemFileDataValue& data = aParam.data();
 
   if (data.type() == FileSystemFileDataValue::TArrayOfuint8_t) {
-    task->mArrayData = data;
+    data.get(&task->mArrayData);
     return task.forget();
   }
 

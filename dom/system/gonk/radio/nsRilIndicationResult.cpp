@@ -99,7 +99,7 @@ void nsRilIndicationResult::updateDataCallListChanged(
     nsTArray<RefPtr<nsSetupDataCallResult>>& aDatacalls) {
   __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
                       "updateDataCallListChanged");
-  mDatacalls = aDatacalls;
+  mDatacalls = aDatacalls.Clone();
 }
 
 /**
@@ -171,7 +171,7 @@ void nsRilIndicationResult::updateCallRing(bool aIsGsm) {
 void nsRilIndicationResult::updateNewBroadcastSms(nsTArray<int32_t>& aData) {
   __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
                       "updateNewBroadcastSms");
-  mData = aData;
+  mData = aData.Clone();
 }
 
 /**
@@ -209,7 +209,7 @@ void nsRilIndicationResult::updateCellInfoList(
     nsTArray<RefPtr<nsRilCellInfo>>& aRecords) {
   __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
                       "updateCellInfoList");
-  mRecords = aRecords;
+  mRecords = aRecords.Clone();
 }
 
 /**
@@ -236,7 +236,7 @@ void nsRilIndicationResult::updateHardwareConfigChanged(
     nsTArray<RefPtr<nsHardwareConfig>>& aConfigs) {
   __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
                       "updateHardwareConfigChanged");
-  mConfigs = aConfigs;
+  mConfigs = aConfigs.Clone();
 }
 
 /**

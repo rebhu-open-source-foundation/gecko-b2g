@@ -1258,7 +1258,7 @@ nsPcoDataInfo::nsPcoDataInfo(int32_t aCid, const nsAString& aBearerProto,
     : mCid(aCid),
       mBearerProto(aBearerProto),
       mPcoId(aPcoId),
-      mContents(aContents) {
+      mContents(aContents.Clone()) {
   __android_log_print(ANDROID_LOG_INFO, " nsPcoDataInfo", "init nsPcoDataInfo");
 }
 
@@ -1370,7 +1370,7 @@ nsCardStatus::nsCardStatus(int32_t aCardState, int32_t aUniversalPinState,
       mGsmUmtsSubscriptionAppIndex(aGsmUmtsSubscriptionAppIndex),
       mCdmaSubscriptionAppIndex(aCdmaSubscriptionAppIndex),
       mImsSubscriptionAppIndex(aImsSubscriptionAppIndex),
-      mApplications(aApplications) {
+      mApplications(aApplications.Clone()) {
   __android_log_print(ANDROID_LOG_INFO, " nsCardStatus", "init nsCardStatus");
 }
 
@@ -1622,7 +1622,7 @@ nsCall::nsCall(int32_t aState, int32_t aIndex, int32_t aToa, bool aIsMpty,
       mNumberPresentation(aNumberPresentation),
       mName(aName),
       mNamePresentation(aNamePresentation),
-      mUusInfo(aUusInfo) {
+      mUusInfo(aUusInfo.Clone()) {
   __android_log_print(ANDROID_LOG_INFO, " nsCall", "init nsCall");
 }
 
