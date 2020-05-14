@@ -214,7 +214,7 @@ HwcComposer2D::Invalidate()
 
     MutexAutoLock lock(mLock);
     if (mCompositorBridgeParent) {
-        mCompositorBridgeParent->ScheduleRenderOnCompositorThread(wr::RenderRootSet());
+        mCompositorBridgeParent->ScheduleRenderOnCompositorThread();
     }
 }
 
