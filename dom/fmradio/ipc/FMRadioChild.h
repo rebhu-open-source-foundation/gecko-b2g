@@ -23,8 +23,9 @@ BEGIN_FMRADIO_NAMESPACE
  *     IPC channel to transfer the requests.
  */
 class FMRadioChild final : public IFMRadioService, public PFMRadioChild {
+  friend class IFMRadioService;
+
  public:
-  static FMRadioChild* Singleton();
   ~FMRadioChild();
 
   void SendRequest(FMRadioReplyRunnable* aReplyRunnable,
@@ -87,6 +88,8 @@ class FMRadioChild final : public IFMRadioService, public PFMRadioChild {
   bool DeallocPFMRadioRequestChild(PFMRadioRequestChild* aActor);
 
  private:
+  static FMRadioChild* Singleton();
+
   FMRadioChild();
 
   void Init();

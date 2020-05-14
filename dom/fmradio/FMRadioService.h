@@ -145,14 +145,13 @@ class FMRadioService final : public IFMRadioService,
                              public hal::FMRadioObserver,
                              public hal::FMRadioRDSObserver,
                              public nsIObserver {
+  friend class IFMRadioService;
   friend class ReadAirplaneModeSettingTask;
   friend class EnableRunnable;
   friend class DisableRunnable;
   friend class NotifyRunnable;
 
  public:
-  static FMRadioService* Singleton();
-
   NS_DECL_ISUPPORTS
 
   virtual bool IsEnabled() const override;
@@ -200,6 +199,8 @@ class FMRadioService final : public IFMRadioService,
   virtual ~FMRadioService();
 
  private:
+  static FMRadioService* Singleton();
+
   int32_t RoundFrequency(double aFrequencyInMHz);
 
   void NotifyFMRadioEvent(FMRadioEventType aType);

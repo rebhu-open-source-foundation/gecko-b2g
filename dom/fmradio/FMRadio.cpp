@@ -342,7 +342,7 @@ already_AddRefed<DOMRequest> FMRadio::DisableRDS() {
   }
 
   RefPtr<FMRadioRequest> r = new FMRadioRequest(win, this);
-  FMRadioService::Singleton()->DisableRDS(r);
+  IFMRadioService::Singleton()->DisableRDS(r);
   return r.forget();
 }
 
