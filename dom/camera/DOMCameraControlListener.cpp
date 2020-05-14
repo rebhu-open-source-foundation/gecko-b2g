@@ -265,7 +265,7 @@ DOMCameraControlListener::OnFacesDetected(const nsTArray<ICameraControl::Face>& 
     Callback(nsMainThreadPtrHandle<nsISupports> aDOMCameraControl,
              const nsTArray<ICameraControl::Face>& aFaces)
       : DOMCallback(aDOMCameraControl)
-      , mFaces(aFaces)
+      , mFaces(aFaces.Clone())
     { }
 
     void
