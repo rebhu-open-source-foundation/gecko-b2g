@@ -150,7 +150,7 @@ void BluetoothManager::AppendAdapter(const BluetoothValue& aValue) {
 
 void BluetoothManager::GetAdapters(
     nsTArray<RefPtr<BluetoothAdapter> >& aAdapters) {
-  aAdapters = mAdapters;
+  aAdapters = mAdapters.Clone();
 }
 
 // static

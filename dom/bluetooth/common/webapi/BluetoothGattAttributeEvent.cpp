@@ -77,7 +77,7 @@ BluetoothGattAttributeEvent::Constructor(
   e->mNeedResponse = aNeedResponse;
 
   if (aValue) {
-    e->mRawValue = *aValue;
+    e->mRawValue = aValue->Clone();
   }
 
   e->SetTrusted(trusted);

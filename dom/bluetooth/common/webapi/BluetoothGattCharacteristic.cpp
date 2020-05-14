@@ -200,7 +200,7 @@ void BluetoothGattCharacteristic::HandleCharacteristicValueUpdated(
     const BluetoothValue& aValue) {
   MOZ_ASSERT(aValue.type() == BluetoothValue::TArrayOfuint8_t);
 
-  mValue = aValue.get_ArrayOfuint8_t();
+  mValue = aValue.get_ArrayOfuint8_t().Clone();
 }
 
 void BluetoothGattCharacteristic::AssignCharacteristicHandle(

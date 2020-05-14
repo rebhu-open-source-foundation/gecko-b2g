@@ -31,7 +31,7 @@ BluetoothDiscoveryHandle::BluetoothDiscoveryHandle(
     const BluetoothUuid& aLeScanUuid)
     : DOMEventTargetHelper(aWindow),
       mLeScanUuid(aLeScanUuid),
-      mServiceUuids(aServiceUuids) {
+      mServiceUuids(aServiceUuids.Clone()) {
   MOZ_ASSERT(aWindow);
 }
 

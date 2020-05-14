@@ -39,7 +39,7 @@ class BluetoothGattServer final : public DOMEventTargetHelper,
    * Attribute Getters
    ***************************************************************************/
   void GetServices(nsTArray<RefPtr<BluetoothGattService>>& aServices) const {
-    aServices = mServices;
+    aServices = mServices.Clone();
   }
 
   /****************************************************************************

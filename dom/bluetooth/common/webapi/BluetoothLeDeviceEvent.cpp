@@ -64,7 +64,7 @@ already_AddRefed<BluetoothLeDeviceEvent> BluetoothLeDeviceEvent::Constructor(
   e->InitEvent(aType, false, false);
   e->mDevice = aDevice;
   e->mRssi = aRssi;
-  e->mRawScanRecord = aScanRecord;
+  e->mRawScanRecord = aScanRecord.Clone();
 
   e->SetTrusted(trusted);
   return e.forget();

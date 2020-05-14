@@ -40,12 +40,12 @@ class BluetoothGattService final : public nsISupports, public nsWrapperCache {
 
   void GetIncludedServices(
       nsTArray<RefPtr<BluetoothGattService>>& aIncludedServices) const {
-    aIncludedServices = mIncludedServices;
+    aIncludedServices = mIncludedServices.Clone();
   }
 
   void GetCharacteristics(
       nsTArray<RefPtr<BluetoothGattCharacteristic>>& aCharacteristics) const {
-    aCharacteristics = mCharacteristics;
+    aCharacteristics = mCharacteristics.Clone();
   }
 
   /****************************************************************************

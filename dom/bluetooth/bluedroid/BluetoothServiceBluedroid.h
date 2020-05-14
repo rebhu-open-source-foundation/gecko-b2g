@@ -43,7 +43,7 @@ class BluetoothServiceBluedroid : public BluetoothService,
         : mDeviceCount(aDeviceCount), mRunnable(aRunnable) {}
 
     int mDeviceCount;
-    nsTArray<BluetoothNamedValue> mDevicesPack;
+    CopyableTArray<BluetoothNamedValue> mDevicesPack;
     RefPtr<BluetoothReplyRunnable> mRunnable;
   };
 

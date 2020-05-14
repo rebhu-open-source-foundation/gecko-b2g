@@ -781,11 +781,11 @@ struct BluetoothProperty {
 
   explicit BluetoothProperty(BluetoothPropertyType aType,
                              const nsTArray<BluetoothUuid>& aUuidArray)
-      : mType(aType), mUuidArray(aUuidArray) {}
+      : mType(aType), mUuidArray(aUuidArray.Clone()) {}
 
   explicit BluetoothProperty(BluetoothPropertyType aType,
                              const nsTArray<BluetoothAddress>& aBdAddressArray)
-      : mType(aType), mBdAddressArray(aBdAddressArray) {}
+      : mType(aType), mBdAddressArray(aBdAddressArray.Clone()) {}
 
   explicit BluetoothProperty(BluetoothPropertyType aType, uint32_t aUint32)
       : mType(aType), mUint32(aUint32) {}
@@ -1301,19 +1301,19 @@ struct BluetoothGattAdvertisingData {
    * additional manufacturer specific data. See Core Specification Supplement
    * (CSS) v6 1.4 for more details.
    */
-  nsTArray<uint8_t> mManufacturerData;
+  CopyableTArray<uint8_t> mManufacturerData;
 
   /**
    * Consists of a service UUID with the data associated with that service.
    * Please see Core Specification Supplement (CSS) v6 1.11 for more details.
    */
-  nsTArray<uint8_t> mServiceData;
+  CopyableTArray<uint8_t> mServiceData;
 
   /**
    * A list of Service or Service Class UUIDs.
    * Please see Core Specification Supplement (CSS) v6 1.1 for more details.
    */
-  nsTArray<BluetoothUuid> mServiceUuids;
+  CopyableTArray<BluetoothUuid> mServiceUuids;
 
   BluetoothGattAdvertisingData()
       : mAppearance(0), mIncludeDevName(false), mIncludeTxPower(false) {}
