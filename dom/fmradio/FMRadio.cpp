@@ -4,20 +4,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "mozilla/dom/FMRadio.h"
-#include "nsContentUtils.h"
-#include "mozilla/Hal.h"
+#include "FMRadio.h"
+#include "AudioChannelService.h"
+#include "DOMRequest.h"
+#include "mozilla/dom/FMRadioBinding.h"
+#include "mozilla/dom/FMRadioService.h"
+#include "mozilla/dom/PFMRadioChild.h"
+#include "mozilla/dom/TypedArray.h"
 #include "mozilla/HalTypes.h"
 #include "mozilla/Preferences.h"
-#include "mozilla/dom/FMRadioBinding.h"
-#include "mozilla/dom/ContentChild.h"
-#include "mozilla/dom/PFMRadioChild.h"
-#include "mozilla/dom/FMRadioService.h"
-#include "mozilla/dom/TypedArray.h"
-#include "DOMRequest.h"
-#include "nsIDocShell.h"
-#include "nsIInterfaceRequestorUtils.h"
-#include "nsIAudioManager.h"
+#include "nsCycleCollectionParticipant.h"
 
 #undef LOG
 #define LOG(args...) FM_LOG("FMRadio", args)

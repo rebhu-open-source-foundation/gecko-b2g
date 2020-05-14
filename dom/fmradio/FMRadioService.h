@@ -7,16 +7,14 @@
 #ifndef mozilla_dom_fmradioservice_h__
 #define mozilla_dom_fmradioservice_h__
 
+#include "FMRadioCommon.h"
 #include "mozilla/dom/Nullable.h"
 #include "mozilla/dom/PFMRadioRequest.h"
-#include "FMRadioCommon.h"
-#include "mozilla/Hal.h"
+#include "mozilla/HalTypes.h"
 #include "mozilla/Mutex.h"
 #include "mozilla/StaticPtr.h"
-#include "mozilla/Services.h"
-#include "nsThreadUtils.h"
 #include "nsIObserver.h"
-#include "nsXULAppAPI.h"
+#include "nsThreadUtils.h"
 
 BEGIN_FMRADIO_NAMESPACE
 

@@ -9,7 +9,6 @@
 
 #include "FMRadioCommon.h"
 #include "mozilla/dom/PFMRadioRequestChild.h"
-#include "DOMRequest.h"
 
 BEGIN_FMRADIO_NAMESPACE
 

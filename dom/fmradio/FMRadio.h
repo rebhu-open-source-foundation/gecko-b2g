@@ -10,8 +10,6 @@
 #include "AudioChannelAgent.h"
 #include "FMRadioCommon.h"
 #include "mozilla/DOMEventTargetHelper.h"
-#include "mozilla/HalTypes.h"
-#include "nsCycleCollectionParticipant.h"
 #include "nsWeakReference.h"
 
 BEGIN_FMRADIO_NAMESPACE

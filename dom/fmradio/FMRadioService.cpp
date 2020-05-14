@@ -5,23 +5,22 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "FMRadioService.h"
-#include "mozilla/Hal.h"
 #include "mozilla/ClearOnShutdown.h"
-#include "nsIAudioManager.h"
-#include "AudioManager.h"
-#include "nsContentUtils.h"
+#include "mozilla/DebugOnly.h"
+#include "mozilla/dom/FMRadioChild.h"
+#include "mozilla/dom/power/PowerManagerService.h"
+#include "mozilla/Hal.h"
 #include "mozilla/LazyIdleThread.h"
 #include "mozilla/Preferences.h"
-#include "mozilla/dom/FMRadioChild.h"
-#include "mozilla/dom/ScriptSettings.h"
+#include "mozilla/Services.h"
+//#include "mozilla/dom/SettingChangeNotificationBinding.h"  // FIXME
+#include "mozilla/dom/WakeLock.h"
+#include "nsContentUtils.h"
+#include "nsIAudioManager.h"
 #include "nsIObserverService.h"
 //#include "nsISettingsService.h"  // FIXME
 #include "nsJSUtils.h"
-#include "mozilla/dom/BindingUtils.h"
-//#include "mozilla/dom/SettingChangeNotificationBinding.h"  // FIXME
-#include "mozilla/DebugOnly.h"
-#include "mozilla/dom/WakeLock.h"
-#include "mozilla/dom/power/PowerManagerService.h"
+#include "nsXULAppAPI.h"
 
 #define TUNE_THREAD_TIMEOUT_MS 5000
 

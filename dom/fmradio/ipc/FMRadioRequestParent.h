@@ -8,8 +8,8 @@
 #define mozilla_dom_fmradiorequestparent_h__
 
 #include "FMRadioCommon.h"
-#include "mozilla/dom/PFMRadioRequestParent.h"
 #include "FMRadioService.h"
+#include "mozilla/dom/PFMRadioRequestParent.h"
 
 BEGIN_FMRADIO_NAMESPACE
 

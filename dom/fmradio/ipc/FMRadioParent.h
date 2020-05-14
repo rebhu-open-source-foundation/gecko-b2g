@@ -9,7 +9,6 @@
 
 #include "FMRadioCommon.h"
 #include "mozilla/dom/PFMRadioParent.h"
-#include "mozilla/HalTypes.h"
 
 BEGIN_FMRADIO_NAMESPACE
 
