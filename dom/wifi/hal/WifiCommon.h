@@ -217,6 +217,7 @@ struct PnoNetworkOptions {
     other.mIsHidden = mIsHidden;
     other.mSsid = mSsid;
     other.mFrequencies = mFrequencies.Clone();
+    return other;
   }
 
   bool mIsHidden;
