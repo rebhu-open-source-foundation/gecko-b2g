@@ -189,6 +189,14 @@ struct ScanSettingsOptions {
     COPY_SEQUENCE_FIELD(mHiddenNetworks, nsString)
   }
 
+  ScanSettingsOptions Clone() const {
+    auto other = ScanSettingsOptions();
+    other.mScanType = mScanType;
+    other.mChannels = mChannels.Clone();
+    other.mHiddenNetworks = mHiddenNetworks.Clone();
+    return other;
+  }
+
   uint32_t mScanType;
   nsTArray<int32_t> mChannels;
   nsTArray<nsString> mHiddenNetworks;
@@ -202,6 +210,13 @@ struct PnoNetworkOptions {
     COPY_OPT_FIELD(mIsHidden, false)
     COPY_OPT_FIELD(mSsid, EmptyString())
     COPY_SEQUENCE_FIELD(mFrequencies, int32_t)
+  }
+
+  PnoNetworkOptions Clone() const {
+    auto other = PnoNetworkOptions();
+    other.mIsHidden = mIsHidden;
+    other.mSsid = mSsid;
+    other.mFrequencies = mFrequencies.Clone();
   }
 
   bool mIsHidden;
@@ -223,9 +238,20 @@ struct PnoScanSettingsOptions {
           aOther.mPnoNetworks.InternalValue();
       for (size_t i = 0; i < currentValue.Length(); i++) {
         PnoNetworkOptions pnoNetwork(currentValue[i]);
-        mPnoNetworks.AppendElement(pnoNetwork);
+        mPnoNetworks.AppendElement(std::move(pnoNetwork));
       }
     }
+  }
+
+  PnoScanSettingsOptions Clone() const {
+    auto other = PnoScanSettingsOptions();
+    other.mInterval = mInterval;
+    other.mMin2gRssi = mMin2gRssi;
+    other.mMin5gRssi = mMin5gRssi;
+    for (size_t i = 0; i < mPnoNetworks.Length(); i++) {
+      other.mPnoNetworks.AppendElement(mPnoNetworks[i].Clone());
+    }
+    return other;
   }
 
   int32_t mInterval;
@@ -246,16 +272,29 @@ struct CommandOptions {
     COPY_FIELD(mBtCoexistenceMode)
     COPY_FIELD(mBandMask)
     COPY_FIELD(mScanType)
-    ConfigurationOptions config(aOther.mConfig);
-    SoftapConfigurationOptions softapConfig(aOther.mSoftapConfig);
-    SupplicantDebugLevelOptions debugLevel(aOther.mDebugLevel);
-    ScanSettingsOptions scanSettings(aOther.mScanSettings);
-    PnoScanSettingsOptions pnoScanSettings(aOther.mPnoScanSettings);
-    mConfig = config;
-    mSoftapConfig = softapConfig;
-    mDebugLevel = debugLevel;
-    mScanSettings = scanSettings;
-    mPnoScanSettings = pnoScanSettings;
+
+    mConfig = ConfigurationOptions(aOther.mConfig);
+    mSoftapConfig = SoftapConfigurationOptions(aOther.mSoftapConfig);
+    mDebugLevel = SupplicantDebugLevelOptions(aOther.mDebugLevel);
+    mScanSettings = ScanSettingsOptions(aOther.mScanSettings);
+    mPnoScanSettings = PnoScanSettingsOptions(aOther.mPnoScanSettings);
+  }
+
+  CommandOptions(const CommandOptions& aOther) {
+    mId = aOther.mId;
+    mCmd = aOther.mCmd;
+    mEnabled = aOther.mEnabled;
+    mCountryCode = aOther.mCountryCode;
+    mSoftapCountryCode = aOther.mSoftapCountryCode;
+    mBtCoexistenceMode = aOther.mBtCoexistenceMode;
+    mBandMask = aOther.mBandMask;
+    mScanType = aOther.mScanType;
+
+    mConfig = ConfigurationOptions(aOther.mConfig);
+    mSoftapConfig = SoftapConfigurationOptions(aOther.mSoftapConfig);
+    mDebugLevel = SupplicantDebugLevelOptions(aOther.mDebugLevel);
+    mScanSettings = aOther.mScanSettings.Clone();
+    mPnoScanSettings = aOther.mPnoScanSettings.Clone();
   }
 
   // All the fields, not Optional<> anymore to get copy constructors.

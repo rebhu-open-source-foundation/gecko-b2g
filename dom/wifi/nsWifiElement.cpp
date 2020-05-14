@@ -223,7 +223,7 @@ nsScanResult::nsScanResult(const nsAString& aSsid, const nsAString& aBssid,
                            bool aAssociated) {
   mSsid = aSsid;
   mBssid = aBssid;
-  mInfoElement = aInfoElement;
+  mInfoElement = aInfoElement.Clone();
   mFrequency = aFrequency;
   mTsf = aTsf;
   mCapability = aCapability;
@@ -275,7 +275,7 @@ nsScanResult::GetAssociated(bool* aAssociated) {
 
 NS_IMETHODIMP
 nsScanResult::GetInfoElement(nsTArray<uint8_t>& aInfoElement) {
-  aInfoElement = mInfoElement;
+  aInfoElement = mInfoElement.Clone();
   return NS_OK;
 }
 
@@ -369,7 +369,7 @@ nsLinkLayerRadioStats::nsLinkLayerRadioStats(
   mTxTimeInMs = aTxTimeInMs;
   mRxTimeInMs = aRxTimeInMs;
   mOnTimeInMsForScan = aOnTimeInMsForScan;
-  mTxTimeInMsPerLevel = aTxTimeInMsPerLevel;
+  mTxTimeInMsPerLevel = aTxTimeInMsPerLevel.Clone();
 }
 
 NS_IMETHODIMP
@@ -399,7 +399,7 @@ nsLinkLayerRadioStats::GetOnTimeInMsForScan(uint32_t* aOnTimeInMsForScan) {
 NS_IMETHODIMP
 nsLinkLayerRadioStats::GetTxTimeInMsPerLevel(
     nsTArray<uint32_t>& aTxTimeInMsPerLevel) {
-  aTxTimeInMsPerLevel = mTxTimeInMsPerLevel;
+  aTxTimeInMsPerLevel = mTxTimeInMsPerLevel.Clone();
   return NS_OK;
 }
 
@@ -428,7 +428,7 @@ void nsLinkLayerStats::updatePacketStats(
 
 void nsLinkLayerStats::updateRadioStats(
     nsTArray<RefPtr<nsLinkLayerRadioStats>>& aLinkLayerRadioStats) {
-  mLinkLayerRadioStats = aLinkLayerRadioStats;
+  mLinkLayerRadioStats = aLinkLayerRadioStats.Clone();
 }
 
 NS_IMETHODIMP
