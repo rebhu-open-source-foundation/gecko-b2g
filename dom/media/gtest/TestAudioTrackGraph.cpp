@@ -168,7 +168,7 @@ TEST(TestAudioTrackGraph, ErrorStateCrash)
   CubebUtils::ForceSetCubebContext(cubeb->AsCubebContext());
 
   MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::AUDIO_THREAD_DRIVER, /*window*/ nullptr,
+      MediaTrackGraph::AUDIO_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal, /*window*/ nullptr,
       MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE, nullptr);
 
   // Dummy track to make graph rolling. Add it and remove it to remove the
