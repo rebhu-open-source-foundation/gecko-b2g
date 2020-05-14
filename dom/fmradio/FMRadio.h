@@ -14,7 +14,7 @@
 
 BEGIN_FMRADIO_NAMESPACE
 
-class DOMRequest;
+class Promise;
 
 class FMRadio final : public DOMEventTargetHelper,
                       public FMRadioEventObserver,
@@ -67,21 +67,21 @@ class FMRadio final : public DOMEventTargetHelper,
 
   void GetRdsgroup(JSContext* cx, JS::MutableHandle<JSObject*> retval);
 
-  already_AddRefed<DOMRequest> Enable(double aFrequency);
+  already_AddRefed<Promise> Enable(double aFrequency);
 
-  already_AddRefed<DOMRequest> Disable();
+  already_AddRefed<Promise> Disable();
 
-  already_AddRefed<DOMRequest> SetFrequency(double aFrequency);
+  already_AddRefed<Promise> SetFrequency(double aFrequency);
 
-  already_AddRefed<DOMRequest> SeekUp();
+  already_AddRefed<Promise> SeekUp();
 
-  already_AddRefed<DOMRequest> SeekDown();
+  already_AddRefed<Promise> SeekDown();
 
-  already_AddRefed<DOMRequest> CancelSeek();
+  already_AddRefed<Promise> CancelSeek();
 
-  already_AddRefed<DOMRequest> EnableRDS();
+  already_AddRefed<Promise> EnableRDS();
 
-  already_AddRefed<DOMRequest> DisableRDS();
+  already_AddRefed<Promise> DisableRDS();
 
   IMPL_EVENT_HANDLER(enabled);
   IMPL_EVENT_HANDLER(disabled);

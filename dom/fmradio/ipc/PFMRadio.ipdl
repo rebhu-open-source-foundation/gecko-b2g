@@ -115,9 +115,9 @@ parent:
    *
    * We don't have separate Enable/SetFrequency/etc. methods instead here,
    * because we can leverage the IPC messaging mechanism to manage the mapping
-   * of the asynchronous request and the DOMRequest we returned to the caller
-   * on web content, otherwise, we have to do the mapping stuff manually which
-   * is more error prone.
+   * of the asynchronous request and the Promise we returned to the caller on
+   * web content, otherwise, we have to do the mapping stuff manually which is
+   * more error prone.
    */
   async PFMRadioRequest(FMRadioRequestArgs requestType);
 

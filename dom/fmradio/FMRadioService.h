@@ -52,7 +52,7 @@ class FMRadioReplyRunnable : public Runnable {
  *  - OOP
  *    Child:
  *      (1) Call navigator.mozFMRadio.enable().
- *      (2) Return a DOMRequest object, and call FMRadioChild.Enable() with a
+ *      (2) Return a Promise object, and call FMRadioChild.Enable() with a
  *          FMRadioReplyRunnable object.
  *      (3) Send IPC message to main process.
  *    Parent:
@@ -63,7 +63,7 @@ class FMRadioReplyRunnable : public Runnable {
  *      (8) Send IPC message back to child process.
  *    Child:
  *      (9) Dispatch the FMRadioReplyRunnable object created in (2).
- *     (10) Fire success callback of the DOMRequest Object created in (2).
+ *     (10) Resolve or reject the Promise Object created in (2).
  *                     _ _ _ _ _ _ _ _ _ _ _ _ _ _
  *                    |            OOP            |
  *                    |                           |

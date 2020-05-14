@@ -6,10 +6,10 @@
 
 #include "FMRadio.h"
 #include "AudioChannelService.h"
-#include "DOMRequest.h"
 #include "mozilla/dom/FMRadioBinding.h"
 #include "mozilla/dom/FMRadioService.h"
 #include "mozilla/dom/PFMRadioChild.h"
+#include "mozilla/dom/Promise.h"
 #include "mozilla/dom/TypedArray.h"
 #include "mozilla/HalTypes.h"
 #include "mozilla/Preferences.h"
@@ -26,28 +26,26 @@ using mozilla::Preferences;
 
 BEGIN_FMRADIO_NAMESPACE
 
-class FMRadioRequest final : public FMRadioReplyRunnable, public DOMRequest {
+class FMRadioRequest final : public FMRadioReplyRunnable {
  public:
   NS_DECL_ISUPPORTS_INHERITED
 
-  FMRadioRequest(nsPIDOMWindowInner* aWindow, FMRadio* aFMRadio)
-      : DOMRequest(aWindow), mType(FMRadioRequestArgs::T__None) {
-    // |FMRadio| inherits from |nsIDOMEventTarget| and
-    // |nsISupportsWeakReference| which both inherits from nsISupports, so
-    // |nsISupports| is an ambiguous base of |FMRadio|, we have to cast
-    // |aFMRadio| to one of the base classes.
-    mFMRadio = do_GetWeakReference(static_cast<EventTarget*>(aFMRadio));
-  }
-
-  FMRadioRequest(nsPIDOMWindowInner* aWindow, FMRadio* aFMRadio,
-                 FMRadioRequestArgs::Type aType)
-      : DOMRequest(aWindow) {
+  static already_AddRefed<FMRadioRequest> Create(
+      nsPIDOMWindowInner* aWindow, FMRadio* aFMRadio,
+      FMRadioRequestArgs::Type aType = FMRadioRequestArgs::T__None) {
     MOZ_ASSERT(aType >= FMRadioRequestArgs::T__None &&
                    aType <= FMRadioRequestArgs::T__Last,
                "Wrong FMRadioRequestArgs in FMRadioRequest");
 
-    mFMRadio = do_GetWeakReference(static_cast<EventTarget*>(aFMRadio));
-    mType = aType;
+    ErrorResult rv;
+    RefPtr<Promise> promise = Promise::Create(aWindow->AsGlobal(), rv);
+    if (rv.Failed()) {
+      return nullptr;
+    }
+
+    RefPtr<FMRadioRequest> request =
+        new FMRadioRequest(promise, aFMRadio, aType);
+    return request.forget();
   }
 
   NS_IMETHODIMP
@@ -60,34 +58,54 @@ class FMRadioRequest final : public FMRadioReplyRunnable, public DOMRequest {
     }
 
     FMRadio* fmRadio = static_cast<FMRadio*>(static_cast<EventTarget*>(target));
-
     if (fmRadio->mIsShutdown) {
+      return NS_OK;
+    }
+
+    if (!mPromise) {
       return NS_OK;
     }
 
     switch (mResponseType.type()) {
       case FMRadioResponseType::TErrorResponse:
-        FireError(mResponseType.get_ErrorResponse().error());
+        mPromise->MaybeRejectWithOperationError(
+            NS_ConvertUTF16toUTF8(mResponseType.get_ErrorResponse().error()));
         break;
       case FMRadioResponseType::TSuccessResponse:
-        FireSuccess(JS::UndefinedHandleValue);
+        mPromise->MaybeResolveWithUndefined();
         break;
       default:
         MOZ_CRASH();
     }
-
+    mPromise = nullptr;
     return NS_OK;
   }
 
+  already_AddRefed<Promise> GetPromise() {
+    RefPtr<Promise> promise = mPromise.get();
+    return promise.forget();
+  }
+
  protected:
+  FMRadioRequest(Promise* aPromise, FMRadio* aFMRadio,
+                 FMRadioRequestArgs::Type aType)
+      : mPromise(aPromise), mType(aType) {
+    // |FMRadio| inherits from |nsIDOMEventTarget| and
+    // |nsISupportsWeakReference| which both inherits from nsISupports, so
+    // |nsISupports| is an ambiguous base of |FMRadio|, we have to cast
+    // |aFMRadio| to one of the base classes.
+    mFMRadio = do_GetWeakReference(static_cast<EventTarget*>(aFMRadio));
+  }
+
   ~FMRadioRequest() {}
 
  private:
+  RefPtr<Promise> mPromise;
   FMRadioRequestArgs::Type mType;
   nsWeakPtr mFMRadio;
 };
 
-NS_IMPL_ISUPPORTS_INHERITED0(FMRadioRequest, DOMRequest)
+NS_IMPL_ISUPPORTS_INHERITED0(FMRadioRequest, FMRadioReplyRunnable)
 
 FMRadio::FMRadio()
     : mRdsGroupMask(0),
@@ -246,100 +264,126 @@ void FMRadio::GetRdsgroup(JSContext* cx, JS::MutableHandle<JSObject*> retval) {
   retval.set(rdsgroup);
 }
 
-already_AddRefed<DOMRequest> FMRadio::Enable(double aFrequency) {
+already_AddRefed<Promise> FMRadio::Enable(double aFrequency) {
   nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
   if (!win) {
     return nullptr;
   }
 
   RefPtr<FMRadioRequest> r =
-      new FMRadioRequest(win, this, FMRadioRequestArgs::TEnableRequestArgs);
+      FMRadioRequest::Create(win, this, FMRadioRequestArgs::TEnableRequestArgs);
+  if (!r) {
+    return nullptr;
+  }
+
   IFMRadioService::Singleton()->Enable(aFrequency, r);
-
-  return r.forget();
+  return r->GetPromise();
 }
 
-already_AddRefed<DOMRequest> FMRadio::Disable() {
+already_AddRefed<Promise> FMRadio::Disable() {
   nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
   if (!win) {
     return nullptr;
   }
 
-  RefPtr<FMRadioRequest> r =
-      new FMRadioRequest(win, this, FMRadioRequestArgs::TDisableRequestArgs);
+  RefPtr<FMRadioRequest> r = FMRadioRequest::Create(
+      win, this, FMRadioRequestArgs::TDisableRequestArgs);
+  if (!r) {
+    return nullptr;
+  }
+
   IFMRadioService::Singleton()->Disable(r);
-
-  return r.forget();
+  return r->GetPromise();
 }
 
-already_AddRefed<DOMRequest> FMRadio::SetFrequency(double aFrequency) {
+already_AddRefed<Promise> FMRadio::SetFrequency(double aFrequency) {
   nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
   if (!win) {
     return nullptr;
   }
 
-  RefPtr<FMRadioRequest> r = new FMRadioRequest(win, this);
+  RefPtr<FMRadioRequest> r = FMRadioRequest::Create(win, this);
+  if (!r) {
+    return nullptr;
+  }
+
   IFMRadioService::Singleton()->SetFrequency(aFrequency, r);
-
-  return r.forget();
+  return r->GetPromise();
 }
 
-already_AddRefed<DOMRequest> FMRadio::SeekUp() {
+already_AddRefed<Promise> FMRadio::SeekUp() {
   nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
   if (!win) {
     return nullptr;
   }
 
-  RefPtr<FMRadioRequest> r = new FMRadioRequest(win, this);
+  RefPtr<FMRadioRequest> r = FMRadioRequest::Create(win, this);
+  if (!r) {
+    return nullptr;
+  }
+
   IFMRadioService::Singleton()->Seek(hal::FM_RADIO_SEEK_DIRECTION_UP, r);
-
-  return r.forget();
+  return r->GetPromise();
 }
 
-already_AddRefed<DOMRequest> FMRadio::SeekDown() {
+already_AddRefed<Promise> FMRadio::SeekDown() {
   nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
   if (!win) {
     return nullptr;
   }
 
-  RefPtr<FMRadioRequest> r = new FMRadioRequest(win, this);
+  RefPtr<FMRadioRequest> r = FMRadioRequest::Create(win, this);
+  if (!r) {
+    return nullptr;
+  }
+
   IFMRadioService::Singleton()->Seek(hal::FM_RADIO_SEEK_DIRECTION_DOWN, r);
-
-  return r.forget();
+  return r->GetPromise();
 }
 
-already_AddRefed<DOMRequest> FMRadio::CancelSeek() {
+already_AddRefed<Promise> FMRadio::CancelSeek() {
   nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
   if (!win) {
     return nullptr;
   }
 
-  RefPtr<FMRadioRequest> r = new FMRadioRequest(win, this);
+  RefPtr<FMRadioRequest> r = FMRadioRequest::Create(win, this);
+  if (!r) {
+    return nullptr;
+  }
+
   IFMRadioService::Singleton()->CancelSeek(r);
-
-  return r.forget();
+  return r->GetPromise();
 }
 
-already_AddRefed<DOMRequest> FMRadio::EnableRDS() {
+already_AddRefed<Promise> FMRadio::EnableRDS() {
   nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
   if (!win) {
     return nullptr;
   }
 
-  RefPtr<FMRadioRequest> r = new FMRadioRequest(win, this);
+  RefPtr<FMRadioRequest> r = FMRadioRequest::Create(win, this);
+  if (!r) {
+    return nullptr;
+  }
+
   IFMRadioService::Singleton()->EnableRDS(r);
-  return r.forget();
+  return r->GetPromise();
 }
 
-already_AddRefed<DOMRequest> FMRadio::DisableRDS() {
+already_AddRefed<Promise> FMRadio::DisableRDS() {
   nsCOMPtr<nsPIDOMWindowInner> win = GetOwner();
   if (!win) {
     return nullptr;
   }
 
-  RefPtr<FMRadioRequest> r = new FMRadioRequest(win, this);
+  RefPtr<FMRadioRequest> r = FMRadioRequest::Create(win, this);
+  if (!r) {
+    return nullptr;
+  }
+
   IFMRadioService::Singleton()->DisableRDS(r);
-  return r.forget();
+  return r->GetPromise();
 }
 
 void FMRadio::EnableAudioChannelAgent() {
