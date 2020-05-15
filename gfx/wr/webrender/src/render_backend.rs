@@ -303,10 +303,6 @@ impl DataStores {
                 let pic = &prim_store.pictures[pic_index.0];
                 pic.precise_local_rect
             }
-            PrimitiveInstanceKind::PushClipChain |
-            PrimitiveInstanceKind::PopClipChain => {
-                unreachable!();
-            }
             _ => {
                 self.as_common_data(prim_instance).prim_rect
             }
@@ -323,10 +319,6 @@ impl DataStores {
         match prim_instance.kind {
             PrimitiveInstanceKind::Picture { .. } => {
                 false
-            }
-            PrimitiveInstanceKind::PushClipChain |
-            PrimitiveInstanceKind::PopClipChain => {
-                unreachable!();
             }
             _ => {
                 self.as_common_data(prim_instance).may_need_repetition
@@ -386,10 +378,6 @@ impl DataStores {
             PrimitiveInstanceKind::Backdrop { data_handle, .. } => {
                 let prim_data = &self.backdrop[data_handle];
                 &prim_data.common
-            }
-            PrimitiveInstanceKind::PushClipChain |
-            PrimitiveInstanceKind::PopClipChain => {
-                unreachable!();
             }
         }
     }
@@ -1065,16 +1053,6 @@ impl RenderBackend {
             }
             ApiMsg::FlushSceneBuilder(tx) => {
                 self.low_priority_scene_tx.send(SceneBuilderRequest::Flush(tx)).unwrap();
-            }
-            ApiMsg::UpdateResources(mut updates) => {
-                self.resource_cache.pre_scene_building_update(
-                    &mut updates,
-                    &mut profile_counters.resources
-                );
-                self.resource_cache.post_scene_building_update(
-                    updates,
-                    &mut profile_counters.resources
-                );
             }
             ApiMsg::GetGlyphDimensions(instance_key, glyph_indices, tx) => {
                 let mut glyph_dimensions = Vec::with_capacity(glyph_indices.len());

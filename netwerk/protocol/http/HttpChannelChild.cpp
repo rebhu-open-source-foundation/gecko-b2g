@@ -43,6 +43,9 @@
 #include "mozilla/ipc/BackgroundUtils.h"
 #include "mozilla/net/ChannelDiverterChild.h"
 #include "mozilla/net/DNS.h"
+#include "mozilla/net/SocketProcessBridgeChild.h"
+#include "mozilla/StaticPrefs_network.h"
+#include "mozilla/StoragePrincipalHelper.h"
 #include "SerializedLoadContext.h"
 #include "nsInputStreamPump.h"
 #include "InterceptedChannel.h"
@@ -59,6 +62,7 @@
 #include "nsCORSListenerProxy.h"
 #include "nsApplicationCache.h"
 #include "ClassifierDummyChannel.h"
+#include "nsIOService.h"
 
 #ifdef MOZ_TASK_TRACER
 #  include "GeckoTaskTracer.h"
@@ -588,11 +592,10 @@ mozilla::ipc::IPCResult HttpChannelChild::RecvOnStopRequest(
   AUTO_PROFILER_LABEL("HttpChannelChild::RecvOnStopRequest", NETWORK);
   LOG(("HttpChannelChild::RecvOnStopRequest [this=%p]\n", this));
 
-  nsTArray<ConsoleReportCollected> consoleReports = std::move(aConsoleReports);
-
   mEventQ->RunOrEnqueue(new NeckoTargetChannelFunctionEvent(
       this, [self = UnsafePtr<HttpChannelChild>(this), aChannelStatus, aTiming,
-             aResponseTrailers, consoleReports]() {
+             aResponseTrailers,
+             consoleReports = CopyableTArray{std::move(aConsoleReports)}]() {
         self->OnStopRequest(aChannelStatus, aTiming, aResponseTrailers,
                             consoleReports);
       }));
@@ -878,6 +881,8 @@ void HttpChannelChild::OnTransportAndData(const nsresult& aChannelStatus,
   DoOnDataAvailable(this, nullptr, stringStream, aOffset, aCount);
   stringStream->Close();
 
+  // TODO: Bug 1523916 backpressure needs to take into account if the data is
+  // coming from the main process or from the socket process via PBackground.
   if (NeedToReportBytesRead()) {
     mUnreportBytesRead += aCount;
     if (mUnreportBytesRead >= gHttpHandler->SendWindowSize() >> 2) {
@@ -999,9 +1004,10 @@ void HttpChannelChild::ProcessOnStopRequest(
       new NeckoTargetChannelFunctionEvent(
           this,
           [self = UnsafePtr<HttpChannelChild>(this), aChannelStatus, aTiming,
-           aResponseTrailers, aConsoleReports]() {
+           aResponseTrailers,
+           consoleReports = CopyableTArray{aConsoleReports.Clone()}]() {
             self->OnStopRequest(aChannelStatus, aTiming, aResponseTrailers,
-                                aConsoleReports);
+                                consoleReports);
           }),
       mDivertingToParent);
 }
@@ -1093,13 +1099,17 @@ void HttpChannelChild::OnStopRequest(
 
 #ifdef MOZ_GECKO_PROFILER
   if (profiler_can_accept_markers()) {
+    nsAutoCString contentType;
+    if (mResponseHead) {
+      mResponseHead->ContentType(contentType);
+    }
     int32_t priority = PRIORITY_NORMAL;
     GetPriority(&priority);
     profiler_add_network_marker(
         mURI, priority, mChannelId, NetworkLoadType::LOAD_STOP,
         mLastStatusReported, TimeStamp::Now(), mTransferSize, kCacheUnknown,
         mLoadInfo->GetInnerWindowID(), &mTransactionTimings, nullptr,
-        std::move(mSource));
+        std::move(mSource), Some(nsDependentCString(contentType.get())));
   }
 #endif
 
@@ -1674,11 +1684,19 @@ void HttpChannelChild::Redirect1Begin(
   nsCOMPtr<nsIURI> uri = DeserializeURI(newOriginalURI);
 
   ResourceTimingStructArgsToTimingsStruct(timing, mTransactionTimings);
-  PROFILER_ADD_NETWORK_MARKER(mURI, mPriority, mChannelId,
-                              NetworkLoadType::LOAD_REDIRECT,
-                              mLastStatusReported, TimeStamp::Now(), 0,
-                              kCacheUnknown, mLoadInfo->GetInnerWindowID(),
-                              &mTransactionTimings, uri, std::move(mSource));
+
+#ifdef MOZ_GECKO_PROFILER
+  if (profiler_can_accept_markers()) {
+    nsAutoCString contentType;
+    responseHead.ContentType(contentType);
+
+    profiler_add_network_marker(
+        mURI, mPriority, mChannelId, NetworkLoadType::LOAD_REDIRECT,
+        mLastStatusReported, TimeStamp::Now(), 0, kCacheUnknown,
+        mLoadInfo->GetInnerWindowID(), &mTransactionTimings, uri,
+        std::move(mSource), Some(nsDependentCString(contentType.get())));
+  }
+#endif
 
   if (!securityInfoSerialization.IsEmpty()) {
     rv = NS_DeserializeObject(securityInfoSerialization,
@@ -1908,7 +1926,9 @@ mozilla::ipc::IPCResult HttpChannelChild::RecvSetClassifierMatchedTrackingInfo(
   }
 
   mEventQ->RunOrEnqueue(new NeckoTargetChannelFunctionEvent(
-      this, [self = UnsafePtr<HttpChannelChild>(this), lists, fullhashes]() {
+      this, [self = UnsafePtr<HttpChannelChild>(this),
+             lists = CopyableTArray{std::move(lists)},
+             fullhashes = CopyableTArray{std::move(fullhashes)}]() {
         self->SetMatchedTrackingInfo(lists, fullhashes);
       }));
 
@@ -1941,6 +1961,12 @@ bool HttpChannelChild::Redirect3Complete(OverrideRunnable* aRunnable) {
   LOG(("HttpChannelChild::Redirect3Complete [this=%p]\n", this));
   MOZ_ASSERT(NS_IsMainThread());
   nsresult rv = NS_OK;
+
+  nsCOMPtr<nsIRedirectResultListener> vetoHook;
+  GetCallback(vetoHook);
+  if (vetoHook) {
+    vetoHook->OnRedirectResult(true);
+  }
 
   nsCOMPtr<nsIHttpChannelChild> chan = do_QueryInterface(mRedirectChannelChild);
   RefPtr<HttpChannelChild> httpChannelChild =
@@ -2039,10 +2065,8 @@ HttpChannelChild::ConnectParent(uint32_t registrarId) {
   SetEventTarget();
 
   HttpChannelConnectArgs connectArgs(registrarId, mShouldParentIntercept);
-  PBrowserOrId browser = static_cast<ContentChild*>(gNeckoChild->Manager())
-                             ->GetBrowserOrId(browserChild);
   if (!gNeckoChild->SendPHttpChannelConstructor(
-          this, browser, IPC::SerializedLoadContext(this), connectArgs)) {
+          this, browserChild, IPC::SerializedLoadContext(this), connectArgs)) {
     return NS_ERROR_FAILURE;
   }
 
@@ -2074,6 +2098,8 @@ HttpChannelChild::ConnectParent(uint32_t registrarId) {
 
     mBgChild = std::move(bgChild);
   }
+
+  MaybeConnectToSocketProcess();
 
   return NS_OK;
 }
@@ -2677,7 +2703,7 @@ nsresult HttpChannelChild::ContinueAsyncOpen() {
   openArgs.loadFlags() = mLoadFlags;
   openArgs.requestHeaders() = mClientSetRequestHeaders;
   mRequestHead.Method(openArgs.requestMethod());
-  openArgs.preferredAlternativeTypes() = mPreferredCachedAltDataTypes;
+  openArgs.preferredAlternativeTypes() = mPreferredCachedAltDataTypes.Clone();
   openArgs.referrerInfo() = mReferrerInfo;
 
   AutoIPCStream autoStream(openArgs.uploadStream());
@@ -2783,9 +2809,8 @@ nsresult HttpChannelChild::ContinueAsyncOpen() {
   // target.
   SetEventTarget();
 
-  PBrowserOrId browser = cc->GetBrowserOrId(browserChild);
   if (!gNeckoChild->SendPHttpChannelConstructor(
-          this, browser, IPC::SerializedLoadContext(this), openArgs)) {
+          this, browserChild, IPC::SerializedLoadContext(this), openArgs)) {
     return NS_ERROR_FAILURE;
   }
 
@@ -2829,6 +2854,8 @@ nsresult HttpChannelChild::ContinueAsyncOpen() {
 
     mBgChild = std::move(bgChild);
   }
+
+  MaybeConnectToSocketProcess();
 
   return NS_OK;
 }
@@ -3383,7 +3410,7 @@ void HttpChannelChild::GetClientSetCorsPreflightParameters(
     Maybe<CorsPreflightArgs>& aArgs) {
   if (mRequireCORSPreflight) {
     CorsPreflightArgs args;
-    args.unsafeHeaders() = mUnsafeHeaders;
+    args.unsafeHeaders() = mUnsafeHeaders.Clone();
     aArgs.emplace(args);
   } else {
     aArgs = Nothing();
@@ -3866,7 +3893,10 @@ bool HttpChannelChild::ShouldInterceptURI(nsIURI* aURI, bool& aShouldUpgrade) {
         this, getter_AddRefs(resultPrincipal));
   }
   OriginAttributes originAttributes;
-  NS_ENSURE_TRUE(NS_GetOriginAttributes(this, originAttributes), false);
+  NS_ENSURE_TRUE(
+      StoragePrincipalHelper::GetOriginAttributes(
+          this, originAttributes, StoragePrincipalHelper::eRegularPrincipal),
+      false);
   bool notused = false;
   nsresult rv = NS_ShouldSecureUpgrade(
       aURI, mLoadInfo, resultPrincipal, mPrivateBrowsing, mAllowSTS,
@@ -4001,6 +4031,28 @@ void HttpChannelChild::DoDiagnosticAssertWhenOnStopNotCalledOnDestroy() {
 #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
   mDoDiagnosticAssertWhenOnStopNotCalledOnDestroy = true;
 #endif
+}
+
+void HttpChannelChild::MaybeConnectToSocketProcess() {
+  if (!nsIOService::UseSocketProcess()) {
+    return;
+  }
+
+  if (!StaticPrefs::network_send_ODA_to_content_directly()) {
+    return;
+  }
+
+  RefPtr<HttpBackgroundChannelChild> bgChild = mBgChild;
+  SocketProcessBridgeChild::GetSocketProcessBridge()->Then(
+      GetCurrentThreadSerialEventTarget(), __func__,
+      [bgChild]() {
+        gSocketTransportService->Dispatch(
+            NewRunnableMethod("HttpBackgroundChannelChild::CreateDataBridge",
+                              bgChild,
+                              &HttpBackgroundChannelChild::CreateDataBridge),
+            NS_DISPATCH_NORMAL);
+      },
+      []() { NS_WARNING("Failed to create SocketProcessBridgeChild"); });
 }
 
 }  // namespace net

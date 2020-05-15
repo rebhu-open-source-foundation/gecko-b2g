@@ -447,7 +447,7 @@ void BluetoothOppManager::AppendBlobToSend(
   if (mBatches.IsEmpty() ||
       aDeviceAddress != mBatches[indexTail].mDeviceAddress) {
     SendFileBatch batch(aDeviceAddress, aBlob);
-    mBatches.AppendElement(batch);
+    mBatches.AppendElement(std::move(batch));
   } else {
     mBatches[indexTail].mBlobs.AppendElement(aBlob);
   }

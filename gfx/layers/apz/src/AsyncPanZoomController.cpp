@@ -146,6 +146,10 @@ typedef PlatformSpecificStateBase
  * a single input block. If set to false, a single input block can only
  * scroll one APZC.
  *
+ * \li\b apz.allow_zooming_out
+ * If set to true, APZ will allow zooming out past the initial scale on
+ * desktop. This is false by default to match Chrome's behaviour.
+ *
  * \li\b apz.android.chrome_fling_physics.enabled
  * If set to true, APZ uses a fling physical model similar to Chrome's
  * on Android, rather than Android's StackScroller.
@@ -824,7 +828,6 @@ AsyncPanZoomController::AsyncPanZoomController(
     const RefPtr<InputQueue>& aInputQueue,
     GeckoContentController* aGeckoContentController, GestureBehavior aGestures)
     : mLayersId(aLayersId),
-      mRenderRoot(wr::RenderRoot::Default),
       mGeckoContentController(aGeckoContentController),
       mRefPtrMonitor("RefPtrMonitor"),
       // mTreeManager must be initialized before GetFrameTime() is called
@@ -1261,6 +1264,7 @@ nsEventStatus AsyncPanZoomController::HandleGestureEvent(
         case PinchGestureInput::PINCHGESTURE_SCALE:
           rv = OnScale(pinchGestureInput);
           break;
+        case PinchGestureInput::PINCHGESTURE_FINGERLIFTED:
         case PinchGestureInput::PINCHGESTURE_END:
           rv = OnScaleEnd(pinchGestureInput);
           break;
@@ -1747,8 +1751,8 @@ nsEventStatus AsyncPanZoomController::OnScaleEnd(
 
   mPinchEventBuffer.clear();
 
-  // Non-negative focus point would indicate that one finger is still down
-  if (aEvent.mLocalFocusPoint != PinchGestureInput::BothFingersLifted()) {
+  if (aEvent.mType == PinchGestureInput::PINCHGESTURE_FINGERLIFTED) {
+    // One finger is still down, so transition to a TOUCHING state
     if (mZoomConstraints.mAllowZoom) {
       mPanDirRestricted = false;
       StartTouch(aEvent.mLocalFocusPoint, aEvent.mTime);
@@ -1759,7 +1763,7 @@ nsEventStatus AsyncPanZoomController::OnScaleEnd(
       StartPanning(ToExternalPoint(aEvent.mScreenOffset, aEvent.mFocusPoint));
     }
   } else {
-    // Otherwise, handle the fingers being lifted.
+    // Otherwise, handle the gesture being completely done.
 
     // Some of the code paths below, like ScrollSnap() or HandleEndOfPan(),
     // may start an animation, but otherwise we want to end up in the NOTHING
@@ -2637,7 +2641,7 @@ nsEventStatus AsyncPanZoomController::OnPan(const PanGestureInput& aEvent,
     // scroll events from unexpectedly causing scrolling later if somehow
     // the APZC becomes scrollable again in this direction (e.g. if the user
     // uses some other input method to scroll in the opposite direction).
-    mState = NOTHING;
+    SetState(NOTHING);
   }
 
   return nsEventStatus_eConsumeNoDefault;
@@ -3802,8 +3806,7 @@ const ScreenMargin AsyncPanZoomController::CalculatePendingDisplayPort(
 
 void AsyncPanZoomController::ScheduleComposite() {
   if (mCompositorController) {
-    mCompositorController->ScheduleRenderOnCompositorThread(
-        wr::RenderRootSet(mRenderRoot));
+    mCompositorController->ScheduleRenderOnCompositorThread();
   }
 }
 
@@ -5024,6 +5027,11 @@ TouchBlockState* AsyncPanZoomController::GetCurrentTouchBlock() const {
 PanGestureBlockState* AsyncPanZoomController::GetCurrentPanGestureBlock()
     const {
   return GetInputQueue()->GetCurrentPanGestureBlock();
+}
+
+PinchGestureBlockState* AsyncPanZoomController::GetCurrentPinchGestureBlock()
+    const {
+  return GetInputQueue()->GetCurrentPinchGestureBlock();
 }
 
 void AsyncPanZoomController::ResetTouchInputState() {

@@ -179,9 +179,8 @@ WifiProxyService::SendCommand(JS::Handle<JS::Value> aOptions,
   }
 
   // Dispatch the command to the control thread.
-  CommandOptions commandOptions(options);
   nsCOMPtr<nsIRunnable> runnable =
-      new ControlRunnable(commandOptions, aInterface);
+      new ControlRunnable(CommandOptions(options), aInterface);
   MOZ_ALWAYS_SUCCEEDS(mControlThread->Dispatch(
       runnable.forget(), nsIEventTarget::DISPATCH_NORMAL));
   return NS_OK;

@@ -439,7 +439,7 @@ void
 VibratorRunnable::Vibrate(const nsTArray<uint32_t> &pattern)
 {
   MonitorAutoLock lock(mMonitor);
-  mPattern = pattern;
+  mPattern.Assign(pattern);
   mIndex = 0;
   mMonitor.Notify();
 }
@@ -469,7 +469,7 @@ EnsureVibratorThreadInitialized()
 } // namespace
 
 void
-Vibrate(const nsTArray<uint32_t> &pattern, const hal::WindowIdentifier &)
+Vibrate(const nsTArray<uint32_t> &pattern, hal::WindowIdentifier &&)
 {
   MOZ_ASSERT(NS_IsMainThread());
   if (VibratorRunnable::ShuttingDown()) {
@@ -480,7 +480,7 @@ Vibrate(const nsTArray<uint32_t> &pattern, const hal::WindowIdentifier &)
 }
 
 void
-CancelVibrate(const hal::WindowIdentifier &)
+CancelVibrate(hal::WindowIdentifier &&)
 {
   MOZ_ASSERT(NS_IsMainThread());
   if (VibratorRunnable::ShuttingDown()) {

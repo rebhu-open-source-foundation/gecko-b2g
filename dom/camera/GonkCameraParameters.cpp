@@ -1041,15 +1041,15 @@ GonkCameraParameters::GetTranslated(uint32_t aKey, nsTArray<nsString>& aValues)
 {
   switch (aKey) {
     case CAMERA_PARAM_SUPPORTED_ISOMODES:
-      aValues = mIsoModes;
+      aValues = mIsoModes.Clone();
       return NS_OK;
 
     case CAMERA_PARAM_SUPPORTED_SCENEMODES:
-      aValues = mSceneModes;
+      aValues = mSceneModes.Clone();
       return NS_OK;
 
     case CAMERA_PARAM_SUPPORTED_METERINGMODES:
-      aValues = mMeteringModes;
+      aValues = mMeteringModes.Clone();
       return NS_OK;
 
     default:

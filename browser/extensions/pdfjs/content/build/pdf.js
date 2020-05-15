@@ -123,8 +123,8 @@ return /******/ (function(modules) { // webpackBootstrap
 "use strict";
 
 
-var pdfjsVersion = '2.5.95';
-var pdfjsBuild = 'c218e94f6';
+var pdfjsVersion = '2.5.153';
+var pdfjsBuild = 'bf2ce760f';
 
 var pdfjsSharedUtil = __w_pdfjs_require__(1);
 
@@ -490,7 +490,19 @@ const UNSUPPORTED_FEATURES = {
   javaScript: "javaScript",
   smask: "smask",
   shadingPattern: "shadingPattern",
-  font: "font"
+  font: "font",
+  errorTilingPattern: "errorTilingPattern",
+  errorExtGState: "errorExtGState",
+  errorXObject: "errorXObject",
+  errorFontLoadType3: "errorFontLoadType3",
+  errorFontState: "errorFontState",
+  errorFontMissing: "errorFontMissing",
+  errorFontTranslate: "errorFontTranslate",
+  errorColorSpace: "errorColorSpace",
+  errorOperatorList: "errorOperatorList",
+  errorFontToUnicode: "errorFontToUnicode",
+  errorFontLoadNative: "errorFontLoadNative",
+  errorFontGetPath: "errorFontGetPath"
 };
 exports.UNSUPPORTED_FEATURES = UNSUPPORTED_FEATURES;
 const PasswordResponses = {
@@ -703,7 +715,7 @@ function arrayByteLength(arr) {
     return arr.length;
   }
 
-  assert(arr.byteLength !== undefined);
+  assert(arr.byteLength !== undefined, "arrayByteLength - invalid argument.");
   return arr.byteLength;
 }
 
@@ -1219,7 +1231,7 @@ function _fetchDocument(worker, source, pdfDataRangeTransport, docId) {
 
   return worker.messageHandler.sendWithPromise("GetDocRequest", {
     docId,
-    apiVersion: '2.5.95',
+    apiVersion: '2.5.153',
     source: {
       data: source.data,
       url: source.url,
@@ -2396,7 +2408,7 @@ class WorkerTransport {
       loadingTask
     } = this;
     messageHandler.on("GetReader", (data, sink) => {
-      (0, _util.assert)(this._networkStream);
+      (0, _util.assert)(this._networkStream, "GetReader - no `IPDFStream` instance available.");
       this._fullReader = this._networkStream.getFullReader();
 
       this._fullReader.onProgress = evt => {
@@ -2416,7 +2428,7 @@ class WorkerTransport {
             return;
           }
 
-          (0, _util.assert)((0, _util.isArrayBuffer)(value));
+          (0, _util.assert)((0, _util.isArrayBuffer)(value), "GetReader - expected an ArrayBuffer.");
           sink.enqueue(new Uint8Array(value), 1, [value]);
         }).catch(reason => {
           sink.error(reason);
@@ -2455,7 +2467,7 @@ class WorkerTransport {
       return headersCapability.promise;
     });
     messageHandler.on("GetRangeReader", (data, sink) => {
-      (0, _util.assert)(this._networkStream);
+      (0, _util.assert)(this._networkStream, "GetRangeReader - no `IPDFStream` instance available.");
 
       const rangeReader = this._networkStream.getRangeReader(data.begin, data.end);
 
@@ -2474,7 +2486,7 @@ class WorkerTransport {
             return;
           }
 
-          (0, _util.assert)((0, _util.isArrayBuffer)(value));
+          (0, _util.assert)((0, _util.isArrayBuffer)(value), "GetRangeReader - expected an ArrayBuffer.");
           sink.enqueue(new Uint8Array(value), 1, [value]);
         }).catch(reason => {
           sink.error(reason);
@@ -2599,14 +2611,16 @@ class WorkerTransport {
             onUnsupportedFeature: this._onUnsupportedFeature.bind(this),
             fontRegistry
           });
-          this.fontLoader.bind(font).then(() => {
-            this.commonObjs.resolve(id, font);
-          }, reason => {
-            messageHandler.sendWithPromise("FontFallback", {
+          this.fontLoader.bind(font).catch(reason => {
+            return messageHandler.sendWithPromise("FontFallback", {
               id
-            }).finally(() => {
-              this.commonObjs.resolve(id, font);
             });
+          }).finally(() => {
+            if (!params.fontExtraProperties && font.data) {
+              font.data = null;
+            }
+
+            this.commonObjs.resolve(id, font);
           });
           break;
 
@@ -3162,9 +3176,9 @@ const InternalRenderTask = function InternalRenderTaskClosure() {
   return InternalRenderTask;
 }();
 
-const version = '2.5.95';
+const version = '2.5.153';
 exports.version = version;
-const build = 'c218e94f6';
+const build = 'bf2ce760f';
 exports.build = build;
 
 /***/ }),
@@ -3347,12 +3361,15 @@ class PageViewport {
         rotateD = 0;
         break;
 
-      default:
+      case 0:
         rotateA = 1;
         rotateB = 0;
         rotateC = 0;
         rotateD = -1;
         break;
+
+      default:
+        throw new Error("PageViewport: Invalid rotation, must be a multiple of 90 degrees.");
     }
 
     if (dontFlip) {
@@ -3710,7 +3727,7 @@ class BaseFontLoader {
           await nativeFontFace.loaded;
         } catch (ex) {
           this._onUnsupportedFeature({
-            featureId: _util.UNSUPPORTED_FEATURES.font
+            featureId: _util.UNSUPPORTED_FEATURES.errorFontLoadNative
           });
 
           (0, _util.warn)(`Failed to load font '${nativeFontFace.family}': '${ex}'.`);
@@ -3840,7 +3857,7 @@ class FontFaceObject {
 
       if (this._onUnsupportedFeature) {
         this._onUnsupportedFeature({
-          featureId: _util.UNSUPPORTED_FEATURES.font
+          featureId: _util.UNSUPPORTED_FEATURES.errorFontGetPath
         });
       }
 
@@ -5168,7 +5185,7 @@ var CanvasGraphics = function CanvasGraphicsClosure() {
       var fontSize = current.fontSize / current.fontSizeScale;
       var fillStrokeMode = textRenderingMode & _util.TextRenderingMode.FILL_STROKE_MASK;
       var isAddToPathSet = !!(textRenderingMode & _util.TextRenderingMode.ADD_TO_PATH_FLAG);
-      const patternFill = current.patternFill && font.data;
+      const patternFill = current.patternFill && !font.missingFile;
       var addToPath;
 
       if (font.disableFontFace || isAddToPathSet || patternFill) {
@@ -6476,7 +6493,7 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.isNodeJS = void 0;
-const isNodeJS = typeof process === "object" && process + "" === "[object process]" && !process.versions["nw"] && !process.versions["electron"];
+const isNodeJS = typeof process === "object" && process + "" === "[object process]" && !process.versions.nw && !process.versions.electron;
 exports.isNodeJS = isNodeJS;
 
 /***/ }),
@@ -7567,7 +7584,7 @@ var _util = __w_pdfjs_require__(1);
 
 class PDFDataTransportStream {
   constructor(params, pdfDataRangeTransport) {
-    (0, _util.assert)(pdfDataRangeTransport);
+    (0, _util.assert)(pdfDataRangeTransport, 'PDFDataTransportStream - missing required "pdfDataRangeTransport" argument.');
     this._queuedChunks = [];
     this._progressiveDone = params.progressiveDone || false;
     const initialData = params.initialData;
@@ -7632,7 +7649,7 @@ class PDFDataTransportStream {
         return true;
       });
 
-      (0, _util.assert)(found);
+      (0, _util.assert)(found, "_onReceiveData - no `PDFDataTransportStreamRangeReader` instance found.");
     }
   }
 
@@ -7678,7 +7695,7 @@ class PDFDataTransportStream {
   }
 
   getFullReader() {
-    (0, _util.assert)(!this._fullRequestReader);
+    (0, _util.assert)(!this._fullRequestReader, "PDFDataTransportStream.getFullReader can only be called once.");
     const queuedChunks = this._queuedChunks;
     this._queuedChunks = null;
     return new PDFDataTransportStreamReader(this, queuedChunks, this._progressiveDone);
@@ -9381,6 +9398,7 @@ class TextWidgetAnnotationElement extends WidgetAnnotationElement {
       }
 
       element.disabled = this.data.readOnly;
+      element.name = this.data.fieldName;
 
       if (this.data.maxLen !== null) {
         element.maxLength = this.data.maxLen;
@@ -9450,6 +9468,7 @@ class CheckboxWidgetAnnotationElement extends WidgetAnnotationElement {
     const element = document.createElement("input");
     element.disabled = this.data.readOnly;
     element.type = "checkbox";
+    element.name = this.data.fieldName;
 
     if (this.data.fieldValue && this.data.fieldValue !== "Off") {
       element.setAttribute("checked", true);
@@ -9501,6 +9520,7 @@ class ChoiceWidgetAnnotationElement extends WidgetAnnotationElement {
     this.container.className = "choiceWidgetAnnotation";
     const selectElement = document.createElement("select");
     selectElement.disabled = this.data.readOnly;
+    selectElement.name = this.data.fieldName;
 
     if (!this.data.combo) {
       selectElement.size = this.data.options.length;

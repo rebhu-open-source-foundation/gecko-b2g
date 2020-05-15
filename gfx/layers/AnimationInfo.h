@@ -11,13 +11,24 @@
 #include "nsDisplayItemTypes.h"
 #include "mozilla/Array.h"
 #include "mozilla/UniquePtr.h"
+#include "mozilla/FunctionRef.h"
 #include "mozilla/layers/LayersMessages.h"  // for TransformData
 
 struct RawServoAnimationValue;
 class nsIContent;
 class nsIFrame;
+class nsDisplayListBuilder;
+class nsDisplayItem;
 
 namespace mozilla {
+
+class EffectSet;
+struct AnimationProperty;
+
+namespace dom {
+class Animation;
+}  // namespace dom
+
 namespace gfx {
 class Path;
 }  // namespace gfx
@@ -30,6 +41,7 @@ class Layer;
 class LayerManager;
 struct CompositorAnimationData;
 struct PropertyAnimationGroup;
+enum class LayersBackend : int8_t;
 
 class AnimationInfo final {
   typedef nsTArray<Animation> AnimationArray;
@@ -91,7 +103,7 @@ class AnimationInfo final {
   using CompositorAnimatableDisplayItemTypes =
       Array<DisplayItemType,
             nsCSSPropertyIDSet::CompositorAnimatableDisplayItemCount()>;
-  using AnimationGenerationCallback = std::function<bool(
+  using AnimationGenerationCallback = FunctionRef<bool(
       const Maybe<uint64_t>& aGeneration, DisplayItemType aDisplayItemType)>;
   // Enumerates animation generations on |aFrame| for the given display item
   // types and calls |aCallback| with the animation generation.
@@ -100,7 +112,33 @@ class AnimationInfo final {
   static void EnumerateGenerationOnFrame(
       const nsIFrame* aFrame, const nsIContent* aContent,
       const CompositorAnimatableDisplayItemTypes& aDisplayItemTypes,
-      const AnimationGenerationCallback& aCallback);
+      AnimationGenerationCallback);
+
+  void AddAnimationsForDisplayItem(nsIFrame* aFrame,
+                                   nsDisplayListBuilder* aBuilder,
+                                   nsDisplayItem* aItem, DisplayItemType aType,
+                                   LayersBackend aLayersBackend);
+
+ private:
+  enum class Send {
+    NextTransaction,
+    Immediate,
+  };
+  void AddAnimationForProperty(nsIFrame* aFrame,
+                               const AnimationProperty& aProperty,
+                               dom::Animation* aAnimation,
+                               const Maybe<TransformData>& aTransformData,
+                               Send aSendFlag);
+
+  bool AddAnimationsForProperty(
+      nsIFrame* aFrame, const EffectSet* aEffects,
+      const nsTArray<RefPtr<dom::Animation>>& aCompositorAnimations,
+      const Maybe<TransformData>& aTransformData, nsCSSPropertyID aProperty,
+      Send aSendFlag);
+
+  void AddNonAnimatingTransformLikePropertiesStyles(
+      const nsCSSPropertyIDSet& aNonAnimatingProperties, nsIFrame* aFrame,
+      Send aSendFlag);
 
  protected:
   // mAnimations (and mPendingAnimations) are only set on the main thread.

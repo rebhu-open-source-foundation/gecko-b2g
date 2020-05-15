@@ -406,38 +406,6 @@ void WebRenderAPI::SendTransaction(TransactionBuilder& aTxn) {
   wr_api_send_transaction(mDocHandle, aTxn.Raw(), aTxn.UseSceneBuilderThread());
 }
 
-/* static */
-void WebRenderAPI::SendTransactions(
-    const RenderRootArray<RefPtr<WebRenderAPI>>& aApis,
-    RenderRootArray<TransactionBuilder*>& aTxns) {
-  if (!aApis[RenderRoot::Default]) {
-    return;
-  }
-
-  AutoTArray<DocumentHandle*, kRenderRootCount> documentHandles;
-  AutoTArray<Transaction*, kRenderRootCount> txns;
-  Maybe<bool> useSceneBuilderThread;
-  for (auto& api : aApis) {
-    if (!api) {
-      continue;
-    }
-    auto& txn = aTxns[api->GetRenderRoot()];
-    if (txn) {
-      documentHandles.AppendElement(api->mDocHandle);
-      txns.AppendElement(txn->Raw());
-      if (useSceneBuilderThread.isSome()) {
-        MOZ_ASSERT(txn->UseSceneBuilderThread() == *useSceneBuilderThread);
-      } else {
-        useSceneBuilderThread.emplace(txn->UseSceneBuilderThread());
-      }
-    }
-  }
-  if (!txns.IsEmpty()) {
-    wr_api_send_transactions(documentHandles.Elements(), txns.Elements(),
-                             txns.Length(), *useSceneBuilderThread);
-  }
-}
-
 enum SideBitsPacked {
   eSideBitsPackedTop = 0x1000,
   eSideBitsPackedRight = 0x2000,
@@ -1054,6 +1022,25 @@ wr::WrClipId DisplayListBuilder::DefineImageMaskClip(
   return clipId;
 }
 
+wr::WrClipId DisplayListBuilder::DefineRoundedRectClip(
+    const wr::ComplexClipRegion& aComplex) {
+  CancelGroup();
+
+  WrClipId clipId = wr_dp_define_rounded_rect_clip_with_parent_clip_chain(
+      mWrState, &mCurrentSpaceAndClipChain, aComplex);
+
+  return clipId;
+}
+
+wr::WrClipId DisplayListBuilder::DefineRectClip(wr::LayoutRect aClipRect) {
+  CancelGroup();
+
+  WrClipId clipId = wr_dp_define_rect_clip_with_parent_clip_chain(
+      mWrState, &mCurrentSpaceAndClipChain, aClipRect);
+
+  return clipId;
+}
+
 wr::WrSpatialId DisplayListBuilder::DefineStickyFrame(
     const wr::LayoutRect& aContentRect, const float* aTopMargin,
     const float* aRightMargin, const float* aBottomMargin,
@@ -1187,6 +1174,14 @@ void DisplayListBuilder::PushClearRectWithComplexRegion(
   WRDL_LOG("PushClearRectWithComplexRegion b=%s c=%s\n", mWrState,
            Stringify(aBounds).c_str(), Stringify(clip).c_str());
 
+  // TODO(gw): This doesn't pass the complex region through to WR, as clear
+  //           rects with complex clips are currently broken. This is the
+  //           only place they are used, and they are used only for a single
+  //           case (close buttons on Win7 machines). We might be able to
+  //           get away with not supporting this at all in WR, using the
+  //           non-clipped clear rect is an improvement for now, at least.
+  //           See https://bugzilla.mozilla.org/show_bug.cgi?id=1636683 for
+  //           more information.
   AutoTArray<wr::ComplexClipRegion, 1> clips;
   auto clipId = DefineClip(Nothing(), aBounds, &clips);
   auto spaceAndClip = WrSpaceAndClip{mCurrentSpaceAndClipChain.space, clipId};
@@ -1438,7 +1433,7 @@ void DisplayListBuilder::SuspendClipLeafMerging() {
     mSuspendedClipChainLeaf = mClipChainLeaf;
     mSuspendedSpaceAndClipChain = Some(mCurrentSpaceAndClipChain);
 
-    auto clipId = DefineClip(Nothing(), *mClipChainLeaf);
+    auto clipId = DefineRectClip(*mClipChainLeaf);
     auto clipChainId = DefineClipChain({clipId}, true);
 
     mCurrentSpaceAndClipChain.clip_chain = clipChainId.id;

@@ -95,7 +95,7 @@ async function createWindowlessBrowser({ isPrivate = false } = {}) {
 
   const system = Services.scriptSecurityManager.getSystemPrincipal();
   chromeShell.createAboutBlankContentViewer(system, system);
-  chromeShell.useGlobalHistory = false;
+  windowlessBrowser.browsingContext.useGlobalHistory = false;
   chromeShell.loadURI("chrome://extensions/content/dummy.xhtml", {
     triggeringPrincipal: system,
   });
@@ -614,6 +614,8 @@ class SpecialPowersParent extends JSWindowActorParent {
    **/
   // eslint-disable-next-line complexity
   receiveMessage(aMessage) {
+    ChromeUtils.addProfilerMarker("SpecialPowers", undefined, aMessage.name);
+
     // We explicitly return values in the below code so that this function
     // doesn't trigger a flurry of warnings about "does not always return
     // a value".
@@ -625,7 +627,17 @@ class SpecialPowersParent extends JSWindowActorParent {
         return undefined;
 
       case "SpecialPowers.Quit":
-        Services.startup.quit(Ci.nsIAppStartup.eForceQuit);
+        if (
+          !AppConstants.RELEASE_OR_BETA &&
+          !AppConstants.DEBUG &&
+          !AppConstants.MOZ_CODE_COVERAGE &&
+          !AppConstants.ASAN &&
+          !AppConstants.TSAN
+        ) {
+          Cu.exitIfInAutomation();
+        } else {
+          Services.startup.quit(Ci.nsIAppStartup.eForceQuit);
+        }
         return undefined;
 
       case "SpecialPowers.Focus":

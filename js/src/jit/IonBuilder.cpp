@@ -2355,9 +2355,6 @@ AbortReasonOr<Ok> IonBuilder::inspectOpcode(JSOp op, bool* restarted) {
     case JSOp::CheckIsObj:
       return jsop_checkisobj(GET_UINT8(pc));
 
-    case JSOp::CheckIsCallable:
-      return jsop_checkiscallable(GET_UINT8(pc));
-
     case JSOp::CheckObjCoercible:
       return jsop_checkobjcoercible();
 
@@ -3414,8 +3411,9 @@ AbortReasonOr<Ok> IonBuilder::visitTableSwitch() {
 void IonBuilder::pushConstant(const Value& v) { current->push(constant(v)); }
 
 static inline bool SimpleBitOpOperand(MDefinition* op) {
-  return !op->mightBeType(MIRType::Object) &&
-         !op->mightBeType(MIRType::Symbol) && !op->mightBeType(MIRType::BigInt);
+  return op->definitelyType({MIRType::Undefined, MIRType::Null,
+                             MIRType::Boolean, MIRType::Int32, MIRType::Double,
+                             MIRType::Float32, MIRType::String});
 }
 
 AbortReasonOr<Ok> IonBuilder::bitnotTrySpecialized(bool* emitted,
@@ -3565,14 +3563,16 @@ AbortReasonOr<Ok> IonBuilder::binaryArithTryConcat(bool* emitted, JSOp op,
 
   // The non-string input (if present) should be atleast easily coercible to
   // string.
+  std::initializer_list<MIRType> coercibleToString = {
+      MIRType::Undefined, MIRType::Null,    MIRType::Boolean, MIRType::Int32,
+      MIRType::Double,    MIRType::Float32, MIRType::String,  MIRType::BigInt,
+  };
   if (right->type() != MIRType::String &&
-      (right->mightBeType(MIRType::Symbol) ||
-       right->mightBeType(MIRType::Object) || right->mightBeMagicType())) {
+      !right->definitelyType(coercibleToString)) {
     return Ok();
   }
   if (left->type() != MIRType::String &&
-      (left->mightBeType(MIRType::Symbol) ||
-       left->mightBeType(MIRType::Object) || left->mightBeMagicType())) {
+      !left->definitelyType(coercibleToString)) {
     return Ok();
   }
 
@@ -6552,10 +6552,9 @@ AbortReasonOr<Ok> IonBuilder::compareTryCharacter(bool* emitted, JSOp op,
 static bool ObjectOrSimplePrimitive(MDefinition* op) {
   // Return true if op is either undefined/null/boolean/int32/symbol or an
   // object.
-  return !op->mightBeType(MIRType::String) &&
-         !op->mightBeType(MIRType::BigInt) &&
-         !op->mightBeType(MIRType::Double) &&
-         !op->mightBeType(MIRType::Float32) && !op->mightBeMagicType();
+  return op->definitelyType({MIRType::Undefined, MIRType::Null,
+                             MIRType::Boolean, MIRType::Int32, MIRType::Symbol,
+                             MIRType::Object});
 }
 
 AbortReasonOr<Ok> IonBuilder::compareTrySpecialized(bool* emitted, JSOp op,
@@ -9175,6 +9174,12 @@ AbortReasonOr<Ok> IonBuilder::jsop_getelem_typed(MDefinition* obj,
           barrier = BarrierKind::NoBarrier;
         }
         break;
+      case Scalar::BigInt64:
+      case Scalar::BigUint64:
+        if (types->hasType(TypeSet::BigIntType())) {
+          barrier = BarrierKind::NoBarrier;
+        }
+        break;
       default:
         MOZ_CRASH("Unknown typed array type");
     }
@@ -9639,12 +9644,6 @@ AbortReasonOr<Ok> IonBuilder::jsop_arguments() {
 }
 
 AbortReasonOr<Ok> IonBuilder::jsop_newtarget() {
-  if (!info().funMaybeLazy()) {
-    MOZ_ASSERT(!info().script()->isForEval());
-    pushConstant(NullValue());
-    return Ok();
-  }
-
   MOZ_ASSERT(info().funMaybeLazy());
 
   if (info().funMaybeLazy()->isArrow()) {
@@ -9760,14 +9759,6 @@ AbortReasonOr<Ok> IonBuilder::jsop_checkisobj(uint8_t kind) {
   }
 
   MCheckIsObj* check = MCheckIsObj::New(alloc(), current->pop(), kind);
-  current->add(check);
-  current->push(check);
-  return Ok();
-}
-
-AbortReasonOr<Ok> IonBuilder::jsop_checkiscallable(uint8_t kind) {
-  MCheckIsCallable* check =
-      MCheckIsCallable::New(alloc(), current->pop(), kind);
   current->add(check);
   current->push(check);
   return Ok();

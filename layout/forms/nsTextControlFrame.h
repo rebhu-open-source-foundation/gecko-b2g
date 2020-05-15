@@ -257,23 +257,6 @@ class nsTextControlFrame : public nsContainerFrame,
     nsTextControlFrame* mFrame;
   };
 
-  class ScrollOnFocusEvent;
-  friend class ScrollOnFocusEvent;
-
-  class ScrollOnFocusEvent : public mozilla::Runnable {
-   public:
-    explicit ScrollOnFocusEvent(nsTextControlFrame* aFrame)
-        : mozilla::Runnable("nsTextControlFrame::ScrollOnFocusEvent"),
-          mFrame(aFrame) {}
-
-    NS_DECL_NSIRUNNABLE
-
-    void Revoke() { mFrame = nullptr; }
-
-   private:
-    nsTextControlFrame* mFrame;
-  };
-
   nsresult OffsetToDOMPoint(uint32_t aOffset, nsINode** aResult,
                             uint32_t* aPosition);
 
@@ -307,7 +290,7 @@ class nsTextControlFrame : public nsContainerFrame,
                                          mozilla::WritingMode aWM,
                                          float aFontSizeInflation) const;
 
-  nsresult ScrollSelectionIntoView() override;
+  void ScrollSelectionIntoViewAsync();
 
  private:
   // helper methods
@@ -376,8 +359,6 @@ class nsTextControlFrame : public nsContainerFrame,
   bool mInEditorInitialization;
   friend class EditorInitializerEntryTracker;
 #endif
-
-  nsRevocableEventPtr<ScrollOnFocusEvent> mScrollEvent;
 };
 
 #endif

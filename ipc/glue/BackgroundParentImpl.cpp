@@ -57,6 +57,7 @@
 #include "mozilla/ipc/PParentToChildStreamParent.h"
 #include "mozilla/layout/VsyncParent.h"
 #include "mozilla/net/HttpBackgroundChannelParent.h"
+#include "mozilla/net/BackgroundDataBridgeParent.h"
 #include "mozilla/dom/network/UDPSocketParent.h"
 #include "mozilla/dom/WebAuthnTransactionParent.h"
 #include "mozilla/Preferences.h"
@@ -136,6 +137,17 @@ void BackgroundParentImpl::ActorDestroy(ActorDestroyReason aWhy) {
   AssertIsOnBackgroundThread();
 }
 
+already_AddRefed<net::PBackgroundDataBridgeParent>
+BackgroundParentImpl::AllocPBackgroundDataBridgeParent(
+    const uint64_t& aChannelID) {
+  MOZ_ASSERT(XRE_IsSocketProcess(), "Should be in socket process");
+  AssertIsOnBackgroundThread();
+
+  RefPtr<net::BackgroundDataBridgeParent> actor =
+      new net::BackgroundDataBridgeParent(aChannelID);
+  return actor.forget();
+}
+
 BackgroundParentImpl::PBackgroundTestParent*
 BackgroundParentImpl::AllocPBackgroundTestParent(const nsCString& aTestArg) {
   AssertIsInMainOrSocketProcess();
@@ -167,7 +179,8 @@ bool BackgroundParentImpl::DeallocPBackgroundTestParent(
 }
 
 auto BackgroundParentImpl::AllocPBackgroundIDBFactoryParent(
-    const LoggingInfo& aLoggingInfo) -> PBackgroundIDBFactoryParent* {
+    const LoggingInfo& aLoggingInfo)
+    -> already_AddRefed<PBackgroundIDBFactoryParent> {
   using mozilla::dom::indexedDB::AllocPBackgroundIDBFactoryParent;
 
   AssertIsInMainOrSocketProcess();
@@ -189,17 +202,6 @@ BackgroundParentImpl::RecvPBackgroundIDBFactoryConstructor(
     return IPC_FAIL_NO_REASON(this);
   }
   return IPC_OK();
-}
-
-bool BackgroundParentImpl::DeallocPBackgroundIDBFactoryParent(
-    PBackgroundIDBFactoryParent* aActor) {
-  using mozilla::dom::indexedDB::DeallocPBackgroundIDBFactoryParent;
-
-  AssertIsInMainOrSocketProcess();
-  AssertIsOnBackgroundThread();
-  MOZ_ASSERT(aActor);
-
-  return DeallocPBackgroundIDBFactoryParent(aActor);
 }
 
 auto BackgroundParentImpl::AllocPBackgroundIndexedDBUtilsParent()

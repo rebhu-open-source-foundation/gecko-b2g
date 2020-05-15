@@ -165,7 +165,7 @@ nsWindow::DoDraw(void)
 void
 nsWindow::ConfigureAPZControllerThread()
 {
-  APZThreadUtils::SetControllerThread(CompositorThreadHolder::Loop());
+  APZThreadUtils::SetControllerThread(CompositorThread());
 }
 
 void

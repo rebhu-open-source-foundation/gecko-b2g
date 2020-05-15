@@ -6,17 +6,6 @@
 
 var EXPORTED_SYMBOLS = ["MessagePort", "MessageListener"];
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.defineModuleGetter(
-  this,
-  "AsyncPrefs",
-  "resource://gre/modules/AsyncPrefs.jsm"
-);
-ChromeUtils.defineModuleGetter(
-  this,
-  "PrivateBrowsingUtils",
-  "resource://gre/modules/PrivateBrowsingUtils.jsm"
-);
 ChromeUtils.defineModuleGetter(
   this,
   "PromiseUtils",
@@ -37,51 +26,6 @@ ChromeUtils.defineModuleGetter(
  */
 let RPMAccessManager = {
   accessMap: {
-    "about:privatebrowsing": {
-      // "sendAsyncMessage": handled within AboutPrivateBrowsingHandler.jsm
-      getFormatURLPref: ["app.support.baseURL"],
-      isWindowPrivate: ["yes"],
-    },
-    "about:protections": {
-      setBoolPref: [
-        "browser.contentblocking.report.hide_lockwise_app",
-        "browser.contentblocking.report.show_mobile_app",
-      ],
-      getBoolPref: [
-        "browser.contentblocking.report.lockwise.enabled",
-        "browser.contentblocking.report.monitor.enabled",
-        "privacy.socialtracking.block_cookies.enabled",
-        "browser.contentblocking.report.proxy.enabled",
-        "privacy.trackingprotection.cryptomining.enabled",
-        "privacy.trackingprotection.fingerprinting.enabled",
-        "privacy.trackingprotection.enabled",
-        "privacy.trackingprotection.socialtracking.enabled",
-        "browser.contentblocking.report.hide_lockwise_app",
-        "browser.contentblocking.report.show_mobile_app",
-      ],
-      getStringPref: [
-        "browser.contentblocking.category",
-        "browser.contentblocking.report.monitor.url",
-        "browser.contentblocking.report.monitor.sign_in_url",
-        "browser.contentblocking.report.manage_devices.url",
-        "browser.contentblocking.report.proxy_extension.url",
-        "browser.contentblocking.report.lockwise.mobile-android.url",
-        "browser.contentblocking.report.lockwise.mobile-ios.url",
-        "browser.contentblocking.report.mobile-ios.url",
-        "browser.contentblocking.report.mobile-android.url",
-      ],
-      getIntPref: ["network.cookie.cookieBehavior"],
-      getFormatURLPref: [
-        "browser.contentblocking.report.monitor.how_it_works.url",
-        "browser.contentblocking.report.lockwise.how_it_works.url",
-        "browser.contentblocking.report.social.url",
-        "browser.contentblocking.report.cookie.url",
-        "browser.contentblocking.report.tracker.url",
-        "browser.contentblocking.report.fingerprinter.url",
-        "browser.contentblocking.report.cryptominer.url",
-      ],
-      recordTelemetryEvent: ["yes"],
-    },
     "about:newinstall": {
       getUpdateChannel: ["yes"],
       getFxAccountsEndpoint: ["yes"],
@@ -427,68 +371,6 @@ class MessagePort {
     );
   }
 
-  getIntPref(aPref, defaultValue) {
-    let doc = this.window.document;
-    if (!RPMAccessManager.checkAllowAccess(doc, "getIntPref", aPref)) {
-      throw new Error("RPMAccessManager does not allow access to getIntPref");
-    }
-    // Only call with a default value if it's defined, to be able to throw
-    // errors for non-existent prefs.
-    if (defaultValue !== undefined) {
-      return Services.prefs.getIntPref(aPref, defaultValue);
-    }
-    return Services.prefs.getIntPref(aPref);
-  }
-
-  getStringPref(aPref) {
-    let doc = this.window.document;
-    if (!RPMAccessManager.checkAllowAccess(doc, "getStringPref", aPref)) {
-      throw new Error(
-        "RPMAccessManager does not allow access to getStringPref"
-      );
-    }
-    return Services.prefs.getStringPref(aPref);
-  }
-
-  getBoolPref(aPref, defaultValue) {
-    let doc = this.window.document;
-    if (!RPMAccessManager.checkAllowAccess(doc, "getBoolPref", aPref)) {
-      throw new Error("RPMAccessManager does not allow access to getBoolPref");
-    }
-    // Only call with a default value if it's defined, to be able to throw
-    // errors for non-existent prefs.
-    if (defaultValue !== undefined) {
-      return Services.prefs.getBoolPref(aPref, defaultValue);
-    }
-    return Services.prefs.getBoolPref(aPref);
-  }
-
-  setBoolPref(aPref, aVal) {
-    return this.wrapPromise(AsyncPrefs.set(aPref, aVal));
-  }
-
-  getFormatURLPref(aFormatURL) {
-    let doc = this.window.document;
-    if (
-      !RPMAccessManager.checkAllowAccess(doc, "getFormatURLPref", aFormatURL)
-    ) {
-      throw new Error(
-        "RPMAccessManager does not allow access to getFormatURLPref"
-      );
-    }
-    return Services.urlFormatter.formatURLPref(aFormatURL);
-  }
-
-  isWindowPrivate() {
-    let doc = this.window.document;
-    if (!RPMAccessManager.checkAllowAccess(doc, "isWindowPrivate", "yes")) {
-      throw new Error(
-        "RPMAccessManager does not allow access to isWindowPrivate"
-      );
-    }
-    return PrivateBrowsingUtils.isContentWindowPrivate(this.window);
-  }
-
   getUpdateChannel() {
     let doc = this.window.document;
     if (!RPMAccessManager.checkAllowAccess(doc, "getUpdateChannel", "yes")) {
@@ -510,23 +392,5 @@ class MessagePort {
     }
 
     return this.sendRequest("FxAccountsEndpoint", aEntrypoint);
-  }
-
-  recordTelemetryEvent(category, event, object, value, extra) {
-    let doc = this.window.document;
-    if (
-      !RPMAccessManager.checkAllowAccess(doc, "recordTelemetryEvent", "yes")
-    ) {
-      throw new Error(
-        "RPMAccessManager does not allow access to recordTelemetryEvent"
-      );
-    }
-    return Services.telemetry.recordEvent(
-      category,
-      event,
-      object,
-      value,
-      extra
-    );
   }
 }

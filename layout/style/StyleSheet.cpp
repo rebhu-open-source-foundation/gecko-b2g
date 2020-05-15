@@ -34,6 +34,7 @@ using namespace dom;
 StyleSheet::StyleSheet(css::SheetParsingMode aParsingMode, CORSMode aCORSMode,
                        const dom::SRIMetadata& aIntegrity)
     : mParentSheet(nullptr),
+      mRelevantGlobal(nullptr),
       mConstructorDocument(nullptr),
       mDocumentOrShadowRoot(nullptr),
       mOwningNode(nullptr),
@@ -50,6 +51,7 @@ StyleSheet::StyleSheet(const StyleSheet& aCopy, StyleSheet* aParentSheetToUse,
                        dom::Document* aConstructorDocToUse,
                        nsINode* aOwningNodeToUse)
     : mParentSheet(aParentSheetToUse),
+      mRelevantGlobal(nullptr),
       mConstructorDocument(aConstructorDocToUse),
       mTitle(aCopy.mTitle),
       mDocumentOrShadowRoot(aDocOrShadowRootToUse),
@@ -247,6 +249,7 @@ NS_IMPL_CYCLE_COLLECTION_CLASS(StyleSheet)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(StyleSheet)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMedia)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mRuleList)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mRelevantGlobal)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mConstructorDocument)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mReplacePromise)
   tmp->TraverseInner(cb);
@@ -256,6 +259,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(StyleSheet)
   tmp->DropMedia();
   tmp->UnlinkInner();
   tmp->DropRuleList();
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mRelevantGlobal)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mConstructorDocument)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mReplacePromise)
   NS_IMPL_CYCLE_COLLECTION_UNLINK_PRESERVED_WRAPPER
@@ -660,13 +664,12 @@ void StyleSheet::MaybeRejectReplacePromise() {
 already_AddRefed<dom::Promise> StyleSheet::Replace(const nsACString& aText,
                                                    ErrorResult& aRv) {
   nsIGlobalObject* globalObject = nullptr;
-  if (Document* doc = GetAssociatedDocument()) {
+  const StyleSheet& outer = OutermostSheet();
+  if (outer.mRelevantGlobal) {
+    globalObject = outer.mRelevantGlobal;
+  } else if (Document* doc = outer.GetAssociatedDocument()) {
     globalObject = doc->GetScopeObject();
   }
-
-  // TODO(nordzilla, bug1632686) We need to find a way to get the relevant
-  // global object if a non-constructed sheet has been disassocited from
-  // its document.
 
   RefPtr<dom::Promise> promise = dom::Promise::Create(globalObject, aRv);
   if (!promise) {
@@ -955,8 +958,14 @@ void StyleSheet::SetAssociatedDocumentOrShadowRoot(
   MOZ_ASSERT(!IsConstructed());
   MOZ_ASSERT(!mParentSheet || !aDocOrShadowRoot,
              "Shouldn't be set on child sheets");
+
   // not ref counted
   mDocumentOrShadowRoot = aDocOrShadowRoot;
+
+  if (Document* doc = GetAssociatedDocument()) {
+    MOZ_ASSERT(!mRelevantGlobal);
+    mRelevantGlobal = doc->GetScopeObject();
+  }
 }
 
 void StyleSheet::AppendStyleSheet(StyleSheet& aSheet) {
@@ -1405,8 +1414,8 @@ void StyleSheet::SetSharedContents(const ServoCssRules* aSharedRules) {
   // which we don't have.
 }
 
-const ServoCssRules* StyleSheet::ToShared(
-    RawServoSharedMemoryBuilder* aBuilder) {
+const ServoCssRules* StyleSheet::ToShared(RawServoSharedMemoryBuilder* aBuilder,
+                                          nsCString& aErrorMessage) {
   // Assert some things we assume when creating a StyleSheet using shared
   // memory.
   MOZ_ASSERT(GetReferrerInfo()->ReferrerPolicy() == ReferrerPolicy::_empty);
@@ -1416,7 +1425,18 @@ const ServoCssRules* StyleSheet::ToShared(
   MOZ_ASSERT(Inner().mIntegrity.IsEmpty());
   MOZ_ASSERT(Principal()->IsSystemPrincipal());
 
-  return Servo_SharedMemoryBuilder_AddStylesheet(aBuilder, Inner().mContents);
+  const ServoCssRules* rules = Servo_SharedMemoryBuilder_AddStylesheet(
+      aBuilder, Inner().mContents, &aErrorMessage);
+
+#ifdef DEBUG
+  if (!rules) {
+    // Print the ToShmem error message so that developers know what to fix.
+    printf_stderr("%s\n", aErrorMessage.get());
+    MOZ_CRASH("UA style sheet contents failed shared memory requirements");
+  }
+#endif
+
+  return rules;
 }
 
 bool StyleSheet::IsReadOnly() const {

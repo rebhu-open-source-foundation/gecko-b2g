@@ -220,8 +220,7 @@ class RenderThread final {
   bool TooManyPendingFrames(wr::WindowId aWindowId);
   /// Can be called from any thread.
   void IncPendingFrameCount(wr::WindowId aWindowId, const VsyncId& aStartId,
-                            const TimeStamp& aStartTime,
-                            uint8_t aDocFrameCount);
+                            const TimeStamp& aStartTime);
   /// Can be called from any thread.
   void DecPendingFrameBuildCount(wr::WindowId aWindowId);
 
@@ -267,6 +266,9 @@ class RenderThread final {
   /// Can only be called from the render thread.
   void NotifyAllAndroidSurfaceTexturesDetatched();
 
+  /// Can only be called from the render thread.
+  void HandlePrepareForUse();
+
   size_t RendererCount();
 
   void SetCompositionRecorderForWindow(
@@ -283,7 +285,6 @@ class RenderThread final {
  private:
   explicit RenderThread(base::Thread* aThread);
 
-  void HandlePrepareForUse();
   void DeferredRenderTextureHostDestroy();
   void ShutDownTask(layers::SynchronousTask* aTask);
   void InitDeviceTask();
@@ -314,8 +315,6 @@ class RenderThread final {
   struct PendingFrameInfo {
     TimeStamp mStartTime;
     VsyncId mStartId;
-    uint8_t mDocFramesSeen = 0;
-    uint8_t mDocFramesTotal = 0;
     bool mFrameNeedsRender = false;
   };
 

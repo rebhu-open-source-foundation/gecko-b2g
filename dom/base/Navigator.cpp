@@ -778,7 +778,7 @@ bool Navigator::Vibrate(const nsTArray<uint32_t>& aPattern) {
     return false;
   }
 
-  nsTArray<uint32_t> pattern(aPattern);
+  nsTArray<uint32_t> pattern(aPattern.Clone());
 
   if (pattern.Length() > StaticPrefs::dom_vibrator_max_vibrate_list_len()) {
     pattern.SetLength(StaticPrefs::dom_vibrator_max_vibrate_list_len());
@@ -1322,8 +1322,7 @@ bool Navigator::SendBeaconInternal(const nsAString& aUrl,
     return false;
   }
 
-  nsCOMPtr<nsIReferrerInfo> referrerInfo = new ReferrerInfo();
-  referrerInfo->InitWithDocument(doc);
+  auto referrerInfo = MakeRefPtr<ReferrerInfo>(*doc);
   rv = httpChannel->SetReferrerInfoWithoutClone(referrerInfo);
   MOZ_ASSERT(NS_SUCCEEDED(rv));
 

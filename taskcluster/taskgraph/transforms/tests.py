@@ -207,6 +207,47 @@ TEST_VARIANTS = {
 }
 
 
+CHUNK_SUITES_BLACKLIST = (
+    'awsy',
+    'cppunittest',
+    'crashtest',
+    'crashtest-qr',
+    'firefox-ui-functional-local',
+    'firefox-ui-functional-remote',
+    'geckoview-junit',
+    'gtest',
+    'jittest',
+    'jsreftest',
+    'marionette',
+    'mochitest-browser-chrome-screenshots',
+    'mochitest-browser-chrome-thunderbird',
+    'mochitest-valgrind-plain',
+    'mochitest-webgl1-core',
+    'mochitest-webgl1-ext',
+    'mochitest-webgl2-core',
+    'mochitest-webgl2-ext',
+    'raptor',
+    'reftest',
+    'reftest-qr',
+    'reftest-gpu',
+    'reftest-no-accel',
+    'talos',
+    'telemetry-tests-client',
+    'test-coverage',
+    'test-coverage-wpt',
+    'test-verify',
+    'test-verify-gpu',
+    'test-verify-wpt',
+    'web-platform-tests',
+    'web-platform-tests-backlog',
+    'web-platform-tests-crashtest',
+    'web-platform-tests-reftest',
+    'web-platform-tests-reftest-backlog',
+    'web-platform-tests-wdspec',
+)
+"""These suites will be chunked at test runtime rather than here in the taskgraph."""
+
+
 logger = logging.getLogger(__name__)
 
 transforms = TransformSequence()
@@ -268,6 +309,7 @@ test_description_schema = Schema({
     # that are built.
     Optional('run-on-projects'): optionally_keyed_by(
         'test-platform',
+        'test-name',
         Any([text_type], 'built-projects')),
 
     # Same as `run-on-projects` except it only applies to Fission tasks. Fission
@@ -954,7 +996,7 @@ def setup_browsertime(config, tasks):
             continue
 
         # This is appropriate as the browsertime task variants mature.
-        task['tier'] = max(task['tier'], 2)
+        task['tier'] = max(task['tier'], 1)
 
         ts = {
             'by-test-platform': {
@@ -1106,6 +1148,15 @@ def disable_fennec_e10s(config, tasks):
         if get_mobile_project(task) == 'fennec':
             # Fennec is non-e10s
             task['e10s'] = False
+        yield task
+
+
+@transforms.add
+def disable_wpt_timeouts_on_autoland(config, tasks):
+    """do not run web-platform-tests that are expected TIMEOUT on autoland"""
+    for task in tasks:
+        if 'web-platform-tests' in task['test-name'] and config.params['project'] == 'autoland':
+            task['mozharness'].setdefault('extra-options', []).append('--skip-timeout')
         yield task
 
 
@@ -1279,56 +1330,11 @@ def split_e10s(config, tasks):
             yield task
 
 
-CHUNK_SUITES_BLACKLIST = (
-    'awsy',
-    'cppunittest',
-    'crashtest',
-    'crashtest-qr',
-    'firefox-ui-functional-local',
-    'firefox-ui-functional-remote',
-    'geckoview-junit',
-    'gtest',
-    'jittest',
-    'jsreftest',
-    'marionette',
-    'mochitest-browser-chrome-screenshots',
-    'mochitest-browser-chrome-thunderbird',
-    'mochitest-valgrind-plain',
-    'mochitest-webgl1-core',
-    'mochitest-webgl1-ext',
-    'mochitest-webgl2-core',
-    'mochitest-webgl2-ext',
-    'raptor',
-    'reftest',
-    'reftest-qr',
-    'reftest-gpu',
-    'reftest-no-accel',
-    'talos',
-    'telemetry-tests-client',
-    'test-coverage',
-    'test-coverage-wpt',
-    'test-verify',
-    'test-verify-gpu',
-    'test-verify-wpt',
-    'web-platform-tests',
-    'web-platform-tests-backlog',
-    'web-platform-tests-crashtest',
-    'web-platform-tests-reftest',
-    'web-platform-tests-reftest-backlog',
-    'web-platform-tests-wdspec',
-)
-"""These suites will be chunked at test runtime rather than here in the taskgraph."""
-
-
 @transforms.add
-def split_chunks(config, tasks):
-    """Based on the 'chunks' key, split tests up into chunks by duplicating
-    them and assigning 'this-chunk' appropriately and updating the treeherder
-    symbol."""
-
+def set_test_verify_chunks(config, tasks):
+    """Set the number of chunks we use for test-verify."""
     for task in tasks:
-        if task['suite'].startswith('test-verify') or \
-           task['suite'].startswith('test-coverage'):
+        if any(task['suite'].startswith(s) for s in ('test-verify', 'test-coverage')):
             env = config.params.get('try_task_config', {}) or {}
             env = env.get('templates', {}).get('env', {})
             task['chunks'] = perfile_number_of_chunks(config.params.is_try(),
@@ -1345,17 +1351,40 @@ def split_chunks(config, tasks):
             if task['chunks'] > maximum_number_verify_chunks:
                 task['chunks'] = maximum_number_verify_chunks
 
-        chunked_manifests = None
-        if not taskgraph.fast and task['suite'] not in CHUNK_SUITES_BLACKLIST:
-            suite_definition = TEST_SUITES[task['suite']]
-            mozinfo = guess_mozinfo_from_task(task)
-            chunked_manifests = get_chunked_manifests(
-                suite_definition['build_flavor'],
-                suite_definition.get('kwargs', {}).get('subsuite', 'undefined'),
-                task['chunks'],
-                frozenset(mozinfo.items()),
-            )
+        yield task
 
+
+@transforms.add
+def set_chunked_manifests(config, tasks):
+    """Determine the set of test manifests that should run against this task
+    and divide them into chunks.
+    """
+
+    for task in tasks:
+        if taskgraph.fast or task['suite'] in CHUNK_SUITES_BLACKLIST:
+            yield task
+            continue
+
+        suite_definition = TEST_SUITES[task['suite']]
+        mozinfo = guess_mozinfo_from_task(task)
+        task['chunked-manifests'] = get_chunked_manifests(
+            suite_definition['build_flavor'],
+            suite_definition.get('kwargs', {}).get('subsuite', 'undefined'),
+            task['chunks'],
+            frozenset(mozinfo.items()),
+        )
+        yield task
+
+
+@transforms.add
+def split_chunks(config, tasks):
+    """Based on the 'chunks' key, split tests up into chunks by duplicating
+    them and assigning 'this-chunk' appropriately and updating the treeherder
+    symbol.
+    """
+
+    for task in tasks:
+        chunked_manifests = task.pop('chunked-manifests', None)
         for i in range(task['chunks']):
             this_chunk = i + 1
 
@@ -1506,7 +1535,7 @@ def set_worker_type(config, tasks):
             else:
                 task['worker-type'] = 't-bitbar-gw-perf-p2'
         elif test_platform.startswith('android-em-7.0-x86'):
-            task['worker-type'] = 'terraform-packet/gecko-t-linux'
+            task['worker-type'] = 't-linux-metal'
         elif test_platform.startswith('linux') or test_platform.startswith('android'):
             if task.get('suite', '') in ['talos', 'raptor'] and \
                  not task['build-platform'].startswith('linux64-ccov'):

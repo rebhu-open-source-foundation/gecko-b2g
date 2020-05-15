@@ -11,7 +11,6 @@
 #include "mozilla/Variant.h"
 
 #include "ds/LifoAlloc.h"
-#include "frontend/FunctionTree.h"
 #include "frontend/SharedContext.h"
 #include "frontend/Stencil.h"
 #include "frontend/UsedNameTracker.h"
@@ -26,12 +25,12 @@
 namespace js {
 namespace frontend {
 
-using FunctionType = mozilla::Variant<JSFunction*, FunctionCreationData>;
+using FunctionType = mozilla::Variant<JSFunction*, ScriptStencilBase>;
 
 // CompilationInfo owns a number of pieces of information about script
 // compilation as well as controls the lifetime of parse nodes and other data by
 // controling the mark and reset of the LifoAlloc.
-struct MOZ_RAII CompilationInfo {
+struct MOZ_RAII CompilationInfo : public JS::CustomAutoRooter {
   JSContext* cx;
   const JS::ReadOnlyCompileOptions& options;
 
@@ -41,16 +40,19 @@ struct MOZ_RAII CompilationInfo {
 
   Directives directives;
 
+  // List of function contexts for GC tracing. These are allocated in the
+  // LifoAlloc and still require tracing.
+  FunctionBox* traceListHead = nullptr;
+
   // The resulting outermost script for the compilation powered
   // by this CompilationInfo.
   JS::Rooted<JSScript*> script;
 
   UsedNameTracker usedNames;
   LifoAllocScope& allocScope;
-  FunctionTreeHolder treeHolder;
-  // Hold onto the RegExpCreationData, BigIntCreationData, and
-  // FunctionCreationData that are allocated during parse to
-  // ensure correct destruction.
+
+  // Hold onto the RegExpCreationData and BigIntCreationData that are allocated
+  // during parse to ensure correct destruction.
   Vector<RegExpCreationData> regExpData;
   Vector<BigIntCreationData> bigIntData;
 
@@ -74,14 +76,14 @@ struct MOZ_RAII CompilationInfo {
   // Construct a CompilationInfo
   CompilationInfo(JSContext* cx, LifoAllocScope& alloc,
                   const JS::ReadOnlyCompileOptions& options)
-      : cx(cx),
+      : JS::CustomAutoRooter(cx),
+        cx(cx),
         options(options),
         keepAtoms(cx),
         directives(options.forceStrictMode()),
         script(cx),
         usedNames(cx),
         allocScope(alloc),
-        treeHolder(cx),
         regExpData(cx),
         bigIntData(cx),
         funcData(cx),
@@ -96,6 +98,11 @@ struct MOZ_RAII CompilationInfo {
   MOZ_MUST_USE bool assignSource(JS::SourceText<Unit>& sourceBuffer) {
     return sourceObject->source()->assignSource(cx, options, sourceBuffer);
   }
+
+  MOZ_MUST_USE bool publishDeferredFunctions();
+  void finishFunctions();
+
+  void trace(JSTracer* trc) final;
 
   // To avoid any misuses, make sure this is neither copyable,
   // movable or assignable.

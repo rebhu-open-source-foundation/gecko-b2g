@@ -19,6 +19,7 @@
 #include "mozilla/net/NeckoParent.h"
 #include "mozilla/InputStreamLengthHelper.h"
 #include "mozilla/IntegerPrintfMacros.h"
+#include "mozilla/StoragePrincipalHelper.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/Unused.h"
 #include "HttpBackgroundChannelParent.h"
@@ -62,11 +63,10 @@ using namespace mozilla::ipc;
 namespace mozilla {
 namespace net {
 
-HttpChannelParent::HttpChannelParent(const PBrowserOrId& iframeEmbedding,
+HttpChannelParent::HttpChannelParent(dom::BrowserParent* iframeEmbedding,
                                      nsILoadContext* aLoadContext,
                                      PBOverrideStatus aOverrideStatus)
     : mLoadContext(aLoadContext),
-      mNestedFrameId(0),
       mIPCClosed(false),
       mPBOverride(aOverrideStatus),
       mStatus(NS_OK),
@@ -93,12 +93,7 @@ HttpChannelParent::HttpChannelParent(const PBrowserOrId& iframeEmbedding,
   MOZ_ASSERT(gHttpHandler);
   mHttpHandler = gHttpHandler;
 
-  if (iframeEmbedding.type() == PBrowserOrId::TPBrowserParent) {
-    mBrowserParent =
-        static_cast<dom::BrowserParent*>(iframeEmbedding.get_PBrowserParent());
-  } else {
-    mNestedFrameId = iframeEmbedding.get_TabId();
-  }
+  mBrowserParent = iframeEmbedding;
 
   mSendWindowSize = gHttpHandler->SendWindowSize();
 
@@ -623,7 +618,8 @@ bool HttpChannelParent::DoAsyncOpen(
 
     if (setChooseApplicationCache) {
       OriginAttributes attrs;
-      NS_GetOriginAttributes(httpChannel, attrs);
+      StoragePrincipalHelper::GetOriginAttributes(
+          httpChannel, attrs, StoragePrincipalHelper::eRegularPrincipal);
 
       nsCOMPtr<nsIPrincipal> principal =
           BasePrincipal::CreateContentPrincipal(uri, attrs);
@@ -916,7 +912,8 @@ mozilla::ipc::IPCResult HttpChannelParent::RecvRedirect2Verify(
           newHttpChannel->GetURI(getter_AddRefs(uri));
 
           OriginAttributes attrs;
-          NS_GetOriginAttributes(newHttpChannel, attrs);
+          StoragePrincipalHelper::GetOriginAttributes(
+              newHttpChannel, attrs, StoragePrincipalHelper::eRegularPrincipal);
 
           nsCOMPtr<nsIPrincipal> principal =
               BasePrincipal::CreateContentPrincipal(uri, attrs);
@@ -1688,8 +1685,16 @@ HttpChannelParent::OnDataAvailable(nsIRequest* aRequest,
 
   nsresult transportStatus = NS_NET_STATUS_RECEIVING_FROM;
   RefPtr<nsHttpChannel> httpChannelImpl = do_QueryObject(mChannel);
-  if (httpChannelImpl && httpChannelImpl->IsReadingFromCache()) {
-    transportStatus = NS_NET_STATUS_READING;
+  if (httpChannelImpl) {
+    if (httpChannelImpl->IsReadingFromCache()) {
+      transportStatus = NS_NET_STATUS_READING;
+    }
+
+    if (httpChannelImpl->OnDataAlreadySent()) {
+      LOG(("  OnDataAvailable already sent to the child.\n"));
+      uint32_t n;
+      return aInputStream->ReadSegments(NS_DiscardSegment, nullptr, aCount, &n);
+    }
   }
 
   static uint32_t const kCopyChunkSize = 128 * 1024;
@@ -2447,7 +2452,7 @@ NS_IMETHODIMP
 HttpChannelParent::GetAuthPrompt(uint32_t aPromptReason, const nsIID& iid,
                                  void** aResult) {
   nsCOMPtr<nsIAuthPrompt2> prompt =
-      new NeckoParent::NestedFrameAuthPrompt(Manager(), mNestedFrameId);
+      new NeckoParent::NestedFrameAuthPrompt(Manager(), TabId(0));
   prompt.forget(aResult);
   return NS_OK;
 }

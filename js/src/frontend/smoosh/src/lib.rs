@@ -149,6 +149,9 @@ impl From<ScopeData> for SmooshScopeData {
                 enclosing: data.enclosing.into(),
                 first_frame_slot: data.first_frame_slot.into(),
             },
+            _ => {
+                panic!("Not yet implemented");
+            }
         }
     }
 }
@@ -430,7 +433,7 @@ fn convert_parse_result<'alloc, T>(r: jsparagus::parser::Result<T>) -> SmooshPar
             unimplemented: false,
             error: CVec::empty(),
         },
-        Err(err) => match err {
+        Err(err) => match *err {
             ParseError::NotImplemented(_) => {
                 let message = err.message();
                 SmooshParseResult {
@@ -574,7 +577,7 @@ fn smoosh<'alloc>(
         slices.clone(),
     ) {
         Ok(result) => result,
-        Err(err) => match err {
+        Err(err) => match *err {
             ParseError::NotImplemented(_) => {
                 println!("Unimplemented: {}", err.message());
                 return Err(SmooshError::NotImplemented);

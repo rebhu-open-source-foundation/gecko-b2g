@@ -64,31 +64,25 @@
 
 - name: GuardIsNullOrUndefined
   shared: true
-  transpile: false
-  args:
-    input: ValId
-
-- name: GuardIsNotNullOrUndefined
-  shared: true
-  transpile: false
+  transpile: true
   args:
     input: ValId
 
 - name: GuardIsNull
   shared: true
-  transpile: false
+  transpile: true
   args:
     input: ValId
 
 - name: GuardIsUndefined
   shared: true
-  transpile: false
+  transpile: true
   args:
     input: ValId
 
 - name: GuardToBoolean
   shared: true
-  transpile: false
+  transpile: true
   args:
     input: ValId
     result: Int32Id
@@ -116,7 +110,7 @@
 
 - name: GuardIsNumber
   shared: true
-  transpile: false
+  transpile: true
   custom_writer: true
   args:
     input: ValId
@@ -158,7 +152,7 @@
 
 - name: GuardType
   shared: true
-  transpile: false
+  transpile: true
   args:
     input: ValId
     type: ValueTypeImm
@@ -249,7 +243,7 @@
 
 - name: GuardSpecificAtom
   shared: false
-  transpile: false
+  transpile: true
   args:
     str: StringId
     expected: AtomField
@@ -439,7 +433,7 @@
 
 - name: LoadObject
   shared: true
-  transpile: false
+  transpile: true
   args:
     result: ObjId
     obj: ObjectField
@@ -491,7 +485,7 @@
 
 - name: TruncateDoubleToUInt32
   shared: true
-  transpile: false
+  transpile: true
   args:
     val: ValId
     result: Int32Id
@@ -571,7 +565,7 @@
 
 - name: StoreFixedSlot
   shared: false
-  transpile: false
+  transpile: true
   args:
     obj: ObjId
     offset: RawWordField
@@ -579,7 +573,7 @@
 
 - name: StoreDynamicSlot
   shared: false
-  transpile: false
+  transpile: true
   args:
     obj: ObjId
     offset: RawWordField
@@ -641,7 +635,7 @@
 
 - name: StoreDenseElement
   shared: false
-  transpile: false
+  transpile: true
   args:
     obj: ObjId
     index: Int32Id
@@ -904,6 +898,12 @@
   args:
     obj: ObjId
 
+- name: LoadTypedArrayLengthResult
+  shared: true
+  transpile: true
+  args:
+    obj: ObjId
+
 - name: LoadStringCharResult
   shared: true
   transpile: true
@@ -949,7 +949,7 @@
 
 - name: LoadObjectResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     obj: ObjId
 
@@ -1044,7 +1044,7 @@
 
 - name: LoadBooleanResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     val: BoolImm
 
@@ -1069,77 +1069,77 @@
 
 - name: DoubleAddResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     lhs: NumberId
     rhs: NumberId
 
 - name: DoubleSubResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     lhs: NumberId
     rhs: NumberId
 
 - name: DoubleMulResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     lhs: NumberId
     rhs: NumberId
 
 - name: DoubleDivResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     lhs: NumberId
     rhs: NumberId
 
 - name: DoubleModResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     lhs: NumberId
     rhs: NumberId
 
 - name: DoublePowResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     lhs: NumberId
     rhs: NumberId
 
 - name: Int32AddResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     lhs: Int32Id
     rhs: Int32Id
 
 - name: Int32SubResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     lhs: Int32Id
     rhs: Int32Id
 
 - name: Int32MulResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     lhs: Int32Id
     rhs: Int32Id
 
 - name: Int32DivResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     lhs: Int32Id
     rhs: Int32Id
 
 - name: Int32ModResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     lhs: Int32Id
     rhs: Int32Id
@@ -1195,35 +1195,35 @@
 
 - name: Int32BitOrResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     lhs: Int32Id
     rhs: Int32Id
 
 - name: Int32BitXorResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     lhs: Int32Id
     rhs: Int32Id
 
 - name: Int32BitAndResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     lhs: Int32Id
     rhs: Int32Id
 
 - name: Int32LeftShiftResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     lhs: Int32Id
     rhs: Int32Id
 
 - name: Int32RightShiftResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     lhs: Int32Id
     rhs: Int32Id
@@ -1238,7 +1238,7 @@
 
 - name: Int32NotResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     input: Int32Id
 
@@ -1285,7 +1285,7 @@
 
 - name: Int32NegationResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     input: Int32Id
 
@@ -1383,7 +1383,7 @@
 
 - name: CallStringConcatResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     lhs: StringId
     rhs: StringId
@@ -1403,7 +1403,7 @@
 
 - name: CompareStringResult
   shared: false
-  transpile: false
+  transpile: true
   args:
     op: JSOpImm
     lhs: StringId
@@ -1411,7 +1411,7 @@
 
 - name: CompareObjectResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     op: JSOpImm
     lhs: ObjId
@@ -1435,7 +1435,7 @@
 
 - name: CompareDoubleResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     op: JSOpImm
     lhs: NumberId

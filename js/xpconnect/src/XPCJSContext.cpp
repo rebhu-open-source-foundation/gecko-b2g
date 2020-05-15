@@ -908,12 +908,17 @@ static void ReloadPrefsCallback(const char* pref, void* aXpccx) {
   bool useWasmCranelift =
       Preferences::GetBool(JS_OPTIONS_DOT_STR "wasm_cranelift");
 #endif
+  bool useWasmReftypes =
+      Preferences::GetBool(JS_OPTIONS_DOT_STR "wasm_reftypes");
 #ifdef ENABLE_WASM_GC
   bool useWasmGc = Preferences::GetBool(JS_OPTIONS_DOT_STR "wasm_gc");
 #endif
 #ifdef ENABLE_WASM_MULTI_VALUE
   bool useWasmMultiValue =
       Preferences::GetBool(JS_OPTIONS_DOT_STR "wasm_multi_value");
+#endif
+#ifdef ENABLE_WASM_SIMD
+  bool useWasmSimd = Preferences::GetBool(JS_OPTIONS_DOT_STR "wasm_simd");
 #endif
   bool useWasmVerbose = Preferences::GetBool(JS_OPTIONS_DOT_STR "wasm_verbose");
   bool throwOnAsmJSValidationFailure = Preferences::GetBool(
@@ -925,6 +930,8 @@ static void ReloadPrefsCallback(const char* pref, void* aXpccx) {
   sDiscardSystemSource =
       Preferences::GetBool(JS_OPTIONS_DOT_STR "discardSystemSource");
 
+  bool useSourcePragmas =
+      Preferences::GetBool(JS_OPTIONS_DOT_STR "source_pragmas");
   bool useAsyncStack = Preferences::GetBool(JS_OPTIONS_DOT_STR "asyncstack");
 
   bool throwOnDebuggeeWouldRun =
@@ -965,6 +972,7 @@ static void ReloadPrefsCallback(const char* pref, void* aXpccx) {
       .setWasmForTrustedPrinciples(useWasmTrustedPrincipals)
       .setWasmIon(useWasmIon)
       .setWasmBaseline(useWasmBaseline)
+      .setWasmReftypes(useWasmReftypes)
 #ifdef ENABLE_WASM_CRANELIFT
       .setWasmCranelift(useWasmCranelift)
 #endif
@@ -974,8 +982,12 @@ static void ReloadPrefsCallback(const char* pref, void* aXpccx) {
 #ifdef ENABLE_WASM_MULTI_VALUE
       .setWasmMultiValue(useWasmMultiValue)
 #endif
+#ifdef ENABLE_WASM_SIMD
+      .setWasmSimd(useWasmSimd)
+#endif
       .setWasmVerbose(useWasmVerbose)
       .setThrowOnAsmJSValidationFailure(throwOnAsmJSValidationFailure)
+      .setSourcePragmas(useSourcePragmas)
       .setAsyncStack(useAsyncStack)
       .setThrowOnDebuggeeWouldRun(throwOnDebuggeeWouldRun)
       .setDumpStackOnDebuggeeWouldRun(dumpStackOnDebuggeeWouldRun);

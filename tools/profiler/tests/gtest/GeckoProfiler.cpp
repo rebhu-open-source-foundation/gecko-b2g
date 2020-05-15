@@ -23,6 +23,7 @@
 #include "mozilla/BlocksRingBuffer.h"
 #include "mozilla/ProfileBufferEntrySerializationGeckoExtensions.h"
 #include "mozilla/UniquePtrExtensions.h"
+#include "mozilla/net/HttpBaseChannel.h"
 #include "nsIThread.h"
 #include "nsThreadUtils.h"
 
@@ -629,20 +630,32 @@ TEST(GeckoProfiler, Markers)
   UniquePtr<char[]> okstr1 = MakeUnique<char[]>(kMax);
   UniquePtr<char[]> okstr2 = MakeUnique<char[]>(kMax);
   UniquePtr<char[]> longstr = MakeUnique<char[]>(kMax + 1);
+  UniquePtr<char[]> longstrCut = MakeUnique<char[]>(kMax + 1);
   for (size_t i = 0; i < kMax; i++) {
     okstr1[i] = 'a';
     okstr2[i] = 'b';
     longstr[i] = 'c';
+    longstrCut[i] = 'c';
   }
   okstr1[kMax - 1] = '\0';
   okstr2[kMax - 1] = '\0';
   longstr[kMax] = '\0';
+  longstrCut[kMax] = '\0';
   // Should be output as-is.
+  AUTO_PROFILER_LABEL_DYNAMIC_CSTR("", LAYOUT, "");
   AUTO_PROFILER_LABEL_DYNAMIC_CSTR("", LAYOUT, okstr1.get());
   // Should be output as label + space + okstr2.
   AUTO_PROFILER_LABEL_DYNAMIC_CSTR("okstr2", LAYOUT, okstr2.get());
-  // Should be output as "(too long)".
+  // Should be output with kMax length, ending with "...\0".
   AUTO_PROFILER_LABEL_DYNAMIC_CSTR("", LAYOUT, longstr.get());
+  ASSERT_EQ(longstrCut[kMax - 4], 'c');
+  longstrCut[kMax - 4] = '.';
+  ASSERT_EQ(longstrCut[kMax - 3], 'c');
+  longstrCut[kMax - 3] = '.';
+  ASSERT_EQ(longstrCut[kMax - 2], 'c');
+  longstrCut[kMax - 2] = '.';
+  ASSERT_EQ(longstrCut[kMax - 1], 'c');
+  longstrCut[kMax - 1] = '\0';
 
   // Used in markers below.
   TimeStamp ts1 = TimeStamp::NowUnfuzzed();
@@ -719,6 +732,22 @@ TEST(GeckoProfiler, Markers)
   PROFILER_ADD_MARKER_WITH_PAYLOAD("NativeAllocationMarkerPayload marker",
                                    OTHER, NativeAllocationMarkerPayload,
                                    (ts1, 9876543210, 1234, 5678, nullptr));
+
+  PROFILER_ADD_MARKER_WITH_PAYLOAD(
+      "NetworkMarkerPayload start marker", OTHER, NetworkMarkerPayload,
+      (1, "http://mozilla.org/", NetworkLoadType::LOAD_START, ts1, ts2, 34, 56,
+       net::kCacheHit, 78));
+
+  PROFILER_ADD_MARKER_WITH_PAYLOAD(
+      "NetworkMarkerPayload stop marker", OTHER, NetworkMarkerPayload,
+      (12, "http://mozilla.org/", NetworkLoadType::LOAD_STOP, ts1, ts2, 34, 56,
+       net::kCacheUnresolved, 78, nullptr, nullptr, nullptr,
+       Some(nsDependentCString(NS_LITERAL_CSTRING("text/html").get()))));
+
+  PROFILER_ADD_MARKER_WITH_PAYLOAD(
+      "NetworkMarkerPayload redirect marker", OTHER, NetworkMarkerPayload,
+      (123, "http://mozilla.org/", NetworkLoadType::LOAD_REDIRECT, ts1, ts2, 34,
+       56, net::kCacheUnresolved, 78, nullptr, "http://example.com/"));
 
   PROFILER_ADD_MARKER_WITH_PAYLOAD(
       "PrefMarkerPayload marker", OTHER, PrefMarkerPayload,
@@ -803,6 +832,9 @@ TEST(GeckoProfiler, Markers)
     S_LogMarkerPayload,
     S_LongTaskMarkerPayload,
     S_NativeAllocationMarkerPayload,
+    S_NetworkMarkerPayload_start,
+    S_NetworkMarkerPayload_stop,
+    S_NetworkMarkerPayload_redirect,
     S_PrefMarkerPayload,
     S_ScreenshotPayload,
     S_TextMarkerPayload1,
@@ -877,6 +909,7 @@ TEST(GeckoProfiler, Markers)
       ASSERT_TRUE(stringTable.isArray());
 
       // Test the expected labels in the string table.
+      bool foundEmpty = false;
       bool foundOkstr1 = false;
       bool foundOkstr2 = false;
       const std::string okstr2Label = std::string("okstr2 ") + okstr2.get();
@@ -884,19 +917,23 @@ TEST(GeckoProfiler, Markers)
       for (const auto& s : stringTable) {
         ASSERT_TRUE(s.isString());
         std::string sString = s.asString();
-        if (sString == okstr1.get()) {
+        if (sString.empty()) {
+          EXPECT_FALSE(foundEmpty);
+          foundEmpty = true;
+        } else if (sString == okstr1.get()) {
           EXPECT_FALSE(foundOkstr1);
           foundOkstr1 = true;
         } else if (sString == okstr2Label) {
           EXPECT_FALSE(foundOkstr2);
           foundOkstr2 = true;
-        } else if (sString == "(too long)") {
+        } else if (sString == longstrCut.get()) {
           EXPECT_FALSE(foundTooLong);
           foundTooLong = true;
         } else {
           EXPECT_NE(sString, longstr.get());
         }
       }
+      EXPECT_TRUE(foundEmpty);
       EXPECT_TRUE(foundOkstr1);
       EXPECT_TRUE(foundOkstr2);
       EXPECT_TRUE(foundTooLong);
@@ -1149,6 +1186,43 @@ TEST(GeckoProfiler, Markers)
                 EXPECT_EQ_JSON(payload["size"], Int64, 9876543210);
                 EXPECT_EQ_JSON(payload["memoryAddress"], Int64, 1234);
                 EXPECT_EQ_JSON(payload["threadId"], Int64, 5678);
+
+              } else if (nameString == "NetworkMarkerPayload start marker") {
+                EXPECT_EQ(state, S_NetworkMarkerPayload_start);
+                state = State(S_NetworkMarkerPayload_start + 1);
+                EXPECT_EQ(typeString, "Network");
+                EXPECT_EQ_JSON(payload["id"], Int64, 1);
+                EXPECT_EQ_JSON(payload["URI"], String, "http://mozilla.org/");
+                EXPECT_EQ_JSON(payload["pri"], Int64, 34);
+                EXPECT_EQ_JSON(payload["count"], Int64, 56);
+                EXPECT_EQ_JSON(payload["cache"], String, "Hit");
+                EXPECT_EQ_JSON(payload["RedirectURI"], String, "");
+                EXPECT_TRUE(payload["contentType"].isNull());
+
+              } else if (nameString == "NetworkMarkerPayload stop marker") {
+                EXPECT_EQ(state, S_NetworkMarkerPayload_stop);
+                state = State(S_NetworkMarkerPayload_stop + 1);
+                EXPECT_EQ(typeString, "Network");
+                EXPECT_EQ_JSON(payload["id"], Int64, 12);
+                EXPECT_EQ_JSON(payload["URI"], String, "http://mozilla.org/");
+                EXPECT_EQ_JSON(payload["pri"], Int64, 34);
+                EXPECT_EQ_JSON(payload["count"], Int64, 56);
+                EXPECT_EQ_JSON(payload["cache"], String, "Unresolved");
+                EXPECT_EQ_JSON(payload["RedirectURI"], String, "");
+                EXPECT_EQ_JSON(payload["contentType"], String, "text/html");
+
+              } else if (nameString == "NetworkMarkerPayload redirect marker") {
+                EXPECT_EQ(state, S_NetworkMarkerPayload_redirect);
+                state = State(S_NetworkMarkerPayload_redirect + 1);
+                EXPECT_EQ(typeString, "Network");
+                EXPECT_EQ_JSON(payload["id"], Int64, 123);
+                EXPECT_EQ_JSON(payload["URI"], String, "http://mozilla.org/");
+                EXPECT_EQ_JSON(payload["pri"], Int64, 34);
+                EXPECT_EQ_JSON(payload["count"], Int64, 56);
+                EXPECT_EQ_JSON(payload["cache"], String, "Unresolved");
+                EXPECT_EQ_JSON(payload["RedirectURI"], String,
+                               "http://example.com/");
+                EXPECT_TRUE(payload["contentType"].isNull());
 
               } else if (nameString == "PrefMarkerPayload marker") {
                 EXPECT_EQ(state, S_PrefMarkerPayload);
@@ -1736,7 +1810,6 @@ TEST(GeckoProfiler, PostSamplingCallback)
       [&](SamplingState) { ASSERT_TRUE(false); }));
 }
 
-#ifdef MOZ_BASE_PROFILER
 TEST(GeckoProfiler, BaseProfilerHandOff)
 {
   const char* filters[] = {"GeckoMain"};
@@ -1783,4 +1856,3 @@ TEST(GeckoProfiler, BaseProfilerHandOff)
   profiler_stop();
   ASSERT_TRUE(!profiler_is_active());
 }
-#endif  // MOZ_BASE_PROFILER

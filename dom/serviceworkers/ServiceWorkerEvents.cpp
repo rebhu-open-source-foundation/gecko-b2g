@@ -793,7 +793,7 @@ void FetchEvent::RespondWith(JSContext* aCx, Promise& aArg, ErrorResult& aRv) {
   uint32_t column = 0;
   nsJSUtils::GetCallingLocation(aCx, spec, &line, &column);
 
-  RefPtr<InternalRequest> ir = mRequest->GetInternalRequest();
+  SafeRefPtr<InternalRequest> ir = mRequest->GetInternalRequest();
 
   nsAutoCString requestURL;
   ir->GetURL(requestURL);
@@ -843,7 +843,7 @@ void FetchEvent::PreventDefault(JSContext* aCx, CallerType aCallerType) {
 void FetchEvent::ReportCanceled() {
   MOZ_ASSERT(!mPreventDefaultScriptSpec.IsEmpty());
 
-  RefPtr<InternalRequest> ir = mRequest->GetInternalRequest();
+  SafeRefPtr<InternalRequest> ir = mRequest->GetInternalRequest();
   nsAutoCString url;
   ir->GetURL(url);
 
@@ -1336,7 +1336,7 @@ already_AddRefed<ExtendableMessageEvent> ExtendableMessageEvent::Constructor(
 }
 
 void ExtendableMessageEvent::GetPorts(nsTArray<RefPtr<MessagePort>>& aPorts) {
-  aPorts = mPorts;
+  aPorts = mPorts.Clone();
 }
 
 NS_IMPL_CYCLE_COLLECTION_MULTI_ZONE_JSHOLDER_CLASS(ExtendableMessageEvent)

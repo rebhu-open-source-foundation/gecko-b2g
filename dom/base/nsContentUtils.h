@@ -109,7 +109,6 @@ class nsWrapperCache;
 class nsAttrValue;
 class nsITransferable;
 class nsPIWindowRoot;
-class nsIWindowProvider;
 class nsIReferrerInfo;
 
 struct JSRuntime;
@@ -922,7 +921,7 @@ class nsContentUtils {
       int32_t aLoadFlags, const nsAString& initiatorType,
       imgRequestProxy** aRequest,
       uint32_t aContentPolicyType = nsIContentPolicy::TYPE_INTERNAL_IMAGE,
-      bool aUseUrgentStartForChannel = false);
+      bool aUseUrgentStartForChannel = false, bool aLinkPreload = false);
 
   /**
    * Obtain an image loader that respects the given document/channel's privacy
@@ -994,17 +993,6 @@ class nsContentUtils {
   static void GetEventArgNames(int32_t aNameSpaceID, nsAtom* aEventName,
                                bool aIsForWindow, uint32_t* aArgCount,
                                const char*** aArgNames);
-
-  /**
-   * Returns origin attributes of the document.
-   **/
-  static mozilla::OriginAttributes GetOriginAttributes(Document* aDoc);
-
-  /**
-   * Returns origin attributes of the load group.
-   **/
-  static mozilla::OriginAttributes GetOriginAttributes(
-      nsILoadGroup* aLoadGroup);
 
   /**
    * Returns true if this document is in a Private Browsing window.
@@ -2108,10 +2096,6 @@ class nsContentUtils {
     return sScriptBlockerCount == 0;
   }
 
-  // XXXcatalinb: workaround for weird include error when trying to reference
-  // ipdl types in WindowWatcher.
-  static nsIWindowProvider* GetWindowProviderForContentProcess();
-
   // Returns the browser window with the most recent time stamp that is
   // not in private browsing mode.
   static already_AddRefed<nsPIDOMWindowOuter> GetMostRecentNonPBWindow();
@@ -2482,15 +2466,6 @@ class nsContentUtils {
    * @return Whether the subdocument is tabbable.
    */
   static bool IsSubDocumentTabbable(nsIContent* aContent);
-
-  /**
-   * Returns if aNode ignores user focus.
-   *
-   * @param aNode node to test
-   *
-   * @return Whether the node ignores user focus.
-   */
-  static bool IsUserFocusIgnored(nsINode* aNode);
 
   /**
    * Returns if aContent has the 'scrollgrab' property.
@@ -3435,6 +3410,9 @@ nsContentUtils::InternalContentPolicyTypeToExternal(nsContentPolicyType aType) {
     case nsIContentPolicy::TYPE_INTERNAL_DTD:
     case nsIContentPolicy::TYPE_INTERNAL_FORCE_ALLOWED_DTD:
       return nsIContentPolicy::TYPE_DTD;
+
+    case nsIContentPolicy::TYPE_INTERNAL_FONT_PRELOAD:
+      return nsIContentPolicy::TYPE_FONT;
 
     default:
       return aType;

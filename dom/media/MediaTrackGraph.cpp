@@ -1980,8 +1980,7 @@ TrackTime MediaTrack::GraphTimeToTrackTimeWithBlocking(GraphTime aTime) const {
 void MediaTrack::RemoveAllResourcesAndListenersImpl() {
   GraphImpl()->AssertOnGraphThreadOrNotRunning();
 
-  auto trackListeners(mTrackListeners);
-  for (auto& l : trackListeners) {
+  for (auto& l : mTrackListeners.Clone()) {
     l->NotifyRemoved(Graph());
   }
   mTrackListeners.Clear();
@@ -2834,8 +2833,7 @@ void SourceMediaTrack::RemoveAllDirectListenersImpl() {
   GraphImpl()->AssertOnGraphThreadOrNotRunning();
   MutexAutoLock lock(mMutex);
 
-  auto directListeners(mDirectTrackListeners);
-  for (auto& l : directListeners) {
+  for (auto& l : mDirectTrackListeners.Clone()) {
     l->NotifyDirectListenerUninstalled();
   }
   mDirectTrackListeners.Clear();
@@ -3644,7 +3642,7 @@ auto MediaTrackGraph::ApplyAudioContextOperation(
         AudioContextOperation aOperation,
         MozPromiseHolder<AudioContextOperationPromise>&& aHolder)
         : ControlMessage(aDestinationTrack),
-          mTracks(aTracks),
+          mTracks(aTracks.Clone()),
           mAudioContextOperation(aOperation),
           mHolder(std::move(aHolder)) {}
     void Run() override {

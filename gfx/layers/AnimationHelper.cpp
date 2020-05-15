@@ -27,7 +27,6 @@ void CompositorAnimationStorage::Clear() {
 
   mAnimatedValues.Clear();
   mAnimations.Clear();
-  mAnimationRenderRoots.Clear();
 }
 
 void CompositorAnimationStorage::ClearById(const uint64_t& aId) {
@@ -35,7 +34,6 @@ void CompositorAnimationStorage::ClearById(const uint64_t& aId) {
 
   mAnimatedValues.Remove(aId);
   mAnimations.Remove(aId);
-  mAnimationRenderRoots.Remove(aId);
 }
 
 AnimatedValue* CompositorAnimationStorage::GetAnimatedValue(
@@ -121,11 +119,9 @@ void CompositorAnimationStorage::SetAnimatedValue(uint64_t aId,
 }
 
 void CompositorAnimationStorage::SetAnimations(uint64_t aId,
-                                               const AnimationArray& aValue,
-                                               wr::RenderRoot aRenderRoot) {
+                                               const AnimationArray& aValue) {
   MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
   mAnimations.Put(aId, AnimationHelper::ExtractAnimations(aValue));
-  mAnimationRenderRoots.Put(aId, aRenderRoot);
 }
 
 enum class CanSkipCompose {
@@ -735,8 +731,7 @@ gfx::Matrix4x4 AnimationHelper::ServoAnimationValueToMatrix4x4(
       motion, transformOrigin);
 
   return nsDisplayTransform::GetResultingTransformMatrix(
-      props, refBox, aTransformData.origin(),
-      aTransformData.appUnitsPerDevPixel(), 0);
+      props, refBox, aTransformData.appUnitsPerDevPixel());
 }
 
 }  // namespace layers

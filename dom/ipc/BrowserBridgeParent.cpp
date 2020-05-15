@@ -30,27 +30,32 @@ BrowserBridgeParent::~BrowserBridgeParent() { Destroy(); }
 nsresult BrowserBridgeParent::InitWithProcess(
     ContentParent* aContentParent, const nsString& aPresentationURL,
     const WindowGlobalInit& aWindowInit, uint32_t aChromeFlags, TabId aTabId) {
-  if (aWindowInit.browsingContext().IsNullOrDiscarded()) {
+  RefPtr<CanonicalBrowsingContext> browsingContext =
+      CanonicalBrowsingContext::Get(aWindowInit.context().mBrowsingContextId);
+  if (!browsingContext || browsingContext->IsDiscarded()) {
     return NS_ERROR_UNEXPECTED;
   }
 
-  RefPtr<CanonicalBrowsingContext> browsingContext =
-      aWindowInit.browsingContext().get_canonical();
-
-  // We can inherit most TabContext fields for the new BrowserParent actor from
-  // our Manager BrowserParent. We also need to sync the first party domain if
-  // the content principal exists.
-  MutableTabContext tabContext;
-  OriginAttributes attrs;
-  attrs = Manager()->OriginAttributesRef();
-  RefPtr<nsIPrincipal> principal = Manager()->GetContentPrincipal();
-  if (principal) {
-    attrs.SetFirstPartyDomain(
-        true, principal->OriginAttributesRef().mFirstPartyDomain);
+  // Unfortunately, due to the current racy destruction of BrowsingContext
+  // instances when Fission is enabled, while `browsingContext` may not be
+  // discarded, an ancestor might be.
+  //
+  // A discarded ancestor will cause us issues when creating our `BrowserParent`
+  // in the new content process, so abort the attempt if we have one.
+  //
+  // FIXME: We should never have a non-discarded BrowsingContext with discarded
+  // ancestors. (bug 1634759)
+  CanonicalBrowsingContext* ancestor = browsingContext->GetParent();
+  while (ancestor) {
+    if (NS_WARN_IF(ancestor->IsDiscarded())) {
+      return NS_ERROR_UNEXPECTED;
+    }
+    ancestor = ancestor->GetParent();
   }
 
+  MutableTabContext tabContext;
   tabContext.SetTabContext(Manager()->ChromeOuterWindowID(),
-                           Manager()->ShowFocusRings(), attrs, aPresentationURL,
+                           Manager()->ShowFocusRings(), aPresentationURL,
                            Manager()->GetMaxTouchPoints());
 
   // Ensure that our content process is subscribed to our newly created
@@ -74,8 +79,11 @@ nsresult BrowserBridgeParent::InitWithProcess(
   ContentProcessManager* cpm = ContentProcessManager::GetSingleton();
   cpm->RegisterRemoteFrame(browserParent);
 
-  auto windowParent =
-      MakeRefPtr<WindowGlobalParent>(aWindowInit, /* inprocess */ false);
+  RefPtr<WindowGlobalParent> windowParent =
+      WindowGlobalParent::CreateDisconnected(aWindowInit);
+  if (!windowParent) {
+    return NS_ERROR_UNEXPECTED;
+  }
 
   ManagedEndpoint<PWindowGlobalChild> windowChildEp =
       browserParent->OpenPWindowGlobalEndpoint(windowParent);
@@ -100,7 +108,7 @@ nsresult BrowserBridgeParent::InitWithProcess(
   mBrowserParent->SetOwnerElement(Manager()->GetOwnerElement());
   mBrowserParent->InitRendering();
 
-  windowParent->Init(aWindowInit);
+  windowParent->Init();
 
   // Send the newly created layers ID back into content.
   Unused << SendSetLayersId(mBrowserParent->GetLayersId());

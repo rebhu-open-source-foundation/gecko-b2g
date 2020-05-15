@@ -129,7 +129,7 @@ class StartLeScanTask final : public BluetoothReplyRunnable {
                   const nsTArray<BluetoothUuid>& aServiceUuids)
       : BluetoothReplyRunnable(nullptr, aPromise),
         mAdapter(aAdapter),
-        mServiceUuids(aServiceUuids) {
+        mServiceUuids(aServiceUuids.Clone()) {
     MOZ_ASSERT(aPromise);
     MOZ_ASSERT(aAdapter);
   }
@@ -1093,7 +1093,7 @@ void BluetoothAdapter::HandleLeDeviceFound(const BluetoothValue& aValue) {
       rssi = value.get_int32_t();
     } else if (name.EqualsLiteral("GattAdv")) {
       MOZ_ASSERT(value.type() == BluetoothValue::TArrayOfuint8_t);
-      advData = value.get_ArrayOfuint8_t();
+      advData = std::move(value.get_ArrayOfuint8_t());
     } else {
       // Few values are handled by BluetoothDevice::SetPropertyByValue()
       BT_LOGD("Not handling BluetoothValue name: %s",

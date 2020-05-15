@@ -8,7 +8,7 @@ const { XPCOMUtils } = ChromeUtils.import(
 const { Changeset, SyncEngine } = ChromeUtils.import(
   "resource://services-sync/engines.js"
 );
-const { CryptoWrapper } = ChromeUtils.import(
+const { RawCryptoWrapper } = ChromeUtils.import(
   "resource://services-sync/record.js"
 );
 
@@ -41,16 +41,13 @@ class BridgedStore {
   }
 
   async applyIncomingBatch(records) {
-    await this.engine.initialize();
     for (let chunk of PlacesUtils.chunkArray(records, this._batchChunkSize)) {
-      // TODO: We can avoid parsing and re-serializing here... We also need to
-      // pass attributes like `modified` and `sortindex`, which are not part
-      // of the cleartext.
-      let incomingCleartexts = chunk.map(record => record.cleartextToString());
-      await promisifyWithSignal(
-        null,
+      let incomingEnvelopesAsJSON = chunk.map(record =>
+        JSON.stringify(record.toIncomingEnvelope())
+      );
+      await promisify(
         this.engine._bridge.storeIncoming,
-        incomingCleartexts
+        incomingEnvelopesAsJSON
       );
     }
     // Array of failed records.
@@ -58,7 +55,6 @@ class BridgedStore {
   }
 
   async wipe() {
-    await this.engine.initialize();
     await promisify(this.engine._bridge.wipe);
   }
 }
@@ -108,9 +104,60 @@ class BridgedTracker {
   }
 }
 
-class BridgedRecord extends CryptoWrapper {
-  constructor(collection, id, type) {
-    super(collection, id, type);
+/**
+ * A wrapper class to convert between BSOs on the JS side, and envelopes on the
+ * Rust side. This class intentionally subclasses `RawCryptoWrapper`, because we
+ * don't want the stringification and parsing machinery in `CryptoWrapper`.
+ */
+class BridgedRecord extends RawCryptoWrapper {
+  /**
+   * Creates an outgoing record from an envelope returned by a bridged engine.
+   * This must be kept in sync with `sync15_traits::OutgoingEnvelope`.
+   *
+   * @param  {String} collection The collection name.
+   * @param  {Object} envelope   The outgoing envelope, returned from
+   *                             `mozIBridgedSyncEngine::apply`.
+   * @return {BridgedRecord}     A Sync record ready to encrypt and upload.
+   */
+  static fromOutgoingEnvelope(collection, envelope) {
+    if (typeof envelope.id != "string") {
+      throw new TypeError("Outgoing envelope missing ID");
+    }
+    if (typeof envelope.cleartext != "string") {
+      throw new TypeError("Outgoing envelope missing cleartext");
+    }
+    let record = new BridgedRecord(collection, envelope.id);
+    record.cleartext = envelope.cleartext;
+    return record;
+  }
+
+  transformBeforeEncrypt(cleartext) {
+    if (typeof cleartext != "string") {
+      throw new TypeError("Outgoing bridged engine records must be strings");
+    }
+    return cleartext;
+  }
+
+  transformAfterDecrypt(cleartext) {
+    if (typeof cleartext != "string") {
+      throw new TypeError("Incoming bridged engine records must be strings");
+    }
+    return cleartext;
+  }
+
+  /*
+   * Converts this incoming record into an envelope to pass to a bridged engine.
+   * This object must be kept in sync with `sync15_traits::IncomingEnvelope`.
+   *
+   * @return {Object} The incoming envelope, to pass to
+   *                  `mozIBridgedSyncEngine::storeIncoming`.
+   */
+  toIncomingEnvelope() {
+    return {
+      id: this.data.id,
+      modified: this.data.modified,
+      cleartext: this.cleartext,
+    };
   }
 }
 
@@ -194,10 +241,6 @@ function BridgedEngine(bridge, name, service) {
 
   this._bridge = bridge;
   this._bridge.logger = new LogAdapter(this._log);
-
-  // The maximum amount of time that we should wait for the bridged engine
-  // to apply incoming records before aborting.
-  this._applyTimeoutMillis = 5 * 60 * 60 * 1000; // 5 minutes
 }
 
 BridgedEngine.prototype = {
@@ -205,8 +248,6 @@ BridgedEngine.prototype = {
   _recordObj: BridgedRecord,
   _storeObj: BridgedStore,
   _trackerObj: BridgedTracker,
-
-  _initializePromise: null,
 
   /** Returns the storage version for this engine. */
   get version() {
@@ -223,28 +264,6 @@ BridgedEngine.prototype = {
   },
 
   /**
-   * Initializes the underlying Rust bridge for this engine. Once the bridge is
-   * ready, subsequent calls to `initialize` are no-ops. If initialization
-   * fails, the next call to `initialize` will try again.
-   *
-   * @throws  If initializing the bridge fails.
-   */
-  async initialize() {
-    if (!this._initializePromise) {
-      this._initializePromise = promisify(this._bridge.initialize).catch(
-        err => {
-          // We may have failed to initialize the bridge temporarily; for example,
-          // if its database is corrupt. Clear the promise so that subsequent
-          // calls to `initialize` can try to create the bridge again.
-          this._initializePromise = null;
-          throw err;
-        }
-      );
-    }
-    return this._initializePromise;
-  },
-
-  /**
    * Returns the sync ID for this engine. This is exposed for tests, but
    * Sync code always calls `resetSyncID()` and `ensureCurrentSyncID()`,
    * not this.
@@ -252,7 +271,6 @@ BridgedEngine.prototype = {
    * @returns {String?} The sync ID, or `null` if one isn't set.
    */
   async getSyncID() {
-    await this.initialize();
     // Note that all methods on an XPCOM class instance are automatically bound,
     // so we don't need to write `this._bridge.getSyncId.bind(this._bridge)`.
     let syncID = await promisify(this._bridge.getSyncId);
@@ -266,13 +284,11 @@ BridgedEngine.prototype = {
   },
 
   async resetLocalSyncID() {
-    await this.initialize();
     let newSyncID = await promisify(this._bridge.resetSyncId);
     return newSyncID;
   },
 
   async ensureCurrentSyncID(newSyncID) {
-    await this.initialize();
     let assignedSyncID = await promisify(
       this._bridge.ensureCurrentSyncId,
       newSyncID
@@ -281,13 +297,11 @@ BridgedEngine.prototype = {
   },
 
   async getLastSync() {
-    await this.initialize();
     let lastSync = await promisify(this._bridge.getLastSync);
     return lastSync;
   },
 
   async setLastSync(lastSyncMillis) {
-    await this.initialize();
     await promisify(this._bridge.setLastSync, lastSyncMillis);
   },
 
@@ -302,13 +316,7 @@ BridgedEngine.prototype = {
   },
 
   async trackRemainingChanges() {
-    // TODO: Should we call `storeIncoming` here again, to write the records we
-    // just uploaded (that is, records in the changeset where `synced = true`)
-    // back to the bridged engine's mirror? Or can we rely on the engine to
-    // keep the records around (for example, in a temp table), and automatically
-    // write them back on `syncFinished`?
-    await this.initialize();
-    await promisifyWithSignal(null, this._bridge.syncFinished);
+    await promisify(this._bridge.syncFinished);
   },
 
   /**
@@ -328,38 +336,27 @@ BridgedEngine.prototype = {
     return true;
   },
 
+  async _syncStartup() {
+    await super._syncStartup();
+    await promisify(this._bridge.syncStarted);
+  },
+
   async _processIncoming(newitems) {
     await super._processIncoming(newitems);
-    await this.initialize();
 
-    // TODO: We could consider having a per-sync watchdog instead; for
-    // example, time out after 5 minutes total, including any network
-    // latency. `promisifyWithSignal` makes this flexible.
-    let watchdog = this._newWatchdog();
-    watchdog.start(this._applyTimeoutMillis);
-
-    try {
-      let outgoingRecords = await promisifyWithSignal(
-        watchdog.signal,
-        this._bridge.apply
+    let outgoingEnvelopesAsJSON = await promisify(this._bridge.apply);
+    let changeset = {};
+    for (let envelopeAsJSON of outgoingEnvelopesAsJSON) {
+      let record = BridgedRecord.fromOutgoingEnvelope(
+        this.name,
+        JSON.parse(envelopeAsJSON)
       );
-      let changeset = {};
-      for (let record of outgoingRecords) {
-        // TODO: It would be nice if we could pass the cleartext through as-is
-        // here, too, instead of parsing and re-wrapping for `BridgedRecord`.
-        let cleartext = JSON.parse(record);
-        changeset[cleartext.id] = {
-          synced: false,
-          cleartext,
-        };
-      }
-      this._modified.replace(changeset);
-    } finally {
-      watchdog.stop();
-      if (watchdog.abortReason) {
-        this._log.warn(`Aborting bookmark merge: ${watchdog.abortReason}`);
-      }
+      changeset[record.id] = {
+        synced: false,
+        record,
+      };
     }
+    this._modified.replace(changeset);
   },
 
   /**
@@ -369,13 +366,7 @@ BridgedEngine.prototype = {
    * records from the outgoing table back to the mirror.
    */
   async _onRecordsWritten(succeeded, failed, serverModifiedTime) {
-    await this.initialize();
-    await promisifyWithSignal(
-      null,
-      this._bridge.setUploaded,
-      serverModifiedTime,
-      succeeded
-    );
+    await promisify(this._bridge.setUploaded, serverModifiedTime, succeeded);
   },
 
   async _createTombstone() {
@@ -387,14 +378,11 @@ BridgedEngine.prototype = {
     if (!change) {
       throw new TypeError("Can't create record for unchanged item");
     }
-    let record = new this._recordObj(this.name, id);
-    record.cleartext = change.cleartext;
-    return record;
+    return change.record;
   },
 
   async _resetClient() {
     await super._resetClient();
-    await this.initialize();
     await promisify(this._bridge.reset);
   },
 };
@@ -423,35 +411,6 @@ function promisify(func, ...params) {
         reject(transformError(code, message));
       },
     });
-  });
-}
-
-// Like `promisify`, but takes an `AbortSignal` for cancelable
-// operations.
-function promisifyWithSignal(signal, func, ...params) {
-  if (!signal) {
-    return promisify(func, ...params);
-  }
-  return new Promise((resolve, reject) => {
-    if (signal.aborted) {
-      // TODO: Record more specific operation names, so we can see which
-      // ones get interrupted most in telemetry.
-      throw new InterruptedError("Interrupted before starting operation");
-    }
-    function onAbort() {
-      signal.removeEventListener("abort", onAbort);
-      op.cancel(Cr.NS_ERROR_ABORT);
-    }
-    let op = func(...params, {
-      handleSuccess(result) {
-        signal.removeEventListener("abort", onAbort);
-        resolve(result);
-      },
-      handleError(code, message) {
-        reject(transformError(code, message));
-      },
-    });
-    signal.addEventListener("abort", onAbort);
   });
 }
 

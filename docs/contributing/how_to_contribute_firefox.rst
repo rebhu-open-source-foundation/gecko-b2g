@@ -9,8 +9,7 @@ in the `#introduction <https://chat.mozilla.org/#/room/#introduction:mozilla.org
 Clone the sources
 -----------------
 
-You can use either mercurial or git. Mercurial is the canonical version control
-system.
+You can use either mercurial or git. `Mercurial <https://www.mercurial-scm.org/downloads>`__ is the canonical version control system.
 
 .. code-block:: shell
 
@@ -25,8 +24,8 @@ If you have any network connection issues and cannot clone with command, try :re
 
 :ref:`More information <Mercurial Overview>`
 
-Install dependencies
---------------------
+Install dependencies (non-Windows)
+----------------------------------
 
 Firefox provides a mechanism to install all dependencies; in the source tree:
 
@@ -155,7 +154,7 @@ To select jobs running a fuzzy search:
 
     $ ./mach try fuzzy
 
-From Treeherder, it is also possible to attach new jobs. As every review has
+From `Treeherder <https://treeherder.mozilla.org/>`__ (our continuous integration system), it is also possible to attach new jobs. As every review has
 a try CI run associated, it makes this work easier. See :ref:`attach-job-review` for
 more information.
 
@@ -173,6 +172,11 @@ To submit a patch
 -----------------
 
 To submit a patch for review, we use a tool called `moz-phab <https://pypi.org/project/MozPhab/>`__.
+To install it, run:
+
+.. code-block:: shell
+
+     $ ./mach install-moz-phab
 
 .. code-block:: shell
 

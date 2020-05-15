@@ -14,10 +14,12 @@
 #include "mozilla/dom/MemoryReportRequest.h"
 #include "mozilla/ipc/CrashReporterClient.h"
 #include "mozilla/ipc/BackgroundChild.h"
+#include "mozilla/ipc/BackgroundParent.h"
 #include "mozilla/ipc/FileDescriptorSetChild.h"
 #include "mozilla/ipc/IPCStreamAlloc.h"
 #include "mozilla/ipc/ProcessChild.h"
 #include "mozilla/net/AltSvcTransactionChild.h"
+#include "mozilla/net/BackgroundDataBridgeParent.h"
 #include "mozilla/net/DNSRequestChild.h"
 #include "mozilla/net/DNSRequestParent.h"
 #include "mozilla/ipc/PChildToParentStreamChild.h"
@@ -32,6 +34,12 @@
 #include "nsThreadManager.h"
 #include "ProcessUtils.h"
 #include "SocketProcessBridgeParent.h"
+
+#if defined(XP_WIN)
+#  include <process.h>
+#else
+#  include <unistd.h>
+#endif
 
 #if defined(XP_LINUX) && defined(MOZ_SANDBOX)
 #  include "mozilla/Sandbox.h"
@@ -52,7 +60,8 @@ using namespace ipc;
 
 SocketProcessChild* sSocketProcessChild;
 
-SocketProcessChild::SocketProcessChild() : mShuttingDown(false) {
+SocketProcessChild::SocketProcessChild()
+    : mShuttingDown(false), mMutex("SocketProcessChild::mMutex") {
   LOG(("CONSTRUCT SocketProcessChild::SocketProcessChild\n"));
   nsDebugImpl::SetMultiprocessMode("Socket");
 
@@ -156,7 +165,7 @@ mozilla::ipc::IPCResult SocketProcessChild::RecvRequestMemoryReport(
     const uint32_t& aGeneration, const bool& aAnonymize,
     const bool& aMinimizeMemoryUsage,
     const Maybe<ipc::FileDescriptor>& aDMDFile) {
-  nsPrintfCString processName("SocketProcess");
+  nsPrintfCString processName("Socket (pid %u)", (unsigned)getpid());
 
   mozilla::dom::MemoryReportRequestClient::Start(
       aGeneration, aAnonymize, aMinimizeMemoryUsage, aDMDFile, processName,
@@ -373,6 +382,25 @@ mozilla::ipc::IPCResult SocketProcessChild::RecvPDNSRequestConstructor(
       actor->GetDNSRequest()->AsDNSRequestHandler();
   handler->DoAsyncResolve(aHost, aTrrServer, aType, aOriginAttributes, aFlags);
   return IPC_OK();
+}
+
+void SocketProcessChild::AddDataBridgeToMap(
+    uint64_t aChannelId, BackgroundDataBridgeParent* aActor) {
+  ipc::AssertIsOnBackgroundThread();
+  MutexAutoLock lock(mMutex);
+  mBackgroundDataBridgeMap.Put(aChannelId, aActor);
+}
+
+void SocketProcessChild::RemoveDataBridgeFromMap(uint64_t aChannelId) {
+  ipc::AssertIsOnBackgroundThread();
+  MutexAutoLock lock(mMutex);
+  mBackgroundDataBridgeMap.Remove(aChannelId);
+}
+
+Maybe<RefPtr<BackgroundDataBridgeParent>>
+SocketProcessChild::GetAndRemoveDataBridge(uint64_t aChannelId) {
+  MutexAutoLock lock(mMutex);
+  return mBackgroundDataBridgeMap.GetAndRemove(aChannelId);
 }
 
 }  // namespace net

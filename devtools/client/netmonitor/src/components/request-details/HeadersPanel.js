@@ -8,6 +8,10 @@ const {
   Component,
   createFactory,
 } = require("devtools/client/shared/vendor/react");
+const {
+  connect,
+} = require("devtools/client/shared/redux/visibility-handler-connect");
+const Actions = require("devtools/client/netmonitor/src/actions/index");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const {
@@ -59,11 +63,18 @@ loader.lazyGetter(this, "TreeRow", function() {
     require("devtools/client/shared/components/tree/TreeRow")
   );
 });
+loader.lazyRequireGetter(
+  this,
+  "showMenu",
+  "devtools/client/shared/components/menu/utils",
+  true
+);
 
 const { button, div, input, label, span, textarea, tr, td } = dom;
 
+const RESEND = L10N.getStr("netmonitor.context.resend.label");
 const EDIT_AND_RESEND = L10N.getStr("netmonitor.summary.editAndResend");
-const RAW_HEADERS = L10N.getStr("netmonitor.summary.rawHeaders");
+const RAW_HEADERS = L10N.getStr("netmonitor.headers.raw");
 const HEADERS_EMPTY_TEXT = L10N.getStr("headersEmptyText");
 const HEADERS_FILTER_TEXT = L10N.getStr("headersFilterText");
 const REQUEST_HEADERS = L10N.getStr("requestHeaders");
@@ -97,6 +108,9 @@ class HeadersPanel extends Component {
       renderValue: PropTypes.func,
       openLink: PropTypes.func,
       targetSearchResult: PropTypes.object,
+      openRequestBlockingAndAddUrl: PropTypes.func.isRequired,
+      cloneRequest: PropTypes.func,
+      sendCustomRequest: PropTypes.func,
     };
   }
 
@@ -120,6 +134,7 @@ class HeadersPanel extends Component {
     this.renderRow = this.renderRow.bind(this);
     this.renderValue = this.renderValue.bind(this);
     this.renderRawHeadersBtn = this.renderRawHeadersBtn.bind(this);
+    this.onShowResendMenu = this.onShowResendMenu.bind(this);
   }
 
   componentDidMount() {
@@ -141,9 +156,39 @@ class HeadersPanel extends Component {
   }
 
   getHeadersTitle(headers, title) {
-    let result;
+    let result = "";
+    let preHeaderText = "";
+    const {
+      responseHeaders,
+      requestHeaders,
+      httpVersion,
+      status,
+      statusText,
+      method,
+      urlDetails,
+    } = this.props.request;
     if (headers?.headers.length) {
-      result = `${title} (${getFormattedSize(headers.headersSize, 3)})`;
+      if (!headers.headersSize) {
+        if (title == RESPONSE_HEADERS) {
+          preHeaderText = `${httpVersion} ${status} ${statusText}`;
+          result = `${title} (${getFormattedSize(
+            writeHeaderText(responseHeaders.headers, preHeaderText).length,
+            3
+          )})`;
+        } else {
+          preHeaderText = `${method} ${
+            urlDetails.url.split(
+              requestHeaders.headers.find(ele => ele.name === "Host").value
+            )[1]
+          } ${httpVersion}`;
+          result = `${title} (${getFormattedSize(
+            writeHeaderText(requestHeaders.headers, preHeaderText).length,
+            3
+          )})`;
+        }
+      } else {
+        result = `${title} (${getFormattedSize(headers.headersSize, 3)})`;
+      }
     }
 
     return result;
@@ -288,30 +333,39 @@ class HeadersPanel extends Component {
 
     const {
       request: {
+        method,
         httpVersion,
         requestHeaders,
         requestHeadersFromUploadStream: uploadHeaders,
         responseHeaders,
         status,
         statusText,
+        urlDetails,
       },
     } = this.props;
 
     let value;
-
+    let preHeaderText = "";
     if (path.includes("RAW_HEADERS_ID")) {
       const rawHeaderType = this.getRawHeaderType(path);
       switch (rawHeaderType) {
         case "REQUEST":
-          value = writeHeaderText(requestHeaders.headers);
+          preHeaderText = `${method} ${
+            urlDetails.url.split(
+              requestHeaders.headers.find(ele => ele.name === "Host").value
+            )[1]
+          } ${httpVersion}`;
+          value = writeHeaderText(requestHeaders.headers, preHeaderText).trim();
           break;
         case "RESPONSE":
-          // display Status-Line above other response headers
-          const statusLine = `${httpVersion} ${status} ${statusText}\n`;
-          value = statusLine + writeHeaderText(responseHeaders.headers);
+          preHeaderText = `${httpVersion} ${status} ${statusText}`;
+          value = writeHeaderText(
+            responseHeaders.headers,
+            preHeaderText
+          ).trim();
           break;
         case "UPLOAD":
-          value = writeHeaderText(uploadHeaders.headers);
+          value = writeHeaderText(uploadHeaders.headers, preHeaderText).trim();
           break;
       }
 
@@ -352,17 +406,22 @@ class HeadersPanel extends Component {
   renderRawHeadersBtn(key, checked, onChange) {
     return [
       label(
-        { key: `${key}RawHeadersBtn`, className: "raw-headers-toggle" },
+        {
+          key: `${key}RawHeadersBtn`,
+          className: "raw-headers-toggle",
+          htmlFor: `raw-${key}-checkbox`,
+          onClick: event => {
+            // stop the header click event
+            event.stopPropagation();
+          },
+        },
         span({ className: "headers-summary-label" }, RAW_HEADERS),
-        div(
+        span(
           { className: "raw-headers-toggle-input" },
           input({
+            id: `raw-${key}-checkbox`,
             checked,
             className: "devtools-checkbox-toggle",
-            onClick: event => {
-              // stop the header click event
-              event.stopPropagation();
-            },
             onChange,
             type: "checkbox",
           })
@@ -413,9 +472,36 @@ class HeadersPanel extends Component {
     };
   }
 
+  onShowResendMenu(event) {
+    const {
+      request: { id },
+      cloneSelectedRequest,
+      cloneRequest,
+      sendCustomRequest,
+    } = this.props;
+    const menuItems = [
+      {
+        label: RESEND,
+        type: "button",
+        click: () => {
+          cloneRequest(id);
+          sendCustomRequest();
+        },
+      },
+      {
+        label: EDIT_AND_RESEND,
+        type: "button",
+        click: evt => {
+          cloneSelectedRequest(evt);
+        },
+      },
+    ];
+
+    showMenu(menuItems, { button: event.target });
+  }
+
   render() {
     const {
-      cloneSelectedRequest,
       targetSearchResult,
       request: {
         fromCache,
@@ -433,6 +519,7 @@ class HeadersPanel extends Component {
         referrerPolicy,
         isThirdPartyTrackingResource,
       },
+      openRequestBlockingAndAddUrl,
     } = this.props;
     const {
       rawResponseHeadersOpened,
@@ -462,6 +549,7 @@ class HeadersPanel extends Component {
           provider: HeadersProvider,
           selectPath: this.getTargetHeaderPath,
           defaultSelectFirstNode: false,
+          enableInput: false,
         },
         header: this.getHeadersTitle(responseHeaders, RESPONSE_HEADERS),
         buttons: this.renderRawHeadersBtn(
@@ -488,6 +576,7 @@ class HeadersPanel extends Component {
           provider: HeadersProvider,
           selectPath: this.getTargetHeaderPath,
           defaultSelectFirstNode: false,
+          enableInput: false,
         },
         header: this.getHeadersTitle(requestHeaders, REQUEST_HEADERS),
         buttons: this.renderRawHeadersBtn(
@@ -520,6 +609,7 @@ class HeadersPanel extends Component {
           provider: HeadersProvider,
           selectPath: this.getTargetHeaderPath,
           defaultSelectFirstNode: false,
+          enableInput: false,
         },
         header: this.getHeadersTitle(
           uploadHeaders,
@@ -636,27 +726,8 @@ class HeadersPanel extends Component {
       summaryReferrerPolicy,
     ].filter(summaryItem => summaryItem !== null);
 
-    const summaryEditAndResendBtn = div(
-      {
-        className: "summary-edit-and-resend",
-      },
-      summaryItems.pop(),
-      button(
-        {
-          className: "edit-and-resend-button devtools-button",
-          onClick: cloneSelectedRequest,
-        },
-        EDIT_AND_RESEND
-      )
-    );
-
     return div(
-      { className: "panel-container" },
-      div(
-        { className: "headers-overview" },
-        summaryItems,
-        summaryEditAndResendBtn
-      ),
+      { className: "headers-panel-container" },
       div(
         { className: "devtools-toolbar devtools-input-toolbar" },
         SearchBox({
@@ -664,11 +735,40 @@ class HeadersPanel extends Component {
           type: "filter",
           onChange: text => this.setState({ filterText: text }),
           placeholder: HEADERS_FILTER_TEXT,
-        })
+        }),
+        span({ className: "devtools-separator" }),
+        button(
+          {
+            id: "block-button",
+            className: "devtools-button",
+            title: L10N.getStr("netmonitor.context.blockURL"),
+            onClick: () => openRequestBlockingAndAddUrl(urlDetails.url),
+          },
+          L10N.getStr("netmonitor.headers.toolbar.block")
+        ),
+        span({ className: "devtools-separator" }),
+        button(
+          {
+            id: "edit-resend-button",
+            className: "devtools-button devtools-dropdown-button",
+            title: RESEND,
+            onClick: this.onShowResendMenu,
+          },
+          span({ className: "title" }, RESEND)
+        )
       ),
-      Accordion({ items })
+      div(
+        { className: "panel-container" },
+        div({ className: "headers-overview" }, summaryItems),
+        Accordion({ items })
+      )
     );
   }
 }
 
-module.exports = HeadersPanel;
+module.exports = connect(null, (dispatch, props) => ({
+  openRequestBlockingAndAddUrl: url =>
+    dispatch(Actions.openRequestBlockingAndAddUrl(url)),
+  cloneRequest: id => dispatch(Actions.cloneRequest(id)),
+  sendCustomRequest: () => dispatch(Actions.sendCustomRequest(props.connector)),
+}))(HeadersPanel);

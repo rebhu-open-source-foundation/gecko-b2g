@@ -22,7 +22,7 @@ NS_INTERFACE_MAP_END
 ImsDeviceConfiguration::ImsDeviceConfiguration(nsPIDOMWindowInner* aWindow,
                                                const nsTArray<ImsBearer>& aBearers)
   : mWindow(aWindow)
-  , mBearers(aBearers)
+  , mBearers(aBearers.Clone())
 {
 }
 
@@ -39,7 +39,7 @@ ImsDeviceConfiguration::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenP
 void
 ImsDeviceConfiguration::GetSupportedBearers(nsTArray<ImsBearer>& aBearers) const
 {
-  aBearers = mBearers;
+  aBearers = mBearers.Clone();
 }
 
 } // namespace dom

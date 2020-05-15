@@ -26,6 +26,13 @@ const BinaryInputStream = Components.Constructor(
   "setInputStream"
 );
 
+XPCOMUtils.defineLazyPreferenceGetter(
+  this,
+  "gModernConfig",
+  SearchUtils.BROWSER_SEARCH_PREF + "modernConfig",
+  false
+);
+
 const SEARCH_BUNDLE = "chrome://global/locale/search/search.properties";
 const BRAND_BUNDLE = "chrome://branding/locale/brand.properties";
 
@@ -2033,6 +2040,12 @@ SearchEngine.prototype = {
   },
 
   get isAppProvided() {
+    // For the modern configuration, distribution engines are app-provided as
+    // well and we don't have xml files as app-provided engines.
+    if (gModernConfig) {
+      return !!(this._extensionID && this._isBuiltin);
+    }
+
     if (this._extensionID) {
       return this._isBuiltin || this._isDistribution;
     }
@@ -2336,7 +2349,7 @@ SearchEngine.prototype = {
       Cu.reportError(
         "invalid options arg passed to nsISearchEngine.speculativeConnect"
       );
-      throw Cr.NS_ERROR_INVALID_ARG;
+      throw Components.Exception("", Cr.NS_ERROR_INVALID_ARG);
     }
     let connector = Services.io.QueryInterface(Ci.nsISpeculativeConnect);
 

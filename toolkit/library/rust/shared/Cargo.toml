@@ -9,7 +9,7 @@ description = "Shared Rust code for libxul"
 geckoservo = { path = "../../../../servo/ports/geckolib" }
 kvstore = { path = "../../../components/kvstore" }
 lmdb-rkv-sys = { version = "0.11", features = ["mdb_idl_logn_9"] }
-mp4parse_capi = { path = "../../../../media/mp4parse-rust/mp4parse_capi" }
+mp4parse_capi = { git = "https://github.com/mozilla/mp4parse-rust", rev = "0dc3e6e7c5371fe21f69b847f61c65fe6d6dc317" }
 nserror = { path = "../../../../xpcom/rust/nserror" }
 nsstring = { path = "../../../../xpcom/rust/nsstring" }
 netwerk_helper = { path = "../../../../netwerk/base/rust-helper" }
@@ -19,14 +19,15 @@ static_prefs = { path = "../../../../modules/libpref/init/static_prefs" }
 profiler_helper = { path = "../../../../tools/profiler/rust-helper", optional = true }
 mozurl = { path = "../../../../netwerk/base/mozurl" }
 webrender_bindings = { path = "../../../../gfx/webrender_bindings", optional = true }
-cubeb-coreaudio = { git = "https://github.com/ChunMinChang/cubeb-coreaudio-rs", rev = "6156e941e5f46a641d2da10ca53a9ad318c10722", optional = true }
-cubeb-pulse = { git = "https://github.com/djg/cubeb-pulse-rs", rev="5eb38163103b0dae86de81cdaf46070bdeedc0d1", optional = true, features=["pulse-dlopen"] }
-cubeb-sys = { version = "0.6", optional = true, features=["gecko-in-tree"] }
+cubeb-coreaudio = { git = "https://github.com/ChunMinChang/cubeb-coreaudio-rs", rev = "c5aacdc75618025e72f62f727a7a0d91606e6276", optional = true }
+cubeb-pulse = { git = "https://github.com/djg/cubeb-pulse-rs", rev="70431f444cf164177cb3c0f060698fc35f811be5", optional = true, features=["pulse-dlopen"] }
+cubeb-sys = { version = "0.7", optional = true, features=["gecko-in-tree"] }
 encoding_glue = { path = "../../../../intl/encoding_glue" }
 audioipc-client = { path = "../../../../media/audioipc/client", optional = true }
 audioipc-server = { path = "../../../../media/audioipc/server", optional = true }
 authenticator = "0.2.10"
 gkrust_utils = { path = "../../../../xpcom/rust/gkrust_utils" }
+gecko_logger = { path = "../../../../xpcom/rust/gecko_logger" }
 rsdparsa_capi = { path = "../../../../media/webrtc/signaling/src/sdp/rsdparsa_capi" }
 xulstore = { path = "../../../components/xulstore", optional = true }
 # We have these to enforce common feature sets for said crates.
@@ -34,6 +35,7 @@ log = {version = "0.4", features = ["release_max_level_info"]}
 env_logger = {version = "0.6", default-features = false} # disable `regex` to reduce code size
 cose-c = { version = "0.1.5" }
 jsrust_shared = { path = "../../../../js/src/rust/shared" }
+cascade_bloom_filter = { path = "../../../components/cascade_bloom_filter" }
 cert_storage = { path = "../../../../security/manager/ssl/cert_storage", optional = true }
 bitsdownload = { path = "../../../components/bitsdownload", optional = true }
 storage = { path = "../../../../storage/rust" }
@@ -54,8 +56,6 @@ unic-langid = { version = "0.8", features = ["likelysubtags"] }
 unic-langid-ffi = { path = "../../../../intl/locale/rust/unic-langid-ffi" }
 fluent-langneg = { version = "0.12.1", features = ["cldr"] }
 fluent-langneg-ffi = { path = "../../../../intl/locale/rust/fluent-langneg-ffi" }
-webext-storage = { git = "https://github.com/mozilla/application-services", rev = "775fc33603d722b75ff3579a5f2c52dbd4715b45", optional = true }
-golden_gate = { path = "../../../../services/sync/golden_gate", optional = true }
 
 # Note: `modern_sqlite` means rusqlite's bindings file be for a sqlite with
 # version less than or equal to what we link to. This isn't a problem because we
@@ -98,7 +98,6 @@ webgpu = ["wgpu_bindings"]
 remote_agent = ["remote"]
 glean = ["fog"]
 new_webext_storage = ["webext_storage_bridge"]
-services_sync = ["golden_gate"]
 
 [lib]
 path = "lib.rs"

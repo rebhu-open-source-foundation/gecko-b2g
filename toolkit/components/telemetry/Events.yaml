@@ -276,10 +276,36 @@ addonsManager:
     bug_numbers: [1544927, 1580561, 1590736, 1630596]
     release_channel_collection: opt-out
 
+exp_import:
+  event:
+    objects: ["click", "info", "enter", "delete"]
+    bug_numbers: [1628849]
+    description: >
+      Experimental import logins interface user interactions. Value is the browser suggested.
+    expiry_version: "87"
+    notification_emails: ["edilee@mozilla.com"]
+    products: ["firefox"]
+    record_in_processes: ["main", "content"]
+    release_channel_collection: opt-out
+  impression:
+    objects: ["formfill", "popup"]
+    bug_numbers: [1628849]
+    description: >
+      Experimental import logins potential impressions. Value is number of importable browsers.
+    expiry_version: "87"
+    extra_keys:
+      autofillResult: Value from PWMGR_FORM_AUTOFILL_RESULT
+      loginsCount: Count of logins found
+      searchLength: Length of searched login query
+    notification_emails: ["edilee@mozilla.com"]
+    products: ["firefox"]
+    record_in_processes: ["content"]
+    release_channel_collection: opt-out
+
 form_autocomplete:
   show:
     objects: ["logins"]
-    bug_numbers: [1619498]
+    bug_numbers: [1619498, 1628849]
     description: >-
       An content form autocomplete popup was shown. Details on the timing and context are provided.
       The `value` is the number of milliseconds since the autocomplete search started.
@@ -291,8 +317,8 @@ form_autocomplete:
       hadPrevious: Whether the autocomplete results had cached previous results it could use.
       typeWasPassword: Whether the input `type` was ever "password".
       insecureWarning: The number of insecure login field warning rows shown (should be 0 or 1).
-      login: The number of login rows shown (without the domain line).
-      loginWithOrigin: The number of login rows shown (with the domain line).
+      login: The number of login rows shown (with or without the domain line).
+      importableLogin: The number of import suggestion rows shown.
       loginsFooter: The number of "View Saved Logins" footer row shown.
       stringLength: Length of the text in the field that triggered these results.
     notification_emails: ["passwords-dev@mozilla.org"]
@@ -611,10 +637,12 @@ pwmgr:
     description: >
       Measure how often users are asked to authenticate with their Operating System or Master Password to gain access to stored passwords.
       Possible values are as follows,
+        "success" should be used when the user authenticates and provides a password or other authentication factor.
         "success_no_prompt" should be used when the feature is enabled but no prompt is given to the user because they have recently authenticated.
         "success_disabled" is used when the feature is disabled.
         "success_unsupported_platform" should be set when the user attempts to authenticate on an unsupported platform.
         "success_no_password" should be used when the user doesn't have an OS password set.
+        "fail" should be used when the user cancels the authentication prompt or an unexpected exception is encountered. The user may or may not have provided an incorrect password before cancelling.
     objects: [
       "master_password",
       "os_auth",
@@ -783,6 +811,32 @@ fxa_app_menu:
         The current state of the user. Possible states are "not_configured", "unverified",
         "signedin" and "login_failed".
       fxa_avatar: Boolean for whether or not account has set an avatar
+
+messaging_experiments:
+  reach:
+    objects: [
+      "cfr",
+      "whats_new_panel",
+      "moments_page",
+      "snippets",
+      "cfr_fxa"
+    ]
+    methods: ["reach"]
+    release_channel_collection: opt-out
+    products:
+      - "firefox"
+    record_in_processes: ["main"]
+    description: >
+      This records whether a branch's targeting is satisfied for Messaging System
+      experiments. All qualified branch ID(s) will be recorded in the 'extra_keys'
+      for each active experiment, and the event 'value' will be the experiment ID
+    bug_numbers: [1471318]
+    notification_emails: ["ujet@mozilla.com"]
+    expiry_version: "never"
+    extra_keys:
+      branches: >
+        A semicolon separated string for all the qualified branch ID(s).
+        e.g. "control;variant_01;treatment_02".
 
 # This category contains event entries used for Telemetry tests.
 # They will not be sent out with any pings.
@@ -1207,6 +1261,30 @@ devtools.main:
       panel_name: The name of the panel opened or other
       reason: debuggerStatement, breakpoint, exception, tab_switch, toolbox_show, initial_panel, toggle_settings_off, toggle_settings_on, key_shortcut, select_next_key, select_prev_key, tool_unloaded, inspect_dom, toolbox_closed, unknown etc.
       session_id: The start time of the session in milliseconds since epoch (Unix Timestamp) e.g. 1396381378123.
+  f12_enabled:
+    objects: ["tools"]
+    bug_numbers: [1630228]
+    notification_emails: ["dev-developer-tools@lists.mozilla.org", "hkirschner@mozilla.com"]
+    products:
+      - "firefox"
+    record_in_processes: ["main"]
+    description: User opened DevTools for the first time, which enables the F12 shortcut.
+    release_channel_collection: opt-out
+    expiry_version: "80"
+    extra_keys:
+      session_id: The start time of the session in milliseconds since epoch (Unix Timestamp) e.g. 1396381378123.
+  f12_popup_displayed:
+    objects: ["tools"]
+    bug_numbers: [1630228]
+    notification_emails: ["dev-developer-tools@lists.mozilla.org", "hkirschner@mozilla.com"]
+    products:
+      - "firefox"
+    record_in_processes: ["main"]
+    description: User triggered the "enable devtools" notification after pressing F12.
+    release_channel_collection: opt-out
+    expiry_version: "80"
+    extra_keys:
+      session_id: The start time of the session in milliseconds since epoch (Unix Timestamp) e.g. 1396381378123.
   filters_changed:
     objects: ["netmonitor", "webconsole"]
     bug_numbers: [1463144, 1463095]
@@ -1626,11 +1704,9 @@ security.ui.protections:
     description: >
       User interaction by click events on the protection report.
     objects: [
-      "lw_app_link",
       "lw_open_button",
       "lw_sync_link",
       "lw_about_link",
-      "lw_open_breach_link",
       "mtr_report_link",
       "mtr_about_link",
       "mtr_signup_button",
@@ -1652,7 +1728,7 @@ security.ui.protections:
 security.ui.app_menu:
   click:
     bug_numbers:
-      - 1603545 
+      - 1603545
       - 1616229
     description: >
       Privacy and Security click events on app menu.
@@ -1660,7 +1736,7 @@ security.ui.app_menu:
       "open_full_report",
     ]
     expiry_version: "80"
-    record_in_processes: 
+    record_in_processes:
       - main
     release_channel_collection: opt-out
     notification_emails:
@@ -1951,6 +2027,22 @@ security.doh.trrPerformance:
       retryCount: The number of lookup attempts before success.
       networkUnstable: Whether there was network fluctuation while gathering the results.
       captivePortal: Whether there a captive portal was detected during the run.
+  trrselect:
+    objects: ["dryrunresult"]
+    bug_numbers:
+      - 1631822
+    description: >
+      The URL of the DoH provider chosen by the TRR selection dry-run
+    expiry_version: "80"
+    record_in_processes:
+      - main
+    release_channel_collection: opt-out
+    notification_emails:
+      - nhnt11@mozilla.com
+      - ddamjanovic@mozilla.com
+      - seceng-telemetry@mozilla.com
+    products:
+      - firefox
 
 security.ui.certerror:
   load:

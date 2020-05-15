@@ -57,8 +57,7 @@ static const uint32_t SNAPSHOT_MAX_NARGS = 127;
 static const SnapshotOffset INVALID_RECOVER_OFFSET = uint32_t(-1);
 static const SnapshotOffset INVALID_SNAPSHOT_OFFSET = uint32_t(-1);
 
-// Different kinds of bailouts. When extending this enum, make sure to check
-// the bits reserved for bailout kinds in Bailouts.h
+// Different kinds of bailouts.
 enum BailoutKind {
   // Normal bailouts, that don't need to be handled specially when restarting
   // in baseline.
@@ -121,6 +120,9 @@ enum BailoutKind {
   //    also used for the unused GuardClass instruction
   Bailout_ObjectIdentityOrTypeGuard,
 
+  // JSString was not equal to the expected JSAtom
+  Bailout_SpecificAtomGuard,
+
   // Unbox expects a given type, bails out if it doesn't get it.
   Bailout_NonInt32Input,
   Bailout_NonNumericInput,  // unboxing a double works with int32 too
@@ -168,11 +170,19 @@ enum BailoutKind {
   // by the baseline IC.)
   Bailout_ShapeGuard,
 
+  // Bailout triggered by MGuardValue.
+  Bailout_ValueGuard,
+
+  // Bailout triggered by MGuardNullOrUndefined.
+  Bailout_NullOrUndefinedGuard,
+
   // When we're trying to use an uninitialized lexical.
   Bailout_UninitializedLexical,
 
   // A bailout to baseline from Ion on exception to handle Debugger hooks.
-  Bailout_IonExceptionDebugMode
+  Bailout_IonExceptionDebugMode,
+
+  Bailout_Limit
 };
 
 inline const char* BailoutKindString(BailoutKind kind) {
@@ -210,6 +220,8 @@ inline const char* BailoutKindString(BailoutKind kind) {
       return "Bailout_NonIntegerIndex";
     case Bailout_ObjectIdentityOrTypeGuard:
       return "Bailout_ObjectIdentityOrTypeGuard";
+    case Bailout_SpecificAtomGuard:
+      return "Bailout_SpecifcAtomGuard";
     case Bailout_NonInt32Input:
       return "Bailout_NonInt32Input";
     case Bailout_NonNumericInput:
@@ -244,13 +256,20 @@ inline const char* BailoutKindString(BailoutKind kind) {
       return "Bailout_BoundsCheck";
     case Bailout_ShapeGuard:
       return "Bailout_ShapeGuard";
+    case Bailout_ValueGuard:
+      return "Bailout_ValueGuard";
+    case Bailout_NullOrUndefinedGuard:
+      return "Bailout_NullOrUndefinedGuard";
     case Bailout_UninitializedLexical:
       return "Bailout_UninitializedLexical";
     case Bailout_IonExceptionDebugMode:
       return "Bailout_IonExceptionDebugMode";
-    default:
-      MOZ_CRASH("Invalid BailoutKind");
+
+    case Bailout_Limit:
+      break;
   }
+
+  MOZ_CRASH("Invalid BailoutKind");
 }
 
 static const uint32_t ELEMENT_TYPE_BITS = 5;
@@ -276,12 +295,22 @@ enum class SimdSign {
 
 class SimdConstant {
  public:
-  enum Type { Int8x16, Int16x8, Int32x4, Float32x4, Undefined = -1 };
+  enum Type {
+    Int8x16,
+    Int16x8,
+    Int32x4,
+    Int64x2,
+    Float32x4,
+    Float64x2,
+    Undefined = -1
+  };
 
   typedef int8_t I8x16[16];
   typedef int16_t I16x8[8];
   typedef int32_t I32x4[4];
+  typedef int64_t I64x2[2];
   typedef float F32x4[4];
+  typedef double F64x2[2];
 
  private:
   Type type_;
@@ -289,7 +318,9 @@ class SimdConstant {
     I8x16 i8x16;
     I16x8 i16x8;
     I32x4 i32x4;
+    I64x2 i64x2;
     F32x4 f32x4;
+    F64x2 f64x2;
   } u;
 
   bool defined() const { return type_ != Undefined; }
@@ -334,6 +365,18 @@ class SimdConstant {
     std::fill_n(cst.u.i32x4, 4, v);
     return cst;
   }
+  static SimdConstant CreateX2(const int64_t* array) {
+    SimdConstant cst;
+    cst.type_ = Int64x2;
+    memcpy(cst.u.i64x2, array, sizeof(cst.u));
+    return cst;
+  }
+  static SimdConstant SplatX2(int64_t v) {
+    SimdConstant cst;
+    cst.type_ = Int64x2;
+    std::fill_n(cst.u.i64x2, 2, v);
+    return cst;
+  }
   static SimdConstant CreateX4(const float* array) {
     SimdConstant cst;
     cst.type_ = Float32x4;
@@ -344,6 +387,18 @@ class SimdConstant {
     SimdConstant cst;
     cst.type_ = Float32x4;
     std::fill_n(cst.u.f32x4, 4, v);
+    return cst;
+  }
+  static SimdConstant CreateX2(const double* array) {
+    SimdConstant cst;
+    cst.type_ = Float64x2;
+    memcpy(cst.u.f64x2, array, sizeof(cst.u));
+    return cst;
+  }
+  static SimdConstant SplatX2(double v) {
+    SimdConstant cst;
+    cst.type_ = Float64x2;
+    std::fill_n(cst.u.f64x2, 2, v);
     return cst;
   }
 
@@ -357,8 +412,14 @@ class SimdConstant {
   static SimdConstant CreateSimd128(const int32_t* array) {
     return CreateX4(array);
   }
+  static SimdConstant CreateSimd128(const int64_t* array) {
+    return CreateX2(array);
+  }
   static SimdConstant CreateSimd128(const float* array) {
     return CreateX4(array);
+  }
+  static SimdConstant CreateSimd128(const double* array) {
+    return CreateX2(array);
   }
 
   Type type() const {
@@ -384,9 +445,19 @@ class SimdConstant {
     return u.i32x4;
   }
 
+  const I64x2& asInt64x2() const {
+    MOZ_ASSERT(defined() && type_ == Int64x2);
+    return u.i64x2;
+  }
+
   const F32x4& asFloat32x4() const {
     MOZ_ASSERT(defined() && type_ == Float32x4);
     return u.f32x4;
+  }
+
+  const F64x2& asFloat64x2() const {
+    MOZ_ASSERT(defined() && type_ == Float64x2);
+    return u.f64x2;
   }
 
   bool operator==(const SimdConstant& rhs) const {
@@ -546,6 +617,8 @@ static inline size_t MIRTypeToSize(MIRType type) {
       return 4;
     case MIRType::Double:
       return 8;
+    case MIRType::Int8x16:
+      return 16;
     case MIRType::Pointer:
     case MIRType::RefOrNull:
       return sizeof(uintptr_t);
@@ -684,6 +757,8 @@ static inline MIRType ScalarTypeToMIRType(Scalar::Type type) {
     case Scalar::BigInt64:
     case Scalar::BigUint64:
       MOZ_CRASH("NYI");
+    case Scalar::V128:
+      return MIRType::Int8x16;
     case Scalar::MaxTypedArrayViewType:
       break;
   }

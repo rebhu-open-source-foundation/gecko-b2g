@@ -218,6 +218,10 @@ pref("security.remote_settings.crlite_filters.collection", "cert-revocations");
 pref("security.remote_settings.crlite_filters.checked", 0);
 pref("security.remote_settings.crlite_filters.signer", "onecrl.content-signature.mozilla.org");
 
+pref("security.osreauthenticator.blank_password", false);
+pref("security.osreauthenticator.password_last_changed_lo", 0);
+pref("security.osreauthenticator.password_last_changed_hi", 0);
+
 pref("general.useragent.compatMode.firefox", false);
 
 pref("general.config.obscure_value", 13); // for MCD .cfg files
@@ -424,10 +428,15 @@ pref("media.videocontrols.picture-in-picture.video-toggle.min-video-secs", 45);
   pref("media.navigator.video.enabled", true);
   pref("media.navigator.video.default_fps",30);
   pref("media.navigator.video.use_remb", true);
-  pref("media.navigator.video.use_transport_cc", false);
+  #ifdef EARLY_BETA_OR_EARLIER
+    pref("media.navigator.video.use_transport_cc", true);
+  #else
+    pref("media.navigator.video.use_transport_cc", false);
+  #endif
   pref("media.navigator.video.use_tmmbr", false);
   pref("media.navigator.audio.use_fec", true);
   pref("media.navigator.video.red_ulpfec_enabled", false);
+  pref("media.peerconnection.video.use_rtx", false);
 
   #ifdef NIGHTLY_BUILD
     pref("media.peerconnection.sdp.parser", "sipcc");
@@ -808,7 +817,7 @@ pref("toolkit.telemetry.debugSlowSql", false);
 pref("toolkit.telemetry.unified", true);
 // AsyncShutdown delay before crashing in case of shutdown freeze
 #if !defined(MOZ_ASAN) && !defined(MOZ_TSAN)
-  pref("toolkit.asyncshutdown.report_writes_after", 20000); // 20 seconds
+  pref("toolkit.asyncshutdown.report_writes_after", 40000); // 40 seconds
   pref("toolkit.asyncshutdown.crash_timeout", 60000); // 1 minute
 #else
   // ASan and TSan builds can be considerably slower. Extend the grace period
@@ -1079,7 +1088,7 @@ pref("privacy.restrict3rdpartystorage.url_decorations", "");
 pref("privacy.popups.maxReported", 100);
 
 // Purging first-party tracking cookies.
-#ifdef NIGHTLY_BUILD
+#ifdef EARLY_BETA_OR_EARLIER
   pref("privacy.purge_trackers.enabled", true);
   pref("privacy.purge_trackers.logging.level", "All");
 #else
@@ -1112,6 +1121,7 @@ pref("javascript.options.wasm_trustedprincipals", true);
 pref("javascript.options.wasm_verbose",           false);
 pref("javascript.options.wasm_ionjit",            true);
 pref("javascript.options.wasm_baselinejit",       true);
+pref("javascript.options.wasm_reftypes",          true);
 #ifdef ENABLE_WASM_CRANELIFT
   pref("javascript.options.wasm_cranelift",       false);
 #endif
@@ -1121,8 +1131,12 @@ pref("javascript.options.wasm_baselinejit",       true);
 #ifdef ENABLE_WASM_MULTI_VALUE
   pref("javascript.options.wasm_multi_value",     true);
 #endif
+#ifdef ENABLE_WASM_SIMD
+  pref("javascript.options.wasm_simd",            false);
+#endif
 pref("javascript.options.native_regexp",    true);
 pref("javascript.options.parallel_parsing", true);
+pref("javascript.options.source_pragmas",    true);
 // Async stacks instrumentation adds overhead that is only
 // advisable for developers, so we limit it to Nightly and DevEdition
 #if defined(ANDROID) || defined(XP_IOS)
@@ -1177,17 +1191,17 @@ pref("javascript.options.mem.gc_compacting", true);
 // JSGC_HIGH_FREQUENCY_TIME_LIMIT
 pref("javascript.options.mem.gc_high_frequency_time_limit_ms", 1000);
 
-// JSGC_HIGH_FREQUENCY_LOW_LIMIT
-pref("javascript.options.mem.gc_high_frequency_low_limit_mb", 100);
+// JSGC_SMALL_HEAP_SIZE_MAX
+pref("javascript.options.mem.gc_small_heap_size_max_mb", 100);
 
-// JSGC_HIGH_FREQUENCY_HIGH_LIMIT
-pref("javascript.options.mem.gc_high_frequency_high_limit_mb", 500);
+// JSGC_LARGE_HEAP_SIZE_MIN
+pref("javascript.options.mem.gc_large_heap_size_min_mb", 500);
 
-// JSGC_HIGH_FREQUENCY_HEAP_GROWTH_MAX
-pref("javascript.options.mem.gc_high_frequency_heap_growth_max", 300);
+// JSGC_HIGH_FREQUENCY_SMALL_HEAP_GROWTH
+pref("javascript.options.mem.gc_high_frequency_small_heap_growth", 300);
 
-// JSGC_HIGH_FREQUENCY_HEAP_GROWTH_MIN
-pref("javascript.options.mem.gc_high_frequency_heap_growth_min", 150);
+// JSGC_HIGH_FREQUENCY_LARGE_HEAP_GROWTH
+pref("javascript.options.mem.gc_high_frequency_large_heap_growth", 150);
 
 // JSGC_LOW_FREQUENCY_HEAP_GROWTH
 pref("javascript.options.mem.gc_low_frequency_heap_growth", 150);
@@ -1195,8 +1209,11 @@ pref("javascript.options.mem.gc_low_frequency_heap_growth", 150);
 // JSGC_ALLOCATION_THRESHOLD
 pref("javascript.options.mem.gc_allocation_threshold_mb", 27);
 
-// JSGC_NON_INCREMENTAL_FACTOR
-pref("javascript.options.mem.gc_non_incremental_factor", 112);
+// JSGC_SMALL_HEAP_INCREMENTAL_LIMIT
+pref("javascript.options.mem.gc_small_heap_incremental_limit", 140);
+
+// JSGC_LARGE_HEAP_INCREMENTAL_LIMIT
+pref("javascript.options.mem.gc_large_heap_incremental_limit", 110);
 
 // JSGC_MIN_EMPTY_CHUNK_COUNT
 pref("javascript.options.mem.gc_min_empty_chunk_count", 1);
@@ -1834,8 +1851,6 @@ pref("network.ftp.idleConnectionTimeout", 300);
 // enables the prefetch service (i.e., prefetching of <link rel="next"> and
 // <link rel="prefetch"> URLs).
 pref("network.prefetch-next", true);
-// enables the preloading (i.e., preloading of <link rel="preload"> URLs).
-pref("network.preload", false);
 
 // The following prefs pertain to the negotiate-auth extension (see bug 17578),
 // which provides transparent Kerberos or NTLM authentication using the SPNEGO
@@ -2325,19 +2340,20 @@ pref("services.settings.security.onecrl.checked", 0);
 pref("extensions.abuseReport.enabled", true);
 // Allow AMO to handoff reports to the Firefox integrated dialog.
 pref("extensions.abuseReport.amWebAPI.enabled", true);
-// Opened as a sub-frame of the about:addons page when set to false.
-pref("extensions.abuseReport.openDialog", true);
 pref("extensions.abuseReport.url", "https://services.addons.mozilla.org/api/v4/abuse/report/addon/");
 pref("extensions.abuseReport.amoDetailsURL", "https://services.addons.mozilla.org/api/v4/addons/addon/");
 
 // Blocklist preferences
 pref("extensions.blocklist.enabled", true);
+pref("extensions.blocklist.useMLBF", false);
+pref("extensions.blocklist.useMLBF.stashes", false);
 // Required blocklist freshness for OneCRL OCSP bypass (default is 30 hours)
 // Note that this needs to exceed the interval at which we update OneCRL data,
 // configured in services.settings.poll_interval .
 pref("security.onecrl.maximum_staleness_in_seconds", 108000);
 pref("extensions.blocklist.detailsURL", "https://blocked.cdn.mozilla.net/");
 pref("extensions.blocklist.itemURL", "https://blocked.cdn.mozilla.net/%blockID%.html");
+pref("extensions.blocklist.addonItemURL", "https://addons.mozilla.org/%LOCALE%/%APP%/blocked-addon/%addonID%/%addonVersion%/");
 // Controls what level the blocklist switches from warning about items to forcibly
 // blocking them.
 pref("extensions.blocklist.level", 2);
@@ -2346,6 +2362,9 @@ pref("services.blocklist.bucket", "blocklists");
 pref("services.blocklist.addons.collection", "addons");
 pref("services.blocklist.addons.checked", 0);
 pref("services.blocklist.addons.signer", "remote-settings.content-signature.mozilla.org");
+pref("services.blocklist.addons-mlbf.collection", "addons-bloomfilters");
+pref("services.blocklist.addons-mlbf.checked", 0);
+pref("services.blocklist.addons-mlbf.signer", "remote-settings.content-signature.mozilla.org");
 pref("services.blocklist.plugins.collection", "plugins");
 pref("services.blocklist.plugins.checked", 0);
 pref("services.blocklist.plugins.signer", "remote-settings.content-signature.mozilla.org");
@@ -3985,8 +4004,6 @@ pref("network.psl.onUpdate_notify", false);
   pref("geo.provider.network.url", "https://location.services.mozilla.com/v1/geolocate?key=%MOZILLA_API_KEY%");
 #endif
 
-pref("geo.provider-country.network.url", "https://location.services.mozilla.com/v1/country?key=%MOZILLA_API_KEY%");
-pref("geo.provider-country.network.scan", false);
 // Timeout to wait before sending the location request.
 pref("geo.provider.network.timeToWaitBeforeSending", 5000);
 // Timeout for outbound network geolocation provider.
@@ -4004,6 +4021,14 @@ pref("geo.provider.network.timeout", 60000);
 #if defined(MOZ_WIDGET_GTK) && defined(MOZ_GPSD)
   pref("geo.provider.use_gpsd", true);
 #endif
+
+// Region
+pref("browser.region.log", false);
+pref("browser.region.network.url", "https://location.services.mozilla.com/v1/country?key=%MOZILLA_API_KEY%");
+// Include wifi data in region request.
+pref("browser.region.network.scan", false);
+// Timeout for whole region request.
+pref("browser.region.timeout", 5000);
 
 // Enable/Disable the device storage API for content
 pref("device.storage.enabled", false);
@@ -4304,6 +4329,7 @@ pref("urlclassifier.disallow_completions", "goog-downloadwhite-digest256,base-tr
 
 // Workaround for Google Recaptcha
 pref("urlclassifier.trackingAnnotationSkipURLs", "google.com/recaptcha/,*.google.com/recaptcha/");
+pref("privacy.rejectForeign.allowList", "");
 
 // Number of random entries to send with a gethash request
 pref("urlclassifier.gethashnoise", 4);
@@ -4915,6 +4941,9 @@ pref("devtools.devices.url", "https://code.cdn.mozilla.net/devices/devices.json"
 
 // Enable Inactive CSS detection; used both by the client and the server.
 pref("devtools.inspector.inactive.css.enabled", true);
+
+// The F12 experiment aims at disabling f12 on selected profiles.
+pref("devtools.experiment.f12.shortcut_disabled", false);
 
 #if defined(NIGHTLY_BUILD) || defined(MOZ_DEV_EDITION)
 // Define in StaticPrefList.yaml and override here since StaticPrefList.yaml

@@ -2905,12 +2905,8 @@ NS_IMETHODIMP HTMLEditor::JoinTableCells(bool aMergeNonContiguousContents) {
         return NS_ERROR_FAILURE;
       }
 
-      RefPtr<Element> deletedCell;
-      DebugOnly<nsresult> rvIgnored =
-          HTMLEditor::GetCellFromRange(range, getter_AddRefs(deletedCell));
-      NS_WARNING_ASSERTION(
-          NS_SUCCEEDED(rvIgnored),
-          "HTMLEditor::GetCellFromRange() failed, but ignored");
+      Element* deletedCell =
+          HTMLEditUtils::GetTableCellElementIfOnlyOneSelected(*range);
       if (!deletedCell) {
         MOZ_KnownLive(SelectionRefPtr())
             ->RemoveRangeAndUnselectFramesAndNotifyListeners(*range,
@@ -3880,50 +3876,6 @@ nsresult HTMLEditor::GetCellContext(Element** aTable, Element** aCell,
   return NS_OK;
 }
 
-// static
-nsresult HTMLEditor::GetCellFromRange(nsRange* aRange, Element** aCell) {
-  // Note: this might return a node that is outside of the range.
-  // Use carefully.
-  if (NS_WARN_IF(!aRange) || NS_WARN_IF(!aCell)) {
-    return NS_ERROR_INVALID_ARG;
-  }
-
-  *aCell = nullptr;
-
-  nsCOMPtr<nsINode> startContainer = aRange->GetStartContainer();
-  if (NS_WARN_IF(!startContainer)) {
-    return NS_ERROR_FAILURE;
-  }
-
-  uint32_t startOffset = aRange->StartOffset();
-
-  nsCOMPtr<nsINode> childNode = aRange->GetChildAtStartOffset();
-  // This means selection is probably at a text node (or end of doc?)
-  if (!childNode) {
-    NS_WARNING("First selection range does not starts from a node");
-    return NS_ERROR_FAILURE;
-  }
-
-  nsCOMPtr<nsINode> endContainer = aRange->GetEndContainer();
-  if (NS_WARN_IF(!endContainer)) {
-    return NS_ERROR_FAILURE;
-  }
-
-  // If a cell is deleted, the range is collapse
-  //   (startOffset == aRange->EndOffset())
-  //   so tell caller the cell wasn't found
-  if (startContainer == endContainer &&
-      aRange->EndOffset() == startOffset + 1 &&
-      HTMLEditUtils::IsTableCell(childNode)) {
-    // Should we also test if frame is selected? (Use CellData)
-    // (Let's not for now -- more efficient)
-    RefPtr<Element> cellElement = childNode->AsElement();
-    cellElement.forget(aCell);
-    return NS_OK;
-  }
-  return NS_SUCCESS_EDITOR_ELEMENT_NOT_FOUND;
-}
-
 NS_IMETHODIMP HTMLEditor::GetFirstSelectedCell(
     nsRange** aFirstSelectedRange, Element** aFirstSelectedCellElement) {
   if (NS_WARN_IF(!aFirstSelectedCellElement)) {
@@ -3970,7 +3922,7 @@ already_AddRefed<Element> HTMLEditor::GetFirstSelectedTableCellElement(
 
   MOZ_ASSERT(!aRv.Failed());
 
-  nsRange* firstRange = SelectionRefPtr()->GetRangeAt(0);
+  const nsRange* firstRange = SelectionRefPtr()->GetRangeAt(0);
   if (NS_WARN_IF(!firstRange)) {
     // XXX Why don't we treat "not found" in this case?
     aRv.Throw(NS_ERROR_FAILURE);
@@ -3980,17 +3932,12 @@ already_AddRefed<Element> HTMLEditor::GetFirstSelectedTableCellElement(
   // XXX It must be unclear when this is reset...
   mSelectedCellIndex = 0;
 
-  RefPtr<Element> selectedCell;
-  nsresult rv =
-      HTMLEditor::GetCellFromRange(firstRange, getter_AddRefs(selectedCell));
-  if (NS_FAILED(rv)) {
-    // This case occurs only when Selection is in a text node in normal cases.
-    return nullptr;
-  }
+  RefPtr<Element> selectedCell =
+      HTMLEditUtils::GetTableCellElementIfOnlyOneSelected(*firstRange);
   if (!selectedCell) {
-    // This case means that the range does not select only a cell.
-    // E.g., selects non-table cell element, selects two or more cells, or
-    //       does not select any cell element.
+    // This case means that Selection is in a text node in normal cases or
+    // the range does not select only a cell.  E.g., selects non-table cell
+    // element, selects two or more cells, or does not select any cell element.
     return nullptr;
   }
 
@@ -4054,24 +4001,23 @@ already_AddRefed<Element> HTMLEditor::GetNextSelectedTableCellElement(
   MOZ_ASSERT(mSelectedCellIndex > 0);
   for (; mSelectedCellIndex < SelectionRefPtr()->RangeCount();
        mSelectedCellIndex++) {
-    nsRange* range = SelectionRefPtr()->GetRangeAt(mSelectedCellIndex);
+    const nsRange* range = SelectionRefPtr()->GetRangeAt(mSelectedCellIndex);
     if (NS_WARN_IF(!range)) {
       aRv.Throw(NS_ERROR_FAILURE);
       return nullptr;
     }
 
-    RefPtr<Element> nextSelectedCellElement;
-    nsresult rv = HTMLEditor::GetCellFromRange(
-        range, getter_AddRefs(nextSelectedCellElement));
-    if (NS_FAILED(rv)) {
-      // Failure means that the range is in non-element node, e.g., a text node.
-      // Returns nullptr without error if not found.
+    if (!range->GetStartContainer() || !range->GetChildAtStartOffset() ||
+        !range->GetEndContainer()) {
+      // This means that the range is not positioned or in non-element node,
+      // e.g., a text node.  Returns nullptr without error if not found.
       // XXX Why don't we just skip such range or incrementing
       //     mSelectedCellIndex for next call?
       return nullptr;
     }
 
-    if (nextSelectedCellElement) {
+    if (RefPtr<Element> nextSelectedCellElement =
+            HTMLEditUtils::GetTableCellElementIfOnlyOneSelected(*range)) {
       mSelectedCellIndex++;
       return nextSelectedCellElement.forget();
     }

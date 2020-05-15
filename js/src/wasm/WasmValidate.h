@@ -74,6 +74,7 @@ struct CompilerEnvironment {
       bool multiValues_;
       bool hugeMemory_;
       bool bigInt_;
+      bool v128_;
     };
   };
 
@@ -89,7 +90,8 @@ struct CompilerEnvironment {
                       OptimizedBackend optimizedBackend,
                       DebugEnabled debugEnabled, bool multiValueConfigured,
                       bool refTypesConfigured, bool gcTypesConfigured,
-                      bool hugeMemory, bool bigIntConfigured);
+                      bool hugeMemory, bool bigIntConfigured,
+                      bool v128Configured);
 
   // Compute any remaining compilation parameters.
   void computeParameters(Decoder& d);
@@ -135,6 +137,10 @@ struct CompilerEnvironment {
   bool bigInt() const {
     MOZ_ASSERT(isComputed());
     return bigInt_;
+  }
+  bool v128() const {
+    MOZ_ASSERT(isComputed());
+    return v128_;
   }
 };
 
@@ -209,6 +215,7 @@ struct ModuleEnvironment {
   bool refTypesEnabled() const { return compilerEnv->refTypes(); }
   bool multiValuesEnabled() const { return compilerEnv->multiValues(); }
   bool bigIntEnabled() const { return compilerEnv->bigInt(); }
+  bool v128Enabled() const { return compilerEnv->v128(); }
   bool usesMemory() const { return memoryUsage != MemoryUsage::None; }
   bool usesSharedMemory() const { return memoryUsage == MemoryUsage::Shared; }
   bool isAsmJS() const { return kind == ModuleKind::AsmJS; }
@@ -644,6 +651,16 @@ class Decoder {
   MOZ_MUST_USE bool readFixedU32(uint32_t* u) { return read<uint32_t>(u); }
   MOZ_MUST_USE bool readFixedF32(float* f) { return read<float>(f); }
   MOZ_MUST_USE bool readFixedF64(double* d) { return read<double>(d); }
+#ifdef ENABLE_WASM_SIMD
+  MOZ_MUST_USE bool readFixedV128(V128* d) {
+    for (unsigned i = 0; i < 16; i++) {
+      if (!read<uint8_t>(d->bytes + i)) {
+        return false;
+      }
+    }
+    return true;
+  }
+#endif
 
   // Variable-length encodings that all use LEB128.
 
@@ -681,6 +698,9 @@ class Decoder {
       case uint8_t(TypeCode::F32):
       case uint8_t(TypeCode::F64):
       case uint8_t(TypeCode::I64):
+#ifdef ENABLE_WASM_SIMD
+      case uint8_t(TypeCode::V128):
+#endif
         *type = ValType::fromNonRefTypeCode(TypeCode(code));
         return true;
 #ifdef ENABLE_WASM_REFTYPES
@@ -735,11 +755,9 @@ class Decoder {
     if (MOZ_LIKELY(!IsPrefixByte(u8))) {
       return true;
     }
-    if (!readFixedU8(&u8)) {
-      op->b1 = 0;  // Make it sane
+    if (!readVarU32(&op->b1)) {
       return false;
     }
-    op->b1 = u8;
     return true;
   }
 

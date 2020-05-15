@@ -4,8 +4,11 @@
 
 use uuid::Uuid;
 
-use glean_core::CommonMetricData;
+use super::CommonMetricData;
 
+/// A UUID metric.
+///
+/// Stores UUID values.
 #[derive(Clone, Debug)]
 pub struct UuidMetric(glean_core::metrics::UuidMetric);
 

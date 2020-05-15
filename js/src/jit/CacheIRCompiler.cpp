@@ -1390,25 +1390,6 @@ bool CacheIRCompiler::emitGuardIsNullOrUndefined(ValOperandId inputId) {
   return true;
 }
 
-bool CacheIRCompiler::emitGuardIsNotNullOrUndefined(ValOperandId inputId) {
-  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
-  JSValueType knownType = allocator.knownType(inputId);
-  if (knownType == JSVAL_TYPE_UNDEFINED || knownType == JSVAL_TYPE_NULL) {
-    return false;
-  }
-
-  ValueOperand input = allocator.useValueRegister(masm, inputId);
-  FailurePath* failure;
-  if (!addFailurePath(&failure)) {
-    return false;
-  }
-
-  masm.branchTestNull(Assembler::Equal, input, failure->label());
-  masm.branchTestUndefined(Assembler::Equal, input, failure->label());
-
-  return true;
-}
-
 bool CacheIRCompiler::emitGuardIsNull(ValOperandId inputId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   JSValueType knownType = allocator.knownType(inputId);
@@ -3097,6 +3078,17 @@ bool CacheIRCompiler::emitLoadArgumentsObjectLengthResult(ObjOperandId objId) {
   return true;
 }
 
+bool CacheIRCompiler::emitLoadTypedArrayLengthResult(ObjOperandId objId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+  AutoOutputRegister output(*this);
+  Register obj = allocator.useRegister(masm, objId);
+  AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
+
+  masm.unboxInt32(Address(obj, TypedArrayObject::lengthOffset()), scratch);
+  EmitStoreResult(masm, scratch, JSVAL_TYPE_INT32, output);
+  return true;
+}
+
 bool CacheIRCompiler::emitLoadFunctionLengthResult(ObjOperandId objId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   AutoOutputRegister output(*this);
@@ -3722,6 +3714,7 @@ bool CacheIRCompiler::emitStoreTypedElement(ObjOperandId objId,
 
     case Scalar::MaxTypedArrayViewType:
     case Scalar::Int64:
+    case Scalar::V128:
       MOZ_CRASH("Unsupported TypedArray type");
   }
 
@@ -3991,6 +3984,7 @@ bool CacheIRCompiler::emitStoreTypedObjectScalarProperty(
 
     case Scalar::MaxTypedArrayViewType:
     case Scalar::Int64:
+    case Scalar::V128:
       MOZ_CRASH("Unsupported TypedArray type");
   }
 

@@ -130,7 +130,7 @@ void nsRilResponseResult::updateSmscAddress(const nsAString &aSmsc) {
  */
 void nsRilResponseResult::updateCurrentCalls(nsTArray<RefPtr<nsCall>> & aCalls) {
   __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult", "updateCurrentCalls");
-  mCalls = aCalls;
+  mCalls = aCalls.Clone();
 }
 
 /**
@@ -155,7 +155,7 @@ void nsRilResponseResult::updatePreferredNetworkType(int32_t aType) {
  */
 void nsRilResponseResult::updateAvailableNetworks(nsTArray<RefPtr<nsOperatorInfo>> & aAvailableNetworks) {
   __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult", "updateAvailableNetworks");
-  mAvailableNetworks = aAvailableNetworks;
+  mAvailableNetworks = aAvailableNetworks.Clone();
 }
 
 /**
@@ -171,7 +171,7 @@ void nsRilResponseResult::updateDataCallResponse(nsSetupDataCallResult* aDcRespo
  */
 void nsRilResponseResult::updateDcList(nsTArray<RefPtr<nsSetupDataCallResult>> & aDcLists) {
   __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult", "updateDcList");
-  mDcLists = aDcLists;
+  mDcLists = aDcLists.Clone();
 }
 
 /**
@@ -179,7 +179,7 @@ void nsRilResponseResult::updateDcList(nsTArray<RefPtr<nsSetupDataCallResult>> &
  */
 void nsRilResponseResult::updateCellInfoList(nsTArray<RefPtr<nsRilCellInfo>> & aCellInfoLists) {
   __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult", "updateCellInfoList");
-  mCellInfoLists = aCellInfoLists;
+  mCellInfoLists = aCellInfoLists.Clone();
 }
 
 /**
@@ -212,7 +212,7 @@ void nsRilResponseResult::updateIccIoResult(nsIccIoResult* aIccIoResult) {
 
 void nsRilResponseResult::updateCallForwardStatusList(nsTArray<RefPtr<nsCallForwardInfo>> & aCallForwardInfoLists) {
   __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult", "updateCallForwardStatusList");
-  mCallForwardInfoLists = aCallForwardInfoLists;
+  mCallForwardInfoLists = aCallForwardInfoLists.Clone();
 }
 
 /**
@@ -236,7 +236,7 @@ void nsRilResponseResult::updateCallForwardStatusList(nsTArray<RefPtr<nsCallForw
 
 void nsRilResponseResult::updateNeighboringCells(nsTArray<RefPtr<nsNeighboringCell>> & aNeighboringCell) {
   __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult", "updateNeighboringCells");
-  mNeighboringCell = aNeighboringCell;
+  mNeighboringCell = aNeighboringCell.Clone();
 }
 
 /**

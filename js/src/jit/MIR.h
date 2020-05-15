@@ -18,6 +18,7 @@
 #include "mozilla/MacroForEach.h"
 
 #include <algorithm>
+#include <initializer_list>
 
 #include "jit/AtomicOp.h"
 #include "jit/BaselineIC.h"
@@ -717,6 +718,9 @@ class MDefinition : public MNode {
 
   bool mightBeMagicType() const;
 
+  // Return true if the result-set types are a subset of the given types.
+  bool definitelyType(std::initializer_list<MIRType> types) const;
+
   bool maybeEmulatesUndefined(CompilerConstraintList* constraints);
 
   // Float32 specialization operations (see big comment in IonAnalysis before
@@ -912,10 +916,9 @@ class MDefinition : public MNode {
 };
 
 static inline bool SimpleArithOperand(MDefinition* op) {
-  return !op->emptyResultTypeSet() && !op->mightBeType(MIRType::Object) &&
-         !op->mightBeType(MIRType::String) &&
-         !op->mightBeType(MIRType::Symbol) &&
-         !op->mightBeType(MIRType::BigInt) && !op->mightBeMagicType();
+  return op->definitelyType({MIRType::Undefined, MIRType::Null,
+                             MIRType::Boolean, MIRType::Int32, MIRType::Double,
+                             MIRType::Float32});
 }
 
 // An MUseDefIterator walks over uses in a definition, skipping any use that is
@@ -2300,7 +2303,8 @@ class MNewObject : public MUnaryInstruction, public NoTypePolicy::Data {
     MOZ_ASSERT_IF(mode != ObjectLiteral, templateObject());
     setResultType(MIRType::Object);
 
-    if (JSObject* obj = templateObject()) {
+    JSObject* obj = templateObject();
+    if (obj && !JitOptions.warpBuilder) {
       setResultTypeSet(MakeSingletonTypeSet(alloc, constraints, obj));
     }
 
@@ -3690,11 +3694,10 @@ class MToDouble : public MToFPInstruction {
     setResultType(MIRType::Double);
     setMovable();
 
-    // An object might have "valueOf", which means it is effectful.
-    // ToNumber(symbol) and ToNumber(bigint) throw.
-    if (def->mightBeType(MIRType::Object) ||
-        def->mightBeType(MIRType::Symbol) ||
-        def->mightBeType(MIRType::BigInt)) {
+    // Guard unless the conversion is known to be non-effectful & non-throwing.
+    if (!def->definitelyType({MIRType::Undefined, MIRType::Null,
+                              MIRType::Boolean, MIRType::Int32, MIRType::Double,
+                              MIRType::Float32, MIRType::String})) {
       setGuard();
     }
   }
@@ -3758,11 +3761,10 @@ class MToFloat32 : public MToFPInstruction {
     setResultType(MIRType::Float32);
     setMovable();
 
-    // An object might have "valueOf", which means it is effectful.
-    // ToNumber(symbol) and ToNumber(BigInt) throw.
-    if (def->mightBeType(MIRType::Object) ||
-        def->mightBeType(MIRType::Symbol) ||
-        def->mightBeType(MIRType::BigInt)) {
+    // Guard unless the conversion is known to be non-effectful & non-throwing.
+    if (!def->definitelyType({MIRType::Undefined, MIRType::Null,
+                              MIRType::Boolean, MIRType::Int32, MIRType::Double,
+                              MIRType::Float32, MIRType::String})) {
       setGuard();
     }
   }
@@ -4054,11 +4056,10 @@ class MToNumberInt32 : public MUnaryInstruction, public ToInt32Policy::Data {
     setResultType(MIRType::Int32);
     setMovable();
 
-    // An object might have "valueOf", which means it is effectful.
-    // ToNumber(symbol) and ToNumber(BigInt) throw.
-    if (def->mightBeType(MIRType::Object) ||
-        def->mightBeType(MIRType::Symbol) ||
-        def->mightBeType(MIRType::BigInt)) {
+    // Guard unless the conversion is known to be non-effectful & non-throwing.
+    if (!def->definitelyType({MIRType::Undefined, MIRType::Null,
+                              MIRType::Boolean, MIRType::Int32, MIRType::Double,
+                              MIRType::Float32, MIRType::String})) {
       setGuard();
     }
   }
@@ -4113,11 +4114,10 @@ class MToIntegerInt32 : public MUnaryInstruction, public ToInt32Policy::Data {
     setResultType(MIRType::Int32);
     setMovable();
 
-    // An object might have "valueOf", which means it is effectful.
-    // ToInteger(symbol) and ToInteger(BigInt) throw.
-    if (def->mightBeType(MIRType::Object) ||
-        def->mightBeType(MIRType::Symbol) ||
-        def->mightBeType(MIRType::BigInt)) {
+    // Guard unless the conversion is known to be non-effectful & non-throwing.
+    if (!def->definitelyType({MIRType::Undefined, MIRType::Null,
+                              MIRType::Boolean, MIRType::Int32, MIRType::Double,
+                              MIRType::Float32, MIRType::String})) {
       setGuard();
     }
   }
@@ -4154,11 +4154,8 @@ class MTruncateToInt32 : public MUnaryInstruction, public ToInt32Policy::Data {
     setResultType(MIRType::Int32);
     setMovable();
 
-    // An object might have "valueOf", which means it is effectful.
-    // ToInt32(symbol) and ToInt32(BigInt) throw.
-    if (def->mightBeType(MIRType::Object) ||
-        def->mightBeType(MIRType::Symbol) ||
-        def->mightBeType(MIRType::BigInt)) {
+    // Guard unless the conversion is known to be non-effectful & non-throwing.
+    if (mightHaveSideEffects(def)) {
       setGuard();
     }
   }
@@ -4166,6 +4163,12 @@ class MTruncateToInt32 : public MUnaryInstruction, public ToInt32Policy::Data {
  public:
   INSTRUCTION_HEADER(TruncateToInt32)
   TRIVIAL_NEW_WRAPPERS
+
+  static bool mightHaveSideEffects(MDefinition* def) {
+    return !def->definitelyType(
+        {MIRType::Undefined, MIRType::Null, MIRType::Boolean, MIRType::Int32,
+         MIRType::Double, MIRType::Float32, MIRType::String});
+  }
 
   MDefinition* foldsTo(TempAllocator& alloc) override;
 
@@ -4191,6 +4194,114 @@ class MTruncateToInt32 : public MUnaryInstruction, public ToInt32Policy::Data {
   ALLOW_CLONE(MTruncateToInt32)
 };
 
+// Converts a primitive (either typed or untyped) to a BigInt. If the input is
+// not primitive at runtime, a bailout occurs.
+class MToBigInt : public MUnaryInstruction, public ToBigIntPolicy::Data {
+ private:
+  explicit MToBigInt(MDefinition* def) : MUnaryInstruction(classOpcode, def) {
+    setResultType(MIRType::BigInt);
+    setMovable();
+
+    // Guard unless the conversion is known to be non-effectful & non-throwing.
+    if (!def->definitelyType(
+            {MIRType::Boolean, MIRType::String, MIRType::BigInt})) {
+      setGuard();
+    }
+  }
+
+ public:
+  INSTRUCTION_HEADER(ToBigInt)
+  TRIVIAL_NEW_WRAPPERS
+
+  bool congruentTo(const MDefinition* ins) const override {
+    return congruentIfOperandsEqual(ins);
+  }
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
+
+  ALLOW_CLONE(MToBigInt)
+};
+
+// Takes a Value or typed input and returns a suitable Int64 using the
+// ToBigInt algorithm, possibly calling out to the VM for string, etc inputs.
+class MToInt64 : public MUnaryInstruction, public ToInt64Policy::Data {
+  explicit MToInt64(MDefinition* def) : MUnaryInstruction(classOpcode, def) {
+    setResultType(MIRType::Int64);
+    setMovable();
+
+    // An object might have "valueOf", which means it is effectful.
+    // ToBigInt(undefined), ToBigInt(null), ToBigInt(number), and
+    // ToBigInt(symbol) all throw.
+    if (def->mightBeType(MIRType::Object) ||
+        def->mightBeType(MIRType::Undefined) ||
+        def->mightBeType(MIRType::Null) || def->mightBeType(MIRType::Double) ||
+        def->mightBeType(MIRType::Float32) ||
+        def->mightBeType(MIRType::Int32) || def->mightBeType(MIRType::Symbol)) {
+      setGuard();
+    }
+  }
+
+ public:
+  INSTRUCTION_HEADER(ToInt64)
+  TRIVIAL_NEW_WRAPPERS
+
+  bool congruentTo(const MDefinition* ins) const override {
+    return congruentIfOperandsEqual(ins);
+  }
+
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
+
+  MDefinition* foldsTo(TempAllocator& alloc) override;
+
+  ALLOW_CLONE(MToInt64)
+};
+
+// Takes a BigInt pointer and returns its toInt64 value.
+class MTruncateBigIntToInt64 : public MUnaryInstruction,
+                               public NoTypePolicy::Data {
+  explicit MTruncateBigIntToInt64(MDefinition* def)
+      : MUnaryInstruction(classOpcode, def) {
+    MOZ_ASSERT(def->type() == MIRType::BigInt);
+    setResultType(MIRType::Int64);
+    setMovable();
+  }
+
+ public:
+  INSTRUCTION_HEADER(TruncateBigIntToInt64)
+  TRIVIAL_NEW_WRAPPERS
+
+  bool congruentTo(const MDefinition* ins) const override {
+    return congruentIfOperandsEqual(ins);
+  }
+
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
+
+  MDefinition* foldsTo(TempAllocator& alloc) override;
+
+  ALLOW_CLONE(MTruncateBigIntToInt64)
+};
+
+// Takes an Int64 and returns a fresh BigInt pointer.
+class MInt64ToBigInt : public MUnaryInstruction, public NoTypePolicy::Data {
+  explicit MInt64ToBigInt(MDefinition* def)
+      : MUnaryInstruction(classOpcode, def) {
+    MOZ_ASSERT(def->type() == MIRType::Int64);
+    setResultType(MIRType::BigInt);
+    setMovable();
+  }
+
+ public:
+  INSTRUCTION_HEADER(Int64ToBigInt)
+  TRIVIAL_NEW_WRAPPERS
+
+  bool congruentTo(const MDefinition* ins) const override {
+    return congruentIfOperandsEqual(ins);
+  }
+
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
+
+  ALLOW_CLONE(MInt64ToBigInt)
+};
+
 // Converts any type to a string
 class MToString : public MUnaryInstruction, public ToStringPolicy::Data {
  public:
@@ -4211,8 +4322,10 @@ class MToString : public MUnaryInstruction, public ToStringPolicy::Data {
     if (JitOptions.warpBuilder) {
       mightHaveSideEffects_ = true;
     } else {
-      if (input()->mightBeType(MIRType::Object) ||
-          input()->mightBeType(MIRType::Symbol)) {
+      if (!def->definitelyType({MIRType::Undefined, MIRType::Null,
+                                MIRType::Boolean, MIRType::Int32,
+                                MIRType::Double, MIRType::Float32,
+                                MIRType::String, MIRType::BigInt})) {
         mightHaveSideEffects_ = true;
       }
 
@@ -7417,30 +7530,18 @@ class MSpectreMaskIndex
   ALLOW_CLONE(MSpectreMaskIndex)
 };
 
-// Instructions which access an object's elements can either do so on a
-// definition accessing that elements pointer, or on the object itself, if its
-// elements are inline. In the latter case there must be an offset associated
-// with the access.
-static inline bool IsValidElementsType(MDefinition* elements,
-                                       int32_t offsetAdjustment) {
-  return elements->type() == MIRType::Elements ||
-         (elements->type() == MIRType::Object && offsetAdjustment != 0);
-}
-
 // Load a value from a dense array's element vector and does a hole check if the
 // array is not known to be packed.
 class MLoadElement : public MBinaryInstruction,
                      public SingleObjectPolicy::Data {
   bool needsHoleCheck_;
   bool loadDoubles_;
-  int32_t offsetAdjustment_;
 
   MLoadElement(MDefinition* elements, MDefinition* index, bool needsHoleCheck,
-               bool loadDoubles, int32_t offsetAdjustment = 0)
+               bool loadDoubles)
       : MBinaryInstruction(classOpcode, elements, index),
         needsHoleCheck_(needsHoleCheck),
-        loadDoubles_(loadDoubles),
-        offsetAdjustment_(offsetAdjustment) {
+        loadDoubles_(loadDoubles) {
     if (needsHoleCheck) {
       // Uses may be optimized away based on this instruction's result
       // type. This means it's invalid to DCE this instruction, as we
@@ -7449,7 +7550,7 @@ class MLoadElement : public MBinaryInstruction,
     }
     setResultType(MIRType::Value);
     setMovable();
-    MOZ_ASSERT(IsValidElementsType(elements, offsetAdjustment));
+    MOZ_ASSERT(elements->type() == MIRType::Elements);
     MOZ_ASSERT(index->type() == MIRType::Int32);
   }
 
@@ -7460,7 +7561,6 @@ class MLoadElement : public MBinaryInstruction,
 
   bool needsHoleCheck() const { return needsHoleCheck_; }
   bool loadDoubles() const { return loadDoubles_; }
-  int32_t offsetAdjustment() const { return offsetAdjustment_; }
   bool fallible() const { return needsHoleCheck(); }
   bool congruentTo(const MDefinition* ins) const override {
     if (!ins->isLoadElement()) {
@@ -7471,9 +7571,6 @@ class MLoadElement : public MBinaryInstruction,
       return false;
     }
     if (loadDoubles() != other->loadDoubles()) {
-      return false;
-    }
-    if (offsetAdjustment() != other->offsetAdjustment()) {
       return false;
     }
     return congruentIfOperandsEqual(other);
@@ -7582,14 +7679,12 @@ class MStoreElement
       public MStoreElementCommon,
       public MixPolicy<SingleObjectPolicy, NoFloatPolicy<2>>::Data {
   bool needsHoleCheck_;
-  int32_t offsetAdjustment_;
 
   MStoreElement(MDefinition* elements, MDefinition* index, MDefinition* value,
-                bool needsHoleCheck, int32_t offsetAdjustment = 0)
+                bool needsHoleCheck)
       : MTernaryInstruction(classOpcode, elements, index, value) {
     needsHoleCheck_ = needsHoleCheck;
-    offsetAdjustment_ = offsetAdjustment;
-    MOZ_ASSERT(IsValidElementsType(elements, offsetAdjustment));
+    MOZ_ASSERT(elements->type() == MIRType::Elements);
     MOZ_ASSERT(index->type() == MIRType::Int32);
   }
 
@@ -7602,7 +7697,6 @@ class MStoreElement
     return AliasSet::Store(AliasSet::Element);
   }
   bool needsHoleCheck() const { return needsHoleCheck_; }
-  int32_t offsetAdjustment() const { return offsetAdjustment_; }
   bool fallible() const { return needsHoleCheck(); }
 
   ALLOW_CLONE(MStoreElement)
@@ -7793,29 +7887,23 @@ enum MemoryBarrierRequirement {
 // Load an unboxed scalar value from a typed array or other object.
 class MLoadUnboxedScalar : public MBinaryInstruction,
                            public SingleObjectPolicy::Data {
+  int32_t offsetAdjustment_ = 0;
   Scalar::Type storageType_;
-  Scalar::Type readType_;
   bool requiresBarrier_;
-  int32_t offsetAdjustment_;
-  bool canonicalizeDoubles_;
 
   MLoadUnboxedScalar(
       MDefinition* elements, MDefinition* index, Scalar::Type storageType,
-      MemoryBarrierRequirement requiresBarrier = DoesNotRequireMemoryBarrier,
-      int32_t offsetAdjustment = 0, bool canonicalizeDoubles = true)
+      MemoryBarrierRequirement requiresBarrier = DoesNotRequireMemoryBarrier)
       : MBinaryInstruction(classOpcode, elements, index),
         storageType_(storageType),
-        readType_(storageType),
-        requiresBarrier_(requiresBarrier == DoesRequireMemoryBarrier),
-        offsetAdjustment_(offsetAdjustment),
-        canonicalizeDoubles_(canonicalizeDoubles) {
+        requiresBarrier_(requiresBarrier == DoesRequireMemoryBarrier) {
     setResultType(MIRType::Value);
     if (requiresBarrier_) {
       setGuard();  // Not removable or movable
     } else {
       setMovable();
     }
-    MOZ_ASSERT(IsValidElementsType(elements, offsetAdjustment));
+    MOZ_ASSERT(elements->type() == MIRType::Elements);
     MOZ_ASSERT(index->type() == MIRType::Int32);
     MOZ_ASSERT(storageType >= 0 && storageType < Scalar::MaxTypedArrayViewType);
   }
@@ -7825,15 +7913,12 @@ class MLoadUnboxedScalar : public MBinaryInstruction,
   TRIVIAL_NEW_WRAPPERS
   NAMED_OPERANDS((0, elements), (1, index))
 
-  Scalar::Type readType() const { return readType_; }
-
   Scalar::Type storageType() const { return storageType_; }
   bool fallible() const {
     // Bailout if the result does not fit in an int32.
-    return readType_ == Scalar::Uint32 && type() == MIRType::Int32;
+    return storageType_ == Scalar::Uint32 && type() == MIRType::Int32;
   }
   bool requiresMemoryBarrier() const { return requiresBarrier_; }
-  bool canonicalizeDoubles() const { return canonicalizeDoubles_; }
   int32_t offsetAdjustment() const { return offsetAdjustment_; }
   void setOffsetAdjustment(int32_t offsetAdjustment) {
     offsetAdjustment_ = offsetAdjustment;
@@ -7858,13 +7943,7 @@ class MLoadUnboxedScalar : public MBinaryInstruction,
     if (storageType_ != other->storageType_) {
       return false;
     }
-    if (readType_ != other->readType_) {
-      return false;
-    }
     if (offsetAdjustment() != other->offsetAdjustment()) {
-      return false;
-    }
-    if (canonicalizeDoubles() != other->canonicalizeDoubles()) {
       return false;
     }
     return congruentIfOperandsEqual(other);
@@ -7941,7 +8020,7 @@ class StoreUnboxedScalarBase {
  protected:
   explicit StoreUnboxedScalarBase(Scalar::Type writeType)
       : writeType_(writeType) {
-    MOZ_ASSERT(isIntegerWrite() || isFloatWrite());
+    MOZ_ASSERT(isIntegerWrite() || isFloatWrite() || isBigIntWrite());
   }
 
  public:
@@ -7959,6 +8038,7 @@ class StoreUnboxedScalarBase {
   bool isFloatWrite() const {
     return writeType_ == Scalar::Float32 || writeType_ == Scalar::Float64;
   }
+  bool isBigIntWrite() const { return Scalar::isBigIntType(writeType_); }
 };
 
 // Store an unboxed scalar value to a typed array or other object.
@@ -7976,25 +8056,22 @@ class MStoreUnboxedScalar : public MTernaryInstruction,
   TruncateInputKind truncateInput_;
 
   bool requiresBarrier_;
-  int32_t offsetAdjustment_;
 
   MStoreUnboxedScalar(
       MDefinition* elements, MDefinition* index, MDefinition* value,
       Scalar::Type storageType, TruncateInputKind truncateInput,
-      MemoryBarrierRequirement requiresBarrier = DoesNotRequireMemoryBarrier,
-      int32_t offsetAdjustment = 0)
+      MemoryBarrierRequirement requiresBarrier = DoesNotRequireMemoryBarrier)
       : MTernaryInstruction(classOpcode, elements, index, value),
         StoreUnboxedScalarBase(storageType),
         storageType_(storageType),
         truncateInput_(truncateInput),
-        requiresBarrier_(requiresBarrier == DoesRequireMemoryBarrier),
-        offsetAdjustment_(offsetAdjustment) {
+        requiresBarrier_(requiresBarrier == DoesRequireMemoryBarrier) {
     if (requiresBarrier_) {
       setGuard();  // Not removable or movable
     } else {
       setMovable();
     }
-    MOZ_ASSERT(IsValidElementsType(elements, offsetAdjustment));
+    MOZ_ASSERT(elements->type() == MIRType::Elements);
     MOZ_ASSERT(index->type() == MIRType::Int32);
     MOZ_ASSERT(storageType >= 0 && storageType < Scalar::MaxTypedArrayViewType);
   }
@@ -8010,7 +8087,6 @@ class MStoreUnboxedScalar : public MTernaryInstruction,
   }
   TruncateInputKind truncateInput() const { return truncateInput_; }
   bool requiresMemoryBarrier() const { return requiresBarrier_; }
-  int32_t offsetAdjustment() const { return offsetAdjustment_; }
   TruncateKind operandTruncateKind(size_t index) const override;
 
   bool canConsumeFloat32(MUse* use) const override {
@@ -8765,6 +8841,56 @@ class MGuardShape : public MUnaryInstruction, public SingleObjectPolicy::Data {
   }
 };
 
+// Guard on a specific Value.
+class MGuardValue : public MUnaryInstruction, public BoxInputsPolicy::Data {
+  Value expected_;
+
+  MGuardValue(MDefinition* val, const Value& expected)
+      : MUnaryInstruction(classOpcode, val), expected_(expected) {
+    setGuard();
+    setMovable();
+    MOZ_ASSERT(expected.isNullOrUndefined() || expected.isMagic());
+  }
+
+ public:
+  INSTRUCTION_HEADER(GuardValue)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, value))
+
+  Value expected() const { return expected_; }
+
+  bool congruentTo(const MDefinition* ins) const override {
+    if (!ins->isGuardValue()) {
+      return false;
+    }
+    if (expected() != ins->toGuardValue()->expected()) {
+      return false;
+    }
+    return congruentIfOperandsEqual(ins);
+  }
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
+};
+
+// Guard on null or undefined values.
+class MGuardNullOrUndefined : public MUnaryInstruction,
+                              public BoxInputsPolicy::Data {
+  explicit MGuardNullOrUndefined(MDefinition* val)
+      : MUnaryInstruction(classOpcode, val) {
+    setGuard();
+    setMovable();
+  }
+
+ public:
+  INSTRUCTION_HEADER(GuardNullOrUndefined)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, value))
+
+  bool congruentTo(const MDefinition* ins) const override {
+    return congruentIfOperandsEqual(ins);
+  }
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
+};
+
 // Bail if the object's shape or unboxed group is not in the input list.
 class MGuardReceiverPolymorphic : public MUnaryInstruction,
                                   public SingleObjectPolicy::Data {
@@ -8882,6 +9008,40 @@ class MGuardObjectIdentity : public MBinaryInstruction,
   }
   AliasSet getAliasSet() const override {
     return AliasSet::Load(AliasSet::ObjectFields);
+  }
+};
+
+class MGuardSpecificAtom : public MUnaryInstruction,
+                           public StringPolicy<0>::Data {
+  CompilerGCPointer<JSAtom*> atom_;
+
+  MGuardSpecificAtom(MDefinition* str, JSAtom* atom)
+      : MUnaryInstruction(classOpcode, str), atom_(atom) {
+    setGuard();
+    setMovable();
+    setResultType(MIRType::None);
+  }
+
+ public:
+  INSTRUCTION_HEADER(GuardSpecificAtom)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, str))
+
+  JSAtom* atom() const { return atom_; }
+
+  bool congruentTo(const MDefinition* ins) const override {
+    if (!ins->isGuardSpecificAtom()) {
+      return false;
+    }
+    if (atom() != ins->toGuardSpecificAtom()->atom()) {
+      return false;
+    }
+    return congruentIfOperandsEqual(ins);
+  }
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
+
+  bool appendRoots(MRootList& roots) const override {
+    return roots.append(atom_);
   }
 };
 
@@ -10798,27 +10958,6 @@ class MCheckIsObj : public MUnaryInstruction, public BoxInputsPolicy::Data {
 
  public:
   INSTRUCTION_HEADER(CheckIsObj)
-  TRIVIAL_NEW_WRAPPERS
-  NAMED_OPERANDS((0, checkValue))
-
-  uint8_t checkKind() const { return checkKind_; }
-
-  AliasSet getAliasSet() const override { return AliasSet::None(); }
-};
-
-class MCheckIsCallable : public MUnaryInstruction,
-                         public BoxInputsPolicy::Data {
-  uint8_t checkKind_;
-
-  MCheckIsCallable(MDefinition* toCheck, uint8_t checkKind)
-      : MUnaryInstruction(classOpcode, toCheck), checkKind_(checkKind) {
-    setResultType(MIRType::Value);
-    setResultTypeSet(toCheck->resultTypeSet());
-    setGuard();
-  }
-
- public:
-  INSTRUCTION_HEADER(CheckIsCallable)
   TRIVIAL_NEW_WRAPPERS
   NAMED_OPERANDS((0, checkValue))
 

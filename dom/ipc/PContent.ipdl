@@ -129,7 +129,6 @@ using mozilla::dom::BrowsingContextTransaction from "mozilla/dom/BrowsingContext
 using mozilla::dom::BrowsingContextInitializer from "mozilla/dom/BrowsingContext.h";
 using mozilla::dom::MaybeDiscardedWindowContext from "mozilla/dom/WindowContext.h";
 using mozilla::dom::WindowContextTransaction from "mozilla/dom/WindowContext.h";
-using mozilla::dom::WindowContextInitializer from "mozilla/dom/WindowContext.h";
 using base::SharedMemoryHandle from "base/shared_memory.h";
 using mozilla::ipc::SharedMemoryBasic::Handle from "mozilla/ipc/SharedMemoryBasic.h";
 using mozilla::fontlist::Pointer from "SharedFontList.h";
@@ -146,6 +145,8 @@ using refcounted class mozilla::dom::CrossProcessSHEntry from "mozilla/dom/Maybe
 using mozilla::ContentBlockingNotifier::StorageAccessGrantedReason from "mozilla/ContentBlockingNotifier.h";
 using mozilla::ContentBlockingNotifier::BlockingDecision from "mozilla/ContentBlockingNotifier.h";
 using mozilla::ContentBlocking::StorageAccessPromptChoices from "mozilla/ContentBlocking.h";
+using JSActorMessageKind from "mozilla/dom/JSActor.h";
+using JSActorMessageMeta from "mozilla/dom/PWindowGlobal.h";
 
 union ChromeRegistryItem
 {
@@ -389,13 +390,29 @@ struct JSWindowActorInfo
 {
   nsCString name;
   bool allFrames;
+
+  // The module of the url.
   nsCString? url;
 
   JSWindowActorEventDecl[] events;
+
+  // Observer notifications this actor listens to.
   nsCString[] observers;
   nsString[] matches;
   nsString[] remoteTypes;
   nsString[] messageManagerGroups;
+};
+
+struct JSProcessActorInfo
+{
+    // The name of the actor.
+    nsCString name;
+    // The module of the url.
+    nsCString? url;
+
+    // Observer notifications this actor listens to.
+    nsCString[] observers;
+    nsString[] remoteTypes;
 };
 
 struct GMPAPITags
@@ -607,6 +624,9 @@ both:
     async PWebBrowserPersistDocument(nullable PBrowser aBrowser,
                                      MaybeDiscardedBrowsingContext aContext);
 
+    async RawMessage(JSActorMessageMeta aMetadata, ClonedMessageData aData,
+                     ClonedMessageData aStack);
+
 child:
     async InitGMPService(Endpoint<PGMPServiceChild> service);
     async InitProcessHangMonitor(Endpoint<PProcessHangMonitorChild> hangMonitor);
@@ -784,14 +804,19 @@ child:
     async InitBlobURLs(BlobURLRegistrationData[] registrations);
 
     /**
-     * Send JSWindowActorInfos to child process.
+     * Send JS{Content, Window}ActorInfos to child process.
      */
-    async InitJSWindowActorInfos(JSWindowActorInfo[] aInfos);
+    async InitJSActorInfos(JSProcessActorInfo[] aContentInfos, JSWindowActorInfo[] aWindowInfos);
 
     /**
      * Unregister a previously registered JSWindowActor in the child process.
      */
     async UnregisterJSWindowActor(nsCString name);
+
+    /**
+     * Unregister a previously registered JSProcessActor in the child process.
+     */
+    async UnregisterJSProcessActor(nsCString name);
 
     async SetXPCOMProcessAttributes(XPCOMInitData xpcomInit,
                                     StructuredCloneData initialData,
@@ -1866,6 +1891,9 @@ both:
     async DiscardBrowsingContext(MaybeDiscardedBrowsingContext aContext)
             returns (bool unused);
 
+    async AdjustWindowFocus(MaybeDiscardedBrowsingContext aContext,
+                            bool aCheckPermission,
+                            bool aIsVisible);
     async WindowClose(MaybeDiscardedBrowsingContext aContext,
                       bool aTrustedCaller);
     async WindowFocus(MaybeDiscardedBrowsingContext aContext,

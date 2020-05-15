@@ -1032,7 +1032,10 @@ static bool EvaluateInEnv(JSContext* cx, Handle<Env*> env,
     }
   }
 
-  return ExecuteKernel(cx, script, *env, NullValue(), frame, rval.address());
+  // Note: pass NullHandleValue for newTarget because the parser doesn't accept
+  // new.target in debugger eval frames (bug 1169076). Once that changes we need
+  // to compute newTarget here based on |frame|.
+  return ExecuteKernel(cx, script, env, NullHandleValue, frame, rval);
 }
 
 Result<Completion> js::DebuggerGenericEval(

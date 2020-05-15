@@ -502,17 +502,22 @@ bool shell::enableSharedMemory = SHARED_MEMORY_DEFAULT;
 bool shell::enableWasmBaseline = false;
 bool shell::enableWasmIon = false;
 bool shell::enableWasmCranelift = false;
+bool shell::enableWasmReftypes = true;
 #ifdef ENABLE_WASM_GC
 bool shell::enableWasmGc = false;
 #endif
 #ifdef ENABLE_WASM_MULTI_VALUE
 bool shell::enableWasmMultiValue = true;
 #endif
+#ifdef ENABLE_WASM_SIMD
+bool shell::enableWasmSimd = false;
+#endif
 bool shell::enableWasmVerbose = false;
 bool shell::enableTestWasmAwaitTier2 = false;
 #ifdef ENABLE_WASM_BIGINT
 bool shell::enableWasmBigInt = true;
 #endif
+bool shell::enableSourcePragmas = true;
 bool shell::enableAsyncStacks = false;
 bool shell::enableStreams = false;
 bool shell::enableReadableByteStreams = false;
@@ -1058,7 +1063,7 @@ static MOZ_MUST_USE bool RunModule(JSContext* cx, const char* filename,
     return false;
   }
 
-  JS::AutoValueArray<1> args(cx);
+  JS::RootedValueArray<1> args(cx);
   args[0].setString(path);
 
   RootedValue value(cx);
@@ -1383,10 +1388,6 @@ static bool AddIntlExtras(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   if (!js::AddMozDateTimeFormatConstructor(cx, intl)) {
-    return false;
-  }
-
-  if (!js::AddListFormatConstructor(cx, intl)) {
     return false;
   }
 
@@ -5138,7 +5139,7 @@ static JSObject* ShellModuleResolveHook(JSContext* cx,
   }
   MOZ_ASSERT(hookValue.toObject().is<JSFunction>());
 
-  JS::AutoValueArray<2> args(cx);
+  JS::RootedValueArray<2> args(cx);
   args[0].set(referencingPrivate);
   args[1].setString(specifier);
 
@@ -5185,7 +5186,7 @@ static bool CallModuleMetadataHook(JSContext* cx, HandleValue modulePrivate,
   }
   MOZ_ASSERT(hookValue.toObject().is<JSFunction>());
 
-  JS::AutoValueArray<2> args(cx);
+  JS::RootedValueArray<2> args(cx);
   args[0].set(modulePrivate);
   args[1].setObject(*metaObject);
 
@@ -5305,7 +5306,7 @@ static bool ShellModuleDynamicImportHook(JSContext* cx,
   }
   MOZ_ASSERT(hookValue.toObject().is<JSFunction>());
 
-  JS::AutoValueArray<3> args(cx);
+  JS::RootedValueArray<3> args(cx);
   args[0].set(referencingPrivate);
   args[1].setString(specifier);
   args[2].setObject(*promise);
@@ -5338,13 +5339,11 @@ static bool ParseBinASTData(JSContext* cx, uint8_t* buf_data,
                             uint32_t buf_length,
                             js::frontend::GlobalSharedContext* globalsc,
                             js::frontend::CompilationInfo& compilationInfo,
-                            const JS::ReadOnlyCompileOptions& options,
-                            HandleScriptSourceObject sourceObj) {
+                            const JS::ReadOnlyCompileOptions& options) {
   MOZ_ASSERT(globalsc);
 
   // Note: We need to keep `reader` alive as long as we can use `parsed`.
-  js::frontend::BinASTParser<Tok> reader(cx, compilationInfo, options,
-                                         sourceObj);
+  js::frontend::BinASTParser<Tok> reader(cx, compilationInfo, options);
 
   JS::Result<js::frontend::ParseNode*> parsed =
       reader.parse(globalsc, buf_data, buf_length);
@@ -5462,8 +5461,8 @@ static bool BinParse(JSContext* cx, unsigned argc, Value* vp) {
   auto parseFunc = mode == Multipart
                        ? ParseBinASTData<frontend::BinASTTokenReaderMultipart>
                        : ParseBinASTData<frontend::BinASTTokenReaderContext>;
-  if (!parseFunc(cx, buf_data, buf_length, &globalsc, compilationInfo, options,
-                 compilationInfo.sourceObject)) {
+  if (!parseFunc(cx, buf_data, buf_length, &globalsc, compilationInfo,
+                 options)) {
     return false;
   }
 
@@ -5478,13 +5477,11 @@ static bool FullParseTest(JSContext* cx,
                           const JS::ReadOnlyCompileOptions& options,
                           const Unit* units, size_t length,
                           js::frontend::CompilationInfo& compilationInfo,
-                          ScriptSourceObject* sourceObject,
                           js::frontend::ParseGoal goal) {
   using namespace js::frontend;
   Parser<FullParseHandler, Unit> parser(cx, options, units, length,
                                         /* foldConstants = */ false,
-                                        compilationInfo, nullptr, nullptr,
-                                        sourceObject);
+                                        compilationInfo, nullptr, nullptr);
   if (!parser.checkOptions()) {
     return false;
   }
@@ -5632,24 +5629,18 @@ static bool Parse(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
-  RootedScriptSourceObject sourceObject(
-      cx, frontend::CreateScriptSourceObject(cx, options));
-  if (!sourceObject) {
-    return false;
-  }
-
   if (stableChars.isLatin1()) {
     const Latin1Char* chars_ = stableChars.latin1Range().begin().get();
     auto chars = reinterpret_cast<const mozilla::Utf8Unit*>(chars_);
-    if (!FullParseTest<mozilla::Utf8Unit>(
-            cx, options, chars, length, compilationInfo, sourceObject, goal)) {
+    if (!FullParseTest<mozilla::Utf8Unit>(cx, options, chars, length,
+                                          compilationInfo, goal)) {
       return false;
     }
   } else {
     MOZ_ASSERT(stableChars.isTwoByte());
     const char16_t* chars = stableChars.twoByteRange().begin().get();
     if (!FullParseTest<char16_t>(cx, options, chars, length, compilationInfo,
-                                 sourceObject, goal)) {
+                                 goal)) {
       return false;
     }
   }
@@ -5692,8 +5683,7 @@ static bool SyntaxParse(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   Parser<frontend::SyntaxParseHandler, char16_t> parser(
-      cx, options, chars, length, false, compilationInfo, nullptr, nullptr,
-      compilationInfo.sourceObject);
+      cx, options, chars, length, false, compilationInfo, nullptr, nullptr);
   if (!parser.checkOptions()) {
     return false;
   }
@@ -9699,7 +9689,12 @@ js::shell::AutoReportException::~AutoReportException() {
 
   // Get exception object and stack before printing and clearing exception.
   JS::ExceptionStack exnStack(cx);
-  JS::StealPendingExceptionStack(cx, &exnStack);
+  if (!JS::StealPendingExceptionStack(cx, &exnStack)) {
+    fprintf(stderr, "out of memory while stealing exception\n");
+    fflush(stderr);
+    JS_ClearPendingException(cx);
+    return;
+  }
 
   ShellContext* sc = GetShellContext(cx);
   js::ErrorReport report(cx);
@@ -10492,14 +10487,19 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
     }
   }
 
+  enableWasmReftypes = !op.getBoolOption("no-wasm-reftypes");
 #ifdef ENABLE_WASM_GC
   enableWasmGc = op.getBoolOption("wasm-gc");
 #endif
 #ifdef ENABLE_WASM_MULTI_VALUE
   enableWasmMultiValue = !op.getBoolOption("no-wasm-multi-value");
 #endif
+#ifdef ENABLE_WASM_SIMD
+  enableWasmSimd = op.getBoolOption("wasm-simd");
+#endif
   enableWasmVerbose = op.getBoolOption("wasm-verbose");
   enableTestWasmAwaitTier2 = op.getBoolOption("test-wasm-await-tier2");
+  enableSourcePragmas = !op.getBoolOption("no-source-pragmas");
   enableAsyncStacks = !op.getBoolOption("no-async-stacks");
   enableStreams = !op.getBoolOption("no-streams");
   enableReadableByteStreams = op.getBoolOption("enable-readable-byte-streams");
@@ -10520,6 +10520,7 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
       .setWasmForTrustedPrinciples(enableWasm)
       .setWasmBaseline(enableWasmBaseline)
       .setWasmIon(enableWasmIon)
+      .setWasmReftypes(enableWasmReftypes)
 #ifdef ENABLE_WASM_CRANELIFT
       .setWasmCranelift(enableWasmCranelift)
 #endif
@@ -10529,11 +10530,15 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
 #ifdef ENABLE_WASM_MULTI_VALUE
       .setWasmMultiValue(enableWasmMultiValue)
 #endif
+#ifdef ENABLE_WASM_SIMD
+      .setWasmSimd(enableWasmSimd)
+#endif
       .setWasmVerbose(enableWasmVerbose)
       .setTestWasmAwaitTier2(enableTestWasmAwaitTier2)
 #ifdef ENABLE_WASM_BIGINT
       .setWasmBigIntEnabled(enableWasmBigInt)
 #endif
+      .setSourcePragmas(enableSourcePragmas)
       .setAsyncStack(enableAsyncStacks);
 
   if (op.getBoolOption("no-ion-for-main-context")) {
@@ -10902,11 +10907,15 @@ static void SetWorkerContextOptions(JSContext* cx) {
 #ifdef ENABLE_WASM_MULTI_VALUE
       .setWasmMultiValue(enableWasmMultiValue)
 #endif
+#ifdef ENABLE_WASM_SIMD
+      .setWasmSimd(enableWasmSimd)
+#endif
 #ifdef ENABLE_WASM_BIGINT
       .setWasmBigIntEnabled(enableWasmBigInt)
 #endif
       .setWasmVerbose(enableWasmVerbose)
-      .setTestWasmAwaitTier2(enableTestWasmAwaitTier2);
+      .setTestWasmAwaitTier2(enableTestWasmAwaitTier2)
+      .setSourcePragmas(enableSourcePragmas);
 
   cx->runtime()->setOffthreadIonCompilationEnabled(offthreadCompilation);
   cx->runtime()->profilingScripts =
@@ -11308,6 +11317,8 @@ int main(int argc, char** argv, char** envp) {
 #ifdef NIGHTLY_BUILD
       !op.addBoolOption('\0', "no-ti", "Disable Type Inference") ||
       !op.addBoolOption('\0', "warp", "Use WarpBuilder as MIR builder") ||
+#else
+      !op.addBoolOption('\0', "warp", "No-op on non-Nightly") ||
 #endif
       !op.addBoolOption('\0', "no-warp", "Disable WarpBuilder (default)") ||
       !op.addBoolOption('\0', "no-asmjs", "Disable asm.js compilation") ||
@@ -11328,6 +11339,8 @@ int main(int argc, char** argv, char** envp) {
       !op.addBoolOption('\0', "test-wasm-await-tier2",
                         "Forcibly activate tiering and block "
                         "instantiation on completion of tier2") ||
+      !op.addBoolOption('\0', "no-wasm-reftypes",
+                        "Disable wasm reference types features") ||
 #ifdef ENABLE_WASM_GC
       !op.addBoolOption('\0', "wasm-gc",
                         "Enable experimental wasm GC features") ||
@@ -11340,7 +11353,12 @@ int main(int argc, char** argv, char** envp) {
 #else
       !op.addBoolOption('\0', "no-wasm-multi-value", "No-op") ||
 #endif
-
+#ifdef ENABLE_WASM_SIMD
+      !op.addBoolOption('\0', "wasm-simd",
+                        "Enable experimental wasm SIMD features") ||
+#else
+      !op.addBoolOption('\0', "wasm-simd", "No-op") ||
+#endif
       !op.addBoolOption('\0', "no-native-regexp",
                         "Disable native regexp compilation") ||
 #ifdef ENABLE_NEW_REGEXP
@@ -11485,8 +11503,17 @@ int main(int argc, char** argv, char** envp) {
           "Pretend CPU does not support SSE3 instructions and above "
           "to test JIT codegen (no-op on platforms other than x86 and x64).") ||
       !op.addBoolOption(
-          '\0', "no-sse4",
-          "Pretend CPU does not support SSE4 instructions "
+          '\0', "no-ssse3",
+          "Pretend CPU does not support SSSE3 [sic] instructions and above "
+          "to test JIT codegen (no-op on platforms other than x86 and x64).") ||
+      !op.addBoolOption(
+          '\0', "no-sse41",
+          "Pretend CPU does not support SSE4.1 instructions "
+          "to test JIT codegen (no-op on platforms other than x86 and x64).") ||
+      !op.addBoolOption('\0', "no-sse4", "Alias for --no-sse41") ||
+      !op.addBoolOption(
+          '\0', "no-sse42",
+          "Pretend CPU does not support SSE4.2 instructions "
           "to test JIT codegen (no-op on platforms other than x86 and x64).") ||
       !op.addBoolOption('\0', "enable-avx",
                         "AVX is disabled by default. Enable AVX. "
@@ -11555,6 +11582,8 @@ int main(int argc, char** argv, char** envp) {
 #endif
       !op.addStringOption('\0', "module-load-path", "DIR",
                           "Set directory to load modules from") ||
+      !op.addBoolOption('\0', "no-source-pragmas",
+                        "Disable source(Mapping)URL pragma parsing") ||
       !op.addBoolOption('\0', "no-async-stacks", "Disable async stacks") ||
       !op.addMultiStringOption('\0', "dll", "LIBRARY",
                                "Dynamically load LIBRARY") ||
@@ -11617,9 +11646,21 @@ int main(int argc, char** argv, char** envp) {
       return EXIT_FAILURE;
     }
   }
-  if (op.getBoolOption("no-sse4")) {
-    js::jit::CPUInfo::SetSSE4Disabled();
-    if (!sCompilerProcessFlags.append("--no-sse4")) {
+  if (op.getBoolOption("no-ssse3")) {
+    js::jit::CPUInfo::SetSSSE3Disabled();
+    if (!sCompilerProcessFlags.append("--no-ssse3")) {
+      return EXIT_FAILURE;
+    }
+  }
+  if (op.getBoolOption("no-sse4") || op.getBoolOption("no-sse41")) {
+    js::jit::CPUInfo::SetSSE41Disabled();
+    if (!sCompilerProcessFlags.append("--no-sse41")) {
+      return EXIT_FAILURE;
+    }
+  }
+  if (op.getBoolOption("no-sse42")) {
+    js::jit::CPUInfo::SetSSE42Disabled();
+    if (!sCompilerProcessFlags.append("--no-sse42")) {
       return EXIT_FAILURE;
     }
   }

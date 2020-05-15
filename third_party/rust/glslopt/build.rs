@@ -1,7 +1,5 @@
-use bindgen;
 use cc;
 
-use std::path::PathBuf;
 use std::env;
 
 /// Adds the required definitions to build mesa/glsl-optimizer for the
@@ -207,14 +205,4 @@ fn main() {
         .file("glsl-optimizer/src/compiler/glsl/standalone_scaffolding.cpp")
         .file("glsl-optimizer/src/compiler/glsl/string_to_uint_map.cpp")
         .compile("glsl_optimizer");
-
-    let bindings = bindgen::Builder::default()
-        .header("wrapper.hpp")
-        .generate()
-        .expect("Unable to generate bindings");
-
-    let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
-    bindings
-        .write_to_file(out_dir.join("bindings.rs"))
-        .expect("Couldn't write bindings!");
 }

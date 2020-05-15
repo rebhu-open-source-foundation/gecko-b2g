@@ -174,9 +174,6 @@ widget/android/bindings/export: mobile/android/base/export
 # source code in order to find JNI wrapper annotations.
 widget/android/export: mobile/android/base/export
 
-# .xpt generation needs the xpidl lex/yacc files
-xpcom/xpidl/export: xpcom/idl-parser/xpidl/export
-
 # CSS2Properties.webidl needs ServoCSSPropList.py from layout/style
 dom/bindings/export: layout/style/export
 
@@ -210,10 +207,17 @@ ifeq ($(MOZ_WIDGET_TOOLKIT),gtk)
 toolkit/library/target: widget/gtk/mozgtk/gtk3/target
 endif
 
-ifeq (,$(filter WINNT Darwin Android,$(OS_TARGET)))
-netwerk/test/http3server/target: security/nss/lib/nss/nss_nss3/target security/nss/lib/ssl/ssl_ssl3/target config/external/nspr/pr/target
+ifndef MOZ_FOLD_LIBS
+ifndef MOZ_SYSTEM_NSS
+netwerk/test/http3server/target: security/nss/lib/nss/nss_nss3/target security/nss/lib/ssl/ssl_ssl3/target
+endif
+ifndef MOZ_SYSTEM_NSPR
+netwerk/test/http3server/target: config/external/nspr/pr/target
+endif
 else
+ifndef MOZ_SYSTEM_NSS
 netwerk/test/http3server/target: security/target
+endif
 endif
 
 # Most things are built during compile (target/host), but some things happen during export

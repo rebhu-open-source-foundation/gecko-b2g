@@ -23,6 +23,7 @@
 #include "mozilla/dom/nsMixedContentBlocker.h"
 #include "mozilla/dom/ScriptSettings.h"
 #include "mozilla/dom/SerializedStackHolder.h"
+#include "mozilla/dom/UnionTypes.h"
 #include "mozilla/dom/WorkerPrivate.h"
 #include "mozilla/dom/WorkerRef.h"
 #include "mozilla/dom/WorkerRunnable.h"
@@ -789,10 +790,14 @@ WebSocketImpl::OnAcknowledge(nsISupports* aContext, uint32_t aSize) {
     return NS_ERROR_UNEXPECTED;
   }
 
-  mWebSocket->mOutgoingBufferedAmount -= aSize;
-  if (!mWebSocket->mOutgoingBufferedAmount.isValid()) {
+  CheckedUint64 outgoingBufferedAmount = mWebSocket->mOutgoingBufferedAmount;
+  outgoingBufferedAmount -= aSize;
+  if (!outgoingBufferedAmount.isValid()) {
     return NS_ERROR_UNEXPECTED;
   }
+
+  mWebSocket->mOutgoingBufferedAmount = outgoingBufferedAmount;
+  MOZ_RELEASE_ASSERT(mWebSocket->mOutgoingBufferedAmount.isValid());
 
   return NS_OK;
 }
@@ -918,32 +923,22 @@ void WebSocket::BindToOwner(nsIGlobalObject* aNew) {
 //---------------------------------------------------------------------------
 
 // Constructor:
-already_AddRefed<WebSocket> WebSocket::Constructor(const GlobalObject& aGlobal,
-                                                   const nsAString& aUrl,
-                                                   ErrorResult& aRv) {
-  Sequence<nsString> protocols;
-  return WebSocket::ConstructorCommon(aGlobal, aUrl, protocols, nullptr,
-                                      EmptyCString(), aRv);
-}
+already_AddRefed<WebSocket> WebSocket::Constructor(
+    const GlobalObject& aGlobal, const nsAString& aUrl,
+    const StringOrStringSequence& aProtocols, ErrorResult& aRv) {
+  if (aProtocols.IsStringSequence()) {
+    return WebSocket::ConstructorCommon(aGlobal, aUrl,
+                                        aProtocols.GetAsStringSequence(),
+                                        nullptr, EmptyCString(), aRv);
+  }
 
-already_AddRefed<WebSocket> WebSocket::Constructor(const GlobalObject& aGlobal,
-                                                   const nsAString& aUrl,
-                                                   const nsAString& aProtocol,
-                                                   ErrorResult& aRv) {
   Sequence<nsString> protocols;
-  if (!protocols.AppendElement(aProtocol, fallible)) {
+  if (!protocols.AppendElement(aProtocols.GetAsString(), fallible)) {
     aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
     return nullptr;
   }
 
   return WebSocket::ConstructorCommon(aGlobal, aUrl, protocols, nullptr,
-                                      EmptyCString(), aRv);
-}
-
-already_AddRefed<WebSocket> WebSocket::Constructor(
-    const GlobalObject& aGlobal, const nsAString& aUrl,
-    const Sequence<nsString>& aProtocols, ErrorResult& aRv) {
-  return WebSocket::ConstructorCommon(aGlobal, aUrl, aProtocols, nullptr,
                                       EmptyCString(), aRv);
 }
 
@@ -2199,8 +2194,8 @@ void WebSocket::SetReadyState(uint16_t aReadyState) {
   mReadyState = aReadyState;
 }
 
-// webIDL: readonly attribute unsigned long bufferedAmount;
-uint32_t WebSocket::BufferedAmount() const {
+// webIDL: readonly attribute unsigned long long bufferedAmount;
+uint64_t WebSocket::BufferedAmount() const {
   AssertIsOnTargetThread();
   MOZ_RELEASE_ASSERT(mOutgoingBufferedAmount.isValid());
   return mOutgoingBufferedAmount.value();
@@ -2309,12 +2304,16 @@ void WebSocket::Send(nsIInputStream* aMsgStream, const nsACString& aMsgString,
     return;
   }
 
-  // Always increment outgoing buffer len, even if closed
-  mOutgoingBufferedAmount += aMsgLength;
-  if (!mOutgoingBufferedAmount.isValid()) {
+  CheckedUint64 outgoingBufferedAmount = mOutgoingBufferedAmount;
+  outgoingBufferedAmount += aMsgLength;
+  if (!outgoingBufferedAmount.isValid()) {
     aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
     return;
   }
+
+  // Always increment outgoing buffer len, even if closed
+  mOutgoingBufferedAmount = outgoingBufferedAmount;
+  MOZ_RELEASE_ASSERT(mOutgoingBufferedAmount.isValid());
 
   if (readyState == CLOSING || readyState == CLOSED) {
     return;

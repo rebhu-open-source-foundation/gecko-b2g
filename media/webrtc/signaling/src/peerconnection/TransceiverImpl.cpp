@@ -12,6 +12,7 @@
 #include "MediaPipeline.h"
 #include "MediaPipelineFilter.h"
 #include "signaling/src/jsep/JsepTrack.h"
+#include "signaling/src/sdp/SdpHelper.h"
 #include "MediaTrackGraphImpl.h"
 #include "logging.h"
 #include "MediaEngine.h"
@@ -26,8 +27,11 @@
 #include "mozilla/dom/TransceiverImplBinding.h"
 #include "RTCRtpReceiver.h"
 #include "RTCDTMFSender.h"
+#include "WebrtcGmpVideoCodec.h"
 
 namespace mozilla {
+
+using namespace dom;
 
 MOZ_MTLOG_MODULE("transceiverimpl")
 
@@ -180,7 +184,8 @@ nsresult TransceiverImpl::UpdateConduit() {
     return NS_ERROR_FAILURE;
   }
 
-  if (!mConduit->SetLocalSSRCs(mJsepTransceiver->mSendTrack.GetSsrcs())) {
+  if (!mConduit->SetLocalSSRCs(mJsepTransceiver->mSendTrack.GetSsrcs(),
+                               mJsepTransceiver->mSendTrack.GetRtxSsrcs())) {
     MOZ_MTLOG(ML_ERROR, mPCHandle << "[" << mMid << "]: " << __FUNCTION__
                                   << " SetLocalSSRCs failed");
     return NS_ERROR_FAILURE;
@@ -537,6 +542,12 @@ static nsresult JsepCodecDescToAudioCodecConfig(
                                       desc.mFECEnabled));
   (*aConfig)->mMaxPlaybackRate = desc.mMaxPlaybackRate;
   (*aConfig)->mDtmfEnabled = desc.mDtmfEnabled;
+  (*aConfig)->mDTXEnabled = desc.mDTXEnabled;
+  (*aConfig)->mMaxAverageBitrate = desc.mMaxAverageBitrate;
+  (*aConfig)->mFrameSizeMs = desc.mFrameSizeMs;
+  (*aConfig)->mMinFrameSizeMs = desc.mMinFrameSizeMs;
+  (*aConfig)->mMaxFrameSizeMs = desc.mMaxFrameSizeMs;
+  (*aConfig)->mCbrEnabled = desc.mCbrEnabled;
 
   return NS_OK;
 }
@@ -662,6 +673,12 @@ static nsresult JsepCodecDescToVideoCodecConfig(
   if (desc.mFECEnabled) {
     (*aConfig)->mREDPayloadType = desc.mREDPayloadType;
     (*aConfig)->mULPFECPayloadType = desc.mULPFECPayloadType;
+  }
+  if (desc.mRtxEnabled) {
+    uint16_t pt;
+    if (SdpHelper::GetPtAsInt(desc.mRtxPayloadType, &pt)) {
+      (*aConfig)->mRTXPayloadType = pt;
+    }
   }
 
   return NS_OK;
@@ -796,7 +813,6 @@ void TransceiverImpl::UpdateConduitRtpExtmap(
       [&extmaps](const SdpExtmapAttributeList::Extmap& extmap) {
         extmaps.emplace_back(extmap.extensionname, extmap.entry);
       });
-
   if (!extmaps.empty()) {
     aConduit.SetLocalRTPExtensions(aDirection, extmaps);
   }

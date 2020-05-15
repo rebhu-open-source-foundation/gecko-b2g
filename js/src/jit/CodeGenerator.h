@@ -265,6 +265,8 @@ class CodeGenerator final : public CodeGeneratorSpecific {
   template <class OrderedHashTable>
   void emitLoadIteratorValues(Register result, Register temp, Register front);
 
+  void emitStringToInt64(LInstruction* lir, Register input, Register64 output);
+
   template <size_t NumDefs>
   void emitIonToWasmCallBase(LIonToWasmCallBase<NumDefs>* lir);
 
@@ -322,12 +324,11 @@ class CodeGenerator final : public CodeGeneratorSpecific {
 
   void emitStoreElementTyped(const LAllocation* value, MIRType valueType,
                              MIRType elementType, Register elements,
-                             const LAllocation* index,
-                             int32_t offsetAdjustment);
+                             const LAllocation* index);
 
   // Bailout if an element about to be written to is a hole.
   void emitStoreHoleCheck(Register elements, const LAllocation* index,
-                          int32_t offsetAdjustment, LSnapshot* snapshot);
+                          LSnapshot* snapshot);
 
   void emitAssertRangeI(const Range* r, Register input);
   void emitAssertRangeD(const Range* r, FloatRegister input,

@@ -185,8 +185,7 @@ void BluetoothGattServer::HandleReadWriteRequest(const BluetoothValue& aValue,
   nsString address;
   AddressToString(arr[2].value().get_BluetoothAddress(), address);
   bool needResponse = arr[3].value().get_bool();
-  nsTArray<uint8_t> value;
-  value = arr[4].value().get_ArrayOfuint8_t();
+  const nsTArray<uint8_t>& value = arr[4].value().get_ArrayOfuint8_t();
 
   // Find the target characteristic or descriptor from the given handle
   RefPtr<BluetoothGattCharacteristic> characteristic = nullptr;

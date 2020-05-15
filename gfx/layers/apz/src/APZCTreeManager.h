@@ -190,14 +190,9 @@ class APZCTreeManager : public IAPZCTreeManager, public APZInputBridge {
    * another composite if there are still active animations.
    * In effect it is the webrender equivalent of (part of) the code in
    * AsyncCompositionManager.
-   * In the WebRender world a single "layer tree" might get split into multiple
-   * render roots; the aRenderRoot argument indicates which render root we are
-   * sampling in this call. The transaction should only be updated with samples
-   * from APZC instances in that render root.
    */
   void SampleForWebRender(wr::TransactionWrapper& aTxn,
                           const TimeStamp& aSampleTime,
-                          wr::RenderRoot aRenderRoot,
                           const wr::WrPipelineIdEpochs* aEpochsBeingRendered);
 
   /**
@@ -205,8 +200,7 @@ class APZCTreeManager : public IAPZCTreeManager, public APZInputBridge {
    * advancing to the next frame. The APZCs walked can be restricted to a
    * specific render root by providing that as the first argument.
    */
-  bool AdvanceAnimations(Maybe<wr::RenderRoot> aRenderRoot,
-                         const TimeStamp& aSampleTime);
+  bool AdvanceAnimations(const TimeStamp& aSampleTime);
 
   /**
    * Refer to the documentation of APZInputBridge::ReceiveInputEvent() and
@@ -506,20 +500,9 @@ class APZCTreeManager : public IAPZCTreeManager, public APZInputBridge {
   // Assert that the current thread is the updater thread for this APZCTM.
   void AssertOnUpdaterThread();
 
-  // Returns a pointer to the WebRenderAPI this APZCTreeManager is for, for
-  // the provided RenderRoot (since an APZCTreeManager can cover multiple
-  // RenderRoots). This might be null (for example, if WebRender is not
-  // enabled).
-  already_AddRefed<wr::WebRenderAPI> GetWebRenderAPI(
-      wr::RenderRoot aRenderRoot) const;
-
-  // Returns a pointer to the root WebRenderAPI for the RenderRoot that owns
-  // the given point. For example, if aPoint is in the content area and
-  // RenderRoot splitting is enabled, this will return the WebRenderAPI for
-  // the Content RenderRoot.
+  // Returns a pointer to the WebRenderAPI this APZCTreeManager is for.
   // This might be null (for example, if WebRender is not enabled).
-  already_AddRefed<wr::WebRenderAPI> GetWebRenderAPIAtPoint(
-      const ScreenPoint& aPoint) const;
+  already_AddRefed<wr::WebRenderAPI> GetWebRenderAPI() const;
 
  protected:
   // Protected destructor, to discourage deletion outside of Release():
@@ -749,7 +732,6 @@ class APZCTreeManager : public IAPZCTreeManager, public APZInputBridge {
       LayersId aLayersId);
 
   bool AdvanceAnimationsInternal(const MutexAutoLock& aProofOfMapLock,
-                                 Maybe<wr::RenderRoot> aRenderRoot,
                                  const TimeStamp& aSampleTime);
 
   using ClippedCompositionBoundsMap =
@@ -976,22 +958,22 @@ class APZCTreeManager : public IAPZCTreeManager, public APZInputBridge {
    * a current focus target or whether we are waiting for a new confirmation.
    */
   FocusState mFocusState;
-  /* This tracks the APZC that should receive all inputs for the current input
-   * event block. This allows touch points to move outside the thing they
+  /* This tracks the APZC that should receive all inputs for the current touch
+   * input block. This allows touch points to move outside the thing they
    * started on, but still have the touch events delivered to the same initial
    * APZC. This will only ever be touched on the input delivery thread, and so
    * does not require locking.
    */
-  RefPtr<AsyncPanZoomController> mApzcForInputBlock;
+  RefPtr<AsyncPanZoomController> mApzcForTouchBlock;
   /* The hit result for the current input event block; this should always be in
-   * sync with mApzcForInputBlock.
+   * sync with mApzcForTouchBlock.
    */
   gfx::CompositorHitTestInfo mHitResultForInputBlock;
   /* If the current input event block is targeting an element that is fixed to
    * the viewport, the sides of the viewport to which the element is fixed.
    * Such elements may have been shifted to the dynamic toolbar, and this is
    * used to offset event coordinates accordingly.
-   * This should be in sync with mApzcForInputBlock.
+   * This should be in sync with mApzcForTouchBlock.
    */
   SideBits mFixedPosSidesForInputBlock = SideBits::eNone;
   /* Sometimes we want to ignore all touches except one. In such cases, this

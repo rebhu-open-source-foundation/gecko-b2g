@@ -37,7 +37,7 @@ class BluetoothGatt final : public DOMEventTargetHelper,
   BluetoothConnectionState ConnectionState() const { return mConnectionState; }
 
   void GetServices(nsTArray<RefPtr<BluetoothGattService>>& aServices) const {
-    aServices = mServices;
+    aServices = mServices.Clone();
   }
 
   /****************************************************************************

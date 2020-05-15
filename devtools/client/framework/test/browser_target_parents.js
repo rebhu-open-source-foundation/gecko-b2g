@@ -49,23 +49,6 @@ add_task(async function() {
   await client.close();
 });
 
-// Test against Frame targets
-add_task(async function() {
-  const client = await setupDebuggerClient();
-  const mainRoot = client.mainRoot;
-
-  const mainProcessDescriptor = await mainRoot.getMainProcess();
-  const mainProcess = await mainProcessDescriptor.getTarget();
-  const { frames } = await mainProcess.listRemoteFrames();
-
-  await testGetTargetWithConcurrentCalls(frames, frameTarget => {
-    // traits is one attribute to assert that a Frame Target is attached
-    return !!frameTarget.traits;
-  });
-
-  await client.close();
-});
-
 // Test against Webextension targets
 add_task(async function() {
   const client = await setupDebuggerClient();
@@ -102,8 +85,8 @@ add_task(async function() {
     workers.map(workerTargetFront => {
       is(
         workerTargetFront.descriptorFront,
-        mainRoot,
-        "Got the Main Root as the descriptor for main root worker target."
+        null,
+        "For now, worker target don't have descriptor fronts (see bug 1573779)"
       );
     })
   );

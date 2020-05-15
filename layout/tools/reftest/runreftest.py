@@ -339,13 +339,21 @@ class RefTest(object):
             profile = mozprofile.Profile(**kwargs)
 
         # First set prefs from the base profiles under testing/profiles.
-        profile_data_dir = os.path.join(SCRIPT_DIRECTORY, 'profile_data')
 
+        # In test packages used in CI, the profile_data directory is installed
+        # in the SCRIPT_DIRECTORY.
+        profile_data_dir = os.path.join(SCRIPT_DIRECTORY, 'profile_data')
         # If possible, read profile data from topsrcdir. This prevents us from
         # requiring a re-build to pick up newly added extensions in the
         # <profile>/extensions directory.
         if build_obj:
             path = os.path.join(build_obj.topsrcdir, 'testing', 'profiles')
+            if os.path.isdir(path):
+                profile_data_dir = path
+        # Still not found? Look for testing/profiles relative to layout/tools/reftest.
+        if not os.path.isdir(profile_data_dir):
+            path = os.path.abspath(os.path.join(SCRIPT_DIRECTORY, '..', '..', '..',
+                                                'testing', 'profiles'))
             if os.path.isdir(path):
                 profile_data_dir = path
 
@@ -483,9 +491,6 @@ class RefTest(object):
         if options.enable_webrender:
             browserEnv["MOZ_WEBRENDER"] = "1"
             browserEnv["MOZ_ACCELERATED"] = "1"
-            # Set MOZ_X_SYNC and GDK_SYNCHRONIZE for investigation; bug 1625250.
-            browserEnv["MOZ_X_SYNC"] = "1"
-            browserEnv["GDK_SYNCHRONIZE"] = "1"
         else:
             browserEnv["MOZ_WEBRENDER"] = "0"
 

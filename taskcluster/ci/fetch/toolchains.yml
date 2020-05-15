@@ -324,13 +324,6 @@ llvm-for-dsymutil:
         repo: https://github.com/llvm/llvm-project
         revision: 3b7811f6441be13c9f613f81ef93297d231b4f8e
 
-tup:
-    description: tup source code
-    fetch:
-        type: git
-        repo: https://github.com/gittup/tup
-        revision: 4371a41ba4ece660bf060b598b9eee4c2eb347d8
-
 rust-size:
     description: rust-size source code
     fetch:
@@ -357,8 +350,8 @@ sccache:
     fetch:
         type: git
         repo: https://github.com/mozilla/sccache
-        # 0.2.13 release + fix for clang-cl on Linux
-        revision: 2aadef2c5a07a59658c0cc3da4a90b153293f543
+        # 0.2.13 release + various changes
+        revision: 27bf3e61c4a82541f794275884a3fb1a3b1fc4f3
 
 fxc2:
     description: fxc2 source code
@@ -470,19 +463,19 @@ dump-syms:
     fetch:
         type: git
         repo: https://github.com/mozilla/dump_syms/
-        # 0.0.4 + fix for Windows cross builds
-        revision: c75b1fb14f07650d9490b788710af2367c7e00d0
+        # 0.0.5
+        revision: 2603fb01a18e4e11d95b95fc08d9dacad9076f43
 
 fix-stacks:
     description: fix-stacks source code
     fetch:
         type: git
         repo: https://github.com/mozilla/fix-stacks/
-        revision: 22bd8d55956d5403e1e2d2c14fd07d8ab74b5807
+        revision: b8b127d27cdcd64a5e66a7fb0a06c6c818445a61
 
 winchecksec:
     description: winchecksec source code
     fetch:
         type: git
         repo: https://github.com/trailofbits/winchecksec/
-        revision: 8143f621359616f16eaa265e22d10a7962536634
+        revision: 93ffe67dbfc757bf6f440d80b8acf88e652ed60a

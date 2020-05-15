@@ -2753,14 +2753,15 @@
     "n_buckets": 50,
     "description": "SPDY: Streams concurrent active per connection"
   },
-  "SPDY_REQUEST_PER_CONN": {
+  "SPDY_REQUEST_PER_CONN_2": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec", "geckoview"],
-    "alert_emails": ["necko@mozilla.com"],
+    "alert_emails": ["necko@mozilla.com", "ddamjanovic@mozilla.com"],
     "expires_in_version": "never",
     "kind": "exponential",
     "high": 1000,
     "n_buckets": 50,
+    "bug_numbers": [1505500],
     "description": "SPDY: Streams created per connection"
   },
   "SPDY_SERVER_INITIATED_STREAMS": {
@@ -7264,10 +7265,10 @@
   },
   "FX_PICTURE_IN_PICTURE_WINDOW_OPEN_DURATION": {
     "record_in_processes": ["main"],
-    "products": ["firefox", "fennec", "geckoview"],
+    "products": ["firefox"],
     "alert_emails": ["mconley@mozilla.com", "astevenson@mozilla.com"],
     "bug_numbers": [1560590],
-    "expires_in_version": "78",
+    "expires_in_version": "82",
     "kind": "exponential",
     "high": 10000,
     "n_buckets": 100,
@@ -9095,7 +9096,7 @@
     "releaseChannelCollection": "opt-out",
     "bug_numbers": [1566882],
     "kind": "categorical",
-    "labels": ["acrobat_distiller", "acrobat_pdfwriter", "adobe_livecycle", "adobe_pdf_library", "adobe_photoshop", "ghostscript", "tcpdf", "cairo", "dvipdfm", "dvips", "pdftex", "pdfkit", "itext", "prince", "quarkxpress", "mac_os_x", "microsoft", "openoffice", "oracle", "luradocument", "pdf_xchange", "antenna_house", "aspose_cells", "fpdf"],
+    "labels": ["acrobat_distiller", "acrobat_pdfwriter", "adobe_livecycle", "adobe_pdf_library", "adobe_photoshop", "ghostscript", "tcpdf", "cairo", "dvipdfm", "dvips", "pdftex", "pdfkit", "itext", "prince", "quarkxpress", "mac_os_x", "microsoft", "openoffice", "oracle", "luradocument", "pdf_xchange", "antenna_house", "aspose_cells", "fpdf", "other"],
     "description": "The PDF document generator"
   },
   "PDF_VIEWER_DOCUMENT_SIZE_KB": {
@@ -14398,21 +14399,6 @@
     ],
     "description": "The common combinations of BFCacheStatus when we determine whether the page can be BFCached or not; If it's BFCached, we record BFCache_Success; Success_Not_Toplevel represents the number of not the only top level document in BrowsingContextGroup's documents that are BFCached, and BFCache_Success includes Success_Not_Toplevel; If it's not and it falls under common failure reasons combinations, we record the corresponding combination; Otherwise, we record Other to indicate this is not a common failure"
   },
-  "TYPES_OF_USER_CLICKS": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox"],
-    "alert_emails": ["sefeng@mozilla.com", "perfteam@mozilla.com"],
-    "bug_numbers": [1589742],
-    "expires_in_version": "79",
-    "kind": "categorical",
-    "releaseChannelCollection": "opt-out",
-    "labels": [
-      "Browser_Chrome",
-      "Link",
-      "Has_JS_Listener"
-    ],
-    "description": "When a user click(Mousedown + Mouseup event by using the left mouse button) happens, record if it's a click on browser chrome (parent process), a anchor element or an element which has non-privileged click event listener associated"
-  },
   "BFCACHE_PAGE_RESTORED": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec", "geckoview"],
@@ -14877,28 +14863,38 @@
     "record_in_processes": ["main"],
     "products": ["firefox", "geckoview"],
     "alert_emails": ["cmccormack@mozilla.com"],
-    "bug_numbers": [1562060],
-    "expires_in_version": "76",
+    "bug_numbers": [1562060, 1621773],
+    "expires_in_version": "83",
     "kind": "boolean",
     "releaseChannelCollection": "opt-out",
     "description": "Whether the parent process successfully mapped the User Agent style sheet shared memory buffer at the desired address"
   },
+  "SHARED_MEMORY_UA_SHEETS_TOSHMEM_SUCCEEDED": {
+    "record_in_processes": ["main"],
+    "products": ["firefox", "geckoview"],
+    "alert_emails": ["layout-telemetry-alerts@mozilla.com"],
+    "bug_numbers": [1621773],
+    "expires_in_version": "83",
+    "kind": "boolean",
+    "releaseChannelCollection": "opt-out",
+    "description": "Whether the parent process failed to convert User Agent style sheets into a form suitable for storing in shared memory"
+  },
   "SHARED_MEMORY_UA_SHEETS_MAPPED_PARENT_AFTER_FREEZE": {
     "record_in_processes": ["main"],
     "products": ["firefox", "geckoview"],
-    "alert_emails": ["cmccormack@mozilla.com"],
-    "bug_numbers": [1562060],
-    "expires_in_version": "76",
+    "alert_emails": ["layout-telemetry-alerts@mozilla.com"],
+    "bug_numbers": [1562060, 1621773],
+    "expires_in_version": "83",
     "kind": "boolean",
     "releaseChannelCollection": "opt-out",
-    "description": "Whether the parent process successfully re-mapped the User Agent style sheet shared memory buffer at the desired address after freezing it"
+    "description": "Whether the parent process successfully mapped the User Agent style sheet shared memory buffer at the desired address"
   },
   "SHARED_MEMORY_UA_SHEETS_MAPPED_CHILD": {
     "record_in_processes": ["content"],
     "products": ["firefox", "geckoview"],
-    "alert_emails": ["cmccormack@mozilla.com"],
-    "bug_numbers": [1562060],
-    "expires_in_version": "76",
+    "alert_emails": ["layout-telemetry-alerts@mozilla.com"],
+    "bug_numbers": [1562060, 1621773],
+    "expires_in_version": "83",
     "kind": "boolean",
     "releaseChannelCollection": "opt-out",
     "description": "Whether a child process successfully mapped the User Agent style sheet shared memory buffer at the desired address"

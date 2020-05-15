@@ -20,6 +20,7 @@
 #include "js/ContextOptions.h"
 #include "js/SavedFrameAPI.h"
 #include "js/StructuredClone.h"
+#include "mozilla/AppShutdown.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/jsipc/CrossProcessObjectWrappers.h"
 #include "mozilla/LoadContext.h"
@@ -1332,18 +1333,17 @@ nsXPCComponents_Utils::ReportError(HandleValue error, HandleValue stack,
   nsGlobalWindowInner* win = CurrentWindowOrNull(cx);
   const uint64_t innerWindowID = win ? win->WindowID() : 0;
 
-  RootedObject errorObj(cx, error.isObject() ? &error.toObject() : nullptr);
-  JSErrorReport* err = errorObj ? JS_ErrorFromException(cx, errorObj) : nullptr;
+  Rooted<Maybe<Value>> exception(cx, Some(error));
 
   nsCOMPtr<nsIScriptError> scripterr;
-
+  RootedObject errorObj(cx, error.isObject() ? &error.toObject() : nullptr);
   if (errorObj) {
     JS::RootedObject stackVal(cx);
     JS::RootedObject stackGlobal(cx);
     FindExceptionStackForConsoleReport(win, error, nullptr, &stackVal,
                                        &stackGlobal);
     if (stackVal) {
-      scripterr = new nsScriptErrorWithStack(stackVal, stackGlobal);
+      scripterr = CreateScriptError(win, exception, stackVal, stackGlobal);
     }
   }
 
@@ -1397,14 +1397,15 @@ nsXPCComponents_Utils::ReportError(HandleValue error, HandleValue stack,
     }
 
     if (stackObj) {
-      scripterr = new nsScriptErrorWithStack(stackObj, stackGlobal);
+      scripterr = CreateScriptError(win, exception, stackObj, stackGlobal);
     }
   }
 
   if (!scripterr) {
-    scripterr = new nsScriptError();
+    scripterr = CreateScriptError(win, exception, nullptr, nullptr);
   }
 
+  JSErrorReport* err = errorObj ? JS_ErrorFromException(cx, errorObj) : nullptr;
   if (err) {
     // It's a proper JS Error
     nsAutoString fileUni;
@@ -2091,6 +2092,18 @@ nsXPCComponents_Utils::GetIsInAutomation(bool* aResult) {
 }
 
 NS_IMETHODIMP
+nsXPCComponents_Utils::ExitIfInAutomation() {
+  NS_ENSURE_TRUE(xpc::IsInAutomation(), NS_ERROR_FAILURE);
+
+#ifdef MOZ_GECKO_PROFILER
+  profiler_shutdown(IsFastShutdown::Yes);
+#endif
+
+  mozilla::AppShutdown::DoImmediateExit();
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 nsXPCComponents_Utils::CrashIfNotInAutomation() {
   xpc::CrashIfNotInAutomation();
   return NS_OK;
@@ -2137,6 +2150,13 @@ nsXPCComponents_Utils::UnblockScriptForGlobal(HandleValue globalArg,
     return NS_ERROR_FAILURE;
   }
   Scriptability::Get(global).Unblock();
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsXPCComponents_Utils::IsOpaqueWrapper(HandleValue obj, bool* aRetval) {
+  *aRetval =
+      obj.isObject() && xpc::WrapperFactory::IsOpaqueWrapper(&obj.toObject());
   return NS_OK;
 }
 

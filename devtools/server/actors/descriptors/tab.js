@@ -25,6 +25,13 @@ const { ActorClassWithSpec, Actor } = require("devtools/shared/protocol");
 const { tabDescriptorSpec } = require("devtools/shared/specs/descriptors/tab");
 const { AppConstants } = require("resource://gre/modules/AppConstants.jsm");
 
+loader.lazyRequireGetter(
+  this,
+  "WatcherActor",
+  "devtools/server/actors/descriptors/watcher/watcher",
+  true
+);
+
 /**
  * Creates a target actor proxy for handling requests to a single browser frame.
  * Both <xul:browser> and <iframe mozbrowser> are supported.
@@ -39,7 +46,6 @@ const TabDescriptorActor = ActorClassWithSpec(tabDescriptorSpec, {
     Actor.prototype.initialize.call(this, connection);
     this._conn = connection;
     this._browser = browser;
-    this.exited = false;
   },
 
   form() {
@@ -61,6 +67,8 @@ const TabDescriptorActor = ActorClassWithSpec(tabDescriptorSpec, {
         // This trait indicates that meta data such as title, url and
         // outerWindowID are directly available on the TabDescriptor.
         hasTabInfo: true,
+        // FF77+ supports the Watcher actor
+        watcher: true,
       },
       url: this._getUrl(),
     };
@@ -144,6 +152,19 @@ const TabDescriptorActor = ActorClassWithSpec(tabDescriptorSpec, {
     });
   },
 
+  /**
+   * Return a Watcher actor, allowing to keep track of targets which
+   * already exists or will be created. It also helps knowing when they
+   * are destroyed.
+   */
+  getWatcher() {
+    if (!this.watcher) {
+      this.watcher = new WatcherActor(this.conn, { browser: this._browser });
+      this.manage(this.watcher);
+    }
+    return this.watcher;
+  },
+
   get _tabbrowser() {
     if (this._browser && typeof this._browser.getTabBrowser == "function") {
       return this._browser.getTabBrowser();
@@ -203,8 +224,6 @@ const TabDescriptorActor = ActorClassWithSpec(tabDescriptorSpec, {
 
   destroy() {
     this._browser = null;
-    this.exited = true;
-    this.emit("exited");
 
     Actor.prototype.destroy.call(this);
   },

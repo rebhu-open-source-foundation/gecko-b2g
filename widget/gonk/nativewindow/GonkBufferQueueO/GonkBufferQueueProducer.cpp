@@ -341,7 +341,7 @@ status_t GonkBufferQueueProducer::dequeueBuffer(int* outSlot, sp<android::Fence>
                 RefPtr<Runnable> task =
                 new TextureClientReleaseTask(mSlots[found].mTextureClient);
                 mSlots[found].mTextureClient = nullptr;
-                ImageBridgeChild::GetSingleton()->GetMessageLoop()->PostTask(task.forget());
+                ImageBridgeChild::GetSingleton()->GetThread()->Dispatch(task.forget());
             }
 
             returnFlags |= BUFFER_NEEDS_REALLOCATION;

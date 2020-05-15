@@ -72,6 +72,9 @@
         },
         "Locked": {
           "type": "boolean"
+        },
+        "PrivateBrowsing": {
+          "type": "boolean"
         }
       }
     },
@@ -433,6 +436,12 @@
               "type": "string"
             },
             "install_sources": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "restricted_domains": {
               "type": "array",
               "items": {
                 "type": "string"

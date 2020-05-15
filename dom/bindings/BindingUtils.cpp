@@ -575,7 +575,7 @@ void TErrorResult<CleanupPolicy>::CloneTo(TErrorResult& aRv) const {
     aRv.mUnionState = HasMessage;
 #endif
     Message* message = aRv.InitMessage(new Message());
-    message->mArgs = mExtra.mMessage->mArgs;
+    message->mArgs = mExtra.mMessage->mArgs.Clone();
     message->mErrorNumber = mExtra.mMessage->mErrorNumber;
   } else if (IsDOMException()) {
 #ifdef DEBUG
@@ -660,6 +660,19 @@ void TErrorResult<CleanupPolicy>::NoteJSContextException(JSContext* aCx) {
     mResult = NS_ERROR_INTERNAL_ERRORRESULT_EXCEPTION_ON_JSCONTEXT;
   } else {
     mResult = NS_ERROR_UNCATCHABLE_EXCEPTION;
+  }
+}
+
+/* static */
+template <typename CleanupPolicy>
+void TErrorResult<CleanupPolicy>::EnsureUTF8Validity(nsCString& aValue,
+                                                     size_t aValidUpTo) {
+  nsCString valid;
+  if (NS_SUCCEEDED(UTF_8_ENCODING->DecodeWithoutBOMHandling(aValue, valid,
+                                                            aValidUpTo))) {
+    aValue = valid;
+  } else {
+    aValue.SetLength(aValidUpTo);
   }
 }
 
@@ -914,8 +927,7 @@ static JSObject* CreateInterfacePrototypeObject(
     JS::Handle<JSObject*> parentProto, const JSClass* protoClass,
     const NativeProperties* properties,
     const NativeProperties* chromeOnlyProperties,
-    const char* const* unscopableNames, const char* toStringTag,
-    bool isGlobal) {
+    const char* const* unscopableNames, bool isGlobal) {
   JS::Rooted<JSObject*> ourProto(
       cx, JS_NewObjectWithUniqueType(cx, protoClass, parentProto));
   if (!ourProto ||
@@ -944,21 +956,6 @@ static JSObject* CreateInterfacePrototypeObject(
                                           cx, JS::SymbolCode::unscopables)));
     // Readonly and non-enumerable to match Array.prototype.
     if (!JS_DefinePropertyById(cx, ourProto, unscopableId, unscopableObj,
-                               JSPROP_READONLY)) {
-      return nullptr;
-    }
-  }
-
-  if (toStringTag) {
-    JS::Rooted<JSString*> toStringTagStr(cx,
-                                         JS_NewStringCopyZ(cx, toStringTag));
-    if (!toStringTagStr) {
-      return nullptr;
-    }
-
-    JS::Rooted<jsid> toStringTagId(cx, SYMBOL_TO_JSID(JS::GetWellKnownSymbol(
-                                           cx, JS::SymbolCode::toStringTag)));
-    if (!JS_DefinePropertyById(cx, ourProto, toStringTagId, toStringTagStr,
                                JSPROP_READONLY)) {
       return nullptr;
     }
@@ -1010,9 +1007,9 @@ bool DefineProperties(JSContext* cx, JS::Handle<JSObject*> obj,
 void CreateInterfaceObjects(
     JSContext* cx, JS::Handle<JSObject*> global,
     JS::Handle<JSObject*> protoProto, const JSClass* protoClass,
-    JS::Heap<JSObject*>* protoCache, const char* toStringTag,
-    JS::Handle<JSObject*> constructorProto, const JSClass* constructorClass,
-    unsigned ctorNargs, const NamedConstructor* namedConstructors,
+    JS::Heap<JSObject*>* protoCache, JS::Handle<JSObject*> constructorProto,
+    const JSClass* constructorClass, unsigned ctorNargs,
+    const NamedConstructor* namedConstructors,
     JS::Heap<JSObject*>* constructorCache, const NativeProperties* properties,
     const NativeProperties* chromeOnlyProperties, const char* name,
     bool defineOnGlobal, const char* const* unscopableNames, bool isGlobal,
@@ -1043,8 +1040,6 @@ void CreateInterfaceObjects(
   MOZ_ASSERT(constructorProto || !constructorClass,
              "Must have a constructor proto if we plan to create a constructor "
              "object");
-  MOZ_ASSERT(protoClass || !toStringTag,
-             "Must have a prototype object if we have a @@toStringTag");
 
   bool isChrome = nsContentUtils::ThreadsafeIsSystemCaller(cx);
 
@@ -1052,8 +1047,7 @@ void CreateInterfaceObjects(
   if (protoClass) {
     proto = CreateInterfacePrototypeObject(
         cx, global, protoProto, protoClass, properties,
-        isChrome ? chromeOnlyProperties : nullptr, unscopableNames, toStringTag,
-        isGlobal);
+        isChrome ? chromeOnlyProperties : nullptr, unscopableNames, isGlobal);
     if (!proto) {
       return;
     }
@@ -1428,8 +1422,14 @@ static bool XrayResolveAttribute(JSContext* cx, JS::Handle<JSObject*> wrapper,
     return true;
   }
 
-  MOZ_ASSERT(attrSpec.isAccessor(),
-             "Bad JSPropertySpec declaration: not an accessor property");
+  if (!attrSpec.isAccessor()) {
+    MOZ_ASSERT(id.isWellKnownSymbol(JS::SymbolCode::toStringTag));
+
+    desc.setAttributes(attrSpec.attributes());
+    desc.object().set(wrapper);
+    return attrSpec.getValue(cx, desc.value());
+  }
+
   MOZ_ASSERT(
       !attrSpec.isSelfHosted(),
       "Bad JSPropertySpec declaration: unsupported self-hosted accessor");
@@ -4220,8 +4220,7 @@ bool IsGetterEnabled(JSContext* aCx, JS::Handle<JSObject*> aObj,
     if (aAttributes->isEnabled(aCx, aObj)) {
       const JSPropertySpec* specs = aAttributes->specs;
       do {
-        MOZ_ASSERT(specs->isAccessor());
-        if (specs->isSelfHosted()) {
+        if (!specs->isAccessor() || specs->isSelfHosted()) {
           // It won't have a JSJitGetterOp.
           continue;
         }

@@ -175,8 +175,7 @@ void BluetoothDevice::SetPropertyByValue(const BluetoothNamedValue& aValue) {
     mType = ConvertUint32ToDeviceType(value.get_uint32_t());
   } else if (name.EqualsLiteral("GattAdv")) {
     MOZ_ASSERT(value.type() == BluetoothValue::TArrayOfuint8_t);
-    nsTArray<uint8_t> advData;
-    advData = value.get_ArrayOfuint8_t();
+    const nsTArray<uint8_t>& advData = value.get_ArrayOfuint8_t();
     UpdatePropertiesFromAdvData(advData);
   } else {
     // "Rssi" is handled by BluetoothAdapter::HandleLeDeviceFound()

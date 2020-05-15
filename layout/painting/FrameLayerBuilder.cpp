@@ -333,7 +333,7 @@ void DisplayItemData::BeginUpdate(Layer* aLayer, LayerState aState,
 
   // We avoid adding or removing element unnecessarily
   // since we have to modify userdata each time
-  AutoTArray<nsIFrame*, 4> copy(mFrameList);
+  CopyableAutoTArray<nsIFrame*, 4> copy(mFrameList);
   if (!copy.RemoveElement(aItem->Frame())) {
     AddFrame(aItem->Frame());
     mChangedFrameInvalidations.Or(mChangedFrameInvalidations,
@@ -5740,7 +5740,7 @@ void ContainerState::SetupScrollingMetadata(NewLayerEntry* aEntry) {
   // so add to it rather than overwriting it (we clear the list when recycling
   // a layer).
   nsTArray<RefPtr<Layer>> maskLayers(
-      aEntry->mLayer->GetAllAncestorMaskLayers());
+      aEntry->mLayer->GetAllAncestorMaskLayers().Clone());
 
   // Iterate over the ASR chain and create the corresponding scroll metadatas.
   // This loop is slightly tricky because the scrollframe-to-clip relationship
@@ -6420,7 +6420,7 @@ Layer* FrameLayerBuilder::GetDedicatedLayer(nsIFrame* aFrame,
 
 /* static */
 void FrameLayerBuilder::EnumerateGenerationForDedicatedLayers(
-    const nsIFrame* aFrame, const AnimationGenerationCallback& aCallback) {
+    const nsIFrame* aFrame, AnimationGenerationCallback aCallback) {
   std::bitset<static_cast<uint32_t>(DisplayItemType::TYPE_MAX)> notFoundTypes;
   for (auto displayItemType : LayerAnimationInfo::sDisplayItemTypes) {
     notFoundTypes.set(static_cast<uint32_t>(displayItemType));
@@ -6503,7 +6503,9 @@ gfxSize FrameLayerBuilder::GetPaintedLayerScaleForFrame(nsIFrame* aFrame) {
   Matrix4x4Flagged transform = Matrix4x4::Scaling(resolution, resolution, 1.0);
   if (aFrame != root) {
     // aTransform is applied first, then the scale is applied to the result
-    transform = nsLayoutUtils::GetTransformToAncestor(aFrame, root) * transform;
+    transform = nsLayoutUtils::GetTransformToAncestor(RelativeTo{aFrame},
+                                                      RelativeTo{root}) *
+                transform;
   }
 
   Matrix transform2d;

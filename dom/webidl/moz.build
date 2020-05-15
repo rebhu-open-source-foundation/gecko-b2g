@@ -52,9 +52,6 @@ with Files("Blob*"):
 with Files("BroadcastChannel.webidl"):
     BUG_COMPONENT = ("Core", "DOM: postMessage")
 
-with Files("BrowserElement*"):
-    BUG_COMPONENT = ("Core", "DOM: Core & HTML")
-
 with Files("CSP*"):
     BUG_COMPONENT = ("Core", "DOM: Security")
 
@@ -438,7 +435,6 @@ WEBIDL_FILES = [
     'BiquadFilterNode.webidl',
     'Blob.webidl',
     'BroadcastChannel.webidl',
-    'BrowserElement.webidl',
     'BrowserElementDictionaries.webidl',
     'Cache.webidl',
     'CacheStorage.webidl',

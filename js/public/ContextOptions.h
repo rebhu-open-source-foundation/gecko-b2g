@@ -25,8 +25,10 @@ class JS_PUBLIC_API ContextOptions {
         wasmBaseline_(true),
         wasmIon_(true),
         wasmCranelift_(false),
+        wasmReftypes_(true),
         wasmGc_(false),
         wasmMultiValue_(false),
+        wasmSimd_(false),
         testWasmAwaitTier2_(false),
 #ifdef ENABLE_WASM_BIGINT
         enableWasmBigInt_(true),
@@ -35,6 +37,7 @@ class JS_PUBLIC_API ContextOptions {
         disableIon_(false),
         disableEvalSecurityChecks_(false),
         asyncStack_(true),
+        sourcePragmas_(true),
         throwOnDebuggeeWouldRun_(true),
         dumpStackOnDebuggeeWouldRun_(false),
         strictMode_(false),
@@ -107,6 +110,12 @@ class JS_PUBLIC_API ContextOptions {
   }
 #endif
 
+  bool wasmReftypes() const { return wasmReftypes_; }
+  ContextOptions& setWasmReftypes(bool flag) {
+    wasmReftypes_ = flag;
+    return *this;
+  }
+
   bool wasmGc() const { return wasmGc_; }
   // Defined out-of-line because it depends on a compile-time option
   ContextOptions& setWasmGc(bool flag);
@@ -114,6 +123,10 @@ class JS_PUBLIC_API ContextOptions {
   bool wasmMultiValue() const { return wasmMultiValue_; }
   // Defined out-of-line because it depends on a compile-time option
   ContextOptions& setWasmMultiValue(bool flag);
+
+  bool wasmSimd() const { return wasmSimd_; }
+  // Defined out-of-line because it depends on a compile-time option
+  ContextOptions& setWasmSimd(bool flag);
 
   bool throwOnAsmJSValidationFailure() const {
     return throwOnAsmJSValidationFailure_;
@@ -147,6 +160,13 @@ class JS_PUBLIC_API ContextOptions {
   bool asyncStack() const { return asyncStack_; }
   ContextOptions& setAsyncStack(bool flag) {
     asyncStack_ = flag;
+    return *this;
+  }
+
+  // Enable/disable support for parsing '//(#@) source(Mapping)?URL=' pragmas.
+  bool sourcePragmas() const { return sourcePragmas_; }
+  ContextOptions& setSourcePragmas(bool flag) {
+    sourcePragmas_ = flag;
     return *this;
   }
 
@@ -203,6 +223,7 @@ class JS_PUBLIC_API ContextOptions {
     setWasmIon(false);
     setWasmGc(false);
     setWasmMultiValue(false);
+    setWasmSimd(false);
   }
 
  private:
@@ -213,8 +234,10 @@ class JS_PUBLIC_API ContextOptions {
   bool wasmBaseline_ : 1;
   bool wasmIon_ : 1;
   bool wasmCranelift_ : 1;
+  bool wasmReftypes_ : 1;
   bool wasmGc_ : 1;
   bool wasmMultiValue_ : 1;
+  bool wasmSimd_ : 1;
   bool testWasmAwaitTier2_ : 1;
 #ifdef ENABLE_WASM_BIGINT
   bool enableWasmBigInt_ : 1;
@@ -223,6 +246,7 @@ class JS_PUBLIC_API ContextOptions {
   bool disableIon_ : 1;
   bool disableEvalSecurityChecks_ : 1;
   bool asyncStack_ : 1;
+  bool sourcePragmas_ : 1;
   bool throwOnDebuggeeWouldRun_ : 1;
   bool dumpStackOnDebuggeeWouldRun_ : 1;
   bool strictMode_ : 1;

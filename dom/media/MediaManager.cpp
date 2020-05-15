@@ -508,10 +508,10 @@ class GetUserMediaWindowListener {
   void RemoveAll() {
     MOZ_ASSERT(NS_IsMainThread());
 
-    for (auto& l : nsTArray<RefPtr<SourceListener>>(mInactiveListeners)) {
+    for (auto& l : mInactiveListeners.Clone()) {
       Remove(l);
     }
-    for (auto& l : nsTArray<RefPtr<SourceListener>>(mActiveListeners)) {
+    for (auto& l : mActiveListeners.Clone()) {
       Remove(l);
     }
     MOZ_ASSERT(mInactiveListeners.Length() == 0);
@@ -1389,9 +1389,9 @@ static void GetMediaDevices(MediaEngine* aEngine, uint64_t aWindowId,
       }
     }
   } else {
-    aResult = devices;
+    aResult = std::move(devices);
     if (MOZ_LOG_TEST(gMediaManagerLog, mozilla::LogLevel::Debug)) {
-      for (auto& device : devices) {
+      for (auto& device : aResult) {
         LOG("%s: appending device=%s", __func__,
             NS_ConvertUTF16toUTF8(device->mName).get());
       }
@@ -2235,7 +2235,7 @@ void MediaManager::DeviceListChanged() {
                 l->StopRawID(id);
               }
             }
-            mDeviceIDs = deviceIDs;
+            mDeviceIDs = std::move(deviceIDs);
           },
           [](RefPtr<MediaMgrError>&& reason) {});
 }
@@ -4684,7 +4684,7 @@ DeviceState& SourceListener::GetDeviceStateFor(MediaTrack* aTrack) const {
 void GetUserMediaWindowListener::StopSharing() {
   MOZ_ASSERT(NS_IsMainThread(), "Only call on main thread");
 
-  for (auto& l : nsTArray<RefPtr<SourceListener>>(mActiveListeners)) {
+  for (auto& l : mActiveListeners.Clone()) {
     l->StopSharing();
   }
 }
@@ -4692,7 +4692,7 @@ void GetUserMediaWindowListener::StopSharing() {
 void GetUserMediaWindowListener::StopRawID(const nsString& removedDeviceID) {
   MOZ_ASSERT(NS_IsMainThread(), "Only call on main thread");
 
-  for (auto& source : nsTArray<RefPtr<SourceListener>>(mActiveListeners)) {
+  for (auto& source : mActiveListeners.Clone()) {
     if (source->GetAudioDevice()) {
       nsString id;
       source->GetAudioDevice()->GetRawId(id);

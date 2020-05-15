@@ -74,12 +74,6 @@
         E10SUtils: "resource://gre/modules/E10SUtils.jsm",
       });
 
-      XPCOMUtils.defineLazyPreferenceGetter(
-        this,
-        "animationsEnabled",
-        "toolkit.cosmeticAnimations.enabled"
-      );
-
       this._setupEventListeners();
       this._initialized = true;
     },
@@ -2598,7 +2592,7 @@
         !skipAnimation &&
         !pinned &&
         this.tabContainer.getAttribute("overflow") != "true" &&
-        this.animationsEnabled;
+        !gReduceMotion;
 
       // Related tab inherits current tab's user context unless a different
       // usercontextid is specified
@@ -3389,6 +3383,7 @@
 
       if (
         !animate /* the caller didn't opt in */ ||
+        gReduceMotion ||
         isLastTab ||
         aTab.pinned ||
         aTab.hidden ||
@@ -3397,8 +3392,7 @@
         aTab.getAttribute("fadein") !=
           "true" /* fade-in transition hasn't been triggered yet */ ||
         window.getComputedStyle(aTab).maxWidth ==
-          "0.1px" /* fade-in transition hasn't moved yet */ ||
-        !this.animationsEnabled
+          "0.1px" /* fade-in transition hasn't moved yet */
       ) {
         // We're not animating, so we can cancel the animation stopwatch.
         TelemetryStopwatch.cancel("FX_TAB_CLOSE_TIME_ANIM_MS", aTab);
@@ -4321,7 +4315,7 @@
       // Play the tab closing animation to give immediate feedback while
       // waiting for the new window to appear.
       // content area when the docshells are swapped.
-      if (this.animationsEnabled) {
+      if (!gReduceMotion) {
         aTab.style.maxWidth = ""; // ensure that fade-out transition happens
         aTab.removeAttribute("fadein");
       }
@@ -4358,7 +4352,7 @@
 
       // Play the closing animation for all selected tabs to give
       // immediate feedback while waiting for the new window to appear.
-      if (this.animationsEnabled) {
+      if (!gReduceMotion) {
         for (let tab of tabs) {
           tab.style.maxWidth = ""; // ensure that fade-out transition happens
           tab.removeAttribute("fadein");
@@ -4580,9 +4574,17 @@
      *          Can be from a different window as well
      * @param   aRestoreTabImmediately
      *          Can defer loading of the tab contents
+     * @param   aOptions
+     *          The new index of the tab
      */
-    duplicateTab(aTab, aRestoreTabImmediately) {
-      return SessionStore.duplicateTab(window, aTab, 0, aRestoreTabImmediately);
+    duplicateTab(aTab, aRestoreTabImmediately, aOptions) {
+      return SessionStore.duplicateTab(
+        window,
+        aTab,
+        0,
+        aRestoreTabImmediately,
+        aOptions
+      );
     },
 
     addToMultiSelectedTabs(aTab, { isLastMultiSelectChange = false } = {}) {
@@ -5218,8 +5220,9 @@
     observe(aSubject, aTopic, aData) {
       switch (aTopic) {
         case "contextual-identity-updated": {
+          let identity = aSubject.wrappedJSObject;
           for (let tab of this.tabs) {
-            if (tab.getAttribute("usercontextid") == aData) {
+            if (tab.getAttribute("usercontextid") == identity.userContextId) {
               ContextualIdentityService.setTabStyle(tab);
             }
           }
@@ -5722,7 +5725,7 @@
         !aBrowser.frameLoader ||
         !aBrowser.frameLoader.remoteTab
       ) {
-        throw Cr.NS_ERROR_FAILURE;
+        throw Components.Exception("", Cr.NS_ERROR_FAILURE);
       }
 
       // Tell our caller to redirect the load into this newly created process.
@@ -5976,7 +5979,7 @@
             !aWebProgress.isLoadingDocument &&
             Components.isSuccessCode(aStatus) &&
             !gBrowser.tabAnimationsInProgress &&
-            Services.prefs.getBoolPref("toolkit.cosmeticAnimations.enabled")
+            !gReduceMotion
           ) {
             if (this.mTab._notselectedsinceload) {
               this.mTab.setAttribute("notselectedsinceload", "true");

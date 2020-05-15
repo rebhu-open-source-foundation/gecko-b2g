@@ -564,8 +564,8 @@ nsresult BrowserChild::Init(mozIDOMWindowProxy* aParent,
                                   LayoutDeviceIntRect(0, 0, 0, 0),
                                   nullptr);  // HandleWidgetEvent
 
-  mWebBrowser = nsWebBrowser::Create(this, mPuppetWidget, OriginAttributesRef(),
-                                     mBrowsingContext, aInitialWindowChild);
+  mWebBrowser = nsWebBrowser::Create(this, mPuppetWidget, mBrowsingContext,
+                                     aInitialWindowChild);
   nsIWebBrowser* webBrowser = mWebBrowser;
 
   mWebNav = do_QueryInterface(webBrowser);
@@ -601,8 +601,6 @@ nsresult BrowserChild::Init(mozIDOMWindowProxy* aParent,
 #ifdef DEBUG
   nsCOMPtr<nsILoadContext> loadContext = do_GetInterface(WebNavigation());
   MOZ_ASSERT(loadContext);
-  MOZ_ASSERT(loadContext->UsePrivateBrowsing() ==
-             (OriginAttributesRef().mPrivateBrowsingId > 0));
   MOZ_ASSERT(loadContext->UseRemoteTabs() ==
              !!(mChromeFlags & nsIWebBrowserChrome::CHROME_REMOTE_WINDOW));
   MOZ_ASSERT(loadContext->UseRemoteSubframes() ==
@@ -1262,19 +1260,6 @@ mozilla::ipc::IPCResult BrowserChild::RecvUpdateDimensions(
                         screenRect.y + mClientOffset.y + mChromeOffset.y,
                         screenSize.width, screenSize.height, true);
 
-  // For our devtools Responsive Design Mode, we need to send a special
-  // event to indicate that we've finished processing a frame size change.
-  // This is used by RDM to respond correctly to changes to full zoom,
-  // which also change the window size.
-  RefPtr<Document> doc = GetTopLevelDocument();
-  BrowsingContext* bc = doc ? doc->GetBrowsingContext() : nullptr;
-  if (bc && bc->InRDMPane()) {
-    RefPtr<AsyncEventDispatcher> dispatcher = new AsyncEventDispatcher(
-        doc, NS_LITERAL_STRING("mozupdatedremoteframedimensions"),
-        CanBubble::eYes, ChromeOnlyDispatch::eYes);
-    dispatcher->PostDOMEvent();
-  }
-
   RecvSafeAreaInsetsChanged(mPuppetWidget->GetSafeAreaInsets());
 
   return IPC_OK();
@@ -1414,8 +1399,13 @@ mozilla::ipc::IPCResult BrowserChild::RecvHandleTap(
   }
   CSSToLayoutDeviceScale scale(
       presShell->GetPresContext()->CSSToDevPixelScale());
-  CSSPoint point =
-      APZCCallbackHelper::ApplyCallbackTransform(aPoint / scale, aGuid);
+  CSSPoint point = aPoint / scale;
+
+  // Stash the guid in InputAPZContext so that when the visual-to-layout
+  // transform is applied to the event's coordinates, we use the right transform
+  // based on the scroll frame being targeted.
+  // The other values don't really matter.
+  InputAPZContext context(aGuid, aInputBlockId, nsEventStatus_eSentinel);
 
   switch (aType) {
     case GeckoContentController::TapType::eSingleTap:
@@ -1710,6 +1700,16 @@ mozilla::ipc::IPCResult BrowserChild::RecvRealMouseButtonEvent(
 void BrowserChild::HandleRealMouseButtonEvent(const WidgetMouseEvent& aEvent,
                                               const ScrollableLayerGuid& aGuid,
                                               const uint64_t& aInputBlockId) {
+  WidgetMouseEvent localEvent(aEvent);
+  localEvent.mWidget = mPuppetWidget;
+
+  // We need one InputAPZContext here to propagate |aGuid| to places in
+  // SendSetTargetAPZCNotification() which apply the visual-to-layout transform,
+  // and another below to propagate the |postLayerization| flag (whose value
+  // we don't know until SendSetTargetAPZCNotification() returns) into
+  // the event dispatch code.
+  InputAPZContext context1(aGuid, aInputBlockId, nsEventStatus_eSentinel);
+
   // Mouse events like eMouseEnterIntoWidget, that are created in the parent
   // process EventStateManager code, have an input block id which they get from
   // the InputAPZContext in the parent process stack. However, they did not
@@ -1717,23 +1717,19 @@ void BrowserChild::HandleRealMouseButtonEvent(const WidgetMouseEvent& aEvent,
   // Since thos events didn't go through APZ, we don't need to send
   // notifications for them.
   UniquePtr<DisplayportSetListener> postLayerization;
-  if (aInputBlockId && aEvent.mFlags.mHandledByAPZ) {
+  if (aInputBlockId && localEvent.mFlags.mHandledByAPZ) {
     nsCOMPtr<Document> document(GetTopLevelDocument());
     postLayerization = APZCCallbackHelper::SendSetTargetAPZCNotification(
-        mPuppetWidget, document, aEvent, aGuid.mLayersId, aInputBlockId);
+        mPuppetWidget, document, localEvent, aGuid.mLayersId, aInputBlockId);
   }
 
-  InputAPZContext context(aGuid, aInputBlockId, nsEventStatus_eIgnore,
-                          postLayerization != nullptr);
+  InputAPZContext context2(aGuid, aInputBlockId, nsEventStatus_eSentinel,
+                           postLayerization != nullptr);
 
-  WidgetMouseEvent localEvent(aEvent);
-  localEvent.mWidget = mPuppetWidget;
-  APZCCallbackHelper::ApplyCallbackTransform(localEvent, aGuid,
-                                             mPuppetWidget->GetDefaultScale());
   DispatchWidgetEventViaAPZ(localEvent);
 
-  if (aInputBlockId && aEvent.mFlags.mHandledByAPZ) {
-    mAPZEventState->ProcessMouseEvent(aEvent, aInputBlockId);
+  if (aInputBlockId && localEvent.mFlags.mHandledByAPZ) {
+    mAPZEventState->ProcessMouseEvent(localEvent, aInputBlockId);
   }
 
   // Do this after the DispatchWidgetEventViaAPZ call above, so that if the
@@ -1820,8 +1816,13 @@ void BrowserChild::DispatchWheelEvent(const WidgetWheelEvent& aEvent,
   }
 
   localEvent.mWidget = mPuppetWidget;
-  APZCCallbackHelper::ApplyCallbackTransform(localEvent, aGuid,
-                                             mPuppetWidget->GetDefaultScale());
+
+  // Stash the guid in InputAPZContext so that when the visual-to-layout
+  // transform is applied to the event's coordinates, we use the right transform
+  // based on the scroll frame being targeted.
+  // The other values don't really matter.
+  InputAPZContext context(aGuid, aInputBlockId, nsEventStatus_eSentinel);
+
   DispatchWidgetEventViaAPZ(localEvent);
 
   if (localEvent.mCanTriggerSwipe) {
@@ -1875,8 +1876,11 @@ mozilla::ipc::IPCResult BrowserChild::RecvRealTouchEvent(
   WidgetTouchEvent localEvent(aEvent);
   localEvent.mWidget = mPuppetWidget;
 
-  APZCCallbackHelper::ApplyCallbackTransform(localEvent, aGuid,
-                                             mPuppetWidget->GetDefaultScale());
+  // Stash the guid in InputAPZContext so that when the visual-to-layout
+  // transform is applied to the event's coordinates, we use the right transform
+  // based on the scroll frame being targeted.
+  // The other values don't really matter.
+  InputAPZContext context(aGuid, aInputBlockId, aApzResponse);
 
   if (localEvent.mMessage == eTouchStart && AsyncPanZoomEnabled()) {
     nsCOMPtr<Document> document = GetTopLevelDocument();
@@ -1986,7 +1990,7 @@ void BrowserChild::RequestEditCommands(nsIWidget::NativeKeyBindingsType aType,
   MOZ_ASSERT(aCommands.IsEmpty());
 
   if (NS_WARN_IF(aEvent.IsEditCommandsInitialized(aType))) {
-    aCommands = aEvent.EditCommandsConstRef(aType);
+    aCommands = aEvent.EditCommandsConstRef(aType).Clone();
     return;
   }
 
@@ -2436,21 +2440,6 @@ mozilla::ipc::IPCResult BrowserChild::RecvGetAudioChannelActivity(
   }
 
   aResolve(Tuple<const bool&, const bool&>(success, active));
-  return IPC_OK();
-}
-
-mozilla::ipc::IPCResult BrowserChild::RecvSetUseGlobalHistory(
-    const bool& aUse) {
-  nsCOMPtr<nsIDocShell> docShell = do_GetInterface(WebNavigation());
-  if (!docShell) {
-    return IPC_OK();
-  }
-
-  nsresult rv = docShell->SetUseGlobalHistory(aUse);
-  if (NS_FAILED(rv)) {
-    NS_WARNING("Failed to set UseGlobalHistory on BrowserChild docShell");
-  }
-
   return IPC_OK();
 }
 

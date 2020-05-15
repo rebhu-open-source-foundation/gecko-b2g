@@ -44,12 +44,15 @@ void BCEScriptStencil::init(BytecodeEmitter& bce,
     // FunctionBox.
     immutableFlags.setFlag(ImmutableFlags::HasMappedArgsObj,
                            funbox->hasMappedArgsObj());
-  } /* isFunctionBox */
-}
 
-bool BCEScriptStencil::finishGCThings(
-    JSContext* cx, mozilla::Span<JS::GCCellPtr> output) const {
-  return EmitScriptThingsVector(cx, bce_.compilationInfo, gcThings, output);
+    // While IsLikelyConstructorWrapper is required to be the same between
+    // syntax and normal parsing, BinAST cannot ensure this. Work around this by
+    // using the existing value if this is delazification.
+    if (bce.emitterMode != BytecodeEmitter::LazyFunction) {
+      immutableFlags.setFlag(ImmutableFlags::IsLikelyConstructorWrapper,
+                             funbox->isLikelyConstructorWrapper());
+    }
+  } /* isFunctionBox */
 }
 
 void BCEScriptStencil::initAtomMap(GCPtrAtom* atoms) const {
@@ -61,8 +64,4 @@ void BCEScriptStencil::initAtomMap(GCPtrAtom* atoms) const {
     MOZ_ASSERT(index < indices.count());
     atoms[index].init(atom);
   }
-}
-
-void BCEScriptStencil::finishInnerFunctions() const {
-  bce_.perScriptData().gcThingList().finishInnerFunctions();
 }

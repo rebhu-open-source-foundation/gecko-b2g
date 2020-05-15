@@ -12,6 +12,7 @@
 #include "nsAccCache.h"
 #include "nsAccessiblePivot.h"
 #include "nsAccUtils.h"
+#include "nsDeckFrame.h"
 #include "nsEventShell.h"
 #include "nsTextEquivUtils.h"
 #include "Role.h"
@@ -1038,6 +1039,13 @@ void DocAccessible::ARIAAttributeChanged(Accessible* aAccessible,
   if (aAttribute == nsGkAtoms::aria_current) {
     RefPtr<AccEvent> event =
         new AccStateChangeEvent(aAccessible, states::CURRENT);
+    FireDelayedEvent(event);
+    return;
+  }
+
+  if (aAttribute == nsGkAtoms::aria_haspopup) {
+    RefPtr<AccEvent> event =
+        new AccStateChangeEvent(aAccessible, states::HASPOPUP);
     FireDelayedEvent(event);
     return;
   }

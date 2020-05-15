@@ -1593,6 +1593,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(nsGlobalWindowOuter)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mSuspendedDoc)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDocumentPrincipal)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDocumentStoragePrincipal)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDocumentIntrinsicStoragePrincipal)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDoc)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWakeLock)
 
@@ -1625,6 +1626,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsGlobalWindowOuter)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mSuspendedDoc)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mDocumentPrincipal)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mDocumentStoragePrincipal)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mDocumentIntrinsicStoragePrincipal)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mDoc)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mWakeLock)
 
@@ -1730,6 +1732,10 @@ bool nsGlobalWindowOuter::WouldReuseInnerWindow(Document* aNewDocument) {
 
   if (mDoc == aNewDocument) {
     return true;
+  }
+
+  if (aNewDocument->IsStaticDocument()) {
+    return false;
   }
 
   if (BasePrincipal::Cast(mDoc->NodePrincipal())
@@ -2065,6 +2071,8 @@ nsresult nsGlobalWindowOuter::SetNewDocument(Document* aDocument,
              "mDocumentPrincipal prematurely set!");
   MOZ_ASSERT(mDocumentStoragePrincipal == nullptr,
              "mDocumentStoragePrincipal prematurely set!");
+  MOZ_ASSERT(mDocumentIntrinsicStoragePrincipal == nullptr,
+             "mDocumentIntrinsicStoragePrincipal prematurely set!");
   MOZ_ASSERT(aDocument);
 
   // Bail out early if we're in process of closing down the window.
@@ -2220,15 +2228,6 @@ nsresult nsGlobalWindowOuter::SetNewDocument(Document* aDocument,
       // in a fresh global object when shared memory objects aren't allowed
       // (because COOP/COEP support isn't enabled, or because COOP/COEP don't
       // act to isolate this page to a separate process).
-      //
-      // We set this value to |true| to replicate pre-existing behavior.  In the
-      // future, bug 1624266 will assign the correct COOP/COEP-respecting value
-      // here.  When that change is made, corresponding code for workers in
-      // WorkerPrivate.cpp must also be updated.  (Ideally both paint and audio
-      // worklets -- bug 1630876 and bug 1630877 -- would be fixed at the same
-      // time, but fixing them has lower priorit because they're not shipping
-      // yet.)
-      bool aDefineSharedArrayBufferConstructor = true;
 
       // Every script context we are initialized with must create a
       // new global.
@@ -2236,7 +2235,7 @@ nsresult nsGlobalWindowOuter::SetNewDocument(Document* aDocument,
           cx, newInnerWindow, aDocument->GetDocumentURI(),
           aDocument->NodePrincipal(), &newInnerGlobal,
           ComputeIsSecureContext(aDocument),
-          aDefineSharedArrayBufferConstructor);
+          newInnerWindow->IsSharedMemoryAllowed());
       NS_ASSERTION(
           NS_SUCCEEDED(rv) && newInnerGlobal &&
               newInnerWindow->GetWrapperPreserveColor() == newInnerGlobal,
@@ -2430,26 +2429,14 @@ nsresult nsGlobalWindowOuter::SetNewDocument(Document* aDocument,
     newInnerWindow->mChromeEventHandler = mChromeEventHandler;
   }
 
-  // Tell the WindowGlobalParent that it should become the current window global
-  // for our BrowsingContext if it isn't already.
-  WindowGlobalChild* wgc = mInnerWindow->GetWindowGlobalChild();
-  wgc->SetDocumentURI(aDocument->GetDocumentURI());
-
-  wgc->SetDocumentPrincipal(aDocument->NodePrincipal());
-
-  wgc->SendUpdateDocumentCspSettings(
-      aDocument->GetBlockAllMixedContent(false),
-      aDocument->GetUpgradeInsecureRequests(false));
-  wgc->SendUpdateSandboxFlags(aDocument->GetSandboxFlags());
-  net::CookieJarSettingsArgs csArgs;
-  net::CookieJarSettings::Cast(aDocument->CookieJarSettings())
-      ->Serialize(csArgs);
-  if (!wgc->SendUpdateCookieJarSettings(csArgs)) {
-    NS_WARNING(
-        "Failed to update document's cookie jar settings on the "
-        "WindowGlobalParent");
+  if (!aState) {
+    // Notify our WindowGlobalChild that it has a new document. If `aState` was
+    // passed, we're restoring the window from the BFCache, so the document
+    // hasn't changed.
+    mInnerWindow->GetWindowGlobalChild()->OnNewDocument(aDocument);
   }
 
+  // Update the current window for our BrowsingContext.
   RefPtr<BrowsingContext> bc = GetBrowsingContext();
   bc->SetCurrentInnerWindowId(mInnerWindow->WindowID());
 
@@ -2503,27 +2490,6 @@ nsresult nsGlobalWindowOuter::SetNewDocument(Document* aDocument,
 
   bool isThirdPartyTrackingResourceWindow =
       nsContentUtils::IsThirdPartyTrackingResourceWindow(newInnerWindow);
-
-  // Set the cookie jar settings to the window context.
-  if (newInnerWindow) {
-    net::CookieJarSettingsArgs cookieJarSettings;
-    net::CookieJarSettings::Cast(aDocument->CookieJarSettings())
-        ->Serialize(cookieJarSettings);
-
-    newInnerWindow->GetWindowGlobalChild()
-        ->WindowContext()
-        ->SetCookieJarSettings(Some(cookieJarSettings));
-
-    newInnerWindow->GetWindowGlobalChild()
-        ->WindowContext()
-        ->SetIsThirdPartyWindow(nsContentUtils::IsThirdPartyWindowOrChannel(
-            newInnerWindow, nullptr, nullptr));
-
-    newInnerWindow->GetWindowGlobalChild()
-        ->WindowContext()
-        ->SetIsThirdPartyTrackingResourceWindow(
-            isThirdPartyTrackingResourceWindow);
-  }
 
   mHasStorageAccess = false;
   nsIURI* uri = aDocument->GetDocumentURI();
@@ -2755,6 +2721,7 @@ void nsGlobalWindowOuter::DetachFromDocShell(bool aIsBeingDiscarded) {
     // Remember the document's principal and URI.
     mDocumentPrincipal = mDoc->NodePrincipal();
     mDocumentStoragePrincipal = mDoc->EffectiveStoragePrincipal();
+    mDocumentIntrinsicStoragePrincipal = mDoc->IntrinsicStoragePrincipal();
     mDocumentURI = mDoc->GetDocumentURI();
 
     // Release our document reference
@@ -3022,6 +2989,29 @@ nsIPrincipal* nsGlobalWindowOuter::GetEffectiveStoragePrincipal() {
 
   if (objPrincipal) {
     return objPrincipal->GetEffectiveStoragePrincipal();
+  }
+
+  return nullptr;
+}
+
+nsIPrincipal* nsGlobalWindowOuter::IntrinsicStoragePrincipal() {
+  if (mDoc) {
+    // If we have a document, get the principal from the document
+    return mDoc->IntrinsicStoragePrincipal();
+  }
+
+  if (mDocumentIntrinsicStoragePrincipal) {
+    return mDocumentIntrinsicStoragePrincipal;
+  }
+
+  // If we don't have a storage principal and we don't have a document we ask
+  // the parent window for the storage principal.
+
+  nsCOMPtr<nsIScriptObjectPrincipal> objPrincipal =
+      do_QueryInterface(GetInProcessParentInternal());
+
+  if (objPrincipal) {
+    return objPrincipal->IntrinsicStoragePrincipal();
   }
 
   return nullptr;
@@ -3870,7 +3860,7 @@ Maybe<CSSIntSize> nsGlobalWindowOuter::GetRDMDeviceSize(
   // be independent of any full zoom or resolution zoom applied to the
   // content. To get this value, we get the "unscaled" browser child size,
   // and divide by the full zoom. "Unscaled" in this case means unscaled
-  // from device to screen but it has been affected (multipled) by the
+  // from device to screen but it has been affected (multiplied) by the
   // full zoom and we need to compensate for that.
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
 
@@ -5277,15 +5267,6 @@ void nsGlobalWindowOuter::PrintOuter(ErrorResult& aError) {
       EnterModalState();
       webBrowserPrint->Print(printSettings, nullptr);
       LeaveModalState();
-
-      bool savePrintSettings =
-          Preferences::GetBool("print.save_print_settings", false);
-      if (savePrintSettings) {
-        printSettingsService->SavePrintSettingsToPrefs(
-            printSettings, true, nsIPrintSettings::kInitSaveAll);
-        printSettingsService->SavePrintSettingsToPrefs(
-            printSettings, false, nsIPrintSettings::kInitSavePrinterName);
-      }
     } else {
       webBrowserPrint->GetGlobalPrintSettings(getter_AddRefs(printSettings));
       webBrowserPrint->Print(printSettings, nullptr);

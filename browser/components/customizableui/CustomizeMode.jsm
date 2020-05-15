@@ -64,21 +64,11 @@ XPCOMUtils.defineLazyGetter(this, "gWidgetsBundle", function() {
     "chrome://browser/locale/customizableui/customizableWidgets.properties";
   return Services.strings.createBundle(kUrl);
 });
-XPCOMUtils.defineLazyPreferenceGetter(
-  this,
-  "gCosmeticAnimationsEnabled",
-  "toolkit.cosmeticAnimations.enabled"
-);
 XPCOMUtils.defineLazyServiceGetter(
   this,
   "gTouchBarUpdater",
   "@mozilla.org/widget/touchbarupdater;1",
   "nsITouchBarUpdater"
-);
-XPCOMUtils.defineLazyPreferenceGetter(
-  this,
-  "gCosmeticAnimationsEnabled",
-  "toolkit.cosmeticAnimations.enabled"
 );
 
 let gDebug;
@@ -139,6 +129,8 @@ function CustomizeMode(aWindow) {
   this.document = aWindow.document;
   this.browser = aWindow.gBrowser;
   this.areas = new Set();
+
+  this._ensureCustomizationPanels();
 
   let content = this.$("customization-content-container");
   if (!content) {
@@ -618,7 +610,7 @@ CustomizeMode.prototype = {
 
   _promiseWidgetAnimationOut(aNode) {
     if (
-      !gCosmeticAnimationsEnabled ||
+      this.window.gReduceMotion ||
       aNode.getAttribute("cui-anchorid") == "nav-bar-overflow-button" ||
       (aNode.tagName != "toolbaritem" && aNode.tagName != "toolbarbutton") ||
       (aNode.id == "downloads-button" && aNode.hidden)
@@ -749,7 +741,7 @@ CustomizeMode.prototype = {
         aNode.classList.remove("animate-out");
       }
     }
-    if (gCosmeticAnimationsEnabled) {
+    if (!this.window.gReduceMotion) {
       let overflowButton = this.$("nav-bar-overflow-button");
       BrowserUtils.setToolbarButtonHeightProperty(overflowButton).then(() => {
         overflowButton.setAttribute("animate", "true");
@@ -1733,6 +1725,14 @@ CustomizeMode.prototype = {
     return this.window.TabsInTitlebar.systemSupported;
   },
 
+  _ensureCustomizationPanels() {
+    let template = this.$("customizationPanel");
+    template.replaceWith(template.content);
+
+    let wrapper = this.$("customModeWrapper");
+    wrapper.replaceWith(wrapper.content);
+  },
+
   _updateTitlebarCheckbox() {
     let drawInTitlebar = Services.prefs.getBoolPref(
       kDrawInTitlebarPref,
@@ -2602,7 +2602,6 @@ CustomizeMode.prototype = {
   },
 
   _setupDownloadAutoHideToggle() {
-    this.$(kDownloadAutohidePanelId).removeAttribute("hidden");
     this.window.addEventListener("click", this._checkForDownloadsClick, true);
   },
 

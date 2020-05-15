@@ -305,12 +305,12 @@ void BluetoothMapBMessage::ParseBMsg(const nsAutoCString& aCurrLine) {
 }
 
 void BluetoothMapBMessage::GetRecipients(nsTArray<RefPtr<VCard>>& aRecipients) {
-  aRecipients = mRecipients;
+  aRecipients = mRecipients.Clone();
 }
 
 void BluetoothMapBMessage::GetOriginators(
     nsTArray<RefPtr<VCard>>& aOriginators) {
-  aOriginators = mOriginators;
+  aOriginators = mOriginators.Clone();
 }
 
 void BluetoothMapBMessage::GetBody(nsACString& aBody) { aBody = mBMsgBody; }

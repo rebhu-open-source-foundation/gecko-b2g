@@ -560,6 +560,19 @@ if (AppConstants.platform != "macosx") {
   var gEditUIVisible = true;
 }
 
+Object.defineProperty(this, "gReduceMotion", {
+  enumerable: true,
+  get() {
+    return typeof gReduceMotionOverride == "boolean"
+      ? gReduceMotionOverride
+      : gReduceMotionSetting;
+  },
+});
+// Reduce motion during startup. The setting will be reset later.
+let gReduceMotionSetting = true;
+// This is for tests to set.
+var gReduceMotionOverride;
+
 // Smart getter for the findbar.  If you don't wish to force the creation of
 // the findbar, check gFindBarInitialized first.
 
@@ -2260,7 +2273,15 @@ var gBrowserInit = {
     });
 
     scheduleIdleTask(() => {
-      CombinedStopReload.animationDisabledDuringStartup = false;
+      // Read prefers-reduced-motion setting
+      let reduceMotionQuery = window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+      );
+      function readSetting() {
+        gReduceMotionSetting = reduceMotionQuery.matches;
+      }
+      reduceMotionQuery.addListener(readSetting);
+      readSetting();
     });
 
     scheduleIdleTask(() => {
@@ -5549,8 +5570,6 @@ var LinkTargetDisplay = {
 };
 
 var CombinedStopReload = {
-  animationDisabledDuringStartup: true,
-
   // Try to initialize. Returns whether initialization was successful, which
   // may mean we had already initialized.
   ensureInitialized() {
@@ -5663,9 +5682,8 @@ var CombinedStopReload = {
       aWebProgress.isTopLevel &&
       aWebProgress.isLoadingDocument &&
       !gBrowser.tabAnimationsInProgress &&
-      !this.animationDisabledDuringStartup &&
-      this.stopReloadContainer.closest("#nav-bar-customization-target") &&
-      window.matchMedia("(prefers-reduced-motion: no-preference)").matches;
+      !gReduceMotion &&
+      this.stopReloadContainer.closest("#nav-bar-customization-target");
 
     this._cancelTransition();
     if (shouldAnimate) {
@@ -5687,10 +5705,9 @@ var CombinedStopReload = {
       aWebProgress.isTopLevel &&
       !aWebProgress.isLoadingDocument &&
       !gBrowser.tabAnimationsInProgress &&
-      !this.animationDisabledDuringStartup &&
+      !gReduceMotion &&
       this._loadTimeExceedsMinimumForAnimation() &&
-      this.stopReloadContainer.closest("#nav-bar-customization-target") &&
-      window.matchMedia("(prefers-reduced-motion: no-preference)").matches;
+      this.stopReloadContainer.closest("#nav-bar-customization-target");
 
     if (shouldAnimate) {
       BrowserUtils.setToolbarButtonHeightProperty(this.stopReloadContainer);
@@ -5998,7 +6015,7 @@ nsBrowserAccess.prototype = {
   openURI(aURI, aOpenWindowInfo, aWhere, aFlags, aTriggeringPrincipal, aCsp) {
     if (!aURI) {
       Cu.reportError("openURI should only be called with a valid URI");
-      throw Cr.NS_ERROR_FAILURE;
+      throw Components.Exception("", Cr.NS_ERROR_FAILURE);
     }
     return this.getContentWindowOrOpenURI(
       aURI,
@@ -6028,7 +6045,7 @@ nsBrowserAccess.prototype = {
         "nsBrowserAccess.openURI did not expect aOpenWindowInfo to be " +
           "passed if the context is OPEN_EXTERNAL."
       );
-      throw Cr.NS_ERROR_FAILURE;
+      throw Components.Exception("", Cr.NS_ERROR_FAILURE);
     }
 
     if (isExternal && aURI && aURI.schemeIs("chrome")) {
@@ -6837,7 +6854,7 @@ function handleLinkClick(event, href, linkNode) {
     Ci.nsIReferrerInfo
   );
   if (linkNode) {
-    referrerInfo.initWithNode(linkNode);
+    referrerInfo.initWithElement(linkNode);
   } else {
     referrerInfo.initWithDocument(doc);
   }
@@ -8723,6 +8740,13 @@ var PanicButtonNotifier = {
       this.notify();
     }
   },
+  createPanelIfNeeded() {
+    // Lazy load the panic-button-success-notification panel the first time we need to display it.
+    if (!document.getElementById("panic-button-success-notification")) {
+      let template = document.getElementById("panicButtonNotificationTemplate");
+      template.replaceWith(template.content);
+    }
+  },
   notify() {
     if (!this._initialized) {
       window.PanicButtonNotifierShouldNotify = true;
@@ -8730,6 +8754,7 @@ var PanicButtonNotifier = {
     }
     // Display notification panel here...
     try {
+      this.createPanelIfNeeded();
       let popup = document.getElementById("panic-button-success-notification");
       popup.hidden = false;
       // To close the popup in 3 seconds after the popup is shown but left uninteracted.
@@ -8905,19 +8930,16 @@ TabModalPromptBox.prototype = {
       /* Ignore exceptions for host-less URIs */
     }
     if (hostForAllowFocusCheckbox) {
-      let allowFocusRow = document.createElement("div");
-
-      let spacer = document.createElement("div");
-      allowFocusRow.appendChild(spacer);
-
+      let allowFocusRow = document.createXULElement("row");
       allowFocusCheckbox = document.createXULElement("checkbox");
+      let spacer = document.createXULElement("spacer");
+      allowFocusRow.appendChild(spacer);
       let label = gTabBrowserBundle.formatStringFromName(
         "tabs.allowTabFocusByPromptForSite",
         [hostForAllowFocusCheckbox]
       );
       allowFocusCheckbox.setAttribute("label", label);
       allowFocusRow.appendChild(allowFocusCheckbox);
-
       newPrompt.ui.rows.append(allowFocusRow);
     }
 
@@ -9102,7 +9124,6 @@ var ConfirmationHint = {
       { once: true }
     );
 
-    this._panel.hidden = false;
     this._panel.openPopup(anchor, {
       position: "bottomcenter topleft",
       triggerEvent: options.event,
@@ -9114,16 +9135,19 @@ var ConfirmationHint = {
       clearTimeout(this._timerID);
       this._timerID = null;
     }
-    this._panel.removeAttribute("hidearrow");
-    this._animationBox.removeAttribute("animate");
+    if (this.__panel) {
+      this._panel.removeAttribute("hidearrow");
+      this._animationBox.removeAttribute("animate");
+    }
   },
 
   get _panel() {
-    delete this._panel;
-    return (this._panel = document.getElementById("confirmation-hint"));
+    this._ensurePanel();
+    return this.__panel;
   },
 
   get _animationBox() {
+    this._ensurePanel();
     delete this._animationBox;
     return (this._animationBox = document.getElementById(
       "confirmation-hint-checkmark-animation-container"
@@ -9131,6 +9155,7 @@ var ConfirmationHint = {
   },
 
   get _message() {
+    this._ensurePanel();
     delete this._message;
     return (this._message = document.getElementById(
       "confirmation-hint-message"
@@ -9138,10 +9163,19 @@ var ConfirmationHint = {
   },
 
   get _description() {
+    this._ensurePanel();
     delete this._description;
     return (this._description = document.getElementById(
       "confirmation-hint-description"
     ));
+  },
+
+  _ensurePanel() {
+    if (!this.__panel) {
+      let wrapper = document.getElementById("confirmation-hint-wrapper");
+      wrapper.replaceWith(wrapper.content);
+      this.__panel = document.getElementById("confirmation-hint");
+    }
   },
 };
 

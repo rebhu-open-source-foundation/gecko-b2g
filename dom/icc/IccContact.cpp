@@ -94,9 +94,9 @@ IccContact::IccContact(const nsAString& aId,
                        const nsTArray<nsString>& aNumbers,
                        const nsTArray<nsString>& aEmails)
   : mId(aId),
-    mNames(aNames),
-    mNumbers(aNumbers),
-    mEmails(aEmails)
+    mNames(aNames.Clone()),
+    mNumbers(aNumbers.Clone()),
+    mEmails(aEmails.Clone())
 {
 }
 
@@ -110,7 +110,7 @@ NS_IMETHODIMP IccContact::GetId(nsAString & aId)
 
 #define ICCCONTACT_IMPL_GET_CONTACT_FIELD(_field)                        \
   NS_IMETHODIMP IccContact::Get##_field(nsTArray<nsString>& a##_field) { \
-    a##_field = m##_field;                                               \
+    a##_field = m##_field.Clone();                                               \
     return NS_OK;                                                        \
   }
 

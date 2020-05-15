@@ -54,7 +54,6 @@ T MinIgnoreZero(const T& a, const T& b);
 
 class VideoStreamFactory;
 class WebrtcAudioConduit;
-class nsThread;
 
 // Interface of external video encoder for WebRTC.
 class WebrtcVideoEncoder : public VideoEncoder, public webrtc::VideoEncoder {};
@@ -99,7 +98,7 @@ class WebrtcVideoConduit
    * feed in received RTP Frames to the VideoEngine for decoding
    */
   MediaConduitErrorCode ReceivedRTPPacket(const void* data, int len,
-                                          uint32_t ssrc) override;
+                                          webrtc::RTPHeader& header) override;
 
   /**
    * APIs used by the registered external transport to this Conduit to
@@ -244,18 +243,19 @@ class WebrtcVideoConduit
   MediaConduitErrorCode InitMain();
   virtual MediaConduitErrorCode Init();
 
-  std::vector<unsigned int> GetLocalSSRCs() override;
-  bool SetLocalSSRCs(const std::vector<unsigned int>& ssrcs) override;
-  bool GetRemoteSSRC(unsigned int* ssrc) override;
-  bool SetRemoteSSRC(unsigned int ssrc) override;
+  std::vector<uint32_t> GetLocalSSRCs() override;
+  bool SetLocalSSRCs(const std::vector<uint32_t>& ssrcs,
+                     const std::vector<uint32_t>& rtxSsrcs) override;
+  bool GetRemoteSSRC(uint32_t* ssrc) override;
+  bool SetRemoteSSRC(uint32_t ssrc, uint32_t rtxSsrc) override;
   bool UnsetRemoteSSRC(uint32_t ssrc) override;
   bool SetLocalCNAME(const char* cname) override;
   bool SetLocalMID(const std::string& mid) override;
 
   void SetSyncGroup(const std::string& group) override;
 
-  bool GetRemoteSSRCLocked(unsigned int* ssrc);
-  bool SetRemoteSSRCLocked(unsigned int ssrc);
+  bool GetRemoteSSRCLocked(uint32_t* ssrc);
+  bool SetRemoteSSRCLocked(uint32_t ssrc, uint32_t rtxSsrc);
 
   bool GetSendPacketTypeStats(
       webrtc::RtcpPacketTypeCounter* aPacketCounts) override;
@@ -614,7 +614,7 @@ class WebrtcVideoConduit
   // Main thread only.
   webrtc::VideoReceiveStream::Config mRecvStreamConfig;
 
-  // Are SSRC changes without signaling allowed or not
+  // Are SSRC changes without signaling allowed or not.
   // Accessed only on mStsThread.
   bool mAllowSsrcChange = true;
 

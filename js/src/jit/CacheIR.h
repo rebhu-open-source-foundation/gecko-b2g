@@ -181,6 +181,10 @@ enum class CacheKind : uint8_t {
 
 extern const char* const CacheKindNames[];
 
+#ifdef DEBUG
+extern size_t NumInputsForCacheKind(CacheKind kind);
+#endif
+
 enum class CacheOp {
 #define DEFINE_OP(op, ...) op,
   CACHE_IR_OPS(DEFINE_OP)
@@ -1077,6 +1081,8 @@ class MOZ_RAII GetPropIRGenerator : public IRGenerator {
                                       HandleId id);
   AttachDecision tryAttachObjectLength(HandleObject obj, ObjOperandId objId,
                                        HandleId id);
+  AttachDecision tryAttachTypedArrayLength(HandleObject obj, ObjOperandId objId,
+                                           HandleId id);
   AttachDecision tryAttachModuleNamespace(HandleObject obj, ObjOperandId objId,
                                           HandleId id);
   AttachDecision tryAttachWindowProxy(HandleObject obj, ObjOperandId objId,

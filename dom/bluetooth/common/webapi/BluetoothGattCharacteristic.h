@@ -45,7 +45,7 @@ class BluetoothGattCharacteristic final : public nsISupports,
 
   void GetDescriptors(
       nsTArray<RefPtr<BluetoothGattDescriptor>>& aDescriptors) const {
-    aDescriptors = mDescriptors;
+    aDescriptors = mDescriptors.Clone();
   }
 
   void GetUuid(nsString& aUuidStr) const { aUuidStr = mUuidStr; }

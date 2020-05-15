@@ -11,6 +11,7 @@
 #include "nsIAccessibleTypes.h"
 #include "DocAccessible.h"
 #include "HTMLListAccessible.h"
+#include "Relation.h"
 #include "Role.h"
 #include "States.h"
 #include "TextAttrs.h"
@@ -34,6 +35,7 @@
 #include "mozilla/Assertions.h"
 #include "mozilla/BinarySearch.h"
 #include "mozilla/EventStates.h"
+#include "mozilla/HTMLEditor.h"
 #include "mozilla/MathAlgorithms.h"
 #include "mozilla/PresShell.h"
 #include "mozilla/TextEditor.h"
@@ -1711,7 +1713,7 @@ void HyperTextAccessible::SelectionRanges(
   aRanges->SetCapacity(sel->RangeCount());
 
   for (uint32_t idx = 0; idx < sel->RangeCount(); idx++) {
-    nsRange* DOMRange = sel->GetRangeAt(idx);
+    const nsRange* DOMRange = sel->GetRangeAt(idx);
     HyperTextAccessible* startContainer =
         nsAccUtils::GetTextContainer(DOMRange->GetStartContainer());
     HyperTextAccessible* endContainer =
@@ -2031,7 +2033,7 @@ void HyperTextAccessible::GetSpellTextAttr(
 
   uint32_t startOffset = 0, endOffset = 0;
   for (int32_t idx = 0; idx < rangeCount; idx++) {
-    nsRange* range = domSel->GetRangeAt(idx);
+    const nsRange* range = domSel->GetRangeAt(idx);
     if (range->Collapsed()) continue;
 
     // See if the point comes after the range in which case we must continue in
@@ -2085,7 +2087,7 @@ void HyperTextAccessible::GetSpellTextAttr(
     endOffset = DOMPointToOffset(startNode, startNodeOffset);
 
     if (idx > 0) {
-      nsRange* prevRange = domSel->GetRangeAt(idx - 1);
+      const nsRange* prevRange = domSel->GetRangeAt(idx - 1);
       startOffset = DOMPointToOffset(prevRange->GetEndContainer(),
                                      prevRange->EndOffset());
     }
@@ -2105,7 +2107,7 @@ void HyperTextAccessible::GetSpellTextAttr(
   // the point is not in a range, that we do not need to compute an end offset,
   // and that we should use the end offset of the last range to compute the
   // start offset of the text attribute range.
-  nsRange* prevRange = domSel->GetRangeAt(rangeCount - 1);
+  const nsRange* prevRange = domSel->GetRangeAt(rangeCount - 1);
   startOffset =
       DOMPointToOffset(prevRange->GetEndContainer(), prevRange->EndOffset());
 

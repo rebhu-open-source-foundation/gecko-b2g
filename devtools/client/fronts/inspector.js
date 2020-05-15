@@ -163,14 +163,17 @@ class InspectorFront extends FrontClassWithSpec(inspectorSpec) {
       return this.walker.gripToNodeFront(grip);
     }
 
-    const { contentDomReference } = grip;
-    const { browsingContextId } = contentDomReference;
+    return this.getNodeActorFromContentDomReference(grip.contentDomReference);
+  }
 
-    // If the grip lives in the same browsing context id than the current one, we can
-    // directly use the current walker.
-    // TODO: When Bug 1578745 lands, we might want to force using `this.walker` as well
-    // when the new pref is set to false.
-    if (this.targetFront.browsingContextID === browsingContextId) {
+  async getNodeActorFromContentDomReference(contentDomReference) {
+    const { browsingContextId } = contentDomReference;
+    // If the contentDomReference lives in the same browsing context id than the
+    // current one, we can directly use the current walker.
+    if (
+      this.targetFront.browsingContextID === browsingContextId ||
+      !this.isContentFissionEnabled
+    ) {
       return this.walker.getNodeActorFromContentDomReference(
         contentDomReference
       );
@@ -179,10 +182,22 @@ class InspectorFront extends FrontClassWithSpec(inspectorSpec) {
     // If the contentDomReference has a different browsing context than the current one,
     // we are either in Fission or in the Multiprocess Browser Toolbox, so we need to
     // retrieve the walker of the BrowsingContextTarget.
-    const descriptor = await this.targetFront.client.mainRoot.getBrowsingContextDescriptor(
-      browsingContextId
-    );
-    const target = await descriptor.getTarget();
+    // Get the target for this remote frame element
+    const { descriptorFront } = this.targetFront;
+
+    // Starting with FF77, Tab and Process Descriptor exposes a Watcher,
+    // which should be used to fetch the node's target.
+    let target;
+    if (descriptorFront && descriptorFront.traits.watcher) {
+      const watcher = await descriptorFront.getWatcher();
+      target = await watcher.getBrowsingContextTarget(browsingContextId);
+    } else {
+      // FF<=76 backward compat code:
+      const descriptor = await this.targetFront.client.mainRoot.getBrowsingContextDescriptor(
+        browsingContextId
+      );
+      target = await descriptor.getTarget();
+    }
     const { walker } = await target.getFront("inspector");
     return walker.getNodeActorFromContentDomReference(contentDomReference);
   }

@@ -1976,34 +1976,10 @@ nsresult NS_LoadPersistentPropertiesFromURISpec(
 
 bool NS_UsePrivateBrowsing(nsIChannel* channel) {
   OriginAttributes attrs;
-  bool result = NS_GetOriginAttributes(channel, attrs, false);
+  bool result = StoragePrincipalHelper::GetOriginAttributes(
+      channel, attrs, StoragePrincipalHelper::eRegularPrincipal);
   NS_ENSURE_TRUE(result, result);
   return attrs.mPrivateBrowsingId > 0;
-}
-
-bool NS_GetOriginAttributes(nsIChannel* aChannel,
-                            mozilla::OriginAttributes& aAttributes,
-                            bool aUsingStoragePrincipal) {
-  nsCOMPtr<nsILoadInfo> loadInfo = aChannel->LoadInfo();
-  loadInfo->GetOriginAttributes(&aAttributes);
-
-  bool isPrivate = false;
-  nsCOMPtr<nsIPrivateBrowsingChannel> pbChannel = do_QueryInterface(aChannel);
-  if (pbChannel) {
-    nsresult rv = pbChannel->GetIsChannelPrivate(&isPrivate);
-    NS_ENSURE_SUCCESS(rv, false);
-  } else {
-    // Some channels may not implement nsIPrivateBrowsingChannel
-    nsCOMPtr<nsILoadContext> loadContext;
-    NS_QueryNotificationCallbacks(aChannel, loadContext);
-    isPrivate = loadContext && loadContext->UsePrivateBrowsing();
-  }
-  aAttributes.SyncAttributesWithPrivateBrowsing(isPrivate);
-
-  if (aUsingStoragePrincipal) {
-    StoragePrincipalHelper::PrepareOriginAttributes(aChannel, aAttributes);
-  }
-  return true;
 }
 
 bool NS_HasBeenCrossOrigin(nsIChannel* aChannel, bool aReport) {
@@ -2114,8 +2090,10 @@ bool NS_IsSameSiteForeign(nsIChannel* aChannel, nsIURI* aHostURI) {
   // Do not treat loads triggered by web extensions as foreign
   nsCOMPtr<nsIURI> channelURI;
   NS_GetFinalChannelURI(aChannel, getter_AddRefs(channelURI));
-  if (BasePrincipal::Cast(loadInfo->TriggeringPrincipal())
-          ->AddonAllowsLoad(channelURI)) {
+  RefPtr<BasePrincipal> triggeringPrincipal =
+      BasePrincipal::Cast(loadInfo->TriggeringPrincipal());
+  if (triggeringPrincipal->AddonPolicy() &&
+      triggeringPrincipal->AddonAllowsLoad(channelURI)) {
     return false;
   }
 
@@ -2126,8 +2104,7 @@ bool NS_IsSameSiteForeign(nsIChannel* aChannel, nsIURI* aHostURI) {
     // for loads of TYPE_DOCUMENT we query the hostURI from the
     // triggeringPrincipal which returns the URI of the document that caused the
     // navigation.
-    rv = loadInfo->TriggeringPrincipal()->IsThirdPartyChannel(aChannel,
-                                                              &isForeign);
+    rv = triggeringPrincipal->IsThirdPartyChannel(aChannel, &isForeign);
   } else {
     nsCOMPtr<mozIThirdPartyUtil> thirdPartyUtil =
         do_GetService(THIRDPARTYUTIL_CONTRACTID);

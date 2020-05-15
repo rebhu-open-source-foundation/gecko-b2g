@@ -2128,6 +2128,9 @@ struct FileWriteFunc : public JSONWriteFunc {
   explicit FileWriteFunc(FILE* aFile) : mFile(aFile) {}
 
   void Write(const char* aStr) override { fprintf(mFile, "%s", aStr); }
+  void Write(const char* aStr, size_t aLen) override {
+    fprintf(mFile, "%s", aStr);
+  }
 };
 
 static void SubmitDowngradeTelemetry(const nsCString& aLastVersion,
@@ -4707,6 +4710,13 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
   mozilla::IOInterposerInit ioInterposerGuard;
 
 #if defined(XP_WIN)
+  // Initializing COM below may load modules via SetWindowHookEx, some of
+  // which may modify the executable's IAT for ntdll.dll.  If that happens,
+  // this browser process fails to launch sandbox processes because we cannot
+  // copy a modified IAT into a remote process (See SandboxBroker::LaunchApp).
+  // To prevent that, we cache the intact IAT before COM initialization.
+  mozilla::ipc::GeckoChildProcessHost::CacheNtDllThunk();
+
   // Some COM settings are global to the process and must be set before any non-
   // trivial COM is run in the application. Since these settings may affect
   // stability, we should instantiate COM ASAP so that we can ensure that these
@@ -4921,18 +4931,6 @@ bool XRE_UseNativeEventProcessing() {
 
   return true;
 }
-
-#if defined(XP_WIN)
-bool XRE_Win32kCallsAllowed() {
-  switch (XRE_GetProcessType()) {
-    case GeckoProcessType_GMPlugin:
-    case GeckoProcessType_RDD:
-      return false;
-    default:
-      return true;
-  }
-}
-#endif
 
 // If you add anything to this enum, please update about:support to reflect it
 enum {

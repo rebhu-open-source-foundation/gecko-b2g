@@ -441,8 +441,10 @@ class StyleSheet final : public nsICSSLoaderObserver, public nsWrapperCache {
 
   // Copy the contents of this style sheet into the shared memory buffer managed
   // by aBuilder.  Returns the pointer into the buffer that the sheet contents
-  // were stored at.  (The returned pointer is to an Arc<Locked<Rules>> value.)
-  const ServoCssRules* ToShared(RawServoSharedMemoryBuilder* aBuilder);
+  // were stored at.  (The returned pointer is to an Arc<Locked<Rules>> value,
+  // or null, with a filled in aErrorMessage, on failure.)
+  const ServoCssRules* ToShared(RawServoSharedMemoryBuilder* aBuilder,
+                                nsCString& aErrorMessage);
 
   // Sets the contents of this style sheet to the specified aSharedRules
   // pointer, which must be a pointer somewhere in the aSharedMemory buffer
@@ -552,6 +554,12 @@ class StyleSheet final : public nsICSSLoaderObserver, public nsWrapperCache {
   static bool RuleHasPendingChildSheet(css::Rule* aRule);
 
   StyleSheet* mParentSheet;  // weak ref
+
+  // A pointer to the sheets relevant global object.
+  // This is populated when the sheet gets an associated document.
+  // This is required for the sheet to be able to create a promise.
+  // https://html.spec.whatwg.org/#concept-relevant-everything
+  nsCOMPtr<nsIGlobalObject> mRelevantGlobal;
 
   RefPtr<dom::Document> mConstructorDocument;
 

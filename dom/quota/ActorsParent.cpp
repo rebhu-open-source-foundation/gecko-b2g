@@ -197,14 +197,14 @@ constexpr auto kPersistentOriginTelemetryKey =
 constexpr auto kTemporaryOriginTelemetryKey =
     NS_LITERAL_CSTRING("TemporaryOrigin");
 
+constexpr auto kStorageName = NS_LITERAL_STRING("storage");
+constexpr auto kSQLiteSuffix = NS_LITERAL_STRING(".sqlite");
+
 #define INDEXEDDB_DIRECTORY_NAME "indexedDB"
-#define STORAGE_DIRECTORY_NAME "storage"
 #define PERSISTENT_DIRECTORY_NAME "persistent"
 #define PERMANENT_DIRECTORY_NAME "permanent"
 #define TEMPORARY_DIRECTORY_NAME "temporary"
 #define DEFAULT_DIRECTORY_NAME "default"
-
-#define STORAGE_FILE_NAME "storage.sqlite"
 
 // The name of the file that we use to load/save the last access time of an
 // origin.
@@ -853,6 +853,7 @@ namespace {
 
 }  // namespace
 
+// XXX Change this not to derive from AutoTArray.
 class ClientUsageArray final
     : public AutoTArray<Maybe<uint64_t>, Client::TYPE_MAX> {
  public:
@@ -861,6 +862,12 @@ class ClientUsageArray final
   void Serialize(nsACString& aText) const;
 
   nsresult Deserialize(const nsACString& aText);
+
+  ClientUsageArray Clone() const {
+    ClientUsageArray res;
+    res.Assign(*this);
+    return res;
+  }
 };
 
 class OriginInfo final {
@@ -1490,6 +1497,22 @@ class QuotaRequestBase : public NormalOriginOperationBase,
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 };
 
+class StorageNameOp final : public QuotaRequestBase {
+  nsString mName;
+
+ public:
+  StorageNameOp();
+
+  void Init(Quota* aQuota) override;
+
+ private:
+  ~StorageNameOp() = default;
+
+  nsresult DoDirectoryWork(QuotaManager* aQuotaManager) override;
+
+  void GetResponse(RequestResponse& aResponse) override;
+};
+
 class InitializedRequestBase : public QuotaRequestBase {
  protected:
   bool mInitialized;
@@ -1949,7 +1972,8 @@ void ReportInternalError(const char* aFile, uint32_t aLine, const char* aStr) {
 namespace {
 
 bool gInvalidateQuotaCache = false;
-StaticAutoPtr<nsString> gBaseDirPath;
+StaticAutoPtr<nsString> gBasePath;
+StaticAutoPtr<nsString> gStorageName;
 StaticAutoPtr<nsCString> gBuildId;
 
 #ifdef DEBUG
@@ -3142,14 +3166,14 @@ QuotaManager::Observer::Observe(nsISupports* aSubject, const char* aTopic,
   nsresult rv;
 
   if (!strcmp(aTopic, kProfileDoChangeTopic)) {
-    if (NS_WARN_IF(gBaseDirPath)) {
+    if (NS_WARN_IF(gBasePath)) {
       NS_WARNING(
           "profile-before-change-qm must precede repeated "
           "profile-do-change!");
       return NS_OK;
     }
 
-    gBaseDirPath = new nsString();
+    gBasePath = new nsString();
 
     nsCOMPtr<nsIFile> baseDir;
     rv = NS_GetSpecialDirectory(NS_APP_INDEXEDDB_PARENT_DIR,
@@ -3162,9 +3186,16 @@ QuotaManager::Observer::Observe(nsISupports* aSubject, const char* aTopic,
       return rv;
     }
 
-    rv = baseDir->GetPath(*gBaseDirPath);
+    rv = baseDir->GetPath(*gBasePath);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
+    }
+
+    gStorageName = new nsString();
+
+    rv = Preferences::GetString("dom.quotaManager.storageName", *gStorageName);
+    if (NS_FAILED(rv)) {
+      *gStorageName = kStorageName;
     }
 
     gBuildId = new nsCString();
@@ -3184,7 +3215,7 @@ QuotaManager::Observer::Observe(nsISupports* aSubject, const char* aTopic,
   }
 
   if (!strcmp(aTopic, PROFILE_BEFORE_CHANGE_QM_OBSERVER_ID)) {
-    if (NS_WARN_IF(!gBaseDirPath)) {
+    if (NS_WARN_IF(!gBasePath)) {
       NS_WARNING("profile-do-change must precede profile-before-change-qm!");
       return NS_OK;
     }
@@ -3212,7 +3243,9 @@ QuotaManager::Observer::Observe(nsISupports* aSubject, const char* aTopic,
 
     MOZ_ALWAYS_TRUE(SpinEventLoopUntil([&]() { return mShutdownComplete; }));
 
-    gBaseDirPath = nullptr;
+    gBasePath = nullptr;
+
+    gStorageName = nullptr;
 
     gBuildId = nullptr;
 
@@ -3551,8 +3584,11 @@ bool QuotaObject::LockedMaybeUpdateSize(int64_t aSize, bool aTruncate) {
  * Quota manager
  ******************************************************************************/
 
-QuotaManager::QuotaManager()
+QuotaManager::QuotaManager(const nsAString& aBasePath,
+                           const nsAString& aStorageName)
     : mQuotaMutex("QuotaManager.mQuotaMutex"),
+      mBasePath(aBasePath),
+      mStorageName(aStorageName),
       mTemporaryStorageLimit(0),
       mTemporaryStorageUsage(0),
       mNextDirectoryLockId(0),
@@ -3588,15 +3624,15 @@ void QuotaManager::GetOrCreate(nsIRunnable* aCallback,
     return;
   }
 
-  if (NS_WARN_IF(!gBaseDirPath)) {
+  if (NS_WARN_IF(!gBasePath)) {
     NS_WARNING("profile-do-change must precede QuotaManager::GetOrCreate()");
     MOZ_ASSERT(!gInstance);
   } else if (gInstance || gCreateFailed) {
     MOZ_ASSERT_IF(gCreateFailed, !gInstance);
   } else {
-    RefPtr<QuotaManager> manager = new QuotaManager();
+    RefPtr<QuotaManager> manager = new QuotaManager(*gBasePath, *gStorageName);
 
-    nsresult rv = manager->Init(*gBaseDirPath);
+    nsresult rv = manager->Init();
     if (NS_WARN_IF(NS_FAILED(rv))) {
       gCreateFailed = true;
     } else {
@@ -3937,14 +3973,14 @@ void QuotaManager::CollectPendingOriginsForListing(P aPredicate) {
   }
 }
 
-nsresult QuotaManager::Init(const nsAString& aBasePath) {
-  mBasePath = aBasePath;
+nsresult QuotaManager::Init() {
+  AssertIsOnOwningThread();
 
 #ifdef XP_WIN
   CacheUseDOSDevicePathSyntaxPrefValue();
 #endif
 
-  auto baseDirOrErr = QM_NewLocalFile(aBasePath);
+  auto baseDirOrErr = QM_NewLocalFile(mBasePath);
   if (NS_WARN_IF(baseDirOrErr.isErr())) {
     return baseDirOrErr.unwrapErr();
   }
@@ -3957,7 +3993,7 @@ nsresult QuotaManager::Init(const nsAString& aBasePath) {
     return rv;
   }
 
-  rv = baseDir->Append(NS_LITERAL_STRING(STORAGE_DIRECTORY_NAME));
+  rv = baseDir->Append(mStorageName);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -6313,7 +6349,7 @@ nsresult QuotaManager::EnsureStorageIsInitialized() {
 
   nsCOMPtr<nsIFile> storageFile = storageFileOrErr.unwrap();
 
-  nsresult rv = storageFile->Append(NS_LITERAL_STRING(STORAGE_FILE_NAME));
+  nsresult rv = storageFile->Append(mStorageName + kSQLiteSuffix);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -7925,7 +7961,7 @@ OriginInfo::OriginInfo(GroupInfo* aGroupInfo, const nsACString& aOrigin,
                        const ClientUsageArray& aClientUsages, uint64_t aUsage,
                        int64_t aAccessTime, bool aPersisted,
                        bool aDirectoryExists)
-    : mClientUsages(aClientUsages),
+    : mClientUsages(aClientUsages.Clone()),
       mGroupInfo(aGroupInfo),
       mOrigin(aOrigin),
       mUsage(aUsage),
@@ -8595,6 +8631,7 @@ bool Quota::VerifyRequestParams(const RequestParams& aParams) const {
   MOZ_ASSERT(aParams.type() != RequestParams::T__None);
 
   switch (aParams.type()) {
+    case RequestParams::TStorageNameParams:
     case RequestParams::TStorageInitializedParams:
     case RequestParams::TTemporaryStorageInitializedParams:
     case RequestParams::TInitParams:
@@ -8838,6 +8875,10 @@ PQuotaRequestParent* Quota::AllocPQuotaRequestParent(
   RefPtr<QuotaRequestBase> actor;
 
   switch (aParams.type()) {
+    case RequestParams::TStorageNameParams:
+      actor = new StorageNameOp();
+      break;
+
     case RequestParams::TStorageInitializedParams:
       actor = new StorageInitializedOp();
       break;
@@ -9470,6 +9511,43 @@ void QuotaRequestBase::ActorDestroy(ActorDestroyReason aWhy) {
   NoteActorDestroyed();
 }
 
+StorageNameOp::StorageNameOp() : QuotaRequestBase(/* aExclusive */ false) {
+  AssertIsOnOwningThread();
+
+  // Overwrite NormalOriginOperationBase default values.
+  mNeedsDirectoryLocking = false;
+
+  // Overwrite OriginOperationBase default values.
+  mNeedsQuotaManagerInit = true;
+  mNeedsStorageInit = false;
+}
+
+void StorageNameOp::Init(Quota* aQuota) {
+  AssertIsOnOwningThread();
+  MOZ_ASSERT(aQuota);
+}
+
+nsresult StorageNameOp::DoDirectoryWork(QuotaManager* aQuotaManager) {
+  AssertIsOnIOThread();
+  MOZ_ASSERT(aQuotaManager);
+
+  AUTO_PROFILER_LABEL("StorageNameOp::DoDirectoryWork", OTHER);
+
+  mName = aQuotaManager->GetStorageName();
+
+  return NS_OK;
+}
+
+void StorageNameOp::GetResponse(RequestResponse& aResponse) {
+  AssertIsOnOwningThread();
+
+  StorageNameResponse storageNameResponse;
+
+  storageNameResponse.name() = mName;
+
+  aResponse = storageNameResponse;
+}
+
 InitializedRequestBase::InitializedRequestBase()
     : QuotaRequestBase(/* aExclusive */ false), mInitialized(false) {
   AssertIsOnOwningThread();
@@ -9716,7 +9794,8 @@ void ResetOrClearOp::DeleteStorageFile(QuotaManager* aQuotaManager) {
 
   nsCOMPtr<nsIFile> storageFile = storageFileOrErr.unwrap();
 
-  nsresult rv = storageFile->Append(NS_LITERAL_STRING(STORAGE_FILE_NAME));
+  nsresult rv =
+      storageFile->Append(aQuotaManager->GetStorageName() + kSQLiteSuffix);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return;
   }

@@ -10,6 +10,7 @@
 #include "nsBaseChannel.h"
 #include "mozilla/ArrayUtils.h"
 #include "nsIProtocolHandler.h"
+#include "nsXULAppAPI.h"
 #include "mozilla/Preferences.h"
 
 #define ABOUT_CONFIG_ENABLED_PREF "general.aboutConfig.enable"
@@ -100,6 +101,8 @@ static const RedirEntry kRedirMap[] = {
      nsIAboutModule::ALLOW_SCRIPT},
     {"plugins", "chrome://global/content/plugins.html",
      nsIAboutModule::URI_MUST_LOAD_IN_CHILD},
+    {"processes", "chrome://global/content/aboutProcesses.html",
+     nsIAboutModule::ALLOW_SCRIPT},
     // about:serviceworkers always wants to load in the parent process because
     // when dom.serviceWorkers.parent_intercept is set to true (the new default)
     // then the only place nsIServiceWorkerManager has any data is in the

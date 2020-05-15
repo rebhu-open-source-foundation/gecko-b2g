@@ -616,7 +616,7 @@ void nsXULPopupManager::InitTriggerEvent(Event* aEvent, nsIContent* aPopup,
                 thisDocToRootDocOffset.y);
           } else if (rootDocumentRootFrame) {
             nsPoint pnt = nsLayoutUtils::GetEventCoordinatesRelativeTo(
-                event, rootDocumentRootFrame);
+                event, RelativeTo{rootDocumentRootFrame});
             mCachedMousePoint = LayoutDeviceIntPoint(
                 rootDocPresContext->AppUnitsToDevPixels(pnt.x),
                 rootDocPresContext->AppUnitsToDevPixels(pnt.y));
@@ -1979,11 +1979,14 @@ bool nsXULPopupManager::HandleShortcutNavigation(KeyboardEvent* aKeyEvent,
 }
 
 bool nsXULPopupManager::HandleKeyboardNavigation(uint32_t aKeyCode) {
+  if (nsMenuChainItem* nextitem = GetTopVisibleMenu()) {
+    nextitem->Content()->OwnerDoc()->FlushPendingNotifications(FlushType::Frames);
+  }
+
   // navigate up through the open menus, looking for the topmost one
   // in the same hierarchy
   nsMenuChainItem* item = nullptr;
   nsMenuChainItem* nextitem = GetTopVisibleMenu();
-
   while (nextitem) {
     item = nextitem;
     nextitem = item->GetParent();

@@ -25,6 +25,9 @@ var { HttpServer } = ChromeUtils.import("resource://testing-common/httpd.js");
 var { AddonTestUtils } = ChromeUtils.import(
   "resource://testing-common/AddonTestUtils.jsm"
 );
+const { ExtensionTestUtils } = ChromeUtils.import(
+  "resource://testing-common/ExtensionXPCShellUtils.jsm"
+);
 
 const PREF_SEARCH_URL = "geoSpecificDefaults.url";
 const NS_APP_SEARCH_DIR = "SrchPlugns";
@@ -442,7 +445,7 @@ async function withGeoServer(
   let geoLookupUrl = geoLookupData
     ? `http://localhost:${srv.identity.primaryPort}/lookup_geoip`
     : 'data:application/json,{"country_code": "FR"}';
-  Services.prefs.setCharPref("geo.provider-country.network.url", geoLookupUrl);
+  Services.prefs.setCharPref("browser.region.network.url", geoLookupUrl);
 
   try {
     await testFn(gRequests);
@@ -452,7 +455,7 @@ async function withGeoServer(
     Services.prefs.clearUserPref(
       SearchUtils.BROWSER_SEARCH_PREF + PREF_SEARCH_URL
     );
-    Services.prefs.clearUserPref("geo.provider-country.network.url");
+    Services.prefs.clearUserPref("browser.region.network.url");
   }
 }
 
@@ -545,7 +548,7 @@ async function asyncReInit({ awaitRegionFetch = false } = {}) {
 const TELEMETRY_RESULT_ENUM = {
   SUCCESS: 0,
   SUCCESS_WITHOUT_DATA: 1,
-  XHRTIMEOUT: 2,
+  TIMEOUT: 2,
   ERROR: 3,
 };
 
@@ -608,7 +611,7 @@ function useCustomGeoServer(region, waitToRespond = Promise.resolve()) {
   });
 
   Services.prefs.setCharPref(
-    "geo.provider-country.network.url",
+    "browser.region.network.url",
     `http://localhost:${srv.identity.primaryPort}/fetch_region`
   );
 }

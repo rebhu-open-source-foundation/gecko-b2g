@@ -79,7 +79,7 @@ struct BluetoothGattClientWriteCharState {
               const nsTArray<uint8_t>& aWriteValue, bool aAuthRetry,
               BluetoothReplyRunnable* aRunnable) {
     mWriteType = aWriteType;
-    mWriteValue = aWriteValue;
+    mWriteValue = aWriteValue.Clone();
     mAuthRetry = aAuthRetry;
     mRunnable = aRunnable;
   }
@@ -114,7 +114,7 @@ struct BluetoothGattClientWriteDescState {
 
   void Assign(const nsTArray<uint8_t>& aWriteValue, bool aAuthRetry,
               BluetoothReplyRunnable* aRunnable) {
-    mWriteValue = aWriteValue;
+    mWriteValue = aWriteValue.Clone();
     mAuthRetry = aAuthRetry;
     mRunnable = aRunnable;
   }

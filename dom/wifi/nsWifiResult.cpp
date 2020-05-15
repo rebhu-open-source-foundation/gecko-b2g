@@ -22,15 +22,15 @@ nsWifiResult::nsWifiResult() : mId(0), mStatus(false) {}
 
 void nsWifiResult::updateScanResults(
     nsTArray<RefPtr<nsScanResult>>& aScanResults) {
-  mScanResults = aScanResults;
+  mScanResults = aScanResults.Clone();
 }
 
 void nsWifiResult::updateChannels(nsTArray<int32_t>& aChannels) {
-  mChannels = aChannels;
+  mChannels = aChannels.Clone();
 }
 
 void nsWifiResult::updateSignalPoll(nsTArray<int32_t>& aSignalPoll) {
-  mSignalPoll = aSignalPoll;
+  mSignalPoll = aSignalPoll.Clone();
 }
 
 void nsWifiResult::updateLinkLayerStats(nsLinkLayerStats* aLinkLayerStats) {
@@ -105,13 +105,13 @@ nsWifiResult::GetNumStations(uint32_t* aNumStations) {
 
 NS_IMETHODIMP
 nsWifiResult::GetChannels(nsTArray<int32_t>& aChannels) {
-  aChannels = mChannels;
+  aChannels = mChannels.Clone();
   return NS_OK;
 }
 
 NS_IMETHODIMP
 nsWifiResult::SignalPoll(nsTArray<int32_t>& aSignalPoll) {
-  aSignalPoll = mSignalPoll;
+  aSignalPoll = mSignalPoll.Clone();
   return NS_OK;
 }
 

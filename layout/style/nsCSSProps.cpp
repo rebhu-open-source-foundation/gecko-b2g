@@ -14,12 +14,14 @@
 #include "mozilla/ArrayUtils.h"
 #include "mozilla/Casting.h"
 
+#include "gfxPlatform.h"
 #include "nsLayoutUtils.h"
 #include "nsIWidget.h"
 #include "nsStyleConsts.h"  // For system widget appearance types
 
 #include "mozilla/dom/Animation.h"
 #include "mozilla/dom/AnimationEffectBinding.h"  // for PlaybackDirection
+#include "mozilla/gfx/gfxVars.h"                 // for UseWebRender
 #include "mozilla/LookAndFeel.h"                 // for system colors
 
 #include "nsString.h"
@@ -62,6 +64,22 @@ static nsStaticCaseInsensitiveNameTable* CreateStaticTable(
   return table;
 }
 
+void nsCSSProps::RecomputeEnabledState(const char* aPref, void*) {
+  DebugOnly<bool> foundPref = false;
+  for (const PropertyPref* pref = kPropertyPrefTable;
+       pref->mPropID != eCSSProperty_UNKNOWN; pref++) {
+    if (!aPref || !strcmp(aPref, pref->mPref)) {
+      foundPref = true;
+      gPropertyEnabled[pref->mPropID] = Preferences::GetBool(pref->mPref);
+      if (pref->mPropID == eCSSProperty_backdrop_filter) {
+        gPropertyEnabled[pref->mPropID] &=
+            gfxPlatform::Initialized() && gfx::gfxVars::UseWebRender();
+      }
+    }
+  }
+  MOZ_ASSERT(foundPref);
+}
+
 void nsCSSProps::AddRefTable(void) {
   if (0 == gPropertyTableRefCount++) {
     MOZ_ASSERT(!gFontDescTable, "pre existing array!");
@@ -86,11 +104,16 @@ void nsCSSProps::AddRefTable(void) {
       prefObserversInited = true;
       for (const PropertyPref* pref = kPropertyPrefTable;
            pref->mPropID != eCSSProperty_UNKNOWN; pref++) {
+        // https://bugzilla.mozilla.org/show_bug.cgi?id=1472523
+        // We need to use nsCString instead of substring because the preference
+        // callback code stores them. Using AssignLiteral prevents any
+        // unnecessary allocations.
         nsCString prefName;
         prefName.AssignLiteral(pref->mPref, strlen(pref->mPref));
-        bool* enabled = &gPropertyEnabled[pref->mPropID];
-        Preferences::AddBoolVarCache(enabled, prefName);
+        Preferences::RegisterCallback(nsCSSProps::RecomputeEnabledState,
+                                      prefName);
       }
+      RecomputeEnabledState(/* aPrefName = */ nullptr);
     }
   }
 }

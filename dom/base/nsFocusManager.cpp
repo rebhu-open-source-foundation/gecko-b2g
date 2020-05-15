@@ -1542,7 +1542,10 @@ void nsFocusManager::SetFocusInner(Element* aNewContent, int32_t aFlags,
   } else {
     // otherwise, for inactive windows and when the caller cannot steal the
     // focus, update the node in the window, and  raise the window if desired.
-    if (allowFrameSwitch) AdjustWindowFocus(newWindow, true);
+    if (allowFrameSwitch) {
+      AdjustWindowFocus(newWindow->GetBrowsingContext(), true,
+                        IsWindowVisible(newWindow));
+    }
 
     // set the focus node and method as needed
     uint32_t focusMethod =
@@ -1717,41 +1720,55 @@ mozilla::dom::BrowsingContext* nsFocusManager::GetCommonAncestor(
   return parent;
 }
 
-void nsFocusManager::AdjustWindowFocus(nsPIDOMWindowOuter* aWindow,
-                                       bool aCheckPermission) {
-  bool isVisible = IsWindowVisible(aWindow);
-
-  nsCOMPtr<nsPIDOMWindowOuter> window(aWindow);
-  while (window) {
+void nsFocusManager::AdjustWindowFocus(BrowsingContext* aBrowsingContext,
+                                       bool aCheckPermission, bool aIsVisible) {
+  BrowsingContext* bc = aBrowsingContext;
+  while (bc) {
     // get the containing <iframe> or equivalent element so that it can be
     // focused below.
-    nsCOMPtr<Element> frameElement = window->GetFrameElementInternal();
+    nsCOMPtr<Element> frameElement = bc->GetEmbedderElement();
 
-    nsCOMPtr<nsIDocShellTreeItem> dsti = window->GetDocShell();
-    if (!dsti) return;
-    nsCOMPtr<nsIDocShellTreeItem> parentDsti;
-    dsti->GetInProcessParent(getter_AddRefs(parentDsti));
-    if (!parentDsti) {
+    if (!frameElement && XRE_IsContentProcess()) {
+      // The containing <iframe> isn't in this process and we are in a child
+      // process, so continue the walk in another process.
+      mozilla::dom::ContentChild* contentChild =
+          mozilla::dom::ContentChild::GetSingleton();
+      MOZ_ASSERT(contentChild);
+      contentChild->SendAdjustWindowFocus(bc, false, aIsVisible);
       return;
     }
 
-    window = parentDsti->GetWindow();
-    if (window) {
-      // if the parent window is visible but aWindow was not, then we have
-      // likely moved up and out from a hidden tab to the browser window, or a
-      // similar such arrangement. Stop adjusting the current nodes.
-      if (IsWindowVisible(window) != isVisible) break;
-
-      // When aCheckPermission is true, we should check whether the caller can
-      // access the window or not.  If it cannot access, we should stop the
-      // adjusting.
-      if (aCheckPermission && !nsContentUtils::LegacyIsCallerNativeCode() &&
-          !nsContentUtils::CanCallerAccess(window->GetCurrentInnerWindow())) {
-        break;
+    BrowsingContext* parent = bc->GetParent();
+    if (!parent && XRE_IsParentProcess()) {
+      CanonicalBrowsingContext* canonical = bc->Canonical();
+      RefPtr<WindowGlobalParent> embedder =
+          canonical->GetEmbedderWindowGlobal();
+      if (embedder) {
+        parent = embedder->BrowsingContext();
       }
-
-      window->SetFocusedElement(frameElement);
     }
+    bc = parent;
+    if (!bc) {
+      return;
+    }
+    nsCOMPtr<nsPIDOMWindowOuter> window = bc->GetDOMWindow();
+    MOZ_ASSERT(window);
+    // if the parent window is visible but the original window was not, then we
+    // have likely moved up and out from a hidden tab to the browser window, or
+    // a similar such arrangement. Stop adjusting the current nodes.
+    if (IsWindowVisible(window) != aIsVisible) {
+      return;
+    }
+
+    // When aCheckPermission is true, we should check whether the caller can
+    // access the window or not.  If it cannot access, we should stop the
+    // adjusting.
+    if (aCheckPermission && !nsContentUtils::LegacyIsCallerNativeCode() &&
+        !nsContentUtils::CanCallerAccess(window->GetCurrentInnerWindow())) {
+      return;
+    }
+
+    window->SetFocusedElement(frameElement);
   }
 }
 
@@ -1785,8 +1802,7 @@ bool nsFocusManager::IsNonFocusableRoot(nsIContent* aContent) {
   Document* doc = aContent->GetComposedDoc();
   NS_ASSERTION(doc, "aContent must have current document");
   return aContent == doc->GetRootElement() &&
-         (doc->HasFlag(NODE_IS_EDITABLE) || !aContent->IsEditable() ||
-          nsContentUtils::IsUserFocusIgnored(aContent));
+         (doc->HasFlag(NODE_IS_EDITABLE) || !aContent->IsEditable());
 }
 
 Element* nsFocusManager::FlushAndCheckIfFocusable(Element* aElement,
@@ -1819,7 +1835,7 @@ Element* nsFocusManager::FlushAndCheckIfFocusable(Element* aElement,
   // the root content can always be focused,
   // except in userfocusignored context.
   if (aElement == doc->GetRootElement()) {
-    return nsContentUtils::IsUserFocusIgnored(aElement) ? nullptr : aElement;
+    return aElement;
   }
 
   // cannot focus content in print preview mode. Only the root can be focused.
@@ -2252,7 +2268,8 @@ void nsFocusManager::Focus(nsPIDOMWindowOuter* aWindow, Element* aElement,
     // if this is a new document, update the parent chain of frames so that
     // focus can be traversed from the top level down to the newly focused
     // window.
-    AdjustWindowFocus(aWindow, false);
+    AdjustWindowFocus(aWindow->GetBrowsingContext(), false,
+                      IsWindowVisible(aWindow));
   }
 
   // indicate that the window has taken focus.
@@ -2514,10 +2531,7 @@ void nsFocusManager::SendFocusOrBlurEvent(
     aRelatedTarget = nullptr;
   }
 
-  bool dontDispatchEvent =
-      eventTargetDoc && nsContentUtils::IsUserFocusIgnored(eventTargetDoc);
-
-  if (!dontDispatchEvent && aDocument && aDocument->EventHandlingSuppressed()) {
+  if (aDocument && aDocument->EventHandlingSuppressed()) {
     for (uint32_t i = mDelayedBlurFocusEvents.Length(); i > 0; --i) {
       // if this event was already queued, remove it and append it to the end
       if (mDelayedBlurFocusEvents[i - 1].mEventMessage == aEventMessage &&
@@ -2550,16 +2564,11 @@ void nsFocusManager::FireFocusOrBlurEvent(EventMessage aEventMessage,
                                           nsISupports* aTarget,
                                           bool aWindowRaised, bool aIsRefocus,
                                           EventTarget* aRelatedTarget) {
-  nsCOMPtr<EventTarget> eventTarget = do_QueryInterface(aTarget);
-  nsCOMPtr<Document> eventTargetDoc = GetDocumentHelper(eventTarget);
   nsCOMPtr<nsPIDOMWindowOuter> currentWindow = mFocusedWindow;
   nsCOMPtr<nsPIDOMWindowInner> targetWindow = do_QueryInterface(aTarget);
   nsCOMPtr<Document> targetDocument = do_QueryInterface(aTarget);
   nsCOMPtr<nsIContent> currentFocusedContent =
       currentWindow ? currentWindow->GetFocusedElement() : nullptr;
-
-  bool dontDispatchEvent =
-      eventTargetDoc && nsContentUtils::IsUserFocusIgnored(eventTargetDoc);
 
 #ifdef ACCESSIBILITY
   nsAccessibilityService* accService = GetAccService();
@@ -2572,25 +2581,22 @@ void nsFocusManager::FireFocusOrBlurEvent(EventMessage aEventMessage,
   }
 #endif
 
-  if (!dontDispatchEvent) {
-    nsContentUtils::AddScriptRunner(
-        new FocusBlurEvent(aTarget, aEventMessage, aPresShell->GetPresContext(),
-                           aWindowRaised, aIsRefocus, aRelatedTarget));
+  nsContentUtils::AddScriptRunner(
+      new FocusBlurEvent(aTarget, aEventMessage, aPresShell->GetPresContext(),
+                         aWindowRaised, aIsRefocus, aRelatedTarget));
 
-    // Check that the target is not a window or document before firing
-    // focusin/focusout. Other browsers do not fire focusin/focusout on window,
-    // despite being required in the spec, so follow their behavior.
-    //
-    // As for document, we should not even fire focus/blur, but until then, we
-    // need this check. targetDocument should be removed once bug 1228802 is
-    // resolved.
-    if (!targetWindow && !targetDocument) {
-      EventMessage focusInOrOutMessage =
-          aEventMessage == eFocus ? eFocusIn : eFocusOut;
-      FireFocusInOrOutEvent(focusInOrOutMessage, aPresShell, aTarget,
-                            currentWindow, currentFocusedContent,
-                            aRelatedTarget);
-    }
+  // Check that the target is not a window or document before firing
+  // focusin/focusout. Other browsers do not fire focusin/focusout on window,
+  // despite being required in the spec, so follow their behavior.
+  //
+  // As for document, we should not even fire focus/blur, but until then, we
+  // need this check. targetDocument should be removed once bug 1228802 is
+  // resolved.
+  if (!targetWindow && !targetDocument) {
+    EventMessage focusInOrOutMessage =
+        aEventMessage == eFocus ? eFocusIn : eFocusOut;
+    FireFocusInOrOutEvent(focusInOrOutMessage, aPresShell, aTarget,
+                          currentWindow, currentFocusedContent, aRelatedTarget);
   }
 }
 
@@ -2849,7 +2855,7 @@ nsresult nsFocusManager::GetSelectionLocation(Document* aDocument,
   uint32_t startOffset = 0;
   if (domSelection) {
     isCollapsed = domSelection->IsCollapsed();
-    RefPtr<nsRange> domRange = domSelection->GetRangeAt(0);
+    RefPtr<const nsRange> domRange = domSelection->GetRangeAt(0);
     if (domRange) {
       nsCOMPtr<nsINode> startNode = domRange->GetStartContainer();
       nsCOMPtr<nsINode> endNode = domRange->GetEndContainer();

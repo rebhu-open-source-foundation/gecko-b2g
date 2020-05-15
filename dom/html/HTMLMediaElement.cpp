@@ -741,7 +741,7 @@ class HTMLMediaElement::MediaStreamRenderer
         mWatchManager(this, aMainThread) {}
 
   void Shutdown() {
-    for (const auto& t : nsTArray<WeakPtr<MediaStreamTrack>>(mAudioTracks)) {
+    for (const auto& t : mAudioTracks.Clone()) {
       if (t) {
         RemoveTrack(t->AsAudioStreamTrack());
       }
@@ -3609,13 +3609,17 @@ void HTMLMediaElement::UpdateOutputTrackSources() {
   }
 
   // Then work out the differences.
-  for (const auto& track :
-       AutoTArray<RefPtr<MediaTrack>, 4>(mediaTracksToAdd)) {
-    if (mOutputTrackSources.GetWeak(track->GetId())) {
-      mediaTracksToAdd.RemoveElement(track);
-      trackSourcesToRemove.RemoveElement(track->GetId());
-    }
-  }
+  mediaTracksToAdd.RemoveElementsAt(
+      std::remove_if(mediaTracksToAdd.begin(), mediaTracksToAdd.end(),
+                     [this, &trackSourcesToRemove](const auto& track) {
+                       const bool remove =
+                           mOutputTrackSources.GetWeak(track->GetId());
+                       if (remove) {
+                         trackSourcesToRemove.RemoveElement(track->GetId());
+                       }
+                       return remove;
+                     }),
+      mediaTracksToAdd.end());
 
   // First remove stale track sources.
   for (const auto& id : trackSourcesToRemove) {
@@ -3810,10 +3814,10 @@ already_AddRefed<DOMMediaStream> HTMLMediaElement::CaptureStreamInternal(
   }
 
   nsPIDOMWindowInner* window = OwnerDoc()->GetInnerWindow();
-  OutputMediaStream* out = mOutputStreams.AppendElement(OutputMediaStream(
+  OutputMediaStream* out = mOutputStreams.EmplaceBack(
       MakeRefPtr<DOMMediaStream>(window),
       aStreamCaptureType == StreamCaptureType::CAPTURE_AUDIO,
-      aFinishBehavior == StreamCaptureBehavior::FINISH_WHEN_ENDED));
+      aFinishBehavior == StreamCaptureBehavior::FINISH_WHEN_ENDED);
 
   if (aFinishBehavior == StreamCaptureBehavior::FINISH_WHEN_ENDED &&
       !mOutputTrackSources.IsEmpty()) {
@@ -6885,9 +6889,11 @@ void HTMLMediaElement::SetRequestHeaders(nsIHttpChannel* aChannel) {
       NS_LITERAL_CSTRING("Accept-Encoding"), EmptyCString(), false);
   MOZ_ASSERT(NS_SUCCEEDED(rv));
 
-  // Set the Referer header
-  nsCOMPtr<nsIReferrerInfo> referrerInfo = new ReferrerInfo();
-  referrerInfo->InitWithDocument(OwnerDoc());
+  // Set the Referrer header
+  //
+  // FIXME: Shouldn't this use the Element constructor? Though I guess it
+  // doesn't matter as no HTMLMediaElement supports the referrerinfo attribute.
+  auto referrerInfo = MakeRefPtr<ReferrerInfo>(*OwnerDoc());
   rv = aChannel->SetReferrerInfoWithoutClone(referrerInfo);
   MOZ_ASSERT(NS_SUCCEEDED(rv));
 }

@@ -18,17 +18,28 @@ const JS::HandleId JSID_VOIDHANDLE =
 const JS::HandleId JSID_EMPTYHANDLE =
     JS::HandleId::fromMarkedLocation(&emptyIdValue);
 
-JS_PUBLIC_API jsid INTERNED_STRING_TO_JSID(JSContext* cx, JSString* str) {
-  MOZ_ASSERT(str);
-  MOZ_ASSERT(((size_t)str & JSID_TYPE_MASK) == 0);
-  MOZ_ASSERT_IF(cx, str->asAtom().isPinned());
-  return js::AtomToId(&str->asAtom());
-}
-
 bool JS::PropertyKey::isWellKnownSymbol(JS::SymbolCode code) const {
   MOZ_ASSERT(uint32_t(code) < WellKnownSymbolLimit);
   if (!isSymbol()) {
     return false;
   }
   return toSymbol()->code() == code;
+}
+
+/* static */ JS::PropertyKey JS::PropertyKey::fromPinnedString(JSString* str) {
+  MOZ_ASSERT(str->asAtom().isPinned());
+  return js::AtomToId(&str->asAtom());
+}
+
+/* static */ bool JS::PropertyKey::isNonIntAtom(JSAtom* atom) {
+  uint32_t index;
+  if (!atom->isIndex(&index)) {
+    return true;
+  }
+  static_assert(JSID_INT_MIN == 0);
+  return index > JSID_INT_MAX;
+}
+
+/* static */ bool JS::PropertyKey::isNonIntAtom(JSString* str) {
+  return JS::PropertyKey::isNonIntAtom(&str->asAtom());
 }

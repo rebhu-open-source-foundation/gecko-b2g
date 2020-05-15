@@ -31,8 +31,6 @@ interface AudioChannelManager : EventTarget {
    */
   attribute DOMString volumeControlChannel;
 
-  [Pure, Cached, Throws,
-   Pref="dom.mozBrowserFramesEnabled",
-   ChromeOnly]
+  [Pure, Cached, Throws, ChromeOnly]
   readonly attribute sequence<AudioChannelHandler> allowedAudioChannels;
 };

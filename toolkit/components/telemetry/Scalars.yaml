@@ -7,29 +7,12 @@
 
 # The following section contains the accessibility scalars.
 a11y:
-  sitezoom:
-    bug_numbers:
-      - 1590485
-    description: >
-      Boolean tracking if the user has the site-specific zoom enabled or disabled.
-    expires: "78"
-    kind: boolean
-    notification_emails:
-      - accessibility@mozilla.com
-      - mreschenberg@mozilla.com
-    products:
-      - 'firefox'
-    record_in_processes:
-      - 'main'
-    release_channel_collection: opt-out
-    keyed: false
-
   backplate:
     bug_numbers:
       - 1539212
     description: >
       Boolean tracking if the user has the backplate preference enabled or disabled.
-    expires: "78"
+    expires: "80"
     kind: boolean
     notification_emails:
       - accessibility@mozilla.com
@@ -90,7 +73,7 @@ a11y:
       The result is split into keys which represent the values of
       browser.display.document_color_use: "default", "always", or "never".
     keyed: true
-    expires: "78"
+    expires: "80"
     kind: boolean
     notification_emails:
       - accessibility@mozilla.com
@@ -447,9 +430,10 @@ browser.startup:
   slow_startup_notification_disabled:
     bug_numbers:
       - 1601993
+      - 1634224
     description:
       Whether the slow startup notification bar is disabled for the user.
-    expires: "78"
+    expires: "85"
     kind: boolean
     notification_emails:
       - mconley@mozilla.com
@@ -462,9 +446,10 @@ browser.startup:
   too_new_for_notification:
     bug_numbers:
       - 1601993
+      - 1634224
     description:
       Whether the slow startup notification bar was suppressed because the profile is too new.
-    expires: "78"
+    expires: "85"
     kind: boolean
     notification_emails:
       - mconley@mozilla.com
@@ -477,9 +462,10 @@ browser.startup:
   slow_startup_notified:
     bug_numbers:
       - 1601993
+      - 1634224
     description:
       Whether the slow startup notification bar was shown to the user during this session.
-    expires: "78"
+    expires: "85"
     kind: boolean
     notification_emails:
       - mconley@mozilla.com
@@ -492,9 +478,10 @@ browser.startup:
   recorded_time:
     bug_numbers:
       - 1601993
+      - 1634224
     description: >
       The startup time computed by the slow startup notification bar in milliseconds.
-    expires: "78"
+    expires: "85"
     kind: uint
     notification_emails:
       - mconley@mozilla.com
@@ -507,9 +494,10 @@ browser.startup:
   average_time:
     bug_numbers:
       - 1601993
+      - 1634224
     description: >
       The average startup time computed by the slow startup notification bar in milliseconds.
-    expires: "78"
+    expires: "85"
     kind: uint
     notification_emails:
       - mconley@mozilla.com
@@ -522,13 +510,14 @@ browser.startup:
   action:
     bug_numbers:
       - 1601993
+      - 1634224
     description: >
       The action that the user took with the slow startup notification bar.
       0: No action (default)
       1: User chose to open SUMO document on slow startup
       2: User chose to never show the notification bar again
       3: User dismissed the notification bar
-    expires: "78"
+    expires: "85"
     kind: uint
     notification_emails:
       - mconley@mozilla.com
@@ -1106,7 +1095,7 @@ pictureinpicture:
     description: >
       The number of times a Picture-in-Picture window was opened, per trigger
       mechanism (e.g.: the video toggle, the context menu).
-    expires: "78"
+    expires: "82"
     kind: uint
     keyed: true
     notification_emails:
@@ -1115,8 +1104,6 @@ pictureinpicture:
     release_channel_collection: opt-out
     products:
       - 'firefox'
-      - 'fennec'
-      - 'geckoview'
     record_in_processes:
       - content
   closed_method:
@@ -1127,7 +1114,7 @@ pictureinpicture:
       The number of times a Picture-in-Picture window was closed, per trigger
       mechanism (e.g.: the close button, the unpip button, originating tab going away,
       process shutdown, etc).
-    expires: "78"
+    expires: "82"
     kind: uint
     keyed: true
     notification_emails:
@@ -1136,8 +1123,6 @@ pictureinpicture:
     release_channel_collection: opt-out
     products:
       - 'firefox'
-      - 'fennec'
-      - 'geckoview'
     record_in_processes:
       - main
 
@@ -4849,6 +4834,22 @@ corroborate:
       - 'geckoview'
     record_in_processes:
       - main
+
+privacy.feature:
+  first_party_isolation_enabled:
+    bug_numbers:
+      - 1631676
+    description: >
+      The value of preference "privacy.firstparty.isolate"
+    expires: "never"
+    kind: boolean
+    notification_emails:
+      - gachen@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
 
 # NOTE: Please don't add new definitions below this point. Consider adding
 # them earlier in the file and leave the telemetry.test category as the last

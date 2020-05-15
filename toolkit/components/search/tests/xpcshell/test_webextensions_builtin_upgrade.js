@@ -3,9 +3,9 @@
 
 "use strict";
 
-const { ExtensionTestUtils } = ChromeUtils.import(
-  "resource://testing-common/ExtensionXPCShellUtils.jsm"
-);
+// Enable SCOPE_APPLICATION for builtin testing.  Default in tests is only SCOPE_PROFILE.
+// AddonManager.SCOPE_PROFILE | AddonManager.SCOPE_APPLICATION == 5;
+Services.prefs.setIntPref("extensions.enabledScopes", 5);
 
 const {
   createAppInfo,
@@ -13,9 +13,7 @@ const {
   promiseStartupManager,
 } = AddonTestUtils;
 
-ExtensionTestUtils.init(this);
-AddonTestUtils.usePrivilegedSignatures = false;
-AddonTestUtils.overrideCertDB();
+SearchTestUtils.initXPCShellAddonManager(this);
 
 const TEST_CONFIG = [
   {

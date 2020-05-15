@@ -100,6 +100,12 @@ class WebPlatformTest(TestingMixin, MercurialScript, CodeCoverageMixin, AndroidM
             "help": "Defines a way to not run a specific implementation status "
                     " (i.e. not implemented)."}
          ],
+        [["--skip-timeout"], {
+            "action": "store_true",
+            "dest": "skip_timeout",
+            "default": False,
+            "help": "Ignore tests that are expected status of TIMEOUT"}
+         ],
         [["--include"], {
             "action": "store",
             "dest": "include",
@@ -164,6 +170,11 @@ class WebPlatformTest(TestingMixin, MercurialScript, CodeCoverageMixin, AndroidM
             dirs['abs_xre_dir'] = os.path.join(abs_dirs['abs_work_dir'], 'hostutils')
         if self.is_emulator:
             dirs['abs_avds_dir'] = self.config.get('avds_dir')
+            fetches_dir = os.environ.get('MOZ_FETCHES_DIR')
+            if fetches_dir:
+                dirs['abs_sdk_dir'] = os.path.join(fetches_dir, 'android-sdk-linux')
+            else:
+                dirs['abs_sdk_dir'] = os.path.join(abs_dirs['abs_work_dir'], 'android-sdk-linux')
 
         abs_dirs.update(dirs)
         self.abs_dirs = abs_dirs
@@ -261,21 +272,28 @@ class WebPlatformTest(TestingMixin, MercurialScript, CodeCoverageMixin, AndroidM
         if c["enable_webrender"]:
             cmd.append("--enable-webrender")
 
+        if c["skip_timeout"]:
+            cmd.append("--skip-timeout")
+
         for implementation_status in c["skip_implementation_status"]:
             cmd.append("--skip-implementation-status=%s" % implementation_status)
 
+        test_paths = set()
         if not (self.verify_enabled or self.per_test_coverage):
-            test_paths = json.loads(os.environ.get('MOZHARNESS_TEST_PATHS', '""'))
-            if test_paths:
+            mozharness_test_paths = json.loads(os.environ.get('MOZHARNESS_TEST_PATHS', '""'))
+            if mozharness_test_paths:
                 keys = (['web-platform-tests-%s' % test_type for test_type in test_types] +
                         ['web-platform-tests'])
                 for key in keys:
-                    if key in test_paths:
-                        relpaths = [os.path.relpath(p, 'testing/web-platform')
-                                    for p in test_paths.get(key, [])]
-                        paths = [os.path.join(dirs["abs_wpttest_dir"], relpath)
-                                 for relpath in relpaths]
-                        cmd.extend(paths)
+                    paths = mozharness_test_paths.get(key, [])
+                    for path in paths:
+                        if not path.startswith("/"):
+                            # Assume this is a filesystem path rather than a test id
+                            path = os.path.relpath(path, 'testing/web-platform')
+                            if ".." in path:
+                                self.fatal("Invalid WPT path: {}".format(path))
+                            path = os.path.join(dirs["abs_wpttest_dir"], path)
+                        test_paths.add(path)
             else:
                 for opt in ["total_chunks", "this_chunk"]:
                     val = c.get(opt)
@@ -308,6 +326,8 @@ class WebPlatformTest(TestingMixin, MercurialScript, CodeCoverageMixin, AndroidM
                                              str_format_values=str_format_values))
         if "include" in c and c["include"]:
             cmd.append("--include=%s" % c["include"])
+
+        cmd.extend(test_paths)
 
         return cmd
 

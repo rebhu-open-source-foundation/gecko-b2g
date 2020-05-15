@@ -35,7 +35,7 @@ struct RangeItem final {
   ~RangeItem() = default;
 
  public:
-  void StoreRange(nsRange& aRange);
+  void StoreRange(const nsRange& aRange);
   void StoreRange(const EditorRawDOMPoint& aStartPoint,
                   const EditorRawDOMPoint& aEndPoint) {
     MOZ_ASSERT(aStartPoint.IsSet());
@@ -98,7 +98,7 @@ class SelectionState final {
   bool IsEmpty() const;
 
  private:
-  AutoTArray<RefPtr<RangeItem>, 1> mArray;
+  CopyableAutoTArray<RefPtr<RangeItem>, 1> mArray;
   nsDirection mDirection;
 
   friend class RangeUpdater;

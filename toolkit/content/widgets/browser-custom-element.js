@@ -302,8 +302,14 @@
        * Weak reference to an optional frame loader that can be used to influence
        * process selection for this browser.
        * See nsIBrowser.sameProcessAsFrameLoader.
+       *
+       * tabbrowser sets "sameProcessAsFrameLoader" on some browsers before
+       * they are connected. This avoids clearing that out while we're doing
+       * the initial construct(), which is what would read it.
        */
-      this._sameProcessAsFrameLoader = null;
+      if (this.mInitialized) {
+        this._sameProcessAsFrameLoader = null;
+      }
 
       this._loadContext = null;
 
@@ -342,6 +348,8 @@
       this._referrerInfo = null;
 
       this._contentRequestContextID = null;
+
+      this._rdmFullZoom = 1.0;
 
       this._isSyntheticDocument = false;
 
@@ -806,20 +814,30 @@
       }
     }
 
-    set fullZoom(val) {
-      if (val.toFixed(2) == this.fullZoom.toFixed(2)) {
-        return;
-      }
-      this.browsingContext.fullZoom = val;
-    }
-
     get referrerInfo() {
       return this.isRemoteBrowser
         ? this._referrerInfo
         : this.contentDocument.referrerInfo;
     }
 
+    set fullZoom(val) {
+      if (val.toFixed(2) == this.fullZoom.toFixed(2)) {
+        return;
+      }
+      if (this.browsingContext.inRDMPane) {
+        this._rdmFullZoom = val;
+        let event = document.createEvent("Events");
+        event.initEvent("FullZoomChange", true, false);
+        this.dispatchEvent(event);
+      } else {
+        this.browsingContext.fullZoom = val;
+      }
+    }
+
     get fullZoom() {
+      if (this.browsingContext.inRDMPane) {
+        return this._rdmFullZoom;
+      }
       return this.browsingContext.fullZoom;
     }
 
@@ -832,6 +850,17 @@
 
     get textZoom() {
       return this.browsingContext.textZoom;
+    }
+
+    enterResponsiveMode() {
+      this.browsingContext.inRDMPane = true;
+      this._rdmFullZoom = this.browsingContext.fullZoom;
+      this.browsingContext.fullZoom = 1.0;
+    }
+
+    leaveResponsiveMode() {
+      this.browsingContext.inRDMPane = false;
+      this.browsingContext.fullZoom = this._rdmFullZoom;
     }
 
     get isSyntheticDocument() {
@@ -1274,7 +1303,7 @@
             !this.isRemoteBrowser
           ) {
             try {
-              this.docShell.useGlobalHistory = true;
+              this.docShell.browsingContext.useGlobalHistory = true;
             } catch (ex) {
               // This can occur if the Places database is locked
               Cu.reportError("Error enabling browser global history: " + ex);
@@ -1288,16 +1317,6 @@
         // Ensures the securityUI is initialized.
         var securityUI = this.securityUI; // eslint-disable-line no-unused-vars
       } catch (e) {}
-
-      // tabbrowser.xml sets "sameProcessAsFrameLoader" as a direct property
-      // on some browsers before they are put into a DOM (and get a
-      // binding).  This hack makes sure that we hold a weak reference to
-      // the other browser (and go through the proper getter and setter).
-      if (this.hasOwnProperty("sameProcessAsFrameLoader")) {
-        var sameProcessAsFrameLoader = this.sameProcessAsFrameLoader;
-        delete this.sameProcessAsFrameLoader;
-        this.sameProcessAsFrameLoader = sameProcessAsFrameLoader;
-      }
 
       if (!this.isRemoteBrowser) {
         // If we've transitioned from remote to non-remote, we no longer need
@@ -1958,7 +1977,7 @@
       // DOMLinkAdded/Removed, onStateChange) should not be swapped here,
       // because these notifications are dispatched again once the docshells
       // are swapped.
-      var fieldsToSwap = ["_webBrowserFind"];
+      var fieldsToSwap = ["_webBrowserFind", "_rdmFullZoom"];
 
       if (this.isRemoteBrowser) {
         fieldsToSwap.push(

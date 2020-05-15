@@ -48,7 +48,7 @@ use crate::batch::{AlphaBatchContainer, BatchKind, BatchFeatures, BatchTextures,
 #[cfg(any(feature = "capture", feature = "replay"))]
 use crate::capture::{CaptureConfig, ExternalCaptureImage, PlainExternalImage};
 use crate::composite::{CompositeState, CompositeTileSurface, CompositeTile, ResolvedExternalSurface};
-use crate::composite::{CompositorKind, Compositor, NativeTileId, CompositeSurfaceFormat};
+use crate::composite::{CompositorKind, Compositor, NativeTileId, CompositeSurfaceFormat, ResolvedExternalSurfaceColorData};
 use crate::composite::{CompositorConfig, NativeSurfaceOperationDetails, NativeSurfaceId, NativeSurfaceOperation};
 use crate::debug_colors;
 use crate::debug_render::{DebugItem, DebugRenderer};
@@ -3430,7 +3430,10 @@ impl Renderer {
                 }
 
                 frame.profile_counters.reset_targets();
-                self.prepare_gpu_cache(frame);
+                if let Err(e) = self.prepare_gpu_cache(frame) {
+                    self.renderer_errors.push(e);
+                    continue;
+                }
                 assert!(frame.gpu_cache_frame_id <= self.gpu_cache_frame_id,
                     "Received frame depends on a later GPU cache epoch ({:?}) than one we received last via `UpdateGpuCache` ({:?})",
                     frame.gpu_cache_frame_id, self.gpu_cache_frame_id);
@@ -3710,11 +3713,11 @@ impl Renderer {
         counters.updated_blocks.set(updated_blocks);
     }
 
-    fn prepare_gpu_cache(&mut self, frame: &Frame) {
+    fn prepare_gpu_cache(&mut self, frame: &Frame) -> Result<(), RendererError> {
         if self.pending_gpu_cache_clear {
             let use_scatter =
                 matches!(self.gpu_cache_texture.bus, GpuCacheBus::Scatter { .. });
-            let new_cache = GpuCacheTexture::new(&mut self.device, use_scatter).unwrap();
+            let new_cache = GpuCacheTexture::new(&mut self.device, use_scatter)?;
             let old_cache = mem::replace(&mut self.gpu_cache_texture, new_cache);
             old_cache.deinit(&mut self.device);
             self.pending_gpu_cache_clear = false;
@@ -3732,6 +3735,8 @@ impl Renderer {
             self.gpu_cache_texture.texture.as_ref().unwrap(),
             Swizzle::default(),
         );
+
+        Ok(())
     }
 
     fn update_texture_cache(&mut self) {
@@ -4530,53 +4535,93 @@ impl Renderer {
                 self.device.ortho_far_plane(),
             );
 
-            // Bind an appropriate YUV shader for the texture format kind
-            self.shaders
-                .borrow_mut()
-                .get_composite_shader(
-                    CompositeSurfaceFormat::Yuv,
-                    surface.image_buffer_kind,
-                ).bind(
-                    &mut self.device,
-                    &projection,
-                    &mut self.renderer_errors
-                );
+            let ( textures, instance ) = match surface.color_data {
+                ResolvedExternalSurfaceColorData::Yuv{
+                        ref planes, color_space, format, rescale, .. } => {
 
-            let textures = BatchTextures {
-                colors: [
-                    surface.yuv_planes[0].texture,
-                    surface.yuv_planes[1].texture,
-                    surface.yuv_planes[2].texture,
-                ],
+                    // Bind an appropriate YUV shader for the texture format kind
+                    self.shaders
+                        .borrow_mut()
+                        .get_composite_shader(
+                            CompositeSurfaceFormat::Yuv,
+                            surface.image_buffer_kind,
+                        ).bind(
+                            &mut self.device,
+                            &projection,
+                            &mut self.renderer_errors
+                        );
+
+                    let textures = BatchTextures {
+                        colors: [
+                            planes[0].texture,
+                            planes[1].texture,
+                            planes[2].texture,
+                        ],
+                    };
+
+                    // When the texture is an external texture, the UV rect is not known when
+                    // the external surface descriptor is created, because external textures
+                    // are not resolved until the lock() callback is invoked at the start of
+                    // the frame render. To handle this, query the texture resolver for the
+                    // UV rect if it's an external texture, otherwise use the default UV rect.
+                    let uv_rects = [
+                        self.texture_resolver.get_uv_rect(&textures.colors[0], planes[0].uv_rect),
+                        self.texture_resolver.get_uv_rect(&textures.colors[1], planes[1].uv_rect),
+                        self.texture_resolver.get_uv_rect(&textures.colors[2], planes[2].uv_rect),
+                    ];
+
+                    let instance = CompositeInstance::new_yuv(
+                        surface_rect.to_f32(),
+                        surface_rect.to_f32(),
+                        // z-id is not relevant when updating a native compositor surface.
+                        // TODO(gw): Support compositor surfaces without z-buffer, for memory / perf win here.
+                        ZBufferId(0),
+                        color_space,
+                        format,
+                        rescale,
+                        [
+                            planes[0].texture_layer as f32,
+                            planes[1].texture_layer as f32,
+                            planes[2].texture_layer as f32,
+                        ],
+                        uv_rects,
+                    );
+
+                    ( textures, instance )
+                },
+                ResolvedExternalSurfaceColorData::Rgb{ ref plane, flip_y, .. } => {
+
+                    self.shaders
+                        .borrow_mut()
+                        .get_composite_shader(
+                            CompositeSurfaceFormat::Rgba,
+                            surface.image_buffer_kind,
+                        ).bind(
+                            &mut self.device,
+                            &projection,
+                            &mut self.renderer_errors
+                        );
+
+                    let textures = BatchTextures::color(plane.texture);
+                    let mut uv_rect = self.texture_resolver.get_uv_rect(&textures.colors[0], plane.uv_rect);
+                    if flip_y {
+                        let y = uv_rect.uv0.y;
+                        uv_rect.uv0.y = uv_rect.uv1.y;
+                        uv_rect.uv1.y = y;
+                    }
+
+                    let instance = CompositeInstance::new_rgb(
+                        surface_rect.to_f32(),
+                        surface_rect.to_f32(),
+                        PremultipliedColorF::WHITE,
+                        plane.texture_layer as f32,
+                        ZBufferId(0),
+                        uv_rect,
+                    );
+
+                    ( textures, instance )
+                },
             };
-
-            // When the texture is an external texture, the UV rect is not known when
-            // the external surface descriptor is created, because external textures
-            // are not resolved until the lock() callback is invoked at the start of
-            // the frame render. To handle this, query the texture resolver for the
-            // UV rect if it's an external texture, otherwise use the default UV rect.
-            let uv_rects = [
-                self.texture_resolver.get_uv_rect(&textures.colors[0], surface.yuv_planes[0].uv_rect),
-                self.texture_resolver.get_uv_rect(&textures.colors[1], surface.yuv_planes[1].uv_rect),
-                self.texture_resolver.get_uv_rect(&textures.colors[2], surface.yuv_planes[2].uv_rect),
-            ];
-
-            let instance = CompositeInstance::new_yuv(
-                surface_rect.to_f32(),
-                surface_rect.to_f32(),
-                // z-id is not relevant when updating a native compositor surface.
-                // TODO(gw): Support compositor surfaces without z-buffer, for memory / perf win here.
-                ZBufferId(0),
-                surface.yuv_color_space,
-                surface.yuv_format,
-                surface.yuv_rescale,
-                [
-                    surface.yuv_planes[0].texture_layer as f32,
-                    surface.yuv_planes[1].texture_layer as f32,
-                    surface.yuv_planes[2].texture_layer as f32,
-                ],
-                uv_rects,
-            );
 
             self.draw_instanced_batch(
                 &[instance],
@@ -4686,43 +4731,70 @@ impl Renderer {
                 CompositeTileSurface::ExternalSurface { external_surface_index } => {
                     let surface = &external_surfaces[external_surface_index.0];
 
-                    let textures = BatchTextures {
-                        colors: [
-                            surface.yuv_planes[0].texture,
-                            surface.yuv_planes[1].texture,
-                            surface.yuv_planes[2].texture,
-                        ],
-                    };
+                    match surface.color_data {
+                        ResolvedExternalSurfaceColorData::Yuv{ ref planes, color_space, format, rescale, .. } => {
 
-                    // When the texture is an external texture, the UV rect is not known when
-                    // the external surface descriptor is created, because external textures
-                    // are not resolved until the lock() callback is invoked at the start of
-                    // the frame render. To handle this, query the texture resolver for the
-                    // UV rect if it's an external texture, otherwise use the default UV rect.
-                    let uv_rects = [
-                        self.texture_resolver.get_uv_rect(&textures.colors[0], surface.yuv_planes[0].uv_rect),
-                        self.texture_resolver.get_uv_rect(&textures.colors[1], surface.yuv_planes[1].uv_rect),
-                        self.texture_resolver.get_uv_rect(&textures.colors[2], surface.yuv_planes[2].uv_rect),
-                    ];
+                            let textures = BatchTextures {
+                                colors: [
+                                    planes[0].texture,
+                                    planes[1].texture,
+                                    planes[2].texture,
+                                ],
+                            };
 
-                    (
-                        CompositeInstance::new_yuv(
-                            tile.rect,
-                            clip_rect,
-                            tile.z_id,
-                            surface.yuv_color_space,
-                            surface.yuv_format,
-                            surface.yuv_rescale,
-                            [
-                                surface.yuv_planes[0].texture_layer as f32,
-                                surface.yuv_planes[1].texture_layer as f32,
-                                surface.yuv_planes[2].texture_layer as f32,
-                            ],
-                            uv_rects,
-                        ),
-                        textures,
-                        (CompositeSurfaceFormat::Yuv, surface.image_buffer_kind),
-                    )
+                            // When the texture is an external texture, the UV rect is not known when
+                            // the external surface descriptor is created, because external textures
+                            // are not resolved until the lock() callback is invoked at the start of
+                            // the frame render. To handle this, query the texture resolver for the
+                            // UV rect if it's an external texture, otherwise use the default UV rect.
+                            let uv_rects = [
+                                self.texture_resolver.get_uv_rect(&textures.colors[0], planes[0].uv_rect),
+                                self.texture_resolver.get_uv_rect(&textures.colors[1], planes[1].uv_rect),
+                                self.texture_resolver.get_uv_rect(&textures.colors[2], planes[2].uv_rect),
+                            ];
+
+                            (
+                                CompositeInstance::new_yuv(
+                                    tile.rect,
+                                    clip_rect,
+                                    tile.z_id,
+                                    color_space,
+                                    format,
+                                    rescale,
+                                    [
+                                        planes[0].texture_layer as f32,
+                                        planes[1].texture_layer as f32,
+                                        planes[2].texture_layer as f32,
+                                    ],
+                                    uv_rects,
+                                ),
+                                textures,
+                                (CompositeSurfaceFormat::Yuv, surface.image_buffer_kind),
+                            )
+                        },
+                        ResolvedExternalSurfaceColorData::Rgb{ ref plane, flip_y, .. } => {
+
+                            let mut uv_rect = self.texture_resolver.get_uv_rect(&plane.texture, plane.uv_rect);
+                            if flip_y {
+                                let y = uv_rect.uv0.y;
+                                uv_rect.uv0.y = uv_rect.uv1.y;
+                                uv_rect.uv1.y = y;
+                            }
+
+                            (
+                                CompositeInstance::new_rgb(
+                                    tile.rect,
+                                    clip_rect,
+                                    PremultipliedColorF::WHITE,
+                                    plane.texture_layer as f32,
+                                    tile.z_id,
+                                    uv_rect,
+                                ),
+                                BatchTextures::color(plane.texture),
+                                (CompositeSurfaceFormat::Rgba, surface.image_buffer_kind),
+                            )
+                        },
+                    }
                 }
                 CompositeTileSurface::Texture { surface: ResolvedSurfaceTexture::Native { .. } } => {
                     unreachable!("bug: found native surface in simple composite path");

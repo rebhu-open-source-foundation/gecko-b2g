@@ -14,6 +14,10 @@
 #include "WebGL2Context.h"
 #include "WebGLFramebuffer.h"
 #include "WebGLTypes.h"
+#include "WebGLCommandQueue.h"
+#include "WebGLCrossProcessCommandQueue.h"
+#include "ProducerConsumerQueue.h"
+#include "IpdlQueue.h"
 
 #include <unordered_map>
 #include <unordered_set>
@@ -27,8 +31,6 @@
 #endif  // WEBGL_BRIDGE_LOG_
 
 namespace mozilla {
-
-class HostWebGLCommandSink;
 
 extern LazyLogModule gWebGLBridgeLog;
 
@@ -79,7 +81,8 @@ class HostWebGLContext final : public SupportsWeakPtr<HostWebGLContext> {
 
   struct RemotingData final {
     dom::WebGLParent& mParent;
-    UniquePtr<HostWebGLCommandSink> mCommandSink;
+    UniquePtr<HostWebGLCommandSinkP> mCommandSinkP;
+    UniquePtr<HostWebGLCommandSinkI> mCommandSinkI;
   };
   struct OwnerData final {
     Maybe<ClientWebGLContext*> inProcess;
