@@ -389,13 +389,13 @@ class AndroidVsyncSource final : public VsyncSource {
 class GonkVsyncSource final : public VsyncSource
 {
 public:
-  GonkVsyncSource()
+  GonkVsyncSource() : mGlobalDisplay(new GonkDisplay())
   {
   }
 
   virtual Display& GetGlobalDisplay() override
   {
-    return mGlobalDisplay;
+    return *mGlobalDisplay;
   }
 
   class GonkDisplay final : public VsyncSource::Display
@@ -446,8 +446,7 @@ private:
   virtual ~GonkVsyncSource()
   {
   }
-
-  GonkDisplay mGlobalDisplay;
+  RefPtr<GonkDisplay> mGlobalDisplay;
 }; // GonkVsyncSource
 #endif
 
