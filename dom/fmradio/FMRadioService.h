@@ -233,7 +233,7 @@ class FMRadioService final : public IFMRadioService,
 
   FMRadioEventObserverList mObserverList;
 #if defined(PRODUCT_MANUFACTURER_SPRD) || defined(PRODUCT_MANUFACTURER_MTK)
-  nsAutoPtr<hal::SwitchObserver> mObserver;
+  UniquePtr<hal::SwitchObserver> mObserver;
 #endif
 
   static StaticRefPtr<FMRadioService> sFMRadioService;

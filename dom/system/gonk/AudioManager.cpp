@@ -1021,9 +1021,11 @@ void AudioManager::SetFmRouting() {
   auto force = AudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA);
   AudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_FM, force);
 #elif defined(PRODUCT_MANUFACTURER_MTK)
+  /* FIXME
   // Sync force use between MEDIA and FM
   auto force = AudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA);
   AudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_PROPRIETARY, force);
+  */
 #else
   MOZ_CRASH("FM radio not supported");
 #endif

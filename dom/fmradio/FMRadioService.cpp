@@ -151,13 +151,13 @@ FMRadioService::FMRadioService()
   hal::RegisterFMRadioObserver(this);
   hal::RegisterFMRadioRDSObserver(this);
 #if defined(PRODUCT_MANUFACTURER_SPRD) || defined(PRODUCT_MANUFACTURER_MTK)
-  hal::RegisterSwitchObserver(hal::SWITCH_HEADPHONES, mObserver);
+  hal::RegisterSwitchObserver(hal::SWITCH_HEADPHONES, mObserver.get());
 #endif
 }
 
 FMRadioService::~FMRadioService() {
 #if defined(PRODUCT_MANUFACTURER_SPRD) || defined(PRODUCT_MANUFACTURER_MTK)
-  hal::UnregisterSwitchObserver(hal::SWITCH_HEADPHONES, mObserver);
+  hal::UnregisterSwitchObserver(hal::SWITCH_HEADPHONES, mObserver.get());
 #endif
   hal::UnregisterFMRadioRDSObserver(this);
   hal::UnregisterFMRadioObserver(this);
