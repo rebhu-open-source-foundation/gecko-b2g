@@ -63,7 +63,7 @@ tasks:
           $if: 'repository.project == "try"'
           then: {$fromNow: '28 days'}
           else: {$fromNow: '1 year'}
-        trust_domain: gecko
+        trust_domain: kaios
       in:
         taskId: {$if: 'tasks_for != "action"', then: '${ownTaskId}'}
         taskGroupId:

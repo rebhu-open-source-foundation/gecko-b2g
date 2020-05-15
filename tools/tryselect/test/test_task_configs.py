@@ -55,7 +55,7 @@ TASK_CONFIG_TESTS = {
         (['--worker-override', 'alias=worker/pool', '--worker-override', 'alias=other/pool'],
          SystemExit),
         (['--worker-suffix', 'b-linux=-dev'],
-         {'worker-overrides': {'b-linux': 'gecko-1/b-linux-dev'}}),
+         {'worker-overrides': {'b-linux': 'kaios-1/b-linux-dev'}}),
         (['--worker-override', 'b-linux=worker/pool' '--worker-suffix', 'b-linux=-dev'],
          SystemExit),
     ]

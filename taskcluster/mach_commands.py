@@ -45,7 +45,7 @@ class ShowTaskGraphSubCommand(SubCommand):
             CommandArgument('--labels', '-L', action="store_const",
                             dest="format", const="labels",
                             help="Output the label for each task in the task graph (default)"),
-            CommandArgument('--parameters', '-p', default="project=mozilla-central",
+            CommandArgument('--parameters', '-p', default="project=kaios",
                             help="parameters file (.yml or .json; see "
                                  "`taskcluster/docs/parameters.rst`)`"),
             CommandArgument('--no-optimize', dest="optimize", action="store_false",
