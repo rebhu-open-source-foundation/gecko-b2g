@@ -263,7 +263,8 @@ nsDOMCameraControl::nsDOMCameraControl(uint32_t aCameraId,
   mInput = new CameraPreviewMediaStream();
   //mOwnedStream = mInput;
 
-  BindToOwner(aWindow);
+  nsIGlobalObject* global = aWindow ? aWindow->AsGlobal() : nullptr;
+  BindToOwner(global);
 
   RefPtr<DOMCameraConfiguration> initialConfig =
     new DOMCameraConfiguration(aInitialConfig);

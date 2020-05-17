@@ -78,7 +78,8 @@ void SpeakerManager::DispatchSimpleEvent(const nsAString& aStr) {
 }
 
 nsresult SpeakerManager::Init(nsPIDOMWindowInner* aWindow) {
-  BindToOwner(aWindow);
+  nsIGlobalObject* global = aWindow ? aWindow->AsGlobal() : nullptr;
+  BindToOwner(global);
 
   nsCOMPtr<nsIDocShell> docshell = do_GetInterface(GetOwner());
   NS_ENSURE_TRUE(docshell, NS_ERROR_FAILURE);

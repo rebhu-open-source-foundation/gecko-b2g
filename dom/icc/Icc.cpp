@@ -78,7 +78,8 @@ Icc::Icc(nsPIDOMWindowInner* aWindow, nsIIcc* aHandler, nsIIccInfo* aIccInfo)
   : mLive(true)
   , mHandler(aHandler)
 {
-  BindToOwner(aWindow);
+  nsIGlobalObject* global = aWindow ? aWindow->AsGlobal() : nullptr;
+  BindToOwner(global);
 
   if (aIccInfo) {
     aIccInfo->GetIccid(mIccId);
