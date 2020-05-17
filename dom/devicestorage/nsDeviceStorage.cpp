@@ -2304,11 +2304,11 @@ nsresult nsDOMDeviceStorage::CheckPermission(
         return request->Reject(POST_ERROR_EVENT_UNKNOWN);
       }
 
-      nsCOMPtr<nsIPrincipal> principal =
-          PrincipalInfoToPrincipal(*mPrincipalInfo, &rv);
-      if (NS_WARN_IF(NS_FAILED(rv))) {
+      auto principalOrErr = PrincipalInfoToPrincipal(*mPrincipalInfo);
+      if (NS_WARN_IF(principalOrErr.isErr())) {
         return request->Reject(POST_ERROR_EVENT_UNKNOWN);
       }
+      nsCOMPtr<nsIPrincipal> principal = principalOrErr.unwrap();
 
       return mainThread->Dispatch(MakeAndAddRef<DeviceStoragePermissionCheck>(
                                       principal, window, request.forget()),
