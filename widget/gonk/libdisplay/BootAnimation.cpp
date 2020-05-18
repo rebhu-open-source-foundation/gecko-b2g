@@ -45,7 +45,7 @@ extern GonkDisplay * GetGonkDisplay();
 typedef android::GonkDisplay* (*fnGetGonkDisplay)();
 GonkDisplay * GetGonkDisplay() {
   GonkDisplay *display = NULL;
-  void* lib = dlopen(SYSTEM_LIB_DIR "libcarthage.so", RTLD_NOW);
+  void* lib = dlopen("libcarthage.so", RTLD_NOW);
   MOZ_ASSERT(lib != NULL, "libcarthage.so is not found!");
   {
     fnGetGonkDisplay func = (fnGetGonkDisplay) dlsym(lib, "GetGonkDisplayP") ;
@@ -61,7 +61,7 @@ GonkDisplay * GetGonkDisplay() {
 typedef int (*fnNative_Gralloc_Lock)(buffer_handle_t handle, int usage, int l, int t, int w, int h, void **vaddr);
 int native_gralloc_lock(buffer_handle_t handle, int usage, int l, int t, int w, int h, void **vaddr) {
   int result = 0;
-  void* lib = dlopen(SYSTEM_LIB_DIR "libcarthage.so", RTLD_NOW);
+  void* lib = dlopen("libcarthage.so", RTLD_NOW);
   if (lib == nullptr) {
     ALOGE("Could not dlopen(\"libcarthage.so\"):");
     return result;
@@ -80,7 +80,7 @@ int native_gralloc_lock(buffer_handle_t handle, int usage, int l, int t, int w, 
 typedef int (*fnNative_Gralloc_Unlock)(buffer_handle_t handle);
 int native_gralloc_unlock(buffer_handle_t handle) {
   int result = 0;
-  void* lib = dlopen(SYSTEM_LIB_DIR "libcarthage.so", RTLD_NOW);
+  void* lib = dlopen("libcarthage.so", RTLD_NOW);
   if (lib == nullptr) {
     ALOGE("Could not dlopen(\"libcarthage.so\"):");
     return result;

@@ -1662,7 +1662,7 @@ void gfxPlatform::ComputeTileSize() {
     typedef int (*fnAHardwareBuffer_allocate)(const AHardwareBuffer_Desc* desc, AHardwareBuffer** outBuffer);
     typedef void (*fnAHardwareBuffer_describe)(const AHardwareBuffer* buffer,
                                                 AHardwareBuffer_Desc* outDesc);
-    void* lib = dlopen("/system/lib/libandroid.so", RTLD_NOW);
+    void* lib = dlopen("libandroid.so", RTLD_NOW);
     if (lib == NULL) {
         printf_stderr("Could not dlopen(\"libandroid.so\"):");
     } else {

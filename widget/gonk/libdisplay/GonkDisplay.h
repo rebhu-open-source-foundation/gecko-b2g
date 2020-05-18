@@ -131,12 +131,4 @@ GonkDisplay* GetGonkDisplayP();
 
 } // namespace android
 
-#ifndef SYSTEM_LIB_DIR
-#if defined(__LP64__)
-#define SYSTEM_LIB_DIR "/system/lib64/"
-#else
-#define SYSTEM_LIB_DIR "/system/lib/"
-#endif
-#endif
-
 #endif /* GONKDISPLAY_H */

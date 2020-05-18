@@ -233,7 +233,7 @@ void ForkServer::OnMessageReceived(IPC::Message&& message) {
 static void CloseAndroidLog() {
   // Call __android_log_close() to close liblog socket. This function is not
   // exported in NDK, so use dlopen/dlsym instead.
-  void* liblog = dlopen("/system/lib/liblog.so", RTLD_NOW);
+  void* liblog = dlopen("liblog.so", RTLD_NOW);
   if (liblog) {
     typedef void (*AndroidLogClose)(void);
     auto closeLog = (AndroidLogClose)dlsym(liblog, "__android_log_close");

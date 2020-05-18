@@ -43,7 +43,7 @@ static int FakePropertyGet(const char* key, char* value,
 static int FakePropertySet(const char* key, const char* value) { return 0; }
 
 static PRStatus InitLibcUtils() {
-  sLibcUtils = dlopen("/system/lib/libcutils.so", RTLD_LAZY);
+  sLibcUtils = dlopen("libcutils.so", RTLD_LAZY);
   // We will fallback to the fake getter/setter when sLibcUtils is not valid.
   return PR_SUCCESS;
 }

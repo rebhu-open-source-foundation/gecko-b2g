@@ -18,7 +18,7 @@ static void* sNetUtilsLib;
 static PRCallOnceType sInitNetUtilsLib;
 
 static PRStatus InitNetUtilsLib() {
-  sNetUtilsLib = dlopen("/system/lib/libnetutils.so", RTLD_LAZY);
+  sNetUtilsLib = dlopen("libnetutils.so", RTLD_LAZY);
   // We might fail to open the hardware lib. That's OK.
   return PR_SUCCESS;
 }
@@ -32,7 +32,7 @@ static void* GetNetUtilsLibHandle() {
 void* NetUtils::GetSharedLibrary() {
   void* netLib = GetNetUtilsLibHandle();
   if (!netLib) {
-    NS_WARNING("No /system/lib/libnetutils.so");
+    NS_WARNING("No libnetutils.so");
   }
   return netLib;
 }
