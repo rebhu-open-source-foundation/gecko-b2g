@@ -68,7 +68,10 @@ rusqlite = { version = "0.23.1", features = ["modern_sqlite", "in_gecko"] }
 fluent = { version = "0.11" , features = ["fluent-pseudo"] }
 fluent-ffi = { path = "../../../../intl/l10n/rust/fluent-ffi" }
 
-[target.'cfg(not(target_os = "android"))'.dependencies]
+# Enable on Gonk since we didn't disable FxA.
+# This should rather be gated by a proper feature
+# rather than rely on the OS value.
+# [target.'cfg(not(target_os = "android"))'.dependencies]
 firefox-accounts-bridge = { path = "../../../../services/fxaccounts/rust-bridge/firefox-accounts-bridge" }
 
 [build-dependencies]
