@@ -32,6 +32,11 @@ const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 const { executeSoon } = ChromeUtils.import("chrome://remote/content/Sync.jsm");
 
+const FRAMES_ENABLED = Services.prefs.getBoolPref(
+  "remote.frames.enabled",
+  false
+);
+
 class ContextObserver {
   constructor(chromeEventHandler) {
     this.chromeEventHandler = chromeEventHandler;
@@ -67,13 +72,13 @@ class ContextObserver {
 
   handleEvent({ type, target, persisted }) {
     const window = target.defaultView;
-    if (window != this.chromeEventHandler.ownerGlobal) {
-      // Ignore iframes for now.
+    const frameId = window.docShell.browsingContext.id.toString();
+    const id = window.windowUtils.currentInnerWindowID;
+
+    if (window != this.chromeEventHandler.ownerGlobal && !FRAMES_ENABLED) {
       return;
     }
-    const { windowUtils } = window;
-    const frameId = window.docShell.browsingContext.id.toString();
-    const id = windowUtils.currentInnerWindowID;
+
     switch (type) {
       case "DOMWindowCreated":
         // Do not pass `id` here as that's the new document ID instead of the old one
@@ -84,9 +89,10 @@ class ContextObserver {
         this.emit("context-created", { windowId: id, window });
         // Delay script-loaded to allow context cleanup to happen first
         executeSoon(() => {
-          this.emit("script-loaded");
+          this.emit("script-loaded", { windowId: id, window });
         });
         break;
+
       case "pageshow":
         // `persisted` is true when this is about a page being resurected from BF Cache
         if (!persisted) {
@@ -95,7 +101,7 @@ class ContextObserver {
         // XXX(ochameau) we might have to emit FrameNavigate here to properly handle BF Cache
         // scenario in Page domain events
         this.emit("context-created", { windowId: id, window });
-        this.emit("script-loaded");
+        this.emit("script-loaded", { windowId: id, window });
         break;
 
       case "pagehide":

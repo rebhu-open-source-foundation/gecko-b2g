@@ -14,6 +14,7 @@
 #include "mozilla/NullPrincipal.h"
 #include "MediaTrackGraph.h"
 #include "RemoteTrackSource.h"
+#include "RtpRtcpConfig.h"
 #include "nsString.h"
 #include "mozilla/dom/AudioStreamTrack.h"
 #include "mozilla/dom/VideoStreamTrack.h"
@@ -282,7 +283,7 @@ nsTArray<RefPtr<RTCStatsPromise>> RTCRtpReceiver::GetStatsInternal() {
 void RTCRtpReceiver::GetContributingSources(
     nsTArray<RTCRtpContributingSource>& aSources) {
   // Duplicate code...
-  if (mPipeline && mPipeline->Conduit() && !mPipeline->IsVideo()) {
+  if (mPipeline && mPipeline->Conduit()) {
     RefPtr<AudioSessionConduit> conduit(
         static_cast<AudioSessionConduit*>(mPipeline->Conduit()));
     nsTArray<dom::RTCRtpSourceEntry> sources;
@@ -298,7 +299,7 @@ void RTCRtpReceiver::GetContributingSources(
 void RTCRtpReceiver::GetSynchronizationSources(
     nsTArray<dom::RTCRtpSynchronizationSource>& aSources) {
   // Duplicate code...
-  if (mPipeline && mPipeline->Conduit() && !mPipeline->IsVideo()) {
+  if (mPipeline && mPipeline->Conduit()) {
     RefPtr<AudioSessionConduit> conduit(
         static_cast<AudioSessionConduit*>(mPipeline->Conduit()));
     nsTArray<dom::RTCRtpSourceEntry> sources;
@@ -424,7 +425,8 @@ nsresult RTCRtpReceiver::UpdateVideoConduit() {
       return rv;
     }
 
-    auto error = conduit->ConfigureRecvMediaCodecs(configs);
+    auto error =
+        conduit->ConfigureRecvMediaCodecs(configs, details.GetRtpRtcpConfig());
 
     if (error) {
       MOZ_LOG(gReceiverLog, LogLevel::Error,

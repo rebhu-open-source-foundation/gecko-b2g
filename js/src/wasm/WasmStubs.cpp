@@ -1108,7 +1108,6 @@ static bool GenerateJitEntry(MacroAssembler& masm, size_t funcExportIndex,
             break;
           }
           case RefType::Func:
-          case RefType::Null:
           case RefType::TypeIndex: {
             // Guarded against by temporarilyUnsupportedReftypeForEntry()
             MOZ_CRASH("unexpected argument type when calling from the jit");
@@ -1276,8 +1275,6 @@ static bool GenerateJitEntry(MacroAssembler& masm, size_t funcExportIndex,
         switch (results[0].refTypeKind()) {
           case RefType::Func:
             // For FuncRef use the AnyRef path for now, since that will work.
-          case RefType::Null:
-            // For NullRef, ditto
           case RefType::Any:
             // Per comment above, the call may have clobbered the Tls register,
             // so reload since unboxing will need it.
@@ -1575,8 +1572,6 @@ void wasm::GenerateDirectCallFromJit(MacroAssembler& masm, const FuncExport& fe,
         switch (results[0].refTypeKind()) {
           case wasm::RefType::Func:
             // For FuncRef, use the AnyRef path for now, since that will work.
-          case wasm::RefType::Null:
-            // For NullRef, ditto.
           case wasm::RefType::Any:
             // The call to wasm above preserves the WasmTlsReg, we don't need to
             // reload it here.
@@ -2107,15 +2102,6 @@ static bool GenerateImportInterpExit(MacroAssembler& masm, const FuncImport& fi,
                       funcImportIndex);
             GenPrintPtr(DebugChannel::Import, masm, ReturnReg);
             break;
-          case RefType::Null:
-            masm.call(SymbolicAddress::CallImport_NullRef);
-            masm.branchTest32(Assembler::Zero, ReturnReg, ReturnReg,
-                              throwLabel);
-            masm.loadPtr(argv, ReturnReg);
-            GenPrintf(DebugChannel::Import, masm, "wasm-import[%u]; returns ",
-                      funcImportIndex);
-            GenPrintPtr(DebugChannel::Import, masm, ReturnReg);
-            break;
           case RefType::TypeIndex:
             MOZ_CRASH("No Ref support here yet");
         }
@@ -2349,7 +2335,6 @@ static bool GenerateImportJitExit(MacroAssembler& masm, const FuncImport& fi,
             GenPrintPtr(DebugChannel::Import, masm, ReturnReg);
             break;
           case RefType::Func:
-          case RefType::Null:
           case RefType::TypeIndex:
             MOZ_CRASH("typed reference returned by import (jit exit) NYI");
         }
@@ -2455,7 +2440,6 @@ static bool GenerateImportJitExit(MacroAssembler& masm, const FuncImport& fi,
                                 throwLabel);
               break;
             case RefType::Func:
-            case RefType::Null:
             case RefType::TypeIndex:
               MOZ_CRASH("Unsupported convert type");
           }
@@ -2604,12 +2588,13 @@ static const LiveRegisterSet RegsToPreserve(
 #    error "high lanes of SIMD registers need to be saved too."
 #  endif
 #elif defined(JS_CODEGEN_X86) || defined(JS_CODEGEN_X64)
-// It's fine to use AllVector128Mask even when SIMD is not enabled:
-// PushRegsInMask strips out the high lanes of the XMM registers in this case.
+// It's correct to use FloatRegisters::AllMask even when SIMD is not enabled;
+// PushRegsInMask strips out the high lanes of the XMM registers in this case,
+// while the singles will be stripped as they are aliased by the larger doubles.
 static const LiveRegisterSet RegsToPreserve(
     GeneralRegisterSet(Registers::AllMask &
                        ~(uint32_t(1) << Registers::StackPointer)),
-    FloatRegisterSet(FloatRegisters::AllVector128Mask));
+    FloatRegisterSet(FloatRegisters::AllMask));
 #else
 static const LiveRegisterSet RegsToPreserve(
     GeneralRegisterSet(0), FloatRegisterSet(FloatRegisters::AllDoubleMask));

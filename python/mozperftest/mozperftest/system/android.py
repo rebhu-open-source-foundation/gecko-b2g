@@ -1,11 +1,34 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-import os
+import tempfile
+from pathlib import Path
+
 from mozdevice import ADBDevice, ADBError
 from mozperftest.layers import Layer
+from mozperftest.utils import download_file
 
-HERE = os.path.dirname(__file__)
+
+_ROOT_URL = "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/"
+_FENIX_FENNEC_BUILDS = (
+    "project.mobile.fenix.v2.fennec-nightly.latest/artifacts/public/build/"
+)
+_GV_BUILDS = "gecko.v2.mozilla-central.nightly.latest.mobile.android-"
+
+_PERMALINKS = {
+    "fenix_fennec_nightly_armeabi_v7a": _ROOT_URL
+    + _FENIX_FENNEC_BUILDS
+    + "armeabi-v7a/geckoNightly/target.apk",
+    "fenix_fennec_nightly_arm64_v8a": _ROOT_URL
+    + _FENIX_FENNEC_BUILDS
+    + "arm64-v8a/geckoNightly/target.apk",
+    "gve_nightly_aarch64": _ROOT_URL
+    + _GV_BUILDS
+    + "aarch64-opt/artifacts/public/build/geckoview_example.apk",
+    "gve_nightly_api16": _ROOT_URL
+    + _GV_BUILDS
+    + "api-16-opt/artifacts/public/build/geckoview_example.apk",
+}
 
 
 class DeviceError(Exception):
@@ -30,7 +53,11 @@ class AndroidDevice(Layer):
         "install-apk": {
             "nargs": "*",
             "default": [],
-            "help": "APK to install to the device",
+            "help": (
+                "APK to install to the device "
+                "Can be a file, an url or an alias url from "
+                " %s" % ", ".join(_PERMALINKS.keys())
+            ),
         },
     }
 
@@ -57,7 +84,17 @@ class AndroidDevice(Layer):
         # install APKs
         for apk in self.get_arg("android-install-apk"):
             self.info("Installing %s" % apk)
-            self.device.install_app(apk, replace=True)
+            if apk in _PERMALINKS:
+                apk = _PERMALINKS[apk]
+            if apk.startswith("http"):
+                with tempfile.TemporaryDirectory() as tmpdirname:
+                    target = Path(tmpdirname, "target.apk")
+                    self.info("Downloading %s" % apk)
+                    download_file(apk, target)
+                    self.info("Installing downloaded APK")
+                    self.device.install_app(str(target), replace=True)
+            else:
+                self.device.install_app(apk, replace=True)
             self.info("Done.")
 
         # checking that the app is installed

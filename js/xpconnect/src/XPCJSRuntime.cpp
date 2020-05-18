@@ -1082,10 +1082,6 @@ void XPCJSRuntime::Shutdown(JSContext* cx) {
 
   nsScriptSecurityManager::ClearJSCallbacks(cx);
 
-  // Shut down the helper threads
-  gHelperThreads->Shutdown();
-  gHelperThreads = nullptr;
-
   // Clean up and destroy maps. Any remaining entries in mWrappedJSMap will be
   // cleaned up by the weak pointer callbacks.
   mIID2NativeInterfaceMap = nullptr;
@@ -2607,6 +2603,9 @@ static void AccumulateTelemetryCallback(int id, uint32_t sample,
     case JS_TELEMETRY_GC_MAX_PAUSE_MS_2:
       Telemetry::Accumulate(Telemetry::GC_MAX_PAUSE_MS_2, sample);
       break;
+    case JS_TELEMETRY_GC_PREPARE_MS:
+      Telemetry::Accumulate(Telemetry::GC_PREPARE_MS, sample);
+      break;
     case JS_TELEMETRY_GC_MARK_MS:
       Telemetry::Accumulate(Telemetry::GC_MARK_MS, sample);
       break;
@@ -2621,6 +2620,9 @@ static void AccumulateTelemetryCallback(int id, uint32_t sample,
       break;
     case JS_TELEMETRY_GC_MARK_GRAY_MS:
       Telemetry::Accumulate(Telemetry::GC_MARK_GRAY_MS, sample);
+      break;
+    case JS_TELEMETRY_GC_MARK_WEAK_MS:
+      Telemetry::Accumulate(Telemetry::GC_MARK_WEAK_MS, sample);
       break;
     case JS_TELEMETRY_GC_SLICE_MS:
       Telemetry::Accumulate(Telemetry::GC_SLICE_MS, sample);
@@ -2645,12 +2647,6 @@ static void AccumulateTelemetryCallback(int id, uint32_t sample,
       break;
     case JS_TELEMETRY_GC_NON_INCREMENTAL_REASON:
       Telemetry::Accumulate(Telemetry::GC_NON_INCREMENTAL_REASON, sample);
-      break;
-    case JS_TELEMETRY_GC_SCC_SWEEP_TOTAL_MS:
-      Telemetry::Accumulate(Telemetry::GC_SCC_SWEEP_TOTAL_MS, sample);
-      break;
-    case JS_TELEMETRY_GC_SCC_SWEEP_MAX_PAUSE_MS:
-      Telemetry::Accumulate(Telemetry::GC_SCC_SWEEP_MAX_PAUSE_MS, sample);
       break;
     case JS_TELEMETRY_GC_MINOR_REASON:
       Telemetry::Accumulate(Telemetry::GC_MINOR_REASON, sample);
@@ -2967,6 +2963,29 @@ void ConstructUbiNode(void* storage, JSObject* ptr) {
   JS::ubi::ReflectorNode::construct(storage, ptr);
 }
 
+class HelperThreadPoolShutdownObserver : public nsIObserver {
+ public:
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSIOBSERVER
+ protected:
+  virtual ~HelperThreadPoolShutdownObserver() = default;
+};
+
+NS_IMPL_ISUPPORTS(HelperThreadPoolShutdownObserver, nsIObserver, nsISupports)
+
+NS_IMETHODIMP
+HelperThreadPoolShutdownObserver::Observe(nsISupports* aSubject,
+                                          const char* aTopic,
+                                          const char16_t* aData) {
+  MOZ_RELEASE_ASSERT(!strcmp(aTopic, "xpcom-shutdown-threads"));
+
+  // Shut down the helper threads
+  gHelperThreads->Shutdown();
+  gHelperThreads = nullptr;
+
+  return NS_OK;
+}
+
 void XPCJSRuntime::Initialize(JSContext* cx) {
   mUnprivilegedJunkScope.init(cx, nullptr);
   mLoaderGlobal.init(cx, nullptr);
@@ -3013,6 +3032,9 @@ void XPCJSRuntime::Initialize(JSContext* cx) {
 
   // Initialize a helper thread pool for JS offthread tasks. Set the
   // task callback to divert tasks to the helperthreads.
+  nsCOMPtr<nsIObserverService> obsService = services::GetObserverService();
+  nsCOMPtr<nsIObserver> obs = new HelperThreadPoolShutdownObserver();
+  obsService->AddObserver(obs, "xpcom-shutdown-threads", false);
   InitializeHelperThreadPool();
   SetHelperThreadTaskCallback(&DispatchOffThreadTask);
 

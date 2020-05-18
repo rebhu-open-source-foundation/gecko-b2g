@@ -289,18 +289,9 @@ void CanonicalBrowsingContext::UpdateMediaControlKeysEvent(
 void CanonicalBrowsingContext::LoadURI(const nsAString& aURI,
                                        const LoadURIOptions& aOptions,
                                        ErrorResult& aError) {
-  nsCOMPtr<nsISupports> consumer = GetDocShell();
-  if (!consumer) {
-    consumer = GetEmbedderElement();
-  }
-  if (!consumer) {
-    aError.Throw(NS_ERROR_UNEXPECTED);
-    return;
-  }
-
   RefPtr<nsDocShellLoadState> loadState;
   nsresult rv = nsDocShellLoadState::CreateFromLoadURIOptions(
-      consumer, aURI, aOptions, getter_AddRefs(loadState));
+      this, aURI, aOptions, getter_AddRefs(loadState));
 
   if (rv == NS_ERROR_MALFORMED_URI) {
     DisplayLoadError(aURI);
@@ -565,7 +556,7 @@ bool CanonicalBrowsingContext::AttemptLoadURIInParent(
   // process notifications, which happens after the load is initiated in this
   // case. Devtools clears all prior requests when it detects a new navigation,
   // so it drops the main document load that happened here.
-  if (GetWatchedByDevtools()) {
+  if (WatchedByDevTools()) {
     return false;
   }
 

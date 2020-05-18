@@ -4,6 +4,8 @@
 
 "use strict";
 
+const { Ci } = require("chrome");
+
 const {
   createFactory,
   PureComponent,
@@ -65,12 +67,16 @@ class Registration extends PureComponent {
 
   isActive() {
     const { workers } = this.props.registration;
-    return workers.some(x => x.isActive);
+    return workers.some(
+      x => x.state === Ci.nsIServiceWorkerInfo.STATE_ACTIVATED
+    );
   }
 
   formatScope(scope) {
     const [, remainder] = getUnicodeUrl(scope).split("://");
-    return remainder || scope;
+    // remove the last slash from the url, if present
+    // or return the full scope if there's no remainder
+    return remainder ? remainder.replace(/\/$/, "") : scope;
   }
 
   render() {

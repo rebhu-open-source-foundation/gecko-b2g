@@ -161,6 +161,12 @@ bool Isolate::init() {
   return true;
 }
 
+Isolate::~Isolate() {
+  if (regexpStack_) {
+    js_delete(regexpStack_);
+  }
+}
+
 byte* Isolate::top_of_regexp_stack() const {
   return reinterpret_cast<byte*>(regexpStack_->memory_top_address_address());
 }
@@ -183,7 +189,7 @@ Handle<ByteArray> Isolate::NewByteArray(int length, AllocationType alloc) {
 
 Handle<FixedArray> Isolate::NewFixedArray(int length) {
   MOZ_RELEASE_ASSERT(length >= 0);
-  MOZ_CRASH("TODO");
+  return Handle<FixedArray>::fromHandleValue(JS::UndefinedHandleValue);
 }
 
 template <typename CharT>

@@ -3243,10 +3243,11 @@ class HTMLEditor final : public TextEditor,
      * @param aRv               Returns error if layout information is not
      *                          available or given element is not a table cell.
      */
-    CellIndexes(Element& aCellElement, ErrorResult& aRv)
+    MOZ_CAN_RUN_SCRIPT CellIndexes(Element& aCellElement, PresShell* aPresShell,
+                                   ErrorResult& aRv)
         : mRow(-1), mColumn(-1) {
       MOZ_ASSERT(!aRv.Failed());
-      Update(aCellElement, aRv);
+      Update(aCellElement, aPresShell, aRv);
     }
 
     /**
@@ -3254,7 +3255,8 @@ class HTMLEditor final : public TextEditor,
      *
      * @param                   See above.
      */
-    void Update(Element& aCellElement, ErrorResult& aRv);
+    MOZ_CAN_RUN_SCRIPT void Update(Element& aCellElement, PresShell* aPresShell,
+                                   ErrorResult& aRv);
 
     /**
      * This constructor initializes mRowIndex and mColumnIndex with indexes of
@@ -3266,8 +3268,8 @@ class HTMLEditor final : public TextEditor,
      *                          which contains anchor of Selection, or layout
      *                          information is not available.
      */
-    CellIndexes(HTMLEditor& aHTMLEditor, Selection& aSelection,
-                ErrorResult& aRv)
+    MOZ_CAN_RUN_SCRIPT CellIndexes(HTMLEditor& aHTMLEditor,
+                                   Selection& aSelection, ErrorResult& aRv)
         : mRow(-1), mColumn(-1) {
       Update(aHTMLEditor, aSelection, aRv);
     }
@@ -3278,8 +3280,8 @@ class HTMLEditor final : public TextEditor,
      *
      * @param                   See above.
      */
-    void Update(HTMLEditor& aHTMLEditor, Selection& aSelection,
-                ErrorResult& aRv);
+    MOZ_CAN_RUN_SCRIPT void Update(HTMLEditor& aHTMLEditor,
+                                   Selection& aSelection, ErrorResult& aRv);
 
     bool operator==(const CellIndexes& aOther) const {
       return mRow == aOther.mRow && mColumn == aOther.mColumn;
@@ -3305,8 +3307,8 @@ class HTMLEditor final : public TextEditor,
      * first range is in the cell element, this does not treat it as the
      * cell element is selected.
      */
-    CellAndIndexes(HTMLEditor& aHTMLEditor, Selection& aSelection,
-                   ErrorResult& aRv) {
+    MOZ_CAN_RUN_SCRIPT CellAndIndexes(HTMLEditor& aHTMLEditor,
+                                      Selection& aSelection, ErrorResult& aRv) {
       Update(aHTMLEditor, aSelection, aRv);
     }
 
@@ -3316,8 +3318,8 @@ class HTMLEditor final : public TextEditor,
      * in the cell element, this does not treat it as the cell element is
      * selected.
      */
-    void Update(HTMLEditor& aHTMLEditor, Selection& aSelection,
-                ErrorResult& aRv);
+    MOZ_CAN_RUN_SCRIPT void Update(HTMLEditor& aHTMLEditor,
+                                   Selection& aSelection, ErrorResult& aRv);
   };
 
   struct MOZ_STACK_CLASS CellData final {
@@ -4101,9 +4103,11 @@ class HTMLEditor final : public TextEditor,
    * Returns NS_EDITOR_ELEMENT_NOT_FOUND if cell is not found even if aCell is
    * null.
    */
-  nsresult GetCellContext(Element** aTable, Element** aCell,
-                          nsINode** aCellParent, int32_t* aCellOffset,
-                          int32_t* aRowIndex, int32_t* aColIndex);
+  MOZ_CAN_RUN_SCRIPT nsresult GetCellContext(Element** aTable, Element** aCell,
+                                             nsINode** aCellParent,
+                                             int32_t* aCellOffset,
+                                             int32_t* aRowIndex,
+                                             int32_t* aColIndex);
 
   nsresult GetCellSpansAt(Element* aTable, int32_t aRowIndex, int32_t aColIndex,
                           int32_t& aActualRowSpan, int32_t& aActualColSpan);

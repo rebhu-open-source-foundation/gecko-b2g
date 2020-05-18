@@ -278,6 +278,25 @@ async function loadURL(url, expectedURL = undefined) {
 }
 
 /**
+ * Enable the Runtime domain
+ */
+async function enableRuntime(client) {
+  const { Runtime } = client;
+
+  // Enable watching for new execution context
+  await Runtime.enable();
+  info("Runtime domain has been enabled");
+
+  // Calling Runtime.enable will emit executionContextCreated for the existing contexts
+  const { context } = await Runtime.executionContextCreated();
+  ok(!!context.id, "The execution context has an id");
+  ok(context.auxData.isDefault, "The execution context is the default one");
+  ok(!!context.auxData.frameId, "The execution context has a frame id set");
+
+  return context;
+}
+
+/**
  * Retrieve the value of a property on the content window.
  */
 function getContentProperty(prop) {
@@ -433,6 +452,7 @@ class RecordEvents {
       eventName,
       messageFn = () => `Received ${eventName}`,
     } = options;
+
     const promise = new Promise(resolve => {
       const unsubscribe = event(payload => {
         info(messageFn(payload));
@@ -445,6 +465,7 @@ class RecordEvents {
       });
       this.subscriptions.add(unsubscribe);
     });
+
     this.promises.add(promise);
   }
 
@@ -452,7 +473,7 @@ class RecordEvents {
    * Record events until we hit the timeout or the expected total is exceeded.
    *
    * @param {number=} timeout
-   *     milliseconds
+   *     Timeout in milliseconds. Defaults to 1000.
    *
    * @return {Array<{ eventName, payload }>} Recorded events
    */
@@ -477,5 +498,19 @@ class RecordEvents {
       return event.payload;
     }
     return {};
+  }
+
+  /**
+   * Find given events.
+   *
+   * @param {string} eventName
+   *
+   * @return {Array<object>}
+   *     The events payload, if any.
+   */
+  findEvents(eventName) {
+    return this.events
+      .filter(event => event.eventName == eventName)
+      .map(event => event.payload);
   }
 }

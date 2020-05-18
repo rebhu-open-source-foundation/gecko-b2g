@@ -378,7 +378,7 @@ import_sibling_modules()
 register_strategy('build', args=('skip-unless-schedules',))(Alias)
 register_strategy('build-fuzzing', args=('skip-unless-schedules', 'seta'))(Any)
 register_strategy('test', args=(
-    Any('skip-unless-schedules', 'seta', split_args=tuple),
+    Any('skip-unless-schedules', 'bugbug-reduced-fallback', split_args=tuple),
     'backstop',
 ))(All)
 register_strategy('test-inclusive', args=('skip-unless-schedules',))(Alias)
@@ -406,15 +406,10 @@ class experimental(object):
     }
     """Doesn't limit platforms, high confidence threshold."""
 
-    bugbug_combined_high = {
-        'test': Any('skip-unless-schedules', 'bugbug-combined-high', split_args=tuple),
-    }
-    """Combines the weights of all groups, high confidence threshold."""
-
-    bugbug_debug = {
+    bugbug_debug_disperse = {
         'test': Any(
             'skip-unless-schedules',
-            Any('bugbug', 'platform-debug'),
+            Any('bugbug', 'platform-debug', 'platform-disperse'),
             split_args=tuple
         ),
     }
@@ -437,6 +432,15 @@ class experimental(object):
         ),
     }
     """Disperse tests across platforms, medium confidence threshold."""
+
+    bugbug_disperse_high = {
+        'test': Any(
+            'skip-unless-schedules',
+            Any('bugbug-high', 'platform-disperse'),
+            split_args=tuple
+        ),
+    }
+    """Disperse tests across platforms, high confidence threshold."""
 
     bugbug_reduced = {
         'test': Any('skip-unless-schedules', 'bugbug-reduced', split_args=tuple),

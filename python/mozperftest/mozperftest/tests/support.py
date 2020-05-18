@@ -3,14 +3,16 @@ from mock import MagicMock
 import contextlib
 import shutil
 import os
+from pathlib import Path
 
 from mozperftest.metadata import Metadata
 from mozperftest.environment import MachEnvironment
 
 
-HERE = os.path.dirname(__file__)
-EXAMPLE_TESTS_DIR = os.path.join(HERE, "samples")
+HERE = Path(__file__).parent
+EXAMPLE_TESTS_DIR = os.path.join(HERE, "data", "samples")
 EXAMPLE_TEST = os.path.join(EXAMPLE_TESTS_DIR, "perftest_example.js")
+BT_DATA = Path(HERE, "data", "browsertime-results", "browsertime.json")
 
 
 @contextlib.contextmanager
@@ -57,3 +59,18 @@ def get_running_env(**kwargs):
     env = MachEnvironment(mach_cmd, **mach_args)
     metadata = Metadata(mach_cmd, env, "script")
     return mach_cmd, metadata, env
+
+
+def requests_content(chunks=None):
+    if chunks is None:
+        chunks = [b"some ", b"content"]
+
+    def _content(*args, **kw):
+        class Resp:
+            def iter_content(self, **kw):
+                for chunk in chunks:
+                    yield chunk
+
+        return Resp()
+
+    return _content

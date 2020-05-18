@@ -777,6 +777,10 @@ class MDefinition : public MNode {
 
   bool hasUses() const { return !uses_.empty(); }
 
+  // If this MDefinition has a single use (ignoring MResumePoints), returns that
+  // use's definition. Else returns nullptr.
+  MDefinition* maybeSingleDefUse() const;
+
   void addUse(MUse* use) {
     MOZ_ASSERT(use->producer() == this);
     uses_.pushFront(use);
@@ -2839,9 +2843,8 @@ class MApplyArgs : public MTernaryInstruction,
 };
 
 // fun.apply(fn, array)
-class MApplyArray
-    : public MTernaryInstruction,
-      public MixPolicy<ObjectPolicy<0>, ObjectPolicy<1>, BoxPolicy<2>>::Data {
+class MApplyArray : public MTernaryInstruction,
+                    public MixPolicy<ObjectPolicy<0>, BoxPolicy<2>>::Data {
  protected:
   // Monomorphic cache of single target from TI, or nullptr.
   WrappedFunction* target_;
@@ -2851,6 +2854,7 @@ class MApplyArray
   MApplyArray(WrappedFunction* target, MDefinition* fun, MDefinition* elements,
               MDefinition* self)
       : MTernaryInstruction(classOpcode, fun, elements, self), target_(target) {
+    MOZ_ASSERT(elements->type() == MIRType::Elements);
     setResultType(MIRType::Value);
   }
 
@@ -2881,9 +2885,9 @@ class MApplyArray
 };
 
 // |new F(...args)| and |super(...args)|.
-class MConstructArray : public MQuaternaryInstruction,
-                        public MixPolicy<ObjectPolicy<0>, ObjectPolicy<1>,
-                                         BoxPolicy<2>, ObjectPolicy<3>>::Data {
+class MConstructArray
+    : public MQuaternaryInstruction,
+      public MixPolicy<ObjectPolicy<0>, BoxPolicy<2>, ObjectPolicy<3>>::Data {
   // Monomorphic cache of single target from TI, or nullptr.
   WrappedFunction* target_;
   bool maybeCrossRealm_ = true;
@@ -2894,6 +2898,7 @@ class MConstructArray : public MQuaternaryInstruction,
       : MQuaternaryInstruction(classOpcode, fun, elements, thisValue,
                                newTarget),
         target_(target) {
+    MOZ_ASSERT(elements->type() == MIRType::Elements);
     setResultType(MIRType::Value);
   }
 
@@ -3398,6 +3403,7 @@ class MUnbox final : public MUnaryInstruction, public BoxInputsPolicy::Data {
     MOZ_ASSERT(fallible());
     return bailoutKind_;
   }
+  BailoutKind bailoutKindUnchecked() const { return bailoutKind_; }
   bool fallible() const { return mode() != Infallible; }
   bool congruentTo(const MDefinition* ins) const override {
     if (!ins->isUnbox() || ins->toUnbox()->mode() != mode()) {
@@ -7532,8 +7538,7 @@ class MSpectreMaskIndex
 
 // Load a value from a dense array's element vector and does a hole check if the
 // array is not known to be packed.
-class MLoadElement : public MBinaryInstruction,
-                     public SingleObjectPolicy::Data {
+class MLoadElement : public MBinaryInstruction, public NoTypePolicy::Data {
   bool needsHoleCheck_;
   bool loadDoubles_;
 
@@ -7560,8 +7565,11 @@ class MLoadElement : public MBinaryInstruction,
   NAMED_OPERANDS((0, elements), (1, index))
 
   bool needsHoleCheck() const { return needsHoleCheck_; }
+  void disableHoleCheck() { needsHoleCheck_ = false; }
+
   bool loadDoubles() const { return loadDoubles_; }
   bool fallible() const { return needsHoleCheck(); }
+
   bool congruentTo(const MDefinition* ins) const override {
     if (!ins->isLoadElement()) {
       return false;
@@ -7584,10 +7592,52 @@ class MLoadElement : public MBinaryInstruction,
   ALLOW_CLONE(MLoadElement)
 };
 
+class MLoadElementAndUnbox : public MBinaryInstruction,
+                             public NoTypePolicy::Data {
+  MUnbox::Mode mode_;
+  BailoutKind bailoutKind_;
+
+ protected:
+  MLoadElementAndUnbox(MDefinition* elements, MDefinition* index,
+                       MUnbox::Mode mode, MIRType type, BailoutKind kind)
+      : MBinaryInstruction(classOpcode, elements, index),
+        mode_(mode),
+        bailoutKind_(kind) {
+    setResultType(type);
+    setMovable();
+    if (mode_ == MUnbox::TypeBarrier || mode_ == MUnbox::Fallible) {
+      setGuard();
+    }
+  }
+
+ public:
+  INSTRUCTION_HEADER(LoadElementAndUnbox)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, elements), (1, index))
+
+  MUnbox::Mode mode() const { return mode_; }
+  BailoutKind bailoutKind() const { return bailoutKind_; }
+  bool fallible() const { return mode_ != MUnbox::Infallible; }
+
+  bool congruentTo(const MDefinition* ins) const override {
+    if (!ins->isLoadElementAndUnbox() ||
+        mode() != ins->toLoadElementAndUnbox()->mode() ||
+        bailoutKind() != ins->toLoadElementAndUnbox()->bailoutKind()) {
+      return false;
+    }
+    return congruentIfOperandsEqual(ins);
+  }
+
+  AliasSet getAliasSet() const override {
+    return AliasSet::Load(AliasSet::Element);
+  }
+
+  ALLOW_CLONE(MLoadElementAndUnbox);
+};
+
 // Load a value from the elements vector of a native object. If the index is
 // out-of-bounds, or the indexed slot has a hole, undefined is returned instead.
-class MLoadElementHole : public MTernaryInstruction,
-                         public SingleObjectPolicy::Data {
+class MLoadElementHole : public MTernaryInstruction, public NoTypePolicy::Data {
   bool needsNegativeIntCheck_;
   bool needsHoleCheck_;
 
@@ -7674,10 +7724,9 @@ class MLoadElementFromState : public MBinaryInstruction,
 };
 
 // Store a value to a dense array slots vector.
-class MStoreElement
-    : public MTernaryInstruction,
-      public MStoreElementCommon,
-      public MixPolicy<SingleObjectPolicy, NoFloatPolicy<2>>::Data {
+class MStoreElement : public MTernaryInstruction,
+                      public MStoreElementCommon,
+                      public NoFloatPolicy<2>::Data {
   bool needsHoleCheck_;
 
   MStoreElement(MDefinition* elements, MDefinition* index, MDefinition* value,
@@ -7886,7 +7935,7 @@ enum MemoryBarrierRequirement {
 
 // Load an unboxed scalar value from a typed array or other object.
 class MLoadUnboxedScalar : public MBinaryInstruction,
-                           public SingleObjectPolicy::Data {
+                           public NoTypePolicy::Data {
   int32_t offsetAdjustment_ = 0;
   Scalar::Type storageType_;
   bool requiresBarrier_;
@@ -8024,7 +8073,6 @@ class StoreUnboxedScalarBase {
   }
 
  public:
-  void setWriteType(Scalar::Type type) { writeType_ = type; }
   Scalar::Type writeType() const { return writeType_; }
   bool isByteWrite() const {
     return writeType_ == Scalar::Int8 || writeType_ == Scalar::Uint8 ||
@@ -8045,26 +8093,14 @@ class StoreUnboxedScalarBase {
 class MStoreUnboxedScalar : public MTernaryInstruction,
                             public StoreUnboxedScalarBase,
                             public StoreUnboxedScalarPolicy::Data {
- public:
-  enum TruncateInputKind { DontTruncateInput, TruncateInput };
-
- private:
-  Scalar::Type storageType_;
-
-  // Whether this store truncates out of range inputs, for use by range
-  // analysis.
-  TruncateInputKind truncateInput_;
-
   bool requiresBarrier_;
 
   MStoreUnboxedScalar(
       MDefinition* elements, MDefinition* index, MDefinition* value,
-      Scalar::Type storageType, TruncateInputKind truncateInput,
+      Scalar::Type storageType,
       MemoryBarrierRequirement requiresBarrier = DoesNotRequireMemoryBarrier)
       : MTernaryInstruction(classOpcode, elements, index, value),
         StoreUnboxedScalarBase(storageType),
-        storageType_(storageType),
-        truncateInput_(truncateInput),
         requiresBarrier_(requiresBarrier == DoesRequireMemoryBarrier) {
     if (requiresBarrier_) {
       setGuard();  // Not removable or movable
@@ -8081,11 +8117,9 @@ class MStoreUnboxedScalar : public MTernaryInstruction,
   TRIVIAL_NEW_WRAPPERS
   NAMED_OPERANDS((0, elements), (1, index), (2, value))
 
-  Scalar::Type storageType() const { return storageType_; }
   AliasSet getAliasSet() const override {
     return AliasSet::Store(AliasSet::UnboxedElement);
   }
-  TruncateInputKind truncateInput() const { return truncateInput_; }
   bool requiresMemoryBarrier() const { return requiresBarrier_; }
   TruncateKind operandTruncateKind(size_t index) const override;
 
@@ -8251,7 +8285,8 @@ class MLoadFixedSlotAndUnbox : public MUnaryInstruction,
   bool congruentTo(const MDefinition* ins) const override {
     if (!ins->isLoadFixedSlotAndUnbox() ||
         slot() != ins->toLoadFixedSlotAndUnbox()->slot() ||
-        mode() != ins->toLoadFixedSlotAndUnbox()->mode()) {
+        mode() != ins->toLoadFixedSlotAndUnbox()->mode() ||
+        bailoutKind() != ins->toLoadFixedSlotAndUnbox()->bailoutKind()) {
       return false;
     }
     return congruentIfOperandsEqual(ins);
@@ -8266,6 +8301,53 @@ class MLoadFixedSlotAndUnbox : public MUnaryInstruction,
   AliasType mightAlias(const MDefinition* store) const override;
 
   ALLOW_CLONE(MLoadFixedSlotAndUnbox);
+};
+
+class MLoadDynamicSlotAndUnbox : public MUnaryInstruction,
+                                 public NoTypePolicy::Data {
+  size_t slot_;
+  MUnbox::Mode mode_;
+  BailoutKind bailoutKind_;
+
+ protected:
+  MLoadDynamicSlotAndUnbox(MDefinition* slots, size_t slot, MUnbox::Mode mode,
+                           MIRType type, BailoutKind kind)
+      : MUnaryInstruction(classOpcode, slots),
+        slot_(slot),
+        mode_(mode),
+        bailoutKind_(kind) {
+    setResultType(type);
+    setMovable();
+    if (mode_ == MUnbox::TypeBarrier || mode_ == MUnbox::Fallible) {
+      setGuard();
+    }
+  }
+
+ public:
+  INSTRUCTION_HEADER(LoadDynamicSlotAndUnbox)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, slots))
+
+  size_t slot() const { return slot_; }
+  MUnbox::Mode mode() const { return mode_; }
+  BailoutKind bailoutKind() const { return bailoutKind_; }
+  bool fallible() const { return mode_ != MUnbox::Infallible; }
+
+  bool congruentTo(const MDefinition* ins) const override {
+    if (!ins->isLoadDynamicSlotAndUnbox() ||
+        slot() != ins->toLoadDynamicSlotAndUnbox()->slot() ||
+        mode() != ins->toLoadDynamicSlotAndUnbox()->mode() ||
+        bailoutKind() != ins->toLoadDynamicSlotAndUnbox()->bailoutKind()) {
+      return false;
+    }
+    return congruentIfOperandsEqual(ins);
+  }
+
+  AliasSet getAliasSet() const override {
+    return AliasSet::Load(AliasSet::DynamicSlot);
+  }
+
+  ALLOW_CLONE(MLoadDynamicSlotAndUnbox);
 };
 
 class MStoreFixedSlot
@@ -8802,12 +8884,9 @@ class MCallBindVar : public MUnaryInstruction, public SingleObjectPolicy::Data {
 // Guard on an object's shape.
 class MGuardShape : public MUnaryInstruction, public SingleObjectPolicy::Data {
   CompilerShape shape_;
-  BailoutKind bailoutKind_;
 
-  MGuardShape(MDefinition* obj, Shape* shape, BailoutKind bailoutKind)
-      : MUnaryInstruction(classOpcode, obj),
-        shape_(shape),
-        bailoutKind_(bailoutKind) {
+  MGuardShape(MDefinition* obj, Shape* shape)
+      : MUnaryInstruction(classOpcode, obj), shape_(shape) {
     setGuard();
     setMovable();
     setResultType(MIRType::Object);
@@ -8820,15 +8899,11 @@ class MGuardShape : public MUnaryInstruction, public SingleObjectPolicy::Data {
   NAMED_OPERANDS((0, object))
 
   const Shape* shape() const { return shape_; }
-  BailoutKind bailoutKind() const { return bailoutKind_; }
   bool congruentTo(const MDefinition* ins) const override {
     if (!ins->isGuardShape()) {
       return false;
     }
     if (shape() != ins->toGuardShape()->shape()) {
-      return false;
-    }
-    if (bailoutKind() != ins->toGuardShape()->bailoutKind()) {
       return false;
     }
     return congruentIfOperandsEqual(ins);
@@ -8847,9 +8922,11 @@ class MGuardValue : public MUnaryInstruction, public BoxInputsPolicy::Data {
 
   MGuardValue(MDefinition* val, const Value& expected)
       : MUnaryInstruction(classOpcode, val), expected_(expected) {
+    MOZ_ASSERT(expected.isNullOrUndefined() || expected.isMagic());
+
     setGuard();
     setMovable();
-    MOZ_ASSERT(expected.isNullOrUndefined() || expected.isMagic());
+    setResultType(MIRType::Value);
   }
 
  public:
@@ -8868,6 +8945,7 @@ class MGuardValue : public MUnaryInstruction, public BoxInputsPolicy::Data {
     }
     return congruentIfOperandsEqual(ins);
   }
+  MDefinition* foldsTo(TempAllocator& alloc) override;
   AliasSet getAliasSet() const override { return AliasSet::None(); }
 };
 
@@ -8878,6 +8956,7 @@ class MGuardNullOrUndefined : public MUnaryInstruction,
       : MUnaryInstruction(classOpcode, val) {
     setGuard();
     setMovable();
+    setResultType(MIRType::Value);
   }
 
  public:
@@ -8888,6 +8967,7 @@ class MGuardNullOrUndefined : public MUnaryInstruction,
   bool congruentTo(const MDefinition* ins) const override {
     return congruentIfOperandsEqual(ins);
   }
+  MDefinition* foldsTo(TempAllocator& alloc) override;
   AliasSet getAliasSet() const override { return AliasSet::None(); }
 };
 
@@ -9019,7 +9099,7 @@ class MGuardSpecificAtom : public MUnaryInstruction,
       : MUnaryInstruction(classOpcode, str), atom_(atom) {
     setGuard();
     setMovable();
-    setResultType(MIRType::None);
+    setResultType(MIRType::String);
   }
 
  public:
@@ -9038,6 +9118,7 @@ class MGuardSpecificAtom : public MUnaryInstruction,
     }
     return congruentIfOperandsEqual(ins);
   }
+  MDefinition* foldsTo(TempAllocator& alloc) override;
   AliasSet getAliasSet() const override { return AliasSet::None(); }
 
   bool appendRoots(MRootList& roots) const override {
@@ -9046,10 +9127,10 @@ class MGuardSpecificAtom : public MUnaryInstruction,
 };
 
 // Load from vp[slot] (slots that are not inline in an object).
-class MLoadSlot : public MUnaryInstruction, public SingleObjectPolicy::Data {
+class MLoadDynamicSlot : public MUnaryInstruction, public NoTypePolicy::Data {
   uint32_t slot_;
 
-  MLoadSlot(MDefinition* slots, uint32_t slot)
+  MLoadDynamicSlot(MDefinition* slots, uint32_t slot)
       : MUnaryInstruction(classOpcode, slots), slot_(slot) {
     setResultType(MIRType::Value);
     setMovable();
@@ -9057,7 +9138,7 @@ class MLoadSlot : public MUnaryInstruction, public SingleObjectPolicy::Data {
   }
 
  public:
-  INSTRUCTION_HEADER(LoadSlot)
+  INSTRUCTION_HEADER(LoadDynamicSlot)
   TRIVIAL_NEW_WRAPPERS
   NAMED_OPERANDS((0, slots))
 
@@ -9065,10 +9146,10 @@ class MLoadSlot : public MUnaryInstruction, public SingleObjectPolicy::Data {
 
   HashNumber valueHash() const override;
   bool congruentTo(const MDefinition* ins) const override {
-    if (!ins->isLoadSlot()) {
+    if (!ins->isLoadDynamicSlot()) {
       return false;
     }
-    if (slot() != ins->toLoadSlot()->slot()) {
+    if (slot() != ins->toLoadDynamicSlot()->slot()) {
       return false;
     }
     return congruentIfOperandsEqual(ins);
@@ -9086,7 +9167,7 @@ class MLoadSlot : public MUnaryInstruction, public SingleObjectPolicy::Data {
   void printOpcode(GenericPrinter& out) const override;
 #endif
 
-  ALLOW_CLONE(MLoadSlot)
+  ALLOW_CLONE(MLoadDynamicSlot)
 };
 
 // Inline call to access a function's environment (scope chain).
@@ -9172,14 +9253,14 @@ class MHomeObject : public MUnaryInstruction, public SingleObjectPolicy::Data {
 };
 
 // Store to vp[slot] (slots that are not inline in an object).
-class MStoreSlot : public MBinaryInstruction,
-                   public MixPolicy<ObjectPolicy<0>, NoFloatPolicy<1>>::Data {
+class MStoreDynamicSlot : public MBinaryInstruction,
+                          public NoFloatPolicy<1>::Data {
   uint32_t slot_;
   MIRType slotType_;
   bool needsBarrier_;
 
-  MStoreSlot(MDefinition* slots, uint32_t slot, MDefinition* value,
-             bool barrier)
+  MStoreDynamicSlot(MDefinition* slots, uint32_t slot, MDefinition* value,
+                    bool barrier)
       : MBinaryInstruction(classOpcode, slots, value),
         slot_(slot),
         slotType_(MIRType::Value),
@@ -9188,16 +9269,17 @@ class MStoreSlot : public MBinaryInstruction,
   }
 
  public:
-  INSTRUCTION_HEADER(StoreSlot)
+  INSTRUCTION_HEADER(StoreDynamicSlot)
   NAMED_OPERANDS((0, slots), (1, value))
 
-  static MStoreSlot* New(TempAllocator& alloc, MDefinition* slots,
-                         uint32_t slot, MDefinition* value) {
-    return new (alloc) MStoreSlot(slots, slot, value, false);
+  static MStoreDynamicSlot* New(TempAllocator& alloc, MDefinition* slots,
+                                uint32_t slot, MDefinition* value) {
+    return new (alloc) MStoreDynamicSlot(slots, slot, value, false);
   }
-  static MStoreSlot* NewBarriered(TempAllocator& alloc, MDefinition* slots,
-                                  uint32_t slot, MDefinition* value) {
-    return new (alloc) MStoreSlot(slots, slot, value, true);
+  static MStoreDynamicSlot* NewBarriered(TempAllocator& alloc,
+                                         MDefinition* slots, uint32_t slot,
+                                         MDefinition* value) {
+    return new (alloc) MStoreDynamicSlot(slots, slot, value, true);
   }
 
   uint32_t slot() const { return slot_; }
@@ -9216,7 +9298,7 @@ class MStoreSlot : public MBinaryInstruction,
   void printOpcode(GenericPrinter& out) const override;
 #endif
 
-  ALLOW_CLONE(MStoreSlot)
+  ALLOW_CLONE(MStoreDynamicSlot)
 };
 
 class MGetNameCache : public MUnaryInstruction,
@@ -10846,8 +10928,7 @@ class MGuardSharedTypedArray : public MUnaryInstruction,
 
 class MCompareExchangeTypedArrayElement
     : public MQuaternaryInstruction,
-      public MixPolicy<ObjectPolicy<0>, UnboxedInt32Policy<1>,
-                       TruncateToInt32Policy<2>,
+      public MixPolicy<UnboxedInt32Policy<1>, TruncateToInt32Policy<2>,
                        TruncateToInt32Policy<3>>::Data {
   Scalar::Type arrayType_;
 
@@ -10858,6 +10939,7 @@ class MCompareExchangeTypedArrayElement
                                              MDefinition* newval)
       : MQuaternaryInstruction(classOpcode, elements, index, oldval, newval),
         arrayType_(arrayType) {
+    MOZ_ASSERT(elements->type() == MIRType::Elements);
     setGuard();  // Not removable
   }
 
@@ -10878,14 +10960,14 @@ class MCompareExchangeTypedArrayElement
 
 class MAtomicExchangeTypedArrayElement
     : public MTernaryInstruction,
-      public MixPolicy<ObjectPolicy<0>, UnboxedInt32Policy<1>,
-                       TruncateToInt32Policy<2>>::Data {
+      public MixPolicy<UnboxedInt32Policy<1>, TruncateToInt32Policy<2>>::Data {
   Scalar::Type arrayType_;
 
   MAtomicExchangeTypedArrayElement(MDefinition* elements, MDefinition* index,
                                    MDefinition* value, Scalar::Type arrayType)
       : MTernaryInstruction(classOpcode, elements, index, value),
         arrayType_(arrayType) {
+    MOZ_ASSERT(elements->type() == MIRType::Elements);
     MOZ_ASSERT(arrayType <= Scalar::Uint32);
     setGuard();  // Not removable
   }
@@ -10906,8 +10988,7 @@ class MAtomicExchangeTypedArrayElement
 
 class MAtomicTypedArrayElementBinop
     : public MTernaryInstruction,
-      public MixPolicy<ObjectPolicy<0>, UnboxedInt32Policy<1>,
-                       TruncateToInt32Policy<2>>::Data {
+      public MixPolicy<UnboxedInt32Policy<1>, TruncateToInt32Policy<2>>::Data {
  private:
   AtomicOp op_;
   Scalar::Type arrayType_;
@@ -10920,6 +11001,7 @@ class MAtomicTypedArrayElementBinop
       : MTernaryInstruction(classOpcode, elements, index, value),
         op_(op),
         arrayType_(arrayType) {
+    MOZ_ASSERT(elements->type() == MIRType::Elements);
     setGuard();  // Not removable
   }
 

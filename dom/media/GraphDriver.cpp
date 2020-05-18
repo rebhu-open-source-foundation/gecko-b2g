@@ -7,7 +7,6 @@
 #include "mozilla/dom/AudioContext.h"
 #include "mozilla/dom/AudioDeviceInfo.h"
 #include "mozilla/dom/BaseAudioContextBinding.h"
-#include "mozilla/dom/WorkletThread.h"
 #include "mozilla/SchedulerGroup.h"
 #include "mozilla/SharedThreadPool.h"
 #include "mozilla/ClearOnShutdown.h"
@@ -206,7 +205,6 @@ void ThreadedDriver::RunThread() {
 
     if (result.IsStop()) {
       // Signal that we're done stopping.
-      dom::WorkletThread::DeleteCycleCollectedJSContext();
       result.Stopped();
       break;
     }
@@ -660,7 +658,8 @@ void AudioCallbackDriver::Init() {
   output.layout = static_cast<uint32_t>(channelMap);
   output.prefs = CubebUtils::GetDefaultStreamPrefs();
 #if !defined(XP_WIN)
-  if (mInputDevicePreference == CUBEB_DEVICE_PREF_VOICE) {
+  if (mInputDevicePreference == CUBEB_DEVICE_PREF_VOICE &&
+      CubebUtils::RouteOutputAsVoice()) {
     output.prefs |= static_cast<cubeb_stream_prefs>(CUBEB_STREAM_PREF_VOICE);
   }
 #endif
@@ -689,6 +688,10 @@ void AudioCallbackDriver::Init() {
   input = output;
   input.channels = mInputChannelCount;
   input.layout = CUBEB_LAYOUT_UNDEFINED;
+  input.prefs = CubebUtils::GetDefaultStreamPrefs();
+  if (mInputDevicePreference == CUBEB_DEVICE_PREF_VOICE) {
+    input.prefs |= static_cast<cubeb_stream_prefs>(CUBEB_STREAM_PREF_VOICE);
+  }
 
   cubeb_stream* stream = nullptr;
   bool inputWanted = mInputChannelCount > 0;

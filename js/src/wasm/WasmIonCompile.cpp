@@ -2354,7 +2354,6 @@ static bool EmitGetGlobal(FunctionCompiler& f) {
       switch (value.type().refTypeKind()) {
         case RefType::Func:
         case RefType::Any:
-        case RefType::Null:
           MOZ_ASSERT(value.ref().isNull());
           result = f.nullRefConstant();
           break;
@@ -3856,7 +3855,7 @@ static bool EmitRefNull(FunctionCompiler& f) {
 
 static bool EmitRefIsNull(FunctionCompiler& f) {
   MDefinition* input;
-  if (!f.iter().readConversion(RefType::any(), ValType::I32, &input)) {
+  if (!f.iter().readRefIsNull(&input)) {
     return false;
   }
 

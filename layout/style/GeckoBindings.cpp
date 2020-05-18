@@ -486,8 +486,7 @@ bool Gecko_GetAnimationRule(const Element* aElement,
     return false;
   }
   nsPresContext* presContext = doc->GetPresContext();
-  if (!presContext || !presContext->IsDynamic()) {
-    // For print or print preview, ignore animations.
+  if (!presContext) {
     return false;
   }
 
@@ -1354,9 +1353,10 @@ void Gecko_nsStyleFont_PrioritizeUserFonts(
 
 nscoord Gecko_nsStyleFont_ComputeMinSize(const nsStyleFont* aFont,
                                          const Document* aDocument) {
-  // Don't change font-size:0, since that would un-hide hidden text, nor chrome
-  // docs, we assume those know what they do.
-  if (aFont->mSize == 0 || nsContentUtils::IsChromeDoc(aDocument)) {
+  // Don't change font-size:0, since that would un-hide hidden text,
+  // or SVG text, or chrome docs, we assume those know what they do.
+  if (aFont->mSize == 0 || !aFont->mAllowZoomAndMinSize ||
+      nsContentUtils::IsChromeDoc(aDocument)) {
     return 0;
   }
 

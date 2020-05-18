@@ -1085,8 +1085,7 @@ static bool DecodeFunctionBodyExprs(const ModuleEnvironment& env,
           case uint32_t(SimdOp::V128Bitselect):
             CHECK(iter.readVectorSelect(&nothing, &nothing, &nothing));
 
-          case uint32_t(SimdOp::V8x16Shuffle):
-          case uint32_t(SimdOp::V8x16ShuffleLegacy): {
+          case uint32_t(SimdOp::V8x16Shuffle): {
             V128 mask;
             CHECK(iter.readVectorShuffle(&nothing, &nothing, &mask));
           }
@@ -1297,7 +1296,8 @@ static bool DecodeFunctionBodyExprs(const ModuleEnvironment& env,
         if (!env.refTypesEnabled()) {
           return iter.unrecognizedOpcode(&op);
         }
-        CHECK(iter.readConversion(RefType::any(), ValType::I32, &nothing));
+        Nothing nothing;
+        CHECK(iter.readRefIsNull(&nothing));
       }
 #endif
       case uint16_t(Op::ThreadPrefix): {
@@ -1685,7 +1685,6 @@ static bool DecodeStructType(Decoder& d, ModuleEnvironment* env,
             break;
           case RefType::Func:
           case RefType::Any:
-          case RefType::Null:
             offset = layout.addReference(ReferenceType::TYPE_WASM_ANYREF);
             break;
         }
@@ -1887,16 +1886,11 @@ static bool DecodeTableTypeAndLimits(Decoder& d, bool refTypesEnabled,
   if (elementType == uint8_t(TypeCode::FuncRef)) {
     tableKind = TableKind::FuncRef;
 #ifdef ENABLE_WASM_REFTYPES
-  } else if (elementType == uint8_t(TypeCode::AnyRef) ||
-             elementType == uint8_t(TypeCode::NullRef)) {
+  } else if (elementType == uint8_t(TypeCode::AnyRef)) {
     if (!refTypesEnabled) {
       return d.fail("expected 'funcref' element type");
     }
-    if (elementType == uint8_t(TypeCode::AnyRef)) {
-      tableKind = TableKind::AnyRef;
-    } else {
-      tableKind = TableKind::NullRef;
-    }
+    tableKind = TableKind::AnyRef;
 #endif
   } else {
 #ifdef ENABLE_WASM_REFTYPES
@@ -1938,7 +1932,6 @@ static bool GlobalIsJSCompatible(Decoder& d, ValType type) {
       switch (type.refTypeKind()) {
         case RefType::Func:
         case RefType::Any:
-        case RefType::Null:
           break;
         case RefType::TypeIndex:
 #ifdef WASM_PRIVATE_REFTYPES
@@ -2287,12 +2280,18 @@ static bool DecodeInitializerExpression(Decoder& d, ModuleEnvironment* env,
       break;
     }
 #endif
+#ifdef ENABLE_WASM_REFTYPES
     case uint16_t(Op::RefNull): {
-      if (!expected.isReference()) {
+      MOZ_ASSERT_IF(env->isStructType(expected), env->gcTypesEnabled());
+      RefType initType;
+      if (!d.readRefType(env->types, env->gcTypesEnabled(), &initType)) {
+        return false;
+      }
+      if (!expected.isReference() ||
+          !env->isRefSubtypeOf(ValType(initType), ValType(expected))) {
         return d.fail(
             "type mismatch: initializer type and expected type don't match");
       }
-      MOZ_ASSERT_IF(env->isStructType(expected), env->gcTypesEnabled());
       *init = InitExpr::fromConstant(LitVal(expected, AnyRef::null()));
       break;
     }
@@ -2306,9 +2305,11 @@ static bool DecodeInitializerExpression(Decoder& d, ModuleEnvironment* env,
         return d.fail(
             "failed to read ref.func index in initializer expression");
       }
+      env->validForRefFunc.setBit(i);
       *init = InitExpr::fromRefFunc(i);
       break;
     }
+#endif
     case uint16_t(Op::GetGlobal): {
       uint32_t i;
       const GlobalDescVector& globals = env->globals;
@@ -2456,6 +2457,7 @@ static bool DecodeExport(Decoder& d, ModuleEnvironment* env,
       }
 #endif
 
+      env->validForRefFunc.setBit(funcIndex);
       return env->exports.emplaceBack(std::move(fieldName), funcIndex,
                                       DefinitionKind::Function);
     }
@@ -2557,6 +2559,8 @@ static bool DecodeStartSection(Decoder& d, ModuleEnvironment* env) {
   if (funcIndex >= env->numFuncs()) {
     return d.fail("unknown start function");
   }
+
+  env->validForRefFunc.setBit(funcIndex);
 
   const FuncType& funcType = *env->funcTypes[funcIndex];
   if (funcType.results().length() > 0) {
@@ -2683,9 +2687,6 @@ static bool DecodeElemSection(Decoder& d, ModuleEnvironment* env) {
             case uint8_t(TypeCode::AnyRef):
               elemType = RefType::any();
               break;
-            case uint8_t(TypeCode::NullRef):
-              elemType = RefType::null();
-              break;
             default:
               return d.fail(
                   "segments with element expressions can only contain "
@@ -2775,7 +2776,9 @@ static bool DecodeElemSection(Decoder& d, ModuleEnvironment* env) {
             initType = RefType::func();
             break;
           case uint16_t(Op::RefNull):
-            initType = RefType::null();
+            if (!d.readRefType(env->types, env->gcTypesEnabled(), &initType)) {
+              return false;
+            }
             needIndex = false;
             break;
           default:

@@ -298,7 +298,7 @@ JS::Result<FunctionBox*> BinASTParserPerTokenizer<Tok>::buildFunctionBox(
   SourceExtent extent;
   auto* funbox = alloc_.new_<FunctionBox>(
       cx_, compilationInfo_.traceListHead, extent, getCompilationInfo(),
-      *directives, generatorKind, functionAsyncKind, fun->explicitName(),
+      *directives, generatorKind, functionAsyncKind, fun->displayAtom(),
       fun->flags(), index);
   if (MOZ_UNLIKELY(!funbox)) {
     return raiseOOM();
@@ -306,10 +306,12 @@ JS::Result<FunctionBox*> BinASTParserPerTokenizer<Tok>::buildFunctionBox(
 
   compilationInfo_.traceListHead = funbox;
   if (pc_) {
-    funbox->initWithEnclosingParseContext(pc_, fun, syntax);
+    funbox->initWithEnclosingParseContext(pc_, fun->flags(), syntax);
   } else {
+    frontend::ScopeContext scopeContext(fun->enclosingScope());
     funbox->initFromLazyFunction(fun);
-    funbox->initWithEnclosingScope(fun);
+    funbox->initWithEnclosingScope(scopeContext, fun->enclosingScope(),
+                                   fun->flags(), syntax);
   }
   return funbox;
 }
@@ -363,10 +365,9 @@ JS::Result<Ok> BinASTParserPerTokenizer<Tok>::finishEagerFunction(
   // Check all our bindings after maybe adding function metavars.
   MOZ_TRY(checkFunctionClosedVars());
 
-  BINJS_TRY_DECL(bindings,
-                 NewFunctionScopeData(cx_, pc_->functionScope(),
-                                      /* hasParameterExprs = */ false,
-                                      IsFieldInitializer::No, alloc_, pc_));
+  BINJS_TRY_DECL(bindings, NewFunctionScopeData(cx_, pc_->functionScope(),
+                                                /* hasParameterExprs = */ false,
+                                                alloc_, pc_));
 
   funbox->functionScopeBindings().set(*bindings);
 

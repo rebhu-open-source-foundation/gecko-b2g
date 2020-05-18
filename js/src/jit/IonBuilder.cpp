@@ -5200,7 +5200,7 @@ AbortReasonOr<MInstruction*> IonBuilder::createCallObject(MDefinition* callee,
         current->add(slots);
       }
       current->add(
-          MStoreSlot::New(alloc(), slots, slot - numFixedSlots, param));
+          MStoreDynamicSlot::New(alloc(), slots, slot - numFixedSlots, param));
     } else {
       current->add(MStoreFixedSlot::New(alloc(), callObj, slot, param));
     }
@@ -5374,13 +5374,14 @@ MDefinition* IonBuilder::createThisScriptedBaseline(MDefinition* callee) {
   }
 
   // Shape guard.
-  callee = addShapeGuard(callee, target->lastProperty(), Bailout_ShapeGuard);
+  callee = addShapeGuard(callee, target->lastProperty());
 
   // Guard callee.prototype == proto.
   MOZ_ASSERT(shape->numFixedSlots() == 0, "Must be a dynamic slot");
   MSlots* slots = MSlots::New(alloc(), callee);
   current->add(slots);
-  MLoadSlot* prototype = MLoadSlot::New(alloc(), slots, shape->slot());
+  MLoadDynamicSlot* prototype =
+      MLoadDynamicSlot::New(alloc(), slots, shape->slot());
   current->add(prototype);
   MDefinition* protoConst = constant(ObjectValue(*proto));
   MGuardObjectIdentity* guard =
@@ -9562,10 +9563,7 @@ AbortReasonOr<Ok> IonBuilder::jsop_setelem_typed(Scalar::Type arrayType,
     ins = MStoreTypedArrayElementHole::New(alloc(), elements, length, id,
                                            toWrite, arrayType);
   } else {
-    MStoreUnboxedScalar* store =
-        MStoreUnboxedScalar::New(alloc(), elements, id, toWrite, arrayType,
-                                 MStoreUnboxedScalar::TruncateInput);
-    ins = store;
+    ins = MStoreUnboxedScalar::New(alloc(), elements, id, toWrite, arrayType);
   }
 
   current->add(ins);
@@ -10108,7 +10106,7 @@ AbortReasonOr<bool> IonBuilder::testCommonGetterSetter(
   if (guardGlobal) {
     JSObject* obj = &script()->global();
     MDefinition* globalObj = constant(ObjectValue(*obj));
-    *globalGuard = addShapeGuard(globalObj, globalShape, Bailout_ShapeGuard);
+    *globalGuard = addShapeGuard(globalObj, globalShape);
   }
 
   // If the getter/setter is not configurable we don't have to guard on the
@@ -10121,8 +10119,7 @@ AbortReasonOr<bool> IonBuilder::testCommonGetterSetter(
   }
 
   MInstruction* wrapper = constant(ObjectValue(*foundProto));
-  *guard =
-      addShapeGuard(wrapper, foundProto->lastProperty(), Bailout_ShapeGuard);
+  *guard = addShapeGuard(wrapper, foundProto->lastProperty());
   return true;
 }
 
@@ -10265,7 +10262,7 @@ AbortReasonOr<Ok> IonBuilder::loadSlot(MDefinition* obj, size_t slot,
   MSlots* slots = MSlots::New(alloc(), obj);
   current->add(slots);
 
-  MLoadSlot* load = MLoadSlot::New(alloc(), slots, slot - nfixed);
+  MLoadDynamicSlot* load = MLoadDynamicSlot::New(alloc(), slots, slot - nfixed);
   current->add(load);
   current->push(load);
 
@@ -10296,7 +10293,8 @@ AbortReasonOr<Ok> IonBuilder::storeSlot(
   MSlots* slots = MSlots::New(alloc(), obj);
   current->add(slots);
 
-  MStoreSlot* store = MStoreSlot::New(alloc(), slots, slot - nfixed, value);
+  MStoreDynamicSlot* store =
+      MStoreDynamicSlot::New(alloc(), slots, slot - nfixed, value);
   current->add(store);
   current->push(value);
   if (needsBarrier) {
@@ -10724,7 +10722,7 @@ AbortReasonOr<Ok> IonBuilder::getPropTryDefiniteSlot(bool* emitted,
     MInstruction* slots = MSlots::New(alloc(), obj);
     current->add(slots);
 
-    load = MLoadSlot::New(alloc(), slots, slot - nfixed);
+    load = MLoadDynamicSlot::New(alloc(), slots, slot - nfixed);
   }
 
   if (barrier == BarrierKind::NoBarrier) {
@@ -10790,11 +10788,11 @@ MDefinition* IonBuilder::addShapeGuardsForGetterSetter(
 
   if (isOwnProperty) {
     MOZ_ASSERT(receivers.empty());
-    return addShapeGuard(obj, holderShape, Bailout_ShapeGuard);
+    return addShapeGuard(obj, holderShape);
   }
 
   MDefinition* holderDef = constant(ObjectValue(*holder));
-  addShapeGuard(holderDef, holderShape, Bailout_ShapeGuard);
+  addShapeGuard(holderDef, holderShape);
 
   return addGuardReceiverPolymorphic(obj, receivers);
 }
@@ -11039,7 +11037,7 @@ AbortReasonOr<Ok> IonBuilder::getPropTryInlineAccess(bool* emitted,
       // Monomorphic load from a native object.
       spew("Inlining monomorphic native GETPROP");
 
-      obj = addShapeGuard(obj, receivers[0].getShape(), Bailout_ShapeGuard);
+      obj = addShapeGuard(obj, receivers[0].getShape());
 
       Shape* shape = receivers[0].getShape()->searchLinear(NameToId(name));
       MOZ_ASSERT(shape);
@@ -11132,7 +11130,7 @@ AbortReasonOr<Ok> IonBuilder::getPropTryInlineProtoAccess(
   // Guard on the holder's shape.
   MInstruction* holderDef = constant(ObjectValue(*holder));
   Shape* holderShape = holder->as<NativeObject>().shape();
-  holderDef = addShapeGuard(holderDef, holderShape, Bailout_ShapeGuard);
+  holderDef = addShapeGuard(holderDef, holderShape);
 
   Shape* propShape = holderShape->searchLinear(NameToId(name));
   MOZ_ASSERT(propShape);
@@ -11582,9 +11580,9 @@ AbortReasonOr<Ok> IonBuilder::setPropTryDefiniteSlot(bool* emitted,
     MInstruction* slots = MSlots::New(alloc(), obj);
     current->add(slots);
 
-    store = MStoreSlot::New(alloc(), slots, slot - nfixed, value);
+    store = MStoreDynamicSlot::New(alloc(), slots, slot - nfixed, value);
     if (writeBarrier) {
-      store->toStoreSlot()->setNeedsBarrier();
+      store->toStoreDynamicSlot()->setNeedsBarrier();
     }
   }
 
@@ -11620,7 +11618,7 @@ AbortReasonOr<Ok> IonBuilder::setPropTryInlineAccess(
       // Monomorphic store to a native object.
       spew("Inlining monomorphic native SETPROP");
 
-      obj = addShapeGuard(obj, receivers[0].getShape(), Bailout_ShapeGuard);
+      obj = addShapeGuard(obj, receivers[0].getShape());
 
       Shape* shape = receivers[0].getShape()->searchLinear(NameToId(name));
       MOZ_ASSERT(shape);
@@ -12206,7 +12204,7 @@ MDefinition* IonBuilder::getAliasedVar(EnvironmentCoordinate ec) {
     current->add(slots);
 
     uint32_t slot = EnvironmentObject::nonExtensibleDynamicSlotIndex(ec);
-    load = MLoadSlot::New(alloc(), slots, slot);
+    load = MLoadDynamicSlot::New(alloc(), slots, slot);
   }
 
   current->add(load);
@@ -12237,7 +12235,7 @@ AbortReasonOr<Ok> IonBuilder::jsop_setaliasedvar(EnvironmentCoordinate ec) {
     current->add(slots);
 
     uint32_t slot = EnvironmentObject::nonExtensibleDynamicSlotIndex(ec);
-    store = MStoreSlot::NewBarriered(alloc(), slots, slot, rval);
+    store = MStoreDynamicSlot::NewBarriered(alloc(), slots, slot, rval);
   }
 
   current->add(store);
@@ -12599,13 +12597,13 @@ AbortReasonOr<Ok> IonBuilder::jsop_instanceof() {
     }
 
     // Shape guard.
-    rhs = addShapeGuard(rhs, shape, Bailout_ShapeGuard);
+    rhs = addShapeGuard(rhs, shape);
 
     // Guard .prototype == protoObject.
     MOZ_ASSERT(shape->numFixedSlots() == 0, "Must be a dynamic slot");
     MSlots* slots = MSlots::New(alloc(), rhs);
     current->add(slots);
-    MLoadSlot* prototype = MLoadSlot::New(alloc(), slots, slot);
+    MLoadDynamicSlot* prototype = MLoadDynamicSlot::New(alloc(), slots, slot);
     current->add(prototype);
     MConstant* protoConst =
         MConstant::NewConstraintlessObject(alloc(), protoObject);
@@ -12875,9 +12873,8 @@ MInstruction* IonBuilder::addBoundsCheck(MDefinition* index,
   return check;
 }
 
-MInstruction* IonBuilder::addShapeGuard(MDefinition* obj, Shape* const shape,
-                                        BailoutKind bailoutKind) {
-  MGuardShape* guard = MGuardShape::New(alloc(), obj, shape, bailoutKind);
+MInstruction* IonBuilder::addShapeGuard(MDefinition* obj, Shape* const shape) {
+  MGuardShape* guard = MGuardShape::New(alloc(), obj, shape);
   current->add(guard);
 
   // If a shape guard failed in the past, don't optimize shape guard.
@@ -12912,7 +12909,7 @@ MInstruction* IonBuilder::addGuardReceiverPolymorphic(
   if (receivers.length() == 1) {
     if (!receivers[0].getGroup()) {
       // Monomorphic guard on a native object.
-      return addShapeGuard(obj, receivers[0].getShape(), Bailout_ShapeGuard);
+      return addShapeGuard(obj, receivers[0].getShape());
     }
   }
 

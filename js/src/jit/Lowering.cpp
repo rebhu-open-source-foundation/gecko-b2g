@@ -2643,10 +2643,11 @@ void LIRGenerator::visitMaybeCopyElementsForWrite(
   assignSafepoint(check, ins);
 }
 
-void LIRGenerator::visitLoadSlot(MLoadSlot* ins) {
+void LIRGenerator::visitLoadDynamicSlot(MLoadDynamicSlot* ins) {
   switch (ins->type()) {
     case MIRType::Value:
-      defineBox(new (alloc()) LLoadSlotV(useRegisterAtStart(ins->slots())),
+      defineBox(new (alloc())
+                    LLoadDynamicSlotV(useRegisterAtStart(ins->slots())),
                 ins);
       break;
 
@@ -2655,8 +2656,8 @@ void LIRGenerator::visitLoadSlot(MLoadSlot* ins) {
       MOZ_CRASH("typed load must have a payload");
 
     default:
-      define(new (alloc())
-                 LLoadSlotT(useRegisterForTypedLoad(ins->slots(), ins->type())),
+      define(new (alloc()) LLoadDynamicSlotT(
+                 useRegisterForTypedLoad(ins->slots(), ins->type())),
              ins);
       break;
   }
@@ -2715,19 +2716,19 @@ void LIRGenerator::visitWasmReinterpret(MWasmReinterpret* ins) {
   }
 }
 
-void LIRGenerator::visitStoreSlot(MStoreSlot* ins) {
+void LIRGenerator::visitStoreDynamicSlot(MStoreDynamicSlot* ins) {
   LInstruction* lir;
 
   switch (ins->value()->type()) {
     case MIRType::Value:
       lir = new (alloc())
-          LStoreSlotV(useRegister(ins->slots()), useBox(ins->value()));
+          LStoreDynamicSlotV(useRegister(ins->slots()), useBox(ins->value()));
       add(lir, ins);
       break;
 
     case MIRType::Double:
-      add(new (alloc())
-              LStoreSlotT(useRegister(ins->slots()), useRegister(ins->value())),
+      add(new (alloc()) LStoreDynamicSlotT(useRegister(ins->slots()),
+                                           useRegister(ins->value())),
           ins);
       break;
 
@@ -2735,8 +2736,8 @@ void LIRGenerator::visitStoreSlot(MStoreSlot* ins) {
       MOZ_CRASH("Float32 shouldn't be stored in a slot.");
 
     default:
-      add(new (alloc()) LStoreSlotT(useRegister(ins->slots()),
-                                    useRegisterOrConstant(ins->value())),
+      add(new (alloc()) LStoreDynamicSlotT(useRegister(ins->slots()),
+                                           useRegisterOrConstant(ins->value())),
           ins);
       break;
   }
@@ -3710,7 +3711,31 @@ void LIRGenerator::visitLoadFixedSlotAndUnbox(MLoadFixedSlotAndUnbox* ins) {
   if (ins->fallible()) {
     assignSnapshot(lir, ins->bailoutKind());
   }
+  define(lir, ins);
+}
 
+void LIRGenerator::visitLoadDynamicSlotAndUnbox(MLoadDynamicSlotAndUnbox* ins) {
+  MDefinition* slots = ins->slots();
+  MOZ_ASSERT(slots->type() == MIRType::Slots);
+
+  auto* lir = new (alloc()) LLoadDynamicSlotAndUnbox(useRegisterAtStart(slots));
+  if (ins->fallible()) {
+    assignSnapshot(lir, ins->bailoutKind());
+  }
+  define(lir, ins);
+}
+
+void LIRGenerator::visitLoadElementAndUnbox(MLoadElementAndUnbox* ins) {
+  MDefinition* elements = ins->elements();
+  MDefinition* index = ins->index();
+  MOZ_ASSERT(elements->type() == MIRType::Elements);
+  MOZ_ASSERT(index->type() == MIRType::Int32);
+
+  auto* lir = new (alloc())
+      LLoadElementAndUnbox(useRegister(elements), useRegisterOrConstant(index));
+  if (ins->fallible()) {
+    assignSnapshot(lir, ins->bailoutKind());
+  }
   define(lir, ins);
 }
 
@@ -3870,6 +3895,7 @@ void LIRGenerator::visitGuardSpecificAtom(MGuardSpecificAtom* ins) {
   auto* guard = new (alloc()) LGuardSpecificAtom(useRegister(ins->str()));
   assignSnapshot(guard, Bailout_SpecificAtomGuard);
   add(guard, ins);
+  redefine(ins, ins->str());
 }
 
 void LIRGenerator::visitGuardShape(MGuardShape* ins) {
@@ -3878,12 +3904,12 @@ void LIRGenerator::visitGuardShape(MGuardShape* ins) {
   if (JitOptions.spectreObjectMitigationsMisc) {
     auto* lir =
         new (alloc()) LGuardShape(useRegisterAtStart(ins->object()), temp());
-    assignSnapshot(lir, ins->bailoutKind());
+    assignSnapshot(lir, Bailout_ShapeGuard);
     defineReuseInput(lir, ins, 0);
   } else {
     auto* lir = new (alloc())
         LGuardShape(useRegister(ins->object()), LDefinition::BogusTemp());
-    assignSnapshot(lir, ins->bailoutKind());
+    assignSnapshot(lir, Bailout_ShapeGuard);
     add(lir, ins);
     redefine(ins, ins->object());
   }
@@ -3957,6 +3983,7 @@ void LIRGenerator::visitGuardValue(MGuardValue* ins) {
   auto* lir = new (alloc()) LGuardValue(useBox(ins->value()));
   assignSnapshot(lir, Bailout_ValueGuard);
   add(lir, ins);
+  redefine(ins, ins->value());
 }
 
 void LIRGenerator::visitGuardNullOrUndefined(MGuardNullOrUndefined* ins) {
@@ -3964,6 +3991,7 @@ void LIRGenerator::visitGuardNullOrUndefined(MGuardNullOrUndefined* ins) {
   auto* lir = new (alloc()) LGuardNullOrUndefined(useBox(ins->value()));
   assignSnapshot(lir, Bailout_NullOrUndefinedGuard);
   add(lir, ins);
+  redefine(ins, ins->value());
 }
 
 void LIRGenerator::visitAssertRange(MAssertRange* ins) {

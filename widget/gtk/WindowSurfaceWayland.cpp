@@ -11,7 +11,7 @@
 #include "mozilla/gfx/2D.h"
 #include "mozilla/gfx/Tools.h"
 #include "gfxPlatform.h"
-#include "mozcontainer.h"
+#include "MozContainer.h"
 #include "nsTArray.h"
 #include "base/message_loop.h"  // for MessageLoop
 #include "base/task.h"          // for NewRunnableMethod, etc
@@ -390,10 +390,13 @@ void WindowBackBuffer::Attach(wl_surface* aSurface) {
        (void*)GetWlBuffer(),
        GetWlBuffer() ? wl_proxy_get_id((struct wl_proxy*)GetWlBuffer()) : -1));
 
-  wl_surface_attach(aSurface, GetWlBuffer(), 0, 0);
-  wl_surface_commit(aSurface);
-  wl_display_flush(WaylandDisplayGetWLDisplay());
-  SetAttached();
+  wl_buffer* buffer = GetWlBuffer();
+  if (buffer) {
+    wl_surface_attach(aSurface, buffer, 0, 0);
+    wl_surface_commit(aSurface);
+    wl_display_flush(WaylandDisplayGetWLDisplay());
+    SetAttached();
+  }
 }
 
 void WindowBackBufferShm::Detach(wl_buffer* aBuffer) {

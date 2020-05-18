@@ -1814,10 +1814,12 @@ AttachDecision GetPropIRGenerator::tryAttachTypedArrayLength(HandleObject obj,
   }
 
   maybeEmitIdGuard(id);
-  // Emit all the normal guards for calling this native,
-  // but specialize callNativeGetterResult.
+  // Emit all the normal guards for calling this native, but specialize
+  // callNativeGetterResult. Also store the getter itself to enable
+  // AddCacheIRGetPropFunction to read it from the IC stub, which is needed for
+  // Ion-inlining.
   EmitCallGetterResultGuards(writer, obj, holder, shape, objId, mode_);
-  writer.loadTypedArrayLengthResult(objId);
+  writer.loadTypedArrayLengthResult(objId, &fun);
   writer.returnFromIC();
 
   trackAttached("TypedArrayLength");
@@ -4042,8 +4044,14 @@ AttachDecision SetPropIRGenerator::tryAttachSetTypedElement(
 
   OperandId rhsValId = emitNumericGuard(rhsId, elementType);
 
-  writer.storeTypedElement(objId, layout, elementType, indexId, rhsValId,
-                           handleOutOfBounds);
+  if (layout == TypedThingLayout::TypedArray) {
+    writer.storeTypedArrayElement(objId, elementType, indexId, rhsValId,
+                                  handleOutOfBounds);
+  } else {
+    MOZ_ASSERT(!handleOutOfBounds);
+    writer.storeTypedObjectElement(objId, layout, elementType, indexId,
+                                   rhsValId);
+  }
   writer.returnFromIC();
 
   if (handleOutOfBounds) {
@@ -4065,7 +4073,6 @@ AttachDecision SetPropIRGenerator::tryAttachSetTypedArrayElementNonInt32Index(
   }
 
   Scalar::Type elementType = TypedThingElementType(obj);
-  TypedThingLayout layout = GetTypedThingLayout(obj->getClass());
 
   // Don't attach if the input type doesn't match the guard added below.
   if (Scalar::isBigIntType(elementType)) {
@@ -4089,8 +4096,8 @@ AttachDecision SetPropIRGenerator::tryAttachSetTypedArrayElementNonInt32Index(
   // can be out-of-bounds.
   bool handleOutOfBounds = true;
 
-  writer.storeTypedElement(objId, layout, elementType, indexId, rhsValId,
-                           handleOutOfBounds);
+  writer.storeTypedArrayElement(objId, elementType, indexId, rhsValId,
+                                handleOutOfBounds);
   writer.returnFromIC();
 
   attachedTypedArrayOOBStub_ = true;

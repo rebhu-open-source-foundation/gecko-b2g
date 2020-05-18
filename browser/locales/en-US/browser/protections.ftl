@@ -25,20 +25,13 @@ graph-private-window = { -brand-short-name } continues to  block trackers in Pri
 # Weekly summary of the graph when the graph is empty in Private Mode
 graph-week-summary-private-window = Trackers { -brand-short-name } blocked this week
 
-# The terminology used to refer to categories of Content Blocking is also used in chrome/browser/browser.properties and should be translated consistently.
-# "Standard" in this case is an adjective, meaning "default" or "normal".
-# The category name in the <b> tag will be bold.
-protection-report-header-details-standard = Protection Level is set to <b>Standard</b>
-  .title = Go to Privacy Settings
-protection-report-header-details-strict = Protection Level is set to <b>Strict</b>
-  .title = Go to Privacy Settings
-protection-report-header-details-custom = Protection Level is set to <b>Custom</b>
-  .title = Go to Privacy Settings
-protection-report-page-title = Privacy Protections
-protection-report-content-title = Privacy Protections
+protection-report-webpage-title = Protections Dashboard
+protection-report-page-content-title = Protections Dashboard
+protection-report-page-summary = { -brand-short-name } can protect your privacy behind the scenes while you browse. This is a personalized summary of those protections, including tools to take control of your online security.
 
-etp-card-title = Enhanced Tracking Protection
-etp-card-content = Trackers follow you around online to collect information about your browsing habits and interests. { -brand-short-name } blocks many of these trackers and other malicious scripts.
+etp-card-title-always = Enhanced Tracking Protection: Always On
+etp-card-title-custom-not-blocking = Enhanced Tracking Protection: OFF
+etp-card-content-summary = When unknown companies try to secretly follow you around the web, { -brand-short-name } automatically stops many of them.
 protection-report-etp-card-content-custom-not-blocking = All protections are currently turned off. Choose which trackers to block by managing your { -brand-short-name } protections settings.
 protection-report-manage-protections = Manage Settings
 
@@ -112,6 +105,13 @@ monitor-header-content-no-account = Check { -monitor-brand-name } to see if youâ
 monitor-header-content-signed-in = { -monitor-brand-name } warns you if your info has appeared in a known data breach.
 monitor-sign-up = Sign Up for Breach Alerts
 auto-scan = Automatically scanned today
+
+monitor-emails-tooltip =
+  .title = View monitored email addresses on { -monitor-brand-short-name }
+monitor-breaches-tooltip =
+  .title = View known data breaches on { -monitor-brand-short-name }
+monitor-passwords-tooltip =
+  .title = View exposed passwords on { -monitor-brand-short-name }
 
 # This string is displayed after a large numeral that indicates the total number
 # of email addresses being monitored. Donâ€™t add $count to

@@ -2425,7 +2425,7 @@ already_AddRefed<WorkerPrivate> WorkerPrivate::Constructor(
   MOZ_DIAGNOSTIC_ASSERT(worker->PrincipalIsValid());
 
   UniquePtr<SerializedStackHolder> stack;
-  if (worker->IsWatchedByDevtools()) {
+  if (worker->IsWatchedByDevTools()) {
     stack = GetCurrentStackForNetMonitor(aCx);
   }
 
@@ -2535,7 +2535,7 @@ nsresult WorkerPrivate::GetLoadInfo(JSContext* aCx, nsPIDOMWindowInner* aWindow,
     loadInfo.mServiceWorkersTestingInWindow =
         aParent->ServiceWorkersTestingInWindow();
     loadInfo.mParentController = aParent->GlobalScope()->GetController();
-    loadInfo.mWatchedByDevtools = aParent->IsWatchedByDevtools();
+    loadInfo.mWatchedByDevTools = aParent->IsWatchedByDevTools();
   } else {
     AssertIsOnMainThread();
 
@@ -2656,10 +2656,9 @@ nsresult WorkerPrivate::GetLoadInfo(JSContext* aCx, nsPIDOMWindowInner* aWindow,
 
       loadInfo.mXHRParamsAllowed = perm == nsIPermissionManager::ALLOW_ACTION;
 
-      nsIDocShell* docShell = globalWindow->GetDocShell();
-      if (docShell) {
-        loadInfo.mWatchedByDevtools = docShell->GetWatchedByDevtools();
-      }
+      BrowsingContext* browsingContext = globalWindow->GetBrowsingContext();
+      loadInfo.mWatchedByDevTools =
+          browsingContext ? browsingContext->WatchedByDevTools() : false;
 
       loadInfo.mReferrerInfo =
           ReferrerInfo::CreateForFetch(loadInfo.mLoadingPrincipal, document);
@@ -2797,6 +2796,26 @@ void WorkerPrivate::OverrideLoadInfoLoadGroup(WorkerLoadInfo& aLoadInfo,
   aLoadInfo.mLoadGroup = std::move(loadGroup);
 
   MOZ_ASSERT(NS_LoadGroupMatchesPrincipal(aLoadInfo.mLoadGroup, aPrincipal));
+}
+
+void WorkerPrivate::RunLoopNeverRan() {
+  {
+    MutexAutoLock lock(mMutex);
+
+    mStatus = Dead;
+  }
+
+  // After mStatus is set to Dead there can be no more
+  // WorkerControlRunnables so no need to lock here.
+  if (!mControlQueue.IsEmpty()) {
+    WorkerControlRunnable* runnable = nullptr;
+    while (mControlQueue.Pop(runnable)) {
+      runnable->Cancel();
+      runnable->Release();
+    }
+  }
+
+  ScheduleDeletion(WorkerPrivate::WorkerRan);
 }
 
 void WorkerPrivate::DoRunLoop(JSContext* aCx) {
@@ -2979,10 +2998,38 @@ void WorkerPrivate::DoRunLoop(JSContext* aCx) {
   MOZ_CRASH("Shouldn't get here!");
 }
 
+namespace {
+/**
+ * If there is a current CycleCollectedJSContext, return its recursion depth,
+ * otherwise return 1.
+ *
+ * In the edge case where a worker is starting up so late that PBackground is
+ * already shutting down, the cycle collected context will never be created,
+ * but we will need to drain the event loop in ClearMainEventQueue.  This will
+ * result in a normal NS_ProcessPendingEvents invocation which will call
+ * WorkerPrivate::OnProcessNextEvent and WorkerPrivate::AfterProcessNextEvent
+ * which want to handle the need to process control runnables and perform a
+ * sanity check assertion, respectively.
+ *
+ * We claim a depth of 1 when there's no CCJS because this most corresponds to
+ * reality, but this doesn't meant that other code might want to drain various
+ * runnable queues as part of this cleanup.
+ */
+uint32_t GetEffectiveEventLoopRecursionDepth() {
+  auto ccjs = CycleCollectedJSContext::Get();
+  if (ccjs) {
+    return ccjs->RecursionDepth();
+  }
+
+  return 1;
+}
+
+}  // namespace
+
 void WorkerPrivate::OnProcessNextEvent() {
   AssertIsOnWorkerThread();
 
-  uint32_t recursionDepth = CycleCollectedJSContext::Get()->RecursionDepth();
+  uint32_t recursionDepth = GetEffectiveEventLoopRecursionDepth();
   MOZ_ASSERT(recursionDepth);
 
   // Normally we process control runnables in DoRunLoop or RunCurrentSyncLoop.
@@ -2998,7 +3045,7 @@ void WorkerPrivate::OnProcessNextEvent() {
 
 void WorkerPrivate::AfterProcessNextEvent() {
   AssertIsOnWorkerThread();
-  MOZ_ASSERT(CycleCollectedJSContext::Get()->RecursionDepth());
+  MOZ_ASSERT(GetEffectiveEventLoopRecursionDepth());
 }
 
 nsIEventTarget* WorkerPrivate::MainThreadEventTargetForMessaging() {

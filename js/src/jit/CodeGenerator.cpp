@@ -4251,7 +4251,7 @@ void CodeGenerator::visitSlots(LSlots* lir) {
   masm.loadPtr(slots, ToRegister(lir->output()));
 }
 
-void CodeGenerator::visitLoadSlotT(LLoadSlotT* lir) {
+void CodeGenerator::visitLoadDynamicSlotT(LLoadDynamicSlotT* lir) {
   Register base = ToRegister(lir->slots());
   int32_t offset = lir->mir()->slot() * sizeof(js::Value);
   AnyRegister result = ToAnyRegister(lir->output());
@@ -4259,7 +4259,7 @@ void CodeGenerator::visitLoadSlotT(LLoadSlotT* lir) {
   masm.loadUnboxedValue(Address(base, offset), lir->mir()->type(), result);
 }
 
-void CodeGenerator::visitLoadSlotV(LLoadSlotV* lir) {
+void CodeGenerator::visitLoadDynamicSlotV(LLoadDynamicSlotV* lir) {
   ValueOperand dest = ToOutValue(lir);
   Register base = ToRegister(lir->input());
   int32_t offset = lir->mir()->slot() * sizeof(js::Value);
@@ -4267,7 +4267,7 @@ void CodeGenerator::visitLoadSlotV(LLoadSlotV* lir) {
   masm.loadValue(Address(base, offset), dest);
 }
 
-void CodeGenerator::visitStoreSlotT(LStoreSlotT* lir) {
+void CodeGenerator::visitStoreDynamicSlotT(LStoreDynamicSlotT* lir) {
   Register base = ToRegister(lir->slots());
   int32_t offset = lir->mir()->slot() * sizeof(js::Value);
   Address dest(base, offset);
@@ -4294,11 +4294,11 @@ void CodeGenerator::visitStoreSlotT(LStoreSlotT* lir) {
   }
 }
 
-void CodeGenerator::visitStoreSlotV(LStoreSlotV* lir) {
+void CodeGenerator::visitStoreDynamicSlotV(LStoreDynamicSlotV* lir) {
   Register base = ToRegister(lir->slots());
   int32_t offset = lir->mir()->slot() * sizeof(Value);
 
-  const ValueOperand value = ToValue(lir, LStoreSlotV::Value);
+  const ValueOperand value = ToValue(lir, LStoreDynamicSlotV::Value);
 
   if (lir->mir()->needsBarrier()) {
     emitPreBarrier(Address(base, offset));
@@ -4755,11 +4755,9 @@ void CodeGenerator::visitTruncateBigIntToInt64(LTruncateBigIntToInt64* lir) {
   masm.loadBigInt64(operand, output);
 }
 
-void CodeGenerator::visitInt64ToBigInt(LInt64ToBigInt* lir) {
-  Register64 input = ToRegister64(lir->input());
-  Register temp = ToRegister(lir->temp());
-  Register output = ToRegister(lir->output());
-
+void CodeGenerator::emitCreateBigInt(LInstruction* lir, Scalar::Type type,
+                                     Register64 input, Register output,
+                                     Register maybeTemp) {
 #if JS_BITS_PER_WORD == 32
   using Fn = BigInt* (*)(JSContext*, uint32_t, uint32_t);
   auto args = ArgList(input.low, input.high);
@@ -4768,12 +4766,46 @@ void CodeGenerator::visitInt64ToBigInt(LInt64ToBigInt* lir) {
   auto args = ArgList(input);
 #endif
 
-  OutOfLineCode* ool = oolCallVM<Fn, jit::CreateBigIntFromInt64>(
-      lir, args, StoreRegisterTo(output));
+  OutOfLineCode* ool;
+  if (type == Scalar::BigInt64) {
+    ool = oolCallVM<Fn, jit::CreateBigIntFromInt64>(lir, args,
+                                                    StoreRegisterTo(output));
+  } else {
+    MOZ_ASSERT(type == Scalar::BigUint64);
+    ool = oolCallVM<Fn, jit::CreateBigIntFromUint64>(lir, args,
+                                                     StoreRegisterTo(output));
+  }
 
-  masm.newGCBigInt(output, temp, ool->entry(), bigIntsCanBeInNursery());
-  masm.initializeBigInt64(Scalar::BigInt64, output, input);
+  if (maybeTemp != InvalidReg) {
+    masm.newGCBigInt(output, maybeTemp, ool->entry(), bigIntsCanBeInNursery());
+  } else {
+    AllocatableGeneralRegisterSet regs(GeneralRegisterSet::All());
+    regs.take(input);
+    regs.take(output);
+
+    Register temp = regs.takeAny();
+
+    masm.push(temp);
+
+    Label fail, ok;
+    masm.newGCBigInt(output, temp, &fail, bigIntsCanBeInNursery());
+    masm.pop(temp);
+    masm.jump(&ok);
+    masm.bind(&fail);
+    masm.pop(temp);
+    masm.jump(ool->entry());
+    masm.bind(&ok);
+  }
+  masm.initializeBigInt64(type, output, input);
   masm.bind(ool->rejoin());
+}
+
+void CodeGenerator::visitInt64ToBigInt(LInt64ToBigInt* lir) {
+  Register64 input = ToRegister64(lir->input());
+  Register temp = ToRegister(lir->temp());
+  Register output = ToRegister(lir->output());
+
+  emitCreateBigInt(lir, Scalar::BigInt64, input, output, temp);
 }
 
 void CodeGenerator::visitTypeBarrierV(LTypeBarrierV* lir) {
@@ -5043,8 +5075,6 @@ void CodeGenerator::visitPostWriteBarrierCommonV(LPostBarrierType* lir,
   maybeEmitGlobalBarrierCheck(lir->object(), ool);
 
   ValueOperand value = ToValue(lir, LPostBarrierType::Input);
-  // Bug 1386094 - most callers only need to check for object, string, or
-  // bigint, not all three.
   masm.branchValueIsNurseryCell(Assembler::Equal, value, temp, ool->entry());
 
   masm.bind(ool->rejoin());
@@ -11410,37 +11440,82 @@ void CodeGenerator::visitLoadFixedSlotT(LLoadFixedSlotT* ins) {
                         type, result);
 }
 
+template <typename T>
+static void EmitLoadAndUnbox(MacroAssembler& masm, const T& src, MIRType type,
+                             bool fallible, AnyRegister dest, Label* fail) {
+  if (type == MIRType::Double) {
+    MOZ_ASSERT(dest.isFloat());
+    masm.ensureDouble(src, dest.fpu(), fail);
+    return;
+  }
+  if (fallible) {
+    switch (type) {
+      case MIRType::Int32:
+        masm.branchTestInt32(Assembler::NotEqual, src, fail);
+        break;
+      case MIRType::Boolean:
+        masm.branchTestBoolean(Assembler::NotEqual, src, fail);
+        break;
+      default:
+        MOZ_CRASH("Unexpected MIRType");
+    }
+  }
+  masm.loadUnboxedValue(src, type, dest);
+}
+
 void CodeGenerator::visitLoadFixedSlotAndUnbox(LLoadFixedSlotAndUnbox* ins) {
   const MLoadFixedSlotAndUnbox* mir = ins->mir();
   MIRType type = mir->type();
-  const Register input = ToRegister(ins->getOperand(0));
+  Register input = ToRegister(ins->object());
   AnyRegister result = ToAnyRegister(ins->output());
   size_t slot = mir->slot();
 
   Address address(input, NativeObject::getFixedSlotOffset(slot));
+
   Label bail;
-  if (type == MIRType::Double) {
-    MOZ_ASSERT(result.isFloat());
-    masm.ensureDouble(address, result.fpu(), &bail);
-    if (mir->fallible()) {
-      bailoutFrom(&bail, ins->snapshot());
-    }
-    return;
-  }
+  EmitLoadAndUnbox(masm, address, type, mir->fallible(), result, &bail);
   if (mir->fallible()) {
-    switch (type) {
-      case MIRType::Int32:
-        masm.branchTestInt32(Assembler::NotEqual, address, &bail);
-        break;
-      case MIRType::Boolean:
-        masm.branchTestBoolean(Assembler::NotEqual, address, &bail);
-        break;
-      default:
-        MOZ_CRASH("Given MIRType cannot be unboxed.");
-    }
     bailoutFrom(&bail, ins->snapshot());
   }
-  masm.loadUnboxedValue(address, type, result);
+}
+
+void CodeGenerator::visitLoadDynamicSlotAndUnbox(
+    LLoadDynamicSlotAndUnbox* ins) {
+  const MLoadDynamicSlotAndUnbox* mir = ins->mir();
+  MIRType type = mir->type();
+  Register input = ToRegister(ins->slots());
+  AnyRegister result = ToAnyRegister(ins->output());
+  size_t slot = mir->slot();
+
+  Address address(input, slot * sizeof(JS::Value));
+
+  Label bail;
+  EmitLoadAndUnbox(masm, address, type, mir->fallible(), result, &bail);
+  if (mir->fallible()) {
+    bailoutFrom(&bail, ins->snapshot());
+  }
+}
+
+void CodeGenerator::visitLoadElementAndUnbox(LLoadElementAndUnbox* ins) {
+  const MLoadElementAndUnbox* mir = ins->mir();
+  MIRType type = mir->type();
+  Register elements = ToRegister(ins->elements());
+  AnyRegister result = ToAnyRegister(ins->output());
+
+  Label bail;
+  if (ins->index()->isConstant()) {
+    NativeObject::elementsSizeMustNotOverflow();
+    int32_t offset = ToInt32(ins->index()) * sizeof(Value);
+    Address address(elements, offset);
+    EmitLoadAndUnbox(masm, address, type, mir->fallible(), result, &bail);
+  } else {
+    BaseObjectElementIndex address(elements, ToRegister(ins->index()));
+    EmitLoadAndUnbox(masm, address, type, mir->fallible(), result, &bail);
+  }
+
+  if (mir->fallible()) {
+    bailoutFrom(&bail, ins->snapshot());
+  }
 }
 
 void CodeGenerator::visitStoreFixedSlotV(LStoreFixedSlotV* ins) {
@@ -11584,8 +11659,7 @@ void CodeGenerator::visitGetPropertyCacheV(LGetPropertyCacheV* ins) {
   ConstantOrRegister id = toConstantOrRegister(ins, LGetPropertyCacheV::Id,
                                                ins->mir()->idval()->type());
   TypedOrValueRegister output(ToOutValue(ins));
-  Register maybeTemp =
-      ins->temp()->isBogusTemp() ? InvalidReg : ToRegister(ins->temp());
+  Register maybeTemp = ToTempRegisterOrInvalid(ins->temp());
 
   addGetPropertyCache(ins, liveRegs, value, id, output, maybeTemp,
                       IonGetPropertyICFlags(ins->mir()));
@@ -11601,8 +11675,7 @@ void CodeGenerator::visitGetPropertyCacheT(LGetPropertyCacheT* ins) {
                                                ins->mir()->idval()->type());
   TypedOrValueRegister output(ins->mir()->type(),
                               ToAnyRegister(ins->getDef(0)));
-  Register maybeTemp =
-      ins->temp()->isBogusTemp() ? InvalidReg : ToRegister(ins->temp());
+  Register maybeTemp = ToTempRegisterOrInvalid(ins->temp());
 
   addGetPropertyCache(ins, liveRegs, value, id, output, maybeTemp,
                       IonGetPropertyICFlags(ins->mir()));
@@ -12058,8 +12131,7 @@ void CodeGenerator::visitUnboxObjectOrNull(LUnboxObjectOrNull* lir) {
 
 void CodeGenerator::visitLoadUnboxedScalar(LLoadUnboxedScalar* lir) {
   Register elements = ToRegister(lir->elements());
-  Register temp =
-      lir->temp()->isBogusTemp() ? InvalidReg : ToRegister(lir->temp());
+  Register temp = ToTempRegisterOrInvalid(lir->temp());
   AnyRegister out = ToAnyRegister(lir->output());
 
   const MLoadUnboxedScalar* mir = lir->mir();
@@ -12104,27 +12176,7 @@ void CodeGenerator::visitLoadUnboxedBigInt(LLoadUnboxedBigInt* lir) {
     masm.load64(source, temp64);
   }
 
-#if JS_BITS_PER_WORD == 32
-  using Fn = BigInt* (*)(JSContext*, uint32_t, uint32_t);
-  auto args = ArgList(temp64.low, temp64.high);
-#else
-  using Fn = BigInt* (*)(JSContext*, uint64_t);
-  auto args = ArgList(temp64);
-#endif
-
-  OutOfLineCode* ool;
-  if (storageType == Scalar::BigInt64) {
-    ool = oolCallVM<Fn, jit::CreateBigIntFromInt64>(lir, args,
-                                                    StoreRegisterTo(out));
-  } else {
-    MOZ_ASSERT(storageType == Scalar::BigUint64);
-    ool = oolCallVM<Fn, jit::CreateBigIntFromUint64>(lir, args,
-                                                     StoreRegisterTo(out));
-  }
-
-  masm.newGCBigInt(out, temp, ool->entry(), bigIntsCanBeInNursery());
-  masm.initializeBigInt64(storageType, out, temp64);
-  masm.bind(ool->rejoin());
+  emitCreateBigInt(lir, storageType, temp64, out, temp);
 }
 
 void CodeGenerator::visitLoadTypedArrayElementHole(
@@ -12196,28 +12248,7 @@ void CodeGenerator::visitLoadTypedArrayElementHoleBigInt(
   masm.load64(source, temp64);
 
   Register bigInt = out.scratchReg();
-
-#if JS_BITS_PER_WORD == 32
-  using Fn = BigInt* (*)(JSContext*, uint32_t, uint32_t);
-  auto args = ArgList(temp64.low, temp64.high);
-#else
-  using Fn = BigInt* (*)(JSContext*, uint64_t);
-  auto args = ArgList(temp64);
-#endif
-
-  OutOfLineCode* ool;
-  if (arrayType == Scalar::BigInt64) {
-    ool = oolCallVM<Fn, jit::CreateBigIntFromInt64>(lir, args,
-                                                    StoreRegisterTo(bigInt));
-  } else {
-    MOZ_ASSERT(arrayType == Scalar::BigUint64);
-    ool = oolCallVM<Fn, jit::CreateBigIntFromUint64>(lir, args,
-                                                     StoreRegisterTo(bigInt));
-  }
-
-  masm.newGCBigInt(bigInt, temp, ool->entry(), bigIntsCanBeInNursery());
-  masm.initializeBigInt64(arrayType, bigInt, temp64);
-  masm.bind(ool->rejoin());
+  emitCreateBigInt(lir, arrayType, temp64, bigInt, temp);
 
   masm.tagValue(JSVAL_TYPE_BIGINT, bigInt, out);
   masm.jump(&done);
@@ -12491,7 +12522,7 @@ void CodeGenerator::visitStoreUnboxedScalar(LStoreUnboxedScalar* lir) {
 
   Scalar::Type writeType = mir->writeType();
 
-  size_t width = Scalar::byteSize(mir->storageType());
+  size_t width = Scalar::byteSize(mir->writeType());
 
   if (lir->index()->isConstant()) {
     Address dest(elements, ToInt32(lir->index()) * width);
@@ -12510,7 +12541,7 @@ void CodeGenerator::visitStoreUnboxedBigInt(LStoreUnboxedBigInt* lir) {
 
   const MStoreUnboxedScalar* mir = lir->mir();
   Scalar::Type writeType = mir->writeType();
-  size_t width = Scalar::byteSize(mir->storageType());
+  size_t width = Scalar::byteSize(mir->writeType());
 
   masm.loadBigInt64(value, temp);
 
@@ -14329,7 +14360,6 @@ void CodeGenerator::emitIonToWasmCallBase(LIonToWasmCallBase<NumDefs>* lir) {
             // AnyRef is boxed on the JS side, so passed as a pointer here.
             argMir = ToMIRType(sig.args()[i]);
             break;
-          case wasm::RefType::Null:
           case wasm::RefType::Func:
           case wasm::RefType::TypeIndex:
             MOZ_CRASH("unexpected argument type when calling from ion to wasm");
@@ -14402,7 +14432,6 @@ void CodeGenerator::emitIonToWasmCallBase(LIonToWasmCallBase<NumDefs>* lir) {
         switch (results[0].refTypeKind()) {
           case wasm::RefType::Any:
           case wasm::RefType::Func:
-          case wasm::RefType::Null:
             // The wasm stubs layer unboxes anything that needs to be unboxed
             // and leaves it in a Value.  A FuncRef we could in principle leave
             // as a raw object pointer but for now it complicates the API to do

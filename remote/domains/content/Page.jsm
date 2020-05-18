@@ -13,9 +13,6 @@ const { XPCOMUtils } = ChromeUtils.import(
 const { ContentProcessDomain } = ChromeUtils.import(
   "chrome://remote/content/domains/ContentProcessDomain.jsm"
 );
-const { UnsupportedError } = ChromeUtils.import(
-  "chrome://remote/content/Error.jsm"
-);
 
 XPCOMUtils.defineLazyServiceGetter(
   this,
@@ -43,12 +40,12 @@ class Page extends ContentProcessDomain {
     this._onFrameNavigated = this._onFrameNavigated.bind(this);
     this._onScriptLoaded = this._onScriptLoaded.bind(this);
 
-    this.contextObserver.on("script-loaded", this._onScriptLoaded);
+    this.session.contextObserver.on("script-loaded", this._onScriptLoaded);
   }
 
   destructor() {
     this.setLifecycleEventsEnabled({ enabled: false });
-    this.contextObserver.off("script-loaded", this._onScriptLoaded);
+    this.session.contextObserver.off("script-loaded", this._onScriptLoaded);
     this.disable();
 
     super.destructor();
@@ -59,7 +56,10 @@ class Page extends ContentProcessDomain {
   async enable() {
     if (!this.enabled) {
       this.enabled = true;
-      this.contextObserver.on("frame-navigated", this._onFrameNavigated);
+      this.session.contextObserver.on(
+        "frame-navigated",
+        this._onFrameNavigated
+      );
 
       this.chromeEventHandler.addEventListener("readystatechange", this, {
         mozSystemGroup: true,
@@ -87,7 +87,10 @@ class Page extends ContentProcessDomain {
 
   disable() {
     if (this.enabled) {
-      this.contextObserver.off("frame-navigated", this._onFrameNavigated);
+      this.session.contextObserver.off(
+        "frame-navigated",
+        this._onFrameNavigated
+      );
 
       this.chromeEventHandler.removeEventListener("readystatechange", this, {
         mozSystemGroup: true,
@@ -180,21 +183,40 @@ class Page extends ContentProcessDomain {
    *
    * @param {Object} options
    * @param {string} options.frameId
+   *     Id of the frame in which the isolated world should be created.
    * @param {string=} options.worldName
+   *     An optional name which is reported in the Execution Context.
    * @param {boolean=} options.grantUniversalAccess (not supported)
    *     This is a powerful option, use with caution.
+   *
    * @return {number} Runtime.ExecutionContextId
+   *     Execution context of the isolated world.
    */
   createIsolatedWorld(options = {}) {
     const { frameId, worldName } = options;
-    if (frameId && frameId != this.docShell.browsingContext.id.toString()) {
-      throw new UnsupportedError("frameId not supported");
+
+    if (typeof frameId != "string") {
+      throw new TypeError("frameId: string value expected");
     }
+
+    if (!["undefined", "string"].includes(typeof worldName)) {
+      throw new TypeError("worldName: string value expected");
+    }
+
     const Runtime = this.session.domains.get("Runtime");
+    const contexts = Runtime._getContextsForFrame(frameId);
+    if (contexts.length == 0) {
+      throw new Error("No frame for given id found");
+    }
+
+    const defaultContext = Runtime._getDefaultContextForWindow(
+      contexts[0].windowId
+    );
+    const window = defaultContext.window;
 
     const executionContextId = Runtime._onContextCreated("context-created", {
-      windowId: this.content.windowUtils.currentInnerWindowID,
-      window: this.content,
+      windowId: window.windowUtils.currentInnerWindowID,
+      window,
       isDefault: false,
       contextName: worldName,
       contextType: "isolated",
@@ -233,12 +255,21 @@ class Page extends ContentProcessDomain {
     });
   }
 
-  _onScriptLoaded(name) {
+  /**
+   * @param {Object=} options
+   * @param {number} options.windowId
+   *     The inner window id of the window the script has been loaded for.
+   * @param {Window} options.window
+   *     The window object of the document.
+   */
+  _onScriptLoaded(name, options = {}) {
+    const { windowId, window } = options;
+
     const Runtime = this.session.domains.get("Runtime");
     for (const world of this.worldsToEvaluateOnLoad) {
       Runtime._onContextCreated("context-created", {
-        windowId: this.content.windowUtils.currentInnerWindowID,
-        window: this.content,
+        windowId,
+        window,
         isDefault: false,
         contextName: world,
         contextType: "isolated",

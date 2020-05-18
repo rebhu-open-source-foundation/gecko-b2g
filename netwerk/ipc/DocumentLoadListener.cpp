@@ -360,37 +360,6 @@ already_AddRefed<LoadInfo> DocumentLoadListener::CreateLoadInfo(
   return loadInfo.forget();
 }
 
-// parent-process implementation of
-// nsGlobalWindowOuter::GetTopExcludingExtensionAccessibleContentFrames
-static already_AddRefed<WindowGlobalParent>
-GetTopWindowExcludingExtensionAccessibleContentFrames(
-    CanonicalBrowsingContext* aBrowsingContext, nsIURI* aURIBeingLoaded) {
-  CanonicalBrowsingContext* bc = aBrowsingContext;
-  RefPtr<WindowGlobalParent> prev;
-  while (RefPtr<WindowGlobalParent> parent = bc->GetParentWindowContext()) {
-    CanonicalBrowsingContext* parentBC = parent->BrowsingContext();
-
-    nsIPrincipal* parentPrincipal = parent->DocumentPrincipal();
-    nsIURI* uri = prev ? prev->GetDocumentURI() : aURIBeingLoaded;
-
-    // If the new parent has permission to load the current page, we're
-    // at a moz-extension:// frame which has a host permission that allows
-    // it to load the document that we've loaded.  In that case, stop at
-    // this frame and consider it the top-level frame.
-    if (uri &&
-        BasePrincipal::Cast(parentPrincipal)->AddonAllowsLoad(uri, true)) {
-      break;
-    }
-
-    bc = parentBC;
-    prev = parent;
-  }
-  if (!prev) {
-    prev = bc->GetCurrentWindowGlobal();
-  }
-  return prev.forget();
-}
-
 CanonicalBrowsingContext* DocumentLoadListener::GetBrowsingContext() {
   if (!mParentChannelListener) {
     return nullptr;
@@ -451,7 +420,7 @@ bool DocumentLoadListener::Open(
           getter_AddRefs(cookieJarSettings));
       net::CookieJarSettings::Cast(cookieJarSettings)
           ->UpdateIsOnContentBlockingAllowList(mChannel);
-    } else if (RefPtr<WindowGlobalParent> topWindow =
+    } else if (RefPtr<WindowGlobalParent> topWindow = AntiTrackingUtils::
                    GetTopWindowExcludingExtensionAccessibleContentFrames(
                        browsingContext, uriBeingLoaded)) {
       nsCOMPtr<nsIPrincipal> topWindowPrincipal =
@@ -1463,11 +1432,12 @@ DocumentLoadListener::RedirectToRealChannel(
           CreateAndReject(ipc::ResponseRejectReason::SendError, __func__);
     }
 
-    nsresult rv;
-    nsCOMPtr<nsIPrincipal> triggeringPrincipal =
-        PrincipalInfoToPrincipal(loadInfo.ref().triggeringPrincipalInfo(), &rv);
+    auto triggeringPrincipalOrErr =
+        PrincipalInfoToPrincipal(loadInfo.ref().triggeringPrincipalInfo());
 
-    if (NS_SUCCEEDED(rv) && triggeringPrincipal) {
+    if (triggeringPrincipalOrErr.isOk()) {
+      nsCOMPtr<nsIPrincipal> triggeringPrincipal =
+          triggeringPrincipalOrErr.unwrap();
       cp->TransmitBlobDataIfBlobURL(args.uri(), triggeringPrincipal);
     }
 

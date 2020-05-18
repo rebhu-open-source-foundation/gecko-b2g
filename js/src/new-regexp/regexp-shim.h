@@ -16,6 +16,7 @@
 #include "mozilla/MathAlgorithms.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/SegmentedVector.h"
+#include "mozilla/Sprintf.h"
 #include "mozilla/Types.h"
 
 #include <algorithm>
@@ -28,6 +29,8 @@
 #include "new-regexp/util/flags.h"
 #include "new-regexp/util/vector.h"
 #include "new-regexp/util/zone.h"
+#include "threading/ExclusiveData.h"
+#include "vm/MutexIDs.h"
 #include "vm/NativeObject.h"
 
 // Forward declaration of classes
@@ -160,17 +163,35 @@ inline uint8_t saturated_cast<uint8_t, int>(int x) {
   return (x >= 0) ? ((x < 255) ? uint8_t(x) : 255) : 0;
 }
 
-#define LAZY_INSTANCE_INITIALIZER { mozilla::Nothing() }
+// Origin: https://github.com/v8/v8/blob/fc088cdaccadede84886eee881e67af9db53669a/src/base/bounds.h#L14-L28
+// Checks if value is in range [lower_limit, higher_limit] using a single
+// branch.
+template <typename T, typename U>
+inline constexpr bool IsInRange(T value, U lower_limit, U higher_limit) {
+  using unsigned_T = typename std::make_unsigned<T>::type;
+  // Use static_cast to support enum classes.
+  return static_cast<unsigned_T>(static_cast<unsigned_T>(value) -
+                                 static_cast<unsigned_T>(lower_limit)) <=
+         static_cast<unsigned_T>(static_cast<unsigned_T>(higher_limit) -
+                                 static_cast<unsigned_T>(lower_limit));
+}
+
+#define LAZY_INSTANCE_INITIALIZER { }
 
 template <typename T>
-struct LazyInstanceImpl {
-  mozilla::Maybe<T> value_;
-  T* Pointer() {
-    if (value_.isNothing()) {
-      value_.emplace();
+class LazyInstanceImpl {
+ public:
+  LazyInstanceImpl() : value_(js::mutexid::IrregexpLazyStatic) {}
+
+  const T* Pointer() {
+    auto val = value_.lock();
+    if (val->isNothing()) {
+      val->emplace();
     }
-    return value_.ptr();
+    return val->ptr();
   }
+ private:
+  js::ExclusiveData<mozilla::Maybe<T>> value_;
 };
 
 template <typename T>
@@ -505,6 +526,8 @@ class Object {
     return JS::Value::fromRawBits(asBits_);
   }
 
+  inline static Object cast(Object object) { return object; }
+
  protected:
   void setValue(const JS::Value& val) {
     asBits_ = val.asRawBits();
@@ -634,11 +657,6 @@ class MOZ_NONHEAP_CLASS Handle {
   template <typename S,
             typename = std::enable_if_t<std::is_convertible_v<S*, T*>>>
   inline Handle(Handle<S> handle) : location_(handle.location_) {}
-
-  template <typename S>
-  inline static const Handle<T> cast(Handle<S> that) {
-    return Handle<T>(that.location_);
-  }
 
   inline bool is_null() const { return location_ == nullptr; }
 
@@ -905,6 +923,13 @@ class JSRegExp : public HeapObject {
     return regexp;
   }
 
+  // Each capture (including the match itself) needs two registers.
+  static int RegistersForCaptureCount(int count) { return (count + 1) * 2; }
+
+  inline int MaxRegisterCount() const {
+    return inner()->getMaxRegisters();
+  }
+
   // ******************************
   // Static constants
   // ******************************
@@ -963,6 +988,7 @@ using Factory = Isolate;
 class Isolate {
  public:
   Isolate(JSContext* cx) : cx_(cx) {}
+  ~Isolate();
   bool init();
 
   //********** Isolate code **********//

@@ -7,7 +7,7 @@
 #ifndef MOZILLA_GFX_RENDERANDROIDSURFACETEXTUREHOSTOGL_H
 #define MOZILLA_GFX_RENDERANDROIDSURFACETEXTUREHOSTOGL_H
 
-#include "GeneratedJNIWrappers.h"
+#include "mozilla/java/GeckoSurfaceTextureWrappers.h"
 #include "mozilla/layers/TextureHostOGL.h"
 #include "RenderTextureHostOGL.h"
 
@@ -30,13 +30,6 @@ class RenderAndroidSurfaceTextureHostOGL final : public RenderTextureHostOGL {
 
   virtual void PrepareForUse() override;
   virtual void NotifyNotUsed() override;
-
-  void DetachedFromGLContext();
-
-  virtual RenderAndroidSurfaceTextureHostOGL*
-  AsRenderAndroidSurfaceTextureHostOGL() override {
-    return this;
-  }
 
  private:
   virtual ~RenderAndroidSurfaceTextureHostOGL();

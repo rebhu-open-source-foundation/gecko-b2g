@@ -30,7 +30,6 @@ const LOAD_CAUSE_STRINGS = {
   [Ci.nsIContentPolicy.TYPE_DOCUMENT]: "Document",
   [Ci.nsIContentPolicy.TYPE_SUBDOCUMENT]: "Subdocument",
   [Ci.nsIContentPolicy.TYPE_REFRESH]: "Refresh",
-  [Ci.nsIContentPolicy.TYPE_XBL]: "Xbl",
   [Ci.nsIContentPolicy.TYPE_PING]: "Ping",
   [Ci.nsIContentPolicy.TYPE_XMLHTTPREQUEST]: "Xhr",
   [Ci.nsIContentPolicy.TYPE_OBJECT_SUBREQUEST]: "ObjectSubdoc",
@@ -134,6 +133,23 @@ class Network extends Domain {
         );
       }
     }
+  }
+
+  /**
+   * Activates emulation of network conditions.
+   *
+   * @param {Object} options
+   * @param {boolean} offline
+   *     True to emulate internet disconnection.
+   */
+  emulateNetworkConditions(options = {}) {
+    const { offline } = options;
+
+    if (typeof offline != "boolean") {
+      throw new TypeError("offline: boolean value expected");
+    }
+
+    Services.io.offline = offline;
   }
 
   /**

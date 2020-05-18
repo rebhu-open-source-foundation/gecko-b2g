@@ -891,12 +891,11 @@ var Policies = {
             if (!extensionSettings[extensionID].install_url) {
               throw new Error(`Missing install_url for ${extensionID}`);
             }
-            if (!addons.find(addon => addon.id == extensionID)) {
-              installAddonFromURL(
-                extensionSettings[extensionID].install_url,
-                extensionID
-              );
-            }
+            installAddonFromURL(
+              extensionSettings[extensionID].install_url,
+              extensionID,
+              addons.find(addon => addon.id == extensionID)
+            );
             manager.disallowFeature(`uninstall-extension:${extensionID}`);
             if (
               extensionSettings[extensionID].installation_mode ==
@@ -1029,10 +1028,15 @@ var Policies = {
 
   Homepage: {
     onBeforeUIStartup(manager, param) {
+      if ("StartPage" in param && param.StartPage == "none") {
+        // For blank startpage, we use about:blank rather
+        // than messing with browser.startup.page
+        param.URL = new URL("about:blank");
+      }
       // |homepages| will be a string containing a pipe-separated ('|') list of
       // URLs because that is what the "Home page" section of about:preferences
       // (and therefore what the pref |browser.startup.homepage|) accepts.
-      if (param.URL) {
+      if ("URL" in param) {
         let homepages = param.URL.href;
         if (param.Additional && param.Additional.length) {
           homepages += "|" + param.Additional.map(url => url.href).join("|");
@@ -1059,17 +1063,20 @@ var Policies = {
       if (param.StartPage) {
         let prefValue;
         switch (param.StartPage) {
-          case "none":
-            prefValue = 0;
-            break;
           case "homepage":
+          case "homepage-locked":
+          case "none":
             prefValue = 1;
             break;
           case "previous-session":
             prefValue = 3;
             break;
         }
-        setDefaultPref("browser.startup.page", prefValue, param.Locked);
+        setDefaultPref(
+          "browser.startup.page",
+          prefValue,
+          param.StartPage == "homepage-locked"
+        );
       }
     },
   },
@@ -1927,7 +1934,15 @@ function replacePathVariables(path) {
  * Helper function that installs an addon from a URL
  * and verifies that the addon ID matches.
  */
-function installAddonFromURL(url, extensionID) {
+function installAddonFromURL(url, extensionID, addon) {
+  if (
+    addon &&
+    addon.sourceURI.spec == url &&
+    !addon.sourceURI.schemeIs("file")
+  ) {
+    // It's the same addon, don't reinstall.
+    return;
+  }
   AddonManager.getInstallForURL(url, {
     telemetryInfo: { source: "enterprise-policy" },
   }).then(install => {
@@ -1948,6 +1963,14 @@ function installAddonFromURL(url, extensionID) {
         }
         if (install.addon && install.addon.appDisabled) {
           log.error(`Incompatible add-on - ${url}`);
+          install.removeListener(listener);
+          install.cancel();
+        }
+        if (
+          addon &&
+          Services.vc.compare(addon.version, install.addon.version) == 0
+        ) {
+          log.debug("Installation cancelled because versions are the same");
           install.removeListener(listener);
           install.cancel();
         }

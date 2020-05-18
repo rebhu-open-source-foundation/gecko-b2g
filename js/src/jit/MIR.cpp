@@ -392,8 +392,8 @@ MDefinition* MInstruction::foldsToStore(TempAllocator& alloc) {
     case Opcode::StoreFixedSlot:
       value = store->toStoreFixedSlot()->value();
       break;
-    case Opcode::StoreSlot:
-      value = store->toStoreSlot()->value();
+    case Opcode::StoreDynamicSlot:
+      value = store->toStoreDynamicSlot()->value();
       break;
     case Opcode::StoreElement:
       value = store->toStoreElement()->value();
@@ -751,6 +751,24 @@ bool MDefinition::hasLiveDefUses() const {
   }
 
   return false;
+}
+
+MDefinition* MDefinition::maybeSingleDefUse() const {
+  MUseDefIterator use(this);
+  if (!use) {
+    // No def-uses.
+    return nullptr;
+  }
+
+  MDefinition* useDef = use.def();
+
+  use++;
+  if (use) {
+    // More than one def-use.
+    return nullptr;
+  }
+
+  return useDef;
 }
 
 void MDefinition::replaceAllUsesWith(MDefinition* dom) {
@@ -1684,7 +1702,7 @@ const JSJitInfo* MCallDOMNative::getJitInfo() const {
 }
 
 MDefinition* MStringLength::foldsTo(TempAllocator& alloc) {
-  if (type() == MIRType::Int32 && string()->isConstant()) {
+  if (string()->isConstant()) {
     JSAtom* atom = &string()->toConstant()->toString()->asAtom();
     return MConstant::New(alloc, Int32Value(atom->length()));
   }
@@ -1825,29 +1843,7 @@ MDefinition* MUnbox::foldsTo(TempAllocator& alloc) {
     }
   }
 
-  if (!input()->isLoadFixedSlot()) {
-    return this;
-  }
-  MLoadFixedSlot* load = input()->toLoadFixedSlot();
-  if (load->type() != MIRType::Value) {
-    return this;
-  }
-  if (type() != MIRType::Boolean && !IsNumberType(type())) {
-    return this;
-  }
-  // Only optimize if the load comes immediately before the unbox, so it's
-  // safe to copy the load's dependency field.
-  MInstructionIterator iter(load->block()->begin(load));
-  ++iter;
-  if (*iter != this) {
-    return this;
-  }
-
-  MLoadFixedSlotAndUnbox* ins = MLoadFixedSlotAndUnbox::New(
-      alloc, load->object(), load->slot(), mode(), type(), bailoutKind());
-  // As GVN runs after the Alias Analysis, we have to set the dependency by hand
-  ins->setDependency(load->dependency());
-  return ins;
+  return this;
 }
 
 #ifdef JS_JITSPEW
@@ -2513,12 +2509,11 @@ MDefinition* MBinaryBitwiseInstruction::foldUnnecessaryBitop() {
   // Fold unsigned shift right operator when the second operand is zero and
   // the only use is an unsigned modulo. Thus, the expression
   // |(x >>> 0) % y| becomes |x % y|.
-  if (isUrsh() && hasOneDefUse() && IsUint32Type(this)) {
-    MUseDefIterator use(this);
-    if (use.def()->isMod() && use.def()->toMod()->isUnsigned()) {
+  if (isUrsh() && IsUint32Type(this)) {
+    MDefinition* defUse = maybeSingleDefUse();
+    if (defUse && defUse->isMod() && defUse->toMod()->isUnsigned()) {
       return getOperand(0);
     }
-    MOZ_ASSERT(!(++use));
   }
 
   // Eliminate bitwise operations that are no-ops when used on integer
@@ -4963,9 +4958,10 @@ bool MWasmLoadGlobalCell::congruentTo(const MDefinition* ins) const {
   return congruentIfOperandsEqual(other);
 }
 
-MDefinition::AliasType MLoadSlot::mightAlias(const MDefinition* def) const {
-  if (def->isStoreSlot()) {
-    const MStoreSlot* store = def->toStoreSlot();
+MDefinition::AliasType MLoadDynamicSlot::mightAlias(
+    const MDefinition* def) const {
+  if (def->isStoreDynamicSlot()) {
+    const MStoreDynamicSlot* store = def->toStoreDynamicSlot();
     if (store->slot() != slot()) {
       return AliasType::NoAlias;
     }
@@ -4979,13 +4975,13 @@ MDefinition::AliasType MLoadSlot::mightAlias(const MDefinition* def) const {
   return AliasType::MayAlias;
 }
 
-HashNumber MLoadSlot::valueHash() const {
+HashNumber MLoadDynamicSlot::valueHash() const {
   HashNumber hash = MDefinition::valueHash();
   hash = addU32ToHash(hash, slot_);
   return hash;
 }
 
-MDefinition* MLoadSlot::foldsTo(TempAllocator& alloc) {
+MDefinition* MLoadDynamicSlot::foldsTo(TempAllocator& alloc) {
   if (MDefinition* def = foldsToStore(alloc)) {
     return def;
   }
@@ -4994,12 +4990,12 @@ MDefinition* MLoadSlot::foldsTo(TempAllocator& alloc) {
 }
 
 #ifdef JS_JITSPEW
-void MLoadSlot::printOpcode(GenericPrinter& out) const {
+void MLoadDynamicSlot::printOpcode(GenericPrinter& out) const {
   MDefinition::printOpcode(out);
   out.printf(" %u", slot());
 }
 
-void MStoreSlot::printOpcode(GenericPrinter& out) const {
+void MStoreDynamicSlot::printOpcode(GenericPrinter& out) const {
   PrintOpcodeName(out, op());
   out.printf(" ");
   getOperand(0)->printName(out);
@@ -5251,7 +5247,7 @@ MDefinition::AliasType MGetPropertyPolymorphic::mightAlias(
   // Allow hoisting this instruction if the store does not write to a
   // slot read by this instruction.
 
-  if (!store->isStoreFixedSlot() && !store->isStoreSlot()) {
+  if (!store->isStoreFixedSlot() && !store->isStoreDynamicSlot()) {
     return AliasType::MayAlias;
   }
 
@@ -5267,13 +5263,14 @@ MDefinition::AliasType MGetPropertyPolymorphic::mightAlias(
           store->toStoreFixedSlot()->slot() != slot) {
         continue;
       }
-      if (store->isStoreSlot()) {
+      if (store->isStoreDynamicSlot()) {
         continue;
       }
     } else {
       // Dynamic slot.
       uint32_t slot = shape->slot() - shape->numFixedSlots();
-      if (store->isStoreSlot() && store->toStoreSlot()->slot() != slot) {
+      if (store->isStoreDynamicSlot() &&
+          store->toStoreDynamicSlot()->slot() != slot) {
         continue;
       }
       if (store->isStoreFixedSlot()) {
@@ -5610,7 +5607,7 @@ MDefinition* MTypedArrayIndexToInt32::foldsTo(TempAllocator& alloc) {
 MDefinition* MIsNullOrUndefined::foldsTo(TempAllocator& alloc) {
   MDefinition* input = value();
   if (input->isBox()) {
-    input = input->getOperand(0);
+    input = input->toBox()->input();
   }
 
   if (input->definitelyType({MIRType::Null, MIRType::Undefined})) {
@@ -5620,6 +5617,40 @@ MDefinition* MIsNullOrUndefined::foldsTo(TempAllocator& alloc) {
   if (!input->mightBeType(MIRType::Null) &&
       !input->mightBeType(MIRType::Undefined)) {
     return MConstant::New(alloc, BooleanValue(false));
+  }
+
+  return this;
+}
+
+MDefinition* MGuardValue::foldsTo(TempAllocator& alloc) {
+  if (MConstant* cst = value()->maybeConstantValue()) {
+    if (cst->toJSValue() == expected()) {
+      return value();
+    }
+  }
+
+  return this;
+}
+
+MDefinition* MGuardNullOrUndefined::foldsTo(TempAllocator& alloc) {
+  MDefinition* input = value();
+  if (input->isBox()) {
+    input = input->toBox()->input();
+  }
+
+  if (input->definitelyType({MIRType::Null, MIRType::Undefined})) {
+    return value();
+  }
+
+  return this;
+}
+
+MDefinition* MGuardSpecificAtom::foldsTo(TempAllocator& alloc) {
+  if (str()->isConstant()) {
+    JSAtom* cstAtom = &str()->toConstant()->toString()->asAtom();
+    if (cstAtom == atom()) {
+      return str();
+    }
   }
 
   return this;

@@ -4,6 +4,7 @@
 
 use std::{
     cell::{Ref, RefCell},
+    convert::TryInto,
     ffi::OsString,
     mem, str,
     sync::Arc,
@@ -14,6 +15,7 @@ use moz_task::{self, DispatchOptions, TaskRunnable};
 use nserror::{nsresult, NS_OK};
 use nsstring::{nsACString, nsCString, nsString};
 use thin_vec::ThinVec;
+use webext_storage::STORAGE_VERSION;
 use xpcom::{
     interfaces::{
         mozIBridgedSyncEngineApplyCallback, mozIBridgedSyncEngineCallback,
@@ -198,6 +200,29 @@ impl StorageSyncArea {
         )
     }
 
+    xpcom_method!(
+        getBytesInUse => GetBytesInUse(
+            ext_id: *const ::nsstring::nsACString,
+            keys: *const ::nsstring::nsACString,
+            callback: *const mozIExtensionStorageCallback
+        )
+    );
+    /// Obtains the count of bytes in use for the specified key or for all keys.
+    fn getBytesInUse(
+        &self,
+        ext_id: &nsACString,
+        keys: &nsACString,
+        callback: &mozIExtensionStorageCallback,
+    ) -> Result<()> {
+        self.dispatch(
+            StorageOp::GetBytesInUse {
+                ext_id: str::from_utf8(&*ext_id)?.into(),
+                keys: serde_json::from_str(str::from_utf8(&*keys)?)?,
+            },
+            callback,
+        )
+    }
+
     xpcom_method!(teardown => Teardown(callback: *const mozIExtensionStorageCallback));
     /// Tears down the storage area, closing the backing database connection.
     fn teardown(&self, callback: &mozIExtensionStorageCallback) -> Result<()> {
@@ -270,7 +295,7 @@ impl StorageSyncArea {
 
     xpcom_method!(get_storage_version => GetStorageVersion() -> i32);
     fn get_storage_version(&self) -> Result<i32> {
-        Ok(1)
+        Ok(STORAGE_VERSION.try_into().unwrap())
     }
 
     xpcom_method!(

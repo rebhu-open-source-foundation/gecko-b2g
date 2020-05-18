@@ -30,7 +30,7 @@
 #include FT_MODULE_H
 
 #ifdef MOZ_WIDGET_ANDROID
-#include "GeneratedJNINatives.h"
+#include "mozilla/java/VsyncSourceNatives.h"
 #endif
 
 #ifdef MOZ_WIDGET_GONK

@@ -430,13 +430,14 @@ pref("media.videocontrols.picture-in-picture.video-toggle.min-video-secs", 45);
   pref("media.navigator.video.use_remb", true);
   #ifdef EARLY_BETA_OR_EARLIER
     pref("media.navigator.video.use_transport_cc", true);
+    pref("media.peerconnection.video.use_rtx", true);
   #else
     pref("media.navigator.video.use_transport_cc", false);
+    pref("media.peerconnection.video.use_rtx", false);
   #endif
   pref("media.navigator.video.use_tmmbr", false);
   pref("media.navigator.audio.use_fec", true);
   pref("media.navigator.video.red_ulpfec_enabled", false);
-  pref("media.peerconnection.video.use_rtx", false);
 
   #ifdef NIGHTLY_BUILD
     pref("media.peerconnection.sdp.parser", "sipcc");
@@ -536,6 +537,7 @@ pref("media.videocontrols.picture-in-picture.video-toggle.min-video-secs", 45);
   pref("media.getusermedia.agc_enabled", true);
   pref("media.getusermedia.agc", 1); // kAdaptiveDigital
   pref("media.getusermedia.hpf_enabled", true);
+  pref("media.getusermedia.aecm_output_routing", 3); // kSpeakerphone
   // full_duplex: enable cubeb full-duplex capture/playback
   pref("media.navigator.audio.full_duplex", true);
 #endif // MOZ_WEBRTC
@@ -584,6 +586,8 @@ pref("media.cubeb.logging_level", "");
 #if defined(XP_MACOSX)
   pref("media.cubeb.backend", "audiounit-rust");
 #endif
+
+pref("media.cubeb.output_voice_routing", true);
 
 // GraphRunner (fixed MediaTrackGraph thread) control
 pref("media.audiograph.single_thread.enabled", true);
@@ -4573,6 +4577,9 @@ pref("webextensions.tests", false);
 pref("webextensions.webRequest.requestBodyMaxRawBytes", 16777216);
 
 pref("webextensions.storage.sync.enabled", true);
+// Should we use the old kinto-based implementation of storage.sync? To be removed in bug 1637465.
+pref("webextensions.storage.sync.kinto", true);
+// Server used by the old kinto-based implementation of storage.sync.
 pref("webextensions.storage.sync.serverURL", "https://webextensions.settings.services.mozilla.com/v1");
 
 // Allow customization of the fallback directory for file uploads

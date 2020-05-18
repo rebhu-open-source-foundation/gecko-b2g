@@ -1100,10 +1100,13 @@ static bool CreateExportObject(
   }
 
   RootedObject exportObj(cx);
+  uint8_t propertyAttr = JSPROP_ENUMERATE;
+
   if (metadata.isAsmJS()) {
     exportObj = NewBuiltinClassInstance<PlainObject>(cx);
   } else {
     exportObj = NewObjectWithGivenProto<PlainObject>(cx, nullptr);
+    propertyAttr |= JSPROP_READONLY | JSPROP_PERMANENT;
   }
   if (!exportObj) {
     return false;
@@ -1147,13 +1150,13 @@ static bool CreateExportObject(
       }
     }
 
-    if (!JS_DefinePropertyById(cx, exportObj, id, val, JSPROP_ENUMERATE)) {
+    if (!JS_DefinePropertyById(cx, exportObj, id, val, propertyAttr)) {
       return false;
     }
   }
 
   if (!metadata.isAsmJS()) {
-    if (!JS_FreezeObject(cx, exportObj)) {
+    if (!PreventExtensions(cx, exportObj)) {
       return false;
     }
   }
@@ -1218,7 +1221,6 @@ static bool MakeStructField(JSContext* cx, const ValType& v, bool isMutable,
           break;
         case RefType::Func:
         case RefType::Any:
-        case RefType::Null:
           t = GlobalObject::getOrCreateReferenceTypeDescr(
               cx, cx->global(), ReferenceType::TYPE_WASM_ANYREF);
           break;

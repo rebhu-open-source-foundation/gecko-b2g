@@ -99,7 +99,9 @@ using mozilla::ScopedPRFileDesc;
 
 #ifdef MOZ_WIDGET_ANDROID
 #  include "AndroidBridge.h"
-#  include "GeneratedJNIWrappers.h"
+#  include "mozilla/java/GeckoProcessManagerWrappers.h"
+#  include "mozilla/java/GeckoProcessTypeWrappers.h"
+#  include "mozilla/java/GeckoResultWrappers.h"
 #  include "mozilla/jni/Refs.h"
 #  include "mozilla/jni/Utils.h"
 #endif
@@ -1030,6 +1032,15 @@ bool BaseProcessLauncher::DoSetup() {
     self->mLaunchOptions->env_map[ENVIRONMENT_STRING(key)] =
         ENVIRONMENT_STRING(value);
   });
+#endif
+#ifdef MOZ_MEMORY
+  if (mProcessType == GeckoProcessType_Content) {
+    nsAutoCString mallocOpts(PR_GetEnv("MALLOC_OPTIONS"));
+    // Disable randomization of small arenas in content.
+    mallocOpts.Append("r");
+    self->mLaunchOptions->env_map[ENVIRONMENT_LITERAL("MALLOC_OPTIONS")] =
+        ENVIRONMENT_STRING(mallocOpts.get());
+  }
 #endif
 
   MapChildLogging();

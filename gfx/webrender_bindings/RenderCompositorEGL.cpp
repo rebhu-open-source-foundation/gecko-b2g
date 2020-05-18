@@ -20,8 +20,8 @@
 #endif
 
 #ifdef MOZ_WIDGET_ANDROID
+#  include "mozilla/java/GeckoSurfaceTextureWrappers.h"
 #  include "mozilla/widget/AndroidCompositorWidget.h"
-#  include "GeneratedJNIWrappers.h"
 #  include <android/native_window.h>
 #  include <android/native_window_jni.h>
 #endif
@@ -61,7 +61,6 @@ RenderCompositorEGL::RenderCompositorEGL(
 RenderCompositorEGL::~RenderCompositorEGL() {
 #ifdef MOZ_WIDGET_ANDROID
   java::GeckoSurfaceTexture::DestroyUnused((int64_t)gl());
-  java::GeckoSurfaceTexture::DetachAllFromGLContext((int64_t)gl());
 #endif
   DestroyEGLSurface();
 }
@@ -100,11 +99,6 @@ RenderedFrameId RenderCompositorEGL::EndFrame(
 }
 
 void RenderCompositorEGL::Pause() {
-#ifdef MOZ_WIDGET_ANDROID
-  java::GeckoSurfaceTexture::DestroyUnused((int64_t)gl());
-  java::GeckoSurfaceTexture::DetachAllFromGLContext((int64_t)gl());
-  RenderThread::Get()->NotifyAllAndroidSurfaceTexturesDetatched();
-#endif
   DestroyEGLSurface();
 }
 

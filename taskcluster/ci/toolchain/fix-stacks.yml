@@ -11,7 +11,6 @@ job-defaults:
         script: build-fix-stacks.sh
     run-on-projects:
         - trunk
-        - try
     fetches:
         fetch:
             - fix-stacks
@@ -42,7 +41,7 @@ macosx64-fix-stacks:
         tooltool-downloads: internal
     fetches:
         toolchain:
-            - linux64-cctools-port
+            - linux64-cctools-clang-9-port
             - linux64-clang-9
             - linux64-rust-macos
 

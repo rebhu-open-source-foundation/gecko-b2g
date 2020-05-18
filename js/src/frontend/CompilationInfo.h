@@ -27,6 +27,42 @@ namespace frontend {
 
 using FunctionType = mozilla::Variant<JSFunction*, ScriptStencilBase>;
 
+// ScopeContext hold information derivied from the scope and environment chains
+// to try to avoid the parser needing to traverse VM structures directly.
+struct ScopeContext {
+  // Whether the enclosing scope allows certain syntax. Eval and arrow scripts
+  // inherit this from their enclosing scipt so we track it here.
+  bool allowNewTarget = false;
+  bool allowSuperProperty = false;
+  bool allowSuperCall = false;
+  bool allowArguments = true;
+
+  // The type of binding required for `this` of the top level context, as
+  // indicated by the enclosing scopes of this parse.
+  ThisBinding thisBinding = ThisBinding::Global;
+
+  // Somewhere on the scope chain this parse is embedded within is a 'With'
+  // scope.
+  bool inWith = false;
+
+  // Class field initializer info if we are nested within a class constructor.
+  // We may be an combination of arrow and eval context within the constructor.
+  mozilla::Maybe<FieldInitializers> fieldInitializers = {};
+
+  explicit ScopeContext(Scope* scope, JSObject* enclosingEnv = nullptr) {
+    computeAllowSyntax(scope);
+    computeThisBinding(scope, enclosingEnv);
+    computeInWith(scope);
+    computeExternalInitializers(scope);
+  }
+
+ private:
+  void computeAllowSyntax(Scope* scope);
+  void computeThisBinding(Scope* scope, JSObject* environment = nullptr);
+  void computeInWith(Scope* scope);
+  void computeExternalInitializers(Scope* scope);
+};
+
 // CompilationInfo owns a number of pieces of information about script
 // compilation as well as controls the lifetime of parse nodes and other data by
 // controling the mark and reset of the LifoAlloc.
@@ -40,6 +76,8 @@ struct MOZ_RAII CompilationInfo : public JS::CustomAutoRooter {
 
   Directives directives;
 
+  ScopeContext scopeContext;
+
   // List of function contexts for GC tracing. These are allocated in the
   // LifoAlloc and still require tracing.
   FunctionBox* traceListHead = nullptr;
@@ -47,6 +85,7 @@ struct MOZ_RAII CompilationInfo : public JS::CustomAutoRooter {
   // The resulting outermost script for the compilation powered
   // by this CompilationInfo.
   JS::Rooted<JSScript*> script;
+  JS::Rooted<BaseScript*> lazy;
 
   UsedNameTracker usedNames;
   LifoAllocScope& allocScope;
@@ -75,13 +114,17 @@ struct MOZ_RAII CompilationInfo : public JS::CustomAutoRooter {
 
   // Construct a CompilationInfo
   CompilationInfo(JSContext* cx, LifoAllocScope& alloc,
-                  const JS::ReadOnlyCompileOptions& options)
+                  const JS::ReadOnlyCompileOptions& options,
+                  Scope* enclosingScope = nullptr,
+                  JSObject* enclosingEnv = nullptr)
       : JS::CustomAutoRooter(cx),
         cx(cx),
         options(options),
         keepAtoms(cx),
         directives(options.forceStrictMode()),
+        scopeContext(enclosingScope, enclosingEnv),
         script(cx),
+        lazy(cx),
         usedNames(cx),
         allocScope(alloc),
         regExpData(cx),
@@ -92,7 +135,10 @@ struct MOZ_RAII CompilationInfo : public JS::CustomAutoRooter {
 
   bool init(JSContext* cx);
 
-  void initFromSourceObject(ScriptSourceObject* sso) { sourceObject = sso; }
+  void initFromLazy(BaseScript* lazy) {
+    this->lazy = lazy;
+    this->sourceObject = lazy->sourceObject();
+  }
 
   template <typename Unit>
   MOZ_MUST_USE bool assignSource(JS::SourceText<Unit>& sourceBuffer) {

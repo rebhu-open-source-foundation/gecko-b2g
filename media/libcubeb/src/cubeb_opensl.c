@@ -169,7 +169,8 @@ struct cubeb_stream {
   int64_t lastPosition;
   int64_t lastPositionTimeStamp;
   int64_t lastCompensativePosition;
-  int voice;
+  int voice_input;
+  int voice_output;
 };
 
 /* Forward declaration. */
@@ -990,8 +991,8 @@ opensl_configure_capture(cubeb_stream * stm, cubeb_stream_params * params)
     // https://source.android.com/devices/audio/implement-pre-processing
     // And Choose GENERIC instead of CAMCORDER for non-voice input because
     // CAMCORDER doesn't use the MIC on the headset.
-    SLint32 streamType = stm->voice ? SL_ANDROID_RECORDING_PRESET_VOICE_COMMUNICATION
-                                    : SL_ANDROID_RECORDING_PRESET_GENERIC;
+    SLint32 streamType = stm->voice_input ? SL_ANDROID_RECORDING_PRESET_VOICE_COMMUNICATION
+                                            : SL_ANDROID_RECORDING_PRESET_GENERIC;
 
     res = (*recorderConfig)
               ->SetConfiguration(recorderConfig, SL_ANDROID_KEY_RECORDING_PRESET,
@@ -1414,10 +1415,11 @@ opensl_stream_init(cubeb * ctx, cubeb_stream ** stream, char const * stream_name
   stm->input_enabled = (input_stream_params) ? 1 : 0;
   stm->output_enabled = (output_stream_params) ? 1 : 0;
   stm->shutdown = 1;
-  stm->voice = has_pref_set(input_stream_params, output_stream_params, CUBEB_STREAM_PREF_VOICE);
+  stm->voice_input = has_pref_set(input_stream_params, NULL, CUBEB_STREAM_PREF_VOICE);
+  stm->voice_output = has_pref_set(NULL, output_stream_params, CUBEB_STREAM_PREF_VOICE);
 
-  LOG("cubeb stream prefs: voice: %s", stm->voice ? "true" : "false");
-
+  LOG("cubeb stream prefs: voice_input: %s voice_output: %s", stm->voice_input ? "true" : "false",
+                                                              stm->voice_output ? "true" : "false");
 
 #ifdef DEBUG
   pthread_mutexattr_t attr;

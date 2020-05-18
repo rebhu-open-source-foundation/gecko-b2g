@@ -100,6 +100,7 @@ using namespace mozilla::widget;
 #include "nsImageToPixbuf.h"
 #include "nsIInterfaceRequestorUtils.h"
 #include "ClientLayerManager.h"
+#include "nsIGSettingsService.h"
 
 #include "gfxPlatformGtk.h"
 #include "gfxContext.h"
@@ -1788,6 +1789,33 @@ void nsWindow::SetSizeMode(nsSizeMode aMode) {
   mSizeState = mSizeMode;
 }
 
+#define kDesktopMutterSchema "org.gnome.mutter"
+#define kDesktopDynamicWorkspacesKey "dynamic-workspaces"
+
+static bool DesktopUsesDynamicWorkspaces() {
+  static const char* currentDesktop = getenv("XDG_CURRENT_DESKTOP");
+  if (!currentDesktop || !strstr(currentDesktop, "GNOME")) {
+    return false;
+  }
+
+  nsCOMPtr<nsIGSettingsService> gsettings =
+      do_GetService(NS_GSETTINGSSERVICE_CONTRACTID);
+  if (gsettings) {
+    nsCOMPtr<nsIGSettingsCollection> mutterSettings;
+    gsettings->GetCollectionForSchema(NS_LITERAL_CSTRING(kDesktopMutterSchema),
+                                      getter_AddRefs(mutterSettings));
+    if (mutterSettings) {
+      bool usesDynamicWorkspaces;
+      if (NS_SUCCEEDED(mutterSettings->GetBoolean(
+              NS_LITERAL_CSTRING(kDesktopDynamicWorkspacesKey),
+              &usesDynamicWorkspaces))) {
+        return usesDynamicWorkspaces;
+      }
+    }
+  }
+  return false;
+}
+
 void nsWindow::GetWorkspaceID(nsAString& workspaceID) {
   workspaceID.Truncate();
 
@@ -1797,6 +1825,10 @@ void nsWindow::GetWorkspaceID(nsAString& workspaceID) {
   // Get the gdk window for this widget.
   GdkWindow* gdk_window = gtk_widget_get_window(mShell);
   if (!gdk_window) {
+    return;
+  }
+
+  if (DesktopUsesDynamicWorkspaces()) {
     return;
   }
 
@@ -1836,7 +1868,6 @@ void nsWindow::MoveToWorkspace(const nsAString& workspaceIDStr) {
   // This code is inspired by some found in the 'gxtuner' project.
   // https://github.com/brummer10/gxtuner/blob/792d453da0f3a599408008f0f1107823939d730d/deskpager.cpp#L50
   XEvent xevent;
-  guint value = workspaceID;
   Display* xdisplay = gdk_x11_get_default_xdisplay();
   GdkScreen* screen = gdk_window_get_screen(gdk_window);
   Window root_win = GDK_WINDOW_XID(gdk_screen_get_root_window(screen));
@@ -1851,7 +1882,7 @@ void nsWindow::MoveToWorkspace(const nsAString& workspaceIDStr) {
   xevent.xclient.window = GDK_WINDOW_XID(gdk_window);
   xevent.xclient.message_type = type;
   xevent.xclient.format = 32;
-  xevent.xclient.data.l[0] = value;
+  xevent.xclient.data.l[0] = workspaceID;
   xevent.xclient.data.l[1] = X11CurrentTime;
   xevent.xclient.data.l[2] = 0;
   xevent.xclient.data.l[3] = 0;
@@ -2226,12 +2257,15 @@ void* nsWindow::GetNativeData(uint32_t aDataType) {
     case NS_NATIVE_SHELLWIDGET:
       return GetToplevelWidget();
 
+    case NS_NATIVE_WINDOW_WEBRTC_DEVICE_ID:
     case NS_NATIVE_SHAREABLE_WINDOW:
       if (mIsX11Display) {
         return (void*)GDK_WINDOW_XID(gdk_window_get_toplevel(mGdkWindow));
       }
       NS_WARNING(
-          "nsWindow::GetNativeData(): NS_NATIVE_SHAREABLE_WINDOW is not "
+          "nsWindow::GetNativeData(): "
+          "NS_NATIVE_SHAREABLE_WINDOW / NS_NATIVE_WINDOW_WEBRTC_DEVICE_ID is "
+          "not "
           "handled on Wayland!");
       return nullptr;
     case NS_RAW_NATIVE_IME_CONTEXT: {
@@ -2258,7 +2292,8 @@ void* nsWindow::GetNativeData(uint32_t aDataType) {
       }
 #ifdef MOZ_WAYLAND
       if (mContainer) {
-        return moz_container_get_wl_egl_window(mContainer, GdkScaleFactor());
+        return moz_container_wayland_get_egl_window(mContainer,
+                                                    GdkScaleFactor());
       }
 #endif
       return nullptr;
@@ -2586,7 +2621,9 @@ gboolean nsWindow::OnExposeEvent(cairo_t* cr) {
   // Windows that are not visible will be painted after they become visible.
   if (!mGdkWindow || mIsFullyObscured || !mHasMappedToplevel) return FALSE;
 #ifdef MOZ_WAYLAND
-  if (mContainer && !mContainer->ready_to_draw) return FALSE;
+  if (!mIsX11Display && !moz_container_wayland_can_draw(mContainer)) {
+    return FALSE;
+  }
 #endif
 
   nsIWidgetListener* listener = GetListener();
@@ -3911,8 +3948,8 @@ void nsWindow::OnScaleChanged(GtkAllocation* aAllocation) {
 #ifdef MOZ_WAYLAND
   // We need to update scale and opaque region when scale of egl window
   // is changed.
-  if (mContainer && moz_container_has_wl_egl_window(mContainer)) {
-    moz_container_set_scale_factor(mContainer);
+  if (mContainer && moz_container_wayland_has_egl_window(mContainer)) {
+    moz_container_wayland_set_scale_factor(mContainer);
     LayoutDeviceIntRegion tmpRegion;
     UpdateOpaqueRegion(tmpRegion);
   }
@@ -4359,10 +4396,11 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
       if (!mIsX11Display && mIsAccelerated) {
         mCompositorInitiallyPaused = true;
         RefPtr<nsWindow> self(this);
-        moz_container_add_initial_draw_callback(mContainer, [self]() -> void {
-          self->mNeedsCompositorResume = true;
-          self->MaybeResumeCompositor();
-        });
+        moz_container_wayland_add_initial_draw_callback(
+            mContainer, [self]() -> void {
+              self->mNeedsCompositorResume = true;
+              self->MaybeResumeCompositor();
+            });
       }
 #endif
 
@@ -4833,7 +4871,7 @@ void nsWindow::NativeMoveResize() {
 void nsWindow::PauseRemoteRenderer() {
 #ifdef MOZ_WAYLAND
   if (!mIsDestroyed) {
-    if (mContainer && moz_container_has_wl_egl_window(mContainer)) {
+    if (mContainer && moz_container_wayland_has_egl_window(mContainer)) {
       // Because wl_egl_window is destroyed on moz_container_unmap(),
       // the current compositor cannot use it anymore. To avoid crash,
       // pause the compositor and destroy EGLSurface & resume the compositor
@@ -4844,10 +4882,11 @@ void nsWindow::PauseRemoteRenderer() {
         remoteRenderer->SendPause();
         // Re-request initial draw callback
         RefPtr<nsWindow> self(this);
-        moz_container_add_initial_draw_callback(mContainer, [self]() -> void {
-          self->mNeedsCompositorResume = true;
-          self->MaybeResumeCompositor();
-        });
+        moz_container_wayland_add_initial_draw_callback(
+            mContainer, [self]() -> void {
+              self->mNeedsCompositorResume = true;
+              self->MaybeResumeCompositor();
+            });
       } else {
         DestroyLayerManager();
       }
@@ -4888,7 +4927,7 @@ void nsWindow::WaylandStartVsync() {
   // The widget is going to be shown, so reconfigure the surface
   // of our vsync source.
   RefPtr<nsWindow> self(this);
-  moz_container_add_initial_draw_callback(mContainer, [self]() -> void {
+  moz_container_wayland_add_initial_draw_callback(mContainer, [self]() -> void {
     WaylandVsyncSource::WaylandDisplay& display =
         static_cast<WaylandVsyncSource::WaylandDisplay&>(
             self->mWaylandVsyncSource->GetGlobalDisplay());
@@ -7855,7 +7894,7 @@ void nsWindow::GetCompositorWidgetInitData(
 #ifdef MOZ_WAYLAND
 wl_surface* nsWindow::GetWaylandSurface() {
   if (mContainer) {
-    return moz_container_get_wl_surface(MOZ_CONTAINER(mContainer));
+    return moz_container_wayland_get_surface(MOZ_CONTAINER(mContainer));
   }
 
   NS_WARNING(
@@ -7866,7 +7905,7 @@ wl_surface* nsWindow::GetWaylandSurface() {
 
 bool nsWindow::WaylandSurfaceNeedsClear() {
   if (mContainer) {
-    return moz_container_surface_needs_clear(MOZ_CONTAINER(mContainer));
+    return moz_container_wayland_surface_needs_clear(MOZ_CONTAINER(mContainer));
   }
   return false;
 }
@@ -8167,8 +8206,8 @@ nsresult nsWindow::ResetPrefersReducedMotionOverrideForTest() {
 void nsWindow::SetEGLNativeWindowSize(
     const LayoutDeviceIntSize& aEGLWindowSize) {
   if (mContainer && !mIsX11Display) {
-    moz_container_egl_window_set_size(mContainer, aEGLWindowSize.width,
-                                      aEGLWindowSize.height);
+    moz_container_wayland_egl_window_set_size(mContainer, aEGLWindowSize.width,
+                                              aEGLWindowSize.height);
   }
 }
 

@@ -22,7 +22,6 @@ py2commands="
     cramtest
     crashtest
     devtools-css-db
-    file-info
     firefox-ui-functional
     geckodriver
     geckodriver-test
@@ -51,7 +50,6 @@ py2commands="
     release-history
     remote
     repackage
-    robocop
     rusttests
     static-analysis
     talos-test

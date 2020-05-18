@@ -187,7 +187,7 @@ bool WarpCacheIRTranspiler::emitGuardShape(ObjOperandId objId,
   MDefinition* def = getOperand(objId);
   Shape* shape = shapeStubField(shapeOffset);
 
-  auto* ins = MGuardShape::New(alloc(), def, shape, Bailout_ShapeGuard);
+  auto* ins = MGuardShape::New(alloc(), def, shape);
   add(ins);
 
   setOperand(objId, ins);
@@ -199,9 +199,11 @@ bool WarpCacheIRTranspiler::emitGuardSpecificAtom(StringOperandId strId,
   MDefinition* str = getOperand(strId);
   JSString* expected = stringStubField(expectedOffset);
 
-  // TODO: Improved code-gen and folding.
+  // TODO: Improve code-gen.
   auto* ins = MGuardSpecificAtom::New(alloc(), str, &expected->asAtom());
   add(ins);
+
+  setOperand(strId, ins);
   return true;
 }
 
@@ -296,6 +298,8 @@ bool WarpCacheIRTranspiler::emitGuardIsNullOrUndefined(ValOperandId inputId) {
 
   auto* ins = MGuardNullOrUndefined::New(alloc(), input);
   add(ins);
+
+  setOperand(inputId, ins);
   return true;
 }
 
@@ -307,6 +311,7 @@ bool WarpCacheIRTranspiler::emitGuardIsNull(ValOperandId inputId) {
 
   auto* ins = MGuardValue::New(alloc(), input, NullValue());
   add(ins);
+  setOperand(inputId, ins);
   return true;
 }
 
@@ -318,6 +323,7 @@ bool WarpCacheIRTranspiler::emitGuardIsUndefined(ValOperandId inputId) {
 
   auto* ins = MGuardValue::New(alloc(), input, UndefinedValue());
   add(ins);
+  setOperand(inputId, ins);
   return true;
 }
 
@@ -347,6 +353,11 @@ bool WarpCacheIRTranspiler::emitTruncateDoubleToUInt32(
   add(ins);
 
   return defineOperand(resultId, ins);
+}
+
+bool WarpCacheIRTranspiler::emitGuardToInt32ModUint32(ValOperandId valId,
+                                                      Int32OperandId resultId) {
+  return emitTruncateDoubleToUInt32(valId, resultId);
 }
 
 bool WarpCacheIRTranspiler::emitLoadInt32Result(Int32OperandId valId) {
@@ -399,7 +410,7 @@ bool WarpCacheIRTranspiler::emitLoadDynamicSlotResult(ObjOperandId objId,
   auto* slots = MSlots::New(alloc(), obj);
   add(slots);
 
-  auto* load = MLoadSlot::New(alloc(), slots, slotIndex);
+  auto* load = MLoadDynamicSlot::New(alloc(), slots, slotIndex);
   add(load);
 
   pushResult(load);
@@ -447,7 +458,7 @@ bool WarpCacheIRTranspiler::emitLoadEnvironmentDynamicSlotResult(
   auto* slots = MSlots::New(alloc(), obj);
   add(slots);
 
-  auto* load = MLoadSlot::New(alloc(), slots, slotIndex);
+  auto* load = MLoadDynamicSlot::New(alloc(), slots, slotIndex);
   add(load);
 
   auto* lexicalCheck = MLexicalCheck::New(alloc(), load);
@@ -470,7 +481,8 @@ bool WarpCacheIRTranspiler::emitLoadInt32ArrayLengthResult(ObjOperandId objId) {
   return true;
 }
 
-bool WarpCacheIRTranspiler::emitLoadTypedArrayLengthResult(ObjOperandId objId) {
+bool WarpCacheIRTranspiler::emitLoadTypedArrayLengthResult(
+    ObjOperandId objId, uint32_t getterOffset) {
   MDefinition* obj = getOperand(objId);
 
   auto* length = MTypedArrayLength::New(alloc(), obj);
@@ -607,7 +619,7 @@ bool WarpCacheIRTranspiler::emitStoreDynamicSlot(ObjOperandId objId,
   auto* slots = MSlots::New(alloc(), obj);
   add(slots);
 
-  auto* store = MStoreSlot::NewBarriered(alloc(), slots, slotIndex, rhs);
+  auto* store = MStoreDynamicSlot::NewBarriered(alloc(), slots, slotIndex, rhs);
   addEffectful(store);
   return resumeAfter(store);
 }
@@ -651,6 +663,37 @@ bool WarpCacheIRTranspiler::emitStoreDenseElement(ObjOperandId objId,
   auto* store =
       MStoreElement::New(alloc(), elements, index, rhs, needsHoleCheck);
   store->setNeedsBarrier();
+  addEffectful(store);
+  return resumeAfter(store);
+}
+
+bool WarpCacheIRTranspiler::emitStoreTypedArrayElement(ObjOperandId objId,
+                                                       Scalar::Type elementType,
+                                                       Int32OperandId indexId,
+                                                       uint32_t rhsId,
+                                                       bool handleOOB) {
+  MDefinition* obj = getOperand(objId);
+  MDefinition* index = getOperand(indexId);
+  MDefinition* rhs = getOperand(ValOperandId(rhsId));
+
+  auto* length = MTypedArrayLength::New(alloc(), obj);
+  add(length);
+
+  if (!handleOOB) {
+    // MStoreTypedArrayElementHole does the bounds checking.
+    index = addBoundsCheck(index, length);
+  }
+
+  auto* elements = MTypedArrayElements::New(alloc(), obj);
+  add(elements);
+
+  MInstruction* store;
+  if (handleOOB) {
+    store = MStoreTypedArrayElementHole::New(alloc(), elements, length, index,
+                                             rhs, elementType);
+  } else {
+    store = MStoreUnboxedScalar::New(alloc(), elements, index, rhs, elementType);
+  }
   addEffectful(store);
   return resumeAfter(store);
 }

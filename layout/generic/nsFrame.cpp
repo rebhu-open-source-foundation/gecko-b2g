@@ -2550,9 +2550,9 @@ bool nsIFrame::CanBeDynamicReflowRoot() const {
  * Refreshes each content's frame
  *********************************************************/
 
-void nsFrame::DisplaySelectionOverlay(nsDisplayListBuilder* aBuilder,
-                                      nsDisplayList* aList,
-                                      uint16_t aContentType) {
+void nsContainerFrame::DisplaySelectionOverlay(nsDisplayListBuilder* aBuilder,
+                                               nsDisplayList* aList,
+                                               uint16_t aContentType) {
   if (!IsSelected() || !IsVisibleForPainting()) {
     return;
   }
@@ -2625,12 +2625,18 @@ void nsFrame::DisplayOutlineUnconditional(nsDisplayListBuilder* aBuilder,
     return;
   }
 
-  // We don't display outline-style: auto on themed frames.
-  //
-  // TODO(emilio): Maybe we want a theme hook to say which frames can handle it
-  // themselves. Non-native theme probably will want this.
-  if (outline.mOutlineStyle.IsAuto() && IsThemed()) {
-    return;
+  // We don't display outline-style: auto on themed frames that have their own
+  // focus indicators.
+  if (outline.mOutlineStyle.IsAuto()) {
+    auto* disp = StyleDisplay();
+    // FIXME(emilio): The range special-case is needed because <input
+    // type=range> displays its own outline with ::-moz-focus-outer, and this
+    // would show two outlines instead of one.
+    if (IsThemed(disp) &&
+        (PresContext()->Theme()->ThemeDrawsFocusForWidget(disp->mAppearance) ||
+         disp->mAppearance != StyleAppearance::Range)) {
+      return;
+    }
   }
 
   aLists.Outlines()->AppendNewToTop<nsDisplayOutline>(aBuilder, this);
@@ -3325,20 +3331,15 @@ void nsIFrame::BuildDisplayListForStackingContext(
 
     switch (decision.mDecision) {
       case nsDisplayTransform::PrerenderDecision::Full:
-        allowAsyncAnimation = true;
-        visibleRect = dirtyRect;
-        break;
       case nsDisplayTransform::PrerenderDecision::Partial:
         allowAsyncAnimation = true;
         visibleRect = dirtyRect;
-        [[fallthrough]];
-        // fall through to the PrerenderDecision::No case
+        break;
       case nsDisplayTransform::PrerenderDecision::No: {
         // If we didn't prerender an animated frame in a preserve-3d context,
         // then we want disable async animations for the rest of the preserve-3d
         // (especially ancestors).
         if ((extend3DContext || combines3DTransformWithAncestors) &&
-            decision.mDecision == nsDisplayTransform::PrerenderDecision::No &&
             decision.mHasAnimations) {
           aBuilder->SavePreserves3DAllowAsyncAnimation(false);
         }
@@ -6354,7 +6355,7 @@ LogicalSize nsIFrame::ComputeSize(gfxContext* aRenderingContext,
   return result;
 }
 
-LogicalSize nsFrame::ComputeSizeWithIntrinsicDimensions(
+LogicalSize nsContainerFrame::ComputeSizeWithIntrinsicDimensions(
     gfxContext* aRenderingContext, WritingMode aWM,
     const IntrinsicSize& aIntrinsicSize, const AspectRatio& aIntrinsicRatio,
     const LogicalSize& aCBSize, const LogicalSize& aMargin,
@@ -6761,7 +6762,8 @@ nsRect nsIFrame::ComputeTightBounds(DrawTarget* aDrawTarget) const {
   return GetVisualOverflowRect();
 }
 
-nsRect nsFrame::ComputeSimpleTightBounds(DrawTarget* aDrawTarget) const {
+nsRect nsContainerFrame::ComputeSimpleTightBounds(
+    DrawTarget* aDrawTarget) const {
   if (StyleOutline()->ShouldPaintOutline() || StyleBorder()->HasBorder() ||
       !StyleBackground()->IsTransparent(this) ||
       StyleDisplay()->HasAppearance()) {
@@ -6969,7 +6971,7 @@ void nsIFrame::ReflowAbsoluteFrames(nsPresContext* aPresContext,
   }
 }
 
-void nsFrame::PushDirtyBitToAbsoluteFrames() {
+void nsContainerFrame::PushDirtyBitToAbsoluteFrames() {
   if (!(GetStateBits() & NS_FRAME_IS_DIRTY)) {
     return;  // No dirty bit to push.
   }
@@ -7299,6 +7301,15 @@ Matrix4x4Flagged nsIFrame::GetTransformMatrix(ViewportType aViewportType,
                                 nsDisplayTransform::OFFSET_BY_ORIGIN);
     }
 
+    // The offset from a zoomed content root to its parent (e.g. from
+    // a canvas frame to a scroll frame) is in layout coordinates, so
+    // apply it before applying any layout-to-visual transform.
+    *aOutAncestor = nsLayoutUtils::GetCrossDocParentFrame(this);
+    nsPoint delta = GetOffsetToCrossDoc(*aOutAncestor);
+    /* Combine the raw transform with a translation to our parent. */
+    result.PostTranslate(NSAppUnitsToFloatPixels(delta.x, scaleFactor),
+                         NSAppUnitsToFloatPixels(delta.y, scaleFactor), 0.0f);
+
     if (zoomedContentRoot) {
       Matrix4x4 layoutToVisual;
       ScrollableLayerGuid::ViewID targetScrollId =
@@ -7317,12 +7328,6 @@ Matrix4x4Flagged nsIFrame::GetTransformMatrix(ViewportType aViewportType,
       }
       result = result * layoutToVisual;
     }
-
-    *aOutAncestor = nsLayoutUtils::GetCrossDocParentFrame(this);
-    nsPoint delta = GetOffsetToCrossDoc(*aOutAncestor);
-    /* Combine the raw transform with a translation to our parent. */
-    result.PostTranslate(NSAppUnitsToFloatPixels(delta.x, scaleFactor),
-                         NSAppUnitsToFloatPixels(delta.y, scaleFactor), 0.0f);
 
     return result;
   }
@@ -7999,9 +8004,9 @@ void nsIFrame::UnionChildOverflow(nsOverflowAreas& aOverflowAreas) {
 //  the Viewport, GFXScroll, ScrollPort, and Canvas
 #define MAX_FRAME_DEPTH (MAX_REFLOW_DEPTH + 4)
 
-bool nsFrame::IsFrameTreeTooDeep(const ReflowInput& aReflowInput,
-                                 ReflowOutput& aMetrics,
-                                 nsReflowStatus& aStatus) {
+bool nsContainerFrame::IsFrameTreeTooDeep(const ReflowInput& aReflowInput,
+                                          ReflowOutput& aMetrics,
+                                          nsReflowStatus& aStatus) {
   if (aReflowInput.mReflowDepth > MAX_FRAME_DEPTH) {
     NS_WARNING("frame tree too deep; setting zero size and returning");
     AddStateBits(NS_FRAME_TOO_DEEP_IN_FRAME_TREE);
@@ -8525,7 +8530,7 @@ nsresult nsFrame::GetNextPrevLineFromeBlockFrame(nsPresContext* aPresContext,
       nsView* view;  // used for call of get offset from view
       aBlockFrame->GetOffsetFromView(offset, &view);
       nsPoint newDesiredPos =
-          aPos->mDesiredPos -
+          aPos->mDesiredCaretPos -
           offset;  // get desired position into blockframe coords
       result = it->FindFrameAt(searchingLine, newDesiredPos, &resultFrame,
                                &isBeforeFirstFrame, &isAfterLastFrame);
@@ -8578,11 +8583,11 @@ nsresult nsFrame::GetNextPrevLineFromeBlockFrame(nsPresContext* aPresContext,
           return NS_ERROR_FAILURE;
         }
         if (resultFrame->GetWritingMode().IsVertical()) {
-          point.y = aPos->mDesiredPos.y;
+          point.y = aPos->mDesiredCaretPos.y;
           point.x = tempRect.width + offset.x;
         } else {
           point.y = tempRect.height + offset.y;
-          point.x = aPos->mDesiredPos.x;
+          point.x = aPos->mDesiredCaretPos.x;
         }
 
         // special check. if we allow non-text selection then we can allow a hit
@@ -8658,7 +8663,7 @@ nsresult nsFrame::GetNextPrevLineFromeBlockFrame(nsPresContext* aPresContext,
         );
       }
       while (!found) {
-        nsPoint point = aPos->mDesiredPos;
+        nsPoint point = aPos->mDesiredCaretPos;
         nsView* view;
         nsPoint offset;
         resultFrame->GetOffsetFromView(offset, &view);
@@ -10118,8 +10123,8 @@ uint32_t nsIFrame::GetDepthInFrameTree() const {
   return result;
 }
 
-void nsFrame::ConsiderChildOverflow(nsOverflowAreas& aOverflowAreas,
-                                    nsIFrame* aChildFrame) {
+void nsContainerFrame::ConsiderChildOverflow(nsOverflowAreas& aOverflowAreas,
+                                             nsIFrame* aChildFrame) {
   if (StyleDisplay()->IsContainLayout() &&
       IsFrameOfType(eSupportsContainLayoutAndPaint)) {
     // If we have layout containment and are not a non-atomic, inline-level
@@ -10137,7 +10142,8 @@ void nsFrame::ConsiderChildOverflow(nsOverflowAreas& aOverflowAreas,
   }
 }
 
-bool nsFrame::ShouldAvoidBreakInside(const ReflowInput& aReflowInput) const {
+bool nsContainerFrame::ShouldAvoidBreakInside(
+    const ReflowInput& aReflowInput) const {
   const auto* disp = StyleDisplay();
   return !aReflowInput.mFlags.mIsTopOfPage &&
          StyleBreakWithin::Avoid == disp->mBreakInside &&
@@ -11584,16 +11590,20 @@ CompositorHitTestInfo nsIFrame::GetCompositorHitTestInfo(
     nsIFrame* touchActionFrame = this;
     if (nsIScrollableFrame* scrollFrame =
             nsLayoutUtils::GetScrollableFrameFor(this)) {
-      touchActionFrame = do_QueryFrame(scrollFrame);
-      // On scrollframes, stop inheriting the pan-x and pan-y flags; instead,
-      // reset them back to zero to allow panning on the scrollframe unless we
-      // encounter an element that disables it that's inside the scrollframe.
-      // This is equivalent to the |considerPanning| variable in
-      // TouchActionHelper.cpp, but for a top-down traversal.
-      CompositorHitTestInfo panMask(
-          CompositorHitTestFlags::eTouchActionPanXDisabled,
-          CompositorHitTestFlags::eTouchActionPanYDisabled);
-      inheritedTouchAction -= panMask;
+      ScrollStyles ss = scrollFrame->GetScrollStyles();
+      if (ss.mVertical != StyleOverflow::Hidden ||
+          ss.mHorizontal != StyleOverflow::Hidden) {
+        touchActionFrame = do_QueryFrame(scrollFrame);
+        // On scrollframes, stop inheriting the pan-x and pan-y flags; instead,
+        // reset them back to zero to allow panning on the scrollframe unless we
+        // encounter an element that disables it that's inside the scrollframe.
+        // This is equivalent to the |considerPanning| variable in
+        // TouchActionHelper.cpp, but for a top-down traversal.
+        CompositorHitTestInfo panMask(
+            CompositorHitTestFlags::eTouchActionPanXDisabled,
+            CompositorHitTestFlags::eTouchActionPanYDisabled);
+        inheritedTouchAction -= panMask;
+      }
     }
 
     result += inheritedTouchAction;

@@ -28,6 +28,7 @@ namespace js {
 namespace frontend {
 
 class ParseContext;
+struct ScopeContext;
 
 enum class StatementKind : uint8_t {
   Label,
@@ -91,8 +92,14 @@ class Directives {
 
 // The kind of this-binding for the current scope. Note that arrow functions
 // have a lexical this-binding so their ThisBinding is the same as the
-// ThisBinding of their enclosing scope and can be any value.
-enum class ThisBinding : uint8_t { Global, Function, Module };
+// ThisBinding of their enclosing scope and can be any value. Derived
+// constructors require TDZ checks when accessing the binding.
+enum class ThisBinding : uint8_t {
+  Global,
+  Module,
+  Function,
+  DerivedConstructor
+};
 
 class GlobalSharedContext;
 class EvalSharedContext;
@@ -141,7 +148,6 @@ class SharedContext {
   bool allowSuperCall_ : 1;
   bool allowArguments_ : 1;
   bool inWith_ : 1;
-  bool needsThisTDZChecks_ : 1;
 
   // See `strict()` below.
   bool localStrict : 1;
@@ -155,10 +161,6 @@ class SharedContext {
 
   // Alias enum into SharedContext
   using ImmutableFlags = ImmutableScriptFlagsEnum;
-
-  void computeAllowSyntax(Scope* scope);
-  void computeInWith(Scope* scope);
-  void computeThisBinding(Scope* scope);
 
   MOZ_MUST_USE bool hasFlag(ImmutableFlags flag) const {
     return immutableFlags_.hasFlag(flag);
@@ -207,6 +209,13 @@ class SharedContext {
   CompilationInfo& compilationInfo() const { return compilationInfo_; }
 
   ThisBinding thisBinding() const { return thisBinding_; }
+  bool hasFunctionThisBinding() const {
+    return thisBinding() == ThisBinding::Function ||
+           thisBinding() == ThisBinding::DerivedConstructor;
+  }
+  bool needsThisTDZChecks() const {
+    return thisBinding() == ThisBinding::DerivedConstructor;
+  }
 
   bool isSelfHosted() const { return selfHosted(); }
   bool allowNewTarget() const { return allowNewTarget_; }
@@ -214,7 +223,6 @@ class SharedContext {
   bool allowSuperCall() const { return allowSuperCall_; }
   bool allowArguments() const { return allowArguments_; }
   bool inWith() const { return inWith_; }
-  bool needsThisTDZChecks() const { return needsThisTDZChecks_; }
 
   bool hasExplicitUseStrict() const { return hasExplicitUseStrict_; }
   void setExplicitUseStrict() { hasExplicitUseStrict_ = true; }
@@ -252,7 +260,7 @@ class MOZ_STACK_CLASS GlobalSharedContext : public SharedContext {
         bindings(cx) {
     MOZ_ASSERT(scopeKind == ScopeKind::Global ||
                scopeKind == ScopeKind::NonSyntactic);
-    thisBinding_ = ThisBinding::Global;
+    MOZ_ASSERT(thisBinding_ == ThisBinding::Global);
   }
 
   Scope* compilationEnclosingScope() const override { return nullptr; }
@@ -271,9 +279,9 @@ class MOZ_STACK_CLASS EvalSharedContext : public SharedContext {
  public:
   Rooted<EvalScope::Data*> bindings;
 
-  EvalSharedContext(JSContext* cx, JSObject* enclosingEnv,
-                    CompilationInfo& compilationInfo, Scope* enclosingScope,
-                    Directives directives, SourceExtent extent);
+  EvalSharedContext(JSContext* cx, CompilationInfo& compilationInfo,
+                    Scope* enclosingScope, Directives directives,
+                    SourceExtent extent);
 
   Scope* compilationEnclosingScope() const override { return enclosingScope_; }
 };
@@ -315,8 +323,9 @@ class FunctionBox : public SharedContext {
   // has expressions.
   VarScope::Data* extraVarScopeBindings_ = nullptr;
 
-  // The explicit name of the function.
-  JSAtom* explicitName_ = nullptr;
+  // The explicit or implicit name of the function. The FunctionFlags indicate
+  // the kind of name.
+  JSAtom* atom_ = nullptr;
 
   // Index into CompilationInfo::funcData, which contains the function
   // information, either a JSFunction* (for a FunctionBox representing a real
@@ -407,20 +416,13 @@ class FunctionBox : public SharedContext {
   }
 
   void initFromLazyFunction(JSFunction* fun);
-  void initStandaloneFunction(Scope* enclosingScope);
 
-  void initWithEnclosingScope(JSFunction* fun);
+  void initWithEnclosingScope(ScopeContext& scopeContext, Scope* enclosingScope,
+                              FunctionFlags flags, FunctionSyntaxKind kind);
 
   void initWithEnclosingParseContext(ParseContext* enclosing,
                                      FunctionFlags flags,
                                      FunctionSyntaxKind kind);
-
-  void initWithEnclosingParseContext(ParseContext* enclosing, JSFunction* fun,
-                                     FunctionSyntaxKind kind) {
-    initWithEnclosingParseContext(enclosing, fun->flags(), kind);
-  }
-
-  void initFieldInitializer(ParseContext* enclosing, FunctionFlags flags);
 
   void setEnclosingScopeForInnerLazyFunction(
       const AbstractScopePtr& enclosingScope);
@@ -450,6 +452,7 @@ class FunctionBox : public SharedContext {
   IMMUTABLE_FLAG_GETTER_SETTER(functionHasThisBinding, FunctionHasThisBinding)
   // NeedsHomeObject: custom logic below.
   // IsDerivedClassConstructor: custom logic below.
+  // IsFieldInitializer: custom logic below.
   IMMUTABLE_FLAG_GETTER_SETTER(hasRest, HasRest)
   IMMUTABLE_FLAG_GETTER_SETTER(needsFunctionEnvironmentObjects,
                                NeedsFunctionEnvironmentObjects)
@@ -518,7 +521,31 @@ class FunctionBox : public SharedContext {
 
   FunctionFlags::FunctionKind kind() { return flags_.kind(); }
 
-  JSAtom* explicitName() const { return explicitName_; }
+  bool hasInferredName() const { return flags_.hasInferredName(); }
+  bool hasGuessedAtom() const { return flags_.hasGuessedAtom(); }
+
+  JSAtom* displayAtom() const { return atom_; }
+  JSAtom* explicitName() const {
+    return (hasInferredName() || hasGuessedAtom()) ? nullptr : atom_;
+  }
+
+  // NOTE: We propagate to any existing functions for now. This handles both the
+  // delazification case where functions already exist, and also handles
+  // code-coverage which is not yet deferred.
+  void setInferredName(JSAtom* atom) {
+    atom_ = atom;
+    flags_.setInferredName();
+    if (hasFunction()) {
+      function()->setInferredName(atom);
+    }
+  }
+  void setGuessedAtom(JSAtom* atom) {
+    atom_ = atom;
+    flags_.setGuessedAtom();
+    if (hasFunction()) {
+      function()->setGuessedAtom(atom);
+    }
+  }
 
   void setAlwaysNeedsArgsObj() {
     MOZ_ASSERT(argumentsHasVarBinding());
@@ -539,6 +566,14 @@ class FunctionBox : public SharedContext {
   void setDerivedClassConstructor() {
     MOZ_ASSERT(flags_.isClassConstructor());
     setFlag(ImmutableFlags::IsDerivedClassConstructor);
+  }
+
+  bool isFieldInitializer() const {
+    return hasFlag(ImmutableFlags::IsFieldInitializer);
+  }
+  void setFieldInitializer() {
+    MOZ_ASSERT(flags_.isMethod());
+    setFlag(ImmutableFlags::IsFieldInitializer);
   }
 
   bool hasSimpleParameterList() const {
@@ -594,12 +629,6 @@ class FunctionBox : public SharedContext {
     RootedFunction fun(cx, function());
     return JSFunction::setTypeForScriptedFunction(cx, fun, singleton);
   }
-
-  void setInferredName(JSAtom* atom) { function()->setInferredName(atom); }
-
-  JSAtom* inferredName() const { return function()->inferredName(); }
-
-  bool hasInferredName() const { return function()->hasInferredName(); }
 
   size_t index() { return funcDataIndex_; }
 

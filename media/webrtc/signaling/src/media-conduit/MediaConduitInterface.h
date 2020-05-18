@@ -44,6 +44,7 @@ enum class MediaSessionConduitLocalDirection : int { kSend, kRecv };
 
 class VideoSessionConduit;
 class AudioSessionConduit;
+class RtpRtcpConfig;
 
 using RtpExtList = std::vector<webrtc::RtpExtension>;
 
@@ -245,6 +246,8 @@ class MediaSessionConduit {
                                      Maybe<double>* aOutRttMs) = 0;
   virtual bool GetRTCPSenderReport(unsigned int* packetsSent,
                                    uint64_t* bytesSent) = 0;
+
+  virtual void GetRtpSources(nsTArray<dom::RTCRtpSourceEntry>& outSources) = 0;
 
   virtual uint64_t CodecPluginID() = 0;
 
@@ -448,7 +451,8 @@ class VideoSessionConduit : public MediaSessionConduit {
    *
    */
   virtual MediaConduitErrorCode ConfigureSendMediaCodec(
-      const VideoCodecConfig* sendSessionConfig) = 0;
+      const VideoCodecConfig* sendSessionConfig,
+      const RtpRtcpConfig& aRtpRtcpConfig) = 0;
 
   /**
    * Function to configurelist of receive codecs for the video session
@@ -458,7 +462,8 @@ class VideoSessionConduit : public MediaSessionConduit {
    *
    */
   virtual MediaConduitErrorCode ConfigureRecvMediaCodecs(
-      const std::vector<UniquePtr<VideoCodecConfig>>& recvCodecConfigList) = 0;
+      const std::vector<UniquePtr<VideoCodecConfig>>& recvCodecConfigList,
+      const RtpRtcpConfig& aRtpRtcpConfig) = 0;
 
   /**
    * These methods allow unit tests to double-check that the
@@ -601,8 +606,6 @@ class AudioSessionConduit : public MediaSessionConduit {
 
   virtual bool InsertDTMFTone(int channel, int eventCode, bool outOfBand,
                               int lengthMs, int attenuationDb) = 0;
-
-  virtual void GetRtpSources(nsTArray<dom::RTCRtpSourceEntry>& outSources) = 0;
 };
 }  // namespace mozilla
 #endif

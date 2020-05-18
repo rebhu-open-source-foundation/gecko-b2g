@@ -238,18 +238,16 @@ struct ModuleEnvironment {
     if (one == two) {
       return true;
     }
-    // Anything's a subtype of AnyRef.
-    if (two.isAnyRef()) {
-      return true;
-    }
-    // NullRef is a subtype of nullable types.
-    if (one.isNullRef()) {
-      return two.isNullable();
-    }
 #if defined(ENABLE_WASM_GC)
-    // Struct One is a subtype of struct Two if Two is a prefix of One.
-    if (gcTypesEnabled() && isStructType(one) && isStructType(two)) {
-      return isStructPrefixOf(two, one);
+    if (gcTypesEnabled()) {
+      // Structs are subtypes of AnyRef.
+      if (isStructType(one) && two.isAnyRef()) {
+        return true;
+      }
+      // Struct One is a subtype of struct Two if Two is a prefix of One.
+      if (isStructType(one) && isStructType(two)) {
+        return isStructPrefixOf(two, one);
+      }
     }
 #endif
     return false;
@@ -680,7 +678,6 @@ class Decoder {
         return RefType::fromTypeIndex(uncheckedReadVarU32());
       case uint8_t(TypeCode::AnyRef):
       case uint8_t(TypeCode::FuncRef):
-      case uint8_t(TypeCode::NullRef):
         return RefType::fromTypeCode(TypeCode(code));
       default:
         return ValType::fromNonRefTypeCode(TypeCode(code));
@@ -706,7 +703,6 @@ class Decoder {
 #ifdef ENABLE_WASM_REFTYPES
       case uint8_t(TypeCode::FuncRef):
       case uint8_t(TypeCode::AnyRef):
-      case uint8_t(TypeCode::NullRef):
         if (!refTypesEnabled) {
           return fail("reference types not enabled");
         }
@@ -741,6 +737,49 @@ class Decoder {
     }
     if (type->isTypeIndex() &&
         !types[type->refType().typeIndex()].isStructType()) {
+      return fail("type index does not reference a struct type");
+    }
+    return true;
+  }
+  MOZ_MUST_USE bool readRefType(uint32_t numTypes, bool gcTypesEnabled,
+                                RefType* type) {
+    static_assert(uint8_t(TypeCode::Limit) <= UINT8_MAX, "fits");
+    uint8_t code;
+    if (!readFixedU8(&code)) {
+      return false;
+    }
+    switch (code) {
+      case uint8_t(TypeCode::FuncRef):
+      case uint8_t(TypeCode::AnyRef):
+        *type = RefType::fromTypeCode(TypeCode(code));
+        return true;
+#ifdef ENABLE_WASM_GC
+      case uint8_t(TypeCode::OptRef): {
+        if (!gcTypesEnabled) {
+          return fail("(optref T) types not enabled");
+        }
+        uint32_t typeIndex;
+        if (!readVarU32(&typeIndex)) {
+          return false;
+        }
+        if (typeIndex >= numTypes) {
+          return fail("ref index out of range");
+        }
+        *type = RefType::fromTypeIndex(typeIndex);
+        return true;
+      }
+#endif
+      default:
+        return fail("bad type");
+    }
+  }
+  MOZ_MUST_USE bool readRefType(const TypeDefVector& types, bool gcTypesEnabled,
+                                RefType* type) {
+    if (!readRefType(types.length(), gcTypesEnabled, type)) {
+      return false;
+    }
+    if (type->kind() == RefType::TypeIndex &&
+        !types[type->typeIndex()].isStructType()) {
       return fail("type index does not reference a struct type");
     }
     return true;

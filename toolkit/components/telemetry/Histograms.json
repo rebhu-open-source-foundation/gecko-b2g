@@ -656,12 +656,14 @@
   },
   "GC_MS": {
     "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec", "geckoview"],
-    "alert_emails": ["dev-telemetry-gc-alerts@mozilla.org"],
+    "products": ["firefox", "fennec", "geckoview", "geckoview_streaming"],
+    "alert_emails": ["dev-telemetry-gc-alerts@mozilla.org", "jcoppeard@mozilla.com"],
     "expires_in_version": "never",
+    "releaseChannelCollection": "opt-out",
     "kind": "exponential",
     "high": 10000,
     "n_buckets": 50,
+    "bug_numbers": [1636419],
     "description": "Time spent running JS GC (ms)"
   },
   "GC_IN_PROGRESS_MS": {
@@ -708,6 +710,18 @@
     "n_buckets": 50,
     "releaseChannelCollection": "opt-out",
     "description": "Longest GC slice in a GC (ms)"
+  },
+  "GC_PREPARE_MS": {
+    "record_in_processes": ["main", "content"],
+    "products": ["firefox"],
+    "alert_emails": ["dev-telemetry-gc-alerts@mozilla.org", "jcoppeard@mozilla.com"],
+    "expires_in_version": "never",
+    "releaseChannelCollection": "opt-out",
+    "kind": "exponential",
+    "high": 1000,
+    "n_buckets": 50,
+    "description": "Time spent running JS GC preparation phase (ms)",
+    "bug_numbers": [1637642]
   },
   "GC_MARK_MS": {
     "record_in_processes": ["main", "content"],
@@ -758,6 +772,18 @@
     "high": 200,
     "n_buckets": 50,
     "description": "Time spent marking gray GC objects (ms)"
+  },
+  "GC_MARK_WEAK_MS": {
+    "record_in_processes": ["main", "content"],
+    "products": ["firefox"],
+    "alert_emails": ["dev-telemetry-gc-alerts@mozilla.org", "jcoppeard@mozilla.com"],
+    "expires_in_version": "never",
+    "releaseChannelCollection": "opt-out",
+    "kind": "exponential",
+    "high": 10000,
+    "n_buckets": 50,
+    "description": "Time spent marking GC objects held live through weakmaps (ms)",
+    "bug_numbers": [1637642]
   },
   "GC_SLICE_MS": {
     "record_in_processes": ["main", "content"],
@@ -833,26 +859,6 @@
     "n_values": 20,
     "description": "Reason for performing a non-incremental GC (see js::gc::AbortReason)",
     "bug_numbers": [1308116]
-  },
-  "GC_SCC_SWEEP_TOTAL_MS": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec", "geckoview"],
-    "alert_emails": ["dev-telemetry-gc-alerts@mozilla.org"],
-    "expires_in_version": "never",
-    "kind": "linear",
-    "high": 500,
-    "n_buckets": 50,
-    "description": "Time spent sweeping compartment SCCs (ms)"
-  },
-  "GC_SCC_SWEEP_MAX_PAUSE_MS": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec", "geckoview"],
-    "alert_emails": ["dev-telemetry-gc-alerts@mozilla.org"],
-    "expires_in_version": "never",
-    "kind": "linear",
-    "high": 500,
-    "n_buckets": 50,
-    "description": "Time spent sweeping slowest compartment SCC (ms)"
   },
   "GC_MINOR_REASON": {
     "record_in_processes": ["main", "content"],
@@ -12335,9 +12341,9 @@
     "expires_in_version": "never",
     "kind": "enumerated",
     "n_values": 5,
-    "description": "Action taken by user through prompt for modifying a login. (0=Prompt displayed [always recorded], 1=Update login)",
+    "description": "Action taken by user through prompt for modifying a login. (0=Prompt displayed [always recorded], 1=Update login, 2=Don't update, 3=Remove saved login)",
     "alert_emails": ["loines@mozilla.com"],
-    "bug_numbers": [1454733, 1545172],
+    "bug_numbers": [1454733, 1545172, 1226236],
     "releaseChannelCollection": "opt-out",
     "record_into_store": ["main", "pre-account"]
   },
@@ -14202,6 +14208,17 @@
     "n_buckets": 100,
     "releaseChannelCollection": "opt-out",
     "description": "The average number of dropped frames per sec in OpenVR, sent when user exits WebVR content."
+  },
+  "WEBXR_API_MODE": {
+    "record_in_processes": ["main", "content"],
+    "products": ["firefox", "fennec", "geckoview"],
+    "alert_emails": ["fxr-telemetry@mozilla.com", "dmu@mozilla.com"],
+    "bug_numbers": [1635872],
+    "expires_in_version": "never",
+    "kind": "categorical",
+    "releaseChannelCollection": "opt-out",
+    "labels": ["WebXR", "WebVR"],
+    "description": "Determine what API users use to enter the web immersive mode."
   },
   "URLCLASSIFIER_UI_EVENTS": {
     "record_in_processes": ["main", "content"],

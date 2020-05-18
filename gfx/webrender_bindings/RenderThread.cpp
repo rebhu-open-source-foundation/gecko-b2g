@@ -31,7 +31,6 @@
 
 #ifdef MOZ_WIDGET_ANDROID
 #  include "GLLibraryEGL.h"
-#  include "GeneratedJNIWrappers.h"
 #  include "mozilla/webrender/RenderAndroidSurfaceTextureHostOGL.h"
 #endif
 
@@ -711,20 +710,6 @@ void RenderThread::UnregisterExternalImageDuringShutdown(
   mRenderTextures.erase(aExternalImageId);
 }
 
-void RenderThread::NotifyAllAndroidSurfaceTexturesDetatched() {
-  MOZ_ASSERT(IsInRenderThread());
-#ifdef MOZ_WIDGET_ANDROID
-  MutexAutoLock lock(mRenderTextureMapLock);
-  for (const auto& entry : mRenderTextures) {
-    RenderAndroidSurfaceTextureHostOGL* host =
-        entry.second->AsRenderAndroidSurfaceTextureHostOGL();
-    if (host) {
-      host->DetachedFromGLContext();
-    }
-  }
-#endif
-}
-
 void RenderThread::HandlePrepareForUse() {
   MOZ_ASSERT(IsInRenderThread());
   MutexAutoLock lock(mRenderTextureMapLock);
@@ -1089,28 +1074,19 @@ void wr_schedule_render(mozilla::wr::WrWindowId aWindowId) {
 }
 
 static void NotifyDidSceneBuild(RefPtr<layers::CompositorBridgeParent> aBridge,
-                                const nsTArray<wr::RenderRoot>& aRenderRoots,
                                 RefPtr<const wr::WebRenderPipelineInfo> aInfo) {
-  aBridge->NotifyDidSceneBuild(aRenderRoots, aInfo);
+  aBridge->NotifyDidSceneBuild(aInfo);
 }
 
 void wr_finished_scene_build(mozilla::wr::WrWindowId aWindowId,
-                             const mozilla::wr::WrDocumentId* aDocumentIds,
-                             size_t aDocumentIdsCount,
                              mozilla::wr::WrPipelineInfo* aInfo) {
   RefPtr<mozilla::layers::CompositorBridgeParent> cbp = mozilla::layers::
       CompositorBridgeParent::GetCompositorBridgeParentFromWindowId(aWindowId);
   RefPtr<wr::WebRenderPipelineInfo> info = new wr::WebRenderPipelineInfo();
   info->Raw() = std::move(*aInfo);
   if (cbp) {
-    nsTArray<wr::RenderRoot> renderRoots;
-    renderRoots.SetLength(aDocumentIdsCount);
-    for (size_t i = 0; i < aDocumentIdsCount; ++i) {
-      renderRoots[i] = wr::RenderRootFromId(aDocumentIds[i]);
-    }
-    layers::CompositorThread()->Dispatch(
-        NewRunnableFunction("NotifyDidSceneBuild", &NotifyDidSceneBuild, cbp,
-                            std::move(renderRoots), info));
+    layers::CompositorThread()->Dispatch(NewRunnableFunction(
+        "NotifyDidSceneBuild", &NotifyDidSceneBuild, cbp, info));
   }
 }
 

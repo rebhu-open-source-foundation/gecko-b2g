@@ -157,6 +157,21 @@ let ACTORS = {
     matches: ["about:protections"],
   },
 
+  AboutReader: {
+    parent: {
+      moduleURI: "resource:///actors/AboutReaderParent.jsm",
+    },
+    child: {
+      moduleURI: "resource:///actors/AboutReaderChild.jsm",
+      events: {
+        DOMContentLoaded: {},
+        pageshow: { mozSystemGroup: true },
+        pagehide: { mozSystemGroup: true },
+      },
+    },
+    messageManagerGroups: ["browsers"],
+  },
+
   AboutTabCrashed: {
     parent: {
       moduleURI: "resource:///actors/AboutTabCrashedParent.jsm",
@@ -422,14 +437,6 @@ let ACTORS = {
     parent: {
       moduleURI: "resource:///actors/PromptParent.jsm",
     },
-    child: {
-      moduleURI: "resource:///actors/PromptChild.jsm",
-      events: {
-        pagehide: {
-          capture: true,
-        },
-      },
-    },
     includeChrome: true,
     allFrames: true,
   },
@@ -521,20 +528,6 @@ let ACTORS = {
 };
 
 let LEGACY_ACTORS = {
-  AboutReader: {
-    child: {
-      module: "resource:///actors/AboutReaderChild.jsm",
-      group: "browsers",
-      events: {
-        AboutReaderContentLoaded: { wantUntrusted: true },
-        DOMContentLoaded: {},
-        pageshow: { mozSystemGroup: true },
-        pagehide: { mozSystemGroup: true },
-      },
-      messages: ["Reader:ToggleReaderMode", "Reader:PushState"],
-    },
-  },
-
   URIFixup: {
     child: {
       module: "resource:///actors/URIFixupChild.jsm",
@@ -700,7 +693,6 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   AboutLoginsParent: "resource:///modules/AboutLoginsParent.jsm",
   AsyncPrefs: "resource://gre/modules/AsyncPrefs.jsm",
   PluginManager: "resource:///actors/PluginParent.jsm",
-  ReaderParent: "resource:///modules/ReaderParent.jsm",
 });
 
 /**
@@ -3063,7 +3055,7 @@ BrowserGlue.prototype = {
   _migrateUI: function BG__migrateUI() {
     // Use an increasing number to keep track of the current migration state.
     // Completely unrelated to the current Firefox release number.
-    const UI_VERSION = 94;
+    const UI_VERSION = 95;
     const BROWSER_DOCURL = AppConstants.BROWSER_CHROME_URL;
 
     if (!Services.prefs.prefHasUserValue("browser.migration.version")) {
@@ -3631,6 +3623,14 @@ BrowserGlue.prototype = {
       if (backupPort == socksPort) {
         Services.prefs.clearUserPref("network.proxy.backup.socks_port");
       }
+    }
+
+    if (currentUIVersion < 95) {
+      const oldPrefName = "media.autoplay.enabled.user-gestures-needed";
+      const oldPrefValue = Services.prefs.getBoolPref(oldPrefName, true);
+      const newPrefValue = oldPrefValue ? 0 : 1;
+      Services.prefs.setIntPref("media.autoplay.blocking_policy", newPrefValue);
+      Services.prefs.clearUserPref(oldPrefName);
     }
 
     // Update the migration version.
