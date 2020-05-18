@@ -20,9 +20,6 @@ interface nsIGonkMobileConnectionService : nsIMobileConnectionService
 
   void notifyDataError(in unsigned long clientId, in AString message);
 
-  void notifyDeviceIdentities(in unsigned long clientId,
-                              in jsval deviceIdentities);
-
   void notifySignalStrengthChanged(in unsigned long clientId, in jsval signal);
 
   void notifyOperatorChanged(in unsigned long clientId, in jsval info);

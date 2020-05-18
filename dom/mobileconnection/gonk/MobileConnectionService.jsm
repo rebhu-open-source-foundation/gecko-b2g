@@ -453,15 +453,15 @@ MobileConnectionInfo.prototype = {
   type: null
 };
 
-function MobileDeviceIdentities() {
-  this.imei = null;
-  this.imeisv = null;
-  this.esn = null;
-  this.meid = null;
-}
+function MobileDeviceIdentities() {}
 MobileDeviceIdentities.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsIMobileDeviceIdentities]),
   classID:        MOBILEDEVICEIDENTITIES_CID,
+
+  imei: null,
+  imeisv: null,
+  esn: null,
+  meid: null
 };
 
 function MobileCallForwardingOptions(aOptions) {
@@ -758,22 +758,6 @@ CdmaCellInfo.prototype = {
   evdoSnr: UNKNOWN_VALUE
 };
 
-function MobileDeviceIdentities(aImei, aImeisv, aEsn, aMeid) {
-  this.imei = aImei;
-  this.imeisv = aImeisv;
-  this.esn = aEsn;
-  this.meid = aMeid;
-}
-MobileDeviceIdentities.prototype = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIMobileDeviceIdentities]),
-
-  // nsIMobileDeviceIdentities
-  imei: null,
-  imeisv: null,
-  esn: null,
-  meid: null
-};
-
 function MobileConnectionProvider(aClientId, aRadioInterface) {
   this._clientId = aClientId;
   this._radioInterface = aRadioInterface;
@@ -784,6 +768,7 @@ function MobileConnectionProvider(aClientId, aRadioInterface) {
   this.voice = new MobileConnectionInfo();
   this.data = new MobileConnectionInfo();
   this.signalStrength = new MobileSignalStrength(this._clientId);
+  this.deviceIdentities = new MobileDeviceIdentities();
 }
 MobileConnectionProvider.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsIMobileConnection]),
@@ -821,18 +806,6 @@ MobileConnectionProvider.prototype = {
    */
   _preferredNetworkType: Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_LTE_WCDMA_GSM_CDMA_EVDO,
   _needRestorePreferredNetworkType: false,
-
-  /**
-   * Device indetities:
-   * IMEI if GSM subscription is available.
-   * IMEISV if GSM subscription is available.
-   * ESN if CDMA subscription is available.
-   * MEID if CDMA subscription is available.
-   */
-  _imei: null,
-  _imeisv: null,
-  _esn: null,
-  _meid: null,
 
   /**
    * A utility function to dump debug message.
@@ -1003,13 +976,6 @@ MobileConnectionProvider.prototype = {
     }
 
     return isUpdated;
-  },
-
-  _updateDeviceIdentities: function(aImei, aImeisv, aEsn, aMeid) {
-    this._imei = aImei;
-    this._imeisv = aImeisv;
-    this._esn = aEsn;
-    this._meid = aMeid;
   },
 
   /**
@@ -1339,22 +1305,25 @@ MobileConnectionProvider.prototype = {
     this.deliverListenerEvent("notifyRadioStateChanged");
   },
 
+  updateDeviceIdentities: function(aImei, aImeisv, aEsn, aMeid) {
+    let newDeviceIdentities = new MobileDeviceIdentities();
+    newDeviceIdentities.imei = aImei;
+    newDeviceIdentities.imeisv = aImeisv;
+    newDeviceIdentities.esn = aEsn;
+    newDeviceIdentities.meid = aMeid;
+    if (this._updateInfo(this.deviceIdentities, newDeviceIdentities)) {
+      if (DEBUG) {
+        this._debug("updateDeviceIdentities : " + JSON.stringify(this.deviceIdentities));
+      }
+      this.deliverListenerEvent("notifyDeviceIdentitiesChanged");
+    }
+  },
+
   notifyCFStateChanged: function(aAction, aReason, aNumber, aTimeSeconds,
                                  aServiceClass) {
     this.deliverListenerEvent("notifyCFStateChanged",
                               [aAction, aReason, aNumber, aTimeSeconds,
                                aServiceClass]);
-  },
-
-  notifyDeviceIdentitiesChanged: function(aImei, aImeisv, aEsn, aMeid) {
-    if (this.deviceIdentities) {
-      if (DEBUG) this._debug("deviceIdentities shall not be changed once being updated.");
-      return;
-    }
-
-    this.deviceIdentities =
-      new MobileDeviceIdentities(aImei, aImeisv, aEsn, aMeid);
-    this.deliverListenerEvent("notifyDeviceIdentitiesChanged");
   },
 
   getSupportedNetworkTypes: function(aTypes) {
@@ -1797,10 +1766,10 @@ MobileConnectionProvider.prototype = {
 
   getIdentities: function(aCallback) {
     let deviceId = new MobileDeviceIdentities();
-    deviceId.imei = this._imei;
-    deviceId.imeisv = this._imeisv;
-    deviceId.esn = this._esn;
-    deviceId.meid = this._meid;
+    deviceId.imei = this.deviceIdentities.imei;
+    deviceId.imeisv = this.deviceIdentities.imeisv;
+    deviceId.esn = this.deviceIdentities.esn;
+    deviceId.meid = this.deviceIdentities.emid;
 
     aCallback.notifyGetDeviceIdentitiesRequestSuccess(deviceId);
   },
@@ -1957,18 +1926,6 @@ MobileConnectionService.prototype = {
     }
 
     this.getItemByServiceId(aClientId).updateVoiceInfo(aVoiceInfo);
-  },
-
-  notifyDeviceIdentities: function(aClientId, aMessage) {
-    if (DEBUG) {
-      debug("notifyDeviceIdentities for " + aClientId + ": " +
-            JSON.stringify(aMessage));
-    }
-
-    this.getItemByServiceId(aClientId)._updateDeviceIdentities(aMessage.imei,
-                                                               aMessage.imeisv,
-                                                               aMessage.esn,
-                                                               aMessage.meid);
   },
 
   notifyDataInfoChanged: function(aClientId, aDataInfo) {
@@ -2256,12 +2213,12 @@ MobileConnectionService.prototype = {
   notifyDeviceIdentitiesChanged: function(aClientId, aImei, aImeisv,
                                           aEsn, aMeid) {
     this.getItemByServiceId(aClientId)
-      .notifyDeviceIdentitiesChanged(aImei, aImeisv, aEsn, aMeid);
+      .updateDeviceIdentities(aImei, aImeisv, aEsn, aMeid);
   },
 
   notifyModemRestart: function(aClientId, aReason) {
     if (DEBUG) {
-      this._debug("notifyModemRestart: clientId=" + aClientId + ", reason=" + aReason);
+      debug("notifyModemRestart: clientId=" + aClientId + ", reason=" + aReason);
     }
 
     let provider = this.getItemByServiceId(aClientId);

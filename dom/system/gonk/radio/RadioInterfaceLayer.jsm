@@ -3461,14 +3461,6 @@ RadioInterface.prototype = {
     if (DEBUG) this.debug("handleDeviceIdentity imei=" + response.imei + " , imeisv=" + response.imeisv + " ,esn =" + response.esn + " , meid=" + response.meid);
     if (response.errorMsg) {
       if (DEBUG) this.debug("Failed to get device identities:" + response.errorMsg);
-
-      //Cameron mark first.
-      // Fallback to getIMEI/getIMEISV in case some RILD did not handle this API
-      // properly.
-      /*if (!this._isCdma) {
-        this.getIMEI();
-        this.getIMEISV();
-      }*/
       return;
     }
 
@@ -3490,9 +3482,6 @@ RadioInterface.prototype = {
         esn: newESN || null,
         meid: newMEID || null,
       };
-
-      gMobileConnectionService.notifyDeviceIdentities(this.clientId,
-                                                      this.deviceIdentities);
 
       gMobileConnectionService.notifyDeviceIdentitiesChanged(this.clientId,
                                                              this.deviceIdentities.imei,
