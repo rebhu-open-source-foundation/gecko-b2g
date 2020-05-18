@@ -211,6 +211,28 @@ void MacroAssembler::xorPtr(Imm32 imm, Register dest) {
 }
 
 // ===============================================================
+// Swap instructions
+
+void MacroAssembler::swap16SignExtend(Register reg) { as_revsh(reg, reg); }
+
+void MacroAssembler::swap16ZeroExtend(Register reg) {
+  as_rev16(reg, reg);
+  as_uxth(reg, reg, 0);
+}
+
+void MacroAssembler::swap32(Register reg) { as_rev(reg, reg); }
+
+void MacroAssembler::swap64(Register64 reg) {
+  as_rev(reg.high, reg.high);
+  as_rev(reg.low, reg.low);
+
+  ScratchRegisterScope scratch(*this);
+  ma_mov(reg.high, scratch);
+  ma_mov(reg.low, reg.high);
+  ma_mov(scratch, reg.low);
+}
+
+// ===============================================================
 // Arithmetic functions
 
 void MacroAssembler::add32(Register src, Register dest) {
@@ -1434,6 +1456,12 @@ void MacroAssembler::branchRshift32(Condition cond, T src, Register dest,
   MOZ_ASSERT(cond == Zero || cond == NonZero);
   rshift32(src, dest);
   branch32(cond == Zero ? Equal : NotEqual, dest, Imm32(0), label);
+}
+
+void MacroAssembler::branchNeg32(Condition cond, Register reg, Label* label) {
+  MOZ_ASSERT(cond == Overflow);
+  neg32(reg);
+  j(cond, label);
 }
 
 void MacroAssembler::decBranchPtr(Condition cond, Register lhs, Imm32 rhs,

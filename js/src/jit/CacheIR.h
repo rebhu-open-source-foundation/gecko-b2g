@@ -1478,6 +1478,8 @@ class MOZ_RAII GetIteratorIRGenerator : public IRGenerator {
   void trackAttached(const char* name);
 };
 
+enum class StringChar { CodeAt, At };
+
 class MOZ_RAII CallIRGenerator : public IRGenerator {
  private:
   JSOp op_;
@@ -1495,9 +1497,16 @@ class MOZ_RAII CallIRGenerator : public IRGenerator {
   bool getTemplateObjectForNative(HandleFunction calleeFunc,
                                   MutableHandleObject result);
 
-  AttachDecision tryAttachArrayPush();
-  AttachDecision tryAttachArrayJoin();
-  AttachDecision tryAttachIsSuspendedGenerator();
+  void emitNativeCalleeGuard(HandleFunction callee);
+
+  AttachDecision tryAttachArrayPush(HandleFunction callee);
+  AttachDecision tryAttachArrayJoin(HandleFunction callee);
+  AttachDecision tryAttachIsSuspendedGenerator(HandleFunction callee);
+  AttachDecision tryAttachStringChar(HandleFunction callee, StringChar kind);
+  AttachDecision tryAttachStringCharCodeAt(HandleFunction callee);
+  AttachDecision tryAttachStringCharAt(HandleFunction callee);
+  AttachDecision tryAttachMathAbs(HandleFunction callee);
+
   AttachDecision tryAttachFunCall(HandleFunction calleeFunc);
   AttachDecision tryAttachFunApply(HandleFunction calleeFunc);
   AttachDecision tryAttachCallScripted(HandleFunction calleeFunc);

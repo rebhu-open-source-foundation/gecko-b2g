@@ -20,6 +20,7 @@
 
 #include "builtin/Array.h"
 #include "jit/AtomicOperations.h"
+#include "jit/InlinableNatives.h"
 #include "js/Conversions.h"
 #include "js/PropertySpec.h"
 #include "js/Wrapper.h"
@@ -961,26 +962,46 @@ const JSClass DataViewObject::protoClass_ = {
     JS_NULL_CLASS_OPS, &DataViewObject::classSpec_};
 
 const JSFunctionSpec DataViewObject::methods[] = {
-    JS_FN("getInt8", DataViewObject::fun_getInt8, 1, 0),
-    JS_FN("getUint8", DataViewObject::fun_getUint8, 1, 0),
-    JS_FN("getInt16", DataViewObject::fun_getInt16, 1, 0),
-    JS_FN("getUint16", DataViewObject::fun_getUint16, 1, 0),
-    JS_FN("getInt32", DataViewObject::fun_getInt32, 1, 0),
-    JS_FN("getUint32", DataViewObject::fun_getUint32, 1, 0),
-    JS_FN("getFloat32", DataViewObject::fun_getFloat32, 1, 0),
-    JS_FN("getFloat64", DataViewObject::fun_getFloat64, 1, 0),
-    JS_FN("getBigInt64", DataViewObject::fun_getBigInt64, 1, 0),
-    JS_FN("getBigUint64", DataViewObject::fun_getBigUint64, 1, 0),
-    JS_FN("setInt8", DataViewObject::fun_setInt8, 2, 0),
-    JS_FN("setUint8", DataViewObject::fun_setUint8, 2, 0),
-    JS_FN("setInt16", DataViewObject::fun_setInt16, 2, 0),
-    JS_FN("setUint16", DataViewObject::fun_setUint16, 2, 0),
-    JS_FN("setInt32", DataViewObject::fun_setInt32, 2, 0),
-    JS_FN("setUint32", DataViewObject::fun_setUint32, 2, 0),
-    JS_FN("setFloat32", DataViewObject::fun_setFloat32, 2, 0),
-    JS_FN("setFloat64", DataViewObject::fun_setFloat64, 2, 0),
-    JS_FN("setBigInt64", DataViewObject::fun_setBigInt64, 2, 0),
-    JS_FN("setBigUint64", DataViewObject::fun_setBigUint64, 2, 0),
+    JS_INLINABLE_FN("getInt8", DataViewObject::fun_getInt8, 1, 0,
+                    DataViewGetInt8),
+    JS_INLINABLE_FN("getUint8", DataViewObject::fun_getUint8, 1, 0,
+                    DataViewGetUint8),
+    JS_INLINABLE_FN("getInt16", DataViewObject::fun_getInt16, 1, 0,
+                    DataViewGetInt16),
+    JS_INLINABLE_FN("getUint16", DataViewObject::fun_getUint16, 1, 0,
+                    DataViewGetUint16),
+    JS_INLINABLE_FN("getInt32", DataViewObject::fun_getInt32, 1, 0,
+                    DataViewGetInt32),
+    JS_INLINABLE_FN("getUint32", DataViewObject::fun_getUint32, 1, 0,
+                    DataViewGetUint32),
+    JS_INLINABLE_FN("getFloat32", DataViewObject::fun_getFloat32, 1, 0,
+                    DataViewGetFloat32),
+    JS_INLINABLE_FN("getFloat64", DataViewObject::fun_getFloat64, 1, 0,
+                    DataViewGetFloat64),
+    JS_INLINABLE_FN("getBigInt64", DataViewObject::fun_getBigInt64, 1, 0,
+                    DataViewGetBigInt64),
+    JS_INLINABLE_FN("getBigUint64", DataViewObject::fun_getBigUint64, 1, 0,
+                    DataViewGetBigUint64),
+    JS_INLINABLE_FN("setInt8", DataViewObject::fun_setInt8, 2, 0,
+                    DataViewSetInt8),
+    JS_INLINABLE_FN("setUint8", DataViewObject::fun_setUint8, 2, 0,
+                    DataViewSetUint8),
+    JS_INLINABLE_FN("setInt16", DataViewObject::fun_setInt16, 2, 0,
+                    DataViewSetInt16),
+    JS_INLINABLE_FN("setUint16", DataViewObject::fun_setUint16, 2, 0,
+                    DataViewSetUint16),
+    JS_INLINABLE_FN("setInt32", DataViewObject::fun_setInt32, 2, 0,
+                    DataViewSetInt32),
+    JS_INLINABLE_FN("setUint32", DataViewObject::fun_setUint32, 2, 0,
+                    DataViewSetUint32),
+    JS_INLINABLE_FN("setFloat32", DataViewObject::fun_setFloat32, 2, 0,
+                    DataViewSetFloat32),
+    JS_INLINABLE_FN("setFloat64", DataViewObject::fun_setFloat64, 2, 0,
+                    DataViewSetFloat64),
+    JS_INLINABLE_FN("setBigInt64", DataViewObject::fun_setBigInt64, 2, 0,
+                    DataViewSetBigInt64),
+    JS_INLINABLE_FN("setBigUint64", DataViewObject::fun_setBigUint64, 2, 0,
+                    DataViewSetBigUint64),
     JS_FS_END};
 
 const JSPropertySpec DataViewObject::properties[] = {

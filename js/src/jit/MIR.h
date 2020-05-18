@@ -359,10 +359,11 @@ class AliasSet {
     WasmHeap = 1 << 7,        // An asm.js/wasm heap load
     WasmHeapMeta = 1 << 8,    // The asm.js/wasm heap base pointer and
                               // bounds check limit, in Tls.
-    TypedArrayLengthOrOffset = 1 << 9,  // A typed array's length or byteOffset
-    WasmGlobalCell = 1 << 10,           // A wasm global cell
-    WasmTableElement = 1 << 11,         // An element of a wasm table
-    WasmStackResult = 1 << 12,  // A stack result from the current function
+    ArrayBufferViewLengthOrOffset =
+        1 << 9,                  // An array buffer view's length or byteOffset
+    WasmGlobalCell = 1 << 10,    // A wasm global cell
+    WasmTableElement = 1 << 11,  // An element of a wasm table
+    WasmStackResult = 1 << 12,   // A stack result from the current function
 
     // JSContext's exception state. This is used on instructions like MThrow
     // that throw exceptions (other than OOM) but have no other side effect, to
@@ -7227,17 +7228,17 @@ class MGetNextEntryForIterator
   Mode mode() const { return mode_; }
 };
 
-// Read the length of a typed array.
-class MTypedArrayLength : public MUnaryInstruction,
-                          public SingleObjectPolicy::Data {
-  explicit MTypedArrayLength(MDefinition* obj)
+// Read the length of an array buffer view.
+class MArrayBufferViewLength : public MUnaryInstruction,
+                               public SingleObjectPolicy::Data {
+  explicit MArrayBufferViewLength(MDefinition* obj)
       : MUnaryInstruction(classOpcode, obj) {
     setResultType(MIRType::Int32);
     setMovable();
   }
 
  public:
-  INSTRUCTION_HEADER(TypedArrayLength)
+  INSTRUCTION_HEADER(ArrayBufferViewLength)
   TRIVIAL_NEW_WRAPPERS
   NAMED_OPERANDS((0, object))
 
@@ -7245,23 +7246,23 @@ class MTypedArrayLength : public MUnaryInstruction,
     return congruentIfOperandsEqual(ins);
   }
   AliasSet getAliasSet() const override {
-    return AliasSet::Load(AliasSet::TypedArrayLengthOrOffset);
+    return AliasSet::Load(AliasSet::ArrayBufferViewLengthOrOffset);
   }
 
   void computeRange(TempAllocator& alloc) override;
 };
 
-// Read the byteOffset of a typed array.
-class MTypedArrayByteOffset : public MUnaryInstruction,
-                              public SingleObjectPolicy::Data {
-  explicit MTypedArrayByteOffset(MDefinition* obj)
+// Read the byteOffset of an array buffer view.
+class MArrayBufferViewByteOffset : public MUnaryInstruction,
+                                   public SingleObjectPolicy::Data {
+  explicit MArrayBufferViewByteOffset(MDefinition* obj)
       : MUnaryInstruction(classOpcode, obj) {
     setResultType(MIRType::Int32);
     setMovable();
   }
 
  public:
-  INSTRUCTION_HEADER(TypedArrayByteOffset)
+  INSTRUCTION_HEADER(ArrayBufferViewByteOffset)
   TRIVIAL_NEW_WRAPPERS
   NAMED_OPERANDS((0, object))
 
@@ -7269,23 +7270,23 @@ class MTypedArrayByteOffset : public MUnaryInstruction,
     return congruentIfOperandsEqual(ins);
   }
   AliasSet getAliasSet() const override {
-    return AliasSet::Load(AliasSet::TypedArrayLengthOrOffset);
+    return AliasSet::Load(AliasSet::ArrayBufferViewLengthOrOffset);
   }
 
   void computeRange(TempAllocator& alloc) override;
 };
 
-// Load a typed array's elements vector.
-class MTypedArrayElements : public MUnaryInstruction,
-                            public SingleObjectPolicy::Data {
-  explicit MTypedArrayElements(MDefinition* object)
+// Load an array buffer view's elements vector.
+class MArrayBufferViewElements : public MUnaryInstruction,
+                                 public SingleObjectPolicy::Data {
+  explicit MArrayBufferViewElements(MDefinition* object)
       : MUnaryInstruction(classOpcode, object) {
     setResultType(MIRType::Elements);
     setMovable();
   }
 
  public:
-  INSTRUCTION_HEADER(TypedArrayElements)
+  INSTRUCTION_HEADER(ArrayBufferViewElements)
   TRIVIAL_NEW_WRAPPERS
   NAMED_OPERANDS((0, object))
 
@@ -7296,7 +7297,7 @@ class MTypedArrayElements : public MUnaryInstruction,
     return AliasSet::Load(AliasSet::ObjectFields);
   }
 
-  ALLOW_CLONE(MTypedArrayElements)
+  ALLOW_CLONE(MArrayBufferViewElements)
 };
 
 // Return the element shift of a typed array, i.e. the shift value so that
@@ -7933,7 +7934,7 @@ enum MemoryBarrierRequirement {
 
 // Also see comments at MMemoryBarrierRequirement, above.
 
-// Load an unboxed scalar value from a typed array or other object.
+// Load an unboxed scalar value from an array buffer view or other object.
 class MLoadUnboxedScalar : public MBinaryInstruction,
                            public NoTypePolicy::Data {
   int32_t offsetAdjustment_ = 0;
@@ -8009,6 +8010,62 @@ class MLoadUnboxedScalar : public MBinaryInstruction,
   }
 
   ALLOW_CLONE(MLoadUnboxedScalar)
+};
+
+// Load an unboxed scalar value from a dataview object.
+class MLoadDataViewElement : public MTernaryInstruction,
+                             public NoTypePolicy::Data {
+  Scalar::Type storageType_;
+
+  MLoadDataViewElement(MDefinition* elements, MDefinition* index,
+                       MDefinition* littleEndian, Scalar::Type storageType)
+      : MTernaryInstruction(classOpcode, elements, index, littleEndian),
+        storageType_(storageType) {
+    setResultType(MIRType::Value);
+    setMovable();
+    MOZ_ASSERT(elements->type() == MIRType::Elements);
+    MOZ_ASSERT(index->type() == MIRType::Int32);
+    MOZ_ASSERT(littleEndian->type() == MIRType::Boolean);
+    MOZ_ASSERT(storageType >= 0 && storageType < Scalar::MaxTypedArrayViewType);
+    MOZ_ASSERT(Scalar::byteSize(storageType) > 1);
+  }
+
+ public:
+  INSTRUCTION_HEADER(LoadDataViewElement)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, elements), (1, index), (2, littleEndian))
+
+  Scalar::Type storageType() const { return storageType_; }
+  bool fallible() const {
+    // Bailout if the result does not fit in an int32.
+    return storageType_ == Scalar::Uint32 && type() == MIRType::Int32;
+  }
+  AliasSet getAliasSet() const override {
+    return AliasSet::Load(AliasSet::UnboxedElement);
+  }
+
+  bool congruentTo(const MDefinition* ins) const override {
+    if (!ins->isLoadDataViewElement()) {
+      return false;
+    }
+    const MLoadDataViewElement* other = ins->toLoadDataViewElement();
+    if (storageType_ != other->storageType_) {
+      return false;
+    }
+    return congruentIfOperandsEqual(other);
+  }
+
+#ifdef JS_JITSPEW
+  void printOpcode(GenericPrinter& out) const override;
+#endif
+
+  void computeRange(TempAllocator& alloc) override;
+
+  bool canProduceFloat32() const override {
+    return storageType_ == Scalar::Float32;
+  }
+
+  ALLOW_CLONE(MLoadDataViewElement)
 };
 
 // Load a value from a typed array. Out-of-bounds accesses are handled in-line.
@@ -8089,7 +8146,7 @@ class StoreUnboxedScalarBase {
   bool isBigIntWrite() const { return Scalar::isBigIntType(writeType_); }
 };
 
-// Store an unboxed scalar value to a typed array or other object.
+// Store an unboxed scalar value to an array buffer view or other object.
 class MStoreUnboxedScalar : public MTernaryInstruction,
                             public StoreUnboxedScalarBase,
                             public StoreUnboxedScalarPolicy::Data {
@@ -8128,6 +8185,40 @@ class MStoreUnboxedScalar : public MTernaryInstruction,
   }
 
   ALLOW_CLONE(MStoreUnboxedScalar)
+};
+
+// Store an unboxed scalar value to a dataview object.
+class MStoreDataViewElement : public MQuaternaryInstruction,
+                              public StoreUnboxedScalarBase,
+                              public StoreDataViewElementPolicy::Data {
+  MStoreDataViewElement(MDefinition* elements, MDefinition* index,
+                        MDefinition* value, MDefinition* littleEndian,
+                        Scalar::Type storageType)
+      : MQuaternaryInstruction(classOpcode, elements, index, value,
+                               littleEndian),
+        StoreUnboxedScalarBase(storageType) {
+    setMovable();
+    MOZ_ASSERT(elements->type() == MIRType::Elements);
+    MOZ_ASSERT(index->type() == MIRType::Int32);
+    MOZ_ASSERT(storageType >= 0 && storageType < Scalar::MaxTypedArrayViewType);
+    MOZ_ASSERT(Scalar::byteSize(storageType) > 1);
+  }
+
+ public:
+  INSTRUCTION_HEADER(StoreDataViewElement)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, elements), (1, index), (2, value), (3, littleEndian))
+
+  AliasSet getAliasSet() const override {
+    return AliasSet::Store(AliasSet::UnboxedElement);
+  }
+  TruncateKind operandTruncateKind(size_t index) const override;
+
+  bool canConsumeFloat32(MUse* use) const override {
+    return use == getUseFor(2) && writeType() == Scalar::Float32;
+  }
+
+  ALLOW_CLONE(MStoreDataViewElement)
 };
 
 class MStoreTypedArrayElementHole : public MQuaternaryInstruction,
@@ -12421,8 +12512,8 @@ bool PropertyWriteNeedsTypeBarrier(TempAllocator& alloc,
 AbortReasonOr<bool> TypeCanHaveExtraIndexedProperties(IonBuilder* builder,
                                                       TemporaryTypeSet* types);
 
-inline MIRType MIRTypeForTypedArrayRead(Scalar::Type arrayType,
-                                        bool observedDouble) {
+inline MIRType MIRTypeForArrayBufferViewRead(Scalar::Type arrayType,
+                                             bool observedDouble) {
   switch (arrayType) {
     case Scalar::Int8:
     case Scalar::Uint8:

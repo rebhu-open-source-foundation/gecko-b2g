@@ -11,6 +11,7 @@
 #include "mozilla/MemoryReporting.h"
 
 // Local Includes
+#include "AutoplayPolicy.h"
 #include "Navigator.h"
 #include "nsContentSecurityManager.h"
 #include "nsScreen.h"
@@ -155,6 +156,7 @@
 #include "mozilla/dom/CustomEvent.h"
 #include "nsIScreenManager.h"
 #include "nsICSSDeclaration.h"
+#include "nsIPermission.h"
 
 #include "xpcprivate.h"
 
@@ -317,6 +319,7 @@ static nsGlobalWindowOuter* GetOuterWindowForForwarding(
 
 #define DOM_TOUCH_LISTENER_ADDED "dom-touch-listener-added"
 #define MEMORY_PRESSURE_OBSERVER_TOPIC "memory-pressure"
+#define PERMISSION_CHANGED_TOPIC "perm-changed"
 
 // Amount of time allowed between alert/prompt/confirm before enabling
 // the stop dialog checkbox.
@@ -831,7 +834,6 @@ nsGlobalWindowInner::nsGlobalWindowInner(nsGlobalWindowOuter* aOuterWindow,
       mCleanMessageManager(false),
       mNeedsFocus(true),
       mHasFocus(false),
-      mShowFocusRingForContent(false),
       mFocusByKeyOccurred(false),
       mDidFireDocElemInserted(false),
       mHasGamepad(false),
@@ -877,8 +879,8 @@ nsGlobalWindowInner::nsGlobalWindowInner(nsGlobalWindowOuter* aOuterWindow,
     // Watch for online/offline status changes so we can fire events. Use
     // a strong reference.
     os->AddObserver(mObserver, NS_IOSERVICE_OFFLINE_STATUS_TOPIC, false);
-
     os->AddObserver(mObserver, MEMORY_PRESSURE_OBSERVER_TOPIC, false);
+    os->AddObserver(mObserver, PERMISSION_CHANGED_TOPIC, false);
   }
 
   Preferences::AddStrongObserver(mObserver, "intl.accept_languages");
@@ -1174,6 +1176,7 @@ void nsGlobalWindowInner::FreeInnerObjects() {
     if (os) {
       os->RemoveObserver(mObserver, NS_IOSERVICE_OFFLINE_STATUS_TOPIC);
       os->RemoveObserver(mObserver, MEMORY_PRESSURE_OBSERVER_TOPIC);
+      os->RemoveObserver(mObserver, PERMISSION_CHANGED_TOPIC);
     }
 
     RefPtr<StorageNotifierService> sns = StorageNotifierService::GetOrCreate();
@@ -1542,6 +1545,17 @@ void nsGlobalWindowInner::TraceGlobalJSObject(JSTracer* aTrc) {
   TraceWrapper(aTrc, "active window global");
 }
 
+void nsGlobalWindowInner::UpdateAutoplayPermission() {
+  if (!GetWindowContext()) {
+    return;
+  }
+  uint32_t perm = AutoplayPolicy::GetSiteAutoplayPermission(GetPrincipal());
+  if (GetWindowContext()->GetAutoplayPermission() == perm) {
+    return;
+  }
+  GetWindowContext()->SetAutoplayPermission(perm);
+}
+
 void nsGlobalWindowInner::InitDocumentDependentState(JSContext* aCx) {
   MOZ_ASSERT(mDoc);
 
@@ -1566,6 +1580,8 @@ void nsGlobalWindowInner::InitDocumentDependentState(JSContext* aCx) {
   if (!mWindowGlobalChild) {
     mWindowGlobalChild = WindowGlobalChild::Create(this);
   }
+
+  UpdateAutoplayPermission();
 
   if (mWindowGlobalChild && GetBrowsingContext()) {
     GetBrowsingContext()->NotifyResetUserGestureActivation();
@@ -4094,16 +4110,6 @@ void nsGlobalWindowInner::StopVRActivity() {
   }
 }
 
-#ifndef XP_WIN  // This guard should match the guard at the callsite.
-static bool ShouldShowFocusRingIfFocusedByMouse(nsIContent* aNode) {
-  if (!aNode) {
-    return true;
-  }
-  return !nsContentUtils::ContentIsLink(aNode) &&
-         !aNode->IsAnyOfHTMLElements(nsGkAtoms::video, nsGkAtoms::audio);
-}
-#endif
-
 void nsGlobalWindowInner::SetFocusedElement(Element* aElement,
                                             uint32_t aFocusMethod,
                                             bool aNeedsFocus) {
@@ -4121,7 +4127,6 @@ void nsGlobalWindowInner::SetFocusedElement(Element* aElement,
     UpdateCanvasFocus(false, aElement);
     mFocusedElement = aElement;
     mFocusMethod = aFocusMethod & FOCUSMETHOD_MASK;
-    mShowFocusRingForContent = false;
   }
 
   if (mFocusedElement) {
@@ -4129,17 +4134,6 @@ void nsGlobalWindowInner::SetFocusedElement(Element* aElement,
     // window.
     if (mFocusMethod & nsIFocusManager::FLAG_BYKEY) {
       mFocusByKeyOccurred = true;
-    } else if (
-    // otherwise, we set mShowFocusRingForContent, as we don't want this to
-    // be permanent for the window. On Windows, focus rings are only shown
-    // when the FLAG_SHOWRING flag is used. On other platforms, focus rings
-    // are only visible on some elements.
-#ifndef XP_WIN
-        !(mFocusMethod & nsIFocusManager::FLAG_BYMOUSE) ||
-        ShouldShowFocusRingIfFocusedByMouse(aElement) ||
-#endif
-        aFocusMethod & nsIFocusManager::FLAG_SHOWRING) {
-      mShowFocusRingForContent = true;
     }
   }
 
@@ -4149,12 +4143,12 @@ void nsGlobalWindowInner::SetFocusedElement(Element* aElement,
 uint32_t nsGlobalWindowInner::GetFocusMethod() { return mFocusMethod; }
 
 bool nsGlobalWindowInner::ShouldShowFocusRing() {
-  if (mShowFocusRingForContent || mFocusByKeyOccurred) {
+  if (mFocusByKeyOccurred) {
     return true;
   }
 
   nsCOMPtr<nsPIWindowRoot> root = GetTopWindowRoot();
-  return root ? root->ShowFocusRings() : false;
+  return root && root->ShowFocusRings();
 }
 
 bool nsGlobalWindowInner::TakeFocus(bool aFocus, uint32_t aFocusMethod) {
@@ -4978,6 +4972,20 @@ nsresult nsGlobalWindowInner::Observe(nsISupports* aSubject, const char* aTopic,
     nsCOMPtr<nsIObserver> observer = GetApplicationCache();
     if (observer) observer->Observe(aSubject, aTopic, aData);
 
+    return NS_OK;
+  }
+
+  if (!nsCRT::strcmp(aTopic, PERMISSION_CHANGED_TOPIC)) {
+    nsCOMPtr<nsIPermission> perm(do_QueryInterface(aSubject));
+    if (!perm) {
+      return NS_OK;
+    }
+
+    nsAutoCString type;
+    perm->GetType(type);
+    if (type == NS_LITERAL_CSTRING("autoplay-media")) {
+      UpdateAutoplayPermission();
+    }
     return NS_OK;
   }
 

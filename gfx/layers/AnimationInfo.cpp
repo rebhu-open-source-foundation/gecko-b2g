@@ -61,14 +61,12 @@ Animation* AnimationInfo::AddAnimationForNextTransaction() {
 void AnimationInfo::ClearAnimations() {
   mPendingAnimations = nullptr;
 
-  if (mAnimations.IsEmpty() && mPropertyAnimationGroups.IsEmpty()) {
+  if (mAnimations.IsEmpty() && mStorageData.IsEmpty()) {
     return;
   }
 
   mAnimations.Clear();
-  mPropertyAnimationGroups.Clear();
-  mTransformData.reset();
-  mCachedMotionPath = nullptr;
+  mStorageData.Clear();
 
   mMutated = true;
 }
@@ -86,11 +84,8 @@ void AnimationInfo::SetCompositorAnimations(
     const CompositorAnimations& aCompositorAnimations) {
   mCompositorAnimationsId = aCompositorAnimations.id();
 
-  AnimationStorageData data =
+  mStorageData =
       AnimationHelper::ExtractAnimations(aCompositorAnimations.animations());
-  mPropertyAnimationGroups.SwapElements(data.mAnimation);
-  mTransformData = std::move(data.mTransformData);
-  mCachedMotionPath.swap(data.mCachedMotionPath);
 }
 
 bool AnimationInfo::StartPendingAnimations(const TimeStamp& aReadyTime) {
@@ -697,7 +692,6 @@ static Maybe<TransformData> CreateAnimationData(
         nsLayoutUtils::GetCrossDocParentFrame(aFrame));
     origin = aFrame->GetOffsetToCrossDoc(referenceFrame);
   }
-  bool snapToGrid = nsLayoutUtils::ShouldSnapToGrid(aFrame);
 
   Maybe<MotionPathData> motionPathData;
   if (aDataType == AnimationDataType::WithMotionPath) {
@@ -714,7 +708,7 @@ static Maybe<TransformData> CreateAnimationData(
 
   return Some(TransformData(origin, offsetToTransformOrigin, bounds,
                             devPixelsToAppUnits, scaleX, scaleY,
-                            hasPerspectiveParent, snapToGrid, motionPathData));
+                            hasPerspectiveParent, motionPathData));
 }
 
 void AnimationInfo::AddNonAnimatingTransformLikePropertiesStyles(

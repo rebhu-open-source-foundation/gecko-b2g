@@ -564,8 +564,6 @@ class nsIFrame : public nsQueryFrame {
   typedef mozilla::layout::FrameChildList ChildList;
   typedef mozilla::layout::FrameChildListID ChildListID;
   typedef mozilla::layout::FrameChildListIDs ChildListIDs;
-  typedef mozilla::layout::FrameChildListIterator ChildListIterator;
-  typedef mozilla::layout::FrameChildListArrayIterator ChildListArrayIterator;
   typedef mozilla::gfx::DrawTarget DrawTarget;
   typedef mozilla::gfx::Matrix Matrix;
   typedef mozilla::gfx::Matrix4x4 Matrix4x4;
@@ -1644,13 +1642,27 @@ class nsIFrame : public nsQueryFrame {
   const nsFrameList& PrincipalChildList() const {
     return GetChildList(kPrincipalList);
   }
+
+  /**
+   * Sub-classes should override this methods if they want to append their own
+   * child lists into aLists.
+   */
   virtual void GetChildLists(nsTArray<ChildList>* aLists) const;
 
   /**
-   * Gets the child lists for this frame, including
-   * ones belong to a child document.
+   * Returns the child lists for this frame.
    */
-  void GetCrossDocChildLists(nsTArray<ChildList>* aLists);
+  AutoTArray<ChildList, 4> GetChildLists() const {
+    AutoTArray<ChildList, 4> childLists;
+    GetChildLists(&childLists);
+    return childLists;
+  }
+
+  /**
+   * Returns the child lists for this frame, including ones belong to a child
+   * document.
+   */
+  AutoTArray<ChildList, 4> GetCrossDocChildLists();
 
   // The individual concrete child lists.
   static const ChildListID kPrincipalList = mozilla::layout::kPrincipalList;
@@ -3598,6 +3610,11 @@ class nsIFrame : public nsQueryFrame {
   nsresult GetFrameFromDirection(nsDirection aDirection, bool aVisual,
                                  bool aJumpLines, bool aScrollViewStop,
                                  bool aForceEditableRegion,
+                                 nsIFrame** aOutFrame, int32_t* aOutOffset,
+                                 bool* aOutJumpedLine,
+                                 bool* aOutMovedOverNonSelectableText);
+
+  nsresult GetFrameFromDirection(const nsPeekOffsetStruct& aPos,
                                  nsIFrame** aOutFrame, int32_t* aOutOffset,
                                  bool* aOutJumpedLine,
                                  bool* aOutMovedOverNonSelectableText);

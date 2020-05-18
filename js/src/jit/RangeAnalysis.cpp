@@ -1726,7 +1726,7 @@ void MFilterTypeSet::computeRange(TempAllocator& alloc) {
   setRange(new (alloc) Range(getOperand(0)));
 }
 
-static Range* GetTypedArrayRange(TempAllocator& alloc, Scalar::Type type) {
+static Range* GetArrayBufferViewRange(TempAllocator& alloc, Scalar::Type type) {
   switch (type) {
     case Scalar::Uint8Clamped:
     case Scalar::Uint8:
@@ -1758,7 +1758,13 @@ static Range* GetTypedArrayRange(TempAllocator& alloc, Scalar::Type type) {
 void MLoadUnboxedScalar::computeRange(TempAllocator& alloc) {
   // We have an Int32 type and if this is a UInt32 load it may produce a value
   // outside of our range, but we have a bailout to handle those cases.
-  setRange(GetTypedArrayRange(alloc, storageType()));
+  setRange(GetArrayBufferViewRange(alloc, storageType()));
+}
+
+void MLoadDataViewElement::computeRange(TempAllocator& alloc) {
+  // We have an Int32 type and if this is a UInt32 load it may produce a value
+  // outside of our range, but we have a bailout to handle those cases.
+  setRange(GetArrayBufferViewRange(alloc, storageType()));
 }
 
 void MArrayLength::computeRange(TempAllocator& alloc) {
@@ -1773,11 +1779,11 @@ void MInitializedLength::computeRange(TempAllocator& alloc) {
       Range::NewUInt32Range(alloc, 0, NativeObject::MAX_DENSE_ELEMENTS_COUNT));
 }
 
-void MTypedArrayLength::computeRange(TempAllocator& alloc) {
+void MArrayBufferViewLength::computeRange(TempAllocator& alloc) {
   setRange(Range::NewUInt32Range(alloc, 0, INT32_MAX));
 }
 
-void MTypedArrayByteOffset::computeRange(TempAllocator& alloc) {
+void MArrayBufferViewByteOffset::computeRange(TempAllocator& alloc) {
   setRange(Range::NewUInt32Range(alloc, 0, INT32_MAX));
 }
 
@@ -2743,6 +2749,12 @@ MDefinition::TruncateKind MToDouble::operandTruncateKind(size_t index) const {
 }
 
 MDefinition::TruncateKind MStoreUnboxedScalar::operandTruncateKind(
+    size_t index) const {
+  // An integer store truncates the stored value.
+  return (index == 2 && isIntegerWrite()) ? Truncate : NoTruncate;
+}
+
+MDefinition::TruncateKind MStoreDataViewElement::operandTruncateKind(
     size_t index) const {
   // An integer store truncates the stored value.
   return (index == 2 && isIntegerWrite()) ? Truncate : NoTruncate;

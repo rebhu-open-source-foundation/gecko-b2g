@@ -2277,6 +2277,8 @@ class LAbsI : public LInstructionHelper<1, 1, 0> {
   explicit LAbsI(const LAllocation& num) : LInstructionHelper(classOpcode) {
     setOperand(0, num);
   }
+
+  MAbs* mir() const { return mir_->toAbs(); }
 };
 
 // Absolute value of a double.
@@ -3800,12 +3802,12 @@ class LGetNextEntryForIterator : public LInstructionHelper<1, 2, 3> {
   const LDefinition* temp2() { return getTemp(2); }
 };
 
-// Read the length of a typed array.
-class LTypedArrayLength : public LInstructionHelper<1, 1, 0> {
+// Read the length of an array buffer view.
+class LArrayBufferViewLength : public LInstructionHelper<1, 1, 0> {
  public:
-  LIR_HEADER(TypedArrayLength)
+  LIR_HEADER(ArrayBufferViewLength)
 
-  explicit LTypedArrayLength(const LAllocation& obj)
+  explicit LArrayBufferViewLength(const LAllocation& obj)
       : LInstructionHelper(classOpcode) {
     setOperand(0, obj);
   }
@@ -3813,12 +3815,12 @@ class LTypedArrayLength : public LInstructionHelper<1, 1, 0> {
   const LAllocation* object() { return getOperand(0); }
 };
 
-// Read the byteOffset of a typed array.
-class LTypedArrayByteOffset : public LInstructionHelper<1, 1, 0> {
+// Read the byteOffset of an array buffer view.
+class LArrayBufferViewByteOffset : public LInstructionHelper<1, 1, 0> {
  public:
-  LIR_HEADER(TypedArrayByteOffset)
+  LIR_HEADER(ArrayBufferViewByteOffset)
 
-  explicit LTypedArrayByteOffset(const LAllocation& obj)
+  explicit LArrayBufferViewByteOffset(const LAllocation& obj)
       : LInstructionHelper(classOpcode) {
     setOperand(0, obj);
   }
@@ -3826,12 +3828,12 @@ class LTypedArrayByteOffset : public LInstructionHelper<1, 1, 0> {
   const LAllocation* object() { return getOperand(0); }
 };
 
-// Load a typed array's elements vector.
-class LTypedArrayElements : public LInstructionHelper<1, 1, 0> {
+// Load an array buffer view's elements vector.
+class LArrayBufferViewElements : public LInstructionHelper<1, 1, 0> {
  public:
-  LIR_HEADER(TypedArrayElements)
+  LIR_HEADER(ArrayBufferViewElements)
 
-  explicit LTypedArrayElements(const LAllocation& object)
+  explicit LArrayBufferViewElements(const LAllocation& object)
       : LInstructionHelper(classOpcode) {
     setOperand(0, object);
   }
@@ -4373,6 +4375,30 @@ class LLoadUnboxedBigInt : public LInstructionHelper<1, 2, 1 + INT64_PIECES> {
   const LInt64Definition temp64() { return getInt64Temp(1); }
 };
 
+class LLoadDataViewElement : public LInstructionHelper<1, 3, 1 + INT64_PIECES> {
+ public:
+  LIR_HEADER(LoadDataViewElement)
+
+  LLoadDataViewElement(const LAllocation& elements, const LAllocation& index,
+                       const LAllocation& littleEndian, const LDefinition& temp,
+                       const LInt64Definition& temp64)
+      : LInstructionHelper(classOpcode) {
+    setOperand(0, elements);
+    setOperand(1, index);
+    setOperand(2, littleEndian);
+    setTemp(0, temp);
+    setInt64Temp(1, temp64);
+  }
+  const MLoadDataViewElement* mir() const {
+    return mir_->toLoadDataViewElement();
+  }
+  const LAllocation* elements() { return getOperand(0); }
+  const LAllocation* index() { return getOperand(1); }
+  const LAllocation* littleEndian() { return getOperand(2); }
+  const LDefinition* temp() { return getTemp(0); }
+  const LInt64Definition temp64() { return getInt64Temp(1); }
+};
+
 class LLoadTypedArrayElementHole : public LInstructionHelper<BOX_PIECES, 2, 1> {
  public:
   LIR_HEADER(LoadTypedArrayElementHole)
@@ -4456,6 +4482,35 @@ class LStoreUnboxedBigInt : public LInstructionHelper<0, 3, INT64_PIECES> {
   const LAllocation* index() { return getOperand(1); }
   const LAllocation* value() { return getOperand(2); }
   LInt64Definition temp() { return getInt64Temp(0); }
+};
+
+class LStoreDataViewElement
+    : public LInstructionHelper<0, 4, 1 + INT64_PIECES> {
+ public:
+  LIR_HEADER(StoreDataViewElement)
+
+  LStoreDataViewElement(const LAllocation& elements, const LAllocation& index,
+                        const LAllocation& value,
+                        const LAllocation& littleEndian,
+                        const LDefinition& temp, const LInt64Definition& temp64)
+      : LInstructionHelper(classOpcode) {
+    setOperand(0, elements);
+    setOperand(1, index);
+    setOperand(2, value);
+    setOperand(3, littleEndian);
+    setTemp(0, temp);
+    setInt64Temp(1, temp64);
+  }
+
+  const MStoreDataViewElement* mir() const {
+    return mir_->toStoreDataViewElement();
+  }
+  const LAllocation* elements() { return getOperand(0); }
+  const LAllocation* index() { return getOperand(1); }
+  const LAllocation* value() { return getOperand(2); }
+  const LAllocation* littleEndian() { return getOperand(3); }
+  const LDefinition* temp() { return getTemp(0); }
+  const LInt64Definition temp64() { return getInt64Temp(1); }
 };
 
 class LStoreTypedArrayElementHole : public LInstructionHelper<0, 4, 1> {

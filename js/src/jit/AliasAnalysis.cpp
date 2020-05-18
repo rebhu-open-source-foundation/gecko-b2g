@@ -84,7 +84,7 @@ static inline const MDefinition* MaybeUnwrap(const MDefinition* object) {
     object = object->getOperand(0);
   }
 
-  if (object->isTypedArrayElements()) {
+  if (object->isArrayBufferViewElements()) {
     return nullptr;
   }
   if (object->isConstantElements()) {
@@ -109,8 +109,10 @@ static inline const MDefinition* GetObject(const MDefinition* ins) {
     case MDefinition::Opcode::InitializedLength:
     case MDefinition::Opcode::LoadElement:
     case MDefinition::Opcode::LoadUnboxedScalar:
+    case MDefinition::Opcode::LoadDataViewElement:
     case MDefinition::Opcode::StoreElement:
     case MDefinition::Opcode::StoreUnboxedScalar:
+    case MDefinition::Opcode::StoreDataViewElement:
     case MDefinition::Opcode::SetInitializedLength:
     case MDefinition::Opcode::ArrayLength:
     case MDefinition::Opcode::SetArrayLength:
@@ -118,8 +120,8 @@ static inline const MDefinition* GetObject(const MDefinition* ins) {
     case MDefinition::Opcode::Elements:
     case MDefinition::Opcode::MaybeCopyElementsForWrite:
     case MDefinition::Opcode::MaybeToDoubleElement:
-    case MDefinition::Opcode::TypedArrayLength:
-    case MDefinition::Opcode::TypedArrayByteOffset:
+    case MDefinition::Opcode::ArrayBufferViewLength:
+    case MDefinition::Opcode::ArrayBufferViewByteOffset:
     case MDefinition::Opcode::ArrayPopShift:
     case MDefinition::Opcode::ArrayPush:
     case MDefinition::Opcode::LoadTypedArrayElementHole:
@@ -137,7 +139,7 @@ static inline const MDefinition* GetObject(const MDefinition* ins) {
     case MDefinition::Opcode::StoreDynamicSlot:
     case MDefinition::Opcode::InArray:
     case MDefinition::Opcode::LoadElementHole:
-    case MDefinition::Opcode::TypedArrayElements:
+    case MDefinition::Opcode::ArrayBufferViewElements:
     case MDefinition::Opcode::CopyLexicalEnvironmentObject:
     case MDefinition::Opcode::IsPackedArray:
     case MDefinition::Opcode::SuperFunction:

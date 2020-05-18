@@ -411,9 +411,11 @@ bool nsHTMLScrollFrame::TryLayout(ScrollReflowInput* aState,
     ReflowScrolledFrame(aState, aAssumeHScroll, aAssumeVScroll, aKidMetrics);
   }
 
+  nsSize vScrollbarMinSize(0, 0);
   nsSize vScrollbarPrefSize(0, 0);
   if (mHelper.mVScrollbarBox) {
-    GetScrollbarMetrics(aState->mBoxState, mHelper.mVScrollbarBox, nullptr,
+    GetScrollbarMetrics(aState->mBoxState, mHelper.mVScrollbarBox,
+                        &vScrollbarMinSize,
                         aAssumeVScroll ? &vScrollbarPrefSize : nullptr);
     nsScrollbarFrame* scrollbar = do_QueryFrame(mHelper.mVScrollbarBox);
     scrollbar->SetScrollbarMediatorContent(mContent);
@@ -421,9 +423,11 @@ bool nsHTMLScrollFrame::TryLayout(ScrollReflowInput* aState,
   nscoord vScrollbarDesiredWidth =
       aAssumeVScroll ? vScrollbarPrefSize.width : 0;
 
+  nsSize hScrollbarMinSize(0, 0);
   nsSize hScrollbarPrefSize(0, 0);
   if (mHelper.mHScrollbarBox) {
-    GetScrollbarMetrics(aState->mBoxState, mHelper.mHScrollbarBox, nullptr,
+    GetScrollbarMetrics(aState->mBoxState, mHelper.mHScrollbarBox,
+                        &hScrollbarMinSize,
                         aAssumeHScroll ? &hScrollbarPrefSize : nullptr);
     nsScrollbarFrame* scrollbar = do_QueryFrame(mHelper.mHScrollbarBox);
     scrollbar->SetScrollbarMediatorContent(mContent);
@@ -497,6 +501,12 @@ bool nsHTMLScrollFrame::TryLayout(ScrollReflowInput* aState,
           aState->mHScrollbar == ShowScrollbar::Always ||
           scrolledRect.XMost() >= visualViewportSize.width + oneDevPixel ||
           scrolledRect.x <= -oneDevPixel;
+      // TODO(emilio): This should probably check this scrollbar's minimum size
+      // in both axes, for consistency?
+      if (aState->mHScrollbar == ShowScrollbar::Auto &&
+          scrollPortSize.width < hScrollbarMinSize.width) {
+        wantHScrollbar = false;
+      }
       if (wantHScrollbar != aAssumeHScroll) {
         return false;
       }
@@ -508,6 +518,12 @@ bool nsHTMLScrollFrame::TryLayout(ScrollReflowInput* aState,
           aState->mVScrollbar == ShowScrollbar::Always ||
           scrolledRect.YMost() >= visualViewportSize.height + oneDevPixel ||
           scrolledRect.y <= -oneDevPixel;
+      // TODO(emilio): This should probably check this scrollbar's minimum size
+      // in both axes, for consistency?
+      if (aState->mVScrollbar == ShowScrollbar::Auto &&
+          scrollPortSize.height < vScrollbarMinSize.height) {
+        wantVScrollbar = false;
+      }
       if (wantVScrollbar != aAssumeVScroll) {
         return false;
       }
@@ -940,13 +956,12 @@ static void GetScrollableOverflowForPerspective(
     nsPoint aOffset, nsRect& aScrolledFrameOverflowArea) {
   // Iterate over all children except pop-ups.
   FrameChildListIDs skip = {nsIFrame::kSelectPopupList, nsIFrame::kPopupList};
-  for (nsIFrame::ChildListIterator childLists(aCurrentFrame);
-       !childLists.IsDone(); childLists.Next()) {
-    if (skip.contains(childLists.CurrentID())) {
+  for (const auto& [list, listID] : aCurrentFrame->GetChildLists()) {
+    if (skip.contains(listID)) {
       continue;
     }
 
-    for (nsIFrame* child : childLists.CurrentList()) {
+    for (nsIFrame* child : list) {
       nsPoint offset = aOffset;
 
       // When we reach a direct child of the scroll, then we record the offset
@@ -2397,14 +2412,12 @@ static void AdjustViews(nsIFrame* aFrame) {
 
   // Call AdjustViews recursively for all child frames except the popup list as
   // the views for popups are not scrolled.
-  nsIFrame::ChildListIterator lists(aFrame);
-  for (; !lists.IsDone(); lists.Next()) {
-    if (lists.CurrentID() == nsIFrame::kPopupList) {
+  for (const auto& [list, listID] : aFrame->GetChildLists()) {
+    if (listID == nsIFrame::kPopupList) {
       continue;
     }
-    nsFrameList::Enumerator childFrames(lists.CurrentList());
-    for (; !childFrames.AtEnd(); childFrames.Next()) {
-      AdjustViews(childFrames.get());
+    for (nsIFrame* child : list) {
+      AdjustViews(child);
     }
   }
 }
@@ -3549,11 +3562,12 @@ void ScrollFrameHelper::BuildDisplayList(nsDisplayListBuilder* aBuilder,
   bool haveRadii = mOuter->GetPaddingBoxBorderRadii(radii);
   if (mIsRoot) {
     clipRect.SizeTo(nsLayoutUtils::CalculateCompositionSizeForFrame(mOuter));
+    // The composition size is essentially in visual coordinates.
+    // If we are hit-testing in layout coordinates, transform the clip rect
+    // to layout coordinates to match.
     if (aBuilder->IsRelativeToLayoutViewport() &&
         mOuter->PresContext()->IsRootContentDocument()) {
-      double res = mOuter->PresShell()->GetResolution();
-      clipRect.width = NSToCoordRound(clipRect.width / res);
-      clipRect.height = NSToCoordRound(clipRect.height / res);
+      clipRect = ViewportUtils::VisualToLayout(clipRect, mOuter->PresShell());
     }
   }
 
@@ -6900,12 +6914,8 @@ static void CollectScrollPositionsForSnap(
     return;
   }
 
-  nsIFrame::ChildListIterator childLists(aFrame);
-  for (; !childLists.IsDone(); childLists.Next()) {
-    nsFrameList::Enumerator childFrames(childLists.CurrentList());
-    for (; !childFrames.AtEnd(); childFrames.Next()) {
-      nsIFrame* f = childFrames.get();
-
+  for (const auto& childList : aFrame->GetChildLists()) {
+    for (nsIFrame* f : childList.mList) {
       const nsStyleDisplay* styleDisplay = f->StyleDisplay();
       if (styleDisplay->mScrollSnapAlign.inline_ !=
               StyleScrollSnapAlignKeyword::None ||
@@ -7097,9 +7107,8 @@ static nsSliderFrame* GetSliderFrame(nsIFrame* aScrollbarFrame) {
     return nullptr;
   }
 
-  for (nsIFrame::ChildListIterator childLists(aScrollbarFrame);
-       !childLists.IsDone(); childLists.Next()) {
-    for (nsIFrame* frame : childLists.CurrentList()) {
+  for (const auto& childList : aScrollbarFrame->GetChildLists()) {
+    for (nsIFrame* frame : childList.mList) {
       if (nsSliderFrame* sliderFrame = do_QueryFrame(frame)) {
         return sliderFrame;
       }

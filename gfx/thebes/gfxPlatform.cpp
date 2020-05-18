@@ -632,7 +632,7 @@ static void WebRenderDebugPrefChangeCallback(const char* aPrefName, void*) {
 }
 
 static void WebRenderQualityPrefChangeCallback(const char* aPref, void*) {
-  gfxPlatform::GetPlatform()->UpdateAllowSacrificingSubpixelAA();
+  gfxPlatform::GetPlatform()->UpdateForceSubpixelAAWherePossible();
 }
 
 static void WebRenderMultithreadingPrefChangeCallback(const char* aPrefName,
@@ -2564,13 +2564,10 @@ void gfxPlatform::UpdateCanUseHardwareVideoDecoding() {
   }
 }
 
-void gfxPlatform::UpdateAllowSacrificingSubpixelAA() {
-  int64_t kMaxPixels = 1920 * 1200;  // WUXGA
-  bool allowSacrificingSubpixelAA =
-      mScreenPixels > kMaxPixels &&
-      !StaticPrefs::
-          gfx_webrender_quality_force_disable_sacrificing_subpixel_aa();
-  gfxVars::SetAllowSacrificingSubpixelAA(allowSacrificingSubpixelAA);
+void gfxPlatform::UpdateForceSubpixelAAWherePossible() {
+  bool forceSubpixelAAWherePossible =
+      StaticPrefs::gfx_webrender_quality_force_subpixel_aa_where_possible();
+  gfxVars::SetForceSubpixelAAWherePossible(forceSubpixelAAWherePossible);
 }
 
 void gfxPlatform::InitAcceleration() {
@@ -2805,7 +2802,7 @@ void gfxPlatform::InitWebRenderConfig() {
         WebRenderQualityPrefChangeCallback,
         nsDependentCString(
             StaticPrefs::
-                GetPrefName_gfx_webrender_quality_force_disable_sacrificing_subpixel_aa()));
+                GetPrefName_gfx_webrender_quality_force_subpixel_aa_where_possible()));
     Preferences::RegisterCallback(
         WebRenderMultithreadingPrefChangeCallback,
         nsDependentCString(
@@ -2816,7 +2813,7 @@ void gfxPlatform::InitWebRenderConfig() {
         nsDependentCString(
             StaticPrefs::GetPrefName_gfx_webrender_batching_lookback()));
 
-    UpdateAllowSacrificingSubpixelAA();
+    UpdateForceSubpixelAAWherePossible();
   }
 
 #ifdef XP_WIN

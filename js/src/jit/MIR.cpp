@@ -1317,6 +1317,11 @@ void MLoadUnboxedScalar::printOpcode(GenericPrinter& out) const {
   out.printf(" %s", ScalarTypeDescr::typeName(storageType()));
 }
 
+void MLoadDataViewElement::printOpcode(GenericPrinter& out) const {
+  MDefinition::printOpcode(out);
+  out.printf(" %s", ScalarTypeDescr::typeName(storageType()));
+}
+
 void MAssertRange::printOpcode(GenericPrinter& out) const {
   MDefinition::printOpcode(out);
   out.put(" ");
@@ -1835,11 +1840,18 @@ void MUnbox::printOpcode(GenericPrinter& out) const {
 #endif
 
 MDefinition* MUnbox::foldsTo(TempAllocator& alloc) {
-  // Fold MUnbox(MBox(x)) => x if types match.
   if (input()->isBox()) {
     MBox* box = input()->toBox();
+
+    // Fold MUnbox(MBox(x)) => x if types match.
     if (box->input()->type() == type()) {
       return box->input();
+    }
+
+    // Fold MUnbox(MBox(x)) => MToDouble(x) if possible.
+    if (type() == MIRType::Double &&
+        IsTypeRepresentableAsDouble(box->input()->type())) {
+      return MToDouble::New(alloc, box->input());
     }
   }
 
@@ -2658,6 +2670,7 @@ static inline bool NeedNegativeZeroCheck(MDefinition* def) {
       case MDefinition::Opcode::LoadElement:
       case MDefinition::Opcode::LoadElementHole:
       case MDefinition::Opcode::LoadUnboxedScalar:
+      case MDefinition::Opcode::LoadDataViewElement:
       case MDefinition::Opcode::LoadTypedArrayElementHole:
       case MDefinition::Opcode::CharCodeAt:
       case MDefinition::Opcode::Mod:
@@ -3009,7 +3022,7 @@ MDefinition* MMinMax::foldsTo(TempAllocator& alloc) {
     }
   }
 
-  if ((operand->isArrayLength() || operand->isTypedArrayLength()) &&
+  if ((operand->isArrayLength() || operand->isArrayBufferViewLength()) &&
       constant->type() == MIRType::Int32) {
     MOZ_ASSERT(operand->type() == MIRType::Int32);
 
@@ -5837,7 +5850,7 @@ static BarrierKind PropertyReadNeedsTypeBarrier(
 
   if (!name && IsTypedArrayClass(key->clasp())) {
     Scalar::Type arrayType = GetTypedArrayClassType(key->clasp());
-    MIRType type = MIRTypeForTypedArrayRead(arrayType, true);
+    MIRType type = MIRTypeForArrayBufferViewRead(arrayType, true);
     if (observed->mightBeMIRType(type)) {
       return BarrierKind::NoBarrier;
     }

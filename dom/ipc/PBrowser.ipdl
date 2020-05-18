@@ -49,7 +49,7 @@ using struct mozilla::layers::ZoomConstraints from "mozilla/layers/ZoomConstrain
 using mozilla::layers::LayersId from "mozilla/layers/LayersTypes.h";
 using mozilla::layers::LayersObserverEpoch from "mozilla/layers/LayersTypes.h";
 using mozilla::layers::MaybeZoomConstraints from "mozilla/layers/ZoomConstraints.h";
-using mozilla::layers::GeckoContentController::TapType from "mozilla/layers/GeckoContentController.h";
+using mozilla::layers::GeckoContentController_TapType from "mozilla/layers/GeckoContentControllerTypes.h";
 using ScrollableLayerGuid::ViewID from "mozilla/layers/ScrollableLayerGuid.h";
 using struct mozilla::void_t from "ipc/IPCMessageUtils.h";
 using mozilla::WindowsHandle from "ipc/IPCMessageUtils.h";
@@ -750,8 +750,7 @@ child:
                      float aY,
                      int32_t aButton,
                      int32_t aClickCount,
-                     int32_t aModifiers,
-                     bool aIgnoreRootScrollFrame);
+                     int32_t aModifiers);
 
     /**
      * When two consecutive mouse move events would be added to the message queue,
@@ -805,10 +804,10 @@ child:
                                        uint64_t aInputBlockId,
                                        nsEventStatus aApzResponse);
 
-    prio(input) async HandleTap(TapType aType, LayoutDevicePoint point,
+    prio(input) async HandleTap(GeckoContentController_TapType aType, LayoutDevicePoint point,
                                 Modifiers aModifiers, ScrollableLayerGuid aGuid,
                                 uint64_t aInputBlockId);
-    async NormalPriorityHandleTap(TapType aType, LayoutDevicePoint point,
+    async NormalPriorityHandleTap(GeckoContentController_TapType aType, LayoutDevicePoint point,
                                   Modifiers aModifiers, ScrollableLayerGuid aGuid,
                                   uint64_t aInputBlockId);
 

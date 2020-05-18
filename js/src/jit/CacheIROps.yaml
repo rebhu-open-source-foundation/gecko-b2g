@@ -236,7 +236,7 @@
 
 - name: GuardSpecificObject
   shared: false
-  transpile: false
+  transpile: true
   args:
     obj: ObjId
     expected: ObjectField
@@ -254,13 +254,6 @@
   args:
     sym: SymbolId
     expected: SymbolField
-
-- name: GuardSpecificInt32Immediate
-  shared: true
-  transpile: false
-  args:
-    integer: Int32Id
-    expected: Int32Imm
 
 - name: GuardSpecificNativeFunction
   shared: true
@@ -468,7 +461,7 @@
 
 - name: LoadArgumentFixedSlot
   shared: false
-  transpile: false
+  transpile: true
   custom_writer: true
   args:
     result: ValId
@@ -662,6 +655,18 @@
   transpile: false
   args:
     obj: ObjId
+
+- name: MathAbsInt32Result
+  shared: true
+  transpile: true
+  args:
+    input: Int32Id
+
+- name: MathAbsNumberResult
+  shared: true
+  transpile: true
+  args:
+    input: NumberId
 
 - name: StoreTypedArrayElement
   shared: true
@@ -915,6 +920,13 @@
     getter: ObjectField
 
 - name: LoadStringCharResult
+  shared: true
+  transpile: true
+  args:
+    str: StringId
+    index: Int32Id
+
+- name: LoadStringCharCodeResult
   shared: true
   transpile: true
   args:

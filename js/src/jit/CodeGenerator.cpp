@@ -10,6 +10,7 @@
 #include "mozilla/Attributes.h"
 #include "mozilla/Casting.h"
 #include "mozilla/DebugOnly.h"
+#include "mozilla/EndianUtils.h"
 #include "mozilla/EnumeratedArray.h"
 #include "mozilla/EnumeratedRange.h"
 #include "mozilla/MathAlgorithms.h"
@@ -55,6 +56,7 @@
 #endif
 #include "util/CheckedArithmetic.h"
 #include "util/Unicode.h"
+#include "vm/ArrayBufferViewObject.h"
 #include "vm/AsyncFunction.h"
 #include "vm/AsyncIteration.h"
 #include "vm/EqualityOperations.h"  // js::SameValue
@@ -8215,22 +8217,24 @@ void CodeGenerator::visitWasmStoreSlotI64(LWasmStoreSlotI64* ins) {
   masm.store64(value, addr);
 }
 
-void CodeGenerator::visitTypedArrayLength(LTypedArrayLength* lir) {
+void CodeGenerator::visitArrayBufferViewLength(LArrayBufferViewLength* lir) {
   Register obj = ToRegister(lir->object());
   Register out = ToRegister(lir->output());
-  masm.unboxInt32(Address(obj, TypedArrayObject::lengthOffset()), out);
+  masm.unboxInt32(Address(obj, ArrayBufferViewObject::lengthOffset()), out);
 }
 
-void CodeGenerator::visitTypedArrayByteOffset(LTypedArrayByteOffset* lir) {
+void CodeGenerator::visitArrayBufferViewByteOffset(
+    LArrayBufferViewByteOffset* lir) {
   Register obj = ToRegister(lir->object());
   Register out = ToRegister(lir->output());
-  masm.unboxInt32(Address(obj, TypedArrayObject::byteOffsetOffset()), out);
+  masm.unboxInt32(Address(obj, ArrayBufferViewObject::byteOffsetOffset()), out);
 }
 
-void CodeGenerator::visitTypedArrayElements(LTypedArrayElements* lir) {
+void CodeGenerator::visitArrayBufferViewElements(
+    LArrayBufferViewElements* lir) {
   Register obj = ToRegister(lir->object());
   Register out = ToRegister(lir->output());
-  masm.loadPtr(Address(obj, TypedArrayObject::dataOffset()), out);
+  masm.loadPtr(Address(obj, ArrayBufferViewObject::dataOffset()), out);
 }
 
 static constexpr bool ValidateShiftRange(Scalar::Type from, Scalar::Type to) {
@@ -8370,22 +8374,32 @@ void CodeGenerator::visitMinMaxI(LMinMaxI* ins) {
 
 void CodeGenerator::visitAbsI(LAbsI* ins) {
   Register input = ToRegister(ins->input());
-  Label positive;
-
   MOZ_ASSERT(input == ToRegister(ins->output()));
+
+  Label positive;
   masm.branchTest32(Assembler::NotSigned, input, input, &positive);
-  masm.neg32(input);
-  LSnapshot* snapshot = ins->snapshot();
-#if defined(JS_CODEGEN_MIPS32) || defined(JS_CODEGEN_MIPS64)
-  if (snapshot) {
-    bailoutCmp32(Assembler::Equal, input, Imm32(INT32_MIN), snapshot);
+  if (ins->mir()->fallible()) {
+    Label bail;
+    masm.branchNeg32(Assembler::Overflow, input, &bail);
+    bailoutFrom(&bail, ins->snapshot());
+  } else {
+    masm.neg32(input);
   }
-#else
-  if (snapshot) {
-    bailoutIf(Assembler::Overflow, snapshot);
-  }
-#endif
   masm.bind(&positive);
+}
+
+void CodeGenerator::visitAbsD(LAbsD* ins) {
+  FloatRegister input = ToFloatRegister(ins->input());
+  MOZ_ASSERT(input == ToFloatRegister(ins->output()));
+
+  masm.absDouble(input, input);
+}
+
+void CodeGenerator::visitAbsF(LAbsF* ins) {
+  FloatRegister input = ToFloatRegister(ins->input());
+  MOZ_ASSERT(input == ToFloatRegister(ins->output()));
+
+  masm.absFloat32(input, input);
 }
 
 void CodeGenerator::visitPowI(LPowI* ins) {
@@ -12179,6 +12193,146 @@ void CodeGenerator::visitLoadUnboxedBigInt(LLoadUnboxedBigInt* lir) {
   emitCreateBigInt(lir, storageType, temp64, out, temp);
 }
 
+void CodeGenerator::visitLoadDataViewElement(LLoadDataViewElement* lir) {
+  Register elements = ToRegister(lir->elements());
+  const LAllocation* littleEndian = lir->littleEndian();
+  Register temp = ToTempRegisterOrInvalid(lir->temp());
+  Register64 temp64 = ToTempRegister64OrInvalid(lir->temp64());
+  AnyRegister out = ToAnyRegister(lir->output());
+
+  const MLoadDataViewElement* mir = lir->mir();
+  Scalar::Type storageType = mir->storageType();
+
+  BaseIndex source(elements, ToRegister(lir->index()), TimesOne);
+
+  bool noSwap = littleEndian->isConstant() &&
+                ToBoolean(littleEndian) == MOZ_LITTLE_ENDIAN();
+
+  // Directly load if no byte swap is needed and the platform supports unaligned
+  // accesses for floating point registers.
+  if (noSwap && MacroAssembler::SupportsFastUnalignedAccesses()) {
+    if (!Scalar::isBigIntType(storageType)) {
+      Label fail;
+      masm.loadFromTypedArray(storageType, source, out, temp, &fail);
+
+      if (fail.used()) {
+        bailoutFrom(&fail, lir->snapshot());
+      }
+    } else {
+      masm.load64(source, temp64);
+
+      emitCreateBigInt(lir, storageType, temp64, out.gpr(), temp);
+    }
+    return;
+  }
+
+  // Load the value into a gpr register.
+  switch (storageType) {
+    case Scalar::Int16:
+      masm.load16UnalignedSignExtend(source, out.gpr());
+      break;
+    case Scalar::Uint16:
+      masm.load16UnalignedZeroExtend(source, out.gpr());
+      break;
+    case Scalar::Int32:
+      masm.load32Unaligned(source, out.gpr());
+      break;
+    case Scalar::Uint32:
+      masm.load32Unaligned(source, out.isFloat() ? temp : out.gpr());
+      break;
+    case Scalar::Float32:
+      masm.load32Unaligned(source, temp);
+      break;
+    case Scalar::Float64:
+    case Scalar::BigInt64:
+    case Scalar::BigUint64:
+      masm.load64Unaligned(source, temp64);
+      break;
+    case Scalar::Int8:
+    case Scalar::Uint8:
+    case Scalar::Uint8Clamped:
+    default:
+      MOZ_CRASH("Invalid typed array type");
+  }
+
+  if (!noSwap) {
+    // Swap the bytes in the loaded value.
+    Label skip;
+    if (!littleEndian->isConstant()) {
+      masm.branch32(
+          MOZ_LITTLE_ENDIAN() ? Assembler::NotEqual : Assembler::Equal,
+          ToRegister(littleEndian), Imm32(0), &skip);
+    }
+
+    switch (storageType) {
+      case Scalar::Int16:
+        masm.swap16SignExtend(out.gpr());
+        break;
+      case Scalar::Uint16:
+        masm.swap16ZeroExtend(out.gpr());
+        break;
+      case Scalar::Int32:
+        masm.swap32(out.gpr());
+        break;
+      case Scalar::Uint32:
+        masm.swap32(out.isFloat() ? temp : out.gpr());
+        break;
+      case Scalar::Float32:
+        masm.swap32(temp);
+        break;
+      case Scalar::Float64:
+      case Scalar::BigInt64:
+      case Scalar::BigUint64:
+        masm.swap64(temp64);
+        break;
+      case Scalar::Int8:
+      case Scalar::Uint8:
+      case Scalar::Uint8Clamped:
+      default:
+        MOZ_CRASH("Invalid typed array type");
+    }
+
+    if (skip.used()) {
+      masm.bind(&skip);
+    }
+  }
+
+  // Move the value into the output register.
+  switch (storageType) {
+    case Scalar::Int16:
+    case Scalar::Uint16:
+    case Scalar::Int32:
+      break;
+    case Scalar::Uint32:
+      if (out.isFloat()) {
+        masm.convertUInt32ToDouble(temp, out.fpu());
+      } else {
+        // Bail out if the value doesn't fit into a signed int32 value. This
+        // is what allows MLoadDataViewElement to have a type() of
+        // MIRType::Int32 for UInt32 array loads.
+        bailoutTest32(Assembler::Signed, out.gpr(), out.gpr(), lir->snapshot());
+      }
+      break;
+    case Scalar::Float32:
+      masm.moveGPRToFloat32(temp, out.fpu());
+      masm.canonicalizeFloat(out.fpu());
+      break;
+    case Scalar::Float64:
+      masm.moveGPR64ToDouble(temp64, out.fpu());
+      masm.canonicalizeDouble(out.fpu());
+      break;
+    case Scalar::BigInt64:
+    case Scalar::BigUint64:
+      emitCreateBigInt(lir, storageType, temp64, out.gpr(), temp);
+      break;
+    case Scalar::Int8:
+    case Scalar::Uint8:
+    case Scalar::Uint8Clamped:
+    default:
+      MOZ_CRASH("Invalid typed array type");
+  }
+}
+
 void CodeGenerator::visitLoadTypedArrayElementHole(
     LLoadTypedArrayElementHole* lir) {
   Register object = ToRegister(lir->object());
@@ -12188,14 +12342,15 @@ void CodeGenerator::visitLoadTypedArrayElementHole(
   Register scratch = out.scratchReg();
   Register scratch2 = ToRegister(lir->temp());
   Register index = ToRegister(lir->index());
-  masm.unboxInt32(Address(object, TypedArrayObject::lengthOffset()), scratch);
+  masm.unboxInt32(Address(object, ArrayBufferViewObject::lengthOffset()),
+                  scratch);
 
   // Load undefined if index >= length.
   Label outOfBounds, done;
   masm.spectreBoundsCheck32(index, scratch, scratch2, &outOfBounds);
 
   // Load the elements vector.
-  masm.loadPtr(Address(object, TypedArrayObject::dataOffset()), scratch);
+  masm.loadPtr(Address(object, ArrayBufferViewObject::dataOffset()), scratch);
 
   Scalar::Type arrayType = lir->mir()->arrayType();
   size_t width = Scalar::byteSize(arrayType);
@@ -12233,14 +12388,15 @@ void CodeGenerator::visitLoadTypedArrayElementHoleBigInt(
   // Load the length.
   Register scratch = out.scratchReg();
   Register index = ToRegister(lir->index());
-  masm.unboxInt32(Address(object, TypedArrayObject::lengthOffset()), scratch);
+  masm.unboxInt32(Address(object, ArrayBufferViewObject::lengthOffset()),
+                  scratch);
 
   // Load undefined if index >= length.
   Label outOfBounds, done;
   masm.spectreBoundsCheck32(index, scratch, temp, &outOfBounds);
 
   // Load the elements vector.
-  masm.loadPtr(Address(object, TypedArrayObject::dataOffset()), scratch);
+  masm.loadPtr(Address(object, ArrayBufferViewObject::dataOffset()), scratch);
 
   Scalar::Type arrayType = lir->mir()->arrayType();
   size_t width = Scalar::byteSize(arrayType);
@@ -12552,6 +12708,130 @@ void CodeGenerator::visitStoreUnboxedBigInt(LStoreUnboxedBigInt* lir) {
     BaseIndex dest(elements, ToRegister(lir->index()),
                    ScaleFromElemWidth(width));
     masm.storeToTypedBigIntArray(writeType, temp, dest);
+  }
+}
+
+void CodeGenerator::visitStoreDataViewElement(LStoreDataViewElement* lir) {
+  Register elements = ToRegister(lir->elements());
+  const LAllocation* value = lir->value();
+  const LAllocation* littleEndian = lir->littleEndian();
+  Register temp = ToTempRegisterOrInvalid(lir->temp());
+  Register64 temp64 = ToTempRegister64OrInvalid(lir->temp64());
+
+  const MStoreDataViewElement* mir = lir->mir();
+  Scalar::Type writeType = mir->writeType();
+
+  BaseIndex dest(elements, ToRegister(lir->index()), TimesOne);
+
+  bool noSwap = littleEndian->isConstant() &&
+                ToBoolean(littleEndian) == MOZ_LITTLE_ENDIAN();
+
+  // Directly store if no byte swap is needed and the platform supports
+  // unaligned accesses for floating point registers.
+  if (noSwap && MacroAssembler::SupportsFastUnalignedAccesses()) {
+    if (!Scalar::isBigIntType(writeType)) {
+      StoreToTypedArray(masm, writeType, value, dest);
+    } else {
+      masm.loadBigInt64(ToRegister(value), temp64);
+      masm.storeToTypedBigIntArray(writeType, temp64, dest);
+    }
+    return;
+  }
+
+  // Load the value into a gpr register.
+  switch (writeType) {
+    case Scalar::Int16:
+    case Scalar::Uint16:
+    case Scalar::Int32:
+    case Scalar::Uint32:
+      if (value->isConstant()) {
+        masm.move32(Imm32(ToInt32(value)), temp);
+      } else {
+        masm.move32(ToRegister(value), temp);
+      }
+      break;
+    case Scalar::Float32: {
+      FloatRegister fvalue = ToFloatRegister(value);
+      masm.canonicalizeFloatIfDeterministic(fvalue);
+      masm.moveFloat32ToGPR(fvalue, temp);
+      break;
+    }
+    case Scalar::Float64: {
+      FloatRegister fvalue = ToFloatRegister(value);
+      masm.canonicalizeDoubleIfDeterministic(fvalue);
+      masm.moveDoubleToGPR64(fvalue, temp64);
+      break;
+    }
+    case Scalar::BigInt64:
+    case Scalar::BigUint64:
+      masm.loadBigInt64(ToRegister(value), temp64);
+      break;
+    case Scalar::Int8:
+    case Scalar::Uint8:
+    case Scalar::Uint8Clamped:
+    default:
+      MOZ_CRASH("Invalid typed array type");
+  }
+
+  if (!noSwap) {
+    // Swap the bytes in the loaded value.
+    Label skip;
+    if (!littleEndian->isConstant()) {
+      masm.branch32(
+          MOZ_LITTLE_ENDIAN() ? Assembler::NotEqual : Assembler::Equal,
+          ToRegister(littleEndian), Imm32(0), &skip);
+    }
+
+    switch (writeType) {
+      case Scalar::Int16:
+        masm.swap16SignExtend(temp);
+        break;
+      case Scalar::Uint16:
+        masm.swap16ZeroExtend(temp);
+        break;
+      case Scalar::Int32:
+      case Scalar::Uint32:
+      case Scalar::Float32:
+        masm.swap32(temp);
+        break;
+      case Scalar::Float64:
+      case Scalar::BigInt64:
+      case Scalar::BigUint64:
+        masm.swap64(temp64);
+        break;
+      case Scalar::Int8:
+      case Scalar::Uint8:
+      case Scalar::Uint8Clamped:
+      default:
+        MOZ_CRASH("Invalid typed array type");
+    }
+
+    if (skip.used()) {
+      masm.bind(&skip);
+    }
+  }
+
+  // Store the value into the destination.
+  switch (writeType) {
+    case Scalar::Int16:
+    case Scalar::Uint16:
+      masm.store16Unaligned(temp, dest);
+      break;
+    case Scalar::Int32:
+    case Scalar::Uint32:
+    case Scalar::Float32:
+      masm.store32Unaligned(temp, dest);
+      break;
+    case Scalar::Float64:
+    case Scalar::BigInt64:
+    case Scalar::BigUint64:
+      masm.store64Unaligned(temp64, dest);
+      break;
+    case Scalar::Int8:
+    case Scalar::Uint8:
+    case Scalar::Uint8Clamped:
+    default:
+      MOZ_CRASH("Invalid typed array type");
   }
 }
 
