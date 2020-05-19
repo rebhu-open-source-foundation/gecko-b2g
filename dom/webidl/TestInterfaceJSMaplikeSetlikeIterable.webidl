@@ -107,3 +107,12 @@ interface TestInterfaceAsyncIterableDouble {
 
   async iterable<DOMString, DOMString>;
 };
+
+[Pref="dom.expose_test_interfaces",
+ Exposed=Window]
+interface TestInterfaceAsyncIterableDoubleUnion {
+  [Throws]
+  constructor();
+
+  async iterable<DOMString, (DOMString or long)>;
+};
