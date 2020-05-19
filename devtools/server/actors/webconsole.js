@@ -947,9 +947,10 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
               return;
             }
 
-            const message = this.prepareConsoleMessageForRemote(cachedMessage);
-            message._type = type;
-            messages.push(message);
+            messages.push({
+              message: this.prepareConsoleMessageForRemote(cachedMessage),
+              type: "consoleAPICall",
+            });
           });
           break;
         }
@@ -964,9 +965,10 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
               continue;
             }
 
-            const message = this.preparePageErrorForRemote(cachedMessage);
-            message._type = type;
-            messages.push(message);
+            messages.push({
+              pageError: this.preparePageErrorForRemote(cachedMessage),
+              type: "pageError",
+            });
           }
           break;
         }
@@ -982,9 +984,9 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
             }
 
             messages.push({
-              _type: type,
               message: this._createStringGrip(cachedMessage.message),
               timeStamp: cachedMessage.timeStamp,
+              type: "logMessage",
             });
           }
           break;
@@ -1716,6 +1718,7 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
       notes: notesArray,
       chromeContext: pageError.isFromChromeContext,
       cssSelectors: pageError.cssSelectors,
+      isPromiseRejection: pageError.isPromiseRejection,
     };
 
     // If the pageError does have an exception object, we want to return the grip for it,

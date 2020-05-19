@@ -904,10 +904,14 @@
   value: "#000000"
   mirror: never
 
+# Whether focus rings are always shown by default.
+#
+# This is the initial value of nsWindowRoot::mShowFocusRings, but it can be
+# overridden by system preferences.  For Windows, we start with default-true,
+# and by default the UISF_HIDEFOCUS message comes by and sets it to false.
 - name: browser.display.show_focus_rings
   type: bool
-# Focus rings are not shown on Mac or Android by default.
-#if defined(XP_MACOSX) || defined(ANDROID)
+#ifndef XP_WIN
   value: false
 #else
   value: true
@@ -5819,6 +5823,13 @@
   mirror: always
   rust: true
 
+# Whether the ::-moz-focus-outer pseudo-class is parsed.
+- name: layout.css.moz-focus-outer.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NOT_NIGHTLY_BUILD@
+  mirror: always
+  rust: true
+
 # Pref to control whether @-moz-document url-prefix() is parsed in content
 # pages. Only effective when layout.css.moz-document.content.enabled is false.
 - name: layout.css.moz-document.url-prefix-hack.enabled
@@ -9202,6 +9213,13 @@
 
 # Use smooth rendering for basic compositor.
 - name: widget.wayland-smooth-rendering
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Always use xdg-desktop-portal to access system resources like file dialog
+# and print dialog.
+- name: widget.use-xdg-desktop-portal
   type: RelaxedAtomicBool
   value: false
   mirror: always

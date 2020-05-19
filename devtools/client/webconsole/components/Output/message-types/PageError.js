@@ -57,6 +57,7 @@ function PageError(props) {
     notes,
     parameters,
     hasException,
+    isPromiseRejection,
   } = message;
 
   const messageBody = [];
@@ -68,9 +69,11 @@ function PageError(props) {
   };
 
   if (hasException) {
+    const prefix = `Uncaught${isPromiseRejection ? " (in promise)" : ""} `;
     messageBody.push(
-      "Uncaught ",
+      prefix,
       GripMessageBody({
+        key: "body",
         dispatch,
         messageId,
         grip: parameters[0],
@@ -84,6 +87,7 @@ function PageError(props) {
   } else {
     messageBody.push(
       REPS.StringRep.rep({
+        key: "bodytext",
         object: messageText,
         mode: MODE.LONG,
         ...repsProps,

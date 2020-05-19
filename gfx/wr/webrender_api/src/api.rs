@@ -15,10 +15,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::u32;
 use std::sync::mpsc::{Sender, Receiver, channel};
+use time::precise_time_ns;
 // local imports
 use crate::{display_item as di, font};
 use crate::color::{ColorU, ColorF};
-use crate::display_list::{BuiltDisplayList, BuiltDisplayListDescriptor};
+use crate::display_list::BuiltDisplayList;
 use crate::image::{BlobImageData, BlobImageKey, ImageData, ImageDescriptor, ImageKey};
 use crate::image::DEFAULT_TILE_SIZE;
 use crate::units::*;
@@ -249,19 +250,18 @@ impl Transaction {
         epoch: Epoch,
         background: Option<ColorF>,
         viewport_size: LayoutSize,
-        (pipeline_id, content_size, display_list): (PipelineId, LayoutSize, BuiltDisplayList),
+        (pipeline_id, content_size, mut display_list): (PipelineId, LayoutSize, BuiltDisplayList),
         preserve_frame_state: bool,
     ) {
-        let (list_data, list_descriptor) = display_list.into_data();
+        display_list.set_send_time_ns(precise_time_ns());
         self.scene_ops.push(
             SceneMsg::SetDisplayList {
+                display_list,
                 epoch,
                 pipeline_id,
                 background,
                 viewport_size,
                 content_size,
-                list_descriptor,
-                list_data,
                 preserve_frame_state,
             }
         );
@@ -803,9 +803,7 @@ pub enum SceneMsg {
     ///
     SetDisplayList {
         ///
-        list_descriptor: BuiltDisplayListDescriptor,
-        /// The serialized display list.
-        list_data: Vec<u8>,
+        display_list: BuiltDisplayList,
         ///
         epoch: Epoch,
         ///
@@ -986,13 +984,9 @@ pub enum DebugCommand {
 /// Message sent by the `RenderApi` to the render backend thread.
 pub enum ApiMsg {
     /// Gets the glyph dimensions
-    GetGlyphDimensions(
-        font::FontInstanceKey,
-        Vec<font::GlyphIndex>,
-        Sender<Vec<Option<font::GlyphDimensions>>>,
-    ),
+    GetGlyphDimensions(font::GlyphDimensionRequest),
     /// Gets the glyph indices from a string
-    GetGlyphIndices(font::FontKey, String, Sender<Vec<Option<u32>>>),
+    GetGlyphIndices(font::GlyphIndexRequest),
     /// Adds a new document namespace.
     CloneApi(Sender<IdNamespace>),
     /// Adds a new document namespace.
@@ -1487,20 +1481,28 @@ impl RenderApi {
     /// This means that glyph dimensions e.g. for spaces (' ') will mostly be None.
     pub fn get_glyph_dimensions(
         &self,
-        font: font::FontInstanceKey,
+        key: font::FontInstanceKey,
         glyph_indices: Vec<font::GlyphIndex>,
     ) -> Vec<Option<font::GlyphDimensions>> {
-        let (tx, rx) = channel();
-        let msg = ApiMsg::GetGlyphDimensions(font, glyph_indices, tx);
+        let (sender, rx) = channel();
+        let msg = ApiMsg::GetGlyphDimensions(font::GlyphDimensionRequest {
+            key,
+            glyph_indices,
+            sender
+        });
         self.api_sender.send(msg).unwrap();
         rx.recv().unwrap()
     }
 
     /// Gets the glyph indices for the supplied string. These
     /// can be used to construct GlyphKeys.
-    pub fn get_glyph_indices(&self, font_key: font::FontKey, text: &str) -> Vec<Option<u32>> {
-        let (tx, rx) = channel();
-        let msg = ApiMsg::GetGlyphIndices(font_key, text.to_string(), tx);
+    pub fn get_glyph_indices(&self, key: font::FontKey, text: &str) -> Vec<Option<u32>> {
+        let (sender, rx) = channel();
+        let msg = ApiMsg::GetGlyphIndices(font::GlyphIndexRequest {
+            key,
+            text: text.to_string(),
+            sender,
+        });
         self.api_sender.send(msg).unwrap();
         rx.recv().unwrap()
     }
@@ -2040,5 +2042,28 @@ impl Clone for NotificationRequest {
             when: self.when,
             handler: None,
         }
+    }
+}
+
+
+bitflags! {
+    /// Each bit of the edge AA mask is:
+    /// 0, when the edge of the primitive needs to be considered for AA
+    /// 1, when the edge of the segment needs to be considered for AA
+    ///
+    /// *Note*: the bit values have to match the shader logic in
+    /// `write_transform_vertex()` function.
+    #[cfg_attr(feature = "serialize", derive(Serialize))]
+    #[cfg_attr(feature = "deserialize", derive(Deserialize))]
+    #[derive(MallocSizeOf)]
+    pub struct EdgeAaSegmentMask: u8 {
+        ///
+        const LEFT = 0x1;
+        ///
+        const TOP = 0x2;
+        ///
+        const RIGHT = 0x4;
+        ///
+        const BOTTOM = 0x8;
     }
 }

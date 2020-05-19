@@ -264,9 +264,12 @@ already_AddRefed<Element> WSRunObject::InsertBreak(
       }
     } else if (beforeRun->IsVisibleAndMiddleOfHardLine()) {
       // Try to change an nbsp to a space, just to prevent nbsp proliferation
-      nsresult rv = ReplacePreviousNBSPIfUnnecessary(beforeRun, pointToInsert);
+      nsresult rv = MaybeReplacePreviousNBSPWithASCIIWhitespace(*beforeRun,
+                                                                pointToInsert);
       if (NS_FAILED(rv)) {
-        NS_WARNING("WSRunObject::ReplacePreviousNBSPIfUnnecessary() failed");
+        NS_WARNING(
+            "WSRunObject::MaybeReplacePreviousNBSPWithASCIIWhitespace() "
+            "failed");
         return nullptr;
       }
     }
@@ -330,11 +333,12 @@ nsresult WSRunObject::InsertText(Document& aDocument,
     } else if (afterRun->IsVisibleAndMiddleOfHardLine()) {
       // Try to change an nbsp to a space, if possible, just to prevent nbsp
       // proliferation
-      nsresult rv = CheckLeadingNBSP(
-          afterRun, MOZ_KnownLive(pointToInsert.GetContainer()),
-          pointToInsert.Offset());
+      nsresult rv = MaybeReplaceInclusiveNextNBSPWithASCIIWhitespace(
+          *afterRun, pointToInsert);
       if (NS_FAILED(rv)) {
-        NS_WARNING("WSRunObject::CheckLeadingNBSP() failed");
+        NS_WARNING(
+            "WSRunObject::MaybeReplaceInclusiveNextNBSPWithASCIIWhitespace() "
+            "failed");
         return rv;
       }
     }
@@ -356,9 +360,12 @@ nsresult WSRunObject::InsertText(Document& aDocument,
     } else if (beforeRun->IsVisibleAndMiddleOfHardLine()) {
       // Try to change an nbsp to a space, if possible, just to prevent nbsp
       // proliferation
-      nsresult rv = ReplacePreviousNBSPIfUnnecessary(beforeRun, pointToInsert);
+      nsresult rv = MaybeReplacePreviousNBSPWithASCIIWhitespace(*beforeRun,
+                                                                pointToInsert);
       if (NS_FAILED(rv)) {
-        NS_WARNING("WSRunObject::ReplacePreviousNBSPIfUnnecessary() failed");
+        NS_WARNING(
+            "WSRunObject::MaybeReplacePreviousNBSPWithASCIIWhitespace() "
+            "failed");
         return rv;
       }
     }
@@ -689,9 +696,9 @@ nsresult WSRunObject::AdjustWhitespace() {
     if (!run->IsVisibleAndMiddleOfHardLine()) {
       continue;
     }
-    nsresult rv = CheckTrailingNBSPOfRun(run);
+    nsresult rv = NormalizeWhitespacesAtEndOf(*run);
     if (NS_FAILED(rv)) {
-      NS_WARNING("WSRunObject::CheckTrailingNBSPOfRun() failed");
+      NS_WARNING("WSRunObject::NormalizeWhitespacesAtEndOf() failed");
       return rv;
     }
   }
@@ -1587,196 +1594,201 @@ char16_t WSRunScanner::GetCharAt(Text* aTextNode, int32_t aOffset) const {
   return aTextNode->TextFragment().CharAt(aOffset);
 }
 
-nsresult WSRunObject::CheckTrailingNBSPOfRun(WSFragment* aRun) {
-  if (NS_WARN_IF(!aRun)) {
-    return NS_ERROR_INVALID_ARG;
-  }
-
-  // Try to change an nbsp to a space, if possible, just to prevent nbsp
-  // proliferation.  Examine what is before and after the trailing nbsp, if
-  // any.
-  bool leftCheck = false;
-  bool spaceNBSP = false;
-  bool rightCheck = false;
-
+nsresult WSRunObject::NormalizeWhitespacesAtEndOf(const WSFragment& aRun) {
   // Check if it's a visible fragment in a hard line.
-  if (!aRun->IsVisibleAndMiddleOfHardLine()) {
+  if (!aRun.IsVisibleAndMiddleOfHardLine()) {
     return NS_ERROR_FAILURE;
   }
 
   // first check for trailing nbsp
+  EditorDOMPoint atEndOfRun = aRun.EndPoint();
   EditorDOMPointInText atPreviousCharOfEndOfRun =
-      GetPreviousEditableCharPoint(aRun->RawEndPoint());
-  if (atPreviousCharOfEndOfRun.IsSet() &&
-      !atPreviousCharOfEndOfRun.IsEndOfContainer() &&
-      atPreviousCharOfEndOfRun.IsCharNBSP()) {
-    // now check that what is to the left of it is compatible with replacing
-    // nbsp with space
-    EditorDOMPointInText atPreviousCharOfPreviousCharOfEndOfRun =
-        GetPreviousEditableCharPoint(atPreviousCharOfEndOfRun);
-    if (atPreviousCharOfPreviousCharOfEndOfRun.IsSet()) {
-      if (atPreviousCharOfPreviousCharOfEndOfRun.IsEndOfContainer() ||
-          !atPreviousCharOfPreviousCharOfEndOfRun.IsCharASCIISpace()) {
-        leftCheck = true;
-      } else {
-        spaceNBSP = true;
-      }
-    } else if (aRun->StartsFromNormalText() ||
-               aRun->StartsFromSpecialContent()) {
-      leftCheck = true;
-    }
-    if (leftCheck || spaceNBSP) {
-      // now check that what is to the right of it is compatible with replacing
-      // nbsp with space
-      if (aRun->EndsByNormalText() || aRun->EndsBySpecialContent() ||
-          aRun->EndsByBRElement()) {
-        rightCheck = true;
-      }
-      if (aRun->EndsByBlockBoundary() && mScanStartPoint.IsInContentNode()) {
-        bool insertBRElement = HTMLEditUtils::IsBlockElement(
-            *mScanStartPoint.ContainerAsContent());
-        if (!insertBRElement) {
-          nsIContent* blockParentOrTopmostEditableInlineContent =
-              GetEditableBlockParentOrTopmotEditableInlineContent(
-                  mScanStartPoint.ContainerAsContent());
-          insertBRElement = blockParentOrTopmostEditableInlineContent &&
-                            HTMLEditUtils::IsBlockElement(
-                                *blockParentOrTopmostEditableInlineContent);
-        }
-        if (insertBRElement) {
-          // We are at a block boundary.  Insert a <br>.  Why?  Well, first note
-          // that the br will have no visible effect since it is up against a
-          // block boundary.  |foo<br><p>bar| renders like |foo<p>bar| and
-          // similarly |<p>foo<br></p>bar| renders like |<p>foo</p>bar|.  What
-          // this <br> addition gets us is the ability to convert a trailing
-          // nbsp to a space.  Consider: |<body>foo. '</body>|, where '
-          // represents selection.  User types space attempting to put 2 spaces
-          // after the end of their sentence.  We used to do this as:
-          // |<body>foo. &nbsp</body>|  This caused problems with soft wrapping:
-          // the nbsp would wrap to the next line, which looked attrocious.  If
-          // you try to do: |<body>foo.&nbsp </body>| instead, the trailing
-          // space is invisible because it is against a block boundary.  If you
-          // do:
-          // |<body>foo.&nbsp&nbsp</body>| then you get an even uglier soft
-          // wrapping problem, where foo is on one line until you type the final
-          // space, and then "foo  " jumps down to the next line.  Ugh.  The
-          // best way I can find out of this is to throw in a harmless <br>
-          // here, which allows us to do: |<body>foo.&nbsp <br></body>|, which
-          // doesn't cause foo to jump lines, doesn't cause spaces to show up at
-          // the beginning of soft wrapped lines, and lets the user see 2 spaces
-          // when they type 2 spaces.
+      GetPreviousEditableCharPoint(atEndOfRun);
+  if (!atPreviousCharOfEndOfRun.IsSet() ||
+      atPreviousCharOfEndOfRun.IsEndOfContainer() ||
+      !atPreviousCharOfEndOfRun.IsCharNBSP()) {
+    return NS_OK;
+  }
 
-          RefPtr<Element> brElement =
-              MOZ_KnownLive(mHTMLEditor)
-                  .InsertBRElementWithTransaction(aRun->EndPoint());
-          if (!brElement) {
-            NS_WARNING("HTMLEditor::InsertBRElementWithTransaction() failed");
-            return NS_ERROR_FAILURE;
-          }
+  // now check that what is to the left of it is compatible with replacing
+  // nbsp with space
+  EditorDOMPointInText atPreviousCharOfPreviousCharOfEndOfRun =
+      GetPreviousEditableCharPoint(atPreviousCharOfEndOfRun);
+  bool isPreviousCharASCIIWhitespace =
+      atPreviousCharOfPreviousCharOfEndOfRun.IsSet() &&
+      !atPreviousCharOfPreviousCharOfEndOfRun.IsEndOfContainer() &&
+      atPreviousCharOfPreviousCharOfEndOfRun.IsCharASCIISpace();
+  bool maybeNBSPFollowingVisibleContent =
+      (atPreviousCharOfPreviousCharOfEndOfRun.IsSet() &&
+       !isPreviousCharASCIIWhitespace) ||
+      (!atPreviousCharOfPreviousCharOfEndOfRun.IsSet() &&
+       (aRun.StartsFromNormalText() || aRun.StartsFromSpecialContent()));
+  bool followedByVisibleContentOrBRElement = false;
 
-          atPreviousCharOfEndOfRun =
-              GetPreviousEditableCharPoint(aRun->RawEndPoint());
-          atPreviousCharOfPreviousCharOfEndOfRun =
-              GetPreviousEditableCharPoint(atPreviousCharOfEndOfRun);
-          rightCheck = true;
+  // If the NBSP follows a visible content or an ASCII whitespace, i.e.,
+  // unless NBSP is first character and start of a block, we may need to
+  // insert <br> element and restore the NBSP to an ASCII whitespace.
+  if (maybeNBSPFollowingVisibleContent || isPreviousCharASCIIWhitespace) {
+    followedByVisibleContentOrBRElement = aRun.EndsByNormalText() ||
+                                          aRun.EndsBySpecialContent() ||
+                                          aRun.EndsByBRElement();
+    // First, try to insert <br> element if NBSP is at end of a block.
+    // XXX We should stop this if there is a visible content.
+    if (aRun.EndsByBlockBoundary() && mScanStartPoint.IsInContentNode()) {
+      bool insertBRElement =
+          HTMLEditUtils::IsBlockElement(*mScanStartPoint.ContainerAsContent());
+      if (!insertBRElement) {
+        nsIContent* blockParentOrTopmostEditableInlineContent =
+            GetEditableBlockParentOrTopmotEditableInlineContent(
+                mScanStartPoint.ContainerAsContent());
+        insertBRElement = blockParentOrTopmostEditableInlineContent &&
+                          HTMLEditUtils::IsBlockElement(
+                              *blockParentOrTopmostEditableInlineContent);
+      }
+      if (insertBRElement) {
+        // We are at a block boundary.  Insert a <br>.  Why?  Well, first note
+        // that the br will have no visible effect since it is up against a
+        // block boundary.  |foo<br><p>bar| renders like |foo<p>bar| and
+        // similarly |<p>foo<br></p>bar| renders like |<p>foo</p>bar|.  What
+        // this <br> addition gets us is the ability to convert a trailing
+        // nbsp to a space.  Consider: |<body>foo. '</body>|, where '
+        // represents selection.  User types space attempting to put 2 spaces
+        // after the end of their sentence.  We used to do this as:
+        // |<body>foo. &nbsp</body>|  This caused problems with soft wrapping:
+        // the nbsp would wrap to the next line, which looked attrocious.  If
+        // you try to do: |<body>foo.&nbsp </body>| instead, the trailing
+        // space is invisible because it is against a block boundary.  If you
+        // do:
+        // |<body>foo.&nbsp&nbsp</body>| then you get an even uglier soft
+        // wrapping problem, where foo is on one line until you type the final
+        // space, and then "foo  " jumps down to the next line.  Ugh.  The
+        // best way I can find out of this is to throw in a harmless <br>
+        // here, which allows us to do: |<body>foo.&nbsp <br></body>|, which
+        // doesn't cause foo to jump lines, doesn't cause spaces to show up at
+        // the beginning of soft wrapped lines, and lets the user see 2 spaces
+        // when they type 2 spaces.
+
+        RefPtr<Element> brElement =
+            MOZ_KnownLive(mHTMLEditor)
+                .InsertBRElementWithTransaction(atEndOfRun);
+        if (NS_WARN_IF(mHTMLEditor.Destroyed())) {
+          return NS_ERROR_EDITOR_DESTROYED;
         }
+        if (!brElement) {
+          NS_WARNING("HTMLEditor::InsertBRElementWithTransaction() failed");
+          return NS_ERROR_FAILURE;
+        }
+
+        atPreviousCharOfEndOfRun = GetPreviousEditableCharPoint(atEndOfRun);
+        atPreviousCharOfPreviousCharOfEndOfRun =
+            GetPreviousEditableCharPoint(atPreviousCharOfEndOfRun);
+        followedByVisibleContentOrBRElement = true;
       }
     }
-    if (leftCheck && rightCheck) {
+
+    // Next, replace the NBSP with an ASCII whitespace if it's surrounded
+    // by visible contents (or immediately before a <br> element).
+    if (maybeNBSPFollowingVisibleContent &&
+        followedByVisibleContentOrBRElement) {
       // Now replace nbsp with space.  First, insert a space
       AutoTransactionsConserveSelection dontChangeMySelection(mHTMLEditor);
       nsresult rv =
           MOZ_KnownLive(mHTMLEditor)
               .InsertTextIntoTextNodeWithTransaction(
                   NS_LITERAL_STRING(" "), atPreviousCharOfEndOfRun, true);
+      if (NS_WARN_IF(mHTMLEditor.Destroyed())) {
+        return NS_ERROR_EDITOR_DESTROYED;
+      }
       if (NS_FAILED(rv)) {
         NS_WARNING(
             "EditorBase::InsertTextIntoTextNodeWithTransaction() failed");
         return rv;
       }
 
+      if (atPreviousCharOfEndOfRun.IsEndOfContainer() ||
+          atPreviousCharOfEndOfRun.IsAtLastContent()) {
+        NS_WARNING("The text node was modified by mutation event listener");
+        return NS_OK;
+      }
+
       // Finally, delete that nbsp
-      NS_ASSERTION(!atPreviousCharOfEndOfRun.IsEndOfContainer() &&
-                       !atPreviousCharOfEndOfRun.IsAtLastContent(),
-                   "The text node was modified by mutation event listener");
-      if (!atPreviousCharOfEndOfRun.IsEndOfContainer() &&
-          !atPreviousCharOfEndOfRun.IsAtLastContent()) {
-        NS_ASSERTION(atPreviousCharOfEndOfRun.IsNextCharNBSP(),
-                     "Trying to remove an NBSP, but it's gone from the "
-                     "expected position");
-        EditorDOMPointInText atNextCharOfPreviousCharOfEndOfRun =
-            atPreviousCharOfEndOfRun.NextPoint();
-        nsresult rv = MOZ_KnownLive(mHTMLEditor)
-                          .DeleteTextAndTextNodesWithTransaction(
-                              atNextCharOfPreviousCharOfEndOfRun,
-                              atNextCharOfPreviousCharOfEndOfRun.NextPoint());
-        if (NS_FAILED(rv)) {
-          NS_WARNING(
-              "HTMLEditor::DeleteTextAndTextNodesWithTransaction() failed");
-          return rv;
-        }
+      NS_ASSERTION(atPreviousCharOfEndOfRun.IsNextCharNBSP(),
+                   "Trying to remove an NBSP, but it's gone from the "
+                   "expected position");
+      EditorDOMPointInText atNextCharOfPreviousCharOfEndOfRun =
+          atPreviousCharOfEndOfRun.NextPoint();
+      rv = MOZ_KnownLive(mHTMLEditor)
+               .DeleteTextAndTextNodesWithTransaction(
+                   atNextCharOfPreviousCharOfEndOfRun,
+                   atNextCharOfPreviousCharOfEndOfRun.NextPoint());
+      if (NS_FAILED(rv)) {
+        NS_WARNING(
+            "HTMLEditor::DeleteTextAndTextNodesWithTransaction() failed");
+        return rv;
       }
-    } else if (!mPRE && spaceNBSP && rightCheck) {
-      // Don't mess with this preformatted for now.  We have a run of ASCII
-      // whitespace (which will render as one space) followed by an nbsp (which
-      // is at the end of the whitespace run).  Let's switch their order.  This
-      // will ensure that if someone types two spaces after a sentence, and the
-      // editor softwraps at this point, the spaces won't be split across lines,
-      // which looks ugly and is bad for the moose.
-      MOZ_ASSERT(!atPreviousCharOfPreviousCharOfEndOfRun.IsEndOfContainer());
-      EditorDOMPointInText start, end;
-      // XXX end won't be used, whey `eBoth`?
-      Tie(start, end) = GetASCIIWhitespacesBounds(
-          eBoth, atPreviousCharOfPreviousCharOfEndOfRun.NextPoint());
-      NS_WARNING_ASSERTION(
-          start.IsSet(),
-          "WSRunObject::GetASCIIWhitespacesBounds() didn't return start point");
-      NS_WARNING_ASSERTION(end.IsSet(),
-                           "WSRunObject::GetASCIIWhitespacesBounds() didn't "
-                           "return end point, but ignored");
+      return NS_OK;
+    }
+  }
 
-      // Delete that nbsp
-      NS_ASSERTION(!atPreviousCharOfEndOfRun.IsEndOfContainer(),
-                   "The text node was modified by mutation event listener");
-      if (!atPreviousCharOfEndOfRun.IsEndOfContainer()) {
-        NS_ASSERTION(atPreviousCharOfEndOfRun.IsCharNBSP(),
-                     "Trying to remove an NBSP, but it's gone from the "
-                     "expected position");
-        nsresult rv = MOZ_KnownLive(mHTMLEditor)
-                          .DeleteTextAndTextNodesWithTransaction(
-                              atPreviousCharOfEndOfRun,
-                              atPreviousCharOfEndOfRun.NextPoint());
-        if (NS_FAILED(rv)) {
-          NS_WARNING(
-              "HTMLEditor::DeleteTextAndTextNodesWithTransaction() failed");
-          return rv;
-        }
-      }
+  // If the text node is not preformatted, and the NBSP is followed by a <br>
+  // element and following (maybe multiple) ASCII spaces, remove the NBSP,
+  // but inserts a NBSP before the spaces.  This makes a line break opportunity
+  // to wrap the line.
+  // XXX This is different behavior from Blink.  Blink generates pairs of
+  //     an NBSP and an ASCII whitespace, but put NBSP at the end of the
+  //     sequence.  We should follow the behavior for web-compat.
+  if (mPRE || maybeNBSPFollowingVisibleContent ||
+      !isPreviousCharASCIIWhitespace || !followedByVisibleContentOrBRElement) {
+    return NS_OK;
+  }
 
-      // Finally, insert that nbsp before the ASCII ws run
-      NS_ASSERTION(start.IsSetAndValid(),
-                   "The text node was modified by mutation event listener");
-      if (start.IsSetAndValid()) {
-        AutoTransactionsConserveSelection dontChangeMySelection(mHTMLEditor);
-        nsresult rv = MOZ_KnownLive(mHTMLEditor)
-                          .InsertTextIntoTextNodeWithTransaction(
-                              nsDependentSubstring(&kNBSP, 1), start, true);
-        if (NS_FAILED(rv)) {
-          NS_WARNING(
-              "EditorBase::InsertTextIntoTextNodeWithTransaction() failed");
-          return rv;
-        }
-      }
+  MOZ_ASSERT(!atPreviousCharOfPreviousCharOfEndOfRun.IsEndOfContainer());
+  EditorDOMPointInText start, end;
+  // XXX end won't be used, whey `eBoth`?
+  Tie(start, end) = GetASCIIWhitespacesBounds(
+      eBoth, atPreviousCharOfPreviousCharOfEndOfRun.NextPoint());
+  NS_WARNING_ASSERTION(
+      start.IsSet(),
+      "WSRunObject::GetASCIIWhitespacesBounds() didn't return start point");
+  NS_WARNING_ASSERTION(end.IsSet(),
+                       "WSRunObject::GetASCIIWhitespacesBounds() didn't "
+                       "return end point, but ignored");
+
+  // Delete that nbsp
+  NS_ASSERTION(!atPreviousCharOfEndOfRun.IsEndOfContainer(),
+               "The text node was modified by mutation event listener");
+  if (!atPreviousCharOfEndOfRun.IsEndOfContainer()) {
+    NS_ASSERTION(atPreviousCharOfEndOfRun.IsCharNBSP(),
+                 "Trying to remove an NBSP, but it's gone from the "
+                 "expected position");
+    nsresult rv =
+        MOZ_KnownLive(mHTMLEditor)
+            .DeleteTextAndTextNodesWithTransaction(
+                atPreviousCharOfEndOfRun, atPreviousCharOfEndOfRun.NextPoint());
+    if (NS_FAILED(rv)) {
+      NS_WARNING("HTMLEditor::DeleteTextAndTextNodesWithTransaction() failed");
+      return rv;
+    }
+  }
+
+  // Finally, insert that nbsp before the ASCII ws run
+  NS_ASSERTION(start.IsSetAndValid(),
+               "The text node was modified by mutation event listener");
+  if (start.IsSetAndValid()) {
+    AutoTransactionsConserveSelection dontChangeMySelection(mHTMLEditor);
+    nsresult rv = MOZ_KnownLive(mHTMLEditor)
+                      .InsertTextIntoTextNodeWithTransaction(
+                          nsDependentSubstring(&kNBSP, 1), start, true);
+    if (NS_FAILED(rv)) {
+      NS_WARNING("EditorBase::InsertTextIntoTextNodeWithTransaction() failed");
+      return rv;
     }
   }
   return NS_OK;
 }
 
-nsresult WSRunObject::ReplacePreviousNBSPIfUnnecessary(
-    WSFragment* aRun, const EditorDOMPoint& aPoint) {
-  if (NS_WARN_IF(!aRun) || NS_WARN_IF(!aPoint.IsSet())) {
-    return NS_ERROR_INVALID_ARG;
-  }
+nsresult WSRunObject::MaybeReplacePreviousNBSPWithASCIIWhitespace(
+    const WSFragment& aRun, const EditorDOMPoint& aPoint) {
   MOZ_ASSERT(aPoint.IsSetAndValid());
 
   // Try to change an NBSP to a space, if possible, just to prevent NBSP
@@ -1784,30 +1796,25 @@ nsresult WSRunObject::ReplacePreviousNBSPIfUnnecessary(
   // point in the ws abut an inserted break or text, so we don't have to worry
   // about what is after it.  What is after it now will end up after the
   // inserted object.
-  bool canConvert = false;
   EditorDOMPointInText atPreviousChar = GetPreviousEditableCharPoint(aPoint);
-  if (atPreviousChar.IsSet() && !atPreviousChar.IsEndOfContainer() &&
-      atPreviousChar.IsCharNBSP()) {
-    EditorDOMPointInText atPreviousCharOfPreviousChar =
-        GetPreviousEditableCharPoint(atPreviousChar);
-    if (atPreviousCharOfPreviousChar.IsSet()) {
-      if (atPreviousCharOfPreviousChar.IsEndOfContainer() ||
-          !atPreviousCharOfPreviousChar.IsCharASCIISpace()) {
-        // If previous character is a NBSP and its previous character isn't
-        // ASCII space, we can replace the NBSP with ASCII space.
-        canConvert = true;
-      }
-    } else if (aRun->StartsFromNormalText() ||
-               aRun->StartsFromSpecialContent()) {
-      // If previous character is a NBSP and it's the first character of the
-      // text node, additionally, if its previous node is a text node including
-      // non-whitespace characters or <img> node or something inline
-      // non-container element node, we can replace the NBSP with ASCII space.
-      canConvert = true;
-    }
+  if (!atPreviousChar.IsSet() || atPreviousChar.IsEndOfContainer() ||
+      !atPreviousChar.IsCharNBSP()) {
+    return NS_OK;
   }
 
-  if (!canConvert) {
+  EditorDOMPointInText atPreviousCharOfPreviousChar =
+      GetPreviousEditableCharPoint(atPreviousChar);
+  if (atPreviousCharOfPreviousChar.IsSet()) {
+    // If the previous char of the NBSP at previous position of aPoint is
+    // an ASCII whitespace, we don't need to replace it with same character.
+    if (!atPreviousCharOfPreviousChar.IsEndOfContainer() &&
+        atPreviousCharOfPreviousChar.IsCharASCIISpace()) {
+      return NS_OK;
+    }
+  }
+  // If previous content of the NBSP is block boundary, we cannot replace the
+  // NBSP with an ASCII whitespace to keep it rendered.
+  else if (!aRun.StartsFromNormalText() && !aRun.StartsFromSpecialContent()) {
     return NS_OK;
   }
 
@@ -1816,89 +1823,96 @@ nsresult WSRunObject::ReplacePreviousNBSPIfUnnecessary(
   nsresult rv = MOZ_KnownLive(mHTMLEditor)
                     .InsertTextIntoTextNodeWithTransaction(
                         NS_LITERAL_STRING(" "), atPreviousChar, true);
+  if (NS_WARN_IF(mHTMLEditor.Destroyed())) {
+    return NS_ERROR_EDITOR_DESTROYED;
+  }
   if (NS_FAILED(rv)) {
     NS_WARNING("EditorBase::InsertTextIntoTextNodeWithTransaction() failed");
     return rv;
   }
 
-  // Finally, delete the previous NBSP.
-  NS_ASSERTION(
-      !atPreviousChar.IsEndOfContainer() && !atPreviousChar.IsAtLastContent(),
-      "The text node was modified by mutation event listener");
-  if (!atPreviousChar.IsEndOfContainer() && !atPreviousChar.IsAtLastContent()) {
-    NS_ASSERTION(
-        atPreviousChar.IsNextCharNBSP(),
-        "Trying to remove an NBSP, but it's gone from the expected position");
-    EditorDOMPointInText atNextCharOfPreviousChar = atPreviousChar.NextPoint();
-    nsresult rv =
-        MOZ_KnownLive(mHTMLEditor)
-            .DeleteTextAndTextNodesWithTransaction(
-                atNextCharOfPreviousChar, atNextCharOfPreviousChar.NextPoint());
-    NS_WARNING_ASSERTION(
-        NS_SUCCEEDED(rv),
-        "HTMLEditor::DeleteTextAndTextNodesWithTransaction() failed");
-    return rv;
+  // If the insertion causes unexpected DOM tree, we should abort it.
+  if (atPreviousChar.IsEndOfContainer() || atPreviousChar.IsAtLastContent()) {
+    NS_WARNING("The text node was modified by mutation event listener");
+    return NS_OK;
   }
 
-  return NS_OK;
+  // Finally, delete the previous NBSP.
+  NS_ASSERTION(
+      atPreviousChar.IsNextCharNBSP(),
+      "Trying to remove an NBSP, but it's gone from the expected position");
+  EditorDOMPointInText atNextCharOfPreviousChar = atPreviousChar.NextPoint();
+  rv = MOZ_KnownLive(mHTMLEditor)
+           .DeleteTextAndTextNodesWithTransaction(
+               atNextCharOfPreviousChar, atNextCharOfPreviousChar.NextPoint());
+  NS_WARNING_ASSERTION(
+      NS_SUCCEEDED(rv),
+      "HTMLEditor::DeleteTextAndTextNodesWithTransaction() failed");
+  return rv;
 }
 
-nsresult WSRunObject::CheckLeadingNBSP(WSFragment* aRun, nsINode* aNode,
-                                       int32_t aOffset) {
+nsresult WSRunObject::MaybeReplaceInclusiveNextNBSPWithASCIIWhitespace(
+    const WSFragment& aRun, const EditorDOMPoint& aPoint) {
+  MOZ_ASSERT(aPoint.IsSetAndValid());
+
   // Try to change an nbsp to a space, if possible, just to prevent nbsp
   // proliferation This routine is called when we are about to make this point
   // in the ws abut an inserted text, so we don't have to worry about what is
   // before it.  What is before it now will end up before the inserted text.
-  bool canConvert = false;
-  EditorDOMPointInText atNextChar =
-      GetInclusiveNextEditableCharPoint(EditorRawDOMPoint(aNode, aOffset));
-  if (!atNextChar.IsSet() || NS_WARN_IF(atNextChar.IsEndOfContainer())) {
+  EditorDOMPointInText atNextChar = GetInclusiveNextEditableCharPoint(aPoint);
+  if (!atNextChar.IsSet() || NS_WARN_IF(atNextChar.IsEndOfContainer()) ||
+      !atNextChar.IsCharNBSP()) {
     return NS_OK;
   }
 
-  if (atNextChar.IsCharNBSP()) {
-    EditorDOMPointInText atNextCharOfNextCharOfNBSP =
-        GetInclusiveNextEditableCharPoint(atNextChar.NextPoint());
-    if (atNextCharOfNextCharOfNBSP.IsSet()) {
-      if (atNextCharOfNextCharOfNBSP.IsEndOfContainer() ||
-          !atNextCharOfNextCharOfNBSP.IsCharASCIISpace()) {
-        canConvert = true;
-      }
-    } else if (aRun->EndsByNormalText() || aRun->EndsBySpecialContent() ||
-               aRun->EndsByBRElement()) {
-      canConvert = true;
+  EditorDOMPointInText atNextCharOfNextCharOfNBSP =
+      GetInclusiveNextEditableCharPoint(atNextChar.NextPoint());
+  if (atNextCharOfNextCharOfNBSP.IsSet()) {
+    // If following character of an NBSP is an ASCII whitespace, we don't
+    // need to replace it with same character.
+    if (!atNextCharOfNextCharOfNBSP.IsEndOfContainer() &&
+        atNextCharOfNextCharOfNBSP.IsCharASCIISpace()) {
+      return NS_OK;
     }
   }
-  if (canConvert) {
-    // First, insert a space
-    AutoTransactionsConserveSelection dontChangeMySelection(mHTMLEditor);
-    nsresult rv = MOZ_KnownLive(mHTMLEditor)
-                      .InsertTextIntoTextNodeWithTransaction(
-                          NS_LITERAL_STRING(" "), atNextChar, true);
-    if (NS_FAILED(rv)) {
-      NS_WARNING("EditorBase::InsertTextIntoTextNodeWithTransaction() failed");
-      return rv;
-    }
+  // If the NBSP is last character in the hard line, we don't need to
+  // replace it because it's required to render multiple whitespaces.
+  else if (!aRun.EndsByNormalText() && !aRun.EndsBySpecialContent() &&
+           !aRun.EndsByBRElement()) {
+    return NS_OK;
+  }
 
-    // Finally, delete that nbsp
-    NS_ASSERTION(
-        !atNextChar.IsEndOfContainer() && !atNextChar.IsAtLastContent(),
-        "The text node was modified by mutation event listener");
-    if (!atNextChar.IsEndOfContainer() && !atNextChar.IsAtLastContent()) {
-      NS_ASSERTION(
-          atNextChar.IsNextCharNBSP(),
-          "Trying to remove an NBSP, but it's gone from the expected position");
-      EditorDOMPointInText atNextCharOfNextChar = atNextChar.NextPoint();
-      rv = MOZ_KnownLive(mHTMLEditor)
-               .DeleteTextAndTextNodesWithTransaction(
-                   atNextCharOfNextChar, atNextCharOfNextChar.NextPoint());
-      NS_WARNING_ASSERTION(
-          NS_SUCCEEDED(rv),
-          "HTMLEditor::DeleteTextAndTextNodesWithTransaction() failed");
-      return rv;
-    }
+  // First, insert an ASCII whitespace.
+  AutoTransactionsConserveSelection dontChangeMySelection(mHTMLEditor);
+  nsresult rv = MOZ_KnownLive(mHTMLEditor)
+                    .InsertTextIntoTextNodeWithTransaction(
+                        NS_LITERAL_STRING(" "), atNextChar, true);
+  if (NS_WARN_IF(mHTMLEditor.Destroyed())) {
+    return NS_ERROR_EDITOR_DESTROYED;
   }
-  return NS_OK;
+  if (NS_FAILED(rv)) {
+    NS_WARNING("EditorBase::InsertTextIntoTextNodeWithTransaction() failed");
+    return rv;
+  }
+
+  // If the insertion causes unexpected DOM tree, we should abort it.
+  if (atNextChar.IsEndOfContainer() || atNextChar.IsAtLastContent()) {
+    NS_WARNING("The text node was modified by mutation event listener");
+    return NS_OK;
+  }
+
+  // Finally, delete that nbsp
+  NS_ASSERTION(
+      atNextChar.IsNextCharNBSP(),
+      "Trying to remove an NBSP, but it's gone from the expected position");
+  EditorDOMPointInText atNextCharOfNextChar = atNextChar.NextPoint();
+  rv = MOZ_KnownLive(mHTMLEditor)
+           .DeleteTextAndTextNodesWithTransaction(
+               atNextCharOfNextChar, atNextCharOfNextChar.NextPoint());
+  NS_WARNING_ASSERTION(
+      NS_SUCCEEDED(rv),
+      "HTMLEditor::DeleteTextAndTextNodesWithTransaction() failed");
+  return rv;
 }
 
 nsresult WSRunObject::Scrub() {

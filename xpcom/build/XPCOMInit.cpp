@@ -8,6 +8,7 @@
 
 #include "base/basictypes.h"
 
+#include "mozilla/AbstractThread.h"
 #include "mozilla/AppShutdown.h"
 #include "mozilla/Atomics.h"
 #include "mozilla/Poison.h"
@@ -654,6 +655,17 @@ nsresult ShutdownXPCOM(nsIServiceManager* aServMgr) {
 
     NS_ProcessPendingEvents(thread);
 
+    if (observerService) {
+      mozilla::KillClearOnShutdown(ShutdownPhase::ShutdownLoaders);
+      observerService->Shutdown();
+    }
+
+    // Free ClearOnShutdown()'ed smart pointers.  This needs to happen *after*
+    // we've finished notifying observers of XPCOM shutdown, because shutdown
+    // observers themselves might call ClearOnShutdown().
+    // Some destructors may fire extra runnables that will be processed below.
+    mozilla::KillClearOnShutdown(ShutdownPhase::ShutdownFinal);
+
     // Shutdown all remaining threads.  This method does not return until
     // all threads created using the thread manager (with the exception of
     // the main thread) have exited.
@@ -667,17 +679,10 @@ nsresult ShutdownXPCOM(nsIServiceManager* aServMgr) {
     BackgroundHangMonitor().NotifyActivity();
 
     mozilla::dom::JSExecutionManager::Shutdown();
-
-    if (observerService) {
-      mozilla::KillClearOnShutdown(ShutdownPhase::ShutdownLoaders);
-      observerService->Shutdown();
-    }
   }
 
-  // Free ClearOnShutdown()'ed smart pointers.  This needs to happen *after*
-  // we've finished notifying observers of XPCOM shutdown, because shutdown
-  // observers themselves might call ClearOnShutdown().
-  mozilla::KillClearOnShutdown(ShutdownPhase::ShutdownFinal);
+  AbstractThread::ShutdownMainThread();
+
   mozilla::AppShutdown::MaybeFastShutdown(
       mozilla::ShutdownPhase::ShutdownFinal);
 

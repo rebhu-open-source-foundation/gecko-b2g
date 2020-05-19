@@ -939,10 +939,10 @@ win64-asan/opt:
             - win64-node
             - win64-winchecksec
 
-win64-asan-reporter-nightly/opt:
-    description: "Win64 Opt ASAN Reporter Nightly"
+win64-asan-reporter-shippable/opt:
+    description: "Win64 Opt ASAN Reporter (Shippable)"
     attributes:
-        nightly: true
+        shippable: true
     shipping-product:
         by-release-type:
             nightly: firefox
@@ -950,7 +950,7 @@ win64-asan-reporter-nightly/opt:
     index:
         product: firefox
         job-name: win64-asan-reporter-opt
-        type: nightly
+        type: shippable
     treeherder:
         platform: win64-asan-reporter/opt
         symbol: BoR
@@ -1036,7 +1036,7 @@ win32-devedition/opt:
         job-name: win32-opt
         type: nightly
     attributes:
-        nightly: true
+        shippable: true
         enable-full-crashsymbols: true
     stub-installer:
         by-release-type:
@@ -1103,7 +1103,7 @@ win64-devedition/opt:
         job-name: win64-opt
         type: nightly
     attributes:
-        nightly: true
+        shippable: true
         enable-full-crashsymbols: true
     shipping-phase: build
     shipping-product: devedition
@@ -1479,7 +1479,7 @@ win64-aarch64-devedition/opt:
         job-name: win64-aarch64-opt
         type: nightly
     attributes:
-        nightly: true
+        shippable: true
         enable-full-crashsymbols: true
         # Skip the test packaging check because we copy test packages from
         # another build task rather than generating them in this task.

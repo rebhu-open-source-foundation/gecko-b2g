@@ -253,7 +253,7 @@ var PermissionPromptPrototype = {
       return principal.addonPolicy.name;
     }
 
-    return principal.URI.hostPort;
+    return principal.hostPort;
   },
 
   /**
@@ -853,7 +853,7 @@ XRPermissionPrompt.prototype = {
       name: this.getPrincipalName(),
     };
 
-    if (this.principal.URI.schemeIs("file")) {
+    if (this.principal.schemeIs("file")) {
       options.checkbox = { show: false };
     } else {
       // Don't offer "always remember" action in PB mode
@@ -878,7 +878,7 @@ XRPermissionPrompt.prototype = {
   },
 
   get message() {
-    if (this.principal.URI.schemeIs("file")) {
+    if (this.principal.schemeIs("file")) {
       return gBrowserBundle.GetStringFromName("xr.shareWithFile3");
     }
 
@@ -1259,15 +1259,11 @@ StorageAccessPermissionPrompt.prototype = {
     return "storage-access-" + this.principal.origin;
   },
 
-  prettifyHostPort(uri) {
-    try {
-      uri = Services.io.createExposableURI(uri);
-    } catch (e) {
-      // ignore, since we can't do anything better
-    }
-    let host = IDNService.convertToDisplayIDN(uri.host, {});
-    if (uri.port != -1) {
-      host += `:${uri.port}`;
+  prettifyHostPort(hostport) {
+    let [host, port] = hostport.split(":");
+    host = IDNService.convertToDisplayIDN(host, {});
+    if (port) {
+      return `${host}:${port}`;
     }
     return host;
   },
@@ -1279,8 +1275,8 @@ StorageAccessPermissionPrompt.prototype = {
     return {
       learnMoreURL,
       displayURI: false,
-      name: this.prettifyHostPort(this.principal.URI),
-      secondName: this.prettifyHostPort(this.topLevelPrincipal.URI),
+      name: this.prettifyHostPort(this.principal.hostPort),
+      secondName: this.prettifyHostPort(this.topLevelPrincipal.hostPort),
       escAction: "buttoncommand",
     };
   },

@@ -1399,6 +1399,7 @@ if CONFIG['MOZ_SYSTEM_ICU']:
         'unicode/ulistformatter.h',
         'unicode/uenum.h',
         'unicode/uformattedvalue.h',
+        'unicode/uniset.h',
         'unicode/unistr.h',
         'unicode/unorm.h',
         'unicode/unum.h',

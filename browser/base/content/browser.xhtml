@@ -83,6 +83,7 @@
   <link rel="localization" href="browser/sidebarMenu.ftl"/>
   <link rel="localization" href="browser/allTabsMenu.ftl"/>
   <link rel="localization" href="browser/places.ftl"/>
+  <link rel="localization" href="preview/popup-notifications.ftl"/>
 
   <title>&mainWindow.title;</title>
 
@@ -326,40 +327,42 @@
       </panel>
     </html:template>
 
-    <!-- UI tour experience -->
-    <panel id="UITourTooltip"
-           type="arrow"
-           hidden="true"
-           noautofocus="true"
-           noautohide="true"
-           align="start"
-           orient="vertical"
-           role="alert">
-     <vbox>
-      <hbox id="UITourTooltipBody">
-        <image id="UITourTooltipIcon"/>
-        <vbox flex="1">
-          <hbox id="UITourTooltipTitleContainer">
-            <label id="UITourTooltipTitle" flex="1"/>
-            <toolbarbutton id="UITourTooltipClose" class="close-icon"
-                           tooltiptext="&uiTour.infoPanel.close;"/>
-          </hbox>
-          <description id="UITourTooltipDescription" flex="1"/>
-        </vbox>
-      </hbox>
-      <hbox id="UITourTooltipButtons" flex="1" align="center"/>
-     </vbox>
-    </panel>
-    <!-- type="default" forces frames to be created so that the panel's size can be determined -->
-    <panel id="UITourHighlightContainer"
-           type="default"
-           hidden="true"
-           noautofocus="true"
-           noautohide="true"
-           flip="none"
-           consumeoutsideclicks="false">
-      <box id="UITourHighlight"></box>
-    </panel>
+    <html:template id="UITourTooltipTemplate">
+      <!-- UI tour experience -->
+      <panel id="UITourTooltip"
+             type="arrow"
+             noautofocus="true"
+             noautohide="true"
+             align="start"
+             orient="vertical"
+             role="alert">
+       <vbox>
+        <hbox id="UITourTooltipBody">
+          <image id="UITourTooltipIcon"/>
+          <vbox flex="1">
+            <hbox id="UITourTooltipTitleContainer">
+              <label id="UITourTooltipTitle" flex="1"/>
+              <toolbarbutton id="UITourTooltipClose" class="close-icon"
+                             tooltiptext="&uiTour.infoPanel.close;"/>
+            </hbox>
+            <description id="UITourTooltipDescription" flex="1"/>
+          </vbox>
+        </hbox>
+        <hbox id="UITourTooltipButtons" flex="1" align="center"/>
+       </vbox>
+      </panel>
+    </html:template>
+    <html:template id="UITourHighlightTemplate">
+      <!-- type="default" forces frames to be created so that the panel's size can be determined -->
+      <panel id="UITourHighlightContainer"
+             type="default"
+             noautofocus="true"
+             noautohide="true"
+             flip="none"
+             consumeoutsideclicks="false">
+        <box id="UITourHighlight"></box>
+      </panel>
+    </html:template>
 
     <panel id="sidebarMenu-popup"
            class="cui-widget-panel"
@@ -683,6 +686,40 @@
                crop="end"/>
       </hbox>
     </hbox>
+
+    <html:template id="sharing-tabs-warning-panel-template">
+      <panel id="sharing-tabs-warning-panel"
+             role="alert"
+             flip="slide"
+             type="arrow"
+             orient="vertical"
+             ignorekeys="true"
+             consumeoutsideclicks="never"
+             norolluponanchor="true"
+             onpopupshown="gSharedTabWarning.sharedTabWarningShown();">
+        <hbox type="window" align="start">
+          <image class="screen-icon popup-notification-icon"></image>
+          <vbox flex="1" pack="start">
+            <label>
+              <html:span id="sharing-warning-window-panel-header"
+                         role="heading"
+                         aria-level="1"
+                         data-l10n-id="sharing-warning-window"/>
+              <html:span id="sharing-warning-screen-panel-header"
+                         role="heading"
+                         aria-level="1"
+                         data-l10n-id="sharing-warning-screen"/>
+            </label>
+            <hbox align="center">
+              <button id="sharing-warning-proceed-to-tab" oncommand="gSharedTabWarning.allowSharedTabSwitch();" flex="1" data-l10n-id="sharing-warning-proceed-to-tab"/>
+            </hbox>
+            <hbox pack="start">
+              <checkbox id="sharing-warning-disable-for-session" data-l10n-id="sharing-warning-disable-for-session"/>
+            </hbox>
+          </vbox>
+        </hbox>
+      </panel>
+    </html:template>
   </popupset>
   <box id="appMenu-viewCache" hidden="true"/>
 

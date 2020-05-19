@@ -117,7 +117,7 @@ class CookieJarSettings final : public nsICookieJarSettings {
   static already_AddRefed<nsICookieJarSettings> Create();
 
   static already_AddRefed<nsICookieJarSettings> Create(
-      uint32_t aCookieBehavior);
+      uint32_t aCookieBehavior, const nsAString& aFirstPartyDomain);
 
   static CookieJarSettings* Cast(nsICookieJarSettings* aCS) {
     return static_cast<CookieJarSettings*>(aCS);
@@ -136,6 +136,9 @@ class CookieJarSettings final : public nsICookieJarSettings {
   bool HasBeenChanged() const { return mToBeMerged; }
 
   void UpdateIsOnContentBlockingAllowList(nsIChannel* aChannel);
+
+  void SetFirstPartyDomain(nsIURI* aURI);
+  const nsAString& GetFirstPartyDomain() { return mFirstPartyDomain; };
 
   // Utility function to test if the passed cookiebahvior is
   // BEHAVIOR_REJECT_TRACKER, BEHAVIOR_REJECT_TRACKER_AND_PARTITION_FOREIGN or
@@ -164,6 +167,7 @@ class CookieJarSettings final : public nsICookieJarSettings {
   uint32_t mCookieBehavior;
   CookiePermissionList mCookiePermissions;
   bool mIsOnContentBlockingAllowList;
+  nsString mFirstPartyDomain;
 
   State mState;
 

@@ -59,6 +59,8 @@ void gfxConfigManager::Init() {
       DeviceManagerDx::Get()->CheckHardwareStretchingSupport();
   mScaledResolution = HasScaledResolution();
   mIsWin10OrLater = IsWin10OrLater();
+  mIsWindows = true;
+  mWrCompositorDCompRequired = true;
 #else
   mHwStretchingSupport = true;
 #endif
@@ -71,6 +73,7 @@ void gfxConfigManager::Init() {
   mIsNightly = true;
 #endif
   mSafeMode = gfxPlatform::InSafeMode();
+  mDwmCompositionEnabled = gfxVars::DwmCompositionEnabled();
 
   mGfxInfo = services::GetGfxInfo();
 
@@ -268,6 +271,14 @@ void gfxConfigManager::ConfigureWebRender() {
                              NS_LITERAL_CSTRING("FEATURE_FAILURE_SAFE_MODE"));
   }
 
+  // Bug 1637497 - If DWM composition is disabled on older Windows versions,
+  // then we observe tearing with WebRender. Disable it in that case for now.
+  if (mIsWindows && !mIsWin10OrLater && !mDwmCompositionEnabled) {
+    mFeatureWr->ForceDisable(FeatureStatus::Unavailable,
+                             "No DWM composition",
+                             NS_LITERAL_CSTRING("FEATURE_FAILURE_NO_DWM_COMP"));
+  }
+
   mFeatureWrAngle->DisableByDefault(
       FeatureStatus::OptIn, "WebRender ANGLE is an opt-in feature",
       NS_LITERAL_CSTRING("FEATURE_FAILURE_DEFAULT_OFF"));
@@ -327,7 +338,7 @@ void gfxConfigManager::ConfigureWebRender() {
         NS_LITERAL_CSTRING("FEATURE_FAILURE_PICTURE_CACHING_DISABLED"));
   }
 
-  if (!mFeatureWrDComp->IsEnabled()) {
+  if (!mFeatureWrDComp->IsEnabled() && mWrCompositorDCompRequired) {
     mFeatureWrCompositor->ForceDisable(
         FeatureStatus::Unavailable, "No DirectComposition usage",
         NS_LITERAL_CSTRING("FEATURE_FAILURE_NO_DIRECTCOMPOSITION"));

@@ -9,6 +9,7 @@
 #include "nsIParentalControlsService.h"
 #include "nsINetworkLinkService.h"
 #include "nsIObserverService.h"
+#include "nsIOService.h"
 #include "nsNetUtil.h"
 #include "nsStandardURL.h"
 #include "TRR.h"
@@ -45,7 +46,6 @@ NS_IMPL_ISUPPORTS(TRRService, nsIObserver, nsISupportsWeakReference)
 
 TRRService::TRRService()
     : mInitialized(false),
-      mMode(0),
       mTRRBlacklistExpireTime(72 * 3600),
       mLock("trrservice"),
       mConfirmationNS(NS_LITERAL_CSTRING("example.com")),
@@ -65,6 +65,43 @@ TRRService::TRRService()
   MOZ_ASSERT(NS_IsMainThread(), "wrong thread");
 }
 
+// static
+void TRRService::AddObserver(nsIObserver* aObserver) {
+  nsCOMPtr<nsIObserverService> observerService =
+      mozilla::services::GetObserverService();
+  if (observerService) {
+    observerService->AddObserver(aObserver, NS_CAPTIVE_PORTAL_CONNECTIVITY,
+                                 true);
+    observerService->AddObserver(aObserver, kOpenCaptivePortalLoginEvent, true);
+    observerService->AddObserver(aObserver, kClearPrivateData, true);
+    observerService->AddObserver(aObserver, kPurge, true);
+    observerService->AddObserver(aObserver, NS_NETWORK_LINK_TOPIC, true);
+    observerService->AddObserver(aObserver, NS_DNS_SUFFIX_LIST_UPDATED_TOPIC,
+                                 true);
+    observerService->AddObserver(aObserver, "xpcom-shutdown-threads", true);
+  }
+}
+
+// static
+bool TRRService::CheckCaptivePortalIsPassed() {
+  bool result = false;
+  nsCOMPtr<nsICaptivePortalService> captivePortalService =
+      do_GetService(NS_CAPTIVEPORTAL_CID);
+  if (captivePortalService) {
+    int32_t captiveState;
+    MOZ_ALWAYS_SUCCEEDS(captivePortalService->GetState(&captiveState));
+
+    if ((captiveState == nsICaptivePortalService::UNLOCKED_PORTAL) ||
+        (captiveState == nsICaptivePortalService::NOT_CAPTIVE)) {
+      result = true;
+    }
+    LOG(("TRRService::Init mCaptiveState=%d mCaptiveIsPassed=%d\n",
+         captiveState, (int)result));
+  }
+
+  return result;
+}
+
 nsresult TRRService::Init() {
   MOZ_ASSERT(NS_IsMainThread(), "wrong thread");
   if (mInitialized) {
@@ -72,17 +109,8 @@ nsresult TRRService::Init() {
   }
   mInitialized = true;
 
-  nsCOMPtr<nsIObserverService> observerService =
-      mozilla::services::GetObserverService();
-  if (observerService) {
-    observerService->AddObserver(this, NS_CAPTIVE_PORTAL_CONNECTIVITY, true);
-    observerService->AddObserver(this, kOpenCaptivePortalLoginEvent, true);
-    observerService->AddObserver(this, kClearPrivateData, true);
-    observerService->AddObserver(this, kPurge, true);
-    observerService->AddObserver(this, NS_NETWORK_LINK_TOPIC, true);
-    observerService->AddObserver(this, NS_DNS_SUFFIX_LIST_UPDATED_TOPIC, true);
-    observerService->AddObserver(this, "xpcom-shutdown-threads", true);
-  }
+  AddObserver(this);
+
   nsCOMPtr<nsIPrefBranch> prefBranch;
   GetPrefBranch(getter_AddRefs(prefBranch));
   if (prefBranch) {
@@ -92,50 +120,50 @@ nsresult TRRService::Init() {
     prefBranch->AddObserver(kRolloutURIPref, this, true);
     prefBranch->AddObserver(kRolloutModePref, this, true);
   }
-  nsCOMPtr<nsICaptivePortalService> captivePortalService =
-      do_GetService(NS_CAPTIVEPORTAL_CID);
-  if (captivePortalService) {
-    int32_t captiveState;
-    MOZ_ALWAYS_SUCCEEDS(captivePortalService->GetState(&captiveState));
-
-    if ((captiveState == nsICaptivePortalService::UNLOCKED_PORTAL) ||
-        (captiveState == nsICaptivePortalService::NOT_CAPTIVE)) {
-      mCaptiveIsPassed = true;
-    }
-    LOG(("TRRService::Init mCaptiveState=%d mCaptiveIsPassed=%d\n",
-         captiveState, (int)mCaptiveIsPassed));
-  }
-
-  GetParentalControlEnabledInternal();
 
   ReadPrefs(nullptr);
 
   gTRRService = this;
 
-  nsCOMPtr<nsINetworkLinkService> nls =
-      do_GetService(NS_NETWORK_LINK_SERVICE_CONTRACTID);
-  RebuildSuffixList(nls);
+  if (XRE_IsParentProcess()) {
+    mCaptiveIsPassed = CheckCaptivePortalIsPassed();
 
-  nsCOMPtr<nsIThread> thread;
-  if (NS_FAILED(NS_NewNamedThread("TRR Background", getter_AddRefs(thread)))) {
-    NS_WARNING("NS_NewNamedThread failed!");
-    return NS_ERROR_FAILURE;
+    mParentalControlEnabled = GetParentalControlEnabledInternal();
+
+    nsCOMPtr<nsINetworkLinkService> nls =
+        do_GetService(NS_NETWORK_LINK_SERVICE_CONTRACTID);
+    if (nls) {
+      nsTArray<nsCString> suffixList;
+      nls->GetDnsSuffixList(suffixList);
+      RebuildSuffixList(std::move(suffixList));
+    }
+
+    nsCOMPtr<nsIThread> thread;
+    if (NS_FAILED(
+            NS_NewNamedThread("TRR Background", getter_AddRefs(thread)))) {
+      NS_WARNING("NS_NewNamedThread failed!");
+      return NS_ERROR_FAILURE;
+    }
+
+    sTRRBackgroundThread = thread;
   }
-
-  sTRRBackgroundThread = thread;
 
   LOG(("Initialized TRRService\n"));
   return NS_OK;
 }
 
-void TRRService::GetParentalControlEnabledInternal() {
+// static
+bool TRRService::GetParentalControlEnabledInternal() {
   nsCOMPtr<nsIParentalControlsService> pc =
       do_CreateInstance("@mozilla.org/parental-controls-service;1");
   if (pc) {
-    pc->GetParentalControlsEnabled(&mParentalControlEnabled);
-    LOG(("TRRService::GetParentalControlEnabledInternal=%d\n",
-         mParentalControlEnabled));
+    bool result = false;
+    pc->GetParentalControlsEnabled(&result);
+    LOG(("TRRService::GetParentalControlEnabledInternal=%d\n", result));
+    return result;
   }
+
+  return false;
 }
 
 void TRRService::SetDetectedTrrURI(const nsACString& aURI) {
@@ -177,55 +205,6 @@ void TRRService::GetPrefBranch(nsIPrefBranch** result) {
   CallGetService(NS_PREFSERVICE_CONTRACTID, result);
 }
 
-void TRRService::ProcessURITemplate(nsACString& aURI) {
-  // URI Template, RFC 6570.
-  if (aURI.IsEmpty()) {
-    return;
-  }
-  nsAutoCString scheme;
-  nsCOMPtr<nsIIOService> ios(do_GetIOService());
-  if (ios) {
-    ios->ExtractScheme(aURI, scheme);
-  }
-  if (!scheme.Equals("https")) {
-    LOG(("TRRService TRR URI %s is not https. Not used.\n",
-         PromiseFlatCString(aURI).get()));
-    aURI.Truncate();
-    return;
-  }
-
-  // cut off everything from "{" to "}" sequences (potentially multiple),
-  // as a crude conversion from template into URI.
-  nsAutoCString uri(aURI);
-
-  do {
-    nsCCharSeparatedTokenizer openBrace(uri, '{');
-    if (openBrace.hasMoreTokens()) {
-      // the 'nextToken' is the left side of the open brace (or full uri)
-      nsAutoCString prefix(openBrace.nextToken());
-
-      // if there is an open brace, there's another token
-      const nsACString& endBrace = openBrace.nextToken();
-      nsCCharSeparatedTokenizer closeBrace(endBrace, '}');
-      if (closeBrace.hasMoreTokens()) {
-        // there is a close brace as well, make a URI out of the prefix
-        // and the suffix
-        closeBrace.nextToken();
-        nsAutoCString suffix(closeBrace.nextToken());
-        uri = prefix + suffix;
-      } else {
-        // no (more) close brace
-        break;
-      }
-    } else {
-      // no (more) open brace
-      break;
-    }
-  } while (true);
-
-  aURI = uri;
-}
-
 bool TRRService::MaybeSetPrivateURI(const nsACString& aURI) {
   bool clearCache = false;
   nsAutoCString newURI(aURI);
@@ -257,54 +236,6 @@ bool TRRService::MaybeSetPrivateURI(const nsACString& aURI) {
   return true;
 }
 
-void TRRService::CheckURIPrefs() {
-  mURISetByDetection = false;
-
-  // The user has set a custom URI so it takes precedence.
-  if (mURIPrefHasUserValue) {
-    MaybeSetPrivateURI(mURIPref);
-    return;
-  }
-
-  // Check if the rollout addon has set a pref.
-  if (!mRolloutURIPref.IsEmpty()) {
-    MaybeSetPrivateURI(mRolloutURIPref);
-    return;
-  }
-
-  // Otherwise just use the default value.
-  MaybeSetPrivateURI(mURIPref);
-}
-
-// static
-uint32_t TRRService::ModeFromPrefs() {
-  // 0 - off, 1 - reserved, 2 - TRR first, 3 - TRR only, 4 - reserved,
-  // 5 - explicit off
-
-  auto processPrefValue = [](uint32_t value) -> uint32_t {
-    if (value == MODE_RESERVED1 || value == MODE_RESERVED4 ||
-        value > MODE_TRROFF) {
-      return MODE_TRROFF;
-    }
-    return value;
-  };
-
-  uint32_t tmp = MODE_NATIVEONLY;
-  if (NS_SUCCEEDED(Preferences::GetUint(TRR_PREF("mode"), &tmp))) {
-    tmp = processPrefValue(tmp);
-  }
-
-  if (tmp != MODE_NATIVEONLY) {
-    return tmp;
-  }
-
-  if (NS_SUCCEEDED(Preferences::GetUint(kRolloutModePref, &tmp))) {
-    return processPrefValue(tmp);
-  }
-
-  return MODE_NATIVEONLY;
-}
-
 nsresult TRRService::ReadPrefs(const char* name) {
   MOZ_ASSERT(NS_IsMainThread(), "wrong thread");
 
@@ -314,24 +245,11 @@ nsresult TRRService::ReadPrefs(const char* name) {
 
   if (!name || !strcmp(name, TRR_PREF("mode")) ||
       !strcmp(name, kRolloutModePref)) {
-    uint32_t oldMode = mMode;
-    mMode = ModeFromPrefs();
-    if (mMode != oldMode) {
-      nsCOMPtr<nsIObserverService> obs =
-          mozilla::services::GetObserverService();
-      if (obs) {
-        obs->NotifyObservers(nullptr, NS_NETWORK_TRR_MODE_CHANGED_TOPIC,
-                             nullptr);
-      }
-    }
+    OnTRRModeChange();
   }
   if (!name || !strcmp(name, TRR_PREF("uri")) ||
       !strcmp(name, kRolloutURIPref)) {
-    mURIPrefHasUserValue = Preferences::HasUserValue(TRR_PREF("uri"));
-    Preferences::GetCString(TRR_PREF("uri"), mURIPref);
-    Preferences::GetCString(kRolloutURIPref, mRolloutURIPref);
-
-    CheckURIPrefs();
+    OnTRRURIChange();
   }
   if (!name || !strcmp(name, TRR_PREF("credentials"))) {
     MutexAutoLock lock(mLock);
@@ -518,7 +436,8 @@ nsresult TRRService::DispatchTRRRequest(TRR* aTrrRequest) {
 nsresult TRRService::DispatchTRRRequestInternal(TRR* aTrrRequest,
                                                 bool aWithLock) {
   NS_ENSURE_ARG_POINTER(aTrrRequest);
-  if (!StaticPrefs::network_trr_fetch_off_main_thread()) {
+  if (!StaticPrefs::network_trr_fetch_off_main_thread() ||
+      XRE_IsSocketProcess()) {
     return NS_DispatchToMainThread(aTrrRequest);
   }
 
@@ -616,9 +535,18 @@ TRRService::Observe(nsISupports* aSubject, const char* aTopic,
     }
   } else if (!strcmp(aTopic, NS_DNS_SUFFIX_LIST_UPDATED_TOPIC) ||
              !strcmp(aTopic, NS_NETWORK_LINK_TOPIC)) {
-    nsCOMPtr<nsINetworkLinkService> link = do_QueryInterface(aSubject);
-    RebuildSuffixList(link);
-    CheckPlatformDNSStatus(link);
+    // nsINetworkLinkService is only available on parent process.
+    if (XRE_IsParentProcess()) {
+      nsCOMPtr<nsINetworkLinkService> link = do_QueryInterface(aSubject);
+      // The network link service notification normally passes itself as the
+      // subject, but some unit tests will sometimes pass a null subject.
+      if (link) {
+        nsTArray<nsCString> suffixList;
+        link->GetDnsSuffixList(suffixList);
+        RebuildSuffixList(std::move(suffixList));
+      }
+      mPlatformDisabledTRR = CheckPlatformDNSStatus(link);
+    }
 
     if (!strcmp(aTopic, NS_NETWORK_LINK_TOPIC) && mURISetByDetection) {
       // If the URI was set via SetDetectedTrrURI we need to restore it to the
@@ -639,39 +567,30 @@ TRRService::Observe(nsISupports* aSubject, const char* aTopic,
   return NS_OK;
 }
 
-void TRRService::RebuildSuffixList(nsINetworkLinkService* aLinkService) {
-  // The network link service notification normally passes itself as the
-  // subject, but some unit tests will sometimes pass a null subject.
-  if (!aLinkService) {
-    return;
-  }
-
-  nsTArray<nsCString> suffixList;
-  aLinkService->GetDnsSuffixList(suffixList);
-
+void TRRService::RebuildSuffixList(nsTArray<nsCString>&& aSuffixList) {
   MutexAutoLock lock(mLock);
   mDNSSuffixDomains.Clear();
-  for (const auto& item : suffixList) {
+  for (const auto& item : aSuffixList) {
     LOG(("TRRService adding %s to suffix list", item.get()));
     mDNSSuffixDomains.PutEntry(item);
   }
 }
 
-void TRRService::CheckPlatformDNSStatus(nsINetworkLinkService* aLinkService) {
+// static
+bool TRRService::CheckPlatformDNSStatus(nsINetworkLinkService* aLinkService) {
   if (!aLinkService) {
-    return;
+    return false;
   }
 
   uint32_t platformIndications = nsINetworkLinkService::NONE_DETECTED;
   aLinkService->GetPlatformDNSIndications(&platformIndications);
   LOG(("TRRService platformIndications=%u", platformIndications));
-  mPlatformDisabledTRR =
-      (!StaticPrefs::network_trr_enable_when_vpn_detected() &&
-       (platformIndications & nsINetworkLinkService::VPN_DETECTED)) ||
-      (!StaticPrefs::network_trr_enable_when_proxy_detected() &&
-       (platformIndications & nsINetworkLinkService::PROXY_DETECTED)) ||
-      (!StaticPrefs::network_trr_enable_when_nrpt_detected() &&
-       (platformIndications & nsINetworkLinkService::NRPT_DETECTED));
+  return (!StaticPrefs::network_trr_enable_when_vpn_detected() &&
+          (platformIndications & nsINetworkLinkService::VPN_DETECTED)) ||
+         (!StaticPrefs::network_trr_enable_when_proxy_detected() &&
+          (platformIndications & nsINetworkLinkService::PROXY_DETECTED)) ||
+         (!StaticPrefs::network_trr_enable_when_nrpt_detected() &&
+          (platformIndications & nsINetworkLinkService::NRPT_DETECTED));
 }
 
 void TRRService::MaybeConfirm() {
@@ -969,9 +888,11 @@ TRRService::Notify(nsITimer* aTimer) {
 }
 
 void TRRService::TRRIsOkay(enum TrrOkay aReason) {
-  MOZ_ASSERT_IF(StaticPrefs::network_trr_fetch_off_main_thread(),
+  MOZ_ASSERT_IF(StaticPrefs::network_trr_fetch_off_main_thread() &&
+                    !XRE_IsSocketProcess(),
                 IsOnTRRThread());
-  MOZ_ASSERT_IF(!StaticPrefs::network_trr_fetch_off_main_thread(),
+  MOZ_ASSERT_IF(!StaticPrefs::network_trr_fetch_off_main_thread() ||
+                    XRE_IsSocketProcess(),
                 NS_IsMainThread());
 
   Telemetry::AccumulateCategorical(
@@ -1000,9 +921,11 @@ AHostResolver::LookupStatus TRRService::CompleteLookup(
     const nsACString& aOriginSuffix) {
   // this is an NS check for the TRR blacklist or confirmationNS check
 
-  MOZ_ASSERT_IF(StaticPrefs::network_trr_fetch_off_main_thread(),
+  MOZ_ASSERT_IF(StaticPrefs::network_trr_fetch_off_main_thread() &&
+                    !XRE_IsSocketProcess(),
                 IsOnTRRThread());
-  MOZ_ASSERT_IF(!StaticPrefs::network_trr_fetch_off_main_thread(),
+  MOZ_ASSERT_IF(!StaticPrefs::network_trr_fetch_off_main_thread() ||
+                    XRE_IsSocketProcess(),
                 NS_IsMainThread());
   MOZ_ASSERT(!rec);
 

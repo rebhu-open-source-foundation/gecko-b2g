@@ -26,6 +26,11 @@ ChromeUtils.defineModuleGetter(
   "BrowserWindowTracker",
   "resource:///modules/BrowserWindowTracker.jsm"
 );
+ChromeUtils.defineModuleGetter(
+  this,
+  "XPCOMUtils",
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
 var webrtcUI = {
   initialized: false,
@@ -37,6 +42,13 @@ var webrtcUI = {
     if (!this.initialized) {
       Services.obs.addObserver(this, "browser-delayed-startup-finished");
       this.initialized = true;
+
+      XPCOMUtils.defineLazyPreferenceGetter(
+        this,
+        "useLegacyGlobalIndicator",
+        "privacy.webrtc.legacyGlobalIndicator",
+        true
+      );
     }
   },
 
@@ -62,6 +74,9 @@ var webrtcUI = {
   // Set of browser windows that are being shared over WebRTC.
   sharedWindows: new WeakSet(),
   sharingScreen: false,
+  allowedSharedBrowsers: new WeakSet(),
+  allowTabSwitchesForSession: false,
+  tabSwitchCountForSession: 0,
 
   // Map of browser elements to indicator data.
   perTabIndicators: new Map(),
@@ -113,14 +128,15 @@ var webrtcUI = {
 
   _streams: [],
   // The boolean parameters indicate which streams should be included in the result.
-  getActiveStreams(aCamera, aMicrophone, aScreen) {
+  getActiveStreams(aCamera, aMicrophone, aScreen, aWindow = false) {
     return webrtcUI._streams
       .filter(aStream => {
         let state = aStream.state;
         return (
           (aCamera && state.camera) ||
           (aMicrophone && state.microphone) ||
-          (aScreen && state.screen)
+          (aScreen && state.screen) ||
+          (aWindow && state.window)
         );
       })
       .map(aStream => {
@@ -129,13 +145,20 @@ var webrtcUI = {
           camera: state.camera,
           microphone: state.microphone,
           screen: state.screen,
+          window: state.window,
         };
         let browser = aStream.topBrowsingContext.embedderElement;
         let browserWindow = browser.ownerGlobal;
         let tab =
           browserWindow.gBrowser &&
           browserWindow.gBrowser.getTabForBrowser(browser);
-        return { uri: state.documentURI, tab, browser, types };
+        return {
+          uri: state.documentURI,
+          tab,
+          browser,
+          types,
+          devices: state.devices,
+        };
       });
   },
 
@@ -278,9 +301,14 @@ var webrtcUI = {
       };
     }
 
+    // Reset our internal notion of whether or not we're sharing
+    // a screen or browser window. Now we'll go through the shared
+    // devices and re-determine what's being shared.
+    let sharingBrowserWindow = false;
     let sharedWindowRawDeviceIds = new Set();
     this.sharingScreen = false;
     let suppressNotifications = false;
+
     for (let stream of this._streams) {
       let { state } = stream;
       suppressNotifications |= state.suppressNotifications;
@@ -297,6 +325,15 @@ var webrtcUI = {
         } else if (mediaSource == "screen") {
           this.sharingScreen = true;
         }
+
+        // If the user has granted a particular site the ability
+        // to get a stream from a window or screen, we will
+        // presume that it's exempt from the tab switch warning.
+        //
+        // We use the permanentKey here so that the allowing of
+        // the tab survives tab tear-in and tear-out.
+        let browser = stream.topBrowsingContext.embedderElement;
+        this.allowedSharedBrowsers.add(browser.permanentKey);
       }
     }
 
@@ -314,7 +351,26 @@ var webrtcUI = {
       }
       if (sharedWindowRawDeviceIds.has(rawDeviceId)) {
         this.sharedWindows.add(win);
+
+        // If we've shared a window, then the initially selected tab
+        // in that window should be exempt from tab switch warnings,
+        // since it's already been shared.
+        let selectedBrowser = win.gBrowser.selectedBrowser;
+        this.allowedSharedBrowsers.add(selectedBrowser.permanentKey);
+
+        sharingBrowserWindow = true;
       }
+    }
+
+    // Since we're not sharing a screen or browser window,
+    // we can clear these state variables, which are used
+    // to warn users on tab switching when sharing. These
+    // are safe to reset even if we hadn't been sharing
+    // the screen or browser window already.
+    if (!this.sharingScreen && !sharingBrowserWindow) {
+      this.allowedSharedBrowsers = new WeakSet();
+      this.allowTabSwitchesForSession = false;
+      this.tabSwitchCountForSession = 0;
     }
 
     if (
@@ -536,17 +592,70 @@ var webrtcUI = {
     }
     return this.SHARING_NONE;
   },
+
+  tabAddedWhileSharing(tab) {
+    this.allowedSharedBrowsers.add(tab.linkedBrowser.permanentKey);
+  },
+
+  shouldShowSharedTabWarning(tab) {
+    let browser = tab.linkedBrowser;
+    // We want the user to be able to switch to one tab after starting
+    // to share their window or screen. The presumption here is that
+    // most users will have a single window with multiple tabs, where
+    // the selected tab will be the one with the screen or window
+    // sharing web application, and it's most likely that the contents
+    // that the user wants to share are in another tab that they'll
+    // switch to immediately upon sharing. These presumptions are based
+    // on research that our user research team did with users using
+    // video conferencing web applications.
+    if (!this.tabSwitchCountForSession) {
+      this.allowedSharedBrowsers.add(browser.permanentKey);
+    }
+
+    this.tabSwitchCountForSession++;
+    return (
+      !this.allowTabSwitchesForSession &&
+      !this.allowedSharedBrowsers.has(browser.permanentKey)
+    );
+  },
+
+  allowSharedTabSwitch(tab, allowForSession) {
+    let browser = tab.linkedBrowser;
+    let gBrowser = browser.getTabBrowser();
+    this.allowedSharedBrowsers.add(browser.permanentKey);
+    gBrowser.selectedTab = tab;
+    this.allowTabSwitchesForSession = allowForSession;
+  },
 };
 
 function getGlobalIndicator() {
-  if (AppConstants.platform != "macosx") {
+  if (!webrtcUI.useLegacyGlobalIndicator) {
     const INDICATOR_CHROME_URI =
       "chrome://browser/content/webrtcIndicator.xhtml";
-    const features = "chrome,dialog=yes,titlebar=no,popup=yes";
+    let features = "chrome,titlebar=yes,alwaysontop,minimizable=yes";
+
+    /* Don't use dialog on Gtk as it adds extra border and titlebar to indicator */
+    if (!AppConstants.MOZ_WIDGET_GTK) {
+      features += ",dialog=yes";
+    }
 
     return Services.ww.openWindow(
       null,
       INDICATOR_CHROME_URI,
+      "_blank",
+      features,
+      []
+    );
+  }
+
+  if (AppConstants.platform != "macosx") {
+    const LEGACY_INDICATOR_CHROME_URI =
+      "chrome://browser/content/webrtcLegacyIndicator.xhtml";
+    const features = "chrome,dialog=yes,titlebar=no,popup=yes";
+
+    return Services.ww.openWindow(
+      null,
+      LEGACY_INDICATOR_CHROME_URI,
       "_blank",
       features,
       []

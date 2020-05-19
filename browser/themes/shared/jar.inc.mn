@@ -80,6 +80,7 @@
   skin/classic/browser/notification-icons/microphone-blocked.svg            (../shared/notification-icons/microphone-blocked.svg)
   skin/classic/browser/notification-icons/microphone-detailed.svg           (../shared/notification-icons/microphone-detailed.svg)
   skin/classic/browser/notification-icons/microphone.svg                    (../shared/notification-icons/microphone.svg)
+  skin/classic/browser/notification-icons/minimize.svg                      (../shared/notification-icons/minimize.svg)
   skin/classic/browser/notification-icons/persistent-storage-blocked.svg    (../shared/notification-icons/persistent-storage-blocked.svg)
   skin/classic/browser/notification-icons/persistent-storage.svg            (../shared/notification-icons/persistent-storage.svg)
   skin/classic/browser/notification-icons/plugin-badge.svg                  (../shared/notification-icons/plugin-badge.svg)
@@ -294,4 +295,4 @@
   skin/classic/browser/privatebrowsing/private-browsing.svg    (../shared/privatebrowsing/private-browsing.svg)
   skin/classic/browser/install-ssb.svg                         (../shared/install-ssb.svg)
   skin/classic/browser/critical.svg                            (../shared/icons/critical.svg)
-
+  skin/classic/browser/webRTC-indicator.css                    (../shared/webRTC-indicator.css)

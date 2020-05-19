@@ -4,9 +4,9 @@
 
 use api::{AsyncBlobImageRasterizer, BlobImageRequest, BlobImageParams, BlobImageResult};
 use api::{DocumentId, PipelineId, ApiMsg, FrameMsg, SceneMsg, ResourceUpdate, ExternalEvent};
-use api::{BuiltDisplayList, NotificationRequest, Checkpoint, IdNamespace, QualitySettings};
+use api::{NotificationRequest, Checkpoint, IdNamespace, QualitySettings};
 use api::{ClipIntern, FilterDataIntern, MemoryReport, PrimitiveKeyKind, SharedFontInstanceMap};
-use api::DocumentLayer;
+use api::{DocumentLayer, GlyphDimensionRequest, GlyphIndexRequest};
 use api::units::*;
 #[cfg(feature = "capture")]
 use crate::capture::CaptureConfig;
@@ -38,7 +38,7 @@ use crate::debug_server;
 #[cfg(feature = "debugger")]
 use api::{BuiltDisplayListIter, DisplayItem};
 
-/// Various timing information that will be truned into
+/// Various timing information that will be turned into
 /// TransactionProfileCounters later down the pipeline.
 pub struct TransactionTimings {
     pub builder_start_time_ns: u64,
@@ -123,6 +123,8 @@ pub enum SceneBuilderRequest {
     ExternalEvent(ExternalEvent),
     AddDocument(DocumentId, DeviceIntSize, DocumentLayer),
     DeleteDocument(DocumentId),
+    GetGlyphDimensions(GlyphDimensionRequest),
+    GetGlyphIndices(GlyphIndexRequest),
     WakeUp,
     Flush(Sender<()>),
     ClearNamespace(IdNamespace),
@@ -150,6 +152,8 @@ pub enum SceneBuilderResult {
     ExternalEvent(ExternalEvent),
     FlushComplete(Sender<()>),
     ClearNamespace(IdNamespace),
+    GetGlyphDimensions(GlyphDimensionRequest),
+    GetGlyphIndices(GlyphIndexRequest),
     Stopped,
     DocumentsForDebugger(String)
 }
@@ -393,6 +397,12 @@ impl SceneBuilderThread {
                 Ok(SceneBuilderRequest::ExternalEvent(evt)) => {
                     self.send(SceneBuilderResult::ExternalEvent(evt));
                 }
+                Ok(SceneBuilderRequest::GetGlyphDimensions(request)) => {
+                    self.send(SceneBuilderResult::GetGlyphDimensions(request))
+                }
+                Ok(SceneBuilderRequest::GetGlyphIndices(request)) => {
+                    self.send(SceneBuilderResult::GetGlyphIndices(request))
+                }
                 Ok(SceneBuilderRequest::Stop) => {
                     self.tx.send(SceneBuilderResult::Stopped).unwrap();
                     // We don't need to send a WakeUp to api_tx because we only
@@ -629,16 +639,13 @@ impl SceneBuilderThread {
                     background,
                     viewport_size,
                     content_size,
-                    list_descriptor,
-                    list_data,
+                    display_list,
                     preserve_frame_state,
                 } => {
-                    let built_display_list =
-                        BuiltDisplayList::from_data(list_data, list_descriptor);
-                    let display_list_len = built_display_list.data().len();
+                    let display_list_len = display_list.data().len();
 
                     let (builder_start_time_ns, builder_end_time_ns, send_time_ns) =
-                        built_display_list.times();
+                        display_list.times();
 
                     if self.removed_pipelines.contains(&pipeline_id) {
                         continue;
@@ -652,7 +659,7 @@ impl SceneBuilderThread {
                     scene.set_display_list(
                         pipeline_id,
                         epoch,
-                        built_display_list,
+                        display_list,
                         background,
                         viewport_size,
                         content_size,

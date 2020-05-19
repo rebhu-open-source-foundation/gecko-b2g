@@ -8,6 +8,7 @@
 #include "TRRServiceChannel.h"
 
 #include "HttpLog.h"
+#include "AltServiceChild.h"
 #include "mozilla/StaticPrefs_network.h"
 #include "nsDNSPrefetch.h"
 #include "nsEscape.h"
@@ -18,6 +19,7 @@
 #include "nsIOService.h"
 #include "nsISeekableStream.h"
 #include "nsURLHelper.h"
+#include "ProxyConfigLookup.h"
 #include "TRRLoadInfo.h"
 #include "ReferrerInfo.h"
 #include "TRR.h"
@@ -207,29 +209,13 @@ nsresult TRRServiceChannel::ResolveProxy() {
 
   MOZ_ASSERT(NS_IsMainThread());
 
-  nsresult rv;
-  nsCOMPtr<nsIChannel> channel;
-  rv = NS_NewChannel(getter_AddRefs(channel), mURI,
-                     nsContentUtils::GetSystemPrincipal(),
-                     nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_DATA_IS_NULL,
-                     nsIContentPolicy::TYPE_OTHER);
-  if (NS_SUCCEEDED(rv)) {
-    nsCOMPtr<nsIProtocolProxyService> pps =
-        do_GetService(NS_PROTOCOLPROXYSERVICE_CONTRACTID, &rv);
-    if (NS_SUCCEEDED(rv)) {
-      // using the nsIProtocolProxyService2 allows a minor performance
-      // optimization, but if an add-on has only provided the original interface
-      // then it is ok to use that version.
-      nsCOMPtr<nsIProtocolProxyService2> pps2 = do_QueryInterface(pps);
-      if (pps2) {
-        rv = pps2->AsyncResolve2(channel, mProxyResolveFlags, this, nullptr,
-                                 getter_AddRefs(mProxyRequest));
-      } else {
-        rv = pps->AsyncResolve(channel, mProxyResolveFlags, this, nullptr,
-                               getter_AddRefs(mProxyRequest));
-      }
-    }
-  }
+  // TODO: bug 1625171. Consider moving proxy resolution to socket process.
+  RefPtr<TRRServiceChannel> self = this;
+  nsresult rv = ProxyConfigLookup::Create(
+      [self](nsIProxyInfo* aProxyInfo, nsresult aStatus) {
+        self->OnProxyAvailable(nullptr, nullptr, aProxyInfo, aStatus);
+      },
+      mURI, mProxyResolveFlags);
 
   if (NS_FAILED(rv)) {
     if (!mCurrentEventTarget->IsOnCurrentThread()) {
@@ -340,7 +326,9 @@ nsresult TRRServiceChannel::BeginConnect() {
   RefPtr<nsHttpConnectionInfo> connInfo = new nsHttpConnectionInfo(
       host, port, EmptyCString(), mUsername, GetTopWindowOrigin(), proxyInfo,
       OriginAttributes(), isHttps);
-  mAllowAltSvc = (mAllowAltSvc && !gHttpHandler->IsSpdyBlacklisted(connInfo));
+  // TODO: Bug 1622778 for using AltService in socket process.
+  mAllowAltSvc = XRE_IsParentProcess() &&
+                 (mAllowAltSvc && !gHttpHandler->IsSpdyBlacklisted(connInfo));
 
   RefPtr<AltSvcMapping> mapping;
   if (!mConnectionInfo && mAllowAltSvc &&  // per channel
@@ -789,6 +777,19 @@ nsresult TRRServiceChannel::CallOnStartRequest() {
     return NS_OK;
   }
 
+  // DoApplyContentConversions can only be called on the main thread.
+  if (NS_IsMainThread()) {
+    nsCOMPtr<nsIStreamListener> listener;
+    rv =
+        DoApplyContentConversions(mListener, getter_AddRefs(listener), nullptr);
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
+
+    AfterApplyContentConversions(rv, listener);
+    return NS_OK;
+  }
+
   Suspend();
 
   RefPtr<TRRServiceChannel> self = this;
@@ -820,13 +821,12 @@ void TRRServiceChannel::AfterApplyContentConversions(
         NS_NewRunnableFunction(
             "TRRServiceChannel::AfterApplyContentConversions",
             [self, aResult, listener]() {
+              self->Resume();
               self->AfterApplyContentConversions(aResult, listener);
             }),
         NS_DISPATCH_NORMAL);
     return;
   }
-
-  Resume();
 
   if (mCanceled) {
     return;
@@ -899,6 +899,14 @@ void TRRServiceChannel::ProcessAltService() {
                             userName(mUsername), topWindowOrigin,
                             privateBrowsing(mPrivateBrowsing), isIsolated,
                             callbacks, proxyInfo, caps(mCaps)]() {
+    if (XRE_IsSocketProcess()) {
+      AltServiceChild::ProcessHeader(
+          altSvc, scheme, originHost, originPort, userName, topWindowOrigin,
+          privateBrowsing, isIsolated, callbacks, proxyInfo,
+          caps & NS_HTTP_DISALLOW_SPDY, OriginAttributes());
+      return;
+    }
+
     AltSvcMapping::ProcessHeader(
         altSvc, scheme, originHost, originPort, userName, topWindowOrigin,
         privateBrowsing, isIsolated, callbacks, proxyInfo,
@@ -1447,6 +1455,8 @@ TRRServiceChannel::TimingAllowCheck(nsIPrincipal* aOrigin, bool* aResult) {
   *aResult = true;
   return NS_OK;
 }
+
+bool TRRServiceChannel::SameOriginWithOriginalUri(nsIURI* aURI) { return true; }
 
 }  // namespace net
 }  // namespace mozilla

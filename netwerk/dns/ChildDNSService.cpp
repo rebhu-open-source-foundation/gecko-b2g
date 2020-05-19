@@ -14,6 +14,7 @@
 #include "mozilla/StaticPtr.h"
 #include "mozilla/net/NeckoChild.h"
 #include "mozilla/net/DNSListenerProxy.h"
+#include "mozilla/net/TRRServiceParent.h"
 #include "nsServiceManagerUtils.h"
 
 namespace mozilla {
@@ -52,6 +53,8 @@ ChildDNSService::ChildDNSService()
                 XRE_IsContentProcess() || XRE_IsSocketProcess());
   if (XRE_IsParentProcess() && nsIOService::UseSocketProcess()) {
     nsDNSPrefetch::Initialize(this);
+    mTRRServiceParent = new TRRServiceParent();
+    mTRRServiceParent->Init();
   }
 }
 
@@ -356,26 +359,53 @@ ChildDNSService::GetDNSCacheEntries(
 }
 
 NS_IMETHODIMP
-ChildDNSService::ClearCache(bool aTrrToo) { return NS_ERROR_NOT_AVAILABLE; }
+ChildDNSService::ClearCache(bool aTrrToo) {
+  if (!mTRRServiceParent || !mTRRServiceParent->CanSend()) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+
+  Unused << mTRRServiceParent->SendClearDNSCache(aTrrToo);
+  return NS_OK;
+}
 
 NS_IMETHODIMP
 ChildDNSService::ReloadParentalControlEnabled() {
-  return NS_ERROR_NOT_AVAILABLE;
+  if (!mTRRServiceParent) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+
+  mTRRServiceParent->UpdateParentalControlEnabled();
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 ChildDNSService::SetDetectedTrrURI(const nsACString& aURI) {
-  return NS_ERROR_NOT_AVAILABLE;
+  if (!mTRRServiceParent) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+
+  mTRRServiceParent->SetDetectedTrrURI(aURI);
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 ChildDNSService::GetCurrentTrrURI(nsACString& aURI) {
-  return NS_ERROR_NOT_AVAILABLE;
+  if (!mTRRServiceParent) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+
+  mTRRServiceParent->GetTrrURI(aURI);
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 ChildDNSService::GetCurrentTrrMode(uint32_t* aMode) {
-  return NS_ERROR_NOT_AVAILABLE;
+  if (!mTRRServiceParent) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+
+  *aMode = mTRRServiceParent->Mode();
+  return NS_OK;
 }
 
 NS_IMETHODIMP
