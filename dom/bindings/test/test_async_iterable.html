@@ -1,0 +1,50 @@
+<!-- Any copyright is dedicated to the Public Domain.
+- http://creativecommons.org/publicdomain/zero/1.0/ -->
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <title>Test Async Iterable Interface</title>
+    <script src="/tests/SimpleTest/SimpleTest.js"></script>
+    <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
+  </head>
+  <body>
+    <script class="testbody" type="application/javascript">
+    /* global TestInterfaceIterableSingle, TestInterfaceIterableDouble, TestInterfaceIterableDoubleUnion */
+
+     SimpleTest.waitForExplicitFinish();
+     SpecialPowers.pushPrefEnv({set: [["dom.expose_test_interfaces", true]]}, function() {
+       var itr;
+       info("AsyncIterableSingle: Testing simple iterable creation and functionality");
+       itr = new TestInterfaceAsyncIterableSingle();
+       is(itr.values, itr[Symbol.asyncIterator],
+          "AsyncIterableSingle: Should be using @@asyncIterator for 'values'");
+
+       async function retrieveData() {
+         var values = [];
+         for await (let v of itr) {
+           values.push(v);
+         }
+         is(values.length, 10, "AsyncIterableSingle: should returns 10 elements");
+         for (i = 0; i < 10; i++) {
+           let expected = i * 9 % 7;
+           is(values[i], i * 9 % 7,
+              "AsyncIterableSingle: should be " + expected + ", get " + values[i]);
+         }
+         values = [];
+         for await (let v of itr.values()) {
+           values.push(v);
+         }
+         is(values.length, 10, "AsyncIterableSingle: should returns 10 elements");
+         for (i = 0; i < 10; i++) {
+           let expected = i * 9 % 7;
+           is(values[i], i * 9 % 7,
+              "AsyncIterableSingle: should be " + expected + ", get " + values[i]);
+         }
+
+         SimpleTest.finish();
+       }
+       retrieveData();
+     });
+    </script>
+  </body>
+</html>

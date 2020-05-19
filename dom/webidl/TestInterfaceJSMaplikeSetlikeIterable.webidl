@@ -90,3 +90,11 @@ interface TestInterfaceIterableDoubleUnion {
   iterable<DOMString, (DOMString or long)>;
 };
 
+[Pref="dom.expose_test_interfaces",
+ Exposed=Window]
+interface TestInterfaceAsyncIterableSingle {
+  [Throws]
+  constructor();
+
+  async iterable<long>;
+};

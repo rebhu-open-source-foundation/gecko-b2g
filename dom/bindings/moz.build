@@ -128,6 +128,7 @@ UNIFIED_SOURCES += [
 if CONFIG['MOZ_DEBUG'] and CONFIG['ENABLE_TESTS']:
     EXPORTS.mozilla.dom += [
         "test/TestFunctions.h",
+        "test/TestInterfaceAsyncIterableSingle.h",
         "test/TestInterfaceIterableDouble.h",
         "test/TestInterfaceIterableDoubleUnion.h",
         "test/TestInterfaceIterableSingle.h",
@@ -139,6 +140,7 @@ if CONFIG['MOZ_DEBUG'] and CONFIG['ENABLE_TESTS']:
         ]
     UNIFIED_SOURCES += [
         "test/TestFunctions.cpp",
+        "test/TestInterfaceAsyncIterableSingle.cpp",
         "test/TestInterfaceIterableDouble.cpp",
         "test/TestInterfaceIterableDoubleUnion.cpp",
         "test/TestInterfaceIterableSingle.cpp",
