@@ -742,6 +742,8 @@ def InterfacePrototypeObjectProtoGetter(descriptor):
             protoGetter = "JS::GetRealmErrorPrototype"
         elif descriptor.interface.isIteratorInterface():
             protoGetter = "JS::GetRealmIteratorPrototype"
+        elif descriptor.interface.isAsyncIteratorInterface():
+            protoGetter = "JS::GetRealmAsyncIteratorPrototype"
         else:
             protoGetter = "JS::GetRealmObjectPrototype"
         protoHandleGetter = None
@@ -1322,10 +1324,10 @@ class CGHeaders(CGWrapper):
         # Now for non-callback descriptors make sure we include any
         # headers needed by Func declarations and other things like that.
         for desc in descriptors:
-            # If this is an iterator interface generated for a separate
-            # iterable interface, skip generating type includes, as we have
-            # what we need in IterableIterator.h
-            if desc.interface.isIteratorInterface():
+            # If this is an iterator or an async iterator interface generated
+            # for a separate iterable interface, skip generating type includes,
+            # as we have what we need in IterableIterator.h
+            if desc.interface.isIteratorInterface() or desc.interface.isAsyncIteratorInterface():
                 continue
 
             for m in desc.interface.members:
@@ -2509,6 +2511,10 @@ class MethodDefiner(PropertyDefiner):
             return (any("@@iterator" in m.aliases for m in methods) or
                     any("@@iterator" == r["name"] for r in regular))
 
+        def hasAsyncIterator(methods, regular):
+            return (any("@@asyncIterator" in m.aliases for m in methods) or
+                    any("@@asyncIterator" == r["name"] for r in regular))
+
         # Check whether we need to output an @@iterator due to having an indexed
         # getter.  We only do this while outputting non-static and
         # non-unforgeable methods, since the @@iterator function will be
@@ -2516,7 +2522,8 @@ class MethodDefiner(PropertyDefiner):
         if (not static and
             not unforgeable and
             descriptor.supportsIndexedProperties()):
-            if hasIterator(methods, self.regular):
+            if (hasIterator(methods, self.regular) or
+                hasAsyncIterator(methods, self.regular)):
                 raise TypeError("Cannot have indexed getter/attr on "
                                 "interface %s with other members "
                                 "that generate @@iterator, such as "
@@ -2636,7 +2643,8 @@ class MethodDefiner(PropertyDefiner):
                 "condition": PropertyDefiner.getControllingCondition(m, descriptor),
                 "allowCrossOriginThis": m.getExtendedAttribute("CrossOriginCallable"),
                 "returnsPromise": m.returnsPromise(),
-                "hasIteratorAlias": "@@iterator" in m.aliases
+                "hasIteratorAlias": "@@iterator" in m.aliases,
+                "hasAsyncIteratorAlias": "@@asyncIterator" in m.aliases
             }
 
     @staticmethod
@@ -2988,7 +2996,7 @@ class CGNativeProperties(CGList):
 
             iteratorAliasIndex = -1
             for index, item in enumerate(properties.methods.regular):
-                if item.get("hasIteratorAlias"):
+                if item.get("hasIteratorAlias") or item.get("hasAsyncIteratorAlias"):
                     iteratorAliasIndex = index
                     break
             nativePropsInts.append(CGGeneric(str(iteratorAliasIndex)))
@@ -3314,6 +3322,13 @@ class CGCreateInterfaceObjectsMethod(CGAbstractMethod):
             def defineAlias(alias):
                 if alias == "@@iterator":
                     symbolJSID = "SYMBOL_TO_JSID(JS::GetWellKnownSymbol(aCx, JS::SymbolCode::iterator))"
+                    getSymbolJSID = CGGeneric(fill("JS::Rooted<jsid> iteratorId(aCx, ${symbolJSID});",
+                                                   symbolJSID=symbolJSID))
+                    defineFn = "JS_DefinePropertyById"
+                    prop = "iteratorId"
+                    enumFlags = "0" # Not enumerable, per spec.
+                elif alias == "@@asyncIterator":
+                    symbolJSID = "SYMBOL_TO_JSID(JS::GetWellKnownSymbol(aCx, JS::SymbolCode::asyncIterator))"
                     getSymbolJSID = CGGeneric(fill("JS::Rooted<jsid> iteratorId(aCx, ${symbolJSID});",
                                                    symbolJSID=symbolJSID))
                     defineFn = "JS_DefinePropertyById"
@@ -15366,7 +15381,7 @@ class CGForwardDeclarations(CGWrapper):
         for d in descriptors:
             # If this is a generated iterator interface, we only create these
             # in the generated bindings, and don't need to forward declare.
-            if d.interface.isIteratorInterface():
+            if d.interface.isIteratorInterface() or d.interface.isAsyncIteratorInterface():
                 continue
             builder.add(d.nativeType)
             if d.interface.isSerializable():
@@ -15393,7 +15408,7 @@ class CGForwardDeclarations(CGWrapper):
             # Iterators have native types that are template classes, so
             # creating an 'Atoms' cache type doesn't work for them, and is one
             # of the cases where we don't need it anyways.
-            if d.interface.isIteratorInterface():
+            if d.interface.isIteratorInterface() or d.interface.isAsyncIteratorInterface():
                 continue
             builder.add(d.nativeType + "Atoms", isStruct=True)
 
@@ -15458,7 +15473,9 @@ class CGBindingRoot(CGThing):
         bindingDeclareHeaders["mozilla/dom/BindingUtils.h"] = any(d.isObject() for t in unionTypes
                                                                   for d in t.flatMemberTypes)
         bindingDeclareHeaders["mozilla/dom/IterableIterator.h"] = any(d.interface.isIteratorInterface() or
-                                                                      d.interface.isIterable() for d in descriptors)
+                                                                      d.interface.isAsyncIteratorInterface() or
+                                                                      d.interface.isIterable() or
+                                                                      d.interface.isAsyncIterable() for d in descriptors)
 
         def descriptorHasCrossOriginProperties(desc):
             def hasCrossOriginProperty(m):
@@ -15476,7 +15493,9 @@ class CGBindingRoot(CGThing):
 
         def descriptorHasIteratorAlias(desc):
             def hasIteratorAlias(m):
-                return m.isMethod() and "@@iterator" in m.aliases
+                return m.isMethod() and (("@@iterator" in m.aliases) or
+                                         ("@@asyncIterator" in m.aliases))
+
             return any(hasIteratorAlias(m) for m in desc.interface.members)
 
         bindingHeaders["js/Symbol.h"] = any(descriptorHasIteratorAlias(d) for d in descriptors)
@@ -18539,16 +18558,30 @@ class CGIterableMethodGenerator(CGGeneric):
                 ifaceName=descriptor.interface.identifier.name,
                 selfType=descriptor.nativeType))
             return
-        CGGeneric.__init__(self, fill(
-            """
-            typedef ${iterClass} itrType;
-            RefPtr<itrType> result(new itrType(self,
-                                                 itrType::IterableIteratorType::${itrMethod},
-                                                 &${ifaceName}Iterator_Binding::Wrap));
-            """,
-            iterClass=iteratorNativeType(descriptor),
-            ifaceName=descriptor.interface.identifier.name,
-            itrMethod=methodName.title()))
+        if descriptor.interface.isIterable():
+            CGGeneric.__init__(self, fill(
+                """
+                typedef ${iterClass} itrType;
+                RefPtr<itrType> result(new itrType(self,
+                                                   itrType::IterableIteratorType::${itrMethod},
+                                                   &${ifaceName}Iterator_Binding::Wrap));
+                """,
+                iterClass=iteratorNativeType(descriptor),
+                ifaceName=descriptor.interface.identifier.name,
+                itrMethod=methodName.title()))
+        else:
+            assert descriptor.interface.isAsyncIterable()
+            CGGeneric.__init__(self, fill(
+                """
+                typedef ${iterClass} itrType;
+                RefPtr<itrType> result(new itrType(self,
+                                                   itrType::IterableIteratorType::${itrMethod},
+                                                   &${ifaceName}AsyncIterator_Binding::Wrap));
+                self->InitAsyncIterator(result.get());
+                """,
+                iterClass=iteratorNativeType(descriptor),
+                ifaceName=descriptor.interface.identifier.name,
+                itrMethod=methodName.title()))
 
 
 class GlobalGenRoots():

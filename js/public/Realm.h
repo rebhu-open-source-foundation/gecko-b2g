@@ -116,6 +116,8 @@ extern JS_PUBLIC_API JSObject* GetRealmErrorPrototype(JSContext* cx);
 
 extern JS_PUBLIC_API JSObject* GetRealmIteratorPrototype(JSContext* cx);
 
+extern JS_PUBLIC_API JSObject* GetRealmAsyncIteratorPrototype(JSContext* cx);
+
 // Implements https://tc39.github.io/ecma262/#sec-getfunctionrealm
 // 7.3.22 GetFunctionRealm ( obj )
 //

@@ -909,6 +909,11 @@ JS_PUBLIC_API JSObject* JS::GetRealmIteratorPrototype(JSContext* cx) {
   return GlobalObject::getOrCreateIteratorPrototype(cx, cx->global());
 }
 
+JS_PUBLIC_API JSObject* JS::GetRealmAsyncIteratorPrototype(JSContext* cx) {
+  CHECK_THREAD(cx);
+  return GlobalObject::getOrCreateAsyncIteratorPrototype(cx, cx->global());
+}
+
 JS_PUBLIC_API Realm* JS::GetFunctionRealm(JSContext* cx, HandleObject objArg) {
   // https://tc39.github.io/ecma262/#sec-getfunctionrealm
   // 7.3.22 GetFunctionRealm ( obj )

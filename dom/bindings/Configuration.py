@@ -347,6 +347,10 @@ class Descriptor(DescriptorProvider):
             itrName = self.interface.iterableInterface.identifier.name
             itrDesc = self.getDescriptor(itrName)
             nativeTypeDefault = iteratorNativeType(itrDesc)
+        elif self.interface.isAsyncIteratorInterface():
+            itrName = self.interface.asyncIterableInterface.identifier.name
+            itrDesc = self.getDescriptor(itrName)
+            nativeTypeDefault = iteratorNativeType(itrDesc)
 
         elif self.interface.isExternal():
             nativeTypeDefault = "nsIDOM" + ifaceName
@@ -378,7 +382,7 @@ class Descriptor(DescriptorProvider):
         else:
             if not self.interface.isExternal() and self.interface.getExtendedAttribute("HeaderFile"):
                 headerDefault = self.interface.getExtendedAttribute("HeaderFile")[0]
-            elif self.interface.isIteratorInterface():
+            elif self.interface.isIteratorInterface() or self.interface.isAsyncIteratorInterface():
                 headerDefault = "mozilla/dom/IterableIterator.h"
             else:
                 headerDefault = self.nativeType
@@ -514,7 +518,7 @@ class Descriptor(DescriptorProvider):
                                     "hooks are never called via Xrays.  "
                                     "Fix %s.\n%s" %
                                     (self.interface, self.interface.location))
-                    
+
                 if (not self.operations['IndexedGetter'] and
                     (self.operations['IndexedSetter'] or
                      self.operations['IndexedDeleter'])):
@@ -536,6 +540,7 @@ class Descriptor(DescriptorProvider):
             self._wantsQI = desc.get('wantsQI', None)
         self.wrapperCache = (not self.interface.isCallback() and
                              not self.interface.isIteratorInterface() and
+                             not self.interface.isAsyncIteratorInterface() and
                              desc.get('wrapperCache', True))
 
         self.name = interface.identifier.name
@@ -847,7 +852,8 @@ def getTypesFromDescriptor(descriptor, includeArgs=True, includeReturns=True):
             if includeReturns:
                 types.append(maplikeOrSetlikeOrIterable.keyType)
         else:
-            assert maplikeOrSetlikeOrIterable.isIterable()
+            assert maplikeOrSetlikeOrIterable.isIterable() or \
+                maplikeOrSetlikeOrIterable.isAsyncIterable()
             # As in the maplike/setlike cases we don't do a good job of
             # declaring our actual return types, while our argument types, if
             # any, are declared fine.
@@ -901,11 +907,16 @@ def getAllTypes(descriptors, dictionaries, callbacks):
         for t in getTypesFromCallback(callback):
             yield (t, None)
 
+# For sync value iterators, we use default array implementation, for async
+# iterators and sync pair iterators, we use AsyncIterableIterator or
+# IterableIterator instead.
 def iteratorNativeType(descriptor):
-    assert descriptor.interface.isIterable()
+    assert descriptor.interface.isIterable() or descriptor.interface.isAsyncIterable()
     iterableDecl = descriptor.interface.maplikeOrSetlikeOrIterable
-    assert iterableDecl.isPairIterator()
-    return "mozilla::dom::IterableIterator<%s>" % descriptor.nativeType
+    assert iterableDecl.isPairIterator() or descriptor.interface.isAsyncIterable()
+    if descriptor.interface.isIterable():
+        return "mozilla::dom::IterableIterator<%s>" % descriptor.nativeType
+    return "mozilla::dom::AsyncIterableIterator<%s>" % descriptor.nativeType
 
 
 def findInnermostType(t):
