@@ -580,7 +580,8 @@ static const nsExtraMimeTypeEntry extraMimeEntries[] = {
     {VIDEO_3GPP, "3gpp,3gp", "3GPP Video"},
     {VIDEO_3GPP2, "3g2", "3GPP2 Video"},
     {AUDIO_MIDI, "mid", "Standard MIDI Audio"},
-    {APPLICATION_WASM, "wasm", "WebAssembly Module"}};
+    {APPLICATION_WASM, "wasm", "WebAssembly Module"},
+    {AUDIO_AAC, "aac", "AAC Audio"}};
 
 #undef MAC_TYPE
 
