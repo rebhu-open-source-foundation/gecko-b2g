@@ -173,7 +173,7 @@ GfxInfo::GetWindowProtocol(nsAString& aWindowProtocol) {
 }
 
 nsresult
-GfxInfo::GetFeatureStatusImpl(int32_t /*aFeature*/,
+GfxInfo::GetFeatureStatusImpl(int32_t aFeature,
                               int32_t *aStatus,
                               nsAString & /*aSuggestedDriverVersion*/,
                               const nsTArray<GfxDriverInfo>& /*aDriverInfo*/,
@@ -181,7 +181,12 @@ GfxInfo::GetFeatureStatusImpl(int32_t /*aFeature*/,
                               OperatingSystem* /*aOS*/ /* = nullptr */)
 {
   NS_ENSURE_ARG_POINTER(aStatus);
-  *aStatus = nsIGfxInfo::FEATURE_STATUS_OK;
+
+  if (aFeature == nsIGfxInfo::FEATURE_WEBRENDER) {
+    *aStatus = nsIGfxInfo::FEATURE_ALLOW_ALWAYS;
+  } else {
+    *aStatus = nsIGfxInfo::FEATURE_STATUS_OK;
+  }
 
   return NS_OK;
 }
