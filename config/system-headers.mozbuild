@@ -1125,6 +1125,7 @@ if CONFIG['OS_TARGET'] == 'Android' or CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         'media/AudioSystem.h',
         'media/ICrypto.h',
         'media/IOMX.h',
+        'media/MediaCodecBuffer.h',
         'media/MediaProfiles.h',
         'media/MediaRecorderBase.h',
         'media/openmax/OMX_Audio.h',

@@ -46,7 +46,9 @@
 #ifdef MOZ_OMX
 #  include "OmxDecoderModule.h"
 #endif
-
+#ifdef MOZ_WIDGET_GONK
+#  include "GonkDecoderModule.h"
+#endif
 #include <functional>
 
 namespace mozilla {
@@ -389,6 +391,10 @@ void PDMFactory::CreatePDMs() {
     m = new AndroidDecoderModule();
     StartupPDM(m, StaticPrefs::media_android_media_codec_preferred());
   }
+#endif
+#ifdef MOZ_WIDGET_GONK
+  m = GonkDecoderModule::Create();
+  StartupPDM(m);
 #endif
 
   m = new AgnosticDecoderModule();
