@@ -247,10 +247,10 @@ CameraPermissionRequest::DispatchCallback(uint32_t aPermission)
 {
   nsCOMPtr<nsIRunnable> callbackRunnable;
   if (aPermission == nsIPermissionManager::ALLOW_ACTION) {
-    callbackRunnable = NewRunnableMethod("CameraPermissionRequest::DispatchCallback", 
+    callbackRunnable = NewRunnableMethod("CameraPermissionRequest::DispatchCallback",
                                         this, &CameraPermissionRequest::CallAllow);
   } else {
-    callbackRunnable = NewRunnableMethod("CameraPermissionRequest::DispatchCallback", 
+    callbackRunnable = NewRunnableMethod("CameraPermissionRequest::DispatchCallback",
                                         this, &CameraPermissionRequest::CallCancel);
   }
   return NS_DispatchToMainThread(callbackRunnable.forget());

@@ -30,7 +30,7 @@ window.navigator.mozMobileMessage.addEventListener("received", function(e) {
 window.navigator.mozMobileMessage.send("%d", "%s");
 """ % (receiver.emulator.port, message))
 
-        # On the receiver, wait up to 10s for an SMS to be received, by 
+        # On the receiver, wait up to 10s for an SMS to be received, by
         # checking the value of the global var that the listener will change.
         receiver.set_script_timeout(0) # TODO no timeout for now since the test fails
         received = receiver.execute_async_script("""

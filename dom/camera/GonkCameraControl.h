@@ -91,7 +91,7 @@ public:
   virtual nsresult Get(uint32_t aKey, nsTArray<double>& aValues) override;
 
   virtual nsresult GetRecorderProfiles(nsTArray<nsString>& aProfiles) override;
-  virtual ICameraControl::RecorderProfile* 
+  virtual ICameraControl::RecorderProfile*
     GetProfileInfo(const nsAString& aProfile) override;
 
   nsresult PushParameters();

@@ -172,9 +172,9 @@ nsresult FakeVideoCallProvider::SetDisplaySurface(android::sp<android::IGraphicB
         mFakeYUVFeeder = new FakeYUVFeeder(this);
         mFakeYUVFeederLooper->registerHandler(mFakeYUVFeeder);
         mFakeYUVFeederLooper->setName("FakeImageLooper");
-        mFakeYUVFeederLooper->start(  
-          false, // runOnCallingThread  
-          false, // canCallJava  
+        mFakeYUVFeederLooper->start(
+          false, // runOnCallingThread
+          false, // canCallJava
           ANDROID_PRIORITY_AUDIO);
       }
       StartFakeImage();
@@ -237,11 +237,11 @@ nsresult FakeVideoCallProvider::UnregisterCallback(nsIVideoCallCallback *callbac
   return NS_OK;
 }
 
-void 
+void
 FakeVideoCallProvider::SetCameraParameters()
 {
   FAKE_VIDEOCALL_PROVIDER_LOG("SetCameraParameters");
-  if (mCamera != NULL) {  
+  if (mCamera != NULL) {
     CameraParameters params;
     // Initialize our camera configuration database.
     const String8 s1 = mCamera->getParameters();
@@ -308,14 +308,14 @@ FakeVideoCallProvider::~FakeVideoCallProvider()
   }
 }
 
-bool readYUVDataFromFile(const char *path,unsigned char * pYUVData,int size){  
-    FILE *fp = fopen(path,"rb");  
-    if(fp == NULL){  
-        return false;  
-    }  
-    fread(pYUVData,size,1,fp);  
-    fclose(fp);  
-    return true;  
+bool readYUVDataFromFile(const char *path, unsigned char * pYUVData, int size){
+    FILE *fp = fopen(path,"rb");
+    if(fp == NULL){
+        return false;
+    }
+    fread(pYUVData, size, 1, fp);
+    fclose(fp);
+    return true;
 }
 
 nsresult
@@ -338,7 +338,7 @@ FakeVideoCallProvider::StartFakeImage()
     int size = 176 * 144  * 1.5;
     mTestImage = new unsigned char[size];
 
-    const char *path = "/mnt/media_rw/sdcard/tulips_yuv420_prog_planar_qcif.yuv"; 
+    const char *path = "/mnt/media_rw/sdcard/tulips_yuv420_prog_planar_qcif.yuv";
     bool getResult = readYUVDataFromFile(path, mTestImage, size);
     if (!getResult) {
       memset(mTestImage, 120, size);
@@ -349,8 +349,8 @@ FakeVideoCallProvider::StartFakeImage()
     int size = 176 * 144  * 1.5;
     mTestImage2 = new unsigned char[size];
 
-    const char *path = "/mnt/media_rw/sdcard/tulips_yvu420_inter_planar_qcif.yuv"; 
-    bool getResult = readYUVDataFromFile(path, mTestImage2, size);//get yuv data from file;  
+    const char *path = "/mnt/media_rw/sdcard/tulips_yvu420_inter_planar_qcif.yuv";
+    bool getResult = readYUVDataFromFile(path, mTestImage2, size);//get yuv data from file;
     if (!getResult) {
       memset(mTestImage2, 60, size);
     }
@@ -376,7 +376,7 @@ FakeYUVFeeder::~FakeYUVFeeder()
 {
 }
 
-void 
+void
 FakeYUVFeeder::onMessageReceived(const sp<AMessage> &msg)
 {
     switch (msg->what()) {
@@ -398,40 +398,40 @@ FakeYUVFeeder::SendFakeImage(FakeVideoCallProvider* aFakeVideoCallProvider)
     return;
   }
 
-  int err;  
-  int cropWidth = 176;  
-  int cropHeight = 144;  
-    
+  int err;
+  int cropWidth = 176;
+  int cropHeight = 144;
+
   int halFormat = HAL_PIXEL_FORMAT_YCrCb_420_SP;
   int bufWidth = (cropWidth + 1) & ~1;
-  int bufHeight = (cropHeight + 1) & ~1;  
+  int bufHeight = (cropHeight + 1) & ~1;
 
-  native_window_set_usage(  
-    aFakeVideoCallProvider->mTestANativeWindow.get(),  
-    GRALLOC_USAGE_SW_READ_NEVER | GRALLOC_USAGE_SW_WRITE_OFTEN  
-    | GRALLOC_USAGE_HW_TEXTURE | GRALLOC_USAGE_EXTERNAL_DISP);  
+  native_window_set_usage(
+    aFakeVideoCallProvider->mTestANativeWindow.get(),
+    GRALLOC_USAGE_SW_READ_NEVER | GRALLOC_USAGE_SW_WRITE_OFTEN
+    | GRALLOC_USAGE_HW_TEXTURE | GRALLOC_USAGE_EXTERNAL_DISP);
 
 
-  native_window_set_scaling_mode(  
-    aFakeVideoCallProvider->mTestANativeWindow.get(),  
-    NATIVE_WINDOW_SCALING_MODE_SCALE_TO_WINDOW);  
+  native_window_set_scaling_mode(
+    aFakeVideoCallProvider->mTestANativeWindow.get(),
+    NATIVE_WINDOW_SCALING_MODE_SCALE_TO_WINDOW);
 
-  native_window_set_buffers_geometry(  
-      aFakeVideoCallProvider->mTestANativeWindow.get(),  
-      bufWidth,  
-      bufHeight,  
+  native_window_set_buffers_geometry(
+      aFakeVideoCallProvider->mTestANativeWindow.get(),
+      bufWidth,
+      bufHeight,
       halFormat);
 
-  ANativeWindowBuffer *buf; 
+  ANativeWindowBuffer *buf;
 
-  if ((err = native_window_dequeue_buffer_and_wait(aFakeVideoCallProvider->mTestANativeWindow.get(),  
+  if ((err = native_window_dequeue_buffer_and_wait(aFakeVideoCallProvider->mTestANativeWindow.get(),
           &buf)) != 0) {
-      return;  
+      return;
   }
 
-  GraphicBufferMapper &mapper = GraphicBufferMapper::get();  
+  GraphicBufferMapper &mapper = GraphicBufferMapper::get();
 
-  android::Rect bounds(cropWidth, cropHeight);  
+  android::Rect bounds(cropWidth, cropHeight);
 
   void *dst;
   mapper.lock(buf->handle, GRALLOC_USAGE_SW_WRITE_OFTEN, bounds, &dst);
@@ -443,11 +443,11 @@ FakeYUVFeeder::SendFakeImage(FakeVideoCallProvider* aFakeVideoCallProvider)
     aFakeVideoCallProvider->mTestImageIndex = 0;
     memcpy(dst, aFakeVideoCallProvider->mTestImage2, cropWidth * cropHeight * 1.5);
   }
-  mapper.unlock(buf->handle);  
+  mapper.unlock(buf->handle);
 
   err = aFakeVideoCallProvider->mTestANativeWindow->queueBuffer(aFakeVideoCallProvider->mTestANativeWindow.get(), buf, -1);
 
-  buf = NULL;  
+  buf = NULL;
 
   //Next round
   usleep(100000);

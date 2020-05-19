@@ -282,7 +282,7 @@ GonkCameraHardware::Connect(mozilla::nsGonkCameraControl* aTarget, uint32_t aCam
     ProcessState::self()->startThreadPool();
     camera = Camera::connect(aCameraId, /* clientPackageName */String16("gonk.camera"),
       Camera::USE_CALLING_UID, Camera::USE_CALLING_PID);
-    /* bug-82626: Retry Camera::connect each 2 ms delay since there is a chance that 
+    /* bug-82626: Retry Camera::connect each 2 ms delay since there is a chance that
      * EVENT_USER_SWITCHED being handled after Camera::connect. */
     while (camera.get() == nullptr) {
       usleep(CAMERA_CONNECT_DELAY);

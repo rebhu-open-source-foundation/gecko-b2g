@@ -104,7 +104,7 @@ protected:
   // This keeps us alive until ActorDestroy(), at which point we do a
   // deferred destruction of ourselves.
   RefPtr<SharedBufferManagerParent> mSelfRef;
-  
+
   base::ProcessId mOwner;
   base::Thread* mThread;
   MessageLoop* mMainMessageLoop;

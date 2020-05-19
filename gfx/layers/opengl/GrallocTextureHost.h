@@ -43,7 +43,7 @@ public:
       const wr::ExternalImageId& aExternalImageId) override;
 
   virtual bool AcquireTextureSource(CompositableTextureSourceRef& aTexture) override;
-  
+
   virtual void PushResourceUpdates(
       wr::TransactionBuilder& aResources,
       ResourceUpdateOp aOp,

@@ -201,7 +201,7 @@ CameraPreviewMediaStream::SetCurrentFrame(const gfx::IntSize& aIntrinsicSize, Im
     ++mInvalidatePending;
   }
 
-  NS_DispatchToMainThread(NewRunnableMethod("CameraPreviewMediaStream::SetCurrentFrame", 
+  NS_DispatchToMainThread(NewRunnableMethod("CameraPreviewMediaStream::SetCurrentFrame",
                           this, &CameraPreviewMediaStream::Invalidate));
 }
 
@@ -213,7 +213,7 @@ CameraPreviewMediaStream::ClearCurrentFrame()
   for (nsTArray<RefPtr<VideoFrameContainer> >::size_type i = 0; i < mVideoOutputs.Length(); ++i) {
     VideoFrameContainer* output = mVideoOutputs[i];
     output->ClearCurrentFrame();
-    NS_DispatchToMainThread(NewRunnableMethod("CameraPreviewMediaStream::ClearCurrentFrame", 
+    NS_DispatchToMainThread(NewRunnableMethod("CameraPreviewMediaStream::ClearCurrentFrame",
                             output, &VideoFrameContainer::Invalidate));
   }
 }

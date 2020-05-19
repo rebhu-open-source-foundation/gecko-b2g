@@ -305,7 +305,7 @@ void
 GrallocTextureHostOGL::CreateEGLImage()
 {
   gfx::IntSize cropSize = (mCropSize != mSize) ? mCropSize : mSize;
-  
+
   if (mEGLImage == EGL_NO_IMAGE) {
     android::GraphicBuffer* graphicBuffer = GetGraphicBufferFromDesc(mGrallocHandle).get();
     MOZ_ASSERT(graphicBuffer);
@@ -507,9 +507,9 @@ GrallocTextureHostOGL::GetCompositorReleaseFence()
   return mCompositor->GetReleaseFence();
 }
 
-bool 
+bool
 GrallocTextureHostOGL::AcquireTextureSource(CompositableTextureSourceRef& aTexture)
-{  
+{
   if (!mGLTextureSource) {
     return false;
   }
@@ -517,12 +517,12 @@ GrallocTextureHostOGL::AcquireTextureSource(CompositableTextureSourceRef& aTextu
   return true;
 }
 
-void 
+void
 GrallocTextureHostOGL::PushResourceUpdates(
   wr::TransactionBuilder& aResources,
   ResourceUpdateOp aOp,
   const Range<wr::ImageKey>& aImageKeys,
-  const wr::ExternalImageId& aExtID) 
+  const wr::ExternalImageId& aExtID)
 {
   auto method = aOp == TextureHost::ADD_IMAGE
                     ? &wr::TransactionBuilder::AddExternalImage
@@ -536,7 +536,7 @@ GrallocTextureHostOGL::PushResourceUpdates(
   (aResources.*method)(aImageKeys[0], descriptor, aExtID, imageType, 0);
 }
 
-void 
+void
 GrallocTextureHostOGL::PushDisplayItems(
   wr::DisplayListBuilder& aBuilder,
   const wr::LayoutRect& aBounds,

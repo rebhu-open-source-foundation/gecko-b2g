@@ -32,7 +32,7 @@ GetScreenEnabled()
 void
 SetScreenEnabled(bool)
 {
-  
+
 }
 #endif
 

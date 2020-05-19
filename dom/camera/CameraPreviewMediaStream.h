@@ -83,7 +83,7 @@ protected:
   bool mRateLimit;
   bool mTrackCreated;
   RefPtr<FakeMediaTrackGraph> mFakeMediaTrackGraph;
-  
+
   //TODO:from mediastream
   nsTArray<RefPtr<MediaTrackListener> > mListeners;
 };

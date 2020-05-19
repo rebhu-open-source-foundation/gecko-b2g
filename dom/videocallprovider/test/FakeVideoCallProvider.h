@@ -32,7 +32,7 @@ using namespace android;
 
 class FakeYUVFeeder;
 
-class VideoCallCameraCapabilities : public nsIVideoCallCameraCapabilities 
+class VideoCallCameraCapabilities : public nsIVideoCallCameraCapabilities
 {
 public:
   NS_DECL_ISUPPORTS

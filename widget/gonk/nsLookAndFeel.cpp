@@ -395,7 +395,7 @@ nsLookAndFeel::GetIntImpl(IntID aID, int32_t &aResult)
             break;
         }
 #endif
-            
+
         case eIntID_ContextMenuOffsetVertical:
         case eIntID_ContextMenuOffsetHorizontal:
             aResult = 2;

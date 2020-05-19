@@ -12,7 +12,7 @@ nsresult nsMIMEInfoGonk::LoadUriInternal(nsIURI *aURI) {
 
 NS_IMETHODIMP
 nsMIMEInfoGonk::GetHasDefaultHandler(bool *_retval) {
-  
+
   *_retval = false;
 
   return NS_OK;

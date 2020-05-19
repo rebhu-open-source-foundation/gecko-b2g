@@ -54,7 +54,7 @@ BOOL execute(wchar_t* binary_path, wchar_t* args, int cp_flags) {
     ZeroMemory(&si, sizeof(si));
     si.cb = sizeof(si);
     ZeroMemory(&pi, sizeof(pi));
-    
+
     if (!CreateProcessW(
         binary_path,
         args,
@@ -98,5 +98,5 @@ int wmain(int argc, wchar_t *argv[], wchar_t *envp[]){
     free(b2g_path);
     free(args);
     profile_path = b2g_path = args = nullptr;
-    
+
 }

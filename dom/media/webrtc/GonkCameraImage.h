@@ -37,7 +37,7 @@ namespace mozilla {
  * Third is the MSG thread via NotifyPull, the image should have preview image
  * only in NotifyPull.
  *
- * Note: SetMediaBuffer() and GetMediaBuffer() should be called from the same 
+ * Note: SetMediaBuffer() and GetMediaBuffer() should be called from the same
  *       thread. It is forbidden to call GetMediaBuffer() from other threads.
  */
 class GonkCameraImage : public layers::GrallocImage

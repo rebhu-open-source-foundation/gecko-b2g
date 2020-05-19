@@ -205,7 +205,7 @@ int GonkNativeWindowClient::dequeueBuffer(android_native_buffer_t** buffer, int*
     int buf = -1;
     sp<Fence> fence;
     uint64_t bufferAge = 0;
-    status_t result = mGraphicBufferProducer->dequeueBuffer(&buf, &fence, reqW, reqH, reqFormat, 
+    status_t result = mGraphicBufferProducer->dequeueBuffer(&buf, &fence, reqW, reqH, reqFormat,
         reqUsage, &bufferAge, nullptr);
 
     if (result < 0) {

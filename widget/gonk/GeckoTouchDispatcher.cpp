@@ -372,7 +372,7 @@ GeckoTouchDispatcher::DispatchTouchEvent(MultiTouchInput aMultiTouch)
 
 void GeckoTouchDispatcher::SetMouseDevice(bool aMouseAvailable)
 {
-  mMouseAvailable = aMouseAvailable; 
+  mMouseAvailable = aMouseAvailable;
   nsWindow::SetMouseDevice(aMouseAvailable);
 }
 
