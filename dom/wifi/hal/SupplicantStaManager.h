@@ -11,6 +11,11 @@
 #include "WifiEventCallback.h"
 #include "SupplicantStaNetwork.h"
 
+// There is a conflict with the value of DEBUG in DEBUG builds.
+#if defined(DEBUG)
+#define OLD_DEBUG=DEBUG
+#undef DEBUG
+#endif
 #include <android/hidl/manager/1.0/IServiceManager.h>
 #include <android/hidl/manager/1.0/IServiceNotification.h>
 #include <android/hardware/wifi/supplicant/1.0/ISupplicantCallback.h>
@@ -19,6 +24,11 @@
 #include <android/hardware/wifi/supplicant/1.2/ISupplicant.h>
 #include <android/hardware/wifi/supplicant/1.2/ISupplicantStaIface.h>
 #include <android/hardware/wifi/supplicant/1.2/ISupplicantP2pIface.h>
+
+#if defined(OLD_DEBUG)
+#define DEBUG=OLD_DEBUG
+#undef OLD_DEBUG
+#endif
 
 #include "mozilla/Mutex.h"
 

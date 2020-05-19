@@ -115,12 +115,12 @@ interface nsISoftapConfiguration: nsISupports
 [scriptable, uuid(9fb6b90f-1e28-41b2-96be-e1a2839ffd38)]
 interface nsISupplicantDebugLevel : nsISupports
 {
-  const long EXCESSIVE = 0;
-  const long MSGDUMP   = 1;
-  const long DEBUG     = 2;
-  const long INFO      = 3;
-  const long WARNING   = 4;
-  const long ERROR     = 5;
+  const long LOG_EXCESSIVE = 0;
+  const long LOG_MSGDUMP   = 1;
+  const long LOG_DEBUG     = 2;
+  const long LOG_INFO      = 3;
+  const long LOG_WARNING   = 4;
+  const long LOG_ERROR     = 5;
 
   readonly attribute unsigned long logLevel;
   readonly attribute boolean showTimeStamp;
