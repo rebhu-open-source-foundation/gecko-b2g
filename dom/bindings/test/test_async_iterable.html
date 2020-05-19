@@ -13,13 +13,12 @@
 
      SimpleTest.waitForExplicitFinish();
      SpecialPowers.pushPrefEnv({set: [["dom.expose_test_interfaces", true]]}, function() {
-       var itr;
-       info("AsyncIterableSingle: Testing simple iterable creation and functionality");
-       itr = new TestInterfaceAsyncIterableSingle();
-       is(itr.values, itr[Symbol.asyncIterator],
-          "AsyncIterableSingle: Should be using @@asyncIterator for 'values'");
+       async function retrieveDataSingle() {
+         info("AsyncIterableSingle: Testing simple iterable creation and functionality");
+         var itr = new TestInterfaceAsyncIterableSingle();
+         is(itr.values, itr[Symbol.asyncIterator],
+            "AsyncIterableSingle: Should be using @@asyncIterator for 'values'");
 
-       async function retrieveData() {
          var values = [];
          for await (let v of itr) {
            values.push(v);
@@ -40,10 +39,53 @@
            is(values[i], i * 9 % 7,
               "AsyncIterableSingle: should be " + expected + ", get " + values[i]);
          }
+       }
+       retrieveDataSingle();
+
+       async function retrieveDataDouble() {
+         info("AsyncIterableDouble: Testing simple iterable creation and functionality");
+         var itr = new TestInterfaceAsyncIterableDouble();
+         is(itr.entries, itr[Symbol.asyncIterator],
+            "AsyncIterableDouble: Should be using @@asyncIterator for 'entries'");
+
+         var elements = [["a", "b"], ["c", "d"], ["e", "f"]];
+         var key_itr = itr.keys();
+         var value_itr = itr.values();
+         var entries_itr = itr.entries();
+         var key = await key_itr.next();
+         var value = await value_itr.next();
+         var entry = await entries_itr.next();
+         for (let i = 0; i < 3; ++i) {
+           is(key.value, elements[i][0], `AsyncIterableDouble: Key.value should be ${elements[i][0]}, got ${key.value}`);
+           is(key.done, false, `AsyncIterableDouble: Key.done should be false, got ${key.done}`);
+           is(value.value, elements[i][1], `AsyncIterableDouble: Value.value should be ${elements[i][1]}, got ${value.value}`);
+           is(value.done, false, `AsyncIterableDouble: Value.done should be false, got ${value.done}`);
+           is(entry.value[0], elements[i][0], `AsyncIterableDouble: Entry.value[0] should be ${elements[i][0]}, got ${entry.value[0]}`);
+           is(entry.value[1], elements[i][1], `AsyncIterableDouble: Entry.value[1] should be ${elements[i][1]}, got ${entry.value[1]}`);
+           is(entry.done, false, `AsyncIterableDouble: Entry.done should be false, got ${entry.done}`);
+
+           key = await key_itr.next();
+           value = await value_itr.next();
+           entry = await entries_itr.next();
+         }
+         is(key.value, undefined, `AsyncIterableDouble: Key.value should be ${undefined}, got ${key.value}`);
+         is(key.done, true, `AsyncIterableDouble: Key.done should be true, got ${key.done}`);
+         is(value.value, undefined, `AsyncIterableDouble: Value.value should be ${undefined}, got ${value.value}`);
+         is(value.done, true, `AsyncIterableDouble: Value.done should be true, got ${value.done}`);
+         is(entry.value, undefined, `AsyncIterableDouble: Entry.value should be ${undefined}, got ${entry.value}`);
+         is(entry.done, true, `AsyncIterableDouble: Entry.done should be true, got ${entry.done}`);
+
+         var idx = 0;
+         for await (let [key, value] of itr) {
+           is(key, elements[idx][0], `AsyncIterableDouble: Looping at ${idx} should have key ${elements[idx][0]}, got ${key}`);
+           is(value, elements[idx][1], `AsyncIterableDouble: Looping at ${idx} should have value ${elements[idx][1]}, got ${value}`);
+           ++idx;
+         }
+         is(idx, 3, `AsyncIterableDouble: Should have 3 loops of for-await-of, got ${idx}`);
 
          SimpleTest.finish();
        }
-       retrieveData();
+       retrieveDataDouble();
      });
     </script>
   </body>

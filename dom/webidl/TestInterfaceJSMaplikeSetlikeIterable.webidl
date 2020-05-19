@@ -98,3 +98,12 @@ interface TestInterfaceAsyncIterableSingle {
 
   async iterable<long>;
 };
+
+[Pref="dom.expose_test_interfaces",
+ Exposed=Window]
+interface TestInterfaceAsyncIterableDouble {
+  [Throws]
+  constructor();
+
+  async iterable<DOMString, DOMString>;
+};
