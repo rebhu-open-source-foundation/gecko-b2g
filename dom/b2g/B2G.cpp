@@ -307,7 +307,7 @@ bool B2G::HasCameraSupport(JSContext* /* unused */, JSObject* aGlobal) {
 /* static */
 bool B2G::HasWifiManagerSupport(JSContext* /* unused */, JSObject* aGlobal) {
 #if defined(MOZ_WIDGET_GONK) && !defined(DISABLE_WIFI)
-  return false;
+  return true;
 #endif
   // On XBL scope, the global object is NOT |window|. So we have
   // to use nsContentUtils::GetObjectPrincipal to get the principal
