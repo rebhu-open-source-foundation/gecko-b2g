@@ -484,7 +484,10 @@ static void* readRDSDataThread(void* data) {
   v4l2_rds_data rdsblocks[16];
   uint16_t blocks[4];
 
-  ScopedClose pipefd((int)data);
+  // Explicitely force cast to (int)(unsigned long) to avoid Clang error:
+  // error: cast from pointer to smaller type 'int' loses information
+  // due to 64-bits pointer to 32-bits int with just casting (int)
+  ScopedClose pipefd((int)(unsigned long)data);
 
   ScopedClose epollfd(epoll_create(2));
   if (epollfd < 0) {
