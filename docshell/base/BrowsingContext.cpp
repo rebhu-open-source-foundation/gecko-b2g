@@ -37,6 +37,7 @@
 #include "mozilla/Logging.h"
 #include "mozilla/ResultExtensions.h"
 #include "mozilla/Services.h"
+#include "mozilla/StaticPrefs_fission.h"
 #include "mozilla/StaticPrefs_page_load.h"
 #include "mozilla/StaticPtr.h"
 #include "nsIURIFixup.h"
@@ -359,6 +360,9 @@ void BrowsingContext::CreateFromIPC(BrowsingContext::IPCInitializer&& aInit,
   }
 
   context->mWindowless = aInit.mWindowless;
+  if (aInit.mHasSessionHistory) {
+    context->InitSessionHistory();
+  }
 
   // NOTE: Call through the `Set` methods for these values to ensure that any
   // relevant process-local state is also updated.
@@ -404,6 +408,9 @@ void BrowsingContext::SetDocShell(nsIDocShell* aDocShell) {
   mDocShell = aDocShell;
   mDanglingRemoteOuterProxies = !mIsInProcess;
   mIsInProcess = true;
+  if (mChildSessionHistory) {
+    mChildSessionHistory->SetIsInProcess(true);
+  }
 }
 
 // This class implements a callback that will return the remote window proxy for
@@ -517,6 +524,10 @@ void BrowsingContext::Attach(bool aFromIPC, ContentParent* aOriginProcess) {
     PopupBlocker::RegisterOpenPopupSpam();
   }
 
+  if (IsTop() && GetHasSessionHistory()) {
+    CreateChildSHistory();
+  }
+
   if (XRE_IsContentProcess() && !aFromIPC) {
     // Send attach to our parent if we need to.
     ContentChild::GetSingleton()->SendCreateBrowsingContext(
@@ -626,6 +637,11 @@ void BrowsingContext::PrepareForProcessChange() {
   // different process now. This may need to change in the future with
   // Cross-Process BFCache.
   mDocShell = nullptr;
+  if (mChildSessionHistory) {
+    // This can be removed once session history is stored exclusively in the
+    // parent process.
+    mChildSessionHistory->SetIsInProcess(false);
+  }
 
   if (!mWindowProxy) {
     return;
@@ -1318,14 +1334,16 @@ nsresult BrowsingContext::SetOriginAttributes(const OriginAttributes& aAttrs) {
 void BrowsingContext::AssertCoherentLoadContext() {
 #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
   // LoadContext should generally match our opener or parent.
-  if (RefPtr<BrowsingContext> opener = GetOpener()) {
-    MOZ_DIAGNOSTIC_ASSERT(opener->mType == mType);
-    MOZ_DIAGNOSTIC_ASSERT(opener->mGroup == mGroup);
-    MOZ_DIAGNOSTIC_ASSERT(opener->mUseRemoteTabs == mUseRemoteTabs);
-    MOZ_DIAGNOSTIC_ASSERT(opener->mUseRemoteSubframes == mUseRemoteSubframes);
-    MOZ_DIAGNOSTIC_ASSERT(opener->mPrivateBrowsingId == mPrivateBrowsingId);
-    MOZ_DIAGNOSTIC_ASSERT(
-        opener->mOriginAttributes.EqualsIgnoringFPD(mOriginAttributes));
+  if (IsContent()) {
+    if (RefPtr<BrowsingContext> opener = GetOpener()) {
+      MOZ_DIAGNOSTIC_ASSERT(opener->mType == mType);
+      MOZ_DIAGNOSTIC_ASSERT(opener->mGroup == mGroup);
+      MOZ_DIAGNOSTIC_ASSERT(opener->mUseRemoteTabs == mUseRemoteTabs);
+      MOZ_DIAGNOSTIC_ASSERT(opener->mUseRemoteSubframes == mUseRemoteSubframes);
+      MOZ_DIAGNOSTIC_ASSERT(opener->mPrivateBrowsingId == mPrivateBrowsingId);
+      MOZ_DIAGNOSTIC_ASSERT(
+          opener->mOriginAttributes.EqualsIgnoringFPD(mOriginAttributes));
+    }
   }
   if (RefPtr<BrowsingContext> parent = GetParent()) {
     MOZ_DIAGNOSTIC_ASSERT(parent->mType == mType);
@@ -1386,16 +1404,16 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(BrowsingContext)
     tmp->mFields.SetWithoutSyncing<IDX_IsPopupSpam>(false);
   }
 
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mDocShell, mParentWindow, mGroup,
-                                  mEmbedderElement, mWindowContexts,
-                                  mCurrentWindowContext, mSessionStorageManager)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(
+      mDocShell, mParentWindow, mGroup, mEmbedderElement, mWindowContexts,
+      mCurrentWindowContext, mSessionStorageManager, mChildSessionHistory)
   NS_IMPL_CYCLE_COLLECTION_UNLINK_PRESERVED_WRAPPER
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(BrowsingContext)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(
       mDocShell, mParentWindow, mGroup, mEmbedderElement, mWindowContexts,
-      mCurrentWindowContext, mSessionStorageManager)
+      mCurrentWindowContext, mSessionStorageManager, mChildSessionHistory)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 class RemoteLocationProxy
@@ -1718,24 +1736,71 @@ void BrowsingContext::PostMessageMoz(JSContext* aCx,
     return;
   }
 
-  ipc::StructuredCloneData message;
-  message.Write(aCx, aMessage, transferArray, JS::CloneDataPolicy(), aError);
+  JS::CloneDataPolicy clonePolicy;
+  if (callerInnerWindow && callerInnerWindow->IsSharedMemoryAllowed()) {
+    clonePolicy.allowSharedMemoryObjects();
+  }
+
+  // We will see if the message is required to be in the same process or it can
+  // be in the different process after Write().
+  ipc::StructuredCloneData message = ipc::StructuredCloneData(
+      StructuredCloneHolder::StructuredCloneScope::UnknownDestination,
+      StructuredCloneHolder::TransferringSupported);
+  message.Write(aCx, aMessage, transferArray, clonePolicy, aError);
   if (NS_WARN_IF(aError.Failed())) {
     return;
   }
 
-  ClonedMessageData messageData;
+  ClonedOrErrorMessageData messageData;
   if (ContentChild* cc = ContentChild::GetSingleton()) {
-    if (!message.BuildClonedMessageDataForChild(cc, messageData)) {
-      aError.Throw(NS_ERROR_FAILURE);
-      return;
+    // The clone scope gets set when we write the message data based on the
+    // requirements of that data that we're writing.
+    // If the message data contins a shared memory object, then CloneScope would
+    // return SameProcess. Otherwise, it returns DifferentProcess.
+    if (message.CloneScope() ==
+        StructuredCloneHolder::StructuredCloneScope::DifferentProcess) {
+      ClonedMessageData clonedMessageData;
+      if (!message.BuildClonedMessageDataForChild(cc, clonedMessageData)) {
+        aError.Throw(NS_ERROR_FAILURE);
+        return;
+      }
+
+      messageData = std::move(clonedMessageData);
+    } else {
+      MOZ_ASSERT(message.CloneScope() ==
+                 StructuredCloneHolder::StructuredCloneScope::SameProcess);
+
+      messageData = ErrorMessageData();
+
+      nsContentUtils::ReportToConsole(
+          nsIScriptError::warningFlag, NS_LITERAL_CSTRING("DOM Window"),
+          callerInnerWindow ? callerInnerWindow->GetDocument() : nullptr,
+          nsContentUtils::eDOM_PROPERTIES,
+          "PostMessageSharedMemoryObjectToCrossOriginWarning");
     }
 
     cc->SendWindowPostMessage(this, messageData, data);
   } else if (ContentParent* cp = Canonical()->GetContentParent()) {
-    if (!message.BuildClonedMessageDataForParent(cp, messageData)) {
-      aError.Throw(NS_ERROR_FAILURE);
-      return;
+    if (message.CloneScope() ==
+        StructuredCloneHolder::StructuredCloneScope::DifferentProcess) {
+      ClonedMessageData clonedMessageData;
+      if (!message.BuildClonedMessageDataForParent(cp, clonedMessageData)) {
+        aError.Throw(NS_ERROR_FAILURE);
+        return;
+      }
+
+      messageData = std::move(clonedMessageData);
+    } else {
+      MOZ_ASSERT(message.CloneScope() ==
+                 StructuredCloneHolder::StructuredCloneScope::SameProcess);
+
+      messageData = ErrorMessageData();
+
+      nsContentUtils::ReportToConsole(
+          nsIScriptError::warningFlag, NS_LITERAL_CSTRING("DOM Window"),
+          callerInnerWindow ? callerInnerWindow->GetDocument() : nullptr,
+          nsContentUtils::eDOM_PROPERTIES,
+          "PostMessageSharedMemoryObjectToCrossOriginWarning");
     }
 
     Unused << cp->SendWindowPostMessage(this, messageData, data);
@@ -1774,6 +1839,7 @@ BrowsingContext::IPCInitializer BrowsingContext::GetIPCInitializer() {
   init.mUseRemoteTabs = mUseRemoteTabs;
   init.mUseRemoteSubframes = mUseRemoteSubframes;
   init.mOriginAttributes = mOriginAttributes;
+  init.mHasSessionHistory = mChildSessionHistory != nullptr;
   init.mFields = mFields.Fields();
   return init;
 }
@@ -2197,6 +2263,55 @@ void BrowsingContext::AddDeprioritizedLoadRunner(nsIRunnable* aRunner) {
   NS_DispatchToCurrentThreadQueue(
       runner.forget(), StaticPrefs::page_load_deprioritization_period(),
       EventQueuePriority::Idle);
+}
+
+void BrowsingContext::InitSessionHistory() {
+  MOZ_ASSERT(!IsDiscarded());
+  MOZ_ASSERT(IsTop());
+  MOZ_ASSERT(EverAttached());
+
+  if (!GetHasSessionHistory()) {
+    SetHasSessionHistory(true);
+
+    // If the top browsing context (this one) is loaded in this process then we
+    // also create the session history implementation for the child process.
+    // This can be removed once session history is stored exclusively in the
+    // parent process.
+    mChildSessionHistory->SetIsInProcess(mDocShell);
+  }
+}
+
+ChildSHistory* BrowsingContext::GetChildSessionHistory() {
+  if (!StaticPrefs::fission_sessionHistoryInParent()) {
+    // For now we're checking that the session history object for the child
+    // process is available before returning the ChildSHistory object, because
+    // it is the actual implementation that ChildSHistory forwards to. This can
+    // be removed once session history is stored exclusively in the parent
+    // process.
+    return mChildSessionHistory && mChildSessionHistory->IsInProcess()
+               ? mChildSessionHistory.get()
+               : nullptr;
+  }
+
+  return mChildSessionHistory;
+}
+
+void BrowsingContext::CreateChildSHistory() {
+  MOZ_ASSERT(IsTop());
+
+  // Because session history is global in a browsing context tree, every process
+  // that has access to a browsing context tree needs access to its session
+  // history. That is why we create the ChildSHistory object in every process
+  // where we have access to this browsing context (which is the top one).
+  mChildSessionHistory = new ChildSHistory(this);
+}
+
+void BrowsingContext::DidSet(FieldIndex<IDX_HasSessionHistory>,
+                             bool aOldValue) {
+  MOZ_ASSERT(GetHasSessionHistory() || !aOldValue,
+             "We don't support turning off session history.");
+
+  CreateChildSHistory();
 }
 
 }  // namespace dom

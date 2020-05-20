@@ -64,8 +64,6 @@ include protocol PProfiler;
 include protocol PScriptCache;
 include protocol PSessionStorageObserver;
 include protocol PSystemMessageService;
-include protocol PSHEntry;
-include protocol PSHistory;
 include protocol PBenchmarkStorage;
 include DOMTypes;
 include JavaScriptTypes;
@@ -144,7 +142,6 @@ using mozilla::dom::MaybeMediaMetadataBase from "mozilla/dom/MediaSessionIPCUtil
 using mozilla::dom::MediaSessionPlaybackState from "mozilla/dom/MediaSessionBinding.h";
 using refcounted class nsDocShellLoadState from "nsDocShellLoadState.h";
 using mozilla::dom::ServiceWorkerShutdownState::Progress from "mozilla/dom/ServiceWorkerShutdownState.h";
-using refcounted class mozilla::dom::CrossProcessSHEntry from "mozilla/dom/MaybeNewPSHEntry.h";
 using mozilla::ContentBlockingNotifier::StorageAccessGrantedReason from "mozilla/ContentBlockingNotifier.h";
 using mozilla::ContentBlockingNotifier::BlockingDecision from "mozilla/ContentBlockingNotifier.h";
 using mozilla::ContentBlocking::StorageAccessPromptChoices from "mozilla/ContentBlocking.h";
@@ -611,8 +608,6 @@ nested(upto inside_cpow) sync protocol PContent
     manages PLoginReputation;
     manages PSessionStorageObserver;
     manages PSystemMessageService;
-    manages PSHEntry;
-    manages PSHistory;
     manages PBenchmarkStorage;
 
     // Depending on exactly how the new browser is being created, it might be
@@ -1101,21 +1096,12 @@ child:
     async InitSandboxTesting(Endpoint<PSandboxTestingChild> aEndpoint);
 #endif
 
-    async DestroySHEntrySharedState(uint64_t aID);
-
-    async EvictContentViewers(uint64_t[] aToEvictSharedStateIDs);
-
     async LoadURI(MaybeDiscardedBrowsingContext aContext, nsDocShellLoadState aLoadState, bool aSetNavigating)
         returns (bool aSuccess);
 
     async InternalLoad(MaybeDiscardedBrowsingContext aContext, nsDocShellLoadState aLoadState, bool aTakeFocus);
 
     async DisplayLoadError(MaybeDiscardedBrowsingContext aContext, nsString aURI);
-
-    // Tell aContext's docshell to update its mOSHE and mLSHE entries
-    async UpdateSHEntriesInDocShell(CrossProcessSHEntry aOldEntry,
-                                    CrossProcessSHEntry aNewEntry,
-                                    MaybeDiscardedBrowsingContext aContext);
 
     async OnAllowAccessFor(MaybeDiscardedBrowsingContext aParentContext,
                            nsCString aTrackingOrigin,
@@ -1131,6 +1117,9 @@ child:
      * are part of a BrowsingContextGroup.
      */
     async AbortOrientationPendingPromises(MaybeDiscardedBrowsingContext aContext);
+
+    async HistoryCommitLength(MaybeDiscardedBrowsingContext aContext,
+                              uint32_t aLength);
 
 parent:
     async InitBackground(Endpoint<PBackgroundParent> aEndpoint);
@@ -1231,11 +1220,6 @@ parent:
     async PLoginReputation(nsIURI formURI);
 
     async PSessionStorageObserver();
-
-    async PSHistory(MaybeDiscardedBrowsingContext aContext);
-
-    // Clone using shared id.
-    sync PSHEntry(nullable PSHistory shistory, uint64_t sharedID);
 
     async PBenchmarkStorage();
 
@@ -1881,17 +1865,16 @@ parent:
                                               Progress aProgress);
 
     /**
-     * Whenever docshell updates its SH entries, we need to update them in
-     * the corresponding BrowsingContext
-     */
-    async UpdateSHEntriesInBC(nullable PSHEntry aNewLSHE, nullable
-                              PSHEntry aNewOSHE, MaybeDiscardedBrowsingContext aContext);
-
-    /**
      * Whenever a document is updating the OrientationLock, we need to
      * reject the orientationPendingPromises in other processes.
      */
     async AbortOtherOrientationPendingPromises(MaybeDiscardedBrowsingContext aContext);
+
+    async HistoryCommit(MaybeDiscardedBrowsingContext aContext,
+                        uint64_t aSessionHistoryEntryID);
+
+    async HistoryGo(MaybeDiscardedBrowsingContext aContext,
+                    int32_t aOffset) returns(int32_t requestedIndex);
 
 both:
     async ScriptError(nsString message, nsString sourceName, nsString sourceLine,
@@ -1968,7 +1951,7 @@ child:
 both:
     async MaybeExitFullscreen(MaybeDiscardedBrowsingContext aContext);
     async WindowPostMessage(MaybeDiscardedBrowsingContext aContext,
-                            ClonedMessageData aMessage,
+                            ClonedOrErrorMessageData aMessage,
                             PostMessageData aData);
 
     /**

@@ -1328,7 +1328,7 @@ enum Type {
   MaxTypedArrayViewType,
 
   Int64,
-  V128,
+  Simd128,
 };
 
 static inline size_t byteSize(Type atype) {
@@ -1349,7 +1349,7 @@ static inline size_t byteSize(Type atype) {
     case BigInt64:
     case BigUint64:
       return 8;
-    case V128:
+    case Simd128:
       return 16;
     case MaxTypedArrayViewType:
       break;
@@ -1372,7 +1372,7 @@ static inline bool isSignedIntType(Type atype) {
     case Float32:
     case Float64:
     case BigUint64:
-    case V128:
+    case Simd128:
       return false;
     case MaxTypedArrayViewType:
       break;
@@ -1395,7 +1395,7 @@ static inline bool isBigIntType(Type atype) {
     case Uint32:
     case Float32:
     case Float64:
-    case V128:
+    case Simd128:
       return false;
     case MaxTypedArrayViewType:
       break;
@@ -2467,6 +2467,20 @@ extern JS_FRIEND_API JSObject* ToWindowIfWindowProxy(JSObject* obj);
 // standardize, that will also need to be resolved to ship this.)
 extern bool AddMozDateTimeFormatConstructor(JSContext* cx,
                                             JS::Handle<JSObject*> intl);
+
+// Create and add the Intl.MozDisplayNames constructor function to the
+// provided object.
+// If JS was built without JS_HAS_INTL_API, this function will throw an
+// exception.
+extern bool AddMozDisplayNamesConstructor(JSContext* cx,
+                                          JS::Handle<JSObject*> intl);
+
+// Create and add the Intl.DisplayNames constructor function to the provided
+// object.
+// If JS was built without JS_HAS_INTL_API, this function will throw an
+// exception.
+extern bool AddDisplayNamesConstructor(JSContext* cx,
+                                       JS::Handle<JSObject*> intl);
 
 class MOZ_STACK_CLASS JS_FRIEND_API AutoAssertNoContentJS {
  public:

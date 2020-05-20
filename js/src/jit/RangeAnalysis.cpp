@@ -11,6 +11,7 @@
 
 #include <algorithm>
 
+#include "jsmath.h"
 #include "jsnum.h"
 
 #include "jit/Ion.h"
@@ -1746,7 +1747,7 @@ static Range* GetArrayBufferViewRange(TempAllocator& alloc, Scalar::Type type) {
     case Scalar::BigInt64:
     case Scalar::BigUint64:
     case Scalar::Int64:
-    case Scalar::V128:
+    case Scalar::Simd128:
     case Scalar::Float32:
     case Scalar::Float64:
     case Scalar::MaxTypedArrayViewType:
@@ -1835,8 +1836,8 @@ void MArrayPush::computeRange(TempAllocator& alloc) {
 void MMathFunction::computeRange(TempAllocator& alloc) {
   Range opRange(getOperand(0));
   switch (function()) {
-    case Sin:
-    case Cos:
+    case UnaryMathFunction::Sin:
+    case UnaryMathFunction::Cos:
       if (!opRange.canBeInfiniteOrNaN()) {
         setRange(Range::NewDoubleRange(alloc, -1.0, 1.0));
       }

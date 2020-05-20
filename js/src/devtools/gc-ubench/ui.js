@@ -2,11 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-var features = {
-  trackingSizes: "mozMemory" in performance,
-  showingGCs: "mozMemory" in performance,
-};
-
 var stroke = {
   gcslice: "rgb(255,100,0)",
   minor: "rgb(0,255,100)",
@@ -16,7 +11,7 @@ var stroke = {
 var numSamples = 500;
 
 var gHistogram = new Map(); // {ms: count}
-var gPerf = new FrameHistory(numSamples);
+var gHistory = new FrameHistory(numSamples);
 
 var latencyGraph;
 var memoryGraph;
@@ -25,6 +20,47 @@ var memoryCtx;
 
 var loadState = "(init)"; // One of '(active)', '(inactive)', '(N/A)'
 var testState = "idle"; // One of 'idle' or 'running'.
+var enabled = { trackingSizes: false };
+
+var gMemory = performance.mozMemory?.gc || performance.mozMemory || {};
+
+var Firefox = class extends Host {
+  start_turn() {
+    // Handled by Gecko.
+  }
+
+  end_turn() {
+    // Handled by Gecko.
+  }
+
+  suspend(duration) {
+    // Not used; requestAnimationFrame takes its place.
+    throw new Error("unimplemented");
+  }
+
+  get minorGCCount() {
+    return gMemory.minorGCCount;
+  }
+  get majorGCCount() {
+    return gMemory.majorGCCount;
+  }
+  get GCSliceCount() {
+    return gMemory.sliceCount;
+  }
+  get gcBytes() {
+    return gMemory.zone.gcBytes;
+  }
+  get gcAllocTrigger() {
+    return gMemory.zone.gcAllocTrigger;
+  }
+
+  features = {
+    haveMemorySizes: 'gcBytes' in gMemory,
+    haveGCCounts: 'majorGCCount' in gMemory,
+  };
+};
+
+var gHost = new Firefox();
 
 function parse_units(v) {
   if (!v.length) {
@@ -47,330 +83,313 @@ function parse_units(v) {
   return NaN;
 }
 
-function Graph(ctx) {
-  this.ctx = ctx;
+var Graph = class {
+  constructor(ctx) {
+    this.ctx = ctx;
 
-  var { height } = ctx.canvas;
-  this.layout = {
-    xAxisLabel_Y: height - 20,
-  };
-}
-
-Graph.prototype.xpos = index => index * 2;
-
-Graph.prototype.clear = function() {
-  var { width, height } = this.ctx.canvas;
-  this.ctx.clearRect(0, 0, width, height);
-};
-
-Graph.prototype.drawScale = function(delay) {
-  this.drawHBar(delay, `${delay}ms`, "rgb(150,150,150)");
-};
-
-Graph.prototype.draw60fps = function() {
-  this.drawHBar(1000 / 60, "60fps", "#00cf61", 25);
-};
-
-Graph.prototype.draw30fps = function() {
-  this.drawHBar(1000 / 30, "30fps", "#cf0061", 25);
-};
-
-Graph.prototype.drawAxisLabels = function(x_label, y_label) {
-  var ctx = this.ctx;
-  var { width, height } = ctx.canvas;
-
-  ctx.fillText(x_label, width / 2, this.layout.xAxisLabel_Y);
-
-  ctx.save();
-  ctx.rotate(Math.PI / 2);
-  var start = height / 2 - ctx.measureText(y_label).width / 2;
-  ctx.fillText(y_label, start, -width + 20);
-  ctx.restore();
-};
-
-Graph.prototype.drawFrame = function() {
-  var ctx = this.ctx;
-  var { width, height } = ctx.canvas;
-
-  // Draw frame to show size
-  ctx.strokeStyle = "rgb(0,0,0)";
-  ctx.fillStyle = "rgb(0,0,0)";
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.lineTo(width, 0);
-  ctx.lineTo(width, height);
-  ctx.lineTo(0, height);
-  ctx.closePath();
-  ctx.stroke();
-};
-
-function LatencyGraph(ctx) {
-  Graph.call(this, ctx);
-  console.log(this.ctx);
-}
-
-LatencyGraph.prototype = Object.create(Graph.prototype);
-
-Object.defineProperty(LatencyGraph.prototype, "constructor", {
-  enumerable: false,
-  value: LatencyGraph,
-});
-
-LatencyGraph.prototype.ypos = function(delay) {
-  var { height } = this.ctx.canvas;
-
-  var r = height + 100 - Math.log(delay) * 64;
-  if (r < 5) {
-    return 5;
-  }
-  return r;
-};
-
-LatencyGraph.prototype.drawHBar = function(
-  delay,
-  label,
-  color = "rgb(0,0,0)",
-  label_offset = 0
-) {
-  var ctx = this.ctx;
-
-  ctx.fillStyle = color;
-  ctx.strokeStyle = color;
-  ctx.fillText(
-    label,
-    this.xpos(numSamples) + 4 + label_offset,
-    this.ypos(delay) + 3
-  );
-
-  ctx.beginPath();
-  ctx.moveTo(this.xpos(0), this.ypos(delay));
-  ctx.lineTo(this.xpos(numSamples) + label_offset, this.ypos(delay));
-  ctx.stroke();
-  ctx.strokeStyle = "rgb(0,0,0)";
-  ctx.fillStyle = "rgb(0,0,0)";
-};
-
-LatencyGraph.prototype.draw = function() {
-  let ctx = this.ctx;
-
-  this.clear();
-  this.drawFrame();
-
-  for (const delay of [10, 20, 30, 50, 100, 200, 400, 800]) {
-    this.drawScale(delay);
-  }
-  this.draw60fps();
-  this.draw30fps();
-
-  var worst = 0,
-    worstpos = 0;
-  ctx.beginPath();
-  for (let i = 0; i < numSamples; i++) {
-    ctx.lineTo(this.xpos(i), this.ypos(gPerf.delays[i]));
-    if (gPerf.delays[i] >= worst) {
-      worst = gPerf.delays[i];
-      worstpos = i;
-    }
-  }
-  ctx.stroke();
-
-  // Draw vertical lines marking minor and major GCs
-  if (features.showingGCs) {
-    ctx.strokeStyle = stroke.gcslice;
-    let idx = sampleIndex % numSamples;
-    const count = {
-      major: gPerf.majorGCs[idx],
-      minor: 0,
-      slice: gPerf.slices[idx],
+    var { height } = ctx.canvas;
+    this.layout = {
+      xAxisLabel_Y: height - 20,
     };
-    for (let i = 0; i < numSamples; i++) {
-      idx = (sampleIndex + i) % numSamples;
-      const isMajorStart = count.major < gPerf.majorGCs[idx];
-      if (count.slice < gPerf.slices[idx]) {
-        if (isMajorStart) {
-          ctx.strokeStyle = stroke.initialMajor;
-        }
-        ctx.beginPath();
-        ctx.moveTo(this.xpos(idx), 0);
-        ctx.lineTo(this.xpos(idx), this.layout.xAxisLabel_Y);
-        ctx.stroke();
-        if (isMajorStart) {
-          ctx.strokeStyle = stroke.gcslice;
-        }
-      }
-      count.major = gPerf.majorGCs[idx];
-      count.slice = gPerf.slices[idx];
-    }
-
-    ctx.strokeStyle = stroke.minor;
-    idx = sampleIndex % numSamples;
-    count.minor = gPerf.gcs[idx];
-    for (let i = 0; i < numSamples; i++) {
-      idx = (sampleIndex + i) % numSamples;
-      if (count.minor < gPerf.minorGCs[idx]) {
-        ctx.beginPath();
-        ctx.moveTo(this.xpos(idx), 0);
-        ctx.lineTo(this.xpos(idx), 20);
-        ctx.stroke();
-      }
-      count.minor = gPerf.minorGCs[idx];
-    }
   }
 
-  ctx.fillStyle = "rgb(255,0,0)";
-  if (worst) {
+  xpos(index) {
+    return index * 2;
+  }
+
+  clear() {
+    const { width, height } = this.ctx.canvas;
+    this.ctx.clearRect(0, 0, width, height);
+  }
+
+  drawScale(delay) {
+    this.drawHBar(delay, `${delay}ms`, "rgb(150,150,150)");
+  }
+
+  draw60fps() {
+    this.drawHBar(1000 / 60, "60fps", "#00cf61", 25);
+  }
+
+  draw30fps() {
+    this.drawHBar(1000 / 30, "30fps", "#cf0061", 25);
+  }
+
+  drawAxisLabels(x_label, y_label) {
+    const ctx = this.ctx;
+    const { width, height } = ctx.canvas;
+
+    ctx.fillText(x_label, width / 2, this.layout.xAxisLabel_Y);
+
+    ctx.save();
+    ctx.rotate(Math.PI / 2);
+    var start = height / 2 - ctx.measureText(y_label).width / 2;
+    ctx.fillText(y_label, start, -width + 20);
+    ctx.restore();
+  }
+
+  drawFrame() {
+    const ctx = this.ctx;
+    const { width, height } = ctx.canvas;
+
+    // Draw frame to show size
+    ctx.strokeStyle = "rgb(0,0,0)";
+    ctx.fillStyle = "rgb(0,0,0)";
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(width, 0);
+    ctx.lineTo(width, height);
+    ctx.lineTo(0, height);
+    ctx.closePath();
+    ctx.stroke();
+  }
+};
+
+var LatencyGraph = class extends Graph {
+  constructor(ctx) {
+    super(ctx);
+    console.log(this.ctx);
+  }
+
+  ypos(delay) {
+    const { height } = this.ctx.canvas;
+
+    const r = height + 100 - Math.log(delay) * 64;
+    if (r < 5) {
+      return 5;
+    }
+    return r;
+  }
+
+  drawHBar(delay, label, color = "rgb(0,0,0)", label_offset = 0) {
+    const ctx = this.ctx;
+
+    ctx.fillStyle = color;
+    ctx.strokeStyle = color;
     ctx.fillText(
-      `${worst.toFixed(2)}ms`,
-      this.xpos(worstpos) - 10,
-      this.ypos(worst) - 14
+      label,
+      this.xpos(numSamples) + 4 + label_offset,
+      this.ypos(delay) + 3
     );
+
+    ctx.beginPath();
+    ctx.moveTo(this.xpos(0), this.ypos(delay));
+    ctx.lineTo(this.xpos(numSamples) + label_offset, this.ypos(delay));
+    ctx.stroke();
+    ctx.strokeStyle = "rgb(0,0,0)";
+    ctx.fillStyle = "rgb(0,0,0)";
   }
 
-  // Mark and label the slowest frame
-  ctx.beginPath();
-  var where = sampleIndex % numSamples;
-  ctx.arc(
-    this.xpos(where),
-    this.ypos(gPerf.delays[where]),
-    5,
-    0,
-    Math.PI * 2,
-    true
-  );
-  ctx.fill();
-  ctx.fillStyle = "rgb(0,0,0)";
+  draw() {
+    const ctx = this.ctx;
 
-  this.drawAxisLabels("Time", "Pause between frames (log scale)");
-};
+    this.clear();
+    this.drawFrame();
 
-function MemoryGraph(ctx) {
-  Graph.call(this, ctx);
-  this.worstEver = this.bestEver = performance.mozMemory.zone.gcBytes;
-  this.limit = Math.max(
-    this.worstEver,
-    performance.mozMemory.zone.gcAllocTrigger
-  );
-}
-
-MemoryGraph.prototype = Object.create(Graph.prototype);
-
-Object.defineProperty(MemoryGraph.prototype, "constructor", {
-  enumerable: false,
-  value: MemoryGraph,
-});
-
-MemoryGraph.prototype.ypos = function(size) {
-  var { height } = this.ctx.canvas;
-
-  var range = this.limit - this.bestEver;
-  var percent = (size - this.bestEver) / range;
-
-  return (1 - percent) * height * 0.9 + 20;
-};
-
-MemoryGraph.prototype.drawHBar = function(
-  size,
-  label,
-  color = "rgb(150,150,150)"
-) {
-  var ctx = this.ctx;
-
-  var y = this.ypos(size);
-
-  ctx.fillStyle = color;
-  ctx.strokeStyle = color;
-  ctx.fillText(label, this.xpos(numSamples) + 4, y + 3);
-
-  ctx.beginPath();
-  ctx.moveTo(this.xpos(0), y);
-  ctx.lineTo(this.xpos(numSamples), y);
-  ctx.stroke();
-  ctx.strokeStyle = "rgb(0,0,0)";
-  ctx.fillStyle = "rgb(0,0,0)";
-};
-
-MemoryGraph.prototype.draw = function() {
-  var ctx = this.ctx;
-
-  this.clear();
-  this.drawFrame();
-
-  var worst = 0,
-    worstpos = 0;
-  for (let i = 0; i < numSamples; i++) {
-    if (gPerf.gcBytes[i] >= worst) {
-      worst = gPerf.gcBytes[i];
-      worstpos = i;
+    for (var delay of [10, 20, 30, 50, 100, 200, 400, 800]) {
+      this.drawScale(delay);
     }
-    if (gPerf.gcBytes[i] < this.bestEver) {
-      this.bestEver = gPerf.gcBytes[i];
+    this.draw60fps();
+    this.draw30fps();
+
+    var worst = 0,
+      worstpos = 0;
+    ctx.beginPath();
+    for (let i = 0; i < numSamples; i++) {
+      ctx.lineTo(this.xpos(i), this.ypos(gHistory.delays[i]));
+      if (gHistory.delays[i] >= worst) {
+        worst = gHistory.delays[i];
+        worstpos = i;
+      }
     }
+    ctx.stroke();
+
+    // Draw vertical lines marking minor and major GCs
+    if (gHost.features.haveGCCounts) {
+      ctx.strokeStyle = stroke.gcslice;
+      let idx = sampleIndex % numSamples;
+      const count = {
+        major: gHistory.majorGCs[idx],
+        minor: 0,
+        slice: gHistory.slices[idx],
+      };
+      for (let i = 0; i < numSamples; i++) {
+        idx = (sampleIndex + i) % numSamples;
+        const isMajorStart = count.major < gHistory.majorGCs[idx];
+        if (count.slice < gHistory.slices[idx]) {
+          if (isMajorStart) {
+            ctx.strokeStyle = stroke.initialMajor;
+          }
+          ctx.beginPath();
+          ctx.moveTo(this.xpos(idx), 0);
+          ctx.lineTo(this.xpos(idx), this.layout.xAxisLabel_Y);
+          ctx.stroke();
+          if (isMajorStart) {
+            ctx.strokeStyle = stroke.gcslice;
+          }
+        }
+        count.major = gHistory.majorGCs[idx];
+        count.slice = gHistory.slices[idx];
+      }
+
+      ctx.strokeStyle = stroke.minor;
+      idx = sampleIndex % numSamples;
+      count.minor = gHistory.minorGCs[idx];
+      for (let i = 0; i < numSamples; i++) {
+        idx = (sampleIndex + i) % numSamples;
+        if (count.minor < gHistory.minorGCs[idx]) {
+          ctx.beginPath();
+          ctx.moveTo(this.xpos(idx), 0);
+          ctx.lineTo(this.xpos(idx), 20);
+          ctx.stroke();
+        }
+        count.minor = gHistory.minorGCs[idx];
+      }
+    }
+
+    ctx.fillStyle = "rgb(255,0,0)";
+    if (worst) {
+      ctx.fillText(
+        `${worst.toFixed(2)}ms`,
+        this.xpos(worstpos) - 10,
+        this.ypos(worst) - 14
+      );
+    }
+
+    // Mark and label the slowest frame
+    ctx.beginPath();
+    var where = sampleIndex % numSamples;
+    ctx.arc(
+      this.xpos(where),
+      this.ypos(gHistory.delays[where]),
+      5,
+      0,
+      Math.PI * 2,
+      true
+    );
+    ctx.fill();
+    ctx.fillStyle = "rgb(0,0,0)";
+
+    this.drawAxisLabels("Time", "Pause between frames (log scale)");
+  }
+};
+
+var MemoryGraph = class extends Graph {
+  constructor(ctx) {
+    super(ctx);
+    this.worstEver = this.bestEver = gHost.gcBytes();
+    this.limit = Math.max(this.worstEver, gHost.gcAllocTrigger);
   }
 
-  if (this.worstEver < worst) {
-    this.worstEver = worst;
-    this.limit = Math.max(
+  ypos(size) {
+    const { height } = this.ctx.canvas;
+
+    const range = this.limit - this.bestEver;
+    const percent = (size - this.bestEver) / range;
+
+    return (1 - percent) * height * 0.9 + 20;
+  }
+
+  drawHBar(size, label, color = "rgb(150,150,150)") {
+    const ctx = this.ctx;
+
+    const y = this.ypos(size);
+
+    ctx.fillStyle = color;
+    ctx.strokeStyle = color;
+    ctx.fillText(label, this.xpos(numSamples) + 4, y + 3);
+
+    ctx.beginPath();
+    ctx.moveTo(this.xpos(0), y);
+    ctx.lineTo(this.xpos(numSamples), y);
+    ctx.stroke();
+    ctx.strokeStyle = "rgb(0,0,0)";
+    ctx.fillStyle = "rgb(0,0,0)";
+  }
+
+  draw() {
+    const ctx = this.ctx;
+
+    this.clear();
+    this.drawFrame();
+
+    var worst = 0,
+      worstpos = 0;
+    for (let i = 0; i < numSamples; i++) {
+      if (gHistory.gcBytes[i] >= worst) {
+        worst = gHistory.gcBytes[i];
+        worstpos = i;
+      }
+      if (gHistory.gcBytes[i] < this.bestEver) {
+        this.bestEver = gHistory.gcBytes[i];
+      }
+    }
+
+    if (this.worstEver < worst) {
+      this.worstEver = worst;
+      this.limit = Math.max(this.worstEver, gHost.gcAllocTrigger);
+    }
+
+    this.drawHBar(
+      this.bestEver,
+      `${format_bytes(this.bestEver)} min`,
+      "#00cf61"
+    );
+    this.drawHBar(
       this.worstEver,
-      performance.mozMemory.zone.gcAllocTrigger
+      `${format_bytes(this.worstEver)} max`,
+      "#cc1111"
     );
-  }
-
-  this.drawHBar(this.bestEver, `${format_bytes(this.bestEver)} min`, "#00cf61");
-  this.drawHBar(
-    this.worstEver,
-    `${format_bytes(this.worstEver)} max`,
-    "#cc1111"
-  );
-  this.drawHBar(
-    performance.mozMemory.zone.gcAllocTrigger,
-    `${format_bytes(performance.mozMemory.zone.gcAllocTrigger)} trigger`,
-    "#cc11cc"
-  );
-
-  ctx.fillStyle = "rgb(255,0,0)";
-  if (worst) {
-    ctx.fillText(
-      format_bytes(worst),
-      this.xpos(worstpos) - 10,
-      this.ypos(worst) - 14
+    this.drawHBar(
+      gHost.gcAllocTrigger,
+      `${format_bytes(gHost.gcAllocTrigger)} trigger`,
+      "#cc11cc"
     );
-  }
 
-  ctx.beginPath();
-  var where = sampleIndex % numSamples;
-  ctx.arc(
-    this.xpos(where),
-    this.ypos(gPerf.gcBytes[where]),
-    5,
-    0,
-    Math.PI * 2,
-    true
-  );
-  ctx.fill();
-
-  ctx.beginPath();
-  for (var i = 0; i < numSamples; i++) {
-    if (i == (sampleIndex + 1) % numSamples) {
-      ctx.moveTo(this.xpos(i), this.ypos(gPerf.gcBytes[i]));
-    } else {
-      ctx.lineTo(this.xpos(i), this.ypos(gPerf.gcBytes[i]));
+    ctx.fillStyle = "rgb(255,0,0)";
+    if (worst) {
+      ctx.fillText(
+        format_bytes(worst),
+        this.xpos(worstpos) - 10,
+        this.ypos(worst) - 14
+      );
     }
-    if (i == where) {
-      ctx.stroke();
-    }
-  }
-  ctx.stroke();
 
-  this.drawAxisLabels("Time", "Heap Memory Usage");
+    ctx.beginPath();
+    var where = sampleIndex % numSamples;
+    ctx.arc(
+      this.xpos(where),
+      this.ypos(gHistory.gcBytes[where]),
+      5,
+      0,
+      Math.PI * 2,
+      true
+    );
+    ctx.fill();
+
+    ctx.beginPath();
+    for (let i = 0; i < numSamples; i++) {
+      if (i == (sampleIndex + 1) % numSamples) {
+        ctx.moveTo(this.xpos(i), this.ypos(gHistory.gcBytes[i]));
+      } else {
+        ctx.lineTo(this.xpos(i), this.ypos(gHistory.gcBytes[i]));
+      }
+      if (i == where) {
+        ctx.stroke();
+      }
+    }
+    ctx.stroke();
+
+    this.drawAxisLabels("Time", "Heap Memory Usage");
+  }
 };
 
 function onUpdateDisplayChanged() {
   const do_graph = document.getElementById("do-graph");
   if (do_graph.checked) {
     window.requestAnimationFrame(handler);
-    gPerf.resume();
+    gHistory.resume();
   } else {
-    gPerf.pause();
+    gHistory.pause();
   }
   update_load_state_indicator();
 }
@@ -384,7 +403,7 @@ function onDoLoadChange() {
 
 var previous = 0;
 function handler(timestamp) {
-  if (gPerf.is_stopped()) {
+  if (gHistory.is_stopped()) {
     return;
   }
 
@@ -399,11 +418,10 @@ function handler(timestamp) {
 
   if (testState == "running") {
     document.getElementById("test-progress").textContent =
-      (gLoadMgr.cycleCurrentLoadRemaining(timestamp) / 1000).toFixed(1) +
-      " sec";
+      (gLoadMgr.currentLoadRemaining(timestamp) / 1000).toFixed(1) + " sec";
   }
 
-  const delay = gPerf.on_frame(timestamp);
+  const delay = gHistory.on_frame(timestamp);
 
   update_histogram(gHistogram, delay);
 
@@ -425,7 +443,7 @@ function summarize(arr) {
   var result = [];
   var run_start = 0;
   var prev = arr[0];
-  for (var i = 1; i <= arr.length; i++) {
+  for (let i = 1; i <= arr.length; i++) {
     if (i == arr.length || arr[i] != prev) {
       if (i == run_start + 1) {
         result.push(arr[i]);
@@ -443,7 +461,7 @@ function summarize(arr) {
 }
 
 function reset_draw_state() {
-  gPerf.reset();
+  gHistory.reset();
 }
 
 function onunload() {
@@ -500,7 +518,7 @@ function onload() {
   var canvas = document.getElementById("graph");
   latencyGraph = new LatencyGraph(canvas.getContext("2d"));
 
-  if (!performance.mozMemory) {
+  if (!gHost.features.haveMemorySizes) {
     document.getElementById("memgraph-disabled").style.display = "block";
     document.getElementById("track-sizes-div").style.display = "none";
   }
@@ -508,7 +526,7 @@ function onload() {
   trackHeapSizes(document.getElementById("track-sizes").checked);
 
   update_load_state_indicator();
-  gPerf.start();
+  gHistory.start();
 
   // Start drawing.
   reset_draw_state();
@@ -532,9 +550,12 @@ function start_test_cycle(tests_to_run) {
 }
 
 function update_load_state_indicator() {
-  if (!gLoadMgr.load_running()) {
+  if (
+    !gLoadMgr.load_running() ||
+    gLoadMgr.activeLoad().name == "noAllocation"
+  ) {
     loadState = "(none)";
-  } else if (gPerf.is_stopped() || gLoadMgr.paused) {
+  } else if (gHistory.is_stopped() || gLoadMgr.paused) {
     loadState = "(inactive)";
   } else {
     loadState = "(active)";
@@ -661,11 +682,11 @@ function garbage_per_frame_changed() {
 }
 
 function trackHeapSizes(track) {
-  features.trackingSizes = track;
+  enabled.trackingSizes = track && gHost.features.haveMemorySizes;
 
   var canvas = document.getElementById("memgraph");
 
-  if (features.trackingSizes) {
+  if (enabled.trackingSizes) {
     canvas.style.display = "block";
     memoryGraph = new MemoryGraph(canvas.getContext("2d"));
   } else {

@@ -257,7 +257,7 @@ void ScrollAnchorContainer::SelectAnchor() {
     ANCHOR_LOG("Beginning selection.\n");
     mAnchorNode = FindAnchorIn(mScrollFrame->mScrolledFrame);
   } else {
-    ANCHOR_LOG("Skipping selection, doesn't maintain a scroll anchor");
+    ANCHOR_LOG("Skipping selection, doesn't maintain a scroll anchor.\n");
     mAnchorNode = nullptr;
   }
 
@@ -366,6 +366,20 @@ void ScrollAnchorContainer::AdjustmentMade(nscoord aAdjustment) {
 void ScrollAnchorContainer::SuppressAdjustments() {
   ANCHOR_LOG("Received a scroll anchor suppression for %p.\n", this);
   mSuppressAnchorAdjustment = true;
+
+  // Forward to our parent if appropriate, that is, if we don't maintain an
+  // anchor, and we can't maintain one.
+  //
+  // Note that we need to check !CanMaintainAnchor(), instead of just whether
+  // our frame is in the anchor chain of our ancestor as InvalidateAnchor()
+  // does, given some suppression triggers apply even for nodes that are not in
+  // the anchor chain.
+  if (!mAnchorNode && !CanMaintainAnchor()) {
+    if (ScrollAnchorContainer* container = FindFor(Frame())) {
+      ANCHOR_LOG(" > Forwarding to parent anchor\n");
+      container->SuppressAdjustments();
+    }
+  }
 }
 
 void ScrollAnchorContainer::InvalidateAnchor(ScheduleSelection aSchedule) {
@@ -374,6 +388,7 @@ void ScrollAnchorContainer::InvalidateAnchor(ScheduleSelection aSchedule) {
   if (mAnchorNode) {
     SetAnchorFlags(mScrollFrame->mScrolledFrame, mAnchorNode, false);
   } else if (mScrollFrame->mScrolledFrame->IsInScrollAnchorChain()) {
+    ANCHOR_LOG(" > Forwarding to parent anchor\n");
     // We don't maintain an anchor, and our scrolled frame is in the anchor
     // chain of an ancestor. Invalidate that anchor.
     //
@@ -636,7 +651,7 @@ ScrollAnchorContainer::ExamineAnchorCandidate(nsIFrame* aFrame) const {
 
 nsIFrame* ScrollAnchorContainer::FindAnchorIn(nsIFrame* aFrame) const {
   // Visit the child lists of this frame
-  for (const auto& [list, listID] : aFrame->GetChildLists()) {
+  for (const auto& [list, listID] : aFrame->ChildLists()) {
     // Skip child lists that contain out-of-flow frames, we'll visit them by
     // following placeholders in the in-flow lists so that we visit these
     // frames in DOM order.

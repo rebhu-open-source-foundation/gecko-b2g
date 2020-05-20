@@ -92,7 +92,7 @@ class CreateFileTaskParent final : public FileSystemTaskParentBase {
 
   // This is going to be the content of the file, received by createFile()
   // params.
-  nsTArray<uint8_t> mArrayData;
+  CopyableTArray<uint8_t> mArrayData;
 
   bool mReplace;
 };

@@ -650,16 +650,6 @@ class ContentChild final : public PContentChild,
   bool DeallocPSessionStorageObserverChild(
       PSessionStorageObserverChild* aActor);
 
-  PSHEntryChild* AllocPSHEntryChild(PSHistoryChild* aSHistory,
-                                    uint64_t aSharedID);
-
-  void DeallocPSHEntryChild(PSHEntryChild*);
-
-  PSHistoryChild* AllocPSHistoryChild(
-      const MaybeDiscarded<BrowsingContext>& aContext);
-
-  void DeallocPSHistoryChild(PSHistoryChild* aActor);
-
   nsTArray<LookAndFeelInt>& LookAndFeelCache() { return mLookAndFeelCache; }
 
   /**
@@ -708,19 +698,10 @@ class ContentChild final : public PContentChild,
     return mBrowsingContextFieldEpoch;
   }
 
-  mozilla::ipc::IPCResult RecvDestroySHEntrySharedState(const uint64_t& aID);
-
-  mozilla::ipc::IPCResult RecvEvictContentViewers(
-      nsTArray<uint64_t>&& aToEvictSharedStateIDs);
-
   mozilla::ipc::IPCResult RecvSessionStorageData(
       uint64_t aTopContextId, const nsACString& aOriginAttrs,
       const nsACString& aOriginKey, const nsTArray<KeyValuePair>& aDefaultData,
       const nsTArray<KeyValuePair>& aSessionData);
-
-  mozilla::ipc::IPCResult RecvUpdateSHEntriesInDocShell(
-      CrossProcessSHEntry* aOldEntry, CrossProcessSHEntry* aNewEntry,
-      const MaybeDiscarded<BrowsingContext>& aContext);
 
   mozilla::ipc::IPCResult RecvOnAllowAccessFor(
       const MaybeDiscarded<BrowsingContext>& aContext,
@@ -866,7 +847,7 @@ class ContentChild final : public PContentChild,
 
   mozilla::ipc::IPCResult RecvWindowPostMessage(
       const MaybeDiscarded<BrowsingContext>& aContext,
-      const ClonedMessageData& aMessage, const PostMessageData& aData);
+      const ClonedOrErrorMessageData& aMessage, const PostMessageData& aData);
 
   mozilla::ipc::IPCResult RecvCommitBrowsingContextTransaction(
       const MaybeDiscarded<BrowsingContext>& aContext,
@@ -910,7 +891,10 @@ class ContentChild final : public PContentChild,
 
   JSActor::Type GetSide() override { return JSActor::Type::Child; }
 
- private:
+  mozilla::ipc::IPCResult RecvHistoryCommitLength(
+      const MaybeDiscarded<BrowsingContext>& aContext, uint32_t aLength);
+
+private:
 #ifdef NIGHTLY_BUILD
   virtual PContentChild::Result OnMessageReceived(const Message& aMsg) override;
 #else

@@ -88,46 +88,43 @@ using mozilla::PodCopy;
 // internals.
 //
 /* clang-format off */
-//                                                                                              //
-//   .---------.    .---------.    .--------------------------.       .----------.              //
-//   |TraceEdge|    |TraceRoot|    |TraceManuallyBarrieredEdge|  ...  |TraceRange|   ... etc.   //
-//   '---------'    '---------'    '--------------------------'       '----------'              //
-//        \              \                        /                        /                    //
-//         \              \  .-----------------. /                        /                     //
-//          o------------->o-|TraceEdgeInternal|-o<----------------------o                      //
-//                           '-----------------'                                                //
-//                              /          \                                                    //
-//                             /            \                                                   //
-//                       .---------.   .----------.         .-----------------.                 //
-//                       |DoMarking|   |DoCallback|-------> |<JSTraceCallback>|----------->     //
-//                       '---------'   '----------'         '-----------------'                 //
-//                            |                                                                 //
-//                            |                                                                 //
-//                     .-----------.                                                            //
-//      o------------->|traverse(T)| .                                                          //
-//     /_\             '-----------'   ' .                                                      //
-//      |                   .       .      ' .                                                  //
-//      |                   .         .        ' .                                              //
-//      |                   .           .          ' .                                          //
-//      |          .--------------.  .--------------.  ' .     .-----------------------.        //
-//      |          |markAndScan(T)|  |markAndPush(T)|      ' - |markAndTraceChildren(T)|        //
-//      |          '--------------'  '--------------'          '-----------------------'        //
-//      |                   |                  \                               |                //
-//      |                   |                   \                              |                //
-//      |       .----------------------.     .----------------.         .------------------.    //
-//      |       |eagerlyMarkChildren(T)|     |pushMarkStackTop|<===Oo   |T::traceChildren()|--> //
-//      |       '----------------------'     '----------------'    ||   '------------------'    //
-//      |                  |                         ||            ||                           //
-//      |                  |                         ||            ||                           //
-//      |                  |                         ||            ||                           //
-//      o<-----------------o<========================OO============Oo                           //
-//                                                                                              //
-//                                                                                              //
-//   Legend:                                                                                    //
-//     ------  Direct calls                                                                     //
-//     . . .   Static dispatch                                                                  //
-//     ======  Dispatch through a manual stack.                                                 //
-//                                                                                              //
+//
+//  +----------------------+                             ...................
+//  |                      |                             :                 :
+//  |                      v                             v                 :
+//  |      TraceRoot   TraceEdge   TraceRange        GCMarker::            :
+//  |          |           |           |         processMarkStackTop   +---+---+
+//  |          +-----------+-----------+                 |             |       |
+//  |                      |                             |             | Mark  |
+//  |                      v                             |             | Stack |
+//  |              TraceEdgeInternal                     |             |       |
+//  |                      |                             |             +---+---+
+//  |                      |                             |                 ^
+//  |       +--------------+---------------+             +<----------+     :
+//  |       |              |               |             |           |     :
+//  |       v              v               v             v           |     :
+//  |  DoCallback   TenuringTracer::   DoMarking    traverseEdge     |     :
+//  |       |          traverse            |             |           |     :
+//  |       |                              +------+------+           |     :
+//  |       |                                     |                  |     :
+//  |       v                                     v                  |     :
+//  |  CallbackTracer::                   GCMarker::traverse         |     :
+//  |  dispatchToOnEdge                           |                  |     :
+//  |                                             |                  |     :
+//  |             +-------------------+-----------+------+           |     :
+//  |             |                   |                  |           |     :
+//  |             v                   v                  v           |     :
+//  |    markAndTraceChildren    markAndPush    eagerlyMarkChildren  |     :
+//  |             |                   :                  |           |     :
+//  |             v                   :                  +-----------+     :
+//  |      T::traceChildren           :                                    :
+//  |             |                   :                                    :
+//  +-------------+                   ......................................
+//
+//   Legend:
+//     ------- Direct calls
+//     ....... Data flow
+//
 /* clang-format on */
 
 /*** Tracing Invariants *****************************************************/
@@ -1154,10 +1151,6 @@ void BaseScript::traceChildren(JSTracer* trc) {
 
   if (data_) {
     data_->trace(trc);
-  }
-
-  if (sharedData_) {
-    sharedData_->traceChildren(trc);
   }
 
   // Scripts with bytecode may have optional data stored in per-runtime or
@@ -2596,7 +2589,6 @@ GCMarker::GCMarker(JSRuntime* rt)
     : JSTracer(rt, JSTracer::TracerKindTag::Marking, ExpandWeakMaps),
       stack(),
       auxStack(),
-      color(MarkColor::Black),
       mainStackColor(MarkColor::Black),
       delayedMarkingList(nullptr),
       delayedMarkingWorkAdded(false),
@@ -2611,6 +2603,7 @@ GCMarker::GCMarker(JSRuntime* rt)
       queuePos(0)
 #endif
 {
+  setMarkColorUnchecked(MarkColor::Black);
   setTraceWeakEdges(false);
 }
 
@@ -2688,34 +2681,22 @@ void GCMarker::reset() {
 }
 
 void GCMarker::setMarkColor(gc::MarkColor newColor) {
-  if (color == newColor) {
-    return;
-  }
-  if (newColor == gc::MarkColor::Black) {
-    setMarkColorBlack();
-  } else {
-    setMarkColorGray();
+  if (color != newColor) {
+    MOZ_ASSERT(runtime()->gc.state() == State::Sweep);
+    setMarkColorUnchecked(newColor);
   }
 }
 
-void GCMarker::setMarkColorGray() {
-  MOZ_ASSERT(color == gc::MarkColor::Black);
-  MOZ_ASSERT(runtime()->gc.state() == State::Sweep);
-
-  color = gc::MarkColor::Gray;
-}
-
-void GCMarker::setMarkColorBlack() {
-  MOZ_ASSERT(color == gc::MarkColor::Gray);
-  MOZ_ASSERT(runtime()->gc.state() == State::Sweep);
-
-  color = gc::MarkColor::Black;
+void GCMarker::setMarkColorUnchecked(gc::MarkColor newColor) {
+  color = newColor;
+  currentStackPtr = &getStack(color);
 }
 
 void GCMarker::setMainStackColor(gc::MarkColor newColor) {
   if (newColor != mainStackColor) {
     MOZ_ASSERT(isMarkStackEmpty());
     mainStackColor = newColor;
+    setMarkColorUnchecked(color);
   }
 }
 

@@ -66,6 +66,17 @@ static bool IsLegacyBox(const nsIFrame* aFlexContainer) {
   return aFlexContainer->HasAnyStateBits(NS_STATE_FLEX_IS_EMULATING_LEGACY_BOX);
 }
 
+// Returns the OrderState enum we should pass to CSSOrderAwareFrameIterator
+// (depending on whether aFlexContainer has
+// NS_STATE_FLEX_NORMAL_FLOW_CHILDREN_IN_CSS_ORDER state bit).
+static CSSOrderAwareFrameIterator::OrderState OrderStateForIter(
+    const nsFlexContainerFrame* aFlexContainer) {
+  return aFlexContainer->HasAnyStateBits(
+             NS_STATE_FLEX_NORMAL_FLOW_CHILDREN_IN_CSS_ORDER)
+             ? CSSOrderAwareFrameIterator::OrderState::eKnownOrdered
+             : CSSOrderAwareFrameIterator::OrderState::eKnownUnordered;
+}
+
 // Returns the OrderingProperty enum that we should pass to
 // CSSOrderAwareFrameIterator (depending on whether it's a legacy box).
 static CSSOrderAwareFrameIterator::OrderingProperty OrderingPropertyForIter(
@@ -218,24 +229,11 @@ static inline bool IsAutoOrEnumOnBSize(const StyleSize& aSize, bool aIsInline) {
       ? (bsize_)                                                       \
       : (isize_)
 
-// Flags to customize behavior of the FlexboxAxisTracker constructor:
-enum class AxisTrackerFlags {
-  eNoFlags = 0x0,
-
-  // Normally, FlexboxAxisTracker may attempt to reverse axes & iteration order
-  // to avoid bottom-to-top child ordering, for saner pagination. This flag
-  // suppresses that behavior (so that we allow bottom-to-top child ordering).
-  // (This may be helpful e.g. when we're only dealing with a single child.)
-  eAllowBottomToTopChildOrdering = 0x1
-};
-MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(AxisTrackerFlags)
-
 // Encapsulates our flex container's main & cross axes.
 class MOZ_STACK_CLASS nsFlexContainerFrame::FlexboxAxisTracker {
  public:
   FlexboxAxisTracker(const nsFlexContainerFrame* aFlexContainer,
-                     const WritingMode& aWM,
-                     AxisTrackerFlags aFlags = AxisTrackerFlags::eNoFlags);
+                     const WritingMode& aWM);
 
   // Accessors:
   LogicalAxis MainAxis() const { return mMainAxis; }
@@ -347,11 +345,6 @@ class MOZ_STACK_CLASS nsFlexContainerFrame::FlexboxAxisTracker {
                           : LogicalSize(mWM, aCrossSize, aMainSize);
   }
 
-  // Are my axes reversed with respect to what the author asked for?
-  // (We may reverse the axes in the FlexboxAxisTracker constructor and set
-  // this flag, to avoid reflowing our children in bottom-to-top order.)
-  bool AreAxesInternallyReversed() const { return mAreAxesInternallyReversed; }
-
   bool IsMainAxisHorizontal() const {
     // If we're row-oriented, and our writing mode is NOT vertical,
     // or we're column-oriented and our writing mode IS vertical,
@@ -386,11 +379,6 @@ class MOZ_STACK_CLASS nsFlexContainerFrame::FlexboxAxisTracker {
   // Is our cross axis in the opposite direction as mWM's corresponding axis?
   // (e.g. BTT vs TTB)
   bool mIsCrossAxisReversed = false;
-
-  // Implementation detail -- this indicates whether we've decided to
-  // transparently reverse our axes & our child ordering, to avoid having
-  // frames flow from bottom to top in either axis (& to make pagination saner).
-  bool mAreAxesInternallyReversed = false;
 };
 
 /**
@@ -1001,10 +989,8 @@ class nsFlexContainerFrame::FlexLine final {
 
   /**
    * Returns the offset within this line where any baseline-aligned FlexItems
-   * should place their baseline. Usually, this represents a distance from the
-   * line's cross-start edge, but if we're internally reversing the axes (see
-   * AreAxesInternallyReversed()), this instead represents the distance from
-   * its cross-end edge.
+   * should place their baseline. The return value represents a distance from
+   * the line's cross-start edge.
    *
    * If there are no baseline-aligned FlexItems, returns nscoord_MIN.
    */
@@ -1100,6 +1086,67 @@ struct nsFlexContainerFrame::SharedFlexData {
   NS_DECLARE_FRAME_PROPERTY_DELETABLE(Prop, SharedFlexData)
 };
 
+// Forward iterate all the FlexItems in aLines.
+class nsFlexContainerFrame::FlexItemIterator final {
+ public:
+  explicit FlexItemIterator(const nsTArray<FlexLine>& aLines)
+      : mLineIter(aLines.begin()),
+        mLineIterEnd(aLines.end()),
+        mItemIter(mLineIter->Items().begin()),
+        mItemIterEnd(mLineIter->Items().end()) {
+    MOZ_ASSERT(mLineIter != mLineIterEnd,
+               "Flex container should have at least one FlexLine!");
+
+    if (mItemIter == mItemIterEnd) {
+      // The flex container is empty, so advance to mLineIterEnd.
+      ++mLineIter;
+      MOZ_ASSERT(AtEnd());
+    }
+  }
+
+  void Next() {
+    MOZ_ASSERT(!AtEnd());
+    ++mItemIter;
+
+    if (mItemIter == mItemIterEnd) {
+      // We are pointing to the end of the flex items, so advance to the next
+      // line.
+      ++mLineIter;
+
+      if (mLineIter != mLineIterEnd) {
+        mItemIter = mLineIter->Items().begin();
+        mItemIterEnd = mLineIter->Items().end();
+        MOZ_ASSERT(mItemIter != mItemIterEnd,
+                   "Why do we have a FlexLine with no FlexItem?");
+      }
+    }
+  }
+
+  bool AtEnd() const {
+    MOZ_ASSERT(
+        (mLineIter == mLineIterEnd && mItemIter == mItemIterEnd) ||
+            (mLineIter != mLineIterEnd && mItemIter != mItemIterEnd),
+        "Line & item iterators should agree on whether we're at the end!");
+    return mLineIter == mLineIterEnd;
+  }
+
+  const FlexItem& operator*() const {
+    MOZ_ASSERT(!AtEnd());
+    return mItemIter.operator*();
+  }
+
+  const FlexItem* operator->() const {
+    MOZ_ASSERT(!AtEnd());
+    return mItemIter.operator->();
+  }
+
+ private:
+  nsTArray<FlexLine>::const_iterator mLineIter;
+  nsTArray<FlexLine>::const_iterator mLineIterEnd;
+  nsTArray<FlexItem>::const_iterator mItemIter;
+  nsTArray<FlexItem>::const_iterator mItemIterEnd;
+};
+
 static void BuildStrutInfoFromCollapsedItems(const nsTArray<FlexLine>& aLines,
                                              nsTArray<StrutInfo>& aStruts) {
   MOZ_ASSERT(aStruts.IsEmpty(),
@@ -1164,8 +1211,7 @@ static mozilla::StyleAlignFlags SimplifyAlignOrJustifyContentForOneItem(
 StyleAlignFlags nsFlexContainerFrame::CSSAlignmentForAbsPosChild(
     const ReflowInput& aChildRI, LogicalAxis aLogicalAxis) const {
   WritingMode wm = GetWritingMode();
-  const FlexboxAxisTracker axisTracker(
-      this, wm, AxisTrackerFlags::eAllowBottomToTopChildOrdering);
+  const FlexboxAxisTracker axisTracker(this, wm);
 
   // If we're row-oriented and the caller is asking about our inline axis (or
   // alternately, if we're column-oriented and the caller is asking about our
@@ -2207,7 +2253,7 @@ static bool FrameHasRelativeBSizeDependency(nsIFrame* aFrame) {
   if (aFrame->HasAnyStateBits(NS_FRAME_CONTAINS_RELATIVE_BSIZE)) {
     return true;
   }
-  for (const auto& childList : aFrame->GetChildLists()) {
+  for (const auto& childList : aFrame->ChildLists()) {
     for (nsIFrame* childFrame : childList.mList) {
       if (childFrame->HasAnyStateBits(NS_FRAME_CONTAINS_RELATIVE_BSIZE)) {
         return true;
@@ -2575,15 +2621,10 @@ void nsFlexContainerFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
   // the BlockBorderBackgrounds list.
   nsDisplayListSet childLists(tempLists, tempLists.BlockBorderBackgrounds());
 
-  using OrderState = CSSOrderAwareFrameIterator::OrderState;
-  OrderState orderState =
-      HasAnyStateBits(NS_STATE_FLEX_NORMAL_FLOW_CHILDREN_IN_CSS_ORDER)
-          ? OrderState::eKnownOrdered
-          : OrderState::eKnownUnordered;
+  CSSOrderAwareFrameIterator iter(
+      this, kPrincipalList, CSSOrderAwareFrameIterator::eIncludeAll,
+      OrderStateForIter(this), OrderingPropertyForIter(this));
 
-  CSSOrderAwareFrameIterator iter(this, kPrincipalList,
-                                  CSSOrderAwareFrameIterator::eIncludeAll,
-                                  orderState, OrderingPropertyForIter(this));
   for (; !iter.AtEnd(); iter.Next()) {
     nsIFrame* childFrame = *iter;
     BuildDisplayListForChild(aBuilder, childFrame, childLists,
@@ -3098,24 +3139,6 @@ MainAxisPositionTracker::MainAxisPositionTracker(
     }
   }
 
-  // If our main axis is (internally) reversed, swap the justify-content
-  // "flex-start" and "flex-end" behaviors:
-  // NOTE: This must happen ...
-  //  - *after* value-simplification for values that are dependent on our
-  //    flex-axis reversedness; e.g. for "space-between" which specifically
-  //    behaves like "flex-start" in some cases (per spec), and hence depends on
-  //    the reversedness of flex axes.
-  //  - *before* value simplification for values that don't care about
-  //    flex-relative axis direction; e.g. for "start" which purely depends on
-  //    writing-mode and isn't affected by reversedness of flex axes.
-  if (aAxisTracker.AreAxesInternallyReversed()) {
-    if (mJustifyContent.primary == StyleAlignFlags::FLEX_START) {
-      mJustifyContent.primary = StyleAlignFlags::FLEX_END;
-    } else if (mJustifyContent.primary == StyleAlignFlags::FLEX_END) {
-      mJustifyContent.primary = StyleAlignFlags::FLEX_START;
-    }
-  }
-
   // Map 'left'/'right' to 'start'/'end'
   if (mJustifyContent.primary == StyleAlignFlags::LEFT ||
       mJustifyContent.primary == StyleAlignFlags::RIGHT) {
@@ -3307,18 +3330,6 @@ CrossAxisPositionTracker::CrossAxisPositionTracker(
     }
   }
 
-  // If our cross axis is (internally) reversed, swap the align-content
-  // "flex-start" and "flex-end" behaviors:
-  // NOTE: It matters precisely when we do this; see comment alongside
-  // MainAxisPositionTracker's AreAxesInternallyReversed check.
-  if (aAxisTracker.AreAxesInternallyReversed()) {
-    if (mAlignContent.primary == StyleAlignFlags::FLEX_START) {
-      mAlignContent.primary = StyleAlignFlags::FLEX_END;
-    } else if (mAlignContent.primary == StyleAlignFlags::FLEX_END) {
-      mAlignContent.primary = StyleAlignFlags::FLEX_START;
-    }
-  }
-
   // Map 'start'/'end' to 'flex-start'/'flex-end'.
   if (mAlignContent.primary == StyleAlignFlags::START) {
     mAlignContent.primary = aAxisTracker.IsCrossAxisReversed()
@@ -3473,17 +3484,11 @@ void FlexLine::ComputeCrossSizeAndBaseline(
     }
   }
 
-  // The line's baseline offset is the distance from the line's edge (start or
-  // end, depending on whether we've flipped the axes) to the furthest
-  // item-baseline. The item(s) with that baseline will be exactly aligned with
-  // the line's edge.
-  mFirstBaselineOffset = aAxisTracker.AreAxesInternallyReversed()
-                             ? crossEndToFurthestFirstBaseline
-                             : crossStartToFurthestFirstBaseline;
-
-  mLastBaselineOffset = aAxisTracker.AreAxesInternallyReversed()
-                            ? crossStartToFurthestLastBaseline
-                            : crossEndToFurthestLastBaseline;
+  // The line's baseline offset is the distance from the line's edge to the
+  // furthest item-baseline. The item(s) with that baseline will be exactly
+  // aligned with the line's edge.
+  mFirstBaselineOffset = crossStartToFurthestFirstBaseline;
+  mLastBaselineOffset = crossEndToFurthestLastBaseline;
 
   // The line's cross-size is the larger of:
   //  (a) [largest cross-start-to-baseline + largest baseline-to-cross-end] of
@@ -3593,16 +3598,6 @@ void SingleLineCrossAxisPositionTracker::EnterAlignPackingSpace(
     alignSelf = StyleAlignFlags::FLEX_START;
   }
 
-  // If our cross axis is (internally) reversed, swap the align-self
-  // "flex-start" and "flex-end" behaviors:
-  if (aAxisTracker.AreAxesInternallyReversed()) {
-    if (alignSelf == StyleAlignFlags::FLEX_START) {
-      alignSelf = StyleAlignFlags::FLEX_END;
-    } else if (alignSelf == StyleAlignFlags::FLEX_END) {
-      alignSelf = StyleAlignFlags::FLEX_START;
-    }
-  }
-
   // Map 'self-start'/'self-end' to 'start'/'end'
   if (alignSelf == StyleAlignFlags::SELF_START ||
       alignSelf == StyleAlignFlags::SELF_END) {
@@ -3645,15 +3640,12 @@ void SingleLineCrossAxisPositionTracker::EnterAlignPackingSpace(
              alignSelf == StyleAlignFlags::LAST_BASELINE) {
     const bool useFirst = (alignSelf == StyleAlignFlags::BASELINE);
 
-    // Normally, baseline-aligned items are collectively aligned with the
-    // line's physical cross-start side; however, if our cross axis is
-    // (internally) reversed, we instead align them with the physical
-    // cross-end side. A similar logic holds for last baseline-aligned items,
-    // but in reverse.
+    // Baseline-aligned items are collectively aligned with the line's physical
+    // cross-start or cross-end side, depending on whether we're doing
+    // first-baseline or last-baseline alignment.
     const mozilla::Side baselineAlignStartSide =
-        aAxisTracker.AreAxesInternallyReversed() == useFirst
-            ? aAxisTracker.CrossAxisPhysicalEndSide()
-            : aAxisTracker.CrossAxisPhysicalStartSide();
+        useFirst ? aAxisTracker.CrossAxisPhysicalStartSide()
+                 : aAxisTracker.CrossAxisPhysicalEndSide();
 
     nscoord itemBaselineOffset = aItem.BaselineOffsetFromOuterCrossEdge(
         baselineAlignStartSide, useFirst);
@@ -3668,15 +3660,15 @@ void SingleLineCrossAxisPositionTracker::EnterAlignPackingSpace(
     // to get the item's baseline to hit the line's baseline offset:
     nscoord baselineDiff = lineBaselineOffset - itemBaselineOffset;
 
-    if (aAxisTracker.AreAxesInternallyReversed() == useFirst) {
+    if (useFirst) {
+      // mPosition is already at line's flex-start edge.
+      // From there, we step *forward* by the baseline adjustment:
+      mPosition += baselineDiff;
+    } else {
       // Advance to align item w/ line's flex-end edge (as in FLEX_END case):
       mPosition += aLine.LineCrossSize() - aItem.OuterCrossSize();
       // ...and step *back* by the baseline adjustment:
       mPosition -= baselineDiff;
-    } else {
-      // mPosition is already at line's flex-start edge.
-      // From there, we step *forward* by the baseline adjustment:
-      mPosition += baselineDiff;
     }
   } else {
     MOZ_ASSERT_UNREACHABLE("Unexpected align-self value");
@@ -3684,33 +3676,12 @@ void SingleLineCrossAxisPositionTracker::EnterAlignPackingSpace(
 }
 
 FlexboxAxisTracker::FlexboxAxisTracker(
-    const nsFlexContainerFrame* aFlexContainer, const WritingMode& aWM,
-    AxisTrackerFlags aFlags)
+    const nsFlexContainerFrame* aFlexContainer, const WritingMode& aWM)
     : mWM(aWM) {
   if (IsLegacyBox(aFlexContainer)) {
     InitAxesFromLegacyProps(aFlexContainer);
   } else {
     InitAxesFromModernProps(aFlexContainer);
-  }
-
-  // Master switch to enable/disable bug 983427's code for reversing our axes
-  // and reversing some logic, to avoid reflowing children in bottom-to-top
-  // order. (This switch can be removed eventually, but for now, it allows
-  // this special-case code path to be compared against the normal code path.)
-  static bool sPreventBottomToTopChildOrdering = true;
-
-  // Note: if the eAllowBottomToTopChildOrdering flag is set, that overrides
-  // the static boolean and makes us skip this special case.
-  if (!(aFlags & AxisTrackerFlags::eAllowBottomToTopChildOrdering) &&
-      sPreventBottomToTopChildOrdering) {
-    // If either axis is bottom-to-top, we flip both axes (and set a flag
-    // so that we can flip some logic to make the reversal transparent).
-    if (MainAxisPhysicalStartSide() == eSideBottom ||
-        CrossAxisPhysicalStartSide() == eSideBottom) {
-      mAreAxesInternallyReversed = true;
-      mIsMainAxisReversed = !mIsMainAxisReversed;
-      mIsCrossAxisReversed = !mIsCrossAxisReversed;
-    }
   }
 }
 
@@ -3873,11 +3844,8 @@ void nsFlexContainerFrame::GenerateFlexLines(
       this, kPrincipalList, CSSOrderAwareFrameIterator::eIncludeAll,
       CSSOrderAwareFrameIterator::eUnknownOrder, OrderingPropertyForIter(this));
 
-  if (iter.ItemsAreAlreadyInOrder()) {
-    AddStateBits(NS_STATE_FLEX_NORMAL_FLOW_CHILDREN_IN_CSS_ORDER);
-  } else {
-    RemoveStateBits(NS_STATE_FLEX_NORMAL_FLOW_CHILDREN_IN_CSS_ORDER);
-  }
+  AddOrRemoveStateBits(NS_STATE_FLEX_NORMAL_FLOW_CHILDREN_IN_CSS_ORDER,
+                       iter.ItemsAreAlreadyInOrder());
 
   const bool useMozBoxCollapseBehavior =
       ShouldUseMozBoxCollapseBehavior(aReflowInput.mStyleDisplay);
@@ -3957,15 +3925,45 @@ void nsFlexContainerFrame::GenerateFlexLines(
     }
     itemIdxInContainer++;
   }
+}
 
-  // If we're transparently reversing axes, then we'll need to reverse the order
-  // of our FlexItems and FlexLines, so that the rest of flex layout (with
-  // flipped axes) will still produce the correct result.
-  if (aAxisTracker.AreAxesInternallyReversed()) {
-    for (FlexLine& line : aLines) {
-      line.Items().Reverse();
+void nsFlexContainerFrame::GenerateFlexLines(const SharedFlexData& aData,
+                                             nsTArray<FlexLine>& aLines) {
+  MOZ_ASSERT(GetPrevInFlow(), "This should be called by non-first-in-flows!");
+
+  // Pretend we have only one line and zero main gap size.
+  aLines.AppendElement(FlexLine(0));
+
+  // The order state of the children is consistent across entire continuation
+  // chain due to calling nsContainerFrame::NormalizeChildLists() at the
+  // beginning of Reflow(), so we can align our state bit with our
+  // prev-in-flow's state. Setup here before calling OrderStateForIter() below.
+  AddOrRemoveStateBits(NS_STATE_FLEX_NORMAL_FLOW_CHILDREN_IN_CSS_ORDER,
+                       GetPrevInFlow()->HasAnyStateBits(
+                           NS_STATE_FLEX_NORMAL_FLOW_CHILDREN_IN_CSS_ORDER));
+
+  // Construct flex items for this flex container fragment from existing flex
+  // items in SharedFlexData.
+  CSSOrderAwareFrameIterator iter(
+      this, kPrincipalList, CSSOrderAwareFrameIterator::eSkipPlaceholders,
+      OrderStateForIter(this), OrderingPropertyForIter(this));
+
+  FlexItemIterator itemIter(aData.mLines);
+
+  for (; !iter.AtEnd(); iter.Next()) {
+    nsIFrame* const child = *iter;
+    nsIFrame* const childFirstInFlow = child->FirstInFlow();
+
+    MOZ_ASSERT(!itemIter.AtEnd(),
+               "Why can't we find FlexItem for our child frame?");
+
+    for (; !itemIter.AtEnd(); itemIter.Next()) {
+      if (itemIter->Frame() == childFirstInFlow) {
+        aLines[0].Items().AppendElement(itemIter->CloneFor(child));
+        itemIter.Next();
+        break;
+      }
     }
-    aLines.Reverse();
   }
 }
 
@@ -4366,29 +4364,7 @@ void nsFlexContainerFrame::Reflow(nsPresContext* aPresContext,
   } else {
     auto* data = FirstInFlow()->GetProperty(SharedFlexData::Prop());
 
-    // Pretend we have only one line and zero main gap size.
-    lines.AppendElement(FlexLine(0));
-
-    // Construct flex items for this flex container fragment from existing flex
-    // items in SharedFlexData.
-    CSSOrderAwareFrameIterator iter(
-        this, kPrincipalList, CSSOrderAwareFrameIterator::eSkipPlaceholders,
-        CSSOrderAwareFrameIterator::eUnknownOrder,
-        OrderingPropertyForIter(this));
-
-    // FIXME(Bug 1637145): This has worst-case O(n^3) performance.
-    for (; !iter.AtEnd(); iter.Next()) {
-      nsIFrame* const child = *iter;
-      nsIFrame* const childFirstInFlow = child->FirstInFlow();
-      for (const FlexLine& line : data->mLines) {
-        for (const FlexItem& item : line.Items()) {
-          if (item.Frame() == childFirstInFlow) {
-            lines[0].Items().AppendElement(item.CloneFor(child));
-          }
-        }
-      }
-    }
-
+    GenerateFlexLines(*data, lines);
     contentBoxMainSize = data->mContentBoxMainSize;
     contentBoxCrossSize = data->mContentBoxCrossSize;
   }
@@ -4680,14 +4656,10 @@ void nsFlexContainerFrame::ComputeFlexDirections(
 
   aContainerInfo.mMainAxisDirection =
       ConvertPhysicalStartSideToFlexPhysicalDirection(
-          aAxisTracker.AreAxesInternallyReversed()
-              ? aAxisTracker.MainAxisPhysicalEndSide()
-              : aAxisTracker.MainAxisPhysicalStartSide());
+          aAxisTracker.MainAxisPhysicalStartSide());
   aContainerInfo.mCrossAxisDirection =
       ConvertPhysicalStartSideToFlexPhysicalDirection(
-          aAxisTracker.AreAxesInternallyReversed()
-              ? aAxisTracker.CrossAxisPhysicalEndSide()
-              : aAxisTracker.CrossAxisPhysicalStartSide());
+          aAxisTracker.CrossAxisPhysicalStartSide());
 }
 
 void nsFlexContainerFrame::UpdateFlexLineAndItemInfo(
@@ -4958,17 +4930,15 @@ void nsFlexContainerFrame::DoFlexLayout(
   // do that here (while crossAxisPosnTracker is conveniently pointing
   // at the cross-start edge of that line, which the line's baseline offset is
   // measured from):
-  if (!aAxisTracker.AreAxesInternallyReversed()) {
-    nscoord firstLineBaselineOffset = aLines[0].FirstBaselineOffset();
-    if (firstLineBaselineOffset == nscoord_MIN) {
-      // No baseline-aligned items in line. Use sentinel value to prompt us to
-      // get baseline from the first FlexItem after we've reflowed it.
-      aFlexContainerAscent = nscoord_MIN;
-    } else {
-      aFlexContainerAscent = ComputePhysicalAscentFromFlexRelativeAscent(
-          crossAxisPosnTracker.Position() + firstLineBaselineOffset,
-          aContentBoxCrossSize, aReflowInput, aAxisTracker);
-    }
+  if (nscoord firstLineBaselineOffset = aLines[0].FirstBaselineOffset();
+      firstLineBaselineOffset == nscoord_MIN) {
+    // No baseline-aligned items in line. Use sentinel value to prompt us to
+    // get baseline from the first FlexItem after we've reflowed it.
+    aFlexContainerAscent = nscoord_MIN;
+  } else {
+    aFlexContainerAscent = ComputePhysicalAscentFromFlexRelativeAscent(
+        crossAxisPosnTracker.Position() + firstLineBaselineOffset,
+        aContentBoxCrossSize, aReflowInput, aAxisTracker);
   }
 
   const auto justifyContent =
@@ -5021,23 +4991,6 @@ void nsFlexContainerFrame::DoFlexLayout(
     }
     ++lineIndex;
   }
-
-  // If the container should derive its baseline from the last FlexLine,
-  // do that here (while crossAxisPosnTracker is conveniently pointing
-  // at the cross-end edge of that line, which the line's baseline offset is
-  // measured from):
-  if (aAxisTracker.AreAxesInternallyReversed()) {
-    nscoord lastLineBaselineOffset = aLines.LastElement().FirstBaselineOffset();
-    if (lastLineBaselineOffset == nscoord_MIN) {
-      // No baseline-aligned items in line. Use sentinel value to prompt us to
-      // get baseline from the last FlexItem after we've reflowed it.
-      aFlexContainerAscent = nscoord_MIN;
-    } else {
-      aFlexContainerAscent = ComputePhysicalAscentFromFlexRelativeAscent(
-          crossAxisPosnTracker.Position() - lastLineBaselineOffset,
-          aContentBoxCrossSize, aReflowInput, aAxisTracker);
-    }
-  }
 }
 
 std::tuple<nscoord, bool> nsFlexContainerFrame::ReflowChildren(
@@ -5062,14 +5015,10 @@ std::tuple<nscoord, bool> nsFlexContainerFrame::ReflowChildren(
   logSize += aBorderPadding.Size(flexWM);
   nsSize containerSize = logSize.GetPhysicalSize(flexWM);
 
-  // If the flex container has no baseline-aligned items, it will use this item
-  // (the first item, discounting any under-the-hood reversing that we've done)
-  // to determine its baseline:
+  // If the flex container has no baseline-aligned items, it will use the first
+  // item to determine its baseline:
   const FlexItem* firstItem =
-      aAxisTracker.AreAxesInternallyReversed()
-          ? (aLines.LastElement().IsEmpty() ? nullptr
-                                            : &aLines.LastElement().LastItem())
-          : (aLines[0].IsEmpty() ? nullptr : &aLines[0].FirstItem());
+      aLines[0].IsEmpty() ? nullptr : &aLines[0].FirstItem();
 
   // The block-end of children is relative to the flex container's border-box.
   nscoord maxBlockEndEdgeOfChildren = containerContentBoxOrigin.B(flexWM);

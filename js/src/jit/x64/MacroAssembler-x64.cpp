@@ -591,8 +591,8 @@ void MacroAssembler::wasmLoad(const wasm::MemoryAccessDesc& access,
     case Scalar::Float64:
       loadDouble(srcAddr, out.fpu());
       break;
-    case Scalar::V128:
-      vmovups(srcAddr, out.fpu());
+    case Scalar::Simd128:
+      MacroAssemblerX64::loadUnalignedSimd128(srcAddr, out.fpu());
       break;
     case Scalar::Int64:
       MOZ_CRASH("int64 loads must use load64");
@@ -636,7 +636,7 @@ void MacroAssembler::wasmLoadI64(const wasm::MemoryAccessDesc& access,
       break;
     case Scalar::Float32:
     case Scalar::Float64:
-    case Scalar::V128:
+    case Scalar::Simd128:
       MOZ_CRASH("float loads must use wasmLoad");
     case Scalar::Uint8Clamped:
     case Scalar::BigInt64:
@@ -675,8 +675,8 @@ void MacroAssembler::wasmStore(const wasm::MemoryAccessDesc& access,
     case Scalar::Float64:
       storeUncanonicalizedDouble(value.fpu(), dstAddr);
       break;
-    case Scalar::V128:
-      vmovups(value.fpu(), dstAddr);
+    case Scalar::Simd128:
+      MacroAssemblerX64::storeUnalignedSimd128(value.fpu(), dstAddr);
       break;
     case Scalar::Uint8Clamped:
     case Scalar::BigInt64:

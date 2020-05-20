@@ -388,7 +388,7 @@ bool AudioManager::IsFmOutConnected() {
 #elif defined(PRODUCT_MANUFACTURER_MTK)
   return mConnectedDevices.Get(AUDIO_DEVICE_IN_FM_TUNER, nullptr);
 #else
-  MOZ_CRASH("FM radio not supported");
+  // MOZ_CRASH("FM radio not supported");
   return false;
 #endif
 }

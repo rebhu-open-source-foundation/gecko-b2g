@@ -146,7 +146,7 @@
 #include "vm/ModuleBuilder.h"  // js::ModuleBuilder
 #include "vm/Monitor.h"
 #include "vm/MutexIDs.h"
-#include "vm/Printer.h"
+#include "vm/Printer.h"        // QuoteString
 #include "vm/PromiseObject.h"  // js::PromiseObject
 #include "vm/Shape.h"
 #include "vm/SharedArrayObject.h"
@@ -498,7 +498,7 @@ bool shell::enableWasmGc = false;
 bool shell::enableWasmMultiValue = true;
 #endif
 #ifdef ENABLE_WASM_SIMD
-bool shell::enableWasmSimd = false;
+bool shell::enableWasmSimd = true;
 #endif
 bool shell::enableWasmVerbose = false;
 bool shell::enableTestWasmAwaitTier2 = false;
@@ -1327,6 +1327,10 @@ static bool AddIntlExtras(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   if (!js::AddMozDateTimeFormatConstructor(cx, intl)) {
+    return false;
+  }
+
+  if (!js::AddMozDisplayNamesConstructor(cx, intl)) {
     return false;
   }
 
@@ -3228,6 +3232,21 @@ static MOZ_MUST_USE bool GCThings(JSContext* cx, HandleScript script,
         if (!sp->put("\n")) {
           return false;
         }
+      }
+    } else if (gcThing.is<JSString>()) {
+      if (!sp->put("Atom       ")) {
+        return false;
+      }
+      RootedAtom atom(cx, &gcThing.as<JSString>().asAtom());
+      UniqueChars chars = QuoteString(cx, atom, '"');
+      if (!chars) {
+        return false;
+      }
+      if (!sp->put(chars.get())) {
+        return false;
+      }
+      if (!sp->put("\n")) {
+        return false;
       }
     } else {
       if (!sp->put("Unknown\n")) {
@@ -10224,7 +10243,7 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
   enableWasmMultiValue = !op.getBoolOption("no-wasm-multi-value");
 #endif
 #ifdef ENABLE_WASM_SIMD
-  enableWasmSimd = op.getBoolOption("wasm-simd");
+  enableWasmSimd = !op.getBoolOption("no-wasm-simd");
 #endif
   enableWasmVerbose = op.getBoolOption("wasm-verbose");
   enableTestWasmAwaitTier2 = op.getBoolOption("test-wasm-await-tier2");
@@ -11068,10 +11087,10 @@ int main(int argc, char** argv, char** envp) {
       !op.addBoolOption('\0', "no-wasm-multi-value", "No-op") ||
 #endif
 #ifdef ENABLE_WASM_SIMD
-      !op.addBoolOption('\0', "wasm-simd",
-                        "Enable experimental wasm SIMD features") ||
+      !op.addBoolOption('\0', "no-wasm-simd",
+                        "Disable experimental wasm SIMD features") ||
 #else
-      !op.addBoolOption('\0', "wasm-simd", "No-op") ||
+      !op.addBoolOption('\0', "no-wasm-simd", "No-op") ||
 #endif
       !op.addBoolOption('\0', "no-native-regexp",
                         "Disable native regexp compilation") ||

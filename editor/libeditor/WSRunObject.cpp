@@ -980,7 +980,9 @@ void WSRunScanner::GetRuns() {
   // the scan range isn't in preformatted element, we need to check only the
   // style at mScanStartPoint since the range would be replaced and the start
   // style will be applied to all new string.
-  mPRE = EditorBase::IsPreformatted(mScanStartPoint.GetContainer());
+  mPRE =
+      mScanStartPoint.IsInContentNode() &&
+      EditorUtils::IsContentPreformatted(*mScanStartPoint.ContainerAsContent());
   // if it's preformatedd, or if we are surrounded by text or special, it's all
   // one big normal ws run
   if (mPRE ||
@@ -1316,7 +1318,8 @@ EditorDOMPointInText WSRunScanner::GetInclusiveNextEditableCharPoint(
   }
 
   EditorRawDOMPoint point;
-  if (nsIContent* child = aPoint.GetChild()) {
+  if (nsIContent* child =
+          aPoint.CanContainerHaveChildren() ? aPoint.GetChild() : nullptr) {
     nsIContent* leafContent = child->HasChildren()
                                   ? HTMLEditUtils::GetFirstLeafChild(
                                         *child, ChildBlockBoundary::Ignore)
@@ -1380,7 +1383,9 @@ EditorDOMPointInText WSRunScanner::GetPreviousEditableCharPoint(
   }
 
   EditorRawDOMPoint point;
-  if (nsIContent* previousChild = aPoint.GetPreviousSiblingOfChild()) {
+  if (nsIContent* previousChild = aPoint.CanContainerHaveChildren()
+                                      ? aPoint.GetPreviousSiblingOfChild()
+                                      : nullptr) {
     nsIContent* leafContent =
         previousChild->HasChildren()
             ? HTMLEditUtils::GetLastLeafChild(*previousChild,

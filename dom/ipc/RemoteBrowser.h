@@ -12,6 +12,7 @@
 #include "mozilla/dom/EffectsInfo.h"
 #include "mozilla/layers/LayersTypes.h"
 #include "nsILoadContext.h"
+#include "nsIPrincipal.h"
 #include "nsISupports.h"
 #include "nsISupportsImpl.h"
 #include "nsIURI.h"
@@ -56,7 +57,7 @@ class RemoteBrowser : public nsISupports {
   virtual BrowsingContext* GetBrowsingContext() const = 0;
   virtual nsILoadContext* GetLoadContext() const = 0;
 
-  virtual void LoadURL(nsIURI* aURI) = 0;
+  virtual void LoadURL(nsIURI* aURI, nsIPrincipal* aTriggeringPrincipal) = 0;
   virtual void ResumeLoad(uint64_t aPendingSwitchId) = 0;
   virtual void DestroyStart() = 0;
   virtual void DestroyComplete() = 0;

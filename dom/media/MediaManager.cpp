@@ -1932,7 +1932,6 @@ MediaManager::MediaManager(UniquePtr<base::Thread> aMediaThread)
   mPrefs.mNoise = 0;
   mPrefs.mRoutingMode = 0;
 #endif
-  mPrefs.mFullDuplex = false;
   mPrefs.mChannels = 0;  // max channels default
   nsresult rv;
   nsCOMPtr<nsIPrefService> prefs =
@@ -1946,13 +1945,13 @@ MediaManager::MediaManager(UniquePtr<base::Thread> aMediaThread)
   LOG("%s: default prefs: %dx%d @%dfps, %dHz test tones, aec: %s,"
       "agc: %s, hpf: %s, noise: %s, aec level: %d, agc level: %d, noise level: "
       "%d, aec mobile routing mode: %d,"
-      "%sfull_duplex, extended aec %s, delay_agnostic %s "
+      "extended aec %s, delay_agnostic %s "
       "channels %d",
       __FUNCTION__, mPrefs.mWidth, mPrefs.mHeight, mPrefs.mFPS, mPrefs.mFreq,
       mPrefs.mAecOn ? "on" : "off", mPrefs.mAgcOn ? "on" : "off",
       mPrefs.mHPFOn ? "on" : "off", mPrefs.mNoiseOn ? "on" : "off", mPrefs.mAec,
       mPrefs.mAgc, mPrefs.mNoise, mPrefs.mRoutingMode,
-      mPrefs.mFullDuplex ? "" : "not ", mPrefs.mExtendedFilter ? "on" : "off",
+      mPrefs.mExtendedFilter ? "on" : "off",
       mPrefs.mDelayAgnostic ? "on" : "off", mPrefs.mChannels);
 }
 
@@ -2050,8 +2049,6 @@ MediaManager* MediaManager::Get() {
       prefs->AddObserver("media.navigator.video.default_fps", sSingleton,
                          false);
       prefs->AddObserver("media.navigator.audio.fake_frequency", sSingleton,
-                         false);
-      prefs->AddObserver("media.navigator.audio.full_duplex", sSingleton,
                          false);
 #ifdef MOZ_WEBRTC
       prefs->AddObserver("media.getusermedia.aec_enabled", sSingleton, false);
@@ -3582,8 +3579,6 @@ void MediaManager::GetPrefs(nsIPrefBranch* aBranch, const char* aData) {
         }));
   }
 #endif
-  GetPrefBool(aBranch, "media.navigator.audio.full_duplex", aData,
-              &mPrefs.mFullDuplex);
 }
 
 void MediaManager::Shutdown() {
@@ -3619,7 +3614,6 @@ void MediaManager::Shutdown() {
                           this);
     prefs->RemoveObserver("media.getusermedia.channels", this);
 #endif
-    prefs->RemoveObserver("media.navigator.audio.full_duplex", this);
   }
 
   {

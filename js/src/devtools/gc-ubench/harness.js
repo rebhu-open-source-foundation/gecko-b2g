@@ -22,6 +22,48 @@ var gDefaultGarbagePiles = "8";
 
 var gDefaultTestDuration = 8.0;
 
+// The Host interface that provides functionality needed by the test harnesses
+// (web + various shells). Subclasses should override with the appropriate
+// functionality. The methods that throw an error must be implemented. The ones
+// that return undefined are optional.
+//
+// Note that currently the web UI doesn't really use the scheduling pieces of
+// this.
+var Host = class {
+  constructor() {}
+  start_turn() {
+    throw new Error("unimplemented");
+  }
+  end_turn() {
+    throw new Error("unimplemented");
+  }
+  suspend(duration) {
+    throw new Error("unimplemented");
+  } // Shell driver only
+  now() {
+    return performance.now();
+  }
+
+  minorGCCount() {
+    return undefined;
+  }
+  majorGCCount() {
+    return undefined;
+  }
+  GCSliceCount() {
+    return undefined;
+  }
+
+  features = {
+    haveMemorySizes: false,
+    haveGCCounts: false,
+  };
+};
+
+function percent(x) {
+  return `${(x*100).toFixed(2)}%`;
+}
+
 function parse_units(v) {
   if (!v.length) {
     return NaN;
@@ -43,7 +85,7 @@ function parse_units(v) {
   return NaN;
 }
 
-class AllocationLoad {
+var AllocationLoad = class {
   constructor(info, name) {
     this.load = info;
     this.load.name = this.load.name ?? name;
@@ -95,9 +137,9 @@ class AllocationLoad {
   is_dummy_load() {
     return this.load.name == "noAllocation";
   }
-}
+};
 
-class LoadCycle {
+var LoadCycle = class {
   constructor(tests_to_run, duration) {
     this.queue = [...tests_to_run];
     this.duration = duration;
@@ -136,9 +178,9 @@ class LoadCycle {
   currentLoadElapsed(now = performance.now()) {
     return now - this.started;
   }
-}
+};
 
-class AllocationLoadManager {
+var AllocationLoadManager = class {
   constructor(tests) {
     this._loads = new Map();
     for (const [name, info] of tests.entries()) {
@@ -184,7 +226,7 @@ class AllocationLoadManager {
   }
 
   load_running() {
-    return this._active && this._active.name != "noAllocation";
+    return this._active;
   }
 
   change_garbagePiles(amount) {
@@ -200,7 +242,7 @@ class AllocationLoadManager {
     }
   }
 
-  tick(now = performance.now()) {
+  tick(now = gHost.now()) {
     this.lastActive = this._active;
     let events = this._eventsSinceLastTick;
     this._eventsSinceLastTick = 0;
@@ -242,12 +284,12 @@ class AllocationLoadManager {
     return !this.cycle || this.cycle.done();
   }
 
-  cycleCurrentLoadRemaining(now = performance.now()) {
+  currentLoadRemaining(now = gHost.now()) {
     return this.cycleStopped()
       ? 0
       : this.testDurationMS - this.cycle.currentLoadElapsed(now);
   }
-}
+};
 
 // Current test state.
 var gLoadMgr = undefined;

@@ -4,13 +4,12 @@
 
 // Performance monitoring and calculation.
 
-var features = {
-  trackingSizes: "mozMemory" in performance,
-  showingGCs: "mozMemory" in performance,
-};
+function round_up(val, interval) {
+  return val + (interval - (val % interval));
+}
 
 // Class for inter-frame timing, which handles being paused and resumed.
-class FrameTimer {
+var FrameTimer = class {
   constructor() {
     // Start time of the current active test, adjusted for any time spent
     // stopped (so `now - this.start` is how long the current active test
@@ -28,30 +27,30 @@ class FrameTimer {
     return this.stopped != 0;
   }
 
-  start_recording(now = performance.now()) {
+  start_recording(now = gHost.now()) {
     this.start = this.prev = now;
   }
 
-  on_frame_finished(now = performance.now()) {
+  on_frame_finished(now = gHost.now()) {
     const delay = now - this.prev;
     this.prev = now;
     return delay;
   }
 
-  pause(now = performance.now()) {
+  pause(now = gHost.now()) {
     this.stopped = now;
     // Abuse this.prev to store the time elapsed since the previous frame.
     // This will be used to adjust this.prev when we resume.
     this.prev = now - this.prev;
   }
 
-  resume(now = performance.now()) {
+  resume(now = gHost.now()) {
     this.prev = now - this.prev;
     const stop_duration = now - this.stopped;
     this.start += stop_duration;
     this.stopped = 0;
   }
-}
+};
 
 // Per-frame time sampling infra.
 var sampleTime = 16.666667; // ms
@@ -59,7 +58,7 @@ var sampleIndex = 0;
 
 // Class for maintaining a rolling window of per-frame GC-related counters:
 // inter-frame delay, minor/major/slice GC counts, cumulative bytes, etc.
-class FrameHistory {
+var FrameHistory = class {
   constructor(numSamples) {
     // Private
     this._frameTimer = new FrameTimer();
@@ -78,7 +77,7 @@ class FrameHistory {
     this.reset();
   }
 
-  start(now = performance.now()) {
+  start(now = gHost.now()) {
     this._frameTimer.start_recording(now);
   }
 
@@ -114,7 +113,7 @@ class FrameHistory {
     return this.findMax(this.delays);
   }
 
-  on_frame(now = performance.now()) {
+  on_frame(now = gHost.now()) {
     const delay = this._frameTimer.on_frame_finished(now);
 
     // Total time elapsed while the active test has been running.
@@ -124,22 +123,14 @@ class FrameHistory {
       sampleIndex++;
       var idx = sampleIndex % this._numSamples;
       this.delays[idx] = delay;
-      if (features.trackingSizes) {
-        this.gcBytes[idx] = performance.mozMemory.gcBytes;
+      if (gHost.features.haveMemorySizes) {
+        this.gcBytes[idx] = gHost.gcBytes;
+        this.mallocBytes[idx] = gHost.mallocBytes;
       }
-      if (features.showingGCs) {
-        this.gcs[idx] = performance.mozMemory.gcNumber;
-        this.minorGCs[idx] = performance.mozMemory.minorGCCount;
-        this.majorGCs[idx] = performance.mozMemory.majorGCCount;
-
-        // Previous versions lacking sliceCount will fall back to
-        // assuming any GC activity was a major GC slice, even though
-        // that incorrectly includes minor GCs. Although this file is
-        // versioned with the code that implements the new sliceCount
-        // field, it is common to load the gc-ubench index.html with
-        // different browser versions.
-        this.slices[idx] =
-          performance.mozMemory.sliceCount || performance.mozMemory.gcNumber;
+      if (gHost.features.haveGCCounts) {
+        this.minorGCs[idx] = gHost.minorGCCount;
+        this.majorGCs[idx] = gHost.majorGCCount;
+        this.slices[idx] = gHost.GCSliceCount;
       }
     }
 
@@ -157,4 +148,87 @@ class FrameHistory {
   is_stopped() {
     return this._frameTimer.is_stopped();
   }
-}
+};
+
+var PerfTracker = class {
+  constructor() {
+    // Private
+    this._currentLoadStart = undefined;
+    this._frameCount = undefined;
+    this._mutating_ms = undefined;
+    this._suspend_sec = undefined;
+    this._minorGCs = undefined;
+    this._majorGCs = undefined;
+
+    // Public
+    this.results = [];
+  }
+
+  on_load_start(load, now = gHost.now()) {
+    this._currentLoadStart = now;
+    this._frameCount = 0;
+    this._mutating_ms = 0;
+    this._suspend_sec = 0;
+    this._majorGCs = gHost.majorGCCount;
+    this._minorGCs = gHost.minorGCCount;
+  }
+
+  on_load_end(load, now = gHost.now()) {
+    const elapsed_time = (now - this._currentLoadStart) / 1000;
+    const full_time = round_up(elapsed_time, 1 / 60);
+    const frame_60fps_limit = Math.round(full_time * 60);
+    const dropped_60fps_frames = frame_60fps_limit - this._frameCount;
+    const dropped_60fps_fraction = dropped_60fps_frames / frame_60fps_limit;
+
+    const mutating_and_gc_fraction = this._mutating_ms / (full_time * 1000);
+
+    this.results.push({
+      load,
+      elapsed_time,
+      mutating: this._mutating_ms / 1000,
+      mutating_and_gc_fraction,
+      suspended: this._suspend_sec,
+      full_time,
+      frames: this._frameCount,
+      dropped_60fps_frames,
+      dropped_60fps_fraction,
+      majorGCs: gHost.majorGCCount - this._majorGCs,
+      minorGCs: gHost.minorGCCount - this._minorGCs,
+    });
+    this._currentLoadStart = undefined;
+    this._frameCount = 0;
+  }
+
+  after_suspend(wait_sec) {
+    this._suspend_sec += wait_sec;
+  }
+
+  before_mutator(now = gHost.now()) {
+    this._frameCount++;
+  }
+
+  after_mutator(start_time, end_time = gHost.now()) {
+    // Warning: this is called before on_load_start is called from
+    // handle_tick_events.
+  }
+
+  handle_tick_events(events, loadMgr, tick_start, tick_end) {
+    // When the load manager switches from one load to another, there will be
+    // the tick start, the load is switched, the new load runs for a bit, then
+    // the tick end. Associate the timestamp of the start of the tick with both
+    // the end of the previous load and the beginning of the new one.
+    let load_running = true;
+    if (events & loadMgr.LOAD_ENDED) {
+      this.on_load_end(loadMgr.lastActive, tick_start);
+      load_running = false;
+    }
+    if (events & loadMgr.LOAD_STARTED) {
+      this.on_load_start(loadMgr.active, tick_start);
+      load_running = true;
+    }
+
+    if (load_running) {
+      this._mutating_ms += tick_end - tick_start;
+    }
+  }
+};
