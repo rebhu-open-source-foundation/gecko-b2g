@@ -206,16 +206,16 @@ TelephonyAudioService.prototype = {
   setPhoneState: function(aState) {
     switch (aState) {
       case nsITelephonyAudioService.PHONE_STATE_NORMAL:
-        //gAudioManager.phoneState = nsIAudioManager.PHONE_STATE_NORMAL;
+        gAudioManager.phoneState = nsIAudioManager.PHONE_STATE_NORMAL;
         break;
       case nsITelephonyAudioService.PHONE_STATE_RINGTONE:
-        //gAudioManager.phoneState = nsIAudioManager.PHONE_STATE_RINGTONE;
+        gAudioManager.phoneState = nsIAudioManager.PHONE_STATE_RINGTONE;
         break;
       case nsITelephonyAudioService.PHONE_STATE_IN_CALL:
-        //gAudioManager.phoneState = nsIAudioManager.PHONE_STATE_IN_CALL;
+        gAudioManager.phoneState = nsIAudioManager.PHONE_STATE_IN_CALL;
         if (this.speakerEnabled) {
-          /*gAudioManager.setForceForUse(nsIAudioManager.USE_COMMUNICATION,
-                                       nsIAudioManager.FORCE_SPEAKER);*/
+          gAudioManager.setForceForUse(nsIAudioManager.USE_COMMUNICATION,
+                                       nsIAudioManager.FORCE_SPEAKER);
         }
         break;
       default:
