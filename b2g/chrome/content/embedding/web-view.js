@@ -280,6 +280,7 @@
     "manifestchange",
     "metachange",
     "opensearch",
+    "pagetitlechanged",
     "resize",
     "scroll",
   ];
@@ -373,15 +374,6 @@
         this.progressListener = new ProgressListener(this);
         this.browser.addProgressListener(this.progressListener);
 
-        if (this.browser.isRemoteBrowser) {
-          this.browser.messageManager.addMessageListener(
-            "DOMTitleChanged",
-            this
-          );
-        } else {
-          this.browser.addEventListener("DOMTitleChanged", this);
-        }
-
         kRelayedEvents.forEach(name => {
           this.browser.addEventListener(name, this);
         });
@@ -393,16 +385,6 @@
     }
 
     disconnectedCallback() {
-      if (this.browser.isRemoteBrowser) {
-        this.browser.messageManager &&
-          this.browser.messageManager.removeMessageListener(
-            "DOMTitleChanged",
-            this
-          );
-      } else {
-        this.browser.removeEventListener("DOMTitleChanged", this);
-      }
-
       kRelayedEvents.forEach(name => {
         this.browser.removeEventListener(name, this);
       });
@@ -422,7 +404,7 @@
 
     handleEvent(event) {
       switch (event.type) {
-        case "DOMTitleChanged":
+        case "pagetitlechanged":
           this.dispatchCustomEvent("titlechange", {
             title: this.browser.contentTitle,
           });
@@ -448,20 +430,6 @@
           break;
         default:
           this.error(`Unexpected event ${event.type}`);
-      }
-    }
-
-    receiveMessage(message) {
-      switch (message.name) {
-        case "DOMTitleChanged":
-          this.dispatchCustomEvent("titlechange", {
-            title: message.data.title,
-          });
-          break;
-        default:
-          this.error(
-            `Unexpected message ${message.name} ${JSON.stringify(message.data)}`
-          );
       }
     }
 
