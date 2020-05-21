@@ -8435,6 +8435,11 @@
   value: false
   mirror: always
 
+- name: privacy.partition.network_state
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "prompts."
 #---------------------------------------------------------------------------
@@ -8616,6 +8621,12 @@
 - name: security.block_Worker_with_wrong_mime
   type: bool
   value: @IS_EARLY_BETA_OR_EARLIER@
+  mirror: always
+
+# Cancel outgoing requests from SystemPrincipal
+- name: security.cancel_non_local_loads_triggered_by_systemprincipal
+  type: bool
+  value: false
   mirror: always
 
 #---------------------------------------------------------------------------

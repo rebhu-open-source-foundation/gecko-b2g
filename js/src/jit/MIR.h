@@ -9141,6 +9141,7 @@ class MGuardObjectIdentity : public MBinaryInstruction,
                        bool bailOnEquality)
       : MBinaryInstruction(classOpcode, obj, expected),
         bailOnEquality_(bailOnEquality) {
+    MOZ_ASSERT(expected->isConstant());
     setGuard();
     setMovable();
     setResultType(MIRType::Object);
@@ -9152,6 +9153,7 @@ class MGuardObjectIdentity : public MBinaryInstruction,
   NAMED_OPERANDS((0, object), (1, expected))
 
   bool bailOnEquality() const { return bailOnEquality_; }
+  MDefinition* foldsTo(TempAllocator& alloc) override;
   bool congruentTo(const MDefinition* ins) const override {
     if (!ins->isGuardObjectIdentity()) {
       return false;
@@ -11231,6 +11233,26 @@ class MObjectWithProto : public MUnaryInstruction,
   NAMED_OPERANDS((0, prototype))
 
   bool possiblyCalls() const override { return true; }
+};
+
+// Used to load the prototype of an object known to have
+// a static prototype.
+class MObjectStaticProto : public MUnaryInstruction,
+                           public SingleObjectPolicy::Data {
+  explicit MObjectStaticProto(MDefinition* object)
+      : MUnaryInstruction(classOpcode, object) {
+    setResultType(MIRType::Object);
+    setMovable();
+  }
+
+ public:
+  INSTRUCTION_HEADER(ObjectStaticProto)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, object))
+
+  AliasSet getAliasSet() const override {
+    return AliasSet::Load(AliasSet::ObjectFields);
+  }
 };
 
 class MFunctionProto : public MNullaryInstruction {

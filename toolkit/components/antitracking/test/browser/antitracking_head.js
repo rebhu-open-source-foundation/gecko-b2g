@@ -376,26 +376,18 @@ this.AntiTracking = {
   },
 
   async interactWithTracker() {
-    let windowClosed = new Promise(resolve => {
-      Services.ww.registerNotification(function notification(
-        aSubject,
-        aTopic,
-        aData
-      ) {
-        if (aTopic == "domwindowclosed") {
-          Services.ww.unregisterNotification(notification);
-          resolve();
-        }
-      });
-    });
+    let win = await BrowserTestUtils.openNewBrowserWindow();
+    await BrowserTestUtils.withNewTab(
+      { gBrowser: win.gBrowser, url: TEST_3RD_PARTY_PAGE },
+      async function(browser) {
+        info("Let's interact with the tracker");
 
-    info("Let's interact with the tracker");
-    window.open(
-      TEST_3RD_PARTY_DOMAIN + TEST_PATH + "3rdPartyOpenUI.html",
-      "",
-      "noopener"
+        await SpecialPowers.spawn(browser, [], async function() {
+          SpecialPowers.wrap(content.document).userInteractionForTesting();
+        });
+      }
     );
-    await windowClosed;
+    await BrowserTestUtils.closeWindow(win);
   },
 
   async _setupTest(win, cookieBehavior, extraPrefs) {
@@ -555,6 +547,29 @@ this.AntiTracking = {
         prepareTestEnvironmentOnPage();
       }
 
+      let consoleWarningPromise;
+
+      if (options.expectedBlockingNotifications) {
+        consoleWarningPromise = new Promise(resolve => {
+          let consoleListener = {
+            observe(msg) {
+              if (
+                msg
+                  .QueryInterface(Ci.nsIScriptError)
+                  .category.startsWith("cookieBlocked")
+              ) {
+                Services.console.unregisterListener(consoleListener);
+                resolve();
+              }
+            },
+          };
+
+          Services.console.registerListener(consoleListener);
+        });
+      } else {
+        consoleWarningPromise = Promise.resolve();
+      }
+
       info("Creating a new tab");
       let tab = BrowserTestUtils.addTab(win.gBrowser, topPage);
       win.gBrowser.selectedTab = tab;
@@ -577,7 +592,7 @@ this.AntiTracking = {
         typeof options.accessRemoval == "string" &&
         options.cookieBehavior == BEHAVIOR_REJECT_TRACKER &&
         !options.allowList;
-      let id = await SpecialPowers.spawn(
+      await SpecialPowers.spawn(
         browser,
         [
           {
@@ -680,8 +695,6 @@ this.AntiTracking = {
                 break;
             }
           }
-
-          return id;
         }
       );
 
@@ -703,15 +716,24 @@ this.AntiTracking = {
           browser,
           [
             {
-              id,
+              page: thirdPartyPage,
               callbackAfterRemoval: options.callbackAfterRemoval
                 ? options.callbackAfterRemoval.toString()
                 : null,
+              iframeSandbox: options.iframeSandbox,
             },
           ],
           async function(obj) {
-            let ifr = content.document.getElementById(obj.id);
-            ifr.contentWindow.postMessage(obj.callbackAfterRemoval, "*");
+            let ifr = content.document.createElement("iframe");
+            ifr.onload = function() {
+              info(
+                "Sending code to the 3rd party content to verify accessRemoval"
+              );
+              ifr.contentWindow.postMessage(obj.callbackAfterRemoval, "*");
+            };
+            if (typeof obj.iframeSandbox == "string") {
+              ifr.setAttribute("sandbox", obj.iframeSandbox);
+            }
 
             content.addEventListener("message", function msg(event) {
               if (event.data.type == "finish") {
@@ -731,9 +753,15 @@ this.AntiTracking = {
 
               ok(false, "Unknown message");
             });
+
+            content.document.body.appendChild(ifr);
+            ifr.src = obj.page;
           }
         );
       }
+
+      // Wait until the message appears on the console.
+      await consoleWarningPromise;
 
       let allMessages = Services.console.getMessageArray().filter(msg => {
         try {
@@ -1019,7 +1047,9 @@ this.AntiTracking = {
           });
 
           info("Opening a window from the iframe.");
-          ifr.contentWindow.open(obj.popup);
+          SpecialPowers.spawn(ifr, [{ popup: obj.popup }], async function(obj) {
+            content.open(obj.popup);
+          });
 
           info("Let's wait for the window to be closed");
           await windowClosed;
@@ -1094,7 +1124,9 @@ this.AntiTracking = {
           });
 
           info("Opening a window from the iframe.");
-          ifr.contentWindow.open(obj.popup);
+          SpecialPowers.spawn(ifr, [{ popup: obj.popup }], async function(obj) {
+            content.open(obj.popup);
+          });
 
           info("Let's wait for the window to be closed");
           await windowClosed;
@@ -1248,7 +1280,10 @@ this.AntiTracking = {
       function Listener() {}
       Listener.prototype = {
         onStartRequest(request) {},
-        onDataAvailable(request, stream, off, cnt) {},
+        onDataAvailable(request, stream, off, cnt) {
+          // Consume the data to prevent hitting the assertion.
+          NetUtil.readInputStreamToString(stream, cnt);
+        },
         onStopRequest(request, st) {
           let status = request.QueryInterface(Ci.nsIHttpChannel).responseStatus;
           if (status == 200) {

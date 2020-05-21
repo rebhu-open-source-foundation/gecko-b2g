@@ -414,6 +414,16 @@ bool WarpCacheIRTranspiler::emitLoadObject(ObjOperandId resultId,
   return defineOperand(resultId, ins);
 }
 
+bool WarpCacheIRTranspiler::emitLoadProto(ObjOperandId objId,
+                                          ObjOperandId resultId) {
+  MDefinition* obj = getOperand(objId);
+
+  auto* ins = MObjectStaticProto::New(alloc(), obj);
+  add(ins);
+
+  return defineOperand(resultId, ins);
+}
+
 bool WarpCacheIRTranspiler::emitLoadDynamicSlotResult(ObjOperandId objId,
                                                       uint32_t offsetOffset) {
   int32_t offset = int32StubField(offsetOffset);
@@ -998,6 +1008,28 @@ bool WarpCacheIRTranspiler::emitMathFunctionNumberResult(
 
   pushResult(ins);
   return true;
+}
+
+bool WarpCacheIRTranspiler::emitArrayPush(ObjOperandId objId,
+                                          ValOperandId rhsId) {
+  MDefinition* obj = getOperand(objId);
+  MDefinition* value = getOperand(rhsId);
+
+  auto* elements = MElements::New(alloc(), obj);
+  add(elements);
+
+  auto* initLength = MInitializedLength::New(alloc(), elements);
+  add(initLength);
+
+  auto* barrier =
+      MPostWriteElementBarrier::New(alloc(), obj, value, initLength);
+  add(barrier);
+
+  auto* ins = MArrayPush::New(alloc(), obj, value);
+  addEffectful(ins);
+  pushResult(ins);
+
+  return resumeAfter(ins);
 }
 
 bool WarpCacheIRTranspiler::emitLoadArgumentFixedSlot(ValOperandId resultId,

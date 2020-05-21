@@ -681,11 +681,23 @@
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec", "geckoview"],
     "alert_emails": ["dev-telemetry-gc-alerts@mozilla.org"],
-    "expires_in_version": "never",
+    "expires_in_version": "81",
     "kind": "linear",
     "high": 100,
     "n_buckets": 10,
     "description": "Requested GC slice budget (ms)"
+  },
+  "GC_BUDGET_MS_2": {
+    "record_in_processes": ["main", "content"],
+    "products": ["firefox"],
+    "alert_emails": ["dev-telemetry-gc-alerts@mozilla.org", "jcoppeard@mozilla.com"],
+    "expires_in_version": "never",
+    "releaseChannelCollection": "opt-out",
+    "kind": "exponential",
+    "high": 200,
+    "n_buckets": 50,
+    "description": "Requested GC slice budget (ms)",
+    "bug_numbers": [1637318]
   },
   "GC_ANIMATION_MS": {
     "record_in_processes": ["main", "content"],
@@ -757,21 +769,45 @@
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec", "geckoview"],
     "alert_emails": ["dev-telemetry-gc-alerts@mozilla.org"],
-    "expires_in_version": "never",
+    "expires_in_version": "81",
     "kind": "linear",
     "high": 200,
     "n_buckets": 50,
     "description": "Time spent marking GC roots (ms)"
   },
+  "GC_MARK_ROOTS_US": {
+    "record_in_processes": ["main", "content"],
+    "products": ["firefox"],
+    "alert_emails": ["dev-telemetry-gc-alerts@mozilla.org", "jcoppeard@mozilla.com"],
+    "expires_in_version": "never",
+    "releaseChannelCollection": "opt-out",
+    "kind": "exponential",
+    "high": 150000,
+    "n_buckets": 50,
+    "description": "Time spent marking GC roots (us)",
+    "bug_numbers": [1637318]
+  },
   "GC_MARK_GRAY_MS": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec", "geckoview"],
     "alert_emails": ["dev-telemetry-gc-alerts@mozilla.org"],
-    "expires_in_version": "never",
+    "expires_in_version": "81",
     "kind": "linear",
     "high": 200,
     "n_buckets": 50,
     "description": "Time spent marking gray GC objects (ms)"
+  },
+  "GC_MARK_GRAY_MS_2": {
+    "record_in_processes": ["main", "content"],
+    "products": ["firefox"],
+    "alert_emails": ["dev-telemetry-gc-alerts@mozilla.org", "jcoppeard@mozilla.com"],
+    "expires_in_version": "never",
+    "releaseChannelCollection": "opt-out",
+    "kind": "exponential",
+    "high": 10000,
+    "n_buckets": 50,
+    "description": "Time spent marking gray GC objects (ms)",
+    "bug_numbers": [1637318]
   },
   "GC_MARK_WEAK_MS": {
     "record_in_processes": ["main", "content"],
@@ -904,10 +940,22 @@
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec", "geckoview"],
     "alert_emails": ["dev-telemetry-gc-alerts@mozilla.org"],
-    "expires_in_version": "never",
+    "expires_in_version": "81",
     "kind": "enumerated",
     "n_values": 32,
     "bug_numbers": [1293262],
+    "description": "How many objects groups were selected for pretenuring by a minor GC"
+  },
+  "GC_PRETENURE_COUNT_2": {
+    "record_in_processes": ["main", "content"],
+    "products": ["firefox"],
+    "alert_emails": ["dev-telemetry-gc-alerts@mozilla.org", "jcoppeard@mozilla.com"],
+    "expires_in_version": "never",
+    "releaseChannelCollection": "opt-out",
+    "kind": "exponential",
+    "high": 100,
+    "n_buckets": 20,
+    "bug_numbers": [1293262, 1637318],
     "description": "How many objects groups were selected for pretenuring by a minor GC"
   },
   "GC_SLICE_DURING_IDLE": {
@@ -959,12 +1007,24 @@
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec", "geckoview"],
     "alert_emails": ["dev-telemetry-gc-alerts@mozilla.org", "jcoppeard@mozilla.com"],
-    "expires_in_version": "never",
+    "expires_in_version": "81",
     "kind": "linear",
     "low": 1000,
     "high": 1000000,
     "n_buckets": 100,
     "bug_numbers": [1475896],
+    "description": "The number of objects marked per ms during GC."
+  },
+  "GC_MARK_RATE_2": {
+    "record_in_processes": ["main", "content"],
+    "products": ["firefox"],
+    "alert_emails": ["dev-telemetry-gc-alerts@mozilla.org", "jcoppeard@mozilla.com"],
+    "expires_in_version": "never",
+    "kind": "exponential",
+    "low": 1000,
+    "high": 300000,
+    "n_buckets": 50,
+    "bug_numbers": [1475896, 1637318],
     "description": "The number of objects marked per ms during GC."
   },
   "GC_TIME_BETWEEN_S": {
@@ -6759,15 +6819,6 @@
     "n_buckets": 40,
     "description": "Gloda: size of global-messages-db.sqlite (MB)"
   },
-  "THUNDERBIRD_CONVERSATIONS_TIME_TO_2ND_GLODA_QUERY_MS": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec", "geckoview"],
-    "expires_in_version": "never",
-    "kind": "exponential",
-    "high": 10000,
-    "n_buckets": 30,
-    "description": "Conversations: time between the moment we click and the second gloda query returns (ms)"
-  },
   "THUNDERBIRD_INDEXING_RATE_MSG_PER_S": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec", "geckoview"],
@@ -9401,6 +9452,24 @@
     "kind": "boolean",
     "description": "Reports a true value when a page requests canPlayType for a matroska media type.",
     "bug_numbers": [1429986, 1570634, 1606206]
+  },
+  "MEDIA_HLS_CANPLAY_REQUESTED": {
+    "record_in_processes": ["content"],
+    "products": ["firefox", "geckoview"],
+    "alert_emails": ["jolin@mozilla.com", "bvandyk@mozilla.com"],
+    "expires_in_version": "85",
+    "kind": "boolean",
+    "description": "Reports a true value when a page requests canPlayType for a HLS media type.",
+    "bug_numbers": [1628048]
+  },
+  "MEDIA_HLS_CANPLAY_SUPPORTED": {
+    "record_in_processes": ["content"],
+    "products": ["firefox", "geckoview"],
+    "alert_emails": ["jolin@mozilla.com", "bvandyk@mozilla.com"],
+    "expires_in_version": "85",
+    "kind": "boolean",
+    "description": "Reports a true value when a canPlayType request supports HLS.",
+    "bug_numbers": [1628048]
   },
   "MEDIA_MP4_PARSE_SAMPLE_DESCRIPTION_ENTRIES_HAVE_MULTIPLE_CODECS": {
     "record_in_processes": ["main", "content"],

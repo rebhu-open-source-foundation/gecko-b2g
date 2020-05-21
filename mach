@@ -44,7 +44,6 @@ py2commands="
     raptor-test
     reftest
     release
-    repackage
     rusttests
     static-analysis
     talos-test
@@ -55,13 +54,11 @@ py2commands="
     test
     test-info
     tps-build
-    valgrind-test
     visualmetrics
     web-platform-tests
     web-platform-tests-update
     webidl-example
     webidl-parser-test
-    webrtc-gtest
     wpt
     wpt-manifest-update
     wpt-metadata-merge

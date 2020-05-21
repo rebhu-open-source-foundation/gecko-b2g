@@ -14,6 +14,7 @@
 
 #include "mozilla/Attributes.h"
 #include "mozilla/CORSMode.h"
+#include "mozilla/dom/LinkStyle.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/MemoryReporting.h"
 #include "mozilla/StyleSheet.h"
@@ -23,7 +24,6 @@
 #include "nsCycleCollectionParticipant.h"
 #include "nsDataHashtable.h"
 #include "nsIPrincipal.h"
-#include "nsIStyleSheetLinkingElement.h"
 #include "nsRefPtrHashtable.h"
 #include "nsStringFwd.h"
 #include "nsTArray.h"
@@ -91,14 +91,14 @@ class Loader final {
   using ReferrerPolicy = dom::ReferrerPolicy;
 
  public:
-  typedef nsIStyleSheetLinkingElement::Completed Completed;
-  typedef nsIStyleSheetLinkingElement::HasAlternateRel HasAlternateRel;
-  typedef nsIStyleSheetLinkingElement::IsAlternate IsAlternate;
-  typedef nsIStyleSheetLinkingElement::IsInline IsInline;
-  typedef nsIStyleSheetLinkingElement::IsExplicitlyEnabled IsExplicitlyEnabled;
-  typedef nsIStyleSheetLinkingElement::MediaMatched MediaMatched;
-  typedef nsIStyleSheetLinkingElement::Update LoadSheetResult;
-  typedef nsIStyleSheetLinkingElement::SheetInfo SheetInfo;
+  using Completed = dom::LinkStyle::Completed;
+  using HasAlternateRel = dom::LinkStyle::HasAlternateRel;
+  using IsAlternate = dom::LinkStyle::IsAlternate;
+  using IsInline = dom::LinkStyle::IsInline;
+  using IsExplicitlyEnabled = dom::LinkStyle::IsExplicitlyEnabled;
+  using MediaMatched = dom::LinkStyle::MediaMatched;
+  using LoadSheetResult = dom::LinkStyle::Update;
+  using SheetInfo = dom::LinkStyle::SheetInfo;
 
   Loader();
   // aDocGroup is used for dispatching SheetLoadData in PostLoadEvent(). It
@@ -345,10 +345,11 @@ class Loader final {
 
   std::tuple<RefPtr<StyleSheet>, SheetState> CreateSheet(
       const SheetInfo& aInfo, nsIPrincipal* aLoaderPrincipal,
-      css::SheetParsingMode aParsingMode, bool aSyncLoad) {
+      css::SheetParsingMode aParsingMode, bool aSyncLoad,
+      IsPreload aIsPreload) {
     return CreateSheet(aInfo.mURI, aInfo.mContent, aLoaderPrincipal,
                        aParsingMode, aInfo.mCORSMode, aInfo.mReferrerInfo,
-                       aInfo.mIntegrity, aSyncLoad);
+                       aInfo.mIntegrity, aSyncLoad, aIsPreload);
   }
 
   // For inline style, the aURI param is null, but the aLinkingContent
@@ -357,7 +358,7 @@ class Loader final {
   std::tuple<RefPtr<StyleSheet>, SheetState> CreateSheet(
       nsIURI* aURI, nsIContent* aLinkingContent, nsIPrincipal* aLoaderPrincipal,
       css::SheetParsingMode, CORSMode, nsIReferrerInfo* aLoadingReferrerInfo,
-      const nsAString& aIntegrity, bool aSyncLoad);
+      const nsAString& aIntegrity, bool aSyncLoad, IsPreload aIsPreload);
 
   // Pass in either a media string or the MediaList from the CSSParser.  Don't
   // pass both.
@@ -382,15 +383,8 @@ class Loader final {
   // Post a load event for aObserver to be notified about aSheet.  The
   // notification will be sent with status NS_OK unless the load event is
   // canceled at some point (in which case it will be sent with
-  // NS_BINDING_ABORTED).  aWasAlternate indicates the state when the load was
-  // initiated, not the state at some later time.  aURI should be the URI the
-  // sheet was loaded from (may be null for inline sheets).  aElement is the
-  // owning element for this sheet.
-  nsresult PostLoadEvent(nsIURI* aURI, StyleSheet* aSheet,
-                         nsICSSLoaderObserver* aObserver,
-                         IsAlternate aWasAlternate, MediaMatched aMediaMatched,
-                         nsIReferrerInfo* aReferrerInfo,
-                         nsIStyleSheetLinkingElement* aElement);
+  // NS_BINDING_ABORTED).
+  nsresult PostLoadEvent(RefPtr<SheetLoadData>);
 
   // Start the loads of all the sheets in mPendingDatas
   void StartDeferredLoads();

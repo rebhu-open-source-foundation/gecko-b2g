@@ -70,6 +70,8 @@ class SmooshScriptStencil : public ScriptStencil {
 
   MOZ_MUST_USE bool init(JSContext* cx,
                          UniquePtr<ImmutableScriptData> immutableData) {
+    using ImmutableFlags = js::ImmutableScriptFlagsEnum;
+
     // A global script is a top-level context.
     bool isTopLevelContext = true;
     const JS::ReadOnlyCompileOptions& options = compilationInfo_.options;
@@ -448,7 +450,8 @@ JSScript* Smoosh::compileGlobalScript(CompilationInfo& compilationInfo,
     return nullptr;
   }
 
-  RootedScript script(cx, stencil.intoScript(cx, compilationInfo, extent));
+  RootedScript script(
+      cx, JSScript::fromStencil(cx, compilationInfo, stencil, extent));
   if (!script) {
     return nullptr;
   }

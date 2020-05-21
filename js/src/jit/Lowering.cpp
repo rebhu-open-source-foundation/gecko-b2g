@@ -3428,6 +3428,11 @@ void LIRGenerator::visitArrayPush(MArrayPush* ins) {
     case MIRType::Value: {
       LArrayPushV* lir = new (alloc())
           LArrayPushV(object, useBox(ins->value()), temp(), spectreTemp);
+      // With Warp (and without TI) we will bailout before pushing
+      // if the length would overflow INT32_MAX.
+      if (!IsTypeInferenceEnabled()) {
+        assignSnapshot(lir, Bailout_Overflow);
+      }
       define(lir, ins);
       assignSafepoint(lir, ins);
       break;
@@ -3437,6 +3442,9 @@ void LIRGenerator::visitArrayPush(MArrayPush* ins) {
       const LAllocation value = useRegisterOrNonDoubleConstant(ins->value());
       LArrayPushT* lir =
           new (alloc()) LArrayPushT(object, value, temp(), spectreTemp);
+      if (!IsTypeInferenceEnabled()) {
+        assignSnapshot(lir, Bailout_Overflow);
+      }
       define(lir, ins);
       assignSafepoint(lir, ins);
       break;
@@ -5011,6 +5019,15 @@ void LIRGenerator::visitObjectWithProto(MObjectWithProto* ins) {
   defineReturn(lir, ins);
   assignSafepoint(lir, ins);
 }
+
+void LIRGenerator::visitObjectStaticProto(MObjectStaticProto* ins) {
+  MOZ_ASSERT(ins->object()->type() == MIRType::Object);
+  MOZ_ASSERT(ins->type() == MIRType::Object);
+
+  auto* lir =
+      new (alloc()) LObjectStaticProto(useRegisterAtStart(ins->object()));
+  define(lir, ins);
+};
 
 void LIRGenerator::visitFunctionProto(MFunctionProto* ins) {
   MOZ_ASSERT(ins->type() == MIRType::Object);

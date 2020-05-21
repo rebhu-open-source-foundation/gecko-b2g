@@ -34,6 +34,7 @@ var _tests_pending = 0;
 var _cleanupFunctions = [];
 var _pendingTimers = [];
 var _profileInitialized = false;
+var _fastShutdownDisabled = false;
 
 // Assigned in do_load_child_test_harness.
 var _XPCSHELL_PROCESS;
@@ -43,6 +44,11 @@ var _XPCSHELL_PROCESS;
 var _Services = ChromeUtils.import("resource://gre/modules/Services.jsm", null)
   .Services;
 _register_modules_protocol_handler();
+
+var _AppConstants = ChromeUtils.import(
+  "resource://gre/modules/AppConstants.jsm",
+  null
+).AppConstants;
 
 var _PromiseTestUtils = ChromeUtils.import(
   "resource://testing-common/PromiseTestUtils.jsm",
@@ -678,6 +684,28 @@ function _execute_test() {
     // It's important to terminate the module to avoid crashes on shutdown.
     _PromiseTestUtils.uninit();
   }
+
+  // Skip the normal shutdown path for optimized builds that don't do leak checking.
+  if (
+    runningInParent &&
+    !_AppConstants.RELEASE_OR_BETA &&
+    !_AppConstants.DEBUG &&
+    !_AppConstants.MOZ_CODE_COVERAGE &&
+    !_AppConstants.ASAN &&
+    !_AppConstants.TSAN
+  ) {
+    if (_fastShutdownDisabled) {
+      _testLogger.info("fast shutdown disabled by the test.");
+      return;
+    }
+
+    // Setting this pref is required for Cu.isInAutomation to return true.
+    _Services.prefs.setBoolPref(
+      "security.turn_off_all_security_so_that_viruses_can_take_over_this_computer",
+      true
+    );
+    Cu.exitIfInAutomation();
+  }
 }
 
 /**
@@ -1161,6 +1189,14 @@ function do_parse_document(aPath, aType) {
  */
 function registerCleanupFunction(aFunction) {
   _cleanupFunctions.push(aFunction);
+}
+
+/**
+ * Ensure the test finishes with a normal shutdown even when it could have
+ * otherwise used the fast Cu.exitIfInAutomation shutdown.
+ */
+function do_disable_fast_shutdown() {
+  _fastShutdownDisabled = true;
 }
 
 /**
@@ -1656,11 +1692,6 @@ try {
  * so we help out users by loading at least the dynamic-builtin probes.
  */
 try {
-  let _AppConstants = ChromeUtils.import(
-    "resource://gre/modules/AppConstants.jsm",
-    null
-  ).AppConstants;
-
   // We only need to run this in the parent process.
   // We only want to run this for local developer builds (which should have a "default" update channel).
   if (runningInParent && _AppConstants.MOZ_UPDATE_CHANNEL == "default") {
