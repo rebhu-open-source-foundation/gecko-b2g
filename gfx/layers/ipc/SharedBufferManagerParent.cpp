@@ -343,7 +343,7 @@ void SharedBufferManagerParent::DropGrallocBuffer(ProcessId id, mozilla::layers:
         WrapRunnable(RefPtr<SharedBufferManagerParent>(mgr),
                      &SharedBufferManagerParent::DropGrallocBufferSync, aDesc);
     // Dispatch the runnable.
-    runnable->Run();
+    mgr->mThread->message_loop()->PostTask(runnable.forget());
   }
   return;
 }
