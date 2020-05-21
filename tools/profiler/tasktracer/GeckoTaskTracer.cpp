@@ -204,6 +204,10 @@ void FreeTraceInfo() {
 }
 
 TraceInfoHolder GetOrCreateTraceInfo() {
+  if (!sTraceInfos) {
+    return TraceInfoHolder();
+  }
+
   TraceInfo* info = sTraceInfoTLS.get();
   StaticMutexAutoLock lock(sMutex);
   ENSURE_TRUE(IsStartLogging(), TraceInfoHolder{});
