@@ -5,6 +5,9 @@
 "use strict";
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { AppConstants } = ChromeUtils.import(
+  "resource://gre/modules/AppConstants.jsm"
+);
 
 function MainProcessSingleton() {}
 MainProcessSingleton.prototype = {
@@ -35,10 +38,14 @@ MainProcessSingleton.prototype = {
           "chrome://global/content/process-content.js",
           true
         );
-        Services.ppmm.loadProcessScript(
-          "resource:///modules/ContentObservers.js",
-          true
-        );
+
+        // This file is browser/ specific.
+        if (AppConstants.MOZ_APP_NAME != "b2g") {
+          Services.ppmm.loadProcessScript(
+            "resource:///modules/ContentObservers.js",
+            true
+          );
+        }
         break;
       }
 
