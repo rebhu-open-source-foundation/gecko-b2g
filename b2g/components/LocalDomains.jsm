@@ -54,21 +54,27 @@ this.LocalDomains = {
       path = file.path;
     }
     log(`scanning ${path}`);
-    let webapps = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
-    webapps.initWithPath(path);
-    if (!webapps.isDirectory()) {
-      log(`${path} should be a directory!!`);
-      return false;
-    }
     let found = [];
-    let enumerator = webapps.directoryEntries;
-    while (enumerator.hasMoreElements()) {
-      let file = enumerator.nextFile;
-      if (file.isDirectory()) {
-        let name = `${file.leafName.trim()}.local`;
-        log(`Found ${name}`);
-        found.push(name);
+    let webapps = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
+    try {
+      webapps.initWithPath(path);
+      if (!webapps.isDirectory()) {
+        log(`${path} should be a directory!!`);
+        return false;
       }
+      let enumerator = webapps.directoryEntries;
+      while (enumerator.hasMoreElements()) {
+        let file = enumerator.nextFile;
+        if (file.isDirectory()) {
+          let name = `${file.leafName.trim()}.local`;
+          log(`Found ${name}`);
+          found.push(name);
+        }
+      }
+    } catch(e) {
+      // Something went wrong iterating the apps list. That can happen in empty
+      // profiles that will only load the default UI.
+      return false;
     }
 
     // Compare the current list with the found ones.
