@@ -200,9 +200,7 @@ void IccInfo::GetIccInfo(nsIIccInfo** aIccInfo) const {
 
 JSObject* IccInfo::WrapObject(JSContext* aCx,
                               JS::Handle<JSObject*> aGivenProto) {
-  // FIXME
-  // return IccInfo_Binding::Wrap(aCx, this, aGivenProto);
-  return IccInfo_Binding::GetConstructorObject(aCx);
+  return IccInfo_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 Nullable<IccType> IccInfo::GetIccType() const {

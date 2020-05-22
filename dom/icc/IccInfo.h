@@ -137,7 +137,7 @@ class GsmIccInfo final : public IccInfo {
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
-  // CdmaIccInfo WebIDL
+  // GsmIccInfo WebIDL
   void GetMsisdn(nsAString& aMsisdn) const;
 
  private:
