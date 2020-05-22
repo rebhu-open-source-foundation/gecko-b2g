@@ -61,6 +61,7 @@ class VoldProxy final {
 
  private:
   friend class VoldListener;   // Calls Mount
+  friend class Volume;         // Calls Mount, Unmount and Format.
   friend class VolumeManager;  // Calls Init, Reset, OnUserAdded, OnUserStarted
                                // and OnSecureKeyguardStateChanged.
 

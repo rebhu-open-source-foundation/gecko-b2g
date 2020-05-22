@@ -395,21 +395,25 @@ void Volume::StartMount(VolumeResponseCallback* aCallback) {
   MOZ_ASSERT(XRE_IsParentProcess());
   MOZ_ASSERT(MessageLoop::current() == XRE_GetIOMessageLoop());
 
-  StartCommand(new VolumeActionCommand(this, "mount", "", aCallback));
+  const ::std::string volId(this->Uuid().get());
+  VoldProxy::Mount(volId, VolumeInfo::kPrimary, 0);
 }
 
 void Volume::StartUnmount(VolumeResponseCallback* aCallback) {
   MOZ_ASSERT(XRE_IsParentProcess());
   MOZ_ASSERT(MessageLoop::current() == XRE_GetIOMessageLoop());
 
-  StartCommand(new VolumeActionCommand(this, "unmount", "force", aCallback));
+  const ::std::string volId(this->Uuid().get());
+  VoldProxy::Unmount(volId);
 }
 
 void Volume::StartFormat(VolumeResponseCallback* aCallback) {
   MOZ_ASSERT(XRE_IsParentProcess());
   MOZ_ASSERT(MessageLoop::current() == XRE_GetIOMessageLoop());
 
-  StartCommand(new VolumeActionCommand(this, "format", "auto", aCallback));
+  const ::std::string volId(this->Uuid().get());
+  const ::std::string fsType("auto");
+  VoldProxy::Format(volId, fsType);
 }
 
 void Volume::StartShare(VolumeResponseCallback* aCallback) {

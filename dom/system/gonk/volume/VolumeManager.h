@@ -90,6 +90,7 @@ class VolumeInfo final {
  private:
   ~VolumeInfo() {}
   friend class VoldListener;
+  friend class Volume;
 
   const nsCString mId;
   int mType;
