@@ -16,6 +16,13 @@ ChromeUtils.import("resource://gre/modules/AlarmService.jsm");
 ChromeUtils.import("resource://gre/modules/DownloadService.jsm");
 ChromeUtils.import("resource://gre/modules/NotificationDB.jsm");
 
+XPCOMUtils.defineLazyGetter(this, "MarionetteHelper", () => {
+  const { MarionetteHelper } = ChromeUtils.import(
+    "chrome://b2g/content/devtools/marionette.js"
+  );
+  return new MarionetteHelper(shell.contentBrowser.contentWindow);
+});
+
 const isGonk = AppConstants.platform === "gonk";
 
 if (isGonk) {
@@ -62,10 +69,11 @@ var shell = {
 
     let systemAppFrame = document.createXULElement("browser");
     systemAppFrame.setAttribute("type", "chrome");
+    systemAppFrame.setAttribute("primary", "true");
     systemAppFrame.setAttribute("id", "systemapp");
-    systemAppFrame.setAttribute("src", "blank.html");
+    systemAppFrame.setAttribute("forcemessagemanager", "true");
+    systemAppFrame.setAttribute("nodefaultsrc", "true");
 
-    debug(`Loading blank.html`);
     document.body.appendChild(systemAppFrame);
 
     this.contentBrowser = systemAppFrame;

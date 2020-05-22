@@ -346,6 +346,9 @@
         this.log(`creating xul:browser`);
         // Creates a xul:browser with default attributes.
         this.browser = document.createXULElement("browser");
+        // Identify this `<browser>` element uniquely to Marionette, devtools, etc.
+        this.browser.permanentKey = new (Cu.getGlobalForObject(Services)).Object();
+
         this.browser.setAttribute("src", "about:blank");
         this.browser.setAttribute("type", "content");
         this.browser.setAttribute(
@@ -434,6 +437,11 @@
     }
 
     get frame() {
+      return this.browser;
+    }
+
+    // Needed for Marionette integration.
+    get linkedBrowser() {
       return this.browser;
     }
 

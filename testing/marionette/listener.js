@@ -497,7 +497,7 @@ function registerSelf() {
   }
 
   if (reply[0].outerWindowID === outerWindowID) {
-    logger.trace("Frame script registered");
+    logger.trace(`Frame script registered ${content.location}`);
     startListeners();
     sendAsyncMessage("Marionette:ListenersAttached", { outerWindowID });
   }

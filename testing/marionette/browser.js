@@ -125,6 +125,10 @@ browser.getTabBrowser = function(window) {
     // Thunderbird
   } else if (window.document.getElementById("tabmail")) {
     return window.document.getElementById("tabmail");
+
+  // B2G
+  } else if (window.document.getElementById("systemapp")) {
+    return window.MarionetteHelper;
   }
 
   return null;
@@ -491,6 +495,11 @@ browser.Context = class {
         case "firefox":
           this.tabBrowser.selectedTab = this.tab;
           await tabSelected;
+          break;
+
+        case "b2g":
+          this.tabBrowser.selectedTab = this.tab;
+          // TODO: add TabSelect event
           break;
 
         default:
