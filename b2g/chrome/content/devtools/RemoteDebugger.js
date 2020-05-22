@@ -290,7 +290,7 @@ var USBRemoteDebugger = {
       Services.prefs.getIntPref("devtools.debugger.remote-port");
 
     try {
-      dump("Starting USB debugger on " + portOrPath);
+      dump(`Starting USB debugger on ${portOrPath}\n`);
       const AuthenticatorType = DevToolsServer.Authenticators.get("PROMPT");
       const authenticator = new AuthenticatorType.Server();
       authenticator.allowConnection = RemoteDebugger.allowConnection;
