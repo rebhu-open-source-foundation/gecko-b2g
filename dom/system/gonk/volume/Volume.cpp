@@ -3,7 +3,6 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "Volume.h"
-#include "VolumeCommand.h"
 #include "VolumeManager.h"
 #include "VolumeManagerLog.h"
 #include "nsIVolume.h"
@@ -391,7 +390,7 @@ void Volume::SetMountPoint(const nsACString& aMountPoint) {
   ResolveAndSetMountPoint(aMountPoint);
 }
 
-void Volume::StartMount(VolumeResponseCallback* aCallback) {
+void Volume::StartMount() {
   MOZ_ASSERT(XRE_IsParentProcess());
   MOZ_ASSERT(MessageLoop::current() == XRE_GetIOMessageLoop());
 
@@ -399,7 +398,7 @@ void Volume::StartMount(VolumeResponseCallback* aCallback) {
   VoldProxy::Mount(volId, VolumeInfo::kPrimary, 0);
 }
 
-void Volume::StartUnmount(VolumeResponseCallback* aCallback) {
+void Volume::StartUnmount() {
   MOZ_ASSERT(XRE_IsParentProcess());
   MOZ_ASSERT(MessageLoop::current() == XRE_GetIOMessageLoop());
 
@@ -407,7 +406,7 @@ void Volume::StartUnmount(VolumeResponseCallback* aCallback) {
   VoldProxy::Unmount(volId);
 }
 
-void Volume::StartFormat(VolumeResponseCallback* aCallback) {
+void Volume::StartFormat() {
   MOZ_ASSERT(XRE_IsParentProcess());
   MOZ_ASSERT(MessageLoop::current() == XRE_GetIOMessageLoop());
 
@@ -416,25 +415,14 @@ void Volume::StartFormat(VolumeResponseCallback* aCallback) {
   VoldProxy::Format(volId, fsType);
 }
 
-void Volume::StartShare(VolumeResponseCallback* aCallback) {
+void Volume::StartShare() {
   MOZ_ASSERT(XRE_IsParentProcess());
   MOZ_ASSERT(MessageLoop::current() == XRE_GetIOMessageLoop());
-
-  StartCommand(new VolumeActionCommand(this, "share", "ums", aCallback));
 }
 
-void Volume::StartUnshare(VolumeResponseCallback* aCallback) {
+void Volume::StartUnshare() {
   MOZ_ASSERT(XRE_IsParentProcess());
   MOZ_ASSERT(MessageLoop::current() == XRE_GetIOMessageLoop());
-
-  StartCommand(new VolumeActionCommand(this, "unshare", "ums", aCallback));
-}
-
-void Volume::StartCommand(VolumeCommand* aCommand) {
-  MOZ_ASSERT(XRE_IsParentProcess());
-  MOZ_ASSERT(MessageLoop::current() == XRE_GetIOMessageLoop());
-
-  VolumeManager::PostCommand(aCommand);
 }
 
 // static
@@ -485,13 +473,6 @@ void Volume::UpdateMountLock(const nsACString& aVolumeName,
         (int)aMountLocked);
     sEventObserverList.Broadcast(vol);
   }
-}
-
-void Volume::HandleVoldResponse(int aResponseCode,
-                                nsCWhitespaceTokenizer& aTokenizer) {
-  MOZ_ASSERT(XRE_IsParentProcess());
-  MOZ_ASSERT(MessageLoop::current() == XRE_GetIOMessageLoop());
-
 }
 
 void Volume::HandleVolumeStateChanged(int32_t aState) {

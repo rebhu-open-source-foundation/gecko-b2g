@@ -5,7 +5,6 @@
 #ifndef mozilla_system_volume_h__
 #define mozilla_system_volume_h__
 
-#include "VolumeCommand.h"
 #include "nsIVolume.h"
 #include "nsString.h"
 #include "mozilla/Observer.h"
@@ -113,11 +112,11 @@ class Volume final {
   // The StartXxx functions will queue up a command to the VolumeManager.
   // You can queue up as many commands as you like, and aCallback will
   // be called as each one completes.
-  void StartMount(VolumeResponseCallback* aCallback);
-  void StartUnmount(VolumeResponseCallback* aCallback);
-  void StartFormat(VolumeResponseCallback* aCallback);
-  void StartShare(VolumeResponseCallback* aCallback);
-  void StartUnshare(VolumeResponseCallback* aCallback);
+  void StartMount();
+  void StartUnmount();
+  void StartFormat();
+  void StartShare();
+  void StartUnshare();
 
   void SetIsSharing(bool aIsSharing);
   void SetIsFormatting(bool aIsFormatting);
@@ -127,15 +126,12 @@ class Volume final {
   void SetState(STATE aNewState);
   void SetMediaPresent(bool aMediaPresent);
   void SetMountPoint(const nsACString& aMountPoint);
-  void StartCommand(VolumeCommand* aCommand);
 
   void ResolveAndSetMountPoint(const nsACString& aMountPoint);
 
   bool BoolConfigValue(const nsCString& aConfigValue, bool& aBoolValue);
   void SetConfig(const nsCString& aConfigName, const nsCString& aConfigValue);
 
-  void HandleVoldResponse(int aResponseCode,
-                          nsCWhitespaceTokenizer& aTokenizer);
   void HandleVolumeStateChanged(int32_t aState);
 
   static void UpdateMountLock(const nsACString& aVolumeName,

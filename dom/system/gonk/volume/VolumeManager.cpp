@@ -5,7 +5,6 @@
 #include "VolumeManager.h"
 
 #include "Volume.h"
-#include "VolumeCommand.h"
 #include "VolumeManagerLog.h"
 #include "VolumeServiceTest.h"
 
@@ -41,10 +40,7 @@ VolumeInfo::VolumeInfo(const nsACString& aId, int aType,
   // mDiskId.Data(), mState, mType);
 }
 
-VolumeManager::VolumeManager()
-    : LineWatcher('\0', kRcvBufSize), mSocket(-1), mCommandPending(false) {
-  DBG("VolumeManager constructor called");
-}
+VolumeManager::VolumeManager() { DBG("VolumeManager constructor called"); }
 
 VolumeManager::~VolumeManager() {}
 
@@ -295,11 +291,6 @@ void VolumeManager::DefaultConfig() {
   }
 }
 
-class VolumeResetCallback : public VolumeResponseCallback {
-  virtual void ResponseReceived(const VolumeCommand* aCommand) {
-  }
-};
-
 bool VolumeManager::InitVold() {
   SetState(STARTING);
 
@@ -324,94 +315,11 @@ bool VolumeManager::InitVold() {
   return true;
 }
 
-// static
-void VolumeManager::PostCommand(VolumeCommand* aCommand) {
-  if (!sVolumeManager) {
-    ERR("VolumeManager not initialized. Dropping command '%s'",
-        aCommand->Data());
-    return;
-  }
-  aCommand->SetPending(true);
-
-  DBG("Sending command '%s'", aCommand->Data());
-  // vold can only process one command at a time, so add our command
-  // to the end of the command queue.
-  sVolumeManager->mCommands.push(aCommand);
-  if (!sVolumeManager->mCommandPending) {
-    // There aren't any commands currently being processed, so go
-    // ahead and kick this one off.
-    sVolumeManager->mCommandPending = true;
-    sVolumeManager->WriteCommandData();
-  }
-}
-
 nsTArray<RefPtr<VolumeInfo>>& VolumeManager::GetVolumeInfoArray() {
   return sVolumeManager->mVolumeInfoArray;
 }
 
-/***************************************************************************
- * The WriteCommandData initiates sending of a command to vold. Since
- * we're running on the IOThread and not allowed to block, WriteCommandData
- * will write as much data as it can, and if not all of the data can be
- * written then it will setup a file descriptor watcher and
- * OnFileCanWriteWithoutBlocking will call WriteCommandData to write out
- * more of the command data.
- */
-void VolumeManager::WriteCommandData() {
-  if (mCommands.size() == 0) {
-    return;
-  }
-
-  VolumeCommand* cmd = mCommands.front();
-  if (cmd->BytesRemaining() == 0) {
-    // All bytes have been written. We're waiting for a response.
-    return;
-  }
-  // There are more bytes left to write. Try to write them all.
-  ssize_t bytesWritten =
-      write(mSocket.get(), cmd->Data(), cmd->BytesRemaining());
-  if (bytesWritten < 0) {
-    ERR("Failed to write %d bytes to vold socket", cmd->BytesRemaining());
-    Restart();
-    return;
-  }
-  DBG("Wrote %d bytes (of %d)", bytesWritten, cmd->BytesRemaining());
-  cmd->ConsumeBytes(bytesWritten);
-  if (cmd->BytesRemaining() == 0) {
-    return;
-  }
-  // We were unable to write all of the command bytes. Setup a watcher
-  // so we'll get called again when we can write without blocking.
-  if (!MessageLoopForIO::current()->WatchFileDescriptor(
-          mSocket.get(),
-          false,  // one-shot
-          MessageLoopForIO::WATCH_WRITE, &mWriteWatcher, this)) {
-    ERR("Failed to setup write watcher for vold socket");
-    Restart();
-  }
-}
-
-void VolumeManager::OnLineRead(int aFd, nsDependentCSubstring& aMessage) {
-}
-
-void VolumeManager::OnFileCanWriteWithoutBlocking(int aFd) {
-  MOZ_ASSERT(aFd == mSocket.get());
-  WriteCommandData();
-}
-
-void VolumeManager::HandleBroadcast(int aResponseCode,
-                                    nsCString& aResponseLine) {
-}
-
 void VolumeManager::Restart() {
-  mReadWatcher.StopWatchingFileDescriptor();
-  mWriteWatcher.StopWatchingFileDescriptor();
-
-  while (!mCommands.empty()) {
-    mCommands.pop();
-  }
-  mCommandPending = false;
-  mSocket.dispose();
   Start();
 }
 

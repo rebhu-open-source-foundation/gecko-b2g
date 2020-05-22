@@ -204,20 +204,6 @@ class AutoVolumeEventObserver : public Volume::EventObserver {
   virtual void Notify(Volume* const& aEvent);
 };
 
-class AutoMounterResponseCallback : public VolumeResponseCallback {
- public:
-  AutoMounterResponseCallback() : mErrorCount(0) {}
-
- protected:
-  virtual void ResponseReceived(const VolumeCommand* aCommand);
-
- private:
-  const static int kMaxErrorCount =
-      3;  // Max number of errors before we give up
-
-  int mErrorCount;
-};
-
 /***************************************************************************/
 
 class AutoMounter {
@@ -228,7 +214,6 @@ class AutoMounter {
 
   AutoMounter()
       : mState(STATE_IDLE),
-        mResponseCallback(new AutoMounterResponseCallback),
         mMode(AUTOMOUNTER_DISABLE) {
     VolumeManager::RegisterStateObserver(&mVolumeManagerStateObserver);
     Volume::RegisterVolumeObserver(&mVolumeEventObserver, "AutoMounter");
@@ -472,7 +457,6 @@ class AutoMounter {
 
   AutoVolumeEventObserver mVolumeEventObserver;
   AutoVolumeManagerStateObserver mVolumeManagerStateObserver;
-  RefPtr<VolumeResponseCallback> mResponseCallback;
   int32_t mMode;
 // TODO: temporarily comment out Mtp related code.
 #if 0
@@ -525,23 +509,6 @@ void AutoVolumeEventObserver::Notify(Volume* const&) {
   }
   DBG("Calling UpdateState due to VolumeEventStateObserver");
   sAutoMounter->UpdateState();
-}
-
-void AutoMounterResponseCallback::ResponseReceived(
-    const VolumeCommand* aCommand) {
-  if (WasSuccessful()) {
-    DBG("Calling UpdateState due to Volume::OnSuccess");
-    mErrorCount = 0;
-    sAutoMounter->UpdateState();
-    return;
-  }
-  ERR("Command '%s' failed: %d '%s'", aCommand->CmdStr(), ResponseCode(),
-      ResponseStr().get());
-
-  if (++mErrorCount < kMaxErrorCount) {
-    DBG("Calling UpdateState due to VolumeResponseCallback::OnError");
-    sAutoMounter->UpdateState();
-  }
 }
 
 static bool IsUsbFunctionEnabled(const char* aConfig, const char* aUsbFunc) {
@@ -724,11 +691,8 @@ void AutoMounter::UpdateState() {
     return;
   }
 
-  if (mResponseCallback->IsPending()) {
-    // We only deal with one outstanding volume command at a time,
-    // so we need to wait for it to finish.
-    return;
-  }
+  // TODO: Need to make sure only deal with one outstanding volume command at
+  // a time, so we need to wait for it to finish.
 
   // Calling setprop sys.usb.config mtp,adb (or adding mass_storage) will
   // cause /sys/devices/virtual/android_usb/android0/state to go:
@@ -1070,7 +1034,7 @@ void AutoMounter::UpdateState() {
           // Volume is mounted, we need to unmount before
           // we can share.
           LOG("UpdateState: Unmounting %s", vol->NameStr());
-          vol->StartUnmount(mResponseCallback);
+          vol->StartUnmount();
           return;  // UpdateState will be called again when the Unmount command
                    // completes
         }
@@ -1082,7 +1046,7 @@ void AutoMounter::UpdateState() {
             if (!(tryToShare && vol->IsSharingEnabled()) &&
                 volState == nsIVolume::STATE_IDLE) {
               LOG("UpdateState: Mounting %s", vol->NameStr());
-              vol->StartMount(mResponseCallback);
+              vol->StartMount();
               break;
             }
           }
@@ -1092,12 +1056,12 @@ void AutoMounter::UpdateState() {
           if (vol->IsFormatRequested()) {
             // Volume is unmounted. We can go ahead and format.
             LOG("UpdateState: Formatting %s", vol->NameStr());
-            vol->StartFormat(mResponseCallback);
+            vol->StartFormat();
           } else if (tryToShare && vol->IsSharingEnabled() &&
                      volState == nsIVolume::STATE_IDLE) {
             // Volume is unmounted. We can go ahead and share.
             LOG("UpdateState: Sharing %s", vol->NameStr());
-            vol->StartShare(mResponseCallback);
+            vol->StartShare();
           }
           return;  // UpdateState will be called again when the Share/Format
                    // command completes
@@ -1113,7 +1077,7 @@ void AutoMounter::UpdateState() {
         case nsIVolume::STATE_SHARED: {
           // Volume is shared. We can go ahead and unshare.
           LOG("UpdateState: Unsharing %s", vol->NameStr());
-          vol->StartUnshare(mResponseCallback);
+          vol->StartUnshare();
           return;  // UpdateState will be called again when the Unshare command
                    // completes
         }
@@ -1122,7 +1086,7 @@ void AutoMounter::UpdateState() {
             // Volume is unmounted and mount-requested, try to mount.
 
             LOG("UpdateState: Mounting %s", vol->NameStr());
-            vol->StartMount(mResponseCallback);
+            vol->StartMount();
           }
           return;  // UpdateState will be called again when Mount command
                    // completes

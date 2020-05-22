@@ -36,7 +36,6 @@ UNIFIED_SOURCES += [
     'nsVolumeStat.cpp',
     'VoldProxy.cpp',
     'Volume.cpp',
-    'VolumeCommand.cpp',
     'VolumeManager.cpp',
     'VolumeServiceIOThread.cpp',
     'VolumeServiceTest.cpp',

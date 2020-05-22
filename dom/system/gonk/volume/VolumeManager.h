@@ -17,7 +17,6 @@
 
 #include "VoldProxy.h"
 #include "Volume.h"
-#include "VolumeCommand.h"
 
 namespace mozilla {
 namespace system {
@@ -150,7 +149,7 @@ class VolumeInfo final {
  *
  ***************************************************************************/
 
-class VolumeManager final : public MessageLoopForIO::LineWatcher {
+class VolumeManager final {
   virtual ~VolumeManager();
 
  public:
@@ -204,13 +203,9 @@ class VolumeManager final : public MessageLoopForIO::LineWatcher {
   static bool RemoveVolumeByName(const nsACString& aName);
   static void InitConfig();
 
-  static void PostCommand(VolumeCommand* aCommand);
-
   static nsTArray<RefPtr<VolumeInfo>>& GetVolumeInfoArray();
 
  protected:
-  virtual void OnLineRead(int aFd, nsDependentCSubstring& aMessage);
-  virtual void OnFileCanWriteWithoutBlocking(int aFd);
   virtual void OnError();
 
   static void DefaultConfig();
@@ -224,23 +219,12 @@ class VolumeManager final : public MessageLoopForIO::LineWatcher {
   static void SetState(STATE aNewState);
 
   void Restart();
-  void WriteCommandData();
-  void HandleBroadcast(int aResponseCode, nsCString& aResponseLine);
-
-  typedef std::queue<RefPtr<VolumeCommand>> CommandQueue;
 
   static STATE mState;
   static StateObserverList mStateObserverList;
 
-  static const int kRcvBufSize = 1024;
-  ScopedClose mSocket;
   VolumeArray mVolumeArray;
-  CommandQueue mCommands;
-  bool mCommandPending;
   VolumeInfoArray mVolumeInfoArray;
-  MessageLoopForIO::FileDescriptorWatcher mReadWatcher;
-  MessageLoopForIO::FileDescriptorWatcher mWriteWatcher;
-  RefPtr<VolumeResponseCallback> mBroadcastCallback;
 };
 
 /***************************************************************************
