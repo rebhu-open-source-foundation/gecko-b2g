@@ -38,13 +38,6 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIVolumeService"
 );
 
-XPCOMUtils.defineLazyServiceGetter(
-  this,
-  "cpmm",
-  "@mozilla.org/childprocessmessagemanager;1",
-  "nsISyncMessageSender"
-);
-
 XPCOMUtils.defineLazyGetter(this, "gExtStorage", function dp_gExtStorage() {
   return Services.env.get("EXTERNAL_STORAGE");
 });
@@ -149,7 +142,7 @@ DirectoryProvider.prototype = {
         return null;
       }
       if (!this._profD) {
-        this._profD = cpmm.sendSyncMessage("getProfD", {})[0];
+        this._profD = Services.cpmm.sendSyncMessage("getProfD", {})[0];
       }
       let file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
       file.initWithPath(this._profD);
