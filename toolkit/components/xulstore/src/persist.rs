@@ -16,66 +16,35 @@
 
 use crate::{
     error::{XULStoreError, XULStoreResult},
-    ffi::XpcomShutdownObserver,
     statics::get_database,
 };
 use crossbeam_utils::atomic::AtomicCell;
 use lmdb::Error as LmdbError;
-use moz_task::{create_thread, Task, TaskRunnable};
+use moz_task::{dispatch_background_task_with_options, DispatchOptions, Task, TaskRunnable};
 use nserror::nsresult;
+use once_cell::sync::Lazy;
 use rkv::{StoreError as RkvStoreError, Value};
 use std::{collections::HashMap, sync::Mutex, thread::sleep, time::Duration};
-use xpcom::{interfaces::nsIThread, RefPtr, ThreadBoundRefPtr};
+use xpcom::RefPtr;
 
-lazy_static! {
-    /// A map of key/value pairs to persist.  Values are Options so we can
-    /// use the same structure for both puts and deletes, with a `None` value
-    /// identifying a key that should be deleted from the database.
-    ///
-    /// This is a map rather than a sequence in order to merge consecutive
-    /// changes to the same key, i.e. when a consumer sets *foo* to `bar`
-    /// and then sets it again to `baz` before we persist the first change.
-    ///
-    /// In that case, there's no point in setting *foo* to `bar` before we set
-    /// it to `baz`, and the map ensures we only ever persist the latest value
-    /// for any given key.
-    static ref CHANGES: Mutex<Option<HashMap<String, Option<String>>>> = { Mutex::new(None) };
+/// A map of key/value pairs to persist.  Values are Options so we can
+/// use the same structure for both puts and deletes, with a `None` value
+/// identifying a key that should be deleted from the database.
+///
+/// This is a map rather than a sequence in order to merge consecutive
+/// changes to the same key, i.e. when a consumer sets *foo* to `bar`
+/// and then sets it again to `baz` before we persist the first change.
+///
+/// In that case, there's no point in setting *foo* to `bar` before we set
+/// it to `baz`, and the map ensures we only ever persist the latest value
+/// for any given key.
+static CHANGES: Lazy<Mutex<Option<HashMap<String, Option<String>>>>> =
+    Lazy::new(|| Mutex::new(None));
 
-    /// A Mutex that prevents two PersistTasks from running at the same time,
-    /// since each task opens the database, and we need to ensure there is only
-    /// one open database handle for the database at any given time.
-    static ref PERSIST: Mutex<()> = { Mutex::new(()) };
-
-    static ref THREAD: Mutex<Option<ThreadBoundRefPtr<nsIThread>>> = {
-        let thread: RefPtr<nsIThread> = match create_thread("XULStore") {
-            Ok(thread) => thread,
-            Err(err) => {
-                error!("error creating XULStore thread: {}", err);
-                return Mutex::new(None);
-            }
-        };
-
-        // Observe XPCOM shutdown so we can clear the thread and thus not
-        // "leak" it (from the perspective of the leak checker).
-        observe_xpcom_shutdown();
-
-        Mutex::new(Some(ThreadBoundRefPtr::new(thread)))
-    };
-}
-
-fn observe_xpcom_shutdown() {
-    (|| -> XULStoreResult<()> {
-        let obs_svc = xpcom::services::get_ObserverService().ok_or(XULStoreError::Unavailable)?;
-        let observer = XpcomShutdownObserver::new();
-        unsafe {
-            obs_svc
-                .AddObserver(observer.coerce(), cstr!("xpcom-shutdown").as_ptr(), false)
-                .to_result()?
-        };
-        Ok(())
-    })()
-    .unwrap_or_else(|err| error!("error observing XPCOM shutdown: {}", err));
-}
+/// A Mutex that prevents two PersistTasks from running at the same time,
+/// since each task opens the database, and we need to ensure there is only
+/// one open database handle for the database at any given time.
+static PERSIST: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
 /// Synchronously persists changes recorded in memory to disk. Typically
 /// called from a background thread, however this can be called from the main
@@ -121,7 +90,7 @@ fn sync_persist() -> XULStoreResult<()> {
     Ok(())
 }
 
-pub(crate) fn flush_writes() ->XULStoreResult<()> {
+pub(crate) fn flush_writes() -> XULStoreResult<()> {
     // One of three things will happen here (barring unexpected errors):
     // - There are no writes queued and the background thread is idle. In which
     //   case, we will get the lock, see that there's nothing to write, and
@@ -148,17 +117,9 @@ pub(crate) fn flush_writes() ->XULStoreResult<()> {
             info!("Unable to persist xulstore");
         }
 
-        Err(err) => return Err(err.into())
+        Err(err) => return Err(err.into()),
     }
     Ok(())
-}
-
-pub(crate) fn clear_on_shutdown() {
-    (|| -> XULStoreResult<()> {
-        THREAD.lock()?.take();
-        Ok(())
-    })()
-    .unwrap_or_else(|err| error!("error clearing thread: {}", err));
 }
 
 pub(crate) fn persist(key: String, value: Option<String>) -> XULStoreResult<()> {
@@ -170,13 +131,10 @@ pub(crate) fn persist(key: String, value: Option<String>) -> XULStoreResult<()> 
         // If *changes* was `None`, then this is the first change since
         // the last time we persisted, so dispatch a new PersistTask.
         let task = Box::new(PersistTask::new());
-        let thread_guard = THREAD.lock()?;
-        let thread = thread_guard
-            .as_ref()
-            .ok_or(XULStoreError::Unavailable)?
-            .get_ref()
-            .ok_or(XULStoreError::Unavailable)?;
-        TaskRunnable::dispatch(TaskRunnable::new("XULStore::Persist", task)?, thread)?;
+        dispatch_background_task_with_options(
+            RefPtr::new(TaskRunnable::new("XULStore::Persist", task)?.coerce()),
+            DispatchOptions::default().may_block(true),
+        )?;
     }
 
     // Now insert the key/value pair into the map.  The unwrap() call here

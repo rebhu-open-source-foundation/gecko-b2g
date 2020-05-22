@@ -6754,6 +6754,8 @@ var gCSSProperties = {
     domProp: "opacity",
     inherited: false,
     type: CSS_TYPE_LONGHAND,
+    applies_to_first_letter: true,
+    applies_to_first_line: true,
     applies_to_placeholder: true,
     applies_to_cue: true,
     initial_values: [
@@ -13295,6 +13297,26 @@ if (
 ) {
   gCSSProperties["image-orientation"].initial_values = ["none"];
   gCSSProperties["image-orientation"].other_values = ["from-image"];
+}
+
+if (IsCSSPropertyPrefEnabled("layout.css.aspect-ratio.enabled")) {
+  gCSSProperties["aspect-ratio"] = {
+    domProp: "aspectRatio",
+    inherited: false,
+    type: CSS_TYPE_LONGHAND,
+    initial_values: ["auto"],
+    other_values: [
+      "1",
+      "1.0",
+      "1 / 2",
+      "1/2",
+      "16.2 / 9.5",
+      "1/0",
+      "0/1",
+      "0 / 0",
+    ],
+    invalid_values: ["none", "1 test", "1 / auto", "auto / 1"],
+  };
 }
 
 // Copy aliased properties' fields from their alias targets. Keep this logic

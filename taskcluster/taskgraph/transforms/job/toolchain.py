@@ -8,7 +8,6 @@ Support for running toolchain-building jobs via dedicated scripts
 from __future__ import absolute_import, print_function, unicode_literals
 
 from mozbuild.shellutil import quote as shell_quote
-from mozpack import path
 
 from six import text_type
 from taskgraph.util.schema import Schema
@@ -84,6 +83,8 @@ def get_digest_data(config, run, taskdesc):
     # Accumulate dependency hashes for index generation.
     data = [hash_paths(GECKO, files)]
 
+    data.append(taskdesc['attributes']['toolchain-artifact'])
+
     # If the task uses an in-tree docker image, we want it to influence
     # the index path as well. Ideally, the content of the docker image itself
     # should have an influence, but at the moment, we can't get that
@@ -149,17 +150,10 @@ def docker_worker_toolchain(config, job, taskdesc):
             'digest-data': get_digest_data(config, run, taskdesc),
         }
 
-    # Use `mach` to invoke python scripts so in-tree libraries are available.
-    if run['script'].endswith('.py'):
-        wrapper = [path.join(gecko_path, 'mach'), 'python']
-    else:
-        wrapper = []
-
     run['using'] = 'run-task'
     run['cwd'] = run['workdir']
     run["command"] = (
-        wrapper
-        + ["workspace/build/src/taskcluster/scripts/misc/{}".format(run.pop("script"))]
+        ["workspace/build/src/taskcluster/scripts/misc/{}".format(run.pop("script"))]
         + run.pop("arguments", [])
     )
 

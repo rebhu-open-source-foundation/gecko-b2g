@@ -5601,10 +5601,9 @@
   mirror: always
   rust: true
 
-# Allow <number> and <number>/<number> both for <aspect-ratio>
-# https://github.com/w3c/csswg-drafts/issues/3757
-- name: layout.css.aspect-ratio-number.enabled
-  type: RelaxedAtomicBool
+# Whether the `aspect-ratio` in css-sizing-4 is enabled.
+- name: layout.css.aspect-ratio.enabled
+  type: bool
   value: false
   mirror: always
   rust: true
@@ -6308,9 +6307,13 @@
   mirror: always
 
 # Is support for :is() and :where() enabled?
+#
+# TODO(emilio): when removing this pref it would make sense to implement
+# :-moz-any as an alias of :is or such, or maybe its own thing to preserve its
+# specificity.
 - name: layout.css.is-where-selectors.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
@@ -9232,7 +9235,9 @@
   type: RelaxedAtomicBool
   value: false
   mirror: always
+#endif
 
+#ifdef MOZ_WIDGET_GTK
 # Always use xdg-desktop-portal to access system resources like file dialog
 # and print dialog.
 - name: widget.use-xdg-desktop-portal
