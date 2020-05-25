@@ -142,7 +142,7 @@ const kRouteChangedTopic = "route-change";
 const kPrefDefaultServiceId = "dom.telephony.defaultServiceId";
 const kPrefRilNumRadioInterfaces = "ril.numRadioInterfaces";
 const NS_PREFBRANCH_PREFCHANGE_TOPIC_ID = "nsPref:changed";
-const kWifiCaptivePortalResult = "wifi-captive-portal-result";
+const kCaptivePortalResult = "captive-portal-result";
 const kOpenCaptivePortalLoginEvent = "captive-portal-login";
 const kCaptivePortalLoginSuccessEvent = "captive-portal-login-success";
 
@@ -2465,7 +2465,7 @@ function WifiWorker() {
   Services.obs.addObserver(this, kInterfaceAddressChangedTopic);
   Services.obs.addObserver(this, kInterfaceDnsInfoTopic);
   Services.obs.addObserver(this, kRouteChangedTopic);
-  Services.obs.addObserver(this, kWifiCaptivePortalResult);
+  Services.obs.addObserver(this, kCaptivePortalResult);
   Services.obs.addObserver(this, kOpenCaptivePortalLoginEvent);
   Services.obs.addObserver(this, kCaptivePortalLoginSuccessEvent);
   Services.prefs.addObserver(kPrefDefaultServiceId, this);
@@ -4709,7 +4709,7 @@ WifiWorker.prototype = {
     Services.obs.removeObserver(this, kInterfaceAddressChangedTopic);
     Services.obs.removeObserver(this, kInterfaceDnsInfoTopic);
     Services.obs.removeObserver(this, kRouteChangedTopic);
-    Services.obs.removeObserver(this, kWifiCaptivePortalResult);
+    Services.obs.removeObserver(this, kCaptivePortalResult);
     Services.obs.removeObserver(this, kOpenCaptivePortalLoginEvent);
     Services.obs.removeObserver(this, kCaptivePortalLoginSuccessEvent);
     Services.prefs.removeObserver(kPrefDefaultServiceId, this);
@@ -4791,7 +4791,7 @@ WifiWorker.prototype = {
         Services.obs.removeObserver(this, kInterfaceAddressChangedTopic);
         Services.obs.removeObserver(this, kInterfaceDnsInfoTopic);
         Services.obs.removeObserver(this, kRouteChangedTopic);
-        Services.obs.removeObserver(this, kWifiCaptivePortalResult);
+        Services.obs.removeObserver(this, kCaptivePortalResult);
         Services.obs.removeObserver(this, kOpenCaptivePortalLoginEvent);
         Services.obs.removeObserver(this, kCaptivePortalLoginSuccessEvent);
         Services.prefs.removeObserver(kPrefDefaultServiceId, this);
@@ -4904,7 +4904,7 @@ WifiWorker.prototype = {
         WifiNetworkInterface.updateConfig(action, { gateway });
         break;
 
-      case kWifiCaptivePortalResult:
+      case kCaptivePortalResult:
         if (!(subject instanceof Ci.nsIPropertyBag2)) {
           return;
         }
@@ -4919,6 +4919,13 @@ WifiWorker.prototype = {
         }
         let props = subject.QueryInterface(Ci.nsIPropertyBag2);
         let landing = props.get("landing");
+        let networkType = props.get("networkType");
+
+        if (networkType != Ci.nsINetworkInfo.NETWORK_TYPE_WIFI) {
+          debug("ignore none wifi type captive portal result");
+          return;
+        }
+
         if (lastNetwork == null) {
           debug("lastNetwork is null");
           return;

@@ -465,6 +465,27 @@ Nat464Xlat.prototype = {
   },
 };
 
+function CaptivePortalLanding(aNetworkType) {
+  this._networkType = aNetworkType;
+  this._landing = false;
+}
+CaptivePortalLanding.prototype = {
+  QueryInterface: ChromeUtils.generateQI([Ci.nsICaptivePortalLanding]),
+
+  get networkType() {
+    return this._networkType;
+  },
+
+  get landing() {
+    return this._landing;
+  },
+
+  set landing(aVal) {
+    this._landing = aVal;
+  },
+
+};
+
 /**
  * This component watches for network interfaces changing state and then
  * adjusts routes etc. accordingly.
@@ -497,6 +518,10 @@ function NetworkManager() {
     "REGEXP_IPV6",
     "^[\\da-fA-F]{4}(?::[\\da-fA-F]{4}){7}$"
   );
+
+  for (let networkType of this._captivePortalSupportTypes) {
+    this._captivePortalLandings.push(new CaptivePortalLanding(networkType));
+  }
 }
 NetworkManager.prototype = {
   classID: NETWORKMANAGER_CID,
@@ -1692,9 +1717,18 @@ NetworkManager.prototype = {
     this._preferredNetworkType = val;
   },
 
-  _wifiCaptivePortalLanding: false,
-  get wifiCaptivePortalLanding() {
-    return this._wifiCaptivePortalLanding;
+  // Provide support captive portal connection type.
+  _captivePortalSupportTypes: [
+    Ci.nsINetworkInfo.NETWORK_TYPE_WIFI,
+  ],
+
+  _captivePortalLandings: [],
+
+  getCaptivePortalLandings(count) {
+    if (count) {
+      count.value = this._captivePortalLandings.length;
+    }
+    return this._captivePortalLandings;
   },
 
   _activeNetwork: null,
@@ -2735,10 +2769,10 @@ NetworkManager.prototype = {
 };
 
 var CaptivePortalDetectionHelper = (function() {
-  const EVENT_CONNECT = "Connect";
-  const EVENT_DISCONNECT = "Disconnect";
+  const EVENT_CONNECT = 1;
+  const EVENT_DISCONNECT = 0;
   let _ongoingInterface = null;
-  let _lastCaptivePortalStatus = EVENT_DISCONNECT;
+  let _lastCaptivePortalStatus = {};
   let _available = "nsICaptivePortalDetector" in Ci;
   let getService = function() {
     return Cc["@mozilla.org/toolkit/captive-detector;1"].getService(
@@ -2782,34 +2816,48 @@ var CaptivePortalDetectionHelper = (function() {
     _ongoingInterface = null;
   };
 
-  let _sendNotification = function(landing) {
-    if (landing == NetworkManager.prototype._wifiCaptivePortalLanding) {
-      return;
+  let _sendNotification = function(networkType, landing) {
+    for (let index in NetworkManager.prototype._captivePortalLandings) {
+
+      if (NetworkManager.prototype._captivePortalLandings[index].networkType
+          != networkType) {
+        continue;
+      }
+
+      if (landing == NetworkManager.prototype._captivePortalLandings[index].landing ||
+         (!landing && !NetworkManager.prototype._captivePortalLandings[index].landing)) {
+        return;
+      }
+      NetworkManager.prototype._captivePortalLandings[index].landing = landing;
+      let propBag = Cc["@mozilla.org/hash-property-bag;1"].createInstance(
+        Ci.nsIWritablePropertyBag
+      );
+      propBag.setProperty("landing", landing);
+      propBag.setProperty("networkType", networkType);
+      Services.obs.notifyObservers(propBag, "captive-portal-result");
+      break;
     }
-    NetworkManager.prototype._wifiCaptivePortalLanding = landing;
-    let propBag = Cc["@mozilla.org/hash-property-bag;1"].createInstance(
-      Ci.nsIWritablePropertyBag
-    );
-    propBag.setProperty("landing", landing);
-    Services.obs.notifyObservers(propBag, "wifi-captive-portal-result");
   };
 
   return {
     EVENT_CONNECT,
     EVENT_DISCONNECT,
     notify(eventType, network) {
+      if (!network || !(network.type in NetworkManager.prototype._captivePortalSupportTypes)) {
+        // unsupportive network type.
+        return;
+      }
       switch (eventType) {
         case EVENT_CONNECT:
-          // perform captive portal detection on wifi interface
+          // perform captive portal detection
           if (
             _available &&
             network &&
-            network.type == Ci.nsINetworkInfo.NETWORK_TYPE_WIFI &&
-            _lastCaptivePortalStatus !== EVENT_CONNECT
+            _lastCaptivePortalStatus[network.type] != EVENT_CONNECT
           ) {
-            _lastCaptivePortalStatus = EVENT_CONNECT;
+            _lastCaptivePortalStatus[network.type] = EVENT_CONNECT;
             _performDetection(network.name, function(success) {
-              _sendNotification(success);
+              _sendNotification(network.type, success);
             });
           }
 
@@ -2817,12 +2865,12 @@ var CaptivePortalDetectionHelper = (function() {
         case EVENT_DISCONNECT:
           if (
             _available &&
-            network.type == Ci.nsINetworkInfo.NETWORK_TYPE_WIFI &&
-            _lastCaptivePortalStatus !== EVENT_DISCONNECT
+	    network &&
+            _lastCaptivePortalStatus[network.type] == EVENT_CONNECT
           ) {
-            _lastCaptivePortalStatus = EVENT_DISCONNECT;
+            _lastCaptivePortalStatus[network.type] = EVENT_DISCONNECT;
             _abort(network.name);
-            _sendNotification(false);
+            _sendNotification(network.type, false);
           }
           break;
       }

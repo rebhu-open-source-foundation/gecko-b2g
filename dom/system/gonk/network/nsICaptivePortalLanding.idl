@@ -1,0 +1,20 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+[scriptable, uuid(64e00e74-1168-46c9-af9d-344febeca995)]
+interface nsICaptivePortalLanding : nsISupports
+{
+  /**
+   * Captive portal network type,
+   * one of the NETWORK_TYPE_* from nsINetworkInfo.
+   */
+  readonly attribute long networkType;
+
+  /**
+   * Captive portal landing status.
+   */
+  attribute boolean landing;
+};

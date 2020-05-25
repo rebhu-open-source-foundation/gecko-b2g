@@ -6,11 +6,12 @@
 
 interface nsINetworkInfo;
 interface nsINetworkInterface;
+interface nsICaptivePortalLanding;
 
 /**
  * Manage network interfaces.
  */
-[scriptable, uuid(a890fa34-2550-4dd0-9ddd-0dc37dbde249)]
+[scriptable, uuid(320054fb-2b39-40cf-b0f2-79ef94e6f971)]
 interface nsINetworkManager : nsISupports
 {
   /**
@@ -134,10 +135,17 @@ interface nsINetworkManager : nsISupports
                         in AString host);
 
   /**
-   * The WIFI captive portal landing status.
+   * The captive portal landing status list.
    *
-   * When this changes, the 'wifi-captive-portal-result' observer
+   * When this changes, the 'captive-portal-result' observer
    * notification is dispatched.
+   *
+   * @param count
+   *        The length of the list of CaptivePortalLanding.
+   *
+   * @returns the list of CaptivePortalLandings.
    */
-  readonly attribute boolean wifiCaptivePortalLanding;
+  void getCaptivePortalLandings([optional] out unsigned long count,
+                                [array, size_is(count), retval]
+                                out nsICaptivePortalLanding captivePortalLandings);
 };

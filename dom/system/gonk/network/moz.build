@@ -21,6 +21,7 @@ EXPORTS += [
 ]
 
 XPIDL_SOURCES += [
+    'nsICaptivePortalLanding.idl',
     'nsINat464XlatInfo.idl',
     'nsINetworkInterface.idl',
     'nsINetworkInterfaceListService.idl',
