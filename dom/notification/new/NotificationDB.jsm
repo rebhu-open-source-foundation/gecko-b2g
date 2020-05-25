@@ -32,6 +32,7 @@ const kMessages = [
   "Notification:Save",
   "Notification:Delete",
   "Notification:GetAll",
+  "Notification:GetAllCrossOrigin",
 ];
 
 // Given its origin and ID, produce the key that uniquely identifies
@@ -215,6 +216,19 @@ var NotificationDB = {
           });
         break;
 
+      case "Notification:GetAllCrossOrigin":
+        this.queueTask("getallaccrossorigin", message.data).then(
+          function (notifications) {
+            returnMessage("Notification:GetAllCrossOrigin:Return:OK", {
+              notifications: notifications
+            });
+          }).catch(function (error) {
+            returnMessage("Notification:GetAllCrossOrigin:Return:KO", {
+              errorMsg: error
+            });
+          });
+        break;
+
       case "Notification:Save":
         this.queueTask("save", message.data)
           .then(function() {
@@ -298,6 +312,9 @@ var NotificationDB = {
           case "getall":
             return this.taskGetAll(task.data);
 
+          case "getallaccrossorigin":
+            return this.taskGetAllCrossOrigin();
+
           case "save":
             return this.taskSave(task.data);
 
@@ -350,6 +367,23 @@ var NotificationDB = {
       notifications = notifications.filter(n => n.tag === data.tag);
     }
 
+    return notifications;
+  },
+
+  async taskGetAllCrossOrigin() {
+    if (DEBUG) { debug("Task, getting all whatever origin"); }
+    var notifications = [];
+    var enumerator = await this._store.enumerate();
+    for (const { key, value } of enumerator) {
+      // Notifications without the alertName field cannot be resent by
+      // mozResendAllNotifications, so we just skip them. They will
+      // still be available to applications via Notification.get()
+      if (!('alertName' in notification)) {
+        continue;
+      }
+
+      notifications.push(JSON.parse(value));
+    }
     return notifications;
   },
 

@@ -50,6 +50,7 @@ EXTRA_JS_MODULES += [
     'ActivityChannel.jsm',
     'AlertsHelper.jsm',
     'B2GProcessSelector.jsm',
+    'ChromeNotifications.jsm',
     'ContentPermissionPrompt.jsm',
     'dbg-browser-actors.js',
     'ErrorPage.jsm',
