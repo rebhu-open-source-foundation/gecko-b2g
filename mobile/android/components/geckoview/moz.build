@@ -27,4 +27,9 @@ EXTRA_COMPONENTS += [
     'GeckoViewStartup.js',
 ]
 
+EXTRA_JS_MODULES += [
+    'GeckoViewPrompter.jsm',
+    'PromptCollection.jsm',
+]
+
 FINAL_LIBRARY = 'xul'

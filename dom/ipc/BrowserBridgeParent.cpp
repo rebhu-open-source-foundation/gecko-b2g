@@ -28,8 +28,11 @@ BrowserBridgeParent::BrowserBridgeParent() = default;
 BrowserBridgeParent::~BrowserBridgeParent() { Destroy(); }
 
 nsresult BrowserBridgeParent::InitWithProcess(
-    ContentParent* aContentParent, const nsString& aPresentationURL,
+    BrowserParent* aParentBrowser, ContentParent* aContentParent,
     const WindowGlobalInit& aWindowInit, uint32_t aChromeFlags, TabId aTabId) {
+  MOZ_ASSERT(!CanSend(),
+             "This should be called before the object is connected to IPC");
+
   RefPtr<CanonicalBrowsingContext> browsingContext =
       CanonicalBrowsingContext::Get(aWindowInit.context().mBrowsingContextId);
   if (!browsingContext || browsingContext->IsDiscarded()) {
@@ -53,11 +56,6 @@ nsresult BrowserBridgeParent::InitWithProcess(
     ancestor = ancestor->GetParent();
   }
 
-  MutableTabContext tabContext;
-  tabContext.SetTabContext(Manager()->ChromeOuterWindowID(),
-                           Manager()->ShowFocusRings(), aPresentationURL,
-                           Manager()->GetMaxTouchPoints());
-
   // Ensure that our content process is subscribed to our newly created
   // BrowsingContextGroup.
   browsingContext->Group()->EnsureSubscribed(aContentParent);
@@ -65,7 +63,7 @@ nsresult BrowserBridgeParent::InitWithProcess(
 
   // Construct the BrowserParent object for our subframe.
   auto browserParent = MakeRefPtr<BrowserParent>(
-      aContentParent, aTabId, tabContext, browsingContext, aChromeFlags);
+      aContentParent, aTabId, *aParentBrowser, browsingContext, aChromeFlags);
   browserParent->SetBrowserBridgeParent(this);
 
   // Open a remote endpoint for our PBrowser actor.
@@ -95,7 +93,7 @@ nsresult BrowserBridgeParent::InitWithProcess(
   // Tell the content process to set up its PBrowserChild.
   bool ok = aContentParent->SendConstructBrowser(
       std::move(childEp), std::move(windowChildEp), aTabId,
-      tabContext.AsIPCTabContext(), aWindowInit, aChromeFlags,
+      browserParent->AsIPCTabContext(), aWindowInit, aChromeFlags,
       aContentParent->ChildID(), aContentParent->IsForBrowser(),
       /* aIsTopLevel */ false);
   if (NS_WARN_IF(!ok)) {
@@ -105,13 +103,10 @@ nsresult BrowserBridgeParent::InitWithProcess(
 
   // Set our BrowserParent object to the newly created browser.
   mBrowserParent = std::move(browserParent);
-  mBrowserParent->SetOwnerElement(Manager()->GetOwnerElement());
+  mBrowserParent->SetOwnerElement(aParentBrowser->GetOwnerElement());
   mBrowserParent->InitRendering();
 
   windowParent->Init();
-
-  // Send the newly created layers ID back into content.
-  Unused << SendSetLayersId(mBrowserParent->GetLayersId());
   return NS_OK;
 }
 

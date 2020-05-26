@@ -1603,22 +1603,22 @@ class EditorBase : public nsIEditor,
       const EditorRawDOMPoint& aPoint) const {
     return GetPreviousNodeInternal(aPoint, true, true, true);
   }
-  nsIContent* GetPreviousNode(nsINode& aNode) const {
+  nsIContent* GetPreviousNode(const nsINode& aNode) const {
     return GetPreviousNodeInternal(aNode, false, true, false);
   }
-  nsIContent* GetPreviousElementOrText(nsINode& aNode) const {
+  nsIContent* GetPreviousElementOrText(const nsINode& aNode) const {
     return GetPreviousNodeInternal(aNode, false, false, false);
   }
-  nsIContent* GetPreviousEditableNode(nsINode& aNode) const {
+  nsIContent* GetPreviousEditableNode(const nsINode& aNode) const {
     return GetPreviousNodeInternal(aNode, true, true, false);
   }
-  nsIContent* GetPreviousNodeInBlock(nsINode& aNode) const {
+  nsIContent* GetPreviousNodeInBlock(const nsINode& aNode) const {
     return GetPreviousNodeInternal(aNode, false, true, true);
   }
-  nsIContent* GetPreviousElementOrTextInBlock(nsINode& aNode) const {
+  nsIContent* GetPreviousElementOrTextInBlock(const nsINode& aNode) const {
     return GetPreviousNodeInternal(aNode, false, false, true);
   }
-  nsIContent* GetPreviousEditableNodeInBlock(nsINode& aNode) const {
+  nsIContent* GetPreviousEditableNodeInBlock(const nsINode& aNode) const {
     return GetPreviousNodeInternal(aNode, true, true, true);
   }
 
@@ -1677,36 +1677,36 @@ class EditorBase : public nsIEditor,
       const EditorDOMPointBase<PT, CT>& aPoint) const {
     return GetNextNodeInternal(aPoint, true, true, true);
   }
-  nsIContent* GetNextNode(nsINode& aNode) const {
+  nsIContent* GetNextNode(const nsINode& aNode) const {
     return GetNextNodeInternal(aNode, false, true, false);
   }
-  nsIContent* GetNextElementOrText(nsINode& aNode) const {
+  nsIContent* GetNextElementOrText(const nsINode& aNode) const {
     return GetNextNodeInternal(aNode, false, false, false);
   }
-  nsIContent* GetNextEditableNode(nsINode& aNode) const {
+  nsIContent* GetNextEditableNode(const nsINode& aNode) const {
     return GetNextNodeInternal(aNode, true, true, false);
   }
-  nsIContent* GetNextNodeInBlock(nsINode& aNode) const {
+  nsIContent* GetNextNodeInBlock(const nsINode& aNode) const {
     return GetNextNodeInternal(aNode, false, true, true);
   }
-  nsIContent* GetNextElementOrTextInBlock(nsINode& aNode) const {
+  nsIContent* GetNextElementOrTextInBlock(const nsINode& aNode) const {
     return GetNextNodeInternal(aNode, false, false, true);
   }
-  nsIContent* GetNextEditableNodeInBlock(nsINode& aNode) const {
+  nsIContent* GetNextEditableNodeInBlock(const nsINode& aNode) const {
     return GetNextNodeInternal(aNode, true, true, true);
   }
 
   /**
    * Returns true if aNode is our root node.
    */
-  bool IsRoot(nsINode* inNode) const;
-  bool IsEditorRoot(nsINode* aNode) const;
+  bool IsRoot(const nsINode* inNode) const;
+  bool IsEditorRoot(const nsINode* aNode) const;
 
   /**
    * Returns true if aNode is a descendant of our root node.
    */
-  bool IsDescendantOfRoot(nsINode* inNode) const;
-  bool IsDescendantOfEditorRoot(nsINode* aNode) const;
+  bool IsDescendantOfRoot(const nsINode* inNode) const;
+  bool IsDescendantOfEditorRoot(const nsINode* aNode) const;
 
   /**
    * Counts number of editable child nodes.
@@ -2026,9 +2026,9 @@ class EditorBase : public nsIEditor,
   /**
    * Helper for GetPreviousNodeInternal() and GetNextNodeInternal().
    */
-  nsIContent* FindNextLeafNode(nsINode* aCurrentNode, bool aGoForward,
+  nsIContent* FindNextLeafNode(const nsINode* aCurrentNode, bool aGoForward,
                                bool bNoBlockCrossing) const;
-  nsIContent* FindNode(nsINode* aCurrentNode, bool aGoForward,
+  nsIContent* FindNode(const nsINode* aCurrentNode, bool aGoForward,
                        bool aEditableNode, bool aFindAnyDataNode,
                        bool bNoBlockCrossing) const;
 
@@ -2045,7 +2045,8 @@ class EditorBase : public nsIEditor,
    *                             aFindEditableNode is true.  If there is no
    *                             previous node, returns nullptr.
    */
-  nsIContent* GetPreviousNodeInternal(nsINode& aNode, bool aFindEditableNode,
+  nsIContent* GetPreviousNodeInternal(const nsINode& aNode,
+                                      bool aFindEditableNode,
                                       bool aFindAnyDataNode,
                                       bool aNoBlockCrossing) const;
 
@@ -2070,9 +2071,9 @@ class EditorBase : public nsIEditor,
    *                             aFindEditableNode is true.  If there is no
    *                             next node, returns nullptr.
    */
-  nsIContent* GetNextNodeInternal(nsINode& aNode, bool aFindEditableNode,
+  nsIContent* GetNextNodeInternal(const nsINode& aNode, bool aFindEditableNode,
                                   bool aFindAnyDataNode,
-                                  bool bNoBlockCrossing) const;
+                                  bool aNoBlockCrossing) const;
 
   /**
    * And another version that takes a point in DOM tree rather than a node.

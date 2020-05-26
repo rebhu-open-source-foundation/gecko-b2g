@@ -2793,7 +2793,7 @@ nsresult EditorBase::DeleteTextWithTransaction(Text& aTextNode,
   return rv;
 }
 
-nsIContent* EditorBase::GetPreviousNodeInternal(nsINode& aNode,
+nsIContent* EditorBase::GetPreviousNodeInternal(const nsINode& aNode,
                                                 bool aFindEditableNode,
                                                 bool aFindAnyDataNode,
                                                 bool aNoBlockCrossing) const {
@@ -2852,7 +2852,7 @@ nsIContent* EditorBase::GetPreviousNodeInternal(const EditorRawDOMPoint& aPoint,
                                  aFindAnyDataNode, aNoBlockCrossing);
 }
 
-nsIContent* EditorBase::GetNextNodeInternal(nsINode& aNode,
+nsIContent* EditorBase::GetNextNodeInternal(const nsINode& aNode,
                                             bool aFindEditableNode,
                                             bool aFindAnyDataNode,
                                             bool aNoBlockCrossing) const {
@@ -2922,14 +2922,15 @@ nsIContent* EditorBase::GetNextNodeInternal(const EditorRawDOMPoint& aPoint,
                              aFindAnyDataNode, aNoBlockCrossing);
 }
 
-nsIContent* EditorBase::FindNextLeafNode(nsINode* aCurrentNode, bool aGoForward,
+nsIContent* EditorBase::FindNextLeafNode(const nsINode* aCurrentNode,
+                                         bool aGoForward,
                                          bool bNoBlockCrossing) const {
   // called only by GetPriorNode so we don't need to check params.
   MOZ_ASSERT(
       IsDescendantOfEditorRoot(aCurrentNode) && !IsEditorRoot(aCurrentNode),
       "Bogus arguments");
 
-  nsINode* cur = aCurrentNode;
+  const nsINode* cur = aCurrentNode;
   for (;;) {
     // if aCurrentNode has a sibling in the right direction, return
     // that sibling's closest child (or itself if it has no children)
@@ -2972,7 +2973,7 @@ nsIContent* EditorBase::FindNextLeafNode(nsINode* aCurrentNode, bool aGoForward,
   return nullptr;
 }
 
-nsIContent* EditorBase::FindNode(nsINode* aCurrentNode, bool aGoForward,
+nsIContent* EditorBase::FindNode(const nsINode* aCurrentNode, bool aGoForward,
                                  bool aEditableNode, bool aFindAnyDataNode,
                                  bool bNoBlockCrossing) const {
   if (IsEditorRoot(aCurrentNode)) {
@@ -3000,7 +3001,7 @@ nsIContent* EditorBase::FindNode(nsINode* aCurrentNode, bool aGoForward,
                   bNoBlockCrossing);
 }
 
-bool EditorBase::IsRoot(nsINode* inNode) const {
+bool EditorBase::IsRoot(const nsINode* inNode) const {
   if (NS_WARN_IF(!inNode)) {
     return false;
   }
@@ -3008,7 +3009,7 @@ bool EditorBase::IsRoot(nsINode* inNode) const {
   return inNode == rootNode;
 }
 
-bool EditorBase::IsEditorRoot(nsINode* aNode) const {
+bool EditorBase::IsEditorRoot(const nsINode* aNode) const {
   if (NS_WARN_IF(!aNode)) {
     return false;
   }
@@ -3016,7 +3017,7 @@ bool EditorBase::IsEditorRoot(nsINode* aNode) const {
   return aNode == rootNode;
 }
 
-bool EditorBase::IsDescendantOfRoot(nsINode* inNode) const {
+bool EditorBase::IsDescendantOfRoot(const nsINode* inNode) const {
   if (NS_WARN_IF(!inNode)) {
     return false;
   }
@@ -3028,7 +3029,7 @@ bool EditorBase::IsDescendantOfRoot(nsINode* inNode) const {
   return inNode->IsInclusiveDescendantOf(root);
 }
 
-bool EditorBase::IsDescendantOfEditorRoot(nsINode* aNode) const {
+bool EditorBase::IsDescendantOfEditorRoot(const nsINode* aNode) const {
   if (NS_WARN_IF(!aNode)) {
     return false;
   }

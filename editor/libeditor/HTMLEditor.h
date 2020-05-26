@@ -928,7 +928,7 @@ class HTMLEditor final : public TextEditor,
   /**
    * Small utility routine to test if a break node is visible to user.
    */
-  bool IsVisibleBRElement(nsINode* aNode);
+  bool IsVisibleBRElement(const nsINode* aNode);
 
   /**
    * Helper routines for font size changing.
@@ -1008,10 +1008,10 @@ class HTMLEditor final : public TextEditor,
    * EditorBase::GetPreviousElementOrText*() but this won't return nodes
    * outside active editing host.
    */
-  nsIContent* GetPreviousHTMLElementOrText(nsINode& aNode) const {
+  nsIContent* GetPreviousHTMLElementOrText(const nsINode& aNode) const {
     return GetPreviousHTMLElementOrTextInternal(aNode, false);
   }
-  nsIContent* GetPreviousHTMLElementOrTextInBlock(nsINode& aNode) const {
+  nsIContent* GetPreviousHTMLElementOrTextInBlock(const nsINode& aNode) const {
     return GetPreviousHTMLElementOrTextInternal(aNode, true);
   }
   template <typename PT, typename CT>
@@ -1029,7 +1029,7 @@ class HTMLEditor final : public TextEditor,
    * GetPreviousHTMLElementOrTextInternal() methods are common implementation
    * of above methods.  Please don't use this method directly.
    */
-  nsIContent* GetPreviousHTMLElementOrTextInternal(nsINode& aNode,
+  nsIContent* GetPreviousHTMLElementOrTextInternal(const nsINode& aNode,
                                                    bool aNoBlockCrossing) const;
   template <typename PT, typename CT>
   nsIContent* GetPreviousHTMLElementOrTextInternal(
@@ -1077,10 +1077,10 @@ class HTMLEditor final : public TextEditor,
    * On the other hand, methods which take |nsINode&| start to search from
    * next node of aNode.
    */
-  nsIContent* GetNextHTMLElementOrText(nsINode& aNode) const {
+  nsIContent* GetNextHTMLElementOrText(const nsINode& aNode) const {
     return GetNextHTMLElementOrTextInternal(aNode, false);
   }
-  nsIContent* GetNextHTMLElementOrTextInBlock(nsINode& aNode) const {
+  nsIContent* GetNextHTMLElementOrTextInBlock(const nsINode& aNode) const {
     return GetNextHTMLElementOrTextInternal(aNode, true);
   }
   template <typename PT, typename CT>
@@ -1098,7 +1098,7 @@ class HTMLEditor final : public TextEditor,
    * GetNextHTMLNodeInternal() methods are common implementation
    * of above methods.  Please don't use this method directly.
    */
-  nsIContent* GetNextHTMLElementOrTextInternal(nsINode& aNode,
+  nsIContent* GetNextHTMLElementOrTextInternal(const nsINode& aNode,
                                                bool aNoBlockCrossing) const;
   template <typename PT, typename CT>
   nsIContent* GetNextHTMLElementOrTextInternal(

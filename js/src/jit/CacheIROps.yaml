@@ -656,6 +656,12 @@
   args:
     obj: ObjId
 
+- name: IsObjectResult
+  shared: true
+  transpile: true
+  args:
+    input: ValId
+
 - name: MathAbsInt32Result
   shared: true
   transpile: true
@@ -675,6 +681,12 @@
     input: NumberId
 
 - name: MathFloorToInt32Result
+  shared: true
+  transpile: true
+  args:
+    input: NumberId
+
+- name: MathCeilToInt32Result
   shared: true
   transpile: true
   args:
@@ -1287,7 +1299,7 @@
 
 - name: Int32URightShiftResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     lhs: Int32Id
     rhs: Int32Id

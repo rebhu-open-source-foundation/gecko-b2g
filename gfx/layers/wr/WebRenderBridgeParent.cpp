@@ -8,7 +8,7 @@
 
 #include "CompositableHost.h"
 #include "gfxEnv.h"
-#include "gfxEnv.h"
+#include "gfxOTSUtils.h"
 #include "GeckoProfiler.h"
 #include "GLContext.h"
 #include "GLContextProvider.h"
@@ -430,6 +430,61 @@ void WebRenderBridgeParent::Destroy() {
   ClearResources();
 }
 
+struct WROTSAlloc {
+  wr::Vec<uint8_t> mVec;
+
+  void* Grow(void* aPtr, size_t aLength) {
+    if (aLength > mVec.Capacity()) {
+      mVec.Reserve(aLength - mVec.Capacity());
+    }
+    return mVec.inner.data;
+  }
+  wr::Vec<uint8_t> ShrinkToFit(void* aPtr, size_t aLength) {
+    wr::Vec<uint8_t> result(std::move(mVec));
+    result.inner.length = aLength;
+    return result;
+  }
+  void Free(void* aPtr) {}
+};
+
+static bool ReadRawFont(const OpAddRawFont& aOp, wr::ShmSegmentsReader& aReader,
+                        wr::TransactionBuilder& aUpdates) {
+#ifdef NIGHTLY_BUILD
+  wr::Vec<uint8_t> sourceBytes;
+  Maybe<Range<uint8_t>> ptr =
+      aReader.GetReadPointerOrCopy(aOp.bytes(), sourceBytes);
+  if (ptr.isNothing()) {
+    return false;
+  }
+  Range<uint8_t>& source = ptr.ref();
+  // Attempt to sanitize the font before passing it along for updating.
+  // Ensure that we're not strict here about font types, since any font that
+  // failed generating a descriptor might end up here as raw font data.
+  size_t lengthHint = gfxOTSContext::GuessSanitizedFontSize(
+      source.begin().get(), source.length(), false);
+  if (!lengthHint) {
+    gfxCriticalNote << "Could not determine font type for sanitizing font "
+                    << aOp.key().mHandle;
+    return false;
+  }
+  gfxOTSExpandingMemoryStream<WROTSAlloc> output(lengthHint);
+  gfxOTSContext otsContext;
+  if (!otsContext.Process(&output, source.begin().get(), source.length())) {
+    gfxCriticalNote << "Failed sanitizing font " << aOp.key().mHandle;
+    return false;
+  }
+  wr::Vec<uint8_t> bytes = output.forget();
+#else
+  wr::Vec<uint8_t> bytes;
+  if (!aReader.Read(aOp.bytes(), bytes)) {
+    return false;
+  }
+#endif
+
+  aUpdates.AddRawFont(aOp.key(), bytes, aOp.fontIndex());
+  return true;
+}
+
 bool WebRenderBridgeParent::UpdateResources(
     const nsTArray<OpUpdateResource>& aResourceUpdates,
     const nsTArray<RefCountedShmem>& aSmallShmems,
@@ -529,12 +584,9 @@ bool WebRenderBridgeParent::UpdateResources(
         break;
       }
       case OpUpdateResource::TOpAddRawFont: {
-        const auto& op = cmd.get_OpAddRawFont();
-        wr::Vec<uint8_t> bytes;
-        if (!reader.Read(op.bytes(), bytes)) {
+        if (!ReadRawFont(cmd.get_OpAddRawFont(), reader, aUpdates)) {
           return false;
         }
-        aUpdates.AddRawFont(op.key(), bytes, op.fontIndex());
         break;
       }
       case OpUpdateResource::TOpAddFontDescriptor: {
@@ -1786,14 +1838,6 @@ mozilla::ipc::IPCResult WebRenderBridgeParent::RecvCapture() {
 mozilla::ipc::IPCResult WebRenderBridgeParent::RecvToggleCaptureSequence() {
   if (!mDestroyed) {
     mApi->ToggleCaptureSequence();
-  }
-  return IPC_OK();
-}
-
-mozilla::ipc::IPCResult WebRenderBridgeParent::RecvSetTransactionLogging(
-    const bool& aValue) {
-  if (!mDestroyed) {
-    mApi->SetTransactionLogging(aValue);
   }
   return IPC_OK();
 }

@@ -3347,21 +3347,6 @@ mozilla::ipc::IPCResult BrowserChild::RecvUIResolutionChanged(
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult BrowserChild::RecvThemeChanged(
-    nsTArray<LookAndFeelInt>&& aLookAndFeelIntCache) {
-  nsCOMPtr<Document> document(GetTopLevelDocument());
-  if (!document) {
-    return IPC_OK();
-  }
-
-  LookAndFeel::SetIntCache(aLookAndFeelIntCache);
-  RefPtr<nsPresContext> presContext = document->GetPresContext();
-  if (presContext) {
-    presContext->ThemeChanged();
-  }
-  return IPC_OK();
-}
-
 mozilla::ipc::IPCResult BrowserChild::RecvSafeAreaInsetsChanged(
     const mozilla::ScreenIntMargin& aSafeAreaInsets) {
   mPuppetWidget->UpdateSafeAreaInsets(aSafeAreaInsets);

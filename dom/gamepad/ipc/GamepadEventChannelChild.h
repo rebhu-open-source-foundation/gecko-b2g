@@ -8,6 +8,8 @@
 #ifndef mozilla_dom_GamepadEventChannelChild_h_
 #  define mozilla_dom_GamepadEventChannelChild_h_
 
+#include "nsRefPtrHashtable.h"
+
 namespace mozilla {
 namespace dom {
 

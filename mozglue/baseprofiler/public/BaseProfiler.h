@@ -114,46 +114,54 @@ class SpliceableJSONWriter;
     /* The DevTools profiler doesn't want the native addresses. */             \
     MACRO(2, "leaf", Leaf, "Include the C++ leaf node if not stackwalking")    \
                                                                                \
-    MACRO(3, "mainthreadio", MainThreadIO,                                     \
-          "Add main thread I/O to the profile")                                \
+    MACRO(3, "mainthreadio", MainThreadIO, "Add main thread file I/O")         \
                                                                                \
-    MACRO(4, "privacy", Privacy,                                               \
+    MACRO(4, "fileio", FileIO,                                                 \
+          "Add file I/O from all profiled threads, implies mainthreadio")      \
+                                                                               \
+    MACRO(5, "fileioall", FileIOAll,                                           \
+          "Add file I/O from all threads, implies fileio")                     \
+                                                                               \
+    MACRO(6, "noiostacks", NoIOStacks,                                         \
+          "File I/O markers do not capture stacks, to reduce overhead")        \
+                                                                               \
+    MACRO(7, "privacy", Privacy,                                               \
           "Do not include user-identifiable information")                      \
                                                                                \
-    MACRO(5, "screenshots", Screenshots,                                       \
+    MACRO(8, "screenshots", Screenshots,                                       \
           "Take a snapshot of the window on every composition")                \
                                                                                \
-    MACRO(6, "seqstyle", SequentialStyle,                                      \
+    MACRO(9, "seqstyle", SequentialStyle,                                      \
           "Disable parallel traversal in styling")                             \
                                                                                \
-    MACRO(7, "stackwalk", StackWalk,                                           \
+    MACRO(10, "stackwalk", StackWalk,                                          \
           "Walk the C++ stack, not available on all platforms")                \
                                                                                \
-    MACRO(8, "tasktracer", TaskTracer,                                         \
+    MACRO(11, "tasktracer", TaskTracer,                                        \
           "Start profiling with feature TaskTracer")                           \
                                                                                \
-    MACRO(9, "threads", Threads, "Profile the registered secondary threads")   \
+    MACRO(12, "threads", Threads, "Profile the registered secondary threads")  \
                                                                                \
-    MACRO(10, "trackopts", TrackOptimizations,                                 \
+    MACRO(13, "trackopts", TrackOptimizations,                                 \
           "Have the JavaScript engine track JIT optimizations")                \
                                                                                \
-    MACRO(11, "jstracer", JSTracer, "Enable tracing of the JavaScript engine") \
+    MACRO(14, "jstracer", JSTracer, "Enable tracing of the JavaScript engine") \
                                                                                \
-    MACRO(12, "jsallocations", JSAllocations,                                  \
+    MACRO(15, "jsallocations", JSAllocations,                                  \
           "Have the JavaScript engine track allocations")                      \
                                                                                \
-    MACRO(14, "nostacksampling", NoStackSampling,                              \
+    MACRO(16, "nostacksampling", NoStackSampling,                              \
           "Disable all stack sampling: Cancels \"js\", \"leaf\", "             \
           "\"stackwalk\" and labels")                                          \
                                                                                \
-    MACRO(15, "preferencereads", PreferenceReads,                              \
+    MACRO(17, "preferencereads", PreferenceReads,                              \
           "Track when preferences are read")                                   \
                                                                                \
-    MACRO(16, "nativeallocations", NativeAllocations,                          \
+    MACRO(18, "nativeallocations", NativeAllocations,                          \
           "Collect the stacks from a smaller subset of all native "            \
           "allocations, biasing towards collecting larger allocations")        \
                                                                                \
-    MACRO(17, "ipcmessages", IPCMessages,                                      \
+    MACRO(19, "ipcmessages", IPCMessages,                                      \
           "Have the IPC layer track cross-process messages")
 
 struct ProfilerFeature {
@@ -549,25 +557,62 @@ MFBT_API Maybe<ProfilerBufferInfo> profiler_get_buffer_info();
 // #  define PROFILER_RUNTIME_STATS
 
 #  ifdef PROFILER_RUNTIME_STATS
-struct StaticBaseProfilerStats {
+// This class gathers durations and displays some basic stats when destroyed.
+// It is intended to be used as a static variable (see `AUTO_PROFILER_STATS`
+// below), to display stats at the end of the program.
+class StaticBaseProfilerStats {
+ public:
   explicit StaticBaseProfilerStats(const char* aName) : mName(aName) {}
+
   ~StaticBaseProfilerStats() {
-    long long n = static_cast<long long>(mNumberDurations);
+    // Using unsigned long long for computations and printfs.
+    using ULL = unsigned long long;
+    ULL n = static_cast<ULL>(mNumberDurations);
     if (n != 0) {
-      long long sumNs = static_cast<long long>(mSumDurationsNs);
-      printf("Profiler stats `%s`: %lld ns / %lld = %lld ns\n", mName, sumNs, n,
-             sumNs / n);
+      ULL sumNs = static_cast<ULL>(mSumDurationsNs);
+      printf(
+          "[%d] Profiler stats `%s`: %llu ns / %llu = %llu ns, max %llu ns\n",
+          profiler_current_process_id(), mName, sumNs, n, sumNs / n,
+          static_cast<ULL>(mLongestDurationNs));
     } else {
-      printf("Profiler stats `%s`: (nothing)\n", mName);
+      printf("[%d] Profiler stats `%s`: (nothing)\n",
+             profiler_current_process_id(), mName);
     }
   }
-  Atomic<long long> mSumDurationsNs{0};
-  Atomic<long long> mNumberDurations{0};
+
+  void AddDurationFrom(TimeStamp aStart) {
+    DurationNs duration = static_cast<DurationNs>(
+        (TimeStamp::NowUnfuzzed() - aStart).ToMicroseconds() * 1000 + 0.5);
+    mSumDurationsNs += duration;
+    ++mNumberDurations;
+    // Update mLongestDurationNs if this one is longer.
+    for (;;) {
+      DurationNs longest = mLongestDurationNs;
+      if (MOZ_LIKELY(longest >= duration)) {
+        // This duration is not the longest, nothing to do.
+        break;
+      }
+      if (MOZ_LIKELY(mLongestDurationNs.compareExchange(longest, duration))) {
+        // Successfully updated `mLongestDurationNs` with the new value.
+        break;
+      }
+      // Otherwise someone else just updated `mLongestDurationNs`, we need to
+      // try again by looping.
+    }
+  }
 
  private:
+  using DurationNs = uint64_t;
+  using Count = uint32_t;
+
+  Atomic<DurationNs> mSumDurationsNs{0};
+  Atomic<DurationNs> mLongestDurationNs{0};
+  Atomic<Count> mNumberDurations{0};
   const char* mName;
 };
 
+// RAII object that measure its scoped lifetime duration and reports it to a
+// `StaticBaseProfilerStats`.
 class MOZ_RAII AutoProfilerStats {
  public:
   explicit AutoProfilerStats(
@@ -576,11 +621,7 @@ class MOZ_RAII AutoProfilerStats {
     MOZ_GUARD_OBJECT_NOTIFIER_INIT;
   }
 
-  ~AutoProfilerStats() {
-    mStats.mSumDurationsNs += int64_t(
-        (TimeStamp::NowUnfuzzed() - mStart).ToMicroseconds() * 1000 + 0.5);
-    ++mStats.mNumberDurations;
-  }
+  ~AutoProfilerStats() { mStats.AddDurationFrom(mStart); }
 
  private:
   MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
@@ -589,6 +630,12 @@ class MOZ_RAII AutoProfilerStats {
   TimeStamp mStart;
 };
 
+// Macro that should be used to collect basic statistics from measurements of
+// block durations, from where this macro is, until the end of its enclosing
+// scope. The name is used in the static variable name and when displaying stats
+// at the end of the program; Another location could use the same name but their
+// stats will not be combined, so use different name if these locations should
+// be distinguished.
 #    define AUTO_PROFILER_STATS(name)                                      \
       static ::mozilla::baseprofiler::StaticBaseProfilerStats sStat##name( \
           #name);                                                          \
@@ -739,6 +786,13 @@ bool profiler_is_locked_on_current_thread();
 // Insert a marker in the profile timeline for a specified thread.
 MFBT_API void profiler_add_marker_for_thread(
     int aThreadId, ProfilingCategoryPair aCategoryPair, const char* aMarkerName,
+    const ProfilerMarkerPayload& aPayload);
+
+// Insert a marker in the profile timeline for the main thread.
+// This may be used to gather some markers from any thread, that should be
+// displayed in the main thread track.
+MFBT_API void profiler_add_marker_for_mainthread(
+    ProfilingCategoryPair aCategoryPair, const char* aMarkerName,
     const ProfilerMarkerPayload& aPayload);
 
 enum TracingKind {

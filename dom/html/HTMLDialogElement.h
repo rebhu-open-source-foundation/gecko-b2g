@@ -37,16 +37,24 @@ class HTMLDialogElement final : public nsGenericHTMLElement {
     mReturnValue = aReturnValue;
   }
 
+  void UnbindFromTree(bool aNullParent = true) override;
+
   void Close(const mozilla::dom::Optional<nsAString>& aReturnValue);
   void Show();
   void ShowModal(ErrorResult& aError);
+
+  bool IsInTopLayer() const;
 
   nsString mReturnValue;
 
  protected:
   virtual ~HTMLDialogElement();
+  void FocusDialog();
   JSObject* WrapNode(JSContext* aCx,
                      JS::Handle<JSObject*> aGivenProto) override;
+
+ private:
+  void RemoveFromTopLayerIfNeeded();
 };
 
 }  // namespace dom

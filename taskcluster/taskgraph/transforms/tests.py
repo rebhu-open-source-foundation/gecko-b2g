@@ -21,7 +21,7 @@ from __future__ import absolute_import, print_function, unicode_literals
 
 import copy
 import logging
-from six import text_type
+from six import string_types, text_type
 
 from mozbuild.schedules import INCLUSIVE_COMPONENTS
 from moztest.resolve import TEST_SUITES
@@ -47,6 +47,7 @@ from taskgraph.util.schema import (
 from taskgraph.util.chunking import (
     chunk_manifests,
     get_manifests,
+    get_runtimes,
     guess_mozinfo_from_task,
 )
 from taskgraph.util.taskcluster import (
@@ -249,6 +250,10 @@ CHUNK_SUITES_BLACKLIST = (
 """These suites will be chunked at test runtime rather than here in the taskgraph."""
 
 
+DYNAMIC_CHUNK_DURATION = 20 * 60  # seconds
+"""The approximate time each test chunk should take to run."""
+
+
 logger = logging.getLogger(__name__)
 
 transforms = TransformSequence()
@@ -336,7 +341,7 @@ test_description_schema = Schema({
     # test platform is not found, the key 'default' will be tried.
     Required('chunks'): optionally_keyed_by(
         'test-platform',
-        int),
+        Any(int, 'dynamic')),
 
     # the time (with unit) after which this task is deleted; default depends on
     # the branch (see below)
@@ -534,7 +539,10 @@ test_description_schema = Schema({
 
     # The SCHEDULES component for this task; this defaults to the suite
     # (not including the flavor) but can be overridden here.
-    Exclusive(Optional('schedules-component'), 'optimization'): text_type,
+    Exclusive(Optional('schedules-component'), 'optimization'): Any(
+        text_type,
+        [text_type],
+    ),
 
     Optional('worker-type'): optionally_keyed_by(
         'test-platform',
@@ -1359,7 +1367,23 @@ def set_test_manifests(config, tasks):
     """Determine the set of test manifests that should run in this task."""
 
     for task in tasks:
-        if taskgraph.fast or task['suite'] in CHUNK_SUITES_BLACKLIST or 'test-manifests' in task:
+        if task['suite'] in CHUNK_SUITES_BLACKLIST:
+            yield task
+            continue
+
+        if taskgraph.fast:
+            # We want to avoid evaluating manifests when taskgraph.fast is set. But
+            # manifests are required for dynamic chunking. Just set the number of
+            # chunks to one in this case.
+            if task['chunks'] == 'dynamic':
+                task['chunks'] = 1
+            yield task
+            continue
+
+        manifests = task.get('test-manifests')
+        if manifests:
+            if isinstance(manifests, list):
+                task['test-manifests'] = {'active': manifests, 'skipped': []}
             yield task
             continue
 
@@ -1371,6 +1395,36 @@ def set_test_manifests(config, tasks):
             frozenset(mozinfo.items()),
         )
 
+        yield task
+
+
+@transforms.add
+def resolve_dynamic_chunks(config, tasks):
+    """Determine how many chunks are needed to handle the given set of manifests."""
+
+    for task in tasks:
+        if task['chunks'] != "dynamic":
+            yield task
+            continue
+
+        if not task.get('test-manifests'):
+            raise Exception(
+                "{} must define 'test-manifests' to use dynamic chunking!".format(
+                    task['test-name']))
+
+        runtimes = {m: r for m, r in get_runtimes(task['test-platform']).items()
+                    if m in task['test-manifests']['active']}
+
+        times = list(runtimes.values())
+        avg = round(sum(times) / len(times), 2) if times else 0
+        total = sum(times)
+
+        # If there are manifests missing from the runtimes data, fill them in
+        # with the average of all present manifests.
+        missing = [m for m in task['test-manifests']['active'] if m not in runtimes]
+        total += avg * len(missing)
+
+        task['chunks'] = int(round(total / DYNAMIC_CHUNK_DURATION)) or 1
         yield task
 
 
@@ -1388,11 +1442,9 @@ def split_chunks(config, tasks):
         if 'test-manifests' in task:
             suite_definition = TEST_SUITES[task['suite']]
             manifests = task['test-manifests']
-            if isinstance(manifests, list):
-                manifests = {'active': manifests, 'skipped': []}
-
             chunked_manifests = chunk_manifests(
                 suite_definition['build_flavor'],
+                suite_definition.get('kwargs', {}).get('subsuite', 'undefined'),
                 task['test-platform'],
                 task['chunks'],
                 manifests['active'],
@@ -1566,6 +1618,37 @@ def set_worker_type(config, tasks):
 
 
 @transforms.add
+def set_schedules_components(config, tasks):
+    for task in tasks:
+        if 'optimization' in task:
+            yield task
+            continue
+
+        category = task['attributes']['unittest_category']
+        schedules = task.get('schedules-component', category)
+        if isinstance(schedules, string_types):
+            schedules = [schedules]
+
+        schedules = set(schedules)
+        if schedules & set(INCLUSIVE_COMPONENTS):
+            # if this is an "inclusive" test, then all files which might
+            # cause it to run are annotated with SCHEDULES in moz.build,
+            # so do not include the platform or any other components here
+            task['schedules-component'] = sorted(schedules)
+            yield task
+            continue
+
+        schedules.add(category)
+        schedules.add(platform_family(task['build-platform']))
+
+        if task['webrender']:
+            schedules.add('webrender')
+
+        task['schedules-component'] = sorted(schedules)
+        yield task
+
+
+@transforms.add
 def make_job_description(config, tasks):
     """Convert *test* descriptions to *job* descriptions (input to
     taskgraph.transforms.job)"""
@@ -1636,18 +1719,7 @@ def make_job_description(config, tasks):
             'platform': task.get('treeherder-machine-platform', task['build-platform']),
         }
 
-        category = task.get('schedules-component', attributes['unittest_category'])
-        if category in INCLUSIVE_COMPONENTS:
-            # if this is an "inclusive" test, then all files which might
-            # cause it to run are annotated with SCHEDULES in moz.build,
-            # so do not include the platform or any other components here
-            schedules = [category]
-        else:
-            schedules = [attributes['unittest_category'], platform_family(task['build-platform'])]
-            component = task.get('schedules-component')
-            if component:
-                schedules.append(component)
-
+        schedules = task.get('schedules-component', [])
         if task.get('when'):
             # This may still be used by comm-central.
             jobdesc['when'] = task['when']
@@ -1656,7 +1728,7 @@ def make_job_description(config, tasks):
         # Pushes generated by `mach try auto` should use the non-try optimizations.
         elif config.params.is_try() and config.params['try_mode'] != 'try_auto':
             jobdesc['optimization'] = {'test-try': schedules}
-        elif category in INCLUSIVE_COMPONENTS:
+        elif set(schedules) & set(INCLUSIVE_COMPONENTS):
             jobdesc['optimization'] = {'test-inclusive': schedules}
         else:
             # First arg goes to 'skip-unless-schedules', second goes to the

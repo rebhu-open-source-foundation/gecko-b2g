@@ -76,7 +76,7 @@ use crate::picture::{RecordedDirtyRegion, tile_cache_sizes, ResolvedSurfaceTextu
 use crate::prim_store::DeferredResolve;
 use crate::profiler::{BackendProfileCounters, FrameProfileCounters, TimeProfileCounter,
                GpuProfileTag, RendererProfileCounters, RendererProfileTimers};
-use crate::profiler::{Profiler, ChangeIndicator, ProfileStyle, add_event_marker};
+use crate::profiler::{Profiler, ChangeIndicator, ProfileStyle, add_event_marker, thread_is_being_profiled};
 use crate::device::query::{GpuProfiler, GpuDebugMethod};
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use crate::render_backend::{FrameId, RenderBackend};
@@ -112,6 +112,7 @@ use std::thread;
 use std::cell::RefCell;
 use tracy_rs::register_thread_with_profiler;
 use time::precise_time_ns;
+use std::ffi::CString;
 
 cfg_if! {
     if #[cfg(feature = "debugger")] {
@@ -2113,6 +2114,11 @@ pub struct Renderer {
 
     /// State related to the debug / profiling overlays
     debug_overlay_state: DebugOverlayState,
+
+    /// The dirty rectangle from the previous frame, used on platforms that
+    /// require keeping the front buffer fully correct when doing
+    /// partial present (e.g. unix desktop with EGL_EXT_buffer_age).
+    prev_dirty_rect: DeviceRect,
 }
 
 #[derive(Debug)]
@@ -2390,8 +2396,8 @@ impl Renderer {
         };
 
         let compositor_kind = match options.compositor_config {
-            CompositorConfig::Draw { max_partial_present_rects } => {
-                CompositorKind::Draw { max_partial_present_rects }
+            CompositorConfig::Draw { max_partial_present_rects, draw_previous_partial_present_regions } => {
+                CompositorKind::Draw { max_partial_present_rects, draw_previous_partial_present_regions }
             }
             CompositorConfig::Native { ref compositor, max_update_rects, .. } => {
                 let capabilities = compositor.get_capabilities();
@@ -2467,7 +2473,7 @@ impl Renderer {
         let lp_scene_thread_name = format!("WRSceneBuilderLP#{}", options.renderer_id.unwrap_or(0));
         let glyph_rasterizer = GlyphRasterizer::new(workers)?;
 
-        let (scene_builder_channels, scene_tx, scene_rx) =
+        let (scene_builder_channels, scene_tx, backend_scene_tx, scene_rx) =
             SceneBuilderThreadChannels::new(api_tx.clone());
 
         let sb_font_instances = font_instances.clone();
@@ -2557,6 +2563,7 @@ impl Renderer {
                 result_tx,
                 scene_tx,
                 low_priority_scene_tx,
+                backend_scene_tx,
                 scene_rx,
                 device_pixel_ratio,
                 resource_cache,
@@ -2666,6 +2673,7 @@ impl Renderer {
             current_compositor_kind: compositor_kind,
             allocated_native_surfaces: FastHashSet::default(),
             debug_overlay_state: DebugOverlayState::new(),
+            prev_dirty_rect: DeviceRect::zero(),
         };
 
         // We initially set the flags to default and then now call set_debug_flags
@@ -3112,7 +3120,6 @@ impl Renderer {
     fn handle_debug_command(&mut self, command: DebugCommand) {
         match command {
             DebugCommand::EnableDualSourceBlending(_) |
-            DebugCommand::SetTransactionLogging(_) |
             DebugCommand::SetPictureTileSize(_) => {
                 panic!("Should be handled by render backend");
             }
@@ -3453,6 +3460,13 @@ impl Renderer {
                     &mut results,
                     doc_index == 0,
                 );
+
+                // Profile marker for the number of invalidated picture cache
+                if thread_is_being_profiled() {
+                    let num_invalidated = self.profile_counters.rendered_picture_cache_tiles.get_accum();
+                    let message = format!("NumPictureCacheInvalidated: {}", num_invalidated);
+                    add_event_marker(&(CString::new(message).unwrap()));
+                }
 
                 if device_size.is_some() {
                     self.draw_frame_debug_items(&frame.debug_items);
@@ -4867,6 +4881,7 @@ impl Renderer {
         projection: &default::Transform3D<f32>,
         results: &mut RenderResults,
         max_partial_present_rects: usize,
+        draw_previous_partial_present_regions: bool,
     ) {
         let _gm = self.gpu_profile.start_marker("framebuffer");
         let _timer = self.gpu_profile.start_timer(GPU_TAG_COMPOSITE);
@@ -4900,9 +4915,18 @@ impl Renderer {
                     results.dirty_rects.push(combined_dirty_rect_i32);
                 }
 
+                // If the implementation requires manually keeping the buffer consistent,
+                // combine the previous frame's damage for tile clipping.
+                // (Not for the returned region though, that should be from this frame only)
                 partial_present_mode = Some(PartialPresentMode::Single {
-                    dirty_rect: combined_dirty_rect,
+                    dirty_rect: if draw_previous_partial_present_regions {
+                        combined_dirty_rect.union(&self.prev_dirty_rect)
+                    } else { combined_dirty_rect },
                 });
+
+                if draw_previous_partial_present_regions {
+                    self.prev_dirty_rect = combined_dirty_rect;
+                }
             } else {
                 // If we don't have a valid partial present scenario, return a single
                 // dirty rect to the client that covers the entire framebuffer.
@@ -4911,6 +4935,10 @@ impl Renderer {
                     draw_target.dimensions(),
                 );
                 results.dirty_rects.push(fb_rect);
+
+                if draw_previous_partial_present_regions {
+                    self.prev_dirty_rect = fb_rect.to_f32();
+                }
             }
 
             self.force_redraw = false;
@@ -5866,7 +5894,7 @@ impl Renderer {
                                     let compositor = self.compositor_config.compositor().unwrap();
                                     frame.composite_state.composite_native(&mut **compositor);
                                 }
-                                CompositorKind::Draw { max_partial_present_rects, .. } => {
+                                CompositorKind::Draw { max_partial_present_rects, draw_previous_partial_present_regions, .. } => {
                                     self.composite_simple(
                                         &frame.composite_state,
                                         clear_framebuffer,
@@ -5874,6 +5902,7 @@ impl Renderer {
                                         &projection,
                                         results,
                                         max_partial_present_rects,
+                                        draw_previous_partial_present_regions,
                                     );
                                 }
                             }

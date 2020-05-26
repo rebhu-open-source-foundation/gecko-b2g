@@ -317,10 +317,6 @@ class ContentChild final : public PContentChild,
   mozilla::ipc::IPCResult RecvClearImageCache(const bool& privateLoader,
                                               const bool& chrome);
 
-  mozilla::jsipc::PJavaScriptChild* AllocPJavaScriptChild();
-
-  bool DeallocPJavaScriptChild(mozilla::jsipc::PJavaScriptChild*);
-
   PRemoteSpellcheckEngineChild* AllocPRemoteSpellcheckEngineChild();
 
   bool DeallocPRemoteSpellcheckEngineChild(PRemoteSpellcheckEngineChild*);
@@ -334,6 +330,7 @@ class ContentChild final : public PContentChild,
                                                  const bool& haveBidiKeyboards);
 
   mozilla::ipc::IPCResult RecvNotifyVisited(nsTArray<VisitedQueryResult>&&);
+  mozilla::ipc::IPCResult RecvThemeChanged(nsTArray<LookAndFeelInt>&&);
 
   // auto remove when alertfinished is received.
   nsresult AddRemoteAlertObserver(const nsString& aData,
@@ -894,7 +891,7 @@ class ContentChild final : public PContentChild,
   mozilla::ipc::IPCResult RecvHistoryCommitLength(
       const MaybeDiscarded<BrowsingContext>& aContext, uint32_t aLength);
 
-private:
+ private:
 #ifdef NIGHTLY_BUILD
   virtual PContentChild::Result OnMessageReceived(const Message& aMsg) override;
 #else

@@ -640,8 +640,7 @@ void nsFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
 
     // clang-format off
     AddStateBits(aPrevInFlow->GetStateBits() &
-                 (NS_FRAME_ANONYMOUSCONTENTCREATOR_CONTENT |
-                  NS_FRAME_GENERATED_CONTENT |
+                 (NS_FRAME_GENERATED_CONTENT |
                   NS_FRAME_OUT_OF_FLOW |
                   NS_FRAME_CAN_HAVE_ABSPOS_CHILDREN |
                   NS_FRAME_INDEPENDENT_SELECTION |
@@ -5306,7 +5305,7 @@ static FrameContentRange GetRangeForFrame(nsIFrame* aFrame) {
     return FrameContentRange(parent, beginOffset, beginOffset);
   }
 
-  while (content->IsRootOfAnonymousSubtree()) {
+  while (content->IsRootOfNativeAnonymousSubtree()) {
     content = content->GetParent();
   }
 
@@ -10206,7 +10205,7 @@ static nsIFrame* GetCorrectedParent(const nsIFrame* aFrame) {
     if (element && !element->IsRootOfNativeAnonymousSubtree() &&
         element->GetPseudoElementType() == aFrame->Style()->GetPseudoType()) {
       while (parent->GetContent() &&
-             !parent->GetContent()->IsRootOfAnonymousSubtree()) {
+             !parent->GetContent()->IsRootOfNativeAnonymousSubtree()) {
         parent = parent->GetInFlowParent();
       }
       parent = parent->GetInFlowParent();

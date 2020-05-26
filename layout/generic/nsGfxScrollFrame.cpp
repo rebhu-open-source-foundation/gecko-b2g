@@ -1366,12 +1366,10 @@ void ScrollFrameHelper::HandleScrollbarStyleSwitching() {
       LookAndFeel::GetInt(LookAndFeel::eIntID_UseOverlayScrollbars) == 0) {
     mScrollbarActivity->Destroy();
     mScrollbarActivity = nullptr;
-    mOuter->PresContext()->ThemeChanged();
   } else if (!mScrollbarActivity &&
              LookAndFeel::GetInt(LookAndFeel::eIntID_UseOverlayScrollbars) !=
                  0) {
     mScrollbarActivity = new ScrollbarActivity(do_QueryFrame(mOuter));
-    mOuter->PresContext()->ThemeChanged();
   }
 }
 
@@ -1381,7 +1379,7 @@ static bool IsFocused(nsIContent* aContent) {
   // for a text input field, are inside anonymous subtrees, but the focus
   // manager always reports a non-anonymous element as the focused one, so
   // walk up the tree until we reach a non-anonymous element.
-  while (aContent && aContent->IsInAnonymousSubtree()) {
+  while (aContent && aContent->IsInNativeAnonymousSubtree()) {
     aContent = aContent->GetParent();
   }
 

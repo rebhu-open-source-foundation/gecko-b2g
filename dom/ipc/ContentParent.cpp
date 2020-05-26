@@ -152,8 +152,6 @@
 #include "mozilla/ipc/IPCStreamUtils.h"
 #include "mozilla/ipc/PChildToParentStreamParent.h"
 #include "mozilla/ipc/TestShellParent.h"
-// Needed for NewJavaScriptChild and ReleaseJavaScriptChild
-#include "mozilla/jsipc/CrossProcessObjectWrappers.h"
 #include "mozilla/layers/CompositorThread.h"
 #include "mozilla/layers/ImageBridgeParent.h"
 #include "mozilla/layers/LayerTreeOwnerTracker.h"
@@ -1956,6 +1954,8 @@ void ContentParent::StartForceKillTimer() {
     return;
   }
 
+  NotifyImpendingShutdown();
+
   int32_t timeoutSecs = StaticPrefs::dom_ipc_tabs_shutdownTimeoutSecs();
   if (timeoutSecs > 0) {
     NS_NewTimerWithFuncCallback(getter_AddRefs(mForceKillTimer),
@@ -3340,16 +3340,6 @@ mozilla::ipc::IPCResult ContentParent::RecvInitBackground(
   }
 
   return IPC_OK();
-}
-
-mozilla::jsipc::PJavaScriptParent* ContentParent::AllocPJavaScriptParent() {
-  MOZ_ASSERT(ManagedPJavaScriptParent().IsEmpty());
-  return jsipc::NewJavaScriptParent();
-}
-
-bool ContentParent::DeallocPJavaScriptParent(PJavaScriptParent* parent) {
-  jsipc::ReleaseJavaScriptParent(parent);
-  return true;
 }
 
 bool ContentParent::CanOpenBrowser(const IPCTabContext& aContext) {
@@ -6908,7 +6898,7 @@ mozilla::ipc::IPCResult ContentParent::RecvHistoryGo(
     HistoryGoResolver&& aResolveRequestedIndex) {
   if (!aContext.IsDiscarded()) {
     nsSHistory* shistory =
-      static_cast<nsSHistory*>(aContext.get_canonical()->GetSessionHistory());
+        static_cast<nsSHistory*>(aContext.get_canonical()->GetSessionHistory());
     nsTArray<nsSHistory::LoadEntryResult> loadResults;
     nsresult rv = shistory->GotoIndex(aOffset, loadResults);
     if (NS_FAILED(rv)) {

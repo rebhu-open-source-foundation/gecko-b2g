@@ -3707,6 +3707,20 @@ bool CacheIRCompiler::emitArrayJoinResult(ObjOperandId objId) {
   return true;
 }
 
+bool CacheIRCompiler::emitIsObjectResult(ValOperandId inputId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoOutputRegister output(*this);
+  AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
+
+  ValueOperand val = allocator.useValueRegister(masm, inputId);
+
+  masm.testObjectSet(Assembler::Equal, val, scratch);
+
+  EmitStoreResult(masm, scratch, JSVAL_TYPE_BOOLEAN, output);
+  return true;
+}
+
 bool CacheIRCompiler::emitMathAbsInt32Result(Int32OperandId inputId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
 
@@ -3774,6 +3788,27 @@ bool CacheIRCompiler::emitMathFloorToInt32Result(NumberOperandId inputId) {
   allocator.ensureDoubleRegister(masm, inputId, scratchFloat);
 
   masm.floorDoubleToInt32(scratchFloat, scratch, failure->label());
+
+  EmitStoreResult(masm, scratch, JSVAL_TYPE_INT32, output);
+  return true;
+}
+
+bool CacheIRCompiler::emitMathCeilToInt32Result(NumberOperandId inputId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoOutputRegister output(*this);
+  AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
+
+  AutoAvailableFloatRegister scratchFloat(*this, FloatReg0);
+
+  FailurePath* failure;
+  if (!addFailurePath(&failure)) {
+    return false;
+  }
+
+  allocator.ensureDoubleRegister(masm, inputId, scratchFloat);
+
+  masm.ceilDoubleToInt32(scratchFloat, scratch, failure->label());
 
   EmitStoreResult(masm, scratch, JSVAL_TYPE_INT32, output);
   return true;

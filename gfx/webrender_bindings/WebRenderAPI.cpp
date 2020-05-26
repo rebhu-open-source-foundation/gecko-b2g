@@ -116,8 +116,9 @@ class NewRenderer : public RendererEvent {
             compositor->ShouldUseNativeCompositor() ? compositor.get()
                                                     : nullptr,
             compositor->GetMaxUpdateRects(),
-            compositor->GetMaxPartialPresentRects(), mDocHandle, &wrRenderer,
-            mMaxTextureSize,
+            compositor->GetMaxPartialPresentRects(),
+            compositor->ShouldDrawPreviousPartialPresentRegions(), mDocHandle,
+            &wrRenderer, mMaxTextureSize,
             StaticPrefs::gfx_webrender_enable_gpu_markers_AtStartup(),
             panic_on_gl_error)) {
       // wr_window_new puts a message into gfxCriticalNote if it returns false
@@ -611,10 +612,6 @@ void WebRenderAPI::ToggleCaptureSequence() {
   } else {
     wr_api_stop_capture_sequence(mDocHandle);
   }
-}
-
-void WebRenderAPI::SetTransactionLogging(bool aValue) {
-  wr_api_set_transaction_logging(mDocHandle, aValue);
 }
 
 void WebRenderAPI::SetCompositionRecorder(

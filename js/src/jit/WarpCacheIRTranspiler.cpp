@@ -908,6 +908,20 @@ bool WarpCacheIRTranspiler::emitInt32RightShiftResult(Int32OperandId lhsId,
   return emitInt32BinaryArithResult<MRsh>(lhsId, rhsId);
 }
 
+bool WarpCacheIRTranspiler::emitInt32URightShiftResult(Int32OperandId lhsId,
+                                                       Int32OperandId rhsId,
+                                                       bool allowDouble) {
+  MDefinition* lhs = getOperand(lhsId);
+  MDefinition* rhs = getOperand(rhsId);
+
+  MIRType specialization = allowDouble ? MIRType::Double : MIRType::Int32;
+  auto* ins = MUrsh::New(alloc(), lhs, rhs, specialization);
+  add(ins);
+
+  pushResult(ins);
+  return true;
+}
+
 bool WarpCacheIRTranspiler::emitCallStringConcatResult(StringOperandId lhsId,
                                                        StringOperandId rhsId) {
   MDefinition* lhs = getOperand(lhsId);
@@ -989,6 +1003,16 @@ bool WarpCacheIRTranspiler::emitMathFloorToInt32Result(
   return true;
 }
 
+bool WarpCacheIRTranspiler::emitMathCeilToInt32Result(NumberOperandId inputId) {
+  MDefinition* input = getOperand(inputId);
+
+  auto* ins = MCeil::New(alloc(), input);
+  add(ins);
+
+  pushResult(ins);
+  return true;
+}
+
 bool WarpCacheIRTranspiler::emitMathRoundToInt32Result(
     NumberOperandId inputId) {
   MDefinition* input = getOperand(inputId);
@@ -1043,6 +1067,20 @@ bool WarpCacheIRTranspiler::emitArrayPush(ObjOperandId objId,
   return resumeAfter(ins);
 }
 
+bool WarpCacheIRTranspiler::emitIsObjectResult(ValOperandId inputId) {
+  MDefinition* value = getOperand(inputId);
+
+  if (value->type() == MIRType::Object) {
+    pushResult(constant(BooleanValue(true)));
+  } else {
+    auto* isObject = MIsObject::New(alloc(), value);
+    add(isObject);
+    pushResult(isObject);
+  }
+
+  return true;
+}
+
 bool WarpCacheIRTranspiler::emitLoadArgumentFixedSlot(ValOperandId resultId,
                                                       uint8_t slotIndex) {
   // Reverse of GetIndexOfArgument specialized to !hasArgumentArray.
@@ -1074,7 +1112,7 @@ bool WarpCacheIRTranspiler::emitLoadArgumentFixedSlot(ValOperandId resultId,
 
   // Callee
   MOZ_ASSERT(slotIndex == callInfo_->argc() + 1);
-  return defineOperand(resultId, callInfo_->fun());
+  return defineOperand(resultId, callInfo_->callee());
 }
 
 bool WarpCacheIRTranspiler::emitLoadArgumentDynamicSlot(ValOperandId resultId,
@@ -1157,19 +1195,61 @@ bool WarpCacheIRTranspiler::emitTypeMonitorResult() {
 
 bool WarpCacheIRTranspiler::emitReturnFromIC() { return true; }
 
+static void MaybeSetImplicitlyUsed(uint32_t numInstructionIdsBefore,
+                                   MDefinition* input) {
+  // When building MIR from bytecode, for each MDefinition that's an operand to
+  // a bytecode instruction, we must either add an SSA use or set the
+  // ImplicitlyUsed flag on that definition. The ImplicitlyUsed flag prevents
+  // the backend from optimizing-out values that will be used by Baseline after
+  // a bailout.
+  //
+  // WarpBuilder uses WarpPoppedValueUseChecker to assert this invariant in
+  // debug builds.
+  //
+  // This function is responsible for setting the ImplicitlyUsed flag for an
+  // input when using the transpiler. It looks at the input's most recent use
+  // and if that's an instruction that was added while transpiling this JSOp
+  // (based on the MIR instruction id) we don't set the ImplicitlyUsed flag.
+
+  if (input->isImplicitlyUsed()) {
+    // Nothing to do.
+    return;
+  }
+
+  // If the most recent use of 'input' is an instruction we just added, there is
+  // nothing to do.
+  MDefinition* inputUse = input->maybeMostRecentDefUse();
+  if (inputUse && inputUse->id() >= numInstructionIdsBefore) {
+    return;
+  }
+
+  // The transpiler didn't add a use for 'input'.
+  input->setImplicitlyUsed();
+}
+
 bool jit::TranspileCacheIRToMIR(MIRGenerator& mirGen, BytecodeLocation loc,
                                 MBasicBlock* current,
                                 const WarpCacheIR* snapshot,
                                 const MDefinitionStackVector& inputs) {
+  uint32_t numInstructionIdsBefore = mirGen.graph().getNumInstructionIds();
+
   WarpCacheIRTranspiler transpiler(mirGen, loc, current, nullptr, snapshot);
-  return transpiler.transpile(inputs);
+  if (!transpiler.transpile(inputs)) {
+    return false;
+  }
+
+  for (MDefinition* input : inputs) {
+    MaybeSetImplicitlyUsed(numInstructionIdsBefore, input);
+  }
+
+  return true;
 }
 
 bool jit::TranspileCacheIRToMIR(MIRGenerator& mirGen, BytecodeLocation loc,
                                 MBasicBlock* current,
                                 const WarpCacheIR* snapshot,
                                 CallInfo& callInfo) {
-  WarpCacheIRTranspiler transpiler(mirGen, loc, current, &callInfo, snapshot);
+  uint32_t numInstructionIdsBefore = mirGen.graph().getNumInstructionIds();
 
   // Synthesize the constant number of arguments for this call op.
   auto* argc = MConstant::New(mirGen.alloc(), Int32Value(callInfo.argc()));
@@ -1179,5 +1259,15 @@ bool jit::TranspileCacheIRToMIR(MIRGenerator& mirGen, BytecodeLocation loc,
   if (!inputs.append(argc)) {
     return false;
   }
-  return transpiler.transpile(inputs);
+
+  WarpCacheIRTranspiler transpiler(mirGen, loc, current, &callInfo, snapshot);
+  if (!transpiler.transpile(inputs)) {
+    return false;
+  }
+
+  auto maybeSetFlag = [numInstructionIdsBefore](MDefinition* def) {
+    MaybeSetImplicitlyUsed(numInstructionIdsBefore, def);
+  };
+  callInfo.forEachCallOperand(maybeSetFlag);
+  return true;
 }

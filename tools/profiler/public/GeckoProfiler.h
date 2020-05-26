@@ -152,46 +152,54 @@ class Vector;
     /* The DevTools profiler doesn't want the native addresses. */             \
     MACRO(2, "leaf", Leaf, "Include the C++ leaf node if not stackwalking")    \
                                                                                \
-    MACRO(3, "mainthreadio", MainThreadIO,                                     \
-          "Add main thread I/O to the profile")                                \
+    MACRO(3, "mainthreadio", MainThreadIO, "Add main thread file I/O")         \
                                                                                \
-    MACRO(4, "privacy", Privacy,                                               \
+    MACRO(4, "fileio", FileIO,                                                 \
+          "Add file I/O from all profiled threads, implies mainthreadio")      \
+                                                                               \
+    MACRO(5, "fileioall", FileIOAll,                                           \
+          "Add file I/O from all threads, implies fileio")                     \
+                                                                               \
+    MACRO(6, "noiostacks", NoIOStacks,                                         \
+          "File I/O markers do not capture stacks, to reduce overhead")        \
+                                                                               \
+    MACRO(7, "privacy", Privacy,                                               \
           "Do not include user-identifiable information")                      \
                                                                                \
-    MACRO(5, "screenshots", Screenshots,                                       \
+    MACRO(8, "screenshots", Screenshots,                                       \
           "Take a snapshot of the window on every composition")                \
                                                                                \
-    MACRO(6, "seqstyle", SequentialStyle,                                      \
+    MACRO(9, "seqstyle", SequentialStyle,                                      \
           "Disable parallel traversal in styling")                             \
                                                                                \
-    MACRO(7, "stackwalk", StackWalk,                                           \
+    MACRO(10, "stackwalk", StackWalk,                                          \
           "Walk the C++ stack, not available on all platforms")                \
                                                                                \
-    MACRO(8, "tasktracer", TaskTracer,                                         \
+    MACRO(11, "tasktracer", TaskTracer,                                        \
           "Start profiling with feature TaskTracer")                           \
                                                                                \
-    MACRO(9, "threads", Threads, "Profile the registered secondary threads")   \
+    MACRO(12, "threads", Threads, "Profile the registered secondary threads")  \
                                                                                \
-    MACRO(10, "trackopts", TrackOptimizations,                                 \
+    MACRO(13, "trackopts", TrackOptimizations,                                 \
           "Have the JavaScript engine track JIT optimizations")                \
                                                                                \
-    MACRO(11, "jstracer", JSTracer, "Enable tracing of the JavaScript engine") \
+    MACRO(14, "jstracer", JSTracer, "Enable tracing of the JavaScript engine") \
                                                                                \
-    MACRO(12, "jsallocations", JSAllocations,                                  \
+    MACRO(15, "jsallocations", JSAllocations,                                  \
           "Have the JavaScript engine track allocations")                      \
                                                                                \
-    MACRO(14, "nostacksampling", NoStackSampling,                              \
+    MACRO(16, "nostacksampling", NoStackSampling,                              \
           "Disable all stack sampling: Cancels \"js\", \"leaf\", "             \
           "\"stackwalk\" and labels")                                          \
                                                                                \
-    MACRO(15, "preferencereads", PreferenceReads,                              \
+    MACRO(17, "preferencereads", PreferenceReads,                              \
           "Track when preferences are read")                                   \
                                                                                \
-    MACRO(16, "nativeallocations", NativeAllocations,                          \
+    MACRO(18, "nativeallocations", NativeAllocations,                          \
           "Collect the stacks from a smaller subset of all native "            \
           "allocations, biasing towards collecting larger allocations")        \
                                                                                \
-    MACRO(17, "ipcmessages", IPCMessages,                                      \
+    MACRO(19, "ipcmessages", IPCMessages,                                      \
           "Have the IPC layer track cross-process messages")
 
 struct ProfilerFeature {
@@ -237,6 +245,22 @@ class RacyFeatures {
 
   static void SetUnpaused() { sActiveAndFeatures &= ~Paused; }
 
+  static mozilla::Maybe<uint32_t> FeaturesIfActive() {
+    if (uint32_t af = sActiveAndFeatures; af & Active) {
+      // Active, remove the Active&Paused bits to get all features.
+      return Some(af & ~(Active | Paused));
+    }
+    return Nothing();
+  }
+
+  static mozilla::Maybe<uint32_t> FeaturesIfActiveAndUnpaused() {
+    if (uint32_t af = sActiveAndFeatures; (af & (Active | Paused)) == Active) {
+      // Active but not paused, remove the Active bit to get all features.
+      return Some(af & ~Active);
+    }
+    return Nothing();
+  }
+
   static bool IsActive() { return uint32_t(sActiveAndFeatures) & Active; }
 
   static bool IsActiveWithFeature(uint32_t aFeature) {
@@ -274,6 +298,7 @@ class RacyFeatures {
 };
 
 bool IsThreadBeingProfiled();
+bool IsThreadRegistered();
 
 }  // namespace detail
 }  // namespace profiler
@@ -520,6 +545,14 @@ inline bool profiler_thread_is_being_profiled() {
          mozilla::profiler::detail::IsThreadBeingProfiled();
 }
 
+// During profiling, if the current thread is registered, return true
+// (regardless of whether it is actively being profiled).
+// (Same caveats and recommented usage as profiler_is_active().)
+inline bool profiler_is_active_and_thread_is_registered() {
+  return profiler_is_active() &&
+         mozilla::profiler::detail::IsThreadRegistered();
+}
+
 // Is the profiler active and paused? Returns false if the profiler is inactive.
 bool profiler_is_paused();
 
@@ -530,6 +563,20 @@ bool profiler_thread_is_sleeping();
 // profiler_start(). The result is the same whether the profiler is active or
 // not.
 uint32_t profiler_get_available_features();
+
+// Returns the full feature set if the profiler is active.
+// Note: the return value can become immediately out-of-date, much like the
+// return value of profiler_is_active().
+inline mozilla::Maybe<uint32_t> profiler_features_if_active() {
+  return mozilla::profiler::detail::RacyFeatures::FeaturesIfActive();
+}
+
+// Returns the full feature set if the profiler is active and unpaused.
+// Note: the return value can become immediately out-of-date, much like the
+// return value of profiler_is_active().
+inline mozilla::Maybe<uint32_t> profiler_features_if_active_and_unpaused() {
+  return mozilla::profiler::detail::RacyFeatures::FeaturesIfActiveAndUnpaused();
+}
 
 // Check if a profiler feature (specified via the ProfilerFeature type) is
 // active. Returns false if the profiler is inactive. Note: the return value
@@ -837,6 +884,13 @@ void profiler_add_marker_for_thread(int aThreadId,
                                     JS::ProfilingCategoryPair aCategoryPair,
                                     const char* aMarkerName,
                                     const ProfilerMarkerPayload& aPayload);
+
+// Insert a marker in the profile timeline for the main thread.
+// This may be used to gather some markers from any thread, that should be
+// displayed in the main thread track.
+void profiler_add_marker_for_mainthread(JS::ProfilingCategoryPair aCategoryPair,
+                                        const char* aMarkerName,
+                                        const ProfilerMarkerPayload& aPayload);
 
 enum class NetworkLoadType { LOAD_START, LOAD_STOP, LOAD_REDIRECT };
 

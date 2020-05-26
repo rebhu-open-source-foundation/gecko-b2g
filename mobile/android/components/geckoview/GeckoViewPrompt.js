@@ -2,6 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+const { GeckoViewUtils } = ChromeUtils.import(
+  "resource://gre/modules/GeckoViewUtils.jsm"
+);
+
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
@@ -9,9 +13,10 @@ const { XPCOMUtils } = ChromeUtils.import(
 XPCOMUtils.defineLazyModuleGetters(this, {
   EventDispatcher: "resource://gre/modules/Messaging.jsm",
   FileUtils: "resource://gre/modules/FileUtils.jsm",
+  GeckoViewAutocomplete: "resource://gre/modules/GeckoViewAutocomplete.jsm",
+  GeckoViewPrompter: "resource://gre/modules/GeckoViewPrompter.jsm",
   GeckoViewUtils: "resource://gre/modules/GeckoViewUtils.jsm",
-  GeckoViewLoginStorage: "resource://gre/modules/GeckoViewLoginStorage.jsm",
-  LoginEntry: "resource://gre/modules/GeckoViewLoginStorage.jsm",
+  LoginEntry: "resource://gre/modules/GeckoViewAutocomplete.jsm",
   Services: "resource://gre/modules/Services.jsm",
 });
 
@@ -26,11 +31,11 @@ const domBundle = Services.strings.createBundle(
   "chrome://global/locale/dom/dom.properties"
 );
 
+const { debug, warn } = GeckoViewUtils.initLogging("GeckoViewPrompt"); // eslint-disable-line no-unused-vars
+
 function PromptFactory() {
   this.wrappedJSObject = this;
 }
-
-const { debug, warn } = GeckoViewUtils.initLogging("GeckoViewPrompt"); // eslint-disable-line no-unused-vars
 
 PromptFactory.prototype = {
   classID: Components.ID("{076ac188-23c1-4390-aa08-7ef1f78ca5d9}"),
@@ -118,7 +123,7 @@ PromptFactory.prototype = {
       return items;
     })(aElement);
 
-    const prompt = new PromptDelegate(win);
+    const prompt = new GeckoViewPrompter(win);
     prompt.asyncShowPrompt(
       {
         type: "choice",
@@ -175,7 +180,7 @@ PromptFactory.prototype = {
   },
 
   _handleDateTime(aElement, aType) {
-    const prompt = new PromptDelegate(aElement.ownerGlobal);
+    const prompt = new GeckoViewPrompter(aElement.ownerGlobal);
     prompt.asyncShowPrompt(
       {
         type: "datetime",
@@ -313,7 +318,7 @@ PromptFactory.prototype = {
     menu.sendShowEvent();
     menu.build(builder);
 
-    const prompt = new PromptDelegate(target.ownerGlobal);
+    const prompt = new GeckoViewPrompter(target.ownerGlobal);
     prompt.asyncShowPrompt(
       {
         type: "choice",
@@ -338,7 +343,7 @@ PromptFactory.prototype = {
       ? aEvent.popupWindowURI.displaySpec
       : "about:blank";
 
-    const prompt = new PromptDelegate(aEvent.requestingWindow);
+    const prompt = new GeckoViewPrompter(aEvent.requestingWindow);
     prompt.asyncShowPrompt(
       {
         type: "popup",
@@ -462,27 +467,7 @@ PromptFactory.prototype = {
 };
 
 function PromptDelegate(aParent) {
-  if (aParent) {
-    if (aParent instanceof Window) {
-      this._domWin = aParent;
-    } else if (aParent.window) {
-      this._domWin = aParent.window;
-    } else {
-      this._domWin =
-        aParent.embedderElement && aParent.embedderElement.ownerGlobal;
-    }
-  }
-
-  if (this._domWin) {
-    this._dispatcher = GeckoViewUtils.getDispatcherForWindow(this._domWin);
-  }
-
-  if (!this._dispatcher) {
-    [
-      this._dispatcher,
-      this._domWin,
-    ] = GeckoViewUtils.getActiveDispatcherAndWindow();
-  }
+  this._prompter = new GeckoViewPrompter(aParent);
 }
 
 PromptDelegate.prototype = {
@@ -493,89 +478,6 @@ PromptDelegate.prototype = {
   BUTTON_TYPE_NEGATIVE: 2,
 
   /* ---------- internal methods ---------- */
-
-  _changeModalState(aEntering) {
-    if (!this._domWin) {
-      // Allow not having a DOM window.
-      return true;
-    }
-    // Accessing the document object can throw if this window no longer exists. See bug 789888.
-    try {
-      const winUtils = this._domWin.windowUtils;
-      if (!aEntering) {
-        winUtils.leaveModalState();
-      }
-
-      const event = this._domWin.document.createEvent("Events");
-      event.initEvent(
-        aEntering ? "DOMWillOpenModalDialog" : "DOMModalDialogClosed",
-        true,
-        true
-      );
-      winUtils.dispatchEventToChromeOnly(this._domWin, event);
-
-      if (aEntering) {
-        winUtils.enterModalState();
-      }
-      return true;
-    } catch (ex) {
-      Cu.reportError("Failed to change modal state: " + ex);
-    }
-    return false;
-  },
-
-  /**
-   * Shows a native prompt, and then spins the event loop for this thread while we wait
-   * for a response
-   */
-  _showPrompt(aMsg) {
-    let result = undefined;
-    if (!this._domWin || !this._changeModalState(/* aEntering */ true)) {
-      return result;
-    }
-    try {
-      this.asyncShowPrompt(aMsg, res => (result = res));
-
-      // Spin this thread while we wait for a result
-      Services.tm.spinEventLoopUntil(
-        () => this._domWin.closed || result !== undefined
-      );
-    } finally {
-      this._changeModalState(/* aEntering */ false);
-    }
-    return result;
-  },
-
-  asyncShowPrompt(aMsg, aCallback) {
-    let handled = false;
-    const onResponse = response => {
-      if (handled) {
-        return;
-      }
-      aCallback(response);
-      // This callback object is tied to the Java garbage collector because
-      // it is invoked from Java. Manually release the target callback
-      // here; otherwise we may hold onto resources for too long, because
-      // we would be relying on both the Java and the JS garbage collectors
-      // to run.
-      aMsg = undefined;
-      aCallback = undefined;
-      handled = true;
-    };
-
-    if (!this._dispatcher) {
-      onResponse(null);
-      return;
-    }
-
-    this._dispatcher.dispatch("GeckoView:Prompt", aMsg, {
-      onSuccess: onResponse,
-      onError: error => {
-        Cu.reportError("Prompt error: " + error);
-        onResponse(null);
-      },
-    });
-  },
 
   _addText(aTitle, aText, aMsg) {
     return Object.assign(aMsg, {
@@ -599,7 +501,7 @@ PromptDelegate.prototype = {
   },
 
   alertCheck(aTitle, aText, aCheckMsg, aCheckState) {
-    const result = this._showPrompt(
+    const result = this._prompter.showPrompt(
       this._addText(
         aTitle,
         aText,
@@ -689,7 +591,7 @@ PromptDelegate.prototype = {
       }
     }
 
-    const result = this._showPrompt(
+    const result = this._prompter.showPrompt(
       this._addText(
         aTitle,
         aText,
@@ -707,7 +609,7 @@ PromptDelegate.prototype = {
   },
 
   prompt(aTitle, aText, aValue, aCheckMsg, aCheckState) {
-    const result = this._showPrompt(
+    const result = this._prompter.showPrompt(
       this._addText(
         aTitle,
         aText,
@@ -758,7 +660,7 @@ PromptDelegate.prototype = {
         password: aPassword.value,
       },
     };
-    const result = this._showPrompt(
+    const result = this._prompter.showPrompt(
       this._addText(aTitle, aText, this._addCheck(aCheckMsg, aCheckState, msg))
     );
     // OK: result && result.password !== undefined
@@ -784,7 +686,7 @@ PromptDelegate.prototype = {
       disabled: false,
       selected: false,
     }));
-    const result = this._showPrompt(
+    const result = this._prompter.showPrompt(
       this._addText(aTitle, aText, {
         type: "choice",
         mode: "single",
@@ -858,7 +760,7 @@ PromptDelegate.prototype = {
   },
 
   promptAuth(aChannel, aLevel, aAuthInfo, aCheckMsg, aCheckState) {
-    const result = this._showPrompt(
+    const result = this._prompter.showPrompt(
       this._addCheck(
         aCheckMsg,
         aCheckState,
@@ -895,7 +797,7 @@ PromptDelegate.prototype = {
         aCallback.onAuthCancelled(aContext, /* userCancel */ true);
       }
     };
-    this.asyncShowPrompt(
+    this._prompter.asyncShowPrompt(
       this._addCheck(
         aCheckMsg,
         aCheckState,
@@ -1024,7 +926,7 @@ FilePickerDelegate.prototype = {
     ) {
       throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
     }
-    this._prompt = new PromptDelegate(aParent);
+    this._prompt = new GeckoViewPrompter(aParent);
     this._msg = {
       type: "file",
       title: aTitle,
@@ -1115,8 +1017,8 @@ FilePickerDelegate.prototype = {
   },
 
   _getDOMFile(aPath) {
-    if (this._prompt._domWin) {
-      return this._prompt._domWin.File.createFromFileName(aPath);
+    if (this._prompt.domWin) {
+      return this._prompt.domWin.File.createFromFileName(aPath);
     }
     return File.createFromFileName(aPath);
   },
@@ -1191,7 +1093,7 @@ ColorPickerDelegate.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsIColorPicker]),
 
   init(aParent, aTitle, aInitialColor) {
-    this._prompt = new PromptDelegate(aParent);
+    this._prompt = new GeckoViewPrompter(aParent);
     this._msg = {
       type: "color",
       title: aTitle,
@@ -1234,13 +1136,13 @@ ShareDelegate.prototype = {
       text: aText,
       uri: aUri ? aUri.displaySpec : null,
     };
-    const prompt = new PromptDelegate(this._openerWindow);
+    const prompt = new GeckoViewPrompter(this._openerWindow);
     const result = await new Promise(resolve => {
       prompt.asyncShowPrompt(msg, resolve);
     });
 
     if (!result) {
-      // A null result is treated as a dismissal in PromptDelegate.
+      // A null result is treated as a dismissal in GeckoViewPrompter.
       throw new DOMException(
         domBundle.GetStringFromName("WebShareAPI_Aborted"),
         "AbortError"
@@ -1267,10 +1169,12 @@ ShareDelegate.prototype = {
   },
 };
 
-// Sync with  LoginStoragePrompt.Type in GeckoSession.java.
-const LoginStorageType = { SAVE: 1 };
-// Sync with  LoginStoragePrompt.Hint in GeckoSession.java.
-const LoginStorageHint = { NONE: 0 };
+// Sync with  LoginSaveOption.Hint in Autocomplete.java.
+const LoginStorageHint = {
+  NONE: 0,
+  GENERATED: 1 << 0,
+  LOW_CONFIDENCE: 1 << 1,
+};
 
 class LoginStorageDelegate {
   get classID() {
@@ -1281,12 +1185,18 @@ class LoginStorageDelegate {
     return ChromeUtils.generateQI([Ci.nsILoginManagerPrompter]);
   }
 
-  _createMessage(aType, aHint, aLogins) {
+  _createMessage({ dismissed, autoSavedLoginGuid }, aLogins) {
+    let hint = LoginStorageHint.NONE;
+    if (dismissed) {
+      hint |= LoginStorageHint.LOW_CONFIDENCE;
+    }
+    if (autoSavedLoginGuid) {
+      hint |= LoginStorageHint.GENERATED;
+    }
     return {
       // Sync with GeckoSession.handlePromptEvent.
-      type: "loginStorage",
-      lsType: aType,
-      hint: aHint,
+      type: "Autocomplete:Save:Login",
+      hint,
       logins: aLogins,
     };
   }
@@ -1297,20 +1207,20 @@ class LoginStorageDelegate {
     dismissed = false,
     notifySaved = false
   ) {
-    const prompt = new PromptDelegate(aBrowser.ownerGlobal);
+    const prompt = new GeckoViewPrompter(aBrowser.ownerGlobal);
     prompt.asyncShowPrompt(
-      this._createMessage(LoginStorageType.SAVE, LoginStorageHint.NONE, [
-        LoginEntry.fromLoginInfo(aLogin),
-      ]),
+      this._createMessage({ dismissed }, [LoginEntry.fromLoginInfo(aLogin)]),
       result => {
-        if (!result || result.login === undefined) {
+        const selectedLogin = result?.selection?.value;
+
+        if (!selectedLogin) {
           return;
         }
 
-        const loginInfo = LoginEntry.fromBundle(result.login).toLoginInfo();
+        const loginInfo = LoginEntry.parse(selectedLogin).toLoginInfo();
         Services.obs.notifyObservers(loginInfo, "passwordmgr-prompt-save");
 
-        GeckoViewLoginStorage.onLoginSave(result.login);
+        GeckoViewAutocomplete.onLoginSave(selectedLogin);
       }
     );
   }
@@ -1330,19 +1240,19 @@ class LoginStorageDelegate {
     newLogin.password = aNewLogin.password;
     newLogin.username = aNewLogin.username;
 
-    const prompt = new PromptDelegate(aBrowser.ownerGlobal);
+    const prompt = new GeckoViewPrompter(aBrowser.ownerGlobal);
     prompt.asyncShowPrompt(
-      this._createMessage(LoginStorageType.SAVE, LoginStorageHint.NONE, [
-        newLogin,
-      ]),
+      this._createMessage({ dismissed, autoSavedLoginGuid }, [newLogin]),
       result => {
-        if (!result || result.login === undefined) {
+        const selectedLogin = result?.selection?.value;
+
+        if (!selectedLogin) {
           return;
         }
 
-        GeckoViewLoginStorage.onLoginSave(result.login);
+        GeckoViewAutocomplete.onLoginSave(selectedLogin);
 
-        const loginInfo = LoginEntry.fromBundle(result.login).toLoginInfo();
+        const loginInfo = LoginEntry.parse(selectedLogin).toLoginInfo();
         Services.obs.notifyObservers(
           loginInfo,
           "passwordmgr-prompt-change",

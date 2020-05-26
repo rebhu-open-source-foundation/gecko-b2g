@@ -1427,7 +1427,7 @@ nsresult Loader::LoadSheet(SheetLoadData& aLoadData, SheetState aSheetState) {
     }
     if (NS_FAILED(rv)) {
       LOG_ERROR(("  Failed to create channel"));
-      streamLoader->ChannelOpenFailed();
+      streamLoader->ChannelOpenFailed(rv);
       SheetComplete(aLoadData, rv);
       return rv;
     }
@@ -1450,7 +1450,7 @@ nsresult Loader::LoadSheet(SheetLoadData& aLoadData, SheetState aSheetState) {
 
     if (NS_FAILED(rv)) {
       LOG_ERROR(("  Failed to open URI synchronously"));
-      streamLoader->ChannelOpenFailed();
+      streamLoader->ChannelOpenFailed(rv);
       SheetComplete(aLoadData, rv);
       return rv;
     }
@@ -1659,10 +1659,16 @@ nsresult Loader::LoadSheet(SheetLoadData& aLoadData, SheetState aSheetState) {
                         nsINetworkPredictor::LEARN_LOAD_SUBRESOURCE, mDocument);
   }
 
+  auto preloadKey = PreloadHashKey::CreateAsStyle(aLoadData);
+  streamLoader->NotifyOpen(&preloadKey, channel, mDocument,
+                           aLoadData.mIsPreload == IsPreload::FromLink);
+
   rv = channel->AsyncOpen(streamLoader);
   if (NS_FAILED(rv)) {
     LOG_ERROR(("  Failed to create stream loader"));
-    streamLoader->ChannelOpenFailed();
+    // ChannelOpenFailed makes sure that <link preload> nodes will get the
+    // proper notification about not being able to load this resource.
+    streamLoader->ChannelOpenFailed(rv);
     SheetComplete(aLoadData, rv);
     return rv;
   }
@@ -1675,10 +1681,6 @@ nsresult Loader::LoadSheet(SheetLoadData& aLoadData, SheetState aSheetState) {
 
   mSheets->mLoadingDatas.Put(&key, &aLoadData);
   aLoadData.mIsLoading = true;
-
-  auto preloadKey = PreloadHashKey::CreateAsStyle(aLoadData);
-  streamLoader->NotifyOpen(&preloadKey, channel, mDocument,
-                           aLoadData.mIsPreload == IsPreload::FromLink);
 
   return NS_OK;
 }
@@ -2305,7 +2307,7 @@ Result<RefPtr<StyleSheet>, nsresult> Loader::LoadSheetSync(
   LOG(("css::Loader::LoadSheetSync"));
   nsCOMPtr<nsIReferrerInfo> referrerInfo = new ReferrerInfo(nullptr);
   return InternalLoadNonDocumentSheet(
-      aURL, IsPreload::No, aParsingMode, aUseSystemPrincipal, nullptr, nullptr,
+      aURL, IsPreload::No, aParsingMode, aUseSystemPrincipal, nullptr,
       referrerInfo, nullptr, CORS_NONE, EmptyString());
 }
 
@@ -2314,28 +2316,25 @@ Result<RefPtr<StyleSheet>, nsresult> Loader::LoadSheet(
     UseSystemPrincipal aUseSystemPrincipal, nsICSSLoaderObserver* aObserver) {
   nsCOMPtr<nsIReferrerInfo> referrerInfo = new ReferrerInfo(nullptr);
   return InternalLoadNonDocumentSheet(
-      aURI, IsPreload::No, aParsingMode, aUseSystemPrincipal, nullptr, nullptr,
+      aURI, IsPreload::No, aParsingMode, aUseSystemPrincipal, nullptr,
       referrerInfo, aObserver, CORS_NONE, EmptyString());
 }
 
 Result<RefPtr<StyleSheet>, nsresult> Loader::LoadSheet(
-    nsIURI* aURL, IsPreload aIsPreload, nsIPrincipal* aOriginPrincipal,
-    const Encoding* aPreloadEncoding, nsIReferrerInfo* aReferrerInfo,
-    nsICSSLoaderObserver* aObserver, CORSMode aCORSMode,
-    const nsAString& aIntegrity) {
+    nsIURI* aURL, IsPreload aIsPreload, const Encoding* aPreloadEncoding,
+    nsIReferrerInfo* aReferrerInfo, nsICSSLoaderObserver* aObserver,
+    CORSMode aCORSMode, const nsAString& aIntegrity) {
   LOG(("css::Loader::LoadSheet(aURL, aObserver) api call"));
-  return InternalLoadNonDocumentSheet(aURL, aIsPreload, eAuthorSheetFeatures,
-                                      UseSystemPrincipal::No, aOriginPrincipal,
-                                      aPreloadEncoding, aReferrerInfo,
-                                      aObserver, aCORSMode, aIntegrity);
+  return InternalLoadNonDocumentSheet(
+      aURL, aIsPreload, eAuthorSheetFeatures, UseSystemPrincipal::No,
+      aPreloadEncoding, aReferrerInfo, aObserver, aCORSMode, aIntegrity);
 }
 
 Result<RefPtr<StyleSheet>, nsresult> Loader::InternalLoadNonDocumentSheet(
     nsIURI* aURL, IsPreload aIsPreload, SheetParsingMode aParsingMode,
-    UseSystemPrincipal aUseSystemPrincipal, nsIPrincipal* aOriginPrincipal,
-    const Encoding* aPreloadEncoding, nsIReferrerInfo* aReferrerInfo,
-    nsICSSLoaderObserver* aObserver, CORSMode aCORSMode,
-    const nsAString& aIntegrity) {
+    UseSystemPrincipal aUseSystemPrincipal, const Encoding* aPreloadEncoding,
+    nsIReferrerInfo* aReferrerInfo, nsICSSLoaderObserver* aObserver,
+    CORSMode aCORSMode, const nsAString& aIntegrity) {
   MOZ_ASSERT(aURL, "Must have a URI to load");
   MOZ_ASSERT(aUseSystemPrincipal == UseSystemPrincipal::No || !aObserver,
              "Shouldn't load system-principal sheets async");
@@ -2349,8 +2348,8 @@ Result<RefPtr<StyleSheet>, nsresult> Loader::InternalLoadNonDocumentSheet(
   }
 
   nsCOMPtr<nsIPrincipal> loadingPrincipal =
-      (aOriginPrincipal && mDocument ? mDocument->NodePrincipal() : nullptr);
-  nsresult rv = CheckContentPolicy(loadingPrincipal, aOriginPrincipal, aURL,
+      mDocument ? mDocument->NodePrincipal() : nullptr;
+  nsresult rv = CheckContentPolicy(loadingPrincipal, loadingPrincipal, aURL,
                                    mDocument, EmptyString(), aIsPreload);
   if (NS_FAILED(rv)) {
     return Err(rv);
@@ -2358,7 +2357,7 @@ Result<RefPtr<StyleSheet>, nsresult> Loader::InternalLoadNonDocumentSheet(
 
   bool syncLoad = !aObserver;
   auto [sheet, state] =
-      CreateSheet(aURL, nullptr, aOriginPrincipal, aParsingMode, aCORSMode,
+      CreateSheet(aURL, nullptr, loadingPrincipal, aParsingMode, aCORSMode,
                   aReferrerInfo, aIntegrity, syncLoad, aIsPreload);
 
   PrepareSheet(*sheet, EmptyString(), EmptyString(), nullptr, IsAlternate::No,
@@ -2366,7 +2365,7 @@ Result<RefPtr<StyleSheet>, nsresult> Loader::InternalLoadNonDocumentSheet(
 
   auto data = MakeRefPtr<SheetLoadData>(
       this, aURL, sheet, syncLoad, aUseSystemPrincipal, aIsPreload,
-      aPreloadEncoding, aObserver, aOriginPrincipal, aReferrerInfo, mDocument);
+      aPreloadEncoding, aObserver, loadingPrincipal, aReferrerInfo, mDocument);
   if (state == SheetState::Complete) {
     LOG(("  Sheet already complete"));
     if (aObserver || !mObservers.IsEmpty()) {

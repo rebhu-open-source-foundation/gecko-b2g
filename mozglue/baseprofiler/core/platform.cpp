@@ -172,6 +172,25 @@ void PrintToConsole(const char* aFmt, ...) {
   va_end(args);
 }
 
+constexpr static bool ValidateFeatures() {
+  int expectedFeatureNumber = 0;
+
+  // Feature numbers should start at 0 and increase by 1 each.
+#define CHECK_FEATURE(n_, str_, Name_, desc_) \
+  if ((n_) != expectedFeatureNumber) {        \
+    return false;                             \
+  }                                           \
+  ++expectedFeatureNumber;
+
+  BASE_PROFILER_FOR_EACH_FEATURE(CHECK_FEATURE)
+
+#undef CHECK_FEATURE
+
+  return true;
+}
+
+static_assert(ValidateFeatures(), "Feature list is invalid");
+
 // Return all features that are available on this platform.
 static uint32_t AvailableFeatures() {
   uint32_t features = 0;
@@ -349,6 +368,9 @@ class CorePS {
     }
 #endif
   }
+
+  // No PSLockRef is needed for this field because it's immutable.
+  PS_GET_LOCKLESS(int, MainThreadId)
 
   // No PSLockRef is needed for this field because it's immutable.
   PS_GET_LOCKLESS(TimeStamp, ProcessStartTime)
@@ -581,6 +603,13 @@ class ActivePS {
     // explicitly specify ProfilerFeature::Threads.
     if (aFilterCount > 0) {
       aFeatures |= ProfilerFeature::Threads;
+    }
+
+    // Some features imply others.
+    if (aFeatures & ProfilerFeature::FileIOAll) {
+      aFeatures |= ProfilerFeature::MainThreadIO | ProfilerFeature::FileIO;
+    } else if (aFeatures & ProfilerFeature::FileIO) {
+      aFeatures |= ProfilerFeature::MainThreadIO;
     }
 
     return aFeatures;
@@ -1956,7 +1985,7 @@ static void PrintUsageThenExit(int aExitCode) {
                scBytesPerEntry));
 
 #define PRINT_FEATURE(n_, str_, Name_, desc_)             \
-  PrintToConsole("    %c %5u: \"%s\" (%s)\n",             \
+  PrintToConsole("    %c %7u: \"%s\" (%s)\n",             \
                  FeatureCategory(ProfilerFeature::Name_), \
                  ProfilerFeature::Name_, str_, desc_);
 
@@ -3477,6 +3506,13 @@ void profiler_add_marker_for_thread(int aThreadId,
       ProfileBufferEntry::Kind::MarkerData, aThreadId,
       WrapProfileBufferUnownedCString(aMarkerName),
       static_cast<uint32_t>(aCategoryPair), &aPayload, delta.ToMilliseconds());
+}
+
+void profiler_add_marker_for_mainthread(ProfilingCategoryPair aCategoryPair,
+                                        const char* aMarkerName,
+                                        const ProfilerMarkerPayload& aPayload) {
+  profiler_add_marker_for_thread(CorePS::MainThreadId(), aCategoryPair,
+                                 aMarkerName, aPayload);
 }
 
 void profiler_tracing_marker(const char* aCategoryString,

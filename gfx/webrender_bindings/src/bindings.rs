@@ -269,6 +269,12 @@ impl WrVecU8 {
         w
     }
 
+    fn reserve(&mut self, len: usize) {
+        let mut vec = self.flush_into_vec();
+        vec.reserve(len);
+        *self = Self::from_vec(vec);
+    }
+
     fn push_bytes(&mut self, bytes: &[u8]) {
         let mut vec = self.flush_into_vec();
         vec.extend_from_slice(bytes);
@@ -279,6 +285,11 @@ impl WrVecU8 {
 #[no_mangle]
 pub extern "C" fn wr_vec_u8_push_bytes(v: &mut WrVecU8, bytes: ByteSlice) {
     v.push_bytes(bytes.as_slice());
+}
+
+#[no_mangle]
+pub extern "C" fn wr_vec_u8_reserve(v: &mut WrVecU8, len: usize) {
+    v.reserve(len);
 }
 
 #[no_mangle]
@@ -526,10 +537,7 @@ extern "C" {
     fn wr_notifier_external_event(window_id: WrWindowId, raw_event: usize);
     fn wr_schedule_render(window_id: WrWindowId);
     // NOTE: This moves away from pipeline_info.
-    fn wr_finished_scene_build(
-        window_id: WrWindowId,
-        pipeline_info: &mut WrPipelineInfo,
-    );
+    fn wr_finished_scene_build(window_id: WrWindowId, pipeline_info: &mut WrPipelineInfo);
 
     fn wr_transaction_notification_notified(handler: usize, when: Checkpoint);
 }
@@ -1309,6 +1317,7 @@ pub extern "C" fn wr_window_new(
     compositor: *mut c_void,
     max_update_rects: usize,
     max_partial_present_rects: usize,
+    draw_previous_partial_present_regions: bool,
     out_handle: &mut *mut DocumentHandle,
     out_renderer: &mut *mut Renderer,
     out_max_texture_size: *mut i32,
@@ -1387,6 +1396,7 @@ pub extern "C" fn wr_window_new(
     } else {
         CompositorConfig::Draw {
             max_partial_present_rects,
+            draw_previous_partial_present_regions,
         }
     };
 
@@ -2063,11 +2073,6 @@ pub extern "C" fn wr_api_stop_capture_sequence(dh: &mut DocumentHandle) {
     let border = "--------------------------\n";
     warn!("{} Stop capturing WR state\n{}", &border, &border);
     dh.api.stop_capture_sequence();
-}
-
-#[no_mangle]
-pub extern "C" fn wr_api_set_transaction_logging(dh: &mut DocumentHandle, aValue: bool) {
-    dh.api.send_debug_cmd(DebugCommand::SetTransactionLogging(aValue));
 }
 
 #[cfg(target_os = "windows")]

@@ -201,8 +201,8 @@ SET TIMEOUT: service-workers/service-worker/resources/resource-timing-worker.js
 SET TIMEOUT: shadow-dom/Document-prototype-currentScript.html
 SET TIMEOUT: shadow-dom/scroll-to-the-fragment-in-shadow-tree.html
 SET TIMEOUT: shadow-dom/slotchange-event.html
-SET TIMEOUT: trusted-types/block-string-assignment-to-DOMWindowTimers-setTimeout-setInterval.tentative.https.html
-SET TIMEOUT: trusted-types/DOMWindowTimers-setTimeout-setInterval.tentative.https.html
+SET TIMEOUT: trusted-types/block-string-assignment-to-DOMWindowTimers-setTimeout-setInterval.tentative.html
+SET TIMEOUT: trusted-types/DOMWindowTimers-setTimeout-setInterval.tentative.html
 SET TIMEOUT: user-timing/*
 SET TIMEOUT: web-animations/timing-model/animations/*
 SET TIMEOUT: webaudio/the-audio-api/the-mediaelementaudiosourcenode-interface/mediaElementAudioSourceToScriptProcessorTest.html
@@ -262,7 +262,9 @@ GENERATE_TESTS: domparsing/createContextualFragment.html
 GENERATE_TESTS: domxpath/001.html
 GENERATE_TESTS: domxpath/002.html
 GENERATE_TESTS: mediacapture-image/MediaStreamTrack-applyConstraints-reject.html
+GENERATE_TESTS: mediacapture-image/MediaStreamTrack-getCapabilities.html
 GENERATE_TESTS: mediacapture-image/MediaStreamTrack-getConstraints-fast.html
+GENERATE_TESTS: mediacapture-image/MediaStreamTrack-getSettings.html
 GENERATE_TESTS: mediacapture-image/setOptions-reject.html
 GENERATE_TESTS: html/semantics/scripting-1/the-template-element/template-element/template-as-a-descendant.html
 GENERATE_TESTS: html/syntax/parsing/Document.getElementsByTagName-foreign-01.html
@@ -757,3 +759,6 @@ TESTHARNESS-IN-OTHER-TYPE: svg/extensibility/foreignObject/foreign-object-circul
 TESTHARNESS-IN-OTHER-TYPE: svg/extensibility/foreignObject/foreign-object-under-clip-path-crash.html
 TESTHARNESS-IN-OTHER-TYPE: svg/extensibility/foreignObject/foreign-object-under-defs-crash.html
 TESTHARNESS-IN-OTHER-TYPE: svg/svg-in-svg/svg-in-svg-circular-filter-reference-crash.html
+
+PRINT STATEMENT: webdriver/tests/print/printcmd.py
+PRINT STATEMENT: webdriver/tests/print/user_prompts.py

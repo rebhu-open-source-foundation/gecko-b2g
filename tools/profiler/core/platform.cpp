@@ -197,6 +197,25 @@ class GeckoJavaSampler
 };
 #endif
 
+constexpr static bool ValidateFeatures() {
+  int expectedFeatureNumber = 0;
+
+  // Feature numbers should start at 0 and increase by 1 each.
+#define CHECK_FEATURE(n_, str_, Name_, desc_) \
+  if ((n_) != expectedFeatureNumber) {        \
+    return false;                             \
+  }                                           \
+  ++expectedFeatureNumber;
+
+  PROFILER_FOR_EACH_FEATURE(CHECK_FEATURE)
+
+#undef CHECK_FEATURE
+
+  return true;
+}
+
+static_assert(ValidateFeatures(), "Feature list is invalid");
+
 // Return all features that are available on this platform.
 static uint32_t AvailableFeatures() {
   uint32_t features = 0;
@@ -249,9 +268,10 @@ static uint32_t DefaultFeatures() {
 // Extra default features when MOZ_PROFILER_STARTUP is set (even if not
 // available).
 static uint32_t StartupExtraDefaultFeatures() {
-  // Enable mainthreadio by default for startup profiles as startup is heavy on
-  // I/O operations, and main thread I/O is really important to see there.
-  return ProfilerFeature::MainThreadIO;
+  // Enable file I/Os by default for startup profiles as startup is heavy on
+  // I/O operations.
+  return ProfilerFeature::MainThreadIO | ProfilerFeature::FileIO |
+         ProfilerFeature::FileIOAll;
 }
 
 // The class is a thin shell around mozglue PlatformMutex. It does not preserve
@@ -382,7 +402,8 @@ using JsFrameBuffer = JS::ProfilingFrameIterator::Frame[MAX_JS_FRAMES];
 class CorePS {
  private:
   CorePS()
-      : mProcessStartTime(TimeStamp::ProcessCreation()),
+      : mMainThreadId(profiler_current_thread_id()),
+        mProcessStartTime(TimeStamp::ProcessCreation()),
         // This needs its own mutex, because it is used concurrently from
         // functions guarded by gPSMutex as well as others without safety (e.g.,
         // profiler_add_marker). It is *not* used inside the critical section of
@@ -393,6 +414,8 @@ class CorePS {
         mLul(nullptr)
 #endif
   {
+    MOZ_ASSERT(NS_IsMainThread(),
+               "CorePS must be created from the main thread");
   }
 
   ~CorePS() {}
@@ -442,6 +465,9 @@ class CorePS {
     }
 #endif
   }
+
+  // No PSLockRef is needed for this field because it's immutable.
+  PS_GET_LOCKLESS(int, MainThreadId)
 
   // No PSLockRef is needed for this field because it's immutable.
   PS_GET_LOCKLESS(TimeStamp, ProcessStartTime)
@@ -552,6 +578,9 @@ class CorePS {
  private:
   // The singleton instance
   static CorePS* sInstance;
+
+  // ID of the main thread (assuming CorePS was started on the main thread).
+  const int mMainThreadId;
 
   // The time that the process started.
   const TimeStamp mProcessStartTime;
@@ -684,6 +713,13 @@ class ActivePS {
       aFeatures |= ProfilerFeature::Threads;
     }
 
+    // Some features imply others.
+    if (aFeatures & ProfilerFeature::FileIOAll) {
+      aFeatures |= ProfilerFeature::MainThreadIO | ProfilerFeature::FileIO;
+    } else if (aFeatures & ProfilerFeature::FileIO) {
+      aFeatures |= ProfilerFeature::MainThreadIO;
+    }
+
     return aFeatures;
   }
 
@@ -707,7 +743,9 @@ class ActivePS {
         // main loop within Run() is blocked until this function's caller
         // unlocks gPSMutex.
         mSamplerThread(NewSamplerThread(aLock, mGeneration, aInterval)),
-        mInterposeObserver(ProfilerFeature::HasMainThreadIO(aFeatures)
+        mInterposeObserver((ProfilerFeature::HasMainThreadIO(aFeatures) ||
+                            ProfilerFeature::HasFileIO(aFeatures) ||
+                            ProfilerFeature::HasFileIOAll(aFeatures))
                                ? new ProfilerIOInterposeObserver()
                                : nullptr),
         mIsPaused(false)
@@ -2681,7 +2719,7 @@ static void PrintUsageThenExit(int aExitCode) {
       PROFILER_MAX_INTERVAL);
 
 #define PRINT_FEATURE(n_, str_, Name_, desc_)                                  \
-  printf("    %c %6u: \"%s\" (%s)\n", FeatureCategory(ProfilerFeature::Name_), \
+  printf("    %c %7u: \"%s\" (%s)\n", FeatureCategory(ProfilerFeature::Name_), \
          ProfilerFeature::Name_, str_, desc_);
 
   PROFILER_FOR_EACH_FEATURE(PRINT_FEATURE)
@@ -4768,6 +4806,16 @@ bool mozilla::profiler::detail::IsThreadBeingProfiled() {
   return racyRegisteredThread && racyRegisteredThread->IsBeingProfiled();
 }
 
+bool mozilla::profiler::detail::IsThreadRegistered() {
+  MOZ_RELEASE_ASSERT(CorePS::Exists());
+
+  const RacyRegisteredThread* racyRegisteredThread =
+      TLSRegisteredThread::RacyRegisteredThread();
+  // The simple presence of this TLS pointer is proof that the thread is
+  // registered.
+  return !!racyRegisteredThread;
+}
+
 bool profiler_thread_is_sleeping() {
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
   MOZ_RELEASE_ASSERT(CorePS::Exists());
@@ -5000,6 +5048,13 @@ void profiler_add_marker_for_thread(int aThreadId,
       ProfileBufferEntry::Kind::MarkerData, aThreadId,
       WrapProfileBufferUnownedCString(aMarkerName),
       static_cast<uint32_t>(aCategoryPair), &aPayload, delta.ToMilliseconds());
+}
+
+void profiler_add_marker_for_mainthread(JS::ProfilingCategoryPair aCategoryPair,
+                                        const char* aMarkerName,
+                                        const ProfilerMarkerPayload& aPayload) {
+  profiler_add_marker_for_thread(CorePS::MainThreadId(), aCategoryPair,
+                                 aMarkerName, aPayload);
 }
 
 void profiler_tracing_marker(const char* aCategoryString,

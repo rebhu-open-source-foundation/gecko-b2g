@@ -5061,6 +5061,90 @@ AttachDecision CallIRGenerator::tryAttachToString(HandleFunction callee) {
   return AttachDecision::Attach;
 }
 
+AttachDecision CallIRGenerator::tryAttachToObject(HandleFunction callee) {
+  // Need a single object argument.
+  // TODO(Warp): Support all or more conversions to object.
+  if (argc_ != 1 || !args_[0].isObject()) {
+    return AttachDecision::NoAction;
+  }
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Guard callee is the 'ToObject' intrinsic native function.
+  emitNativeCalleeGuard(callee);
+
+  // Guard that the argument is an object.
+  ValOperandId argId = writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
+  ObjOperandId objId = writer.guardToObject(argId);
+
+  // Return the object.
+  writer.loadObjectResult(objId);
+
+  // Monitor the returned object.
+  writer.typeMonitorResult();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Monitored;
+
+  trackAttached("ToObject");
+  return AttachDecision::Attach;
+}
+
+AttachDecision CallIRGenerator::tryAttachToInteger(HandleFunction callee) {
+  // Need a single int32 argument.
+  // TODO(Warp): Support all or more conversions to integer.
+  // Make sure to update this code correctly if we ever start
+  // returning non-int32 integers.
+  if (argc_ != 1 || !args_[0].isInt32()) {
+    return AttachDecision::NoAction;
+  }
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Guard callee is the 'ToInteger' intrinsic native function.
+  emitNativeCalleeGuard(callee);
+
+  // Guard that the argument is an int32.
+  ValOperandId argId = writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
+  Int32OperandId int32Id = writer.guardToInt32(argId);
+
+  // Return the int32.
+  writer.loadInt32Result(int32Id);
+
+  // This stub does not need to be monitored, because it always
+  // returns an int32.
+  writer.returnFromIC();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
+
+  trackAttached("ToInteger");
+  return AttachDecision::Attach;
+}
+
+AttachDecision CallIRGenerator::tryAttachIsObject(HandleFunction callee) {
+  // Need a single argument.
+  if (argc_ != 1) {
+    return AttachDecision::NoAction;
+  }
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Guard callee is the 'IsObject' intrinsic native function.
+  emitNativeCalleeGuard(callee);
+
+  // Type check the argument and return result.
+  ValOperandId argId = writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
+  writer.isObjectResult(argId);
+
+  // This stub does not need to be monitored, because it always
+  // returns a boolean.
+  writer.returnFromIC();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
+
+  trackAttached("IsObject");
+  return AttachDecision::Attach;
+}
+
 AttachDecision CallIRGenerator::tryAttachStringChar(HandleFunction callee,
                                                     StringChar kind) {
   // Need one argument.
@@ -5109,6 +5193,15 @@ AttachDecision CallIRGenerator::tryAttachStringChar(HandleFunction callee,
   }
 
   return AttachDecision::Attach;
+}
+
+AttachDecision CallIRGenerator::tryAttachStringCharCodeAt(
+    HandleFunction callee) {
+  return tryAttachStringChar(callee, StringChar::CodeAt);
+}
+
+AttachDecision CallIRGenerator::tryAttachStringCharAt(HandleFunction callee) {
+  return tryAttachStringChar(callee, StringChar::At);
 }
 
 AttachDecision CallIRGenerator::tryAttachMathAbs(HandleFunction callee) {
@@ -5180,6 +5273,40 @@ AttachDecision CallIRGenerator::tryAttachMathFloor(HandleFunction callee) {
   cacheIRStubKind_ = BaselineCacheIRStubKind::Monitored;
 
   trackAttached("MathFloor");
+  return AttachDecision::Attach;
+}
+
+AttachDecision CallIRGenerator::tryAttachMathCeil(HandleFunction callee) {
+  // Need one (number) argument.
+  if (argc_ != 1 || !args_[0].isNumber()) {
+    return AttachDecision::NoAction;
+  }
+
+  // Check if the result fits in int32.
+  double res = math_ceil_impl(args_[0].toNumber());
+  int32_t unused;
+  bool resultIsInt32 = mozilla::NumberIsInt32(res, &unused);
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Guard callee is the 'ceil' native function.
+  emitNativeCalleeGuard(callee);
+
+  ValOperandId argumentId =
+      writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
+  NumberOperandId numberId = writer.guardIsNumber(argumentId);
+
+  if (resultIsInt32) {
+    writer.mathCeilToInt32Result(numberId);
+  } else {
+    writer.mathFunctionNumberResult(numberId, UnaryMathFunction::Ceil);
+  }
+
+  writer.typeMonitorResult();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Monitored;
+
+  trackAttached("MathCeil");
   return AttachDecision::Attach;
 }
 
@@ -5274,15 +5401,6 @@ AttachDecision CallIRGenerator::tryAttachMathFunction(HandleFunction callee,
 
   trackAttached("MathFunction");
   return AttachDecision::Attach;
-}
-
-AttachDecision CallIRGenerator::tryAttachStringCharCodeAt(
-    HandleFunction callee) {
-  return tryAttachStringChar(callee, StringChar::CodeAt);
-}
-
-AttachDecision CallIRGenerator::tryAttachStringCharAt(HandleFunction callee) {
-  return tryAttachStringChar(callee, StringChar::At);
 }
 
 AttachDecision CallIRGenerator::tryAttachFunCall(HandleFunction calleeFunc) {
@@ -5443,6 +5561,12 @@ AttachDecision CallIRGenerator::tryAttachInlinableNative(
       return tryAttachIsSuspendedGenerator(callee);
     case InlinableNative::IntrinsicToString:
       return tryAttachToString(callee);
+    case InlinableNative::IntrinsicToObject:
+      return tryAttachToObject(callee);
+    case InlinableNative::IntrinsicToInteger:
+      return tryAttachToInteger(callee);
+    case InlinableNative::IntrinsicIsObject:
+      return tryAttachIsObject(callee);
 
     // String natives.
     case InlinableNative::StringCharCodeAt:
@@ -5455,6 +5579,8 @@ AttachDecision CallIRGenerator::tryAttachInlinableNative(
       return tryAttachMathAbs(callee);
     case InlinableNative::MathFloor:
       return tryAttachMathFloor(callee);
+    case InlinableNative::MathCeil:
+      return tryAttachMathCeil(callee);
     case InlinableNative::MathRound:
       return tryAttachMathRound(callee);
     case InlinableNative::MathSqrt:

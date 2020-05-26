@@ -725,7 +725,7 @@
   },
   "GC_PREPARE_MS": {
     "record_in_processes": ["main", "content"],
-    "products": ["firefox"],
+    "products": ["firefox", "geckoview_streaming"],
     "alert_emails": ["dev-telemetry-gc-alerts@mozilla.org", "jcoppeard@mozilla.com"],
     "expires_in_version": "never",
     "releaseChannelCollection": "opt-out",
@@ -747,7 +747,7 @@
   },
   "GC_SWEEP_MS": {
     "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec", "geckoview"],
+    "products": ["firefox", "fennec", "geckoview", "geckoview_streaming"],
     "alert_emails": ["dev-telemetry-gc-alerts@mozilla.org"],
     "expires_in_version": "never",
     "kind": "exponential",
@@ -757,7 +757,7 @@
   },
   "GC_COMPACT_MS": {
     "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec", "geckoview"],
+    "products": ["firefox", "fennec", "geckoview", "geckoview_streaming"],
     "alert_emails": ["dev-telemetry-gc-alerts@mozilla.org"],
     "expires_in_version": "never",
     "kind": "exponential",
@@ -767,7 +767,7 @@
   },
   "GC_MARK_ROOTS_MS": {
     "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec", "geckoview"],
+    "products": ["firefox", "fennec", "geckoview", "geckoview_streaming"],
     "alert_emails": ["dev-telemetry-gc-alerts@mozilla.org"],
     "expires_in_version": "81",
     "kind": "linear",
@@ -777,7 +777,7 @@
   },
   "GC_MARK_ROOTS_US": {
     "record_in_processes": ["main", "content"],
-    "products": ["firefox"],
+    "products": ["firefox", "geckoview_streaming"],
     "alert_emails": ["dev-telemetry-gc-alerts@mozilla.org", "jcoppeard@mozilla.com"],
     "expires_in_version": "never",
     "releaseChannelCollection": "opt-out",
@@ -823,7 +823,7 @@
   },
   "GC_SLICE_MS": {
     "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec", "geckoview"],
+    "products": ["firefox", "fennec", "geckoview", "geckoview_streaming"],
     "alert_emails": ["dev-telemetry-gc-alerts@mozilla.org"],
     "expires_in_version": "never",
     "kind": "exponential",
@@ -916,7 +916,7 @@
   },
   "GC_MINOR_US": {
     "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec", "geckoview"],
+    "products": ["firefox", "fennec", "geckoview", "geckoview_streaming"],
     "alert_emails": ["dev-telemetry-gc-alerts@mozilla.org"],
     "expires_in_version": "never",
     "kind": "exponential",
@@ -12342,7 +12342,7 @@
     "record_into_store": ["main", "pre-account"]
   },
   "PWMGR_FORM_AUTOFILL_RESULT": {
-    "record_in_processes": ["main", "content"],
+    "record_in_processes": ["content"],
     "products": ["firefox", "fennec", "geckoview"],
     "alert_emails": ["seceng-telemetry@mozilla.com","loines@mozilla.com"],
     "bug_numbers": [1340021, 1545172],
@@ -12367,7 +12367,7 @@
     "record_into_store": ["main", "pre-account"]
   },
   "PWMGR_LOGIN_PAGE_SAFETY": {
-    "record_in_processes": ["main", "content"],
+    "record_in_processes": ["content"],
     "products": ["firefox", "fennec", "geckoview"],
     "alert_emails": ["seceng-telemetry@mozilla.com","loines@mozilla.com"],
     "bug_numbers": [1340021, 1545172],
@@ -12405,7 +12405,7 @@
     "record_into_store": ["main", "pre-account"]
   },
   "PWMGR_NUM_HTTPAUTH_PASSWORDS": {
-    "record_in_processes": ["main", "content"],
+    "record_in_processes": ["main"],
     "products": ["firefox", "fennec", "geckoview", "thunderbird"],
     "expires_in_version": "never",
     "kind": "exponential",
@@ -12414,7 +12414,7 @@
     "description": "Number of HTTP Auth logins"
   },
   "PWMGR_PASSWORD_INPUT_IN_FORM": {
-    "record_in_processes": ["main", "content"],
+    "record_in_processes": ["content"],
     "products": ["firefox", "fennec", "geckoview"],
     "expires_in_version": "never",
     "kind": "boolean",
@@ -12456,7 +12456,7 @@
     "record_into_store": ["main", "pre-account"]
   },
   "PWMGR_USERNAME_PRESENT": {
-    "record_in_processes": ["main", "content"],
+    "record_in_processes": ["main"],
     "products": ["firefox", "fennec", "geckoview", "thunderbird"],
     "expires_in_version": "never",
     "kind": "boolean",
@@ -14668,6 +14668,20 @@
     "alert_emails": ["ttung@mozilla.com", "storage-telemetry@mozilla.com"],
     "description": "True if the first initialization attempt succeeded, keyed by the initialization type."
   },
+  "GV_CONTENT_PROCESS_LIFETIME_MS": {
+    "record_in_processes": ["main"],
+    "products": ["geckoview_streaming"],
+    "alert_emails": [
+      "geckoview-team@mozilla.com",
+      "aklotz@mozilla.com"
+    ],
+    "expires_in_version": "never",
+    "kind": "exponential",
+    "high": 3600000,
+    "n_buckets": 100,
+    "bug_numbers": [1625325],
+    "description": "GeckoView: The uptime of content processes in ms"
+  },
   "GV_PAGE_LOAD_PROGRESS_MS": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec", "geckoview", "geckoview_streaming"],
@@ -15209,5 +15223,27 @@
     "releaseChannelCollection": "opt-out",
     "bug_numbers": [1619349],
     "description": "Encountered a missing character that would have been supported by a user-installed font"
+  },
+  "WHEEL_INDEX" : {
+    "products": ["firefox"],
+    "record_in_processes": ["main"],
+    "alert_emails": ["kgupta@mozilla.com"],
+    "expires_in_version": "80",
+    "kind" : "enumerated",
+    "bug_numbers": [1638314],
+    "description": "Keyboard modifier key applied to wheel events (WheelPrefs::Index)",
+    "n_values": 7,
+    "releaseChannelCollection": "opt-out"
+  },
+  "WHEEL_ACTION" : {
+    "products": ["firefox"],
+    "record_in_processes": ["main"],
+    "alert_emails": ["kgupta@mozilla.com"],
+    "expires_in_version": "80",
+    "kind" : "enumerated",
+    "bug_numbers": [1638314],
+    "description": "Action triggered by wheel event (WheelPrefs::Action)",
+    "n_values": 10,
+    "releaseChannelCollection": "opt-out"
   }
 }

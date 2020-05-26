@@ -235,7 +235,8 @@ TEST_SUITES = {
     'web-platform-tests-reftest': {
         'aliases': ('wpt',),
         'mach_command': 'web-platform-tests',
-        'kwargs': {'include': []},
+        'build_flavor': 'web-platform-tests',
+        'kwargs': {'subsuite': 'reftest'},
         'task_regex': ['web-platform-tests-reftest($|.*(-1|[^0-9])$)',
                        'test-verify-wpt'],
     },
@@ -449,7 +450,7 @@ class TestManifestLoader(TestLoader):
         manifest = reftest.ReftestManifest(finder=self.finder)
         manifest.load(mpath)
 
-        for test in sorted(manifest.tests):
+        for test in sorted(manifest.tests, key=lambda x: x.get('path')):
             test['manifest_relpath'] = test['manifest'][len(self.topsrcdir)+1:]
             yield test
 

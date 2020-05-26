@@ -2,12 +2,23 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { Localized } from "./MSLocalized";
 import { AboutWelcomeUtils } from "../../lib/aboutwelcome-utils";
 
 export const MultiStageAboutWelcome = props => {
   const [index, setScreenIndex] = useState(0);
+
+  useEffect(() => {
+    // Send impression ping when respective screen first renders
+    props.screens.forEach(screen => {
+      if (index === screen.order) {
+        AboutWelcomeUtils.sendImpressionTelemetry(
+          `${props.message_id}_${screen.id}`
+        );
+      }
+    });
+  }, [index]);
   // Transition to next screen, opening about:home on last screen button CTA
   const handleTransition =
     index < props.screens.length
@@ -16,6 +27,16 @@ export const MultiStageAboutWelcome = props => {
           type: "OPEN_ABOUT_PAGE",
           data: { args: "home", where: "current" },
         });
+
+  const [topSites] = useState([
+    "resource://activity-stream/data/content/tippytop/images/youtube-com@2x.png",
+    "resource://activity-stream/data/content/tippytop/images/facebook-com@2x.png",
+    "resource://activity-stream/data/content/tippytop/images/amazon@2x.png",
+    "resource://activity-stream/data/content/tippytop/images/reddit-com@2x.png",
+    "resource://activity-stream/data/content/tippytop/images/wikipedia-org@2x.png",
+    "resource://activity-stream/data/content/tippytop/images/twitter-com@2x.png",
+  ]);
+
   return (
     <React.Fragment>
       <div className={`multistageContainer`}>
@@ -27,6 +48,7 @@ export const MultiStageAboutWelcome = props => {
               order={screen.order}
               content={screen.content}
               navigate={handleTransition}
+              topSites={topSites}
             />
           ) : null;
         })}
@@ -72,8 +94,16 @@ export class WelcomeScreen extends React.PureComponent {
   }
 
   renderTiles() {
-    return this.props.content.tiles.topSites ? (
-      <div className="tiles-section" />
+    return this.props.content.tiles && this.props.topSites ? (
+      <div className="tiles-section">
+        {this.props.topSites.slice(0, 5).map(icon => (
+          <div
+            className="icon"
+            key={icon}
+            style={{ backgroundImage: `url(${icon})` }}
+          />
+        ))}
+      </div>
     ) : null;
   }
 
