@@ -1299,14 +1299,20 @@ nsAppShell::Observe(nsISupports* aSubject,
         }
         return NS_OK;
     } else if (!strcmp(aTopic, "browser-ui-startup-complete")) {
+        mEnableDraw = true;
+        InitInputDevices();
+
         if (sDevInputAudioJack) {
+            // If we call mReader->getSwitchState() immediately after InitInputDevices(), the
+            // reader thread may not have processed DEVICE_ADDED event yet. In this case, we
+            // cannot get the correct initial state of headphone/microphone. To prevent this
+            // problem, call mReader->monitor() first to make sure InputReader::loopOnce()
+            // has been called.
+            mReader->monitor();
             sHeadphoneState  = mReader->getSwitchState(-1, AINPUT_SOURCE_SWITCH, SW_HEADPHONE_INSERT);
             sMicrophoneState = mReader->getSwitchState(-1, AINPUT_SOURCE_SWITCH, SW_MICROPHONE_INSERT);
             updateHeadphoneSwitch();
         }
-        mEnableDraw = true;
-
-        gAppShell->InitInputDevices();
 
         // System is almost booting up. Stop the bootAnim now.
         mozilla::StopBootAnimation();
