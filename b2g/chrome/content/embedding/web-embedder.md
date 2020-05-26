@@ -33,6 +33,8 @@ All delegates are optional.
 
 The `WebEmbedder` object exposes the following methods:
 - `launchPreallocatedProcess()`: this will create a new content process with no content.
+- `systemAlerts`: this object exposes methods for invoking notification features of the system
+  - `resendAll()`: this will resend all stored notifications from the Notifications DB.
 
 ## WindowProvider delegate
 

@@ -4,6 +4,14 @@
 // api over Gecko specific various hooks.
 // It runs with chrome privileges in the system app.
 
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+
+XPCOMUtils.defineLazyModuleGetters(this, {
+  ChromeNotifications: "resource://gre/modules/ChromeNotifications.jsm",
+});
+
 (function() {
   const { Services } = ChromeUtils.import(
     "resource://gre/modules/Services.jsm"
@@ -12,6 +20,12 @@
   const { AlertsHelper } = ChromeUtils.import(
     "resource://gre/modules/AlertsHelper.jsm"
   );
+
+  const systemAlerts = {
+    resendAll: (resendCallback) => {
+      ChromeNotifications.resendAllNotifications(resendCallback);
+    },
+  };
 
   // Enable logs when according to the pref value, and listen to changes.
   let webEmbedLogEnabled = Services.prefs.getBoolPref(
@@ -169,6 +183,8 @@
       _webembed_log(`constructor in ${window}`);
 
       this.browserDomWindow = delegates.windowProvider;
+
+      this.systemAlerts = systemAlerts;
 
       Services.obs.addObserver(
         (/* shell_window */) => {
