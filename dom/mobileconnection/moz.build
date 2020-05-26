@@ -12,6 +12,7 @@ EXPORTS += [
 ]
 
 EXPORTS.mozilla.dom += [
+    'DOMMobileNetworkInfo.h',
     'ImsDeviceConfiguration.h',
     'ImsRegHandler.h',
     'MobileCellInfo.h',
@@ -47,6 +48,7 @@ XPIDL_SOURCES += [
 
 UNIFIED_SOURCES += [
     'Assertions.cpp',
+    'DOMMobileNetworkInfo.cpp',
     'ImsDeviceConfiguration.cpp',
     'ImsRegCallback.cpp',
     'ImsRegHandler.cpp',

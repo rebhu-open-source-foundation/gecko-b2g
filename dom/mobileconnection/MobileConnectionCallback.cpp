@@ -7,6 +7,7 @@
 #include "MobileConnectionCallback.h"
 
 #include "mozilla/dom/MobileNetworkInfo.h"
+#include "mozilla/dom/DOMMobileNetworkInfo.h"
 #include "mozilla/dom/MobileConnectionBinding.h"
 #include "mozilla/dom/ToJSValue.h"
 #include "nsJSUtils.h"

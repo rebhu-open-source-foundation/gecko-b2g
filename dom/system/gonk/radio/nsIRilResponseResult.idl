@@ -17,7 +17,7 @@ interface nsISetupDataCallResult;
 /**
  * XPCOM component that provides the hidl response information.
  */
-[scriptable, uuid(3115bf1b-e810-4d68-aa32-3142f6add75d)]
+[scriptable, uuid(0c538026-2f2c-4e80-a0c1-cf3f7d861e6e)]
 interface nsIRilResponseResult : nsISupports
 {
   /**
@@ -398,6 +398,10 @@ interface nsIRilResponseResult : nsISupports
 
   // For ICC pin/puk
   readonly attribute long remainingRetries;
+
+  //  false for Standard Privacy Mode (Public Long Code Mask)
+  //  true for Enhanced Privacy Mode (Private Long Code Mask)
+  readonly attribute boolean enhancedVoicePrivacy;
 /*
   //void supplyIccPinForAppResponse(out long remainingRetries);
 
@@ -423,10 +427,6 @@ interface nsIRilResponseResult : nsISupports
 
   // CDMA_ROAMING_TYPE_
   readonly attribute long cdmaRoamingType;
-
-  //  false for Standard Privacy Mode (Public Long Code Mask)
-  //  true for Enhanced Privacy Mode (Private Long Code Mask)
-  readonly attribute boolean enhancedVoicePrivacy;
 */
 
 };

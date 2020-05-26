@@ -1061,13 +1061,22 @@ Return<void> nsRilResponse::setPreferredVoicePrivacyResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
+  defaultResponse(rspInfo, NS_LITERAL_STRING("setVoicePrivacyMode"));
   return Void();
 }
 
 Return<void> nsRilResponse::getPreferredVoicePrivacyResponse(
-    const RadioResponseInfo& info, bool /*enable*/) {
+    const RadioResponseInfo& info, bool enable) {
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
+
+  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
+      NS_LITERAL_STRING("queryVoicePrivacyMode"), rspInfo.serial,
+      convertRadioErrorToNum(rspInfo.error));
+  if (rspInfo.error == RadioError::NONE) {
+    result->updateVoicePrivacy(enable);
+  }
+  mRIL->sendRilResponseResult(result);
 
   return Void();
 }

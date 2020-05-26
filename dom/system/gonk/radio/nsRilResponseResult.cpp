@@ -261,6 +261,14 @@ void nsRilResponseResult::updateNeighboringCells(nsTArray<RefPtr<nsNeighboringCe
 }
 
 /**
+ * For GetPreferredVoicePrivacy */
+void nsRilResponseResult::updateVoicePrivacy(bool aEnhancedVoicePrivacy) {
+  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
+                      "updateVoicePrivacy");
+  mEnhancedVoicePrivacy = aEnhancedVoicePrivacy;
+}
+
+/**
  *
  */
 nsRilResponseResult::~nsRilResponseResult()
@@ -503,5 +511,10 @@ NS_IMETHODIMP nsRilResponseResult::GetRemainingRetries(int32_t *aRemainingRetrie
   return NS_OK;
 }
 
+NS_IMETHODIMP nsRilResponseResult::GetEnhancedVoicePrivacy(
+    bool* aEnhancedVoicePrivacy) {
+  *aEnhancedVoicePrivacy = mEnhancedVoicePrivacy;
+  return NS_OK;
+}
 
 NS_DEFINE_NAMED_CID(RILRESPONSERESULT_CID);

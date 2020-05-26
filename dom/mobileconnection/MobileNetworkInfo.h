@@ -7,10 +7,7 @@
 #ifndef mozilla_dom_MobileNetworkInfo_h
 #define mozilla_dom_MobileNetworkInfo_h
 
-#include "mozilla/dom/MobileNetworkInfoBinding.h"
 #include "nsIMobileNetworkInfo.h"
-#include "nsPIDOMWindow.h"
-#include "nsWrapperCache.h"
 
 namespace mozilla {
 namespace dom {
@@ -24,6 +21,8 @@ class MobileNetworkInfo final : public nsIMobileNetworkInfo {
                     const nsAString& aMcc, const nsAString& aMnc,
                     const nsAString& aState);
 
+  explicit MobileNetworkInfo();
+
   void Update(nsIMobileNetworkInfo* aInfo);
 
  private:
@@ -35,66 +34,6 @@ class MobileNetworkInfo final : public nsIMobileNetworkInfo {
   nsString mMcc;
   nsString mMnc;
   nsString mState;
-};
-
-class DOMMobileNetworkInfo final : public nsWrapperCache, nsISupports {
- public:
-  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(DOMMobileNetworkInfo)
-
-  explicit DOMMobileNetworkInfo(nsPIDOMWindowInner* aWindow);
-
-  DOMMobileNetworkInfo(const nsAString& aShortName, const nsAString& aLongName,
-                       const nsAString& aMcc, const nsAString& aMnc,
-                       const nsAString& aState);
-
-  void
-  Update(nsIMobileNetworkInfo* aInfo);
-
-  nsPIDOMWindowInner*
-  GetParentObject() const
-  {
-    return mWindow;
-  }
-
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
-
-  // DOMMobileNetworkInfo WebIDL interface
-  Nullable<MobileNetworkState> GetState() const {
-    uint32_t i = 0;
-    for (const EnumEntry* entry = MobileNetworkStateValues::strings;
-         entry->value; ++entry, ++i) {
-      nsString state;
-      mInfo->GetState(state);
-      if (state.EqualsASCII(entry->value)) {
-        return Nullable<MobileNetworkState>(static_cast<MobileNetworkState>(i));
-      }
-    }
-
-    return Nullable<MobileNetworkState>();
-  }
-
-  void GetShortName(nsAString& aShortName) const {
-    mInfo->GetShortName(aShortName);
-  }
-
-  void GetLongName(nsAString& aLongName) const {
-    mInfo->GetShortName(aLongName);
-  }
-
-  void GetMcc(nsAString& aMcc) const { mInfo->GetMcc(aMcc); }
-
-  void GetMnc(nsAString& aMnc) const { mInfo->GetMnc(aMnc); }
-
-  MobileNetworkInfo* GetNetwork() const { return mInfo; }
-
- private:
-  ~DOMMobileNetworkInfo() { mInfo = nullptr; }
-
- private:
-  nsCOMPtr<nsPIDOMWindowInner> mWindow;
-  RefPtr<MobileNetworkInfo> mInfo;
 };
 
 }  // namespace dom

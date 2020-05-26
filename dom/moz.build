@@ -131,7 +131,7 @@ if CONFIG['MOZ_B2G_RIL']:
         'datacall',
         'icc',
         'mobileconnection',
-        'mobilemessage',
+        #'mobilemessage',
         'telephony',
         'subsidylock',
         'videocallprovider',

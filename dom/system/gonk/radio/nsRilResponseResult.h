@@ -108,8 +108,11 @@ class nsRilResponseResult final : public nsRilResult,
   // For getMute
   void updateMute(bool aMuteEnabled);
 
-  // For Icc pin/puk
+  // For supplyIccPinForApp
   void updateRemainRetries(int32_t aRemainingRetries);
+
+  // For GetPreferredVoicePrivacy
+  void updateVoicePrivacy(bool aEnhancedVoicePrivacy);
 
   nsString mImei;
   nsString mImeisv;
@@ -144,6 +147,7 @@ class nsRilResponseResult final : public nsRilResult,
   int32_t mTtyMode;
   bool mMuteEnabled;
   int32_t mRemainingRetries;
+  bool mEnhancedVoicePrivacy;
 
  private:
   ~nsRilResponseResult();

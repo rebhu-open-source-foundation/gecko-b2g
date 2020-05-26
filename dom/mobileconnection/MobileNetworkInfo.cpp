@@ -10,53 +10,7 @@ using namespace mozilla::dom;
 
 NS_IMPL_ISUPPORTS(MobileNetworkInfo, nsIMobileNetworkInfo)
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(DOMMobileNetworkInfo, mWindow)
-NS_IMPL_CYCLE_COLLECTING_ADDREF(DOMMobileNetworkInfo)
-NS_IMPL_CYCLE_COLLECTING_RELEASE(DOMMobileNetworkInfo)
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(DOMMobileNetworkInfo)
-  NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
-  NS_INTERFACE_MAP_ENTRY(nsISupports)
-NS_INTERFACE_MAP_END
-
-DOMMobileNetworkInfo::DOMMobileNetworkInfo(nsPIDOMWindowInner* aWindow)
-    : mWindow(aWindow) {}
-
-DOMMobileNetworkInfo::DOMMobileNetworkInfo(const nsAString& aShortName,
-                                           const nsAString& aLongName,
-                                           const nsAString& aMcc,
-                                           const nsAString& aMnc,
-                                           const nsAString& aState) {
-  mInfo = new MobileNetworkInfo(aShortName, aLongName, aMcc, aMnc, aState);
-  // The parent object is nullptr when MobileNetworkInfo is created by this way.
-  // And it won't be exposed to web content.
-}
-
-void DOMMobileNetworkInfo::Update(nsIMobileNetworkInfo* aInfo) {
-  if (!aInfo) {
-    return;
-  }
-  if (!mInfo) {
-    nsString shortName;
-    nsString longName;
-    nsString mcc;
-    nsString mnc;
-    nsString state;
-    aInfo->GetShortName(shortName);
-    aInfo->GetLongName(longName);
-    aInfo->GetMcc(mcc);
-    aInfo->GetMnc(mnc);
-    aInfo->GetState(state);
-
-    mInfo = new MobileNetworkInfo(shortName, longName, mcc, mnc, state);
-  } else {
-    mInfo->Update(aInfo);
-  }
-}
-
-JSObject* DOMMobileNetworkInfo::WrapObject(JSContext* aCx,
-                                           JS::Handle<JSObject*> aGivenProto) {
-  return DOMMobileNetworkInfo_Binding::Wrap(aCx, this, aGivenProto);
-}
+MobileNetworkInfo::MobileNetworkInfo() {}
 
 MobileNetworkInfo::MobileNetworkInfo(const nsAString& aShortName,
                                      const nsAString& aLongName,
@@ -74,6 +28,11 @@ MobileNetworkInfo::MobileNetworkInfo(const nsAString& aShortName,
 
 void MobileNetworkInfo::Update(nsIMobileNetworkInfo* aInfo) {
   if (!aInfo) {
+    mShortName = nullptr;
+    mLongName = nullptr;
+    mMcc = nullptr;
+    mMnc = nullptr;
+    mState = nullptr;
     return;
   }
 

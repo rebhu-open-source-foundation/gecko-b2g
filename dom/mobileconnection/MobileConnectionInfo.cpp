@@ -41,7 +41,7 @@
 using namespace mozilla::dom;
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(MobileConnectionInfo, mWindow,
-                                      mNetworkInfo, mCellInfo)
+                                      mNetworkInfo, mDOMNetworkInfo, mCellInfo)
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(MobileConnectionInfo)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(MobileConnectionInfo)
@@ -81,7 +81,7 @@ MobileConnectionInfo::MobileConnectionInfo(const nsAString& aState,
 
   // Update mNetworkInfo
   if (aNetworkInfo) {
-    mNetworkInfo = new DOMMobileNetworkInfo(mWindow);
+    mNetworkInfo = new MobileNetworkInfo();
     mNetworkInfo->Update(aNetworkInfo);
   }
 
@@ -118,7 +118,7 @@ MobileConnectionInfo::Update(nsIMobileConnectionInfo* aInfo)
   aInfo->GetNetwork(getter_AddRefs(networkInfo));
   if (networkInfo) {
     if (!mNetworkInfo) {
-      mNetworkInfo = new DOMMobileNetworkInfo(mWindow);
+      mNetworkInfo = new MobileNetworkInfo();
     }
     mNetworkInfo->Update(networkInfo);
   } else {
@@ -135,6 +135,25 @@ MobileConnectionInfo::Update(nsIMobileConnectionInfo* aInfo)
     mCellInfo->Update(cellInfo);
   } else {
     mCellInfo = nullptr;
+  }
+}
+
+void MobileConnectionInfo::UpdateDOMNetworkInfo(
+    nsIMobileConnectionInfo* aInfo) {
+  if (!aInfo) {
+    return;
+  }
+
+  // Update mDOMNetworkInfo
+  nsCOMPtr<nsIMobileNetworkInfo> networkInfo;
+  aInfo->GetNetwork(getter_AddRefs(networkInfo));
+  if (networkInfo) {
+    if (!mDOMNetworkInfo) {
+      mDOMNetworkInfo = new DOMMobileNetworkInfo(mWindow);
+    }
+    mDOMNetworkInfo->Update(networkInfo);
+  } else {
+    mDOMNetworkInfo = nullptr;
   }
 }
 
@@ -178,7 +197,7 @@ NS_IMETHODIMP
 MobileConnectionInfo::GetNetwork(nsIMobileNetworkInfo** aInfo)
 {
   if (mNetworkInfo) {
-    NS_IF_ADDREF(*aInfo = mNetworkInfo->GetNetwork());
+    NS_IF_ADDREF(*aInfo = mNetworkInfo);
   }
 
   return NS_OK;

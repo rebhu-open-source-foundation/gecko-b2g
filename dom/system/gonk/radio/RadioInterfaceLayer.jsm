@@ -99,8 +99,7 @@ function updateDebugFlag() {
 updateDebugFlag();
 
 function debug(s) {
-  //dump("-*- RadioInterfaceLayer: " + s + "\n");
-  console.log("-*- RadioInterfaceLayer: " + s + "\n");
+  dump("-*- RadioInterfaceLayer: " + s + "\n");
 }
 
 XPCOMUtils.defineLazyServiceGetter(this, "gIccService",
@@ -143,9 +142,9 @@ XPCOMUtils.defineLazyServiceGetter(this, "gMobileConnectionService",
                                    "@mozilla.org/mobileconnection/mobileconnectionservice;1",
                                    "nsIGonkMobileConnectionService");
 
-// XPCOMUtils.defineLazyServiceGetter(this, "gCellBroadcastService",
-//                                    "@mozilla.org/cellbroadcast/cellbroadcastservice;1",
-//                                    "nsIGonkCellBroadcastService");
+XPCOMUtils.defineLazyServiceGetter(this, "gCellBroadcastService",
+                                    "@mozilla.org/cellbroadcast/cellbroadcastservice;1",
+                                    "nsIGonkCellBroadcastService");
 
 XPCOMUtils.defineLazyServiceGetter(this, "gStkCmdFactory",
                                    "@mozilla.org/icc/stkcmdfactory;1",
@@ -752,8 +751,7 @@ RadioInterface.prototype = {
 
 
   debug: function(s) {
-    //dump("-*- RadioInterface[" + this.clientId + "]: " + s + "\n");
-    console.log("-*- RadioInterface[" + this.clientId + "]: " + s + "\n");
+    dump("-*- RadioInterface[" + this.clientId + "]: " + s + "\n");
   },
 
   shutdown: function() {
@@ -2355,7 +2353,7 @@ RadioInterface.prototype = {
       case "queryCallForwardStatus":
         if (response.errorMsg == 0) {
           if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_QUERY_CALL_FORWARD_STATUS");
-          result = handleQueryCallForwardStatus(response);
+          result = this.handleQueryCallForwardStatus(response);
         } else {
           if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_QUERY_CALL_FORWARD_STATUS error = " + response.errorMsg);
         }
@@ -2537,7 +2535,7 @@ RadioInterface.prototype = {
           if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_QUERY_TTY_MODE ttymode = " + response.ttyMode);
           result = response;
         } else {
-          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_GET_NEIGHBORING_CELL_IDS error = " + response.errorMsg);
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_QUERY_TTY_MODE error = " + response.errorMsg);
         }
         break;
       case "setRoamingPreference":
@@ -2547,8 +2545,20 @@ RadioInterface.prototype = {
       case "setTtyMode":
         break;
       case "setVoicePrivacyMode":
+        if (response.errorMsg == 0) {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_CDMA_SET_PREFERRED_VOICE_PRIVACY_MODE ");
+          result = response;
+        } else {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_CDMA_SET_PREFERRED_VOICE_PRIVACY_MODE error = " + response.errorMsg);
+        }
         break;
       case "queryVoicePrivacyMode":
+        if (response.errorMsg == 0) {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_CDMA_QUERY_PREFERRED_VOICE_PRIVACY_MODE enable = " + response.enhancedVoicePrivacy);
+          result.enabled = response.enhancedVoicePrivacy;
+        } else {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_CDMA_QUERY_PREFERRED_VOICE_PRIVACY_MODE error = " + response.errorMsg);
+        }
         break;
       case "cdmaFlash":
         break;
@@ -2935,8 +2945,8 @@ RadioInterface.prototype = {
   handleVoiceRegistrationState: function(response){
     if (DEBUG) this.debug("handleVoiceRegistrationState " + JSON.stringify(response.voiceRegStatus));
     let rs = this.voiceRegistrationState;
-    let state = response.voiceRegStatus;
-    let stateChanged = this._processCREG(rs, state);
+    let newState = response.voiceRegStatus;
+    let stateChanged = this._processCREG(rs, newState);
     if (stateChanged && rs.connected) {
       this.sendRilRequest("getSmscAddress", null);
     }
@@ -3031,6 +3041,7 @@ RadioInterface.prototype = {
     let longName = operatorData.alphaLong;
     let shortName = operatorData.alphaShort;
     let networkTuple = operatorData.operatorNumeric;
+    let state = operatorData.status;
     let thisTuple = (this.operator.mcc || "") + (this.operator.mnc || "");
 
     if (this.operator.longName !== longName ||
@@ -3057,6 +3068,7 @@ RadioInterface.prototype = {
 
       this.operator.longName = longName;
       this.operator.shortName = shortName;
+      this.operator.state = RIL.RIL_QAN_STATE_TO_GECKO_STATE[state];
 
       let ICCUtilsHelper = this.simIOcontext.ICCUtilsHelper;
       if (ICCUtilsHelper.updateDisplayCondition() && this.iccInfo.iccid) {
@@ -4057,7 +4069,7 @@ RadioInterface.prototype = {
         this.rilworker.setNetworkSelectionModeManual(message.rilMessageToken, numeric);
         break;
       case "getAvailableNetworks":
-        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_QUERY_AVAILABLE_NETWORKS numeric = " + numeric);
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_QUERY_AVAILABLE_NETWORKS");
         this.rilworker.getAvailableNetworks(message.rilMessageToken);
         break;
       case "sendTone":
@@ -4129,8 +4141,12 @@ RadioInterface.prototype = {
         this.rilworker.queryTTYMode(message.rilMessageToken);
         break;
       case "setVoicePrivacyMode":
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_CDMA_SET_PREFERRED_VOICE_PRIVACY_MODE enabled = " + message.enabled);
+        this.rilworker.setPreferredVoicePrivacy(message.rilMessageToken, message.enabled);
         break;
       case "queryVoicePrivacyMode":
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_CDMA_QUERY_PREFERRED_VOICE_PRIVACY_MODE");
+        this.rilworker.getPreferredVoicePrivacy(message.rilMessageToken);
         break;
       case "cdmaFlash":
         break;

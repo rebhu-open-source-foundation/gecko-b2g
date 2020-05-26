@@ -364,10 +364,10 @@ this.GECKO_CARD_TYPE = [
 
 
 // Used for QUERY_AVAILABLE_NETWORKS status.
-this.QAN_STATE_UNKNOWN   = "unknown";
-this.QAN_STATE_AVAILABLE = "available";
-this.QAN_STATE_CURRENT   = "current";
-this.QAN_STATE_FORBIDDEN = "forbidden";
+this.QAN_STATE_UNKNOWN   = 0;
+this.QAN_STATE_AVAILABLE = 1;
+this.QAN_STATE_CURRENT   = 2;
+this.QAN_STATE_FORBIDDEN = 3;
 
 // Must be in sync with MobileNetworkState of MozMobileNetworkInfo.webidl
 this.GECKO_QAN_STATE_UNKNOWN   = null;

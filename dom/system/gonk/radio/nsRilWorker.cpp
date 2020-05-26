@@ -1005,6 +1005,34 @@ NS_IMETHODIMP nsRilWorker::SetGsmBroadcastConfig(
   return NS_OK;
 }
 
+NS_IMETHODIMP nsRilWorker::GetPreferredVoicePrivacy(int32_t serial) {
+  INFO(
+      "nsRilWorker: [%d] > "
+      "RIL_REQUEST_CDMA_QUERY_PREFERRED_VOICE_PRIVACY_MODE ",
+      serial);
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->getPreferredVoicePrivacy(serial);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::SetPreferredVoicePrivacy(int32_t serial,
+                                                    bool enable) {
+  INFO(
+      "nsRilWorker: [%d] > RIL_REQUEST_CDMA_SET_PREFERRED_VOICE_PRIVACY_MODE "
+      "enable = %d",
+      serial, enable);
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->setPreferredVoicePrivacy(serial, enable);
+  return NS_OK;
+}
+
 nsRilWorker::~nsRilWorker() {
   INFO("Destructor nsRilWorker");
   mRilResponse = nullptr;

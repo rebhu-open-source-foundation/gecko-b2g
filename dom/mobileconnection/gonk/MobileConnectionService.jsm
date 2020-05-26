@@ -116,7 +116,7 @@ function MobileNetworkInfo() {
   this.longName = null;
   this.mcc = null;
   this.mnc = null;
-  this.stat = null;
+  this.state = null;
 }
 MobileNetworkInfo.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsIMobileNetworkInfo]),

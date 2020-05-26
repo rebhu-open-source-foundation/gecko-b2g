@@ -239,6 +239,7 @@ MobileConnection::UpdateVoice()
   nsCOMPtr<nsIMobileConnectionInfo> info;
   mMobileConnection->GetVoice(getter_AddRefs(info));
   mVoice->Update(info);
+  mVoice->UpdateDOMNetworkInfo(info);
 }
 
 void
@@ -251,6 +252,7 @@ MobileConnection::UpdateData()
   nsCOMPtr<nsIMobileConnectionInfo> info;
   mMobileConnection->GetData(getter_AddRefs(info));
   mData->Update(info);
+  mData->UpdateDOMNetworkInfo(info);
 }
 
 bool
@@ -659,7 +661,10 @@ MobileConnection::SelectNetwork(DOMMobileNetworkInfo& aNetwork, ErrorResult& aRv
   RefPtr<MobileConnectionCallback> requestCallback =
     new MobileConnectionCallback(GetOwner(), request);
 
-  nsresult rv = mMobileConnection->SelectNetwork(aNetwork.GetNetwork(), requestCallback);
+  RefPtr<MobileNetworkInfo> networkInfo;
+  networkInfo = aNetwork.GetNetwork();
+
+  nsresult rv = mMobileConnection->SelectNetwork(networkInfo, requestCallback);
   if (NS_FAILED(rv)) {
     aRv.Throw(rv);
     return nullptr;

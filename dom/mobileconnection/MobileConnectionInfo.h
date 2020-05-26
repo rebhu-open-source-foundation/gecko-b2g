@@ -9,6 +9,7 @@
 
 #include "mozilla/dom/MobileCellInfo.h"
 #include "mozilla/dom/MobileNetworkInfo.h"
+#include "mozilla/dom/DOMMobileNetworkInfo.h"
 #include "mozilla/dom/MobileConnectionInfoBinding.h"
 #include "nsIMobileConnectionInfo.h"
 #include "nsPIDOMWindow.h"
@@ -32,6 +33,8 @@ public:
                        nsIMobileNetworkInfo* aNetworkInfo,
                        const nsAString& aType,
                        nsIMobileCellInfo* aCellInfo);
+
+  void UpdateDOMNetworkInfo(nsIMobileConnectionInfo* aInfo);
 
   void
   Update(nsIMobileConnectionInfo* aInfo);
@@ -76,11 +79,7 @@ public:
     return mType;
   }
 
-  DOMMobileNetworkInfo*
-  GetNetwork() const
-  {
-    return mNetworkInfo;
-  }
+  DOMMobileNetworkInfo* GetNetwork() const { return mDOMNetworkInfo; }
 
   MobileCellInfo*
   GetCell() const
@@ -96,7 +95,8 @@ private:
   bool mEmergencyCallsOnly;
   bool mRoaming;
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
-  RefPtr<DOMMobileNetworkInfo> mNetworkInfo;
+  RefPtr<MobileNetworkInfo> mNetworkInfo;
+  RefPtr<DOMMobileNetworkInfo> mDOMNetworkInfo;
   RefPtr<MobileCellInfo> mCellInfo;
   Nullable<MobileConnectionState> mState;
   Nullable<MobileConnectionType> mType;
