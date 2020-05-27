@@ -2459,6 +2459,12 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
   gfxPlatform::GetPlatform()->ReadSystemFontList(&fontList);
   nsTArray<LookAndFeelInt> lnfCache = LookAndFeel::GetIntCache();
 
+  // If the shared fontlist is in use, collect its shmem block handles to pass
+  // to the child.
+  nsTArray<SharedMemoryHandle> sharedFontListBlocks;
+  gfxPlatformFontList::PlatformFontList()->ShareFontListToProcess(
+      &sharedFontListBlocks, OtherPid());
+
   // Content processes have no permission to access profile directory, so we
   // send the file URL instead.
   auto* sheetCache = GlobalStyleSheetCache::Singleton();
@@ -2502,9 +2508,9 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
     sharedUASheetAddress = 0;
   }
 
-  Unused << SendSetXPCOMProcessAttributes(xpcomInit, initialData, lnfCache,
-                                          fontList, sharedUASheetHandle,
-                                          sharedUASheetAddress);
+  Unused << SendSetXPCOMProcessAttributes(
+      xpcomInit, initialData, lnfCache, fontList, sharedUASheetHandle,
+      sharedUASheetAddress, sharedFontListBlocks);
 
   ipc::WritableSharedMap* sharedData =
       nsFrameMessageManager::sParentProcessManager->SharedData();
@@ -3937,6 +3943,16 @@ bool ContentParent::DeallocPParentToChildStreamParent(
     PParentToChildStreamParent* aActor) {
   delete aActor;
   return true;
+}
+
+mozilla::ipc::IPCResult ContentParent::RecvAddMixedContentSecurityState(
+    const MaybeDiscarded<WindowContext>& aContext, uint32_t aStateFlags) {
+  if (aContext.IsNullOrDiscarded()) {
+    return IPC_OK();
+  }
+
+  aContext.get()->AddMixedContentSecurityState(aStateFlags);
+  return IPC_OK();
 }
 
 already_AddRefed<PExternalHelperAppParent>

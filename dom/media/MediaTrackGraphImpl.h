@@ -330,17 +330,6 @@ class MediaTrackGraphImpl : public MediaTrackGraph,
       dom::AudioContextOperation aOperation,
       MozPromiseHolder<AudioContextOperationPromise>&& aHolder);
 
-  /**
-   * Increment suspend count on aTrack and move it to mSuspendedTracks if
-   * necessary.
-   */
-  void IncrementSuspendCount(MediaTrack* aTrack);
-  /**
-   * Increment suspend count on aTrack and move it to mTracks if
-   * necessary.
-   */
-  void DecrementSuspendCount(MediaTrack* aTrack);
-
   /*
    * Move tracks from mTracks to mSuspendedTracks if suspending/closing an
    * AudioContext, or the inverse when resuming an AudioContext.
@@ -354,9 +343,13 @@ class MediaTrackGraphImpl : public MediaTrackGraph,
   bool AudioTrackPresent();
 
   /**
+   * Schedules a replacement GraphDriver in mNextDriver, if necessary.
+   */
+  void CheckDriver();
+
+  /**
    * Sort mTracks so that every track not in a cycle is after any tracks
    * it depends on, and every track in a cycle is marked as being in a cycle.
-   * Also sets mIsConsumed on every track.
    */
   void UpdateTrackOrder();
 

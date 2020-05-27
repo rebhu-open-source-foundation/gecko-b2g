@@ -537,6 +537,48 @@ void MacroAssemblerX86Shared::swizzleFloat32x4(FloatRegister input,
   shuffleFloat32(mask, input, output);
 }
 
+void MacroAssemblerX86Shared::blendInt8x16(FloatRegister lhs, FloatRegister rhs,
+                                           FloatRegister output,
+                                           FloatRegister temp,
+                                           const uint8_t lanes[16]) {
+  MOZ_ASSERT(AssemblerX86Shared::HasSSSE3());
+  MOZ_ASSERT(lhs == output);
+  MOZ_ASSERT(lhs == rhs || !temp.isInvalid());
+
+  // TODO: For sse4.1, consider whether PBLENDVB would not be better, even if it
+  // is variable and requires xmm0 to be free and the loading of a mask.
+
+  // Set scratch = lanes to select from lhs.
+  int8_t mask[16];
+  for (unsigned i = 0; i < 16; i++) {
+    mask[i] = ~lanes[i];
+  }
+  ScratchSimd128Scope scratch(asMasm());
+  asMasm().loadConstantSimd128Int(SimdConstant::CreateX16(mask), scratch);
+  if (lhs == rhs) {
+    asMasm().moveSimd128Int(rhs, temp);
+    rhs = temp;
+  }
+  vpand(Operand(scratch), lhs, lhs);
+  vpandn(Operand(rhs), scratch, scratch);
+  vpor(scratch, lhs, lhs);
+}
+
+void MacroAssemblerX86Shared::blendInt16x8(FloatRegister lhs, FloatRegister rhs,
+                                           FloatRegister output,
+                                           const uint16_t lanes[8]) {
+  MOZ_ASSERT(AssemblerX86Shared::HasSSE41());
+  MOZ_ASSERT(lhs == output);
+
+  uint32_t mask = 0;
+  for (unsigned i = 0; i < 8; i++) {
+    if (lanes[i]) {
+      mask |= (1 << i);
+    }
+  }
+  vpblendw(mask, rhs, lhs, lhs);
+}
+
 void MacroAssemblerX86Shared::shuffleInt8x16(
     FloatRegister lhs, FloatRegister rhs, FloatRegister output,
     const Maybe<FloatRegister>& maybeFloatTemp,
@@ -563,6 +605,11 @@ void MacroAssemblerX86Shared::shuffleInt8x16(
     vpshufb(*maybeFloatTemp, lhsCopy, scratch);
 
     // Set output = lanes from rhs.
+    // TODO: The alternative to loading this constant is to complement
+    // the one that is already in *maybeFloatTemp, takes two instructions
+    // and a temp register: PCMPEQD tmp, tmp; PXOR *maybeFloatTemp, tmp.
+    // But scratch is available here so that's OK.  But it's not given
+    // that avoiding the load is a win.
     for (unsigned i = 0; i < 16; i++) {
       idx[i] = lanes[i] >= 16 ? lanes[i] - 16 : -1;
     }
@@ -1582,6 +1629,29 @@ void MacroAssemblerX86Shared::packedLeftShiftByScalarInt8x16(
                              &MacroAssemblerX86Shared::vpmovzxbw);
 }
 
+void MacroAssemblerX86Shared::packedLeftShiftByScalarInt8x16(
+    Imm32 count, FloatRegister src, FloatRegister dest) {
+  MOZ_ASSERT(count.value <= 7);
+  if (src != dest) {
+    asMasm().moveSimd128(src, dest);
+  }
+  // Use the doubling trick for low shift counts, otherwise mask off the bits
+  // that are shifted out of the low byte of each word and use word shifts.  The
+  // optimal cutoff remains to be explored.
+  if (count.value <= 3) {
+    for (int32_t shift = count.value; shift > 0; --shift) {
+      asMasm().addInt8x16(dest, dest);
+    }
+  } else {
+    ScratchSimd128Scope scratch(asMasm());
+    // Whether SplatX8 or SplatX16 is best depends on the constant probably?
+    asMasm().loadConstantSimd128Int(SimdConstant::SplatX16(0xFF >> count.value),
+                                    scratch);
+    vpand(Operand(scratch), dest, dest);
+    vpsllw(count, dest, dest);
+  }
+}
+
 void MacroAssemblerX86Shared::packedRightShiftByScalarInt8x16(
     FloatRegister in, Register count, Register temp, FloatRegister xtmp,
     FloatRegister dest) {
@@ -1590,12 +1660,41 @@ void MacroAssemblerX86Shared::packedRightShiftByScalarInt8x16(
                              &MacroAssemblerX86Shared::vpmovsxbw);
 }
 
+void MacroAssemblerX86Shared::packedRightShiftByScalarInt8x16(
+    Imm32 count, FloatRegister src, FloatRegister temp, FloatRegister dest) {
+  MOZ_ASSERT(count.value <= 7);
+  ScratchSimd128Scope scratch(asMasm());
+
+  asMasm().moveSimd128(src, scratch);
+  vpslldq(Imm32(1), scratch, scratch);               // Low bytes -> high bytes
+  vpsraw(Imm32(count.value + 8), scratch, scratch);  // Shift low bytes
+  vpsraw(count, dest, dest);                         // Shift high bytes
+  asMasm().loadConstantSimd128Int(SimdConstant::SplatX8(0xFF00), temp);
+  bitwiseAndSimdInt(dest, Operand(temp), dest);        // Keep high bytes
+  bitwiseAndNotSimdInt(temp, Operand(scratch), temp);  // Keep low bytes
+  bitwiseOrSimdInt(dest, Operand(temp), dest);         // Combine
+}
+
 void MacroAssemblerX86Shared::packedUnsignedRightShiftByScalarInt8x16(
     FloatRegister in, Register count, Register temp, FloatRegister xtmp,
     FloatRegister dest) {
   packedShiftByScalarInt8x16(in, count, temp, xtmp, dest,
                              &MacroAssemblerX86Shared::vpsrlw,
                              &MacroAssemblerX86Shared::vpmovzxbw);
+}
+
+void MacroAssemblerX86Shared::packedUnsignedRightShiftByScalarInt8x16(
+    Imm32 count, FloatRegister src, FloatRegister dest) {
+  MOZ_ASSERT(count.value <= 7);
+  if (src != dest) {
+    asMasm().moveSimd128(src, dest);
+  }
+  ScratchSimd128Scope scratch(asMasm());
+  // Whether SplatX8 or SplatX16 is best depends on the constant probably?
+  asMasm().loadConstantSimd128Int(
+      SimdConstant::SplatX16((0xFF << count.value) & 0xFF), scratch);
+  vpand(Operand(scratch), dest, dest);
+  vpsrlw(count, dest, dest);
 }
 
 void MacroAssemblerX86Shared::packedLeftShiftByScalarInt16x8(

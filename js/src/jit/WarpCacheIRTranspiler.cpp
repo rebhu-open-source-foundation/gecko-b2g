@@ -93,6 +93,9 @@ class MOZ_RAII WarpCacheIRTranspiler : public WarpBuilderShared {
   int32_t int32StubField(uint32_t offset) {
     return static_cast<int32_t>(readStubWord(offset));
   }
+  uint32_t uint32StubField(uint32_t offset) {
+    return static_cast<uint32_t>(readStubWord(offset));
+  }
 
   MOZ_MUST_USE bool emitGuardTo(ValOperandId inputId, MIRType type);
 
@@ -108,6 +111,15 @@ class MOZ_RAII WarpCacheIRTranspiler : public WarpBuilderShared {
                                       MCompare::CompareType compareType);
 
   MInstruction* addBoundsCheck(MDefinition* index, MDefinition* length);
+
+  MOZ_MUST_USE bool emitLoadArgumentSlot(ValOperandId resultId,
+                                         uint32_t slotIndex);
+
+  enum class CallKind { Native, Scripted };
+
+  MOZ_MUST_USE bool emitCallFunction(ObjOperandId calleeId,
+                                     Int32OperandId argcId, CallFlags flags,
+                                     CallKind kind);
 
   CACHE_IR_TRANSPILER_GENERATED
 
@@ -208,6 +220,27 @@ bool WarpCacheIRTranspiler::emitGuardSpecificObject(ObjOperandId objId,
 
   auto* ins = MGuardObjectIdentity::New(alloc(), obj, constObj,
                                         /* bailOnEquality = */ false);
+  add(ins);
+
+  setOperand(objId, ins);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitGuardSpecificFunction(
+    ObjOperandId objId, uint32_t expectedOffset, uint32_t nargsAndFlagsOffset) {
+  MDefinition* obj = getOperand(objId);
+  JSObject* expected = objectStubField(expectedOffset);
+  uint32_t nargsAndFlags = uint32StubField(nargsAndFlagsOffset);
+
+  MOZ_ASSERT(expected->is<JSFunction>());
+
+  auto* constObj = MConstant::NewConstraintlessObject(alloc(), expected);
+  add(constObj);
+
+  uint16_t nargs = nargsAndFlags >> 16;
+  FunctionFlags flags = FunctionFlags(uint16_t(nargsAndFlags));
+
+  auto* ins = MGuardSpecificFunction::New(alloc(), obj, constObj, nargs, flags);
   add(ins);
 
   setOperand(objId, ins);
@@ -1081,14 +1114,14 @@ bool WarpCacheIRTranspiler::emitIsObjectResult(ValOperandId inputId) {
   return true;
 }
 
-bool WarpCacheIRTranspiler::emitLoadArgumentFixedSlot(ValOperandId resultId,
-                                                      uint8_t slotIndex) {
+bool WarpCacheIRTranspiler::emitLoadArgumentSlot(ValOperandId resultId,
+                                                 uint32_t slotIndex) {
   // Reverse of GetIndexOfArgument specialized to !hasArgumentArray.
   MOZ_ASSERT(!loc_.isSpreadOp());
 
   // Layout:
-  // <NewTarget> | Args.. | ThisValue | Callee
-  // 0           | 0 (+1) | argc (+1) | argc + 1 (+ 1)
+  // NewTarget | Args.. (reversed)      | ThisValue | Callee
+  // 0         | ArgC .. Arg1 Arg0 (+1) | argc (+1) | argc + 1 (+ 1)
   // ^ (if constructing)
 
   // NewTarget (optional)
@@ -1102,7 +1135,8 @@ bool WarpCacheIRTranspiler::emitLoadArgumentFixedSlot(ValOperandId resultId,
 
   // Args..
   if (slotIndex < callInfo_->argc()) {
-    return defineOperand(resultId, callInfo_->getArg(slotIndex));
+    uint32_t arg = callInfo_->argc() - 1 - slotIndex;
+    return defineOperand(resultId, callInfo_->getArg(arg));
   }
 
   // ThisValue
@@ -1115,6 +1149,11 @@ bool WarpCacheIRTranspiler::emitLoadArgumentFixedSlot(ValOperandId resultId,
   return defineOperand(resultId, callInfo_->callee());
 }
 
+bool WarpCacheIRTranspiler::emitLoadArgumentFixedSlot(ValOperandId resultId,
+                                                      uint8_t slotIndex) {
+  return emitLoadArgumentSlot(resultId, slotIndex);
+}
+
 bool WarpCacheIRTranspiler::emitLoadArgumentDynamicSlot(ValOperandId resultId,
                                                         Int32OperandId argcId,
                                                         uint8_t slotIndex) {
@@ -1124,49 +1163,75 @@ bool WarpCacheIRTranspiler::emitLoadArgumentDynamicSlot(ValOperandId resultId,
              static_cast<int32_t>(callInfo_->argc()));
 #endif
 
-  slotIndex += callInfo_->argc();
-  return emitLoadArgumentFixedSlot(resultId, slotIndex);
+  return emitLoadArgumentSlot(resultId, callInfo_->argc() + slotIndex);
 }
 
-#ifndef JS_SIMULATOR
-bool WarpCacheIRTranspiler::emitCallNativeFunction(ObjOperandId calleeId,
-                                                   Int32OperandId argcId,
-                                                   CallFlags flags,
-                                                   bool ignoresReturnValue) {
+bool WarpCacheIRTranspiler::emitCallFunction(ObjOperandId calleeId,
+                                             Int32OperandId argcId,
+                                             CallFlags flags, CallKind kind) {
   MDefinition* callee = getOperand(calleeId);
-#  ifdef DEBUG
+#ifdef DEBUG
   MDefinition* argc = getOperand(argcId);
   MOZ_ASSERT(argc->toConstant()->toInt32() ==
              static_cast<int32_t>(callInfo_->argc()));
-#  endif
+#endif
 
   // TODO: For non-normal calls the arguments need to be changed.
   MOZ_ASSERT(flags.getArgFormat() == CallFlags::Standard);
 
-  // CacheIR emits the following for specialized native calls:
-  //     GuardSpecificObject <callee> <func>
-  //     CallNativeFunction <callee> ..
+  // The transpilation will add various guards to the callee.
+  // We replace the callee referenced by the CallInfo, so that
+  // the resulting MCall instruction depends on these guards.
+  callInfo_->setCallee(callee);
+
+  // CacheIR emits the following for specialized calls:
+  //     GuardSpecificFunction <callee> <func> ..
+  //     Call(Native|Scripted)Function <callee> ..
   // We can use the <func> JSFunction object to specialize this call.
-  // GuardSpecificObject is transpiled to MGuardObjectIdentity above.
-  JSFunction* target = nullptr;
-  if (callee->isGuardObjectIdentity()) {
-    auto* guard = callee->toGuardObjectIdentity();
-    target = &guard->expected()->toConstant()->toObject().as<JSFunction>();
-    MOZ_ASSERT(target->isNative());
+  WrappedFunction* wrappedTarget = nullptr;
+  if (callee->isGuardSpecificFunction()) {
+    auto* guard = callee->toGuardSpecificFunction();
+    JSFunction* target =
+        &guard->expected()->toConstant()->toObject().as<JSFunction>();
+
+    wrappedTarget =
+        new (alloc()) WrappedFunction(target, guard->nargs(), guard->flags());
+
+    MOZ_ASSERT_IF(kind == CallKind::Native, wrappedTarget->isNative());
+    MOZ_ASSERT_IF(kind == CallKind::Scripted,
+                  wrappedTarget->isInterpreted() ||
+                      wrappedTarget->isNativeWithJitEntry());
   }
 
-  // We know we are constructing a native function even if we don't know the
-  // actual target.
   bool needsThisCheck = false;
   if (callInfo_->constructing()) {
     MOZ_ASSERT(flags.isConstructing());
 
     callInfo_->thisArg()->setImplicitlyUsedUnchecked();
-    // Magic value passed to natives to indicate construction.
-    callInfo_->setThis(constant(MagicValue(JS_IS_CONSTRUCTING)));
+
+    if (kind == CallKind::Native) {
+      // We know we are constructing a native function even if we don't know the
+      // actual target.
+
+      // Magic value passed to natives to indicate construction.
+      callInfo_->setThis(constant(MagicValue(JS_IS_CONSTRUCTING)));
+
+      needsThisCheck = false;
+    } else {
+      MOZ_ASSERT(kind == CallKind::Scripted);
+
+      // TODO: Optimize |this| creation based on CacheIR.
+      MDefinition* newTarget = callInfo_->getNewTarget();
+      auto* createThis = MCreateThis::New(alloc(), callee, newTarget);
+      add(createThis);
+      callInfo_->setThis(createThis);
+
+      wrappedTarget = nullptr;
+      needsThisCheck = true;
+    }
   }
 
-  MCall* call = makeCall(*callInfo_, needsThisCheck, target);
+  MCall* call = makeCall(*callInfo_, needsThisCheck, wrappedTarget);
   if (!call) {
     return false;
   }
@@ -1180,7 +1245,29 @@ bool WarpCacheIRTranspiler::emitCallNativeFunction(ObjOperandId calleeId,
 
   return resumeAfter(call);
 }
+
+#ifndef JS_SIMULATOR
+bool WarpCacheIRTranspiler::emitCallNativeFunction(ObjOperandId calleeId,
+                                                   Int32OperandId argcId,
+                                                   CallFlags flags,
+                                                   bool ignoresReturnValue) {
+  // Instead of ignoresReturnValue we use CallInfo::ignoresReturnValue.
+  return emitCallFunction(calleeId, argcId, flags, CallKind::Native);
+}
+#else
+bool WarpCacheIRTranspiler::emitCallNativeFunction(ObjOperandId calleeId,
+                                                   Int32OperandId argcId,
+                                                   CallFlags flags,
+                                                   uint32_t targetOffset) {
+  return emitCallFunction(calleeId, argcId, flags, CallKind::Native);
+}
 #endif
+
+bool WarpCacheIRTranspiler::emitCallScriptedFunction(ObjOperandId calleeId,
+                                                     Int32OperandId argcId,
+                                                     CallFlags flags) {
+  return emitCallFunction(calleeId, argcId, flags, CallKind::Scripted);
+}
 
 bool WarpCacheIRTranspiler::emitMetaTwoByte(MetaTwoByteKind kind,
                                             uint32_t functionObjectOffset,

@@ -438,7 +438,7 @@ else:
         except OSError as err:
             # Catch the errors we might expect from os.kill/os.waitpid,
             # and re-raise any others
-            if err.errno == errno.ESRCH or err.errno == errno.ECHILD:
+            if err.errno in (errno.ESRCH, errno.ECHILD, errno.EPERM):
                 return False
             raise
 # TODO: ^ upstream isPidAlive to mozprocess
@@ -500,6 +500,9 @@ class MochitestServer(object):
         # also be TSan-enabled. Except that in this case, we don't really
         # care about races in xpcshell. So disable TSan for the server.
         env["TSAN_OPTIONS"] = "report_bugs=0"
+
+        # Don't use socket process for the xpcshell server.
+        env["MOZ_DISABLE_SOCKET_PROCESS"] = "1"
 
         if mozinfo.isWin:
             env["PATH"] = env["PATH"] + ";" + str(self._xrePath)
@@ -2421,7 +2424,7 @@ toolbar#nav-bar {
 
         if marionette_exception is not None:
             exc, value, tb = marionette_exception
-            raise exc(value).with_traceback(tb)
+            six.reraise(exc, value, tb)
 
         return status, self.lastTestSeen
 

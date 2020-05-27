@@ -41,7 +41,6 @@ using refcounted class nsIReferrerInfo from "mozilla/dom/ReferrerInfoUtils.h";
 using refcounted class nsIVariant from "mozilla/dom/PropertyBagUtils.h";
 using class mozilla::TimeStamp from "mozilla/TimeStamp.h";
 using refcounted class mozilla::dom::BrowsingContext from "mozilla/dom/BrowsingContext.h";
-using mozilla::dom::WindowContextInitializer from "mozilla/dom/WindowContext.h";
 
 namespace mozilla {
 namespace dom {
@@ -229,17 +228,6 @@ struct PerformanceInfo
   CategoryDispatch[] items;
 };
 
-struct WindowGlobalInit
-{
-  // Fields which are synchronized to other processes are found here.
-  WindowContextInitializer context;
-
-  // Private fields only shared with the parent process.
-  nsIPrincipal principal;
-  nsIPrincipal contentBlockingAllowListPrincipal;
-  nsIURI documentURI;
-};
-
 struct DocShellLoadStateInit
 {
   nsIURI URI;
@@ -265,6 +253,7 @@ struct DocShellLoadStateInit
   bool HasValidUserGestureActivation;
   nsCString TypeHint;
   nsString FileName;
+  bool IsHttpsOnlyModeUpgradeExempt;
   bool IsFromProcessingFrameAttributes;
   // The Content Security Policy of the load, that is, the CSP of the entity
   // responsible for causing the load to occur. Most likely this is the CSP

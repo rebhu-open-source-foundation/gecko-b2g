@@ -168,7 +168,9 @@ TEST_VARIANTS = {
     'geckoview-e10s-multi': {
         'description': "{description} with e10s-multi enabled",
         'filterfn': gv_e10s_multi_filter,
-        'run-on-projects': ['trunk'],
+        'replace': {
+            'run-on-projects': ['trunk'],
+        },
         'suffix': 'e10s-multi',
         'merge': {
             'mozharness': {
@@ -203,6 +205,19 @@ TEST_VARIANTS = {
                 'extra-options': [
                     '--setpref=media.peerconnection.mtransport_process=true',
                     '--setpref=network.process.enabled=true',
+                ],
+            }
+        }
+    },
+    'socketprocess_networking': {
+        'description': "{description} with networking on socket process enabled",
+        'suffix': 'spi-nw',
+        'merge': {
+            'mozharness': {
+                'extra-options': [
+                    '--setpref=network.process.enabled=true',
+                    '--setpref=network.http.network_access_on_socket_process.enabled=true',
+                    '--setpref=network.ssl_tokens_cache_enabled=true',
                 ],
             }
         }
@@ -1304,7 +1319,7 @@ def ensure_spi_disabled_on_all_but_spi(config, tasks):
                        'junit' not in task['suite'] and
                        'raptor' not in task['suite'])
 
-        if has_setpref and variant != 'socketprocess':
+        if has_setpref and variant != 'socketprocess' and variant != 'socketprocess_networking':
             task['mozharness']['extra-options'].append(
                     '--setpref=media.peerconnection.mtransport_process=false')
             task['mozharness']['extra-options'].append(

@@ -85,6 +85,8 @@ extern mozilla::LazyLogModule gAutoplayPermissionLog;
 #define AUTOPLAY_LOG(msg, ...) \
   MOZ_LOG(gAutoplayPermissionLog, LogLevel::Debug, (msg, ##__VA_ARGS__))
 
+using std::move;
+
 namespace mozilla {
 namespace dom {
 
@@ -658,7 +660,7 @@ already_AddRefed<Promise> AudioContext::DecodeAudioData(
       new WebAudioDecodeJob(this, promise, successCallback, failureCallback));
   AsyncDecodeWebAudio(contentType.get(), data, length, *job);
   // Transfer the ownership to mDecodeJobs
-  mDecodeJobs.AppendElement(std::move(job));
+  mDecodeJobs.AppendElement(move(job));
 
   return promise.forget();
 }
@@ -819,7 +821,7 @@ void AudioContext::Dispatch(already_AddRefed<nsIRunnable>&& aRunnable) {
   // and the global is not valid anymore.
   if (parentObject) {
     parentObject->AbstractMainThreadFor(TaskCategory::Other)
-        ->Dispatch(std::move(aRunnable));
+        ->Dispatch(move(aRunnable));
   } else {
     RefPtr<nsIRunnable> runnable(aRunnable);
     runnable = nullptr;
@@ -1245,8 +1247,7 @@ void AudioContext::Unmute() const {
 void AudioContext::SetParamMapForWorkletName(
     const nsAString& aName, AudioParamDescriptorMap* aParamMap) {
   MOZ_ASSERT(!mWorkletParamDescriptors.GetValue(aName));
-  Unused << mWorkletParamDescriptors.Put(aName, std::move(*aParamMap),
-                                         fallible);
+  Unused << mWorkletParamDescriptors.Put(aName, move(*aParamMap), fallible);
 }
 
 AudioChannel AudioContext::MozAudioChannelType() const {

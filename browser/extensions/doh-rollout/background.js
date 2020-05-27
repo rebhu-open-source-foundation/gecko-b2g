@@ -516,8 +516,8 @@ const rollout = {
     }
 
     // Perform TRR selection before running heuristics.
-    await browser.experiments.trrselect.dryRun();
-    log("TRR selection dry run complete!");
+    await browser.experiments.trrselect.run();
+    log("TRR selection complete!");
 
     let networkStatus = (await browser.networkStatus.getLinkInfo()).status;
     let captiveState = "unknown";
@@ -654,6 +654,8 @@ const setup = {
       } catch (e) {
         // Captive Portal Service is disabled.
       }
+
+      await browser.experiments.doorhanger.cancel();
     }
   });
 

@@ -6965,6 +6965,24 @@ bool PresShell::EventHandler::MaybeFlushPendingNotifications(
   }
 }
 
+// The type of coordinates to use for hit-testing input events
+// that are relative to the RCD's viewport frame.
+// On most platforms, use visual coordinates so that scrollbars
+// can be targeted.
+// On mobile, use layout coordinates because hit-testing in
+// visual coordinates clashes with mobile viewport sizing, where
+// the ViewportFrame is sized to the initial containing block
+// (ICB) size, which is in layout coordinates. This is fine
+// because we don't need to be able to target scrollbars on mobile
+// (scrollbar dragging isn't supported).
+static ViewportType ViewportTypeForInputEventsRelativeToRoot() {
+#ifdef MOZ_WIDGET_ANDROID
+  return ViewportType::Layout;
+#else
+  return ViewportType::Visual;
+#endif
+}
+
 nsIFrame* PresShell::EventHandler::GetFrameToHandleNonTouchEvent(
     nsIFrame* aRootFrameToHandleEvent, WidgetGUIEvent* aGUIEvent) {
   MOZ_ASSERT(aGUIEvent);
@@ -6973,7 +6991,7 @@ nsIFrame* PresShell::EventHandler::GetFrameToHandleNonTouchEvent(
   ViewportType viewportType = ViewportType::Layout;
   if (aRootFrameToHandleEvent->Type() == LayoutFrameType::Viewport &&
       aRootFrameToHandleEvent->PresContext()->IsRootContentDocument()) {
-    viewportType = ViewportType::Visual;
+    viewportType = ViewportTypeForInputEventsRelativeToRoot();
   }
   RelativeTo relativeTo{aRootFrameToHandleEvent, viewportType};
   nsPoint eventPoint =
@@ -10201,13 +10219,20 @@ void PresShell::ListComputedStyles(FILE* out, int32_t aIndent) {
     }
   }
 }
+#endif
 
+#if defined(DEBUG) || defined(MOZ_LAYOUT_DEBUGGER)
 void PresShell::ListStyleSheets(FILE* out, int32_t aIndent) {
-  int32_t sheetCount = StyleSet()->SheetCount(StyleOrigin::Author);
-  for (int32_t i = 0; i < sheetCount; ++i) {
-    StyleSet()->SheetAt(StyleOrigin::Author, i)->List(out, aIndent);
-    fputs("\n", out);
-  }
+  auto ListStyleSheetsAtOrigin = [this, out, aIndent](StyleOrigin origin) {
+    int32_t sheetCount = StyleSet()->SheetCount(origin);
+    for (int32_t i = 0; i < sheetCount; ++i) {
+      StyleSet()->SheetAt(origin, i)->List(out, aIndent);
+    }
+  };
+
+  ListStyleSheetsAtOrigin(StyleOrigin::UserAgent);
+  ListStyleSheetsAtOrigin(StyleOrigin::User);
+  ListStyleSheetsAtOrigin(StyleOrigin::Author);
 }
 #endif
 

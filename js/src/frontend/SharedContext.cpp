@@ -217,9 +217,8 @@ FunctionBox::FunctionBox(JSContext* cx, FunctionBox* traceListHead,
       funcDataIndex_(index),
       flags_(flags),
       emitBytecode(false),
-      emitLazy(false),
       wasEmitted(false),
-      exposeScript(false),
+      isSingleton(false),
       isAnnexB(false),
       useAsm(false),
       isAsmJSModule_(false),
@@ -251,12 +250,8 @@ JSFunction* FunctionBox::createFunction(JSContext* cx) {
                               allocKind, TenuredObject);
 }
 
-bool FunctionBox::hasFunctionStencil() const {
-  return compilationInfo_.funcData[funcDataIndex_].get().is<ScriptStencil>();
-}
-
 bool FunctionBox::hasFunction() const {
-  return compilationInfo_.funcData[funcDataIndex_].get().is<JSFunction*>();
+  return compilationInfo_.functions[funcDataIndex_] != nullptr;
 }
 
 void FunctionBox::initFromLazyFunction(JSFunction* fun) {
@@ -372,17 +367,31 @@ void FunctionBox::setAsmJSModule(JSFunction* function) {
 }
 
 void FunctionBox::finish() {
-  if (!emitBytecode) {
-    // Apply updates from FunctionEmitter::emitLazy().
-    function()->setEnclosingScope(enclosingScope_.getExistingScope());
-    function()->baseScript()->initTreatAsRunOnce(treatAsRunOnce());
-
-    if (fieldInitializers) {
-      function()->baseScript()->setFieldInitializers(*fieldInitializers);
-    }
-  } else {
+  if (emitBytecode || isAsmJSModule()) {
     // Non-lazy inner functions don't use the enclosingScope_ field.
     MOZ_ASSERT(!enclosingScope_);
+  } else {
+    // Apply updates from FunctionEmitter::emitLazy().
+    BaseScript* script = function()->baseScript();
+
+    script->setEnclosingScope(enclosingScope_.getExistingScope());
+    script->initTreatAsRunOnce(treatAsRunOnce());
+
+    if (fieldInitializers) {
+      script->setFieldInitializers(*fieldInitializers);
+    }
+  }
+
+  // Inferred and Guessed names are computed by BytecodeEmitter and so may need
+  // to be applied to existing JSFunctions during delazification.
+  if (function()->displayAtom() == nullptr) {
+    if (hasInferredName()) {
+      function()->setInferredName(atom_);
+    }
+
+    if (hasGuessedAtom()) {
+      function()->setGuessedAtom(atom_);
+    }
   }
 }
 
@@ -403,11 +412,11 @@ void FunctionBox::trace(JSTracer* trc) {
 }
 
 JSFunction* FunctionBox::function() const {
-  return compilationInfo_.funcData[funcDataIndex_].as<JSFunction*>();
+  return compilationInfo_.functions[funcDataIndex_];
 }
 
 void FunctionBox::clobberFunction(JSFunction* function) {
-  compilationInfo_.funcData[funcDataIndex_].set(mozilla::AsVariant(function));
+  compilationInfo_.functions[funcDataIndex_].set(function);
   // After clobbering, these flags need to be updated
   setIsInterpreted(function->isInterpreted());
 }
@@ -428,7 +437,7 @@ ModuleSharedContext::ModuleSharedContext(JSContext* cx, ModuleObject* module,
 }
 
 MutableHandle<ScriptStencil> FunctionBox::functionStencil() const {
-  return compilationInfo_.funcData[funcDataIndex_].as<ScriptStencil>();
+  return compilationInfo_.funcData[funcDataIndex_];
 }
 
 }  // namespace frontend

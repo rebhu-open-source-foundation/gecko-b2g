@@ -24,7 +24,7 @@
 }
 
 .network-monitor .headers-panel-container .devtools-button {
-  padding: 2px;
+  padding: 0;
 }
 .network-monitor .headers-panel-container .devtools-dropdown-button {
   padding: 0;
@@ -39,7 +39,7 @@
 }
 
 .network-monitor .headers-overview .summary {
-  padding: 10px 20px;
+  padding: 6px 16px 2px;
 }
 
 .network-monitor .headers-summary,
@@ -127,11 +127,32 @@
   margin-inline-start: 4px;
 }
 
+.network-monitor .accordion .properties-view tr.treeRow {
+  padding: 3px 0 0 0;
+}
+.network-monitor .accordion .properties-view tr.treeRow .treeLabelCell {
+  float: left;
+  margin-right: -33px;
+  margin-left: 5px;
+  padding: 0;
+  
+}
+.network-monitor .accordion .properties-view tr.treeRow .treeValueCell {
+  display: inline;
+  word-break: break-all;
+  box-decoration-break: clone;
+  padding-left: 39px;
+  padding-right: 20px;
+}
+
+.network-monitor .accordion .properties-view tr.treeRow .treeValueCell div {
+  display: inline;
+}
+
 /* Summary tabpanel */
 
 .network-monitor .tabpanel-summary-container {
   flex-wrap: wrap;
-  padding: 1px;
   padding-inline-start: 4px;
   margin-bottom: 5px;
 }
@@ -145,13 +166,14 @@
 .network-monitor .tabpanel-summary-label {
   display: inline-block;
   padding-inline-end: 3px;
-  min-width: 70px;
+  min-width: 90px;
   color: var(--theme-icon-dimmed-color);
 }
 
 .network-monitor .tabpanel-summary-value {
   color: inherit;
   padding-inline-start: 3px;
+  unicode-bidi: plaintext;
 }
 
 .network-monitor .tabpanel-summary-value  strong {

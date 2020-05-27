@@ -1060,6 +1060,10 @@ static const CipherPref sCipherPrefs[] = {
      true},
     {"security.tls13.aes_256_gcm_sha384", TLS_AES_256_GCM_SHA384, true},
 
+    {"security.ssl3.rsa_aes_128_gcm_sha256", TLS_RSA_WITH_AES_128_GCM_SHA256,
+     true},  // deprecated (RSA key exchange)
+    {"security.ssl3.rsa_aes_256_gcm_sha384", TLS_RSA_WITH_AES_256_GCM_SHA384,
+     true},  // deprecated (RSA key exchange)
     {"security.ssl3.rsa_aes_128_sha", TLS_RSA_WITH_AES_128_CBC_SHA,
      true},  // deprecated (RSA key exchange)
     {"security.ssl3.rsa_aes_256_sha", TLS_RSA_WITH_AES_256_CBC_SHA,
@@ -2024,8 +2028,8 @@ nsresult nsNSSComponent::InitializeNSS() {
     return NS_ERROR_UNEXPECTED;
   }
 
-  nsCOMPtr<nsIClientAuthRemember> cars =
-      do_GetService(NS_CLIENTAUTHREMEMBER_CONTRACTID);
+  nsCOMPtr<nsIClientAuthRememberService> cars =
+      do_GetService(NS_CLIENTAUTHREMEMBERSERVICE_CONTRACTID);
 
   MOZ_LOG(gPIPNSSLog, LogLevel::Debug, ("NSS Initialization done\n"));
 
@@ -2260,8 +2264,8 @@ nsresult nsNSSComponent::LogoutAuthenticatedPK11() {
         NS_LITERAL_CSTRING("all:temporary-certificates"), 0);
   }
 
-  nsCOMPtr<nsIClientAuthRemember> svc =
-      do_GetService(NS_CLIENTAUTHREMEMBER_CONTRACTID);
+  nsCOMPtr<nsIClientAuthRememberService> svc =
+      do_GetService(NS_CLIENTAUTHREMEMBERSERVICE_CONTRACTID);
 
   if (svc) {
     nsresult rv = svc->ClearRememberedDecisions();

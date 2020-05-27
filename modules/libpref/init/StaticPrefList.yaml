@@ -2029,21 +2029,6 @@
 #endif
   mirror: always
 
-- name: dom.ipc.cpows.forbid-unsafe-from-browser
-  type: bool
-  value: false
-  mirror: always
-
-- name: dom.ipc.cpows.log.enabled
-  type: bool
-  value: false
-  mirror: always
-
-- name: dom.ipc.cpows.log.stack
-  type: bool
-  value: false
-  mirror: always
-
 # Whether a native event loop should be used in the content process.
 - name: dom.ipc.useNativeEventProcessing.content
   type: RelaxedAtomicBool
@@ -2084,17 +2069,6 @@
 - name: dom.largeAllocation.testing.allHttpLoads
   type: bool
   value: false
-  mirror: always
-
-# Whether the disabled attribute in HTMLLinkElement disables the sheet loading
-# altogether, or forwards to the inner stylesheet method without attribute
-# reflection.
-#
-# Historical behavior is the second, the first is being discussed at:
-# https://github.com/whatwg/html/issues/3840
-- name: dom.link.disabled_attribute.enabled
-  type: bool
-  value: true
   mirror: always
 
 # Whether "W3C Web Manifest" processing is enabled
@@ -3866,7 +3840,7 @@
 # See eCMSMode in gfx/thebes/gfxPlatform.h.
 - name: gfx.color_management.mode
   type: RelaxedAtomicInt32
-  value: 1
+  value: 2
   mirror: always
 
 # The zero default here should match QCMS_INTENT_DEFAULT from qcms.h
@@ -4828,6 +4802,12 @@
   # Experimental support for weak references in JavaScript (WeakRef and
   # FinalizationRegistry).
 - name: javascript.options.experimental.weakrefs
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+  # Experimental support for Iterator Helpers in JavaScript.
+- name: javascript.options.experimental.iterator_helpers
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -5832,18 +5812,6 @@
 - name: layout.css.moz-focus-outer.enabled
   type: RelaxedAtomicBool
   value: @IS_NOT_NIGHTLY_BUILD@
-  mirror: always
-  rust: true
-
-# Pref to control whether @-moz-document url-prefix() is parsed in content
-# pages. Only effective when layout.css.moz-document.content.enabled is false.
-- name: layout.css.moz-document.url-prefix-hack.enabled
-  type: RelaxedAtomicBool
-#ifdef EARLY_BETA_OR_EARLIER
-  value: false
-#else
-  value: true
-#endif
   mirror: always
   rust: true
 
@@ -7819,10 +7787,10 @@
   value: false
   mirror: always
 
-# Enables <link rel="preload"> tag and `Link:` respose header handling.
+# Enables `<link rel="preload">` tag and `Link: rel=preload` respose header handling.
 - name: network.preload
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 # Whether to use the network process or not
@@ -7831,7 +7799,7 @@
 # ("network.http.network_access_on_socket_process.enabled").
 # Changing these prefs requires a restart.
 - name: network.process.enabled
-  type: bool
+  type: RelaxedAtomicBool
   mirror: always
 #ifdef ANDROID
   value: false
@@ -7848,6 +7816,14 @@
   type: RelaxedAtomicBool
   value: true
   mirror: always
+
+# Perform all network access on the socket process.
+# The pref requires "network.process.enabled" to be true.
+# Changing these prefs requires a restart.
+- name: network.http.network_access_on_socket_process.enabled
+  type: RelaxedAtomicBool
+  mirror: always
+  value: false
 
 # Telemetry of traffic categories. Whether or not to enable HttpTrafficAnalyzer.
 - name: network.traffic_analyzer.enabled

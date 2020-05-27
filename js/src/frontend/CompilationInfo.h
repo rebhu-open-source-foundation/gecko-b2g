@@ -25,8 +25,6 @@
 namespace js {
 namespace frontend {
 
-using FunctionType = mozilla::Variant<JSFunction*, ScriptStencil>;
-
 // ScopeContext hold information derivied from the scope and environment chains
 // to try to avoid the parser needing to traverse VM structures directly.
 struct ScopeContext {
@@ -97,7 +95,13 @@ struct MOZ_RAII CompilationInfo : public JS::CustomAutoRooter {
 
   // A Rooted vector to handle tracing of JSFunction*
   // and Atoms within.
-  JS::RootedVector<FunctionType> funcData;
+  JS::RootedVector<JSFunction*> functions;
+  JS::RootedVector<ScriptStencil> funcData;
+
+  // Stencil for top-level script. This includes standalone functions and
+  // functions being delazified.
+  JS::Rooted<ScriptStencil> topLevel;
+  SourceExtent topLevelExtent = {};
 
   // A rooted list of scopes created during this parse.
   //
@@ -111,6 +115,16 @@ struct MOZ_RAII CompilationInfo : public JS::CustomAutoRooter {
   JS::RootedVector<ScopeCreationData> scopeCreationData;
 
   JS::Rooted<ScriptSourceObject*> sourceObject;
+
+  // Track the state of key allocations and roll them back as parts of parsing
+  // get retried. This ensures iteration during stencil instantiation does not
+  // encounter discarded frontend state.
+  struct RewindToken {
+    FunctionBox* funbox = nullptr;
+  };
+
+  RewindToken getRewindToken();
+  void rewind(const RewindToken& pos);
 
   // Construct a CompilationInfo
   CompilationInfo(JSContext* cx, LifoAllocScope& alloc,
@@ -129,7 +143,9 @@ struct MOZ_RAII CompilationInfo : public JS::CustomAutoRooter {
         allocScope(alloc),
         regExpData(cx),
         bigIntData(cx),
+        functions(cx),
         funcData(cx),
+        topLevel(cx),
         scopeCreationData(cx),
         sourceObject(cx) {}
 
@@ -145,8 +161,7 @@ struct MOZ_RAII CompilationInfo : public JS::CustomAutoRooter {
     return sourceObject->source()->assignSource(cx, options, sourceBuffer);
   }
 
-  MOZ_MUST_USE bool publishDeferredFunctions();
-  void finishFunctions();
+  MOZ_MUST_USE bool instantiateStencils();
 
   void trace(JSTracer* trc) final;
 

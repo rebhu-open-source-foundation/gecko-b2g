@@ -2083,6 +2083,16 @@ static nsresult SelectProfile(nsToolkitProfileService* aProfileSvc,
     gDoMigration = true;
   }
 
+#if defined(XP_WIN)
+  // This arg is only used to indicate to telemetry that a profile refresh
+  // (reset+migration) was requested from the uninstaller, pass this along
+  // via an environment variable for simplicity.
+  ar = CheckArg("uninstaller-profile-refresh");
+  if (ar == ARG_FOUND) {
+    SaveToEnv("MOZ_UNINSTALLER_PROFILE_REFRESH=1");
+  }
+#endif
+
   if (EnvHasValue("XRE_RESTART_TO_PROFILE_MANAGER")) {
     return ShowProfileManager(aProfileSvc, aNative);
   }
@@ -3585,12 +3595,14 @@ static void ReadAheadSystemDll(const wchar_t* dllName) {
   }
 }
 
+#  ifdef NIGHTLY_BUILD
 static void ReadAheadPackagedDll(const wchar_t* dllName,
                                  const wchar_t* aGREDir) {
   wchar_t dllPath[MAX_PATH];
   swprintf(dllPath, MAX_PATH, L"%s\\%s", aGREDir, dllName);
   ReadAheadLib(dllPath);
 }
+#  endif
 
 static void PR_CALLBACK ReadAheadDlls_ThreadStart(void* arg) {
   UniquePtr<wchar_t[]> greDir(static_cast<wchar_t*>(arg));

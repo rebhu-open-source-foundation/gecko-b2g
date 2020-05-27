@@ -26,11 +26,7 @@ extern crate cubeb_coreaudio;
 extern crate cubeb_pulse;
 extern crate encoding_glue;
 extern crate env_logger;
-
-// Enable on Gonk since we didn't disable FxA.
-// This should rather be gated by a proper feature
-// rather than rely on the OS value.
-// #[cfg(not(target_os = "android"))]
+#[cfg(feature = "rust_fxa_client")]
 extern crate firefox_accounts_bridge;
 #[cfg(feature = "glean")]
 extern crate fog;
@@ -59,6 +55,8 @@ extern crate xulstore;
 
 extern crate audio_thread_priority;
 
+// Build on Gonk for now.
+// #[cfg(not(target_os = "android"))]
 extern crate webext_storage_bridge;
 
 #[cfg(feature = "webrtc")]
@@ -79,8 +77,8 @@ extern crate fluent_langneg_ffi;
 extern crate fluent;
 extern crate fluent_ffi;
 
-extern crate rusqlite;
-
+// Build on Gonk for now.
+// #[cfg(not(target_os = "android"))]
 extern crate viaduct;
 
 #[cfg(feature = "remote")]

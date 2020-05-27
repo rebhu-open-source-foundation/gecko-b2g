@@ -1150,7 +1150,7 @@ bool RegExpShared::initializeNamedCaptures(JSContext* cx, HandleRegExpShared re,
 
   // Create a plain template object.
   RootedPlainObject templateObject(
-      cx, NewObjectWithGivenProto<PlainObject>(cx, nullptr));
+      cx, NewTenuredObjectWithGivenProto<PlainObject>(cx, nullptr));
   if (!templateObject) {
     return false;
   }
@@ -1173,6 +1173,7 @@ bool RegExpShared::initializeNamedCaptures(JSContext* cx, HandleRegExpShared re,
                                   JSPROP_ENUMERATE)) {
       return false;
     }
+    AddTypePropertyId(cx, templateObject, id, UndefinedValue());
   }
 
   // Allocate the capture index array.

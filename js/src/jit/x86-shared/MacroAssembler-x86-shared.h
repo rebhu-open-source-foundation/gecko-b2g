@@ -454,6 +454,10 @@ class MacroAssemblerX86Shared : public Assembler {
                       const mozilla::Maybe<FloatRegister>& maybeFloatTemp,
                       const mozilla::Maybe<Register>& maybeTemp,
                       const uint8_t lanes[16]);
+  void blendInt8x16(FloatRegister lhs, FloatRegister rhs, FloatRegister output,
+                    FloatRegister temp, const uint8_t lanes[16]);
+  void blendInt16x8(FloatRegister lhs, FloatRegister rhs, FloatRegister output,
+                    const uint16_t lanes[8]);
 
   void compareInt8x16(FloatRegister lhs, Operand rhs, Assembler::Condition cond,
                       FloatRegister output);
@@ -655,12 +659,18 @@ class MacroAssemblerX86Shared : public Assembler {
   void packedLeftShiftByScalarInt8x16(FloatRegister in, Register count,
                                       Register temp, FloatRegister xtmp,
                                       FloatRegister dest);
+  void packedLeftShiftByScalarInt8x16(Imm32 count, FloatRegister src,
+                                      FloatRegister dest);
   void packedRightShiftByScalarInt8x16(FloatRegister in, Register count,
                                        Register temp, FloatRegister xtmp,
                                        FloatRegister dest);
+  void packedRightShiftByScalarInt8x16(Imm32 count, FloatRegister src,
+                                       FloatRegister temp, FloatRegister dest);
   void packedUnsignedRightShiftByScalarInt8x16(FloatRegister in, Register count,
                                                Register temp,
                                                FloatRegister xtmp,
+                                               FloatRegister dest);
+  void packedUnsignedRightShiftByScalarInt8x16(Imm32 count, FloatRegister src,
                                                FloatRegister dest);
 
   void packedLeftShiftByScalarInt16x8(FloatRegister in, Register count,

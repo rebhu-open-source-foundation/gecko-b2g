@@ -65,6 +65,7 @@ include protocol PSessionStorageObserver;
 include protocol PSystemMessageService;
 include protocol PBenchmarkStorage;
 include DOMTypes;
+include WindowGlobalTypes;
 include IPCBlob;
 include IPCStream;
 include PTabContext;
@@ -864,7 +865,8 @@ child:
                                     /* used on MacOSX/Linux/Android only: */
                                     SystemFontListEntry[] systemFontList,
                                     SharedMemoryHandle? sharedUASheetHandle,
-                                    uintptr_t sharedUASheetAddress);
+                                    uintptr_t sharedUASheetAddress,
+                                    SharedMemoryHandle[] sharedFontListBlocks);
 
     // Notify child that last-pb-context-exited notification was observed
     async LastPrivateDocShellDestroyed();
@@ -1247,6 +1249,8 @@ parent:
     async DisableNotifications(Principal principal);
 
     async OpenNotificationSettings(Principal principal);
+
+    async AddMixedContentSecurityState(MaybeDiscardedWindowContext aContext, uint32_t aStateFlags);
 
     // Request that the ServiceWorkerManager in the parent process create a
     // notification "click" or "close" event and dispatch it on the relevant

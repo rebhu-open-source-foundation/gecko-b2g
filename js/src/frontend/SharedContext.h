@@ -130,12 +130,9 @@ class SharedContext {
   ImmutableScriptFlags immutableFlags_ = {};
 
  public:
-  // See: BaseScript::extent_
+  // The location of this script in the source. Note that the value here differs
+  // from the final BaseScript for the case of standalone functions.
   SourceExtent extent = {};
-
-  // If defined, this is used to allocate a JSScript instead of the parser
-  // determined extent (above). This is used for certain top level contexts.
-  mozilla::Maybe<SourceExtent> scriptExtent = {};
 
  protected:
   // See: ThisBinding
@@ -242,8 +239,6 @@ class SharedContext {
     localStrict = strict;
     return retVal;
   }
-
-  SourceExtent getScriptExtent() { return scriptExtent.refOr(extent); }
 };
 
 class MOZ_STACK_CLASS GlobalSharedContext : public SharedContext {
@@ -291,7 +286,8 @@ inline EvalSharedContext* SharedContext::asEvalContext() {
   return static_cast<EvalSharedContext*>(this);
 }
 
-enum class HasHeritage : bool { No, Yes };
+enum class HasHeritage { No, Yes };
+enum class TopLevelFunction { No, Yes };
 
 class FunctionBox : public SharedContext {
   friend struct GCThingList;
@@ -299,7 +295,6 @@ class FunctionBox : public SharedContext {
   // The parser handles tracing the fields below via the FunctionBox linked
   // list represented by |traceLink_|.
   FunctionBox* traceLink_ = nullptr;
-  FunctionBox* emitLink_ = nullptr;
 
   // This field is used for two purposes:
   //   * If this FunctionBox refers to the function being compiled, this field
@@ -343,21 +338,18 @@ class FunctionBox : public SharedContext {
   uint16_t length = 0;        // See: ImmutableScriptData::funLength
   uint16_t nargs_ = 0;        // JSFunction::nargs_
 
-  // Track if bytecode should be generated and if we have done so.
+  // True if bytecode will be emitted for this function in the current
+  // compilation.
   bool emitBytecode : 1;
-  bool emitLazy : 1;
+
+  // This is set by the BytecodeEmitter of the enclosing script when a reference
+  // to this function is generated. This is also used to determine a hoisted
+  // function already is referenced by the bytecode.
   bool wasEmitted : 1;
 
-  // True if the enclosing script is generating a JSOp::Lambda/LambdaArrow op
-  // referring to this function. This function will potentially be exposed to
-  // script as a result. We may or may not be a lazy function.
-  //
-  // In particular, this criteria excludes functions inside lazy functions. We
-  // require our parent to generate bytecode in order for this function to have
-  // complete information such as its enclosing scope.
-  //
-  // See: FunctionBox::finish()
-  bool exposeScript : 1;
+  // This function should be marked as a singleton. It is expected to be defined
+  // at most once. This is a heuristic only and does not affect correctness.
+  bool isSingleton : 1;
 
   // Need to emit a synthesized Annex B assignment
   bool isAnnexB : 1;
@@ -535,16 +527,10 @@ class FunctionBox : public SharedContext {
   void setInferredName(JSAtom* atom) {
     atom_ = atom;
     flags_.setInferredName();
-    if (hasFunction()) {
-      function()->setInferredName(atom);
-    }
   }
   void setGuessedAtom(JSAtom* atom) {
     atom_ = atom;
     flags_.setGuessedAtom();
-    if (hasFunction()) {
-      function()->setGuessedAtom(atom);
-    }
   }
 
   void setAlwaysNeedsArgsObj() {
@@ -618,16 +604,11 @@ class FunctionBox : public SharedContext {
   size_t nargs() { return nargs_; }
 
   // Flush the acquired argCount to the associated function.
-  // If the function doesn't exist yet, this of course isn't necessary;
-  void synchronizeArgCount() {
-    if (hasFunction()) {
-      function()->setArgCount(nargs_);
-    }
-  }
+  void synchronizeArgCount() { function()->setArgCount(nargs_); }
 
-  bool setTypeForScriptedFunction(JSContext* cx, bool singleton) {
+  bool setTypeForScriptedFunction(JSContext* cx) {
     RootedFunction fun(cx, function());
-    return JSFunction::setTypeForScriptedFunction(cx, fun, singleton);
+    return JSFunction::setTypeForScriptedFunction(cx, fun, isSingleton);
   }
 
   size_t index() { return funcDataIndex_; }

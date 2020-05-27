@@ -43,6 +43,7 @@ DIRS += [
     'forgetaboutsite',
     'fuzzyfox',
     'glean',
+    'httpsonlyerror',
     'jsoncpp/src/lib_json',
     'kvstore',
     'lz4',
@@ -78,7 +79,6 @@ DIRS += [
     'utils',
     'url-classifier',
     'urlformatter',
-    'viaduct',
     'viewconfig',
     'viewsource',
     'windowcreator',
@@ -91,6 +91,7 @@ if CONFIG['MOZ_BUILD_APP'] != 'mobile/android':
     DIRS += [
       'narrate',
       'reader',
+      'viaduct',
     ];
 
     if CONFIG['NS_PRINTING']:
