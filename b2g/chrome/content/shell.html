@@ -7,19 +7,74 @@
       windowtype="navigator:browser"
 #ifdef ANDROID
       sizemode="fullscreen"
-#else
-      width="360"
-      height="640"
 #endif
       >
 
 <head>
+#ifdef ANDROID
   <link rel="stylesheet" type="text/css" href="shell.css">
+#else
+  <link rel="stylesheet" type="text/css" href="desktop.css">
+  <script defer type="application/javascript" src="desktop.js"></script>
+#endif
   <script type="application/javascript" src="shell.js"></script>
   <script type="application/javascript" src="devtools/RemoteDebugger.js"></script>
 </head>
 
 <body>
+#ifndef ANDROID
+  <div id="controls">
+    <div id="funcpad-box">
+      <div id="funcpad-left" class="side">
+        <a id="lsk-anchor" class="anchor"><img src="images/controls/ic_LSK.png" data-key="SoftLeft" /></a>
+        <a id="call-anchor" class="anchor"><img src="images/controls/ic_call.png" data-key="Call" /></a>
+      </div>
+      <div id="funcpad-center">
+        <img id="funcpad-center-bg" src="images/controls/CSK_key.png" />
+        <p class="row">
+          <a id="csk-u-anchor" class="anchor arrow" data-key="ArrowUp"></a>
+        </p>
+        <p class="row middle">
+          <a id="csk-l-anchor" class="anchor arrow" data-key="ArrowLeft"></a>
+          <a id="csk-anchor" class="anchor" data-key="Enter"></a>
+          <a id="csk-r-anchor" class="anchor arrow" data-key="ArrowRight"></a>
+        </p>
+        <p class="row">
+          <a id="csk-d-anchor" class="anchor arrow" data-key="ArrowDown"></a>
+        </p>
+      </div>
+      <div id="funcpad-right" class="side">
+        <a id="rsk-anchor" class="anchor"><img src="images/controls/ic_RSK.png" data-key="SoftRight" /></a>
+        <a id="endcall-anchor" class="anchor"><img src="images/controls/ic_endcall.png" data-key="Backspace" /></a>
+      </div>
+    </div>
+    <div>
+      <img id="numpad-bg" src="images/controls/keypad_number.png" />
+      <div id="numpad-box">
+        <p class="row">
+          <a id="num1-anchor" class="anchor" data-key="1"></a>
+          <a id="num2-anchor" class="anchor" data-key="2"></a>
+          <a id="num3-anchor" class="anchor" data-key="3"></a>
+        </p>
+        <p class="row">
+          <a id="num4-anchor" class="anchor" data-key="4"></a>
+          <a id="num5-anchor" class="anchor" data-key="5"></a>
+          <a id="num6-anchor" class="anchor" data-key="6"></a>
+        </p>
+        <p class="row">
+          <a id="num7-anchor" class="anchor" data-key="7"></a>
+          <a id="num8-anchor" class="anchor" data-key="8"></a>
+          <a id="num9-anchor" class="anchor" data-key="9"></a>
+        </p>
+        <p class="row">
+          <a id="star-anchor" class="anchor" data-key="*"></a>
+          <a id="num0-anchor" class="anchor" data-key="0"></a>
+          <a id="hash-anchor" class="anchor" data-key="#"></a>
+        </p>
+      </div>
+    </div>
+  </div>
+#endif
 </body>
 
 </html>

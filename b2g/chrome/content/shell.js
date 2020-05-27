@@ -74,7 +74,8 @@ var shell = {
     systemAppFrame.setAttribute("forcemessagemanager", "true");
     systemAppFrame.setAttribute("nodefaultsrc", "true");
 
-    document.body.appendChild(systemAppFrame);
+    document.body.prepend(systemAppFrame);
+    window.dispatchEvent(new CustomEvent("systemappframeprepended"));
 
     this.contentBrowser = systemAppFrame;
 

@@ -1,0 +1,177 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+html, body {
+  background: black;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+@media (max-width: 320px) {
+  html {
+    font-size: 6.5px;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+#systemapp {
+  overflow: hidden;
+}
+
+#controls {
+  display: none;
+  pointer-events: none;
+}
+/*
+ * Somehow we couldn't have shown and hidden `#controls` properly via Media Queries.
+ * Thus, we manipulate it by giving different class at the moment.
+ */
+#controls.show {
+  background: white;
+  display: block;
+  pointer-events: auto;
+}
+
+/* funcpad */
+#funcpad-box {
+  display: flex;
+  flex-direction: row;
+  margin-bottom: 1.7rem;
+}
+
+#funcpad-box .anchor {
+  cursor: pointer;
+}
+
+#funcpad-box .side {
+  display: flex;
+  flex-direction: column;
+}
+
+#funcpad-box .side .anchor {
+  width: 8.6rem;
+  height: 8.6rem;
+  background: url("images/controls/button_r_normal.png") center no-repeat;
+  background-size: 100% 100%;
+  margin: 0 0 0.8rem;
+  display: flex;
+}
+
+#funcpad-box .side .anchor img {
+  margin: auto;
+  width: 5.4rem;
+  height: 5.4rem;
+}
+
+#funcpad-box .side .anchor:active {
+  background-image: url("images/controls/button_r_press.png");
+}
+
+#funcpad-center {
+  width: 18rem;
+  height: 18rem;
+  margin: 0 0.8rem;
+}
+
+#funcpad-center-bg {
+  position: absolute;
+  pointer-events: none;
+  width: 18rem;
+  height: 18rem;
+  z-index: 99;
+}
+
+#funcpad-center .row {
+  display: flex;
+  flex-direction: row;
+  height: 4.5rem;
+  margin: 0;
+}
+
+#funcpad-center .row.middle {
+  height: 9rem;
+}
+
+#funcpad-center .row .arrow {
+  background: url("images/controls/CSK_arrow_normal.png");
+  background-size: 100% 100%;
+  width: 18rem;
+  height: 5.6rem;
+}
+
+#funcpad-center .row .arrow:active {
+  background: url("images/controls/CSK_arrow_press.png");
+  background-size: 100% 100%;
+}
+
+#funcpad-center .row.middle .anchor {
+  position: absolute;
+}
+
+/* left arrow */
+#funcpad-center #csk-l-anchor {
+  transform: rotate(-90deg) translate(-1.7rem, -6.2rem);
+}
+
+/* right arrow */
+#funcpad-center #csk-r-anchor {
+  transform: rotate(90deg) translate(1.7rem, -6.2rem);
+}
+
+/* ok button */
+#funcpad-center #csk-anchor {
+  width: 9rem;
+  height: 9rem;
+  transform: translate(4.5rem, 0);
+}
+
+#funcpad-center #csk-anchor:active {
+  background: url("images/controls/CSK_ok_press.png");
+  background-size: 100% 100%;
+}
+
+/* down arrow */
+#funcpad-center #csk-d-anchor {
+  transform: rotate(180deg) translate(0, 1.1rem);
+}
+
+/* numpad */
+#numpad-bg {
+  position: absolute;
+  width: 36rem;
+  height: 27.4rem;
+  background: url("images/controls/keypad_number.png") center no-repeat;
+  background-size: 100% 100%;
+  pointer-events: none;
+}
+
+#numpad-box {
+  display: flex;
+  flex-direction: column;
+}
+
+#numpad-box .row {
+  display: flex;
+  flex-direction: row;
+  margin: 0 0 0.6rem 0;
+}
+
+#numpad-box .anchor {
+  width: 11.6rem;
+  height: 6.4rem;
+  background: url("images/controls/keypad_number_normal.png") center no-repeat;
+  background-size: 100% 100%;
+  margin: 0 0.5rem 0 0;
+  cursor: pointer;
+}
+
+#numpad-box .anchor:active {
+  background-image: url("images/controls/keypad_number_press.png");
+}
