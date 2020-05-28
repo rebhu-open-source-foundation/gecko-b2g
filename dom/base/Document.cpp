@@ -117,6 +117,7 @@
 #include "mozilla/dom/HTMLAllCollection.h"
 #include "mozilla/dom/HTMLMetaElement.h"
 #include "mozilla/dom/HTMLSharedElement.h"
+#include "mozilla/dom/HTMLDialogElement.h"
 #include "mozilla/dom/MutationObservers.h"
 #include "mozilla/dom/Navigator.h"
 #include "mozilla/dom/Performance.h"
@@ -3735,11 +3736,18 @@ void Document::SetPrincipals(nsIPrincipal* aNewPrincipal,
 #ifdef DEBUG
 void Document::AssertDocGroupMatchesKey() const {
   // Sanity check that we have an up-to-date and accurate docgroup
+  // We only check if the principal when we can get the browsing context.
+  if (!GetBrowsingContext()) {
+    return;
+  }
+
   if (mDocGroup) {
     nsAutoCString docGroupKey;
 
     // GetKey() can fail, e.g. after the TLD service has shut down.
-    nsresult rv = mozilla::dom::DocGroup::GetKey(NodePrincipal(), docGroupKey);
+    nsresult rv = mozilla::dom::DocGroup::GetKey(
+        NodePrincipal(), GetBrowsingContext()->CrossOriginIsolated(),
+        docGroupKey);
     if (NS_SUCCEEDED(rv)) {
       MOZ_ASSERT(mDocGroup->MatchesKey(docGroupKey));
     }
@@ -5666,7 +5674,7 @@ void Document::GetCookie(nsAString& aCookie, ErrorResult& rv) {
       do_GetService(NS_COOKIESERVICE_CONTRACTID);
   if (service) {
     nsAutoCString cookie;
-    service->GetCookieStringForPrincipal(EffectiveStoragePrincipal(), cookie);
+    service->GetCookieStringFromDocument(this, cookie);
     // CopyUTF8toUTF16 doesn't handle error
     // because it assumes that the input is valid.
     UTF_8_ENCODING->DecodeWithoutBOMHandling(cookie, aCookie);
@@ -6661,8 +6669,12 @@ nsIGlobalObject* Document::GetScopeObject() const {
 
 DocGroup* Document::GetDocGroupOrCreate() {
   if (!mDocGroup) {
+    bool crossOriginIsolated = GetBrowsingContext()
+                                   ? GetBrowsingContext()->CrossOriginIsolated()
+                                   : false;
     nsAutoCString docGroupKey;
-    nsresult rv = mozilla::dom::DocGroup::GetKey(NodePrincipal(), docGroupKey);
+    nsresult rv = mozilla::dom::DocGroup::GetKey(
+        NodePrincipal(), crossOriginIsolated, docGroupKey);
     if (NS_SUCCEEDED(rv) && mDocumentContainer) {
       BrowsingContextGroup* group = GetBrowsingContext()->Group();
       if (group) {
@@ -6685,10 +6697,15 @@ void Document::SetScopeObject(nsIGlobalObject* aGlobal) {
     BrowsingContextGroup* browsingContextGroup =
         window->GetBrowsingContextGroup();
 
+    bool crossOriginIsolated = GetBrowsingContext()
+                                   ? GetBrowsingContext()->CrossOriginIsolated()
+                                   : false;
+
     // We should already have the principal, and now that we have been added
     // to a window, we should be able to join a DocGroup!
     nsAutoCString docGroupKey;
-    nsresult rv = mozilla::dom::DocGroup::GetKey(NodePrincipal(), docGroupKey);
+    nsresult rv = mozilla::dom::DocGroup::GetKey(
+        NodePrincipal(), crossOriginIsolated, docGroupKey);
     if (mDocGroup) {
       if (NS_SUCCEEDED(rv)) {
         MOZ_RELEASE_ASSERT(mDocGroup->MatchesKey(docGroupKey));
@@ -8039,6 +8056,12 @@ void Document::SetDomain(const nsAString& aDomain, ErrorResult& rv) {
   if (!newURI) {
     // Error: illegal domain
     rv.Throw(NS_ERROR_DOM_SECURITY_ERR);
+    return;
+  }
+
+  if (StaticPrefs::dom_postMessage_sharedArrayBuffer_withCOOP_COEP() &&
+      GetBrowsingContext() && GetBrowsingContext()->CrossOriginIsolated()) {
+    WarnOnceAbout(Document::eDocumentSetDomainNotAllowed);
     return;
   }
 
@@ -11971,76 +11994,77 @@ already_AddRefed<Document> Document::CreateStaticClone(
   SetProperty(nsGkAtoms::adoptedsheetclones, new AdoptedStyleSheetCloneCache(),
               nsINode::DeleteProperty<AdoptedStyleSheetCloneCache>);
 
+  auto raii = MakeScopeExit([&] {
+    RemoveProperty(nsGkAtoms::adoptedsheetclones);
+    mCreatingStaticClone = false;
+  });
+
   // Make document use different container during cloning.
   RefPtr<nsDocShell> originalShell = mDocumentContainer.get();
   SetContainer(static_cast<nsDocShell*>(aCloneContainer));
-  ErrorResult rv;
+  IgnoredErrorResult rv;
   nsCOMPtr<nsINode> clonedNode = this->CloneNode(true, rv);
   SetContainer(originalShell);
-
-  nsCOMPtr<Document> clonedDoc;
   if (rv.Failed()) {
-    // Don't return yet; we need to reset mCreatingStaticClone
-    rv.SuppressException();
-  } else {
-    clonedDoc = do_QueryInterface(clonedNode);
-    if (clonedDoc) {
-      if (IsStaticDocument()) {
-        clonedDoc->mOriginalDocument = mOriginalDocument;
-        mOriginalDocument->mLatestStaticClone = clonedDoc;
-      } else {
-        clonedDoc->mOriginalDocument = this;
-        mLatestStaticClone = clonedDoc;
-      }
-
-      clonedDoc->mOriginalDocument->mStaticCloneCount++;
-
-      size_t sheetsCount = SheetCount();
-      for (size_t i = 0; i < sheetsCount; ++i) {
-        RefPtr<StyleSheet> sheet = SheetAt(i);
-        if (sheet) {
-          if (sheet->IsApplicable()) {
-            RefPtr<StyleSheet> clonedSheet =
-                sheet->Clone(nullptr, nullptr, clonedDoc, nullptr);
-            NS_WARNING_ASSERTION(clonedSheet,
-                                 "Cloning a stylesheet didn't work!");
-            if (clonedSheet) {
-              clonedDoc->AddStyleSheet(clonedSheet);
-            }
-          }
-        }
-      }
-      clonedDoc->CloneAdoptedSheetsFrom(*this);
-
-      for (int t = 0; t < AdditionalSheetTypeCount; ++t) {
-        auto& sheets = mAdditionalSheets[additionalSheetType(t)];
-        for (StyleSheet* sheet : sheets) {
-          if (sheet->IsApplicable()) {
-            RefPtr<StyleSheet> clonedSheet =
-                sheet->Clone(nullptr, nullptr, clonedDoc, nullptr);
-            NS_WARNING_ASSERTION(clonedSheet,
-                                 "Cloning a stylesheet didn't work!");
-            if (clonedSheet) {
-              clonedDoc->AddAdditionalStyleSheet(additionalSheetType(t),
-                                                 clonedSheet);
-            }
-          }
-        }
-      }
-
-      // Font faces created with the JS API will not be reflected in the
-      // stylesheets and need to be copied over to the cloned document.
-      if (const FontFaceSet* set = GetFonts()) {
-        set->CopyNonRuleFacesTo(clonedDoc->Fonts());
-      }
-
-      clonedDoc->mReferrerInfo =
-          static_cast<dom::ReferrerInfo*>(mReferrerInfo.get())->Clone();
-      clonedDoc->mPreloadReferrerInfo = clonedDoc->mReferrerInfo;
-    }
+    return nullptr;
   }
-  RemoveProperty(nsGkAtoms::adoptedsheetclones);
-  mCreatingStaticClone = false;
+
+  nsCOMPtr<Document> clonedDoc = do_QueryInterface(clonedNode);
+  if (clonedDoc) {
+    if (IsStaticDocument()) {
+      clonedDoc->mOriginalDocument = mOriginalDocument;
+      mOriginalDocument->mLatestStaticClone = clonedDoc;
+    } else {
+      clonedDoc->mOriginalDocument = this;
+      mLatestStaticClone = clonedDoc;
+    }
+
+    clonedDoc->mOriginalDocument->mStaticCloneCount++;
+
+    size_t sheetsCount = SheetCount();
+    for (size_t i = 0; i < sheetsCount; ++i) {
+      RefPtr<StyleSheet> sheet = SheetAt(i);
+      if (sheet) {
+        if (sheet->IsApplicable()) {
+          RefPtr<StyleSheet> clonedSheet =
+              sheet->Clone(nullptr, nullptr, clonedDoc, nullptr);
+          NS_WARNING_ASSERTION(clonedSheet,
+                               "Cloning a stylesheet didn't work!");
+          if (clonedSheet) {
+            clonedDoc->AddStyleSheet(clonedSheet);
+          }
+        }
+      }
+    }
+    clonedDoc->CloneAdoptedSheetsFrom(*this);
+
+    for (int t = 0; t < AdditionalSheetTypeCount; ++t) {
+      auto& sheets = mAdditionalSheets[additionalSheetType(t)];
+      for (StyleSheet* sheet : sheets) {
+        if (sheet->IsApplicable()) {
+          RefPtr<StyleSheet> clonedSheet =
+              sheet->Clone(nullptr, nullptr, clonedDoc, nullptr);
+          NS_WARNING_ASSERTION(clonedSheet,
+                               "Cloning a stylesheet didn't work!");
+          if (clonedSheet) {
+            clonedDoc->AddAdditionalStyleSheet(additionalSheetType(t),
+                                               clonedSheet);
+          }
+        }
+      }
+    }
+
+    // Font faces created with the JS API will not be reflected in the
+    // stylesheets and need to be copied over to the cloned document.
+    if (const FontFaceSet* set = GetFonts()) {
+      set->CopyNonRuleFacesTo(clonedDoc->Fonts());
+    }
+
+    clonedDoc->mReferrerInfo =
+        static_cast<dom::ReferrerInfo*>(mReferrerInfo.get())->Clone();
+    clonedDoc->mPreloadReferrerInfo = clonedDoc->mReferrerInfo;
+  }
+
   return clonedDoc.forget();
 }
 
@@ -12954,6 +12978,18 @@ size_t Document::CountFullscreenElements() const {
 
 void Document::SetFullscreenRoot(Document* aRoot) {
   mFullscreenRoot = do_GetWeakReference(aRoot);
+}
+
+void Document::TryCancelDialog() {
+  // Check if the document is blocked by modal dialog
+  for (const nsWeakPtr& weakPtr : Reversed(mTopLayer)) {
+    nsCOMPtr<Element> element(do_QueryReferent(weakPtr));
+    if (HTMLDialogElement* dialog =
+            HTMLDialogElement::FromNodeOrNull(element)) {
+      dialog->QueueCancelDialog();
+      break;
+    }
+  }
 }
 
 already_AddRefed<Promise> Document::ExitFullscreen(ErrorResult& aRv) {

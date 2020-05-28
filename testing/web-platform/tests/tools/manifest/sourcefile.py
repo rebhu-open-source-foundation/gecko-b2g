@@ -408,6 +408,15 @@ class SourceFile(object):
         return self.type_flag == "crash" or "crashtests" in self.dir_path.split(os.path.sep)
 
     @property
+    def name_is_tentative(self):
+        # type: () -> bool
+        """Check if the file name matches the conditions for the file to be a
+        tentative file.
+
+        See https://web-platform-tests.org/writing-tests/file-names.html#test-features"""
+        return "tentative" in self.meta_flags
+
+    @property
     def markup_type(self):
         # type: () -> Optional[Text]
         """Return the type of markup contained in a file, based on its extension,
@@ -688,7 +697,7 @@ class SourceFile(object):
         (`script_metadata()`).
         """
         if self.script_metadata:
-            if any(m == (b"quic", b"true") for m in self.script_metadata):
+            if any(m == ("quic", "true") for m in self.script_metadata):
                 return True
 
         if self.root is None:
@@ -989,9 +998,9 @@ class SourceFile(object):
 
         if drop_cached and "__cached_properties__" in self.__dict__:
             cached_properties = self.__dict__["__cached_properties__"]
-            for key in cached_properties:
-                if str(key) in self.__dict__:
-                    del self.__dict__[str(key)]
+            for prop in cached_properties:
+                if prop in self.__dict__:
+                    del self.__dict__[prop]
             del self.__dict__["__cached_properties__"]
 
         return rv

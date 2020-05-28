@@ -526,15 +526,6 @@ class EntryGetter {
 //     LineNumber(945)
 //     CategoryPair(ProfilingCategoryPair::JS)
 //
-// - A profiling stack frame with a dynamic string, but with privacy enabled:
-//
-//     Label("nsObserverService::NotifyObservers")
-//     FrameFlags(uint64_t(ProfilingStackFrame::Flags::IS_LABEL_FRAME))
-//     DynamicStringFragment("(private")
-//     DynamicStringFragment(")")
-//     LineNumber(291)
-//     CategoryPair(ProfilingCategoryPair::OTHER)
-//
 // - A profiling stack frame with an overly long dynamic string:
 //
 //     Label("")
@@ -666,11 +657,11 @@ void ProfileBuffer::StreamSamplesToJSON(SpliceableJSONWriter& aWriter,
           unsigned long long pcULL = (unsigned long long)(uintptr_t)pc;
           SprintfLiteral(buf, "%#llx", pcULL);
 
-          // If the "MOZ_BASE_PROFILER_SYMBOLICATE" env-var is set, we add a
-          // local symbolication description to the PC address. This is off by
+          // If the "MOZ_PROFILER_SYMBOLICATE" env-var is set, we add a local
+          // symbolication description to the PC address. This is off by
           // default, and mainly intended for local development.
           static const bool preSymbolicate = []() {
-            const char* symbolicate = getenv("MOZ_BASE_PROFILER_SYMBOLICATE");
+            const char* symbolicate = getenv("MOZ_PROFILER_SYMBOLICATE");
             return symbolicate && symbolicate[0] != '\0';
           }();
           if (preSymbolicate) {

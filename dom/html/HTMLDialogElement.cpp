@@ -83,8 +83,13 @@ void HTMLDialogElement::UnbindFromTree(bool aNullParent) {
 }
 
 void HTMLDialogElement::ShowModal(ErrorResult& aError) {
-  if (!IsInComposedDoc() || Open()) {
-    aError.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
+  if (!IsInComposedDoc()) {
+    aError.ThrowInvalidStateError("Dialog element is not connected");
+    return;
+  }
+
+  if (Open()) {
+    aError.ThrowInvalidStateError("Dialog element already has an 'open' attribute");
     return;
   }
 
@@ -164,6 +169,31 @@ void HTMLDialogElement::FocusDialog() {
         topDocument->SetAutoFocusFired();
       }
     }
+  }
+}
+
+void HTMLDialogElement::QueueCancelDialog() {
+  // queues an element task on the user interaction task source
+  OwnerDoc()
+      ->EventTargetFor(TaskCategory::UI)
+      ->Dispatch(NewRunnableMethod("HTMLDialogElement::RunCancelDialogSteps",
+                                   this,
+                                   &HTMLDialogElement::RunCancelDialogSteps));
+}
+
+void HTMLDialogElement::RunCancelDialogSteps() {
+  // 1) Let close be the result of firing an event named cancel at dialog, with
+  // the cancelable attribute initialized to true.
+  bool defaultAction = true;
+  nsContentUtils::DispatchTrustedEvent(
+      OwnerDoc(), this, NS_LITERAL_STRING("cancel"), CanBubble::eNo,
+      Cancelable::eYes, &defaultAction);
+
+  // 2) If close is true and dialog has an open attribute, then close the dialog
+  // with no return value.
+  if (defaultAction) {
+    Optional<nsAString> retValue;
+    Close(retValue);
   }
 }
 

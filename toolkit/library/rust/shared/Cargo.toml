@@ -19,7 +19,7 @@ static_prefs = { path = "../../../../modules/libpref/init/static_prefs" }
 profiler_helper = { path = "../../../../tools/profiler/rust-helper", optional = true }
 mozurl = { path = "../../../../netwerk/base/mozurl" }
 webrender_bindings = { path = "../../../../gfx/webrender_bindings", optional = true }
-cubeb-coreaudio = { git = "https://github.com/ChunMinChang/cubeb-coreaudio-rs", rev = "c5aacdc75618025e72f62f727a7a0d91606e6276", optional = true }
+cubeb-coreaudio = { git = "https://github.com/ChunMinChang/cubeb-coreaudio-rs", rev = "23cce37c8565708023c869913c0f24c2fda860d8", optional = true }
 cubeb-pulse = { git = "https://github.com/djg/cubeb-pulse-rs", rev="70431f444cf164177cb3c0f060698fc35f811be5", optional = true, features=["pulse-dlopen"] }
 cubeb-sys = { version = "0.7", optional = true, features=["gecko-in-tree"] }
 encoding_glue = { path = "../../../../intl/encoding_glue" }
@@ -32,7 +32,6 @@ rsdparsa_capi = { path = "../../../../media/webrtc/signaling/src/sdp/rsdparsa_ca
 xulstore = { path = "../../../components/xulstore", optional = true }
 # We have these to enforce common feature sets for said crates.
 log = {version = "0.4", features = ["release_max_level_info"]}
-env_logger = {version = "0.6", default-features = false} # disable `regex` to reduce code size
 cose-c = { version = "0.1.5" }
 jsrust_shared = { path = "../../../../js/src/rust/shared" }
 cascade_bloom_filter = { path = "../../../components/cascade_bloom_filter" }

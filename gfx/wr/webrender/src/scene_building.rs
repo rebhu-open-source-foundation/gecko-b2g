@@ -715,6 +715,7 @@ impl<'a> SceneBuilder<'a> {
         origin: LayoutPoint,
         reference_frame: &ReferenceFrame,
     ) {
+        profile_scope!("build_reference_frame");
         let current_offset = self.current_offset(parent_spatial_node);
         self.push_reference_frame(
             reference_frame.id,
@@ -747,6 +748,7 @@ impl<'a> SceneBuilder<'a> {
         filter_primitives: ItemRange<FilterPrimitive>,
         prim_flags: PrimitiveFlags,
     ) {
+        profile_scope!("build_stacking_context");
         // Avoid doing unnecessary work for empty stacking contexts.
         if traversal.current_stacking_context_empty() {
             traversal.skip_current_stacking_context();
@@ -955,7 +957,6 @@ impl<'a> SceneBuilder<'a> {
                     &layout,
                     layout.rect.size,
                     LayoutSize::zero(),
-                    None,
                     info.image_key,
                     info.image_rendering,
                     info.alpha_type,
@@ -980,7 +981,6 @@ impl<'a> SceneBuilder<'a> {
                     &layout,
                     stretch_size,
                     info.tile_spacing,
-                    None,
                     info.image_key,
                     info.image_rendering,
                     info.alpha_type,
@@ -3098,7 +3098,6 @@ impl<'a> SceneBuilder<'a> {
         info: &LayoutPrimitiveInfo,
         stretch_size: LayoutSize,
         mut tile_spacing: LayoutSize,
-        sub_rect: Option<TexelRect>,
         image_key: ImageKey,
         image_rendering: ImageRendering,
         alpha_type: AlphaType,
@@ -3111,19 +3110,6 @@ impl<'a> SceneBuilder<'a> {
             .. *info
         };
 
-        let sub_rect = sub_rect.map(|texel_rect| {
-            DeviceIntRect::new(
-                DeviceIntPoint::new(
-                    texel_rect.uv0.x as i32,
-                    texel_rect.uv0.y as i32,
-                ),
-                DeviceIntSize::new(
-                    (texel_rect.uv1.x - texel_rect.uv0.x) as i32,
-                    (texel_rect.uv1.y - texel_rect.uv0.y) as i32,
-                ),
-            )
-        });
-
         self.add_primitive(
             spatial_node_index,
             clip_chain_id,
@@ -3134,7 +3120,6 @@ impl<'a> SceneBuilder<'a> {
                 tile_spacing: tile_spacing.into(),
                 stretch_size: stretch_size.into(),
                 color: color.into(),
-                sub_rect,
                 image_rendering,
                 alpha_type,
             },

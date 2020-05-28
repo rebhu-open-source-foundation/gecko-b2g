@@ -330,11 +330,6 @@ void IProtocol::ReplaceEventTargetForActor(IProtocol* aActor,
   mToplevel->ReplaceEventTargetForActor(aActor, aEventTarget);
 }
 
-void IProtocol::SetEventTargetForRoute(int32_t aRoute,
-                                       nsIEventTarget* aEventTarget) {
-  mToplevel->SetEventTargetForRoute(aRoute, aEventTarget);
-}
-
 nsIEventTarget* IProtocol::GetActorEventTarget() {
   // FIXME: It's a touch sketchy that we don't return a strong reference here.
   RefPtr<nsIEventTarget> target = GetActorEventTarget(this);
@@ -796,14 +791,6 @@ already_AddRefed<nsIEventTarget> IToplevelProtocol::GetMessageEventTarget(
       return nullptr;
     }
 
-    // Normally a new actor inherits its event target from its manager. If the
-    // manager has no event target, we give the subclass a chance to make a new
-    // one.
-    if (!target) {
-      MutexAutoUnlock unlock(mEventTargetMutex);
-      target = GetConstructedEventTarget(aMsg);
-    }
-
 #ifdef DEBUG
     // If this function is called more than once for the same message,
     // the actor handle ID will already be in the map and the AddWithID
@@ -817,11 +804,6 @@ already_AddRefed<nsIEventTarget> IToplevelProtocol::GetMessageEventTarget(
 #endif /* DEBUG */
 
     mEventTargetMap.AddWithID(target, handle.mId);
-  } else if (!target) {
-    // We don't need the lock after this point.
-    lock.reset();
-
-    target = GetSpecificMessageEventTarget(aMsg);
   }
 
   return target.forget();
@@ -885,16 +867,6 @@ void IToplevelProtocol::ReplaceEventTargetForActor(
 
   MutexAutoLock lock(mEventTargetMutex);
   mEventTargetMap.ReplaceWithID(aEventTarget, id);
-}
-
-void IToplevelProtocol::SetEventTargetForRoute(int32_t aRoute,
-                                               nsIEventTarget* aEventTarget) {
-  MOZ_RELEASE_ASSERT(aRoute != Id());
-  MOZ_RELEASE_ASSERT(aRoute != kNullActorId && aRoute != kFreedActorId);
-
-  MutexAutoLock lock(mEventTargetMutex);
-  MOZ_ASSERT(!mEventTargetMap.Lookup(aRoute));
-  mEventTargetMap.AddWithID(aEventTarget, aRoute);
 }
 
 }  // namespace ipc

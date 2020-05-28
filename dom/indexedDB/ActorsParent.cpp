@@ -568,16 +568,17 @@ nsresult ClampResultCode(nsresult aResultCode) {
   return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
 }
 
-void GetDatabaseFilename(const nsAString& aName,
-                         nsAutoString& aDatabaseFilename) {
-  MOZ_ASSERT(aDatabaseFilename.IsEmpty());
+void GetDatabaseFilenameBase(const nsAString& aDatabaseName,
+                             nsAutoString& aDatabaseFilenameBase) {
+  MOZ_ASSERT(aDatabaseFilenameBase.IsEmpty());
 
   // WARNING: do not change this hash function. See the comment in HashName()
   // for details.
-  aDatabaseFilename.AppendInt(HashName(aName));
+  aDatabaseFilenameBase.AppendInt(HashName(aDatabaseName));
 
   nsCString escapedName;
-  if (!NS_Escape(NS_ConvertUTF16toUTF8(aName), escapedName, url_XPAlphas)) {
+  if (!NS_Escape(NS_ConvertUTF16toUTF8(aDatabaseName), escapedName,
+                 url_XPAlphas)) {
     MOZ_CRASH("Can't escape database name!");
   }
 
@@ -593,7 +594,7 @@ void GetDatabaseFilename(const nsAString& aName,
     }
   }
 
-  aDatabaseFilename.AppendASCII(substring.get(), substring.Length());
+  aDatabaseFilenameBase.AppendASCII(substring.get(), substring.Length());
 }
 
 uint32_t CompressedByteCountForNumber(uint64_t aNumber) {
@@ -8580,8 +8581,8 @@ class QuotaClient final : public mozilla::dom::quota::Client {
 
   nsresult InitOrigin(PersistenceType aPersistenceType,
                       const nsACString& aGroup, const nsACString& aOrigin,
-                      const AtomicBool& aCanceled, UsageInfo* aUsageInfo,
-                      bool aForGetUsage) override;
+                      const AtomicBool& aCanceled,
+                      UsageInfo* aUsageInfo) override;
 
   nsresult GetUsageForOrigin(PersistenceType aPersistenceType,
                              const nsACString& aGroup,
@@ -8618,15 +8619,16 @@ class QuotaClient final : public mozilla::dom::quota::Client {
   // InitOrigin() is the only consumer of this argument because it checks those
   // unfinished deletion and clean them up after that.
   nsresult GetDatabaseFilenames(
-      nsIFile* aDirectory, const AtomicBool& aCanceled, bool aForUpgrade,
+      nsIFile* aDirectory, const AtomicBool& aCanceled,
       nsTArray<nsString>& aSubdirsToProcess,
       nsTHashtable<nsStringHashKey>& aDatabaseFilename,
       nsTHashtable<nsStringHashKey>* aObsoleteFilenames = nullptr);
 
-  nsresult GetUsageForDirectoryInternal(nsIFile* aDirectory,
-                                        const AtomicBool& aCanceled,
-                                        UsageInfo* aUsageInfo,
-                                        bool aDatabaseFiles);
+  nsresult GetUsageForOriginInternal(PersistenceType aPersistenceType,
+                                     const nsACString& aGroup,
+                                     const nsACString& aOrigin,
+                                     const AtomicBool& aCanceled,
+                                     bool aInitializing, UsageInfo* aUsageInfo);
 
   // Runs on the PBackground thread. Checks to see if there's a queued
   // Maintenance to run.
@@ -9175,10 +9177,10 @@ DeserializeStructuredCloneFiles(const FileManager& aFileManager,
   return result;
 }
 
-bool GetBaseFilename(const nsAString& aFilename, const nsAString& aSuffix,
-                     nsDependentSubstring& aBaseFilename) {
+bool GetFilenameBase(const nsAString& aFilename, const nsAString& aSuffix,
+                     nsDependentSubstring& aFilenameBase) {
   MOZ_ASSERT(!aFilename.IsEmpty());
-  MOZ_ASSERT(aBaseFilename.IsEmpty());
+  MOZ_ASSERT(aFilenameBase.IsEmpty());
 
   if (!StringEndsWith(aFilename, aSuffix) ||
       aFilename.Length() == aSuffix.Length()) {
@@ -9187,7 +9189,7 @@ bool GetBaseFilename(const nsAString& aFilename, const nsAString& aSuffix,
 
   MOZ_ASSERT(aFilename.Length() > aSuffix.Length());
 
-  aBaseFilename.Rebind(aFilename, 0, aFilename.Length() - aSuffix.Length());
+  aFilenameBase.Rebind(aFilename, 0, aFilename.Length() - aSuffix.Length());
   return true;
 }
 
@@ -9492,32 +9494,34 @@ nsresult RemoveMarkerFile(nsIFile* aMarkerFile) {
 // succeeds when the file we ask it to delete does not actually exist. The
 // marker file is removed once deletion has successfully completed.
 nsresult RemoveDatabaseFilesAndDirectory(nsIFile& aBaseDirectory,
-                                         const nsAString& aFilenameBase,
+                                         const nsAString& aDatabaseFilenameBase,
                                          QuotaManager* aQuotaManager,
                                          const PersistenceType aPersistenceType,
                                          const nsACString& aGroup,
                                          const nsACString& aOrigin,
                                          const nsAString& aDatabaseName) {
   AssertIsOnIOThread();
-  MOZ_ASSERT(!aFilenameBase.IsEmpty());
+  MOZ_ASSERT(!aDatabaseFilenameBase.IsEmpty());
 
   AUTO_PROFILER_LABEL("RemoveDatabaseFilesAndDirectory", DOM);
 
   nsCOMPtr<nsIFile> markerFile;
-  nsresult rv = CreateMarkerFile(aBaseDirectory, aFilenameBase, &markerFile);
+  nsresult rv =
+      CreateMarkerFile(aBaseDirectory, aDatabaseFilenameBase, &markerFile);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
 
   // The database file counts towards quota.
-  rv = DeleteFile(aBaseDirectory, aFilenameBase + kSQLiteSuffix, aQuotaManager,
-                  aPersistenceType, aGroup, aOrigin, Idempotency::Yes);
+  rv = DeleteFile(aBaseDirectory, aDatabaseFilenameBase + kSQLiteSuffix,
+                  aQuotaManager, aPersistenceType, aGroup, aOrigin,
+                  Idempotency::Yes);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
 
   // .sqlite-journal files don't count towards quota.
-  rv = DeleteFile(aBaseDirectory, aFilenameBase + kSQLiteJournalSuffix,
+  rv = DeleteFile(aBaseDirectory, aDatabaseFilenameBase + kSQLiteJournalSuffix,
                   /* doesn't count */ nullptr, aPersistenceType, aGroup,
                   aOrigin, Idempotency::Yes);
   if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -9525,7 +9529,7 @@ nsresult RemoveDatabaseFilesAndDirectory(nsIFile& aBaseDirectory,
   }
 
   // .sqlite-shm files don't count towards quota.
-  rv = DeleteFile(aBaseDirectory, aFilenameBase + kSQLiteSHMSuffix,
+  rv = DeleteFile(aBaseDirectory, aDatabaseFilenameBase + kSQLiteSHMSuffix,
                   /* doesn't count */ nullptr, aPersistenceType, aGroup,
                   aOrigin, Idempotency::Yes);
   if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -9533,7 +9537,7 @@ nsresult RemoveDatabaseFilesAndDirectory(nsIFile& aBaseDirectory,
   }
 
   // .sqlite-wal files do count towards quota.
-  rv = DeleteFile(aBaseDirectory, aFilenameBase + kSQLiteWALSuffix,
+  rv = DeleteFile(aBaseDirectory, aDatabaseFilenameBase + kSQLiteWALSuffix,
                   aQuotaManager, aPersistenceType, aGroup, aOrigin,
                   Idempotency::Yes);
   if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -9547,7 +9551,8 @@ nsresult RemoveDatabaseFilesAndDirectory(nsIFile& aBaseDirectory,
   }
 
   // The files directory counts towards quota.
-  rv = fmDirectory->Append(aFilenameBase + kFileManagerDirectoryNameSuffix);
+  rv = fmDirectory->Append(aDatabaseFilenameBase +
+                           kFileManagerDirectoryNameSuffix);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -16684,13 +16689,32 @@ nsresult FileManager::InitDirectory(nsIFile& aDirectory, nsIFile& aDatabaseFile,
       return rv;
     }
 
-    bool hasElements;
-    rv = entries->HasMoreElements(&hasElements);
+    bool hasJournals = false;
+
+    nsCOMPtr<nsIFile> file;
+    while (NS_SUCCEEDED((rv = entries->GetNextFile(getter_AddRefs(file)))) &&
+           file) {
+      nsString leafName;
+      rv = file->GetLeafName(leafName);
+      if (NS_WARN_IF(NS_FAILED(rv))) {
+        return rv;
+      }
+
+      leafName.ToInteger64(&rv);
+      if (NS_SUCCEEDED(rv)) {
+        hasJournals = true;
+
+        continue;
+      }
+
+      UNKNOWN_FILE_WARNING(leafName);
+    }
+
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
 
-    if (hasElements) {
+    if (hasJournals) {
       auto connectionOrErr = CreateStorageConnection(
           aDatabaseFile, aDirectory, VoidString(), aOrigin,
           /* aDirectoryLockId */ -1, aTelemetryId);
@@ -16737,6 +16761,11 @@ nsresult FileManager::InitDirectory(nsIFile& aDirectory, nsIFile& aDatabaseFile,
         rv = stmt->GetString(0, name);
         if (NS_WARN_IF(NS_FAILED(rv))) {
           return rv;
+        }
+
+        name.ToInteger64(&rv);
+        if (NS_FAILED(rv)) {
+          continue;
         }
 
         int32_t flag = stmt->AsInt32(1);
@@ -16830,13 +16859,20 @@ nsresult FileManager::GetUsage(nsIFile* aDirectory, Maybe<uint64_t>& aUsage) {
       continue;
     }
 
-    int64_t fileSize;
-    rv = file->GetFileSize(&fileSize);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
+    leafName.ToInteger64(&rv);
+    if (NS_SUCCEEDED(rv)) {
+      int64_t fileSize;
+      rv = file->GetFileSize(&fileSize);
+      if (NS_WARN_IF(NS_FAILED(rv))) {
+        return rv;
+      }
+
+      UsageInfo::IncrementUsage(usage, Some(uint64_t(fileSize)));
+
+      continue;
     }
 
-    UsageInfo::IncrementUsage(usage, Some(uint64_t(fileSize)));
+    UNKNOWN_FILE_WARNING(leafName);
   }
 
   if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -17033,8 +17069,7 @@ nsresult QuotaClient::UpgradeStorageFrom1_0To2_0(nsIFile* aDirectory) {
   AutoTArray<nsString, 20> subdirsToProcess;
   nsTHashtable<nsStringHashKey> databaseFilenames(20);
   nsresult rv = GetDatabaseFilenames(aDirectory,
-                                     /* aCanceled */ dummy,
-                                     /* aForUpgrade */ true, subdirsToProcess,
+                                     /* aCanceled */ dummy, subdirsToProcess,
                                      databaseFilenames);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
@@ -17044,7 +17079,7 @@ nsresult QuotaClient::UpgradeStorageFrom1_0To2_0(nsIFile* aDirectory) {
     // If the directory has the correct suffix then it should exist in
     // databaseFilenames.
     nsDependentSubstring subdirNameBase;
-    if (GetBaseFilename(subdirName, kFileManagerDirectoryNameSuffix,
+    if (GetFilenameBase(subdirName, kFileManagerDirectoryNameSuffix,
                         subdirNameBase)) {
       Unused << NS_WARN_IF(!databaseFilenames.GetEntry(subdirNameBase));
 
@@ -17170,7 +17205,29 @@ nsresult QuotaClient::InitOrigin(PersistenceType aPersistenceType,
                                  const nsACString& aGroup,
                                  const nsACString& aOrigin,
                                  const AtomicBool& aCanceled,
-                                 UsageInfo* aUsageInfo, bool aForGetUsage) {
+                                 UsageInfo* aUsageInfo) {
+  AssertIsOnIOThread();
+
+  return GetUsageForOriginInternal(aPersistenceType, aGroup, aOrigin, aCanceled,
+                                   /* aInitializing*/ true, aUsageInfo);
+}
+
+nsresult QuotaClient::GetUsageForOrigin(PersistenceType aPersistenceType,
+                                        const nsACString& aGroup,
+                                        const nsACString& aOrigin,
+                                        const AtomicBool& aCanceled,
+                                        UsageInfo* aUsageInfo) {
+  AssertIsOnIOThread();
+  MOZ_ASSERT(aUsageInfo);
+
+  return GetUsageForOriginInternal(aPersistenceType, aGroup, aOrigin, aCanceled,
+                                   /* aInitializing*/ false, aUsageInfo);
+}
+
+nsresult QuotaClient::GetUsageForOriginInternal(
+    PersistenceType aPersistenceType, const nsACString& aGroup,
+    const nsACString& aOrigin, const AtomicBool& aCanceled,
+    const bool aInitializing, UsageInfo* aUsageInfo) {
   AssertIsOnIOThread();
 
   nsCOMPtr<nsIFile> directory;
@@ -17188,56 +17245,55 @@ nsresult QuotaClient::InitOrigin(PersistenceType aPersistenceType,
   AutoTArray<nsString, 20> subdirsToProcess;
   nsTHashtable<nsStringHashKey> databaseFilenames(20);
   nsTHashtable<nsStringHashKey> obsoleteFilenames;
-  rv = GetDatabaseFilenames(directory, aCanceled,
-                            /* aForUpgrade */ false, subdirsToProcess,
+  rv = GetDatabaseFilenames(directory, aCanceled, subdirsToProcess,
                             databaseFilenames, &obsoleteFilenames);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, IDB_GetDBFilenames);
     return rv;
   }
 
-  for (const nsString& subdirName : subdirsToProcess) {
-    // The directory must have the correct suffix.
-    nsDependentSubstring subdirNameBase;
-    if (NS_WARN_IF(!GetBaseFilename(subdirName, kFileManagerDirectoryNameSuffix,
-                                    subdirNameBase))) {
+  if (aInitializing) {
+    for (const nsString& subdirName : subdirsToProcess) {
+      // The directory must have the correct suffix.
+      nsDependentSubstring subdirNameBase;
+      if (NS_WARN_IF(!GetFilenameBase(
+              subdirName, kFileManagerDirectoryNameSuffix, subdirNameBase))) {
+        // If there is an unexpected directory in the idb directory, trying to
+        // delete at first instead of breaking the whole initialization.
+        if (NS_WARN_IF(NS_FAILED(DeleteFilesNoQuota(directory, subdirName)))) {
+          REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, IDB_GetBaseFilename);
+          return NS_ERROR_UNEXPECTED;
+        }
+
+        continue;
+      }
+
+      if (obsoleteFilenames.Contains(subdirNameBase)) {
+        rv = RemoveDatabaseFilesAndDirectory(*directory, subdirNameBase,
+                                             nullptr, aPersistenceType, aGroup,
+                                             aOrigin, EmptyString());
+        if (NS_WARN_IF(NS_FAILED(rv))) {
+          // If we somehow running into here, it probably means we are in a
+          // serious situation. e.g. Filesystem corruption.
+          // Will handle this in bug 1521541.
+          REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, IDB_RemoveDBFiles);
+          return NS_ERROR_UNEXPECTED;
+        }
+
+        databaseFilenames.RemoveEntry(subdirNameBase);
+        continue;
+      }
+
+      // The directory base must exist in databaseFilenames.
       // If there is an unexpected directory in the idb directory, trying to
       // delete at first instead of breaking the whole initialization.
-      if (NS_WARN_IF(NS_FAILED(DeleteFilesNoQuota(directory, subdirName)))) {
-        REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, IDB_GetBaseFilename);
+      if (NS_WARN_IF(!databaseFilenames.GetEntry(subdirNameBase)) &&
+          NS_WARN_IF((NS_FAILED(DeleteFilesNoQuota(directory, subdirName))))) {
+        REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, IDB_GetEntry);
         return NS_ERROR_UNEXPECTED;
       }
-
-      continue;
-    }
-
-    if (obsoleteFilenames.Contains(subdirNameBase)) {
-      rv = RemoveDatabaseFilesAndDirectory(*directory, subdirNameBase, nullptr,
-                                           aPersistenceType, aGroup, aOrigin,
-                                           EmptyString());
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        // If we somehow running into here, it probably means we are in a
-        // serious situation. e.g. Filesystem corruption.
-        // Will handle this in bug 1521541.
-        REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, IDB_RemoveDBFiles);
-        return NS_ERROR_UNEXPECTED;
-      }
-
-      databaseFilenames.RemoveEntry(subdirNameBase);
-      continue;
-    }
-
-    // The directory base must exist in databaseFilenames.
-    // If there is an unexpected directory in the idb directory, trying to
-    // delete at first instead of breaking the whole initialization.
-    if (NS_WARN_IF(!databaseFilenames.GetEntry(subdirNameBase)) &&
-        NS_WARN_IF((NS_FAILED(DeleteFilesNoQuota(directory, subdirName))))) {
-      REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, IDB_GetEntry);
-      return NS_ERROR_UNEXPECTED;
     }
   }
-
-  const auto sqliteSuffix = kSQLiteSuffix;
 
   for (const auto& databaseEntry : databaseFilenames) {
     if (aCanceled) {
@@ -17267,7 +17323,7 @@ nsresult QuotaClient::InitOrigin(PersistenceType aPersistenceType,
       return rv;
     }
 
-    rv = databaseFile->Append(databaseFilename + sqliteSuffix);
+    rv = databaseFile->Append(databaseFilename + kSQLiteSuffix);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, IDB_Append2);
       return rv;
@@ -17288,11 +17344,13 @@ nsresult QuotaClient::InitOrigin(PersistenceType aPersistenceType,
       }
     }
 
-    rv = FileManager::InitDirectory(*fmDirectory, *databaseFile, aOrigin,
-                                    TelemetryIdForFile(databaseFile));
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      REPORT_TELEMETRY_INIT_ERR(kQuotaInternalError, IDB_InitDirectory);
-      return rv;
+    if (aInitializing) {
+      rv = FileManager::InitDirectory(*fmDirectory, *databaseFile, aOrigin,
+                                      TelemetryIdForFile(databaseFile));
+      if (NS_WARN_IF(NS_FAILED(rv))) {
+        REPORT_TELEMETRY_INIT_ERR(kQuotaInternalError, IDB_InitDirectory);
+        return rv;
+      }
     }
 
     if (aUsageInfo) {
@@ -17326,29 +17384,6 @@ nsresult QuotaClient::InitOrigin(PersistenceType aPersistenceType,
 
       aUsageInfo->AppendToFileUsage(usage);
     }
-  }
-
-  return NS_OK;
-}
-
-nsresult QuotaClient::GetUsageForOrigin(PersistenceType aPersistenceType,
-                                        const nsACString& aGroup,
-                                        const nsACString& aOrigin,
-                                        const AtomicBool& aCanceled,
-                                        UsageInfo* aUsageInfo) {
-  AssertIsOnIOThread();
-  MOZ_ASSERT(aUsageInfo);
-
-  nsCOMPtr<nsIFile> directory;
-  nsresult rv =
-      GetDirectory(aPersistenceType, aOrigin, getter_AddRefs(directory));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-
-  rv = GetUsageForDirectoryInternal(directory, aCanceled, aUsageInfo, true);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
   }
 
   return NS_OK;
@@ -17613,7 +17648,7 @@ nsresult QuotaClient::GetDirectory(PersistenceType aPersistenceType,
 }
 
 nsresult QuotaClient::GetDatabaseFilenames(
-    nsIFile* aDirectory, const AtomicBool& aCanceled, bool aForUpgrade,
+    nsIFile* aDirectory, const AtomicBool& aCanceled,
     nsTArray<nsString>& aSubdirsToProcess,
     nsTHashtable<nsStringHashKey>& aDatabaseFilenames,
     nsTHashtable<nsStringHashKey>* aObsoleteFilenames) {
@@ -17625,8 +17660,6 @@ nsresult QuotaClient::GetDatabaseFilenames(
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
-
-  const auto sqliteSuffix = kSQLiteSuffix;
 
   nsCOMPtr<nsIFile> file;
   while (NS_SUCCEEDED((rv = entries->GetNextFile(getter_AddRefs(file)))) &&
@@ -17682,122 +17715,12 @@ nsresult QuotaClient::GetDatabaseFilenames(
     }
 
     nsDependentSubstring leafNameBase;
-    if (!GetBaseFilename(leafName, sqliteSuffix, leafNameBase)) {
-      nsString path;
-      MOZ_ALWAYS_SUCCEEDS(file->GetPath(path));
-      MOZ_ASSERT(!path.IsEmpty());
-
-      const nsPrintfCString warning(
-          R"(An unexpected file exists in the storage )"
-          R"(area: "%s")",
-          NS_ConvertUTF16toUTF8(path).get());
-      NS_WARNING(warning.get());
-      if (!aForUpgrade) {
-        return NS_ERROR_UNEXPECTED;
-      }
+    if (!GetFilenameBase(leafName, kSQLiteSuffix, leafNameBase)) {
+      UNKNOWN_FILE_WARNING(leafName);
       continue;
     }
 
     aDatabaseFilenames.PutEntry(leafNameBase);
-  }
-
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-
-  return NS_OK;
-}
-
-nsresult QuotaClient::GetUsageForDirectoryInternal(nsIFile* aDirectory,
-                                                   const AtomicBool& aCanceled,
-                                                   UsageInfo* aUsageInfo,
-                                                   bool aDatabaseFiles) {
-  AssertIsOnIOThread();
-  MOZ_ASSERT(aDirectory);
-  MOZ_ASSERT(aUsageInfo);
-
-  nsCOMPtr<nsIDirectoryEnumerator> entries;
-  nsresult rv = aDirectory->GetDirectoryEntries(getter_AddRefs(entries));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-
-  if (!entries) {
-    return NS_OK;
-  }
-
-  nsCOMPtr<nsIFile> file;
-  while (NS_SUCCEEDED((rv = entries->GetNextFile(getter_AddRefs(file)))) &&
-         file && !aCanceled) {
-    nsString leafName;
-    rv = file->GetLeafName(leafName);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
-    }
-
-    // Ignore the markerfiles. Note: the unremoved files can still be calculated
-    // here as long as its size matches the size recorded in QuotaManager
-    // in-memory objects.
-    if (StringBeginsWith(leafName, kIdbDeletionMarkerFilePrefix)) {
-      continue;
-    }
-
-    if (QuotaManager::IsOSMetadata(leafName) ||
-        QuotaManager::IsDotFile(leafName)) {
-      continue;
-    }
-
-    // Journal files and sqlite-shm files don't count towards usage.
-    if (StringEndsWith(leafName, kSQLiteJournalSuffix) ||
-        StringEndsWith(leafName, kSQLiteSHMSuffix)) {
-      continue;
-    }
-
-    bool isDirectory;
-    rv = file->IsDirectory(&isDirectory);
-    if (rv == NS_ERROR_FILE_NOT_FOUND ||
-        rv == NS_ERROR_FILE_TARGET_DOES_NOT_EXIST) {
-      continue;
-    }
-
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
-    }
-
-    if (isDirectory) {
-      if (aDatabaseFiles) {
-        rv = GetUsageForDirectoryInternal(file, aCanceled, aUsageInfo, false);
-        if (NS_WARN_IF(NS_FAILED(rv))) {
-          return rv;
-        }
-      } else {
-        nsString leafName;
-        rv = file->GetLeafName(leafName);
-        if (NS_WARN_IF(NS_FAILED(rv))) {
-          return rv;
-        }
-
-        if (!leafName.Equals(kJournalDirectoryName)) {
-          NS_WARNING("Unknown directory found!");
-        }
-      }
-
-      continue;
-    }
-
-    int64_t fileSize;
-    rv = file->GetFileSize(&fileSize);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
-    }
-
-    MOZ_ASSERT(fileSize >= 0);
-
-    if (aDatabaseFiles) {
-      aUsageInfo->AppendToDatabaseUsage(Some(uint64_t(fileSize)));
-    } else {
-      aUsageInfo->AppendToFileUsage(Some(uint64_t(fileSize)));
-    }
   }
 
   if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -20995,10 +20918,10 @@ nsresult FactoryOp::OpenDirectory() {
     return rv;
   }
 
-  nsAutoString filename;
-  GetDatabaseFilename(databaseName, filename);
+  nsAutoString databaseFilenameBase;
+  GetDatabaseFilenameBase(databaseName, databaseFilenameBase);
 
-  rv = dbFile->Append(filename + kSQLiteSuffix);
+  rv = dbFile->Append(databaseFilenameBase + kSQLiteSuffix);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -21266,8 +21189,8 @@ nsresult OpenDatabaseOp::DoDatabaseWork() {
   }
 #endif
 
-  nsAutoString filename;
-  GetDatabaseFilename(databaseName, filename);
+  nsAutoString databaseFilenameBase;
+  GetDatabaseFilenameBase(databaseName, databaseFilenameBase);
 
   nsCOMPtr<nsIFile> markerFile;
   rv = dbDirectory->Clone(getter_AddRefs(markerFile));
@@ -21275,7 +21198,7 @@ nsresult OpenDatabaseOp::DoDatabaseWork() {
     return rv;
   }
 
-  rv = markerFile->Append(kIdbDeletionMarkerFilePrefix + filename);
+  rv = markerFile->Append(kIdbDeletionMarkerFilePrefix + databaseFilenameBase);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -21290,8 +21213,9 @@ nsresult OpenDatabaseOp::DoDatabaseWork() {
     // previous operation.
     // Note: only update usage to the QuotaManager when mEnforcingQuota == true
     rv = RemoveDatabaseFilesAndDirectory(
-        *dbDirectory, filename, mEnforcingQuota ? quotaManager : nullptr,
-        persistenceType, mGroup, mOrigin, databaseName);
+        *dbDirectory, databaseFilenameBase,
+        mEnforcingQuota ? quotaManager : nullptr, persistenceType, mGroup,
+        mOrigin, databaseName);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
@@ -21303,7 +21227,7 @@ nsresult OpenDatabaseOp::DoDatabaseWork() {
     return rv;
   }
 
-  rv = dbFile->Append(filename + kSQLiteSuffix);
+  rv = dbFile->Append(databaseFilenameBase + kSQLiteSuffix);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -21326,7 +21250,8 @@ nsresult OpenDatabaseOp::DoDatabaseWork() {
     return rv;
   }
 
-  rv = fmDirectory->Append(filename + kFileManagerDirectoryNameSuffix);
+  rv = fmDirectory->Append(databaseFilenameBase +
+                           kFileManagerDirectoryNameSuffix);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -22562,10 +22487,10 @@ nsresult DeleteDatabaseOp::DoDatabaseWork() {
     return rv;
   }
 
-  nsAutoString filename;
-  GetDatabaseFilename(databaseName, filename);
+  nsAutoString databaseFilenameBase;
+  GetDatabaseFilenameBase(databaseName, databaseFilenameBase);
 
-  mDatabaseFilenameBase = filename;
+  mDatabaseFilenameBase = databaseFilenameBase;
 
   nsCOMPtr<nsIFile> dbFile;
   rv = directory->Clone(getter_AddRefs(dbFile));
@@ -22573,7 +22498,7 @@ nsresult DeleteDatabaseOp::DoDatabaseWork() {
     return rv;
   }
 
-  rv = dbFile->Append(filename + kSQLiteSuffix);
+  rv = dbFile->Append(databaseFilenameBase + kSQLiteSuffix);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }

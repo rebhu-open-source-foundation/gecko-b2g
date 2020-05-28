@@ -5297,21 +5297,6 @@ void PresShell::SetRenderingState(const RenderingState& aState) {
     }
   }
 
-  // nsSubDocumentFrame uses a resolution different from 1.0 to determine if it
-  // needs to build a nsDisplayResolution item. So if we are going from or
-  // to 1.0 then we need to invalidate the subdoc frame so that item gets
-  // created/removed.
-  if (mResolution.valueOr(1.0) != aState.mResolution.valueOr(1.0) &&
-      (mResolution.valueOr(1.0) == 1.0 ||
-       aState.mResolution.valueOr(1.0) == 1.0)) {
-    if (nsIFrame* frame = GetRootFrame()) {
-      frame = nsLayoutUtils::GetCrossDocParentFrame(frame);
-      if (frame) {
-        frame->InvalidateFrame();
-      }
-    }
-  }
-
   mRenderingStateFlags = aState.mRenderingStateFlags;
   mResolution = aState.mResolution;
 }
@@ -8193,6 +8178,12 @@ void PresShell::EventHandler::FinalizeHandlingEvent(WidgetEvent* aEvent) {
           if (aEvent->mFlags.mOnlyChromeDispatch &&
               aEvent->mFlags.mDefaultPreventedByChrome) {
             mPresShell->mIsLastChromeOnlyEscapeKeyConsumed = true;
+          }
+          if (aEvent->mMessage == eKeyDown &&
+              !aEvent->mFlags.mDefaultPrevented) {
+            if (Document* doc = GetDocument()) {
+              doc->TryCancelDialog();
+            }
           }
         }
       }

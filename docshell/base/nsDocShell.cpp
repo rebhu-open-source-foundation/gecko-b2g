@@ -220,6 +220,7 @@
 #include "URIUtils.h"
 
 #include "timeline/JavascriptTimelineMarker.h"
+#include "nsDocShellTelemetryUtils.h"
 
 #ifdef MOZ_PLACES
 #  include "nsIFaviconService.h"
@@ -3494,36 +3495,14 @@ nsDocShell::DisplayLoadError(nsresult aError, nsIURI* aURI,
       errorPage.Assign(alternateErrorPage);
     }
 
-    uint32_t bucketId;
-    bool sendTelemetry = false;
     if (NS_ERROR_PHISHING_URI == aError) {
-      sendTelemetry = true;
       error = "deceptiveBlocked";
-      bucketId = IsFrame()
-                     ? IUrlClassifierUITelemetry::WARNING_PHISHING_PAGE_FRAME
-                     : IUrlClassifierUITelemetry::WARNING_PHISHING_PAGE_TOP;
     } else if (NS_ERROR_MALWARE_URI == aError) {
-      sendTelemetry = true;
       error = "malwareBlocked";
-      bucketId = IsFrame()
-                     ? IUrlClassifierUITelemetry::WARNING_MALWARE_PAGE_FRAME
-                     : IUrlClassifierUITelemetry::WARNING_MALWARE_PAGE_TOP;
     } else if (NS_ERROR_UNWANTED_URI == aError) {
-      sendTelemetry = true;
       error = "unwantedBlocked";
-      bucketId = IsFrame()
-                     ? IUrlClassifierUITelemetry::WARNING_UNWANTED_PAGE_FRAME
-                     : IUrlClassifierUITelemetry::WARNING_UNWANTED_PAGE_TOP;
     } else if (NS_ERROR_HARMFUL_URI == aError) {
-      sendTelemetry = true;
       error = "harmfulBlocked";
-      bucketId = IsFrame()
-                     ? IUrlClassifierUITelemetry::WARNING_HARMFUL_PAGE_FRAME
-                     : IUrlClassifierUITelemetry::WARNING_HARMFUL_PAGE_TOP;
-    }
-
-    if (sendTelemetry && errorPage.EqualsIgnoreCase("blocked")) {
-      Telemetry::Accumulate(Telemetry::URLCLASSIFIER_UI_EVENTS, bucketId);
     }
 
     cssClass.AssignLiteral("blacklist");
@@ -3685,6 +3664,10 @@ nsDocShell::DisplayLoadError(nsresult aError, nsIURI* aURI,
   if (!errorDescriptionID) {
     errorDescriptionID = error;
   }
+
+  Telemetry::AccumulateCategoricalKeyed(
+      IsFrame() ? NS_LITERAL_CSTRING("frame") : NS_LITERAL_CSTRING("top"),
+      mozilla::dom::LoadErrorToTelemetryLabel(aError));
 
   // Test if the error needs to be formatted
   if (!messageStr.IsEmpty()) {
@@ -8772,48 +8755,12 @@ nsresult nsDocShell::InternalLoad(nsDocShellLoadState* aLoadState,
 
   // In e10s, in the parent process, we refuse to load anything other than
   // "safe" resources that we ship or trust enough to give "special" URLs.
-  if (XRE_IsE10sParentProcess()) {
-    nsCOMPtr<nsIURI> uri = aLoadState->URI();
-    do {
-      bool canLoadInParent = false;
-      if (NS_SUCCEEDED(NS_URIChainHasFlags(
-              uri, nsIProtocolHandler::URI_IS_UI_RESOURCE, &canLoadInParent)) &&
-          canLoadInParent) {
-        // We allow UI resources.
-        break;
-      }
-      // For about: and extension-based URIs, which don't get
-      // URI_IS_UI_RESOURCE, first remove layers of view-source:, if present.
-      while (uri && uri->SchemeIs("view-source")) {
-        nsCOMPtr<nsINestedURI> nested = do_QueryInterface(uri);
-        if (nested) {
-          nested->GetInnerURI(getter_AddRefs(uri));
-        } else {
-          break;
-        }
-      }
-      // Allow about: URIs, and allow moz-extension ones if we're running
-      // extension content in the parent process.
-      if (!uri || uri->SchemeIs("about") ||
-          (!StaticPrefs::extensions_webextensions_remote() &&
-           uri->SchemeIs("moz-extension"))) {
-        break;
-      }
-      nsAutoCString scheme;
-      uri->GetScheme(scheme);
-      // Allow ext+foo URIs (extension-registered custom protocols). See
-      // https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/protocol_handlers
-      if (StringBeginsWith(scheme, NS_LITERAL_CSTRING("ext+")) &&
-          !StaticPrefs::extensions_webextensions_remote()) {
-        break;
-      }
-      // Final exception for some legacy automated tests:
-      if (xpc::IsInAutomation() &&
-          Preferences::GetBool("security.allow_unsafe_parent_loads", false)) {
-        break;
-      }
-      return NS_ERROR_FAILURE;
-    } while (0);
+  // Similar check will be performed by the ParentProcessDocumentChannel if in
+  // use.
+  if (XRE_IsE10sParentProcess() &&
+      !DocumentChannel::CanUseDocumentChannel(aLoadState) &&
+      !CanLoadInParentProcess(aLoadState->URI())) {
+    return NS_ERROR_FAILURE;
   }
 
   // Whenever a top-level browsing context is navigated, the user agent MUST
@@ -8972,6 +8919,51 @@ nsresult nsDocShell::InternalLoad(nsDocShellLoadState* aLoadState,
   }
 
   return rv;
+}
+
+/* static */
+bool nsDocShell::CanLoadInParentProcess(nsIURI* aURI) {
+  nsCOMPtr<nsIURI> uri = aURI;
+  // In e10s, in the parent process, we refuse to load anything other than
+  // "safe" resources that we ship or trust enough to give "special" URLs.
+  bool canLoadInParent = false;
+  if (NS_SUCCEEDED(NS_URIChainHasFlags(
+          uri, nsIProtocolHandler::URI_IS_UI_RESOURCE, &canLoadInParent)) &&
+      canLoadInParent) {
+    // We allow UI resources.
+    return true;
+  }
+  // For about: and extension-based URIs, which don't get
+  // URI_IS_UI_RESOURCE, first remove layers of view-source:, if present.
+  while (uri && uri->SchemeIs("view-source")) {
+    nsCOMPtr<nsINestedURI> nested = do_QueryInterface(uri);
+    if (nested) {
+      nested->GetInnerURI(getter_AddRefs(uri));
+    } else {
+      break;
+    }
+  }
+  // Allow about: URIs, and allow moz-extension ones if we're running
+  // extension content in the parent process.
+  if (!uri || uri->SchemeIs("about") ||
+      (!StaticPrefs::extensions_webextensions_remote() &&
+       uri->SchemeIs("moz-extension"))) {
+    return true;
+  }
+  nsAutoCString scheme;
+  uri->GetScheme(scheme);
+  // Allow ext+foo URIs (extension-registered custom protocols). See
+  // https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/protocol_handlers
+  if (StringBeginsWith(scheme, NS_LITERAL_CSTRING("ext+")) &&
+      !StaticPrefs::extensions_webextensions_remote()) {
+    return true;
+  }
+  // Final exception for some legacy automated tests:
+  if (xpc::IsInAutomation() &&
+      StaticPrefs::security_allow_unsafe_parent_loads()) {
+    return true;
+  }
+  return false;
 }
 
 nsIPrincipal* nsDocShell::GetInheritedPrincipal(

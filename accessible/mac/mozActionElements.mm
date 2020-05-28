@@ -132,14 +132,14 @@ enum CheckboxValue {
     // If the EXPANDED state is updated, fire AXMenu events on the
     // popups child which is the actual menu.
     if (mozAccessible* popup = (mozAccessible*)[self childAt:0]) {
-      [popup postNotification:(enabled ? @"AXMenuOpened" : @"AXMenuClosed")];
+      [popup moxPostNotification:(enabled ? @"AXMenuOpened" : @"AXMenuClosed")];
     }
   }
 }
 
 - (BOOL)ignoreWithParent:(mozAccessible*)parent {
-  if (AccessibleWrap* accWrap = [self getGeckoAccessible]) {
-    if (accWrap->IsContent() && accWrap->GetContent()->IsXULElement(nsGkAtoms::menulist)) {
+  if (Accessible* acc = mGeckoAccessible.AsAccessible()) {
+    if (acc->IsContent() && acc->GetContent()->IsXULElement(nsGkAtoms::menulist)) {
       // The way select elements work is that content has a COMBOBOX accessible, when it is clicked
       // it expands a COMBOBOX in our top-level main XUL window. The latter COMBOBOX is a stand-in
       // for the content one while it is expanded.
@@ -183,31 +183,29 @@ enum CheckboxValue {
 @implementation mozPaneAccessible
 
 - (NSUInteger)accessibilityArrayAttributeCount:(NSString*)attribute {
-  AccessibleWrap* accWrap = [self getGeckoAccessible];
-  ProxyAccessible* proxy = [self getProxyAccessible];
-  if (!accWrap && !proxy) return 0;
+  if ([self isExpired]) {
+    return 0;
+  }
 
   // By default this calls -[[mozAccessible children] count].
   // Since we don't cache mChildren. This is faster.
   if ([attribute isEqualToString:NSAccessibilityChildrenAttribute]) {
-    if (accWrap) return accWrap->ChildCount() ? 1 : 0;
-
-    return proxy->ChildrenCount() ? 1 : 0;
+    return mGeckoAccessible.ChildCount() ? 1 : 0;
   }
 
   return [super accessibilityArrayAttributeCount:attribute];
 }
 
 - (NSArray*)children {
-  if (![self getGeckoAccessible]) return nil;
+  if (!mGeckoAccessible.AsAccessible()) return nil;
 
-  nsDeckFrame* deckFrame = do_QueryFrame([self getGeckoAccessible]->GetFrame());
+  nsDeckFrame* deckFrame = do_QueryFrame(mGeckoAccessible.AsAccessible()->GetFrame());
   nsIFrame* selectedFrame = deckFrame ? deckFrame->GetSelectedBox() : nullptr;
 
   Accessible* selectedAcc = nullptr;
   if (selectedFrame) {
     nsINode* node = selectedFrame->GetContent();
-    selectedAcc = [self getGeckoAccessible]->Document() -> GetAccessible(node);
+    selectedAcc = mGeckoAccessible.AsAccessible()->Document()->GetAccessible(node);
   }
 
   if (selectedAcc) {
@@ -263,14 +261,14 @@ enum CheckboxValue {
 - (void)changeValueBySteps:(int)factor {
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
 
-  if (AccessibleWrap* accWrap = [self getGeckoAccessible]) {
-    double newVal = accWrap->CurValue() + (accWrap->Step() * factor);
-    double min = accWrap->MinValue();
-    double max = accWrap->MaxValue();
+  if (Accessible* acc = mGeckoAccessible.AsAccessible()) {
+    double newVal = acc->CurValue() + (acc->Step() * factor);
+    double min = acc->MinValue();
+    double max = acc->MaxValue();
     if ((IsNaN(min) || newVal >= min) && (IsNaN(max) || newVal <= max)) {
-      accWrap->SetCurValue(newVal);
+      acc->SetCurValue(newVal);
     }
-  } else if (ProxyAccessible* proxy = [self getProxyAccessible]) {
+  } else if (ProxyAccessible* proxy = mGeckoAccessible.AsProxy()) {
     double newVal = proxy->CurValue() + (proxy->Step() * factor);
     double min = proxy->MinValue();
     double max = proxy->MaxValue();
@@ -290,7 +288,7 @@ enum CheckboxValue {
   switch (eventType) {
     case nsIAccessibleEvent::EVENT_TEXT_VALUE_CHANGE:
     case nsIAccessibleEvent::EVENT_VALUE_CHANGE:
-      [self postNotification:NSAccessibilityValueChangedNotification];
+      [self moxPostNotification:NSAccessibilityValueChangedNotification];
       break;
     default:
       [super handleAccessibleEvent:eventType];

@@ -827,10 +827,16 @@ class MacroAssemblerARMCompat : public MacroAssemblerARM {
   void unboxInt32(const Address& src, Register dest) {
     unboxNonDouble(src, dest, JSVAL_TYPE_INT32);
   }
+  void unboxInt32(const BaseIndex& src, Register dest) {
+    unboxNonDouble(src, dest, JSVAL_TYPE_INT32);
+  }
   void unboxBoolean(const ValueOperand& src, Register dest) {
     unboxNonDouble(src, dest, JSVAL_TYPE_BOOLEAN);
   }
   void unboxBoolean(const Address& src, Register dest) {
+    unboxNonDouble(src, dest, JSVAL_TYPE_BOOLEAN);
+  }
+  void unboxBoolean(const BaseIndex& src, Register dest) {
     unboxNonDouble(src, dest, JSVAL_TYPE_BOOLEAN);
   }
   void unboxString(const ValueOperand& src, Register dest) {
@@ -885,6 +891,10 @@ class MacroAssemblerARMCompat : public MacroAssemblerARM {
   void notBoolean(const ValueOperand& val) {
     as_eor(val.payloadReg(), val.payloadReg(), Imm8(1));
   }
+
+  template <typename T>
+  void fallibleUnboxPtrImpl(const T& src, Register dest, JSValueType type,
+                            Label* fail);
 
   // Boxing code.
   void boxDouble(FloatRegister src, const ValueOperand& dest, FloatRegister);

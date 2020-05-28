@@ -207,6 +207,7 @@ export type Target = {
   isParentProcess: boolean,
   isServiceWorker: boolean,
   targetForm: Object,
+  reconfigure: Object,
 
   // Property installed by the debugger itself.
   debuggerServiceWorkerStatus: string,
@@ -255,7 +256,7 @@ type ProcessDescriptor = Object;
 export type TargetList = {
   watchTargets: (Array<string>, Function, Function) => void,
   unwatchTargets: (Array<string>, Function, Function) => void,
-  getAllTargets: string => Array<Target>,
+  getAllTargets: (Array<string>) => Array<Target>,
   targetFront: Target,
   TYPES: {
     FRAME: string,

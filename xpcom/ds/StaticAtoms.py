@@ -1222,7 +1222,6 @@ STATIC_ATOMS = [
     Atom("tokenize", "tokenize"),
     Atom("toolbar", "toolbar"),
     Atom("toolbarbutton", "toolbarbutton"),
-    Atom("toolbarbuttonMultilineText", "toolbarbutton-multiline-text"),
     Atom("toolbaritem", "toolbaritem"),
     Atom("toolbarpaletteitem", "toolbarpaletteitem"),
     Atom("toolbox", "toolbox"),

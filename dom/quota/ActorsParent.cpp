@@ -91,12 +91,6 @@
 #define QM_LOG_TEST() MOZ_LOG_TEST(GetQuotaManagerLogger(), LogLevel::Info)
 #define QM_LOG(_args) MOZ_LOG(GetQuotaManagerLogger(), LogLevel::Info, _args)
 
-#define UNKNOWN_FILE_WARNING(_leafName)                                       \
-  NS_WARNING(                                                                 \
-      nsPrintfCString("Something (%s) in the directory that doesn't belong!", \
-                      NS_ConvertUTF16toUTF8(_leafName).get())                 \
-          .get())
-
 // The amount of time, in milliseconds, that our IO thread will stay alive
 // after the last event it processes.
 #define DEFAULT_THREAD_TIMEOUT_MS 30000
@@ -5309,8 +5303,7 @@ nsresult QuotaManager::InitializeOrigin(PersistenceType aPersistenceType,
     UsageInfo usageInfo;
     rv = mClients[clientType]->InitOrigin(aPersistenceType, aGroup, aOrigin,
                                           /* aCanceled */ Atomic<bool>(false),
-                                          trackQuota ? &usageInfo : nullptr,
-                                          /* aForGetUsage */ false);
+                                          trackQuota ? &usageInfo : nullptr);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       // error should have reported in InitOrigin
       RECORD_IN_NIGHTLY(statusKeeper, rv);
@@ -9155,7 +9148,7 @@ nsresult QuotaUsageRequestBase::GetUsageForOrigin(
                                        mCanceled, aUsageInfo);
       } else {
         rv = client->InitOrigin(aPersistenceType, aGroup, aOrigin, mCanceled,
-                                aUsageInfo, /* aForGetUsage */ true);
+                                aUsageInfo);
       }
       NS_ENSURE_SUCCESS(rv, rv);
     }

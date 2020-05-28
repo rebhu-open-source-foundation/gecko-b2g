@@ -142,10 +142,10 @@
     return;
   }
 
-  if (AccessibleWrap* accWrap = [self getGeckoAccessible]) {
-    accWrap->SetSelected(selected);
-  } else if (ProxyAccessible* proxy = [self getProxyAccessible]) {
-    proxy->SetSelected(selected);
+  if (Accessible* acc = mGeckoAccessible.AsAccessible()) {
+    acc->SetSelected(selected);
+  } else {
+    mGeckoAccessible.AsProxy()->SetSelected(selected);
   }
 
   // We need to invalidate the state because the accessibility service
@@ -261,8 +261,8 @@
   return @"";
 }
 
-- (void)postNotification:(NSString*)notification {
-  [super postNotification:notification];
+- (void)moxPostNotification:(NSString*)notification {
+  [super moxPostNotification:notification];
 
   if ([notification isEqualToString:@"AXMenuOpened"]) {
     mIsOpened = YES;
@@ -275,7 +275,7 @@
   if (mIsOpened) {
     // VO needs to receive a menu closed event when the menu goes away.
     // If the menu is being destroyed, send a menu closed event first.
-    [self postNotification:@"AXMenuClosed"];
+    [self moxPostNotification:@"AXMenuClosed"];
   }
 
   [super expire];
@@ -306,17 +306,16 @@
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK_NIL;
 
   if ([attribute isEqualToString:@"AXMenuItemMarkChar"]) {
-    AccessibleWrap* accWrap = [self getGeckoAccessible];
-    if (accWrap && accWrap->IsContent() &&
-        accWrap->GetContent()->IsXULElement(nsGkAtoms::menuitem)) {
+    Accessible* acc = mGeckoAccessible.AsAccessible();
+    if (acc && acc->IsContent() && acc->GetContent()->IsXULElement(nsGkAtoms::menuitem)) {
       // We need to provide a marker character. This is the visible "√" you see
       // on dropdown menus. In our a11y tree this is a single child text node
       // of the menu item.
       // We do this only with XUL menuitems that conform to the native theme, and not
       // with aria menu items that might have a pseudo element or something.
-      if (accWrap->ChildCount() == 1 && accWrap->FirstChild()->Role() == roles::STATICTEXT) {
+      if (acc->ChildCount() == 1 && acc->FirstChild()->Role() == roles::STATICTEXT) {
         nsAutoString marker;
-        accWrap->FirstChild()->Name(marker);
+        acc->FirstChild()->Name(marker);
         if (marker.Length() == 1) {
           return nsCocoaUtils::ToNSString(marker);
         }
@@ -340,7 +339,7 @@
     case nsIAccessibleEvent::EVENT_FOCUS:
       // Our focused state is equivelent to native selected states for menus.
       mozAccessible* parent = (mozAccessible*)[self parent];
-      [parent postNotification:NSAccessibilitySelectedChildrenChangedNotification];
+      [parent moxPostNotification:NSAccessibilitySelectedChildrenChangedNotification];
       break;
   }
 

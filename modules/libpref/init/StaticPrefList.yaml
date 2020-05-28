@@ -7801,14 +7801,10 @@
 - name: network.process.enabled
   type: RelaxedAtomicBool
   mirror: always
-#ifdef ANDROID
-  value: false
+#if defined(ANDROID) || defined(MOZ_THUNDERBIRD)
+  value: false # see bug 1641427
 #else
-#ifdef NIGHTLY_BUILD
-  value: true
-#else
-  value: false
-#endif
+  value: @IS_NIGHTLY_BUILD@
 #endif
 
 # Whether we can send OnDataAvailable to content process directly.
@@ -8170,6 +8166,11 @@
   value: false
   mirror: always
 
+- name: privacy.firstparty.isolate.use_site
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # Enforce tracking protection in all modes.
 - name: privacy.trackingprotection.enabled
   type: bool
@@ -8427,6 +8428,11 @@
   value: false
   mirror: always
 
+- name: privacy.dynamic_firstparty.use_site
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 - name: privacy.partition.network_state
   type: RelaxedAtomicBool
   value: @IS_NIGHTLY_BUILD@
@@ -8506,6 +8512,13 @@
 - name: security.allow_eval_in_parent_process
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+# Disallowed by default, ensure not disallowed content is loaded in the parent
+# process.
+- name: security.allow_unsafe_parent_loads
+  type: bool
+  value: false
   mirror: always
 
 # Pref to block mixed scripts (fonts, plugin content, scripts, stylesheets,

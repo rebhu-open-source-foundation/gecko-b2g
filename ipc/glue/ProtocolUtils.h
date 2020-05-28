@@ -216,8 +216,6 @@ class IProtocol : public HasResultCodes {
   void ReplaceEventTargetForActor(IProtocol* aActor,
                                   nsIEventTarget* aEventTarget);
 
-  void SetEventTargetForRoute(int32_t aRoute, nsIEventTarget* aEventTarget);
-
   nsIEventTarget* GetActorEventTarget();
   already_AddRefed<nsIEventTarget> GetActorEventTarget(IProtocol* aActor);
 
@@ -414,7 +412,6 @@ class IToplevelProtocol : public IProtocol {
                                       nsIEventTarget* aEventTarget);
   void ReplaceEventTargetForActor(IProtocol* aActor,
                                   nsIEventTarget* aEventTarget);
-  void SetEventTargetForRoute(int32_t aRoute, nsIEventTarget* aEventTarget);
   nsIEventTarget* GetActorEventTarget();
   already_AddRefed<nsIEventTarget> GetActorEventTarget(IProtocol* aActor);
 
@@ -515,21 +512,6 @@ class IToplevelProtocol : public IProtocol {
   void OnIPCChannelOpened() { ActorConnected(); }
 
   already_AddRefed<nsIEventTarget> GetMessageEventTarget(const Message& aMsg);
-
- protected:
-  // Override this method in top-level protocols to change the event target
-  // for a new actor (and its sub-actors).
-  virtual already_AddRefed<nsIEventTarget> GetConstructedEventTarget(
-      const Message& aMsg) {
-    return nullptr;
-  }
-
-  // Override this method in top-level protocols to change the event target
-  // for specific messages.
-  virtual already_AddRefed<nsIEventTarget> GetSpecificMessageEventTarget(
-      const Message& aMsg) {
-    return nullptr;
-  }
 
  private:
   base::ProcessId OtherPidMaybeInvalid() const { return mOtherPid; }

@@ -725,6 +725,9 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared {
   void unboxInt32(const Address& src, Register dest) {
     unboxInt32(Operand(src), dest);
   }
+  void unboxInt32(const BaseIndex& src, Register dest) {
+    unboxInt32(Operand(src), dest);
+  }
   template <typename T>
   void unboxDouble(const T& src, FloatRegister dest) {
     loadDouble(Operand(src), dest);
@@ -745,6 +748,9 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared {
   }
   void unboxBoolean(const Operand& src, Register dest) { movl(src, dest); }
   void unboxBoolean(const Address& src, Register dest) {
+    unboxBoolean(Operand(src), dest);
+  }
+  void unboxBoolean(const BaseIndex& src, Register dest) {
     unboxBoolean(Operand(src), dest);
   }
 
@@ -864,6 +870,9 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared {
     movq(ImmWord(JS::detail::ValueGCThingPayloadMask), dest);
     andq(src.valueReg(), dest);
   }
+
+  inline void fallibleUnboxPtrImpl(const Operand& src, Register dest,
+                                   JSValueType type, Label* fail);
 
   // Extended unboxing API. If the payload is already in a register, returns
   // that register. Otherwise, provides a move to the given scratch register,

@@ -50,8 +50,32 @@ export default class MonitorClass {
     exposedPasswordsLink.href = MONITOR_HOME_PAGE_URL;
   }
 
-  onClickMonitorInfoBlock() {
+  onClickMonitorButton(evt) {
     RPMSendAsyncMessage("ClearMonitorCache");
+    switch (evt.target.id) {
+      case "monitor-partial-breaches-link":
+        this.doc.sendTelemetryEvent(
+          "click",
+          "mtr_report_link",
+          "resolve_breaches"
+        );
+        break;
+      case "monitor-breaches-link":
+        if (evt.target.classList.contains("no-breaches-resolved")) {
+          this.doc.sendTelemetryEvent(
+            "click",
+            "mtr_report_link",
+            "manage_breaches"
+          );
+        } else {
+          this.doc.sendTelemetryEvent(
+            "click",
+            "mtr_report_link",
+            "view_report"
+          );
+        }
+        break;
+    }
   }
 
   /**
@@ -118,6 +142,7 @@ export default class MonitorClass {
       numBreaches,
       numBreachesResolved,
       passwords,
+      passwordsResolved,
       monitoredEmails,
     } = monitorData;
     const monitorCardBody = this.doc.querySelector(
@@ -131,45 +156,26 @@ export default class MonitorClass {
     const storedEmail = this.doc.querySelector(
       "span[data-type='stored-emails']"
     );
+    storedEmail.textContent = monitoredEmails;
+    const infoMonitoredAddresses = this.doc.getElementById(
+      "info-monitored-addresses"
+    );
+    this.doc.l10n.setAttributes(
+      infoMonitoredAddresses,
+      "info-monitored-emails",
+      { count: monitoredEmails }
+    );
+
     const knownBreaches = this.doc.querySelector(
       "span[data-type='known-breaches']"
     );
     const exposedPasswords = this.doc.querySelector(
       "span[data-type='exposed-passwords']"
     );
-    storedEmail.textContent = monitoredEmails;
-    knownBreaches.textContent = numBreaches;
-    exposedPasswords.textContent = passwords;
-
-    const infoMonitoredAddresses = this.doc.getElementById(
-      "info-monitored-addresses"
-    );
-    infoMonitoredAddresses.setAttribute(
-      "data-l10n-args",
-      JSON.stringify({ count: monitoredEmails })
-    );
-    infoMonitoredAddresses.setAttribute(
-      "data-l10n-id",
-      "info-monitored-emails"
-    );
 
     const infoKnownBreaches = this.doc.getElementById("info-known-breaches");
-    infoKnownBreaches.setAttribute(
-      "data-l10n-args",
-      JSON.stringify({ count: numBreaches })
-    );
-    infoKnownBreaches.setAttribute("data-l10n-id", "info-known-breaches-found");
-
     const infoExposedPasswords = this.doc.getElementById(
       "info-exposed-passwords"
-    );
-    infoExposedPasswords.setAttribute(
-      "data-l10n-args",
-      JSON.stringify({ count: passwords })
-    );
-    infoExposedPasswords.setAttribute(
-      "data-l10n-id",
-      "info-exposed-passwords-found"
     );
 
     const breachesWrapper = this.doc.querySelector(".monitor-breaches-wrapper");
@@ -185,6 +191,19 @@ export default class MonitorClass {
     if (numBreaches) {
       if (!numBreachesResolved) {
         partialBreachesWrapper.classList.add("hidden");
+        knownBreaches.textContent = numBreaches;
+        this.doc.l10n.setAttributes(
+          infoKnownBreaches,
+          "info-known-breaches-found",
+          { count: numBreaches }
+        );
+        exposedPasswords.textContent = passwords;
+        this.doc.l10n.setAttributes(
+          infoExposedPasswords,
+          "info-exposed-passwords-found",
+          { count: passwords }
+        );
+
         breachesIcon.setAttribute(
           "src",
           "chrome://browser/skin/protections/new-feature.svg"
@@ -201,8 +220,23 @@ export default class MonitorClass {
           "data-l10n-id",
           "monitor-manage-breaches-link"
         );
+        breachesLink.classList.add("no-breaches-resolved");
       } else if (numBreaches == numBreachesResolved) {
         partialBreachesWrapper.classList.add("hidden");
+        knownBreaches.textContent = numBreachesResolved;
+        this.doc.l10n.setAttributes(
+          infoKnownBreaches,
+          "info-known-breaches-resolved",
+          { count: numBreachesResolved }
+        );
+        let unresolvedPasswords = passwords - passwordsResolved;
+        exposedPasswords.textContent = unresolvedPasswords;
+        this.doc.l10n.setAttributes(
+          infoExposedPasswords,
+          "info-exposed-passwords-resolved",
+          { count: unresolvedPasswords }
+        );
+
         breachesIcon.setAttribute(
           "src",
           "chrome://browser/skin/protections/resolved-breach.svg"
@@ -218,6 +252,20 @@ export default class MonitorClass {
         breachesLink.setAttribute("data-l10n-id", "monitor-view-report-link");
       } else {
         breachesWrapper.classList.add("hidden");
+        knownBreaches.textContent = numBreachesResolved;
+        this.doc.l10n.setAttributes(
+          infoKnownBreaches,
+          "info-known-breaches-resolved",
+          { count: numBreachesResolved }
+        );
+        let unresolvedPasswords = passwords - passwordsResolved;
+        exposedPasswords.textContent = unresolvedPasswords;
+        this.doc.l10n.setAttributes(
+          infoExposedPasswords,
+          "info-exposed-passwords-resolved",
+          { count: unresolvedPasswords }
+        );
+
         const partialBreachesTitle = document.getElementById(
           "monitor-partial-breaches-title"
         );
@@ -285,11 +333,24 @@ export default class MonitorClass {
         partialBreachesLink.setAttribute("href", MONITOR_HOME_PAGE_URL);
         partialBreachesLink.addEventListener(
           "click",
-          this.onClickMonitorInfoBlock
+          this.onClickMonitorButton.bind(this)
         );
       }
     } else {
       partialBreachesWrapper.classList.add("hidden");
+      knownBreaches.textContent = numBreaches;
+      this.doc.l10n.setAttributes(
+        infoKnownBreaches,
+        "info-known-breaches-found",
+        { count: numBreaches }
+      );
+      exposedPasswords.textContent = passwords;
+      this.doc.l10n.setAttributes(
+        infoExposedPasswords,
+        "info-exposed-passwords-found",
+        { count: passwords }
+      );
+
       breachesIcon.setAttribute(
         "src",
         "chrome://browser/skin/protections/resolved-breach.svg"
@@ -303,6 +364,9 @@ export default class MonitorClass {
     }
 
     breachesLink.setAttribute("href", MONITOR_HOME_PAGE_URL);
-    breachesLink.addEventListener("click", this.onClickMonitorInfoBlock);
+    breachesLink.addEventListener(
+      "click",
+      this.onClickMonitorButton.bind(this)
+    );
   }
 }

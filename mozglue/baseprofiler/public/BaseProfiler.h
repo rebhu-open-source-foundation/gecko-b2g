@@ -125,43 +125,37 @@ class SpliceableJSONWriter;
     MACRO(6, "noiostacks", NoIOStacks,                                         \
           "File I/O markers do not capture stacks, to reduce overhead")        \
                                                                                \
-    MACRO(7, "privacy", Privacy,                                               \
-          "Do not include user-identifiable information")                      \
-                                                                               \
-    MACRO(8, "screenshots", Screenshots,                                       \
+    MACRO(7, "screenshots", Screenshots,                                       \
           "Take a snapshot of the window on every composition")                \
                                                                                \
-    MACRO(9, "seqstyle", SequentialStyle,                                      \
+    MACRO(8, "seqstyle", SequentialStyle,                                      \
           "Disable parallel traversal in styling")                             \
                                                                                \
-    MACRO(10, "stackwalk", StackWalk,                                          \
+    MACRO(9, "stackwalk", StackWalk,                                           \
           "Walk the C++ stack, not available on all platforms")                \
                                                                                \
-    MACRO(11, "tasktracer", TaskTracer,                                        \
+    MACRO(10, "tasktracer", TaskTracer,                                        \
           "Start profiling with feature TaskTracer")                           \
                                                                                \
-    MACRO(12, "threads", Threads, "Profile the registered secondary threads")  \
+    MACRO(11, "threads", Threads, "Profile the registered secondary threads")  \
                                                                                \
-    MACRO(13, "trackopts", TrackOptimizations,                                 \
-          "Have the JavaScript engine track JIT optimizations")                \
+    MACRO(12, "jstracer", JSTracer, "Enable tracing of the JavaScript engine") \
                                                                                \
-    MACRO(14, "jstracer", JSTracer, "Enable tracing of the JavaScript engine") \
-                                                                               \
-    MACRO(15, "jsallocations", JSAllocations,                                  \
+    MACRO(13, "jsallocations", JSAllocations,                                  \
           "Have the JavaScript engine track allocations")                      \
                                                                                \
-    MACRO(16, "nostacksampling", NoStackSampling,                              \
+    MACRO(14, "nostacksampling", NoStackSampling,                              \
           "Disable all stack sampling: Cancels \"js\", \"leaf\", "             \
           "\"stackwalk\" and labels")                                          \
                                                                                \
-    MACRO(17, "preferencereads", PreferenceReads,                              \
+    MACRO(15, "preferencereads", PreferenceReads,                              \
           "Track when preferences are read")                                   \
                                                                                \
-    MACRO(18, "nativeallocations", NativeAllocations,                          \
+    MACRO(16, "nativeallocations", NativeAllocations,                          \
           "Collect the stacks from a smaller subset of all native "            \
           "allocations, biasing towards collecting larger allocations")        \
                                                                                \
-    MACRO(19, "ipcmessages", IPCMessages,                                      \
+    MACRO(17, "ipcmessages", IPCMessages,                                      \
           "Have the IPC layer track cross-process messages")
 
 struct ProfilerFeature {
@@ -207,9 +201,7 @@ class RacyFeatures {
 
   MFBT_API static bool IsActiveWithFeature(uint32_t aFeature);
 
-  MFBT_API static bool IsActiveWithoutPrivacy();
-
-  MFBT_API static bool IsActiveAndUnpausedWithoutPrivacy();
+  MFBT_API static bool IsActiveAndUnpaused();
 
  private:
   static constexpr uint32_t Active = 1u << 31;
@@ -238,26 +230,26 @@ MFBT_API bool IsThreadBeingProfiled();
 //---------------------------------------------------------------------------
 
 static constexpr PowerOfTwo32 BASE_PROFILER_DEFAULT_ENTRIES =
-#  if !defined(ARCH_ARMV6)
-    MakePowerOfTwo32<1u << 20>();  // 1'048'576 entries = 8MB
+#  if !defined(GP_PLAT_arm_android)
+    MakePowerOfTwo32<1024 * 1024>();  // 1M entries = 8MB
 #  else
-    MakePowerOfTwo32<1u << 17>();  // 131'072 entries = 1MB
+    MakePowerOfTwo32<128 * 1024>();  // 128k entries = 1MB
 #  endif
 
 // Startup profiling usually need to capture more data, especially on slow
 // systems.
 static constexpr PowerOfTwo32 BASE_PROFILER_DEFAULT_STARTUP_ENTRIES =
-#  if !defined(ARCH_ARMV6)
-    MakePowerOfTwo32<1u << 22>();  // 4'194'304 entries = 32MB
+#  if !defined(GP_PLAT_arm_android)
+    MakePowerOfTwo32<4 * 1024 * 1024>();  // 4M entries = 32MB
 #  else
-    MakePowerOfTwo32<1u << 17>();  // 131'072 = 1MB
+    MakePowerOfTwo32<256 * 1024>();  // 256k entries = 2MB
 #  endif
 
 #  define BASE_PROFILER_DEFAULT_DURATION 20
 #  define BASE_PROFILER_DEFAULT_INTERVAL 1
 
-// Initialize the profiler. If MOZ_BASE_PROFILER_STARTUP is set the profiler
-// will also be started. This call must happen before any other profiler calls
+// Initialize the profiler. If MOZ_PROFILER_STARTUP is set the profiler will
+// also be started. This call must happen before any other profiler calls
 // (except profiler_start(), which will call profiler_init() if it hasn't
 // already run).
 MFBT_API void profiler_init(void* stackTop);
@@ -417,8 +409,7 @@ inline bool profiler_is_active() {
 //     BASE_PROFILER_ADD_MARKER_WITH_PAYLOAD(name, OTHER, expensivePayload);
 //   }
 inline bool profiler_can_accept_markers() {
-  return baseprofiler::detail::RacyFeatures::
-      IsActiveAndUnpausedWithoutPrivacy();
+  return baseprofiler::detail::RacyFeatures::IsActiveAndUnpaused();
 }
 
 // Is the profiler active, and is the current thread being profiled?
@@ -490,7 +481,7 @@ class ProfilerStackCollector {
 // This method suspends the thread identified by aThreadId, samples its
 // profiling stack, JS stack, and (optionally) native stack, passing the
 // collected frames into aCollector. aFeatures dictates which compiler features
-// are used. |Privacy| and |Leaf| are the only relevant ones.
+// are used. |Leaf| is the only relevant one.
 MFBT_API void profiler_suspend_and_sample_thread(
     int aThreadId, uint32_t aFeatures, ProfilerStackCollector& aCollector,
     bool aSampleNative = true);
@@ -503,7 +494,7 @@ using UniqueProfilerBacktrace =
     UniquePtr<ProfilerBacktrace, ProfilerBacktraceDestructor>;
 
 // Immediately capture the current thread's call stack and return it. A no-op
-// if the profiler is inactive or in privacy mode.
+// if the profiler is inactive.
 MFBT_API UniqueProfilerBacktrace profiler_get_backtrace();
 
 struct ProfilerStats {
@@ -744,8 +735,7 @@ class MOZ_RAII AutoProfilerStats {
 // recorded in the profile buffer if a sample is collected while the label is
 // on the label stack, markers will always be recorded in the profile buffer.
 // aMarkerName is copied, so the caller does not need to ensure it lives for a
-// certain length of time. A no-op if the profiler is inactive or in privacy
-// mode.
+// certain length of time. A no-op if the profiler is inactive.
 
 #  define BASE_PROFILER_ADD_MARKER(markerName, categoryPair)             \
     do {                                                                 \
@@ -801,8 +791,7 @@ enum TracingKind {
   TRACING_INTERVAL_END,
 };
 
-// Adds a tracing marker to the profile. A no-op if the profiler is inactive or
-// in privacy mode.
+// Adds a tracing marker to the profile. A no-op if the profiler is inactive.
 
 #  define BASE_PROFILER_TRACING_MARKER(categoryString, markerName, \
                                        categoryPair, kind)         \
@@ -1071,7 +1060,7 @@ class MOZ_RAII AutoProfilerTracing {
   const Maybe<uint64_t> mInnerWindowID;
 };
 
-// Get the MOZ_BASE_PROFILER_STARTUP* environment variables that should be
+// Get the MOZ_PROFILER_STARTUP* environment variables that should be
 // supplied to a child process that is about to be launched, in order
 // to make that child process start with the same profiler settings as
 // in the current process.  The given function is invoked once for

@@ -68,7 +68,7 @@ class ResourceWatcher {
    *                                  If set to true, onAvailable won't be called with
    *                                  existing resources.
    */
-  async watch(resources, options) {
+  async watchResources(resources, options) {
     const { ignoreExistingResources = false } = options;
 
     // First ensuring enabling listening to targets.
@@ -93,9 +93,9 @@ class ResourceWatcher {
 
   /**
    * Stop watching for given type of resources.
-   * See `watch` for the arguments as both methods receive the same.
+   * See `watchResources` for the arguments as both methods receive the same.
    */
-  unwatch(resources, options) {
+  unwatchResources(resources, options) {
     const { onAvailable, onDestroyed } = options;
 
     for (const resource of resources) {
@@ -245,7 +245,7 @@ class ResourceWatcher {
    */
   async _startListening(resourceType) {
     const isDocumentEvent =
-      resourceType === ResourceWatcher.TYPES.DOCUMENT_EVENTS;
+      resourceType === ResourceWatcher.TYPES.DOCUMENT_EVENT;
 
     let listeners = this._listenerCount.get(resourceType) || 0;
     listeners++;
@@ -253,7 +253,7 @@ class ResourceWatcher {
       // If there are several calls to watch, only the first caller receives
       // "existing" resources. Throw to avoid inconsistent behaviors
       if (isDocumentEvent) {
-        // For DOCUMENT_EVENTS, return without throwing because this is already
+        // For DOCUMENT_EVENT, return without throwing because this is already
         // used by several callsites in the netmonitor.
         // This should be reviewed in Bug 1625909.
         this._listenerCount.set(resourceType, listeners);
@@ -262,7 +262,7 @@ class ResourceWatcher {
 
       throw new Error(
         `The ResourceWatcher is already listening to "${resourceType}", ` +
-          "the client should call `watch` only once per resource type."
+          "the client should call `watchResources` only once per resource type."
       );
     }
 
@@ -284,11 +284,9 @@ class ResourceWatcher {
     // we should go through all the existing targets as onTargetAvailable
     // has already been called for these existing targets.
     const promises = [];
-    for (const targetType of this.targetList.ALL_TYPES) {
-      // XXX: May be expose a getReallyAllTarget() on TargetList?
-      for (const target of this.targetList.getAllTargets(targetType)) {
-        promises.push(this._watchResourcesForTarget(target, resourceType));
-      }
+    const targets = this.targetList.getAllTargets(this.targetList.ALL_TYPES);
+    for (const target of targets) {
+      promises.push(this._watchResourcesForTarget(target, resourceType));
     }
     await Promise.all(promises);
   }
@@ -330,18 +328,16 @@ class ResourceWatcher {
 
     // If this was the last listener, we should stop watching these events from the actors
     // and the actors should stop watching things from the platform
-    for (const targetType of this.targetList.ALL_TYPES) {
-      // XXX: May be expose a getReallyAllTarget() on TargetList?
-      for (const target of this.targetList.getAllTargets(targetType)) {
-        this._unwatchResourcesForTarget(targetType, target, resourceType);
-      }
+    const targets = this.targetList.getAllTargets(this.targetList.ALL_TYPES);
+    for (const target of targets) {
+      this._unwatchResourcesForTarget(target, resourceType);
     }
   }
 
   /**
    * Backward compatibility code, reverse of _watchResourcesForTarget.
    */
-  _unwatchResourcesForTarget(targetType, targetFront, resourceType) {
+  _unwatchResourcesForTarget(targetFront, resourceType) {
     // Is there really a point in:
     // - unregistering `onAvailable` RDP event callbacks from target-scoped actors?
     // - calling `stopListeners()` as we are most likely closing the toolbox and destroying everything?
@@ -356,10 +352,10 @@ class ResourceWatcher {
 }
 
 ResourceWatcher.TYPES = ResourceWatcher.prototype.TYPES = {
-  CONSOLE_MESSAGES: "console-messages",
-  ERROR_MESSAGES: "error-messages",
-  PLATFORM_MESSAGES: "platform-messages",
-  DOCUMENT_EVENTS: "document-events",
+  CONSOLE_MESSAGE: "console-message",
+  ERROR_MESSAGE: "error-message",
+  PLATFORM_MESSAGE: "platform-message",
+  DOCUMENT_EVENT: "document-event",
   ROOT_NODE: "root-node",
 };
 module.exports = { ResourceWatcher };
@@ -369,12 +365,12 @@ module.exports = { ResourceWatcher };
 // code is implement in Firefox, in its release channel.
 const LegacyListeners = {
   [ResourceWatcher.TYPES
-    .CONSOLE_MESSAGES]: require("devtools/shared/resources/legacy-listeners/console-messages"),
+    .CONSOLE_MESSAGE]: require("devtools/shared/resources/legacy-listeners/console-messages"),
   [ResourceWatcher.TYPES
-    .ERROR_MESSAGES]: require("devtools/shared/resources/legacy-listeners/error-messages"),
+    .ERROR_MESSAGE]: require("devtools/shared/resources/legacy-listeners/error-messages"),
   [ResourceWatcher.TYPES
-    .PLATFORM_MESSAGES]: require("devtools/shared/resources/legacy-listeners/platform-messages"),
-  async [ResourceWatcher.TYPES.DOCUMENT_EVENTS]({
+    .PLATFORM_MESSAGE]: require("devtools/shared/resources/legacy-listeners/platform-messages"),
+  async [ResourceWatcher.TYPES.DOCUMENT_EVENT]({
     targetList,
     targetFront,
     onAvailable,

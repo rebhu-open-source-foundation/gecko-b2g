@@ -1725,7 +1725,7 @@ gfxFontEntry* gfxFT2FontList::LookupLocalFont(const nsACString& aFontName,
         Substring(aFontName, 0, family.Length()));
 
     // if so, iterate over faces in this family to see if there is a match
-    if (family.Equals(fullNameFamily, nsCaseInsensitiveCStringComparator())) {
+    if (family.Equals(fullNameFamily, nsCaseInsensitiveCStringComparator)) {
       nsTArray<RefPtr<gfxFontEntry> >& fontList = fontFamily->GetFontList();
       int index, len = fontList.Length();
       for (index = 0; index < len; index++) {
@@ -1733,8 +1733,7 @@ gfxFontEntry* gfxFT2FontList::LookupLocalFont(const nsACString& aFontName,
         if (!fe) {
           continue;
         }
-        if (fe->Name().Equals(aFontName,
-                              nsCaseInsensitiveCStringComparator())) {
+        if (fe->Name().Equals(aFontName, nsCaseInsensitiveCStringComparator)) {
           fontEntry = static_cast<FT2FontEntry*>(fe);
           goto searchDone;
         }

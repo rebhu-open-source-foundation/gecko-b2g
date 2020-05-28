@@ -5000,6 +5000,31 @@ AttachDecision CallIRGenerator::tryAttachArrayJoin(HandleFunction callee) {
   return AttachDecision::Attach;
 }
 
+AttachDecision CallIRGenerator::tryAttachArrayIsArray(HandleFunction callee) {
+  // Need a single argument.
+  if (argc_ != 1) {
+    return AttachDecision::NoAction;
+  }
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Guard callee is the 'isArray' intrinsic native function.
+  emitNativeCalleeGuard(callee);
+
+  // Check if the argument is an Array and return result.
+  ValOperandId argId = writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
+  writer.isArrayResult(argId);
+
+  // This stub does not need to be monitored, because it always
+  // returns a boolean.
+  writer.returnFromIC();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
+
+  trackAttached("ArrayIsArray");
+  return AttachDecision::Attach;
+}
+
 AttachDecision CallIRGenerator::tryAttachIsSuspendedGenerator(
     HandleFunction callee) {
   // The IsSuspendedGenerator intrinsic is only called in
@@ -5403,9 +5428,9 @@ AttachDecision CallIRGenerator::tryAttachMathFunction(HandleFunction callee,
   return AttachDecision::Attach;
 }
 
-AttachDecision CallIRGenerator::tryAttachFunCall(HandleFunction calleeFunc) {
-  MOZ_ASSERT(calleeFunc->isNative());
-  if (calleeFunc->native() != fun_call) {
+AttachDecision CallIRGenerator::tryAttachFunCall(HandleFunction callee) {
+  MOZ_ASSERT(callee->isNative());
+  if (callee->native() != fun_call) {
     return AttachDecision::NoAction;
   }
 
@@ -5426,24 +5451,38 @@ AttachDecision CallIRGenerator::tryAttachFunCall(HandleFunction calleeFunc) {
   ValOperandId calleeValId =
       writer.loadArgumentDynamicSlot(ArgumentKind::Callee, argcId);
   ObjOperandId calleeObjId = writer.guardToObject(calleeValId);
-  writer.guardSpecificNativeFunction(calleeObjId, fun_call);
+  writer.guardSpecificFunction(calleeObjId, callee);
 
-  // Guard that |this| is a function.
+  // Guard that |this| is an object.
   ValOperandId thisValId =
       writer.loadArgumentDynamicSlot(ArgumentKind::This, argcId);
   ObjOperandId thisObjId = writer.guardToObject(thisValId);
-  writer.guardClass(thisObjId, GuardClassKind::JSFunction);
 
-  // Guard that function is not a class constructor.
-  writer.guardNotClassConstructor(thisObjId);
+  if (mode_ == ICState::Mode::Specialized) {
+    // Ensure that |this| is the expected target function.
+    writer.guardSpecificFunction(thisObjId, target);
 
-  CallFlags targetFlags(CallFlags::FunCall);
-  if (isScripted) {
-    writer.guardFunctionHasJitEntry(thisObjId, /*isConstructing =*/false);
-    writer.callScriptedFunction(thisObjId, argcId, targetFlags);
+    CallFlags targetFlags(CallFlags::FunCall);
+    if (isScripted) {
+      writer.callScriptedFunction(thisObjId, argcId, targetFlags);
+    } else {
+      writer.callNativeFunction(thisObjId, argcId, op_, target, targetFlags);
+    }
   } else {
-    writer.guardFunctionIsNative(thisObjId);
-    writer.callAnyNativeFunction(thisObjId, argcId, targetFlags);
+    // Guard that |this| is a function.
+    writer.guardClass(thisObjId, GuardClassKind::JSFunction);
+
+    // Guard that function is not a class constructor.
+    writer.guardNotClassConstructor(thisObjId);
+
+    CallFlags targetFlags(CallFlags::FunCall);
+    if (isScripted) {
+      writer.guardFunctionHasJitEntry(thisObjId, /*isConstructing =*/false);
+      writer.callScriptedFunction(thisObjId, argcId, targetFlags);
+    } else {
+      writer.guardFunctionIsNative(thisObjId);
+      writer.callAnyNativeFunction(thisObjId, argcId, targetFlags);
+    }
   }
 
   writer.typeMonitorResult();
@@ -5555,6 +5594,8 @@ AttachDecision CallIRGenerator::tryAttachInlinableNative(
       return tryAttachArrayPush(callee);
     case InlinableNative::ArrayJoin:
       return tryAttachArrayJoin(callee);
+    case InlinableNative::ArrayIsArray:
+      return tryAttachArrayIsArray(callee);
 
     // Intrinsics.
     case InlinableNative::IntrinsicIsSuspendedGenerator:
