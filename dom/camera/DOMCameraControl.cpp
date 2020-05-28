@@ -1041,7 +1041,7 @@ nsresult nsDOMCameraControl::NotifyRecordingStatusChange(const nsString& aMsg) {
 
 #ifdef MOZ_B2G
   if (aMsg.EqualsLiteral("starting") && !mAudioChannelAgent) {
-    mAudioChannelAgent = do_CreateInstance("@mozilla.org/audiochannelagent;1");
+    mAudioChannelAgent = new AudioChannelAgent();
     if (!mAudioChannelAgent) {
       return NS_ERROR_UNEXPECTED;
     }

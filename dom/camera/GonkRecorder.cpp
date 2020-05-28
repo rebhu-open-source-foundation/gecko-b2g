@@ -1402,8 +1402,8 @@ status_t GonkRecorder::setupCameraSource(sp<GonkCameraSource>* cameraSource) {
 
   CHECK(mFrameRate != -1);
 
-  mIsMetaDataStoredInVideoBuffers =
-      (*cameraSource)->isMetaDataStoredInVideoBuffers();
+  mMetaDataStoredInVideoBuffers =
+      (*cameraSource)->metaDataStoredInVideoBuffers();
 
   return OK;
 }
@@ -1467,12 +1467,17 @@ status_t GonkRecorder::setupVideoEncoder(sp<MediaSource> cameraSource,
     format->setInt32("level", mVideoEncoderLevel);
   }
 
+  if (mMetaDataStoredInVideoBuffers != kMetadataBufferTypeInvalid) {
+    format->setInt32("android._input-metadata-buffer-type", mMetaDataStoredInVideoBuffers);
+  }
+
   uint32_t flags = 0;
-#  if 0  // TODO: no FLAG_USE_METADATA_INPUT is available, need further check
-    if (mIsMetaDataStoredInVideoBuffers) {
-        flags |= MediaCodecSource::FLAG_USE_METADATA_INPUT;
-    }
-#  endif
+  if (cameraSource == NULL) {
+    flags |= MediaCodecSource::FLAG_USE_SURFACE_INPUT;
+  } else {
+    // require dataspace setup even if not using surface input
+    format->setInt32("android._using-recorder", 1);
+  }
 
   sp<MediaCodecSource> encoder =
       MediaCodecSource::Create(mLooper, format, cameraSource, NULL, flags);
@@ -1542,6 +1547,10 @@ status_t GonkRecorder::setupVideoEncoder(sp<MediaSource> cameraSource,
     enc_meta->setInt32(kKeyVideoLevel, mVideoEncoderLevel);
   }
 
+  if (mMetaDataStoredInVideoBuffers != kMetadataBufferTypeInvalid) {
+    enc_meta->setInt32("android._input-metadata-buffer-type", mMetaDataStoredInVideoBuffers);
+  }
+
   // OMXClient::connect() always returns OK and abort's fatally if
   // it can't connect.
   OMXClient client;
@@ -1550,14 +1559,6 @@ status_t GonkRecorder::setupVideoEncoder(sp<MediaSource> cameraSource,
 
   uint32_t encoder_flags =
       mCameraHw->IsEmulated() ? 0 : OMXCodec::kHardwareCodecsOnly;
-  if (mIsMetaDataStoredInVideoBuffers) {
-#  if defined(MOZ_WIDGET_GONK)
-    encoder_flags |= OMXCodec::kStoreMetaDataInVideoBuffers;
-#  else
-    encoder_flags |= OMXCodec::kStoreMetaDataInVideoBuffers;
-    encoder_flags |= OMXCodec::kOnlySubmitOneInputBufferAtOneTime;
-#  endif
-  }
 
   sp<MediaSource> encoder =
       OMXCodec::Create(client.interface(), enc_meta, true /* createEncoder */,
@@ -1839,7 +1840,7 @@ status_t GonkRecorder::reset() {
   mMaxFileDurationUs = 0;
   mMaxFileSizeBytes = 0;
   mTrackEveryTimeDurationUs = 0;
-  mIsMetaDataStoredInVideoBuffers = false;
+  mMetaDataStoredInVideoBuffers = kMetadataBufferTypeInvalid;
   mEncoderProfiles = MediaProfiles::getInstance();
   mRotationDegrees = 0;
   mLatitudex10000 = -3600000;

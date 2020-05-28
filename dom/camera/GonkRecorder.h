@@ -20,6 +20,7 @@
 #include "nsISupportsImpl.h"
 #include "GonkCameraHwMgr.h"
 
+#include <media/hardware/MetadataBufferType.h>
 #include <media/MediaRecorderBase.h>
 #include <camera/CameraParameters.h>
 #include <utils/String8.h>
@@ -113,7 +114,7 @@ struct GonkRecorder {
 
   String8 mParams;
 
-  bool mIsMetaDataStoredInVideoBuffers;
+  MetadataBufferType mMetaDataStoredInVideoBuffers;
   MediaProfiles* mEncoderProfiles;
 
   bool mStarted;

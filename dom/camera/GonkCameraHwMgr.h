@@ -135,6 +135,7 @@ class GonkCameraHardware
   virtual int StartRecording();
   virtual int StopRecording();
   virtual int SetVideoBufferMode(int32_t videoBufferMode);
+  virtual int SetVideoTarget(const sp<IGraphicBufferProducer>& bufferProducer);
 
  protected:
   uint32_t mCameraId;

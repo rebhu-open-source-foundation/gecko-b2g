@@ -18,14 +18,16 @@
 
 #define GONK_CAMERA_SOURCE_H_
 
-#include <media/stagefright/MediaBuffer.h>
-#include <media/stagefright/MediaSource.h>
 #include <camera/CameraParameters.h>
+#include <gui/BufferItemConsumer.h>
+#include <media/hardware/MetadataBufferType.h>
+#include <media/stagefright/MediaSource.h>
 #include <utils/List.h>
 #include <utils/RefBase.h>
 #include <utils/String16.h>
 
 #include "GonkCameraHwMgr.h"
+#include "GonkMediaBuffer.h"
 
 namespace mozilla {
 class ICameraControl;
@@ -50,6 +52,7 @@ class GonkCameraSource : public MediaSource, public MediaBufferObserver {
   virtual status_t stop() { return reset(); }
   virtual status_t read(MediaBufferBase** buffer,
                         const ReadOptions* options = NULL);
+  virtual status_t setStopTimeUs(int64_t stopTimeUs);
 
   /**
    * Check whether a GonkCameraSource object is properly initialized.
@@ -72,11 +75,11 @@ class GonkCameraSource : public MediaSource, public MediaBufferObserver {
    * Tell whether this camera source stores meta data or real YUV
    * frame data in video buffers.
    *
-   * @return true if meta data is stored in the video
-   *      buffers; false if real YUV data is stored in
+   * @return a valid type if meta data is stored in the video
+   *      buffers; kMetadataBufferTypeInvalid if real YUV data is stored in
    *      the video buffers.
    */
-  bool isMetaDataStoredInVideoBuffers() const;
+  MetadataBufferType metaDataStoredInVideoBuffers() const;
 
   virtual void signalBufferReturned(MediaBufferBase* buffer);
 
@@ -88,7 +91,7 @@ class GonkCameraSource : public MediaSource, public MediaBufferObserver {
    */
   class DirectBufferListener : public RefBase {
    public:
-    DirectBufferListener(){};
+    DirectBufferListener() {};
 
     virtual status_t BufferAvailable(MediaBufferBase* aBuffer) = 0;
 
@@ -99,6 +102,30 @@ class GonkCameraSource : public MediaSource, public MediaBufferObserver {
   status_t AddDirectBufferListener(DirectBufferListener* aListener);
 
  protected:
+  /**
+   * The class for listening to BufferQueue's onFrameAvailable. This is used to
+   * receive video buffers in VIDEO_BUFFER_MODE_BUFFER_QUEUE mode. When a frame
+   * is available, CameraSource::processBufferQueueFrame() will be called.
+   */
+  class BufferQueueListener : public Thread,  
+                              public BufferItemConsumer::FrameAvailableListener {
+   public:
+    BufferQueueListener(const sp<BufferItemConsumer> &consumer,
+                        const sp<GonkCameraSource> &cameraSource);
+    virtual void onFrameAvailable(const BufferItem& item);
+    virtual bool threadLoop();
+
+   private:
+    static const nsecs_t kFrameAvailableTimeout = 50000000; // 50ms
+
+    sp<BufferItemConsumer> mConsumer;
+    sp<GonkCameraSource> mCameraSource;
+
+    Mutex mLock;
+    Condition mFrameAvailableSignal;
+    bool mFrameAvailable;
+  };
+
   enum CameraFlags {
     FLAGS_SET_CAMERA = 1L << 0,
     FLAGS_HOT_CAMERA = 1L << 1,
@@ -109,6 +136,8 @@ class GonkCameraSource : public MediaSource, public MediaBufferObserver {
   int32_t mNumInputBuffers;
   int32_t mVideoFrameRate;
   int32_t mColorFormat;
+  int32_t mEncoderFormat;
+  int32_t mEncoderDataSpace;
   status_t mInitCheck;
 
   sp<MetaData> mMeta;
@@ -117,6 +146,7 @@ class GonkCameraSource : public MediaSource, public MediaBufferObserver {
   int32_t mNumFramesReceived;
   int64_t mLastFrameTimestampUs;
   bool mStarted;
+  bool mEos;
   int32_t mNumFramesEncoded;
 
   // Time between capture of two frames.
@@ -150,6 +180,7 @@ class GonkCameraSource : public MediaSource, public MediaBufferObserver {
   bool mRateLimit;
 
   int64_t mFirstFrameTimeUs;
+  int64_t mStopSystemTimeUs;
   int32_t mNumFramesDropped;
   int32_t mNumGlitches;
   int64_t mGlitchDurationThresholdUs;
@@ -159,15 +190,38 @@ class GonkCameraSource : public MediaSource, public MediaBufferObserver {
   // VIDEO_BUFFER_MODE_*.
   int32_t mVideoBufferMode;
 
-  bool mIsMetaDataStoredInVideoBuffers;
+  static const uint32_t kDefaultVideoBufferCount = 32;
+
+  /**
+   * The following variables are used in VIDEO_BUFFER_MODE_BUFFER_QUEUE mode.
+   */
+  static const size_t kConsumerBufferCount = 8;
+  static const nsecs_t kMemoryBaseAvailableTimeoutNs = 200000000; // 200ms
+  // Consumer and producer of the buffer queue between this class and camera.
+  sp<BufferItemConsumer> mVideoBufferConsumer;
+  sp<IGraphicBufferProducer> mVideoBufferProducer;
+  // Memory used to send the buffers to encoder, where sp<IMemory> stores VideoNativeMetadata.
+  sp<IMemoryHeap> mMemoryHeapBase;
+  List<sp<IMemory>> mMemoryBases;
+  // The condition that will be signaled when there is an entry available in mMemoryBases.
+  Condition mMemoryBaseAvailableCond;
+  // A mapping from ANativeWindowBuffer sent to encoder to BufferItem received from camera.
+  // This is protected by mLock.
+  KeyedVector<ANativeWindowBuffer*, BufferItem> mReceivedBufferItemMap;
+  sp<BufferQueueListener> mBufferQueueListener;
+
   sp<GonkCameraHardware> mCameraHw;
   sp<DirectBufferListener> mDirectBufferListener;
 
   void releaseQueuedFrames();
   void releaseOneRecordingFrame(const sp<IMemory>& frame);
+  void createVideoBufferMemoryHeap(size_t size, uint32_t bufferCount);
 
   status_t init(Size videoSize, int32_t frameRate,
                 bool storeMetaDataInVideoBuffers);
+  // Initialize the buffer queue used in VIDEO_BUFFER_MODE_BUFFER_QUEUE mode.
+  status_t initBufferQueue(uint32_t width, uint32_t height, uint32_t format,
+                           android_dataspace dataSpace, uint32_t bufferCount);
   status_t isCameraColorFormatSupported(const CameraParameters& params);
   status_t configureCamera(CameraParameters* params, int32_t width,
                            int32_t height, int32_t frameRate);
@@ -176,6 +230,13 @@ class GonkCameraSource : public MediaSource, public MediaBufferObserver {
                           int32_t height);
 
   status_t checkFrameRate(const CameraParameters& params, int32_t frameRate);
+
+  // Check if this frame should be skipped based on the frame's timestamp in microsecond.
+  // mLock must be locked before calling this function.
+  bool shouldSkipFrameLocked(int64_t timestampUs);
+
+  // Process a buffer item received in BufferQueueListener.
+  virtual void processBufferQueueFrame(BufferItem& buffer);
 
   void releaseCamera();
   status_t reset();

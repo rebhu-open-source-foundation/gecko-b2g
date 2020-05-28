@@ -509,3 +509,13 @@ int GonkCameraHardware::SetVideoBufferMode(int32_t videoBufferMode) {
   }
   return mCamera->setVideoBufferMode(videoBufferMode);
 }
+
+int
+GonkCameraHardware::SetVideoTarget(const sp<IGraphicBufferProducer>& bufferProducer)
+{
+  if (NS_WARN_IF(mClosing)) {
+    return DEAD_OBJECT;
+  }
+  return mCamera->setVideoTarget(bufferProducer);
+}
+
