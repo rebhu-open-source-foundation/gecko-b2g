@@ -8,7 +8,7 @@ var Cu = Components.utils;
 var Cc = Components.classes;
 var Ci = Components.interfaces;
 
-dump("############ ErrorPage.js\n");
+console.log("############ ErrorPage.js\n");
 
 var ErrorPageHandler = {
   _reload: function() {

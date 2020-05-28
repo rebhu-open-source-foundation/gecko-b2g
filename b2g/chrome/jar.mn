@@ -71,6 +71,7 @@ chrome.jar:
 
 # Default apps: system, homescreen and settings.
   content/system/index.html                   (content/default-apps/system/index.html)
+  content/system/net_error.html               (content/default-apps/system/net_error.html)
   content/system/js                           (content/default-apps/system/js/*)
   content/system/style                        (content/default-apps/system/style/*)
 

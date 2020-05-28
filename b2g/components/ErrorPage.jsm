@@ -6,18 +6,20 @@
 
 this.EXPORTED_SYMBOLS = ['ErrorPage'];
 
-const Cu = Components.utils;
-const Cc = Components.classes;
-const Ci = Components.interfaces;
 const kErrorPageFrameScript = 'chrome://b2g/content/ErrorPage.js';
 
-Cu.import('resource://gre/modules/Services.jsm');
-Cu.import("resource://gre/modules/XPCOMUtils.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
-XPCOMUtils.defineLazyGetter(this, "CertOverrideService", function () {
-  return Cc["@mozilla.org/security/certoverride;1"]
-         .getService(Ci.nsICertOverrideService);
-});
+XPCOMUtils.defineLazyServiceGetter(this, "CertOverrideService",
+                                   "@mozilla.org/security/certoverride;1",
+                                   "nsICertOverrideService");
+
+function debug(str) {
+  console.log(`-*- ErrorPage.jsm: ${str}`);
+}
 
 /**
  * A class to add exceptions to override SSL certificate problems.
@@ -145,7 +147,7 @@ var ErrorPage = {
     try {
       sslExceptions.addException(!aMessage.data.isPermanent);
     } catch (e) {
-      dump("Failed to set cert exception: " + e + "\n");
+      debug("Failed to set cert exception: " + e + "\n");
     }
   },
 
@@ -157,7 +159,7 @@ var ErrorPage = {
       try {
         mm.loadFrameScript(kErrorPageFrameScript, true, true);
       } catch (e) {
-        dump('Error loading ' + kErrorPageFrameScript + ' as frame script: ' + e + '\n');
+        debug('Error loading ' + kErrorPageFrameScript + ' as frame script: ' + e + '\n');
       }
       mm.addMessageListener('ErrorPage:AddCertException', self._addCertException.bind(self));
       frameElement.removeEventListener('mozbrowsererror', injectErrorPageScript, true);

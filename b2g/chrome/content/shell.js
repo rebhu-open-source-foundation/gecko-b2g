@@ -15,6 +15,7 @@ ChromeUtils.import("resource://gre/modules/ActivitiesService.jsm");
 ChromeUtils.import("resource://gre/modules/AlarmService.jsm");
 ChromeUtils.import("resource://gre/modules/DownloadService.jsm");
 ChromeUtils.import("resource://gre/modules/NotificationDB.jsm");
+ChromeUtils.import('resource://gre/modules/ErrorPage.jsm');
 
 XPCOMUtils.defineLazyGetter(this, "MarionetteHelper", () => {
   const { MarionetteHelper } = ChromeUtils.import(
@@ -188,7 +189,7 @@ document.addEventListener(
   "DOMContentLoaded",
   () => {
     if (shell.hasStarted()) {
-      // Shoudl never happen!
+      // Should never happen!
       console.error("Shell has already started but didn't initialize!!!");
       return;
     }
