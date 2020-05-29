@@ -30,6 +30,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(B2G)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mOwner)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAlarmManager)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDeviceStorageAreaListener)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFlashlightManager)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTetheringManager)
 #ifdef MOZ_B2G_RIL
@@ -71,6 +72,19 @@ void B2G::Shutdown() {
 #ifdef MOZ_B2G_CAMERA
   mCameraManager = nullptr;
 #endif
+
+  uint32_t len = mDeviceStorageStores.Length();
+  for (uint32_t i = 0; i < len; ++i) {
+    RefPtr<nsDOMDeviceStorage> ds = do_QueryReferent(mDeviceStorageStores[i]);
+    if (ds) {
+      ds->Shutdown();
+    }
+  }
+  mDeviceStorageStores.Clear();
+
+  if (mDeviceStorageAreaListener) {
+    mDeviceStorageAreaListener = nullptr;
+  }
 }
 
 JSObject* B2G::WrapObject(JSContext* cx, JS::Handle<JSObject*> aGivenProto) {
@@ -396,6 +410,174 @@ already_AddRefed<WakeLock> B2G::RequestWakeLock(const nsAString &aTopic, ErrorRe
   }
 
   return pmService->NewWakeLock(aTopic, innerWindow, aRv);
+}
+
+DeviceStorageAreaListener* B2G::GetDeviceStorageAreaListener(ErrorResult& aRv) {
+  if (!mDeviceStorageAreaListener) {
+    if (!mOwner) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+    nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+    if (!innerWindow) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+
+    if (!innerWindow || !innerWindow->GetOuterWindow() ||
+        !innerWindow->GetDocShell()) {
+      aRv.Throw(NS_ERROR_FAILURE);
+      return nullptr;
+    }
+    mDeviceStorageAreaListener = new DeviceStorageAreaListener(innerWindow);
+  }
+
+  return mDeviceStorageAreaListener;
+}
+
+already_AddRefed<nsDOMDeviceStorage> B2G::FindDeviceStorage(
+    const nsAString& aName, const nsAString& aType) {
+  auto i = mDeviceStorageStores.Length();
+
+  if (!mOwner) {
+    return nullptr;
+  }
+
+  nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+  if (!innerWindow) {
+    return nullptr;
+  }
+
+  while (i > 0) {
+    --i;
+    RefPtr<nsDOMDeviceStorage> storage =
+        do_QueryReferent(mDeviceStorageStores[i]);
+    if (storage) {
+      if (storage->Equals(innerWindow, aName, aType)) {
+        return storage.forget();
+      }
+    } else {
+      mDeviceStorageStores.RemoveElementAt(i);
+    }
+  }
+  return nullptr;
+}
+
+already_AddRefed<nsDOMDeviceStorage> B2G::GetDeviceStorage(
+    const nsAString& aType, ErrorResult& aRv) {
+  if (!mOwner) {
+    aRv.Throw(NS_ERROR_UNEXPECTED);
+    return nullptr;
+  }
+
+  nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+  if (!innerWindow) {
+    aRv.Throw(NS_ERROR_UNEXPECTED);
+    return nullptr;
+  }
+
+  if (!innerWindow || !innerWindow->GetOuterWindow() ||
+      !innerWindow->GetDocShell()) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  nsString name;
+  nsDOMDeviceStorage::GetDefaultStorageName(aType, name);
+  RefPtr<nsDOMDeviceStorage> storage = FindDeviceStorage(name, aType);
+  if (storage) {
+    return storage.forget();
+  }
+
+  nsDOMDeviceStorage::CreateDeviceStorageFor(innerWindow, aType,
+                                             getter_AddRefs(storage));
+
+  if (!storage) {
+    return nullptr;
+  }
+
+  mDeviceStorageStores.AppendElement(
+      do_GetWeakReference(static_cast<DOMEventTargetHelper*>(storage)));
+  return storage.forget();
+}
+
+void B2G::GetDeviceStorages(const nsAString& aType,
+                            nsTArray<RefPtr<nsDOMDeviceStorage>>& aStores,
+                            ErrorResult& aRv) {
+  if (!mOwner) {
+    aRv.Throw(NS_ERROR_UNEXPECTED);
+    return;
+  }
+
+  nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+  if (!innerWindow) {
+    aRv.Throw(NS_ERROR_UNEXPECTED);
+    return;
+  }
+
+  if (!innerWindow || !innerWindow->GetOuterWindow() ||
+      !innerWindow->GetDocShell()) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return;
+  }
+
+  nsDOMDeviceStorage::VolumeNameArray volumes;
+  nsDOMDeviceStorage::GetOrderedVolumeNames(aType, volumes);
+  if (volumes.IsEmpty()) {
+    RefPtr<nsDOMDeviceStorage> storage = GetDeviceStorage(aType, aRv);
+    if (storage) {
+      aStores.AppendElement(storage.forget());
+    }
+  } else {
+    uint32_t len = volumes.Length();
+    aStores.SetCapacity(len);
+    for (uint32_t i = 0; i < len; ++i) {
+      RefPtr<nsDOMDeviceStorage> storage =
+          GetDeviceStorageByNameAndType(volumes[i], aType, aRv);
+      if (aRv.Failed()) {
+        break;
+      }
+
+      if (storage) {
+        aStores.AppendElement(storage.forget());
+      }
+    }
+  }
+}
+
+already_AddRefed<nsDOMDeviceStorage> B2G::GetDeviceStorageByNameAndType(
+    const nsAString& aName, const nsAString& aType, ErrorResult& aRv) {
+  if (!mOwner) {
+    aRv.Throw(NS_ERROR_UNEXPECTED);
+    return nullptr;
+  }
+
+  nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+  if (!innerWindow) {
+    aRv.Throw(NS_ERROR_UNEXPECTED);
+    return nullptr;
+  }
+
+  if (!innerWindow || !innerWindow->GetOuterWindow() ||
+      !innerWindow->GetDocShell()) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  RefPtr<nsDOMDeviceStorage> storage = FindDeviceStorage(aName, aType);
+  if (storage) {
+    return storage.forget();
+  }
+  nsDOMDeviceStorage::CreateDeviceStorageByNameAndType(
+      innerWindow, aName, aType, getter_AddRefs(storage));
+
+  if (!storage) {
+    return nullptr;
+  }
+
+  mDeviceStorageStores.AppendElement(
+      do_GetWeakReference(static_cast<DOMEventTargetHelper*>(storage)));
+  return storage.forget();
 }
 
 }  // namespace dom

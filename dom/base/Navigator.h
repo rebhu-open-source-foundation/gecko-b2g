@@ -24,7 +24,6 @@ class nsPluginArray;
 class nsMimeTypeArray;
 class nsPIDOMWindowInner;
 class nsIDOMNavigatorSystemMessages;
-class nsDOMDeviceStorage;
 class nsIPrincipal;
 class nsIURI;
 
@@ -75,7 +74,6 @@ namespace network {
 class Connection;
 }  // namespace network
 
-class DeviceStorageAreaListener;
 class Presentation;
 class LegacyMozTCPSocket;
 class VRDisplay;
@@ -173,18 +171,6 @@ class Navigator final : public nsISupports, public nsWrapperCache {
 
   bool TaintEnabled() { return false; }
 
-  DeviceStorageAreaListener* GetDeviceStorageAreaListener(ErrorResult& aRv);
-
-  already_AddRefed<nsDOMDeviceStorage> GetDeviceStorage(const nsAString& aType,
-                                                        ErrorResult& aRv);
-
-  void GetDeviceStorages(const nsAString& aType,
-                         nsTArray<RefPtr<nsDOMDeviceStorage>>& aStores,
-                         ErrorResult& aRv);
-
-  already_AddRefed<nsDOMDeviceStorage> GetDeviceStorageByNameAndType(
-      const nsAString& aName, const nsAString& aType, ErrorResult& aRv);
-
   already_AddRefed<LegacyMozTCPSocket> MozTCPSocket();
   network::Connection* GetConnection(ErrorResult& aRv);
   MediaDevices* GetMediaDevices(ErrorResult& aRv);
@@ -273,9 +259,6 @@ class Navigator final : public nsISupports, public nsWrapperCache {
  private:
   virtual ~Navigator();
 
-  already_AddRefed<nsDOMDeviceStorage> FindDeviceStorage(
-      const nsAString& aName, const nsAString& aType);
-
   // This enum helps SendBeaconInternal to apply different behaviors to body
   // types.
   enum BeaconType { eBeaconTypeBlob, eBeaconTypeArrayBuffer, eBeaconTypeOther };
@@ -302,10 +285,8 @@ class Navigator final : public nsISupports, public nsWrapperCache {
 //  RefPtr<MobileConnectionArray> mMobileConnections;
 #endif
   RefPtr<MediaDevices> mMediaDevices;
-  nsTArray<nsWeakPtr> mDeviceStorageStores;
   RefPtr<ServiceWorkerContainer> mServiceWorkerContainer;
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
-  RefPtr<DeviceStorageAreaListener> mDeviceStorageAreaListener;
   RefPtr<Presentation> mPresentation;
   RefPtr<GamepadServiceTest> mGamepadServiceTest;
   nsTArray<RefPtr<Promise>> mVRGetDisplaysPromises;

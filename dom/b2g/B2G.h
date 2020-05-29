@@ -43,13 +43,19 @@
 #  include "mozilla/dom/FMRadio.h"
 #endif
 
+#include "DeviceStorage.h"
+#include "mozilla/dom/DeviceStorageAreaListener.h"
 #include "mozilla/dom/DownloadManagerBinding.h"
 
 #include "mozilla/dom/WakeLock.h"
 #include "mozilla/dom/power/PowerManagerService.h"
 
+class nsDOMDeviceStorage;
+
 namespace mozilla {
 namespace dom {
+
+class DeviceStorageAreaListener;
 
 class B2G final : public nsISupports, public nsWrapperCache {
   nsCOMPtr<nsIGlobalObject> mOwner;
@@ -108,12 +114,29 @@ class B2G final : public nsISupports, public nsWrapperCache {
   already_AddRefed<WakeLock>
   RequestWakeLock(const nsAString &aTopic, ErrorResult& aRv);
 
+  DeviceStorageAreaListener* GetDeviceStorageAreaListener(ErrorResult& aRv);
+
+  already_AddRefed<nsDOMDeviceStorage> GetDeviceStorage(const nsAString& aType,
+                                                        ErrorResult& aRv);
+
+  void GetDeviceStorages(const nsAString& aType,
+                         nsTArray<RefPtr<nsDOMDeviceStorage>>& aStores,
+                         ErrorResult& aRv);
+
+  already_AddRefed<nsDOMDeviceStorage> GetDeviceStorageByNameAndType(
+      const nsAString& aName, const nsAString& aType, ErrorResult& aRv);
+
   // Shutting down.
   void Shutdown();
 
  private:
   ~B2G();
+  already_AddRefed<nsDOMDeviceStorage> FindDeviceStorage(
+      const nsAString& aName, const nsAString& aType);
+
+  nsTArray<nsWeakPtr> mDeviceStorageStores;
   RefPtr<AlarmManager> mAlarmManager;
+  RefPtr<DeviceStorageAreaListener> mDeviceStorageAreaListener;
   RefPtr<FlashlightManager> mFlashlightManager;
   RefPtr<TetheringManager> mTetheringManager;
 #ifdef MOZ_B2G_RIL

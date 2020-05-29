@@ -154,3 +154,20 @@ partial interface B2G {
   [Throws, Pref="dom.wakelock.enabled", Func="B2G::HasWakeLockSupport", Exposed=Window]
   WakeLock requestWakeLock(DOMString aTopic);
 };
+
+[Exposed=Window]
+partial interface B2G {
+  [Throws, Pref="device.storage.enabled"]
+  readonly attribute DeviceStorageAreaListener deviceStorageAreaListener;
+};
+
+// nsIDOMNavigatorDeviceStorage
+[Exposed=Window]
+partial interface B2G {
+  [Throws, Pref="device.storage.enabled"]
+  DeviceStorage? getDeviceStorage(DOMString type);
+  [Throws, Pref="device.storage.enabled"]
+  sequence<DeviceStorage> getDeviceStorages(DOMString type);
+  [Throws, Pref="device.storage.enabled"]
+  DeviceStorage? getDeviceStorageByNameAndType(DOMString name, DOMString type);
+};
