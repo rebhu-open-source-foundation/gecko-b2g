@@ -1815,28 +1815,6 @@ class BaseScript : public gc::TenuredCell {
   MOZ_MUST_USE bool appendSourceDataForToString(JSContext* cx,
                                                 js::StringBuffer& buf);
 
-#if defined(JS_BUILD_BINAST)
-  // Set the position of the function in the source code.
-  //
-  // BinAST file format can put lazy functions after the entire tree, and in
-  // that case BaseScript::CreateLazy will be called with dummy values for those
-  // positions, and then once it reaches to the lazy function part, this
-  // function is called to set those positions to correct value.
-  void setPositions(uint32_t sourceStart, uint32_t sourceEnd,
-                    uint32_t toStringStart, uint32_t toStringEnd) {
-    MOZ_ASSERT(toStringStart <= sourceStart);
-    MOZ_ASSERT(sourceStart <= sourceEnd);
-    MOZ_ASSERT(sourceEnd <= toStringEnd);
-
-    extent_.sourceStart = sourceStart;
-    extent_.sourceEnd = sourceEnd;
-    extent_.toStringStart = toStringStart;
-    extent_.toStringEnd = toStringEnd;
-  }
-
-  void setColumn(uint32_t column) { extent_.column = column; }
-#endif
-
   void setToStringEnd(uint32_t toStringEnd) {
     MOZ_ASSERT(extent_.toStringStart <= toStringEnd);
     MOZ_ASSERT(extent_.toStringEnd >= extent_.sourceEnd);

@@ -284,7 +284,6 @@ FunctionBox* PerHandlerParser<ParseHandler>::newFunctionBox(
     return nullptr;
   }
 
-  // Note: The order we insert into traceListHead is important. See consumers.
   compilationInfo_.traceListHead = funbox;
   handler_.setFunctionBox(funNode, funbox);
 
@@ -329,7 +328,6 @@ FunctionBox* PerHandlerParser<ParseHandler>::newFunctionBox(
     return nullptr;
   }
 
-  // Note: The order we insert into traceListHead is important. See consumers.
   compilationInfo.traceListHead = funbox;
   handler_.setFunctionBox(funNode, funbox);
 
@@ -1763,6 +1761,15 @@ bool PerHandlerParser<SyntaxParseHandler>::finishFunction(
   }
 
   FunctionBox* funbox = pc_->functionBox();
+  ScriptStencil& stencil = funbox->functionStencil().get();
+
+  // Compute the flags for the BaseScript.
+  using ImmutableFlags = ImmutableScriptFlagsEnum;
+  stencil.immutableFlags = funbox->immutableFlags();
+  stencil.immutableFlags.setFlag(ImmutableFlags::HasMappedArgsObj,
+                                 funbox->hasMappedArgsObj());
+  stencil.immutableFlags.setFlag(ImmutableFlags::IsLikelyConstructorWrapper,
+                                 funbox->isLikelyConstructorWrapper());
 
   // Elide nullptr sentinels from end of binding list. These are inserted for
   // each scope regardless of if any bindings are actually closed over.
@@ -1782,8 +1789,7 @@ bool PerHandlerParser<SyntaxParseHandler>::finishFunction(
     return false;
   }
 
-  ScriptThingsVector& gcthings = funbox->functionStencil().get().gcThings;
-
+  ScriptThingsVector& gcthings = stencil.gcThings;
   if (!gcthings.reserve(ngcthings.value())) {
     return false;
   }
@@ -1812,24 +1818,16 @@ bool PerHandlerParser<SyntaxParseHandler>::finishFunction(
 }
 
 static bool CreateLazyScript(JSContext* cx, CompilationInfo& compilationInfo,
-                             Handle<ScriptStencil> stencil,
-                             HandleFunction function, FunctionBox* funbox) {
-  MOZ_ASSERT(function);
+                             FunctionBox* funbox) {
+  RootedFunction function(cx, funbox->function());
 
-  using ImmutableFlags = ImmutableScriptFlagsEnum;
-  ImmutableScriptFlags immutableFlags = funbox->immutableFlags();
+  ScriptStencil& stencil = funbox->functionStencil().get();
+  const ScriptThingsVector& gcthings = stencil.gcThings;
 
-  // Compute the flags that frontend doesn't directly compute.
-  immutableFlags.setFlag(ImmutableFlags::HasMappedArgsObj,
-                         funbox->hasMappedArgsObj());
-  immutableFlags.setFlag(ImmutableFlags::IsLikelyConstructorWrapper,
-                         funbox->isLikelyConstructorWrapper());
-
-  const ScriptThingsVector& gcthings = stencil.get().gcThings;
   Rooted<BaseScript*> lazy(
       cx, BaseScript::CreateRawLazy(cx, gcthings.length(), function,
                                     compilationInfo.sourceObject,
-                                    funbox->extent, immutableFlags));
+                                    funbox->extent, stencil.immutableFlags));
   if (!lazy) {
     return false;
   }
@@ -1839,59 +1837,25 @@ static bool CreateLazyScript(JSContext* cx, CompilationInfo& compilationInfo,
     return false;
   }
 
-  // Connect inner functions to this lazy script now.
-  for (auto inner : lazy->gcthings()) {
-    if (!inner.is<JSObject>()) {
-      continue;
-    }
-    inner.as<JSObject>().as<JSFunction>().setEnclosingLazyScript(lazy);
-  }
-
   function->initScript(lazy);
 
   return true;
 }
 
-static bool MaybePublishFunction(JSContext* cx,
+// Instantiate JSFunctions for each FunctionBox.
+static bool InstantiateFunctions(JSContext* cx,
                                  CompilationInfo& compilationInfo,
-                                 FunctionBox* funbox) {
-  if (funbox->hasFunction()) {
-    return true;
-  }
-
-  RootedFunction fun(cx, funbox->createFunction(cx));
-  if (!fun) {
-    return false;
-  }
-  funbox->initializeFunction(fun);
-
-  if (funbox->emitBytecode || funbox->isAsmJSModule()) {
-    return true;
-  }
-
-  return CreateLazyScript(cx, compilationInfo, funbox->functionStencil(), fun,
-                          funbox);
-}
-
-static bool PublishDeferredFunctions(JSContext* cx,
-                                     CompilationInfo& compilationInfo,
-                                     FunctionBox* listHead) {
-  // Use the trace list to visit funboxes. We must visit inner functions before
-  // their parents. The trace list inserts functions to the head of list as they
-  // are encountered. These leaves each list in a reverse-pre-order which is
-  // what we want.
-
-  mozilla::DebugOnly<size_t> prevIndex = size_t(-1);
-
+                                 FunctionBox* listHead) {
   for (FunctionBox* funbox = listHead; funbox; funbox = funbox->traceLink()) {
-    // During parse we check that child indices are greater than their parent.
-    // Now confirm we visit FunctionBox in descending index order.
-    MOZ_ASSERT(prevIndex > funbox->index());
-    prevIndex = funbox->index();
+    if (funbox->hasFunction()) {
+      continue;
+    }
 
-    if (!MaybePublishFunction(cx, compilationInfo, funbox)) {
+    RootedFunction fun(cx, funbox->createFunction(cx));
+    if (!fun) {
       return false;
     }
+    funbox->initializeFunction(fun);
   }
 
   return true;
@@ -1928,22 +1892,32 @@ static bool InstantiateScriptStencils(JSContext* cx,
                                       CompilationInfo& compilationInfo,
                                       FunctionBox* listHead) {
   for (FunctionBox* funbox = listHead; funbox; funbox = funbox->traceLink()) {
-    if (!funbox->emitBytecode) {
-      continue;
-    }
+    if (funbox->emitBytecode) {
+      // If the function was not referenced by enclosing script's bytecode, we
+      // do not generate a BaseScript for it. For example, `(function(){});`.
+      if (!funbox->wasEmitted) {
+        continue;
+      }
 
-    // If the function was not referenced by enclosing script's bytecode, we do
-    // not generate a BaseScript for it. For example, `(function(){});`.
-    if (!funbox->wasEmitted) {
-      continue;
-    }
+      RootedScript script(cx,
+                          JSScript::fromStencil(cx, compilationInfo,
+                                                funbox->functionStencil().get(),
+                                                funbox->extent));
+      if (!script) {
+        return false;
+      }
+    } else if (funbox->isAsmJSModule()) {
+      MOZ_ASSERT(funbox->function()->isAsmJSNative());
+    } else if (funbox->function()->isIncomplete()) {
+      // Lazy functions are generally only allocated in the initial parse. The
+      // exception to this is BinAST which does not allocate lazy functions
+      // inside lazy functions until delazification occurs.
+      MOZ_ASSERT(compilationInfo.lazy == nullptr ||
+                 compilationInfo.lazy->isBinAST());
 
-    RootedScript script(
-        cx,
-        JSScript::fromStencil(cx, compilationInfo,
-                              funbox->functionStencil().get(), funbox->extent));
-    if (!script) {
-      return false;
+      if (!CreateLazyScript(cx, compilationInfo, funbox)) {
+        return false;
+      }
     }
   }
 
@@ -1968,8 +1942,46 @@ static bool InstantiateTopLevel(JSContext* cx,
   return !!compilationInfo.script;
 }
 
+// When a function is first referenced by enclosing script's bytecode, we need
+// to update it with information determined by the BytecodeEmitter. This applies
+// to both initial and delazification parses. The functions being update may or
+// may not have bytecode at this point.
+static void UpdateEmittedInnerFunctions(FunctionBox* listHead) {
+  for (FunctionBox* funbox = listHead; funbox; funbox = funbox->traceLink()) {
+    if (!funbox->wasEmitted) {
+      continue;
+    }
+
+    funbox->finish();
+  }
+}
+
+// During initial parse we must link lazy-functions-inside-lazy-functions to
+// their enclosing script.
+static void LinkEnclosingLazyScript(FunctionBox* listHead) {
+  for (FunctionBox* funbox = listHead; funbox; funbox = funbox->traceLink()) {
+    if (!funbox->isInterpreted()) {
+      continue;
+    }
+
+    if (funbox->emitBytecode) {
+      continue;
+    }
+
+    BaseScript* script = funbox->function()->baseScript();
+    MOZ_ASSERT(!script->hasBytecode());
+
+    for (auto inner : script->gcthings()) {
+      if (!inner.is<JSObject>()) {
+        continue;
+      }
+      inner.as<JSObject>().as<JSFunction>().setEnclosingLazyScript(script);
+    }
+  }
+}
+
 bool CompilationInfo::instantiateStencils() {
-  if (!PublishDeferredFunctions(cx, *this, traceListHead)) {
+  if (!InstantiateFunctions(cx, *this, traceListHead)) {
     return false;
   }
 
@@ -1987,11 +1999,10 @@ bool CompilationInfo::instantiateStencils() {
 
   // Must be infallible from here forward.
 
-  for (FunctionBox* funbox = traceListHead; funbox;
-       funbox = funbox->traceLink()) {
-    if (funbox->wasEmitted) {
-      funbox->finish();
-    }
+  UpdateEmittedInnerFunctions(traceListHead);
+
+  if (lazy == nullptr) {
+    LinkEnclosingLazyScript(traceListHead);
   }
 
   return true;

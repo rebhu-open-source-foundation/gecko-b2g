@@ -1668,7 +1668,8 @@ void nsContainerFrame::NormalizeChildLists() {
           f = next;
         }
         if (overflowContainers->IsEmpty()) {
-          RemoveProperty(OverflowContainersProperty());
+          (void)TakeProperty(OverflowContainersProperty());
+          overflowContainers->Delete(PresShell());
         }
         MergeSortedExcessOverflowContainers(moveToEOC);
       }
@@ -1802,6 +1803,32 @@ void nsContainerFrame::NormalizeChildLists() {
         foundOwnPushedChild || !items.IsEmpty() || mDidPushItemsBitMayLie,
         "The state bit stored in didPushItemsBit lied!");
     MergeSortedFrameLists(mFrames, items, GetContent());
+  }
+}
+
+void nsContainerFrame::NoteNewChildren(ChildListID aListID,
+                                       const nsFrameList& aFrameList) {
+#ifdef DEBUG
+  ChildListIDs supportedLists = {kAbsoluteList, kFixedList, kPrincipalList};
+  // We don't handle the kBackdropList frames in any way, but it only contains
+  // a placeholder for ::backdrop which is OK to not reflow (for now anyway).
+  supportedLists += kBackdropList;
+  MOZ_ASSERT(supportedLists.contains(aListID), "unexpected child list");
+#endif
+
+  MOZ_ASSERT(IsFlexOrGridContainer(),
+             "Only Flex / Grid containers can call this!");
+
+  mozilla::PresShell* presShell = PresShell();
+  const auto didPushItemsBit = IsFlexContainerFrame()
+                                   ? NS_STATE_FLEX_DID_PUSH_ITEMS
+                                   : NS_STATE_GRID_DID_PUSH_ITEMS;
+  for (auto* pif = GetPrevInFlow(); pif; pif = pif->GetPrevInFlow()) {
+    if (aListID == kPrincipalList) {
+      pif->AddStateBits(didPushItemsBit);
+    }
+    presShell->FrameNeedsReflow(pif, IntrinsicDirty::TreeChange,
+                                NS_FRAME_IS_DIRTY);
   }
 }
 
@@ -1954,6 +1981,28 @@ bool nsContainerFrame::DrainSelfOverflowList() {
   AutoFrameListPtr overflowFrames(PresContext(), StealOverflowFrames());
   if (overflowFrames) {
     mFrames.AppendFrames(nullptr, *overflowFrames);
+    return true;
+  }
+  return false;
+}
+
+bool nsContainerFrame::DrainAndMergeSelfOverflowList() {
+  MOZ_ASSERT(IsFlexOrGridContainer(),
+             "Only Flex / Grid containers can call this!");
+
+  // Unlike nsContainerFrame::DrainSelfOverflowList, flex or grid containers
+  // need to merge these lists so that the resulting mFrames is in document
+  // content order.
+  // NOTE: nsContainerFrame::AppendFrames/InsertFrames calls this method and
+  // there are also direct calls from the fctor (FindAppendPrevSibling).
+  AutoFrameListPtr overflowFrames(PresContext(), StealOverflowFrames());
+  if (overflowFrames) {
+    MergeSortedFrameLists(mFrames, *overflowFrames, GetContent());
+    // We set a frame bit to push them again in Reflow() to avoid creating
+    // multiple flex / grid items per flex / grid container fragment for the
+    // same content.
+    AddStateBits(IsFlexContainerFrame() ? NS_STATE_FLEX_HAS_CHILD_NIFS
+                                        : NS_STATE_GRID_HAS_CHILD_NIFS);
     return true;
   }
   return false;

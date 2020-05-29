@@ -14,7 +14,7 @@
 
 @implementation mozHeadingAccessible
 
-- (NSString*)title {
+- (NSString*)moxTitle {
   nsAutoString title;
   if (Accessible* acc = mGeckoAccessible.AsAccessible()) {
     mozilla::ErrorResult rv;
@@ -28,7 +28,7 @@
   return nsCocoaUtils::ToNSString(title);
 }
 
-- (id)value {
+- (id)moxValue {
   GroupPos groupPos;
   if (Accessible* acc = mGeckoAccessible.AsAccessible()) {
     groupPos = acc->GroupPosition();
@@ -41,55 +41,13 @@
 
 @end
 
-@interface mozLinkAccessible ()
-- (NSURL*)url;
-@end
-
 @implementation mozLinkAccessible
 
-- (NSArray*)accessibilityAttributeNames {
-  // if we're expired, we don't support any attributes.
-  if ([self isExpired]) {
-    return @[];
-  }
-
-  if (![self stateWithMask:states::LINKED]) {
-    // Only expose link semantics if this accessible has a LINKED state.
-    return [super accessibilityAttributeNames];
-  }
-
-  static NSMutableArray* attributes = nil;
-
-  if (!attributes) {
-    attributes = [[super accessibilityAttributeNames] mutableCopy];
-    [attributes addObject:NSAccessibilityURLAttribute];
-    [attributes addObject:@"AXVisited"];
-  }
-
-  return attributes;
-}
-
-- (id)accessibilityAttributeValue:(NSString*)attribute {
-  if ([self stateWithMask:states::LINKED]) {
-    // Only expose link semantics if this accessible has a LINKED state.
-    if ([attribute isEqualToString:NSAccessibilityURLAttribute]) return [self url];
-    if ([attribute isEqualToString:@"AXVisited"]) {
-      return [NSNumber numberWithBool:[self stateWithMask:states::TRAVERSED] != 0];
-    }
-  }
-
-  return [super accessibilityAttributeValue:attribute];
-}
-
-- (NSString*)customDescription {
+- (NSString*)moxValue {
   return @"";
 }
 
-- (NSString*)value {
-  return @"";
-}
-
-- (NSURL*)url {
+- (NSURL*)moxURL {
   nsAutoString value;
   if (Accessible* acc = mGeckoAccessible.AsAccessible()) {
     acc->Value(value);
@@ -103,7 +61,11 @@
   return [NSURL URLWithString:urlString];
 }
 
-- (NSString*)role {
+- (NSNumber*)moxVisited {
+  return @([self stateWithMask:states::TRAVERSED] != 0);
+}
+
+- (NSString*)moxRole {
   // If this is not LINKED, just expose this as a generic group accessible.
   // Chrome and Safari expose this as a childless AXStaticText, but
   // the HTML Accessibility API Mappings spec says this should be an AXGroup.
@@ -111,7 +73,15 @@
     return NSAccessibilityGroupRole;
   }
 
-  return [super role];
+  return [super moxRole];
+}
+
+@end
+
+@implementation MOXSummaryAccessible
+
+- (NSNumber*)moxExpanded {
+  return @([self stateWithMask:states::EXPANDED] != 0);
 }
 
 @end

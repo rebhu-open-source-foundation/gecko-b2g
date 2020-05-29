@@ -743,7 +743,7 @@ class BaseContent extends react__WEBPACK_IMPORTED_MODULE_7___default.a.PureCompo
     const prefs = props.Prefs.values;
     const isDiscoveryStream = props.DiscoveryStream.config && props.DiscoveryStream.config.enabled;
     let filteredSections = props.Sections;
-    const pocketEnabled = prefs["feeds.section.topstories"];
+    const pocketEnabled = prefs["feeds.section.topstories"] && prefs["feeds.system.topstories"];
     const noSectionsEnabled = !prefs["feeds.topsites"] && filteredSections.filter(section => section.enabled).length === 0;
     const searchHandoffEnabled = prefs["improvesearch.handoffToAwesomebar"];
     const outerClassName = ["outer-wrapper", isDiscoveryStream && pocketEnabled && "ds-outer-wrapper-search-alignment", isDiscoveryStream && "ds-outer-wrapper-breakpoint-override", prefs.showSearch && this.state.fixedSearch && !noSectionsEnabled && "fixed-search", prefs.showSearch && noSectionsEnabled && "only-search"].filter(v => v).join(" ");
@@ -4346,6 +4346,8 @@ class _DiscoveryStreamBase extends react__WEBPACK_IMPORTED_MODULE_14___default.a
         return react__WEBPACK_IMPORTED_MODULE_14___default.a.createElement(content_src_components_DiscoveryStreamComponents_Navigation_Navigation__WEBPACK_IMPORTED_MODULE_13__["Navigation"], {
           links: component.properties.links,
           alignment: component.properties.alignment,
+          display_variant: component.properties.display_variant,
+          explore_topics: component.properties.explore_topics,
           header: component.header
         });
 
@@ -4809,14 +4811,14 @@ class _DSCard extends react__WEBPACK_IMPORTED_MODULE_4___default.a.PureComponent
     if (this.props.dispatch) {
       this.props.dispatch(common_Actions_jsm__WEBPACK_IMPORTED_MODULE_0__["actionCreators"].UserEvent({
         event: "CLICK",
-        source: this.props.type.toUpperCase(),
+        source: this.props.is_video ? "CARDGRID_VIDEO" : this.props.type.toUpperCase(),
         action_position: this.props.pos,
         value: {
           card_type: this.props.flightId ? "spoc" : "organic"
         }
       }));
       this.props.dispatch(common_Actions_jsm__WEBPACK_IMPORTED_MODULE_0__["actionCreators"].ImpressionStats({
-        source: this.props.type.toUpperCase(),
+        source: this.props.is_video ? "CARDGRID_VIDEO" : this.props.type.toUpperCase(),
         click: 0,
         tiles: [{
           id: this.props.id,
@@ -4937,7 +4939,7 @@ class _DSCard extends react__WEBPACK_IMPORTED_MODULE_4___default.a.PureComponent
         } : {})
       }],
       dispatch: this.props.dispatch,
-      source: this.props.type
+      source: this.props.is_video ? "CARDGRID_VIDEO" : this.props.type
     })), react__WEBPACK_IMPORTED_MODULE_4___default.a.createElement(_DSLinkMenu_DSLinkMenu__WEBPACK_IMPORTED_MODULE_2__["DSLinkMenu"], {
       id: this.props.id,
       index: this.props.pos,
@@ -5256,7 +5258,25 @@ class _LinkMenu extends react__WEBPACK_IMPORTED_MODULE_4___default.a.PureCompone
       } = option;
 
       if (!type && id) {
-        option.onClick = () => {
+        option.onClick = (event = {}) => {
+          const {
+            ctrlKey,
+            metaKey,
+            shiftKey,
+            button
+          } = event; // Only send along event info if there's something non-default to send
+
+          if (ctrlKey || metaKey || shiftKey || button === 1) {
+            action.data = Object.assign({
+              event: {
+                ctrlKey,
+                metaKey,
+                shiftKey,
+                button
+              }
+            }, action.data);
+          }
+
           props.dispatch(action);
 
           if (userEvent) {
@@ -5385,9 +5405,9 @@ class ContextMenuItem extends react__WEBPACK_IMPORTED_MODULE_0___default.a.PureC
     this.focusFirst = this.focusFirst.bind(this);
   }
 
-  onClick() {
+  onClick(event) {
     this.props.hideContext();
-    this.props.option.onClick();
+    this.props.option.onClick(event);
   } // Focus the first menu item if the menu was accessed via the keyboard.
 
 
@@ -8737,20 +8757,27 @@ class _Card extends react__WEBPACK_IMPORTED_MODULE_5___default.a.PureComponent {
 
   onLinkClick(event) {
     event.preventDefault();
+    const {
+      altKey,
+      button,
+      ctrlKey,
+      metaKey,
+      shiftKey
+    } = event;
 
     if (this.props.link.type === "download") {
       this.props.dispatch(common_Actions_jsm__WEBPACK_IMPORTED_MODULE_0__["actionCreators"].OnlyToMain({
-        type: common_Actions_jsm__WEBPACK_IMPORTED_MODULE_0__["actionTypes"].SHOW_DOWNLOAD_FILE,
-        data: this.props.link
+        type: common_Actions_jsm__WEBPACK_IMPORTED_MODULE_0__["actionTypes"].OPEN_DOWNLOAD_FILE,
+        data: Object.assign(this.props.link, {
+          event: {
+            button,
+            ctrlKey,
+            metaKey,
+            shiftKey
+          }
+        })
       }));
     } else {
-      const {
-        altKey,
-        button,
-        ctrlKey,
-        metaKey,
-        shiftKey
-      } = event;
       this.props.dispatch(common_Actions_jsm__WEBPACK_IMPORTED_MODULE_0__["actionCreators"].OnlyToMain({
         type: common_Actions_jsm__WEBPACK_IMPORTED_MODULE_0__["actionTypes"].OPEN_LINK,
         data: Object.assign(this.props.link, {
@@ -8866,7 +8893,7 @@ class _Card extends react__WEBPACK_IMPORTED_MODULE_5___default.a.PureComponent {
       className: "card-details"
     }, link.type === "download" && react__WEBPACK_IMPORTED_MODULE_5___default.a.createElement("div", {
       className: "card-host-name alternate",
-      "data-l10n-id": "newtab-menu-show-file"
+      "data-l10n-id": "newtab-menu-open-file"
     }), link.hostname && react__WEBPACK_IMPORTED_MODULE_5___default.a.createElement("div", {
       className: "card-host-name"
     }, link.hostname.slice(0, 100), link.type === "download" && `  \u2014 ${link.description}`), react__WEBPACK_IMPORTED_MODULE_5___default.a.createElement("div", {
@@ -10567,13 +10594,37 @@ class Topic extends react__WEBPACK_IMPORTED_MODULE_0___default.a.PureComponent {
       url,
       name
     } = this.props;
-    return react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement("li", null, react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement(_SafeAnchor_SafeAnchor__WEBPACK_IMPORTED_MODULE_1__["SafeAnchor"], {
-      key: name,
+    return react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement(_SafeAnchor_SafeAnchor__WEBPACK_IMPORTED_MODULE_1__["SafeAnchor"], {
+      className: this.props.className,
       url: url
-    }, name));
+    }, name);
   }
 
 }
+
+class ExploreTopics extends react__WEBPACK_IMPORTED_MODULE_0___default.a.PureComponent {
+  render() {
+    const {
+      explore_topics
+    } = this.props;
+
+    if (!explore_topics) {
+      return null;
+    }
+
+    return react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement(react__WEBPACK_IMPORTED_MODULE_0___default.a.Fragment, null, react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement(Topic, {
+      className: "ds-navigation-inline-explore-more",
+      url: explore_topics.url,
+      name: explore_topics.name
+    }), react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement(Topic, {
+      className: "ds-navigation-header-explore-more",
+      url: explore_topics.url,
+      name: explore_topics.header
+    }));
+  }
+
+}
+
 class Navigation extends react__WEBPACK_IMPORTED_MODULE_0___default.a.PureComponent {
   render() {
     const {
@@ -10581,19 +10632,30 @@ class Navigation extends react__WEBPACK_IMPORTED_MODULE_0___default.a.PureCompon
     } = this.props || [];
     const {
       alignment
-    } = this.props || "centered";
+    } = this.props || "centered"; // Basic isn't currently used, but keeping it here to be very explicit.
+    // The other variant that's supported is "responsive".
+    // The responsive variant is intended for longer lists of topics, more than 6.
+    // It hides the last item on larger displays. The last item is meant for "see more topics"
+
+    const variant = this.props.display_variant || "basic";
     const header = this.props.header || {};
+    const {
+      explore_topics
+    } = this.props;
     return react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement("div", {
-      className: `ds-navigation ds-navigation-${alignment}`
+      className: `ds-navigation ds-navigation-${alignment} ds-navigation-variant-${variant}`
     }, header.title ? react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement(content_src_components_FluentOrText_FluentOrText__WEBPACK_IMPORTED_MODULE_2__["FluentOrText"], {
       message: header.title
-    }, react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement("div", {
+    }, react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement("span", {
       className: "ds-header"
-    })) : null, react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement("div", null, react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement("ul", null, links && links.map(t => react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement(Topic, {
-      key: t.name,
+    })) : null, react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement("ul", null, links && links.map(t => react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement("li", {
+      key: t.name
+    }, react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement(Topic, {
       url: t.url,
       name: t.name
-    })))));
+    })))), react__WEBPACK_IMPORTED_MODULE_0___default.a.createElement(ExploreTopics, {
+      explore_topics: explore_topics
+    }));
   }
 
 }
@@ -10709,7 +10771,9 @@ const selectLayoutRender = ({
     filterArray.push("Navigation");
   }
 
-  if (!prefs["feeds.section.topstories"]) {
+  const pocketEnabled = prefs["feeds.section.topstories"] && prefs["feeds.system.topstories"];
+
+  if (!pocketEnabled) {
     filterArray.push(...DS_COMPONENTS);
   }
 
