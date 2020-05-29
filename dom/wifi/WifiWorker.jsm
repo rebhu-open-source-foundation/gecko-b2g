@@ -2497,7 +2497,7 @@ function WifiWorker() {
             delete net[name];
           }
         } else {
-          configured[name] = net[name] = value;
+          configured[name] = net[name] = quote(value);
         }
       }
     }
@@ -2557,12 +2557,7 @@ function WifiWorker() {
       }
 
       if (hasValidProperty("phase2")) {
-        if (net.phase2 === "TLS") {
-          net.phase2 = quote("autheap=" + net.phase2);
-        } else {
-          // PAP, MSCHAPV2, etc.
-          net.phase2 = quote("auth=" + net.phase2);
-        }
+        net.phase2 = quote(net.phase2);
       }
 
       if (hasValidProperty("serverCertificate")) {

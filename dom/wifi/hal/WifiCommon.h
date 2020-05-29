@@ -88,7 +88,7 @@ struct ConfigurationOptions {
     COPY_OPT_FIELD(mGroupCipher, EmptyString())
     COPY_OPT_FIELD(mPairwiseCipher, EmptyString())
     COPY_OPT_FIELD(mEap, EmptyString())
-    COPY_OPT_FIELD(mEapPhase2, EmptyString())
+    COPY_OPT_FIELD(mPhase2, EmptyString())
     COPY_OPT_FIELD(mIdentity, EmptyString())
     COPY_OPT_FIELD(mAnonymousId, EmptyString())
     COPY_OPT_FIELD(mPassword, EmptyString())
@@ -122,7 +122,7 @@ struct ConfigurationOptions {
   nsString mGroupCipher;
   nsString mPairwiseCipher;
   nsString mEap;
-  nsString mEapPhase2;
+  nsString mPhase2;
   nsString mIdentity;
   nsString mAnonymousId;
   nsString mPassword;

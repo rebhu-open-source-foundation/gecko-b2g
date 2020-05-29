@@ -31,7 +31,7 @@ interface nsIWifiConfiguration: nsISupports
   readonly attribute AString pairwiseCipher;
 
   readonly attribute AString eap;
-  readonly attribute AString eapPhase2;
+  readonly attribute AString phase2;
   readonly attribute AString identity;
   readonly attribute AString anonymousId;
   readonly attribute AString password;

@@ -201,8 +201,8 @@ Result_t SupplicantStaNetwork::SendEapSimIdentityResponse(
     SimIdentityRespDataOptions* aIdentity) {
   MOZ_ASSERT(mNetwork);
   SupplicantStatus response;
-  std::string identity_str = NS_ConvertUTF16toUTF8(aIdentity->mIdentity).get();
-  std::vector<uint8_t> identity(identity_str.begin(), identity_str.end());
+  std::string identityStr = NS_ConvertUTF16toUTF8(aIdentity->mIdentity).get();
+  std::vector<uint8_t> identity(identityStr.begin(), identityStr.end());
   HIDL_SET(mNetwork, sendNetworkEapIdentityResponse, SupplicantStatus, response,
            identity);
   return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
@@ -216,14 +216,14 @@ Result_t SupplicantStaNetwork::SendEapSimGsmAuthResponse(
       gsmAuthParams;
 
   for (auto& item : aGsmAuthResp) {
-    std::string kc_str = NS_ConvertUTF16toUTF8(item.mKc).get();
-    std::string sres_str = NS_ConvertUTF16toUTF8(item.mSres).get();
+    std::string kcStr = NS_ConvertUTF16toUTF8(item.mKc).get();
+    std::string sresStr = NS_ConvertUTF16toUTF8(item.mSres).get();
 
     ISupplicantStaNetwork::NetworkResponseEapSimGsmAuthParams params;
     std::array<uint8_t, 8> kc;
     std::array<uint8_t, 4> sres;
-    if (ConvertHexStringToByteArray(kc_str, kc) < 0 ||
-        ConvertHexStringToByteArray(sres_str, sres) < 0) {
+    if (ConvertHexStringToByteArray(kcStr, kc) < 0 ||
+        ConvertHexStringToByteArray(sresStr, sres) < 0) {
       return nsIWifiResult::ERROR_INVALID_ARGS;
     }
     params.kc = kc;
@@ -250,16 +250,16 @@ Result_t SupplicantStaNetwork::SendEapSimUmtsAuthResponse(
   SupplicantStatus response;
   ISupplicantStaNetwork::NetworkResponseEapSimUmtsAuthParams umtsAuthParams;
 
-  std::string res_str = NS_ConvertUTF16toUTF8(aUmtsAuthResp->mRes).get();
-  std::string ik_str = NS_ConvertUTF16toUTF8(aUmtsAuthResp->mIk).get();
-  std::string ck_str = NS_ConvertUTF16toUTF8(aUmtsAuthResp->mCk).get();
+  std::string resStr = NS_ConvertUTF16toUTF8(aUmtsAuthResp->mRes).get();
+  std::string ikStr = NS_ConvertUTF16toUTF8(aUmtsAuthResp->mIk).get();
+  std::string ckStr = NS_ConvertUTF16toUTF8(aUmtsAuthResp->mCk).get();
 
   std::vector<uint8_t> res;
   std::array<uint8_t, 16> ik;
   std::array<uint8_t, 16> ck;
-  if (ConvertHexStringToBytes(res_str, res) < 0 ||
-      ConvertHexStringToByteArray(ik_str, ik) < 0 ||
-      ConvertHexStringToByteArray(ck_str, ck) < 0) {
+  if (ConvertHexStringToBytes(resStr, res) < 0 ||
+      ConvertHexStringToByteArray(ikStr, ik) < 0 ||
+      ConvertHexStringToByteArray(ckStr, ck) < 0) {
     return nsIWifiResult::ERROR_INVALID_ARGS;
   }
   umtsAuthParams.res = res;
@@ -275,10 +275,10 @@ Result_t SupplicantStaNetwork::SendEapSimUmtsAutsResponse(
     SimUmtsAutsRespDataOptions* aUmtsAutsResp) {
   MOZ_ASSERT(mNetwork);
   SupplicantStatus response;
-  std::string auts_str = NS_ConvertUTF16toUTF8(aUmtsAutsResp->mAuts).get();
+  std::string autsStr = NS_ConvertUTF16toUTF8(aUmtsAutsResp->mAuts).get();
 
   std::array<uint8_t, 14> auts;
-  if (ConvertHexStringToByteArray(auts_str, auts) < 0) {
+  if (ConvertHexStringToByteArray(autsStr, auts) < 0) {
     return nsIWifiResult::ERROR_INVALID_ARGS;
   }
 
@@ -300,16 +300,16 @@ Result_t SupplicantStaNetwork::SendEapSimUmtsAuthFailure() {
  */
 SupplicantStatusCode SupplicantStaNetwork::SetSsid(const std::string& aSsid) {
   MOZ_ASSERT(mNetwork);
-  std::string ssid_str(aSsid);
-  Dequote(ssid_str);
+  std::string ssidStr(aSsid);
+  Dequote(ssidStr);
 
-  WIFI_LOGD(LOG_TAG, "ssid => %s", ssid_str.c_str());
+  WIFI_LOGD(LOG_TAG, "ssid => %s", ssidStr.c_str());
 
   uint32_t maxSsid = static_cast<uint32_t>(
       ISupplicantStaNetwork::ParamSizeLimits::SSID_MAX_LEN_IN_BYTES);
 
   SupplicantStatus response;
-  std::vector<uint8_t> ssid(ssid_str.begin(), ssid_str.end());
+  std::vector<uint8_t> ssid(ssidStr.begin(), ssidStr.end());
 
   if (ssid.size() == 0 || ssid.size() > maxSsid) {
     return SupplicantStatusCode::FAILURE_ARGS_INVALID;
@@ -348,19 +348,21 @@ SupplicantStatusCode SupplicantStaNetwork::SetKeyMgmt(uint32_t aKeyMgmtMask) {
 
 SupplicantStatusCode SupplicantStaNetwork::SetPsk(const std::string& aPsk) {
   MOZ_ASSERT(mNetwork);
-  WIFI_LOGD(LOG_TAG, "psk => %s", aPsk.c_str());
+  std::string psk(aPsk);
+  Dequote(psk);
+  WIFI_LOGD(LOG_TAG, "psk => %s", psk.c_str());
 
   uint32_t minPskPassphrase = static_cast<uint32_t>(
       ISupplicantStaNetwork::ParamSizeLimits::PSK_PASSPHRASE_MIN_LEN_IN_BYTES);
   uint32_t maxPskPassphrase = static_cast<uint32_t>(
       ISupplicantStaNetwork::ParamSizeLimits::PSK_PASSPHRASE_MAX_LEN_IN_BYTES);
 
-  if (aPsk.size() < minPskPassphrase || aPsk.size() > maxPskPassphrase) {
+  if (psk.size() < minPskPassphrase || psk.size() > maxPskPassphrase) {
     return SupplicantStatusCode::FAILURE_ARGS_INVALID;
   }
 
   SupplicantStatus response;
-  HIDL_SET(mNetwork, setPskPassphrase, SupplicantStatus, response, aPsk);
+  HIDL_SET(mNetwork, setPskPassphrase, SupplicantStatus, response, psk);
   WIFI_LOGD(LOG_TAG, "set psk return: %s",
             ConvertStatusToString(response.code).c_str());
   return response.code;
@@ -534,8 +536,8 @@ SupplicantStatusCode SupplicantStaNetwork::SetEapConfiguration(
   }
 
   // eap phase2
-  if (!aConfig.mEapPhase2.empty()) {
-    stateCode = SetEapPhase2(aConfig.mEapPhase2);
+  if (!aConfig.mPhase2.empty()) {
+    stateCode = SetEapPhase2(aConfig.mPhase2);
     if (stateCode != SupplicantStatusCode::SUCCESS) {
       return stateCode;
     }
@@ -678,26 +680,26 @@ SupplicantStatusCode SupplicantStaNetwork::SetEapMethod(
 }
 
 SupplicantStatusCode SupplicantStaNetwork::SetEapPhase2(
-    const std::string& aEapPhase2) {
+    const std::string& aPhase2) {
   MOZ_ASSERT(mNetwork);
-  WIFI_LOGD(LOG_TAG, "eap phase2 => %s", aEapPhase2.c_str());
+  WIFI_LOGD(LOG_TAG, "eap phase2 => %s", aPhase2.c_str());
 
   ISupplicantStaNetwork::EapPhase2Method eapPhase2;
-  if (aEapPhase2.find("NONE") != std::string::npos) {
+  if (aPhase2.find("NONE") != std::string::npos) {
     eapPhase2 = ISupplicantStaNetwork::EapPhase2Method::NONE;
-  } else if (aEapPhase2.find("PAP") != std::string::npos) {
+  } else if (aPhase2.find("PAP") != std::string::npos) {
     eapPhase2 = ISupplicantStaNetwork::EapPhase2Method::PAP;
-  } else if (aEapPhase2.find("MSPAP") != std::string::npos) {
+  } else if (aPhase2.find("MSCHAP") != std::string::npos) {
     eapPhase2 = ISupplicantStaNetwork::EapPhase2Method::MSPAP;
-  } else if (aEapPhase2.find("MSPAPV2") != std::string::npos) {
+  } else if (aPhase2.find("MSCHAPV2") != std::string::npos) {
     eapPhase2 = ISupplicantStaNetwork::EapPhase2Method::MSPAPV2;
-  } else if (aEapPhase2.find("GTC") != std::string::npos) {
+  } else if (aPhase2.find("GTC") != std::string::npos) {
     eapPhase2 = ISupplicantStaNetwork::EapPhase2Method::GTC;
-  } else if (aEapPhase2.find("SIM") != std::string::npos) {
+  } else if (aPhase2.find("SIM") != std::string::npos) {
     eapPhase2 = ISupplicantStaNetwork::EapPhase2Method::SIM;
-  } else if (aEapPhase2.find("AKA") != std::string::npos) {
+  } else if (aPhase2.find("AKA") != std::string::npos) {
     eapPhase2 = ISupplicantStaNetwork::EapPhase2Method::AKA;
-  } else if (aEapPhase2.find("AKA_PRIME") != std::string::npos) {
+  } else if (aPhase2.find("AKA_PRIME") != std::string::npos) {
     eapPhase2 = ISupplicantStaNetwork::EapPhase2Method::AKA_PRIME;
   } else {
     return SupplicantStatusCode::FAILURE_ARGS_INVALID;
@@ -713,9 +715,11 @@ SupplicantStatusCode SupplicantStaNetwork::SetEapPhase2(
 SupplicantStatusCode SupplicantStaNetwork::SetEapIdentity(
     const std::string& aIdentity) {
   MOZ_ASSERT(mNetwork);
-  WIFI_LOGD(LOG_TAG, "eap identity => %s", aIdentity.c_str());
+  std::string identityStr(aIdentity);
+  Dequote(identityStr);
+  WIFI_LOGD(LOG_TAG, "eap identity => %s", identityStr.c_str());
 
-  std::vector<uint8_t> identity(aIdentity.begin(), aIdentity.end());
+  std::vector<uint8_t> identity(identityStr.begin(), identityStr.end());
 
   SupplicantStatus response;
   HIDL_SET(mNetwork, setEapIdentity, SupplicantStatus, response, identity);
@@ -742,9 +746,11 @@ SupplicantStatusCode SupplicantStaNetwork::SetEapAnonymousId(
 SupplicantStatusCode SupplicantStaNetwork::SetEapPassword(
     const std::string& aPassword) {
   MOZ_ASSERT(mNetwork);
-  WIFI_LOGD(LOG_TAG, "eap password => %s", aPassword.c_str());
+  std::string passwordStr(aPassword);
+  Dequote(passwordStr);
+  WIFI_LOGD(LOG_TAG, "eap password => %s", passwordStr.c_str());
 
-  std::vector<uint8_t> password(aPassword.begin(), aPassword.end());
+  std::vector<uint8_t> password(passwordStr.begin(), passwordStr.end());
 
   SupplicantStatus response;
   HIDL_SET(mNetwork, setEapPassword, SupplicantStatus, response, password);
@@ -886,8 +892,8 @@ SupplicantStatusCode SupplicantStaNetwork::GetSsid(std::string& aSsid) const {
                         const ::android::hardware::hidl_vec<uint8_t>& ssid) {
     response = status;
     if (response.code == SupplicantStatusCode::SUCCESS) {
-      std::string ssid_str(ssid.begin(), ssid.end());
-      aSsid = ssid_str.empty() ? "" : ssid_str;
+      std::string ssidStr(ssid.begin(), ssid.end());
+      aSsid = ssidStr.empty() ? "" : ssidStr;
     }
   });
   return response.code;
@@ -902,8 +908,8 @@ SupplicantStatusCode SupplicantStaNetwork::GetBssid(std::string& aBssid) const {
           const ::android::hardware::hidl_array<uint8_t, 6>& bssid) {
         response = status;
         if (response.code == SupplicantStatusCode::SUCCESS) {
-          std::string bssid_str = ConvertMacToString(bssid);
-          aBssid = bssid_str.empty() ? "" : bssid_str;
+          std::string bssidStr = ConvertMacToString(bssid);
+          aBssid = bssidStr.empty() ? "" : bssidStr;
         }
       });
   return response.code;

@@ -15,14 +15,13 @@ nsWifiConfiguration::nsWifiConfiguration(
     const nsAString& aWepKey, int32_t aWepTxKeyIndex, bool aScanSsid, bool aPmf,
     const nsAString& aProto, const nsAString& aAuthAlg,
     const nsAString& aGroupCipher, const nsAString& aPairwiseCipher,
-    const nsAString& aEap, const nsAString& aEapPhase2,
-    const nsAString& aIdentity, const nsAString& aAnonymousId,
-    const nsAString& aPassword, const nsAString& aClientCert,
-    const nsAString& aCaCert, const nsAString& aCaPath,
-    const nsAString& aSubjectMatch, const nsAString& aEngineId, bool aEngine,
-    const nsAString& aPrivateKeyId, const nsAString& aAltSubjectMatch,
-    const nsAString& aDomainSuffixMatch, bool aProactiveKeyCaching,
-    int32_t aSimIndex) {
+    const nsAString& aEap, const nsAString& aPhase2, const nsAString& aIdentity,
+    const nsAString& aAnonymousId, const nsAString& aPassword,
+    const nsAString& aClientCert, const nsAString& aCaCert,
+    const nsAString& aCaPath, const nsAString& aSubjectMatch,
+    const nsAString& aEngineId, bool aEngine, const nsAString& aPrivateKeyId,
+    const nsAString& aAltSubjectMatch, const nsAString& aDomainSuffixMatch,
+    bool aProactiveKeyCaching, int32_t aSimIndex) {
   mNetId = aNetId;
   mSsid = aSsid;
   mBssid = aBssid;
@@ -36,7 +35,7 @@ nsWifiConfiguration::nsWifiConfiguration(
   mAuthAlg = aAuthAlg;
   mGroupCipher = aGroupCipher;
   mEap = aEap;
-  mEapPhase2 = aEapPhase2;
+  mPhase2 = aPhase2;
   mIdentity = aIdentity;
   mAnonymousId = aAnonymousId;
   mPassword = aPassword;
@@ -138,8 +137,8 @@ nsWifiConfiguration::GetEap(nsAString& aEap) {
 }
 
 NS_IMETHODIMP
-nsWifiConfiguration::GetEapPhase2(nsAString& aEapPhase2) {
-  aEapPhase2 = mEapPhase2;
+nsWifiConfiguration::GetPhase2(nsAString& aPhase2) {
+  aPhase2 = mPhase2;
   return NS_OK;
 }
 

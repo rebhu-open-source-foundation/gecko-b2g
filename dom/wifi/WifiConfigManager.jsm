@@ -150,7 +150,8 @@ this.WifiConfigManager = (function() {
     }
     if (!found) {
       debug("netId:" + netId + " not found in configuredNetworks");
-      return callback(false);
+      callback(false);
+      return;
     }
 
     if (!configuredNetworks[networkKey].networkSeclectionDisableCounter) {
@@ -164,8 +165,9 @@ this.WifiConfigManager = (function() {
         doDisable
       ) {
         debug("Enable network:" + uneval(configuredNetworks[networkKey]));
-        return callback(doDisable);
+        callback(doDisable);
       });
+      return;
     }
     incrementDisableReasonCounter(configuredNetworks[networkKey], reason);
     debug(
@@ -185,10 +187,11 @@ this.WifiConfigManager = (function() {
       updateNetworkStatus(configuredNetworks[networkKey], reason, function(
         doDisable
       ) {
-        return callback(doDisable);
+        callback(doDisable);
       });
+      return;
     }
-    return callback(false);
+    callback(false);
   }
 
   function updateNetworkStatus(config, reason, callback) {

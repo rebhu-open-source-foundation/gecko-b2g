@@ -27,7 +27,7 @@ class nsWifiConfiguration final : public nsIWifiConfiguration {
                       const nsAString& aProto, const nsAString& aAuthAlg,
                       const nsAString& aGroupCipher,
                       const nsAString& aPairwiseCipher, const nsAString& aEap,
-                      const nsAString& aEapPhase2, const nsAString& aIdentity,
+                      const nsAString& aPhase2, const nsAString& aIdentity,
                       const nsAString& aAnonymousId, const nsAString& aPassword,
                       const nsAString& aClientCert, const nsAString& aCaCert,
                       const nsAString& aCaPath, const nsAString& aSubjectMatch,
@@ -54,7 +54,7 @@ class nsWifiConfiguration final : public nsIWifiConfiguration {
   nsString mGroupCipher;
   nsString mPairwiseCipher;
   nsString mEap;
-  nsString mEapPhase2;
+  nsString mPhase2;
   nsString mIdentity;
   nsString mAnonymousId;
   nsString mPassword;

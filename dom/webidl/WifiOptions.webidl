@@ -72,7 +72,7 @@ dictionary WifiConfiguration
 
   /* EAP */
   DOMString eap;
-  DOMString eapPhase2;
+  DOMString phase2;
   DOMString identity;
   DOMString anonymousId;
   DOMString password;

@@ -63,7 +63,7 @@ class NetworkConfiguration {
     mGroupCipher = aConfig.mGroupCipher;
     mPairwiseCipher = aConfig.mPairwiseCipher;
     mEap = aConfig.mEap;
-    mEapPhase2 = aConfig.mEapPhase2;
+    mPhase2 = aConfig.mPhase2;
     mIdentity = aConfig.mIdentity;
     mAnonymousId = aConfig.mAnonymousId;
     mPassword = aConfig.mPassword;
@@ -93,7 +93,7 @@ class NetworkConfiguration {
     COPY_FIELD_STRING(aConfig, mGroupCipher)
     COPY_FIELD_STRING(aConfig, mPairwiseCipher)
     COPY_FIELD_STRING(aConfig, mEap)
-    COPY_FIELD_STRING(aConfig, mEapPhase2)
+    COPY_FIELD_STRING(aConfig, mPhase2)
     COPY_FIELD_STRING(aConfig, mIdentity)
     COPY_FIELD_STRING(aConfig, mAnonymousId)
     COPY_FIELD_STRING(aConfig, mPassword)
@@ -138,7 +138,7 @@ class NetworkConfiguration {
   std::string mGroupCipher;
   std::string mPairwiseCipher;
   std::string mEap;
-  std::string mEapPhase2;
+  std::string mPhase2;
   std::string mIdentity;
   std::string mAnonymousId;
   std::string mPassword;
@@ -230,7 +230,7 @@ class SupplicantStaNetwork
 
   SupplicantStatusCode SetEapConfiguration(const NetworkConfiguration& aConfig);
   SupplicantStatusCode SetEapMethod(const std::string& aEapMethod);
-  SupplicantStatusCode SetEapPhase2(const std::string& aEapPhase2);
+  SupplicantStatusCode SetEapPhase2(const std::string& aPhase2);
   SupplicantStatusCode SetEapIdentity(const std::string& aIdentity);
   SupplicantStatusCode SetEapAnonymousId(const std::string& aAnonymousId);
   SupplicantStatusCode SetEapPassword(const std::string& aPassword);
