@@ -131,13 +131,14 @@ var AlertsHelper = {
           target: listener.target
         });
       } catch (e) {
-        // The non-empty serviceWorkerRegistrationID means the notification
+        // The non-empty serviceWorkerRegistrationScope means the notification
         // is issued by service worker, so deal with this listener
         // via serviceWorkerManager
-        if (listener.serviceWorkerRegistrationID.length &&
-            detail.type !== kDesktopNotificationShow) {
-          let appId = appsService.getAppLocalIdByManifestURL(listener.manifestURL);
-          let originSuffix = "^appId=" + appId;
+        if (listener.serviceWorkerRegistrationScope.length &&
+          detail.type !== kDesktopNotificationShow) {
+          const scope = listener.serviceWorkerRegistrationScope;
+          const originAttr = ChromeUtils.createOriginAttributesFromOrigin(scope);
+          const originSuffix = ChromeUtils.originAttributesToSuffix(originAttr);
           let eventName;
 
           if (detail.type === kDesktopNotificationClick) {
@@ -146,11 +147,10 @@ var AlertsHelper = {
             eventName = "notificationclose";
           }
 
-          if (eventName) {
-            serviceWorkerManager.sendNotificationEvent(
-              eventName,
+          if (eventName == "notificationclick") {
+            serviceWorkerManager.sendNotificationClickEvent(
               originSuffix,
-              listener.serviceWorkerRegistrationID,
+              scope,
               listener.dbId,
               listener.title,
               listener.dir,
