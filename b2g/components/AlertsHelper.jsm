@@ -218,7 +218,7 @@ var AlertsHelper = {
   showNotification: function(imageURL, title, text, textClickable, cookie,
                              uid, dir, lang, dataObj, manifestURL, timestamp,
                              behavior, requireInteraction, actions,
-                             serviceWorkerRegistrationID) {
+                             serviceWorkerRegistrationScope) {
     if (!this._embedderNotifications || !this._embedderNotifications.showNotification) {
       debug(`No embedder support for 'showNotification()'`);
       return;
@@ -239,6 +239,7 @@ var AlertsHelper = {
       data: dataObj,
       mozbehavior: behavior,
       requireInteraction: requireInteraction,
+      serviceWorkerRegistrationScope: serviceWorkerRegistrationScope
     });
   },
 
@@ -274,7 +275,7 @@ var AlertsHelper = {
       dataObj: details.data || undefined,
       requireInteraction: details.requireInteraction || false,
       actions: details.actions || "[]",
-      serviceWorkerRegistrationID: details.serviceWorkerRegistrationID
+      serviceWorkerRegistrationScope: details.serviceWorkerRegistrationScope
     };
     this.registerAppListener(data.uid, listener);
     this.showNotification(data.imageURL, data.title, data.text,
@@ -282,7 +283,7 @@ var AlertsHelper = {
                           details.lang, details.data, details.manifestURL,
                           details.timestamp, details.mozbehavior,
                           details.requireInteraction, details.actions,
-                          details.serviceWorkerRegistrationID);
+                          details.serviceWorkerRegistrationScope);
   },
 
   closeAlert: function(name) {},

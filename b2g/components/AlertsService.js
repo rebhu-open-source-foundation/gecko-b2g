@@ -128,7 +128,7 @@ AlertsService.prototype = {
       mozbehavior: aDetails.mozbehavior,
       requireInteraction: aDetails.requireInteraction || false,
       actions: aDetails.actions || "[]",
-      serviceWorkerRegistrationID: aDetails.serviceWorkerRegistrationID
+      serviceWorkerRegistrationScope: aDetails.serviceWorkerRegistrationScope
     };
 
     cpmm.sendAsyncMessage(kMessageAppNotificationSend, {

@@ -1406,6 +1406,10 @@ void Notification::ShowInternal() {
     ops.mMozbehavior = mBehavior;
     ops.mMozbehavior.mSoundFile = soundUrl;
 
+    if (isPersistent) {
+      ops.mServiceWorkerRegistrationScope = mScope;
+    }
+
     if (!ToJSValue(cx, ops, &val)) {
       NS_WARNING("Converting dict to object failed!");
       return;
