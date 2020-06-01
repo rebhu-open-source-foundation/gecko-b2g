@@ -43,11 +43,6 @@ _SUBDIR_HOST_CXXFLAGS="$HOST_CXXFLAGS"
 _SUBDIR_HOST_LDFLAGS="$HOST_LDFLAGS"
 _SUBDIR_CONFIG_ARGS="$ac_configure_args"
 
-dnl Set the version number of the libs included with mozilla
-dnl ========================================================
-NSPR_VERSION=4
-NSPR_MINVER=4.9.2
-
 dnl Set the minimum version of toolkit libs used by mozilla
 dnl ========================================================
 W32API_VERSION=3.14
@@ -1130,18 +1125,6 @@ dnl =
 dnl ========================================================
 MOZ_ARG_HEADER(External Packages)
 
-MOZ_CONFIG_NSPR(js)
-
-dnl ========================================================
-dnl system zlib Support
-dnl ========================================================
-dnl Standalone js defaults to system zlib
-if test -n "$JS_STANDALONE"; then
-    ZLIB_DIR=yes
-fi
-
-MOZ_ZLIB_CHECK([1.2.3])
-
 if test -n "$ZLIB_IN_MOZGLUE"; then
     AC_DEFINE(ZLIB_IN_MOZGLUE)
 fi
@@ -1289,23 +1272,6 @@ if test -z "$SKIP_LIBRARY_CHECKS"; then
 fi
 
 dnl ========================================================
-dnl JIT observers
-dnl ========================================================
-
-MOZ_ARG_WITH_STRING(jitreport-granularity,
-[  --jitreport-granularity=N
-                           Default granularity at which to report JIT code
-                           to external tools
-                             0 - no info
-                             1 - code ranges for whole functions only
-                             2 - per-line information
-                             3 - per-op information],
-  JITREPORT_GRANULARITY=$withval,
-  JITREPORT_GRANULARITY=3)
-
-AC_DEFINE_UNQUOTED(JS_DEFAULT_JITREPORT_GRANULARITY, $JITREPORT_GRANULARITY)
-
-dnl ========================================================
 dnl =
 dnl = Misc. Options
 dnl =
@@ -1388,15 +1354,6 @@ AC_SUBST(MOZ_APP_DISPLAYNAME)
 
 AC_SUBST(MOZ_PKG_SPECIAL)
 
-dnl ========================================================
-dnl ECMAScript Internationalization API Support (uses ICU)
-dnl ========================================================
-
-dnl top-level configure may override this with --without-intl-api
-_INTL_API=yes
-
-MOZ_CONFIG_ICU()
-
 dnl Echo the CFLAGS to remove extra whitespace.
 CFLAGS=`echo \
 	$_COMPILATION_CFLAGS \
@@ -1424,8 +1381,6 @@ HOST_CXXFLAGS=`echo \
     $_WARNINGS_HOST_CXXFLAGS \
     $_COMPILATION_HOST_CXXFLAGS \
     $HOST_CXXFLAGS`
-
-AC_SUBST(MOZ_SYSTEM_NSPR)
 
 OS_CFLAGS="$CFLAGS"
 OS_CXXFLAGS="$CXXFLAGS"

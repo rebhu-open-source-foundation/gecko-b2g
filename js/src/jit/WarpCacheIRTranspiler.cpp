@@ -247,20 +247,20 @@ bool WarpCacheIRTranspiler::emitGuardSpecificFunction(
   return true;
 }
 
-bool WarpCacheIRTranspiler::emitGuardType(ValOperandId inputId,
-                                          ValueType type) {
+bool WarpCacheIRTranspiler::emitGuardNonDoubleType(ValOperandId inputId,
+                                                   ValueType type) {
   switch (type) {
     case ValueType::String:
     case ValueType::Symbol:
     case ValueType::BigInt:
     case ValueType::Int32:
-    case ValueType::Double:
     case ValueType::Boolean:
       return emitGuardTo(inputId, MIRTypeFromValueType(JSValueType(type)));
     case ValueType::Undefined:
       return emitGuardIsUndefined(inputId);
     case ValueType::Null:
       return emitGuardIsNull(inputId);
+    case ValueType::Double:
     case ValueType::Magic:
     case ValueType::PrivateGCThing:
     case ValueType::Object:
@@ -387,8 +387,8 @@ bool WarpCacheIRTranspiler::emitGuardToTypedArrayIndex(
 }
 
 bool WarpCacheIRTranspiler::emitTruncateDoubleToUInt32(
-    ValOperandId valId, Int32OperandId resultId) {
-  MDefinition* input = getOperand(valId);
+    NumberOperandId inputId, Int32OperandId resultId) {
+  MDefinition* input = getOperand(inputId);
   auto* ins = MTruncateToInt32::New(alloc(), input);
   add(ins);
 
@@ -397,7 +397,11 @@ bool WarpCacheIRTranspiler::emitTruncateDoubleToUInt32(
 
 bool WarpCacheIRTranspiler::emitGuardToInt32ModUint32(ValOperandId valId,
                                                       Int32OperandId resultId) {
-  return emitTruncateDoubleToUInt32(valId, resultId);
+  MDefinition* input = getOperand(valId);
+  auto* ins = MTruncateToInt32::New(alloc(), input);
+  add(ins);
+
+  return defineOperand(resultId, ins);
 }
 
 bool WarpCacheIRTranspiler::emitLoadInt32Result(Int32OperandId valId) {
@@ -1121,6 +1125,26 @@ bool WarpCacheIRTranspiler::emitIsObjectResult(ValOperandId inputId) {
     pushResult(isObject);
   }
 
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitIsCallableResult(ValOperandId inputId) {
+  MDefinition* value = getOperand(inputId);
+
+  auto* isCallable = MIsCallable::New(alloc(), value);
+  add(isCallable);
+
+  pushResult(isCallable);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitIsConstructorResult(ObjOperandId objId) {
+  MDefinition* obj = getOperand(objId);
+
+  auto* isConstructor = MIsConstructor::New(alloc(), obj);
+  add(isConstructor);
+
+  pushResult(isConstructor);
   return true;
 }
 

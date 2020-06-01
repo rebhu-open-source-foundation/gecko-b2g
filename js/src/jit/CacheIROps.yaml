@@ -150,7 +150,9 @@
     input: ValId
     result: Int32Id
 
-- name: GuardType
+# Note: this doesn't accept doubles to avoid ambiguity about whether it includes
+# int32 values. Use GuardIsNumber instead.
+- name: GuardNonDoubleType
   shared: true
   transpile: true
   args:
@@ -489,7 +491,7 @@
   shared: true
   transpile: true
   args:
-    val: ValId
+    input: NumberId
     result: Int32Id
 
 - name: MegamorphicLoadSlotResult
@@ -676,6 +678,18 @@
   transpile: true
   args:
     input: ValId
+
+- name: IsCallableResult
+  shared: true
+  transpile: true
+  args:
+    input: ValId
+
+- name: IsConstructorResult
+  shared: true
+  transpile: true
+  args:
+    obj: ObjId
 
 - name: MathAbsInt32Result
   shared: true
@@ -1428,7 +1442,7 @@
   shared: true
   transpile: false
   args:
-    input: ValId
+    input: NumberId
 
 - name: LoadStringTruthyResult
   shared: true

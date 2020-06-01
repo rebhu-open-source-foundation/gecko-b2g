@@ -17,6 +17,7 @@ py2commands="
     check-spidermonkey
     clang-format
     cramtest
+    crashtest
     devtools-css-db
     firefox-ui-functional
     geckodriver
@@ -26,15 +27,18 @@ py2commands="
     hazards
     jsapi-tests
     jsshell-bench
+    marionette-test
+    jstestbrowser
+    jstests
     mochitest
     mozharness
     pastebin
     prettier-format
-    puppeteer-test
     python
     python-test
     raptor
     raptor-test
+    reftest
     release
     rusttests
     static-analysis

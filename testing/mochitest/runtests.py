@@ -28,6 +28,7 @@ import mozrunner
 import numbers
 import platform
 import re
+import shlex
 import shutil
 import signal
 import socket
@@ -2222,7 +2223,7 @@ toolbar#nav-bar {
         if valgrindPath:
             interactive = False
             valgrindArgs_split = ([] if valgrindArgs is None
-                                  else valgrindArgs.split(","))
+                                  else shlex.split(valgrindArgs))
 
             valgrindSuppFiles_final = []
             if valgrindSuppFiles is not None:
@@ -2337,6 +2338,8 @@ toolbar#nav-bar {
             self.log.process_start(gecko_id)
             self.message_logger.gecko_id = gecko_id
 
+            temp_file_paths = []
+
             try:
                 # start marionette and kick off the tests
                 marionette_args = marionette_args or {}
@@ -2353,7 +2356,9 @@ toolbar#nav-bar {
                                 "TEST-UNEXPECTED-FAIL | invalid setup: missing extension at %s" %
                                 addon_path)
                             return 1, self.lastTestSeen
-                        addons.install(create_zip(addon_path))
+                        temp_addon_path = create_zip(addon_path)
+                        temp_file_paths.append(temp_addon_path)
+                        addons.install(temp_addon_path)
 
                 self.execute_start_script()
 
@@ -2421,6 +2426,8 @@ toolbar#nav-bar {
             # cleanup
             if os.path.exists(processLog):
                 os.remove(processLog)
+            for p in temp_file_paths:
+                os.remove(p)
 
         if marionette_exception is not None:
             exc, value, tb = marionette_exception

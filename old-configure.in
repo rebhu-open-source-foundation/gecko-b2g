@@ -46,9 +46,6 @@ _SUBDIR_CONFIG_ARGS="$ac_configure_args"
 dnl Set the version number of the libs included with mozilla
 dnl ========================================================
 MOZPNG=10635
-NSPR_VERSION=4
-NSPR_MINVER=4.25
-NSS_VERSION=3
 
 dnl Set the minimum version of toolkit libs used by mozilla
 dnl ========================================================
@@ -1401,17 +1398,6 @@ dnl =
 dnl ========================================================
 MOZ_ARG_HEADER(External Packages)
 
-case "$OS_TARGET" in
-WINNT|Darwin|Android)
-  MOZ_FOLD_LIBS=1
-  ;;
-*)
-  MOZ_FOLD_LIBS=
-  ;;
-esac
-
-MOZ_CONFIG_NSPR()
-
 dnl ========================================================
 dnl system libevent Support
 dnl ========================================================
@@ -1449,35 +1435,6 @@ LDFLAGS=$_SAVE_LDFLAGS
 LIBS=$_SAVE_LIBS
 
 AC_SUBST(MOZ_SYSTEM_LIBEVENT)
-
-dnl ========================================================
-dnl = If NSS was not detected in the system,
-dnl = use the one in the source tree (mozilla/security/nss)
-dnl ========================================================
-
-MOZ_ARG_WITH_BOOL(system-nss,
-[  --with-system-nss       Use system installed NSS],
-    _USE_SYSTEM_NSS=1 )
-
-if test -n "$_USE_SYSTEM_NSS"; then
-    AM_PATH_NSS(3.53, [MOZ_SYSTEM_NSS=1], [AC_MSG_ERROR([you don't have NSS installed or your version is too old])])
-fi
-
-NSS_CFLAGS="$NSS_CFLAGS -I${DIST}/include/nss"
-if test -z "$MOZ_SYSTEM_NSS"; then
-   case "${OS_ARCH}" in
-        # Only few platforms have been tested with GYP
-        WINNT|Darwin|Linux|DragonFly|FreeBSD|NetBSD|OpenBSD|SunOS)
-            ;;
-        *)
-            AC_MSG_ERROR([building in-tree NSS is not supported on this platform. Use --with-system-nss])
-            ;;
-   esac
-fi
-
-dnl system ZLIB support
-dnl ========================================================
-MOZ_ZLIB_CHECK([1.2.3])
 
 if test -z "$SKIP_LIBRARY_CHECKS"; then
 
@@ -2360,23 +2317,6 @@ fi
 AC_SUBST(DISABLE_WIFI)
 
 dnl ========================================================
-dnl JIT observers
-dnl ========================================================
-
-MOZ_ARG_WITH_STRING(jitreport-granularity,
-[  --jitreport-granularity=N
-                           Default granularity at which to report JIT code
-                           to external tools
-                             0 - no info
-                             1 - code ranges for whole functions only
-                             2 - per-line information
-                             3 - per-op information],
-  JITREPORT_GRANULARITY=$withval,
-  JITREPORT_GRANULARITY=3)
-
-AC_DEFINE_UNQUOTED(JS_DEFAULT_JITREPORT_GRANULARITY, $JITREPORT_GRANULARITY)
-
-dnl ========================================================
 dnl =
 dnl = Misc. Options
 dnl =
@@ -2903,18 +2843,6 @@ dnl win32 options
 AC_SUBST(WIN32_REDIST_DIR)
 AC_SUBST(WIN_UCRT_REDIST_DIR)
 
-dnl ========================================================
-dnl ICU Support
-dnl ========================================================
-
-_INTL_API=yes
-
-if test "$MOZ_WIDGET_TOOLKIT" = "cocoa"; then
-    USE_ICU=1
-fi
-
-MOZ_CONFIG_ICU()
-
 dnl Echo the CFLAGS to remove extra whitespace.
 CFLAGS=`echo \
     $_COMPILATION_CFLAGS \
@@ -2947,10 +2875,6 @@ AC_SUBST(MOZ_SYSTEM_PNG)
 
 AC_SUBST_LIST(MOZ_PNG_CFLAGS)
 AC_SUBST_LIST(MOZ_PNG_LIBS)
-
-AC_SUBST(MOZ_SYSTEM_NSPR)
-
-AC_SUBST(MOZ_SYSTEM_NSS)
 
 HOST_CMFLAGS="-x objective-c -fobjc-exceptions"
 HOST_CMMFLAGS="-x objective-c++ -fobjc-exceptions"
@@ -3007,8 +2931,6 @@ AC_SUBST(WIN32_GUI_EXE_LDFLAGS)
 AC_SUBST(MOZ_DEVTOOLS)
 
 AC_SUBST(MOZ_PACKAGE_JSSHELL)
-AC_SUBST(MOZ_FOLD_LIBS)
-AC_SUBST_LIST(MOZ_FOLD_LIBS_FLAGS)
 
 AC_SUBST(DMG_TOOL)
 

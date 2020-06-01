@@ -38,12 +38,14 @@ using mozilla::dom::Promise;
 #  include <ntsecapi.h>
 #  include <wincred.h>
 #  include <windows.h>
+#  include "nsIWindowsRegKey.h"  // Must be included after <windows.h> for HKEY definition
 #  define SECURITY_WIN32
 #  include <security.h>
 #  include <shlwapi.h>
 #  if !defined(__MINGW32__)
 #    include <Lm.h>
-#  endif  // !defined(__MINGW32__)
+#    undef ACCESS_READ  // nsWindowsRegKey defines its own ACCESS_READ
+#  endif                // !defined(__MINGW32__)
 struct HandleCloser {
   typedef HANDLE pointer;
   void operator()(HANDLE h) {
@@ -126,6 +128,81 @@ Maybe<int64_t> GetPasswordLastChanged(const WCHAR* username) {
 #  endif
 }
 
+bool IsAutoAdminLogonEnabled() {
+  // https://support.microsoft.com/en-us/help/324737/how-to-turn-on-automatic-logon-in-windows
+  nsresult rv;
+  nsCOMPtr<nsIWindowsRegKey> regKey =
+      do_CreateInstance("@mozilla.org/windows-registry-key;1", &rv);
+  if (NS_FAILED(rv)) {
+    return false;
+  }
+
+  rv = regKey->Open(
+      nsIWindowsRegKey::ROOT_KEY_LOCAL_MACHINE,
+      NS_LITERAL_STRING(
+          "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon"),
+      nsIWindowsRegKey::ACCESS_READ);
+  if (NS_FAILED(rv)) {
+    return false;
+  }
+
+  nsAutoString value;
+  rv = regKey->ReadStringValue(NS_LITERAL_STRING("AutoAdminLogon"), value);
+  if (NS_FAILED(rv)) {
+    return false;
+  }
+  regKey->Close();
+
+  return value.Equals(NS_LITERAL_STRING("1"));
+}
+
+bool IsRequireSignonEnabled() {
+  // https://docs.microsoft.com/en-us/windows-hardware/customize/power-settings/no-subgroup-settings-prompt-for-password-on-resume
+  nsresult rv;
+  nsCOMPtr<nsIWindowsRegKey> regKey =
+      do_CreateInstance("@mozilla.org/windows-registry-key;1", &rv);
+  if (NS_FAILED(rv)) {
+    return true;
+  }
+
+  rv = regKey->Open(
+      nsIWindowsRegKey::ROOT_KEY_LOCAL_MACHINE,
+      NS_LITERAL_STRING("System\\CurrentControlSet\\Control\\Power\\User\\Power"
+                        "Schemes"),
+      nsIWindowsRegKey::ACCESS_READ);
+  if (NS_FAILED(rv)) {
+    return true;
+  }
+
+  nsAutoString activePowerScheme;
+  rv = regKey->ReadStringValue(NS_LITERAL_STRING("ActivePowerScheme"),
+                               activePowerScheme);
+  if (NS_FAILED(rv)) {
+    return true;
+  }
+  regKey->Close();
+
+  rv = regKey->Open(
+      nsIWindowsRegKey::ROOT_KEY_LOCAL_MACHINE,
+      NS_LITERAL_STRING("System\\CurrentControlSet\\Control\\Power\\User\\Power"
+                        "Schemes\\") +
+          activePowerScheme +
+          NS_LITERAL_STRING("\\0e796bdb-100d-47d6-a2d5-f7d2daa51f51"),
+      nsIWindowsRegKey::ACCESS_READ);
+  if (NS_FAILED(rv)) {
+    return true;
+  }
+
+  uint32_t value;
+  rv = regKey->ReadIntValue(NS_LITERAL_STRING("ACSettingIndex"), &value);
+  if (NS_FAILED(rv)) {
+    return true;
+  }
+  regKey->Close();
+
+  return !!value;
+}
+
 // Use the Windows credential prompt to ask the user to authenticate the
 // currently used account.
 static nsresult ReauthenticateUserWindows(
@@ -133,8 +210,12 @@ static nsresult ReauthenticateUserWindows(
     const WindowsHandle& hwndParent,
     /* out */ bool& reauthenticated,
     /* inout */ bool& isBlankPassword,
-    /* inout */ int64_t& prefLastChanged) {
+    /* inout */ int64_t& prefLastChanged,
+    /* out */ bool& isAutoAdminLogonEnabled,
+    /* out */ bool& isRequireSignonEnabled) {
   reauthenticated = false;
+  isAutoAdminLogonEnabled = false;
+  isRequireSignonEnabled = true;
 
   // Check if the user has a blank password before proceeding
   DWORD usernameLength = CREDUI_MAX_USERNAME_LENGTH + 1;
@@ -195,6 +276,10 @@ static nsresult ReauthenticateUserWindows(
     // passwords
     isBlankPassword = false;
   }
+
+  isAutoAdminLogonEnabled = IsAutoAdminLogonEnabled();
+
+  isRequireSignonEnabled = IsRequireSignonEnabled();
 
   // Is used in next iteration if the previous login failed.
   DWORD err = 0;
@@ -319,11 +404,14 @@ static nsresult ReauthenticateUser(const nsAString& prompt,
                                    const WindowsHandle& hwndParent,
                                    /* out */ bool& reauthenticated,
                                    /* inout */ bool& isBlankPassword,
-                                   /* inout */ int64_t& prefLastChanged) {
+                                   /* inout */ int64_t& prefLastChanged,
+                                   /* out */ bool& isAutoAdminLogonEnabled,
+                                   /* out */ bool& isRequireSignonEnabled) {
   reauthenticated = false;
 #if defined(XP_WIN)
-  return ReauthenticateUserWindows(prompt, caption, hwndParent, reauthenticated,
-                                   isBlankPassword, prefLastChanged);
+  return ReauthenticateUserWindows(
+      prompt, caption, hwndParent, reauthenticated, isBlankPassword,
+      prefLastChanged, isAutoAdminLogonEnabled, isRequireSignonEnabled);
 #elif defined(XP_MACOSX)
   return ReauthenticateUserMacOS(prompt, reauthenticated, isBlankPassword);
 #endif  // Reauthentication is not implemented for this platform.
@@ -338,9 +426,11 @@ static void BackgroundReauthenticateUser(RefPtr<Promise>& aPromise,
                                          int64_t prefLastChanged) {
   nsAutoCString recovery;
   bool reauthenticated;
-  nsresult rv =
-      ReauthenticateUser(aMessageText, aCaptionText, hwndParent,
-                         reauthenticated, isBlankPassword, prefLastChanged);
+  bool isAutoAdminLogonEnabled;
+  bool isRequireSignonEnabled;
+  nsresult rv = ReauthenticateUser(
+      aMessageText, aCaptionText, hwndParent, reauthenticated, isBlankPassword,
+      prefLastChanged, isAutoAdminLogonEnabled, isRequireSignonEnabled);
 
   nsTArray<int32_t> prefLastChangedUpdates;
 #if defined(XP_WIN)
@@ -354,9 +444,13 @@ static void BackgroundReauthenticateUser(RefPtr<Promise>& aPromise,
   prefLastChangedUpdates.AppendElement(prefLastChangedLo);
 #endif
 
-  nsTArray<int32_t> results(2);
+  nsTArray<int32_t> results;
   results.AppendElement(reauthenticated);
   results.AppendElement(isBlankPassword);
+#if defined(XP_WIN)
+  results.AppendElement(isAutoAdminLogonEnabled);
+  results.AppendElement(isRequireSignonEnabled);
+#endif
   nsCOMPtr<nsIRunnable> runnable(NS_NewRunnableFunction(
       "BackgroundReauthenticateUserResolve",
       [rv, results = std::move(results),

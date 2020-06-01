@@ -1273,7 +1273,7 @@ checksum = "ff511d5dc435d703f4971bc399647c9bc38e20cb41452e3b9feb4765419ed3f3"
 [[package]]
 name = "error-support"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=77a7f5eb12a8d93f2bd71bd4d844405e06743365#77a7f5eb12a8d93f2bd71bd4d844405e06743365"
+source = "git+https://github.com/mozilla/application-services?rev=57a07e89e9ac92756b60b67c4a6ee06975b86288#57a07e89e9ac92756b60b67c4a6ee06975b86288"
 dependencies = [
  "failure",
 ]
@@ -1376,13 +1376,13 @@ dependencies = [
 
 [[package]]
 name = "flate2"
-version = "1.0.11"
+version = "1.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2adaffba6388640136149e18ed080b77a78611c1e1d6de75aedcdf78df5d4682"
+checksum = "ad3c5233c9a940c8719031b423d7e6c16af66e031cb0420b0896f5245bf181d3"
 dependencies = [
+ "cfg-if",
  "crc32fast",
  "libc",
- "miniz-sys",
  "miniz_oxide",
 ]
 
@@ -1606,7 +1606,7 @@ dependencies = [
 [[package]]
 name = "fxa-client"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=77a7f5eb12a8d93f2bd71bd4d844405e06743365#77a7f5eb12a8d93f2bd71bd4d844405e06743365"
+source = "git+https://github.com/mozilla/application-services?rev=57a07e89e9ac92756b60b67c4a6ee06975b86288#57a07e89e9ac92756b60b67c4a6ee06975b86288"
 dependencies = [
  "base64 0.12.0",
  "byteorder",
@@ -1987,13 +1987,14 @@ dependencies = [
 
 [[package]]
 name = "glean-core"
-version = "30.0.0"
+version = "31.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fa358765c47adf5c9aa458cd553c7f4a41e631ff0d65ec6bbc826b35b243deb"
+checksum = "c12c2c9a3ce2980b27fe93bf9e45707aeea090e3d7ec609fba60d7bfc7858954"
 dependencies = [
  "bincode",
  "chrono",
  "ffi-support",
+ "flate2",
  "log",
  "once_cell",
  "regex",
@@ -2294,7 +2295,7 @@ dependencies = [
 [[package]]
 name = "interrupt-support"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=77a7f5eb12a8d93f2bd71bd4d844405e06743365#77a7f5eb12a8d93f2bd71bd4d844405e06743365"
+source = "git+https://github.com/mozilla/application-services?rev=57a07e89e9ac92756b60b67c4a6ee06975b86288#57a07e89e9ac92756b60b67c4a6ee06975b86288"
 
 [[package]]
 name = "intl-memoizer"
@@ -2367,7 +2368,7 @@ dependencies = [
 [[package]]
 name = "jsparagus"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=5a49cf936b073da15ba67ce3700fed616960dfb8#5a49cf936b073da15ba67ce3700fed616960dfb8"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=efc1291d05e5ba8dbb4bd1197937a0291e72742c#efc1291d05e5ba8dbb4bd1197937a0291e72742c"
 dependencies = [
  "jsparagus-ast",
  "jsparagus-emitter",
@@ -2381,7 +2382,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-ast"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=5a49cf936b073da15ba67ce3700fed616960dfb8#5a49cf936b073da15ba67ce3700fed616960dfb8"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=efc1291d05e5ba8dbb4bd1197937a0291e72742c#efc1291d05e5ba8dbb4bd1197937a0291e72742c"
 dependencies = [
  "bumpalo",
  "indexmap",
@@ -2392,7 +2393,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-emitter"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=5a49cf936b073da15ba67ce3700fed616960dfb8#5a49cf936b073da15ba67ce3700fed616960dfb8"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=efc1291d05e5ba8dbb4bd1197937a0291e72742c#efc1291d05e5ba8dbb4bd1197937a0291e72742c"
 dependencies = [
  "bumpalo",
  "byteorder",
@@ -2405,7 +2406,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-generated-parser"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=5a49cf936b073da15ba67ce3700fed616960dfb8#5a49cf936b073da15ba67ce3700fed616960dfb8"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=efc1291d05e5ba8dbb4bd1197937a0291e72742c#efc1291d05e5ba8dbb4bd1197937a0291e72742c"
 dependencies = [
  "bumpalo",
  "jsparagus-ast",
@@ -2415,12 +2416,12 @@ dependencies = [
 [[package]]
 name = "jsparagus-json-log"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=5a49cf936b073da15ba67ce3700fed616960dfb8#5a49cf936b073da15ba67ce3700fed616960dfb8"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=efc1291d05e5ba8dbb4bd1197937a0291e72742c#efc1291d05e5ba8dbb4bd1197937a0291e72742c"
 
 [[package]]
 name = "jsparagus-parser"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=5a49cf936b073da15ba67ce3700fed616960dfb8#5a49cf936b073da15ba67ce3700fed616960dfb8"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=efc1291d05e5ba8dbb4bd1197937a0291e72742c#efc1291d05e5ba8dbb4bd1197937a0291e72742c"
 dependencies = [
  "bumpalo",
  "jsparagus-ast",
@@ -2432,7 +2433,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-scope"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=5a49cf936b073da15ba67ce3700fed616960dfb8#5a49cf936b073da15ba67ce3700fed616960dfb8"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=efc1291d05e5ba8dbb4bd1197937a0291e72742c#efc1291d05e5ba8dbb4bd1197937a0291e72742c"
 dependencies = [
  "indexmap",
  "jsparagus-ast",
@@ -2442,7 +2443,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-stencil"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=5a49cf936b073da15ba67ce3700fed616960dfb8#5a49cf936b073da15ba67ce3700fed616960dfb8"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=efc1291d05e5ba8dbb4bd1197937a0291e72742c#efc1291d05e5ba8dbb4bd1197937a0291e72742c"
 dependencies = [
  "jsparagus-ast",
 ]
@@ -2861,16 +2862,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "miniz-sys"
-version = "0.1.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e9e3ae51cea1576ceba0dde3d484d30e6e5b86dee0b2d412fe3a16a15c98202"
-dependencies = [
- "cc",
- "libc",
-]
-
-[[package]]
 name = "miniz_oxide"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3237,7 +3228,7 @@ dependencies = [
 [[package]]
 name = "nss"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=77a7f5eb12a8d93f2bd71bd4d844405e06743365#77a7f5eb12a8d93f2bd71bd4d844405e06743365"
+source = "git+https://github.com/mozilla/application-services?rev=57a07e89e9ac92756b60b67c4a6ee06975b86288#57a07e89e9ac92756b60b67c4a6ee06975b86288"
 dependencies = [
  "base64 0.12.0",
  "error-support",
@@ -3251,12 +3242,12 @@ dependencies = [
 [[package]]
 name = "nss_build_common"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=77a7f5eb12a8d93f2bd71bd4d844405e06743365#77a7f5eb12a8d93f2bd71bd4d844405e06743365"
+source = "git+https://github.com/mozilla/application-services?rev=57a07e89e9ac92756b60b67c4a6ee06975b86288#57a07e89e9ac92756b60b67c4a6ee06975b86288"
 
 [[package]]
 name = "nss_sys"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=77a7f5eb12a8d93f2bd71bd4d844405e06743365#77a7f5eb12a8d93f2bd71bd4d844405e06743365"
+source = "git+https://github.com/mozilla/application-services?rev=57a07e89e9ac92756b60b67c4a6ee06975b86288#57a07e89e9ac92756b60b67c4a6ee06975b86288"
 dependencies = [
  "nss_build_common",
 ]
@@ -3381,9 +3372,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.3.1"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1c601810575c99596d4afc46f78a678c80105117c379eb3650cf99b8a21ce5b"
+checksum = "0b631f7e854af39a1739f401cf34a8a013dfe09eac4fa4dba91e9768bd28168d"
 
 [[package]]
 name = "opaque-debug"
@@ -3903,7 +3894,7 @@ dependencies = [
 [[package]]
 name = "rc_crypto"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=77a7f5eb12a8d93f2bd71bd4d844405e06743365#77a7f5eb12a8d93f2bd71bd4d844405e06743365"
+source = "git+https://github.com/mozilla/application-services?rev=57a07e89e9ac92756b60b67c4a6ee06975b86288#57a07e89e9ac92756b60b67c4a6ee06975b86288"
 dependencies = [
  "base64 0.12.0",
  "ece",
@@ -4463,7 +4454,7 @@ dependencies = [
 [[package]]
 name = "sql-support"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=77a7f5eb12a8d93f2bd71bd4d844405e06743365#77a7f5eb12a8d93f2bd71bd4d844405e06743365"
+source = "git+https://github.com/mozilla/application-services?rev=57a07e89e9ac92756b60b67c4a6ee06975b86288#57a07e89e9ac92756b60b67c4a6ee06975b86288"
 dependencies = [
  "ffi-support",
  "interrupt-support",
@@ -4660,7 +4651,7 @@ dependencies = [
 [[package]]
 name = "sync-guid"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=77a7f5eb12a8d93f2bd71bd4d844405e06743365#77a7f5eb12a8d93f2bd71bd4d844405e06743365"
+source = "git+https://github.com/mozilla/application-services?rev=57a07e89e9ac92756b60b67c4a6ee06975b86288#57a07e89e9ac92756b60b67c4a6ee06975b86288"
 dependencies = [
  "base64 0.12.0",
  "rand",
@@ -4671,7 +4662,7 @@ dependencies = [
 [[package]]
 name = "sync15"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=77a7f5eb12a8d93f2bd71bd4d844405e06743365#77a7f5eb12a8d93f2bd71bd4d844405e06743365"
+source = "git+https://github.com/mozilla/application-services?rev=57a07e89e9ac92756b60b67c4a6ee06975b86288#57a07e89e9ac92756b60b67c4a6ee06975b86288"
 dependencies = [
  "base16",
  "base64 0.12.0",
@@ -4694,7 +4685,7 @@ dependencies = [
 [[package]]
 name = "sync15-traits"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=77a7f5eb12a8d93f2bd71bd4d844405e06743365#77a7f5eb12a8d93f2bd71bd4d844405e06743365"
+source = "git+https://github.com/mozilla/application-services?rev=57a07e89e9ac92756b60b67c4a6ee06975b86288#57a07e89e9ac92756b60b67c4a6ee06975b86288"
 dependencies = [
  "failure",
  "ffi-support",
@@ -5310,7 +5301,7 @@ checksum = "078775d0255232fb988e6fccf26ddc9d1ac274299aaedcedce21c6f72cc533ce"
 [[package]]
 name = "viaduct"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=77a7f5eb12a8d93f2bd71bd4d844405e06743365#77a7f5eb12a8d93f2bd71bd4d844405e06743365"
+source = "git+https://github.com/mozilla/application-services?rev=57a07e89e9ac92756b60b67c4a6ee06975b86288#57a07e89e9ac92756b60b67c4a6ee06975b86288"
 dependencies = [
  "failure",
  "failure_derive",
@@ -5426,7 +5417,7 @@ dependencies = [
 [[package]]
 name = "webext-storage"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=77a7f5eb12a8d93f2bd71bd4d844405e06743365#77a7f5eb12a8d93f2bd71bd4d844405e06743365"
+source = "git+https://github.com/mozilla/application-services?rev=57a07e89e9ac92756b60b67c4a6ee06975b86288#57a07e89e9ac92756b60b67c4a6ee06975b86288"
 dependencies = [
  "error-support",
  "failure",

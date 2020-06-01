@@ -417,9 +417,6 @@ nsresult nsPrintSettingsService::ReadPrefs(nsIPrintSettings* aPS,
     // Bug 315687: Sanity check paper size to avoid paper size values in
     // mm when the size unit flag is inches. The value 100 is arbitrary
     // and can be changed.
-#if defined(XP_WIN)
-    bool saveSanitizedSizePrefs = false;
-#endif
     if (success) {
       success = (sizeUnit != nsIPrintSettings::kPaperSizeInches) ||
                 (width < 100.0) || (height < 100.0);
@@ -434,12 +431,6 @@ nsresult nsPrintSettingsService::ReadPrefs(nsIPrintSettings* aPS,
       DUMP_DBL(kReadStr, kPrintPaperHeight, height);
       aPS->SetPaperName(str);
       DUMP_STR(kReadStr, kPrintPaperName, str.get());
-#if defined(XP_WIN)
-      if (saveSanitizedSizePrefs) {
-        SavePrintSettingsToPrefs(aPS, !aPrinterName.IsEmpty(),
-                                 nsIPrintSettings::kInitSavePaperSize);
-      }
-#endif
     }
   }
 
@@ -683,20 +674,6 @@ nsresult nsPrintSettingsService::WritePrefs(nsIPrintSettings* aPS,
       WritePrefDouble(GetPrefName(kPrintPaperHeight, aPrinterName), height);
       DUMP_STR(kWriteStr, kPrintPaperName, name.get());
       Preferences::SetString(GetPrefName(kPrintPaperName, aPrinterName), name);
-#if defined(XP_WIN)
-      // If the height and width are -1 then this might be a save triggered by
-      // print pref sanitizing code. This is done as a one off and is partly
-      // triggered by the existence of an old (now no longer set) pref. We
-      // remove that pref if it exists here, so that we don't try and sanitize
-      // what might be valid prefs. See bug 1276717 and bug 1369386 for details.
-      if (height == -1L && width == -1L) {
-        const char* paperSizeTypePref =
-            GetPrefName("print_paper_size_type", aPrinterName);
-        if (Preferences::HasUserValue(paperSizeTypePref)) {
-          Preferences::ClearUser(paperSizeTypePref);
-        }
-      }
-#endif
     }
   }
 
@@ -883,7 +860,7 @@ nsresult nsPrintSettingsService::_CreatePrintSettings(
   NS_ADDREF(*_retval = printSettings);  // ref count
 
   nsString printerName;
-  nsresult rv = GetDefaultPrinterName(printerName);
+  nsresult rv = GetLastUsedPrinterName(printerName);
   NS_ENSURE_SUCCESS(rv, rv);
   (*_retval)->SetPrinterName(printerName);
 
@@ -913,7 +890,8 @@ nsPrintSettingsService::GetNewPrintSettings(
 }
 
 NS_IMETHODIMP
-nsPrintSettingsService::GetDefaultPrinterName(nsAString& aDefaultPrinterName) {
+nsPrintSettingsService::GetLastUsedPrinterName(
+    nsAString& aLastUsedPrinterName) {
   nsresult rv;
   nsCOMPtr<nsIPrinterEnumerator> prtEnum =
       do_GetService(NS_PRINTER_ENUMERATOR_CONTRACTID, &rv);
@@ -938,7 +916,7 @@ nsPrintSettingsService::GetDefaultPrinterName(nsAString& aDefaultPrinterName) {
         }
       }
       if (isValid) {
-        aDefaultPrinterName = lastPrinterName;
+        aLastUsedPrinterName = lastPrinterName;
         return NS_OK;
       }
     }
@@ -946,7 +924,7 @@ nsPrintSettingsService::GetDefaultPrinterName(nsAString& aDefaultPrinterName) {
 
   // There is no last printer preference, or it doesn't name a valid printer.
   // Return the default from the printer enumeration.
-  return prtEnum->GetDefaultPrinterName(aDefaultPrinterName);
+  return prtEnum->GetDefaultPrinterName(aLastUsedPrinterName);
 }
 
 NS_IMETHODIMP

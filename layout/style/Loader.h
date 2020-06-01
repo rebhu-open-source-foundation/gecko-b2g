@@ -15,37 +15,32 @@
 #include "mozilla/Attributes.h"
 #include "mozilla/CORSMode.h"
 #include "mozilla/dom/LinkStyle.h"
-#include "mozilla/Maybe.h"
 #include "mozilla/MemoryReporting.h"
-#include "mozilla/StyleSheet.h"
-#include "mozilla/StyleSheetInlines.h"
 #include "mozilla/UniquePtr.h"
 #include "nsCompatibility.h"
 #include "nsCycleCollectionParticipant.h"
-#include "nsDataHashtable.h"
-#include "nsIPrincipal.h"
-#include "nsRefPtrHashtable.h"
 #include "nsStringFwd.h"
 #include "nsTArray.h"
 #include "nsTObserverArray.h"
-#include "nsURIHashKey.h"
 
 class nsICSSLoaderObserver;
 class nsIConsoleReportCollector;
 class nsIContent;
+class nsIPrincipal;
 
 namespace mozilla {
+
+class StyleSheet;
+
 namespace dom {
 class DocGroup;
 class Element;
 }  // namespace dom
-}  // namespace mozilla
-
-namespace mozilla {
 
 namespace css {
 
 class SheetLoadData;
+class SheetCache;
 class ImportRule;
 
 /*********************
@@ -335,18 +330,17 @@ class Loader final {
                               const nsAString& aNonce, IsPreload);
 
   enum class SheetState : uint8_t {
-    Unknown = 0,
-    NeedsParser,
+    NeedsParser = 0,
     Pending,
     Loading,
     Complete
   };
 
   std::tuple<RefPtr<StyleSheet>, SheetState> CreateSheet(
-      const SheetInfo& aInfo, nsIPrincipal* aLoaderPrincipal,
+      const SheetInfo& aInfo, nsIPrincipal* aTriggeringPrincipal,
       css::SheetParsingMode aParsingMode, bool aSyncLoad,
       IsPreload aIsPreload) {
-    return CreateSheet(aInfo.mURI, aInfo.mContent, aLoaderPrincipal,
+    return CreateSheet(aInfo.mURI, aInfo.mContent, aTriggeringPrincipal,
                        aParsingMode, aInfo.mCORSMode, aInfo.mReferrerInfo,
                        aInfo.mIntegrity, aSyncLoad, aIsPreload);
   }
@@ -355,9 +349,10 @@ class Loader final {
   // must be non-null then.  The loader principal must never be null
   // if aURI is not null.
   std::tuple<RefPtr<StyleSheet>, SheetState> CreateSheet(
-      nsIURI* aURI, nsIContent* aLinkingContent, nsIPrincipal* aLoaderPrincipal,
-      css::SheetParsingMode, CORSMode, nsIReferrerInfo* aLoadingReferrerInfo,
-      const nsAString& aIntegrity, bool aSyncLoad, IsPreload aIsPreload);
+      nsIURI* aURI, nsIContent* aLinkingContent,
+      nsIPrincipal* aTriggeringPrincipal, css::SheetParsingMode, CORSMode,
+      nsIReferrerInfo* aLoadingReferrerInfo, const nsAString& aIntegrity,
+      bool aSyncLoad, IsPreload aIsPreload);
 
   // Pass in either a media string or the MediaList from the CSSParser.  Don't
   // pass both.

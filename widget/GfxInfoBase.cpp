@@ -1604,6 +1604,10 @@ bool GfxInfoBase::BuildFeatureStateLog(JSContext* aCx,
 void GfxInfoBase::DescribeFeatures(JSContext* aCx, JS::Handle<JSObject*> aObj) {
   JS::Rooted<JSObject*> obj(aCx);
 
+  gfx::FeatureState& hwCompositing =
+      gfxConfig::GetFeature(gfx::Feature::HW_COMPOSITING);
+  InitFeatureObject(aCx, aObj, "hwCompositing", hwCompositing, &obj);
+
   gfx::FeatureState& gpuProcess =
       gfxConfig::GetFeature(gfx::Feature::GPU_PROCESS);
   InitFeatureObject(aCx, aObj, "gpuProcess", gpuProcess, &obj);
@@ -1641,10 +1645,8 @@ bool GfxInfoBase::InitFeatureObject(JSContext* aCx,
   nsCString status;
   auto value = aFeatureState.GetValue();
   if (value == FeatureStatus::Blacklisted ||
-      value == FeatureStatus::Unavailable ||
-      value == FeatureStatus::Blocked) {
-    status.AppendPrintf("%s:%s",
-                        FeatureStatusToString(value),
+      value == FeatureStatus::Unavailable || value == FeatureStatus::Blocked) {
+    status.AppendPrintf("%s:%s", FeatureStatusToString(value),
                         aFeatureState.GetFailureId().get());
   } else {
     status.Append(FeatureStatusToString(value));

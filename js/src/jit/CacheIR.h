@@ -1526,6 +1526,8 @@ class MOZ_RAII CallIRGenerator : public IRGenerator {
   AttachDecision tryAttachToObject(HandleFunction callee);
   AttachDecision tryAttachToInteger(HandleFunction callee);
   AttachDecision tryAttachIsObject(HandleFunction callee);
+  AttachDecision tryAttachIsCallable(HandleFunction callee);
+  AttachDecision tryAttachIsConstructor(HandleFunction callee);
   AttachDecision tryAttachStringChar(HandleFunction callee, StringChar kind);
   AttachDecision tryAttachStringCharCodeAt(HandleFunction callee);
   AttachDecision tryAttachStringCharAt(HandleFunction callee);
@@ -1604,7 +1606,7 @@ class MOZ_RAII ToBoolIRGenerator : public IRGenerator {
   HandleValue val_;
 
   AttachDecision tryAttachInt32();
-  AttachDecision tryAttachDouble();
+  AttachDecision tryAttachNumber();
   AttachDecision tryAttachString();
   AttachDecision tryAttachSymbol();
   AttachDecision tryAttachNullOrUndefined();

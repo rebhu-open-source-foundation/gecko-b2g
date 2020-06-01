@@ -1942,13 +1942,20 @@
   value: false
   mirror: always
 
-# Process launch delay (im milliseconds).
+# Process launch delay (in milliseconds).
 - name: dom.ipc.processPrelaunch.delayMs
   type: uint32_t
 # This number is fairly arbitrary ... the intention is to put off
 # launching another app process until the last one has finished
 # loading its content, to reduce CPU/memory/IO contention.
   value: 1000
+  mirror: always
+
+# Process preallocation cache
+# Only used in fission; in e10s we use 1 always
+- name: dom.ipc.processPrelaunch.fission.number
+  type: uint32_t
+  value: 3
   mirror: always
 
 - name: dom.ipc.processPriorityManager.enabled
@@ -6363,6 +6370,12 @@
   value: true
   mirror: always
 
+# Test only.
+- name: layout.dynamic-toolbar-max-height
+  type: RelaxedAtomicInt32
+  value: 0
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "mathml."
 #---------------------------------------------------------------------------
@@ -7592,6 +7605,39 @@
   value: 2 * 1024 * 1024
   mirror: always
 
+# If we should attempt to race the cache and network.
+- name: network.http.rcwn.enabled
+  type: bool
+  value: true
+  mirror: always
+
+- name: network.http.rcwn.cache_queue_normal_threshold
+  type: uint32_t
+  value: 8
+  mirror: always
+
+- name: network.http.rcwn.cache_queue_priority_threshold
+  type: uint32_t
+  value: 2
+  mirror: always
+
+# We might attempt to race the cache with the network only if a resource
+# is smaller than this size.
+- name: network.http.rcwn.small_resource_size_kb
+  type: uint32_t
+  value: 256
+  mirror: always
+
+- name: network.http.rcwn.min_wait_before_racing_ms
+  type: uint32_t
+  value: 0
+  mirror: always
+
+- name: network.http.rcwn.max_wait_before_racing_ms
+  type: uint32_t
+  value: 500
+  mirror: always
+
 # false=real referer, true=spoof referer (use target URI as referer).
 - name: network.http.referer.spoofSource
   type: bool
@@ -7679,6 +7725,19 @@
 - name: network.http.referer.defaultPolicy.trackers.pbmode
   type: uint32_t
   value: 2
+  mirror: always
+
+# Whether certain http header values should be censored out in logs.
+# Specifically filters out "authorization" and "proxy-authorization".
+- name: network.http.sanitize-headers-in-logs
+  type: bool
+  value: true
+  mirror: always
+
+# If set to true, IOService.offline depends on IOService.connectivity.
+- name: network.offline-mirrors-connectivity
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 # Enables the predictive service.
@@ -7867,6 +7926,38 @@
 - name: network.http.stale_while_revalidate.enabled
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+# Whether to use sni encryption.
+- name: network.security.esni.enabled
+  type: bool
+  value: false
+  mirror: always
+
+# Whether to cache SSL resumption tokens in necko.
+- name: network.ssl_tokens_cache_enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
+# Capacity of the above cache, in kilobytes.
+- name: network.ssl_tokens_cache_capacity
+  type: RelaxedAtomicUint32
+  value: 2048
+  mirror: always
+
+# Whether nsIURI.host/.hostname/.spec should return a punycode string.
+# If set to false we will revert to previous behaviour and return a unicode
+# string.
+- name: network.standard-url.punycode-host
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+# The maximum allowed length for a URL - 1MB default.
+- name: network.standard-url.max-length
+  type: RelaxedAtomicUint32
+  value: 1048576
   mirror: always
 
 # Single TRR request timeout, in milliseconds
@@ -8490,6 +8581,14 @@
 # behavior of Firefox.
 - name: security.data_uri.unique_opaque_origin
   type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+# If true, all toplevel data: URI navigations will be blocked.
+# Please note that manually entering a data: URI in the
+# URL-Bar will not be blocked when flipping this pref.
+- name: security.data_uri.block_toplevel_data_uri_navigations
+  type: bool
   value: true
   mirror: always
 

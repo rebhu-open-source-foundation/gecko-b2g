@@ -184,6 +184,70 @@ void MacroAssembler::guardTypeSet(const Source& address, const TypeSet* types,
   bind(&matched);
 }
 
+template <>
+void MacroAssembler::guardTypeSet(const TypedOrValueRegister& reg,
+                                  const TypeSet* types, BarrierKind kind,
+                                  Register unboxScratch, Register objScratch,
+                                  Register spectreRegToZero, Label* miss) {
+  // See guardTypeSet comments above. This is a specialization for
+  // TypedOrValueRegister.
+
+  MOZ_ASSERT(kind == BarrierKind::TypeTagOnly || kind == BarrierKind::TypeSet);
+  MOZ_ASSERT(!types->unknown());
+
+  if (reg.hasValue()) {
+    guardTypeSet(reg.valueReg(), types, kind, unboxScratch, objScratch,
+                 spectreRegToZero, miss);
+    return;
+  }
+
+  MIRType valType = reg.type();
+  MOZ_ASSERT(valType != MIRType::Value);
+
+  if (valType != MIRType::Object) {
+    // Barrier always either succeeds or fails.
+    if (!types->hasType(TypeSet::PrimitiveType(valType))) {
+      jump(miss);
+    }
+    return;
+  }
+
+  if (types->unknownObject()) {
+    // Barrier always succeeds.
+    return;
+  }
+
+  if (types->getObjectCount() == 0) {
+    // Barrier always fails.
+    jump(miss);
+    return;
+  }
+
+  if (kind == BarrierKind::TypeTagOnly) {
+    // Barrier always succeeds. Assert the type matches in DEBUG builds.
+#ifdef DEBUG
+    Label fail, matched;
+    Register obj = reg.typedReg().gpr();
+    guardObjectType(obj, types, objScratch, spectreRegToZero, &fail);
+    jump(&matched);
+
+    bind(&fail);
+    guardTypeSetMightBeIncomplete(types, obj, objScratch, &matched);
+    assumeUnreachable("Unexpected object type");
+
+    bind(&matched);
+#endif
+    return;
+  }
+
+  MOZ_ASSERT(kind == BarrierKind::TypeSet);
+  MOZ_ASSERT(objScratch != InvalidReg);
+
+  // Test specific objects.
+  Register obj = reg.typedReg().gpr();
+  guardObjectType(obj, types, objScratch, spectreRegToZero, miss);
+}
+
 #ifdef DEBUG
 // guardTypeSetMightBeIncomplete is only used in DEBUG builds. If this ever
 // changes, we need to make sure it's Spectre-safe.
@@ -338,10 +402,6 @@ template void MacroAssembler::guardTypeSet(
     Label* miss);
 template void MacroAssembler::guardTypeSet(
     const ValueOperand& value, const TypeSet* types, BarrierKind kind,
-    Register unboxScratch, Register objScratch, Register spectreRegToZero,
-    Label* miss);
-template void MacroAssembler::guardTypeSet(
-    const TypedOrValueRegister& value, const TypeSet* types, BarrierKind kind,
     Register unboxScratch, Register objScratch, Register spectreRegToZero,
     Label* miss);
 
@@ -1632,6 +1692,52 @@ void MacroAssembler::typeOfObject(Register obj, Register scratch, Label* slow,
             ImmPtr(nullptr), isObject);
 
   jump(isCallable);
+}
+
+void MacroAssembler::isCallableOrConstructor(bool isCallable, Register obj,
+                                             Register output, Label* isProxy) {
+  Label notFunction, hasCOps, done;
+  loadObjClassUnsafe(obj, output);
+
+  // An object is callable iff:
+  //   is<JSFunction>() || (getClass()->cOps && getClass()->cOps->call).
+  // An object is constructor iff:
+  //  ((is<JSFunction>() && as<JSFunction>().isConstructor) ||
+  //   (getClass()->cOps && getClass()->cOps->construct)).
+  branchPtr(Assembler::NotEqual, output, ImmPtr(&JSFunction::class_),
+            &notFunction);
+  if (isCallable) {
+    move32(Imm32(1), output);
+  } else {
+    static_assert(mozilla::IsPowerOfTwo(uint32_t(FunctionFlags::CONSTRUCTOR)),
+                  "FunctionFlags::CONSTRUCTOR has only one bit set");
+
+    load16ZeroExtend(Address(obj, JSFunction::offsetOfFlags()), output);
+    rshift32(Imm32(mozilla::FloorLog2(uint32_t(FunctionFlags::CONSTRUCTOR))),
+             output);
+    and32(Imm32(1), output);
+  }
+  jump(&done);
+
+  bind(&notFunction);
+
+  // Just skim proxies off. Their notion of isCallable()/isConstructor() is
+  // more complicated.
+  branchTestClassIsProxy(true, output, isProxy);
+
+  branchPtr(Assembler::NonZero, Address(output, offsetof(JSClass, cOps)),
+            ImmPtr(nullptr), &hasCOps);
+  move32(Imm32(0), output);
+  jump(&done);
+
+  bind(&hasCOps);
+  loadPtr(Address(output, offsetof(JSClass, cOps)), output);
+  size_t opsOffset =
+      isCallable ? offsetof(JSClassOps, call) : offsetof(JSClassOps, construct);
+  cmpPtrSet(Assembler::NonZero, Address(output, opsOffset), ImmPtr(nullptr),
+            output);
+
+  bind(&done);
 }
 
 void MacroAssembler::loadJSContext(Register dest) {
