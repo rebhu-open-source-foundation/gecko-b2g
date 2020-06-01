@@ -126,8 +126,7 @@ AlertsService.prototype = {
       timestamp: aDetails.timestamp || undefined,
       dataObj: aDetails.data || undefined,
       mozbehavior: aDetails.mozbehavior,
-      requireInteraction: aDetails.requireInteraction || false,
-      actions: aDetails.actions || "[]",
+      // TODO: Interactive Notification feature
       serviceWorkerRegistrationScope: aDetails.serviceWorkerRegistrationScope
     };
 
@@ -151,13 +150,9 @@ AlertsService.prototype = {
     }
 
     let topic = data.topic;
-    let userAction = "";
-    if (data.extra && typeof data.extra === 'string') {
-      userAction = data.extra;
-    }
 
     try {
-      listener.observer.observe(null, topic, userAction);
+      listener.observer.observe(null, topic, null);
     } catch (e) {
       // The non-empty serviceWorkerRegistrationID means the notification
       // is issued by service worker, so deal with this listener
@@ -172,7 +167,6 @@ AlertsService.prototype = {
           eventName = "notificationclick";
         } else if (topic === kTopicAlertFinished) {
           eventName = "notificationclose";
-          userAction = "";
         }
 
         if (eventName) {
@@ -188,10 +182,7 @@ AlertsService.prototype = {
             listener.tag,
             listener.imageURL,
             listener.dataObj || undefined,
-            listener.mozbehavior,
-            listener.requireInteraction,
-            listener.actions,
-            userAction
+            listener.mozbehavior
           );
         }
       }

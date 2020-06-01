@@ -128,8 +128,7 @@ var AlertsHelper = {
         listener.mm.sendAsyncMessage(kMessageAppNotificationReturn, {
           uid: uid,
           topic: topic,
-          target: listener.target,
-          extra: detail.action
+          target: listener.target
         });
       } catch (e) {
         // The non-empty serviceWorkerRegistrationID means the notification
@@ -140,13 +139,9 @@ var AlertsHelper = {
           let appId = appsService.getAppLocalIdByManifestURL(listener.manifestURL);
           let originSuffix = "^appId=" + appId;
           let eventName;
-          let userAction = "";
 
           if (detail.type === kDesktopNotificationClick) {
             eventName = "notificationclick";
-            if (detail.action && typeof detail.action === 'string') {
-              userAction = detail.action;
-            }
           } else if (detail.type === kDesktopNotificationClose) {
             eventName = "notificationclose";
           }
@@ -164,10 +159,7 @@ var AlertsHelper = {
               listener.tag,
               listener.imageURL,
               listener.dataObj || undefined,
-              listener.mozbehavior,
-              listener.requireInteraction,
-              listener.actions,
-              userAction
+              listener.mozbehavior
             );
           }
         }
@@ -217,8 +209,7 @@ var AlertsHelper = {
 
   showNotification: function(imageURL, title, text, textClickable, cookie,
                              uid, dir, lang, dataObj, manifestURL, timestamp,
-                             behavior, requireInteraction, actions,
-                             serviceWorkerRegistrationScope) {
+                             behavior, serviceWorkerRegistrationScope) {
     if (!this._embedderNotifications || !this._embedderNotifications.showNotification) {
       debug(`No embedder support for 'showNotification()'`);
       return;
@@ -238,7 +229,6 @@ var AlertsHelper = {
       timestamp: timestamp,
       data: dataObj,
       mozbehavior: behavior,
-      requireInteraction: requireInteraction,
       serviceWorkerRegistrationScope: serviceWorkerRegistrationScope
     });
   },
@@ -273,8 +263,6 @@ var AlertsHelper = {
       tag: details.tag || undefined,
       timestamp: details.timestamp || undefined,
       dataObj: details.data || undefined,
-      requireInteraction: details.requireInteraction || false,
-      actions: details.actions || "[]",
       serviceWorkerRegistrationScope: details.serviceWorkerRegistrationScope
     };
     this.registerAppListener(data.uid, listener);
@@ -282,7 +270,6 @@ var AlertsHelper = {
                           details.textClickable, null, data.uid, details.dir,
                           details.lang, details.data, details.manifestURL,
                           details.timestamp, details.mozbehavior,
-                          details.requireInteraction, details.actions,
                           details.serviceWorkerRegistrationScope);
   },
 
