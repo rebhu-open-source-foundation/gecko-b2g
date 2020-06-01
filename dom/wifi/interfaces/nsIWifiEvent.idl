@@ -11,19 +11,19 @@ interface nsIStateChanged;
 interface nsIWifiEvent : nsISupports
 {
   /** Connection failure reason code */
-  const unsigned long AUTH_FAILURE_UNKNOWN = 0;
-  const unsigned long AUTH_FAILURE_NONE = 1;
-  const unsigned long AUTH_FAILURE_TIMEOUT = 2;
-  const unsigned long AUTH_FAILURE_WRONG_KEY = 3;
-  const unsigned long AUTH_FAILURE_EAP_FAILURE = 4;
+  const uint32_t AUTH_FAILURE_UNKNOWN = 0;
+  const uint32_t AUTH_FAILURE_NONE = 1;
+  const uint32_t AUTH_FAILURE_TIMEOUT = 2;
+  const uint32_t AUTH_FAILURE_WRONG_KEY = 3;
+  const uint32_t AUTH_FAILURE_EAP_FAILURE = 4;
 
   /** Error code for EAP or EAP Method as per RFC-4186 10.18 */
-  const unsigned long ERROR_CODE_NONE = -1;
-  const unsigned long ERROR_EAP_SIM_GENERAL_FAILURE_AFTER_AUTH = 0;
-  const unsigned long ERROR_EAP_SIM_TEMPORARILY_DENIED = 1026;
-  const unsigned long ERROR_EAP_SIM_NOT_SUBSCRIBED = 1031;
-  const unsigned long ERROR_EAP_SIM_GENERAL_FAILURE_BEFORE_AUTH = 16384;
-  const unsigned long ERROR_EAP_SIM_VENDOR_SPECIFIC_EXPIRED_CERT = 16385;
+  const uint32_t ERROR_CODE_NONE = -1;
+  const uint32_t ERROR_EAP_SIM_GENERAL_FAILURE_AFTER_AUTH = 0;
+  const uint32_t ERROR_EAP_SIM_TEMPORARILY_DENIED = 1026;
+  const uint32_t ERROR_EAP_SIM_NOT_SUBSCRIBED = 1031;
+  const uint32_t ERROR_EAP_SIM_GENERAL_FAILURE_BEFORE_AUTH = 16384;
+  const uint32_t ERROR_EAP_SIM_VENDOR_SPECIFIC_EXPIRED_CERT = 16385;
 
   /**
    * Number of the event sent from hal.
@@ -47,25 +47,25 @@ interface nsIWifiEvent : nsISupports
    *
    * Possible values: AUTH_FAILURE_*.
    */
-  readonly attribute unsigned long reason;
+  readonly attribute uint32_t reason;
 
   /**
    * 802.11 code to indicate the association reject reason.
    * Refer to section 8.4.1.9 of IEEE 802.11 spec.
    */
-  readonly attribute unsigned long statusCode;
+  readonly attribute uint32_t statusCode;
 
   /**
    * Indicate the number of connected clients on hotspot.
    * Refer to onNumAssociatedStationsChanged event.
    */
-  readonly attribute unsigned long numStations;
+  readonly attribute uint32_t numStations;
 
   /**
    * Error code for EAP or EAP Method.
    * Possible values: ERROR_EAP_SIM_*.
    */
-  readonly attribute long errorCode;
+  readonly attribute int32_t errorCode;
 
   /**
    * Whether failure is due to timeout rather response from the AP.

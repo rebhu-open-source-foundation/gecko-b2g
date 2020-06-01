@@ -8,21 +8,21 @@
 interface nsIWifiConfiguration: nsISupports
 {
   /** KeyMgmtMask */
-  const long KEYMGMT_WPA_EAP   = (1 << 0);
-  const long KEYMGMT_WPA_PSK   = (1 << 1);
-  const long KEYMGMT_NONE      = (1 << 2);
-  const long KEYMGMT_IEEE8021X = (1 << 3);
-  const long KEYMGMT_FT_EAP    = (1 << 5);
-  const long KEYMGMT_FT_PSK    = (1 << 6);
-  const long KEYMGMT_OSEN      = (1 << 15);
+  const int32_t KEYMGMT_WPA_EAP   = (1 << 0);
+  const int32_t KEYMGMT_WPA_PSK   = (1 << 1);
+  const int32_t KEYMGMT_NONE      = (1 << 2);
+  const int32_t KEYMGMT_IEEE8021X = (1 << 3);
+  const int32_t KEYMGMT_FT_EAP    = (1 << 5);
+  const int32_t KEYMGMT_FT_PSK    = (1 << 6);
+  const int32_t KEYMGMT_OSEN      = (1 << 15);
 
-  readonly attribute long    netId;
+  readonly attribute int32_t netId;
   readonly attribute AString ssid;
   readonly attribute AString bssid;
   readonly attribute AString keyManagement;
   readonly attribute AString psk;
   readonly attribute AString wepKey;
-  readonly attribute long    wepTxKeyIndex;
+  readonly attribute int32_t wepTxKeyIndex;
   readonly attribute boolean scanSsid;
   readonly attribute boolean pmf;
   readonly attribute AString proto;
@@ -45,38 +45,38 @@ interface nsIWifiConfiguration: nsISupports
   readonly attribute AString altSubjectMatch;
   readonly attribute AString domainSuffixMatch;
   readonly attribute boolean proactiveKeyCaching;
-  readonly attribute long    simIndex;
+  readonly attribute int32_t simIndex;
 };
 
 [scriptable, uuid(2677465d-1061-483d-9d59-107339bb9b2b)]
 interface nsISoftapConfiguration: nsISupports
 {
   /** AP band */
-  const long AP_BAND_24GHZ = 0;
-  const long AP_BAND_5GHZ  = 1;
-  const long AP_BAND_ANY   = 2;
+  const int32_t AP_BAND_24GHZ = 0;
+  const int32_t AP_BAND_5GHZ  = 1;
+  const int32_t AP_BAND_ANY   = 2;
 
   /** Encryption type */
-  const long SECURITY_NONE = 0;
-  const long SECURITY_WPA  = 1;
-  const long SECURITY_WPA2 = 2;
+  const int32_t SECURITY_NONE = 0;
+  const int32_t SECURITY_WPA  = 1;
+  const int32_t SECURITY_WPA2 = 2;
 };
 
 [scriptable, uuid(9fb6b90f-1e28-41b2-96be-e1a2839ffd38)]
 interface nsISupplicantDebugLevel : nsISupports
 {
-  const long LOG_EXCESSIVE = 0;
-  const long LOG_MSGDUMP   = 1;
-  const long LOG_DEBUG     = 2;
-  const long LOG_INFO      = 3;
-  const long LOG_WARNING   = 4;
-  const long LOG_ERROR     = 5;
+  const int32_t LOG_EXCESSIVE = 0;
+  const int32_t LOG_MSGDUMP   = 1;
+  const int32_t LOG_DEBUG     = 2;
+  const int32_t LOG_INFO      = 3;
+  const int32_t LOG_WARNING   = 4;
+  const int32_t LOG_ERROR     = 5;
 
   /**
    * Contains the possible debug level in supplicant.
    * Only log messages with a level greater than the set level will be logged.
    */
-  readonly attribute unsigned long logLevel;
+  readonly attribute uint32_t logLevel;
 
   /**
    * Determines whether to show timestamps in log or not.
@@ -93,18 +93,18 @@ interface nsISupplicantDebugLevel : nsISupports
 interface nsIScanSettings : nsISupports
 {
   /** Scan accuracy */
-  const long SCAN_TYPE_LOW_SPAN      = 0;
-  const long SCAN_TYPE_LOW_POWER     = 1;
-  const long SCAN_TYPE_HIGH_ACCURACY = 2;
+  const int32_t SCAN_TYPE_LOW_SPAN      = 0;
+  const int32_t SCAN_TYPE_LOW_POWER     = 1;
+  const int32_t SCAN_TYPE_HIGH_ACCURACY = 2;
 
   /** Band */
-  const long BAND_2_4_GHZ   = 0x1;
-  const long BAND_5_GHZ     = 0x2;
-  const long BAND_5_GHZ_DFS = 0x4;
+  const int32_t BAND_2_4_GHZ   = 0x1;
+  const int32_t BAND_5_GHZ     = 0x2;
+  const int32_t BAND_5_GHZ_DFS = 0x4;
 
   /** Scan type */
-  const long USE_SINGLE_SCAN = 0;
-  const long USE_PNO_SCAN = 1;
+  const int32_t USE_SINGLE_SCAN = 0;
+  const int32_t USE_PNO_SCAN = 1;
 };
 
 [scriptable, uuid(e4bec643-5d02-432a-8edf-182dee5917ab)]
@@ -117,10 +117,10 @@ interface nsIScanResult : nsISupports
   readonly attribute AString bssid;
 
   /** Frequency in MHz */
-  readonly attribute unsigned long frequency;
+  readonly attribute uint32_t frequency;
 
   /** TSF of the received probe response/beacon */
-  readonly attribute unsigned long tsf;
+  readonly attribute uint32_t tsf;
 
   /**
    * This is a bit mask describing the capabilities of a BSS.
@@ -142,10 +142,10 @@ interface nsIScanResult : nsISupports
    * Bit 14 - Delayed Block Ack
    * Bit 15 - Immediate Block Ack
    */
-  readonly attribute unsigned long capability;
+  readonly attribute uint32_t capability;
 
   /** Signal strength of probe response/beacon in (100 * dBm) */
-  readonly attribute long signal;
+  readonly attribute int32_t signal;
 
   /** Whether the network is associated */
   readonly attribute boolean associated;
@@ -161,27 +161,27 @@ interface nsIScanResult : nsISupports
 interface nsIStateChanged : nsISupports
 {
   /** Supplicant state */
-  const long STATE_DISCONNECTED      = 0;
-  const long STATE_IFACE_DISABLED    = 1;
-  const long STATE_INACTIVE          = 2;
-  const long STATE_SCANNING          = 3;
-  const long STATE_AUTHENTICATING    = 4;
-  const long STATE_ASSOCIATING       = 5;
-  const long STATE_ASSOCIATED        = 6;
-  const long STATE_FOURWAY_HANDSHAKE = 7;
-  const long STATE_GROUP_HANDSHAKE   = 8;
-  const long STATE_COMPLETED         = 9;
+  const int32_t STATE_DISCONNECTED      = 0;
+  const int32_t STATE_IFACE_DISABLED    = 1;
+  const int32_t STATE_INACTIVE          = 2;
+  const int32_t STATE_SCANNING          = 3;
+  const int32_t STATE_AUTHENTICATING    = 4;
+  const int32_t STATE_ASSOCIATING       = 5;
+  const int32_t STATE_ASSOCIATED        = 6;
+  const int32_t STATE_FOURWAY_HANDSHAKE = 7;
+  const int32_t STATE_GROUP_HANDSHAKE   = 8;
+  const int32_t STATE_COMPLETED         = 9;
 
   /**
    * Current state in supplicant.
    * Possible values: STATE_*.
    */
-  readonly attribute unsigned long state;
+  readonly attribute uint32_t state;
 
   /**
    * The network id in supplicant that holding the new state.
    */
-  readonly attribute unsigned long id;
+  readonly attribute uint32_t id;
 
   /**
    * Bssid of the changed network.
@@ -200,22 +200,22 @@ interface nsILinkLayerPacketStats : nsISupports
   /**
    * Number of received unicast data packets.
    */
-  readonly attribute unsigned long long rxMpdu;
+  readonly attribute uint64_t rxMpdu;
 
   /**
    * Number of successfully transmitted unicast data pkts (ACK rcvd).
    */
-  readonly attribute unsigned long long txMpdu;
+  readonly attribute uint64_t txMpdu;
 
   /**
    * Number of transmitted unicast data pkt losses (no ACK).
    */
-  readonly attribute unsigned long long lostMpdu;
+  readonly attribute uint64_t lostMpdu;
 
   /**
    * Number of transmitted unicast data retry pkts.
    */
-  readonly attribute unsigned long long retries;
+  readonly attribute uint64_t retries;
 };
 
 [scriptable, uuid(035e3253-9e89-42a3-b847-beb04f8c05d1)]
@@ -224,22 +224,22 @@ interface nsILinkLayerRadioStats : nsISupports
   /**
    * Time for which the radio is awake.
    */
-  readonly attribute unsigned long onTimeInMs;
+  readonly attribute uint32_t onTimeInMs;
 
   /**
    * Total time for which the radio is in active transmission.
    */
-  readonly attribute unsigned long txTimeInMs;
+  readonly attribute uint32_t txTimeInMs;
 
   /**
    * Time for which the radio is in active receive.
    */
-  readonly attribute unsigned long rxTimeInMs;
+  readonly attribute uint32_t rxTimeInMs;
 
   /**
    * Total time for which the radio is awake due to scan.
    */
-  readonly attribute unsigned long onTimeInMsForScan;
+  readonly attribute uint32_t onTimeInMsForScan;
 
   /**
    * Time for which the radio is in active tranmission per tx level.
@@ -253,12 +253,12 @@ interface nsILinkLayerStats : nsISupports
   /**
    * Number beacons received from the connected AP.
    */
-  readonly attribute unsigned long beaconRx;
+  readonly attribute uint32_t beaconRx;
 
   /**
    * Access Point Beacon and Management frames RSSI (averaged).
    */
-  readonly attribute long avgRssiMgmt;
+  readonly attribute int32_t avgRssiMgmt;
 
   /**
    * WME Best Effort Access Category packet counters.
@@ -285,7 +285,7 @@ interface nsILinkLayerStats : nsISupports
    * This is the absolute milliseconds from boot when these stats were
    * sampled.
    */
-  readonly attribute unsigned long long timeStampMs;
+  readonly attribute uint64_t timeStampMs;
 
   /**
    * Query link layer radio stats for current connected access point

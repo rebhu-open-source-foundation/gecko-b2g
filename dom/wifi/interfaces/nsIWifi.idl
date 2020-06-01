@@ -45,7 +45,7 @@ interface nsIWifiScanResultsReady : nsISupports {
 [scriptable, uuid(c10c6762-8035-4318-9039-5e3f53e2abaa)]
 interface nsIWifiWorkerListener : nsISupports {
   void notifyIpChanged(in AString ipAddress);
-  void notifyRssiChanged(in long rssi);
+  void notifyRssiChanged(in int32_t rssi);
 };
 
 [scriptable, uuid(0597e1f7-1dbb-474e-8a66-dd9fb39d04dd)]

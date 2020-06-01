@@ -13,9 +13,10 @@
 
 // There is a conflict with the value of DEBUG in DEBUG builds.
 #if defined(DEBUG)
-#define OLD_DEBUG=DEBUG
-#undef DEBUG
+#  define OLD_DEBUG = DEBUG
+#  undef DEBUG
 #endif
+
 #include <android/hidl/manager/1.0/IServiceManager.h>
 #include <android/hidl/manager/1.0/IServiceNotification.h>
 #include <android/hardware/wifi/supplicant/1.0/ISupplicantCallback.h>
@@ -26,8 +27,8 @@
 #include <android/hardware/wifi/supplicant/1.2/ISupplicantP2pIface.h>
 
 #if defined(OLD_DEBUG)
-#define DEBUG=OLD_DEBUG
-#undef OLD_DEBUG
+#  define DEBUG = OLD_DEBUG
+#  undef OLD_DEBUG
 #endif
 
 #include "mozilla/Mutex.h"
@@ -49,12 +50,12 @@ using ::android::hardware::wifi::supplicant::V1_0::SupplicantStatusCode;
 using ::android::hardware::wifi::supplicant::V1_2::ISupplicant;
 using ::android::hidl::base::V1_0::IBase;
 
-namespace SupplicantNameSpace = ::android::hardware::wifi::supplicant::V1_0;
+namespace SupplicantNameSpaceV1_0 = ::android::hardware::wifi::supplicant::V1_0;
 
 class SupplicantStaManager
     : virtual public android::hidl::manager::V1_0::IServiceNotification,
-      virtual public android::hardware::wifi::supplicant::V1_0::ISupplicantCallback,
-      virtual public android::hardware::wifi::supplicant::V1_0::ISupplicantStaIfaceCallback {
+      virtual public SupplicantNameSpaceV1_0::ISupplicantCallback,
+      virtual public SupplicantNameSpaceV1_0::ISupplicantStaIfaceCallback {
  public:
   static SupplicantStaManager* Get();
   static void CleanUp();
@@ -313,7 +314,8 @@ class SupplicantStaManager
   };
 
   struct SupplicantDeathRecipient : public hidl_death_recipient {
-    explicit SupplicantDeathRecipient(SupplicantStaManager* aOuter) : mOuter(aOuter) {}
+    explicit SupplicantDeathRecipient(SupplicantStaManager* aOuter)
+        : mOuter(aOuter) {}
     // hidl_death_recipient interface
     virtual void serviceDied(uint64_t cookie,
                              const ::android::wp<IBase>& who) override;
@@ -332,7 +334,7 @@ class SupplicantStaManager
   android::sp<ISupplicantStaIface> GetSupplicantStaIface();
   android::sp<ISupplicantStaIface> AddSupplicantStaIface();
   android::sp<ISupplicantP2pIface> GetSupplicantP2pIface();
-  Result_t FindIfaceOfType(SupplicantNameSpace::IfaceType aDesired,
+  Result_t FindIfaceOfType(SupplicantNameSpaceV1_0::IfaceType aDesired,
                            ISupplicant::IfaceInfo* aInfo);
 
   bool CompareConfiguration(const NetworkConfiguration& aOld,
@@ -350,8 +352,8 @@ class SupplicantStaManager
   void NotifyAssociatedBssid(const std::string& aBssid);
   void SupplicantServiceDiedHandler(int32_t aCookie);
 
-  static SupplicantStaManager* s_Instance;
-  static mozilla::Mutex s_Lock;
+  static SupplicantStaManager* sInstance;
+  static mozilla::Mutex sLock;
 
   android::sp<::android::hidl::manager::V1_0::IServiceManager> mServiceManager;
   android::sp<ISupplicant> mSupplicant;
@@ -367,7 +369,8 @@ class SupplicantStaManager
 
   // For current connecting network.
   std::unordered_map<std::string, NetworkConfiguration> mCurrentConfiguration;
-  std::unordered_map<std::string, android::sp<SupplicantStaNetwork>> mCurrentNetwork;
+  std::unordered_map<std::string, android::sp<SupplicantStaNetwork>>
+      mCurrentNetwork;
 
   DISALLOW_COPY_AND_ASSIGN(SupplicantStaManager);
 };

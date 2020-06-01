@@ -10,8 +10,8 @@ interface nsIWifiEventListener;
 [scriptable, uuid(5d0edcd3-c2f1-4946-aae5-06adcbdf0992)]
 interface nsIWifiCertService : nsISupports
 {
-  const unsigned short WIFI_CERT_USAGE_FLAG_SERVER = 0x01;
-  const unsigned short WIFI_CERT_USAGE_FLAG_USER   = 0x02;
+  const uint16_t WIFI_CERT_USAGE_FLAG_SERVER = 0x01;
+  const uint16_t WIFI_CERT_USAGE_FLAG_USER   = 0x02;
 
   void start(in nsIWifiEventListener listener);
   void shutdown();
@@ -28,7 +28,7 @@ interface nsIWifiCertService : nsISupports
    * @param certNickname
    *        User assigned nickname for imported certificate.
    */
-  void importCert(in long id,
+  void importCert(in int32_t id,
                   /*in nsIDOMBlob certBlob,*/
                   in AString certPassword,
                   in AString certNickname);
@@ -41,7 +41,7 @@ interface nsIWifiCertService : nsISupports
    * @param certNickname
    *        Certificate nickname to delete.
    */
-  void deleteCert(in long id,
+  void deleteCert(in int32_t id,
                   in AString certNickname);
 
   /**

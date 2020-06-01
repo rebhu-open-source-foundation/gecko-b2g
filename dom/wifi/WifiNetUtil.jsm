@@ -6,8 +6,6 @@
 
 "use strict";
 
-const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr } = Components;
-
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
@@ -31,7 +29,7 @@ const DEBUG = false;
 this.WifiNetUtil = function(controlMessage) {
   function debug(msg) {
     if (DEBUG) {
-      dump("-------------- NetUtil: " + msg);
+      dump("-*- NetUtil: " + msg);
     }
   }
 

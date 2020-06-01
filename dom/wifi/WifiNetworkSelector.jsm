@@ -6,16 +6,8 @@
 
 "use strict";
 
-const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr } = Components;
-
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
 const { WifiConfigManager } = ChromeUtils.import(
   "resource://gre/modules/WifiConfigManager.jsm"
-);
-const { WifiWorker } = ChromeUtils.import(
-  "resource://gre/modules/WifiWorker.jsm"
 );
 
 this.EXPORTED_SYMBOLS = ["WifiNetworkSelector"];

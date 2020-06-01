@@ -6,8 +6,6 @@
 
 "use strict";
 
-const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr } = Components;
-
 const CONNECTION_STATUS_DISCONNECTED = "disconnected";
 const CONNECTION_STATUS_CONNECTING = "connecting";
 const CONNECTION_STATUS_CONNECTED = "connected";
@@ -31,7 +29,7 @@ this.EXPORTED_SYMBOLS = ["WifiP2pWorkerObserver"];
 this.WifiP2pWorkerObserver = function(aDomMsgResponder) {
   function debug(aMsg) {
     if (DEBUG) {
-      dump("-------------- WifiP2pWorkerObserver: " + aMsg);
+      dump("-*- WifiP2pWorkerObserver: " + aMsg);
     }
   }
 

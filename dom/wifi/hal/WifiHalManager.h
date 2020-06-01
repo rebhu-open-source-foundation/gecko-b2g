@@ -52,7 +52,7 @@ using ::android::hardware::wifi::V1_0::WifiStatusCode;
 using ::android::hardware::wifi::V1_2::IWifiChipEventCallback;
 using ::android::hidl::base::V1_0::IBase;
 
-namespace wifiNameSpace = ::android::hardware::wifi::V1_0;
+namespace wifiNameSpaceV1_0 = ::android::hardware::wifi::V1_0;
 
 class WifiHal
     : virtual public android::hidl::manager::V1_0::IServiceNotification,
@@ -64,7 +64,7 @@ class WifiHal
   static void CleanUp();
 
   Result_t InitHalInterface();
-  Result_t TearDownInterface(const wifiNameSpace::IfaceType& aType);
+  Result_t TearDownInterface(const wifiNameSpaceV1_0::IfaceType& aType);
   Result_t GetSupportedFeatures(uint32_t& aSupportedFeatures);
   Result_t GetDriverModuleInfo(nsAString& aDriverVersion,
                                nsAString& aFirmwareVersion);
@@ -72,16 +72,16 @@ class WifiHal
 
   Result_t StartWifiModule();
   Result_t StopWifiModule();
-  Result_t ConfigChipAndCreateIface(const wifiNameSpace::IfaceType& aType,
+  Result_t ConfigChipAndCreateIface(const wifiNameSpaceV1_0::IfaceType& aType,
                                     std::string& aIfaceName);
   Result_t EnableLinkLayerStats();
-  Result_t GetLinkLayerStats(wifiNameSpace::StaLinkLayerStats& aStats);
+  Result_t GetLinkLayerStats(wifiNameSpaceV1_0::StaLinkLayerStats& aStats);
   Result_t SetSoftapCountryCode(std::string aCountryCode);
   Result_t SetFirmwareRoaming(bool aEnable);
   Result_t ConfigureFirmwareRoaming(
       RoamingConfigurationOptions* mRoamingConfig);
 
-  std::string GetInterfaceName(const wifiNameSpace::IfaceType& aType);
+  std::string GetInterfaceName(const wifiNameSpaceV1_0::IfaceType& aType);
 
   // IServiceNotification::onRegistration
   virtual Return<void> onRegistration(const hidl_string& fqName,
@@ -137,7 +137,7 @@ class WifiHal
    * @param type Type of iface added.
    * @param name Name of iface added.
    */
-  Return<void> onIfaceAdded(wifiNameSpace::IfaceType type,
+  Return<void> onIfaceAdded(wifiNameSpaceV1_0::IfaceType type,
                             const hidl_string& name) override;
   /**
    * Callback indicating that an existing iface has been removed from the chip.
@@ -145,7 +145,7 @@ class WifiHal
    * @param type Type of iface removed.
    * @param name Name of iface removed.
    */
-  Return<void> onIfaceRemoved(wifiNameSpace::IfaceType type,
+  Return<void> onIfaceRemoved(wifiNameSpaceV1_0::IfaceType type,
                               const hidl_string& name) override;
   /**
    * Callbacks for reporting debug ring buffer data.
@@ -194,7 +194,8 @@ class WifiHal
    * radio chain (hardware MAC) on the device.
    */
   Return<void> onRadioModeChange(
-      const hidl_vec<IWifiChipEventCallback::RadioModeInfo>& radioModeInfos) override;
+      const hidl_vec<IWifiChipEventCallback::RadioModeInfo>& radioModeInfos)
+      override;
 
   //.................... IWifiStaIfaceEventCallback ....................../
   /**
@@ -247,6 +248,7 @@ class WifiHal
     // hidl_death_recipient interface
     virtual void serviceDied(uint64_t cookie,
                              const ::android::wp<IBase>& who) override;
+
    private:
     WifiHal* mOuter;
   };
@@ -256,6 +258,7 @@ class WifiHal
     // hidl_death_recipient interface
     virtual void serviceDied(uint64_t cookie,
                              const ::android::wp<IBase>& who) override;
+
    private:
     WifiHal* mOuter;
   };
@@ -266,12 +269,12 @@ class WifiHal
   Result_t InitWifiInterface();
   Result_t GetVendorCapabilities();
   Result_t ConfigChipByType(const android::sp<IWifiChip>& aChip,
-                            const wifiNameSpace::IfaceType& aType);
-  Result_t RemoveInterfaceInternal(const wifiNameSpace::IfaceType& aType);
+                            const wifiNameSpaceV1_0::IfaceType& aType);
+  Result_t RemoveInterfaceInternal(const wifiNameSpaceV1_0::IfaceType& aType);
   std::string QueryInterfaceName(const android::sp<IWifiIface>& aIface);
 
-  static WifiHal* s_Instance;
-  static mozilla::Mutex s_Lock;
+  static WifiHal* sInstance;
+  static mozilla::Mutex sLock;
 
   android::sp<::android::hidl::manager::V1_0::IServiceManager> mServiceManager;
   android::sp<ServiceManagerDeathRecipient> mServiceManagerDeathRecipient;
@@ -282,7 +285,7 @@ class WifiHal
   android::sp<IWifiP2pIface> mP2pIface;
   android::sp<IWifiApIface> mApIface;
 
-  std::unordered_map<wifiNameSpace::IfaceType, std::string> mIfaceNameMap;
+  std::unordered_map<wifiNameSpaceV1_0::IfaceType, std::string> mIfaceNameMap;
   uint32_t mCapabilities;
 
   DISALLOW_COPY_AND_ASSIGN(WifiHal);

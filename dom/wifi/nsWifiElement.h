@@ -20,20 +20,22 @@ class nsWifiConfiguration final : public nsIWifiConfiguration {
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIWIFICONFIGURATION
-  nsWifiConfiguration(
-      int32_t aNetId, const nsAString& aSsid, const nsAString& aBssid,
-      const nsAString& aKeyManagement, const nsAString& aPsk,
-      const nsAString& aWepKey, int32_t aWepTxKeyIndex, bool aScanSsid,
-      bool aPmf, const nsAString& aProto, const nsAString& aAuthAlg,
-      const nsAString& aGroupCipher, const nsAString& aPairwiseCipher,
-      const nsAString& aEap, const nsAString& aEapPhase2,
-      const nsAString& aIdentity, const nsAString& aAnonymousId,
-      const nsAString& aPassword, const nsAString& aClientCert,
-      const nsAString& aCaCert, const nsAString& aCaPath,
-      const nsAString& aSubjectMatch, const nsAString& aEngineId, bool aEngine,
-      const nsAString& aPrivateKeyId, const nsAString& aAltSubjectMatch,
-      const nsAString& aDomainSuffixMatch, bool aProactiveKeyCaching,
-      int32_t aSimIndex);
+  nsWifiConfiguration(int32_t aNetId, const nsAString& aSsid,
+                      const nsAString& aBssid, const nsAString& aKeyManagement,
+                      const nsAString& aPsk, const nsAString& aWepKey,
+                      int32_t aWepTxKeyIndex, bool aScanSsid, bool aPmf,
+                      const nsAString& aProto, const nsAString& aAuthAlg,
+                      const nsAString& aGroupCipher,
+                      const nsAString& aPairwiseCipher, const nsAString& aEap,
+                      const nsAString& aEapPhase2, const nsAString& aIdentity,
+                      const nsAString& aAnonymousId, const nsAString& aPassword,
+                      const nsAString& aClientCert, const nsAString& aCaCert,
+                      const nsAString& aCaPath, const nsAString& aSubjectMatch,
+                      const nsAString& aEngineId, bool aEngine,
+                      const nsAString& aPrivateKeyId,
+                      const nsAString& aAltSubjectMatch,
+                      const nsAString& aDomainSuffixMatch,
+                      bool aProactiveKeyCaching, int32_t aSimIndex);
 
  private:
   ~nsWifiConfiguration(){};

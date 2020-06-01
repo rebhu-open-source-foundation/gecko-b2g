@@ -11,13 +11,13 @@
 #include <utils/Log.h>
 #include <mozilla/ClearOnShutdown.h>
 
-mozilla::Mutex SoftapManager::s_Lock("softap");
-SoftapManager* SoftapManager::s_Instance = nullptr;
+mozilla::Mutex SoftapManager::sLock("softap");
+SoftapManager* SoftapManager::sInstance = nullptr;
 
 void SoftapManager::ServiceManagerDeathRecipient::serviceDied(
     uint64_t, const android::wp<IBase>&) {
   WIFI_LOGE(LOG_TAG, "IServiceManager HAL died, cleanup instance.");
-  MutexAutoLock lock(s_Lock);
+  MutexAutoLock lock(sLock);
 
   if (mOuter != nullptr) {
     mOuter->mServiceManager = nullptr;
@@ -27,7 +27,7 @@ void SoftapManager::ServiceManagerDeathRecipient::serviceDied(
 void SoftapManager::HostapdDeathRecipient::serviceDied(
     uint64_t, const android::wp<IBase>&) {
   WIFI_LOGE(LOG_TAG, "IHostapd HAL died, cleanup instance.");
-  MutexAutoLock lock(s_Lock);
+  MutexAutoLock lock(sLock);
 
   if (mOuter != nullptr) {
     mOuter->mHostapd = nullptr;
@@ -43,19 +43,19 @@ SoftapManager::SoftapManager()
 SoftapManager::~SoftapManager() {}
 
 SoftapManager* SoftapManager::Get() {
-  if (s_Instance == nullptr) {
-    s_Instance = new SoftapManager();
-    mozilla::ClearOnShutdown(&s_Instance);
+  if (sInstance == nullptr) {
+    sInstance = new SoftapManager();
+    mozilla::ClearOnShutdown(&sInstance);
   }
-  return s_Instance;
+  return sInstance;
 }
 
 void SoftapManager::CleanUp() {
-  if (s_Instance != nullptr) {
+  if (sInstance != nullptr) {
     SoftapManager::Get()->DeinitInterface();
 
-    delete s_Instance;
-    s_Instance = nullptr;
+    delete sInstance;
+    sInstance = nullptr;
   }
 }
 
@@ -77,17 +77,17 @@ Result_t SoftapManager::InitInterface() {
 Result_t SoftapManager::DeinitInterface() { return TearDownInterface(); }
 
 bool SoftapManager::IsInterfaceInitializing() {
-  MutexAutoLock lock(s_Lock);
+  MutexAutoLock lock(sLock);
   return mServiceManager != nullptr;
 }
 
 bool SoftapManager::IsInterfaceReady() {
-  MutexAutoLock lock(s_Lock);
+  MutexAutoLock lock(sLock);
   return mHostapd != nullptr;
 }
 
 Result_t SoftapManager::InitServiceManager() {
-  MutexAutoLock lock(s_Lock);
+  MutexAutoLock lock(sLock);
   if (mServiceManager != nullptr) {
     // service already existed.
     return nsIWifiResult::SUCCESS;
@@ -102,8 +102,7 @@ Result_t SoftapManager::InitServiceManager() {
   }
 
   if (mServiceManagerDeathRecipient == nullptr) {
-    mServiceManagerDeathRecipient =
-        new ServiceManagerDeathRecipient(s_Instance);
+    mServiceManagerDeathRecipient = new ServiceManagerDeathRecipient(sInstance);
   }
   Return<bool> linked =
       mServiceManager->linkToDeath(mServiceManagerDeathRecipient, 0);
@@ -114,8 +113,8 @@ Result_t SoftapManager::InitServiceManager() {
   }
 
   // interface name android.hardware.wifi.hostapd@1.1::IHostapd
-  if (!mServiceManager->registerForNotifications(
-      IHostapd_1_1::descriptor, "", this)) {
+  if (!mServiceManager->registerForNotifications(IHostapd_1_1::descriptor, "",
+                                                 this)) {
     WIFI_LOGE(LOG_TAG, "Failed to register for notifications to IHostapd");
     mServiceManager = nullptr;
     return nsIWifiResult::ERROR_COMMAND_FAILED;
@@ -124,7 +123,7 @@ Result_t SoftapManager::InitServiceManager() {
 }
 
 Result_t SoftapManager::InitHostapdInterface() {
-  MutexAutoLock lock(s_Lock);
+  MutexAutoLock lock(sLock);
   if (mHostapd != nullptr) {
     return nsIWifiResult::SUCCESS;
   }
@@ -136,7 +135,7 @@ Result_t SoftapManager::InitHostapdInterface() {
   }
 
   if (mHostapdDeathRecipient == nullptr) {
-    mHostapdDeathRecipient = new HostapdDeathRecipient(s_Instance);
+    mHostapdDeathRecipient = new HostapdDeathRecipient(sInstance);
   }
 
   if (mHostapdDeathRecipient != nullptr) {
@@ -162,10 +161,11 @@ Result_t SoftapManager::InitHostapdInterface() {
 }
 
 Result_t SoftapManager::TearDownInterface() {
-  MutexAutoLock lock(s_Lock);
+  MutexAutoLock lock(sLock);
   if (mHostapd.get()) {
     mHostapd->terminate();
   }
+
   mHostapd = nullptr;
   mServiceManager = nullptr;
   return nsIWifiResult::SUCCESS;
@@ -204,7 +204,8 @@ Result_t SoftapManager::StartSoftap(const std::string& aInterfaceName,
   ifaceParams.channelParams.acsShouldExcludeDfs = aSoftapConfig->mAcsExcludeDfs;
   ifaceParams.channelParams.channel = aSoftapConfig->mChannel;
   ifaceParams.channelParams.band =
-      (android::hardware::wifi::hostapd::V1_0::IHostapd::Band)aSoftapConfig->mBand;
+      (android::hardware::wifi::hostapd::V1_0::IHostapd::Band)
+          aSoftapConfig->mBand;
   // Use 1.1 version for addAccessPoint().
   IHostapd_1_1::IfaceParams ifaceParams_1_1;
   ifaceParams_1_1.V1_0 = ifaceParams;

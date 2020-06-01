@@ -21,29 +21,30 @@ using ::android::String16;
 
 #define EVENT_HOTSPOT_CLIENT_CHANGED "HOTSPOT_CLIENT_CHANGED"
 
-SoftapEventService* SoftapEventService::s_Instance = nullptr;
+SoftapEventService* SoftapEventService::sInstance = nullptr;
 
 SoftapEventService* SoftapEventService::CreateService(
     const std::string& aInterfaceName) {
-  if (s_Instance) {
-    return s_Instance;
+  if (sInstance) {
+    return sInstance;
   }
   // Create new instance
-  s_Instance = new SoftapEventService(aInterfaceName);
-  ClearOnShutdown(&s_Instance);
+  sInstance = new SoftapEventService(aInterfaceName);
+  ClearOnShutdown(&sInstance);
 
   android::sp<::android::ProcessState> ps(::android::ProcessState::self());
   if (android::defaultServiceManager()->addService(
           android::String16(SoftapEventService::GetServiceName()),
-          s_Instance) != android::OK) {
+          sInstance) != android::OK) {
     WIFI_LOGE(LOG_TAG, "Failed to add service: %s",
               SoftapEventService::GetServiceName());
-    s_Instance = nullptr;
+    sInstance = nullptr;
     return nullptr;
   }
+
   ps->startThreadPool();
   ps->giveThreadPoolName();
-  return s_Instance;
+  return sInstance;
 }
 
 void SoftapEventService::RegisterEventCallback(WifiEventCallback* aCallback) {

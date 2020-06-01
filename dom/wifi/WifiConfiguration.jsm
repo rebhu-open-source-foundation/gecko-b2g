@@ -474,7 +474,10 @@ this.WifiConfigUtils = (function() {
 
   function dequote(s) {
     if (s[0] != '"' || s[s.length - 1] != '"') {
-      throw "Invalid argument, not a quoted string: " + s;
+      throw Components.Exception(
+        "Invalid argument, not a quoted string: ",
+        Cr.NS_ERROR_INVALID_ARG
+      );
     }
     return s.substr(1, s.length - 2);
   }

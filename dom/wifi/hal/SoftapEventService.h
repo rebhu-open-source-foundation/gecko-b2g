@@ -28,11 +28,11 @@ class SoftapEventService
   // IApInterfaceEventCallback
   android::binder::Status onNumAssociatedStationsChanged(
       int32_t numStations) override;
-  android::binder::Status onSoftApChannelSwitched(
-      int32_t frequency, int32_t bandwidth) override;
+  android::binder::Status onSoftApChannelSwitched(int32_t frequency,
+                                                  int32_t bandwidth) override;
 
  private:
-  static SoftapEventService* s_Instance;
+  static SoftapEventService* sInstance;
   std::string mSoftapInterfaceName;
 
   android::sp<WifiEventCallback> mCallback;

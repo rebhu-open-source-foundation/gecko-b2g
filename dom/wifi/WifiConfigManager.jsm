@@ -6,8 +6,6 @@
 
 "use strict";
 
-const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr } = Components;
-
 const { WifiConfigStore } = ChromeUtils.import(
   "resource://gre/modules/WifiConfigStore.jsm"
 );
@@ -162,9 +160,12 @@ this.WifiConfigManager = (function() {
     }
 
     if (reason == NETWORK_SELECTION_ENABLE) {
-      updateNetworkStatus(configuredNetworks[networkKey], reason, callback);
-      debug("Enable network:" + uneval(configuredNetworks[networkKey]));
-      return callback(false);
+      updateNetworkStatus(configuredNetworks[networkKey], reason, function(
+        doDisable
+      ) {
+        debug("Enable network:" + uneval(configuredNetworks[networkKey]));
+        return callback(doDisable);
+      });
     }
     incrementDisableReasonCounter(configuredNetworks[networkKey], reason);
     debug(
@@ -181,7 +182,9 @@ this.WifiConfigManager = (function() {
       configuredNetworks[networkKey].networkSeclectionDisableCounter[reason] >=
       NETWORK_SELECTION_DISABLE_THRESHOLD[reason]
     ) {
-      updateNetworkStatus(configuredNetworks[networkKey], reason, function(doDisable) {
+      updateNetworkStatus(configuredNetworks[networkKey], reason, function(
+        doDisable
+      ) {
         return callback(doDisable);
       });
     }

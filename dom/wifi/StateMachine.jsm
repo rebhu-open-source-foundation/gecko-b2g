@@ -6,11 +6,7 @@
 
 "use strict";
 
-const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr } = Components;
-
-const { Services } = ChromeUtils.import(
-  "resource://gre/modules/Services.jsm"
-);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 this.EXPORTED_SYMBOLS = ["StateMachine"];
 
@@ -18,7 +14,7 @@ const DEBUG = false;
 
 this.StateMachine = function(aDebugTag) {
   function debug(aMsg) {
-    dump("-------------- StateMachine:" + aDebugTag + ": " + aMsg);
+    dump("-*- StateMachine:" + aDebugTag + ": " + aMsg);
   }
 
   var sm = {};
@@ -69,7 +65,10 @@ this.StateMachine = function(aDebugTag) {
   //    .exit: called before exiting this state (optional).
   sm.makeState = function(aName, aDelegate) {
     if (!aDelegate.handleEvent) {
-      throw "handleEvent is a required delegate function.";
+      throw Components.Exception(
+        "handleEvent is a required delegate function",
+        Cr.NS_ERROR_INVALID_ARG
+      );
     }
     var nop = function() {};
     return {
@@ -184,14 +183,20 @@ this.StateMachine = function(aDebugTag) {
     var handled = _curState.handleEvent(aEvent);
 
     if (undefined === handled) {
-      throw "handleEvent returns undefined: " + _curState.name;
+      throw Components.Exception(
+        "handleEvent returns undefined: " + _curState.name,
+        Cr.NS_ERROR_INVALID_ARG
+      );
     }
     if (!handled) {
       // Event is not handled in the current state. Try handleEventCommon().
       handled = _defaultEventHandler ? _defaultEventHandler(aEvent) : handled;
     }
     if (undefined === handled) {
-      throw "handleEventCommon returns undefined: " + _curState.name;
+      throw Components.Exception(
+        "handleEventCommon returns undefined: " + _curState.name,
+        Cr.NS_ERROR_INVALID_ARG
+      );
     }
     if (!handled) {
       if (DEBUG) {

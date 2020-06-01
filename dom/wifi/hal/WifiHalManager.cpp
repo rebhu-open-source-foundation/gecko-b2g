@@ -17,8 +17,8 @@ using StaIfaceCapabilityMask =
 
 static const char WIFI_INTERFACE_NAME[] = "android.hardware.wifi@1.0::IWifi";
 
-WifiHal* WifiHal::s_Instance = nullptr;
-mozilla::Mutex WifiHal::s_Lock("wifi-hidl");
+WifiHal* WifiHal::sInstance = nullptr;
+mozilla::Mutex WifiHal::sLock("wifi-hidl");
 
 WifiHal::WifiHal()
     : mWifi(nullptr),
@@ -34,24 +34,24 @@ WifiHal::WifiHal()
 }
 
 WifiHal* WifiHal::Get() {
-  if (s_Instance == nullptr) {
-    s_Instance = new WifiHal();
+  if (sInstance == nullptr) {
+    sInstance = new WifiHal();
   }
-  mozilla::ClearOnShutdown(&s_Instance);
-  return s_Instance;
+  mozilla::ClearOnShutdown(&sInstance);
+  return sInstance;
 }
 
 void WifiHal::CleanUp() {
-  if (s_Instance != nullptr) {
-    delete s_Instance;
-    s_Instance = nullptr;
+  if (sInstance != nullptr) {
+    delete sInstance;
+    sInstance = nullptr;
   }
 }
 
 void WifiHal::ServiceManagerDeathRecipient::serviceDied(
     uint64_t, const android::wp<IBase>&) {
   WIFI_LOGE(LOG_TAG, "IServiceManager HAL died, cleanup instance.");
-  MutexAutoLock lock(s_Lock);
+  MutexAutoLock lock(sLock);
   if (mOuter != nullptr) {
     mOuter->mServiceManager = nullptr;
     mOuter->InitServiceManager();
@@ -61,7 +61,7 @@ void WifiHal::ServiceManagerDeathRecipient::serviceDied(
 void WifiHal::WifiServiceDeathRecipient::serviceDied(
     uint64_t, const android::wp<IBase>&) {
   WIFI_LOGD(LOG_TAG, "IWifi HAL died, cleanup instance.");
-  MutexAutoLock lock(s_Lock);
+  MutexAutoLock lock(sLock);
   if (mOuter != nullptr) {
     mOuter->mWifi = nullptr;
     mOuter->InitWifiInterface();
@@ -119,17 +119,19 @@ Result_t WifiHal::StopWifiModule() {
   return CHECK_SUCCESS(response.code == WifiStatusCode::SUCCESS);
 }
 
-Result_t WifiHal::TearDownInterface(const wifiNameSpace::IfaceType& aType) {
+Result_t WifiHal::TearDownInterface(const wifiNameSpaceV1_0::IfaceType& aType) {
   Result_t result = nsIWifiResult::ERROR_UNKNOWN;
 
   result = RemoveInterfaceInternal(aType);
   if (result != nsIWifiResult::SUCCESS) {
     return result;
   }
+
   result = StopWifiModule();
   if (result != nsIWifiResult::SUCCESS) {
     return result;
   }
+
   mWifi = nullptr;
   mServiceManager = nullptr;
   return nsIWifiResult::SUCCESS;
@@ -143,7 +145,7 @@ Result_t WifiHal::InitHalInterface() {
 }
 
 Result_t WifiHal::InitServiceManager() {
-  MutexAutoLock lock(s_Lock);
+  MutexAutoLock lock(sLock);
   if (mServiceManager != nullptr) {
     // service already existed.
     return nsIWifiResult::SUCCESS;
@@ -157,9 +159,9 @@ Result_t WifiHal::InitServiceManager() {
   }
 
   if (mServiceManagerDeathRecipient == nullptr) {
-    mServiceManagerDeathRecipient =
-        new ServiceManagerDeathRecipient(s_Instance);
+    mServiceManagerDeathRecipient = new ServiceManagerDeathRecipient(sInstance);
   }
+
   Return<bool> linked =
       mServiceManager->linkToDeath(mServiceManagerDeathRecipient, 0);
   if (!linked || !linked.isOk()) {
@@ -178,7 +180,7 @@ Result_t WifiHal::InitServiceManager() {
 }
 
 Result_t WifiHal::InitWifiInterface() {
-  MutexAutoLock lock(s_Lock);
+  MutexAutoLock lock(sLock);
   if (mWifi != nullptr) {
     return nsIWifiResult::SUCCESS;
   }
@@ -186,7 +188,7 @@ Result_t WifiHal::InitWifiInterface() {
   mWifi = IWifi::getService();
   if (mWifi != nullptr) {
     if (mDeathRecipient == nullptr) {
-      mDeathRecipient = new WifiServiceDeathRecipient(s_Instance);
+      mDeathRecipient = new WifiServiceDeathRecipient(sInstance);
     }
 
     if (mDeathRecipient != nullptr) {
@@ -200,7 +202,6 @@ Result_t WifiHal::InitWifiInterface() {
     WifiStatus response;
     mWifi->registerEventCallback(
         this, [&](const WifiStatus& status) { response = status; });
-
     if (response.code != WifiStatusCode::SUCCESS) {
       WIFI_LOGE(LOG_TAG, "registerEventCallback failed: %d, reason: %s",
                 response.code, response.description.c_str());
@@ -223,6 +224,7 @@ Result_t WifiHal::GetSupportedFeatures(uint32_t& aSupportedFeatures) {
     aSupportedFeatures = 0;
     return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
+
   aSupportedFeatures = mCapabilities;
   return nsIWifiResult::SUCCESS;
 }
@@ -232,6 +234,7 @@ Result_t WifiHal::GetDriverModuleInfo(nsAString& aDriverVersion,
   if (!mWifiChip.get()) {
     return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
+
   WifiStatus response;
   IWifiChip::ChipDebugInfo chipInfo;
   mWifiChip->requestChipDebugInfo(
@@ -272,7 +275,8 @@ Result_t WifiHal::SetLowLatencyMode(bool aEnable) {
 }
 
 Result_t WifiHal::ConfigChipAndCreateIface(
-    const wifiNameSpace::IfaceType& aType, std::string& aIfaceName /* out */) {
+    const wifiNameSpaceV1_0::IfaceType& aType,
+    std::string& aIfaceName /* out */) {
   if (mWifi == nullptr) {
     return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
@@ -297,7 +301,7 @@ Result_t WifiHal::ConfigChipAndCreateIface(
   }
 
   ConfigChipByType(mWifiChip, aType);
-  if (aType == wifiNameSpace::IfaceType::STA) {
+  if (aType == wifiNameSpaceV1_0::IfaceType::STA) {
     mWifiChip->createStaIface(
         [&response, &aIfaceName, this](
             const WifiStatus& status,
@@ -306,7 +310,7 @@ Result_t WifiHal::ConfigChipAndCreateIface(
           mStaIface = iface;
           aIfaceName = QueryInterfaceName(mStaIface);
         });
-  } else if (aType == wifiNameSpace::IfaceType::P2P) {
+  } else if (aType == wifiNameSpaceV1_0::IfaceType::P2P) {
     mWifiChip->createP2pIface(
         [&response, &aIfaceName, this](
             const WifiStatus& status,
@@ -315,7 +319,7 @@ Result_t WifiHal::ConfigChipAndCreateIface(
           mP2pIface = iface;
           aIfaceName = QueryInterfaceName(mP2pIface);
         });
-  } else if (aType == wifiNameSpace::IfaceType::AP) {
+  } else if (aType == wifiNameSpaceV1_0::IfaceType::AP) {
     mWifiChip->createApIface(
         [&response, &aIfaceName, this](
             const WifiStatus& status,
@@ -351,14 +355,15 @@ Result_t WifiHal::EnableLinkLayerStats() {
   return CHECK_SUCCESS(response.code == WifiStatusCode::SUCCESS);
 }
 
-Result_t WifiHal::GetLinkLayerStats(wifiNameSpace::StaLinkLayerStats& aStats) {
+Result_t WifiHal::GetLinkLayerStats(
+    wifiNameSpaceV1_0::StaLinkLayerStats& aStats) {
   if (!mStaIface.get()) {
     return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
   WifiStatus response;
   mStaIface->getLinkLayerStats(
       [&](const WifiStatus& status,
-          const wifiNameSpace::StaLinkLayerStats& stats) {
+          const wifiNameSpaceV1_0::StaLinkLayerStats& stats) {
         response = status;
         aStats = stats;
       });
@@ -462,12 +467,13 @@ Result_t WifiHal::ConfigureFirmwareRoaming(
   return CHECK_SUCCESS(response.code == WifiStatusCode::SUCCESS);
 }
 
-std::string WifiHal::GetInterfaceName(const wifiNameSpace::IfaceType& aType) {
+std::string WifiHal::GetInterfaceName(
+    const wifiNameSpaceV1_0::IfaceType& aType) {
   return mIfaceNameMap.at(aType);
 }
 
 Result_t WifiHal::ConfigChipByType(const android::sp<IWifiChip>& aChip,
-                                   const wifiNameSpace::IfaceType& aType) {
+                                   const wifiNameSpaceV1_0::IfaceType& aType) {
   uint32_t modeId = UINT32_MAX;
   aChip->getAvailableModes(
       [&modeId, &aType](const WifiStatus& status,
@@ -505,19 +511,19 @@ std::string WifiHal::QueryInterfaceName(const android::sp<IWifiIface>& aIface) {
 }
 
 Result_t WifiHal::RemoveInterfaceInternal(
-    const wifiNameSpace::IfaceType& aType) {
+    const wifiNameSpaceV1_0::IfaceType& aType) {
   WifiStatus response;
   std::string ifname = mIfaceNameMap.at(aType);
   switch (aType) {
-    case wifiNameSpace::IfaceType::STA:
+    case wifiNameSpaceV1_0::IfaceType::STA:
       HIDL_SET(mWifiChip, removeStaIface, WifiStatus, response, ifname);
       mStaIface = nullptr;
       break;
-    case wifiNameSpace::IfaceType::P2P:
+    case wifiNameSpaceV1_0::IfaceType::P2P:
       HIDL_SET(mWifiChip, removeP2pIface, WifiStatus, response, ifname);
       mP2pIface = nullptr;
       break;
-    case wifiNameSpace::IfaceType::AP:
+    case wifiNameSpaceV1_0::IfaceType::AP:
       HIDL_SET(mWifiChip, removeApIface, WifiStatus, response, ifname);
       mApIface = nullptr;
       break;
@@ -602,13 +608,13 @@ Return<void> WifiHal::onChipReconfigureFailure(const WifiStatus& status) {
   return android::hardware::Void();
 }
 
-Return<void> WifiHal::onIfaceAdded(wifiNameSpace::IfaceType type,
+Return<void> WifiHal::onIfaceAdded(wifiNameSpaceV1_0::IfaceType type,
                                    const hidl_string& name) {
   WIFI_LOGD(LOG_TAG, "WifiChipEventCallback.onIfaceAdded()");
   return android::hardware::Void();
 }
 
-Return<void> WifiHal::onIfaceRemoved(wifiNameSpace::IfaceType type,
+Return<void> WifiHal::onIfaceRemoved(wifiNameSpaceV1_0::IfaceType type,
                                      const hidl_string& name) {
   WIFI_LOGD(LOG_TAG, "WifiChipEventCallback.onIfaceRemoved()");
   return android::hardware::Void();

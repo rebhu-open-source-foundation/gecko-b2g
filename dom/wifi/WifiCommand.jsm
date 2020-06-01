@@ -8,22 +8,17 @@
 
 this.EXPORTED_SYMBOLS = ["WifiCommand"];
 
-const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr } = Components;
-
-const { libcutils } = ChromeUtils.import(
-  "resource://gre/modules/systemlibs.js"
-);
-
 const DEBUG = false;
 
 const WIFI_CMD_INITIALIZE = Ci.nsIWifiCommand.INITIALIZE;
-const WIFI_CMD_GET_SUPPORTED_FEATURES = Ci.nsIWifiCommand.GET_SUPPORTED_FEATURES;
+const WIFI_CMD_GET_SUPPORTED_FEATURES =
+  Ci.nsIWifiCommand.GET_SUPPORTED_FEATURES;
 const WIFI_CMD_GET_MODULE_VERSION = Ci.nsIWifiCommand.GET_MODULE_VERSION;
 const WIFI_CMD_GET_DEBUG_LEVEL = Ci.nsIWifiCommand.GET_DEBUG_LEVEL;
 const WIFI_CMD_SET_DEBUG_LEVEL = Ci.nsIWifiCommand.SET_DEBUG_LEVEL;
 const WIFI_CMD_SET_LOW_LATENCY_MODE = Ci.nsIWifiCommand.SET_LOW_LATENCY_MODE;
-const WIFI_CMD_SET_CONCURRENCY_PRIORITY = Ci.nsIWifiCommand.SET_CONCURRENCY_PRIORITY;
-const WIFI_CMD_GET_HOST_WAKE_REASON = Ci.nsIWifiCommand.GET_HOST_WAKE_REASON;
+const WIFI_CMD_SET_CONCURRENCY_PRIORITY =
+  Ci.nsIWifiCommand.SET_CONCURRENCY_PRIORITY;
 const WIFI_CMD_START_WIFI = Ci.nsIWifiCommand.START_WIFI;
 const WIFI_CMD_STOP_WIFI = Ci.nsIWifiCommand.STOP_WIFI;
 const WIFI_CMD_GET_MAC_ADDRESS = Ci.nsIWifiCommand.GET_MAC_ADDRESS;
@@ -34,11 +29,13 @@ const WIFI_CMD_SET_EXTERNAL_SIM = Ci.nsIWifiCommand.SET_EXTERNAL_SIM;
 const WIFI_CMD_SET_AUTO_RECONNECT = Ci.nsIWifiCommand.SET_AUTO_RECONNECT;
 const WIFI_CMD_SET_COUNTRY_CODE = Ci.nsIWifiCommand.SET_COUNTRY_CODE;
 const WIFI_CMD_SET_BT_COEXIST_MODE = Ci.nsIWifiCommand.SET_BT_COEXIST_MODE;
-const WIFI_CMD_SET_BT_COEXIST_SCAN_MODE = Ci.nsIWifiCommand.SET_BT_COEXIST_SCAN_MODE;
+const WIFI_CMD_SET_BT_COEXIST_SCAN_MODE =
+  Ci.nsIWifiCommand.SET_BT_COEXIST_SCAN_MODE;
 const WIFI_CMD_GET_LINK_LAYER_STATS = Ci.nsIWifiCommand.GET_LINK_LAYER_STATS;
 const WIFI_CMD_SIGNAL_POLL = Ci.nsIWifiCommand.SIGNAL_POLL;
 const WIFI_CMD_SET_FIRMWARE_ROAMING = Ci.nsIWifiCommand.SET_FIRMWARE_ROAMING;
-const WIFI_CMD_CONFIG_FIRMWARE_ROAMING = Ci.nsIWifiCommand.CONFIG_FIRMWARE_ROAMING;
+const WIFI_CMD_CONFIG_FIRMWARE_ROAMING =
+  Ci.nsIWifiCommand.CONFIG_FIRMWARE_ROAMING;
 const WIFI_CMD_START_SINGLE_SCAN = Ci.nsIWifiCommand.START_SINGLE_SCAN;
 const WIFI_CMD_STOP_SINGLE_SCAN = Ci.nsIWifiCommand.STOP_SINGLE_SCAN;
 const WIFI_CMD_START_PNO_SCAN = Ci.nsIWifiCommand.START_PNO_SCAN;
@@ -68,7 +65,7 @@ const WIFI_CMD_GET_SOFTAP_STATION_NUMBER = Ci.nsIWifiCommand.GET_SOFTAP_STATION_
 this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
   function debug(msg) {
     if (DEBUG) {
-      dump("-------------- WifiCommand: " + msg);
+      dump("-*- WifiCommand: " + msg);
     }
   }
 
@@ -101,15 +98,30 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
   };
 
   command.setDebugLevel = function(level, callback) {
-    doCommandWithParams(WIFI_CMD_SET_DEBUG_LEVEL, "debugLevel", level, callback);
+    doCommandWithParams(
+      WIFI_CMD_SET_DEBUG_LEVEL,
+      "debugLevel",
+      level,
+      callback
+    );
   };
 
   command.setLowLatencyMode = function(enable, callback) {
-    doCommandWithParams(WIFI_CMD_SET_LOW_LATENCY_MODE, "enabled", enable, callback);
+    doCommandWithParams(
+      WIFI_CMD_SET_LOW_LATENCY_MODE,
+      "enabled",
+      enable,
+      callback
+    );
   };
 
   command.setStaHigherPriority = function(enable, callback) {
-    doCommandWithParams(WIFI_CMD_SET_CONCURRENCY_PRIORITY, "enabled", enable, callback);
+    doCommandWithParams(
+      WIFI_CMD_SET_CONCURRENCY_PRIORITY,
+      "enabled",
+      enable,
+      callback
+    );
   };
 
   command.startWifi = function(callback) {
@@ -141,19 +153,39 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
   };
 
   command.enableAutoReconnect = function(enable, callback) {
-    doCommandWithParams(WIFI_CMD_SET_AUTO_RECONNECT, "enabled", enable, callback);
+    doCommandWithParams(
+      WIFI_CMD_SET_AUTO_RECONNECT,
+      "enabled",
+      enable,
+      callback
+    );
   };
 
   command.setCountryCode = function(code, callback) {
-    doCommandWithParams(WIFI_CMD_SET_COUNTRY_CODE, "countryCode", code, callback);
+    doCommandWithParams(
+      WIFI_CMD_SET_COUNTRY_CODE,
+      "countryCode",
+      code,
+      callback
+    );
   };
 
   command.setBluetoothCoexistenceMode = function(mode, callback) {
-    doCommandWithParams(WIFI_CMD_SET_BT_COEXIST_MODE, "btCoexistenceMode", mode, callback);
+    doCommandWithParams(
+      WIFI_CMD_SET_BT_COEXIST_MODE,
+      "btCoexistenceMode",
+      mode,
+      callback
+    );
   };
 
   command.setBluetoothCoexistenceScanMode = function(enable, callback) {
-    doCommandWithParams(WIFI_CMD_SET_BT_COEXIST_SCAN_MODE, "enabled", enable, callback);
+    doCommandWithParams(
+      WIFI_CMD_SET_BT_COEXIST_SCAN_MODE,
+      "enabled",
+      enable,
+      callback
+    );
   };
 
   command.getLinkLayerStats = function(callback) {
@@ -165,15 +197,30 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
   };
 
   command.setFirmwareRoaming = function(enable, callback) {
-    doCommandWithParams(WIFI_CMD_SET_FIRMWARE_ROAMING, "enabled", enable, callback);
+    doCommandWithParams(
+      WIFI_CMD_SET_FIRMWARE_ROAMING,
+      "enabled",
+      enable,
+      callback
+    );
   };
 
-  command.configureFirmwareRoaming = function(config , callback) {
-    doCommandWithParams(WIFI_CMD_CONFIG_FIRMWARE_ROAMING, "roamingConfig", config, callback);
+  command.configureFirmwareRoaming = function(config, callback) {
+    doCommandWithParams(
+      WIFI_CMD_CONFIG_FIRMWARE_ROAMING,
+      "roamingConfig",
+      config,
+      callback
+    );
   };
 
   command.startScan = function(settings, callback) {
-    doCommandWithParams(WIFI_CMD_START_SINGLE_SCAN, "scanSettings", settings, callback);
+    doCommandWithParams(
+      WIFI_CMD_START_SINGLE_SCAN,
+      "scanSettings",
+      settings,
+      callback
+    );
   };
 
   command.stopScan = function(callback) {
@@ -181,7 +228,12 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
   };
 
   command.startPnoScan = function(settings, callback) {
-    doCommandWithParams(WIFI_CMD_START_PNO_SCAN, "pnoScanSettings", settings, callback);
+    doCommandWithParams(
+      WIFI_CMD_START_PNO_SCAN,
+      "pnoScanSettings",
+      settings,
+      callback
+    );
   };
 
   command.stopPnoScan = function(callback) {
@@ -193,7 +245,12 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
   };
 
   command.getChannelsForBand = function(band, callback) {
-    doCommandWithParams(WIFI_CMD_GET_CHANNELS_FOR_BAND, "bandMask", band, callback);
+    doCommandWithParams(
+      WIFI_CMD_GET_CHANNELS_FOR_BAND,
+      "bandMask",
+      band,
+      callback
+    );
   };
 
   command.connect = function(config, callback) {
@@ -233,11 +290,21 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
   };
 
   command.simIdentityResponse = function(identity, callback) {
-    doCommandWithParams(WIFI_CMD_IDENTITY_RESPONSE, "identityResp", identity, callback);
+    doCommandWithParams(
+      WIFI_CMD_IDENTITY_RESPONSE,
+      "identityResp",
+      identity,
+      callback
+    );
   };
 
   command.simGsmAuthResponse = function(response, callback) {
-    doCommandWithParams(WIFI_CMD_GSM_AUTH_RESPONSE, "gsmAuthResp", response, callback);
+    doCommandWithParams(
+      WIFI_CMD_GSM_AUTH_RESPONSE,
+      "gsmAuthResp",
+      response,
+      callback
+    );
   };
 
   command.simGsmAuthFailure = function(callback) {
@@ -245,11 +312,21 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
   };
 
   command.simUmtsAuthResponse = function(response, callback) {
-    doCommandWithParams(WIFI_CMD_UMTS_AUTH_RESPONSE, "umtsAuthResp", response, callback);
+    doCommandWithParams(
+      WIFI_CMD_UMTS_AUTH_RESPONSE,
+      "umtsAuthResp",
+      response,
+      callback
+    );
   };
 
   command.simUmtsAutsResponse = function(response, callback) {
-    doCommandWithParams(WIFI_CMD_UMTS_AUTS_RESPONSE, "umtsAutsResp", response, callback);
+    doCommandWithParams(
+      WIFI_CMD_UMTS_AUTS_RESPONSE,
+      "umtsAutsResp",
+      response,
+      callback
+    );
   };
 
   command.simUmtsAuthFailure = function(callback) {
@@ -257,7 +334,12 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
   };
 
   command.startSoftap = function(config, callback) {
-    doCommandWithParams(WIFI_CMD_START_SOFTAP, "softapConfig", config, callback);
+    doCommandWithParams(
+      WIFI_CMD_START_SOFTAP,
+      "softapConfig",
+      config,
+      callback
+    );
   };
 
   command.stopSoftap = function(callback) {

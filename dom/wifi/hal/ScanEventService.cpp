@@ -40,35 +40,35 @@ void EventCallbackHandler::UnregisterEventCallback() { mCallback = nullptr; }
 /**
  * ScanEventService
  */
-mozilla::Mutex ScanEventService::s_Lock("scan_lock");
-android::sp<ScanEventService> ScanEventService::s_ScanEvent = nullptr;
+mozilla::Mutex ScanEventService::sLock("scan_lock");
+android::sp<ScanEventService> ScanEventService::sScanEvent = nullptr;
 
 android::sp<ScanEventService> ScanEventService::CreateService(
     const std::string& aInterfaceName) {
-  if (s_ScanEvent) {
-    return s_ScanEvent;
+  if (sScanEvent) {
+    return sScanEvent;
   }
   g_InterfaceName = aInterfaceName;
 
   // Create new instance
-  s_ScanEvent = new ScanEventService();
-  ClearOnShutdown(&s_ScanEvent);
+  sScanEvent = new ScanEventService();
+  ClearOnShutdown(&sScanEvent);
 
   if (BinderService<ScanEventService>::publish() != android::OK) {
     WIFI_LOGE(LOG_TAG, "Failed to add IScanEvent service");
-    s_ScanEvent = nullptr;
+    sScanEvent = nullptr;
     return nullptr;
   }
   android::ProcessState::self()->startThreadPool();
   android::ProcessState::self()->giveThreadPoolName();
-  return s_ScanEvent;
+  return sScanEvent;
 }
 
 /**
  * Implement IScanEvent
  */
 android::binder::Status ScanEventService::OnScanResultReady() {
-  MutexAutoLock lock(s_Lock);
+  MutexAutoLock lock(sLock);
 
   nsCString iface(g_InterfaceName);
   RefPtr<nsWifiEvent> event =
@@ -81,7 +81,7 @@ android::binder::Status ScanEventService::OnScanResultReady() {
 }
 
 android::binder::Status ScanEventService::OnScanFailed() {
-  MutexAutoLock lock(s_Lock);
+  MutexAutoLock lock(sLock);
 
   nsCString iface(g_InterfaceName);
   RefPtr<nsWifiEvent> event =
@@ -96,34 +96,34 @@ android::binder::Status ScanEventService::OnScanFailed() {
 /**
  * PnoScanEventService
  */
-mozilla::Mutex PnoScanEventService::s_Lock("pno_lock");
-android::sp<PnoScanEventService> PnoScanEventService::s_PnoScanEvent = nullptr;
+mozilla::Mutex PnoScanEventService::sLock("pno_lock");
+android::sp<PnoScanEventService> PnoScanEventService::sPnoScanEvent = nullptr;
 
 android::sp<PnoScanEventService> PnoScanEventService::CreateService(
     const std::string& aInterfaceName) {
-  if (s_PnoScanEvent) {
-    return s_PnoScanEvent;
+  if (sPnoScanEvent) {
+    return sPnoScanEvent;
   }
   g_InterfaceName = aInterfaceName;
 
   // Create new instance
-  s_PnoScanEvent = new PnoScanEventService();
-  ClearOnShutdown(&s_PnoScanEvent);
+  sPnoScanEvent = new PnoScanEventService();
+  ClearOnShutdown(&sPnoScanEvent);
 
   if (BinderService<PnoScanEventService>::publish() != android::OK) {
-    s_PnoScanEvent = nullptr;
+    sPnoScanEvent = nullptr;
     return nullptr;
   }
   android::ProcessState::self()->startThreadPool();
   android::ProcessState::self()->giveThreadPoolName();
-  return s_PnoScanEvent;
+  return sPnoScanEvent;
 }
 
 /**
  * Implement IPnoScanEvent
  */
 android::binder::Status PnoScanEventService::OnPnoNetworkFound() {
-  MutexAutoLock lock(s_Lock);
+  MutexAutoLock lock(sLock);
 
   nsCString iface(g_InterfaceName);
   RefPtr<nsWifiEvent> event =
@@ -136,7 +136,7 @@ android::binder::Status PnoScanEventService::OnPnoNetworkFound() {
 }
 
 android::binder::Status PnoScanEventService::OnPnoScanFailed() {
-  MutexAutoLock lock(s_Lock);
+  MutexAutoLock lock(sLock);
 
   nsCString iface(g_InterfaceName);
   RefPtr<nsWifiEvent> event =

@@ -14,62 +14,62 @@ interface nsIWifiConfiguration;
 interface nsIWifiCommand: nsISupports
 {
   /** Module configuration */
-  const unsigned long INITIALIZE                  = 0x0;
-  const unsigned long GET_SUPPORTED_FEATURES      = 0x1;
-  const unsigned long GET_MODULE_VERSION          = 0x2;
-  const unsigned long GET_DEBUG_LEVEL             = 0x3;
-  const unsigned long SET_DEBUG_LEVEL             = 0x4;
-  const unsigned long SET_LOW_LATENCY_MODE        = 0x5;
-  const unsigned long SET_CONCURRENCY_PRIORITY    = 0x6;
-  const unsigned long GET_HOST_WAKE_REASON        = 0x7;
+  const uint32_t INITIALIZE                  = 0x0;
+  const uint32_t GET_SUPPORTED_FEATURES      = 0x1;
+  const uint32_t GET_MODULE_VERSION          = 0x2;
+  const uint32_t GET_DEBUG_LEVEL             = 0x3;
+  const uint32_t SET_DEBUG_LEVEL             = 0x4;
+  const uint32_t SET_LOW_LATENCY_MODE        = 0x5;
+  const uint32_t SET_CONCURRENCY_PRIORITY    = 0x6;
+  const uint32_t GET_HOST_WAKE_REASON        = 0x7;
 
   /** Client mode */
-  const unsigned long START_WIFI                  = 0x1000;
-  const unsigned long STOP_WIFI                   = 0x1001;
-  const unsigned long GET_MAC_ADDRESS             = 0x1002;
-  const unsigned long GET_STA_IFACE               = 0x1003;
-  const unsigned long SET_POWER_SAVE              = 0x1004;
-  const unsigned long SET_SUSPEND_MODE            = 0x1005;
-  const unsigned long SET_EXTERNAL_SIM            = 0x1006;
-  const unsigned long SET_AUTO_RECONNECT          = 0x1007;
-  const unsigned long SET_COUNTRY_CODE            = 0x1008;
-  const unsigned long SET_BT_COEXIST_MODE         = 0x1009;
-  const unsigned long SET_BT_COEXIST_SCAN_MODE    = 0x100A;
-  const unsigned long GET_LINK_LAYER_STATS        = 0x100B;
-  const unsigned long SIGNAL_POLL                 = 0x100C;
-  const unsigned long SET_FIRMWARE_ROAMING        = 0x100D;
-  const unsigned long CONFIG_FIRMWARE_ROAMING     = 0x100E;
+  const uint32_t START_WIFI                  = 0x1000;
+  const uint32_t STOP_WIFI                   = 0x1001;
+  const uint32_t GET_MAC_ADDRESS             = 0x1002;
+  const uint32_t GET_STA_IFACE               = 0x1003;
+  const uint32_t SET_POWER_SAVE              = 0x1004;
+  const uint32_t SET_SUSPEND_MODE            = 0x1005;
+  const uint32_t SET_EXTERNAL_SIM            = 0x1006;
+  const uint32_t SET_AUTO_RECONNECT          = 0x1007;
+  const uint32_t SET_COUNTRY_CODE            = 0x1008;
+  const uint32_t SET_BT_COEXIST_MODE         = 0x1009;
+  const uint32_t SET_BT_COEXIST_SCAN_MODE    = 0x100A;
+  const uint32_t GET_LINK_LAYER_STATS        = 0x100B;
+  const uint32_t SIGNAL_POLL                 = 0x100C;
+  const uint32_t SET_FIRMWARE_ROAMING        = 0x100D;
+  const uint32_t CONFIG_FIRMWARE_ROAMING     = 0x100E;
 
   /** Scan */
-  const unsigned long START_SINGLE_SCAN           = 0x2000;
-  const unsigned long STOP_SINGLE_SCAN            = 0x2001;
-  const unsigned long START_PNO_SCAN              = 0x2002;
-  const unsigned long STOP_PNO_SCAN               = 0x2003;
-  const unsigned long GET_SCAN_RESULTS            = 0x2004;
-  const unsigned long GET_CHANNELS_FOR_BAND       = 0x2005;
+  const uint32_t START_SINGLE_SCAN           = 0x2000;
+  const uint32_t STOP_SINGLE_SCAN            = 0x2001;
+  const uint32_t START_PNO_SCAN              = 0x2002;
+  const uint32_t STOP_PNO_SCAN               = 0x2003;
+  const uint32_t GET_SCAN_RESULTS            = 0x2004;
+  const uint32_t GET_CHANNELS_FOR_BAND       = 0x2005;
 
   /** Connection */
-  const unsigned long CONNECT                     = 0x3000;
-  const unsigned long RECONNECT                   = 0x3001;
-  const unsigned long REASSOCIATE                 = 0x3002;
-  const unsigned long DISCONNECT                  = 0x3003;
-  const unsigned long ENABLE_NETWORK              = 0x3004;
-  const unsigned long DISABLE_NETWORK             = 0x3005;
-  const unsigned long REMOVE_NETWORKS             = 0x3006;
-  const unsigned long START_ROAMING               = 0x3007;
-  const unsigned long START_RSSI_MONITORING       = 0x3008;
-  const unsigned long STOP_RSSI_MONITORING        = 0x3009;
-  const unsigned long SEND_IDENTITY_RESPONSE      = 0x300A;
-  const unsigned long SEND_GSM_AUTH_RESPONSE      = 0x300B;
-  const unsigned long SEND_GSM_AUTH_FAILURE       = 0x300C;
-  const unsigned long SEND_UMTS_AUTH_RESPONSE     = 0x300D;
-  const unsigned long SEND_UMTS_AUTS_RESPONSE     = 0x300E;
-  const unsigned long SEND_UMTS_AUTH_FAILURE      = 0x300F;
+  const uint32_t CONNECT                     = 0x3000;
+  const uint32_t RECONNECT                   = 0x3001;
+  const uint32_t REASSOCIATE                 = 0x3002;
+  const uint32_t DISCONNECT                  = 0x3003;
+  const uint32_t ENABLE_NETWORK              = 0x3004;
+  const uint32_t DISABLE_NETWORK             = 0x3005;
+  const uint32_t REMOVE_NETWORKS             = 0x3006;
+  const uint32_t START_ROAMING               = 0x3007;
+  const uint32_t START_RSSI_MONITORING       = 0x3008;
+  const uint32_t STOP_RSSI_MONITORING        = 0x3009;
+  const uint32_t SEND_IDENTITY_RESPONSE      = 0x300A;
+  const uint32_t SEND_GSM_AUTH_RESPONSE      = 0x300B;
+  const uint32_t SEND_GSM_AUTH_FAILURE       = 0x300C;
+  const uint32_t SEND_UMTS_AUTH_RESPONSE     = 0x300D;
+  const uint32_t SEND_UMTS_AUTS_RESPONSE     = 0x300E;
+  const uint32_t SEND_UMTS_AUTH_FAILURE      = 0x300F;
 
   /** Softap mode */
-  const unsigned long START_SOFTAP                = 0x4000;
-  const unsigned long STOP_SOFTAP                 = 0x4001;
-  const unsigned long GET_AP_IFACE                = 0x4002;
-  const unsigned long SET_SOFTAP_COUNTRY_CODE     = 0x4003;
-  const unsigned long GET_SOFTAP_STATION_NUMBER   = 0x4004;
+  const uint32_t START_SOFTAP                = 0x4000;
+  const uint32_t STOP_SOFTAP                 = 0x4001;
+  const uint32_t GET_AP_IFACE                = 0x4002;
+  const uint32_t SET_SOFTAP_COUNTRY_CODE     = 0x4003;
+  const uint32_t GET_SOFTAP_STATION_NUMBER   = 0x4004;
 };

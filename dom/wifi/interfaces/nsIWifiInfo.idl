@@ -34,23 +34,23 @@ interface nsIWifiInfo : nsISupports
    * the network when performing operations on the supplicant. This method
    * returns the ID for the currently connected network.
    */
-  readonly attribute long networkId;
+  readonly attribute int32_t networkId;
 
   /**
    * Returns the received signal strength indicator of the current 802.11
    * network, in dBm.
    */
-  readonly attribute long rssi;
+  readonly attribute int32_t rssi;
 
   /**
    * Returns the current connection link speed.
    */
-  readonly attribute long linkSpeed;
+  readonly attribute int32_t linkSpeed;
 
   /**
    * Returns the current connection frequency.
    */
-  readonly attribute long frequency;
+  readonly attribute int32_t frequency;
 
   /**
    * Returns the current connection ipv4 Address.

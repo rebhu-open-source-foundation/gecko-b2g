@@ -18,7 +18,8 @@
 
 using ::android::hardware::wifi::supplicant::V1_0::ISupplicantNetwork;
 using ::android::hardware::wifi::supplicant::V1_0::ISupplicantStaNetwork;
-using ::android::hardware::wifi::supplicant::V1_0::ISupplicantStaNetworkCallback;
+using ::android::hardware::wifi::supplicant::V1_0::
+    ISupplicantStaNetworkCallback;
 using ::android::hardware::wifi::supplicant::V1_0::SupplicantStatus;
 using ::android::hardware::wifi::supplicant::V1_0::SupplicantStatusCode;
 
@@ -159,7 +160,8 @@ class NetworkConfiguration {
  */
 class SupplicantStaNetwork
     : virtual public android::RefBase,
-      virtual public android::hardware::wifi::supplicant::V1_0::ISupplicantStaNetworkCallback {
+      virtual public android::hardware::wifi::supplicant::V1_0::
+          ISupplicantStaNetworkCallback {
  public:
   explicit SupplicantStaNetwork(const std::string& aInterfaceName,
                                 WifiEventCallback* aCallback,
@@ -193,7 +195,8 @@ class SupplicantStaNetwork
    * @param params Params associated with the request.
    */
   Return<void> onNetworkEapSimGsmAuthRequest(
-      const ISupplicantStaNetworkCallback::NetworkRequestEapSimGsmAuthParams& params) override;
+      const ISupplicantStaNetworkCallback::NetworkRequestEapSimGsmAuthParams&
+          params) override;
   /**
    * Used to request EAP UMTS SIM authentication for this particular network.
    *
@@ -203,7 +206,8 @@ class SupplicantStaNetwork
    * @param params Params associated with the request.
    */
   Return<void> onNetworkEapSimUmtsAuthRequest(
-      const ISupplicantStaNetworkCallback::NetworkRequestEapSimUmtsAuthParams& params) override;
+      const ISupplicantStaNetworkCallback::NetworkRequestEapSimUmtsAuthParams&
+          params) override;
   /**
    * Used to request EAP Identity for this particular network.
    *
@@ -258,7 +262,7 @@ class SupplicantStaNetwork
   static std::string ConvertStatusToString(const SupplicantStatusCode& aCode);
   static Result_t ConvertStatusToResult(const SupplicantStatusCode& aCode);
 
-  static mozilla::Mutex s_Lock;
+  static mozilla::Mutex sLock;
 
   android::sp<ISupplicantStaNetwork> mNetwork;
   android::sp<WifiEventCallback> mCallback;

@@ -28,8 +28,8 @@ class WifiProxyService final : public nsIWifiProxyService,
 
   nsIWifiEventListener* GetListener() { return mListener; }
 
-  void Notify(nsWifiEvent* aEvent,
-              const nsACString& aInterface) override;
+  void Notify(nsWifiEvent* aEvent, const nsACString& aInterface) override;
+
  private:
   WifiProxyService();
   ~WifiProxyService();

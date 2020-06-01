@@ -41,7 +41,8 @@ class WificondControl : virtual public android::RefBase {
       const android::sp<android::net::wifi::IPnoScanEvent>& aPnoScanCallback);
   Result_t SetupApIface(
       const std::string& aIfaceName,
-      const android::sp<android::net::wifi::IApInterfaceEventCallback>& aApCallback);
+      const android::sp<android::net::wifi::IApInterfaceEventCallback>&
+          aApCallback);
   Result_t StartSoftap(ConfigurationOptions* aConfig);
   Result_t StartSingleScan(ScanSettingsOptions* aScanSettings);
   Result_t StopSingleScan();
@@ -68,7 +69,7 @@ class WificondControl : virtual public android::RefBase {
 
   virtual ~WificondControl() {}
 
-  static WificondControl* s_Instance;
+  static WificondControl* sInstance;
 
   android::sp<IWificond> mWificond;
   android::sp<IClientInterface> mClientInterface;

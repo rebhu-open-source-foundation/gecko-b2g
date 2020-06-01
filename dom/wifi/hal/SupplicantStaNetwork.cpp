@@ -25,10 +25,8 @@ constexpr uint32_t key_mgmt_ft_eap =
 constexpr uint32_t key_mgmt_osen =
     (ISupplicantStaNetwork::KeyMgmtMask::OSEN | 0x0);
 
-constexpr uint32_t protocol_wpa =
-    (ISupplicantStaNetwork::ProtoMask::WPA | 0x0);
-constexpr uint32_t protocol_rsn =
-    (ISupplicantStaNetwork::ProtoMask::RSN | 0x0);
+constexpr uint32_t protocol_wpa = (ISupplicantStaNetwork::ProtoMask::WPA | 0x0);
+constexpr uint32_t protocol_rsn = (ISupplicantStaNetwork::ProtoMask::RSN | 0x0);
 constexpr uint32_t protocol_osen =
     (ISupplicantStaNetwork::ProtoMask::OSEN | 0x0);
 
@@ -61,7 +59,7 @@ constexpr uint32_t pairwise_cipher_ccmp =
 #define EVENT_EAP_SIM_UMTS_AUTH_REQUEST "EAP_SIM_UMTS_AUTH_REQUEST"
 #define EVENT_EAP_SIM_IDENTITY_REQUEST "EAP_SIM_IDENTITY_REQUEST"
 
-mozilla::Mutex SupplicantStaNetwork::s_Lock("supplicant-network");
+mozilla::Mutex SupplicantStaNetwork::sLock("supplicant-network");
 
 SupplicantStaNetwork::SupplicantStaNetwork(const std::string& aInterfaceName,
                                            WifiEventCallback* aCallback,
@@ -211,7 +209,8 @@ Result_t SupplicantStaNetwork::SendEapSimGsmAuthResponse(
     const nsTArray<SimGsmAuthRespDataOptions>& aGsmAuthResp) {
   MOZ_ASSERT(mNetwork);
   SupplicantStatus response;
-  std::vector<ISupplicantStaNetwork::NetworkResponseEapSimGsmAuthParams> gsmAuthParams;
+  std::vector<ISupplicantStaNetwork::NetworkResponseEapSimGsmAuthParams>
+      gsmAuthParams;
 
   for (auto& item : aGsmAuthResp) {
     std::string kc_str = NS_ConvertUTF16toUTF8(item.mKc).get();
@@ -1087,8 +1086,9 @@ void SupplicantStaNetwork::NotifyEapIdentityRequest() {
  * ISupplicantStaNetworkCallback implementation
  */
 Return<void> SupplicantStaNetwork::onNetworkEapSimGsmAuthRequest(
-    const ISupplicantStaNetworkCallback::NetworkRequestEapSimGsmAuthParams& params) {
-  MutexAutoLock lock(s_Lock);
+    const ISupplicantStaNetworkCallback::NetworkRequestEapSimGsmAuthParams&
+        params) {
+  MutexAutoLock lock(sLock);
   WIFI_LOGD(LOG_TAG,
             "ISupplicantStaNetworkCallback.onNetworkEapSimGsmAuthRequest()");
 
@@ -1099,8 +1099,9 @@ Return<void> SupplicantStaNetwork::onNetworkEapSimGsmAuthRequest(
 }
 
 Return<void> SupplicantStaNetwork::onNetworkEapSimUmtsAuthRequest(
-    const ISupplicantStaNetworkCallback::NetworkRequestEapSimUmtsAuthParams& params) {
-  MutexAutoLock lock(s_Lock);
+    const ISupplicantStaNetworkCallback::NetworkRequestEapSimUmtsAuthParams&
+        params) {
+  MutexAutoLock lock(sLock);
   WIFI_LOGD(LOG_TAG,
             "ISupplicantStaNetworkCallback.onNetworkEapSimUmtsAuthRequest()");
 
@@ -1109,7 +1110,7 @@ Return<void> SupplicantStaNetwork::onNetworkEapSimUmtsAuthRequest(
 }
 
 Return<void> SupplicantStaNetwork::onNetworkEapIdentityRequest() {
-  MutexAutoLock lock(s_Lock);
+  MutexAutoLock lock(sLock);
   WIFI_LOGD(LOG_TAG,
             "ISupplicantStaNetworkCallback.onNetworkEapIdentityRequest()");
 

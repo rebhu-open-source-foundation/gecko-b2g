@@ -44,8 +44,8 @@ class ScanEventService final
   android::binder::Status OnScanFailed() override;
 
  private:
-  static android::sp<ScanEventService> s_ScanEvent;
-  static mozilla::Mutex s_Lock;
+  static android::sp<ScanEventService> sScanEvent;
+  static mozilla::Mutex sLock;
 };
 
 class PnoScanEventService final
@@ -70,8 +70,8 @@ class PnoScanEventService final
   android::binder::Status OnPnoScanOverOffloadFailed(int32_t reason) override;
 
  private:
-  static android::sp<PnoScanEventService> s_PnoScanEvent;
-  static mozilla::Mutex s_Lock;
+  static android::sp<PnoScanEventService> sPnoScanEvent;
+  static mozilla::Mutex sLock;
 };
 
 #endif  // ScanEventService_H

@@ -33,7 +33,7 @@ static const char* WIFICOND_SERVICE_NAME = "wificond";
 static const int32_t WIFICOND_POLL_DELAY = 500000;
 static const int32_t WIFICOND_RETRY_COUNT = 20;
 
-WificondControl* WificondControl::s_Instance = nullptr;
+WificondControl* WificondControl::sInstance = nullptr;
 
 WificondControl::WificondControl()
     : mWificond(nullptr),
@@ -44,15 +44,15 @@ WificondControl::WificondControl()
 WificondControl* WificondControl::Get() {
   MOZ_ASSERT(NS_IsMainThread());
 
-  if (s_Instance) {
-    return s_Instance;
+  if (sInstance) {
+    return sInstance;
   }
 
   // Create new instance
-  s_Instance = new WificondControl();
+  sInstance = new WificondControl();
 
-  ClearOnShutdown(&s_Instance);
-  return s_Instance;
+  ClearOnShutdown(&sInstance);
+  return sInstance;
 }
 
 /**
@@ -130,6 +130,7 @@ Result_t WificondControl::TearDownClientInterface(
               "Failed to teardown client interface due to remote exception");
     return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
+
   if (!success) {
     WIFI_LOGE(LOG_TAG, "Failed to teardown client interface");
     return nsIWifiResult::ERROR_COMMAND_FAILED;
@@ -159,6 +160,7 @@ Result_t WificondControl::TearDownSoftapInterface(
     WIFI_LOGE(LOG_TAG, "Failed to teardown ap interface");
     return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
+
   mApInterface = nullptr;
   return nsIWifiResult::SUCCESS;
 }
@@ -166,9 +168,9 @@ Result_t WificondControl::TearDownSoftapInterface(
 /**
  * StartSupplicant() - To start supplicant daemon.
  *
- * android 8.1: enable supplicant by IClientInterface -> libwifi-system.so -> ctl.start
- * android 9.0: enable supplicant by IWificon -> libwifi-system.so -> ctl.start
- * android 10:  enable supplicant by ctl.start directly
+ * android 8: IClientInterface -> libwifi-system.so -> ctl.start
+ * android 9: IWificon -> libwifi-system.so -> ctl.start
+ * android 10: ctl.start directly
  */
 Result_t WificondControl::StartSupplicant() {
   bool supplicantStarted = false;
@@ -185,8 +187,7 @@ Result_t WificondControl::StopSupplicant() {
 }
 
 Result_t WificondControl::SetupClientIface(
-    const std::string& aIfaceName,
-    const android::sp<IScanEvent>& aScanCallback,
+    const std::string& aIfaceName, const android::sp<IScanEvent>& aScanCallback,
     const android::sp<IPnoScanEvent>& aPnoScanCallback) {
   Result_t result = nsIWifiResult::ERROR_UNKNOWN;
 
@@ -230,9 +231,9 @@ Result_t WificondControl::SetupApIface(
     WIFI_LOGE(LOG_TAG, "Failed to create ap interface");
     return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
+
   bool success = false;
   mApInterface->registerCallback(aApCallback, &success);
-
   return CHECK_SUCCESS(success);
 }
 
@@ -318,6 +319,7 @@ Result_t WificondControl::StopPnoScan() {
     WIFI_LOGE(LOG_TAG, "Invalid wifi scanner interface");
     return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
+
   bool success = false;
   mScanner->stopPnoScan(&success);
   return CHECK_SUCCESS(success);
@@ -393,6 +395,7 @@ Result_t WificondControl::GetSoftapStations(uint32_t& aNumStations) {
   if (mApInterface == nullptr) {
     return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
+
   int32_t stations;
   mApInterface->getNumberOfAssociatedStations(&stations);
   aNumStations = (stations < 0) ? 0 : stations;

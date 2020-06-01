@@ -8,7 +8,6 @@
 #include "nsServiceManagerUtils.h"
 #include "mozilla/ModuleUtils.h"
 #include "mozilla/ClearOnShutdown.h"
-#include "mozilla/dom/ToJSValue.h"
 #include "nsXULAppAPI.h"
 #include "nsQueryObject.h"
 #include "WifiNative.h"

@@ -11,117 +11,117 @@ interface nsIScanResult;
 interface nsIWifiResult : nsISupports
 {
   /** Status code */
-  const unsigned long SUCCESS = 0;
-  const unsigned long ERROR_COMMAND_FAILED = 1;
-  const unsigned long ERROR_INVALID_INTERFACE = 2;
-  const unsigned long ERROR_INVALID_ARGS = 3;
-  const unsigned long ERROR_NOT_SUPPORTED = 4;
-  const unsigned long ERROR_TIMEOUT = 5;
-  const unsigned long ERROR_UNKNOWN = 6;
+  const uint32_t SUCCESS = 0;
+  const uint32_t ERROR_COMMAND_FAILED = 1;
+  const uint32_t ERROR_INVALID_INTERFACE = 2;
+  const uint32_t ERROR_INVALID_ARGS = 3;
+  const uint32_t ERROR_NOT_SUPPORTED = 4;
+  const uint32_t ERROR_TIMEOUT = 5;
+  const uint32_t ERROR_UNKNOWN = 6;
 
   /**
    * If set indicates that the APF APIs are supported.
    * APF (Android Packet Filter) is a BPF like packet filtering
    * bytecode executed by the firmware.
    */
-  const unsigned long FEATURE_APF = (1 << 0);
+  const uint32_t FEATURE_APF = (1 << 0);
   /**
    * If set indicates that the Background Scan APIs are supported.
    * Background scan allow the host to send a number of buckets down to the
    * firmware. Each bucket contains a set of channels, a period, and some
    * parameters about how and when to report results.
    */
-  const unsigned long FEATURE_BACKGROUND_SCAN = (1 << 1);
+  const uint32_t FEATURE_BACKGROUND_SCAN = (1 << 1);
   /**
    * If set indicates that the link layer stats APIs are supported.
    */
-  const unsigned long FEATURE_LINK_LAYER_STATS = (1 << 2);
+  const uint32_t FEATURE_LINK_LAYER_STATS = (1 << 2);
   /**
    * If set indicates that the RSSI monitor APIs are supported.
    */
-  const unsigned long FEATURE_RSSI_MONITOR = (1 << 3);
+  const uint32_t FEATURE_RSSI_MONITOR = (1 << 3);
   /**
    * If set indicates that the roaming API's are supported.
    */
-  const unsigned long FEATURE_CONTROL_ROAMING = (1 << 4);
+  const uint32_t FEATURE_CONTROL_ROAMING = (1 << 4);
   /**
    * If set indicates support for Probe IE white listing.
    */
-  const unsigned long FEATURE_PROBE_IE_WHITELIST = (1 << 5);
+  const uint32_t FEATURE_PROBE_IE_WHITELIST = (1 << 5);
   /**
    * If set indicates support for MAC & Probe Sequence Number randomization.
    */
-  const unsigned long FEATURE_SCAN_RAND = (1 << 6);
+  const uint32_t FEATURE_SCAN_RAND = (1 << 6);
   /**
    * Support for 5 GHz Band.
    */
-  const unsigned long FEATURE_STA_5G = (1 << 7);
+  const uint32_t FEATURE_STA_5G = (1 << 7);
   /**
    * Support for GAS/ANQP queries.
    */
-  const unsigned long FEATURE_HOTSPOT = (1 << 8);
+  const uint32_t FEATURE_HOTSPOT = (1 << 8);
   /**
    * Support for Preferred Network Offload.
    */
-  const unsigned long FEATURE_PNO = (1 << 9);
+  const uint32_t FEATURE_PNO = (1 << 9);
   /**
    * Support for Tunneled Direct Link Setup.
    */
-  const unsigned long FEATURE_TDLS = (1 << 10);
+  const uint32_t FEATURE_TDLS = (1 << 10);
   /**
    * Support for Tunneled Direct Link Setup off channel.
    */
-  const unsigned long FEATURE_TDLS_OFFCHANNEL = (1 << 11);
+  const uint32_t FEATURE_TDLS_OFFCHANNEL = (1 << 11);
   /**
    * Support for neighbour discovery offload.
    */
-  const unsigned long FEATURE_ND_OFFLOAD = (1 << 12);
+  const uint32_t FEATURE_ND_OFFLOAD = (1 << 12);
   /**
    * Support for keep alive packet offload.
    */
-  const unsigned long FEATURE_KEEP_ALIVE = (1 << 13);
+  const uint32_t FEATURE_KEEP_ALIVE = (1 << 13);
   /**
    * Support for tracking connection packets' fate.
    */
-  const unsigned long FEATURE_DEBUG_PACKET_FATE = (1 << 14);
+  const uint32_t FEATURE_DEBUG_PACKET_FATE = (1 << 14);
   /**
    * Memory dump of Firmware.
    */
-  const unsigned long FEATURE_DEBUG_MEMORY_FIRMWARE_DUMP = (1 << 15);
+  const uint32_t FEATURE_DEBUG_MEMORY_FIRMWARE_DUMP = (1 << 15);
   /**
    * Memory dump of Driver.
    */
-  const unsigned long FEATURE_DEBUG_MEMORY_DRIVER_DUMP = (1 << 16);
+  const uint32_t FEATURE_DEBUG_MEMORY_DRIVER_DUMP = (1 << 16);
   /**
    * Connectivity events reported via debug ring buffer.
    */
-  const unsigned long FEATURE_DEBUG_RING_BUFFER_CONNECT_EVENT = (1 << 17);
+  const uint32_t FEATURE_DEBUG_RING_BUFFER_CONNECT_EVENT = (1 << 17);
   /**
    * Power events reported via debug ring buffer.
    */
-  const unsigned long FEATURE_DEBUG_RING_BUFFER_POWER_EVENT = (1 << 18);
+  const uint32_t FEATURE_DEBUG_RING_BUFFER_POWER_EVENT = (1 << 18);
   /**
    * Wakelock events reported via debug ring buffer.
    */
-  const unsigned long FEATURE_DEBUG_RING_BUFFER_WAKELOCK_EVENT = (1 << 19);
+  const uint32_t FEATURE_DEBUG_RING_BUFFER_WAKELOCK_EVENT = (1 << 19);
   /**
    * Vendor data reported via debug ring buffer.
    * This mostly contains firmware event logs.
    */
-  const unsigned long FEATURE_DEBUG_RING_BUFFER_VENDOR_DATA = (1 << 20);
+  const uint32_t FEATURE_DEBUG_RING_BUFFER_VENDOR_DATA = (1 << 20);
   /**
    * Host wake reasons stats collection.
    */
-  const unsigned long FEATURE_DEBUG_HOST_WAKE_REASON_STATS = (1 << 21);
+  const uint32_t FEATURE_DEBUG_HOST_WAKE_REASON_STATS = (1 << 21);
   /**
    * Error alerts.
    */
-  const unsigned long FEATURE_DEBUG_ERROR_ALERTS = (1 << 22);
+  const uint32_t FEATURE_DEBUG_ERROR_ALERTS = (1 << 22);
 
   /**
    * The integer value to specify each command.
    */
-  readonly attribute unsigned long id;
+  readonly attribute uint32_t id;
 
   /**
    * The status code for each command result.
@@ -135,7 +135,7 @@ interface nsIWifiResult : nsISupports
    *   ERROR_TIMEOUT,
    *   ERROR_UNKNOWN.
    */
-  readonly attribute unsigned long status;
+  readonly attribute uint32_t status;
 
   /**
    * Information about the version of the driver and firmware running this chip.
@@ -169,7 +169,7 @@ interface nsIWifiResult : nsISupports
    * | Chip capabilities | STA capabilites |
    *           8                  15
    */
-  readonly attribute unsigned long supportedFeatures;
+  readonly attribute uint32_t supportedFeatures;
 
   /**
    * Debug level from supplicant, and the value is defined in
@@ -177,12 +177,12 @@ interface nsIWifiResult : nsISupports
    *
    * Possible values: LOG_*.
    */
-  readonly attribute unsigned long debugLevel;
+  readonly attribute uint32_t debugLevel;
 
   /**
    * Number of connected clients on softAP.
    */
-  readonly attribute unsigned long numStations;
+  readonly attribute uint32_t numStations;
 
   /**
    * Station link layer statistics

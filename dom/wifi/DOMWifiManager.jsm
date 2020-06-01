@@ -6,14 +6,11 @@
 
 "use strict";
 
-const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr } = Components;
-
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
-const { Services } = ChromeUtils.import(
-  "resource://gre/modules/Services.jsm"
-);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+
 const { DOMRequestIpcHelper } = ChromeUtils.import(
   "resource://gre/modules/DOMRequestHelper.jsm"
 );
@@ -170,9 +167,7 @@ DOMWifiManager.prototype = {
       "WifiManager:captiveportallogin",
     ];
     this.initDOMRequestHelper(aWindow, messages);
-    //this._mm = Cc["@mozilla.org/childprocessmessagemanager;1"].getService(Ci.nsISyncMessageSender);
 
-    //var state = this._mm.sendSyncMessage("WifiManager:getState")[0];
     var state = cpmm.sendSyncMessage("WifiManager:getState")[0];
     if (state) {
       this._currentNetwork = this._convertWifiNetwork(state.network);
@@ -240,7 +235,6 @@ DOMWifiManager.prototype = {
 
   _sendMessageForRequest(name, data, request) {
     let id = this.getRequestId(request);
-    //this._mm.sendAsyncMessage(name, { data: data, rid: id, mid: this._id });
     cpmm.sendAsyncMessage(name, { data, rid: id, mid: this._id });
   },
 

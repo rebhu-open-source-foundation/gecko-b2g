@@ -6,14 +6,10 @@
 
 "use strict";
 
-const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr } = Components;
-
 const { FileUtils } = ChromeUtils.import(
   "resource://gre/modules/FileUtils.jsm"
 );
-const { NetUtil } = ChromeUtils.import(
-  "resource://gre/modules/NetUtil.jsm"
-);
+const { NetUtil } = ChromeUtils.import("resource://gre/modules/NetUtil.jsm");
 
 this.EXPORTED_SYMBOLS = ["WifiConfigStore"];
 
@@ -50,7 +46,7 @@ this.WifiConfigStore = (function() {
         "@mozilla.org/network/file-input-stream;1"
       ].createInstance(Ci.nsIFileInputStream);
       let sstream = Cc["@mozilla.org/scriptableinputstream;1"].createInstance(
-        Components.interfaces.nsIScriptableInputStream
+        Ci.nsIScriptableInputStream
       );
 
       const RO = 0x01;

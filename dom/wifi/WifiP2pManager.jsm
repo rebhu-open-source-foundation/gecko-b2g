@@ -6,13 +6,8 @@
 
 "use strict";
 
-const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr } = Components;
-
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
-);
-const { Services } = ChromeUtils.import(
-  "resource://gre/modules/Services.jsm"
 );
 const { libcutils } = ChromeUtils.import(
   "resource://gre/modules/systemlibs.js"
@@ -150,7 +145,7 @@ const DEV_PW_PUSHBUTTON = 4;
 this.WifiP2pManager = function(aP2pCommand, aNetUtil) {
   function debug(aMsg) {
     if (gDebug) {
-      dump("-------------- WifiP2pManager: " + aMsg);
+      dump("-*- WifiP2pManager: " + aMsg);
     }
   }
 
@@ -484,7 +479,7 @@ this.WifiP2pManager = function(aP2pCommand, aNetUtil) {
 function P2pStateMachine(aP2pCommand, aNetUtil) {
   function debug(aMsg) {
     if (gDebug) {
-      dump("-------------- WifiP2pStateMachine: " + aMsg);
+      dump("-*- WifiP2pStateMachine: " + aMsg);
     }
   }
 

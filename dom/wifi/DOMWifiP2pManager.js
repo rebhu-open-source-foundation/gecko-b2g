@@ -6,14 +6,11 @@
 
 "use strict";
 
-const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr } = Components;
-
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
-const { Services } = ChromeUtils.import(
-  "resource://gre/modules/Services.jsm"
-);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+
 const { DOMRequestIpcHelper } = ChromeUtils.import(
   "resource://gre/modules/DOMRequestHelper.jsm"
 );
@@ -74,7 +71,7 @@ function exposeReadOnly(obj) {
 
 function debug(msg) {
   if (DEBUG) {
-    dump("-------------- WifiP2pManager: " + msg);
+    dump("-*- WifiP2pManager: " + msg);
   }
 }
 
@@ -288,7 +285,6 @@ WifiP2pManager.prototype = {
   //
   // WifiP2pManager.webidl implementation.
   //
-
   enableScan() {
     let request = this.createRequest();
     this._sendMessageForRequest("WifiP2pManager:enableScan", null, request);
