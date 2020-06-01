@@ -17,10 +17,6 @@ const { Services } = ChromeUtils.import(
   "resource://gre/modules/Services.jsm"
 );
 
-XPCOMUtils.defineLazyServiceGetter(this, "gSystemMessenger",
-                                   "@mozilla.org/system-message-internal;1",
-                                   "nsISystemMessagesInternal");
-
 XPCOMUtils.defineLazyServiceGetter(this, "notificationStorage",
                                    "@mozilla.org/notificationStorage;1",
                                    "nsINotificationStorage");
@@ -40,8 +36,6 @@ function debug(str) {
 const kNotificationIconSize = 128;
 
 const kDesktopNotificationPerm = "desktop-notification";
-
-const kNotificationSystemMessageName = "notification";
 
 const kDesktopNotification      = "desktop-notification";
 const kDesktopNotificationShow  = "desktop-notification-show";
@@ -174,31 +168,6 @@ var AlertsHelper = {
               listener.requireInteraction,
               listener.actions,
               userAction
-            );
-          }
-        } else {
-          // we get an exception if the app is not launched yet
-          if (detail.type !== kDesktopNotificationShow) {
-            // excluding the 'show' event: there is no reason a unlaunched app
-            // would want to be notified that a notification is shown. This
-            // happens when a notification is still displayed at reboot time.
-            let dataObj = this.deserializeStructuredClone(listener.dataObj);
-            gSystemMessenger.sendMessage(kNotificationSystemMessageName, {
-                clicked: (detail.type === kDesktopNotificationClick),
-                title: listener.title,
-                body: listener.text,
-                imageURL: listener.imageURL,
-                lang: listener.lang,
-                dir: listener.dir,
-                id: listener.id,
-                tag: listener.tag,
-                timestamp: listener.timestamp,
-                data: dataObj || undefined,
-                requireInteraction: listener.requireInteraction,
-                actions: []
-              },
-              Services.io.newURI(listener.target, null, null),
-              Services.io.newURI(listener.manifestURL, null, null)
             );
           }
         }
