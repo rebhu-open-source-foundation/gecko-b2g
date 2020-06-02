@@ -9,28 +9,24 @@
 
 #include "nsIWifiCertService.h"
 #include "nsCOMPtr.h"
-//#include "nsNSSShutDown.h"
 #include "nsThread.h"
-#include "mozilla/dom/WifiOptionsBinding.h"
+#include "nsWifiResult.h"
 
 namespace mozilla {
 namespace dom {
 
-class WifiCertService final : public nsIWifiCertService
-/*, public nsNSSShutDownObject*/
-{
+class WifiCertService final : public nsIWifiCertService {
  public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIWIFICERTSERVICE
 
   static already_AddRefed<WifiCertService> FactoryCreate();
-  void DispatchResult(
-      const mozilla::dom::WifiCertServiceResultOptions& aOptions);
+  void DispatchResult(nsWifiResult* aResult);
 
  private:
   WifiCertService();
   ~WifiCertService();
-  // virtual void virtualDestroyNSSReference() {};
+
   nsCOMPtr<nsIWifiEventListener> mListener;
 };
 

@@ -40,6 +40,9 @@ class nsWifiResult final : public nsIWifiResult {
   uint32_t mSupportedFeatures;
   uint32_t mDebugLevel;
   uint32_t mNumStations;
+  uint16_t mUsageFlag;
+  nsString mNickname;
+  bool mDuplicated;
   nsTArray<int32_t> mChannels;
   nsTArray<int32_t> mSignalPoll;
   nsTArray<RefPtr<nsScanResult>> mScanResults;

@@ -190,6 +190,21 @@ interface nsIWifiResult : nsISupports
   readonly attribute nsILinkLayerStats linkLayerStats;
 
   /**
+   * Usage flag of certificate defined in nsIWifiCertService.idl.
+   */
+  readonly attribute uint16_t usageFlag;
+
+  /**
+   * Nickname of the certificate.
+   */
+  readonly attribute AString nickname;
+
+  /**
+   * Whether the certificate is duplicated.
+   */
+  readonly attribute boolean duplicated;
+
+  /**
    * Query supported channel list
    *
    * Invoke the function to get the return value for GET_CHANNELS_FOR_BAND.

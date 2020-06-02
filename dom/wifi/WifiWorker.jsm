@@ -4544,12 +4544,12 @@ WifiWorker.prototype = {
       return;
     }
 
-    WifiManager.importCert(msg.data, function(data) {
-      if (data.status === 0) {
+    WifiManager.importCert(msg.data, function(result) {
+      if (result.status == SUCCESS) {
         let usageString = ["ServerCert", "UserCert"];
         let usageArray = [];
         for (let i = 0; i < usageString.length; i++) {
-          if (data.usageFlag & (0x01 << i)) {
+          if (result.usageFlag & (0x01 << i)) {
             usageArray.push(usageString[i]);
           }
         }
@@ -4558,12 +4558,12 @@ WifiWorker.prototype = {
           message,
           true,
           {
-            nickname: data.nickname,
+            nickname: result.nickname,
             usage: usageArray,
           },
           msg
         );
-      } else if (data.duplicated) {
+      } else if (result.duplicated) {
         self._sendMessage(message, false, "Import duplicate certificate", msg);
       } else {
         self._sendMessage(message, false, "Import damaged certificate", msg);
@@ -4583,6 +4583,7 @@ WifiWorker.prototype = {
     let certDB = Cc["@mozilla.org/security/x509certdb;1"].getService(
       Ci.nsIX509CertDB
     );
+
     if (!certDB) {
       self._sendMessage(message, false, "Failed to query NSS DB service", msg);
     }
@@ -4601,10 +4602,12 @@ WifiWorker.prototype = {
         msg
       );
     }
+
     let importedCerts = {
       ServerCert: [],
       UserCert: [],
     };
+
     let UsageMapping = {
       SERVERCERT: "ServerCert",
       USERCERT: "UserCert",
@@ -4633,8 +4636,8 @@ WifiWorker.prototype = {
       return;
     }
 
-    WifiManager.deleteCert(msg.data, function(data) {
-      self._sendMessage(message, data.status === 0, "Delete Cert failed", msg);
+    WifiManager.deleteCert(msg.data, function(result) {
+      self._sendMessage(message, result.status == SUCCESS, "Delete Cert failed", msg);
     });
   },
 

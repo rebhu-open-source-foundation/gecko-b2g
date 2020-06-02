@@ -98,6 +98,24 @@ nsWifiResult::GetNumStations(uint32_t* aNumStations) {
 }
 
 NS_IMETHODIMP
+nsWifiResult::GetUsageFlag(uint16_t* aUsageFlag) {
+  *aUsageFlag = mUsageFlag;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsWifiResult::GetNickname(nsAString& aNickname) {
+  aNickname = mNickname;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsWifiResult::GetDuplicated(bool* aDuplicated) {
+  *aDuplicated = mDuplicated;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 nsWifiResult::GetChannels(nsTArray<int32_t>& aChannels) {
   aChannels = mChannels.Clone();
   return NS_OK;

@@ -4,7 +4,7 @@
 
 #include "nsISupports.idl"
 
-/*interface nsIDOMBlob;*/
+webidl Blob;
 interface nsIWifiEventListener;
 
 [scriptable, uuid(5d0edcd3-c2f1-4946-aae5-06adcbdf0992)]
@@ -29,7 +29,7 @@ interface nsIWifiCertService : nsISupports
    *        User assigned nickname for imported certificate.
    */
   void importCert(in int32_t id,
-                  /*in nsIDOMBlob certBlob,*/
+                  in Blob certBlob,
                   in AString certPassword,
                   in AString certNickname);
 

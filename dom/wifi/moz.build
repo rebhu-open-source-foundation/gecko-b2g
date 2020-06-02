@@ -9,6 +9,7 @@ if not CONFIG['DISABLE_WIFI']:
 
   XPIDL_SOURCES += [
       'interfaces/nsIWifi.idl',
+      'interfaces/nsIWifiCertService.idl',
       'interfaces/nsIWifiCommand.idl',
       'interfaces/nsIWifiElement.idl',
       'interfaces/nsIWifiEvent.idl',
@@ -49,6 +50,7 @@ if not CONFIG['DISABLE_WIFI']:
       'nsWifiElement.h',
       'nsWifiEvent.h',
       'nsWifiResult.h',
+      'WifiCertService.h',
       'WifiProxyService.h',
   ]
 
@@ -66,6 +68,7 @@ if not CONFIG['DISABLE_WIFI']:
           'nsWifiElement.cpp',
           'nsWifiEvent.cpp',
           'nsWifiResult.cpp',
+          'WifiCertService.cpp',
           'WifiProxyService.cpp',
       ]
       LOCAL_INCLUDES += [
@@ -86,6 +89,5 @@ if not CONFIG['DISABLE_WIFI']:
       LOCAL_INCLUDES += [
           'hal',
       ]
-      DEFINES['CERT_AddTempCertToPerm'] = '__CERT_AddTempCertToPerm'
 
 FINAL_LIBRARY = 'xul'
