@@ -971,6 +971,13 @@ bool BrowsingContext::IsSandboxedFrom(BrowsingContext* aTarget) {
     return false;
   }
 
+  // If SANDBOXED_TOPLEVEL_NAVIGATION_USER_ACTIVATION flag is not on, we are not
+  // sandboxed from our top if we have user interaction.
+  if (!(sandboxFlags & SANDBOXED_TOPLEVEL_NAVIGATION_USER_ACTIVATION) &&
+      HasValidTransientUserGestureActivation() && aTarget == Top()) {
+    return false;
+  }
+
   // Otherwise, we are sandboxed from aTarget.
   return true;
 }
@@ -1650,14 +1657,20 @@ void BrowsingContext::Close(CallerType aCallerType, ErrorResult& aError) {
   if (mIsDiscarded) {
     return;
   }
-  // FIXME We need to set the Closed field, but only once we're sending the
-  //       DOMWindowClose event (which happens in the process where the
-  //       document for this browsing context is loaded).
-  //       See https://bugzilla.mozilla.org/show_bug.cgi?id=1516343.
+
   if (GetDOMWindow()) {
     nsGlobalWindowOuter::Cast(GetDOMWindow())
         ->CloseOuter(aCallerType == CallerType::System);
-  } else if (ContentChild* cc = ContentChild::GetSingleton()) {
+    return;
+  }
+
+  // This is a bit of a hack for webcompat. Content needs to see an updated
+  // |window.closed| value as early as possible, so we set this before we
+  // actually send the DOMWindowClose event, which happens in the process where
+  // the document for this browsing context is loaded.
+  SetClosed(true);
+
+  if (ContentChild* cc = ContentChild::GetSingleton()) {
     cc->SendWindowClose(this, aCallerType == CallerType::System);
   } else if (ContentParent* cp = Canonical()->GetContentParent()) {
     Unused << cp->SendWindowClose(this, aCallerType == CallerType::System);

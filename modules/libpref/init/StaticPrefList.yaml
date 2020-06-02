@@ -195,6 +195,25 @@
   value: false
   mirror: always
 
+#---------------------------------------------------------------------------
+# Prefs starting with "alerts."
+#---------------------------------------------------------------------------
+
+# Whether to use platform-specific backends for showing desktop notifications.
+# If no such backend is available, or if the pref is false, then XUL
+# notifications are used.
+- name: alerts.useSystemBackend
+  type: bool
+#ifdef XP_WIN
+  # Linux and macOS turn on system level notification as default, but Windows is
+  # disabled due to instability (dependencies of bug 1497425).
+  value: false
+#else
+  value: true
+#endif
+  mirror: always
+
+
 #ifdef ANDROID
   #---------------------------------------------------------------------------
   # Prefs starting with "android."
@@ -6502,6 +6521,12 @@
   value: false
 #endif
 
+# ClockDrift desired buffering
+- name: media.clockdrift.buffering
+  type: int32_t
+  mirror: always
+  value: 5
+
 # If a resource is known to be smaller than this size (in kilobytes), a
 # memory-backed MediaCache may be used; otherwise the (single shared global)
 # file-backed MediaCache is used.
@@ -7730,7 +7755,7 @@
 # Whether certain http header values should be censored out in logs.
 # Specifically filters out "authorization" and "proxy-authorization".
 - name: network.http.sanitize-headers-in-logs
-  type: bool
+  type: RelaxedAtomicBool
   value: true
   mirror: always
 
@@ -8839,6 +8864,12 @@
 # Prefs starting with "toolkit."
 #---------------------------------------------------------------------------
 
+# Returns true if BHR is disabled.
+- name: toolkit.content-background-hang-monitor.disabled
+  type: bool
+  value: false
+  mirror: always
+
 - name: toolkit.scrollbox.horizontalScrollDistance
   type: RelaxedAtomicInt32
   value: 5
@@ -9022,6 +9053,22 @@
 - name: ui.click_hold_context_menus.delay
   type: RelaxedAtomicInt32
   value: 500
+  mirror: always
+
+#---------------------------------------------------------------------------
+# Prefs starting with "urlclassifier."
+#---------------------------------------------------------------------------
+
+# Update server response timeout for Safe Browsing.
+- name: urlclassifier.update.response_timeout_ms
+  type: uint32_t
+  value: 30000
+  mirror: always
+
+# Download update timeout for Safe Browsing.
+- name: urlclassifier.update.timeout_ms
+  type: uint32_t
+  value: 90000
   mirror: always
 
 #---------------------------------------------------------------------------

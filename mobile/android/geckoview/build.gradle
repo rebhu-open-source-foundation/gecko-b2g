@@ -252,17 +252,33 @@ android.libraryVariants.all { variant ->
     // and amended from numerous Stackoverflow posts.
     def name = variant.name
     def javadoc = task "javadoc${name.capitalize()}"(type: Javadoc) {
+        failOnError = false
         description = "Generate Javadoc for build variant $name"
         destinationDir = new File(destinationDir, variant.baseName)
+
+        // The javadoc task will not re-run if the previous run is still up-to-date,
+        // this is a problem for the javadoc lint, which needs to read the output of the task
+        // to determine if there are warnings or errors. To force that we pass a -Pandroid-lint
+        // parameter to all lints that can be used here to force running the task every time.
+        outputs.upToDateWhen {
+            !project.hasProperty('android-lint')
+        }
+
         doFirst {
             classpath = files(variant.javaCompileProvider.get().classpath.files)
         }
 
         def results = []
         def listener = {
+            if (!it.toLowerCase().contains("warning") && !it.toLowerCase().contains("error")) {
+              // Likely not an error or a warning
+              return
+            }
             // Like '/abs/path/to/topsrcdir/mobile/android/geckoview/src/main/java/org/mozilla/geckoview/ContentBlocking.java:480: warning: no @return'
-            def matches = (it =~ /(.+):(\d+): (warning|error): (.*)/)
+            def matches = (it =~ /(.+):(\d+):.*(warning|error)(.*)/)
             if (!matches) {
+                // could not parse, let's add it anyway since it's a warning or error
+                results << [path: "parsing-failed", lineno: 0, level: "error", message: it]
                 return
             }
             def (_, file, line, level, message) = matches[0]

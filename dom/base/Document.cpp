@@ -1311,6 +1311,7 @@ Document::Document(const char* aContentType)
       mHasBeenEditable(false),
       mHasWarnedAboutZoom(false),
       mIsRunningExecCommand(false),
+      mSetCompleteAfterDOMContentLoaded(false),
       mPendingFullscreenRequests(0),
       mXMLDeclarationBits(0),
       mOnloadBlockCount(0),
@@ -2959,6 +2960,18 @@ void Document::SetCompatibilityMode(nsCompatibility aMode) {
 static void WarnIfSandboxIneffective(nsIDocShell* aDocShell,
                                      uint32_t aSandboxFlags,
                                      nsIChannel* aChannel) {
+  // If the document permits allow-top-navigation and
+  // allow-top-navigation-by-user-activation this will permit all top
+  // navigation.
+  if (aSandboxFlags != SANDBOXED_NONE &&
+      !(aSandboxFlags & SANDBOXED_TOPLEVEL_NAVIGATION) &&
+      !(aSandboxFlags & SANDBOXED_TOPLEVEL_NAVIGATION_USER_ACTIVATION)) {
+    nsCOMPtr<nsIURI> iframeUri;
+    nsContentUtils::ReportToConsole(
+        nsIScriptError::warningFlag, NS_LITERAL_CSTRING("Iframe Sandbox"),
+        aDocShell->GetDocument(), nsContentUtils::eSECURITY_PROPERTIES,
+        "BothAllowTopNavigationAndUserActivationPresent");
+  }
   // If the document is sandboxed (via the HTML5 iframe sandbox
   // attribute) and both the allow-scripts and allow-same-origin
   // keywords are supplied, the sandboxed document can call into its
@@ -7263,6 +7276,11 @@ void Document::DispatchContentLoadedEvents() {
     }
   }
 
+  if (mSetCompleteAfterDOMContentLoaded) {
+    SetReadyStateInternal(ReadyState::READYSTATE_COMPLETE);
+    mSetCompleteAfterDOMContentLoaded = false;
+  }
+
   UnblockOnload(true);
 }
 
@@ -11243,6 +11261,22 @@ void Document::SuppressEventHandling(uint32_t aIncrease) {
   };
 
   EnumerateSubDocuments(suppressInSubDoc);
+}
+
+void Document::NotifyAbortedLoad() {
+  // If we still have outstanding work blocking DOMContentLoaded,
+  // then don't try to change the readystate now, but wait until
+  // they finish and then do so.
+  if (mBlockDOMContentLoaded > 0 && !mDidFireDOMContentLoaded) {
+    mSetCompleteAfterDOMContentLoaded = true;
+    return;
+  }
+
+  // Otherwise we're fully done at this point, so set the
+  // readystate to complete.
+  if (GetReadyStateEnum() == Document::READYSTATE_INTERACTIVE) {
+    SetReadyStateInternal(Document::READYSTATE_COMPLETE);
+  }
 }
 
 static void FireOrClearDelayedEvents(nsTArray<nsCOMPtr<Document>>& aDocuments,
