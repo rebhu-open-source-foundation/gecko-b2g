@@ -87,6 +87,13 @@ case $TARGET_ARCH in
         ARCH_DIR="arch-arm"
         ARCH_ABI="androideabi"
         ;;
+    arm64)
+        ARCH_NAME="aarch64"
+        ARCH_DIR="arch-arm64"
+        ARCH_ABI="android"
+        TARGET_TRIPLE=$ARCH_NAME-linux-$ARCH_ABI
+        BINSUFFIX=64
+        ;;
     x86_64)
         ARCH_NAME="x86"
         ARCH_DIR="arch-x86_64"
@@ -99,9 +106,10 @@ case $TARGET_ARCH in
         ;;
 esac
 
-export ARCH_ABI
+TARGET_TRIPLE=${TARGET_TRIPLE:-$TARGET_ARCH-linux-$ARCH_ABI}
+export TARGET_TRIPLE
 
-export CROSS_TOOLCHAIN_LINKER_PATH=${CROSS_TOOLCHAIN_LINKER_PATH=:-$GONK_PATH/prebuilts/gcc/linux-x86/$ARCH_NAME/$TARGET_ARCH-linux-$ARCH_ABI-$TARGET_GCC_VERSION/$TARGET_ARCH-linux-$ARCH_ABI/bin}
+export CROSS_TOOLCHAIN_LINKER_PATH=${CROSS_TOOLCHAIN_LINKER_PATH=:-$GONK_PATH/prebuilts/gcc/linux-x86/$ARCH_NAME/$TARGET_TRIPLE-$TARGET_GCC_VERSION/$TARGET_TRIPLE/bin}
 
 export PATH=$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin:$GONK_PATH/prebuilts/linux-x86_64/bin/:$CLANG_PATH:$PYTHON_PATH:$CROSS_TOOLCHAIN_LINKER_PATH:$PATH
 
@@ -165,7 +173,7 @@ export CXXFLAGS="$CPPFLAGS -std=c++17"
 
 # export RUSTC_OPT_LEVEL=z
 
-GCC_LIB="-L$GONK_PATH/prebuilts/gcc/linux-x86/$ARCH_NAME/$TARGET_ARCH-linux-$ARCH_ABI-4.9/lib/gcc/$TARGET_ARCH-linux-$ARCH_ABI/4.9.x/"
+GCC_LIB="-L$GONK_PATH/prebuilts/gcc/linux-x86/$ARCH_NAME/$TARGET_TRIPLE-4.9/lib/gcc/$TARGET_TRIPLE/4.9.x/"
 
 export ANDROID_PLATFORM=$ANDROID_PLATFORM
 

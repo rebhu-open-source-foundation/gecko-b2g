@@ -10,7 +10,7 @@ export RANLIB=$HOME/.mozbuild/clang/bin/llvm-ranlib
 
 # Build B2G
 ac_add_options --enable-application=b2g
-ac_add_options --target=$TARGET_ARCH-linux-$ARCH_ABI
+ac_add_options --target=$TARGET_TRIPLE
 ac_add_options --enable-linker=lld
 
 # Disable a bunch of non critical stuff
@@ -57,7 +57,9 @@ fi
 # Pretend to be an official build to be in a release configuration.
 export MOZILLA_OFFICIAL=1
 # elf hack fails with a "Segments overlap" error.
-ac_add_options --disable-elf-hack
+if [ "$TARGET_ARCH" != "arm64" ]; then
+  ac_add_options --disable-elf-hack
+fi;
 
 # TARGET_BUILD_VARIANT stuff
 if [ "$TARGET_ARCH_VARIANT" = "$TARGET_ARCH" ] ||
@@ -127,3 +129,8 @@ fi;
 
 # Disable until we figure out CI issues
 # ac_add_options --enable-clang-plugin
+
+# TODO: sandbox includes non existent arm64 files
+if [ "$TARGET_ARCH" = "arm64" ]; then
+  ac_add_options --disable-sandbox
+fi;
