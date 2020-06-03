@@ -17,7 +17,7 @@ interface nsIRilCallback : nsISupports
   void handleRilIndication(in nsIRilIndicationResult response);
 };
 
-[scriptable, uuid(a2eed154-a3f6-4db2-80d4-b5ed4927bebb)]
+[scriptable, uuid(7a76ecb0-2565-48cf-ab88-cb9b8a280283)]
 interface nsIRilWorker : nsISupports
 {
   void sendRilRequest(in jsval message);
@@ -104,6 +104,7 @@ interface nsIRilWorker : nsISupports
   void setGsmBroadcastConfig(in long serial, in Array<long> ranges);
   void getPreferredVoicePrivacy(in long serial);
   void setPreferredVoicePrivacy(in long serial, in boolean enable);
+  void requestIccSimAuthentication(in long serial, in long authContext, in AString data, in AString aid);
 };
 
 /**

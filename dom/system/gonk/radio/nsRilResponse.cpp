@@ -1475,10 +1475,25 @@ Return<void> nsRilResponse::getHardwareConfigResponse(
 }
 
 Return<void> nsRilResponse::requestIccSimAuthenticationResponse(
-    const RadioResponseInfo& info, const IccIoResult& result) {
+    const RadioResponseInfo& info, const IccIoResult& iccIo) {
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
+  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
+      NS_LITERAL_STRING("getIccAuthentication"), rspInfo.serial,
+      convertRadioErrorToNum(rspInfo.error));
+  if (rspInfo.error == RadioError::NONE) {
+    RefPtr<nsIccIoResult> iccIoResult = new nsIccIoResult(
+        iccIo.sw1, iccIo.sw2, NS_ConvertUTF8toUTF16(iccIo.simResponse.c_str()));
+    result->updateIccIoResult(iccIoResult);
+  } else {
+    INFO("getIccAuthentication error.");
+    RefPtr<nsIccIoResult> iccIoResult =
+        new nsIccIoResult(iccIo.sw1, iccIo.sw2, NS_ConvertUTF8toUTF16(""));
+    result->updateIccIoResult(iccIoResult);
+  }
+
+  mRIL->sendRilResponseResult(result);
   return Void();
 }
 

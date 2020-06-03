@@ -1033,6 +1033,22 @@ NS_IMETHODIMP nsRilWorker::SetPreferredVoicePrivacy(int32_t serial,
   return NS_OK;
 }
 
+NS_IMETHODIMP nsRilWorker::RequestIccSimAuthentication(int32_t serial,
+                                                       int32_t authContext,
+                                                       const nsAString& data,
+                                                       const nsAString& aid) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_SIM_AUTHENTICATION ", serial);
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+
+  mRadioProxy->requestIccSimAuthentication(serial, authContext,
+                                           NS_ConvertUTF16toUTF8(data).get(),
+                                           NS_ConvertUTF16toUTF8(aid).get());
+  return NS_OK;
+}
+
 nsRilWorker::~nsRilWorker() {
   INFO("Destructor nsRilWorker");
   mRilResponse = nullptr;

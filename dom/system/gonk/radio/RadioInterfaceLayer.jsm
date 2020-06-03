@@ -2688,6 +2688,14 @@ RadioInterface.prototype = {
         }
         break;
       case "getIccAuthentication":
+        if (response.errorMsg == 0) {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_SIM_AUTHENTICATION sw1 =" + response.iccIo.sw1 + " , sw2 = " + response.iccIo.sw2 + " , simResponse = " + response.iccIo.simResponse);
+          result.sw1 = response.iccIo.sw1;
+          result.sw2 = response.iccIo.sw2;
+          result.responseData = response.iccIo.simResponse;
+        } else {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_SIM_AUTHENTICATION error = " + response.errorMsg);
+        }
         break;
       case "setCellInfoListRate":
         if (response.errorMsg == 0) {
@@ -4033,7 +4041,6 @@ RadioInterface.prototype = {
       case "acknowledgeGsmSms":
         break;
       case "answerCall":
-        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_ANSWER");
         this.processAnswerCall(message);
         break;
       case "deactivateDataCall":
@@ -4215,6 +4222,7 @@ RadioInterface.prototype = {
         this.rilworker.setDataAllowed(message.rilMessageToken, message.allowed);
         break;
       case "getIccAuthentication":
+        this.processGetIccAuthentication(message);
         break;
       case "setCellInfoListRate":
         if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SET_CELL_INFO_LIST_RATE rateInMillis = " + message.rateInMillis);
@@ -4293,6 +4301,28 @@ RadioInterface.prototype = {
   processExplicitCallTransfer: function(message) {
     if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_EXPLICIT_CALL_TRANSFER");
     this.rilworker.explicitCallTransfer(message.rilMessageToken);
+  },
+
+  processGetIccAuthentication: function(message) {
+    if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SIM_AUTHENTICATION");
+    // We should use record helper to process according to options.appType.
+    message.aid = this._getAidByAppType(message.appType);
+    this.rilworker.requestIccSimAuthentication(message.rilMessageToken, message.authType, message.data, message.aid);
+  },
+
+  _getAidByAppType: function(appType) {
+    switch(appType) {
+      case RIL.CARD_APPTYPE_SIM:
+      case RIL.CARD_APPTYPE_USIM:
+        return this.simIOcontext.SimRecordHelper.aid;
+      case RIL.CARD_APPTYPE_RUIM:
+      case RIL.CARD_APPTYPE_CSIM:
+        return this.simIOcontext.RuimRecordHelper.aid;
+      case RIL.CARD_APPTYPE_ISIM:
+        return this.simIOcontext.ISimRecordHelper.aid;
+    }
+
+    return this.aid;
   },
 
     /**
