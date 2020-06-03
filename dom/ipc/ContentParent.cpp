@@ -675,8 +675,6 @@ static bool sCreatedFirstContentProcess = false;
 static uint64_t gContentChildID = 1;
 
 static const char* sObserverTopics[] = {
-    "xpcom-shutdown",
-    "profile-before-change",
     NS_IPC_IOSERVICE_SET_OFFLINE_TOPIC,
     NS_IPC_IOSERVICE_SET_CONNECTIVITY_TOPIC,
     NS_IPC_CAPTIVE_PORTAL_SET_STATE,
@@ -1552,6 +1550,8 @@ void ContentParent::Init() {
     }
   }
 
+  AddShutdownBlockers();
+
   // Flush any pref updates that happened during launch and weren't
   // included in the blobs set up in BeginSubprocessLaunch.
   for (const Pref& pref : mQueuedPrefs) {
@@ -1823,6 +1823,8 @@ void ContentParent::ActorDestroy(ActorDestroyReason why) {
   // Signal shutdown completion regardless of error state, so we can
   // finish waiting in the xpcom-shutdown/profile-before-change observer.
   mIPCOpen = false;
+
+  RemoveShutdownBlockers();
 
   if (mHangMonitorActor) {
     ProcessHangMonitor::RemoveProcess(mHangMonitorActor);
@@ -3250,30 +3252,79 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(ContentParent)
   NS_INTERFACE_MAP_ENTRY(nsIObserver)
   NS_INTERFACE_MAP_ENTRY(nsIDOMGeoPositionCallback)
   NS_INTERFACE_MAP_ENTRY(nsIDOMGeoPositionErrorCallback)
+  NS_INTERFACE_MAP_ENTRY(nsIAsyncShutdownBlocker)
   NS_INTERFACE_MAP_ENTRY(nsIInterfaceRequestor)
   NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsIContentParent)
 NS_INTERFACE_MAP_END
 
+// Async shutdown blocker
+NS_IMETHODIMP
+ContentParent::BlockShutdown(nsIAsyncShutdownClient* aClient) {
+  // Make sure that our process will get scheduled.
+  ProcessPriorityManager::SetProcessPriority(this, PROCESS_PRIORITY_FOREGROUND);
+
+  // Okay to call ShutDownProcess multiple times.
+  ShutDownProcess(SEND_SHUTDOWN_MESSAGE);
+  MarkAsDead();
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+ContentParent::GetName(nsAString& aName) {
+  aName.AssignLiteral("ContentParent:");
+  aName.AppendPrintf(" id=%p", this);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+ContentParent::GetState(nsIPropertyBag** aResult) {
+  auto props = MakeRefPtr<nsHashPropertyBag>();
+  props->SetPropertyAsAString(NS_LITERAL_STRING("remoteTypePrefix"),
+                              RemoteTypePrefix(mRemoteType));
+  *aResult = props.forget().downcast<nsIWritablePropertyBag>().take();
+  return NS_OK;
+}
+
+static StaticRefPtr<nsIAsyncShutdownClient> sXPCOMShutdownClient;
+static StaticRefPtr<nsIAsyncShutdownClient> sProfileBeforeChangeClient;
+
+static void InitClients() {
+  if (!sXPCOMShutdownClient) {
+    nsresult rv;
+    nsCOMPtr<nsIAsyncShutdownService> svc = services::GetAsyncShutdown();
+
+    nsCOMPtr<nsIAsyncShutdownClient> client;
+    rv = svc->GetXpcomWillShutdown(getter_AddRefs(client));
+    sXPCOMShutdownClient = client.forget();
+    ClearOnShutdown(&sXPCOMShutdownClient);
+    MOZ_RELEASE_ASSERT(NS_SUCCEEDED(rv), "XPCOMShutdown shutdown blocker");
+
+    rv = svc->GetProfileBeforeChange(getter_AddRefs(client));
+    sProfileBeforeChangeClient = client.forget();
+    ClearOnShutdown(&sProfileBeforeChangeClient);
+    MOZ_RELEASE_ASSERT(NS_SUCCEEDED(rv),
+                       "profileBeforeChange shutdown blocker");
+  }
+}
+
+void ContentParent::AddShutdownBlockers() {
+  InitClients();
+
+  sXPCOMShutdownClient->AddBlocker(this, NS_LITERAL_STRING(__FILE__), __LINE__,
+                                   EmptyString());
+  sProfileBeforeChangeClient->AddBlocker(this, NS_LITERAL_STRING(__FILE__),
+                                         __LINE__, EmptyString());
+}
+
+void ContentParent::RemoveShutdownBlockers() {
+  Unused << sXPCOMShutdownClient->RemoveBlocker(this);
+  Unused << sProfileBeforeChangeClient->RemoveBlocker(this);
+}
+
 NS_IMETHODIMP
 ContentParent::Observe(nsISupports* aSubject, const char* aTopic,
                        const char16_t* aData) {
-  if (mSubprocess && (!strcmp(aTopic, "profile-before-change") ||
-                      !strcmp(aTopic, "xpcom-shutdown"))) {
-    // Make sure that our process will get scheduled.
-    ProcessPriorityManager::SetProcessPriority(this,
-                                               PROCESS_PRIORITY_FOREGROUND);
-
-    // Okay to call ShutDownProcess multiple times.
-    ShutDownProcess(SEND_SHUTDOWN_MESSAGE);
-    MarkAsDead();
-
-    // Wait for shutdown to complete, so that we receive any shutdown
-    // data (e.g. telemetry) from the child before we quit.
-    // This loop terminate prematurely based on mForceKillTimer.
-    SpinEventLoopUntil([&]() { return !mIPCOpen || mCalledKillHard; });
-    NS_ASSERTION(!mSubprocess, "Close should have nulled mSubprocess");
-  }
-
   if (IsDead() || !mSubprocess) {
     return NS_OK;
   }
@@ -3777,6 +3828,8 @@ void ContentParent::KillHard(const char* aReason) {
   }
   mCalledKillHard = true;
   mForceKillTimer = nullptr;
+
+  RemoveShutdownBlockers();
 
   GeneratePairedMinidump(aReason);
 
@@ -4379,7 +4432,8 @@ mozilla::ipc::IPCResult ContentParent::RecvAccumulateMixedContentHSTS(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvLoadURIExternal(
-    nsIURI* uri, const MaybeDiscarded<BrowsingContext>& aContext) {
+    nsIURI* uri, nsIPrincipal* aTriggeringPrincipal,
+    const MaybeDiscarded<BrowsingContext>& aContext) {
   if (aContext.IsDiscarded()) {
     return IPC_OK();
   }
@@ -4395,7 +4449,7 @@ mozilla::ipc::IPCResult ContentParent::RecvLoadURIExternal(
   }
 
   BrowsingContext* bc = aContext.get();
-  extProtService->LoadURI(uri, bc);
+  extProtService->LoadURI(uri, aTriggeringPrincipal, bc);
   return IPC_OK();
 }
 
@@ -6442,20 +6496,21 @@ mozilla::ipc::IPCResult ContentParent::RecvAddCertException(
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult ContentParent::RecvAutomaticStorageAccessCanBeGranted(
+mozilla::ipc::IPCResult
+ContentParent::RecvAutomaticStorageAccessPermissionCanBeGranted(
     const Principal& aPrincipal,
-    AutomaticStorageAccessCanBeGrantedResolver&& aResolver) {
-  aResolver(Document::AutomaticStorageAccessCanBeGranted(aPrincipal));
+    AutomaticStorageAccessPermissionCanBeGrantedResolver&& aResolver) {
+  aResolver(Document::AutomaticStorageAccessPermissionCanBeGranted(aPrincipal));
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult
-ContentParent::RecvFirstPartyStorageAccessGrantedForOrigin(
+ContentParent::RecvStorageAccessPermissionGrantedForOrigin(
     uint64_t aTopLevelWindowId,
     const MaybeDiscarded<BrowsingContext>& aParentContext,
     const Principal& aTrackingPrincipal, const nsCString& aTrackingOrigin,
     const int& aAllowMode,
-    FirstPartyStorageAccessGrantedForOriginResolver&& aResolver) {
+    StorageAccessPermissionGrantedForOriginResolver&& aResolver) {
   if (aParentContext.IsNullOrDiscarded()) {
     return IPC_OK();
   }
@@ -6479,7 +6534,8 @@ mozilla::ipc::IPCResult ContentParent::RecvCompleteAllowAccessFor(
     const MaybeDiscarded<BrowsingContext>& aParentContext,
     uint64_t aTopLevelWindowId, const Principal& aTrackingPrincipal,
     const nsCString& aTrackingOrigin, uint32_t aCookieBehavior,
-    const ContentBlockingNotifier::StorageAccessGrantedReason& aReason,
+    const ContentBlockingNotifier::StorageAccessPermissionGrantedReason&
+        aReason,
     CompleteAllowAccessForResolver&& aResolver) {
   if (aParentContext.IsNullOrDiscarded()) {
     return IPC_OK();
@@ -6488,18 +6544,17 @@ mozilla::ipc::IPCResult ContentParent::RecvCompleteAllowAccessFor(
   ContentBlocking::CompleteAllowAccessFor(
       aParentContext.get_canonical(), aTopLevelWindowId, aTrackingPrincipal,
       aTrackingOrigin, aCookieBehavior, aReason, nullptr)
-      ->Then(
-          GetCurrentThreadSerialEventTarget(), __func__,
-          [aResolver = std::move(aResolver)](
-              ContentBlocking::StorageAccessGrantPromise::ResolveOrRejectValue&&
-                  aValue) {
-            Maybe<StorageAccessPromptChoices> choice;
-            if (aValue.IsResolve()) {
-              choice.emplace(static_cast<StorageAccessPromptChoices>(
-                  aValue.ResolveValue()));
-            }
-            aResolver(choice);
-          });
+      ->Then(GetCurrentThreadSerialEventTarget(), __func__,
+             [aResolver = std::move(aResolver)](
+                 ContentBlocking::StorageAccessPermissionGrantPromise::
+                     ResolveOrRejectValue&& aValue) {
+               Maybe<StorageAccessPromptChoices> choice;
+               if (aValue.IsResolve()) {
+                 choice.emplace(static_cast<StorageAccessPromptChoices>(
+                     aValue.ResolveValue()));
+               }
+               aResolver(choice);
+             });
   return IPC_OK();
 }
 

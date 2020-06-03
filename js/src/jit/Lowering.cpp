@@ -419,7 +419,7 @@ void LIRGenerator::visitCall(MCall* call) {
 
   if (call->isCallDOMNative()) {
     // Call DOM functions.
-    MOZ_ASSERT(target && target->isNative());
+    MOZ_ASSERT(target && target->isNativeWithoutJitEntry());
     Register cxReg, objReg, privReg, argsReg;
     GetTempRegForIntArg(0, 0, &cxReg);
     GetTempRegForIntArg(1, 0, &objReg);
@@ -430,7 +430,7 @@ void LIRGenerator::visitCall(MCall* call) {
                                        tempFixed(privReg), tempFixed(argsReg));
   } else if (target) {
     // Call known functions.
-    if (target->isNativeWithCppEntry()) {
+    if (target->isNativeWithoutJitEntry()) {
       Register cxReg, numReg, vpReg, tmpReg;
       GetTempRegForIntArg(0, 0, &cxReg);
       GetTempRegForIntArg(1, 0, &numReg);

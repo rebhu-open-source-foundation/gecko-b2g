@@ -1322,7 +1322,7 @@ nsGlobalWindowOuter::nsGlobalWindowOuter(uint64_t aWindowID)
       mIsChrome(false),
       mAllowScriptsToClose(false),
       mTopLevelOuterContentWindow(false),
-      mHasStorageAccess(false),
+      mStorageAccessPermissionGranted(false),
 #ifdef DEBUG
       mSerial(0),
       mSetOpenerWindowCalled(false),
@@ -1586,7 +1586,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(nsGlobalWindowOuter)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mSuspendedDoc)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDocumentPrincipal)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDocumentStoragePrincipal)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDocumentIntrinsicStoragePrincipal)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDocumentPartitionedPrincipal)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDoc)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWakeLock)
 
@@ -1619,7 +1619,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsGlobalWindowOuter)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mSuspendedDoc)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mDocumentPrincipal)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mDocumentStoragePrincipal)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mDocumentIntrinsicStoragePrincipal)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mDocumentPartitionedPrincipal)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mDoc)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mWakeLock)
 
@@ -2044,8 +2044,8 @@ nsresult nsGlobalWindowOuter::SetNewDocument(Document* aDocument,
              "mDocumentPrincipal prematurely set!");
   MOZ_ASSERT(mDocumentStoragePrincipal == nullptr,
              "mDocumentStoragePrincipal prematurely set!");
-  MOZ_ASSERT(mDocumentIntrinsicStoragePrincipal == nullptr,
-             "mDocumentIntrinsicStoragePrincipal prematurely set!");
+  MOZ_ASSERT(mDocumentPartitionedPrincipal == nullptr,
+             "mDocumentPartitionedPrincipal prematurely set!");
   MOZ_ASSERT(aDocument);
 
   // Bail out early if we're in process of closing down the window.
@@ -2464,42 +2464,49 @@ nsresult nsGlobalWindowOuter::SetNewDocument(Document* aDocument,
   ReportLargeAllocStatus();
   mLargeAllocStatus = LargeAllocStatus::NONE;
 
-  bool isThirdPartyTrackingResourceWindow =
-      nsContentUtils::IsThirdPartyTrackingResourceWindow(newInnerWindow);
+  mStorageAccessPermissionGranted =
+      CheckStorageAccessPermission(aDocument, newInnerWindow);
 
-  mHasStorageAccess = false;
+  return NS_OK;
+}
+
+bool nsGlobalWindowOuter::CheckStorageAccessPermission(
+    Document* aDocument, nsGlobalWindowInner* aInnerWindow) {
+  if (!aInnerWindow) {
+    return false;
+  }
+
   nsIURI* uri = aDocument->GetDocumentURI();
-  if (newInnerWindow &&
-      aDocument->CookieJarSettings()->GetRejectThirdPartyContexts() &&
-      nsContentUtils::IsThirdPartyWindowOrChannel(newInnerWindow, nullptr,
-                                                  uri)) {
-    uint32_t cookieBehavior =
-        aDocument->CookieJarSettings()->GetCookieBehavior();
-    // Grant storage access by default if the first-party storage access
-    // permission has been granted already.
-    // Don't notify in this case, since we would be notifying the user
-    // needlessly.
-    bool checkStorageAccess = false;
-    if (net::CookieJarSettings::IsRejectThirdPartyWithExceptions(
-            cookieBehavior)) {
-      checkStorageAccess = true;
-    } else {
-      MOZ_ASSERT(
-          cookieBehavior == nsICookieService::BEHAVIOR_REJECT_TRACKER ||
-          cookieBehavior ==
-              nsICookieService::BEHAVIOR_REJECT_TRACKER_AND_PARTITION_FOREIGN);
-      if (isThirdPartyTrackingResourceWindow) {
-        checkStorageAccess = true;
-      }
-    }
+  if (!aDocument->CookieJarSettings()->GetRejectThirdPartyContexts() ||
+      !nsContentUtils::IsThirdPartyWindowOrChannel(aInnerWindow, nullptr,
+                                                   uri)) {
+    return false;
+  }
 
-    if (checkStorageAccess) {
-      mHasStorageAccess =
-          ContentBlocking::ShouldAllowAccessFor(newInnerWindow, uri, nullptr);
+  uint32_t cookieBehavior = aDocument->CookieJarSettings()->GetCookieBehavior();
+
+  // Grant storage access by default if the first-party storage access
+  // permission has been granted already.  Don't notify in this case, since we
+  // would be notifying the user needlessly.
+  bool checkStorageAccess = false;
+  if (net::CookieJarSettings::IsRejectThirdPartyWithExceptions(
+          cookieBehavior)) {
+    checkStorageAccess = true;
+  } else {
+    MOZ_ASSERT(
+        cookieBehavior == nsICookieService::BEHAVIOR_REJECT_TRACKER ||
+        cookieBehavior ==
+            nsICookieService::BEHAVIOR_REJECT_TRACKER_AND_PARTITION_FOREIGN);
+    if (nsContentUtils::IsThirdPartyTrackingResourceWindow(aInnerWindow)) {
+      checkStorageAccess = true;
     }
   }
 
-  return NS_OK;
+  if (checkStorageAccess) {
+    return ContentBlocking::ShouldAllowAccessFor(aInnerWindow, uri, nullptr);
+  }
+
+  return false;
 }
 
 /* static */
@@ -2697,7 +2704,7 @@ void nsGlobalWindowOuter::DetachFromDocShell(bool aIsBeingDiscarded) {
     // Remember the document's principal and URI.
     mDocumentPrincipal = mDoc->NodePrincipal();
     mDocumentStoragePrincipal = mDoc->EffectiveStoragePrincipal();
-    mDocumentIntrinsicStoragePrincipal = mDoc->IntrinsicStoragePrincipal();
+    mDocumentPartitionedPrincipal = mDoc->PartitionedPrincipal();
     mDocumentURI = mDoc->GetDocumentURI();
 
     // Release our document reference
@@ -2970,24 +2977,24 @@ nsIPrincipal* nsGlobalWindowOuter::GetEffectiveStoragePrincipal() {
   return nullptr;
 }
 
-nsIPrincipal* nsGlobalWindowOuter::IntrinsicStoragePrincipal() {
+nsIPrincipal* nsGlobalWindowOuter::PartitionedPrincipal() {
   if (mDoc) {
     // If we have a document, get the principal from the document
-    return mDoc->IntrinsicStoragePrincipal();
+    return mDoc->PartitionedPrincipal();
   }
 
-  if (mDocumentIntrinsicStoragePrincipal) {
-    return mDocumentIntrinsicStoragePrincipal;
+  if (mDocumentPartitionedPrincipal) {
+    return mDocumentPartitionedPrincipal;
   }
 
-  // If we don't have a storage principal and we don't have a document we ask
-  // the parent window for the storage principal.
+  // If we don't have a partitioned principal and we don't have a document we
+  // ask the parent window for the partitioned principal.
 
   nsCOMPtr<nsIScriptObjectPrincipal> objPrincipal =
       do_QueryInterface(GetInProcessParentInternal());
 
   if (objPrincipal) {
-    return objPrincipal->IntrinsicStoragePrincipal();
+    return objPrincipal->PartitionedPrincipal();
   }
 
   return nullptr;

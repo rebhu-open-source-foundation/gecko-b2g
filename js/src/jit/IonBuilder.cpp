@@ -5418,10 +5418,6 @@ MDefinition* IonBuilder::createThis(JSFunction* target, MDefinition* callee,
   // getPolyCallTargets ensures |target| is a constructor.
   MOZ_ASSERT_IF(target, target->isConstructor());
 
-  // Only asm.js natives can be constructors and asm.js natives don't have a
-  // JIT entry.
-  MOZ_ASSERT_IF(target, !target->isNativeWithJitEntry());
-
   // Can't inline without a known target function.
   MOZ_ASSERT_IF(inlining, target);
 
@@ -5439,6 +5435,8 @@ MDefinition* IonBuilder::createThis(JSFunction* target, MDefinition* callee,
   // constructors. Note: proxies are already excluded since target has type
   // JSFunction.
   if (target->isNative()) {
+    MOZ_ASSERT(target->isNativeWithoutJitEntry(),
+               "Natives with JitEntry are not supported for constructor calls");
     return constant(MagicValue(JS_IS_CONSTRUCTING));
   }
   if (target->constructorNeedsUninitializedThis()) {
@@ -6199,7 +6197,7 @@ AbortReasonOr<MCall*> IonBuilder::makeCallHelper(
 
   // Collect number of missing arguments provided that the target is
   // scripted. Native functions are passed an explicit 'argc' parameter.
-  if (target && !target->isBuiltinNative()) {
+  if (target && target->hasJitEntry()) {
     targetArgs = std::max<uint32_t>(target->nargs(), callInfo.argc());
   }
 
@@ -6223,8 +6221,7 @@ AbortReasonOr<MCall*> IonBuilder::makeCallHelper(
 
   // Explicitly pad any missing arguments with |undefined|.
   // This permits skipping the argumentsRectifier.
-  MOZ_ASSERT_IF(target && targetArgs > callInfo.argc(),
-                !target->isBuiltinNative());
+  MOZ_ASSERT_IF(target && targetArgs > callInfo.argc(), target->hasJitEntry());
   for (int i = targetArgs; i > (int)callInfo.argc(); i--) {
     MConstant* undef = constant(UndefinedValue());
     if (!alloc().ensureBallast()) {

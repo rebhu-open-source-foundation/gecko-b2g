@@ -2196,7 +2196,8 @@ static bool IsCell(nsIContent* aContent) {
 }
 
 // static
-nsITableCellLayout* nsFrameSelection::GetCellLayout(nsIContent* aCellContent) {
+nsITableCellLayout* nsFrameSelection::GetCellLayout(
+    const nsIContent* aCellContent) {
   nsITableCellLayout* cellLayoutObject =
       do_QueryFrame(aCellContent->GetPrimaryFrame());
   return cellLayoutObject;
@@ -2256,9 +2257,7 @@ nsresult nsFrameSelection::TableSelection::HandleSelection(
     return NS_OK;
   }
 
-  nsresult result = NS_OK;
-
-  nsIContent* childContent =
+  RefPtr<nsIContent> childContent =
       aParentContent->GetChildAt_Deprecated(aContentOffset);
 
   // When doing table selection, always set the direction to next so
@@ -2270,318 +2269,354 @@ nsresult nsFrameSelection::TableSelection::HandleSelection(
   //  BeginBatchChanges() / EndBatchChanges()
   SelectionBatcher selectionBatcher(&aNormalSelection);
 
-  int32_t startRowIndex, startColIndex, curRowIndex, curColIndex;
   if (aDragState && mDragSelectingCells) {
-    // We are drag-selecting
-    if (aTarget != TableSelectionMode::Table) {
-      // If dragging in the same cell as last event, do nothing
-      if (mEndSelectedCell == childContent) {
-        return NS_OK;
-      }
+    return HandleDragSelecting(aTarget, childContent, aMouseEvent,
+                               aNormalSelection);
+  }
 
-#ifdef DEBUG_TABLE_SELECTION
-      printf(
-          " mStartSelectedCell = %p, "
-          "mEndSelectedCell = %p, childContent = %p "
-          "\n",
-          mStartSelectedCell.get(), mEndSelectedCell.get(), childContent);
-#endif
-      // aTarget can be any "cell mode",
-      //  so we can easily drag-select rows and columns
-      // Once we are in row or column mode,
-      //  we can drift into any cell to stay in that mode
-      //  even if aTarget = TableSelectionMode::Cell
+  return HandleMouseUpOrDown(aTarget, aDragState, childContent, aParentContent,
+                             aContentOffset, aMouseEvent, aNormalSelection);
+}
 
-      if (mMode == TableSelectionMode::Row ||
-          mMode == TableSelectionMode::Column) {
-        if (mEndSelectedCell) {
-          // Also check if cell is in same row/col
-          result =
-              GetCellIndexes(mEndSelectedCell, startRowIndex, startColIndex);
-          if (NS_FAILED(result)) {
-            return result;
-          }
-          result = GetCellIndexes(childContent, curRowIndex, curColIndex);
-          if (NS_FAILED(result)) {
-            return result;
-          }
+class nsFrameSelection::TableSelection::RowAndColumnRelation {
+ public:
+  static Result<RowAndColumnRelation, nsresult> Create(
+      const nsIContent* aFirst, const nsIContent* aSecond) {
+    RowAndColumnRelation result;
 
-#ifdef DEBUG_TABLE_SELECTION
-          printf(
-              " curRowIndex = %d, startRowIndex = %d, curColIndex = %d, "
-              "startColIndex = %d\n",
-              curRowIndex, startRowIndex, curColIndex, startColIndex);
-#endif
-          if ((mMode == TableSelectionMode::Row &&
-               startRowIndex == curRowIndex) ||
-              (mMode == TableSelectionMode::Column &&
-               startColIndex == curColIndex)) {
-            return NS_OK;
-          }
-        }
-#ifdef DEBUG_TABLE_SELECTION
-        printf(" Dragged into a new column or row\n");
-#endif
-        // Continue dragging row or column selection
-
-        return SelectRowOrColumn(childContent, aNormalSelection);
-      }
-      if (mMode == TableSelectionMode::Cell) {
-#ifdef DEBUG_TABLE_SELECTION
-        printf("HandleTableSelection: Dragged into a new cell\n");
-#endif
-        // Trick for quick selection of rows and columns
-        // Hold down shift, then start selecting in one direction
-        // If next cell dragged into is in same row, select entire row,
-        //   if next cell is in same column, select entire column
-        if (mStartSelectedCell && aMouseEvent->IsShift()) {
-          result =
-              GetCellIndexes(mStartSelectedCell, startRowIndex, startColIndex);
-          if (NS_FAILED(result)) {
-            return result;
-          }
-          result = GetCellIndexes(childContent, curRowIndex, curColIndex);
-          if (NS_FAILED(result)) {
-            return result;
-          }
-
-          if (startRowIndex == curRowIndex || startColIndex == curColIndex) {
-            // Force new selection block
-            mStartSelectedCell = nullptr;
-            aNormalSelection.RemoveAllRanges(IgnoreErrors());
-
-            if (startRowIndex == curRowIndex) {
-              mMode = TableSelectionMode::Row;
-            } else {
-              mMode = TableSelectionMode::Column;
-            }
-
-            return SelectRowOrColumn(childContent, aNormalSelection);
-          }
-        }
-
-        // Reselect block of cells to new end location
-        return SelectBlockOfCells(mStartSelectedCell, childContent,
-                                  aNormalSelection);
-      }
+    nsresult errorResult =
+        GetCellIndexes(aFirst, result.mFirst.mRow, result.mFirst.mColumn);
+    if (NS_FAILED(errorResult)) {
+      return Err(errorResult);
     }
-    // Do nothing if dragging in table, but outside a cell
-    return NS_OK;
-  } else {
-    // Not dragging  -- mouse event is down or up
-    if (aDragState) {
+
+    errorResult =
+        GetCellIndexes(aSecond, result.mSecond.mRow, result.mSecond.mColumn);
+    if (NS_FAILED(errorResult)) {
+      return Err(errorResult);
+    }
+
+    return result;
+  }
+
+  bool IsSameColumn() const { return mFirst.mColumn == mSecond.mColumn; }
+
+  bool IsSameRow() const { return mFirst.mRow == mSecond.mRow; }
+
+ private:
+  RowAndColumnRelation() = default;
+
+  struct RowAndColumn {
+    int32_t mRow = 0;
+    int32_t mColumn = 0;
+  };
+
+  RowAndColumn mFirst;
+  RowAndColumn mSecond;
+};
+
+nsresult nsFrameSelection::TableSelection::HandleDragSelecting(
+    TableSelectionMode aTarget, nsIContent* aChildContent,
+    const WidgetMouseEvent* aMouseEvent, Selection& aNormalSelection) {
+  // We are drag-selecting
+  if (aTarget != TableSelectionMode::Table) {
+    // If dragging in the same cell as last event, do nothing
+    if (mEndSelectedCell == aChildContent) {
+      return NS_OK;
+    }
+
 #ifdef DEBUG_TABLE_SELECTION
-      printf("HandleTableSelection: Mouse down event\n");
+    printf(
+        " mStartSelectedCell = %p, "
+        "mEndSelectedCell = %p, aChildContent = %p "
+        "\n",
+        mStartSelectedCell.get(), mEndSelectedCell.get(), aChildContent);
 #endif
-      // Clear cell we stored in mouse-down
-      mUnselectCellOnMouseUp = nullptr;
+    // aTarget can be any "cell mode",
+    //  so we can easily drag-select rows and columns
+    // Once we are in row or column mode,
+    //  we can drift into any cell to stay in that mode
+    //  even if aTarget = TableSelectionMode::Cell
 
-      if (aTarget == TableSelectionMode::Cell) {
-        bool isSelected = false;
+    if (mMode == TableSelectionMode::Row ||
+        mMode == TableSelectionMode::Column) {
+      if (mEndSelectedCell) {
+        Result<RowAndColumnRelation, nsresult> rowAndColumnRelation =
+            RowAndColumnRelation::Create(mEndSelectedCell, aChildContent);
 
-        // Check if we have other selected cells
-        nsIContent* previousCellNode =
-            GetFirstSelectedContent(GetFirstCellRange(aNormalSelection));
-        if (previousCellNode) {
-          // We have at least 1 other selected cell
+        if (rowAndColumnRelation.isErr()) {
+          return rowAndColumnRelation.unwrapErr();
+        }
 
-          // Check if new cell is already selected
-          nsIFrame* cellFrame = childContent->GetPrimaryFrame();
-          if (!cellFrame) {
-            return NS_ERROR_NULL_POINTER;
-          }
-          isSelected = cellFrame->IsSelected();
-        } else {
-          // No cells selected -- remove non-cell selection
+        if ((mMode == TableSelectionMode::Row &&
+             rowAndColumnRelation.inspect().IsSameRow()) ||
+            (mMode == TableSelectionMode::Column &&
+             rowAndColumnRelation.inspect().IsSameColumn())) {
+          return NS_OK;
+        }
+      }
+#ifdef DEBUG_TABLE_SELECTION
+      printf(" Dragged into a new column or row\n");
+#endif
+      // Continue dragging row or column selection
+
+      return SelectRowOrColumn(aChildContent, aNormalSelection);
+    }
+    if (mMode == TableSelectionMode::Cell) {
+#ifdef DEBUG_TABLE_SELECTION
+      printf("HandleTableSelection: Dragged into a new cell\n");
+#endif
+      // Trick for quick selection of rows and columns
+      // Hold down shift, then start selecting in one direction
+      // If next cell dragged into is in same row, select entire row,
+      //   if next cell is in same column, select entire column
+      if (mStartSelectedCell && aMouseEvent->IsShift()) {
+        Result<RowAndColumnRelation, nsresult> rowAndColumnRelation =
+            RowAndColumnRelation::Create(mStartSelectedCell, aChildContent);
+        if (rowAndColumnRelation.isErr()) {
+          return rowAndColumnRelation.unwrapErr();
+        }
+
+        if (rowAndColumnRelation.inspect().IsSameRow() ||
+            rowAndColumnRelation.inspect().IsSameColumn()) {
+          // Force new selection block
+          mStartSelectedCell = nullptr;
           aNormalSelection.RemoveAllRanges(IgnoreErrors());
-        }
-        mDragSelectingCells = true;  // Signal to start drag-cell-selection
-        mMode = aTarget;
-        // Set start for new drag-selection block (not appended)
-        mStartSelectedCell = childContent;
-        // The initial block end is same as the start
-        mEndSelectedCell = childContent;
 
-        if (isSelected) {
-          // Remember this cell to (possibly) unselect it on mouseup
-          mUnselectCellOnMouseUp = childContent;
-#ifdef DEBUG_TABLE_SELECTION
-          printf(
-              "HandleTableSelection: Saving "
-              "mUnselectCellOnMouseUp\n");
-#endif
-        } else {
-          // Select an unselected cell
-          // but first remove existing selection if not in same table
-          if (previousCellNode &&
-              !IsInSameTable(previousCellNode, childContent)) {
-            aNormalSelection.RemoveAllRanges(IgnoreErrors());
-            // Reset selection mode that is cleared in RemoveAllRanges
-            mMode = aTarget;
+          if (rowAndColumnRelation.inspect().IsSameRow()) {
+            mMode = TableSelectionMode::Row;
+          } else {
+            mMode = TableSelectionMode::Column;
           }
 
-          return ::SelectCellElement(childContent, aNormalSelection);
+          return SelectRowOrColumn(aChildContent, aNormalSelection);
+        }
+      }
+
+      // Reselect block of cells to new end location
+      return SelectBlockOfCells(mStartSelectedCell, aChildContent,
+                                aNormalSelection);
+    }
+  }
+  // Do nothing if dragging in table, but outside a cell
+  return NS_OK;
+}
+
+nsresult nsFrameSelection::TableSelection::HandleMouseUpOrDown(
+    TableSelectionMode aTarget, bool aDragState, nsIContent* aChildContent,
+    nsINode* aParentContent, int32_t aContentOffset,
+    const WidgetMouseEvent* aMouseEvent, Selection& aNormalSelection) {
+  nsresult result = NS_OK;
+  // Not dragging  -- mouse event is down or up
+  if (aDragState) {
+#ifdef DEBUG_TABLE_SELECTION
+    printf("HandleTableSelection: Mouse down event\n");
+#endif
+    // Clear cell we stored in mouse-down
+    mUnselectCellOnMouseUp = nullptr;
+
+    if (aTarget == TableSelectionMode::Cell) {
+      bool isSelected = false;
+
+      // Check if we have other selected cells
+      nsIContent* previousCellNode =
+          GetFirstSelectedContent(GetFirstCellRange(aNormalSelection));
+      if (previousCellNode) {
+        // We have at least 1 other selected cell
+
+        // Check if new cell is already selected
+        nsIFrame* cellFrame = aChildContent->GetPrimaryFrame();
+        if (!cellFrame) {
+          return NS_ERROR_NULL_POINTER;
+        }
+        isSelected = cellFrame->IsSelected();
+      } else {
+        // No cells selected -- remove non-cell selection
+        aNormalSelection.RemoveAllRanges(IgnoreErrors());
+      }
+      mDragSelectingCells = true;  // Signal to start drag-cell-selection
+      mMode = aTarget;
+      // Set start for new drag-selection block (not appended)
+      mStartSelectedCell = aChildContent;
+      // The initial block end is same as the start
+      mEndSelectedCell = aChildContent;
+
+      if (isSelected) {
+        // Remember this cell to (possibly) unselect it on mouseup
+        mUnselectCellOnMouseUp = aChildContent;
+#ifdef DEBUG_TABLE_SELECTION
+        printf(
+            "HandleTableSelection: Saving "
+            "mUnselectCellOnMouseUp\n");
+#endif
+      } else {
+        // Select an unselected cell
+        // but first remove existing selection if not in same table
+        if (previousCellNode &&
+            !IsInSameTable(previousCellNode, aChildContent)) {
+          aNormalSelection.RemoveAllRanges(IgnoreErrors());
+          // Reset selection mode that is cleared in RemoveAllRanges
+          mMode = aTarget;
         }
 
-        return NS_OK;
-      }
-      if (aTarget == TableSelectionMode::Table) {
-        // TODO: We currently select entire table when clicked between cells,
-        //  should we restrict to only around border?
-        //  *** How do we get location data for cell and click?
-        mDragSelectingCells = false;
-        mStartSelectedCell = nullptr;
-        mEndSelectedCell = nullptr;
-
-        // Remove existing selection and select the table
-        aNormalSelection.RemoveAllRanges(IgnoreErrors());
-        return CreateAndAddRange(aParentContent, aContentOffset,
-                                 aNormalSelection);
-      }
-      if (aTarget == TableSelectionMode::Row ||
-          aTarget == TableSelectionMode::Column) {
-#ifdef DEBUG_TABLE_SELECTION
-        printf("aTarget == %d\n", aTarget);
-#endif
-
-        // Start drag-selecting mode so multiple rows/cols can be selected
-        // Note: Currently, nsFrame::GetDataForTableSelection
-        //       will never call us for row or column selection on mouse down
-        mDragSelectingCells = true;
-
-        // Force new selection block
-        mStartSelectedCell = nullptr;
-        aNormalSelection.RemoveAllRanges(IgnoreErrors());
-        // Always do this AFTER RemoveAllRanges
-        mMode = aTarget;
-
-        return SelectRowOrColumn(childContent, aNormalSelection);
-      }
-    } else {
-#ifdef DEBUG_TABLE_SELECTION
-      printf(
-          "HandleTableSelection: Mouse UP event. "
-          "mDragSelectingCells=%d, "
-          "mStartSelectedCell=%p\n",
-          mDragSelectingCells, mStartSelectedCell.get());
-#endif
-      // First check if we are extending a block selection
-      uint32_t rangeCount = aNormalSelection.RangeCount();
-
-      if (rangeCount > 0 && aMouseEvent->IsShift() &&
-          mAppendStartSelectedCell &&
-          mAppendStartSelectedCell != childContent) {
-        // Shift key is down: append a block selection
-        mDragSelectingCells = false;
-
-        return SelectBlockOfCells(mAppendStartSelectedCell, childContent,
-                                  aNormalSelection);
+        return ::SelectCellElement(aChildContent, aNormalSelection);
       }
 
-      if (mDragSelectingCells) {
-        mAppendStartSelectedCell = mStartSelectedCell;
-      }
-
+      return NS_OK;
+    }
+    if (aTarget == TableSelectionMode::Table) {
+      // TODO: We currently select entire table when clicked between cells,
+      //  should we restrict to only around border?
+      //  *** How do we get location data for cell and click?
       mDragSelectingCells = false;
       mStartSelectedCell = nullptr;
       mEndSelectedCell = nullptr;
 
-      // Any other mouseup actions require that Ctrl or Cmd key is pressed
-      //  else stop table selection mode
-      bool doMouseUpAction = false;
+      // Remove existing selection and select the table
+      aNormalSelection.RemoveAllRanges(IgnoreErrors());
+      return CreateAndAddRange(aParentContent, aContentOffset,
+                               aNormalSelection);
+    }
+    if (aTarget == TableSelectionMode::Row ||
+        aTarget == TableSelectionMode::Column) {
+#ifdef DEBUG_TABLE_SELECTION
+      printf("aTarget == %d\n", aTarget);
+#endif
+
+      // Start drag-selecting mode so multiple rows/cols can be selected
+      // Note: Currently, nsFrame::GetDataForTableSelection
+      //       will never call us for row or column selection on mouse down
+      mDragSelectingCells = true;
+
+      // Force new selection block
+      mStartSelectedCell = nullptr;
+      aNormalSelection.RemoveAllRanges(IgnoreErrors());
+      // Always do this AFTER RemoveAllRanges
+      mMode = aTarget;
+
+      return SelectRowOrColumn(aChildContent, aNormalSelection);
+    }
+  } else {
+#ifdef DEBUG_TABLE_SELECTION
+    printf(
+        "HandleTableSelection: Mouse UP event. "
+        "mDragSelectingCells=%d, "
+        "mStartSelectedCell=%p\n",
+        mDragSelectingCells, mStartSelectedCell.get());
+#endif
+    // First check if we are extending a block selection
+    uint32_t rangeCount = aNormalSelection.RangeCount();
+
+    if (rangeCount > 0 && aMouseEvent->IsShift() && mAppendStartSelectedCell &&
+        mAppendStartSelectedCell != aChildContent) {
+      // Shift key is down: append a block selection
+      mDragSelectingCells = false;
+
+      return SelectBlockOfCells(mAppendStartSelectedCell, aChildContent,
+                                aNormalSelection);
+    }
+
+    if (mDragSelectingCells) {
+      mAppendStartSelectedCell = mStartSelectedCell;
+    }
+
+    mDragSelectingCells = false;
+    mStartSelectedCell = nullptr;
+    mEndSelectedCell = nullptr;
+
+    // Any other mouseup actions require that Ctrl or Cmd key is pressed
+    //  else stop table selection mode
+    bool doMouseUpAction = false;
 #ifdef XP_MACOSX
-      doMouseUpAction = aMouseEvent->IsMeta();
+    doMouseUpAction = aMouseEvent->IsMeta();
 #else
-      doMouseUpAction = aMouseEvent->IsControl();
+    doMouseUpAction = aMouseEvent->IsControl();
 #endif
-      if (!doMouseUpAction) {
+    if (!doMouseUpAction) {
 #ifdef DEBUG_TABLE_SELECTION
-        printf(
-            "HandleTableSelection: Ending cell selection on mouseup: "
-            "mAppendStartSelectedCell=%p\n",
-            mAppendStartSelectedCell.get());
+      printf(
+          "HandleTableSelection: Ending cell selection on mouseup: "
+          "mAppendStartSelectedCell=%p\n",
+          mAppendStartSelectedCell.get());
 #endif
-        return NS_OK;
-      }
-      // Unselect a cell only if it wasn't
-      //  just selected on mousedown
-      if (childContent == mUnselectCellOnMouseUp) {
-        // Scan ranges to find the cell to unselect (the selection range to
-        // remove)
-        // XXXbz it's really weird that this lives outside the loop, so once we
-        // find one we keep looking at it even if we find no more cells...
-        nsINode* previousCellParent = nullptr;
+      return NS_OK;
+    }
+    // Unselect a cell only if it wasn't
+    //  just selected on mousedown
+    if (aChildContent == mUnselectCellOnMouseUp) {
+      // Scan ranges to find the cell to unselect (the selection range to
+      // remove)
+      // XXXbz it's really weird that this lives outside the loop, so once we
+      // find one we keep looking at it even if we find no more cells...
+      nsINode* previousCellParent = nullptr;
 #ifdef DEBUG_TABLE_SELECTION
-        printf(
-            "HandleTableSelection: Unselecting "
-            "mUnselectCellOnMouseUp; "
-            "rangeCount=%d\n",
-            rangeCount);
+      printf(
+          "HandleTableSelection: Unselecting "
+          "mUnselectCellOnMouseUp; "
+          "rangeCount=%d\n",
+          rangeCount);
 #endif
-        for (uint32_t i = 0; i < rangeCount; i++) {
-          // Strong reference, because sometimes we want to remove
-          // this range, and then we might be the only owner.
-          RefPtr<nsRange> range = aNormalSelection.GetRangeAt(i);
-          if (!range) {
-            return NS_ERROR_NULL_POINTER;
-          }
-
-          nsINode* container = range->GetStartContainer();
-          if (!container) {
-            return NS_ERROR_NULL_POINTER;
-          }
-
-          int32_t offset = range->StartOffset();
-          // Be sure previous selection is a table cell
-          nsIContent* child = range->GetChildAtStartOffset();
-          if (child && IsCell(child)) {
-            previousCellParent = container;
-          }
-
-          // We're done if we didn't find parent of a previously-selected cell
-          if (!previousCellParent) {
-            break;
-          }
-
-          if (previousCellParent == aParentContent &&
-              offset == aContentOffset) {
-            // Cell is already selected
-            if (rangeCount == 1) {
-#ifdef DEBUG_TABLE_SELECTION
-              printf(
-                  "HandleTableSelection: Unselecting single selected cell\n");
-#endif
-              // This was the only cell selected.
-              // Collapse to "normal" selection inside the cell
-              mStartSelectedCell = nullptr;
-              mEndSelectedCell = nullptr;
-              mAppendStartSelectedCell = nullptr;
-              // TODO: We need a "Collapse to just before deepest child" routine
-              // Even better, should we collapse to just after the LAST deepest
-              // child
-              //  (i.e., at the end of the cell's contents)?
-              return aNormalSelection.Collapse(childContent, 0);
-            }
-#ifdef DEBUG_TABLE_SELECTION
-            printf(
-                "HandleTableSelection: Removing cell from multi-cell "
-                "selection\n");
-#endif
-            // Unselecting the start of previous block
-            // XXX What do we use now!
-            if (childContent == mAppendStartSelectedCell) {
-              mAppendStartSelectedCell = nullptr;
-            }
-
-            // Deselect cell by removing its range from selection
-            ErrorResult err;
-            aNormalSelection.RemoveRangeAndUnselectFramesAndNotifyListeners(
-                *range, err);
-            return err.StealNSResult();
-          }
+      for (uint32_t i = 0; i < rangeCount; i++) {
+        // Strong reference, because sometimes we want to remove
+        // this range, and then we might be the only owner.
+        RefPtr<nsRange> range = aNormalSelection.GetRangeAt(i);
+        if (!range) {
+          return NS_ERROR_NULL_POINTER;
         }
-        mUnselectCellOnMouseUp = nullptr;
+
+        nsINode* container = range->GetStartContainer();
+        if (!container) {
+          return NS_ERROR_NULL_POINTER;
+        }
+
+        int32_t offset = range->StartOffset();
+        // Be sure previous selection is a table cell
+        nsIContent* child = range->GetChildAtStartOffset();
+        if (child && IsCell(child)) {
+          previousCellParent = container;
+        }
+
+        // We're done if we didn't find parent of a previously-selected cell
+        if (!previousCellParent) {
+          break;
+        }
+
+        if (previousCellParent == aParentContent && offset == aContentOffset) {
+          // Cell is already selected
+          if (rangeCount == 1) {
+#ifdef DEBUG_TABLE_SELECTION
+            printf("HandleTableSelection: Unselecting single selected cell\n");
+#endif
+            // This was the only cell selected.
+            // Collapse to "normal" selection inside the cell
+            mStartSelectedCell = nullptr;
+            mEndSelectedCell = nullptr;
+            mAppendStartSelectedCell = nullptr;
+            // TODO: We need a "Collapse to just before deepest child" routine
+            // Even better, should we collapse to just after the LAST deepest
+            // child
+            //  (i.e., at the end of the cell's contents)?
+            return aNormalSelection.Collapse(aChildContent, 0);
+          }
+#ifdef DEBUG_TABLE_SELECTION
+          printf(
+              "HandleTableSelection: Removing cell from multi-cell "
+              "selection\n");
+#endif
+          // Unselecting the start of previous block
+          // XXX What do we use now!
+          if (aChildContent == mAppendStartSelectedCell) {
+            mAppendStartSelectedCell = nullptr;
+          }
+
+          // Deselect cell by removing its range from selection
+          ErrorResult err;
+          aNormalSelection.RemoveRangeAndUnselectFramesAndNotifyListeners(
+              *range, err);
+          return err.StealNSResult();
+        }
       }
+      mUnselectCellOnMouseUp = nullptr;
     }
   }
   return result;
@@ -2965,7 +3000,8 @@ nsRange* nsFrameSelection::TableSelection::GetNextCellRange(
 }
 
 // static
-nsresult nsFrameSelection::GetCellIndexes(nsIContent* aCell, int32_t& aRowIndex,
+nsresult nsFrameSelection::GetCellIndexes(const nsIContent* aCell,
+                                          int32_t& aRowIndex,
                                           int32_t& aColIndex) {
   if (!aCell) return NS_ERROR_NULL_POINTER;
 

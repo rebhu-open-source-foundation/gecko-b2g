@@ -132,17 +132,7 @@ void ProcessLink::Open(UniquePtr<Transport> aTransport, MessageLoop* aIOLoop,
   }
 }
 
-void ProcessLink::EchoMessage(Message* msg) {
-  mChan->AssertWorkerThread();
-  mChan->mMonitor->AssertCurrentThreadOwns();
-
-  mIOLoop->PostTask(NewNonOwningRunnableMethod<Message*>(
-      "ipc::ProcessLink::OnEchoMessage", this, &ProcessLink::OnEchoMessage,
-      msg));
-  // OnEchoMessage takes ownership of |msg|
-}
-
-void ProcessLink::SendMessage(Message* msg) {
+void ProcessLink::SendMessage(UniquePtr<Message> msg) {
   if (msg->size() > IPC::Channel::kMaximumMessageSize) {
     CrashReporter::AnnotateCrashReport(
         CrashReporter::Annotation::IPCMessageName,
@@ -160,8 +150,9 @@ void ProcessLink::SendMessage(Message* msg) {
 
   msg->AssertAsLargeAsHeader();
 
-  mIOLoop->PostTask(NewNonOwningRunnableMethod<Message*>(
-      "IPC::Channel::Send", mTransport.get(), &Transport::Send, msg));
+  mIOLoop->PostTask(NewNonOwningRunnableMethod<UniquePtr<Message>&&>(
+      "IPC::Channel::Send", mTransport.get(), &Transport::Send,
+      std::move(msg)));
 }
 
 void ProcessLink::SendClose() {
@@ -203,22 +194,13 @@ ThreadLink::~ThreadLink() {
   mTargetChan = nullptr;
 }
 
-void ThreadLink::EchoMessage(Message* msg) {
-  mChan->AssertWorkerThread();
-  mChan->mMonitor->AssertCurrentThreadOwns();
-
-  mChan->OnMessageReceivedFromLink(std::move(*msg));
-  delete msg;
-}
-
-void ThreadLink::SendMessage(Message* msg) {
+void ThreadLink::SendMessage(UniquePtr<Message> msg) {
   if (!mChan->mIsPostponingSends) {
     mChan->AssertWorkerThread();
   }
   mChan->mMonitor->AssertCurrentThreadOwns();
 
   if (mTargetChan) mTargetChan->OnMessageReceivedFromLink(std::move(*msg));
-  delete msg;
 }
 
 void ThreadLink::SendClose() {
@@ -254,12 +236,6 @@ void ProcessLink::OnMessageReceived(Message&& msg) {
   NS_ASSERTION(mChan->mChannelState != ChannelError, "Shouldn't get here!");
   MonitorAutoLock lock(*mChan->mMonitor);
   mChan->OnMessageReceivedFromLink(std::move(msg));
-}
-
-void ProcessLink::OnEchoMessage(Message* msg) {
-  AssertIOThread();
-  OnMessageReceived(std::move(*msg));
-  delete msg;
 }
 
 void ProcessLink::OnChannelOpened() {

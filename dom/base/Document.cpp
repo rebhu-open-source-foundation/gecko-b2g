@@ -2412,7 +2412,7 @@ bool Document::IsVisibleConsideringAncestors() const {
 void Document::Reset(nsIChannel* aChannel, nsILoadGroup* aLoadGroup) {
   nsCOMPtr<nsIURI> uri;
   nsCOMPtr<nsIPrincipal> principal;
-  nsCOMPtr<nsIPrincipal> storagePrincipal;
+  nsCOMPtr<nsIPrincipal> partitionedPrincipal;
   if (aChannel) {
     // Note: this code is duplicated in PrototypeDocumentContentSink::Init and
     // nsScriptSecurityManager::GetChannelResultPrincipals.
@@ -2425,20 +2425,20 @@ void Document::Reset(nsIChannel* aChannel, nsILoadGroup* aLoadGroup) {
     if (securityManager) {
       securityManager->GetChannelResultPrincipals(
           aChannel, getter_AddRefs(principal),
-          getter_AddRefs(storagePrincipal));
+          getter_AddRefs(partitionedPrincipal));
     }
   }
 
-  bool equal = principal->Equals(storagePrincipal);
+  bool equal = principal->Equals(partitionedPrincipal);
 
   principal = MaybeDowngradePrincipal(principal);
   if (equal) {
-    storagePrincipal = principal;
+    partitionedPrincipal = principal;
   } else {
-    storagePrincipal = MaybeDowngradePrincipal(storagePrincipal);
+    partitionedPrincipal = MaybeDowngradePrincipal(partitionedPrincipal);
   }
 
-  ResetToURI(uri, aLoadGroup, principal, storagePrincipal);
+  ResetToURI(uri, aLoadGroup, principal, partitionedPrincipal);
 
   // Note that, since mTiming does not change during a reset, the
   // navigationStart time remains unchanged and therefore any future new
@@ -2500,9 +2500,9 @@ void Document::DisconnectNodeTree() {
 
 void Document::ResetToURI(nsIURI* aURI, nsILoadGroup* aLoadGroup,
                           nsIPrincipal* aPrincipal,
-                          nsIPrincipal* aStoragePrincipal) {
+                          nsIPrincipal* aPartitionedPrincipal) {
   MOZ_ASSERT(aURI, "Null URI passed to ResetToURI");
-  MOZ_ASSERT(!!aPrincipal == !!aStoragePrincipal);
+  MOZ_ASSERT(!!aPrincipal == !!aPartitionedPrincipal);
 
   MOZ_LOG(gDocumentLeakPRLog, LogLevel::Debug,
           ("DOCUMENT %p ResetToURI %s", this, aURI->GetSpecOrDefault().get()));
@@ -2587,7 +2587,7 @@ void Document::ResetToURI(nsIURI* aURI, nsILoadGroup* aLoadGroup,
 
   // Now get our new principal
   if (aPrincipal) {
-    SetPrincipals(aPrincipal, aStoragePrincipal);
+    SetPrincipals(aPrincipal, aPartitionedPrincipal);
   } else {
     nsIScriptSecurityManager* securityManager =
         nsContentUtils::GetSecurityManager();
@@ -3717,8 +3717,8 @@ void Document::RemoveFromIdTable(Element* aElement, nsAtom* aId) {
 }
 
 void Document::SetPrincipals(nsIPrincipal* aNewPrincipal,
-                             nsIPrincipal* aNewStoragePrincipal) {
-  MOZ_ASSERT(!!aNewPrincipal == !!aNewStoragePrincipal);
+                             nsIPrincipal* aNewPartitionedPrincipal) {
+  MOZ_ASSERT(!!aNewPrincipal == !!aNewPartitionedPrincipal);
   if (aNewPrincipal && mAllowDNSPrefetch &&
       StaticPrefs::network_dns_disablePrefetchFromHTTPS()) {
     if (aNewPrincipal->SchemeIs("https")) {
@@ -3726,7 +3726,7 @@ void Document::SetPrincipals(nsIPrincipal* aNewPrincipal,
     }
   }
   mNodeInfoManager->SetDocumentPrincipal(aNewPrincipal);
-  mIntrinsicStoragePrincipal = aNewStoragePrincipal;
+  mPartitionedPrincipal = aNewPartitionedPrincipal;
 
   ContentBlockingAllowList::ComputePrincipal(
       aNewPrincipal, getter_AddRefs(mContentBlockingAllowListPrincipal));
@@ -11057,8 +11057,7 @@ nsresult Document::CloneDocHelper(Document* clone) const {
     }
     clone->mChannel = channel;
     if (uri) {
-      clone->ResetToURI(uri, loadGroup, NodePrincipal(),
-                        EffectiveStoragePrincipal());
+      clone->ResetToURI(uri, loadGroup, NodePrincipal(), mPartitionedPrincipal);
     }
 
     clone->SetContainer(mDocumentContainer);
@@ -11082,7 +11081,7 @@ nsresult Document::CloneDocHelper(Document* clone) const {
   // them.
   clone->SetDocumentURI(Document::GetDocumentURI());
   clone->SetChromeXHRDocURI(mChromeXHRDocURI);
-  clone->SetPrincipals(NodePrincipal(), mIntrinsicStoragePrincipal);
+  clone->SetPrincipals(NodePrincipal(), mPartitionedPrincipal);
   clone->mActiveStoragePrincipal = mActiveStoragePrincipal;
   clone->mDocumentBaseURI = mDocumentBaseURI;
   clone->SetChromeXHRDocBaseURI(mChromeXHRDocBaseURI);
@@ -15690,7 +15689,7 @@ already_AddRefed<mozilla::dom::Promise> Document::HasStorageAccess(
   nsGlobalWindowOuter* outer = nullptr;
   if (inner) {
     outer = nsGlobalWindowOuter::Cast(inner->GetOuterWindow());
-    promise->MaybeResolve(outer->HasStorageAccess());
+    promise->MaybeResolve(outer->IsStorageAccessPermissionGranted());
   } else {
     promise->MaybeRejectWithUndefined();
   }
@@ -15752,7 +15751,7 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccess(
     return promise.forget();
   }
 
-  if (outer->HasStorageAccess()) {
+  if (outer->IsStorageAccessPermissionGranted()) {
     promise->MaybeResolveWithUndefined();
     return promise.forget();
   }
@@ -15829,7 +15828,6 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccess(
   //         Examples: Whitelists, blacklists, on-device classification,
   //         user settings, anti-clickjacking heuristics, or prompting the
   //         user for explicit permission. Reject if some rule is not fulfilled.
-
   if (CookieJarSettings()->GetRejectThirdPartyContexts()) {
     // Only do something special for third-party tracking content.
     if (StorageDisabledByAntiTracking(this, nullptr)) {
@@ -15870,11 +15868,11 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccess(
               Telemetry::LABELS_STORAGE_ACCESS_API_UI::Request);
         }
 
-        self->AutomaticStorageAccessCanBeGranted()->Then(
+        self->AutomaticStorageAccessPermissionCanBeGranted()->Then(
             GetCurrentThreadSerialEventTarget(), __func__,
-            [p, pr, sapr, inner](
-                const AutomaticStorageAccessGrantPromise::ResolveOrRejectValue&
-                    aValue) -> void {
+            [p, pr, sapr,
+             inner](const AutomaticStorageAccessPermissionGrantPromise::
+                        ResolveOrRejectValue& aValue) -> void {
               // Make a copy because we can't modified copy-captured lambda
               // variables.
               PromptResult pr2 = pr;
@@ -15933,11 +15931,11 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccess(
                 // that fact for
                 //          the purposes of future calls to
                 //          hasStorageAccess() and requestStorageAccess().
-                outer->SetHasStorageAccess(true);
+                outer->SetStorageAccessPermissionGranted(true);
                 promise->MaybeResolveWithUndefined();
               },
               [outer, promise] {
-                outer->SetHasStorageAccess(false);
+                outer->SetStorageAccessPermissionGranted(false);
                 promise->MaybeRejectWithUndefined();
               });
 
@@ -15945,13 +15943,13 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccess(
     }
   }
 
-  outer->SetHasStorageAccess(true);
+  outer->SetStorageAccessPermissionGranted(true);
   promise->MaybeResolveWithUndefined();
   return promise.forget();
 }
 
-RefPtr<Document::AutomaticStorageAccessGrantPromise>
-Document::AutomaticStorageAccessCanBeGranted() {
+RefPtr<Document::AutomaticStorageAccessPermissionGrantPromise>
+Document::AutomaticStorageAccessPermissionCanBeGranted() {
   if (XRE_IsContentProcess()) {
     // In the content process, we need to ask the parent process to compute
     // this.  The reason is that nsIPermissionManager::GetAllWithTypePrefix()
@@ -15960,32 +15958,35 @@ Document::AutomaticStorageAccessCanBeGranted() {
     MOZ_ASSERT(cc);
 
     return cc
-        ->SendAutomaticStorageAccessCanBeGranted(
+        ->SendAutomaticStorageAccessPermissionCanBeGranted(
             IPC::Principal(NodePrincipal()))
-        ->Then(
-            GetCurrentThreadSerialEventTarget(), __func__,
-            [](const ContentChild::AutomaticStorageAccessCanBeGrantedPromise::
-                   ResolveOrRejectValue& aValue) {
-              if (aValue.IsResolve()) {
-                return AutomaticStorageAccessGrantPromise::CreateAndResolve(
-                    aValue.ResolveValue(), __func__);
-              }
+        ->Then(GetCurrentThreadSerialEventTarget(), __func__,
+               [](const ContentChild::
+                      AutomaticStorageAccessPermissionCanBeGrantedPromise::
+                          ResolveOrRejectValue& aValue) {
+                 if (aValue.IsResolve()) {
+                   return AutomaticStorageAccessPermissionGrantPromise::
+                       CreateAndResolve(aValue.ResolveValue(), __func__);
+                 }
 
-              return AutomaticStorageAccessGrantPromise::CreateAndReject(
-                  false, __func__);
-            });
+                 return AutomaticStorageAccessPermissionGrantPromise::
+                     CreateAndReject(false, __func__);
+               });
   }
 
   if (XRE_IsParentProcess()) {
     // In the parent process, we can directly compute this.
-    return AutomaticStorageAccessGrantPromise::CreateAndResolve(
-        AutomaticStorageAccessCanBeGranted(NodePrincipal()), __func__);
+    return AutomaticStorageAccessPermissionGrantPromise::CreateAndResolve(
+        AutomaticStorageAccessPermissionCanBeGranted(NodePrincipal()),
+        __func__);
   }
 
-  return AutomaticStorageAccessGrantPromise::CreateAndReject(false, __func__);
+  return AutomaticStorageAccessPermissionGrantPromise::CreateAndReject(
+      false, __func__);
 }
 
-bool Document::AutomaticStorageAccessCanBeGranted(nsIPrincipal* aPrincipal) {
+bool Document::AutomaticStorageAccessPermissionCanBeGranted(
+    nsIPrincipal* aPrincipal) {
   nsAutoCString prefix;
   AntiTrackingUtils::CreateStoragePermissionKey(aPrincipal, prefix);
 
@@ -16257,12 +16258,12 @@ nsICookieJarSettings* Document::CookieJarSettings() {
   return mCookieJarSettings;
 }
 
-bool Document::HasStoragePermission() {
+bool Document::HasStorageAccessPermissionGranted() {
   // The HasStoragePermission flag in LoadInfo remains fixed when
   // it is set in the parent process, so we need to check the cache
   // to see if the permission is granted afterwards.
   nsPIDOMWindowInner* inner = GetInnerWindow();
-  if (inner && inner->HasStorageAccessGranted()) {
+  if (inner && inner->HasStorageAccessPermissionGranted()) {
     return true;
   }
 
@@ -16302,7 +16303,7 @@ nsIPrincipal* Document::EffectiveStoragePrincipal() const {
     return mActiveStoragePrincipal = NodePrincipal();
   }
 
-  return mActiveStoragePrincipal = mIntrinsicStoragePrincipal;
+  return mActiveStoragePrincipal = mPartitionedPrincipal;
 }
 
 void Document::SetIsInitialDocument(bool aIsInitialDocument) {
@@ -16354,8 +16355,10 @@ void Document::RemoveToplevelLoadingDocument(Document* aDoc) {
   }
 }
 
-StylePrefersColorScheme Document::PrefersColorScheme() const {
-  if (nsContentUtils::ShouldResistFingerprinting(this)) {
+StylePrefersColorScheme Document::PrefersColorScheme(
+    IgnoreRFP aIgnoreRFP) const {
+  if (aIgnoreRFP == IgnoreRFP::No &&
+      nsContentUtils::ShouldResistFingerprinting(this)) {
     return StylePrefersColorScheme::Light;
   }
 
@@ -16437,6 +16440,10 @@ void Document::AddPendingFrameStaticClone(nsFrameLoaderOwner* aElement,
   PendingFrameStaticClone* clone = mPendingFrameStaticClones.AppendElement();
   clone->mElement = aElement;
   clone->mStaticCloneOf = aStaticCloneOf;
+}
+
+bool Document::UseRegularPrincipal() const {
+  return EffectiveStoragePrincipal() == NodePrincipal();
 }
 
 }  // namespace dom

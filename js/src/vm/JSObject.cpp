@@ -1606,8 +1606,12 @@ void JSObject::swap(JSContext* cx, HandleObject a, HandleObject b) {
    * nursery pointers in either object.
    */
   MOZ_ASSERT(!IsInsideNursery(a) && !IsInsideNursery(b));
-  cx->runtime()->gc.storeBuffer().putWholeCell(a);
-  cx->runtime()->gc.storeBuffer().putWholeCell(b);
+  gc::StoreBuffer& storeBuffer = cx->runtime()->gc.storeBuffer();
+  storeBuffer.putWholeCell(a);
+  storeBuffer.putWholeCell(b);
+  if (a->zone()->wasGCStarted() || b->zone()->wasGCStarted()) {
+    storeBuffer.setMayHavePointersToDeadCells();
+  }
 
   unsigned r = NotifyGCPreSwap(a, b);
 
@@ -2838,6 +2842,12 @@ JS_FRIEND_API bool js::ShouldIgnorePropertyDefinition(JSContext* cx,
   if (!cx->realm()->creationOptions().getToSourceEnabled()) {
     return id == NameToId(cx->names().toSource) ||
            id == NameToId(cx->names().uneval);
+  }
+
+  if (key == JSProto_FinalizationRegistry &&
+      cx->realm()->creationOptions().getWeakRefsEnabled() ==
+          JS::WeakRefSpecifier::EnabledWithoutCleanupSome) {
+    return id == NameToId(cx->names().cleanupSome);
   }
 
   return false;

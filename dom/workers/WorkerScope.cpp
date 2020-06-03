@@ -460,7 +460,7 @@ int32_t WorkerGlobalScope::SetTimeoutOrInterval(JSContext* aCx,
 
 void WorkerGlobalScope::GetOrigin(nsAString& aOrigin) const {
   mWorkerPrivate->AssertIsOnWorkerThread();
-  aOrigin = mWorkerPrivate->Origin();
+  aOrigin = mWorkerPrivate->OriginNoSuffix();
 }
 
 bool WorkerGlobalScope::CrossOriginIsolated() const {
@@ -616,7 +616,7 @@ WorkerGlobalScope::GetOrCreateServiceWorkerRegistration(
   return ref;
 }
 
-void WorkerGlobalScope::FirstPartyStorageAccessGranted() {
+void WorkerGlobalScope::StorageAccessPermissionGranted() {
   // Reset the IndexedDB factory.
   mIndexedDB = nullptr;
 

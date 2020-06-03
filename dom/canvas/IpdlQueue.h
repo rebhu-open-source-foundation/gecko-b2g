@@ -294,15 +294,15 @@ class SyncConsumerActor : public AsyncConsumerActor<Derived> {
     // Response now includes any cached async transmissions.  It is
     // illegal to have a response queue also used for other purposes
     // so the cache for that queue must be empty.
-    auto ResponseBufferIsEmpty = [&] {
+    DebugOnly<bool> responseBufferIsEmpty = [&] {
       for (auto& elt : *aResponse) {
         if (elt.id == id) {
           return elt.data.IsEmpty();
         }
       }
       return true;
-    };
-    MOZ_ASSERT(ResponseBufferIsEmpty());
+    }();
+    MOZ_ASSERT(responseBufferIsEmpty);
 #endif
 
     return actor->RunQueue(id) ? IPC_OK() : IPC_FAIL_NO_REASON(actor);
@@ -357,6 +357,24 @@ class IpdlProducer final : public SupportsWeakPtr<IpdlProducer<_Actor>> {
   template <typename... Args>
   QueueStatus TryWaitInsert(const Maybe<TimeDuration>&, Args&&... aArgs) {
     return TryInsert(std::forward<Args>(aArgs)...);
+  }
+
+  QueueStatus AllocShmem(mozilla::ipc::Shmem* aShmem, size_t aBufferSize,
+                         const void* aBuffer = nullptr) {
+    if (!mActor) {
+      return QueueStatus::kFatalError;
+    }
+
+    if (!mActor->AllocShmem(
+            aBufferSize,
+            mozilla::ipc::SharedMemory::SharedMemoryType::TYPE_BASIC, aShmem)) {
+      return QueueStatus::kOOMError;
+    }
+
+    if (aBuffer) {
+      memcpy(aShmem->get<uint8_t>(), aBuffer, aBufferSize);
+    }
+    return QueueStatus::kSuccess;
   }
 
  protected:
@@ -469,6 +487,10 @@ class IpdlConsumer final : public SupportsWeakPtr<IpdlConsumer<_Actor>> {
   template <typename... Args>
   QueueStatus TryWaitRemove(const Maybe<TimeDuration>&, Args&... aArgs) {
     return TryRemove(aArgs...);
+  }
+
+  mozilla::ipc::Shmem::SharedMemory* LookupSharedMemory(uint32_t aId) {
+    return mActor ? mActor->LookupSharedMemory(aId) : nullptr;
   }
 
  protected:

@@ -242,10 +242,6 @@ class MessageChannel : HasResultCodes, MessageLoop::DestructionObserver {
   bool SendBuildIDsMatchMessage(const char* aParentBuildI);
   bool DoBuildIDsMatch() { return mBuildIDsConfirmedMatch; }
 
-  // Asynchronously deliver a message back to this side of the
-  // channel
-  bool Echo(Message* aMsg);
-
   // Synchronously send |msg| (i.e., wait for |reply|)
   bool Send(Message* aMsg, Message* aReply);
 
@@ -536,7 +532,7 @@ class MessageChannel : HasResultCodes, MessageLoop::DestructionObserver {
 
   // Helper for sending a message via the link. This should only be used for
   // non-special messages that might have to be postponed.
-  void SendMessageToLink(Message* aMsg);
+  void SendMessageToLink(UniquePtr<Message> aMsg);
 
   bool WasTransactionCanceled(int transaction);
   bool ShouldDeferMessage(const Message& aMsg);

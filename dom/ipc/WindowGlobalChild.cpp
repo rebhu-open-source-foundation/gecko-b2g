@@ -485,16 +485,17 @@ mozilla::ipc::IPCResult WindowGlobalChild::RecvGetSecurityInfo(
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult WindowGlobalChild::RecvSaveStorageAccessGranted() {
+mozilla::ipc::IPCResult
+WindowGlobalChild::RecvSaveStorageAccessPermissionGranted() {
   nsCOMPtr<nsPIDOMWindowInner> inner = GetWindowGlobal();
   if (inner) {
-    inner->SaveStorageAccessGranted();
+    inner->SaveStorageAccessPermissionGranted();
   }
 
   nsCOMPtr<nsPIDOMWindowOuter> outer =
       nsPIDOMWindowOuter::GetFromCurrentInner(inner);
   if (outer) {
-    nsGlobalWindowOuter::Cast(outer)->SetHasStorageAccess(true);
+    nsGlobalWindowOuter::Cast(outer)->SetStorageAccessPermissionGranted(true);
   }
 
   return IPC_OK();

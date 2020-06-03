@@ -36,6 +36,7 @@
 #include "nsPluginTags.h"
 #include "nsFrameMessageManager.h"
 #include "nsHashKeys.h"
+#include "nsIAsyncShutdown.h"
 #include "nsIContentParent.h"
 #include "nsIInterfaceRequestor.h"
 #include "nsIObserver.h"
@@ -133,6 +134,7 @@ class ContentParent final
       public nsIObserver,
       public nsIDOMGeoPositionCallback,
       public nsIDOMGeoPositionErrorCallback,
+      public nsIAsyncShutdownBlocker,
       public nsIInterfaceRequestor,
       public gfx::gfxVarReceiver,
       public mozilla::LinkedListElement<ContentParent>,
@@ -341,6 +343,7 @@ class ContentParent final
   NS_DECL_NSIOBSERVER
   NS_DECL_NSIDOMGEOPOSITIONCALLBACK
   NS_DECL_NSIDOMGEOPOSITIONERRORCALLBACK
+  NS_DECL_NSIASYNCSHUTDOWNBLOCKER
   NS_DECL_NSIINTERFACEREQUESTOR
 
   /**
@@ -704,6 +707,9 @@ class ContentParent final
   static nsDataHashtable<nsUint32HashKey, ContentParent*>*
       sJSPluginContentParents;
   static StaticAutoPtr<LinkedList<ContentParent>> sContentParents;
+
+  void AddShutdownBlockers();
+  void RemoveShutdownBlockers();
 
 #if defined(XP_MACOSX) && defined(MOZ_SANDBOX)
   // Cached Mac sandbox params used when launching content processes.
@@ -1086,7 +1092,8 @@ class ContentParent final
       const nsString& aType, const NotificationEventData& aData);
 
   mozilla::ipc::IPCResult RecvLoadURIExternal(
-      nsIURI* uri, const MaybeDiscarded<BrowsingContext>& aContext);
+      nsIURI* uri, nsIPrincipal* triggeringPrincipal,
+      const MaybeDiscarded<BrowsingContext>& aContext);
   mozilla::ipc::IPCResult RecvExtProtocolChannelConnectParent(
       const uint32_t& registrarId);
 
@@ -1321,22 +1328,23 @@ class ContentParent final
       const nsACString& aHostName, int32_t aPort, bool aIsTemporary,
       AddCertExceptionResolver&& aResolver);
 
-  mozilla::ipc::IPCResult RecvAutomaticStorageAccessCanBeGranted(
+  mozilla::ipc::IPCResult RecvAutomaticStorageAccessPermissionCanBeGranted(
       const Principal& aPrincipal,
-      AutomaticStorageAccessCanBeGrantedResolver&& aResolver);
+      AutomaticStorageAccessPermissionCanBeGrantedResolver&& aResolver);
 
-  mozilla::ipc::IPCResult RecvFirstPartyStorageAccessGrantedForOrigin(
+  mozilla::ipc::IPCResult RecvStorageAccessPermissionGrantedForOrigin(
       uint64_t aTopLevelWindowId,
       const MaybeDiscarded<BrowsingContext>& aParentContext,
       const Principal& aTrackingPrincipal, const nsCString& aTrackingOrigin,
       const int& aAllowMode,
-      FirstPartyStorageAccessGrantedForOriginResolver&& aResolver);
+      StorageAccessPermissionGrantedForOriginResolver&& aResolver);
 
   mozilla::ipc::IPCResult RecvCompleteAllowAccessFor(
       const MaybeDiscarded<BrowsingContext>& aParentContext,
       uint64_t aTopLevelWindowId, const Principal& aTrackingPrincipal,
       const nsCString& aTrackingOrigin, uint32_t aCookieBehavior,
-      const ContentBlockingNotifier::StorageAccessGrantedReason& aReason,
+      const ContentBlockingNotifier::StorageAccessPermissionGrantedReason&
+          aReason,
       CompleteAllowAccessForResolver&& aResolver);
 
   mozilla::ipc::IPCResult RecvStoreUserInteractionAsPermission(

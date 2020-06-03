@@ -4827,7 +4827,13 @@
 #ifdef NIGHTLY_BUILD
   # Experimental support for weak references in JavaScript (WeakRef and
   # FinalizationRegistry).
-- name: javascript.options.experimental.weakrefs
+- name: javascript.options.experimental.weakrefs.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+  # Whether to expose the FinalizationRegistry.prototype.cleanupSome method.
+- name: javascript.options.experimental.weakrefs.expose_cleanupSome
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -7615,6 +7621,11 @@
   value: @IS_NIGHTLY_BUILD@
   mirror: always
 
+- name: network.cookie.sameSite.schemeful
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 - name: network.cookie.thirdparty.sessionOnly
   type: bool
   value: false
@@ -8480,7 +8491,7 @@
 # Anti-tracking user-interaction expiration.
 - name: privacy.userInteraction.expiration
   type: uint32_t
-  value: 2592000   # 30 days (in seconds)
+  value: 3888000   # 45 days (in seconds)
   mirror: always
 
 # Anti-tracking user-interaction document interval.
@@ -8615,6 +8626,13 @@
 - name: security.data_uri.block_toplevel_data_uri_navigations
   type: bool
   value: true
+  mirror: always
+
+# Whether window A is allowed to navigate cross-origin window B (that is not
+# a descendant frame of A) to a URI that loads externally.
+- name: security.allow_disjointed_external_uri_loads
+  type: bool
+  value: false
   mirror: always
 
 # Allowed by default so it doesn't affect Thunderbird/SeaMonkey, but

@@ -746,7 +746,7 @@ class nsFrameSelection final {
   nsresult ClearNormalSelection();
 
   // Table selection support.
-  static nsITableCellLayout* GetCellLayout(nsIContent* aCellContent);
+  static nsITableCellLayout* GetCellLayout(const nsIContent* aCellContent);
 
  private:
   ~nsFrameSelection();
@@ -872,7 +872,7 @@ class nsFrameSelection final {
   MOZ_CAN_RUN_SCRIPT
   nsresult NotifySelectionListeners(mozilla::SelectionType aSelectionType);
 
-  static nsresult GetCellIndexes(nsIContent* aCell, int32_t& aRowIndex,
+  static nsresult GetCellIndexes(const nsIContent* aCell, int32_t& aRowIndex,
                                  int32_t& aColIndex);
 
   static nsIContent* GetFirstCellNodeInRange(const nsRange* aRange);
@@ -936,6 +936,20 @@ class nsFrameSelection final {
     mozilla::TableSelectionMode mMode = mozilla::TableSelectionMode::None;
     int32_t mSelectedCellIndex = 0;
     bool mDragSelectingCells = false;
+
+   private:
+    [[nodiscard]] nsresult HandleDragSelecting(
+        mozilla::TableSelectionMode aTarget, nsIContent* aChildContent,
+        const mozilla::WidgetMouseEvent* aMouseEvent,
+        mozilla::dom::Selection& aNormalSelection);
+
+    [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult HandleMouseUpOrDown(
+        mozilla::TableSelectionMode aTarget, bool aDragState,
+        nsIContent* aChildContent, nsINode* aParentContent,
+        int32_t aContentOffset, const mozilla::WidgetMouseEvent* aMouseEvent,
+        mozilla::dom::Selection& aNormalSelection);
+
+    class MOZ_STACK_CLASS RowAndColumnRelation;
   };
 
   TableSelection mTableSelection;

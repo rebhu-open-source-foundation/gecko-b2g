@@ -325,10 +325,10 @@ nsresult RemoteWorkerChild::ExecWorkerOnMainThread(RemoteWorkerData&& aData) {
     return loadingPrincipalOrErr.unwrapErr();
   }
 
-  auto storagePrincipalOrErr =
-      PrincipalInfoToPrincipal(aData.storagePrincipalInfo());
-  if (NS_WARN_IF(storagePrincipalOrErr.isErr())) {
-    return storagePrincipalOrErr.unwrapErr();
+  auto partitionedPrincipalOrErr =
+      PrincipalInfoToPrincipal(aData.partitionedPrincipalInfo());
+  if (NS_WARN_IF(partitionedPrincipalOrErr.isErr())) {
+    return partitionedPrincipalOrErr.unwrapErr();
   }
 
   WorkerLoadInfo info;
@@ -336,15 +336,18 @@ nsresult RemoteWorkerChild::ExecWorkerOnMainThread(RemoteWorkerData&& aData) {
   info.mResolvedScriptURI = DeserializeURI(aData.resolvedScriptURL());
 
   info.mPrincipalInfo = MakeUnique<PrincipalInfo>(aData.principalInfo());
-  info.mStoragePrincipalInfo =
-      MakeUnique<PrincipalInfo>(aData.storagePrincipalInfo());
+  info.mPartitionedPrincipalInfo =
+      MakeUnique<PrincipalInfo>(aData.partitionedPrincipalInfo());
 
   info.mReferrerInfo = aData.referrerInfo();
   info.mDomain = aData.domain();
   info.mPrincipal = principal;
-  info.mStoragePrincipal = storagePrincipalOrErr.unwrap();
+  info.mPartitionedPrincipal = partitionedPrincipalOrErr.unwrap();
   info.mLoadingPrincipal = loadingPrincipalOrErr.unwrap();
   info.mStorageAccess = aData.storageAccess();
+  info.mUseRegularPrincipal = aData.useRegularPrincipal();
+  info.mHasStorageAccessPermissionGranted =
+      aData.hasStorageAccessPermissionGranted();
   info.mOriginAttributes =
       BasePrincipal::Cast(principal)->OriginAttributesRef();
   info.mCookieJarSettings = net::CookieJarSettings::Create();
@@ -383,7 +386,7 @@ nsresult RemoteWorkerChild::ExecWorkerOnMainThread(RemoteWorkerData&& aData) {
   }
 
   rv = info.SetPrincipalsAndCSPOnMainThread(
-      info.mPrincipal, info.mStoragePrincipal, info.mLoadGroup, info.mCSP);
+      info.mPrincipal, info.mPartitionedPrincipal, info.mLoadGroup, info.mCSP);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
