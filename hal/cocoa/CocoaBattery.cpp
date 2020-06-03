@@ -16,6 +16,7 @@
 #include <nsIObserver.h>
 
 #include <dlfcn.h>
+#include "mozilla/dom/BatteryManagerBinding.h"
 
 #define IOKIT_FRAMEWORK_PATH "/System/Library/Frameworks/IOKit.framework/IOKit"
 
@@ -55,6 +56,9 @@ class MacPowerInformationService {
   double mLevel;
   bool mCharging;
   double mRemainingTime;
+  double mTemperature;
+  BatteryHealth mHealth;
+  bool mPresent;
   bool mShouldNotify;
 
   friend void GetCurrentBatteryInformation(
@@ -96,7 +100,14 @@ void GetCurrentBatteryInformation(hal::BatteryInformation* aBatteryInfo) {
   aBatteryInfo->level() = powerService->mLevel;
   aBatteryInfo->charging() = powerService->mCharging;
   aBatteryInfo->remainingTime() = powerService->mRemainingTime;
+  aBatteryInfo->temperature() = powerService->mTemperature;
+  aBatteryInfo->health() = powerService->mHealth;
+  aBatteryInfo->present() = powerService->mPresent;
 }
+
+double GetBatteryTemperature() { return kDefaultTemperature; }
+
+bool IsBatteryPresent() { return kDefaultPresent; }
 
 bool MacPowerInformationService::sShuttingDown = false;
 
@@ -154,6 +165,9 @@ MacPowerInformationService::MacPowerInformationService()
       mLevel(kDefaultLevel),
       mCharging(kDefaultCharging),
       mRemainingTime(kDefaultRemainingTime),
+      mTemperature(kDefaultTemperature),
+      mHealth(kDefaultHealth),
+      mPresent(kDefaultPresent),
       mShouldNotify(false) {
   // IOPSGetTimeRemainingEstimate (and the related constants) are only available
   // on 10.7, so we test for their presence at runtime.
@@ -304,11 +318,15 @@ void MacPowerInformationService::HandleChange(void* aContext) {
   power->mRemainingTime = remainingTime;
   power->mCharging = charging;
   power->mLevel = level;
+  power->mTemperature = kDefaultTemperature;
+  power->mHealth = kDefaultHealth;
+  power->mPresent = kDefaultPresent;
 
   // Notify the observers if stuff changed.
   if (power->mShouldNotify && isNewData) {
     hal::NotifyBatteryChange(hal::BatteryInformation(
-        power->mLevel, power->mCharging, power->mRemainingTime));
+        power->mLevel, power->mCharging, power->mRemainingTime,
+        power->mTemperature, power->mHealth, power->mPresent));
   }
 
   ::CFRelease(data);

@@ -118,6 +118,16 @@ void GetCurrentBatteryInformation(hal::BatteryInformation* aBatteryInfo);
 void NotifyBatteryChange(const hal::BatteryInformation& aBatteryInfo);
 
 /**
+ * Get battery temperature of device
+ */
+double GetBatteryTemperature();
+
+/**
+ * Determine the battery is present or not
+ */
+bool IsBatteryPresent();
+
+/**
  * Inform the flashlightmanager backend there is a new flashlight observer.
  * @param aFlashlightObserver The observer that should be added.
  */

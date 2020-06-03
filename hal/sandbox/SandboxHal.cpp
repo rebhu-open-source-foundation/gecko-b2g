@@ -62,6 +62,18 @@ void GetCurrentBatteryInformation(BatteryInformation* aBatteryInfo) {
   Hal()->SendGetCurrentBatteryInformation(aBatteryInfo);
 }
 
+double GetBatteryTemperature() {
+  double temperature = 0;
+  Hal()->SendGetBatteryTemperature(&temperature);
+  return temperature;
+}
+
+bool IsBatteryPresent() {
+  bool present;
+  Hal()->SendIsBatteryPresent(&present);
+  return present;
+}
+
 void EnableNetworkNotifications() { Hal()->SendEnableNetworkNotifications(); }
 
 void DisableNetworkNotifications() { Hal()->SendDisableNetworkNotifications(); }
@@ -360,6 +372,18 @@ class HalParent : public PHalParent,
       BatteryInformation* aBatteryInfo) override {
     // We give all content battery-status permission.
     hal::GetCurrentBatteryInformation(aBatteryInfo);
+    return IPC_OK();
+  }
+
+  virtual mozilla::ipc::IPCResult RecvGetBatteryTemperature(
+      double* aTemperature) override {
+    *aTemperature = hal::GetBatteryTemperature();
+    return IPC_OK();
+  }
+
+  virtual mozilla::ipc::IPCResult RecvIsBatteryPresent(
+      bool* aPresent) override {
+    *aPresent = hal::IsBatteryPresent();
     return IPC_OK();
   }
 

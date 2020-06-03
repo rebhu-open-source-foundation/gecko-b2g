@@ -45,6 +45,9 @@ class UPowerClient {
   double GetLevel();
   bool IsCharging();
   double GetRemainingTime();
+  double GetBatteryTemperature();
+  BatteryHealth GetHealth();
+  bool IsBatteryPresent();
 
   ~UPowerClient();
 
@@ -118,6 +121,9 @@ class UPowerClient {
   double mLevel;
   bool mCharging;
   double mRemainingTime;
+  double mTemperature;
+  BatteryHealth mHealth;
+  bool mPresent;
 
   static UPowerClient* sInstance;
 
@@ -145,8 +151,20 @@ void GetCurrentBatteryInformation(hal::BatteryInformation* aBatteryInfo) {
   aBatteryInfo->level() = upowerClient->GetLevel();
   aBatteryInfo->charging() = upowerClient->IsCharging();
   aBatteryInfo->remainingTime() = upowerClient->GetRemainingTime();
+  aBatteryInfo->temperature() = upowerClient->GetBatteryTemperature();
+  aBatteryInfo->health() = upowerClient->GetHealth();
+  aBatteryInfo->present() = upowerClient->IsBatteryPresent();
 }
 
+double GetBatteryTemperature() {
+  UPowerClient* upowerClient = UPowerClient::GetInstance();
+  return upowerClient->GetBatteryTemperature();
+}
+
+bool IsBatteryPresent() {
+  UPowerClient* upowerClient = UPowerClient::GetInstance();
+  return upowerClient->IsBatteryPresent();
+}
 /*
  * Following is the implementation of UPowerClient.
  */
@@ -169,7 +187,10 @@ UPowerClient::UPowerClient()
       mTrackedDeviceProxy(nullptr),
       mLevel(kDefaultLevel),
       mCharging(kDefaultCharging),
-      mRemainingTime(kDefaultRemainingTime) {}
+      mRemainingTime(kDefaultRemainingTime),
+      mHealth(kDefaultHealth),
+      mPresent(kDefaultPresent),
+      mTemperature(kDefaultTemperature) {}
 
 UPowerClient::~UPowerClient() {
   NS_ASSERTION(!mDBusConnection && !mUPowerProxy && !mTrackedDevice &&
@@ -252,6 +273,9 @@ void UPowerClient::StopListening() {
   mLevel = kDefaultLevel;
   mCharging = kDefaultCharging;
   mRemainingTime = kDefaultRemainingTime;
+  mTemperature = kDefaultTemperature;
+  mHealth = kDefaultHealth;
+  mPresent = kDefaultPresent;
 }
 
 void UPowerClient::UpdateTrackedDeviceSync() {
@@ -386,7 +410,8 @@ void UPowerClient::GetDevicePropertiesCallback(DBusGProxy* aProxy,
   } else {
     sInstance->UpdateSavedInfo(hashTable);
     hal::NotifyBatteryChange(hal::BatteryInformation(
-        sInstance->mLevel, sInstance->mCharging, sInstance->mRemainingTime));
+        sInstance->mLevel, sInstance->mCharging, sInstance->mRemainingTime,
+        sInstance->mTemperature, sInstance->mHealth, sInstance->mPresent));
     g_hash_table_unref(hashTable);
   }
 }
@@ -462,6 +487,8 @@ void UPowerClient::UpdateSavedInfo(GHashTable* aHashTable) {
       mRemainingTime = kUnknownRemainingTime;
     }
   }
+
+  // TODO to complete temperature and health.
 }
 
 double UPowerClient::GetLevel() { return mLevel; }
@@ -469,6 +496,12 @@ double UPowerClient::GetLevel() { return mLevel; }
 bool UPowerClient::IsCharging() { return mCharging; }
 
 double UPowerClient::GetRemainingTime() { return mRemainingTime; }
+
+double UPowerClient::GetBatteryTemperature() { return mTemperature; }
+
+BatteryHealth UPowerClient::GetHealth() { return mHealth; }
+
+bool UPowerClient::IsBatteryPresent() { return mPresent; }
 
 }  // namespace hal_impl
 }  // namespace mozilla

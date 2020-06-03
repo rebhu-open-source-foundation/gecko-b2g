@@ -325,6 +325,16 @@ void NotifyBatteryChange(const BatteryInformation& aInfo) {
   BatteryObservers()->BroadcastCachedInformation();
 }
 
+double GetBatteryTemperature() {
+  AssertMainThread();
+  RETURN_PROXY_IF_SANDBOXED(GetBatteryTemperature(), 20.0);
+}
+
+bool IsBatteryPresent() {
+  AssertMainThread();
+  RETURN_PROXY_IF_SANDBOXED(IsBatteryPresent(), true);
+}
+
 class FlashlightObserversManager
     : public ObserversManager<FlashlightInformation> {
  protected:

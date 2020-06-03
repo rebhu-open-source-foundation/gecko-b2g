@@ -24,6 +24,7 @@
 #define DISCHARGINGTIMECHANGE_EVENT_NAME \
   NS_LITERAL_STRING("dischargingtimechange")
 #define CHARGINGTIMECHANGE_EVENT_NAME NS_LITERAL_STRING("chargingtimechange")
+#define BATTERYHEALTHCHANGE_EVENT_NAME NS_LITERAL_STRING("batteryhealthchange")
 
 namespace mozilla::dom::battery {
 
@@ -31,7 +32,8 @@ BatteryManager::BatteryManager(nsPIDOMWindowInner* aWindow)
     : DOMEventTargetHelper(aWindow),
       mLevel(kDefaultLevel),
       mCharging(kDefaultCharging),
-      mRemainingTime(kDefaultRemainingTime) {}
+      mRemainingTime(kDefaultRemainingTime),
+      mHealth(kDefaultHealth) {}
 
 void BatteryManager::Init() {
   hal::RegisterBatteryObserver(this);
@@ -104,9 +106,35 @@ double BatteryManager::Level() const {
   // For testing, unable to report the battery status information
   if (Preferences::GetBool("dom.battery.test.default")) {
     return 1.0;
+  } else if (Preferences::GetBool("dom.battery.test.dummy_battery_level",
+                                  false)) {
+    return 0.7;
   }
 
   return mLevel;
+}
+
+double BatteryManager::Temperature() const {
+  MOZ_ASSERT(NS_IsMainThread());
+  if (Preferences::GetBool("dom.battery.test.dummy_thermal_status", false)) {
+    return kDefaultTemperature;
+  }
+
+  return hal::GetBatteryTemperature();
+}
+
+BatteryHealth BatteryManager::Health() const {
+  MOZ_ASSERT(NS_IsMainThread());
+  if (Preferences::GetBool("dom.battery.test.dummy_thermal_status", false)) {
+    return BatteryHealth::Good;
+  }
+
+  return mHealth;
+}
+
+bool BatteryManager::Present() const {
+  MOZ_ASSERT(NS_IsMainThread());
+  return hal::IsBatteryPresent();
 }
 
 void BatteryManager::UpdateFromBatteryInfo(
@@ -118,6 +146,7 @@ void BatteryManager::UpdateFromBatteryInfo(
 
   mCharging = aBatteryInfo.charging();
   mRemainingTime = aBatteryInfo.remainingTime();
+  mHealth = aBatteryInfo.health();
 
   if (!nsContentUtils::IsChromeDoc(doc)) {
     mLevel = lround(mLevel * 10.0) / 10.0;
@@ -146,6 +175,7 @@ void BatteryManager::Notify(const hal::BatteryInformation& aBatteryInfo) {
   double previousLevel = mLevel;
   bool previousCharging = mCharging;
   double previousRemainingTime = mRemainingTime;
+  BatteryHealth previousHealth = mHealth;
 
   UpdateFromBatteryInfo(aBatteryInfo);
 
@@ -153,10 +183,23 @@ void BatteryManager::Notify(const hal::BatteryInformation& aBatteryInfo) {
     DispatchTrustedEvent(CHARGINGCHANGE_EVENT_NAME);
   }
 
-  if (previousLevel != mLevel) {
+  /*
+   * Don't fire levelchange event if dom.battery.test.dummy_battery_level is
+   * true.
+   */
+  if (!Preferences::GetBool("dom.battery.test.dummy_battery_level", false) &&
+      previousLevel != mLevel) {
     DispatchTrustedEvent(LEVELCHANGE_EVENT_NAME);
   }
 
+  /*
+   * Don't fire batteryhealthchange event if
+   * dom.battery.test.dummy_thermal_status is true.
+   */
+  if (!Preferences::GetBool("dom.battery.test.dummy_thermal_status", false) &&
+      previousHealth != mHealth) {
+    DispatchTrustedEvent(BATTERYHEALTHCHANGE_EVENT_NAME);
+  }
   /*
    * There are a few situations that could happen here:
    * 1. Charging state changed:
@@ -165,8 +208,11 @@ void BatteryManager::Notify(const hal::BatteryInformation& aBatteryInfo) {
    *   b. New remaining time isn't unkwonw, we have to fire an event for it.
    * 2. Charging state didn't change but remainingTime did, we have to fire
    *    the event that correspond to the current charging state.
+   * 3. If dom.battery.test.dummy_battery_level is true, won't dispatch event
+   *    regarding estimated charging/discharging time.
    */
-  if (mCharging != previousCharging) {
+  if (!Preferences::GetBool("dom.battery.test.dummy_battery_level", false) &&
+      mCharging != previousCharging) {
     if (previousRemainingTime != kUnknownRemainingTime) {
       DispatchTrustedEvent(previousCharging ? CHARGINGTIMECHANGE_EVENT_NAME
                                             : DISCHARGINGTIMECHANGE_EVENT_NAME);

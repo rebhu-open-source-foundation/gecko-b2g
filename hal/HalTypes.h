@@ -8,6 +8,7 @@
 
 #include "ipc/IPCMessageUtils.h"
 #include "mozilla/Observer.h"
+#include "mozilla/dom/BatteryManagerBinding.h"
 
 namespace mozilla {
 namespace hal {
@@ -234,6 +235,16 @@ struct ParamTraits<mozilla::hal::FMRadioCountry>
     : public ContiguousEnumSerializer<mozilla::hal::FMRadioCountry,
                                       mozilla::hal::FM_RADIO_COUNTRY_UNKNOWN,
                                       mozilla::hal::NUM_FM_RADIO_COUNTRY> {};
+
+/*
+ * Serializer for BatteryHealth
+ */
+template <>
+struct ParamTraits<mozilla::dom::BatteryHealth>
+    : public ContiguousEnumSerializer<mozilla::dom::BatteryHealth,
+                                      mozilla::dom::BatteryHealth::Good,
+                                      mozilla::dom::BatteryHealth::EndGuard_> {
+};
 
 }  // namespace IPC
 

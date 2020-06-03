@@ -11,6 +11,8 @@
  * A set of constants that might need to be used by battery backends.
  * It's not part of BatteryManager.h to prevent those backends to include it.
  */
+using namespace mozilla::dom;
+
 namespace mozilla {
 namespace dom {
 namespace battery {
@@ -19,6 +21,9 @@ static const double kDefaultLevel = 1.0;
 static const bool kDefaultCharging = true;
 static const double kDefaultRemainingTime = 0;
 static const double kUnknownRemainingTime = -1;
+static const double kDefaultTemperature = 20.0;
+static const BatteryHealth kDefaultHealth = BatteryHealth::Unknown;
+static const bool kDefaultPresent = true;
 
 }  // namespace battery
 }  // namespace dom

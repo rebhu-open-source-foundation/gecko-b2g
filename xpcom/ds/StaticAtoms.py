@@ -742,6 +742,7 @@ STATIC_ATOMS = [
     Atom("onAppCommand", "onAppCommand"),
     Atom("onaudioprocess", "onaudioprocess"),
     Atom("onauxclick", "onauxclick"),
+    Atom("onbatteryhealthchange", "onbatteryhealthchange"),
     Atom("onbeforecopy", "onbeforecopy"),
     Atom("onbeforecut", "onbeforecut"),
     Atom("onbeforeinput", "onbeforeinput"),
