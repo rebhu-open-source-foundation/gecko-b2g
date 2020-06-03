@@ -95,12 +95,14 @@ where
 }
 
 // Helper macros to convert arguments.
+#[allow(unused_macros)]
 macro_rules! deref {
     ($input:expr) => {
         $input.deref()
     };
 }
 
+#[allow(unused_macros)]
 macro_rules! into {
     ($input:expr) => {
         $input.into()
@@ -137,6 +139,7 @@ macro_rules! sidl_callback_for {
             type Error = ();
 
             fn resolve(&self, value: &Self::Success) {
+                #[allow(unused_imports)]
                 use std::ops::Deref;
                 unsafe {
                     self.Resolve($succtrans!(value));
@@ -240,6 +243,7 @@ macro_rules! task_receiver_success {
 }
 
 // Common case with a success and an error type.
+#[allow(unused_macros)]
 macro_rules! task_receiver_success_error {
     ($name:ident, $interface:ty, $base:ident, $succname:ident, $errname:ident, $succtype:ty, $errtype:ty) => {
         struct $name {

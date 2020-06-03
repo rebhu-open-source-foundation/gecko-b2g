@@ -55,7 +55,7 @@ impl SettingInfoXpcom {
     }
 }
 
-// Turns a SettingInfo into an xpcom version.
+// Turns a SettingInfo into an xpcom nsISupports.
 macro_rules! as_isupports {
     ($obj:ident) => {
         {
@@ -63,6 +63,20 @@ macro_rules! as_isupports {
             // TODO: Check if instead of AddRef we can use mem::forget() like in settings_manager_construct()
             xpcom.AddRef();
             xpcom.coerce::<nsISupports>()
+        }
+
+    }
+}
+
+// Turns a SettingInfo into an xpcom nsISettingsInfo.
+#[macro_export]
+macro_rules! as_isettingsinfo {
+    ($obj:ident) => {
+        {
+            let xpcom = SettingInfoXpcom::new(&$obj);
+            // TODO: Check if instead of AddRef we can use mem::forget() like in settings_manager_construct()
+            xpcom.AddRef();
+            xpcom.coerce::<nsISettingInfo>()
         }
 
     }

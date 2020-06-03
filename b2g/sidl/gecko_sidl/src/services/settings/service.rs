@@ -24,11 +24,13 @@ use xpcom::{
     },
     RefPtr,
 };
+use super::setting_info::*;
+use crate::as_isettingsinfo;
 
-type GetSuccessType = nsString;
+type GetSuccessType = SettingInfo;
 
 sidl_callback_for!(nsISidlDefaultResponse);
-sidl_callback_for!(nsISettingsGetResponse, GetSuccessType, deref);
+sidl_callback_for!(nsISettingsGetResponse, GetSuccessType, as_isettingsinfo);
 
 // Task types
 type ClearTask = SidlCallTask<(), (), nsISidlDefaultResponse>;

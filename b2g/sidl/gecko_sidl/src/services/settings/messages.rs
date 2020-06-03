@@ -43,7 +43,7 @@ pub enum SettingsManagerToClient {
     SettingsFactoryAddObserverError,         // 1
     SettingsFactoryClearSuccess,             // 2
     SettingsFactoryClearError,               // 3
-    SettingsFactoryGetSuccess(JsonValue),    // 4
+    SettingsFactoryGetSuccess(SettingInfo),  // 4
     SettingsFactoryGetError,                 // 5
     SettingsFactoryRemoveObserverSuccess,    // 6
     SettingsFactoryRemoveObserverError,      // 7

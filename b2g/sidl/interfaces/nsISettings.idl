@@ -14,7 +14,7 @@ interface nsISettingInfo : nsISupports {
 [scriptable, uuid(292e5ce6-fd62-4ae6-803b-b001596614f0)]
 interface nsISettingsGetResponse : nsISupports
 {
-  void resolve(in AString setting);
+  void resolve(in nsISettingInfo setting);
   void reject();
 };
 
