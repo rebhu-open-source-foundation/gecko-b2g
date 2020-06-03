@@ -28,6 +28,7 @@ html, body {
 #controls {
   display: none;
   pointer-events: none;
+  -moz-user-focus: ignore;
 }
 /*
  * Somehow we couldn't have shown and hidden `#controls` properly via Media Queries.
