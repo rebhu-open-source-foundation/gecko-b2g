@@ -6,25 +6,25 @@
 
 // Android/Stagefright
 #include <binder/ProcessState.h>
-#include <foundation/ABuffer.h>
-#include <foundation/AMessage.h>
 #include <gui/Surface.h>
-#include <media/ICrypto.h>
-#include <media/stagefright/MediaCodec.h>
+#include <media/MediaCodecBuffer.h>
+#include <media/stagefright/foundation/AMessage.h>
 #include <media/stagefright/MediaDefs.h>
 #include <media/stagefright/MediaErrors.h>
 #include <media/stagefright/MetaData.h>
-#include <OMX_Component.h>
+#include <mediadrm/ICrypto.h>
+#include <utils/RefBase.h>
 
 // Gecko
 #if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 21
 #  include "GonkBufferQueueProducer.h"
 #endif
-#include "GonkNativeWindow.h"
 #include "GrallocImages.h"
+#include "mozilla/layers/TextureClient.h"
 #include "mozilla/Mutex.h"
 #include "nsThreadUtils.h"
-#include "TextureClient.h"
+#include "webrtc/rtc_base/refcountedobject.h"
+#include "WebrtcImageBuffer.h"
 
 using namespace android;
 
@@ -38,20 +38,6 @@ namespace mozilla {
 
 #define DEQUEUE_BUFFER_TIMEOUT_US (100 * 1000ll)  // 100ms.
 #define DRAIN_THREAD_TIMEOUT_US (1000 * 1000ll)   // 1s.
-
-class ImageNativeHandle : public webrtc::NativeHandle {
- public:
-  ImageNativeHandle(layers::Image* aImage) : mImage(aImage) {}
-
-  virtual void* GetHandle() override { return mImage.get(); }
-
- private:
-  RefPtr<layers::Image> mImage;
-};
-
-static void ShutdownThread(nsCOMPtr<nsIThread>& aThread) {
-  aThread->Shutdown();
-}
 
 void OMXOutputDrain::Start() {
   CODEC_LOGD("OMXOutputDrain starting");
@@ -72,10 +58,9 @@ void OMXOutputDrain::Stop() {
 
   if (mThread != nullptr) {
     MonitorAutoUnlock unlock(mMonitor);
-    CODEC_LOGD("OMXOutputDrain thread shutdown");
     NS_DispatchToMainThread(
-        WrapRunnableNM<decltype(&ShutdownThread), nsCOMPtr<nsIThread> >(
-            &ShutdownThread, mThread));
+        NS_NewRunnableFunction("OMXOutputDrain::ShutdownThread",
+                               [thread = mThread]() { thread->Shutdown(); }));
     mThread = nullptr;
   }
   CODEC_LOGD("OMXOutputDrain stopped");
@@ -223,7 +208,7 @@ status_t WebrtcOMXDecoder::FillInput(const webrtc::EncodedImage& aEncoded,
     return err;
   }
 
-  const sp<ABuffer>& omxIn = mInputBuffers.itemAt(index);
+  const sp<MediaCodecBuffer>& omxIn = mInputBuffers.itemAt(index);
   MOZ_ASSERT(omxIn->capacity() >= aEncoded._length);
   omxIn->setRange(0, aEncoded._length);
   // Copying is needed because MediaCodec API doesn't support externally
@@ -333,7 +318,7 @@ void WebrtcOMXDecoder::OnNewFrame() {
   }
 
   gfx::IntSize picSize(buffer->GetSize());
-  nsAutoPtr<layers::GrallocImage> grallocImage(new layers::GrallocImage());
+  RefPtr<layers::GrallocImage> grallocImage(new layers::GrallocImage());
   grallocImage->AdoptData(buffer, picSize);
 
   // Get timestamp of the frame about to render.
@@ -351,12 +336,11 @@ void WebrtcOMXDecoder::OnNewFrame() {
   }
   MOZ_ASSERT(timestamp >= 0 && renderTimeMs >= 0);
 
-  nsAutoPtr<webrtc::I420VideoFrame> videoFrame(new webrtc::I420VideoFrame(
-      new rtc::RefCountedObject<ImageNativeHandle>(grallocImage.forget()),
-      picSize.width, picSize.height, timestamp, renderTimeMs));
-  if (videoFrame != nullptr) {
-    mCallback->Decoded(*videoFrame);
-  }
+  rtc::scoped_refptr<ImageBuffer> imageBuffer(
+      new rtc::RefCountedObject<ImageBuffer>(std::move(grallocImage)));
+  webrtc::VideoFrame videoFrame(imageBuffer, timestamp, renderTimeMs,
+                                webrtc::kVideoRotation_0);
+  mCallback->Decoded(videoFrame);
 }
 
 status_t WebrtcOMXDecoder::Start() {

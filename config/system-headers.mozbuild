@@ -1145,6 +1145,7 @@ if CONFIG['OS_TARGET'] == 'Android' or CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         'media/stagefright/foundation/ALooper.h',
         'media/stagefright/foundation/AMessage.h',
         'media/stagefright/foundation/AString.h',
+        'media/stagefright/foundation/avc_utils.h',
         'media/stagefright/foundation/base64.h',
         'media/stagefright/foundation/hexdump.h',
         'media/stagefright/MediaBuffer.h',

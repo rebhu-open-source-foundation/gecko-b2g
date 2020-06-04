@@ -5,11 +5,12 @@
 #ifndef WEBRTC_MEDIA_CODEC_WRAPPER_H_
 #define WEBRTC_MEDIA_CODEC_WRAPPER_H_
 
-#include <utils/RefBase.h>
-#include "webrtc/video_decoder.h"
+#include <media/stagefright/MediaCodec.h>
+
 #include "CSFLog.h"
-#include "OMXCodecWrapper.h"
+#include "GonkNativeWindow.h"
 #include "runnable_utils.h"
+#include "webrtc/api/video_codecs/video_decoder.h"
 
 #define CODEC_LOG_TAG "OMX"
 #define CODEC_LOGV(...) CSFLogInfo(CODEC_LOG_TAG, __VA_ARGS__)
@@ -38,7 +39,7 @@ struct EncodedFrame {
 // TODO: Bug 997110 - Revisit queue/drain logic. Current design assumes that
 //       encoder only generate one output buffer per input frame and won't work
 //       if encoder drops frames or generates multiple output per input.
-class OMXOutputDrain : public nsRunnable {
+class OMXOutputDrain : public Runnable {
  public:
   void Start();
 
@@ -49,7 +50,10 @@ class OMXOutputDrain : public nsRunnable {
   NS_IMETHODIMP Run() override;
 
  protected:
-  OMXOutputDrain() : mMonitor("OMXOutputDrain monitor"), mEnding(false) {}
+  OMXOutputDrain()
+      : Runnable("OMXOutputDrain"),
+        mMonitor("OMXOutputDrain monitor"),
+        mEnding(false) {}
 
   // Drain output buffer for input frame queue mInputFrames.
   // mInputFrames contains info such as size and time of the input frames.
@@ -80,8 +84,8 @@ class WebrtcOMXDecoder final
     : public android::GonkNativeWindowNewFrameCallback {
   typedef android::status_t status_t;
   typedef android::ALooper ALooper;
-  typedef android::ABuffer ABuffer;
   typedef android::MediaCodec MediaCodec;
+  typedef android::MediaCodecBuffer MediaCodecBuffer;
   typedef android::GonkNativeWindow GonkNativeWindow;
 
  public:
@@ -130,8 +134,8 @@ class WebrtcOMXDecoder final
 
   android::sp<ALooper> mLooper;
   android::sp<MediaCodec> mCodec;
-  android::Vector<android::sp<ABuffer> > mInputBuffers;
-  android::Vector<android::sp<ABuffer> > mOutputBuffers;
+  android::Vector<android::sp<MediaCodecBuffer> > mInputBuffers;
+  android::Vector<android::sp<MediaCodecBuffer> > mOutputBuffers;
   android::sp<GonkNativeWindow> mNativeWindow;
 
   RefPtr<OutputDrain> mOutputDrain;

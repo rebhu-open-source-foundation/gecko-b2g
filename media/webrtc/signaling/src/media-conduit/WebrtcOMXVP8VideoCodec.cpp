@@ -5,11 +5,12 @@
 #include "WebrtcOMXVP8VideoCodec.h"
 
 #include <media/stagefright/MediaDefs.h>
-#include <media/stagefright/MediaErrors.h>
 
+#include "OMXCodecWrapper.h"
+#include "webrtc/modules/video_coding/include/video_error_codes.h"
 #include "WebrtcMediaCodecWrapper.h"
 
-using namespace android;
+using android::OMXCodecReservation;
 
 namespace mozilla {
 
@@ -73,17 +74,17 @@ int32_t WebrtcOMXVP8VideoDecoder::Decode(
       return WEBRTC_VIDEO_CODEC_UNINITIALIZED;
     }
     RefPtr<WebrtcOMXDecoder> omx =
-        new WebrtcOMXDecoder(MEDIA_MIMETYPE_VIDEO_VP8, mCallback);
+        new WebrtcOMXDecoder(android::MEDIA_MIMETYPE_VIDEO_VP8, mCallback);
     result = omx->ConfigureWithPicDimensions(width, height);
-    if (NS_WARN_IF(result != OK)) {
+    if (NS_WARN_IF(result != android::OK)) {
       return WEBRTC_VIDEO_CODEC_UNINITIALIZED;
     }
     CODEC_LOGD("WebrtcOMXVP8VideoDecoder:%p start OMX", this);
     mOMX = omx;
   }
 
-  status_t err = mOMX->FillInput(aInputImage, false, aRenderTimeMs);
-  if (NS_WARN_IF(err != OK)) {
+  android::status_t err = mOMX->FillInput(aInputImage, false, aRenderTimeMs);
+  if (NS_WARN_IF(err != android::OK)) {
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
   return WEBRTC_VIDEO_CODEC_OK;
@@ -110,11 +111,6 @@ int32_t WebrtcOMXVP8VideoDecoder::Release() {
 WebrtcOMXVP8VideoDecoder::~WebrtcOMXVP8VideoDecoder() {
   CODEC_LOGD("WebrtcOMXVP8VideoDecoder:%p will be destructed", this);
   Release();
-}
-
-int32_t WebrtcOMXVP8VideoDecoder::Reset() {
-  CODEC_LOGW("WebrtcOMXVP8VideoDecoder::Reset() will NOT reset decoder");
-  return WEBRTC_VIDEO_CODEC_OK;
 }
 
 }  // namespace mozilla

@@ -4,16 +4,22 @@
 
 #include "WebrtcOMXH264VideoCodec.h"
 
-#include <avc_utils.h>
-#include <foundation/ABuffer.h>
-#include <foundation/AMessage.h>
+#include <media/stagefright/foundation/ABuffer.h>
+#include <media/stagefright/foundation/AMessage.h>
+#include <media/stagefright/foundation/avc_utils.h>
+#include <media/stagefright/MediaCodec.h>
 #include <media/stagefright/MediaDefs.h>
 #include <media/stagefright/MediaErrors.h>
 #include <OMX_Component.h>
 
+#include "OMXCodecWrapper.h"
+#include "webrtc/modules/video_coding/include/video_error_codes.h"
 #include "WebrtcMediaCodecWrapper.h"
 
-using namespace android;
+using android::MediaCodec;
+using android::OMXCodecReservation;
+using android::OMXCodecWrapper;
+using android::OMXVideoEncoder;
 
 #define DRAIN_THREAD_TIMEOUT_US (1000 * 1000ll)  // 1s.
 
@@ -38,7 +44,8 @@ static size_t ParamSetLength(uint8_t* aData, size_t aSize) {
   size_t size = aSize;
   const uint8_t* nalStart = nullptr;
   size_t nalSize = 0;
-  while (getNextNALUnit(&data, &size, &nalStart, &nalSize, true) == OK) {
+  while (android::getNextNALUnit(&data, &size, &nalStart, &nalSize, true) ==
+         android::OK) {
     if ((*nalStart & 0x1f) != kNALTypeSPS &&
         (*nalStart & 0x1f) != kNALTypePPS) {
       MOZ_ASSERT(nalStart - sizeof(kNALStartCode) >= aData);
@@ -97,8 +104,8 @@ class EncOutputDrain : public OMXOutputDrain {
       // TODO: handle output violating this assumpton in bug 997110.
       webrtc::EncodedImage encoded(output.Elements(), output.Length(),
                                    output.Capacity());
-      encoded._frameType =
-          (isParamSets || isIFrame) ? webrtc::kKeyFrame : webrtc::kDeltaFrame;
+      encoded._frameType = (isParamSets || isIFrame) ? webrtc::kVideoFrameKey
+                                                     : webrtc::kVideoFrameDelta;
       EncodedFrame input_frame;
       {
         MonitorAutoLock lock(mMonitor);
@@ -194,7 +201,8 @@ class EncOutputDrain : public OMXOutputDrain {
     size_t size = aEncodedImage._length;
     const uint8_t* nalStart = nullptr;
     size_t nalSize = 0;
-    while (getNextNALUnit(&data, &size, &nalStart, &nalSize, true) == OK) {
+    while (android::getNextNALUnit(&data, &size, &nalStart, &nalSize, true) ==
+           android::OK) {
       // XXX optimize by making buffer an offset
       nal_entry nal = {((uint32_t)(nalStart - aEncodedImage._buffer)),
                        (uint32_t)nalSize};
@@ -212,7 +220,12 @@ class EncOutputDrain : public OMXOutputDrain {
       webrtc::EncodedImage unit(aEncodedImage);
       unit._completeFrame = true;
 
-      mCallback->Encoded(unit, nullptr, &fragmentation);
+      webrtc::CodecSpecificInfo info;
+      info.codecType = webrtc::kVideoCodecH264;
+      info.codecSpecific.H264.packetization_mode =
+          webrtc::H264PacketizationMode::NonInterleaved;
+
+      mCallback->OnEncodedImage(unit, &info, &fragmentation);
     }
   }
 
@@ -245,11 +258,11 @@ int32_t WebrtcOMXH264VideoEncoder::InitEncode(
   CODEC_LOGD("WebrtcOMXH264VideoEncoder:%p init", this);
 
   if (mOMX == nullptr) {
-    nsAutoPtr<OMXVideoEncoder> omx(OMXCodecWrapper::CreateAVCEncoder());
+    UniquePtr<OMXVideoEncoder> omx(OMXCodecWrapper::CreateAVCEncoder());
     if (NS_WARN_IF(omx == nullptr)) {
       return WEBRTC_VIDEO_CODEC_ERROR;
     }
-    mOMX = omx.forget();
+    mOMX = std::move(omx);
     CODEC_LOGD("WebrtcOMXH264VideoEncoder:%p OMX created", this);
   }
 
@@ -273,9 +286,9 @@ int32_t WebrtcOMXH264VideoEncoder::InitEncode(
 }
 
 int32_t WebrtcOMXH264VideoEncoder::Encode(
-    const webrtc::I420VideoFrame& aInputImage,
+    const webrtc::VideoFrame& aInputImage,
     const webrtc::CodecSpecificInfo* aCodecSpecificInfo,
-    const std::vector<webrtc::VideoFrameType>* aFrameTypes) {
+    const std::vector<webrtc::FrameType>* aFrameTypes) {
   MOZ_ASSERT(mOMX != nullptr);
   if (mOMX == nullptr) {
     return WEBRTC_VIDEO_CODEC_ERROR;
@@ -309,9 +322,9 @@ int32_t WebrtcOMXH264VideoEncoder::Encode(
         OMX_Video_ControlRateConstantSkipFrames;
 
     // Set up configuration parameters for AVC/H.264 encoder.
-    sp<AMessage> format = new AMessage;
+    android::sp<android::AMessage> format = new android::AMessage;
     // Fixed values
-    format->setString("mime", MEDIA_MIMETYPE_VIDEO_AVC);
+    format->setString("mime", android::MEDIA_MIMETYPE_VIDEO_AVC);
     // XXX We should only set to < infinity if we're not using any recovery RTCP
     // options However, we MUST set it to a lower value because the 8x10 rate
     // controller only changes rate at GOP boundaries.... but it also changes
@@ -356,7 +369,7 @@ int32_t WebrtcOMXH264VideoEncoder::Encode(
   }
 
   if (aFrameTypes && aFrameTypes->size() &&
-      ((*aFrameTypes)[0] == webrtc::kKeyFrame)) {
+      ((*aFrameTypes)[0] == webrtc::kVideoFrameKey)) {
     mOMX->RequestIDRFrame();
 #ifdef OMX_IDR_NEEDED_FOR_BITRATE
     mLastIDRTime = TimeStamp::Now();
@@ -402,19 +415,18 @@ int32_t WebrtcOMXH264VideoEncoder::Encode(
   }
 
   // Wrap I420VideoFrame input with PlanarYCbCrImage for OMXVideoEncoder.
+  rtc::scoped_refptr<webrtc::I420BufferInterface> buffer =
+      aInputImage.video_frame_buffer()->ToI420();
   layers::PlanarYCbCrData yuvData;
-  yuvData.mYChannel = const_cast<uint8_t*>(aInputImage.buffer(webrtc::kYPlane));
-  yuvData.mYSize = gfx::IntSize(aInputImage.width(), aInputImage.height());
-  yuvData.mYStride = aInputImage.stride(webrtc::kYPlane);
-  MOZ_ASSERT(aInputImage.stride(webrtc::kUPlane) ==
-             aInputImage.stride(webrtc::kVPlane));
-  yuvData.mCbCrStride = aInputImage.stride(webrtc::kUPlane);
-  yuvData.mCbChannel =
-      const_cast<uint8_t*>(aInputImage.buffer(webrtc::kUPlane));
-  yuvData.mCrChannel =
-      const_cast<uint8_t*>(aInputImage.buffer(webrtc::kVPlane));
-  yuvData.mCbCrSize = gfx::IntSize((yuvData.mYSize.width + 1) / 2,
-                                   (yuvData.mYSize.height + 1) / 2);
+  yuvData.mYChannel = const_cast<uint8_t*>(buffer->DataY());
+  yuvData.mYSize = gfx::IntSize(buffer->width(), buffer->height());
+  yuvData.mYStride = buffer->StrideY();
+  MOZ_ASSERT(buffer->StrideU() == buffer->StrideV());
+  yuvData.mCbCrStride = buffer->StrideU();
+  yuvData.mCbChannel = const_cast<uint8_t*>(buffer->DataU());
+  yuvData.mCrChannel = const_cast<uint8_t*>(buffer->DataV());
+  yuvData.mCbCrSize =
+      gfx::IntSize(buffer->ChromaWidth(), buffer->ChromaHeight());
   yuvData.mPicSize = yuvData.mYSize;
   yuvData.mStereoMode = StereoMode::MONO;
   layers::RecyclingPlanarYCbCrImage img(nullptr);
@@ -433,7 +445,7 @@ int32_t WebrtcOMXH264VideoEncoder::Encode(
                    0);
   if (rv == NS_OK) {
     if (mOutputDrain == nullptr) {
-      mOutputDrain = new EncOutputDrain(mOMX, mCallback);
+      mOutputDrain = new EncOutputDrain(mOMX.get(), mCallback);
       mOutputDrain->Start();
     }
     EncodedFrame frame;
@@ -587,9 +599,9 @@ int32_t WebrtcOMXH264VideoDecoder::ExtractPicDimensions(uint8_t* aData,
   if ((aData[sizeof(kNALStartCode)] & 0x1f) != kNALTypeSPS) {
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
-  sp<ABuffer> sps =
-      new ABuffer(&aData[sizeof(kNALStartCode)], aSize - sizeof(kNALStartCode));
-  FindAVCDimensions(sps, aWidth, aHeight);
+  android::sp<android::ABuffer> sps = new android::ABuffer(
+      &aData[sizeof(kNALStartCode)], aSize - sizeof(kNALStartCode));
+  android::FindAVCDimensions(sps, aWidth, aHeight);
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
@@ -618,9 +630,9 @@ int32_t WebrtcOMXH264VideoDecoder::Decode(
       return WEBRTC_VIDEO_CODEC_UNINITIALIZED;
     }
     RefPtr<WebrtcOMXDecoder> omx =
-        new WebrtcOMXDecoder(MEDIA_MIMETYPE_VIDEO_AVC, mCallback);
-    status_t err = omx->ConfigureWithPicDimensions(width, height);
-    if (NS_WARN_IF(err != OK)) {
+        new WebrtcOMXDecoder(android::MEDIA_MIMETYPE_VIDEO_AVC, mCallback);
+    android::status_t err = omx->ConfigureWithPicDimensions(width, height);
+    if (NS_WARN_IF(err != android::OK)) {
       return WEBRTC_VIDEO_CODEC_UNINITIALIZED;
     }
     CODEC_LOGD("WebrtcOMXH264VideoDecoder:%p start OMX", this);
@@ -636,7 +648,8 @@ int32_t WebrtcOMXH264VideoDecoder::Decode(
   size_t nalSize = 0;
 
   // this returns a pointer to the NAL byte (after the StartCode)
-  while (getNextNALUnit(&data, &size, &nalStart, &nalSize, true) == OK) {
+  while (android::getNextNALUnit(&data, &size, &nalStart, &nalSize, true) ==
+         android::OK) {
     // Individual NALU inherits metadata from input encoded data.
     webrtc::EncodedImage nalu(aInputImage);
 
@@ -651,8 +664,8 @@ int32_t WebrtcOMXH264VideoDecoder::Decode(
     if (nalType == kNALTypeSPS || nalType == kNALTypePPS) {
       isCodecConfig = true;
     }
-    status_t err = mOMX->FillInput(nalu, isCodecConfig, aRenderTimeMs);
-    if (NS_WARN_IF(err != OK)) {
+    android::status_t err = mOMX->FillInput(nalu, isCodecConfig, aRenderTimeMs);
+    if (NS_WARN_IF(err != android::OK)) {
       return WEBRTC_VIDEO_CODEC_ERROR;
     }
   }
@@ -680,11 +693,6 @@ int32_t WebrtcOMXH264VideoDecoder::Release() {
 WebrtcOMXH264VideoDecoder::~WebrtcOMXH264VideoDecoder() {
   CODEC_LOGD("WebrtcOMXH264VideoDecoder:%p will be destructed", this);
   Release();
-}
-
-int32_t WebrtcOMXH264VideoDecoder::Reset() {
-  CODEC_LOGW("WebrtcOMXH264VideoDecoder::Reset() will NOT reset decoder");
-  return WEBRTC_VIDEO_CODEC_OK;
 }
 
 }  // namespace mozilla

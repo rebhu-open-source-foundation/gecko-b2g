@@ -6,12 +6,13 @@
 #define WEBRTC_OMX_H264_VIDEO_CODEC_H_
 
 #include <utils/RefBase.h>
-#include "OMXCodecWrapper.h"
+
 #include "VideoConduit.h"
 
 namespace android {
+class OMXCodecReservation;
 class OMXVideoEncoder;
-}
+}  // namespace android
 
 namespace mozilla {
 
@@ -34,9 +35,9 @@ class WebrtcOMXH264VideoEncoder : public WebrtcVideoEncoder {
                              size_t aMaxPayloadSize) override;
 
   virtual int32_t Encode(
-      const webrtc::I420VideoFrame& aInputImage,
+      const webrtc::VideoFrame& aInputImage,
       const webrtc::CodecSpecificInfo* aCodecSpecificInfo,
-      const std::vector<webrtc::VideoFrameType>* aFrameTypes) override;
+      const std::vector<webrtc::FrameType>* aFrameTypes) override;
 
   virtual int32_t RegisterEncodeCompleteCallback(
       webrtc::EncodedImageCallback* aCallback) override;
@@ -49,7 +50,7 @@ class WebrtcOMXH264VideoEncoder : public WebrtcVideoEncoder {
   virtual int32_t SetRates(uint32_t aBitRate, uint32_t aFrameRate) override;
 
  private:
-  nsAutoPtr<android::OMXVideoEncoder> mOMX;
+  UniquePtr<android::OMXVideoEncoder> mOMX;
   android::sp<android::OMXCodecReservation> mReservation;
 
   webrtc::EncodedImageCallback* mCallback;
@@ -87,8 +88,6 @@ class WebrtcOMXH264VideoDecoder : public WebrtcVideoDecoder {
       webrtc::DecodedImageCallback* callback) override;
 
   virtual int32_t Release() override;
-
-  virtual int32_t Reset() override;
 
  private:
   static int32_t ExtractPicDimensions(uint8_t* aData, size_t aSize,

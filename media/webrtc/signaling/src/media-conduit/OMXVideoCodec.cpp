@@ -4,21 +4,19 @@
 
 #include "OMXVideoCodec.h"
 
-#ifdef WEBRTC_GONK
-#  include "WebrtcOMXH264VideoCodec.h"
-#  include "WebrtcOMXVP8VideoCodec.h"
-#endif
+#include "WebrtcOMXH264VideoCodec.h"
+#include "WebrtcOMXVP8VideoCodec.h"
 
 namespace mozilla {
 
-VideoEncoder* OMXVideoCodec::CreateEncoder(CodecType aCodecType) {
+WebrtcVideoEncoder* OMXVideoCodec::CreateEncoder(CodecType aCodecType) {
   if (aCodecType == CODEC_H264) {
     return new WebrtcOMXH264VideoEncoder();
   }
   return nullptr;
 }
 
-VideoDecoder* OMXVideoCodec::CreateDecoder(CodecType aCodecType) {
+WebrtcVideoDecoder* OMXVideoCodec::CreateDecoder(CodecType aCodecType) {
   if (aCodecType == CODEC_H264) {
     return new WebrtcOMXH264VideoDecoder();
   } else if (aCodecType == CODEC_VP8) {

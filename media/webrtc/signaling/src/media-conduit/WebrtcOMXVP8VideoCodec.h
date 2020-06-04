@@ -6,8 +6,12 @@
 #define WEBRTC_OMX_VP8_VIDEO_CODEC_H_
 
 #include <utils/RefBase.h>
-#include "OMXCodecWrapper.h"
+
 #include "VideoConduit.h"
+
+namespace android {
+class OMXCodecReservation;
+}  // namespace android
 
 namespace mozilla {
 
@@ -33,8 +37,6 @@ class WebrtcOMXVP8VideoDecoder : public WebrtcVideoDecoder {
       webrtc::DecodedImageCallback* callback) override;
 
   virtual int32_t Release() override;
-
-  virtual int32_t Reset() override;
 
  private:
   static int32_t ExtractPicDimensions(uint8_t* aData, size_t aSize,
