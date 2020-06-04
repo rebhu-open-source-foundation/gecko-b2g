@@ -32,7 +32,8 @@ class MarionetteHelper {
     );
     let active = web_views.find(tab => {
       // logger.info(`${tab.src} active=${tab.active} visible=${tab.visible}`);
-      return tab.active;
+      // Kent: use css attribute to get the active web-view
+      return !tab.classList.contains('hidden');
     });
 
     // Hack: select the first tab if none is marked as active.
