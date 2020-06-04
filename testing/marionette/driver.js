@@ -149,7 +149,7 @@ this.GeckoDriver = function(server) {
 
   // Use content context by default
   this.context = Context.Content;
-
+  this.importedScripts = new evaluate.ScriptStorage();
   this.sandboxes = new Sandboxes(() => this.getCurrentWindow());
   this.legacyactions = new legacyaction.Chain();
 
@@ -1087,6 +1087,7 @@ GeckoDriver.prototype.execute_ = async function(
   switch (this.context) {
     case Context.Content:
       // evaluate in content with lasting side-effects
+      script = this.importedScripts.concat(script);
       if (!sandboxName) {
         res = await this.listener.execute(script, args, opts);
 
@@ -1099,6 +1100,7 @@ GeckoDriver.prototype.execute_ = async function(
 
     case Context.Chrome:
       let sb = this.sandboxes.get(sandboxName, newSandbox);
+      script = this.importedScripts.concat(script);
       let wargs = evaluate.fromJSON(args, this.curBrowser.seenEls, sb.window);
       res = await evaluate.sandbox(sb, script, wargs, opts);
       els = this.curBrowser.seenEls;
@@ -2998,6 +3000,7 @@ GeckoDriver.prototype.deleteSession = function() {
     this.dialogObserver = null;
   }
 
+  this.importedScripts.clear();
   this.sandboxes.clear();
   allowAllCerts.disable();
 
@@ -3812,6 +3815,27 @@ GeckoDriver.prototype.print = async function(cmd) {
   };
 };
 
+/**
+ * Import script to the Script Storage of GeckoDriver.
+ * Scripts can be cleared with the {@code clearImportedScripts} command.
+ *
+ * @param {string} script
+ *     Script to include. If the script is byte-by-byte equal to an
+ *     existing imported script, it is not imported.
+ */
+GeckoDriver.prototype.importScript = function(cmd, resp) {
+  let script = cmd.parameters.script;
+  this.importedScripts.add(script);
+};
+
+/**
+ * Clear all scripts that are imported into the Script Storage of GeckoDriver.
+ * Scripts can be imported using the {@code importScript} command.
+ */
+GeckoDriver.prototype.clearImportedScripts = function(cmd, resp) {
+  this.importedScripts.clear();
+};
+
 GeckoDriver.prototype.commands = {
   // Marionette service
   "Marionette:AcceptConnections": GeckoDriver.prototype.acceptConnections,
@@ -3824,6 +3848,8 @@ GeckoDriver.prototype.commands = {
   "Marionette:ActionChain": GeckoDriver.prototype.actionChain, // bug 1354578, legacy actions
   "Marionette:MultiAction": GeckoDriver.prototype.multiAction, // bug 1354578, legacy actions
   "Marionette:SingleTap": GeckoDriver.prototype.singleTap,
+  "Marionette:importScript": GeckoDriver.prototype.importScript,
+  "Marionette:clearImportedScripts": GeckoDriver.prototype.clearImportedScripts,
 
   // Addon service
   "Addon:Install": GeckoDriver.prototype.installAddon,
