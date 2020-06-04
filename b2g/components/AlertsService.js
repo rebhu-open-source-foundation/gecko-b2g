@@ -219,6 +219,20 @@ AlertsService.prototype = {
             listener.dataObj || undefined,
             listener.mozbehavior
           );
+        } else if (eventName == "notificationclose") {
+          serviceWorkerManager.sendNotificationCloseEvent(
+            originSuffix,
+            scope,
+            listener.dbId,
+            listener.title,
+            listener.dir,
+            listener.lang,
+            listener.text,
+            listener.tag,
+            listener.imageURL,
+            listener.dataObj || undefined,
+            listener.mozbehavior
+          );
         }
       }
       if (topic === kTopicAlertFinished && listener.dbId) {
