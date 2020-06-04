@@ -73,6 +73,9 @@ using namespace mozilla::gl;
 using namespace mozilla::layers;
 using namespace mozilla::widget;
 
+typedef android::GonkDisplay GonkDisplay;
+extern GonkDisplay * GetGonkDisplay();
+
 static nsWindow* gFocusedWindow = nullptr;
 
 NS_IMPL_ISUPPORTS_INHERITED0(nsWindow, nsBaseWidget)
@@ -105,11 +108,10 @@ void nsWindow::DoDraw(void) {
   }
 
   ScreenHelperGonk* screenHelper = ScreenHelperGonk::GetSingleton();
-#if 0  // TODO: FIXME: for multi-display support
   uint32_t screenNums = screenHelper->GetNumberOfScreens();
 
   while (screenNums--) {
-    RefPtr<nsIScreen> screen = screenHelper->ScreenForId(screenNums);
+    RefPtr<nsScreenGonk> screen = screenHelper->ScreenGonkForId(screenNums);
     MOZ_ASSERT(screen);
     if (!screen) {
       continue;
@@ -124,18 +126,16 @@ void nsWindow::DoDraw(void) {
     /* Add external screen when the external fb is available. The AddScreen
        should be called after shell.js is loaded to receive the
        display-changed event. */
-    if (!screenHelper->IsScreenConnected(DISPLAY_EXTERNAL) &&
+    if (!screenHelper->IsScreenConnected((uint32_t)DisplayType::DISPLAY_EXTERNAL) &&
         screenNums == 0 && GetGonkDisplay()->IsExtFBDeviceEnabled()) {
-      screenHelper->AddScreen(DISPLAY_EXTERNAL);
+      screenHelper->AddScreen(ScreenHelperGonk::GetIdFromType(DisplayType::DISPLAY_EXTERNAL),
+                              DisplayType::DISPLAY_EXTERNAL);
     }
-#else
-  RefPtr<nsScreenGonk> screen = screenHelper->GetPrimaryScreen();
-  const nsTArray<nsWindow*>& windows = screen->GetTopWindows();
-#endif
-  RefPtr<nsWindow> targetWindow = (nsWindow*)windows[0];
-  while (targetWindow->GetLastChild()) {
-    targetWindow = (nsWindow*)targetWindow->GetLastChild();
-  }
+
+    RefPtr<nsWindow> targetWindow = (nsWindow*)windows[0];
+    while (targetWindow->GetLastChild()) {
+      targetWindow = (nsWindow*)targetWindow->GetLastChild();
+    }
 
   nsIWidgetListener* listener = targetWindow->GetWidgetListener();
   if (listener) {
@@ -153,10 +153,8 @@ void nsWindow::DoDraw(void) {
       MOZ_CRASH("Unexpected layer manager type");
     }
     listener->DidPaintWindow();
+   }
   }
-#if 0
-  }
-#endif
 }
 
 void nsWindow::ConfigureAPZControllerThread() {
@@ -392,16 +390,10 @@ nsWindow::Create(nsIWidget* aParent, void* aNativeParent,
                  nsWidgetInitData* aInitData) {
   BaseCreate(aParent, aInitData);
 
-  // uint32_t screenId =
-  //  aParent ? ((nsWindow*)aParent)->mScreen->GetId() : aInitData->mScreenId;
-
+  uint32_t screenId =
+    aParent ? ((nsWindow*)aParent)->mScreen->GetId() : aInitData->mScreenId;
   ScreenHelperGonk* screenHelper = ScreenHelperGonk::GetSingleton();
-#if 0  // TODO: FIXME: for multi-display support
-  RefPtr<nsIScreen> screen = screenHelper->ScreenForId(screenId);
-  mScreen = static_cast<nsScreenGonk*>(screen.get());
-#else
-  mScreen = screenHelper->GetPrimaryScreen();
-#endif
+  mScreen = screenHelper->ScreenGonkForId(screenId);
 
   mBounds = aRect;
 

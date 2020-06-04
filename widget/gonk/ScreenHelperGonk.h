@@ -192,19 +192,25 @@ class ScreenHelperGonk final : public ScreenManager::Helper {
   static ScreenHelperGonk* GetSingleton();
 
   // Generic
-  already_AddRefed<Screen> MakePrimaryScreen();
+  already_AddRefed<Screen> MakeScreen(uint32_t id,
+       NotifyDisplayChangedEvent aEventVisibility = NotifyDisplayChangedEvent::Observable);
   void Refresh();
-  void AddScreen(uint32_t aScreenId, DisplayType aDisplayType,
-                 LayoutDeviceIntRect aRect = LayoutDeviceIntRect(),
-                 float aDensity = 1.0f);
+
+  void AddScreen(uint32_t aScreenId,
+       DisplayType aDisplayType,
+       LayoutDeviceIntRect aRect = LayoutDeviceIntRect(),
+       float aDensity = 1.0f,
+       NotifyDisplayChangedEvent aEventVisibility = NotifyDisplayChangedEvent::Observable);
   void RemoveScreen(uint32_t aId);
   already_AddRefed<Screen> ScreenForId(uint32_t aScreenId);
+  already_AddRefed<nsScreenGonk> ScreenGonkForId(uint32_t aScreenId);
   uint32_t GetNumberOfScreens();
 
   // nsScreenManagerGonk
   static uint32_t GetIdFromType(DisplayType aDisplayType);
 
   static already_AddRefed<nsScreenGonk> GetPrimaryScreen();
+  static already_AddRefed<nsScreenGonk> GetScreenGonk(uint32_t i);
 
   void DisplayEnabled(bool aEnabled);
 
@@ -216,8 +222,7 @@ class ScreenHelperGonk final : public ScreenManager::Helper {
  private:
   nsDataHashtable<nsUint32HashKey, RefPtr<Screen>> mScreens;
 
-  // FIXME: We should have a nsScreenGonk per Screen, not just one
-  RefPtr<nsScreenGonk> mPrimaryScreen;
+  nsDataHashtable<nsUint32HashKey, RefPtr<nsScreenGonk>> mScreenGonks;
 
   // nsScreenManagerGonk
   void VsyncControl(bool aEnabled);
