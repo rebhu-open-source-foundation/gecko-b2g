@@ -4543,7 +4543,7 @@ void profiler_pause() {
     ActivePS::SetIsPaused(lock, true);
     ActivePS::Buffer(lock).AddEntry(ProfileBufferEntry::Pause(profiler_time()));
 
-#if defined(GP_OS_android)
+#if defined(GP_OS_android) && !defined(MOZ_WIDGET_GONK)
     if (ActivePS::FeatureJava(lock)) {
       java::GeckoJavaSampler::Pause();
     }
@@ -4572,7 +4572,7 @@ void profiler_resume() {
     ActivePS::SetIsPaused(lock, false);
     RacyFeatures::SetUnpaused();
 
-#if defined(GP_OS_android)
+#if defined(GP_OS_android) && !defined(MOZ_WIDGET_GONK)
     if (ActivePS::FeatureJava(lock)) {
       java::GeckoJavaSampler::Unpause();
     }
