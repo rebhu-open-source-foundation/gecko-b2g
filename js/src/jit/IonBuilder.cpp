@@ -1534,7 +1534,7 @@ class MOZ_RAII PoppedValueUseChecker {
       switch (op) {
         case JSOp::Pos:
         case JSOp::ToNumeric:
-        case JSOp::ToId:
+        case JSOp::ToPropertyKey:
         case JSOp::ToString:
           // These ops may leave their input on the stack without setting
           // the ImplicitlyUsed flag. If this value will be popped immediately,
@@ -2277,8 +2277,8 @@ AbortReasonOr<Ok> IonBuilder::inspectOpcode(JSOp op, bool* restarted) {
     case JSOp::ToAsyncIter:
       return jsop_toasynciter();
 
-    case JSOp::ToId:
-      return jsop_toid();
+    case JSOp::ToPropertyKey:
+      return jsop_topropertykey();
 
     case JSOp::IterNext:
       return jsop_iternext();
@@ -3605,11 +3605,7 @@ AbortReasonOr<Ok> IonBuilder::powTrySpecialized(bool* emitted,
     return Ok();
   }
 
-  if (powerType == MIRType::Float32) {
-    powerType = MIRType::Double;
-  }
-
-  MPow* pow = MPow::New(alloc(), base, power, powerType);
+  MPow* pow = MPow::New(alloc(), base, power, MIRType::Double);
   current->add(pow);
   output = pow;
 
@@ -3695,11 +3691,6 @@ AbortReasonOr<Ok> IonBuilder::binaryArithTrySpecializedOnBaselineInspector(
 
   // Try to emit a specialized binary instruction speculating the
   // type using the baseline caches.
-
-  // Anything complex - strings, symbols, and objects - are not specialized
-  if (!SimpleArithOperand(left) || !SimpleArithOperand(right)) {
-    return Ok();
-  }
 
   MIRType specialization = inspector->expectedBinaryArithSpecialization(pc);
   if (specialization == MIRType::None) {
@@ -3933,11 +3924,6 @@ AbortReasonOr<Ok> IonBuilder::unaryArithTrySpecializedOnBaselineInspector(
 
   // Try to emit a specialized binary instruction speculating the
   // type using the baseline caches.
-
-  // Anything complex - strings, symbols, and objects - are not specialized
-  if (!SimpleArithOperand(value)) {
-    return Ok();
-  }
 
   MIRType specialization = inspector->expectedBinaryArithSpecialization(pc);
   if (specialization == MIRType::None) {
@@ -12096,11 +12082,11 @@ AbortReasonOr<Ok> IonBuilder::jsop_functionthis() {
   if (IsNullOrUndefined(def->type())) {
     LexicalEnvironmentObject* globalLexical =
         &script()->global().lexicalEnvironment();
-    pushConstant(globalLexical->thisValue());
+    pushConstant(ObjectValue(*globalLexical->thisObject()));
     return Ok();
   }
 
-  MComputeThis* thisObj = MComputeThis::New(alloc(), def);
+  MBoxNonStrictThis* thisObj = MBoxNonStrictThis::New(alloc(), def);
   current->add(thisObj);
   current->push(thisObj);
 
@@ -12117,7 +12103,7 @@ AbortReasonOr<Ok> IonBuilder::jsop_globalthis() {
 
   LexicalEnvironmentObject* globalLexical =
       &script()->global().lexicalEnvironment();
-  pushConstant(globalLexical->thisValue());
+  pushConstant(ObjectValue(*globalLexical->thisObject()));
   return Ok();
 }
 
@@ -12146,8 +12132,8 @@ AbortReasonOr<Ok> IonBuilder::jsop_toasynciter() {
   return resumeAfter(ins);
 }
 
-AbortReasonOr<Ok> IonBuilder::jsop_toid() {
-  // No-op if the index is trivally convertable to an id.
+AbortReasonOr<Ok> IonBuilder::jsop_topropertykey() {
+  // No-op if the index is trivally convertable to a PropertyKey.
   MIRType type = current->peek(-1)->type();
   if (type == MIRType::Int32 || type == MIRType::String ||
       type == MIRType::Symbol) {
@@ -12155,7 +12141,7 @@ AbortReasonOr<Ok> IonBuilder::jsop_toid() {
   }
 
   MDefinition* index = current->pop();
-  MToId* ins = MToId::New(alloc(), index);
+  auto* ins = MToPropertyKeyCache::New(alloc(), index);
 
   current->add(ins);
   current->push(ins);

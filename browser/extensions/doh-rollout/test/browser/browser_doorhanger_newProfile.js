@@ -16,10 +16,11 @@ add_task(async function testDoorhanger() {
   is(Preferences.get(prefs.DOH_SELF_ENABLED_PREF), true, "Breadcrumb saved.");
   is(
     Preferences.get(prefs.DOH_TRR_SELECT_URI_PREF),
-    "dummyTRR",
+    "https://dummytrr.com/query",
     "TRR selection complete."
   );
   await checkTRRSelectionTelemetry();
+  await checkHeuristicsTelemetry("enable_doh", "startup");
 
   await doorhangerPrefPromise;
   is(

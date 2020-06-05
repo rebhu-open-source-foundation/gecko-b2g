@@ -32,7 +32,7 @@ class SmartTrace extends Component {
       onViewSource: PropTypes.func.isRequired,
       onViewSourceInDebugger: PropTypes.func.isRequired,
       // Service to enable the source map feature.
-      sourceMapService: PropTypes.object,
+      sourceMapURLService: PropTypes.object,
       initialRenderDelay: PropTypes.number,
       onSourceMapResultDebounceDelay: PropTypes.number,
       // Function that will be called when the SmartTrace is ready, i.e. once it was
@@ -55,7 +55,7 @@ class SmartTrace extends Component {
       // If a sourcemap service is passed, we want to introduce a small delay in rendering
       // so we can have the results from the sourcemap service, or render if they're not
       // available yet.
-      ready: !props.sourceMapService,
+      ready: !props.sourceMapURLService,
       frozen: false,
     };
   }
@@ -65,30 +65,24 @@ class SmartTrace extends Component {
   }
 
   componentWillMount() {
-    if (this.props.sourceMapService) {
-      this.sourceMapServiceUnsubscriptions = [];
+    if (this.props.sourceMapURLService) {
+      this.sourceMapURLServiceUnsubscriptions = [];
       const subscriptions = this.props.stacktrace.map(
         (frame, index) =>
           new Promise(resolve => {
             const { lineNumber, columnNumber, filename } = frame;
             const source = filename.split(" -> ").pop();
-            const subscribeCallback = (isSourceMapped, url, line, column) => {
-              this.onSourceMapServiceChange(
-                isSourceMapped,
-                url,
-                line,
-                column,
-                index
-              );
+            const subscribeCallback = originalLocation => {
+              this.onSourceMapServiceChange(originalLocation, index);
               resolve();
             };
-            const unsubscribe = this.props.sourceMapService.subscribe(
+            const unsubscribe = this.props.sourceMapURLService.subscribeByURL(
               source,
               lineNumber,
               columnNumber,
               subscribeCallback
             );
-            this.sourceMapServiceUnsubscriptions.push(unsubscribe);
+            this.sourceMapURLServiceUnsubscriptions.push(unsubscribe);
           })
       );
 
@@ -145,11 +139,9 @@ class SmartTrace extends Component {
       clearTimeout(this.initialRenderDelayTimeoutId);
     }
 
-    if (this.sourceMapServiceUnsubscriptions) {
-      this.sourceMapServiceUnsubscriptions.forEach(unsubscribe => {
-        if (typeof unsubscribe === "function") {
-          unsubscribe();
-        }
+    if (this.sourceMapURLServiceUnsubscriptions) {
+      this.sourceMapURLServiceUnsubscriptions.forEach(unsubscribe => {
+        unsubscribe();
       });
     }
   }
@@ -165,14 +157,8 @@ class SmartTrace extends Component {
     this.setState({ hasError: true });
   }
 
-  onSourceMapServiceChange(
-    isSourceMapped,
-    filename,
-    lineNumber,
-    columnNumber,
-    index
-  ) {
-    if (isSourceMapped) {
+  onSourceMapServiceChange(originalLocation, index) {
+    if (originalLocation) {
       if (this.onFrameLocationChangedTimeoutId) {
         clearTimeout(this.onFrameLocationChangedTimeoutId);
       }
@@ -187,9 +173,9 @@ class SmartTrace extends Component {
           .slice(0, index)
           .concat({
             ...frame,
-            filename,
-            lineNumber,
-            columnNumber,
+            filename: originalLocation.url,
+            lineNumber: originalLocation.line,
+            columnNumber: originalLocation.column,
           })
           .concat(stacktrace.slice(index + 1));
 

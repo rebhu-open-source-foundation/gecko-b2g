@@ -15,9 +15,14 @@ import six
 from manifestparser import TestManifest
 from manifestparser.filters import chunk_by_runtime
 from mozbuild.util import memoize
-from moztest.resolve import TestResolver, TestManifestLoader, get_suite_definition
+from moztest.resolve import (
+    TEST_SUITES,
+    TestResolver,
+    TestManifestLoader,
+)
 
 from taskgraph import GECKO
+from taskgraph.util.bugbug import CT_LOW, push_schedules
 
 here = os.path.abspath(os.path.dirname(__file__))
 resolver = TestResolver.from_environment(cwd=here, loader_cls=TestManifestLoader)
@@ -38,9 +43,12 @@ def guess_mozinfo_from_task(task):
     """
     info = {
         'asan': 'asan' in task['build-attributes']['build_platform'],
+        'bits': 32 if '32' in task['build-attributes']['build_platform'] else 64,
         'ccov': 'ccov' in task['build-attributes']['build_platform'],
         'debug': task['build-attributes']['build_type'] == 'debug',
         'e10s': task['attributes']['e10s'],
+        'fission': task['attributes'].get('unittest_variant') == 'fission',
+        'headless': '-headless' in task['test-name'],
         'tsan': 'tsan' in task['build-attributes']['build_platform'],
         'webrender': task.get('webrender', False),
     }
@@ -51,6 +59,27 @@ def guess_mozinfo_from_task(task):
     else:
         raise ValueError("{} is not a known platform!".format(
                          task['build-attributes']['build_platform']))
+
+    info['appname'] = 'fennec' if info['os'] == 'android' else 'firefox'
+
+    # guess processor
+    if 'aarch64' in task['build-attributes']['build_platform']:
+        info['processor'] = 'aarch64'
+    elif info['os'] == 'android' and 'arm' in task['test-platform']:
+        info['processor'] = 'arm'
+    elif info['bits'] == 32:
+        info['processor'] = 'x86'
+    else:
+        info['processor'] = 'x86_64'
+
+    # guess toolkit
+    if info['os'] in ('android', 'windows'):
+        info['toolkit'] = info['os']
+    elif info['os'] == 'mac':
+        info['toolkit'] = 'cocoa'
+    else:
+        info['toolkit'] = 'gtk'
+
     return info
 
 
@@ -77,7 +106,7 @@ def get_runtimes(platform, suite_name):
 wpt_group_translation = defaultdict(set)
 
 
-def chunk_manifests(flavor, subsuite, platform, chunks, manifests):
+def chunk_manifests(suite, platform, chunks, manifests):
     """Run the chunking algorithm.
 
     Args:
@@ -89,13 +118,10 @@ def chunk_manifests(flavor, subsuite, platform, chunks, manifests):
         A list of length `chunks` where each item contains a list of manifests
         that run in that chunk.
     """
-    # Obtain the suite definition given the flavor and subsuite which often
-    # do not perfectly map onto the actual suite name in taskgraph.
-    # This value will be used to retrive runtime information for that suite.
-    suite_name, _ = get_suite_definition(flavor, subsuite)
-    runtimes = get_runtimes(platform, suite_name)
+    manifests = set(manifests)
+    runtimes = {k: v for k, v in get_runtimes(platform, suite).items() if k in manifests}
 
-    if flavor != "web-platform-tests":
+    if "web-platform-tests" not in suite:
         return [
             c[1] for c in chunk_by_runtime(
                 None,
@@ -154,6 +180,10 @@ def chunk_manifests(flavor, subsuite, platform, chunks, manifests):
 
 @six.add_metaclass(ABCMeta)
 class BaseManifestLoader(object):
+
+    def __init__(self, params):
+        self.params = params
+
     @abstractmethod
     def get_manifests(self, flavor, subsuite, mozinfo):
         """Compute which manifests should run for the given flavor, subsuite and mozinfo.
@@ -204,16 +234,20 @@ class DefaultLoader(BaseManifestLoader):
         return path
 
     @memoize
-    def get_tests(self, flavor, subsuite):
-        return list(resolver.resolve_tests(flavor=flavor, subsuite=subsuite))
+    def get_tests(self, suite):
+        suite_definition = TEST_SUITES[suite]
+        return list(resolver.resolve_tests(
+            flavor=suite_definition['build_flavor'],
+            subsuite=suite_definition.get('kwargs', {}).get('subsuite', 'undefined'),
+        ))
 
     @memoize
-    def get_manifests(self, flavor, subsuite, mozinfo):
+    def get_manifests(self, suite, mozinfo):
         mozinfo = dict(mozinfo)
         # Compute all tests for the given suite/subsuite.
-        tests = self.get_tests(flavor, subsuite)
+        tests = self.get_tests(suite)
 
-        if flavor == "web-platform-tests":
+        if "web-platform-tests" in suite:
             manifests = set()
             for t in tests:
                 group = self.get_wpt_group(t)
@@ -233,6 +267,24 @@ class DefaultLoader(BaseManifestLoader):
         return {"active": list(active), "skipped": list(skipped)}
 
 
+class BugbugLoader(DefaultLoader):
+    """Load manifests using metadata from the TestResolver, and then
+    filter them based on a query to bugbug."""
+    CONFIDENCE_THRESHOLD = CT_LOW
+
+    @memoize
+    def get_manifests(self, suite, mozinfo):
+        manifests = super(BugbugLoader, self).get_manifests(suite, mozinfo)
+
+        data = push_schedules(self.params['project'], self.params['head_rev'])
+        bugbug_manifests = {m for m, c in data.get('groups', {}).items()
+                            if c >= self.CONFIDENCE_THRESHOLD}
+
+        manifests['active'] = list(set(manifests['active']) & bugbug_manifests)
+        return manifests
+
+
 manifest_loaders = {
-    'default': DefaultLoader(),
+    'bugbug': BugbugLoader,
+    'default': DefaultLoader,
 }

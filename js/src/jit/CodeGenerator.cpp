@@ -32,9 +32,7 @@
 #include "builtin/String.h"
 #include "builtin/TypedObject.h"
 #include "gc/Nursery.h"
-#ifndef ENABLE_NEW_REGEXP
-#  include "irregexp/NativeRegExpMacroAssembler.h"
-#endif
+#include "irregexp/RegExpTypes.h"
 #include "jit/AtomicOperations.h"
 #include "jit/BaselineCodeGen.h"
 #include "jit/IonIC.h"
@@ -51,9 +49,6 @@
 #include "jit/StackSlotAllocator.h"
 #include "jit/VMFunctions.h"
 #include "js/RegExpFlags.h"  // JS::RegExpFlag
-#ifdef ENABLE_NEW_REGEXP
-#  include "new-regexp/RegExpTypes.h"
-#endif
 #include "util/CheckedArithmetic.h"
 #include "util/Unicode.h"
 #include "vm/ArrayBufferViewObject.h"
@@ -814,6 +809,27 @@ void CodeGenerator::visitOutOfLineICFallback(OutOfLineICFallback* ool) {
 
       StoreValueTo(unaryArithIC->output()).generate(this);
       restoreLiveIgnore(lir, StoreValueTo(unaryArithIC->output()).clobbered());
+
+      masm.jump(ool->rejoin());
+      return;
+    }
+    case CacheKind::ToPropertyKey: {
+      IonToPropertyKeyIC* toPropertyKeyIC = ic->asToPropertyKeyIC();
+
+      saveLive(lir);
+
+      pushArg(toPropertyKeyIC->input());
+      icInfo_[cacheInfoIndex].icOffsetForPush = pushArgWithPatch(ImmWord(-1));
+      pushArg(ImmGCPtr(gen->outerInfo().script()));
+
+      using Fn = bool (*)(JSContext * cx, HandleScript outerScript,
+                          IonToPropertyKeyIC * ic, HandleValue val,
+                          MutableHandleValue res);
+      callVM<Fn, IonToPropertyKeyIC::update>(lir);
+
+      StoreValueTo(toPropertyKeyIC->output()).generate(this);
+      restoreLiveIgnore(lir,
+                        StoreValueTo(toPropertyKeyIC->output()).clobbered());
 
       masm.jump(ool->rejoin());
       return;
@@ -2087,8 +2103,6 @@ static void UpdateRegExpStatics(MacroAssembler& masm, Register regexp,
   masm.store32(temp2, Address(staticsReg, RegExpStatics::offsetOfLazyFlags()));
 }
 
-#ifdef ENABLE_NEW_REGEXP
-
 // Prepare an InputOutputData and optional MatchPairs which space has been
 // allocated for on the stack, and try to execute a RegExp on a string input.
 // If the RegExp was successfully executed and matched the input, fallthrough.
@@ -2257,12 +2271,12 @@ static bool PrepareAndExecuteRegExp(JSContext* cx, MacroAssembler& masm,
     volatileRegs.add(regexp);
   }
 
-#  ifdef JS_TRACE_LOGGING
+#ifdef JS_TRACE_LOGGING
   if (TraceLogTextIdEnabled(TraceLogger_IrregexpExecute)) {
     masm.loadTraceLogger(temp2);
     masm.tracelogStartId(temp2, TraceLogger_IrregexpExecute);
   }
-#  endif
+#endif
 
   // Execute the RegExp.
   masm.computeEffectiveAddress(
@@ -2274,12 +2288,12 @@ static bool PrepareAndExecuteRegExp(JSContext* cx, MacroAssembler& masm,
   masm.storeCallInt32Result(temp1);
   masm.PopRegsInMask(volatileRegs);
 
-#  ifdef JS_TRACE_LOGGING
+#ifdef JS_TRACE_LOGGING
   if (TraceLogTextIdEnabled(TraceLogger_IrregexpExecute)) {
     masm.loadTraceLogger(temp2);
     masm.tracelogStopId(temp2, TraceLogger_IrregexpExecute);
   }
-#  endif
+#endif
 
   Label success;
   masm.branch32(Assembler::Equal, temp1,
@@ -2297,228 +2311,6 @@ static bool PrepareAndExecuteRegExp(JSContext* cx, MacroAssembler& masm,
 
   return true;
 }
-
-#else
-
-// Prepare an InputOutputData and optional MatchPairs which space has been
-// allocated for on the stack, and try to execute a RegExp on a string input.
-// If the RegExp was successfully executed and matched the input, fallthrough,
-// otherwise jump to notFound or failure.
-static bool PrepareAndExecuteRegExp(JSContext* cx, MacroAssembler& masm,
-                                    Register regexp, Register input,
-                                    Register lastIndex, Register temp1,
-                                    Register temp2, Register temp3,
-                                    size_t inputOutputDataStartOffset,
-                                    bool stringsCanBeInNursery, Label* notFound,
-                                    Label* failure) {
-  JitSpew(JitSpew_Codegen, "# Emitting PrepareAndExecuteRegExp");
-
-  // clang-format off
-    /*
-     * [SMDOC] Stack layout for PrepareAndExecuteRegExp
-     *
-     * inputOutputDataStartOffset +-----> +---------------+
-     *                                    |InputOutputData|
-     *          inputStartAddress +---------->  inputStart|
-     *            inputEndAddress +---------->    inputEnd|
-     *          startIndexAddress +---------->  startIndex|
-     *            endIndexAddress +---------->    endIndex|
-     *      matchesPointerAddress +---------->     matches|
-     *         matchResultAddress +---------->      result|
-     *                                    +---------------+
-     *      matchPairsStartOffset +-----> +---------------+
-     *                                    |  MatchPairs   |
-     *            pairCountAddress +----------->  count   |
-     *         pairsPointerAddress +----------->  pairs   |
-     *                                    |               |
-     *                                    +---------------+
-     *     pairsVectorStartOffset +-----> +---------------+
-     *                                    |   MatchPair   |
-     *                                    |       start   |  <-------+
-     *                                    |       limit   |          | Reserved space for
-     *                                    +---------------+          | `RegExpObject::MaxPairCount`
-     *                                           .                   | MatchPair objects.
-     *                                           .                   |
-     *                                           .                   |
-     *                                    +---------------+          |
-     *                                    |   MatchPair   |          |
-     *                                    |       start   |  <-------+
-     *                                    |       limit   |
-     *                                    +---------------+
-     */
-  // clang-format on
-
-  size_t matchPairsStartOffset =
-      inputOutputDataStartOffset + sizeof(irregexp::InputOutputData);
-  size_t pairsVectorStartOffset =
-      RegExpPairsVectorStartOffset(inputOutputDataStartOffset);
-
-  Address inputStartAddress(
-      masm.getStackPointer(),
-      inputOutputDataStartOffset +
-          offsetof(irregexp::InputOutputData, inputStart));
-  Address inputEndAddress(masm.getStackPointer(),
-                          inputOutputDataStartOffset +
-                              offsetof(irregexp::InputOutputData, inputEnd));
-  Address matchesPointerAddress(
-      masm.getStackPointer(), inputOutputDataStartOffset +
-                                  offsetof(irregexp::InputOutputData, matches));
-  Address startIndexAddress(
-      masm.getStackPointer(),
-      inputOutputDataStartOffset +
-          offsetof(irregexp::InputOutputData, startIndex));
-  Address endIndexAddress(masm.getStackPointer(),
-                          inputOutputDataStartOffset +
-                              offsetof(irregexp::InputOutputData, endIndex));
-  Address matchResultAddress(
-      masm.getStackPointer(),
-      inputOutputDataStartOffset + offsetof(irregexp::InputOutputData, result));
-
-  Address pairCountAddress =
-      RegExpPairCountAddress(masm, inputOutputDataStartOffset);
-  Address pairsPointerAddress(
-      masm.getStackPointer(),
-      matchPairsStartOffset + MatchPairs::offsetOfPairs());
-
-  // First, fill in a skeletal MatchPairs instance on the stack. This will be
-  // passed to the OOL stub in the caller if we aren't able to execute the
-  // RegExp inline, and that stub needs to be able to determine whether the
-  // execution finished successfully.
-
-  // Initialize MatchPairs::pairCount to 1, the correct value can only
-  // be determined after loading the RegExpShared.
-  masm.store32(Imm32(1), pairCountAddress);
-
-  // Initialize MatchPairs::pairs[0]::start to MatchPair::NoMatch.
-  Address firstMatchPairStartAddress(
-      masm.getStackPointer(),
-      pairsVectorStartOffset + offsetof(MatchPair, start));
-  masm.store32(Imm32(MatchPair::NoMatch), firstMatchPairStartAddress);
-
-  // Assign the MatchPairs::pairs pointer to the first MatchPair object.
-  Address pairsVectorAddress(masm.getStackPointer(), pairsVectorStartOffset);
-  masm.computeEffectiveAddress(pairsVectorAddress, temp1);
-  masm.storePtr(temp1, pairsPointerAddress);
-
-  // Check for a linear input string.
-  masm.branchIfRope(input, failure);
-
-  // Get the RegExpShared for the RegExp.
-  masm.loadPtr(Address(regexp, NativeObject::getFixedSlotOffset(
-                                   RegExpObject::PRIVATE_SLOT)),
-               temp1);
-  masm.branchPtr(Assembler::Equal, temp1, ImmWord(0), failure);
-
-  // Update lastIndex if necessary.
-  StepBackToLeadSurrogate(masm, temp1, input, lastIndex, temp2, temp3);
-
-  // Don't handle RegExps with excessive parens.
-  masm.load32(Address(temp1, RegExpShared::offsetOfPairCount()), temp2);
-  masm.branch32(Assembler::Above, temp2, Imm32(RegExpObject::MaxPairCount),
-                failure);
-
-  // Fill in the paren count in the MatchPairs on the stack.
-  masm.store32(temp2, pairCountAddress);
-
-  // Load the code pointer for the type of input string we have, and compute
-  // the input start/end pointers in the InputOutputData.
-  Register codePointer = temp1;
-  {
-    masm.loadStringLength(input, temp3);
-
-    Label isLatin1, done;
-    masm.branchLatin1String(input, &isLatin1);
-    {
-      masm.loadStringChars(input, temp2, CharEncoding::TwoByte);
-      masm.storePtr(temp2, inputStartAddress);
-      masm.lshiftPtr(Imm32(1), temp3);
-      masm.loadPtr(
-          Address(temp1, RegExpShared::offsetOfJitCode(/*latin1 =*/false)),
-          codePointer);
-      masm.jump(&done);
-    }
-    masm.bind(&isLatin1);
-    {
-      masm.loadStringChars(input, temp2, CharEncoding::Latin1);
-      masm.storePtr(temp2, inputStartAddress);
-      masm.loadPtr(
-          Address(temp1, RegExpShared::offsetOfJitCode(/*latin1 = */ true)),
-          codePointer);
-    }
-    masm.bind(&done);
-
-    masm.addPtr(temp3, temp2);
-    masm.storePtr(temp2, inputEndAddress);
-  }
-
-  // Check the RegExpShared has been compiled for this type of input.
-  masm.branchPtr(Assembler::Equal, codePointer, ImmWord(0), failure);
-  masm.loadPtr(Address(codePointer, JitCode::offsetOfCode()), codePointer);
-
-  // Finish filling in the InputOutputData instance on the stack.
-  masm.computeEffectiveAddress(
-      Address(masm.getStackPointer(), matchPairsStartOffset), temp2);
-  masm.storePtr(temp2, matchesPointerAddress);
-
-  masm.storePtr(lastIndex, startIndexAddress);
-  masm.store32(Imm32(RegExpRunStatus_Error), matchResultAddress);
-
-  // Save any volatile inputs.
-  LiveGeneralRegisterSet volatileRegs;
-  if (lastIndex.volatile_()) {
-    volatileRegs.add(lastIndex);
-  }
-  if (input.volatile_()) {
-    volatileRegs.add(input);
-  }
-  if (regexp.volatile_()) {
-    volatileRegs.add(regexp);
-  }
-
-#  ifdef JS_TRACE_LOGGING
-  if (TraceLogTextIdEnabled(TraceLogger_IrregexpExecute)) {
-    masm.push(temp1);
-    masm.loadTraceLogger(temp1);
-    masm.tracelogStartId(temp1, TraceLogger_IrregexpExecute);
-    masm.pop(temp1);
-  }
-#  endif
-
-  // Execute the RegExp.
-  masm.computeEffectiveAddress(
-      Address(masm.getStackPointer(), inputOutputDataStartOffset), temp2);
-  masm.PushRegsInMask(volatileRegs);
-  masm.setupUnalignedABICall(temp3);
-  masm.passABIArg(temp2);
-  masm.callWithABI(codePointer);
-  masm.PopRegsInMask(volatileRegs);
-
-#  ifdef JS_TRACE_LOGGING
-  if (TraceLogTextIdEnabled(TraceLogger_IrregexpExecute)) {
-    masm.loadTraceLogger(temp1);
-    masm.tracelogStopId(temp1, TraceLogger_IrregexpExecute);
-  }
-#  endif
-
-  Label success;
-  masm.branch32(Assembler::Equal, matchResultAddress,
-                Imm32(RegExpRunStatus_Success_NotFound), notFound);
-  masm.branch32(Assembler::Equal, matchResultAddress,
-                Imm32(RegExpRunStatus_Error), failure);
-
-  // Lazily update the RegExpStatics.
-  RegExpStatics* res = GlobalObject::getRegExpStatics(cx, cx->global());
-  if (!res) {
-    return false;
-  }
-  masm.movePtr(ImmPtr(res), temp1);
-  UpdateRegExpStatics(masm, regexp, input, lastIndex, temp1, temp2, temp3,
-                      stringsCanBeInNursery, volatileRegs);
-
-  return true;
-}
-
-#endif  // !ENABLE_NEW_REGEXP
 
 static void CopyStringChars(MacroAssembler& masm, Register to, Register from,
                             Register len, Register byteOpScratch,
@@ -2878,7 +2670,6 @@ JitCode* JitRealm::generateRegExpMatcherStub(JSContext* cx) {
     return nullptr;
   }
 
-#ifdef ENABLE_NEW_REGEXP
   // If a regexp has named captures, fall back to the OOL stub, which
   // will end up calling CreateRegExpMatchResults.
   Register shared = temp2;
@@ -2888,7 +2679,6 @@ JitCode* JitRealm::generateRegExpMatcherStub(JSContext* cx) {
   masm.branchPtr(Assembler::NotEqual,
                  Address(shared, RegExpShared::offsetOfGroupsTemplate()),
                  ImmWord(0), &oolEntry);
-#endif
 
   // Construct the result.
   Register object = temp1;
@@ -2897,7 +2687,6 @@ JitCode* JitRealm::generateRegExpMatcherStub(JSContext* cx) {
                       &matchResultFallback);
   masm.bind(&matchResultJoin);
 
-#ifdef ENABLE_NEW_REGEXP
   MOZ_ASSERT(nativeTemplateObj.numFixedSlots() == 0);
   // Dynamic slot count is always rounded to a power of 2
   MOZ_ASSERT(nativeTemplateObj.numDynamicSlots() == 4);
@@ -2907,14 +2696,6 @@ JitCode* JitRealm::generateRegExpMatcherStub(JSContext* cx) {
                 "Second slot holds the 'input' property");
   static_assert(RegExpRealm::MatchResultObjectGroupsSlot == 2,
                 "Third slot holds the 'groups' property");
-#else
-  MOZ_ASSERT(nativeTemplateObj.numFixedSlots() == 0);
-  MOZ_ASSERT(nativeTemplateObj.numDynamicSlots() == 2);
-  static_assert(RegExpRealm::MatchResultObjectIndexSlot == 0,
-                "First slot holds the 'index' property");
-  static_assert(RegExpRealm::MatchResultObjectInputSlot == 1,
-                "Second slot holds the 'input' property");
-#endif
 
   // Initialize the slots of the result object with the dummy values
   // defined in createMatchResultTemplateObject.
@@ -2925,11 +2706,9 @@ JitCode* JitRealm::generateRegExpMatcherStub(JSContext* cx) {
   masm.storeValue(
       nativeTemplateObj.getSlot(RegExpRealm::MatchResultObjectInputSlot),
       Address(temp2, RegExpRealm::offsetOfMatchResultObjectInputSlot()));
-#ifdef ENABLE_NEW_REGEXP
   masm.storeValue(
       nativeTemplateObj.getSlot(RegExpRealm::MatchResultObjectGroupsSlot),
       Address(temp2, RegExpRealm::offsetOfMatchResultObjectGroupsSlot()));
-#endif
 
   // clang-format off
    /*
@@ -4655,6 +4434,13 @@ void CodeGenerator::visitGuardSpecificAtom(LGuardSpecificAtom* guard) {
   bailout(guard->snapshot());
 
   masm.bind(&done);
+}
+
+void CodeGenerator::visitGuardSpecificSymbol(LGuardSpecificSymbol* guard) {
+  Register symbol = ToRegister(guard->symbol());
+
+  bailoutCmpPtr(Assembler::NotEqual, symbol, ImmGCPtr(guard->mir()->expected()),
+                guard->snapshot());
 }
 
 void CodeGenerator::visitGuardReceiverPolymorphic(
@@ -7790,16 +7576,15 @@ void CodeGenerator::visitReturnFromCtor(LReturnFromCtor* lir) {
   masm.bind(&end);
 }
 
-void CodeGenerator::visitComputeThis(LComputeThis* lir) {
-  ValueOperand value = ToValue(lir, LComputeThis::ValueIndex);
-  ValueOperand output = ToOutValue(lir);
+void CodeGenerator::visitBoxNonStrictThis(LBoxNonStrictThis* lir) {
+  ValueOperand value = ToValue(lir, LBoxNonStrictThis::ValueIndex);
+  Register output = ToRegister(lir->output());
 
-  using Fn = bool (*)(JSContext*, HandleValue, MutableHandleValue);
+  using Fn = JSObject* (*)(JSContext*, HandleValue);
   OutOfLineCode* ool = oolCallVM<Fn, BoxNonStrictThis>(lir, ArgList(value),
-                                                       StoreValueTo(output));
+                                                       StoreRegisterTo(output));
 
-  masm.branchTestObject(Assembler::NotEqual, value, ool->entry());
-  masm.moveValue(value, output);
+  masm.fallibleUnboxObject(value, output, ool->entry());
   masm.bind(ool->rejoin());
 }
 
@@ -8427,6 +8212,18 @@ void CodeGenerator::visitAbsF(LAbsF* ins) {
   MOZ_ASSERT(input == ToFloatRegister(ins->output()));
 
   masm.absFloat32(input, input);
+}
+
+void CodeGenerator::visitPowII(LPowII* ins) {
+  Register value = ToRegister(ins->value());
+  Register power = ToRegister(ins->power());
+  Register output = ToRegister(ins->output());
+  Register temp1 = ToRegister(ins->temp1());
+  Register temp2 = ToRegister(ins->temp2());
+
+  Label bailout;
+  masm.pow32(value, power, output, temp1, temp2, &bailout);
+  bailoutFrom(&bailout, ins->snapshot());
 }
 
 void CodeGenerator::visitPowI(LPowI* ins) {
@@ -12072,29 +11869,13 @@ void CodeGenerator::visitToAsyncIter(LToAsyncIter* lir) {
   callVM<Fn, js::CreateAsyncFromSyncIterator>(lir);
 }
 
-void CodeGenerator::visitToIdV(LToIdV* lir) {
-  Label notInt32;
-  FloatRegister temp = ToFloatRegister(lir->tempFloat());
-  const ValueOperand out = ToOutValue(lir);
-  ValueOperand input = ToValue(lir, LToIdV::Input);
+void CodeGenerator::visitToPropertyKeyCache(LToPropertyKeyCache* lir) {
+  LiveRegisterSet liveRegs = lir->safepoint()->liveRegs();
+  ValueOperand input = ToValue(lir, LToPropertyKeyCache::Input);
+  ValueOperand output = ToOutValue(lir);
 
-  using Fn = bool (*)(JSContext*, HandleValue, MutableHandleValue);
-  OutOfLineCode* ool = oolCallVM<Fn, ToIdOperation>(
-      lir, ArgList(ToValue(lir, LToIdV::Input)), StoreValueTo(out));
-
-  Register tag = masm.extractTag(input, out.scratchReg());
-
-  masm.branchTestInt32(Assembler::NotEqual, tag, &notInt32);
-  masm.moveValue(input, out);
-  masm.jump(ool->rejoin());
-
-  masm.bind(&notInt32);
-  masm.branchTestDouble(Assembler::NotEqual, tag, ool->entry());
-  masm.unboxDouble(input, temp);
-  masm.convertDoubleToInt32(temp, out.scratchReg(), ool->entry(), true);
-  masm.tagValue(JSVAL_TYPE_INT32, out.scratchReg(), out);
-
-  masm.bind(ool->rejoin());
+  IonToPropertyKeyIC ic(liveRegs, input, output);
+  addIC(lir, allocateIC(ic));
 }
 
 template <typename T>
@@ -14236,73 +14017,20 @@ void CodeGenerator::visitRandom(LRandom* ins) {
   using mozilla::non_crypto::XorShift128PlusRNG;
 
   FloatRegister output = ToFloatRegister(ins->output());
-  Register tempReg = ToRegister(ins->temp0());
+  Register rngReg = ToRegister(ins->temp0());
 
 #ifdef JS_PUNBOX64
-  Register64 s0Reg(ToRegister(ins->temp1()));
-  Register64 s1Reg(ToRegister(ins->temp2()));
+  Register64 temp1(ToRegister(ins->temp1()));
+  Register64 temp2(ToRegister(ins->temp2()));
 #else
-  Register64 s0Reg(ToRegister(ins->temp1()), ToRegister(ins->temp2()));
-  Register64 s1Reg(ToRegister(ins->temp3()), ToRegister(ins->temp4()));
+  Register64 temp1(ToRegister(ins->temp1()), ToRegister(ins->temp2()));
+  Register64 temp2(ToRegister(ins->temp3()), ToRegister(ins->temp4()));
 #endif
 
   const XorShift128PlusRNG* rng = gen->realm->addressOfRandomNumberGenerator();
-  masm.movePtr(ImmPtr(rng), tempReg);
+  masm.movePtr(ImmPtr(rng), rngReg);
 
-  static_assert(
-      sizeof(XorShift128PlusRNG) == 2 * sizeof(uint64_t),
-      "Code below assumes XorShift128PlusRNG contains two uint64_t values");
-
-  Address state0Addr(tempReg, XorShift128PlusRNG::offsetOfState0());
-  Address state1Addr(tempReg, XorShift128PlusRNG::offsetOfState1());
-
-  // uint64_t s1 = mState[0];
-  masm.load64(state0Addr, s1Reg);
-
-  // s1 ^= s1 << 23;
-  masm.move64(s1Reg, s0Reg);
-  masm.lshift64(Imm32(23), s1Reg);
-  masm.xor64(s0Reg, s1Reg);
-
-  // s1 ^= s1 >> 17
-  masm.move64(s1Reg, s0Reg);
-  masm.rshift64(Imm32(17), s1Reg);
-  masm.xor64(s0Reg, s1Reg);
-
-  // const uint64_t s0 = mState[1];
-  masm.load64(state1Addr, s0Reg);
-
-  // mState[0] = s0;
-  masm.store64(s0Reg, state0Addr);
-
-  // s1 ^= s0
-  masm.xor64(s0Reg, s1Reg);
-
-  // s1 ^= s0 >> 26
-  masm.rshift64(Imm32(26), s0Reg);
-  masm.xor64(s0Reg, s1Reg);
-
-  // mState[1] = s1
-  masm.store64(s1Reg, state1Addr);
-
-  // s1 += mState[0]
-  masm.load64(state0Addr, s0Reg);
-  masm.add64(s0Reg, s1Reg);
-
-  // See comment in XorShift128PlusRNG::nextDouble().
-  static const int MantissaBits = FloatingPoint<double>::kExponentShift + 1;
-  static const double ScaleInv = double(1) / (1ULL << MantissaBits);
-
-  masm.and64(Imm64((1ULL << MantissaBits) - 1), s1Reg);
-
-  if (masm.convertUInt64ToDoubleNeedsTemp()) {
-    masm.convertUInt64ToDouble(s1Reg, output, tempReg);
-  } else {
-    masm.convertUInt64ToDouble(s1Reg, output, Register::Invalid());
-  }
-
-  // output *= ScaleInv
-  masm.mulDoublePtr(ImmPtr(&ScaleInv), tempReg, output);
+  masm.randomDouble(rngReg, output, temp1, temp2);
 }
 
 void CodeGenerator::visitSignExtendInt32(LSignExtendInt32* ins) {

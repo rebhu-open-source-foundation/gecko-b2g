@@ -32,8 +32,6 @@ extern crate atomic_refcell;
 extern crate bitflags;
 #[allow(unused_extern_crates)]
 extern crate byteorder;
-#[cfg(feature = "servo")]
-extern crate crossbeam_channel;
 #[macro_use]
 extern crate cssparser;
 #[macro_use]
@@ -162,7 +160,6 @@ pub mod stylesheet_set;
 pub mod stylesheets;
 pub mod stylist;
 pub mod thread_state;
-pub mod timer;
 pub mod traversal;
 pub mod traversal_flags;
 pub mod use_counters;

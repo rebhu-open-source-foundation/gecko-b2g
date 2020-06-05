@@ -10,15 +10,6 @@
 
 #include "builtin/AtomicsObject.h"
 #include "builtin/DataViewObject.h"
-#ifdef JS_HAS_INTL_API
-#  include "builtin/intl/Collator.h"
-#  include "builtin/intl/DateTimeFormat.h"
-#  include "builtin/intl/DisplayNames.h"
-#  include "builtin/intl/ListFormat.h"
-#  include "builtin/intl/NumberFormat.h"
-#  include "builtin/intl/PluralRules.h"
-#  include "builtin/intl/RelativeTimeFormat.h"
-#endif
 #include "builtin/MapObject.h"
 #include "builtin/String.h"
 #include "builtin/TestingFunctions.h"
@@ -54,188 +45,6 @@ using JS::RegExpFlags;
 
 namespace js {
 namespace jit {
-
-// Returns true if |native| can be inlined cross-realm. Especially inlined
-// natives that can allocate objects or throw exceptions shouldn't be inlined
-// cross-realm without a careful analysis because we might use the wrong realm!
-//
-// Note that self-hosting intrinsics are never called cross-realm. See the
-// MOZ_CRASH below.
-//
-// If you are adding a new inlinable native, the safe thing is to |return false|
-// here.
-static bool CanInlineCrossRealm(InlinableNative native) {
-  switch (native) {
-    case InlinableNative::MathAbs:
-    case InlinableNative::MathFloor:
-    case InlinableNative::MathCeil:
-    case InlinableNative::MathRound:
-    case InlinableNative::MathClz32:
-    case InlinableNative::MathSqrt:
-    case InlinableNative::MathATan2:
-    case InlinableNative::MathHypot:
-    case InlinableNative::MathMax:
-    case InlinableNative::MathMin:
-    case InlinableNative::MathPow:
-    case InlinableNative::MathImul:
-    case InlinableNative::MathFRound:
-    case InlinableNative::MathTrunc:
-    case InlinableNative::MathSign:
-    case InlinableNative::MathSin:
-    case InlinableNative::MathTan:
-    case InlinableNative::MathCos:
-    case InlinableNative::MathExp:
-    case InlinableNative::MathLog:
-    case InlinableNative::MathASin:
-    case InlinableNative::MathATan:
-    case InlinableNative::MathACos:
-    case InlinableNative::MathLog10:
-    case InlinableNative::MathLog2:
-    case InlinableNative::MathLog1P:
-    case InlinableNative::MathExpM1:
-    case InlinableNative::MathCosH:
-    case InlinableNative::MathSinH:
-    case InlinableNative::MathTanH:
-    case InlinableNative::MathACosH:
-    case InlinableNative::MathASinH:
-    case InlinableNative::MathATanH:
-    case InlinableNative::MathCbrt:
-    case InlinableNative::Boolean:
-      return true;
-
-    case InlinableNative::Array:
-      // Cross-realm case handled by inlineArray.
-      return true;
-
-    case InlinableNative::MathRandom:
-      // RNG state is per-realm.
-      return false;
-
-    case InlinableNative::IntlGuardToCollator:
-    case InlinableNative::IntlGuardToDateTimeFormat:
-    case InlinableNative::IntlGuardToDisplayNames:
-    case InlinableNative::IntlGuardToListFormat:
-    case InlinableNative::IntlGuardToNumberFormat:
-    case InlinableNative::IntlGuardToPluralRules:
-    case InlinableNative::IntlGuardToRelativeTimeFormat:
-    case InlinableNative::IsRegExpObject:
-    case InlinableNative::IsPossiblyWrappedRegExpObject:
-    case InlinableNative::RegExpMatcher:
-    case InlinableNative::RegExpSearcher:
-    case InlinableNative::RegExpTester:
-    case InlinableNative::RegExpPrototypeOptimizable:
-    case InlinableNative::RegExpInstanceOptimizable:
-    case InlinableNative::GetFirstDollarIndex:
-    case InlinableNative::IntrinsicNewArrayIterator:
-    case InlinableNative::IntrinsicNewStringIterator:
-    case InlinableNative::IntrinsicNewRegExpStringIterator:
-    case InlinableNative::IntrinsicStringReplaceString:
-    case InlinableNative::IntrinsicStringSplitString:
-    case InlinableNative::IntrinsicUnsafeSetReservedSlot:
-    case InlinableNative::IntrinsicUnsafeGetReservedSlot:
-    case InlinableNative::IntrinsicUnsafeGetObjectFromReservedSlot:
-    case InlinableNative::IntrinsicUnsafeGetInt32FromReservedSlot:
-    case InlinableNative::IntrinsicUnsafeGetStringFromReservedSlot:
-    case InlinableNative::IntrinsicUnsafeGetBooleanFromReservedSlot:
-    case InlinableNative::IntrinsicIsCallable:
-    case InlinableNative::IntrinsicIsConstructor:
-    case InlinableNative::IntrinsicToObject:
-    case InlinableNative::IntrinsicIsObject:
-    case InlinableNative::IntrinsicIsCrossRealmArrayConstructor:
-    case InlinableNative::IntrinsicToInteger:
-    case InlinableNative::IntrinsicToString:
-    case InlinableNative::IntrinsicIsConstructing:
-    case InlinableNative::IntrinsicIsSuspendedGenerator:
-    case InlinableNative::IntrinsicSubstringKernel:
-    case InlinableNative::IntrinsicGuardToArrayIterator:
-    case InlinableNative::IntrinsicGuardToMapIterator:
-    case InlinableNative::IntrinsicGuardToSetIterator:
-    case InlinableNative::IntrinsicGuardToStringIterator:
-    case InlinableNative::IntrinsicGuardToRegExpStringIterator:
-    case InlinableNative::IntrinsicObjectHasPrototype:
-    case InlinableNative::IntrinsicFinishBoundFunctionInit:
-    case InlinableNative::IntrinsicIsPackedArray:
-    case InlinableNative::IntrinsicGuardToMapObject:
-    case InlinableNative::IntrinsicGetNextMapEntryForIterator:
-    case InlinableNative::IntrinsicGuardToSetObject:
-    case InlinableNative::IntrinsicGetNextSetEntryForIterator:
-    case InlinableNative::IntrinsicGuardToArrayBuffer:
-    case InlinableNative::IntrinsicArrayBufferByteLength:
-    case InlinableNative::IntrinsicPossiblyWrappedArrayBufferByteLength:
-    case InlinableNative::IntrinsicGuardToSharedArrayBuffer:
-    case InlinableNative::IntrinsicIsTypedArrayConstructor:
-    case InlinableNative::IntrinsicIsTypedArray:
-    case InlinableNative::IntrinsicIsPossiblyWrappedTypedArray:
-    case InlinableNative::IntrinsicPossiblyWrappedTypedArrayLength:
-    case InlinableNative::IntrinsicTypedArrayLength:
-    case InlinableNative::IntrinsicTypedArrayByteOffset:
-    case InlinableNative::IntrinsicTypedArrayElementShift:
-    case InlinableNative::IntrinsicArrayIteratorPrototypeOptimizable:
-      MOZ_CRASH("Unexpected cross-realm intrinsic call");
-
-    case InlinableNative::TestBailout:
-    case InlinableNative::TestAssertFloat32:
-    case InlinableNative::TestAssertRecoveredOnBailout:
-      // Testing functions, not worth inlining cross-realm.
-      return false;
-
-    case InlinableNative::ArrayIsArray:
-    case InlinableNative::ArrayJoin:
-    case InlinableNative::ArrayPop:
-    case InlinableNative::ArrayShift:
-    case InlinableNative::ArrayPush:
-    case InlinableNative::ArraySlice:
-    case InlinableNative::AtomicsCompareExchange:
-    case InlinableNative::AtomicsExchange:
-    case InlinableNative::AtomicsLoad:
-    case InlinableNative::AtomicsStore:
-    case InlinableNative::AtomicsAdd:
-    case InlinableNative::AtomicsSub:
-    case InlinableNative::AtomicsAnd:
-    case InlinableNative::AtomicsOr:
-    case InlinableNative::AtomicsXor:
-    case InlinableNative::AtomicsIsLockFree:
-    case InlinableNative::DataViewGetInt8:
-    case InlinableNative::DataViewGetUint8:
-    case InlinableNative::DataViewGetInt16:
-    case InlinableNative::DataViewGetUint16:
-    case InlinableNative::DataViewGetInt32:
-    case InlinableNative::DataViewGetUint32:
-    case InlinableNative::DataViewGetFloat32:
-    case InlinableNative::DataViewGetFloat64:
-    case InlinableNative::DataViewGetBigInt64:
-    case InlinableNative::DataViewGetBigUint64:
-    case InlinableNative::DataViewSetInt8:
-    case InlinableNative::DataViewSetUint8:
-    case InlinableNative::DataViewSetInt16:
-    case InlinableNative::DataViewSetUint16:
-    case InlinableNative::DataViewSetInt32:
-    case InlinableNative::DataViewSetUint32:
-    case InlinableNative::DataViewSetFloat32:
-    case InlinableNative::DataViewSetFloat64:
-    case InlinableNative::DataViewSetBigInt64:
-    case InlinableNative::DataViewSetBigUint64:
-    case InlinableNative::ReflectGetPrototypeOf:
-    case InlinableNative::String:
-    case InlinableNative::StringCharCodeAt:
-    case InlinableNative::StringFromCharCode:
-    case InlinableNative::StringFromCodePoint:
-    case InlinableNative::StringCharAt:
-    case InlinableNative::StringToLowerCase:
-    case InlinableNative::StringToUpperCase:
-    case InlinableNative::Object:
-    case InlinableNative::ObjectCreate:
-    case InlinableNative::ObjectIs:
-    case InlinableNative::ObjectToString:
-    case InlinableNative::TypedArrayConstructor:
-      // Default to false for most natives.
-      return false;
-
-    case InlinableNative::Limit:
-      break;
-  }
-  MOZ_CRASH("Unknown native");
-}
 
 IonBuilder::InliningResult IonBuilder::inlineNativeCall(CallInfo& callInfo,
                                                         JSFunction* target) {
@@ -275,7 +84,8 @@ IonBuilder::InliningResult IonBuilder::inlineNativeCall(CallInfo& callInfo,
 
   InlinableNative inlNative = target->jitInfo()->inlinableNative;
 
-  if (target->realm() != script()->realm() && !CanInlineCrossRealm(inlNative)) {
+  if (target->realm() != script()->realm() &&
+      !CanInlineNativeCrossRealm(inlNative)) {
     return InliningStatus_NotInlined;
   }
 
@@ -369,19 +179,13 @@ IonBuilder::InliningResult IonBuilder::inlineNativeCall(CallInfo& callInfo,
 #ifdef JS_HAS_INTL_API
     // Intl natives.
     case InlinableNative::IntlGuardToCollator:
-      return inlineGuardToClass(callInfo, &CollatorObject::class_);
     case InlinableNative::IntlGuardToDateTimeFormat:
-      return inlineGuardToClass(callInfo, &DateTimeFormatObject::class_);
     case InlinableNative::IntlGuardToDisplayNames:
-      return inlineGuardToClass(callInfo, &DisplayNamesObject::class_);
     case InlinableNative::IntlGuardToListFormat:
-      return inlineGuardToClass(callInfo, &ListFormatObject::class_);
     case InlinableNative::IntlGuardToNumberFormat:
-      return inlineGuardToClass(callInfo, &NumberFormatObject::class_);
     case InlinableNative::IntlGuardToPluralRules:
-      return inlineGuardToClass(callInfo, &PluralRulesObject::class_);
     case InlinableNative::IntlGuardToRelativeTimeFormat:
-      return inlineGuardToClass(callInfo, &RelativeTimeFormatObject::class_);
+      return inlineGuardToClass(callInfo, inlNative);
 #else
     case InlinableNative::IntlGuardToCollator:
     case InlinableNative::IntlGuardToDateTimeFormat:
@@ -565,15 +369,12 @@ IonBuilder::InliningResult IonBuilder::inlineNativeCall(CallInfo& callInfo,
     case InlinableNative::IntrinsicSubstringKernel:
       return inlineSubstringKernel(callInfo);
     case InlinableNative::IntrinsicGuardToArrayIterator:
-      return inlineGuardToClass(callInfo, &ArrayIteratorObject::class_);
     case InlinableNative::IntrinsicGuardToMapIterator:
-      return inlineGuardToClass(callInfo, &MapIteratorObject::class_);
     case InlinableNative::IntrinsicGuardToSetIterator:
-      return inlineGuardToClass(callInfo, &SetIteratorObject::class_);
     case InlinableNative::IntrinsicGuardToStringIterator:
-      return inlineGuardToClass(callInfo, &StringIteratorObject::class_);
     case InlinableNative::IntrinsicGuardToRegExpStringIterator:
-      return inlineGuardToClass(callInfo, &RegExpStringIteratorObject::class_);
+    case InlinableNative::IntrinsicGuardToWrapForValidIterator:
+      return inlineGuardToClass(callInfo, inlNative);
     case InlinableNative::IntrinsicObjectHasPrototype:
       return inlineObjectHasPrototype(callInfo);
     case InlinableNative::IntrinsicFinishBoundFunctionInit:
@@ -583,21 +384,21 @@ IonBuilder::InliningResult IonBuilder::inlineNativeCall(CallInfo& callInfo,
 
     // Map intrinsics.
     case InlinableNative::IntrinsicGuardToMapObject:
-      return inlineGuardToClass(callInfo, &MapObject::class_);
+      return inlineGuardToClass(callInfo, inlNative);
     case InlinableNative::IntrinsicGetNextMapEntryForIterator:
       return inlineGetNextEntryForIterator(callInfo,
                                            MGetNextEntryForIterator::Map);
 
     // Set intrinsics.
     case InlinableNative::IntrinsicGuardToSetObject:
-      return inlineGuardToClass(callInfo, &SetObject::class_);
+      return inlineGuardToClass(callInfo, inlNative);
     case InlinableNative::IntrinsicGetNextSetEntryForIterator:
       return inlineGetNextEntryForIterator(callInfo,
                                            MGetNextEntryForIterator::Set);
 
     // ArrayBuffer intrinsics.
     case InlinableNative::IntrinsicGuardToArrayBuffer:
-      return inlineGuardToClass(callInfo, &ArrayBufferObject::class_);
+      return inlineGuardToClass(callInfo, inlNative);
     case InlinableNative::IntrinsicArrayBufferByteLength:
       return inlineArrayBufferByteLength(callInfo);
     case InlinableNative::IntrinsicPossiblyWrappedArrayBufferByteLength:
@@ -605,7 +406,7 @@ IonBuilder::InliningResult IonBuilder::inlineNativeCall(CallInfo& callInfo,
 
     // SharedArrayBuffer intrinsics.
     case InlinableNative::IntrinsicGuardToSharedArrayBuffer:
-      return inlineGuardToClass(callInfo, &SharedArrayBufferObject::class_);
+      return inlineGuardToClass(callInfo, inlNative);
 
     // TypedArray intrinsics.
     case InlinableNative::TypedArrayConstructor:
@@ -2931,9 +2732,11 @@ IonBuilder::InliningResult IonBuilder::inlineHasClass(CallInfo& callInfo,
 }
 
 IonBuilder::InliningResult IonBuilder::inlineGuardToClass(
-    CallInfo& callInfo, const JSClass* clasp) {
+    CallInfo& callInfo, InlinableNative native) {
   MOZ_ASSERT(!callInfo.constructing());
   MOZ_ASSERT(callInfo.argc() == 1);
+
+  const JSClass* clasp = InlinableNativeGuardToClass(native);
 
   if (callInfo.getArg(0)->type() != MIRType::Object) {
     return InliningStatus_NotInlined;

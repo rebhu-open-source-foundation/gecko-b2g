@@ -209,7 +209,7 @@ bool BrowserChild::UpdateFrame(const RepaintRequest& aRequest) {
       // Guard against stale updates (updates meant for a pres shell which
       // has since been torn down and destroyed).
       if (aRequest.GetPresShellId() == presShell->GetPresShellId()) {
-        ProcessUpdateFrame(aRequest);
+        APZCCallbackHelper::UpdateRootFrame(aRequest);
         return true;
       }
     }
@@ -220,14 +220,6 @@ bool BrowserChild::UpdateFrame(const RepaintRequest& aRequest) {
     return true;
   }
   return true;
-}
-
-void BrowserChild::ProcessUpdateFrame(const RepaintRequest& aRequest) {
-  if (!mBrowserChildMessageManager) {
-    return;
-  }
-
-  APZCCallbackHelper::UpdateRootFrame(aRequest);
 }
 
 NS_IMETHODIMP

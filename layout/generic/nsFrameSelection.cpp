@@ -94,7 +94,7 @@ using namespace mozilla::dom;
  * @param  aEndRowIndex       [in] row index where the cells range ends
  * @param  aEndColumnIndex    [in] column index where the cells range ends
  */
-static nsresult AddCellsToSelection(nsIContent* aTableContent,
+static nsresult AddCellsToSelection(const nsIContent* aTableContent,
                                     int32_t aStartRowIndex,
                                     int32_t aStartColumnIndex,
                                     int32_t aEndRowIndex,
@@ -2631,7 +2631,7 @@ nsresult nsFrameSelection::TableSelection::SelectBlockOfCells(
   nsresult result = NS_OK;
 
   // If new end cell is in a different table, do nothing
-  const RefPtr<nsIContent> table = IsInSameTable(aStartCell, aEndCell);
+  const RefPtr<const nsIContent> table = IsInSameTable(aStartCell, aEndCell);
   if (!table) {
     return NS_OK;
   }
@@ -2657,7 +2657,7 @@ nsresult nsFrameSelection::TableSelection::SelectBlockOfCells(
 }
 
 nsresult nsFrameSelection::TableSelection::UnselectCells(
-    nsIContent* aTableContent, int32_t aStartRowIndex,
+    const nsIContent* aTableContent, int32_t aStartRowIndex,
     int32_t aStartColumnIndex, int32_t aEndRowIndex, int32_t aEndColumnIndex,
     bool aRemoveOutsideOfCellRange, mozilla::dom::Selection& aNormalSelection) {
   MOZ_ASSERT(aNormalSelection.Type() == SelectionType::eNormal);
@@ -2743,7 +2743,7 @@ nsresult SelectCellElement(nsIContent* aCellElement,
   return CreateAndAddRange(parent, offset, aNormalSelection);
 }
 
-static nsresult AddCellsToSelection(nsIContent* aTableContent,
+static nsresult AddCellsToSelection(const nsIContent* aTableContent,
                                     int32_t aStartRowIndex,
                                     int32_t aStartColumnIndex,
                                     int32_t aEndRowIndex,
@@ -2832,17 +2832,12 @@ nsresult nsFrameSelection::RestrictCellsToSelection(nsIContent* aTable,
                                        aEndColumnIndex, true, *selection);
 }
 
-nsresult nsFrameSelection::TableSelection::SelectRowOrColumn(
-    nsIContent* aCellContent, Selection& aNormalSelection) {
-  MOZ_ASSERT(aNormalSelection.Type() == SelectionType::eNormal);
-
-  if (!aCellContent) {
-    return NS_ERROR_NULL_POINTER;
-  }
-
-  nsIContent* table = GetParentTable(aCellContent);
+Result<nsFrameSelection::TableSelection::FirstAndLastCell, nsresult>
+nsFrameSelection::TableSelection::FindFirstAndLastCellOfRowOrColumn(
+    const nsIContent& aCellContent) const {
+  const nsIContent* table = GetParentTable(&aCellContent);
   if (!table) {
-    return NS_ERROR_NULL_POINTER;
+    return Err(NS_ERROR_NULL_POINTER);
   }
 
   // Get table and cell layout interfaces to access
@@ -2850,18 +2845,18 @@ nsresult nsFrameSelection::TableSelection::SelectRowOrColumn(
   // Frames are not ref counted, so don't use an nsCOMPtr
   nsTableWrapperFrame* tableFrame = do_QueryFrame(table->GetPrimaryFrame());
   if (!tableFrame) {
-    return NS_ERROR_FAILURE;
+    return Err(NS_ERROR_FAILURE);
   }
-  nsITableCellLayout* cellLayout = GetCellLayout(aCellContent);
+  nsITableCellLayout* cellLayout = GetCellLayout(&aCellContent);
   if (!cellLayout) {
-    return NS_ERROR_FAILURE;
+    return Err(NS_ERROR_FAILURE);
   }
 
   // Get location of target cell:
   int32_t rowIndex, colIndex;
   nsresult result = cellLayout->GetCellIndexes(rowIndex, colIndex);
   if (NS_FAILED(result)) {
-    return result;
+    return Err(result);
   }
 
   // Be sure we start at proper beginning
@@ -2873,7 +2868,7 @@ nsresult nsFrameSelection::TableSelection::SelectRowOrColumn(
     rowIndex = 0;
   }
 
-  nsCOMPtr<nsIContent> firstCell, lastCell;
+  FirstAndLastCell firstAndLastCell;
   while (true) {
     // Loop through all cells in column or row to find first and last
     nsCOMPtr<nsIContent> curCellContent =
@@ -2882,11 +2877,11 @@ nsresult nsFrameSelection::TableSelection::SelectRowOrColumn(
       break;
     }
 
-    if (!firstCell) {
-      firstCell = curCellContent;
+    if (!firstAndLastCell.mFirst) {
+      firstAndLastCell.mFirst = curCellContent;
     }
 
-    lastCell = std::move(curCellContent);
+    firstAndLastCell.mLast = std::move(curCellContent);
 
     // Move to next cell in cellmap, skipping spanned locations
     if (mMode == TableSelectionMode::Row) {
@@ -2895,26 +2890,46 @@ nsresult nsFrameSelection::TableSelection::SelectRowOrColumn(
       rowIndex += tableFrame->GetEffectiveRowSpanAt(rowIndex, colIndex);
     }
   }
+  return firstAndLastCell;
+}
+
+nsresult nsFrameSelection::TableSelection::SelectRowOrColumn(
+    nsIContent* aCellContent, Selection& aNormalSelection) {
+  MOZ_ASSERT(aNormalSelection.Type() == SelectionType::eNormal);
+
+  if (!aCellContent) {
+    return NS_ERROR_NULL_POINTER;
+  }
+
+  Result<FirstAndLastCell, nsresult> firstAndLastCell =
+      FindFirstAndLastCellOfRowOrColumn(*aCellContent);
+  if (firstAndLastCell.isErr()) {
+    return firstAndLastCell.unwrapErr();
+  }
 
   // Use SelectBlockOfCells:
   // This will replace existing selection,
   //  but allow unselecting by dragging out of selected region
-  if (firstCell && lastCell) {
+  if (firstAndLastCell.inspect().mFirst && firstAndLastCell.inspect().mLast) {
+    nsresult rv{NS_OK};
+
     if (!mStartSelectedCell) {
       // We are starting a new block, so select the first cell
-      result = ::SelectCellElement(firstCell, aNormalSelection);
-      if (NS_FAILED(result)) {
-        return result;
+      rv = ::SelectCellElement(firstAndLastCell.inspect().mFirst,
+                               aNormalSelection);
+      if (NS_FAILED(rv)) {
+        return rv;
       }
-      mStartSelectedCell = firstCell;
+      mStartSelectedCell = firstAndLastCell.inspect().mFirst;
     }
 
-    result = SelectBlockOfCells(mStartSelectedCell, lastCell, aNormalSelection);
+    rv = SelectBlockOfCells(mStartSelectedCell,
+                            firstAndLastCell.inspect().mLast, aNormalSelection);
 
     // This gets set to the cell at end of row/col,
     //   but we need it to be the cell under cursor
     mEndSelectedCell = aCellContent;
-    return result;
+    return rv;
   }
 
 #if 0
@@ -3014,8 +3029,8 @@ nsresult nsFrameSelection::GetCellIndexes(const nsIContent* aCell,
 }
 
 // static
-nsIContent* nsFrameSelection::IsInSameTable(nsIContent* aContent1,
-                                            nsIContent* aContent2) {
+nsIContent* nsFrameSelection::IsInSameTable(const nsIContent* aContent1,
+                                            const nsIContent* aContent2) {
   if (!aContent1 || !aContent2) return nullptr;
 
   nsIContent* tableNode1 = GetParentTable(aContent1);
@@ -3027,7 +3042,7 @@ nsIContent* nsFrameSelection::IsInSameTable(nsIContent* aContent1,
 }
 
 // static
-nsIContent* nsFrameSelection::GetParentTable(nsIContent* aCell) {
+nsIContent* nsFrameSelection::GetParentTable(const nsIContent* aCell) {
   if (!aCell) {
     return nullptr;
   }

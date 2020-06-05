@@ -13,7 +13,7 @@ use crate::context::{SharedStyleContext, StyleContext};
 use crate::data::ElementData;
 use crate::dom::TElement;
 #[cfg(feature = "servo")]
-use crate::dom::{OpaqueNode, TNode};
+use crate::dom::TNode;
 use crate::invalidation::element::restyle_hints::RestyleHint;
 use crate::properties::longhands::display::computed_value::T as Display;
 use crate::properties::ComputedValues;
@@ -437,55 +437,39 @@ trait PrivateMatchMethods: TElement {
         _restyle_hint: RestyleHint,
         _important_rules_changed: bool,
     ) {
-        use crate::animation;
+        use crate::animation::AnimationState;
 
         let this_opaque = self.as_node().opaque();
-        let mut expired_transitions = vec![];
         let shared_context = context.shared;
-        if let Some(ref mut old_values) = *old_values {
-            // We apply the expired transitions and animations to the old style
-            // here, because we later compare the old style to the new style in
-            // `start_transitions_if_applicable`. If the styles differ then it will
-            // cause the expired transition to restart.
-            //
-            // TODO(mrobinson): We should really be following spec behavior and calculate
-            // after-change-style and before-change-style here.
-            Self::collect_and_update_style_for_expired_transitions(
-                shared_context,
-                this_opaque,
-                old_values,
-                &mut expired_transitions,
-            );
+        let mut animation_states = shared_context.animation_states.write();
+        let mut animation_state = animation_states.remove(&this_opaque).unwrap_or_default();
 
-            Self::update_style_for_animations(
-                shared_context,
-                this_opaque,
-                old_values,
-                &context.thread_local.font_metrics_provider,
-            );
-        }
+        animation_state.update_animations_for_new_style(*self, &shared_context, &new_values);
 
-        let new_animations_sender = &context.thread_local.new_animations_sender;
-        // Trigger any present animations if necessary.
-        animation::maybe_start_animations(
-            *self,
+        animation_state.update_transitions_for_new_style::<Self>(
             &shared_context,
-            new_animations_sender,
             this_opaque,
-            &new_values,
+            old_values.as_ref(),
+            new_values,
+            &context.thread_local.font_metrics_provider,
         );
 
-        // Trigger transitions if necessary. This will set `new_values` to
-        // the starting value of the transition if it did trigger a transition.
-        if let Some(ref values) = old_values {
-            animation::update_transitions(
-                &shared_context,
-                new_animations_sender,
-                this_opaque,
-                &values,
-                new_values,
-                &expired_transitions,
-            );
+        animation_state.apply_active_animations::<Self>(
+            shared_context,
+            new_values,
+            &context.thread_local.font_metrics_provider,
+        );
+
+        // We clear away any finished transitions, but retain animations, because they
+        // might still be used for proper calculation of `animation-fill-mode`.
+        animation_state
+            .transitions
+            .retain(|transition| transition.state != AnimationState::Finished);
+
+        // If the ElementAnimationSet is empty, and don't store it in order to
+        // save memory and to avoid extra processing later.
+        if !animation_state.is_empty() {
+            animation_states.insert(this_opaque, animation_state);
         }
     }
 
@@ -600,67 +584,6 @@ trait PrivateMatchMethods: TElement {
         // We could prove that, if our children don't inherit reset
         // properties, we can stop the cascade.
         ChildCascadeRequirement::MustCascadeChildrenIfInheritResetStyle
-    }
-
-    #[cfg(feature = "servo")]
-    fn collect_and_update_style_for_expired_transitions(
-        context: &SharedStyleContext,
-        node: OpaqueNode,
-        style: &mut Arc<ComputedValues>,
-        expired_transitions: &mut Vec<crate::animation::PropertyAnimation>,
-    ) {
-        use crate::animation::Animation;
-
-        let mut all_expired_animations = context.expired_animations.write();
-        if let Some(animations) = all_expired_animations.remove(&node) {
-            debug!("removing expired animations for {:?}", node);
-            for animation in animations {
-                debug!("Updating expired animation {:?}", animation);
-                // TODO: support animation-fill-mode
-                if let Animation::Transition(_, _, property_animation) = animation {
-                    property_animation.update(Arc::make_mut(style), 1.0);
-                    expired_transitions.push(property_animation);
-                }
-            }
-        }
-    }
-
-    #[cfg(feature = "servo")]
-    fn update_style_for_animations(
-        context: &SharedStyleContext,
-        node: OpaqueNode,
-        style: &mut Arc<ComputedValues>,
-        font_metrics: &dyn crate::font_metrics::FontMetricsProvider,
-    ) {
-        use crate::animation::{self, Animation, AnimationUpdate};
-
-        let mut all_running_animations = context.running_animations.write();
-        let running_animations = match all_running_animations.get_mut(&node) {
-            Some(running_animations) => running_animations,
-            None => return,
-        };
-
-        for running_animation in running_animations.iter_mut() {
-            let update = match *running_animation {
-                Animation::Transition(..) => continue,
-                Animation::Keyframes(..) => animation::update_style_for_animation::<Self>(
-                    context,
-                    running_animation,
-                    style,
-                    font_metrics,
-                ),
-            };
-
-            match *running_animation {
-                Animation::Transition(..) => unreachable!(),
-                Animation::Keyframes(_, _, _, ref mut state) => match update {
-                    AnimationUpdate::Regular => {},
-                    AnimationUpdate::AnimationCanceled => {
-                        state.expired = true;
-                    },
-                },
-            }
-        }
     }
 }
 

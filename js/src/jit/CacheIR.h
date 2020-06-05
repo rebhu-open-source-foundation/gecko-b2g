@@ -26,6 +26,7 @@ namespace js {
 namespace jit {
 
 enum class BaselineCacheIRStubKind;
+enum class InlinableNative : uint16_t;
 
 // [SMDOC] CacheIR
 //
@@ -166,6 +167,7 @@ class TypedOperandId : public OperandId {
   _(In)                   \
   _(HasOwn)               \
   _(TypeOf)               \
+  _(ToPropertyKey)        \
   _(InstanceOf)           \
   _(GetIterator)          \
   _(Compare)              \
@@ -1528,9 +1530,13 @@ class MOZ_RAII CallIRGenerator : public IRGenerator {
   AttachDecision tryAttachIsObject(HandleFunction callee);
   AttachDecision tryAttachIsCallable(HandleFunction callee);
   AttachDecision tryAttachIsConstructor(HandleFunction callee);
+  AttachDecision tryAttachGuardToClass(HandleFunction callee,
+                                       InlinableNative native);
   AttachDecision tryAttachStringChar(HandleFunction callee, StringChar kind);
   AttachDecision tryAttachStringCharCodeAt(HandleFunction callee);
   AttachDecision tryAttachStringCharAt(HandleFunction callee);
+  AttachDecision tryAttachStringFromCharCode(HandleFunction callee);
+  AttachDecision tryAttachMathRandom(HandleFunction callee);
   AttachDecision tryAttachMathAbs(HandleFunction callee);
   AttachDecision tryAttachMathFloor(HandleFunction callee);
   AttachDecision tryAttachMathCeil(HandleFunction callee);
@@ -1538,6 +1544,7 @@ class MOZ_RAII CallIRGenerator : public IRGenerator {
   AttachDecision tryAttachMathSqrt(HandleFunction callee);
   AttachDecision tryAttachMathFunction(HandleFunction callee,
                                        UnaryMathFunction fun);
+  AttachDecision tryAttachMathPow(HandleFunction callee);
 
   AttachDecision tryAttachFunCall(HandleFunction calleeFunc);
   AttachDecision tryAttachFunApply(HandleFunction calleeFunc);
@@ -1651,6 +1658,23 @@ class MOZ_RAII UnaryArithIRGenerator : public IRGenerator {
   UnaryArithIRGenerator(JSContext* cx, HandleScript, jsbytecode* pc,
                         ICState::Mode mode, JSOp op, HandleValue val,
                         HandleValue res);
+
+  AttachDecision tryAttachStub();
+};
+
+class MOZ_RAII ToPropertyKeyIRGenerator : public IRGenerator {
+  HandleValue val_;
+
+  AttachDecision tryAttachInt32();
+  AttachDecision tryAttachNumber();
+  AttachDecision tryAttachString();
+  AttachDecision tryAttachSymbol();
+
+  void trackAttached(const char* name);
+
+ public:
+  ToPropertyKeyIRGenerator(JSContext* cx, HandleScript, jsbytecode* pc,
+                           ICState::Mode mode, HandleValue val);
 
   AttachDecision tryAttachStub();
 };

@@ -4542,13 +4542,15 @@ class MToAsyncIter : public MBinaryInstruction,
   NAMED_OPERANDS((0, getIterator), (1, getNextMethod))
 };
 
-class MToId : public MUnaryInstruction, public BoxInputsPolicy::Data {
-  explicit MToId(MDefinition* index) : MUnaryInstruction(classOpcode, index) {
+class MToPropertyKeyCache : public MUnaryInstruction,
+                            public BoxPolicy<0>::Data {
+  explicit MToPropertyKeyCache(MDefinition* input)
+      : MUnaryInstruction(classOpcode, input) {
     setResultType(MIRType::Value);
   }
 
  public:
-  INSTRUCTION_HEADER(ToId)
+  INSTRUCTION_HEADER(ToPropertyKeyCache)
   TRIVIAL_NEW_WRAPPERS
 };
 
@@ -5173,11 +5175,17 @@ class MHypot : public MVariadicInstruction, public AllDoublePolicy::Data {
 
 // Inline implementation of Math.pow().
 class MPow : public MBinaryInstruction, public PowPolicy::Data {
-  MPow(MDefinition* input, MDefinition* power, MIRType powerType)
-      : MBinaryInstruction(classOpcode, input, power) {
-    MOZ_ASSERT(powerType == MIRType::Double || powerType == MIRType::Int32);
-    specialization_ = powerType;
-    setResultType(MIRType::Double);
+  // If true, convert the power operand to int32 instead of double (this only
+  // affects the Double specialization). This exists because we can sometimes
+  // get more precise types during MIR building than in type analysis.
+  bool powerIsInt32_;
+
+  MPow(MDefinition* input, MDefinition* power, MIRType specialization)
+      : MBinaryInstruction(classOpcode, input, power),
+        powerIsInt32_(power->type() == MIRType::Int32) {
+    MOZ_ASSERT(specialization == MIRType::Int32 ||
+               specialization == MIRType::Double);
+    setResultType(specialization);
     setMovable();
   }
 
@@ -5191,11 +5199,16 @@ class MPow : public MBinaryInstruction, public PowPolicy::Data {
 
   MDefinition* input() const { return lhs(); }
   MDefinition* power() const { return rhs(); }
+  bool powerIsInt32() const { return powerIsInt32_; }
+
   bool congruentTo(const MDefinition* ins) const override {
+    if (!ins->isPow() || ins->toPow()->powerIsInt32() != powerIsInt32()) {
+      return false;
+    }
     return congruentIfOperandsEqual(ins);
   }
   AliasSet getAliasSet() const override { return AliasSet::None(); }
-  bool possiblyCalls() const override { return true; }
+  bool possiblyCalls() const override { return type() != MIRType::Int32; }
   MOZ_MUST_USE bool writeRecoverData(
       CompactBufferWriter& writer) const override;
   bool canRecoverOnBailout() const override { return true; }
@@ -5907,16 +5920,16 @@ class MStringSplit : public MBinaryInstruction,
   }
 };
 
-// Returns the value to use as |this| value. See also ComputeThis and
+// Returns the object to use as |this| value in a non-strict function. See also
 // BoxNonStrictThis in Interpreter.h.
-class MComputeThis : public MUnaryInstruction, public BoxPolicy<0>::Data {
-  explicit MComputeThis(MDefinition* def)
+class MBoxNonStrictThis : public MUnaryInstruction, public BoxPolicy<0>::Data {
+  explicit MBoxNonStrictThis(MDefinition* def)
       : MUnaryInstruction(classOpcode, def) {
-    setResultType(MIRType::Value);
+    setResultType(MIRType::Object);
   }
 
  public:
-  INSTRUCTION_HEADER(ComputeThis)
+  INSTRUCTION_HEADER(BoxNonStrictThis)
   TRIVIAL_NEW_WRAPPERS
 
   bool possiblyCalls() const override { return true; }
@@ -9243,6 +9256,41 @@ class MGuardSpecificAtom : public MUnaryInstruction,
 
   bool appendRoots(MRootList& roots) const override {
     return roots.append(atom_);
+  }
+};
+
+class MGuardSpecificSymbol : public MUnaryInstruction,
+                             public SymbolPolicy<0>::Data {
+  CompilerGCPointer<JS::Symbol*> expected_;
+
+  MGuardSpecificSymbol(MDefinition* symbol, JS::Symbol* expected)
+      : MUnaryInstruction(classOpcode, symbol), expected_(expected) {
+    setGuard();
+    setMovable();
+    setResultType(MIRType::Symbol);
+  }
+
+ public:
+  INSTRUCTION_HEADER(GuardSpecificSymbol)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, symbol))
+
+  JS::Symbol* expected() const { return expected_; }
+
+  bool congruentTo(const MDefinition* ins) const override {
+    if (!ins->isGuardSpecificSymbol()) {
+      return false;
+    }
+    if (expected() != ins->toGuardSpecificSymbol()->expected()) {
+      return false;
+    }
+    return congruentIfOperandsEqual(ins);
+  }
+  MDefinition* foldsTo(TempAllocator& alloc) override;
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
+
+  bool appendRoots(MRootList& roots) const override {
+    return roots.append(expected_);
   }
 };
 

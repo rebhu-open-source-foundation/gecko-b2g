@@ -463,7 +463,7 @@ bool IProtocol::ChannelSend(IPC::Message* aMsg) {
     // NOTE: This send call failing can only occur during toplevel channel
     // teardown. As this is an async call, this isn't reasonable to predict or
     // respond to, so just drop the message on the floor silently.
-    GetIPCChannel()->Send(msg.release());
+    GetIPCChannel()->Send(std::move(msg));
     return true;
   }
 
@@ -474,7 +474,7 @@ bool IProtocol::ChannelSend(IPC::Message* aMsg) {
 bool IProtocol::ChannelSend(IPC::Message* aMsg, IPC::Message* aReply) {
   UniquePtr<IPC::Message> msg(aMsg);
   if (CanSend()) {
-    return GetIPCChannel()->Send(msg.release(), aReply);
+    return GetIPCChannel()->Send(std::move(msg), aReply);
   }
 
   NS_WARNING("IPC message discarded: actor cannot send");
@@ -484,7 +484,7 @@ bool IProtocol::ChannelSend(IPC::Message* aMsg, IPC::Message* aReply) {
 bool IProtocol::ChannelCall(IPC::Message* aMsg, IPC::Message* aReply) {
   UniquePtr<IPC::Message> msg(aMsg);
   if (CanSend()) {
-    return GetIPCChannel()->Call(msg.release(), aReply);
+    return GetIPCChannel()->Call(std::move(msg), aReply);
   }
 
   NS_WARNING("IPC message discarded: actor cannot send");
@@ -699,12 +699,12 @@ Shmem::SharedMemory* IToplevelProtocol::CreateSharedMemory(
       OtherPid();
 #endif
 
-  Message* descriptor =
+  UniquePtr<Message> descriptor =
       shmem.ShareTo(Shmem::PrivateIPDLCaller(), pid, MSG_ROUTING_CONTROL);
   if (!descriptor) {
     return nullptr;
   }
-  Unused << GetIPCChannel()->Send(descriptor);
+  Unused << GetIPCChannel()->Send(std::move(descriptor));
 
   *aId = shmem.Id(Shmem::PrivateIPDLCaller());
   Shmem::SharedMemory* rawSegment = segment.get();
@@ -733,7 +733,7 @@ bool IToplevelProtocol::DestroySharedMemory(Shmem& shmem) {
     return false;
   }
 
-  Message* descriptor =
+  UniquePtr<Message> descriptor =
       shmem.UnshareFrom(Shmem::PrivateIPDLCaller(), MSG_ROUTING_CONTROL);
 
   MOZ_ASSERT(mShmemMap.Contains(aId),
@@ -743,11 +743,10 @@ bool IToplevelProtocol::DestroySharedMemory(Shmem& shmem) {
 
   MessageChannel* channel = GetIPCChannel();
   if (!channel->CanSend()) {
-    delete descriptor;
     return true;
   }
 
-  return descriptor && channel->Send(descriptor);
+  return descriptor && channel->Send(std::move(descriptor));
 }
 
 void IToplevelProtocol::DeallocShmems() {

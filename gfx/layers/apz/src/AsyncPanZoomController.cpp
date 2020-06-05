@@ -120,7 +120,6 @@ typedef GeckoContentController::APZStateChange APZStateChange;
 typedef GeckoContentController::TapType TapType;
 typedef mozilla::gfx::Point Point;
 typedef mozilla::gfx::Matrix4x4 Matrix4x4;
-using mozilla::gfx::PointTyped;
 
 // Choose between platform-specific implementations.
 #ifdef MOZ_WIDGET_ANDROID
@@ -1353,7 +1352,7 @@ nsEventStatus AsyncPanZoomController::OnTouchStart(
     case NOTHING: {
       ParentLayerPoint point = GetFirstTouchPoint(aEvent);
       mStartTouch = GetFirstExternalTouchPoint(aEvent);
-      StartTouch(point, aEvent.mTime);
+      StartTouch(point, aEvent.mTimeStamp);
       if (RefPtr<GeckoContentController> controller =
               GetGeckoContentController()) {
         MOZ_ASSERT(GetCurrentTouchBlock());
@@ -1508,7 +1507,7 @@ nsEventStatus AsyncPanZoomController::OnTouchEnd(
     case PANNING_LOCKED_Y:
     case PAN_MOMENTUM: {
       MOZ_ASSERT(GetCurrentTouchBlock());
-      EndTouch(aEvent.mTime);
+      EndTouch(aEvent.mTimeStamp);
       return HandleEndOfPan();
     }
     case PINCHING:
@@ -1557,7 +1556,7 @@ nsEventStatus AsyncPanZoomController::OnScaleBegin(
   // If zooming is not allowed, this is a two-finger pan.
   // Start tracking panning distance and velocity.
   if (!mZoomConstraints.mAllowZoom) {
-    StartTouch(aEvent.mLocalFocusPoint, aEvent.mTime);
+    StartTouch(aEvent.mLocalFocusPoint, aEvent.mTimeStamp);
   }
 
   // For platforms that don't support APZ zooming, dispatch a message to the
@@ -1596,7 +1595,7 @@ nsEventStatus AsyncPanZoomController::OnScale(const PinchGestureInput& aEvent) {
   }
 
   mPinchEventBuffer.push(aEvent);
-  HandlePinchLocking();
+  HandlePinchLocking(aEvent);
   bool allowZoom = mZoomConstraints.mAllowZoom && !mPinchLocked;
 
   // If zooming is not allowed, this is a two-finger pan.
@@ -1604,8 +1603,10 @@ nsEventStatus AsyncPanZoomController::OnScale(const PinchGestureInput& aEvent) {
   // UpdateWithTouchAtDevicePoint() acquires the tree lock, so
   // it cannot be called while the mRecursiveMutex lock is held.
   if (!allowZoom) {
-    mX.UpdateWithTouchAtDevicePoint(aEvent.mLocalFocusPoint.x, aEvent.mTime);
-    mY.UpdateWithTouchAtDevicePoint(aEvent.mLocalFocusPoint.y, aEvent.mTime);
+    mX.UpdateWithTouchAtDevicePoint(aEvent.mLocalFocusPoint.x,
+                                    aEvent.mTimeStamp);
+    mY.UpdateWithTouchAtDevicePoint(aEvent.mLocalFocusPoint.y,
+                                    aEvent.mTimeStamp);
   }
 
   // FIXME: bug 1525793 -- this may need to handle zooming or not on a
@@ -1765,7 +1766,7 @@ nsEventStatus AsyncPanZoomController::OnScaleEnd(
     // One finger is still down, so transition to a TOUCHING state
     if (mZoomConstraints.mAllowZoom) {
       mPanDirRestricted = false;
-      StartTouch(aEvent.mLocalFocusPoint, aEvent.mTime);
+      StartTouch(aEvent.mLocalFocusPoint, aEvent.mTimeStamp);
       SetState(TOUCHING);
     } else {
       // If zooming isn't allowed, StartTouch() was already called
@@ -1804,7 +1805,7 @@ nsEventStatus AsyncPanZoomController::OnScaleEnd(
       ScrollSnap();
     } else {
       // when zoom is not allowed
-      EndTouch(aEvent.mTime);
+      EndTouch(aEvent.mTimeStamp);
       if (stateWasPinching) {
         // still pinching
         if (HasReadyTouchBlock()) {
@@ -2466,7 +2467,7 @@ nsEventStatus AsyncPanZoomController::OnPanMayBegin(
     const PanGestureInput& aEvent) {
   APZC_LOG("%p got a pan-maybegin in state %d\n", this, mState);
 
-  StartTouch(aEvent.mLocalPanStartPoint, aEvent.mTime);
+  StartTouch(aEvent.mLocalPanStartPoint, aEvent.mTimeStamp);
   MOZ_ASSERT(GetCurrentPanGestureBlock());
   GetCurrentPanGestureBlock()->GetOverscrollHandoffChain()->CancelAnimations();
 
@@ -2492,7 +2493,7 @@ nsEventStatus AsyncPanZoomController::OnPanBegin(
     CancelAnimation();
   }
 
-  StartTouch(aEvent.mLocalPanStartPoint, aEvent.mTime);
+  StartTouch(aEvent.mLocalPanStartPoint, aEvent.mTimeStamp);
 
   if (GetAxisLockMode() == FREE) {
     SetState(PANNING);
@@ -2620,9 +2621,9 @@ nsEventStatus AsyncPanZoomController::OnPan(const PanGestureInput& aEvent,
   // the only caller of UpdateWithTouchAtDevicePoint() for pan events, so
   // there is no risk of other calls resetting the position.)
   mX.UpdateWithTouchAtDevicePoint(mX.GetPos() - logicalPanDisplacement.x,
-                                  aEvent.mTime);
+                                  aEvent.mTimeStamp);
   mY.UpdateWithTouchAtDevicePoint(mY.GetPos() - logicalPanDisplacement.y,
-                                  aEvent.mTime);
+                                  aEvent.mTimeStamp);
 
   HandlePanningUpdate(physicalPanDisplacement);
 
@@ -2663,7 +2664,7 @@ nsEventStatus AsyncPanZoomController::OnPanEnd(const PanGestureInput& aEvent) {
   // Call into OnPan in order to process any delta included in this event.
   OnPan(aEvent, true);
 
-  EndTouch(aEvent.mTime);
+  EndTouch(aEvent.mTimeStamp);
 
   // Use HandleEndOfPan for fling on platforms that don't
   // emit momentum events (Gtk).
@@ -3075,7 +3076,8 @@ void AsyncPanZoomController::HandlePanningUpdate(
   }
 }
 
-void AsyncPanZoomController::HandlePinchLocking() {
+void AsyncPanZoomController::HandlePinchLocking(
+    const PinchGestureInput& aEvent) {
   // Focus change and span distance calculated from an event buffer
   // Used to handle pinch locking irrespective of touch screen sensitivity
   // Note: both values fall back to the same value as
@@ -3123,6 +3125,10 @@ void AsyncPanZoomController::HandlePinchLocking() {
       if (spanDistance < spanLockThreshold &&
           focusChange.Length() > scrollLockThreshold) {
         mPinchLocked = true;
+
+        // We are transitioning to a two-finger pan that could trigger
+        // a fling at its end, so start tracking velocity.
+        StartTouch(aEvent.mLocalFocusPoint, aEvent.mTimeStamp);
       }
     }
   }
@@ -3161,8 +3167,8 @@ nsEventStatus AsyncPanZoomController::StartPanning(
 void AsyncPanZoomController::UpdateWithTouchAtDevicePoint(
     const MultiTouchInput& aEvent) {
   ParentLayerPoint point = GetFirstTouchPoint(aEvent);
-  mX.UpdateWithTouchAtDevicePoint(point.x, aEvent.mTime);
-  mY.UpdateWithTouchAtDevicePoint(point.y, aEvent.mTime);
+  mX.UpdateWithTouchAtDevicePoint(point.x, aEvent.mTimeStamp);
+  mY.UpdateWithTouchAtDevicePoint(point.y, aEvent.mTimeStamp);
 }
 
 Maybe<CompositionPayload> AsyncPanZoomController::NotifyScrollSampling() {
@@ -3540,16 +3546,16 @@ void AsyncPanZoomController::RecordScrollPayload(const TimeStamp& aTimeStamp) {
 }
 
 void AsyncPanZoomController::StartTouch(const ParentLayerPoint& aPoint,
-                                        uint32_t aTimestampMs) {
+                                        TimeStamp aTimestamp) {
   RecursiveMutexAutoLock lock(mRecursiveMutex);
-  mX.StartTouch(aPoint.x, aTimestampMs);
-  mY.StartTouch(aPoint.y, aTimestampMs);
+  mX.StartTouch(aPoint.x, aTimestamp);
+  mY.StartTouch(aPoint.y, aTimestamp);
 }
 
-void AsyncPanZoomController::EndTouch(uint32_t aTimestampMs) {
+void AsyncPanZoomController::EndTouch(TimeStamp aTimestamp) {
   RecursiveMutexAutoLock lock(mRecursiveMutex);
-  mX.EndTouch(aTimestampMs);
-  mY.EndTouch(aTimestampMs);
+  mX.EndTouch(aTimestamp);
+  mY.EndTouch(aTimestamp);
 }
 
 void AsyncPanZoomController::TrackTouch(const MultiTouchInput& aEvent) {
@@ -4546,28 +4552,13 @@ void AsyncPanZoomController::NotifyLayersUpdated(
   RepaintUpdateType contentRepaintType = RepaintUpdateType::eNone;
   bool viewportUpdated = false;
 
-  // We usually don't entertain viewport updates on the same transaction as
-  // a composition bounds update, but we make an exception for Android
-  // to avoid the composition bounds and the viewport diverging during
-  // orientation changes and dynamic toolbar transitions.
-  // TODO: Do this on all platforms.
-  bool entertainViewportUpdates =
-      FuzzyEqualsAdditive(aLayerMetrics.GetCompositionBounds().Width(),
-                          Metrics().GetCompositionBounds().Width()) &&
-      FuzzyEqualsAdditive(aLayerMetrics.GetCompositionBounds().Height(),
-                          Metrics().GetCompositionBounds().Height());
-#if defined(MOZ_WIDGET_ANDROID)
-  entertainViewportUpdates = true;
-#endif
-  if (entertainViewportUpdates) {
-    if (Metrics().GetLayoutViewport().Size() !=
-        aLayerMetrics.GetLayoutViewport().Size()) {
-      needContentRepaint = true;
-      viewportUpdated = true;
-    }
-    if (viewportUpdated || scrollOffsetUpdated) {
-      Metrics().SetLayoutViewport(aLayerMetrics.GetLayoutViewport());
-    }
+  if (Metrics().GetLayoutViewport().Size() !=
+      aLayerMetrics.GetLayoutViewport().Size()) {
+    needContentRepaint = true;
+    viewportUpdated = true;
+  }
+  if (viewportUpdated || scrollOffsetUpdated) {
+    Metrics().SetLayoutViewport(aLayerMetrics.GetLayoutViewport());
   }
 
   if ((aIsFirstPaint && aThisLayerTreeUpdated) || isDefault) {

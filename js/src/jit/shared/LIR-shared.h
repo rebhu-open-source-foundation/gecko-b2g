@@ -762,21 +762,23 @@ class LToAsyncIter : public LCallInstructionHelper<1, 1 + BOX_PIECES, 0> {
   const LAllocation* iterator() { return getOperand(0); }
 };
 
-class LToIdV : public LInstructionHelper<BOX_PIECES, BOX_PIECES, 1> {
+class LToPropertyKeyCache
+    : public LInstructionHelper<BOX_PIECES, BOX_PIECES, 0> {
  public:
-  LIR_HEADER(ToIdV)
+  LIR_HEADER(ToPropertyKeyCache)
 
-  LToIdV(const LBoxAllocation& input, const LDefinition& temp)
+  explicit LToPropertyKeyCache(const LBoxAllocation& input)
       : LInstructionHelper(classOpcode) {
     setBoxOperand(Input, input);
-    setTemp(0, temp);
   }
 
+  const MToPropertyKeyCache* mir() const {
+    return mir_->toToPropertyKeyCache();
+  }
+
+  const LAllocation* input() { return getOperand(Input); }
+
   static const size_t Input = 0;
-
-  MToId* mir() const { return mir_->toToId(); }
-
-  const LDefinition* tempFloat() { return getTemp(0); }
 };
 
 // Allocate an object for |new| on the caller-side,
@@ -919,20 +921,18 @@ class LReturnFromCtor : public LInstructionHelper<1, BOX_PIECES + 1, 0> {
   static const size_t ObjectIndex = BOX_PIECES;
 };
 
-class LComputeThis : public LInstructionHelper<BOX_PIECES, BOX_PIECES, 0> {
+class LBoxNonStrictThis : public LInstructionHelper<1, BOX_PIECES, 0> {
  public:
-  LIR_HEADER(ComputeThis)
+  LIR_HEADER(BoxNonStrictThis)
 
   static const size_t ValueIndex = 0;
 
-  explicit LComputeThis(const LBoxAllocation& value)
+  explicit LBoxNonStrictThis(const LBoxAllocation& value)
       : LInstructionHelper(classOpcode) {
     setBoxOperand(ValueIndex, value);
   }
 
-  const LDefinition* output() { return getDef(0); }
-
-  MComputeThis* mir() const { return mir_->toComputeThis(); }
+  MBoxNonStrictThis* mir() const { return mir_->toBoxNonStrictThis(); }
 };
 
 class LImplicitThis : public LCallInstructionHelper<BOX_PIECES, 1, 0> {
@@ -2481,6 +2481,27 @@ class LPowI : public LCallInstructionHelper<1, 2, 1> {
   const LAllocation* value() { return getOperand(0); }
   const LAllocation* power() { return getOperand(1); }
   const LDefinition* temp() { return getTemp(0); }
+};
+
+// Integer raised to an integer power.
+class LPowII : public LInstructionHelper<1, 2, 2> {
+ public:
+  LIR_HEADER(PowII)
+  LPowII(const LAllocation& value, const LAllocation& power,
+         const LDefinition& temp1, const LDefinition& temp2)
+      : LInstructionHelper(classOpcode) {
+    setOperand(0, value);
+    setOperand(1, power);
+    setTemp(0, temp1);
+    setTemp(1, temp2);
+  }
+
+  const LAllocation* value() { return getOperand(0); }
+  const LAllocation* power() { return getOperand(1); }
+  const LDefinition* temp1() { return getTemp(0); }
+  const LDefinition* temp2() { return getTemp(1); }
+
+  MPow* mir() const { return mir_->toPow(); }
 };
 
 // Double raised to a double power.
@@ -6027,6 +6048,20 @@ class LGuardSpecificAtom : public LInstructionHelper<0, 1, 0> {
   }
   const LAllocation* str() { return getOperand(0); }
   const MGuardSpecificAtom* mir() const { return mir_->toGuardSpecificAtom(); }
+};
+
+class LGuardSpecificSymbol : public LInstructionHelper<0, 1, 0> {
+ public:
+  LIR_HEADER(GuardSpecificSymbol)
+
+  explicit LGuardSpecificSymbol(const LAllocation& symbol)
+      : LInstructionHelper(classOpcode) {
+    setOperand(0, symbol);
+  }
+  const LAllocation* symbol() { return getOperand(0); }
+  const MGuardSpecificSymbol* mir() const {
+    return mir_->toGuardSpecificSymbol();
+  }
 };
 
 class LGuardShape : public LInstructionHelper<1, 1, 1> {

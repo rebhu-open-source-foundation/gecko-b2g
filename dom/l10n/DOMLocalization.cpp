@@ -32,8 +32,21 @@ NS_IMPL_RELEASE_INHERITED(DOMLocalization, Localization)
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(DOMLocalization)
 NS_INTERFACE_MAP_END_INHERITING(Localization)
 
-DOMLocalization::DOMLocalization(nsIGlobalObject* aGlobal)
-    : Localization(aGlobal) {
+/* static */
+already_AddRefed<DOMLocalization> DOMLocalization::Create(
+    nsIGlobalObject* aGlobal, const bool aSync,
+    const BundleGenerator& aBundleGenerator) {
+  RefPtr<DOMLocalization> domLoc =
+      new DOMLocalization(aGlobal, aSync, aBundleGenerator);
+
+  domLoc->Init();
+
+  return domLoc.forget();
+}
+
+DOMLocalization::DOMLocalization(nsIGlobalObject* aGlobal, const bool aSync,
+                                 const BundleGenerator& aBundleGenerator)
+    : Localization(aGlobal, aSync, aBundleGenerator) {
   mMutations = new L10nMutations(this);
 }
 
@@ -47,13 +60,14 @@ already_AddRefed<DOMLocalization> DOMLocalization::Constructor(
     return nullptr;
   }
 
-  RefPtr<DOMLocalization> domLoc = new DOMLocalization(global);
+  RefPtr<DOMLocalization> domLoc =
+      DOMLocalization::Create(global, aSync, aBundleGenerator);
 
   if (aResourceIds.Length()) {
     domLoc->AddResourceIds(aResourceIds);
   }
 
-  domLoc->Activate(aSync, true, aBundleGenerator);
+  domLoc->Activate(true);
 
   return domLoc.forget();
 }
@@ -63,7 +77,9 @@ JSObject* DOMLocalization::WrapObject(JSContext* aCx,
   return DOMLocalization_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-DOMLocalization::~DOMLocalization() { DisconnectMutations(); }
+void DOMLocalization::Destroy() { DisconnectMutations(); }
+
+DOMLocalization::~DOMLocalization() { Destroy(); }
 
 /**
  * DOMLocalization API
@@ -498,7 +514,7 @@ bool DOMLocalization::ApplyTranslations(
 
 void DOMLocalization::OnChange() {
   Localization::OnChange();
-  if (mLocalization) {
+  if (mLocalization && !mResourceIds.IsEmpty()) {
     ErrorResult rv;
     RefPtr<Promise> promise = TranslateRoots(rv);
   }

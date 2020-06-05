@@ -222,10 +222,10 @@ AbortReasonOr<WarpScriptSnapshot*> WarpOracle::createScriptSnapshot(
 
       case JSOp::FunctionThis:
         if (!script->strict() && script->hasNonSyntacticScope()) {
-          // Abort because MComputeThis doesn't support non-syntactic scopes
-          // (a deprecated SpiderMonkey mechanism). If this becomes an issue we
-          // could support it by refactoring GetFunctionThis to not take a frame
-          // pointer and then call that.
+          // Abort because MBoxNonStrictThis doesn't support non-syntactic
+          // scopes (a deprecated SpiderMonkey mechanism). If this becomes an
+          // issue we could support it by refactoring GetFunctionThis to not
+          // take a frame pointer and then call that.
           return abort(AbortReason::Disable,
                        "JSOp::FunctionThis with non-syntactic scope");
         }
@@ -480,6 +480,7 @@ AbortReasonOr<WarpScriptSnapshot*> WarpOracle::createScriptSnapshot(
       case JSOp::InitGLexical:
       case JSOp::SetElem:
       case JSOp::StrictSetElem:
+      case JSOp::ToPropertyKey:
         MOZ_TRY(maybeInlineIC(opSnapshots, script, loc));
         break;
 
@@ -549,7 +550,6 @@ AbortReasonOr<WarpScriptSnapshot*> WarpOracle::createScriptSnapshot(
       case JSOp::ClassConstructor:
       case JSOp::DerivedConstructor:
       case JSOp::ToAsyncIter:
-      case JSOp::ToId:
       case JSOp::Typeof:
       case JSOp::TypeofExpr:
       case JSOp::ObjWithProto:
@@ -602,6 +602,7 @@ AbortReasonOr<WarpScriptSnapshot*> WarpOracle::createScriptSnapshot(
       case JSOp::Debugger:
       case JSOp::TableSwitch:
       case JSOp::Try:
+      case JSOp::Exception:
       case JSOp::Throw:
       case JSOp::ThrowSetConst:
       case JSOp::SetRval:

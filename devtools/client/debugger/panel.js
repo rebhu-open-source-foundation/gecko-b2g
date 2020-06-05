@@ -76,6 +76,12 @@ class DebuggerPanel {
 
     registerStoreObserver(this._store, this._onDebuggerStateChange.bind(this));
 
+    const resourceWatcher = this.toolbox.resourceWatcher;
+    await resourceWatcher.watchResources(
+      [resourceWatcher.TYPES.ERROR_MESSAGE],
+      { onAvailable: actions.addException }
+    );
+
     return this;
   }
 
@@ -201,7 +207,8 @@ class DebuggerPanel {
   }
 
   async selectWorker(workerTargetFront) {
-    const threadActorID = workerTargetFront.threadFront.actorID;
+    const threadActorID = workerTargetFront.threadFront?.actorID;
+
     const isThreadAvailable = this._selectors
       .getThreads(this._getState())
       .find(x => x.actor === threadActorID);

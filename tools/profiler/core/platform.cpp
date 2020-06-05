@@ -2545,8 +2545,6 @@ static void locked_profiler_stream_json_for_this_process(
 
 #if defined(GP_OS_android) && !defined(MOZ_WIDGET_GONK)
     if (ActivePS::FeatureJava(aLock)) {
-      java::GeckoJavaSampler::Pause();
-
       // We are allocating it chunk by chunk. So this will not allocate 64 MiB
       // at once. This size should be more than enough for java threads.
       // This buffer is being created for each process but Android has
@@ -2567,8 +2565,6 @@ static void locked_profiler_stream_json_for_this_process(
                                     CorePS::ProcessName(aLock),
                                     CorePS::ProcessStartTime(), aSinceTime,
                                     ActivePS::FeatureJSTracer(aLock), nullptr);
-
-      java::GeckoJavaSampler::Unpause();
     }
 #endif
 
@@ -4546,6 +4542,12 @@ void profiler_pause() {
     RacyFeatures::SetPaused();
     ActivePS::SetIsPaused(lock, true);
     ActivePS::Buffer(lock).AddEntry(ProfileBufferEntry::Pause(profiler_time()));
+
+#if defined(GP_OS_android)
+    if (ActivePS::FeatureJava(lock)) {
+      java::GeckoJavaSampler::Pause();
+    }
+#endif
   }
 
   // gPSMutex must be unlocked when we notify, to avoid potential deadlocks.
@@ -4569,6 +4571,12 @@ void profiler_resume() {
         ProfileBufferEntry::Resume(profiler_time()));
     ActivePS::SetIsPaused(lock, false);
     RacyFeatures::SetUnpaused();
+
+#if defined(GP_OS_android)
+    if (ActivePS::FeatureJava(lock)) {
+      java::GeckoJavaSampler::Unpause();
+    }
+#endif
   }
 
   // gPSMutex must be unlocked when we notify, to avoid potential deadlocks.

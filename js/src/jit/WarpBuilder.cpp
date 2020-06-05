@@ -1519,12 +1519,9 @@ bool WarpBuilder::build_ToAsyncIter(BytecodeLocation loc) {
   return resumeAfter(ins, loc);
 }
 
-bool WarpBuilder::build_ToId(BytecodeLocation loc) {
-  MDefinition* index = current->pop();
-  MToId* ins = MToId::New(alloc(), index);
-  current->add(ins);
-  current->push(ins);
-  return resumeAfter(ins, loc);
+bool WarpBuilder::build_ToPropertyKey(BytecodeLocation loc) {
+  MDefinition* value = current->pop();
+  return buildIC(loc, CacheKind::ToPropertyKey, {value});
 }
 
 bool WarpBuilder::build_Typeof(BytecodeLocation) {
@@ -1751,9 +1748,9 @@ bool WarpBuilder::build_FunctionThis(BytecodeLocation loc) {
   MOZ_ASSERT(!script_->hasNonSyntacticScope(),
              "WarpOracle should have aborted compilation");
 
-  // TODO: Add fast path to MComputeThis for null/undefined => globalThis.
+  // TODO: Add fast path to MBoxNonStrictThis for null/undefined => globalThis.
   MDefinition* def = current->getSlot(info().thisSlot());
-  MComputeThis* thisObj = MComputeThis::New(alloc(), def);
+  MBoxNonStrictThis* thisObj = MBoxNonStrictThis::New(alloc(), def);
   current->add(thisObj);
   current->push(thisObj);
 
@@ -1763,8 +1760,8 @@ bool WarpBuilder::build_FunctionThis(BytecodeLocation loc) {
 bool WarpBuilder::build_GlobalThis(BytecodeLocation loc) {
   MOZ_ASSERT(!script_->hasNonSyntacticScope(),
              "WarpOracle should have aborted compilation");
-  Value v = snapshot_.globalLexicalEnvThis();
-  pushConstant(v);
+  JSObject* obj = snapshot_.globalLexicalEnvThis();
+  pushConstant(ObjectValue(*obj));
   return true;
 }
 
@@ -2713,6 +2710,10 @@ bool WarpBuilder::build_Try(BytecodeLocation loc) {
   return addPendingEdge(PendingEdge::NewGotoWithFake(pred), afterTryLoc);
 }
 
+bool WarpBuilder::build_Exception(BytecodeLocation) {
+  MOZ_CRASH("Unreachable because we skip catch-blocks");
+}
+
 bool WarpBuilder::build_Throw(BytecodeLocation loc) {
   MDefinition* def = current->pop();
 
@@ -2766,6 +2767,13 @@ bool WarpBuilder::buildIC(BytecodeLocation loc, CacheKind kind,
     case CacheKind::UnaryArith: {
       MOZ_ASSERT(numInputs == 1);
       auto* ins = MUnaryCache::New(alloc(), getInput(0));
+      current->add(ins);
+      current->push(ins);
+      return resumeAfter(ins, loc);
+    }
+    case CacheKind::ToPropertyKey: {
+      MOZ_ASSERT(numInputs == 1);
+      auto* ins = MToPropertyKeyCache::New(alloc(), getInput(0));
       current->add(ins);
       current->push(ins);
       return resumeAfter(ins, loc);

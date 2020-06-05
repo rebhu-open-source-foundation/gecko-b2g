@@ -3216,10 +3216,10 @@ void ScrollFrameHelper::AppendScrollPartsTo(nsDisplayListBuilder* aBuilder,
           aBuilder, scrollTargetId, scrollDirection, createLayer);
       mOuter->BuildDisplayListForChild(
           aBuilder, scrollParts[i], partList,
-          nsIFrame::DISPLAY_CHILD_FORCE_STACKING_CONTEXT);
+          nsIFrame::DisplayChildFlag::ForceStackingContext);
     }
 
-    // DISPLAY_CHILD_FORCE_STACKING_CONTEXT put everything into
+    // DisplayChildFlag::ForceStackingContext put everything into
     // partList.PositionedDescendants().
     if (partList.PositionedDescendants()->IsEmpty()) {
       continue;
@@ -3360,6 +3360,22 @@ void ScrollFrameHelper::BuildDisplayList(nsDisplayListBuilder* aBuilder,
     }
   }
 
+  bool isRootContent =
+      mIsRoot && mOuter->PresContext()->IsRootContentDocumentCrossProcess();
+
+  nsRect effectiveScrollPort = mScrollPort;
+  if (isRootContent && mOuter->PresContext()->HasDynamicToolbar()) {
+    // Expand the scroll port to the size including the area covered by dynamic
+    // toolbar in the case where the dynamic toolbar is being used since
+    // position:fixed elements attached to this root scroller might be taller
+    // than its scroll port (e.g 100vh). Even if the dynamic toolbar covers the
+    // taller area, it doesn't mean the area is clipped by the toolbar because
+    // the dynamic toolbar is laid out outside of our topmost window and it
+    // transitions without changing our topmost window size.
+    effectiveScrollPort.SizeTo(nsLayoutUtils::ExpandHeightForViewportUnits(
+        mOuter->PresContext(), effectiveScrollPort.Size()));
+  }
+
   // It's safe to get this value before the DecideScrollableLayer call below
   // because that call cannot create a displayport for root scroll frames,
   // and hence it cannot create an ignore scroll frame.
@@ -3376,8 +3392,8 @@ void ScrollFrameHelper::BuildDisplayList(nsDisplayListBuilder* aBuilder,
   nsRect visibleRect = aBuilder->GetVisibleRect();
   nsRect dirtyRect = aBuilder->GetDirtyRect();
   if (!ignoringThisScrollFrame) {
-    visibleRect = visibleRect.Intersect(mScrollPort);
-    dirtyRect = dirtyRect.Intersect(mScrollPort);
+    visibleRect = visibleRect.Intersect(effectiveScrollPort);
+    dirtyRect = dirtyRect.Intersect(effectiveScrollPort);
   }
 
   bool dirtyRectHasBeenOverriden = false;
@@ -3495,7 +3511,7 @@ void ScrollFrameHelper::BuildDisplayList(nsDisplayListBuilder* aBuilder,
                StyleOverflowClipBox::ContentBox;
     // We only clip if there is *scrollable* overflow, to avoid clipping
     // *visual* overflow unnecessarily.
-    nsRect clipRect = mScrollPort + aBuilder->ToReferenceFrame(mOuter);
+    nsRect clipRect = effectiveScrollPort + aBuilder->ToReferenceFrame(mOuter);
     nsRect so = mScrolledFrame->GetScrollableOverflowRect();
     if ((cbH && (clipRect.width != so.width || so.x < 0)) ||
         (cbV && (clipRect.height != so.height || so.y < 0))) {
@@ -3537,23 +3553,11 @@ void ScrollFrameHelper::BuildDisplayList(nsDisplayListBuilder* aBuilder,
 
   nsDisplayListCollection set(aBuilder);
 
-  bool isRootContent =
-      mIsRoot && mOuter->PresContext()->IsRootContentDocumentCrossProcess();
   bool willBuildAsyncZoomContainer =
       aBuilder->ShouldBuildAsyncZoomContainer() && isRootContent;
 
-  nsRect scrollPortClip = mScrollPort + aBuilder->ToReferenceFrame(mOuter);
-  // Expand the clip rect to the size including the area covered by dynamic
-  // toolbar in the case where the dynamic toolbar is being used since
-  // position:fixed elements attached to this root scroller might be taller than
-  // its scroll port (e.g 100vh). Even if the dynamic toolbar covers the taller
-  // area, it doesn't mean the area is clipped by the toolbar because the
-  // dynamic toolbar is laid out outside of our topmost window and it
-  // transitions without changing our topmost window size.
-  if (isRootContent && mOuter->PresContext()->HasDynamicToolbar()) {
-    scrollPortClip.SizeTo(nsLayoutUtils::ExpandHeightForViewportUnits(
-        mOuter->PresContext(), scrollPortClip.Size()));
-  }
+  nsRect scrollPortClip =
+      effectiveScrollPort + aBuilder->ToReferenceFrame(mOuter);
   nsRect clipRect = scrollPortClip;
   // Our override of GetBorderRadii ensures we never have a radius at
   // the corners where we have a scrollbar.
@@ -3796,7 +3800,7 @@ void ScrollFrameHelper::BuildDisplayList(nsDisplayListBuilder* aBuilder,
       info += CompositorHitTestFlags::eRequiresTargetConfirmation;
     }
 
-    nsRect area = mScrollPort + aBuilder->ToReferenceFrame(mOuter);
+    nsRect area = effectiveScrollPort + aBuilder->ToReferenceFrame(mOuter);
 
     // Make sure that APZ will dispatch events back to content so we can
     // create a displayport for this frame. We'll add the item later on.
@@ -4569,13 +4573,12 @@ static nsSize GetScrollPortSizeExcludingHeadersAndFooters(
 nsSize ScrollFrameHelper::GetPageScrollAmount() const {
   nsSize effectiveScrollPortSize;
 
-  PresShell* presShell = mOuter->PresShell();
-  if (mIsRoot && presShell->IsVisualViewportSizeSet()) {
+  if (GetVisualViewportSize() != mScrollPort.Size()) {
     // We want to use the visual viewport size if one is set.
     // The headers/footers adjustment is too complicated to do if there is a
     // visual viewport that differs from the layout viewport, this is probably
     // okay.
-    effectiveScrollPortSize = presShell->GetVisualViewportSize();
+    effectiveScrollPortSize = GetVisualViewportSize();
   } else {
     // Reduce effective scrollport height by the height of any
     // fixed-pos/sticky-pos headers or footers
