@@ -10,12 +10,21 @@
 namespace mozilla {
 namespace dom {
 
-B2G::B2G(nsIGlobalObject* aGlobal) : mOwner(aGlobal) { MOZ_ASSERT(aGlobal); }
+B2G::B2G(nsIGlobalObject* aGlobal) : mOwner(aGlobal) {
+  MOZ_ASSERT(aGlobal);
+
+  RefPtr<power::PowerManagerService> pmService =
+    power::PowerManagerService::GetInstance();
+
+  pmService->AddWakeLockListener(this);
+}
+
 B2G::~B2G() {}
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(B2G)
   NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
   NS_INTERFACE_MAP_ENTRY(nsISupports)
+  NS_INTERFACE_MAP_ENTRY(nsIDOMMozWakeLockListener)
 NS_INTERFACE_MAP_END
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(B2G)
@@ -58,6 +67,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(B2G)
 #ifdef MOZ_B2G_FM
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFMRadio)
 #endif
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mListeners)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_TRACE_WRAPPERCACHE(B2G)
@@ -410,6 +420,56 @@ already_AddRefed<WakeLock> B2G::RequestWakeLock(const nsAString &aTopic, ErrorRe
   }
 
   return pmService->NewWakeLock(aTopic, innerWindow, aRv);
+}
+
+void
+B2G::AddWakeLockListener(nsIDOMMozWakeLockListener *aListener)
+{
+  if (!mListeners.Contains(aListener)) {
+    mListeners.AppendElement(aListener);
+  }
+}
+
+void
+B2G::RemoveWakeLockListener(nsIDOMMozWakeLockListener *aListener)
+{
+  mListeners.RemoveElement(aListener);
+}
+
+void
+B2G::GetWakeLockState(const nsAString& aTopic,
+                      nsAString& aState,
+                      ErrorResult& aRv)
+{
+  RefPtr<power::PowerManagerService> pmService =
+    power::PowerManagerService::GetInstance();
+
+  if (pmService) {
+    aRv = pmService->GetWakeLockState(aTopic, aState);
+  } else {
+    aRv.Throw(NS_ERROR_UNEXPECTED);
+  }
+}
+
+NS_IMETHODIMP
+B2G::Callback(const nsAString &aTopic, const nsAString &aState)
+{
+  /**
+   * We maintain a local listener list instead of using the global
+   * list so that when the window is destroyed we don't have to
+   * cleanup the mess.
+   * Copy the listeners list before we walk through the callbacks
+   * because the callbacks may install new listeners. We expect no
+   * more than one listener per window, so it shouldn't be too long.
+   */
+  const CopyableAutoTArray<nsCOMPtr<nsIDOMMozWakeLockListener>, 2> listeners =
+      mListeners;
+
+  for (uint32_t i = 0; i < listeners.Length(); ++i) {
+    listeners[i]->Callback(aTopic, aState);
+  }
+
+  return NS_OK;
 }
 
 DeviceStorageAreaListener* B2G::GetDeviceStorageAreaListener(ErrorResult& aRv) {

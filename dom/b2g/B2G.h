@@ -49,6 +49,7 @@
 
 #include "mozilla/dom/WakeLock.h"
 #include "mozilla/dom/power/PowerManagerService.h"
+#include "nsIDOMWakeLockListener.h"
 
 class nsDOMDeviceStorage;
 
@@ -57,12 +58,14 @@ namespace dom {
 
 class DeviceStorageAreaListener;
 
-class B2G final : public nsISupports, public nsWrapperCache {
+class B2G final : public nsIDOMMozWakeLockListener
+                , public nsWrapperCache {
   nsCOMPtr<nsIGlobalObject> mOwner;
 
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(B2G)
+  NS_DECL_NSIDOMMOZWAKELOCKLISTENER
 
   explicit B2G(nsIGlobalObject* aGlobal);
 
@@ -113,6 +116,11 @@ class B2G final : public nsISupports, public nsWrapperCache {
 
   already_AddRefed<WakeLock>
   RequestWakeLock(const nsAString &aTopic, ErrorResult& aRv);
+
+  void AddWakeLockListener(nsIDOMMozWakeLockListener* aListener);
+  void RemoveWakeLockListener(nsIDOMMozWakeLockListener* aListener);
+  void GetWakeLockState(const nsAString& aTopic, nsAString& aState,
+                        ErrorResult& aRv);
 
   DeviceStorageAreaListener* GetDeviceStorageAreaListener(ErrorResult& aRv);
 
@@ -169,6 +177,7 @@ class B2G final : public nsISupports, public nsWrapperCache {
 #ifdef MOZ_B2G_FM
   RefPtr<FMRadio> mFMRadio;
 #endif
+  nsTArray<nsCOMPtr<nsIDOMMozWakeLockListener> > mListeners;
 };
 
 }  // namespace dom

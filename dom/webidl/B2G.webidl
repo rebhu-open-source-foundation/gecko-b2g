@@ -4,6 +4,8 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+interface MozWakeLockListener;
+
 [Exposed=(Window,Worker)]
 interface B2G {
   // objects implementing this interface also implement the interfaces given
@@ -153,6 +155,35 @@ partial interface B2G {
    */
   [Throws, Pref="dom.wakelock.enabled", Func="B2G::HasWakeLockSupport", Exposed=Window]
   WakeLock requestWakeLock(DOMString aTopic);
+
+  /**
+   * The listeners are notified when a resource changes its lock state to:
+   *  - unlocked
+   *  - locked but not visible
+   *  - locked and visible
+   */
+  [Exposed=Window]
+  void addWakeLockListener(MozWakeLockListener aListener);
+  [Exposed=Window]
+  void removeWakeLockListener(MozWakeLockListener aListener);
+
+  /**
+   * Query the wake lock state of the topic.
+   *
+   * Possible states are:
+   *
+   *  - "unlocked" - nobody holds the wake lock.
+   *
+   *  - "locked-foreground" - at least one window holds the wake lock,
+   *    and it is visible.
+   *
+   *  - "locked-background" - at least one window holds the wake lock,
+   *    but all of them are hidden.
+   *
+   * @param aTopic The resource name related to the wake lock.
+   */
+  [Throws, Exposed=Window]
+  DOMString getWakeLockState(DOMString aTopic);
 };
 
 [Exposed=Window]
