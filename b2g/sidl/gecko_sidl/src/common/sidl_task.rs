@@ -510,7 +510,7 @@ macro_rules! ensure_service_and_queue {
         }
 
         // Add a new task to the queue of pending tasks.
-        fn queue_task(&self, task: SettingsTask) {
+        fn queue_task(&self, task: $tasks) {
             let mut queue = self.pending_tasks.lock();
             queue.push(task);
             debug!("New task added to the queue, length is now {}", queue.len());

@@ -2,11 +2,11 @@
 DIRS += ['interfaces']
 
 EXPORTS.sidl += [
-    "SettingsManager.h"
+    "SidlComponents.h"
 ]
 
 SOURCES += [
-    "SettingsManager.cpp"
+    "SidlComponents.cpp"
 ]
 
 XPCOM_MANIFESTS += [

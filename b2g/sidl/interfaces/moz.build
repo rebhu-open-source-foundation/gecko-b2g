@@ -1,5 +1,6 @@
 
 XPIDL_SOURCES += [
+    'nsIGeckoBridge.idl',
     'nsISettings.idl',
     'nsISidl.idl',
 ]

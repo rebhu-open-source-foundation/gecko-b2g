@@ -1,0 +1,18 @@
+#include "nsISupports.idl"
+#include "nsISidl.idl"
+
+[scriptable, uuid(4919c96a-29f3-4922-a2f2-cbaff743b3f7)]
+interface nsIPowerManagerDelegate : nsISupports {
+    void setScreenEnabled(in bool enabled);
+};
+
+[scriptable, uuid(8df2de66-e2dc-4dd9-9a50-e530fb52fc9a)]
+interface nsIGeckoBridge : nsISupports {
+    // Register a power manager delegate that will be called by the power manager service.
+    void setPowerManagerDelegate(in nsIPowerManagerDelegate delegate, in nsISidlDefaultResponse callback);
+
+    // Preferences related methods. Call these when a watched preference changes.
+    void charPrefChanged(in ACString aPrefName, in ACString aValue, in nsISidlDefaultResponse callback);
+    void intPrefChanged(in ACString aPrefName, in long aValue, in nsISidlDefaultResponse callback);
+    void boolPrefChanged(in ACString aPrefName, in boolean aValue, in nsISidlDefaultResponse callback);
+};

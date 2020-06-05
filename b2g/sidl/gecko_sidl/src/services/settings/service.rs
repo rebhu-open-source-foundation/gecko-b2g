@@ -224,7 +224,7 @@ impl SettingsManagerImpl {
         let object_id = self.next_object_id();
 
         let (task, (name, observer, key)) = task;
-        // Create a lightweight xpcom wrapper + session proxy  that manages object release for us.
+        // Create a lightweight xpcom wrapper + session proxy that manages object release for us.
         let wrapper = ObserverWrapper::new(observer, self.service_id, object_id, &self.transport);
         let proxy = ClientObject::new(wrapper, &mut self.transport);
 
