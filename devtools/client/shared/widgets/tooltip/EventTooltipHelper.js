@@ -63,7 +63,7 @@ EventTooltip.prototype = {
     this.container = doc.createElementNS(XHTML_NS, "div");
     this.container.className = "devtools-tooltip-events-container";
 
-    const sourceMapService = this._toolbox.sourceMapURLService;
+    const sourceMapURLService = this._toolbox.sourceMapURLService;
 
     const Bubbling = L10N.getStr("eventsTooltip.Bubbling");
     const Capturing = L10N.getStr("eventsTooltip.Capturing");
@@ -101,14 +101,13 @@ EventTooltip.prototype = {
       } else {
         const location = this._parseLocation(text);
         if (location) {
-          const callback = (enabled, url, line, column) => {
+          const callback = originalLocation => {
             // Do nothing if the tooltip was destroyed while we were
             // waiting for a response.
             if (this._tooltip) {
-              const newUrl = enabled ? url : location.url;
-              const newLine = enabled ? line : location.line;
+              const currentLoc = originalLocation || location;
 
-              const newURI = newUrl + ":" + newLine;
+              const newURI = currentLoc.url + ":" + currentLoc.line;
               filename.textContent = newURI;
               filename.setAttribute("title", newURI);
               const eventEditor = this._eventEditors.get(content);
@@ -124,18 +123,14 @@ EventTooltip.prototype = {
             }
           };
 
-          sourceMapService.subscribe(
-            location.url,
-            location.line,
-            location.column,
-            callback
+          this._subscriptions.push(
+            sourceMapURLService.subscribeByURL(
+              location.url,
+              location.line,
+              location.column,
+              callback
+            )
           );
-          this._subscriptions.push({
-            url: location.url,
-            line: location.line,
-            column: location.column,
-            callback,
-          });
         }
       }
 
@@ -359,14 +354,8 @@ EventTooltip.prototype = {
       node.removeEventListener("click", this._debugClicked);
     }
 
-    const sourceMapService = this._toolbox.sourceMapURLService;
-    for (const subscription of this._subscriptions) {
-      sourceMapService.unsubscribe(
-        subscription.url,
-        subscription.line,
-        subscription.column,
-        subscription.callback
-      );
+    for (const unsubscribe of this._subscriptions) {
+      unsubscribe();
     }
 
     this._eventListenerInfos = this._toolbox = this._tooltip = null;

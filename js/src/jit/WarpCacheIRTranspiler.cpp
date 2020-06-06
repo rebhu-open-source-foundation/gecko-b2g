@@ -84,11 +84,20 @@ class MOZ_RAII WarpCacheIRTranspiler : public WarpBuilderShared {
   Shape* shapeStubField(uint32_t offset) {
     return reinterpret_cast<Shape*>(readStubWord(offset));
   }
+  const JSClass* classStubField(uint32_t offset) {
+    return reinterpret_cast<const JSClass*>(readStubWord(offset));
+  }
   JSString* stringStubField(uint32_t offset) {
     return reinterpret_cast<JSString*>(readStubWord(offset));
   }
+  JS::Symbol* symbolStubField(uint32_t offset) {
+    return reinterpret_cast<JS::Symbol*>(readStubWord(offset));
+  }
   JSObject* objectStubField(uint32_t offset) {
     return reinterpret_cast<JSObject*>(readStubWord(offset));
+  }
+  const void* rawPointerField(uint32_t offset) {
+    return reinterpret_cast<const void*>(readStubWord(offset));
   }
   int32_t int32StubField(uint32_t offset) {
     return static_cast<int32_t>(readStubWord(offset));
@@ -187,6 +196,18 @@ bool WarpCacheIRTranspiler::emitGuardClass(ObjOperandId objId,
   return true;
 }
 
+bool WarpCacheIRTranspiler::emitGuardAnyClass(ObjOperandId objId,
+                                              uint32_t claspOffset) {
+  MDefinition* def = getOperand(objId);
+  const JSClass* classp = classStubField(claspOffset);
+
+  auto* ins = MGuardToClass::New(alloc(), def, classp);
+  add(ins);
+
+  setOperand(objId, ins);
+  return true;
+}
+
 bool WarpCacheIRTranspiler::emitGuardShape(ObjOperandId objId,
                                            uint32_t shapeOffset) {
   MDefinition* def = getOperand(objId);
@@ -209,6 +230,18 @@ bool WarpCacheIRTranspiler::emitGuardSpecificAtom(StringOperandId strId,
   add(ins);
 
   setOperand(strId, ins);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitGuardSpecificSymbol(SymbolOperandId symId,
+                                                    uint32_t expectedOffset) {
+  MDefinition* symbol = getOperand(symId);
+  JS::Symbol* expected = symbolStubField(expectedOffset);
+
+  auto* ins = MGuardSpecificSymbol::New(alloc(), symbol, expected);
+  add(ins);
+
+  setOperand(symId, ins);
   return true;
 }
 
@@ -291,6 +324,10 @@ bool WarpCacheIRTranspiler::emitGuardToObject(ValOperandId inputId) {
 
 bool WarpCacheIRTranspiler::emitGuardToString(ValOperandId inputId) {
   return emitGuardTo(inputId, MIRType::String);
+}
+
+bool WarpCacheIRTranspiler::emitGuardToSymbol(ValOperandId inputId) {
+  return emitGuardTo(inputId, MIRType::Symbol);
 }
 
 bool WarpCacheIRTranspiler::emitGuardToBoolean(ValOperandId inputId,
@@ -413,6 +450,20 @@ bool WarpCacheIRTranspiler::emitLoadInt32Result(Int32OperandId valId) {
   return true;
 }
 
+bool WarpCacheIRTranspiler::emitLoadDoubleResult(NumberOperandId valId) {
+  MDefinition* val = getOperand(valId);
+  MOZ_ASSERT(val->type() == MIRType::Double);
+  pushResult(val);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitLoadBigIntResult(BigIntOperandId valId) {
+  MDefinition* val = getOperand(valId);
+  MOZ_ASSERT(val->type() == MIRType::BigInt);
+  pushResult(val);
+  return true;
+}
+
 bool WarpCacheIRTranspiler::emitLoadObjectResult(ObjOperandId objId) {
   MDefinition* obj = getOperand(objId);
   MOZ_ASSERT(obj->type() == MIRType::Object);
@@ -424,6 +475,13 @@ bool WarpCacheIRTranspiler::emitLoadStringResult(StringOperandId strId) {
   MDefinition* str = getOperand(strId);
   MOZ_ASSERT(str->type() == MIRType::String);
   pushResult(str);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitLoadSymbolResult(SymbolOperandId symId) {
+  MDefinition* sym = getOperand(symId);
+  MOZ_ASSERT(sym->type() == MIRType::Symbol);
+  pushResult(sym);
   return true;
 }
 
@@ -684,6 +742,17 @@ bool WarpCacheIRTranspiler::emitLoadStringCharCodeResult(
   return true;
 }
 
+bool WarpCacheIRTranspiler::emitStringFromCharCodeResult(
+    Int32OperandId codeId) {
+  MDefinition* code = getOperand(codeId);
+
+  auto* fromCharCode = MFromCharCode::New(alloc(), code);
+  add(fromCharCode);
+
+  pushResult(fromCharCode);
+  return true;
+}
+
 bool WarpCacheIRTranspiler::emitStoreDynamicSlot(ObjOperandId objId,
                                                  uint32_t offsetOffset,
                                                  ValOperandId rhsId) {
@@ -922,6 +991,11 @@ bool WarpCacheIRTranspiler::emitInt32ModResult(Int32OperandId lhsId,
   return emitInt32BinaryArithResult<MMod>(lhsId, rhsId);
 }
 
+bool WarpCacheIRTranspiler::emitInt32PowResult(Int32OperandId lhsId,
+                                               Int32OperandId rhsId) {
+  return emitInt32BinaryArithResult<MPow>(lhsId, rhsId);
+}
+
 bool WarpCacheIRTranspiler::emitInt32BitOrResult(Int32OperandId lhsId,
                                                  Int32OperandId rhsId) {
   return emitInt32BinaryArithResult<MBitOr>(lhsId, rhsId);
@@ -1009,6 +1083,21 @@ bool WarpCacheIRTranspiler::emitCompareStringResult(JSOp op,
                                                     StringOperandId lhsId,
                                                     StringOperandId rhsId) {
   return emitCompareResult(op, lhsId, rhsId, MCompare::Compare_String);
+}
+
+bool WarpCacheIRTranspiler::emitMathRandomResult(uint32_t rngOffset) {
+#ifdef DEBUG
+  // CodeGenerator uses CompileRealm::addressOfRandomNumberGenerator. Assert it
+  // matches the RNG pointer stored in the stub field.
+  const void* rng = rawPointerField(rngOffset);
+  MOZ_ASSERT(rng == mirGen().realm->addressOfRandomNumberGenerator());
+#endif
+
+  auto* ins = MRandom::New(alloc());
+  add(ins);
+
+  pushResult(ins);
+  return true;
 }
 
 bool WarpCacheIRTranspiler::emitMathAbsInt32Result(Int32OperandId inputId) {

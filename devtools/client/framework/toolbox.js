@@ -775,9 +775,11 @@ Toolbox.prototype = {
     // already tracked by the content process targets. At least in the context
     // of the Browser Toolbox.
     // We would have to revisit that for the content toolboxes.
+    // Worker targets are attached to by the debugger so that the debugger
+    // has a chance to register breakpoints with the server.
     if (
       targetFront.isTopLevel ||
-      targetFront.targetType != TargetList.TYPES.FRAME
+      targetFront.targetType == TargetList.TYPES.PROCESS
     ) {
       const threadFront = await this._attachAndResumeThread(targetFront);
       this._startThreadFrontListeners(threadFront);
@@ -1355,16 +1357,15 @@ Toolbox.prototype = {
             return (generatedId, url, code, mappings) => {
               return target
                 .applySourceMap(generatedId, url, code, mappings)
-                .then(result => {
+                .then(async result => {
                   // If a tool has changed or introduced a source map
                   // (e.g, by pretty-printing a source), tell the
                   // source map URL service about the change, so that
                   // subscribers to that service can be updated as
                   // well.
                   if (this._sourceMapURLService) {
-                    this._sourceMapURLService.sourceMapChanged(
-                      generatedId,
-                      url
+                    await this._sourceMapURLService.newSourceMapCreated(
+                      generatedId
                     );
                   }
                   return result;
@@ -3043,6 +3044,7 @@ Toolbox.prototype = {
     if (!panel) {
       return;
     }
+
     await panel.once("reloaded");
     const delay = this.win.performance.now() - start;
 
@@ -3971,16 +3973,81 @@ Toolbox.prototype = {
   },
 
   /**
-   * Opens source in style editor. Falls back to plain "view-source:".
-   * @see devtools/client/shared/source-utils.js
+   * Given a URL for a stylesheet (generated or original), open in the style
+   * editor if possible. Falls back to plain "view-source:".
+   * If the stylesheet has a sourcemap, we will attempt to open the original
+   * version of the file instead of the generated version.
    */
-  viewSourceInStyleEditor: function(sourceURL, sourceLine, sourceColumn) {
-    return viewSource.viewSourceInStyleEditor(
-      this,
-      sourceURL,
-      sourceLine,
-      sourceColumn
-    );
+  viewSourceInStyleEditorByURL: async function(url, line, column) {
+    if (typeof url !== "string") {
+      console.warn("Failed to open source, no url given");
+      return;
+    }
+
+    try {
+      const sourceMappedLoc = await this.sourceMapURLService.originalPositionForURL(
+        url,
+        line,
+        column
+      );
+      if (sourceMappedLoc) {
+        url = sourceMappedLoc.url;
+        line = sourceMappedLoc.line;
+        column = sourceMappedLoc.column;
+      }
+    } catch (err) {
+      console.error(
+        "Failed to resolve sourcemapped location for the given source location",
+        { url, line, column },
+        err
+      );
+    }
+
+    return viewSource.viewSourceInStyleEditor(this, url, line, column);
+  },
+
+  /**
+   * Opens source in style editor. Falls back to plain "view-source:".
+   * If the stylesheet has a sourcemap, we will attempt to open the original
+   * version of the file instead of the generated version.
+   */
+  viewSourceInStyleEditorByFront: async function(
+    stylesheetFront,
+    line,
+    column
+  ) {
+    if (!stylesheetFront || typeof stylesheetFront !== "object") {
+      console.warn("Failed to open source, no stylesheet given");
+      return;
+    }
+
+    let frontOrURL = stylesheetFront;
+    try {
+      const sourceMappedLoc = await this.sourceMapURLService.originalPositionForID(
+        stylesheetFront.actorID,
+        line,
+        column
+      );
+      if (sourceMappedLoc) {
+        frontOrURL = sourceMappedLoc.url;
+        line = sourceMappedLoc.line;
+        column = sourceMappedLoc.column;
+      }
+    } catch (err) {
+      console.error(
+        "Failed to resolve sourcemapped location for the given source location",
+        {
+          url: stylesheetFront
+            ? stylesheetFront.href || stylesheetFront.nodeHref
+            : null,
+          line,
+          column,
+        },
+        err
+      );
+    }
+
+    return viewSource.viewSourceInStyleEditor(this, frontOrURL, line, column);
   },
 
   viewElementInInspector: async function(objectActor, inspectFromAnnotation) {
@@ -4012,15 +4079,16 @@ Toolbox.prototype = {
     reason
   ) {
     try {
-      const sourceMappedLoc = await this.sourceMapURLService.originalPositionFor(
+      const sourceMappedLoc = await this.sourceMapURLService.originalPositionForURL(
         sourceURL,
         sourceLine,
         sourceColumn
       );
       if (sourceMappedLoc) {
-        sourceURL = sourceMappedLoc.sourceUrl;
+        sourceURL = sourceMappedLoc.url;
         sourceLine = sourceMappedLoc.line;
         sourceColumn = sourceMappedLoc.column;
+        sourceId = null;
       }
     } catch (err) {
       console.error(

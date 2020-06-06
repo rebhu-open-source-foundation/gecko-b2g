@@ -12,7 +12,6 @@ const { ELEMENT_STYLE } = require("devtools/shared/specs/styles");
 const OutputParser = require("devtools/client/shared/output-parser");
 const { PrefObserver } = require("devtools/client/shared/prefs");
 const { createChild } = require("devtools/client/inspector/shared/utils");
-const { gDevTools } = require("devtools/client/framework/devtools");
 const {
   VIEW_NODE_SELECTOR_TYPE,
   VIEW_NODE_PROPERTY_TYPE,
@@ -1355,18 +1354,17 @@ function SelectorView(tree, selectorInfo) {
     const sheet = rule.parentStyleSheet;
     this.source = CssLogic.shortSource(sheet) + ":" + rule.line;
 
-    const url = sheet.href || sheet.nodeHref;
-    this.currentLocation = {
-      href: url,
+    this.generatedLocation = {
+      sheet: sheet,
+      href: sheet.href || sheet.nodeHref,
       line: rule.line,
       column: rule.column,
     };
-    this.generatedLocation = this.currentLocation;
     this.sourceMapURLService = this.tree.inspector.toolbox.sourceMapURLService;
-    this.sourceMapURLService.subscribe(
-      url,
-      rule.line,
-      rule.column,
+    this._unsubscribeCallback = this.sourceMapURLService.subscribeByID(
+      this.generatedLocation.sheet.actorID,
+      this.generatedLocation.line,
+      this.generatedLocation.column,
       this._updateLocation
     );
   }
@@ -1462,38 +1460,27 @@ SelectorView.prototype = {
    * original sources or not.  This is a callback for
    * SourceMapURLService.subscribe, which see.
    *
-   * @param {Boolean} enabled
-   *        True if the passed-in location should be used; this means
-   *        that source mapping is in use and the remaining arguments
-   *        are the original location.  False if the already-known
-   *        (stored) location should be used.
-   * @param {String} url
-   *        The original URL
-   * @param {Number} line
-   *        The original line number
-   * @param {number} column
-   *        The original column number
+   * @param {Object | null} originalLocation
+   *        The original position object (url/line/column) or null.
    */
-  _updateLocation: function(enabled, url, line, column) {
+  _updateLocation: function(originalLocation) {
     if (!this.tree.element) {
       return;
     }
 
     // Update |currentLocation| to be whichever location is being
     // displayed at the moment.
-    if (enabled) {
-      this.currentLocation = { href: url, line, column };
-    } else {
-      this.currentLocation = this.generatedLocation;
+    let currentLocation = this.generatedLocation;
+    if (originalLocation) {
+      const { url, line, column } = originalLocation;
+      currentLocation = { href: url, line, column };
     }
 
     const selector = '[sourcelocation="' + this.source + '"]';
     const link = this.tree.element.querySelector(selector);
     if (link) {
       const text =
-        CssLogic.shortSource(this.currentLocation) +
-        ":" +
-        this.currentLocation.line;
+        CssLogic.shortSource(currentLocation) + ":" + currentLocation.line;
       link.textContent = text;
     }
 
@@ -1523,12 +1510,10 @@ SelectorView.prototype = {
       return;
     }
 
-    const { href, line, column } = this.currentLocation;
+    const { sheet, line, column } = this.generatedLocation;
     const target = inspector.currentTarget;
     if (ToolDefinitions.styleEditor.isTargetSupported(target)) {
-      gDevTools.showToolbox(target, "styleeditor").then(function(toolbox) {
-        toolbox.getCurrentPanel().selectStyleSheet(href, line, column);
-      });
+      inspector.toolbox.viewSourceInStyleEditorByFront(sheet, line, column);
     }
   },
 
@@ -1536,15 +1521,8 @@ SelectorView.prototype = {
    * Destroy this selector view, removing event listeners
    */
   destroy: function() {
-    const rule = this.selectorInfo.rule;
-    if (rule?.parentStyleSheet && rule.type != ELEMENT_STYLE) {
-      const url = rule.parentStyleSheet.href || rule.parentStyleSheet.nodeHref;
-      this.sourceMapURLService.unsubscribe(
-        url,
-        rule.line,
-        rule.column,
-        this._updateLocation
-      );
+    if (this._unsubscribeCallback) {
+      this._unsubscribeCallback();
     }
   },
 };

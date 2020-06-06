@@ -644,7 +644,7 @@ class MOZ_STACK_CLASS IonBuilder {
   AbortReasonOr<Ok> jsop_typeof();
   AbortReasonOr<Ok> jsop_toasync();
   AbortReasonOr<Ok> jsop_toasynciter();
-  AbortReasonOr<Ok> jsop_toid();
+  AbortReasonOr<Ok> jsop_topropertykey();
   AbortReasonOr<Ok> jsop_iter();
   AbortReasonOr<Ok> jsop_itermore();
   AbortReasonOr<Ok> jsop_isnoiter();
@@ -842,7 +842,7 @@ class MOZ_STACK_CLASS IonBuilder {
                                 const JSClass* clasp2 = nullptr,
                                 const JSClass* clasp3 = nullptr,
                                 const JSClass* clasp4 = nullptr);
-  InliningResult inlineGuardToClass(CallInfo& callInfo, const JSClass* clasp);
+  InliningResult inlineGuardToClass(CallInfo& callInfo, InlinableNative native);
   InliningResult inlineIsConstructing(CallInfo& callInfo);
   InliningResult inlineSubstringKernel(CallInfo& callInfo);
   InliningResult inlineObjectHasPrototype(CallInfo& callInfo);

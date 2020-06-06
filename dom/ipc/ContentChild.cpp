@@ -122,6 +122,7 @@
 #include "nsIInputStreamChannel.h"
 #include "nsFocusManager.h"
 #include "nsIOpenWindowInfo.h"
+#include "nsSandboxFlags.h"
 
 #if !defined(XP_WIN)
 #  include "mozilla/Omnijar.h"
@@ -926,13 +927,21 @@ nsresult ContentChild::ProvideWindowCommon(
   bool useRemoteSubframes =
       aChromeFlags & nsIWebBrowserChrome::CHROME_FISSION_WINDOW;
 
+  uint32_t parentSandboxFlags = parent->SandboxFlags();
+  if (Document* doc = parent->GetDocument()) {
+    parentSandboxFlags = doc->GetSandboxFlags();
+  }
+
+  bool sandboxFlagsPropagate =
+      parentSandboxFlags & SANDBOX_PROPAGATES_TO_AUXILIARY_BROWSING_CONTEXTS;
+
   // Check if we should load in a different process. Under Fission, we never
   // want to do this, since the Fission process selection logic will handle
   // everything for us. Outside of Fission, we always want to load in a
   // different process if we have noopener set, but we also might if we can't
   // load in the current process.
-  bool loadInDifferentProcess =
-      aForceNoOpener && sNoopenerNewProcess && !useRemoteSubframes;
+  bool loadInDifferentProcess = aForceNoOpener && sNoopenerNewProcess &&
+                                !useRemoteSubframes && !sandboxFlagsPropagate;
   if (!loadInDifferentProcess && aURI) {
     // Only special-case cross-process loads if Fission is disabled. With
     // Fission enabled, the initial in-process load will automatically be
@@ -950,7 +959,7 @@ nsresult ContentChild::ProvideWindowCommon(
 
   // If we're in a content process and we have noopener set, there's no reason
   // to load in our process, so let's load it elsewhere!
-  if (loadInDifferentProcess) {
+  if (loadInDifferentProcess && !sandboxFlagsPropagate) {
     float fullZoom;
     nsCOMPtr<nsIPrincipal> triggeringPrincipal;
     nsCOMPtr<nsIContentSecurityPolicy> csp;
@@ -1104,7 +1113,8 @@ nsresult ContentChild::ProvideWindowCommon(
     }
 
     ParentShowInfo showInfo(
-        EmptyString(), false, true, false, aTabOpener->WebWidget()->GetDPI(),
+        EmptyString(), /* fakeShowInfo = */ true, /* isTransparent = */ false,
+        aTabOpener->WebWidget()->GetDPI(),
         aTabOpener->WebWidget()->RoundsWidgetCoordinatesTo(),
         aTabOpener->WebWidget()->GetDefaultScale().scale);
 
@@ -1707,18 +1717,17 @@ mozilla::ipc::IPCResult ContentChild::RecvSetProcessSandbox(
   MOZ_ASSERT(SandboxInfo::Get().CanSandboxContent());
 #    else
   // On Linux, we have to support systems that can't use any sandboxing.
-  if (!SandboxInfo::Get().CanSandboxContent()) {
-    sandboxEnabled = false;
-  } else {
-    // Pre-start audio before sandboxing; see bug 1443612.
-    if (StaticPrefs::media_cubeb_sandbox()) {
-      if (atp_set_real_time_limit(0, 48000)) {
-        NS_WARNING("could not set real-time limit at process startup");
-      }
-      InstallSoftRealTimeLimitHandler();
-    } else {
-      Unused << CubebUtils::GetCubebContext();
+  sandboxEnabled = SandboxInfo::Get().CanSandboxContent();
+
+  if (StaticPrefs::media_cubeb_sandbox()) {
+    // This needs to happen regardless of whether sandboxing is enabled.
+    if (atp_set_real_time_limit(0, 48000)) {
+      NS_WARNING("could not set real-time limit at process startup");
     }
+    InstallSoftRealTimeLimitHandler();
+  } else if (sandboxEnabled) {
+    // Pre-start audio before sandboxing; see bug 1443612.
+    Unused << CubebUtils::GetCubebContext();
   }
 #    endif /* MOZ_WIDGET_GONK && ANDROID_VERSION >= 19 */
 

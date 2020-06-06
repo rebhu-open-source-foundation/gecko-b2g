@@ -337,12 +337,12 @@ void LIRGenerator::visitReturnFromCtor(MReturnFromCtor* ins) {
   define(lir, ins);
 }
 
-void LIRGenerator::visitComputeThis(MComputeThis* ins) {
-  MOZ_ASSERT(ins->type() == MIRType::Value);
+void LIRGenerator::visitBoxNonStrictThis(MBoxNonStrictThis* ins) {
+  MOZ_ASSERT(ins->type() == MIRType::Object);
   MOZ_ASSERT(ins->input()->type() == MIRType::Value);
 
-  LComputeThis* lir = new (alloc()) LComputeThis(useBoxAtStart(ins->input()));
-  defineBox(lir, ins);
+  auto* lir = new (alloc()) LBoxNonStrictThis(useBox(ins->input()));
+  define(lir, ins);
   assignSafepoint(lir, ins);
 }
 
@@ -1156,8 +1156,11 @@ void LIRGenerator::visitToAsyncIter(MToAsyncIter* ins) {
   assignSafepoint(lir, ins);
 }
 
-void LIRGenerator::visitToId(MToId* ins) {
-  LToIdV* lir = new (alloc()) LToIdV(useBox(ins->input()), tempDouble());
+void LIRGenerator::visitToPropertyKeyCache(MToPropertyKeyCache* ins) {
+  MDefinition* input = ins->getOperand(0);
+  MOZ_ASSERT(ins->type() == MIRType::Value);
+
+  auto* lir = new (alloc()) LToPropertyKeyCache(useBox(input));
   defineBox(lir, ins);
   assignSafepoint(lir, ins);
 }
@@ -1525,6 +1528,18 @@ void LIRGenerator::visitPow(MPow* ins) {
   MDefinition* input = ins->input();
   MDefinition* power = ins->power();
 
+  if (ins->type() == MIRType::Int32) {
+    MOZ_ASSERT(input->type() == MIRType::Int32);
+    MOZ_ASSERT(power->type() == MIRType::Int32);
+
+    auto* lir = new (alloc())
+        LPowII(useRegister(input), useRegister(power), temp(), temp());
+    assignSnapshot(lir, Bailout_PrecisionLoss);
+    define(lir, ins);
+    return;
+  }
+
+  MOZ_ASSERT(ins->type() == MIRType::Double);
   MOZ_ASSERT(input->type() == MIRType::Double);
   MOZ_ASSERT(power->type() == MIRType::Int32 ||
              power->type() == MIRType::Double);
@@ -4004,6 +4019,13 @@ void LIRGenerator::visitGuardSpecificAtom(MGuardSpecificAtom* ins) {
   assignSnapshot(guard, Bailout_SpecificAtomGuard);
   add(guard, ins);
   redefine(ins, ins->str());
+}
+
+void LIRGenerator::visitGuardSpecificSymbol(MGuardSpecificSymbol* ins) {
+  auto* guard = new (alloc()) LGuardSpecificSymbol(useRegister(ins->symbol()));
+  assignSnapshot(guard, Bailout_SpecificSymbolGuard);
+  add(guard, ins);
+  redefine(ins, ins->symbol());
 }
 
 void LIRGenerator::visitGuardShape(MGuardShape* ins) {

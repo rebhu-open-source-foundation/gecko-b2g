@@ -180,7 +180,7 @@ function NetworkEventMessage({
         connector,
         activeTabId: networkMessageActiveTabId,
         request: networkMessageUpdate,
-        sourceMapService: serviceContainer.sourceMapService,
+        sourceMapURLService: serviceContainer.sourceMapURLService,
         openLink: serviceContainer.openLink,
         selectTab: tabId => {
           dispatch(actions.selectNetworkMessageTab(tabId));
@@ -191,7 +191,7 @@ function NetworkEventMessage({
           }
         },
         hideToggleButton: true,
-        showWebSocketsTab: false,
+        showMessagesTab: false,
       })
     );
 

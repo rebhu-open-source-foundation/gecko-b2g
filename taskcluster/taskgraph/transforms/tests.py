@@ -24,7 +24,6 @@ import logging
 from six import string_types, text_type
 
 from mozbuild.schedules import INCLUSIVE_COMPONENTS
-from moztest.resolve import TEST_SUITES
 from voluptuous import (
     Any,
     Optional,
@@ -38,7 +37,7 @@ from taskgraph.util.attributes import match_run_on_projects, keymatch
 from taskgraph.util.keyed_by import evaluate_keyed_by
 from taskgraph.util.schema import resolve_keyed_by, OptimizationSchema
 from taskgraph.util.templates import merge
-from taskgraph.util.treeherder import split_symbol, join_symbol, add_suffix
+from taskgraph.util.treeherder import split_symbol, join_symbol
 from taskgraph.util.platforms import platform_family
 from taskgraph.util.schema import (
     optionally_keyed_by,
@@ -267,6 +266,14 @@ CHUNK_SUITES_BLACKLIST = (
 
 DYNAMIC_CHUNK_DURATION = 20 * 60  # seconds
 """The approximate time each test chunk should take to run."""
+
+
+DYNAMIC_CHUNK_MULTIPLIER = {
+    # Desktop xpcshell tests run in parallel. Reduce the total runtime to
+    # compensate.
+    '^(?!android).*-xpcshell.*': 0.2,
+}
+"""A multiplication factor to tweak the total duration per platform / suite."""
 
 
 logger = logging.getLogger(__name__)
@@ -1402,13 +1409,12 @@ def set_test_manifests(config, tasks):
             yield task
             continue
 
-        suite_definition = TEST_SUITES[task['suite']]
         mozinfo = guess_mozinfo_from_task(task)
 
-        loader = manifest_loaders[config.params['test_manifest_loader']]
+        loader_cls = manifest_loaders[config.params['test_manifest_loader']]
+        loader = loader_cls(config.params)
         task['test-manifests'] = loader.get_manifests(
-            suite_definition['build_flavor'],
-            suite_definition.get('kwargs', {}).get('subsuite', 'undefined'),
+            task['suite'],
             frozenset(mozinfo.items()),
         )
 
@@ -1416,6 +1422,13 @@ def set_test_manifests(config, tasks):
         # associated suite.
         if not task['test-manifests']['active'] and not task['test-manifests']['skipped']:
             continue
+
+        # The default loader loads all manifests. If we use a non-default
+        # loader, we'll only run some subset of manifests and the hardcoded
+        # chunk numbers will no longer be valid. Dynamic chunking should yield
+        # better results.
+        if config.params['test_manifest_loader'] != 'default':
+            task['chunks'] = "dynamic"
 
         yield task
 
@@ -1434,10 +1447,13 @@ def resolve_dynamic_chunks(config, tasks):
                 "{} must define 'test-manifests' to use dynamic chunking!".format(
                     task['test-name']))
 
-        runtimes = {m: r for m, r in get_runtimes(task['test-platform']).items()
+        runtimes = {m: r for m, r in get_runtimes(task['test-platform'], task['suite']).items()
                     if m in task['test-manifests']['active']}
 
-        times = list(runtimes.values())
+        # Truncate runtimes that are above the desired chunk duration. They
+        # will be assigned to a chunk on their own and the excess duration
+        # shouldn't cause additional chunks to be needed.
+        times = [min(DYNAMIC_CHUNK_DURATION, r) for r in runtimes.values()]
         avg = round(sum(times) / len(times), 2) if times else 0
         total = sum(times)
 
@@ -1446,7 +1462,21 @@ def resolve_dynamic_chunks(config, tasks):
         missing = [m for m in task['test-manifests']['active'] if m not in runtimes]
         total += avg * len(missing)
 
-        task['chunks'] = int(round(total / DYNAMIC_CHUNK_DURATION)) or 1
+        # Apply any chunk multipliers if found.
+        key = "{}-{}".format(task["test-platform"], task["test-name"])
+        matches = keymatch(DYNAMIC_CHUNK_MULTIPLIER, key)
+        if len(matches) > 1:
+            raise Exception(
+                "Multiple matching values for {} found while "
+                "determining dynamic chunk multiplier!".format(key))
+        elif matches:
+            total = total * matches[0]
+
+        chunks = int(round(total / DYNAMIC_CHUNK_DURATION))
+
+        # Make sure we never exceed the number of manifests, nor have a chunk
+        # length of 0.
+        task['chunks'] = min(chunks, len(task['test-manifests']['active'])) or 1
         yield task
 
 
@@ -1462,11 +1492,9 @@ def split_chunks(config, tasks):
         # the algorithm more than once.
         chunked_manifests = None
         if 'test-manifests' in task:
-            suite_definition = TEST_SUITES[task['suite']]
             manifests = task['test-manifests']
             chunked_manifests = chunk_manifests(
-                suite_definition['build_flavor'],
-                suite_definition.get('kwargs', {}).get('subsuite', 'undefined'),
+                task['suite'],
                 task['test-platform'],
                 task['chunks'],
                 manifests['active'],
@@ -1491,10 +1519,11 @@ def split_chunks(config, tasks):
                             this_chunk, task['test-name'], task['test-platform']))
                 chunked['test-manifests'] = manifests
 
-            if task['chunks'] > 1:
+            group, symbol = split_symbol(chunked['treeherder-symbol'])
+            if task['chunks'] > 1 or not symbol:
                 # add the chunk number to the TH symbol
-                chunked['treeherder-symbol'] = add_suffix(
-                    chunked['treeherder-symbol'], this_chunk)
+                symbol += str(this_chunk)
+                chunked['treeherder-symbol'] = join_symbol(group, symbol)
 
             yield chunked
 

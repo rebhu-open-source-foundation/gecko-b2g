@@ -14,9 +14,19 @@ module.exports = {
   onViewSourceInStyleEditor: () => {},
   openNetworkPanel: () => {},
   resendNetworkRequest: () => {},
-  sourceMapService: {
-    subscribe: () => {},
-    originalPositionFor: () => {
+  sourceMapURLService: {
+    subscribeByURL: () => {
+      return () => {};
+    },
+    subscribeByID: () => {
+      return () => {};
+    },
+    originalPositionForURL: () => {
+      return new Promise(resolve => {
+        resolve();
+      });
+    },
+    originalPositionForID: () => {
       return new Promise(resolve => {
         resolve();
       });

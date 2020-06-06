@@ -632,6 +632,7 @@ dictionary OriginAttributesDictionary {
   DOMString addonId = "";
   DOMString firstPartyDomain = "";
   DOMString geckoViewSessionContextId = "";
+  DOMString partitionKey = "";
 };
 
 [GenerateInitFromJSON, GenerateToJSON]
@@ -643,6 +644,7 @@ dictionary OriginAttributesPatternDictionary {
   DOMString addonId = "";
   DOMString firstPartyDomain;
   DOMString geckoViewSessionContextId;
+  DOMString partitionKey;
 };
 
 dictionary CompileScriptOptionsDictionary {

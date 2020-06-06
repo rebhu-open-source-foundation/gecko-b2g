@@ -96,7 +96,7 @@
 
 - name: GuardToSymbol
   shared: true
-  transpile: false
+  transpile: true
   custom_writer: true
   args:
     input: ValId
@@ -191,7 +191,7 @@
 # Guard on an arbitrary JSClass.
 - name: GuardAnyClass
   shared: false
-  transpile: false
+  transpile: true
   args:
     obj: ObjId
     clasp: RawPointerField
@@ -261,7 +261,7 @@
 
 - name: GuardSpecificSymbol
   shared: false
-  transpile: false
+  transpile: true
   args:
     sym: SymbolId
     expected: SymbolField
@@ -691,6 +691,12 @@
   args:
     obj: ObjId
 
+- name: StringFromCharCodeResult
+  shared: false
+  transpile: true
+  args:
+    code: Int32Id
+
 - name: MathAbsInt32Result
   shared: true
   transpile: true
@@ -708,6 +714,14 @@
   transpile: true
   args:
     input: NumberId
+
+# Because Baseline stub code is shared by all realms in the Zone, this
+# instruction loads a pointer to the RNG from a stub field.
+- name: MathRandomResult
+  shared: false
+  transpile: true
+  args:
+    rng: RawPointerField
 
 - name: MathFloorToInt32Result
   shared: true
@@ -1048,6 +1062,12 @@
   args:
     str: StringId
 
+- name: LoadSymbolResult
+  shared: true
+  transpile: true
+  args:
+    sym: SymbolId
+
 - name: LoadInt32Result
   shared: true
   transpile: true
@@ -1056,13 +1076,13 @@
 
 - name: LoadDoubleResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     val: NumberId
 
 - name: LoadBigIntResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     val: BigIntId
 
@@ -1241,7 +1261,7 @@
 
 - name: Int32PowResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     lhs: Int32Id
     rhs: Int32Id
