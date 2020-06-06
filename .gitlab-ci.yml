@@ -11,7 +11,7 @@ variables: &global_variables
 .global_setup: &global_setup
   - echo -e "machine ${CI_SERVER_HOST}\nlogin gitlab-ci-token\npassword ${CI_JOB_TOKEN}" > ~/.netrc
   - git config --global url."${CI_SERVER_URL}/".insteadOf "git@${CI_SERVER_HOST}:"
-  - '[ "$(ls -A ${HOME}/.mozbuild)" ] || curl ftp://ftp.kaiostech.com/ndk/mozbuild.tar.bz2 | tar -C ${HOME}/ -xj'
+  - '[ "$(cat ${HOME}/.mozbuild/ver)" = "1" ] || curl https://packages.preprod.kaiostech.com/ndk/mozbuild.tar.bz2 | tar -C ${HOME}/ -xj'
 
 stages:
   - build
