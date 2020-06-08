@@ -115,11 +115,14 @@ Result_t SupplicantStaNetwork::SetConfiguration(
   }
 
   // wep key
-  std::array<std::string, max_wep_key_num> wepKeys = {
-      config.mWepKey0, config.mWepKey1, config.mWepKey2, config.mWepKey3};
-  stateCode = SetWepKey(wepKeys, aConfig.mWepTxKeyIndex);
-  if (stateCode != SupplicantStatusCode::SUCCESS) {
-    return ConvertStatusToResult(stateCode);
+  if (!config.mWepKey0.empty() || !config.mWepKey1.empty() ||
+      !config.mWepKey2.empty() || !config.mWepKey3.empty()) {
+    std::array<std::string, max_wep_key_num> wepKeys = {
+        config.mWepKey0, config.mWepKey1, config.mWepKey2, config.mWepKey3};
+    stateCode = SetWepKey(wepKeys, aConfig.mWepTxKeyIndex);
+    if (stateCode != SupplicantStatusCode::SUCCESS) {
+      return ConvertStatusToResult(stateCode);
+    }
   }
 
   // proto
@@ -367,7 +370,7 @@ SupplicantStatusCode SupplicantStaNetwork::SetWepKey(
     const std::array<std::string, max_wep_key_num>& aWepKeys,
     int32_t aKeyIndex) {
   MOZ_ASSERT(mNetwork);
-  SupplicantStatus response;
+  SupplicantStatus response = {SupplicantStatusCode::FAILURE_UNKNOWN, ""};
 
   for (size_t i = 0; i < aWepKeys.size(); i++) {
     std::string keyStr = aWepKeys.at(i);
@@ -395,9 +398,9 @@ SupplicantStatusCode SupplicantStaNetwork::SetWepKey(
       }
 
       mNetwork->setWepKey(i, key, [&](const SupplicantStatus& status) {
+        response = status;
         WIFI_LOGD(LOG_TAG, "set wep key return: %s",
                   ConvertStatusToString(response.code).c_str());
-        response = status;
       });
     }
   }
