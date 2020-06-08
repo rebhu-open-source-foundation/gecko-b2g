@@ -88,7 +88,7 @@ impl Task for ObserverTask {
         if let Some(object) = self.xpcom.get() {
             let setting = SettingInfoXpcom::new(&self.setting_info);
             unsafe {
-                object.Observe(setting.coerce());
+                object.ObserveSetting(setting.coerce());
             }
         }
     }

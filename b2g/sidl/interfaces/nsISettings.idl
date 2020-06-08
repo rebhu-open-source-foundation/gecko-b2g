@@ -19,9 +19,9 @@ interface nsISettingsGetResponse : nsISupports
 };
 
 // The Observer callback.
-[scriptable, uuid(f975387d-a5d9-4797-97a6-2755a245293c)]
+[scriptable, uuid(f930c8f4-fc7d-4da2-a193-80a96b00786f)]
 interface nsISettingsObserver : nsISupports {
-  void observe(in nsISettingInfo setting);
+  void observeSetting(in nsISettingInfo setting);
 };
 
 [scriptable, uuid(943b4eb6-9f2f-4e5e-802b-3847c5ad5521)]
