@@ -24,7 +24,7 @@ ac_add_options MOZ_TELEMETRY_REPORTING=
 if [ "${B2G_DEBUG:-0}" != "0" ]; then
   ac_add_options --enable-debug
 else
-  if [ "${DISABLE_LTO:-0}" = "0" ]; then
+  if [ "${MOZ_DISABLE_LTO:-0}" = "0" ]; then
     # Enable Rust <-> C++ LTO
     ac_add_options --enable-lto
     export MOZ_LTO=cross
