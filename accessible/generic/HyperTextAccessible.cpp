@@ -1182,7 +1182,11 @@ nsIntRect HyperTextAccessible::TextBounds(int32_t aStartOffset,
   if (CharacterCount() == 0) {
     nsPresContext* presContext = mDoc->PresContext();
     // Empty content, use our own bound to at least get x,y coordinates
-    return GetFrame()->GetScreenRectInAppUnits().ToNearestPixels(
+    nsIFrame* frame = GetFrame();
+    if (!frame) {
+      return nsIntRect();
+    }
+    return frame->GetScreenRectInAppUnits().ToNearestPixels(
         presContext->AppUnitsPerDevPixel());
   }
 
@@ -1502,14 +1506,8 @@ void HyperTextAccessible::GetSelectionDOMRanges(SelectionType aSelectionType,
   NS_ENSURE_SUCCESS_VOID(rv);
 
   // Remove collapsed ranges
-  uint32_t numRanges = aRanges->Length();
-  for (uint32_t idx = 0; idx < numRanges; idx++) {
-    if ((*aRanges)[idx]->Collapsed()) {
-      aRanges->RemoveElementAt(idx);
-      --numRanges;
-      --idx;
-    }
-  }
+  aRanges->RemoveElementsBy(
+      [](const auto& range) { return range->Collapsed(); });
 }
 
 int32_t HyperTextAccessible::SelectionCount() {
@@ -1808,18 +1806,20 @@ void HyperTextAccessible::Shutdown() {
 }
 
 bool HyperTextAccessible::RemoveChild(Accessible* aAccessible) {
-  int32_t childIndex = aAccessible->IndexInParent();
-  int32_t count = mOffsets.Length() - childIndex;
-  if (count > 0) mOffsets.RemoveElementsAt(childIndex, count);
+  const int32_t childIndex = aAccessible->IndexInParent();
+  if (childIndex < static_cast<int64_t>(mOffsets.Length())) {
+    mOffsets.RemoveLastElements(mOffsets.Length() -
+                                aAccessible->IndexInParent());
+  }
 
   return AccessibleWrap::RemoveChild(aAccessible);
 }
 
 bool HyperTextAccessible::InsertChildAt(uint32_t aIndex, Accessible* aChild) {
-  int32_t count = mOffsets.Length() - aIndex;
-  if (count > 0) {
-    mOffsets.RemoveElementsAt(aIndex, count);
+  if (aIndex < mOffsets.Length()) {
+    mOffsets.RemoveLastElements(mOffsets.Length() - aIndex);
   }
+
   return AccessibleWrap::InsertChildAt(aIndex, aChild);
 }
 

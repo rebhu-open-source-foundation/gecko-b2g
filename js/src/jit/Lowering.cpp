@@ -1595,6 +1595,11 @@ void LIRGenerator::visitMathFunction(MMathFunction* ins) {
   defineReturn(lir, ins);
 }
 
+void LIRGenerator::visitRandom(MRandom* ins) {
+  auto* lir = new (alloc()) LRandom(temp(), tempInt64(), tempInt64());
+  define(lir, ins);
+}
+
 // Try to mark an add or sub instruction as able to recover its input when
 // bailing out.
 template <typename S, typename T>
@@ -4026,6 +4031,14 @@ void LIRGenerator::visitGuardSpecificSymbol(MGuardSpecificSymbol* ins) {
   assignSnapshot(guard, Bailout_SpecificSymbolGuard);
   add(guard, ins);
   redefine(ins, ins->symbol());
+}
+
+void LIRGenerator::visitGuardNoDenseElements(MGuardNoDenseElements* ins) {
+  auto* guard =
+      new (alloc()) LGuardNoDenseElements(useRegister(ins->object()), temp());
+  assignSnapshot(guard, Bailout_NoDenseElementsGuard);
+  add(guard, ins);
+  redefine(ins, ins->object());
 }
 
 void LIRGenerator::visitGuardShape(MGuardShape* ins) {

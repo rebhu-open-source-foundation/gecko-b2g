@@ -2452,6 +2452,9 @@ void CodeGenerator::visitWasmBinarySimd128(LWasmBinarySimd128* ins) {
     case wasm::SimdOp::I64x2Sub:
       masm.subInt64x2(rhs, lhsDest);
       break;
+    case wasm::SimdOp::I64x2Mul:
+      masm.mulInt64x2(rhs, lhsDest, temp1);
+      break;
     case wasm::SimdOp::F32x4Add:
       masm.addFloat32x4(rhs, lhsDest);
       break;
@@ -3190,6 +3193,15 @@ void CodeGenerator::visitWasmReduceSimd128(LWasmReduceSimd128* ins) {
       break;
     case wasm::SimdOp::I32x4AllTrue:
       masm.allTrueInt32x4(src, ToRegister(dest));
+      break;
+    case wasm::SimdOp::I8x16Bitmask:
+      masm.bitmaskInt8x16(src, ToRegister(dest));
+      break;
+    case wasm::SimdOp::I16x8Bitmask:
+      masm.bitmaskInt16x8(src, ToRegister(dest));
+      break;
+    case wasm::SimdOp::I32x4Bitmask:
+      masm.bitmaskInt32x4(src, ToRegister(dest));
       break;
     case wasm::SimdOp::I8x16ExtractLaneS:
       masm.extractLaneInt8x16(imm, src, ToRegister(dest));

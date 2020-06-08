@@ -33,6 +33,8 @@
 #include <algorithm>
 #include "gfxPoint.h"
 #include "nsClassHashtable.h"
+#include "MobileViewportManager.h"
+#include "UnitTransforms.h"
 
 class gfxContext;
 class gfxFontEntry;
@@ -74,6 +76,7 @@ class WritingMode;
 class DisplayItemClip;
 class EffectSet;
 struct ActiveScrolledRoot;
+enum class ScrollOrigin : uint8_t;
 enum class StyleImageOrientation : uint8_t;
 namespace dom {
 class CanvasRenderingContext2D;
@@ -149,6 +152,7 @@ class nsLayoutUtils {
   typedef mozilla::ContainerLayerParameters ContainerLayerParameters;
   typedef mozilla::IntrinsicSize IntrinsicSize;
   typedef mozilla::RelativeTo RelativeTo;
+  typedef mozilla::ScrollOrigin ScrollOrigin;
   typedef mozilla::ViewportType ViewportType;
   typedef mozilla::gfx::SourceSurface SourceSurface;
   typedef mozilla::gfx::sRGBColor sRGBColor;
@@ -2870,7 +2874,7 @@ class nsLayoutUtils {
    * returns true for those, and returns false for other origins like APZ
    * itself, or scroll position updates from the history restore code.
    */
-  static bool CanScrollOriginClobberApz(nsAtom* aScrollOrigin);
+  static bool CanScrollOriginClobberApz(ScrollOrigin aScrollOrigin);
 
   static ScrollMetadata ComputeScrollMetadata(
       nsIFrame* aForFrame, nsIFrame* aScrollFrame, nsIContent* aContent,
@@ -3099,9 +3103,12 @@ class nsLayoutUtils {
    * With dynamic toolbar(s) the height for `vh` units is greater than the
    * ICB height, we need to expand it in some places.
    **/
+  static nsSize ExpandHeightForViewportUnits(nsPresContext* aPresContext,
+                                             const nsSize& aSize);
+
   template <typename SizeType>
-  static SizeType ExpandHeightForViewportUnits(nsPresContext* aPresContext,
-                                               const SizeType& aSize);
+  static SizeType ExpandHeightForDynamicToolbar(nsPresContext* aPresContext,
+                                                const SizeType& aSize);
 
  private:
   /**
@@ -3159,21 +3166,21 @@ template <typename PointType, typename RectType, typename CoordType>
 }
 
 template <typename SizeType>
-/* static */ SizeType nsLayoutUtils::ExpandHeightForViewportUnits(
+/* static */ SizeType nsLayoutUtils::ExpandHeightForDynamicToolbar(
     nsPresContext* aPresContext, const SizeType& aSize) {
-  nsSize sizeForViewportUnits = aPresContext->GetSizeForViewportUnits();
+  RefPtr<MobileViewportManager> MVM =
+      aPresContext->PresShell()->GetMobileViewportManager();
+  MOZ_ASSERT(MVM);
+  float toolbarHeightRatio =
+      mozilla::ScreenCoord(aPresContext->GetDynamicToolbarMaxHeight()) /
+      mozilla::ViewAs<mozilla::ScreenPixel>(
+          MVM->DisplaySize(),
+          mozilla::PixelCastJustification::LayoutDeviceIsScreenForBounds)
+          .height;
 
-  // |aSize| might be the size expanded to the minimum-scale size whereas the
-  // size for viewport units is not scaled so that we need to expand the |aSize|
-  // height by multiplying by the ratio of the viewport units height to the
-  // visible area height.
-  float vhExpansionRatio = (float)sizeForViewportUnits.height /
-                           aPresContext->GetVisibleArea().height;
-
-  MOZ_ASSERT(aSize.height <= NSCoordSaturatingNonnegativeMultiply(
-                                 aSize.height, vhExpansionRatio));
-  return SizeType(aSize.width, NSCoordSaturatingNonnegativeMultiply(
-                                   aSize.height, vhExpansionRatio));
+  return SizeType(
+      aSize.width,
+      NSCoordSaturatingAdd(aSize.height, aSize.height * toolbarHeightRatio));
 }
 
 template <typename T>

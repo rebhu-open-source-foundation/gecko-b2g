@@ -53,72 +53,6 @@ class SourceMapURLService {
   }
 
   /**
-   * Query for the original position of a location in a generated file.
-   *
-   * This function will wait for all sources to have loaded, since the
-   * sourcemap worker may not know about a particular source yet.
-   *
-   * @param {string} id The actor ID of the source.
-   * @param {number} line The line number in the source.
-   * @param {number} column The column number in the source.
-   *
-   * @return {Object | null} An object with url/line/column properties
-   *      specifying a location in the original file, or null if no particular
-   *      original location could be found.
-   */
-  async originalPositionForID(id, line, column) {
-    await this._ensureAllSourcesPopulated();
-
-    if (!this._prefValue) {
-      return null;
-    }
-
-    const map = this._mapsById.get(id);
-    if (!map) {
-      return null;
-    }
-
-    const query = this._buildQuery(map, line, column);
-    return this._dispatchQuery(query);
-  }
-
-  /**
-   * Query for the original position of a location in a generated file.
-   *
-   * This function will wait for all sources to have loaded, since the
-   * sourcemap worker may not know about a particular source yet.
-   *
-   * @param {string} url The url of the source. If multiple files with this
-   *      URL exist, the result is indeterminate.
-   * @param {number} line The line number in the source.
-   * @param {number} column The column number in the source.
-   *
-   * @return {Object | null} An object with url/line/column properties
-   *      specifying a location in the original file, or null if no particular
-   *      original location could be found.
-   */
-  async originalPositionForURL(url, line, column) {
-    await this._ensureAllSourcesPopulated();
-
-    if (!this._prefValue) {
-      return null;
-    }
-
-    const id = this._urlToIDMap.get(url);
-    if (!id) {
-      return null;
-    }
-
-    const map = this._mapsById.get(id);
-    if (!map) {
-      return null;
-    }
-
-    const query = this._buildQuery(map, line, column);
-    return this._dispatchQuery(query);
-  }
-
-  /**
    * Subscribe to notifications about the original location of a given
    * generated location, as it may not be known at this time, may become
    * available at some unknown time in the future, or may change from one
@@ -212,6 +146,22 @@ class SourceMapURLService {
       entry.unsubscribed = true;
       entry.owner.delete(entry);
     };
+  }
+
+  /**
+   * Subscribe generically based on either an ID or a URL.
+   *
+   * In an ideal world we'd always know which of these to use, but there are
+   * still cases where end up with a mixture of both, so this is provided as
+   * a helper. If you can specifically use one of these, please do that
+   * instead however.
+   */
+  subscribeByLocation({ id, url, line, column }, callback) {
+    if (id) {
+      return this.subscribeByID(id, line, column, callback);
+    }
+
+    return this.subscribeByURL(url, line, column, callback);
   }
 
   /**
@@ -383,15 +333,11 @@ class SourceMapURLService {
             this._ensureSubscribersSynchronized(query);
           }
         }
-
-        return result;
       })();
       query.action = action;
     }
 
     this._ensureSubscribersSynchronized(query);
-
-    return query.action;
   }
 
   _ensureSubscribersSynchronized(query) {

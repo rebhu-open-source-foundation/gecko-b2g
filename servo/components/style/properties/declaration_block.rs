@@ -340,6 +340,21 @@ impl PropertyDeclarationBlock {
             .find(|(declaration, _)| declaration.id() == property)
     }
 
+    /// Get a declaration for a given property with the specified importance.
+    #[inline]
+    pub fn get_at_importance(
+        &self,
+        property: PropertyDeclarationId,
+        importance: Importance,
+    ) -> Option<&PropertyDeclaration> {
+        let (declaration, i) = self.get(property)?;
+        if i == importance {
+            Some(declaration)
+        } else {
+            None
+        }
+    }
+
     /// Tries to serialize a given shorthand from the declarations in this
     /// block.
     pub fn shorthand_to_css(
@@ -1339,7 +1354,6 @@ impl<'a, 'b, 'i> DeclarationParser<'i> for PropertyDeclarationParser<'a, 'b> {
         let id = match PropertyId::parse(&name, self.context) {
             Ok(id) => id,
             Err(..) => {
-                self.last_parsed_property_id = None;
                 return Err(input.new_custom_error(StyleParseErrorKind::UnknownProperty(name)));
             },
         };
@@ -1461,6 +1475,10 @@ pub fn parse_property_declaration_list(
         match declaration {
             Ok(importance) => {
                 block.extend(iter.parser.declarations.drain(), importance);
+                // We've successfully parsed a declaration, so forget about
+                // `last_parsed_property_id`. It'd be wrong to associate any
+                // following error with this property.
+                iter.parser.last_parsed_property_id = None;
             },
             Err((error, slice)) => {
                 iter.parser.declarations.clear();

@@ -24,6 +24,7 @@
 #include "mozilla/MemoryReporting.h"
 #include "mozilla/PerfStats.h"
 #include "mozilla/PresShell.h"
+#include "mozilla/ScrollOrigin.h"
 #include "mozilla/ServoStyleSetInlines.h"
 #include "mozilla/StaticPrefs_apz.h"
 #include "mozilla/StaticPrefs_dom.h"
@@ -9024,9 +9025,16 @@ void nsLayoutUtils::SetVisualViewportSize(PresShell* aPresShell,
 }
 
 /* static */
-bool nsLayoutUtils::CanScrollOriginClobberApz(nsAtom* aScrollOrigin) {
-  return aScrollOrigin != nullptr && aScrollOrigin != nsGkAtoms::apz &&
-         aScrollOrigin != nsGkAtoms::restore;
+bool nsLayoutUtils::CanScrollOriginClobberApz(ScrollOrigin aScrollOrigin) {
+  switch (aScrollOrigin) {
+    case ScrollOrigin::None:
+    case ScrollOrigin::NotSpecified:
+    case ScrollOrigin::Apz:
+    case ScrollOrigin::Restore:
+      return false;
+    default:
+      return true;
+  }
 }
 
 /* static */
@@ -9131,7 +9139,7 @@ ScrollMetadata nsLayoutUtils::ComputeScrollMetadata(
       // in FrameMetrics::KeepLayoutViewportEnclosingVisualViewport.
       if (presContext->HasDynamicToolbar()) {
         CSSRect viewport = metrics.GetLayoutViewport();
-        viewport.SizeTo(nsLayoutUtils::ExpandHeightForViewportUnits(
+        viewport.SizeTo(nsLayoutUtils::ExpandHeightForDynamicToolbar(
             presContext, viewport.Size()));
         metrics.SetLayoutViewport(viewport);
 
@@ -9164,20 +9172,21 @@ ScrollMetadata nsLayoutUtils::ComputeScrollMetadata(
     // its scroll offset. We want to distinguish the case where the scroll
     // offset was "restored" because in that case the restored scroll position
     // should not overwrite a user-driven scroll.
-    nsAtom* lastOrigin = scrollableFrame->LastScrollOrigin();
-    if (lastOrigin == nsGkAtoms::restore) {
+    ScrollOrigin lastOrigin = scrollableFrame->LastScrollOrigin();
+    if (lastOrigin == ScrollOrigin::Restore) {
       metrics.SetScrollGeneration(scrollableFrame->CurrentScrollGeneration());
       metrics.SetScrollOffsetUpdateType(FrameMetrics::eRestore);
     } else if (CanScrollOriginClobberApz(lastOrigin)) {
-      if (lastOrigin == nsGkAtoms::relative) {
+      if (lastOrigin == ScrollOrigin::Relative) {
         metrics.SetIsRelative(true);
       }
       metrics.SetScrollGeneration(scrollableFrame->CurrentScrollGeneration());
       metrics.SetScrollOffsetUpdateType(FrameMetrics::eMainThread);
     }
 
-    nsAtom* lastSmoothScrollOrigin = scrollableFrame->LastSmoothScrollOrigin();
-    if (lastSmoothScrollOrigin) {
+    ScrollOrigin lastSmoothScrollOrigin =
+        scrollableFrame->LastSmoothScrollOrigin();
+    if (lastSmoothScrollOrigin != ScrollOrigin::None) {
       metrics.SetSmoothScrollOffsetUpdated(
           scrollableFrame->CurrentScrollGeneration());
     }
@@ -10357,4 +10366,22 @@ bool nsLayoutUtils::FrameIsMostlyScrolledOutOfViewInCrossProcess(
 
   return visibleRect->width < margin.width ||
          visibleRect->height < margin.height;
+}
+
+// static
+nsSize nsLayoutUtils::ExpandHeightForViewportUnits(nsPresContext* aPresContext,
+                                                   const nsSize& aSize) {
+  nsSize sizeForViewportUnits = aPresContext->GetSizeForViewportUnits();
+
+  // |aSize| might be the size expanded to the minimum-scale size whereas the
+  // size for viewport units is not scaled so that we need to expand the |aSize|
+  // height by multiplying by the ratio of the viewport units height to the
+  // visible area height.
+  float vhExpansionRatio = (float)sizeForViewportUnits.height /
+                           aPresContext->GetVisibleArea().height;
+
+  MOZ_ASSERT(aSize.height <= NSCoordSaturatingNonnegativeMultiply(
+                                 aSize.height, vhExpansionRatio));
+  return nsSize(aSize.width, NSCoordSaturatingNonnegativeMultiply(
+                                 aSize.height, vhExpansionRatio));
 }

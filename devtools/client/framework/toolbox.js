@@ -3973,6 +3973,23 @@ Toolbox.prototype = {
   },
 
   /**
+   * Open a CSS file when there is no line or column information available.
+   *
+   * @param {string} url The URL of the CSS file to open.
+   */
+  viewGeneratedSourceInStyleEditor: async function(url) {
+    if (typeof url !== "string") {
+      console.warn("Failed to open generated source, no url given");
+      return;
+    }
+
+    // The style editor hides the generated file if the file has original
+    // sources, so we have no choice but to open whichever original file
+    // corresponds to the first line of the generated file.
+    return viewSource.viewSourceInStyleEditor(this, url, 1);
+  },
+
+  /**
    * Given a URL for a stylesheet (generated or original), open in the style
    * editor if possible. Falls back to plain "view-source:".
    * If the stylesheet has a sourcemap, we will attempt to open the original
@@ -3983,24 +4000,15 @@ Toolbox.prototype = {
       console.warn("Failed to open source, no url given");
       return;
     }
+    if (typeof line !== "number") {
+      console.warn(
+        "No line given when navigating to source. If you're seeing this, there is a bug."
+      );
 
-    try {
-      const sourceMappedLoc = await this.sourceMapURLService.originalPositionForURL(
-        url,
-        line,
-        column
-      );
-      if (sourceMappedLoc) {
-        url = sourceMappedLoc.url;
-        line = sourceMappedLoc.line;
-        column = sourceMappedLoc.column;
-      }
-    } catch (err) {
-      console.error(
-        "Failed to resolve sourcemapped location for the given source location",
-        { url, line, column },
-        err
-      );
+      // This is a fallback in case of programming errors, but in a perfect
+      // world, viewSourceInStyleEditorByURL would always get a line/colum.
+      line = 1;
+      column = null;
     }
 
     return viewSource.viewSourceInStyleEditor(this, url, line, column);
@@ -4020,34 +4028,23 @@ Toolbox.prototype = {
       console.warn("Failed to open source, no stylesheet given");
       return;
     }
+    if (typeof line !== "number") {
+      console.warn(
+        "No line given when navigating to source. If you're seeing this, there is a bug."
+      );
 
-    let frontOrURL = stylesheetFront;
-    try {
-      const sourceMappedLoc = await this.sourceMapURLService.originalPositionForID(
-        stylesheetFront.actorID,
-        line,
-        column
-      );
-      if (sourceMappedLoc) {
-        frontOrURL = sourceMappedLoc.url;
-        line = sourceMappedLoc.line;
-        column = sourceMappedLoc.column;
-      }
-    } catch (err) {
-      console.error(
-        "Failed to resolve sourcemapped location for the given source location",
-        {
-          url: stylesheetFront
-            ? stylesheetFront.href || stylesheetFront.nodeHref
-            : null,
-          line,
-          column,
-        },
-        err
-      );
+      // This is a fallback in case of programming errors, but in a perfect
+      // world, viewSourceInStyleEditorByFront would always get a line/colum.
+      line = 1;
+      column = null;
     }
 
-    return viewSource.viewSourceInStyleEditor(this, frontOrURL, line, column);
+    return viewSource.viewSourceInStyleEditor(
+      this,
+      stylesheetFront,
+      line,
+      column
+    );
   },
 
   viewElementInInspector: async function(objectActor, inspectFromAnnotation) {
@@ -4061,6 +4058,20 @@ Toolbox.prototype = {
     if (nodeFound) {
       await this.selectTool("inspector");
     }
+  },
+
+  /**
+   * Open a JS file when there is no line or column information available.
+   *
+   * @param {string} url The URL of the JS file to open.
+   */
+  viewGeneratedSourceInDebugger: async function(url) {
+    if (typeof url !== "string") {
+      console.warn("Failed to open generated source, no url given");
+      return;
+    }
+
+    return viewSource.viewSourceInDebugger(this, url, null, null, null, null);
   },
 
   /**
@@ -4078,24 +4089,19 @@ Toolbox.prototype = {
     sourceId,
     reason
   ) {
-    try {
-      const sourceMappedLoc = await this.sourceMapURLService.originalPositionForURL(
-        sourceURL,
-        sourceLine,
-        sourceColumn
+    if (typeof sourceURL !== "string" && typeof sourceId !== "string") {
+      console.warn("Failed to open generated source, no url/id given");
+      return;
+    }
+    if (typeof sourceLine !== "number") {
+      console.warn(
+        "No line given when navigating to source. If you're seeing this, there is a bug."
       );
-      if (sourceMappedLoc) {
-        sourceURL = sourceMappedLoc.url;
-        sourceLine = sourceMappedLoc.line;
-        sourceColumn = sourceMappedLoc.column;
-        sourceId = null;
-      }
-    } catch (err) {
-      console.error(
-        "Failed to resolve sourcemapped location for the given source location",
-        { sourceURL, sourceLine, sourceColumn, sourceId, reason },
-        err
-      );
+
+      // This is a fallback in case of programming errors, but in a perfect
+      // world, viewSourceInDebugger would always get a line/colum.
+      sourceLine = 1;
+      sourceColumn = null;
     }
 
     return viewSource.viewSourceInDebugger(

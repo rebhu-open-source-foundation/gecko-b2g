@@ -282,6 +282,16 @@ bool WarpCacheIRTranspiler::emitGuardSpecificFunction(
   return true;
 }
 
+bool WarpCacheIRTranspiler::emitGuardNoDenseElements(ObjOperandId objId) {
+  MDefinition* obj = getOperand(objId);
+
+  auto* ins = MGuardNoDenseElements::New(alloc(), obj);
+  add(ins);
+
+  setOperand(objId, ins);
+  return true;
+}
+
 bool WarpCacheIRTranspiler::emitGuardNonDoubleType(ValOperandId inputId,
                                                    ValueType type) {
   switch (type) {
@@ -666,6 +676,26 @@ bool WarpCacheIRTranspiler::emitLoadDenseElementResult(ObjOperandId objId,
   bool loadDouble = false;  // TODO: Ion-only optimization.
   auto* load =
       MLoadElement::New(alloc(), elements, index, needsHoleCheck, loadDouble);
+  add(load);
+
+  pushResult(load);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitLoadDenseElementHoleResult(
+    ObjOperandId objId, Int32OperandId indexId) {
+  MDefinition* obj = getOperand(objId);
+  MDefinition* index = getOperand(indexId);
+
+  auto* elements = MElements::New(alloc(), obj);
+  add(elements);
+
+  auto* length = MInitializedLength::New(alloc(), elements);
+  add(length);
+
+  bool needsHoleCheck = true;
+  auto* load =
+      MLoadElementHole::New(alloc(), elements, index, length, needsHoleCheck);
   add(load);
 
   pushResult(load);
@@ -1100,6 +1130,31 @@ bool WarpCacheIRTranspiler::emitMathRandomResult(uint32_t rngOffset) {
   return true;
 }
 
+bool WarpCacheIRTranspiler::emitInt32MinMax(bool isMax, Int32OperandId firstId,
+                                            Int32OperandId secondId,
+                                            Int32OperandId resultId) {
+  MDefinition* first = getOperand(firstId);
+  MDefinition* second = getOperand(secondId);
+
+  auto* ins = MMinMax::New(alloc(), first, second, MIRType::Int32, isMax);
+  add(ins);
+
+  return defineOperand(resultId, ins);
+}
+
+bool WarpCacheIRTranspiler::emitNumberMinMax(bool isMax,
+                                             NumberOperandId firstId,
+                                             NumberOperandId secondId,
+                                             NumberOperandId resultId) {
+  MDefinition* first = getOperand(firstId);
+  MDefinition* second = getOperand(secondId);
+
+  auto* ins = MMinMax::New(alloc(), first, second, MIRType::Double, isMax);
+  add(ins);
+
+  return defineOperand(resultId, ins);
+}
+
 bool WarpCacheIRTranspiler::emitMathAbsInt32Result(Int32OperandId inputId) {
   MDefinition* input = getOperand(inputId);
 
@@ -1156,6 +1211,18 @@ bool WarpCacheIRTranspiler::emitMathSqrtNumberResult(NumberOperandId inputId) {
   MDefinition* input = getOperand(inputId);
 
   auto* ins = MSqrt::New(alloc(), input, MIRType::Double);
+  add(ins);
+
+  pushResult(ins);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitMathAtan2NumberResult(NumberOperandId yId,
+                                                      NumberOperandId xId) {
+  MDefinition* y = getOperand(yId);
+  MDefinition* x = getOperand(xId);
+
+  auto* ins = MAtan2::New(alloc(), y, x);
   add(ins);
 
   pushResult(ins);

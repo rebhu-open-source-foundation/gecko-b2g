@@ -61,7 +61,7 @@ class Perfherder(Layer):
         },
     }
 
-    def __call__(self, metadata):
+    def run(self, metadata):
         """Processes the given results into a perfherder-formatted data blob.
 
         If the `--perfherder` flag isn't provided, then the
@@ -112,9 +112,7 @@ class Perfherder(Layer):
             subtests = {}
             for r in res:
                 vals = [
-                    v["value"]
-                    for v in r["data"]
-                    if type(v["value"]) in (int, float)
+                    v["value"] for v in r["data"] if type(v["value"]) in (int, float)
                 ]
                 if vals:
                     subtests[r["subtest"]] = vals

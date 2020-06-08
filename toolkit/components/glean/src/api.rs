@@ -131,6 +131,9 @@ pub fn set_upload_enabled(enabled: bool) -> bool {
             // If uploading is being re-enabled, we have to restore the
             // application-lifetime metrics.
             initialize_core_metrics(&glean, &state.client_info);
+        } else if old_enabled && !enabled {
+            // If upload is being disabled, check for pings to send.
+            ping_upload::check_for_uploads();
         }
 
         enabled
@@ -145,7 +148,14 @@ fn register_uploader() {
         );
         let result: std::result::Result<UploadResult, viaduct::Error> = (move || {
             const SERVER: &str = "https://incoming.telemetry.mozilla.org";
-            let url = Url::parse(SERVER)?.join(&ping_request.path)?;
+            let mut server = String::from(SERVER);
+            let localhost_port = static_prefs::pref!("telemetry.fog.test.localhost_port");
+            if localhost_port > 0 {
+                server = format!("http://localhost:{}", localhost_port);
+            }
+            let url = Url::parse(&server)?.join(&ping_request.path)?;
+            log::info!("FOG Ping uploader uploading to {:?}", url);
+
             let mut req = Request::post(url).body(ping_request.body.clone());
             for (&header_key, header_value) in ping_request.headers.iter() {
                 req = req.header(header_key, header_value)?;

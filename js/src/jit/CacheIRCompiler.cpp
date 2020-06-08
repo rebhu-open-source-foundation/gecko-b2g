@@ -3835,6 +3835,36 @@ bool CacheIRCompiler::emitMathSqrtNumberResult(NumberOperandId inputId) {
   return true;
 }
 
+bool CacheIRCompiler::emitMathAtan2NumberResult(NumberOperandId yId,
+                                                NumberOperandId xId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+  AutoOutputRegister output(*this);
+  AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
+
+  AutoAvailableFloatRegister floatScratch0(*this, FloatReg0);
+  AutoAvailableFloatRegister floatScratch1(*this, FloatReg1);
+
+  allocator.ensureDoubleRegister(masm, yId, floatScratch0);
+  allocator.ensureDoubleRegister(masm, xId, floatScratch1);
+
+  LiveRegisterSet save(GeneralRegisterSet::Volatile(), liveVolatileFloatRegs());
+  masm.PushRegsInMask(save);
+
+  masm.setupUnalignedABICall(scratch);
+  masm.passABIArg(floatScratch0, MoveOp::DOUBLE);
+  masm.passABIArg(floatScratch1, MoveOp::DOUBLE);
+  masm.callWithABI(JS_FUNC_TO_DATA_PTR(void*, js::ecmaAtan2), MoveOp::DOUBLE);
+  masm.storeCallFloatResult(floatScratch0);
+
+  LiveRegisterSet ignore;
+  ignore.add(floatScratch0);
+  masm.PopRegsInMaskIgnore(save, ignore);
+
+  masm.boxDouble(floatScratch0, output.valueReg(), floatScratch0);
+
+  return true;
+}
+
 bool CacheIRCompiler::emitMathFloorToInt32Result(NumberOperandId inputId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
 
@@ -3897,6 +3927,45 @@ bool CacheIRCompiler::emitMathRoundToInt32Result(NumberOperandId inputId) {
                           failure->label());
 
   EmitStoreResult(masm, scratch, JSVAL_TYPE_INT32, output);
+  return true;
+}
+
+bool CacheIRCompiler::emitInt32MinMax(bool isMax, Int32OperandId firstId,
+                                      Int32OperandId secondId,
+                                      Int32OperandId resultId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  Register first = allocator.useRegister(masm, firstId);
+  Register second = allocator.useRegister(masm, secondId);
+  Register result = allocator.defineRegister(masm, resultId);
+
+  Assembler::Condition cond =
+      isMax ? Assembler::GreaterThan : Assembler::LessThan;
+  masm.move32(first, result);
+  masm.cmp32Move32(cond, second, first, second, result);
+  return true;
+}
+
+bool CacheIRCompiler::emitNumberMinMax(bool isMax, NumberOperandId firstId,
+                                       NumberOperandId secondId,
+                                       NumberOperandId resultId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  ValueOperand output = allocator.defineValueRegister(masm, resultId);
+
+  AutoAvailableFloatRegister scratch1(*this, FloatReg0);
+  AutoAvailableFloatRegister scratch2(*this, FloatReg1);
+
+  allocator.ensureDoubleRegister(masm, firstId, scratch1);
+  allocator.ensureDoubleRegister(masm, secondId, scratch2);
+
+  if (isMax) {
+    masm.maxDouble(scratch2, scratch1, /* handleNaN = */ true);
+  } else {
+    masm.minDouble(scratch2, scratch1, /* handleNaN = */ true);
+  }
+
+  masm.boxDouble(scratch1, output, scratch1);
   return true;
 }
 

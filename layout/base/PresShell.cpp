@@ -821,7 +821,7 @@ PresShell::PresShell(Document* aDocument)
       mIgnoreFrameDestruction(false),
       mIsActive(true),
       mFrozen(false),
-      mIsFirstPaint(true),  // FIXME/bug 735029: find a better solution
+      mIsFirstPaint(true),
       mObservesMutationsForPrint(false),
       mWasLastReflowInterrupted(false),
       mObservingStyleFlushes(false),
@@ -1166,6 +1166,15 @@ static void LogTextPerfStats(gfxTextPerfMetrics* aTextPerf,
   }
 }
 
+bool PresShell::InRDMPane() {
+  if (Document* doc = GetDocument()) {
+    if (BrowsingContext* bc = doc->GetBrowsingContext()) {
+      return bc->InRDMPane();
+    }
+  }
+  return false;
+}
+
 void PresShell::Destroy() {
   // Do not add code before this line please!
   if (mHaveShutDown) {
@@ -1176,6 +1185,18 @@ void PresShell::Destroy() {
                "destroy called on presshell while scripts not blocked");
 
   AUTO_PROFILER_LABEL("PresShell::Destroy", LAYOUT);
+
+  // If we have a RCD that has been painted (mIsFirstPaint=false), then record
+  // whether or not it had an APZ zoom applied to it during its lifetime, and
+  // whether or not it's in responsive design mode. We omit unpainted presShells
+  // because we get a handful of transient presShells that always report no
+  // zoom, and those skew the numbers.
+  if (!mIsFirstPaint && mPresContext->IsRootContentDocumentCrossProcess()) {
+    Telemetry::HistogramID histogram = InRDMPane()
+                                           ? Telemetry::APZ_ZOOM_ACTIVITY_RDM
+                                           : Telemetry::APZ_ZOOM_ACTIVITY;
+    Telemetry::Accumulate(histogram, IsResolutionUpdatedByApz());
+  }
 
   // dump out cumulative text perf metrics
   gfxTextPerfMetrics* tp;
@@ -2337,10 +2358,10 @@ PresShell::ScrollPage(bool aForward) {
   nsIScrollableFrame* scrollFrame =
       GetScrollableFrameToScroll(ScrollableDirection::Vertical);
   if (scrollFrame) {
-    scrollFrame->ScrollBy(nsIntPoint(0, aForward ? 1 : -1), ScrollUnit::PAGES,
-                          ScrollMode::Smooth, nullptr, nullptr,
-                          nsIScrollableFrame::NOT_MOMENTUM,
-                          nsIScrollableFrame::ENABLE_SNAP);
+    scrollFrame->ScrollBy(
+        nsIntPoint(0, aForward ? 1 : -1), ScrollUnit::PAGES, ScrollMode::Smooth,
+        nullptr, mozilla::ScrollOrigin::NotSpecified,
+        nsIScrollableFrame::NOT_MOMENTUM, nsIScrollableFrame::ENABLE_SNAP);
   }
   return NS_OK;
 }
@@ -2353,10 +2374,10 @@ PresShell::ScrollLine(bool aForward) {
     int32_t lineCount =
         Preferences::GetInt("toolkit.scrollbox.verticalScrollDistance",
                             NS_DEFAULT_VERTICAL_SCROLL_DISTANCE);
-    scrollFrame->ScrollBy(nsIntPoint(0, aForward ? lineCount : -lineCount),
-                          ScrollUnit::LINES, ScrollMode::Smooth, nullptr,
-                          nullptr, nsIScrollableFrame::NOT_MOMENTUM,
-                          nsIScrollableFrame::ENABLE_SNAP);
+    scrollFrame->ScrollBy(
+        nsIntPoint(0, aForward ? lineCount : -lineCount), ScrollUnit::LINES,
+        ScrollMode::Smooth, nullptr, mozilla::ScrollOrigin::NotSpecified,
+        nsIScrollableFrame::NOT_MOMENTUM, nsIScrollableFrame::ENABLE_SNAP);
   }
   return NS_OK;
 }
@@ -2369,10 +2390,10 @@ PresShell::ScrollCharacter(bool aRight) {
     int32_t h =
         Preferences::GetInt("toolkit.scrollbox.horizontalScrollDistance",
                             NS_DEFAULT_HORIZONTAL_SCROLL_DISTANCE);
-    scrollFrame->ScrollBy(nsIntPoint(aRight ? h : -h, 0), ScrollUnit::LINES,
-                          ScrollMode::Smooth, nullptr, nullptr,
-                          nsIScrollableFrame::NOT_MOMENTUM,
-                          nsIScrollableFrame::ENABLE_SNAP);
+    scrollFrame->ScrollBy(
+        nsIntPoint(aRight ? h : -h, 0), ScrollUnit::LINES, ScrollMode::Smooth,
+        nullptr, mozilla::ScrollOrigin::NotSpecified,
+        nsIScrollableFrame::NOT_MOMENTUM, nsIScrollableFrame::ENABLE_SNAP);
   }
   return NS_OK;
 }
@@ -2382,10 +2403,10 @@ PresShell::CompleteScroll(bool aForward) {
   nsIScrollableFrame* scrollFrame =
       GetScrollableFrameToScroll(ScrollableDirection::Vertical);
   if (scrollFrame) {
-    scrollFrame->ScrollBy(nsIntPoint(0, aForward ? 1 : -1), ScrollUnit::WHOLE,
-                          ScrollMode::Smooth, nullptr, nullptr,
-                          nsIScrollableFrame::NOT_MOMENTUM,
-                          nsIScrollableFrame::ENABLE_SNAP);
+    scrollFrame->ScrollBy(
+        nsIntPoint(0, aForward ? 1 : -1), ScrollUnit::WHOLE, ScrollMode::Smooth,
+        nullptr, mozilla::ScrollOrigin::NotSpecified,
+        nsIScrollableFrame::NOT_MOMENTUM, nsIScrollableFrame::ENABLE_SNAP);
   }
   return NS_OK;
 }

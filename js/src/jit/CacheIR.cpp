@@ -5014,9 +5014,11 @@ AttachDecision CallIRGenerator::tryAttachIsSuspendedGenerator(
   return AttachDecision::Attach;
 }
 
-AttachDecision CallIRGenerator::tryAttachToString(HandleFunction callee) {
+AttachDecision CallIRGenerator::tryAttachToString(HandleFunction callee,
+                                                  InlinableNative native) {
   // Need a single string argument.
   // TODO(Warp): Support all or more conversions to strings.
+  // Note: Unlike String, ToString requires exactly one argument.
   if (argc_ != 1 || !args_[0].isString()) {
     return AttachDecision::NoAction;
   }
@@ -5024,7 +5026,7 @@ AttachDecision CallIRGenerator::tryAttachToString(HandleFunction callee) {
   // Initialize the input operand.
   Int32OperandId argcId(writer.setInputOperandId(0));
 
-  // Guard callee is the 'ToString' intrinsic native function.
+  // Guard callee is the 'ToString' or 'String' function.
   emitNativeCalleeGuard(callee);
 
   // Guard that the argument is a string.
@@ -5039,13 +5041,20 @@ AttachDecision CallIRGenerator::tryAttachToString(HandleFunction callee) {
   writer.returnFromIC();
   cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
 
-  trackAttached("ToString");
+  if (native == InlinableNative::IntrinsicToString) {
+    trackAttached("ToString");
+  } else {
+    MOZ_ASSERT(native == InlinableNative::String);
+    trackAttached("String");
+  }
   return AttachDecision::Attach;
 }
 
-AttachDecision CallIRGenerator::tryAttachToObject(HandleFunction callee) {
+AttachDecision CallIRGenerator::tryAttachToObject(HandleFunction callee,
+                                                  InlinableNative native) {
   // Need a single object argument.
   // TODO(Warp): Support all or more conversions to object.
+  // Note: ToObject and Object differ in their behavior for undefined/null.
   if (argc_ != 1 || !args_[0].isObject()) {
     return AttachDecision::NoAction;
   }
@@ -5053,7 +5062,7 @@ AttachDecision CallIRGenerator::tryAttachToObject(HandleFunction callee) {
   // Initialize the input operand.
   Int32OperandId argcId(writer.setInputOperandId(0));
 
-  // Guard callee is the 'ToObject' intrinsic native function.
+  // Guard callee is the 'ToObject' or 'Object' function.
   emitNativeCalleeGuard(callee);
 
   // Guard that the argument is an object.
@@ -5067,7 +5076,12 @@ AttachDecision CallIRGenerator::tryAttachToObject(HandleFunction callee) {
   writer.typeMonitorResult();
   cacheIRStubKind_ = BaselineCacheIRStubKind::Monitored;
 
-  trackAttached("ToObject");
+  if (native == InlinableNative::IntrinsicToObject) {
+    trackAttached("ToObject");
+  } else {
+    MOZ_ASSERT(native == InlinableNative::Object);
+    trackAttached("Object");
+  }
   return AttachDecision::Attach;
 }
 
@@ -5556,6 +5570,85 @@ AttachDecision CallIRGenerator::tryAttachMathPow(HandleFunction callee) {
   return AttachDecision::Attach;
 }
 
+AttachDecision CallIRGenerator::tryAttachMathATan2(HandleFunction callee) {
+  // Requires two numbers as arguments.
+  if (argc_ != 2 || !args_[0].isNumber() || !args_[1].isNumber()) {
+    return AttachDecision::NoAction;
+  }
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Guard callee is the 'atan2' native function.
+  emitNativeCalleeGuard(callee);
+
+  ValOperandId yId = writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
+  ValOperandId xId = writer.loadArgumentFixedSlot(ArgumentKind::Arg1, argc_);
+
+  NumberOperandId yNumberId = writer.guardIsNumber(yId);
+  NumberOperandId xNumberId = writer.guardIsNumber(xId);
+
+  writer.mathAtan2NumberResult(yNumberId, xNumberId);
+
+  // Math.atan2 always returns a double so we don't need type monitoring.
+  writer.returnFromIC();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
+
+  trackAttached("MathAtan2");
+  return AttachDecision::Attach;
+}
+
+AttachDecision CallIRGenerator::tryAttachMathMinMax(HandleFunction callee,
+                                                    bool isMax) {
+  // For now only optimize if there are 1-4 arguments.
+  if (argc_ < 1 || argc_ > 4) {
+    return AttachDecision::NoAction;
+  }
+
+  // Ensure all arguments are numbers.
+  bool allInt32 = true;
+  for (size_t i = 0; i < argc_; i++) {
+    if (!args_[i].isNumber()) {
+      return AttachDecision::NoAction;
+    }
+    if (!args_[i].isInt32()) {
+      allInt32 = false;
+    }
+  }
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Guard callee is this Math function.
+  emitNativeCalleeGuard(callee);
+
+  if (allInt32) {
+    ValOperandId valId = writer.loadStandardCallArgument(0, argc_);
+    Int32OperandId resId = writer.guardToInt32(valId);
+    for (size_t i = 1; i < argc_; i++) {
+      ValOperandId argId = writer.loadStandardCallArgument(i, argc_);
+      Int32OperandId argInt32Id = writer.guardToInt32(argId);
+      resId = writer.int32MinMax(isMax, resId, argInt32Id);
+    }
+    writer.loadInt32Result(resId);
+  } else {
+    ValOperandId valId = writer.loadStandardCallArgument(0, argc_);
+    NumberOperandId resId = writer.guardIsNumber(valId);
+    for (size_t i = 1; i < argc_; i++) {
+      ValOperandId argId = writer.loadStandardCallArgument(i, argc_);
+      NumberOperandId argNumId = writer.guardIsNumber(argId);
+      resId = writer.numberMinMax(isMax, resId, argNumId);
+    }
+    writer.loadDoubleResult(resId);
+  }
+
+  writer.typeMonitorResult();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Monitored;
+
+  trackAttached(isMax ? "MathMax" : "MathMin");
+  return AttachDecision::Attach;
+}
+
 AttachDecision CallIRGenerator::tryAttachMathFunction(HandleFunction callee,
                                                       UnaryMathFunction fun) {
   // Need one argument.
@@ -5776,9 +5869,9 @@ AttachDecision CallIRGenerator::tryAttachInlinableNative(
     case InlinableNative::IntrinsicIsSuspendedGenerator:
       return tryAttachIsSuspendedGenerator(callee);
     case InlinableNative::IntrinsicToString:
-      return tryAttachToString(callee);
+      return tryAttachToString(callee, native);
     case InlinableNative::IntrinsicToObject:
-      return tryAttachToObject(callee);
+      return tryAttachToObject(callee, native);
     case InlinableNative::IntrinsicToInteger:
       return tryAttachToInteger(callee);
     case InlinableNative::IntrinsicIsObject:
@@ -5796,6 +5889,8 @@ AttachDecision CallIRGenerator::tryAttachInlinableNative(
       return tryAttachGuardToClass(callee, native);
 
     // String natives.
+    case InlinableNative::String:
+      return tryAttachToString(callee, native);
     case InlinableNative::StringCharCodeAt:
       return tryAttachStringCharCodeAt(callee);
     case InlinableNative::StringCharAt:
@@ -5816,6 +5911,8 @@ AttachDecision CallIRGenerator::tryAttachInlinableNative(
       return tryAttachMathRound(callee);
     case InlinableNative::MathSqrt:
       return tryAttachMathSqrt(callee);
+    case InlinableNative::MathATan2:
+      return tryAttachMathATan2(callee);
     case InlinableNative::MathSin:
       return tryAttachMathFunction(callee, UnaryMathFunction::Sin);
     case InlinableNative::MathTan:
@@ -5856,10 +5953,18 @@ AttachDecision CallIRGenerator::tryAttachInlinableNative(
       return tryAttachMathFunction(callee, UnaryMathFunction::Cbrt);
     case InlinableNative::MathPow:
       return tryAttachMathPow(callee);
+    case InlinableNative::MathMin:
+      return tryAttachMathMinMax(callee, /* isMax = */ false);
+    case InlinableNative::MathMax:
+      return tryAttachMathMinMax(callee, /* isMax = */ true);
 
     // Map intrinsics.
     case InlinableNative::IntrinsicGuardToMapObject:
       return tryAttachGuardToClass(callee, native);
+
+    // Object natives.
+    case InlinableNative::Object:
+      return tryAttachToObject(callee, native);
 
     // Set intrinsics.
     case InlinableNative::IntrinsicGuardToSetObject:

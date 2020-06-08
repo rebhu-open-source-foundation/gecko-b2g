@@ -21,15 +21,8 @@ module.exports = {
     subscribeByID: () => {
       return () => {};
     },
-    originalPositionForURL: () => {
-      return new Promise(resolve => {
-        resolve();
-      });
-    },
-    originalPositionForID: () => {
-      return new Promise(resolve => {
-        resolve();
-      });
+    subscribeByLocation: () => {
+      return () => {};
     },
   },
   openLink: () => {},

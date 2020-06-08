@@ -4759,6 +4759,8 @@ mozilla::ipc::IPCResult ContentParent::RecvScriptErrorInternal(
                           aFromPrivateWindow, aFromChromeContext);
   if (NS_FAILED(rv)) return IPC_OK();
 
+  msg->SetIsForwardedFromContentProcess(true);
+
   consoleService->LogMessageWithMode(msg, nsConsoleService::SuppressLog);
   return IPC_OK();
 }

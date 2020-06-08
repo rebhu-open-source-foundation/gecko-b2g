@@ -2077,12 +2077,7 @@ class MacroAssembler : public MacroAssemblerSpecific {
       DEFINED_ON(x86_shared);
 
   inline void mulInt64x2(FloatRegister rhs, FloatRegister lhsDest,
-                         Register64 temp) DEFINED_ON(x64);
-
-  // `temp1` must be edx:eax
-  inline void mulInt64x2(FloatRegister rhs, FloatRegister lhsDest,
-                         Register64 temp1, Register64 temp2, Register temp3)
-      DEFINED_ON(x86);
+                         FloatRegister temp) DEFINED_ON(x86_shared);
 
   // Integer Negate
 
@@ -2312,6 +2307,17 @@ class MacroAssembler : public MacroAssemblerSpecific {
       DEFINED_ON(x86_shared);
 
   inline void allTrueInt32x4(FloatRegister src, Register dest)
+      DEFINED_ON(x86_shared);
+
+  // Bitmask, ie extract and compress high bits of all lanes
+
+  inline void bitmaskInt8x16(FloatRegister src, Register dest)
+      DEFINED_ON(x86_shared);
+
+  inline void bitmaskInt16x8(FloatRegister src, Register dest)
+      DEFINED_ON(x86_shared);
+
+  inline void bitmaskInt32x4(FloatRegister src, Register dest)
       DEFINED_ON(x86_shared);
 
   // Comparisons (integer and floating-point)

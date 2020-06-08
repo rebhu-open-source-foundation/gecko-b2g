@@ -287,7 +287,7 @@
 
 - name: GuardNoDenseElements
   shared: true
-  transpile: false
+  transpile: true
   args:
     obj: ObjId
 
@@ -723,6 +723,13 @@
   args:
     rng: RawPointerField
 
+- name: MathAtan2NumberResult
+  shared: true
+  transpile: true
+  args:
+    lhs: NumberId
+    rhs: NumberId
+
 - name: MathFloorToInt32Result
   shared: true
   transpile: true
@@ -740,6 +747,24 @@
   transpile: true
   args:
     input: NumberId
+
+- name: Int32MinMax
+  shared: true
+  transpile: true
+  args:
+    isMax: BoolImm
+    first: Int32Id
+    second: Int32Id
+    result: Int32Id
+
+- name: NumberMinMax
+  shared: true
+  transpile: true
+  args:
+    isMax: BoolImm
+    first: NumberId
+    second: NumberId
+    result: NumberId
 
 - name: MathFunctionNumberResult
   shared: true
@@ -916,7 +941,7 @@
 
 - name: LoadDenseElementHoleResult
   shared: true
-  transpile: false
+  transpile: true
   args:
     obj: ObjId
     index: Int32Id

@@ -16,10 +16,10 @@ except ImportError:
     conditions = None
 
 from mozperftest.system import get_layers as system_layers  # noqa
-from mozperftest.browser import get_layers as browser_layers  # noqa
+from mozperftest.test import get_layers as test_layers  # noqa
 from mozperftest.metrics import get_layers as metrics_layers  # noqa
 
-FLAVORS = ["script", "doc"]
+FLAVORS = ["desktop-browser", "mobile-browser", "doc"]
 
 
 class Options:
@@ -28,7 +28,7 @@ class Options:
         "--flavor": {
             "choices": FLAVORS,
             "metavar": "{{{}}}".format(", ".join(FLAVORS)),
-            "default": "script",
+            "default": "desktop-browser",
             "help": "Only run tests of this flavor.",
         },
         "tests": {
@@ -71,7 +71,7 @@ class Options:
     args = copy.deepcopy(general_args)
 
 
-for layer in system_layers() + browser_layers() + metrics_layers():
+for layer in system_layers() + test_layers() + metrics_layers():
     if layer.activated:
         # add an option to deactivate it
         option_name = "--no-%s" % layer.name

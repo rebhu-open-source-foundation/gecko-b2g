@@ -280,22 +280,9 @@ pref("browser.urlbar.filter.javascript", true);
 
 // the maximum number of results to show in autocomplete when doing richResults
 pref("browser.urlbar.maxRichResults", 10);
-// The amount of time (ms) to wait after the user has stopped typing
-// before starting to perform autocomplete.  50 is the default set in
-// autocomplete.xml.
-pref("browser.urlbar.delay", 50);
 
 // The maximum number of historical search results to show.
-#ifdef EARLY_BETA_OR_EARLIER
 pref("browser.urlbar.maxHistoricalSearchSuggestions", 2);
-#else
-pref("browser.urlbar.maxHistoricalSearchSuggestions", 0);
-#endif
-
-// When true, URLs in the user's history that look like search result pages
-// are styled to look like search engine results instead of the usual history
-// results.
-pref("browser.urlbar.restyleSearches", false);
 
 // The default behavior for the urlbar can be configured to use any combination
 // of the match filters with each additional filter adding more results (union).
@@ -309,7 +296,6 @@ pref("browser.urlbar.suggest.topsites",             true);
 // is longer than this.
 pref("browser.urlbar.maxCharsForSearchSuggestions", 100);
 
-pref("browser.urlbar.formatting.enabled", true);
 pref("browser.urlbar.trimURLs", true);
 
 // If changed to true, copying the entire URL from the location bar will put the
@@ -326,10 +312,6 @@ pref("browser.urlbar.openintab", false);
 
 // If true, we show tail suggestions when available.
 pref("browser.urlbar.richSuggestions.tail", false);
-
-// This is disabled until Bug 1340663 figures out the remaining requirements.
-pref("browser.urlbar.usepreloadedtopurls.enabled", false);
-pref("browser.urlbar.usepreloadedtopurls.expire_days", 14);
 
 // If true, we show actionable tips in the Urlbar when the user is searching
 // for those actions.
