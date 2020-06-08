@@ -6,6 +6,7 @@
 
 [NoInterfaceObject, Exposed=Window]
 interface CallsList {
+  iterable<TelephonyCall>;
   getter TelephonyCall item(unsigned long index);
   readonly attribute unsigned long length;
 };

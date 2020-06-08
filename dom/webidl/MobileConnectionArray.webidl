@@ -7,6 +7,7 @@
 [Pref="dom.mobileconnection.enabled",
  Exposed=Window]
 interface MobileConnectionArray {
+  iterable<MobileConnection?>;
   getter MobileConnection? item(unsigned long index);
   readonly attribute unsigned long length;
 };
