@@ -26,8 +26,6 @@ struct ParamTraits;
 namespace mozilla {
 namespace webgl {
 
-using IPC::PcqTypeInfo;
-using IPC::PcqTypeInfoID;
 using mozilla::ipc::IProtocol;
 using mozilla::ipc::Shmem;
 
@@ -36,7 +34,7 @@ extern LazyLogModule gPCQLog;
 #define PCQ_LOGD(...) PCQ_LOG_(LogLevel::Debug, __VA_ARGS__)
 #define PCQ_LOGE(...) PCQ_LOG_(LogLevel::Error, __VA_ARGS__)
 
-class ProducerConsumerQuue;
+class ProducerConsumerQueue;
 class PcqProducer;
 class PcqConsumer;
 
@@ -100,9 +98,6 @@ class PcqActor : public SupportsWeakPtr<PcqActor> {
 // existing code get confused if mozilla::detail and mozilla::webgl::detail
 // exist.
 namespace detail {
-using IPC::PcqTypeInfo;
-using IPC::PcqTypeInfoID;
-
 using mozilla::ipc::IProtocol;
 using mozilla::ipc::Shmem;
 using mozilla::webgl::IsSuccess;
@@ -133,24 +128,13 @@ constexpr size_t GetMaxHeaderSize() {
 }
 
 template <typename View, typename Arg, typename... Args>
-size_t MinSizeofArgs(View& aView, const Arg* aArg, const Args*... aArgs) {
+size_t MinSizeofArgs(View& aView, const Arg& aArg, const Args&... aArgs) {
   return aView.MinSizeParam(aArg) + MinSizeofArgs(aView, aArgs...);
 }
 
 template <typename View>
 size_t MinSizeofArgs(View&) {
   return 0;
-}
-
-template <typename View, typename Arg1, typename Arg2, typename... Args>
-size_t MinSizeofArgs(View& aView) {
-  return aView.template MinSizeParam<Arg1>(nullptr) +
-         MinSizeofArgs<Arg2, Args...>(aView);
-}
-
-template <typename View, typename Arg>
-size_t MinSizeofArgs(View& aView) {
-  return aView.MinSizeParam(nullptr);
 }
 
 class PcqRCSemaphore {
@@ -434,7 +418,7 @@ class PcqProducer : public detail::PcqBase {
 
     // Check that the queue has enough unoccupied room for all Args types.
     // This is based on the user's size estimate for args from QueueParamTraits.
-    size_t bytesNeeded = detail::MinSizeofArgs(view, &aArgs...);
+    size_t bytesNeeded = detail::MinSizeofArgs(view, aArgs...);
 
     if (Size() < bytesNeeded) {
       PCQ_LOGE(
@@ -501,11 +485,6 @@ class PcqProducer : public detail::PcqBase {
   QueueStatus TryWaitInsert(const Maybe<TimeDuration>& aDuration,
                             Args&&... aArgs) {
     return TryWaitInsertImpl(false, aDuration, std::forward<Args>(aArgs)...);
-  }
-
-  template <typename... Args>
-  QueueStatus TryTypedInsert(Args&&... aArgs) {
-    return TryInsert(PcqTypedArg<Args>(aArgs)...);
   }
 
   QueueStatus AllocShmem(mozilla::ipc::Shmem* aShmem, size_t aBufferSize,
@@ -628,62 +607,12 @@ class PcqConsumer : public detail::PcqBase {
   size_t Size() { return QueueSize(); }
 
   /**
-   * Attempts to copy aArgs in the queue.  The queue remains unchanged.
-   */
-  template <typename... Args>
-  QueueStatus TryPeek(Args&... aArgs) {
-    return TryPeekOrRemove<false, Args...>(
-        [&](ConsumerView<PcqConsumer>& aView) -> QueueStatus {
-          return TryPeekRemoveHelper(aView, &aArgs...);
-        });
-  }
-
-  template <typename... Args>
-  QueueStatus TryTypedPeek(Args&... aArgs) {
-    return TryPeek(PcqTypedArg<Args>(aArgs)...);
-  }
-
-  /**
    * Attempts to copy and remove aArgs from the queue.  If the operation does
    * not succeed then the queue is unchanged.
    */
   template <typename... Args>
   QueueStatus TryRemove(Args&... aArgs) {
-    return TryPeekOrRemove<true, Args...>(
-        [&](ConsumerView<PcqConsumer>& aView) -> QueueStatus {
-          return TryPeekRemoveHelper(aView, &aArgs...);
-        });
-  }
-
-  template <typename... Args>
-  QueueStatus TryTypedRemove(Args&... aArgs) {
-    return TryRemove(PcqTypedArg<Args>(&aArgs)...);
-  }
-
-  /**
-   * Attempts to remove Args from the queue without copying them.  If the
-   * operation does not succeed then the queue is unchanged.
-   */
-  template <typename... Args>
-  QueueStatus TryRemove() {
-    using seq = std::index_sequence_for<Args...>;
-    return TryRemove<Args...>(seq{});
-  }
-
-  template <typename... Args>
-  QueueStatus TryTypedRemove() {
-    return TryRemove<PcqTypedArg<Args>...>();
-  }
-
-  /**
-   * Wait for up to aDuration to get a copy of the requested data.  If the
-   * operation does not succeed in the time allotted then the queue is
-   * unchanged. Pass Nothing to wait until peek succeeds.
-   */
-  template <typename... Args>
-  QueueStatus TryWaitPeek(const Maybe<TimeDuration>& aDuration,
-                          Args&... aArgs) {
-    return TryWaitPeekOrRemove<false>(aDuration, aArgs...);
+    return TryRemoveImpl(aArgs...);
   }
 
   /**
@@ -693,50 +622,7 @@ class PcqConsumer : public detail::PcqBase {
   template <typename... Args>
   QueueStatus TryWaitRemove(const Maybe<TimeDuration>& aDuration,
                             Args&... aArgs) {
-    return TryWaitPeekOrRemove<true>(aDuration, aArgs...);
-  }
-
-  /**
-   * Wait for up to aDuration to remove the requested data.  No copy
-   * of the data is returned.  If the operation does not succeed in the
-   * time allotted then the queue is unchanged.
-   * Pass Nothing to wait until removal succeeds.
-   */
-  template <typename... Args>
-  QueueStatus TryWaitRemove(const Maybe<TimeDuration>& aDuration) {
-    // Wait up to aDuration for the not-empty semaphore to be signaled.
-    // If we run out of time then quit.
-    TimeStamp start(TimeStamp::Now());
-    if (!mMaybeNotEmptySem->Wait(aDuration)) {
-      return QueueStatus::kNotReady;
-    }
-
-    // Attempt to remove all args.  No waiting is done here.
-    QueueStatus status = TryRemove<Args...>();
-
-    TimeStamp now;
-    if (IsSuccess(status)) {
-      // If our local view of the queue is that it is still not empty then
-      // we know it won't get empty without us (we are the only consumer).
-      // So re-set the not-empty semaphore unless it's already set.
-      // (We are also the only not-empty semaphore decrementer so it can't
-      // become 0.)
-      if ((!IsEmpty()) && (!mMaybeNotEmptySem->IsAvailable())) {
-        mMaybeNotEmptySem->Signal();
-      }
-    } else if ((status == QueueStatus::kNotReady) &&
-               (aDuration.isNothing() ||
-                ((now = TimeStamp::Now()) - start) < aDuration.value())) {
-      // We don't have enough data but still have time, e.g. because
-      // the producer wrote some data but not enough or because the
-      // not-empty semaphore gave a false positive.  Either way, retry.
-      status =
-          aDuration.isNothing()
-              ? TryWaitRemove<Args...>(aDuration)
-              : TryWaitRemove<Args...>(Some(aDuration.value() - (now - start)));
-    }
-
-    return status;
+    return TryWaitRemoveImpl(false, aDuration, aArgs...);
   }
 
   mozilla::ipc::Shmem::SharedMemory* LookupSharedMemory(uint32_t aId) {
@@ -750,12 +636,8 @@ class PcqConsumer : public detail::PcqBase {
   friend ProducerConsumerQueue;
   friend ConsumerView<PcqConsumer>;
 
-  // PeekOrRemoveOperation takes a read pointer and a write index.
-  using PeekOrRemoveOperation =
-      std::function<QueueStatus(ConsumerView<PcqConsumer>&)>;
-
-  template <bool isRemove, typename... Args>
-  QueueStatus TryPeekOrRemove(const PeekOrRemoveOperation& aOperation) {
+  template <typename... Args>
+  QueueStatus TryRemoveImpl(Args&... aArgs) {
     size_t write = mWrite->load(std::memory_order_acquire);
     size_t read = mRead->load(std::memory_order_relaxed);
     const size_t initRead = read;
@@ -772,7 +654,7 @@ class PcqConsumer : public detail::PcqBase {
 
     // Check that the queue has enough unoccupied room for all Args types.
     // This is based on the user's size estimate for Args from QueueParamTraits.
-    size_t bytesNeeded = detail::MinSizeofArgs(view);
+    size_t bytesNeeded = detail::MinSizeofArgs(view, aArgs...);
 
     if (Size() < bytesNeeded) {
       PCQ_LOGE(
@@ -790,9 +672,8 @@ class PcqConsumer : public detail::PcqBase {
       return QueueStatus::kNotReady;
     }
 
-    // Only update the queue if the operation was successful and we aren't
-    // peeking.
-    QueueStatus status = aOperation(view);
+    // Only update the queue if the operation was successful.
+    QueueStatus status = TryRemoveArgs(view, aArgs...);
     if (!status) {
       return status;
     }
@@ -810,44 +691,25 @@ class PcqConsumer : public detail::PcqBase {
     MOZ_ASSERT(ValidState(read, write));
 
     PCQ_LOGD(
-        "Successfully %s.  PcqConsumer used %zu bytes total.  "
+        "Successfully removed.  PcqConsumer used %zu bytes total.  "
         "Read index: %zu -> %zu",
-        isRemove ? "removed" : "peeked", bytesNeeded, initRead, read);
+        bytesNeeded, initRead, read);
 
-    // Commit the transaction... unless we were just peeking.
-    if (isRemove) {
-      mRead->store(read, std::memory_order_release);
-      // Set the semaphore (unless it is already set) to let the producer know
-      // that the queue may not be full.  We just need to guarantee that it
-      // was set (i.e. non-zero) at some time after mRead was updated.
-      if (!mMaybeNotFullSem->IsAvailable()) {
-        mMaybeNotFullSem->Signal();
-      }
+    // Commit the transaction.
+    mRead->store(read, std::memory_order_release);
+    // Set the semaphore (unless it is already set) to let the producer know
+    // that the queue may not be full.  We just need to guarantee that it
+    // was set (i.e. non-zero) at some time after mRead was updated.
+    if (!mMaybeNotFullSem->IsAvailable()) {
+      mMaybeNotFullSem->Signal();
     }
     return status;
   }
 
-  // Helper that passes nulls for all Args*
-  template <typename... Args, size_t... Is>
-  QueueStatus TryRemove(std::index_sequence<Is...>) {
-    std::tuple<Args*...> nullArgs;
-    return TryPeekOrRemove<true, Args...>(
-        [&](ConsumerView<PcqConsumer>& aView) {
-          return TryPeekRemoveHelper(aView, std::get<Is>(nullArgs)...);
-        });
-  }
-
-  template <bool isRemove, typename... Args>
-  QueueStatus TryWaitPeekOrRemove(const Maybe<TimeDuration>& aDuration,
-                                  Args&&... aArgs) {
-    return TryWaitPeekOrRemoveImpl<isRemove>(false, aDuration,
-                                             std::forward<Args>(aArgs)...);
-  }
-
-  template <bool isRemove, typename... Args>
-  QueueStatus TryWaitPeekOrRemoveImpl(bool aRecursed,
-                                      const Maybe<TimeDuration>& aDuration,
-                                      Args&... aArgs) {
+  template <typename... Args>
+  QueueStatus TryWaitRemoveImpl(bool aRecursed,
+                                const Maybe<TimeDuration>& aDuration,
+                                Args&... aArgs) {
     // Wait up to aDuration for the not-empty semaphore to be signaled.
     // If we run out of time then quit.
     TimeStamp start(TimeStamp::Now());
@@ -856,7 +718,7 @@ class PcqConsumer : public detail::PcqBase {
     }
 
     // Attempt to read all args.  No waiting is done here.
-    QueueStatus status = isRemove ? TryRemove(aArgs...) : TryPeek(aArgs...);
+    QueueStatus status = TryRemove(aArgs...);
 
     TimeStamp now;
     if (aRecursed && IsSuccess(status)) {
@@ -876,9 +738,9 @@ class PcqConsumer : public detail::PcqBase {
       // not-empty semaphore gave a false positive.  Either way, retry.
       status =
           aDuration.isNothing()
-              ? TryWaitPeekOrRemoveImpl<isRemove>(true, aDuration, aArgs...)
-              : TryWaitPeekOrRemoveImpl<isRemove>(
-                    true, Some(aDuration.value() - (now - start)), aArgs...);
+              ? TryWaitRemoveImpl(true, aDuration, aArgs...)
+              : TryWaitRemoveImpl(true, Some(aDuration.value() - (now - start)),
+                                  aArgs...);
     }
 
     return status;
@@ -886,27 +748,26 @@ class PcqConsumer : public detail::PcqBase {
 
   // Version of the helper for copying values out of the queue.
   template <typename... Args>
-  QueueStatus TryPeekRemoveHelper(ConsumerView<PcqConsumer>& aView,
-                                  Args*... aArgs);
+  QueueStatus TryRemoveArgs(ConsumerView<PcqConsumer>& aView, Args&... aArgs);
 
   template <typename Arg, typename... Args>
-  QueueStatus TryPeekRemoveHelper(ConsumerView<PcqConsumer>& aView, Arg* aArg,
-                                  Args*... aArgs) {
-    QueueStatus status = TryCopyOrSkipItem<Arg>(aView, aArg);
-    return IsSuccess(status) ? TryPeekRemoveHelper<Args...>(aView, aArgs...)
-                             : status;
+  QueueStatus TryRemoveArgs(ConsumerView<PcqConsumer>& aView, Arg& aArg,
+                            Args&... aArgs) {
+    QueueStatus status = TryCopyItem(aView, aArg);
+    return IsSuccess(status) ? TryRemoveArgs(aView, aArgs...) : status;
   }
 
-  QueueStatus TryPeekRemoveHelper(ConsumerView<PcqConsumer>&) {
+  QueueStatus TryRemoveArgs(ConsumerView<PcqConsumer>&) {
     return QueueStatus::kSuccess;
   }
 
   // If an item is available then it is copied into aArg.  The item is skipped
   // over if aArg is null.
   template <typename Arg>
-  QueueStatus TryCopyOrSkipItem(ConsumerView<PcqConsumer>& aView, Arg* aArg) {
+  QueueStatus TryCopyItem(ConsumerView<PcqConsumer>& aView, Arg& aArg) {
+    MOZ_ASSERT(aArg);
     return QueueParamTraits<typename RemoveCVR<Arg>::Type>::Read(
-        aView, const_cast<std::remove_cv_t<Arg>*>(aArg));
+        aView, const_cast<std::remove_cv_t<Arg>*>(&aArg));
   }
 
   template <typename Arg>

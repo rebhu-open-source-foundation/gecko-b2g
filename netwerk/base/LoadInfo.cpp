@@ -255,12 +255,6 @@ LoadInfo::LoadInfo(
     if (ctx) {
       mLoadingEmbedderPolicy = ctx->GetEmbedderPolicy();
     }
-    mAncestorPrincipals =
-        aLoadingContext->OwnerDoc()->AncestorPrincipals().Clone();
-    mAncestorOuterWindowIDs =
-        aLoadingContext->OwnerDoc()->AncestorOuterWindowIDs().Clone();
-    MOZ_DIAGNOSTIC_ASSERT(mAncestorPrincipals.Length() ==
-                          mAncestorOuterWindowIDs.Length());
     mDocumentHasUserInteracted =
         aLoadingContext->OwnerDoc()->UserHasInteracted();
 
@@ -449,10 +443,6 @@ LoadInfo::LoadInfo(nsPIDOMWindowOuter* aOuterWindow,
   if (aSecurityFlags != nsILoadInfo::SEC_ONLY_FOR_EXPLICIT_CONTENTSEC_CHECK) {
     MOZ_ASSERT(aOuterWindow->GetInProcessScriptableParent() == aOuterWindow);
     MOZ_ASSERT(mTopOuterWindowID == FindTopOuterWindowID(aOuterWindow));
-    MOZ_DIAGNOSTIC_ASSERT(
-        nsDocShell::Cast(docShell)->AncestorPrincipals().IsEmpty());
-    MOZ_DIAGNOSTIC_ASSERT(
-        nsDocShell::Cast(docShell)->AncestorOuterWindowIDs().IsEmpty());
   }
 
 #ifdef DEBUG
@@ -586,10 +576,7 @@ LoadInfo::LoadInfo(dom::WindowGlobalParent* aParentWGP,
       mFrameOuterWindowID(aFrameOuterWindowID),
       mBrowsingContextID(0),
       mFrameBrowsingContextID(0),
-      // annyG: we are mimicking the old LoadInfo since it has gone through
-      // security checks in the content and we wouldn't reach this point
-      // if the load got blocked earlier.
-      mInitialSecurityCheckDone(true),
+      mInitialSecurityCheckDone(false),
       mIsThirdPartyContext(false),
       mIsThirdPartyContextToTopWindow(true),
       mIsFormSubmission(false),
@@ -611,25 +598,9 @@ LoadInfo::LoadInfo(dom::WindowGlobalParent* aParentWGP,
       mLoadingEmbedderPolicy(nsILoadInfo::EMBEDDER_POLICY_NULL) {
   CanonicalBrowsingContext* parentBC = aParentWGP->BrowsingContext();
   MOZ_ASSERT(parentBC);
-  nsTArray<nsCOMPtr<nsIPrincipal>> ancestorPrincipals;
-  nsTArray<uint64_t> ancestorOuterWindowIDs;
-  CanonicalBrowsingContext* ancestorBC = parentBC;
-  RefPtr<WindowGlobalParent> topLevelWGP = aParentWGP->TopWindowContext();
+  ComputeAncestors(parentBC, mAncestorPrincipals, mAncestorOuterWindowIDs);
 
-  // Iterate over ancestor WindowGlobalParents, collecting principals and outer
-  // window IDs.
-  while (WindowGlobalParent* ancestorWGP =
-             ancestorBC->GetParentWindowContext()) {
-    nsCOMPtr<nsIPrincipal> parentPrincipal = ancestorWGP->DocumentPrincipal();
-    MOZ_ASSERT(parentPrincipal, "Ancestor principal is null");
-    ancestorPrincipals.AppendElement(parentPrincipal.forget());
-    ancestorOuterWindowIDs.AppendElement(ancestorWGP->OuterWindowId());
-    ancestorBC = ancestorWGP->BrowsingContext();
-  }
-  mAncestorPrincipals = std::move(ancestorPrincipals);
-  mAncestorOuterWindowIDs = std::move(ancestorOuterWindowIDs);
-  MOZ_DIAGNOSTIC_ASSERT(mAncestorPrincipals.Length() ==
-                        mAncestorOuterWindowIDs.Length());
+  RefPtr<WindowGlobalParent> topLevelWGP = aParentWGP->TopWindowContext();
 
   if (WindowGlobalParent* ancestorWGP = aParentWGP->GetParentWindowContext()) {
     mParentOuterWindowID = ancestorWGP->OuterWindowId();
@@ -935,6 +906,25 @@ LoadInfo::LoadInfo(
   mRedirectChain.SwapElements(aRedirectChain);
 }
 
+// static
+void LoadInfo::ComputeAncestors(
+    CanonicalBrowsingContext* aBC,
+    nsTArray<nsCOMPtr<nsIPrincipal>>& aAncestorPrincipals,
+    nsTArray<uint64_t>& aOuterWindowIDs) {
+  MOZ_ASSERT(aAncestorPrincipals.IsEmpty());
+  MOZ_ASSERT(aOuterWindowIDs.IsEmpty());
+  CanonicalBrowsingContext* ancestorBC = aBC;
+  // Iterate over ancestor WindowGlobalParents, collecting principals and outer
+  // window IDs.
+  while (WindowGlobalParent* ancestorWGP =
+             ancestorBC->GetParentWindowContext()) {
+    nsCOMPtr<nsIPrincipal> parentPrincipal = ancestorWGP->DocumentPrincipal();
+    MOZ_ASSERT(parentPrincipal, "Ancestor principal is null");
+    aAncestorPrincipals.AppendElement(parentPrincipal.forget());
+    aOuterWindowIDs.AppendElement(ancestorWGP->OuterWindowId());
+    ancestorBC = ancestorWGP->BrowsingContext();
+  }
+}
 void LoadInfo::ComputeIsThirdPartyContext(nsPIDOMWindowOuter* aOuterWindow) {
   nsContentPolicyType type =
       nsContentUtils::InternalContentPolicyTypeToExternal(

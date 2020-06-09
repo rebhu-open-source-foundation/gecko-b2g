@@ -1303,6 +1303,7 @@ pub extern "C" fn wr_window_new(
     support_low_priority_threadpool: bool,
     allow_texture_swizzling: bool,
     enable_picture_caching: bool,
+    allow_scissored_cache_clears: bool,
     start_debug_server: bool,
     swgl_context: *mut c_void,
     gl_context: *mut c_void,
@@ -1437,6 +1438,7 @@ pub extern "C" fn wr_window_new(
         namespace_alloc_by_client: true,
         enable_picture_caching,
         allow_pixel_local_storage_support: false,
+        clear_caches_with_quads: !allow_scissored_cache_clears,
         start_debug_server,
         surface_origin_is_top_left: !software && surface_origin_is_top_left,
         compositor_config,
@@ -3747,10 +3749,11 @@ pub unsafe extern "C" fn wr_device_delete(device: *mut Device) {
 pub extern "C" fn wr_shaders_new(
     gl_context: *mut c_void,
     program_cache: Option<&mut WrProgramCache>,
+    precache_shaders: bool,
 ) -> *mut WrShaders {
     let mut device = wr_device_new(gl_context, program_cache);
 
-    let precache_flags = if env_var_to_bool("MOZ_WR_PRECACHE_SHADERS") {
+    let precache_flags = if precache_shaders || env_var_to_bool("MOZ_WR_PRECACHE_SHADERS") {
         ShaderPrecacheFlags::FULL_COMPILE
     } else {
         ShaderPrecacheFlags::ASYNC_COMPILE

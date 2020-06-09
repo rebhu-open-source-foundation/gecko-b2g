@@ -96,6 +96,8 @@ done
 
 # -----------------------------------------------------------------------------
 
+mar_command="$MAR -V ${MOZ_PRODUCT_VERSION:?} -H ${MAR_CHANNEL_ID:?}"
+
 let arg_start=$OPTIND-1
 shift $arg_start
 
@@ -217,7 +219,7 @@ for ((i=0; $i<$num_oldfiles; i=$i+1)); do
         if [[ -n $MAR_OLD_FORMAT ]]; then
           $BZIP2 -z9 "$workdir/$f.patch"
         else
-          $XZ --compress $BCJ_OPTIONS --lzma2 --format=xz --check=crc64 --force "$workdir/$f.patch"
+          $XZ --compress --lzma2 --format=xz --check=crc64 --force "$workdir/$f.patch"
         fi
       else
         # if service enabled then check patch existence for retrieval
@@ -236,7 +238,7 @@ for ((i=0; $i<$num_oldfiles; i=$i+1)); do
           else
             # if not found already - compute it and cache it for future use
             $MBSDIFF "$olddir/$f" "$newdir/$f" "$workdir/$f.patch"
-            $XZ --compress $BCJ_OPTIONS --lzma2 --format=xz --check=crc64 --force "$workdir/$f.patch"
+            $XZ --compress --lzma2 --format=xz --check=crc64 --force "$workdir/$f.patch"
             $MBSDIFF_HOOK -u "$olddir/$f" "$newdir/$f" "$workdir/$f.patch.xz"
           fi
         fi
@@ -345,15 +347,6 @@ else
   $XZ --compress $BCJ_OPTIONS --lzma2 --format=xz --check=crc64 --force "$updatemanifestv3" && mv -f "$updatemanifestv3.xz" "$updatemanifestv3"
 fi
 
-mar_command="$MAR"
-if [[ -n $MOZ_PRODUCT_VERSION ]]
-then
-  mar_command="$mar_command -V $MOZ_PRODUCT_VERSION"
-fi
-if [[ -n $MAR_CHANNEL_ID ]]
-then
-  mar_command="$mar_command -H $MAR_CHANNEL_ID"
-fi
 mar_command="$mar_command -C \"$workdir\" -c output.mar"
 eval "$mar_command $archivefiles"
 mv -f "$workdir/output.mar" "$archive"

@@ -390,7 +390,7 @@ class IpdlProducer final : public SupportsWeakPtr<IpdlProducer<_Actor>> {
     size_t read = 0;
     size_t write = 0;
     mozilla::webgl::ProducerView<SelfType> view(this, read, &write);
-    size_t bytesNeeded = MinSizeofArgs(view, &aArgs...);
+    size_t bytesNeeded = MinSizeofArgs(view, aArgs...);
     if (!mSerializedData.SetLength(bytesNeeded, fallible)) {
       return QueueStatus::kOOMError;
     }
@@ -444,11 +444,6 @@ class IpdlProducer final : public SupportsWeakPtr<IpdlProducer<_Actor>> {
   size_t MinSizeofArgs(mozilla::webgl::ProducerView<SelfType>& aView,
                        const Arg& aArg, const Args&... aArgs) {
     return aView.MinSizeParam(aArg) + MinSizeofArgs(aView, aArgs...);
-  }
-
-  template <typename Arg, typename... Args>
-  size_t MinSizeofArgs(mozilla::webgl::ProducerView<SelfType>& aView) {
-    return aView.template MinSizeParam<Arg>() + MinSizeofArgs<Args...>(aView);
   }
 };
 
@@ -507,7 +502,7 @@ class IpdlConsumer final : public SupportsWeakPtr<IpdlConsumer<_Actor>> {
     size_t write = mBuf.Length();
     mozilla::webgl::ConsumerView<SelfType> view(this, &read, write);
 
-    QueueStatus status = DeserializeArgs(view, &aArgs...);
+    QueueStatus status = DeserializeArgs(view, aArgs...);
     if (IsSuccess(status) && (read > 0)) {
       mBuf.RemoveElementsAt(0, read);
     }
@@ -520,7 +515,7 @@ class IpdlConsumer final : public SupportsWeakPtr<IpdlConsumer<_Actor>> {
 
   template <typename Arg, typename... Args>
   QueueStatus DeserializeArgs(mozilla::webgl::ConsumerView<SelfType>& aView,
-                              Arg* aArg, Args*... aArgs) {
+                              Arg& aArg, Args&... aArgs) {
     QueueStatus status = DeserializeArg(aView, aArg);
     if (!IsSuccess(status)) {
       return status;
@@ -530,10 +525,10 @@ class IpdlConsumer final : public SupportsWeakPtr<IpdlConsumer<_Actor>> {
 
   template <typename Arg>
   QueueStatus DeserializeArg(mozilla::webgl::ConsumerView<SelfType>& aView,
-                             Arg* aArg) {
+                             Arg& aArg) {
     return mozilla::webgl::
         QueueParamTraits<typename mozilla::webgl::RemoveCVR<Arg>::Type>::Read(
-            aView, const_cast<typename std::remove_cv<Arg>::type*>(aArg));
+            aView, const_cast<std::remove_cv_t<Arg>*>(&aArg));
   }
 
  public:

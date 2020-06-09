@@ -8,9 +8,9 @@
 
 #include "MediaControlService.h"
 #include "MediaControlUtils.h"
+#include "mozilla/AsyncEventDispatcher.h"
 #include "mozilla/dom/BrowsingContext.h"
 #include "mozilla/dom/CanonicalBrowsingContext.h"
-#include "mozilla/dom/MediaSessionUtils.h"
 
 // avoid redefined macro in unified build
 #undef LOG
@@ -22,11 +22,51 @@
 namespace mozilla {
 namespace dom {
 
+NS_IMPL_CYCLE_COLLECTION_INHERITED(MediaController, DOMEventTargetHelper)
+NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED_0(MediaController,
+                                               DOMEventTargetHelper)
+NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(MediaController,
+                                               DOMEventTargetHelper)
+NS_IMPL_CYCLE_COLLECTION_TRACE_END
+
+nsISupports* MediaController::GetParentObject() const {
+  RefPtr<BrowsingContext> bc = BrowsingContext::Get(Id());
+  return bc;
+}
+
+JSObject* MediaController::WrapObject(JSContext* aCx,
+                                      JS::Handle<JSObject*> aGivenProto) {
+  return MediaController_Binding::Wrap(aCx, this, aGivenProto);
+}
+
+void MediaController::GetSupportedKeys(
+    nsTArray<MediaControlKey>& aRetVal) const {
+  aRetVal.Clear();
+  for (const auto& key : mSupportedKeys) {
+    aRetVal.AppendElement(key);
+  }
+}
+
+static const MediaControlKey sDefaultSupportedKeys[] = {
+    MediaControlKey::Focus,     MediaControlKey::Play, MediaControlKey::Pause,
+    MediaControlKey::Playpause, MediaControlKey::Stop,
+};
+
+static void GetDefaultSupportedKeys(nsTArray<MediaControlKey>& aKeys) {
+  for (const auto& key : sDefaultSupportedKeys) {
+    aKeys.AppendElement(key);
+  }
+}
+
 MediaController::MediaController(uint64_t aBrowsingContextId)
     : MediaStatusManager(aBrowsingContextId) {
   MOZ_DIAGNOSTIC_ASSERT(XRE_IsParentProcess(),
                         "MediaController only runs on Chrome process!");
   LOG("Create controller %" PRId64, Id());
+  GetDefaultSupportedKeys(mSupportedKeys);
+  mSupportedActionsChangedListener = SupportedActionsChangedEvent().Connect(
+      AbstractThread::MainThread(), this,
+      &MediaController::HandleSupportedMediaSessionActionsChanged);
 }
 
 MediaController::~MediaController() {
@@ -38,50 +78,42 @@ MediaController::~MediaController() {
 
 void MediaController::Focus() {
   LOG("Focus");
-  UpdateMediaControlKeysEventToContentMediaIfNeeded(
-      MediaControlKeysEvent::eFocus);
+  UpdateMediaControlKeyToContentMediaIfNeeded(MediaControlKey::Focus);
 }
 
 void MediaController::Play() {
   LOG("Play");
-  UpdateMediaControlKeysEventToContentMediaIfNeeded(
-      MediaControlKeysEvent::ePlay);
+  UpdateMediaControlKeyToContentMediaIfNeeded(MediaControlKey::Play);
 }
 
 void MediaController::Pause() {
   LOG("Pause");
-  UpdateMediaControlKeysEventToContentMediaIfNeeded(
-      MediaControlKeysEvent::ePause);
+  UpdateMediaControlKeyToContentMediaIfNeeded(MediaControlKey::Pause);
 }
 
 void MediaController::PrevTrack() {
   LOG("Prev Track");
-  UpdateMediaControlKeysEventToContentMediaIfNeeded(
-      MediaControlKeysEvent::ePrevTrack);
+  UpdateMediaControlKeyToContentMediaIfNeeded(MediaControlKey::Previoustrack);
 }
 
 void MediaController::NextTrack() {
   LOG("Next Track");
-  UpdateMediaControlKeysEventToContentMediaIfNeeded(
-      MediaControlKeysEvent::eNextTrack);
+  UpdateMediaControlKeyToContentMediaIfNeeded(MediaControlKey::Nexttrack);
 }
 
 void MediaController::SeekBackward() {
   LOG("Seek Backward");
-  UpdateMediaControlKeysEventToContentMediaIfNeeded(
-      MediaControlKeysEvent::eSeekBackward);
+  UpdateMediaControlKeyToContentMediaIfNeeded(MediaControlKey::Seekbackward);
 }
 
 void MediaController::SeekForward() {
   LOG("Seek Forward");
-  UpdateMediaControlKeysEventToContentMediaIfNeeded(
-      MediaControlKeysEvent::eSeekForward);
+  UpdateMediaControlKeyToContentMediaIfNeeded(MediaControlKey::Seekforward);
 }
 
 void MediaController::Stop() {
   LOG("Stop");
-  UpdateMediaControlKeysEventToContentMediaIfNeeded(
-      MediaControlKeysEvent::eStop);
+  UpdateMediaControlKeyToContentMediaIfNeeded(MediaControlKey::Stop);
 }
 
 uint64_t MediaController::Id() const { return mTopLevelBrowsingContextId; }
@@ -90,8 +122,8 @@ bool MediaController::IsAudible() const { return IsMediaAudible(); }
 
 bool MediaController::IsPlaying() const { return IsMediaPlaying(); }
 
-void MediaController::UpdateMediaControlKeysEventToContentMediaIfNeeded(
-    MediaControlKeysEvent aEvent) {
+void MediaController::UpdateMediaControlKeyToContentMediaIfNeeded(
+    MediaControlKey aKey) {
   // There is no controlled media existing or controller has been shutdown, we
   // have no need to update media action to the content process.
   if (!IsAnyMediaBeingControlled() || mShutdown) {
@@ -106,7 +138,7 @@ void MediaController::UpdateMediaControlKeysEventToContentMediaIfNeeded(
           ? BrowsingContext::Get(*mActiveMediaSessionContextId)
           : BrowsingContext::Get(Id());
   if (context && !context->IsDiscarded()) {
-    context->Canonical()->UpdateMediaControlKeysEvent(aEvent);
+    context->Canonical()->UpdateMediaControlKey(aKey);
   }
 }
 
@@ -121,6 +153,7 @@ void MediaController::Shutdown() {
   // controller from the service.
   Deactivate();
   mShutdown = true;
+  mSupportedActionsChangedListener.DisconnectIfExists();
 }
 
 void MediaController::NotifyMediaPlaybackChanged(uint64_t aBrowsingContextId,
@@ -190,7 +223,7 @@ void MediaController::Deactivate() {
 }
 
 void MediaController::SetIsInPictureInPictureMode(
-    bool aIsInPictureInPictureMode) {
+    uint64_t aBrowsingContextId, bool aIsInPictureInPictureMode) {
   if (mIsInPictureInPictureMode == aIsInPictureInPictureMode) {
     return;
   }
@@ -222,6 +255,36 @@ void MediaController::UpdateActivatedStateIfNeeded() {
   } else if (ShouldDeactivateController()) {
     Deactivate();
   }
+}
+
+void MediaController::HandleSupportedMediaSessionActionsChanged(
+    const nsTArray<MediaSessionAction>& aSupportedAction) {
+  // Convert actions to keys, some of them have been included in the supported
+  // keys, such as "play", "pause" and "stop".
+  nsTArray<MediaControlKey> newSupportedKeys;
+  GetDefaultSupportedKeys(newSupportedKeys);
+  for (const auto& action : aSupportedAction) {
+    MediaControlKey key = ConvertMediaSessionActionToControlKey(action);
+    if (!newSupportedKeys.Contains(key)) {
+      newSupportedKeys.AppendElement(key);
+    }
+  }
+  // As the supported key event should only be notified when supported keys
+  // change, so abort following steps if they don't change.
+  if (newSupportedKeys == mSupportedKeys) {
+    return;
+  }
+  LOG("Supported keys changes");
+  mSupportedKeys = newSupportedKeys;
+  mSupportedKeysChangedEvent.Notify(mSupportedKeys);
+  RefPtr<AsyncEventDispatcher> asyncDispatcher = new AsyncEventDispatcher(
+      this, NS_LITERAL_STRING("supportedkeyschange"), CanBubble::eYes);
+  asyncDispatcher->PostDOMEvent();
+  MediaController_Binding::ClearCachedSupportedKeysValue(this);
+}
+
+CopyableTArray<MediaControlKey> MediaController::GetSupportedMediaKeys() const {
+  return mSupportedKeys;
 }
 
 }  // namespace dom

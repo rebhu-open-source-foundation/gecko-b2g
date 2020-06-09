@@ -96,7 +96,6 @@
 #include "mozilla/dom/CanonicalBrowsingContext.h"
 #include "mozilla/dom/ClientManager.h"
 #include "mozilla/dom/ContentChild.h"
-#include "mozilla/dom/ContentMediaController.h"
 #include "mozilla/dom/DataTransfer.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/Element.h"
@@ -113,7 +112,7 @@
 #include "mozilla/dom/LocalStorageCommon.h"
 #include "mozilla/dom/MediaController.h"
 #include "mozilla/dom/MemoryReportRequest.h"
-#include "mozilla/dom/MediaSessionUtils.h"
+#include "mozilla/dom/MediaStatusManager.h"
 #include "mozilla/dom/Notification.h"
 #include "mozilla/dom/PContentPermissionRequestParent.h"
 #include "mozilla/dom/PCycleCollectWithLogsParent.h"
@@ -6598,7 +6597,7 @@ mozilla::ipc::IPCResult ContentParent::RecvNotifyPictureInPictureModeChanged(
   }
   if (RefPtr<MediaController> controller =
           aContext.get_canonical()->GetMediaController()) {
-    controller->SetIsInPictureInPictureMode(aEnabled);
+    controller->SetIsInPictureInPictureMode(aContext.ContextId(), aEnabled);
   }
   return IPC_OK();
 }
@@ -6624,7 +6623,16 @@ mozilla::ipc::IPCResult ContentParent::RecvNotifyMediaSessionUpdated(
     return IPC_OK();
   }
 
-  NotfiyMediaSessionCreationOrDeconstruction(aContext.get(), aIsCreated);
+  RefPtr<IMediaInfoUpdater> updater =
+      aContext.get_canonical()->GetMediaController();
+  if (!updater) {
+    return IPC_OK();
+  }
+  if (aIsCreated) {
+    updater->NotifySessionCreated(aContext->Id());
+  } else {
+    updater->NotifySessionDestroyed(aContext->Id());
+  }
   return IPC_OK();
 }
 
@@ -6651,6 +6659,26 @@ ContentParent::RecvNotifyMediaSessionPlaybackStateChanged(
   if (RefPtr<IMediaInfoUpdater> updater =
           aContext.get_canonical()->GetMediaController()) {
     updater->SetDeclaredPlaybackState(aContext.ContextId(), aPlaybackState);
+  }
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult
+ContentParent::RecvNotifyMediaSessionSupportedActionChanged(
+    const MaybeDiscarded<BrowsingContext>& aContext, MediaSessionAction aAction,
+    bool aEnabled) {
+  if (aContext.IsNullOrDiscarded()) {
+    return IPC_OK();
+  }
+  RefPtr<IMediaInfoUpdater> updater =
+      aContext.get_canonical()->GetMediaController();
+  if (!updater) {
+    return IPC_OK();
+  }
+  if (aEnabled) {
+    updater->EnableAction(aContext.ContextId(), aAction);
+  } else {
+    updater->DisableAction(aContext.ContextId(), aAction);
   }
   return IPC_OK();
 }

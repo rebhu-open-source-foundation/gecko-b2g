@@ -380,7 +380,7 @@ class nsSourceErrorEventRunner : public nsMediaEvent {
 };
 
 /**
- * We use MediaControlEventListener to listen MediaControlKeysEvent in order to
+ * We use MediaControlKeyListener to listen to media control key in order to
  * play and pause media element when user press media control keys and update
  * media's playback and audible state to the media controller.
  *
@@ -388,12 +388,12 @@ class nsSourceErrorEventRunner : public nsMediaEvent {
  * event. In addition, notifying any change to media controller MUST be done
  * after successfully calling `Start()`.
  */
-class HTMLMediaElement::MediaControlEventListener final
-    : public ContentControlKeyEventReceiver {
+class HTMLMediaElement::MediaControlKeyListener final
+    : public ContentMediaControlKeyReceiver {
  public:
-  NS_INLINE_DECL_REFCOUNTING(MediaControlEventListener, override)
+  NS_INLINE_DECL_REFCOUNTING(MediaControlKeyListener, override)
 
-  MOZ_INIT_OUTSIDE_CTOR explicit MediaControlEventListener(
+  MOZ_INIT_OUTSIDE_CTOR explicit MediaControlKeyListener(
       HTMLMediaElement* aElement)
       : mElement(aElement) {
     MOZ_ASSERT(NS_IsMainThread());
@@ -491,18 +491,18 @@ class HTMLMediaElement::MediaControlEventListener final
       return;
     }
     mIsPictureInPictureEnabled = aIsEnabled;
-    mControlAgent->NotifyPictureInPictureModeChanged(
-        this, mIsPictureInPictureEnabled);
+    mControlAgent->SetIsInPictureInPictureMode(mOwnerBrowsingContextId,
+                                               mIsPictureInPictureEnabled);
   }
 
-  void HandleEvent(MediaControlKeysEvent aEvent) override {
+  void HandleMediaKey(MediaControlKey aKey) override {
     MOZ_ASSERT(NS_IsMainThread());
     MOZ_ASSERT(IsStarted());
-    MEDIACONTROL_LOG("HandleEvent '%s'", ToMediaControlKeysEventStr(aEvent));
-    if (aEvent == MediaControlKeysEvent::ePlay && Owner()->Paused()) {
+    MEDIACONTROL_LOG("HandleEvent '%s'", ToMediaControlKeyStr(aKey));
+    if (aKey == MediaControlKey::Play && Owner()->Paused()) {
       Owner()->Play();
-    } else if ((aEvent == MediaControlKeysEvent::ePause ||
-                aEvent == MediaControlKeysEvent::eStop) &&
+    } else if ((aKey == MediaControlKey::Pause ||
+                aKey == MediaControlKey::Stop) &&
                !Owner()->Paused()) {
       Owner()->Pause();
     }
@@ -515,13 +515,13 @@ class HTMLMediaElement::MediaControlEventListener final
     }
 
     BrowsingContext* currentBC = GetCurrentBrowsingContext();
-    MOZ_ASSERT(currentBC && mOwnerBrowsingContext);
+    MOZ_ASSERT(currentBC);
     // Still in the same browsing context, no need to update.
-    if (currentBC == mOwnerBrowsingContext) {
+    if (currentBC->Id() == mOwnerBrowsingContextId) {
       return;
     }
     MEDIACONTROL_LOG("Change browsing context from %" PRIu64 " to %" PRIu64,
-                     mOwnerBrowsingContext->Id(), currentBC->Id());
+                     mOwnerBrowsingContextId, currentBC->Id());
     // This situation would happen when we start a media in an original browsing
     // context, then we move it to another browsing context, such as an iframe,
     // so its owner browsing context would be changed. Therefore, we should
@@ -538,16 +538,12 @@ class HTMLMediaElement::MediaControlEventListener final
     }
   }
 
-  BrowsingContext* GetBrowsingContext() const override {
-    return mOwnerBrowsingContext;
-  }
-
  private:
-  ~MediaControlEventListener() = default;
+  ~MediaControlKeyListener() = default;
 
-  // The media can be moved around different browsing context, so this context
-  // might be different from `mOwnerBrowsingContext` that we use to initialize
-  // the `ContentMediaAgent`.
+  // The media can be moved around different browsing contexts, so this context
+  // might be different from the one that we used to initialize
+  // `ContentMediaAgent`.
   BrowsingContext* GetCurrentBrowsingContext() const {
     nsPIDOMWindowInner* window = Owner()->OwnerDoc()->GetInnerWindow();
     return window ? window->GetBrowsingContext() : nullptr;
@@ -560,10 +556,10 @@ class HTMLMediaElement::MediaControlEventListener final
     if (!mControlAgent) {
       return false;
     }
-    mOwnerBrowsingContext = currentBC;
-    MOZ_ASSERT(mOwnerBrowsingContext);
+    MOZ_ASSERT(currentBC);
+    mOwnerBrowsingContextId = currentBC->Id();
     MEDIACONTROL_LOG("Init agent in browsing context %" PRIu64,
-                     mOwnerBrowsingContext->Id());
+                     mOwnerBrowsingContextId);
     mControlAgent->AddReceiver(this);
     return true;
   }
@@ -581,13 +577,13 @@ class HTMLMediaElement::MediaControlEventListener final
                      ToMediaPlaybackStateStr(aState));
     MOZ_ASSERT(mState != aState, "Should not notify same state again!");
     mState = aState;
-    mControlAgent->NotifyPlaybackStateChanged(this, mState);
+    mControlAgent->NotifyMediaPlaybackChanged(mOwnerBrowsingContextId, mState);
   }
 
   void NotifyAudibleStateChanged(MediaAudibleState aState) {
     MOZ_ASSERT(NS_IsMainThread());
     MOZ_ASSERT(IsStarted());
-    mControlAgent->NotifyAudibleStateChanged(this, aState);
+    mControlAgent->NotifyMediaAudibleChanged(mOwnerBrowsingContextId, aState);
   }
 
   MediaPlaybackState mState = MediaPlaybackState::eStopped;
@@ -595,7 +591,7 @@ class HTMLMediaElement::MediaControlEventListener final
   RefPtr<ContentMediaAgent> mControlAgent;
   bool mIsPictureInPictureEnabled = false;
   bool mIsOwnerAudible = false;
-  BrowsingContext* MOZ_NON_OWNING_REF mOwnerBrowsingContext = nullptr;
+  uint64_t mOwnerBrowsingContextId;
 };
 
 class HTMLMediaElement::MediaStreamTrackListener
@@ -2062,9 +2058,9 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(HTMLMediaElement,
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mPendingPlayPromises)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mSeekDOMPromise)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mSetMediaKeysDOMPromise)
-  if (tmp->mMediaControlEventListener) {
-    tmp->StopListeningMediaControlEventIfNeeded();
-    tmp->mMediaControlEventListener = nullptr;
+  if (tmp->mMediaControlKeyListener) {
+    tmp->StopListeningMediaControlKeyIfNeeded();
+    tmp->mMediaControlKeyListener = nullptr;
   }
   NS_IMPL_CYCLE_COLLECTION_UNLINK_WEAK_PTR
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
@@ -4324,8 +4320,8 @@ HTMLMediaElement::~HTMLMediaElement() {
     mResumeDelayedPlaybackAgent = nullptr;
   }
 
-  StopListeningMediaControlEventIfNeeded();
-  mMediaControlEventListener = nullptr;
+  StopListeningMediaControlKeyIfNeeded();
+  mMediaControlKeyListener = nullptr;
 
   WakeLockRelease();
   ReportPlayedTimeAfterBlockedTelemetry();
@@ -4531,7 +4527,7 @@ void HTMLMediaElement::PlayInternal(bool aHandlingUserInput) {
   UpdatePreloadAction();
   UpdateSrcMediaStreamPlaying();
 
-  StartListeningMediaControlEventIfNeeded();
+  StartListeningMediaControlKeyIfNeeded();
 
   // Once play() has been called in a user generated event handler,
   // it is allowed to autoplay. Note: we can reach here when not in
@@ -4885,8 +4881,8 @@ nsresult HTMLMediaElement::BindToTree(BindContext& aContext, nsINode& aParent) {
   }
 
   NotifyDecoderActivityChanges();
-  if (mMediaControlEventListener) {
-    mMediaControlEventListener->UpdateOwnerBrowsingContextIfNeeded();
+  if (mMediaControlKeyListener) {
+    mMediaControlKeyListener->UpdateOwnerBrowsingContextIfNeeded();
   }
 
   return rv;
@@ -6357,7 +6353,7 @@ void HTMLMediaElement::CheckAutoplayDataReady() {
   UpdateSrcMediaStreamPlaying();
   UpdateAudioChannelPlayingState();
 
-  StartListeningMediaControlEventIfNeeded();
+  StartListeningMediaControlKeyIfNeeded();
 
   if (mDecoder) {
     SetPlayedOrSeeked(true);
@@ -6692,7 +6688,7 @@ void HTMLMediaElement::SuspendOrResumeElement(bool aSuspendElement) {
     mEventDeliveryPaused = true;
     // We won't want to resume media element from the bfcache.
     ClearResumeDelayedMediaPlaybackAgentIfNeeded();
-    StopListeningMediaControlEventIfNeeded();
+    StopListeningMediaControlKeyIfNeeded();
   } else {
     if (!mPaused) {
       mCurrentLoadPlayTime.Start();
@@ -6718,9 +6714,8 @@ void HTMLMediaElement::SuspendOrResumeElement(bool aSuspendElement) {
     }
     // If we stopped listening to the event when we suspended media element,
     // then we should restart to listen to the event if we haven't done so yet.
-    if (mMediaControlEventListener &&
-        !mMediaControlEventListener->IsStarted()) {
-      StartListeningMediaControlEventIfNeeded();
+    if (mMediaControlKeyListener && !mMediaControlKeyListener->IsStarted()) {
+      StartListeningMediaControlKeyIfNeeded();
     }
   }
   if (StaticPrefs::media_testing_only_events()) {
@@ -7591,8 +7586,8 @@ void HTMLMediaElement::NotifyAudioPlaybackChanged(
   if (mAudioChannelWrapper) {
     mAudioChannelWrapper->NotifyAudioPlaybackChanged(aReason);
   }
-  if (mMediaControlEventListener && mMediaControlEventListener->IsStarted()) {
-    mMediaControlEventListener->UpdateMediaAudibleState(IsAudible());
+  if (mMediaControlKeyListener && mMediaControlKeyListener->IsStarted()) {
+    mMediaControlKeyListener->UpdateMediaAudibleState(IsAudible());
   }
   // only request wake lock for audible media.
   UpdateWakeLock();
@@ -8032,17 +8027,17 @@ void HTMLMediaElement::ClearResumeDelayedMediaPlaybackAgentIfNeeded() {
 }
 
 void HTMLMediaElement::NotifyMediaControlPlaybackStateChanged() {
-  if (!mMediaControlEventListener || !mMediaControlEventListener->IsStarted()) {
+  if (!mMediaControlKeyListener || !mMediaControlKeyListener->IsStarted()) {
     return;
   }
   if (mPaused) {
-    mMediaControlEventListener->NotifyMediaStoppedPlaying();
+    mMediaControlKeyListener->NotifyMediaStoppedPlaying();
   } else {
-    mMediaControlEventListener->NotifyMediaStartedPlaying();
+    mMediaControlKeyListener->NotifyMediaStartedPlaying();
   }
 }
 
-void HTMLMediaElement::StartListeningMediaControlEventIfNeeded() {
+void HTMLMediaElement::StartListeningMediaControlKeyIfNeeded() {
   if (mPaused) {
     MEDIACONTROL_LOG("Not listening because media is paused");
     return;
@@ -8062,12 +8057,12 @@ void HTMLMediaElement::StartListeningMediaControlEventIfNeeded() {
   // should clear the timer, which is used to stop listening to the event.
   ClearStopMediaControlTimerIfNeeded();
 
-  if (!mMediaControlEventListener) {
-    mMediaControlEventListener = new MediaControlEventListener(this);
+  if (!mMediaControlKeyListener) {
+    mMediaControlKeyListener = new MediaControlKeyListener(this);
   }
 
-  if (mMediaControlEventListener->IsStarted() ||
-      !mMediaControlEventListener->Start()) {
+  if (mMediaControlKeyListener->IsStarted() ||
+      !mMediaControlKeyListener->Start()) {
     return;
   }
 
@@ -8080,17 +8075,17 @@ void HTMLMediaElement::StartListeningMediaControlEventIfNeeded() {
   // `UpdateMediaAudibleState()` could only be used after we start the listener,
   // but the audible state update could happen before that. Therefore, we have
   // to manually update media's audible state as well.
-  mMediaControlEventListener->UpdateMediaAudibleState(IsAudible());
+  mMediaControlKeyListener->UpdateMediaAudibleState(IsAudible());
 
   // Picture-in-Picture mode can be enabled before we start the listener so we
   // manually update the status here in case not to forgot to propagate that.
-  mMediaControlEventListener->SetPictureInPictureModeEnabled(
+  mMediaControlKeyListener->SetPictureInPictureModeEnabled(
       IsBeingUsedInPictureInPictureMode());
 }
 
-void HTMLMediaElement::StopListeningMediaControlEventIfNeeded() {
-  if (mMediaControlEventListener && mMediaControlEventListener->IsStarted()) {
-    mMediaControlEventListener->Stop();
+void HTMLMediaElement::StopListeningMediaControlKeyIfNeeded() {
+  if (mMediaControlKeyListener && mMediaControlKeyListener->IsStarted()) {
+    mMediaControlKeyListener->Stop();
   }
 }
 
@@ -8101,16 +8096,16 @@ void HTMLMediaElement::StopMediaControlTimerCallback(nsITimer* aTimer,
   auto element = static_cast<HTMLMediaElement*>(aClosure);
   CONTROLLER_TIMER_LOG(element,
                        "Runnning stop media control timmer callback function");
-  element->StopListeningMediaControlEventIfNeeded();
+  element->StopListeningMediaControlKeyIfNeeded();
   element->mStopMediaControlTimer = nullptr;
 }
 
 void HTMLMediaElement::CreateStopMediaControlTimerIfNeeded() {
   MOZ_ASSERT(NS_IsMainThread());
-  // We would create timer only when `mMediaControlEventListener` exists and has
+  // We would create timer only when `mMediaControlKeyListener` exists and has
   // been started.
-  if (mStopMediaControlTimer || !mMediaControlEventListener ||
-      !mMediaControlEventListener->IsStarted()) {
+  if (mStopMediaControlTimer || !mMediaControlKeyListener ||
+      !mMediaControlKeyListener->IsStarted()) {
     return;
   }
 
@@ -8146,13 +8141,13 @@ void HTMLMediaElement::ClearStopMediaControlTimerIfNeeded() {
 
 void HTMLMediaElement::UpdateMediaControlAfterPictureInPictureModeChanged() {
   // Hasn't started to connect with media control, no need to update anything.
-  if (!mMediaControlEventListener || !mMediaControlEventListener->IsStarted()) {
+  if (!mMediaControlKeyListener || !mMediaControlKeyListener->IsStarted()) {
     return;
   }
   if (IsBeingUsedInPictureInPictureMode()) {
-    mMediaControlEventListener->SetPictureInPictureModeEnabled(true);
+    mMediaControlKeyListener->SetPictureInPictureModeEnabled(true);
   } else {
-    mMediaControlEventListener->SetPictureInPictureModeEnabled(false);
+    mMediaControlKeyListener->SetPictureInPictureModeEnabled(false);
     CreateStopMediaControlTimerIfNeeded();
   }
 }

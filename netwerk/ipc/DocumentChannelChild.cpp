@@ -46,8 +46,6 @@ DocumentChannelChild::AsyncOpen(nsIStreamListener* aListener) {
   nsresult rv = NS_OK;
 
   nsCOMPtr<nsIStreamListener> listener = aListener;
-  rv = nsContentSecurityManager::doContentSecurityCheck(this, listener);
-  NS_ENSURE_SUCCESS(rv, rv);
 
   NS_ENSURE_TRUE(gNeckoChild, NS_ERROR_FAILURE);
   NS_ENSURE_ARG_POINTER(listener);
@@ -124,13 +122,6 @@ IPCResult DocumentChannelChild::RecvFailedAsyncOpen(
 IPCResult DocumentChannelChild::RecvDisconnectChildListeners(
     const nsresult& aStatus, const nsresult& aLoadGroupStatus) {
   DisconnectChildListeners(aStatus, aLoadGroupStatus);
-  return IPC_OK();
-}
-
-IPCResult DocumentChannelChild::RecvDeleteSelf() {
-  // This calls NeckoChild::DeallocPGenericChannel(), which deletes |this| if
-  // IPDL holds the last reference.  Don't rely on |this| existing after here!
-  Send__delete__(this);
   return IPC_OK();
 }
 

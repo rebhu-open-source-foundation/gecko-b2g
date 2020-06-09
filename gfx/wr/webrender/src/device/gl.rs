@@ -88,6 +88,7 @@ const DEFAULT_TEXTURE: TextureSlot = TextureSlot(0);
 
 #[repr(u32)]
 pub enum DepthFunction {
+    Always = gl::ALWAYS,
     Less = gl::LESS,
     LessEqual = gl::LEQUAL,
 }
@@ -1694,10 +1695,20 @@ impl Device {
     }
 
     pub fn reset_state(&mut self) {
-        self.bound_textures = [0; 16];
+        for i in 0 .. self.bound_textures.len() {
+            self.bound_textures[i] = 0;
+            self.gl.active_texture(gl::TEXTURE0 + i as gl::GLuint);
+            self.gl.bind_texture(gl::TEXTURE_2D, 0);
+        }
+
         self.bound_vao = 0;
-        self.bound_read_fbo = FBOId(0);
-        self.bound_draw_fbo = FBOId(0);
+        self.gl.bind_vertex_array(0);
+
+        self.bound_read_fbo = self.default_read_fbo;
+        self.gl.bind_framebuffer(gl::READ_FRAMEBUFFER, self.bound_read_fbo.0);
+
+        self.bound_draw_fbo = self.default_draw_fbo;
+        self.gl.bind_framebuffer(gl::DRAW_FRAMEBUFFER, self.bound_draw_fbo.0);
     }
 
     #[cfg(debug_assertions)]
@@ -1792,25 +1803,13 @@ impl Device {
         }
         self.default_draw_fbo = FBOId(default_draw_fbo[0] as gl::GLuint);
 
-        // Texture state
-        for i in 0 .. self.bound_textures.len() {
-            self.bound_textures[i] = 0;
-            self.gl.active_texture(gl::TEXTURE0 + i as gl::GLuint);
-            self.gl.bind_texture(gl::TEXTURE_2D, 0);
-        }
-
         // Shader state
         self.bound_program = 0;
         self.program_mode_id = UniformLocation::INVALID;
         self.gl.use_program(0);
 
-        // Vertex state
-        self.bound_vao = 0;
-        self.gl.bind_vertex_array(0);
-
-        // FBO state
-        self.bound_read_fbo = self.default_read_fbo;
-        self.bound_draw_fbo = self.default_draw_fbo;
+        // Reset common state
+        self.reset_state();
 
         // Pixel op state
         self.gl.pixel_store_i(gl::UNPACK_ALIGNMENT, 1);
@@ -3451,17 +3450,14 @@ impl Device {
         }
     }
 
-    pub fn enable_depth(&self) {
+    pub fn enable_depth(&self, depth_func: DepthFunction) {
         assert!(self.depth_available, "Enabling depth test without depth target");
         self.gl.enable(gl::DEPTH_TEST);
+        self.gl.depth_func(depth_func as gl::GLuint);
     }
 
     pub fn disable_depth(&self) {
         self.gl.disable(gl::DEPTH_TEST);
-    }
-
-    pub fn set_depth_func(&self, depth_func: DepthFunction) {
-        self.gl.depth_func(depth_func as gl::GLuint);
     }
 
     pub fn enable_depth_write(&self) {
@@ -3492,6 +3488,14 @@ impl Device {
 
     pub fn disable_scissor(&self) {
         self.gl.disable(gl::SCISSOR_TEST);
+    }
+
+    pub fn enable_color_write(&self) {
+        self.gl.color_mask(true, true, true, true);
+    }
+
+    pub fn disable_color_write(&self) {
+        self.gl.color_mask(false, false, false, false);
     }
 
     pub fn set_blend(&mut self, enable: bool) {

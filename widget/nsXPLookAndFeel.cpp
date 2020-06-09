@@ -12,13 +12,13 @@
 #include "HeadlessLookAndFeel.h"
 #include "nsCRT.h"
 #include "nsFont.h"
+#include "nsIXULRuntime.h"
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/Services.h"
 #include "mozilla/ServoStyleSet.h"
 #include "mozilla/StaticPrefs_editor.h"
 #include "mozilla/StaticPrefs_findbar.h"
-#include "mozilla/StaticPrefs_fission.h"
 #include "mozilla/StaticPrefs_ui.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/widget/WidgetMessageUtils.h"
@@ -220,7 +220,10 @@ const char nsXPLookAndFeel::sColorPrefs[][41] = {
     "ui.-moz-visitedhyperlinktext",
     "ui.-moz-comboboxtext",
     "ui.-moz-combobox",
-    "ui.-moz-gtk-info-bar-text"};
+    "ui.-moz-gtk-info-bar-text",
+    "ui.-moz-colheadertext",
+    "ui.-moz-colheaderhovertext"};
+
 
 int32_t nsXPLookAndFeel::sCachedColors[size_t(LookAndFeel::ColorID::End)] = {0};
 int32_t nsXPLookAndFeel::sCachedColorBits[COLOR_CACHE_SIZE] = {0};
@@ -633,6 +636,8 @@ nscolor nsXPLookAndFeel::GetStandinForNativeColor(ColorID aID) {
       result = NS_RGB(0xF0, 0xF0, 0xF0);
       break;
     case ColorID::MozDialogtext:
+    case ColorID::MozColheadertext:
+    case ColorID::MozColheaderhovertext:
       result = NS_RGB(0x00, 0x00, 0x00);
       break;
     case ColorID::MozDragtargetzone:
@@ -870,8 +875,7 @@ nsresult nsXPLookAndFeel::GetColorImpl(ColorID aID,
 #endif
 
   if (aID == ColorID::TextSelectBackgroundAttention) {
-    if (StaticPrefs::findbar_modalHighlight() &&
-        !StaticPrefs::fission_autostart()) {
+    if (StaticPrefs::findbar_modalHighlight() && !mozilla::FissionAutostart()) {
       aResult = NS_RGBA(0, 0, 0, 0);
       return NS_OK;
     }

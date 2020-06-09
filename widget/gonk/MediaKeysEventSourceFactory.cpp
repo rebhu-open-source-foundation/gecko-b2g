@@ -7,7 +7,7 @@
 namespace mozilla {
 namespace widget {
 
-mozilla::dom::MediaControlKeysEventSource* CreateMediaControlKeysEventSource() {
+mozilla::dom::MediaControlKeySource* CreateMediaControlKeySource() {
   // TODO : implement support.
   return nullptr;
 }

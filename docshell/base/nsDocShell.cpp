@@ -58,6 +58,7 @@
 #include "mozilla/dom/DocGroup.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/HTMLAnchorElement.h"
+#include "mozilla/dom/HTMLIFrameElement.h"
 #include "mozilla/dom/PerformanceNavigation.h"
 #include "mozilla/dom/PermissionMessageUtils.h"
 #include "mozilla/dom/PopupBlocker.h"
@@ -1743,77 +1744,6 @@ nsDocShell::SetAllowContentRetargetingOnChildren(
 }
 
 NS_IMETHODIMP
-nsDocShell::GetFullscreenAllowed(bool* aFullscreenAllowed) {
-  NS_ENSURE_ARG_POINTER(aFullscreenAllowed);
-
-  // Assume false until we determine otherwise...
-  *aFullscreenAllowed = false;
-
-  nsCOMPtr<nsPIDOMWindowOuter> win = GetWindow();
-  if (!win) {
-    return NS_OK;
-  }
-
-  // FIXME(emilio, bug 1606660): What makes this work in fission?
-  if (nsCOMPtr<Element> frameElement = win->GetFrameElementInternal()) {
-    if (frameElement->IsXULElement()) {
-      if (frameElement->HasAttr(kNameSpaceID_None,
-                                nsGkAtoms::disablefullscreen)) {
-        // Document inside this frame is explicitly disabled.
-        return NS_OK;
-      }
-    } else {
-      // We do not allow document inside any containing element other
-      // than iframe to enter fullscreen.
-      if (frameElement->IsHTMLElement(nsGkAtoms::iframe)) {
-        // If any ancestor iframe does not have allowfullscreen attribute
-        // set, then fullscreen is not allowed.
-        if (!frameElement->HasAttr(kNameSpaceID_None,
-                                   nsGkAtoms::allowfullscreen) &&
-            !frameElement->HasAttr(kNameSpaceID_None,
-                                   nsGkAtoms::mozallowfullscreen)) {
-          return NS_OK;
-        }
-      } else if (frameElement->IsHTMLElement(nsGkAtoms::embed)) {
-        // Respect allowfullscreen only if this is a rewritten YouTube embed.
-        nsCOMPtr<nsIObjectLoadingContent> objectLoadingContent =
-            do_QueryInterface(frameElement);
-        if (!objectLoadingContent) {
-          return NS_OK;
-        }
-        nsObjectLoadingContent* olc =
-            static_cast<nsObjectLoadingContent*>(objectLoadingContent.get());
-        if (!olc->IsRewrittenYoutubeEmbed()) {
-          return NS_OK;
-        }
-        // We don't have to check prefixed attributes because Flash does not
-        // support them.
-        if (!frameElement->HasAttr(kNameSpaceID_None,
-                                   nsGkAtoms::allowfullscreen)) {
-          return NS_OK;
-        }
-      } else {
-        // neither iframe nor embed
-        return NS_OK;
-      }
-    }
-  }
-
-  // If we have no parent then we're the root docshell; no ancestor of the
-  // original docshell doesn't have a allowfullscreen attribute, so
-  // report fullscreen as allowed.
-  RefPtr<nsDocShell> parent = GetInProcessParentDocshell();
-  if (!parent) {
-    *aFullscreenAllowed = true;
-    return NS_OK;
-  }
-
-  // Otherwise, we have a parent, continue the checking for
-  // mozFullscreenAllowed in the parent docshell's ancestors.
-  return parent->GetFullscreenAllowed(aFullscreenAllowed);
-}
-
-NS_IMETHODIMP
 nsDocShell::GetMayEnableCharacterEncodingMenu(
     bool* aMayEnableCharacterEncodingMenu) {
   *aMayEnableCharacterEncodingMenu = false;
@@ -2908,29 +2838,10 @@ nsDocShell::AddChildSHEntry(nsISHEntry* aCloneRef, nsISHEntry* aNewEntry,
       rv = mOSHE->AddChild(aNewEntry, aChildOffset, UseRemoteSubframes());
     }
   } else {
-    rv = AddChildSHEntryInternal(aCloneRef, aNewEntry, aChildOffset, aLoadType,
-                                 aCloneChildren);
-  }
-  return rv;
-}
-
-nsresult nsDocShell::AddChildSHEntryInternal(nsISHEntry* aCloneRef,
-                                             nsISHEntry* aNewEntry,
-                                             int32_t aChildOffset,
-                                             uint32_t aLoadType,
-                                             bool aCloneChildren) {
-  nsresult rv = NS_OK;
-  if (GetSessionHistory()) {
-    rv = GetSessionHistory()->LegacySHistory()->AddChildSHEntryHelper(
-        aCloneRef, aNewEntry, mBrowsingContext, aCloneChildren);
-  } else {
-    /* Just pass this along */
-    nsCOMPtr<nsIDocShell> parent =
-        do_QueryInterface(GetAsSupports(mParent), &rv);
-    if (parent) {
-      rv = static_cast<nsDocShell*>(parent.get())
-               ->AddChildSHEntryInternal(aCloneRef, aNewEntry, aChildOffset,
-                                         aLoadType, aCloneChildren);
+    RefPtr<ChildSHistory> shistory = GetRootSessionHistory();
+    if (shistory) {
+      rv = shistory->LegacySHistory()->AddChildSHEntryHelper(
+          aCloneRef, aNewEntry, mBrowsingContext, aCloneChildren);
     }
   }
   return rv;
@@ -2975,8 +2886,7 @@ nsresult nsDocShell::AddChildSHEntryToParent(nsISHEntry* aNewEntry,
 
 NS_IMETHODIMP
 nsDocShell::RemoveFromSessionHistory() {
-  RefPtr<ChildSHistory> sessionHistory =
-      mBrowsingContext->Top()->GetChildSessionHistory();
+  RefPtr<ChildSHistory> sessionHistory = GetRootSessionHistory();
   if (!sessionHistory) {
     return NS_OK;
   }
@@ -6185,6 +6095,7 @@ nsresult nsDocShell::EndPageLoad(nsIWebProgress* aProgress,
                aStatus == NS_ERROR_NET_INADEQUATE_SECURITY ||
                aStatus == NS_ERROR_NET_HTTP2_SENT_GOAWAY ||
                aStatus == NS_ERROR_NET_HTTP3_PROTOCOL_ERROR ||
+               aStatus == NS_ERROR_DOM_BAD_URI ||
                NS_ERROR_GET_MODULE(aStatus) == NS_ERROR_MODULE_SECURITY) {
       // Errors to be shown for any frame
       DisplayLoadError(aStatus, url, nullptr, aChannel);
@@ -10083,8 +9994,7 @@ bool nsDocShell::OnNewURI(nsIURI* aURI, nsIChannel* aChannel,
 
   // Create SH Entry (mLSHE) only if there is a SessionHistory object in the
   // in the root browsing context.
-  RefPtr<ChildSHistory> rootSH =
-      mBrowsingContext->Top()->GetChildSessionHistory();
+  RefPtr<ChildSHistory> rootSH = GetRootSessionHistory();
   if (!rootSH) {
     updateSHistory = false;
     updateGHistory = false;  // XXX Why global history too?
@@ -10680,16 +10590,13 @@ nsresult nsDocShell::AddToSessionHistory(
   nsresult rv = NS_OK;
   nsCOMPtr<nsISHEntry> entry;
 
-  // Get a handle to the root docshell
-  nsCOMPtr<nsIDocShellTreeItem> root;
-  GetInProcessSameTypeRootTreeItem(getter_AddRefs(root));
   /*
    * If this is a LOAD_FLAGS_REPLACE_HISTORY in a subframe, we use
    * the existing SH entry in the page and replace the url and
    * other vitalities.
    */
   if (LOAD_TYPE_HAS_FLAGS(mLoadType, LOAD_FLAGS_REPLACE_HISTORY) &&
-      root != static_cast<nsIDocShellTreeItem*>(this)) {
+      !mBrowsingContext->IsTop()) {
     // This is a subframe
     entry = mOSHE;
     if (entry) {
@@ -10699,10 +10606,7 @@ nsresult nsDocShell::AddToSessionHistory(
 
   // Create a new entry if necessary.
   if (!entry) {
-    nsCOMPtr<nsIWebNavigation> webnav = do_QueryInterface(root);
-    NS_ENSURE_TRUE(webnav, NS_ERROR_FAILURE);
-
-    RefPtr<ChildSHistory> shistory = webnav->GetSessionHistory();
+    RefPtr<ChildSHistory> shistory = GetRootSessionHistory();
     entry = new nsSHEntry(shistory ? shistory->LegacySHistory() : nullptr);
   }
 
@@ -10831,7 +10735,7 @@ nsresult nsDocShell::AddToSessionHistory(
                 resultPrincipalURI, loadReplace, referrerInfo, srcdoc,
                 srcdocEntry, baseURI, saveLayoutState, expired);
 
-  if (root == static_cast<nsIDocShellTreeItem*>(this) && GetSessionHistory()) {
+  if (mBrowsingContext->IsTop() && GetSessionHistory()) {
     bool shouldPersist = ShouldAddToSessionHistory(aURI, aChannel);
     Maybe<int32_t> previousEntryIndex;
     Maybe<int32_t> loadedEntryIndex;
@@ -11019,16 +10923,9 @@ already_AddRefed<nsISHEntry> nsDocShell::SetHistoryEntry(
 }
 
 already_AddRefed<ChildSHistory> nsDocShell::GetRootSessionHistory() {
-  nsCOMPtr<nsIDocShellTreeItem> root;
-  nsresult rv = GetInProcessSameTypeRootTreeItem(getter_AddRefs(root));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return nullptr;
-  }
-  nsCOMPtr<nsIWebNavigation> webnav = do_QueryInterface(root);
-  if (!webnav) {
-    return nullptr;
-  }
-  return webnav->GetSessionHistory();
+  RefPtr<ChildSHistory> childSHistory =
+      mBrowsingContext->Top()->GetChildSessionHistory();
+  return childSHistory.forget();
 }
 
 nsresult nsDocShell::GetHttpChannel(nsIChannel* aChannel,

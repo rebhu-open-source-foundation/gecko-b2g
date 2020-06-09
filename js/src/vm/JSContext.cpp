@@ -1000,7 +1000,9 @@ JSContext::~JSContext() {
   }
 #endif
 
-  irregexp::DestroyIsolate(isolate.ref());
+  if (isolate) {
+    irregexp::DestroyIsolate(isolate.ref());
+  }
 
   js_delete(atomsZoneFreeLists_.ref());
 
@@ -1133,7 +1135,8 @@ size_t JSContext::sizeOfExcludingThis(
    * ones have been found by DMD to be worth measuring.  More stuff may be
    * added later.
    */
-  return cycleDetectorVector().sizeOfExcludingThis(mallocSizeOf);
+  return cycleDetectorVector().sizeOfExcludingThis(mallocSizeOf) +
+         irregexp::IsolateSizeOfIncludingThis(isolate, mallocSizeOf);
 }
 
 #ifdef DEBUG

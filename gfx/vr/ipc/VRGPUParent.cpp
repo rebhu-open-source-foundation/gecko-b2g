@@ -78,6 +78,30 @@ mozilla::ipc::IPCResult VRGPUParent::RecvStopVRService() {
   return IPC_OK();
 }
 
+mozilla::ipc::IPCResult VRGPUParent::RecvPuppetReset() {
+#if !defined(MOZ_WIDGET_ANDROID) && !defined(MOZ_WIDGET_GONK)
+  VRPuppetCommandBuffer::Get().Reset();
+#endif
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult VRGPUParent::RecvPuppetSubmit(
+    const nsTArray<uint64_t>& aBuffer) {
+#if !defined(MOZ_WIDGET_ANDROID) && !defined(MOZ_WIDGET_GONK)
+  VRPuppetCommandBuffer::Get().Submit(aBuffer);
+#endif
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult VRGPUParent::RecvPuppetCheckForCompletion() {
+#if !defined(MOZ_WIDGET_ANDROID) && !defined(MOZ_WIDGET_GONK)
+  if (VRPuppetCommandBuffer::Get().HasEnded()) {
+    Unused << SendNotifyPuppetComplete();
+  }
+#endif
+  return IPC_OK();
+}
+
 bool VRGPUParent::IsClosed() { return mClosed; }
 
 }  // namespace gfx

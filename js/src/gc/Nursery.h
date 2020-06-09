@@ -420,6 +420,9 @@ class Nursery {
 
   void joinDecommitTask() { decommitTask.join(); }
 
+  // Round a size in bytes to the nearest valid nursery size.
+  static size_t roundSize(size_t size);
+
  private:
   gc::GCRuntime* const gc;
 
@@ -495,14 +498,16 @@ class Nursery {
   ProfileDurations profileDurations_;
   ProfileDurations totalDurations_;
 
-  struct {
+  // Data about the previous collection.
+  struct PreviousGC {
     JS::GCReason reason = JS::GCReason::NO_REASON;
     size_t nurseryCapacity = 0;
     size_t nurseryCommitted = 0;
     size_t nurseryUsedBytes = 0;
     size_t tenuredBytes = 0;
     size_t tenuredCells = 0;
-  } previousGC;
+  };
+  PreviousGC previousGC;
 
   // Calculate the promotion rate of the most recent minor GC.
   // The valid_for_tenuring parameter is used to return whether this
@@ -510,7 +515,7 @@ class Nursery {
   // used for tenuring and other decisions.
   //
   // Must only be called if the previousGC data is initialised.
-  float calcPromotionRate(bool* validForTenuring) const;
+  double calcPromotionRate(bool* validForTenuring) const;
 
   // The set of externally malloced buffers potentially kept live by objects
   // stored in the nursery. Any external buffers that do not belong to a
@@ -596,10 +601,16 @@ class Nursery {
   void writeCanary(uintptr_t address);
 #endif
 
-  void doCollection(JS::GCReason reason, gc::TenureCountCache& tenureCounts);
+  struct CollectionResult {
+    size_t tenuredBytes;
+    size_t tenuredCells;
+  };
+  CollectionResult doCollection(JS::GCReason reason,
+                                gc::TenureCountCache& tenureCounts);
 
-  float doPretenuring(JSRuntime* rt, JS::GCReason reason,
-                      gc::TenureCountCache& tenureCounts);
+  size_t doPretenuring(JSRuntime* rt, JS::GCReason reason,
+                       const gc::TenureCountCache& tenureCounts,
+                       bool highPromotionRate);
 
   // Move the object at |src| in the Nursery to an already-allocated cell
   // |dst| in Tenured.
@@ -631,8 +642,7 @@ class Nursery {
 
   // Change the allocable space provided by the nursery.
   void maybeResizeNursery(JS::GCReason reason);
-  bool maybeResizeExact(JS::GCReason reason);
-  static size_t roundSize(size_t size);
+  size_t targetSize(JS::GCReason reason);
   void growAllocableSpace(size_t newCapacity);
   void shrinkAllocableSpace(size_t newCapacity);
   void minimizeAllocableSpace();
@@ -640,6 +650,12 @@ class Nursery {
   // Free the chunks starting at firstFreeChunk until the end of the chunks
   // vector. Shrinks the vector but does not update maxChunkCount().
   void freeChunksFrom(unsigned firstFreeChunk);
+
+  void sendTelemetry(JS::GCReason reason, mozilla::TimeDuration totalTime,
+                     size_t pretenureCount, double promotionRate);
+
+  void printCollectionProfile(JS::GCReason reason, double promotionRate);
+  void printTenuringData(const gc::TenureCountCache& tenureCounts);
 
   // Profile recording and printing.
   void maybeClearProfileDurations();

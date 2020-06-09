@@ -2308,13 +2308,13 @@
 # re-SAB: Whether to allow postMessage of a SharedArrayBuffer if various
 # preconditions related to COOP and COEP are met
 - name: dom.postMessage.sharedArrayBuffer.withCOOP_COEP
-  type: RelaxedAtomicBool
+  type: bool
 #if !defined(ANDROID)
   value: @IS_NIGHTLY_BUILD@
 #else
   value: false # Blocked by DocumentChannel, see Bug 1589982.
 #endif
-  mirror: always
+  mirror: once
 
 # Overridden in all.js on RELEASE_OR_BETA in order to add the locked attribute.
 - name: dom.postMessage.sharedArrayBuffer.bypassCOOP_COEP.insecure.enabled
@@ -3479,7 +3479,8 @@
 - name: fission.autostart
   type: bool
   value: false
-  mirror: always
+  mirror: once
+  do_not_use_directly: true
 
 # This pref has no effect within fission windows, it only controls the
 # behaviour within non-fission windows. If true, preserve browsing contexts
@@ -4377,6 +4378,11 @@
 - name: gfx.webrender.use-optimized-shaders
   type: bool
   value: true
+  mirror: once
+
+- name: gfx.webrender.precache-shaders
+  type: bool
+  value: false
   mirror: once
 
 # When gl debug message is a high severity message, forwward it to gfx critical

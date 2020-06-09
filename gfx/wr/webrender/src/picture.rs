@@ -390,6 +390,8 @@ pub fn tile_cache_sizes(testing: bool) -> &'static [DeviceIntSize] {
 /// The maximum size per axis of a surface,
 ///  in WorldPixel coordinates.
 const MAX_SURFACE_SIZE: f32 = 4096.0;
+/// Maximum size of a compositor surface.
+const MAX_COMPOSITOR_SURFACES_SIZE: f32 = 8192.0;
 
 /// The maximum number of sub-dependencies (e.g. clips, transforms) we can handle
 /// per-primitive. If a primitive has more than this, it will invalidate every frame.
@@ -2990,7 +2992,7 @@ impl TileCacheInstance {
         color_depth: ColorDepth,
         color_space: YuvColorSpace,
         format: YuvFormat,
-    ) {
+    ) -> bool {
         self.setup_compositor_surfaces_impl(
             prim_info,
             prim_rect,
@@ -3005,7 +3007,7 @@ impl TileCacheInstance {
             resource_cache,
             composite_state,
             image_rendering,
-        );
+        )
     }
 
     fn setup_compositor_surfaces_rgb(
@@ -3019,7 +3021,7 @@ impl TileCacheInstance {
         composite_state: &mut CompositeState,
         image_rendering: ImageRendering,
         flip_y: bool,
-    ) {
+    ) -> bool {
         let mut api_keys = [ImageKey::DUMMY; 3];
         api_keys[0] = api_key;
         self.setup_compositor_surfaces_impl(
@@ -3034,9 +3036,11 @@ impl TileCacheInstance {
             resource_cache,
             composite_state,
             image_rendering,
-        );
+        )
     }
 
+    // returns false if composition is not available for this surface,
+    // and the non-compositor path should be used to draw it instead.
     fn setup_compositor_surfaces_impl(
         &mut self,
         prim_info: &mut PrimitiveDependencyInfo,
@@ -3047,7 +3051,7 @@ impl TileCacheInstance {
         resource_cache: &mut ResourceCache,
         composite_state: &mut CompositeState,
         image_rendering: ImageRendering,
-    ) {
+    ) -> bool {
         prim_info.is_compositor_surface = true;
 
         let pic_to_world_mapper = SpaceMapper::new_with_target(
@@ -3066,7 +3070,7 @@ impl TileCacheInstance {
 
         let is_visible = world_clip_rect.intersects(&frame_context.global_screen_world_rect);
         if !is_visible {
-            return;
+            return true;
         }
 
         // TODO(gw): Is there any case where if the primitive ends up on a fractional
@@ -3074,6 +3078,11 @@ impl TileCacheInstance {
         //           draw it as part of the content?
         let device_rect = (world_rect * frame_context.global_device_pixel_scale).round();
         let clip_rect = (world_clip_rect * frame_context.global_device_pixel_scale).round();
+
+        if device_rect.size.width >= MAX_COMPOSITOR_SURFACES_SIZE ||
+           device_rect.size.height >= MAX_COMPOSITOR_SURFACES_SIZE {
+               return false;
+        }
 
         // When using native compositing, we need to find an existing native surface
         // handle to use, or allocate a new one. For existing native surfaces, we can
@@ -3158,6 +3167,8 @@ impl TileCacheInstance {
             native_surface_id,
             update_params,
         });
+
+        true
     }
 
     /// Update the dependencies for each tile for a given primitive instance.
@@ -3361,7 +3372,6 @@ impl TileCacheInstance {
                         }
                     }
                 }
-                *is_compositor_surface = promote_to_surface;
 
                 if opacity_binding_index == OpacityBindingIndex::INVALID {
                     if let Some(image_properties) = resource_cache.get_image_properties(image_data.key) {
@@ -3386,7 +3396,7 @@ impl TileCacheInstance {
                 }
 
                 if promote_to_surface {
-                    self.setup_compositor_surfaces_rgb(
+                    promote_to_surface = self.setup_compositor_surfaces_rgb(
                         &mut prim_info,
                         prim_rect,
                         frame_context,
@@ -3400,12 +3410,16 @@ impl TileCacheInstance {
                         image_data.image_rendering,
                         promote_with_flip_y,
                     );
-                } else {
+                }
+
+                if !promote_to_surface {
                     prim_info.images.push(ImageDependency {
                         key: image_data.key,
                         generation: resource_cache.get_image_generation(image_data.key),
                     });
                 }
+
+                *is_compositor_surface = promote_to_surface;
             }
             PrimitiveInstanceKind::YuvImage { data_handle, ref mut is_compositor_surface, .. } => {
                 let prim_data = &data_stores.yuv_image[data_handle];
@@ -3430,11 +3444,6 @@ impl TileCacheInstance {
                     //           need to check if opaque (YUV images are implicitly opaque).
                 }
 
-                // Store on the YUV primitive instance whether this is a promoted surface.
-                // This is used by the batching code to determine whether to draw the
-                // image to the content tiles, or just a transparent z-write.
-                *is_compositor_surface = promote_to_surface;
-
                 // If this primitive is being promoted to a surface, construct an external
                 // surface descriptor for use later during batching and compositing. We only
                 // add the image keys for this primitive as a dependency if this is _not_
@@ -3451,7 +3460,7 @@ impl TileCacheInstance {
                         }
                     }
 
-                    self.setup_compositor_surfaces_yuv(
+                    promote_to_surface = self.setup_compositor_surfaces_yuv(
                         &mut prim_info,
                         prim_rect,
                         frame_context,
@@ -3464,7 +3473,9 @@ impl TileCacheInstance {
                         prim_data.kind.color_space,
                         prim_data.kind.format,
                     );
-                } else {
+                }
+
+                if !promote_to_surface {
                     prim_info.images.extend(
                         prim_data.kind.yuv_key.iter().map(|key| {
                             ImageDependency {
@@ -3474,6 +3485,12 @@ impl TileCacheInstance {
                         })
                     );
                 }
+
+                // Store on the YUV primitive instance whether this is a promoted surface.
+                // This is used by the batching code to determine whether to draw the
+                // image to the content tiles, or just a transparent z-write.
+                *is_compositor_surface = promote_to_surface;
+
             }
             PrimitiveInstanceKind::ImageBorder { data_handle, .. } => {
                 let border_data = &data_stores.image_border[data_handle].kind;
@@ -4890,22 +4907,22 @@ impl PicturePrimitive {
                     map_raster_to_world: &SpaceMapper<RasterPixel, WorldPixel>,
                     clipped_prim_bounding_rect: WorldRect,
                     device_pixel_scale : &mut DevicePixelScale,
-                    device_rect: &mut DeviceIntRect,
+                    device_rect: &mut DeviceRect,
                     unclipped: &mut DeviceRect) -> Option<f32>
                 {
                     let limit = if raster_config.establishes_raster_root {
-                        MAX_SURFACE_SIZE as i32
+                        MAX_SURFACE_SIZE
                     } else {
-                        max_target_size
+                        max_target_size as f32
                     };
-                    if device_rect.size.width  > limit || device_rect.size.height > limit {
+                    if device_rect.size.width > limit || device_rect.size.height > limit {
                         // round_out will grow by 1 integer pixel if origin is on a
                         // fractional position, so keep that margin for error with -1:
                         let scale = (limit as f32 - 1.0) /
-                                    (i32::max(device_rect.size.width, device_rect.size.height) as f32);
+                                    (f32::max(device_rect.size.width, device_rect.size.height));
                         *device_pixel_scale = *device_pixel_scale * Scale::new(scale);
                         let new_device_rect = device_rect.to_f32() * Scale::new(scale);
-                        *device_rect = new_device_rect.round_out().try_cast::<i32>().unwrap();
+                        *device_rect = new_device_rect.round_out();
 
                         *unclipped = match get_raster_rects(
                             pic_rect,
@@ -4946,19 +4963,10 @@ impl PicturePrimitive {
                             // blur results, inflate that clipped area by the blur range, and
                             // then intersect with the total screen rect, to minimize the
                             // allocation size.
-                            // We cast clipped to f32 instead of casting unclipped to i32
-                            // because unclipped can overflow an i32.
-                            let device_rect = clipped.to_f32()
+                            clipped
                                 .inflate(inflation_factor * scale_factors.0, inflation_factor * scale_factors.1)
                                 .intersection(&unclipped)
-                                .unwrap();
-
-                            match device_rect.try_cast::<i32>() {
-                                Some(rect) => rect,
-                                None => {
-                                    return None
-                                }
-                            }
+                                .unwrap()
                         } else {
                             clipped
                         };
@@ -4980,9 +4988,11 @@ impl PicturePrimitive {
                             &mut device_pixel_scale, &mut device_rect, &mut unclipped,
                         ) {
                             blur_std_deviation = blur_std_deviation * scale;
-                            original_size = (original_size.to_f32() * scale).try_cast::<i32>().unwrap();
+                            original_size = original_size.to_f32() * scale;
                             raster_config.root_scaling_factor = scale;
                         }
+
+                        let device_rect = device_rect.to_i32();
 
                         let uv_rect_kind = calculate_uv_rect_kind(
                             &pic_rect,
@@ -5013,7 +5023,7 @@ impl PicturePrimitive {
                             RenderTargetKind::Color,
                             ClearMode::Transparent,
                             None,
-                            original_size,
+                            original_size.to_i32(),
                         );
 
                         Some((blur_render_task_id, picture_task_id))
@@ -5028,17 +5038,10 @@ impl PicturePrimitive {
 
                         // We cast clipped to f32 instead of casting unclipped to i32
                         // because unclipped can overflow an i32.
-                        let device_rect = clipped.to_f32()
+                        let mut device_rect = clipped
                                 .inflate(max_blur_range * scale_factors.0, max_blur_range * scale_factors.1)
                                 .intersection(&unclipped)
                                 .unwrap();
-
-                        let mut device_rect = match device_rect.try_cast::<i32>() {
-                            Some(rect) => rect,
-                            None => {
-                                return None
-                            }
-                        };
 
                         device_rect.size = RenderTask::adjusted_blur_source_size(
                             device_rect.size,
@@ -5057,6 +5060,8 @@ impl PicturePrimitive {
                             // std_dev adjusts automatically from using device_pixel_scale
                             raster_config.root_scaling_factor = scale;
                         }
+
+                        let device_rect = device_rect.to_i32();
 
                         let uv_rect_kind = calculate_uv_rect_kind(
                             &pic_rect,
@@ -5110,6 +5115,17 @@ impl PicturePrimitive {
                         Some((blur_render_task_id, picture_task_id))
                     }
                     PictureCompositeMode::MixBlend(..) if !frame_context.fb_config.gpu_supports_advanced_blend => {
+                        if let Some(scale) = adjust_scale_for_max_surface_size(
+                            raster_config, frame_context.fb_config.max_target_size,
+                            pic_rect, &map_pic_to_raster, &map_raster_to_world,
+                            clipped_prim_bounding_rect,
+                            &mut device_pixel_scale, &mut clipped, &mut unclipped,
+                        ) {
+                            raster_config.root_scaling_factor = scale;
+                        }
+
+                        let clipped = clipped.to_i32();
+
                         let uv_rect_kind = calculate_uv_rect_kind(
                             &pic_rect,
                             &transform,
@@ -5156,6 +5172,8 @@ impl PicturePrimitive {
                             raster_config.root_scaling_factor = scale;
                         }
 
+                        let clipped = clipped.to_i32();
+
                         let uv_rect_kind = calculate_uv_rect_kind(
                             &pic_rect,
                             &transform,
@@ -5189,6 +5207,8 @@ impl PicturePrimitive {
                         ) {
                             raster_config.root_scaling_factor = scale;
                         }
+
+                        let clipped = clipped.to_i32();
 
                         let uv_rect_kind = calculate_uv_rect_kind(
                             &pic_rect,
@@ -5517,6 +5537,8 @@ impl PicturePrimitive {
                             raster_config.root_scaling_factor = scale;
                         }
 
+                        let clipped = clipped.to_i32();
+
                         let uv_rect_kind = calculate_uv_rect_kind(
                             &pic_rect,
                             &transform,
@@ -5551,6 +5573,8 @@ impl PicturePrimitive {
                         ) {
                             raster_config.root_scaling_factor = scale;
                         }
+
+                        let clipped = clipped.to_i32();
 
                         let uv_rect_kind = calculate_uv_rect_kind(
                             &pic_rect,

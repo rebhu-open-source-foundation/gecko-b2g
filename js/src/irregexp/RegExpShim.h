@@ -983,6 +983,8 @@ class Isolate {
   ~Isolate();
   bool init();
 
+  size_t sizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) const;
+
   //********** Isolate code **********//
   RegExpStack* regexp_stack() const { return regexpStack_; }
   byte* top_of_regexp_stack() const;
@@ -1047,14 +1049,17 @@ class Isolate {
   JS::Value* getHandleLocation(const JS::Value& value);
 
  private:
-  mozilla::SegmentedVector<JS::Value> handleArena_;
-  mozilla::SegmentedVector<PseudoHandle<void>> uniquePtrArena_;
+  mozilla::SegmentedVector<JS::Value, 256> handleArena_;
+  mozilla::SegmentedVector<PseudoHandle<void>, 256> uniquePtrArena_;
 
   void* allocatePseudoHandle(size_t bytes);
 
  public:
   template <typename T>
   PseudoHandle<T> takeOwnership(void* ptr);
+
+  uint32_t liveHandles() const { return handleArena_.Length(); }
+  uint32_t livePseudoHandles() const { return uniquePtrArena_.Length(); }
 
  private:
   void openHandleScope(HandleScope& scope) {

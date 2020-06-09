@@ -13,7 +13,7 @@
 #  include <wrl.h>
 
 #  include "mozilla\dom\MediaController.h"
-#  include "mozilla\dom\MediaControlKeysEvent.h"
+#  include "mozilla\dom\MediaControlKeySource.h"
 #  include "mozilla\Maybe.h"
 
 using ISMTC = ABI::Windows::Media::ISystemMediaTransportControls;
@@ -35,8 +35,7 @@ struct SMTCControlAttributes {
   }
 };
 
-class WindowsSMTCProvider final
-    : public mozilla::dom::MediaControlKeysEventSource {
+class WindowsSMTCProvider final : public mozilla::dom::MediaControlKeySource {
   NS_INLINE_DECL_REFCOUNTING(WindowsSMTCProvider, override)
 
  public:
@@ -67,12 +66,15 @@ class WindowsSMTCProvider final
   void SetMediaMetadata(
       const mozilla::dom::MediaMetadataBase& aMetadata) override;
 
+  // TODO : modify the virtual control interface based on the supported keys
+  void SetSupportedMediaKeys(const MediaKeysArray& aSupportedKeys) override {}
+
  private:
   ~WindowsSMTCProvider();
   void UnregisterEvents();
   bool RegisterEvents();
   bool InitDisplayAndControls();
-  void OnButtonPressed(mozilla::dom::MediaControlKeysEvent aEvent);
+  void OnButtonPressed(mozilla::dom::MediaControlKey aKey);
 
   // This method flushes the changed Media Metadata to the OS.
   bool Update();

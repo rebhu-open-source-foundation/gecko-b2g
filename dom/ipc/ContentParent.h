@@ -1372,6 +1372,10 @@ class ContentParent final
       const MaybeDiscarded<BrowsingContext>& aContext,
       MediaSessionPlaybackState aPlaybackState);
 
+  mozilla::ipc::IPCResult RecvNotifyMediaSessionSupportedActionChanged(
+      const MaybeDiscarded<BrowsingContext>& aContext,
+      MediaSessionAction aAction, bool aEnabled);
+
   mozilla::ipc::IPCResult RecvGetModulesTrust(
       ModulePaths&& aModPaths, bool aRunAtNormalPriority,
       GetModulesTrustResolver&& aResolver);
