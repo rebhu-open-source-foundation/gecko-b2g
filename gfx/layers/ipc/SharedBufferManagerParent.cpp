@@ -17,7 +17,6 @@
 #include "nsIMemoryReporter.h"
 #ifdef MOZ_WIDGET_GONK
 #include "ui/PixelFormat.h"
-#include "android/hardware_buffer.h"
 #endif
 #include "nsPrintfCString.h"
 #include "nsThreadUtils.h"
@@ -235,40 +234,7 @@ bool SharedBufferManagerParent::RecvAllocateGrallocBuffer(const IntSize& aSize, 
     return false;
   }
 
-  sp<GraphicBuffer> outgoingBuffer;
-  typedef int (*fnAHardwareBuffer_allocate)(const AHardwareBuffer_Desc* desc, AHardwareBuffer** outBuffer);
-  typedef void (*fnAHardwareBuffer_describe)(const AHardwareBuffer* buffer,
-                                                AHardwareBuffer_Desc* outDesc);
-  void* lib = dlopen("libandroid.so", RTLD_NOW);
-  if (lib == NULL) {
-    printf_stderr("Could not dlopen(\"libandroid.so\"):");
-  } else {
-    fnAHardwareBuffer_allocate fAHardwareBuffer_allocate = (fnAHardwareBuffer_allocate) dlsym(lib, "AHardwareBuffer_allocate") ;
-    fnAHardwareBuffer_describe fAHardwareBuffer_describe = (fnAHardwareBuffer_describe) dlsym(lib, "AHardwareBuffer_describe") ;
-    if (fAHardwareBuffer_allocate == NULL || fAHardwareBuffer_describe == NULL) {
-      printf_stderr("Symbol 'AHardwareBuffer_allocate' is missing from shared library!!\n");
-    } else {
-      AHardwareBuffer* graphicBuf;
-      AHardwareBuffer_Desc usage;
-
-      // filling in the usage for HardwareBuffer
-      usage.format = aFormat;
-      usage.height = aSize.height;
-      usage.width = aSize.width;
-      usage.layers = 1;
-      usage.rfu0 = 0;
-      usage.rfu1 = 0;
-      usage.stride = 10;
-      usage.usage = aUsage;
-
-      fAHardwareBuffer_allocate(&usage, &graphicBuf);
-      // ACTUAL parameters of the AHardwareBuffer which it reports
-      AHardwareBuffer_Desc usage1;
-
-      fAHardwareBuffer_describe(graphicBuf, &usage1);
-      outgoingBuffer = reinterpret_cast< GraphicBuffer*>(graphicBuf);
-    }
-  }
+  sp<GraphicBuffer> outgoingBuffer = new GraphicBuffer(aSize.width, aSize.height, aFormat, aUsage);
   if (!outgoingBuffer.get() || outgoingBuffer->initCheck() != NO_ERROR) {
     printf_stderr("SharedBufferManagerParent::RecvAllocateGrallocBuffer -- gralloc buffer allocation failed");
     return true;

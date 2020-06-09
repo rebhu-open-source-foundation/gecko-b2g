@@ -158,7 +158,6 @@ static const uint32_t kDefaultGlyphCacheSize = -1;
 
 #ifdef MOZ_WIDGET_GONK
 #include "mozilla/layers/SharedBufferManagerChild.h"
-#include "android/hardware_buffer.h"
 #endif
 
 
@@ -1651,40 +1650,14 @@ void gfxPlatform::ComputeTileSize() {
     }
 
 #ifdef MOZ_WIDGET_GONK
-    typedef int (*fnAHardwareBuffer_allocate)(const AHardwareBuffer_Desc* desc, AHardwareBuffer** outBuffer);
-    typedef void (*fnAHardwareBuffer_describe)(const AHardwareBuffer* buffer,
-                                                AHardwareBuffer_Desc* outDesc);
-    void* lib = dlopen("libandroid.so", RTLD_NOW);
-    if (lib == NULL) {
-        printf_stderr("Could not dlopen(\"libandroid.so\"):");
-    } else {
-      fnAHardwareBuffer_allocate fAHardwareBuffer_allocate = (fnAHardwareBuffer_allocate) dlsym(lib, "AHardwareBuffer_allocate") ;
-      fnAHardwareBuffer_describe fAHardwareBuffer_describe = (fnAHardwareBuffer_describe) dlsym(lib, "AHardwareBuffer_describe") ;
-      if (fAHardwareBuffer_allocate == NULL || fAHardwareBuffer_describe == NULL) {
-      } else {
-        AHardwareBuffer* graphicBuf;
-        AHardwareBuffer_Desc usage;
+    android::sp<android::GraphicBuffer> alloc =
+          new android::GraphicBuffer(w, h, android::PIXEL_FORMAT_RGBA_8888,
+                                     android::GraphicBuffer::USAGE_SW_READ_OFTEN |
+                                     android::GraphicBuffer::USAGE_SW_WRITE_OFTEN |
+                                     android::GraphicBuffer::USAGE_HW_TEXTURE);
 
-        // filling in the usage for HardwareBuffer
-        usage.format = android::PIXEL_FORMAT_RGBA_8888;
-        usage.height = h;
-        usage.width = w;
-        usage.layers = 1;
-        usage.rfu0 = 0;
-        usage.rfu1 = 0;
-        usage.stride = 10;
-        usage.usage = android::GraphicBuffer::USAGE_SW_READ_OFTEN |
-                                         android::GraphicBuffer::USAGE_SW_WRITE_OFTEN |
-                                         android::GraphicBuffer::USAGE_HW_TEXTURE;
-        fAHardwareBuffer_allocate(&usage, &graphicBuf);
-        // ACTUAL parameters of the AHardwareBuffer which it reports
-        AHardwareBuffer_Desc usage1;
-
-        // for stride, see below
-        fAHardwareBuffer_describe(graphicBuf, &usage1);
-        int stride = usage1.stride;
-        w = stride;
-      }
+    if (alloc.get()) {
+      w = alloc->getStride(); // We want the tiles to be gralloc stride aligned.
     }
 #endif
   }
