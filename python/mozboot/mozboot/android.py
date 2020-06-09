@@ -323,7 +323,7 @@ def android_ndk_url(os_name, ver=NDK_VERSION):
     base_url = os.getenv('LOCAL_NDK_BASE_URL',
         'https://dl.google.com/android/repository/android-ndk');
 
-    ndk_file_extesion = 'tar.bz2' if os.environ['LOCAL_NDK_BASE_URL'] else 'zip'
+    ndk_file_extesion = 'tar.bz2' if os.environ.get('LOCAL_NDK_BASE_URL') else 'zip'
 
     if os_name == 'macosx':
         # |mach bootstrap| uses 'macosx', but Google uses 'darwin'.
