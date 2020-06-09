@@ -177,8 +177,8 @@ elif CONFIG['OS_TARGET'] in ('OpenBSD', 'NetBSD', 'FreeBSD', 'DragonFly'):
 else:
     UNIFIED_SOURCES += [
         'fallback/FallbackAlarm.cpp',
-        'fallback/FallbackFlashlightManager.cpp',
         'fallback/FallbackBattery.cpp',
+        'fallback/FallbackFlashlightManager.cpp',
         'fallback/FallbackMemory.cpp',
         'fallback/FallbackNetwork.cpp',
         'fallback/FallbackProcessPriority.cpp',
