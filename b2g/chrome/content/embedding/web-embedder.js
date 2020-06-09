@@ -17,13 +17,19 @@ XPCOMUtils.defineLazyModuleGetters(this, {
     "resource://gre/modules/Services.jsm"
   );
 
-  const { AlertsHelper } = ChromeUtils.import(
+  const { AlertsEventHandler } = ChromeUtils.import(
     "resource://gre/modules/AlertsHelper.jsm"
   );
 
   const systemAlerts = {
     resendAll: (resendCallback) => {
       ChromeNotifications.resendAllNotifications(resendCallback);
+    },
+    click: (data) => {
+      AlertsEventHandler.click(data);
+    },
+    close: (id) => {
+      AlertsEventHandler.close(id);
     },
   };
 

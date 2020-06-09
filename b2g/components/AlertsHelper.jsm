@@ -4,7 +4,7 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = [];
+this.EXPORTED_SYMBOLS = ["AlertsEventHandler"];
 
 const Ci = Components.interfaces;
 const Cu = Components.utils;
@@ -297,3 +297,23 @@ var AlertsHelper = {
 }
 
 AlertsHelper.init();
+
+var AlertsEventHandler = {
+  click: (data) => {
+    let event = {};
+    event.detail = {
+      type: "desktop-notification-click",
+      id: data.id
+    }
+    AlertsHelper.handleEvent(event);
+  },
+
+  close: (id) => {
+    let event = {};
+    event.detail = {
+      type: "desktop-notification-close",
+      id: id
+    }
+    AlertsHelper.handleEvent(event);
+  },
+}

@@ -35,6 +35,9 @@ The `WebEmbedder` object exposes the following methods:
 - `launchPreallocatedProcess()`: this will create a new content process with no content.
 - `systemAlerts`: this object exposes methods for invoking notification features of the system
   - `resendAll()`: this will resend all stored notifications from the Notifications DB.
+  - `click(data)`: this will perfrom click action. The data parameter is an object with the following properties:
+    - `id`: the unique id for this notification
+  - `close(id)`: this will perfrom close action with a parameter id which is the unique id for this notification
 
 ## WindowProvider delegate
 
