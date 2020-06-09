@@ -3712,7 +3712,7 @@ RadioInterface.prototype = {
         state: RIL.RIL_QAN_STATE_TO_GECKO_STATE[rilAvailableNetworks[i].status]
       };
 
-      let networkTuple = ilAvailableNetworks[i].operatorNumeric;
+      let networkTuple = rilAvailableNetworks[i].operatorNumeric;
       try {
         this._processNetworkTuple(networkTuple, network);
       } catch (e) {
