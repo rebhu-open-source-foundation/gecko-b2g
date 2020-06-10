@@ -20,7 +20,6 @@ XPCOMUtils.defineLazyGetter(this, "RIL", function () {
   return obj;
 });
 
-const kMozSettingsChangedObserverTopic   = "mozsettings-changed";
 const kSettingsCellBroadcastDisabled = "ril.cellbroadcast.disabled";
 const kSettingsCellBroadcastSearchList = "ril.cellbroadcast.searchlist";
 const kPrefAppCBConfigurationEnabled = "dom.app_cb_configuration";
@@ -29,9 +28,9 @@ XPCOMUtils.defineLazyServiceGetter(this, "gCellbroadcastMessenger",
                                    "@mozilla.org/ril/system-messenger-helper;1",
                                    "nsICellbroadcastMessenger");
 
-// XPCOMUtils.defineLazyServiceGetter(this, "gSettingsService",
-//                                    "@mozilla.org/settingsService;1",
-//                                    "nsISettingsService");
+XPCOMUtils.defineLazyServiceGetter(this, "gSettingsManager",
+                                   "@mozilla.org/sidl-native/settings;1",
+                                   "nsISettingsManager");
 
 XPCOMUtils.defineLazyServiceGetter(this, "gGonkCellBroadcastConfigService",
                                    "@mozilla.org/cellbroadcast/gonkconfigservice;1",
@@ -83,8 +82,6 @@ function CellBroadcastService() {
 
   // TODO renable it when nsISetting get ready.
   if (CB_SEARCH_LIST_GECKO_CONFIG && false) {
-    let lock = gSettingsService.createLock();
-
     /**
     * Read the settings of the toggle of Cellbroadcast Service:
     *
@@ -93,7 +90,7 @@ function CellBroadcastService() {
     * Enhanced Format: Array of Boolean
     *   Each element represents the toggle of CBS per RadioInterface.
     */
-    lock.get(kSettingsCellBroadcastDisabled, this);
+    this.getSettingValue(kSettingsCellBroadcastDisabled);
 
     /**
      * Read the Cell Broadcast Search List setting to set listening channels:
@@ -109,9 +106,10 @@ function CellBroadcastService() {
      *   1. set gsm/cdma search list individually for CDMA+LTE device.
      *   2. set search list per RadioInterface.
      */
-    lock.get(kSettingsCellBroadcastSearchList, this);
+    this.getSettingValue(kSettingsCellBroadcastSearchList);
 
-    Services.obs.addObserver(this, kMozSettingsChangedObserverTopic, false);
+    this.addSettingObserver(kSettingsCellBroadcastDisabled);
+    this.addSettingObserver(kSettingsCellBroadcastSearchList);
   }
 }
 CellBroadcastService.prototype = {
@@ -119,7 +117,7 @@ CellBroadcastService.prototype = {
 
   QueryInterface: ChromeUtils.generateQI([Ci.nsICellBroadcastService,
                                          Ci.nsIGonkCellBroadcastService,
-                                        //  Ci.nsISettingsServiceCallback,
+                                         Ci.nsISettingsObserver,
                                          Ci.nsIObserver]),
 
   // An array of nsICellBroadcastListener instances.
@@ -391,51 +389,138 @@ CellBroadcastService.prototype = {
   },
 
   /**
-   * nsISettingsServiceCallback interface.
+   * nsIObserver interface.
    */
-  handle: function(aName, aResult) {
+  observe: function(aSubject, aTopic, aData) {
+    switch (aTopic) {
+      case NS_XPCOM_SHUTDOWN_OBSERVER_ID:
+        // Release the CPU wake lock for handling the received CB.
+        this._releaseCbHandledWakeLock();
+        Services.obs.removeObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID);
+        this.removeSettingObserver(kSettingsCellBroadcastDisabled);
+        this.removeSettingObserver(kSettingsCellBroadcastSearchList);
+
+        // Remove all listeners.
+        this._listeners = [];
+        break;
+    }
+  },
+
+  handleSettingChanged: function(aName, aResult) {
     switch (aName) {
       case kSettingsCellBroadcastSearchList:
         if (DEBUG) {
           debug("'" + kSettingsCellBroadcastSearchList +
                 "' is now " + JSON.stringify(aResult));
         }
-
-        this.setCellBroadcastSearchList(aResult);
+        let resultListObj = JSON.parse(aResult);
+        this.setCellBroadcastSearchList(resultListObj);
         break;
       case kSettingsCellBroadcastDisabled:
         if (DEBUG) {
           debug("'" + kSettingsCellBroadcastDisabled +
                 "' is now " + JSON.stringify(aResult));
         }
-
-        this.setCellBroadcastDisabled(aResult);
+        let resultDisableObj = JSON.parse(aResult);
+        this.setCellBroadcastDisabled(resultDisableObj);
         break;
     }
   },
 
   /**
-   * nsIObserver interface.
+   * nsISettingsObserver
    */
-  observe: function(aSubject, aTopic, aData) {
-    switch (aTopic) {
-      case kMozSettingsChangedObserverTopic:
-        if ("wrappedJSObject" in aSubject) {
-          aSubject = aSubject.wrappedJSObject;
-        }
-        this.handle(aSubject.key, aSubject.value);
-        break;
-      case NS_XPCOM_SHUTDOWN_OBSERVER_ID:
-        // Release the CPU wake lock for handling the received CB.
-        this._releaseCbHandledWakeLock();
-        Services.obs.removeObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID);
-        Services.obs.removeObserver(this, kMozSettingsChangedObserverTopic);
-
-        // Remove all listeners.
-        this._listeners = [];
-        break;
+  observeSetting: function(aSettingInfo) {
+    if (aSettingInfo) {
+      let name = aSettingInfo.name;
+      let result = aSettingInfo.value;
+      this.handleSettingChanged(name, result);
     }
-  }
+  },
+
+  // Helper functions.
+  getSettingValue: function(aKey) {
+    if (!aKey) {
+      return;
+    }
+
+    if (gSettingsManager) {
+      this.debug("get "+ aKey + " setting.");
+      let self = this;
+      gSettingsManager.get(aKey,
+        {
+          "resolve": info => {
+            self.observeSetting(info);
+          },
+          "reject": () => {
+            self.debug("get "+ aKey +" failed.");
+          }
+        });
+    }
+  },
+
+  setSettingValue: function(aKey, aValue) {
+    if (!aKey || !aValue) {
+      return;
+    }
+
+    if (gSettingsManager) {
+      this.debug("set "+ aKey + " setting with value = " + JSON.stringify(aValue));
+      let self = this;
+      gSettingsManager.set(
+          [{ name: aKey, value: JSON.stringify(aValue)}],
+          {
+            "resolve": () => {
+              self.debug(" Set " + aKey + " succedded. " );
+            },
+            "reject": () => {
+              self.debug("Set " + aKey + " failed.");
+            }
+          }
+        );
+    }
+  },
+
+  //When the setting value change would be notify by the observe function.
+  addSettingObserver: function(aKey) {
+    if (!aKey) {
+      return;
+    }
+
+    if (gSettingsManager) {
+      this.debug("add "+ aKey + " setting observer.");
+      let self = this;
+      gSettingsManager.addObserver(aKey, this,
+        {
+          "resolve": () => {
+            self.debug("observed "+ aKey +" successed.");
+          },
+          "reject": () => {
+            self.debug("observed "+ aKey +" failed.");
+          }
+        });
+    }
+  },
+
+  removeSettingObserver: function(aKey) {
+    if (!aKey) {
+      return;
+    }
+
+    if (gSettingsManager) {
+      this.debug("remove "+ aKey + " setting observer.");
+      let self = this;
+      gSettingsManager.removeObserver(aKey, this,
+        {
+          "resolve": () => {
+            self.debug("remove observer "+ aKey +" successed.");
+          },
+          "reject": () => {
+            self.debug("remove observer "+ aKey +" failed.");
+          }
+        });
+    }
+  },
 };
 
 var EXPORTED_SYMBOLS = ["CellBroadcastService"];

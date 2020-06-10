@@ -19,11 +19,11 @@ const { PromiseUtils } = ChromeUtils.import(
 Cu.import("resource://gre/modules/systemlibs.js");
 Cu.import("resource://gre/modules/Promise.jsm");
 
-/*XPCOMUtils.defineLazyServiceGetter(this, "gSettingsService",
-                                   "@mozilla.org/settingsService;1",
-                                   "nsISettingsService");
+XPCOMUtils.defineLazyServiceGetter(this, "gSettingsManager",
+                                   "@mozilla.org/sidl-native/settings;1",
+                                   "nsISettingsManager");
 
-XPCOMUtils.defineLazyServiceGetter(this, "gCustomizationInfo",
+/*XPCOMUtils.defineLazyServiceGetter(this, "gCustomizationInfo",
                                    "@kaiostech.com/customizationinfo;1",
                                    "nsICustomizationInfo");
 
@@ -75,7 +75,6 @@ const RILNETWORKINFO_CID =
   Components.ID("{dd6cf2f0-f0e3-449f-a69e-7c34fdcb8d4b}");
 
 const TOPIC_XPCOM_SHUTDOWN      = "xpcom-shutdown";
-const TOPIC_MOZSETTINGS_CHANGED = "mozsettings-changed";
 const TOPIC_PREF_CHANGED        = "nsPref:changed";
 const TOPIC_DATA_CALL_ERROR     = "data-call-error";
 const PREF_RIL_DEBUG_ENABLED    = "ril.debugging.enabled";
@@ -152,22 +151,23 @@ function DataCallManager() {
   for (let clientId = 0; clientId < numRadioInterfaces; clientId++) {
     this._connectionHandlers.push(new DataCallHandler(clientId));
 
-    // Cameron mark fisrt.
     let icc = gIccService.getIccByServiceId(clientId);
     icc.registerListener(this);
   }
 
-  // Cameron mark first.
-  /*let lock = gSettingsService.createLock();
-  // Read the data enabled setting from DB.
-  lock.get("ril.data.enabled", this);
-  lock.get("ril.data.roaming_enabled", this);
-  // Read the default client id for data call.
-  lock.get("ril.data.defaultServiceId", this);
-  lock.get("operatorvariant.iccId", this);*/
+  // Get the setting value.
+  this.getSettingValue("ril.data.enabled");
+  this.getSettingValue("ril.data.roaming_enabled");
+  this.getSettingValue("ril.data.defaultServiceId");
+  this.getSettingValue("operatorvariant.iccId");
+
+  // Add the setting observer.
+  this.addSettingObserver("ril.data.enabled");
+  this.addSettingObserver("ril.data.roaming_enabled");
+  this.addSettingObserver("ril.data.defaultServiceId");
+  this.addSettingObserver("operatorvariant.iccId");
 
   Services.obs.addObserver(this, TOPIC_XPCOM_SHUTDOWN, false);
-  Services.obs.addObserver(this, TOPIC_MOZSETTINGS_CHANGED, false);
   Services.prefs.addObserver(PREF_RIL_DEBUG_ENABLED, this, false);
 }
 DataCallManager.prototype = {
@@ -175,7 +175,7 @@ DataCallManager.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsIDataCallManager,
                                          Ci.nsIObserver,
                                          Ci.nsIIccListener,
-                                         Ci.nsISettingsServiceCallback]),
+                                         Ci.nsISettingsObserver]),
 
   _connectionHandlers: null,
 
@@ -185,10 +185,7 @@ DataCallManager.prototype = {
 
   // Flag to record the default client id for data call. It corresponds to
   // the 'ril.data.defaultServiceId' setting from the UI.
-  //_dataDefaultClientId: -1,
-  //Cameron for test only
-  _dataDefaultClientId: 0,
-
+  _dataDefaultClientId: -1,
 
   // Flag to record the current default client id for data call.
   // It differs from _dataDefaultClientId in that it is set only when
@@ -315,9 +312,13 @@ DataCallManager.prototype = {
       handler.shutdown();
     }
     this._connectionHandlers = null;
+    // remove the setting observer.
+    this.removeSettingObserver("ril.data.enabled");
+    this.removeSettingObserver("ril.data.roaming_enabled");
+    this.removeSettingObserver("ril.data.defaultServiceId");
+    this.removeSettingObserver("operatorvariant.iccId");
     Services.prefs.removeObserver(PREF_RIL_DEBUG_ENABLED, this);
     Services.obs.removeObserver(this, TOPIC_XPCOM_SHUTDOWN);
-    Services.obs.removeObserver(this, TOPIC_MOZSETTINGS_CHANGED);
   },
 
   /**
@@ -356,74 +357,49 @@ DataCallManager.prototype = {
       this.debug("newIccid=" + ddsHandler.newIccid + ", oldIccid=" + ddsHandler.oldIccid);
     }
     if (ddsHandler.newIccid && ddsHandler.oldIccid && (ddsHandler.newIccid === ddsHandler.oldIccid)) {
-      let lock = gSettingsService.createLock();
-      lock.get("ril.data.apnSettings", this);
+      this.getSettingValue("ril.data.apnSettings");
       this.hasUpdateApn = true;
     }
   },
 
-  // For test only.
-  updateMobileNetworkSettings: function(aAllow) {
-    if (DEBUG) {
-          this.debug("'ril.data.enabled' is now " + aAllow);
-    }
-    if (this._dataEnabled === aAllow) {
-      return;
-    }
-    this._dataEnabled = aAllow;
-
-    if (DEBUG) {
-      this.debug("Default id for data call: " + this._dataDefaultClientId);
-    }
-    if (this._dataDefaultClientId === -1) {
-      // We haven't got the default id for data from db.
-      return;
-    }
-
-    let connHandler = this._connectionHandlers[this._dataDefaultClientId];
-    let settings = connHandler.dataCallSettings;
-    settings.oldEnabled = settings.enabled;
-    settings.enabled = aAllow;
-    connHandler.updateAllRILNetworkInterface();
-  },
-  /**
-   * nsISettingsServiceCallback
-   */
-  handle: function(aName, aResult) {
+  handleSettingChanged: function(aName, aResult) {
     switch (aName) {
       case "ril.data.apnSettings":
         if (DEBUG) {
-          this.debug("'ril.data.apnSettings' is now " +
-                     JSON.stringify(aResult));
+          this.debug("'ril.data.apnSettings' is now " + aResult);
         }
         if (!aResult) {
           break;
         }
-        for (let clientId in this._connectionHandlers) {
-          let handler = this._connectionHandlers[clientId];
+        // Change the result to json format.
+        let resultApnObj = JSON.parse(aResult);
 
-          // Loading the apn value.
-          let apnSetting = aResult[clientId];
-          if (handler && apnSetting) {
-            if (gCustomizationInfo.getCustomizedValue(clientId, "xcap", null) != null) {
-              apnSetting.push(gCustomizationInfo.getCustomizedValue(clientId, "xcap"));
-            }
-            handler.updateApnSettings(apnSetting);
-          }
+        if(Array.isArray(resultApnObj)){
+          for (let clientId in this._connectionHandlers) {
+            let handler = this._connectionHandlers[clientId];
 
-          // Once got the apn, loading the white list config if any.
-          if (apnSetting && apnSetting.length > 0) {
-            let whiteList = gCustomizationInfo.getCustomizedValue(clientId, "mobileSettingWhiteList", []);
-            if (whiteList.length > 0) {
-              handler.mobileWhiteList = whiteList;
-              if (DEBUG) {
-                this.debug("mobileWhiteList[" + clientId + "]:" + JSON.stringify(handler.mobileWhiteList));
+            // Loading the apn value.
+            let apnSetting = resultApnObj[clientId];
+            if (handler && apnSetting) {
+              if (gCustomizationInfo.getCustomizedValue(clientId, "xcap", null) != null) {
+                apnSetting.push(gCustomizationInfo.getCustomizedValue(clientId, "xcap"));
               }
+              handler.updateApnSettings(apnSetting);
             }
 
-            // Config the setting whitelist value.
-            let lock = gSettingsService.createLock();
-            lock.set('ril.data.mobileWhiteList', handler.mobileWhiteList, null);
+            // Once got the apn, loading the white list config if any.
+            if (apnSetting && apnSetting.length > 0) {
+              let whiteList = gCustomizationInfo.getCustomizedValue(clientId, "mobileSettingWhiteList", []);
+              if (whiteList.length > 0) {
+                handler.mobileWhiteList = whiteList;
+                if (DEBUG) {
+                  this.debug("mobileWhiteList[" + clientId + "]:" + JSON.stringify(handler.mobileWhiteList));
+                }
+              }
+
+              // Config the setting whitelist value.
+              this.setSettingValue("ril.data.mobileWhiteList", handler.mobileWhiteList);
+            }
           }
         }
         break;
@@ -434,11 +410,12 @@ DataCallManager.prototype = {
         if (this._dataEnabled === aResult) {
           break;
         }
-        this._dataEnabled = aResult;
+        this._dataEnabled = ((aResult === 'true') ? true : false);
 
         if (DEBUG) {
           this.debug("Default id for data call: " + this._dataDefaultClientId);
         }
+
         if (this._dataDefaultClientId === -1) {
           // We haven't got the default id for data from db.
           break;
@@ -447,7 +424,7 @@ DataCallManager.prototype = {
         let connHandler = this._connectionHandlers[this._dataDefaultClientId];
         let settings = connHandler.dataCallSettings;
         settings.oldEnabled = settings.enabled;
-        settings.enabled = aResult;
+        settings.enabled = this._dataEnabled;
         connHandler.updateAllRILNetworkInterface();
         break;
       case "ril.data.roaming_enabled":
@@ -458,8 +435,10 @@ DataCallManager.prototype = {
         for (let clientId = 0; clientId < this._connectionHandlers.length; clientId++) {
           let connHandler = this._connectionHandlers[clientId];
           let settings = connHandler.dataCallSettings;
-          settings.roamingEnabled = Array.isArray(aResult) ? aResult[clientId]
-                                                           : aResult;
+          // Change the result to json format.
+          let resultRoamObj = JSON.parse(aResult);
+          settings.roamingEnabled = Array.isArray(resultRoamObj) ? resultRoamObj[clientId]
+                                                                 : resultRoamObj;
         }
         if (this._dataDefaultClientId === -1) {
           // We haven't got the default id for data from db.
@@ -481,10 +460,13 @@ DataCallManager.prototype = {
 
         aResult = aResult || 0;
 
+        // Change the result to json format.
+        let resultIccObj = JSON.parse(aResult);
         // Updated the previous icc id store in the setting for each handler.
         for (let clientId in this._connectionHandlers) {
           let handler = this._connectionHandlers[clientId];
-          handler.oldIccid = aResult[clientId];
+          handler.oldIccid = Array.isArray(resultIccObj) ? resultIccObj[clientId]
+                                                         : resultIccObj;
         }
 
         if (this._dataDefaultClientId == -1) {
@@ -505,17 +487,21 @@ DataCallManager.prototype = {
           this.debug("oldIccid=" + oldIccid + ", newIccid=" + newIccid);
         }
         if (oldIccid && newIccid && (oldIccid === newIccid)) {
-          let lock = gSettingsService.createLock();
-          lock.get("ril.data.apnSettings", this);
+          this.getSettingValue("ril.data.apnSettings");
           this.hasUpdateApn = true;
         }
         break;
     }
   },
 
-  handleError: function(aErrorMessage) {
-    if (DEBUG) {
-      this.debug("There was an error while reading RIL settings.");
+  /**
+   * nsISettingsObserver
+   */
+  observeSetting: function(aSettingInfo) {
+    if (aSettingInfo) {
+      let name = aSettingInfo.name;
+      let result = aSettingInfo.value;
+      this.handleSettingChanged(name, result);
     }
   },
 
@@ -524,12 +510,6 @@ DataCallManager.prototype = {
    */
   observe: function(aSubject, aTopic, aData) {
     switch (aTopic) {
-      case TOPIC_MOZSETTINGS_CHANGED:
-        if ("wrappedJSObject" in aSubject) {
-          aSubject = aSubject.wrappedJSObject;
-        }
-        this.handle(aSubject.key, aSubject.value);
-        break;
       case TOPIC_PREF_CHANGED:
         if (aData === PREF_RIL_DEBUG_ENABLED) {
           updateDebugFlag();
@@ -538,6 +518,89 @@ DataCallManager.prototype = {
       case TOPIC_XPCOM_SHUTDOWN:
         this._shutdown();
         break;
+    }
+  },
+
+  // Helper functions.
+  getSettingValue: function(aKey) {
+    if (!aKey) {
+      return;
+    }
+
+    if (gSettingsManager) {
+      this.debug("get "+ aKey + " setting.");
+      let self = this;
+      gSettingsManager.get(aKey,
+        {
+          "resolve": info => {
+            self.observeSetting(info);
+          },
+          "reject": () => {
+            self.debug("get "+ aKey +" failed.");
+          }
+        });
+    }
+  },
+  setSettingValue: function(aKey, aValue) {
+    if (!aKey || !aValue) {
+      return;
+    }
+
+    if (gSettingsManager) {
+      this.debug("set "+ aKey + " setting with value = " + JSON.stringify(aValue));
+      let self = this;
+      gSettingsManager.set(
+          [{ name: aKey, value: JSON.stringify(aValue)}],
+          {
+            "resolve": () => {
+              self.debug(" Set " + aKey + " succedded. " );
+            },
+            "reject": () => {
+              self.debug("Set " + aKey + " failed.");
+            }
+          }
+        );
+    }
+  },
+
+  //When the setting value change would be notify by the observe function.
+  addSettingObserver: function(aKey) {
+    if (!aKey) {
+      return;
+    }
+
+    if (gSettingsManager) {
+      this.debug("add "+ aKey + " setting observer.");
+      let self = this;
+      gSettingsManager.addObserver(aKey, this,
+        {
+          "resolve": () => {
+            self.debug("observed "+ aKey +" successed.");
+          },
+          "reject": () => {
+            self.debug("observed "+ aKey +" failed.");
+          }
+        });
+    }
+  },
+
+  removeSettingObserver: function(aKey) {
+    if (!aKey) {
+      return;
+    }
+
+    if (gSettingsManager) {
+      this.debug("remove "+ aKey + " setting observer.");
+      let self = this;
+      gSettingsManager.removeObserver(aKey, this,
+        {
+          "resolve": () => {
+            self.debug("remove observer "+ aKey +" successed.");
+          },
+          "reject": () => {
+            self.debug("remove observer "+ aKey +" failed.");
+          }
+        });
     }
   },
 };

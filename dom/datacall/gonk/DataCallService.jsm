@@ -55,9 +55,9 @@ XPCOMUtils.defineLazyGetter(this, "ppmm", () => {
   return Cc["@mozilla.org/parentprocessmessagemanager;1"].getService();
 });
 
-/*XPCOMUtils.defineLazyServiceGetter(this, "gSettingsService",
-                                   "@mozilla.org/settingsService;1",
-                                   "nsISettingsService");*/
+XPCOMUtils.defineLazyServiceGetter(this, "gSettingsManager",
+                                   "@mozilla.org/sidl-native/settings;1",
+                                   "nsISettingsManager");
 
 XPCOMUtils.defineLazyServiceGetter(this, "gRil",
                                    "@mozilla.org/ril;1",
@@ -107,7 +107,8 @@ function DataCallService() {
   this._listeners = {};
 
   // Read the default service id for data call.
-  //gSettingsService.createLock().get(SETTINGS_DATA_DEFAULT_SERVICE_ID, this);
+  this.getSettingValue(SETTINGS_DATA_DEFAULT_SERVICE_ID);
+  this.addSettingObserver(SETTINGS_DATA_DEFAULT_SERVICE_ID);
 
   Services.obs.addObserver(this, TOPIC_XPCOM_SHUTDOWN, false);
   Services.obs.addObserver(this, TOPIC_INNER_WINDOW_DESTROYED, false);
@@ -121,7 +122,7 @@ DataCallService.prototype = {
 
   QueryInterface: ChromeUtils.generateQI([Ci.nsIMessageListener,
                                          Ci.nsIObserver,
-                                         /*Ci.nsISettingsServiceCallback*/]),
+                                         Ci.nsISettingsObserver]),
 
   dataCallsContext: null,
 
@@ -643,6 +644,7 @@ DataCallService.prototype = {
         this.dataCallsContext = null;
 
         this._unregisterMessageListeners();
+        this.removeSettingObserver(SETTINGS_DATA_DEFAULT_SERVICE_ID);
         Services.obs.removeObserver(this, TOPIC_XPCOM_SHUTDOWN);
         Services.obs.removeObserver(this, TOPIC_INNER_WINDOW_DESTROYED);
         Services.obs.removeObserver(this, TOPIC_CONNECTION_STATE_CHANGED);
@@ -651,21 +653,6 @@ DataCallService.prototype = {
         let wId = aSubject.QueryInterface(Ci.nsISupportsPRUint64).data;
         this._cleanupRequestsByTarget(wId);
         this._unregisterMessageTargetByWinId(null, wId, true);
-        break;
-    }
-  },
-
-  /**
-   * nsISettingsServiceCallback interface methods.
-   */
-  handle: function(aName, aResult) {
-    switch (aName) {
-      case SETTINGS_DATA_DEFAULT_SERVICE_ID:
-        this._dataDefaultServiceId = aResult || 0;
-        if (DEBUG) {
-          this.debug("'_dataDefaultServiceId' is now " +
-                     this._dataDefaultServiceId);
-        }
         break;
     }
   },
@@ -728,6 +715,113 @@ DataCallService.prototype = {
     }
 
     return null;
+  },
+
+  /**
+   * nsISettingsObserver
+   */
+  observeSetting: function(aSettingInfo) {
+    if (aSettingInfo) {
+      let name = aSettingInfo.name;
+      let result = aSettingInfo.value;
+      this.handleSettingChanged(name, result);
+    }
+  },
+
+  //TODO when dds change should reset the connection and re establish on the DDS slot.
+  handleSettingChanged: function(aName, aResult) {
+    switch (aName) {
+      case SETTINGS_DATA_DEFAULT_SERVICE_ID:
+        this._dataDefaultServiceId = aResult || 0;
+        if (DEBUG) {
+          this.debug("'_dataDefaultServiceId' is now " +
+                     this._dataDefaultServiceId);
+        }
+        break;
+    }
+  },
+
+  // Helper functions.
+  getSettingValue: function(aKey) {
+    if (!aKey) {
+      return;
+    }
+
+    if (gSettingsManager) {
+      this.debug("get "+ aKey + " setting.");
+      let self = this;
+      gSettingsManager.get(aKey,
+        {
+          "resolve": info => {
+            self.observeSetting(info);
+          },
+          "reject": () => {
+            self.debug("get "+ aKey +" failed.");
+          }
+        });
+    }
+  },
+  setSettingValue: function(aKey, aValue) {
+    if (!aKey || !aValue) {
+      return;
+    }
+
+    if (gSettingsManager) {
+      this.debug("set "+ aKey + " setting with value = " + JSON.stringify(aValue));
+      let self = this;
+      gSettingsManager.set(
+          [{ name: aKey, value: JSON.stringify(aValue)}],
+          {
+            "resolve": () => {
+              self.debug(" Set " + aKey + " succedded. " );
+            },
+            "reject": () => {
+              self.debug("Set " + aKey + " failed.");
+            }
+          }
+        );
+    }
+  },
+
+  //When setting value change would be notify by the observe function.
+  addSettingObserver: function(aKey) {
+    if (!aKey) {
+      return;
+    }
+
+    if (gSettingsManager) {
+      this.debug("add "+ aKey + " setting observer.");
+      let self = this;
+      gSettingsManager.addObserver(aKey, this,
+        {
+          "resolve": () => {
+            self.debug("observed "+ aKey +" successed.");
+          },
+          "reject": () => {
+            self.debug("observed "+ aKey +" failed.");
+          }
+        });
+    }
+  },
+
+  removeSettingObserver: function(aKey) {
+    if (!aKey) {
+      return;
+    }
+
+    if (gSettingsManager) {
+      this.debug("remove "+ aKey + " setting observer.");
+      let self = this;
+      gSettingsManager.removeObserver(aKey, this,
+        {
+          "resolve": () => {
+            self.debug("remove observer "+ aKey +" successed.");
+          },
+          "reject": () => {
+            self.debug("remove observer "+ aKey +" failed.");
+          }
+        });
+    }
   },
 };
 

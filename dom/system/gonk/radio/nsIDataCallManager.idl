@@ -37,11 +37,9 @@ interface nsIDeactivateDataCallsCallback : nsISupports
   void notifyDataCallsDisconnected();
 };
 
-[scriptable, uuid(bcda7fbf-d121-4566-b47b-b691ecca1936)]
+[scriptable, uuid(8124b5a0-87af-4425-9468-341fcea3b639)]
 interface nsIDataCallHandler : nsISupports
 {
-
-  void updateApnSettings(in jsval apnSetting);
   /**
    * PDP APIs
    *
@@ -93,11 +91,9 @@ interface nsIDataCallHandler : nsISupports
                       in unsigned long byteLength);
 };
 
-[scriptable, uuid(53914851-9c7d-49ab-a866-5d53f345a379)]
+[scriptable, uuid(00333a9e-e80b-44be-8da3-dffb92999d47)]
 interface nsIDataCallManager : nsISupports
 {
-  void updateMobileNetworkSettings(in boolean allow);
-
   readonly attribute long dataDefaultServiceId;
 
   /**
