@@ -221,6 +221,7 @@ export CPPFLAGS="-DANDROID -DTARGET_OS_GONK \
 -isystem $INTERMEDIATES/gonk-misc/gonk-binder/binder_b2g_connectivity_interface-cpp-source/gen/include \
 -isystem $INTERMEDIATES/gonk-misc/gonk-binder/binder_b2g_telephony_interface-cpp-source/gen/include \
 -isystem $INTERMEDIATES/system/connectivity/wificond/libwificond_ipc/android_${TARGET_FOLDER}_core_static/gen/aidl \
+-isystem $INTERMEDIATES/system/hardware/interfaces/wifi/keystore/1.0/android.system.wifi.keystore@1.0_genc++_headers/gen \
 -isystem $INTERMEDIATES/system/libhidl/transport/base/1.0/android.hidl.base@1.0_genc++_headers/gen \
 -isystem $INTERMEDIATES/system/libhidl/transport/manager/1.0/android.hidl.manager@1.0_genc++_headers/gen \
 -isystem $INTERMEDIATES/system/netd/resolv/dnsresolver_aidl_interface-V2-cpp-source/gen/include \

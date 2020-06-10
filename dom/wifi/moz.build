@@ -83,8 +83,13 @@ if not CONFIG['DISABLE_WIFI']:
           'WifiCertService.cpp',
           'WifiProxyService.cpp',
       ]
+
       LOCAL_INCLUDES += [
           'hal',
+      ]
+
+      DIRS += [
+          'keystore',
       ]
 
 FINAL_LIBRARY = 'xul'

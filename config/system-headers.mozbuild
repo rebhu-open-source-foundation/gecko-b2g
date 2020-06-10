@@ -1308,6 +1308,7 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         'android/net/metrics/BnNetdEventListener.h',
         'android/os/BnVoldListener.h',
         'android/os/IVold.h',
+        'android/system/wifi/keystore/1.0/IKeystore.h',
         'b2g/connectivity/BnConnectivity.h',
         'b2g/connectivity/BnConnectivityEventListener.h',
         'b2g/connectivity/BnNetworkInfoParcel.h',

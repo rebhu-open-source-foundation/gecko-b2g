@@ -362,6 +362,17 @@ def wificond_so(value):
 
 set_config('ANDROID_WIFICOND_SO', wificond_so)
 
+# Wifi Keystore 1.0 Support
+# ==============================================================
+option('--with-wifi-keystore-1.0-so', nargs=1,
+       help='Assign the path of android.system.wifi.keystore@1.0.so')
+
+@depends_if('--with-wifi-keystore-1.0-so')
+def wifi_keystore_1_0_so(value):
+    return value[0]
+
+set_config('ANDROID_WIFI_KEYSTORE_1_0_SO', wifi_keystore_1_0_so)
+
 # B2G Connectivity AIDL Binder Support
 # ==============================================================
 option('--with-binder-b2g-connectivity-so', nargs=1,

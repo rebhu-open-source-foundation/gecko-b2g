@@ -293,16 +293,16 @@ var WifiManager = (function() {
         libcutils.property_get("ro.moz.wifi.ibss_supported", "true") === "true",
       ifname: libcutils.property_get("wifi.interface"),
       numRil: Services.prefs.getIntPref("ril.numRadioInterfaces"),
-      wapi_key_type: libcutils.property_get(
+      wapiKeyType: libcutils.property_get(
         "ro.wifi.wapi.wapi_key_type",
         "wapi_key_type"
       ),
-      wapi_psk: libcutils.property_get("ro.wifi.wapi.wapi_psk", "wapi_psk"),
-      as_cert_file: libcutils.property_get(
+      wapiPsk: libcutils.property_get("ro.wifi.wapi.wapi_psk", "wapi_psk"),
+      asCertFile: libcutils.property_get(
         "ro.wifi.wapi.as_cert_file",
         "as_cert_file"
       ),
-      user_cert_file: libcutils.property_get(
+      userCertFile: libcutils.property_get(
         "ro.wifi.wapi.user_cert_file",
         "user_cert_file"
       ),
@@ -317,16 +317,16 @@ var WifiManager = (function() {
     ibssSupported,
     ifname,
     numRil,
-    wapi_key_type,
-    wapi_psk,
-    as_cert_file,
-    user_cert_file,
+    wapiKeyType,
+    wapiPsk,
+    asCertFile,
+    userCertFile,
   } = getStartupPrefs();
 
-  manager.wapi_key_type = wapi_key_type;
-  manager.wapi_psk = wapi_psk;
-  manager.as_cert_file = as_cert_file;
-  manager.user_cert_file = user_cert_file;
+  manager.wapiKeyType = wapiKeyType;
+  manager.wapiPsk = wapiPsk;
+  manager.asCertFile = asCertFile;
+  manager.userCertFile = userCertFile;
 
   let capabilities = {
     security: [
@@ -2493,7 +2493,7 @@ function WifiWorker() {
     if (
       ("psk" in net && net.psk) ||
       ("password" in net && net.password) ||
-      (WifiManager.wapi_psk in net && net[WifiManager.wapi_psk]) ||
+      (WifiManager.wapiPsk in net && net[WifiManager.wapiPsk]) ||
       isInWepKeyList(net)
     ) {
       password = "*";
@@ -2522,32 +2522,32 @@ function WifiWorker() {
     pub.hidden = net.scanSsid === 1;
 
     if (
-      "ca_cert" in net &&
-      net.ca_cert &&
-      net.ca_cert.indexOf("keystore://WIFI_SERVERCERT_" === 0)
+      "caCert" in net &&
+      net.caCert &&
+      net.caCert.indexOf("keystore://WIFI_SERVERCERT_" === 0)
     ) {
-      pub.serverCertificate = net.ca_cert.substr(27);
+      pub.serverCertificate = net.caCert.substr(27);
     }
-    if (net.subject_match) {
-      pub.subjectMatch = net.subject_match;
+    if (net.subjectMatch) {
+      pub.subjectMatch = net.subjectMatch;
     }
     if (
-      "client_cert" in net &&
-      net.client_cert &&
-      net.client_cert.indexOf("keystore://WIFI_USERCERT_" === 0)
+      "clientCert" in net &&
+      net.clientCert &&
+      net.clientCert.indexOf("keystore://WIFI_USERCERT_" === 0)
     ) {
-      pub.userCertificate = net.client_cert.substr(25);
+      pub.userCertificate = net.clientCert.substr(25);
     }
-    if (WifiManager.wapi_key_type in net && net[WifiManager.wapi_key_type]) {
-      if (net[WifiManager.wapi_key_type] == 1) {
+    if (WifiManager.wapiKeyType in net && net[WifiManager.wapiKeyType]) {
+      if (net[WifiManager.wapiKeyType] == 1) {
         pub.pskType = "HEX";
       }
     }
-    if (WifiManager.as_cert_file in net && net[WifiManager.as_cert_file]) {
-      pub.wapiAsCertificate = net[WifiManager.as_cert_file];
+    if (WifiManager.asCertFile in net && net[WifiManager.asCertFile]) {
+      pub.wapiAsCertificate = net[WifiManager.asCertFile];
     }
-    if (WifiManager.user_cert_file in net && net[WifiManager.user_cert_file]) {
-      pub.wapiUserCertificate = net[WifiManager.user_cert_file];
+    if (WifiManager.userCertFile in net && net[WifiManager.userCertFile]) {
+      pub.wapiUserCertificate = net[WifiManager.userCertFile];
     }
     return pub;
   };
@@ -2618,24 +2618,24 @@ function WifiWorker() {
     if (net.keyMgmt == "WAPI-PSK") {
       net.proto = configured.proto = "WAPI";
       if (net.pskType == "HEX") {
-        net[WifiManager.wapi_key_type] = 1;
+        net[WifiManager.wapiKeyType] = 1;
       }
-      net[WifiManager.wapi_psk] = configured[WifiManager.wapi_psk] = quote(
-        net.wapi_psk
+      net[WifiManager.wapiPsk] = configured[WifiManager.wapiPsk] = quote(
+        net.wapiPsk
       );
 
-      if (WifiManager.wapi_psk != "wapi_psk") {
-        delete net.wapi_psk;
+      if (WifiManager.wapiPsk != "wapi_psk") {
+        delete net.wapiPsk;
       }
     }
     if (net.keyMgmt == "WAPI-CERT") {
       net.proto = configured.proto = "WAPI";
       if (hasValidProperty("wapiAsCertificate")) {
-        net[WifiManager.as_cert_file] = quote(net.wapiAsCertificate);
+        net[WifiManager.asCertFile] = quote(net.wapiAsCertificate);
         delete net.wapiAsCertificate;
       }
       if (hasValidProperty("wapiUserCertificate")) {
-        net[WifiManager.user_cert_file] = quote(net.wapiUserCertificate);
+        net[WifiManager.userCertFile] = quote(net.wapiUserCertificate);
         delete net.wapiUserCertificate;
       }
     }
@@ -2662,33 +2662,26 @@ function WifiWorker() {
       }
 
       if (hasValidProperty("serverCertificate")) {
-        net.ca_cert = quote(
+        net.caCert = quote(
           "keystore://WIFI_SERVERCERT_" + net.serverCertificate
         );
       }
 
       if (hasValidProperty("subjectMatch")) {
-        net.subject_match = quote(net.subjectMatch);
+        net.subjectMatch = quote(net.subjectMatch);
       }
 
       if (hasValidProperty("userCertificate")) {
         let userCertName = "WIFI_USERCERT_" + net.userCertificate;
-        net.client_cert = quote("keystore://" + userCertName);
+        net.clientCert = quote("keystore://" + userCertName);
 
         let wifiCertService = Cc["@mozilla.org/wifi/certservice;1"].getService(
           Ci.nsIWifiCertService
         );
         if (wifiCertService.hasPrivateKey(userCertName)) {
-          if (WifiManager.sdkVersion() >= 19) {
-            // Use openssol engine instead of keystore protocol after Kitkat.
-            net.engine = 1;
-            net.engine_id = quote("keystore");
-            net.key_id = quote("WIFI_USERKEY_" + net.userCertificate);
-          } else {
-            net.private_key = quote(
-              "keystore://WIFI_USERKEY_" + net.userCertificate
-            );
-          }
+          net.engine = 1;
+          net.engineId = quote("keystore");
+          net.privateKeyId = quote("WIFI_USERKEY_" + net.userCertificate);
         }
       }
     }

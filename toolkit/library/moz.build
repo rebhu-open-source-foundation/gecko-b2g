@@ -112,6 +112,7 @@ def Libxul(name, output_category=None):
             CONFIG['ANDROID_WIFI_1_1_SO'],
             CONFIG['ANDROID_WIFI_1_2_SO'],
             CONFIG['ANDROID_WIFI_1_3_SO'],
+            CONFIG['ANDROID_WIFI_KEYSTORE_1_0_SO'],
             CONFIG['ANDROID_HOSTAPD_1_0_SO'],
             CONFIG['ANDROID_HOSTAPD_1_1_SO'],
             CONFIG['ANDROID_SUPPLICANT_1_0_SO'],

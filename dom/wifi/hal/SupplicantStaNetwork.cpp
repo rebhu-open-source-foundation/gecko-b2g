@@ -126,13 +126,9 @@ Result_t SupplicantStaNetwork::SetConfiguration(
 
   // key management
   uint32_t keyMgmtMask;
-  if (config.mKeyMgmt.empty()) {
-    keyMgmtMask = key_mgmt_none;
-  } else {
-    // remove quotation marks
-    Dequote(config.mKeyMgmt);
-    keyMgmtMask = ConvertKeyMgmtToMask(config.mKeyMgmt);
-  }
+  keyMgmtMask = config.mKeyMgmt.empty()
+                    ? key_mgmt_none
+                    : ConvertKeyMgmtToMask(Dequote(config.mKeyMgmt));
   stateCode = SetKeyMgmt(keyMgmtMask);
   if (stateCode != SupplicantStatusCode::SUCCESS) {
     return ConvertStatusToResult(stateCode);
@@ -554,10 +550,7 @@ SupplicantStatusCode SupplicantStaNetwork::SetWepKey(
     std::string keyStr = aWepKeys.at(i);
 
     if (!keyStr.empty()) {
-      if (keyStr.size() > 1 && keyStr.front() == '"' && keyStr.back() == '"') {
-        Dequote(keyStr);
-      }
-
+      Dequote(keyStr);
       uint32_t wep40Len = static_cast<uint32_t>(
           ISupplicantStaNetwork::ParamSizeLimits::WEP40_KEY_LEN_IN_BYTES);
       uint32_t wep104Len = static_cast<uint32_t>(
