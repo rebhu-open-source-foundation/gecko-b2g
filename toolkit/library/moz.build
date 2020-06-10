@@ -117,6 +117,7 @@ def Libxul(name, output_category=None):
             CONFIG['ANDROID_SUPPLICANT_1_2_SO'],
             CONFIG['ANDROID_WIFICOND_SO'],
             CONFIG['BINDER_B2G_CONNECTIVITY_SO'],
+            CONFIG['BINDER_B2G_TELEPHONY_SO'],
         ]
         if CONFIG['ANDROID_VERSION'] >= '29':
             LDFLAGS += [

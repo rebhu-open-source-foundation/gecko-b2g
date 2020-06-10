@@ -1311,6 +1311,9 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         'b2g/connectivity/IConnectivity.h',
         'b2g/connectivity/IConnectivityEventListener.h',
         'b2g/connectivity/NetworkInfoParcel.h',
+        'b2g/telephony/data/BnDataCall.h',
+        'b2g/telephony/data/BpDataCall.h',
+        'b2g/telephony/data/IDataCall.h',
         'gui/BufferItem.h',
         'sys/timerfd.h',
     ]

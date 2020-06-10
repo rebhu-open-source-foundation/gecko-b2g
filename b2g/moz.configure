@@ -351,4 +351,16 @@ def binder_b2g_connectivity_so(value):
 
 set_config('BINDER_B2G_CONNECTIVITY_SO', binder_b2g_connectivity_so)
 
+
+# B2G Telephony AIDL Binder Support
+# ==============================================================
+option('--with-binder-b2g-telephony-so', nargs=1,
+       help='Assign the path of binder_b2g_telephony_interface-cpp.so')
+
+@depends_if('--with-binder-b2g-telephony-so')
+def binder_b2g_telephony_so(value):
+    return value[0]
+
+set_config('BINDER_B2G_TELEPHONY_SO', binder_b2g_telephony_so)
+
 include('common.configure')
