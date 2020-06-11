@@ -21,7 +21,7 @@ XPCOMUtils.defineLazyGetter(this, "MarionetteHelper", () => {
   const { MarionetteHelper } = ChromeUtils.import(
     "chrome://b2g/content/devtools/marionette.js"
   );
-  return new MarionetteHelper(shell.contentBrowser.contentWindow);
+  return new MarionetteHelper(shell.contentBrowser);
 });
 
 const isGonk = AppConstants.platform === "gonk";
@@ -74,6 +74,10 @@ var shell = {
     systemAppFrame.setAttribute("id", "systemapp");
     systemAppFrame.setAttribute("forcemessagemanager", "true");
     systemAppFrame.setAttribute("nodefaultsrc", "true");
+
+    // Identify this `<browser>` element uniquely to Marionette, devtools, etc.
+    systemAppFrame.permanentKey = new (Cu.getGlobalForObject(Services)).Object();
+    systemAppFrame.linkedBrowser = systemAppFrame;
 
     document.body.prepend(systemAppFrame);
     window.dispatchEvent(new CustomEvent("systemappframeprepended"));

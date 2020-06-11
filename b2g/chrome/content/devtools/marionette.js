@@ -11,18 +11,18 @@ XPCOMUtils.defineLazyGetter(this, "logger", Log.get);
 this.EXPORTED_SYMBOLS = ["MarionetteHelper"];
 
 class MarionetteHelper {
-  constructor(contentWindow) {
-    this.content = contentWindow;
-  }
-
-  get messageManager() {
-    return this.content.messageManager;
+  constructor(contentBrowser) {
+    // system app browser
+    this.browser = contentBrowser;
+    this.content = contentBrowser.contentWindow;
   }
 
   get tabs() {
     let web_views = Array.from(
       this.content.document.querySelectorAll("web-view")
     );
+    // add system app
+    web_views.push(this.browser);
     return web_views
   }
 

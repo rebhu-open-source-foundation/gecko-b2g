@@ -518,9 +518,9 @@ GeckoDriver.prototype.startBrowser = function(window, isNewSession = false) {
 GeckoDriver.prototype.whenBrowserStarted = function(window, isNewSession) {
   let mm = window.messageManager;
 
-  // On B2G, use the messageManager of the system app xul:browser.
-  if (window.MarionetteHelper) {
-    mm = window.MarionetteHelper.messageManager;
+  // On B2G, use global message manager instead.
+  if (this.appName == 'b2g') {
+    mm = this.mm;
   }
 
   if (mm) {
