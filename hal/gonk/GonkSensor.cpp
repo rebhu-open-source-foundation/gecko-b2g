@@ -15,6 +15,8 @@
  */
 
 #include "Hal.h"
+#include "GonkSensorsHal.h"
+
 
 using namespace mozilla::hal;
 
@@ -22,12 +24,27 @@ namespace mozilla {
 namespace hal_impl {
 
 
+static GonkSensorsHal* sSensorsHal = nullptr;
+
 void
 EnableSensorNotifications(SensorType aSensor) {
+  if (!sSensorsHal) {
+    sSensorsHal = GonkSensorsHal::GetInstance();
+  }
+  sSensorsHal->ActivateSensor(aSensor);
+
+  static bool isRegistered = false;
+  if (!isRegistered) {
+    isRegistered = sSensorsHal->RegisterSensorDataCallback(&NotifySensorChange);
+  }
 }
 
 void
 DisableSensorNotifications(SensorType aSensor) {
+  if (!sSensorsHal) {
+    sSensorsHal = GonkSensorsHal::GetInstance();
+  }
+  sSensorsHal->DeactivateSensor(aSensor);
 }
 
 

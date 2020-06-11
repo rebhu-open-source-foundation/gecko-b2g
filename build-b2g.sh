@@ -167,6 +167,7 @@ $HWC_DEFINE \
 -I$HIDL_HW/gnss/visibility_control/1.0/android.hardware.gnss.visibility_control@1.0_genc++_headers/gen \
 -I$HIDL_HW/radio/1.0/android.hardware.radio@1.0_genc++_headers/gen/ \
 -I$HIDL_HW/radio/1.1/android.hardware.radio@1.1_genc++_headers/gen/ \
+-I$HIDL_HW/sensors/1.0/android.hardware.sensors@1.0_genc++_headers/gen \
 -I$HIDL_HW/vibrator/1.0/android.hardware.vibrator@1.0_genc++_headers/gen"
 
 export CPPFLAGS="-fPIC \

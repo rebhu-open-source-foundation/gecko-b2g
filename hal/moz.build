@@ -55,6 +55,7 @@ elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         'fallback/FallbackProcessPriority.cpp',
         'fallback/FallbackScreenConfiguration.cpp',
         'gonk/GonkSensor.cpp',
+        'gonk/GonkSensorsHal.cpp',
         'gonk/GonkSwitch.cpp',
         'gonk/SystemService.cpp',
         'gonk/UeventPoller.cpp',

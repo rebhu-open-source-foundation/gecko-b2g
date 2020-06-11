@@ -230,6 +230,17 @@ def vibrator_so(value):
 
 set_config('ANDROID_VIBRATOR_SO', vibrator_so)
 
+# Sensors Support
+# ==============================================================
+option('--with-sensors-so', nargs=1,
+       help='Assign the path of android.hardware.sensors@XX.so')
+
+@depends_if('--with-sensors-so')
+def sensors_so(value):
+    return value[0]
+
+set_config('ANDROID_SENSORS_SO', sensors_so)
+
 # Wifi 1.0 Support
 # ==============================================================
 option('--with-wifi-1.0-so', nargs=1,

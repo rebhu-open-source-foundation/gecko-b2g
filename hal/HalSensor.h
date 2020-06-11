@@ -18,6 +18,7 @@ namespace hal {
  * If you add or change any here, do the same in GeckoHalDefines.java.
  */
 enum SensorType {
+  SENSOR_UNKNOWN = -1,
   SENSOR_ORIENTATION = 0,
   SENSOR_ACCELERATION = 1,
   SENSOR_PROXIMITY = 2,
