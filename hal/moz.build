@@ -52,14 +52,9 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'android':
 elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
     UNIFIED_SOURCES += [
         # TODO: FIXME 'gonk/GonkDiskSpaceWatcher.cpp',
-        # TODO: FIXME 'gonk/GonkSensor.cpp',
-        # TODO: FIXME 'gonk/GonkSensorsHelpers.cpp',
-        # TODO: FIXME 'gonk/GonkSensorsInterface.cpp',
-        # TODO: FIXME 'gonk/GonkSensorsPollInterface.cpp',
-        # TODO: FIXME 'gonk/GonkSensorsRegistryInterface.cpp',
         'fallback/FallbackProcessPriority.cpp',
         'fallback/FallbackScreenConfiguration.cpp',
-        'fallback/FallbackSensor.cpp',
+        'gonk/GonkSensor.cpp',
         'gonk/GonkSwitch.cpp',
         'gonk/SystemService.cpp',
         'gonk/UeventPoller.cpp',
