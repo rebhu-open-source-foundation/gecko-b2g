@@ -96,16 +96,17 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] in ('android', 'gonk'):
         'gfxFT2Utils.cpp',
         'PrintTargetPDF.cpp',
     ]
-    LOCAL_INCLUDES += [
-        '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
-            'frameworks/native/libs/math/include',
-            'gonk-misc/libcarthage/HWC',
-            'gonk-misc/libcarthage/include',
-            'out/soong/.intermediates/hardware/interfaces/graphics/common/1.0/android.hardware.graphics.common@1.0_genc++_headers/gen',
-            'out/soong/.intermediates/hardware/interfaces/graphics/common/1.1/android.hardware.graphics.common@1.1_genc++_headers/gen',
-            'out/soong/.intermediates/hardware/interfaces/graphics/common/1.2/android.hardware.graphics.common@1.2_genc++_headers/gen',
+    if CONFIG['GONK_PATH']:
+        LOCAL_INCLUDES += [
+            '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
+                'frameworks/native/libs/math/include',
+                'gonk-misc/libcarthage/HWC',
+                'gonk-misc/libcarthage/include',
+                'out/soong/.intermediates/hardware/interfaces/graphics/common/1.0/android.hardware.graphics.common@1.0_genc++_headers/gen',
+                'out/soong/.intermediates/hardware/interfaces/graphics/common/1.1/android.hardware.graphics.common@1.1_genc++_headers/gen',
+                'out/soong/.intermediates/hardware/interfaces/graphics/common/1.2/android.hardware.graphics.common@1.2_genc++_headers/gen',
+            ]
         ]
-    ]
 
 elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'cocoa':
     EXPORTS += [
