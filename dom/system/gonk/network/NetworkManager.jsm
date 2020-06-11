@@ -44,6 +44,13 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsITetheringService"
 );
 
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gConnectivityBinderService",
+  "@mozilla.org/b2g/connectivitybinderservice;1",
+  "nsIConnectivityBinderService"
+);
+
 const TOPIC_INTERFACE_REGISTERED = "network-interface-registered";
 const TOPIC_INTERFACE_UNREGISTERED = "network-interface-unregistered";
 const TOPIC_ACTIVE_CHANGED = "network-active-changed";
@@ -520,7 +527,9 @@ function NetworkManager() {
   );
 
   for (let networkType of this._captivePortalSupportTypes) {
-    this._captivePortalLandings.push(new CaptivePortalLanding(networkType));
+    let captivePortalLanding = new CaptivePortalLanding(networkType);
+    gConnectivityBinderService.onCaptivePortalChanged(captivePortalLanding);
+    this._captivePortalLandings.push(captivePortalLanding);
   }
 }
 NetworkManager.prototype = {
@@ -2834,6 +2843,7 @@ var CaptivePortalDetectionHelper = (function() {
       );
       propBag.setProperty("landing", landing);
       propBag.setProperty("networkType", networkType);
+      gConnectivityBinderService.onCaptivePortalChanged(NetworkManager.prototype._captivePortalLandings[index]);
       Services.obs.notifyObservers(propBag, "captive-portal-result");
       break;
     }

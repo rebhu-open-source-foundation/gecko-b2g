@@ -66,6 +66,13 @@ XPCOMUtils.defineLazyGetter(this, "gRil", function() {
   return null;
 });
 
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gConnectivityBinderService",
+  "@mozilla.org/b2g/connectivitybinderservice;1",
+  "nsIConnectivityBinderService"
+);
+
 const TOPIC_MOZSETTINGS_CHANGED = "mozsettings-changed";
 const TOPIC_PREF_CHANGED = "nsPref:changed";
 const TOPIC_XPCOM_SHUTDOWN = "xpcom-shutdown";
@@ -868,6 +875,7 @@ TetheringService.prototype = {
     }
 
     this.checkPendingEvent();
+    gConnectivityBinderService.onTetheringChanged(this.wifiState, this.usbState);
     this._fireEvent("tetheringstatuschange", { wifiTetheringState: this.wifiState,
                                                usbTetheringState: this.usbState });
     if (this._manageOfflineStatus) {
@@ -1064,6 +1072,7 @@ TetheringService.prototype = {
       }
 
       this.checkPendingEvent();
+      gConnectivityBinderService.onTetheringChanged(this.wifiState, this.usbState);
       this._fireEvent("tetheringstatuschange", { usbTetheringState: this.usbState,
                                                  wifiTetheringState: this.wifiState });
 
