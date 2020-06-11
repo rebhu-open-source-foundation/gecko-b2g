@@ -3023,7 +3023,7 @@ RadioInterface.prototype = {
   _processNetworkTuple: function(networkTuple, network) {
     let tupleLen = networkTuple.length;
 
-    if (tupleLen == 5 || tupleLen == 6) {
+    if (tupleLen >= 5) {
       network.mcc = networkTuple.substr(0, 3);
       network.mnc = networkTuple.substr(3);
     } else {
@@ -3702,7 +3702,7 @@ RadioInterface.prototype = {
 
   handleAvailableNetworks: function (response) {
     let rilAvailableNetworks = response.getAvailableNetworks();
-    let networks = {};
+    let networks = [];
     for (let i = 0; i < rilAvailableNetworks.length; i++) {
       let network = {
         longName: rilAvailableNetworks[i].alphaLong,
