@@ -381,14 +381,16 @@ DataCallManager.prototype = {
             // Loading the apn value.
             let apnSetting = resultApnObj[clientId];
             if (handler && apnSetting) {
-              if (gCustomizationInfo.getCustomizedValue(clientId, "xcap", null) != null) {
+              // Mark it first.
+              /*if (gCustomizationInfo.getCustomizedValue(clientId, "xcap", null) != null) {
                 apnSetting.push(gCustomizationInfo.getCustomizedValue(clientId, "xcap"));
-              }
+              }*/
               handler.updateApnSettings(apnSetting);
             }
 
             // Once got the apn, loading the white list config if any.
-            if (apnSetting && apnSetting.length > 0) {
+            // Mark it first.
+            /*if (apnSetting && apnSetting.length > 0) {
               let whiteList = gCustomizationInfo.getCustomizedValue(clientId, "mobileSettingWhiteList", []);
               if (whiteList.length > 0) {
                 handler.mobileWhiteList = whiteList;
@@ -399,7 +401,7 @@ DataCallManager.prototype = {
 
               // Config the setting whitelist value.
               this.setSettingValue("ril.data.mobileWhiteList", handler.mobileWhiteList);
-            }
+            }*/
           }
         }
         break;
@@ -1561,6 +1563,9 @@ DataCallHandler.prototype = {
             this.dataCallInterface.setDataRegistration(false, callback);
           }
         }.bind(this));
+      } else {
+        this.debug("This is a workaround trigger updateAll when radio turn on.");
+        this.updateAllRILNetworkInterface();
       }
       // Reset this value.
       this.needRecoverAfterReset = false;

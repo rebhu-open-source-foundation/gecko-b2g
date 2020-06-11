@@ -877,7 +877,7 @@ RadioInterface.prototype = {
         gRadioEnabledController.notifyRadioStateChanged(this.clientId,
                                                         message.radioState);
         // After the modem assert, the data calls should be deactivated.
-        if (message.radioState != RIL.RADIOSTATE_ENABLED) {
+        if (message.radioState != Ci.nsIRilIndicationResult.RADIOSTATE_ENABLED) {
           gRadioEnabledController._deactivateDataCalls();
         }
         break;
@@ -3357,7 +3357,7 @@ RadioInterface.prototype = {
           // Note: setUiccSubscription works abnormally when RADIO is OFF,
           // which causes SMS function broken in Flame.
           // See bug 1008557 for detailed info.
-          this.radioState === Ci.nsIRilIndicationResult.GECKO_RADIOSTATE_ENABLED) {
+          this.radioState === Ci.nsIRilIndicationResult.RADIOSTATE_ENABLED) {
         for (let i = 0; i < iccStatus.apps.length; i++) {
           this.sendRilRequest("setUiccSubscription", {slotId: this.clientId
                                                       , appIndex: i

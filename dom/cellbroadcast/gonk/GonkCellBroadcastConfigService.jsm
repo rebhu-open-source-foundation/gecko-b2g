@@ -49,9 +49,9 @@ XPCOMUtils.defineLazyServiceGetter(this, "gCellBroadcastService",
                                    "@mozilla.org/cellbroadcast/cellbroadcastservice;1",
                                    "nsICellBroadcastService");
 
-XPCOMUtils.defineLazyServiceGetter(this, "gCustomizationInfo",
+/*XPCOMUtils.defineLazyServiceGetter(this, "gCustomizationInfo",
                                    "@kaiostech.com/customizationinfo;1",
-                                   "nsICustomizationInfo");
+                                   "nsICustomizationInfo");*/
 
 XPCOMUtils.defineLazyServiceGetter(this, "gIccService",
                                    "@mozilla.org/icc/iccservice;1",
@@ -273,7 +273,7 @@ GonkCellBroadcastConfigHandler.prototype = {
   },
 
   _getCellBroadcastConfig: function() {
-    let enableEmergencyAlerts =
+    /*let enableEmergencyAlerts =
         gCustomizationInfo.getCustomizedValue(this._clientId, SMSCB.KEY_ENABLE_EMERGENCY_ALERTS, true);
 
     let enableEtwsAlerts = enableEmergencyAlerts;
@@ -294,7 +294,7 @@ GonkCellBroadcastConfigHandler.prototype = {
         gCustomizationInfo.getCustomizedValue(this._clientId, SMSCB.KEY_ENABLE_ETWS_TEST_ALERTS, false);
 
     let enableCmasTestAlerts = !forceDisableEtwsCmasTest && enableEmergencyAlerts &&
-        gCustomizationInfo.getCustomizedValue(this._clientId, SMSCB.KEY_ENABLE_CMAS_TEST_ALERTS, false);
+        gCustomizationInfo.getCustomizedValue(this._clientId, SMSCB.KEY_ENABLE_CMAS_TEST_ALERTS, false);*/
 
     let config = {cdma: [], gsm: []};
 
@@ -303,7 +303,7 @@ GonkCellBroadcastConfigHandler.prototype = {
     /** Enable CDMA CMAS series messages. */
 
     // Always enable CDMA Presidential messages.
-    config.cdma.push(Ci.nsIGonkCellBroadcastConfigService.SERVICE_CATEGORY_CMAS_PRESIDENTIAL_LEVEL_ALERT);
+    /*config.cdma.push(Ci.nsIGonkCellBroadcastConfigService.SERVICE_CATEGORY_CMAS_PRESIDENTIAL_LEVEL_ALERT);
     config.cdma.push(Ci.nsIGonkCellBroadcastConfigService.SERVICE_CATEGORY_CMAS_PRESIDENTIAL_LEVEL_ALERT+1);
 
     // Enable/Disable CDMA CMDAS extreme messages.
@@ -328,12 +328,12 @@ GonkCellBroadcastConfigHandler.prototype = {
     if (enableCmasTestAlerts) {
       config.cdma.push(Ci.nsIGonkCellBroadcastConfigService.SERVICE_CATEGORY_CMAS_TEST_MESSAGE);
       config.cdma.push(Ci.nsIGonkCellBroadcastConfigService.SERVICE_CATEGORY_CMAS_TEST_MESSAGE+1);
-    }
+    }*/
 
     /** Enable GSM ETWS series messages. */
 
     // Enable/Disable GSM ETWS messages (4352~4354).
-    if (enableEtwsAlerts) {
+    /*if (enableEtwsAlerts) {
       config.gsm.push(Ci.nsIGonkCellBroadcastConfigService.MESSAGE_ID_ETWS_EARTHQUAKE_WARNING);
       config.gsm.push(Ci.nsIGonkCellBroadcastConfigService.MESSAGE_ID_ETWS_EARTHQUAKE_AND_TSUNAMI_WARNING+1);
     }
@@ -348,12 +348,12 @@ GonkCellBroadcastConfigHandler.prototype = {
     if (enableEtwsTestAlerts) {
       config.gsm.push(Ci.nsIGonkCellBroadcastConfigService.MESSAGE_ID_ETWS_TEST_MESSAGE);
       config.gsm.push(Ci.nsIGonkCellBroadcastConfigService.MESSAGE_ID_ETWS_TEST_MESSAGE+1);
-    }
+    }*/
 
     /** Enable GSM CMAS series messages. */
 
     // Enable/Disable GSM CMAS presidential message (4370)
-    config.gsm.push(Ci.nsIGonkCellBroadcastConfigService.MESSAGE_ID_CMAS_ALERT_PRESIDENTIAL_LEVEL);
+    /*config.gsm.push(Ci.nsIGonkCellBroadcastConfigService.MESSAGE_ID_CMAS_ALERT_PRESIDENTIAL_LEVEL);
     config.gsm.push(Ci.nsIGonkCellBroadcastConfigService.MESSAGE_ID_CMAS_ALERT_PRESIDENTIAL_LEVEL+1);
 
     // Enable/Disable GSM CMAS extreme messages (4371~4372).
@@ -378,13 +378,13 @@ GonkCellBroadcastConfigHandler.prototype = {
     if (enableCmasTestAlerts) {
       config.gsm.push(Ci.nsIGonkCellBroadcastConfigService.MESSAGE_ID_CMAS_ALERT_REQUIRED_MONTHLY_TEST);
       config.gsm.push(Ci.nsIGonkCellBroadcastConfigService.MESSAGE_ID_CMAS_ALERT_OPERATOR_DEFINED_USE+1);
-    }
+    }*/
 
     /** Enable GSM CMAS series messages for additional languages. */
 
     // Enable/Disable GSM CMAS presidential messages for additional languages (4383).
-      config.gsm.push(Ci.nsIGonkCellBroadcastConfigService.MESSAGE_ID_CMAS_ALERT_PRESIDENTIAL_LEVEL_LANGUAGE);
-      config.gsm.push(Ci.nsIGonkCellBroadcastConfigService.MESSAGE_ID_CMAS_ALERT_PRESIDENTIAL_LEVEL_LANGUAGE+1);
+    /*config.gsm.push(Ci.nsIGonkCellBroadcastConfigService.MESSAGE_ID_CMAS_ALERT_PRESIDENTIAL_LEVEL_LANGUAGE);
+    config.gsm.push(Ci.nsIGonkCellBroadcastConfigService.MESSAGE_ID_CMAS_ALERT_PRESIDENTIAL_LEVEL_LANGUAGE+1);
 
     // Enable/Disable GSM CMAS extreme messages for additional languages (4384~4385).
     if (enableCmasExtremeAlerts) {
@@ -415,7 +415,7 @@ GonkCellBroadcastConfigHandler.prototype = {
       customRange.forEach((item) => {
         config.gsm.push(item);
       });
-    }
+    }*/
 
     if (DEBUG) debug("_getCellBroadcastConfig: " + this._clientId + ", " + JSON.stringify(config));
     return config;
