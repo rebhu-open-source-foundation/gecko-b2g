@@ -1032,7 +1032,7 @@ void NetworkUtils::setDnsForwarders(CommandChain* aChain,
     tetherDnsAddrs.push_back(GET_CHAR(mDns2));
   }
 
-  Status status = gNetd->tetherDnsSet(INetd::LOCAL_NET_ID, tetherDnsAddrs);
+  Status status = gNetd->tetherDnsSet(GET_FIELD(mNetId), tetherDnsAddrs);
   NU_DBG("%s: %s", __FUNCTION__, status.isOk() ? "success" : "failed");
   next(aChain, !status.isOk(), aResult);
 }
