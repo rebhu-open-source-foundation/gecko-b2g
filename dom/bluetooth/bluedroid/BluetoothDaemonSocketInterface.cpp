@@ -112,7 +112,7 @@ class BluetoothDaemonSocketModule::AcceptWatcher final
 
     RefPtr<DeleteTask<AcceptWatcher>> task =
         new DeleteTask<AcceptWatcher>(this);
-    MessageLoopForIO::current()->PostTask(task.forget());
+    XRE_GetIOMessageLoop()->PostTask(task.forget());
   }
 };
 
@@ -123,7 +123,7 @@ nsresult BluetoothDaemonSocketModule::AcceptCmd(
   /* receive Bluedroid's socket-setup messages and client fd */
   RefPtr<SocketMessageWatcherTask> task =
       new SocketMessageWatcherTask(new AcceptWatcher(aFd, aRes));
-  MessageLoopForIO::current()->PostTask(task.forget());
+  XRE_GetIOMessageLoop()->PostTask(task.forget());
 
   return NS_OK;
 }
@@ -135,7 +135,7 @@ nsresult BluetoothDaemonSocketModule::CloseCmd(
   /* stop the watcher corresponding to |aRes| */
   RefPtr<DeleteSocketMessageWatcherTask> task =
       new DeleteSocketMessageWatcherTask(aRes);
-  MessageLoopForIO::current()->PostTask(task.forget());
+  XRE_GetIOMessageLoop()->PostTask(task.forget());
 
   return NS_OK;
 }
@@ -232,7 +232,7 @@ class BluetoothDaemonSocketModule::ConnectWatcher final
 
     RefPtr<DeleteTask<ConnectWatcher>> task =
         new DeleteTask<ConnectWatcher>(this);
-    MessageLoopForIO::current()->PostTask(task.forget());
+    XRE_GetIOMessageLoop()->PostTask(task.forget());
   }
 };
 
@@ -257,7 +257,7 @@ void BluetoothDaemonSocketModule::ConnectRsp(
   /* receive Bluedroid's socket-setup messages */
   RefPtr<SocketMessageWatcherTask> task =
       new SocketMessageWatcherTask(new ConnectWatcher(fd, aRes));
-  MessageLoopForIO::current()->PostTask(task.forget());
+  XRE_GetIOMessageLoop()->PostTask(task.forget());
 }
 
 //
