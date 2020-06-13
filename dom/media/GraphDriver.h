@@ -621,14 +621,6 @@ class AudioCallbackDriver : public GraphDriver,
     return AudioInputType::Unknown;
   }
 
-  /* Enqueue a promise that is going to be resolved on the given main thread
-   * when a specific operation occurs on the cubeb stream. */
-  void EnqueueTrackAndPromiseForOperation(
-      MediaTrack* aTrack, dom::AudioContextOperation aOperation,
-      AbstractThread* aMainThread,
-      MozPromiseHolder<MediaTrackGraph::AudioContextOperationPromise>&&
-          aHolder);
-
   std::thread::id ThreadId() { return mAudioThreadId.load(); }
 
   bool OnThread() override {
@@ -644,8 +636,6 @@ class AudioCallbackDriver : public GraphDriver,
   /* Whether the underlying cubeb stream has been started. See comment for
    * mStarted for details. */
   bool IsStarted();
-
-  void CompleteAudioContextOperations(AsyncCubebOperation aOperation);
 
   // Returns the output latency for the current audio output stream.
   TimeDuration AudioOutputLatency();
@@ -739,7 +729,6 @@ class AudioCallbackDriver : public GraphDriver,
   /* Shared thread pool with up to one thread for off-main-thread
    * initialization and shutdown of the audio stream via AsyncCubebTask. */
   const RefPtr<SharedThreadPool> mInitShutdownThread;
-  DataMutex<AutoTArray<TrackAndPromiseForOperation, 1>> mPromisesForOperation;
   cubeb_device_pref mInputDevicePreference;
   /* This is set during initialization, and can be read safely afterwards. */
   dom::AudioChannel mAudioChannel;
@@ -774,7 +763,7 @@ class AudioCallbackDriver : public GraphDriver,
        may iterate the graph. */
     Stopped,
   };
-  Atomic<FallbackDriverState> mFallbackDriverState;
+  Atomic<FallbackDriverState> mFallbackDriverState{FallbackDriverState::None};
   /* SystemClockDriver used as fallback if this AudioCallbackDriver fails to
    * init or start. */
   DataMutex<RefPtr<FallbackWrapper>> mFallback;

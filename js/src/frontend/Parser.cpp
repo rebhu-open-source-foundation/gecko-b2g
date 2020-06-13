@@ -1924,6 +1924,12 @@ static bool InstantiateScriptStencils(JSContext* cx,
 static bool InstantiateTopLevel(JSContext* cx,
                                 CompilationInfo& compilationInfo) {
   ScriptStencil& stencil = compilationInfo.topLevel.get();
+
+  // Top-level asm.js does not generate a JSScript.
+  if (compilationInfo.topLevelAsmJS) {
+    return true;
+  }
+
   MOZ_ASSERT(stencil.immutableScriptData);
 
   if (compilationInfo.lazy) {
@@ -2378,7 +2384,8 @@ JSAtom* ParserBase::prefixAccessorName(PropertyType propType,
     prefix = cx_->names().getPrefix;
   }
 
-  RootedString str(cx_, ConcatStrings<CanGC>(cx_, prefix, propAtom));
+  RootedString str(
+      cx_, ConcatStrings<CanGC>(cx_, prefix, propAtom, js::gc::TenuredHeap));
   if (!str) {
     return nullptr;
   }

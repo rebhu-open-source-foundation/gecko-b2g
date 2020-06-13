@@ -441,6 +441,12 @@ bool BaselineCacheIRCompiler::emitLoadFixedSlotResult(ObjOperandId objId,
   return true;
 }
 
+bool BaselineCacheIRCompiler::emitLoadFixedSlotTypedResult(
+    ObjOperandId objId, uint32_t offsetOffset, ValueType) {
+  // The type is only used by Warp.
+  return emitLoadFixedSlotResult(objId, offsetOffset);
+}
+
 bool BaselineCacheIRCompiler::emitLoadDynamicSlotResult(ObjOperandId objId,
                                                         uint32_t offsetOffset) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
@@ -1498,7 +1504,6 @@ bool BaselineCacheIRCompiler::emitStringFromCharCodeResult(
 
   allocator.discardStack(masm);
 
-
   // We pre-allocate atoms for the first UNIT_STATIC_LIMIT characters.
   // For code units larger than that, we must do a VM call.
   Label vmCall;
@@ -1544,6 +1549,21 @@ bool BaselineCacheIRCompiler::emitMathRandomResult(uint32_t rngOffset) {
                     output.valueReg().toRegister64());
 
   masm.boxDouble(scratchFloat, output.valueReg(), scratchFloat);
+  return true;
+}
+
+bool BaselineCacheIRCompiler::emitHasClassResult(ObjOperandId objId,
+                                                 uint32_t claspOffset) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoOutputRegister output(*this);
+  Register obj = allocator.useRegister(masm, objId);
+  AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
+
+  Address claspAddr(stubAddress(claspOffset));
+  masm.loadObjClassUnsafe(obj, scratch);
+  masm.cmpPtrSet(Assembler::Equal, claspAddr, scratch.get(), scratch);
+  masm.tagValue(JSVAL_TYPE_BOOLEAN, scratch, output.valueReg());
   return true;
 }
 

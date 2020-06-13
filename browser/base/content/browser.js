@@ -1269,7 +1269,13 @@ var gKeywordURIFixup = {
     // We get called irrespective of whether we did a keyword search, or
     // whether the original input would be vaguely interpretable as a URL,
     // so figure that out first.
-    if (!keywordProviderName || !fixedURI || !fixedURI.host) {
+    if (
+      !keywordProviderName ||
+      !fixedURI ||
+      !fixedURI.host ||
+      UrlbarPrefs.get("browser.fixup.dns_first_for_single_words") ||
+      UrlbarPrefs.get("dnsResolveSingleWordsAfterSearch") == 0
+    ) {
       return;
     }
 
@@ -4549,6 +4555,17 @@ function FillHistoryMenu(aParent) {
 
     for (let j = end - 1; j >= start; j--) {
       let entry = sessionHistory.entries[j];
+      // Explicitly check for "false" to stay backwards-compatible with session histories
+      // from before the hasUserInteraction was implemented.
+      if (
+        BrowserUtils.navigationRequireUserInteraction &&
+        entry.hasUserInteraction === false &&
+        // Always allow going to the first and last navigation points.
+        j != end - 1 &&
+        j != start
+      ) {
+        continue;
+      }
       let uri = entry.url;
 
       let item =

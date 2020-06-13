@@ -12496,11 +12496,8 @@ bool ConnectionPool::ScheduleTransaction(TransactionInfo* aTransactionInfo,
         return false;
       }
     } else {
-      const uint32_t lastIndex = mIdleThreads.Length() - 1;
-
-      dbInfo->mThreadInfo = std::move(mIdleThreads[lastIndex].mThreadInfo);
-
-      mIdleThreads.RemoveElementAt(lastIndex);
+      dbInfo->mThreadInfo =
+          std::move(mIdleThreads.PopLastElement().mThreadInfo);
 
       AdjustIdleTimer();
     }
@@ -12633,7 +12630,7 @@ void ConnectionPool::ScheduleQueuedTransactions(ThreadInfo aThreadInfo) {
                                        /* aFromQueuedTransactions */ true);
       });
 
-  mQueuedTransactions.RemoveElementsAt(mQueuedTransactions.begin(), foundIt);
+  mQueuedTransactions.RemoveElementsRange(mQueuedTransactions.begin(), foundIt);
 
   AdjustIdleTimer();
 }
@@ -16844,7 +16841,7 @@ nsresult FileManager::GetUsage(nsIFile* aDirectory, Maybe<uint64_t>& aUsage) {
     return rv;
   }
 
-  Maybe<uint64_t> usage;
+  UsageInfo::Usage usage;
 
   nsCOMPtr<nsIFile> file;
   while (NS_SUCCEEDED((rv = entries->GetNextFile(getter_AddRefs(file)))) &&
@@ -16867,7 +16864,7 @@ nsresult FileManager::GetUsage(nsIFile* aDirectory, Maybe<uint64_t>& aUsage) {
         return rv;
       }
 
-      UsageInfo::IncrementUsage(usage, Some(uint64_t(fileSize)));
+      usage += Some(uint64_t(fileSize));
 
       continue;
     }
@@ -17363,12 +17360,12 @@ nsresult QuotaClient::GetUsageForOriginInternal(
 
       MOZ_ASSERT(fileSize >= 0);
 
-      aUsageInfo->AppendToDatabaseUsage(Some(uint64_t(fileSize)));
+      aUsageInfo->IncrementDatabaseUsage(Some(uint64_t(fileSize)));
 
       rv = walFile->GetFileSize(&fileSize);
       if (NS_SUCCEEDED(rv)) {
         MOZ_ASSERT(fileSize >= 0);
-        aUsageInfo->AppendToDatabaseUsage(Some(uint64_t(fileSize)));
+        aUsageInfo->IncrementDatabaseUsage(Some(uint64_t(fileSize)));
       } else if (NS_WARN_IF(rv != NS_ERROR_FILE_NOT_FOUND &&
                             rv != NS_ERROR_FILE_TARGET_DOES_NOT_EXIST)) {
         REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, IDB_GetWalFileSize);
@@ -17382,7 +17379,7 @@ nsresult QuotaClient::GetUsageForOriginInternal(
         return rv;
       }
 
-      aUsageInfo->AppendToFileUsage(usage);
+      aUsageInfo->IncrementFileUsage(usage);
     }
   }
 

@@ -31,8 +31,12 @@ using namespace mozilla;
 using namespace mozilla::dom;
 using namespace mozilla::layers;
 
-MobileViewportManager::MobileViewportManager(MVMContext* aContext)
-    : mContext(aContext), mIsFirstPaint(false), mPainted(false) {
+MobileViewportManager::MobileViewportManager(MVMContext* aContext,
+                                             ManagerType aType)
+    : mContext(aContext),
+      mManagerType(aType),
+      mIsFirstPaint(false),
+      mPainted(false) {
   MOZ_ASSERT(mContext);
 
   MVM_LOG("%p: creating with context %p\n", this, mContext.get());
@@ -479,6 +483,14 @@ void MobileViewportManager::UpdateVisualViewportSize(
     return;
   }
 
+  // This early-exit is temporary, it should be removed as soon as all
+  // tests are green.
+  if (mManagerType == ManagerType::VisualViewportOnly &&
+      !mContext->AllowZoomingForDocument()) {
+    MVM_LOG("%p: Aborting before setting visual viewport size\n", this);
+    return;
+  }
+
   ScreenSize compositionSize = ScreenSize(GetCompositionSize(aDisplaySize));
 
   CSSSize compSize = compositionSize / aZoom;
@@ -597,12 +609,16 @@ void MobileViewportManager::RefreshViewportSize(bool aForceAdjustResolution) {
   MVM_LOG("%p: Updating properties because %d || %d\n", this, mIsFirstPaint,
           mMobileViewportSize != viewport);
 
-  if (aForceAdjustResolution || mContext->AllowZoomingForDocument()) {
+  if (mManagerType == ManagerType::VisualAndMetaViewport &&
+      (aForceAdjustResolution || mContext->AllowZoomingForDocument())) {
+    MVM_LOG("%p: Updating resolution because %d || %d\n", this,
+            aForceAdjustResolution, mContext->AllowZoomingForDocument());
     UpdateResolution(viewportInfo, displaySize, viewport,
                      displayWidthChangeRatio, UpdateType::ViewportSize);
   } else {
     // Even without zoom, we need to update that the visual viewport size
     // has changed.
+    MVM_LOG("%p: Updating VV size\n", this);
     RefreshVisualViewportSize();
   }
   if (gfxPlatform::AsyncPanZoomEnabled()) {
@@ -612,9 +628,16 @@ void MobileViewportManager::RefreshViewportSize(bool aForceAdjustResolution) {
   // Update internal state.
   mMobileViewportSize = viewport;
 
+  if (mManagerType == ManagerType::VisualViewportOnly) {
+    MVM_LOG("%p: Visual-only, so aborting before reflow\n", this);
+    return;
+  }
+
   RefPtr<MobileViewportManager> strongThis(this);
 
   // Kick off a reflow.
+  MVM_LOG("%p: Triggering reflow with viewport %s\n", this,
+          Stringify(viewport).c_str());
   mContext->Reflow(viewport);
 
   // We are going to fit the content to the display width if the initial-scale
@@ -627,6 +650,11 @@ void MobileViewportManager::RefreshViewportSize(bool aForceAdjustResolution) {
 void MobileViewportManager::ShrinkToDisplaySizeIfNeeded(
     nsViewportInfo& aViewportInfo, const ScreenIntSize& aDisplaySize) {
   if (!mContext) {
+    return;
+  }
+
+  if (mManagerType == ManagerType::VisualViewportOnly) {
+    MVM_LOG("%p: Visual-only, so aborting ShrinkToDisplaySizeIfNeeded\n", this);
     return;
   }
 

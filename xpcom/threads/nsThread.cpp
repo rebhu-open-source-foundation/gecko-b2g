@@ -197,6 +197,7 @@ NS_INTERFACE_MAP_BEGIN(nsThread)
   NS_INTERFACE_MAP_ENTRY(nsIEventTarget)
   NS_INTERFACE_MAP_ENTRY(nsISerialEventTarget)
   NS_INTERFACE_MAP_ENTRY(nsISupportsPriority)
+  NS_INTERFACE_MAP_ENTRY(nsIDirectTaskDispatcher)
   NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsIThread)
   if (aIID.Equals(NS_GET_IID(nsIClassInfo))) {
     static nsThreadClassInfo sThreadClassInfo;
@@ -204,7 +205,8 @@ NS_INTERFACE_MAP_BEGIN(nsThread)
   } else
 NS_INTERFACE_MAP_END
 NS_IMPL_CI_INTERFACE_GETTER(nsThread, nsIThread, nsIThreadInternal,
-                            nsIEventTarget, nsISupportsPriority)
+                            nsIEventTarget, nsISerialEventTarget,
+                            nsISupportsPriority)
 
 //-----------------------------------------------------------------------------
 
@@ -992,8 +994,9 @@ void canary_alarm_handler(int signum) {
   } while (0)
 
 #ifdef MOZ_COLLECTING_RUNNABLE_TELEMETRY
-static bool GetLabeledRunnableName(nsIRunnable* aEvent, nsACString& aName,
-                                   EventQueuePriority aPriority) {
+// static
+bool nsThread::GetLabeledRunnableName(nsIRunnable* aEvent, nsACString& aName,
+                                      EventQueuePriority aPriority) {
   bool labeled = false;
   if (RefPtr<SchedulerGroup::Runnable> groupRunnable = do_QueryObject(aEvent)) {
     labeled = true;
@@ -1139,13 +1142,13 @@ nsThread::ProcessNextEvent(bool aMayWait, bool* aResult) {
     // Scope for |event| to make sure that its destructor fires while
     // mNestedEventLoopDepth has been incremented, since that destructor can
     // also do work.
+    // This value is only needed, and set, properly when not using
+    // TaskController. This will be removed once TaskController is enabled by
+    // default.
     EventQueuePriority priority = EventQueuePriority::Normal;
     nsCOMPtr<nsIRunnable> event;
     bool usingTaskController = mIsMainThread && UseTaskController();
     if (usingTaskController) {
-      // XXX should set priority?  Maybe we can just grab the "last task"
-      // priority from the TaskController where we currently grab the
-      // "ranIdleTask" state?
       event = TaskController::Get()->GetRunnableForMTTask(reallyWait);
     } else {
       event = mEvents->GetEvent(reallyWait, &priority, &mLastEventDelay);
@@ -1198,12 +1201,12 @@ nsThread::ProcessNextEvent(bool aMayWait, bool* aResult) {
       Array<char, kRunnableNameBufSize> restoreRunnableName;
       restoreRunnableName[0] = '\0';
       auto clear = MakeScopeExit([&] {
-        if (mIsMainThread) {
+        if (!usingTaskController && mIsMainThread) {
           MOZ_ASSERT(NS_IsMainThread());
           sMainThreadRunnableName = restoreRunnableName;
         }
       });
-      if (mIsMainThread) {
+      if (!usingTaskController && mIsMainThread) {
         nsAutoCString name;
         GetLabeledRunnableName(event, name, priority);
 
@@ -1218,14 +1221,13 @@ nsThread::ProcessNextEvent(bool aMayWait, bool* aResult) {
         sMainThreadRunnableName[length] = '\0';
       }
 #endif
-      // Note, with TaskController InputTaskManager handles these updates.
       Maybe<AutoTimeDurationHelper> timeDurationHelper;
-      if (priority == EventQueuePriority::InputHigh) {
-        timeDurationHelper.emplace();
-      }
-
       Maybe<PerformanceCounterState::Snapshot> snapshot;
       if (!usingTaskController) {
+        // Note, with TaskController InputTaskManager handles these updates.
+        if (priority == EventQueuePriority::InputHigh) {
+          timeDurationHelper.emplace();
+        }
         snapshot.emplace(mPerformanceCounterState.RunnableWillRun(
             GetPerformanceCounter(event), now,
             priority == EventQueuePriority::Idle));
@@ -1253,12 +1255,18 @@ nsThread::ProcessNextEvent(bool aMayWait, bool* aResult) {
     }
   }
 
+  DrainDirectTasks();
+
   NOTIFY_EVENT_OBSERVERS(EventQueue()->EventObservers(), AfterProcessNextEvent,
                          (this, *aResult));
 
   if (obs) {
     obs->AfterProcessNextEvent(this, *aResult);
   }
+
+  // In case some EventObserver dispatched some direct tasks; process them
+  // now.
+  DrainDirectTasks();
 
   if (callScriptObserver) {
     if (mScriptObserver) {
@@ -1424,6 +1432,35 @@ NS_IMETHODIMP
 nsThread::GetEventTarget(nsIEventTarget** aEventTarget) {
   nsCOMPtr<nsIEventTarget> target = this;
   target.forget(aEventTarget);
+  return NS_OK;
+}
+
+//-----------------------------------------------------------------------------
+// nsIDirectTaskDispatcher
+
+NS_IMETHODIMP
+nsThread::DispatchDirectTask(already_AddRefed<nsIRunnable> aEvent) {
+  if (!IsOnCurrentThread()) {
+    return NS_ERROR_FAILURE;
+  }
+  mDirectTasks.AddTask(std::move(aEvent));
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsThread::DrainDirectTasks() {
+  if (!IsOnCurrentThread()) {
+    return NS_ERROR_FAILURE;
+  }
+  mDirectTasks.DrainTasks();
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsThread::HaveDirectTasks(bool* aValue) {
+  if (!IsOnCurrentThread()) {
+    return NS_ERROR_FAILURE;
+  }
+
+  *aValue = mDirectTasks.HaveTasks();
   return NS_OK;
 }
 

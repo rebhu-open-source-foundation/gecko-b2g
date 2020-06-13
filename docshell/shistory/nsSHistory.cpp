@@ -523,6 +523,7 @@ nsresult nsSHistory::AddChildSHEntryHelper(nsISHEntry* aCloneRef,
   uint32_t cloneID = aCloneRef->GetID();
   rv = nsSHistory::CloneAndReplace(currentHE, aBC, cloneID, aNewEntry,
                                    aCloneChildren, aNextEntry);
+
   if (NS_SUCCEEDED(rv)) {
     rv = AddEntry(*aNextEntry, true);
   }
@@ -1502,6 +1503,16 @@ nsSHistory::EnsureCorrectEntryAtCurrIndex(nsISHEntry* aEntry) {
 nsresult nsSHistory::GotoIndex(int32_t aIndex,
                                nsTArray<LoadEntryResult>& aLoadResults) {
   return LoadEntry(aIndex, LOAD_HISTORY, HIST_CMD_GOTOINDEX, aLoadResults);
+}
+
+NS_IMETHODIMP_(bool)
+nsSHistory::HasUserInteractionAtIndex(int32_t aIndex) {
+  nsCOMPtr<nsISHEntry> entry;
+  GetEntryAtIndex(aIndex, getter_AddRefs(entry));
+  if (!entry) {
+    return false;
+  }
+  return entry->GetHasUserInteraction();
 }
 
 nsresult nsSHistory::LoadNextPossibleEntry(

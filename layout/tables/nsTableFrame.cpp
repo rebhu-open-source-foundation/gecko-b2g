@@ -570,7 +570,7 @@ void nsTableFrame::InsertCol(nsTableColFrame& aColFrame, int32_t aColIndex) {
           nsTableColType lastColType = lastCol->GetColType();
           if (eColAnonymousCell == lastColType) {
             // remove the col from the cache
-            mColFrames.RemoveElementAt(numCacheCols - 1);
+            mColFrames.RemoveLastElement();
             // remove the col from the synthetic col group
             nsTableColGroupFrame* lastColGroup =
                 (nsTableColGroupFrame*)mColGroups.LastChild();
@@ -4497,7 +4497,10 @@ static void GetColorAndStyle(const nsIFrame* aFrame, WritingMode aTableWM,
 
   if (aWidth) {
     nscoord width = styleData->GetComputedBorderWidth(physicalSide);
-    *aWidth = aFrame->PresContext()->AppUnitsToDevPixels(width);
+
+    // Note that this floors to dev pixels.
+    nscoord oneDevPixel = aFrame->PresContext()->DevPixelsToAppUnits(1);
+    *aWidth = width / oneDevPixel;
   }
 }
 

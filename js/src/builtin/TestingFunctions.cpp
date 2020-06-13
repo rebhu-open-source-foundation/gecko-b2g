@@ -21,6 +21,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
+#include <initializer_list>
 #include <utility>
 
 #if defined(XP_UNIX) && !defined(XP_DARWIN)
@@ -187,6 +188,15 @@ static bool GetBuildConfiguration(JSContext* cx, unsigned argc, Value* vp) {
   value = BooleanValue(false);
 #endif
   if (!JS_SetProperty(cx, info, "release_or_beta", value)) {
+    return false;
+  }
+
+#ifdef EARLY_BETA_OR_EARLIER
+  value = BooleanValue(true);
+#else
+  value = BooleanValue(false);
+#endif
+  if (!JS_SetProperty(cx, info, "early_beta_or_earlier", value)) {
     return false;
   }
 
@@ -585,7 +595,8 @@ static bool MinorGC(JSContext* cx, unsigned argc, Value* vp) {
   _("pretenureGroupThreshold", JSGC_PRETENURE_GROUP_THRESHOLD, true)       \
   _("zoneAllocDelayKB", JSGC_ZONE_ALLOC_DELAY_KB, true)                    \
   _("mallocThresholdBase", JSGC_MALLOC_THRESHOLD_BASE, true)               \
-  _("mallocGrowthFactor", JSGC_MALLOC_GROWTH_FACTOR, true)
+  _("mallocGrowthFactor", JSGC_MALLOC_GROWTH_FACTOR, true)                 \
+  _("chunkBytes", JSGC_CHUNK_BYTES, false)
 
 static const struct ParamInfo {
   const char* name;
@@ -1525,14 +1536,14 @@ static bool FinishGC(JSContext* cx, unsigned argc, Value* vp) {
 static bool GCSlice(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
 
-  if (args.length() > 1) {
+  if (args.length() > 2) {
     RootedObject callee(cx, &args.callee());
     ReportUsageErrorASCII(cx, callee, "Wrong number of arguments");
     return false;
   }
 
   auto budget = SliceBudget::unlimited();
-  if (args.length() == 1) {
+  if (args.length() >= 1) {
     uint32_t work = 0;
     if (!ToUint32(cx, args[0], &work)) {
       return false;
@@ -1540,11 +1551,21 @@ static bool GCSlice(JSContext* cx, unsigned argc, Value* vp) {
     budget = SliceBudget(WorkBudget(work));
   }
 
+  bool dontStart = false;
+  if (args.get(1).isObject()) {
+    RootedObject options(cx, &args[1].toObject());
+    RootedValue v(cx);
+    if (!JS_GetProperty(cx, options, "dontStart", &v)) {
+      return false;
+    }
+    dontStart = ToBoolean(v);
+  }
+
   JSRuntime* rt = cx->runtime();
-  if (!rt->gc.isIncrementalGCInProgress()) {
-    rt->gc.startDebugGC(GC_NORMAL, budget);
-  } else {
+  if (rt->gc.isIncrementalGCInProgress()) {
     rt->gc.debugGCSlice(budget);
+  } else if (!dontStart) {
+    rt->gc.startDebugGC(GC_NORMAL, budget);
   }
 
   args.rval().setUndefined();
@@ -1867,70 +1888,95 @@ struct TestExternalString : public JSExternalStringCallbacks {
 
 static constexpr TestExternalString TestExternalStringCallbacks;
 
-static bool NewExternalString(JSContext* cx, unsigned argc, Value* vp) {
+static bool NewString(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
 
-  if (args.length() != 1 || !args[0].isString()) {
-    JS_ReportErrorASCII(cx,
-                        "newExternalString takes exactly one string argument.");
+  RootedString src(cx, ToString(cx, args.get(0)));
+  if (!src) {
     return false;
   }
 
-  RootedString str(cx, args[0].toString());
-  size_t len = str->length();
+  gc::InitialHeap heap = gc::DefaultHeap;
+  bool wantTwoByte = false;
+  bool forceExternal = false;
+  bool maybeExternal = false;
 
-  auto buf = cx->make_pod_array<char16_t>(len);
-  if (!buf) {
+  if (args.get(1).isObject()) {
+    RootedObject options(cx, &args[1].toObject());
+    RootedValue v(cx);
+    bool requestTenured = false;
+    struct Setting {
+      const char* name;
+      bool* value;
+    };
+    for (auto [name, setting] :
+         {Setting{"tenured", &requestTenured}, Setting{"twoByte", &wantTwoByte},
+          Setting{"external", &forceExternal},
+          Setting{"maybeExternal", &maybeExternal}}) {
+      if (!JS_GetProperty(cx, options, name, &v)) {
+        return false;
+      }
+      *setting = ToBoolean(v);  // false if not given (or otherwise undefined)
+    }
+
+    heap = requestTenured ? gc::TenuredHeap : gc::DefaultHeap;
+    if (forceExternal || maybeExternal) {
+      wantTwoByte = true;
+    }
+  }
+
+  auto len = src->length();
+  RootedString dest(cx);
+
+  if (forceExternal || maybeExternal) {
+    auto buf = cx->make_pod_array<char16_t>(len);
+    if (!buf) {
+      return false;
+    }
+
+    if (!JS_CopyStringChars(cx, mozilla::Range<char16_t>(buf.get(), len),
+                            src)) {
+      return false;
+    }
+
+    if (forceExternal) {
+      dest = JSExternalString::new_(cx, buf.get(), len,
+                                    &TestExternalStringCallbacks);
+    } else {
+      bool isExternal;
+      dest = NewMaybeExternalString(
+          cx, buf.get(), len, &TestExternalStringCallbacks, &isExternal, heap);
+    }
+    if (dest) {
+      mozilla::Unused << buf.release();  // Ownership was transferred.
+    }
+  } else {
+    AutoStableStringChars stable(cx);
+    if (!wantTwoByte && src->hasLatin1Chars()) {
+      if (!stable.init(cx, src)) {
+        return false;
+      }
+    } else {
+      if (!stable.initTwoByte(cx, src)) {
+        return false;
+      }
+    }
+    if (wantTwoByte) {
+      dest = NewStringCopyNDontDeflate<CanGC>(cx, stable.twoByteChars(), len,
+                                              heap);
+    } else if (stable.isLatin1()) {
+      dest = NewStringCopyN<CanGC>(cx, stable.latin1Chars(), len, heap);
+    } else {
+      // Normal behavior: auto-deflate to latin1 if possible.
+      dest = NewStringCopyN<CanGC>(cx, stable.twoByteChars(), len, heap);
+    }
+  }
+
+  if (!dest) {
     return false;
   }
 
-  if (!JS_CopyStringChars(cx, mozilla::Range<char16_t>(buf.get(), len), str)) {
-    return false;
-  }
-
-  JSString* res =
-      JS_NewExternalString(cx, buf.get(), len, &TestExternalStringCallbacks);
-  if (!res) {
-    return false;
-  }
-
-  mozilla::Unused << buf.release();
-  args.rval().setString(res);
-  return true;
-}
-
-static bool NewMaybeExternalString(JSContext* cx, unsigned argc, Value* vp) {
-  CallArgs args = CallArgsFromVp(argc, vp);
-
-  if (args.length() != 1 || !args[0].isString()) {
-    JS_ReportErrorASCII(
-        cx, "newMaybeExternalString takes exactly one string argument.");
-    return false;
-  }
-
-  RootedString str(cx, args[0].toString());
-  size_t len = str->length();
-
-  auto buf = cx->make_pod_array<char16_t>(len);
-  if (!buf) {
-    return false;
-  }
-
-  if (!JS_CopyStringChars(cx, mozilla::Range<char16_t>(buf.get(), len), str)) {
-    return false;
-  }
-
-  bool allocatedExternal;
-  JSString* res = JS_NewMaybeExternalString(
-      cx, buf.get(), len, &TestExternalStringCallbacks, &allocatedExternal);
-  if (!res) {
-    return false;
-  }
-
-  if (allocatedExternal) {
-    mozilla::Unused << buf.release();
-  }
-  args.rval().setString(res);
+  args.rval().setString(dest);
   return true;
 }
 
@@ -4517,6 +4563,34 @@ static bool DumpStringRepresentation(JSContext* cx, unsigned argc, Value* vp) {
   args.rval().setUndefined();
   return true;
 }
+
+static bool GetStringRepresentation(JSContext* cx, unsigned argc, Value* vp) {
+  CallArgs args = CallArgsFromVp(argc, vp);
+
+  RootedString str(cx, ToString(cx, args.get(0)));
+  if (!str) {
+    return false;
+  }
+
+  Sprinter out(cx, true);
+  if (!out.init()) {
+    return false;
+  }
+  str->dumpRepresentation(out, 0);
+
+  if (out.hadOutOfMemory()) {
+    return false;
+  }
+
+  JSString* rep = JS_NewStringCopyN(cx, out.string(), out.getOffset());
+  if (!rep) {
+    return false;
+  }
+
+  args.rval().setString(rep);
+  return true;
+}
+
 #endif
 
 static bool SetLazyParsingDisabled(JSContext* cx, unsigned argc, Value* vp) {
@@ -5962,13 +6036,21 @@ static const JSFunctionSpecWithHelp TestingFunctions[] = {
 "  Set the filename validation callback to a callback that accepts only\n"
 "  filenames starting with 'safe' or (only in system realms) 'system'."),
 
-    JS_FN_HELP("newExternalString", NewExternalString, 1, 0,
-"newExternalString(str)",
-"  Copies str's chars and returns a new external string."),
-
-    JS_FN_HELP("newMaybeExternalString", NewMaybeExternalString, 1, 0,
-"newMaybeExternalString(str)",
-"  Like newExternalString but uses the JS_NewMaybeExternalString API."),
+    JS_FN_HELP("newString", NewString, 2, 0,
+"newString(str[, options])",
+"  Copies str's chars and returns a new string. Valid options:\n"
+"  \n"
+"   - tenured: allocate directly into the tenured heap.\n"
+"  \n"
+"   - twoByte: create a \"two byte\" string, not a latin1 string, regardless of the\n"
+"      input string's characters. Latin1 will be used by default if possible\n"
+"      (again regardless of the input string.)\n"
+"  \n"
+"   - external: create an external string. External strings are always twoByte and\n"
+"     tenured.\n"
+"  \n"
+"   - maybeExternal: create an external string, unless the data fits within an\n"
+"     inline string. Inline strings may be nursery-allocated."),
 
     JS_FN_HELP("ensureLinearString", EnsureLinearString, 1, 0,
 "ensureLinearString(str)",
@@ -6155,8 +6237,12 @@ gc::ZealModeHelpText),
 "   Finish an in-progress incremental GC, if none is running then do nothing."),
 
     JS_FN_HELP("gcslice", GCSlice, 1, 0,
-"gcslice([n])",
-"  Start or continue an an incremental GC, running a slice that processes about n objects."),
+"gcslice([n [, options]])",
+"  Start or continue an an incremental GC, running a slice that processes\n"
+"  about n objects. Takes an optional options object, which may contain the\n"
+"  following properties:\n"
+"    dontStart: do not start a new incremental GC if one is not already\n"
+"               running"),
 
     JS_FN_HELP("abortgc", AbortGC, 1, 0,
 "abortgc()",
@@ -6511,7 +6597,7 @@ gc::ZealModeHelpText),
     JS_FN_HELP("getBacktrace", GetBacktrace, 1, 0,
 "getBacktrace([options])",
 "  Return the current stack as a string. Takes an optional options object,\n"
-"  which may contain any or all of the boolean properties\n"
+"  which may contain any or all of the boolean properties:\n"
 "    options.args - show arguments to each function\n"
 "    options.locals - show local variables in each frame\n"
 "    options.thisprops - show the properties of the 'this' object of each frame\n"),
@@ -6537,6 +6623,11 @@ gc::ZealModeHelpText),
     JS_FN_HELP("dumpStringRepresentation", DumpStringRepresentation, 1, 0,
 "dumpStringRepresentation(str)",
 "  Print a human-readable description of how the string |str| is represented.\n"),
+
+    JS_FN_HELP("stringRepresentation", GetStringRepresentation, 1, 0,
+"stringRepresentation(str)",
+"  Return a human-readable description of how the string |str| is represented.\n"),
+
 #endif
 
     JS_FN_HELP("setLazyParsingDisabled", SetLazyParsingDisabled, 1, 0,

@@ -2182,7 +2182,8 @@ static bool PrepareAndExecuteRegExp(JSContext* cx, MacroAssembler& masm,
   // execution finished successfully.
 
   // Initialize MatchPairs::pairCount to 1. The correct value can only
-  // be determined after loading the RegExpShared.
+  // be determined after loading the RegExpShared. If the RegExpShared
+  // has Kind::Atom, this is the correct pairCount.
   masm.store32(Imm32(1), pairCountAddress);
 
   // Initialize MatchPairs::pairs pointer
@@ -2201,6 +2202,33 @@ static bool PrepareAndExecuteRegExp(JSContext* cx, MacroAssembler& masm,
                                    RegExpObject::PRIVATE_SLOT)),
                regexpReg);
   masm.branchPtr(Assembler::Equal, regexpReg, ImmWord(0), failure);
+
+  // Handle Atom matches
+  Label notAtom, checkSuccess;
+  masm.branchPtr(Assembler::Equal,
+                 Address(regexpReg, RegExpShared::offsetOfPatternAtom()),
+                 ImmWord(0), &notAtom);
+  {
+    LiveGeneralRegisterSet regsToSave(GeneralRegisterSet::Volatile());
+    regsToSave.takeUnchecked(temp1);
+    regsToSave.takeUnchecked(temp2);
+    regsToSave.takeUnchecked(temp3);
+
+    masm.computeEffectiveAddress(matchPairsAddress, temp3);
+
+    masm.PushRegsInMask(regsToSave);
+    masm.setupUnalignedABICall(temp2);
+    masm.passABIArg(regexpReg);
+    masm.passABIArg(input);
+    masm.passABIArg(lastIndex);
+    masm.passABIArg(temp3);
+    masm.callWithABI(JS_FUNC_TO_DATA_PTR(void*, ExecuteRegExpAtomRaw));
+    masm.storeCallInt32Result(temp1);
+    masm.PopRegsInMask(regsToSave);
+
+    masm.jump(&checkSuccess);
+  }
+  masm.bind(&notAtom);
 
   // Don't handle regexps with too many capture pairs.
   masm.load32(Address(regexpReg, RegExpShared::offsetOfPairCount()), temp2);
@@ -2296,6 +2324,7 @@ static bool PrepareAndExecuteRegExp(JSContext* cx, MacroAssembler& masm,
 #endif
 
   Label success;
+  masm.bind(&checkSuccess);
   masm.branch32(Assembler::Equal, temp1,
                 Imm32(RegExpRunStatus_Success_NotFound), notFound);
   masm.branch32(Assembler::Equal, temp1, Imm32(RegExpRunStatus_Error), failure);
@@ -3300,14 +3329,7 @@ void CodeGenerator::visitRegExpPrototypeOptimizable(
       new (alloc()) OutOfLineRegExpPrototypeOptimizable(ins);
   addOutOfLineCode(ool, ins->mir());
 
-  masm.loadJSContext(temp);
-  masm.loadPtr(Address(temp, JSContext::offsetOfRealm()), temp);
-  size_t offset = Realm::offsetOfRegExps() +
-                  RegExpRealm::offsetOfOptimizableRegExpPrototypeShape();
-  masm.loadPtr(Address(temp, offset), temp);
-
-  masm.branchTestObjShapeUnsafe(Assembler::NotEqual, object, temp,
-                                ool->entry());
+  masm.branchIfNotRegExpPrototypeOptimizable(object, temp, ool->entry());
   masm.move32(Imm32(0x1), output);
 
   masm.bind(ool->rejoin());
@@ -3357,14 +3379,7 @@ void CodeGenerator::visitRegExpInstanceOptimizable(
       new (alloc()) OutOfLineRegExpInstanceOptimizable(ins);
   addOutOfLineCode(ool, ins->mir());
 
-  masm.loadJSContext(temp);
-  masm.loadPtr(Address(temp, JSContext::offsetOfRealm()), temp);
-  size_t offset = Realm::offsetOfRegExps() +
-                  RegExpRealm::offsetOfOptimizableRegExpInstanceShape();
-  masm.loadPtr(Address(temp, offset), temp);
-
-  masm.branchTestObjShapeUnsafe(Assembler::NotEqual, object, temp,
-                                ool->entry());
+  masm.branchIfNotRegExpInstanceOptimizable(object, temp, ool->entry());
   masm.move32(Imm32(0x1), output);
 
   masm.bind(ool->rejoin());
@@ -8265,6 +8280,39 @@ void CodeGenerator::visitPowD(LPowD* ins) {
   MOZ_ASSERT(ToFloatRegister(ins->output()) == ReturnDoubleReg);
 }
 
+void CodeGenerator::visitPowOfTwoI(LPowOfTwoI* ins) {
+  Register power = ToRegister(ins->power());
+  Register output = ToRegister(ins->output());
+
+  uint32_t base = ins->base();
+  MOZ_ASSERT(mozilla::IsPowerOfTwo(base));
+
+  uint32_t n = mozilla::FloorLog2(base);
+  MOZ_ASSERT(n != 0);
+
+  // Hacker's Delight, 2nd edition, theorem D2.
+  auto ceilingDiv = [](uint32_t x, uint32_t y) { return (x + y - 1) / y; };
+
+  // Take bailout if |power| is greater-or-equals |log_y(2^31)| or is negative.
+  // |2^(n*y) < 2^31| must hold, hence |n*y < 31| resp. |y < 31/n|.
+  //
+  // Note: it's important for this condition to match the code in CacheIR.cpp
+  // (CanAttachInt32Pow) to prevent failure loops.
+  bailoutCmp32(Assembler::AboveOrEqual, power, Imm32(ceilingDiv(31, n)),
+               ins->snapshot());
+
+  // Compute (2^n)^y as 2^(n*y) using repeated shifts. We could directly scale
+  // |power| and perform a single shift, but due to the lack of necessary
+  // MacroAssembler functionality, like multiplying a register with an
+  // immediate, we restrict the number of generated shift instructions when
+  // lowering this operation.
+  masm.move32(Imm32(1), output);
+  do {
+    masm.lshift32(power, output);
+    n--;
+  } while (n > 0);
+}
+
 void CodeGenerator::visitSqrtD(LSqrtD* ins) {
   FloatRegister input = ToFloatRegister(ins->input());
   FloatRegister output = ToFloatRegister(ins->output());
@@ -8946,9 +8994,11 @@ void CodeGenerator::visitSameValueVM(LSameValueVM* lir) {
 
 void CodeGenerator::emitConcat(LInstruction* lir, Register lhs, Register rhs,
                                Register output) {
-  using Fn = JSString* (*)(JSContext*, HandleString, HandleString);
+  using Fn = JSString* (*)(JSContext*, HandleString, HandleString,
+                           js::gc::InitialHeap);
   OutOfLineCode* ool = oolCallVM<Fn, ConcatStrings<CanGC>>(
-      lir, ArgList(lhs, rhs), StoreRegisterTo(output));
+      lir, ArgList(lhs, rhs, static_cast<Imm32>(gc::DefaultHeap)),
+      StoreRegisterTo(output));
 
   const JitRealm* jitRealm = gen->realm->jitRealm();
   JitCode* stringConcatStub =
@@ -12748,19 +12798,6 @@ void CodeGenerator::visitAtomicIsLockFree(LAtomicIsLockFree* lir) {
   masm.branch32(Assembler::Equal, value, Imm32(1), &Ldone);
   masm.move32(Imm32(0), output);
   masm.bind(&Ldone);
-}
-
-void CodeGenerator::visitGuardSharedTypedArray(LGuardSharedTypedArray* guard) {
-  Register obj = ToRegister(guard->input());
-  Register tmp = ToRegister(guard->tempInt());
-
-  // The shared-memory flag is a bit in the ObjectElements header
-  // that is set if the TypedArray is mapping a SharedArrayBuffer.
-  // The flag is set at construction and does not change subsequently.
-  masm.loadPtr(Address(obj, TypedArrayObject::offsetOfElements()), tmp);
-  masm.load32(Address(tmp, ObjectElements::offsetOfFlags()), tmp);
-  bailoutTest32(Assembler::Zero, tmp, Imm32(ObjectElements::SHARED_MEMORY),
-                guard->snapshot());
 }
 
 void CodeGenerator::visitClampIToUint8(LClampIToUint8* lir) {

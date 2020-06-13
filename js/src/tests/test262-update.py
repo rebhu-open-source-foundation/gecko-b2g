@@ -28,7 +28,6 @@ UNSUPPORTED_FEATURES = set([
     "regexp-match-indices",
     "export-star-as-namespace-from-module",
     "Intl.DateTimeFormat-quarter",
-    "Intl.DateTimeFormat-datetimestyle",
     "Intl.DateTimeFormat-formatRange",
     "Intl.Segmenter",
     "top-level-await",
@@ -310,9 +309,6 @@ def convertTestFile(test262parser, testSource, testName, includeSet, strictTests
                 refTestSkipIf.append(("(this.hasOwnProperty('getBuildConfiguration')"
                                       "&&getBuildConfiguration()['arm64-simulator'])",
                                       "ARM64 Simulator cannot emulate atomics"))
-
-            if "WeakRef" in testRec["features"] or "FinalizationRegistry" in testRec["features"]:
-                refTestOptions.append("shell-option(--enable-weak-refs)")
 
     # Includes for every test file in a directory is collected in a single
     # shell.js file per directory level. This is done to avoid adding all

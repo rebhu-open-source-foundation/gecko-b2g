@@ -1316,7 +1316,6 @@ class MOZ_STACK_CLASS JS_HAZ_ROOTED ModuleValidatorShared {
   PropertyName* importArgumentName_ = nullptr;
   PropertyName* bufferArgumentName_ = nullptr;
   MathNameMap standardLibraryMathNames_;
-  RootedFunction dummyFunction_;
 
   // Validation-internal state:
   LifoAlloc validationLifo_;
@@ -1343,7 +1342,6 @@ class MOZ_STACK_CLASS JS_HAZ_ROOTED ModuleValidatorShared {
         moduleFunctionNode_(moduleFunctionNode),
         moduleFunctionName_(FunctionName(moduleFunctionNode)),
         standardLibraryMathNames_(cx),
-        dummyFunction_(cx),
         validationLifo_(VALIDATION_LIFO_DEFAULT_CHUNK_SIZE),
         funcDefs_(cx),
         tables_(cx),
@@ -1428,18 +1426,6 @@ class MOZ_STACK_CLASS JS_HAZ_ROOTED ModuleValidatorShared {
     return true;
   }
 
-  MOZ_MUST_USE bool initDummyFunction() {
-    // This flows into FunctionBox, so must be tenured.
-    dummyFunction_ = NewScriptedFunction(
-        cx_, 0, FunctionFlags::BASESCRIPT, nullptr,
-        /* proto = */ nullptr, gc::AllocKind::FUNCTION, TenuredObject);
-    if (!dummyFunction_) {
-      return false;
-    }
-
-    return true;
-  }
-
  public:
   JSContext* cx() const { return cx_; }
   PropertyName* moduleFunctionName() const { return moduleFunctionName_; }
@@ -1448,7 +1434,6 @@ class MOZ_STACK_CLASS JS_HAZ_ROOTED ModuleValidatorShared {
   PropertyName* bufferArgumentName() const { return bufferArgumentName_; }
   const ModuleEnvironment& env() { return env_; }
 
-  RootedFunction& dummyFunction() { return dummyFunction_; }
   uint32_t minMemoryLength() const { return env_.minMemoryLength; }
 
   void initModuleFunctionName(PropertyName* name) {
@@ -1950,10 +1935,6 @@ class MOZ_STACK_CLASS JS_HAZ_ROOTED ModuleValidator
     asmJSMetadata_->scriptSource.reset(parser_.ss);
 
     if (!addStandardLibraryMathInfo()) {
-      return false;
-    }
-
-    if (!initDummyFunction()) {
       return false;
     }
 
@@ -6022,19 +6003,16 @@ static bool ParseFunction(ModuleValidator<Unit>& m, FunctionNode** funNodeOut,
     return false;
   }
 
-  RootedFunction& fun = m.dummyFunction();
-  fun->setAtom(name);
-  fun->setArgCount(0);
-
   ParseContext* outerpc = m.parser().pc_;
   Directives directives(outerpc);
+  FunctionFlags flags(FunctionFlags::INTERPRETED_NORMAL);
   FunctionBox* funbox = m.parser().newFunctionBox(
-      funNode, fun, toStringStart, directives, GeneratorKind::NotGenerator,
-      FunctionAsyncKind::SyncFunction);
+      funNode, name, flags, toStringStart, directives,
+      GeneratorKind::NotGenerator, FunctionAsyncKind::SyncFunction);
   if (!funbox) {
     return false;
   }
-  funbox->initWithEnclosingParseContext(outerpc, fun->flags(),
+  funbox->initWithEnclosingParseContext(outerpc, flags,
                                         FunctionSyntaxKind::Statement);
 
   Directives newDirectives = directives;
@@ -6980,28 +6958,6 @@ bool js::InstantiateAsmJS(JSContext* cx, unsigned argc, JS::Value* vp) {
   return true;
 }
 
-static JSFunction* NewAsmJSModuleFunction(JSContext* cx,
-                                          FunctionBox* origFunbox,
-                                          HandleObject moduleObj) {
-  RootedAtom name(cx, origFunbox->explicitName());
-
-  FunctionFlags flags = origFunbox->isLambda()
-                            ? FunctionFlags::ASMJS_LAMBDA_CTOR
-                            : FunctionFlags::ASMJS_CTOR;
-  JSFunction* moduleFun = NewNativeConstructor(
-      cx, InstantiateAsmJS, origFunbox->nargs(), name,
-      gc::AllocKind::FUNCTION_EXTENDED, TenuredObject, flags);
-  if (!moduleFun) {
-    return nullptr;
-  }
-
-  moduleFun->setExtendedSlot(FunctionExtended::ASMJS_MODULE_SLOT,
-                             ObjectValue(*moduleObj));
-
-  MOZ_ASSERT(IsAsmJSModule(moduleFun));
-  return moduleFun;
-}
-
 /*****************************************************************************/
 // Top-level js::CompileAsmJS
 
@@ -7098,28 +7054,13 @@ static bool DoCompileAsmJS(JSContext* cx, AsmJSParser<Unit>& parser,
     return NoExceptionPending(cx);
   }
 
-  // Hand over ownership to a GC object wrapper which can then be referenced
-  // from the module function.
-  RootedObject moduleObj(cx, module->createObjectForAsmJS(cx));
-  if (!moduleObj) {
-    return false;
-  }
-
-  // The module function dynamically links the AsmJSModule when called and
-  // generates a set of functions wrapping all the exports.
+  // Finished! Save the ref-counted module on the FunctionBox. When JSFunctions
+  // are eventually allocated we will create an asm.js constructor for it.
   FunctionBox* funbox = parser.pc_->functionBox();
-
-  RootedFunction moduleFun(cx, NewAsmJSModuleFunction(cx, funbox, moduleObj));
-  if (!moduleFun) {
-    return false;
-  }
-
-  // Finished! Clobber the default function created by the parser with the new
-  // asm.js module function. Special cases in the bytecode emitter avoid
-  // generating bytecode for asm.js functions, allowing this asm.js module
-  // function to be the finished result.
   MOZ_ASSERT(funbox->isInterpreted());
-  funbox->setAsmJSModule(moduleFun);
+  if (!funbox->setAsmJSModule(module)) {
+    return NoExceptionPending(cx);
+  }
 
   // Success! Write to the console with a "warning" message indicating
   // total compilation time.

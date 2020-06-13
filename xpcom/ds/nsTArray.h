@@ -959,8 +959,8 @@ class nsTArray_Impl
   typedef nsTArray_Impl<E, Alloc> self_type;
   typedef nsTArrayElementTraits<E> elem_traits;
   typedef nsTArray_SafeElementAtHelper<E, self_type> safeelementat_helper_type;
-  typedef mozilla::ArrayIterator<elem_type&, nsTArray<E>> iterator;
-  typedef mozilla::ArrayIterator<const elem_type&, nsTArray<E>> const_iterator;
+  typedef mozilla::ArrayIterator<elem_type&, self_type> iterator;
+  typedef mozilla::ArrayIterator<const elem_type&, self_type> const_iterator;
   typedef mozilla::ReverseIterator<iterator> reverse_iterator;
   typedef mozilla::ReverseIterator<const_iterator> const_reverse_iterator;
 
@@ -1762,7 +1762,8 @@ class nsTArray_Impl
   // std::vector::erase.
   // @param first iterator to the first of elements to remove
   // @param last iterator to the last of elements to remove
-  const_iterator RemoveElementsAt(const_iterator first, const_iterator last) {
+  const_iterator RemoveElementsRange(const_iterator first,
+                                     const_iterator last) {
     MOZ_ASSERT(first.GetArray() == this);
     MOZ_ASSERT(last.GetArray() == this);
     MOZ_ASSERT(last.GetIndex() >= first.GetIndex());
@@ -2992,6 +2993,7 @@ struct nsTArray_RelocationStrategy<AutoTArray<E, N>> {
 template <class E, size_t N>
 class CopyableAutoTArray : public AutoTArray<E, N> {
  public:
+  typedef CopyableAutoTArray<E, N> self_type;
   using AutoTArray<E, N>::AutoTArray;
 
   CopyableAutoTArray(const CopyableAutoTArray& aOther) : AutoTArray<E, N>() {
@@ -3025,6 +3027,10 @@ class CopyableAutoTArray : public AutoTArray<E, N> {
     static_cast<AutoTArray<E, N>&>(*this) = std::move(aOther);
     return *this;
   }
+
+  // CopyableTArray exists for cases where an explicit Clone is not possible.
+  // These uses should not be mixed, so we delete Clone() here.
+  self_type Clone() const = delete;
 
   CopyableAutoTArray(CopyableAutoTArray&&) = default;
   CopyableAutoTArray& operator=(CopyableAutoTArray&&) = default;

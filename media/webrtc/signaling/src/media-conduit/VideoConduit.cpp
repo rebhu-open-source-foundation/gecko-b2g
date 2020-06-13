@@ -493,6 +493,7 @@ WebrtcVideoConduit::WebrtcVideoConduit(
           this)  // 'this' is stored but not dereferenced in the constructor.
       ,
       mRecvSSRC(0),
+      mRemoteSSRC(0),
       mVideoStatsTimer(NS_NewTimer()),
       mRtpSourceObserver(new RtpSourceObserver(mCall->GetTimestampMaker())) {
   mCall->RegisterConduit(this);
@@ -1035,6 +1036,7 @@ bool WebrtcVideoConduit::SetRemoteSSRCLocked(uint32_t ssrc, uint32_t rtxSsrc) {
     }
   }
 
+  mRemoteSSRC = ssrc;
   mRecvStreamConfig.rtp.remote_ssrc = ssrc;
   mRecvStreamConfig.rtp.rtx_ssrc = rtxSsrc;
   mStsThread->Dispatch(NS_NewRunnableFunction(
@@ -1083,18 +1085,14 @@ bool WebrtcVideoConduit::UnsetRemoteSSRC(uint32_t ssrc) {
   return true;
 }
 
-bool WebrtcVideoConduit::GetRemoteSSRC(unsigned int* ssrc) {
-  MutexAutoLock lock(mMutex);
-
+bool WebrtcVideoConduit::GetRemoteSSRC(uint32_t* ssrc) {
   if (NS_IsMainThread()) {
     if (!mRecvStream) {
       return false;
     }
-    *ssrc = mRecvStream->GetStats().ssrc;
-  } else {
-    ASSERT_ON_THREAD(mStsThread);
-    *ssrc = mRecvStreamStats.Ssrc();
   }
+  // libwebrtc uses 0 to mean a lack of SSRC. That is not to spec.
+  *ssrc = mRemoteSSRC;
   return true;
 }
 
@@ -2298,13 +2296,52 @@ void WebrtcVideoConduit::OnFrame(const webrtc::VideoFrame& video_frame) {
     return;
   }
 
+  bool needsNewHistoryElement = !mReceivedFrameHistory.mEntries.Length();
+
   if (mReceivingWidth != video_frame.width() ||
       mReceivingHeight != video_frame.height()) {
     mReceivingWidth = video_frame.width();
     mReceivingHeight = video_frame.height();
     mRenderer->FrameSizeChange(mReceivingWidth, mReceivingHeight);
+    needsNewHistoryElement = true;
   }
 
+  uint32_t remoteSsrc;
+  if (!GetRemoteSSRC(&remoteSsrc) && needsNewHistoryElement) {
+    // Frame was decoded after the connection ended
+    return;
+  }
+
+  if (!needsNewHistoryElement) {
+    auto& currentEntry = mReceivedFrameHistory.mEntries.LastElement();
+    needsNewHistoryElement =
+        currentEntry.mRotationAngle !=
+            static_cast<unsigned long>(video_frame.rotation()) ||
+        currentEntry.mLocalSsrc != mRecvSSRC ||
+        currentEntry.mRemoteSsrc != remoteSsrc;
+  }
+
+  // Record frame history
+  const auto historyNow = mCall->GetNow();
+  if (needsNewHistoryElement) {
+    dom::RTCVideoFrameHistoryEntryInternal frameHistoryElement;
+    frameHistoryElement.mConsecutiveFrames = 0;
+    frameHistoryElement.mWidth = video_frame.width();
+    frameHistoryElement.mHeight = video_frame.height();
+    frameHistoryElement.mRotationAngle =
+        static_cast<unsigned long>(video_frame.rotation());
+    frameHistoryElement.mFirstFrameTimestamp = historyNow;
+    frameHistoryElement.mLocalSsrc = mRecvSSRC;
+    frameHistoryElement.mRemoteSsrc = remoteSsrc;
+    if (!mReceivedFrameHistory.mEntries.AppendElement(frameHistoryElement,
+                                                      fallible)) {
+      mozalloc_handle_oom(0);
+    }
+  }
+  auto& currentEntry = mReceivedFrameHistory.mEntries.LastElement();
+
+  currentEntry.mConsecutiveFrames++;
+  currentEntry.mLastFrameTimestamp = historyNow;
   // Attempt to retrieve an timestamp encoded in the image pixels if enabled.
   if (mVideoLatencyTestEnable && mReceivingWidth && mReceivingHeight) {
     uint64_t now = PR_Now();
@@ -2322,6 +2359,16 @@ void WebrtcVideoConduit::OnFrame(const webrtc::VideoFrame& video_frame) {
   mRenderer->RenderVideoFrame(*video_frame.video_frame_buffer(),
                               video_frame.timestamp(),
                               video_frame.render_time_ms());
+}
+
+bool WebrtcVideoConduit::AddFrameHistory(
+    dom::Sequence<dom::RTCVideoFrameHistoryInternal>* outHistories) const {
+  ASSERT_ON_THREAD(mStsThread);
+  if (!outHistories->AppendElement(mReceivedFrameHistory, fallible)) {
+    mozalloc_handle_oom(0);
+    return false;
+  }
+  return true;
 }
 
 void WebrtcVideoConduit::DumpCodecDB() const {

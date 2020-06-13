@@ -737,7 +737,7 @@ dependencies = [
 [[package]]
 name = "coreaudio-sys-utils"
 version = "0.1.0"
-source = "git+https://github.com/ChunMinChang/cubeb-coreaudio-rs?rev=edf9154d23d2f54888bfe5f1087c30db3aa1c5be#edf9154d23d2f54888bfe5f1087c30db3aa1c5be"
+source = "git+https://github.com/ChunMinChang/cubeb-coreaudio-rs?rev=4cdbceadae88c77dfc77183b7edda183f32cd28c#4cdbceadae88c77dfc77183b7edda183f32cd28c"
 dependencies = [
  "core-foundation-sys",
  "coreaudio-sys",
@@ -763,22 +763,22 @@ dependencies = [
 
 [[package]]
 name = "cranelift-bforest"
-version = "0.63.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=b7cfd39b531680217537cfcf5294a22077a0a58d#b7cfd39b531680217537cfcf5294a22077a0a58d"
+version = "0.64.0"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=4d5fdfcbba1a8f38002a4223d7a329fc795d0e9f#4d5fdfcbba1a8f38002a4223d7a329fc795d0e9f"
 dependencies = [
- "cranelift-entity 0.63.0",
+ "cranelift-entity 0.64.0",
 ]
 
 [[package]]
 name = "cranelift-codegen"
-version = "0.63.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=b7cfd39b531680217537cfcf5294a22077a0a58d#b7cfd39b531680217537cfcf5294a22077a0a58d"
+version = "0.64.0"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=4d5fdfcbba1a8f38002a4223d7a329fc795d0e9f#4d5fdfcbba1a8f38002a4223d7a329fc795d0e9f"
 dependencies = [
  "byteorder",
  "cranelift-bforest",
  "cranelift-codegen-meta",
  "cranelift-codegen-shared",
- "cranelift-entity 0.63.0",
+ "cranelift-entity 0.64.0",
  "log",
  "regalloc",
  "smallvec",
@@ -788,17 +788,17 @@ dependencies = [
 
 [[package]]
 name = "cranelift-codegen-meta"
-version = "0.63.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=b7cfd39b531680217537cfcf5294a22077a0a58d#b7cfd39b531680217537cfcf5294a22077a0a58d"
+version = "0.64.0"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=4d5fdfcbba1a8f38002a4223d7a329fc795d0e9f#4d5fdfcbba1a8f38002a4223d7a329fc795d0e9f"
 dependencies = [
  "cranelift-codegen-shared",
- "cranelift-entity 0.63.0",
+ "cranelift-entity 0.64.0",
 ]
 
 [[package]]
 name = "cranelift-codegen-shared"
-version = "0.63.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=b7cfd39b531680217537cfcf5294a22077a0a58d#b7cfd39b531680217537cfcf5294a22077a0a58d"
+version = "0.64.0"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=4d5fdfcbba1a8f38002a4223d7a329fc795d0e9f#4d5fdfcbba1a8f38002a4223d7a329fc795d0e9f"
 
 [[package]]
 name = "cranelift-entity"
@@ -807,13 +807,13 @@ source = "git+https://github.com/PLSysSec/lucet_sandbox_compiler?rev=5e870faf6f9
 
 [[package]]
 name = "cranelift-entity"
-version = "0.63.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=b7cfd39b531680217537cfcf5294a22077a0a58d#b7cfd39b531680217537cfcf5294a22077a0a58d"
+version = "0.64.0"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=4d5fdfcbba1a8f38002a4223d7a329fc795d0e9f#4d5fdfcbba1a8f38002a4223d7a329fc795d0e9f"
 
 [[package]]
 name = "cranelift-frontend"
-version = "0.63.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=b7cfd39b531680217537cfcf5294a22077a0a58d#b7cfd39b531680217537cfcf5294a22077a0a58d"
+version = "0.64.0"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=4d5fdfcbba1a8f38002a4223d7a329fc795d0e9f#4d5fdfcbba1a8f38002a4223d7a329fc795d0e9f"
 dependencies = [
  "cranelift-codegen",
  "log",
@@ -823,15 +823,15 @@ dependencies = [
 
 [[package]]
 name = "cranelift-wasm"
-version = "0.63.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=b7cfd39b531680217537cfcf5294a22077a0a58d#b7cfd39b531680217537cfcf5294a22077a0a58d"
+version = "0.64.0"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=4d5fdfcbba1a8f38002a4223d7a329fc795d0e9f#4d5fdfcbba1a8f38002a4223d7a329fc795d0e9f"
 dependencies = [
  "cranelift-codegen",
- "cranelift-entity 0.63.0",
+ "cranelift-entity 0.64.0",
  "cranelift-frontend",
  "log",
  "thiserror",
- "wasmparser 0.51.4",
+ "wasmparser 0.57.0",
 ]
 
 [[package]]
@@ -975,7 +975,7 @@ dependencies = [
 [[package]]
 name = "cubeb-coreaudio"
 version = "0.1.0"
-source = "git+https://github.com/ChunMinChang/cubeb-coreaudio-rs?rev=edf9154d23d2f54888bfe5f1087c30db3aa1c5be#edf9154d23d2f54888bfe5f1087c30db3aa1c5be"
+source = "git+https://github.com/ChunMinChang/cubeb-coreaudio-rs?rev=4cdbceadae88c77dfc77183b7edda183f32cd28c#4cdbceadae88c77dfc77183b7edda183f32cd28c"
 dependencies = [
  "atomic",
  "audio-mixer",
@@ -1274,7 +1274,7 @@ checksum = "ff511d5dc435d703f4971bc399647c9bc38e20cb41452e3b9feb4765419ed3f3"
 [[package]]
 name = "error-support"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=57a07e89e9ac92756b60b67c4a6ee06975b86288#57a07e89e9ac92756b60b67c4a6ee06975b86288"
+source = "git+https://github.com/mozilla/application-services?rev=e8d7530319fa6c20d9de78d031c9398630eca3cd#e8d7530319fa6c20d9de78d031c9398630eca3cd"
 dependencies = [
  "failure",
 ]
@@ -1610,7 +1610,7 @@ dependencies = [
 [[package]]
 name = "fxa-client"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=57a07e89e9ac92756b60b67c4a6ee06975b86288#57a07e89e9ac92756b60b67c4a6ee06975b86288"
+source = "git+https://github.com/mozilla/application-services?rev=e8d7530319fa6c20d9de78d031c9398630eca3cd#e8d7530319fa6c20d9de78d031c9398630eca3cd"
 dependencies = [
  "base64 0.12.0",
  "byteorder",
@@ -2320,7 +2320,7 @@ dependencies = [
 [[package]]
 name = "interrupt-support"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=57a07e89e9ac92756b60b67c4a6ee06975b86288#57a07e89e9ac92756b60b67c4a6ee06975b86288"
+source = "git+https://github.com/mozilla/application-services?rev=e8d7530319fa6c20d9de78d031c9398630eca3cd#e8d7530319fa6c20d9de78d031c9398630eca3cd"
 
 [[package]]
 name = "intl-memoizer"
@@ -3111,8 +3111,8 @@ checksum = "a2983372caf4480544083767bf2d27defafe32af49ab4df3a0b7fc90793a3664"
 
 [[package]]
 name = "neqo-common"
-version = "0.4.0"
-source = "git+https://github.com/mozilla/neqo?tag=v0.4.0#f35a3b7800a7062c8b34cae1bdcbf64733935149"
+version = "0.4.1"
+source = "git+https://github.com/mozilla/neqo?tag=v0.4.1#0aeafc8cfd0b7a3554170419b38c97948b0fb108"
 dependencies = [
  "chrono",
  "env_logger",
@@ -3124,8 +3124,8 @@ dependencies = [
 
 [[package]]
 name = "neqo-crypto"
-version = "0.4.0"
-source = "git+https://github.com/mozilla/neqo?tag=v0.4.0#f35a3b7800a7062c8b34cae1bdcbf64733935149"
+version = "0.4.1"
+source = "git+https://github.com/mozilla/neqo?tag=v0.4.1#0aeafc8cfd0b7a3554170419b38c97948b0fb108"
 dependencies = [
  "bindgen",
  "log",
@@ -3137,8 +3137,8 @@ dependencies = [
 
 [[package]]
 name = "neqo-http3"
-version = "0.4.0"
-source = "git+https://github.com/mozilla/neqo?tag=v0.4.0#f35a3b7800a7062c8b34cae1bdcbf64733935149"
+version = "0.4.1"
+source = "git+https://github.com/mozilla/neqo?tag=v0.4.1#0aeafc8cfd0b7a3554170419b38c97948b0fb108"
 dependencies = [
  "log",
  "neqo-common",
@@ -3151,8 +3151,8 @@ dependencies = [
 
 [[package]]
 name = "neqo-qpack"
-version = "0.4.0"
-source = "git+https://github.com/mozilla/neqo?tag=v0.4.0#f35a3b7800a7062c8b34cae1bdcbf64733935149"
+version = "0.4.1"
+source = "git+https://github.com/mozilla/neqo?tag=v0.4.1#0aeafc8cfd0b7a3554170419b38c97948b0fb108"
 dependencies = [
  "lazy_static",
  "log",
@@ -3166,8 +3166,8 @@ dependencies = [
 
 [[package]]
 name = "neqo-transport"
-version = "0.4.0"
-source = "git+https://github.com/mozilla/neqo?tag=v0.4.0#f35a3b7800a7062c8b34cae1bdcbf64733935149"
+version = "0.4.1"
+source = "git+https://github.com/mozilla/neqo?tag=v0.4.1#0aeafc8cfd0b7a3554170419b38c97948b0fb108"
 dependencies = [
  "lazy_static",
  "log",
@@ -3258,7 +3258,7 @@ dependencies = [
 [[package]]
 name = "nss"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=57a07e89e9ac92756b60b67c4a6ee06975b86288#57a07e89e9ac92756b60b67c4a6ee06975b86288"
+source = "git+https://github.com/mozilla/application-services?rev=e8d7530319fa6c20d9de78d031c9398630eca3cd#e8d7530319fa6c20d9de78d031c9398630eca3cd"
 dependencies = [
  "base64 0.12.0",
  "error-support",
@@ -3272,12 +3272,12 @@ dependencies = [
 [[package]]
 name = "nss_build_common"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=57a07e89e9ac92756b60b67c4a6ee06975b86288#57a07e89e9ac92756b60b67c4a6ee06975b86288"
+source = "git+https://github.com/mozilla/application-services?rev=e8d7530319fa6c20d9de78d031c9398630eca3cd#e8d7530319fa6c20d9de78d031c9398630eca3cd"
 
 [[package]]
 name = "nss_sys"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=57a07e89e9ac92756b60b67c4a6ee06975b86288#57a07e89e9ac92756b60b67c4a6ee06975b86288"
+source = "git+https://github.com/mozilla/application-services?rev=e8d7530319fa6c20d9de78d031c9398630eca3cd#e8d7530319fa6c20d9de78d031c9398630eca3cd"
 dependencies = [
  "nss_build_common",
 ]
@@ -3936,7 +3936,7 @@ dependencies = [
 [[package]]
 name = "rc_crypto"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=57a07e89e9ac92756b60b67c4a6ee06975b86288#57a07e89e9ac92756b60b67c4a6ee06975b86288"
+source = "git+https://github.com/mozilla/application-services?rev=e8d7530319fa6c20d9de78d031c9398630eca3cd#e8d7530319fa6c20d9de78d031c9398630eca3cd"
 dependencies = [
  "base64 0.12.0",
  "ece",
@@ -3976,9 +3976,9 @@ dependencies = [
 
 [[package]]
 name = "regalloc"
-version = "0.0.21"
+version = "0.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b27b256b41986ac5141b37b8bbba85d314fbf546c182eb255af6720e07e4f804"
+checksum = "7c03092d79e0fd610932d89ed53895a38c0dd3bcd317a0046e69940de32f1d95"
 dependencies = [
  "log",
  "rustc-hash",
@@ -4517,7 +4517,7 @@ dependencies = [
 [[package]]
 name = "sql-support"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=57a07e89e9ac92756b60b67c4a6ee06975b86288#57a07e89e9ac92756b60b67c4a6ee06975b86288"
+source = "git+https://github.com/mozilla/application-services?rev=e8d7530319fa6c20d9de78d031c9398630eca3cd#e8d7530319fa6c20d9de78d031c9398630eca3cd"
 dependencies = [
  "ffi-support",
  "interrupt-support",
@@ -4714,7 +4714,7 @@ dependencies = [
 [[package]]
 name = "sync-guid"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=57a07e89e9ac92756b60b67c4a6ee06975b86288#57a07e89e9ac92756b60b67c4a6ee06975b86288"
+source = "git+https://github.com/mozilla/application-services?rev=e8d7530319fa6c20d9de78d031c9398630eca3cd#e8d7530319fa6c20d9de78d031c9398630eca3cd"
 dependencies = [
  "base64 0.12.0",
  "rand",
@@ -4725,7 +4725,7 @@ dependencies = [
 [[package]]
 name = "sync15"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=57a07e89e9ac92756b60b67c4a6ee06975b86288#57a07e89e9ac92756b60b67c4a6ee06975b86288"
+source = "git+https://github.com/mozilla/application-services?rev=e8d7530319fa6c20d9de78d031c9398630eca3cd#e8d7530319fa6c20d9de78d031c9398630eca3cd"
 dependencies = [
  "base16",
  "base64 0.12.0",
@@ -4748,7 +4748,7 @@ dependencies = [
 [[package]]
 name = "sync15-traits"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=57a07e89e9ac92756b60b67c4a6ee06975b86288#57a07e89e9ac92756b60b67c4a6ee06975b86288"
+source = "git+https://github.com/mozilla/application-services?rev=e8d7530319fa6c20d9de78d031c9398630eca3cd#e8d7530319fa6c20d9de78d031c9398630eca3cd"
 dependencies = [
  "failure",
  "ffi-support",
@@ -5323,7 +5323,7 @@ checksum = "078775d0255232fb988e6fccf26ddc9d1ac274299aaedcedce21c6f72cc533ce"
 [[package]]
 name = "viaduct"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=57a07e89e9ac92756b60b67c4a6ee06975b86288#57a07e89e9ac92756b60b67c4a6ee06975b86288"
+source = "git+https://github.com/mozilla/application-services?rev=e8d7530319fa6c20d9de78d031c9398630eca3cd#e8d7530319fa6c20d9de78d031c9398630eca3cd"
 dependencies = [
  "failure",
  "failure_derive",
@@ -5395,9 +5395,9 @@ checksum = "073da89bf1c84db000dd68ce660c1b4a08e3a2d28fd1e3394ab9e7abdde4a0f8"
 
 [[package]]
 name = "wasmparser"
-version = "0.51.4"
+version = "0.57.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aeb1956b19469d1c5e63e459d29e7b5aa0f558d9f16fcef09736f8a265e6c10a"
+checksum = "32fddd575d477c6e9702484139cf9f23dcd554b06d185ed0f56c857dd3a47aa6"
 
 [[package]]
 name = "wast"
@@ -5439,7 +5439,7 @@ dependencies = [
 [[package]]
 name = "webext-storage"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=57a07e89e9ac92756b60b67c4a6ee06975b86288#57a07e89e9ac92756b60b67c4a6ee06975b86288"
+source = "git+https://github.com/mozilla/application-services?rev=e8d7530319fa6c20d9de78d031c9398630eca3cd#e8d7530319fa6c20d9de78d031c9398630eca3cd"
 dependencies = [
  "error-support",
  "failure",

@@ -352,8 +352,9 @@ enum class AttachDecision {
   } while (0)
 
 // Set of arguments supported by GetIndexOfArgument.
-// Support for Arg2 and up can be added easily, but is currently unneeded.
-enum class ArgumentKind : uint8_t { Callee, This, NewTarget, Arg0, Arg1 };
+// Support for higher argument indices can be added easily, but is currently
+// unneeded.
+enum class ArgumentKind : uint8_t { Callee, This, NewTarget, Arg0, Arg1, Arg2 };
 
 // This function calculates the index of an argument based on the call flags.
 // addArgc is an out-parameter, indicating whether the value of argc should
@@ -380,7 +381,7 @@ inline int32_t GetIndexOfArgument(ArgumentKind kind, CallFlags flags,
       break;
     case CallFlags::Spread:
       // Spread calls do not have Arg1 or higher.
-      MOZ_ASSERT(kind != ArgumentKind::Arg1);
+      MOZ_ASSERT(kind <= ArgumentKind::Arg0);
       *addArgc = false;
       break;
     case CallFlags::FunCall:
@@ -401,6 +402,8 @@ inline int32_t GetIndexOfArgument(ArgumentKind kind, CallFlags flags,
       return flags.isConstructing() + hasArgumentArray - 1;
     case ArgumentKind::Arg1:
       return flags.isConstructing() + hasArgumentArray - 2;
+    case ArgumentKind::Arg2:
+      return flags.isConstructing() + hasArgumentArray - 3;
     case ArgumentKind::NewTarget:
       MOZ_ASSERT(flags.isConstructing());
       *addArgc = false;
@@ -1531,17 +1534,26 @@ class MOZ_RAII CallIRGenerator : public IRGenerator {
   AttachDecision tryAttachArrayPush(HandleFunction callee);
   AttachDecision tryAttachArrayJoin(HandleFunction callee);
   AttachDecision tryAttachArrayIsArray(HandleFunction callee);
+  AttachDecision tryAttachUnsafeGetReservedSlot(HandleFunction callee,
+                                                InlinableNative native);
   AttachDecision tryAttachIsSuspendedGenerator(HandleFunction callee);
   AttachDecision tryAttachToString(HandleFunction callee,
                                    InlinableNative native);
   AttachDecision tryAttachToObject(HandleFunction callee,
                                    InlinableNative native);
   AttachDecision tryAttachToInteger(HandleFunction callee);
+  AttachDecision tryAttachToLength(HandleFunction callee);
   AttachDecision tryAttachIsObject(HandleFunction callee);
   AttachDecision tryAttachIsCallable(HandleFunction callee);
   AttachDecision tryAttachIsConstructor(HandleFunction callee);
   AttachDecision tryAttachGuardToClass(HandleFunction callee,
                                        InlinableNative native);
+  AttachDecision tryAttachHasClass(HandleFunction callee, const JSClass* clasp);
+  AttachDecision tryAttachRegExpMatcherSearcherTester(HandleFunction callee,
+                                                      InlinableNative native);
+  AttachDecision tryAttachRegExpPrototypeOptimizable(HandleFunction callee);
+  AttachDecision tryAttachRegExpInstanceOptimizable(HandleFunction callee);
+  AttachDecision tryAttachSubstringKernel(HandleFunction callee);
   AttachDecision tryAttachStringChar(HandleFunction callee, StringChar kind);
   AttachDecision tryAttachStringCharCodeAt(HandleFunction callee);
   AttachDecision tryAttachStringCharAt(HandleFunction callee);

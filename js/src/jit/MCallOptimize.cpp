@@ -362,6 +362,8 @@ IonBuilder::InliningResult IonBuilder::inlineNativeCall(CallInfo& callInfo,
       return inlineIsCrossRealmArrayConstructor(callInfo);
     case InlinableNative::IntrinsicToInteger:
       return inlineToInteger(callInfo);
+    case InlinableNative::IntrinsicToLength:
+      return inlineToLength(callInfo);
     case InlinableNative::IntrinsicToString:
       return inlineToString(callInfo);
     case InlinableNative::IntrinsicIsConstructing:
@@ -2683,54 +2685,6 @@ IonBuilder::InliningResult IonBuilder::inlineObjectToString(
   return InliningStatus_Inlined;
 }
 
-IonBuilder::InliningResult IonBuilder::inlineHasClass(CallInfo& callInfo,
-                                                      const JSClass* clasp1,
-                                                      const JSClass* clasp2,
-                                                      const JSClass* clasp3,
-                                                      const JSClass* clasp4) {
-  MOZ_ASSERT(!callInfo.constructing());
-  MOZ_ASSERT(callInfo.argc() == 1);
-
-  if (callInfo.getArg(0)->type() != MIRType::Object) {
-    return InliningStatus_NotInlined;
-  }
-  if (getInlineReturnType() != MIRType::Boolean) {
-    return InliningStatus_NotInlined;
-  }
-
-  TemporaryTypeSet* types = callInfo.getArg(0)->resultTypeSet();
-  const JSClass* knownClass =
-      types ? types->getKnownClass(constraints()) : nullptr;
-  if (knownClass) {
-    pushConstant(BooleanValue(knownClass == clasp1 || knownClass == clasp2 ||
-                              knownClass == clasp3 || knownClass == clasp4));
-  } else {
-    MHasClass* hasClass1 = MHasClass::New(alloc(), callInfo.getArg(0), clasp1);
-    current->add(hasClass1);
-
-    if (!clasp2 && !clasp3 && !clasp4) {
-      current->push(hasClass1);
-    } else {
-      const JSClass* remaining[] = {clasp2, clasp3, clasp4};
-      MDefinition* last = hasClass1;
-      for (size_t i = 0; i < ArrayLength(remaining); i++) {
-        MHasClass* hasClass =
-            MHasClass::New(alloc(), callInfo.getArg(0), remaining[i]);
-        current->add(hasClass);
-        MBitOr* either = MBitOr::New(alloc(), last, hasClass, MIRType::Int32);
-        current->add(either);
-        last = either;
-      }
-
-      MDefinition* result = convertToBoolean(last);
-      current->push(result);
-    }
-  }
-
-  callInfo.setImplicitlyUsedUnchecked();
-  return InliningStatus_Inlined;
-}
-
 IonBuilder::InliningResult IonBuilder::inlineGuardToClass(
     CallInfo& callInfo, InlinableNative native) {
   MOZ_ASSERT(!callInfo.constructing());
@@ -3454,6 +3408,32 @@ IonBuilder::InliningResult IonBuilder::inlineToInteger(CallInfo& callInfo) {
   return InliningStatus_Inlined;
 }
 
+IonBuilder::InliningResult IonBuilder::inlineToLength(CallInfo& callInfo) {
+  MOZ_ASSERT(!callInfo.constructing());
+  MOZ_ASSERT(callInfo.argc() == 1);
+
+  MDefinition* input = callInfo.getArg(0);
+
+  // Optimize int32 => number.
+  if (input->type() != MIRType::Int32) {
+    return InliningStatus_NotInlined;
+  }
+  if (!IsNumberType(getInlineReturnType())) {
+    return InliningStatus_NotInlined;
+  }
+
+  callInfo.setImplicitlyUsedUnchecked();
+
+  // ToLength(int32) is equivalent to max(int32, 0).
+  bool isMax = true;
+  MDefinition* constZero = constant(Int32Value(0));
+  MMinMax* max = MMinMax::New(alloc(), input, constZero, MIRType::Int32, isMax);
+  current->add(max);
+  current->push(max);
+
+  return InliningStatus_Inlined;
+}
+
 IonBuilder::InliningResult IonBuilder::inlineToString(CallInfo& callInfo) {
   MOZ_ASSERT(!callInfo.constructing());
   MOZ_ASSERT(callInfo.argc() == 1);
@@ -3569,8 +3549,8 @@ IonBuilder::InliningResult IonBuilder::inlineAtomicsCompareExchange(
   }
 
   Scalar::Type arrayType;
-  bool requiresCheck = false;
-  if (!atomicsMeetsPreconditions(callInfo, &arrayType, &requiresCheck)) {
+  TemporaryTypeSet::TypedArraySharedness sharedness;
+  if (!atomicsMeetsPreconditions(callInfo, &arrayType, &sharedness)) {
     return InliningStatus_NotInlined;
   }
 
@@ -3579,10 +3559,6 @@ IonBuilder::InliningResult IonBuilder::inlineAtomicsCompareExchange(
   MInstruction* elements;
   MDefinition* index;
   atomicsCheckBounds(callInfo, &elements, &index);
-
-  if (requiresCheck) {
-    addSharedTypedArrayGuard(callInfo.getArg(0));
-  }
 
   MCompareExchangeTypedArrayElement* cas =
       MCompareExchangeTypedArrayElement::New(alloc(), elements, index,
@@ -3607,8 +3583,8 @@ IonBuilder::InliningResult IonBuilder::inlineAtomicsExchange(
   }
 
   Scalar::Type arrayType;
-  bool requiresCheck = false;
-  if (!atomicsMeetsPreconditions(callInfo, &arrayType, &requiresCheck)) {
+  TemporaryTypeSet::TypedArraySharedness sharedness;
+  if (!atomicsMeetsPreconditions(callInfo, &arrayType, &sharedness)) {
     return InliningStatus_NotInlined;
   }
 
@@ -3617,10 +3593,6 @@ IonBuilder::InliningResult IonBuilder::inlineAtomicsExchange(
   MInstruction* elements;
   MDefinition* index;
   atomicsCheckBounds(callInfo, &elements, &index);
-
-  if (requiresCheck) {
-    addSharedTypedArrayGuard(callInfo.getArg(0));
-  }
 
   MInstruction* exchange = MAtomicExchangeTypedArrayElement::New(
       alloc(), elements, index, value, arrayType);
@@ -3638,8 +3610,8 @@ IonBuilder::InliningResult IonBuilder::inlineAtomicsLoad(CallInfo& callInfo) {
   }
 
   Scalar::Type arrayType;
-  bool requiresCheck = false;
-  if (!atomicsMeetsPreconditions(callInfo, &arrayType, &requiresCheck)) {
+  TemporaryTypeSet::TypedArraySharedness sharedness;
+  if (!atomicsMeetsPreconditions(callInfo, &arrayType, &sharedness)) {
     return InliningStatus_NotInlined;
   }
 
@@ -3649,18 +3621,21 @@ IonBuilder::InliningResult IonBuilder::inlineAtomicsLoad(CallInfo& callInfo) {
   MDefinition* index;
   atomicsCheckBounds(callInfo, &elements, &index);
 
-  if (requiresCheck) {
-    addSharedTypedArrayGuard(callInfo.getArg(0));
+  MemoryBarrierRequirement barrier = DoesRequireMemoryBarrier;
+  if (sharedness == TemporaryTypeSet::KnownUnshared) {
+    barrier = DoesNotRequireMemoryBarrier;
   }
 
-  MLoadUnboxedScalar* load = MLoadUnboxedScalar::New(
-      alloc(), elements, index, arrayType, DoesRequireMemoryBarrier);
+  auto* load =
+      MLoadUnboxedScalar::New(alloc(), elements, index, arrayType, barrier);
   load->setResultType(getInlineReturnType());
   current->add(load);
   current->push(load);
 
-  // Loads are considered effectful (they execute a memory barrier).
-  MOZ_TRY(resumeAfter(load));
+  // Loads are considered effectful (if they execute a memory barrier).
+  if (barrier == DoesRequireMemoryBarrier) {
+    MOZ_TRY(resumeAfter(load));
+  }
   return InliningStatus_Inlined;
 }
 
@@ -3688,8 +3663,8 @@ IonBuilder::InliningResult IonBuilder::inlineAtomicsStore(CallInfo& callInfo) {
   }
 
   Scalar::Type arrayType;
-  bool requiresCheck = false;
-  if (!atomicsMeetsPreconditions(callInfo, &arrayType, &requiresCheck,
+  TemporaryTypeSet::TypedArraySharedness sharedness;
+  if (!atomicsMeetsPreconditions(callInfo, &arrayType, &sharedness,
                                  DontCheckAtomicResult)) {
     return InliningStatus_NotInlined;
   }
@@ -3700,8 +3675,9 @@ IonBuilder::InliningResult IonBuilder::inlineAtomicsStore(CallInfo& callInfo) {
   MDefinition* index;
   atomicsCheckBounds(callInfo, &elements, &index);
 
-  if (requiresCheck) {
-    addSharedTypedArrayGuard(callInfo.getArg(0));
+  MemoryBarrierRequirement barrier = DoesRequireMemoryBarrier;
+  if (sharedness == TemporaryTypeSet::KnownUnshared) {
+    barrier = DoesNotRequireMemoryBarrier;
   }
 
   MDefinition* toWrite = value;
@@ -3710,7 +3686,7 @@ IonBuilder::InliningResult IonBuilder::inlineAtomicsStore(CallInfo& callInfo) {
     current->add(toWrite->toInstruction());
   }
   auto* store = MStoreUnboxedScalar::New(alloc(), elements, index, toWrite,
-                                         arrayType, DoesRequireMemoryBarrier);
+                                         arrayType, barrier);
   current->add(store);
   current->push(value);  // Either Int32 or not used; in either case correct
 
@@ -3730,16 +3706,12 @@ IonBuilder::InliningResult IonBuilder::inlineAtomicsBinop(
   }
 
   Scalar::Type arrayType;
-  bool requiresCheck = false;
-  if (!atomicsMeetsPreconditions(callInfo, &arrayType, &requiresCheck)) {
+  TemporaryTypeSet::TypedArraySharedness sharedness;
+  if (!atomicsMeetsPreconditions(callInfo, &arrayType, &sharedness)) {
     return InliningStatus_NotInlined;
   }
 
   callInfo.setImplicitlyUsedUnchecked();
-
-  if (requiresCheck) {
-    addSharedTypedArrayGuard(callInfo.getArg(0));
-  }
 
   MInstruction* elements;
   MDefinition* index;
@@ -3791,10 +3763,10 @@ IonBuilder::InliningResult IonBuilder::inlineAtomicsIsLockFree(
   return InliningStatus_Inlined;
 }
 
-bool IonBuilder::atomicsMeetsPreconditions(CallInfo& callInfo,
-                                           Scalar::Type* arrayType,
-                                           bool* requiresTagCheck,
-                                           AtomicCheckResult checkResult) {
+bool IonBuilder::atomicsMeetsPreconditions(
+    CallInfo& callInfo, Scalar::Type* arrayType,
+    TemporaryTypeSet::TypedArraySharedness* sharedness,
+    AtomicCheckResult checkResult) {
   if (!JitSupportsAtomics()) {
     return false;
   }
@@ -3807,8 +3779,7 @@ bool IonBuilder::atomicsMeetsPreconditions(CallInfo& callInfo,
     return false;
   }
 
-  // Ensure that the first argument is a TypedArray that maps shared
-  // memory.
+  // Ensure that the first argument is a TypedArray.
   //
   // Then check both that the element type is something we can
   // optimize and that the return type is suitable for that element
@@ -3819,10 +3790,7 @@ bool IonBuilder::atomicsMeetsPreconditions(CallInfo& callInfo,
     return false;
   }
 
-  TemporaryTypeSet::TypedArraySharedness sharedness =
-      TemporaryTypeSet::UnknownSharedness;
-  *arrayType = arg0Types->getTypedArrayType(constraints(), &sharedness);
-  *requiresTagCheck = sharedness != TemporaryTypeSet::KnownShared;
+  *arrayType = arg0Types->getTypedArrayType(constraints(), sharedness);
   switch (*arrayType) {
     case Scalar::Int8:
     case Scalar::Uint8:
@@ -3837,6 +3805,10 @@ bool IonBuilder::atomicsMeetsPreconditions(CallInfo& callInfo,
       // be.
       return checkResult == DontCheckAtomicResult ||
              getInlineReturnType() == MIRType::Double;
+    case Scalar::BigInt64:
+    case Scalar::BigUint64:
+      // Bug 1638295: Not yet implemented.
+      [[fallthrough]];
     default:
       // Excludes floating types and Uint8Clamped.
       return false;

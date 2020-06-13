@@ -46,7 +46,8 @@ class Http3Session final : public nsAHttpTransaction,
   NS_DECL_NSAHTTPSEGMENTWRITER
 
   Http3Session();
-  nsresult Init(const nsACString& aOrigin, nsISocketTransport* aSocketTransport,
+  nsresult Init(const nsACString& aOrigin, const nsACString& aAlpnToken,
+                nsISocketTransport* aSocketTransport,
                 HttpConnectionUDP* readerWriter);
 
   bool IsConnected() const { return mState == CONNECTED; }
@@ -96,6 +97,8 @@ class Http3Session final : public nsAHttpTransaction,
   void Authenticated(int32_t aError);
 
   nsresult ProcessOutputAndEvents();
+
+  const nsCString& GetAlpnToken() { return mAlpnToken; }
 
  private:
   ~Http3Session();
@@ -173,6 +176,7 @@ class Http3Session final : public nsAHttpTransaction,
   nsDataHashtable<nsCStringHashKey, bool> mJoinConnectionCache;
 
   RefPtr<QuicSocketControl> mSocketControl;
+  nsCString mAlpnToken;
 };
 
 NS_DEFINE_STATIC_IID_ACCESSOR(Http3Session, NS_HTTP3SESSION_IID);

@@ -2202,8 +2202,8 @@ WorkerPrivate::WorkerPrivate(
     RuntimeService::GetDefaultJSSettings(mJSSettings);
 
     {
-      JS::RealmOptions& chromeRealmOptions = mJSSettings.chrome.realmOptions;
-      JS::RealmOptions& contentRealmOptions = mJSSettings.content.realmOptions;
+      JS::RealmOptions& chromeRealmOptions = mJSSettings.chromeRealmOptions;
+      JS::RealmOptions& contentRealmOptions = mJSSettings.contentRealmOptions;
 
       JS::RealmBehaviors& chromeRealmBehaviors = chromeRealmOptions.behaviors();
       JS::RealmBehaviors& contentRealmBehaviors =
@@ -2535,6 +2535,7 @@ nsresult WorkerPrivate::GetLoadInfo(JSContext* aCx, nsPIDOMWindowInner* aWindow,
     loadInfo.mUseRegularPrincipal = aParent->UseRegularPrincipal();
     loadInfo.mHasStorageAccessPermissionGranted =
         aParent->HasStorageAccessPermissionGranted();
+    loadInfo.mCookieJarSettings = aParent->CookieJarSettings();
     loadInfo.mOriginAttributes = aParent->GetOriginAttributes();
     loadInfo.mServiceWorkersTestingInWindow =
         aParent->ServiceWorkersTestingInWindow();

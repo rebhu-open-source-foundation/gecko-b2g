@@ -495,11 +495,21 @@ bool WarpCacheIRTranspiler::emitLoadSymbolResult(SymbolOperandId symId) {
   return true;
 }
 
-bool WarpCacheIRTranspiler::emitLoadBooleanResult(bool val) {
-  auto* constant = MConstant::New(alloc(), BooleanValue(val));
-  add(constant);
-  pushResult(constant);
+bool WarpCacheIRTranspiler::emitLoadUndefinedResult() {
+  pushResult(constant(UndefinedValue()));
   return true;
+}
+
+bool WarpCacheIRTranspiler::emitLoadBooleanResult(bool val) {
+  pushResult(constant(BooleanValue(val)));
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitLoadInt32Constant(uint32_t valOffset,
+                                                  Int32OperandId resultId) {
+  int32_t val = int32StubField(valOffset);
+  auto* valConst = constant(Int32Value(val));
+  return defineOperand(resultId, valConst);
 }
 
 bool WarpCacheIRTranspiler::emitLoadEnclosingEnvironment(
@@ -556,6 +566,22 @@ bool WarpCacheIRTranspiler::emitLoadFixedSlotResult(ObjOperandId objId,
   uint32_t slotIndex = NativeObject::getFixedSlotIndexFromOffset(offset);
 
   auto* load = MLoadFixedSlot::New(alloc(), obj, slotIndex);
+  add(load);
+
+  pushResult(load);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitLoadFixedSlotTypedResult(ObjOperandId objId,
+                                                         uint32_t offsetOffset,
+                                                         ValueType type) {
+  int32_t offset = int32StubField(offsetOffset);
+
+  MDefinition* obj = getOperand(objId);
+  uint32_t slotIndex = NativeObject::getFixedSlotIndexFromOffset(offset);
+
+  auto* load = MLoadFixedSlot::New(alloc(), obj, slotIndex);
+  load->setResultType(MIRTypeFromValueType(JSValueType(type)));
   add(load);
 
   pushResult(load);
@@ -1260,6 +1286,96 @@ bool WarpCacheIRTranspiler::emitArrayPush(ObjOperandId objId,
   pushResult(ins);
 
   return resumeAfter(ins);
+}
+
+bool WarpCacheIRTranspiler::emitHasClassResult(ObjOperandId objId,
+                                               uint32_t claspOffset) {
+  MDefinition* obj = getOperand(objId);
+  const JSClass* clasp = classStubField(claspOffset);
+
+  auto* hasClass = MHasClass::New(alloc(), obj, clasp);
+  add(hasClass);
+
+  pushResult(hasClass);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitCallRegExpMatcherResult(
+    ObjOperandId regexpId, StringOperandId inputId,
+    Int32OperandId lastIndexId) {
+  MDefinition* regexp = getOperand(regexpId);
+  MDefinition* input = getOperand(inputId);
+  MDefinition* lastIndex = getOperand(lastIndexId);
+
+  auto* matcher = MRegExpMatcher::New(alloc(), regexp, input, lastIndex);
+  addEffectful(matcher);
+  pushResult(matcher);
+
+  return resumeAfter(matcher);
+}
+
+bool WarpCacheIRTranspiler::emitCallRegExpSearcherResult(
+    ObjOperandId regexpId, StringOperandId inputId,
+    Int32OperandId lastIndexId) {
+  MDefinition* regexp = getOperand(regexpId);
+  MDefinition* input = getOperand(inputId);
+  MDefinition* lastIndex = getOperand(lastIndexId);
+
+  auto* searcher = MRegExpSearcher::New(alloc(), regexp, input, lastIndex);
+  addEffectful(searcher);
+  pushResult(searcher);
+
+  return resumeAfter(searcher);
+}
+
+bool WarpCacheIRTranspiler::emitCallRegExpTesterResult(
+    ObjOperandId regexpId, StringOperandId inputId,
+    Int32OperandId lastIndexId) {
+  MDefinition* regexp = getOperand(regexpId);
+  MDefinition* input = getOperand(inputId);
+  MDefinition* lastIndex = getOperand(lastIndexId);
+
+  auto* tester = MRegExpTester::New(alloc(), regexp, input, lastIndex);
+  addEffectful(tester);
+  pushResult(tester);
+
+  return resumeAfter(tester);
+}
+
+bool WarpCacheIRTranspiler::emitCallSubstringKernelResult(
+    StringOperandId strId, Int32OperandId beginId, Int32OperandId lengthId) {
+  MDefinition* str = getOperand(strId);
+  MDefinition* begin = getOperand(beginId);
+  MDefinition* length = getOperand(lengthId);
+
+  auto* substr = MSubstr::New(alloc(), str, begin, length);
+  add(substr);
+
+  pushResult(substr);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitRegExpPrototypeOptimizableResult(
+    ObjOperandId protoId) {
+  MDefinition* proto = getOperand(protoId);
+
+  auto* optimizable = MRegExpPrototypeOptimizable::New(alloc(), proto);
+  add(optimizable);
+
+  pushResult(optimizable);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitRegExpInstanceOptimizableResult(
+    ObjOperandId regexpId, ObjOperandId protoId) {
+  MDefinition* regexp = getOperand(regexpId);
+  MDefinition* proto = getOperand(protoId);
+
+  auto* optimizable = MRegExpInstanceOptimizable::New(alloc(), regexp, proto);
+  add(optimizable);
+
+  pushResult(optimizable);
+  return true;
 }
 
 bool WarpCacheIRTranspiler::emitIsArrayResult(ValOperandId inputId) {

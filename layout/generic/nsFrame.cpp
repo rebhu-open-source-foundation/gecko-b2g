@@ -298,17 +298,17 @@ std::ostream& operator<<(std::ostream& aStream, const nsReflowStatus& aStatus) {
 #ifdef DEBUG
 static bool gShowFrameBorders = false;
 
-void nsFrame::ShowFrameBorders(bool aEnable) { gShowFrameBorders = aEnable; }
+void nsIFrame::ShowFrameBorders(bool aEnable) { gShowFrameBorders = aEnable; }
 
-bool nsFrame::GetShowFrameBorders() { return gShowFrameBorders; }
+bool nsIFrame::GetShowFrameBorders() { return gShowFrameBorders; }
 
 static bool gShowEventTargetFrameBorder = false;
 
-void nsFrame::ShowEventTargetFrameBorder(bool aEnable) {
+void nsIFrame::ShowEventTargetFrameBorder(bool aEnable) {
   gShowEventTargetFrameBorder = aEnable;
 }
 
-bool nsFrame::GetShowEventTargetFrameBorder() {
+bool nsIFrame::GetShowEventTargetFrameBorder() {
   return gShowEventTargetFrameBorder;
 }
 
@@ -316,7 +316,7 @@ bool nsFrame::GetShowEventTargetFrameBorder() {
  * Note: the log module is created during library initialization which
  * means that you cannot perform logging before then.
  */
-mozilla::LazyLogModule nsFrame::sFrameLogModule("frame");
+mozilla::LazyLogModule nsIFrame::sFrameLogModule("frame");
 
 #endif
 
@@ -1916,7 +1916,7 @@ bool nsIFrame::Extend3DContext(const nsStyleDisplay* aStyleDisplay,
     return false;
   }
 
-  return !nsFrame::ShouldApplyOverflowClipping(this, disp) &&
+  return !nsIFrame::ShouldApplyOverflowClipping(this, disp) &&
          !GetClipPropClipRect(disp, effects, GetSize()) &&
          !nsSVGIntegrationUtils::UsingEffectsForFrame(this);
 }
@@ -4461,8 +4461,8 @@ nsresult nsIFrame::GetContentForEvent(WidgetEvent* aEvent,
   return NS_OK;
 }
 
-void nsFrame::FireDOMEvent(const nsAString& aDOMEventName,
-                           nsIContent* aContent) {
+void nsIFrame::FireDOMEvent(const nsAString& aDOMEventName,
+                            nsIContent* aContent) {
   nsIContent* target = aContent ? aContent : GetContent();
 
   if (target) {
@@ -7579,7 +7579,7 @@ nsIFrame* nsIFrame::GetContainingBlock(
 
 #ifdef DEBUG_FRAME_DUMP
 
-int32_t nsFrame::ContentIndexInContainer(const nsIFrame* aFrame) {
+int32_t nsIFrame::ContentIndexInContainer(const nsIFrame* aFrame) {
   int32_t result = -1;
 
   nsIContent* content = aFrame->GetContent();
@@ -7774,12 +7774,12 @@ void nsIFrame::ListWithMatchedRules(FILE* out, const char* aPrefix) const {
   ListMatchedRules(out, rulePrefix.get());
 }
 
-nsresult nsFrame::GetFrameName(nsAString& aResult) const {
+nsresult nsIFrame::GetFrameName(nsAString& aResult) const {
   return MakeFrameName(NS_LITERAL_STRING("Frame"), aResult);
 }
 
-nsresult nsFrame::MakeFrameName(const nsAString& aType,
-                                nsAString& aResult) const {
+nsresult nsIFrame::MakeFrameName(const nsAString& aType,
+                                 nsAString& aResult) const {
   aResult = aType;
   if (mContent && !mContent->IsText()) {
     nsAutoString buf;
@@ -8520,7 +8520,7 @@ nsresult nsIFrame::PeekOffset(nsPeekOffsetStruct* aPos) {
       nsIFrame* blockFrame = this;
 
       while (NS_FAILED(result)) {
-        int32_t thisLine = nsFrame::GetLineNumber(
+        int32_t thisLine = nsIFrame::GetLineNumber(
             blockFrame, aPos->mScrollViewStop, &blockFrame);
         if (thisLine < 0) return NS_ERROR_FAILURE;
         iter = blockFrame->GetLineIterator();
@@ -8616,7 +8616,7 @@ nsresult nsIFrame::PeekOffset(nsPeekOffsetStruct* aPos) {
     case eSelectEndLine: {
       // Adjusted so that the caret can't get confused when content changes
       nsIFrame* blockFrame = AdjustFrameForSelectionStyles(this);
-      int32_t thisLine = nsFrame::GetLineNumber(
+      int32_t thisLine = nsIFrame::GetLineNumber(
           blockFrame, aPos->mScrollViewStop, &blockFrame);
       if (thisLine < 0) return NS_ERROR_FAILURE;
       nsAutoLineIterator it = blockFrame->GetLineIterator();
@@ -8788,8 +8788,8 @@ nsresult nsIFrame::CheckVisibility(nsPresContext*, int32_t, int32_t, bool,
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
-int32_t nsFrame::GetLineNumber(nsIFrame* aFrame, bool aLockScroll,
-                               nsIFrame** aContainingBlock) {
+int32_t nsIFrame::GetLineNumber(nsIFrame* aFrame, bool aLockScroll,
+                                nsIFrame** aContainingBlock) {
   NS_ASSERTION(aFrame, "null aFrame");
   nsIFrame* blockFrame = aFrame;
   nsIFrame* thisBlock;
@@ -8843,7 +8843,7 @@ nsresult nsIFrame::GetFrameFromDirection(
     nsIFrame* blockFrame;
 
     int32_t thisLine =
-        nsFrame::GetLineNumber(traversedFrame, aScrollViewStop, &blockFrame);
+        nsIFrame::GetLineNumber(traversedFrame, aScrollViewStop, &blockFrame);
     if (thisLine < 0) return NS_ERROR_FAILURE;
 
     nsAutoLineIterator it = blockFrame->GetLineIterator();
@@ -9121,7 +9121,7 @@ static nsRect UnionBorderBoxes(
   }
   const nsStyleDisplay* disp = aFrame->StyleDisplay();
   LayoutFrameType fType = aFrame->Type();
-  if (nsFrame::ShouldApplyOverflowClipping(aFrame, disp) ||
+  if (nsIFrame::ShouldApplyOverflowClipping(aFrame, disp) ||
       fType == LayoutFrameType::Scroll ||
       fType == LayoutFrameType::ListControl ||
       fType == LayoutFrameType::SVGOuterSVG) {
@@ -9478,7 +9478,7 @@ bool nsIFrame::FinishAndStoreOverflow(nsOverflowAreas& aOverflowAreas,
       DiscardDisplayItems(this, [](nsDisplayItemBase* aItem) {
         return aItem->GetType() == DisplayItemType::TYPE_TEXT_OVERFLOW;
       });
-      SchedulePaint(PAINT_DEFAULT, false);
+      SchedulePaint(PAINT_DEFAULT);
     }
   }
   return anyOverflowChanged;
@@ -11129,6 +11129,58 @@ void nsIFrame::UpdateVisibleDescendantsState() {
   } else {
     mAllDescendantsAreInvisible = HasNoVisibleDescendants(this);
   }
+}
+
+bool nsIFrame::ShouldApplyOverflowClipping(const nsIFrame* aFrame,
+                                           const nsStyleDisplay* aDisp) {
+  MOZ_ASSERT(aDisp == aFrame->StyleDisplay(), "Wong display struct");
+  // clip overflow:-moz-hidden-unscrollable, except for nsListControlFrame,
+  // which is an nsHTMLScrollFrame.
+  if (MOZ_UNLIKELY(aDisp->mOverflowX == StyleOverflow::MozHiddenUnscrollable &&
+                   !aFrame->IsListControlFrame())) {
+    return true;
+  }
+
+  // contain: paint, which we interpret as -moz-hidden-unscrollable
+  // Exception: for scrollframes, we don't need contain:paint to add any
+  // clipping, because the scrollable frame will already clip overflowing
+  // content, and because contain:paint should prevent all means of escaping
+  // that clipping (e.g. because it forms a fixed-pos containing block).
+  if (aDisp->IsContainPaint() && !aFrame->IsScrollFrame() &&
+      aFrame->IsFrameOfType(eSupportsContainLayoutAndPaint)) {
+    return true;
+  }
+
+  // and overflow:hidden that we should interpret as -moz-hidden-unscrollable
+  if (aDisp->mOverflowX == StyleOverflow::Hidden &&
+      aDisp->mOverflowY == StyleOverflow::Hidden) {
+    // REVIEW: these are the frame types that set up clipping.
+    LayoutFrameType type = aFrame->Type();
+    switch (type) {
+      case LayoutFrameType::Table:
+      case LayoutFrameType::TableCell:
+      case LayoutFrameType::SVGOuterSVG:
+      case LayoutFrameType::SVGInnerSVG:
+      case LayoutFrameType::SVGSymbol:
+      case LayoutFrameType::SVGForeignObject:
+        return true;
+      default:
+        if (aFrame->IsFrameOfType(nsIFrame::eReplacedContainsBlock)) {
+          // It has an anonymous scroll frame that handles any overflow
+          // except TextInput.
+          return type != LayoutFrameType::TextInput;
+        }
+    }
+  }
+
+  if ((aFrame->GetStateBits() & NS_FRAME_SVG_LAYOUT)) {
+    return false;
+  }
+
+  // If we're paginated and a block, and have NS_BLOCK_CLIP_PAGINATED_OVERFLOW
+  // set, then we want to clip our overflow.
+  return (aFrame->GetStateBits() & NS_BLOCK_CLIP_PAGINATED_OVERFLOW) != 0 &&
+         aFrame->PresContext()->IsPaginated() && aFrame->IsBlockFrame();
 }
 
 // Box layout debugging

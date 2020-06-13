@@ -296,7 +296,6 @@ class MOZ_STACK_CLASS IonBuilder {
   MInstruction* addShapeGuard(MDefinition* obj, Shape* const shape);
   MInstruction* addGroupGuard(MDefinition* obj, ObjectGroup* group,
                               BailoutKind bailoutKind);
-  MInstruction* addSharedTypedArrayGuard(MDefinition* obj);
 
   MInstruction* addGuardReceiverPolymorphic(
       MDefinition* obj, const BaselineInspector::ReceiverVector& receivers);
@@ -836,12 +835,9 @@ class MOZ_STACK_CLASS IonBuilder {
   InliningResult inlineToObject(CallInfo& callInfo);
   InliningResult inlineIsCrossRealmArrayConstructor(CallInfo& callInfo);
   InliningResult inlineToInteger(CallInfo& callInfo);
+  InliningResult inlineToLength(CallInfo& callInfo);
   InliningResult inlineToString(CallInfo& callInfo);
   InliningResult inlineDump(CallInfo& callInfo);
-  InliningResult inlineHasClass(CallInfo& callInfo, const JSClass* clasp,
-                                const JSClass* clasp2 = nullptr,
-                                const JSClass* clasp3 = nullptr,
-                                const JSClass* clasp4 = nullptr);
   InliningResult inlineGuardToClass(CallInfo& callInfo, InlinableNative native);
   InliningResult inlineIsConstructing(CallInfo& callInfo);
   InliningResult inlineSubstringKernel(CallInfo& callInfo);
@@ -885,7 +881,7 @@ class MOZ_STACK_CLASS IonBuilder {
 
   bool atomicsMeetsPreconditions(
       CallInfo& callInfo, Scalar::Type* arrayElementType,
-      bool* requiresDynamicCheck,
+      TemporaryTypeSet::TypedArraySharedness* sharedness,
       AtomicCheckResult checkResult = DoCheckAtomicResult);
   void atomicsCheckBounds(CallInfo& callInfo, MInstruction** elements,
                           MDefinition** index);

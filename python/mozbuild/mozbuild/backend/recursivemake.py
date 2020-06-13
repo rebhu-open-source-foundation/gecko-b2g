@@ -1409,6 +1409,14 @@ class RecursiveMakeBackend(MakeBackend):
         # Process library-based defines
         self._process_defines(obj.lib_defines, backend_file)
 
+    def _add_install_target(self, backend_file, install_target, tier, dest, files):
+        self._no_skip[tier].add(backend_file.relobjdir)
+        for f in files:
+            backend_file.write('%s_FILES += %s\n' % (install_target, f))
+        backend_file.write('%s_DEST := %s\n' % (install_target, dest))
+        backend_file.write('%s_TARGET := %s\n' % (install_target, tier))
+        backend_file.write('INSTALL_TARGETS += %s\n' % install_target)
+
     def _process_final_target_files(self, obj, files, backend_file):
         target = obj.install_target
         path = mozpath.basedir(target, (
@@ -1431,7 +1439,13 @@ class RecursiveMakeBackend(MakeBackend):
         for path, files in files.walk():
             target_var = (mozpath.join(target, path)
                           if path else target).replace('/', '_')
-            have_objdir_files = False
+            # We don't necessarily want to combine these, because non-wildcard
+            # absolute files tend to be libraries, and we don't want to mix
+            # those in with objdir headers that will be installed during export.
+            # (See bug 1642882 for details.)
+            objdir_files = []
+            absolute_files = []
+
             for f in files:
                 assert not isinstance(f, RenamedSourcePath)
                 dest = mozpath.join(reltarget, path, f.target_basename)
@@ -1446,21 +1460,33 @@ class RecursiveMakeBackend(MakeBackend):
                             install_manifest.add_pattern_link(basepath, wild, path)
                         else:
                             install_manifest.add_pattern_link(f.srcdir, f, path)
+                    elif isinstance(f, AbsolutePath):
+                        if not f.full_path.lower().endswith(('.dll', '.pdb', '.so')):
+                            raise Exception("Absolute paths installed to FINAL_TARGET_FILES must"
+                                            " only be shared libraries or associated debug"
+                                            " information.")
+                        install_manifest.add_optional_exists(dest)
+                        absolute_files.append(f.full_path)
                     else:
                         install_manifest.add_link(f.full_path, dest)
                 else:
                     install_manifest.add_optional_exists(dest)
-                    backend_file.write('%s_FILES += %s\n' % (
-                        target_var, self._pretty_path(f, backend_file)))
-                    have_objdir_files = True
-            if have_objdir_files:
+                    objdir_files.append(self._pretty_path(f, backend_file))
+            install_location = '$(DEPTH)/%s' % mozpath.join(target, path)
+            if objdir_files:
                 tier = 'export' if obj.install_target == 'dist/include' else 'misc'
-                self._no_skip[tier].add(backend_file.relobjdir)
-                backend_file.write('%s_DEST := $(DEPTH)/%s\n'
-                                   % (target_var,
-                                      mozpath.join(target, path)))
-                backend_file.write('%s_TARGET := %s\n' % (target_var, tier))
-                backend_file.write('INSTALL_TARGETS += %s\n' % target_var)
+                self._add_install_target(backend_file, target_var, tier,
+                                         install_location, objdir_files)
+            if absolute_files:
+                # Unfortunately, we can't use _add_install_target because on
+                # Windows, the absolute file paths that we want to install
+                # from often have spaces.  So we write our own rule.
+                self._no_skip['misc'].add(backend_file.relobjdir)
+                backend_file.write('misc::\n%s\n' %
+                                   '\n'.join(
+                                       '\t$(INSTALL) %s %s' % (
+                                           make_quote(shell_quote(f)), install_location)
+                                       for f in absolute_files))
 
     def _process_final_target_pp_files(self, obj, files, backend_file, name):
         # Bug 1177710 - We'd like to install these via manifests as

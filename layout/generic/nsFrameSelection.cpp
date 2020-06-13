@@ -17,6 +17,7 @@
 #include "mozilla/HTMLEditor.h"
 #include "mozilla/PresShell.h"
 #include "mozilla/ScrollTypes.h"
+#include "mozilla/StaticPrefs_bidi.h"
 #include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/StaticPrefs_layout.h"
 
@@ -365,8 +366,6 @@ nsFrameSelection::nsFrameSelection(PresShell* aPresShell, nsIContent* aLimiter,
   mPresShell = aPresShell;
   mDragState = false;
   mLimiters.mLimiter = aLimiter;
-  mCaret.mMovementStyle =
-      Preferences::GetInt("bidi.edit.caret_movement_style", 2);
 
   // This should only ever be initialized on the main thread, so we are OK here.
   MOZ_ASSERT(NS_IsMainThread());
@@ -435,6 +434,14 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(nsFrameSelection, AddRef)
 NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(nsFrameSelection, Release)
+
+bool nsFrameSelection::Caret::IsVisualMovement(
+    bool aContinueSelection, CaretMovementStyle aMovementStyle) const {
+  int32_t movementFlag = StaticPrefs::bidi_edit_caret_movement_style();
+  return aMovementStyle == eVisual ||
+         (aMovementStyle == eUsePrefStyle &&
+          (movementFlag == 1 || (movementFlag == 2 && !aContinueSelection)));
+}
 
 // Get the x (or y, in vertical writing mode) position requested
 // by the Key Handling for line-up/down
@@ -673,6 +680,16 @@ static nsINode* GetClosestInclusiveTableCellAncestor(nsINode* aDomNode) {
   return nullptr;
 }
 
+static nsDirection GetCaretDirection(const nsIFrame& aFrame,
+                                     nsDirection aDirection,
+                                     bool aVisualMovement) {
+  const nsBidiDirection paragraphDirection =
+      nsBidiPresUtils::ParagraphDirection(&aFrame);
+  return (aVisualMovement && paragraphDirection == NSBIDI_RTL)
+             ? nsDirection(1 - aDirection)
+             : aDirection;
+}
+
 nsresult nsFrameSelection::MoveCaret(nsDirection aDirection,
                                      bool aContinueSelection,
                                      const nsSelectionAmount aAmount,
@@ -742,12 +759,31 @@ nsresult nsFrameSelection::MoveCaret(nsDirection aDirection,
     mDesiredCaretPos.Set(desiredPos);
   }
 
+  bool visualMovement =
+      mCaret.IsVisualMovement(aContinueSelection, aMovementStyle);
+  nsIFrame* frame = sel->GetPrimaryFrameForFocusNode(visualMovement);
+  if (!frame) {
+    return NS_ERROR_FAILURE;
+  }
+
+  Result<bool, nsresult> isIntraLineCaretMove = IsIntraLineCaretMove(aAmount);
+  nsDirection direction{aDirection};
+  if (isIntraLineCaretMove.isErr()) {
+    return isIntraLineCaretMove.unwrapErr();
+  }
+  if (isIntraLineCaretMove.inspect()) {
+    // Forget old caret position for moving caret to different line since
+    // caret position may be changed.
+    mDesiredCaretPos.Invalidate();
+    direction = GetCaretDirection(*frame, aDirection, visualMovement);
+  }
+
   if (doCollapse) {
     const nsRange* anchorFocusRange = sel->GetAnchorFocusRange();
     if (anchorFocusRange) {
       nsINode* node;
       int32_t offset;
-      if (aDirection == eDirPrevious) {
+      if (direction == eDirPrevious) {
         node = anchorFocusRange->GetStartContainer();
         offset = anchorFocusRange->StartOffset();
       } else {
@@ -761,31 +797,12 @@ nsresult nsFrameSelection::MoveCaret(nsDirection aDirection,
     return NS_OK;
   }
 
-  const bool visualMovement =
-      mCaret.IsVisualMovement(aContinueSelection, aMovementStyle);
-  nsIFrame* frame;
-  int32_t offsetused = 0;
-  nsresult rv =
-      sel->GetPrimaryFrameForFocusNode(&frame, &offsetused, visualMovement);
-  if (NS_FAILED(rv) || !frame) {
-    return NS_FAILED(rv) ? rv : NS_ERROR_FAILURE;
-  }
-
   CaretAssociateHint tHint(mCaret.mHint);  // temporary variable so we dont set
                                            // mCaret.mHint until it is necessary
 
-  Result<bool, nsresult> isIntraLineCaretMove = IsIntraLineCaretMove(aAmount);
-  if (isIntraLineCaretMove.isErr()) {
-    return NS_ERROR_FAILURE;
-  }
-  if (isIntraLineCaretMove.inspect()) {
-    // Forget old caret position for moving caret to different line since
-    // caret position may be changed.
-    mDesiredCaretPos.Invalidate();
-  }
-
   Result<nsPeekOffsetStruct, nsresult> result = PeekOffsetForCaretMove(
-      aDirection, aContinueSelection, aAmount, aMovementStyle, desiredPos);
+      direction, aContinueSelection, aAmount, aMovementStyle, desiredPos);
+  nsresult rv;
   if (result.isOk() && result.inspect().mResultContent) {
     const nsPeekOffsetStruct& pos = result.inspect();
     nsIFrame* theFrame;
@@ -851,7 +868,7 @@ nsresult nsFrameSelection::MoveCaret(nsDirection aDirection,
                                     : FocusMode::kCollapseToNewPoint;
     rv = TakeFocus(MOZ_KnownLive(pos.mResultContent), pos.mContentOffset,
                    pos.mContentOffset, tHint, focusMode);
-  } else if (aAmount <= eSelectWordNoSpace && aDirection == eDirNext &&
+  } else if (aAmount <= eSelectWordNoSpace && direction == eDirNext &&
              !aContinueSelection) {
     // Collapse selection if PeekOffset failed, we either
     //  1. bumped into the BRFrame, bug 207623
@@ -888,41 +905,26 @@ Result<nsPeekOffsetStruct, nsresult> nsFrameSelection::PeekOffsetForCaretMove(
   const bool visualMovement =
       mCaret.IsVisualMovement(aContinueSelection, aMovementStyle);
 
-  nsIFrame* frame = nullptr;
   int32_t offsetused = 0;
-  nsresult rv = selection->GetPrimaryFrameForFocusNode(&frame, &offsetused,
-                                                       visualMovement);
-  if (NS_FAILED(rv) || !frame) {
-    return Err(NS_FAILED(rv) ? rv : NS_ERROR_FAILURE);
+  nsIFrame* frame =
+      selection->GetPrimaryFrameForFocusNode(visualMovement, &offsetused);
+  if (!frame) {
+    return Err(NS_ERROR_FAILURE);
   }
 
   const auto kForceEditableRegion =
       selection->IsEditorSelection()
           ? nsPeekOffsetStruct::ForceEditableRegion::Yes
           : nsPeekOffsetStruct::ForceEditableRegion::No;
-  const nsBidiDirection kParagraphDirection =
-      nsBidiPresUtils::ParagraphDirection(frame);
-
-  nsDirection direction{aDirection};
-  Result<bool, nsresult> isIntraLineCareMove = IsIntraLineCaretMove(aAmount);
-  if (isIntraLineCareMove.isErr()) {
-    return Err(NS_ERROR_FAILURE);
-  }
-  if (isIntraLineCareMove.inspect()) {
-    // If caret is moving in same line and user expects visual movement,
-    // we revert the direction if direction of current paragraph is RTL.
-    direction = (visualMovement && kParagraphDirection == NSBIDI_RTL)
-                    ? nsDirection(1 - aDirection)
-                    : aDirection;
-  }
 
   // set data using mLimiters.mLimiter to stop on scroll views.  If we have a
   // limiter then we stop peeking when we hit scrollable views.  If no limiter
   // then just let it go ahead
-  nsPeekOffsetStruct pos(aAmount, direction, offsetused, aDesiredCaretPos, true,
-                         !!mLimiters.mLimiter, true, visualMovement,
+  nsPeekOffsetStruct pos(aAmount, aDirection, offsetused, aDesiredCaretPos,
+                         true, !!mLimiters.mLimiter, true, visualMovement,
                          aContinueSelection, kForceEditableRegion);
-  if (NS_FAILED(rv = frame->PeekOffset(&pos))) {
+  nsresult rv = frame->PeekOffset(&pos);
+  if (NS_FAILED(rv)) {
     return Err(rv);
   }
   return pos;
@@ -1128,17 +1130,13 @@ void nsFrameSelection::BidiLevelFromClick(nsIContent* aNode,
   SetCaretBidiLevelAndMaybeSchedulePaint(clickInFrame->GetEmbeddingLevel());
 }
 
-bool nsFrameSelection::MaintainedRange::AdjustNormalSelection(
+void nsFrameSelection::MaintainedRange::AdjustNormalSelection(
     const nsIContent* aContent, const int32_t aOffset,
     Selection& aNormalSelection) const {
   MOZ_ASSERT(aNormalSelection.Type() == SelectionType::eNormal);
 
-  if (!mRange) {
-    return false;
-  }
-
-  if (!aContent) {
-    return false;
+  if (!mRange || !aContent) {
+    return;
   }
 
   nsINode* rangeStartNode = mRange->GetStartContainer();
@@ -1152,7 +1150,7 @@ bool nsFrameSelection::MaintainedRange::AdjustNormalSelection(
     // Potentially handle this properly when Selection across Shadow DOM
     // boundary is implemented
     // (https://bugzilla.mozilla.org/show_bug.cgi?id=1607497).
-    return false;
+    return;
   }
 
   const Maybe<int32_t> relToEnd = nsContentUtils::ComparePoints(
@@ -1161,25 +1159,21 @@ bool nsFrameSelection::MaintainedRange::AdjustNormalSelection(
     // Potentially handle this properly when Selection across Shadow DOM
     // boundary is implemented
     // (https://bugzilla.mozilla.org/show_bug.cgi?id=1607497).
-    return false;
+    return;
   }
 
-  // If aContent/aOffset is inside the maintained selection, or if it is on the
-  // "anchor" side of the maintained selection, we need to do something.
-  if ((*relToStart < 0 && *relToEnd > 0) ||
+  // If aContent/aOffset is inside (or at the edge of) the maintained
+  // selection, or if it is on the "anchor" side of the maintained selection,
+  // we need to do something.
+  if ((*relToStart <= 0 && *relToEnd >= 0) ||
       (*relToStart > 0 && aNormalSelection.GetDirection() == eDirNext) ||
       (*relToEnd < 0 && aNormalSelection.GetDirection() == eDirPrevious)) {
     // Set the current range to the maintained range.
     aNormalSelection.ReplaceAnchorFocusRange(mRange);
-    if (*relToStart < 0 && *relToEnd > 0) {
-      // We're inside the maintained selection, just keep it selected.
-      return true;
-    }
-    // Reverse the direction of the selection so that the anchor will be on the
+    // Set the direction of the selection so that the anchor will be on the
     // far side of the maintained selection, relative to aContent/aOffset.
     aNormalSelection.SetDirection(*relToStart > 0 ? eDirPrevious : eDirNext);
   }
-  return false;
 }
 
 void nsFrameSelection::MaintainedRange::AdjustContentOffsets(
@@ -1270,10 +1264,9 @@ nsresult nsFrameSelection::HandleClick(nsIContent* aNewFocus,
     RefPtr<Selection> selection = mDomSelections[index];
     MOZ_ASSERT(selection);
 
-    if ((aFocusMode == FocusMode::kExtendSelection) &&
-        mMaintainedRange.AdjustNormalSelection(aNewFocus, aContentOffset,
-                                               *selection)) {
-      return NS_OK;  // shift clicked to maintained selection. rejected.
+    if (aFocusMode == FocusMode::kExtendSelection) {
+      mMaintainedRange.AdjustNormalSelection(aNewFocus, aContentOffset,
+                                             *selection);
     }
 
     AutoPrepareFocusRange prep(selection,
@@ -1308,10 +1301,8 @@ void nsFrameSelection::HandleDrag(nsIFrame* aFrame, const nsPoint& aPoint) {
   if (newFrame->IsSelected() && selection) {
     // `MOZ_KnownLive` required because of
     // https://bugzilla.mozilla.org/show_bug.cgi?id=1636889.
-    if (mMaintainedRange.AdjustNormalSelection(MOZ_KnownLive(offsets.content),
-                                               offsets.offset, *selection)) {
-      return;
-    }
+    mMaintainedRange.AdjustNormalSelection(MOZ_KnownLive(offsets.content),
+                                           offsets.offset, *selection);
   }
 
   const bool scrollViewStop = mLimiters.mLimiter != nullptr;
@@ -2021,23 +2012,19 @@ nsresult nsFrameSelection::PhysicalMove(int16_t aDirection, int16_t aAmount,
       {eDirNext, blockNextAmount}};
 
   WritingMode wm;
-  nsIFrame* frame = nullptr;
-  int32_t offsetused = 0;
-  if (NS_SUCCEEDED(
-          sel->GetPrimaryFrameForFocusNode(&frame, &offsetused, true))) {
-    if (frame) {
-      if (!frame->Style()->IsTextCombined()) {
-        wm = frame->GetWritingMode();
-      } else {
-        // Using different direction for horizontal-in-vertical would
-        // make it hard to navigate via keyboard. Inherit the moving
-        // direction from its parent.
-        MOZ_ASSERT(frame->IsTextFrame());
-        wm = frame->GetParent()->GetWritingMode();
-        MOZ_ASSERT(wm.IsVertical(),
-                   "Text combined "
-                   "can only appear in vertical text");
-      }
+  nsIFrame* frame = sel->GetPrimaryFrameForFocusNode(true);
+  if (frame) {
+    if (!frame->Style()->IsTextCombined()) {
+      wm = frame->GetWritingMode();
+    } else {
+      // Using different direction for horizontal-in-vertical would
+      // make it hard to navigate via keyboard. Inherit the moving
+      // direction from its parent.
+      MOZ_ASSERT(frame->IsTextFrame());
+      wm = frame->GetParent()->GetWritingMode();
+      MOZ_ASSERT(wm.IsVertical(),
+                 "Text combined "
+                 "can only appear in vertical text");
     }
   }
 

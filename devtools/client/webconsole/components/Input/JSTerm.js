@@ -131,6 +131,7 @@ class JSTerm extends Component {
 
     this._onEditorChanges = this._onEditorChanges.bind(this);
     this._onEditorBeforeChange = this._onEditorBeforeChange.bind(this);
+    this._onEditorKeyHandled = this._onEditorKeyHandled.bind(this);
     this.onContextMenu = this.onContextMenu.bind(this);
     this.imperativeUpdate = this.imperativeUpdate.bind(this);
 
@@ -497,6 +498,9 @@ class JSTerm extends Component {
 
       this.editor.on("changes", this._onEditorChanges);
       this.editor.on("beforeChange", this._onEditorBeforeChange);
+      this.editor.on("blur", this._onEditorBlur);
+      this.editor.on("keyHandled", this._onEditorKeyHandled);
+
       this.editor.appendToLocalElement(this.node);
       const cm = this.editor.codeMirror;
       cm.on("paste", (_, event) => this.props.onPaste(event));
@@ -520,6 +524,19 @@ class JSTerm extends Component {
           }
         }
       });
+
+      this.resizeObserver = new ResizeObserver(() => {
+        // If we don't have the node reference, or if the node isn't connected
+        // anymore, we disconnect the resize observer (componentWillUnmount is never
+        // called on this component, so we have to do it here).
+        if (!this.node || !this.node.isConnected) {
+          this.resizeObserver.disconnect();
+          return;
+        }
+        // Calling `refresh` will update the cursor position, and all the selection blocks.
+        this.editor.codeMirror.refresh();
+      });
+      this.resizeObserver.observe(this.node);
 
       // Update the character width needed for the popup offset calculations.
       this._inputCharWidth = this._getInputCharWidth();
@@ -814,6 +831,41 @@ class JSTerm extends Component {
           item.preLabel += addedText;
         }
       });
+    }
+  }
+
+  /**
+   * Even handler for the "blur" event fired by codeMirror.
+   */
+  _onEditorBlur(cm) {
+    if (cm.somethingSelected()) {
+      // If there's a selection when the input is blurred, then we remove it by setting
+      // the cursor at the position that matches the start of the first selection.
+      const [{ head }] = cm.listSelections();
+      cm.setCursor(head, { scroll: false });
+    }
+  }
+
+  /**
+   * Fired after a key is handled through a key map.
+   *
+   * @param {CodeMirror} cm: codeMirror instance
+   * @param {String} key: The key that was handled
+   * @param {Event} e: The keypress event
+   */
+  _onEditorKeyHandled(cm, key, e) {
+    // The autocloseBracket addon handle closing brackets keys when they're typed, but
+    // there's already an existing closing bracket.
+    // ex:
+    //  1. input is `foo(x|)` (where | represents the cursor)
+    //  2. user types `)`
+    //  3. input is now `foo(x)|` (i.e. the typed character wasn't inserted)
+    // In such case, _onEditorBeforeChange isn't triggered, so we need to hide the popup
+    // here. We can do that because this function won't be called when codeMirror _do_
+    // insert the closing char.
+    const closingKeys = [`']'`, `')'`, "'}'"];
+    if (this.autocompletePopup.isOpen && closingKeys.includes(key)) {
+      this.clearCompletion();
     }
   }
 
@@ -1114,6 +1166,7 @@ class JSTerm extends Component {
   acceptProposedCompletion() {
     const {
       completionText,
+      numberOfCharsToMoveTheCursorForward,
       numberOfCharsToReplaceCharsBeforeCursor,
     } = this.getInputValueWithCompletionText();
 
@@ -1125,6 +1178,14 @@ class JSTerm extends Component {
         completionText,
         numberOfCharsToReplaceCharsBeforeCursor
       );
+
+      if (numberOfCharsToMoveTheCursorForward) {
+        const { line, ch } = this.editor.getCursor();
+        this.editor.setCursor({
+          line,
+          ch: ch + numberOfCharsToMoveTheCursorForward,
+        });
+      }
     }
   }
 
@@ -1141,6 +1202,10 @@ class JSTerm extends Component {
    *                     should be removed from the current input before the cursor to
    *                     cleanly apply the completionText. This is handy when we only want
    *                     to insert the completionText.
+   *         - {Integer} numberOfCharsToMoveTheCursorForward: The number of chars that the
+   *                     cursor should be moved after the completion is done. This can
+   *                     be useful for element access where there's already a closing
+   *                     quote and/or bracket.
    */
   getInputValueWithCompletionText() {
     const inputBeforeCursor = this.getInputValueBeforeCursor();
@@ -1149,6 +1214,7 @@ class JSTerm extends Component {
     );
     let completionText = this.getAutoCompletionText();
     let numberOfCharsToReplaceCharsBeforeCursor;
+    let numberOfCharsToMoveTheCursorForward = 0;
 
     // If the autocompletion popup is open, we always get the selected element from there,
     // since the autocompletion text might not be enough (e.g. `dOcUmEn` should
@@ -1170,9 +1236,34 @@ class JSTerm extends Component {
           ).length;
         }
 
-        // If there's not a bracket after the cursor, add it.
-        if (!inputAfterCursor.trimLeft().startsWith("]")) {
+        // If the autoclose bracket option is enabled, the input might be in a state where
+        // there's already the closing quote and the closing bracket, e.g.
+        // `document["activeEl|"]`, so we don't need to add
+        // Let's retrieve the completionText last character, to see if it's a quote.
+        const completionTextLastChar =
+          completionText[completionText.length - 1];
+        const endingQuote = [`"`, `'`, "`"].includes(completionTextLastChar)
+          ? completionTextLastChar
+          : "";
+        if (
+          endingQuote &&
+          inputAfterCursor.trimLeft().startsWith(endingQuote)
+        ) {
+          completionText = completionText.substring(
+            0,
+            completionText.length - 1
+          );
+          numberOfCharsToMoveTheCursorForward++;
+        }
+
+        // If there's not a closing bracket already, we add one.
+        if (
+          !inputAfterCursor.trimLeft().match(new RegExp(`^${endingQuote}?]`))
+        ) {
           completionText = completionText + "]";
+        } else {
+          // if there's already one, we want to move the cursor after the closing bracket.
+          numberOfCharsToMoveTheCursorForward++;
         }
       }
     }
@@ -1188,8 +1279,9 @@ class JSTerm extends Component {
 
     return {
       completionText,
-      numberOfCharsToReplaceCharsBeforeCursor,
       expression,
+      numberOfCharsToMoveTheCursorForward,
+      numberOfCharsToReplaceCharsBeforeCursor,
     };
   }
 
@@ -1307,6 +1399,7 @@ class JSTerm extends Component {
     }
 
     if (this.editor) {
+      this.resizeObserver.disconnect();
       this.editor.destroy();
       this.editor = null;
     }

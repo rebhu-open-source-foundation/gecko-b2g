@@ -321,14 +321,6 @@ const PREFS_CONFIG = new Map([
     },
   ],
   [
-    "telemetry.structuredIngestion",
-    {
-      title: "Enable Structured Ingestion Telemetry data collection",
-      value: true,
-      value_local_dev: false,
-    },
-  ],
-  [
     "telemetry.structuredIngestion.endpoint",
     {
       title: "Structured Ingestion telemetry server endpoint",
@@ -632,6 +624,7 @@ const FEEDS_DATA = [
         AU: ["en-CA", "en-GB", "en-US"],
         NZ: ["en-CA", "en-GB", "en-US"],
         IN: ["en-CA", "en-GB", "en-US"],
+        IE: ["en-CA", "en-GB", "en-US"],
         ZA: ["en-CA", "en-GB", "en-US"],
         CH: ["de", "fr", "it"],
         BE: ["fr", "de"],

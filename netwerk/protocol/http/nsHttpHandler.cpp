@@ -2225,6 +2225,13 @@ nsHttpHandler::GetAltSvcCacheKeys(nsTArray<nsCString>& value) {
   return mAltSvcCache->GetAltSvcCacheKeys(value);
 }
 
+NS_IMETHODIMP
+nsHttpHandler::GetAuthCacheKeys(nsTArray<nsCString>& aValues) {
+  mAuthCache.CollectKeys(aValues);
+  mPrivateAuthCache.CollectKeys(aValues);
+  return NS_OK;
+}
+
 //-----------------------------------------------------------------------------
 // nsHttpHandler::nsIObserver
 //-----------------------------------------------------------------------------
@@ -2762,8 +2769,18 @@ HttpTrafficAnalyzer* nsHttpHandler::GetHttpTrafficAnalyzer() {
   return &mHttpTrafficAnalyzer;
 }
 
-bool nsHttpHandler::IsHttp3VersionSupportedHex(const nsACString& version) {
-  return version.LowerCaseEqualsLiteral(kHttp3VersionHEX);
+bool nsHttpHandler::IsHttp3VersionSupported(const nsACString& version) {
+
+  if (!StaticPrefs::network_http_http3_support_draft28() &&
+      version.EqualsLiteral("h3-28")) {
+    return false;
+  }
+  for (uint32_t i = 0; i < kHttp3VersionCount; i++) {
+    if (version.Equals(kHttp3Versions[i])) {
+      return true;
+    }
+  }
+  return false;
 }
 
 nsresult nsHttpHandler::InitiateTransaction(HttpTransactionShell* aTrans,

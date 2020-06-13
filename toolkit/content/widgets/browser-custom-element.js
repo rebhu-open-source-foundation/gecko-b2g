@@ -14,6 +14,10 @@
     "resource://gre/modules/AppConstants.jsm"
   );
 
+  const { BrowserUtils } = ChromeUtils.import(
+    "resource://gre/modules/BrowserUtils.jsm"
+  );
+
   let LazyModules = {};
 
   ChromeUtils.defineModuleGetter(
@@ -866,17 +870,25 @@
       }
     }
 
-    goBack() {
+    goBack(
+      requireUserInteraction = BrowserUtils.navigationRequireUserInteraction
+    ) {
       var webNavigation = this.webNavigation;
       if (webNavigation.canGoBack) {
-        this._wrapURIChangeCall(() => webNavigation.goBack());
+        this._wrapURIChangeCall(() =>
+          webNavigation.goBack(requireUserInteraction)
+        );
       }
     }
 
-    goForward() {
+    goForward(
+      requireUserInteraction = BrowserUtils.navigationRequireUserInteraction
+    ) {
       var webNavigation = this.webNavigation;
       if (webNavigation.canGoForward) {
-        this._wrapURIChangeCall(() => webNavigation.goForward());
+        this._wrapURIChangeCall(() =>
+          webNavigation.goForward(requireUserInteraction)
+        );
       }
     }
 

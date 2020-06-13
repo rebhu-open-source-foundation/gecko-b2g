@@ -3352,6 +3352,27 @@ bool HttpBaseChannel::ShouldRewriteRedirectToGET(
   return false;
 }
 
+NS_IMETHODIMP
+HttpBaseChannel::ShouldStripRequestBodyHeader(const nsACString& aMethod,
+                                              bool* aResult) {
+  *aResult = false;
+  uint32_t httpStatus = 0;
+  if (NS_FAILED(GetResponseStatus(&httpStatus))) {
+    return NS_OK;
+  }
+
+  nsAutoCString method(aMethod);
+  nsHttpRequestHead::ParsedMethodType parsedMethod;
+  nsHttpRequestHead::ParseMethod(method, parsedMethod);
+  // Fetch 4.4.11, which is slightly different than the perserved method
+  // algrorithm: strip request-body-header for GET->GET redirection for 303.
+  *aResult =
+      ShouldRewriteRedirectToGET(httpStatus, parsedMethod) &&
+      !(httpStatus == 303 && parsedMethod == nsHttpRequestHead::kMethod_Get);
+
+  return NS_OK;
+}
+
 HttpBaseChannel::ReplacementChannelConfig
 HttpBaseChannel::CloneReplacementChannelConfig(bool aPreserveMethod,
                                                uint32_t aRedirectFlags,
@@ -3754,7 +3775,7 @@ nsresult HttpBaseChannel::SetupReplacementChannel(nsIURI* newURI,
     httpInternal->SetLastRedirectFlags(redirectFlags);
 
     if (mRequireCORSPreflight) {
-      httpInternal->SetCorsPreflightParameters(mUnsafeHeaders);
+      httpInternal->SetCorsPreflightParameters(mUnsafeHeaders, false);
     }
   }
 
@@ -4519,11 +4540,20 @@ void HttpBaseChannel::EnsureTopLevelOuterContentWindowId() {
 }
 
 void HttpBaseChannel::SetCorsPreflightParameters(
-    const nsTArray<nsCString>& aUnsafeHeaders) {
+    const nsTArray<nsCString>& aUnsafeHeaders,
+    bool aShouldStripRequestBodyHeader) {
   MOZ_RELEASE_ASSERT(!mRequestObserversCalled);
 
   mRequireCORSPreflight = true;
   mUnsafeHeaders = aUnsafeHeaders.Clone();
+  if (aShouldStripRequestBodyHeader) {
+    mUnsafeHeaders.RemoveElementsBy([&](const nsCString& aHeader) {
+      return aHeader.LowerCaseEqualsASCII("content-type") ||
+             aHeader.LowerCaseEqualsASCII("content-encoding") ||
+             aHeader.LowerCaseEqualsASCII("content-language") ||
+             aHeader.LowerCaseEqualsASCII("content-location");
+    });
+  }
 }
 
 void HttpBaseChannel::SetAltDataForChild(bool aIsForChild) {

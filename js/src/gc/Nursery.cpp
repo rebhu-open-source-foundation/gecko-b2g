@@ -9,6 +9,7 @@
 
 #include "mozilla/DebugOnly.h"
 #include "mozilla/IntegerPrintfMacros.h"
+#include "mozilla/ScopeExit.h"
 #include "mozilla/Unused.h"
 
 #include <algorithm>
@@ -320,6 +321,7 @@ void js::Nursery::enable() {
 }
 
 void js::Nursery::disable() {
+  stringDeDupSet.reset();
   MOZ_ASSERT(isEmpty());
   if (!isEnabled()) {
     return;
@@ -860,7 +862,7 @@ void js::Nursery::renderProfileJSON(JSONPrinter& json) const {
 
 // static
 void js::Nursery::printProfileHeader() {
-  fprintf(stderr, "MinorGC:               Reason  PRate Size        ");
+  fprintf(stderr, "MinorGC: Timestamp  Reason               PRate  Size ");
 #define PRINT_HEADER(name, text) fprintf(stderr, " %6s", text);
   FOR_EACH_NURSERY_PROFILE_TIME(PRINT_HEADER)
 #undef PRINT_HEADER
@@ -877,7 +879,8 @@ void js::Nursery::printProfileDurations(const ProfileDurations& times) {
 
 void js::Nursery::printTotalProfileTimes() {
   if (enableProfiling_) {
-    fprintf(stderr, "MinorGC TOTALS: %7" PRIu64 " collections:             ",
+    fprintf(stderr,
+            "MinorGC TOTALS: %7" PRIu64 " collections:                 ",
             gc->minorGCCount());
     printProfileDurations(totalDurations_);
   }
@@ -974,6 +977,10 @@ void js::Nursery::collect(JS::GCReason reason) {
   stats().beginNurseryCollection(reason);
   gcprobes::MinorGCStart();
 
+  stringDeDupSet.emplace();
+  auto guardStringDedupSet =
+      mozilla::MakeScopeExit([&] { stringDeDupSet.reset(); });
+
   maybeClearProfileDurations();
   startProfile(ProfileKey::Total);
 
@@ -1039,6 +1046,7 @@ void js::Nursery::collect(JS::GCReason reason) {
 
   stats().endNurseryCollection(reason);
   gcprobes::MinorGCEnd();
+
   timeInChunkAlloc_ = mozilla::TimeDuration();
 
   if (enableProfiling_ && totalTime >= profileThreshold_) {
@@ -1068,8 +1076,11 @@ void js::Nursery::printCollectionProfile(JS::GCReason reason,
                                          double promotionRate) {
   stats().maybePrintProfileHeaders();
 
-  fprintf(stderr, "MinorGC: %20s %5.1f%% %5zu       ",
-          JS::ExplainGCReason(reason), promotionRate * 100, capacity() / 1024);
+  TimeDuration ts = startTimes_[ProfileKey::Total] - stats().creationTime();
+
+  fprintf(stderr, "MinorGC: %10.6f %-20.20s %5.1f%% %5zu", ts.ToSeconds(),
+          JS::ExplainGCReason(reason), promotionRate * 100,
+          previousGC.nurseryCapacity / 1024);
 
   printProfileDurations(profileDurations_);
 }
@@ -1108,6 +1119,13 @@ js::Nursery::CollectionResult js::Nursery::doCollection(
   }
   endProfile(ProfileKey::CancelIonCompilations);
 
+  // Strings in the whole cell buffer must be traced first, in order to mark
+  // tenured dependent strings' bases as non-deduplicatable. The rest of
+  // nursery collection (whole non-string cells, edges, etc.) can happen later.
+  startProfile(ProfileKey::TraceWholeCells);
+  sb.traceWholeCells(mover);
+  endProfile(ProfileKey::TraceWholeCells);
+
   startProfile(ProfileKey::TraceValues);
   sb.traceValues(mover);
   endProfile(ProfileKey::TraceValues);
@@ -1119,10 +1137,6 @@ js::Nursery::CollectionResult js::Nursery::doCollection(
   startProfile(ProfileKey::TraceSlots);
   sb.traceSlots(mover);
   endProfile(ProfileKey::TraceSlots);
-
-  startProfile(ProfileKey::TraceWholeCells);
-  sb.traceWholeCells(mover);
-  endProfile(ProfileKey::TraceWholeCells);
 
   startProfile(ProfileKey::TraceGenericEntries);
   sb.traceGenericEntries(&mover);
@@ -1539,13 +1553,15 @@ size_t js::Nursery::targetSize(JS::GCReason reason) {
 
 /* static */
 size_t js::Nursery::roundSize(size_t size) {
-  if (size >= ChunkSize) {
-    size = Round(size, ChunkSize);
-  } else {
-    size = std::min(Round(size, SubChunkStep),
-                    RoundDown(NurseryChunkUsableSize, SubChunkStep));
-  }
+  static_assert(SubChunkStep > gc::ChunkTrailerSize,
+                "Don't allow the nursery to overwrite the trailer when using "
+                "less than a chunk");
+
+  size_t step = size >= ChunkSize ? ChunkSize : SubChunkStep;
+  size = Round(size, step);
+
   MOZ_ASSERT(size >= ArenaSize);
+
   return size;
 }
 

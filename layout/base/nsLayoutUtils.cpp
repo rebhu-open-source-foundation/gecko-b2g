@@ -145,6 +145,7 @@
 #include "nsDeckFrame.h"
 #include "mozilla/dom/InspectorFontFace.h"
 #include "ViewportFrame.h"
+#include "MobileViewportManager.h"
 
 #ifdef MOZ_XUL
 #  include "nsXULPopupManager.h"
@@ -8603,7 +8604,7 @@ nsMargin nsLayoutUtils::ScrollbarAreaToExcludeFromCompositionBoundsFor(
   if (!isRootContentDocRootScrollFrame) {
     return nsMargin();
   }
-  if (LookAndFeel::GetInt(LookAndFeel::eIntID_UseOverlayScrollbars)) {
+  if (LookAndFeel::GetInt(LookAndFeel::IntID::UseOverlayScrollbars)) {
     return nsMargin();
   }
   nsIScrollableFrame* scrollableFrame = aScrollFrame->GetScrollTargetFrame();
@@ -10200,9 +10201,9 @@ void nsLayoutUtils::ComputeSystemFont(nsFont* aSystemFont,
     // XXXzw Should we even still *have* this code?  It looks to be making
     // old, probably obsolete assumptions.
 
-    if (aFontID == LookAndFeel::eFont_Field ||
-        aFontID == LookAndFeel::eFont_Button ||
-        aFontID == LookAndFeel::eFont_List) {
+    if (aFontID == LookAndFeel::FontID::Field ||
+        aFontID == LookAndFeel::FontID::Button ||
+        aFontID == LookAndFeel::FontID::List) {
       // As far as I can tell the system default fonts and sizes
       // on MS-Windows for Buttons, Listboxes/Comboxes and Text Fields are
       // all pre-determined and cannot be changed by either the control panel
@@ -10384,4 +10385,31 @@ nsSize nsLayoutUtils::ExpandHeightForViewportUnits(nsPresContext* aPresContext,
                                  aSize.height, vhExpansionRatio));
   return nsSize(aSize.width, NSCoordSaturatingNonnegativeMultiply(
                                  aSize.height, vhExpansionRatio));
+}
+
+template <typename SizeType>
+/* static */ SizeType ExpandHeightForDynamicToolbarImpl(
+    nsPresContext* aPresContext, const SizeType& aSize) {
+  RefPtr<MobileViewportManager> MVM =
+      aPresContext->PresShell()->GetMobileViewportManager();
+  MOZ_ASSERT(MVM);
+  float toolbarHeightRatio =
+      mozilla::ScreenCoord(aPresContext->GetDynamicToolbarMaxHeight()) /
+      mozilla::ViewAs<mozilla::ScreenPixel>(
+          MVM->DisplaySize(),
+          mozilla::PixelCastJustification::LayoutDeviceIsScreenForBounds)
+          .height;
+
+  return SizeType(
+      aSize.width,
+      NSCoordSaturatingAdd(aSize.height, aSize.height * toolbarHeightRatio));
+}
+
+CSSSize nsLayoutUtils::ExpandHeightForDynamicToolbar(
+    nsPresContext* aPresContext, const CSSSize& aSize) {
+  return ExpandHeightForDynamicToolbarImpl(aPresContext, aSize);
+}
+nsSize nsLayoutUtils::ExpandHeightForDynamicToolbar(nsPresContext* aPresContext,
+                                                    const nsSize& aSize) {
+  return ExpandHeightForDynamicToolbarImpl(aPresContext, aSize);
 }

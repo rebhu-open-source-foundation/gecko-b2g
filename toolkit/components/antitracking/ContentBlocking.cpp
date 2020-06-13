@@ -165,8 +165,9 @@ ContentBlocking::AllowAccessFor(
   if (MOZ_LOG_TEST(gAntiTrackingLog, mozilla::LogLevel::Debug)) {
     nsAutoCString origin;
     aPrincipal->GetAsciiOrigin(origin);
-    LOG(("Adding a first-party storage exception for %s...",
-         PromiseFlatCString(origin).get()));
+    LOG(("Adding a first-party storage exception for %s, triggered by %s",
+         PromiseFlatCString(origin).get(),
+         AntiTrackingUtils::GrantedReasonToString(aReason).get()));
   }
 
   RefPtr<dom::WindowContext> parentWindowContext =
@@ -434,6 +435,8 @@ ContentBlocking::CompleteAllowAccessFor(
     trackingOrigin = aTrackingOrigin;
   }
 
+  LOG(("Tracking origin is %s", PromiseFlatCString(trackingOrigin).get()));
+
   // We hardcode this block reason since the first-party storage access
   // permission is granted for the purpose of blocking trackers.
   // Note that if aReason is eOpenerAfterUserInteraction and the
@@ -576,12 +579,17 @@ ContentBlocking::CompleteAllowAccessFor(
       AntiTrackingUtils::GetInnerWindow(aParentContext);
   MOZ_ASSERT(parentInner);
 
+  Document* doc = parentInner->GetExtantDoc();
+  if (NS_WARN_IF(!doc)) {
+    return;
+  }
+
   // Theoratically this can be done in the parent process. But right now,
   // we need the channel while notifying content blocking events, and
   // we don't have a trivial way to obtain the channel in the parent
   // via BrowsingContext. So we just ask the child to do the work.
   ContentBlockingNotifier::OnEvent(
-      parentInner->GetExtantDoc()->GetChannel(), false,
+      doc->GetChannel(), false,
       CookieJarSettings::IsRejectThirdPartyWithExceptions(aCookieBehavior)
           ? nsIWebProgressListener::STATE_COOKIES_BLOCKED_FOREIGN
           : nsIWebProgressListener::STATE_COOKIES_BLOCKED_TRACKER,

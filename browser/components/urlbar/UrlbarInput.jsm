@@ -420,10 +420,10 @@ class UrlbarInput {
 
     let url;
     let selType = this.controller.engagementEvent.typeFromElement(element);
-    let numChars = this.value.length;
+    let typedValue = this.value;
     if (selectedOneOff) {
       selType = "oneoff";
-      numChars = this._lastSearchString.length;
+      typedValue = this._lastSearchString;
       // If there's a selected one-off button then load a search using
       // the button's engine.
       result = this._resultForCurrentValue;
@@ -460,7 +460,7 @@ class UrlbarInput {
     url = this._maybeCanonizeURL(event, url) || url.trim();
 
     this.controller.engagementEvent.record(event, {
-      numChars,
+      searchString: typedValue,
       selIndex: this.view.selectedRowIndex,
       selType,
     });
@@ -559,14 +559,17 @@ class UrlbarInput {
     this.controller.recordSelectedResult(event, result);
     if (result.payload.overriddenSearchTopSite) {
       TopSiteAttribution.makeRequest({
-        searchProvider: result.payload.title,
-        siteURL: result.payload.title,
+        searchProvider: result.payload.url.match(
+          /^https?:\/\/(?:www.)?([^.]*)/
+        )[1],
+        siteURL: result.payload.url,
+        source: "urlbar",
       });
     }
 
     if (isCanonized) {
       this.controller.engagementEvent.record(event, {
-        numChars: this._lastSearchString.length,
+        searchString: this._lastSearchString,
         selIndex,
         selType: "canonized",
       });
@@ -627,7 +630,7 @@ class UrlbarInput {
         };
 
         this.controller.engagementEvent.record(event, {
-          numChars: this._lastSearchString.length,
+          searchString: this._lastSearchString,
           selIndex,
           selType: "tabswitch",
         });
@@ -650,7 +653,7 @@ class UrlbarInput {
           this.selectionStart = this.selectionEnd = this.value.length;
 
           this.controller.engagementEvent.record(event, {
-            numChars: this._lastSearchString.length,
+            searchString: this._lastSearchString,
             selIndex,
             selType: "keywordoffer",
           });
@@ -665,16 +668,21 @@ class UrlbarInput {
 
         if (
           result.heuristic &&
+          // If we asked the DNS earlier, avoid the post-facto check.
+          !UrlbarPrefs.get("browser.fixup.dns_first_for_single_words") &&
+          // TODO (bug 1642623): for now there is no smart heuristic to skip the
+          // DNS lookup, so any value above 0 will run it.
+          UrlbarPrefs.get("dnsResolveSingleWordsAfterSearch") > 0 &&
           this.window.gKeywordURIFixup &&
           UrlbarUtils.looksLikeSingleWordHost(originalUntrimmedValue)
         ) {
-          // When fixing a single word to a search, the docShell also checks the
-          // DNS and asks the user whether they would rather visit that as a
-          // host. On a positive answer, it adds to the domain whitelist that
-          // we use to make decisions. Because we are directly asking for a
-          // search here, bypassing the docShell, we need invoke the same check
-          // ourselves. See also URIFixupChild.jsm and keyword-uri-fixup.
-          // Don't interrupt the load action in case of errors.
+          // When fixing a single word to a search, the docShell would also
+          // query the DNS and if resolved ask the user whether they would
+          // rather visit that as a host. On a positive answer, it adds the host
+          // the the list that we use to make decisions.
+          // Because we are directly asking for a search here, bypassing the
+          // docShell, we need to do the same ourselves.
+          // See also URIFixupChild.jsm and keyword-uri-fixup.
           let fixupInfo = this._getURIFixupInfo(originalUntrimmedValue.trim());
           if (fixupInfo) {
             this.window.gKeywordURIFixup.check(
@@ -734,7 +742,7 @@ class UrlbarInput {
         if (!url) {
           this.handleRevert();
           this.controller.engagementEvent.record(event, {
-            numChars: this._lastSearchString.length,
+            searchString: this._lastSearchString,
             selIndex,
             selType: "tip",
           });
@@ -752,7 +760,7 @@ class UrlbarInput {
       }
       case UrlbarUtils.RESULT_TYPE.OMNIBOX: {
         this.controller.engagementEvent.record(event, {
-          numChars: this._lastSearchString.length,
+          searchString: this._lastSearchString,
           selIndex,
           selType: "extension",
         });
@@ -787,7 +795,7 @@ class UrlbarInput {
     }
 
     this.controller.engagementEvent.record(event, {
-      numChars: this._lastSearchString.length,
+      searchString: this._lastSearchString,
       selIndex,
       selType: this.controller.engagementEvent.typeFromElement(element),
     });
@@ -1135,8 +1143,18 @@ class UrlbarInput {
     ) {
       return;
     }
-    // The Urlbar is unfocused and the view is closed
-    if (this.getAttribute("focused") != "true" && !this.view.isOpen) {
+    // The Urlbar is unfocused or reduce motion is on and the view is closed.
+    // gReduceMotion is accurate in most cases, but it is automatically set to
+    // true when windows are loaded. We check `prefers-reduced-motion: reduce`
+    // to ensure the user actually set prefers-reduced-motion. We check
+    // gReduceMotion first to save work in the common case of having
+    // prefers-reduced-motion disabled.
+    if (
+      !this.view.isOpen &&
+      (this.getAttribute("focused") != "true" ||
+        (this.window.gReduceMotion &&
+          this.window.matchMedia("(prefers-reduced-motion: reduce)").matches))
+    ) {
       return;
     }
 
@@ -1161,10 +1179,15 @@ class UrlbarInput {
   }
 
   endLayoutExtend() {
+    // If reduce motion is enabled, we want to collapse the Urlbar here so the
+    // user sees only sees two states: not expanded, and expanded with the view
+    // open.
     if (
       !this.hasAttribute("breakout-extend") ||
       this.view.isOpen ||
-      this.getAttribute("focused") == "true"
+      (this.getAttribute("focused") == "true" &&
+        (!this.window.gReduceMotion ||
+          !this.window.matchMedia("(prefers-reduced-motion: reduce)").matches))
     ) {
       return;
     }
@@ -1943,7 +1966,7 @@ class UrlbarInput {
     // For now we detect that case by discarding the event on command, but we
     // may want to figure out a more robust way to detect abandonment.
     this.controller.engagementEvent.record(event, {
-      numChars: this._lastSearchString.length,
+      searchString: this._lastSearchString,
     });
 
     this.removeAttribute("focused");

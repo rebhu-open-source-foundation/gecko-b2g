@@ -33,14 +33,12 @@ py2commands="
     mochitest
     mozharness
     prettier-format
-    python
     python-test
     raptor
     raptor-test
     reftest
     release
     rusttests
-    static-analysis
     talos-test
     taskcluster-load-image
     taskgraph

@@ -19,7 +19,7 @@ static_prefs = { path = "../../../../modules/libpref/init/static_prefs" }
 profiler_helper = { path = "../../../../tools/profiler/rust-helper", optional = true }
 mozurl = { path = "../../../../netwerk/base/mozurl" }
 webrender_bindings = { path = "../../../../gfx/webrender_bindings", optional = true }
-cubeb-coreaudio = { git = "https://github.com/ChunMinChang/cubeb-coreaudio-rs", rev = "edf9154d23d2f54888bfe5f1087c30db3aa1c5be", optional = true }
+cubeb-coreaudio = { git = "https://github.com/ChunMinChang/cubeb-coreaudio-rs", rev = "4cdbceadae88c77dfc77183b7edda183f32cd28c", optional = true }
 cubeb-pulse = { git = "https://github.com/djg/cubeb-pulse-rs", rev="3224e2dee65c0726c448484d4c3c43956b9330ec", optional = true, features=["pulse-dlopen"] }
 cubeb-sys = { version = "0.7", optional = true, features=["gecko-in-tree"] }
 encoding_glue = { path = "../../../../intl/encoding_glue" }
@@ -67,7 +67,7 @@ firefox-accounts-bridge = { path = "../../../../services/fxaccounts/rust-bridge/
 
 # Build it on Gonk for now.
 # [target.'cfg(not(target_os = "android"))'.dependencies]
-viaduct = { git = "https://github.com/mozilla/application-services", rev = "57a07e89e9ac92756b60b67c4a6ee06975b86288"}
+viaduct = { git = "https://github.com/mozilla/application-services", rev = "e8d7530319fa6c20d9de78d031c9398630eca3cd"}
 webext_storage_bridge = { path = "../../../components/extensions/storage/webext_storage_bridge" }
 
 # Gecko <-> SIDL integration

@@ -42,7 +42,7 @@ TEST_SUITES = {
     'cppunittest': {
         'aliases': ('cpp',),
         'mach_command': 'cppunittest',
-        'kwargs': {'test_file': None},
+        'kwargs': {'test_files': None},
     },
     'crashtest': {
         'aliases': ('c', 'rc'),
@@ -399,6 +399,10 @@ class BuildBackendLoader(TestLoader):
         with open(test_defaults, 'rb') as fh:
             defaults = pickle.load(fh)
 
+        # The keys in defaults use platform-specific path separators.
+        # self.topsrcdir was normalized to use /, revert back to \ if needed.
+        topsrcdir = os.path.normpath(self.topsrcdir)
+
         for path, tests in six.iteritems(test_data):
             for metadata in tests:
                 defaults_manifests = [metadata['manifest']]
@@ -408,7 +412,7 @@ class BuildBackendLoader(TestLoader):
                     # The (ancestor manifest, included manifest) tuple
                     # contains the defaults of the included manifest, so
                     # use it instead of [metadata['manifest']].
-                    ancestor_manifest = os.path.join(self.topsrcdir, ancestor_manifest)
+                    ancestor_manifest = os.path.join(topsrcdir, ancestor_manifest)
                     defaults_manifests[0] = (ancestor_manifest, metadata['manifest'])
                     defaults_manifests.append(ancestor_manifest)
 
@@ -526,8 +530,12 @@ class TestResolver(MozbuildObject):
     def tests_by_manifest(self):
         if not self._tests_by_manifest:
             for test in self.tests:
-                relpath = mozpath.relpath(test['path'], mozpath.dirname(test['manifest']))
-                self._tests_by_manifest[test['manifest_relpath']].append(relpath)
+                if test['flavor'] == "web-platform-tests":
+                    # Use test ids instead of paths for WPT.
+                    self._tests_by_manifest[test['manifest']].append(test['name'])
+                else:
+                    relpath = mozpath.relpath(test['path'], mozpath.dirname(test['manifest']))
+                    self._tests_by_manifest[test['manifest_relpath']].append(relpath)
         return self._tests_by_manifest
 
     @property
@@ -732,6 +740,7 @@ class TestResolver(MozbuildObject):
 
         for manifest, data in six.iteritems(manifests):
             tests_root = data["tests_path"]  # full path on disk until web-platform tests directory
+
             for test_type, path, tests in manifest:
                 full_path = mozpath.join(tests_root, path)
                 src_path = mozpath.relpath(full_path, self.topsrcdir)
@@ -882,24 +891,5 @@ class TestResolver(MozbuildObject):
 
             if not tests:
                 print('UNKNOWN TEST: %s' % entry, file=sys.stderr)
-
-        if not what:
-            res = self.get_outgoing_metadata()
-            paths, tags, flavors = (res[key] for key in ('paths', 'tags', 'flavors'))
-
-            # This requires multiple calls to resolve_tests, because the test
-            # resolver returns tests that match every condition, while we want
-            # tests that match any condition. Bug 1210213 tracks implementing
-            # more flexible querying.
-            if tags:
-                run_tests = list(self.resolve_tests(tags=tags))
-            if paths:
-                run_tests += [t for t in self.resolve_tests(paths=paths)
-                              if not (tags & set(t.get('tags', '').split()))]
-            if flavors:
-                run_tests = [
-                    t for t in run_tests if t['flavor'] not in flavors]
-                for flavor in flavors:
-                    run_tests += list(self.resolve_tests(flavor=flavor))
 
         return run_suites, run_tests

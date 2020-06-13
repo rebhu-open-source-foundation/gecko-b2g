@@ -274,8 +274,8 @@ class MessageLogger(object):
 
         # Error detection also supports "raw" errors (in log messages) because some tests
         # manually dump 'TEST-UNEXPECTED-FAIL'.
-        if ('expected' in message or (message['action'] == 'log' and message[
-                'message'].startswith('TEST-UNEXPECTED'))):
+        if ('expected' in message or (message['action'] == 'log' and message.get(
+                'message', '').startswith('TEST-UNEXPECTED'))):
             self.restore_buffering = self.restore_buffering or self.buffering
             self.buffering = False
             if self.buffered_messages:
@@ -922,6 +922,7 @@ class MochitestDesktop(object):
         self._active_tests = None
         self.currentTests = None
         self._locations = None
+        self.browserEnv = None
 
         self.marionette = None
         self.start_script = None
@@ -2744,8 +2745,17 @@ toolbar#nav-bar {
             profiler_logger = get_proxy_logger("profiler")
             profiler_logger.info("Shutdown performance profiling was enabled")
             profiler_logger.info("Profile saved locally to: %s" % profile_path)
-            symbolicate_profile_json(profile_path, options.topobjdir)
-            view_gecko_profile_from_mochitest(profile_path, options, profiler_logger)
+
+            if options.profilerSaveOnly or options.profiler:
+                # Only do the extra work of symbolicating and viewing the profile if
+                # officially requested through a command line flag. The MOZ_PROFILER_*
+                # flags can be set by a user.
+                symbolicate_profile_json(profile_path, options.topobjdir)
+                view_gecko_profile_from_mochitest(profile_path, options, profiler_logger)
+            else:
+                profiler_logger.info("The profiler was enabled outside of the mochitests. "
+                                     "Use --profiler instead of MOZ_PROFILER_SHUTDOWN to "
+                                     "symbolicate and open the profile automatically.")
 
             # Clean up the temporary file if it exists.
             if self.profiler_tempdir:
@@ -3196,7 +3206,8 @@ toolbar#nav-bar {
 
         def trackLSANLeaks(self, message):
             if self.lsanLeaks and message['action'] in ('log', 'process_output'):
-                line = message['message'] if message['action'] == 'log' else message['data']
+                line = message.get(
+                    'message', '') if message['action'] == 'log' else message['data']
                 self.lsanLeaks.log(line)
             return message
 

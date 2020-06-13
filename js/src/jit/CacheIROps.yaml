@@ -196,6 +196,58 @@
     obj: ObjId
     clasp: RawPointerField
 
+- name: HasClassResult
+  shared: false
+  transpile: true
+  args:
+    obj: ObjId
+    clasp: RawPointerField
+
+- name: CallRegExpMatcherResult
+  shared: true
+  transpile: true
+  args:
+    regexp: ObjId
+    input: StringId
+    lastIndex: Int32Id
+
+- name: CallRegExpSearcherResult
+  shared: true
+  transpile: true
+  args:
+    regexp: ObjId
+    input: StringId
+    lastIndex: Int32Id
+
+- name: CallRegExpTesterResult
+  shared: true
+  transpile: true
+  args:
+    regexp: ObjId
+    input: StringId
+    lastIndex: Int32Id
+
+- name: CallSubstringKernelResult
+  shared: true
+  transpile: true
+  args:
+    str: StringId
+    begin: Int32Id
+    length: Int32Id
+
+- name: RegExpPrototypeOptimizableResult
+  shared: true
+  transpile: true
+  args:
+    proto: ObjId
+
+- name: RegExpInstanceOptimizableResult
+  shared: true
+  transpile: true
+  args:
+    regexp: ObjId
+    proto: ObjId
+
 # Add a reference to a global in the compartment to keep it alive.
 - name: GuardCompartment
   shared: false
@@ -916,6 +968,14 @@
     obj: ObjId
     offset: RawWordField
 
+- name: LoadFixedSlotTypedResult
+  shared: false
+  transpile: true
+  args:
+    obj: ObjId
+    offset: RawWordField
+    type: ValueTypeImm
+
 - name: LoadDynamicSlotResult
   shared: false
   transpile: true
@@ -1179,7 +1239,7 @@
 
 - name: LoadUndefinedResult
   shared: true
-  transpile: false
+  transpile: true
   args:
 
 - name: LoadBooleanResult
@@ -1187,6 +1247,13 @@
   transpile: true
   args:
     val: BoolImm
+
+- name: LoadInt32Constant
+  shared: true
+  transpile: true
+  args:
+    val: RawWordField
+    result: Int32Id
 
 - name: LoadConstantStringResult
   shared: false

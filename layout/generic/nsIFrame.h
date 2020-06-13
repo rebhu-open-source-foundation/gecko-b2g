@@ -606,7 +606,8 @@ class nsIFrame : public nsQueryFrame {
         mHasBSizeChange(false),
         mInScrollAnchorChain(false),
         mHasColumnSpanSiblings(false),
-        mDescendantMayDependOnItsStaticPosition(false) {
+        mDescendantMayDependOnItsStaticPosition(false),
+        mShouldGenerateComputedInfo(false) {
     MOZ_ASSERT(mComputedStyle);
     MOZ_ASSERT(mPresContext);
     mozilla::PodZero(&mOverflow);
@@ -2033,6 +2034,10 @@ class nsIFrame : public nsQueryFrame {
   enum { SELECT_ACCUMULATE = 0x01 };
 
  protected:
+  // Fire DOM event. If no aContent argument use frame's mContent.
+  void FireDOMEvent(const nsAString& aDOMEventName,
+                    nsIContent* aContent = nullptr);
+
   // Selection Methods
 
   NS_IMETHOD HandlePress(nsPresContext* aPresContext,
@@ -2832,6 +2837,12 @@ class nsIFrame : public nsQueryFrame {
    * includes it into aOverflowAreas.
    */
   virtual void UnionChildOverflow(nsOverflowAreas& aOverflowAreas);
+
+  /**
+   * Returns true if aFrame should apply overflow clipping.
+   */
+  static bool ShouldApplyOverflowClipping(const nsIFrame* aFrame,
+                                          const nsStyleDisplay* aDisp);
 
   /**
    * Helper method used by block reflow to identify runs of text so
@@ -3636,6 +3647,13 @@ class nsIFrame : public nsQueryFrame {
                                  nsIFrame** aOutFrame, int32_t* aOutOffset,
                                  bool* aOutJumpedLine,
                                  bool* aOutMovedOverNonSelectableText);
+
+  // Return the line number of the aFrame, and (optionally) the containing block
+  // frame.
+  // If aScrollLock is true, don't break outside scrollframes when looking for a
+  // containing block frame.
+  static int32_t GetLineNumber(nsIFrame* aFrame, bool aLockScroll,
+                               nsIFrame** aContainingBlock = nullptr);
 
   /**
    * Called to see if the children of the frame are visible from indexstart to
@@ -4583,6 +4601,13 @@ class nsIFrame : public nsQueryFrame {
     mDescendantMayDependOnItsStaticPosition = aValue;
   }
 
+  bool ShouldGenerateComputedInfo() const {
+    return mShouldGenerateComputedInfo;
+  }
+  void SetShouldGenerateComputedInfo(bool aValue) {
+    mShouldGenerateComputedInfo = aValue;
+  }
+
   /**
    * Returns the hit test area of the frame.
    */
@@ -4830,6 +4855,13 @@ class nsIFrame : public nsQueryFrame {
    */
   bool mDescendantMayDependOnItsStaticPosition : 1;
 
+  /**
+   * True if the next reflow of this frame should generate computed info
+   * metrics. These are used by devtools to reveal details of the layout
+   * process.
+   */
+  bool mShouldGenerateComputedInfo : 1;
+
  protected:
   // Helpers
   /**
@@ -5061,7 +5093,27 @@ class nsIFrame : public nsQueryFrame {
   void DumpFrameTreeLimited() const;
   void DumpFrameTreeLimitedInCSSPixels() const;
 
-  virtual nsresult GetFrameName(nsAString& aResult) const = 0;
+  /**
+   * Get a printable from of the name of the frame type.
+   * XXX This should be eliminated and we use GetType() instead...
+   */
+  virtual nsresult GetFrameName(nsAString& aResult) const;
+  nsresult MakeFrameName(const nsAString& aType, nsAString& aResult) const;
+  // Helper function to return the index in parent of the frame's content
+  // object. Returns -1 on error or if the frame doesn't have a content object
+  static int32_t ContentIndexInContainer(const nsIFrame* aFrame);
+#endif
+
+#ifdef DEBUG
+  static mozilla::LazyLogModule sFrameLogModule;
+
+  // Show frame borders when rendering
+  static void ShowFrameBorders(bool aEnable);
+  static bool GetShowFrameBorders();
+
+  // Show frame border of event target
+  static void ShowEventTargetFrameBorder(bool aEnable);
+  static bool GetShowEventTargetFrameBorder();
 #endif
 };
 

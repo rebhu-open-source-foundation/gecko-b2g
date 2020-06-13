@@ -61,6 +61,12 @@ const PREF_URLBAR_DEFAULTS = new Map([
   // but this would mean flushing layout.)
   ["disableExtendForTests", false],
 
+  // Controls when to DNS resolve single word search strings, after they were
+  // searched for. If the string is resolved as a valid host, show a
+  // "Did you mean to go to 'host'" prompt.
+  // 0 - never resolve; 1 - use heuristics (default); 2 - always resolve
+  ["dnsResolveSingleWordsAfterSearch", 1],
+
   // Whether telemetry events should be recorded.
   ["eventTelemetry.enabled", false],
 
@@ -142,14 +148,6 @@ const PREF_URLBAR_DEFAULTS = new Map([
   // After this many days from the profile creation date, the built-in set of
   // popular domains will no longer be included in the results.
   ["usepreloadedtopurls.expire_days", 14],
-
-  // If true, we show actionable tips in the Urlbar when the user is searching
-  // for those actions.
-  ["update1.interventions", true],
-
-  // If true, we show new users and those about to start an organic search a tip
-  // encouraging them to use the Urlbar.
-  ["update1.searchTips", true],
 
   // Whether the urlbar displays a permanent search button in design update 2.
   ["update2.searchButton", false],

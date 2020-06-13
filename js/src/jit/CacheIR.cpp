@@ -4982,6 +4982,60 @@ AttachDecision CallIRGenerator::tryAttachArrayIsArray(HandleFunction callee) {
   return AttachDecision::Attach;
 }
 
+AttachDecision CallIRGenerator::tryAttachUnsafeGetReservedSlot(
+    HandleFunction callee, InlinableNative native) {
+  // Need an object and int32 slot argument.
+  if (argc_ != 2 || !args_[0].isObject() || !args_[1].isInt32()) {
+    return AttachDecision::NoAction;
+  }
+
+  int32_t slot = args_[1].toInt32();
+  if (slot < 0 || uint32_t(slot) >= NativeObject::MAX_FIXED_SLOTS) {
+    return AttachDecision::NoAction;
+  }
+  size_t offset = NativeObject::getFixedSlotOffset(slot);
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Guard callee is the correct intrinsic native function.
+  emitNativeCalleeGuard(callee);
+
+  // Guard that the first argument is an object.
+  ValOperandId arg0Id = writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
+  ObjOperandId objId = writer.guardToObject(arg0Id);
+
+  // BytecodeEmitter::checkSelfHostedUnsafeGetReservedSlot ensures that the
+  // slot argument is constant. (At least for direct calls)
+
+  switch (native) {
+    case InlinableNative::IntrinsicUnsafeGetReservedSlot:
+      writer.loadFixedSlotResult(objId, offset);
+      break;
+    case InlinableNative::IntrinsicUnsafeGetObjectFromReservedSlot:
+      writer.loadFixedSlotTypedResult(objId, offset, ValueType::Object);
+      break;
+    case InlinableNative::IntrinsicUnsafeGetInt32FromReservedSlot:
+      writer.loadFixedSlotTypedResult(objId, offset, ValueType::Int32);
+      break;
+    case InlinableNative::IntrinsicUnsafeGetStringFromReservedSlot:
+      writer.loadFixedSlotTypedResult(objId, offset, ValueType::String);
+      break;
+    case InlinableNative::IntrinsicUnsafeGetBooleanFromReservedSlot:
+      writer.loadFixedSlotTypedResult(objId, offset, ValueType::Boolean);
+      break;
+    default:
+      MOZ_CRASH("unexpected native");
+  }
+
+  // For simplicity just monitor all stubs.
+  writer.typeMonitorResult();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Monitored;
+
+  trackAttached("UnsafeGetReservedSlot");
+  return AttachDecision::Attach;
+}
+
 AttachDecision CallIRGenerator::tryAttachIsSuspendedGenerator(
     HandleFunction callee) {
   // The IsSuspendedGenerator intrinsic is only called in
@@ -5116,6 +5170,35 @@ AttachDecision CallIRGenerator::tryAttachToInteger(HandleFunction callee) {
   return AttachDecision::Attach;
 }
 
+AttachDecision CallIRGenerator::tryAttachToLength(HandleFunction callee) {
+  // Need a single int32 argument.
+  if (argc_ != 1 || !args_[0].isInt32()) {
+    return AttachDecision::NoAction;
+  }
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Guard callee is the 'ToLength' intrinsic native function.
+  emitNativeCalleeGuard(callee);
+
+  // ToLength(int32) is equivalent to max(int32, 0).
+  ValOperandId argId = writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
+  Int32OperandId int32ArgId = writer.guardToInt32(argId);
+  Int32OperandId zeroId = writer.loadInt32Constant(0);
+  bool isMax = true;
+  Int32OperandId maxId = writer.int32MinMax(isMax, int32ArgId, zeroId);
+  writer.loadInt32Result(maxId);
+
+  // This stub does not need to be monitored, because it always returns an
+  // int32.
+  writer.returnFromIC();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
+
+  trackAttached("ToLength");
+  return AttachDecision::Attach;
+}
+
 AttachDecision CallIRGenerator::tryAttachIsObject(HandleFunction callee) {
   // Need a single argument.
   if (argc_ != 1) {
@@ -5228,6 +5311,172 @@ AttachDecision CallIRGenerator::tryAttachGuardToClass(HandleFunction callee,
   cacheIRStubKind_ = BaselineCacheIRStubKind::Monitored;
 
   trackAttached("GuardToClass");
+  return AttachDecision::Attach;
+}
+
+AttachDecision CallIRGenerator::tryAttachHasClass(HandleFunction callee,
+                                                  const JSClass* clasp) {
+  // Need a single object argument.
+  if (argc_ != 1 || !args_[0].isObject()) {
+    return AttachDecision::NoAction;
+  }
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Guard callee is the 'IsXXXObject' native function.
+  emitNativeCalleeGuard(callee);
+
+  // Perform the Class check.
+  ValOperandId argId = writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
+  ObjOperandId objId = writer.guardToObject(argId);
+  writer.hasClassResult(objId, clasp);
+
+  // Return without type monitoring, because this always returns a boolean.
+  writer.returnFromIC();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
+
+  trackAttached("HasClass");
+  return AttachDecision::Attach;
+}
+
+AttachDecision CallIRGenerator::tryAttachRegExpMatcherSearcherTester(
+    HandleFunction callee, InlinableNative native) {
+  // Self-hosted code calls this with (object, string, int32) arguments.
+  if (argc_ != 3) {
+    return AttachDecision::NoAction;
+  }
+  if (!args_[0].isObject() || !args_[1].isString() || !args_[2].isInt32()) {
+    return AttachDecision::NoAction;
+  }
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Note: we don't need to call emitNativeCalleeGuard for intrinsics.
+
+  // Guard argument types.
+  ValOperandId arg0Id = writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
+  ObjOperandId reId = writer.guardToObject(arg0Id);
+
+  ValOperandId arg1Id = writer.loadArgumentFixedSlot(ArgumentKind::Arg1, argc_);
+  StringOperandId inputId = writer.guardToString(arg1Id);
+
+  ValOperandId arg2Id = writer.loadArgumentFixedSlot(ArgumentKind::Arg2, argc_);
+  Int32OperandId lastIndexId = writer.guardToInt32(arg2Id);
+
+  switch (native) {
+    case InlinableNative::RegExpMatcher:
+      writer.callRegExpMatcherResult(reId, inputId, lastIndexId);
+      writer.typeMonitorResult();
+      cacheIRStubKind_ = BaselineCacheIRStubKind::Monitored;
+      trackAttached("RegExpMatcher");
+      break;
+
+    case InlinableNative::RegExpSearcher:
+      // No type monitoring because this always returns an int32.
+      writer.callRegExpSearcherResult(reId, inputId, lastIndexId);
+      writer.returnFromIC();
+      cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
+      trackAttached("RegExpSearcher");
+      break;
+
+    case InlinableNative::RegExpTester:
+      // No type monitoring because this always returns an int32.
+      writer.callRegExpTesterResult(reId, inputId, lastIndexId);
+      writer.returnFromIC();
+      cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
+      trackAttached("RegExpTester");
+      break;
+
+    default:
+      MOZ_CRASH("Unexpected native");
+  }
+
+  return AttachDecision::Attach;
+}
+
+AttachDecision CallIRGenerator::tryAttachRegExpPrototypeOptimizable(
+    HandleFunction callee) {
+  // Self-hosted code calls this with a single object argument.
+  MOZ_ASSERT(argc_ == 1);
+  MOZ_ASSERT(args_[0].isObject());
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Note: we don't need to call emitNativeCalleeGuard for intrinsics.
+
+  ValOperandId arg0Id = writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
+  ObjOperandId protoId = writer.guardToObject(arg0Id);
+
+  writer.regExpPrototypeOptimizableResult(protoId);
+
+  // No type monitoring because this always returns a boolean.
+  writer.returnFromIC();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
+
+  trackAttached("RegExpPrototypeOptimizable");
+  return AttachDecision::Attach;
+}
+
+AttachDecision CallIRGenerator::tryAttachRegExpInstanceOptimizable(
+    HandleFunction callee) {
+  // Self-hosted code calls this with two object arguments.
+  MOZ_ASSERT(argc_ == 2);
+  MOZ_ASSERT(args_[0].isObject());
+  MOZ_ASSERT(args_[1].isObject());
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Note: we don't need to call emitNativeCalleeGuard for intrinsics.
+
+  ValOperandId arg0Id = writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
+  ObjOperandId regexpId = writer.guardToObject(arg0Id);
+
+  ValOperandId arg1Id = writer.loadArgumentFixedSlot(ArgumentKind::Arg1, argc_);
+  ObjOperandId protoId = writer.guardToObject(arg1Id);
+
+  writer.regExpInstanceOptimizableResult(regexpId, protoId);
+
+  // No type monitoring because this always returns a boolean.
+  writer.returnFromIC();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
+
+  trackAttached("RegExpInstanceOptimizable");
+  return AttachDecision::Attach;
+}
+
+AttachDecision CallIRGenerator::tryAttachSubstringKernel(
+    HandleFunction callee) {
+  // Self-hosted code calls this with (string, int32, int32) arguments.
+  MOZ_ASSERT(argc_ == 3);
+  MOZ_ASSERT(args_[0].isString());
+  MOZ_ASSERT(args_[1].isInt32());
+  MOZ_ASSERT(args_[2].isInt32());
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Note: we don't need to call emitNativeCalleeGuard for intrinsics.
+
+  ValOperandId arg0Id = writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
+  StringOperandId strId = writer.guardToString(arg0Id);
+
+  ValOperandId arg1Id = writer.loadArgumentFixedSlot(ArgumentKind::Arg1, argc_);
+  Int32OperandId beginId = writer.guardToInt32(arg1Id);
+
+  ValOperandId arg2Id = writer.loadArgumentFixedSlot(ArgumentKind::Arg2, argc_);
+  Int32OperandId lengthId = writer.guardToInt32(arg2Id);
+
+  writer.callSubstringKernelResult(strId, beginId, lengthId);
+
+  // No type monitoring because this always returns a string.
+  writer.returnFromIC();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
+
+  trackAttached("SubstringKernel");
   return AttachDecision::Attach;
 }
 
@@ -5865,6 +6114,14 @@ AttachDecision CallIRGenerator::tryAttachInlinableNative(
     case InlinableNative::IntlGuardToRelativeTimeFormat:
       return tryAttachGuardToClass(callee, native);
 
+    // Slot intrinsics.
+    case InlinableNative::IntrinsicUnsafeGetReservedSlot:
+    case InlinableNative::IntrinsicUnsafeGetObjectFromReservedSlot:
+    case InlinableNative::IntrinsicUnsafeGetInt32FromReservedSlot:
+    case InlinableNative::IntrinsicUnsafeGetStringFromReservedSlot:
+    case InlinableNative::IntrinsicUnsafeGetBooleanFromReservedSlot:
+      return tryAttachUnsafeGetReservedSlot(callee, native);
+
     // Intrinsics.
     case InlinableNative::IntrinsicIsSuspendedGenerator:
       return tryAttachIsSuspendedGenerator(callee);
@@ -5874,6 +6131,8 @@ AttachDecision CallIRGenerator::tryAttachInlinableNative(
       return tryAttachToObject(callee, native);
     case InlinableNative::IntrinsicToInteger:
       return tryAttachToInteger(callee);
+    case InlinableNative::IntrinsicToLength:
+      return tryAttachToLength(callee);
     case InlinableNative::IntrinsicIsObject:
       return tryAttachIsObject(callee);
     case InlinableNative::IntrinsicIsCallable:
@@ -5887,6 +6146,20 @@ AttachDecision CallIRGenerator::tryAttachInlinableNative(
     case InlinableNative::IntrinsicGuardToRegExpStringIterator:
     case InlinableNative::IntrinsicGuardToWrapForValidIterator:
       return tryAttachGuardToClass(callee, native);
+    case InlinableNative::IntrinsicSubstringKernel:
+      return tryAttachSubstringKernel(callee);
+
+    // RegExp natives.
+    case InlinableNative::IsRegExpObject:
+      return tryAttachHasClass(callee, &RegExpObject::class_);
+    case InlinableNative::RegExpMatcher:
+    case InlinableNative::RegExpSearcher:
+    case InlinableNative::RegExpTester:
+      return tryAttachRegExpMatcherSearcherTester(callee, native);
+    case InlinableNative::RegExpPrototypeOptimizable:
+      return tryAttachRegExpPrototypeOptimizable(callee);
+    case InlinableNative::RegExpInstanceOptimizable:
+      return tryAttachRegExpInstanceOptimizable(callee);
 
     // String natives.
     case InlinableNative::String:
