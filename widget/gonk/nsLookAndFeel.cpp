@@ -318,77 +318,77 @@ nsLookAndFeel::GetIntImpl(IntID aID, int32_t &aResult)
     rv = NS_OK;
 
     switch (aID) {
-        case eIntID_CaretBlinkTime:
+        case IntID::CaretBlinkTime:
             aResult = 500;
             break;
 
-        case eIntID_CaretWidth:
+        case IntID::CaretWidth:
             aResult = 1;
             break;
 
-        case eIntID_ShowCaretDuringSelection:
+        case IntID::ShowCaretDuringSelection:
             aResult = 0;
             break;
 
-        case eIntID_SelectTextfieldsOnKeyFocus:
+        case IntID::SelectTextfieldsOnKeyFocus:
             // Select textfield content when focused by kbd
             // used by EventStateManager::sTextfieldSelectModel
             aResult = 1;
             break;
 
-        case eIntID_SubmenuDelay:
+        case IntID::SubmenuDelay:
             aResult = 200;
             break;
 
-        case eIntID_TooltipDelay:
+        case IntID::TooltipDelay:
             aResult = 500;
             break;
 
-        case eIntID_MenusCanOverlapOSBar:
+        case IntID::MenusCanOverlapOSBar:
             // we want XUL popups to be able to overlap the task bar.
             aResult = 1;
             break;
 
-        case eIntID_ScrollArrowStyle:
+        case IntID::ScrollArrowStyle:
             aResult = eScrollArrowStyle_Single;
             break;
 
-        case eIntID_ScrollSliderStyle:
+        case IntID::ScrollSliderStyle:
             aResult = eScrollThumbStyle_Proportional;
             break;
 
-        case eIntID_TouchEnabled:
+        case IntID::TouchEnabled:
             aResult = 1;
             break;
 
-        case eIntID_WindowsDefaultTheme:
-        case eIntID_WindowsThemeIdentifier:
-        case eIntID_OperatingSystemVersionIdentifier:
+        case IntID::WindowsDefaultTheme:
+        case IntID::WindowsThemeIdentifier:
+        case IntID::OperatingSystemVersionIdentifier:
             aResult = 0;
             rv = NS_ERROR_NOT_IMPLEMENTED;
             break;
 
-        case eIntID_IMERawInputUnderlineStyle:
-        case eIntID_IMEConvertedTextUnderlineStyle:
+        case IntID::IMERawInputUnderlineStyle:
+        case IntID::IMEConvertedTextUnderlineStyle:
             aResult = NS_STYLE_TEXT_DECORATION_STYLE_SOLID;
             break;
 
-        case eIntID_IMESelectedRawTextUnderlineStyle:
-        case eIntID_IMESelectedConvertedTextUnderline:
+        case IntID::IMESelectedRawTextUnderlineStyle:
+        case IntID::IMESelectedConvertedTextUnderline:
             aResult = NS_STYLE_TEXT_DECORATION_STYLE_NONE;
             break;
 
-        case eIntID_SpellCheckerUnderlineStyle:
+        case IntID::SpellCheckerUnderlineStyle:
             aResult = NS_STYLE_TEXT_DECORATION_STYLE_WAVY;
             break;
 
-        case eIntID_ScrollbarButtonAutoRepeatBehavior:
+        case IntID::ScrollbarButtonAutoRepeatBehavior:
             aResult = 0;
             break;
 
 // TODO: implement physical home button??
 #if 0
-        case eIntID_PhysicalHomeButton: {
+        case IntID::PhysicalHomeButton: {
             char propValue[PROPERTY_VALUE_MAX];
             property_get("ro.moz.has_home_button", propValue, "1");
             aResult = atoi(propValue);
@@ -396,8 +396,8 @@ nsLookAndFeel::GetIntImpl(IntID aID, int32_t &aResult)
         }
 #endif
 
-        case eIntID_ContextMenuOffsetVertical:
-        case eIntID_ContextMenuOffsetHorizontal:
+        case IntID::ContextMenuOffsetVertical:
+        case IntID::ContextMenuOffsetHorizontal:
             aResult = 2;
             break;
 
@@ -418,10 +418,10 @@ nsLookAndFeel::GetFloatImpl(FloatID aID, float &aResult)
   res = NS_OK;
 
   switch (aID) {
-    case eFloatID_IMEUnderlineRelativeSize:
+    case FloatID::IMEUnderlineRelativeSize:
         aResult = 1.0f;
         break;
-    case eFloatID_SpellCheckerUnderlineRelativeSize:
+    case FloatID::SpellCheckerUnderlineRelativeSize:
         aResult = 1.0f;
         break;
     default:
