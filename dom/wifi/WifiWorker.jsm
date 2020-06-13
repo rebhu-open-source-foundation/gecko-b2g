@@ -2864,11 +2864,6 @@ function WifiWorker() {
   WifiManager.onscanresultsavailable = function() {
     WifiManager.getScanResults(this.type, function(data) {
       let scanResults = data.getScanResults();
-      // Check any open network and notify to user.
-      // TODO: uncomplete
-      // if (WifiNetworkInterface.info.state == Ci.nsINetworkInfo.NETWORK_STATE_DISCONNECTED) {
-      //   OpenNetworkNotifier.handleScanResults(r);
-      // }
 
       WifiManager.cachedScanResults = [];
       if (scanResults.length <= 0 && self.wantScanResults.length !== 0) {
@@ -2885,6 +2880,7 @@ function WifiWorker() {
       // scanning. Ignore any errors from this command.
       self.networksArray = [];
       var channelSet = new Set();
+      let numOpenNetworks = 0;
       for (let i = 0; i < scanResults.length; i++) {
         let result = scanResults[i];
         let ie = result.getInfoElement();
@@ -2931,6 +2927,11 @@ function WifiWorker() {
 
         let networkKey = WifiConfigUtils.getNetworkKey(network);
         network.networkKey = networkKey;
+
+        // Check whether open network is found.
+        if (network.keyManagement.includes("NONE")) {
+          numOpenNetworks++;
+        }
 
         var configuredNetworks = WifiConfigManager.configuredNetworks;
         if (networkKey in configuredNetworks) {
@@ -2983,6 +2984,13 @@ function WifiWorker() {
         self.networksArray.push(network);
         WifiManager.cachedScanResults.push(network);
         WifiManager.cachedScanTime = Date.now();
+      }
+
+      // Notify to user whenever there is any open network.
+      if (WifiNetworkInterface.info.state == Ci.nsINetworkInfo.NETWORK_STATE_DISCONNECTED) {
+        if (numOpenNetworks > 0) {
+          OpenNetworkNotifier.handleOpenNetworkFound();
+        }
       }
 
       WifiManager.currentConfigChannels = [];

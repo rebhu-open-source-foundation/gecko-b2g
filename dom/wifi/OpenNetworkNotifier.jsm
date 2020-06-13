@@ -13,14 +13,15 @@ var gDebug = false;
 this.OpenNetworkNotifier = (function() {
   var openNetworkNotifier = {};
 
-  const NUM_SCANS_BEFORE_ACTUALLY_SCANNING = 3;
+  // For at Least scans before showing notification.
+  const MIN_NUMBER_SCANS_BEFORE_SHOW_NOTIFICATION = 3;
   const NOTIFICATION_REPEAT_DELAY_MS = 900 * 1000;
   var settingEnabled = true;
   var notificationRepeatTime = 0;
   var numScansSinceNetworkStateChange = 0;
 
   openNetworkNotifier.setOpenNetworkNotifyEnabled = setOpenNetworkNotifyEnabled;
-  openNetworkNotifier.handleScanResults = handleScanResults;
+  openNetworkNotifier.handleOpenNetworkFound = handleOpenNetworkFound;
   openNetworkNotifier.clearPendingNotification = clearPendingNotification;
   openNetworkNotifier.setDebug = setDebug;
 
@@ -40,35 +41,19 @@ this.OpenNetworkNotifier = (function() {
     clearPendingNotification();
   }
 
-  function handleScanResults(aResults) {
+  function handleOpenNetworkFound() {
     if (!settingEnabled) {
       return;
     }
 
-    if (aResults) {
-      let numOpenNetworks = 0;
-      let lines = aResults.split("\n");
-      for (let i = 1; i < lines.length; ++i) {
-        let match = /([\S]+)\s+([\S]+)\s+([\S]+)\s+(\[[\S]+\])?\s(.*)/.exec(
-          lines[i]
-        );
-        let flags = match[4];
-        if (flags !== null && flags == "[ESS]") {
-          numOpenNetworks++;
-        }
-      }
-
-      if (numOpenNetworks > 0) {
-        if (
-          ++numScansSinceNetworkStateChange > NUM_SCANS_BEFORE_ACTUALLY_SCANNING
-        ) {
-          setNotificationVisible(true);
-        }
-        return;
-      }
+    if (
+      ++numScansSinceNetworkStateChange <= MIN_NUMBER_SCANS_BEFORE_SHOW_NOTIFICATION
+    ) {
+      setNotificationVisible(false);
+      return;
     }
-    // No open networks in range, remove the notification
-    setNotificationVisible(false);
+    // Ready to show notification.
+    setNotificationVisible(true);
   }
 
   function setNotificationVisible(visible) {
@@ -78,6 +63,7 @@ this.OpenNetworkNotifier = (function() {
       debug(
         "now = " + now + " , notificationRepeatTime = " + notificationRepeatTime
       );
+
       // Not enough time has passed to show the notification again
       if (now < notificationRepeatTime) {
         return;
