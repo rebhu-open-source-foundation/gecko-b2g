@@ -82,3 +82,6 @@ if CONFIG['MOZ_RUST_FXA_CLIENT']:
 
 if CONFIG['MOZ_USING_WASM_SANDBOXING']:
     gkrust_features += ['wasm_library_sandboxing']
+
+if CONFIG['MOZ_APP_NAME'] == 'b2g':
+    gkrust_features += ['sidl']
