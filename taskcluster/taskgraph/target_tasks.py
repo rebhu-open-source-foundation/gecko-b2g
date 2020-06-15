@@ -38,10 +38,13 @@ UNCOMMON_TRY_TASK_LABELS = [
     r'web-platform-tests.*backlog',  # hide wpt jobs that are not implemented yet - bug 1572820
     r'-ccov/',
     r'-profiling-',  # talos/raptor profiling jobs are run too often
-    # Shippable build tests, except those that don't have opt versions - bug 1638014
-    # blacklist tasks on these platforms that aren't part of the named test suites,
-    # which are known to only run on shippable builds
-    r'(linux1804-64|windows10-64|windows7-32)-shippable(?!.*(awsy|browsertime|marionette-headless|raptor|talos|web-platform-tests-wdspec-headless))',  # noqa - too long
+    # Generally, we don't want shippable builds or tests to run, unless they're needed
+    # for performance tests _or_ on OS X, where we run all tests against shippable
+    # builds (not opt).
+    # The negative lookbehind assertion looks weird here because it has to be fixed
+    # width, and we have two platforms (build & test) to catch.
+    # The full version of the first platform is macosx1014-64
+    r'(?<!(x1014-64|macosx64))-shippable(?!.*(awsy|browsertime|marionette-headless|raptor|talos|web-platform-tests-wdspec-headless))',  # noqa - too long
 ]
 
 
@@ -521,9 +524,14 @@ def target_tasks_fennec_v68(full_task_graph, parameters, graph_config):
             return False
         if 'shippable' not in test_platform:
             return False
-        if '-fennec68' in try_name:
-            if '-p2' in test_platform and '-arm7' in test_platform:
-                return False
+        if '-p2' in test_platform and '-arm7' in test_platform:
+            return False
+        if '-fennec' in try_name:
+            if 'browsertime' in try_name:
+                if 'tp6m' in try_name:
+                    return True
+                else:
+                    return False
             if '-youtube-playback' in try_name:
                 # Bug 1627898: VP9 tests don't work on G5
                 if '-g5-' in test_platform and '-vp9-' in try_name:

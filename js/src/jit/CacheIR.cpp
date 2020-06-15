@@ -46,9 +46,15 @@ const char* const js::jit::CacheIROpNames[] = {
 };
 
 const uint32_t js::jit::CacheIROpArgLengths[] = {
-#define ARGLENGTH(op, len) len,
+#define ARGLENGTH(op, len, ...) len,
     CACHE_IR_OPS(ARGLENGTH)
 #undef ARGLENGTH
+};
+
+const uint32_t js::jit::CacheIROpHealth[] = {
+#define OPHEALTH(op, len, health) health,
+    CACHE_IR_OPS(OPHEALTH)
+#undef OPHEALTH
 };
 
 #ifdef DEBUG
@@ -6305,18 +6311,14 @@ bool CallIRGenerator::getTemplateObjectForScripted(HandleFunction calleeFunc,
     }
   }
 
-  JSObject* thisObject =
+  PlainObject* thisObject =
       CreateThisForFunction(cx_, calleeFunc, newTarget, TenuredObject);
   if (!thisObject) {
     return false;
   }
 
   MOZ_ASSERT(thisObject->nonCCWRealm() == calleeFunc->realm());
-
-  if (thisObject->is<PlainObject>()) {
-    result.set(thisObject);
-  }
-
+  result.set(thisObject);
   return true;
 }
 

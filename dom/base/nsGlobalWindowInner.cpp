@@ -1137,7 +1137,7 @@ void nsGlobalWindowInner::FreeInnerObjects() {
   NotifyWindowIDDestroyed("inner-window-destroyed");
 
   for (uint32_t i = 0; i < mAudioContexts.Length(); ++i) {
-    mAudioContexts[i]->Shutdown();
+    mAudioContexts[i]->OnWindowDestroy();
   }
   mAudioContexts.Clear();
 
@@ -1582,6 +1582,13 @@ void nsGlobalWindowInner::InitDocumentDependentState(JSContext* aCx) {
   }
 
   UpdateAutoplayPermission();
+
+  RefPtr<PermissionDelegateHandler> permDelegateHandler =
+      mDoc->GetPermissionDelegateHandler();
+
+  if (permDelegateHandler) {
+    permDelegateHandler->PopulateAllDelegatedPermissions();
+  }
 
   if (mWindowGlobalChild && GetBrowsingContext()) {
     GetBrowsingContext()->NotifyResetUserGestureActivation();
@@ -4971,6 +4978,14 @@ nsresult nsGlobalWindowInner::Observe(nsISupports* aSubject, const char* aTopic,
     if (type == NS_LITERAL_CSTRING("autoplay-media")) {
       UpdateAutoplayPermission();
     }
+
+    RefPtr<PermissionDelegateHandler> permDelegateHandler =
+        mDoc->GetPermissionDelegateHandler();
+
+    if (permDelegateHandler) {
+      permDelegateHandler->UpdateDelegatedPermission(type);
+    }
+
     return NS_OK;
   }
 

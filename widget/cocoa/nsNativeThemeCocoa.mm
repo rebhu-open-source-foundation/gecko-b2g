@@ -424,7 +424,8 @@ static BOOL IsActive(nsIFrame* aFrame, BOOL aIsToolbarControl) {
 }
 
 static bool IsInSourceList(nsIFrame* aFrame) {
-  for (nsIFrame* frame = aFrame->GetParent(); frame; frame = frame->GetParent()) {
+  for (nsIFrame* frame = aFrame->GetParent(); frame;
+       frame = nsLayoutUtils::GetCrossDocParentFrame(frame)) {
     if (frame->StyleDisplay()->mAppearance == StyleAppearance::MozMacSourceList) {
       return true;
     }
@@ -2664,12 +2665,6 @@ void nsNativeThemeCocoa::DrawSourceList(CGContextRef cgContext, const CGRect& in
   CGColorSpaceRelease(rgb);
 }
 
-#if !defined(MAC_OS_X_VERSION_10_14) || MAC_OS_X_VERSION_MAX_ALLOWED < MAC_OS_X_VERSION_10_14
-@interface NSColor (NSColorControlAccentColor)
-@property(class, strong, readonly) NSColor* controlAccentColor NS_AVAILABLE_MAC(10_14);
-@end
-#endif
-
 void nsNativeThemeCocoa::DrawSourceListSelection(CGContextRef aContext, const CGRect& aRect,
                                                  bool aWindowIsActive, bool aSelectionIsActive) {
   if (!nsCocoaFeatures::OnYosemiteOrLater()) {
@@ -2688,16 +2683,7 @@ void nsNativeThemeCocoa::DrawSourceListSelection(CGContextRef aContext, const CG
   NSColor* fillColor;
   if (aSelectionIsActive) {
     // Active selection, blue or graphite.
-    if (@available(macOS 10.14, *)) {
-      fillColor = [NSColor controlAccentColor];
-    } else {
-      // Pre-10.14, use hardcoded colors.
-      if ([NSColor currentControlTint] == NSGraphiteControlTint) {
-        fillColor = [NSColor colorWithSRGBRed:0.635 green:0.635 blue:0.655 alpha:1.0];
-      } else {
-        fillColor = [NSColor colorWithSRGBRed:0.247 green:0.584 blue:0.965 alpha:1.0];
-      }
-    }
+    fillColor = ControlAccentColor();
   } else {
     // Inactive selection, gray.
     if (aWindowIsActive) {

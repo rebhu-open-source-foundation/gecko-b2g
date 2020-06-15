@@ -65,8 +65,8 @@ use crate::glyph_cache::GlyphCache;
 use crate::glyph_rasterizer::{GlyphFormat, GlyphRasterizer};
 use crate::gpu_cache::{GpuBlockData, GpuCacheUpdate, GpuCacheUpdateList};
 use crate::gpu_cache::{GpuCacheDebugChunk, GpuCacheDebugCmd};
-use crate::gpu_types::{PrimitiveHeaderI, PrimitiveHeaderF, ScalingInstance, SvgFilterInstance, TransformData};
-use crate::gpu_types::{ClearInstance, CompositeInstance, ResolveInstanceData, ZBufferId};
+use crate::gpu_types::{PrimitiveHeaderI, PrimitiveHeaderF, PrimitiveInstanceData, ScalingInstance, SvgFilterInstance};
+use crate::gpu_types::{ClearInstance, CompositeInstance, ResolveInstanceData, TransformData, ZBufferId};
 use crate::internal_types::{TextureSource, ResourceCacheError};
 use crate::internal_types::{CacheTextureId, DebugOutput, FastHashMap, FastHashSet, LayerIndex, RenderedDocument, ResultMsg};
 use crate::internal_types::{TextureCacheAllocationKind, TextureCacheUpdate, TextureUpdateList, TextureUpdateSource};
@@ -135,6 +135,10 @@ const VERTEX_TEXTURE_EXTRA_ROWS: i32 = 10;
 /// platforms, it's enabled on all platforms to reduce testing
 /// differences between platforms.
 const VERTEX_DATA_TEXTURE_COUNT: usize = 3;
+
+/// Use this hint for all vertex data re-initialization. This allows
+/// the driver to better re-use RBOs internally.
+pub const ONE_TIME_USAGE_HINT: VertexUsageHint = VertexUsageHint::Stream;
 
 /// Is only false if no WR instances have ever been created.
 static HAS_BEEN_INITIALIZED: AtomicBool = AtomicBool::new(false);
@@ -909,7 +913,7 @@ pub(crate) mod desc {
     };
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub(crate) enum VertexArrayKind {
     Primitive,
     Blur,
@@ -1585,8 +1589,8 @@ impl GpuCacheTexture {
             } => {
                 *count = 0;
                 if total_block_count > buf_value.allocated_count() {
-                    device.allocate_vbo(buf_position, total_block_count, VertexUsageHint::Stream);
-                    device.allocate_vbo(buf_value,    total_block_count, VertexUsageHint::Stream);
+                    device.allocate_vbo(buf_position, total_block_count, ONE_TIME_USAGE_HINT);
+                    device.allocate_vbo(buf_value,    total_block_count, ONE_TIME_USAGE_HINT);
                 }
             }
         }
@@ -2154,6 +2158,8 @@ pub struct Renderer {
     /// require keeping the front buffer fully correct when doing
     /// partial present (e.g. unix desktop with EGL_EXT_buffer_age).
     prev_dirty_rect: DeviceRect,
+
+    max_primitive_instance_count: usize,
 }
 
 #[derive(Debug)]
@@ -2721,6 +2727,7 @@ impl Renderer {
             allocated_native_surfaces: FastHashSet::default(),
             debug_overlay_state: DebugOverlayState::new(),
             prev_dirty_rect: DeviceRect::zero(),
+            max_primitive_instance_count: options.max_instance_buffer_size / mem::size_of::<PrimitiveInstanceData>(),
         };
 
         // We initially set the flags to default and then now call set_debug_flags
@@ -4003,13 +4010,7 @@ impl Renderer {
         self.resource_upload_time += upload_time.get();
     }
 
-    pub(crate) fn draw_instanced_batch<T>(
-        &mut self,
-        data: &[T],
-        vertex_array_kind: VertexArrayKind,
-        textures: &BatchTextures,
-        stats: &mut RendererStats,
-    ) {
+    fn bind_textures(&mut self, textures: &BatchTextures) {
         let mut swizzles = [Swizzle::default(); 3];
         for i in 0 .. textures.colors.len() {
             let swizzle = self.texture_resolver.bind(
@@ -4031,16 +4032,17 @@ impl Renderer {
         if let Some(ref texture) = self.dither_matrix_texture {
             self.device.bind_texture(TextureSampler::Dither, texture, Swizzle::default());
         }
-
-        self.draw_instanced_batch_with_previously_bound_textures(data, vertex_array_kind, stats)
     }
 
-    pub(crate) fn draw_instanced_batch_with_previously_bound_textures<T>(
+    fn draw_instanced_batch<T>(
         &mut self,
         data: &[T],
         vertex_array_kind: VertexArrayKind,
+        textures: &BatchTextures,
         stats: &mut RendererStats,
     ) {
+        self.bind_textures(textures);
+
         // If we end up with an empty draw call here, that means we have
         // probably introduced unnecessary batch breaks during frame
         // building - so we should be catching this earlier and removing
@@ -4048,26 +4050,23 @@ impl Renderer {
         debug_assert!(!data.is_empty());
 
         let vao = get_vao(vertex_array_kind, &self.vaos);
-
         self.device.bind_vao(vao);
 
-        let batched = !self.debug_flags.contains(DebugFlags::DISABLE_BATCHING);
+        let chunk_size = if self.debug_flags.contains(DebugFlags::DISABLE_BATCHING) {
+            1
+        } else if vertex_array_kind == VertexArrayKind::Primitive {
+            self.max_primitive_instance_count
+        } else {
+            data.len()
+        };
 
-        if batched {
+        for chunk in data.chunks(chunk_size) {
             self.device
-                .update_vao_instances(vao, data, VertexUsageHint::Stream);
+                .update_vao_instances(vao, chunk, ONE_TIME_USAGE_HINT);
             self.device
-                .draw_indexed_triangles_instanced_u16(6, data.len() as i32);
+                .draw_indexed_triangles_instanced_u16(6, chunk.len() as i32);
             self.profile_counters.draw_calls.inc();
             stats.total_draw_calls += 1;
-        } else {
-            for i in 0 .. data.len() {
-                self.device
-                    .update_vao_instances(vao, &data[i .. i + 1], VertexUsageHint::Stream);
-                self.device.draw_triangles_u16(0, 6);
-                self.profile_counters.draw_calls.inc();
-                stats.total_draw_calls += 1;
-            }
         }
 
         self.profile_counters.vertices.add(6 * data.len());
@@ -7035,6 +7034,13 @@ pub struct RendererOptions {
     /// the items incrementally over a number of frames, even if that means the total allocated
     /// size of the cache is above the desired threshold for a small number of frames.
     pub texture_cache_max_evictions_per_frame: usize,
+    /// Since we are re-initializing the instance buffers on every draw call,
+    /// the driver has to internally manage PBOs in flight.
+    /// It's typically done by bucketing up to a specific limit, and then
+    /// just individually managing the largest buffers.
+    /// Having a limit here allows the drivers to more easily manage
+    /// the PBOs for us.
+    pub max_instance_buffer_size: usize,
 }
 
 impl Default for RendererOptions {
@@ -7056,7 +7062,7 @@ impl Default for RendererOptions {
             max_glyph_cache_size: None,
             // This is best as `Immediate` on Angle, or `Pixelbuffer(Dynamic)` on GL,
             // but we are unable to make this decision here, so picking the reasonable medium.
-            upload_method: UploadMethod::PixelBuffer(VertexUsageHint::Stream),
+            upload_method: UploadMethod::PixelBuffer(ONE_TIME_USAGE_HINT),
             workers: None,
             enable_multithreading: true,
             blob_image_handler: None,
@@ -7092,6 +7098,8 @@ impl Default for RendererOptions {
             panic_on_gl_error: false,
             texture_cache_eviction_threshold_bytes: 64 * 1024 * 1024,
             texture_cache_max_evictions_per_frame: 32,
+            // Actual threshold in macOS GL drivers
+            max_instance_buffer_size: 0x20000,
         }
     }
 }

@@ -147,6 +147,7 @@ using mozilla::ContentBlockingNotifier::BlockingDecision from "mozilla/ContentBl
 using mozilla::ContentBlocking::StorageAccessPromptChoices from "mozilla/ContentBlocking.h";
 using JSActorMessageKind from "mozilla/dom/JSActor.h";
 using JSActorMessageMeta from "mozilla/dom/PWindowGlobal.h";
+using mozilla::PermissionDelegateHandler::DelegatedPermissionList from "mozilla/PermissionDelegateIPCUtils.h";
 
 union ChromeRegistryItem
 {
@@ -360,6 +361,16 @@ struct VolumeInfo {
   bool isHotSwappable;
 };
 
+union SystemParameterValue {
+  bool;
+  float;
+};
+
+struct SystemParameterKVPair {
+  uint8_t id;
+  SystemParameterValue value;
+};
+
 struct ClipboardCapabilities {
   bool supportsSelectionClipboard;
   bool supportsFindClipboard;
@@ -489,6 +500,7 @@ struct XPCOMInitData
     nsCString[] appLocales;
     nsCString[] requestedLocales;
     DynamicScalarDefinition[] dynamicScalarDefs;
+    SystemParameterKVPair[] systemParameters;
 };
 
 struct VisitedQueryResult

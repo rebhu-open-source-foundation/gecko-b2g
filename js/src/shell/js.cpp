@@ -91,6 +91,7 @@
 #ifdef JS_SIMULATOR_MIPS64
 #  include "jit/mips64/Simulator-mips64.h"
 #endif
+#include "jit/CacheIRHealth.h"
 #include "jit/InlinableNatives.h"
 #include "jit/Ion.h"
 #include "jit/JitcodeMap.h"
@@ -505,6 +506,7 @@ bool shell::enableWasmVerbose = false;
 bool shell::enableTestWasmAwaitTier2 = false;
 bool shell::enableSourcePragmas = true;
 bool shell::enableAsyncStacks = false;
+bool shell::enableAsyncStackCaptureDebuggeeOnly = false;
 bool shell::enableStreams = false;
 bool shell::enableReadableByteStreams = false;
 bool shell::enableBYOBStreamReaders = false;
@@ -3667,6 +3669,42 @@ static bool DisassWithSrc(JSContext* cx, unsigned argc, Value* vp) {
 }
 
 #endif /* defined(DEBUG) || defined(JS_JITSPEW) */
+
+#ifdef JS_CACHEIR_SPEW
+static bool RateMyCacheIR(JSContext* cx, unsigned argc, Value* vp) {
+  CallArgs args = CallArgsFromVp(argc, vp);
+
+  RootedScript script(cx);
+  if (!argc) {
+    /* If no function is specified we rate current script. */
+    script = GetTopScript(cx);
+  } else {
+    RootedValue value(cx, args.get(0));
+    if (value.isObject() && value.toObject().is<ModuleObject>()) {
+      script = value.toObject().as<ModuleObject>().maybeScript();
+    } else {
+      script = TestingFunctionArgumentToScript(cx, args.get(0));
+    }
+  }
+
+  if (!script) {
+    return false;
+  }
+
+  js::jit::CacheIRHealth cih(cx);
+
+  if (!cih.init()) {
+    return false;
+  }
+
+  if (!cih.rateMyCacheIR(script)) {
+    return false;
+  }
+
+  args.rval().setUndefined();
+  return true;
+}
+#endif /* JS_CACHEIR_SPEW */
 
 /* Pretend we can always preserve wrappers for dummy DOM objects. */
 static bool DummyPreserveWrapperCallback(JSContext* cx, HandleObject obj) {
@@ -8614,6 +8652,13 @@ static const JSFunctionSpecWithHelp shell_functions[] = {
 "  Similar to the DumpJSStack() function in the browser."),
 
 #endif
+
+#ifdef JS_CACHEIR_SPEW
+JS_FN_HELP("rateMyCacheIR", RateMyCacheIR, 0, 0,
+"rateMyCacheIR()",
+"  Show health rating of CacheIR stubs."),
+#endif
+
     JS_FN_HELP("intern", Intern, 1, 0,
 "intern(str)",
 "  Internalize str in the atom table."),
@@ -10259,6 +10304,8 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
   enableTestWasmAwaitTier2 = op.getBoolOption("test-wasm-await-tier2");
   enableSourcePragmas = !op.getBoolOption("no-source-pragmas");
   enableAsyncStacks = !op.getBoolOption("no-async-stacks");
+  enableAsyncStackCaptureDebuggeeOnly =
+      op.getBoolOption("async-stacks-capture-debuggee-only");
   enableStreams = !op.getBoolOption("no-streams");
   enableReadableByteStreams = op.getBoolOption("enable-readable-byte-streams");
   enableBYOBStreamReaders = op.getBoolOption("enable-byob-stream-readers");
@@ -10293,7 +10340,8 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
       .setWasmVerbose(enableWasmVerbose)
       .setTestWasmAwaitTier2(enableTestWasmAwaitTier2)
       .setSourcePragmas(enableSourcePragmas)
-      .setAsyncStack(enableAsyncStacks);
+      .setAsyncStack(enableAsyncStacks)
+      .setAsyncStackCaptureDebuggeeOnly(enableAsyncStackCaptureDebuggeeOnly);
 
   if (op.getBoolOption("no-ion-for-main-context")) {
     JS::ContextOptionsRef(cx).setDisableIon();
@@ -11328,6 +11376,8 @@ int main(int argc, char** argv, char** envp) {
       !op.addBoolOption('\0', "no-source-pragmas",
                         "Disable source(Mapping)URL pragma parsing") ||
       !op.addBoolOption('\0', "no-async-stacks", "Disable async stacks") ||
+      !op.addBoolOption('\0', "async-stacks-capture-debuggee-only",
+                        "Limit async stack capture to only debuggees") ||
       !op.addMultiStringOption('\0', "dll", "LIBRARY",
                                "Dynamically load LIBRARY") ||
       !op.addBoolOption('\0', "suppress-minidump",

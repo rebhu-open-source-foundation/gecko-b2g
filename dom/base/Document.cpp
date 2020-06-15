@@ -10253,9 +10253,9 @@ void Document::Sanitize() {
 
   length = nodes->Length(true);
   for (uint32_t i = 0; i < length; ++i) {
-    NS_ASSERTION(nodes->Item(i), "null item in nodelist");
-
-    HTMLFormElement* form = HTMLFormElement::FromNode(nodes->Item(i));
+    // Reset() may change the list dynamically.
+    RefPtr<HTMLFormElement> form =
+        HTMLFormElement::FromNodeOrNull(nodes->Item(i));
     if (!form) continue;
 
     form->GetAttr(kNameSpaceID_None, nsGkAtoms::autocomplete, value);
@@ -16432,20 +16432,9 @@ StylePrefersColorScheme Document::PrefersColorScheme(
     }
   }
 
-  // If LookAndFeel::IntID::SystemUsesDarkTheme fails then return 2
-  // (no-preference)
-  switch (LookAndFeel::GetInt(LookAndFeel::IntID::SystemUsesDarkTheme, 2)) {
-    case 0:
-      return StylePrefersColorScheme::Light;
-    case 1:
-      return StylePrefersColorScheme::Dark;
-    case 2:
-      return StylePrefersColorScheme::NoPreference;
-    default:
-      // This only occurs if the user has set the ui.systemUsesDarkTheme pref to
-      // an invalid value.
-      return StylePrefersColorScheme::Light;
-  }
+  const bool dark =
+      !!LookAndFeel::GetInt(LookAndFeel::IntID::SystemUsesDarkTheme, 0);
+  return dark ? StylePrefersColorScheme::Dark : StylePrefersColorScheme::Light;
 }
 
 // static

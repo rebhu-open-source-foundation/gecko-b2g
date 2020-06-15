@@ -196,6 +196,9 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
     this._onChangedToplevelDocument = this._onChangedToplevelDocument.bind(
       this
     );
+    this.onConsoleServiceMessage = this.onConsoleServiceMessage.bind(this);
+    this.onConsoleAPICall = this.onConsoleAPICall.bind(this);
+
     EventEmitter.on(
       this.parentActor,
       "changed-toplevel-document",
@@ -645,7 +648,7 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
           if (!this.consoleServiceListener) {
             this.consoleServiceListener = new ConsoleServiceListener(
               window,
-              this
+              this.onConsoleServiceMessage
             );
             this.consoleServiceListener.init();
           }
@@ -657,7 +660,7 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
             // (and apply the filtering options defined in the parent actor).
             this.consoleAPIListener = new ConsoleAPIListener(
               window,
-              this,
+              this.onConsoleAPICall,
               this.parentActor.consoleAPIListenerOptions
             );
             this.consoleAPIListener.init();
@@ -775,7 +778,9 @@ const WebConsoleActor = ActorClassWithSpec(webconsoleSpec, {
             break;
           }
           if (!this.contentProcessListener) {
-            this.contentProcessListener = new ContentProcessListener(this);
+            this.contentProcessListener = new ContentProcessListener(
+              this.onConsoleAPICall
+            );
           }
           startedListeners.push(event);
           break;

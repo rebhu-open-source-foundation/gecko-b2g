@@ -238,6 +238,7 @@
 #  include <process.h>
 #  define getpid _getpid
 #  include "mozilla/widget/AudioSession.h"
+#  include "mozilla/widget/WinContentSystemParameters.h"
 #  include "mozilla/audio/AudioNotificationReceiver.h"
 #  include "mozilla/WinDllServices.h"
 #endif
@@ -672,6 +673,11 @@ mozilla::ipc::IPCResult ContentChild::RecvSetXPCOMProcessAttributes(
   mLookAndFeelCache = std::move(aLookAndFeelIntCache);
   mFontList = std::move(aFontList);
   mSharedFontListBlocks = std::move(aSharedFontListBlocks);
+#ifdef XP_WIN
+  widget::WinContentSystemParameters::GetSingleton()->SetContentValues(
+      aXPCOMInit.systemParameters());
+#endif
+
   gfx::gfxVars::SetValuesForInitialize(aXPCOMInit.gfxNonDefaultVarUpdates());
   InitSharedUASheets(aSharedUASheetHandle, aSharedUASheetAddress);
   InitXPCOM(std::move(aXPCOMInit), aInitialData);
