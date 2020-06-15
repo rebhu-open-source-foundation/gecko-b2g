@@ -1329,8 +1329,11 @@ Sequence<vCardProperties> BluetoothAdapter::getVCardProperties(
 
   const nsTArray<uint32_t>& propSelectorArr = aValue.get_ArrayOfuint32_t();
   for (uint32_t i = 0; i < propSelectorArr.Length(); ++i) {
-    propSelector.AppendElement(static_cast<vCardProperties>(propSelectorArr[i]),
-                               mozilla::fallible);
+    auto elem = propSelector.AppendElement(
+        static_cast<vCardProperties>(propSelectorArr[i]), mozilla::fallible);
+    if (elem == nullptr) {
+      BT_WARNING("failed to append vCardProperties to nsArray");
+    }
   }
 
   return propSelector;
@@ -1344,8 +1347,11 @@ Sequence<ParameterMask> BluetoothAdapter::GetParameterMask(
 
   const nsTArray<uint32_t>& parameterMaskArr = aValue.get_ArrayOfuint32_t();
   for (uint32_t i = 0; i < parameterMaskArr.Length(); ++i) {
-    parameterMask.AppendElement(static_cast<ParameterMask>(parameterMaskArr[i]),
-                                mozilla::fallible);
+    auto elem = parameterMask.AppendElement(
+        static_cast<ParameterMask>(parameterMaskArr[i]), mozilla::fallible);
+    if (elem == nullptr) {
+      BT_WARNING("failed to append ParameterMask to nsArray");
+    }
   }
 
   return parameterMask;

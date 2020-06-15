@@ -1225,20 +1225,25 @@ void BluetoothDaemonGattModule::HandleRsp(const DaemonSocketPDUHeader& aHeader,
           &BluetoothDaemonGattModule::ClientRegisterClientRsp,
       [OPCODE_CLIENT_UNREGISTER_CLIENT] =
           &BluetoothDaemonGattModule::ClientUnregisterClientRsp,
-      [OPCODE_CLIENT_SCAN] = &BluetoothDaemonGattModule::ClientScanRsp,
+      //  OPCODE_CLIENT_SCAN will be removed
+      // [OPCODE_CLIENT_SCAN] = &BluetoothDaemonGattModule::ClientScanRsp,
       [OPCODE_CLIENT_CONNECT] = &BluetoothDaemonGattModule::ClientConnectRsp,
       [OPCODE_CLIENT_DISCONNECT] =
           &BluetoothDaemonGattModule::ClientDisconnectRsp,
-      [OPCODE_CLIENT_LISTEN] = &BluetoothDaemonGattModule::ClientListenRsp,
+      //  OPCODE_CLIENT_LISTEN will be removed
+      // [OPCODE_CLIENT_LISTEN] = &BluetoothDaemonGattModule::ClientListenRsp,
       [OPCODE_CLIENT_REFRESH] = &BluetoothDaemonGattModule::ClientRefreshRsp,
       [OPCODE_CLIENT_SEARCH_SERVICE] =
           &BluetoothDaemonGattModule::ClientSearchServiceRsp,
-      [OPCODE_CLIENT_GET_INCLUDED_SERVICE] =
-          &BluetoothDaemonGattModule::ClientGetIncludedServiceRsp,
-      [OPCODE_CLIENT_GET_CHARACTERISTIC] =
-          &BluetoothDaemonGattModule::ClientGetCharacteristicRsp,
-      [OPCODE_CLIENT_GET_DESCRIPTOR] =
-          &BluetoothDaemonGattModule::ClientGetDescriptorRsp,
+      //  OPCODE_CLIENT_GET_INCLUDED_SERVICE will be removed
+      // [OPCODE_CLIENT_GET_INCLUDED_SERVICE] =
+      //     &BluetoothDaemonGattModule::ClientGetIncludedServiceRsp,
+      //  OPCODE_CLIENT_GET_CHARACTERISTIC will be removed
+      // [OPCODE_CLIENT_GET_CHARACTERISTIC] =
+      //     &BluetoothDaemonGattModule::ClientGetCharacteristicRsp,
+      //  OPCODE_CLIENT_GET_DESCRIPTOR will be removed
+      // [OPCODE_CLIENT_GET_DESCRIPTOR] =
+      //     &BluetoothDaemonGattModule::ClientGetDescriptorRsp,
       [OPCODE_CLIENT_READ_CHARACTERISTIC] =
           &BluetoothDaemonGattModule::ClientReadCharacteristicRsp,
       [OPCODE_CLIENT_WRITE_CHARACTERISTIC] =
@@ -1257,27 +1262,32 @@ void BluetoothDaemonGattModule::HandleRsp(const DaemonSocketPDUHeader& aHeader,
           &BluetoothDaemonGattModule::ClientReadRemoteRssiRsp,
       [OPCODE_CLIENT_GET_DEVICE_TYPE] =
           &BluetoothDaemonGattModule::ClientGetDeviceTypeRsp,
-      [OPCODE_CLIENT_SET_ADV_DATA] =
-          &BluetoothDaemonGattModule::ClientSetAdvDataRsp,
+      //  OPCODE_CLIENT_SET_ADV_DATA will be removed
+      // [OPCODE_CLIENT_SET_ADV_DATA] =
+      //     &BluetoothDaemonGattModule::ClientSetAdvDataRsp,
       [OPCODE_CLIENT_TEST_COMMAND] =
           &BluetoothDaemonGattModule::ClientTestCommandRsp,
       [OPCODE_SERVER_REGISTER_SERVER] =
           &BluetoothDaemonGattModule::ServerRegisterServerRsp,
-      [OPCODE_SERVER_REGISTER_SERVER] =
+      [OPCODE_SERVER_UNREGISTER_SERVER] =
           &BluetoothDaemonGattModule::ServerUnregisterServerRsp,
       [OPCODE_SERVER_CONNECT] = &BluetoothDaemonGattModule::ServerConnectRsp,
       [OPCODE_SERVER_DISCONNECT] =
           &BluetoothDaemonGattModule::ServerDisconnectRsp,
       [OPCODE_SERVER_ADD_SERVICE] =
           &BluetoothDaemonGattModule::ServerAddServiceRsp,
-      [OPCODE_SERVER_ADD_INCLUDED_SERVICE] =
-          &BluetoothDaemonGattModule::ServerAddIncludedServiceRsp,
-      [OPCODE_SERVER_ADD_CHARACTERISTIC] =
-          &BluetoothDaemonGattModule::ServerAddCharacteristicRsp,
-      [OPCODE_SERVER_ADD_DESCRIPTOR] =
-          &BluetoothDaemonGattModule::ServerAddDescriptorRsp,
-      [OPCODE_SERVER_START_SERVICE] =
-          &BluetoothDaemonGattModule::ServerStartServiceRsp,
+      //  OPCODE_SERVER_ADD_INCLUDED_SERVICE will be removed
+      // [OPCODE_SERVER_ADD_INCLUDED_SERVICE] =
+      //     &BluetoothDaemonGattModule::ServerAddIncludedServiceRsp,
+      //  OPCODE_SERVER_ADD_CHARACTERISTIC will be removed
+      // [OPCODE_SERVER_ADD_CHARACTERISTIC] =
+      //     &BluetoothDaemonGattModule::ServerAddCharacteristicRsp,
+      //  OPCODE_SERVER_ADD_DESCRIPTOR will be removed
+      // [OPCODE_SERVER_ADD_DESCRIPTOR] =
+      //     &BluetoothDaemonGattModule::ServerAddDescriptorRsp,
+      //  OPCODE_SERVER_START_SERVICE will be removed
+      // [OPCODE_SERVER_START_SERVICE] =
+      //     &BluetoothDaemonGattModule::ServerStartServiceRsp,
       [OPCODE_SERVER_STOP_SERVICE] =
           &BluetoothDaemonGattModule::ServerStopServiceRsp,
       [OPCODE_SERVER_DELETE_SERVICE] =

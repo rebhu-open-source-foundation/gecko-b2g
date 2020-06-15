@@ -89,8 +89,8 @@ BluetoothOppManager::Observe(nsISupports* aSubject, const char* aTopic,
 class BluetoothOppManager::SendSocketDataTask final : public Runnable {
  public:
   SendSocketDataTask(UniquePtr<uint8_t[]> aStream, uint32_t aSize)
-      : mStream(std::move(aStream)),
-        Runnable("SendSocketDataTask"),
+      : Runnable("SendSocketDataTask"),
+        mStream(std::move(aStream)),
         mSize(aSize) {
     MOZ_ASSERT(!NS_IsMainThread());
   }

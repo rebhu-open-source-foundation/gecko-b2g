@@ -71,11 +71,6 @@ void LogProtocolError(const char* aFmt, ...) {
 
 nsresult Convert(bool aIn, uint8_t& aOut) {
   static const uint8_t sValue[] = {[false] = 0x00, [true] = 0x01};
-  if (MOZ_HAL_IPC_CONVERT_WARN_IF(aIn >= MOZ_ARRAY_LENGTH(sValue), bool,
-                                  uint8_t)) {
-    aOut = 0;
-    return NS_ERROR_ILLEGAL_VALUE;
-  }
   aOut = sValue[aIn];
   return NS_OK;
 }
@@ -224,7 +219,8 @@ nsresult UnpackPDU(DaemonSocketPDU& aPDU, nsDependentCString& aOut) {
     return NS_ERROR_ILLEGAL_VALUE;  // end of PDU
   }
 
-  const char* end = reinterpret_cast<const char*>(memchr(str, '\0', aPDU.GetSize() + 1));
+  const char* end =
+      reinterpret_cast<const char*>(memchr(str, '\0', aPDU.GetSize() + 1));
   if (MOZ_HAL_IPC_UNPACK_WARN_IF(!end, nsDependentCString)) {
     return NS_ERROR_ILLEGAL_VALUE;  // no string terminator
   }

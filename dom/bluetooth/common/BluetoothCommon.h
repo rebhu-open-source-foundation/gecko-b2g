@@ -76,7 +76,9 @@ extern bool gBluetoothDebugFlag;
     nsAutoString name;                                             \
     name.AssignASCII(enumType##Values::strings[index].value,       \
                      enumType##Values::strings[index].length);     \
-    array.AppendElement(name, mozilla::fallible);                  \
+    if (array.AppendElement(name, mozilla::fallible) == nullptr) { \
+      BT_WARNING("failed to append element to nsArray");           \
+    }                                                              \
   } while (0)
 
 /**
