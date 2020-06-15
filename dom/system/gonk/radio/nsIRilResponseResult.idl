@@ -13,6 +13,7 @@ interface nsICellIdentityCdma;
 interface nsICellIdentityLte;
 interface nsICellIdentityTdScdma;
 interface nsISetupDataCallResult;
+interface nsIRadioCapability;
 
 /**
  * XPCOM component that provides the hidl response information.
@@ -24,7 +25,7 @@ interface nsIRilResponseResult : nsISupports
    * Message for RilResponseResult.
    */
 
-   /*align with android.hardward.radio@1.0:types*/
+  /*align with android.hardward.radio@1.0:types*/
 
   //RadioConst
   const long CDMA_ALPHA_INFO_BUFFER_LENGTH = 64;
@@ -399,9 +400,12 @@ interface nsIRilResponseResult : nsISupports
   // For ICC pin/puk
   readonly attribute long remainingRetries;
 
-  //  false for Standard Privacy Mode (Public Long Code Mask)
-  //  true for Enhanced Privacy Mode (Private Long Code Mask)
+  // False for Standard Privacy Mode (Public Long Code Mask)
+  // True for Enhanced Privacy Mode (Private Long Code Mask)
   readonly attribute boolean enhancedVoicePrivacy;
+
+  readonly attribute nsIRadioCapability radioCapability;
+
 /*
   //void supplyIccPinForAppResponse(out long remainingRetries);
 

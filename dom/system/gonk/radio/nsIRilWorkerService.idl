@@ -105,6 +105,7 @@ interface nsIRilWorker : nsISupports
   void getPreferredVoicePrivacy(in long serial);
   void setPreferredVoicePrivacy(in long serial, in boolean enable);
   void requestIccSimAuthentication(in long serial, in long authContext, in AString data, in AString aid);
+  void getRadioCapability(in long serial);
 };
 
 /**

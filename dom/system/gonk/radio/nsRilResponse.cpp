@@ -1514,10 +1514,25 @@ Return<void> nsRilResponse::requestShutdownResponse(
 }
 
 Return<void> nsRilResponse::getRadioCapabilityResponse(
-    const RadioResponseInfo& info, const RadioCapability& /*rc*/) {
+    const RadioResponseInfo& info, const RadioCapability& rc) {
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
+  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
+      NS_LITERAL_STRING("getRadioCapability"), rspInfo.serial,
+      convertRadioErrorToNum(rspInfo.error));
+
+  if (rspInfo.error == RadioError::NONE) {
+    RefPtr<nsRadioCapability> radioCapability = new nsRadioCapability(
+        rc.session, static_cast<int32_t>(rc.phase), rc.raf,
+        NS_ConvertUTF8toUTF16(rc.logicalModemUuid.c_str()),
+        static_cast<int32_t>(rc.status));
+    result->updateRadioCapability(radioCapability);
+  } else {
+    INFO("getRadioCapability error.");
+  }
+
+  mRIL->sendRilResponseResult(result);
   return Void();
 }
 

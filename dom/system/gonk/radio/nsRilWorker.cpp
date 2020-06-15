@@ -1270,6 +1270,18 @@ DataProfileInfo nsRilWorker::convertToHalDataProfile(nsIDataProfile* profile) {
   return dataProfileInfo;
 }
 
+NS_IMETHODIMP nsRilWorker::GetRadioCapability(int32_t serial) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_GET_RADIO_CAPABILITY", serial);
+
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->getRadioCapability(serial);
+
+  return NS_OK;
+}
+
 // Runnable used dispatch command result on the main thread.
 class RilResultDispatcher : public mozilla::Runnable {
  public:

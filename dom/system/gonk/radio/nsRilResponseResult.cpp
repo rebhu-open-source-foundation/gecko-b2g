@@ -302,10 +302,21 @@ void nsRilResponseResult::updateVoicePrivacy(bool aEnhancedVoicePrivacy) {
 }
 
 /**
+ * For GetRadioCapability.
+ */
+void nsRilResponseResult::updateRadioCapability(
+    nsRadioCapability* aRadioCapability) {
+  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
+                      "updateRadioCapability");
+  mRadioCapability = aRadioCapability;
+}
+
+/**
  *
  */
 nsRilResponseResult::~nsRilResponseResult() {}
 
+// nsRilRsponseResult
 NS_IMETHODIMP nsRilResponseResult::GetRilMessageType(
     nsAString& aRilMessageType) {
   aRilMessageType = mRilMessageType;
@@ -565,6 +576,14 @@ NS_IMETHODIMP nsRilResponseResult::GetRemainingRetries(
 NS_IMETHODIMP nsRilResponseResult::GetEnhancedVoicePrivacy(
     bool* aEnhancedVoicePrivacy) {
   *aEnhancedVoicePrivacy = mEnhancedVoicePrivacy;
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilResponseResult::GetRadioCapability(
+    nsIRadioCapability** aRadioCapability) {
+  RefPtr<nsIRadioCapability> radioCapability(mRadioCapability);
+  radioCapability.forget(aRadioCapability);
+
   return NS_OK;
 }
 

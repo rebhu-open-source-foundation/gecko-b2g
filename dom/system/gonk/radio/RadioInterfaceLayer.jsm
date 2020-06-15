@@ -579,9 +579,14 @@ function RadioInterface(aClientId) {
   this.tokenOptionsMap = {};
 
   /**
-     * CallForward options
-     */
+   * CallForward options
+   */
   this._callForwardOptions = {};
+
+  /**
+   * Radio capabilities.
+   */
+  this._radioCapability = {};
 
   //Cameron mark first.
   /*
@@ -744,11 +749,14 @@ RadioInterface.prototype = {
   _receivedSmsCbPagesMap: null,
 
   /**
-     * CallForward options
-     */
+   * CallForward options
+   */
   _callForwardOptions: null,
 
-
+  /**
+   * Radio capability.
+   */
+  _radioCapability: null,
 
   debug: function(s) {
     dump("-*- RadioInterface[" + this.clientId + "]: " + s + "\n");
@@ -1047,6 +1055,7 @@ RadioInterface.prototype = {
     if (newState !== Ci.nsIRilIndicationResult.RADIOSTATE_UNKNOWN) {
       // Retrieve device identities once radio is available.
       this.sendRilRequest("getDeviceIdentity", null);
+      this.sendRilRequest("getRadioCapability", null);
     }
 
     if (newState == Ci.nsIRilIndicationResult.RADIOSTATE_ENABLED) {
@@ -1062,8 +1071,8 @@ RadioInterface.prototype = {
     }
 
     if ((this.radioState == Ci.nsIRilIndicationResult.RADIOSTATE_UNKNOWN ||
-       this.radioState == Ci.nsIRilIndicationResult.RADIOSTATE_DISABLED) &&
-       newState == Ci.nsIRilIndicationResult.RADIOSTATE_ENABLED) {
+        this.radioState == Ci.nsIRilIndicationResult.RADIOSTATE_DISABLED) &&
+        newState == Ci.nsIRilIndicationResult.RADIOSTATE_ENABLED) {
       // The radio became available, let's get its info.
       if (!this._waitingRadioTech) {
         this.sendRilRequest("getDeviceIdentity", null);
@@ -2705,6 +2714,15 @@ RadioInterface.prototype = {
           if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_SET_CELL_INFO_LIST_RATE error = " + response.errorMsg);
         }
         break;
+      case "getRadioCapability":
+        if (response.errorMsg == 0) {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_GET_RADIO_CAPABILITY");
+          this.handlRadioCapability(response.radioCapability);
+          result = response;
+        } else {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_GET_RADIO_CAPABILITY error = " + response.errorMsg);
+        }
+        break;
       default:
     }
 
@@ -3466,7 +3484,7 @@ RadioInterface.prototype = {
   },
 
   handleDeviceIdentity: function (response) {
-    if (DEBUG) this.debug("handleDeviceIdentity imei=" + response.imei + " , imeisv=" + response.imeisv + " ,esn =" + response.esn + " , meid=" + response.meid);
+    if (DEBUG) this.debug("handleDeviceIdentity imei=" + response.imei + ", imeisv=" + response.imeisv + " ,esn =" + response.esn + " , meid=" + response.meid);
     if (response.errorMsg) {
       if (DEBUG) this.debug("Failed to get device identities:" + response.errorMsg);
       return;
@@ -3498,6 +3516,25 @@ RadioInterface.prototype = {
                                                              this.deviceIdentities.meid);
       return this.deviceIdentities;
     }
+  },
+
+  handlRadioCapability: function(aRadioCapability) {
+    if (!aRadioCapability) {
+      this.debug("handleRadioCapability without aRadioCapability");
+      return;
+    }
+    if (DEBUG) this.debug("handleRadioCapability session=" + aRadioCapability.session +
+        ", phase=" + aRadioCapability.phase + ", raf=" + aRadioCapability.raf +
+        ", logicalModemUuid=" + aRadioCapability.logicalModemUuid +
+        ", status=" + aRadioCapability.status);
+
+    this._radioCapability = {
+      session: aRadioCapability.session,
+      phase: aRadioCapability.phase,
+      raf: aRadioCapability.raf,
+      logicalModemUuid: aRadioCapability.logicalModemUuid,
+      status: aRadioCapability.status
+    };
   },
 
   handleVoiceRadioTechnology: function(response) {
@@ -4239,6 +4276,10 @@ RadioInterface.prototype = {
       case "setCellBroadcastSearchList":
         // This is not a ril request.
         this.setCellBroadcastSearchList(message);
+        break;
+      case "getRadioCapability":
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_GET_RADIO_CAPABILITY");
+        this.rilworker.getRadioCapability(message.rilMessageToken);
         break;
       default:
     }

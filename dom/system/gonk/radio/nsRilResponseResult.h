@@ -114,6 +114,8 @@ class nsRilResponseResult final : public nsRilResult,
   // For GetPreferredVoicePrivacy
   void updateVoicePrivacy(bool aEnhancedVoicePrivacy);
 
+  void updateRadioCapability(nsRadioCapability* aRadioCapability);
+
   nsString mImei;
   nsString mImeisv;
   nsString mEsn;
@@ -148,6 +150,7 @@ class nsRilResponseResult final : public nsRilResult,
   bool mMuteEnabled;
   int32_t mRemainingRetries;
   bool mEnhancedVoicePrivacy;
+  RefPtr<nsIRadioCapability> mRadioCapability;
 
  private:
   ~nsRilResponseResult();
