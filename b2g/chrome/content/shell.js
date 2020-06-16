@@ -231,6 +231,12 @@ document.addEventListener(
       Services.obs.notifyObservers(null, "marionette-startup-requested");
     });
 
+    // Start the SIDL <-> Gecko bridge.
+    const { GeckoBridge } = ChromeUtils.import(
+      "resource://gre/modules/GeckoBridge.jsm"
+    );
+    GeckoBridge.start();
+
     shell.start();
   },
   { once: true }

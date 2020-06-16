@@ -54,6 +54,7 @@ EXTRA_JS_MODULES += [
     'ContentPermissionPrompt.jsm',
     'dbg-browser-actors.js',
     'ErrorPage.jsm',
+    'GeckoBridge.jsm',
     'KillSwitchMain.jsm',
     'LocalDomains.jsm',
     'MultiscreenHandler.jsm',
