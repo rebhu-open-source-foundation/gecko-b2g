@@ -1925,3 +1925,35 @@ class Marionette(object):
         :returns: Window rect.
         """
         return self._send_message("WebDriver:FullscreenWindow")
+
+    def import_script(self, js_file):
+        """Imports a JS file into the scope of the execute_script and
+        execute_async_script calls.
+
+        :param js_file: absolute path of a JavaScript file to import.
+
+        For example, there is a importfunc.js, that contains:
+
+        ::
+
+            let testFunc = function() { return "i'm a test function!";};
+
+        Assuming this file is in the same directory as the test, you
+        could do something like:
+
+        ::
+
+            js = os.path.abspath(os.path.join(__file__, os.path.pardir, "importfunc.js"))
+            marionette.import_script(js)
+            assert "i'm a test function!" == self.marionette.execute_script("return testFunc();")
+        """
+        js = ""
+        with open(js_file, "r") as f:
+            js = f.read()
+        body = {"script": js}
+        self._send_message("Marionette:importScript", body)
+
+    def clear_imported_scripts(self):
+        """Clears all imported scripts in this context
+        """
+        self._send_message("Marionette:clearImportedScripts")

@@ -574,3 +574,54 @@ this.Sandboxes = class {
     this.boxes_.clear();
   }
 };
+
+/**
+ * Stores scripts imported from the local end through the
+ * {@code GeckoDriver#importScript} command.
+ *
+ * Imported scripts are prepended to the script that is evaluated
+ * on each call to {@code GeckoDriver#executeScript}, and
+ * {@code GeckoDriver#executeAsyncScript}.
+ *
+ * Usage:
+ *
+ *     let importedScripts = new evaluate.ScriptStorage();
+ *     importedScripts.add(firstScript);
+ *     importedScripts.add(secondScript);
+ *
+ *     let scriptToEval = importedScripts.concat(script);
+ *     // firstScript and secondScript are prepended to script
+ */
+evaluate.ScriptStorage = class extends Set {
+
+  /**
+   * Produce a string of all stored scripts.
+   *
+   * The stored scripts are concatenated into a string, with optional
+   * additional scripts then appended.
+   *
+   * @param {...string} additional
+   *     Optional scripts to include.
+   *
+   * @return {string}
+   *     Concatenated string consisting of stored scripts and additional
+   *     scripts, in that order.
+   */
+  concat(...additional) {
+    let rv = "";
+    for (let s of this) {
+      rv = s + ";" + rv;
+    }
+    for (let s of additional) {
+      rv = rv + ";" + s;
+    }
+    log.info(rv);
+    return rv;
+  }
+
+  toJson() {
+    return Array.from(this);
+  }
+
+};
+
