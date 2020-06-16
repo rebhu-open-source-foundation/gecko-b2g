@@ -52,6 +52,7 @@ impl BaseMessage {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GetServiceRequest {
     pub name: String,
+    pub fingerprint: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

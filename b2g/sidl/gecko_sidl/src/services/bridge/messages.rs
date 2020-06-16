@@ -17,6 +17,9 @@ impl From<ObjectRef> for TrackerId {
     }
 }
 
+pub static SERVICE_FINGERPRINT: &str =
+    "3dbad0dfaf9a25ece80ed85289a4e971115113fe3ba8d5c7abb29d9988bc5cf";
+
 #[derive(Debug, Deserialize, Serialize)]
 pub enum GeckoBridgeFromClient {
     GeckoFeaturesBoolPrefChanged(String, bool),      // 0
@@ -27,7 +30,7 @@ pub enum GeckoBridgeFromClient {
     PowerManagerDelegateSetScreenEnabledError,       // 5
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize)]
 pub enum GeckoBridgeToClient {
     GeckoFeaturesBoolPrefChangedSuccess,         // 0
     GeckoFeaturesBoolPrefChangedError,           // 1

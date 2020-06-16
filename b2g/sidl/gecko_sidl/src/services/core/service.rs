@@ -245,6 +245,7 @@ impl CoreService {
     pub fn get_service(
         &mut self,
         service_name: &str,
+        service_fingerprint: &str,
         mut response_task: Box<CoreGetServiceReceiver>,
     ) -> UdsResult<()> {
         response_task.service_name = Some(service_name.to_owned());
@@ -252,6 +253,7 @@ impl CoreService {
         // Build a `get_service` call.
         let request = CoreRequest::GetService(GetServiceRequest {
             name: service_name.into(),
+            fingerprint: service_fingerprint.into(),
         });
 
         self.send_request(&request, response_task)

@@ -18,7 +18,8 @@ impl From<ObjectRef> for TrackerId {
     }
 }
 
-pub static SETTINGS_CHANGE_EVENT: u32 = 0;
+pub static SERVICE_FINGERPRINT: &str =
+    "fc2921a98dc0e8b2b52c5bb0278b3a74bc6f98e18577b9fba445de59c60a7e9";
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct SettingInfo {

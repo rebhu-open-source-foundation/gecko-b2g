@@ -536,7 +536,7 @@ impl SettingsManagerXpcom {
         Ok(())
     }
 
-    ensure_service_and_queue!(SettingsTask, "SettingsManager");
+    ensure_service_and_queue!(SettingsTask, "SettingsManager", SERVICE_FINGERPRINT);
     xpcom_sidl_event_target!();
 }
 

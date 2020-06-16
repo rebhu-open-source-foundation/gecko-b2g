@@ -481,7 +481,7 @@ where
 // Extracts commononly used boilerplate.
 
 macro_rules! ensure_service_and_queue {
-    ($tasks:ty, $name:expr) => {
+    ($tasks:ty, $name:expr, $fingerprint:expr) => {
         // Returns true if the service is available.
         fn ensure_service(&self) -> bool {
             if self.inner.lock().is_some() {
@@ -503,7 +503,7 @@ macro_rules! ensure_service_and_queue {
             )));
             self.getting_service.store(true, Ordering::Relaxed);
             let mut lock = self.core_service.lock();
-            if let Err(err) = lock.get_service($name, Box::new(receiver)) {
+            if let Err(err) = lock.get_service($name, $fingerprint, Box::new(receiver)) {
                 error!("Failed to get {} service: {}", $name, err);
             }
             false

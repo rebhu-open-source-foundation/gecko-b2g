@@ -354,7 +354,7 @@ impl GeckoBridgeXpcom {
         Ok(())
     }
 
-    ensure_service_and_queue!(GeckoBridgeTask, "GeckoBridge");
+    ensure_service_and_queue!(GeckoBridgeTask, "GeckoBridge", SERVICE_FINGERPRINT);
 }
 
 impl Drop for GeckoBridgeXpcom {
