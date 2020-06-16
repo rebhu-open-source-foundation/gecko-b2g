@@ -108,7 +108,10 @@ protected:
   mozilla::ipc::IPCResult
   RecvNotifyModemRestart(const nsString& aReason);
 
-private:
+  mozilla::ipc::IPCResult RecvNotifyDeviceIdentitiesChanged(
+      nsIMobileDeviceIdentities* const& aDeviceIdentities);
+
+ private:
   uint32_t mServiceId;
   bool mLive;
   nsCOMArray<nsIMobileConnectionListener> mListeners;
@@ -121,6 +124,7 @@ private:
   nsTArray<int32_t> mSupportedNetworkTypes;
   bool mEmergencyCbMode;
   RefPtr<MobileSignalStrength> mSingalStrength;
+  RefPtr<MobileDeviceIdentities> mDeviceIdentities;
 };
 
 /******************************************************************************

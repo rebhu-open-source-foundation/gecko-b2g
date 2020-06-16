@@ -122,17 +122,13 @@ MobileConnectionParent::DeallocPMobileConnectionRequestParent(PMobileConnectionR
   return true;
 }
 
-mozilla::ipc::IPCResult
-MobileConnectionParent::RecvInit(nsMobileConnectionInfo* aVoice,
-                                 nsMobileConnectionInfo* aData,
-                                 nsString* aLastKnownNetwork,
-                                 nsString* aLastKnownHomeNetwork,
-                                 int32_t* aNetworkSelectionMode,
-                                 int32_t* aRadioState,
-                                 nsTArray<int32_t>* aSupportedNetworkTypes,
-                                 bool* aEmergencyCbMode,
-                                 nsMobileSignalStrength* aSignalStrength)
-{
+mozilla::ipc::IPCResult MobileConnectionParent::RecvInit(
+    nsMobileConnectionInfo* aVoice, nsMobileConnectionInfo* aData,
+    nsString* aLastKnownNetwork, nsString* aLastKnownHomeNetwork,
+    int32_t* aNetworkSelectionMode, int32_t* aRadioState,
+    nsTArray<int32_t>* aSupportedNetworkTypes, bool* aEmergencyCbMode,
+    nsMobileSignalStrength* aSignalStrength,
+    nsMobileDeviceIdentities* aDeviceIdentities) {
   NS_ENSURE_TRUE(mMobileConnection, IPC_FAIL_NO_REASON(this));
 
   NS_ENSURE_SUCCESS(mMobileConnection->GetVoice(aVoice), IPC_FAIL_NO_REASON(this));
@@ -143,6 +139,8 @@ MobileConnectionParent::RecvInit(nsMobileConnectionInfo* aVoice,
   NS_ENSURE_SUCCESS(mMobileConnection->GetRadioState(aRadioState), IPC_FAIL_NO_REASON(this));
   NS_ENSURE_SUCCESS(mMobileConnection->GetIsInEmergencyCbMode(aEmergencyCbMode), IPC_FAIL_NO_REASON(this));
   NS_ENSURE_SUCCESS(mMobileConnection->GetSignalStrength(aSignalStrength), IPC_FAIL_NO_REASON(this));
+  NS_ENSURE_SUCCESS(mMobileConnection->GetDeviceIdentities(aDeviceIdentities),
+                    IPC_FAIL_NO_REASON(this));
 
   int32_t* types = nullptr;
   uint32_t length = 0;
@@ -316,8 +314,16 @@ MobileConnectionParent::NotifyNetworkSelectionModeChanged()
 NS_IMETHODIMP
 MobileConnectionParent::NotifyDeviceIdentitiesChanged()
 {
-  // To be supported when bug 1222870 is required in m-c.
-  return NS_OK;
+  NS_ENSURE_TRUE(mLive, NS_ERROR_FAILURE);
+  nsresult rv;
+  nsCOMPtr<nsIMobileDeviceIdentities> deviceIdentities;
+  rv = mMobileConnection->GetDeviceIdentities(getter_AddRefs(deviceIdentities));
+
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  return SendNotifyDeviceIdentitiesChanged(deviceIdentities.forget().take())
+             ? NS_OK
+             : NS_ERROR_FAILURE;
 }
 
 NS_IMETHODIMP

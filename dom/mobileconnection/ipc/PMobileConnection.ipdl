@@ -32,6 +32,7 @@ child:
   async NotifyNetworkSelectionModeChanged(int32_t aMode);
   async NotifySignalStrengthChanged(nsMobileSignalStrength aSignalStrength);
   async NotifyModemRestart(nsString aReason);
+  async NotifyDeviceIdentitiesChanged(nsMobileDeviceIdentities aDeviceIdentities);
 
 parent:
   /**
@@ -52,7 +53,8 @@ parent:
              nsString aLastKnownNetwork, nsString aLastKnownHomeNetwork,
              int32_t aNetworkSelectionMode, int32_t aRadioState,
              int32_t[] aSupportedNetworkTypes, bool aEmergencyCbMode,
-             nsMobileSignalStrength aSignalStrength);
+             nsMobileSignalStrength aSignalStrength,
+             nsMobileDeviceIdentities aDeviceIdentities);
 
   sync GetSupportedNetworkTypes()
     returns (int32_t[] aSupportedNetworkTypes);

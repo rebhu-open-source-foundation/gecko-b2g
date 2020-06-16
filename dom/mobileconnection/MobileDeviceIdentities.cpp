@@ -11,64 +11,11 @@ namespace dom {
 
 NS_IMPL_ISUPPORTS(MobileDeviceIdentities, nsIMobileDeviceIdentities)
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(DOMMobileDeviceIdentities, mWindow)
-NS_IMPL_CYCLE_COLLECTING_ADDREF(DOMMobileDeviceIdentities)
-NS_IMPL_CYCLE_COLLECTING_RELEASE(DOMMobileDeviceIdentities)
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(DOMMobileDeviceIdentities)
-  NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
-  NS_INTERFACE_MAP_ENTRY(nsISupports)
-NS_INTERFACE_MAP_END
-
-DOMMobileDeviceIdentities::DOMMobileDeviceIdentities(nsPIDOMWindowInner* aWindow)
-  : mWindow(aWindow)
-{
-}
-
-DOMMobileDeviceIdentities::DOMMobileDeviceIdentities(const nsAString& aImei,
-                                                     const nsAString& aImeisv,
-                                                     const nsAString& aEsn,
-                                                     const nsAString& aMeid)
-{
-  mIdentities = new MobileDeviceIdentities(aImei, aImeisv, aEsn, aMeid);
-  // The parent object is nullptr when DOMMobileDeviceIdentities is created by this
-  // way, and it won't be exposed to web content.
-}
-
-void DOMMobileDeviceIdentities::Update(nsIMobileDeviceIdentities* aIdentities) {
-  if (!aIdentities) {
-    return;
-  }
-
-  if (!mIdentities) {
-    nsString imei;
-    nsString imeisv;
-    nsString esn;
-    nsString meid;
-    aIdentities->GetImei(imei);
-    aIdentities->GetImeisv(imeisv);
-    aIdentities->GetEsn(esn);
-    aIdentities->GetMeid(meid);
-
-    mIdentities = new MobileDeviceIdentities(imei, imeisv, esn, meid);
-  } else {
-    mIdentities->Update(aIdentities);
-  }
-}
-
-JSObject*
-DOMMobileDeviceIdentities::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
-  return DOMMobileConnectionDeviceIds_Binding::Wrap(aCx, this, aGivenProto);
-}
-
 MobileDeviceIdentities::MobileDeviceIdentities(const nsAString& aImei,
                                                const nsAString& aImeisv,
                                                const nsAString& aEsn,
                                                const nsAString& aMeid)
-    : mImei(aImei),
-      mImeisv(aImeisv),
-      mEsn(aEsn),
-      mMeid(aMeid) {
+    : mImei(aImei), mImeisv(aImeisv), mEsn(aEsn), mMeid(aMeid) {
   // The parent object is nullptr when MobileDeviceIdentities is created by this
   // way, and it won't be exposed to web content.
 }

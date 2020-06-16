@@ -254,19 +254,20 @@ MobileConnectionCallback::NotifyGetDeviceIdentitiesRequestSuccess(
   nsString pString;
   MobileDeviceIds result;
 
-  RefPtr<DOMMobileDeviceIdentities> DeviceIdentities = new DOMMobileDeviceIdentities(mWindow);
+  RefPtr<DOMMobileConnectionDeviceIds> DeviceIdentities =
+      new DOMMobileConnectionDeviceIds(mWindow);
   DeviceIdentities->Update(aResult);
 
-  DeviceIdentities->GetIdentities()->GetImei(pString);
+  DeviceIdentities->GetImei(pString);
   result.mImei = pString;
 
-  DeviceIdentities->GetIdentities()->GetImeisv(pString);
+  DeviceIdentities->GetImeisv(pString);
   result.mImeisv = pString;
 
-  DeviceIdentities->GetIdentities()->GetEsn(pString);
+  DeviceIdentities->GetEsn(pString);
   result.mEsn = pString;
 
-  DeviceIdentities->GetIdentities()->GetMeid(pString);
+  DeviceIdentities->GetMeid(pString);
   result.mMeid = pString;
 
   AutoJSAPI jsapi;

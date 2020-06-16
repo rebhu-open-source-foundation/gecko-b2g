@@ -30,10 +30,11 @@ MobileConnectionChild::Init()
   nsIMobileConnectionInfo* rawVoice;
   nsIMobileConnectionInfo* rawData;
   nsIMobileSignalStrength* rawSignalStrength;
+  nsIMobileDeviceIdentities* rawDeviceIdentities;
 
   SendInit(&rawVoice, &rawData, &mLastNetwork, &mLastHomeNetwork,
            &mNetworkSelectionMode, &mRadioState, &mSupportedNetworkTypes,
-           &mEmergencyCbMode, &rawSignalStrength);
+           &mEmergencyCbMode, &rawSignalStrength, &rawDeviceIdentities);
 
   // Use dont_AddRef here because this instances is already AddRef-ed in
   // MobileConnectionIPCSerializer.h
@@ -50,6 +51,11 @@ MobileConnectionChild::Init()
   nsCOMPtr<nsIMobileSignalStrength> signalStrength = dont_AddRef(rawSignalStrength);
   mSingalStrength = new MobileSignalStrength(nullptr);
   mSingalStrength->Update(signalStrength);
+
+  nsCOMPtr<nsIMobileDeviceIdentities> deviceIdentities =
+      dont_AddRef(rawDeviceIdentities);
+  mDeviceIdentities = new MobileDeviceIdentities();
+  mDeviceIdentities->Update(deviceIdentities);
 }
 
 void
@@ -118,7 +124,9 @@ MobileConnectionChild::GetRadioState(int32_t* aRadioState)
 NS_IMETHODIMP
 MobileConnectionChild::GetDeviceIdentities(nsIMobileDeviceIdentities** aIdentities)
 {
-  return NS_ERROR_NOT_IMPLEMENTED;
+  RefPtr<nsIMobileDeviceIdentities> deviceIdentities(mDeviceIdentities);
+  deviceIdentities.forget(aIdentities);
+  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -553,6 +561,22 @@ MobileConnectionChild::RecvNotifyModemRestart(const nsString& aReason)
 {
   for (int32_t i = 0; i < mListeners.Count(); i++) {
     mListeners[i]->NotifyModemRestart(aReason);
+  }
+
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult
+MobileConnectionChild::RecvNotifyDeviceIdentitiesChanged(
+    nsIMobileDeviceIdentities* const& aDeviceIdentities) {
+  // Use dont_AddRef here because this instances is already AddRef-ed in
+  // MobileConnectionIPCSerializer.h
+  nsCOMPtr<nsIMobileDeviceIdentities> deviceIdentities =
+      dont_AddRef(aDeviceIdentities);
+  mDeviceIdentities->Update(deviceIdentities);
+
+  for (int32_t i = 0; i < mListeners.Count(); i++) {
+    mListeners[i]->NotifyDeviceIdentitiesChanged();
   }
 
   return IPC_OK();

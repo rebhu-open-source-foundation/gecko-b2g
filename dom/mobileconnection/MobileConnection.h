@@ -23,6 +23,8 @@ namespace mozilla {
 namespace dom {
 
 class ImsRegHandler;
+class DOMMobileConnectionDeviceIds;
+class MobileDeviceIdentities;
 
 class MobileConnection final : public DOMEventTargetHelper
                              , private nsIMobileConnectionListener
@@ -77,8 +79,7 @@ public:
   MobileConnectionInfo*
   Data() const;
 
-  already_AddRefed<DOMRequest>
-  GetDeviceIdentities(ErrorResult& aRv);
+  already_AddRefed<DOMMobileConnectionDeviceIds> GetDeviceIdentities();
 
   void
   GetIccId(nsString& aRetVal) const;

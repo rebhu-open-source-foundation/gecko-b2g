@@ -51,12 +51,13 @@ protected:
   bool
   DeallocPMobileConnectionRequestParent(PMobileConnectionRequestParent* aActor);
 
-  mozilla::ipc::IPCResult
-  RecvInit(nsMobileConnectionInfo* aVoice, nsMobileConnectionInfo* aData,
-           nsString* aLastKnownNetwork, nsString* aLastKnownHomeNetwork,
-           int32_t* aNetworkSelectionMode, int32_t* aRadioState,
-           nsTArray<int32_t>* aSupportedNetworkTypes, bool* aEmergencyCbMode,
-           nsMobileSignalStrength* aSingalStrength);
+  mozilla::ipc::IPCResult RecvInit(
+      nsMobileConnectionInfo* aVoice, nsMobileConnectionInfo* aData,
+      nsString* aLastKnownNetwork, nsString* aLastKnownHomeNetwork,
+      int32_t* aNetworkSelectionMode, int32_t* aRadioState,
+      nsTArray<int32_t>* aSupportedNetworkTypes, bool* aEmergencyCbMode,
+      nsMobileSignalStrength* aSingalStrength,
+      nsMobileDeviceIdentities* aDeviceIdentities);
 
   mozilla::ipc::IPCResult
   RecvGetSupportedNetworkTypes(nsTArray<int32_t>* aSupportedNetworkTypes);

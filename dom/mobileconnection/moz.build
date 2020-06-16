@@ -12,6 +12,7 @@ EXPORTS += [
 ]
 
 EXPORTS.mozilla.dom += [
+    'DOMMobileConnectionDeviceIds.h',
     'DOMMobileNetworkInfo.h',
     'ImsDeviceConfiguration.h',
     'ImsRegHandler.h',
@@ -48,6 +49,7 @@ XPIDL_SOURCES += [
 
 UNIFIED_SOURCES += [
     'Assertions.cpp',
+    'DOMMobileConnectionDeviceIds.cpp',
     'DOMMobileNetworkInfo.cpp',
     'ImsDeviceConfiguration.cpp',
     'ImsRegCallback.cpp',

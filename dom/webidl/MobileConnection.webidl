@@ -159,8 +159,8 @@ interface MobileConnection : EventTarget
   /**
    * The mobile device identities.
    */
-  [Throws]  //CheckAnyPermissions="mobileconnection"]
-  DOMRequest getDeviceIdentities();
+  //[CheckAnyPermissions="mobileconnection"]
+  DOMMobileConnectionDeviceIds getDeviceIdentities();
 
   /**
    * Signal strength information.

@@ -6,8 +6,8 @@
 
 #include "mozilla/dom/MobileConnection.h"
 
+#include "DOMMobileConnectionDeviceIds.h"
 #include "MobileConnectionCallback.h"
-#include "MobileDeviceIdentities.h"
 #include "mozilla/AsyncEventDispatcher.h"
 #include "mozilla/dom/CFStateChangeEvent.h"
 #include "mozilla/dom/DataErrorEvent.h"
@@ -400,25 +400,29 @@ MobileConnection::Data() const
   return mData;
 }
 
-already_AddRefed<DOMRequest>
-MobileConnection::GetDeviceIdentities(ErrorResult& aRv)
-{
+already_AddRefed<DOMMobileConnectionDeviceIds>
+MobileConnection::GetDeviceIdentities() {
   if (!mMobileConnection) {
-    aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
   }
 
-  RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
-  RefPtr<MobileConnectionCallback> requestCallback =
-    new MobileConnectionCallback(GetOwner(), request);
+  nsAutoString imei;
+  nsAutoString imeisv;
+  nsAutoString esn;
+  nsAutoString meid;
 
-  nsresult rv = mMobileConnection->GetIdentities(requestCallback);
-  if (NS_FAILED(rv)) {
-    aRv.Throw(rv);
-    return nullptr;
-  }
+  nsCOMPtr<nsIMobileDeviceIdentities> identities;
+  mMobileConnection->GetDeviceIdentities(getter_AddRefs(identities));
 
-  return request.forget();
+  identities->GetImei(imei);
+  identities->GetImeisv(imeisv);
+  identities->GetEsn(esn);
+  identities->GetMeid(meid);
+
+  RefPtr<DOMMobileConnectionDeviceIds> domIdentities =
+      new DOMMobileConnectionDeviceIds(GetOwner(), imei, imeisv, esn, meid);
+
+  return domIdentities.forget();
 }
 
 already_AddRefed<MobileSignalStrength>
