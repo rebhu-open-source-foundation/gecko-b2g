@@ -159,9 +159,9 @@ function testNextRemove() {
   SimpleTest.finish();
 }
 
-ok(navigator.getDeviceStorage, "Should have getDeviceStorage.");
+ok(navigator.b2g.getDeviceStorage, "Should have getDeviceStorage.");
 
-gStorage = navigator.getDeviceStorage("pictures");
+gStorage = navigator.b2g.getDeviceStorage("pictures");
 ok(gStorage, "Should have gotten a storage.");
 
 // Test "removeDeep" first.

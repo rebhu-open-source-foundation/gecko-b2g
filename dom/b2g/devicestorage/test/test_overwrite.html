@@ -46,7 +46,7 @@ function addOverwritingError(e) {
   ok(true, "Adding to the same location should fail");
   ok(e.target.error.name == "NoModificationAllowedError", "Error must be NoModificationAllowedError");
 
-  var storage = navigator.getDeviceStorage("pictures");
+  var storage = navigator.b2g.getDeviceStorage("pictures");
   request = storage.delete(filename)
   request.onsuccess = deleteSuccess;
   request.onerror = deleteError;
@@ -55,8 +55,8 @@ function addOverwritingError(e) {
 function addSuccess(e) {
   ok(true, "addSuccess was called");
 
-  var storage = navigator.getDeviceStorage("pictures");
-  ok(navigator.getDeviceStorage, "Should have getDeviceStorage");
+  var storage = navigator.b2g.getDeviceStorage("pictures");
+  ok(navigator.b2g.getDeviceStorage, "Should have getDeviceStorage");
 
   request = storage.addNamed(createRandomBlob('image/png'), filename);
   ok(request, "Should have a non-null request");
@@ -67,14 +67,14 @@ function addSuccess(e) {
 
 function addError(e) {
   // test file is already exists.  clean it up and try again..
-  var storage = navigator.getDeviceStorage("pictures");
+  var storage = navigator.b2g.getDeviceStorage("pictures");
   request = storage.delete(filename)
   request.onsuccess = runtest;
 }
 
 function runtest() {
-  var storage = navigator.getDeviceStorage("pictures");
-  ok(navigator.getDeviceStorage, "Should have getDeviceStorage");
+  var storage = navigator.b2g.getDeviceStorage("pictures");
+  ok(navigator.b2g.getDeviceStorage, "Should have getDeviceStorage");
 
   request = storage.addNamed(createRandomBlob('image/png'), filename);
   ok(request, "Should have a non-null request");

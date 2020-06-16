@@ -34,7 +34,7 @@ function freeSpaceError(e) {
   SimpleTest.finish();
 }
 
-var storage = navigator.getDeviceStorage("pictures");
+var storage = navigator.b2g.getDeviceStorage("pictures");
 
 function addError(e) {
   ok(false, "addError was called : " + e.target.error.name);

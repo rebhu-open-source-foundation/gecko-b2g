@@ -54,9 +54,9 @@ function cbError(e) {
   SimpleTest.finish();
 }
 
-ok(navigator.getDeviceStorage, "Should have getDeviceStorage");
+ok(navigator.b2g.getDeviceStorage, "Should have getDeviceStorage");
 
-var storage = navigator.getDeviceStorage("pictures");
+var storage = navigator.b2g.getDeviceStorage("pictures");
 ok(storage, "Should have gotten a storage");
 
 var promise = storage.getRoot();

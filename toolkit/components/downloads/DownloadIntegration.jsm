@@ -297,7 +297,7 @@ var DownloadIntegration = {
   async _getDefaultDownloadDirectory() {
     let directoryPath;
     let win = Services.wm.getMostRecentWindow("navigator:browser");
-    let storages = win.navigator.getDeviceStorages("sdcard");
+    let storages = win.navigator.b2g.getDeviceStorages("sdcard");
     let preferredStorageName;
     // Use the first one or the default storage.
     storages.forEach(aStorage => {

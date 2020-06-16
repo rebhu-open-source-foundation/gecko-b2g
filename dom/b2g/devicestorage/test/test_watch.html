@@ -59,7 +59,7 @@ function onChange(e) {
   }
 }
 
-var storage = navigator.getDeviceStorage("pictures");
+var storage = navigator.b2g.getDeviceStorage("pictures");
 ok(storage, "Should have storage");
 storage.addEventListener("change", onChange);
 

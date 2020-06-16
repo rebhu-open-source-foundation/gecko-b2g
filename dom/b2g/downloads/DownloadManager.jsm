@@ -413,7 +413,7 @@ DownloadObject.prototype = {
     // storage path used for our downloaded file in case our download
     // was re-targetted to a different storage and/or filename.
     if (changedProps.path) {
-      let storages = this._window.navigator.getDeviceStorages("sdcard");
+      let storages = this._window.navigator.b2g.getDeviceStorages("sdcard");
       let preferredStorageName;
       // Use the first one or the default storage. Just like jsdownloads picks
       // the default / preferred download directory.
@@ -447,7 +447,7 @@ DownloadObject.prototype = {
       // own function.
       //
       let result = aDownload.error.result;
-      let storage = this._window.navigator.getDeviceStorage("sdcard");
+      let storage = this._window.navigator.b2g.getDeviceStorage("sdcard");
 
       // If we don't have access to device storage we'll opt out of these
       // extra checks as they are all dependent on the state of the storage.

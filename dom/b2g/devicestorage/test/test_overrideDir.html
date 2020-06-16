@@ -46,7 +46,7 @@ function deleteSuccess(e) {
 
   // File was deleted using the sdcard stoage area. It should be gone
   // from the pictures as well.
-  var storage = navigator.getDeviceStorage("pictures");
+  var storage = navigator.b2g.getDeviceStorage("pictures");
   request = storage.get(e.target.result);
   request.onsuccess = getAfterDeleteSuccess;
   request.onerror = getAfterDeleteError;
@@ -61,8 +61,8 @@ function getSuccess(e) {
   // We wrote the file out using pictures type. Since we've over-ridden the
   // root directory, we should be able to read it back using the sdcard
   // storage area.
-  var storage = navigator.getDeviceStorage("sdcard");
-  ok(navigator.getDeviceStorage, "Should have getDeviceStorage");
+  var storage = navigator.b2g.getDeviceStorage("sdcard");
+  ok(navigator.b2g.getDeviceStorage, "Should have getDeviceStorage");
 
   ok(e.target.result.name == gFileName, "File name should match");
   ok(e.target.result.size > 0, "File size be greater than zero");
@@ -113,7 +113,7 @@ function addSuccess(e) {
   // further checks will pass.
   gFileName = e.target.result;
 
-  var storage = navigator.getDeviceStorage("pictures");
+  var storage = navigator.b2g.getDeviceStorage("pictures");
   request = storage.get(gFileName);
   request.onsuccess = getSuccess;
   request.onerror = getError;
@@ -127,9 +127,9 @@ function addError(e) {
 }
 
 function startTest() {
-  ok(navigator.getDeviceStorage, "Should have getDeviceStorage");
+  ok(navigator.b2g.getDeviceStorage, "Should have getDeviceStorage");
 
-  var storage = navigator.getDeviceStorage("pictures");
+  var storage = navigator.b2g.getDeviceStorage("pictures");
   ok(storage, "Should have gotten a storage");
 
   request = storage.addNamed(gDataBlob, gFileName);

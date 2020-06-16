@@ -34,7 +34,7 @@ var timeFile = "t.png";
 var newFiles = ["x/y/ad.png", "x/y/ae.png", "x/y/af.png", // new files in old dir
                 "z/bd.png", "z/be.png", "z/bf.png"];      // new files in new dir
 
-var storage = navigator.getDeviceStorage('pictures');
+var storage = navigator.b2g.getDeviceStorage('pictures');
 var prefix = "devicestorage/" + randomFilename(12);
 var i;
 var timestamp;

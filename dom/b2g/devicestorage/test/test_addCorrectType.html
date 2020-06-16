@@ -28,7 +28,7 @@ devicestorage_setup(function () {
 
 function addNamed(storage, mime, fileExtension) {
   dump("adding: " + mime + " " + fileExtension + "\n");
-  return navigator.getDeviceStorage(storage).addNamed(createRandomBlob(mime), randomFilename(40) + "." + fileExtension);
+  return navigator.b2g.getDeviceStorage(storage).addNamed(createRandomBlob(mime), randomFilename(40) + "." + fileExtension);
 }
 
 // These tests must all fail

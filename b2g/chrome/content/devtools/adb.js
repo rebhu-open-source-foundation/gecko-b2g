@@ -88,7 +88,7 @@ var AdbController = {
 
   updateState: function() {
     this.umsActive = false;
-    this.storages = navigator.getDeviceStorages('sdcard');
+    this.storages = navigator.b2g.getDeviceStorages('sdcard');
     this.updateStorageState(0);
   },
 

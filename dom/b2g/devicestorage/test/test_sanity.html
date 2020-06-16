@@ -25,26 +25,26 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=717103
 
 devicestorage_setup(function () {
 
-ok(navigator.getDeviceStorage, "Should have getDeviceStorage");
+ok(navigator.b2g.getDeviceStorage, "Should have getDeviceStorage");
 
 var storage;
 
 var throws = false;
 try {
- storage = navigator.getDeviceStorage();
+ storage = navigator.b2g.getDeviceStorage();
 } catch(e) {throws = true}
 ok(throws, "getDeviceStorage takes one arg");
 
-storage = navigator.getDeviceStorage("kilimanjaro");
+storage = navigator.b2g.getDeviceStorage("kilimanjaro");
 ok(!storage, "kilimanjaro - Should not have this type of storage");
 
-storage = navigator.getDeviceStorage("pictures");
+storage = navigator.b2g.getDeviceStorage("pictures");
 ok(storage, "pictures - Should have getDeviceStorage");
 
-storage = navigator.getDeviceStorage("music");
+storage = navigator.b2g.getDeviceStorage("music");
 ok(storage, "music - Should have getDeviceStorage");
 
-storage = navigator.getDeviceStorage("videos");
+storage = navigator.b2g.getDeviceStorage("videos");
 ok(storage, "videos - Should have getDeviceStorage");
 
 var cursor = storage.enumerate();

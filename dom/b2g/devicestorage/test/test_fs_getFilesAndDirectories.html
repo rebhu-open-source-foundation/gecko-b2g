@@ -70,7 +70,7 @@ function handleError(e) {
   SimpleTest.finish();
 }
 
-var gStorage = navigator.getDeviceStorage("pictures");
+var gStorage = navigator.b2g.getDeviceStorage("pictures");
 
 ok(gStorage, "Should have gotten a storage.");
 

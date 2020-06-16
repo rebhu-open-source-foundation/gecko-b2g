@@ -158,9 +158,9 @@ function cbSuccess(e) {
   SimpleTest.finish();
 }
 
-ok(navigator.getDeviceStorage, "Should have getDeviceStorage.");
+ok(navigator.b2g.getDeviceStorage, "Should have getDeviceStorage.");
 
-var gStorage = navigator.getDeviceStorage("pictures");
+var gStorage = navigator.b2g.getDeviceStorage("pictures");
 ok(gStorage, "Should have gotten a storage.");
 
 function createTestFile(path, callback) {

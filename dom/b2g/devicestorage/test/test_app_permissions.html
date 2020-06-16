@@ -38,7 +38,7 @@ SimpleTest.waitForExplicitFinish();
 
 function TestAdd(iframe, data) {
 
-  var storage = iframe.contentDocument.defaultView.navigator.getDeviceStorage(data.type);
+  var storage = iframe.contentDocument.defaultView.navigator.b2g.getDeviceStorage(data.type);
   isnot(storage, null, "Should be able to get storage object for " + data.type);
 
   var blob = new Blob(["Kyle Huey is not a helicopter."], {type: data.mimeType});
@@ -62,7 +62,7 @@ function TestGet(iframe, data) {
 
   createTestFile(data.fileExtension);
 
-  var storage = iframe.contentDocument.defaultView.navigator.getDeviceStorage(data.type);
+  var storage = iframe.contentDocument.defaultView.navigator.b2g.getDeviceStorage(data.type);
   isnot(storage, null, "Should be able to get storage object for " + data.type);
 
   request = storage.get("testfile" + data.fileExtension);
@@ -83,7 +83,7 @@ function TestDelete(iframe, data) {
 
   createTestFile(data.fileExtension);
 
-  var storage = iframe.contentDocument.defaultView.navigator.getDeviceStorage(data.type);
+  var storage = iframe.contentDocument.defaultView.navigator.b2g.getDeviceStorage(data.type);
   isnot(storage, null, "Should be able to get storage object for " + data.type);
 
   request = storage.delete("testfile" + data.fileExtension);
@@ -105,7 +105,7 @@ function TestEnumerate(iframe, data) {
 
   createTestFile(data.fileExtension);
 
-  var storage = iframe.contentDocument.defaultView.navigator.getDeviceStorage(data.type);
+  var storage = iframe.contentDocument.defaultView.navigator.b2g.getDeviceStorage(data.type);
   isnot(storage, null, "Should be able to get storage object for " + data.type);
 
   request = storage.enumerate();

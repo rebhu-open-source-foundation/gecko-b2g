@@ -78,8 +78,8 @@ function runtest() {
   addFile();
 }
 
-var gStorage = navigator.getDeviceStorage("sdcard");
-ok(navigator.getDeviceStorage, "Should have getDeviceStorage");
+var gStorage = navigator.b2g.getDeviceStorage("sdcard");
+ok(navigator.b2g.getDeviceStorage, "Should have getDeviceStorage");
 ok(gStorage, "Should get storage from sdcard");
 runtest();
 

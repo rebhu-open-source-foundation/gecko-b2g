@@ -28,7 +28,7 @@ devicestorage_setup(function () {
 
 function add(storage, mime) {
   dump("adding: " + mime + "\n");
-  return navigator.getDeviceStorage(storage).add(createRandomBlob(mime));
+  return navigator.b2g.getDeviceStorage(storage).add(createRandomBlob(mime));
 }
 
 var tests = [

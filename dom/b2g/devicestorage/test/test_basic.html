@@ -44,7 +44,7 @@ function deleteSuccess(e) {
   ok(e.target.result == gFileName, "File name should match");
   dump(e.target.result + "\n")
 
-  var storage = navigator.getDeviceStorage("pictures");
+  var storage = navigator.b2g.getDeviceStorage("pictures");
   request = storage.get(e.target.result);
   request.onsuccess = getAfterDeleteSuccess;
   request.onerror = getAfterDeleteError;
@@ -57,8 +57,8 @@ function deleteError(e) {
 }
 
 function getSuccess(e) {
-  var storage = navigator.getDeviceStorage("pictures");
-  ok(navigator.getDeviceStorage, "Should have getDeviceStorage");
+  var storage = navigator.b2g.getDeviceStorage("pictures");
+  ok(navigator.b2g.getDeviceStorage, "Should have getDeviceStorage");
 
   ok(e.target.result.name == gFileName, "File name should match");
   ok(e.target.result.size > 0, "File size be greater than zero");
@@ -109,7 +109,7 @@ function addSuccess(e) {
   // further checks will pass.
   gFileName = e.target.result;
 
-  var storage = navigator.getDeviceStorage("pictures");
+  var storage = navigator.b2g.getDeviceStorage("pictures");
   request = storage.get(gFileName);
   request.onsuccess = getSuccess;
   request.onerror = getError;
@@ -122,9 +122,9 @@ function addError(e) {
   SimpleTest.finish();
 }
 
-ok(navigator.getDeviceStorage, "Should have getDeviceStorage");
+ok(navigator.b2g.getDeviceStorage, "Should have getDeviceStorage");
 
-var storage = navigator.getDeviceStorage("pictures");
+var storage = navigator.b2g.getDeviceStorage("pictures");
 ok(storage, "Should have gotten a storage");
 
 request = storage.addNamed(gDataBlob, gFileName);

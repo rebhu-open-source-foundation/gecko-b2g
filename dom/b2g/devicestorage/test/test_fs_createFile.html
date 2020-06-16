@@ -110,9 +110,9 @@ function next() {
   });
 }
 
-ok(navigator.getDeviceStorage, "Should have getDeviceStorage.");
+ok(navigator.b2g.getDeviceStorage, "Should have getDeviceStorage.");
 
-let storage = navigator.getDeviceStorage("pictures");
+let storage = navigator.b2g.getDeviceStorage("pictures");
 ok(storage, "Should have gotten a storage.");
 
 // Get the root directory

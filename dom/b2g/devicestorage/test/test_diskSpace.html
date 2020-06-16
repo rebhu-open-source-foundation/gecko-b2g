@@ -64,13 +64,13 @@ function addError(e) {
 
 ok(true, "hi");
 
-var pictures = navigator.getDeviceStorage("pictures");
+var pictures = navigator.b2g.getDeviceStorage("pictures");
 var picture_files = [ "a.png", "b.png", "c.png", "d.png", "e.png" ];
 
-var videos = navigator.getDeviceStorage("videos");
+var videos = navigator.b2g.getDeviceStorage("videos");
 var video_files = [ "a.ogv", "b.ogv" ];
 
-var music = navigator.getDeviceStorage("music");
+var music = navigator.b2g.getDeviceStorage("music");
 var music_files = [ "a.mp3", "b.mp3", "c.mp3" ];
 
 var added = picture_files.length + video_files.length + music_files.length;

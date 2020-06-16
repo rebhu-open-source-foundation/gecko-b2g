@@ -16,7 +16,7 @@ enum DeviceStorageAreaChangedEventOperation {
  * added or removed.
  * 1. If a storage area is added, then the 'storageName' attribute will contain the
  * name of the storage area. To access this new storage area, a user needs to pass
- * storageName to navigator.getDeviceStorageByNameAndType to get a DeviceStorage object.
+ * storageName to navigator.b2g.getDeviceStorageByNameAndType to get a DeviceStorage object.
  * 2. If a storage area is removed, then the 'storageName' attribute indicates
  * which storage area was removed.
  */

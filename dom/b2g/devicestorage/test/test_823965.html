@@ -29,8 +29,8 @@ var gData = "My name is Doug Turner (?!?).  My IRC nick is DougT.  I like Maple 
 var gDataBlob = new Blob([gData], {type: 'image/png'});
 
 function getSuccess(e) {
-  var storage = navigator.getDeviceStorage("pictures");
-  ok(navigator.getDeviceStorage, "Should have getDeviceStorage");
+  var storage = navigator.b2g.getDeviceStorage("pictures");
+  ok(navigator.b2g.getDeviceStorage, "Should have getDeviceStorage");
 
   ok(e.target.result.name == gFileName, "File name should match");
   ok(e.target.result.size > 0, "File size be greater than zero");
@@ -39,7 +39,7 @@ function getSuccess(e) {
 
   var mreq = storage.enumerate();
   mreq.onsuccess = function() {
-    var storage2 = navigator.getDeviceStorage('music');
+    var storage2 = navigator.b2g.getDeviceStorage('music');
     var dreq = storage2.delete(mreq.result.name);
     dreq.onerror = function () {
       ok(true, "The bug has been fixed");
@@ -75,7 +75,7 @@ function addSuccess(e) {
   // Since we now have the fully qualified name, change gFileName to that.
   gFileName = e.target.result;
 
-  var storage = navigator.getDeviceStorage("pictures");
+  var storage = navigator.b2g.getDeviceStorage("pictures");
   request = storage.get(gFileName);
   request.onsuccess = getSuccess;
   request.onerror = getError;
@@ -88,9 +88,9 @@ function addError(e) {
   SimpleTest.finish();
 }
 
-ok(navigator.getDeviceStorage, "Should have getDeviceStorage");
+ok(navigator.b2g.getDeviceStorage, "Should have getDeviceStorage");
 
-var storage = navigator.getDeviceStorage("pictures");
+var storage = navigator.b2g.getDeviceStorage("pictures");
 ok(storage, "Should have gotten a storage");
 
 request = storage.addNamed(gDataBlob, gFileName);

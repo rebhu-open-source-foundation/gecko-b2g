@@ -34,7 +34,7 @@ function availableError(e) {
   SimpleTest.finish();
 }
 
-var storage = navigator.getDeviceStorage("pictures");
+var storage = navigator.b2g.getDeviceStorage("pictures");
 
 request = storage.available();
 ok(request, "Should have a non-null request");
