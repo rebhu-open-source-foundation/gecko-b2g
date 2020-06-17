@@ -14,6 +14,9 @@ const { XPCOMUtils } = ChromeUtils.import(
 const { libcutils } = ChromeUtils.import(
   "resource://gre/modules/systemlibs.js"
 );
+const { BinderServices } = ChromeUtils.import(
+  "resource://gre/modules/BinderServices.jsm"
+);
 
 const TETHERINGSERVICE_CONTRACTID = "@mozilla.org/tethering/service;1";
 const TETHERINGSERVICE_CID = Components.ID(
@@ -65,13 +68,6 @@ XPCOMUtils.defineLazyGetter(this, "gRil", function() {
 
   return null;
 });
-
-XPCOMUtils.defineLazyServiceGetter(
-  this,
-  "gConnectivityBinderService",
-  "@mozilla.org/b2g/connectivitybinderservice;1",
-  "nsIConnectivityBinderService"
-);
 
 const TOPIC_MOZSETTINGS_CHANGED = "mozsettings-changed";
 const TOPIC_PREF_CHANGED = "nsPref:changed";
@@ -875,9 +871,9 @@ TetheringService.prototype = {
     }
 
     this.checkPendingEvent();
-    gConnectivityBinderService.onTetheringChanged(this.wifiState, this.usbState);
     this._fireEvent("tetheringstatuschange", { wifiTetheringState: this.wifiState,
                                                usbTetheringState: this.usbState });
+    BinderServices.connectivity.onTetheringChanged(this.wifiState, this.usbState);
     if (this._manageOfflineStatus) {
       Services.io.offline =
         !this.isAnyConnected() &&
@@ -1072,9 +1068,9 @@ TetheringService.prototype = {
       }
 
       this.checkPendingEvent();
-      gConnectivityBinderService.onTetheringChanged(this.wifiState, this.usbState);
       this._fireEvent("tetheringstatuschange", { usbTetheringState: this.usbState,
                                                  wifiTetheringState: this.wifiState });
+      BinderServices.connectivity.onTetheringChanged(this.wifiState, this.usbState);
 
       if (this._manageOfflineStatus) {
         Services.io.offline =

@@ -12,6 +12,9 @@ const { PromiseUtils } = ChromeUtils.import(
   "resource://gre/modules/PromiseUtils.jsm"
 );
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { BinderServices } = ChromeUtils.import(
+  "resource://gre/modules/BinderServices.jsm"
+);
 
 const NETWORKMANAGER_CID = Components.ID(
   "{1ba9346b-53b5-4660-9dc6-58f0b258d0a6}"
@@ -42,13 +45,6 @@ XPCOMUtils.defineLazyServiceGetter(
   "gTetheringService",
   "@mozilla.org/tethering/service;1",
   "nsITetheringService"
-);
-
-XPCOMUtils.defineLazyServiceGetter(
-  this,
-  "gConnectivityBinderService",
-  "@mozilla.org/b2g/connectivitybinderservice;1",
-  "nsIConnectivityBinderService"
 );
 
 const TOPIC_INTERFACE_REGISTERED = "network-interface-registered";
@@ -528,8 +524,8 @@ function NetworkManager() {
 
   for (let networkType of this._captivePortalSupportTypes) {
     let captivePortalLanding = new CaptivePortalLanding(networkType);
-    gConnectivityBinderService.onCaptivePortalChanged(captivePortalLanding);
     this._captivePortalLandings.push(captivePortalLanding);
+    BinderServices.connectivity.onCaptivePortalChanged(captivePortalLanding);
   }
 }
 NetworkManager.prototype = {
@@ -2843,8 +2839,9 @@ var CaptivePortalDetectionHelper = (function() {
       );
       propBag.setProperty("landing", landing);
       propBag.setProperty("networkType", networkType);
-      gConnectivityBinderService.onCaptivePortalChanged(NetworkManager.prototype._captivePortalLandings[index]);
       Services.obs.notifyObservers(propBag, "captive-portal-result");
+      BinderServices.connectivity.onCaptivePortalChanged(
+        NetworkManager.prototype._captivePortalLandings[index]);
       break;
     }
   };

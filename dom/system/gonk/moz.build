@@ -51,6 +51,10 @@ EXTRA_JS_MODULES += [
     'systemlibs.js',
 ]
 
+EXTRA_PP_JS_MODULES += [
+    'BinderServices.jsm',
+]
+
 include('/ipc/chromium/chromium-config.mozbuild')
 
 DEFINES['HAVE_ANDROID_OS'] = True
