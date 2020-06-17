@@ -39,7 +39,7 @@ class nsIPrincipal;
 #  include "AndroidLocationProvider.h"
 #endif
 
-#if defined(MOZ_WIDGET_GONK)
+#ifdef MOZ_WIDGET_GONK
 #  include "GonkGPSGeolocationProvider.h"
 #endif
 
@@ -63,6 +63,9 @@ class nsIPrincipal;
 // This preference allows to override the "secure context" by
 // default policy.
 #define PREF_GEO_SECURITY_ALLOWINSECURE "geo.security.allowinsecure"
+
+// The geolocation enabled setting
+#define GEO_SETTINGS_ENABLED "geolocation.enabled"
 
 using mozilla::Unused;  // <snicker>
 using namespace mozilla;
@@ -525,11 +528,23 @@ nsresult nsGeolocationService::Init() {
 
   obs->AddObserver(this, "xpcom-shutdown", false);
 
+#ifdef MOZ_B2G
+  nsCOMPtr<nsISettingsManager> settings =
+      do_GetService("@mozilla.org/sidl-native/settings;1");
+  if (settings) {
+    nsString key = NS_LITERAL_STRING(GEO_SETTINGS_ENABLED);
+    settings->Get(key, this);
+
+    // Skip the 3rd arguments since nsISidlDefaultResponse isn't necessary
+    settings->AddObserver(key, this, nullptr);
+  }
+#endif
+
 #ifdef MOZ_WIDGET_ANDROID
   mProvider = new AndroidLocationProvider();
 #endif
 
-#if defined(MOZ_WIDGET_GONK)
+#ifdef MOZ_WIDGET_GONK
   mProvider = do_GetService(GONK_GPS_GEOLOCATION_PROVIDER_CONTRACTID);
 #endif
 
@@ -577,6 +592,53 @@ nsresult nsGeolocationService::Init() {
 
 nsGeolocationService::~nsGeolocationService() = default;
 
+#ifdef MOZ_B2G
+// Whether the geolocation setting is enabled
+static bool sGeoSettingEnabled = true;
+
+NS_IMETHODIMP
+nsGeolocationService::Resolve(nsISettingInfo* info) {
+  if (info) {
+    nsString value;
+    info->GetValue(value);
+
+    HandleSettingValue(value);
+  }
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsGeolocationService::Reject() { return NS_OK; }
+
+NS_IMETHODIMP
+nsGeolocationService::ObserveSetting(nsISettingInfo* info) {
+  if (info) {
+    nsString value;
+    info->GetValue(value);
+
+    HandleSettingValue(value);
+  }
+  return NS_OK;
+}
+
+void nsGeolocationService::HandleSettingValue(const nsAString& aValue) {
+  bool enabled = !aValue.EqualsLiteral("false");
+  if (sGeoSettingEnabled == enabled) {
+    return;
+  }
+
+  if (!enabled) {
+    // turn things off
+    StopDevice();
+    Update(nullptr);
+    mLastPosition.position = nullptr;
+    sGeoSettingEnabled = false;
+  } else {
+    sGeoSettingEnabled = true;
+  }
+}
+#endif
+
 NS_IMETHODIMP
 nsGeolocationService::Observe(nsISupports* aSubject, const char* aTopic,
                               const char16_t* aData) {
@@ -585,6 +647,16 @@ nsGeolocationService::Observe(nsISupports* aSubject, const char* aTopic,
     if (obs) {
       obs->RemoveObserver(this, "xpcom-shutdown");
     }
+
+#ifdef MOZ_B2G
+    nsCOMPtr<nsISettingsManager> settings =
+        do_GetService("@mozilla.org/sidl-native/settings;1");
+    if (settings) {
+      // Skip the 3rd arguments since nsISidlDefaultResponse isn't necessary
+      settings->RemoveObserver(NS_LITERAL_STRING(GEO_SETTINGS_ENABLED), this,
+                               nullptr);
+    }
+#endif
 
     for (uint32_t i = 0; i < mGeolocators.Length(); i++) {
       mGeolocators[i]->Shutdown();
@@ -661,6 +733,12 @@ nsresult nsGeolocationService::StartDevice(nsIPrincipal* aPrincipal) {
                                     HighAccuracyRequested());
     return NS_OK;
   }
+
+#ifdef MOZ_B2G
+  if (!sGeoSettingEnabled) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+#endif
 
   // Start them up!
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();

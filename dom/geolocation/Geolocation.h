@@ -32,6 +32,10 @@
 #include "nsIGeolocationProvider.h"
 #include "mozilla/Attributes.h"
 
+#ifdef MOZ_B2G
+#  include "nsISettings.h"
+#endif
+
 class nsGeolocationService;
 class nsGeolocationRequest;
 
@@ -55,6 +59,10 @@ struct CachedPositionAndAccuracy {
  * Singleton that manages the geolocation provider
  */
 class nsGeolocationService final : public nsIGeolocationUpdate,
+#ifdef MOZ_B2G
+                                   public nsISettingsGetResponse,
+                                   public nsISettingsObserver,
+#endif
                                    public nsIObserver {
  public:
   static already_AddRefed<nsGeolocationService> GetGeolocationService();
@@ -62,6 +70,10 @@ class nsGeolocationService final : public nsIGeolocationUpdate,
 
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIGEOLOCATIONUPDATE
+#ifdef MOZ_B2G
+  NS_DECL_NSISETTINGSGETRESPONSE
+  NS_DECL_NSISETTINGSOBSERVER
+#endif
   NS_DECL_NSIOBSERVER
 
   nsGeolocationService() { mHigherAccuracy = false; }
@@ -89,6 +101,9 @@ class nsGeolocationService final : public nsIGeolocationUpdate,
   void UpdateAccuracy(bool aForceHigh = false);
   bool HighAccuracyRequested();
 
+#ifdef MOZ_B2G
+  void HandleSettingValue(const nsAString& aValue);
+#endif
  private:
   ~nsGeolocationService();
 
