@@ -15,7 +15,7 @@ ChromeUtils.import("resource://gre/modules/ActivitiesService.jsm");
 ChromeUtils.import("resource://gre/modules/AlarmService.jsm");
 ChromeUtils.import("resource://gre/modules/DownloadService.jsm");
 ChromeUtils.import("resource://gre/modules/NotificationDB.jsm");
-ChromeUtils.import('resource://gre/modules/ErrorPage.jsm');
+ChromeUtils.import("resource://gre/modules/ErrorPage.jsm");
 
 XPCOMUtils.defineLazyGetter(this, "MarionetteHelper", () => {
   const { MarionetteHelper } = ChromeUtils.import(
@@ -76,7 +76,9 @@ var shell = {
     systemAppFrame.setAttribute("nodefaultsrc", "true");
 
     // Identify this `<browser>` element uniquely to Marionette, devtools, etc.
-    systemAppFrame.permanentKey = new (Cu.getGlobalForObject(Services)).Object();
+    systemAppFrame.permanentKey = new (Cu.getGlobalForObject(
+      Services
+    ).Object)();
     systemAppFrame.linkedBrowser = systemAppFrame;
 
     document.body.prepend(systemAppFrame);

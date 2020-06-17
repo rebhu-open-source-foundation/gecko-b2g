@@ -4,29 +4,34 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = [ "KillSwitchMain" ];
+this.EXPORTED_SYMBOLS = ["KillSwitchMain"];
 
-const {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-Cu.import("resource://gre/modules/Services.jsm");
-Cu.import("resource://gre/modules/AppConstants.jsm");
+const { AppConstants } = ChromeUtils.import(
+  "resource://gre/modules/AppConstants.jsm"
+);
 
-XPCOMUtils.defineLazyModuleGetter(this, "OS", "resource://gre/modules/osfile.jsm");
-XPCOMUtils.defineLazyModuleGetter(this, "Promise", "resource://gre/modules/Promise.jsm");
+ChromeUtils.defineModuleGetter(this, "OS", "resource://gre/modules/osfile.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "Promise",
+  "resource://gre/modules/Promise.jsm"
+);
 
-XPCOMUtils.defineLazyServiceGetter(this, "settings",
-                   "@mozilla.org/settingsService;1",
-                   "nsISettingsService");
-
-XPCOMUtils.defineLazyGetter(this, "permMgr", function() {
-  return Cc["@mozilla.org/permissionmanager;1"]
-           .getService(Ci.nsIPermissionManager);
-});
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "settings",
+  "@mozilla.org/settingsService;1",
+  "nsISettingsService"
+);
 
 if (AppConstants.platform === "gonk") {
-  XPCOMUtils.defineLazyGetter(this, "libcutils", function () {
-    Cu.import("resource://gre/modules/systemlibs.js");
+  XPCOMUtils.defineLazyGetter(this, "libcutils", function() {
+    ChromeUtils.import("resource://gre/modules/systemlibs.js");
     return libcutils;
   });
 } else {
@@ -35,11 +40,11 @@ if (AppConstants.platform === "gonk") {
 
 const DEBUG = false;
 
-const kEnableKillSwitch   = "KillSwitch:Enable";
+const kEnableKillSwitch = "KillSwitch:Enable";
 const kEnableKillSwitchOK = "KillSwitch:Enable:OK";
 const kEnableKillSwitchKO = "KillSwitch:Enable:KO";
 
-const kDisableKillSwitch   = "KillSwitch:Disable";
+const kDisableKillSwitch = "KillSwitch:Disable";
 const kDisableKillSwitchOK = "KillSwitch:Disable:OK";
 const kDisableKillSwitchKO = "KillSwitch:Disable:KO";
 
@@ -49,12 +54,13 @@ const kXpcomShutdownObserverTopic = "xpcom-shutdown";
 
 const kProperty = "persist.moz.killswitch";
 
-const kUserValues =
-  OS.Path.join(OS.Constants.Path.profileDir, "killswitch.json");
+const kUserValues = OS.Path.join(
+  OS.Constants.Path.profileDir,
+  "killswitch.json"
+);
 
-var inParent = Cc["@mozilla.org/xre/app-info;1"]
-                 .getService(Ci.nsIXULRuntime)
-                 .processType == Ci.nsIXULRuntime.PROCESS_TYPE_DEFAULT;
+var inParent =
+  Services.appinfo.processType == Ci.nsIXULRuntime.PROCESS_TYPE_DEFAULT;
 
 function debug(aStr) {
   dump("--*-- KillSwitchMain: " + aStr + "\n");
@@ -75,26 +81,26 @@ this.KillSwitchMain = {
       "lockscreen.lock-immediately": true,
       "tethering.usb.enabled": false,
       "tethering.wifi.enabled": false,
-      "ums.enabled": false
+      "ums.enabled": false,
     },
 
     // List of preferences to set to a specific value
     prefs: {
-      "b2g.killswitch.test": true
+      "b2g.killswitch.test": true,
     },
 
     // List of Android properties to set to a specific value
     properties: {
-      "persist.sys.usb.config": "none" // will change sys.usb.config and sys.usb.state
+      "persist.sys.usb.config": "none", // will change sys.usb.config and sys.usb.state
     },
 
     // List of Android services to control
     services: {
-      "adbd": "stop"
-    }
+      adbd: "stop",
+    },
   },
 
-  init: function() {
+  init() {
     DEBUG && debug("init");
     if (libcutils) {
       this._libcutils = libcutils;
@@ -104,12 +110,12 @@ this.KillSwitchMain = {
       Services.ppmm.addMessageListener(m, this);
     });
 
-    Services.obs.addObserver(this, kXpcomShutdownObserverTopic, false);
+    Services.obs.addObserver(this, kXpcomShutdownObserverTopic);
 
     this.readStateProperty();
   },
 
-  uninit: function() {
+  uninit() {
     kMessages.forEach(m => {
       Services.ppmm.removeMessageListener(m, this);
     });
@@ -117,17 +123,17 @@ this.KillSwitchMain = {
     Services.obs.removeObserver(this, kXpcomShutdownObserverTopic);
   },
 
-  checkLibcUtils: function() {
+  checkLibcUtils() {
     DEBUG && debug("checkLibcUtils");
     if (!this._libcutils) {
       debug("No proper libcutils binding, aborting.");
-      throw Cr.NS_ERROR_NO_INTERFACE;
+      throw Components.Exception("", Cr.NS_ERROR_NO_INTERFACE);
     }
 
     return true;
   },
 
-  readStateProperty: function() {
+  readStateProperty() {
     DEBUG && debug("readStateProperty");
     try {
       this.checkLibcUtils();
@@ -135,11 +141,10 @@ this.KillSwitchMain = {
       return;
     }
 
-    this._ksState =
-      this._libcutils.property_get(kProperty, "false") === "true";
+    this._ksState = this._libcutils.property_get(kProperty, "false") === "true";
   },
 
-  writeStateProperty: function() {
+  writeStateProperty() {
     DEBUG && debug("writeStateProperty");
     try {
       this.checkLibcUtils();
@@ -171,8 +176,7 @@ this.KillSwitchMain = {
           debug("Unexpected pref type " + value);
           break;
       }
-    } catch (ex) {
-    }
+    } catch (ex) {}
 
     return rv;
   },
@@ -197,7 +201,7 @@ this.KillSwitchMain = {
     }
   },
 
-  doEnable: function() {
+  doEnable() {
     return new Promise((resolve, reject) => {
       // Make sure that the API cannot do a new |enable()| call once the
       // feature has been enabled, otherwise we will overwrite the user values.
@@ -206,54 +210,70 @@ this.KillSwitchMain = {
         return;
       }
 
-      this.saveUserValues().then(() => {
-        DEBUG && debug("Toggling settings: " +
-                       JSON.stringify(this._enabledValues.settings));
+      this.saveUserValues()
+        .then(() => {
+          DEBUG &&
+            debug(
+              "Toggling settings: " +
+                JSON.stringify(this._enabledValues.settings)
+            );
 
-        let lock = settings.createLock();
-        for (let key of Object.keys(this._enabledValues.settings)) {
-          lock.set(key, this._enabledValues.settings[key], this);
-        }
-
-        DEBUG && debug("Toggling prefs: " +
-                       JSON.stringify(this._enabledValues.prefs));
-
-        for (let key of Object.keys(this._enabledValues.prefs)) {
-          this.setPref(key, this._enabledValues.prefs[key]);
-        }
-
-        DEBUG && debug("Toggling properties: " +
-                       JSON.stringify(this._enabledValues.properties));
-
-        for (let key of Object.keys(this._enabledValues.properties)) {
-          this._libcutils.property_set(key, this._enabledValues.properties[key]);
-        }
-
-        DEBUG && debug("Toggling services: " +
-                       JSON.stringify(this._enabledValues.services));
-
-        for (let key of Object.keys(this._enabledValues.services)) {
-          let value = this._enabledValues.services[key];
-          if (value !== "start" && value !== "stop") {
-            debug("Unexpected service " + key + " value:" + value);
+          let lock = settings.createLock();
+          for (let key of Object.keys(this._enabledValues.settings)) {
+            lock.set(key, this._enabledValues.settings[key], this);
           }
 
-          this._libcutils.property_set("ctl." + value, key);
-        }
+          DEBUG &&
+            debug(
+              "Toggling prefs: " + JSON.stringify(this._enabledValues.prefs)
+            );
 
-        this._ksState = true;
-        this.writeStateProperty();
+          for (let key of Object.keys(this._enabledValues.prefs)) {
+            this.setPref(key, this._enabledValues.prefs[key]);
+          }
 
-        resolve(true);
-      }).catch(err => {
-        DEBUG && debug("doEnable: " + err);
+          DEBUG &&
+            debug(
+              "Toggling properties: " +
+                JSON.stringify(this._enabledValues.properties)
+            );
 
-        reject(false);
-      });
+          for (let key of Object.keys(this._enabledValues.properties)) {
+            this._libcutils.property_set(
+              key,
+              this._enabledValues.properties[key]
+            );
+          }
+
+          DEBUG &&
+            debug(
+              "Toggling services: " +
+                JSON.stringify(this._enabledValues.services)
+            );
+
+          for (let key of Object.keys(this._enabledValues.services)) {
+            let value = this._enabledValues.services[key];
+            if (value !== "start" && value !== "stop") {
+              debug("Unexpected service " + key + " value:" + value);
+            }
+
+            this._libcutils.property_set("ctl." + value, key);
+          }
+
+          this._ksState = true;
+          this.writeStateProperty();
+
+          resolve(true);
+        })
+        .catch(err => {
+          DEBUG && debug("doEnable: " + err);
+
+          reject(false);
+        });
     });
   },
 
-  saveUserValues: function() {
+  saveUserValues() {
     return new Promise((resolve, reject) => {
       try {
         this.checkLibcUtils();
@@ -262,15 +282,17 @@ this.KillSwitchMain = {
       }
 
       let _userValues = {
-        settings: { },
-        prefs: { },
-        properties: { }
+        settings: {},
+        prefs: {},
+        properties: {},
       };
 
       // Those will be sync calls
       for (let key of Object.keys(this._enabledValues.prefs)) {
-        _userValues.prefs[key] =
-           this.getPref(key, this._enabledValues.prefs[key]);
+        _userValues.prefs[key] = this.getPref(
+          key,
+          this._enabledValues.prefs[key]
+        );
       }
 
       for (let key of Object.keys(this._enabledValues.properties)) {
@@ -279,17 +301,17 @@ this.KillSwitchMain = {
 
       let self = this;
       let getCallback = {
-        handleAbort: function(m) {
+        handleAbort(m) {
           DEBUG && debug("getCallback: handleAbort: m=" + m);
           reject(m);
         },
 
-        handleError: function(m) {
+        handleError(m) {
           DEBUG && debug("getCallback: handleError: m=" + m);
           reject(m);
         },
 
-        handle: function(n, v) {
+        handle(n, v) {
           DEBUG && debug("getCallback: handle: n=" + n + " ; v=" + v);
 
           if (self._pendingSettingsGet) {
@@ -314,7 +336,7 @@ this.KillSwitchMain = {
               );
             }
           }
-        }
+        },
       };
 
       // For settings we have to wait all the callbacks to come back before
@@ -328,22 +350,24 @@ this.KillSwitchMain = {
     });
   },
 
-  doDisable: function() {
+  doDisable() {
     return new Promise((resolve, reject) => {
-      this.restoreUserValues().then(() => {
-        this._ksState = false;
-        this.writeStateProperty();
+      this.restoreUserValues()
+        .then(() => {
+          this._ksState = false;
+          this.writeStateProperty();
 
-        resolve(true);
-      }).catch(err => {
-        DEBUG && debug("doDisable: " + err);
+          resolve(true);
+        })
+        .catch(err => {
+          DEBUG && debug("doDisable: " + err);
 
-        reject(false);
-      });
+          reject(false);
+        });
     });
   },
 
-  restoreUserValues: function() {
+  restoreUserValues() {
     return new Promise((resolve, reject) => {
       try {
         this.checkLibcUtils();
@@ -351,80 +375,88 @@ this.KillSwitchMain = {
         reject("nolibcutils");
       }
 
-      OS.File.read(kUserValues, { encoding: "utf-8" }).then(content => {
-        let values = JSON.parse(content);
+      OS.File.read(kUserValues, { encoding: "utf-8" })
+        .then(content => {
+          let values = JSON.parse(content);
 
-        for (let key of Object.keys(values.prefs)) {
-          this.setPref(key, values.prefs[key]);
-        }
-
-        for (let key of Object.keys(values.properties)) {
-          this._libcutils.property_set(key, values.properties[key]);
-        }
-
-        let self = this;
-        let saveCallback = {
-          handleAbort: function(m) {
-            DEBUG && debug("saveCallback: handleAbort: m=" + m);
-            reject(m);
-          },
-
-          handleError: function(m) {
-            DEBUG && debug("saveCallback: handleError: m=" + m);
-            reject(m);
-          },
-
-          handle: function(n, v) {
-            DEBUG && debug("saveCallback: handle: n=" + n + " ; v=" + v);
-
-            if (self._pendingSettingsSet) {
-              // We have received a settings callback value for setting user data
-              let pending = self._pendingSettingsSet.indexOf(n);
-              if (pending !== -1) {
-                self._pendingSettingsSet.splice(pending, 1);
-              }
-
-              if (self._pendingSettingsSet.length === 0) {
-                delete self._pendingSettingsSet;
-                DEBUG && debug("Restored from " + kUserValues + ": " + JSON.stringify(values));
-                resolve(values);
-              }
-            }
+          for (let key of Object.keys(values.prefs)) {
+            this.setPref(key, values.prefs[key]);
           }
-        };
 
-        // For settings we have to wait all the callbacks to come back before
-        // we can resolve or reject
-        this._pendingSettingsSet = [];
-        let lock = settings.createLock();
-        for (let key of Object.keys(values.settings)) {
-          this._pendingSettingsSet.push(key);
-          lock.set(key, values.settings[key], saveCallback);
-        }
-      }).catch(err => {
-        reject(err);
-      });
+          for (let key of Object.keys(values.properties)) {
+            this._libcutils.property_set(key, values.properties[key]);
+          }
+
+          let self = this;
+          let saveCallback = {
+            handleAbort(m) {
+              DEBUG && debug("saveCallback: handleAbort: m=" + m);
+              reject(m);
+            },
+
+            handleError(m) {
+              DEBUG && debug("saveCallback: handleError: m=" + m);
+              reject(m);
+            },
+
+            handle(n, v) {
+              DEBUG && debug("saveCallback: handle: n=" + n + " ; v=" + v);
+
+              if (self._pendingSettingsSet) {
+                // We have received a settings callback value for setting user data
+                let pending = self._pendingSettingsSet.indexOf(n);
+                if (pending !== -1) {
+                  self._pendingSettingsSet.splice(pending, 1);
+                }
+
+                if (self._pendingSettingsSet.length === 0) {
+                  delete self._pendingSettingsSet;
+                  DEBUG &&
+                    debug(
+                      "Restored from " +
+                        kUserValues +
+                        ": " +
+                        JSON.stringify(values)
+                    );
+                  resolve(values);
+                }
+              }
+            },
+          };
+
+          // For settings we have to wait all the callbacks to come back before
+          // we can resolve or reject
+          this._pendingSettingsSet = [];
+          let lock = settings.createLock();
+          for (let key of Object.keys(values.settings)) {
+            this._pendingSettingsSet.push(key);
+            lock.set(key, values.settings[key], saveCallback);
+          }
+        })
+        .catch(err => {
+          reject(err);
+        });
     });
   },
 
   // Settings Callbacks
-  handle: function(aName, aValue) {
+  handle(aName, aValue) {
     DEBUG && debug("handle: aName=" + aName + " ; aValue=" + aValue);
     // We don't have to do anything for now.
   },
 
-  handleAbort: function(aMessage) {
+  handleAbort(aMessage) {
     debug("handleAbort: " + JSON.stringify(aMessage));
-    throw Cr.NS_ERROR_ABORT;
+    throw Components.Exception("", Cr.NS_ERROR_ABORT);
   },
 
-  handleError: function(aMessage) {
+  handleError(aMessage) {
     debug("handleError: " + JSON.stringify(aMessage));
-    throw Cr.NS_ERROR_FAILURE;
+    throw Components.Exception("", Cr.NS_ERROR_FAILURE);
   },
 
   // addObserver
-  observe: function(aSubject, aTopic, aData) {
+  observe(aSubject, aTopic, aData) {
     switch (aTopic) {
       case kXpcomShutdownObserverTopic:
         this.uninit();
@@ -437,15 +469,16 @@ this.KillSwitchMain = {
   },
 
   // addMessageListener
-  receiveMessage: function(aMessage) {
+  receiveMessage(aMessage) {
     let hasPermission = aMessage.target.assertPermission("killswitch");
     DEBUG && debug("hasPermission: " + hasPermission);
 
     if (!hasPermission) {
-      debug("Message " + aMessage.name + " from a process with no killswitch perm.");
+      debug(
+        "Message " + aMessage.name + " from a process with no killswitch perm."
+      );
       aMessage.target.killChild();
-      throw Cr.NS_ERROR_NOT_AVAILABLE;
-      return;
+      throw Components.Exception("", Cr.NS_ERROR_NOT_AVAILABLE);
     }
 
     function returnMessage(name, data) {
@@ -454,7 +487,9 @@ this.KillSwitchMain = {
         try {
           aMessage.target.sendAsyncMessage(name, data);
         } catch (e) {
-          if (DEBUG) debug("Return message failed, " + name + ": " + e);
+          if (DEBUG) {
+            debug("Return message failed, " + name + ": " + e);
+          }
         }
       }
     }
@@ -462,7 +497,7 @@ this.KillSwitchMain = {
     switch (aMessage.name) {
       case kEnableKillSwitch:
         this.doEnable().then(
-          ()  => {
+          () => {
             returnMessage(kEnableKillSwitchOK, {});
           },
           err => {
@@ -473,7 +508,7 @@ this.KillSwitchMain = {
         break;
       case kDisableKillSwitch:
         this.doDisable().then(
-          ()  => {
+          () => {
             returnMessage(kDisableKillSwitchOK, {});
           },
           err => {
@@ -486,17 +521,15 @@ this.KillSwitchMain = {
       default:
         debug("Unsupported message: " + aMessage.name);
         aMessage.target && aMessage.target.killChild();
-        throw Cr.NS_ERROR_ILLEGAL_VALUE;
-        return;
-        break;
+        throw Components.Exception("", Cr.NS_ERROR_ILLEGAL_VALUE);
     }
-  }
+  },
 };
 
 // This code should ALWAYS be living only on the parent side.
 if (!inParent) {
   debug("KillSwitchMain should only be living on parent side.");
-  throw Cr.NS_ERROR_ABORT;
+  throw Components.Exception("", Cr.NS_ERROR_ABORT);
 } else {
   this.KillSwitchMain.init();
 }

@@ -6,16 +6,10 @@
 
 this.EXPORTED_SYMBOLS = ["ChromeNotifications"];
 
-const Ci = Components.interfaces;
-const Cu = Components.utils;
-const Cc = Components.classes;
-
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
-const { Services } = ChromeUtils.import(
-  "resource://gre/modules/Services.jsm"
-);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 XPCOMUtils.defineLazyServiceGetter(
   this,
@@ -31,26 +25,25 @@ function debug(s) {
 }
 
 var ChromeNotifications = {
-
-  init: function () {
-    Services.obs.addObserver(this, "xpcom-shutdown", false);
+  init() {
+    Services.obs.addObserver(this, "xpcom-shutdown");
     Services.cpmm.addMessageListener(
       "Notification:GetAllCrossOrigin:Return:OK",
       this
     );
   },
 
-  performResend: function (notifications) {
+  performResend(notifications) {
     let resentNotifications = 0;
 
-    notifications.forEach(function (notification) {
+    notifications.forEach(function(notification) {
       let behavior;
       try {
         behavior = JSON.parse(notification.mozbehavior);
         behavior.resend = true;
       } catch (e) {
         behavior = {
-          resend: true
+          resend: true,
         };
       }
 
@@ -72,7 +65,8 @@ var ChromeNotifications = {
           timestamp: notification.timestamp,
           data: notification.data,
           mozbehavior: behavior,
-          serviceWorkerRegistrationScope: notification.serviceWorkerRegistrationScope
+          serviceWorkerRegistrationScope:
+            notification.serviceWorkerRegistrationScope,
         }
       );
       resentNotifications++;
@@ -81,34 +75,43 @@ var ChromeNotifications = {
     try {
       this.resendCallback && this.resendCallback(resentNotifications);
     } catch (ex) {
-      if (DEBUG) debug("Content sent exception: " + ex);
+      if (DEBUG) {
+        debug("Content sent exception: " + ex);
+      }
     }
   },
 
-  resendAllNotifications: function (resendCallback) {
+  resendAllNotifications(resendCallback) {
     this.resendCallback = resendCallback;
     Services.cpmm.sendAsyncMessage("Notification:GetAllCrossOrigin", {});
   },
 
-  receiveMessage: function (message) {
+  receiveMessage(message) {
     switch (message.name) {
       case "Notification:GetAllCrossOrigin:Return:OK":
         this.performResend(message.data.notifications);
         break;
 
       default:
-        if (DEBUG) { debug("Unrecognized message: " + message.name); }
+        if (DEBUG) {
+          debug("Unrecognized message: " + message.name);
+        }
         break;
     }
   },
 
-  observe: function (aSubject, aTopic, aData) {
-    if (DEBUG) debug("Topic: " + aTopic);
+  observe(aSubject, aTopic, aData) {
+    if (DEBUG) {
+      debug("Topic: " + aTopic);
+    }
     if (aTopic == "xpcom-shutdown") {
       Services.obs.removeObserver(this, "xpcom-shutdown");
-      Services.cpmm.removeMessageListener("Notification:GetAllCrossOrigin:Return:OK", this);
+      Services.cpmm.removeMessageListener(
+        "Notification:GetAllCrossOrigin:Return:OK",
+        this
+      );
     }
   },
-}
+};
 
 ChromeNotifications.init();

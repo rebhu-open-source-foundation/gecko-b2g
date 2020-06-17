@@ -308,7 +308,7 @@ DirectoryProvider.prototype = {
       dir.initWithPath(LOCAL_DIR);
 
       if (!dir.exists()) {
-        throw Cr.NS_ERROR_FILE_NOT_FOUND;
+        throw Components.Exception("", Cr.NS_ERROR_FILE_NOT_FOUND);
       }
     }
 

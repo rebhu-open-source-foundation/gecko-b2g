@@ -7,21 +7,28 @@ var Cu = Components.utils;
 // The following boilerplate makes sure that XPCOM calls
 // that use the profile directory work.
 
-Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-Cu.import("resource://gre/modules/Services.jsm");
+ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-XPCOMUtils.defineLazyModuleGetter(this, "MinimalIDService",
-                                  "resource://gre/modules/identity/MinimalIdentity.jsm",
-                                  "IdentityService");
+XPCOMUtils.defineLazyModuleGetter(
+  this,
+  "MinimalIDService",
+  "resource://gre/modules/identity/MinimalIdentity.jsm",
+  "IdentityService"
+);
 
-XPCOMUtils.defineLazyModuleGetter(this,
-                                  "Logger",
-                                  "resource://gre/modules/identity/LogUtils.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "Logger",
+  "resource://gre/modules/identity/LogUtils.jsm"
+);
 
-XPCOMUtils.defineLazyServiceGetter(this,
-                                   "uuidGenerator",
-                                   "@mozilla.org/uuid-generator;1",
-                                   "nsIUUIDGenerator");
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "uuidGenerator",
+  "@mozilla.org/uuid-generator;1",
+  "nsIUUIDGenerator"
+);
 
 const TEST_URL = "https://myfavoriteflan.com";
 const TEST_USER = "uumellmahaye1969@hotmail.com";
@@ -61,13 +68,13 @@ function mockDoc(aParams, aDoFunc) {
   // ourselves with pretending.
   mockedDoc.origin = "https://jedp.gov";
 
-  mockedDoc['do'] = aDoFunc;
-  mockedDoc.doReady = partial(aDoFunc, 'ready');
-  mockedDoc.doLogin = partial(aDoFunc, 'login');
-  mockedDoc.doLogout = partial(aDoFunc, 'logout');
-  mockedDoc.doError = partial(aDoFunc, 'error');
-  mockedDoc.doCancel = partial(aDoFunc, 'cancel');
-  mockedDoc.doCoffee = partial(aDoFunc, 'coffee');
+  mockedDoc.do = aDoFunc;
+  mockedDoc.doReady = partial(aDoFunc, "ready");
+  mockedDoc.doLogin = partial(aDoFunc, "login");
+  mockedDoc.doLogout = partial(aDoFunc, "logout");
+  mockedDoc.doError = partial(aDoFunc, "error");
+  mockedDoc.doCancel = partial(aDoFunc, "cancel");
+  mockedDoc.doCoffee = partial(aDoFunc, "coffee");
 
   return mockedDoc;
 }
@@ -83,22 +90,22 @@ function mockDoc(aParams, aDoFunc) {
 // the pipe.
 function mockReceivingPipe() {
   let MockedPipe = {
-    communicate: function(aRpOptions, aGaiaOptions, aMessageCallback) {
+    communicate(aRpOptions, aGaiaOptions, aMessageCallback) {
       switch (aGaiaOptions.message) {
         case "identity-delegate-watch":
-          aMessageCallback({json: {method: "ready"}});
+          aMessageCallback({ json: { method: "ready" } });
           break;
         case "identity-delegate-request":
-          aMessageCallback({json: {method: "login", assertion: TEST_CERT}});
+          aMessageCallback({ json: { method: "login", assertion: TEST_CERT } });
           break;
         case "identity-delegate-logout":
-          aMessageCallback({json: {method: "logout"}});
+          aMessageCallback({ json: { method: "logout" } });
           break;
         default:
-          throw("what the what?? " + aGaiaOptions.message);
+          throw "what the what?? " + aGaiaOptions.message;
           break;
       }
-    }
+    },
   };
   return MockedPipe;
 }
@@ -107,9 +114,9 @@ function mockReceivingPipe() {
 // pipe.
 function mockSendingPipe(aMessageCallback) {
   let MockedPipe = {
-    communicate: function(aRpOptions, aGaiaOptions, aDummyCallback) {
+    communicate(aRpOptions, aGaiaOptions, aDummyCallback) {
       aMessageCallback(aRpOptions, aGaiaOptions);
-    }
+    },
   };
   return MockedPipe;
 }
@@ -123,15 +130,15 @@ function makeObserver(aObserveTopic, aObserveFunc) {
     // nsIObserver is to be an observer
     QueryInterface: ChromeUtils.generateQI([Ci.nsISupports, Ci.nsIObserver]),
 
-    observe: function (aSubject, aTopic, aData) {
+    observe(aSubject, aTopic, aData) {
       if (aTopic == aObserveTopic) {
         Services.obs.removeObserver(observer, aObserveTopic);
         aObserveFunc(aSubject, aTopic, aData);
       }
-    }
+    },
   };
 
-  Services.obs.addObserver(observer, aObserveTopic, false);
+  Services.obs.addObserver(observer, aObserveTopic);
 }
 
 // a hook to set up the ID service with an identity with keypair and all
@@ -153,7 +160,7 @@ function call_sequentially() {
       do_throw("Too many calls: " + argString);
       return;
     }
-    funcs[numCalls].apply(funcs[numCalls],arguments);
+    funcs[numCalls].apply(funcs[numCalls], arguments);
     numCalls += 1;
   };
 }

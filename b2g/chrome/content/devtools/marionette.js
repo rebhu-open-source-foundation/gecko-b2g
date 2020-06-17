@@ -23,7 +23,7 @@ class MarionetteHelper {
     );
     // add system app
     web_views.push(this.browser);
-    return web_views
+    return web_views;
   }
 
   get selectedTab() {
@@ -36,7 +36,7 @@ class MarionetteHelper {
     });
 
     // Hack: select the first tab if none is marked as active.
-    if (!active && web_views.length > 0) {
+    if (!active && web_views.length) {
       active = web_views[0];
     }
 

@@ -4,7 +4,7 @@
 
 "use strict";
 
-var {results: Cr} = Components;
+var { results: Cr } = Components;
 
 // Trivial test just to make sure we have no syntax error
 add_test(function test_ksm_ok() {
@@ -16,23 +16,23 @@ add_test(function test_ksm_ok() {
 var aMessageNoPerm = {
   name: "KillSwitch:Enable",
   target: {
-    assertPermission: function() {
+    assertPermission() {
       return false;
     },
-    killChild: function() { }
-  }
+    killChild() {},
+  },
 };
 
 var aMessageWithPerm = {
   name: "KillSwitch:Enable",
   target: {
-    assertPermission: function() {
+    assertPermission() {
       return true;
-    }
+    },
   },
   data: {
-    requestID: 0
-  }
+    requestID: 0,
+  },
 };
 
 add_test(function test_sendMessageWithoutPerm() {
@@ -54,11 +54,11 @@ add_test(function test_sendMessageWithPerm() {
 var uMessage = {
   name: "KillSwitch:WTF",
   target: {
-    assertPermission: function() {
+    assertPermission() {
       return true;
     },
-    killChild: function() { }
-  }
+    killChild() {},
+  },
 };
 
 add_test(function test_sendUnknownMessage() {
@@ -73,18 +73,19 @@ add_test(function test_sendUnknownMessage() {
 
 var fakeLibcUtils = {
   _props_: {},
-  property_set: function(name, value) {
-    dump("property_set('" + name + "', '" + value+ "' [" + (typeof value) + "]);\n");
+  property_set(name, value) {
+    dump(
+      "property_set('" + name + "', '" + value + "' [" + typeof value + "]);\n"
+    );
     this._props_[name] = value;
   },
-  property_get: function(name, defaultValue) {
-    dump("property_get('" + name + "', '" + defaultValue+ "');\n");
+  property_get(name, defaultValue) {
+    dump("property_get('" + name + "', '" + defaultValue + "');\n");
     if (Object.keys(this._props_).indexOf(name) !== -1) {
       return this._props_[name];
-    } else {
-      return defaultValue;
     }
-  }
+    return defaultValue;
+  },
 };
 
 add_test(function test_nolibcutils() {

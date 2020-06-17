@@ -108,6 +108,7 @@
           case Cr.NS_BINDING_ABORTED:
           // Ignoring NS_BINDING_ABORTED, which is set when loading page is
           // stopped.
+          // falls through
           case Cr.NS_ERROR_PARSED_DATA_CACHED:
             return;
 
@@ -347,7 +348,9 @@
         // Creates a xul:browser with default attributes.
         this.browser = document.createXULElement("browser");
         // Identify this `<browser>` element uniquely to Marionette, devtools, etc.
-        this.browser.permanentKey = new (Cu.getGlobalForObject(Services)).Object();
+        this.browser.permanentKey = new (Cu.getGlobalForObject(
+          Services
+        ).Object)();
 
         this.browser.setAttribute("src", "about:blank");
         this.browser.setAttribute("type", "content");

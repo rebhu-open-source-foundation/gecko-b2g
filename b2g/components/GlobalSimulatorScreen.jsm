@@ -2,18 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-this.EXPORTED_SYMBOLS = [ 'GlobalSimulatorScreen' ];
+this.EXPORTED_SYMBOLS = ["GlobalSimulatorScreen"];
 
-const Cu = Components.utils;
-
-Cu.import('resource://gre/modules/XPCOMUtils.jsm');
-Cu.import('resource://gre/modules/Services.jsm');
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 this.GlobalSimulatorScreen = {
   mozOrientationLocked: false,
 
   // Actual orientation of apps
-  mozOrientation: 'portrait',
+  mozOrientation: "portrait",
 
   // The restricted list of actual orientation that can be used
   // if mozOrientationLocked is true
@@ -23,36 +20,36 @@ this.GlobalSimulatorScreen = {
   // if screenOrientation doesn't match mozOrientation due
   // to lockedOrientation restriction, the app will be displayed
   // on the side on desktop
-  screenOrientation: 'portrait',
+  screenOrientation: "portrait",
 
   // Updated by screen.js
-  width: 0, height: 0,
+  width: 0,
+  height: 0,
 
-  lock: function(orientation) {
+  lock(orientation) {
     this.mozOrientationLocked = true;
 
     // Normalize to portrait or landscape,
     // i.e. the possible values of screenOrientation
     function normalize(str) {
       if (str.match(/^portrait/)) {
-        return 'portrait';
+        return "portrait";
       } else if (str.match(/^landscape/)) {
-        return 'landscape';
-      } else {
-        return 'portrait';
+        return "landscape";
       }
+      return "portrait";
     }
     this.lockedOrientation = orientation.map(normalize);
 
     this.updateOrientation();
   },
 
-  unlock: function() {
+  unlock() {
     this.mozOrientationLocked = false;
     this.updateOrientation();
   },
 
-  updateOrientation: function () {
+  updateOrientation() {
     let orientation = this.screenOrientation;
 
     // If the orientation is locked, we have to ensure ending up with a value
@@ -60,8 +57,10 @@ this.GlobalSimulatorScreen = {
     // the screen orientation we just choose the first locked orientation.
     // This will be the precise scenario where the app is displayed on the
     // side on desktop!
-    if (this.mozOrientationLocked &&
-        this.lockedOrientation.indexOf(this.screenOrientation) == -1) {
+    if (
+      this.mozOrientationLocked &&
+      !this.lockedOrientation.includes(this.screenOrientation)
+    ) {
       orientation = this.lockedOrientation[0];
     }
 
@@ -71,20 +70,23 @@ this.GlobalSimulatorScreen = {
       this.mozOrientation = orientation;
 
       // Notify each app screen object to fire the event
-      Services.obs.notifyObservers(null, 'simulator-orientation-change', null);
+      Services.obs.notifyObservers(null, "simulator-orientation-change");
     }
 
     // Finally, in any case, we update the window size and orientation
     // (Use wrappedJSObject trick to be able to pass a raw JS object)
-    Services.obs.notifyObservers({wrappedJSObject:this}, 'simulator-adjust-window-size', null);
+    Services.obs.notifyObservers(
+      { wrappedJSObject: this },
+      "simulator-adjust-window-size"
+    );
   },
 
-  flipScreen: function() {
-    if (this.screenOrientation == 'portrait') {
-      this.screenOrientation = 'landscape';
-    } else if (this.screenOrientation == 'landscape') {
-      this.screenOrientation = 'portrait';
+  flipScreen() {
+    if (this.screenOrientation == "portrait") {
+      this.screenOrientation = "landscape";
+    } else if (this.screenOrientation == "landscape") {
+      this.screenOrientation = "portrait";
     }
     this.updateOrientation();
-  }
-}
+  },
+};

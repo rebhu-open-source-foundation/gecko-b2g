@@ -17,32 +17,48 @@
  * platform-specific code, you can't throw across an XPCOM method boundary.)
  */
 
-const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr } = Components;
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { OS } = ChromeUtils.import("resource://gre/modules/osfile.jsm");
 
 // FIXME: improve this list of filters.
-const IMAGE_FILTERS = ['image/gif', 'image/jpeg', 'image/pjpeg',
-                       'image/png', 'image/svg+xml', 'image/tiff',
-                       'image/vnd.microsoft.icon'];
-const VIDEO_FILTERS = ['video/mpeg', 'video/mp4', 'video/ogg',
-                       'video/quicktime', 'video/webm', 'video/x-matroska',
-                       'video/x-ms-wmv', 'video/x-flv'];
-const AUDIO_FILTERS = ['audio/basic', 'audio/L24', 'audio/mp4',
-                       'audio/mpeg', 'audio/ogg', 'audio/vorbis',
-                       'audio/vnd.rn-realaudio', 'audio/vnd.wave',
-                       'audio/webm'];
+const IMAGE_FILTERS = [
+  "image/gif",
+  "image/jpeg",
+  "image/pjpeg",
+  "image/png",
+  "image/svg+xml",
+  "image/tiff",
+  "image/vnd.microsoft.icon",
+];
+const VIDEO_FILTERS = [
+  "video/mpeg",
+  "video/mp4",
+  "video/ogg",
+  "video/quicktime",
+  "video/webm",
+  "video/x-matroska",
+  "video/x-ms-wmv",
+  "video/x-flv",
+];
+const AUDIO_FILTERS = [
+  "audio/basic",
+  "audio/L24",
+  "audio/mp4",
+  "audio/mpeg",
+  "audio/ogg",
+  "audio/vorbis",
+  "audio/vnd.rn-realaudio",
+  "audio/vnd.wave",
+  "audio/webm",
+];
 
-Cu.import('resource://gre/modules/XPCOMUtils.jsm');
-Cu.import("resource://gre/modules/osfile.jsm");
-
-XPCOMUtils.defineLazyServiceGetter(this, 'cpmm',
-                                   '@mozilla.org/childprocessmessagemanager;1',
-                                   'nsIMessageSender');
-
-function FilePicker() {
-}
+function FilePicker() {}
 
 FilePicker.prototype = {
-  classID: Components.ID('{436ff8f9-0acc-4b11-8ec7-e293efba3141}'),
+  classID: Components.ID("{436ff8f9-0acc-4b11-8ec7-e293efba3141}"),
   QueryInterface: ChromeUtils.generateQI([Ci.nsIFilePicker]),
 
   /* members */
@@ -55,15 +71,17 @@ FilePicker.prototype = {
 
   /* methods */
 
-  init: function(parent, title, mode) {
+  init(parent, title, mode) {
     this.mParent = parent;
     this.mExtraProps = {};
     this.mFilterTypes = [];
     this.mMode = mode;
 
-    if (mode != Ci.nsIFilePicker.modeOpen &&
-        mode != Ci.nsIFilePicker.modeOpenMultiple) {
-      throw Cr.NS_ERROR_NOT_IMPLEMENTED;
+    if (
+      mode != Ci.nsIFilePicker.modeOpen &&
+      mode != Ci.nsIFilePicker.modeOpenMultiple
+    ) {
+      throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
     }
   },
 
@@ -84,14 +102,14 @@ FilePicker.prototype = {
     return this.mMode;
   },
 
-  appendFilters: function(filterMask) {
+  appendFilters(filterMask) {
     // Ci.nsIFilePicker.filterHTML is not supported
     // Ci.nsIFilePicker.filterText is not supported
 
     if (filterMask & Ci.nsIFilePicker.filterImages) {
       this.mFilterTypes = this.mFilterTypes.concat(IMAGE_FILTERS);
       // This property is needed for the gallery app pick activity.
-      this.mExtraProps['nocrop'] = true;
+      this.mExtraProps.nocrop = true;
     }
 
     // Ci.nsIFilePicker.filterXML is not supported
@@ -109,22 +127,22 @@ FilePicker.prototype = {
 
     if (filterMask & Ci.nsIFilePicker.filterAll) {
       // This property is needed for the gallery app pick activity.
-      this.mExtraProps['nocrop'] = true;
+      this.mExtraProps.nocrop = true;
     }
   },
 
-  appendFilter: function(title, extensions) {
+  appendFilter(title, extensions) {
     // pick activity doesn't support extensions
   },
 
-  open: function(aFilePickerShownCallback) {
+  open(aFilePickerShownCallback) {
     this.mFilePickerShownCallback = aFilePickerShownCallback;
 
-    cpmm.addMessageListener('file-picked', this);
+    Services.cpmm.addMessageListener("file-picked", this);
 
     let detail = {};
     if (this.mFilterTypes) {
-       detail.type = this.mFilterTypes;
+      detail.type = this.mFilterTypes;
     }
 
     for (let prop in this.mExtraProps) {
@@ -133,26 +151,26 @@ FilePicker.prototype = {
       }
     }
 
-    cpmm.sendAsyncMessage('file-picker', detail);
+    Services.cpmm.sendAsyncMessage("file-picker", detail);
   },
 
-  fireSuccess: function(file) {
+  fireSuccess(file) {
     this.mFilesEnumerator = {
       QueryInterface: ChromeUtils.generateQI([Ci.nsISimpleEnumerator]),
 
       mFiles: [file],
       mIndex: 0,
 
-      hasMoreElements: function() {
-        return (this.mIndex < this.mFiles.length);
+      hasMoreElements() {
+        return this.mIndex < this.mFiles.length;
       },
 
-      getNext: function() {
+      getNext() {
         if (this.mIndex >= this.mFiles.length) {
-          throw Components.results.NS_ERROR_FAILURE;
+          throw Components.Exception("", Cr.NS_ERROR_FAILURE);
         }
         return this.mFiles[this.mIndex++];
-      }
+      },
     };
 
     if (this.mFilePickerShownCallback) {
@@ -161,19 +179,19 @@ FilePicker.prototype = {
     }
   },
 
-  fireError: function() {
+  fireError() {
     if (this.mFilePickerShownCallback) {
       this.mFilePickerShownCallback.done(Ci.nsIFilePicker.returnCancel);
       this.mFilePickerShownCallback = null;
     }
   },
 
-  receiveMessage: function(message) {
-    if (message.name !== 'file-picked') {
+  receiveMessage(message) {
+    if (message.name !== "file-picked") {
       return;
     }
 
-    cpmm.removeMessageListener('file-picked', this);
+    Services.cpmm.removeMessageListener("file-picked", this);
 
     let data = message.data;
     if (!data.success || !data.result.blob) {
@@ -184,9 +202,11 @@ FilePicker.prototype = {
     // The name to be shown can be part of the message, or can be taken from
     // the File (if the blob is a File).
     let name = data.result.name;
-    if (!name &&
-        (data.result.blob instanceof this.mParent.File) &&
-        data.result.blob.name) {
+    if (
+      !name &&
+      data.result.blob instanceof this.mParent.File &&
+      data.result.blob.name
+    ) {
       name = data.result.blob.name;
     }
 
@@ -198,26 +218,29 @@ FilePicker.prototype = {
 
     // the fallback is a filename composed by 'blob' + extension.
     if (!name) {
-      name = 'blob';
+      name = "blob";
       if (data.result.blob.type) {
         let mimeSvc = Cc["@mozilla.org/mime;1"].getService(Ci.nsIMIMEService);
-        let mimeInfo = mimeSvc.getFromTypeAndExtension(data.result.blob.type, '');
+        let mimeInfo = mimeSvc.getFromTypeAndExtension(
+          data.result.blob.type,
+          ""
+        );
         if (mimeInfo) {
-          name += '.' + mimeInfo.primaryExtension;
+          name += "." + mimeInfo.primaryExtension;
         }
       }
     }
 
-    let file = new this.mParent.File([data.result.blob],
-                                     name,
-                                     { type: data.result.blob.type });
+    let file = new this.mParent.File([data.result.blob], name, {
+      type: data.result.blob.type,
+    });
 
     if (file) {
       this.fireSuccess(file);
     } else {
       this.fireError();
     }
-  }
+  },
 };
 
 this.NSGetFactory = XPCOMUtils.generateNSGetFactory([FilePicker]);

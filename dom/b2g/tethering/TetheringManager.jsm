@@ -4,19 +4,18 @@
 
 "use strict";
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { DOMRequestIpcHelper } = ChromeUtils.import(
   "resource://gre/modules/DOMRequestHelper.jsm"
 );
 
-XPCOMUtils.defineLazyGetter(this, "cpmm", () => {
-  return Cc["@mozilla.org/childprocessmessagemanager;1"].getService();
-});
-
 const DEBUG = false;
+
+var debug = DEBUG
+  ? s => {
+      console.log("-*- TetheringManager: ", s);
+    }
+  : s => {};
 
 const TETHERING_TYPE_WIFI = "wifi";
 const TETHERING_TYPE_BLUETOOTH = "bt";
@@ -50,12 +49,13 @@ TetheringManager.prototype = {
 
     this._window = aWindow;
     this.initDOMRequestHelper(aWindow, messages);
-    var state = cpmm.sendSyncMessage("TetheringService:getStatus")[0];
+    var state = Services.cpmm.sendSyncMessage("TetheringService:getStatus")[0];
     if (state) {
       this._wifiTetheringState = state.wifiTetheringState;
       this._usbTetheringState = state.usbTetheringState;
     } else {
-      this._wifiTetheringState = Ci.nsITetheringService.TETHERING_STATE_INACTIVE;
+      this._wifiTetheringState =
+        Ci.nsITetheringService.TETHERING_STATE_INACTIVE;
       this._usbTetheringState = Ci.nsITetheringService.TETHERING_STATE_INACTIVE;
     }
   },
@@ -100,7 +100,9 @@ TetheringManager.prototype = {
             enabled: aEnabled,
             config: aConfig,
           };
-          cpmm.sendAsyncMessage("WifiManager:setWifiTethering", { data });
+          Services.cpmm.sendAsyncMessage("WifiManager:setWifiTethering", {
+            data,
+          });
         });
       case TETHERING_TYPE_USB:
         return this.createPromiseWithId(function(aResolverId) {
@@ -109,7 +111,7 @@ TetheringManager.prototype = {
             enabled: aEnabled,
             config: aConfig,
           };
-          cpmm.sendAsyncMessage("TetheringService:setUsbTethering", {
+          Services.cpmm.sendAsyncMessage("TetheringService:setUsbTethering", {
             data,
           });
         });
@@ -164,12 +166,3 @@ TetheringManager.prototype = {
 };
 
 this.EXPORTED_SYMBOLS = ["TetheringManager"];
-
-var debug;
-if (DEBUG) {
-  debug = function(s) {
-    console.log("-*- TetheringManager component: ", s, "\n");
-  };
-} else {
-  debug = function(s) {};
-}

@@ -12,7 +12,7 @@ function debug(msg) {
 
 function netErrorURL() {
   let systemManifestURL = Services.prefs.getCharPref("b2g.system_startup_url");
-  systemManifestURL = Services.io.newURI(systemManifestURL, null, null);
+  systemManifestURL = Services.io.newURI(systemManifestURL);
   let netErrorURL = Services.prefs.getCharPref("b2g.neterror.url");
   netErrorURL = Services.io.newURI(netErrorURL, null, systemManifestURL);
   return netErrorURL.spec;
@@ -22,13 +22,13 @@ var modules = {
   certerror: {
     uri: "chrome://b2g/content/aboutCertError.xhtml",
     privileged: true,
-    hide: true
+    hide: true,
   },
   neterror: {
     uri: netErrorURL(),
     privileged: true,
-    hide: true
-  }
+    hide: true,
+  },
 };
 
 function B2GAboutRedirector() {}
@@ -36,9 +36,12 @@ B2GAboutRedirector.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsIAboutModule]),
   classID: Components.ID("{920400b1-cf8f-4760-a9c4-441417b15134}"),
 
-  _getModuleInfo: function (aURI) {
+  _getModuleInfo(aURI) {
     try {
-      let moduleName = aURI.spec.replace(/[?#].*/, "").toLowerCase().split(":")[1];
+      let moduleName = aURI.spec
+        .replace(/[?#].*/, "")
+        .toLowerCase()
+        .split(":")[1];
       return modules[moduleName];
     } catch (e) {
       return null;
@@ -46,27 +49,25 @@ B2GAboutRedirector.prototype = {
   },
 
   // nsIAboutModule
-  getURIFlags: function(aURI) {
+  getURIFlags(aURI) {
     let flags;
     let moduleInfo = this._getModuleInfo(aURI);
-    if (moduleInfo.hide)
+    if (moduleInfo.hide) {
       flags = Ci.nsIAboutModule.HIDE_FROM_ABOUTABOUT;
+    }
 
     return flags | Ci.nsIAboutModule.ALLOW_SCRIPT;
   },
 
-  newChannel: function(aURI, aLoadInfo) {
+  newChannel(aURI, aLoadInfo) {
     let moduleInfo = this._getModuleInfo(aURI);
 
     if (!moduleInfo) {
       return null;
     }
 
-    var ios = Cc["@mozilla.org/network/io-service;1"].
-              getService(Ci.nsIIOService);
-
-    var newURI = ios.newURI(moduleInfo.uri, null, null);
-
+    var ios = Services.io;
+    var newURI = ios.newURI(moduleInfo.uri);
     var channel = ios.newChannelFromURIWithLoadInfo(newURI, aLoadInfo);
 
     if (!moduleInfo.privileged) {
@@ -79,7 +80,7 @@ B2GAboutRedirector.prototype = {
     channel.originalURI = aURI;
 
     return channel;
-  }
+  },
 };
 
 this.NSGetFactory = XPCOMUtils.generateNSGetFactory([B2GAboutRedirector]);

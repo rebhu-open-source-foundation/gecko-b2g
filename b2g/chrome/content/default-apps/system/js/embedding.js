@@ -1,4 +1,5 @@
 /* eslint-disable quotes */
+/* global WebEmbedder */
 "use strict";
 
 (function(exports) {
@@ -8,14 +9,10 @@
     console.log(`Embedding: ${msg}`);
   }
 
-  function error(msg) {
-    console.error(`Embedding: ${msg}`);
-  }
-
   const windowProvider = {
     openURI(aURI, aOpener, aWhere, aFlags, aTriggeringPrincipal, aCsp) {
       log(`browserWindow::openURI ${aURI.spec}`);
-      throw "NOT IMPLEMENTED";
+      throw Error("NOT IMPLEMENTED");
     },
 
     createContentWindow(
@@ -27,7 +24,7 @@
       aCsp
     ) {
       log(`browserWindow::createContentWindow ${aURI.spec}`);
-      throw "NOT IMPLEMENTED";
+      throw Error("NOT IMPLEMENTED");
     },
 
     openURIInFrame(aURI, aParams, aWhere, aFlags, aNextRemoteTabId, aName) {
@@ -38,9 +35,7 @@
       // We also ignore aName if it is set, as it is currently only used on the
       // e10s codepath.
       log(
-        `browserWindow::openURIInFrame ${
-          aURI.spec
-        } ${aParams} ${aWhere} ${aFlags} ${aName}`
+        `browserWindow::openURIInFrame ${aURI.spec} ${aParams} ${aWhere} ${aFlags} ${aName}`
       );
 
       // Need to return the new WebView here.
@@ -65,12 +60,10 @@
     ) {
       let url = aURI.spec;
       log(
-        `browserWindow::createContentWindowInFrame ${url} ${
-          aParams.features
-        } ${aNextRemoteTabId}`
+        `browserWindow::createContentWindowInFrame ${url} ${aParams.features} ${aNextRemoteTabId}`
       );
 
-      let wm = exports["wm"];
+      let wm = exports.wm;
       let web_view = wm.open_frame(url, { activate: true });
       return web_view;
     },
@@ -130,6 +123,6 @@
   // Force a Mobile User Agent string.
   Services.prefs.setCharPref(
     "general.useragent.override",
-    "Mozilla/5.0 (Mobile; rv:76.0) Gecko/20100101 Firefox/76.0 B2GOS/3.0"
+    "Mozilla/5.0 (Mobile; rv:78.0) Gecko/20100101 Firefox/78.0 B2GOS/3.0"
   );
 })(window);

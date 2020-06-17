@@ -12,18 +12,16 @@ function getErrorFromURI() {
   var url = new URL(uri.replace("about:", "http://"));
 
   // Set the error attributes.
-  ['e', 'u', 'm', 'c', 'd', 'f'].forEach(
-    function (v) {
-      _error[v] = url.searchParams.get(v);
-    }
-  );
+  ["e", "u", "m", "c", "d", "f"].forEach(function(v) {
+    _error[v] = url.searchParams.get(v);
+  });
 
   switch (_error.e) {
     case "connectionFailure":
     case "netInterrupt":
     case "netTimeout":
     case "netReset":
-      _error.e = 'connectionFailed';
+      _error.e = "connectionFailed";
       break;
 
     case "unknownSocketType":

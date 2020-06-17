@@ -3,13 +3,16 @@
 
 "use strict";
 
-Components.utils.import("resource://gre/modules/AlarmService.jsm");
-Components.utils.import("resource://gre/modules/Services.jsm");
-Components.utils.import("resource://gre/modules/XPCOMUtils.jsm");
+ChromeUtils.import("resource://gre/modules/AlarmService.jsm");
+ChromeUtils.import("resource://gre/modules/Services.jsm");
+ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
 
-XPCOMUtils.defineLazyServiceGetter(this, "gTimeService",
-                                   "@mozilla.org/time/timeservice;1",
-                                   "nsITimeService");
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gTimeService",
+  "@mozilla.org/time/timeservice;1",
+  "nsITimeService"
+);
 
 const ALARM_OFFSET = 10000; // 10 seconds.
 const CLOCK_OFFSET = 20000; // 20 seconds.
@@ -19,7 +22,7 @@ var alarmDate;
 var alarmFired;
 function alarmCb() {
   alarmFired = true;
-};
+}
 
 function run_test() {
   do_get_profile();
@@ -31,7 +34,7 @@ function run_test() {
 
 add_test(function test_getAll() {
   do_print("= There should not be any alarm =");
-  AlarmService._db.getAll(MANIFEST_URL, (aAlarms) => {
+  AlarmService._db.getAll(MANIFEST_URL, aAlarms => {
     do_check_eq(aAlarms.length, 0);
     run_next_test();
   });
@@ -40,10 +43,15 @@ add_test(function test_getAll() {
 add_test(function test_addAlarm() {
   do_print("= Set alarm =");
   alarmDate = Date.now() + ALARM_OFFSET;
-  AlarmService.add({
-    date: alarmDate,
-    manifestURL: MANIFEST_URL
-  }, alarmCb, run_next_test, do_throw);
+  AlarmService.add(
+    {
+      date: alarmDate,
+      manifestURL: MANIFEST_URL,
+    },
+    alarmCb,
+    run_next_test,
+    do_throw
+  );
 });
 
 add_test(function test_alarmNotFired() {

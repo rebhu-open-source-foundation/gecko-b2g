@@ -4,17 +4,18 @@
 
 "use strict";
 
-const {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
-Cu.import('resource://gre/modules/XPCOMUtils.jsm');
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-XPCOMUtils.defineLazyServiceGetter(this, "cpmm",
-                                   "@mozilla.org/childprocessmessagemanager;1",
-                                   "nsIMessageSender");
-
-XPCOMUtils.defineLazyServiceGetter(this, "contentSecManager",
-                                   "@mozilla.org/contentsecuritymanager;1",
-                                   "nsIContentSecurityManager");
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "contentSecManager",
+  "@mozilla.org/contentsecuritymanager;1",
+  "nsIContentSecurityManager"
+);
 
 this.EXPORTED_SYMBOLS = ["ActivityChannel"];
 
@@ -24,7 +25,7 @@ this.ActivityChannel = function(aURI, aLoadInfo, aName, aDetails) {
   this.originalURI = aURI;
   this.URI = aURI;
   this.loadInfo = aLoadInfo;
-}
+};
 
 this.ActivityChannel.prototype = {
   originalURI: null,
@@ -40,25 +41,25 @@ this.ActivityChannel.prototype = {
   contentDispositionHeader: null,
   loadInfo: null,
 
-  open: function() {
-    throw Cr.NS_ERROR_NOT_IMPLEMENTED;
+  open() {
+    throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
   },
 
-  open2: function() {
-    throw Cr.NS_ERROR_NOT_IMPLEMENTED;
+  open2() {
+    throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
   },
 
-  asyncOpen: function(aListener, aContext) {
-    cpmm.sendAsyncMessage(this._activityName, this._activityDetails);
+  asyncOpen(aListener, aContext) {
+    Services.cpmm.sendAsyncMessage(this._activityName, this._activityDetails);
     // Let the listener cleanup.
     aListener.onStopRequest(this, aContext, Cr.NS_OK);
   },
 
-  asyncOpen2: function(aListener) {
+  asyncOpen2(aListener) {
     // throws an error if security checks fail
     var outListener = contentSecManager.performSecurityCheck(this, aListener);
     this.asyncOpen(outListener, null);
   },
 
-  QueryInterface2: ChromeUtils.generateQI([Ci.nsIChannel])
-}
+  QueryInterface2: ChromeUtils.generateQI([Ci.nsIChannel]),
+};

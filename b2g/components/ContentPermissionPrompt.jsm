@@ -17,8 +17,6 @@ const PROMPT_FOR_UNKNOWN = [
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-var secMan = Services.scriptSecurityManager;
-
 /**
  * Determine if a permission should be prompt to user or not.
  *
@@ -44,7 +42,7 @@ function shouldPrompt(aPerm, aAction) {
 function buildDefaultChoices(aTypesInfo) {
   let choices;
   for (let type of aTypesInfo) {
-    if (type.options.length > 0) {
+    if (type.options.length) {
       if (!choices) {
         choices = {};
       }
@@ -130,7 +128,7 @@ ContentPermissionPrompt.prototype = {
       return;
     }
 
-    if (typesInfo.length == 0) {
+    if (!typesInfo.length) {
       request.cancel();
       return;
     }

@@ -111,7 +111,7 @@ this.AlarmService = {
     let alarmTimeInMs = this._getAlarmTime(aAlarm);
     let ns = (alarmTimeInMs % 1000) * 1000000;
     if (!this._alarmHalService.setAlarm(alarmTimeInMs / 1000, ns)) {
-      throw Cr.NS_ERROR_FAILURE;
+      throw Components.Exception("", Cr.NS_ERROR_FAILURE);
     }
   },
 
@@ -189,7 +189,7 @@ this.AlarmService = {
         break;
 
       default:
-        throw Cr.NS_ERROR_NOT_IMPLEMENTED;
+        throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
     }
   },
 
@@ -204,7 +204,7 @@ this.AlarmService = {
 
     if (!aMessageManager) {
       debug("Invalid message manager: null");
-      throw Cr.NS_ERROR_FAILURE;
+      throw Components.Exception("", Cr.NS_ERROR_FAILURE);
     }
 
     let json = null;
@@ -222,7 +222,7 @@ this.AlarmService = {
         break;
 
       default:
-        throw Cr.NS_ERROR_NOT_IMPLEMENTED;
+        throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
     }
 
     debug(
@@ -262,7 +262,7 @@ this.AlarmService = {
     this._db.remove(aId, aManifestURL, aRemoveSuccessCb, function removeErrorCb(
       aErrorMsg
     ) {
-      throw Cr.NS_ERROR_NOT_IMPLEMENTED;
+      throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
     });
   },
 
@@ -424,7 +424,7 @@ this.AlarmService = {
         this._debugCurrentAlarm();
       }.bind(this),
       function getAllErrorCb(aErrorMsg) {
-        throw Cr.NS_ERROR_NOT_IMPLEMENTED;
+        throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
       }
     );
   },
@@ -672,7 +672,7 @@ this.AlarmService = {
             }, this);
           }.bind(this),
           function getAllErrorCb(aErrorMsg) {
-            throw Cr.NS_ERROR_NOT_IMPLEMENTED;
+            throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
           }
         );
         break;

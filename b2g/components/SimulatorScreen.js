@@ -2,23 +2,26 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-var Ci = Components.interfaces;
-var Cu = Components.utils;
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-Cu.import('resource://gre/modules/XPCOMUtils.jsm');
-Cu.import('resource://gre/modules/Services.jsm');
-Cu.import('resource://gre/modules/DOMRequestHelper.jsm');
+// const {} = ChromeUtils.import("resource://gre/modules/DOMRequestHelper.jsm");
 
-XPCOMUtils.defineLazyModuleGetter(this, 'GlobalSimulatorScreen',
-                                  'resource://gre/modules/GlobalSimulatorScreen.jsm');
+ChromeUtils.defineModuleGetter(
+  this,
+  "GlobalSimulatorScreen",
+  "resource://gre/modules/GlobalSimulatorScreen.jsm"
+);
 
-var DEBUG_PREFIX = 'SimulatorScreen.js - ';
+var DEBUG_PREFIX = "SimulatorScreen.js - ";
 function debug() {
   //dump(DEBUG_PREFIX + Array.slice(arguments) + '\n');
 }
 
 function fireOrientationEvent(window) {
-  let e = new window.Event('mozorientationchange');
+  let e = new window.Event("mozorientationchange");
   window.screen.dispatchEvent(e);
 }
 
@@ -32,20 +35,24 @@ function hookScreen(window) {
 
   let screen = window.wrappedJSObject.screen;
 
-  screen.mozLockOrientation = function (orientation) {
-    debug('mozLockOrientation:', orientation, 'from', origin);
+  screen.mozLockOrientation = function(orientation) {
+    debug("mozLockOrientation:", orientation, "from", origin);
 
     // Normalize and do some checks against orientation input
-    if (typeof(orientation) == 'string') {
+    if (typeof orientation == "string") {
       orientation = [orientation];
     }
 
     function isInvalidOrientationString(str) {
-      return typeof(str) != 'string' ||
-        !str.match(/^default$|^(portrait|landscape)(-(primary|secondary))?$/);
+      return (
+        typeof str != "string" ||
+        !str.match(/^default$|^(portrait|landscape)(-(primary|secondary))?$/)
+      );
     }
-    if (!Array.isArray(orientation) ||
-        orientation.some(isInvalidOrientationString)) {
+    if (
+      !Array.isArray(orientation) ||
+      orientation.some(isInvalidOrientationString)
+    ) {
       Cu.reportError('Invalid orientation "' + orientation + '"');
       return false;
     }
@@ -56,42 +63,44 @@ function hookScreen(window) {
   };
 
   screen.mozUnlockOrientation = function() {
-    debug('mozOrientationUnlock from', origin);
+    debug("mozOrientationUnlock from", origin);
     GlobalSimulatorScreen.unlock();
     return true;
   };
 
-  Object.defineProperty(screen, 'width', {
-    get: () => GlobalSimulatorScreen.width
+  Object.defineProperty(screen, "width", {
+    get: () => GlobalSimulatorScreen.width,
   });
-  Object.defineProperty(screen, 'height', {
-    get: () => GlobalSimulatorScreen.height
+  Object.defineProperty(screen, "height", {
+    get: () => GlobalSimulatorScreen.height,
   });
-  Object.defineProperty(screen, 'mozOrientation', {
-    get: () => GlobalSimulatorScreen.mozOrientation
+  Object.defineProperty(screen, "mozOrientation", {
+    get: () => GlobalSimulatorScreen.mozOrientation,
   });
-  Object.defineProperty(screen.orientation, 'type', {
-    get: () => GlobalSimulatorScreen.mozOrientation
+  Object.defineProperty(screen.orientation, "type", {
+    get: () => GlobalSimulatorScreen.mozOrientation,
   });
 }
 
 function SimulatorScreen() {}
 SimulatorScreen.prototype = {
-  classID:         Components.ID('{c83c02c0-5d43-4e3e-987f-9173b313e880}'),
-  QueryInterface:  ChromeUtils.generateQI([Ci.nsIObserver,
-                                          Ci.nsISupportsWeakReference]),
+  classID: Components.ID("{c83c02c0-5d43-4e3e-987f-9173b313e880}"),
+  QueryInterface: ChromeUtils.generateQI([
+    Ci.nsIObserver,
+    Ci.nsISupportsWeakReference,
+  ]),
   _windows: new Map(),
 
-  observe: function (subject, topic, data) {
+  observe(subject, topic, data) {
     let windows = this._windows;
     switch (topic) {
-      case 'profile-after-change':
-        Services.obs.addObserver(this, 'document-element-inserted', false);
-        Services.obs.addObserver(this, 'simulator-orientation-change', false);
-        Services.obs.addObserver(this, 'inner-window-destroyed', false);
+      case "profile-after-change":
+        Services.obs.addObserver(this, "document-element-inserted");
+        Services.obs.addObserver(this, "simulator-orientation-change");
+        Services.obs.addObserver(this, "inner-window-destroyed");
         break;
 
-      case 'document-element-inserted':
+      case "document-element-inserted":
         let window = subject.defaultView;
         if (!window) {
           return;
@@ -99,22 +108,21 @@ SimulatorScreen.prototype = {
 
         hookScreen(window);
 
-        var id = window.QueryInterface(Ci.nsIInterfaceRequestor)
-                       .getInterface(Ci.nsIDOMWindowUtils)
-                       .currentInnerWindowID;
-        windows.set(id, window);
+        let innerId = window
+          .QueryInterface(Ci.nsIInterfaceRequestor)
+          .getInterface(Ci.nsIDOMWindowUtils).currentInnerWindowID;
+        windows.set(innerId, window);
         break;
 
-      case 'inner-window-destroyed':
-        var id = subject.QueryInterface(Ci.nsISupportsPRUint64).data;
-        windows.delete(id);
+      case "inner-window-destroyed":
+        windows.delete(subject.QueryInterface(Ci.nsISupportsPRUint64).data);
         break;
 
-      case 'simulator-orientation-change':
+      case "simulator-orientation-change":
         windows.forEach(fireOrientationEvent);
         break;
     }
-  }
+  },
 };
 
 this.NSGetFactory = XPCOMUtils.generateNSGetFactory([SimulatorScreen]);

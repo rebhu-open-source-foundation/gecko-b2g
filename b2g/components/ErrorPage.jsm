@@ -2,20 +2,23 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-'use strict';
+"use strict";
 
-this.EXPORTED_SYMBOLS = ['ErrorPage'];
+this.EXPORTED_SYMBOLS = ["ErrorPage"];
 
-const kErrorPageFrameScript = 'chrome://b2g/content/ErrorPage.js';
+const kErrorPageFrameScript = "chrome://b2g/content/ErrorPage.js";
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
-XPCOMUtils.defineLazyServiceGetter(this, "CertOverrideService",
-                                   "@mozilla.org/security/certoverride;1",
-                                   "nsICertOverrideService");
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "CertOverrideService",
+  "@mozilla.org/security/certoverride;1",
+  "nsICertOverrideService"
+);
 
 function debug(str) {
   console.log(`-*- ErrorPage.jsm: ${str}`);
@@ -29,7 +32,7 @@ function SSLExceptions(aCallback, aUri, aWindow) {
   this._finishCallback = aCallback;
   this._uri = aUri;
   this._window = aWindow;
-};
+}
 
 SSLExceptions.prototype = {
   _finishCallback: null,
@@ -48,13 +51,18 @@ SSLExceptions.prototype = {
    * To collect the SSL status we intercept the certificate error here
    * and store the status for later use.
    */
-  notifyCertProblem: function SSLE_notifyCertProblem(aSocketInfo,
-                                                     aSslStatus,
-                                                     aTargetHost) {
+  notifyCertProblem: function SSLE_notifyCertProblem(
+    aSocketInfo,
+    aSslStatus,
+    aTargetHost
+  ) {
     this._sslStatus = aSslStatus.QueryInterface(Ci.nsISSLStatus);
-    Services.tm.currentThread.dispatch({
-      run: this._addOverride.bind(this)
-    }, Ci.nsIThread.DISPATCH_NORMAL);
+    Services.tm.currentThread.dispatch(
+      {
+        run: this._addOverride.bind(this),
+      },
+      Ci.nsIThread.DISPATCH_NORMAL
+    );
     return true; // suppress error UI
   },
 
@@ -71,7 +79,7 @@ SSLExceptions.prototype = {
     try {
       req.open("GET", this._uri.prePath, true);
       req.channel.notificationCallbacks = this;
-      let xhrHandler = (function() {
+      let xhrHandler = function() {
         req.removeEventListener("load", xhrHandler);
         req.removeEventListener("error", xhrHandler);
         if (!this._sslStatus) {
@@ -80,7 +88,7 @@ SSLExceptions.prototype = {
             this._finishCallback();
           }
         }
-      }).bind(this);
+      }.bind(this);
       req.addEventListener("load", xhrHandler);
       req.addEventListener("error", xhrHandler);
       req.send(null);
@@ -88,9 +96,12 @@ SSLExceptions.prototype = {
       // We *expect* exceptions if there are problems with the certificate
       // presented by the site.  Log it, just in case, but we can proceed here,
       // with appropriate sanity checks
-      Components.utils.reportError("Attempted to connect to a site with a bad certificate in the add exception dialog. " +
-                                   "This results in a (mostly harmless) exception being thrown. " +
-                                   "Logged for information purposes only: " + e);
+      Cu.reportError(
+        "Attempted to connect to a site with a bad certificate in the add exception dialog. " +
+          "This results in a (mostly harmless) exception being thrown. " +
+          "Logged for information purposes only: " +
+          e
+      );
     }
   },
 
@@ -117,7 +128,8 @@ SSLExceptions.prototype = {
       uri.port,
       SSLStatus.serverCert,
       flags,
-      this._temporary);
+      this._temporary
+    );
 
     if (this._finishCallback) {
       this._finishCallback();
@@ -131,19 +143,25 @@ SSLExceptions.prototype = {
   addException: function SSLE_addException(aTemporary) {
     this._temporary = aTemporary;
     this._checkCert();
-  }
+  },
 };
 
 var ErrorPage = {
-  _addCertException: function(aMessage) {
-    let frameLoaderOwner = aMessage.target.QueryInterface(Ci.nsIFrameLoaderOwner);
-    let win = frameLoaderOwner.ownerDocument.defaultView;
+  _addCertException(aMessage) {
+    let frameLoaderOwner = aMessage.target.QueryInterface(
+      Ci.nsIFrameLoaderOwner
+    );
+    let win = frameLoaderOwner.ownerGlobal;
     let mm = frameLoaderOwner.frameLoader.messageManager;
 
-    let uri = Services.io.newURI(aMessage.data.url, null, null);
-    let sslExceptions = new SSLExceptions((function() {
-      mm.sendAsyncMessage('ErrorPage:ReloadPage');
-    }).bind(this), uri, win);
+    let uri = Services.io.newURI(aMessage.data.url);
+    let sslExceptions = new SSLExceptions(
+      function() {
+        mm.sendAsyncMessage("ErrorPage:ReloadPage");
+      },
+      uri,
+      win
+    );
     try {
       sslExceptions.addException(!aMessage.data.isPermanent);
     } catch (e) {
@@ -151,7 +169,7 @@ var ErrorPage = {
     }
   },
 
-  _listenError: function(frameLoader) {
+  _listenError(frameLoader) {
     let self = this;
     let frameElement = frameLoader.ownerElement;
     let injectErrorPageScript = function() {
@@ -159,21 +177,35 @@ var ErrorPage = {
       try {
         mm.loadFrameScript(kErrorPageFrameScript, true, true);
       } catch (e) {
-        debug('Error loading ' + kErrorPageFrameScript + ' as frame script: ' + e + '\n');
+        debug(
+          "Error loading " +
+            kErrorPageFrameScript +
+            " as frame script: " +
+            e +
+            "\n"
+        );
       }
-      mm.addMessageListener('ErrorPage:AddCertException', self._addCertException.bind(self));
-      frameElement.removeEventListener('mozbrowsererror', injectErrorPageScript, true);
+      mm.addMessageListener(
+        "ErrorPage:AddCertException",
+        self._addCertException.bind(self)
+      );
+      frameElement.removeEventListener(
+        "mozbrowsererror",
+        injectErrorPageScript,
+        true
+      );
     };
 
-    frameElement.addEventListener('mozbrowsererror',
-                                  injectErrorPageScript,
-                                  true // use capture
-                                 );
+    frameElement.addEventListener(
+      "mozbrowsererror",
+      injectErrorPageScript,
+      true // use capture
+    );
   },
 
   init: function errorPageInit() {
-    Services.obs.addObserver(this, 'inprocess-browser-shown', false);
-    Services.obs.addObserver(this, 'remote-browser-shown', false);
+    Services.obs.addObserver(this, "inprocess-browser-shown");
+    Services.obs.addObserver(this, "remote-browser-shown");
   },
 
   observe: function errorPageObserve(aSubject, aTopic, aData) {
@@ -183,7 +215,7 @@ var ErrorPage = {
       return;
     }
     this._listenError(frameLoader);
-  }
+  },
 };
 
 ErrorPage.init();

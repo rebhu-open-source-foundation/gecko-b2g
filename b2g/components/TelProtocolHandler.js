@@ -11,23 +11,25 @@
 
 "use strict";
 
-const {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
-
-Cu.import('resource://gre/modules/XPCOMUtils.jsm');
-Cu.import("resource:///modules/TelURIParser.jsm");
-Cu.import('resource://gre/modules/ActivityChannel.jsm');
-
-function TelProtocolHandler() {
-}
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { TelURIParser } = ChromeUtils.import(
+  "resource:///modules/TelURIParser.jsm"
+);
+const { ActivityChannel } = ChromeUtils.import(
+  "resource://gre/modules/ActivityChannel.jsm"
+);
+function TelProtocolHandler() {}
 
 TelProtocolHandler.prototype = {
-
   scheme: "tel",
   defaultPort: -1,
-  protocolFlags: Ci.nsIProtocolHandler.URI_NORELATIVE |
-                 Ci.nsIProtocolHandler.URI_NOAUTH |
-                 Ci.nsIProtocolHandler.URI_LOADABLE_BY_ANYONE |
-                 Ci.nsIProtocolHandler.URI_DOES_NOT_RETURN_DATA,
+  protocolFlags:
+    Ci.nsIProtocolHandler.URI_NORELATIVE |
+    Ci.nsIProtocolHandler.URI_NOAUTH |
+    Ci.nsIProtocolHandler.URI_LOADABLE_BY_ANYONE |
+    Ci.nsIProtocolHandler.URI_DOES_NOT_RETURN_DATA,
   allowPort: () => false,
 
   newURI: function Proto_newURI(aSpec, aOriginCharset) {
@@ -37,16 +39,16 @@ TelProtocolHandler.prototype = {
   },
 
   newChannel2: function Proto_newChannel(aURI, aLoadInfo) {
-    let number = TelURIParser.parseURI('tel', aURI.spec);
+    let number = TelURIParser.parseURI("tel", aURI.spec);
 
     if (number) {
-      return new ActivityChannel(aURI, aLoadInfo,
-                                 "dial-handler",
-                                 { number: number,
-                                   type: "webtelephony/number" });
+      return new ActivityChannel(aURI, aLoadInfo, "dial-handler", {
+        number,
+        type: "webtelephony/number",
+      });
     }
 
-    throw Components.results.NS_ERROR_ILLEGAL_VALUE;
+    throw Components.Exception("", Cr.NS_ERROR_ILLEGAL_VALUE);
   },
 
   newChannel: function Proto_newChannel(aURI) {
@@ -54,7 +56,7 @@ TelProtocolHandler.prototype = {
   },
 
   classID: Components.ID("{782775dd-7351-45ea-aff1-0ffa872cfdd2}"),
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIProtocolHandler])
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIProtocolHandler]),
 };
 
 this.NSGetFactory = XPCOMUtils.generateNSGetFactory([TelProtocolHandler]);

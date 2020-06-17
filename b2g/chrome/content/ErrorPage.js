@@ -2,20 +2,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-'use strict';
-
-var Cu = Components.utils;
-var Cc = Components.classes;
-var Ci = Components.interfaces;
+/* global docShell, sendAsyncMessage, addMessageListener, content */
+"use strict";
 
 console.log("############ ErrorPage.js\n");
 
 var ErrorPageHandler = {
-  _reload: function() {
-    docShell.QueryInterface(Ci.nsIWebNavigation).reload(Ci.nsIWebNavigation.LOAD_FLAGS_NONE);
+  _reload() {
+    docShell
+      .QueryInterface(Ci.nsIWebNavigation)
+      .reload(Ci.nsIWebNavigation.LOAD_FLAGS_NONE);
   },
 
-  _certErrorPageEventHandler: function(e) {
+  _certErrorPageEventHandler(e) {
     let target = e.originalTarget;
     let errorDoc = target.ownerDocument;
 
@@ -27,13 +26,13 @@ var ErrorPageHandler = {
       if (target == temp || target == permanent) {
         sendAsyncMessage("ErrorPage:AddCertException", {
           url: errorDoc.location.href,
-          isPermanent: target == permanent
+          isPermanent: target == permanent,
         });
       }
     }
   },
 
-  _bindPageEvent: function(target) {
+  _bindPageEvent(target) {
     if (!target) {
       return;
     }
@@ -44,30 +43,32 @@ var ErrorPageHandler = {
       let listener = function() {
         removeEventListener("click", errorPageEventHandler, true);
         removeEventListener("pagehide", listener, true);
-      }.bind(this);
+      };
 
       addEventListener("pagehide", listener, true);
     }
   },
 
-  domContentLoadedHandler: function(e) {
+  domContentLoadedHandler(e) {
     let target = e.originalTarget;
     let targetDocShell = target.defaultView
-                               .QueryInterface(Ci.nsIInterfaceRequestor)
-                               .getInterface(Ci.nsIWebNavigation);
+      .QueryInterface(Ci.nsIInterfaceRequestor)
+      .getInterface(Ci.nsIWebNavigation);
     if (targetDocShell != docShell) {
       return;
     }
     this._bindPageEvent(target);
   },
 
-  init: function() {
+  init() {
     addMessageListener("ErrorPage:ReloadPage", this._reload.bind(this));
-    addEventListener('DOMContentLoaded',
-                     this.domContentLoadedHandler.bind(this),
-                     true);
+    addEventListener(
+      "DOMContentLoaded",
+      this.domContentLoadedHandler.bind(this),
+      true
+    );
     this._bindPageEvent(content.document);
-  }
+  },
 };
 
 ErrorPageHandler.init();

@@ -95,7 +95,7 @@ AlarmProxy.prototype = {
     // no way to retrieve app's manifestURL currently.
 
     if (!date) {
-      throw Cr.NS_ERROR_INVALID_ARG;
+      throw Components.Exception("", Cr.NS_ERROR_INVALID_ARG);
     }
 
     let requestId = Cc["@mozilla.org/uuid-generator;1"]

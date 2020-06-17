@@ -6,30 +6,33 @@
 
 this.EXPORTED_SYMBOLS = [];
 
-const Cu = Components.utils;
-Cu.import("resource://gre/modules/Services.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 var window = Services.wm.getMostRecentWindow("navigator:browser");
 var system = window.document.getElementById("systemapp");
 
 var OrientationChangeHandler = {
   // Clockwise orientations, looping
-  orientations: ["portrait-primary", "landscape-secondary",
-                 "portrait-secondary", "landscape-primary",
-                 "portrait-primary"],
+  orientations: [
+    "portrait-primary",
+    "landscape-secondary",
+    "portrait-secondary",
+    "landscape-primary",
+    "portrait-primary",
+  ],
 
   lastOrientation: "portrait-primary",
 
-  init: function() {
+  init() {
     window.screen.addEventListener("mozorientationchange", this, true);
   },
 
-  handleEvent: function(evt) {
+  handleEvent(evt) {
     let newOrientation = window.screen.mozOrientation;
     let orientationIndex = this.orientations.indexOf(this.lastOrientation);
     let nextClockwiseOrientation = this.orientations[orientationIndex + 1];
-    let fullSwitch = (newOrientation.split("-")[0] ==
-                      this.lastOrientation.split("-")[0]);
+    let fullSwitch =
+      newOrientation.split("-")[0] == this.lastOrientation.split("-")[0];
 
     this.lastOrientation = newOrientation;
 
@@ -38,14 +41,13 @@ var OrientationChangeHandler = {
       angle = 180;
       xFactor = 1;
     } else {
-      angle = (nextClockwiseOrientation == newOrientation) ? 90 : -90;
+      angle = nextClockwiseOrientation == newOrientation ? 90 : -90;
       xFactor = window.innerWidth / window.innerHeight;
     }
     yFactor = 1 / xFactor;
 
     system.style.transition = "";
-    system.style.transform = "rotate(" + angle + "deg)" +
-                             "scale(" + xFactor + ", " + yFactor + ")";
+    system.style.transform = `rotate(${angle}deg) scale(${xFactor}, ${yFactor})`;
 
     function trigger() {
       system.style.transition = "transform .25s cubic-bezier(.15, .7, .6, .9)";
@@ -60,11 +62,14 @@ var OrientationChangeHandler = {
       return;
     }
 
-    window.addEventListener("resize", function waitForResize(e) {
-      window.removeEventListener("resize", waitForResize);
-      trigger();
-    });
-  }
+    window.addEventListener(
+      "resize",
+      () => {
+        trigger();
+      },
+      { once: true }
+    );
+  },
 };
 
 OrientationChangeHandler.init();

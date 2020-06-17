@@ -22,13 +22,13 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   );
 
   const systemAlerts = {
-    resendAll: (resendCallback) => {
+    resendAll: resendCallback => {
       ChromeNotifications.resendAllNotifications(resendCallback);
     },
-    click: (data) => {
+    click: data => {
       AlertsEventHandler.click(data);
     },
-    close: (id) => {
+    close: id => {
       AlertsEventHandler.close(id);
     },
   };

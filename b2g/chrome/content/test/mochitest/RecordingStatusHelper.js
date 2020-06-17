@@ -1,4 +1,4 @@
-'use strict';
+"use strict";
 
 // resolve multiple promise in parallel
 function expectAll(aValue) {
@@ -21,28 +21,28 @@ function expectAll(aValue) {
 }
 
 function TestInit() {
-  let url = SimpleTest.getTestFileURL("RecordingStatusChromeScript.js")
+  let url = SimpleTest.getTestFileURL("RecordingStatusChromeScript.js");
   let script = SpecialPowers.loadChromeScript(url);
 
   let helper = {
-    finish: function () {
+    finish() {
       script.destroy();
     },
-    fakeShutdown: function () {
-      script.sendAsyncMessage('fake-content-shutdown', {});
-    }
+    fakeShutdown() {
+      script.sendAsyncMessage("fake-content-shutdown", {});
+    },
   };
 
-  script.addMessageListener('chrome-event', function (message) {
-    if (helper.hasOwnProperty('onEvent')) {
+  script.addMessageListener("chrome-event", function(message) {
+    if (helper.hasOwnProperty("onEvent")) {
       helper.onEvent(message);
     } else {
-      ok(false, 'unexpected message: ' + JSON.stringify(message));
+      ok(false, "unexpected message: " + JSON.stringify(message));
     }
   });
 
   script.sendAsyncMessage("init-chrome-event", {
-    type: 'recording-status'
+    type: "recording-status",
   });
 
   return Promise.resolve(helper);
@@ -53,13 +53,25 @@ function expectEvent(expected, eventHelper) {
     eventHelper.onEvent = function(message) {
       delete eventHelper.onEvent;
       ok(message, JSON.stringify(message));
-      is(message.type, 'recording-status', 'event type: ' + message.type);
-      is(message.active, expected.active, 'recording active: ' + message.active);
-      is(message.isAudio, expected.isAudio, 'audio recording active: ' + message.isAudio);
-      is(message.isVideo, expected.isVideo, 'video recording active: ' + message.isVideo);
+      is(message.type, "recording-status", "event type: " + message.type);
+      is(
+        message.active,
+        expected.active,
+        "recording active: " + message.active
+      );
+      is(
+        message.isAudio,
+        expected.isAudio,
+        "audio recording active: " + message.isAudio
+      );
+      is(
+        message.isVideo,
+        expected.isVideo,
+        "video recording active: " + message.isVideo
+      );
       resolve(eventHelper);
     };
-    info('waiting for recording-status');
+    info("waiting for recording-status");
   });
 }
 
@@ -68,15 +80,15 @@ function expectStream(params, callback) {
     var req = navigator.mozGetUserMedia(
       params,
       function(stream) {
-        ok(true, 'create media stream');
+        ok(true, "create media stream");
         callback(stream);
         resolve();
       },
       function(err) {
-        ok(false, 'fail to create media stream');
+        ok(false, "fail to create media stream");
         reject(err);
       }
     );
-    info('waiting for gUM result');
+    info("waiting for gUM result");
   });
 }

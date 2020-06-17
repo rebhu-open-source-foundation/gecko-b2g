@@ -2,7 +2,10 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
-/* globals DevToolsServer */
+
+/* TODO: proper cleanup */
+/* globals DevToolsServer, XPCOMUtils, Services, Prompt, Strings, WindowEventDispatcher */
+
 "use strict";
 
 XPCOMUtils.defineLazyGetter(this, "require", () => {
@@ -14,6 +17,7 @@ XPCOMUtils.defineLazyGetter(this, "DevToolsServer", () => {
   let { DevToolsServer } = require("devtools/server/devtools-server");
   return DevToolsServer;
 });
+
 XPCOMUtils.defineLazyGetter(this, "SocketListener", () => {
   let { SocketListener } = require("devtools/shared/security/socket");
   return SocketListener;
@@ -102,7 +106,7 @@ var RemoteDebugger = {
       let prompt = new Prompt({
         window: null,
         hint: "remotedebug",
-        title: title,
+        title,
         message: msg,
         buttons: [allow, deny],
         priority: 1,
@@ -144,7 +148,7 @@ var RemoteDebugger = {
       let prompt = new Prompt({
         window: null,
         hint: "remotedebug",
-        title: title,
+        title,
         message: msg,
         buttons: [scan, scanAndRemember, deny],
         priority: 1,
@@ -200,7 +204,7 @@ var RemoteDebugger = {
         let prompt = new Prompt({
           window: null,
           hint: "remotedebug",
-          title: title,
+          title,
           message: msg,
           buttons: [ok],
           priority: 1,
@@ -214,7 +218,7 @@ var RemoteDebugger = {
     return this._receivingOOB;
   },
 
-  initServer: function() {
+  initServer() {
     DevToolsServer.init();
 
     // Add browser and Fennec specific actors
@@ -278,7 +282,7 @@ var USBRemoteDebugger = {
     return Services.prefs.getBoolPref("devtools.remote.usb.enabled");
   },
 
-  start: function() {
+  start() {
     if (this._listener) {
       return;
     }
@@ -302,7 +306,7 @@ var USBRemoteDebugger = {
     }
   },
 
-  stop: function() {
+  stop() {
     if (!this._listener) {
       return;
     }
@@ -356,7 +360,7 @@ var WiFiRemoteDebugger = {
     return Services.prefs.getBoolPref("devtools.remote.wifi.enabled");
   },
 
-  start: function() {
+  start() {
     if (this._listener) {
       return;
     }
@@ -384,7 +388,7 @@ var WiFiRemoteDebugger = {
     }
   },
 
-  stop: function() {
+  stop() {
     if (!this._listener) {
       return;
     }

@@ -57,11 +57,11 @@ function clearAllDoneHelper(getDownloads) {
       reject(err);
     }
     navigator.mozDownloadManager.getDownloads().then(gotDownloads, gotBadNews);
- });
- if (!getDownloads) {
-   return clearedPromise;
- }
- return clearedPromise.then(function() {
-   return navigator.mozDownloadManager.getDownloads();
- });
+  });
+  if (!getDownloads) {
+    return clearedPromise;
+  }
+  return clearedPromise.then(function() {
+    return navigator.mozDownloadManager.getDownloads();
+  });
 }

@@ -71,7 +71,7 @@ this.LocalDomains = {
           found.push(name);
         }
       }
-    } catch(e) {
+    } catch (e) {
       // Something went wrong iterating the apps list. That can happen in empty
       // profiles that will only load the default UI.
       return false;

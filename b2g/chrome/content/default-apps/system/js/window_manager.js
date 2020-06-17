@@ -74,11 +74,9 @@ class WindowManager extends HTMLElement {
           console.log(`Activating frame ${frame_id}`);
           this.frames[frame_id].activate();
           this.active_frame = frame_id;
-        } else {
+        } else if (this.frames[frame_id]) {
           // The frame may have been removed if we just closed it.
-          if (this.frames[frame_id]) {
-            this.frames[frame_id].deactivate();
-          }
+          this.frames[frame_id].deactivate();
         }
       });
     };

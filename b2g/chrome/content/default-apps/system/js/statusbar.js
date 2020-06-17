@@ -14,15 +14,17 @@ class StatusBar extends HTMLElement {
            </div>
            <div class="right">
              <span class="battery-percent"></span>
-             <span class="clock">${this.local_time()}</span>
+             <span class="clock"></span>
            </div>
           `;
 
     shadow.appendChild(container);
 
     this.left = shadow.querySelector(".left");
-  
+
     this.clock = shadow.querySelector(".clock");
+    this.clock.textContent = this.local_time();
+
     window.setInterval(() => {
       this.clock.textContent = this.local_time();
     }, 10000);
@@ -66,12 +68,12 @@ class StatusBar extends HTMLElement {
   }
 
   update_state(state) {
-      this.left.textContent = state.title;
-      if (state.secure == "secure" || state.url.startsWith("chrome://")) {
-          this.left.classList.remove("insecure");
-      } else {
-          this.left.classList.add("insecure");
-      }
+    this.left.textContent = state.title;
+    if (state.secure == "secure" || state.url.startsWith("chrome://")) {
+      this.left.classList.remove("insecure");
+    } else {
+      this.left.classList.add("insecure");
+    }
   }
 }
 

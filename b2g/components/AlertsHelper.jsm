@@ -6,24 +6,24 @@
 
 this.EXPORTED_SYMBOLS = ["AlertsEventHandler"];
 
-const Ci = Components.interfaces;
-const Cu = Components.utils;
-const Cc = Components.classes;
-
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
-const { Services } = ChromeUtils.import(
-  "resource://gre/modules/Services.jsm"
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "notificationStorage",
+  "@mozilla.org/notificationStorage;1",
+  "nsINotificationStorage"
 );
 
-XPCOMUtils.defineLazyServiceGetter(this, "notificationStorage",
-                                   "@mozilla.org/notificationStorage;1",
-                                   "nsINotificationStorage");
-
-XPCOMUtils.defineLazyServiceGetter(this, "serviceWorkerManager",
-                                   "@mozilla.org/serviceworkers/manager;1",
-                                   "nsIServiceWorkerManager");
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "serviceWorkerManager",
+  "@mozilla.org/serviceworkers/manager;1",
+  "nsIServiceWorkerManager"
+);
 
 XPCOMUtils.defineLazyGetter(this, "ppmm", function() {
   return Services.ppmm;
@@ -33,38 +33,37 @@ function debug(str) {
   dump("=*= AlertsHelper.jsm : " + str + "\n");
 }
 
-const kNotificationIconSize = 128;
+// const kNotificationIconSize = 128;
 
-const kDesktopNotificationPerm = "desktop-notification";
+// const kDesktopNotificationPerm = "desktop-notification";
 
-const kDesktopNotification      = "desktop-notification";
-const kDesktopNotificationShow  = "desktop-notification-show";
+const kDesktopNotification = "desktop-notification";
+const kDesktopNotificationShow = "desktop-notification-show";
 const kDesktopNotificationClick = "desktop-notification-click";
 const kDesktopNotificationClose = "desktop-notification-close";
 
 const kTopicAlertClickCallback = "alertclickcallback";
-const kTopicAlertShow          = "alertshow";
-const kTopicAlertFinished      = "alertfinished";
+const kTopicAlertShow = "alertshow";
+const kTopicAlertFinished = "alertfinished";
 
-const kMessageAppNotificationSend    = "app-notification-send";
-const kMessageAppNotificationReturn  = "app-notification-return";
-const kMessageAlertNotificationSend  = "alert-notification-send";
+const kMessageAppNotificationSend = "app-notification-send";
+const kMessageAppNotificationReturn = "app-notification-return";
+const kMessageAlertNotificationSend = "alert-notification-send";
 const kMessageAlertNotificationClose = "alert-notification-close";
 
 const kMessages = [
   kMessageAppNotificationSend,
   kMessageAlertNotificationSend,
-  kMessageAlertNotificationClose
+  kMessageAlertNotificationClose,
 ];
 
 var AlertsHelper = {
-
   _listeners: {},
   _embedderNotifications: {},
 
-  init: function() {
-    Services.obs.addObserver(this, "xpcom-shutdown", false);
-    Services.obs.addObserver((embedderNotifications) => {
+  init() {
+    Services.obs.addObserver(this, "xpcom-shutdown");
+    Services.obs.addObserver(embedderNotifications => {
       this._embedderNotifications = embedderNotifications.wrappedJSObject;
     }, "web-embedder-notifications");
     for (let message of kMessages) {
@@ -72,7 +71,7 @@ var AlertsHelper = {
     }
   },
 
-  observe: function(aSubject, aTopic, aData) {
+  observe(aSubject, aTopic, aData) {
     switch (aTopic) {
       case "xpcom-shutdown":
         Services.obs.removeObserver(this, "xpcom-shutdown");
@@ -83,7 +82,7 @@ var AlertsHelper = {
     }
   },
 
-  handleEvent: function(evt) {
+  handleEvent(evt) {
     let detail = evt.detail;
 
     switch (detail.type) {
@@ -98,7 +97,7 @@ var AlertsHelper = {
     }
   },
 
-  handleNotificationEvent: function(detail) {
+  handleNotificationEvent(detail) {
     if (!detail || !detail.id) {
       return;
     }
@@ -122,22 +121,26 @@ var AlertsHelper = {
     if (listener.cookie) {
       try {
         listener.observer.observe(null, topic, listener.cookie);
-      } catch (e) { }
+      } catch (e) {}
     } else {
       try {
         listener.mm.sendAsyncMessage(kMessageAppNotificationReturn, {
-          uid: uid,
-          topic: topic,
-          target: listener.target
+          uid,
+          topic,
+          target: listener.target,
         });
       } catch (e) {
         // The non-empty serviceWorkerRegistrationScope means the notification
         // is issued by service worker, so deal with this listener
         // via serviceWorkerManager
-        if (listener.serviceWorkerRegistrationScope.length &&
-          detail.type !== kDesktopNotificationShow) {
+        if (
+          listener.serviceWorkerRegistrationScope.length &&
+          detail.type !== kDesktopNotificationShow
+        ) {
           const scope = listener.serviceWorkerRegistrationScope;
-          const originAttr = ChromeUtils.createOriginAttributesFromOrigin(scope);
+          const originAttr = ChromeUtils.createOriginAttributesFromOrigin(
+            scope
+          );
           const originSuffix = ChromeUtils.originAttributesToSuffix(originAttr);
           let eventName;
 
@@ -175,20 +178,21 @@ var AlertsHelper = {
     }
   },
 
-  registerListener: function(alertId, cookie, alertListener) {
-    this._listeners[alertId] = { observer: alertListener, cookie: cookie };
+  registerListener(alertId, cookie, alertListener) {
+    this._listeners[alertId] = { observer: alertListener, cookie };
   },
 
-  registerAppListener: function(uid, listener) {
+  registerAppListener(uid, listener) {
     this._listeners[uid] = listener;
   },
 
-  deserializeStructuredClone: function(dataString) {
+  deserializeStructuredClone(dataString) {
     if (!dataString) {
       return null;
     }
-    let scContainer = Cc["@mozilla.org/docshell/structured-clone-container;1"].
-      createInstance(Ci.nsIStructuredCloneContainer);
+    let scContainer = Cc[
+      "@mozilla.org/docshell/structured-clone-container;1"
+    ].createInstance(Ci.nsIStructuredCloneContainer);
 
     // The maximum supported structured-clone serialization format version
     // as defined in "js/public/StructuredClone.h"
@@ -201,16 +205,33 @@ var AlertsHelper = {
     // After the structured clone callback systems will be unified, we'll not
     // have to perform this check anymore.
     try {
-      let data = Cu.cloneInto(dataObj, {});
-    } catch(e) { dataObj = null; }
+      Cu.cloneInto(dataObj, {});
+    } catch (e) {
+      dataObj = null;
+    }
 
     return dataObj;
   },
 
-  showNotification: function(imageURL, title, text, textClickable, cookie,
-                             uid, dir, lang, dataObj, manifestURL, timestamp,
-                             behavior, serviceWorkerRegistrationScope) {
-    if (!this._embedderNotifications || !this._embedderNotifications.showNotification) {
+  showNotification(
+    imageURL,
+    title,
+    text,
+    textClickable,
+    cookie,
+    uid,
+    dir,
+    lang,
+    dataObj,
+    manifestURL,
+    timestamp,
+    behavior,
+    serviceWorkerRegistrationScope
+  ) {
+    if (
+      !this._embedderNotifications ||
+      !this._embedderNotifications.showNotification
+    ) {
       debug(`No embedder support for 'showNotification()'`);
       return;
     }
@@ -219,35 +240,49 @@ var AlertsHelper = {
       type: kDesktopNotification,
       id: uid,
       icon: imageURL,
-      title: title,
-      text: text,
-      dir: dir,
-      lang: lang,
+      title,
+      text,
+      dir,
+      lang,
       appName: null,
       appIcon: null,
-      manifestURL: manifestURL,
-      timestamp: timestamp,
+      manifestURL,
+      timestamp,
       data: dataObj,
       mozbehavior: behavior,
-      serviceWorkerRegistrationScope: serviceWorkerRegistrationScope
+      serviceWorkerRegistrationScope,
     });
   },
 
-  showAlertNotification: function(aMessage) {
+  showAlertNotification(aMessage) {
     let data = aMessage.data;
     let currentListener = this._listeners[data.name];
     if (currentListener && currentListener.observer) {
-      currentListener.observer.observe(null, kTopicAlertFinished, currentListener.cookie);
+      currentListener.observer.observe(
+        null,
+        kTopicAlertFinished,
+        currentListener.cookie
+      );
     }
 
     let dataObj = this.deserializeStructuredClone(data.dataStr);
     this.registerListener(data.name, data.cookie, data.alertListener);
-    this.showNotification(data.imageURL, data.title, data.text,
-                          data.textClickable, data.cookie, data.name, data.dir,
-                          data.lang, dataObj, null, data.inPrivateBrowsing);
+    this.showNotification(
+      data.imageURL,
+      data.title,
+      data.text,
+      data.textClickable,
+      data.cookie,
+      data.name,
+      data.dir,
+      data.lang,
+      dataObj,
+      null,
+      data.inPrivateBrowsing
+    );
   },
 
-  showAppNotification: function(aMessage) {
+  showAppNotification(aMessage) {
     let data = aMessage.data;
     let details = data.details;
     let listener = {
@@ -263,23 +298,33 @@ var AlertsHelper = {
       tag: details.tag || undefined,
       timestamp: details.timestamp || undefined,
       dataObj: details.data || undefined,
-      serviceWorkerRegistrationScope: details.serviceWorkerRegistrationScope
+      serviceWorkerRegistrationScope: details.serviceWorkerRegistrationScope,
     };
     this.registerAppListener(data.uid, listener);
-    this.showNotification(data.imageURL, data.title, data.text,
-                          details.textClickable, null, data.uid, details.dir,
-                          details.lang, details.data, details.manifestURL,
-                          details.timestamp, details.mozbehavior,
-                          details.serviceWorkerRegistrationScope);
+    this.showNotification(
+      data.imageURL,
+      data.title,
+      data.text,
+      details.textClickable,
+      null,
+      data.uid,
+      details.dir,
+      details.lang,
+      details.data,
+      details.manifestURL,
+      details.timestamp,
+      details.mozbehavior,
+      details.serviceWorkerRegistrationScope
+    );
   },
 
-  closeAlert: function(name) {},
+  closeAlert(name) {},
 
-  receiveMessage: function(aMessage) {
+  receiveMessage(aMessage) {
     // TODO: Need a DesktopNotification permission check in here which gecko48
     // is doing
 
-    switch(aMessage.name) {
+    switch (aMessage.name) {
       case kMessageAppNotificationSend:
         this.showAppNotification(aMessage);
         break;
@@ -292,28 +337,27 @@ var AlertsHelper = {
         this.closeAlert(aMessage.data.name);
         break;
     }
-
   },
-}
+};
 
 AlertsHelper.init();
 
 var AlertsEventHandler = {
-  click: (data) => {
+  click: data => {
     let event = {};
     event.detail = {
       type: "desktop-notification-click",
-      id: data.id
-    }
+      id: data.id,
+    };
     AlertsHelper.handleEvent(event);
   },
 
-  close: (id) => {
+  close: id => {
     let event = {};
     event.detail = {
       type: "desktop-notification-close",
-      id: id
-    }
+      id,
+    };
     AlertsHelper.handleEvent(event);
   },
-}
+};

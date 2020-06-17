@@ -53,27 +53,38 @@ class WifiManager {
   }
 }
 
+function elem(name, content) {
+  let element = document.createElement(name);
+  element.textContent = content;
+  return element;
+}
+
 function onNetworks(networks, manager) {
   console.log(`WIFI Found ${networks.length} wifi networks:`);
   let list = document.getElementById("network-list");
-  let html = "";
+  list.innerHTML = "";
+
   networks.forEach((network, index) => {
-    if (network.ssid.trim().length == 0) {
+    if (!network.ssid.trim().length) {
       return;
     }
     console.log(`WIFI ${network.ssid} ${network.security}`);
-    html += `<li>${network.ssid} `;
-    if (network.security.trim().length == 0) {
-      html += `<button id="wifi-network-${index}-connect">Connect</button>`;
+
+    let item = elem("li", `${network.ssid} `);
+
+    if (!network.security.trim().length) {
+      let button = elem("button", "Connect");
+      button.setAttribute("id", `wifi-network-${index}-connect`);
+      item.appendChild(button);
     } else {
-      html += `(${network.security})`;
+      item.textContent = `${network.ssid} (${network.security})`;
     }
-    html += `</li>`;
+    list.appendChild(item);
   });
-  list.innerHTML = html;
+
   networks.forEach((network, index) => {
     // Only try to associate to open networks.
-    if (network.ssid.trim().length == 0 || network.security.trim().length > 0) {
+    if (!network.ssid.trim().length || network.security.trim().length) {
       return;
     }
     document.getElementById(`wifi-network-${index}-connect`).onclick = () => {

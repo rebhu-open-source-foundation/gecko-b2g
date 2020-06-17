@@ -9,12 +9,12 @@ Object.defineProperty(Array.prototype, "remove", {
   enumerable: false,
   configurable: false,
   writable: false,
-  value: function(from, to) {
+  value(from, to) {
     // Array Remove - By John Resig (MIT Licensed)
     var rest = this.slice((to || from) + 1 || this.length);
     this.length = from < 0 ? this.length + from : from;
     return this.push.apply(this, rest);
-  }
+  },
 });
 
 function devicestorage_setup(callback) {
@@ -22,20 +22,25 @@ function devicestorage_setup(callback) {
 
   const Cc = SpecialPowers.Cc;
   const Ci = SpecialPowers.Ci;
-  var directoryService = Cc["@mozilla.org/file/directory_service;1"]
-                           .getService(Ci.nsIProperties);
+  var directoryService = Cc["@mozilla.org/file/directory_service;1"].getService(
+    Ci.nsIProperties
+  );
   var f = directoryService.get("TmpD", Ci.nsIFile);
   f.appendRelativePath("device-storage-testing");
 
-  let script = SpecialPowers.loadChromeScript(SimpleTest.getTestFileURL('remove_testing_directory.js'));
+  let script = SpecialPowers.loadChromeScript(
+    SimpleTest.getTestFileURL("remove_testing_directory.js")
+  );
 
-  script.addMessageListener('directory-removed', function listener () {
-    script.removeMessageListener('directory-removed', listener);
-    var prefs = [["device.storage.enabled", true],
-                 ["device.storage.testing", true],
-                 ["device.storage.overrideRootDir", f.path],
-                 ["device.storage.prompt.testing", true]];
-    SpecialPowers.pushPrefEnv({"set": prefs}, callback);
+  script.addMessageListener("directory-removed", function listener() {
+    script.removeMessageListener("directory-removed", listener);
+    var prefs = [
+      ["device.storage.enabled", true],
+      ["device.storage.testing", true],
+      ["device.storage.overrideRootDir", f.path],
+      ["device.storage.prompt.testing", true],
+    ];
+    SpecialPowers.pushPrefEnv({ set: prefs }, callback);
   });
 }
 
@@ -50,13 +55,13 @@ function getRandomBuffer() {
 }
 
 function createRandomBlob(mime) {
-  return blob = new Blob([getRandomBuffer()], {type: mime});
+  return (blob = new Blob([getRandomBuffer()], { type: mime }));
 }
 
 function randomFilename(l) {
   var set = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXTZ";
   var result = "";
-  for (var i=0; i<l; i++) {
+  for (var i = 0; i < l; i++) {
     var r = Math.floor(set.length * Math.random());
     result += set.substring(r, r + 1);
   }
@@ -80,7 +85,7 @@ function createTestFiles(storage, paths) {
         };
 
         req.onerror = function(e) {
-          ok(false, "Failed to create " + path + ': ' + e.target.error.name);
+          ok(false, "Failed to create " + path + ": " + e.target.error.name);
           reject();
         };
       }

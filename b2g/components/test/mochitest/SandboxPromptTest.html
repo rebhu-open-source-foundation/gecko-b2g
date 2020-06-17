@@ -5,35 +5,35 @@
 var actions = [
   {
     permissions: ["video-capture"],
-    action: function() {
+    action() {
       // invoke video-capture permission prompt
       navigator.mozGetUserMedia({video: true}, function () {}, function () {});
     }
   },
   {
     permissions: ["audio-capture", "video-capture"],
-    action: function() {
+    action() {
       // invoke audio-capture + video-capture permission prompt
       navigator.mozGetUserMedia({audio: true, video: true}, function () {}, function () {});
     }
   },
   {
     permissions: ["audio-capture"],
-    action: function() {
+    action() {
       // invoke audio-capture permission prompt
       navigator.mozGetUserMedia({audio: true}, function () {}, function () {});
     }
   },
   {
     permissions: ["geolocation"],
-    action: function() {
+    action() {
       // invoke geolocation permission prompt
       navigator.geolocation.getCurrentPosition(function (pos) {});
     }
   },
   {
     permissions: ["desktop-notification"],
-    action: function() {
+    action() {
       // invoke desktop-notification prompt
       Notification.requestPermission(function (perm) {});
     }

@@ -10,44 +10,51 @@ function debug(s) {
   dump("-*- KillSwitch.js: " + s + "\n");
 }
 
-const {interfaces: Ci, utils: Cu} = Components;
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { DOMRequestIpcHelper } = ChromeUtils.import(
+  "resource://gre/modules/DOMRequestHelper.jsm"
+);
 
-Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-Cu.import("resource://gre/modules/DOMRequestHelper.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "Services",
+  "resource://gre/modules/Services.jsm"
+);
 
-XPCOMUtils.defineLazyModuleGetter(this, "Services",
-                                  "resource://gre/modules/Services.jsm");
-
-XPCOMUtils.defineLazyServiceGetter(this, "cpmm",
-                                   "@mozilla.org/childprocessmessagemanager;1",
-                                   "nsIMessageSender");
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "cpmm",
+  "@mozilla.org/childprocessmessagemanager;1",
+  "nsIMessageSender"
+);
 
 const KILLSWITCH_CID = "{b6eae5c6-971c-4772-89e5-5df626bf3f09}";
 const KILLSWITCH_CONTRACTID = "@mozilla.org/moz-kill-switch;1";
 
-const kEnableKillSwitch   = "KillSwitch:Enable";
+const kEnableKillSwitch = "KillSwitch:Enable";
 const kEnableKillSwitchOK = "KillSwitch:Enable:OK";
 const kEnableKillSwitchKO = "KillSwitch:Enable:KO";
 
-const kDisableKillSwitch   = "KillSwitch:Disable";
+const kDisableKillSwitch = "KillSwitch:Disable";
 const kDisableKillSwitchOK = "KillSwitch:Disable:OK";
 const kDisableKillSwitchKO = "KillSwitch:Disable:KO";
 
 function KillSwitch() {
-  this._window       = null;
+  this._window = null;
 }
 
 KillSwitch.prototype = {
-
   __proto__: DOMRequestIpcHelper.prototype,
 
-  init: function(aWindow) {
+  init(aWindow) {
     DEBUG && debug("init");
     this._window = aWindow;
     this.initDOMRequestHelper(this._window);
   },
 
-  enable: function() {
+  enable() {
     DEBUG && debug("KillSwitch: enable");
 
     cpmm.addMessageListener(kEnableKillSwitchOK, this);
@@ -56,13 +63,13 @@ KillSwitch.prototype = {
       cpmm.sendAsyncMessage(kEnableKillSwitch, {
         requestID: this.getPromiseResolverId({
           resolve: aResolve,
-          reject: aReject
-        })
+          reject: aReject,
+        }),
       });
     });
   },
 
-  disable: function() {
+  disable() {
     DEBUG && debug("KillSwitch: disable");
 
     cpmm.addMessageListener(kDisableKillSwitchOK, this);
@@ -71,13 +78,13 @@ KillSwitch.prototype = {
       cpmm.sendAsyncMessage(kDisableKillSwitch, {
         requestID: this.getPromiseResolverId({
           resolve: aResolve,
-          reject: aReject
-        })
+          reject: aReject,
+        }),
       });
     });
   },
 
-  receiveMessage: function(message) {
+  receiveMessage(message) {
     DEBUG && debug("Received: " + message.name);
 
     cpmm.removeMessageListener(kEnableKillSwitchOK, this);
@@ -104,13 +111,15 @@ KillSwitch.prototype = {
     }
   },
 
-  classID : Components.ID(KILLSWITCH_CID),
-  contractID : KILLSWITCH_CONTRACTID,
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIKillSwitch,
-                                         Ci.nsIDOMGlobalPropertyInitializer,
-                                         Ci.nsIObserver,
-                                         Ci.nsIMessageListener,
-                                         Ci.nsISupportsWeakReference]),
+  classID: Components.ID(KILLSWITCH_CID),
+  contractID: KILLSWITCH_CONTRACTID,
+  QueryInterface: ChromeUtils.generateQI([
+    Ci.nsIKillSwitch,
+    Ci.nsIDOMGlobalPropertyInitializer,
+    Ci.nsIObserver,
+    Ci.nsIMessageListener,
+    Ci.nsISupportsWeakReference,
+  ]),
 };
 
 this.NSGetFactory = XPCOMUtils.generateNSGetFactory([KillSwitch]);

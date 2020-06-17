@@ -15,16 +15,17 @@
  * app-startup.)
  */
 
-const Cc = Components.classes;
-const Ci = Components.interfaces;
-const Cu = Components.utils;
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-Cu.import("resource://gre/modules/Services.jsm");
-Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-
-XPCOMUtils.defineLazyServiceGetter(this, "settings",
-                                   "@mozilla.org/settingsService;1",
-                                   "nsISettingsService");
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "settings",
+  "@mozilla.org/settingsService;1",
+  "nsISettingsService"
+);
 
 function debug(msg) {
   log(msg);
@@ -36,9 +37,17 @@ function log(msg) {
 
 function formatStackFrame(aFrame) {
   let functionName = aFrame.functionName || "<anonymous>";
-  return "    at " + functionName +
-         " (" + aFrame.filename + ":" + aFrame.lineNumber +
-         ":" + aFrame.columnNumber + ")";
+  return (
+    "    at " +
+    functionName +
+    " (" +
+    aFrame.filename +
+    ":" +
+    aFrame.lineNumber +
+    ":" +
+    aFrame.columnNumber +
+    ")"
+  );
 }
 
 function ConsoleMessage(aMsg, aLevel) {
@@ -64,8 +73,10 @@ function ConsoleMessage(aMsg, aLevel) {
 }
 
 function toggleUnrestrictedDevtools(unrestricted) {
-  Services.prefs.setBoolPref("devtools.debugger.forbid-certified-apps",
-    !unrestricted);
+  Services.prefs.setBoolPref(
+    "devtools.debugger.forbid-certified-apps",
+    !unrestricted
+  );
   Services.prefs.setBoolPref("dom.apps.developer_mode", unrestricted);
   // TODO: Remove once bug 1125916 is fixed.
   Services.prefs.setBoolPref("network.disable.ipc.security", unrestricted);
@@ -77,7 +88,9 @@ function toggleUnrestrictedDevtools(unrestricted) {
 
 ConsoleMessage.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsIConsoleMessage]),
-  toString: function() { return this.msg; }
+  toString() {
+    return this.msg;
+  },
 };
 
 const gFactoryResetFile = "__post_reset_cmd__";
@@ -85,10 +98,12 @@ const gFactoryResetFile = "__post_reset_cmd__";
 function ProcessGlobal() {}
 ProcessGlobal.prototype = {
   classID: Components.ID("{1a94c87a-5ece-4d11-91e1-d29c29f21b28}"),
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIObserver,
-                                         Ci.nsISupportsWeakReference]),
+  QueryInterface: ChromeUtils.generateQI([
+    Ci.nsIObserver,
+    Ci.nsISupportsWeakReference,
+  ]),
 
-  wipeDir: function(path) {
+  wipeDir(path) {
     log("wipeDir " + path);
     let dir = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
     dir.initWithPath(path);
@@ -101,14 +116,14 @@ ProcessGlobal.prototype = {
       log("Deleting " + file.path);
       try {
         file.remove(true);
-      } catch(e) {}
+      } catch (e) {}
     }
   },
 
-  processCommandsFile: function(text) {
+  processCommandsFile(text) {
     log("processCommandsFile " + text);
     let lines = text.split("\n");
-    lines.forEach((line) => {
+    lines.forEach(line => {
       log(line);
       let params = line.split(" ");
       switch (params[0]) {
@@ -118,6 +133,7 @@ ProcessGlobal.prototype = {
           break;
         case "wipe":
           this.wipeDir(params[1]);
+        // fall through
         case "normal":
           log("restrict devtools");
           toggleUnrestrictedDevtools(false);
@@ -126,25 +142,25 @@ ProcessGlobal.prototype = {
     });
   },
 
-  cleanupAfterFactoryReset: function() {
+  cleanupAfterFactoryReset() {
     log("cleanupAfterWipe start");
 
-    Cu.import("resource://gre/modules/osfile.jsm");
+    const { OS } = ChromeUtils.import("resource://gre/modules/osfile.jsm");
     let dir = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
     dir.initWithPath("/persist");
-    var postResetFile = dir.exists() ?
-                        OS.Path.join("/persist", gFactoryResetFile):
-                        OS.Path.join("/cache", gFactoryResetFile);
+    var postResetFile = dir.exists()
+      ? OS.Path.join("/persist", gFactoryResetFile)
+      : OS.Path.join("/cache", gFactoryResetFile);
     let file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
     file.initWithPath(postResetFile);
     if (!file.exists()) {
-      debug("No additional command.")
+      debug("No additional command.");
       return;
     }
 
     let promise = OS.File.read(postResetFile);
     promise.then(
-      (array) => {
+      array => {
         file.remove(false);
         let decoder = new TextDecoder();
         this.processCommandsFile(decoder.decode(array));
@@ -159,46 +175,57 @@ ProcessGlobal.prototype = {
 
   observe: function pg_observe(subject, topic, data) {
     switch (topic) {
-    case "app-startup": {
-      Services.obs.addObserver(this, "console-api-log-event", false);
-      let inParent = Cc["@mozilla.org/xre/app-info;1"]
-                       .getService(Ci.nsIXULRuntime)
-                       .processType == Ci.nsIXULRuntime.PROCESS_TYPE_DEFAULT;
-      if (inParent) {
-        // Initialize the ActorManagerParent
-        Cu.import("resource://gre/modules/ActorManagerParent.jsm");
-        ActorManagerParent.flush();
+      case "app-startup": {
+        Services.obs.addObserver(this, "console-api-log-event");
+        let inParent =
+          Services.appinfo.processType == Ci.nsIXULRuntime.PROCESS_TYPE_DEFAULT;
+        if (inParent) {
+          // Initialize the ActorManagerParent
+          const { ActorManagerParent } = ChromeUtils.import(
+            "resource://gre/modules/ActorManagerParent.jsm"
+          );
+          ActorManagerParent.flush();
 
-        Services.ppmm.addMessageListener("getProfD", function(message) {
-          return Services.dirsvc.get("ProfD", Ci.nsIFile).path;
-        });
+          Services.ppmm.addMessageListener("getProfD", function(message) {
+            return Services.dirsvc.get("ProfD", Ci.nsIFile).path;
+          });
 
-        this.cleanupAfterFactoryReset();
+          this.cleanupAfterFactoryReset();
+        }
+        break;
       }
-      break;
-    }
-    case "console-api-log-event": {
-      // Pipe `console` log messages to the nsIConsoleService which
-      // writes them to logcat on Gonk.
-      let message = subject.wrappedJSObject;
-      let args = message.arguments;
-      let stackTrace = "";
+      case "console-api-log-event": {
+        // Pipe `console` log messages to the nsIConsoleService which
+        // writes them to logcat on Gonk.
+        let message = subject.wrappedJSObject;
+        let args = message.arguments;
+        let stackTrace = "";
 
-      if (message.stacktrace &&
-          (message.level == "assert" || message.level == "error" || message.level == "trace")) {
-        stackTrace = Array.prototype.map.call(message.stacktrace, formatStackFrame).join("\n");
-      } else {
-        stackTrace = formatStackFrame(message);
+        if (
+          message.stacktrace &&
+          (message.level == "assert" ||
+            message.level == "error" ||
+            message.level == "trace")
+        ) {
+          stackTrace = Array.prototype.map
+            .call(message.stacktrace, formatStackFrame)
+            .join("\n");
+        } else {
+          stackTrace = formatStackFrame(message);
+        }
+
+        if (stackTrace) {
+          args.push("\n" + stackTrace);
+        }
+
+        let msg =
+          "Content JS " +
+          message.level.toUpperCase() +
+          ": " +
+          Array.prototype.join(args, " ");
+        Services.console.logMessage(new ConsoleMessage(msg, message.level));
+        break;
       }
-
-      if (stackTrace) {
-        args.push("\n" + stackTrace);
-      }
-
-      let msg = "Content JS " + message.level.toUpperCase() + ": " + Array.prototype.join(args, " ");
-      Services.console.logMessage(new ConsoleMessage(msg, message.level));
-      break;
-    }
     }
   },
 };

@@ -5,15 +5,21 @@
 
 "use strict";
 
-XPCOMUtils.defineLazyModuleGetter(this, "MinimalIDService",
-                                  "resource://gre/modules/identity/MinimalIdentity.jsm",
-                                  "IdentityService");
+XPCOMUtils.defineLazyModuleGetter(
+  this,
+  "MinimalIDService",
+  "resource://gre/modules/identity/MinimalIdentity.jsm",
+  "IdentityService"
+);
 
-XPCOMUtils.defineLazyModuleGetter(this, "SignInToWebsiteController",
-                                  "resource://gre/modules/SignInToWebsite.jsm",
-                                  "SignInToWebsiteController");
+XPCOMUtils.defineLazyModuleGetter(
+  this,
+  "SignInToWebsiteController",
+  "resource://gre/modules/SignInToWebsite.jsm",
+  "SignInToWebsiteController"
+);
 
-Cu.import("resource://gre/modules/identity/LogUtils.jsm");
+ChromeUtils.import("resource://gre/modules/identity/LogUtils.jsm");
 
 function log(...aMessageArgs) {
   Logger.log.apply(Logger, ["test_signintowebsite"].concat(aMessageArgs));
@@ -35,29 +41,27 @@ function objectContains(object, subset) {
 
   let key;
   let success = true;
-  if (subsetKeys.length > 0) {
-    for (let i=0; i<subsetKeys.length; i++) {
+  if (subsetKeys.length) {
+    for (let i = 0; i < subsetKeys.length; i++) {
       key = subsetKeys[i];
 
       // key exists in the source object
-      if (typeof object[key] === 'undefined') {
+      if (typeof object[key] === "undefined") {
         success = false;
         break;
       }
 
       // recursively check object values
-      else if (typeof subset[key] === 'object') {
-        if (typeof object[key] !== 'object') {
+      else if (typeof subset[key] === "object") {
+        if (typeof object[key] !== "object") {
           success = false;
           break;
         }
-        if (! objectContains(object[key], subset[key])) {
+        if (!objectContains(object[key], subset[key])) {
           success = false;
           break;
         }
-      }
-
-      else if (object[key] !== subset[key]) {
+      } else if (object[key] !== subset[key]) {
         success = false;
         break;
       }
@@ -73,11 +77,11 @@ function test_object_contains() {
   let someObj = {
     pies: 42,
     green: "spam",
-    flan: {yes: "please"}
+    flan: { yes: "please" },
   };
   let otherObj = {
     pies: 42,
-    flan: {yes: "please"}
+    flan: { yes: "please" },
   };
   do_check_true(objectContains(someObj, otherObj));
   do_test_finished();
@@ -86,8 +90,8 @@ function test_object_contains() {
 
 function test_mock_doc() {
   do_test_pending();
-  let mockedDoc = mockDoc({loggedInUser: null}, function(action, params) {
-    do_check_eq(action, 'coffee');
+  let mockedDoc = mockDoc({ loggedInUser: null }, function(action, params) {
+    do_check_eq(action, "coffee");
     do_test_finished();
     run_next_test();
   });
@@ -103,15 +107,15 @@ function test_watch() {
   setup_test_identity("pie@food.gov", TEST_CERT, function() {
     let controller = SignInToWebsiteController;
 
-    let mockedDoc = mockDoc({loggedInUser: null}, function(action, params) {
-      do_check_eq(action, 'ready');
+    let mockedDoc = mockDoc({ loggedInUser: null }, function(action, params) {
+      do_check_eq(action, "ready");
       controller.uninit();
       MinimalIDService.RP.unwatch(mockedDoc.id);
       do_test_finished();
       run_next_test();
     });
 
-    controller.init({pipe: mockReceivingPipe()});
+    controller.init({ pipe: mockReceivingPipe() });
     MinimalIDService.RP.watch(mockedDoc, {});
   });
 }
@@ -122,22 +126,25 @@ function test_request_login() {
   setup_test_identity("flan@food.gov", TEST_CERT, function() {
     let controller = SignInToWebsiteController;
 
-    let mockedDoc = mockDoc({loggedInUser: null}, call_sequentially(
-      function(action, params) {
-        do_check_eq(action, 'ready');
-        do_check_eq(params, undefined);
-      },
-      function(action, params) {
-        do_check_eq(action, 'login');
-        do_check_eq(params, TEST_CERT);
-        controller.uninit();
-        MinimalIDService.RP.unwatch(mockedDoc.id);
-        do_test_finished();
-        run_next_test();
-      }
-    ));
+    let mockedDoc = mockDoc(
+      { loggedInUser: null },
+      call_sequentially(
+        function(action, params) {
+          do_check_eq(action, "ready");
+          do_check_eq(params, undefined);
+        },
+        function(action, params) {
+          do_check_eq(action, "login");
+          do_check_eq(params, TEST_CERT);
+          controller.uninit();
+          MinimalIDService.RP.unwatch(mockedDoc.id);
+          do_test_finished();
+          run_next_test();
+        }
+      )
+    );
 
-    controller.init({pipe: mockReceivingPipe()});
+    controller.init({ pipe: mockReceivingPipe() });
     MinimalIDService.RP.watch(mockedDoc, {});
     MinimalIDService.RP.request(mockedDoc.id, {});
   });
@@ -149,22 +156,25 @@ function test_request_logout() {
   setup_test_identity("flan@food.gov", TEST_CERT, function() {
     let controller = SignInToWebsiteController;
 
-    let mockedDoc = mockDoc({loggedInUser: null}, call_sequentially(
-      function(action, params) {
-        do_check_eq(action, 'ready');
-        do_check_eq(params, undefined);
-      },
-      function(action, params) {
-        do_check_eq(action, 'logout');
-        do_check_eq(params, undefined);
-        controller.uninit();
-        MinimalIDService.RP.unwatch(mockedDoc.id);
-        do_test_finished();
-        run_next_test();
-      }
-    ));
+    let mockedDoc = mockDoc(
+      { loggedInUser: null },
+      call_sequentially(
+        function(action, params) {
+          do_check_eq(action, "ready");
+          do_check_eq(params, undefined);
+        },
+        function(action, params) {
+          do_check_eq(action, "logout");
+          do_check_eq(params, undefined);
+          controller.uninit();
+          MinimalIDService.RP.unwatch(mockedDoc.id);
+          do_test_finished();
+          run_next_test();
+        }
+      )
+    );
 
-    controller.init({pipe: mockReceivingPipe()});
+    controller.init({ pipe: mockReceivingPipe() });
     MinimalIDService.RP.watch(mockedDoc, {});
     MinimalIDService.RP.logout(mockedDoc.id, {});
   });
@@ -176,26 +186,29 @@ function test_request_login_logout() {
   setup_test_identity("unagi@food.gov", TEST_CERT, function() {
     let controller = SignInToWebsiteController;
 
-    let mockedDoc = mockDoc({loggedInUser: null}, call_sequentially(
-      function(action, params) {
-        do_check_eq(action, 'ready');
-        do_check_eq(params, undefined);
-      },
-      function(action, params) {
-        do_check_eq(action, 'login');
-        do_check_eq(params, TEST_CERT);
-      },
-      function(action, params) {
-        do_check_eq(action, 'logout');
-        do_check_eq(params, undefined);
-        controller.uninit();
-        MinimalIDService.RP.unwatch(mockedDoc.id);
-        do_test_finished();
-        run_next_test();
-      }
-    ));
+    let mockedDoc = mockDoc(
+      { loggedInUser: null },
+      call_sequentially(
+        function(action, params) {
+          do_check_eq(action, "ready");
+          do_check_eq(params, undefined);
+        },
+        function(action, params) {
+          do_check_eq(action, "login");
+          do_check_eq(params, TEST_CERT);
+        },
+        function(action, params) {
+          do_check_eq(action, "logout");
+          do_check_eq(params, undefined);
+          controller.uninit();
+          MinimalIDService.RP.unwatch(mockedDoc.id);
+          do_test_finished();
+          run_next_test();
+        }
+      )
+    );
 
-    controller.init({pipe: mockReceivingPipe()});
+    controller.init({ pipe: mockReceivingPipe() });
     MinimalIDService.RP.watch(mockedDoc, {});
     MinimalIDService.RP.request(mockedDoc.id, {});
     MinimalIDService.RP.logout(mockedDoc.id, {});
@@ -209,41 +222,47 @@ function test_logout_everywhere() {
   setup_test_identity("fugu@food.gov", TEST_CERT, function() {
     let controller = SignInToWebsiteController;
 
-    let mockedDoc1 = mockDoc({loggedInUser: null}, call_sequentially(
-      function(action, params) {
-        do_check_eq(action, 'ready');
-      },
-      function(action, params) {
-        do_check_eq(action, 'login');
-      },
-      function(action, params) {
-        // Result of logout from doc2.
-        // We don't know what order the logouts will occur in.
-        do_check_eq(action, 'logout');
-        if (++logouts === 2) {
-          do_test_finished();
-          run_next_test();
+    let mockedDoc1 = mockDoc(
+      { loggedInUser: null },
+      call_sequentially(
+        function(action, params) {
+          do_check_eq(action, "ready");
+        },
+        function(action, params) {
+          do_check_eq(action, "login");
+        },
+        function(action, params) {
+          // Result of logout from doc2.
+          // We don't know what order the logouts will occur in.
+          do_check_eq(action, "logout");
+          if (++logouts === 2) {
+            do_test_finished();
+            run_next_test();
+          }
         }
-      }
-    ));
+      )
+    );
 
-    let mockedDoc2 = mockDoc({loggedInUser: null}, call_sequentially(
-      function(action, params) {
-        do_check_eq(action, 'ready');
-      },
-      function(action, params) {
-        do_check_eq(action, 'login');
-      },
-      function(action, params) {
-        do_check_eq(action, 'logout');
-        if (++logouts === 2) {
-          do_test_finished();
-          run_next_test();
+    let mockedDoc2 = mockDoc(
+      { loggedInUser: null },
+      call_sequentially(
+        function(action, params) {
+          do_check_eq(action, "ready");
+        },
+        function(action, params) {
+          do_check_eq(action, "login");
+        },
+        function(action, params) {
+          do_check_eq(action, "logout");
+          if (++logouts === 2) {
+            do_test_finished();
+            run_next_test();
+          }
         }
-      }
-    ));
+      )
+    );
 
-    controller.init({pipe: mockReceivingPipe()});
+    controller.init({ pipe: mockReceivingPipe() });
     MinimalIDService.RP.watch(mockedDoc1, {});
     MinimalIDService.RP.request(mockedDoc1.id, {});
 
@@ -268,9 +287,9 @@ function test_options_pass_through() {
     someThing: {
       name: "Pertelote",
       legs: 4,
-      nested: {bee: "Eric", remaining: "1/2"}
-      }
-    };
+      nested: { bee: "Eric", remaining: "1/2" },
+    },
+  };
 
   let mockedDoc = mockDoc(randomMixedParams, function(action, params) {});
 
@@ -296,7 +315,7 @@ function test_options_pass_through() {
   }
 
   let controller = SignInToWebsiteController;
-  controller.init({pipe: mockSendingPipe(pipeOtherEnd)});
+  controller.init({ pipe: mockSendingPipe(pipeOtherEnd) });
 
   MinimalIDService.RP.watch(mockedDoc, {});
 }
@@ -312,11 +331,7 @@ var TESTS = [
   test_request_login_logout,
   test_logout_everywhere,
 
-  test_options_pass_through
+  test_options_pass_through,
 ];
 
 TESTS.forEach(add_test);
-
-function run_test() {
-  run_next_test();
-}

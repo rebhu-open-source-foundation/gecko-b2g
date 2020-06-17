@@ -11,24 +11,26 @@
 
 "use strict";
 
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { TelURIParser } = ChromeUtils.import(
+  "resource:///modules/TelURIParser.jsm"
+);
+const { ActivityChannel } = ChromeUtils.import(
+  "resource://gre/modules/ActivityChannel.jsm"
+);
 
-const {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
-
-Cu.import('resource://gre/modules/XPCOMUtils.jsm');
-Cu.import("resource:///modules/TelURIParser.jsm");
-Cu.import('resource://gre/modules/ActivityChannel.jsm');
-
-function SmsProtocolHandler() {
-}
+function SmsProtocolHandler() {}
 
 SmsProtocolHandler.prototype = {
-
   scheme: "sms",
   defaultPort: -1,
-  protocolFlags: Ci.nsIProtocolHandler.URI_NORELATIVE |
-                 Ci.nsIProtocolHandler.URI_NOAUTH |
-                 Ci.nsIProtocolHandler.URI_LOADABLE_BY_ANYONE |
-                 Ci.nsIProtocolHandler.URI_DOES_NOT_RETURN_DATA,
+  protocolFlags:
+    Ci.nsIProtocolHandler.URI_NORELATIVE |
+    Ci.nsIProtocolHandler.URI_NOAUTH |
+    Ci.nsIProtocolHandler.URI_LOADABLE_BY_ANYONE |
+    Ci.nsIProtocolHandler.URI_DOES_NOT_RETURN_DATA,
   allowPort: () => false,
 
   newURI: function Proto_newURI(aSpec, aOriginCharset) {
@@ -38,7 +40,7 @@ SmsProtocolHandler.prototype = {
   },
 
   newChannel2: function Proto_newChannel2(aURI, aLoadInfo) {
-    let number = TelURIParser.parseURI('sms', aURI.spec);
+    let number = TelURIParser.parseURI("sms", aURI.spec);
     let body = "";
     let query = aURI.spec.split("?")[1];
 
@@ -49,18 +51,18 @@ SmsProtocolHandler.prototype = {
         if (name === "body") {
           body = decodeURIComponent(value);
         }
-      })
+      });
     }
 
     if (number || body) {
-      return new ActivityChannel(aURI, aLoadInfo,
-                                 "sms-handler",
-                                 { number: number || "",
-                                   type: "websms/sms",
-                                   body: body });
+      return new ActivityChannel(aURI, aLoadInfo, "sms-handler", {
+        number: number || "",
+        type: "websms/sms",
+        body,
+      });
     }
 
-    throw Components.results.NS_ERROR_ILLEGAL_VALUE;
+    throw Components.Exception("", Cr.NS_ERROR_ILLEGAL_VALUE);
   },
 
   newChannel: function Proto_newChannel(aURI) {
@@ -68,7 +70,7 @@ SmsProtocolHandler.prototype = {
   },
 
   classID: Components.ID("{81ca20cb-0dad-4e32-8566-979c8998bd73}"),
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIProtocolHandler])
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIProtocolHandler]),
 };
 
 this.NSGetFactory = XPCOMUtils.generateNSGetFactory([SmsProtocolHandler]);

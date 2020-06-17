@@ -2,9 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-const { classes: Cc, interfaces: Ci, utils: Cu } = Components;
-Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-XPCOMUtils.defineLazyModuleGetter(this, "Services", "resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 // Small helper to expose nsICommandLine object to chrome code
 
@@ -13,17 +14,17 @@ function CommandlineHandler() {
 }
 
 CommandlineHandler.prototype = {
-    handle: function(cmdLine) {
-      this.cmdLine = cmdLine;
-      let win = Services.wm.getMostRecentWindow("navigator:browser");
-      if (win && win.shell) {
-        win.shell.handleCmdLine();
-      }
-    },
+  handle(cmdLine) {
+    this.cmdLine = cmdLine;
+    let win = Services.wm.getMostRecentWindow("navigator:browser");
+    if (win && win.shell) {
+      win.shell.handleCmdLine();
+    }
+  },
 
-    helpInfo: "",
-    classID: Components.ID("{385993fe-8710-4621-9fb1-00a09d8bec37}"),
-    QueryInterface: ChromeUtils.generateQI([Ci.nsICommandLineHandler]),
+  helpInfo: "",
+  classID: Components.ID("{385993fe-8710-4621-9fb1-00a09d8bec37}"),
+  QueryInterface: ChromeUtils.generateQI([Ci.nsICommandLineHandler]),
 };
 
 this.NSGetFactory = XPCOMUtils.generateNSGetFactory([CommandlineHandler]);

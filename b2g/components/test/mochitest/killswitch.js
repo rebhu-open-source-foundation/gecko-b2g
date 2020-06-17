@@ -5,7 +5,7 @@
 "use strict";
 
 function setupSettings(target) {
-  ok((Object.keys(initialSettingsValues).length > 0), "Has at least one setting");
+  ok(!!Object.keys(initialSettingsValues).length, "Has at least one setting");
 
   Object.keys(initialSettingsValues).forEach(k => {
     ok(Object.keys(target).indexOf(k) !== -1, "Same settings set");
@@ -25,7 +25,11 @@ function testSettingsInitial(next) {
     values.forEach(set => {
       var key = Object.keys(set)[0];
       var value = set[key];
-      is(value, initialSettingsValues[key], "Value of " + key + " is initial one");
+      is(
+        value,
+        initialSettingsValues[key],
+        "Value of " + key + " is initial one"
+      );
     });
     next();
   });
@@ -92,7 +96,7 @@ function testGetPrefValue(prefName, prefValue) {
 }
 
 function setupPrefs(target) {
-  ok((Object.keys(initialPrefsValues).length > 0), "Has at least one pref");
+  ok(!!Object.keys(initialPrefsValues).length, "Has at least one pref");
 
   Object.keys(initialPrefsValues).forEach(k => {
     ok(Object.keys(target).indexOf(k) !== -1, "Same pref set");
@@ -127,8 +131,13 @@ function addPermissions() {
     startTests();
   } else {
     var allow = SpecialPowers.Ci.nsIPermissionManager.ALLOW_ACTION;
-    [ "killswitch", "settings-api-read", "settings-api-write",
-      "settings-read", "settings-write", "settings-clear"
+    [
+      "killswitch",
+      "settings-api-read",
+      "settings-api-write",
+      "settings-read",
+      "settings-write",
+      "settings-clear",
     ].forEach(perm => {
       SpecialPowers.addPermission(perm, allow, document);
     });
@@ -142,8 +151,13 @@ function loadSettings() {
 }
 
 function addPrefs() {
-  SpecialPowers.pushPrefEnv({"set": [
-    ["dom.ignore_webidl_scope_checks", true],
-    ["dom.mozKillSwitch.enabled", true],
-  ]}, addPermissions);
+  SpecialPowers.pushPrefEnv(
+    {
+      set: [
+        ["dom.ignore_webidl_scope_checks", true],
+        ["dom.mozKillSwitch.enabled", true],
+      ],
+    },
+    addPermissions
+  );
 }
