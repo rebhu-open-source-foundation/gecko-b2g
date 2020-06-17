@@ -3,6 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsIImsRegService.idl"
+#include "nsIImsConfig.idl"
+#include "nsIImsMMTelFeature.idl"
+#include "nsIImsRegistration.idl"
 
 %{C++
 #define GONK_IMS_REG_SERVICE_CID \
@@ -12,7 +15,7 @@
         "@mozilla.org/mobileconnection/gonkimsregservice;1"
 %}
 
-[scriptable, uuid(5ab2a38b-0f7c-4cf5-adff-4c832f697b39)]
+[scriptable, uuid(a8711577-4ba0-4bbc-b890-6e854a4de7ff)]
 interface nsIGonkImsRegService : nsIImsRegService
 {
   /**
@@ -42,4 +45,22 @@ interface nsIGonkImsRegService : nsIImsRegService
    */
   void notifyRttEnabledStateChanged(in unsigned long aClientId,
                                     in boolean aEnabled);
+};
+
+[scriptable, uuid(7678db90-6d8f-418a-8904-0376cfde8f14)]
+interface nsIGonkImsRegHandler : nsIImsRegHandler
+{
+  /**
+   * Current reg state of Ims.
+   */
+  readonly attribute boolean isImsRegistered;
+
+  // nsIImsConfig
+  readonly attribute nsIImsConfig imsConfig;
+
+  // nsIImsMMTelFeature
+  readonly attribute nsIImsMMTelFeature imsMMTelFeature;
+
+  // nsIImsRegistration
+  readonly attribute nsIImsRegistration imsRegistration;
 };
