@@ -1550,7 +1550,8 @@ void BluetoothDaemonGattModule::ServerIncludedServiceAddedNtf(
 class BluetoothDaemonGattModule::ServerCharacteristicAddedInitOp final
     : private PDUInitOp {
  public:
-  explicit ServerCharacteristicAddedInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit ServerCharacteristicAddedInitOp(DaemonSocketPDU& aPDU)
+      : PDUInitOp(aPDU) {}
 
   nsresult operator()(BluetoothGattStatus& aArg1, int& aArg2,
                       BluetoothUuid& aArg3, BluetoothAttributeHandle& aArg4,
@@ -1599,7 +1600,8 @@ void BluetoothDaemonGattModule::ServerCharacteristicAddedNtf(
 class BluetoothDaemonGattModule::ServerDescriptorAddedInitOp final
     : private PDUInitOp {
  public:
-  explicit ServerDescriptorAddedInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit ServerDescriptorAddedInitOp(DaemonSocketPDU& aPDU)
+      : PDUInitOp(aPDU) {}
 
   nsresult operator()(BluetoothGattStatus& aArg1, int& aArg2,
                       BluetoothUuid& aArg3, BluetoothAttributeHandle& aArg4,

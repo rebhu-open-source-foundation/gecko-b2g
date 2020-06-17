@@ -144,7 +144,7 @@ void SystemMessageService::DoSubscribe(uint64_t aID,
 void SystemMessageService::Unsubscribe(const nsACString& aOrigin) {
   // This will be call when an app is uninstalled.
   for (auto iter = mSubscribers.Iter(); !iter.Done(); iter.Next()) {
-    auto &table = iter.Data();
+    auto& table = iter.Data();
     table->Remove(aOrigin);
   }
 }

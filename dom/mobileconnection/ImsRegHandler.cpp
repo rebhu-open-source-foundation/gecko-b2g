@@ -13,31 +13,25 @@ using mozilla::dom::mobileconnection::ImsRegCallback;
 namespace mozilla {
 namespace dom {
 
-class ImsRegHandler::Listener final : public nsIImsRegListener
-{
+class ImsRegHandler::Listener final : public nsIImsRegListener {
   ImsRegHandler* mImsRegHandler;
 
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_FORWARD_SAFE_NSIIMSREGLISTENER(mImsRegHandler)
 
   explicit Listener(ImsRegHandler* aImsRegHandler)
-    : mImsRegHandler(aImsRegHandler)
-  {
+      : mImsRegHandler(aImsRegHandler) {
     MOZ_ASSERT(mImsRegHandler);
   }
 
-  void Disconnect()
-  {
+  void Disconnect() {
     MOZ_ASSERT(mImsRegHandler);
     mImsRegHandler = nullptr;
   }
 
-private:
-  ~Listener()
-  {
-    MOZ_ASSERT(!mImsRegHandler);
-  }
+ private:
+  ~Listener() { MOZ_ASSERT(!mImsRegHandler); }
 };
 
 NS_IMPL_ISUPPORTS(ImsRegHandler::Listener, nsIImsRegListener)
@@ -47,7 +41,8 @@ NS_IMPL_RELEASE_INHERITED(ImsRegHandler, DOMEventTargetHelper)
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(ImsRegHandler)
 
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(ImsRegHandler, DOMEventTargetHelper)
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(ImsRegHandler,
+                                                  DOMEventTargetHelper)
   // Don't traverse mListener because it doesn't keep any reference to
   // ImsRegHandler but a raw pointer instead. Neither does mImsRegHandler
   // because it's an xpcom service owned object and is only released at shutting
@@ -66,10 +61,9 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(ImsRegHandler)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
-ImsRegHandler::ImsRegHandler(nsPIDOMWindowInner *aWindow, nsIImsRegHandler *aHandler)
-  : DOMEventTargetHelper(aWindow)
-  , mHandler(aHandler)
-{
+ImsRegHandler::ImsRegHandler(nsPIDOMWindowInner* aWindow,
+                             nsIImsRegHandler* aHandler)
+    : DOMEventTargetHelper(aWindow), mHandler(aHandler) {
   MOZ_ASSERT(mHandler);
 
   mUnregisteredReason.SetIsVoid(true);
@@ -101,24 +95,17 @@ ImsRegHandler::ImsRegHandler(nsPIDOMWindowInner *aWindow, nsIImsRegHandler *aHan
   mRttEnabled = false;
 }
 
-ImsRegHandler::~ImsRegHandler()
-{
-  Shutdown();
-}
+ImsRegHandler::~ImsRegHandler() { Shutdown(); }
 
-void
-ImsRegHandler::DisconnectFromOwner()
-{
+void ImsRegHandler::DisconnectFromOwner() {
   DOMEventTargetHelper::DisconnectFromOwner();
   // Event listeners can't be handled anymore, so we can shutdown
   // the ImsRegHandler.
   Shutdown();
 }
 
-void
-ImsRegHandler::Shutdown()
-{
-  if(mListener) {
+void ImsRegHandler::Shutdown() {
+  if (mListener) {
     if (mHandler) {
       mHandler->UnregisterListener(mListener);
     }
@@ -132,9 +119,8 @@ ImsRegHandler::Shutdown()
   }
 }
 
-void
-ImsRegHandler::UpdateCapability(int16_t aCapability, const nsAString& aReason)
-{
+void ImsRegHandler::UpdateCapability(int16_t aCapability,
+                                     const nsAString& aReason) {
   // IMS is not registered
   if (aCapability == nsIImsRegHandler::IMS_CAPABILITY_UNKNOWN) {
     mCapability.SetNull();
@@ -144,27 +130,23 @@ ImsRegHandler::UpdateCapability(int16_t aCapability, const nsAString& aReason)
 
   // IMS is registered
   MOZ_ASSERT(aCapability >= 0 &&
-    aCapability < static_cast<int16_t>(ImsCapability::EndGuard_));
+             aCapability < static_cast<int16_t>(ImsCapability::EndGuard_));
   mCapability.SetValue(static_cast<ImsCapability>(aCapability));
   mUnregisteredReason.SetIsVoid(true);
 }
 
-JSObject*
-ImsRegHandler::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* ImsRegHandler::WrapObject(JSContext* aCx,
+                                    JS::Handle<JSObject*> aGivenProto) {
   return ImsRegHandler_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-already_AddRefed<ImsDeviceConfiguration>
-ImsRegHandler::DeviceConfig() const
-{
+already_AddRefed<ImsDeviceConfiguration> ImsRegHandler::DeviceConfig() const {
   RefPtr<ImsDeviceConfiguration> result = mDeviceConfig;
   return result.forget();
 }
 
-already_AddRefed<Promise>
-ImsRegHandler::SetEnabled(bool aEnabled, ErrorResult& aRv)
-{
+already_AddRefed<Promise> ImsRegHandler::SetEnabled(bool aEnabled,
+                                                    ErrorResult& aRv) {
   if (!mHandler) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -193,9 +175,7 @@ ImsRegHandler::SetEnabled(bool aEnabled, ErrorResult& aRv)
   return promise.forget();
 }
 
-bool
-ImsRegHandler::GetEnabled(ErrorResult& aRv) const
-{
+bool ImsRegHandler::GetEnabled(ErrorResult& aRv) const {
   bool result = false;
 
   if (!mHandler) {
@@ -213,9 +193,8 @@ ImsRegHandler::GetEnabled(ErrorResult& aRv) const
   return result;
 }
 
-already_AddRefed<Promise>
-ImsRegHandler::SetPreferredProfile(ImsProfile aProfile, ErrorResult& aRv)
-{
+already_AddRefed<Promise> ImsRegHandler::SetPreferredProfile(
+    ImsProfile aProfile, ErrorResult& aRv) {
   if (!mHandler) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -234,9 +213,8 @@ ImsRegHandler::SetPreferredProfile(ImsProfile aProfile, ErrorResult& aRv)
 
   RefPtr<ImsRegCallback> requestCallback = new ImsRegCallback(promise);
 
-  nsresult rv =
-    mHandler->SetPreferredProfile(static_cast<uint16_t>(aProfile),
-                                  requestCallback);
+  nsresult rv = mHandler->SetPreferredProfile(static_cast<uint16_t>(aProfile),
+                                              requestCallback);
 
   if (NS_FAILED(rv)) {
     promise->MaybeReject(rv);
@@ -246,9 +224,7 @@ ImsRegHandler::SetPreferredProfile(ImsProfile aProfile, ErrorResult& aRv)
   return promise.forget();
 }
 
-ImsProfile
-ImsRegHandler::GetPreferredProfile(ErrorResult& aRv) const
-{
+ImsProfile ImsRegHandler::GetPreferredProfile(ErrorResult& aRv) const {
   ImsProfile result = ImsProfile::Cellular_preferred;
 
   if (!mHandler) {
@@ -269,22 +245,17 @@ ImsRegHandler::GetPreferredProfile(ErrorResult& aRv) const
   return result;
 }
 
-Nullable<ImsCapability>
-ImsRegHandler::GetCapability() const
-{
+Nullable<ImsCapability> ImsRegHandler::GetCapability() const {
   return mCapability;
 }
 
-void
-ImsRegHandler::GetUnregisteredReason(nsString& aReason) const
-{
+void ImsRegHandler::GetUnregisteredReason(nsString& aReason) const {
   aReason = mUnregisteredReason;
   return;
 }
 
-already_AddRefed<Promise>
-ImsRegHandler::SetRttEnabled(bool aEnabled, ErrorResult& aRv)
-{
+already_AddRefed<Promise> ImsRegHandler::SetRttEnabled(bool aEnabled,
+                                                       ErrorResult& aRv) {
   if (!mHandler) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -315,9 +286,7 @@ ImsRegHandler::SetRttEnabled(bool aEnabled, ErrorResult& aRv)
   return promise.forget();
 }
 
-bool
-ImsRegHandler::GetRttEnabled(ErrorResult& aRv) const
-{
+bool ImsRegHandler::GetRttEnabled(ErrorResult& aRv) const {
   bool result = false;
 
   if (!mHandler) {
@@ -338,8 +307,7 @@ ImsRegHandler::GetRttEnabled(ErrorResult& aRv) const
 // nsIImsRegListener
 
 NS_IMETHODIMP
-ImsRegHandler::NotifyEnabledStateChanged(bool aEnabled)
-{
+ImsRegHandler::NotifyEnabledStateChanged(bool aEnabled) {
   // Add |enabledstatechanged| when needed:
   // The enabled state is expected to be changed when set request is resolved,
   // so the caller knows when to get the updated enabled state.
@@ -349,31 +317,28 @@ ImsRegHandler::NotifyEnabledStateChanged(bool aEnabled)
 }
 
 NS_IMETHODIMP
-ImsRegHandler::NotifyPreferredProfileChanged(uint16_t aProfile)
-{
+ImsRegHandler::NotifyPreferredProfileChanged(uint16_t aProfile) {
   // Add |profilechanged| when needed:
-  // The preferred profile is expected to be changed when set request is resolved,
-  // so the caller knows when to get the updated enabled state.
-  // If the change observed by multiple apps is expected,
-  // then |profilechanged| is required. Return NS_OK intentionally.
+  // The preferred profile is expected to be changed when set request is
+  // resolved, so the caller knows when to get the updated enabled state. If the
+  // change observed by multiple apps is expected, then |profilechanged| is
+  // required. Return NS_OK intentionally.
   return NS_OK;
 }
 
 NS_IMETHODIMP
 ImsRegHandler::NotifyCapabilityChanged(int16_t aCapability,
-                                       const nsAString& aUnregisteredReason)
-{
+                                       const nsAString& aUnregisteredReason) {
   UpdateCapability(aCapability, aUnregisteredReason);
 
   return DispatchTrustedEvent(NS_LITERAL_STRING("capabilitychange"));
 }
 
 NS_IMETHODIMP
-ImsRegHandler::NotifyRttEnabledStateChanged(bool aEnabled)
-{
-  mRttEnabled = aEnabled; //georgia, dispatch rttenabled event?
+ImsRegHandler::NotifyRttEnabledStateChanged(bool aEnabled) {
+  mRttEnabled = aEnabled;  // georgia, dispatch rttenabled event?
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

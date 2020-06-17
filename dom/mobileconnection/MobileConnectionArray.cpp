@@ -13,15 +13,14 @@
 #include "ipc/ImsRegIPCService.h"
 #include "ipc/MobileConnectionIPCService.h"
 #if defined(MOZ_WIDGET_GONK) && defined(MOZ_B2G_RIL)
-#include "nsIGonkMobileConnectionService.h"
-#include "nsIGonkImsRegService.h"
+#  include "nsIGonkMobileConnectionService.h"
+#  include "nsIGonkImsRegService.h"
 #endif
-#include "nsXULAppAPI.h" // For XRE_GetProcessType()
+#include "nsXULAppAPI.h"  // For XRE_GetProcessType()
 
 using namespace mozilla::dom;
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(MobileConnectionArray,
-                                      mOwner,
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(MobileConnectionArray, mOwner,
                                       mMobileConnections)
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(MobileConnectionArray)
@@ -33,13 +32,9 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(MobileConnectionArray)
 NS_INTERFACE_MAP_END
 
 MobileConnectionArray::MobileConnectionArray(nsIGlobalObject* aGlobal)
-  : mLengthInitialized(false)
-  , mOwner(aGlobal)
-{
-}
+    : mLengthInitialized(false), mOwner(aGlobal) {}
 
-MobileConnectionArray::~MobileConnectionArray()
-{
+MobileConnectionArray::~MobileConnectionArray() {
   uint32_t len = mMobileConnections.Length();
   for (uint32_t i = 0; i < len; ++i) {
     if (!mMobileConnections[i]) {
@@ -51,34 +46,27 @@ MobileConnectionArray::~MobileConnectionArray()
   }
 }
 
-nsIGlobalObject*
-MobileConnectionArray::GetParentObject() const
-{
+nsIGlobalObject* MobileConnectionArray::GetParentObject() const {
   MOZ_ASSERT(mOwner);
   return mOwner;
 }
 
-JSObject*
-MobileConnectionArray::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* MobileConnectionArray::WrapObject(JSContext* aCx,
+                                            JS::Handle<JSObject*> aGivenProto) {
   return MobileConnectionArray_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-MobileConnection*
-MobileConnectionArray::Item(uint32_t aIndex)
-{
+MobileConnection* MobileConnectionArray::Item(uint32_t aIndex) {
   bool unused;
   return IndexedGetter(aIndex, unused);
 }
 
-uint32_t
-MobileConnectionArray::Length()
-{
+uint32_t MobileConnectionArray::Length() {
   if (!mLengthInitialized) {
     mLengthInitialized = true;
 
     nsCOMPtr<nsIMobileConnectionService> service =
-      do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
+        do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
     NS_ENSURE_TRUE(service, 0);
 
     uint32_t length = 0;
@@ -91,25 +79,23 @@ MobileConnectionArray::Length()
   return mMobileConnections.Length();
 }
 
-MobileConnection*
-MobileConnectionArray::IndexedGetter(uint32_t aIndex, bool& aFound)
-{
-
+MobileConnection* MobileConnectionArray::IndexedGetter(uint32_t aIndex,
+                                                       bool& aFound) {
   aFound = aIndex < Length();
   if (!aFound) {
     return nullptr;
   }
 
   if (!mMobileConnections[aIndex]) {
-    mMobileConnections[aIndex] = new MobileConnection(GetParentObject(), aIndex);
+    mMobileConnections[aIndex] =
+        new MobileConnection(GetParentObject(), aIndex);
   }
 
   return mMobileConnections[aIndex];
 }
 
 already_AddRefed<nsIMobileConnectionService>
-NS_CreateMobileConnectionService()
-{
+NS_CreateMobileConnectionService() {
   nsCOMPtr<nsIMobileConnectionService> service;
 
   if (XRE_IsContentProcess()) {
@@ -123,17 +109,15 @@ NS_CreateMobileConnectionService()
   return service.forget();
 }
 
-already_AddRefed<nsIImsRegService>
-NS_CreateImsRegService()
-{
+already_AddRefed<nsIImsRegService> NS_CreateImsRegService() {
   nsCOMPtr<nsIImsRegService> service;
 
   // Could be nullptr if the IMS feature is not enabled by the device.
   if (XRE_IsContentProcess()) {
     service = mozilla::dom::mobileconnection::ImsRegIPCService::GetSingleton();
   } else {
-  // Note: Gonk implementation is provided by OEM Vendor by replacing the
-  //       XPCOM component of nsIImsRegService with bundle in parent process.
+    // Note: Gonk implementation is provided by OEM Vendor by replacing the
+    //       XPCOM component of nsIImsRegService with bundle in parent process.
 #if defined(MOZ_WIDGET_GONK) && defined(MOZ_B2G_RIL)
     service = do_GetService(GONK_IMSREGSERVICE_CONTRACTID);
 #endif

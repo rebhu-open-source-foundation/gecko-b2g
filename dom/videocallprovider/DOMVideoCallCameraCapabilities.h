@@ -13,30 +13,30 @@
 namespace mozilla {
 namespace dom {
 
-class DOMVideoCallCameraCapabilities final : public nsIVideoCallCameraCapabilities
-{
-public:
+class DOMVideoCallCameraCapabilities final
+    : public nsIVideoCallCameraCapabilities {
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIVIDEOCALLCAMERACAPABILITIES
 
-  DOMVideoCallCameraCapabilities(uint16_t aWidth, uint16_t aHeight, bool aZoomSupported, float aMaxZoom);
+  DOMVideoCallCameraCapabilities(uint16_t aWidth, uint16_t aHeight,
+                                 bool aZoomSupported, float aMaxZoom);
 
-  void
-  Update(nsIVideoCallCameraCapabilities* aCapabilities);
+  void Update(nsIVideoCallCameraCapabilities* aCapabilities);
 
-private:
+ private:
   DOMVideoCallCameraCapabilities() {}
 
   ~DOMVideoCallCameraCapabilities() {}
 
-private:
+ private:
   uint16_t mWidth;
   uint16_t mHeight;
   bool mZoomSupported;
   float mMaxZoom;
 };
 
-} // dom
-}  // mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_domvideocallcameracapabilities_h__
+#endif  // mozilla_dom_domvideocallcameracapabilities_h__

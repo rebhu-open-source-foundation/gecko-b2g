@@ -38,19 +38,18 @@ class Composer2D;
 }
 
 class HwcComposer2D;
-}
+}  // namespace mozilla
 
 namespace widget {
 struct InputContext;
 struct InputContextAction;
-}
+}  // namespace widget
 
 class nsScreenGonk;
 class GLCursorImageManager;
 
-class nsWindow : public nsBaseWidget
-{
-public:
+class nsWindow : public nsBaseWidget {
+ public:
   nsWindow();
 
   NS_DECL_ISUPPORTS_INHERITED
@@ -62,9 +61,8 @@ public:
   static void NotifyHoverMove(const ScreenIntPoint& point);
   static void KickOffComposition();
 
-  using nsBaseWidget::Create; // for Create signature not overridden here
-  NS_IMETHOD Create(nsIWidget* aParent,
-                    void* aNativeParent,
+  using nsBaseWidget::Create;  // for Create signature not overridden here
+  NS_IMETHOD Create(nsIWidget* aParent, void* aNativeParent,
                     const LayoutDeviceIntRect& aRect,
                     nsWidgetInitData* aInitData) override;
   void Destroy(void) override;
@@ -74,19 +72,17 @@ public:
   void ConstrainPosition(bool aAllowSlop, int32_t* aX, int32_t* aY) override;
   void Move(double aX, double aY) override;
   void Resize(double aWidth, double aHeight, bool aRepaint) override;
-  void Resize(double aX,
-                    double aY,
-                    double aWidth,
-                    double aHeight,
-                    bool aRepaint) override;
+  void Resize(double aX, double aY, double aWidth, double aHeight,
+              bool aRepaint) override;
   void Enable(bool aState) override;
   virtual bool IsEnabled() const override;
   virtual void SetFocus(Raise, mozilla::dom::CallerType aCallerType) override;
-  NS_IMETHOD ConfigureChildren(const nsTArray<nsIWidget::Configuration>&) override;
+  NS_IMETHOD ConfigureChildren(
+      const nsTArray<nsIWidget::Configuration>&) override;
   void Invalidate(const LayoutDeviceIntRect& aRect) override;
   virtual void* GetNativeData(uint32_t aDataType) override;
   virtual void SetNativeData(uint32_t aDataType, uintptr_t aVal) override;
-  NS_IMETHOD SetTitle(const nsAString& aTitle)  override { return NS_OK; }
+  NS_IMETHOD SetTitle(const nsAString& aTitle) override { return NS_OK; }
   virtual LayoutDeviceIntPoint WidgetToScreenOffset() override;
   void DispatchTouchInputViaAPZ(mozilla::MultiTouchInput& aInput);
   void DispatchTouchEventForAPZ(const mozilla::MultiTouchInput& aInput,
@@ -100,16 +96,15 @@ public:
                                               uint32_t aPointerOrientation,
                                               nsIObserver* aObserver) override;
 
-  void CaptureRollupEvents(nsIRollupListener* aListener, bool aDoCapture) override
-  {
-  }
+  void CaptureRollupEvents(nsIRollupListener* aListener,
+                           bool aDoCapture) override {}
   void ReparentNativeWidget(nsIWidget* aNewParent) override;
 
   NS_IMETHOD MakeFullScreen(bool aFullScreen,
                             nsIScreen* aTargetScreen = nullptr) override;
 
   virtual already_AddRefed<mozilla::gfx::DrawTarget> StartRemoteDrawing()
-    override;
+      override;
   virtual void EndRemoteDrawing() override;
 
   void SetCursor(nsCursor aDefaultCursor, imgIContainer* aImageCursor,
@@ -117,15 +112,15 @@ public:
 
   void UpdateCursorSourceMap(nsCursor aCursor);
   already_AddRefed<mozilla::gfx::SourceSurface> RestyleCursorElement(
-    nsCursor aCursor);
+      nsCursor aCursor);
 
   virtual float GetDPI() override;
   virtual bool IsVsyncSupported();
   virtual double GetDefaultScaleInternal() override;
   virtual mozilla::layers::LayerManager* GetLayerManager(
-    PLayerTransactionChild* aShadowManager = nullptr,
-    LayersBackend aBackendHint = mozilla::layers::LayersBackend::LAYERS_NONE,
-    LayerManagerPersistence aPersistence = LAYER_MANAGER_CURRENT) override;
+      PLayerTransactionChild* aShadowManager = nullptr,
+      LayersBackend aBackendHint = mozilla::layers::LayersBackend::LAYERS_NONE,
+      LayerManagerPersistence aPersistence = LAYER_MANAGER_CURRENT) override;
   virtual void DestroyCompositor() override;
 
   virtual CompositorBridgeParent* NewCompositorBridgeParent(int aSurfaceWidth,
@@ -150,7 +145,7 @@ public:
   // Call this function after remote control use nsContentUtils::SendMouseEvent
   virtual void SetMouseCursorPosition(const ScreenIntPoint& aScreenIntPoint);
 
-protected:
+ protected:
   nsWindow* mParent;
   bool mVisible;
   InputContext mInputContext;
@@ -167,7 +162,7 @@ protected:
   void DrawWindowOverlay(mozilla::widget::WidgetRenderingContext* aContext,
                          LayoutDeviceIntRect aRect);
 
-private:
+ private:
   void EnsureGLCursorImageManager();
 
   // This is used by SynthesizeNativeTouchPoint to maintain state between

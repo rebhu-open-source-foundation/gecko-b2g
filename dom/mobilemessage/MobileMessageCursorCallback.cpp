@@ -14,7 +14,7 @@
 #include "SmsMessage.h"
 #include "SmsMessageInternal.h"
 #include "nsIMobileMessageCallback.h"
-#include "nsServiceManagerUtils.h"      // for do_GetService
+#include "nsServiceManagerUtils.h"  // for do_GetService
 
 namespace mozilla {
 namespace dom {
@@ -30,13 +30,10 @@ NS_IMPL_RELEASE_INHERITED(MobileMessageCursor, DOMCursor)
 
 MobileMessageCursor::MobileMessageCursor(nsPIDOMWindowInner* aWindow,
                                          nsICursorContinueCallback* aCallback)
-  : DOMCursor(aWindow, aCallback)
-{
-}
+    : DOMCursor(aWindow, aCallback) {}
 
 NS_IMETHODIMP
-MobileMessageCursor::Continue()
-{
+MobileMessageCursor::Continue() {
   // We have originally:
   //
   //   DOMCursor::Continue()
@@ -51,9 +48,7 @@ MobileMessageCursor::Continue()
   return DOMCursor::Continue();
 }
 
-void
-MobileMessageCursor::Continue(ErrorResult& aRv)
-{
+void MobileMessageCursor::Continue(ErrorResult& aRv) {
   // An ordinary DOMCursor works in following flow:
   //
   //   DOMCursor::Continue()
@@ -78,9 +73,7 @@ MobileMessageCursor::Continue(ErrorResult& aRv)
   }
 }
 
-nsresult
-MobileMessageCursor::FireSuccessWithNextPendingResult()
-{
+nsresult MobileMessageCursor::FireSuccessWithNextPendingResult() {
   // We're going to pop the last element from mPendingResults, so it must not
   // be empty.
   MOZ_ASSERT(mPendingResults.Length());
@@ -88,27 +81,29 @@ MobileMessageCursor::FireSuccessWithNextPendingResult()
   nsCOMPtr<nsISupports> result;
 
   nsCOMPtr<nsIMobileMessageThread> internalThread =
-    do_QueryInterface(mPendingResults.LastElement());
+      do_QueryInterface(mPendingResults.LastElement());
   if (internalThread) {
     MobileMessageThreadInternal* thread =
-      static_cast<MobileMessageThreadInternal*>(internalThread.get());
+        static_cast<MobileMessageThreadInternal*>(internalThread.get());
     result = new MobileMessageThread(GetOwner(), thread);
   }
 
   if (!result) {
     nsCOMPtr<nsISmsMessage> internalSms =
-      do_QueryInterface(mPendingResults.LastElement());
+        do_QueryInterface(mPendingResults.LastElement());
     if (internalSms) {
-      SmsMessageInternal* sms = static_cast<SmsMessageInternal*>(internalSms.get());
+      SmsMessageInternal* sms =
+          static_cast<SmsMessageInternal*>(internalSms.get());
       result = new SmsMessage(GetOwner(), sms);
     }
   }
 
   if (!result) {
     nsCOMPtr<nsIMmsMessage> internalMms =
-      do_QueryInterface(mPendingResults.LastElement());
+        do_QueryInterface(mPendingResults.LastElement());
     if (internalMms) {
-      MmsMessageInternal* mms = static_cast<MmsMessageInternal*>(internalMms.get());
+      MmsMessageInternal* mms =
+          static_cast<MmsMessageInternal*>(internalMms.get());
       result = new MmsMessage(GetOwner(), mms);
     }
   }
@@ -122,8 +117,7 @@ MobileMessageCursor::FireSuccessWithNextPendingResult()
 
   JSContext* cx = jsapi.cx();
   JS::Rooted<JS::Value> val(cx);
-  nsresult rv =
-    nsContentUtils::WrapNative(cx, result, &val);
+  nsresult rv = nsContentUtils::WrapNative(cx, result, &val);
   NS_ENSURE_SUCCESS(rv, rv);
 
   mPendingResults.RemoveElementAt(mPendingResults.Length() - 1);
@@ -147,8 +141,7 @@ NS_IMPL_CYCLE_COLLECTING_RELEASE(MobileMessageCursorCallback)
 // nsIMobileMessageCursorCallback
 
 NS_IMETHODIMP
-MobileMessageCursorCallback::NotifyCursorError(int32_t aError)
-{
+MobileMessageCursorCallback::NotifyCursorError(int32_t aError) {
   MOZ_ASSERT(mDOMCursor);
 
   RefPtr<DOMCursor> cursor = mDOMCursor.forget();
@@ -166,7 +159,7 @@ MobileMessageCursorCallback::NotifyCursorError(int32_t aError)
     case nsIMobileMessageCallback::INTERNAL_ERROR:
       cursor->FireError(NS_LITERAL_STRING("InternalError"));
       break;
-    default: // SUCCESS_NO_ERROR is handled above.
+    default:  // SUCCESS_NO_ERROR is handled above.
       MOZ_CRASH("Should never get here!");
   }
 
@@ -175,8 +168,7 @@ MobileMessageCursorCallback::NotifyCursorError(int32_t aError)
 
 NS_IMETHODIMP
 MobileMessageCursorCallback::NotifyCursorResult(nsISupports** aResults,
-                                                uint32_t aSize)
-{
+                                                uint32_t aSize) {
   MOZ_ASSERT(mDOMCursor);
   // We should only be notified with valid results. Or, either
   // |NotifyCursorDone()| or |NotifyCursorError()| should be called instead.
@@ -201,8 +193,7 @@ MobileMessageCursorCallback::NotifyCursorResult(nsISupports** aResults,
 }
 
 NS_IMETHODIMP
-MobileMessageCursorCallback::NotifyCursorDone()
-{
+MobileMessageCursorCallback::NotifyCursorDone() {
   MOZ_ASSERT(mDOMCursor);
 
   RefPtr<DOMCursor> cursor = mDOMCursor.forget();
@@ -211,6 +202,6 @@ MobileMessageCursorCallback::NotifyCursorDone()
   return NS_OK;
 }
 
-} // namespace mobilemessage
-} // namespace dom
-} // namespace mozilla
+}  // namespace mobilemessage
+}  // namespace dom
+}  // namespace mozilla

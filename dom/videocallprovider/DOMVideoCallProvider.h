@@ -30,9 +30,8 @@ class DOMVideoCallProfile;
 class Promise;
 class SurfaceControlBack;
 
-class DOMVideoCallProvider final : public DOMEventTargetHelper
-                                 , private nsIVideoCallCallback
-{
+class DOMVideoCallProvider final : public DOMEventTargetHelper,
+                                   private nsIVideoCallCallback {
   /**
    * Class DOMVideoCallProvider doesn't actually expose
    * nsIVideoCallCallback. Instead, it owns an
@@ -43,47 +42,45 @@ class DOMVideoCallProvider final : public DOMEventTargetHelper
    */
   class Listener;
 
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSIVIDEOCALLCALLBACK
-  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(DOMVideoCallProvider, DOMEventTargetHelper)
+  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(DOMVideoCallProvider,
+                                           DOMEventTargetHelper)
   NS_REALLY_FORWARD_NSIDOMEVENTTARGET(DOMEventTargetHelper)
 
-  DOMVideoCallProvider(nsPIDOMWindowInner *aWindow, nsIVideoCallProvider *aHandler);
+  DOMVideoCallProvider(nsPIDOMWindowInner* aWindow,
+                       nsIVideoCallProvider* aHandler);
 
-  virtual void
-  DisconnectFromOwner() override;
+  virtual void DisconnectFromOwner() override;
 
   // WrapperCache
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   // WebIDL APIs
-  already_AddRefed<Promise>
-  SetCamera(const Optional<nsAString>& aCamera, ErrorResult& aRv);
+  already_AddRefed<Promise> SetCamera(const Optional<nsAString>& aCamera,
+                                      ErrorResult& aRv);
 
-  already_AddRefed<Promise>
-  GetPreviewStream(const SurfaceConfiguration& aOptions, ErrorResult& aRv);
+  already_AddRefed<Promise> GetPreviewStream(
+      const SurfaceConfiguration& aOptions, ErrorResult& aRv);
 
-  already_AddRefed<Promise>
-  GetDisplayStream(const SurfaceConfiguration& aOptions, ErrorResult& aRv);
+  already_AddRefed<Promise> GetDisplayStream(
+      const SurfaceConfiguration& aOptions, ErrorResult& aRv);
 
-  already_AddRefed<Promise>
-  SetOrientation(uint16_t aOrientation, ErrorResult& aRv);
+  already_AddRefed<Promise> SetOrientation(uint16_t aOrientation,
+                                           ErrorResult& aRv);
 
-  already_AddRefed<Promise>
-  SetZoom(float aZoom, ErrorResult& aRv);
+  already_AddRefed<Promise> SetZoom(float aZoom, ErrorResult& aRv);
 
-  already_AddRefed<Promise>
-  SendSessionModifyRequest(const VideoCallProfile& aFrom,
-                           const VideoCallProfile& aTo,
-                           ErrorResult& aRv);
+  already_AddRefed<Promise> SendSessionModifyRequest(
+      const VideoCallProfile& aFrom, const VideoCallProfile& aTo,
+      ErrorResult& aRv);
 
-  already_AddRefed<Promise>
-  SendSessionModifyResponse(const VideoCallProfile& aResponse, ErrorResult& aRv);
+  already_AddRefed<Promise> SendSessionModifyResponse(
+      const VideoCallProfile& aResponse, ErrorResult& aRv);
 
-  already_AddRefed<Promise>
-  RequestCameraCapabilities(ErrorResult& aRv);
+  already_AddRefed<Promise> RequestCameraCapabilities(ErrorResult& aRv);
 
   IMPL_EVENT_HANDLER(sessionmodifyrequest)
   IMPL_EVENT_HANDLER(sessionmodifyresponse)
@@ -93,57 +90,52 @@ public:
   IMPL_EVENT_HANDLER(changevideoquality)
 
   // Class API
-  void
-  SetSurface(const int16_t type, android::sp<android::IGraphicBufferProducer>& aProducer,
-             const uint16_t aWidth, const uint16_t aHeight);
-  void
-  SetDataSourceSize(const int16_t aType, const uint16_t aWidth, const uint16_t aHeight);
+  void SetSurface(const int16_t type,
+                  android::sp<android::IGraphicBufferProducer>& aProducer,
+                  const uint16_t aWidth, const uint16_t aHeight);
+  void SetDataSourceSize(const int16_t aType, const uint16_t aWidth,
+                         const uint16_t aHeight);
 
-  void
-  Shutdown();
+  void Shutdown();
 
-private:
+ private:
   ~DOMVideoCallProvider();
 
-  already_AddRefed<Promise>
-  GetStream(const int16_t aType, const SurfaceConfiguration& aOptions, ErrorResult& aRv);
+  already_AddRefed<Promise> GetStream(const int16_t aType,
+                                      const SurfaceConfiguration& aOptions,
+                                      ErrorResult& aRv);
 
-  bool
-  IsValidSurfaceSize(const uint16_t aWidth, const uint16_t aHeight);
+  bool IsValidSurfaceSize(const uint16_t aWidth, const uint16_t aHeight);
 
-  bool
-  ValidOrientation(uint16_t aOrientation);
+  bool ValidOrientation(uint16_t aOrientation);
 
-  bool
-  ValidZoom(uint16_t aZoom);
+  bool ValidZoom(uint16_t aZoom);
 
-  nsresult
-  DispatchSessionModifyRequestEvent(const nsAString& aType, nsIVideoCallProfile *request);
+  nsresult DispatchSessionModifyRequestEvent(const nsAString& aType,
+                                             nsIVideoCallProfile* request);
 
-  nsresult
-  DispatchSessionModifyResponseEvent(const nsAString& aType,
-                                     const uint16_t aStatus,
-                                     DOMVideoCallProfile* aRequest,
-                                     DOMVideoCallProfile* aResponse);
+  nsresult DispatchSessionModifyResponseEvent(const nsAString& aType,
+                                              const uint16_t aStatus,
+                                              DOMVideoCallProfile* aRequest,
+                                              DOMVideoCallProfile* aResponse);
 
-  nsresult
-  ConvertToJsValue(nsIVideoCallProfile *aProfile, JS::Rooted<JS::Value>* jsResult);
+  nsresult ConvertToJsValue(nsIVideoCallProfile* aProfile,
+                            JS::Rooted<JS::Value>* jsResult);
 
+  nsresult DispatCallSessionEvent(const nsAString& aType, const int16_t aEvent);
 
-  nsresult
-  DispatCallSessionEvent(const nsAString& aType, const int16_t aEvent);
-
-  nsresult
-  DispatchChangePeerDimensionsEvent(const nsAString& aType, const uint16_t aWidth, const uint16_t aHeight);
+  nsresult DispatchChangePeerDimensionsEvent(const nsAString& aType,
+                                             const uint16_t aWidth,
+                                             const uint16_t aHeight);
 
   /**
    * TODO
    */
-  nsresult
-  DispatchCameraCapabilitiesEvent(const nsAString& aType, nsIVideoCallCameraCapabilities* capabilities);
+  nsresult DispatchCameraCapabilitiesEvent(
+      const nsAString& aType, nsIVideoCallCameraCapabilities* capabilities);
 
-  nsresult
-  DispatchVideoQualityChangeEvent(const nsAString& aType, const uint16_t aQuality);
+  nsresult DispatchVideoQualityChangeEvent(const nsAString& aType,
+                                           const uint16_t aQuality);
 
   nsString mCamera;
   uint16_t mOrientation;
@@ -160,7 +152,7 @@ private:
   RefPtr<SurfaceControlBack> mPreviewCallback;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_domvideocallprovider_h__
+#endif  // mozilla_dom_domvideocallprovider_h__

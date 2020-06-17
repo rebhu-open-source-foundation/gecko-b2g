@@ -6,9 +6,9 @@
 #define DOM_CAMERA_GONK_RECORDER_PROFILES_H
 
 #ifdef MOZ_WIDGET_GONK
-#include <media/MediaProfiles.h>
+#  include <media/MediaProfiles.h>
 #else
-#include "FallbackCameraPlatform.h"
+#  include "FallbackCameraPlatform.h"
 #endif
 
 #include "ICameraControl.h"
@@ -16,21 +16,21 @@
 #include "nsRefPtrHashtable.h"
 
 #ifndef CHECK_SETARG_RETURN
-#define CHECK_SETARG_RETURN(x, rv)      \
-  do {                                  \
-    if (x) {                            \
-      DOM_CAMERA_LOGE(#x " failed\n");  \
-      return rv;                        \
-    }                                   \
-  } while(0)
+#  define CHECK_SETARG_RETURN(x, rv)     \
+    do {                                 \
+      if (x) {                           \
+        DOM_CAMERA_LOGE(#x " failed\n"); \
+        return rv;                       \
+      }                                  \
+    } while (0)
 #endif
 
 #ifndef CHECK_SETARG
-#define CHECK_SETARG(x) CHECK_SETARG_RETURN(x, NS_ERROR_NOT_AVAILABLE)
+#  define CHECK_SETARG(x) CHECK_SETARG_RETURN(x, NS_ERROR_NOT_AVAILABLE)
 #endif
 
 namespace android {
-  class GonkRecorder;
+class GonkRecorder;
 };
 
 namespace mozilla {
@@ -38,21 +38,19 @@ namespace mozilla {
 /**
  * class GonkRecorderProfileBase
  */
-template<class A, class V>
-class GonkRecorderProfileBase : public ICameraControl::RecorderProfile
-{
-public:
+template <class A, class V>
+class GonkRecorderProfileBase : public ICameraControl::RecorderProfile {
+ public:
   GonkRecorderProfileBase(uint32_t aCameraId, int aQuality)
-    : RecorderProfile()
-    , mAudio(aCameraId, aQuality)
-    , mVideo(aCameraId, aQuality)
-  { }
+      : RecorderProfile(),
+        mAudio(aCameraId, aQuality),
+        mVideo(aCameraId, aQuality) {}
 
   virtual const Audio& GetAudio() const override { return mAudio; }
   virtual const Video& GetVideo() const override { return mVideo; }
 
-protected:
-  virtual ~GonkRecorderProfileBase() { }
+ protected:
+  virtual ~GonkRecorderProfileBase() {}
   A mAudio;
   V mVideo;
 };
@@ -60,16 +58,15 @@ protected:
 /**
  * class GonkRecorderVideo
  */
-class GonkRecorderVideo : public ICameraControl::RecorderProfile::Video
-{
-public:
+class GonkRecorderVideo : public ICameraControl::RecorderProfile::Video {
+ public:
   GonkRecorderVideo(uint32_t aCameraId, int aQuality);
-  virtual ~GonkRecorderVideo() { }
+  virtual ~GonkRecorderVideo() {}
 
   android::video_encoder GetPlatformEncoder() const { return mPlatformEncoder; }
   bool IsValid() const { return mIsValid; }
 
-protected:
+ protected:
   int GetProfileParameter(const char* aParameter);
   static bool Translate(android::video_encoder aCodec, nsAString& aCodecName);
 
@@ -82,16 +79,15 @@ protected:
 /**
  * class GonkRecorderAudio
  */
-class GonkRecorderAudio : public ICameraControl::RecorderProfile::Audio
-{
-public:
+class GonkRecorderAudio : public ICameraControl::RecorderProfile::Audio {
+ public:
   GonkRecorderAudio(uint32_t aCameraId, int aQuality);
-  virtual ~GonkRecorderAudio() { }
+  virtual ~GonkRecorderAudio() {}
 
   android::audio_encoder GetPlatformEncoder() const { return mPlatformEncoder; }
   bool IsValid() const { return mIsValid; }
 
-protected:
+ protected:
   int GetProfileParameter(const char* aParameter);
   static bool Translate(android::audio_encoder aCodec, nsAString& aCodecName);
 
@@ -105,14 +101,15 @@ protected:
  * class GonkRecorderProfile
  */
 class GonkRecorderProfile;
-typedef nsRefPtrHashtable<nsStringHashKey, GonkRecorderProfile> ProfileHashtable;
+typedef nsRefPtrHashtable<nsStringHashKey, GonkRecorderProfile>
+    ProfileHashtable;
 
 class GonkRecorderProfile
-  : public GonkRecorderProfileBase<GonkRecorderAudio, GonkRecorderVideo>
-{
-public:
-  static nsresult GetAll(uint32_t aCameraId,
-                         nsTArray<RefPtr<ICameraControl::RecorderProfile>>& aProfiles);
+    : public GonkRecorderProfileBase<GonkRecorderAudio, GonkRecorderVideo> {
+ public:
+  static nsresult GetAll(
+      uint32_t aCameraId,
+      nsTArray<RefPtr<ICameraControl::RecorderProfile>>& aProfiles);
 
 #ifdef MOZ_WIDGET_GONK
   // Configures the specified recorder using the specified profile.
@@ -126,9 +123,8 @@ public:
                                     const nsAString& aProfileName);
 #endif
 
-protected:
-  GonkRecorderProfile(uint32_t aCameraId,
-                      int aQuality);
+ protected:
+  GonkRecorderProfile(uint32_t aCameraId, int aQuality);
 
   int GetProfileParameter(const char* aParameter);
 
@@ -150,10 +146,10 @@ protected:
 
   static nsClassHashtable<nsUint32HashKey, ProfileHashtable> sProfiles;
 
-private:
+ private:
   DISALLOW_EVIL_CONSTRUCTORS(GonkRecorderProfile);
 };
 
-}; // namespace mozilla
+};  // namespace mozilla
 
-#endif // DOM_CAMERA_GONK_RECORDER_PROFILES_H
+#endif  // DOM_CAMERA_GONK_RECORDER_PROFILES_H

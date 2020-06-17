@@ -38,16 +38,16 @@ class CellBroadcastChild final : public PCellBroadcastChild,
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-private:
+ private:
   // final suppresses -Werror,-Wdelete-non-virtual-dtor
- ~CellBroadcastChild();
+  ~CellBroadcastChild();
 
- bool mActorDestroyed;
- nsTArray<nsCOMPtr<nsICellBroadcastListener>> mListeners;
+  bool mActorDestroyed;
+  nsTArray<nsCOMPtr<nsICellBroadcastListener>> mListeners;
 };
 
-} // namespace cellbroadcast
-} // namespace dom
-} // namespace mozilla
+}  // namespace cellbroadcast
+}  // namespace dom
+}  // namespace mozilla
 
 #endif  // mozilla_dom_cellbroadcast_CellBroadcastChild_h

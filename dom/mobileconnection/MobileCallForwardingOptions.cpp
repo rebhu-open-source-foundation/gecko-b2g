@@ -12,63 +12,52 @@ namespace mobileconnection {
 
 NS_IMPL_ISUPPORTS(MobileCallForwardingOptions, nsIMobileCallForwardingOptions)
 
-MobileCallForwardingOptions::MobileCallForwardingOptions(bool aActive,
-                                                         int16_t aAction,
-                                                         int16_t aReason,
-                                                         const nsAString& aNumber,
-                                                         int16_t aTimeSeconds,
-                                                         int16_t aServiceClass)
-  : mActive(aActive)
-  , mAction(aAction)
-  , mReason(aReason)
-  , mNumber(aNumber)
-  , mTimeSeconds(aTimeSeconds)
-  , mServiceClass(aServiceClass)
-{
-}
+MobileCallForwardingOptions::MobileCallForwardingOptions(
+    bool aActive, int16_t aAction, int16_t aReason, const nsAString& aNumber,
+    int16_t aTimeSeconds, int16_t aServiceClass)
+    : mActive(aActive),
+      mAction(aAction),
+      mReason(aReason),
+      mNumber(aNumber),
+      mTimeSeconds(aTimeSeconds),
+      mServiceClass(aServiceClass) {}
 
 NS_IMETHODIMP
-MobileCallForwardingOptions::GetActive(bool* aActive)
-{
+MobileCallForwardingOptions::GetActive(bool* aActive) {
   *aActive = mActive;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileCallForwardingOptions::GetAction(int16_t* aAction)
-{
+MobileCallForwardingOptions::GetAction(int16_t* aAction) {
   *aAction = mAction;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileCallForwardingOptions::GetReason(int16_t* aReason)
-{
+MobileCallForwardingOptions::GetReason(int16_t* aReason) {
   *aReason = mReason;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileCallForwardingOptions::GetNumber(nsAString& aNumber)
-{
+MobileCallForwardingOptions::GetNumber(nsAString& aNumber) {
   aNumber = mNumber;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileCallForwardingOptions::GetTimeSeconds(int16_t* aTimeSeconds)
-{
+MobileCallForwardingOptions::GetTimeSeconds(int16_t* aTimeSeconds) {
   *aTimeSeconds = mTimeSeconds;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileCallForwardingOptions::GetServiceClass(int16_t *aServiceClass)
-{
+MobileCallForwardingOptions::GetServiceClass(int16_t* aServiceClass) {
   *aServiceClass = mServiceClass;
   return NS_OK;
 }
 
-} // namespace mobileconnection
-} // namespace dom
-} // namespace mozilla
+}  // namespace mobileconnection
+}  // namespace dom
+}  // namespace mozilla

@@ -14,8 +14,7 @@ namespace mobilemessage {
 NS_IMPL_ISUPPORTS(SmsService, nsISmsService)
 
 NS_IMETHODIMP
-SmsService::GetSmsDefaultServiceId(uint32_t* aServiceId)
-{
+SmsService::GetSmsDefaultServiceId(uint32_t* aServiceId) {
   // Android has no official DSDS support.
   *aServiceId = 0;
   return NS_OK;
@@ -23,8 +22,7 @@ SmsService::GetSmsDefaultServiceId(uint32_t* aServiceId)
 
 NS_IMETHODIMP
 SmsService::GetSegmentInfoForText(const nsAString& aText,
-                                  nsIMobileMessageCallback* aRequest)
-{
+                                  nsIMobileMessageCallback* aRequest) {
   if (!AndroidBridge::Bridge()) {
     return NS_ERROR_FAILURE;
   }
@@ -36,12 +34,9 @@ SmsService::GetSegmentInfoForText(const nsAString& aText,
 }
 
 NS_IMETHODIMP
-SmsService::Send(uint32_t aServiceId,
-                 const nsAString& aNumber,
-                 const nsAString& aMessage,
-                 bool aSilent,
-                 nsIMobileMessageCallback* aRequest)
-{
+SmsService::Send(uint32_t aServiceId, const nsAString& aNumber,
+                 const nsAString& aMessage, bool aSilent,
+                 nsIMobileMessageCallback* aRequest) {
   if (!AndroidBridge::Bridge()) {
     return NS_OK;
   }
@@ -51,40 +46,35 @@ SmsService::Send(uint32_t aServiceId,
 }
 
 NS_IMETHODIMP
-SmsService::AddSilentNumber(const nsAString& aNumber)
-{
+SmsService::AddSilentNumber(const nsAString& aNumber) {
   NS_NOTYETIMPLEMENTED("Implement me!");
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-SmsService::RemoveSilentNumber(const nsAString& aNumber)
-{
+SmsService::RemoveSilentNumber(const nsAString& aNumber) {
   NS_NOTYETIMPLEMENTED("Implement me!");
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
 SmsService::GetSmscAddress(uint32_t aServiceId,
-                           nsIMobileMessageCallback *aRequest)
-{
+                           nsIMobileMessageCallback* aRequest) {
   // TODO: bug 878016 - Android backend: implement getSMSCAddress/setSMSCAddress
   NS_NOTYETIMPLEMENTED("Implement me!");
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-SmsService::SetSmscAddress(uint32_t aServiceId,
-                           const nsAString& aNumber,
+SmsService::SetSmscAddress(uint32_t aServiceId, const nsAString& aNumber,
                            uint32_t aTypeOfNumber,
                            uint32_t aNumberPlanIdentification,
-                           nsIMobileMessageCallback* aRequest)
-{
+                           nsIMobileMessageCallback* aRequest) {
   // TODO: bug 878016 - Android backend: implement getSMSCAddress/setSMSCAddress
   NS_NOTYETIMPLEMENTED("Implement me!");
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
-} // namespace mobilemessage
-} // namespace dom
-} // namespace mozilla
+}  // namespace mobilemessage
+}  // namespace dom
+}  // namespace mozilla

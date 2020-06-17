@@ -13,18 +13,17 @@ namespace mozilla {
 namespace dom {
 namespace mobilemessage {
 
-class SmsService final : public nsISmsService
-{
-private:
+class SmsService final : public nsISmsService {
+ private:
   ~SmsService() {}
 
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSISMSSERVICE
 };
 
-} // namespace mobilemessage
-} // namespace dom
-} // namespace mozilla
+}  // namespace mobilemessage
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_mobilemessage_SmsService_h
+#endif  // mozilla_dom_mobilemessage_SmsService_h

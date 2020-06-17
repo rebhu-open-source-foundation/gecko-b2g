@@ -17,51 +17,44 @@ namespace mozilla {
 namespace dom {
 namespace videocallprovider {
 
-class VideoCallProviderChild : public PVideoCallProviderChild
-                             , public nsIVideoCallProvider
-{
- friend class PVideoCallProviderChild;
-public:
+class VideoCallProviderChild : public PVideoCallProviderChild,
+                               public nsIVideoCallProvider {
+  friend class PVideoCallProviderChild;
+
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIVIDEOCALLPROVIDER
 
   explicit VideoCallProviderChild(uint32_t aClientId, uint32_t aCallIndex);
 
-  void
-  Shutdown();
+  void Shutdown();
 
-protected:
-  void
-  ActorDestroy(ActorDestroyReason aWhy);
+ protected:
+  void ActorDestroy(ActorDestroyReason aWhy);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyReceiveSessionModifyRequest(nsIVideoCallProfile* const& aRequest);
+  mozilla::ipc::IPCResult RecvNotifyReceiveSessionModifyRequest(
+      nsIVideoCallProfile* const& aRequest);
 
+  mozilla::ipc::IPCResult RecvNotifyReceiveSessionModifyResponse(
+      const uint16_t& aStatus, nsIVideoCallProfile* const& aRequest,
+      nsIVideoCallProfile* const& aResponse);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyReceiveSessionModifyResponse(const uint16_t& aStatus,
-                                         nsIVideoCallProfile* const& aRequest,
-                                         nsIVideoCallProfile* const& aResponse);
+  mozilla::ipc::IPCResult RecvNotifyHandleCallSessionEvent(
+      const uint16_t& aEvent);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyHandleCallSessionEvent(const uint16_t& aEvent);
+  mozilla::ipc::IPCResult RecvNotifyChangePeerDimensions(
+      const uint16_t& aWidth, const uint16_t& aHeight);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyChangePeerDimensions(const uint16_t& aWidth, const uint16_t& aHeight);
+  mozilla::ipc::IPCResult RecvNotifyChangeCameraCapabilities(
+      nsIVideoCallCameraCapabilities* const& aCapabilities);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyChangeCameraCapabilities(nsIVideoCallCameraCapabilities* const& aCapabilities);
+  mozilla::ipc::IPCResult RecvNotifyChangeVideoQuality(
+      const uint16_t& aQuality);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyChangeVideoQuality(const uint16_t& aQuality);
-
-private:
+ private:
   VideoCallProviderChild() = delete;
 
-  ~VideoCallProviderChild()
-  {
-    MOZ_COUNT_DTOR(VideoCallProviderChild);
-  }
+  ~VideoCallProviderChild() { MOZ_COUNT_DTOR(VideoCallProviderChild); }
 
   bool mLive;
   uint32_t mClientId;
@@ -69,8 +62,8 @@ private:
   nsCOMArray<nsIVideoCallCallback> mCallbacks;
 };
 
-} // namespace videocallprovider
-} // namespace dom
-} // namespace mozilla
+}  // namespace videocallprovider
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_videocallprovider_VideoCallProviderChild_h__
+#endif  // mozilla_dom_videocallprovider_VideoCallProviderChild_h__

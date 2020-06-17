@@ -21,39 +21,37 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(TelephonyCallCapabilities)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-TelephonyCallCapabilities::TelephonyCallCapabilities(nsPIDOMWindowInner* aWindow)
-  : mWindow(aWindow)
-  , mVtLocalRx(false)
-  , mVtLocalTx(false)
-  , mVtRemoteRx(false)
-  , mVtRemoteTx(false)
-  , mSupportRtt(false)
-{
-}
+TelephonyCallCapabilities::TelephonyCallCapabilities(
+    nsPIDOMWindowInner* aWindow)
+    : mWindow(aWindow),
+      mVtLocalRx(false),
+      mVtLocalTx(false),
+      mVtRemoteRx(false),
+      mVtRemoteTx(false),
+      mSupportRtt(false) {}
 
-TelephonyCallCapabilities::TelephonyCallCapabilities(nsPIDOMWindowInner* aWindow, uint32_t aCapabilities)
-  : mWindow(aWindow)
-{
+TelephonyCallCapabilities::TelephonyCallCapabilities(
+    nsPIDOMWindowInner* aWindow, uint32_t aCapabilities)
+    : mWindow(aWindow) {
   Update(aCapabilities);
 }
 
-TelephonyCallCapabilities::~TelephonyCallCapabilities()
-{
-}
+TelephonyCallCapabilities::~TelephonyCallCapabilities() {}
 
-void
-TelephonyCallCapabilities::Update(uint32_t aCapabilities)
-{
-  mVtLocalRx = aCapabilities & nsITelephonyCallInfo::CAPABILITY_SUPPORTS_VT_LOCAL_RX;
-  mVtLocalTx = aCapabilities & nsITelephonyCallInfo::CAPABILITY_SUPPORTS_VT_LOCAL_TX;
-  mVtRemoteRx = aCapabilities & nsITelephonyCallInfo::CAPABILITY_SUPPORTS_VT_REMOTE_RX;
-  mVtRemoteTx = aCapabilities & nsITelephonyCallInfo::CAPABILITY_SUPPORTS_VT_REMOTE_TX;
+void TelephonyCallCapabilities::Update(uint32_t aCapabilities) {
+  mVtLocalRx =
+      aCapabilities & nsITelephonyCallInfo::CAPABILITY_SUPPORTS_VT_LOCAL_RX;
+  mVtLocalTx =
+      aCapabilities & nsITelephonyCallInfo::CAPABILITY_SUPPORTS_VT_LOCAL_TX;
+  mVtRemoteRx =
+      aCapabilities & nsITelephonyCallInfo::CAPABILITY_SUPPORTS_VT_REMOTE_RX;
+  mVtRemoteTx =
+      aCapabilities & nsITelephonyCallInfo::CAPABILITY_SUPPORTS_VT_REMOTE_TX;
   mSupportRtt = aCapabilities & nsITelephonyCallInfo::CAPABILITY_SUPPORTS_RTT;
 }
 
-bool
-TelephonyCallCapabilities::Equals(RefPtr<TelephonyCallCapabilities>& aCompare)
-{
+bool TelephonyCallCapabilities::Equals(
+    RefPtr<TelephonyCallCapabilities>& aCompare) {
   if (!aCompare) {
     return false;
   }
@@ -66,28 +64,33 @@ TelephonyCallCapabilities::Equals(RefPtr<TelephonyCallCapabilities>& aCompare)
   return noChanged;
 }
 
-bool
-TelephonyCallCapabilities::Equals(uint32_t aCapabilities)
-{
+bool TelephonyCallCapabilities::Equals(uint32_t aCapabilities) {
   bool noChanged = true;
 
-  noChanged &= mVtLocalRx == (aCapabilities & nsITelephonyCallInfo::CAPABILITY_SUPPORTS_VT_LOCAL_RX);
-  noChanged &= mVtLocalTx == (aCapabilities & nsITelephonyCallInfo::CAPABILITY_SUPPORTS_VT_LOCAL_TX);
-  noChanged &= mVtRemoteRx == (aCapabilities & nsITelephonyCallInfo::CAPABILITY_SUPPORTS_VT_REMOTE_RX);
-  noChanged &= mVtRemoteTx == (aCapabilities & nsITelephonyCallInfo::CAPABILITY_SUPPORTS_VT_REMOTE_TX);
-  noChanged &= mSupportRtt == (aCapabilities & nsITelephonyCallInfo::CAPABILITY_SUPPORTS_RTT);
+  noChanged &=
+      mVtLocalRx ==
+      (aCapabilities & nsITelephonyCallInfo::CAPABILITY_SUPPORTS_VT_LOCAL_RX);
+  noChanged &=
+      mVtLocalTx ==
+      (aCapabilities & nsITelephonyCallInfo::CAPABILITY_SUPPORTS_VT_LOCAL_TX);
+  noChanged &=
+      mVtRemoteRx ==
+      (aCapabilities & nsITelephonyCallInfo::CAPABILITY_SUPPORTS_VT_REMOTE_RX);
+  noChanged &=
+      mVtRemoteTx ==
+      (aCapabilities & nsITelephonyCallInfo::CAPABILITY_SUPPORTS_VT_REMOTE_TX);
+  noChanged &= mSupportRtt ==
+               (aCapabilities & nsITelephonyCallInfo::CAPABILITY_SUPPORTS_RTT);
 
   return noChanged;
 }
 
-
-JSObject*
-TelephonyCallCapabilities::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* TelephonyCallCapabilities::WrapObject(
+    JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
   return TelephonyCallCapabilities_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 // WebIDL
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -29,54 +29,47 @@
 #include "nsContentUtils.h"
 
 #define MOBILECONN_ERROR_INVALID_PARAMETER NS_LITERAL_STRING("InvalidParameter")
-#define MOBILECONN_ERROR_INVALID_PASSWORD  NS_LITERAL_STRING("InvalidPassword")
+#define MOBILECONN_ERROR_INVALID_PASSWORD NS_LITERAL_STRING("InvalidPassword")
 
 #ifdef CONVERT_STRING_TO_NULLABLE_ENUM
-#undef CONVERT_STRING_TO_NULLABLE_ENUM
+#  undef CONVERT_STRING_TO_NULLABLE_ENUM
 #endif
-#define CONVERT_STRING_TO_NULLABLE_ENUM(_string, _enumType, _enum)      \
-{                                                                       \
-  uint32_t i = 0;                                                       \
-  for (const EnumEntry* entry = _enumType##Values::strings;             \
-       entry->value;                                                    \
-       ++entry, ++i) {                                                  \
-    if (_string.EqualsASCII(entry->value)) {                            \
-      _enum.SetValue(static_cast<_enumType>(i));                        \
-    }                                                                   \
-  }                                                                     \
-}
+#define CONVERT_STRING_TO_NULLABLE_ENUM(_string, _enumType, _enum)          \
+  {                                                                         \
+    uint32_t i = 0;                                                         \
+    for (const EnumEntry* entry = _enumType##Values::strings; entry->value; \
+         ++entry, ++i) {                                                    \
+      if (_string.EqualsASCII(entry->value)) {                              \
+        _enum.SetValue(static_cast<_enumType>(i));                          \
+      }                                                                     \
+    }                                                                       \
+  }
 
 using mozilla::ErrorResult;
 using namespace mozilla::dom;
 using namespace mozilla::dom::mobileconnection;
 
-class MobileConnection::Listener final : public nsIMobileConnectionListener
-                                       , public nsIIccListener
-{
+class MobileConnection::Listener final : public nsIMobileConnectionListener,
+                                         public nsIIccListener {
   MobileConnection* mMobileConnection;
 
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_FORWARD_SAFE_NSIMOBILECONNECTIONLISTENER(mMobileConnection)
   NS_FORWARD_SAFE_NSIICCLISTENER(mMobileConnection)
 
   explicit Listener(MobileConnection* aMobileConnection)
-    : mMobileConnection(aMobileConnection)
-  {
+      : mMobileConnection(aMobileConnection) {
     MOZ_ASSERT(mMobileConnection);
   }
 
-  void Disconnect()
-  {
+  void Disconnect() {
     MOZ_ASSERT(mMobileConnection);
     mMobileConnection = nullptr;
   }
 
-private:
-  ~Listener()
-  {
-    MOZ_ASSERT(!mMobileConnection);
-  }
+ private:
+  ~Listener() { MOZ_ASSERT(!mMobileConnection); }
 };
 
 NS_IMPL_ISUPPORTS(MobileConnection::Listener, nsIMobileConnectionListener,
@@ -114,14 +107,10 @@ NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 NS_IMPL_ADDREF_INHERITED(MobileConnection, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(MobileConnection, DOMEventTargetHelper)
 
-MobileConnection::MobileConnection(nsIGlobalObject* aGlobal,
-                                   uint32_t aClientId)
-  : DOMEventTargetHelper(aGlobal)
-  , mClientId(aClientId)
-  , mOwner(aGlobal)
-{
+MobileConnection::MobileConnection(nsIGlobalObject* aGlobal, uint32_t aClientId)
+    : DOMEventTargetHelper(aGlobal), mClientId(aClientId), mOwner(aGlobal) {
   nsCOMPtr<nsIMobileConnectionService> service =
-    do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
+      do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
 
   // Per WebAPI design, mIccId should be null instead of an empty string when no
   // SIM card is inserted. Set null as default value.
@@ -134,8 +123,8 @@ MobileConnection::MobileConnection(nsIGlobalObject* aGlobal,
     return;
   }
 
-  nsresult rv = service->GetItemByServiceId(mClientId,
-                                            getter_AddRefs(mMobileConnection));
+  nsresult rv =
+      service->GetItemByServiceId(mClientId, getter_AddRefs(mMobileConnection));
 
   if (NS_FAILED(rv) || !mMobileConnection) {
     NS_WARNING("Could not acquire nsIMobileConnection!");
@@ -172,9 +161,7 @@ MobileConnection::MobileConnection(nsIGlobalObject* aGlobal,
   }
 }
 
-void
-MobileConnection::Shutdown()
-{
+void MobileConnection::Shutdown() {
   if (mListener) {
     if (mMobileConnection) {
       mMobileConnection->UnregisterListener(mListener);
@@ -194,29 +181,21 @@ MobileConnection::Shutdown()
   }
 }
 
-MobileConnection::~MobileConnection()
-{
-  Shutdown();
-}
+MobileConnection::~MobileConnection() { Shutdown(); }
 
-void
-MobileConnection::DisconnectFromOwner()
-{
+void MobileConnection::DisconnectFromOwner() {
   DOMEventTargetHelper::DisconnectFromOwner();
   // Event listeners can't be handled anymore, so we can shutdown
   // the MobileConnection.
   Shutdown();
 }
 
-JSObject*
-MobileConnection::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* MobileConnection::WrapObject(JSContext* aCx,
+                                       JS::Handle<JSObject*> aGivenProto) {
   return MobileConnection_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-bool
-MobileConnection::CheckPermission(const char* aType) const
-{
+bool MobileConnection::CheckPermission(const char* aType) const {
   return true;
   /* TODO
   nsCOMPtr<nsIPermissionManager> permMgr =
@@ -229,9 +208,7 @@ MobileConnection::CheckPermission(const char* aType) const
   */
 }
 
-void
-MobileConnection::UpdateVoice()
-{
+void MobileConnection::UpdateVoice() {
   if (!mMobileConnection) {
     return;
   }
@@ -242,9 +219,7 @@ MobileConnection::UpdateVoice()
   mVoice->UpdateDOMNetworkInfo(info);
 }
 
-void
-MobileConnection::UpdateData()
-{
+void MobileConnection::UpdateData() {
   if (!mMobileConnection) {
     return;
   }
@@ -255,9 +230,7 @@ MobileConnection::UpdateData()
   mData->UpdateDOMNetworkInfo(info);
 }
 
-bool
-MobileConnection::UpdateIccId()
-{
+bool MobileConnection::UpdateIccId() {
   nsAutoString iccId;
   nsCOMPtr<nsIIccInfo> iccInfo;
   if (mIccHandler &&
@@ -276,18 +249,16 @@ MobileConnection::UpdateIccId()
   return false;
 }
 
-nsresult
-MobileConnection::NotifyError(DOMRequest* aRequest, const nsAString& aMessage)
-{
-  nsCOMPtr<nsIDOMRequestService> rs = do_GetService(DOMREQUEST_SERVICE_CONTRACTID);
+nsresult MobileConnection::NotifyError(DOMRequest* aRequest,
+                                       const nsAString& aMessage) {
+  nsCOMPtr<nsIDOMRequestService> rs =
+      do_GetService(DOMREQUEST_SERVICE_CONTRACTID);
   NS_ENSURE_TRUE(rs, NS_ERROR_FAILURE);
 
   return rs->FireErrorAsync(aRequest, aMessage);
 }
 
-bool
-MobileConnection::IsValidPassword(const nsAString& aPassword)
-{
+bool MobileConnection::IsValidPassword(const nsAString& aPassword) {
   // Check valid PIN for supplementary services. See TS.22.004 clause 5.2.
   if (aPassword.IsEmpty() || aPassword.Length() != 4) {
     return false;
@@ -298,40 +269,31 @@ MobileConnection::IsValidPassword(const nsAString& aPassword)
   return NS_SUCCEEDED(rv) && password >= 0 && password <= 9999;
 }
 
-bool
-MobileConnection::IsValidCallForwardingService(int32_t aServiceClass)
-{
+bool MobileConnection::IsValidCallForwardingService(int32_t aServiceClass) {
   return aServiceClass >= nsIMobileConnection::ICC_SERVICE_CLASS_VOICE &&
          aServiceClass <= 0xFF;
 }
 
-bool
-MobileConnection::IsValidCallForwardingReason(int32_t aReason)
-{
+bool MobileConnection::IsValidCallForwardingReason(int32_t aReason) {
   return aReason >= nsIMobileConnection::CALL_FORWARD_REASON_UNCONDITIONAL &&
-         aReason <= nsIMobileConnection::CALL_FORWARD_REASON_ALL_CONDITIONAL_CALL_FORWARDING;
+         aReason <= nsIMobileConnection::
+                        CALL_FORWARD_REASON_ALL_CONDITIONAL_CALL_FORWARDING;
 }
 
-bool
-MobileConnection::IsValidCallForwardingAction(int32_t aAction)
-{
+bool MobileConnection::IsValidCallForwardingAction(int32_t aAction) {
   return aAction >= nsIMobileConnection::CALL_FORWARD_ACTION_DISABLE &&
          aAction <= nsIMobileConnection::CALL_FORWARD_ACTION_ERASURE &&
          // Set operation doesn't allow "query" action.
          aAction != nsIMobileConnection::CALL_FORWARD_ACTION_QUERY_STATUS;
 }
 
-bool
-MobileConnection::IsValidCallBarringProgram(int32_t aProgram)
-{
+bool MobileConnection::IsValidCallBarringProgram(int32_t aProgram) {
   return aProgram >= nsIMobileConnection::CALL_BARRING_PROGRAM_ALL_OUTGOING &&
          aProgram <= nsIMobileConnection::CALL_BARRING_PROGRAM_INCOMING_SERVICE;
 }
 
-bool
-MobileConnection::IsValidCallBarringOptions(const CallBarringOptions& aOptions,
-                                           bool isSetting)
-{
+bool MobileConnection::IsValidCallBarringOptions(
+    const CallBarringOptions& aOptions, bool isSetting) {
   if (aOptions.mServiceClass.IsNull() || aOptions.mProgram.IsNull() ||
       !IsValidCallBarringProgram(aOptions.mProgram.Value())) {
     return false;
@@ -346,9 +308,8 @@ MobileConnection::IsValidCallBarringOptions(const CallBarringOptions& aOptions,
   return true;
 }
 
-bool
-MobileConnection::IsValidCallForwardingOptions(const CallForwardingOptions& aOptions)
-{
+bool MobileConnection::IsValidCallForwardingOptions(
+    const CallForwardingOptions& aOptions) {
   if (aOptions.mReason.IsNull() || aOptions.mAction.IsNull() ||
       aOptions.mServiceClass.IsNull() ||
       !IsValidCallForwardingReason(aOptions.mReason.Value()) ||
@@ -362,9 +323,7 @@ MobileConnection::IsValidCallForwardingOptions(const CallForwardingOptions& aOpt
 
 // WebIDL interface
 
-void
-MobileConnection::GetLastKnownNetwork(nsString& aRetVal) const
-{
+void MobileConnection::GetLastKnownNetwork(nsString& aRetVal) const {
   aRetVal.SetIsVoid(true);
 
   if (!mMobileConnection) {
@@ -374,9 +333,7 @@ MobileConnection::GetLastKnownNetwork(nsString& aRetVal) const
   mMobileConnection->GetLastKnownNetwork(aRetVal);
 }
 
-void
-MobileConnection::GetLastKnownHomeNetwork(nsString& aRetVal) const
-{
+void MobileConnection::GetLastKnownHomeNetwork(nsString& aRetVal) const {
   aRetVal.SetIsVoid(true);
 
   if (!mMobileConnection) {
@@ -388,17 +345,9 @@ MobileConnection::GetLastKnownHomeNetwork(nsString& aRetVal) const
 
 // All fields below require the "mobileconnection" permission.
 
-MobileConnectionInfo*
-MobileConnection::Voice() const
-{
-  return mVoice;
-}
+MobileConnectionInfo* MobileConnection::Voice() const { return mVoice; }
 
-MobileConnectionInfo*
-MobileConnection::Data() const
-{
-  return mData;
-}
+MobileConnectionInfo* MobileConnection::Data() const { return mData; }
 
 already_AddRefed<DOMMobileConnectionDeviceIds>
 MobileConnection::GetDeviceIdentities() {
@@ -425,9 +374,8 @@ MobileConnection::GetDeviceIdentities() {
   return domIdentities.forget();
 }
 
-already_AddRefed<MobileSignalStrength>
-MobileConnection::SignalStrength() const
-{
+already_AddRefed<MobileSignalStrength> MobileConnection::SignalStrength()
+    const {
   if (!mMobileConnection) {
     return nullptr;
   }
@@ -467,24 +415,17 @@ MobileConnection::SignalStrength() const
   ss->GetLteTimingAdvance(&lteTimingAdvance);
   ss->GetTdscdmaRscp(&tdscdmaRscp);
 
-  RefPtr<MobileSignalStrength> signalStrength =
-    new MobileSignalStrength(GetOwner(), level, gsmSignalStrength,
-                        gsmSignalBitErrorRate, cdmaDbm, cdmaEcio, cdmaEvdoDbm,
-                        cdmaEvdoEcio, cdmaEvdoSNR, lteSignalStrength, lteRsrp,
-                        lteRsrq, lteRssnr, lteCqi, lteTimingAdvance, tdscdmaRscp);
+  RefPtr<MobileSignalStrength> signalStrength = new MobileSignalStrength(
+      GetOwner(), level, gsmSignalStrength, gsmSignalBitErrorRate, cdmaDbm,
+      cdmaEcio, cdmaEvdoDbm, cdmaEvdoEcio, cdmaEvdoSNR, lteSignalStrength,
+      lteRsrp, lteRsrq, lteRssnr, lteCqi, lteTimingAdvance, tdscdmaRscp);
 
   return signalStrength.forget();
 }
 
-void
-MobileConnection::GetIccId(nsString& aRetVal) const
-{
-  aRetVal = mIccId;
-}
+void MobileConnection::GetIccId(nsString& aRetVal) const { aRetVal = mIccId; }
 
-bool
-MobileConnection::GetIsInEmergencyCbMode(ErrorResult& aRv) const
-{
+bool MobileConnection::GetIsInEmergencyCbMode(ErrorResult& aRv) const {
   bool result = false;
 
   if (!mMobileConnection) {
@@ -501,11 +442,10 @@ MobileConnection::GetIsInEmergencyCbMode(ErrorResult& aRv) const
   return result;
 }
 
-Nullable<MobileNetworkSelectionMode>
-MobileConnection::GetNetworkSelectionMode() const
-{
+Nullable<MobileNetworkSelectionMode> MobileConnection::GetNetworkSelectionMode()
+    const {
   Nullable<MobileNetworkSelectionMode> retVal =
-    Nullable<MobileNetworkSelectionMode>();
+      Nullable<MobileNetworkSelectionMode>();
 
   if (!mMobileConnection) {
     return retVal;
@@ -514,16 +454,15 @@ MobileConnection::GetNetworkSelectionMode() const
   int32_t mode = nsIMobileConnection::NETWORK_SELECTION_MODE_UNKNOWN;
   if (NS_SUCCEEDED(mMobileConnection->GetNetworkSelectionMode(&mode)) &&
       mode != nsIMobileConnection::NETWORK_SELECTION_MODE_UNKNOWN) {
-    MOZ_ASSERT(mode < static_cast<int32_t>(MobileNetworkSelectionMode::EndGuard_));
+    MOZ_ASSERT(mode <
+               static_cast<int32_t>(MobileNetworkSelectionMode::EndGuard_));
     retVal.SetValue(static_cast<MobileNetworkSelectionMode>(mode));
   }
 
   return retVal;
 }
 
-Nullable<MobileRadioState>
-MobileConnection::GetRadioState() const
-{
+Nullable<MobileRadioState> MobileConnection::GetRadioState() const {
   Nullable<MobileRadioState> retVal = Nullable<MobileRadioState>();
 
   if (!mMobileConnection) {
@@ -540,9 +479,8 @@ MobileConnection::GetRadioState() const
   return retVal;
 }
 
-void
-MobileConnection::GetSupportedNetworkTypes(nsTArray<MobileNetworkType>& aTypes) const
-{
+void MobileConnection::GetSupportedNetworkTypes(
+    nsTArray<MobileNetworkType>& aTypes) const {
   if (!mMobileConnection) {
     return;
   }
@@ -563,8 +501,8 @@ MobileConnection::GetSupportedNetworkTypes(nsTArray<MobileNetworkType>& aTypes) 
   free(types);
 }
 
-already_AddRefed<Promise>
-MobileConnection::GetSupportedNetworkTypes(ErrorResult& aRv) {
+already_AddRefed<Promise> MobileConnection::GetSupportedNetworkTypes(
+    ErrorResult& aRv) {
   nsTArray<MobileNetworkType> result;
 
   if (!mMobileConnection) {
@@ -600,9 +538,7 @@ MobileConnection::GetSupportedNetworkTypes(ErrorResult& aRv) {
   return promise.forget();
 }
 
-already_AddRefed<ImsRegHandler>
-MobileConnection::GetImsHandler() const
-{
+already_AddRefed<ImsRegHandler> MobileConnection::GetImsHandler() const {
   if (!mMobileConnection) {
     return nullptr;
   }
@@ -612,7 +548,8 @@ MobileConnection::GetImsHandler() const
     return handler.forget();
   }
 
-  nsCOMPtr<nsIImsRegService> imsService = do_GetService(IMS_REG_SERVICE_CONTRACTID);
+  nsCOMPtr<nsIImsRegService> imsService =
+      do_GetService(IMS_REG_SERVICE_CONTRACTID);
   if (!imsService) {
     NS_WARNING("Could not acquire nsIImsRegService!");
     return nullptr;
@@ -620,7 +557,8 @@ MobileConnection::GetImsHandler() const
 
   nsCOMPtr<nsIImsRegHandler> internalHandler;
   imsService->GetHandlerByServiceId(mClientId, getter_AddRefs(internalHandler));
-  // ImsRegHandler is optional, always check even if it was retreived successfully.
+  // ImsRegHandler is optional, always check even if it was retreived
+  // successfully.
   if (!internalHandler) {
     NS_WARNING("Could not acquire nsIImsRegHandler!");
     return nullptr;
@@ -632,9 +570,7 @@ MobileConnection::GetImsHandler() const
   return handler.forget();
 }
 
-already_AddRefed<DOMRequest>
-MobileConnection::GetNetworks(ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> MobileConnection::GetNetworks(ErrorResult& aRv) {
   if (!mMobileConnection) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -642,7 +578,7 @@ MobileConnection::GetNetworks(ErrorResult& aRv)
 
   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
   RefPtr<MobileConnectionCallback> requestCallback =
-    new MobileConnectionCallback(GetOwner(), request);
+      new MobileConnectionCallback(GetOwner(), request);
 
   nsresult rv = mMobileConnection->GetNetworks(requestCallback);
   if (NS_FAILED(rv)) {
@@ -653,9 +589,8 @@ MobileConnection::GetNetworks(ErrorResult& aRv)
   return request.forget();
 }
 
-already_AddRefed<DOMRequest>
-MobileConnection::SelectNetwork(DOMMobileNetworkInfo& aNetwork, ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> MobileConnection::SelectNetwork(
+    DOMMobileNetworkInfo& aNetwork, ErrorResult& aRv) {
   if (!mMobileConnection) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -663,7 +598,7 @@ MobileConnection::SelectNetwork(DOMMobileNetworkInfo& aNetwork, ErrorResult& aRv
 
   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
   RefPtr<MobileConnectionCallback> requestCallback =
-    new MobileConnectionCallback(GetOwner(), request);
+      new MobileConnectionCallback(GetOwner(), request);
 
   RefPtr<MobileNetworkInfo> networkInfo;
   networkInfo = aNetwork.GetNetwork();
@@ -677,9 +612,8 @@ MobileConnection::SelectNetwork(DOMMobileNetworkInfo& aNetwork, ErrorResult& aRv
   return request.forget();
 }
 
-already_AddRefed<DOMRequest>
-MobileConnection::SelectNetworkAutomatically(ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> MobileConnection::SelectNetworkAutomatically(
+    ErrorResult& aRv) {
   if (!mMobileConnection) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -687,10 +621,9 @@ MobileConnection::SelectNetworkAutomatically(ErrorResult& aRv)
 
   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
   RefPtr<MobileConnectionCallback> requestCallback =
-    new MobileConnectionCallback(GetOwner(), request);
+      new MobileConnectionCallback(GetOwner(), request);
 
-  nsresult rv =
-    mMobileConnection->SelectNetworkAutomatically(requestCallback);
+  nsresult rv = mMobileConnection->SelectNetworkAutomatically(requestCallback);
   if (NS_FAILED(rv)) {
     aRv.Throw(rv);
     return nullptr;
@@ -699,10 +632,8 @@ MobileConnection::SelectNetworkAutomatically(ErrorResult& aRv)
   return request.forget();
 }
 
-already_AddRefed<DOMRequest>
-MobileConnection::SetPreferredNetworkType(MobilePreferredNetworkType& aType,
-                                          ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> MobileConnection::SetPreferredNetworkType(
+    MobilePreferredNetworkType& aType, ErrorResult& aRv) {
   if (!mMobileConnection) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -712,10 +643,10 @@ MobileConnection::SetPreferredNetworkType(MobilePreferredNetworkType& aType,
 
   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
   RefPtr<MobileConnectionCallback> requestCallback =
-    new MobileConnectionCallback(GetOwner(), request);
+      new MobileConnectionCallback(GetOwner(), request);
 
   nsresult rv =
-    mMobileConnection->SetPreferredNetworkType(type, requestCallback);
+      mMobileConnection->SetPreferredNetworkType(type, requestCallback);
   if (NS_FAILED(rv)) {
     aRv.Throw(rv);
     return nullptr;
@@ -724,9 +655,8 @@ MobileConnection::SetPreferredNetworkType(MobilePreferredNetworkType& aType,
   return request.forget();
 }
 
-already_AddRefed<DOMRequest>
-MobileConnection::GetPreferredNetworkType(ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> MobileConnection::GetPreferredNetworkType(
+    ErrorResult& aRv) {
   if (!mMobileConnection) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -734,7 +664,7 @@ MobileConnection::GetPreferredNetworkType(ErrorResult& aRv)
 
   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
   RefPtr<MobileConnectionCallback> requestCallback =
-    new MobileConnectionCallback(GetOwner(), request);
+      new MobileConnectionCallback(GetOwner(), request);
 
   nsresult rv = mMobileConnection->GetPreferredNetworkType(requestCallback);
   if (NS_FAILED(rv)) {
@@ -745,10 +675,8 @@ MobileConnection::GetPreferredNetworkType(ErrorResult& aRv)
   return request.forget();
 }
 
-already_AddRefed<DOMRequest>
-MobileConnection::SetRoamingPreference(MobileRoamingMode& aMode,
-                                       ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> MobileConnection::SetRoamingPreference(
+    MobileRoamingMode& aMode, ErrorResult& aRv) {
   if (!mMobileConnection) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -758,7 +686,7 @@ MobileConnection::SetRoamingPreference(MobileRoamingMode& aMode,
 
   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
   RefPtr<MobileConnectionCallback> requestCallback =
-    new MobileConnectionCallback(GetOwner(), request);
+      new MobileConnectionCallback(GetOwner(), request);
 
   nsresult rv = mMobileConnection->SetRoamingPreference(mode, requestCallback);
   if (NS_FAILED(rv)) {
@@ -769,9 +697,8 @@ MobileConnection::SetRoamingPreference(MobileRoamingMode& aMode,
   return request.forget();
 }
 
-already_AddRefed<DOMRequest>
-MobileConnection::GetRoamingPreference(ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> MobileConnection::GetRoamingPreference(
+    ErrorResult& aRv) {
   if (!mMobileConnection) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -779,7 +706,7 @@ MobileConnection::GetRoamingPreference(ErrorResult& aRv)
 
   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
   RefPtr<MobileConnectionCallback> requestCallback =
-    new MobileConnectionCallback(GetOwner(), request);
+      new MobileConnectionCallback(GetOwner(), request);
 
   nsresult rv = mMobileConnection->GetRoamingPreference(requestCallback);
   if (NS_FAILED(rv)) {
@@ -790,9 +717,8 @@ MobileConnection::GetRoamingPreference(ErrorResult& aRv)
   return request.forget();
 }
 
-already_AddRefed<DOMRequest>
-MobileConnection::SetVoicePrivacyMode(bool aEnabled, ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> MobileConnection::SetVoicePrivacyMode(
+    bool aEnabled, ErrorResult& aRv) {
   if (!mMobileConnection) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -800,10 +726,10 @@ MobileConnection::SetVoicePrivacyMode(bool aEnabled, ErrorResult& aRv)
 
   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
   RefPtr<MobileConnectionCallback> requestCallback =
-    new MobileConnectionCallback(GetOwner(), request);
+      new MobileConnectionCallback(GetOwner(), request);
 
   nsresult rv =
-    mMobileConnection->SetVoicePrivacyMode(aEnabled, requestCallback);
+      mMobileConnection->SetVoicePrivacyMode(aEnabled, requestCallback);
   if (NS_FAILED(rv)) {
     aRv.Throw(rv);
     return nullptr;
@@ -812,9 +738,8 @@ MobileConnection::SetVoicePrivacyMode(bool aEnabled, ErrorResult& aRv)
   return request.forget();
 }
 
-already_AddRefed<DOMRequest>
-MobileConnection::GetVoicePrivacyMode(ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> MobileConnection::GetVoicePrivacyMode(
+    ErrorResult& aRv) {
   if (!mMobileConnection) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -822,7 +747,7 @@ MobileConnection::GetVoicePrivacyMode(ErrorResult& aRv)
 
   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
   RefPtr<MobileConnectionCallback> requestCallback =
-    new MobileConnectionCallback(GetOwner(), request);
+      new MobileConnectionCallback(GetOwner(), request);
 
   nsresult rv = mMobileConnection->GetVoicePrivacyMode(requestCallback);
   if (NS_FAILED(rv)) {
@@ -833,9 +758,8 @@ MobileConnection::GetVoicePrivacyMode(ErrorResult& aRv)
   return request.forget();
 }
 
-already_AddRefed<DOMRequest>
-MobileConnection::GetCallForwardingOption(uint16_t aReason, uint16_t aServiceClass, ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> MobileConnection::GetCallForwardingOption(
+    uint16_t aReason, uint16_t aServiceClass, ErrorResult& aRv) {
   if (!mMobileConnection) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -843,7 +767,8 @@ MobileConnection::GetCallForwardingOption(uint16_t aReason, uint16_t aServiceCla
 
   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
 
-  if (!IsValidCallForwardingReason(aReason) || !IsValidCallForwardingService(aServiceClass)) {
+  if (!IsValidCallForwardingReason(aReason) ||
+      !IsValidCallForwardingService(aServiceClass)) {
     nsresult rv = NotifyError(request, MOBILECONN_ERROR_INVALID_PARAMETER);
     if (NS_FAILED(rv)) {
       aRv.Throw(rv);
@@ -853,9 +778,10 @@ MobileConnection::GetCallForwardingOption(uint16_t aReason, uint16_t aServiceCla
   }
 
   RefPtr<MobileConnectionCallback> requestCallback =
-    new MobileConnectionCallback(GetOwner(), request);
+      new MobileConnectionCallback(GetOwner(), request);
 
-  nsresult rv = mMobileConnection->GetCallForwarding(aReason, aServiceClass, requestCallback);
+  nsresult rv = mMobileConnection->GetCallForwarding(aReason, aServiceClass,
+                                                     requestCallback);
   if (NS_FAILED(rv)) {
     aRv.Throw(rv);
     return nullptr;
@@ -864,10 +790,8 @@ MobileConnection::GetCallForwardingOption(uint16_t aReason, uint16_t aServiceCla
   return request.forget();
 }
 
-already_AddRefed<DOMRequest>
-MobileConnection::SetCallForwardingOption(const CallForwardingOptions& aOptions,
-                                          ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> MobileConnection::SetCallForwardingOption(
+    const CallForwardingOptions& aOptions, ErrorResult& aRv) {
   if (!mMobileConnection) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -901,14 +825,11 @@ MobileConnection::SetCallForwardingOption(const CallForwardingOptions& aOptions,
   }
 
   RefPtr<MobileConnectionCallback> requestCallback =
-    new MobileConnectionCallback(GetOwner(), request);
+      new MobileConnectionCallback(GetOwner(), request);
 
-  nsresult rv = mMobileConnection->SetCallForwarding(aOptions.mAction.Value(),
-                                                     aOptions.mReason.Value(),
-                                                     number,
-                                                     timeSeconds,
-                                                     serviceClass,
-                                                     requestCallback);
+  nsresult rv = mMobileConnection->SetCallForwarding(
+      aOptions.mAction.Value(), aOptions.mReason.Value(), number, timeSeconds,
+      serviceClass, requestCallback);
   if (NS_FAILED(rv)) {
     aRv.Throw(rv);
     return nullptr;
@@ -917,10 +838,8 @@ MobileConnection::SetCallForwardingOption(const CallForwardingOptions& aOptions,
   return request.forget();
 }
 
-already_AddRefed<DOMRequest>
-MobileConnection::GetCallBarringOption(const CallBarringOptions& aOptions,
-                                       ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> MobileConnection::GetCallBarringOption(
+    const CallBarringOptions& aOptions, ErrorResult& aRv) {
   if (!mMobileConnection) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -946,12 +865,11 @@ MobileConnection::GetCallBarringOption(const CallBarringOptions& aOptions,
   }
 
   RefPtr<MobileConnectionCallback> requestCallback =
-    new MobileConnectionCallback(GetOwner(), request);
+      new MobileConnectionCallback(GetOwner(), request);
 
-  nsresult rv = mMobileConnection->GetCallBarring(aOptions.mProgram.Value(),
-                                                  password,
-                                                  aOptions.mServiceClass.Value(),
-                                                  requestCallback);
+  nsresult rv = mMobileConnection->GetCallBarring(
+      aOptions.mProgram.Value(), password, aOptions.mServiceClass.Value(),
+      requestCallback);
   if (NS_FAILED(rv)) {
     aRv.Throw(rv);
     return nullptr;
@@ -960,10 +878,8 @@ MobileConnection::GetCallBarringOption(const CallBarringOptions& aOptions,
   return request.forget();
 }
 
-already_AddRefed<DOMRequest>
-MobileConnection::SetCallBarringOption(const CallBarringOptions& aOptions,
-                                       ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> MobileConnection::SetCallBarringOption(
+    const CallBarringOptions& aOptions, ErrorResult& aRv) {
   if (!mMobileConnection) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -981,13 +897,11 @@ MobileConnection::SetCallBarringOption(const CallBarringOptions& aOptions,
   }
 
   RefPtr<MobileConnectionCallback> requestCallback =
-    new MobileConnectionCallback(GetOwner(), request);
+      new MobileConnectionCallback(GetOwner(), request);
 
-  nsresult rv = mMobileConnection->SetCallBarring(aOptions.mProgram.Value(),
-                                                  aOptions.mEnabled.Value(),
-                                                  aOptions.mPassword,
-                                                  aOptions.mServiceClass.Value(),
-                                                  requestCallback);
+  nsresult rv = mMobileConnection->SetCallBarring(
+      aOptions.mProgram.Value(), aOptions.mEnabled.Value(), aOptions.mPassword,
+      aOptions.mServiceClass.Value(), requestCallback);
   if (NS_FAILED(rv)) {
     aRv.Throw(rv);
     return nullptr;
@@ -996,10 +910,8 @@ MobileConnection::SetCallBarringOption(const CallBarringOptions& aOptions,
   return request.forget();
 }
 
-already_AddRefed<DOMRequest>
-MobileConnection::ChangeCallBarringPassword(const CallBarringOptions& aOptions,
-                                            ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> MobileConnection::ChangeCallBarringPassword(
+    const CallBarringOptions& aOptions, ErrorResult& aRv) {
   if (!mMobileConnection) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -1019,12 +931,10 @@ MobileConnection::ChangeCallBarringPassword(const CallBarringOptions& aOptions,
   }
 
   RefPtr<MobileConnectionCallback> requestCallback =
-    new MobileConnectionCallback(GetOwner(), request);
+      new MobileConnectionCallback(GetOwner(), request);
 
-  nsresult rv =
-    mMobileConnection->ChangeCallBarringPassword(aOptions.mPin,
-                                                 aOptions.mNewPin,
-                                                 requestCallback);
+  nsresult rv = mMobileConnection->ChangeCallBarringPassword(
+      aOptions.mPin, aOptions.mNewPin, requestCallback);
   if (NS_FAILED(rv)) {
     aRv.Throw(rv);
     return nullptr;
@@ -1033,9 +943,8 @@ MobileConnection::ChangeCallBarringPassword(const CallBarringOptions& aOptions,
   return request.forget();
 }
 
-already_AddRefed<DOMRequest>
-MobileConnection::GetCallWaitingOption(ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> MobileConnection::GetCallWaitingOption(
+    ErrorResult& aRv) {
   if (!mMobileConnection) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -1043,7 +952,7 @@ MobileConnection::GetCallWaitingOption(ErrorResult& aRv)
 
   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
   RefPtr<MobileConnectionCallback> requestCallback =
-    new MobileConnectionCallback(GetOwner(), request);
+      new MobileConnectionCallback(GetOwner(), request);
 
   nsresult rv = mMobileConnection->GetCallWaiting(requestCallback);
   if (NS_FAILED(rv)) {
@@ -1054,9 +963,8 @@ MobileConnection::GetCallWaitingOption(ErrorResult& aRv)
   return request.forget();
 }
 
-already_AddRefed<DOMRequest>
-MobileConnection::SetCallWaitingOption(bool aEnabled, ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> MobileConnection::SetCallWaitingOption(
+    bool aEnabled, ErrorResult& aRv) {
   if (!mMobileConnection) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -1064,11 +972,10 @@ MobileConnection::SetCallWaitingOption(bool aEnabled, ErrorResult& aRv)
 
   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
   RefPtr<MobileConnectionCallback> requestCallback =
-    new MobileConnectionCallback(GetOwner(), request);
+      new MobileConnectionCallback(GetOwner(), request);
 
-  nsresult rv = mMobileConnection->SetCallWaiting(aEnabled,
-                                                  nsIMobileConnection::ICC_SERVICE_CLASS_VOICE,
-                                                  requestCallback);
+  nsresult rv = mMobileConnection->SetCallWaiting(
+      aEnabled, nsIMobileConnection::ICC_SERVICE_CLASS_VOICE, requestCallback);
   if (NS_FAILED(rv)) {
     aRv.Throw(rv);
     return nullptr;
@@ -1077,9 +984,8 @@ MobileConnection::SetCallWaitingOption(bool aEnabled, ErrorResult& aRv)
   return request.forget();
 }
 
-already_AddRefed<DOMRequest>
-MobileConnection::GetCallingLineIdRestriction(ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> MobileConnection::GetCallingLineIdRestriction(
+    ErrorResult& aRv) {
   if (!mMobileConnection) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -1087,10 +993,30 @@ MobileConnection::GetCallingLineIdRestriction(ErrorResult& aRv)
 
   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
   RefPtr<MobileConnectionCallback> requestCallback =
-    new MobileConnectionCallback(GetOwner(), request);
+      new MobileConnectionCallback(GetOwner(), request);
+
+  nsresult rv = mMobileConnection->GetCallingLineIdRestriction(requestCallback);
+  if (NS_FAILED(rv)) {
+    aRv.Throw(rv);
+    return nullptr;
+  }
+
+  return request.forget();
+}
+
+already_AddRefed<DOMRequest> MobileConnection::SetCallingLineIdRestriction(
+    uint16_t aMode, ErrorResult& aRv) {
+  if (!mMobileConnection) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
+  RefPtr<MobileConnectionCallback> requestCallback =
+      new MobileConnectionCallback(GetOwner(), request);
 
   nsresult rv =
-    mMobileConnection->GetCallingLineIdRestriction(requestCallback);
+      mMobileConnection->SetCallingLineIdRestriction(aMode, requestCallback);
   if (NS_FAILED(rv)) {
     aRv.Throw(rv);
     return nullptr;
@@ -1099,10 +1025,8 @@ MobileConnection::GetCallingLineIdRestriction(ErrorResult& aRv)
   return request.forget();
 }
 
-already_AddRefed<DOMRequest>
-MobileConnection::SetCallingLineIdRestriction(uint16_t aMode,
-                                              ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> MobileConnection::ExitEmergencyCbMode(
+    ErrorResult& aRv) {
   if (!mMobileConnection) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -1110,29 +1034,7 @@ MobileConnection::SetCallingLineIdRestriction(uint16_t aMode,
 
   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
   RefPtr<MobileConnectionCallback> requestCallback =
-    new MobileConnectionCallback(GetOwner(), request);
-
-  nsresult rv =
-    mMobileConnection->SetCallingLineIdRestriction(aMode, requestCallback);
-  if (NS_FAILED(rv)) {
-    aRv.Throw(rv);
-    return nullptr;
-  }
-
-  return request.forget();
-}
-
-already_AddRefed<DOMRequest>
-MobileConnection::ExitEmergencyCbMode(ErrorResult& aRv)
-{
-  if (!mMobileConnection) {
-    aRv.Throw(NS_ERROR_FAILURE);
-    return nullptr;
-  }
-
-  RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
-  RefPtr<MobileConnectionCallback> requestCallback =
-    new MobileConnectionCallback(GetOwner(), request);
+      new MobileConnectionCallback(GetOwner(), request);
 
   nsresult rv = mMobileConnection->ExitEmergencyCbMode(requestCallback);
   if (NS_FAILED(rv)) {
@@ -1143,9 +1045,8 @@ MobileConnection::ExitEmergencyCbMode(ErrorResult& aRv)
   return request.forget();
 }
 
-already_AddRefed<DOMRequest>
-MobileConnection::SetRadioEnabled(bool aEnabled, ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> MobileConnection::SetRadioEnabled(
+    bool aEnabled, ErrorResult& aRv) {
   if (!mMobileConnection) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -1153,7 +1054,7 @@ MobileConnection::SetRadioEnabled(bool aEnabled, ErrorResult& aRv)
 
   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
   RefPtr<MobileConnectionCallback> requestCallback =
-    new MobileConnectionCallback(GetOwner(), request);
+      new MobileConnectionCallback(GetOwner(), request);
 
   nsresult rv = mMobileConnection->SetRadioEnabled(aEnabled, requestCallback);
   if (NS_FAILED(rv)) {
@@ -1167,8 +1068,7 @@ MobileConnection::SetRadioEnabled(bool aEnabled, ErrorResult& aRv)
 // nsIMobileConnectionListener
 
 NS_IMETHODIMP
-MobileConnection::NotifyVoiceChanged()
-{
+MobileConnection::NotifyVoiceChanged() {
   if (!CheckPermission("mobileconnection")) {
     return NS_OK;
   }
@@ -1179,8 +1079,7 @@ MobileConnection::NotifyVoiceChanged()
 }
 
 NS_IMETHODIMP
-MobileConnection::NotifyDataChanged()
-{
+MobileConnection::NotifyDataChanged() {
   if (!CheckPermission("mobileconnection")) {
     return NS_OK;
   }
@@ -1191,8 +1090,7 @@ MobileConnection::NotifyDataChanged()
 }
 
 NS_IMETHODIMP
-MobileConnection::NotifyDataError(const nsAString& aMessage)
-{
+MobileConnection::NotifyDataError(const nsAString& aMessage) {
   if (!CheckPermission("mobileconnection")) {
     return NS_OK;
   }
@@ -1203,7 +1101,7 @@ MobileConnection::NotifyDataError(const nsAString& aMessage)
   init.mMessage = aMessage;
 
   RefPtr<DataErrorEvent> event =
-    DataErrorEvent::Constructor(this, NS_LITERAL_STRING("dataerror"), init);
+      DataErrorEvent::Constructor(this, NS_LITERAL_STRING("dataerror"), init);
 
   return DispatchTrustedEvent(event);
 }
@@ -1213,8 +1111,7 @@ MobileConnection::NotifyCFStateChanged(unsigned short aAction,
                                        unsigned short aReason,
                                        const nsAString& aNumber,
                                        unsigned short aSeconds,
-                                       unsigned short aServiceClass)
-{
+                                       unsigned short aServiceClass) {
   if (!CheckPermission("mobileconnection")) {
     return NS_OK;
   }
@@ -1228,16 +1125,15 @@ MobileConnection::NotifyCFStateChanged(unsigned short aAction,
   init.mTimeSeconds = aSeconds;
   init.mServiceClass = aServiceClass;
 
-  RefPtr<CFStateChangeEvent> event =
-    CFStateChangeEvent::Constructor(this, NS_LITERAL_STRING("cfstatechange"), init);
+  RefPtr<CFStateChangeEvent> event = CFStateChangeEvent::Constructor(
+      this, NS_LITERAL_STRING("cfstatechange"), init);
 
   return DispatchTrustedEvent(event);
 }
 
 NS_IMETHODIMP
 MobileConnection::NotifyEmergencyCbModeChanged(bool aActive,
-                                               uint32_t aTimeoutMs)
-{
+                                               uint32_t aTimeoutMs) {
   if (!CheckPermission("mobileconnection")) {
     return NS_OK;
   }
@@ -1248,15 +1144,14 @@ MobileConnection::NotifyEmergencyCbModeChanged(bool aActive,
   init.mActive = aActive;
   init.mTimeoutMs = aTimeoutMs;
 
-  RefPtr<EmergencyCbModeEvent> event =
-    EmergencyCbModeEvent::Constructor(this, NS_LITERAL_STRING("emergencycbmodechange"), init);
+  RefPtr<EmergencyCbModeEvent> event = EmergencyCbModeEvent::Constructor(
+      this, NS_LITERAL_STRING("emergencycbmodechange"), init);
 
   return DispatchTrustedEvent(event);
 }
 
 NS_IMETHODIMP
-MobileConnection::NotifyOtaStatusChanged(const nsAString& aStatus)
-{
+MobileConnection::NotifyOtaStatusChanged(const nsAString& aStatus) {
   if (!CheckPermission("mobileconnection")) {
     return NS_OK;
   }
@@ -1265,15 +1160,14 @@ MobileConnection::NotifyOtaStatusChanged(const nsAString& aStatus)
   init.mCancelable = false;
   init.mStatus = aStatus;
 
-  RefPtr<OtaStatusEvent> event =
-    OtaStatusEvent::Constructor(this, NS_LITERAL_STRING("otastatuschange"), init);
+  RefPtr<OtaStatusEvent> event = OtaStatusEvent::Constructor(
+      this, NS_LITERAL_STRING("otastatuschange"), init);
 
   return DispatchTrustedEvent(event);
 }
 
 NS_IMETHODIMP
-MobileConnection::NotifyRadioStateChanged()
-{
+MobileConnection::NotifyRadioStateChanged() {
   if (!CheckPermission("mobileconnection")) {
     return NS_OK;
   }
@@ -1282,8 +1176,7 @@ MobileConnection::NotifyRadioStateChanged()
 }
 
 NS_IMETHODIMP
-MobileConnection::NotifyClirModeChanged(uint32_t aMode)
-{
+MobileConnection::NotifyClirModeChanged(uint32_t aMode) {
   if (!CheckPermission("mobileconnection")) {
     return NS_OK;
   }
@@ -1293,27 +1186,20 @@ MobileConnection::NotifyClirModeChanged(uint32_t aMode)
   init.mCancelable = false;
   init.mMode = aMode;
 
-  RefPtr<ClirModeEvent> event =
-    ClirModeEvent::Constructor(this, NS_LITERAL_STRING("clirmodechange"), init);
+  RefPtr<ClirModeEvent> event = ClirModeEvent::Constructor(
+      this, NS_LITERAL_STRING("clirmodechange"), init);
 
   return DispatchTrustedEvent(event);
 }
 
 NS_IMETHODIMP
-MobileConnection::NotifyLastKnownNetworkChanged()
-{
-  return NS_OK;
-}
+MobileConnection::NotifyLastKnownNetworkChanged() { return NS_OK; }
 
 NS_IMETHODIMP
-MobileConnection::NotifyLastKnownHomeNetworkChanged()
-{
-  return NS_OK;
-}
+MobileConnection::NotifyLastKnownHomeNetworkChanged() { return NS_OK; }
 
 NS_IMETHODIMP
-MobileConnection::NotifyNetworkSelectionModeChanged()
-{
+MobileConnection::NotifyNetworkSelectionModeChanged() {
   if (!CheckPermission("mobileconnection")) {
     return NS_OK;
   }
@@ -1322,15 +1208,13 @@ MobileConnection::NotifyNetworkSelectionModeChanged()
 }
 
 NS_IMETHODIMP
-MobileConnection::NotifyDeviceIdentitiesChanged()
-{
+MobileConnection::NotifyDeviceIdentitiesChanged() {
   // To be supported when bug 1222870 is required in m-c.
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileConnection::NotifySignalStrengthChanged()
-{
+MobileConnection::NotifySignalStrengthChanged() {
   if (!CheckPermission("mobileconnection")) {
     return NS_OK;
   }
@@ -1339,8 +1223,7 @@ MobileConnection::NotifySignalStrengthChanged()
 }
 
 NS_IMETHODIMP
-MobileConnection::NotifyModemRestart(const nsAString& aReason)
-{
+MobileConnection::NotifyModemRestart(const nsAString& aReason) {
   if (!CheckPermission("mobileconnection")) {
     return NS_OK;
   }
@@ -1348,8 +1231,8 @@ MobileConnection::NotifyModemRestart(const nsAString& aReason)
   ModemRestartEventInit init;
   init.mReason = aReason;
 
-  RefPtr<ModemRestartEvent> event =
-    ModemRestartEvent::Constructor(this, NS_LITERAL_STRING("modemrestart"), init);
+  RefPtr<ModemRestartEvent> event = ModemRestartEvent::Constructor(
+      this, NS_LITERAL_STRING("modemrestart"), init);
 
   return DispatchTrustedEvent(event);
 }
@@ -1357,26 +1240,18 @@ MobileConnection::NotifyModemRestart(const nsAString& aReason)
 // nsIIccListener
 
 NS_IMETHODIMP
-MobileConnection::NotifyStkCommand(nsIStkProactiveCmd *aStkProactiveCmd)
-{
+MobileConnection::NotifyStkCommand(nsIStkProactiveCmd* aStkProactiveCmd) {
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileConnection::NotifyStkSessionEnd()
-{
-  return NS_OK;
-}
+MobileConnection::NotifyStkSessionEnd() { return NS_OK; }
 
 NS_IMETHODIMP
-MobileConnection::NotifyCardStateChanged()
-{
-  return NS_OK;
-}
+MobileConnection::NotifyCardStateChanged() { return NS_OK; }
 
 NS_IMETHODIMP
-MobileConnection::NotifyIccInfoChanged()
-{
+MobileConnection::NotifyIccInfoChanged() {
   if (!CheckPermission("mobileconnection")) {
     return NS_OK;
   }
@@ -1385,14 +1260,11 @@ MobileConnection::NotifyIccInfoChanged()
     return NS_OK;
   }
 
-  RefPtr<AsyncEventDispatcher> asyncDispatcher =
-    new AsyncEventDispatcher(this, NS_LITERAL_STRING("iccchange"), CanBubble::eNo);
+  RefPtr<AsyncEventDispatcher> asyncDispatcher = new AsyncEventDispatcher(
+      this, NS_LITERAL_STRING("iccchange"), CanBubble::eNo);
 
   return asyncDispatcher->PostDOMEvent();
 }
 
 NS_IMETHODIMP
-MobileConnection::NotifyIsimInfoChanged()
-{
-  return NS_OK;
-}
+MobileConnection::NotifyIsimInfoChanged() { return NS_OK; }

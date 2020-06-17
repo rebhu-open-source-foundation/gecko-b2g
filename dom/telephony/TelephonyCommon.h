@@ -17,11 +17,14 @@
 #include "nsTArray.h"
 
 #define BEGIN_TELEPHONY_NAMESPACE \
-  namespace mozilla { namespace dom { namespace telephony {
+  namespace mozilla {             \
+  namespace dom {                 \
+  namespace telephony {
 #define END_TELEPHONY_NAMESPACE \
-  } /* namespace telephony */ } /* namespace dom */ } /* namespace mozilla */
-#define USING_TELEPHONY_NAMESPACE \
-  using namespace mozilla::dom::telephony;
+  } /* namespace telephony */   \
+  } /* namespace dom */         \
+  } /* namespace mozilla */
+#define USING_TELEPHONY_NAMESPACE using namespace mozilla::dom::telephony;
 
 //#ifndef MOZ_WIDGET_GONK
 #define USING_VIDEOCALLPROVIDER_NAMESPACE
@@ -38,7 +41,7 @@ class Telephony;
 class TelephonyCall;
 class TelephonyCallGroup;
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_telephony_telephonycommon_h__
+#endif  // mozilla_dom_telephony_telephonycommon_h__

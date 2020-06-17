@@ -1729,7 +1729,8 @@ nsresult FetchEventOp::DispatchFetchEvent(JSContext* aCx,
       op = MakeRefPtr<FetchEventOp>(std::move(aArgs), std::move(aCallback));
       break;
     case ServiceWorkerOpArgs::TServiceWorkerSystemMessageEventOpArgs:
-      op = MakeRefPtr<SystemMessageEventOp>(std::move(aArgs), std::move(aCallback));
+      op = MakeRefPtr<SystemMessageEventOp>(std::move(aArgs),
+                                            std::move(aCallback));
       break;
     default:
       MOZ_CRASH("Unknown Service Worker operation!");

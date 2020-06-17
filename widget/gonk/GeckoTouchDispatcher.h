@@ -33,19 +33,18 @@ class CompositorVsyncScheduler;
 
 // Used to resample touch events whenever a vsync event occurs. It batches
 // touch moves and on every vsync, resamples the touch position to create smooth
-// scrolls. We use the Android touch resample algorithm. It uses a combination of
-// extrapolation and interpolation. The algorithm takes the vsync time and
-// subtracts mVsyncAdjust time in ms and creates a sample time. All touch events are
-// relative to this sample time. If the last touch event occurs AFTER this
-// sample time, interpolate the last two touch events. If the last touch event occurs BEFORE
-// this sample time, we extrapolate the last two touch events to the sample
-// time. The magic numbers defined as constants are taken from android
-// InputTransport.cpp.
-class GeckoTouchDispatcher final
-{
+// scrolls. We use the Android touch resample algorithm. It uses a combination
+// of extrapolation and interpolation. The algorithm takes the vsync time and
+// subtracts mVsyncAdjust time in ms and creates a sample time. All touch events
+// are relative to this sample time. If the last touch event occurs AFTER this
+// sample time, interpolate the last two touch events. If the last touch event
+// occurs BEFORE this sample time, we extrapolate the last two touch events to
+// the sample time. The magic numbers defined as constants are taken from
+// android InputTransport.cpp.
+class GeckoTouchDispatcher final {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(GeckoTouchDispatcher)
 
-public:
+ public:
   static GeckoTouchDispatcher* GetInstance();
   void NotifyTouch(MultiTouchInput& aTouch, TimeStamp aEventTime);
   void DispatchTouchEvent(MultiTouchInput aMultiTouch);
@@ -55,10 +54,10 @@ public:
   void SetCompositorVsyncScheduler(layers::CompositorVsyncScheduler* aObserver);
   void SetMouseDevice(bool aMouseAvailable);
 
-protected:
+ protected:
   ~GeckoTouchDispatcher() {}
 
-private:
+ private:
   GeckoTouchDispatcher();
   void ResampleTouchMoves(MultiTouchInput& aOutTouch, TimeStamp vsyncTime);
   void SendTouchEvent(MultiTouchInput& aData);
@@ -78,9 +77,11 @@ private:
   bool mEnabledUniformityInfo;
 
   // All times below are in nanoseconds
-  TimeDuration mVsyncAdjust;     // Time from vsync we create sample times from
-  TimeDuration mMaxPredict;      // How far into the future we're allowed to extrapolate
-  TimeDuration mMinDelta;        // Minimal time difference between touches for resampling
+  TimeDuration mVsyncAdjust;  // Time from vsync we create sample times from
+  TimeDuration
+      mMaxPredict;  // How far into the future we're allowed to extrapolate
+  TimeDuration
+      mMinDelta;  // Minimal time difference between touches for resampling
 
   // While mouse was plugged, mMouseAvailable is set as true.
   // And send mouse operation by mousetouch event.
@@ -99,6 +100,6 @@ private:
   RefPtr<layers::CompositorVsyncScheduler> mCompositorVsyncScheduler;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // GECKO_TOUCH_INPUT_DISPATCHER_h
+#endif  // GECKO_TOUCH_INPUT_DISPATCHER_h

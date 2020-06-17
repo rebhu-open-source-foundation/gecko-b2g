@@ -47,13 +47,9 @@ namespace hal_impl {
 
 static void ShutdownUevent();
 
-class NetlinkPoller : public MessageLoopForIO::Watcher
-{
-public:
-  NetlinkPoller() : mSocket(-1),
-                    mIOLoop(MessageLoopForIO::current())
-  {
-  }
+class NetlinkPoller : public MessageLoopForIO::Watcher {
+ public:
+  NetlinkPoller() : mSocket(-1), mIOLoop(MessageLoopForIO::current()) {}
 
   virtual ~NetlinkPoller() {}
 
@@ -62,40 +58,35 @@ public:
   virtual void OnFileCanReadWithoutBlocking(int fd);
 
   // no writing to the netlink socket
-  virtual void OnFileCanWriteWithoutBlocking(int fd)
-  {
+  virtual void OnFileCanWriteWithoutBlocking(int fd) {
     MOZ_CRASH("Must not write to netlink socket");
   }
 
-  MessageLoopForIO *GetIOLoop () const { return mIOLoop; }
-  void RegisterObserver(IUeventObserver *aObserver)
-  {
+  MessageLoopForIO* GetIOLoop() const { return mIOLoop; }
+  void RegisterObserver(IUeventObserver* aObserver) {
     mUeventObserverList.AddObserver(aObserver);
   }
 
-  void UnregisterObserver(IUeventObserver *aObserver)
-  {
+  void UnregisterObserver(IUeventObserver* aObserver) {
     mUeventObserverList.RemoveObserver(aObserver);
     if (mUeventObserverList.Length() == 0) {
       ShutdownUevent();  // this will destroy self
     }
   }
 
-private:
+ private:
   ScopedClose mSocket;
   MessageLoopForIO* mIOLoop;
   MessageLoopForIO::FileDescriptorWatcher mReadWatcher;
 
   const static int kBuffsize = 64 * 1024;
-  uint8_t mBuffer [kBuffsize];
+  uint8_t mBuffer[kBuffsize];
 
   typedef ObserverList<NetlinkEvent> UeventObserverList;
   UeventObserverList mUeventObserverList;
 };
 
-bool
-NetlinkPoller::OpenSocket()
-{
+bool NetlinkPoller::OpenSocket() {
   mSocket.rwget() = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_KOBJECT_UEVENT);
   if (mSocket.get() < 0) {
     return false;
@@ -103,15 +94,15 @@ NetlinkPoller::OpenSocket()
 
   int sz = kBuffsize;
 
-  if (setsockopt(mSocket.get(), SOL_SOCKET, SO_RCVBUFFORCE, &sz,
-                 sizeof(sz)) < 0) {
+  if (setsockopt(mSocket.get(), SOL_SOCKET, SO_RCVBUFFORCE, &sz, sizeof(sz)) <
+      0) {
     return false;
   }
 
   // add FD_CLOEXEC flag
   int flags = fcntl(mSocket.get(), F_GETFD);
   if (flags == -1) {
-      return false;
+    return false;
   }
   flags |= FD_CLOEXEC;
   if (fcntl(mSocket.get(), F_SETFD, flags) == -1) {
@@ -130,7 +121,7 @@ NetlinkPoller::OpenSocket()
   saddr.nl_pid = gettid();
 
   do {
-    if (bind(mSocket.get(), (struct sockaddr *)&saddr, sizeof(saddr)) == 0) {
+    if (bind(mSocket.get(), (struct sockaddr*)&saddr, sizeof(saddr)) == 0) {
       break;
     }
 
@@ -142,19 +133,19 @@ NetlinkPoller::OpenSocket()
       return false;
     }
 
-    // Once there was any other place in the same process assigning saddr.nl_pid by
-    // gettid(), we can detect it and print warning message.
-    HAL_LOG("The netlink socket address saddr.nl_pid=%u is in use. "
-            "Let the kernel re-assign.\n", saddr.nl_pid);
+    // Once there was any other place in the same process assigning saddr.nl_pid
+    // by gettid(), we can detect it and print warning message.
+    HAL_LOG(
+        "The netlink socket address saddr.nl_pid=%u is in use. "
+        "Let the kernel re-assign.\n",
+        saddr.nl_pid);
     saddr.nl_pid = 0;
   } while (true);
 
-  if (!mIOLoop->WatchFileDescriptor(mSocket.get(),
-                                    true,
-                                    MessageLoopForIO::WATCH_READ,
-                                    &mReadWatcher,
+  if (!mIOLoop->WatchFileDescriptor(mSocket.get(), true,
+                                    MessageLoopForIO::WATCH_READ, &mReadWatcher,
                                     this)) {
-      return false;
+    return false;
   }
 
   return true;
@@ -162,15 +153,13 @@ NetlinkPoller::OpenSocket()
 
 static StaticAutoPtr<NetlinkPoller> sPoller;
 
-class UeventInitTask : public Runnable
-{
-public:
+class UeventInitTask : public Runnable {
+ public:
   explicit UeventInitTask() : Runnable("UeventInitTask") {}
   ~UeventInitTask() {}
 
-private:
-  NS_IMETHOD Run() override
-  {
+ private:
+  NS_IMETHOD Run() override {
     if (!sPoller) {
       return NS_OK;
     }
@@ -183,9 +172,7 @@ private:
   }
 };
 
-void
-NetlinkPoller::OnFileCanReadWithoutBlocking(int fd)
-{
+void NetlinkPoller::OnFileCanReadWithoutBlocking(int fd) {
   MOZ_ASSERT(fd == mSocket.get());
   while (true) {
     int ret = read(fd, mBuffer, kBuffsize);
@@ -214,9 +201,8 @@ static StaticAutoPtr<ShutdownNetlinkPoller> sShutdownPoller;
 static Monitor* sMonitor = nullptr;
 
 class ShutdownNetlinkPoller {
-public:
-  ~ShutdownNetlinkPoller()
-  {
+ public:
+  ~ShutdownNetlinkPoller() {
     // This is called from KillClearOnShutdown() on the main thread.
     MOZ_ASSERT(NS_IsMainThread());
     MOZ_ASSERT(XRE_GetIOMessageLoop());
@@ -224,8 +210,8 @@ public:
     {
       MonitorAutoLock lock(*sMonitor);
 
-      XRE_GetIOMessageLoop()->PostTask(
-          NewRunnableFunction("hal:ShutdownUeventIOThread", ShutdownUeventIOThread));
+      XRE_GetIOMessageLoop()->PostTask(NewRunnableFunction(
+          "hal:ShutdownUeventIOThread", ShutdownUeventIOThread));
 
       while (!sShutdown) {
         lock.Wait();
@@ -236,8 +222,7 @@ public:
     delete sMonitor;
   }
 
-  static void MaybeInit()
-  {
+  static void MaybeInit() {
     MOZ_ASSERT(MessageLoop::current() == XRE_GetIOMessageLoop());
     if (sShutdown || sMonitor) {
       // Don't init twice or init after shutdown.
@@ -248,30 +233,28 @@ public:
     {
       ShutdownNetlinkPoller* shutdownPoller = new ShutdownNetlinkPoller();
 
-      nsCOMPtr<nsIRunnable> runnable = NS_NewRunnableFunction("hal:ShutdownNetlinkPoller", [=] () -> void
-      {
-        sShutdownPoller = shutdownPoller;
-        ClearOnShutdown(&sShutdownPoller); // Must run on the main thread.
-      });
+      nsCOMPtr<nsIRunnable> runnable =
+          NS_NewRunnableFunction("hal:ShutdownNetlinkPoller", [=]() -> void {
+            sShutdownPoller = shutdownPoller;
+            ClearOnShutdown(&sShutdownPoller);  // Must run on the main thread.
+          });
       MOZ_ASSERT(runnable);
       MOZ_ALWAYS_SUCCEEDS(
-        NS_DispatchToMainThread(runnable, NS_DISPATCH_NORMAL));
+          NS_DispatchToMainThread(runnable, NS_DISPATCH_NORMAL));
     }
   }
-private:
+
+ private:
   ShutdownNetlinkPoller() = default;
-  static void ShutdownUeventIOThread()
-  {
+  static void ShutdownUeventIOThread() {
     MonitorAutoLock l(*sMonitor);
-    ShutdownUevent(); // Must run on the IO thread.
+    ShutdownUevent();  // Must run on the IO thread.
     sShutdown = true;
     l.NotifyAll();
   }
 };
 
-static void
-InitializeUevent()
-{
+static void InitializeUevent() {
   MOZ_ASSERT(!sPoller);
   sPoller = new NetlinkPoller();
   sPoller->GetIOLoop()->PostTask(MakeAndAddRef<UeventInitTask>());
@@ -279,15 +262,9 @@ InitializeUevent()
   ShutdownNetlinkPoller::MaybeInit();
 }
 
-static void
-ShutdownUevent()
-{
-  sPoller = nullptr;
-}
+static void ShutdownUevent() { sPoller = nullptr; }
 
-void
-RegisterUeventListener(IUeventObserver *aObserver)
-{
+void RegisterUeventListener(IUeventObserver* aObserver) {
   MOZ_ASSERT(MessageLoop::current() == XRE_GetIOMessageLoop());
 
   if (sShutdown) {
@@ -300,9 +277,7 @@ RegisterUeventListener(IUeventObserver *aObserver)
   sPoller->RegisterObserver(aObserver);
 }
 
-void
-UnregisterUeventListener(IUeventObserver *aObserver)
-{
+void UnregisterUeventListener(IUeventObserver* aObserver) {
   MOZ_ASSERT(MessageLoop::current() == XRE_GetIOMessageLoop());
 
   if (sShutdown) {
@@ -312,6 +287,5 @@ UnregisterUeventListener(IUeventObserver *aObserver)
   sPoller->UnregisterObserver(aObserver);
 }
 
-} // hal_impl
-} // mozilla
-
+}  // namespace hal_impl
+}  // namespace mozilla

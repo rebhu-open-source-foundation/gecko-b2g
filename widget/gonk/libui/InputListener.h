@@ -25,175 +25,172 @@ namespace android {
 
 class InputListenerInterface;
 
-
 /* Superclass of all input event argument objects */
 struct NotifyArgs {
-    virtual ~NotifyArgs() { }
+  virtual ~NotifyArgs() {}
 
-    virtual void notify(const sp<InputListenerInterface>& listener) const = 0;
+  virtual void notify(const sp<InputListenerInterface>& listener) const = 0;
 };
-
 
 /* Describes a configuration change event. */
 struct NotifyConfigurationChangedArgs : public NotifyArgs {
-    nsecs_t eventTime;
+  nsecs_t eventTime;
 
-    inline NotifyConfigurationChangedArgs() { }
+  inline NotifyConfigurationChangedArgs() {}
 
-    NotifyConfigurationChangedArgs(nsecs_t eventTime);
+  NotifyConfigurationChangedArgs(nsecs_t eventTime);
 
-    NotifyConfigurationChangedArgs(const NotifyConfigurationChangedArgs& other);
+  NotifyConfigurationChangedArgs(const NotifyConfigurationChangedArgs& other);
 
-    virtual ~NotifyConfigurationChangedArgs() { }
+  virtual ~NotifyConfigurationChangedArgs() {}
 
-    virtual void notify(const sp<InputListenerInterface>& listener) const;
+  virtual void notify(const sp<InputListenerInterface>& listener) const;
 };
-
 
 /* Describes a key event. */
 struct NotifyKeyArgs : public NotifyArgs {
-    nsecs_t eventTime;
-    int32_t deviceId;
-    uint32_t source;
-    uint32_t policyFlags;
-    int32_t action;
-    int32_t flags;
-    int32_t keyCode;
-    int32_t scanCode;
-    int32_t metaState;
-    nsecs_t downTime;
+  nsecs_t eventTime;
+  int32_t deviceId;
+  uint32_t source;
+  uint32_t policyFlags;
+  int32_t action;
+  int32_t flags;
+  int32_t keyCode;
+  int32_t scanCode;
+  int32_t metaState;
+  nsecs_t downTime;
 
-    inline NotifyKeyArgs() { }
+  inline NotifyKeyArgs() {}
 
-    NotifyKeyArgs(nsecs_t eventTime, int32_t deviceId, uint32_t source, uint32_t policyFlags,
-            int32_t action, int32_t flags, int32_t keyCode, int32_t scanCode,
-            int32_t metaState, nsecs_t downTime);
+  NotifyKeyArgs(nsecs_t eventTime, int32_t deviceId, uint32_t source,
+                uint32_t policyFlags, int32_t action, int32_t flags,
+                int32_t keyCode, int32_t scanCode, int32_t metaState,
+                nsecs_t downTime);
 
-    NotifyKeyArgs(const NotifyKeyArgs& other);
+  NotifyKeyArgs(const NotifyKeyArgs& other);
 
-    virtual ~NotifyKeyArgs() { }
+  virtual ~NotifyKeyArgs() {}
 
-    virtual void notify(const sp<InputListenerInterface>& listener) const;
+  virtual void notify(const sp<InputListenerInterface>& listener) const;
 };
-
 
 /* Describes a motion event. */
 struct NotifyMotionArgs : public NotifyArgs {
-    nsecs_t eventTime;
-    int32_t deviceId;
-    uint32_t source;
-    uint32_t policyFlags;
-    int32_t action;
-    int32_t flags;
-    int32_t metaState;
-    int32_t buttonState;
-    int32_t edgeFlags;
-    int32_t displayId;
-    uint32_t pointerCount;
-    PointerProperties pointerProperties[MAX_POINTERS];
-    PointerCoords pointerCoords[MAX_POINTERS];
-    float xPrecision;
-    float yPrecision;
-    nsecs_t downTime;
+  nsecs_t eventTime;
+  int32_t deviceId;
+  uint32_t source;
+  uint32_t policyFlags;
+  int32_t action;
+  int32_t flags;
+  int32_t metaState;
+  int32_t buttonState;
+  int32_t edgeFlags;
+  int32_t displayId;
+  uint32_t pointerCount;
+  PointerProperties pointerProperties[MAX_POINTERS];
+  PointerCoords pointerCoords[MAX_POINTERS];
+  float xPrecision;
+  float yPrecision;
+  nsecs_t downTime;
 
-    inline NotifyMotionArgs() { }
+  inline NotifyMotionArgs() {}
 
-    NotifyMotionArgs(nsecs_t eventTime, int32_t deviceId, uint32_t source, uint32_t policyFlags,
-            int32_t action, int32_t flags, int32_t metaState, int32_t buttonState,
-            int32_t edgeFlags, int32_t displayId, uint32_t pointerCount,
-            const PointerProperties* pointerProperties, const PointerCoords* pointerCoords,
-            float xPrecision, float yPrecision, nsecs_t downTime);
+  NotifyMotionArgs(nsecs_t eventTime, int32_t deviceId, uint32_t source,
+                   uint32_t policyFlags, int32_t action, int32_t flags,
+                   int32_t metaState, int32_t buttonState, int32_t edgeFlags,
+                   int32_t displayId, uint32_t pointerCount,
+                   const PointerProperties* pointerProperties,
+                   const PointerCoords* pointerCoords, float xPrecision,
+                   float yPrecision, nsecs_t downTime);
 
-    NotifyMotionArgs(const NotifyMotionArgs& other);
+  NotifyMotionArgs(const NotifyMotionArgs& other);
 
-    virtual ~NotifyMotionArgs() { }
+  virtual ~NotifyMotionArgs() {}
 
-    virtual void notify(const sp<InputListenerInterface>& listener) const;
+  virtual void notify(const sp<InputListenerInterface>& listener) const;
 };
-
 
 /* Describes a switch event. */
 struct NotifySwitchArgs : public NotifyArgs {
-    nsecs_t eventTime;
-    uint32_t policyFlags;
-    uint32_t switchValues;
-    uint32_t switchMask;
+  nsecs_t eventTime;
+  uint32_t policyFlags;
+  uint32_t switchValues;
+  uint32_t switchMask;
 
-    inline NotifySwitchArgs() { }
+  inline NotifySwitchArgs() {}
 
-    NotifySwitchArgs(nsecs_t eventTime, uint32_t policyFlags,
-            uint32_t switchValues, uint32_t switchMask);
+  NotifySwitchArgs(nsecs_t eventTime, uint32_t policyFlags,
+                   uint32_t switchValues, uint32_t switchMask);
 
-    NotifySwitchArgs(const NotifySwitchArgs& other);
+  NotifySwitchArgs(const NotifySwitchArgs& other);
 
-    virtual ~NotifySwitchArgs() { }
+  virtual ~NotifySwitchArgs() {}
 
-    virtual void notify(const sp<InputListenerInterface>& listener) const;
+  virtual void notify(const sp<InputListenerInterface>& listener) const;
 };
-
 
 /* Describes a device reset event, such as when a device is added,
  * reconfigured, or removed. */
 struct NotifyDeviceResetArgs : public NotifyArgs {
-    nsecs_t eventTime;
-    int32_t deviceId;
+  nsecs_t eventTime;
+  int32_t deviceId;
 
-    inline NotifyDeviceResetArgs() { }
+  inline NotifyDeviceResetArgs() {}
 
-    NotifyDeviceResetArgs(nsecs_t eventTime, int32_t deviceId);
+  NotifyDeviceResetArgs(nsecs_t eventTime, int32_t deviceId);
 
-    NotifyDeviceResetArgs(const NotifyDeviceResetArgs& other);
+  NotifyDeviceResetArgs(const NotifyDeviceResetArgs& other);
 
-    virtual ~NotifyDeviceResetArgs() { }
+  virtual ~NotifyDeviceResetArgs() {}
 
-    virtual void notify(const sp<InputListenerInterface>& listener) const;
+  virtual void notify(const sp<InputListenerInterface>& listener) const;
 };
 
-
 /*
- * The interface used by the InputReader to notify the InputListener about input events.
+ * The interface used by the InputReader to notify the InputListener about input
+ * events.
  */
 class InputListenerInterface : public virtual RefBase {
-protected:
-    InputListenerInterface() { }
-    virtual ~InputListenerInterface() { }
+ protected:
+  InputListenerInterface() {}
+  virtual ~InputListenerInterface() {}
 
-public:
-    virtual void notifyConfigurationChanged(const NotifyConfigurationChangedArgs* args) = 0;
-    virtual void notifyKey(const NotifyKeyArgs* args) = 0;
-    virtual void notifyMotion(const NotifyMotionArgs* args) = 0;
-    virtual void notifySwitch(const NotifySwitchArgs* args) = 0;
-    virtual void notifyDeviceReset(const NotifyDeviceResetArgs* args) = 0;
-    virtual void SetMouseDevice(bool aMouse) = 0;
-
+ public:
+  virtual void notifyConfigurationChanged(
+      const NotifyConfigurationChangedArgs* args) = 0;
+  virtual void notifyKey(const NotifyKeyArgs* args) = 0;
+  virtual void notifyMotion(const NotifyMotionArgs* args) = 0;
+  virtual void notifySwitch(const NotifySwitchArgs* args) = 0;
+  virtual void notifyDeviceReset(const NotifyDeviceResetArgs* args) = 0;
+  virtual void SetMouseDevice(bool aMouse) = 0;
 };
-
 
 /*
- * An implementation of the listener interface that queues up and defers dispatch
- * of decoded events until flushed.
+ * An implementation of the listener interface that queues up and defers
+ * dispatch of decoded events until flushed.
  */
 class QueuedInputListener : public InputListenerInterface {
-protected:
-    virtual ~QueuedInputListener();
+ protected:
+  virtual ~QueuedInputListener();
 
-public:
-    QueuedInputListener(const sp<InputListenerInterface>& innerListener);
+ public:
+  QueuedInputListener(const sp<InputListenerInterface>& innerListener);
 
-    virtual void notifyConfigurationChanged(const NotifyConfigurationChangedArgs* args);
-    virtual void notifyKey(const NotifyKeyArgs* args);
-    virtual void notifyMotion(const NotifyMotionArgs* args);
-    virtual void notifySwitch(const NotifySwitchArgs* args);
-    virtual void notifyDeviceReset(const NotifyDeviceResetArgs* args);
-    virtual void SetMouseDevice(bool aMouse);
+  virtual void notifyConfigurationChanged(
+      const NotifyConfigurationChangedArgs* args);
+  virtual void notifyKey(const NotifyKeyArgs* args);
+  virtual void notifyMotion(const NotifyMotionArgs* args);
+  virtual void notifySwitch(const NotifySwitchArgs* args);
+  virtual void notifyDeviceReset(const NotifyDeviceResetArgs* args);
+  virtual void SetMouseDevice(bool aMouse);
 
-    void flush();
+  void flush();
 
-private:
-    sp<InputListenerInterface> mInnerListener;
-    Vector<NotifyArgs*> mArgsQueue;
+ private:
+  sp<InputListenerInterface> mInnerListener;
+  Vector<NotifyArgs*> mArgsQueue;
 };
 
-} // namespace android
+}  // namespace android
 
-#endif // _UI_INPUT_LISTENER_H
+#endif  // _UI_INPUT_LISTENER_H

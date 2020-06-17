@@ -15,9 +15,9 @@
 // Service instantiation
 #include "ipc/IccIPCService.h"
 #if defined(MOZ_WIDGET_GONK) && defined(MOZ_B2G_RIL)
-#include "nsIGonkIccService.h"
+#  include "nsIGonkIccService.h"
 #endif
-#include "nsXULAppAPI.h" // For XRE_GetProcessType()
+#include "nsXULAppAPI.h"  // For XRE_GetProcessType()
 
 using namespace mozilla::dom;
 
@@ -39,10 +39,9 @@ NS_IMPL_ADDREF_INHERITED(IccManager, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(IccManager, DOMEventTargetHelper)
 
 IccManager::IccManager(nsIGlobalObject* aGlobal)
-  : DOMEventTargetHelper(aGlobal)
-{
+    : DOMEventTargetHelper(aGlobal) {
   uint32_t numberOfServices =
-    mozilla::Preferences::GetUint("ril.numRadioInterfaces", 1);
+      mozilla::Preferences::GetUint("ril.numRadioInterfaces", 1);
 
   for (uint32_t i = 0; i < numberOfServices; i++) {
     RefPtr<IccListener> iccListener = new IccListener(this, i);
@@ -50,20 +49,14 @@ IccManager::IccManager(nsIGlobalObject* aGlobal)
   }
 }
 
-IccManager::~IccManager()
-{
-  Shutdown();
-}
+IccManager::~IccManager() { Shutdown(); }
 
-JSObject*
-IccManager::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* IccManager::WrapObject(JSContext* aCx,
+                                 JS::Handle<JSObject*> aGivenProto) {
   return IccManager_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-void
-IccManager::Shutdown()
-{
+void IccManager::Shutdown() {
   for (uint32_t i = 0; i < mIccListeners.Length(); i++) {
     mIccListeners[i]->Shutdown();
     mIccListeners[i] = nullptr;
@@ -71,9 +64,7 @@ IccManager::Shutdown()
   mIccListeners.Clear();
 }
 
-nsresult
-IccManager::NotifyIccAdd(const nsAString& aIccId)
-{
+nsresult IccManager::NotifyIccAdd(const nsAString& aIccId) {
   IccManager_Binding::ClearCachedIccIdsValue(this);
 
   IccChangeEventInit init;
@@ -82,18 +73,16 @@ IccManager::NotifyIccAdd(const nsAString& aIccId)
   init.mIccId = aIccId;
 
   RefPtr<IccChangeEvent> event =
-    IccChangeEvent::Constructor(this, NS_LITERAL_STRING("iccdetected"), init);
+      IccChangeEvent::Constructor(this, NS_LITERAL_STRING("iccdetected"), init);
   event->SetTrusted(true);
 
   RefPtr<AsyncEventDispatcher> asyncDispatcher =
-    new AsyncEventDispatcher(this, event);
+      new AsyncEventDispatcher(this, event);
 
   return asyncDispatcher->PostDOMEvent();
 }
 
-nsresult
-IccManager::NotifyIccRemove(const nsAString& aIccId)
-{
+nsresult IccManager::NotifyIccRemove(const nsAString& aIccId) {
   IccManager_Binding::ClearCachedIccIdsValue(this);
 
   IccChangeEventInit init;
@@ -101,21 +90,19 @@ IccManager::NotifyIccRemove(const nsAString& aIccId)
   init.mCancelable = false;
   init.mIccId = aIccId;
 
-  RefPtr<IccChangeEvent> event =
-    IccChangeEvent::Constructor(this, NS_LITERAL_STRING("iccundetected"), init);
+  RefPtr<IccChangeEvent> event = IccChangeEvent::Constructor(
+      this, NS_LITERAL_STRING("iccundetected"), init);
   event->SetTrusted(true);
 
   RefPtr<AsyncEventDispatcher> asyncDispatcher =
-    new AsyncEventDispatcher(this, event);
+      new AsyncEventDispatcher(this, event);
 
   return asyncDispatcher->PostDOMEvent();
 }
 
 // IccManager
 
-void
-IccManager::GetIccIds(nsTArray<nsString>& aIccIds)
-{
+void IccManager::GetIccIds(nsTArray<nsString>& aIccIds) {
   nsTArray<RefPtr<IccListener>>::size_type i;
   for (i = 0; i < mIccListeners.Length(); ++i) {
     Icc* icc = mIccListeners[i]->GetIcc();
@@ -125,9 +112,7 @@ IccManager::GetIccIds(nsTArray<nsString>& aIccIds)
   }
 }
 
-Icc*
-IccManager::GetIccById(const nsAString& aIccId) const
-{
+Icc* IccManager::GetIccById(const nsAString& aIccId) const {
   nsTArray<RefPtr<IccListener>>::size_type i;
   for (i = 0; i < mIccListeners.Length(); ++i) {
     Icc* icc = mIccListeners[i]->GetIcc();
@@ -138,9 +123,7 @@ IccManager::GetIccById(const nsAString& aIccId) const
   return nullptr;
 }
 
-already_AddRefed<nsIIccService>
-NS_CreateIccService()
-{
+already_AddRefed<nsIIccService> NS_CreateIccService() {
   nsCOMPtr<nsIIccService> service;
 
   if (XRE_IsContentProcess()) {

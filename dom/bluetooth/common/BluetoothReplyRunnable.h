@@ -78,7 +78,8 @@ class BluetoothReplyRunnable : public Runnable {
 
 class BluetoothVoidReplyRunnable : public BluetoothReplyRunnable {
  public:
-  explicit BluetoothVoidReplyRunnable(DOMRequest* aReq, Promise* aPromise = nullptr);
+  explicit BluetoothVoidReplyRunnable(DOMRequest* aReq,
+                                      Promise* aPromise = nullptr);
   ~BluetoothVoidReplyRunnable();
 
  protected:

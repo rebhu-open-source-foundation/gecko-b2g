@@ -16,8 +16,12 @@
 #include "mozilla/Services.h"
 #include "mozilla/FileLocation.h"
 
-#define NS_GAIACHROME_CID \
-  { 0x83f8f999, 0x6b87, 0x4dd8, { 0xa0, 0x93, 0x72, 0x0b, 0xfb, 0x67, 0x4d, 0x38 } }
+#define NS_GAIACHROME_CID                            \
+  {                                                  \
+    0x83f8f999, 0x6b87, 0x4dd8, {                    \
+      0xa0, 0x93, 0x72, 0x0b, 0xfb, 0x67, 0x4d, 0x38 \
+    }                                                \
+  }
 
 using namespace mozilla;
 
@@ -26,25 +30,20 @@ StaticRefPtr<GaiaChrome> gGaiaChrome;
 NS_IMPL_ISUPPORTS(GaiaChrome, nsIGaiaChrome)
 
 GaiaChrome::GaiaChrome()
-  : mPackageName(NS_LITERAL_CSTRING("system"))
-  , mAppsDir(NS_LITERAL_STRING("webapps"))
-  , mDataRoot(NS_LITERAL_STRING("/data/local"))
-  , mSystemRoot(NS_LITERAL_STRING("/system/b2g"))
-{
+    : mPackageName(NS_LITERAL_CSTRING("system")),
+      mAppsDir(NS_LITERAL_STRING("webapps")),
+      mDataRoot(NS_LITERAL_STRING("/data/local")),
+      mSystemRoot(NS_LITERAL_STRING("/system/b2g")) {
   MOZ_ASSERT(NS_IsMainThread());
 
   GetProfileDir();
   Register();
 }
 
-//virtual
-GaiaChrome::~GaiaChrome()
-{
-}
+// virtual
+GaiaChrome::~GaiaChrome() {}
 
-nsresult
-GaiaChrome::GetProfileDir()
-{
+nsresult GaiaChrome::GetProfileDir() {
   nsCOMPtr<nsIFile> profDir;
   nsresult rv = NS_GetSpecialDirectory(NS_APP_USER_PROFILE_50_DIR,
                                        getter_AddRefs(profDir));
@@ -56,9 +55,7 @@ GaiaChrome::GetProfileDir()
   return NS_OK;
 }
 
-nsresult
-GaiaChrome::ComputeAppsPath(nsIFile* aPath)
-{
+nsresult GaiaChrome::ComputeAppsPath(nsIFile* aPath) {
 #if defined(MOZ_WIDGET_GONK)
   nsCOMPtr<nsIFile> locationDetection = new nsLocalFile();
   locationDetection->InitWithPath(mSystemRoot);
@@ -87,17 +84,13 @@ GaiaChrome::ComputeAppsPath(nsIFile* aPath)
   return NS_OK;
 }
 
-bool
-GaiaChrome::EnsureIsDirectory(nsIFile* aPath)
-{
+bool GaiaChrome::EnsureIsDirectory(nsIFile* aPath) {
   bool isDir = false;
   aPath->IsDirectory(&isDir);
   return isDir;
 }
 
-nsresult
-GaiaChrome::EnsureValidSystemPath(nsIFile* appsDir)
-{
+nsresult GaiaChrome::EnsureValidSystemPath(nsIFile* appsDir) {
   // Ensure there is a valid "apps/system" directory
   nsCOMPtr<nsIFile> systemAppDir = new nsLocalFile();
   systemAppDir->InitWithFile(appsDir);
@@ -108,7 +101,8 @@ GaiaChrome::EnsureValidSystemPath(nsIFile* appsDir)
     nsCString path;
     appsDir->GetNativePath(path);
     // We don't want to continue if the apps path does not exists ...
-    printf_stderr("!!! Gaia chrome package is not a directory: %s\n", path.get());
+    printf_stderr("!!! Gaia chrome package is not a directory: %s\n",
+                  path.get());
     return NS_ERROR_UNEXPECTED;
   }
 
@@ -116,8 +110,7 @@ GaiaChrome::EnsureValidSystemPath(nsIFile* appsDir)
 }
 
 NS_IMETHODIMP
-GaiaChrome::Register()
-{
+GaiaChrome::Register() {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(nsChromeRegistry::gChromeRegistry != nullptr);
 
@@ -165,9 +158,7 @@ GaiaChrome::Register()
   return NS_OK;
 }
 
-already_AddRefed<GaiaChrome>
-GaiaChrome::FactoryCreate()
-{
+already_AddRefed<GaiaChrome> GaiaChrome::FactoryCreate() {
   if (!XRE_IsParentProcess()) {
     return nullptr;
   }
@@ -183,33 +174,24 @@ GaiaChrome::FactoryCreate()
   return service.forget();
 }
 
-NS_GENERIC_FACTORY_SINGLETON_CONSTRUCTOR(GaiaChrome,
-                                         GaiaChrome::FactoryCreate)
+NS_GENERIC_FACTORY_SINGLETON_CONSTRUCTOR(GaiaChrome, GaiaChrome::FactoryCreate)
 
 NS_DEFINE_NAMED_CID(NS_GAIACHROME_CID);
 
 static const mozilla::Module::CIDEntry kGaiaChromeCIDs[] = {
-  { &kNS_GAIACHROME_CID, false, nullptr, GaiaChromeConstructor },
-  { nullptr }
-};
+    {&kNS_GAIACHROME_CID, false, nullptr, GaiaChromeConstructor}, {nullptr}};
 
 static const mozilla::Module::ContractIDEntry kGaiaChromeContracts[] = {
-  { "@mozilla.org/b2g/gaia-chrome;1", &kNS_GAIACHROME_CID },
-  { nullptr }
-};
+    {"@mozilla.org/b2g/gaia-chrome;1", &kNS_GAIACHROME_CID}, {nullptr}};
 
 static const mozilla::Module::CategoryEntry kGaiaChromeCategories[] = {
-  { "profile-after-change", "Gaia Chrome Registration", GAIACHROME_CONTRACTID },
-  { nullptr }
-};
+    {"profile-after-change", "Gaia Chrome Registration", GAIACHROME_CONTRACTID},
+    {nullptr}};
 
-extern const mozilla::Module kGaiaChromeModule = {
-  mozilla::Module::kVersion,
-  kGaiaChromeCIDs,
-  kGaiaChromeContracts,
-  kGaiaChromeCategories,
-  nullptr,
-  nullptr,
-  nullptr
-};
-
+extern const mozilla::Module kGaiaChromeModule = {mozilla::Module::kVersion,
+                                                  kGaiaChromeCIDs,
+                                                  kGaiaChromeContracts,
+                                                  kGaiaChromeCategories,
+                                                  nullptr,
+                                                  nullptr,
+                                                  nullptr};

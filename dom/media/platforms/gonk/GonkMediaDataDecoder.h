@@ -5,10 +5,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #if !defined(GonkMediaDataDecoder_h_)
-#define GonkMediaDataDecoder_h_
-#include "PlatformDecoderModule.h"
-#include "mozilla/UniquePtr.h"
-#include <stagefright/foundation/AHandler.h>
+#  define GonkMediaDataDecoder_h_
+#  include "PlatformDecoderModule.h"
+#  include "mozilla/UniquePtr.h"
+#  include <stagefright/foundation/AHandler.h>
 
 namespace android {
 struct ALooper;
@@ -175,7 +175,7 @@ class GonkDecoderManager : public android::AHandler {
 class AutoReleaseMediaBuffer {
  public:
   AutoReleaseMediaBuffer(android::MediaBuffer* aBuffer,
-                              android::MediaCodecProxy* aCodec)
+                         android::MediaCodecProxy* aCodec)
       : mBuffer(aBuffer), mCodec(aCodec) {}
 
   ~AutoReleaseMediaBuffer() {
@@ -203,8 +203,7 @@ class DecoderManagerCallback;
 // the higher-level logic that drives mapping the Gonk to the async
 // MediaDataDecoder interface. The specifics of decoding the exact stream
 // type are handled by GonkDecoderManager and the GonkDecoder it creates.
-class GonkMediaDataDecoder
-    : public MediaDataDecoder {
+class GonkMediaDataDecoder : public MediaDataDecoder {
  public:
   GonkMediaDataDecoder(GonkDecoderManager* aDecoderManager,
                        TaskQueue* aTaskQueue);
@@ -238,7 +237,6 @@ class GonkMediaDataDecoder
   virtual void ReleaseMediaResources();
 
  private:
-
   void ResolveDecodePromise();
 
   android::sp<GonkDecoderManager> mManager;

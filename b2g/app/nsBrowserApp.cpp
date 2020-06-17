@@ -46,7 +46,7 @@
 #endif
 
 #ifdef MOZ_WIDGET_GONK
-#include "ui/GraphicBuffer.h"
+#  include "ui/GraphicBuffer.h"
 using namespace android;
 #endif
 
@@ -288,13 +288,11 @@ int main(int argc, char* argv[], char* envp[]) {
   // We are launching as a content process, delegate to the appropriate
   // main
   if (argc > 1 && IsArg(argv[1], "contentproc")) {
-#ifdef MOZ_WIDGET_GONK
+#  ifdef MOZ_WIDGET_GONK
     // Load gralloc-mapper
     // TODO: A better way is needed.
-    {
-      sp<GraphicBuffer> buffer(new GraphicBuffer());
-    }
-#endif
+    { sp<GraphicBuffer> buffer(new GraphicBuffer()); }
+#  endif
 
 #  ifdef HAS_DLL_BLOCKLIST
     DllBlocklist_Initialize(eDllBlocklistInitFlagIsChildProcess);

@@ -18,11 +18,10 @@ using namespace mozilla;
 /* static */ StaticRefPtr<nsIThread> CameraControlImpl::sCameraThread;
 
 CameraControlImpl::CameraControlImpl()
-  : mListenerLock("mozilla::camera::CameraControlImpl.Listeners")
-  , mPreviewState(CameraControlListener::kPreviewStopped)
-  , mHardwareState(CameraControlListener::kHardwareUninitialized)
-  , mHardwareStateChangeReason(NS_OK)
-{
+    : mListenerLock("mozilla::camera::CameraControlImpl.Listeners"),
+      mPreviewState(CameraControlListener::kPreviewStopped),
+      mHardwareState(CameraControlListener::kHardwareUninitialized),
+      mHardwareStateChangeReason(NS_OK) {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
   mCurrentConfiguration.mMode = ICameraControl::kUnspecifiedMode;
 
@@ -31,7 +30,8 @@ CameraControlImpl::CameraControlImpl()
   if (ct) {
     mCameraThread = ct.forget();
   } else {
-    nsresult rv = NS_NewNamedThread("CameraThread", getter_AddRefs(mCameraThread));
+    nsresult rv =
+        NS_NewNamedThread("CameraThread", getter_AddRefs(mCameraThread));
     if (NS_FAILED(rv)) {
       MOZ_CRASH("Failed to create new Camera Thread");
     }
@@ -39,32 +39,32 @@ CameraControlImpl::CameraControlImpl()
   }
 }
 
-CameraControlImpl::~CameraControlImpl()
-{
+CameraControlImpl::~CameraControlImpl() {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
 }
 
-void
-CameraControlImpl::OnHardwareStateChange(CameraControlListener::HardwareState aNewState,
-                                         nsresult aReason)
-{
+void CameraControlImpl::OnHardwareStateChange(
+    CameraControlListener::HardwareState aNewState, nsresult aReason) {
   // This callback can run on threads other than the Main Thread and
   //  the Camera Thread. On Gonk, it may be called from the camera's
   //  local binder thread, should the mediaserver process die.
   MutexAutoLock lock(mListenerLock);
 
   if (aNewState == mHardwareState) {
-    DOM_CAMERA_LOGI("OnHardwareStateChange: state did not change from %d\n", mHardwareState);
+    DOM_CAMERA_LOGI("OnHardwareStateChange: state did not change from %d\n",
+                    mHardwareState);
     return;
   }
 
-  const char* state[] = { "uninitialized", "closed", "open", "failed" };
+  const char* state[] = {"uninitialized", "closed", "open", "failed"};
   MOZ_ASSERT(aNewState >= 0);
   if (static_cast<unsigned int>(aNewState) < sizeof(state) / sizeof(state[0])) {
     DOM_CAMERA_LOGI("New hardware state is '%s' (reason=0x%x)\n",
-      state[aNewState], aReason);
+                    state[aNewState], aReason);
   } else {
-    DOM_CAMERA_LOGE("OnHardwareStateChange: got invalid HardwareState value %d\n", aNewState);
+    DOM_CAMERA_LOGE(
+        "OnHardwareStateChange: got invalid HardwareState value %d\n",
+        aNewState);
   }
 
   mHardwareState = aNewState;
@@ -76,13 +76,12 @@ CameraControlImpl::OnHardwareStateChange(CameraControlListener::HardwareState aN
   }
 }
 
-void
-CameraControlImpl::OnConfigurationChange()
-{
+void CameraControlImpl::OnConfigurationChange() {
   MOZ_ASSERT(NS_GetCurrentThread() == mCameraThread);
   MutexAutoLock lock(mListenerLock);
 
-  DOM_CAMERA_LOGI("OnConfigurationChange : %zu listeners\n", mListeners.Length());
+  DOM_CAMERA_LOGI("OnConfigurationChange : %zu listeners\n",
+                  mListeners.Length());
 
   for (uint32_t i = 0; i < mListeners.Length(); ++i) {
     CameraControlListener* l = mListeners[i];
@@ -90,9 +89,7 @@ CameraControlImpl::OnConfigurationChange()
   }
 }
 
-void
-CameraControlImpl::OnAutoFocusComplete(bool aAutoFocusSucceeded)
-{
+void CameraControlImpl::OnAutoFocusComplete(bool aAutoFocusSucceeded) {
   // This callback can run on threads other than the Main Thread and
   //  the Camera Thread. On Gonk, it is called from the camera
   //  library's auto focus thread.
@@ -104,9 +101,7 @@ CameraControlImpl::OnAutoFocusComplete(bool aAutoFocusSucceeded)
   }
 }
 
-void
-CameraControlImpl::OnAutoFocusMoving(bool aIsMoving)
-{
+void CameraControlImpl::OnAutoFocusMoving(bool aIsMoving) {
   MutexAutoLock lock(mListenerLock);
 
   for (uint32_t i = 0; i < mListeners.Length(); ++i) {
@@ -115,9 +110,7 @@ CameraControlImpl::OnAutoFocusMoving(bool aIsMoving)
   }
 }
 
-void
-CameraControlImpl::OnFacesDetected(const nsTArray<Face>& aFaces)
-{
+void CameraControlImpl::OnFacesDetected(const nsTArray<Face>& aFaces) {
   // This callback can run on threads other than the Main Thread and
   //  the Camera Thread. On Gonk, it is called from the camera
   //  library's face detection thread.
@@ -129,9 +122,9 @@ CameraControlImpl::OnFacesDetected(const nsTArray<Face>& aFaces)
   }
 }
 
-void
-CameraControlImpl::OnTakePictureComplete(const uint8_t* aData, uint32_t aLength, const nsAString& aMimeType)
-{
+void CameraControlImpl::OnTakePictureComplete(const uint8_t* aData,
+                                              uint32_t aLength,
+                                              const nsAString& aMimeType) {
   // This callback can run on threads other than the Main Thread and
   //  the Camera Thread. On Gonk, it is called from the camera
   //  library's snapshot thread.
@@ -143,9 +136,7 @@ CameraControlImpl::OnTakePictureComplete(const uint8_t* aData, uint32_t aLength,
   }
 }
 
-void
-CameraControlImpl::OnPoster(dom::BlobImpl* aBlobImpl)
-{
+void CameraControlImpl::OnPoster(dom::BlobImpl* aBlobImpl) {
   // This callback can run on threads other than the Main Thread and
   //  the Camera Thread.
   MutexAutoLock lock(mListenerLock);
@@ -156,9 +147,7 @@ CameraControlImpl::OnPoster(dom::BlobImpl* aBlobImpl)
   }
 }
 
-void
-CameraControlImpl::OnShutter()
-{
+void CameraControlImpl::OnShutter() {
   // This callback can run on threads other than the Main Thread and
   //  the Camera Thread. On Gonk, it is called from the camera driver's
   //  preview thread.
@@ -170,10 +159,9 @@ CameraControlImpl::OnShutter()
   }
 }
 
-void
-CameraControlImpl::OnRecorderStateChange(CameraControlListener::RecorderState aState,
-                                         int32_t aStatus, int32_t aTrackNumber)
-{
+void CameraControlImpl::OnRecorderStateChange(
+    CameraControlListener::RecorderState aState, int32_t aStatus,
+    int32_t aTrackNumber) {
   // This callback can run on threads other than the Main Thread and
   //  the Camera Thread. On Gonk, it is called from the media encoder
   //  thread.
@@ -185,25 +173,26 @@ CameraControlImpl::OnRecorderStateChange(CameraControlListener::RecorderState aS
   }
 }
 
-void
-CameraControlImpl::OnPreviewStateChange(CameraControlListener::PreviewState aNewState)
-{
+void CameraControlImpl::OnPreviewStateChange(
+    CameraControlListener::PreviewState aNewState) {
   // This callback runs on the Main Thread and the Camera Thread, and
   //  may run on the local binder thread, should the mediaserver
   //  process die.
   MutexAutoLock lock(mListenerLock);
 
   if (aNewState == mPreviewState) {
-    DOM_CAMERA_LOGI("OnPreviewStateChange: state did not change from %d\n", mPreviewState);
+    DOM_CAMERA_LOGI("OnPreviewStateChange: state did not change from %d\n",
+                    mPreviewState);
     return;
   }
 
-  const char* state[] = { "stopped", "paused", "started" };
+  const char* state[] = {"stopped", "paused", "started"};
   MOZ_ASSERT(aNewState >= 0);
   if (static_cast<unsigned int>(aNewState) < sizeof(state) / sizeof(state[0])) {
     DOM_CAMERA_LOGI("New preview state is '%s'\n", state[aNewState]);
   } else {
-    DOM_CAMERA_LOGE("OnPreviewStateChange: got unknown PreviewState value %d\n", aNewState);
+    DOM_CAMERA_LOGE("OnPreviewStateChange: got unknown PreviewState value %d\n",
+                    aNewState);
   }
 
   mPreviewState = aNewState;
@@ -214,9 +203,7 @@ CameraControlImpl::OnPreviewStateChange(CameraControlListener::PreviewState aNew
   }
 }
 
-void
-CameraControlImpl::OnRateLimitPreview(bool aLimit)
-{
+void CameraControlImpl::OnRateLimitPreview(bool aLimit) {
   // This function runs on neither the Main Thread nor the Camera Thread.
   MutexAutoLock lock(mListenerLock);
 
@@ -228,15 +215,14 @@ CameraControlImpl::OnRateLimitPreview(bool aLimit)
   }
 }
 
-bool
-CameraControlImpl::OnNewPreviewFrame(layers::Image* aImage, uint32_t aWidth, uint32_t aHeight)
-{
+bool CameraControlImpl::OnNewPreviewFrame(layers::Image* aImage,
+                                          uint32_t aWidth, uint32_t aHeight) {
   // This function runs on neither the Main Thread nor the Camera Thread.
   //  On Gonk, it is called from the camera driver's preview thread.
   MutexAutoLock lock(mListenerLock);
 
   DOM_CAMERA_LOGI("OnNewPreviewFrame: we have %zu preview frame listener(s)\n",
-    mListeners.Length());
+                  mListeners.Length());
 
   bool consumed = false;
 
@@ -247,39 +233,27 @@ CameraControlImpl::OnNewPreviewFrame(layers::Image* aImage, uint32_t aWidth, uin
   return consumed;
 }
 
-void
-CameraControlImpl::OnUserError(CameraControlListener::UserContext aContext,
-                               nsresult aError)
-{
+void CameraControlImpl::OnUserError(CameraControlListener::UserContext aContext,
+                                    nsresult aError) {
   // This callback can run on threads other than the Main Thread and
   //  the Camera Thread.
   MutexAutoLock lock(mListenerLock);
 
   const char* context[] = {
-    "StartCamera",
-    "StopCamera",
-    "AutoFocus",
-    "StartFaceDetection",
-    "StopFaceDetection",
-    "TakePicture",
-    "StartRecording",
-    "StopRecording",
-    "PauseRecording",
-    "ResumeRecording",
-    "SetConfiguration",
-    "StartPreview",
-    "StopPreview",
-    "SetPictureSize",
-    "SetThumbnailSize",
-    "ResumeContinuousFocus",
-    "Unspecified"
-  };
+      "StartCamera",           "StopCamera",        "AutoFocus",
+      "StartFaceDetection",    "StopFaceDetection", "TakePicture",
+      "StartRecording",        "StopRecording",     "PauseRecording",
+      "ResumeRecording",       "SetConfiguration",  "StartPreview",
+      "StopPreview",           "SetPictureSize",    "SetThumbnailSize",
+      "ResumeContinuousFocus", "Unspecified"};
   if (static_cast<size_t>(aContext) < sizeof(context) / sizeof(context[0])) {
-    DOM_CAMERA_LOGW("CameraControlImpl::OnUserError : aContext='%s' (%d), aError=0x%x\n",
-      context[aContext], aContext, aError);
+    DOM_CAMERA_LOGW(
+        "CameraControlImpl::OnUserError : aContext='%s' (%d), aError=0x%x\n",
+        context[aContext], aContext, aError);
   } else {
-    DOM_CAMERA_LOGE("CameraControlImpl::OnUserError : aContext=%d, aError=0x%x\n",
-      aContext, aError);
+    DOM_CAMERA_LOGE(
+        "CameraControlImpl::OnUserError : aContext=%d, aError=0x%x\n", aContext,
+        aError);
   }
 
   for (uint32_t i = 0; i < mListeners.Length(); ++i) {
@@ -288,23 +262,21 @@ CameraControlImpl::OnUserError(CameraControlListener::UserContext aContext,
   }
 }
 
-void
-CameraControlImpl::OnSystemError(CameraControlListener::SystemContext aContext,
-                                 nsresult aError)
-{
+void CameraControlImpl::OnSystemError(
+    CameraControlListener::SystemContext aContext, nsresult aError) {
   // This callback can run on threads other than the Main Thread and
   //  the Camera Thread.
   MutexAutoLock lock(mListenerLock);
 
-  const char* context[] = {
-    "Camera Service"
-  };
+  const char* context[] = {"Camera Service"};
   if (static_cast<size_t>(aContext) < sizeof(context) / sizeof(context[0])) {
-    DOM_CAMERA_LOGW("CameraControlImpl::OnSystemError : aContext='%s' (%d), aError=0x%x\n",
-      context[aContext], aContext, aError);
+    DOM_CAMERA_LOGW(
+        "CameraControlImpl::OnSystemError : aContext='%s' (%d), aError=0x%x\n",
+        context[aContext], aContext, aError);
   } else {
-    DOM_CAMERA_LOGE("CameraControlImpl::OnSystemError : aContext=%d, aError=0x%x\n",
-      aContext, aError);
+    DOM_CAMERA_LOGE(
+        "CameraControlImpl::OnSystemError : aContext=%d, aError=0x%x\n",
+        aContext, aError);
   }
 
   for (uint32_t i = 0; i < mListeners.Length(); ++i) {
@@ -316,27 +288,25 @@ CameraControlImpl::OnSystemError(CameraControlListener::SystemContext aContext,
 // Camera control asynchronous message; these are dispatched from
 //  the Main Thread to the Camera Thread, where they are consumed.
 
-class CameraControlImpl::ControlMessage : public Runnable
-{
-public:
+class CameraControlImpl::ControlMessage : public Runnable {
+ public:
   ControlMessage(CameraControlImpl* aCameraControl,
                  CameraControlListener::UserContext aContext)
-    : Runnable("dom::camera::ControlMessage")
-    , mCameraControl(aCameraControl)
-    , mContext(aContext)
-  { }
+      : Runnable("dom::camera::ControlMessage"),
+        mCameraControl(aCameraControl),
+        mContext(aContext) {}
 
   virtual nsresult RunImpl() = 0;
 
   NS_IMETHOD
-  Run() override
-  {
+  Run() override {
     MOZ_ASSERT(mCameraControl);
     MOZ_ASSERT(NS_GetCurrentThread() == mCameraControl->mCameraThread);
 
     nsresult rv = RunImpl();
     if (NS_FAILED(rv)) {
-      nsPrintfCString msg("Camera control API(%d) failed with 0x%x", mContext, rv);
+      nsPrintfCString msg("Camera control API(%d) failed with 0x%x", mContext,
+                          rv);
       NS_WARNING(msg.get());
       mCameraControl->OnUserError(mContext, rv);
     }
@@ -344,16 +314,14 @@ public:
     return NS_OK;
   }
 
-protected:
-  virtual ~ControlMessage() { }
+ protected:
+  virtual ~ControlMessage() {}
 
   RefPtr<CameraControlImpl> mCameraControl;
   CameraControlListener::UserContext mContext;
 };
 
-nsresult
-CameraControlImpl::Dispatch(ControlMessage* aMessage)
-{
+nsresult CameraControlImpl::Dispatch(ControlMessage* aMessage) {
   nsresult rv = mCameraThread->Dispatch(aMessage, NS_DISPATCH_NORMAL);
   if (NS_SUCCEEDED(rv)) {
     return NS_OK;
@@ -364,180 +332,137 @@ CameraControlImpl::Dispatch(ControlMessage* aMessage)
   return NS_ERROR_FAILURE;
 }
 
-nsresult
-CameraControlImpl::Start(const Configuration* aConfig)
-{
-  class Message : public ControlMessage
-  {
-  public:
+nsresult CameraControlImpl::Start(const Configuration* aConfig) {
+  class Message : public ControlMessage {
+   public:
     Message(CameraControlImpl* aCameraControl,
             CameraControlListener::UserContext aContext,
             const Configuration* aConfig)
-      : ControlMessage(aCameraControl, aContext)
-      , mHaveInitialConfig(false)
-    {
+        : ControlMessage(aCameraControl, aContext), mHaveInitialConfig(false) {
       if (aConfig) {
         mConfig = *aConfig;
         mHaveInitialConfig = true;
       }
     }
 
-    nsresult
-    RunImpl() override
-    {
+    nsresult RunImpl() override {
       if (mHaveInitialConfig) {
         return mCameraControl->StartImpl(&mConfig);
       }
       return mCameraControl->StartImpl();
     }
 
-  protected:
+   protected:
     bool mHaveInitialConfig;
     Configuration mConfig;
   };
 
-  return Dispatch(new Message(this, CameraControlListener::kInStartCamera, aConfig));
+  return Dispatch(
+      new Message(this, CameraControlListener::kInStartCamera, aConfig));
 }
 
-nsresult
-CameraControlImpl::SetConfiguration(const Configuration& aConfig)
-{
-  class Message : public ControlMessage
-  {
-  public:
+nsresult CameraControlImpl::SetConfiguration(const Configuration& aConfig) {
+  class Message : public ControlMessage {
+   public:
     Message(CameraControlImpl* aCameraControl,
             CameraControlListener::UserContext aContext,
             const Configuration& aConfig)
-      : ControlMessage(aCameraControl, aContext)
-      , mConfig(aConfig)
-    { }
+        : ControlMessage(aCameraControl, aContext), mConfig(aConfig) {}
 
-    nsresult
-    RunImpl() override
-    {
+    nsresult RunImpl() override {
       return mCameraControl->SetConfigurationImpl(mConfig);
     }
 
-  protected:
+   protected:
     Configuration mConfig;
   };
 
-  return Dispatch(new Message(this, CameraControlListener::kInSetConfiguration, aConfig));
+  return Dispatch(
+      new Message(this, CameraControlListener::kInSetConfiguration, aConfig));
 }
 
-nsresult
-CameraControlImpl::AutoFocus()
-{
-  class Message : public ControlMessage
-  {
-  public:
+nsresult CameraControlImpl::AutoFocus() {
+  class Message : public ControlMessage {
+   public:
     Message(CameraControlImpl* aCameraControl,
             CameraControlListener::UserContext aContext)
-      : ControlMessage(aCameraControl, aContext)
-    { }
+        : ControlMessage(aCameraControl, aContext) {}
 
-    nsresult
-    RunImpl() override
-    {
-      return mCameraControl->AutoFocusImpl();
-    }
+    nsresult RunImpl() override { return mCameraControl->AutoFocusImpl(); }
   };
 
   return Dispatch(new Message(this, CameraControlListener::kInAutoFocus));
 }
 
-nsresult
-CameraControlImpl::StartFaceDetection()
-{
-  class Message : public ControlMessage
-  {
-  public:
+nsresult CameraControlImpl::StartFaceDetection() {
+  class Message : public ControlMessage {
+   public:
     Message(CameraControlImpl* aCameraControl,
             CameraControlListener::UserContext aContext)
-      : ControlMessage(aCameraControl, aContext)
-    { }
+        : ControlMessage(aCameraControl, aContext) {}
 
-    nsresult
-    RunImpl() override
-    {
+    nsresult RunImpl() override {
       return mCameraControl->StartFaceDetectionImpl();
     }
   };
 
-  return Dispatch(new Message(this, CameraControlListener::kInStartFaceDetection));
+  return Dispatch(
+      new Message(this, CameraControlListener::kInStartFaceDetection));
 }
 
-nsresult
-CameraControlImpl::StopFaceDetection()
-{
-  class Message : public ControlMessage
-  {
-  public:
+nsresult CameraControlImpl::StopFaceDetection() {
+  class Message : public ControlMessage {
+   public:
     Message(CameraControlImpl* aCameraControl,
             CameraControlListener::UserContext aContext)
-      : ControlMessage(aCameraControl, aContext)
-    { }
+        : ControlMessage(aCameraControl, aContext) {}
 
-    nsresult
-    RunImpl() override
-    {
+    nsresult RunImpl() override {
       return mCameraControl->StopFaceDetectionImpl();
     }
   };
 
-  return Dispatch(new Message(this, CameraControlListener::kInStopFaceDetection));
+  return Dispatch(
+      new Message(this, CameraControlListener::kInStopFaceDetection));
 }
 
-nsresult
-CameraControlImpl::TakePicture()
-{
-  class Message : public ControlMessage
-  {
-  public:
+nsresult CameraControlImpl::TakePicture() {
+  class Message : public ControlMessage {
+   public:
     Message(CameraControlImpl* aCameraControl,
             CameraControlListener::UserContext aContext)
-      : ControlMessage(aCameraControl, aContext)
-    { }
+        : ControlMessage(aCameraControl, aContext) {}
 
-    nsresult
-    RunImpl() override
-    {
-      return mCameraControl->TakePictureImpl();
-    }
+    nsresult RunImpl() override { return mCameraControl->TakePictureImpl(); }
   };
 
   return Dispatch(new Message(this, CameraControlListener::kInTakePicture));
 }
 
-nsresult
-CameraControlImpl::StartRecording(DeviceStorageFileDescriptor* aFileDescriptor,
-                                  const StartRecordingOptions* aOptions)
-{
-  class Message : public ControlMessage
-  {
-  public:
+nsresult CameraControlImpl::StartRecording(
+    DeviceStorageFileDescriptor* aFileDescriptor,
+    const StartRecordingOptions* aOptions) {
+  class Message : public ControlMessage {
+   public:
     Message(CameraControlImpl* aCameraControl,
             CameraControlListener::UserContext aContext,
             const StartRecordingOptions* aOptions,
             DeviceStorageFileDescriptor* aFileDescriptor)
-      : ControlMessage(aCameraControl, aContext)
-      , mOptionsPassed(false)
-      , mFileDescriptor(aFileDescriptor)
-    {
+        : ControlMessage(aCameraControl, aContext),
+          mOptionsPassed(false),
+          mFileDescriptor(aFileDescriptor) {
       if (aOptions) {
         mOptions = *aOptions;
         mOptionsPassed = true;
       }
     }
 
-    nsresult
-    RunImpl() override
-    {
-      return mCameraControl->StartRecordingImpl(mFileDescriptor,
-        mOptionsPassed ? &mOptions : nullptr);
+    nsresult RunImpl() override {
+      return mCameraControl->StartRecordingImpl(
+          mFileDescriptor, mOptionsPassed ? &mOptions : nullptr);
     }
 
-  protected:
+   protected:
     StartRecordingOptions mOptions;
     bool mOptionsPassed;
     RefPtr<DeviceStorageFileDescriptor> mFileDescriptor;
@@ -547,65 +472,43 @@ CameraControlImpl::StartRecording(DeviceStorageFileDescriptor* aFileDescriptor,
     return NS_ERROR_INVALID_ARG;
   }
   return Dispatch(new Message(this, CameraControlListener::kInStartRecording,
-    aOptions, aFileDescriptor));
+                              aOptions, aFileDescriptor));
 }
 
-nsresult
-CameraControlImpl::StopRecording()
-{
-  class Message : public ControlMessage
-  {
-  public:
+nsresult CameraControlImpl::StopRecording() {
+  class Message : public ControlMessage {
+   public:
     Message(CameraControlImpl* aCameraControl,
             CameraControlListener::UserContext aContext)
-      : ControlMessage(aCameraControl, aContext)
-    { }
+        : ControlMessage(aCameraControl, aContext) {}
 
-    nsresult
-    RunImpl() override
-    {
-      return mCameraControl->StopRecordingImpl();
-    }
+    nsresult RunImpl() override { return mCameraControl->StopRecordingImpl(); }
   };
 
   return Dispatch(new Message(this, CameraControlListener::kInStopRecording));
 }
 
-nsresult
-CameraControlImpl::PauseRecording()
-{
-  class Message : public ControlMessage
-  {
-  public:
+nsresult CameraControlImpl::PauseRecording() {
+  class Message : public ControlMessage {
+   public:
     Message(CameraControlImpl* aCameraControl,
             CameraControlListener::UserContext aContext)
-      : ControlMessage(aCameraControl, aContext)
-    { }
+        : ControlMessage(aCameraControl, aContext) {}
 
-    nsresult
-    RunImpl() override
-    {
-      return mCameraControl->PauseRecordingImpl();
-    }
+    nsresult RunImpl() override { return mCameraControl->PauseRecordingImpl(); }
   };
 
   return Dispatch(new Message(this, CameraControlListener::kInPauseRecording));
 }
 
-nsresult
-CameraControlImpl::ResumeRecording()
-{
-  class Message : public ControlMessage
-  {
-  public:
+nsresult CameraControlImpl::ResumeRecording() {
+  class Message : public ControlMessage {
+   public:
     Message(CameraControlImpl* aCameraControl,
             CameraControlListener::UserContext aContext)
-      : ControlMessage(aCameraControl, aContext)
-    { }
+        : ControlMessage(aCameraControl, aContext) {}
 
-    nsresult
-    RunImpl() override
-    {
+    nsresult RunImpl() override {
       return mCameraControl->ResumeRecordingImpl();
     }
   };
@@ -613,106 +516,75 @@ CameraControlImpl::ResumeRecording()
   return Dispatch(new Message(this, CameraControlListener::kInResumeRecording));
 }
 
-nsresult
-CameraControlImpl::StartPreview()
-{
-  class Message : public ControlMessage
-  {
-  public:
+nsresult CameraControlImpl::StartPreview() {
+  class Message : public ControlMessage {
+   public:
     Message(CameraControlImpl* aCameraControl,
             CameraControlListener::UserContext aContext)
-      : ControlMessage(aCameraControl, aContext)
-    { }
+        : ControlMessage(aCameraControl, aContext) {}
 
-    nsresult
-    RunImpl() override
-    {
-      return mCameraControl->StartPreviewImpl();
-    }
+    nsresult RunImpl() override { return mCameraControl->StartPreviewImpl(); }
   };
 
   return Dispatch(new Message(this, CameraControlListener::kInStartPreview));
 }
 
-nsresult
-CameraControlImpl::StopPreview()
-{
-  class Message : public ControlMessage
-  {
-  public:
+nsresult CameraControlImpl::StopPreview() {
+  class Message : public ControlMessage {
+   public:
     Message(CameraControlImpl* aCameraControl,
             CameraControlListener::UserContext aContext)
-      : ControlMessage(aCameraControl, aContext)
-    { }
+        : ControlMessage(aCameraControl, aContext) {}
 
-    nsresult
-    RunImpl() override
-    {
-      return mCameraControl->StopPreviewImpl();
-    }
+    nsresult RunImpl() override { return mCameraControl->StopPreviewImpl(); }
   };
 
   return Dispatch(new Message(this, CameraControlListener::kInStopPreview));
 }
 
-nsresult
-CameraControlImpl::ResumeContinuousFocus()
-{
-  class Message : public ControlMessage
-  {
-  public:
+nsresult CameraControlImpl::ResumeContinuousFocus() {
+  class Message : public ControlMessage {
+   public:
     Message(CameraControlImpl* aCameraControl,
             CameraControlListener::UserContext aContext)
-      : ControlMessage(aCameraControl, aContext)
-    { }
+        : ControlMessage(aCameraControl, aContext) {}
 
-    nsresult
-    RunImpl() override
-    {
+    nsresult RunImpl() override {
       return mCameraControl->ResumeContinuousFocusImpl();
     }
   };
 
-  return Dispatch(new Message(this, CameraControlListener::kInResumeContinuousFocus));
+  return Dispatch(
+      new Message(this, CameraControlListener::kInResumeContinuousFocus));
 }
 
-nsresult
-CameraControlImpl::Stop()
-{
-  class Message : public ControlMessage
-  {
-  public:
+nsresult CameraControlImpl::Stop() {
+  class Message : public ControlMessage {
+   public:
     Message(CameraControlImpl* aCameraControl,
             CameraControlListener::UserContext aContext)
-      : ControlMessage(aCameraControl, aContext)
-    { }
+        : ControlMessage(aCameraControl, aContext) {}
 
-    nsresult
-    RunImpl() override
-    {
-      return mCameraControl->StopImpl();
-    }
+    nsresult RunImpl() override { return mCameraControl->StopImpl(); }
   };
 
   return Dispatch(new Message(this, CameraControlListener::kInStopCamera));
 }
 
-class CameraControlImpl::ListenerMessage : public CameraControlImpl::ControlMessage
-{
-public:
+class CameraControlImpl::ListenerMessage
+    : public CameraControlImpl::ControlMessage {
+ public:
   ListenerMessage(CameraControlImpl* aCameraControl,
                   CameraControlListener* aListener)
-    : ControlMessage(aCameraControl, CameraControlListener::kInUnspecified)
-    , mListener(aListener)
-  { }
+      : ControlMessage(aCameraControl, CameraControlListener::kInUnspecified),
+        mListener(aListener) {}
 
-protected:
+ protected:
   RefPtr<CameraControlListener> mListener;
 };
 
-void
-CameraControlImpl::AddListenerImpl(already_AddRefed<CameraControlListener> aListener)
-{
+void CameraControlImpl::AddListenerImpl(
+    already_AddRefed<CameraControlListener> aListener) {
   MutexAutoLock lock(mListenerLock);
 
   CameraControlListener* l = *mListeners.AppendElement() = aListener;
@@ -724,20 +596,13 @@ CameraControlImpl::AddListenerImpl(already_AddRefed<CameraControlListener> aList
   l->OnPreviewStateChange(mPreviewState);
 }
 
-void
-CameraControlImpl::AddListener(CameraControlListener* aListener)
- {
-  class Message : public ListenerMessage
-  {
-  public:
-    Message(CameraControlImpl* aCameraControl,
-            CameraControlListener* aListener)
-      : ListenerMessage(aCameraControl, aListener)
-    { }
+void CameraControlImpl::AddListener(CameraControlListener* aListener) {
+  class Message : public ListenerMessage {
+   public:
+    Message(CameraControlImpl* aCameraControl, CameraControlListener* aListener)
+        : ListenerMessage(aCameraControl, aListener) {}
 
-    nsresult
-    RunImpl() override
-    {
+    nsresult RunImpl() override {
       mCameraControl->AddListenerImpl(mListener.forget());
       return NS_OK;
     }
@@ -748,9 +613,7 @@ CameraControlImpl::AddListener(CameraControlListener* aListener)
   }
 }
 
-void
-CameraControlImpl::RemoveListenerImpl(CameraControlListener* aListener)
-{
+void CameraControlImpl::RemoveListenerImpl(CameraControlListener* aListener) {
   MutexAutoLock lock(mListenerLock);
 
   RefPtr<CameraControlListener> l(aListener);
@@ -759,19 +622,13 @@ CameraControlImpl::RemoveListenerImpl(CameraControlListener* aListener)
   // XXXmikeh - do we want to notify the listener that it has been removed?
 }
 
-void
-CameraControlImpl::RemoveListener(CameraControlListener* aListener)
- {
-  class Message : public ListenerMessage
-  {
-  public:
+void CameraControlImpl::RemoveListener(CameraControlListener* aListener) {
+  class Message : public ListenerMessage {
+   public:
     Message(CameraControlImpl* aCameraControl, CameraControlListener* aListener)
-      : ListenerMessage(aCameraControl, aListener)
-    { }
+        : ListenerMessage(aCameraControl, aListener) {}
 
-    nsresult
-    RunImpl() override
-    {
+    nsresult RunImpl() override {
       mCameraControl->RemoveListenerImpl(mListener);
       return NS_OK;
     }

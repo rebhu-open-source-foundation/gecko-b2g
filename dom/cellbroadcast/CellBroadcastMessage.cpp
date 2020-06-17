@@ -16,32 +16,34 @@ namespace dom {
  * Converter for XPIDL Constants to WebIDL Enumerations
  */
 
-template<class T> struct EnumConverter {};
+template <class T>
+struct EnumConverter {};
 
-template<class T>
-struct StaticEnumConverter
-{
+template <class T>
+struct StaticEnumConverter {
   typedef T WebidlEnumType;
   typedef uint32_t XpidlEnumType;
 
-  static MOZ_CONSTEXPR WebidlEnumType
-  x2w(XpidlEnumType aXpidlEnum) { return static_cast<WebidlEnumType>(aXpidlEnum); }
+  static MOZ_CONSTEXPR WebidlEnumType x2w(XpidlEnumType aXpidlEnum) {
+    return static_cast<WebidlEnumType>(aXpidlEnum);
+  }
 };
 
-template<class T>
-MOZ_CONSTEXPR T
-ToWebidlEnum(uint32_t aXpidlEnum) { return EnumConverter<T>::x2w(aXpidlEnum); }
+template <class T>
+MOZ_CONSTEXPR T ToWebidlEnum(uint32_t aXpidlEnum) {
+  return EnumConverter<T>::x2w(aXpidlEnum);
+}
 
 // Declare converters here:
 template <>
-struct EnumConverter<CellBroadcastGsmGeographicalScope> :
-  public StaticEnumConverter<CellBroadcastGsmGeographicalScope> {};
+struct EnumConverter<CellBroadcastGsmGeographicalScope>
+    : public StaticEnumConverter<CellBroadcastGsmGeographicalScope> {};
 template <>
-struct EnumConverter<CellBroadcastMessageClass> :
-  public StaticEnumConverter<CellBroadcastMessageClass> {};
+struct EnumConverter<CellBroadcastMessageClass>
+    : public StaticEnumConverter<CellBroadcastMessageClass> {};
 template <>
-struct EnumConverter<CellBroadcastEtwsWarningType> :
-  public StaticEnumConverter<CellBroadcastEtwsWarningType> {};
+struct EnumConverter<CellBroadcastEtwsWarningType>
+    : public StaticEnumConverter<CellBroadcastEtwsWarningType> {};
 
 /**
  * CellBroadcastMessage Implementation.
@@ -57,43 +59,33 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(CellBroadcastMessage)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-CellBroadcastMessage::CellBroadcastMessage(nsPIDOMWindowInner* aWindow,
-                                           uint32_t aServiceId,
-                                           uint32_t aGsmGeographicalScope,
-                                           uint16_t aMessageCode,
-                                           uint16_t aMessageId,
-                                           const nsAString& aLanguage,
-                                           const nsAString& aBody,
-                                           uint32_t aMessageClass,
-                                           uint64_t aTimestamp,
-                                           uint32_t aCdmaServiceCategory,
-                                           bool aHasEtwsInfo,
-                                           uint32_t aEtwsWarningType,
-                                           bool aEtwsEmergencyUserAlert,
-                                           bool aEtwsPopup)
-  : mWindow(aWindow)
-  , mServiceId(aServiceId)
-  , mMessageCode(aMessageCode)
-  , mMessageId(aMessageId)
-  , mLanguage(aLanguage)
-  , mBody(aBody)
-  , mTimestamp(aTimestamp)
-  , mEtwsInfo(aHasEtwsInfo ? new CellBroadcastEtwsInfo(aWindow,
-                                                       aEtwsWarningType,
-                                                       aEtwsEmergencyUserAlert,
-                                                       aEtwsPopup)
-                           : nullptr)
-{
+CellBroadcastMessage::CellBroadcastMessage(
+    nsPIDOMWindowInner* aWindow, uint32_t aServiceId,
+    uint32_t aGsmGeographicalScope, uint16_t aMessageCode, uint16_t aMessageId,
+    const nsAString& aLanguage, const nsAString& aBody, uint32_t aMessageClass,
+    uint64_t aTimestamp, uint32_t aCdmaServiceCategory, bool aHasEtwsInfo,
+    uint32_t aEtwsWarningType, bool aEtwsEmergencyUserAlert, bool aEtwsPopup)
+    : mWindow(aWindow),
+      mServiceId(aServiceId),
+      mMessageCode(aMessageCode),
+      mMessageId(aMessageId),
+      mLanguage(aLanguage),
+      mBody(aBody),
+      mTimestamp(aTimestamp),
+      mEtwsInfo(aHasEtwsInfo ? new CellBroadcastEtwsInfo(
+                                   aWindow, aEtwsWarningType,
+                                   aEtwsEmergencyUserAlert, aEtwsPopup)
+                             : nullptr) {
   if (aGsmGeographicalScope <
       static_cast<uint32_t>(CellBroadcastGsmGeographicalScope::EndGuard_)) {
     mGsmGeographicalScope.SetValue(
-      ToWebidlEnum<CellBroadcastGsmGeographicalScope>(aGsmGeographicalScope));
+        ToWebidlEnum<CellBroadcastGsmGeographicalScope>(aGsmGeographicalScope));
   }
 
   if (aMessageClass <
       static_cast<uint32_t>(CellBroadcastMessageClass::EndGuard_)) {
     mMessageClass.SetValue(
-      ToWebidlEnum<CellBroadcastMessageClass>(aMessageClass));
+        ToWebidlEnum<CellBroadcastMessageClass>(aMessageClass));
   }
 
   // CdmaServiceCategory represents a 16bit unsigned value.
@@ -102,15 +94,12 @@ CellBroadcastMessage::CellBroadcastMessage(nsPIDOMWindowInner* aWindow,
   }
 }
 
-JSObject*
-CellBroadcastMessage::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* CellBroadcastMessage::WrapObject(JSContext* aCx,
+                                           JS::Handle<JSObject*> aGivenProto) {
   return CellBroadcastMessage_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-already_AddRefed<CellBroadcastEtwsInfo>
-CellBroadcastMessage::GetEtws() const
-{
+already_AddRefed<CellBroadcastEtwsInfo> CellBroadcastMessage::GetEtws() const {
   RefPtr<CellBroadcastEtwsInfo> etwsInfo = mEtwsInfo;
   return etwsInfo.forget();
 }
@@ -133,22 +122,20 @@ CellBroadcastEtwsInfo::CellBroadcastEtwsInfo(nsPIDOMWindowInner* aWindow,
                                              uint32_t aWarningType,
                                              bool aEmergencyUserAlert,
                                              bool aPopup)
-  : mWindow(aWindow)
-  , mEmergencyUserAlert(aEmergencyUserAlert)
-  , mPopup(aPopup)
-{
+    : mWindow(aWindow),
+      mEmergencyUserAlert(aEmergencyUserAlert),
+      mPopup(aPopup) {
   if (aWarningType <
       static_cast<uint32_t>(CellBroadcastEtwsWarningType::EndGuard_)) {
     mWarningType.SetValue(
-      ToWebidlEnum<CellBroadcastEtwsWarningType>(aWarningType));
+        ToWebidlEnum<CellBroadcastEtwsWarningType>(aWarningType));
   }
 }
 
-JSObject*
-CellBroadcastEtwsInfo::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* CellBroadcastEtwsInfo::WrapObject(JSContext* aCx,
+                                            JS::Handle<JSObject*> aGivenProto) {
   return CellBroadcastEtwsInfo_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

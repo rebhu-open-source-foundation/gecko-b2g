@@ -23,24 +23,13 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(FlashlightManager)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
 FlashlightManager::FlashlightManager(nsPIDOMWindowInner* aWindow)
-  : DOMEventTargetHelper(aWindow)
-  , mFlashlightEnabled(false)
-{
-}
+    : DOMEventTargetHelper(aWindow), mFlashlightEnabled(false) {}
 
-FlashlightManager::~FlashlightManager()
-{
-}
+FlashlightManager::~FlashlightManager() {}
 
-void
-FlashlightManager::Init()
-{
-  hal::RegisterFlashlightObserver(this);
-}
+void FlashlightManager::Init() { hal::RegisterFlashlightObserver(this); }
 
-void
-FlashlightManager::Shutdown()
-{
+void FlashlightManager::Shutdown() {
   hal::UnregisterFlashlightObserver(this);
 
   for (uint32_t i = 0; i < mPendingFlashlightPromises.Length(); ++i) {
@@ -49,15 +38,13 @@ FlashlightManager::Shutdown()
   mPendingFlashlightPromises.Clear();
 }
 
-JSObject*
-FlashlightManager::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* FlashlightManager::WrapObject(JSContext* aCx,
+                                        JS::Handle<JSObject*> aGivenProto) {
   return FlashlightManager_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-void
-FlashlightManager::Notify(const hal::FlashlightInformation& aFlashlightInfo)
-{
+void FlashlightManager::Notify(
+    const hal::FlashlightInformation& aFlashlightInfo) {
   bool hasChanged = aFlashlightInfo.enabled() != mFlashlightEnabled;
   mFlashlightEnabled = aFlashlightInfo.enabled();
 
@@ -71,9 +58,7 @@ FlashlightManager::Notify(const hal::FlashlightInformation& aFlashlightInfo)
   }
 }
 
-already_AddRefed<Promise>
-FlashlightManager::GetPromise(ErrorResult& aRv)
-{
+already_AddRefed<Promise> FlashlightManager::GetPromise(ErrorResult& aRv) {
   nsCOMPtr<nsIGlobalObject> go = do_QueryInterface(GetOwner());
   if (!go) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -91,17 +76,11 @@ FlashlightManager::GetPromise(ErrorResult& aRv)
   return promise.forget();
 }
 
-void
-FlashlightManager::SetFlashlightEnabled(bool aEnabled)
-{
+void FlashlightManager::SetFlashlightEnabled(bool aEnabled) {
   hal::SetFlashlightEnabled(aEnabled);
 }
 
-bool
-FlashlightManager::FlashlightEnabled() const
-{
-  return mFlashlightEnabled;
-}
+bool FlashlightManager::FlashlightEnabled() const { return mFlashlightEnabled; }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

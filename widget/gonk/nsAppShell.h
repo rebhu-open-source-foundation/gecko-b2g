@@ -27,87 +27,80 @@
 namespace mozilla {
 bool ProcessNextEvent();
 void NotifyEvent();
-}
+}  // namespace mozilla
 
 extern bool gDrawRequest;
 
 class FdHandler;
-typedef void(*FdHandlerCallback)(int, FdHandler *);
+typedef void (*FdHandlerCallback)(int, FdHandler*);
 
 class FdHandler {
-public:
-    FdHandler()
-    {
-        memset(name, 0, sizeof(name));
-    }
+ public:
+  FdHandler() { memset(name, 0, sizeof(name)); }
 
-    int fd;
-    char name[64];
-    FdHandlerCallback func;
-    void run()
-    {
-        func(fd, this);
-    }
+  int fd;
+  char name[64];
+  FdHandlerCallback func;
+  void run() { func(fd, this); }
 };
 
 namespace android {
 class EventHub;
 class InputReader;
 class InputReaderThread;
-}
+}  // namespace android
 
 class GeckoInputReaderPolicy;
 class GeckoInputDispatcher;
 class nsRepeatKeyTimer;
 
 class nsAppShell : public nsBaseAppShell {
-public:
-    nsAppShell();
+ public:
+  nsAppShell();
 
-    NS_DECL_ISUPPORTS_INHERITED
-    NS_DECL_NSIOBSERVER
+  NS_DECL_ISUPPORTS_INHERITED
+  NS_DECL_NSIOBSERVER
 
-    nsresult Init();
+  nsresult Init();
 
-    NS_IMETHOD Exit() override;
+  NS_IMETHOD Exit() override;
 
-    bool ProcessNextNativeEvent(bool maywait) override;
+  bool ProcessNextNativeEvent(bool maywait) override;
 
-    void NotifyNativeEvent();
+  void NotifyNativeEvent();
 
-    static void NotifyScreenInitialized();
-    static void NotifyScreenRotation();
+  static void NotifyScreenInitialized();
+  static void NotifyScreenRotation();
 
-    void CheckPowerKey();
+  void CheckPowerKey();
 
-protected:
-    virtual ~nsAppShell();
+ protected:
+  virtual ~nsAppShell();
 
-    void ScheduleNativeEventCallback() override;
+  void ScheduleNativeEventCallback() override;
 
-private:
-    nsresult AddFdHandler(int fd, FdHandlerCallback handlerFunc,
-                          const char* deviceName);
-    void InitInputDevices();
+ private:
+  nsresult AddFdHandler(int fd, FdHandlerCallback handlerFunc,
+                        const char* deviceName);
+  void InitInputDevices();
 
-    // This is somewhat racy but is perfectly safe given how the callback works
-    bool mNativeCallbackRequest;
+  // This is somewhat racy but is perfectly safe given how the callback works
+  bool mNativeCallbackRequest;
 
-    // This gets flipped when we observe a browser-ui-startup-complete.
-    // browser-ui-startup-complete means that we're really ready to draw
-    // and can stop the boot animation
-    bool mEnableDraw;
-    nsTArray<FdHandler> mHandlers;
+  // This gets flipped when we observe a browser-ui-startup-complete.
+  // browser-ui-startup-complete means that we're really ready to draw
+  // and can stop the boot animation
+  bool mEnableDraw;
+  nsTArray<FdHandler> mHandlers;
 
-    android::sp<android::EventHub>               mEventHub;
-    android::sp<GeckoInputReaderPolicy> mReaderPolicy;
-    android::sp<GeckoInputDispatcher>   mDispatcher;
-    android::sp<android::InputReader>            mReader;
-    android::sp<android::InputReaderThread>      mReaderThread;
+  android::sp<android::EventHub> mEventHub;
+  android::sp<GeckoInputReaderPolicy> mReaderPolicy;
+  android::sp<GeckoInputDispatcher> mDispatcher;
+  android::sp<android::InputReader> mReader;
+  android::sp<android::InputReaderThread> mReaderThread;
 
-    // Guard against checking power key after the first configuration change.
-    bool mPowerKeyChecked;
+  // Guard against checking power key after the first configuration change.
+  bool mPowerKeyChecked;
 };
 
 #endif /* nsAppShell_h */
-

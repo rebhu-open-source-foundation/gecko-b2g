@@ -17,45 +17,39 @@ namespace dom {
 
 class DOMRequest;
 
-class SubsidyLock final : public nsISupports
-                        , public nsWrapperCache
-{
-public:
+class SubsidyLock final : public nsISupports, public nsWrapperCache {
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(SubsidyLock)
 
   SubsidyLock(nsPIDOMWindowInner* aWindow, uint32_t aClientId);
 
-  void
-  Shutdown();
+  void Shutdown();
 
-  nsPIDOMWindowInner*
-  GetParentObject() const;
+  nsPIDOMWindowInner* GetParentObject() const;
 
   // WrapperCache
 
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   // WebIDL interfaces
 
-  already_AddRefed<DOMRequest>
-  GetSubsidyLockStatus(ErrorResult& aRv);
+  already_AddRefed<DOMRequest> GetSubsidyLockStatus(ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  UnlockSubsidyLock(const UnlockOptions& aOptions, ErrorResult& aRv);
+  already_AddRefed<DOMRequest> UnlockSubsidyLock(const UnlockOptions& aOptions,
+                                                 ErrorResult& aRv);
 
-private:
+ private:
   ~SubsidyLock();
   uint32_t mClientId;
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
   nsCOMPtr<nsISubsidyLock> mSubsidyLock;
 
-  bool
-  CheckPermission(const char* aType) const;
+  bool CheckPermission(const char* aType) const;
 };
 
-} // namespace dom
-} // namespace mozillaalready_AddRefed<DOMRequest>
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_SubsidyLock_h
+#endif  // mozilla_dom_SubsidyLock_h

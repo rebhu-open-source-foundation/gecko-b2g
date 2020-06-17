@@ -32,72 +32,70 @@ namespace android {
 
 // ----------------------------------------------------------------------------
 
-class IAudioTrack : public IInterface
-{
-public:
-    DECLARE_META_INTERFACE(AudioTrack);
+class IAudioTrack : public IInterface {
+ public:
+  DECLARE_META_INTERFACE(AudioTrack);
 
-    /* Get this track's control block */
-    virtual sp<IMemory> getCblk() const = 0;
+  /* Get this track's control block */
+  virtual sp<IMemory> getCblk() const = 0;
 
-    /* After it's created the track is not active. Call start() to
-     * make it active.
-     */
-    virtual status_t    start() = 0;
+  /* After it's created the track is not active. Call start() to
+   * make it active.
+   */
+  virtual status_t start() = 0;
 
-    /* Stop a track. If set, the callback will cease being called and
-     * obtainBuffer will return an error. Buffers that are already released
-     * will continue to be processed, unless/until flush() is called.
-     */
-    virtual void        stop() = 0;
+  /* Stop a track. If set, the callback will cease being called and
+   * obtainBuffer will return an error. Buffers that are already released
+   * will continue to be processed, unless/until flush() is called.
+   */
+  virtual void stop() = 0;
 
-    /* Flush a stopped or paused track. All pending/released buffers are discarded.
-     * This function has no effect if the track is not stopped or paused.
-     */
-    virtual void        flush() = 0;
+  /* Flush a stopped or paused track. All pending/released buffers are
+   * discarded. This function has no effect if the track is not stopped or
+   * paused.
+   */
+  virtual void flush() = 0;
 
-    /* Pause a track. If set, the callback will cease being called and
-     * obtainBuffer will return an error. Buffers that are already released
-     * will continue to be processed, unless/until flush() is called.
-     */
-    virtual void        pause() = 0;
+  /* Pause a track. If set, the callback will cease being called and
+   * obtainBuffer will return an error. Buffers that are already released
+   * will continue to be processed, unless/until flush() is called.
+   */
+  virtual void pause() = 0;
 
-    /* Attach track auxiliary output to specified effect. Use effectId = 0
-     * to detach track from effect.
-     */
-    virtual status_t    attachAuxEffect(int effectId) = 0;
+  /* Attach track auxiliary output to specified effect. Use effectId = 0
+   * to detach track from effect.
+   */
+  virtual status_t attachAuxEffect(int effectId) = 0;
 
-    /* Send parameters to the audio hardware */
-    virtual status_t    setParameters(const String8& keyValuePairs) = 0;
+  /* Send parameters to the audio hardware */
+  virtual status_t setParameters(const String8& keyValuePairs) = 0;
 
-    /* Return NO_ERROR if timestamp is valid.  timestamp is undefined otherwise. */
-    virtual status_t    getTimestamp(AudioTimestamp& timestamp) = 0;
+  /* Return NO_ERROR if timestamp is valid.  timestamp is undefined otherwise.
+   */
+  virtual status_t getTimestamp(AudioTimestamp& timestamp) = 0;
 
-    /* Signal the playback thread for a change in control block */
-    virtual void        signal() = 0;
+  /* Signal the playback thread for a change in control block */
+  virtual void signal() = 0;
 
-    /* Sets the volume shaper */
-    virtual VolumeShaper::Status applyVolumeShaper(
-            const sp<VolumeShaper::Configuration>& configuration,
-            const sp<VolumeShaper::Operation>& operation) = 0;
+  /* Sets the volume shaper */
+  virtual VolumeShaper::Status applyVolumeShaper(
+      const sp<VolumeShaper::Configuration>& configuration,
+      const sp<VolumeShaper::Operation>& operation) = 0;
 
-    /* gets the volume shaper state */
-    virtual sp<VolumeShaper::State> getVolumeShaperState(int id) = 0;
+  /* gets the volume shaper state */
+  virtual sp<VolumeShaper::State> getVolumeShaperState(int id) = 0;
 };
 
 // ----------------------------------------------------------------------------
 
-class BnAudioTrack : public BnInterface<IAudioTrack>
-{
-public:
-    virtual status_t    onTransact( uint32_t code,
-                                    const Parcel& data,
-                                    Parcel* reply,
-                                    uint32_t flags = 0);
+class BnAudioTrack : public BnInterface<IAudioTrack> {
+ public:
+  virtual status_t onTransact(uint32_t code, const Parcel& data, Parcel* reply,
+                              uint32_t flags = 0);
 };
 
 // ----------------------------------------------------------------------------
 
-}; // namespace android
+};  // namespace android
 
-#endif // ANDROID_IAUDIOTRACK_H
+#endif  // ANDROID_IAUDIOTRACK_H

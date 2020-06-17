@@ -4,7 +4,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
 #ifndef mozilla_dom_cellbroadcast_CellBroadcastParent_h
 #define mozilla_dom_cellbroadcast_CellBroadcastParent_h
 
@@ -15,10 +14,9 @@ namespace mozilla {
 namespace dom {
 namespace cellbroadcast {
 
-class CellBroadcastParent final : public PCellBroadcastParent
-                                , public nsICellBroadcastListener
-{
-public:
+class CellBroadcastParent final : public PCellBroadcastParent,
+                                  public nsICellBroadcastListener {
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSICELLBROADCASTLISTENER
 
@@ -26,13 +24,13 @@ public:
 
  private:
   // final suppresses -Werror,-Wdelete-non-virtual-dtor
-  ~CellBroadcastParent() {};
+  ~CellBroadcastParent(){};
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 };
 
-} // namespace cellbroadcast
-} // namespace dom
-} // namespace mozilla
+}  // namespace cellbroadcast
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_cellbroadcast_CellBroadcastParent_h
+#endif  // mozilla_dom_cellbroadcast_CellBroadcastParent_h

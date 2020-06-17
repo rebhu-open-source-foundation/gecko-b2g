@@ -32,9 +32,7 @@ PSmsChild* gSmsChild;
 // SmsIPCService is owned by nsLayoutModule.
 SmsIPCService* sSingleton = nullptr;
 
-PSmsChild*
-GetSmsChild()
-{
+PSmsChild* GetSmsChild() {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (!gSmsChild) {
@@ -47,10 +45,8 @@ GetSmsChild()
   return gSmsChild;
 }
 
-nsresult
-SendRequest(const IPCSmsRequest& aRequest,
-            nsIMobileMessageCallback* aRequestReply)
-{
+nsresult SendRequest(const IPCSmsRequest& aRequest,
+                     nsIMobileMessageCallback* aRequestReply) {
   PSmsChild* smsChild = GetSmsChild();
   NS_ENSURE_TRUE(smsChild, NS_ERROR_FAILURE);
 
@@ -60,16 +56,14 @@ SendRequest(const IPCSmsRequest& aRequest,
   return NS_OK;
 }
 
-nsresult
-SendCursorRequest(const IPCMobileMessageCursor& aRequest,
-                  nsIMobileMessageCursorCallback* aRequestReply,
-                  nsICursorContinueCallback** aResult)
-{
+nsresult SendCursorRequest(const IPCMobileMessageCursor& aRequest,
+                           nsIMobileMessageCursorCallback* aRequestReply,
+                           nsICursorContinueCallback** aResult) {
   PSmsChild* smsChild = GetSmsChild();
   NS_ENSURE_TRUE(smsChild, NS_ERROR_FAILURE);
 
   RefPtr<MobileMessageCursorChild> actor =
-    new MobileMessageCursorChild(aRequestReply);
+      new MobileMessageCursorChild(aRequestReply);
 
   // Add an extra ref for IPDL. Will be released in
   // SmsChild::DeallocPMobileMessageCursor().
@@ -82,9 +76,7 @@ SendCursorRequest(const IPCMobileMessageCursor& aRequest,
   return NS_OK;
 }
 
-uint32_t
-getDefaultServiceId(const char* aPrefKey)
-{
+uint32_t getDefaultServiceId(const char* aPrefKey) {
   static const char* kPrefRilNumRadioInterfaces = "ril.numRadioInterfaces";
   int32_t id = mozilla::Preferences::GetInt(aPrefKey, 0);
   int32_t numRil = mozilla::Preferences::GetInt(kPrefRilNumRadioInterfaces, 1);
@@ -96,17 +88,12 @@ getDefaultServiceId(const char* aPrefKey)
   return id;
 }
 
-} // namespace
+}  // namespace
 
-NS_IMPL_ISUPPORTS(SmsIPCService,
-                  nsISmsService,
-                  nsIMmsService,
-                  nsIMobileMessageDatabaseService,
-                  nsIObserver)
+NS_IMPL_ISUPPORTS(SmsIPCService, nsISmsService, nsIMmsService,
+                  nsIMobileMessageDatabaseService, nsIObserver)
 
-/* static */ already_AddRefed<SmsIPCService>
-SmsIPCService::GetSingleton()
-{
+/* static */ already_AddRefed<SmsIPCService> SmsIPCService::GetSingleton() {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (!sSingleton) {
@@ -117,32 +104,23 @@ SmsIPCService::GetSingleton()
   return service.forget();
 }
 
-SmsIPCService::SmsIPCService()
-{
-  static const char* kObservedPrefs[] = {
-    kPrefMmsDefaultServiceId,
-    kPrefSmsDefaultServiceId,
-    nullptr
-  };
+SmsIPCService::SmsIPCService() {
+  static const char* kObservedPrefs[] = {kPrefMmsDefaultServiceId,
+                                         kPrefSmsDefaultServiceId, nullptr};
   Preferences::AddStrongObservers(this, kObservedPrefs);
   mMmsDefaultServiceId = getDefaultServiceId(kPrefMmsDefaultServiceId);
   mSmsDefaultServiceId = getDefaultServiceId(kPrefSmsDefaultServiceId);
 }
 
-SmsIPCService::~SmsIPCService()
-{
-  sSingleton = nullptr;
-}
+SmsIPCService::~SmsIPCService() { sSingleton = nullptr; }
 
 /*
  * Implementation of nsIObserver.
  */
 
 NS_IMETHODIMP
-SmsIPCService::Observe(nsISupports* aSubject,
-                       const char* aTopic,
-                       const char16_t* aData)
-{
+SmsIPCService::Observe(nsISupports* aSubject, const char* aTopic,
+                       const char16_t* aData) {
   if (!strcmp(aTopic, NS_PREFBRANCH_PREFCHANGE_TOPIC_ID)) {
     nsDependentString data(aData);
     if (data.EqualsLiteral(kPrefMmsDefaultServiceId)) {
@@ -162,59 +140,46 @@ SmsIPCService::Observe(nsISupports* aSubject,
  */
 
 NS_IMETHODIMP
-SmsIPCService::GetSmsDefaultServiceId(uint32_t* aServiceId)
-{
+SmsIPCService::GetSmsDefaultServiceId(uint32_t* aServiceId) {
   *aServiceId = mSmsDefaultServiceId;
   return NS_OK;
 }
 
 NS_IMETHODIMP
 SmsIPCService::GetSegmentInfoForText(const nsAString& aText,
-                                     nsIMobileMessageCallback* aRequest)
-{
-  return SendRequest(GetSegmentInfoForTextRequest(nsString(aText)),
-                                                  aRequest);
+                                     nsIMobileMessageCallback* aRequest) {
+  return SendRequest(GetSegmentInfoForTextRequest(nsString(aText)), aRequest);
 }
 
 NS_IMETHODIMP
 SmsIPCService::GetSmscAddress(uint32_t aServiceId,
-                              nsIMobileMessageCallback* aRequest)
-{
+                              nsIMobileMessageCallback* aRequest) {
   return SendRequest(GetSmscAddressRequest(aServiceId), aRequest);
 }
 
-
 NS_IMETHODIMP
-SmsIPCService::SetSmscAddress(uint32_t aServiceId,
-                              const nsAString& aNumber,
+SmsIPCService::SetSmscAddress(uint32_t aServiceId, const nsAString& aNumber,
                               uint32_t aTypeOfNumber,
                               uint32_t aNumberPlanIdentification,
-                              nsIMobileMessageCallback* aRequest)
-{
-  return SendRequest(SetSmscAddressRequest(aServiceId,
-                                           nsString(aNumber),
-                                           aTypeOfNumber,
-                                           aNumberPlanIdentification),
-                     aRequest);
+                              nsIMobileMessageCallback* aRequest) {
+  return SendRequest(
+      SetSmscAddressRequest(aServiceId, nsString(aNumber), aTypeOfNumber,
+                            aNumberPlanIdentification),
+      aRequest);
 }
 
 NS_IMETHODIMP
-SmsIPCService::Send(uint32_t aServiceId,
-                    const nsAString& aNumber,
-                    const nsAString& aMessage,
-                    bool aSilent,
-                    nsIMobileMessageCallback* aRequest)
-{
-  return SendRequest(SendMessageRequest(SendSmsMessageRequest(aServiceId,
-                                                              nsString(aNumber),
-                                                              nsString(aMessage),
-                                                              aSilent)),
-                     aRequest);
+SmsIPCService::Send(uint32_t aServiceId, const nsAString& aNumber,
+                    const nsAString& aMessage, bool aSilent,
+                    nsIMobileMessageCallback* aRequest) {
+  return SendRequest(
+      SendMessageRequest(SendSmsMessageRequest(aServiceId, nsString(aNumber),
+                                               nsString(aMessage), aSilent)),
+      aRequest);
 }
 
 NS_IMETHODIMP
-SmsIPCService::AddSilentNumber(const nsAString& aNumber)
-{
+SmsIPCService::AddSilentNumber(const nsAString& aNumber) {
   PSmsChild* smsChild = GetSmsChild();
   NS_ENSURE_TRUE(smsChild, NS_ERROR_FAILURE);
 
@@ -223,8 +188,7 @@ SmsIPCService::AddSilentNumber(const nsAString& aNumber)
 }
 
 NS_IMETHODIMP
-SmsIPCService::RemoveSilentNumber(const nsAString& aNumber)
-{
+SmsIPCService::RemoveSilentNumber(const nsAString& aNumber) {
   PSmsChild* smsChild = GetSmsChild();
   NS_ENSURE_TRUE(smsChild, NS_ERROR_FAILURE);
 
@@ -237,36 +201,26 @@ SmsIPCService::RemoveSilentNumber(const nsAString& aNumber)
  */
 NS_IMETHODIMP
 SmsIPCService::GetMessageMoz(int32_t aMessageId,
-                             nsIMobileMessageCallback* aRequest)
-{
+                             nsIMobileMessageCallback* aRequest) {
   return SendRequest(GetMessageRequest(aMessageId), aRequest);
 }
 
 NS_IMETHODIMP
-SmsIPCService::DeleteMessage(int32_t *aMessageIds, uint32_t aSize,
-                             nsIMobileMessageCallback* aRequest)
-{
+SmsIPCService::DeleteMessage(int32_t* aMessageIds, uint32_t aSize,
+                             nsIMobileMessageCallback* aRequest) {
   DeleteMessageRequest data;
   data.messageIds().AppendElements(aMessageIds, aSize);
   return SendRequest(data, aRequest);
 }
 
 NS_IMETHODIMP
-SmsIPCService::CreateMessageCursor(bool aHasStartDate,
-                                   uint64_t aStartDate,
-                                   bool aHasEndDate,
-                                   uint64_t aEndDate,
-                                   const char16_t** aNumbers,
-                                   uint32_t aNumbersCount,
-                                   const nsAString& aDelivery,
-                                   bool aHasRead,
-                                   bool aRead,
-                                   bool aHasThreadId,
-                                   uint64_t aThreadId,
-                                   bool aReverse,
-                                   nsIMobileMessageCursorCallback* aCursorCallback,
-                                   nsICursorContinueCallback** aResult)
-{
+SmsIPCService::CreateMessageCursor(
+    bool aHasStartDate, uint64_t aStartDate, bool aHasEndDate,
+    uint64_t aEndDate, const char16_t** aNumbers, uint32_t aNumbersCount,
+    const nsAString& aDelivery, bool aHasRead, bool aRead, bool aHasThreadId,
+    uint64_t aThreadId, bool aReverse,
+    nsIMobileMessageCursorCallback* aCursorCallback,
+    nsICursorContinueCallback** aResult) {
   SmsFilterData data;
 
   data.hasStartDate() = aHasStartDate;
@@ -294,26 +248,24 @@ SmsIPCService::CreateMessageCursor(bool aHasStartDate,
 }
 
 NS_IMETHODIMP
-SmsIPCService::MarkMessageRead(int32_t aMessageId,
-                               bool aValue,
+SmsIPCService::MarkMessageRead(int32_t aMessageId, bool aValue,
                                bool aSendReadReport,
-                               nsIMobileMessageCallback* aRequest)
-{
-  return SendRequest(MarkMessageReadRequest(aMessageId, aValue, aSendReadReport), aRequest);
+                               nsIMobileMessageCallback* aRequest) {
+  return SendRequest(
+      MarkMessageReadRequest(aMessageId, aValue, aSendReadReport), aRequest);
 }
 
 NS_IMETHODIMP
-SmsIPCService::CreateThreadCursor(nsIMobileMessageCursorCallback* aCursorCallback,
-                                  nsICursorContinueCallback** aResult)
-{
+SmsIPCService::CreateThreadCursor(
+    nsIMobileMessageCursorCallback* aCursorCallback,
+    nsICursorContinueCallback** aResult) {
   return SendCursorRequest(CreateThreadCursorRequest(), aCursorCallback,
                            aResult);
 }
 
-bool
-GetSendMmsMessageRequestFromParams(uint32_t aServiceId,
-                                   const JS::Value& aParam,
-                                   SendMmsMessageRequest& request) {
+bool GetSendMmsMessageRequestFromParams(uint32_t aServiceId,
+                                        const JS::Value& aParam,
+                                        SendMmsMessageRequest& request) {
   if (aParam.isUndefined() || aParam.isNull() || !aParam.isObject()) {
     return false;
   }
@@ -343,7 +295,8 @@ GetSendMmsMessageRequestFromParams(uint32_t aServiceId,
     MmsAttachmentData mmsAttachment;
     mmsAttachment.id().Assign(attachment.mId);
     mmsAttachment.location().Assign(attachment.mLocation);
-    mmsAttachment.contentChild() = cc->GetOrCreateActorForBlob(attachment.mContent);
+    mmsAttachment.contentChild() =
+        cc->GetOrCreateActorForBlob(attachment.mContent);
     if (!mmsAttachment.contentChild()) {
       return false;
     }
@@ -365,17 +318,14 @@ GetSendMmsMessageRequestFromParams(uint32_t aServiceId,
  */
 
 NS_IMETHODIMP
-SmsIPCService::GetMmsDefaultServiceId(uint32_t* aServiceId)
-{
+SmsIPCService::GetMmsDefaultServiceId(uint32_t* aServiceId) {
   *aServiceId = mMmsDefaultServiceId;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-SmsIPCService::Send(uint32_t aServiceId,
-                    JS::Handle<JS::Value> aParameters,
-                    nsIMobileMessageCallback *aRequest)
-{
+SmsIPCService::Send(uint32_t aServiceId, JS::Handle<JS::Value> aParameters,
+                    nsIMobileMessageCallback* aRequest) {
   SendMmsMessageRequest req;
   if (!GetSendMmsMessageRequestFromParams(aServiceId, aParameters, req)) {
     return NS_ERROR_INVALID_ARG;
@@ -384,16 +334,14 @@ SmsIPCService::Send(uint32_t aServiceId,
 }
 
 NS_IMETHODIMP
-SmsIPCService::Retrieve(int32_t aId, nsIMobileMessageCallback *aRequest)
-{
+SmsIPCService::Retrieve(int32_t aId, nsIMobileMessageCallback* aRequest) {
   return SendRequest(RetrieveMessageRequest(aId), aRequest);
 }
 
 NS_IMETHODIMP
-SmsIPCService::SendReadReport(const nsAString & messageID,
-                              const nsAString & toAddress,
-                              const nsAString & iccId)
-{
+SmsIPCService::SendReadReport(const nsAString& messageID,
+                              const nsAString& toAddress,
+                              const nsAString& iccId) {
   NS_ERROR("We should not be here!");
   return NS_OK;
 }

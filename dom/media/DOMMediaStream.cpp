@@ -54,7 +54,6 @@ static bool ContainsLiveTracks(
   return false;
 }
 
-
 static bool ContainsLiveAudioTracks(
     const nsTArray<RefPtr<MediaStreamTrack>>& aTracks) {
   for (const auto& track : aTracks) {
@@ -543,12 +542,9 @@ nsresult DOMMediaStream::DispatchTrackEvent(
   return DispatchTrustedEvent(event);
 }
 
-//TODO:: temp remove it.
-void
-DOMMediaStream::CreateAndAddPlaybackStreamListener(MediaTrack* aStream)
-{
-//  MOZ_ASSERT(GetCameraStream(), "I'm a hack. Only DOMCameraControl may use me.");
-//  mPlaybackListener = new PlaybackStreamListener(this);
-//  aStream->AddListener(mPlaybackListener);
+// TODO:: temp remove it.
+void DOMMediaStream::CreateAndAddPlaybackStreamListener(MediaTrack* aStream) {
+  //  MOZ_ASSERT(GetCameraStream(), "I'm a hack. Only DOMCameraControl may use
+  //  me."); mPlaybackListener = new PlaybackStreamListener(this);
+  //  aStream->AddListener(mPlaybackListener);
 }
-

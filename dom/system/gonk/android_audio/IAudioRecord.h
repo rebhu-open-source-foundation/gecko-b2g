@@ -30,37 +30,33 @@ namespace android {
 
 // ----------------------------------------------------------------------------
 
-class IAudioRecord : public IInterface
-{
-public:
-    DECLARE_META_INTERFACE(AudioRecord);
+class IAudioRecord : public IInterface {
+ public:
+  DECLARE_META_INTERFACE(AudioRecord);
 
-    /* After it's created the track is not active. Call start() to
-     * make it active.
-     */
-    virtual status_t    start(int /*AudioSystem::sync_event_t*/ event,
-                              audio_session_t triggerSession) = 0;
+  /* After it's created the track is not active. Call start() to
+   * make it active.
+   */
+  virtual status_t start(int /*AudioSystem::sync_event_t*/ event,
+                         audio_session_t triggerSession) = 0;
 
-    /* Stop a track. If set, the callback will cease being called and
-     * obtainBuffer will return an error. Buffers that are already released
-     * will be processed, unless flush() is called.
-     */
-    virtual void        stop() = 0;
+  /* Stop a track. If set, the callback will cease being called and
+   * obtainBuffer will return an error. Buffers that are already released
+   * will be processed, unless flush() is called.
+   */
+  virtual void stop() = 0;
 };
 
 // ----------------------------------------------------------------------------
 
-class BnAudioRecord : public BnInterface<IAudioRecord>
-{
-public:
-    virtual status_t    onTransact( uint32_t code,
-                                    const Parcel& data,
-                                    Parcel* reply,
-                                    uint32_t flags = 0);
+class BnAudioRecord : public BnInterface<IAudioRecord> {
+ public:
+  virtual status_t onTransact(uint32_t code, const Parcel& data, Parcel* reply,
+                              uint32_t flags = 0);
 };
 
 // ----------------------------------------------------------------------------
 
-}; // namespace android
+};  // namespace android
 
 #endif /*IAUDIORECORD_H_*/

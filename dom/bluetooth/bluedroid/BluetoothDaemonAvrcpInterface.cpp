@@ -512,7 +512,8 @@ void BluetoothDaemonAvrcpModule::GetPlayerAppValueNtf(
 class BluetoothDaemonAvrcpModule::GetPlayerAppAttrsTextInitOp final
     : private PDUInitOp {
  public:
-  explicit GetPlayerAppAttrsTextInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit GetPlayerAppAttrsTextInitOp(DaemonSocketPDU& aPDU)
+      : PDUInitOp(aPDU) {}
 
   nsresult operator()(uint8_t& aArg1,
                       UniquePtr<BluetoothAvrcpPlayerAttribute[]>& aArg2) const {
@@ -546,7 +547,8 @@ void BluetoothDaemonAvrcpModule::GetPlayerAppAttrsTextNtf(
 class BluetoothDaemonAvrcpModule::GetPlayerAppValuesTextInitOp final
     : private PDUInitOp {
  public:
-  explicit GetPlayerAppValuesTextInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit GetPlayerAppValuesTextInitOp(DaemonSocketPDU& aPDU)
+      : PDUInitOp(aPDU) {}
 
   nsresult operator()(uint8_t& aArg1, uint8_t& aArg2,
                       UniquePtr<uint8_t[]>& aArg3) const {

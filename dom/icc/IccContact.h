@@ -12,9 +12,8 @@ namespace dom {
 // class mozContact;
 namespace icc {
 
-class IccContact : public nsIIccContact
-{
-public:
+class IccContact : public nsIIccContact {
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIICCCONTACT
 
@@ -22,16 +21,13 @@ public:
   // Create(mozContact& aMozContact,
   //        nsIIccContact** aIccContact);
 
-  static nsresult
-  Create(const nsAString& aId,
-         const nsTArray<nsString>& aNames,
-         const nsTArray<nsString>& aNumbers,
-         const nsTArray<nsString>& aEmails,
-         nsIIccContact** aIccContact);
+  static nsresult Create(const nsAString& aId, const nsTArray<nsString>& aNames,
+                         const nsTArray<nsString>& aNumbers,
+                         const nsTArray<nsString>& aEmails,
+                         nsIIccContact** aIccContact);
 
-private:
-  IccContact(const nsAString& aId,
-             const nsTArray<nsString>& aNames,
+ private:
+  IccContact(const nsAString& aId, const nsTArray<nsString>& aNames,
              const nsTArray<nsString>& aNumbers,
              const nsTArray<nsString>& aEmails);
   virtual ~IccContact() {}
@@ -42,9 +38,8 @@ private:
   nsTArray<nsString> mEmails;
 };
 
-} // namespace icc
-} // namespace dom
-} // namespace mozilla
+}  // namespace icc
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_icc_IccContact_h
-
+#endif  // mozilla_dom_icc_IccContact_h

@@ -86,22 +86,19 @@ struct SensorsEvent {
  * |SensorsSensor| represents a device sensor; either single or composite.
  */
 struct SensorsSensor {
-  SensorsSensor(int32_t aId, SensorsType aType,
-                float aRange, float aResolution,
-                float aPower, int32_t aMinPeriod,
-                int32_t aMaxPeriod,
+  SensorsSensor(int32_t aId, SensorsType aType, float aRange, float aResolution,
+                float aPower, int32_t aMinPeriod, int32_t aMaxPeriod,
                 SensorsTriggerMode aTriggerMode,
                 SensorsDeliveryMode aDeliveryMode)
-    : mId(aId)
-    , mType(aType)
-    , mRange(aRange)
-    , mResolution(aResolution)
-    , mPower(aPower)
-    , mMinPeriod(aMinPeriod)
-    , mMaxPeriod(aMaxPeriod)
-    , mTriggerMode(aTriggerMode)
-    , mDeliveryMode(aDeliveryMode)
-  { }
+      : mId(aId),
+        mType(aType),
+        mRange(aRange),
+        mResolution(aResolution),
+        mPower(aPower),
+        mMinPeriod(aMinPeriod),
+        mMaxPeriod(aMaxPeriod),
+        mTriggerMode(aTriggerMode),
+        mDeliveryMode(aDeliveryMode) {}
 
   int32_t mId;
   SensorsType mType;
@@ -118,14 +115,9 @@ struct SensorsSensor {
  * |SensorClass| represents the status of a specific sensor type.
  */
 struct SensorsSensorClass {
-  SensorsSensorClass()
-    : mActivated(0)
-    , mMinValue(0)
-    , mMaxValue(0)
-  { }
+  SensorsSensorClass() : mActivated(0), mMinValue(0), mMaxValue(0) {}
 
-  void UpdateFromSensor(const SensorsSensor& aSensor)
-  {
+  void UpdateFromSensor(const SensorsSensor& aSensor) {
     mMaxValue = std::max(aSensor.mRange, mMaxValue);
   }
 
@@ -134,7 +126,7 @@ struct SensorsSensorClass {
   float mMaxValue;
 };
 
-} // namespace hal
-} // namespace mozilla
+}  // namespace hal
+}  // namespace mozilla
 
-#endif // hal_gonk_SensorsTypes_h
+#endif  // hal_gonk_SensorsTypes_h

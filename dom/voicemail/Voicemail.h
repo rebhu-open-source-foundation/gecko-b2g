@@ -23,8 +23,7 @@ namespace dom {
 class VoicemailStatus;
 
 class Voicemail final : public DOMEventTargetHelper,
-                        private nsIVoicemailListener
-{
+                        private nsIVoicemailListener {
   /**
    * Class Voicemail doesn't actually expose nsIVoicemailListener. Instead, it
    * owns an nsIVoicemailListener derived instance mListener and passes it to
@@ -34,53 +33,40 @@ class Voicemail final : public DOMEventTargetHelper,
    */
   class Listener;
 
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSIVOICEMAILLISTENER
 
-  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(Voicemail,
-                                           DOMEventTargetHelper)
+  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(Voicemail, DOMEventTargetHelper)
 
-  static already_AddRefed<Voicemail>
-  Create(nsIGlobalObject* aGlobal,
-         ErrorResult& aRv);
+  static already_AddRefed<Voicemail> Create(nsIGlobalObject* aGlobal,
+                                            ErrorResult& aRv);
 
-  void
-  Shutdown();
+  void Shutdown();
 
-  nsPIDOMWindowInner*
-  GetParentObject() const
-  {
-    return GetOwner();
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return GetOwner(); }
 
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-  already_AddRefed<VoicemailStatus>
-  GetStatus(const Optional<uint32_t>& aServiceId,
-            ErrorResult& aRv);
+  already_AddRefed<VoicemailStatus> GetStatus(
+      const Optional<uint32_t>& aServiceId, ErrorResult& aRv);
 
-  void
-  GetNumber(const Optional<uint32_t>& aServiceId,
-            nsString& aNumber,
-            ErrorResult& aRv) const;
-
-  void
-  GetDisplayName(const Optional<uint32_t>& aServiceId,
-                 nsString& aDisplayName,
+  void GetNumber(const Optional<uint32_t>& aServiceId, nsString& aNumber,
                  ErrorResult& aRv) const;
+
+  void GetDisplayName(const Optional<uint32_t>& aServiceId,
+                      nsString& aDisplayName, ErrorResult& aRv) const;
 
   IMPL_EVENT_HANDLER(statuschanged)
 
-private:
-  Voicemail(nsIGlobalObject* aGlobal,
-            nsIVoicemailService* aService);
+ private:
+  Voicemail(nsIGlobalObject* aGlobal, nsIVoicemailService* aService);
 
   // final suppresses -Werror,-Wdelete-non-virtual-dtor
   ~Voicemail();
 
-private:
+ private:
   nsCOMPtr<nsIVoicemailService> mService;
   RefPtr<Listener> mListener;
 
@@ -92,19 +78,18 @@ private:
   // Return a nsIVoicemailProvider instance based on the requests from external
   // components. Return nullptr if aOptionalServiceId contains an invalid
   // service id or the default one is just not available.
-  already_AddRefed<nsIVoicemailProvider>
-  GetItemByServiceId(const Optional<uint32_t>& aOptionalServiceId,
-                     uint32_t& aActualServiceId) const;
+  already_AddRefed<nsIVoicemailProvider> GetItemByServiceId(
+      const Optional<uint32_t>& aOptionalServiceId,
+      uint32_t& aActualServiceId) const;
 
   // Request for a valid VoicemailStatus object based on given service id and
   // provider. It's the callee's responsibility to ensure the validity of the
   // two parameters.
-  already_AddRefed<VoicemailStatus>
-  GetOrCreateStatus(uint32_t aServiceId,
-                    nsIVoicemailProvider* aProvider);
+  already_AddRefed<VoicemailStatus> GetOrCreateStatus(
+      uint32_t aServiceId, nsIVoicemailProvider* aProvider);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_voicemail_voicemail_h__
+#endif  // mozilla_dom_voicemail_voicemail_h__

@@ -19,23 +19,22 @@
 
 #include "nsXPLookAndFeel.h"
 
-class nsLookAndFeel : public nsXPLookAndFeel
-{
-public:
-    nsLookAndFeel();
-    virtual ~nsLookAndFeel();
+class nsLookAndFeel : public nsXPLookAndFeel {
+ public:
+  nsLookAndFeel();
+  virtual ~nsLookAndFeel();
 
-    virtual bool GetFontImpl(FontID aID, nsString& aName, gfxFontStyle& aStyle);
-    virtual nsresult GetIntImpl(IntID aID, int32_t &aResult);
-    virtual nsresult GetFloatImpl(FloatID aID, float &aResult);
-    virtual bool GetEchoPasswordImpl();
-    virtual uint32_t GetPasswordMaskDelayImpl();
-    virtual char16_t GetPasswordCharacterImpl();
+  virtual bool GetFontImpl(FontID aID, nsString& aName, gfxFontStyle& aStyle);
+  virtual nsresult GetIntImpl(IntID aID, int32_t& aResult);
+  virtual nsresult GetFloatImpl(FloatID aID, float& aResult);
+  virtual bool GetEchoPasswordImpl();
+  virtual uint32_t GetPasswordMaskDelayImpl();
+  virtual char16_t GetPasswordCharacterImpl();
 
-    void NativeInit() final {};
+  void NativeInit() final{};
 
-protected:
-    virtual nsresult NativeGetColor(ColorID aID, nscolor &aColor);
+ protected:
+  virtual nsresult NativeGetColor(ColorID aID, nscolor& aColor);
 };
 
 #endif

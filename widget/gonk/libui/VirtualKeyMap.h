@@ -30,15 +30,14 @@ namespace android {
 
 /* Describes a virtual key. */
 struct VirtualKeyDefinition {
-    int32_t scanCode;
+  int32_t scanCode;
 
-    // configured position data, specified in display coords
-    int32_t centerX;
-    int32_t centerY;
-    int32_t width;
-    int32_t height;
+  // configured position data, specified in display coords
+  int32_t centerX;
+  int32_t centerY;
+  int32_t width;
+  int32_t height;
 };
-
 
 /**
  * Describes a collection of virtual keys on a touch screen in terms of
@@ -47,35 +46,35 @@ struct VirtualKeyDefinition {
  * This object is immutable after it has been loaded.
  */
 class VirtualKeyMap {
-public:
-    ~VirtualKeyMap();
+ public:
+  ~VirtualKeyMap();
 
-    static status_t load(const String8& filename, VirtualKeyMap** outMap);
+  static status_t load(const String8& filename, VirtualKeyMap** outMap);
 
-    inline const Vector<VirtualKeyDefinition>& getVirtualKeys() const {
-        return mVirtualKeys;
-    }
+  inline const Vector<VirtualKeyDefinition>& getVirtualKeys() const {
+    return mVirtualKeys;
+  }
 
-private:
-    class Parser {
-        VirtualKeyMap* mMap;
-        Tokenizer* mTokenizer;
+ private:
+  class Parser {
+    VirtualKeyMap* mMap;
+    Tokenizer* mTokenizer;
 
-    public:
-        Parser(VirtualKeyMap* map, Tokenizer* tokenizer);
-        ~Parser();
-        status_t parse();
+   public:
+    Parser(VirtualKeyMap* map, Tokenizer* tokenizer);
+    ~Parser();
+    status_t parse();
 
-    private:
-        bool consumeFieldDelimiterAndSkipWhitespace();
-        bool parseNextIntField(int32_t* outValue);
-    };
+   private:
+    bool consumeFieldDelimiterAndSkipWhitespace();
+    bool parseNextIntField(int32_t* outValue);
+  };
 
-    Vector<VirtualKeyDefinition> mVirtualKeys;
+  Vector<VirtualKeyDefinition> mVirtualKeys;
 
-    VirtualKeyMap();
+  VirtualKeyMap();
 };
 
-} // namespace android
+}  // namespace android
 
-#endif // _ANDROIDFW_KEY_CHARACTER_MAP_H
+#endif  // _ANDROIDFW_KEY_CHARACTER_MAP_H

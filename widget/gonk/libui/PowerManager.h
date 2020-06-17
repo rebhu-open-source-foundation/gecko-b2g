@@ -17,17 +17,17 @@
 #ifndef _ANDROIDFW_POWER_MANAGER_H
 #define _ANDROIDFW_POWER_MANAGER_H
 
-
 namespace android {
 
 enum {
-    USER_ACTIVITY_EVENT_OTHER = 0,
-    USER_ACTIVITY_EVENT_BUTTON = 1,
-    USER_ACTIVITY_EVENT_TOUCH = 2,
+  USER_ACTIVITY_EVENT_OTHER = 0,
+  USER_ACTIVITY_EVENT_BUTTON = 1,
+  USER_ACTIVITY_EVENT_TOUCH = 2,
 
-    USER_ACTIVITY_EVENT_LAST = USER_ACTIVITY_EVENT_TOUCH, // Last valid event code.
+  USER_ACTIVITY_EVENT_LAST =
+      USER_ACTIVITY_EVENT_TOUCH,  // Last valid event code.
 };
 
-} // namespace android
+}  // namespace android
 
-#endif // _ANDROIDFW_POWER_MANAGER_H
+#endif  // _ANDROIDFW_POWER_MANAGER_H

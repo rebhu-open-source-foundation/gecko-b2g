@@ -1718,9 +1718,7 @@ network::Connection* Navigator::GetConnection(ErrorResult& aRv) {
   return mConnection;
 }
 
-already_AddRefed<ServiceWorkerContainer>
-Navigator::ServiceWorker()
-{
+already_AddRefed<ServiceWorkerContainer> Navigator::ServiceWorker() {
   MOZ_ASSERT(mWindow);
 
   if (!mServiceWorkerContainer) {

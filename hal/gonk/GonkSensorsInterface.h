@@ -26,8 +26,8 @@ namespace ipc {
 class DaemonSocket;
 class ListenSocket;
 
-}
-}
+}  // namespace ipc
+}  // namespace mozilla
 
 namespace mozilla {
 namespace hal {
@@ -41,10 +41,8 @@ class GonkSensorsRegistryInterface;
  * interface. Methods always run on the main thread.
  */
 class GonkSensorsResultHandler
-  : public mozilla::ipc::DaemonSocketResultHandler
-{
-public:
-
+    : public mozilla::ipc::DaemonSocketResultHandler {
+ public:
   /**
    * Called if a command failed.
    *
@@ -62,7 +60,7 @@ public:
    */
   virtual void Disconnect();
 
-protected:
+ protected:
   virtual ~GonkSensorsResultHandler();
 };
 
@@ -71,10 +69,8 @@ protected:
  * methods to handle event and notifications from the sensors daemon.
  * All methods run on the main thread.
  */
-class GonkSensorsNotificationHandler
-{
-public:
-
+class GonkSensorsNotificationHandler {
+ public:
   /**
    * This notification is called when the backend code fails
    * unexpectedly. Save state in the high-level code and restart
@@ -84,7 +80,7 @@ public:
    */
   virtual void BackendErrorNotification(bool aCrashed);
 
-protected:
+ protected:
   virtual ~GonkSensorsNotificationHandler();
 };
 
@@ -93,11 +89,9 @@ protected:
  * and driver. Use |GonkSensorsInterface::GetInstance| to retrieve an instance.
  * All methods run on the main thread.
  */
-class GonkSensorsInterface final
-  : public mozilla::ipc::DaemonSocketConsumer
-  , public mozilla::ipc::ListenSocketConsumer
-{
-public:
+class GonkSensorsInterface final : public mozilla::ipc::DaemonSocketConsumer,
+                                   public mozilla::ipc::ListenSocketConsumer {
+ public:
   /**
    * Returns an instance of the Sensors backend. This code can return
    * |nullptr| if no Sensors backend is available.
@@ -115,7 +109,7 @@ public:
    * @param aNotificationHandler An instance of a notification handler.
    */
   void SetNotificationHandler(
-    GonkSensorsNotificationHandler* aNotificationHandler);
+      GonkSensorsNotificationHandler* aNotificationHandler);
 
   /**
    * This method starts the Sensors backend and establishes ad connection
@@ -153,11 +147,8 @@ public:
    */
   GonkSensorsPollInterface* GetSensorsPollInterface();
 
-private:
-  enum Channel {
-    LISTEN_SOCKET,
-    DATA_SOCKET
-  };
+ private:
+  enum Channel { LISTEN_SOCKET, DATA_SOCKET };
 
   GonkSensorsInterface();
   ~GonkSensorsInterface();
@@ -185,7 +176,7 @@ private:
   UniquePtr<GonkSensorsPollInterface> mPollInterface;
 };
 
-} // namespace hal
-} // namespace mozilla
+}  // namespace hal
+}  // namespace mozilla
 
-#endif // hal_gonk_GonkSensorsInterface_h
+#endif  // hal_gonk_GonkSensorsInterface_h

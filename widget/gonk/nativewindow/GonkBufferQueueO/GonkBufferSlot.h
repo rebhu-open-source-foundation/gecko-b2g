@@ -28,105 +28,104 @@
 namespace android {
 
 struct GonkBufferSlot {
-    typedef mozilla::layers::TextureClient TextureClient;
+  typedef mozilla::layers::TextureClient TextureClient;
 
-    GonkBufferSlot()
-    : mBufferState(GonkBufferSlot::FREE),
-      mRequestBufferCalled(false),
-      mFrameNumber(0),
-      mAcquireCalled(false),
-      mNeedsCleanupOnRelease(false),
-      mAttachedByConsumer(false) {
-    }
+  GonkBufferSlot()
+      : mBufferState(GonkBufferSlot::FREE),
+        mRequestBufferCalled(false),
+        mFrameNumber(0),
+        mAcquireCalled(false),
+        mNeedsCleanupOnRelease(false),
+        mAttachedByConsumer(false) {}
 
-    // mGraphicBuffer points to the buffer allocated for this slot or is NULL
-    // if no buffer has been allocated.
-    sp<GraphicBuffer> mGraphicBuffer;
+  // mGraphicBuffer points to the buffer allocated for this slot or is NULL
+  // if no buffer has been allocated.
+  sp<GraphicBuffer> mGraphicBuffer;
 
-    // BufferState represents the different states in which a buffer slot
-    // can be.  All slots are initially FREE.
-    enum BufferState {
-        // FREE indicates that the buffer is available to be dequeued
-        // by the producer.  The buffer may be in use by the consumer for
-        // a finite time, so the buffer must not be modified until the
-        // associated fence is signaled.
-        //
-        // The slot is "owned" by BufferQueue.  It transitions to DEQUEUED
-        // when dequeueBuffer is called.
-        FREE = 0,
+  // BufferState represents the different states in which a buffer slot
+  // can be.  All slots are initially FREE.
+  enum BufferState {
+    // FREE indicates that the buffer is available to be dequeued
+    // by the producer.  The buffer may be in use by the consumer for
+    // a finite time, so the buffer must not be modified until the
+    // associated fence is signaled.
+    //
+    // The slot is "owned" by BufferQueue.  It transitions to DEQUEUED
+    // when dequeueBuffer is called.
+    FREE = 0,
 
-        // DEQUEUED indicates that the buffer has been dequeued by the
-        // producer, but has not yet been queued or canceled.  The
-        // producer may modify the buffer's contents as soon as the
-        // associated ready fence is signaled.
-        //
-        // The slot is "owned" by the producer.  It can transition to
-        // QUEUED (via queueBuffer) or back to FREE (via cancelBuffer).
-        DEQUEUED = 1,
+    // DEQUEUED indicates that the buffer has been dequeued by the
+    // producer, but has not yet been queued or canceled.  The
+    // producer may modify the buffer's contents as soon as the
+    // associated ready fence is signaled.
+    //
+    // The slot is "owned" by the producer.  It can transition to
+    // QUEUED (via queueBuffer) or back to FREE (via cancelBuffer).
+    DEQUEUED = 1,
 
-        // QUEUED indicates that the buffer has been filled by the
-        // producer and queued for use by the consumer.  The buffer
-        // contents may continue to be modified for a finite time, so
-        // the contents must not be accessed until the associated fence
-        // is signaled.
-        //
-        // The slot is "owned" by BufferQueue.  It can transition to
-        // ACQUIRED (via acquireBuffer) or to FREE (if another buffer is
-        // queued in asynchronous mode).
-        QUEUED = 2,
+    // QUEUED indicates that the buffer has been filled by the
+    // producer and queued for use by the consumer.  The buffer
+    // contents may continue to be modified for a finite time, so
+    // the contents must not be accessed until the associated fence
+    // is signaled.
+    //
+    // The slot is "owned" by BufferQueue.  It can transition to
+    // ACQUIRED (via acquireBuffer) or to FREE (if another buffer is
+    // queued in asynchronous mode).
+    QUEUED = 2,
 
-        // ACQUIRED indicates that the buffer has been acquired by the
-        // consumer.  As with QUEUED, the contents must not be accessed
-        // by the consumer until the fence is signaled.
-        //
-        // The slot is "owned" by the consumer.  It transitions to FREE
-        // when releaseBuffer is called.
-        ACQUIRED = 3
-    };
+    // ACQUIRED indicates that the buffer has been acquired by the
+    // consumer.  As with QUEUED, the contents must not be accessed
+    // by the consumer until the fence is signaled.
+    //
+    // The slot is "owned" by the consumer.  It transitions to FREE
+    // when releaseBuffer is called.
+    ACQUIRED = 3
+  };
 
-    static const char* bufferStateName(BufferState state);
+  static const char* bufferStateName(BufferState state);
 
-    // mBufferState is the current state of this buffer slot.
-    BufferState mBufferState;
+  // mBufferState is the current state of this buffer slot.
+  BufferState mBufferState;
 
-    // mRequestBufferCalled is used for validating that the producer did
-    // call requestBuffer() when told to do so. Technically this is not
-    // needed but useful for debugging and catching producer bugs.
-    bool mRequestBufferCalled;
+  // mRequestBufferCalled is used for validating that the producer did
+  // call requestBuffer() when told to do so. Technically this is not
+  // needed but useful for debugging and catching producer bugs.
+  bool mRequestBufferCalled;
 
-    // mFrameNumber is the number of the queued frame for this slot.  This
-    // is used to dequeue buffers in LRU order (useful because buffers
-    // may be released before their release fence is signaled).
-    uint64_t mFrameNumber;
+  // mFrameNumber is the number of the queued frame for this slot.  This
+  // is used to dequeue buffers in LRU order (useful because buffers
+  // may be released before their release fence is signaled).
+  uint64_t mFrameNumber;
 
-    // mFence is a fence which will signal when work initiated by the
-    // previous owner of the buffer is finished. When the buffer is FREE,
-    // the fence indicates when the consumer has finished reading
-    // from the buffer, or when the producer has finished writing if it
-    // called cancelBuffer after queueing some writes. When the buffer is
-    // QUEUED, it indicates when the producer has finished filling the
-    // buffer. When the buffer is DEQUEUED or ACQUIRED, the fence has been
-    // passed to the consumer or producer along with ownership of the
-    // buffer, and mFence is set to NO_FENCE.
-    sp<Fence> mFence;
+  // mFence is a fence which will signal when work initiated by the
+  // previous owner of the buffer is finished. When the buffer is FREE,
+  // the fence indicates when the consumer has finished reading
+  // from the buffer, or when the producer has finished writing if it
+  // called cancelBuffer after queueing some writes. When the buffer is
+  // QUEUED, it indicates when the producer has finished filling the
+  // buffer. When the buffer is DEQUEUED or ACQUIRED, the fence has been
+  // passed to the consumer or producer along with ownership of the
+  // buffer, and mFence is set to NO_FENCE.
+  sp<Fence> mFence;
 
-    // Indicates whether this buffer has been seen by a consumer yet
-    bool mAcquireCalled;
+  // Indicates whether this buffer has been seen by a consumer yet
+  bool mAcquireCalled;
 
-    // Indicates whether this buffer needs to be cleaned up by the
-    // consumer.  This is set when a buffer in ACQUIRED state is freed.
-    // It causes releaseBuffer to return STALE_BUFFER_SLOT.
-    bool mNeedsCleanupOnRelease;
+  // Indicates whether this buffer needs to be cleaned up by the
+  // consumer.  This is set when a buffer in ACQUIRED state is freed.
+  // It causes releaseBuffer to return STALE_BUFFER_SLOT.
+  bool mNeedsCleanupOnRelease;
 
-    // Indicates whether the buffer was attached on the consumer side.
-    // If so, it needs to set the BUFFER_NEEDS_REALLOCATION flag when dequeued
-    // to prevent the producer from using a stale cached buffer.
-    bool mAttachedByConsumer;
+  // Indicates whether the buffer was attached on the consumer side.
+  // If so, it needs to set the BUFFER_NEEDS_REALLOCATION flag when dequeued
+  // to prevent the producer from using a stale cached buffer.
+  bool mAttachedByConsumer;
 
-    // mTextureClient is a thin abstraction over remotely allocated GraphicBuffer.
-    RefPtr<TextureClient> mTextureClient;
+  // mTextureClient is a thin abstraction over remotely allocated GraphicBuffer.
+  RefPtr<TextureClient> mTextureClient;
 };
 
-} // namespace android
+}  // namespace android
 
 #endif

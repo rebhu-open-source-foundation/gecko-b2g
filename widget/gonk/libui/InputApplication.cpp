@@ -24,19 +24,15 @@ namespace android {
 
 // --- InputApplicationHandle ---
 
-InputApplicationHandle::InputApplicationHandle() :
-    mInfo(NULL) {
-}
+InputApplicationHandle::InputApplicationHandle() : mInfo(NULL) {}
 
-InputApplicationHandle::~InputApplicationHandle() {
-    delete mInfo;
-}
+InputApplicationHandle::~InputApplicationHandle() { delete mInfo; }
 
 void InputApplicationHandle::releaseInfo() {
-    if (mInfo) {
-        delete mInfo;
-        mInfo = NULL;
-    }
+  if (mInfo) {
+    delete mInfo;
+    mInfo = NULL;
+  }
 }
 
-} // namespace android
+}  // namespace android

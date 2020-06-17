@@ -14,14 +14,12 @@ using namespace mozilla::dom::subsidylock;
 
 NS_IMPL_ISUPPORTS(SubsidyLockIPCService, nsISubsidyLockService)
 
-SubsidyLockIPCService::SubsidyLockIPCService()
-{
+SubsidyLockIPCService::SubsidyLockIPCService() {
   int32_t numRil = Preferences::GetInt("ril.numRadioInterfaces", 1);
   mItems.SetLength(numRil);
 }
 
-SubsidyLockIPCService::~SubsidyLockIPCService()
-{
+SubsidyLockIPCService::~SubsidyLockIPCService() {
   uint32_t count = mItems.Length();
   for (uint32_t i = 0; i < count; i++) {
     if (mItems[i]) {
@@ -33,16 +31,14 @@ SubsidyLockIPCService::~SubsidyLockIPCService()
 // nsISubsidyLockService
 
 NS_IMETHODIMP
-SubsidyLockIPCService::GetNumItems(uint32_t* aNumItems)
-{
+SubsidyLockIPCService::GetNumItems(uint32_t* aNumItems) {
   *aNumItems = mItems.Length();
   return NS_OK;
 }
 
 NS_IMETHODIMP
 SubsidyLockIPCService::GetItemByServiceId(uint32_t aServiceId,
-                                          nsISubsidyLock** aItem)
-{
+                                          nsISubsidyLock** aItem) {
   NS_ENSURE_TRUE(aServiceId < mItems.Length(), NS_ERROR_INVALID_ARG);
 
   if (!mItems[aServiceId]) {
@@ -59,5 +55,4 @@ SubsidyLockIPCService::GetItemByServiceId(uint32_t aServiceId,
   RefPtr<nsISubsidyLock> item(mItems[aServiceId]);
   item.forget(aItem);
   return NS_OK;
-
 }

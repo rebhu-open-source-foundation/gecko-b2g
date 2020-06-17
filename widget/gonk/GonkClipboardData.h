@@ -14,19 +14,18 @@ namespace gfx {
 class DataSourceSurface;
 }
 
-class GonkClipboardData final
-{
-public:
+class GonkClipboardData final {
+ public:
   explicit GonkClipboardData() = default;
   ~GonkClipboardData() = default;
 
   // For text/plain
-  void SetText(const nsAString &aText);
+  void SetText(const nsAString& aText);
   bool HasText() const;
   const nsAString& GetText() const;
 
   // For text/html
-  void SetHTML(const nsAString &aHTML);
+  void SetHTML(const nsAString& aHTML);
   bool HasHTML() const;
   const nsAString& GetHTML() const;
 
@@ -38,12 +37,12 @@ public:
   // For other APIs
   void Clear();
 
-private:
+ private:
   nsAutoString mPlain;
   nsAutoString mHTML;
   RefPtr<gfx::DataSourceSurface> mImage;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_GonkClipboardData
+#endif  // mozilla_GonkClipboardData

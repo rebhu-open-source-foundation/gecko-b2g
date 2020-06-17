@@ -212,9 +212,7 @@ class AutoMounter {
 
   typedef nsTArray<RefPtr<Volume>> VolumeArray;
 
-  AutoMounter()
-      : mState(STATE_IDLE),
-        mMode(AUTOMOUNTER_DISABLE) {
+  AutoMounter() : mState(STATE_IDLE), mMode(AUTOMOUNTER_DISABLE) {
     VolumeManager::RegisterStateObserver(&mVolumeManagerStateObserver);
     Volume::RegisterVolumeObserver(&mVolumeEventObserver, "AutoMounter");
 

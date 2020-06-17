@@ -25,16 +25,15 @@
 #include "ICameraControl.h"
 
 #ifdef MOZ_WIDGET_GONK
-#include <camera/CameraParameters.h>
+#  include <camera/CameraParameters.h>
 #else
-#include "FallbackCameraPlatform.h"
+#  include "FallbackCameraPlatform.h"
 #endif
 
 namespace mozilla {
 
-class GonkCameraParameters
-{
-public:
+class GonkCameraParameters {
+ public:
   GonkCameraParameters();
   virtual ~GonkCameraParameters();
 
@@ -45,25 +44,21 @@ public:
   //
   // Return values:
   //  - see return values for GetTranslated() and SetTranslated() below.
-  template<class T> nsresult
-  Set(uint32_t aKey, const T& aValue)
-  {
+  template <class T>
+  nsresult Set(uint32_t aKey, const T& aValue) {
     MutexAutoLock lock(mLock);
     nsresult rv = SetTranslated(aKey, aValue);
     mDirty = mDirty || NS_SUCCEEDED(rv);
     return rv;
   }
 
-  template<class T> nsresult
-  Get(uint32_t aKey, T& aValue)
-  {
+  template <class T>
+  nsresult Get(uint32_t aKey, T& aValue) {
     MutexAutoLock lock(mLock);
     return GetTranslated(aKey, aValue);
   }
 
-  bool
-  TestAndClearDirtyFlag()
-  {
+  bool TestAndClearDirtyFlag() {
     bool dirty;
 
     MutexAutoLock lock(mLock);
@@ -75,7 +70,7 @@ public:
   android::String8 Flatten() const;
   nsresult Unflatten(const android::String8& aFlatParameters);
 
-protected:
+ protected:
   mutable Mutex mLock;
   bool mDirty;
   bool mInitialized;
@@ -93,8 +88,7 @@ protected:
   nsClassHashtable<nsStringHashKey, nsCString> mIsoModeMap;
   nsClassHashtable<nsCStringHashKey, nsCString> mParams;
 
-  nsresult SetImpl(const char* aKey, const char* aValue)
-  {
+  nsresult SetImpl(const char* aKey, const char* aValue) {
     if (!aValue || strchr(aValue, ';') || strchr(aValue, '=')) {
       return NS_ERROR_ILLEGAL_VALUE;
     }
@@ -103,8 +97,7 @@ protected:
     return NS_OK;
   }
 
-  nsresult SetImpl(const char* aKey, int aValue)
-  {
+  nsresult SetImpl(const char* aKey, int aValue) {
     nsDependentCString key(aKey);
     nsCString* value = new nsCString();
     value->AppendInt(aValue);
@@ -112,8 +105,7 @@ protected:
     return NS_OK;
   }
 
-  nsresult SetImpl(const char* aKey, double aValue)
-  {
+  nsresult SetImpl(const char* aKey, double aValue) {
     nsDependentCString key(aKey);
     nsCString* value = new nsCString();
     value->AppendFloat(aValue);
@@ -121,8 +113,7 @@ protected:
     return NS_OK;
   }
 
-  nsresult SetImpl(const char* aKey, float aValue)
-  {
+  nsresult SetImpl(const char* aKey, float aValue) {
     nsDependentCString key(aKey);
     nsCString* value = new nsCString();
     value->AppendFloat(aValue);
@@ -130,15 +121,13 @@ protected:
     return NS_OK;
   }
 
-  nsresult SetImpl(const char* aKey, bool aValue)
-  {
+  nsresult SetImpl(const char* aKey, bool aValue) {
     nsDependentCString key(aKey);
     mParams.Put(key, new nsCString(aValue ? "true" : "false"));
     return NS_OK;
   }
 
-  nsresult GetImpl(const char* aKey, const char*& aRet)
-  {
+  nsresult GetImpl(const char* aKey, const char*& aRet) {
     nsDependentCString key(aKey);
     nsCString* value;
     if (!mParams.Get(key, &value)) {
@@ -149,8 +138,7 @@ protected:
     return NS_OK;
   }
 
-  nsresult GetImpl(const char* aKey, float& aRet)
-  {
+  nsresult GetImpl(const char* aKey, float& aRet) {
     nsDependentCString key(aKey);
     nsCString* value;
     nsresult rv = NS_ERROR_FAILURE;
@@ -162,8 +150,7 @@ protected:
     return rv;
   }
 
-  nsresult GetImpl(const char* aKey, double& aRet)
-  {
+  nsresult GetImpl(const char* aKey, double& aRet) {
     nsDependentCString key(aKey);
     nsCString* value;
     nsresult rv = NS_ERROR_FAILURE;
@@ -175,8 +162,7 @@ protected:
     return rv;
   }
 
-  nsresult GetImpl(const char* aKey, int& aRet)
-  {
+  nsresult GetImpl(const char* aKey, int& aRet) {
     nsDependentCString key(aKey);
     nsCString* value;
     nsresult rv = NS_ERROR_FAILURE;
@@ -188,8 +174,7 @@ protected:
     return rv;
   }
 
-  nsresult GetImpl(const char* aKey, bool& aRet)
-  {
+  nsresult GetImpl(const char* aKey, bool& aRet) {
     nsDependentCString key(aKey);
     nsCString* value;
     if (!mParams.Get(key, &value)) {
@@ -201,7 +186,8 @@ protected:
   }
 
   const char* GetTextKey(uint32_t aKey);
-  const char* FindVendorSpecificKey(const char* aPotentialKeys[], size_t aPotentialKeyCount);
+  const char* FindVendorSpecificKey(const char* aPotentialKeys[],
+                                    size_t aPotentialKeyCount);
 
   // The *Impl() templates handle converting the parameter keys from
   // their enum values to string types, if necessary. These are the
@@ -210,25 +196,21 @@ protected:
   // Return values:
   //  - NS_OK on success;
   //  - NS_ERROR_NOT_IMPLEMENTED if the numeric 'aKey' value is invalid.
-  template<typename T> nsresult
-  SetImpl(uint32_t aKey, const T& aValue)
-  {
+  template <typename T>
+  nsresult SetImpl(uint32_t aKey, const T& aValue) {
     const char* key = GetTextKey(aKey);
     NS_ENSURE_TRUE(key, NS_ERROR_NOT_IMPLEMENTED);
     return SetImpl(key, aValue);
   }
 
-  template<typename T> nsresult
-  GetImpl(uint32_t aKey, T& aValue)
-  {
+  template <typename T>
+  nsresult GetImpl(uint32_t aKey, T& aValue) {
     const char* key = GetTextKey(aKey);
     NS_ENSURE_TRUE(key, NS_ERROR_NOT_IMPLEMENTED);
     return GetImpl(key, aValue);
   }
 
-  nsresult
-  ClearImpl(const char* aKey)
-  {
+  nsresult ClearImpl(const char* aKey) {
     nsDependentCString key(aKey);
     mParams.Remove(key);
     return NS_OK;
@@ -252,9 +234,12 @@ protected:
   nsresult SetTranslated(uint32_t aKey, const ICameraControl::Size& aSize);
   nsresult GetTranslated(uint32_t aKey, ICameraControl::Size& aSize);
   nsresult GetTranslated(uint32_t aKey, nsTArray<ICameraControl::Size>& aSizes);
-  nsresult SetTranslated(uint32_t aKey, const nsTArray<ICameraControl::Region>& aRegions);
-  nsresult GetTranslated(uint32_t aKey, nsTArray<ICameraControl::Region>& aRegions);
-  nsresult SetTranslated(uint32_t aKey, const ICameraControl::Position& aPosition);
+  nsresult SetTranslated(uint32_t aKey,
+                         const nsTArray<ICameraControl::Region>& aRegions);
+  nsresult GetTranslated(uint32_t aKey,
+                         nsTArray<ICameraControl::Region>& aRegions);
+  nsresult SetTranslated(uint32_t aKey,
+                         const ICameraControl::Position& aPosition);
   nsresult SetTranslated(uint32_t aKey, const int64_t& aValue);
   nsresult GetTranslated(uint32_t aKey, int64_t& aValue);
   nsresult SetTranslated(uint32_t aKey, const double& aValue);
@@ -275,7 +260,8 @@ protected:
   //  - NS_OK on success;
   //  - NS_ERROR_NOT_IMPLEMENTED if 'aKey' is invalid;
   //  - NS_ERROR_NOT_AVAILABLE if a valid value could not be returned.
-  template<class T> nsresult GetListAsArray(uint32_t aKey, nsTArray<T>& aArray);
+  template <class T>
+  nsresult GetListAsArray(uint32_t aKey, nsTArray<T>& aArray);
 
   // Converts ISO values (e.g., "auto", "hjr", "100", "200", etc.) to and from
   // values understood by Gonk (e.g., "auto", "ISO_HJR", "ISO100", "ISO200",
@@ -296,6 +282,6 @@ protected:
   static bool IsLowMemoryPlatform();
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // DOM_CAMERA_GONKCAMERAPARAMETERS_H
+#endif  // DOM_CAMERA_GONKCAMERAPARAMETERS_H

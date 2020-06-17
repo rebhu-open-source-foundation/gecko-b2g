@@ -9,20 +9,18 @@
 using namespace mozilla::dom;
 
 // nsIVideoCallCameraCapabilities
-NS_IMPL_ISUPPORTS(DOMVideoCallCameraCapabilities, nsIVideoCallCameraCapabilities)
+NS_IMPL_ISUPPORTS(DOMVideoCallCameraCapabilities,
+                  nsIVideoCallCameraCapabilities)
 
-DOMVideoCallCameraCapabilities::DOMVideoCallCameraCapabilities(uint16_t aWidth, uint16_t aHeight,
-                                                               bool aZoomSupported, float aMaxZoom)
-  : mWidth(aWidth)
-  , mHeight(aHeight)
-  , mZoomSupported(aZoomSupported)
-  , mMaxZoom(aMaxZoom)
-{
-}
+DOMVideoCallCameraCapabilities::DOMVideoCallCameraCapabilities(
+    uint16_t aWidth, uint16_t aHeight, bool aZoomSupported, float aMaxZoom)
+    : mWidth(aWidth),
+      mHeight(aHeight),
+      mZoomSupported(aZoomSupported),
+      mMaxZoom(aMaxZoom) {}
 
-void
-DOMVideoCallCameraCapabilities::Update(nsIVideoCallCameraCapabilities* aCapabilities)
-{
+void DOMVideoCallCameraCapabilities::Update(
+    nsIVideoCallCameraCapabilities* aCapabilities) {
   aCapabilities->GetWidth(&mWidth);
   aCapabilities->GetHeight(&mHeight);
   aCapabilities->GetZoomSupported(&mZoomSupported);
@@ -32,29 +30,25 @@ DOMVideoCallCameraCapabilities::Update(nsIVideoCallCameraCapabilities* aCapabili
 // nsIVideoCallCameraCapabilities
 
 NS_IMETHODIMP
-DOMVideoCallCameraCapabilities::GetWidth(uint16_t *aWidth)
-{
+DOMVideoCallCameraCapabilities::GetWidth(uint16_t* aWidth) {
   *aWidth = mWidth;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-DOMVideoCallCameraCapabilities::GetHeight(uint16_t *aHeight)
-{
+DOMVideoCallCameraCapabilities::GetHeight(uint16_t* aHeight) {
   *aHeight = mHeight;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-DOMVideoCallCameraCapabilities::GetZoomSupported(bool *aZoomSupported)
-{
+DOMVideoCallCameraCapabilities::GetZoomSupported(bool* aZoomSupported) {
   *aZoomSupported = mZoomSupported;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-DOMVideoCallCameraCapabilities::GetMaxZoom(float *aMaxZoom)
-{
+DOMVideoCallCameraCapabilities::GetMaxZoom(float* aMaxZoom) {
   *aMaxZoom = mMaxZoom;
   return NS_OK;
 }

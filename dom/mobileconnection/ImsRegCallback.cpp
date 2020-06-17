@@ -14,29 +14,22 @@ namespace mobileconnection {
 
 NS_IMPL_ISUPPORTS(ImsRegCallback, nsIImsRegCallback)
 
-ImsRegCallback::ImsRegCallback(Promise* aPromise)
-  : mPromise(aPromise)
-{
-}
+ImsRegCallback::ImsRegCallback(Promise* aPromise) : mPromise(aPromise) {}
 
-ImsRegCallback::~ImsRegCallback()
-{
-}
+ImsRegCallback::~ImsRegCallback() {}
 
 // nsIImsRegCallback
 
-NS_IMETHODIMP ImsRegCallback::NotifySuccess()
-{
+NS_IMETHODIMP ImsRegCallback::NotifySuccess() {
   mPromise->MaybeResolve(JS::UndefinedHandleValue);
   return NS_OK;
 }
 
-NS_IMETHODIMP ImsRegCallback::NotifyError(const nsAString & aError)
-{
+NS_IMETHODIMP ImsRegCallback::NotifyError(const nsAString& aError) {
   mPromise->MaybeRejectBrokenly(aError);
   return NS_OK;
 }
 
-} // namespace mobileconnection
-} // namespace dom
-} // namespace mozilla
+}  // namespace mobileconnection
+}  // namespace dom
+}  // namespace mozilla

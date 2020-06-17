@@ -29,7 +29,7 @@
 
 // Managers asynchronous loading of gl cursor image.
 class GLCursorImageManager {
-public:
+ public:
   struct GLCursorImage {
     nsCursor mCursor;
     nsIntSize mImgSize;
@@ -61,29 +61,28 @@ public:
 
   // Called back by LoadCursorTask.
   void NotifyCursorImageLoadDone(nsCursor aCursor,
-                                 GLCursorImage &GLCursorImage);
+                                 GLCursorImage& GLCursorImage);
   // Called back by RemoveLoadCursorTaskOnMainThread.
   void RemoveCursorLoadRequest(nsCursor aCursor);
 
   static const mozilla::LayoutDeviceIntPoint kOffscreenCursorPosition;
 
-private:
+ private:
   bool IsCursorImageLoading(nsCursor aCursor);
 
   class LoadCursorTask final : public imgINotificationObserver {
-  public:
+   public:
     NS_DECL_ISUPPORTS
 
-    LoadCursorTask(nsCursor aCursor,
-                   nsIntPoint aHotspot,
+    LoadCursorTask(nsCursor aCursor, nsIntPoint aHotspot,
                    GLCursorImageManager* aManager);
 
     // This callback function will be called on main thread and notify the
     // status of image decoding process.
-    void Notify(imgIRequest* aProxy,
-                int32_t aType,
+    void Notify(imgIRequest* aProxy, int32_t aType,
                 const nsIntRect* aRect) override;
-  private:
+
+   private:
     ~LoadCursorTask();
     nsCursor mCursor;
     nsIntPoint mHotspot;
@@ -105,9 +104,10 @@ private:
   // Store cursor images which are ready to render.
   std::map<nsCursor, GLCursorImage> mGLCursorImageMap;
 
-  bool mHasSetCursor; // True if we received a SetCursor event.
+  bool mHasSetCursor;  // True if we received a SetCursor event.
 
-  mozilla::LayoutDeviceIntPoint mGLCursorPos; // Save the current cursor position.
+  mozilla::LayoutDeviceIntPoint
+      mGLCursorPos;  // Save the current cursor position.
 };
 
 #endif /* GLCursorImageManager_h */

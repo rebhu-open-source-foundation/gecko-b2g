@@ -2121,53 +2121,41 @@ void MediaTrack::RemoveAudioOutput(void* aKey) {
   GraphImpl()->AppendMessage(MakeUnique<Message>(this, aKey));
 }
 
-void
-MediaTrack::AddVideoOutputImpl(already_AddRefed<VideoFrameContainer> aContainer)
-{
+void MediaTrack::AddVideoOutputImpl(
+    already_AddRefed<VideoFrameContainer> aContainer) {
   RefPtr<VideoFrameContainer> container = aContainer;
   LOG(LogLevel::Info, ("MediaStream %p Adding VideoFrameContainer %p as output",
-                              this, container.get()));
+                       this, container.get()));
   *mVideoOutputs.AppendElement() = container.forget();
 }
 
-void
-MediaTrack::RemoveVideoOutputImpl(VideoFrameContainer* aContainer)
-{
-  LOG(LogLevel::Info, ("MediaStream %p Removing VideoFrameContainer %p as output",
-                              this, aContainer));
+void MediaTrack::RemoveVideoOutputImpl(VideoFrameContainer* aContainer) {
+  LOG(LogLevel::Info,
+      ("MediaStream %p Removing VideoFrameContainer %p as output", this,
+       aContainer));
   // Ensure that any frames currently queued for playback by the compositor
   // are removed.
   aContainer->ClearFutureFrames();
   mVideoOutputs.RemoveElement(aContainer);
 }
 
-void
-MediaTrack::AddVideoOutput(VideoFrameContainer* aContainer)
-{
+void MediaTrack::AddVideoOutput(VideoFrameContainer* aContainer) {
   class Message : public ControlMessage {
-  public:
-    Message(MediaTrack* aTrack, VideoFrameContainer* aContainer) :
-      ControlMessage(aTrack), mContainer(aContainer) {}
-    void Run() override
-    {
-      mTrack->AddVideoOutputImpl(mContainer.forget());
-    }
+   public:
+    Message(MediaTrack* aTrack, VideoFrameContainer* aContainer)
+        : ControlMessage(aTrack), mContainer(aContainer) {}
+    void Run() override { mTrack->AddVideoOutputImpl(mContainer.forget()); }
     RefPtr<VideoFrameContainer> mContainer;
   };
   GraphImpl()->AppendMessage(MakeUnique<Message>(this, aContainer));
 }
 
-void
-MediaTrack::RemoveVideoOutput(VideoFrameContainer* aContainer)
-{
+void MediaTrack::RemoveVideoOutput(VideoFrameContainer* aContainer) {
   class Message : public ControlMessage {
-  public:
-    Message(MediaTrack* aTrack, VideoFrameContainer* aContainer) :
-      ControlMessage(aTrack), mContainer(aContainer) {}
-    void Run() override
-    {
-      mTrack->RemoveVideoOutputImpl(mContainer);
-    }
+   public:
+    Message(MediaTrack* aTrack, VideoFrameContainer* aContainer)
+        : ControlMessage(aTrack), mContainer(aContainer) {}
+    void Run() override { mTrack->RemoveVideoOutputImpl(mContainer); }
     RefPtr<VideoFrameContainer> mContainer;
   };
   GraphImpl()->AppendMessage(MakeUnique<Message>(this, aContainer));
@@ -3026,13 +3014,10 @@ void ProcessedMediaTrack::DestroyImpl() {
   // SetTrackOrderDirty(), for other reasons.
 }
 
-MediaTrackGraphImpl::MediaTrackGraphImpl(GraphDriverType aDriverRequested,
-                                         GraphRunType aRunTypeRequested,
-                                         TrackRate aSampleRate,
-                                         uint32_t aChannelCount,
-                                         dom::AudioChannel aChannel,
-                                         CubebUtils::AudioDeviceID aOutputDeviceID,
-                                         AbstractThread* aMainThread)
+MediaTrackGraphImpl::MediaTrackGraphImpl(
+    GraphDriverType aDriverRequested, GraphRunType aRunTypeRequested,
+    TrackRate aSampleRate, uint32_t aChannelCount, dom::AudioChannel aChannel,
+    CubebUtils::AudioDeviceID aOutputDeviceID, AbstractThread* aMainThread)
     : MediaTrackGraph(aSampleRate),
       mGraphRunner(aRunTypeRequested == SINGLE_THREAD
                        ? GraphRunner::Create(this)
@@ -3117,10 +3102,9 @@ void MediaTrackGraphImpl::Destroy() {
   mSelfRef = nullptr;
 }
 
-static uint32_t ChannelAndWindowToHash(dom::AudioChannel aChannel,
-                                       nsPIDOMWindowInner* aWindow,
-                                       TrackRate aSampleRate,
-                                       CubebUtils::AudioDeviceID aOutputDeviceID) {
+static uint32_t ChannelAndWindowToHash(
+    dom::AudioChannel aChannel, nsPIDOMWindowInner* aWindow,
+    TrackRate aSampleRate, CubebUtils::AudioDeviceID aOutputDeviceID) {
   uint32_t hashkey = 0;
 
   hashkey = AddToHash(hashkey, static_cast<uint32_t>(aChannel));
@@ -3138,7 +3122,8 @@ MediaTrackGraph* MediaTrackGraph::GetInstanceIfExists(
 
   TrackRate sampleRate =
       aSampleRate ? aSampleRate : CubebUtils::PreferredSampleRate();
-  uint32_t hashkey = ChannelAndWindowToHash(aChannel, aWindow, sampleRate, aOutputDeviceID);
+  uint32_t hashkey =
+      ChannelAndWindowToHash(aChannel, aWindow, sampleRate, aOutputDeviceID);
 
   MediaTrackGraphImpl* graph = nullptr;
   gGraphs.Get(hashkey, &graph);
@@ -3181,9 +3166,11 @@ MediaTrackGraph* MediaTrackGraph::GetInstance(
     uint32_t channelCount =
         std::min<uint32_t>(8, CubebUtils::MaxNumberOfChannels());
     graph = new MediaTrackGraphImpl(aGraphDriverRequested, runType, sampleRate,
-                                    channelCount, aChannel, aOutputDeviceID, mainThread);
+                                    channelCount, aChannel, aOutputDeviceID,
+                                    mainThread);
 
-    uint32_t hashkey = ChannelAndWindowToHash(aChannel, aWindow, sampleRate, aOutputDeviceID);
+    uint32_t hashkey =
+        ChannelAndWindowToHash(aChannel, aWindow, sampleRate, aOutputDeviceID);
     gGraphs.Put(hashkey, graph);
 
     LOG(LogLevel::Debug,
@@ -3208,9 +3195,9 @@ MediaTrackGraph* MediaTrackGraph::CreateNonRealtimeInstance(
 
   // Offline graphs have 0 output channel count: they write the output to a
   // buffer, not an audio output track.
-  MediaTrackGraphImpl* graph =
-      new MediaTrackGraphImpl(OFFLINE_THREAD_DRIVER, DIRECT_DRIVER, aSampleRate,
-                              0, AudioChannel::Normal, DEFAULT_OUTPUT_DEVICE, mainThread);
+  MediaTrackGraphImpl* graph = new MediaTrackGraphImpl(
+      OFFLINE_THREAD_DRIVER, DIRECT_DRIVER, aSampleRate, 0,
+      AudioChannel::Normal, DEFAULT_OUTPUT_DEVICE, mainThread);
 
   LOG(LogLevel::Debug, ("Starting up Offline MediaTrackGraph %p", graph));
 

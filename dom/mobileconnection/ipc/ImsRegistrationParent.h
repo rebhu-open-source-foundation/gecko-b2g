@@ -14,56 +14,51 @@ namespace mozilla {
 namespace dom {
 namespace mobileconnection {
 
-class ImsRegServiceFinderParent : public PImsRegServiceFinderParent
-{
+class ImsRegServiceFinderParent : public PImsRegServiceFinderParent {
   friend class PImsRegServiceFinderParent;
-public:
-  mozilla::ipc::IPCResult
-  RecvCheckDeviceCapability(bool* aIsServiceInstalled,
-                            nsTArray<uint32_t>* aEnabledServiceIds);
-  virtual void
-  ActorDestroy(ActorDestroyReason aWhy) override;
+
+ public:
+  mozilla::ipc::IPCResult RecvCheckDeviceCapability(
+      bool* aIsServiceInstalled, nsTArray<uint32_t>* aEnabledServiceIds);
+  virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 };
 
 /**
  * Parent actor of PImsRegistration. This object is created/destroyed along
  * with child actor.
  */
-class ImsRegistrationParent : public PImsRegistrationParent
-                            , public nsIImsRegListener
-{
+class ImsRegistrationParent : public PImsRegistrationParent,
+                              public nsIImsRegListener {
   friend class PImsRegistrationParent;
-public:
+
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIIMSREGLISTENER
 
   explicit ImsRegistrationParent(uint32_t aServiceId);
 
-protected:
-  virtual
-  ~ImsRegistrationParent()
-  {
-  }
+ protected:
+  virtual ~ImsRegistrationParent() {}
 
-  virtual void
-  ActorDestroy(ActorDestroyReason aWhy) override;
+  virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  mozilla::ipc::IPCResult
-  RecvPImsRegistrationRequestConstructor(PImsRegistrationRequestParent* aActor,
-                                         const ImsRegistrationRequest& aRequest) override;
-public:
-  virtual PImsRegistrationRequestParent*
-  AllocPImsRegistrationRequestParent(const ImsRegistrationRequest& request);
+  mozilla::ipc::IPCResult RecvPImsRegistrationRequestConstructor(
+      PImsRegistrationRequestParent* aActor,
+      const ImsRegistrationRequest& aRequest) override;
 
-  virtual bool
-  DeallocPImsRegistrationRequestParent(PImsRegistrationRequestParent* aActor);
+ public:
+  virtual PImsRegistrationRequestParent* AllocPImsRegistrationRequestParent(
+      const ImsRegistrationRequest& request);
 
-  virtual mozilla::ipc::IPCResult
-  RecvInit(bool* aEnabled, bool* aRttEnabled, uint16_t* aProfile,
-           int16_t* aCapability, nsString* aUnregisteredReason,
-           nsTArray<uint16_t>* aSupportedBearers);
+  virtual bool DeallocPImsRegistrationRequestParent(
+      PImsRegistrationRequestParent* aActor);
 
-private:
+  virtual mozilla::ipc::IPCResult RecvInit(
+      bool* aEnabled, bool* aRttEnabled, uint16_t* aProfile,
+      int16_t* aCapability, nsString* aUnregisteredReason,
+      nsTArray<uint16_t>* aSupportedBearers);
+
+ private:
   bool mLive;
   nsCOMPtr<nsIImsRegHandler> mHandler;
 };
@@ -79,48 +74,37 @@ private:
  * any callback is triggered. So we use mLive to maintain the status of child
  * actor in order to present sending data to a dead one.
  */
-class ImsRegistrationRequestParent : public PImsRegistrationRequestParent
-                                   , public nsIImsRegCallback
-{
+class ImsRegistrationRequestParent : public PImsRegistrationRequestParent,
+                                     public nsIImsRegCallback {
   friend class PImsRegistrationRequestParent;
-public:
+
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIIMSREGCALLBACK
 
   explicit ImsRegistrationRequestParent(nsIImsRegHandler* aHandler)
-    : mHandler(aHandler)
-    , mLive(true)
-  {
-  }
+      : mHandler(aHandler), mLive(true) {}
 
-  bool
-  DoRequest(const SetImsEnabledRequest& aRequest);
+  bool DoRequest(const SetImsEnabledRequest& aRequest);
 
-  bool
-  DoRequest(const SetImsPreferredProfileRequest& aRequest);
+  bool DoRequest(const SetImsPreferredProfileRequest& aRequest);
 
-  bool
-  DoRequest(const SetImsRttEnabledRequest& aRequest);
+  bool DoRequest(const SetImsRttEnabledRequest& aRequest);
 
-protected:
-  virtual
-  ~ImsRegistrationRequestParent()
-  {
-  }
+ protected:
+  virtual ~ImsRegistrationRequestParent() {}
 
-  virtual void
-  ActorDestroy(ActorDestroyReason aWhy) override;
+  virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  nsresult
-  SendReply(const ImsRegistrationReply& aReply);
+  nsresult SendReply(const ImsRegistrationReply& aReply);
 
-private:
+ private:
   nsCOMPtr<nsIImsRegHandler> mHandler;
   bool mLive;
 };
 
-} // namespace mobileconnection
-} // namespace dom
-} // namespace mozilla
+}  // namespace mobileconnection
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_mobileconnection_ImsRegistrationParent_h
+#endif  // mozilla_dom_mobileconnection_ImsRegistrationParent_h

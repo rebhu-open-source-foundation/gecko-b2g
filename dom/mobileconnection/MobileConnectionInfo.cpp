@@ -11,32 +11,31 @@
 #include "jsapi.h"
 
 #ifdef CONVERT_STRING_TO_NULLABLE_ENUM
-#undef CONVERT_STRING_TO_NULLABLE_ENUM
+#  undef CONVERT_STRING_TO_NULLABLE_ENUM
 #endif
-#define CONVERT_STRING_TO_NULLABLE_ENUM(_string, _enumType, _enum)      \
-{                                                                       \
-  _enum.SetNull();                                                      \
-                                                                        \
-  uint32_t i = 0;                                                       \
-  for (const EnumEntry* entry = _enumType##Values::strings;             \
-       entry->value;                                                    \
-       ++entry, ++i) {                                                  \
-    if (_string.EqualsASCII(entry->value)) {                            \
-      _enum.SetValue(static_cast<_enumType>(i));                        \
-    }                                                                   \
-  }                                                                     \
-}
+#define CONVERT_STRING_TO_NULLABLE_ENUM(_string, _enumType, _enum)          \
+  {                                                                         \
+    _enum.SetNull();                                                        \
+                                                                            \
+    uint32_t i = 0;                                                         \
+    for (const EnumEntry* entry = _enumType##Values::strings; entry->value; \
+         ++entry, ++i) {                                                    \
+      if (_string.EqualsASCII(entry->value)) {                              \
+        _enum.SetValue(static_cast<_enumType>(i));                          \
+      }                                                                     \
+    }                                                                       \
+  }
 
-#define CONVERT_NULLABLE_ENUM_TO_STRING(_enumType, _enum, _string)      \
-{                                                                       \
-  if (_enum.IsNull()) {                                                 \
-    _string.SetIsVoid(true);                                            \
-  } else {                                                              \
-    uint32_t index = uint32_t(_enum.Value());                           \
-    _string.AssignASCII(_enumType##Values::strings[index].value,        \
-                        _enumType##Values::strings[index].length);      \
-  }                                                                     \
-}
+#define CONVERT_NULLABLE_ENUM_TO_STRING(_enumType, _enum, _string)   \
+  {                                                                  \
+    if (_enum.IsNull()) {                                            \
+      _string.SetIsVoid(true);                                       \
+    } else {                                                         \
+      uint32_t index = uint32_t(_enum.Value());                      \
+      _string.AssignASCII(_enumType##Values::strings[index].value,   \
+                          _enumType##Values::strings[index].length); \
+    }                                                                \
+  }
 
 using namespace mozilla::dom;
 
@@ -53,24 +52,18 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(MobileConnectionInfo)
 NS_INTERFACE_MAP_END
 
 MobileConnectionInfo::MobileConnectionInfo(nsPIDOMWindowInner* aWindow)
-  : mConnected(false)
-  , mEmergencyCallsOnly(false)
-  , mRoaming(false)
-  , mWindow(aWindow)
-{
-}
+    : mConnected(false),
+      mEmergencyCallsOnly(false),
+      mRoaming(false),
+      mWindow(aWindow) {}
 
-MobileConnectionInfo::MobileConnectionInfo(const nsAString& aState,
-                                           bool aConnected,
-                                           bool aEmergencyCallsOnly,
-                                           bool aRoaming,
-                                           nsIMobileNetworkInfo* aNetworkInfo,
-                                           const nsAString& aType,
-                                           nsIMobileCellInfo* aCellInfo)
-  : mConnected(aConnected)
-  , mEmergencyCallsOnly(aEmergencyCallsOnly)
-  , mRoaming(aRoaming)
-{
+MobileConnectionInfo::MobileConnectionInfo(
+    const nsAString& aState, bool aConnected, bool aEmergencyCallsOnly,
+    bool aRoaming, nsIMobileNetworkInfo* aNetworkInfo, const nsAString& aType,
+    nsIMobileCellInfo* aCellInfo)
+    : mConnected(aConnected),
+      mEmergencyCallsOnly(aEmergencyCallsOnly),
+      mRoaming(aRoaming) {
   // The instance created by this way is only used for IPC stuff. It won't be
   // exposed to JS directly, we will clone this instance to the one that is
   // maintained in MobileConnectionChild.
@@ -92,9 +85,7 @@ MobileConnectionInfo::MobileConnectionInfo(const nsAString& aState,
   }
 }
 
-void
-MobileConnectionInfo::Update(nsIMobileConnectionInfo* aInfo)
-{
+void MobileConnectionInfo::Update(nsIMobileConnectionInfo* aInfo) {
   if (!aInfo) {
     return;
   }
@@ -157,45 +148,39 @@ void MobileConnectionInfo::UpdateDOMNetworkInfo(
   }
 }
 
-JSObject*
-MobileConnectionInfo::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* MobileConnectionInfo::WrapObject(JSContext* aCx,
+                                           JS::Handle<JSObject*> aGivenProto) {
   return MobileConnectionInfo_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 // nsIMobileConnectionInfo
 
 NS_IMETHODIMP
-MobileConnectionInfo::GetState(nsAString& aState)
-{
+MobileConnectionInfo::GetState(nsAString& aState) {
   CONVERT_NULLABLE_ENUM_TO_STRING(MobileConnectionState, mState, aState);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileConnectionInfo::GetConnected(bool* aConnected)
-{
+MobileConnectionInfo::GetConnected(bool* aConnected) {
   *aConnected = Connected();
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileConnectionInfo::GetEmergencyCallsOnly(bool* aEmergencyCallsOnly)
-{
+MobileConnectionInfo::GetEmergencyCallsOnly(bool* aEmergencyCallsOnly) {
   *aEmergencyCallsOnly = EmergencyCallsOnly();
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileConnectionInfo::GetRoaming(bool* aRoaming)
-{
+MobileConnectionInfo::GetRoaming(bool* aRoaming) {
   *aRoaming = Roaming();
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileConnectionInfo::GetNetwork(nsIMobileNetworkInfo** aInfo)
-{
+MobileConnectionInfo::GetNetwork(nsIMobileNetworkInfo** aInfo) {
   if (mNetworkInfo) {
     NS_IF_ADDREF(*aInfo = mNetworkInfo);
   }
@@ -204,15 +189,13 @@ MobileConnectionInfo::GetNetwork(nsIMobileNetworkInfo** aInfo)
 }
 
 NS_IMETHODIMP
-MobileConnectionInfo::GetType(nsAString& aType)
-{
+MobileConnectionInfo::GetType(nsAString& aType) {
   CONVERT_NULLABLE_ENUM_TO_STRING(MobileConnectionType, mType, aType);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileConnectionInfo::GetCell(nsIMobileCellInfo** aInfo)
-{
+MobileConnectionInfo::GetCell(nsIMobileCellInfo** aInfo) {
   NS_IF_ADDREF(*aInfo = GetCell());
   return NS_OK;
 }

@@ -22,16 +22,15 @@
 namespace mozilla {
 
 namespace dom {
-  class BlobImpl;
-} // namespace dom
+class BlobImpl;
+}  // namespace dom
 
 namespace layers {
-  class Image;
-} // namespace layers
+class Image;
+}  // namespace layers
 
-class CameraControlImpl : public ICameraControl
-{
-public:
+class CameraControlImpl : public ICameraControl {
+ public:
   explicit CameraControlImpl();
   virtual void AddListener(CameraControlListener* aListener) override;
   virtual void RemoveListener(CameraControlListener* aListener) override;
@@ -46,8 +45,9 @@ public:
   virtual nsresult StartFaceDetection() override;
   virtual nsresult StopFaceDetection() override;
   virtual nsresult TakePicture() override;
-  virtual nsresult StartRecording(DeviceStorageFileDescriptor* aFileDescriptor,
-                                  const StartRecordingOptions* aOptions) override;
+  virtual nsresult StartRecording(
+      DeviceStorageFileDescriptor* aFileDescriptor,
+      const StartRecordingOptions* aOptions) override;
   virtual nsresult StopRecording() override;
   virtual nsresult PauseRecording() override;
   virtual nsresult ResumeRecording() override;
@@ -55,19 +55,23 @@ public:
 
   // Event handlers called directly from outside this class.
   void OnShutter();
-  void OnUserError(CameraControlListener::UserContext aContext, nsresult aError);
-  void OnSystemError(CameraControlListener::SystemContext aContext, nsresult aError);
+  void OnUserError(CameraControlListener::UserContext aContext,
+                   nsresult aError);
+  void OnSystemError(CameraControlListener::SystemContext aContext,
+                     nsresult aError);
   void OnAutoFocusMoving(bool aIsMoving);
 
-protected:
+ protected:
   // Event handlers.
   void OnAutoFocusComplete(bool aAutoFocusSucceeded);
   void OnFacesDetected(const nsTArray<Face>& aFaces);
-  void OnTakePictureComplete(const uint8_t* aData, uint32_t aLength, const nsAString& aMimeType);
+  void OnTakePictureComplete(const uint8_t* aData, uint32_t aLength,
+                             const nsAString& aMimeType);
   void OnPoster(dom::BlobImpl* aBlobImpl);
 
   void OnRateLimitPreview(bool aLimit);
-  bool OnNewPreviewFrame(layers::Image* aImage, uint32_t aWidth, uint32_t aHeight);
+  bool OnNewPreviewFrame(layers::Image* aImage, uint32_t aWidth,
+                         uint32_t aHeight);
   void OnRecorderStateChange(CameraControlListener::RecorderState aState,
                              int32_t aStatus = -1, int32_t aTrackNumber = -1);
   void OnPreviewStateChange(CameraControlListener::PreviewState aState);
@@ -85,8 +89,8 @@ protected:
 
   virtual ~CameraControlImpl();
 
-  virtual void BeginBatchParameterSet() override { }
-  virtual void EndBatchParameterSet() override { }
+  virtual void BeginBatchParameterSet() override {}
+  virtual void EndBatchParameterSet() override {}
 
   // Manage camera event listeners.
   void AddListenerImpl(already_AddRefed<CameraControlListener> aListener);
@@ -105,9 +109,10 @@ protected:
   //  - NS_OK on success;
   //  - NS_ERROR_INVALID_ARG if one or more arguments is invalid;
   //  - NS_ERROR_NOT_INITIALIZED if the underlying hardware is not initialized,
-  //      failed to initialize (in the case of StartImpl()), or has been stopped;
-  //      for StartRecordingImpl(), this indicates that no recorder has been
-  //      configured (either by calling StartImpl() or SetConfigurationImpl());
+  //      failed to initialize (in the case of StartImpl()), or has been
+  //      stopped; for StartRecordingImpl(), this indicates that no recorder has
+  //      been configured (either by calling StartImpl() or
+  //      SetConfigurationImpl());
   //  - NS_ERROR_ALREADY_INITIALIZED if the underlying hardware is already
   //      initialized;
   //  - NS_ERROR_NOT_IMPLEMENTED if the method is not implemented;
@@ -121,8 +126,9 @@ protected:
   virtual nsresult StartFaceDetectionImpl() = 0;
   virtual nsresult StopFaceDetectionImpl() = 0;
   virtual nsresult TakePictureImpl() = 0;
-  virtual nsresult StartRecordingImpl(DeviceStorageFileDescriptor* aFileDescriptor,
-                                      const StartRecordingOptions* aOptions) = 0;
+  virtual nsresult StartRecordingImpl(
+      DeviceStorageFileDescriptor* aFileDescriptor,
+      const StartRecordingOptions* aOptions) = 0;
   virtual nsresult StopRecordingImpl() = 0;
   virtual nsresult PauseRecordingImpl() = 0;
   virtual nsresult ResumeRecordingImpl() = 0;
@@ -135,15 +141,15 @@ protected:
 
   CameraControlListener::CameraListenerConfiguration mCurrentConfiguration;
 
-  CameraControlListener::PreviewState   mPreviewState;
-  CameraControlListener::HardwareState  mHardwareState;
-  nsresult                              mHardwareStateChangeReason;
+  CameraControlListener::PreviewState mPreviewState;
+  CameraControlListener::HardwareState mHardwareState;
+  nsresult mHardwareStateChangeReason;
 
-private:
+ private:
   CameraControlImpl(const CameraControlImpl&) = delete;
   CameraControlImpl& operator=(const CameraControlImpl&) = delete;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // DOM_CAMERA_CAMERACONTROLIMPL_H
+#endif  // DOM_CAMERA_CAMERACONTROLIMPL_H

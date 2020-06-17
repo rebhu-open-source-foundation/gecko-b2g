@@ -11,17 +11,14 @@
 #include <binder/IActivityManager.h>
 
 namespace android {
-class BnActivityManager : public BnInterface<IActivityManager>
-{
-public:
-    // NOLINTNEXTLINE(google-default-arguments)
-    virtual status_t    onTransact( uint32_t code,
-                                    const Parcel& data,
-                                    Parcel* reply,
-                                    uint32_t flags = 0);
+class BnActivityManager : public BnInterface<IActivityManager> {
+ public:
+  // NOLINTNEXTLINE(google-default-arguments)
+  virtual status_t onTransact(uint32_t code, const Parcel& data, Parcel* reply,
+                              uint32_t flags = 0);
 };
 
-} // namespace android
+}  // namespace android
 
 namespace mozilla {
 
@@ -33,17 +30,14 @@ namespace mozilla {
  * ActivityManagerService. Since we don't have Java, we need to provide our
  * C++ version service to let AOSP AudioPolicyService to use.
  */
-class GonkActivityManagerService :
-  public android::BinderService<GonkActivityManagerService>,
-  public android::BnActivityManager
-{
-public:
+class GonkActivityManagerService
+    : public android::BinderService<GonkActivityManagerService>,
+      public android::BnActivityManager {
+ public:
   virtual ~GonkActivityManagerService() {}
   // From android::BinderService
   static GonkActivityManagerService* GetInstance();
-  static const char *getServiceName() {
-    return "activity";
-  }
+  static const char* getServiceName() { return "activity"; }
   static void instantiate();
 
   // protected:
@@ -51,18 +45,20 @@ public:
 
   // From IActivityManager
   virtual int openContentUri(const android::String16& stringUri) override;
-  virtual void registerUidObserver(const android::sp<android::IUidObserver>& observer,
-                                    const int32_t event,
-                                    const int32_t cutpoint,
-                                    const android::String16& callingPackage) override;
-  virtual void unregisterUidObserver(const android::sp<android::IUidObserver>& observer) override;
-  virtual bool isUidActive(const uid_t uid, const android::String16& callingPackage) override;
-  virtual int32_t getUidProcessState(const uid_t uid, const android::String16& callingPackage) override;
-private:
-  GonkActivityManagerService(): android::BnActivityManager() {}
+  virtual void registerUidObserver(
+      const android::sp<android::IUidObserver>& observer, const int32_t event,
+      const int32_t cutpoint, const android::String16& callingPackage) override;
+  virtual void unregisterUidObserver(
+      const android::sp<android::IUidObserver>& observer) override;
+  virtual bool isUidActive(const uid_t uid,
+                           const android::String16& callingPackage) override;
+  virtual int32_t getUidProcessState(
+      const uid_t uid, const android::String16& callingPackage) override;
 
+ private:
+  GonkActivityManagerService() : android::BnActivityManager() {}
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // GONKACTIVITYMANAGERSERVICE_H
+#endif  // GONKACTIVITYMANAGERSERVICE_H

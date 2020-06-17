@@ -28,68 +28,63 @@ using namespace mozilla;
 using namespace mozilla::dom;
 using namespace mozilla::gfx;
 
-const LayoutDeviceIntPoint
-  GLCursorImageManager::kOffscreenCursorPosition = LayoutDeviceIntPoint(-1, -1);
+const LayoutDeviceIntPoint GLCursorImageManager::kOffscreenCursorPosition =
+    LayoutDeviceIntPoint(-1, -1);
 
 namespace {
 
-nsString
-GetCursorElementClassID(nsCursor aCursor)
-{
+nsString GetCursorElementClassID(nsCursor aCursor) {
   nsString strClassID;
   switch (aCursor) {
-  case eCursor_standard:
-    strClassID = NS_LITERAL_STRING("std");
-    break;
-  case eCursor_wait:
-    strClassID = NS_LITERAL_STRING("wait");
-    break;
-  case eCursor_select:
-    strClassID = NS_LITERAL_STRING("select");
-    break;
-  case eCursor_hyperlink:
-    strClassID = NS_LITERAL_STRING("link");
-    break;
-  case eCursor_vertical_text:
-    strClassID = NS_LITERAL_STRING("vertical_text");
-    break;
-  case eCursor_spinning:
-    strClassID = NS_LITERAL_STRING("spinning");
-    break;
-  default:
-    strClassID = NS_LITERAL_STRING("std");
+    case eCursor_standard:
+      strClassID = NS_LITERAL_STRING("std");
+      break;
+    case eCursor_wait:
+      strClassID = NS_LITERAL_STRING("wait");
+      break;
+    case eCursor_select:
+      strClassID = NS_LITERAL_STRING("select");
+      break;
+    case eCursor_hyperlink:
+      strClassID = NS_LITERAL_STRING("link");
+      break;
+    case eCursor_vertical_text:
+      strClassID = NS_LITERAL_STRING("vertical_text");
+      break;
+    case eCursor_spinning:
+      strClassID = NS_LITERAL_STRING("spinning");
+      break;
+    default:
+      strClassID = NS_LITERAL_STRING("std");
   }
   return strClassID;
 }
 
-nsCursor
-MapCursorState(nsCursor aCursor)
-{
+nsCursor MapCursorState(nsCursor aCursor) {
   nsCursor mappedCursor = aCursor;
   switch (mappedCursor) {
-  case eCursor_standard:
-  case eCursor_wait:
-  case eCursor_select:
-  case eCursor_hyperlink:
-  case eCursor_spinning:
-  case eCursor_vertical_text:
-    break;
-  default:
-    mappedCursor = eCursor_standard;
+    case eCursor_standard:
+    case eCursor_wait:
+    case eCursor_select:
+    case eCursor_hyperlink:
+    case eCursor_spinning:
+    case eCursor_vertical_text:
+      break;
+    default:
+      mappedCursor = eCursor_standard;
   }
   return mappedCursor;
 }
 
-} // namespace
+}  // namespace
 
 class RemoveLoadCursorTaskOnMainThread final : public Runnable {
-public:
+ public:
   RemoveLoadCursorTaskOnMainThread(nsCursor aCursor,
                                    GLCursorImageManager* aManager)
-      : mCursor(aCursor)
-      , mManager(aManager)
-      , Runnable("RemoveLoadCursorTask")
-  { }
+      : mCursor(aCursor),
+        mManager(aManager),
+        Runnable("RemoveLoadCursorTask") {}
 
   NS_IMETHOD Run() override {
     if (mManager) {
@@ -101,32 +96,23 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   nsCursor mCursor;
   GLCursorImageManager* mManager;
 };
 
-NS_IMPL_ISUPPORTS(GLCursorImageManager::LoadCursorTask, imgINotificationObserver)
+NS_IMPL_ISUPPORTS(GLCursorImageManager::LoadCursorTask,
+                  imgINotificationObserver)
 
 GLCursorImageManager::LoadCursorTask::LoadCursorTask(
-    nsCursor aCursor,
-    nsIntPoint aHotspot,
-    GLCursorImageManager* aManager)
-  : mCursor(aCursor)
-  , mHotspot(aHotspot)
-  , mManager(aManager)
-{
-}
+    nsCursor aCursor, nsIntPoint aHotspot, GLCursorImageManager* aManager)
+    : mCursor(aCursor), mHotspot(aHotspot), mManager(aManager) {}
 
-GLCursorImageManager::LoadCursorTask::~LoadCursorTask()
-{
-}
+GLCursorImageManager::LoadCursorTask::~LoadCursorTask() {}
 
-void
-GLCursorImageManager::LoadCursorTask::Notify(imgIRequest* aProxy,
-                                             int32_t aType,
-                                             const nsIntRect* aRect)
-{
+void GLCursorImageManager::LoadCursorTask::Notify(imgIRequest* aProxy,
+                                                  int32_t aType,
+                                                  const nsIntRect* aRect) {
   if (aType != imgINotificationObserver::DECODE_COMPLETE) {
     return;
   }
@@ -142,10 +128,8 @@ GLCursorImageManager::LoadCursorTask::Notify(imgIRequest* aProxy,
   glCursorImage.mImgSize = nsIntSize(width, height);
   glCursorImage.mHotspot = mHotspot;
 
-  RefPtr<mozilla::gfx::SourceSurface> sourceSurface =
-    imgContainer->GetFrame(
-    imgIContainer::FRAME_CURRENT,
-    imgIContainer::FLAG_SYNC_DECODE);
+  RefPtr<mozilla::gfx::SourceSurface> sourceSurface = imgContainer->GetFrame(
+      imgIContainer::FRAME_CURRENT, imgIContainer::FLAG_SYNC_DECODE);
 
   glCursorImage.mSurface = sourceSurface->GetDataSurface();
 
@@ -156,22 +140,18 @@ GLCursorImageManager::LoadCursorTask::Notify(imgIRequest* aProxy,
   // This function is called through imgRequest and LoadCursorTask,
   // so we cannot remove them here.
   NS_DispatchToMainThread(
-    new RemoveLoadCursorTaskOnMainThread(mCursor,
-                                         mManager));
+      new RemoveLoadCursorTaskOnMainThread(mCursor, mManager));
 
   return;
 }
 
 GLCursorImageManager::GLCursorImageManager()
-  : mGLCursorImageManagerMonitor("GLCursorImageManagerMonitor")
-  , mHasSetCursor(false)
-  , mGLCursorPos(kOffscreenCursorPosition)
-{
-}
+    : mGLCursorImageManagerMonitor("GLCursorImageManagerMonitor"),
+      mHasSetCursor(false),
+      mGLCursorPos(kOffscreenCursorPosition) {}
 
-GLCursorImageManager::GLCursorImage
-GLCursorImageManager::GetGLCursorImage(nsCursor aCursor)
-{
+GLCursorImageManager::GLCursorImage GLCursorImageManager::GetGLCursorImage(
+    nsCursor aCursor) {
   nsCursor supportedCursor = MapCursorState(aCursor);
   ReentrantMonitorAutoEnter lock(mGLCursorImageManagerMonitor);
   if (!IsCursorImageReady(supportedCursor)) {
@@ -181,37 +161,29 @@ GLCursorImageManager::GetGLCursorImage(nsCursor aCursor)
   return mGLCursorImageMap[supportedCursor];
 }
 
-bool
-GLCursorImageManager::IsCursorImageReady(nsCursor aCursor)
-{
+bool GLCursorImageManager::IsCursorImageReady(nsCursor aCursor) {
   ReentrantMonitorAutoEnter lock(mGLCursorImageManagerMonitor);
   return mGLCursorImageMap.count(MapCursorState(aCursor));
 }
 
-bool
-GLCursorImageManager::IsCursorImageLoading(nsCursor aCursor)
-{
+bool GLCursorImageManager::IsCursorImageLoading(nsCursor aCursor) {
   ReentrantMonitorAutoEnter lock(mGLCursorImageManagerMonitor);
   return mGLCursorLoadingRequestMap.count(MapCursorState(aCursor));
 }
 
-void
-GLCursorImageManager::NotifyCursorImageLoadDone(nsCursor aCursor,
-                                                GLCursorImage &GLCursorImage)
-{
+void GLCursorImageManager::NotifyCursorImageLoadDone(
+    nsCursor aCursor, GLCursorImage& GLCursorImage) {
   ReentrantMonitorAutoEnter lock(mGLCursorImageManagerMonitor);
   mGLCursorImageMap.insert(std::make_pair(aCursor, GLCursorImage));
 }
 
-void
-GLCursorImageManager::PrepareCursorImage(nsCursor aCursor, nsWindow* aWindow)
-{
+void GLCursorImageManager::PrepareCursorImage(nsCursor aCursor,
+                                              nsWindow* aWindow) {
   nsCursor supportedCursor = MapCursorState(aCursor);
   ReentrantMonitorAutoEnter lock(mGLCursorImageManagerMonitor);
 
-  if (!aWindow ||
-    IsCursorImageReady(supportedCursor) ||
-    IsCursorImageLoading(supportedCursor)) {
+  if (!aWindow || IsCursorImageReady(supportedCursor) ||
+      IsCursorImageLoading(supportedCursor)) {
     // Cursor is ready or in loading process.
     return;
   }
@@ -230,8 +202,7 @@ GLCursorImageManager::PrepareCursorImage(nsCursor aCursor, nsWindow* aWindow)
     cursorElementHolder = doc->InsertAnonymousContent(*image, rv);
 
     if (cursorElementHolder) {
-      nsCOMPtr<dom::Element> element =
-        cursorElementHolder->GetContentNode();
+      nsCOMPtr<dom::Element> element = cursorElementHolder->GetContentNode();
       nsIFrame* frame = element->GetPrimaryFrame();
       if (!frame) {
         // Force the document to construct a primary frame immediately if
@@ -242,16 +213,15 @@ GLCursorImageManager::PrepareCursorImage(nsCursor aCursor, nsWindow* aWindow)
       MOZ_ASSERT(frame);
 
       // Create an empty GLCursorLoadRequest.
-      GLCursorLoadRequest &loadRequest =
-        mGLCursorLoadingRequestMap[supportedCursor];
+      GLCursorLoadRequest& loadRequest =
+          mGLCursorLoadingRequestMap[supportedCursor];
       const nsStyleUserInterface* ui = frame->StyleUserInterface();
 
       // Retrieve first cursor property from css.
       MOZ_ASSERT(ui->mCursorArrayLength > 0);
       nsCursorImage* item = ui->mCursorArray;
       nsIntPoint hotspot(item->mHotspotX, item->mHotspotY);
-      loadRequest.mTask =
-        new LoadCursorTask(supportedCursor, hotspot, this);
+      loadRequest.mTask = new LoadCursorTask(supportedCursor, hotspot, this);
 
       item->GetImage()->Clone(loadRequest.mTask.get(),
                               getter_AddRefs(loadRequest.mRequest));
@@ -265,37 +235,27 @@ GLCursorImageManager::PrepareCursorImage(nsCursor aCursor, nsWindow* aWindow)
   }
 }
 
-void
-GLCursorImageManager::RemoveCursorLoadRequest(nsCursor aCursor)
-{
+void GLCursorImageManager::RemoveCursorLoadRequest(nsCursor aCursor) {
   ReentrantMonitorAutoEnter lock(mGLCursorImageManagerMonitor);
   mGLCursorLoadingRequestMap.erase(aCursor);
 }
 
-void
-GLCursorImageManager::HasSetCursor()
-{
+void GLCursorImageManager::HasSetCursor() {
   ReentrantMonitorAutoEnter lock(mGLCursorImageManagerMonitor);
   mHasSetCursor = true;
 }
 
-void
-GLCursorImageManager::SetGLCursorPosition(LayoutDeviceIntPoint aPosition)
-{
+void GLCursorImageManager::SetGLCursorPosition(LayoutDeviceIntPoint aPosition) {
   ReentrantMonitorAutoEnter lock(mGLCursorImageManagerMonitor);
   mGLCursorPos = aPosition;
 }
 
-LayoutDeviceIntPoint
-GLCursorImageManager::GetGLCursorPosition()
-{
+LayoutDeviceIntPoint GLCursorImageManager::GetGLCursorPosition() {
   ReentrantMonitorAutoEnter lock(mGLCursorImageManagerMonitor);
   return mGLCursorPos;
 }
 
-bool
-GLCursorImageManager::ShouldDrawGLCursor()
-{
+bool GLCursorImageManager::ShouldDrawGLCursor() {
   ReentrantMonitorAutoEnter lock(mGLCursorImageManagerMonitor);
   return mHasSetCursor && mGLCursorPos != kOffscreenCursorPosition;
 }

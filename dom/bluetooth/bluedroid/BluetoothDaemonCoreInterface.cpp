@@ -691,7 +691,8 @@ void BluetoothDaemonCoreModule::AdapterPropertiesNtf(
 class BluetoothDaemonCoreModule::RemoteDevicePropertiesInitOp final
     : private PDUInitOp {
  public:
-  explicit RemoteDevicePropertiesInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit RemoteDevicePropertiesInitOp(DaemonSocketPDU& aPDU)
+      : PDUInitOp(aPDU) {}
 
   nsresult operator()(BluetoothStatus& aArg1, BluetoothAddress& aArg2,
                       int& aArg3, UniquePtr<BluetoothProperty[]>& aArg4) const {

@@ -86,37 +86,37 @@
 #include <algorithm>
 #include <dlfcn.h>
 
-#define NsecPerMsec  1000000LL
-#define NsecPerSec   1000000000
+#define NsecPerMsec 1000000LL
+#define NsecPerSec 1000000000
 
 // The header linux/oom.h is not available in bionic libc. We
 // redefine some of its constants here.
 
 #ifndef OOM_DISABLE
-#define OOM_DISABLE  (-17)
+#  define OOM_DISABLE (-17)
 #endif
 
 #ifndef OOM_ADJUST_MIN
-#define OOM_ADJUST_MIN  (-16)
+#  define OOM_ADJUST_MIN (-16)
 #endif
 
 #ifndef OOM_ADJUST_MAX
-#define OOM_ADJUST_MAX  15
+#  define OOM_ADJUST_MAX 15
 #endif
 
 #ifndef OOM_SCORE_ADJ_MIN
-#define OOM_SCORE_ADJ_MIN  (-1000)
+#  define OOM_SCORE_ADJ_MIN (-1000)
 #endif
 
 #ifndef OOM_SCORE_ADJ_MAX
-#define OOM_SCORE_ADJ_MAX  1000
+#  define OOM_SCORE_ADJ_MAX 1000
 #endif
 
 #ifndef BATTERY_CHARGING_ARGB
-#define BATTERY_CHARGING_ARGB 0x00FF0000
+#  define BATTERY_CHARGING_ARGB 0x00FF0000
 #endif
 #ifndef BATTERY_FULL_ARGB
-#define BATTERY_FULL_ARGB 0x0000FF00
+#  define BATTERY_FULL_ARGB 0x0000FF00
 #endif
 
 using namespace mozilla;
@@ -124,15 +124,15 @@ using namespace mozilla::hal;
 using namespace mozilla::dom;
 
 typedef android::GonkDisplay GonkDisplay;
-extern GonkDisplay * GetGonkDisplay();
+extern GonkDisplay* GetGonkDisplay();
 
 typedef android::GonkDisplay* (*fnGetGonkDisplay)();
-GonkDisplay * GetGonkDisplay() {
-  GonkDisplay *display = NULL;
+GonkDisplay* GetGonkDisplay() {
+  GonkDisplay* display = NULL;
   void* lib = dlopen("libcarthage.so", RTLD_NOW);
   MOZ_ASSERT(lib != NULL, "libcarthage.so is not found!");
   {
-    fnGetGonkDisplay func = (fnGetGonkDisplay) dlsym(lib, "GetGonkDisplayP") ;
+    fnGetGonkDisplay func = (fnGetGonkDisplay)dlsym(lib, "GetGonkDisplayP");
     if (func == NULL) {
       HAL_LOG("Symbol 'GetGonkDisplayP' is missing from shared library!!\n");
     } else {
@@ -142,8 +142,10 @@ GonkDisplay * GetGonkDisplay() {
   return display;
 }
 
-typedef int (*fnNative_Gralloc_Lock)(buffer_handle_t handle, int usage, int l, int t, int w, int h, void **vaddr);
-int native_gralloc_lock(buffer_handle_t handle, int usage, int l, int t, int w, int h, void **vaddr) {
+typedef int (*fnNative_Gralloc_Lock)(buffer_handle_t handle, int usage, int l,
+                                     int t, int w, int h, void** vaddr);
+int native_gralloc_lock(buffer_handle_t handle, int usage, int l, int t, int w,
+                        int h, void** vaddr) {
   int result = 0;
   void* lib = dlopen("libcarthage.so", RTLD_NOW);
   if (lib == nullptr) {
@@ -151,7 +153,8 @@ int native_gralloc_lock(buffer_handle_t handle, int usage, int l, int t, int w, 
     return result;
   }
 
-  fnNative_Gralloc_Lock func = (fnNative_Gralloc_Lock) dlsym(lib, "native_gralloc_lock") ;
+  fnNative_Gralloc_Lock func =
+      (fnNative_Gralloc_Lock)dlsym(lib, "native_gralloc_lock");
   if (func == nullptr) {
     ALOGE("Symbol 'native_gralloc_lock' is missing from shared library!!\n");
     return result;
@@ -170,7 +173,8 @@ int native_gralloc_unlock(buffer_handle_t handle) {
     return result;
   }
 
-  fnNative_Gralloc_Unlock func = (fnNative_Gralloc_Unlock) dlsym(lib, "native_gralloc_unlock") ;
+  fnNative_Gralloc_Unlock func =
+      (fnNative_Gralloc_Unlock)dlsym(lib, "native_gralloc_unlock");
   if (func == nullptr) {
     ALOGE("Symbol 'native_gralloc_unlock' is missing from shared library!!\n");
     return result;
@@ -180,34 +184,34 @@ int native_gralloc_unlock(buffer_handle_t handle) {
   return result;
 }
 
-
 namespace mozilla {
 namespace hal_impl {
 
 /**
- * These are defined by libhardware, specifically, hardware/libhardware/include/hardware/lights.h
- * in the gonk subsystem.
- * If these change and are exposed to JS, make sure nsIHal.idl is updated as well.
+ * These are defined by libhardware, specifically,
+ * hardware/libhardware/include/hardware/lights.h in the gonk subsystem. If
+ * these change and are exposed to JS, make sure nsIHal.idl is updated as well.
  */
 enum LightType {
-  eHalLightID_Backlight     = 0,
-  eHalLightID_Keyboard      = 1,
-  eHalLightID_Buttons       = 2,
-  eHalLightID_Battery       = 3,
+  eHalLightID_Backlight = 0,
+  eHalLightID_Keyboard = 1,
+  eHalLightID_Buttons = 2,
+  eHalLightID_Battery = 3,
   eHalLightID_Notifications = 4,
-  eHalLightID_Attention     = 5,
-  eHalLightID_Bluetooth     = 6,
-  eHalLightID_Wifi          = 7,
+  eHalLightID_Attention = 5,
+  eHalLightID_Bluetooth = 6,
+  eHalLightID_Wifi = 7,
   eHalLightID_Count  // This should stay at the end
 };
 enum LightMode {
-  eHalLightMode_User   = 0,  // brightness is managed by user setting
+  eHalLightMode_User = 0,    // brightness is managed by user setting
   eHalLightMode_Sensor = 1,  // brightness is managed by a light sensor
   eHalLightMode_Count
 };
 enum FlashMode {
-  eHalLightFlash_None     = 0,
-  eHalLightFlash_Timed    = 1,  // timed flashing.  Use flashOnMS and flashOffMS for timing
+  eHalLightFlash_None = 0,
+  eHalLightFlash_Timed =
+      1,  // timed flashing.  Use flashOnMS and flashOffMS for timing
   eHalLightFlash_Hardware = 2,  // hardware assisted flashing
   eHalLightFlash_Count
 };
@@ -221,11 +225,10 @@ struct LightConfiguration {
   uint32_t color;
 };
 
-static light_device_t* sLights[eHalLightID_Count]; // will be initialized to nullptr
-
 static light_device_t*
-GetDevice(hw_module_t* module, char const* name)
-{
+    sLights[eHalLightID_Count];  // will be initialized to nullptr
+
+static light_device_t* GetDevice(hw_module_t* module, char const* name) {
   int err;
   hw_device_t* device;
   err = module->methods->open(module, name, &device);
@@ -236,35 +239,28 @@ GetDevice(hw_module_t* module, char const* name)
   }
 }
 
-static void
-InitLights()
-{
+static void InitLights() {
   // assume that if backlight is nullptr, nothing has been set yet
-  // if this is not true, the initialization will occur everytime a light is read or set!
+  // if this is not true, the initialization will occur everytime a light is
+  // read or set!
   if (!sLights[eHalLightID_Backlight]) {
     int err;
     hw_module_t* module;
 
-    err = hw_get_module(LIGHTS_HARDWARE_MODULE_ID, (hw_module_t const**)&module);
+    err =
+        hw_get_module(LIGHTS_HARDWARE_MODULE_ID, (hw_module_t const**)&module);
     if (err == 0) {
-      sLights[eHalLightID_Backlight]
-             = GetDevice(module, LIGHT_ID_BACKLIGHT);
-      sLights[eHalLightID_Keyboard]
-             = GetDevice(module, LIGHT_ID_KEYBOARD);
-      sLights[eHalLightID_Buttons]
-             = GetDevice(module, LIGHT_ID_BUTTONS);
-      sLights[eHalLightID_Battery]
-             = GetDevice(module, LIGHT_ID_BATTERY);
-      sLights[eHalLightID_Notifications]
-             = GetDevice(module, LIGHT_ID_NOTIFICATIONS);
-      sLights[eHalLightID_Attention]
-             = GetDevice(module, LIGHT_ID_ATTENTION);
-      sLights[eHalLightID_Bluetooth]
-             = GetDevice(module, LIGHT_ID_BLUETOOTH);
-      sLights[eHalLightID_Wifi]
-             = GetDevice(module, LIGHT_ID_WIFI);
-        }
+      sLights[eHalLightID_Backlight] = GetDevice(module, LIGHT_ID_BACKLIGHT);
+      sLights[eHalLightID_Keyboard] = GetDevice(module, LIGHT_ID_KEYBOARD);
+      sLights[eHalLightID_Buttons] = GetDevice(module, LIGHT_ID_BUTTONS);
+      sLights[eHalLightID_Battery] = GetDevice(module, LIGHT_ID_BATTERY);
+      sLights[eHalLightID_Notifications] =
+          GetDevice(module, LIGHT_ID_NOTIFICATIONS);
+      sLights[eHalLightID_Attention] = GetDevice(module, LIGHT_ID_ATTENTION);
+      sLights[eHalLightID_Bluetooth] = GetDevice(module, LIGHT_ID_BLUETOOTH);
+      sLights[eHalLightID_Wifi] = GetDevice(module, LIGHT_ID_WIFI);
     }
+  }
 }
 
 /**
@@ -274,18 +270,16 @@ InitLights()
 static light_state_t sStoredLightState[eHalLightID_Count];
 
 /**
-* Set the value of a light to a particular color, with a specific flash pattern.
-* light specifices which light.  See Hal.idl for the list of constants
-* mode specifies user set or based on ambient light sensor
-* flash specifies whether or how to flash the light
-* flashOnMS and flashOffMS specify the pattern for XXX flash mode
-* color specifies the color.  If the light doesn't support color, the given color is
-* transformed into a brightness, or just an on/off if that is all the light is capable of.
-* returns true if successful and false if failed.
-*/
-static bool
-SetLight(LightType light, const LightConfiguration& aConfig)
-{
+ * Set the value of a light to a particular color, with a specific flash
+ * pattern. light specifices which light.  See Hal.idl for the list of constants
+ * mode specifies user set or based on ambient light sensor
+ * flash specifies whether or how to flash the light
+ * flashOnMS and flashOffMS specify the pattern for XXX flash mode
+ * color specifies the color.  If the light doesn't support color, the given
+ * color is transformed into a brightness, or just an on/off if that is all the
+ * light is capable of. returns true if successful and false if failed.
+ */
+static bool SetLight(LightType light, const LightConfiguration& aConfig) {
   light_state_t state;
 
   InitLights();
@@ -307,12 +301,10 @@ SetLight(LightType light, const LightConfiguration& aConfig)
 }
 
 /**
-* GET the value of a light returning a particular color, with a specific flash pattern.
-* returns true if successful and false if failed.
-*/
-static bool
-GetLight(LightType light, LightConfiguration* aConfig)
-{
+ * GET the value of a light returning a particular color, with a specific flash
+ * pattern. returns true if successful and false if failed.
+ */
+static bool GetLight(LightType light, LightConfiguration* aConfig) {
   light_state_t state;
 
   if (light >= eHalLightID_Count || sLights[light] == nullptr) {
@@ -338,15 +330,9 @@ namespace {
  * This runnable runs for the lifetime of the program, once started.  It's
  * responsible for "playing" vibration patterns.
  */
-class VibratorRunnable final
-  : public nsIRunnable
-  , public nsIObserver
-{
-public:
-  VibratorRunnable()
-    : mMonitor("VibratorRunnable")
-    , mIndex(0)
-  {
+class VibratorRunnable final : public nsIRunnable, public nsIObserver {
+ public:
+  VibratorRunnable() : mMonitor("VibratorRunnable"), mIndex(0) {
     nsCOMPtr<nsIObserverService> os = services::GetObserverService();
     if (!os) {
       NS_WARNING("Could not get observer service!");
@@ -361,15 +347,15 @@ public:
   NS_DECL_NSIOBSERVER
 
   // Run on the main thread, not the vibrator thread.
-  void Vibrate(const nsTArray<uint32_t> &pattern);
+  void Vibrate(const nsTArray<uint32_t>& pattern);
   void CancelVibrate();
 
   static bool ShuttingDown() { return sShuttingDown; }
 
-protected:
+ protected:
   ~VibratorRunnable() {}
 
-private:
+ private:
   Monitor mMonitor;
 
   // The currently-playing pattern.
@@ -391,8 +377,7 @@ bool VibratorRunnable::sShuttingDown = false;
 static StaticRefPtr<VibratorRunnable> sVibratorRunnable;
 
 NS_IMETHODIMP
-VibratorRunnable::Run()
-{
+VibratorRunnable::Run() {
   MonitorAutoLock lock(mMonitor);
 
   // We currently assume that mMonitor.Wait(X) waits for X milliseconds.  But in
@@ -409,13 +394,13 @@ VibratorRunnable::Run()
       uint32_t duration = mPattern[mIndex];
       if (mIndex % 2 == 0) {
         // Get a handle to the HIDL vibrator service.
-        auto vibrator = android::hardware::vibrator::V1_0::IVibrator::getService();
+        auto vibrator =
+            android::hardware::vibrator::V1_0::IVibrator::getService();
         vibrator->on(duration);
       }
       mIndex++;
       mMonitor.Wait(TimeDuration::FromMilliseconds(duration));
-    }
-    else {
+    } else {
       mMonitor.Wait();
     }
   }
@@ -424,9 +409,8 @@ VibratorRunnable::Run()
 }
 
 NS_IMETHODIMP
-VibratorRunnable::Observe(nsISupports *subject, const char *topic,
-                          const char16_t *data)
-{
+VibratorRunnable::Observe(nsISupports* subject, const char* topic,
+                          const char16_t* data) {
   MOZ_ASSERT(strcmp(topic, NS_XPCOM_SHUTDOWN_OBSERVER_ID) == 0);
   MonitorAutoLock lock(mMonitor);
   sShuttingDown = true;
@@ -435,18 +419,14 @@ VibratorRunnable::Observe(nsISupports *subject, const char *topic,
   return NS_OK;
 }
 
-void
-VibratorRunnable::Vibrate(const nsTArray<uint32_t> &pattern)
-{
+void VibratorRunnable::Vibrate(const nsTArray<uint32_t>& pattern) {
   MonitorAutoLock lock(mMonitor);
   mPattern.Assign(pattern);
   mIndex = 0;
   mMonitor.Notify();
 }
 
-void
-VibratorRunnable::CancelVibrate()
-{
+void VibratorRunnable::CancelVibrate() {
   MonitorAutoLock lock(mMonitor);
   mPattern.Clear();
   mPattern.AppendElement(0);
@@ -454,9 +434,7 @@ VibratorRunnable::CancelVibrate()
   mMonitor.Notify();
 }
 
-void
-EnsureVibratorThreadInitialized()
-{
+void EnsureVibratorThreadInitialized() {
   if (sVibratorRunnable) {
     return;
   }
@@ -466,11 +444,9 @@ EnsureVibratorThreadInitialized()
   NS_NewNamedThread("Vibrator", getter_AddRefs(thread), sVibratorRunnable);
 }
 
-} // namespace
+}  // namespace
 
-void
-Vibrate(const nsTArray<uint32_t> &pattern, hal::WindowIdentifier &&)
-{
+void Vibrate(const nsTArray<uint32_t>& pattern, hal::WindowIdentifier&&) {
   MOZ_ASSERT(NS_IsMainThread());
   if (VibratorRunnable::ShuttingDown()) {
     return;
@@ -479,9 +455,7 @@ Vibrate(const nsTArray<uint32_t> &pattern, hal::WindowIdentifier &&)
   sVibratorRunnable->Vibrate(pattern);
 }
 
-void
-CancelVibrate(hal::WindowIdentifier &&)
-{
+void CancelVibrate(hal::WindowIdentifier&&) {
   MOZ_ASSERT(NS_IsMainThread());
   if (VibratorRunnable::ShuttingDown()) {
     return;
@@ -493,24 +467,22 @@ CancelVibrate(hal::WindowIdentifier &&)
 namespace {
 
 class BatteryUpdater : public Runnable {
-public:
-explicit BatteryUpdater()
-      : Runnable("hal::BatteryUpdater") {}
-  NS_IMETHOD Run() override
-  {
+ public:
+  explicit BatteryUpdater() : Runnable("hal::BatteryUpdater") {}
+  NS_IMETHOD Run() override {
     hal::BatteryInformation info;
     hal_impl::GetCurrentBatteryInformation(&info);
 
     // Control the battery indicator (led light) here using BatteryInformation
     // we just retrieved.
-    uint32_t color = 0; // Format: 0x00rrggbb.
+    uint32_t color = 0;  // Format: 0x00rrggbb.
     if (info.charging() && (info.level() == 1)) {
       // Charging and battery full.
       color = BATTERY_FULL_ARGB;
     } else if (info.charging() && (info.level() < 1)) {
       // Charging but not full.
       color = BATTERY_CHARGING_ARGB;
-    } // else turn off battery indicator.
+    }  // else turn off battery indicator.
 
     LightConfiguration aConfig;
     aConfig.light = eHalLightID_Battery;
@@ -525,19 +497,21 @@ explicit BatteryUpdater()
 
     {
       // bug 975667
-      // Gecko gonk hal is required to emit battery charging/level notification via nsIObserverService.
-      // This is useful for XPCOM components that are not statically linked to Gecko and cannot call
+      // Gecko gonk hal is required to emit battery charging/level notification
+      // via nsIObserverService. This is useful for XPCOM components that are
+      // not statically linked to Gecko and cannot call
       // hal::EnableBatteryNotifications
-      nsCOMPtr<nsIObserverService> obsService = mozilla::services::GetObserverService();
+      nsCOMPtr<nsIObserverService> obsService =
+          mozilla::services::GetObserverService();
       nsCOMPtr<nsIWritablePropertyBag2> propbag =
-        do_CreateInstance("@mozilla.org/hash-property-bag;1");
+          do_CreateInstance("@mozilla.org/hash-property-bag;1");
       if (obsService && propbag) {
         propbag->SetPropertyAsBool(NS_LITERAL_STRING("charging"),
                                    info.charging());
-        propbag->SetPropertyAsDouble(NS_LITERAL_STRING("level"),
-                                   info.level());
+        propbag->SetPropertyAsDouble(NS_LITERAL_STRING("level"), info.level());
 
-        obsService->NotifyObservers(propbag, "gonkhal-battery-notifier", nullptr);
+        obsService->NotifyObservers(propbag, "gonkhal-battery-notifier",
+                                    nullptr);
       }
     }
 
@@ -545,36 +519,30 @@ explicit BatteryUpdater()
   }
 };
 
-} // namespace
+}  // namespace
 
-class BatteryObserver final : public IUeventObserver
-{
-public:
+class BatteryObserver final : public IUeventObserver {
+ public:
   NS_INLINE_DECL_REFCOUNTING(BatteryObserver)
 
-  BatteryObserver()
-    :mUpdater(new BatteryUpdater())
-  {
-  }
+  BatteryObserver() : mUpdater(new BatteryUpdater()) {}
 
-  virtual void Notify(const NetlinkEvent &aEvent)
-  {
+  virtual void Notify(const NetlinkEvent& aEvent) {
     // this will run on IO thread
-    NetlinkEvent *event = const_cast<NetlinkEvent*>(&aEvent);
-    const char *subsystem = event->getSubsystem();
+    NetlinkEvent* event = const_cast<NetlinkEvent*>(&aEvent);
+    const char* subsystem = event->getSubsystem();
     // e.g. DEVPATH=/devices/platform/sec-battery/power_supply/battery
-    const char *devpath = event->findParam("DEVPATH");
-    if (strcmp(subsystem, "power_supply") == 0 &&
-        strstr(devpath, "battery")) {
+    const char* devpath = event->findParam("DEVPATH");
+    if (strcmp(subsystem, "power_supply") == 0 && strstr(devpath, "battery")) {
       // aEvent will be valid only in this method.
       NS_DispatchToMainThread(mUpdater);
     }
   }
 
-protected:
+ protected:
   ~BatteryObserver() {}
 
-private:
+ private:
   RefPtr<BatteryUpdater> mUpdater;
 };
 
@@ -582,9 +550,7 @@ private:
 // create or destroy it.
 static StaticRefPtr<BatteryObserver> sBatteryObserver;
 
-static void
-RegisterBatteryObserverIOThread()
-{
+static void RegisterBatteryObserverIOThread() {
   MOZ_ASSERT(MessageLoop::current() == XRE_GetIOMessageLoop());
   MOZ_ASSERT(!sBatteryObserver);
 
@@ -592,16 +558,12 @@ RegisterBatteryObserverIOThread()
   RegisterUeventListener(sBatteryObserver);
 }
 
-void
-EnableBatteryNotifications()
-{
-  XRE_GetIOMessageLoop()->PostTask(
-      NewRunnableFunction("RegisterBatteryObserver", RegisterBatteryObserverIOThread));
+void EnableBatteryNotifications() {
+  XRE_GetIOMessageLoop()->PostTask(NewRunnableFunction(
+      "RegisterBatteryObserver", RegisterBatteryObserverIOThread));
 }
 
-static void
-UnregisterBatteryObserverIOThread()
-{
+static void UnregisterBatteryObserverIOThread() {
   MOZ_ASSERT(MessageLoop::current() == XRE_GetIOMessageLoop());
   MOZ_ASSERT(sBatteryObserver);
 
@@ -635,52 +597,46 @@ static BatteryHealth GetCurrentBatteryHealth() {
   }
 }
 
-void
-DisableBatteryNotifications()
-{
-  XRE_GetIOMessageLoop()->PostTask(
-      NewRunnableFunction("UnregisterBatteryObserver", UnregisterBatteryObserverIOThread));
+void DisableBatteryNotifications() {
+  XRE_GetIOMessageLoop()->PostTask(NewRunnableFunction(
+      "UnregisterBatteryObserver", UnregisterBatteryObserverIOThread));
 }
 
-static bool
-GetCurrentBatteryCharge(int* aCharge)
-{
-  bool success = ReadSysFile("/sys/class/power_supply/battery/capacity",
-                             aCharge);
+static bool GetCurrentBatteryCharge(int* aCharge) {
+  bool success =
+      ReadSysFile("/sys/class/power_supply/battery/capacity", aCharge);
   if (!success) {
     return false;
   }
 
-  #ifdef DEBUG
+#ifdef DEBUG
   if ((*aCharge < 0) || (*aCharge > 100)) {
     HAL_LOG("charge level contains unknown value: %d", *aCharge);
   }
-  #endif
+#endif
 
   return (*aCharge >= 0) && (*aCharge <= 100);
 }
 
-static bool
-GetCurrentBatteryCharging(int* aCharging)
-{
+static bool GetCurrentBatteryCharging(int* aCharging) {
   static const int BATTERY_NOT_CHARGING = 0;
   static const int BATTERY_CHARGING_USB = 1;
-  static const int BATTERY_CHARGING_AC  = 2;
+  static const int BATTERY_CHARGING_AC = 2;
 
   // Generic device support
 
   int chargingSrc;
-  bool success =
-    ReadSysFile("/sys/class/power_supply/battery/charging_source", &chargingSrc);
+  bool success = ReadSysFile("/sys/class/power_supply/battery/charging_source",
+                             &chargingSrc);
 
   if (success) {
-    #ifdef DEBUG
+#ifdef DEBUG
     if (chargingSrc != BATTERY_NOT_CHARGING &&
         chargingSrc != BATTERY_CHARGING_USB &&
         chargingSrc != BATTERY_CHARGING_AC) {
       HAL_LOG("charging_source contained unknown value: %d", chargingSrc);
     }
-    #endif
+#endif
 
     *aCharging = (chargingSrc == BATTERY_CHARGING_USB ||
                   chargingSrc == BATTERY_CHARGING_AC);
@@ -720,9 +676,7 @@ bool IsBatteryPresent() {
   return success ? present : dom::battery::kDefaultPresent;
 }
 
-void
-GetCurrentBatteryInformation(hal::BatteryInformation* aBatteryInfo)
-{
+void GetCurrentBatteryInformation(hal::BatteryInformation* aBatteryInfo) {
   int charge;
   static bool previousCharging = false;
   static double previousLevel = 0.0, remainingTime = 0.0;
@@ -748,7 +702,7 @@ GetCurrentBatteryInformation(hal::BatteryInformation* aBatteryInfo)
     aBatteryInfo->charging() = true;
   }
 
-  if (aBatteryInfo->charging() != previousCharging){
+  if (aBatteryInfo->charging() != previousCharging) {
     aBatteryInfo->remainingTime() = dom::battery::kUnknownRemainingTime;
     memset(&lastLevelChange, 0, sizeof(struct timespec));
     remainingTime = 0.0;
@@ -757,7 +711,7 @@ GetCurrentBatteryInformation(hal::BatteryInformation* aBatteryInfo)
   if (aBatteryInfo->charging()) {
     if (aBatteryInfo->level() == 1.0) {
       aBatteryInfo->remainingTime() = dom::battery::kDefaultRemainingTime;
-    } else if (aBatteryInfo->level() != previousLevel){
+    } else if (aBatteryInfo->level() != previousLevel) {
       if (lastLevelChange.tv_sec != 0) {
         clock_gettime(CLOCK_MONOTONIC, &now);
         dtime = now.tv_sec - lastLevelChange.tv_sec;
@@ -766,12 +720,13 @@ GetCurrentBatteryInformation(hal::BatteryInformation* aBatteryInfo)
         if (dlevel <= 0.0) {
           aBatteryInfo->remainingTime() = dom::battery::kUnknownRemainingTime;
         } else {
-          remainingTime = (double) round(dtime / dlevel * (1.0 - aBatteryInfo->level()));
+          remainingTime =
+              (double)round(dtime / dlevel * (1.0 - aBatteryInfo->level()));
           aBatteryInfo->remainingTime() = remainingTime;
         }
 
         lastLevelChange = now;
-      } else { // lastLevelChange.tv_sec == 0
+      } else {  // lastLevelChange.tv_sec == 0
         clock_gettime(CLOCK_MONOTONIC, &lastLevelChange);
         aBatteryInfo->remainingTime() = dom::battery::kUnknownRemainingTime;
       }
@@ -784,13 +739,12 @@ GetCurrentBatteryInformation(hal::BatteryInformation* aBatteryInfo)
       } else {
         aBatteryInfo->remainingTime() = dom::battery::kUnknownRemainingTime;
       }
-
     }
 
   } else {
     if (aBatteryInfo->level() == 0.0) {
       aBatteryInfo->remainingTime() = dom::battery::kDefaultRemainingTime;
-    } else if (aBatteryInfo->level() != previousLevel){
+    } else if (aBatteryInfo->level() != previousLevel) {
       if (lastLevelChange.tv_sec != 0) {
         clock_gettime(CLOCK_MONOTONIC, &now);
         dtime = now.tv_sec - lastLevelChange.tv_sec;
@@ -799,12 +753,12 @@ GetCurrentBatteryInformation(hal::BatteryInformation* aBatteryInfo)
         if (dlevel <= 0.0) {
           aBatteryInfo->remainingTime() = dom::battery::kUnknownRemainingTime;
         } else {
-          remainingTime = (double) round(dtime / dlevel * aBatteryInfo->level());
+          remainingTime = (double)round(dtime / dlevel * aBatteryInfo->level());
           aBatteryInfo->remainingTime() = remainingTime;
         }
 
         lastLevelChange = now;
-      } else { // lastLevelChange.tv_sec == 0
+      } else {  // lastLevelChange.tv_sec == 0
         clock_gettime(CLOCK_MONOTONIC, &lastLevelChange);
         aBatteryInfo->remainingTime() = dom::battery::kUnknownRemainingTime;
       }
@@ -817,7 +771,6 @@ GetCurrentBatteryInformation(hal::BatteryInformation* aBatteryInfo)
       } else {
         aBatteryInfo->remainingTime() = dom::battery::kUnknownRemainingTime;
       }
-
     }
   }
 
@@ -825,23 +778,16 @@ GetCurrentBatteryInformation(hal::BatteryInformation* aBatteryInfo)
   previousLevel = aBatteryInfo->level();
 }
 
-NetworkInformation sNetworkInfo(int32_t(mozilla::dom::ConnectionType::None), 0, 0);
+NetworkInformation sNetworkInfo(int32_t(mozilla::dom::ConnectionType::None), 0,
+                                0);
 
-void
-EnableNetworkNotifications() {}
+void EnableNetworkNotifications() {}
 
-void
-DisableNetworkNotifications() {}
+void DisableNetworkNotifications() {}
 
-void
-SetNetworkType(int32_t aType)
-{
-  sNetworkInfo.type() = aType;
-}
+void SetNetworkType(int32_t aType) { sNetworkInfo.type() = aType; }
 
-void
-GetCurrentNetworkInformation(hal::NetworkInformation* aNetworkInfo)
-{
+void GetCurrentNetworkInformation(hal::NetworkInformation* aNetworkInfo) {
   *aNetworkInfo = sNetworkInfo;
 }
 
@@ -851,7 +797,6 @@ namespace {
 // we read, we always get "mem"!  So we have to keep track ourselves whether
 // the screen is on or not.
 bool sScreenEnabled = true;
-
 
 // We can read wakeLockFilename to find out whether the cpu wake lock
 // is already acquired, but reading and parsing it is a lot more work
@@ -864,24 +809,16 @@ bool sCpuSleepAllowed = true;
 // when reading or writing this variable to ensure thread-safe.
 int32_t sInternalLockCpuCount = 0;
 
-} // namespace
+}  // namespace
 
-bool
-GetScreenEnabled()
-{
-  return sScreenEnabled;
-}
+bool GetScreenEnabled() { return sScreenEnabled; }
 
-void
-SetScreenEnabled(bool aEnabled)
-{
+void SetScreenEnabled(bool aEnabled) {
   GetGonkDisplay()->SetEnabled(aEnabled);
   sScreenEnabled = aEnabled;
 }
 
-bool
-GetKeyLightEnabled()
-{
+bool GetKeyLightEnabled() {
   LightConfiguration config;
   bool ok = GetLight(eHalLightID_Buttons, &config);
   if (ok) {
@@ -892,9 +829,7 @@ GetKeyLightEnabled()
 
 double GetScreenBrightness();
 
-void
-SetKeyLightEnabled(bool aEnabled)
-{
+void SetKeyLightEnabled(bool aEnabled) {
   LightConfiguration config;
   config.mode = eHalLightMode_User;
   config.flash = eHalLightFlash_None;
@@ -907,7 +842,7 @@ SetKeyLightEnabled(bool aEnabled)
     // channel.
     double brightness = GetScreenBrightness();
     uint32_t val = static_cast<int>(round(brightness * 255.0));
-    uint32_t color = (0xff<<24) + (val<<16) + (val<<8) + val;
+    uint32_t color = (0xff << 24) + (val << 16) + (val << 8) + val;
 
     config.color = color;
   }
@@ -916,9 +851,7 @@ SetKeyLightEnabled(bool aEnabled)
   SetLight(eHalLightID_Keyboard, config);
 }
 
-double
-GetScreenBrightness()
-{
+double GetScreenBrightness() {
   LightConfiguration config;
   LightType light = eHalLightID_Backlight;
 
@@ -933,9 +866,7 @@ GetScreenBrightness()
   return 0;
 }
 
-void
-SetScreenBrightness(double brightness)
-{
+void SetScreenBrightness(double brightness) {
   // Don't use De Morgan's law to push the ! into this expression; we want to
   // catch NaN too.
   if (!(0 <= brightness && brightness <= 1)) {
@@ -943,10 +874,10 @@ SetScreenBrightness(double brightness)
     return;
   }
 
-  // Convert the value in [0, 1] to an int between 0 and 255 and convert to a color
-  // note that the high byte is FF, corresponding to the alpha channel.
+  // Convert the value in [0, 1] to an int between 0 and 255 and convert to a
+  // color note that the high byte is FF, corresponding to the alpha channel.
   uint32_t val = static_cast<int>(round(brightness * 255.0));
-  uint32_t color = (0xff<<24) + (val<<16) + (val<<8) + val;
+  uint32_t color = (0xff << 24) + (val << 16) + (val << 8) + val;
 
   LightConfiguration config;
   config.mode = eHalLightMode_User;
@@ -962,40 +893,30 @@ SetScreenBrightness(double brightness)
 
 static StaticMutex sInternalLockCpuMutex;
 
-static void
-UpdateCpuSleepState()
-{
-  const char *wakeLockFilename = "/sys/power/wake_lock";
-  const char *wakeUnlockFilename = "/sys/power/wake_unlock";
+static void UpdateCpuSleepState() {
+  const char* wakeLockFilename = "/sys/power/wake_lock";
+  const char* wakeUnlockFilename = "/sys/power/wake_unlock";
 
   sInternalLockCpuMutex.AssertCurrentThreadOwns();
   bool allowed = sCpuSleepAllowed && !sInternalLockCpuCount;
   WriteSysFile(allowed ? wakeUnlockFilename : wakeLockFilename, "gecko");
 }
 
-static void
-InternalLockCpu() {
+static void InternalLockCpu() {
   StaticMutexAutoLock lock(sInternalLockCpuMutex);
   ++sInternalLockCpuCount;
   UpdateCpuSleepState();
 }
 
-static void
-InternalUnlockCpu() {
+static void InternalUnlockCpu() {
   StaticMutexAutoLock lock(sInternalLockCpuMutex);
   --sInternalLockCpuCount;
   UpdateCpuSleepState();
 }
 
-bool
-GetCpuSleepAllowed()
-{
-  return sCpuSleepAllowed;
-}
+bool GetCpuSleepAllowed() { return sCpuSleepAllowed; }
 
-void
-SetCpuSleepAllowed(bool aAllowed)
-{
+void SetCpuSleepAllowed(bool aAllowed) {
   StaticMutexAutoLock lock(sInternalLockCpuMutex);
   sCpuSleepAllowed = aAllowed;
   UpdateCpuSleepState();
@@ -1117,27 +1038,15 @@ GetTimezone()
 
 #endif
 
-void
-EnableSystemClockChangeNotifications()
-{
-}
+void EnableSystemClockChangeNotifications() {}
 
-void
-DisableSystemClockChangeNotifications()
-{
-}
+void DisableSystemClockChangeNotifications() {}
 
-void
-EnableSystemTimezoneChangeNotifications()
-{
-}
+void EnableSystemTimezoneChangeNotifications() {}
 
-void
-DisableSystemTimezoneChangeNotifications()
-{
-}
+void DisableSystemTimezoneChangeNotifications() {}
 
-#if 0 // TODO: FIXME
+#if 0  // TODO: FIXME
 
 // Nothing to do here.  Gonk widgetry always listens for screen
 // orientation changes.
@@ -1177,17 +1086,14 @@ static pthread_t sAlarmFireWatcherThread;
 
 // If |sAlarmData| is non-null, it's owned by the alarm-watcher thread.
 struct AlarmData {
-public:
-  explicit AlarmData(int aFd) :
-    mFd(aFd),
-    mGeneration(sNextGeneration++),
-    mShuttingDown(false) {}
+ public:
+  explicit AlarmData(int aFd)
+      : mFd(aFd), mGeneration(sNextGeneration++), mShuttingDown(false) {}
   ScopedClose mFd;
   int mGeneration;
   bool mShuttingDown;
 
   static int sNextGeneration;
-
 };
 
 int AlarmData::sNextGeneration = 0;
@@ -1212,30 +1118,25 @@ class AlarmFiredEvent : public Runnable {
     return NS_OK;
   }
 
-private:
+ private:
   int mGeneration;
 };
 
 // Runs on alarm-watcher thread.
-static void
-DestroyAlarmData(void* aData)
-{
+static void DestroyAlarmData(void* aData) {
   AlarmData* alarmData = static_cast<AlarmData*>(aData);
   delete alarmData;
 }
 
 // Runs on alarm-watcher thread.
-void ShutDownAlarm(int aSigno)
-{
+void ShutDownAlarm(int aSigno) {
   if (aSigno == SIGUSR1 && sAlarmData) {
     sAlarmData->mShuttingDown = true;
   }
   return;
 }
 
-static void*
-WaitForAlarm(void* aData)
-{
+static void* WaitForAlarm(void* aData) {
   pthread_cleanup_push(DestroyAlarmData, aData);
 
   AlarmData* alarmData = static_cast<AlarmData*>(aData);
@@ -1255,7 +1156,7 @@ WaitForAlarm(void* aData)
       // we need to acquire a CPU wake lock before firing the alarm event.
       InternalLockCpu();
       RefPtr<AlarmFiredEvent> event =
-        new AlarmFiredEvent(alarmData->mGeneration);
+          new AlarmFiredEvent(alarmData->mGeneration);
       NS_DispatchToMainThread(event);
     }
   }
@@ -1264,9 +1165,7 @@ WaitForAlarm(void* aData)
   return nullptr;
 }
 
-bool
-EnableAlarm()
-{
+bool EnableAlarm() {
   MOZ_ASSERT(!sAlarmData);
 
   int alarmFd = timerfd_create(CLOCK_REALTIME_ALARM, 0);
@@ -1306,9 +1205,7 @@ EnableAlarm()
   return true;
 }
 
-void
-DisableAlarm()
-{
+void DisableAlarm() {
   MOZ_ASSERT(sAlarmData);
 
   // NB: this must happen-before the thread cancellation.
@@ -1320,9 +1217,7 @@ DisableAlarm()
   MOZ_ASSERT(!err);
 }
 
-bool
-SetAlarm(int32_t aSeconds, int32_t aNanoseconds)
-{
+bool SetAlarm(int32_t aSeconds, int32_t aNanoseconds) {
   if (!sAlarmData) {
     HAL_LOG("We should have enabled the alarm.");
     return false;
@@ -1351,9 +1246,7 @@ typedef binder::Status Status;
 class FlashlightStateEvent : public Runnable {
  public:
   explicit FlashlightStateEvent(hal::FlashlightInformation info)
-    : mozilla::Runnable("FlashlightStateEvent"),
-      mInfo(info) {
-  }
+      : mozilla::Runnable("FlashlightStateEvent"), mInfo(info) {}
 
   NS_IMETHOD
   Run() override {
@@ -1369,23 +1262,24 @@ class FlashlightListener : public BnCameraServiceListener {
   mutable android::Mutex mLock;
   bool mFlashlightEnabled = false;
 
-public:
-  Status onStatusChanged(int32_t status,
-    const String16& cameraId) override {
+ public:
+  Status onStatusChanged(int32_t status, const String16& cameraId) override {
     // do nothing
     return Status::ok();
   }
 
   Status onTorchStatusChanged(int32_t status,
-    const String16& cameraId) override {
+                              const String16& cameraId) override {
     AutoMutex l(mLock);
     bool flashlightEnabled =
-      (status == ICameraServiceListener::TORCH_STATUS_AVAILABLE_ON)? true : false;
+        (status == ICameraServiceListener::TORCH_STATUS_AVAILABLE_ON) ? true
+                                                                      : false;
 
     if (mFlashlightEnabled != flashlightEnabled) {
       hal::FlashlightInformation flashlightInfo;
       flashlightInfo.enabled() = mFlashlightEnabled = flashlightEnabled;
-      RefPtr<FlashlightStateEvent> runnable = new FlashlightStateEvent(flashlightInfo);
+      RefPtr<FlashlightStateEvent> runnable =
+          new FlashlightStateEvent(flashlightInfo);
       NS_DispatchToMainThread(runnable);
     }
 
@@ -1407,8 +1301,7 @@ sp<IBinder> gBinder = nullptr;
 sp<hardware::ICameraService> gCameraService = nullptr;
 sp<FlashlightListener> gFlashlightListener = nullptr;
 
-static bool
-initCameraService() {
+static bool initCameraService() {
   Status res;
   sp<IServiceManager> sm = defaultServiceManager();
   do {
@@ -1418,18 +1311,16 @@ initCameraService() {
     }
     HAL_ERR("CameraService not published, waiting...");
     usleep(500000);
-  } while(true);
+  } while (true);
 
   gCameraService = interface_cast<hardware::ICameraService>(gBinder);
   gFlashlightListener = new FlashlightListener();
   std::vector<hardware::CameraStatus> statuses;
   res = gCameraService->addListener(gFlashlightListener, &statuses);
-  return res.isOk()? true : false;
+  return res.isOk() ? true : false;
 }
 
-bool
-GetFlashlightEnabled()
-{
+bool GetFlashlightEnabled() {
   if (gFlashlightListener) {
     return gFlashlightListener->getFlashlightEnabled();
   } else {
@@ -1438,10 +1329,8 @@ GetFlashlightEnabled()
   }
 }
 
-void
-SetFlashlightEnabled(bool aEnabled)
-{
-  if(gCameraService) {
+void SetFlashlightEnabled(bool aEnabled) {
+  if (gCameraService) {
     Status res;
     res = gCameraService->setTorchMode(String16("0"), aEnabled, gBinder);
     if (!res.isOk()) {
@@ -1452,17 +1341,13 @@ SetFlashlightEnabled(bool aEnabled)
   }
 }
 
-void
-RequestCurrentFlashlightState()
-{
+void RequestCurrentFlashlightState() {
   hal::FlashlightInformation flashlightInfo;
   flashlightInfo.enabled() = GetFlashlightEnabled();
   hal::UpdateFlashlightState(flashlightInfo);
 }
 
-void
-EnableFlashlightNotifications()
-{
+void EnableFlashlightNotifications() {
   if (!gCameraService) {
     if (!initCameraService()) {
       HAL_ERR("Failed to init CameraService, operation failed!");
@@ -1471,9 +1356,7 @@ EnableFlashlightNotifications()
   }
 }
 
-void
-DisableFlashlightNotifications()
-{
+void DisableFlashlightNotifications() {
   if (gCameraService) {
     gCameraService->removeListener(gFlashlightListener);
     gBinder = nullptr;
@@ -1509,7 +1392,8 @@ RoundOomScoreAdjUpWithLRU(int& aOomScoreAdj, uint32_t aLRU)
     ceil(((float)OOM_SCORE_ADJ_MAX / OOM_ADJUST_MAX) * aLRU);
 }
 
-#define OOM_LOG(level, args...) __android_log_print(level, "OomLogger", ##args)
+#  define OOM_LOG(level, args...) \
+    __android_log_print(level, "OomLogger", ##args)
 class OomVictimLogger final
   : public nsIObserver
 {
@@ -1578,7 +1462,7 @@ OomVictimLogger::Observe(
     }
   }
 
-#ifndef KLOG_SIZE_BUFFER
+#  ifndef KLOG_SIZE_BUFFER
   // Upstream bionic in commit
   // e249b059637b49a285ed9f58a2a18bfd054e5d95
   // deprecated the old klog defs.
@@ -1586,8 +1470,8 @@ OomVictimLogger::Observe(
   // change yet so handle the future change.
   // (ICS doesn't have KLOG_SIZE_BUFFER but
   // JB and onwards does.)
-  #define KLOG_SIZE_BUFFER KLOG_WRITE
-#endif
+#    define KLOG_SIZE_BUFFER KLOG_WRITE
+#  endif
   // Retreive kernel log
   int msg_buf_size = klogctl(KLOG_SIZE_BUFFER, NULL, 0);
   UniqueFreePtr<char> msg_buf(static_cast<char *>(malloc(msg_buf_size + 1)));
@@ -2313,7 +2197,7 @@ SetThreadPriority(PlatformThreadId aThreadId,
 void
 FactoryReset(FactoryResetReason& aReason)
 {
-#if 0 // TODO: FIXME
+#  if 0  // TODO: FIXME
   nsCOMPtr<nsIRecoveryService> recoveryService =
     do_GetService("@mozilla.org/recovery-service;1");
   if (!recoveryService) {
@@ -2328,10 +2212,10 @@ FactoryReset(FactoryResetReason& aReason)
   } else {
     recoveryService->FactoryReset("normal");
   }
-#endif
+#  endif
 }
 
 #endif
 
-} // hal_impl
-} // mozilla
+}  // namespace hal_impl
+}  // namespace mozilla

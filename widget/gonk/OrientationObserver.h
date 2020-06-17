@@ -26,15 +26,15 @@ class ProcessOrientation;
 namespace hal {
 class SensorData;
 typedef mozilla::Observer<SensorData> ISensorObserver;
-} // namespace hal
-} // namespace mozilla
+}  // namespace hal
+}  // namespace mozilla
 
 using mozilla::hal::ISensorObserver;
-using mozilla::hal::SensorData;
 using mozilla::hal::ScreenOrientation;
+using mozilla::hal::SensorData;
 
 class OrientationObserver : public ISensorObserver {
-public:
+ public:
   OrientationObserver();
   ~OrientationObserver();
 
@@ -55,7 +55,7 @@ public:
 
   static OrientationObserver* GetInstance();
 
-private:
+ private:
   bool mAutoOrientationEnabled;
   uint32_t mAllowedOrientations;
   mozilla::UniquePtr<mozilla::ProcessOrientation> mOrientation;

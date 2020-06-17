@@ -15,21 +15,20 @@ namespace mozilla {
 namespace dom {
 namespace voicemail {
 
-class VoicemailIPCProvider final : public nsIVoicemailProvider
-{
+class VoicemailIPCProvider final : public nsIVoicemailProvider {
   friend class VoicemailChild;
 
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIVOICEMAILPROVIDER
 
   explicit VoicemailIPCProvider(uint32_t aServiceId);
 
-private:
+ private:
   // final suppresses -Werror,-Wdelete-non-virtual-dtor
   ~VoicemailIPCProvider() {}
 
-private:
+ private:
   uint32_t mServiceId;
   nsString mNumber;
   nsString mDisplayName;
@@ -42,17 +41,12 @@ private:
 NS_IMPL_ISUPPORTS(VoicemailIPCProvider, nsIVoicemailProvider)
 
 VoicemailIPCProvider::VoicemailIPCProvider(uint32_t aServiceId)
-  : mServiceId(aServiceId)
-  , mHasMessages(false)
-  , mMessageCount(0)
-{
-}
+    : mServiceId(aServiceId), mHasMessages(false), mMessageCount(0) {}
 
 // nsIVoicemailProvider
 
 NS_IMETHODIMP
-VoicemailIPCProvider::GetServiceId(uint32_t* aServiceId)
-{
+VoicemailIPCProvider::GetServiceId(uint32_t* aServiceId) {
   NS_ENSURE_ARG_POINTER(aServiceId);
 
   *aServiceId = mServiceId;
@@ -60,22 +54,19 @@ VoicemailIPCProvider::GetServiceId(uint32_t* aServiceId)
 }
 
 NS_IMETHODIMP
-VoicemailIPCProvider::GetNumber(nsAString& aNumber)
-{
+VoicemailIPCProvider::GetNumber(nsAString& aNumber) {
   aNumber = mNumber;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-VoicemailIPCProvider::GetDisplayName(nsAString& aDisplayName)
-{
+VoicemailIPCProvider::GetDisplayName(nsAString& aDisplayName) {
   aDisplayName = mDisplayName;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-VoicemailIPCProvider::GetHasMessages(bool* aHasMessages)
-{
+VoicemailIPCProvider::GetHasMessages(bool* aHasMessages) {
   NS_ENSURE_ARG_POINTER(aHasMessages);
 
   *aHasMessages = mHasMessages;
@@ -83,8 +74,7 @@ VoicemailIPCProvider::GetHasMessages(bool* aHasMessages)
 }
 
 NS_IMETHODIMP
-VoicemailIPCProvider::GetMessageCount(int32_t* aMessageCount)
-{
+VoicemailIPCProvider::GetMessageCount(int32_t* aMessageCount) {
   NS_ENSURE_ARG_POINTER(aMessageCount);
 
   *aMessageCount = mMessageCount;
@@ -92,28 +82,24 @@ VoicemailIPCProvider::GetMessageCount(int32_t* aMessageCount)
 }
 
 NS_IMETHODIMP
-VoicemailIPCProvider::GetReturnNumber(nsAString& aReturnNumber)
-{
+VoicemailIPCProvider::GetReturnNumber(nsAString& aReturnNumber) {
   aReturnNumber = mReturnNumber;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-VoicemailIPCProvider::GetReturnMessage(nsAString& aReturnMessage)
-{
+VoicemailIPCProvider::GetReturnMessage(nsAString& aReturnMessage) {
   aReturnMessage = mReturnMessage;
   return NS_OK;
 }
 
 NS_IMPL_ISUPPORTS(VoicemailChild, nsIVoicemailService)
 
-VoicemailChild::VoicemailChild()
-  : mActorDestroyed(false)
-{
+VoicemailChild::VoicemailChild() : mActorDestroyed(false) {
   ContentChild::GetSingleton()->SendPVoicemailConstructor(this);
 
   nsCOMPtr<nsIMobileConnectionService> mcService =
-    do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
+      do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
   if (mcService) {
     uint32_t length = 0;
     if (NS_SUCCEEDED(mcService->GetNumItems(&length))) {
@@ -122,8 +108,7 @@ VoicemailChild::VoicemailChild()
   }
 }
 
-VoicemailChild::~VoicemailChild()
-{
+VoicemailChild::~VoicemailChild() {
   if (!mActorDestroyed) {
     Send__delete__(this);
   }
@@ -131,16 +116,15 @@ VoicemailChild::~VoicemailChild()
 
 // PVoicemailChild
 
-bool
-VoicemailChild::RecvNotifyInfoChanged(const uint32_t& aServiceId,
+bool VoicemailChild::RecvNotifyInfoChanged(const uint32_t& aServiceId,
                                            const nsString& aNumber,
-                                           const nsString& aDisplayName)
-{
+                                           const nsString& aDisplayName) {
   nsCOMPtr<nsIVoicemailProvider> provider;
-  NS_ENSURE_SUCCESS(GetItemByServiceId(aServiceId, getter_AddRefs(provider)), false);
+  NS_ENSURE_SUCCESS(GetItemByServiceId(aServiceId, getter_AddRefs(provider)),
+                    false);
 
   VoicemailIPCProvider* pProvider =
-    static_cast<VoicemailIPCProvider*>(provider.get());
+      static_cast<VoicemailIPCProvider*>(provider.get());
   pProvider->mNumber = aNumber;
   pProvider->mDisplayName = aDisplayName;
 
@@ -154,18 +138,17 @@ VoicemailChild::RecvNotifyInfoChanged(const uint32_t& aServiceId,
   return true;
 }
 
-bool
-VoicemailChild::RecvNotifyStatusChanged(const uint32_t& aServiceId,
+bool VoicemailChild::RecvNotifyStatusChanged(const uint32_t& aServiceId,
                                              const bool& aHasMessages,
                                              const int32_t& aMessageCount,
                                              const nsString& aReturnNumber,
-                                             const nsString& aReturnMessage)
-{
+                                             const nsString& aReturnMessage) {
   nsCOMPtr<nsIVoicemailProvider> provider;
-  NS_ENSURE_SUCCESS(GetItemByServiceId(aServiceId, getter_AddRefs(provider)), false);
+  NS_ENSURE_SUCCESS(GetItemByServiceId(aServiceId, getter_AddRefs(provider)),
+                    false);
 
   VoicemailIPCProvider* pProvider =
-    static_cast<VoicemailIPCProvider*>(provider.get());
+      static_cast<VoicemailIPCProvider*>(provider.get());
   pProvider->mHasMessages = aHasMessages;
   pProvider->mMessageCount = aMessageCount;
   pProvider->mReturnNumber = aReturnNumber;
@@ -181,17 +164,14 @@ VoicemailChild::RecvNotifyStatusChanged(const uint32_t& aServiceId,
   return true;
 }
 
-void
-VoicemailChild::ActorDestroy(ActorDestroyReason aWhy)
-{
+void VoicemailChild::ActorDestroy(ActorDestroyReason aWhy) {
   mActorDestroyed = true;
 }
 
 // nsIVoicemailService
 
 NS_IMETHODIMP
-VoicemailChild::GetNumItems(uint32_t* aNumItems)
-{
+VoicemailChild::GetNumItems(uint32_t* aNumItems) {
   NS_ENSURE_ARG_POINTER(aNumItems);
 
   *aNumItems = mProviders.Length();
@@ -201,21 +181,17 @@ VoicemailChild::GetNumItems(uint32_t* aNumItems)
 
 NS_IMETHODIMP
 VoicemailChild::GetItemByServiceId(uint32_t aServiceId,
-                                        nsIVoicemailProvider** aProvider)
-{
+                                   nsIVoicemailProvider** aProvider) {
   NS_ENSURE_ARG(aServiceId < mProviders.Length());
   NS_ENSURE_ARG_POINTER(aProvider);
 
   if (!mProviders[aServiceId]) {
     RefPtr<VoicemailIPCProvider> provider =
-      new VoicemailIPCProvider(aServiceId);
-    if (!SendGetAttributes(aServiceId,
-                           &(provider->mNumber),
-                           &(provider->mDisplayName),
-                           &(provider->mHasMessages),
-                           &(provider->mMessageCount),
-                           &(provider->mReturnNumber),
-                           &(provider->mReturnMessage))) {
+        new VoicemailIPCProvider(aServiceId);
+    if (!SendGetAttributes(
+            aServiceId, &(provider->mNumber), &(provider->mDisplayName),
+            &(provider->mHasMessages), &(provider->mMessageCount),
+            &(provider->mReturnNumber), &(provider->mReturnMessage))) {
       return NS_ERROR_FAILURE;
     }
 
@@ -229,18 +205,16 @@ VoicemailChild::GetItemByServiceId(uint32_t aServiceId,
 }
 
 NS_IMETHODIMP
-VoicemailChild::GetDefaultItem(nsIVoicemailProvider** aProvider)
-{
+VoicemailChild::GetDefaultItem(nsIVoicemailProvider** aProvider) {
   NS_ENSURE_ARG_POINTER(aProvider);
 
   int defaultServiceId =
-    Preferences::GetInt("dom.voicemail.defaultServiceId", 0);
+      Preferences::GetInt("dom.voicemail.defaultServiceId", 0);
   return GetItemByServiceId(defaultServiceId, aProvider);
 }
 
 NS_IMETHODIMP
-VoicemailChild::RegisterListener(nsIVoicemailListener* aListener)
-{
+VoicemailChild::RegisterListener(nsIVoicemailListener* aListener) {
   NS_ENSURE_TRUE(!mActorDestroyed, NS_ERROR_UNEXPECTED);
   NS_ENSURE_TRUE(!mListeners.Contains(aListener), NS_ERROR_UNEXPECTED);
 
@@ -249,13 +223,12 @@ VoicemailChild::RegisterListener(nsIVoicemailListener* aListener)
 }
 
 NS_IMETHODIMP
-VoicemailChild::UnregisterListener(nsIVoicemailListener* aListener)
-{
+VoicemailChild::UnregisterListener(nsIVoicemailListener* aListener) {
   NS_ENSURE_TRUE(!mActorDestroyed, NS_ERROR_UNEXPECTED);
 
   return mListeners.RemoveElement(aListener) ? NS_OK : NS_ERROR_UNEXPECTED;
 }
 
-} // namespace voicemail
-} // namespace dom
-} // namespace mozilla
+}  // namespace voicemail
+}  // namespace dom
+}  // namespace mozilla

@@ -43,110 +43,113 @@ class GraphicProducerWrapper;
 class IGraphicBufferAlloc;
 
 enum {
-    eTransactionNeeded        = 0x01,
-    eTraversalNeeded          = 0x02,
-    eDisplayTransactionNeeded = 0x04,
-    eTransactionMask          = 0x07
+  eTransactionNeeded = 0x01,
+  eTraversalNeeded = 0x02,
+  eDisplayTransactionNeeded = 0x04,
+  eTransactionMask = 0x07
 };
 
 class FakeSurfaceComposer : public BinderService<FakeSurfaceComposer>,
-                            public BnSurfaceComposer
-{
-public:
-    static char const* getServiceName() {
-        return "FakeSurfaceComposer";
-    }
+                            public BnSurfaceComposer {
+ public:
+  static char const* getServiceName() { return "FakeSurfaceComposer"; }
 
-    // Instantiate FakeSurfaceComposer and register to service manager.
-    // If service manager is not present, wait until service manager becomes present.
-    static  void instantiate();
+  // Instantiate FakeSurfaceComposer and register to service manager.
+  // If service manager is not present, wait until service manager becomes
+  // present.
+  static void instantiate();
 
-    virtual void destroyDisplay(const sp<android::IBinder>& display);
-    virtual status_t captureScreen(const sp<IBinder>& display,
-                                   const sp<IGraphicBufferProducer>& producer,
-                                   Rect sourceCrop, uint32_t reqWidth, uint32_t reqHeight,
-                                   uint32_t minLayerZ, uint32_t maxLayerZ,
-                                   bool useIdentityTransform,
-                                   Rotation rotation = eRotateNone);
+  virtual void destroyDisplay(const sp<android::IBinder>& display);
+  virtual status_t captureScreen(const sp<IBinder>& display,
+                                 const sp<IGraphicBufferProducer>& producer,
+                                 Rect sourceCrop, uint32_t reqWidth,
+                                 uint32_t reqHeight, uint32_t minLayerZ,
+                                 uint32_t maxLayerZ, bool useIdentityTransform,
+                                 Rotation rotation = eRotateNone);
 
-private:
-    FakeSurfaceComposer();
-    // We're reference counted, never destroy FakeSurfaceComposer directly
-    virtual ~FakeSurfaceComposer();
+ private:
+  FakeSurfaceComposer();
+  // We're reference counted, never destroy FakeSurfaceComposer directly
+  virtual ~FakeSurfaceComposer();
 
-    /* ------------------------------------------------------------------------
-     * IBinder interface
-     */
-    virtual status_t onTransact(uint32_t code, const Parcel& data,
-        Parcel* reply, uint32_t flags);
+  /* ------------------------------------------------------------------------
+   * IBinder interface
+   */
+  virtual status_t onTransact(uint32_t code, const Parcel& data, Parcel* reply,
+                              uint32_t flags);
 
-    /* ------------------------------------------------------------------------
-     * ISurfaceComposer interface
-     */
-    virtual sp<ISurfaceComposerClient> createConnection();
-    virtual sp<IGraphicBufferAlloc> createGraphicBufferAlloc();
-    virtual sp<IBinder> createDisplay(const String8& displayName, bool secure);
-    virtual sp<IBinder> getBuiltInDisplay(int32_t id);
-    virtual void setTransactionState(const Vector<ComposerState>& state,
-            const Vector<DisplayState>& displays, uint32_t flags);
-    virtual void bootFinished();
-    virtual bool authenticateSurfaceTexture(
-        const sp<IGraphicBufferProducer>& bufferProducer) const;
-    virtual sp<IDisplayEventConnection> createDisplayEventConnection();
-    virtual void setPowerMode(const sp<IBinder>& display, int mode);
-    virtual status_t getDisplayConfigs(const sp<IBinder>& display, Vector<DisplayInfo>* configs);
-    virtual status_t getDisplayStats(const sp<IBinder>& display, DisplayStatInfo* stats);
-    virtual int getActiveConfig(const sp<IBinder>& display);
-    virtual status_t setActiveConfig(const sp<IBinder>& display, int id);
-    virtual status_t clearAnimationFrameStats();
-    virtual status_t getAnimationFrameStats(FrameStats* outStats) const;
-    void getPrimaryDisplayInfo(DisplayInfo* info);
+  /* ------------------------------------------------------------------------
+   * ISurfaceComposer interface
+   */
+  virtual sp<ISurfaceComposerClient> createConnection();
+  virtual sp<IGraphicBufferAlloc> createGraphicBufferAlloc();
+  virtual sp<IBinder> createDisplay(const String8& displayName, bool secure);
+  virtual sp<IBinder> getBuiltInDisplay(int32_t id);
+  virtual void setTransactionState(const Vector<ComposerState>& state,
+                                   const Vector<DisplayState>& displays,
+                                   uint32_t flags);
+  virtual void bootFinished();
+  virtual bool authenticateSurfaceTexture(
+      const sp<IGraphicBufferProducer>& bufferProducer) const;
+  virtual sp<IDisplayEventConnection> createDisplayEventConnection();
+  virtual void setPowerMode(const sp<IBinder>& display, int mode);
+  virtual status_t getDisplayConfigs(const sp<IBinder>& display,
+                                     Vector<DisplayInfo>* configs);
+  virtual status_t getDisplayStats(const sp<IBinder>& display,
+                                   DisplayStatInfo* stats);
+  virtual int getActiveConfig(const sp<IBinder>& display);
+  virtual status_t setActiveConfig(const sp<IBinder>& display, int id);
+  virtual status_t clearAnimationFrameStats();
+  virtual status_t getAnimationFrameStats(FrameStats* outStats) const;
+  void getPrimaryDisplayInfo(DisplayInfo* info);
 
-    /* ------------------------------------------------------------------------
-     * Transactions
-     */
-    uint32_t setDisplayStateLocked(const DisplayState& s);
+  /* ------------------------------------------------------------------------
+   * Transactions
+   */
+  uint32_t setDisplayStateLocked(const DisplayState& s);
 
-    void captureScreenImp(const sp<IGraphicBufferProducer>& producer,
-                          uint32_t reqWidth,
-                          uint32_t reqHeight,
-                          const sp<GraphicProducerWrapper>& wrapper);
+  void captureScreenImp(const sp<IGraphicBufferProducer>& producer,
+                        uint32_t reqWidth, uint32_t reqHeight,
+                        const sp<GraphicProducerWrapper>& wrapper);
 
-    sp<IBinder> mPrimaryDisplay;
+  sp<IBinder> mPrimaryDisplay;
 
-    struct DisplayDeviceState {
-        enum {
-            NO_LAYER_STACK = 0xFFFFFFFF,
-        };
-        DisplayDeviceState()
-            : type(-1), displayId(-1), width(0), height(0) {
-        }
-        DisplayDeviceState(int type)
-            : type(type), displayId(-1), layerStack(NO_LAYER_STACK), orientation(0), width(0), height(0) {
-            viewport.makeInvalid();
-            frame.makeInvalid();
-        }
-        bool isValid() const { return type >= 0; }
-        int type;
-        int displayId;
-        sp<IGraphicBufferProducer> surface;
-        uint32_t layerStack;
-        Rect viewport;
-        Rect frame;
-        uint8_t orientation;
-        uint32_t width, height;
-        String8 displayName;
-        bool isSecure;
+  struct DisplayDeviceState {
+    enum {
+      NO_LAYER_STACK = 0xFFFFFFFF,
     };
+    DisplayDeviceState() : type(-1), displayId(-1), width(0), height(0) {}
+    DisplayDeviceState(int type)
+        : type(type),
+          displayId(-1),
+          layerStack(NO_LAYER_STACK),
+          orientation(0),
+          width(0),
+          height(0) {
+      viewport.makeInvalid();
+      frame.makeInvalid();
+    }
+    bool isValid() const { return type >= 0; }
+    int type;
+    int displayId;
+    sp<IGraphicBufferProducer> surface;
+    uint32_t layerStack;
+    Rect viewport;
+    Rect frame;
+    uint8_t orientation;
+    uint32_t width, height;
+    String8 displayName;
+    bool isSecure;
+  };
 
-    // access must be protected by mStateLock
-    mutable Mutex mStateLock;
-    DefaultKeyedVector<wp<IBinder>, DisplayDeviceState> mDisplays;
+  // access must be protected by mStateLock
+  mutable Mutex mStateLock;
+  DefaultKeyedVector<wp<IBinder>, DisplayDeviceState> mDisplays;
 
-    friend class DestroyDisplayRunnable;
+  friend class DestroyDisplayRunnable;
 };
 
 // ---------------------------------------------------------------------------
-}; // namespace android
+};  // namespace android
 
-#endif // NATIVEWINDOW_FAKE_SURFACE_COMPOSER_H
+#endif  // NATIVEWINDOW_FAKE_SURFACE_COMPOSER_H

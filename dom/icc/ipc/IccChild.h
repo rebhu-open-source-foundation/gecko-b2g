@@ -19,56 +19,46 @@ class IccInfo;
 
 namespace icc {
 
-class IccChild final : public PIccChild
-                     , public nsIIcc
-{
- friend class PIccChild;
+class IccChild final : public PIccChild, public nsIIcc {
+  friend class PIccChild;
 
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIICC
 
   explicit IccChild();
 
-void
-  Init();
+  void Init();
 
-  void
-  Shutdown();
+  void Shutdown();
 
-protected:
-  virtual void
-  ActorDestroy(ActorDestroyReason why) override;
+ protected:
+  virtual void ActorDestroy(ActorDestroyReason why) override;
 
-  PIccRequestChild*
-  AllocPIccRequestChild(const IccRequest& aRequest);
+  PIccRequestChild* AllocPIccRequestChild(const IccRequest& aRequest);
 
-  bool
-  DeallocPIccRequestChild(PIccRequestChild* aActor);
+  bool DeallocPIccRequestChild(PIccRequestChild* aActor);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyCardStateChanged(const uint32_t& aCardState);
+  mozilla::ipc::IPCResult RecvNotifyCardStateChanged(
+      const uint32_t& aCardState);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyIccInfoChanged(const OptionalIccInfoData& aInfoData);
+  mozilla::ipc::IPCResult RecvNotifyIccInfoChanged(
+      const OptionalIccInfoData& aInfoData);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyStkCommand(const nsString& aStkProactiveCmd);
+  mozilla::ipc::IPCResult RecvNotifyStkCommand(
+      const nsString& aStkProactiveCmd);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyStkSessionEnd();
+  mozilla::ipc::IPCResult RecvNotifyStkSessionEnd();
 
-private:
+ private:
   ~IccChild();
 
-  void
-  UpdateIccInfo(const OptionalIccInfoData& aInfoData);
+  void UpdateIccInfo(const OptionalIccInfoData& aInfoData);
 
-  bool
-  SendRequest(const IccRequest& aRequest, nsIIccCallback* aRequestReply);
+  bool SendRequest(const IccRequest& aRequest, nsIIccCallback* aRequestReply);
 
-  bool
-  SendChannelRequest(const IccRequest& aRequest, nsIIccChannelCallback* aChannelRequestReply);
+  bool SendChannelRequest(const IccRequest& aRequest,
+                          nsIIccChannelCallback* aChannelRequestReply);
 
   nsCOMArray<nsIIccListener> mListeners;
   RefPtr<IccInfo> mIccInfo;
@@ -76,28 +66,25 @@ private:
   bool mIsAlive;
 };
 
-class IccRequestChild final : public PIccRequestChild
-{
+class IccRequestChild final : public PIccRequestChild {
   friend class PIccRequestChild;
-public:
+
+ public:
   explicit IccRequestChild(nsIIccCallback* aRequestReply);
   explicit IccRequestChild(nsIIccChannelCallback* aChannelRequestReply);
 
-protected:
-  mozilla::ipc::IPCResult
-  Recv__delete__(const IccReply& aReply);
+ protected:
+  mozilla::ipc::IPCResult Recv__delete__(const IccReply& aReply);
 
-private:
-  ~IccRequestChild() {
-    MOZ_COUNT_DTOR(IccRequestChild);
-  }
+ private:
+  ~IccRequestChild() { MOZ_COUNT_DTOR(IccRequestChild); }
 
   nsCOMPtr<nsIIccCallback> mRequestReply;
   nsCOMPtr<nsIIccChannelCallback> mChannelRequestReply;
 };
 
-} // namespace icc
-} // namespace dom
-} // namespace mozilla
+}  // namespace icc
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_icc_IccChild_h
+#endif  // mozilla_dom_icc_IccChild_h

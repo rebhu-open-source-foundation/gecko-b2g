@@ -13,28 +13,25 @@ using namespace mozilla;
 using namespace mozilla::dom;
 using namespace mozilla::dom::subsidylock;
 
-SubsidyLockParent::SubsidyLockParent(uint32_t aClientId)
-  : mLive(true)
-{
+SubsidyLockParent::SubsidyLockParent(uint32_t aClientId) : mLive(true) {
   nsCOMPtr<nsISubsidyLockService> service =
-    do_GetService(NS_SUBSIDY_LOCK_SERVICE_CONTRACTID);
+      do_GetService(NS_SUBSIDY_LOCK_SERVICE_CONTRACTID);
   NS_ASSERTION(service, "This shouldn't fail!");
 
   service->GetItemByServiceId(aClientId, getter_AddRefs(mSubsidyLock));
 }
 
-void
-SubsidyLockParent::ActorDestroy(ActorDestroyReason why)
-{
+void SubsidyLockParent::ActorDestroy(ActorDestroyReason why) {
   mLive = false;
   if (mSubsidyLock) {
-     mSubsidyLock = nullptr;
+    mSubsidyLock = nullptr;
   }
 }
 
 mozilla::ipc::IPCResult SubsidyLockParent::RecvPSubsidyLockRequestConstructor(
     PSubsidyLockRequestParent* aActor, const SubsidyLockRequest& aRequest) {
-  SubsidyLockRequestParent* actor = static_cast<SubsidyLockRequestParent*>(aActor);
+  SubsidyLockRequestParent* actor =
+      static_cast<SubsidyLockRequestParent*>(aActor);
 
   switch (aRequest.type()) {
     case SubsidyLockRequest::TGetSubsidyLockStatusRequest:
@@ -53,9 +50,8 @@ mozilla::ipc::IPCResult SubsidyLockParent::RecvPSubsidyLockRequestConstructor(
   return IPC_OK();
 }
 
-PSubsidyLockRequestParent*
-SubsidyLockParent::AllocPSubsidyLockRequestParent(const SubsidyLockRequest& aRequest)
-{
+PSubsidyLockRequestParent* SubsidyLockParent::AllocPSubsidyLockRequestParent(
+    const SubsidyLockRequest& aRequest) {
   // We leverage mobileconnection permission for content process permission
   // check.
   // if (!AssertAppProcessPermission(Manager(), "mobileconnection")) {
@@ -69,9 +65,8 @@ SubsidyLockParent::AllocPSubsidyLockRequestParent(const SubsidyLockRequest& aReq
   return actor;
 }
 
-bool
-SubsidyLockParent::DeallocPSubsidyLockRequestParent(PSubsidyLockRequestParent* aActor)
-{
+bool SubsidyLockParent::DeallocPSubsidyLockRequestParent(
+    PSubsidyLockRequestParent* aActor) {
   // SubsidyLockRequestParent is refcounted, must not be freed manually.
   static_cast<SubsidyLockRequestParent*>(aActor)->Release();
   return true;
@@ -81,34 +76,27 @@ SubsidyLockParent::DeallocPSubsidyLockRequestParent(PSubsidyLockRequestParent* a
  * PSubsidyLockRequestParent
  ******************************************************************************/
 
-void
-SubsidyLockRequestParent::ActorDestroy(ActorDestroyReason aWhy)
-{
+void SubsidyLockRequestParent::ActorDestroy(ActorDestroyReason aWhy) {
   mLive = false;
   mSubsidyLock = nullptr;
 }
 
-bool
-SubsidyLockRequestParent::DoRequest(const GetSubsidyLockStatusRequest& aRequest)
-{
+bool SubsidyLockRequestParent::DoRequest(
+    const GetSubsidyLockStatusRequest& aRequest) {
   NS_ENSURE_TRUE(mSubsidyLock, false);
 
   return NS_SUCCEEDED(mSubsidyLock->GetSubsidyLockStatus(this));
 }
 
-bool
-SubsidyLockRequestParent::DoRequest(const UnlockSubsidyLockRequest& aRequest)
-{
+bool SubsidyLockRequestParent::DoRequest(
+    const UnlockSubsidyLockRequest& aRequest) {
   NS_ENSURE_TRUE(mSubsidyLock, false);
 
-  return NS_SUCCEEDED(mSubsidyLock->UnlockSubsidyLock(aRequest.lockType(),
-                                                      aRequest.password(),
-                                                      this));
+  return NS_SUCCEEDED(mSubsidyLock->UnlockSubsidyLock(
+      aRequest.lockType(), aRequest.password(), this));
 }
 
-nsresult
-SubsidyLockRequestParent::SendReply(const SubsidyLockReply& aReply)
-{
+nsresult SubsidyLockRequestParent::SendReply(const SubsidyLockReply& aReply) {
   NS_ENSURE_TRUE(mLive, NS_ERROR_FAILURE);
 
   return Send__delete__(this, aReply) ? NS_OK : NS_ERROR_FAILURE;
@@ -120,8 +108,7 @@ NS_IMPL_ISUPPORTS(SubsidyLockRequestParent, nsISubsidyLockCallback)
 
 NS_IMETHODIMP
 SubsidyLockRequestParent::NotifyGetSubsidyLockStatusSuccess(uint32_t aCount,
-                                                            uint32_t* aTypes)
-{
+                                                            uint32_t* aTypes) {
   nsTArray<uint32_t> types;
   for (uint32_t i = 0; i < aCount; i++) {
     types.AppendElement(aTypes[i]);
@@ -131,20 +118,17 @@ SubsidyLockRequestParent::NotifyGetSubsidyLockStatusSuccess(uint32_t aCount,
 }
 
 NS_IMETHODIMP
-SubsidyLockRequestParent::NotifyError(const nsAString& aName)
-{
+SubsidyLockRequestParent::NotifyError(const nsAString& aName) {
   return SendReply(SubsidyLockReplyError(nsAutoString(aName)));
 }
 
 NS_IMETHODIMP
-SubsidyLockRequestParent::NotifySuccess()
-{
+SubsidyLockRequestParent::NotifySuccess() {
   return SendReply(SubsidyLockReplySuccess());
 }
 
 NS_IMETHODIMP
 SubsidyLockRequestParent::NotifyUnlockSubsidyLockError(const nsAString& aName,
-                                                       int32_t aRetryCount)
-{
+                                                       int32_t aRetryCount) {
   return SendReply(SubsidyLockUnlockError(aRetryCount, nsAutoString(aName)));
 }

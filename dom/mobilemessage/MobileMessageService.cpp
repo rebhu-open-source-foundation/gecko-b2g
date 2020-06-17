@@ -17,117 +17,54 @@ namespace mobilemessage {
 NS_IMPL_ISUPPORTS(MobileMessageService, nsIMobileMessageService)
 
 NS_IMETHODIMP
-MobileMessageService::CreateSmsMessage(int32_t aId,
-                                       uint64_t aThreadId,
-                                       const nsAString& aIccId,
-                                       const nsAString& aDelivery,
-                                       const nsAString& aDeliveryStatus,
-                                       const nsAString& aSender,
-                                       const nsAString& aReceiver,
-                                       const nsAString& aBody,
-                                       const nsAString& aMessageClass,
-                                       uint64_t aTimestamp,
-                                       uint64_t aSentTimestamp,
-                                       uint64_t aDeliveryTimestamp,
-                                       bool aRead,
-                                       JSContext* aCx,
-                                       nsISmsMessage** aMessage)
-{
-  return SmsMessageInternal::Create(aId,
-                                    aThreadId,
-                                    aIccId,
-                                    aDelivery,
-                                    aDeliveryStatus,
-                                    aSender,
-                                    aReceiver,
-                                    aBody,
-                                    aMessageClass,
-                                    aTimestamp,
-                                    aSentTimestamp,
-                                    aDeliveryTimestamp,
-                                    aRead,
-                                    aCx,
-                                    aMessage);
+MobileMessageService::CreateSmsMessage(
+    int32_t aId, uint64_t aThreadId, const nsAString& aIccId,
+    const nsAString& aDelivery, const nsAString& aDeliveryStatus,
+    const nsAString& aSender, const nsAString& aReceiver,
+    const nsAString& aBody, const nsAString& aMessageClass, uint64_t aTimestamp,
+    uint64_t aSentTimestamp, uint64_t aDeliveryTimestamp, bool aRead,
+    JSContext* aCx, nsISmsMessage** aMessage) {
+  return SmsMessageInternal::Create(aId, aThreadId, aIccId, aDelivery,
+                                    aDeliveryStatus, aSender, aReceiver, aBody,
+                                    aMessageClass, aTimestamp, aSentTimestamp,
+                                    aDeliveryTimestamp, aRead, aCx, aMessage);
 }
 
 NS_IMETHODIMP
-MobileMessageService::CreateMmsMessage(int32_t aId,
-                                       uint64_t aThreadId,
-                                       const nsAString& aIccId,
-                                       const nsAString& aDelivery,
-                                       JS::Handle<JS::Value> aDeliveryInfo,
-                                       const nsAString& aSender,
-                                       JS::Handle<JS::Value> aReceivers,
-                                       uint64_t aTimestamp,
-                                       uint64_t aSentTimestamp,
-                                       bool aRead,
-                                       const nsAString& aSubject,
-                                       const nsAString& aSmil,
-                                       JS::Handle<JS::Value> aAttachments,
-                                       uint64_t aExpiryDate,
-                                       bool aReadReportRequested,
-                                       bool aIsGroup,
-                                       JSContext* aCx,
-                                       nsIMmsMessage** aMessage)
-{
-  return MmsMessageInternal::Create(aId,
-                                    aThreadId,
-                                    aIccId,
-                                    aDelivery,
-                                    aDeliveryInfo,
-                                    aSender,
-                                    aReceivers,
-                                    aTimestamp,
-                                    aSentTimestamp,
-                                    aRead,
-                                    aSubject,
-                                    aSmil,
-                                    aAttachments,
-                                    aExpiryDate,
-                                    aReadReportRequested,
-                                    aIsGroup,
-                                    aCx,
-                                    aMessage);
+MobileMessageService::CreateMmsMessage(
+    int32_t aId, uint64_t aThreadId, const nsAString& aIccId,
+    const nsAString& aDelivery, JS::Handle<JS::Value> aDeliveryInfo,
+    const nsAString& aSender, JS::Handle<JS::Value> aReceivers,
+    uint64_t aTimestamp, uint64_t aSentTimestamp, bool aRead,
+    const nsAString& aSubject, const nsAString& aSmil,
+    JS::Handle<JS::Value> aAttachments, uint64_t aExpiryDate,
+    bool aReadReportRequested, bool aIsGroup, JSContext* aCx,
+    nsIMmsMessage** aMessage) {
+  return MmsMessageInternal::Create(
+      aId, aThreadId, aIccId, aDelivery, aDeliveryInfo, aSender, aReceivers,
+      aTimestamp, aSentTimestamp, aRead, aSubject, aSmil, aAttachments,
+      aExpiryDate, aReadReportRequested, aIsGroup, aCx, aMessage);
 }
 
 NS_IMETHODIMP
-MobileMessageService::CreateThread(uint64_t aId,
-                                   JS::Handle<JS::Value> aParticipants,
-                                   uint64_t aTimestamp,
-                                   const nsAString& aLastMessageSubject,
-                                   const nsAString& aBody,
-                                   uint64_t aUnreadCount,
-                                   const nsAString& aLastMessageType,
-                                   bool aIsGroup,
-                                   JSContext* aCx,
-                                   nsIMobileMessageThread** aThread)
-{
-  return MobileMessageThreadInternal::Create(aId,
-                                             aParticipants,
-                                             aTimestamp,
-                                             aLastMessageSubject,
-                                             aBody,
-                                             aUnreadCount,
-                                             aLastMessageType,
-                                             aIsGroup,
-                                             aCx,
-                                             aThread);
+MobileMessageService::CreateThread(
+    uint64_t aId, JS::Handle<JS::Value> aParticipants, uint64_t aTimestamp,
+    const nsAString& aLastMessageSubject, const nsAString& aBody,
+    uint64_t aUnreadCount, const nsAString& aLastMessageType, bool aIsGroup,
+    JSContext* aCx, nsIMobileMessageThread** aThread) {
+  return MobileMessageThreadInternal::Create(
+      aId, aParticipants, aTimestamp, aLastMessageSubject, aBody, aUnreadCount,
+      aLastMessageType, aIsGroup, aCx, aThread);
 }
 
 NS_IMETHODIMP
-MobileMessageService::CreateDeletedMessageInfo(int32_t* aMessageIds,
-                                               uint32_t aMsgCount,
-                                               uint64_t* aThreadIds,
-                                               uint32_t  aThreadCount,
-                                               nsIDeletedMessageInfo** aDeletedInfo)
-{
-  return DeletedMessageInfo::Create(aMessageIds,
-                                    aMsgCount,
-                                    aThreadIds,
-                                    aThreadCount,
-                                    aDeletedInfo);
+MobileMessageService::CreateDeletedMessageInfo(
+    int32_t* aMessageIds, uint32_t aMsgCount, uint64_t* aThreadIds,
+    uint32_t aThreadCount, nsIDeletedMessageInfo** aDeletedInfo) {
+  return DeletedMessageInfo::Create(aMessageIds, aMsgCount, aThreadIds,
+                                    aThreadCount, aDeletedInfo);
 }
 
-} // namespace mobilemessage
-} // namespace dom
-} // namespace mozilla
+}  // namespace mobilemessage
+}  // namespace dom
+}  // namespace mozilla

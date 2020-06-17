@@ -9,13 +9,12 @@
 #include "mozilla/Preferences.h"
 #include "ipc/SubsidyLockIPCService.h"
 #include "nsIGonkSubsidyLockService.h"
-#include "nsXULAppAPI.h" // For XRE_GetProcessType()
+#include "nsXULAppAPI.h"  // For XRE_GetProcessType()
 
 using namespace mozilla::dom;
 using namespace mozilla::dom::subsidylock;
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(SubsidyLockManager,
-                                      mWindow,
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(SubsidyLockManager, mWindow,
                                       mSubsidyLocks)
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(SubsidyLockManager)
@@ -27,13 +26,9 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(SubsidyLockManager)
 NS_INTERFACE_MAP_END
 
 SubsidyLockManager::SubsidyLockManager(nsPIDOMWindowInner* aWindow)
-  : mLengthInitialized(false)
-  , mWindow(aWindow)
-{
-}
+    : mLengthInitialized(false), mWindow(aWindow) {}
 
-SubsidyLockManager::~SubsidyLockManager()
-{
+SubsidyLockManager::~SubsidyLockManager() {
   uint32_t len = mSubsidyLocks.Length();
   for (uint32_t i = 0; i < len; ++i) {
     if (!mSubsidyLocks[i]) {
@@ -45,35 +40,27 @@ SubsidyLockManager::~SubsidyLockManager()
   }
 }
 
-nsPIDOMWindowInner*
-SubsidyLockManager::GetParentObject() const
-{
+nsPIDOMWindowInner* SubsidyLockManager::GetParentObject() const {
   MOZ_ASSERT(mWindow);
   return mWindow;
 }
 
-JSObject*
-SubsidyLockManager::WrapObject(JSContext* aCx,
-                               JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* SubsidyLockManager::WrapObject(JSContext* aCx,
+                                         JS::Handle<JSObject*> aGivenProto) {
   return SubsidyLockManager_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-SubsidyLock*
-SubsidyLockManager::Item(uint32_t aIndex)
-{
+SubsidyLock* SubsidyLockManager::Item(uint32_t aIndex) {
   bool unused;
   return IndexedGetter(aIndex, unused);
 }
 
-uint32_t
-SubsidyLockManager::Length()
-{
+uint32_t SubsidyLockManager::Length() {
   if (!mLengthInitialized) {
     mLengthInitialized = true;
 
     nsCOMPtr<nsISubsidyLockService> service =
-      do_GetService(NS_SUBSIDY_LOCK_SERVICE_CONTRACTID);
+        do_GetService(NS_SUBSIDY_LOCK_SERVICE_CONTRACTID);
     NS_ENSURE_TRUE(service, 0);
 
     uint32_t length = 0;
@@ -86,9 +73,7 @@ SubsidyLockManager::Length()
   return mSubsidyLocks.Length();
 }
 
-SubsidyLock*
-SubsidyLockManager::IndexedGetter(uint32_t aIndex, bool& aFound)
-{
+SubsidyLock* SubsidyLockManager::IndexedGetter(uint32_t aIndex, bool& aFound) {
   aFound = aIndex < Length();
   if (!aFound) {
     return nullptr;
@@ -101,9 +86,7 @@ SubsidyLockManager::IndexedGetter(uint32_t aIndex, bool& aFound)
   return mSubsidyLocks[aIndex];
 }
 
-already_AddRefed<nsISubsidyLockService>
-NS_CreateSubsidyLockService()
-{
+already_AddRefed<nsISubsidyLockService> NS_CreateSubsidyLockService() {
   nsCOMPtr<nsISubsidyLockService> service;
 
   if (XRE_IsContentProcess()) {

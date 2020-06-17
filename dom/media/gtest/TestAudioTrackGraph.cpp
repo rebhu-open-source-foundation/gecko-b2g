@@ -18,27 +18,23 @@ TEST(TestAudioTrackGraph, DifferentDeviceIDs)
   CubebUtils::ForceSetCubebContext(cubeb->AsCubebContext());
 
   MediaTrackGraph* g1 = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::AUDIO_THREAD_DRIVER,
-      mozilla::dom::AudioChannel::Normal, /*window*/ nullptr,
-      MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
+      MediaTrackGraph::AUDIO_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
+      /*window*/ nullptr, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
       /*OutputDeviceID*/ nullptr);
 
   MediaTrackGraph* g2 = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::AUDIO_THREAD_DRIVER,
-      mozilla::dom::AudioChannel::Normal,/*window*/ nullptr,
-      MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
+      MediaTrackGraph::AUDIO_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
+      /*window*/ nullptr, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
       /*OutputDeviceID*/ reinterpret_cast<cubeb_devid>(1));
 
   MediaTrackGraph* g1_2 = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::AUDIO_THREAD_DRIVER,
-      mozilla::dom::AudioChannel::Normal, /*window*/ nullptr,
-      MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
+      MediaTrackGraph::AUDIO_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
+      /*window*/ nullptr, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
       /*OutputDeviceID*/ nullptr);
 
   MediaTrackGraph* g2_2 = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::AUDIO_THREAD_DRIVER,
-      mozilla::dom::AudioChannel::Normal, /*window*/ nullptr,
-      MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
+      MediaTrackGraph::AUDIO_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
+      /*window*/ nullptr, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
       /*OutputDeviceID*/ reinterpret_cast<cubeb_devid>(1));
 
   EXPECT_NE(g1, g2) << "Different graphs have due to different device ids";
@@ -105,9 +101,8 @@ TEST(TestAudioTrackGraph, SetOutputDeviceID)
   // Set the output device id in GetInstance method confirm that it is the one
   // used in cubeb_stream_init.
   MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::AUDIO_THREAD_DRIVER,
-      mozilla::dom::AudioChannel::Normal, /*window*/ nullptr,
-      MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
+      MediaTrackGraph::AUDIO_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
+      /*window*/ nullptr, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
       /*OutputDeviceID*/ reinterpret_cast<cubeb_devid>(2));
 
   // Dummy track to make graph rolling. Add it and remove it to remove the
@@ -136,8 +131,9 @@ TEST(TestAudioTrackGraph, NotifyDeviceStarted)
   CubebUtils::ForceSetCubebContext(cubeb->AsCubebContext());
 
   MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::AUDIO_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal, /*window*/ nullptr,
-      MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE, nullptr);
+      MediaTrackGraph::AUDIO_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
+      /*window*/ nullptr, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
+      nullptr);
 
   // Dummy track to make graph rolling. Add it and remove it to remove the
   // graph from the global hash table and let it shutdown.
@@ -168,8 +164,9 @@ TEST(TestAudioTrackGraph, ErrorStateCrash)
   CubebUtils::ForceSetCubebContext(cubeb->AsCubebContext());
 
   MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::AUDIO_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal, /*window*/ nullptr,
-      MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE, nullptr);
+      MediaTrackGraph::AUDIO_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
+      /*window*/ nullptr, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
+      nullptr);
 
   // Dummy track to make graph rolling. Add it and remove it to remove the
   // graph from the global hash table and let it shutdown.

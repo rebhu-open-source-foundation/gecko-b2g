@@ -15,22 +15,21 @@ class Promise;
 
 namespace mobileconnection {
 
-class ImsRegCallback final : public nsIImsRegCallback
-{
-public:
+class ImsRegCallback final : public nsIImsRegCallback {
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIIMSREGCALLBACK
 
   explicit ImsRegCallback(Promise* aPromise);
 
-private:
+ private:
   ~ImsRegCallback();
 
   RefPtr<Promise> mPromise;
 };
 
-} // namespace mobileconnection
-} // namespace dom
-} // namespace mozilla
+}  // namespace mobileconnection
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_mobileconnection_ImsRegCallback_h
+#endif  // mozilla_dom_mobileconnection_ImsRegCallback_h

@@ -23,22 +23,17 @@ using namespace mozilla;
 using mozilla::dom::ContentChild;
 
 #define LOG_TAG "Clipboard"
-#define LOGI(args...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, ## args)
-#define LOGE(args...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, ## args)
-
+#define LOGI(args...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, ##args)
+#define LOGE(args...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, ##args)
 
 NS_IMPL_ISUPPORTS(nsClipboard, nsIClipboard)
 
 nsClipboard::nsClipboard()
-  : mClipboard(mozilla::MakeUnique<GonkClipboardData>())
-{
-}
+    : mClipboard(mozilla::MakeUnique<GonkClipboardData>()) {}
 
 NS_IMETHODIMP
-nsClipboard::SetData(nsITransferable *aTransferable,
-                     nsIClipboardOwner *anOwner,
-                     int32_t aWhichClipboard)
-{
+nsClipboard::SetData(nsITransferable* aTransferable, nsIClipboardOwner* anOwner,
+                     int32_t aWhichClipboard) {
   if (aWhichClipboard != kGlobalClipboard) {
     return NS_ERROR_NOT_IMPLEMENTED;
   }
@@ -55,8 +50,8 @@ nsClipboard::SetData(nsITransferable *aTransferable,
   // Use a pref to toggle rich text/non-text support.
   if (Preferences::GetBool("clipboard.plainTextOnly")) {
     nsCOMPtr<nsISupports> clip;
-    nsresult rv = aTransferable->GetTransferData(kUnicodeMime,
-                                                 getter_AddRefs(clip));
+    nsresult rv =
+        aTransferable->GetTransferData(kUnicodeMime, getter_AddRefs(clip));
     if (NS_FAILED(rv)) {
       return rv;
     }
@@ -88,7 +83,7 @@ nsClipboard::SetData(nsITransferable *aTransferable,
 
     if (flavorStr == kUnicodeMime) {
       // text/plain
-      const char *c_flavorStr;
+      const char* c_flavorStr;
 
       // XXX: I don't know if GetData returns a null terminated string
       flavorStr.GetData(&c_flavorStr);
@@ -102,7 +97,7 @@ nsClipboard::SetData(nsITransferable *aTransferable,
       wideString->GetData(utf16string);
       mClipboard->SetText(utf16string);
     } else if (flavorStr == kHTMLMime) {
-      const char *c_flavorStr;
+      const char* c_flavorStr;
 
       // XXX: I don't know if GetData returns a null terminated string
       flavorStr.GetData(&c_flavorStr);
@@ -116,16 +111,14 @@ nsClipboard::SetData(nsITransferable *aTransferable,
       nsAutoString utf16string;
       wideString->GetData(utf16string);
       mClipboard->SetHTML(utf16string);
-    } else if (!imageAdded && // image is added only once to the clipboard.
-               (flavorStr == kNativeImageMime ||
-                flavorStr == kPNGImageMime ||
-                flavorStr == kJPEGImageMime ||
-                flavorStr == kJPGImageMime)) {
+    } else if (!imageAdded &&  // image is added only once to the clipboard.
+               (flavorStr == kNativeImageMime || flavorStr == kPNGImageMime ||
+                flavorStr == kJPEGImageMime || flavorStr == kJPGImageMime)) {
       // image/[png|jpeg|jpg] or application/x-moz-nativeimage
 
       // Look through our transfer data for the image.
       static const char* const imageMimeTypes[] = {
-        kNativeImageMime, kPNGImageMime, kJPEGImageMime, kJPGImageMime };
+          kNativeImageMime, kPNGImageMime, kJPEGImageMime, kJPGImageMime};
 
       nsCOMPtr<nsISupportsInterfacePointer> imgPtr;
       for (uint32_t i = 0; !imgPtr && i < ArrayLength(imageMimeTypes); ++i) {
@@ -143,9 +136,8 @@ nsClipboard::SetData(nsITransferable *aTransferable,
         continue;
       }
 
-      RefPtr<gfx::SourceSurface> surface =
-        image->GetFrame(imgIContainer::FRAME_CURRENT,
-                        imgIContainer::FLAG_SYNC_DECODE);
+      RefPtr<gfx::SourceSurface> surface = image->GetFrame(
+          imgIContainer::FRAME_CURRENT, imgIContainer::FLAG_SYNC_DECODE);
       if (!surface) {
         continue;
       }
@@ -155,7 +147,8 @@ nsClipboard::SetData(nsITransferable *aTransferable,
         dataSurface = surface->GetDataSurface();
       } else {
         // Convert format to SurfaceFormat::B8G8R8A8.
-        dataSurface = gfxUtils::CopySurfaceToDataSourceSurfaceWithFormat(surface, gfx::SurfaceFormat::B8G8R8A8);
+        dataSurface = gfxUtils::CopySurfaceToDataSourceSurfaceWithFormat(
+            surface, gfx::SurfaceFormat::B8G8R8A8);
       }
 
       mClipboard->SetImage(dataSurface);
@@ -167,9 +160,7 @@ nsClipboard::SetData(nsITransferable *aTransferable,
 }
 
 NS_IMETHODIMP
-nsClipboard::GetData(nsITransferable *aTransferable,
-                     int32_t aWhichClipboard)
-{
+nsClipboard::GetData(nsITransferable* aTransferable, int32_t aWhichClipboard) {
   if (aWhichClipboard != kGlobalClipboard) {
     return NS_ERROR_NOT_IMPLEMENTED;
   }
@@ -184,7 +175,7 @@ nsClipboard::GetData(nsITransferable *aTransferable,
   if (Preferences::GetBool("clipboard.plainTextOnly")) {
     nsresult rv;
     nsCOMPtr<nsISupportsString> dataWrapper =
-      do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID, &rv);
+        do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID, &rv);
     rv = dataWrapper->SetData(mClipboard->GetText());
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
@@ -217,15 +208,16 @@ nsClipboard::GetData(nsITransferable *aTransferable,
     // text/plain, text/Unicode
     if (flavorStr == kUnicodeMime && mClipboard->HasText()) {
       nsresult rv;
-      nsCOMPtr<nsISupportsString> dataWrapper = do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID, &rv);
+      nsCOMPtr<nsISupportsString> dataWrapper =
+          do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID, &rv);
       rv = dataWrapper->SetData(mClipboard->GetText());
       if (NS_WARN_IF(NS_FAILED(rv))) {
         continue;
       }
 
       nsCOMPtr<nsISupports> genericDataWrapper = do_QueryInterface(dataWrapper);
-      //XXX: Check if GetData returns a null terminated string
-      const char *c_flavorStr;
+      // XXX: Check if GetData returns a null terminated string
+      const char* c_flavorStr;
       flavorStr.GetData(&c_flavorStr);
       rv = aTransferable->SetTransferData(c_flavorStr, genericDataWrapper);
       if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -237,15 +229,16 @@ nsClipboard::GetData(nsITransferable *aTransferable,
     // text/html
     if (flavorStr == kHTMLMime && mClipboard->HasHTML()) {
       nsresult rv;
-      nsCOMPtr<nsISupportsString> dataWrapper = do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID, &rv);
+      nsCOMPtr<nsISupportsString> dataWrapper =
+          do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID, &rv);
       rv = dataWrapper->SetData(mClipboard->GetHTML());
       if (NS_WARN_IF(NS_FAILED(rv))) {
         continue;
       }
 
       nsCOMPtr<nsISupports> genericDataWrapper = do_QueryInterface(dataWrapper);
-      //XXX: Check if GetData returns a null terminated string
-      const char *c_flavorStr;
+      // XXX: Check if GetData returns a null terminated string
+      const char* c_flavorStr;
       flavorStr.GetData(&c_flavorStr);
       rv = aTransferable->SetTransferData(c_flavorStr, genericDataWrapper);
       if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -255,27 +248,28 @@ nsClipboard::GetData(nsITransferable *aTransferable,
     }
 
     // image/[png|jpeg|jpg]
-    if ((flavorStr == kPNGImageMime ||
-         flavorStr == kJPEGImageMime ||
+    if ((flavorStr == kPNGImageMime || flavorStr == kJPEGImageMime ||
          flavorStr == kJPGImageMime) &&
-        mClipboard->HasImage() ) {
-      //XXX: Check if GetData returns a null terminated string
-      const char *c_flavorStr;
+        mClipboard->HasImage()) {
+      // XXX: Check if GetData returns a null terminated string
+      const char* c_flavorStr;
       flavorStr.GetData(&c_flavorStr);
       // Get image buffer from clipboard.
       RefPtr<gfx::DataSourceSurface> image = mClipboard->GetImage();
 
       // Encode according to MIME type.
-      RefPtr<gfxDrawable> drawable = new gfxSurfaceDrawable(image, image->GetSize());
-      nsCOMPtr<imgIContainer> imageContainer(image::ImageOps::CreateFromDrawable(drawable));
+      RefPtr<gfxDrawable> drawable =
+          new gfxSurfaceDrawable(image, image->GetSize());
+      nsCOMPtr<imgIContainer> imageContainer(
+          image::ImageOps::CreateFromDrawable(drawable));
       nsCOMPtr<imgITools> imgTool = do_GetService(NS_IMGTOOLS_CID);
 
       nsCOMPtr<nsIInputStream> byteStream;
-      imgTool->EncodeImage(imageContainer, flavorStr, EmptyString(), getter_AddRefs(byteStream));
+      imgTool->EncodeImage(imageContainer, flavorStr, EmptyString(),
+                           getter_AddRefs(byteStream));
 
       // Set transferable.
-      nsresult rv = aTransferable->SetTransferData(c_flavorStr,
-                                                   byteStream);
+      nsresult rv = aTransferable->SetTransferData(c_flavorStr, byteStream);
       if (NS_WARN_IF(NS_FAILED(rv))) {
         continue;
       }
@@ -287,8 +281,7 @@ nsClipboard::GetData(nsITransferable *aTransferable,
 }
 
 NS_IMETHODIMP
-nsClipboard::EmptyClipboard(int32_t aWhichClipboard)
-{
+nsClipboard::EmptyClipboard(int32_t aWhichClipboard) {
   if (aWhichClipboard != kGlobalClipboard) {
     return NS_ERROR_NOT_IMPLEMENTED;
   }
@@ -303,8 +296,7 @@ nsClipboard::EmptyClipboard(int32_t aWhichClipboard)
 
 NS_IMETHODIMP
 nsClipboard::HasDataMatchingFlavors(const nsTArray<nsCString>& aFlavorList,
-                                    int32_t aWhichClipboard, bool *aHasType)
-{
+                                    int32_t aWhichClipboard, bool* aHasType) {
   *aHasType = false;
   if (aWhichClipboard != kGlobalClipboard) {
     return NS_ERROR_NOT_IMPLEMENTED;
@@ -312,7 +304,7 @@ nsClipboard::HasDataMatchingFlavors(const nsTArray<nsCString>& aFlavorList,
   if (XRE_IsParentProcess()) {
     // Retrieve the union of all aHasType in aFlavorList
     for (auto& item : aFlavorList) {
-      const char *flavor = item.get();
+      const char* flavor = item.get();
       if (!flavor) {
         continue;
       }
@@ -332,24 +324,22 @@ nsClipboard::HasDataMatchingFlavors(const nsTArray<nsCString>& aFlavorList,
     }
   } else {
     RefPtr<nsClipboardProxy> clipboardProxy = new nsClipboardProxy();
-    return clipboardProxy->HasDataMatchingFlavors(aFlavorList, aWhichClipboard, aHasType);
+    return clipboardProxy->HasDataMatchingFlavors(aFlavorList, aWhichClipboard,
+                                                  aHasType);
   }
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsClipboard::SupportsSelectionClipboard(bool *aIsSupported)
-{
+nsClipboard::SupportsSelectionClipboard(bool* aIsSupported) {
   *aIsSupported = false;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsClipboard::SupportsFindClipboard(bool* _retval)
-{
+nsClipboard::SupportsFindClipboard(bool* _retval) {
   NS_ENSURE_ARG_POINTER(_retval);
 
   *_retval = false;
   return NS_OK;
 }
-

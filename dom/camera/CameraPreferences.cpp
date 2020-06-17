@@ -11,8 +11,8 @@
 #include "mozilla/StaticPtr.h"
 #include "mozilla/Preferences.h"
 #ifdef MOZ_WIDGET_GONK
-#include "mozilla/Services.h"
-#include "nsIObserverService.h"
+#  include "mozilla/Services.h"
+#  include "nsIObserverService.h"
 #endif
 
 using namespace mozilla;
@@ -40,14 +40,12 @@ NS_IMPL_ISUPPORTS(CameraPreferences, nsIObserver);
 #endif
 
 /* static */
-nsresult
-CameraPreferences::UpdatePref(const char* aPref, nsresult& aVal)
-{
+nsresult CameraPreferences::UpdatePref(const char* aPref, nsresult& aVal) {
   uint32_t val;
   nsresult rv = Preferences::GetUint(aPref, &val);
   if (NS_SUCCEEDED(rv)) {
     aVal = static_cast<nsresult>(val);
-  } else if(rv == NS_ERROR_UNEXPECTED) {
+  } else if (rv == NS_ERROR_UNEXPECTED) {
     // Preference does not exist
     rv = NS_OK;
     aVal = NS_OK;
@@ -56,14 +54,12 @@ CameraPreferences::UpdatePref(const char* aPref, nsresult& aVal)
 }
 
 /* static */
-nsresult
-CameraPreferences::UpdatePref(const char* aPref, uint32_t& aVal)
-{
+nsresult CameraPreferences::UpdatePref(const char* aPref, uint32_t& aVal) {
   uint32_t val;
   nsresult rv = Preferences::GetUint(aPref, &val);
   if (NS_SUCCEEDED(rv)) {
     aVal = val;
-  } else if(rv == NS_ERROR_UNEXPECTED) {
+  } else if (rv == NS_ERROR_UNEXPECTED) {
     // Preference does not exist
     rv = NS_OK;
     aVal = 0;
@@ -72,14 +68,12 @@ CameraPreferences::UpdatePref(const char* aPref, uint32_t& aVal)
 }
 
 /* static */
-nsresult
-CameraPreferences::UpdatePref(const char* aPref, nsACString& aVal)
-{
+nsresult CameraPreferences::UpdatePref(const char* aPref, nsACString& aVal) {
   nsAutoCString val;
   nsresult rv = Preferences::GetCString(aPref, val);
   if (NS_SUCCEEDED(rv)) {
     aVal = val;
-  } else if(rv == NS_ERROR_UNEXPECTED) {
+  } else if (rv == NS_ERROR_UNEXPECTED) {
     // Preference does not exist
     rv = NS_OK;
     aVal.Truncate();
@@ -88,14 +82,12 @@ CameraPreferences::UpdatePref(const char* aPref, nsACString& aVal)
 }
 
 /* static */
-nsresult
-CameraPreferences::UpdatePref(const char* aPref, bool& aVal)
-{
+nsresult CameraPreferences::UpdatePref(const char* aPref, bool& aVal) {
   bool val;
   nsresult rv = Preferences::GetBool(aPref, &val);
   if (NS_SUCCEEDED(rv)) {
     aVal = val;
-  } else if(rv == NS_ERROR_UNEXPECTED) {
+  } else if (rv == NS_ERROR_UNEXPECTED) {
     // Preference does not exist
     rv = NS_OK;
     aVal = false;
@@ -105,54 +97,32 @@ CameraPreferences::UpdatePref(const char* aPref, bool& aVal)
 
 /* static */
 CameraPreferences::Pref CameraPreferences::sPrefs[] = {
-  {
-    "camera.control.test.enabled",
-    kPrefValueIsCString,
-    { &sPrefTestEnabled }
-  },
-  {
-    "camera.control.test.hardware",
-    kPrefValueIsCString,
-    { &sPrefHardwareTest }
-  },
-  {
-    "camera.control.test.permission",
-    kPrefValueIsBoolean,
-    { &sPrefCameraParametersPermission }
-  },
+    {"camera.control.test.enabled", kPrefValueIsCString, {&sPrefTestEnabled}},
+    {"camera.control.test.hardware", kPrefValueIsCString, {&sPrefHardwareTest}},
+    {"camera.control.test.permission",
+     kPrefValueIsBoolean,
+     {&sPrefCameraParametersPermission}},
 #ifdef MOZ_B2G
-  {
-    "camera.control.test.hardware.gonk.parameters",
-    kPrefValueIsCString,
-    { &sPrefGonkParameters }
-  },
+    {"camera.control.test.hardware.gonk.parameters",
+     kPrefValueIsCString,
+     {&sPrefGonkParameters}},
 #endif
-  {
-    "camera.control.test.method.error",
-    kPrefValueIsNsResult,
-    { &sPrefCameraControlMethodErrorOverride }
-  },
-  {
-    "camera.control.test.async.error",
-    kPrefValueIsNsResult,
-    { &sPrefCameraControlAsyncErrorOverride }
-  },
-  {
-    "camera.control.test.is_low_memory",
-    kPrefValueIsBoolean,
-    { &sPrefCameraParametersIsLowMemory }
-  },
-  {
-    "camera.control.low_memory_thresholdMB",
-    kPrefValueIsUint32,
-    { &sPrefCameraControlLowMemoryThresholdMB }
-  },
+    {"camera.control.test.method.error",
+     kPrefValueIsNsResult,
+     {&sPrefCameraControlMethodErrorOverride}},
+    {"camera.control.test.async.error",
+     kPrefValueIsNsResult,
+     {&sPrefCameraControlAsyncErrorOverride}},
+    {"camera.control.test.is_low_memory",
+     kPrefValueIsBoolean,
+     {&sPrefCameraParametersIsLowMemory}},
+    {"camera.control.low_memory_thresholdMB",
+     kPrefValueIsUint32,
+     {&sPrefCameraControlLowMemoryThresholdMB}},
 };
 
 /* static */
-uint32_t
-CameraPreferences::PrefToIndex(const char* aPref)
-{
+uint32_t CameraPreferences::PrefToIndex(const char* aPref) {
   for (uint32_t i = 0; i < ArrayLength(sPrefs); ++i) {
     if (strcmp(aPref, sPrefs[i].mPref) == 0) {
       return i;
@@ -162,60 +132,51 @@ CameraPreferences::PrefToIndex(const char* aPref)
 }
 
 /* static */
-void
-CameraPreferences::PreferenceChanged(const char* aPref, void* aClosure)
-{
+void CameraPreferences::PreferenceChanged(const char* aPref, void* aClosure) {
   MonitorAutoLock mon(*sPrefMonitor);
 
   uint32_t i = PrefToIndex(aPref);
   if (i == kPrefNotFound) {
-    DOM_CAMERA_LOGE("Preference '%s' is not tracked by CameraPreferences\n", aPref);
+    DOM_CAMERA_LOGE("Preference '%s' is not tracked by CameraPreferences\n",
+                    aPref);
     return;
   }
 
   Pref& p = sPrefs[i];
   nsresult rv;
   switch (p.mValueType) {
-    case kPrefValueIsNsResult:
-      {
-        nsresult& v = *p.mValue.mAsNsResult;
-        rv = UpdatePref(aPref, v);
-        if (NS_SUCCEEDED(rv)) {
-          DOM_CAMERA_LOGI("Preference '%s' has changed, 0x%x\n", aPref, v);
-        }
+    case kPrefValueIsNsResult: {
+      nsresult& v = *p.mValue.mAsNsResult;
+      rv = UpdatePref(aPref, v);
+      if (NS_SUCCEEDED(rv)) {
+        DOM_CAMERA_LOGI("Preference '%s' has changed, 0x%x\n", aPref, v);
       }
-      break;
+    } break;
 
-    case kPrefValueIsUint32:
-      {
-        uint32_t& v = *p.mValue.mAsUint32;
-        rv = UpdatePref(aPref, v);
-        if (NS_SUCCEEDED(rv)) {
-          DOM_CAMERA_LOGI("Preference '%s' has changed, %u\n", aPref, v);
-        }
+    case kPrefValueIsUint32: {
+      uint32_t& v = *p.mValue.mAsUint32;
+      rv = UpdatePref(aPref, v);
+      if (NS_SUCCEEDED(rv)) {
+        DOM_CAMERA_LOGI("Preference '%s' has changed, %u\n", aPref, v);
       }
-      break;
+    } break;
 
-    case kPrefValueIsCString:
-      {
-        nsCString& v = **p.mValue.mAsCString;
-        rv = UpdatePref(aPref, v);
-        if (NS_SUCCEEDED(rv)) {
-          DOM_CAMERA_LOGI("Preference '%s' has changed, '%s'\n", aPref, v.get());
-        }
+    case kPrefValueIsCString: {
+      nsCString& v = **p.mValue.mAsCString;
+      rv = UpdatePref(aPref, v);
+      if (NS_SUCCEEDED(rv)) {
+        DOM_CAMERA_LOGI("Preference '%s' has changed, '%s'\n", aPref, v.get());
       }
-      break;
+    } break;
 
-    case kPrefValueIsBoolean:
-      {
-        bool& v = *p.mValue.mAsBoolean;
-        rv = UpdatePref(aPref, v);
-        if (NS_SUCCEEDED(rv)) {
-          DOM_CAMERA_LOGI("Preference '%s' has changed, %s\n",
-            aPref, v ? "true" : "false");
-        }
+    case kPrefValueIsBoolean: {
+      bool& v = *p.mValue.mAsBoolean;
+      rv = UpdatePref(aPref, v);
+      if (NS_SUCCEEDED(rv)) {
+        DOM_CAMERA_LOGI("Preference '%s' has changed, %s\n", aPref,
+                        v ? "true" : "false");
       }
-      break;
+    } break;
 
     default:
       MOZ_ASSERT_UNREACHABLE("Unhandled preference value type!");
@@ -228,9 +189,7 @@ CameraPreferences::PreferenceChanged(const char* aPref, void* aClosure)
 }
 
 /* static */
-bool
-CameraPreferences::Initialize()
-{
+bool CameraPreferences::Initialize() {
   DOM_CAMERA_LOGI("Initializing camera preference callbacks\n");
 
   nsresult rv;
@@ -257,8 +216,8 @@ CameraPreferences::Initialize()
   for (uint32_t i = 0; i < ArrayLength(sPrefs); ++i) {
     nsCString sPrefi;
     sPrefi.AssignLiteral(sPrefs[i].mPref, strlen(sPrefs[i].mPref));
-    rv = Preferences::RegisterCallbackAndCall(CameraPreferences::PreferenceChanged,
-                                              sPrefi);
+    rv = Preferences::RegisterCallbackAndCall(
+        CameraPreferences::PreferenceChanged, sPrefi);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return false;
     }
@@ -269,9 +228,7 @@ CameraPreferences::Initialize()
 }
 
 /* static */
-void
-CameraPreferences::Shutdown()
-{
+void CameraPreferences::Shutdown() {
   DOM_CAMERA_LOGI("Shutting down camera preference callbacks\n");
 
   for (uint32_t i = 0; i < ArrayLength(sPrefs); ++i) {
@@ -289,9 +246,10 @@ CameraPreferences::Shutdown()
 #ifdef MOZ_WIDGET_GONK
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   if (obs) {
-    nsresult rv = obs->RemoveObserver(sObserver , "init-camera-hw");
+    nsresult rv = obs->RemoveObserver(sObserver, "init-camera-hw");
     if (NS_FAILED(rv)) {
-      DOM_CAMERA_LOGE("Failed to remove CameraPreferences observer (0x%x)\n", rv);
+      DOM_CAMERA_LOGE("Failed to remove CameraPreferences observer (0x%x)\n",
+                      rv);
     }
     sObserver = nullptr;
   } else {
@@ -303,16 +261,14 @@ CameraPreferences::Shutdown()
 }
 
 #ifdef MOZ_WIDGET_GONK
-nsresult
-CameraPreferences::PreinitCameraHardware()
-{
+nsresult CameraPreferences::PreinitCameraHardware() {
   nsDOMCameraManager::PreinitCameraHardware();
   return NS_OK;
 }
 
 NS_IMETHODIMP
-CameraPreferences::Observe(nsISupports* aSubject, const char* aTopic, const char16_t* aData)
-{
+CameraPreferences::Observe(nsISupports* aSubject, const char* aTopic,
+                           const char16_t* aData) {
   if (strcmp(aTopic, "init-camera-hw") == 0) {
     return PreinitCameraHardware();
   }
@@ -323,15 +279,15 @@ CameraPreferences::Observe(nsISupports* aSubject, const char* aTopic, const char
 #endif
 
 /* static */
-bool
-CameraPreferences::GetPref(const char* aPref, nsACString& aVal)
-{
-  MOZ_ASSERT(sPrefMonitor, "sPrefMonitor missing in CameraPreferences::GetPref()");
+bool CameraPreferences::GetPref(const char* aPref, nsACString& aVal) {
+  MOZ_ASSERT(sPrefMonitor,
+             "sPrefMonitor missing in CameraPreferences::GetPref()");
   MonitorAutoLock mon(*sPrefMonitor);
 
   uint32_t i = PrefToIndex(aPref);
   if (i == kPrefNotFound || i >= ArrayLength(sPrefs)) {
-    DOM_CAMERA_LOGW("Preference '%s' is not tracked by CameraPreferences\n", aPref);
+    DOM_CAMERA_LOGW("Preference '%s' is not tracked by CameraPreferences\n",
+                    aPref);
     return false;
   }
   if (sPrefs[i].mValueType != kPrefValueIsCString) {
@@ -355,15 +311,15 @@ CameraPreferences::GetPref(const char* aPref, nsACString& aVal)
 }
 
 /* static */
-bool
-CameraPreferences::GetPref(const char* aPref, nsresult& aVal)
-{
-  MOZ_ASSERT(sPrefMonitor, "sPrefMonitor missing in CameraPreferences::GetPref()");
+bool CameraPreferences::GetPref(const char* aPref, nsresult& aVal) {
+  MOZ_ASSERT(sPrefMonitor,
+             "sPrefMonitor missing in CameraPreferences::GetPref()");
   MonitorAutoLock mon(*sPrefMonitor);
 
   uint32_t i = PrefToIndex(aPref);
   if (i == kPrefNotFound || i >= ArrayLength(sPrefs)) {
-    DOM_CAMERA_LOGW("Preference '%s' is not tracked by CameraPreferences\n", aPref);
+    DOM_CAMERA_LOGW("Preference '%s' is not tracked by CameraPreferences\n",
+                    aPref);
     return false;
   }
   if (sPrefs[i].mValueType != kPrefValueIsNsResult) {
@@ -383,15 +339,15 @@ CameraPreferences::GetPref(const char* aPref, nsresult& aVal)
 }
 
 /* static */
-bool
-CameraPreferences::GetPref(const char* aPref, uint32_t& aVal)
-{
-  MOZ_ASSERT(sPrefMonitor, "sPrefMonitor missing in CameraPreferences::GetPref()");
+bool CameraPreferences::GetPref(const char* aPref, uint32_t& aVal) {
+  MOZ_ASSERT(sPrefMonitor,
+             "sPrefMonitor missing in CameraPreferences::GetPref()");
   MonitorAutoLock mon(*sPrefMonitor);
 
   uint32_t i = PrefToIndex(aPref);
   if (i == kPrefNotFound || i >= ArrayLength(sPrefs)) {
-    DOM_CAMERA_LOGW("Preference '%s' is not tracked by CameraPreferences\n", aPref);
+    DOM_CAMERA_LOGW("Preference '%s' is not tracked by CameraPreferences\n",
+                    aPref);
     return false;
   }
   if (sPrefs[i].mValueType != kPrefValueIsUint32) {
@@ -406,15 +362,15 @@ CameraPreferences::GetPref(const char* aPref, uint32_t& aVal)
 }
 
 /* static */
-bool
-CameraPreferences::GetPref(const char* aPref, bool& aVal)
-{
-  MOZ_ASSERT(sPrefMonitor, "sPrefMonitor missing in CameraPreferences::GetPref()");
+bool CameraPreferences::GetPref(const char* aPref, bool& aVal) {
+  MOZ_ASSERT(sPrefMonitor,
+             "sPrefMonitor missing in CameraPreferences::GetPref()");
   MonitorAutoLock mon(*sPrefMonitor);
 
   uint32_t i = PrefToIndex(aPref);
   if (i == kPrefNotFound || i >= ArrayLength(sPrefs)) {
-    DOM_CAMERA_LOGW("Preference '%s' is not tracked by CameraPreferences\n", aPref);
+    DOM_CAMERA_LOGW("Preference '%s' is not tracked by CameraPreferences\n",
+                    aPref);
     return false;
   }
   if (sPrefs[i].mValueType != kPrefValueIsBoolean) {

@@ -12,14 +12,9 @@ using namespace mozilla::dom::subsidylock;
 NS_IMPL_ISUPPORTS(SubsidyLockChild, nsISubsidyLock)
 
 SubsidyLockChild::SubsidyLockChild(uint32_t aServiceId)
-  : mServiceId(aServiceId)
-  , mLive(true)
-{
-}
+    : mServiceId(aServiceId), mLive(true) {}
 
-void
-SubsidyLockChild::Shutdown()
-{
+void SubsidyLockChild::Shutdown() {
   if (mLive) {
     mLive = false;
     Send__delete__(this);
@@ -29,34 +24,31 @@ SubsidyLockChild::Shutdown()
 // nsISubsidyLock
 
 NS_IMETHODIMP
-SubsidyLockChild::GetServiceId(uint32_t *aServiceId)
-{
+SubsidyLockChild::GetServiceId(uint32_t* aServiceId) {
   *aServiceId = mServiceId;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-SubsidyLockChild::GetSubsidyLockStatus(nsISubsidyLockCallback* aCallback)
-{
+SubsidyLockChild::GetSubsidyLockStatus(nsISubsidyLockCallback* aCallback) {
   return SendRequest(GetSubsidyLockStatusRequest(), aCallback)
-    ? NS_OK : NS_ERROR_FAILURE;
+             ? NS_OK
+             : NS_ERROR_FAILURE;
 }
 
 NS_IMETHODIMP
 SubsidyLockChild::UnlockSubsidyLock(uint32_t aLockType,
                                     const nsAString& aPassword,
-                                    nsISubsidyLockCallback* aCallback)
-{
-  return SendRequest(UnlockSubsidyLockRequest(aLockType,
-                                              nsAutoString(aPassword)),
-                     aCallback)
-    ? NS_OK : NS_ERROR_FAILURE;
+                                    nsISubsidyLockCallback* aCallback) {
+  return SendRequest(
+             UnlockSubsidyLockRequest(aLockType, nsAutoString(aPassword)),
+             aCallback)
+             ? NS_OK
+             : NS_ERROR_FAILURE;
 }
 
-bool
-SubsidyLockChild::SendRequest(const SubsidyLockRequest& aRequest,
-                              nsISubsidyLockCallback* aCallback)
-{
+bool SubsidyLockChild::SendRequest(const SubsidyLockRequest& aRequest,
+                                   nsISubsidyLockCallback* aCallback) {
   NS_ENSURE_TRUE(mLive, false);
 
   SubsidyLockRequestChild* actor = new SubsidyLockRequestChild(aCallback);
@@ -65,21 +57,15 @@ SubsidyLockChild::SendRequest(const SubsidyLockRequest& aRequest,
   return true;
 }
 
-void
-SubsidyLockChild::ActorDestroy(ActorDestroyReason why)
-{
-  mLive = false;
-}
+void SubsidyLockChild::ActorDestroy(ActorDestroyReason why) { mLive = false; }
 
-PSubsidyLockRequestChild*
-SubsidyLockChild::AllocPSubsidyLockRequestChild(const SubsidyLockRequest& request)
-{
+PSubsidyLockRequestChild* SubsidyLockChild::AllocPSubsidyLockRequestChild(
+    const SubsidyLockRequest& request) {
   MOZ_CRASH("Caller is supposed to manually construct a request!");
 }
 
-bool
-SubsidyLockChild::DeallocPSubsidyLockRequestChild(PSubsidyLockRequestChild* aActor)
-{
+bool SubsidyLockChild::DeallocPSubsidyLockRequestChild(
+    PSubsidyLockRequestChild* aActor) {
   delete aActor;
   return true;
 }
@@ -88,15 +74,12 @@ SubsidyLockChild::DeallocPSubsidyLockRequestChild(PSubsidyLockRequestChild* aAct
  * SubsidyLockRequestChild
  ******************************************************************************/
 
-void
-SubsidyLockRequestChild::ActorDestroy(ActorDestroyReason why)
-{
+void SubsidyLockRequestChild::ActorDestroy(ActorDestroyReason why) {
   mRequestCallback = nullptr;
 }
 
-bool
-SubsidyLockRequestChild::DoReply(const SubsidyLockGetStatusSuccess& aReply)
-{
+bool SubsidyLockRequestChild::DoReply(
+    const SubsidyLockGetStatusSuccess& aReply) {
   uint32_t len = aReply.types().Length();
   uint32_t types[len];
   for (uint32_t i = 0; i < len; i++) {
@@ -104,26 +87,20 @@ SubsidyLockRequestChild::DoReply(const SubsidyLockGetStatusSuccess& aReply)
   }
 
   return NS_SUCCEEDED(
-    mRequestCallback->NotifyGetSubsidyLockStatusSuccess(len, types));
+      mRequestCallback->NotifyGetSubsidyLockStatusSuccess(len, types));
 }
 
-bool
-SubsidyLockRequestChild::DoReply(const SubsidyLockReplySuccess& aReply)
-{
+bool SubsidyLockRequestChild::DoReply(const SubsidyLockReplySuccess& aReply) {
   return NS_SUCCEEDED(mRequestCallback->NotifySuccess());
 }
 
-bool
-SubsidyLockRequestChild::DoReply(const SubsidyLockReplyError& aReply)
-{
+bool SubsidyLockRequestChild::DoReply(const SubsidyLockReplyError& aReply) {
   return NS_SUCCEEDED(mRequestCallback->NotifyError(aReply.message()));
 }
 
-bool
-SubsidyLockRequestChild::DoReply(const SubsidyLockUnlockError& aReply)
-{
-  return NS_SUCCEEDED(mRequestCallback->NotifyUnlockSubsidyLockError(aReply.message(),
-                                                                     aReply.remainingRetry()));
+bool SubsidyLockRequestChild::DoReply(const SubsidyLockUnlockError& aReply) {
+  return NS_SUCCEEDED(mRequestCallback->NotifyUnlockSubsidyLockError(
+      aReply.message(), aReply.remainingRetry()));
 }
 
 mozilla::ipc::IPCResult SubsidyLockRequestChild::Recv__delete__(

@@ -70,42 +70,55 @@ struct ConfigurationOptions {
  public:
   ConfigurationOptions() = default;
 
-  explicit ConfigurationOptions(const mozilla::dom::WifiConfiguration& aOther) {
-    COPY_OPT_FIELD(mNetId, INVALID_NETWORK_ID)
-    COPY_OPT_FIELD(mSsid, EmptyString())
-    COPY_OPT_FIELD(mBssid, EmptyString())
-    COPY_OPT_FIELD(mKeyMgmt, EmptyString())
-    COPY_OPT_FIELD(mPsk, EmptyString())
-    COPY_OPT_FIELD(mWepKey0, EmptyString())
-    COPY_OPT_FIELD(mWepKey1, EmptyString())
-    COPY_OPT_FIELD(mWepKey2, EmptyString())
-    COPY_OPT_FIELD(mWepKey3, EmptyString())
-    COPY_OPT_FIELD(mWepTxKeyIndex, 0)
-    COPY_OPT_FIELD(mScanSsid, false)
-    COPY_OPT_FIELD(mPmf, false)
-    COPY_OPT_FIELD(mProto, EmptyString())
-    COPY_OPT_FIELD(mAuthAlg, EmptyString())
-    COPY_OPT_FIELD(mGroupCipher, EmptyString())
-    COPY_OPT_FIELD(mPairwiseCipher, EmptyString())
-    COPY_OPT_FIELD(mEap, EmptyString())
-    COPY_OPT_FIELD(mEapPhase2, EmptyString())
-    COPY_OPT_FIELD(mIdentity, EmptyString())
-    COPY_OPT_FIELD(mAnonymousId, EmptyString())
-    COPY_OPT_FIELD(mPassword, EmptyString())
-    COPY_OPT_FIELD(mClientCert, EmptyString())
-    COPY_OPT_FIELD(mCaCert, EmptyString())
-    COPY_OPT_FIELD(mCaPath, EmptyString())
-    COPY_OPT_FIELD(mSubjectMatch, EmptyString())
-    COPY_OPT_FIELD(mEngineId, EmptyString())
-    COPY_OPT_FIELD(mEngine, false)
-    COPY_OPT_FIELD(mPrivateKeyId, EmptyString())
-    COPY_OPT_FIELD(mAltSubjectMatch, EmptyString())
-    COPY_OPT_FIELD(mDomainSuffixMatch, EmptyString())
-    COPY_OPT_FIELD(mProactiveKeyCaching, false)
-    COPY_OPT_FIELD(mSimIndex, 0)
-  }
+  explicit ConfigurationOptions(const mozilla::dom::WifiConfiguration& aOther){
+      COPY_OPT_FIELD(mNetId, INVALID_NETWORK_ID) COPY_OPT_FIELD(
+          mSsid,
+          EmptyString()) COPY_OPT_FIELD(mBssid,
+                                        EmptyString()) COPY_OPT_FIELD(mKeyMgmt,
+                                                                      EmptyString())
+          COPY_OPT_FIELD(mPsk, EmptyString()) COPY_OPT_FIELD(
+              mWepKey0, EmptyString()) COPY_OPT_FIELD(mWepKey1, EmptyString())
+              COPY_OPT_FIELD(mWepKey2, EmptyString()) COPY_OPT_FIELD(
+                  mWepKey3,
+                  EmptyString()) COPY_OPT_FIELD(mWepTxKeyIndex,
+                                                0) COPY_OPT_FIELD(mScanSsid,
+                                                                  false)
+                  COPY_OPT_FIELD(mPmf, false) COPY_OPT_FIELD(
+                      mProto, EmptyString()) COPY_OPT_FIELD(mAuthAlg,
+                                                            EmptyString())
+                      COPY_OPT_FIELD(mGroupCipher, EmptyString()) COPY_OPT_FIELD(
+                          mPairwiseCipher,
+                          EmptyString()) COPY_OPT_FIELD(mEap, EmptyString())
+                          COPY_OPT_FIELD(mEapPhase2, EmptyString()) COPY_OPT_FIELD(
+                              mIdentity,
+                              EmptyString()) COPY_OPT_FIELD(mAnonymousId,
+                                                            EmptyString())
+                              COPY_OPT_FIELD(mPassword, EmptyString()) COPY_OPT_FIELD(
+                                  mClientCert,
+                                  EmptyString()) COPY_OPT_FIELD(mCaCert,
+                                                                EmptyString())
+                                  COPY_OPT_FIELD(
+                                      mCaPath,
+                                      EmptyString()) COPY_OPT_FIELD(mSubjectMatch,
+                                                                    EmptyString())
+                                      COPY_OPT_FIELD(
+                                          mEngineId,
+                                          EmptyString()) COPY_OPT_FIELD(mEngine,
+                                                                        false)
+                                          COPY_OPT_FIELD(mPrivateKeyId,
+                                                         EmptyString())
+                                              COPY_OPT_FIELD(mAltSubjectMatch,
+                                                             EmptyString())
+                                                  COPY_OPT_FIELD(
+                                                      mDomainSuffixMatch,
+                                                      EmptyString())
+                                                      COPY_OPT_FIELD(
+                                                          mProactiveKeyCaching,
+                                                          false)
+                                                          COPY_OPT_FIELD(
+                                                              mSimIndex, 0)}
 
-  int32_t  mNetId;
+  int32_t mNetId;
   nsString mSsid;
   nsString mBssid;
   nsString mKeyMgmt;
@@ -114,9 +127,9 @@ struct ConfigurationOptions {
   nsString mWepKey1;
   nsString mWepKey2;
   nsString mWepKey3;
-  int32_t  mWepTxKeyIndex;
-  bool     mScanSsid;
-  bool     mPmf;
+  int32_t mWepTxKeyIndex;
+  bool mScanSsid;
+  bool mPmf;
   nsString mProto;
   nsString mAuthAlg;
   nsString mGroupCipher;
@@ -131,31 +144,29 @@ struct ConfigurationOptions {
   nsString mCaPath;
   nsString mSubjectMatch;
   nsString mEngineId;
-  bool     mEngine;
+  bool mEngine;
   nsString mPrivateKeyId;
   nsString mAltSubjectMatch;
   nsString mDomainSuffixMatch;
-  bool     mProactiveKeyCaching;
-  int32_t  mSimIndex;
+  bool mProactiveKeyCaching;
+  int32_t mSimIndex;
 };
 
 struct SoftapConfigurationOptions {
  public:
   SoftapConfigurationOptions() = default;
 
-  explicit SoftapConfigurationOptions(const mozilla::dom::SoftapConfiguration& aOther) {
-    COPY_OPT_FIELD(mSsid, EmptyString())
-    COPY_OPT_FIELD(mKeyMgmt, 0)
-    COPY_OPT_FIELD(mKey, EmptyString())
-    COPY_OPT_FIELD(mCountryCode, EmptyString())
-    COPY_OPT_FIELD(mBand, 0)
-    COPY_OPT_FIELD(mChannel, 0)
-    COPY_OPT_FIELD(mHidden, false)
-    COPY_OPT_FIELD(mEnable11N, false)
-    COPY_OPT_FIELD(mEnable11AC, false)
-    COPY_OPT_FIELD(mEnableACS, false)
-    COPY_OPT_FIELD(mAcsExcludeDfs, false)
-  }
+  explicit SoftapConfigurationOptions(
+      const mozilla::dom::SoftapConfiguration& aOther){
+      COPY_OPT_FIELD(mSsid, EmptyString()) COPY_OPT_FIELD(mKeyMgmt, 0)
+          COPY_OPT_FIELD(mKey, EmptyString())
+              COPY_OPT_FIELD(mCountryCode, EmptyString())
+                  COPY_OPT_FIELD(mBand, 0) COPY_OPT_FIELD(mChannel, 0)
+                      COPY_OPT_FIELD(mHidden, false)
+                          COPY_OPT_FIELD(mEnable11N, false)
+                              COPY_OPT_FIELD(mEnable11AC, false)
+                                  COPY_OPT_FIELD(mEnableACS, false)
+                                      COPY_OPT_FIELD(mAcsExcludeDfs, false)}
 
   nsString mSsid;
   uint32_t mKeyMgmt;
@@ -163,22 +174,21 @@ struct SoftapConfigurationOptions {
   nsString mCountryCode;
   uint32_t mBand;
   uint32_t mChannel;
-  bool     mHidden;
-  bool     mEnable11N;
-  bool     mEnable11AC;
-  bool     mEnableACS;
-  bool     mAcsExcludeDfs;
+  bool mHidden;
+  bool mEnable11N;
+  bool mEnable11AC;
+  bool mEnableACS;
+  bool mAcsExcludeDfs;
 };
 
 struct SupplicantDebugLevelOptions {
  public:
   SupplicantDebugLevelOptions() = default;
 
-  explicit SupplicantDebugLevelOptions(const mozilla::dom::SupplicantDebugLevel& aOther) {
-    COPY_OPT_FIELD(mLogLevel, 0)
-    COPY_OPT_FIELD(mShowTimeStamp, false)
-    COPY_OPT_FIELD(mShowKeys, false)
-  }
+  explicit SupplicantDebugLevelOptions(
+      const mozilla::dom::SupplicantDebugLevel& aOther){
+      COPY_OPT_FIELD(mLogLevel, 0) COPY_OPT_FIELD(mShowTimeStamp, false)
+          COPY_OPT_FIELD(mShowKeys, false)}
 
   uint32_t mLogLevel;
   bool mShowTimeStamp;
@@ -189,11 +199,9 @@ struct ScanSettingsOptions {
  public:
   ScanSettingsOptions() = default;
 
-  explicit ScanSettingsOptions(const mozilla::dom::ScanSettings& aOther) {
-    COPY_OPT_FIELD(mScanType, 2)
-    COPY_SEQUENCE_FIELD(mChannels, int32_t)
-    COPY_SEQUENCE_FIELD(mHiddenNetworks, nsString)
-  }
+  explicit ScanSettingsOptions(const mozilla::dom::ScanSettings& aOther){
+      COPY_OPT_FIELD(mScanType, 2) COPY_SEQUENCE_FIELD(mChannels, int32_t)
+          COPY_SEQUENCE_FIELD(mHiddenNetworks, nsString)}
 
   ScanSettingsOptions Clone() const {
     auto other = ScanSettingsOptions();
@@ -212,11 +220,9 @@ struct PnoNetworkOptions {
  public:
   PnoNetworkOptions() = default;
 
-  explicit PnoNetworkOptions(const mozilla::dom::PnoNetwork& aOther) {
-    COPY_OPT_FIELD(mIsHidden, false)
-    COPY_OPT_FIELD(mSsid, EmptyString())
-    COPY_SEQUENCE_FIELD(mFrequencies, int32_t)
-  }
+  explicit PnoNetworkOptions(const mozilla::dom::PnoNetwork& aOther){
+      COPY_OPT_FIELD(mIsHidden, false) COPY_OPT_FIELD(mSsid, EmptyString())
+          COPY_SEQUENCE_FIELD(mFrequencies, int32_t)}
 
   PnoNetworkOptions Clone() const {
     auto other = PnoNetworkOptions();
@@ -271,10 +277,9 @@ struct RoamingConfigurationOptions {
  public:
   RoamingConfigurationOptions() = default;
 
-  RoamingConfigurationOptions(const mozilla::dom::RoamingConfiguration& aOther) {
-    COPY_SEQUENCE_FIELD(mBssidBlacklist, nsString)
-    COPY_SEQUENCE_FIELD(mSsidWhitelist, nsString)
-  }
+  RoamingConfigurationOptions(const mozilla::dom::RoamingConfiguration& aOther){
+      COPY_SEQUENCE_FIELD(mBssidBlacklist, nsString)
+          COPY_SEQUENCE_FIELD(mSsidWhitelist, nsString)}
 
   RoamingConfigurationOptions Clone() const {
     auto other = RoamingConfigurationOptions();
@@ -291,9 +296,8 @@ struct SimIdentityRespDataOptions {
  public:
   SimIdentityRespDataOptions() = default;
 
-  SimIdentityRespDataOptions(const mozilla::dom::SimIdentityRespData& aOther) {
-    COPY_OPT_FIELD(mIdentity, EmptyString())
-  }
+  SimIdentityRespDataOptions(const mozilla::dom::SimIdentityRespData& aOther){
+      COPY_OPT_FIELD(mIdentity, EmptyString())}
 
   nsString mIdentity;
 };
@@ -302,10 +306,8 @@ struct SimGsmAuthRespDataOptions {
  public:
   SimGsmAuthRespDataOptions() = default;
 
-  SimGsmAuthRespDataOptions(const mozilla::dom::SimGsmAuthRespData& aOther) {
-    COPY_OPT_FIELD(mKc, EmptyString())
-    COPY_OPT_FIELD(mSres, EmptyString())
-  }
+  SimGsmAuthRespDataOptions(const mozilla::dom::SimGsmAuthRespData& aOther){
+      COPY_OPT_FIELD(mKc, EmptyString()) COPY_OPT_FIELD(mSres, EmptyString())}
 
   nsString mKc;
   nsString mSres;
@@ -315,11 +317,9 @@ struct SimUmtsAuthRespDataOptions {
  public:
   SimUmtsAuthRespDataOptions() = default;
 
-  SimUmtsAuthRespDataOptions(const mozilla::dom::SimUmtsAuthRespData& aOther) {
-    COPY_OPT_FIELD(mRes, EmptyString())
-    COPY_OPT_FIELD(mIk, EmptyString())
-    COPY_OPT_FIELD(mCk, EmptyString())
-  }
+  SimUmtsAuthRespDataOptions(const mozilla::dom::SimUmtsAuthRespData& aOther){
+      COPY_OPT_FIELD(mRes, EmptyString()) COPY_OPT_FIELD(mIk, EmptyString())
+          COPY_OPT_FIELD(mCk, EmptyString())}
 
   nsString mRes;
   nsString mIk;
@@ -330,9 +330,8 @@ struct SimUmtsAutsRespDataOptions {
  public:
   SimUmtsAutsRespDataOptions() = default;
 
-  SimUmtsAutsRespDataOptions(const mozilla::dom::SimUmtsAutsRespData& aOther) {
-    COPY_OPT_FIELD(mAuts, EmptyString())
-  }
+  SimUmtsAutsRespDataOptions(const mozilla::dom::SimUmtsAutsRespData& aOther){
+      COPY_OPT_FIELD(mAuts, EmptyString())}
 
   nsString mAuts;
 };

@@ -263,15 +263,15 @@
 
 #include "mozilla/dom/File.h"
 #ifdef MOZ_B2G_RIL
-#include "mozilla/dom/cellbroadcast/CellBroadcastChild.h"
-#include "mozilla/dom/icc/IccChild.h"
-#include "mozilla/dom/mobileconnection/ImsRegistrationChild.h"
-#include "mozilla/dom/mobileconnection/MobileConnectionChild.h"
+#  include "mozilla/dom/cellbroadcast/CellBroadcastChild.h"
+#  include "mozilla/dom/icc/IccChild.h"
+#  include "mozilla/dom/mobileconnection/ImsRegistrationChild.h"
+#  include "mozilla/dom/mobileconnection/MobileConnectionChild.h"
 //#include "mozilla/dom/mobilemessage/SmsChild.h"
-#include "mozilla/dom/subsidylock/SubsidyLockChild.h"
-#include "mozilla/dom/telephony/TelephonyChild.h"
-#include "mozilla/dom/voicemail/VoicemailChild.h"
-#endif // MOZ_B2G_RIL
+#  include "mozilla/dom/subsidylock/SubsidyLockChild.h"
+#  include "mozilla/dom/telephony/TelephonyChild.h"
+#  include "mozilla/dom/voicemail/VoicemailChild.h"
+#endif  // MOZ_B2G_RIL
 
 #include "mozilla/dom/devicestorage/DeviceStorageRequestChild.h"
 #include "mozilla/dom/MediaControllerBinding.h"
@@ -334,7 +334,7 @@ using namespace mozilla::dom::mobileconnection;
 using namespace mozilla::dom::telephony;
 using namespace mozilla::dom::voicemail;
 using namespace mozilla::dom::subsidylock;
-#endif // MOZ_B2G_RIL
+#endif  // MOZ_B2G_RIL
 
 using namespace mozilla::media;
 using namespace mozilla::embedding;
@@ -1977,7 +1977,6 @@ bool ContentChild::DeallocPHeapSnapshotTempFileHelperChild(
 #ifdef MOZ_B2G_RIL
 PMobileConnectionChild* ContentChild::SendPMobileConnectionConstructor(
     PMobileConnectionChild* aActor, const uint32_t& aClientId) {
-
   // Add an extra ref for IPDL. Will be released in
   // ContentChild::DeallocPMobileConnectionChild().
   static_cast<MobileConnectionChild*>(aActor)->AddRef();
@@ -2027,7 +2026,7 @@ bool ContentChild::DeallocPImsRegistrationChild(PImsRegistrationChild* aActor) {
   static_cast<ImsRegistrationChild*>(aActor)->Release();
   return true;
 }
-#endif // MOZ_B2G_RIL
+#endif  // MOZ_B2G_RIL
 
 PTestShellChild* ContentChild::AllocPTestShellChild() {
   return new TestShellChild();
@@ -2088,9 +2087,8 @@ PCellBroadcastChild* ContentChild::AllocPCellBroadcastChild() {
   MOZ_CRASH("No one should be allocating PCellBroadcastChild actors");
 }
 
-PCellBroadcastChild*
-ContentChild::SendPCellBroadcastConstructor(PCellBroadcastChild* aActor)
-{
+PCellBroadcastChild* ContentChild::SendPCellBroadcastConstructor(
+    PCellBroadcastChild* aActor) {
   aActor = PContentChild::SendPCellBroadcastConstructor(aActor);
   if (aActor) {
     static_cast<CellBroadcastChild*>(aActor)->AddRef();
@@ -2099,9 +2097,7 @@ ContentChild::SendPCellBroadcastConstructor(PCellBroadcastChild* aActor)
   return aActor;
 }
 
-bool
-ContentChild::DeallocPCellBroadcastChild(PCellBroadcastChild* aActor)
-{
+bool ContentChild::DeallocPCellBroadcastChild(PCellBroadcastChild* aActor) {
   static_cast<CellBroadcastChild*>(aActor)->Release();
   return true;
 }
@@ -2128,39 +2124,31 @@ bool ContentChild::DeallocPTelephonyChild(PTelephonyChild* aActor) {
   return true;
 }
 
-PSubsidyLockChild*
-ContentChild::SendPSubsidyLockConstructor(PSubsidyLockChild* aActor,
-                                          const uint32_t& aClientId)
-{
+PSubsidyLockChild* ContentChild::SendPSubsidyLockConstructor(
+    PSubsidyLockChild* aActor, const uint32_t& aClientId) {
   // Add an extra ref for IPDL. Will be released in
   // ContentChild::DeallocPSubsidyLockChild().
   static_cast<SubsidyLockChild*>(aActor)->AddRef();
   return PContentChild::SendPSubsidyLockConstructor(aActor, aClientId);
 }
 
-PSubsidyLockChild*
-ContentChild::AllocPSubsidyLockChild(const uint32_t& aClientId)
-{
+PSubsidyLockChild* ContentChild::AllocPSubsidyLockChild(
+    const uint32_t& aClientId) {
   MOZ_CRASH("No one should be allocating PSubsidyLockChild actors");
   return nullptr;
 }
 
-bool
-ContentChild::DeallocPSubsidyLockChild(PSubsidyLockChild* aActor)
-{
+bool ContentChild::DeallocPSubsidyLockChild(PSubsidyLockChild* aActor) {
   // SubsidyLockChild is refcounted, must not be freed manually.
   static_cast<SubsidyLockChild*>(aActor)->Release();
 }
 
-PVoicemailChild*
-ContentChild::AllocPVoicemailChild()
-{
+PVoicemailChild* ContentChild::AllocPVoicemailChild() {
   MOZ_CRASH("No one should be allocating PVoicemailChild actors");
 }
 
-PVoicemailChild*
-ContentChild::SendPVoicemailConstructor(PVoicemailChild* aActor)
-{
+PVoicemailChild* ContentChild::SendPVoicemailConstructor(
+    PVoicemailChild* aActor) {
   aActor = PContentChild::SendPVoicemailConstructor(aActor);
   if (aActor) {
     static_cast<VoicemailChild*>(aActor)->AddRef();
@@ -2169,9 +2157,7 @@ ContentChild::SendPVoicemailConstructor(PVoicemailChild* aActor)
   return aActor;
 }
 
-bool
-ContentChild::DeallocPVoicemailChild(PVoicemailChild* aActor)
-{
+bool ContentChild::DeallocPVoicemailChild(PVoicemailChild* aActor) {
   static_cast<VoicemailChild*>(aActor)->Release();
   return true;
 }
@@ -2194,7 +2180,7 @@ bool ContentChild::DeallocPIccChild(PIccChild* aActor) {
   static_cast<IccChild*>(aActor)->Release();
   return true;
 }
-#endif // MOZ_B2G_RIL_END
+#endif  // MOZ_B2G_RIL_END
 
 PNeckoChild* ContentChild::AllocPNeckoChild() { return new NeckoChild(); }
 

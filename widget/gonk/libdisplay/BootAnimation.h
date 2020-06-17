@@ -18,13 +18,11 @@
 
 namespace mozilla {
 
-MOZ_EXPORT __attribute__ ((weak))
-void StartBootAnimation();
+MOZ_EXPORT __attribute__((weak)) void StartBootAnimation();
 
 /* Stop the boot animation if it's still running. */
-MOZ_EXPORT __attribute__ ((weak))
-void StopBootAnimation();
+MOZ_EXPORT __attribute__((weak)) void StopBootAnimation();
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* BOOTANIMATION_H */

@@ -19,13 +19,13 @@
 #ifndef mozilla_HwcComposer2D
 #define mozilla_HwcComposer2D
 
-#include "hwchal/HwcHALBase.h"              // for HwcHAL
-#include "HwcUtils.h"                       // for RectVector
+#include "hwchal/HwcHALBase.h"  // for HwcHAL
+#include "HwcUtils.h"           // for RectVector
 #include "Layers.h"
 #include "mozilla/layers/Composer2D.h"
 #include "mozilla/layers/FenceUtils.h"
 #include "mozilla/Mutex.h"
-#include "mozilla/UniquePtr.h"              // for HwcHAL
+#include "mozilla/UniquePtr.h"  // for HwcHAL
 
 #include <vector>
 #include <list>
@@ -37,13 +37,13 @@ class nsScreenGonk;
 namespace mozilla {
 
 namespace gl {
-    class GLContext;
+class GLContext;
 }
 
 namespace layers {
 class CompositorBridgeParent;
 class Layer;
-}
+}  // namespace layers
 
 /*
  * HwcComposer2D provides a way for gecko to render frames
@@ -63,86 +63,83 @@ class Layer;
  *
  */
 class HwcComposer2D : public mozilla::layers::Composer2D {
-public:
-    HwcComposer2D();
-    virtual ~HwcComposer2D();
+ public:
+  HwcComposer2D();
+  virtual ~HwcComposer2D();
 
-    static HwcComposer2D* GetInstance();
+  static HwcComposer2D* GetInstance();
 
-    // Returns TRUE if the container has been succesfully rendered
-    // Returns FALSE if the container cannot be fully rendered
-    // by this composer so nothing was rendered at all
-    virtual bool TryRenderWithHwc(layers::Layer* aRoot,
-                                  nsIWidget* aWidget,
-                                  bool aGeometryChanged,
-                                  bool aHasImageHostOverlays) override;
+  // Returns TRUE if the container has been succesfully rendered
+  // Returns FALSE if the container cannot be fully rendered
+  // by this composer so nothing was rendered at all
+  virtual bool TryRenderWithHwc(layers::Layer* aRoot, nsIWidget* aWidget,
+                                bool aGeometryChanged,
+                                bool aHasImageHostOverlays) override;
 
-    virtual bool Render(nsIWidget* aWidget) override;
+  virtual bool Render(nsIWidget* aWidget) override;
 
-    virtual bool HasHwc() override { return mHal->HasHwc(); }
+  virtual bool HasHwc() override { return mHal->HasHwc(); }
 
-    bool EnableVsync(bool aEnable);
-    bool RegisterHwcEventCallback();
-    void Vsync(int aDisplay, int64_t aTimestamp);
-    void Invalidate();
-    void Hotplug(int aDisplay, int aConnected);
-    void SetCompositorBridgeParent(layers::CompositorBridgeParent* aCompositorBridgeParent);
+  bool EnableVsync(bool aEnable);
+  bool RegisterHwcEventCallback();
+  void Vsync(int aDisplay, int64_t aTimestamp);
+  void Invalidate();
+  void Hotplug(int aDisplay, int aConnected);
+  void SetCompositorBridgeParent(
+      layers::CompositorBridgeParent* aCompositorBridgeParent);
 
-    // We might want to stop rendering with Hwc because things drawn on
-    // underlay and overlay layers will not be composed by Hwc.
-    // aIsStop equals true stops render with Hwc, vice versa.
-    void StopRenderWithHwc(bool aIsStop);
+  // We might want to stop rendering with Hwc because things drawn on
+  // underlay and overlay layers will not be composed by Hwc.
+  // aIsStop equals true stops render with Hwc, vice versa.
+  void StopRenderWithHwc(bool aIsStop);
 
-    void SetVsyncAlwaysEnabled(bool aAlways);
-private:
-    void Reset();
-    void Prepare(buffer_handle_t dispHandle, int fence, nsScreenGonk* screen);
-    bool Commit(nsScreenGonk* aScreen);
-    bool TryHwComposition(nsScreenGonk* aScreen);
-    bool ReallocLayerList();
-    bool PrepareLayerList(layers::Layer* aContainer, const nsIntRect& aClip,
-          const gfx::Matrix& aParentTransform,
-          bool aFindSidebandStreams);
-    void SendtoLayerScope();
+  void SetVsyncAlwaysEnabled(bool aAlways);
 
-    UniquePtr<HwcHALBase>   mHal;
-    HwcList*                mList;
-    nsIntRect               mScreenRect;
-    int                     mMaxLayerCount;
-    bool                    mColorFill;
-    bool                    mRBSwapSupport;
-    //Holds all the dynamically allocated RectVectors needed
-    //to render the current frame
-    std::list<HwcUtils::RectVector>   mVisibleRegions;
-    layers::FenceHandle mPrevRetireFence;
-    layers::FenceHandle mPrevDisplayFence;
-    nsTArray<HwcLayer>      mCachedSidebandLayers;
-    //nsTArray<layers::LayerComposite*> mHwcLayerMap;
-    bool                    mPrepared;
-    bool                    mHasHWVsync;
-    bool                    mStopRenderWithHwc;
-    bool                    mAlwaysEnabled;
-    layers::CompositorBridgeParent* mCompositorBridgeParent;
-    Mutex mLock;
+ private:
+  void Reset();
+  void Prepare(buffer_handle_t dispHandle, int fence, nsScreenGonk* screen);
+  bool Commit(nsScreenGonk* aScreen);
+  bool TryHwComposition(nsScreenGonk* aScreen);
+  bool ReallocLayerList();
+  bool PrepareLayerList(layers::Layer* aContainer, const nsIntRect& aClip,
+                        const gfx::Matrix& aParentTransform,
+                        bool aFindSidebandStreams);
+  void SendtoLayerScope();
+
+  UniquePtr<HwcHALBase> mHal;
+  HwcList* mList;
+  nsIntRect mScreenRect;
+  int mMaxLayerCount;
+  bool mColorFill;
+  bool mRBSwapSupport;
+  // Holds all the dynamically allocated RectVectors needed
+  // to render the current frame
+  std::list<HwcUtils::RectVector> mVisibleRegions;
+  layers::FenceHandle mPrevRetireFence;
+  layers::FenceHandle mPrevDisplayFence;
+  nsTArray<HwcLayer> mCachedSidebandLayers;
+  // nsTArray<layers::LayerComposite*> mHwcLayerMap;
+  bool mPrepared;
+  bool mHasHWVsync;
+  bool mStopRenderWithHwc;
+  bool mAlwaysEnabled;
+  layers::CompositorBridgeParent* mCompositorBridgeParent;
+  Mutex mLock;
 };
 
-class HWComposerCallback : public HWC2::ComposerCallback
-{
-    public:
-        explicit HWComposerCallback(HWC2::Device* device) {
-            hwcDevice = device;
-        }
+class HWComposerCallback : public HWC2::ComposerCallback {
+ public:
+  explicit HWComposerCallback(HWC2::Device* device) { hwcDevice = device; }
 
-        void onVsyncReceived(int32_t sequenceId, hwc2_display_t display,
-                            int64_t timestamp) override;
-        void onHotplugReceived(int32_t sequenceId, hwc2_display_t display,
-                            HWC2::Connection connection
-                            ) override;
-        void onRefreshReceived(int32_t sequenceId, hwc2_display_t display) override;
+  void onVsyncReceived(int32_t sequenceId, hwc2_display_t display,
+                       int64_t timestamp) override;
+  void onHotplugReceived(int32_t sequenceId, hwc2_display_t display,
+                         HWC2::Connection connection) override;
+  void onRefreshReceived(int32_t sequenceId, hwc2_display_t display) override;
 
-    private:
-        HWC2::Device* hwcDevice;
+ private:
+  HWC2::Device* hwcDevice;
 };
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_HwcComposer2D
+#endif  // mozilla_HwcComposer2D

@@ -80,21 +80,13 @@ mozilla::ipc::IPCResult CellBroadcastChild::RecvNotifyReceivedMessage(
   // UnregisterListener() could be triggered in
   // nsICellBroadcastListener::NotifyMessageReceived().
   // Make a immutable copy for notifying the event.
-  nsTArray<nsCOMPtr<nsICellBroadcastListener>> immutableListeners(mListeners.Clone());
+  nsTArray<nsCOMPtr<nsICellBroadcastListener>> immutableListeners(
+      mListeners.Clone());
   for (uint32_t i = 0; i < immutableListeners.Length(); i++) {
-    immutableListeners[i]->NotifyMessageReceived(aServiceId,
-                                                 aGsmGeographicalScope,
-                                                 aMessageCode,
-                                                 aMessageId,
-                                                 aLanguage,
-                                                 aBody,
-                                                 aMessageClass,
-                                                 aTimestamp,
-                                                 aCdmaServiceCategory,
-                                                 aHasEtwsInfo,
-                                                 aEtwsWarningType,
-                                                 aEtwsEmergencyUserAlert,
-                                                 aEtwsPopup);
+    immutableListeners[i]->NotifyMessageReceived(
+        aServiceId, aGsmGeographicalScope, aMessageCode, aMessageId, aLanguage,
+        aBody, aMessageClass, aTimestamp, aCdmaServiceCategory, aHasEtwsInfo,
+        aEtwsWarningType, aEtwsEmergencyUserAlert, aEtwsPopup);
   }
 
   return IPC_OK();
@@ -104,6 +96,6 @@ void CellBroadcastChild::ActorDestroy(ActorDestroyReason aWhy) {
   mActorDestroyed = true;
 }
 
-} // namespace cellbroadcast
-} // namespace dom
-} // namespace mozilla
+}  // namespace cellbroadcast
+}  // namespace dom
+}  // namespace mozilla

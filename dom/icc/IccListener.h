@@ -15,27 +15,21 @@ namespace dom {
 class IccManager;
 class Icc;
 
-class IccListener final : public nsIIccListener
-{
-public:
+class IccListener final : public nsIIccListener {
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIICCLISTENER
 
   IccListener(IccManager* aIccManager, uint32_t aClientId);
 
-  void
-  Shutdown();
+  void Shutdown();
 
-  Icc*
-  GetIcc()
-  {
-    return mIcc;
-  }
+  Icc* GetIcc() { return mIcc; }
 
-private:
+ private:
   ~IccListener();
 
-private:
+ private:
   uint32_t mClientId;
   // We did not setup 'mIcc' and 'mIccManager' being a participant of cycle
   // collection is because in Navigator->Invalidate() it will call
@@ -48,7 +42,7 @@ private:
   nsCOMPtr<nsIIcc> mHandler;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_IccListener_h
+#endif  // mozilla_dom_IccListener_h

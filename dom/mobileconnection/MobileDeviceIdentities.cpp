@@ -33,32 +33,28 @@ void MobileDeviceIdentities::Update(nsIMobileDeviceIdentities* aIdentities) {
 
 // nsIMobileConnectionDeviceIds
 NS_IMETHODIMP
-MobileDeviceIdentities::GetImei(nsAString& aImei)
-{
+MobileDeviceIdentities::GetImei(nsAString& aImei) {
   aImei = mImei;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileDeviceIdentities::GetImeisv(nsAString& aImeisv)
-{
+MobileDeviceIdentities::GetImeisv(nsAString& aImeisv) {
   aImeisv = mImeisv;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileDeviceIdentities::GetEsn(nsAString& aEsn)
-{
+MobileDeviceIdentities::GetEsn(nsAString& aEsn) {
   aEsn = mEsn;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileDeviceIdentities::GetMeid(nsAString& aMeid)
-{
+MobileDeviceIdentities::GetMeid(nsAString& aMeid) {
   aMeid = mMeid;
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

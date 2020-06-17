@@ -89,7 +89,6 @@ GetEntryHelper::GetEntryHelper(FileSystemDirectoryEntry* aParentEntry,
 
 GetEntryHelper::~GetEntryHelper() = default;
 
-
 void GetEntryHelper::Run() {
   MOZ_ASSERT(!mParts.IsEmpty());
 

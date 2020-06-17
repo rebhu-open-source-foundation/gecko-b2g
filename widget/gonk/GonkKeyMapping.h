@@ -25,12 +25,12 @@ namespace widget {
 /* See libui/KeycodeLabels.h for the mapping */
 static const unsigned long kKeyMapping[] = {
     0,
-    0, // SOFT_LEFT
-    0, // SOFT_RIGHT
-    NS_VK_HOME, // HOME
-    0, // BACK
-    0, // CALL
-    NS_VK_SLEEP, // ENDCALL
+    0,            // SOFT_LEFT
+    0,            // SOFT_RIGHT
+    NS_VK_HOME,   // HOME
+    0,            // BACK
+    0,            // CALL
+    NS_VK_SLEEP,  // ENDCALL
     NS_VK_0,
     NS_VK_1,
     NS_VK_2,
@@ -50,8 +50,8 @@ static const unsigned long kKeyMapping[] = {
     NS_VK_RETURN,
     NS_VK_VOLUME_UP,
     NS_VK_VOLUME_DOWN,
-    NS_VK_SLEEP,     // POWER
-    NS_VK_PRINTSCREEN, // CAMERA
+    NS_VK_SLEEP,        // POWER
+    NS_VK_PRINTSCREEN,  // CAMERA
     NS_VK_CLEAR,
     NS_VK_A,
     NS_VK_B,
@@ -87,12 +87,12 @@ static const unsigned long kKeyMapping[] = {
     0,
     NS_VK_TAB,
     NS_VK_SPACE,
-    NS_VK_META, // SYM
-    0, // EXPLORER
-    0, // ENVELOPE
-    NS_VK_RETURN, // ENTER
+    NS_VK_META,    // SYM
+    0,             // EXPLORER
+    0,             // ENVELOPE
+    NS_VK_RETURN,  // ENTER
     NS_VK_BACK,
-    NS_VK_BACK_QUOTE, // GRAVE
+    NS_VK_BACK_QUOTE,  // GRAVE
     NS_VK_HYPHEN_MINUS,
     NS_VK_EQUALS,
     NS_VK_OPEN_BRACKET,
@@ -102,59 +102,59 @@ static const unsigned long kKeyMapping[] = {
     NS_VK_QUOTE,
     NS_VK_SLASH,
     NS_VK_AT,
-    0, // NUM
-    NS_VK_F1, // HEADSETHOOK
-    0, // FOCUS
+    0,         // NUM
+    NS_VK_F1,  // HEADSETHOOK
+    0,         // FOCUS
     NS_VK_PLUS,
     NS_VK_CONTEXT_MENU,
-    0, // NOTIFICATION
-    NS_VK_F5, // SEARCH
-    0, // MEDIA_PLAY_PAUSE
-    0, // MEDIA_STOP
-    0, // MEDIA_NEXT
-    0, // MEDIA_PREVIOUS
-    0, // MEDIA_REWIND
-    0, // MEDIA_FAST_FORWARD
-    0, // MUTE
+    0,         // NOTIFICATION
+    NS_VK_F5,  // SEARCH
+    0,         // MEDIA_PLAY_PAUSE
+    0,         // MEDIA_STOP
+    0,         // MEDIA_NEXT
+    0,         // MEDIA_PREVIOUS
+    0,         // MEDIA_REWIND
+    0,         // MEDIA_FAST_FORWARD
+    0,         // MUTE
     NS_VK_PAGE_UP,
     NS_VK_PAGE_DOWN,
-    0, // PICTSYMBOLS
-    0, // SWITCH_CHARSET
-    0, // BUTTON_A
-    0, // BUTTON_B
-    0, // BUTTON_C
-    0, // BUTTON_X
-    0, // BUTTON_Y
-    0, // BUTTON_Z
-    0, // BUTTON_L1
-    0, // BUTTON_R1
-    0, // BUTTON_L2
-    0, // BUTTON_R2
-    0, // BUTTON_THUMBL
-    0, // BUTTON_THUMBR
-    0, // BUTTON_START
-    0, // BUTTON_SELECT
-    0, // BUTTON_MODE
+    0,  // PICTSYMBOLS
+    0,  // SWITCH_CHARSET
+    0,  // BUTTON_A
+    0,  // BUTTON_B
+    0,  // BUTTON_C
+    0,  // BUTTON_X
+    0,  // BUTTON_Y
+    0,  // BUTTON_Z
+    0,  // BUTTON_L1
+    0,  // BUTTON_R1
+    0,  // BUTTON_L2
+    0,  // BUTTON_R2
+    0,  // BUTTON_THUMBL
+    0,  // BUTTON_THUMBR
+    0,  // BUTTON_START
+    0,  // BUTTON_SELECT
+    0,  // BUTTON_MODE
     NS_VK_ESCAPE,
     NS_VK_DELETE,
-    0, // CTRL_LEFT
-    0, // CTRL_RIGHT
+    0,  // CTRL_LEFT
+    0,  // CTRL_RIGHT
     NS_VK_CAPS_LOCK,
     NS_VK_SCROLL_LOCK,
-    0, // META_LEFT
-    0, // META_RIGHT
-    0, // FUNCTION
-    0, // SYSRQ
-    0, // BREAK
-    NS_VK_HOME, // MOVE_HOME
+    0,           // META_LEFT
+    0,           // META_RIGHT
+    0,           // FUNCTION
+    0,           // SYSRQ
+    0,           // BREAK
+    NS_VK_HOME,  // MOVE_HOME
     NS_VK_END,
     NS_VK_INSERT,
-    0, // FORWARD
-    0, // MEDIA_PLAY
-    0, // MEDIA_PAUSE
-    0, // MEDIA_CLOSE
-    0, // MEDIA_EJECT
-    0, // MEDIA_RECORD
+    0,  // FORWARD
+    0,  // MEDIA_PLAY
+    0,  // MEDIA_PAUSE
+    0,  // MEDIA_CLOSE
+    0,  // MEDIA_EJECT
+    0,  // MEDIA_RECORD
     NS_VK_F1,
     NS_VK_F2,
     NS_VK_F3,
@@ -186,17 +186,17 @@ static const unsigned long kKeyMapping[] = {
     NS_VK_COMMA,
     NS_VK_RETURN,
     NS_VK_EQUALS,
-    0, // NUMPAD_LEFT_PAREN
-    0, // NUMPAD_RIGHT_PAREN
+    0,  // NUMPAD_LEFT_PAREN
+    0,  // NUMPAD_RIGHT_PAREN
     NS_VK_VOLUME_MUTE,
     // There are more but we don't map them
 };
 
-static KeyNameIndex GetKeyNameIndex(int aKeyCode)
-{
-    switch (aKeyCode) {
+static KeyNameIndex GetKeyNameIndex(int aKeyCode) {
+  switch (aKeyCode) {
 #define NS_NATIVE_KEY_TO_DOM_KEY_NAME_INDEX(aNativeKey, aKeyNameIndex) \
-    case aNativeKey: return aKeyNameIndex;
+  case aNativeKey:                                                     \
+    return aKeyNameIndex;
 
 #include "NativeKeyToDOMKeyName.h"
 
@@ -273,29 +273,29 @@ static KeyNameIndex GetKeyNameIndex(int aKeyCode)
     case AKEYCODE_NUMPAD_EQUALS:
     case AKEYCODE_NUMPAD_LEFT_PAREN:
     case AKEYCODE_NUMPAD_RIGHT_PAREN:
-        return KEY_NAME_INDEX_USE_STRING;
+      return KEY_NAME_INDEX_USE_STRING;
 
     default:
-        return KEY_NAME_INDEX_Unidentified;
-    }
+      return KEY_NAME_INDEX_Unidentified;
+  }
 }
 
-static CodeNameIndex GetCodeNameIndex(int aScanCode)
-{
-    switch (aScanCode) {
+static CodeNameIndex GetCodeNameIndex(int aScanCode) {
+  switch (aScanCode) {
 #define NS_NATIVE_KEY_TO_DOM_CODE_NAME_INDEX(aNativeKey, aCodeNameIndex) \
-    case aNativeKey: return aCodeNameIndex;
+  case aNativeKey:                                                       \
+    return aCodeNameIndex;
 
 #include "NativeKeyToDOMCodeName.h"
 
 #undef NS_NATIVE_KEY_TO_DOM_CODE_NAME_INDEX
 
     default:
-        return CODE_NAME_INDEX_UNKNOWN;
-    }
+      return CODE_NAME_INDEX_UNKNOWN;
+  }
 }
 
-} // namespace widget
-} // namespace mozilla
+}  // namespace widget
+}  // namespace mozilla
 
 #endif /* GONKKEYMAPPING_H */

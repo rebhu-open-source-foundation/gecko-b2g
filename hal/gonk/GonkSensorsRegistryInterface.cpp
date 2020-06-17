@@ -18,43 +18,33 @@ using namespace mozilla::ipc;
 // GonkSensorsRegistryResultHandler
 //
 
-void
-GonkSensorsRegistryResultHandler::OnError(SensorsError aError)
-{
+void GonkSensorsRegistryResultHandler::OnError(SensorsError aError) {
   HAL_ERR("Received error code %d", static_cast<int>(aError));
 }
 
-void
-GonkSensorsRegistryResultHandler::RegisterModule(uint32_t aProtocolVersion)
-{ }
+void GonkSensorsRegistryResultHandler::RegisterModule(
+    uint32_t aProtocolVersion) {}
 
-void
-GonkSensorsRegistryResultHandler::UnregisterModule()
-{ }
+void GonkSensorsRegistryResultHandler::UnregisterModule() {}
 
-GonkSensorsRegistryResultHandler::~GonkSensorsRegistryResultHandler()
-{ }
+GonkSensorsRegistryResultHandler::~GonkSensorsRegistryResultHandler() {}
 
 //
 // GonkSensorsRegistryModule
 //
 
-GonkSensorsRegistryModule::~GonkSensorsRegistryModule()
-{ }
+GonkSensorsRegistryModule::~GonkSensorsRegistryModule() {}
 
-void
-GonkSensorsRegistryModule::HandleSvc(const DaemonSocketPDUHeader& aHeader,
-                                     DaemonSocketPDU& aPDU,
-                                     DaemonSocketResultHandler* aRes)
-{
-  static void (GonkSensorsRegistryModule::* const HandleRsp[])(
-    const DaemonSocketPDUHeader&,
-    DaemonSocketPDU&,
-    GonkSensorsRegistryResultHandler*) = {
-    [OPCODE_ERROR] = &GonkSensorsRegistryModule::ErrorRsp,
-    [OPCODE_REGISTER_MODULE] = &GonkSensorsRegistryModule::RegisterModuleRsp,
-    [OPCODE_UNREGISTER_MODULE] = &GonkSensorsRegistryModule::UnregisterModuleRsp
-  };
+void GonkSensorsRegistryModule::HandleSvc(const DaemonSocketPDUHeader& aHeader,
+                                          DaemonSocketPDU& aPDU,
+                                          DaemonSocketResultHandler* aRes) {
+  static void (GonkSensorsRegistryModule::*const HandleRsp[])(
+      const DaemonSocketPDUHeader&, DaemonSocketPDU&,
+      GonkSensorsRegistryResultHandler*) = {
+      [OPCODE_ERROR] = &GonkSensorsRegistryModule::ErrorRsp,
+      [OPCODE_REGISTER_MODULE] = &GonkSensorsRegistryModule::RegisterModuleRsp,
+      [OPCODE_UNREGISTER_MODULE] =
+          &GonkSensorsRegistryModule::UnregisterModuleRsp};
 
   if ((aHeader.mOpcode >= MOZ_ARRAY_LENGTH(HandleRsp)) ||
       !HandleRsp[aHeader.mOpcode]) {
@@ -63,10 +53,10 @@ GonkSensorsRegistryModule::HandleSvc(const DaemonSocketPDUHeader& aHeader,
   }
 
   RefPtr<GonkSensorsRegistryResultHandler> res =
-    static_cast<GonkSensorsRegistryResultHandler*>(aRes);
+      static_cast<GonkSensorsRegistryResultHandler*>(aRes);
 
   if (!res) {
-    return; // Return early if no result handler has been set
+    return;  // Return early if no result handler has been set
   }
 
   (this->*(HandleRsp[aHeader.mOpcode]))(aHeader, aPDU, res);
@@ -75,14 +65,12 @@ GonkSensorsRegistryModule::HandleSvc(const DaemonSocketPDUHeader& aHeader,
 // Commands
 //
 
-nsresult
-GonkSensorsRegistryModule::RegisterModuleCmd(
-  uint8_t aId, GonkSensorsRegistryResultHandler* aRes)
-{
+nsresult GonkSensorsRegistryModule::RegisterModuleCmd(
+    uint8_t aId, GonkSensorsRegistryResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   UniquePtr<DaemonSocketPDU> pdu =
-    MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_REGISTER_MODULE, 0);
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_REGISTER_MODULE, 0);
 
   nsresult rv = PackPDU(aId, *pdu);
   if (NS_FAILED(rv)) {
@@ -96,14 +84,12 @@ GonkSensorsRegistryModule::RegisterModuleCmd(
   return NS_OK;
 }
 
-nsresult
-GonkSensorsRegistryModule::UnregisterModuleCmd(
-  uint8_t aId, GonkSensorsRegistryResultHandler* aRes)
-{
+nsresult GonkSensorsRegistryModule::UnregisterModuleCmd(
+    uint8_t aId, GonkSensorsRegistryResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   UniquePtr<DaemonSocketPDU> pdu =
-    MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_UNREGISTER_MODULE, 0);
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_UNREGISTER_MODULE, 0);
 
   nsresult rv = PackPDU(aId, *pdu);
   if (NS_FAILED(rv)) {
@@ -120,35 +106,27 @@ GonkSensorsRegistryModule::UnregisterModuleCmd(
 // Responses
 //
 
-void
-GonkSensorsRegistryModule::ErrorRsp(
-  const DaemonSocketPDUHeader& aHeader,
-  DaemonSocketPDU& aPDU, GonkSensorsRegistryResultHandler* aRes)
-{
-  ErrorRunnable::Dispatch(
-    aRes, &GonkSensorsRegistryResultHandler::OnError, UnpackPDUInitOp(aPDU));
+void GonkSensorsRegistryModule::ErrorRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    GonkSensorsRegistryResultHandler* aRes) {
+  ErrorRunnable::Dispatch(aRes, &GonkSensorsRegistryResultHandler::OnError,
+                          UnpackPDUInitOp(aPDU));
 }
 
-void
-GonkSensorsRegistryModule::RegisterModuleRsp(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
-  GonkSensorsRegistryResultHandler* aRes)
-{
+void GonkSensorsRegistryModule::RegisterModuleRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    GonkSensorsRegistryResultHandler* aRes) {
   Uint32ResultRunnable::Dispatch(
-    aRes,
-    &GonkSensorsRegistryResultHandler::RegisterModule,
-    UnpackPDUInitOp(aPDU));
+      aRes, &GonkSensorsRegistryResultHandler::RegisterModule,
+      UnpackPDUInitOp(aPDU));
 }
 
-void
-GonkSensorsRegistryModule::UnregisterModuleRsp(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
-  GonkSensorsRegistryResultHandler* aRes)
-{
-  ResultRunnable::Dispatch(
-    aRes,
-    &GonkSensorsRegistryResultHandler::UnregisterModule,
-    UnpackPDUInitOp(aPDU));
+void GonkSensorsRegistryModule::UnregisterModuleRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    GonkSensorsRegistryResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes,
+                           &GonkSensorsRegistryResultHandler::UnregisterModule,
+                           UnpackPDUInitOp(aPDU));
 }
 
 //
@@ -156,17 +134,13 @@ GonkSensorsRegistryModule::UnregisterModuleRsp(
 //
 
 GonkSensorsRegistryInterface::GonkSensorsRegistryInterface(
-  GonkSensorsRegistryModule* aModule)
-  : mModule(aModule)
-{ }
+    GonkSensorsRegistryModule* aModule)
+    : mModule(aModule) {}
 
-GonkSensorsRegistryInterface::~GonkSensorsRegistryInterface()
-{ }
+GonkSensorsRegistryInterface::~GonkSensorsRegistryInterface() {}
 
-void
-GonkSensorsRegistryInterface::RegisterModule(
-  uint8_t aId, GonkSensorsRegistryResultHandler* aRes)
-{
+void GonkSensorsRegistryInterface::RegisterModule(
+    uint8_t aId, GonkSensorsRegistryResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
   nsresult rv = mModule->RegisterModuleCmd(aId, aRes);
@@ -175,10 +149,8 @@ GonkSensorsRegistryInterface::RegisterModule(
   }
 }
 
-void
-GonkSensorsRegistryInterface::UnregisterModule(
-  uint8_t aId, GonkSensorsRegistryResultHandler* aRes)
-{
+void GonkSensorsRegistryInterface::UnregisterModule(
+    uint8_t aId, GonkSensorsRegistryResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
   nsresult rv = mModule->UnregisterModuleCmd(aId, aRes);
@@ -187,20 +159,16 @@ GonkSensorsRegistryInterface::UnregisterModule(
   }
 }
 
-void
-GonkSensorsRegistryInterface::DispatchError(
-  GonkSensorsRegistryResultHandler* aRes, SensorsError aError)
-{
-  DaemonResultRunnable1<GonkSensorsRegistryResultHandler, void,
-                        SensorsError, SensorsError>::Dispatch(
-    aRes, &GonkSensorsRegistryResultHandler::OnError,
-    ConstantInitOp1<SensorsError>(aError));
+void GonkSensorsRegistryInterface::DispatchError(
+    GonkSensorsRegistryResultHandler* aRes, SensorsError aError) {
+  DaemonResultRunnable1<
+      GonkSensorsRegistryResultHandler, void, SensorsError,
+      SensorsError>::Dispatch(aRes, &GonkSensorsRegistryResultHandler::OnError,
+                              ConstantInitOp1<SensorsError>(aError));
 }
 
-void
-GonkSensorsRegistryInterface::DispatchError(
-  GonkSensorsRegistryResultHandler* aRes, nsresult aRv)
-{
+void GonkSensorsRegistryInterface::DispatchError(
+    GonkSensorsRegistryResultHandler* aRes, nsresult aRv) {
   SensorsError error;
 
   if (NS_FAILED(Convert(aRv, error))) {
@@ -209,5 +177,5 @@ GonkSensorsRegistryInterface::DispatchError(
   DispatchError(aRes, error);
 }
 
-} // namespace hal
-} // namespace mozilla
+}  // namespace hal
+}  // namespace mozilla

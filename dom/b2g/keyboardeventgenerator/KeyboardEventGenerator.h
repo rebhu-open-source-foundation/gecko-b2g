@@ -17,21 +17,17 @@ namespace dom {
 
 class KeyboardEvent;
 
-class KeyboardEventGenerator final : public nsISupports,
-                                     public nsWrapperCache
-{
-public:
+class KeyboardEventGenerator final : public nsISupports, public nsWrapperCache {
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(KeyboardEventGenerator)
 
-  static already_AddRefed<KeyboardEventGenerator>
-    Constructor(const GlobalObject& aGlobal,
-                ErrorResult& aRv);
+  static already_AddRefed<KeyboardEventGenerator> Constructor(
+      const GlobalObject& aGlobal, ErrorResult& aRv);
 
-  explicit KeyboardEventGenerator(nsPIDOMWindowInner *aWindow);
+  explicit KeyboardEventGenerator(nsPIDOMWindowInner* aWindow);
 
-  nsPIDOMWindowOuter* GetParentObject() const
-  {
+  nsPIDOMWindowOuter* GetParentObject() const {
     return mWindow->GetOuterWindow();
   }
 
@@ -40,14 +36,14 @@ public:
                                JS::Handle<JSObject*> aGivenProto) override;
   void Generate(KeyboardEvent& aEvent, ErrorResult& aRv);
 
-protected:
+ protected:
   ~KeyboardEventGenerator();
 
-private:
+ private:
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_KeyboardEventGenerator_h_
+#endif  // mozilla_dom_KeyboardEventGenerator_h_

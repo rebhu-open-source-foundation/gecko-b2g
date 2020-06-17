@@ -6,18 +6,17 @@
 
 #include "nsMIMEInfoGonk.h"
 
-nsresult nsMIMEInfoGonk::LoadUriInternal(nsIURI *aURI) {
+nsresult nsMIMEInfoGonk::LoadUriInternal(nsIURI* aURI) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-nsMIMEInfoGonk::GetHasDefaultHandler(bool *_retval) {
-
+nsMIMEInfoGonk::GetHasDefaultHandler(bool* _retval) {
   *_retval = false;
 
   return NS_OK;
 }
 
-nsresult nsMIMEInfoGonk::LaunchDefaultWithFile(nsIFile *aFile) {
+nsresult nsMIMEInfoGonk::LaunchDefaultWithFile(nsIFile* aFile) {
   return NS_ERROR_FILE_NOT_FOUND;
 }

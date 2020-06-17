@@ -41,24 +41,23 @@
 namespace android {
 
 class ScopedTrace {
-public:
-inline ScopedTrace(uint64_t tag, const char* name)
-    : mTag(tag) {
+ public:
+  inline ScopedTrace(uint64_t tag, const char* name) : mTag(tag) {
 #ifdef HAVE_ANDROID_OS
-    atrace_begin(mTag,name);
+    atrace_begin(mTag, name);
 #endif
-}
+  }
 
-inline ~ScopedTrace() {
+  inline ~ScopedTrace() {
 #ifdef HAVE_ANDROID_OS
     atrace_end(mTag);
 #endif
-}
+  }
 
-private:
-    uint64_t mTag;
+ private:
+  uint64_t mTag;
 };
 
-}; // namespace android
+};  // namespace android
 
-#endif // ANDROID_TRACE_H
+#endif  // ANDROID_TRACE_H

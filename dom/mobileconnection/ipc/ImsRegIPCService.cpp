@@ -12,35 +12,33 @@ using namespace mozilla::dom;
 using namespace mozilla::dom::mobileconnection;
 
 namespace {
-  static bool gImsRegServiceFinderChecked = false;
-  static bool gImsRegServiceInstalled = false;
-  static nsTArray<uint32_t> gImsRegEnabledServiceIds;
-  // This instance is acutally owned by nsLayoutModule after
-  // do_GetService(IMS_REG_SERVICE_CONTRACTID) is invoked.
-  static ImsRegIPCService* gImsRegServiceSingleton = nullptr;
+static bool gImsRegServiceFinderChecked = false;
+static bool gImsRegServiceInstalled = false;
+static nsTArray<uint32_t> gImsRegEnabledServiceIds;
+// This instance is acutally owned by nsLayoutModule after
+// do_GetService(IMS_REG_SERVICE_CONTRACTID) is invoked.
+static ImsRegIPCService* gImsRegServiceSingleton = nullptr;
 
-  void QueryImsRegServiceFinder() {
-    if (!gImsRegServiceFinderChecked) {
-      PImsRegServiceFinderChild* finder =
+void QueryImsRegServiceFinder() {
+  if (!gImsRegServiceFinderChecked) {
+    PImsRegServiceFinderChild* finder =
         ContentChild::GetSingleton()->SendPImsRegServiceFinderConstructor();
-      MOZ_ASSERT(finder);
+    MOZ_ASSERT(finder);
 
-      NS_ENSURE_TRUE_VOID(
-        finder->SendCheckDeviceCapability(&gImsRegServiceInstalled,
-                                          &gImsRegEnabledServiceIds));
-      NS_ENSURE_TRUE_VOID(finder->Send__delete__(finder));
+    NS_ENSURE_TRUE_VOID(finder->SendCheckDeviceCapability(
+        &gImsRegServiceInstalled, &gImsRegEnabledServiceIds));
+    NS_ENSURE_TRUE_VOID(finder->Send__delete__(finder));
 
-      gImsRegServiceFinderChecked = true;
-    }
+    gImsRegServiceFinderChecked = true;
   }
-} // anonymous namespace
+}
+}  // anonymous namespace
 
 NS_IMPL_ISUPPORTS(ImsRegIPCService, nsIImsRegService)
 
-ImsRegIPCService::ImsRegIPCService()
-{
+ImsRegIPCService::ImsRegIPCService() {
   nsCOMPtr<nsIMobileConnectionService> service =
-    do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
+      do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
   NS_ENSURE_TRUE_VOID(service);
 
   uint32_t numItems = 0;
@@ -48,8 +46,7 @@ ImsRegIPCService::ImsRegIPCService()
   mHandlers.SetLength(numItems);
 }
 
-ImsRegIPCService::~ImsRegIPCService()
-{
+ImsRegIPCService::~ImsRegIPCService() {
   gImsRegServiceSingleton = nullptr;
 
   uint32_t count = mHandlers.Length();
@@ -61,8 +58,7 @@ ImsRegIPCService::~ImsRegIPCService()
 }
 
 /* static */ already_AddRefed<ImsRegIPCService>
-ImsRegIPCService::GetSingleton()
-{
+ImsRegIPCService::GetSingleton() {
   QueryImsRegServiceFinder();
 
   if (gImsRegServiceInstalled && !gImsRegServiceSingleton) {
@@ -75,8 +71,7 @@ ImsRegIPCService::GetSingleton()
 
 NS_IMETHODIMP
 ImsRegIPCService::GetHandlerByServiceId(uint32_t aServiceId,
-                                        nsIImsRegHandler** aHandler)
-{
+                                        nsIImsRegHandler** aHandler) {
   MOZ_ASSERT(aHandler);
   NS_ENSURE_TRUE(aServiceId < mHandlers.Length(), NS_ERROR_INVALID_ARG);
 

@@ -14,4 +14,3 @@ document.addEventListener(
   },
   { once: true }
 );
-

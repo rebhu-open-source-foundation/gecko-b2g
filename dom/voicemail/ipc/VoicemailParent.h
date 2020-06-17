@@ -17,40 +17,33 @@ namespace mozilla {
 namespace dom {
 namespace voicemail {
 
-class VoicemailParent final : public PVoicemailParent
-                            , public nsIVoicemailListener
-{
-public:
+class VoicemailParent final : public PVoicemailParent,
+                              public nsIVoicemailListener {
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIVOICEMAILLISTENER
 
   VoicemailParent() {}
 
-  mozilla::ipc::IPCResult
-  Init();
+  mozilla::ipc::IPCResult Init();
 
-  bool
-  RecvGetAttributes(const uint32_t& aServiceId,
-                    nsString* aNumber,
-                    nsString* aDisplayName,
-                    bool* aHasMessages,
-                    int32_t* aMessageCount,
-                    nsString* aReturnNumber,
-                    nsString* aReturnMessage);
+  bool RecvGetAttributes(const uint32_t& aServiceId, nsString* aNumber,
+                         nsString* aDisplayName, bool* aHasMessages,
+                         int32_t* aMessageCount, nsString* aReturnNumber,
+                         nsString* aReturnMessage);
 
-  void
-  ActorDestroy(ActorDestroyReason aWhy) override;
+  void ActorDestroy(ActorDestroyReason aWhy) override;
 
-private:
+ private:
   // final suppresses -Werror,-Wdelete-non-virtual-dtor
   ~VoicemailParent() {}
 
-private:
+ private:
   nsCOMPtr<nsIVoicemailService> mService;
 };
 
-} // namespace voicemail
-} // namespace dom
-} // namespace mozilla
+}  // namespace voicemail
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_voicemail_VoicemailParent_h
+#endif  // mozilla_dom_voicemail_VoicemailParent_h

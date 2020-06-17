@@ -15,29 +15,22 @@ class nsPIDOMWindowInner;
 namespace mozilla {
 namespace dom {
 
-class ImsDeviceConfiguration final : public nsISupports,
-                                     public nsWrapperCache
-{
-public:
+class ImsDeviceConfiguration final : public nsISupports, public nsWrapperCache {
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(ImsDeviceConfiguration)
 
   ImsDeviceConfiguration(nsPIDOMWindowInner* aWindow,
                          const nsTArray<ImsBearer>& aBearers);
 
-  nsPIDOMWindowInner*
-  GetParentObject() const
-  {
-    return mWindow;
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return mWindow; }
 
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-  void
-  GetSupportedBearers(nsTArray<ImsBearer>& aBearers) const;
+  void GetSupportedBearers(nsTArray<ImsBearer>& aBearers) const;
 
-private:
+ private:
   ImsDeviceConfiguration() = delete;
   ~ImsDeviceConfiguration();
 
@@ -45,7 +38,7 @@ private:
   nsTArray<ImsBearer> mBearers;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_ImsDeviceConfiguration_h
+#endif  // mozilla_dom_ImsDeviceConfiguration_h

@@ -36,159 +36,152 @@ namespace android {
 class IMemory;
 
 class GonkCameraSource : public MediaSource, public MediaBufferObserver {
-public:
+ public:
+  static GonkCameraSource* Create(const sp<GonkCameraHardware>& aCameraHw,
+                                  Size videoSize, int32_t frameRate,
+                                  bool storeMetaDataInVideoBuffers = false);
 
-    static GonkCameraSource *Create(const sp<GonkCameraHardware>& aCameraHw,
-                                    Size videoSize,
-                                    int32_t frameRate,
-                                    bool storeMetaDataInVideoBuffers = false);
+  static GonkCameraSource* Create(mozilla::ICameraControl* aControl,
+                                  Size videoSize, int32_t frameRate);
 
-    static GonkCameraSource *Create(mozilla::ICameraControl* aControl,
-                                    Size videoSize,
-                                    int32_t frameRate);
+  virtual ~GonkCameraSource();
 
-    virtual ~GonkCameraSource();
+  virtual status_t start(MetaData* params = NULL);
+  virtual status_t stop() { return reset(); }
+  virtual status_t read(MediaBufferBase** buffer,
+                        const ReadOptions* options = NULL);
 
-    virtual status_t start(MetaData *params = NULL);
-    virtual status_t stop() { return reset(); }
-    virtual status_t read(
-            MediaBufferBase **buffer, const ReadOptions *options = NULL);
+  /**
+   * Check whether a GonkCameraSource object is properly initialized.
+   * Must call this method before stop().
+   * @return OK if initialization has successfully completed.
+   */
+  virtual status_t initCheck() const;
 
-    /**
-     * Check whether a GonkCameraSource object is properly initialized.
-     * Must call this method before stop().
-     * @return OK if initialization has successfully completed.
-     */
-    virtual status_t initCheck() const;
+  /**
+   * Returns the MetaData associated with the GonkCameraSource,
+   * including:
+   * kKeyColorFormat: YUV color format of the video frames
+   * kKeyWidth, kKeyHeight: dimension (in pixels) of the video frames
+   * kKeySampleRate: frame rate in frames per second
+   * kKeyMIMEType: always fixed to be MEDIA_MIMETYPE_VIDEO_RAW
+   */
+  virtual sp<MetaData> getFormat();
 
-    /**
-     * Returns the MetaData associated with the GonkCameraSource,
-     * including:
-     * kKeyColorFormat: YUV color format of the video frames
-     * kKeyWidth, kKeyHeight: dimension (in pixels) of the video frames
-     * kKeySampleRate: frame rate in frames per second
-     * kKeyMIMEType: always fixed to be MEDIA_MIMETYPE_VIDEO_RAW
-     */
-    virtual sp<MetaData> getFormat();
+  /**
+   * Tell whether this camera source stores meta data or real YUV
+   * frame data in video buffers.
+   *
+   * @return true if meta data is stored in the video
+   *      buffers; false if real YUV data is stored in
+   *      the video buffers.
+   */
+  bool isMetaDataStoredInVideoBuffers() const;
 
-    /**
-     * Tell whether this camera source stores meta data or real YUV
-     * frame data in video buffers.
-     *
-     * @return true if meta data is stored in the video
-     *      buffers; false if real YUV data is stored in
-     *      the video buffers.
-     */
-    bool isMetaDataStoredInVideoBuffers() const;
+  virtual void signalBufferReturned(MediaBufferBase* buffer);
 
-    virtual void signalBufferReturned(MediaBufferBase* buffer);
+  /**
+   * It sends recording frames to listener directly in the same thread.
+   * Because recording frame is critical resource and it should not be
+   * propagated to other thread as much as possible or there could be frame
+   * rate jitter due to camera HAL waiting for resource.
+   */
+  class DirectBufferListener : public RefBase {
+   public:
+    DirectBufferListener(){};
 
-    /**
-     * It sends recording frames to listener directly in the same thread.
-     * Because recording frame is critical resource and it should not be
-     * propagated to other thread as much as possible or there could be frame
-     * rate jitter due to camera HAL waiting for resource.
-     */
-    class DirectBufferListener : public RefBase {
-    public:
-        DirectBufferListener() {};
+    virtual status_t BufferAvailable(MediaBufferBase* aBuffer) = 0;
 
-        virtual status_t BufferAvailable(MediaBufferBase* aBuffer) = 0;
+   protected:
+    virtual ~DirectBufferListener() {}
+  };
 
-    protected:
-        virtual ~DirectBufferListener() {}
-    };
+  status_t AddDirectBufferListener(DirectBufferListener* aListener);
 
-    status_t AddDirectBufferListener(DirectBufferListener* aListener);
+ protected:
+  enum CameraFlags {
+    FLAGS_SET_CAMERA = 1L << 0,
+    FLAGS_HOT_CAMERA = 1L << 1,
+  };
 
-protected:
+  int32_t mCameraFlags;
+  Size mVideoSize;
+  int32_t mNumInputBuffers;
+  int32_t mVideoFrameRate;
+  int32_t mColorFormat;
+  status_t mInitCheck;
 
-    enum CameraFlags {
-        FLAGS_SET_CAMERA = 1L << 0,
-        FLAGS_HOT_CAMERA = 1L << 1,
-    };
+  sp<MetaData> mMeta;
 
-    int32_t  mCameraFlags;
-    Size     mVideoSize;
-    int32_t  mNumInputBuffers;
-    int32_t  mVideoFrameRate;
-    int32_t  mColorFormat;
-    status_t mInitCheck;
+  int64_t mStartTimeUs;
+  int32_t mNumFramesReceived;
+  int64_t mLastFrameTimestampUs;
+  bool mStarted;
+  int32_t mNumFramesEncoded;
 
-    sp<MetaData> mMeta;
+  // Time between capture of two frames.
+  int64_t mTimeBetweenFrameCaptureUs;
 
-    int64_t mStartTimeUs;
-    int32_t mNumFramesReceived;
-    int64_t mLastFrameTimestampUs;
-    bool mStarted;
-    int32_t mNumFramesEncoded;
+  GonkCameraSource(const sp<GonkCameraHardware>& aCameraHw, Size videoSize,
+                   int32_t frameRate, bool storeMetaDataInVideoBuffers = false);
 
-    // Time between capture of two frames.
-    int64_t mTimeBetweenFrameCaptureUs;
+  virtual int startCameraRecording();
+  virtual void stopCameraRecording();
+  virtual void releaseRecordingFrame(const sp<IMemory>& frame);
 
-    GonkCameraSource(const sp<GonkCameraHardware>& aCameraHw,
-                 Size videoSize, int32_t frameRate,
-                 bool storeMetaDataInVideoBuffers = false);
+  // Returns true if need to skip the current frame.
+  // Called from dataCallbackTimestamp.
+  virtual bool skipCurrentFrame(int64_t timestampUs) { return false; }
 
-    virtual int startCameraRecording();
-    virtual void stopCameraRecording();
-    virtual void releaseRecordingFrame(const sp<IMemory>& frame);
+  friend class GonkCameraSourceListener;
+  // Callback called when still camera raw data is available.
+  virtual void dataCallback(int32_t msgType, const sp<IMemory>& data) {}
 
-    // Returns true if need to skip the current frame.
-    // Called from dataCallbackTimestamp.
-    virtual bool skipCurrentFrame(int64_t timestampUs) {return false;}
+  virtual void dataCallbackTimestamp(int64_t timestampUs, int32_t msgType,
+                                     const sp<IMemory>& data);
 
-    friend class GonkCameraSourceListener;
-    // Callback called when still camera raw data is available.
-    virtual void dataCallback(int32_t msgType, const sp<IMemory> &data) {}
+ private:
+  Mutex mLock;
+  Condition mFrameAvailableCondition;
+  Condition mFrameCompleteCondition;
+  List<sp<IMemory> > mFramesReceived;
+  List<sp<IMemory> > mFramesBeingEncoded;
+  List<int64_t> mFrameTimes;
+  bool mRateLimit;
 
-    virtual void dataCallbackTimestamp(int64_t timestampUs, int32_t msgType,
-            const sp<IMemory> &data);
+  int64_t mFirstFrameTimeUs;
+  int32_t mNumFramesDropped;
+  int32_t mNumGlitches;
+  int64_t mGlitchDurationThresholdUs;
+  bool mCollectStats;
 
-private:
+  // The mode video buffers are received from camera. One of
+  // VIDEO_BUFFER_MODE_*.
+  int32_t mVideoBufferMode;
 
-    Mutex mLock;
-    Condition mFrameAvailableCondition;
-    Condition mFrameCompleteCondition;
-    List<sp<IMemory> > mFramesReceived;
-    List<sp<IMemory> > mFramesBeingEncoded;
-    List<int64_t> mFrameTimes;
-    bool mRateLimit;
+  bool mIsMetaDataStoredInVideoBuffers;
+  sp<GonkCameraHardware> mCameraHw;
+  sp<DirectBufferListener> mDirectBufferListener;
 
-    int64_t mFirstFrameTimeUs;
-    int32_t mNumFramesDropped;
-    int32_t mNumGlitches;
-    int64_t mGlitchDurationThresholdUs;
-    bool mCollectStats;
+  void releaseQueuedFrames();
+  void releaseOneRecordingFrame(const sp<IMemory>& frame);
 
-    // The mode video buffers are received from camera. One of VIDEO_BUFFER_MODE_*.
-    int32_t mVideoBufferMode;
+  status_t init(Size videoSize, int32_t frameRate,
+                bool storeMetaDataInVideoBuffers);
+  status_t isCameraColorFormatSupported(const CameraParameters& params);
+  status_t configureCamera(CameraParameters* params, int32_t width,
+                           int32_t height, int32_t frameRate);
 
-    bool mIsMetaDataStoredInVideoBuffers;
-    sp<GonkCameraHardware> mCameraHw;
-    sp<DirectBufferListener> mDirectBufferListener;
+  status_t checkVideoSize(const CameraParameters& params, int32_t width,
+                          int32_t height);
 
-    void releaseQueuedFrames();
-    void releaseOneRecordingFrame(const sp<IMemory>& frame);
+  status_t checkFrameRate(const CameraParameters& params, int32_t frameRate);
 
-    status_t init(Size videoSize, int32_t frameRate,
-                  bool storeMetaDataInVideoBuffers);
-    status_t isCameraColorFormatSupported(const CameraParameters& params);
-    status_t configureCamera(CameraParameters* params,
-                    int32_t width, int32_t height,
-                    int32_t frameRate);
+  void releaseCamera();
+  status_t reset();
 
-    status_t checkVideoSize(const CameraParameters& params,
-                    int32_t width, int32_t height);
-
-    status_t checkFrameRate(const CameraParameters& params,
-                    int32_t frameRate);
-
-    void releaseCamera();
-    status_t reset();
-
-    GonkCameraSource(const GonkCameraSource &);
-    GonkCameraSource &operator=(const GonkCameraSource &);
+  GonkCameraSource(const GonkCameraSource&);
+  GonkCameraSource& operator=(const GonkCameraSource&);
 };
 
 }  // namespace android

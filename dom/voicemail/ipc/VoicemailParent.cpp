@@ -12,32 +12,25 @@ namespace mozilla {
 namespace dom {
 namespace voicemail {
 
-NS_IMPL_ISUPPORTS(VoicemailParent,
-                  nsIVoicemailListener)
+NS_IMPL_ISUPPORTS(VoicemailParent, nsIVoicemailListener)
 
-mozilla::ipc::IPCResult
-VoicemailParent::Init()
-{
+mozilla::ipc::IPCResult VoicemailParent::Init() {
   mService = do_GetService(NS_VOICEMAIL_SERVICE_CONTRACTID);
-  if( mService && NS_SUCCEEDED(mService->RegisterListener(this))) {
+  if (mService && NS_SUCCEEDED(mService->RegisterListener(this))) {
     return IPC_OK();
   } else {
     IPC_FAIL_NO_REASON(this);
   }
 }
 
-bool
-VoicemailParent::RecvGetAttributes(const uint32_t& aServiceId,
-                                   nsString* aNumber,
-                                   nsString* aDisplayName,
-                                   bool* aHasMessages,
-                                   int32_t* aMessageCount,
-                                   nsString* aReturnNumber,
-                                   nsString* aReturnMessage)
-{
+bool VoicemailParent::RecvGetAttributes(
+    const uint32_t& aServiceId, nsString* aNumber, nsString* aDisplayName,
+    bool* aHasMessages, int32_t* aMessageCount, nsString* aReturnNumber,
+    nsString* aReturnMessage) {
   nsCOMPtr<nsIVoicemailProvider> provider;
-  NS_ENSURE_SUCCESS(mService->GetItemByServiceId(aServiceId,
-                                                 getter_AddRefs(provider)), false);
+  NS_ENSURE_SUCCESS(
+      mService->GetItemByServiceId(aServiceId, getter_AddRefs(provider)),
+      false);
 
   provider->GetNumber(*aNumber);
   provider->GetDisplayName(*aDisplayName);
@@ -49,9 +42,7 @@ VoicemailParent::RecvGetAttributes(const uint32_t& aServiceId,
   return true;
 }
 
-void
-VoicemailParent::ActorDestroy(ActorDestroyReason aWhy)
-{
+void VoicemailParent::ActorDestroy(ActorDestroyReason aWhy) {
   mService->UnregisterListener(this);
   mService = nullptr;
 }
@@ -59,8 +50,7 @@ VoicemailParent::ActorDestroy(ActorDestroyReason aWhy)
 // nsIVoicemailListener
 
 NS_IMETHODIMP
-VoicemailParent::NotifyInfoChanged(nsIVoicemailProvider* aProvider)
-{
+VoicemailParent::NotifyInfoChanged(nsIVoicemailProvider* aProvider) {
   uint32_t serviceId = 0;
   nsString number, displayName;
 
@@ -69,12 +59,12 @@ VoicemailParent::NotifyInfoChanged(nsIVoicemailProvider* aProvider)
   aProvider->GetDisplayName(displayName);
 
   return SendNotifyInfoChanged(serviceId, number, displayName)
-    ? NS_OK : NS_ERROR_FAILURE;
+             ? NS_OK
+             : NS_ERROR_FAILURE;
 }
 
 NS_IMETHODIMP
-VoicemailParent::NotifyStatusChanged(nsIVoicemailProvider* aProvider)
-{
+VoicemailParent::NotifyStatusChanged(nsIVoicemailProvider* aProvider) {
   uint32_t serviceId = 0;
   bool hasMessages = false;
   int32_t messageCount = 0;
@@ -88,9 +78,10 @@ VoicemailParent::NotifyStatusChanged(nsIVoicemailProvider* aProvider)
 
   return SendNotifyStatusChanged(serviceId, hasMessages, messageCount,
                                  returnNumber, returnMessage)
-    ? NS_OK : NS_ERROR_FAILURE;
+             ? NS_OK
+             : NS_ERROR_FAILURE;
 }
 
-} // namespace voicemail
-} // namespace dom
-} // namespace mozilla
+}  // namespace voicemail
+}  // namespace dom
+}  // namespace mozilla

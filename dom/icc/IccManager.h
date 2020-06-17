@@ -17,49 +17,42 @@ namespace dom {
 class Icc;
 class IccListener;
 
-class IccManager final : public DOMEventTargetHelper
-{
-public:
+class IccManager final : public DOMEventTargetHelper {
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
-//  NS_REALLY_FORWARD_NSIDOMEVENTTARGET(DOMEventTargetHelper)
+  //  NS_REALLY_FORWARD_NSIDOMEVENTTARGET(DOMEventTargetHelper)
 
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(IccManager, DOMEventTargetHelper)
 
   explicit IccManager(nsIGlobalObject* aGlobal);
 
-  void
-  Shutdown();
+  void Shutdown();
 
-  nsresult
-  NotifyIccAdd(const nsAString& aIccId);
+  nsresult NotifyIccAdd(const nsAString& aIccId);
 
-  nsresult
-  NotifyIccRemove(const nsAString& aIccId);
+  nsresult NotifyIccRemove(const nsAString& aIccId);
 
   IMPL_EVENT_HANDLER(iccdetected)
   IMPL_EVENT_HANDLER(iccundetected)
 
-  void
-  GetIccIds(nsTArray<nsString>& aIccIds);
+  void GetIccIds(nsTArray<nsString>& aIccIds);
 
-  Icc*
-  GetIccById(const nsAString& aIccId) const;
+  Icc* GetIccById(const nsAString& aIccId) const;
 
-  nsPIDOMWindowInner*
-  GetParentObject() const { return GetOwner(); }
+  nsPIDOMWindowInner* GetParentObject() const { return GetOwner(); }
 
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-private:
+ private:
   ~IccManager();
 
-private:
+ private:
   nsTArray<RefPtr<IccListener>> mIccListeners;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_IccManager_h
+#endif  // mozilla_dom_IccManager_h

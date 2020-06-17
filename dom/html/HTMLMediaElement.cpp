@@ -2203,18 +2203,15 @@ void HTMLMediaElement::SetSrcObject(DOMMediaStream* aValue) {
   DoLoad();
 }
 
-already_AddRefed<DOMMediaStream>
-HTMLMediaElement::GetMozSrcObject() const {
+already_AddRefed<DOMMediaStream> HTMLMediaElement::GetMozSrcObject() const {
   return do_AddRef(mSrcAttrStream);
 }
 
-void
-HTMLMediaElement::SetMozSrcObject(DOMMediaStream& aValue) {
+void HTMLMediaElement::SetMozSrcObject(DOMMediaStream& aValue) {
   SetMozSrcObject(&aValue);
 }
 
-void
-HTMLMediaElement::SetMozSrcObject(DOMMediaStream* aValue) {
+void HTMLMediaElement::SetMozSrcObject(DOMMediaStream* aValue) {
   mSrcAttrStream = aValue;
   UpdateAudioChannelPlayingState();
   DoLoad();
@@ -3965,10 +3962,10 @@ already_AddRefed<DOMMediaStream> HTMLMediaElement::MozCaptureStream(
     return nullptr;
   }
 
-  MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      graphDriverType, mAudioChannel, window,
-      MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
-      MediaTrackGraph::DEFAULT_OUTPUT_DEVICE);
+  MediaTrackGraph* graph =
+      MediaTrackGraph::GetInstance(graphDriverType, mAudioChannel, window,
+                                   MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
+                                   MediaTrackGraph::DEFAULT_OUTPUT_DEVICE);
 
   RefPtr<DOMMediaStream> stream =
       CaptureStreamInternal(StreamCaptureBehavior::CONTINUE_WHEN_ENDED,
@@ -3998,10 +3995,10 @@ already_AddRefed<DOMMediaStream> HTMLMediaElement::MozCaptureStreamUntilEnded(
     return nullptr;
   }
 
-  MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      graphDriverType, mAudioChannel, window,
-      MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
-      MediaTrackGraph::DEFAULT_OUTPUT_DEVICE);
+  MediaTrackGraph* graph =
+      MediaTrackGraph::GetInstance(graphDriverType, mAudioChannel, window,
+                                   MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
+                                   MediaTrackGraph::DEFAULT_OUTPUT_DEVICE);
 
   RefPtr<DOMMediaStream> stream =
       CaptureStreamInternal(StreamCaptureBehavior::FINISH_WHEN_ENDED,

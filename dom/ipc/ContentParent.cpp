@@ -248,15 +248,15 @@
 #include "nsOpenWindowInfo.h"
 
 #ifdef MOZ_B2G_RIL
-#include "mozilla/dom/cellbroadcast/CellBroadcastParent.h"
-#include "mozilla/dom/icc/IccParent.h"
-#include "mozilla/dom/mobileconnection/ImsRegistrationParent.h"
-#include "mozilla/dom/mobileconnection/MobileConnectionParent.h"
+#  include "mozilla/dom/cellbroadcast/CellBroadcastParent.h"
+#  include "mozilla/dom/icc/IccParent.h"
+#  include "mozilla/dom/mobileconnection/ImsRegistrationParent.h"
+#  include "mozilla/dom/mobileconnection/MobileConnectionParent.h"
 // #include "mozilla/dom/mobilemessage/SmsParent.h"
-#include "mozilla/dom/subsidylock/SubsidyLockParent.h"
-#include "mozilla/dom/telephony/TelephonyParent.h"
-#include "mozilla/dom/voicemail/VoicemailParent.h"
-#endif // MOZ_B2G_RIL
+#  include "mozilla/dom/subsidylock/SubsidyLockParent.h"
+#  include "mozilla/dom/telephony/TelephonyParent.h"
+#  include "mozilla/dom/voicemail/VoicemailParent.h"
+#endif  // MOZ_B2G_RIL
 
 #ifdef MOZ_WEBRTC
 #  include "signaling/src/peerconnection/WebrtcGlobalParent.h"
@@ -352,7 +352,6 @@ using namespace mozilla::system;
 // For VP9Benchmark::sBenchmarkFpsPref
 #include "Benchmark.h"
 
-
 // XXX need another bug to move this to a common header.
 #ifdef DISABLE_ASSERTS_FOR_FUZZING
 #  define ASSERT_UNLESS_FUZZING(...) \
@@ -374,7 +373,7 @@ using namespace mozilla::dom::mobileconnection;
 using namespace mozilla::dom::telephony;
 using namespace mozilla::dom::voicemail;
 using namespace mozilla::dom::subsidylock;
-#endif // MOZ_B2G_RIL
+#endif  // MOZ_B2G_RIL
 
 using namespace CrashReporter;
 using namespace mozilla::dom::bluetooth;
@@ -394,7 +393,6 @@ using namespace mozilla::psm;
 using namespace mozilla::widget;
 using mozilla::loader::PScriptCacheParent;
 using mozilla::Telemetry::ProcessID;
-
 
 // XXX Workaround for bug 986973 to maintain the existing broken semantics
 template <>
@@ -4023,9 +4021,7 @@ bool ContentParent::DeallocPTelephonyParent(PTelephonyParent* aActor) {
   return true;
 }
 
-PVoicemailParent*
-ContentParent::AllocPVoicemailParent()
-{
+PVoicemailParent* ContentParent::AllocPVoicemailParent() {
   /*if (!AssertAppProcessPermission(this, "voicemail")) {
     return nullptr;
   }*/
@@ -4033,15 +4029,12 @@ ContentParent::AllocPVoicemailParent()
   return new mozilla::dom::voicemail::VoicemailParent();
 }
 
-mozilla::ipc::IPCResult
-ContentParent::RecvPVoicemailConstructor(PVoicemailParent* aActor)
-{
+mozilla::ipc::IPCResult ContentParent::RecvPVoicemailConstructor(
+    PVoicemailParent* aActor) {
   return static_cast<VoicemailParent*>(aActor)->Init();
 }
 
-bool
-ContentParent::DeallocPVoicemailParent(PVoicemailParent* aActor)
-{
+bool ContentParent::DeallocPVoicemailParent(PVoicemailParent* aActor) {
   delete aActor;
   return true;
 }
@@ -4105,7 +4098,7 @@ mozilla::ipc::IPCResult ContentParent::RecvPCellBroadcastConstructor(
 //   return true;
 // }
 
-#endif // MOZ_B2G_RIL
+#endif  // MOZ_B2G_RIL
 
 PScriptCacheParent* ContentParent::AllocPScriptCacheParent(
     const FileDescOrError& cacheFile, const bool& wantCacheData) {
@@ -5413,8 +5406,8 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
 
     RefPtr<Element> openerElement = do_QueryObject(frame);
 
-    nsCOMPtr<nsIOpenURIInFrameParams> params = new nsOpenURIInFrameParams(
-        openInfo, openerElement, aFeatures);
+    nsCOMPtr<nsIOpenURIInFrameParams> params =
+        new nsOpenURIInFrameParams(openInfo, openerElement, aFeatures);
     params->SetReferrerInfo(aReferrerInfo);
     MOZ_ASSERT(aTriggeringPrincipal, "need a valid triggeringPrincipal");
     params->SetTriggeringPrincipal(aTriggeringPrincipal);

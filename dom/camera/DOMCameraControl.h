@@ -19,7 +19,7 @@
 #include "DOMCameraControlListener.h"
 #include "nsWeakReference.h"
 #ifdef MOZ_WIDGET_GONK
-#include "nsITimer.h"
+#  include "nsITimer.h"
 #endif
 
 class nsDOMDeviceStorage;
@@ -29,27 +29,30 @@ class nsIDOMBlob;
 namespace mozilla {
 
 namespace dom {
-  class CameraCapabilities;
-  struct CameraPictureOptions;
-  struct CameraStartRecordingOptions;
-  struct CameraRegion;
-  struct CameraSize;
-  template<typename T> class Optional;
-} // namespace dom
+class CameraCapabilities;
+struct CameraPictureOptions;
+struct CameraStartRecordingOptions;
+struct CameraRegion;
+struct CameraSize;
+template <typename T>
+class Optional;
+}  // namespace dom
 class ErrorResult;
 class StartRecordingHelper;
 class RecorderPosterHelper;
 class TrackCreatedListener;
 
-#define NS_DOM_CAMERA_CONTROL_CID \
-{ 0x3700c096, 0xf920, 0x438d, \
-  { 0x8b, 0x3f, 0x15, 0xb3, 0xc9, 0x96, 0x23, 0x62 } }
+#define NS_DOM_CAMERA_CONTROL_CID                    \
+  {                                                  \
+    0x3700c096, 0xf920, 0x438d, {                    \
+      0x8b, 0x3f, 0x15, 0xb3, 0xc9, 0x96, 0x23, 0x62 \
+    }                                                \
+  }
 
 // Main camera control.
-class nsDOMCameraControl final : public DOMMediaStream
-                               , public nsSupportsWeakReference
-{
-public:
+class nsDOMCameraControl final : public DOMMediaStream,
+                                 public nsSupportsWeakReference {
+ public:
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_DOM_CAMERA_CONTROL_CID)
 
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(nsDOMCameraControl, DOMMediaStream)
@@ -64,8 +67,7 @@ public:
 
   nsDOMCameraControl(uint32_t aCameraId,
                      const dom::CameraConfiguration& aInitialConfig,
-                     dom::Promise* aPromise,
-                     nsPIDOMWindowInner* aWindow);
+                     dom::Promise* aPromise, nsPIDOMWindowInner* aWindow);
 
   void Shutdown();
 
@@ -106,12 +108,16 @@ public:
   void SetMeteringMode(const nsAString& aMode, ErrorResult& aRv);
 
   // Methods.
-  already_AddRefed<dom::Promise> SetConfiguration(const dom::CameraConfiguration& aConfiguration,
-                                                  ErrorResult& aRv);
+  already_AddRefed<dom::Promise> SetConfiguration(
+      const dom::CameraConfiguration& aConfiguration, ErrorResult& aRv);
   void GetMeteringAreas(nsTArray<dom::CameraRegion>& aAreas, ErrorResult& aRv);
-  void SetMeteringAreas(const dom::Optional<dom::Sequence<dom::CameraRegion> >& aAreas, ErrorResult& aRv);
+  void SetMeteringAreas(
+      const dom::Optional<dom::Sequence<dom::CameraRegion> >& aAreas,
+      ErrorResult& aRv);
   void GetFocusAreas(nsTArray<dom::CameraRegion>& aAreas, ErrorResult& aRv);
-  void SetFocusAreas(const dom::Optional<dom::Sequence<dom::CameraRegion> >& aAreas, ErrorResult& aRv);
+  void SetFocusAreas(
+      const dom::Optional<dom::Sequence<dom::CameraRegion> >& aAreas,
+      ErrorResult& aRv);
   void GetPictureSize(dom::CameraSize& aSize, ErrorResult& aRv);
   void SetPictureSize(const dom::CameraSize& aSize, ErrorResult& aRv);
   void GetThumbnailSize(dom::CameraSize& aSize, ErrorResult& aRv);
@@ -119,12 +125,12 @@ public:
   already_AddRefed<dom::Promise> AutoFocus(ErrorResult& aRv);
   void StartFaceDetection(ErrorResult& aRv);
   void StopFaceDetection(ErrorResult& aRv);
-  already_AddRefed<dom::Promise> TakePicture(const dom::CameraPictureOptions& aOptions,
-                                             ErrorResult& aRv);
-  already_AddRefed<dom::Promise> StartRecording(const dom::CameraStartRecordingOptions& aOptions,
-                                                nsDOMDeviceStorage& storageArea,
-                                                const nsAString& filename,
-                                                ErrorResult& aRv);
+  already_AddRefed<dom::Promise> TakePicture(
+      const dom::CameraPictureOptions& aOptions, ErrorResult& aRv);
+  already_AddRefed<dom::Promise> StartRecording(
+      const dom::CameraStartRecordingOptions& aOptions,
+      nsDOMDeviceStorage& storageArea, const nsAString& filename,
+      ErrorResult& aRv);
   void StopRecording(ErrorResult& aRv);
   void PauseRecording(ErrorResult& aRv);
   void ResumeRecording(ErrorResult& aRv);
@@ -132,7 +138,8 @@ public:
   already_AddRefed<dom::Promise> ReleaseHardware(ErrorResult& aRv);
   void ResumeContinuousFocus(ErrorResult& aRv);
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   operator nsISupports*() { return static_cast<DOMMediaStream*>(this); }
 
@@ -151,22 +158,22 @@ public:
   IMPL_EVENT_HANDLER(configurationchange)
   IMPL_EVENT_HANDLER(poster)
 
-protected:
+ protected:
   virtual ~nsDOMCameraControl();
 
-  class DOMCameraConfiguration final : public dom::CameraConfiguration
-  {
-  public:
+  class DOMCameraConfiguration final : public dom::CameraConfiguration {
+   public:
     NS_INLINE_DECL_REFCOUNTING(DOMCameraConfiguration)
 
     DOMCameraConfiguration();
-    explicit DOMCameraConfiguration(const dom::CameraConfiguration& aConfiguration);
+    explicit DOMCameraConfiguration(
+        const dom::CameraConfiguration& aConfiguration);
 
     // Additional configuration options that aren't exposed to the DOM
     uint32_t mMaxFocusAreas;
     uint32_t mMaxMeteringAreas;
 
-  private:
+   private:
     // Private destructor, to discourage deletion outside of Release():
     ~DOMCameraConfiguration();
   };
@@ -184,15 +191,19 @@ protected:
   void OnPoster(dom::BlobImpl* aPoster);
 
   void OnGetCameraComplete();
-  void OnHardwareStateChange(DOMCameraControlListener::HardwareState aState, nsresult aReason);
+  void OnHardwareStateChange(DOMCameraControlListener::HardwareState aState,
+                             nsresult aReason);
   void OnPreviewStateChange(DOMCameraControlListener::PreviewState aState);
-  void OnRecorderStateChange(CameraControlListener::RecorderState aState, int32_t aStatus, int32_t aTrackNum);
+  void OnRecorderStateChange(CameraControlListener::RecorderState aState,
+                             int32_t aStatus, int32_t aTrackNum);
   void OnConfigurationChange(DOMCameraConfiguration* aConfiguration);
   void OnShutter();
-  void OnUserError(CameraControlListener::UserContext aContext, nsresult aError);
+  void OnUserError(CameraControlListener::UserContext aContext,
+                   nsresult aError);
 
   bool IsWindowStillActive();
-  nsresult SelectPreviewSize(const dom::CameraSize& aRequestedPreviewSize, ICameraControl::Size& aSelectedPreviewSize);
+  nsresult SelectPreviewSize(const dom::CameraSize& aRequestedPreviewSize,
+                             ICameraControl::Size& aSelectedPreviewSize);
 
   void ReleaseAudioChannelAgent();
   nsresult NotifyRecordingStatusChange(const nsString& aMsg);
@@ -203,24 +214,26 @@ protected:
   void DispatchPreviewStateEvent(DOMCameraControlListener::PreviewState aState);
   void DispatchStateEvent(const nsString& aType, const nsString& aState);
 
-  RefPtr<ICameraControl> mCameraControl; // non-DOM camera control
+  RefPtr<ICameraControl> mCameraControl;  // non-DOM camera control
 
   // An agent used to join audio channel service.
   nsCOMPtr<nsIAudioChannelAgent> mAudioChannelAgent;
 
-  nsresult Set(uint32_t aKey, const dom::Optional<dom::Sequence<dom::CameraRegion> >& aValue, uint32_t aLimit);
+  nsresult Set(uint32_t aKey,
+               const dom::Optional<dom::Sequence<dom::CameraRegion> >& aValue,
+               uint32_t aLimit);
   nsresult Get(uint32_t aKey, nsTArray<dom::CameraRegion>& aValue);
 
-  RefPtr<DOMCameraConfiguration>              mCurrentConfiguration;
-  RefPtr<dom::CameraCapabilities>             mCapabilities;
+  RefPtr<DOMCameraConfiguration> mCurrentConfiguration;
+  RefPtr<dom::CameraCapabilities> mCapabilities;
 
   // camera control pending promises
-  RefPtr<dom::Promise>                        mGetCameraPromise;
-  RefPtr<dom::Promise>                        mAutoFocusPromise;
-  RefPtr<dom::Promise>                        mTakePicturePromise;
-  RefPtr<dom::Promise>                        mStartRecordingPromise;
-  RefPtr<dom::Promise>                        mReleasePromise;
-  RefPtr<dom::Promise>                        mSetConfigurationPromise;
+  RefPtr<dom::Promise> mGetCameraPromise;
+  RefPtr<dom::Promise> mAutoFocusPromise;
+  RefPtr<dom::Promise> mTakePicturePromise;
+  RefPtr<dom::Promise> mStartRecordingPromise;
+  RefPtr<dom::Promise> mReleasePromise;
+  RefPtr<dom::Promise> mSetConfigurationPromise;
 
   // Camera event listener; we only need this weak reference so that
   //  we can remove the listener from the camera when we're done
@@ -234,7 +247,7 @@ protected:
   RefPtr<TrackCreatedListener> mTrackCreatedListener;
 
   // set once when this object is created
-  nsCOMPtr<nsPIDOMWindowInner>   mWindow;
+  nsCOMPtr<nsPIDOMWindowInner> mWindow;
 
   dom::CameraStartRecordingOptions mOptions;
   RefPtr<DeviceStorageFileDescriptor> mDSFileDescriptor;
@@ -250,13 +263,13 @@ protected:
   static nsCOMPtr<nsITimer> sDiscardCachedCameraControlTimer;
 #endif
 
-private:
+ private:
   nsDOMCameraControl(const nsDOMCameraControl&) = delete;
   nsDOMCameraControl& operator=(const nsDOMCameraControl&) = delete;
 };
 
 NS_DEFINE_STATIC_IID_ACCESSOR(nsDOMCameraControl, NS_DOM_CAMERA_CONTROL_CID)
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // DOM_CAMERA_DOMCAMERACONTROL_H
+#endif  // DOM_CAMERA_DOMCAMERACONTROL_H

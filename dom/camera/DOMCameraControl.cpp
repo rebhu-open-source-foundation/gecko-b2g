@@ -47,16 +47,14 @@ using namespace mozilla;
 using namespace mozilla::dom;
 using namespace mozilla::ipc;
 
-class mozilla::TrackCreatedListener : public MediaTrackListener
-{
-public:
+class mozilla::TrackCreatedListener : public MediaTrackListener {
+ public:
   explicit TrackCreatedListener(nsDOMCameraControl* aCameraControl)
-    : mCameraControl(aCameraControl) {}
+      : mCameraControl(aCameraControl) {}
 
   void Forget() { mCameraControl = nullptr; }
 
-  void DoNotifyTrackCreated()
-  {
+  void DoNotifyTrackCreated() {
     MOZ_ASSERT(NS_IsMainThread());
 
     if (!mCameraControl) {
@@ -66,20 +64,17 @@ public:
     mCameraControl->TrackCreated();
   }
 
-  void NotifyQueuedTrackChanges(MediaTrackGraph* aGraph,
-                                TrackTime aTrackOffset,
-                                const MediaSegment& aQueuedMedia)
-  {
-    //if (aTrackEvents & TRACK_EVENT_CREATED) {
-      nsCOMPtr<nsIRunnable> runnable =
-        NewRunnableMethod(
-          "TrackCreatedListener::NotifyQueuedTrackChanges",
-          this, &TrackCreatedListener::DoNotifyTrackCreated);
-      aGraph->DispatchToMainThreadStableState(runnable.forget());
+  void NotifyQueuedTrackChanges(MediaTrackGraph* aGraph, TrackTime aTrackOffset,
+                                const MediaSegment& aQueuedMedia) {
+    // if (aTrackEvents & TRACK_EVENT_CREATED) {
+    nsCOMPtr<nsIRunnable> runnable =
+        NewRunnableMethod("TrackCreatedListener::NotifyQueuedTrackChanges",
+                          this, &TrackCreatedListener::DoNotifyTrackCreated);
+    aGraph->DispatchToMainThreadStableState(runnable.forget());
     //}
   }
 
-protected:
+ protected:
   ~TrackCreatedListener() {}
 
   nsDOMCameraControl* mCameraControl;
@@ -87,15 +82,17 @@ protected:
 
 #ifdef MOZ_WIDGET_GONK
 StaticRefPtr<ICameraControl> nsDOMCameraControl::sCachedCameraControl;
-/* static */ nsresult nsDOMCameraControl::sCachedCameraControlStartResult = NS_OK;
-/* static */ nsCOMPtr<nsITimer> nsDOMCameraControl::sDiscardCachedCameraControlTimer;
+/* static */ nsresult nsDOMCameraControl::sCachedCameraControlStartResult =
+    NS_OK;
+/* static */ nsCOMPtr<nsITimer>
+    nsDOMCameraControl::sDiscardCachedCameraControlTimer;
 #endif
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(nsDOMCameraControl)
   NS_INTERFACE_MAP_ENTRY(nsISupportsWeakReference)
   // nsISupports is an ambiguous base of nsDOMCameraControl
   // so we have to work around that.
-  if ( aIID.Equals(NS_GET_IID(nsDOMCameraControl)) )
+  if (aIID.Equals(NS_GET_IID(nsDOMCameraControl)))
     foundInterface = static_cast<nsISupports*>(static_cast<void*>(this));
   else
 NS_INTERFACE_MAP_END_INHERITING(DOMMediaStream)
@@ -104,26 +101,18 @@ NS_IMPL_ADDREF_INHERITED(nsDOMCameraControl, DOMMediaStream)
 NS_IMPL_RELEASE_INHERITED(nsDOMCameraControl, DOMMediaStream)
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(nsDOMCameraControl, DOMMediaStream,
-                                   mAudioChannelAgent,
-                                   mCapabilities,
-                                   mWindow,
-                                   mGetCameraPromise,
-                                   mAutoFocusPromise,
-                                   mTakePicturePromise,
-                                   mStartRecordingPromise,
-                                   mReleasePromise,
-                                   mSetConfigurationPromise)
+                                   mAudioChannelAgent, mCapabilities, mWindow,
+                                   mGetCameraPromise, mAutoFocusPromise,
+                                   mTakePicturePromise, mStartRecordingPromise,
+                                   mReleasePromise, mSetConfigurationPromise)
 
 /* static */
-bool
-nsDOMCameraControl::HasSupport(JSContext* aCx, JSObject* aGlobal)
-{
+bool nsDOMCameraControl::HasSupport(JSContext* aCx, JSObject* aGlobal) {
   return B2G::HasCameraSupport(aCx, aGlobal);
 }
 
-static nsresult
-RegisterStorageRequestEvents(DOMRequest* aRequest, nsIDOMEventListener* aListener)
-{
+static nsresult RegisterStorageRequestEvents(DOMRequest* aRequest,
+                                             nsIDOMEventListener* aListener) {
   EventListenerManager* elm = aRequest->GetOrCreateListenerManager();
   if (NS_WARN_IF(!elm)) {
     return NS_ERROR_UNEXPECTED;
@@ -134,31 +123,24 @@ RegisterStorageRequestEvents(DOMRequest* aRequest, nsIDOMEventListener* aListene
   return NS_OK;
 }
 
-class mozilla::StartRecordingHelper : public nsIDOMEventListener
-{
-public:
+class mozilla::StartRecordingHelper : public nsIDOMEventListener {
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIDOMEVENTLISTENER
 
   explicit StartRecordingHelper(nsDOMCameraControl* aDOMCameraControl)
-    : mDOMCameraControl(aDOMCameraControl)
-    , mState(false)
-  {
-  }
+      : mDOMCameraControl(aDOMCameraControl), mState(false) {}
 
-protected:
-  virtual ~StartRecordingHelper()
-  {
-  }
+ protected:
+  virtual ~StartRecordingHelper() {}
 
-protected:
+ protected:
   RefPtr<nsDOMCameraControl> mDOMCameraControl;
   bool mState;
 };
 
 NS_IMETHODIMP
-StartRecordingHelper::HandleEvent(Event* aEvent)
-{
+StartRecordingHelper::HandleEvent(Event* aEvent) {
   nsString eventType;
   aEvent->GetType(eventType);
   mState = eventType.EqualsLiteral("success");
@@ -169,23 +151,19 @@ StartRecordingHelper::HandleEvent(Event* aEvent)
 NS_IMPL_ISUPPORTS(mozilla::StartRecordingHelper, nsIDOMEventListener)
 
 nsDOMCameraControl::DOMCameraConfiguration::DOMCameraConfiguration()
-  : CameraConfiguration()
-  , mMaxFocusAreas(0)
-  , mMaxMeteringAreas(0)
-{
+    : CameraConfiguration(), mMaxFocusAreas(0), mMaxMeteringAreas(0) {
   MOZ_COUNT_CTOR(nsDOMCameraControl::DOMCameraConfiguration);
 }
 
-nsDOMCameraControl::DOMCameraConfiguration::DOMCameraConfiguration(const CameraConfiguration& aConfiguration)
-  : CameraConfiguration(aConfiguration)
-  , mMaxFocusAreas(0)
-  , mMaxMeteringAreas(0)
-{
+nsDOMCameraControl::DOMCameraConfiguration::DOMCameraConfiguration(
+    const CameraConfiguration& aConfiguration)
+    : CameraConfiguration(aConfiguration),
+      mMaxFocusAreas(0),
+      mMaxMeteringAreas(0) {
   MOZ_COUNT_CTOR(nsDOMCameraControl::DOMCameraConfiguration);
 }
 
-nsDOMCameraControl::DOMCameraConfiguration::~DOMCameraConfiguration()
-{
+nsDOMCameraControl::DOMCameraConfiguration::~DOMCameraConfiguration() {
   MOZ_COUNT_DTOR(nsDOMCameraControl::DOMCameraConfiguration);
 }
 
@@ -196,12 +174,11 @@ static const unsigned long kCachedCameraTimeoutMs = 3500;
 // Open the battery-door-facing camera by default.
 static const uint32_t kDefaultCameraId = 0;
 
-/* static */ void
-nsDOMCameraControl::PreinitCameraHardware()
-{
+/* static */ void nsDOMCameraControl::PreinitCameraHardware() {
   // Assume a default, minimal configuration. This should initialize the
   // hardware, but won't (can't) start the preview.
-  RefPtr<ICameraControl> cameraControl = ICameraControl::Create(kDefaultCameraId);
+  RefPtr<ICameraControl> cameraControl =
+      ICameraControl::Create(kDefaultCameraId);
   if (NS_WARN_IF(!cameraControl)) {
     return;
   }
@@ -219,11 +196,9 @@ nsDOMCameraControl::PreinitCameraHardware()
   }
 
   const char* aNameString = "PreinitCameraHardware";
-  nsresult rv = timer->InitWithNamedFuncCallback(DiscardCachedCameraInstance,
-                                            nullptr,
-                                            kCachedCameraTimeoutMs,
-                                            nsITimer::TYPE_ONE_SHOT,
-                                            aNameString);
+  nsresult rv = timer->InitWithNamedFuncCallback(
+      DiscardCachedCameraInstance, nullptr, kCachedCameraTimeoutMs,
+      nsITimer::TYPE_ONE_SHOT, aNameString);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     // If we can't start the timer, it's possible for an app to never grab the
     // camera, leaving the hardware tied up indefinitely. Better to take the
@@ -235,9 +210,8 @@ nsDOMCameraControl::PreinitCameraHardware()
   sDiscardCachedCameraControlTimer = timer;
 }
 
-/* static */ void
-nsDOMCameraControl::DiscardCachedCameraInstance(nsITimer* aTimer, void* aClosure)
-{
+/* static */ void nsDOMCameraControl::DiscardCachedCameraInstance(
+    nsITimer* aTimer, void* aClosure) {
   MOZ_ASSERT(NS_IsMainThread());
 
   sDiscardCachedCameraControlTimer = nullptr;
@@ -245,29 +219,27 @@ nsDOMCameraControl::DiscardCachedCameraInstance(nsITimer* aTimer, void* aClosure
 }
 #endif
 
-nsDOMCameraControl::nsDOMCameraControl(uint32_t aCameraId,
-                                       const CameraConfiguration& aInitialConfig,
-                                       Promise* aPromise,
-                                       nsPIDOMWindowInner* aWindow)
-  : DOMMediaStream(aWindow)
-  , mCameraControl(nullptr)
-  , mAudioChannelAgent(nullptr)
-  , mGetCameraPromise(aPromise)
-  , mWindow(aWindow)
-  , mPreviewState(CameraControlListener::kPreviewStopped)
-  , mRecording(false)
-  , mRecordingStoppedDeferred(false)
-  , mSetInitialConfig(false)
-{
+nsDOMCameraControl::nsDOMCameraControl(
+    uint32_t aCameraId, const CameraConfiguration& aInitialConfig,
+    Promise* aPromise, nsPIDOMWindowInner* aWindow)
+    : DOMMediaStream(aWindow),
+      mCameraControl(nullptr),
+      mAudioChannelAgent(nullptr),
+      mGetCameraPromise(aPromise),
+      mWindow(aWindow),
+      mPreviewState(CameraControlListener::kPreviewStopped),
+      mRecording(false),
+      mRecordingStoppedDeferred(false),
+      mSetInitialConfig(false) {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
   mInput = new CameraPreviewMediaStream();
-  //mOwnedStream = mInput;
+  // mOwnedStream = mInput;
 
   nsIGlobalObject* global = aWindow ? aWindow->AsGlobal() : nullptr;
   BindToOwner(global);
 
   RefPtr<DOMCameraConfiguration> initialConfig =
-    new DOMCameraConfiguration(aInitialConfig);
+      new DOMCameraConfiguration(aInitialConfig);
 
   // Create and initialize the underlying camera.
   ICameraControl::Configuration config;
@@ -365,8 +337,7 @@ nsDOMCameraControl::nsDOMCameraControl(uint32_t aCameraId,
   }
 }
 
-nsDOMCameraControl::~nsDOMCameraControl()
-{
+nsDOMCameraControl::~nsDOMCameraControl() {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
   /*invoke DOMMediaStream destroy*/
   Destroy();
@@ -381,21 +352,18 @@ nsDOMCameraControl::~nsDOMCameraControl()
   }
 }
 
-JSObject*
-nsDOMCameraControl::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* nsDOMCameraControl::WrapObject(JSContext* aCx,
+                                         JS::Handle<JSObject*> aGivenProto) {
   return CameraControl_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-bool
-nsDOMCameraControl::IsWindowStillActive()
-{
+bool nsDOMCameraControl::IsWindowStillActive() {
   return nsDOMCameraManager::IsWindowStillActive(mWindow->WindowID());
 }
 
-nsresult
-nsDOMCameraControl::SelectPreviewSize(const CameraSize& aRequestedPreviewSize, ICameraControl::Size& aSelectedPreviewSize)
-{
+nsresult nsDOMCameraControl::SelectPreviewSize(
+    const CameraSize& aRequestedPreviewSize,
+    ICameraControl::Size& aSelectedPreviewSize) {
   if (aRequestedPreviewSize.mWidth && aRequestedPreviewSize.mHeight) {
     aSelectedPreviewSize.width = aRequestedPreviewSize.mWidth;
     aSelectedPreviewSize.height = aRequestedPreviewSize.mHeight;
@@ -434,9 +402,9 @@ nsDOMCameraControl::SelectPreviewSize(const CameraSize& aRequestedPreviewSize, I
 }
 
 // Setter for weighted regions: { top, bottom, left, right, weight }
-nsresult
-nsDOMCameraControl::Set(uint32_t aKey, const Optional<Sequence<CameraRegion> >& aValue, uint32_t aLimit)
-{
+nsresult nsDOMCameraControl::Set(
+    uint32_t aKey, const Optional<Sequence<CameraRegion> >& aValue,
+    uint32_t aLimit) {
   if (aLimit == 0) {
     DOM_CAMERA_LOGI("%s:%d : aLimit = 0, nothing to do\n", __func__, __LINE__);
     return NS_OK;
@@ -447,7 +415,8 @@ nsDOMCameraControl::Set(uint32_t aKey, const Optional<Sequence<CameraRegion> >& 
     const Sequence<CameraRegion>& regions = aValue.Value();
     uint32_t length = regions.Length();
 
-    DOM_CAMERA_LOGI("%s:%d : got %d regions (limited to %d)\n", __func__, __LINE__, length, aLimit);
+    DOM_CAMERA_LOGI("%s:%d : got %d regions (limited to %d)\n", __func__,
+                    __LINE__, length, aLimit);
     if (length > aLimit) {
       length = aLimit;
     }
@@ -457,21 +426,16 @@ nsDOMCameraControl::Set(uint32_t aKey, const Optional<Sequence<CameraRegion> >& 
 
     for (uint32_t i = 0; i < length; ++i) {
       ICameraControl::Region* r = regionArray.AppendElement();
-      const CameraRegion &region = regions[i];
+      const CameraRegion& region = regions[i];
       r->top = region.mTop;
       r->left = region.mLeft;
       r->bottom = region.mBottom;
       r->right = region.mRight;
       r->weight = region.mWeight;
 
-      DOM_CAMERA_LOGI("region %d: top=%d, left=%d, bottom=%d, right=%d, weight=%u\n",
-        i,
-        r->top,
-        r->left,
-        r->bottom,
-        r->right,
-        r->weight
-      );
+      DOM_CAMERA_LOGI(
+          "region %d: top=%d, left=%d, bottom=%d, right=%d, weight=%u\n", i,
+          r->top, r->left, r->bottom, r->right, r->weight);
     }
   } else {
     DOM_CAMERA_LOGI("%s:%d : clear regions\n", __func__, __LINE__);
@@ -480,9 +444,8 @@ nsDOMCameraControl::Set(uint32_t aKey, const Optional<Sequence<CameraRegion> >& 
 }
 
 // Getter for weighted regions: { top, bottom, left, right, weight }
-nsresult
-nsDOMCameraControl::Get(uint32_t aKey, nsTArray<CameraRegion>& aValue)
-{
+nsresult nsDOMCameraControl::Get(uint32_t aKey,
+                                 nsTArray<CameraRegion>& aValue) {
   nsTArray<ICameraControl::Region> regionArray;
 
   nsresult rv = mCameraControl->Get(aKey, regionArray);
@@ -501,159 +464,124 @@ nsDOMCameraControl::Get(uint32_t aKey, nsTArray<CameraRegion>& aValue)
     v.mRight = r.right;
     v.mWeight = r.weight;
 
-    DOM_CAMERA_LOGI("region %d: top=%d, left=%d, bottom=%d, right=%d, weight=%u\n",
-      i,
-      v.mTop,
-      v.mLeft,
-      v.mBottom,
-      v.mRight,
-      v.mWeight
-    );
+    DOM_CAMERA_LOGI(
+        "region %d: top=%d, left=%d, bottom=%d, right=%d, weight=%u\n", i,
+        v.mTop, v.mLeft, v.mBottom, v.mRight, v.mWeight);
   }
 
   return NS_OK;
 }
 
-MediaTrack*
-nsDOMCameraControl::GetCameraStream() const
-{
-  return mInput;
-}
+MediaTrack* nsDOMCameraControl::GetCameraStream() const { return mInput; }
 
-void
-nsDOMCameraControl::TrackCreated() {
+void nsDOMCameraControl::TrackCreated() {
   MOZ_ASSERT(NS_IsMainThread());
-  MOZ_RELEASE_ASSERT(mWindow, "Shouldn't have been created with a null window!");
+  MOZ_RELEASE_ASSERT(mWindow,
+                     "Shouldn't have been created with a null window!");
   nsIPrincipal* principal = mWindow->GetExtantDoc()
-                          ? mWindow->GetExtantDoc()->NodePrincipal()
-                          : nullptr;
+                                ? mWindow->GetExtantDoc()->NodePrincipal()
+                                : nullptr;
 
   // This track is not connected through a port.
-  dom::VideoStreamTrack* track =
-    new dom::VideoStreamTrack(mWindow, mInput, new BasicTrackSource(principal));
+  dom::VideoStreamTrack* track = new dom::VideoStreamTrack(
+      mWindow, mInput, new BasicTrackSource(principal));
   mTracks.AppendElement(track);
   NotifyTrackAdded(track);
 }
 
-#define THROW_IF_NO_CAMERACONTROL(...)                                          \
-  do {                                                                          \
-    if (!mCameraControl) {                                                      \
-      DOM_CAMERA_LOGW("mCameraControl is null at %s:%d\n", __func__, __LINE__); \
-      aRv = NS_ERROR_NOT_AVAILABLE;                                             \
-      return __VA_ARGS__;                                                       \
-    }                                                                           \
+#define THROW_IF_NO_CAMERACONTROL(...)                               \
+  do {                                                               \
+    if (!mCameraControl) {                                           \
+      DOM_CAMERA_LOGW("mCameraControl is null at %s:%d\n", __func__, \
+                      __LINE__);                                     \
+      aRv = NS_ERROR_NOT_AVAILABLE;                                  \
+      return __VA_ARGS__;                                            \
+    }                                                                \
   } while (0)
 
-void
-nsDOMCameraControl::GetEffect(nsString& aEffect, ErrorResult& aRv)
-{
+void nsDOMCameraControl::GetEffect(nsString& aEffect, ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL();
   aRv = mCameraControl->Get(CAMERA_PARAM_EFFECT, aEffect);
 }
-void
-nsDOMCameraControl::SetEffect(const nsAString& aEffect, ErrorResult& aRv)
-{
+void nsDOMCameraControl::SetEffect(const nsAString& aEffect, ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL();
   aRv = mCameraControl->Set(CAMERA_PARAM_EFFECT, aEffect);
 }
 
-void
-nsDOMCameraControl::GetWhiteBalanceMode(nsString& aWhiteBalanceMode, ErrorResult& aRv)
-{
+void nsDOMCameraControl::GetWhiteBalanceMode(nsString& aWhiteBalanceMode,
+                                             ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL();
   aRv = mCameraControl->Get(CAMERA_PARAM_WHITEBALANCE, aWhiteBalanceMode);
 }
-void
-nsDOMCameraControl::SetWhiteBalanceMode(const nsAString& aWhiteBalanceMode, ErrorResult& aRv)
-{
+void nsDOMCameraControl::SetWhiteBalanceMode(const nsAString& aWhiteBalanceMode,
+                                             ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL();
   aRv = mCameraControl->Set(CAMERA_PARAM_WHITEBALANCE, aWhiteBalanceMode);
 }
 
-void
-nsDOMCameraControl::GetSceneMode(nsString& aSceneMode, ErrorResult& aRv)
-{
+void nsDOMCameraControl::GetSceneMode(nsString& aSceneMode, ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL();
   aRv = mCameraControl->Get(CAMERA_PARAM_SCENEMODE, aSceneMode);
 }
-void
-nsDOMCameraControl::SetSceneMode(const nsAString& aSceneMode, ErrorResult& aRv)
-{
+void nsDOMCameraControl::SetSceneMode(const nsAString& aSceneMode,
+                                      ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL();
   aRv = mCameraControl->Set(CAMERA_PARAM_SCENEMODE, aSceneMode);
 }
 
-void
-nsDOMCameraControl::GetFlashMode(nsString& aFlashMode, ErrorResult& aRv)
-{
+void nsDOMCameraControl::GetFlashMode(nsString& aFlashMode, ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL();
   aRv = mCameraControl->Get(CAMERA_PARAM_FLASHMODE, aFlashMode);
 }
-void
-nsDOMCameraControl::SetFlashMode(const nsAString& aFlashMode, ErrorResult& aRv)
-{
+void nsDOMCameraControl::SetFlashMode(const nsAString& aFlashMode,
+                                      ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL();
   aRv = mCameraControl->Set(CAMERA_PARAM_FLASHMODE, aFlashMode);
 }
 
-void
-nsDOMCameraControl::GetFocusMode(nsString& aFocusMode, ErrorResult& aRv)
-{
+void nsDOMCameraControl::GetFocusMode(nsString& aFocusMode, ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL();
   aRv = mCameraControl->Get(CAMERA_PARAM_FOCUSMODE, aFocusMode);
 }
-void
-nsDOMCameraControl::SetFocusMode(const nsAString& aFocusMode, ErrorResult& aRv)
-{
+void nsDOMCameraControl::SetFocusMode(const nsAString& aFocusMode,
+                                      ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL();
   aRv = mCameraControl->Set(CAMERA_PARAM_FOCUSMODE, aFocusMode);
 }
 
-void
-nsDOMCameraControl::GetIsoMode(nsString& aIsoMode, ErrorResult& aRv)
-{
+void nsDOMCameraControl::GetIsoMode(nsString& aIsoMode, ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL();
   aRv = mCameraControl->Get(CAMERA_PARAM_ISOMODE, aIsoMode);
 }
-void
-nsDOMCameraControl::SetIsoMode(const nsAString& aIsoMode, ErrorResult& aRv)
-{
+void nsDOMCameraControl::SetIsoMode(const nsAString& aIsoMode,
+                                    ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL();
   aRv = mCameraControl->Set(CAMERA_PARAM_ISOMODE, aIsoMode);
 }
 
-double
-nsDOMCameraControl::GetPictureQuality(ErrorResult& aRv)
-{
+double nsDOMCameraControl::GetPictureQuality(ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL(1.0);
 
   double quality;
   aRv = mCameraControl->Get(CAMERA_PARAM_PICTURE_QUALITY, quality);
   return quality;
 }
-void
-nsDOMCameraControl::SetPictureQuality(double aQuality, ErrorResult& aRv)
-{
+void nsDOMCameraControl::SetPictureQuality(double aQuality, ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL();
   aRv = mCameraControl->Set(CAMERA_PARAM_PICTURE_QUALITY, aQuality);
 }
 
-void
-nsDOMCameraControl::GetMeteringMode(nsString& aMode, ErrorResult& aRv)
-{
+void nsDOMCameraControl::GetMeteringMode(nsString& aMode, ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL();
   aRv = mCameraControl->Get(CAMERA_PARAM_METERINGMODE, aMode);
 }
-void
-nsDOMCameraControl::SetMeteringMode(const nsAString& aMode, ErrorResult& aRv)
-{
+void nsDOMCameraControl::SetMeteringMode(const nsAString& aMode,
+                                         ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL();
   aRv = mCameraControl->Set(CAMERA_PARAM_METERINGMODE, aMode);
 }
 
-double
-nsDOMCameraControl::GetZoom(ErrorResult& aRv)
-{
+double nsDOMCameraControl::GetZoom(ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL(1.0);
 
   double zoom = 1.0;
@@ -661,40 +589,32 @@ nsDOMCameraControl::GetZoom(ErrorResult& aRv)
   return zoom;
 }
 
-void
-nsDOMCameraControl::SetZoom(double aZoom, ErrorResult& aRv)
-{
+void nsDOMCameraControl::SetZoom(double aZoom, ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL();
   aRv = mCameraControl->Set(CAMERA_PARAM_ZOOM, aZoom);
 }
 
-void
-nsDOMCameraControl::GetMeteringAreas(nsTArray<CameraRegion>& aAreas, ErrorResult& aRv)
-{
+void nsDOMCameraControl::GetMeteringAreas(nsTArray<CameraRegion>& aAreas,
+                                          ErrorResult& aRv) {
   aRv = Get(CAMERA_PARAM_METERINGAREAS, aAreas);
 }
-void
-nsDOMCameraControl::SetMeteringAreas(const Optional<Sequence<CameraRegion> >& aMeteringAreas, ErrorResult& aRv)
-{
+void nsDOMCameraControl::SetMeteringAreas(
+    const Optional<Sequence<CameraRegion> >& aMeteringAreas, ErrorResult& aRv) {
   aRv = Set(CAMERA_PARAM_METERINGAREAS, aMeteringAreas,
             mCurrentConfiguration->mMaxMeteringAreas);
 }
 
-void
-nsDOMCameraControl::GetFocusAreas(nsTArray<CameraRegion>& aAreas, ErrorResult& aRv)
-{
+void nsDOMCameraControl::GetFocusAreas(nsTArray<CameraRegion>& aAreas,
+                                       ErrorResult& aRv) {
   aRv = Get(CAMERA_PARAM_FOCUSAREAS, aAreas);
 }
-void
-nsDOMCameraControl::SetFocusAreas(const Optional<Sequence<CameraRegion> >& aFocusAreas, ErrorResult& aRv)
-{
+void nsDOMCameraControl::SetFocusAreas(
+    const Optional<Sequence<CameraRegion> >& aFocusAreas, ErrorResult& aRv) {
   aRv = Set(CAMERA_PARAM_FOCUSAREAS, aFocusAreas,
             mCurrentConfiguration->mMaxFocusAreas);
 }
 
-void
-nsDOMCameraControl::GetPictureSize(CameraSize& aSize, ErrorResult& aRv)
-{
+void nsDOMCameraControl::GetPictureSize(CameraSize& aSize, ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL();
 
   ICameraControl::Size size;
@@ -707,17 +627,14 @@ nsDOMCameraControl::GetPictureSize(CameraSize& aSize, ErrorResult& aRv)
   aSize.mHeight = size.height;
 }
 
-void
-nsDOMCameraControl::SetPictureSize(const CameraSize& aSize, ErrorResult& aRv)
-{
+void nsDOMCameraControl::SetPictureSize(const CameraSize& aSize,
+                                        ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL();
-  ICameraControl::Size s = { aSize.mWidth, aSize.mHeight };
+  ICameraControl::Size s = {aSize.mWidth, aSize.mHeight};
   aRv = mCameraControl->Set(CAMERA_PARAM_PICTURE_SIZE, s);
 }
 
-void
-nsDOMCameraControl::GetThumbnailSize(CameraSize& aSize, ErrorResult& aRv)
-{
+void nsDOMCameraControl::GetThumbnailSize(CameraSize& aSize, ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL();
   ICameraControl::Size size;
   aRv = mCameraControl->Get(CAMERA_PARAM_THUMBNAILSIZE, size);
@@ -729,17 +646,14 @@ nsDOMCameraControl::GetThumbnailSize(CameraSize& aSize, ErrorResult& aRv)
   aSize.mHeight = size.height;
 }
 
-void
-nsDOMCameraControl::SetThumbnailSize(const CameraSize& aSize, ErrorResult& aRv)
-{
+void nsDOMCameraControl::SetThumbnailSize(const CameraSize& aSize,
+                                          ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL();
-  ICameraControl::Size s = { aSize.mWidth, aSize.mHeight };
+  ICameraControl::Size s = {aSize.mWidth, aSize.mHeight};
   aRv = mCameraControl->Set(CAMERA_PARAM_THUMBNAILSIZE, s);
 }
 
-double
-nsDOMCameraControl::GetFocalLength(ErrorResult& aRv)
-{
+double nsDOMCameraControl::GetFocalLength(ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL(0.0);
 
   double focalLength;
@@ -747,9 +661,7 @@ nsDOMCameraControl::GetFocalLength(ErrorResult& aRv)
   return focalLength;
 }
 
-double
-nsDOMCameraControl::GetFocusDistanceNear(ErrorResult& aRv)
-{
+double nsDOMCameraControl::GetFocusDistanceNear(ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL(0.0);
 
   double distance;
@@ -757,9 +669,7 @@ nsDOMCameraControl::GetFocusDistanceNear(ErrorResult& aRv)
   return distance;
 }
 
-double
-nsDOMCameraControl::GetFocusDistanceOptimum(ErrorResult& aRv)
-{
+double nsDOMCameraControl::GetFocusDistanceOptimum(ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL(0.0);
 
   double distance;
@@ -767,9 +677,7 @@ nsDOMCameraControl::GetFocusDistanceOptimum(ErrorResult& aRv)
   return distance;
 }
 
-double
-nsDOMCameraControl::GetFocusDistanceFar(ErrorResult& aRv)
-{
+double nsDOMCameraControl::GetFocusDistanceFar(ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL(0.0);
 
   double distance;
@@ -777,16 +685,13 @@ nsDOMCameraControl::GetFocusDistanceFar(ErrorResult& aRv)
   return distance;
 }
 
-void
-nsDOMCameraControl::SetExposureCompensation(double aCompensation, ErrorResult& aRv)
-{
+void nsDOMCameraControl::SetExposureCompensation(double aCompensation,
+                                                 ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL();
   aRv = mCameraControl->Set(CAMERA_PARAM_EXPOSURECOMPENSATION, aCompensation);
 }
 
-double
-nsDOMCameraControl::GetExposureCompensation(ErrorResult& aRv)
-{
+double nsDOMCameraControl::GetExposureCompensation(ErrorResult& aRv) {
   THROW_IF_NO_CAMERACONTROL(0.0);
 
   double compensation;
@@ -794,9 +699,7 @@ nsDOMCameraControl::GetExposureCompensation(ErrorResult& aRv)
   return compensation;
 }
 
-int32_t
-nsDOMCameraControl::SensorAngle()
-{
+int32_t nsDOMCameraControl::SensorAngle() {
   int32_t angle = 0;
   if (mCameraControl) {
     mCameraControl->Get(CAMERA_PARAM_SENSORANGLE, angle);
@@ -804,9 +707,7 @@ nsDOMCameraControl::SensorAngle()
   return angle;
 }
 
-already_AddRefed<dom::CameraCapabilities>
-nsDOMCameraControl::Capabilities()
-{
+already_AddRefed<dom::CameraCapabilities> nsDOMCameraControl::Capabilities() {
   if (!mCameraControl) {
     DOM_CAMERA_LOGW("mCameraControl is null at %s:%d\n", __func__, __LINE__);
     return nullptr;
@@ -822,12 +723,10 @@ nsDOMCameraControl::Capabilities()
 }
 
 // Methods.
-already_AddRefed<Promise>
-nsDOMCameraControl::StartRecording(const CameraStartRecordingOptions& aOptions,
-                                   nsDOMDeviceStorage& aStorageArea,
-                                   const nsAString& aFilename,
-                                   ErrorResult& aRv)
-{
+already_AddRefed<Promise> nsDOMCameraControl::StartRecording(
+    const CameraStartRecordingOptions& aOptions,
+    nsDOMDeviceStorage& aStorageArea, const nsAString& aFilename,
+    ErrorResult& aRv) {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
 
   RefPtr<Promise> promise = CreatePromise(aRv);
@@ -837,8 +736,7 @@ nsDOMCameraControl::StartRecording(const CameraStartRecordingOptions& aOptions,
 
   // If we are trying to start recording, already recording or are still
   // waiting for a poster to be created/fail, we need to wait
-  if (mStartRecordingPromise || mRecording ||
-      mRecordingStoppedDeferred ||
+  if (mStartRecordingPromise || mRecording || mRecordingStoppedDeferred ||
       mOptions.mCreatePoster) {
     promise->MaybeReject(NS_ERROR_IN_PROGRESS);
     return promise.forget();
@@ -850,9 +748,8 @@ nsDOMCameraControl::StartRecording(const CameraStartRecordingOptions& aOptions,
   }
 
   mDSFileDescriptor = new DeviceStorageFileDescriptor();
-  RefPtr<DOMRequest> request = aStorageArea.CreateFileDescriptor(aFilename,
-                                                                   mDSFileDescriptor.get(),
-                                                                   aRv);
+  RefPtr<DOMRequest> request = aStorageArea.CreateFileDescriptor(
+      aFilename, mDSFileDescriptor.get(), aRv);
   if (aRv.Failed()) {
     NotifyRecordingStatusChange(NS_LITERAL_STRING("shutdown"));
     return nullptr;
@@ -871,9 +768,7 @@ nsDOMCameraControl::StartRecording(const CameraStartRecordingOptions& aOptions,
   return promise.forget();
 }
 
-void
-nsDOMCameraControl::OnCreatedFileDescriptor(bool aSucceeded)
-{
+void nsDOMCameraControl::OnCreatedFileDescriptor(bool aSucceeded) {
   nsresult rv = NS_ERROR_FAILURE;
 
   if (!mCameraControl) {
@@ -904,14 +799,12 @@ nsDOMCameraControl::OnCreatedFileDescriptor(bool aSucceeded)
     // FileDescriptor, and we shouldn't do this on the main thread, so we
     // use a little helper.
     RefPtr<CloseFileRunnable> closer =
-      new CloseFileRunnable(mDSFileDescriptor->mFileDescriptor);
+        new CloseFileRunnable(mDSFileDescriptor->mFileDescriptor);
     closer->Dispatch();
   }
 }
 
-void
-nsDOMCameraControl::StopRecording(ErrorResult& aRv)
-{
+void nsDOMCameraControl::StopRecording(ErrorResult& aRv) {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
   THROW_IF_NO_CAMERACONTROL();
 
@@ -920,36 +813,28 @@ nsDOMCameraControl::StopRecording(ErrorResult& aRv)
   aRv = mCameraControl->StopRecording();
 }
 
-void
-nsDOMCameraControl::PauseRecording(ErrorResult& aRv)
-{
+void nsDOMCameraControl::PauseRecording(ErrorResult& aRv) {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
   THROW_IF_NO_CAMERACONTROL();
 
   aRv = mCameraControl->PauseRecording();
 }
 
-void
-nsDOMCameraControl::ResumeRecording(ErrorResult& aRv)
-{
+void nsDOMCameraControl::ResumeRecording(ErrorResult& aRv) {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
   THROW_IF_NO_CAMERACONTROL();
 
   aRv = mCameraControl->ResumeRecording();
 }
 
-void
-nsDOMCameraControl::ResumePreview(ErrorResult& aRv)
-{
+void nsDOMCameraControl::ResumePreview(ErrorResult& aRv) {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
   THROW_IF_NO_CAMERACONTROL();
   aRv = mCameraControl->StartPreview();
 }
 
-already_AddRefed<Promise>
-nsDOMCameraControl::SetConfiguration(const CameraConfiguration& aConfiguration,
-                                     ErrorResult& aRv)
-{
+already_AddRefed<Promise> nsDOMCameraControl::SetConfiguration(
+    const CameraConfiguration& aConfiguration, ErrorResult& aRv) {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
   THROW_IF_NO_CAMERACONTROL(nullptr);
 
@@ -987,9 +872,7 @@ nsDOMCameraControl::SetConfiguration(const CameraConfiguration& aConfiguration,
   return promise.forget();
 }
 
-already_AddRefed<Promise>
-nsDOMCameraControl::AutoFocus(ErrorResult& aRv)
-{
+already_AddRefed<Promise> nsDOMCameraControl::AutoFocus(ErrorResult& aRv) {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
   THROW_IF_NO_CAMERACONTROL(nullptr);
 
@@ -1016,26 +899,20 @@ nsDOMCameraControl::AutoFocus(ErrorResult& aRv)
   return promise.forget();
 }
 
-void
-nsDOMCameraControl::StartFaceDetection(ErrorResult& aRv)
-{
+void nsDOMCameraControl::StartFaceDetection(ErrorResult& aRv) {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
   THROW_IF_NO_CAMERACONTROL();
   aRv = mCameraControl->StartFaceDetection();
 }
 
-void
-nsDOMCameraControl::StopFaceDetection(ErrorResult& aRv)
-{
+void nsDOMCameraControl::StopFaceDetection(ErrorResult& aRv) {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
   THROW_IF_NO_CAMERACONTROL();
   aRv = mCameraControl->StopFaceDetection();
 }
 
-already_AddRefed<Promise>
-nsDOMCameraControl::TakePicture(const CameraPictureOptions& aOptions,
-                                ErrorResult& aRv)
-{
+already_AddRefed<Promise> nsDOMCameraControl::TakePicture(
+    const CameraPictureOptions& aOptions, ErrorResult& aRv) {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
   THROW_IF_NO_CAMERACONTROL(nullptr);
 
@@ -1069,7 +946,8 @@ nsDOMCameraControl::TakePicture(const CameraPictureOptions& aOptions,
       mCameraControl->Set(CAMERA_PARAM_PICTURE_SIZE, s);
     }
     if (!aOptions.mFileFormat.IsEmpty()) {
-      mCameraControl->Set(CAMERA_PARAM_PICTURE_FILEFORMAT, aOptions.mFileFormat);
+      mCameraControl->Set(CAMERA_PARAM_PICTURE_FILEFORMAT,
+                          aOptions.mFileFormat);
     }
     mCameraControl->Set(CAMERA_PARAM_PICTURE_ROTATION, aOptions.mRotation);
     mCameraControl->Set(CAMERA_PARAM_PICTURE_DATETIME, aOptions.mDateTime);
@@ -1085,9 +963,8 @@ nsDOMCameraControl::TakePicture(const CameraPictureOptions& aOptions,
   return promise.forget();
 }
 
-already_AddRefed<Promise>
-nsDOMCameraControl::ReleaseHardware(ErrorResult& aRv)
-{
+already_AddRefed<Promise> nsDOMCameraControl::ReleaseHardware(
+    ErrorResult& aRv) {
   DOM_CAMERA_LOGI("%s:%d : this=%p\n", __func__, __LINE__, this);
 
   RefPtr<Promise> promise = CreatePromise(aRv);
@@ -1115,17 +992,13 @@ nsDOMCameraControl::ReleaseHardware(ErrorResult& aRv)
   return promise.forget();
 }
 
-void
-nsDOMCameraControl::ResumeContinuousFocus(ErrorResult& aRv)
-{
+void nsDOMCameraControl::ResumeContinuousFocus(ErrorResult& aRv) {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
   THROW_IF_NO_CAMERACONTROL();
   aRv = mCameraControl->ResumeContinuousFocus();
 }
 
-void
-nsDOMCameraControl::Shutdown()
-{
+void nsDOMCameraControl::Shutdown() {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
 
   // Remove any pending solicited event handlers; these
@@ -1144,9 +1017,7 @@ nsDOMCameraControl::Shutdown()
   }
 }
 
-void
-nsDOMCameraControl::ReleaseAudioChannelAgent()
-{
+void nsDOMCameraControl::ReleaseAudioChannelAgent() {
 #ifdef MOZ_B2G
   if (mAudioChannelAgent) {
     mAudioChannelAgent->NotifyStoppedPlaying();
@@ -1155,9 +1026,7 @@ nsDOMCameraControl::ReleaseAudioChannelAgent()
 #endif
 }
 
-nsresult
-nsDOMCameraControl::NotifyRecordingStatusChange(const nsString& aMsg)
-{
+nsresult nsDOMCameraControl::NotifyRecordingStatusChange(const nsString& aMsg) {
   NS_ENSURE_TRUE(mWindow, NS_ERROR_FAILURE);
 
   if (aMsg.EqualsLiteral("shutdown")) {
@@ -1177,10 +1046,12 @@ nsDOMCameraControl::NotifyRecordingStatusChange(const nsString& aMsg)
       return NS_ERROR_UNEXPECTED;
     }
 
-    // Camera app will stop recording when it falls to the background, so no callback is necessary.
+    // Camera app will stop recording when it falls to the background, so no
+    // callback is necessary.
     mAudioChannelAgent->Init(
         mWindow, static_cast<int32_t>(AudioChannel::Content), nullptr);
-    rv = mAudioChannelAgent->NotifyStartedPlaying(AudioChannelService::AudibleState::eAudible);
+    rv = mAudioChannelAgent->NotifyStartedPlaying(
+        AudioChannelService::AudibleState::eAudible);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
@@ -1189,9 +1060,7 @@ nsDOMCameraControl::NotifyRecordingStatusChange(const nsString& aMsg)
   return rv;
 }
 
-already_AddRefed<Promise>
-nsDOMCameraControl::CreatePromise(ErrorResult& aRv)
-{
+already_AddRefed<Promise> nsDOMCameraControl::CreatePromise(ErrorResult& aRv) {
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(mWindow);
   if (!global) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -1200,26 +1069,21 @@ nsDOMCameraControl::CreatePromise(ErrorResult& aRv)
   return Promise::Create(global, aRv);
 }
 
-void
-nsDOMCameraControl::AbortPromise(RefPtr<Promise>& aPromise)
-{
+void nsDOMCameraControl::AbortPromise(RefPtr<Promise>& aPromise) {
   RefPtr<Promise> promise = aPromise.forget();
   if (promise) {
     promise->MaybeReject(NS_ERROR_NOT_AVAILABLE);
   }
 }
 
-void
-nsDOMCameraControl::EventListenerAdded(nsAtom* aType)
-{
+void nsDOMCameraControl::EventListenerAdded(nsAtom* aType) {
   if (aType == nsGkAtoms::onpreviewstatechange) {
     DispatchPreviewStateEvent(mPreviewState);
   }
 }
 
-void
-nsDOMCameraControl::DispatchPreviewStateEvent(CameraControlListener::PreviewState aState)
-{
+void nsDOMCameraControl::DispatchPreviewStateEvent(
+    CameraControlListener::PreviewState aState) {
   nsString state;
   switch (aState) {
     case CameraControlListener::kPreviewStarted:
@@ -1234,21 +1098,18 @@ nsDOMCameraControl::DispatchPreviewStateEvent(CameraControlListener::PreviewStat
   DispatchStateEvent(NS_LITERAL_STRING("previewstatechange"), state);
 }
 
-void
-nsDOMCameraControl::DispatchStateEvent(const nsString& aType, const nsString& aState)
-{
+void nsDOMCameraControl::DispatchStateEvent(const nsString& aType,
+                                            const nsString& aState) {
   CameraStateChangeEventInit eventInit;
   eventInit.mNewState = aState;
 
   RefPtr<CameraStateChangeEvent> event =
-    CameraStateChangeEvent::Constructor(this, aType, eventInit);
+      CameraStateChangeEvent::Constructor(this, aType, eventInit);
 
   DispatchTrustedEvent(event);
 }
 
-void
-nsDOMCameraControl::OnGetCameraComplete()
-{
+void nsDOMCameraControl::OnGetCameraComplete() {
   // The hardware is open, so we can return a camera to JS, even if
   // the preview hasn't started yet.
   RefPtr<Promise> promise = mGetCameraPromise.forget();
@@ -1261,10 +1122,8 @@ nsDOMCameraControl::OnGetCameraComplete()
 }
 
 // Camera Control event handlers--must only be called from the Main Thread!
-void
-nsDOMCameraControl::OnHardwareStateChange(CameraControlListener::HardwareState aState,
-                                          nsresult aReason)
-{
+void nsDOMCameraControl::OnHardwareStateChange(
+    CameraControlListener::HardwareState aState, nsresult aReason) {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
   MOZ_ASSERT(NS_IsMainThread());
 
@@ -1308,21 +1167,21 @@ nsDOMCameraControl::OnHardwareStateChange(CameraControlListener::HardwareState a
             break;
         }
 
-        RefPtr<CameraClosedEvent> event =
-          CameraClosedEvent::Constructor(this,
-                                         NS_LITERAL_STRING("close"),
-                                         eventInit);
+        RefPtr<CameraClosedEvent> event = CameraClosedEvent::Constructor(
+            this, NS_LITERAL_STRING("close"), eventInit);
         DispatchTrustedEvent(event);
       } else {
         // The configuration failed and we forced the camera to shutdown.
-        OnUserError(DOMCameraControlListener::kInStartCamera, NS_ERROR_NOT_AVAILABLE);
+        OnUserError(DOMCameraControlListener::kInStartCamera,
+                    NS_ERROR_NOT_AVAILABLE);
       }
       break;
 
     case CameraControlListener::kHardwareOpenFailed:
       DOM_CAMERA_LOGI("DOM OnHardwareStateChange: open failed\n");
       MOZ_ASSERT(aReason == NS_ERROR_NOT_AVAILABLE);
-      OnUserError(DOMCameraControlListener::kInStartCamera, NS_ERROR_NOT_AVAILABLE);
+      OnUserError(DOMCameraControlListener::kInStartCamera,
+                  NS_ERROR_NOT_AVAILABLE);
       break;
 
     case CameraControlListener::kHardwareUninitialized:
@@ -1334,17 +1193,14 @@ nsDOMCameraControl::OnHardwareStateChange(CameraControlListener::HardwareState a
   }
 }
 
-void
-nsDOMCameraControl::OnShutter()
-{
+void nsDOMCameraControl::OnShutter() {
   DOM_CAMERA_LOGI("DOM ** SNAP **\n");
   MOZ_ASSERT(NS_IsMainThread());
   DispatchTrustedEvent(NS_LITERAL_STRING("shutter"));
 }
 
-void
-nsDOMCameraControl::OnPreviewStateChange(CameraControlListener::PreviewState aState)
-{
+void nsDOMCameraControl::OnPreviewStateChange(
+    CameraControlListener::PreviewState aState) {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
   MOZ_ASSERT(NS_IsMainThread());
 
@@ -1363,9 +1219,7 @@ nsDOMCameraControl::OnPreviewStateChange(CameraControlListener::PreviewState aSt
   DispatchPreviewStateEvent(aState);
 }
 
-void
-nsDOMCameraControl::OnPoster(BlobImpl* aPoster)
-{
+void nsDOMCameraControl::OnPoster(BlobImpl* aPoster) {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(mOptions.mCreatePoster);
@@ -1379,35 +1233,32 @@ nsDOMCameraControl::OnPoster(BlobImpl* aPoster)
   BlobEventInit eventInit;
   eventInit.mData = blob;
 
-  RefPtr<BlobEvent> event = BlobEvent::Constructor(this,
-                                                     NS_LITERAL_STRING("poster"),
-                                                     eventInit);
+  RefPtr<BlobEvent> event =
+      BlobEvent::Constructor(this, NS_LITERAL_STRING("poster"), eventInit);
 
   DispatchTrustedEvent(event);
   OnRecorderStateChange(CameraControlListener::kPosterCreated, 0, 0);
 }
 
-void
-nsDOMCameraControl::OnRecorderStateChange(CameraControlListener::RecorderState aState,
-                                          int32_t aArg, int32_t aTrackNum)
-{
+void nsDOMCameraControl::OnRecorderStateChange(
+    CameraControlListener::RecorderState aState, int32_t aArg,
+    int32_t aTrackNum) {
   // For now, we do nothing with 'aStatus' and 'aTrackNum'.
-  DOM_CAMERA_LOGT("%s:%d : this=%p, state=%u\n", __func__, __LINE__, this, aState);
+  DOM_CAMERA_LOGT("%s:%d : this=%p, state=%u\n", __func__, __LINE__, this,
+                  aState);
   MOZ_ASSERT(NS_IsMainThread());
 
   nsString state;
 
   switch (aState) {
-    case CameraControlListener::kRecorderStarted:
-      {
-        RefPtr<Promise> promise = mStartRecordingPromise.forget();
-        if (promise) {
-          promise->MaybeResolveWithUndefined();
-        }
-
-        state = NS_LITERAL_STRING("Started");
+    case CameraControlListener::kRecorderStarted: {
+      RefPtr<Promise> promise = mStartRecordingPromise.forget();
+      if (promise) {
+        promise->MaybeResolveWithUndefined();
       }
-      break;
+
+      state = NS_LITERAL_STRING("Started");
+    } break;
 
     case CameraControlListener::kRecorderStopped:
       if (mOptions.mCreatePoster) {
@@ -1476,9 +1327,8 @@ nsDOMCameraControl::OnRecorderStateChange(CameraControlListener::RecorderState a
   }
 }
 
-void
-nsDOMCameraControl::OnConfigurationChange(DOMCameraConfiguration* aConfiguration)
-{
+void nsDOMCameraControl::OnConfigurationChange(
+    DOMCameraConfiguration* aConfiguration) {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aConfiguration != nullptr);
@@ -1487,18 +1337,22 @@ nsDOMCameraControl::OnConfigurationChange(DOMCameraConfiguration* aConfiguration
   mCurrentConfiguration = aConfiguration;
 
   DOM_CAMERA_LOGI("DOM OnConfigurationChange: this=%p\n", this);
-  DOM_CAMERA_LOGI("    mode                   : %s\n",
-    mCurrentConfiguration->mMode == CameraMode::Video ? "video" : "picture");
+  DOM_CAMERA_LOGI(
+      "    mode                   : %s\n",
+      mCurrentConfiguration->mMode == CameraMode::Video ? "video" : "picture");
   DOM_CAMERA_LOGI("    maximum focus areas    : %d\n",
-    mCurrentConfiguration->mMaxFocusAreas);
+                  mCurrentConfiguration->mMaxFocusAreas);
   DOM_CAMERA_LOGI("    maximum metering areas : %d\n",
-    mCurrentConfiguration->mMaxMeteringAreas);
+                  mCurrentConfiguration->mMaxMeteringAreas);
   DOM_CAMERA_LOGI("    preview size (w x h)   : %d x %d\n",
-    mCurrentConfiguration->mPreviewSize.mWidth, mCurrentConfiguration->mPreviewSize.mHeight);
+                  mCurrentConfiguration->mPreviewSize.mWidth,
+                  mCurrentConfiguration->mPreviewSize.mHeight);
   DOM_CAMERA_LOGI("    picture size (w x h)   : %d x %d\n",
-    mCurrentConfiguration->mPictureSize.mWidth, mCurrentConfiguration->mPictureSize.mHeight);
-  DOM_CAMERA_LOGI("    recorder profile       : %s\n",
-    NS_ConvertUTF16toUTF8(mCurrentConfiguration->mRecorderProfile).get());
+                  mCurrentConfiguration->mPictureSize.mWidth,
+                  mCurrentConfiguration->mPictureSize.mHeight);
+  DOM_CAMERA_LOGI(
+      "    recorder profile       : %s\n",
+      NS_ConvertUTF16toUTF8(mCurrentConfiguration->mRecorderProfile).get());
 
   if (mSetInitialConfig) {
     OnGetCameraComplete();
@@ -1514,24 +1368,23 @@ nsDOMCameraControl::OnConfigurationChange(DOMCameraConfiguration* aConfiguration
   CameraConfigurationEventInit eventInit;
   eventInit.mMode = mCurrentConfiguration->mMode;
   eventInit.mRecorderProfile = mCurrentConfiguration->mRecorderProfile;
-  eventInit.mPreviewSize = new DOMRect(static_cast<DOMMediaStream*>(this), 0, 0,
-                                       mCurrentConfiguration->mPreviewSize.mWidth,
-                                       mCurrentConfiguration->mPreviewSize.mHeight);
-  eventInit.mPictureSize = new DOMRect(static_cast<DOMMediaStream*>(this), 0, 0,
-                                       mCurrentConfiguration->mPictureSize.mWidth,
-                                       mCurrentConfiguration->mPictureSize.mHeight);
+  eventInit.mPreviewSize =
+      new DOMRect(static_cast<DOMMediaStream*>(this), 0, 0,
+                  mCurrentConfiguration->mPreviewSize.mWidth,
+                  mCurrentConfiguration->mPreviewSize.mHeight);
+  eventInit.mPictureSize =
+      new DOMRect(static_cast<DOMMediaStream*>(this), 0, 0,
+                  mCurrentConfiguration->mPictureSize.mWidth,
+                  mCurrentConfiguration->mPictureSize.mHeight);
 
   RefPtr<CameraConfigurationEvent> event =
-    CameraConfigurationEvent::Constructor(this,
-                                          NS_LITERAL_STRING("configurationchanged"),
-                                          eventInit);
+      CameraConfigurationEvent::Constructor(
+          this, NS_LITERAL_STRING("configurationchanged"), eventInit);
 
   DispatchTrustedEvent(event);
 }
 
-void
-nsDOMCameraControl::OnAutoFocusComplete(bool aAutoFocusSucceeded)
-{
+void nsDOMCameraControl::OnAutoFocusComplete(bool aAutoFocusSucceeded) {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
   MOZ_ASSERT(NS_IsMainThread());
 
@@ -1541,26 +1394,26 @@ nsDOMCameraControl::OnAutoFocusComplete(bool aAutoFocusSucceeded)
   }
 
   if (aAutoFocusSucceeded) {
-    DispatchStateEvent(NS_LITERAL_STRING("focus"), NS_LITERAL_STRING("focused"));
+    DispatchStateEvent(NS_LITERAL_STRING("focus"),
+                       NS_LITERAL_STRING("focused"));
   } else {
-    DispatchStateEvent(NS_LITERAL_STRING("focus"), NS_LITERAL_STRING("unfocused"));
+    DispatchStateEvent(NS_LITERAL_STRING("focus"),
+                       NS_LITERAL_STRING("unfocused"));
   }
 }
 
-void
-nsDOMCameraControl::OnAutoFocusMoving(bool aIsMoving)
-{
+void nsDOMCameraControl::OnAutoFocusMoving(bool aIsMoving) {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
   MOZ_ASSERT(NS_IsMainThread());
 
   if (aIsMoving) {
-    DispatchStateEvent(NS_LITERAL_STRING("focus"), NS_LITERAL_STRING("focusing"));
+    DispatchStateEvent(NS_LITERAL_STRING("focus"),
+                       NS_LITERAL_STRING("focusing"));
   }
 }
 
-void
-nsDOMCameraControl::OnFacesDetected(const nsTArray<ICameraControl::Face>& aFaces)
-{
+void nsDOMCameraControl::OnFacesDetected(
+    const nsTArray<ICameraControl::Face>& aFaces) {
   DOM_CAMERA_LOGI("DOM OnFacesDetected %zu face(s)\n", aFaces.Length());
   MOZ_ASSERT(NS_IsMainThread());
 
@@ -1569,15 +1422,15 @@ nsDOMCameraControl::OnFacesDetected(const nsTArray<ICameraControl::Face>& aFaces
 
   if (faces.SetCapacity(len, fallible)) {
     for (uint32_t i = 0; i < len; ++i) {
-      *faces.AppendElement(fallible) =
-        new DOMCameraDetectedFace(static_cast<DOMMediaStream*>(this), aFaces[i]);
+      *faces.AppendElement(fallible) = new DOMCameraDetectedFace(
+          static_cast<DOMMediaStream*>(this), aFaces[i]);
     }
   }
 
   CameraFacesDetectedEventInit eventInit;
   eventInit.mFaces.SetValue(faces);
 
-  //RefPtr<CameraFacesDetectedEvent> event =
+  // RefPtr<CameraFacesDetectedEvent> event =
   //  CameraFacesDetectedEvent::Constructor(this,
   //                                        NS_LITERAL_STRING("facesdetected"),
   //                                       eventInit);
@@ -1585,9 +1438,7 @@ nsDOMCameraControl::OnFacesDetected(const nsTArray<ICameraControl::Face>& aFaces
   DispatchTrustedEvent(NS_LITERAL_STRING("facesdetected"));
 }
 
-void
-nsDOMCameraControl::OnTakePictureComplete(dom::Blob* aPicture)
-{
+void nsDOMCameraControl::OnTakePictureComplete(dom::Blob* aPicture) {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aPicture);
@@ -1605,11 +1456,10 @@ nsDOMCameraControl::OnTakePictureComplete(dom::Blob* aPicture)
   DispatchTrustedEvent(NS_LITERAL_STRING("picture"));
 }
 
-void
-nsDOMCameraControl::OnUserError(CameraControlListener::UserContext aContext, nsresult aError)
-{
-  DOM_CAMERA_LOGI("DOM OnUserError : this=%p, aContext=%u, aError=0x%x\n",
-    this, aContext, aError);
+void nsDOMCameraControl::OnUserError(
+    CameraControlListener::UserContext aContext, nsresult aError) {
+  DOM_CAMERA_LOGI("DOM OnUserError : this=%p, aContext=%u, aError=0x%x\n", this,
+                  aContext, aError);
   MOZ_ASSERT(NS_IsMainThread());
 
   RefPtr<Promise> promise;
@@ -1618,8 +1468,8 @@ nsDOMCameraControl::OnUserError(CameraControlListener::UserContext aContext, nsr
     case CameraControlListener::kInStartCamera:
       promise = mGetCameraPromise.forget();
       // If we failed to open the camera, we never actually provided a reference
-      // for the application to release explicitly. Thus we must clear our handle
-      // here to ensure everything is freed.
+      // for the application to release explicitly. Thus we must clear our
+      // handle here to ensure everything is freed.
       mCameraControl = nullptr;
       break;
 
@@ -1652,7 +1502,8 @@ nsDOMCameraControl::OnUserError(CameraControlListener::UserContext aContext, nsr
 
     case CameraControlListener::kInAutoFocus:
       promise = mAutoFocusPromise.forget();
-      DispatchStateEvent(NS_LITERAL_STRING("focus"), NS_LITERAL_STRING("unfocused"));
+      DispatchStateEvent(NS_LITERAL_STRING("focus"),
+                         NS_LITERAL_STRING("unfocused"));
       break;
 
     case CameraControlListener::kInTakePicture:
@@ -1725,18 +1576,18 @@ nsDOMCameraControl::OnUserError(CameraControlListener::UserContext aContext, nsr
       NS_WARNING("Failed to set thumbnail size");
       return;
 
-    default:
-      {
-        nsPrintfCString msg("Unhandled aContext=%u, aError=0x%x\n", aContext, aError);
-        NS_WARNING(msg.get());
-      }
+    default: {
+      nsPrintfCString msg("Unhandled aContext=%u, aError=0x%x\n", aContext,
+                          aError);
+      NS_WARNING(msg.get());
+    }
       MOZ_ASSERT_UNREACHABLE("Unhandled user error");
       return;
   }
 
   if (!promise) {
     DOM_CAMERA_LOGW("DOM No error handler for aError=0x%x in aContext=%u\n",
-      aError, aContext);
+                    aError, aContext);
     return;
   }
 

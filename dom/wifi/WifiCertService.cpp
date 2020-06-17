@@ -163,16 +163,19 @@ private:
     return SECSuccess;
   }
 
-  nsresult ImportPKCS12Blob(char* buf, uint32_t size, const nsAString& aPassword)
+  nsresult ImportPKCS12Blob(char* buf, uint32_t size, const nsAString&
+aPassword)
   {
     nsString password(aPassword);
 
     // password is null-terminated wide-char string.
-    // passwordItem is required to be big-endian form of password, stored in char
+    // passwordItem is required to be big-endian form of password, stored in
+char
     // array, including the null-termination.
     uint32_t length = password.Length() + 1;
     ScopedSECItem passwordItem(
-      ::SECITEM_AllocItem(nullptr, nullptr, length * sizeof(nsString::char_type)));
+      ::SECITEM_AllocItem(nullptr, nullptr, length *
+sizeof(nsString::char_type)));
 
     if (!passwordItem) {
       return NS_ERROR_FAILURE;
@@ -193,10 +196,8 @@ private:
 
     // Assign data to decorder.
     SECStatus srv = SEC_PKCS12DecoderUpdate(p12dcx,
-                                            reinterpret_cast<unsigned char*>(buf),
-                                            size);
-    if (srv != SECSuccess) {
-      return MapSECStatus(srv);
+                                            reinterpret_cast<unsigned
+char*>(buf), size); if (srv != SECSuccess) { return MapSECStatus(srv);
     }
 
     // Verify certificates.

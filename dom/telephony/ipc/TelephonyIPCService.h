@@ -22,11 +22,10 @@ USING_VIDEOCALLPROVIDER_NAMESPACE
 class IPCTelephonyRequest;
 class PTelephonyChild;
 
-class TelephonyIPCService final : public nsITelephonyService
-                                , public nsITelephonyListener
-                                , public nsIObserver
-{
-public:
+class TelephonyIPCService final : public nsITelephonyService,
+                                  public nsITelephonyListener,
+                                  public nsIObserver {
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSITELEPHONYSERVICE
   NS_DECL_NSITELEPHONYLISTENER
@@ -36,29 +35,29 @@ public:
 
   void NoteActorDestroyed();
 
-private:
+ private:
   ~TelephonyIPCService();
 
   nsTArray<nsCOMPtr<nsITelephonyListener> > mListeners;
   PTelephonyChild* mPTelephonyChild;
   uint32_t mDefaultServiceId;
 
-  nsresult SendRequest(nsITelephonyListener *aListener,
-                       nsITelephonyCallback *aCallback,
+  nsresult SendRequest(nsITelephonyListener* aListener,
+                       nsITelephonyCallback* aCallback,
                        const IPCTelephonyRequest& aRequest);
-/*
-#ifdef MOZ_WIDGET_GONK
-  nsresult GetLoopbackProvider(nsIVideoCallProvider **aProvider);
-  void RemoveVideoCallProvider(nsITelephonyCallInfo *aInfo);
-  void RemoveVideoCallProvider(uint32_t aClientId, uint32_t aCallIndex);
-  void CleanupVideocallProviders();
-  void CleanupLoopbackProvider();
+  /*
+  #ifdef MOZ_WIDGET_GONK
+    nsresult GetLoopbackProvider(nsIVideoCallProvider **aProvider);
+    void RemoveVideoCallProvider(nsITelephonyCallInfo *aInfo);
+    void RemoveVideoCallProvider(uint32_t aClientId, uint32_t aCallIndex);
+    void CleanupVideocallProviders();
+    void CleanupLoopbackProvider();
 
-  RefPtr<VideoCallProviderChild> mLoopbackProvider;
-#endif
-*/
+    RefPtr<VideoCallProviderChild> mLoopbackProvider;
+  #endif
+  */
 };
 
 END_TELEPHONY_NAMESPACE
 
-#endif // mozilla_dom_telephony_TelephonyIPCService_h
+#endif  // mozilla_dom_telephony_TelephonyIPCService_h

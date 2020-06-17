@@ -13,9 +13,9 @@
 // Service instantiation
 #include "ipc/CellBroadcastChild.h"
 #if defined(MOZ_WIDGET_GONK) && defined(MOZ_B2G_RIL)
-#include "nsIGonkCellBroadcastService.h"
+#  include "nsIGonkCellBroadcastService.h"
 #endif
-#include "nsXULAppAPI.h" // For XRE_GetProcessType()
+#include "nsXULAppAPI.h"  // For XRE_GetProcessType()
 
 using namespace mozilla::dom;
 using mozilla::ErrorResult;
@@ -24,32 +24,26 @@ using mozilla::ErrorResult;
  * CellBroadcast::Listener Implementation.
  */
 
-class CellBroadcast::Listener final : public nsICellBroadcastListener
-{
-private:
+class CellBroadcast::Listener final : public nsICellBroadcastListener {
+ private:
   CellBroadcast* mCellBroadcast;
 
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_FORWARD_SAFE_NSICELLBROADCASTLISTENER(mCellBroadcast)
 
   explicit Listener(CellBroadcast* aCellBroadcast)
-    : mCellBroadcast(aCellBroadcast)
-  {
+      : mCellBroadcast(aCellBroadcast) {
     MOZ_ASSERT(mCellBroadcast);
   }
 
-  void Disconnect()
-  {
+  void Disconnect() {
     MOZ_ASSERT(mCellBroadcast);
     mCellBroadcast = nullptr;
   }
 
-private:
-  ~Listener()
-  {
-    MOZ_ASSERT(!mCellBroadcast);
-  }
+ private:
+  ~Listener() { MOZ_ASSERT(!mCellBroadcast); }
 };
 
 NS_IMPL_ISUPPORTS(CellBroadcast::Listener, nsICellBroadcastListener)
@@ -62,7 +56,7 @@ NS_IMPL_ISUPPORTS(CellBroadcast::Listener, nsICellBroadcastListener)
 already_AddRefed<CellBroadcast> CellBroadcast::Create(nsIGlobalObject* aGlobal,
                                                       ErrorResult& aRv) {
   nsCOMPtr<nsICellBroadcastService> service =
-    do_GetService(CELLBROADCAST_SERVICE_CONTRACTID);
+      do_GetService(CELLBROADCAST_SERVICE_CONTRACTID);
   if (!service) {
     aRv.Throw(NS_ERROR_UNEXPECTED);
     return nullptr;
@@ -82,13 +76,12 @@ CellBroadcast::CellBroadcast(nsIGlobalObject* aGlobal,
   }
 }
 
-CellBroadcast::~CellBroadcast()
-{
+CellBroadcast::~CellBroadcast() {
   MOZ_ASSERT(mListener);
 
   mListener->Disconnect();
   nsCOMPtr<nsICellBroadcastService> service =
-    do_GetService(CELLBROADCAST_SERVICE_CONTRACTID);
+      do_GetService(CELLBROADCAST_SERVICE_CONTRACTID);
   if (service) {
     service->UnregisterListener(mListener);
   }
@@ -114,54 +107,34 @@ NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 NS_IMPL_ADDREF_INHERITED(CellBroadcast, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(CellBroadcast, DOMEventTargetHelper)
 
-JSObject*
-CellBroadcast::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* CellBroadcast::WrapObject(JSContext* aCx,
+                                    JS::Handle<JSObject*> aGivenProto) {
   return CellBroadcast_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 // Forwarded nsICellBroadcastListener methods
 
 NS_IMETHODIMP
-CellBroadcast::NotifyMessageReceived(uint32_t aServiceId,
-                                     uint32_t aGsmGeographicalScope,
-                                     uint16_t aMessageCode,
-                                     uint16_t aMessageId,
-                                     const nsAString& aLanguage,
-                                     const nsAString& aBody,
-                                     uint32_t aMessageClass,
-                                     DOMTimeStamp aTimestamp,
-                                     uint32_t aCdmaServiceCategory,
-                                     bool aHasEtwsInfo,
-                                     uint32_t aEtwsWarningType,
-                                     bool aEtwsEmergencyUserAlert,
-                                     bool aEtwsPopup) {
+CellBroadcast::NotifyMessageReceived(
+    uint32_t aServiceId, uint32_t aGsmGeographicalScope, uint16_t aMessageCode,
+    uint16_t aMessageId, const nsAString& aLanguage, const nsAString& aBody,
+    uint32_t aMessageClass, DOMTimeStamp aTimestamp,
+    uint32_t aCdmaServiceCategory, bool aHasEtwsInfo, uint32_t aEtwsWarningType,
+    bool aEtwsEmergencyUserAlert, bool aEtwsPopup) {
   CellBroadcastEventInit init;
   init.mBubbles = true;
   init.mCancelable = false;
-  init.mMessage = new CellBroadcastMessage(GetOwner(),
-                                           aServiceId,
-                                           aGsmGeographicalScope,
-                                           aMessageCode,
-                                           aMessageId,
-                                           aLanguage,
-                                           aBody,
-                                           aMessageClass,
-                                           aTimestamp,
-                                           aCdmaServiceCategory,
-                                           aHasEtwsInfo,
-                                           aEtwsWarningType,
-                                           aEtwsEmergencyUserAlert,
-                                           aEtwsPopup);
+  init.mMessage = new CellBroadcastMessage(
+      GetOwner(), aServiceId, aGsmGeographicalScope, aMessageCode, aMessageId,
+      aLanguage, aBody, aMessageClass, aTimestamp, aCdmaServiceCategory,
+      aHasEtwsInfo, aEtwsWarningType, aEtwsEmergencyUserAlert, aEtwsPopup);
 
   RefPtr<CellBroadcastEvent> event = CellBroadcastEvent::Constructor(
       this, NS_LITERAL_STRING("received"), init);
   return DispatchTrustedEvent(event);
 }
 
-already_AddRefed<nsICellBroadcastService>
-NS_CreateCellBroadcastService()
-{
+already_AddRefed<nsICellBroadcastService> NS_CreateCellBroadcastService() {
   nsCOMPtr<nsICellBroadcastService> service;
 
   if (XRE_IsContentProcess()) {

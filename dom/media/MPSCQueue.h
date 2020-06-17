@@ -43,7 +43,8 @@ class MPSCQueue {
   // making it cheap and, more importantly, lock-free enough. This has been
   // measured to be cheap and reliable enough, but will be replaced in the
   // longer run.
-#if !defined(XP_WIN) && !defined(MOZ_WIDGET_ANDROID) && !defined(MOZ_WIDGET_GONK)
+#if !defined(XP_WIN) && !defined(MOZ_WIDGET_ANDROID) && \
+    !defined(MOZ_WIDGET_GONK)
   static_assert(IsPowerOfTwo(sizeof(MPSCQueue<T>::Message)),
                 "MPSCQueue internal allocations must have a size that is a"
                 "power of two ");

@@ -9,56 +9,47 @@
 
 #include "mozilla/Attributes.h"
 #include "nsCOMPtr.h"
-#include "nsIVoicemailService.h" // For nsIVoicemailProvider.
+#include "nsIVoicemailService.h"  // For nsIVoicemailProvider.
 #include "nsString.h"
 #include "nsWrapperCache.h"
 
 namespace mozilla {
 namespace dom {
 
-class VoicemailStatus final : public nsISupports
-                            , public nsWrapperCache
-{
-public:
+class VoicemailStatus final : public nsISupports, public nsWrapperCache {
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(VoicemailStatus)
 
-  VoicemailStatus(nsISupports* aParent,
-                  nsIVoicemailProvider* aProvider);
+  VoicemailStatus(nsISupports* aParent, nsIVoicemailProvider* aProvider);
 
-  nsISupports*
-  GetParentObject() const { return mParent; }
+  nsISupports* GetParentObject() const { return mParent; }
 
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   // WebIDL interface
 
-  uint32_t
-  ServiceId() const;
+  uint32_t ServiceId() const;
 
-  bool
-  HasMessages() const;
+  bool HasMessages() const;
 
-  int32_t
-  MessageCount() const;
+  int32_t MessageCount() const;
 
-  void
-  GetReturnNumber(nsString& aReturnNumber) const;
+  void GetReturnNumber(nsString& aReturnNumber) const;
 
-  void
-  GetReturnMessage(nsString& aReturnMessage) const;
+  void GetReturnMessage(nsString& aReturnMessage) const;
 
-private:
+ private:
   // final suppresses -Werror,-Wdelete-non-virtual-dtor
   ~VoicemailStatus() {}
 
-private:
+ private:
   nsCOMPtr<nsISupports> mParent;
   nsCOMPtr<nsIVoicemailProvider> mProvider;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_voicemail_VoicemailStatus_h__
+#endif  // mozilla_dom_voicemail_VoicemailStatus_h__

@@ -26,104 +26,108 @@ namespace android {
  * Identifies a device.
  */
 struct InputDeviceIdentifier {
-    inline InputDeviceIdentifier() :
-            bus(0), vendor(0), product(0), version(0) {
-    }
+  inline InputDeviceIdentifier() : bus(0), vendor(0), product(0), version(0) {}
 
-    // Information provided by the kernel.
-    String8 name;
-    String8 location;
-    String8 uniqueId;
-    uint16_t bus;
-    uint16_t vendor;
-    uint16_t product;
-    uint16_t version;
+  // Information provided by the kernel.
+  String8 name;
+  String8 location;
+  String8 uniqueId;
+  uint16_t bus;
+  uint16_t vendor;
+  uint16_t product;
+  uint16_t version;
 
-    // A composite input device descriptor string that uniquely identifies the device
-    // even across reboots or reconnections.  The value of this field is used by
-    // upper layers of the input system to associate settings with individual devices.
-    // It is hashed from whatever kernel provided information is available.
-    // Ideally, the way this value is computed should not change between Android releases
-    // because that would invalidate persistent settings that rely on it.
-    String8 descriptor;
+  // A composite input device descriptor string that uniquely identifies the
+  // device even across reboots or reconnections.  The value of this field is
+  // used by upper layers of the input system to associate settings with
+  // individual devices. It is hashed from whatever kernel provided information
+  // is available. Ideally, the way this value is computed should not change
+  // between Android releases because that would invalidate persistent settings
+  // that rely on it.
+  String8 descriptor;
 };
 
 /*
  * Describes the characteristics and capabilities of an input device.
  */
 class InputDeviceInfo {
-public:
-    InputDeviceInfo();
-    InputDeviceInfo(const InputDeviceInfo& other);
-    ~InputDeviceInfo();
+ public:
+  InputDeviceInfo();
+  InputDeviceInfo(const InputDeviceInfo& other);
+  ~InputDeviceInfo();
 
-    struct MotionRange {
-        int32_t axis;
-        uint32_t source;
-        float min;
-        float max;
-        float flat;
-        float fuzz;
-        float resolution;
-    };
+  struct MotionRange {
+    int32_t axis;
+    uint32_t source;
+    float min;
+    float max;
+    float flat;
+    float fuzz;
+    float resolution;
+  };
 
-    void initialize(int32_t id, int32_t generation, const InputDeviceIdentifier& identifier,
-            const String8& alias, bool isExternal);
+  void initialize(int32_t id, int32_t generation,
+                  const InputDeviceIdentifier& identifier, const String8& alias,
+                  bool isExternal);
 
-    inline int32_t getId() const { return mId; }
-    inline int32_t getGeneration() const { return mGeneration; }
-    inline const InputDeviceIdentifier& getIdentifier() const { return mIdentifier; }
-    inline const String8& getAlias() const { return mAlias; }
-    inline const String8& getDisplayName() const {
-        return mAlias.isEmpty() ? mIdentifier.name : mAlias;
-    }
-    inline bool isExternal() const { return mIsExternal; }
-    inline uint32_t getSources() const { return mSources; }
+  inline int32_t getId() const { return mId; }
+  inline int32_t getGeneration() const { return mGeneration; }
+  inline const InputDeviceIdentifier& getIdentifier() const {
+    return mIdentifier;
+  }
+  inline const String8& getAlias() const { return mAlias; }
+  inline const String8& getDisplayName() const {
+    return mAlias.isEmpty() ? mIdentifier.name : mAlias;
+  }
+  inline bool isExternal() const { return mIsExternal; }
+  inline uint32_t getSources() const { return mSources; }
 
-    const MotionRange* getMotionRange(int32_t axis, uint32_t source) const;
+  const MotionRange* getMotionRange(int32_t axis, uint32_t source) const;
 
-    void addSource(uint32_t source);
-    void addMotionRange(int32_t axis, uint32_t source,
-            float min, float max, float flat, float fuzz, float resolution);
-    void addMotionRange(const MotionRange& range);
+  void addSource(uint32_t source);
+  void addMotionRange(int32_t axis, uint32_t source, float min, float max,
+                      float flat, float fuzz, float resolution);
+  void addMotionRange(const MotionRange& range);
 
-    inline void setKeyboardType(int32_t keyboardType) { mKeyboardType = keyboardType; }
-    inline int32_t getKeyboardType() const { return mKeyboardType; }
+  inline void setKeyboardType(int32_t keyboardType) {
+    mKeyboardType = keyboardType;
+  }
+  inline int32_t getKeyboardType() const { return mKeyboardType; }
 
-    inline void setKeyCharacterMap(const sp<KeyCharacterMap>& value) {
-        mKeyCharacterMap = value;
-    }
+  inline void setKeyCharacterMap(const sp<KeyCharacterMap>& value) {
+    mKeyCharacterMap = value;
+  }
 
-    inline sp<KeyCharacterMap> getKeyCharacterMap() const {
-        return mKeyCharacterMap;
-    }
+  inline sp<KeyCharacterMap> getKeyCharacterMap() const {
+    return mKeyCharacterMap;
+  }
 
-    inline void setVibrator(bool hasVibrator) { mHasVibrator = hasVibrator; }
-    inline bool hasVibrator() const { return mHasVibrator; }
+  inline void setVibrator(bool hasVibrator) { mHasVibrator = hasVibrator; }
+  inline bool hasVibrator() const { return mHasVibrator; }
 
-    inline const Vector<MotionRange>& getMotionRanges() const {
-        return mMotionRanges;
-    }
+  inline const Vector<MotionRange>& getMotionRanges() const {
+    return mMotionRanges;
+  }
 
-private:
-    int32_t mId;
-    int32_t mGeneration;
-    InputDeviceIdentifier mIdentifier;
-    String8 mAlias;
-    bool mIsExternal;
-    uint32_t mSources;
-    int32_t mKeyboardType;
-    sp<KeyCharacterMap> mKeyCharacterMap;
-    bool mHasVibrator;
+ private:
+  int32_t mId;
+  int32_t mGeneration;
+  InputDeviceIdentifier mIdentifier;
+  String8 mAlias;
+  bool mIsExternal;
+  uint32_t mSources;
+  int32_t mKeyboardType;
+  sp<KeyCharacterMap> mKeyCharacterMap;
+  bool mHasVibrator;
 
-    Vector<MotionRange> mMotionRanges;
+  Vector<MotionRange> mMotionRanges;
 };
 
 /* Types of input device configuration files. */
 enum InputDeviceConfigurationFileType {
-    INPUT_DEVICE_CONFIGURATION_FILE_TYPE_CONFIGURATION = 0,     /* .idc file */
-    INPUT_DEVICE_CONFIGURATION_FILE_TYPE_KEY_LAYOUT = 1,        /* .kl file */
-    INPUT_DEVICE_CONFIGURATION_FILE_TYPE_KEY_CHARACTER_MAP = 2, /* .kcm file */
+  INPUT_DEVICE_CONFIGURATION_FILE_TYPE_CONFIGURATION = 0,     /* .idc file */
+  INPUT_DEVICE_CONFIGURATION_FILE_TYPE_KEY_LAYOUT = 1,        /* .kl file */
+  INPUT_DEVICE_CONFIGURATION_FILE_TYPE_KEY_CHARACTER_MAP = 2, /* .kcm file */
 };
 
 /*
@@ -136,21 +140,22 @@ enum InputDeviceConfigurationFileType {
  * Returns an empty string if not found.
  */
 extern String8 getInputDeviceConfigurationFilePathByDeviceIdentifier(
-        const InputDeviceIdentifier& deviceIdentifier,
-        InputDeviceConfigurationFileType type);
+    const InputDeviceIdentifier& deviceIdentifier,
+    InputDeviceConfigurationFileType type);
 
 /*
  * Gets the path of an input device configuration file, if one is available.
  * Considers both system provided and user installed configuration files.
  *
  * The name is case-sensitive and is used to construct the filename to resolve.
- * All characters except 'a'-'z', 'A'-'Z', '0'-'9', '-', and '_' are replaced by underscores.
+ * All characters except 'a'-'z', 'A'-'Z', '0'-'9', '-', and '_' are replaced by
+ * underscores.
  *
  * Returns an empty string if not found.
  */
 extern String8 getInputDeviceConfigurationFilePathByName(
-        const String8& name, InputDeviceConfigurationFileType type);
+    const String8& name, InputDeviceConfigurationFileType type);
 
-} // namespace android
+}  // namespace android
 
-#endif // _ANDROIDFW_INPUT_DEVICE_H
+#endif  // _ANDROIDFW_INPUT_DEVICE_H

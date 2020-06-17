@@ -15,7 +15,7 @@ NS_IMPL_ISUPPORTS(CellBroadcastParent, nsICellBroadcastListener)
 
 mozilla::ipc::IPCResult CellBroadcastParent::Init() {
   nsCOMPtr<nsICellBroadcastService> service =
-    do_GetService(CELLBROADCAST_SERVICE_CONTRACTID);
+      do_GetService(CELLBROADCAST_SERVICE_CONTRACTID);
 
   if (service) {
     if (NS_SUCCEEDED(service->RegisterListener(this))) {
@@ -28,11 +28,9 @@ mozilla::ipc::IPCResult CellBroadcastParent::Init() {
   return IPC_FAIL_NO_REASON(this);
 }
 
-void
-CellBroadcastParent::ActorDestroy(ActorDestroyReason aWhy)
-{
+void CellBroadcastParent::ActorDestroy(ActorDestroyReason aWhy) {
   nsCOMPtr<nsICellBroadcastService> service =
-    do_GetService(CELLBROADCAST_SERVICE_CONTRACTID);
+      do_GetService(CELLBROADCAST_SERVICE_CONTRACTID);
   if (service) {
     service->UnregisterListener(this);
   }
@@ -42,35 +40,21 @@ CellBroadcastParent::ActorDestroy(ActorDestroyReason aWhy)
  * nsICellBroadcastListener
  */
 NS_IMETHODIMP
-CellBroadcastParent::NotifyMessageReceived(uint32_t aServiceId,
-                                           uint32_t aGsmGeographicalScope,
-                                           uint16_t aMessageCode,
-                                           uint16_t aMessageId,
-                                           const nsAString& aLanguage,
-                                           const nsAString& aBody,
-                                           uint32_t aMessageClass,
-                                           DOMTimeStamp aTimestamp,
-                                           uint32_t aCdmaServiceCategory,
-                                           bool aHasEtwsInfo,
-                                           uint32_t aEtwsWarningType,
-                                           bool aEtwsEmergencyUserAlert,
-                                           bool aEtwsPopup)
-{
-  return SendNotifyReceivedMessage(aServiceId,
-                                   aGsmGeographicalScope,
-                                   aMessageCode,
-                                   aMessageId,
-                                   nsString(aLanguage),
-                                   nsString(aBody),
-                                   aMessageClass,
-                                   aTimestamp,
-                                   aCdmaServiceCategory,
-                                   aHasEtwsInfo,
-                                   aEtwsWarningType,
-                                   aEtwsEmergencyUserAlert,
-                                   aEtwsPopup) ? NS_OK : NS_ERROR_FAILURE;
+CellBroadcastParent::NotifyMessageReceived(
+    uint32_t aServiceId, uint32_t aGsmGeographicalScope, uint16_t aMessageCode,
+    uint16_t aMessageId, const nsAString& aLanguage, const nsAString& aBody,
+    uint32_t aMessageClass, DOMTimeStamp aTimestamp,
+    uint32_t aCdmaServiceCategory, bool aHasEtwsInfo, uint32_t aEtwsWarningType,
+    bool aEtwsEmergencyUserAlert, bool aEtwsPopup) {
+  return SendNotifyReceivedMessage(
+             aServiceId, aGsmGeographicalScope, aMessageCode, aMessageId,
+             nsString(aLanguage), nsString(aBody), aMessageClass, aTimestamp,
+             aCdmaServiceCategory, aHasEtwsInfo, aEtwsWarningType,
+             aEtwsEmergencyUserAlert, aEtwsPopup)
+             ? NS_OK
+             : NS_ERROR_FAILURE;
 }
 
-} // namespace cellbroadcast
-} // namespace dom
-} // namespace mozilla
+}  // namespace cellbroadcast
+}  // namespace dom
+}  // namespace mozilla

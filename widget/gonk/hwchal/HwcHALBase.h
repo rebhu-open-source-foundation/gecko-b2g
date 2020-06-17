@@ -25,16 +25,15 @@
 #include <hardware/hwcomposer.h>
 #include "android_10/HWC2.h"
 
-
 #ifndef HWC_BLIT
-#define HWC_BLIT 0xFF
-#endif // #ifndef HWC_BLIT
+#  define HWC_BLIT 0xFF
+#endif  // #ifndef HWC_BLIT
 
 namespace mozilla {
 
 using HwcDevice = HWC2::Device;
-using HwcList   = hwc_display_contents_1_t;
-using HwcLayer  = hwc_layer_1_t;
+using HwcList = hwc_display_contents_1_t;
+using HwcLayer = hwc_layer_1_t;
 
 // HwcHAL definition for HwcEvent callback types
 // Note: hwc_procs is different between ICS and later,
@@ -43,80 +42,71 @@ using HwcLayer  = hwc_layer_1_t;
 //       we don't have to register callback functions on ICS, so
 //       there is no callbacks for ICS in HwcHALProcs.
 typedef struct HwcHALProcs {
-    void (*invalidate)();
-    void (*vsync)(int disp, int64_t timestamp);
-    void (*hotplug)(int disp, int connected);
+  void (*invalidate)();
+  void (*vsync)(int disp, int64_t timestamp);
+  void (*hotplug)(int disp, int connected);
 } HwcHALProcs_t;
 
 // HwcHAL class
 // This class handle all the HAL related work
 // The purpose of HwcHAL is to make HwcComposer2D simpler.
 class HwcHALBase {
+ public:
+  // Query Types. We can add more types easily in the future
+  enum class QueryType { COLOR_FILL = 0x8, RB_SWAP = 0x40 };
 
-public:
-    // Query Types. We can add more types easily in the future
-    enum class QueryType {
-        COLOR_FILL = 0x8,
-        RB_SWAP = 0x40
-    };
+ public:
+  explicit HwcHALBase() = default;
 
-public:
-    explicit HwcHALBase() = default;
+  virtual ~HwcHALBase() {}
 
-    virtual ~HwcHALBase() {}
+  // Create HwcHAL module, Only HwcComposer2D calls this.
+  // If other modules want to use HwcHAL, please use APIs in
+  // HwcComposer2D
+  static UniquePtr<HwcHALBase> CreateHwcHAL();
 
-    // Create HwcHAL module, Only HwcComposer2D calls this.
-    // If other modules want to use HwcHAL, please use APIs in
-    // HwcComposer2D
-    static UniquePtr<HwcHALBase> CreateHwcHAL();
+  // Check if mHwc exists
+  virtual bool HasHwc() const = 0;
 
-    // Check if mHwc exists
-    virtual bool HasHwc() const = 0;
+  // Set EGL info (only ICS need this info)
+  virtual void SetEGLInfo(hwc_display_t aEGLDisplay,
+                          hwc_surface_t aEGLSurface) = 0;
 
-    // Set EGL info (only ICS need this info)
-    virtual void SetEGLInfo(hwc_display_t aEGLDisplay,
-                            hwc_surface_t aEGLSurface) = 0;
+  // HwcDevice query properties
+  virtual bool Query(QueryType aType) = 0;
 
-    // HwcDevice query properties
-    virtual bool Query(QueryType aType) = 0;
+  // HwcDevice set
+  virtual int Set(HwcList* aList, uint32_t aDisp) = 0;
 
-    // HwcDevice set
-    virtual int Set(HwcList *aList,
-                    uint32_t aDisp) = 0;
+  // Reset HwcDevice
+  virtual int ResetHwc() = 0;
 
-    // Reset HwcDevice
-    virtual int ResetHwc() = 0;
+  // HwcDevice prepare
+  virtual int Prepare(HwcList* aList, uint32_t aDisp, hwc_rect_t aDispRect,
+                      buffer_handle_t aHandle, int aFenceFd) = 0;
 
-    // HwcDevice prepare
-    virtual int Prepare(HwcList *aList,
-                        uint32_t aDisp,
-                        hwc_rect_t aDispRect,
-                        buffer_handle_t aHandle,
-                        int aFenceFd) = 0;
+  // Check transparency support
+  virtual bool SupportTransparency() const = 0;
 
-    // Check transparency support
-    virtual bool SupportTransparency() const = 0;
+  // Get a geometry change flag
+  virtual uint32_t GetGeometryChangedFlag(bool aGeometryChanged) const = 0;
 
-    // Get a geometry change flag
-    virtual uint32_t GetGeometryChangedFlag(bool aGeometryChanged) const = 0;
+  // Set crop help
+  virtual void SetCrop(HwcLayer& aLayer, const hwc_rect_t& aSrcCrop) const = 0;
 
-    // Set crop help
-    virtual void SetCrop(HwcLayer &aLayer,
-                         const hwc_rect_t &aSrcCrop) const = 0;
+  // Enable HW Vsync
+  virtual bool EnableVsync(bool aEnable) = 0;
 
-    // Enable HW Vsync
-    virtual bool EnableVsync(bool aEnable) = 0;
+  // Register HW event callback functions
+  virtual bool RegisterHwcEventCallback(const HwcHALProcs_t& aProcs) = 0;
 
-    // Register HW event callback functions
-    virtual bool RegisterHwcEventCallback(const HwcHALProcs_t &aProcs) = 0;
-
-protected:
-    MOZ_CONSTEXPR static uint32_t HwcAPIVersion(uint32_t aMaj, uint32_t aMin) {
-        // HARDWARE_MAKE_API_VERSION_2, from Android hardware.h
-        return (((aMaj & 0xff) << 24) | ((aMin & 0xff) << 16) | (1 & 0xffff));
-    }
+ protected:
+  MOZ_CONSTEXPR static uint32_t HwcAPIVersion(uint32_t aMaj, uint32_t aMin) {
+    // HARDWARE_MAKE_API_VERSION_2, from Android hardware.h
+    return (((aMaj & 0xff) << 24) | ((aMin & 0xff) << 16) | (1 & 0xffff));
+  }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_HwcHALBase
+#endif  // mozilla_HwcHALBase

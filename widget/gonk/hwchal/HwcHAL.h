@@ -24,47 +24,42 @@
 namespace mozilla {
 
 class HwcHAL final : public HwcHALBase {
-public:
-    explicit HwcHAL();
+ public:
+  explicit HwcHAL();
 
-    virtual ~HwcHAL();
+  virtual ~HwcHAL();
 
-    virtual bool HasHwc() const override { return static_cast<bool>(mHwc); }
+  virtual bool HasHwc() const override { return static_cast<bool>(mHwc); }
 
-    virtual void SetEGLInfo(hwc_display_t aDpy,
-                            hwc_surface_t aSur) override { }
+  virtual void SetEGLInfo(hwc_display_t aDpy, hwc_surface_t aSur) override {}
 
-    virtual bool Query(QueryType aType) override;
+  virtual bool Query(QueryType aType) override;
 
-    virtual int Set(HwcList *aList,
-                    uint32_t aDisp) override;
+  virtual int Set(HwcList* aList, uint32_t aDisp) override;
 
-    virtual int ResetHwc() override;
+  virtual int ResetHwc() override;
 
-    virtual int Prepare(HwcList *aList,
-                        uint32_t aDisp,
-                        hwc_rect_t aDispRect,
-                        buffer_handle_t aHandle,
-                        int aFenceFd) override;
+  virtual int Prepare(HwcList* aList, uint32_t aDisp, hwc_rect_t aDispRect,
+                      buffer_handle_t aHandle, int aFenceFd) override;
 
-    virtual bool SupportTransparency() const override;
+  virtual bool SupportTransparency() const override;
 
-    virtual uint32_t GetGeometryChangedFlag(bool aGeometryChanged) const override;
+  virtual uint32_t GetGeometryChangedFlag(bool aGeometryChanged) const override;
 
-    virtual void SetCrop(HwcLayer &aLayer,
-                         const hwc_rect_t &aSrcCrop) const override;
+  virtual void SetCrop(HwcLayer& aLayer,
+                       const hwc_rect_t& aSrcCrop) const override;
 
-    virtual bool EnableVsync(bool aEnable) override;
+  virtual bool EnableVsync(bool aEnable) override;
 
-    virtual bool RegisterHwcEventCallback(const HwcHALProcs_t &aProcs) override;
+  virtual bool RegisterHwcEventCallback(const HwcHALProcs_t& aProcs) override;
 
-private:
-    uint32_t GetAPIVersion() const;
+ private:
+  uint32_t GetAPIVersion() const;
 
-private:
-    HwcDevice  *mHwc = nullptr;
+ private:
+  HwcDevice* mHwc = nullptr;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // mozilla_HwcHAL
+#endif  // mozilla_HwcHAL

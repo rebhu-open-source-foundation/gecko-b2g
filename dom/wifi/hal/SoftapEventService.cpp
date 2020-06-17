@@ -34,8 +34,8 @@ SoftapEventService* SoftapEventService::CreateService(
 
   android::sp<::android::ProcessState> ps(::android::ProcessState::self());
   if (android::defaultServiceManager()->addService(
-          android::String16(SoftapEventService::GetServiceName()),
-          sInstance) != android::OK) {
+          android::String16(SoftapEventService::GetServiceName()), sInstance) !=
+      android::OK) {
     WIFI_LOGE(LOG_TAG, "Failed to add service: %s",
               SoftapEventService::GetServiceName());
     sInstance = nullptr;

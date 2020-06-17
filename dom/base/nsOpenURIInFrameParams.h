@@ -26,10 +26,9 @@ class nsOpenURIInFrameParams final : public nsIOpenURIInFrameParams {
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_NSIOPENURIINFRAMEPARAMS
 
-  explicit nsOpenURIInFrameParams(
-      nsIOpenWindowInfo* aOpenWindowInfo,
-      mozilla::dom::Element* aOpener,
-      const nsCString& aFeatures);
+  explicit nsOpenURIInFrameParams(nsIOpenWindowInfo* aOpenWindowInfo,
+                                  mozilla::dom::Element* aOpener,
+                                  const nsCString& aFeatures);
 
  private:
   ~nsOpenURIInFrameParams();

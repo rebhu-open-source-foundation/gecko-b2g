@@ -7,28 +7,27 @@
 #ifndef mozilla_dom_mobilemessage_MobileMessageService_h
 #define mozilla_dom_mobilemessage_MobileMessageService_h
 
-#include "mozilla/Attributes.h" // For final
+#include "mozilla/Attributes.h"  // For final
 #include "nsIMobileMessageService.h"
 
 namespace mozilla {
 namespace dom {
 namespace mobilemessage {
 
-class MobileMessageService final : public nsIMobileMessageService
-{
-public:
+class MobileMessageService final : public nsIMobileMessageService {
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIMOBILEMESSAGESERVICE
 
   MobileMessageService() { MOZ_COUNT_CTOR(MobileMessageService); }
 
-private:
+ private:
   // final suppresses -Werror,-Wdelete-non-virtual-dtor
   ~MobileMessageService() { MOZ_COUNT_DTOR(MobileMessageService); }
 };
 
-} // namespace mobilemessage
-} // namespace dom
-} // namespace mozilla
+}  // namespace mobilemessage
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_mobilemessage_MobileMessageService_h
+#endif  // mozilla_dom_mobilemessage_MobileMessageService_h

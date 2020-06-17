@@ -171,8 +171,7 @@ Return<void> nsRilIndication::stkSessionEnd(RadioIndicationType type) {
 }
 
 Return<void> nsRilIndication::stkProactiveCommand(
-    RadioIndicationType type,
-    const ::android::hardware::hidl_string& cmd) {
+    RadioIndicationType type, const ::android::hardware::hidl_string& cmd) {
   mRIL->processIndication(type);
 
   nsString rilmessageType(NS_LITERAL_STRING("stkProactiveCommand"));
@@ -185,8 +184,7 @@ Return<void> nsRilIndication::stkProactiveCommand(
 }
 
 Return<void> nsRilIndication::stkEventNotify(
-    RadioIndicationType type,
-    const ::android::hardware::hidl_string& cmd) {
+    RadioIndicationType type, const ::android::hardware::hidl_string& cmd) {
   mRIL->processIndication(type);
 
   nsString rilmessageType(NS_LITERAL_STRING("stkEventNotify"));

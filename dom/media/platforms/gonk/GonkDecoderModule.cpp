@@ -31,7 +31,7 @@ bool GonkDecoderModule::Init() {
 
 already_AddRefed<MediaDataDecoder> GonkDecoderModule::CreateVideoDecoder(
     const CreateDecoderParams& aParams) {
-  //TODO: Add GonkVideoDecoderManager
+  // TODO: Add GonkVideoDecoderManager
   RefPtr<MediaDataDecoder>
       decoder;  // =
                 // new GonkMediaDataDecoder(new

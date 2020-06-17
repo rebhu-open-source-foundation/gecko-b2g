@@ -16,24 +16,21 @@ TelephonyCallId::TelephonyCallId(nsPIDOMWindowInner* aWindow,
                                  uint16_t aNumberPresentation,
                                  const nsAString& aName,
                                  uint16_t aNamePresentation)
-: mWindow(aWindow), mNumber(aNumber), mNumberPresentation(aNumberPresentation),
-  mName(aName), mNamePresentation(aNamePresentation)
-{
-}
+    : mWindow(aWindow),
+      mNumber(aNumber),
+      mNumberPresentation(aNumberPresentation),
+      mName(aName),
+      mNamePresentation(aNamePresentation) {}
 
-TelephonyCallId::~TelephonyCallId()
-{
-}
+TelephonyCallId::~TelephonyCallId() {}
 
-JSObject*
-TelephonyCallId::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* TelephonyCallId::WrapObject(JSContext* aCx,
+                                      JS::Handle<JSObject*> aGivenProto) {
   return TelephonyCallId_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-CallIdPresentation
-TelephonyCallId::GetPresentationStr(uint16_t aPresentation) const
-{
+CallIdPresentation TelephonyCallId::GetPresentationStr(
+    uint16_t aPresentation) const {
   switch (aPresentation) {
     case nsITelephonyService::CALL_PRESENTATION_ALLOWED:
       return CallIdPresentation::Allowed;
@@ -60,17 +57,13 @@ NS_INTERFACE_MAP_END
 
 // WebIDL
 
-CallIdPresentation
-TelephonyCallId::NumberPresentation() const
-{
+CallIdPresentation TelephonyCallId::NumberPresentation() const {
   return GetPresentationStr(mNumberPresentation);
 }
 
-CallIdPresentation
-TelephonyCallId::NamePresentation() const
-{
+CallIdPresentation TelephonyCallId::NamePresentation() const {
   return GetPresentationStr(mNamePresentation);
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

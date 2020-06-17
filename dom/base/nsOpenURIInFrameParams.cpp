@@ -21,10 +21,11 @@ NS_IMPL_CYCLE_COLLECTING_ADDREF(nsOpenURIInFrameParams)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(nsOpenURIInFrameParams)
 
 nsOpenURIInFrameParams::nsOpenURIInFrameParams(
-    nsIOpenWindowInfo* aOpenWindowInfo,
-    mozilla::dom::Element* aOpener,
+    nsIOpenWindowInfo* aOpenWindowInfo, mozilla::dom::Element* aOpener,
     const nsCString& aFeatures)
-    : mOpenWindowInfo(aOpenWindowInfo), mOpenerBrowser(aOpener), mFeatures(aFeatures) {}
+    : mOpenWindowInfo(aOpenWindowInfo),
+      mOpenerBrowser(aOpener),
+      mFeatures(aFeatures) {}
 
 nsOpenURIInFrameParams::~nsOpenURIInFrameParams() = default;
 

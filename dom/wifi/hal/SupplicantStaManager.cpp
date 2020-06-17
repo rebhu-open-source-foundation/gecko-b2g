@@ -784,8 +784,9 @@ void SupplicantStaManager::NotifyTerminating() {
 void SupplicantStaManager::NotifyStateChanged(uint32_t aState,
                                               const std::string& aSsid,
                                               const std::string& aBssid) {
-  mFourwayHandshake = (aState ==
-      (uint32_t)ISupplicantStaIfaceCallback::State::FOURWAY_HANDSHAKE);
+  mFourwayHandshake =
+      (aState ==
+       (uint32_t)ISupplicantStaIfaceCallback::State::FOURWAY_HANDSHAKE);
 
   nsCString iface(mInterfaceName);
   RefPtr<nsWifiEvent> event =
@@ -990,9 +991,9 @@ Return<void> SupplicantStaManager::onDisconnected(
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onDisconnected()");
 
   if (mFourwayHandshake &&
-      (!locallyGenerated || reasonCode !=
-          ISupplicantStaIfaceCallback::ReasonCode::IE_IN_4WAY_DIFFERS)) {
-
+      (!locallyGenerated ||
+       reasonCode !=
+           ISupplicantStaIfaceCallback::ReasonCode::IE_IN_4WAY_DIFFERS)) {
     NotifyAuthenticationFailure(nsIWifiEvent::AUTH_FAILURE_WRONG_KEY,
                                 nsIWifiEvent::ERROR_CODE_NONE);
   }

@@ -569,7 +569,7 @@ class MediaTrack : public mozilla::LinkedListElement<MediaTrack> {
     float mVolume;
   };
   nsTArray<AudioOutput> mAudioOutputs;
-  nsTArray<RefPtr<VideoFrameContainer> > mVideoOutputs;
+  nsTArray<RefPtr<VideoFrameContainer>> mVideoOutputs;
   nsTArray<RefPtr<MediaTrackListener>> mTrackListeners;
   nsTArray<MainThreadMediaTrackListener*> mMainThreadListeners;
   // This track's associated disabled mode. It can either by disabled by frames
@@ -1044,15 +1044,13 @@ class MediaTrackGraph {
       nullptr;
 
   // Main thread only
-  static MediaTrackGraph* GetInstanceIfExists(dom::AudioChannel aChannel,
-                                              nsPIDOMWindowInner* aWindow,
-                                              TrackRate aSampleRate,
-                                              CubebUtils::AudioDeviceID aOutputDeviceID);
-  static MediaTrackGraph* GetInstance(GraphDriverType aGraphDriverRequested,
-                                      dom::AudioChannel aChannel,
-                                      nsPIDOMWindowInner* aWindow,
-                                      TrackRate aSampleRate,
-                                      CubebUtils::AudioDeviceID aOutputDeviceID);
+  static MediaTrackGraph* GetInstanceIfExists(
+      dom::AudioChannel aChannel, nsPIDOMWindowInner* aWindow,
+      TrackRate aSampleRate, CubebUtils::AudioDeviceID aOutputDeviceID);
+  static MediaTrackGraph* GetInstance(
+      GraphDriverType aGraphDriverRequested, dom::AudioChannel aChannel,
+      nsPIDOMWindowInner* aWindow, TrackRate aSampleRate,
+      CubebUtils::AudioDeviceID aOutputDeviceID);
   static MediaTrackGraph* CreateNonRealtimeInstance(
       TrackRate aSampleRate, nsPIDOMWindowInner* aWindowId);
 

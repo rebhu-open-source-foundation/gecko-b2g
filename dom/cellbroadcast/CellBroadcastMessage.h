@@ -19,39 +19,31 @@ namespace dom {
 
 class CellBroadcastEtwsInfo;
 
-class CellBroadcastMessage final : public nsISupports
-                                 , public nsWrapperCache
-{
-public:
+class CellBroadcastMessage final : public nsISupports, public nsWrapperCache {
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(CellBroadcastMessage)
 
-  CellBroadcastMessage(nsPIDOMWindowInner* aWindow,
-                       uint32_t aServiceId,
-                       uint32_t aGsmGeographicalScope,
-                       uint16_t aMessageCode,
-                       uint16_t aMessageId,
-                       const nsAString& aLanguage,
-                       const nsAString& aBody,
-                       uint32_t aMessageClass,
-                       uint64_t aTimestamp,
-                       uint32_t aCdmaServiceCategory,
-                       bool aHasEtwsInfo,
-                       uint32_t aEtwsWarningType,
-                       bool aEtwsEmergencyUserAlert,
-                       bool aEtwsPopup);
+  CellBroadcastMessage(nsPIDOMWindowInner* aWindow, uint32_t aServiceId,
+                       uint32_t aGsmGeographicalScope, uint16_t aMessageCode,
+                       uint16_t aMessageId, const nsAString& aLanguage,
+                       const nsAString& aBody, uint32_t aMessageClass,
+                       uint64_t aTimestamp, uint32_t aCdmaServiceCategory,
+                       bool aHasEtwsInfo, uint32_t aEtwsWarningType,
+                       bool aEtwsEmergencyUserAlert, bool aEtwsPopup);
 
-  nsPIDOMWindowInner*
-  GetParentObject() const { return mWindow; }
+  nsPIDOMWindowInner* GetParentObject() const { return mWindow; }
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   // WebIDL interface
 
   uint32_t ServiceId() const { return mServiceId; }
 
-  const Nullable<CellBroadcastGsmGeographicalScope>&
-  GetGsmGeographicalScope() { return mGsmGeographicalScope; }
+  const Nullable<CellBroadcastGsmGeographicalScope>& GetGsmGeographicalScope() {
+    return mGsmGeographicalScope;
+  }
 
   uint16_t MessageCode() const { return mMessageCode; }
 
@@ -61,19 +53,22 @@ public:
 
   void GetBody(nsString& aBody) const { aBody = mBody; }
 
-  const Nullable<CellBroadcastMessageClass>&
-  GetMessageClass() { return mMessageClass; }
+  const Nullable<CellBroadcastMessageClass>& GetMessageClass() {
+    return mMessageClass;
+  }
 
   uint64_t Timestamp() const { return mTimestamp; }
 
   // Mark this as resultNotAddRefed to return raw pointers
   already_AddRefed<CellBroadcastEtwsInfo> GetEtws() const;
 
-  const Nullable<uint16_t>& GetCdmaServiceCategory() { return mCdmaServiceCategory; };
+  const Nullable<uint16_t>& GetCdmaServiceCategory() {
+    return mCdmaServiceCategory;
+  };
 
-private:
+ private:
   // final suppresses -Werror,-Wdelete-non-virtual-dtor
-  ~CellBroadcastMessage() {};
+  ~CellBroadcastMessage(){};
 
   // Don't try to use the default constructor.
   CellBroadcastMessage();
@@ -91,35 +86,32 @@ private:
   RefPtr<CellBroadcastEtwsInfo> mEtwsInfo;
 };
 
-class CellBroadcastEtwsInfo final : public nsISupports
-                                  , public nsWrapperCache
-{
-public:
+class CellBroadcastEtwsInfo final : public nsISupports, public nsWrapperCache {
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(CellBroadcastEtwsInfo)
 
-  CellBroadcastEtwsInfo(nsPIDOMWindowInner* aWindow,
-                        uint32_t aWarningType,
-                        bool aEmergencyUserAlert,
-                        bool aPopup);
+  CellBroadcastEtwsInfo(nsPIDOMWindowInner* aWindow, uint32_t aWarningType,
+                        bool aEmergencyUserAlert, bool aPopup);
 
-  nsPIDOMWindowInner*
-  GetParentObject() const { return mWindow; }
+  nsPIDOMWindowInner* GetParentObject() const { return mWindow; }
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   // WebIDL interface
 
-  const Nullable<CellBroadcastEtwsWarningType>&
-  GetWarningType()  { return mWarningType; }
+  const Nullable<CellBroadcastEtwsWarningType>& GetWarningType() {
+    return mWarningType;
+  }
 
   bool EmergencyUserAlert() const { return mEmergencyUserAlert; }
 
   bool Popup() const { return mPopup; }
 
-private:
+ private:
   // final suppresses -Werror,-Wdelete-non-virtual-dtor
-  ~CellBroadcastEtwsInfo() {};
+  ~CellBroadcastEtwsInfo(){};
 
   // Don't try to use the default constructor.
   CellBroadcastEtwsInfo();
@@ -130,7 +122,7 @@ private:
   bool mPopup;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_cellbroadcast_CellBroadcastMessage_h
+#endif  // mozilla_dom_cellbroadcast_CellBroadcastMessage_h

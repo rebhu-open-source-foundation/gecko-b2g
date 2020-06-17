@@ -20,44 +20,38 @@
 using namespace mozilla;
 
 TestGonkCameraControl::TestGonkCameraControl(uint32_t aCameraId)
-  : nsGonkCameraControl(aCameraId)
-{
+    : nsGonkCameraControl(aCameraId) {
   DOM_CAMERA_LOGA("v===== Created TestGonkCameraControl =====v\n");
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
 }
 
-TestGonkCameraControl::~TestGonkCameraControl()
-{
+TestGonkCameraControl::~TestGonkCameraControl() {
   DOM_CAMERA_LOGA("^===== Destroyed TestGonkCameraControl =====^\n");
 }
 
-nsresult
-TestGonkCameraControl::ForceMethodFailWithCodeInternal(const char* aFile, int aLine)
-{
+nsresult TestGonkCameraControl::ForceMethodFailWithCodeInternal(
+    const char* aFile, int aLine) {
   nsresult rv = NS_OK;
   CameraPreferences::GetPref("camera.control.test.method.error", rv);
   if (NS_FAILED(rv)) {
     DOM_CAMERA_LOGI("[%s:%d] CameraControl method error override: 0x%x\n",
-      aFile, aLine, rv);
+                    aFile, aLine, rv);
   }
   return rv;
 }
 
-nsresult
-TestGonkCameraControl::ForceAsyncFailWithCodeInternal(const char* aFile, int aLine)
-{
+nsresult TestGonkCameraControl::ForceAsyncFailWithCodeInternal(
+    const char* aFile, int aLine) {
   nsresult rv = NS_OK;
   CameraPreferences::GetPref("camera.control.test.async.error", rv);
   if (NS_FAILED(rv)) {
-    DOM_CAMERA_LOGI("[%s:%d] CameraControl async error override: 0x%x\n",
-      aFile, aLine, rv);
+    DOM_CAMERA_LOGI("[%s:%d] CameraControl async error override: 0x%x\n", aFile,
+                    aLine, rv);
   }
   return rv;
 }
 
-nsresult
-TestGonkCameraControl::Start(const Configuration* aConfig)
-{
+nsresult TestGonkCameraControl::Start(const Configuration* aConfig) {
   nsresult rv = ForceMethodFailWithCode();
   if (NS_FAILED(rv)) {
     return rv;
@@ -65,9 +59,7 @@ TestGonkCameraControl::Start(const Configuration* aConfig)
   return nsGonkCameraControl::Start(aConfig);
 }
 
-nsresult
-TestGonkCameraControl::StartImpl(const Configuration* aInitialConfig)
-{
+nsresult TestGonkCameraControl::StartImpl(const Configuration* aInitialConfig) {
   nsresult rv = ForceAsyncFailWithCode();
   if (NS_FAILED(rv)) {
     return rv;
@@ -75,9 +67,7 @@ TestGonkCameraControl::StartImpl(const Configuration* aInitialConfig)
   return nsGonkCameraControl::StartImpl(aInitialConfig);
 }
 
-nsresult
-TestGonkCameraControl::Stop()
-{
+nsresult TestGonkCameraControl::Stop() {
   nsresult rv = ForceMethodFailWithCode();
   if (NS_FAILED(rv)) {
     return rv;
@@ -85,9 +75,7 @@ TestGonkCameraControl::Stop()
   return nsGonkCameraControl::Stop();
 }
 
-nsresult
-TestGonkCameraControl::StopImpl()
-{
+nsresult TestGonkCameraControl::StopImpl() {
   nsresult rv = ForceAsyncFailWithCode();
   if (NS_FAILED(rv)) {
     return rv;
@@ -95,9 +83,7 @@ TestGonkCameraControl::StopImpl()
   return nsGonkCameraControl::StopImpl();
 }
 
-nsresult
-TestGonkCameraControl::SetConfiguration(const Configuration& aConfig)
-{
+nsresult TestGonkCameraControl::SetConfiguration(const Configuration& aConfig) {
   nsresult rv = ForceMethodFailWithCode();
   if (NS_FAILED(rv)) {
     return rv;
@@ -105,9 +91,8 @@ TestGonkCameraControl::SetConfiguration(const Configuration& aConfig)
   return nsGonkCameraControl::SetConfiguration(aConfig);
 }
 
-nsresult
-TestGonkCameraControl::SetConfigurationImpl(const Configuration& aConfig)
-{
+nsresult TestGonkCameraControl::SetConfigurationImpl(
+    const Configuration& aConfig) {
   nsresult rv = ForceAsyncFailWithCode();
   if (NS_FAILED(rv)) {
     return rv;
@@ -115,9 +100,7 @@ TestGonkCameraControl::SetConfigurationImpl(const Configuration& aConfig)
   return nsGonkCameraControl::SetConfigurationImpl(aConfig);
 }
 
-nsresult
-TestGonkCameraControl::StartPreview()
-{
+nsresult TestGonkCameraControl::StartPreview() {
   nsresult rv = ForceMethodFailWithCode();
   if (NS_FAILED(rv)) {
     return rv;
@@ -125,9 +108,7 @@ TestGonkCameraControl::StartPreview()
   return nsGonkCameraControl::StartPreview();
 }
 
-nsresult
-TestGonkCameraControl::StartPreviewImpl()
-{
+nsresult TestGonkCameraControl::StartPreviewImpl() {
   nsresult rv = ForceAsyncFailWithCode();
   if (NS_FAILED(rv)) {
     return rv;
@@ -135,9 +116,7 @@ TestGonkCameraControl::StartPreviewImpl()
   return nsGonkCameraControl::StartImpl();
 }
 
-nsresult
-TestGonkCameraControl::StopPreview()
-{
+nsresult TestGonkCameraControl::StopPreview() {
   nsresult rv = ForceMethodFailWithCode();
   if (NS_FAILED(rv)) {
     return rv;
@@ -145,9 +124,7 @@ TestGonkCameraControl::StopPreview()
   return nsGonkCameraControl::StopPreview();
 }
 
-nsresult
-TestGonkCameraControl::StopPreviewImpl()
-{
+nsresult TestGonkCameraControl::StopPreviewImpl() {
   nsresult rv = ForceAsyncFailWithCode();
   if (NS_FAILED(rv)) {
     return rv;
@@ -155,9 +132,7 @@ TestGonkCameraControl::StopPreviewImpl()
   return nsGonkCameraControl::StartImpl();
 }
 
-nsresult
-TestGonkCameraControl::AutoFocus()
-{
+nsresult TestGonkCameraControl::AutoFocus() {
   nsresult rv = ForceMethodFailWithCode();
   if (NS_FAILED(rv)) {
     return rv;
@@ -165,9 +140,7 @@ TestGonkCameraControl::AutoFocus()
   return nsGonkCameraControl::AutoFocus();
 }
 
-nsresult
-TestGonkCameraControl::AutoFocusImpl()
-{
+nsresult TestGonkCameraControl::AutoFocusImpl() {
   nsresult rv = ForceAsyncFailWithCode();
   if (NS_FAILED(rv)) {
     return rv;
@@ -175,9 +148,7 @@ TestGonkCameraControl::AutoFocusImpl()
   return nsGonkCameraControl::AutoFocusImpl();
 }
 
-nsresult
-TestGonkCameraControl::StartFaceDetection()
-{
+nsresult TestGonkCameraControl::StartFaceDetection() {
   nsresult rv = ForceMethodFailWithCode();
   if (NS_FAILED(rv)) {
     return rv;
@@ -185,9 +156,7 @@ TestGonkCameraControl::StartFaceDetection()
   return nsGonkCameraControl::StartFaceDetection();
 }
 
-nsresult
-TestGonkCameraControl::StartFaceDetectionImpl()
-{
+nsresult TestGonkCameraControl::StartFaceDetectionImpl() {
   nsresult rv = ForceAsyncFailWithCode();
   if (NS_FAILED(rv)) {
     return rv;
@@ -195,9 +164,7 @@ TestGonkCameraControl::StartFaceDetectionImpl()
   return nsGonkCameraControl::StartFaceDetectionImpl();
 }
 
-nsresult
-TestGonkCameraControl::StopFaceDetection()
-{
+nsresult TestGonkCameraControl::StopFaceDetection() {
   nsresult rv = ForceMethodFailWithCode();
   if (NS_FAILED(rv)) {
     return rv;
@@ -205,9 +172,7 @@ TestGonkCameraControl::StopFaceDetection()
   return nsGonkCameraControl::StopFaceDetection();
 }
 
-nsresult
-TestGonkCameraControl::StopFaceDetectionImpl()
-{
+nsresult TestGonkCameraControl::StopFaceDetectionImpl() {
   nsresult rv = ForceAsyncFailWithCode();
   if (NS_FAILED(rv)) {
     return rv;
@@ -215,9 +180,7 @@ TestGonkCameraControl::StopFaceDetectionImpl()
   return nsGonkCameraControl::StopFaceDetectionImpl();
 }
 
-nsresult
-TestGonkCameraControl::TakePicture()
-{
+nsresult TestGonkCameraControl::TakePicture() {
   nsresult rv = ForceMethodFailWithCode();
   if (NS_FAILED(rv)) {
     return rv;
@@ -225,9 +188,7 @@ TestGonkCameraControl::TakePicture()
   return nsGonkCameraControl::TakePicture();
 }
 
-nsresult
-TestGonkCameraControl::TakePictureImpl()
-{
+nsresult TestGonkCameraControl::TakePictureImpl() {
   nsresult rv = ForceAsyncFailWithCode();
   if (NS_FAILED(rv)) {
     return rv;
@@ -235,10 +196,9 @@ TestGonkCameraControl::TakePictureImpl()
   return nsGonkCameraControl::TakePictureImpl();
 }
 
-nsresult
-TestGonkCameraControl::StartRecording(DeviceStorageFileDescriptor* aFileDescriptor,
-                                      const StartRecordingOptions* aOptions)
-{
+nsresult TestGonkCameraControl::StartRecording(
+    DeviceStorageFileDescriptor* aFileDescriptor,
+    const StartRecordingOptions* aOptions) {
   nsresult rv = ForceMethodFailWithCode();
   if (NS_FAILED(rv)) {
     return rv;
@@ -246,10 +206,9 @@ TestGonkCameraControl::StartRecording(DeviceStorageFileDescriptor* aFileDescript
   return nsGonkCameraControl::StartRecording(aFileDescriptor, aOptions);
 }
 
-nsresult
-TestGonkCameraControl::StartRecordingImpl(DeviceStorageFileDescriptor* aFileDescriptor,
-                                          const StartRecordingOptions* aOptions)
-{
+nsresult TestGonkCameraControl::StartRecordingImpl(
+    DeviceStorageFileDescriptor* aFileDescriptor,
+    const StartRecordingOptions* aOptions) {
   nsresult rv = ForceAsyncFailWithCode();
   if (NS_FAILED(rv)) {
     return rv;
@@ -257,9 +216,7 @@ TestGonkCameraControl::StartRecordingImpl(DeviceStorageFileDescriptor* aFileDesc
   return nsGonkCameraControl::StartRecordingImpl(aFileDescriptor, aOptions);
 }
 
-nsresult
-TestGonkCameraControl::StopRecording()
-{
+nsresult TestGonkCameraControl::StopRecording() {
   nsresult rv = ForceMethodFailWithCode();
   if (NS_FAILED(rv)) {
     return rv;
@@ -267,9 +224,7 @@ TestGonkCameraControl::StopRecording()
   return nsGonkCameraControl::StopRecording();
 }
 
-nsresult
-TestGonkCameraControl::StopRecordingImpl()
-{
+nsresult TestGonkCameraControl::StopRecordingImpl() {
   nsresult rv = ForceAsyncFailWithCode();
   if (NS_FAILED(rv)) {
     return rv;

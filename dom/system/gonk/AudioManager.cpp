@@ -583,7 +583,6 @@ nsresult AudioManager::Observe(nsISupports* aSubject, const char* aTopic,
     HandleBluetoothStatusChanged(aSubject, aTopic, address);
     return NS_OK;
   }
-
   // To process the volume control on each volume categories according to
   // change of settings
   // else if (!strcmp(aTopic, MOZ_SETTINGS_CHANGE_ID)) {//TODO FIXME
@@ -1175,7 +1174,8 @@ nsresult AudioManager::SetStreamVolumeIndex(int32_t aStream, uint32_t aIndex) {
   int32_t streamAlias = sStreamVolumeAliasTbl[aStream];
   for (int32_t streamType = 0; streamType < AUDIO_STREAM_CNT; streamType++) {
     if (streamAlias == sStreamVolumeAliasTbl[streamType]) {
-      nsresult rv = mStreamStates[streamType]->SetVolumeIndexToActiveDevices(aIndex);
+      nsresult rv =
+          mStreamStates[streamType]->SetVolumeIndexToActiveDevices(aIndex);
       if (NS_WARN_IF(NS_FAILED(rv))) {
         return rv;
       }

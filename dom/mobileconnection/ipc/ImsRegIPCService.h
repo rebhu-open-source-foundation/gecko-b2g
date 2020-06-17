@@ -15,26 +15,24 @@ namespace mobileconnection {
 
 class MobileConnectionChild;
 
-class ImsRegIPCService final : public nsIImsRegService
-{
+class ImsRegIPCService final : public nsIImsRegService {
   friend class MobileConnectionChild;
 
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIIMSREGSERVICE
 
-  static already_AddRefed<ImsRegIPCService>
-  GetSingleton();
+  static already_AddRefed<ImsRegIPCService> GetSingleton();
 
-private:
+ private:
   ImsRegIPCService();
   ~ImsRegIPCService();
 
   nsTArray<RefPtr<ImsRegistrationChild>> mHandlers;
 };
 
-} // namespace mobileconnection
-} // namespace dom
-} // namespace mozilla
+}  // namespace mobileconnection
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_mobileconnection_ImsRegIPCService_h
+#endif  // mozilla_dom_mobileconnection_ImsRegIPCService_h

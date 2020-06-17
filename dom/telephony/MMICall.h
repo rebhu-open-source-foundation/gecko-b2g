@@ -23,29 +23,24 @@ class nsPIDOMWindowInner;
 namespace mozilla {
 namespace dom {
 
-class MMICall final : public nsISupports,
-                      public nsWrapperCache
-{
-public:
+class MMICall final : public nsISupports, public nsWrapperCache {
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(MMICall)
 
   MMICall(nsPIDOMWindowInner* aWindow, const nsAString& aServiceCode);
 
-  nsPIDOMWindowInner*
-  GetParentObject() const;
+  nsPIDOMWindowInner* GetParentObject() const;
 
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-  void
-  NotifyResult(JS::Handle<JS::Value> aResult);
+  void NotifyResult(JS::Handle<JS::Value> aResult);
 
   // WebIDL
-  already_AddRefed<Promise>
-  GetResult(ErrorResult& aRv);
+  already_AddRefed<Promise> GetResult(ErrorResult& aRv);
 
-private:
+ private:
   ~MMICall();
 
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
@@ -53,7 +48,7 @@ private:
   RefPtr<Promise> mPromise;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_MMICall_h
+#endif  // mozilla_dom_MMICall_h

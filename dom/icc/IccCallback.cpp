@@ -120,37 +120,28 @@ getter_AddRefs(contact)); NS_ENSURE_SUCCESS(rv, rv);
   return NS_OK;
 }
 */
-} // anonymous namespace
+}  // anonymous namespace
 
 NS_IMPL_ISUPPORTS(IccCallback, nsIIccCallback)
 
 IccCallback::IccCallback(nsPIDOMWindowInner* aWindow, DOMRequest* aRequest,
                          bool aIsCardLockEnabled)
-  : mWindow(aWindow)
-  , mRequest(aRequest)
-  , mIsCardLockEnabled(aIsCardLockEnabled)
-{
-}
+    : mWindow(aWindow),
+      mRequest(aRequest),
+      mIsCardLockEnabled(aIsCardLockEnabled) {}
 
 IccCallback::IccCallback(nsPIDOMWindowInner* aWindow, Promise* aPromise)
-  : mWindow(aWindow)
-  , mPromise(aPromise)
-{
-}
+    : mWindow(aWindow), mPromise(aPromise) {}
 
-nsresult
-IccCallback::NotifySuccess(JS::Handle<JS::Value> aResult)
-{
+nsresult IccCallback::NotifySuccess(JS::Handle<JS::Value> aResult) {
   nsCOMPtr<nsIDOMRequestService> rs =
-    do_GetService(DOMREQUEST_SERVICE_CONTRACTID);
+      do_GetService(DOMREQUEST_SERVICE_CONTRACTID);
   NS_ENSURE_TRUE(rs, NS_ERROR_FAILURE);
 
   return rs->FireSuccessAsync(mRequest, aResult);
 }
 
-nsresult
-IccCallback::NotifyGetCardLockEnabled(bool aResult)
-{
+nsresult IccCallback::NotifyGetCardLockEnabled(bool aResult) {
   IccCardLockStatus result;
   result.mEnabled = aResult;
 
@@ -170,27 +161,23 @@ IccCallback::NotifyGetCardLockEnabled(bool aResult)
 }
 
 NS_IMETHODIMP
-IccCallback::NotifySuccess()
-{
-  return NotifySuccess(JS::UndefinedHandleValue);
-}
+IccCallback::NotifySuccess() { return NotifySuccess(JS::UndefinedHandleValue); }
 
 NS_IMETHODIMP
-IccCallback::NotifySuccessWithBoolean(bool aResult)
-{
+IccCallback::NotifySuccessWithBoolean(bool aResult) {
   if (mPromise) {
-    mPromise->MaybeResolve(aResult ? JS::TrueHandleValue : JS::FalseHandleValue);
+    mPromise->MaybeResolve(aResult ? JS::TrueHandleValue
+                                   : JS::FalseHandleValue);
     return NS_OK;
   }
 
-  return mIsCardLockEnabled
-    ? NotifyGetCardLockEnabled(aResult)
-    : NotifySuccess(aResult ? JS::TrueHandleValue : JS::FalseHandleValue);
+  return mIsCardLockEnabled ? NotifyGetCardLockEnabled(aResult)
+                            : NotifySuccess(aResult ? JS::TrueHandleValue
+                                                    : JS::FalseHandleValue);
 }
 
 NS_IMETHODIMP
-IccCallback::NotifyGetCardLockRetryCount(int32_t aCount)
-{
+IccCallback::NotifyGetCardLockRetryCount(int32_t aCount) {
   // TODO: Bug 1125018 - Simplify The Result of GetCardLock and
   // getCardLockRetryCount in Icc.webidl without a wrapper object.
   IccCardLockRetryCount result;
@@ -212,35 +199,32 @@ IccCallback::NotifyGetCardLockRetryCount(int32_t aCount)
 }
 
 NS_IMETHODIMP
-IccCallback::NotifyError(const nsAString & aErrorMsg)
-{
+IccCallback::NotifyError(const nsAString& aErrorMsg) {
   if (mPromise) {
     mPromise->MaybeRejectBrokenly(aErrorMsg);
     return NS_OK;
   }
 
   nsCOMPtr<nsIDOMRequestService> rs =
-    do_GetService(DOMREQUEST_SERVICE_CONTRACTID);
+      do_GetService(DOMREQUEST_SERVICE_CONTRACTID);
   NS_ENSURE_TRUE(rs, NS_ERROR_FAILURE);
 
   return rs->FireErrorAsync(mRequest, aErrorMsg);
 }
 
 NS_IMETHODIMP
-IccCallback::NotifyCardLockError(const nsAString & aErrorMsg,
-                                 int32_t aRetryCount)
-{
+IccCallback::NotifyCardLockError(const nsAString& aErrorMsg,
+                                 int32_t aRetryCount) {
   RefPtr<IccCardLockError> error =
-    new IccCardLockError(mWindow, aErrorMsg, aRetryCount);
-  //mRequest->FireDetailedError(error);
+      new IccCardLockError(mWindow, aErrorMsg, aRetryCount);
+  // mRequest->FireDetailedError(error);
   // TODO: file IccCardLockError event
   return NS_OK;
 }
 
 NS_IMETHODIMP
 IccCallback::NotifyRetrievedIccContacts(nsIIccContact** aContacts,
-                                        uint32_t aCount)
-{
+                                        uint32_t aCount) {
   MOZ_ASSERT(aContacts);
 
   AutoJSAPI jsapi;
@@ -270,8 +254,7 @@ IccCallback::NotifyRetrievedIccContacts(nsIIccContact** aContacts,
 }
 
 NS_IMETHODIMP
-IccCallback::NotifyUpdatedIccContact(nsIIccContact* aContact)
-{
+IccCallback::NotifyUpdatedIccContact(nsIIccContact* aContact) {
   MOZ_ASSERT(aContact);
 
   AutoJSAPI jsapi;
@@ -299,8 +282,7 @@ IccCallback::NotifyUpdatedIccContact(nsIIccContact* aContact)
 }
 
 NS_IMETHODIMP
-IccCallback::NotifyAuthResponse(const nsAString & aData)
-{
+IccCallback::NotifyAuthResponse(const nsAString& aData) {
   IccAuthResponse result;
   result.mData = aData;
 
@@ -319,6 +301,6 @@ IccCallback::NotifyAuthResponse(const nsAString & aData)
   return NotifySuccess(jsResult);
 }
 
-} // namespace icc
-} // namespace dom
-} // namespace mozilla
+}  // namespace icc
+}  // namespace dom
+}  // namespace mozilla

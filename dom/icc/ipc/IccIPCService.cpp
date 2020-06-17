@@ -15,14 +15,12 @@ namespace icc {
 
 NS_IMPL_ISUPPORTS(IccIPCService, nsIIccService)
 
-IccIPCService::IccIPCService()
-{
+IccIPCService::IccIPCService() {
   int32_t numRil = Preferences::GetInt("ril.numRadioInterfaces", 1);
   mIccs.SetLength(numRil);
 }
 
-IccIPCService::~IccIPCService()
-{
+IccIPCService::~IccIPCService() {
   uint32_t count = mIccs.Length();
   for (uint32_t i = 0; i < count; i++) {
     if (mIccs[i]) {
@@ -32,8 +30,7 @@ IccIPCService::~IccIPCService()
 }
 
 NS_IMETHODIMP
-IccIPCService::GetIccByServiceId(uint32_t aServiceId, nsIIcc** aIcc)
-{
+IccIPCService::GetIccByServiceId(uint32_t aServiceId, nsIIcc** aIcc) {
   NS_ENSURE_TRUE(aServiceId < mIccs.Length(), NS_ERROR_INVALID_ARG);
 
   if (!mIccs[aServiceId]) {
@@ -53,6 +50,6 @@ IccIPCService::GetIccByServiceId(uint32_t aServiceId, nsIIcc** aIcc)
   return NS_OK;
 }
 
-} // namespace icc
-} // namespace dom
-} // namespace mozilla
+}  // namespace icc
+}  // namespace dom
+}  // namespace mozilla

@@ -24,10 +24,10 @@ void AddressToString(const BluetoothAddress& aAddress, nsAString& aString) {
   char str[BLUETOOTH_ADDRESS_LENGTH + 1];
 
   int res = SprintfLiteral(
-      str, "%02x:%02x:%02x:%02x:%02x:%02x",
-      static_cast<int>(aAddress.mAddr[0]), static_cast<int>(aAddress.mAddr[1]),
-      static_cast<int>(aAddress.mAddr[2]), static_cast<int>(aAddress.mAddr[3]),
-      static_cast<int>(aAddress.mAddr[4]), static_cast<int>(aAddress.mAddr[5]));
+      str, "%02x:%02x:%02x:%02x:%02x:%02x", static_cast<int>(aAddress.mAddr[0]),
+      static_cast<int>(aAddress.mAddr[1]), static_cast<int>(aAddress.mAddr[2]),
+      static_cast<int>(aAddress.mAddr[3]), static_cast<int>(aAddress.mAddr[4]),
+      static_cast<int>(aAddress.mAddr[5]));
 
   if ((res == EOF) || (res < 0) || (static_cast<size_t>(res) >= sizeof(str))) {
     /* Conversion should have succeeded or (a) we're out of memory, or
@@ -210,11 +210,9 @@ void UuidToString(const BluetoothUuid& aUuid, nsAString& aString) {
   memcpy(&uuid4, &aUuid.mUuid[10], sizeof(uint32_t));
   memcpy(&uuid5, &aUuid.mUuid[14], sizeof(uint16_t));
 
-  SprintfLiteral(uuidStr,
-           "%.8x-%.4x-%.4x-%.4x-%.8x%.4x",
-           ntohl(uuid0), ntohs(uuid1),
-           ntohs(uuid2), ntohs(uuid3),
-           ntohl(uuid4), ntohs(uuid5));
+  SprintfLiteral(uuidStr, "%.8x-%.4x-%.4x-%.4x-%.8x%.4x", ntohl(uuid0),
+                 ntohs(uuid1), ntohs(uuid2), ntohs(uuid3), ntohl(uuid4),
+                 ntohs(uuid5));
 
   aString.Truncate();
   aString.AssignLiteral(uuidStr);

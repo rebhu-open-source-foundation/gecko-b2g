@@ -14,10 +14,8 @@
 namespace mozilla {
 namespace dom {
 
-class MobileCellInfo final : public nsIMobileCellInfo
-                           , public nsWrapperCache
-{
-public:
+class MobileCellInfo final : public nsIMobileCellInfo, public nsWrapperCache {
+ public:
   NS_DECL_NSIMOBILECELLINFO
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(MobileCellInfo)
@@ -30,83 +28,40 @@ public:
                  int32_t aCdmaNetworkId, int16_t aCdmaRoamingIndicator,
                  int16_t aCdmaDefaultRoamingIndicator, bool aCdmaSystemIsInPRL);
 
-  void
-  Update(nsIMobileCellInfo* aInfo);
+  void Update(nsIMobileCellInfo* aInfo);
 
-  nsPIDOMWindowInner*
-  GetParentObject() const
-  {
-    return mWindow;
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return mWindow; }
 
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   // WebIDL interface
-  int32_t
-  GsmLocationAreaCode() const
-  {
-    return mGsmLocationAreaCode;
-  }
+  int32_t GsmLocationAreaCode() const { return mGsmLocationAreaCode; }
 
-  int64_t
-  GsmCellId() const
-  {
-    return mGsmCellId;
-  }
+  int64_t GsmCellId() const { return mGsmCellId; }
 
-  int32_t
-  CdmaBaseStationId() const
-  {
-    return mCdmaBaseStationId;
-  }
+  int32_t CdmaBaseStationId() const { return mCdmaBaseStationId; }
 
-  int32_t
-  CdmaBaseStationLatitude() const
-  {
-    return mCdmaBaseStationLatitude;
-  }
+  int32_t CdmaBaseStationLatitude() const { return mCdmaBaseStationLatitude; }
 
-  int32_t
-  CdmaBaseStationLongitude() const
-  {
-    return mCdmaBaseStationLongitude;
-  }
+  int32_t CdmaBaseStationLongitude() const { return mCdmaBaseStationLongitude; }
 
-  int32_t
-  CdmaSystemId() const
-  {
-    return mCdmaSystemId;
-  }
+  int32_t CdmaSystemId() const { return mCdmaSystemId; }
 
-  int32_t
-  CdmaNetworkId() const
-  {
-    return mCdmaNetworkId;
-  }
+  int32_t CdmaNetworkId() const { return mCdmaNetworkId; }
 
-  int16_t
-  CdmaRoamingIndicator() const
-  {
-    return mCdmaRoamingIndicator;
-  }
+  int16_t CdmaRoamingIndicator() const { return mCdmaRoamingIndicator; }
 
-  int16_t
-  CdmaDefaultRoamingIndicator() const
-  {
+  int16_t CdmaDefaultRoamingIndicator() const {
     return mCdmaDefaultRoamingIndicator;
   }
 
-  bool
-  CdmaSystemIsInPRL() const
-  {
-    return mCdmaSystemIsInPRL;
-  }
+  bool CdmaSystemIsInPRL() const { return mCdmaSystemIsInPRL; }
 
-private:
+ private:
   ~MobileCellInfo() {}
 
-private:
+ private:
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
   int32_t mGsmLocationAreaCode;
   int64_t mGsmCellId;
@@ -120,7 +75,7 @@ private:
   bool mCdmaSystemIsInPRL;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_MobileCellInfo_h
+#endif  // mozilla_dom_MobileCellInfo_h

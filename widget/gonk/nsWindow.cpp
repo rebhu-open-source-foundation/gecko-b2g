@@ -61,7 +61,7 @@
 #define LOGW(args...) __android_log_print(ANDROID_LOG_WARN, "Gonk", ##args)
 #define LOGE(args...) __android_log_print(ANDROID_LOG_ERROR, "Gonk", ##args)
 
-#define IS_TOPLEVEL()                                                          \
+#define IS_TOPLEVEL() \
   (mWindowType == eWindowType_toplevel || mWindowType == eWindowType_dialog)
 #define OFFSCREEN_CURSOR_POSITION LayoutDeviceIntPoint(-1, -1)
 
@@ -78,7 +78,7 @@ static nsWindow* gFocusedWindow = nullptr;
 NS_IMPL_ISUPPORTS_INHERITED0(nsWindow, nsBaseWidget)
 
 nsWindow::nsWindow()
-  // : mGLCursorImageManager(nullptr)
+// : mGLCursorImageManager(nullptr)
 {
   // This is a hack to force initialization of the compositor
   // resources, if we're going to use omtc.
@@ -92,23 +92,20 @@ nsWindow::nsWindow()
   }
 }
 
-nsWindow::~nsWindow()
-{
+nsWindow::~nsWindow() {
   if (mScreen->IsPrimaryScreen()) {
     mComposer2D->SetCompositorBridgeParent(nullptr);
   }
 }
 
-void
-nsWindow::DoDraw(void)
-{
+void nsWindow::DoDraw(void) {
   if (!hal::GetScreenEnabled()) {
     gDrawRequest = true;
     return;
   }
 
   ScreenHelperGonk* screenHelper = ScreenHelperGonk::GetSingleton();
-#if 0 // TODO: FIXME: for multi-display support
+#if 0  // TODO: FIXME: for multi-display support
   uint32_t screenNums = screenHelper->GetNumberOfScreens();
 
   while (screenNums--) {
@@ -132,45 +129,41 @@ nsWindow::DoDraw(void)
       screenHelper->AddScreen(DISPLAY_EXTERNAL);
     }
 #else
-    RefPtr<nsScreenGonk> screen = screenHelper->GetPrimaryScreen();
-    const nsTArray<nsWindow*>& windows = screen->GetTopWindows();
+  RefPtr<nsScreenGonk> screen = screenHelper->GetPrimaryScreen();
+  const nsTArray<nsWindow*>& windows = screen->GetTopWindows();
 #endif
-    RefPtr<nsWindow> targetWindow = (nsWindow*)windows[0];
-    while (targetWindow->GetLastChild()) {
-      targetWindow = (nsWindow*)targetWindow->GetLastChild();
-    }
+  RefPtr<nsWindow> targetWindow = (nsWindow*)windows[0];
+  while (targetWindow->GetLastChild()) {
+    targetWindow = (nsWindow*)targetWindow->GetLastChild();
+  }
 
-    nsIWidgetListener* listener = targetWindow->GetWidgetListener();
-    if (listener) {
-      listener->WillPaintWindow(targetWindow);
-    }
+  nsIWidgetListener* listener = targetWindow->GetWidgetListener();
+  if (listener) {
+    listener->WillPaintWindow(targetWindow);
+  }
 
-    listener = targetWindow->GetWidgetListener();
-    if (listener) {
-      mozilla::layers::LayersBackend backendType =
-          targetWindow->GetLayerManager()->GetBackendType();
-      if (mozilla::layers::LayersBackend::LAYERS_CLIENT == backendType ||
-          mozilla::layers::LayersBackend::LAYERS_WR == backendType) {
-        // No need to do anything, the compositor will handle drawing
-      } else {
-        MOZ_CRASH("Unexpected layer manager type");
-      }
-      listener->DidPaintWindow();
+  listener = targetWindow->GetWidgetListener();
+  if (listener) {
+    mozilla::layers::LayersBackend backendType =
+        targetWindow->GetLayerManager()->GetBackendType();
+    if (mozilla::layers::LayersBackend::LAYERS_CLIENT == backendType ||
+        mozilla::layers::LayersBackend::LAYERS_WR == backendType) {
+      // No need to do anything, the compositor will handle drawing
+    } else {
+      MOZ_CRASH("Unexpected layer manager type");
     }
+    listener->DidPaintWindow();
+  }
 #if 0
   }
 #endif
 }
 
-void
-nsWindow::ConfigureAPZControllerThread()
-{
+void nsWindow::ConfigureAPZControllerThread() {
   APZThreadUtils::SetControllerThread(CompositorThread());
 }
 
-void
-nsWindow::SetMouseCursorPosition(const ScreenIntPoint& aScreenIntPoint)
-{
+void nsWindow::SetMouseCursorPosition(const ScreenIntPoint& aScreenIntPoint) {
 #if 0
   // The only implementation of nsIWidget::SetMouseCursorPosition in nsWindow
   // is for remote control.
@@ -185,9 +178,8 @@ nsWindow::SetMouseCursorPosition(const ScreenIntPoint& aScreenIntPoint)
 #endif
 }
 
-/*static*/ nsEventStatus
-nsWindow::DispatchKeyInput(WidgetKeyboardEvent& aEvent)
-{
+/*static*/ nsEventStatus nsWindow::DispatchKeyInput(
+    WidgetKeyboardEvent& aEvent) {
   if (!gFocusedWindow) {
     return nsEventStatus_eIgnore;
   }
@@ -200,9 +192,7 @@ nsWindow::DispatchKeyInput(WidgetKeyboardEvent& aEvent)
   return status;
 }
 
-/*static*/ void
-nsWindow::DispatchTouchInput(MultiTouchInput& aInput)
-{
+/*static*/ void nsWindow::DispatchTouchInput(MultiTouchInput& aInput) {
   APZThreadUtils::AssertOnControllerThread();
 
   if (!gFocusedWindow) {
@@ -212,9 +202,7 @@ nsWindow::DispatchTouchInput(MultiTouchInput& aInput)
   gFocusedWindow->DispatchTouchInputViaAPZ(aInput);
 }
 
-/*static*/ void
-nsWindow::SetMouseDevice(bool aMouse)
-{
+/*static*/ void nsWindow::SetMouseDevice(bool aMouse) {
 #if 0
   if (gFocusedWindow) {
     gFocusedWindow->SetDrawMouse(aMouse);
@@ -224,9 +212,7 @@ nsWindow::SetMouseDevice(bool aMouse)
 #endif
 }
 
-/*static*/ void
-nsWindow::NotifyHoverMove(const ScreenIntPoint& point)
-{
+/*static*/ void nsWindow::NotifyHoverMove(const ScreenIntPoint& point) {
 #if 0
   if (gFocusedWindow) {
     // NB: this is a racy use of gFocusedWindow.  We assume that
@@ -239,34 +225,27 @@ nsWindow::NotifyHoverMove(const ScreenIntPoint& point)
 #endif
 }
 
-class DispatchTouchInputOnMainThread : public mozilla::Runnable
-{
-public:
+class DispatchTouchInputOnMainThread : public mozilla::Runnable {
+ public:
   DispatchTouchInputOnMainThread(const MultiTouchInput& aInput,
                                  mozilla::layers::APZEventResult aApzResponse)
-    : mozilla::Runnable("DispatchTouchInputOnMainThread")
-    , mInput(aInput)
-    , mApzResponse(aApzResponse)
-  {
-  }
+      : mozilla::Runnable("DispatchTouchInputOnMainThread"),
+        mInput(aInput),
+        mApzResponse(aApzResponse) {}
 
-  NS_IMETHOD Run()
-  {
+  NS_IMETHOD Run() {
     if (gFocusedWindow) {
-      gFocusedWindow->DispatchTouchEventForAPZ(
-        mInput, mApzResponse);
+      gFocusedWindow->DispatchTouchEventForAPZ(mInput, mApzResponse);
     }
     return NS_OK;
   }
 
-private:
+ private:
   MultiTouchInput mInput;
   mozilla::layers::APZEventResult mApzResponse;
 };
 
-/*static*/ void
-nsWindow::KickOffComposition()
-{
+/*static*/ void nsWindow::KickOffComposition() {
   MOZ_ASSERT(NS_IsMainThread());
 
   // gFocusedWindow should only be accessed in main thread.
@@ -280,9 +259,7 @@ nsWindow::KickOffComposition()
 #endif
 }
 
-void
-nsWindow::DispatchTouchInputViaAPZ(MultiTouchInput& aInput)
-{
+void nsWindow::DispatchTouchInputViaAPZ(MultiTouchInput& aInput) {
   APZThreadUtils::AssertOnControllerThread();
 
   if (!mAPZC) {
@@ -292,7 +269,8 @@ nsWindow::DispatchTouchInputViaAPZ(MultiTouchInput& aInput)
   }
 
   // First send it through the APZ code
-  mozilla::layers::APZEventResult result = mAPZC->InputBridge()->ReceiveInputEvent(aInput);
+  mozilla::layers::APZEventResult result =
+      mAPZC->InputBridge()->ReceiveInputEvent(aInput);
   // If the APZ says to drop it, then we drop it
   if (result.mStatus == nsEventStatus_eConsumeNoDefault) {
     return;
@@ -305,10 +283,9 @@ nsWindow::DispatchTouchInputViaAPZ(MultiTouchInput& aInput)
   NS_DispatchToMainThread(new DispatchTouchInputOnMainThread(aInput, result));
 }
 
-void
-nsWindow::DispatchTouchEventForAPZ(const MultiTouchInput& aInput,
-                                   mozilla::layers::APZEventResult aApzResponse)
-{
+void nsWindow::DispatchTouchEventForAPZ(
+    const MultiTouchInput& aInput,
+    mozilla::layers::APZEventResult aApzResponse) {
   MOZ_ASSERT(NS_IsMainThread());
   UserActivity();
 
@@ -322,17 +299,12 @@ nsWindow::DispatchTouchEventForAPZ(const MultiTouchInput& aInput,
   ProcessUntransformedAPZEvent(&event, aApzResponse);
 }
 
-class DispatchTouchInputOnControllerThread : public mozilla::Runnable
-{
-public:
+class DispatchTouchInputOnControllerThread : public mozilla::Runnable {
+ public:
   explicit DispatchTouchInputOnControllerThread(const MultiTouchInput& aInput)
-    : mozilla::Runnable("DispatchTouchInputOnController")
-    , mInput(aInput)
-  {
-  }
+      : mozilla::Runnable("DispatchTouchInputOnController"), mInput(aInput) {}
 
-  NS_IMETHOD Run() override
-  {
+  NS_IMETHOD Run() override {
     if (gFocusedWindow) {
       gFocusedWindow->DispatchTouchInputViaAPZ(mInput);
     }
@@ -340,18 +312,16 @@ public:
     return NS_OK;
   }
 
-private:
+ private:
   MultiTouchInput mInput;
 };
 
-nsresult
-nsWindow::SynthesizeNativeTouchPoint(uint32_t aPointerId,
-                                     TouchPointerState aPointerState,
-                                     LayoutDeviceIntPoint aPoint,
-                                     double aPointerPressure,
-                                     uint32_t aPointerOrientation,
-                                     nsIObserver* aObserver)
-{
+nsresult nsWindow::SynthesizeNativeTouchPoint(uint32_t aPointerId,
+                                              TouchPointerState aPointerState,
+                                              LayoutDeviceIntPoint aPoint,
+                                              double aPointerPressure,
+                                              uint32_t aPointerOrientation,
+                                              nsIObserver* aObserver) {
   AutoObserverNotifier notifier(aObserver, "touchpoint");
 
   if (aPointerState == TOUCH_HOVER) {
@@ -363,7 +333,7 @@ nsWindow::SynthesizeNativeTouchPoint(uint32_t aPointerId,
   }
 
   ScreenIntPoint pointerScreenPoint = ViewAs<ScreenPixel>(
-    aPoint, PixelCastJustification::LayoutDeviceIsScreenForBounds);
+      aPoint, PixelCastJustification::LayoutDeviceIsScreenForBounds);
 
   // We can't dispatch mSynthesizedTouchInput directly because (a) dispatching
   // it might inadvertently modify it and (b) in the case of touchend or
@@ -384,12 +354,9 @@ nsWindow::SynthesizeNativeTouchPoint(uint32_t aPointerId,
       inputToDispatch.mType = MultiTouchInput::MULTITOUCH_MOVE;
     } else {
       // new touch point, add it
-      mSynthesizedTouchInput->mTouches.AppendElement(
-        SingleTouchData((int32_t)aPointerId,
-                        pointerScreenPoint,
-                        ScreenSize(0, 0),
-                        (float)aPointerOrientation,
-                        (float)aPointerPressure));
+      mSynthesizedTouchInput->mTouches.AppendElement(SingleTouchData(
+          (int32_t)aPointerId, pointerScreenPoint, ScreenSize(0, 0),
+          (float)aPointerOrientation, (float)aPointerPressure));
       inputToDispatch.mType = MultiTouchInput::MULTITOUCH_START;
     }
     inputToDispatch.mTouches = mSynthesizedTouchInput->mTouches;
@@ -400,14 +367,11 @@ nsWindow::SynthesizeNativeTouchPoint(uint32_t aPointerId,
       mSynthesizedTouchInput->mTouches.RemoveElementAt(index);
     }
     inputToDispatch.mType =
-      (aPointerState == TOUCH_REMOVE ? MultiTouchInput::MULTITOUCH_END
-                                     : MultiTouchInput::MULTITOUCH_CANCEL);
-    inputToDispatch.mTouches.AppendElement(
-      SingleTouchData((int32_t)aPointerId,
-                      pointerScreenPoint,
-                      ScreenSize(0, 0),
-                      (float)aPointerOrientation,
-                      (float)aPointerPressure));
+        (aPointerState == TOUCH_REMOVE ? MultiTouchInput::MULTITOUCH_END
+                                       : MultiTouchInput::MULTITOUCH_CANCEL);
+    inputToDispatch.mTouches.AppendElement(SingleTouchData(
+        (int32_t)aPointerId, pointerScreenPoint, ScreenSize(0, 0),
+        (float)aPointerOrientation, (float)aPointerPressure));
   }
 
   // Can't use NewRunnableMethod here because that will pass a const-ref
@@ -417,24 +381,22 @@ nsWindow::SynthesizeNativeTouchPoint(uint32_t aPointerId,
   // task because nsWindow refcounting is not threadsafe. Instead we just use
   // the gFocusedWindow static ptr instead the task.
   APZThreadUtils::RunOnControllerThread(
-    new DispatchTouchInputOnControllerThread(inputToDispatch));
+      new DispatchTouchInputOnControllerThread(inputToDispatch));
 
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsWindow::Create(nsIWidget* aParent,
-                 void* aNativeParent,
+nsWindow::Create(nsIWidget* aParent, void* aNativeParent,
                  const LayoutDeviceIntRect& aRect,
-                 nsWidgetInitData* aInitData)
-{
+                 nsWidgetInitData* aInitData) {
   BaseCreate(aParent, aInitData);
 
-  //uint32_t screenId =
+  // uint32_t screenId =
   //  aParent ? ((nsWindow*)aParent)->mScreen->GetId() : aInitData->mScreenId;
 
   ScreenHelperGonk* screenHelper = ScreenHelperGonk::GetSingleton();
-#if 0 // TODO: FIXME: for multi-display support
+#if 0  // TODO: FIXME: for multi-display support
   RefPtr<nsIScreen> screen = screenHelper->ScreenForId(screenId);
   mScreen = static_cast<nsScreenGonk*>(screen.get());
 #else
@@ -463,9 +425,7 @@ nsWindow::Create(nsIWidget* aParent,
   return NS_OK;
 }
 
-void
-nsWindow::Destroy(void)
-{
+void nsWindow::Destroy(void) {
   mOnDestroyCalled = true;
   mScreen->UnregisterWindow(this);
   if (this == gFocusedWindow) {
@@ -474,9 +434,7 @@ nsWindow::Destroy(void)
   nsBaseWidget::OnDestroy();
 }
 
-void
-nsWindow::Show(bool aState)
-{
+void nsWindow::Show(bool aState) {
   if (mWindowType == eWindowType_invisible) {
     return;
   }
@@ -487,7 +445,7 @@ nsWindow::Show(bool aState)
 
   mVisible = aState;
   if (!IS_TOPLEVEL()) {
-    return; // mParent ? mParent->Show(aState) : NS_OK;
+    return;  // mParent ? mParent->Show(aState) : NS_OK;
   }
 
   if (aState) {
@@ -505,37 +463,20 @@ nsWindow::Show(bool aState)
   }
 }
 
-bool
-nsWindow::IsVisible() const
-{
-  return mVisible;
-}
+bool nsWindow::IsVisible() const { return mVisible; }
 
-void
-nsWindow::ConstrainPosition(bool aAllowSlop, int32_t* aX, int32_t* aY) {}
+void nsWindow::ConstrainPosition(bool aAllowSlop, int32_t* aX, int32_t* aY) {}
 
-void
-nsWindow::Move(double aX, double aY)
-{
-}
+void nsWindow::Move(double aX, double aY) {}
 
-void
-nsWindow::Resize(double aWidth, double aHeight, bool aRepaint)
-{
+void nsWindow::Resize(double aWidth, double aHeight, bool aRepaint) {
   Resize(0, 0, aWidth, aHeight, aRepaint);
 }
 
-void
-nsWindow::Resize(double aX,
-                 double aY,
-                 double aWidth,
-                 double aHeight,
-                 bool aRepaint)
-{
-  mBounds = LayoutDeviceIntRect(NSToIntRound(aX),
-                                NSToIntRound(aY),
-                                NSToIntRound(aWidth),
-                                NSToIntRound(aHeight));
+void nsWindow::Resize(double aX, double aY, double aWidth, double aHeight,
+                      bool aRepaint) {
+  mBounds = LayoutDeviceIntRect(NSToIntRound(aX), NSToIntRound(aY),
+                                NSToIntRound(aWidth), NSToIntRound(aHeight));
   if (mWidgetListener) {
     mWidgetListener->WindowResized(this, mBounds.width, mBounds.height);
   }
@@ -545,20 +486,11 @@ nsWindow::Resize(double aX,
   }
 }
 
-void
-nsWindow::Enable(bool aState)
-{
-}
+void nsWindow::Enable(bool aState) {}
 
-bool
-nsWindow::IsEnabled() const
-{
-  return true;
-}
+bool nsWindow::IsEnabled() const { return true; }
 
-void
-nsWindow::SetFocus(Raise aRaise, mozilla::dom::CallerType aCallerType)
-{
+void nsWindow::SetFocus(Raise aRaise, mozilla::dom::CallerType aCallerType) {
   if (aRaise == Raise::Yes) {
     BringToTop();
   }
@@ -570,14 +502,11 @@ nsWindow::SetFocus(Raise aRaise, mozilla::dom::CallerType aCallerType)
 }
 
 NS_IMETHODIMP
-nsWindow::ConfigureChildren(const nsTArray<nsIWidget::Configuration>&)
-{
+nsWindow::ConfigureChildren(const nsTArray<nsIWidget::Configuration>&) {
   return NS_OK;
 }
 
-void
-nsWindow::Invalidate(const LayoutDeviceIntRect& aRect)
-{
+void nsWindow::Invalidate(const LayoutDeviceIntRect& aRect) {
   nsWindow* top = mParent;
   while (top && top->mParent) {
     top = top->mParent;
@@ -591,9 +520,7 @@ nsWindow::Invalidate(const LayoutDeviceIntRect& aRect)
   mozilla::NotifyEvent();
 }
 
-LayoutDeviceIntPoint
-nsWindow::WidgetToScreenOffset()
-{
+LayoutDeviceIntPoint nsWindow::WidgetToScreenOffset() {
   LayoutDeviceIntPoint p(0, 0);
   nsWindow* w = this;
 
@@ -607,9 +534,7 @@ nsWindow::WidgetToScreenOffset()
   return p;
 }
 
-void*
-nsWindow::GetNativeData(uint32_t aDataType)
-{
+void* nsWindow::GetNativeData(uint32_t aDataType) {
   switch (aDataType) {
     case NS_NATIVE_WINDOW:
       // Called before primary display's EGLSurface creation.
@@ -629,9 +554,7 @@ nsWindow::GetNativeData(uint32_t aDataType)
   return nullptr;
 }
 
-void
-nsWindow::SetNativeData(uint32_t aDataType, uintptr_t aVal)
-{
+void nsWindow::SetNativeData(uint32_t aDataType, uintptr_t aVal) {
   switch (aDataType) {
     case NS_NATIVE_OPENGL_CONTEXT:
       GLContext* context = reinterpret_cast<GLContext*>(aVal);
@@ -646,9 +569,7 @@ nsWindow::SetNativeData(uint32_t aDataType, uintptr_t aVal)
   }
 }
 
-void
-nsWindow::EnsureGLCursorImageManager()
-{
+void nsWindow::EnsureGLCursorImageManager() {
   // if (mGLCursorImageManager) {
   //   return;
   // }
@@ -656,29 +577,26 @@ nsWindow::EnsureGLCursorImageManager()
   // mGLCursorImageManager = new GLCursorImageManager();
 }
 
-static void
-StopRenderWithHwc(bool aStop)
-{
+static void StopRenderWithHwc(bool aStop) {
   MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
   HwcComposer2D::GetInstance()->StopRenderWithHwc(aStop);
 }
 
 NS_IMETHODIMP
-nsWindow::DispatchEvent(WidgetGUIEvent* aEvent, nsEventStatus& aStatus)
-{
+nsWindow::DispatchEvent(WidgetGUIEvent* aEvent, nsEventStatus& aStatus) {
   if (aEvent->mMessage == eMouseMove) {
     LayoutDeviceIntPoint position(aEvent->mRefPoint.x, aEvent->mRefPoint.y);
 
     // Validate whether refPoint exceeds window boundary.
     position.x =
-      position.x < 0
-        ? 0
-        : (position.x > (mBounds.width) ? (mBounds.width) : position.x);
+        position.x < 0
+            ? 0
+            : (position.x > (mBounds.width) ? (mBounds.width) : position.x);
 
     position.y =
-      position.y < 0
-        ? 0
-        : (position.y > (mBounds.height) ? (mBounds.height) : position.y);
+        position.y < 0
+            ? 0
+            : (position.y > (mBounds.height) ? (mBounds.height) : position.y);
 
     EnsureGLCursorImageManager();
     // mGLCursorImageManager->SetGLCursorPosition(position);
@@ -716,26 +634,17 @@ nsWindow::DispatchEvent(WidgetGUIEvent* aEvent, nsEventStatus& aStatus)
 
 NS_IMETHODIMP_(void)
 nsWindow::SetInputContext(const InputContext& aContext,
-                          const InputContextAction& aAction)
-{
+                          const InputContextAction& aAction) {
   mInputContext = aContext;
 }
 
 NS_IMETHODIMP_(InputContext)
-nsWindow::GetInputContext()
-{
-  return mInputContext;
-}
+nsWindow::GetInputContext() { return mInputContext; }
 
-void
-nsWindow::ReparentNativeWidget(nsIWidget* aNewParent)
-{
-
-}
+void nsWindow::ReparentNativeWidget(nsIWidget* aNewParent) {}
 
 NS_IMETHODIMP
-nsWindow::MakeFullScreen(bool aFullScreen, nsIScreen*)
-{
+nsWindow::MakeFullScreen(bool aFullScreen, nsIScreen*) {
   if (mWindowType != eWindowType_toplevel) {
     // Ignore fullscreen request for non-toplevel windows.
     NS_WARNING("MakeFullScreen() on a dialog or child widget?");
@@ -749,13 +658,9 @@ nsWindow::MakeFullScreen(bool aFullScreen, nsIScreen*)
     // fullscreen.  If we do, we can leave parts of the screen
     // unpainted.
     nsIntRect virtualBounds;
-    mScreen->GetRect(&virtualBounds.x,
-                     &virtualBounds.y,
-                     &virtualBounds.width,
+    mScreen->GetRect(&virtualBounds.x, &virtualBounds.y, &virtualBounds.width,
                      &virtualBounds.height);
-    Resize(virtualBounds.x,
-           virtualBounds.y,
-           virtualBounds.width,
+    Resize(virtualBounds.x, virtualBounds.y, virtualBounds.width,
            virtualBounds.height,
            /*repaint*/ true);
   }
@@ -766,10 +671,9 @@ nsWindow::MakeFullScreen(bool aFullScreen, nsIScreen*)
   return NS_OK;
 }
 
-void
-nsWindow::DrawWindowOverlay(mozilla::widget::WidgetRenderingContext* aContext,
-                            LayoutDeviceIntRect aRect)
-{
+void nsWindow::DrawWindowOverlay(
+    mozilla::widget::WidgetRenderingContext* aContext,
+    LayoutDeviceIntRect aRect) {
   // if (aManager && mGLCursorImageManager) {
   //   CompositorOGL* compositor =
   //     static_cast<CompositorOGL*>(aManager->GetCompositor());
@@ -790,53 +694,35 @@ nsWindow::DrawWindowOverlay(mozilla::widget::WidgetRenderingContext* aContext,
   // }
 }
 
-already_AddRefed<DrawTarget>
-nsWindow::StartRemoteDrawing()
-{
+already_AddRefed<DrawTarget> nsWindow::StartRemoteDrawing() {
   RefPtr<DrawTarget> buffer = mScreen->StartRemoteDrawing();
   return buffer.forget();
 }
 
-void
-nsWindow::EndRemoteDrawing()
-{
-  mScreen->EndRemoteDrawing();
-}
+void nsWindow::EndRemoteDrawing() { mScreen->EndRemoteDrawing(); }
 
-float
-nsWindow::GetDPI()
-{
-  return mScreen->GetDpi();
-}
+float nsWindow::GetDPI() { return mScreen->GetDpi(); }
 
-bool
-nsWindow::IsVsyncSupported()
-{
-  return mScreen->IsVsyncSupported();
-}
+bool nsWindow::IsVsyncSupported() { return mScreen->IsVsyncSupported(); }
 
-double
-nsWindow::GetDefaultScaleInternal()
-{
+double nsWindow::GetDefaultScaleInternal() {
   float dpi = GetDPI();
   // The mean pixel density for mdpi devices is 160dpi, 240dpi for hdpi,
   // and 320dpi for xhdpi, respectively.
   // We'll take the mid-value between these three numbers as the boundary.
   if (dpi < 200.0) {
-    return 1.0; // mdpi devices.
+    return 1.0;  // mdpi devices.
   }
   if (dpi < 280.0) {
-    return 1.5; // hdpi devices.
+    return 1.5;  // hdpi devices.
   }
   // xhdpi devices and beyond.
   return floor(dpi / 150.0 + 0.5);
 }
 
-LayerManager*
-nsWindow::GetLayerManager(PLayerTransactionChild* aShadowManager,
-                          LayersBackend aBackendHint,
-                          LayerManagerPersistence aPersistence)
-{
+LayerManager* nsWindow::GetLayerManager(PLayerTransactionChild* aShadowManager,
+                                        LayersBackend aBackendHint,
+                                        LayerManagerPersistence aPersistence) {
   /*if (aAllowRetaining) {
     *aAllowRetaining = true;
   }*/
@@ -845,10 +731,10 @@ nsWindow::GetLayerManager(PLayerTransactionChild* aShadowManager,
     // need to set the correct rotation on it.
     if (mLayerManager->GetBackendType() == LayersBackend::LAYERS_CLIENT) {
       ClientLayerManager* manager =
-        static_cast<ClientLayerManager*>(mLayerManager.get());
+          static_cast<ClientLayerManager*>(mLayerManager.get());
       uint32_t rotation = mScreen->EffectiveScreenRotation();
       manager->SetDefaultTargetConfiguration(
-        mozilla::layers::BufferMode::BUFFER_NONE, ScreenRotation(rotation));
+          mozilla::layers::BufferMode::BUFFER_NONE, ScreenRotation(rotation));
     }
     return mLayerManager;
   }
@@ -873,9 +759,7 @@ nsWindow::GetLayerManager(PLayerTransactionChild* aShadowManager,
   return mLayerManager;
 }
 
-void
-nsWindow::DestroyCompositor()
-{
+void nsWindow::DestroyCompositor() {
   auto mCompositorBridgeParent = mCompositorSession->GetInProcessBridge();
   if (mCompositorBridgeParent) {
     mScreen->SetCompositorBridgeParent(nullptr);
@@ -887,21 +771,14 @@ nsWindow::DestroyCompositor()
   nsBaseWidget::DestroyCompositor();
 }
 
-CompositorBridgeParent*
-nsWindow::NewCompositorBridgeParent(int aSurfaceWidth, int aSurfaceHeight)
-{
+CompositorBridgeParent* nsWindow::NewCompositorBridgeParent(
+    int aSurfaceWidth, int aSurfaceHeight) {
   return new CompositorBridgeParent(
-    nullptr, CSSToLayoutDeviceScale(),
-    TimeDuration::FromMilliseconds(17),
-    CompositorOptions(),
-    false,
-    gfx::IntSize(aSurfaceWidth, aSurfaceHeight)
-  );
+      nullptr, CSSToLayoutDeviceScale(), TimeDuration::FromMilliseconds(17),
+      CompositorOptions(), false, gfx::IntSize(aSurfaceWidth, aSurfaceHeight));
 }
 
-void
-nsWindow::BringToTop()
-{
+void nsWindow::BringToTop() {
   // Only bring primary screen to top to avoid shifting focus away from
   // primary window.
   if (!mScreen->IsPrimaryScreen()) {
@@ -924,9 +801,7 @@ nsWindow::BringToTop()
   Invalidate(mBounds);
 }
 
-void
-nsWindow::UserActivity()
-{
+void nsWindow::UserActivity() {
   if (!mIdleService) {
     mIdleService = do_GetService("@mozilla.org/widget/idleservice;1");
   }
@@ -936,11 +811,9 @@ nsWindow::UserActivity()
   }
 }
 
-uint32_t
-nsWindow::GetGLFrameBufferFormat()
-{
+uint32_t nsWindow::GetGLFrameBufferFormat() {
   if (mLayerManager && mLayerManager->GetBackendType() ==
-                         mozilla::layers::LayersBackend::LAYERS_OPENGL) {
+                           mozilla::layers::LayersBackend::LAYERS_OPENGL) {
     // We directly map the hardware fb on Gonk.  The hardware fb
     // has RGB format.
     return LOCAL_GL_RGB;
@@ -948,30 +821,20 @@ nsWindow::GetGLFrameBufferFormat()
   return LOCAL_GL_NONE;
 }
 
-LayoutDeviceIntRect
-nsWindow::GetNaturalBounds()
-{
+LayoutDeviceIntRect nsWindow::GetNaturalBounds() {
   return mScreen->GetNaturalBounds();
 }
 
-nsScreenGonk*
-nsWindow::GetScreen()
-{
-  return mScreen;
-}
+nsScreenGonk* nsWindow::GetScreen() { return mScreen; }
 
-bool
-nsWindow::NeedsPaint()
-{
+bool nsWindow::NeedsPaint() {
   if (!mLayerManager) {
     return false;
   }
   return nsIWidget::NeedsPaint();
 }
 
-mozilla::layers::Composer2D*
-nsWindow::GetComposer2D()
-{
+mozilla::layers::Composer2D* nsWindow::GetComposer2D() {
   if (mScreen->GetDisplayType() == DisplayType::DISPLAY_VIRTUAL) {
     return nullptr;
   }
@@ -979,9 +842,7 @@ nsWindow::GetComposer2D()
   return mComposer2D;
 }
 
-bool
-nsWindow::IsBelongedToPrimaryScreen()
-{
+bool nsWindow::IsBelongedToPrimaryScreen() {
   return mScreen->IsPrimaryScreen();
 }
 

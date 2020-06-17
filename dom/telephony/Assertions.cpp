@@ -9,9 +9,12 @@ namespace mozilla {
 namespace dom {
 namespace telephony {
 
-#define ASSERT_EQUALITY(webidlType, webidlState, xpidlState) \
-  static_assert(static_cast<uint32_t>(webidlType::webidlState) == nsITelephonyService::xpidlState, \
-  #webidlType "::" #webidlState " should equal to nsITelephonyService::" #xpidlState)
+#define ASSERT_EQUALITY(webidlType, webidlState, xpidlState)      \
+  static_assert(static_cast<uint32_t>(webidlType::webidlState) == \
+                    nsITelephonyService::xpidlState,              \
+                #webidlType                                       \
+                "::" #webidlState                                 \
+                " should equal to nsITelephonyService::" #xpidlState)
 
 /**
  * Enum TtyMode
@@ -26,6 +29,6 @@ ASSERT_TTY_MODE_EQUALITY(Vco, TTY_MODE_VCO);
 
 #undef ASSERT_TTY_MODE_EQUALITY
 
-} // namespace telephony
-} // namespace dom
-} // namespace mozilla
+}  // namespace telephony
+}  // namespace dom
+}  // namespace mozilla

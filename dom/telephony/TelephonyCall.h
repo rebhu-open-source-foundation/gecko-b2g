@@ -23,11 +23,10 @@ namespace mozilla {
 namespace dom {
 
 #ifdef MOZ_WIDGET_GONK
-//class DOMVideoCallProvider;
+// class DOMVideoCallProvider;
 #endif
 
-class TelephonyCall final : public DOMEventTargetHelper
-{
+class TelephonyCall final : public DOMEventTargetHelper {
   RefPtr<Telephony> mTelephony;
   RefPtr<TelephonyCallGroup> mGroup;
 
@@ -60,133 +59,76 @@ class TelephonyCall final : public DOMEventTargetHelper
 
   bool mIsConferenceParent;
 
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
-  //NS_REALLY_FORWARD_NSIDOMEVENTTARGET(DOMEventTargetHelper)
-  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(TelephonyCall,
-                                           DOMEventTargetHelper)
+  // NS_REALLY_FORWARD_NSIDOMEVENTTARGET(DOMEventTargetHelper)
+  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(TelephonyCall, DOMEventTargetHelper)
   friend class Telephony;
 
-  nsPIDOMWindowInner*
-  GetParentObject() const
-  {
-    return GetOwner();
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return GetOwner(); }
 
   // WrapperCache
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   // WebIDL
-  already_AddRefed<TelephonyCallId>
-  Id() const;
+  already_AddRefed<TelephonyCallId> Id() const;
 
-  already_AddRefed<TelephonyCallId>
-  GetSecondId() const;
+  already_AddRefed<TelephonyCallId> GetSecondId() const;
 
-  TelephonyCallState
-  State() const
-  {
-    return mState;
-  }
+  TelephonyCallState State() const { return mState; }
 
-  bool
-  Emergency() const
-  {
-    return mEmergency;
-  }
+  bool Emergency() const { return mEmergency; }
 
-  bool
-  Switchable() const
-  {
-    return mSwitchable;
-  }
+  bool Switchable() const { return mSwitchable; }
 
-  bool
-  Mergeable() const
-  {
-    return mMergeable;
-  }
+  bool Mergeable() const { return mMergeable; }
 
-  TelephonyCallVoiceQuality
-  VoiceQuality() const
-  {
-    return mVoiceQuality;
-  }
+  TelephonyCallVoiceQuality VoiceQuality() const { return mVoiceQuality; }
 
-  TelephonyVideoCallState
-  VideoCallState() const
-  {
-    return mVideoCallState;
-  }
+  TelephonyVideoCallState VideoCallState() const { return mVideoCallState; }
 
-  already_AddRefed<TelephonyCallCapabilities>
-  Capabilities() const;
+  already_AddRefed<TelephonyCallCapabilities> Capabilities() const;
 
-  TelephonyCallRadioTech
-  RadioTech() const
-  {
-    return mRadioTech;
-  }
+  TelephonyCallRadioTech RadioTech() const { return mRadioTech; }
 
-  TelephonyRttMode
-  RttMode() const
-  {
-    return mRttMode;
-  }
+  TelephonyRttMode RttMode() const { return mRttMode; }
 
-  TelephonyVowifiQuality
-  VowifiQuality() const
-  {
-    return mVowifiQuality;
-  }
+  TelephonyVowifiQuality VowifiQuality() const { return mVowifiQuality; }
 
-  bool
-  SupportRtt() const
-  {
-    return mSupportRtt;
-  }
+  bool SupportRtt() const { return mSupportRtt; }
 
-  bool
-  IsActive() const
-  {
+  bool IsActive() const {
     return mState == TelephonyCallState::Dialing ||
            mState == TelephonyCallState::Alerting ||
            mState == TelephonyCallState::Connected;
   }
 
-  already_AddRefed<DOMException>
-  GetError() const;
+  already_AddRefed<DOMException> GetError() const;
 
-  Nullable<TelephonyCallDisconnectedReason>
-  GetDisconnectedReason() const
-  {
+  Nullable<TelephonyCallDisconnectedReason> GetDisconnectedReason() const {
     return mDisconnectedReason;
   }
 
-  already_AddRefed<TelephonyCallGroup>
-  GetGroup() const;
+  already_AddRefed<TelephonyCallGroup> GetGroup() const;
 
-  already_AddRefed<Promise>
-  Answer(uint16_t aType, const Optional<bool>& aIsRtt, ErrorResult& aRv);
+  already_AddRefed<Promise> Answer(uint16_t aType, const Optional<bool>& aIsRtt,
+                                   ErrorResult& aRv);
 
-  already_AddRefed<Promise>
-  HangUp(ErrorResult& aRv);
+  already_AddRefed<Promise> HangUp(ErrorResult& aRv);
 
-  already_AddRefed<Promise>
-  Hold(ErrorResult& aRv);
+  already_AddRefed<Promise> Hold(ErrorResult& aRv);
 
-  already_AddRefed<Promise>
-  Resume(ErrorResult& aRv);
+  already_AddRefed<Promise> Resume(ErrorResult& aRv);
 
-  already_AddRefed<Promise>
-  SendRttModifyRequest(bool aEnable, ErrorResult& aRv);
+  already_AddRefed<Promise> SendRttModifyRequest(bool aEnable,
+                                                 ErrorResult& aRv);
 
-  already_AddRefed<Promise>
-  SendRttModifyResponse(bool status, ErrorResult& aRv);
+  already_AddRefed<Promise> SendRttModifyResponse(bool status,
+                                                  ErrorResult& aRv);
 
-  already_AddRefed<Promise>
-  SendRttMessage(const nsAString& message, ErrorResult& aRv);
+  already_AddRefed<Promise> SendRttMessage(const nsAString& message,
+                                           ErrorResult& aRv);
 
 #ifdef MOZ_WIDGET_GONK
 //  already_AddRefed<DOMVideoCallProvider>
@@ -205,175 +147,108 @@ public:
   IMPL_EVENT_HANDLER(rttmodifyresponse)
   IMPL_EVENT_HANDLER(rttmessage)
 
-  static TelephonyRttMode
-  ConvertToTelephonyRttMode(uint16_t aRttMode);
+  static TelephonyRttMode ConvertToTelephonyRttMode(uint16_t aRttMode);
 
-  static TelephonyCallState
-  ConvertToTelephonyCallState(uint16_t aCallState);
+  static TelephonyCallState ConvertToTelephonyCallState(uint16_t aCallState);
 
-  static TelephonyCallVoiceQuality
-  ConvertToTelephonyCallVoiceQuality(uint16_t aQuality);
+  static TelephonyCallVoiceQuality ConvertToTelephonyCallVoiceQuality(
+      uint16_t aQuality);
 
-  static TelephonyVideoCallState
-  ConvertToTelephonyVideoCallState(uint16_t aState);
+  static TelephonyVideoCallState ConvertToTelephonyVideoCallState(
+      uint16_t aState);
 
-  static TelephonyCallRadioTech
-  ConvertToTelephonyCallRadioTech(uint32_t aRadioTech);
+  static TelephonyCallRadioTech ConvertToTelephonyCallRadioTech(
+      uint32_t aRadioTech);
 
-  static TelephonyVowifiQuality
-  ConvertToTelephonyVowifiQuality(uint32_t aVowifiQuality);
+  static TelephonyVowifiQuality ConvertToTelephonyVowifiQuality(
+      uint32_t aVowifiQuality);
 
-  static already_AddRefed<TelephonyCall>
-  Create(Telephony* aTelephony,
-         TelephonyCallId* aId,
-         uint32_t aServiceId,
-         uint32_t aCallIndex,
-         TelephonyCallState aState,
-         TelephonyCallVoiceQuality aVoiceQuality,
-         bool aEmergency = false,
-         bool aConference = false,
-         bool aSwitchable = true,
-         bool aMergeable = true,
-         bool aConferenceParent = false,
-         TelephonyRttMode aRttMode = TelephonyRttMode::Off,
-         uint32_t aCapabilities = 0,
-         TelephonyVideoCallState aVideoCallState =  TelephonyVideoCallState::Voice,
-         TelephonyCallRadioTech aRadioTech = TelephonyCallRadioTech::Cs,
-         TelephonyVowifiQuality aVowifiQuality = TelephonyVowifiQuality::None
-         );
+  static already_AddRefed<TelephonyCall> Create(
+      Telephony* aTelephony, TelephonyCallId* aId, uint32_t aServiceId,
+      uint32_t aCallIndex, TelephonyCallState aState,
+      TelephonyCallVoiceQuality aVoiceQuality, bool aEmergency = false,
+      bool aConference = false, bool aSwitchable = true, bool aMergeable = true,
+      bool aConferenceParent = false,
+      TelephonyRttMode aRttMode = TelephonyRttMode::Off,
+      uint32_t aCapabilities = 0,
+      TelephonyVideoCallState aVideoCallState = TelephonyVideoCallState::Voice,
+      TelephonyCallRadioTech aRadioTech = TelephonyCallRadioTech::Cs,
+      TelephonyVowifiQuality aVowifiQuality = TelephonyVowifiQuality::None);
 
-  void
-  ChangeState(TelephonyCallState aState)
-  {
+  void ChangeState(TelephonyCallState aState) {
     ChangeStateInternal(aState, true);
   }
 
-  nsresult
-  NotifyStateChanged();
+  nsresult NotifyStateChanged();
 
-  uint32_t
-  ServiceId() const
-  {
-    return mServiceId;
-  }
+  uint32_t ServiceId() const { return mServiceId; }
 
-  uint32_t
-  CallIndex() const
-  {
-    return mCallIndex;
-  }
+  uint32_t CallIndex() const { return mCallIndex; }
 
-  bool
-  IsConferenceParent()
-  {
-    return mIsConferenceParent;
-  }
+  bool IsConferenceParent() { return mIsConferenceParent; }
 
-  void
-  UpdateEmergency(bool aEmergency)
-  {
-    mEmergency = aEmergency;
-  }
+  void UpdateEmergency(bool aEmergency) { mEmergency = aEmergency; }
 
-  void
-  UpdateSwitchable(bool aSwitchable)
-  {
-    mSwitchable = aSwitchable;
-  }
+  void UpdateSwitchable(bool aSwitchable) { mSwitchable = aSwitchable; }
 
-  void
-  UpdateMergeable(bool aMergeable)
-  {
-    mMergeable = aMergeable;
-  }
+  void UpdateMergeable(bool aMergeable) { mMergeable = aMergeable; }
 
-  void
-  UpdateSecondId(TelephonyCallId* aId)
-  {
-    mSecondId = aId;
-  }
+  void UpdateSecondId(TelephonyCallId* aId) { mSecondId = aId; }
 
-  void
-  UpdateIsConferenceParent(bool aIsParent);
+  void UpdateIsConferenceParent(bool aIsParent);
 
-  void
-  UpdateVoiceQuality(TelephonyCallVoiceQuality aVoiceQuality)
-  {
+  void UpdateVoiceQuality(TelephonyCallVoiceQuality aVoiceQuality) {
     mVoiceQuality = aVoiceQuality;
   }
 
-  void
-  UpdateVideoCallState(TelephonyVideoCallState aState)
-  {
+  void UpdateVideoCallState(TelephonyVideoCallState aState) {
     mVideoCallState = aState;
   }
 
-  void
-  UpdateCapabilities(uint32_t aCapabilities)
-  {
+  void UpdateCapabilities(uint32_t aCapabilities) {
     mCapabilities->Update(aCapabilities);
     mSupportRtt = aCapabilities & nsITelephonyCallInfo::CAPABILITY_SUPPORTS_RTT;
   }
 
-  void
-  UpdateRadioTech(TelephonyCallRadioTech aRadioTech)
-  {
+  void UpdateRadioTech(TelephonyCallRadioTech aRadioTech) {
     mRadioTech = aRadioTech;
   }
 
-  void
-  UpdateVowifiQuality(TelephonyVowifiQuality aVowifiQuality)
-  {
+  void UpdateVowifiQuality(TelephonyVowifiQuality aVowifiQuality) {
     mVowifiQuality = aVowifiQuality;
   }
 
-  void
-  UpdateRttMode(TelephonyRttMode aRttMode)
-  {
-    mRttMode = aRttMode;
-  }
+  void UpdateRttMode(TelephonyRttMode aRttMode) { mRttMode = aRttMode; }
 
-  void
-  NotifyError(const nsAString& aError);
+  void NotifyError(const nsAString& aError);
 
-  void
-  UpdateDisconnectedReason(const nsAString& aDisconnectedReason);
+  void UpdateDisconnectedReason(const nsAString& aDisconnectedReason);
 
-  void
-  ChangeGroup(TelephonyCallGroup* aGroup);
+  void ChangeGroup(TelephonyCallGroup* aGroup);
 
-  void
-  NotifyRttModifyRequest(uint16_t aRttMode);
+  void NotifyRttModifyRequest(uint16_t aRttMode);
 
-  void
-  NotifyRttModifyResponse(uint16_t aStatus);
+  void NotifyRttModifyResponse(uint16_t aStatus);
 
-  void
-  NotifyRttMessage(const nsAString& aMessage);
+  void NotifyRttMessage(const nsAString& aMessage);
 
-private:
+ private:
   explicit TelephonyCall(nsPIDOMWindowInner* aOwner);
 
   ~TelephonyCall();
 
-  nsresult
-  Hold(nsITelephonyCallback* aCallback);
+  nsresult Hold(nsITelephonyCallback* aCallback);
 
-  nsresult
-  Resume(nsITelephonyCallback* aCallback);
+  nsresult Resume(nsITelephonyCallback* aCallback);
 
-  void
-  ChangeStateInternal(TelephonyCallState aState, bool aFireEvents);
+  void ChangeStateInternal(TelephonyCallState aState, bool aFireEvents);
 
-  nsresult
-  DispatchCallEvent(const nsAString& aType,
-                    TelephonyCall* aCall);
+  nsresult DispatchCallEvent(const nsAString& aType, TelephonyCall* aCall);
 
-  already_AddRefed<Promise>
-  CreatePromise(ErrorResult& aRv);
+  already_AddRefed<Promise> CreatePromise(ErrorResult& aRv);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_telephony_telephonycall_h__
+#endif  // mozilla_dom_telephony_telephonycall_h__

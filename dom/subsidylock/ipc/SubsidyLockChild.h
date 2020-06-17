@@ -21,31 +21,26 @@ namespace subsidylock {
  * shutdown. For multi-sim device, more than one instance will
  * be created and each instance represents a sim slot.
  */
-class SubsidyLockChild final : public PSubsidyLockChild
-                             , public nsISubsidyLock
-{
+class SubsidyLockChild final : public PSubsidyLockChild, public nsISubsidyLock {
   friend PSubsidyLockChild;
   NS_DECL_ISUPPORTS
   NS_DECL_NSISUBSIDYLOCK
 
   explicit SubsidyLockChild(uint32_t aServiceId);
 
-  void
-  Shutdown();
+  void Shutdown();
 
-private:
+ private:
   SubsidyLockChild() = delete;
 
   // final suppresses -Werror,-Wdelete-non-virtual-dtor
   virtual ~SubsidyLockChild() {}
 
  protected:
-  bool
-  SendRequest(const SubsidyLockRequest& aRequest,
-              nsISubsidyLockCallback* aCallback);
+  bool SendRequest(const SubsidyLockRequest& aRequest,
+                   nsISubsidyLockCallback* aCallback);
 
-  virtual void
-  ActorDestroy(ActorDestroyReason why) override;
+  virtual void ActorDestroy(ActorDestroyReason why) override;
 
   PSubsidyLockRequestChild* AllocPSubsidyLockRequestChild(
       const SubsidyLockRequest& request);
@@ -66,37 +61,27 @@ private:
  * asynchronous request is made and destroyed after receiving the response sent
  * by parent actor.
  */
-class SubsidyLockRequestChild : public PSubsidyLockRequestChild
-{
+class SubsidyLockRequestChild : public PSubsidyLockRequestChild {
   friend PSubsidyLockRequestChild;
 
  public:
   explicit SubsidyLockRequestChild(nsISubsidyLockCallback* aRequestCallback)
-    : mRequestCallback(aRequestCallback)
-  {
+      : mRequestCallback(aRequestCallback) {
     MOZ_ASSERT(mRequestCallback);
   }
 
-  bool
-  DoReply(const SubsidyLockGetStatusSuccess& aReply);
+  bool DoReply(const SubsidyLockGetStatusSuccess& aReply);
 
-  bool
-  DoReply(const SubsidyLockReplySuccess& aReply);
+  bool DoReply(const SubsidyLockReplySuccess& aReply);
 
-  bool
-  DoReply(const SubsidyLockReplyError& aReply);
+  bool DoReply(const SubsidyLockReplyError& aReply);
 
-  bool
-  DoReply(const SubsidyLockUnlockError& aReply);
+  bool DoReply(const SubsidyLockUnlockError& aReply);
 
-protected:
-  virtual
-  ~SubsidyLockRequestChild()
-  {
-  }
+ protected:
+  virtual ~SubsidyLockRequestChild() {}
 
-  virtual void
-  ActorDestroy(ActorDestroyReason why) override;
+  virtual void ActorDestroy(ActorDestroyReason why) override;
 
   mozilla::ipc::IPCResult Recv__delete__(const SubsidyLockReply& aReply);
 
@@ -104,9 +89,8 @@ protected:
   nsCOMPtr<nsISubsidyLockCallback> mRequestCallback;
 };
 
-} // namespace subsidylock
-} // namespace dom
-} // namespace mozilla
+}  // namespace subsidylock
+}  // namespace dom
+}  // namespace mozilla
 
-
-#endif // mozilla_dom_subsidylock_SubsidyLockChild_h
+#endif  // mozilla_dom_subsidylock_SubsidyLockChild_h

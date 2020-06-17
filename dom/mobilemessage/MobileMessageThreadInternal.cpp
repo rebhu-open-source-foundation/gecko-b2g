@@ -6,10 +6,10 @@
 
 #include "MobileMessageThreadInternal.h"
 #include "nsIDOMClassInfo.h"
-#include "jsapi.h"           // For OBJECT_TO_JSVAL and JS_NewDateObjectMsec
-#include "nsJSUtils.h"       // For nsAutoJSString
-#include "nsTArrayHelpers.h" // For nsTArrayToJSArray
-#include "mozilla/dom/mobilemessage/Constants.h" // For MessageType
+#include "jsapi.h"            // For OBJECT_TO_JSVAL and JS_NewDateObjectMsec
+#include "nsJSUtils.h"        // For nsAutoJSString
+#include "nsTArrayHelpers.h"  // For nsTArrayToJSArray
+#include "mozilla/dom/mobilemessage/Constants.h"  // For MessageType
 
 namespace mozilla {
 namespace dom {
@@ -17,18 +17,11 @@ namespace mobilemessage {
 
 NS_IMPL_ISUPPORTS(MobileMessageThreadInternal, nsIMobileMessageThread)
 
-/* static */ nsresult
-MobileMessageThreadInternal::Create(uint64_t aId,
-                                    const JS::Value& aParticipants,
-                                    uint64_t aTimestamp,
-                                    const nsAString& aLastMessageSubject,
-                                    const nsAString& aBody,
-                                    uint64_t aUnreadCount,
-                                    const nsAString& aLastMessageType,
-                                    bool aIsGroup,
-                                    JSContext* aCx,
-                                    nsIMobileMessageThread** aThread)
-{
+/* static */ nsresult MobileMessageThreadInternal::Create(
+    uint64_t aId, const JS::Value& aParticipants, uint64_t aTimestamp,
+    const nsAString& aLastMessageSubject, const nsAString& aBody,
+    uint64_t aUnreadCount, const nsAString& aLastMessageType, bool aIsGroup,
+    JSContext* aCx, nsIMobileMessageThread** aThread) {
   *aThread = nullptr;
 
   // ThreadData exposes these as references, so we can simply assign
@@ -93,63 +86,54 @@ MobileMessageThreadInternal::Create(uint64_t aId,
   data.isGroup() = aIsGroup;
 
   nsCOMPtr<nsIMobileMessageThread> thread =
-    new MobileMessageThreadInternal(data);
+      new MobileMessageThreadInternal(data);
   thread.forget(aThread);
   return NS_OK;
 }
 
-MobileMessageThreadInternal::MobileMessageThreadInternal(uint64_t aId,
-                                                         const nsTArray<nsString>& aParticipants,
-                                                         uint64_t aTimestamp,
-                                                         const nsString& aLastMessageSubject,
-                                                         const nsString& aBody,
-                                                         uint64_t aUnreadCount,
-                                                         MessageType aLastMessageType,
-                                                         bool aIsGroup)
-  : mData(aId, aParticipants, aTimestamp, aLastMessageSubject, aBody,
-          aUnreadCount, aLastMessageType, aIsGroup)
-{
+MobileMessageThreadInternal::MobileMessageThreadInternal(
+    uint64_t aId, const nsTArray<nsString>& aParticipants, uint64_t aTimestamp,
+    const nsString& aLastMessageSubject, const nsString& aBody,
+    uint64_t aUnreadCount, MessageType aLastMessageType, bool aIsGroup)
+    : mData(aId, aParticipants, aTimestamp, aLastMessageSubject, aBody,
+            aUnreadCount, aLastMessageType, aIsGroup) {
   MOZ_ASSERT(aParticipants.Length());
 }
 
-MobileMessageThreadInternal::MobileMessageThreadInternal(const ThreadData& aData)
-  : mData(aData)
-{
+MobileMessageThreadInternal::MobileMessageThreadInternal(
+    const ThreadData& aData)
+    : mData(aData) {
   MOZ_ASSERT(aData.participants().Length());
 }
 
 NS_IMETHODIMP
-MobileMessageThreadInternal::GetId(uint64_t* aId)
-{
+MobileMessageThreadInternal::GetId(uint64_t* aId) {
   *aId = mData.id();
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileMessageThreadInternal::GetLastMessageSubject(nsAString& aLastMessageSubject)
-{
+MobileMessageThreadInternal::GetLastMessageSubject(
+    nsAString& aLastMessageSubject) {
   aLastMessageSubject = mData.lastMessageSubject();
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileMessageThreadInternal::GetBody(nsAString& aBody)
-{
+MobileMessageThreadInternal::GetBody(nsAString& aBody) {
   aBody = mData.body();
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileMessageThreadInternal::GetUnreadCount(uint64_t* aUnreadCount)
-{
+MobileMessageThreadInternal::GetUnreadCount(uint64_t* aUnreadCount) {
   *aUnreadCount = mData.unreadCount();
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileMessageThreadInternal::GetParticipants(JSContext* aCx,
-                                             JS::MutableHandle<JS::Value> aParticipants)
-{
+MobileMessageThreadInternal::GetParticipants(
+    JSContext* aCx, JS::MutableHandle<JS::Value> aParticipants) {
   JS::Rooted<JSObject*> obj(aCx);
 
   nsresult rv = nsTArrayToJSArray(aCx, mData.participants(), &obj);
@@ -160,15 +144,13 @@ MobileMessageThreadInternal::GetParticipants(JSContext* aCx,
 }
 
 NS_IMETHODIMP
-MobileMessageThreadInternal::GetTimestamp(DOMTimeStamp* aDate)
-{
+MobileMessageThreadInternal::GetTimestamp(DOMTimeStamp* aDate) {
   *aDate = mData.timestamp();
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileMessageThreadInternal::GetLastMessageType(nsAString& aLastMessageType)
-{
+MobileMessageThreadInternal::GetLastMessageType(nsAString& aLastMessageType) {
   switch (mData.lastMessageType()) {
     case eMessageType_SMS:
       aLastMessageType = MESSAGE_TYPE_SMS;
@@ -185,12 +167,11 @@ MobileMessageThreadInternal::GetLastMessageType(nsAString& aLastMessageType)
 }
 
 NS_IMETHODIMP
-MobileMessageThreadInternal::GetIsGroup(bool* aIsGroup)
-{
+MobileMessageThreadInternal::GetIsGroup(bool* aIsGroup) {
   *aIsGroup = mData.isGroup();
   return NS_OK;
 }
 
-} // namespace mobilemessage
-} // namespace dom
-} // namespace mozilla
+}  // namespace mobilemessage
+}  // namespace dom
+}  // namespace mozilla

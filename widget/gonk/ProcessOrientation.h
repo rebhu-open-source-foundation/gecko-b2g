@@ -27,14 +27,15 @@ namespace mozilla {
 #define TILT_HISTORY_SIZE 40
 
 class ProcessOrientation {
-public:
-  ProcessOrientation() {};
-  ~ProcessOrientation() {};
+ public:
+  ProcessOrientation(){};
+  ~ProcessOrientation(){};
 
-  int OnSensorChanged(const mozilla::hal::SensorData& event, int deviceCurrentRotation);
+  int OnSensorChanged(const mozilla::hal::SensorData& event,
+                      int deviceCurrentRotation);
   int Reset();
 
-private:
+ private:
   int GetProposedRotation();
 
   // Returns true if the tilt angle is acceptable for a given predicted
@@ -62,15 +63,15 @@ private:
   float RemainingMS(int64_t now, int64_t until);
 
   // The tilt angle range in degrees for each orientation. Beyond these tilt
-  // angles, we don't even consider transitioning into the specified orientation.
-  // We place more stringent requirements on unnatural orientations than natural
-  // ones to make it less likely to accidentally transition into those states.
-  // The first value of each pair is negative so it applies a limit when the
-  // device is facing down (overhead reading in bed). The second value of each
-  // pair is positive so it applies a limit when the device is facing up
-  // (resting on a table). The ideal tilt angle is 0 (when the device is vertical)
-  // so the limits establish how close to vertical the device must be in order
-  // to change orientation.
+  // angles, we don't even consider transitioning into the specified
+  // orientation. We place more stringent requirements on unnatural orientations
+  // than natural ones to make it less likely to accidentally transition into
+  // those states. The first value of each pair is negative so it applies a
+  // limit when the device is facing down (overhead reading in bed). The second
+  // value of each pair is positive so it applies a limit when the device is
+  // facing up (resting on a table). The ideal tilt angle is 0 (when the device
+  // is vertical) so the limits establish how close to vertical the device must
+  // be in order to change orientation.
   static const int tiltTolerance[][4];
 
   // Timestamp and value of the last accelerometer sample.
@@ -106,6 +107,6 @@ private:
   } mTiltHistory;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif

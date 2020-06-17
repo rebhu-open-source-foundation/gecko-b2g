@@ -21,22 +21,20 @@
 class nsPIDOMWindowInner;
 
 namespace mozilla {
-  class ErrorResult;
-  class nsDOMCameraControl;
-  namespace dom {
-    struct CameraConfiguration;
-  } // namespace dom
-} // namespace mozilla
+class ErrorResult;
+class nsDOMCameraControl;
+namespace dom {
+struct CameraConfiguration;
+}  // namespace dom
+}  // namespace mozilla
 
 typedef nsTArray<nsWeakPtr> CameraControls;
 typedef nsClassHashtable<nsUint64HashKey, CameraControls> WindowTable;
 
-class nsDOMCameraManager final
-  : public nsIObserver
-  , public nsSupportsWeakReference
-  , public nsWrapperCache
-{
-public:
+class nsDOMCameraManager final : public nsIObserver,
+                                 public nsSupportsWeakReference,
+                                 public nsWrapperCache {
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_AMBIGUOUS(nsDOMCameraManager,
                                                          nsIObserver)
@@ -50,8 +48,8 @@ public:
   static bool HasSupport(JSContext* aCx, JSObject* aGlobal);
 
   static bool CheckPermission(nsPIDOMWindowInner* aWindow);
-  static already_AddRefed<nsDOMCameraManager>
-    CreateInstance(nsPIDOMWindowInner* aWindow);
+  static already_AddRefed<nsDOMCameraManager> CreateInstance(
+      nsPIDOMWindowInner* aWindow);
   static bool IsWindowStillActive(uint64_t aWindowId);
 
   void Register(mozilla::nsDOMCameraControl* aDOMCameraControl);
@@ -66,34 +64,35 @@ public:
                            mozilla::dom::Promise* aPromise);
 
   // WebIDL
-  already_AddRefed<mozilla::dom::Promise>
-  GetCamera(const nsAString& aCamera,
-            const mozilla::dom::CameraConfiguration& aOptions,
-            mozilla::ErrorResult& aRv);
+  already_AddRefed<mozilla::dom::Promise> GetCamera(
+      const nsAString& aCamera,
+      const mozilla::dom::CameraConfiguration& aOptions,
+      mozilla::ErrorResult& aRv);
   void GetListOfCameras(nsTArray<nsString>& aList, mozilla::ErrorResult& aRv);
 
-  already_AddRefed<mozilla::dom::Promise>
-  GetCameraSensorAngle(const nsAString& aCamera, mozilla::ErrorResult& aRv);
+  already_AddRefed<mozilla::dom::Promise> GetCameraSensorAngle(
+      const nsAString& aCamera, mozilla::ErrorResult& aRv);
 
   nsPIDOMWindowInner* GetParentObject() const { return mWindow; }
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
 #ifdef MOZ_WIDGET_GONK
   static void PreinitCameraHardware();
 #endif
 
-protected:
+ protected:
   void XpComShutdown();
   void Shutdown(uint64_t aWindowId);
   ~nsDOMCameraManager();
 
-private:
+ private:
   nsDOMCameraManager() = delete;
   explicit nsDOMCameraManager(nsPIDOMWindowInner* aWindow);
   nsDOMCameraManager(const nsDOMCameraManager&) = delete;
   nsDOMCameraManager& operator=(const nsDOMCameraManager&) = delete;
 
-protected:
+ protected:
   uint64_t mWindowId;
   uint32_t mPermission;
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
@@ -104,4 +103,4 @@ protected:
   static ::WindowTable* sActiveWindows;
 };
 
-#endif // DOM_CAMERA_DOMCAMERAMANAGER_H
+#endif  // DOM_CAMERA_DOMCAMERAMANAGER_H

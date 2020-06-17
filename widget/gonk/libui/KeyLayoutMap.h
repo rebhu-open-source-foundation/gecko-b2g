@@ -26,92 +26,99 @@
 namespace android {
 
 struct AxisInfo {
-    enum Mode {
-        // Axis value is reported directly.
-        MODE_NORMAL = 0,
-        // Axis value should be inverted before reporting.
-        MODE_INVERT = 1,
-        // Axis value should be split into two axes
-        MODE_SPLIT = 2,
-    };
+  enum Mode {
+    // Axis value is reported directly.
+    MODE_NORMAL = 0,
+    // Axis value should be inverted before reporting.
+    MODE_INVERT = 1,
+    // Axis value should be split into two axes
+    MODE_SPLIT = 2,
+  };
 
-    // Axis mode.
-    Mode mode;
+  // Axis mode.
+  Mode mode;
 
-    // Axis id.
-    // When split, this is the axis used for values smaller than the split position.
-    int32_t axis;
+  // Axis id.
+  // When split, this is the axis used for values smaller than the split
+  // position.
+  int32_t axis;
 
-    // When split, this is the axis used for values after higher than the split position.
-    int32_t highAxis;
+  // When split, this is the axis used for values after higher than the split
+  // position.
+  int32_t highAxis;
 
-    // The split value, or 0 if not split.
-    int32_t splitValue;
+  // The split value, or 0 if not split.
+  int32_t splitValue;
 
-    // The flat value, or -1 if none.
-    int32_t flatOverride;
+  // The flat value, or -1 if none.
+  int32_t flatOverride;
 
-    AxisInfo() : mode(MODE_NORMAL), axis(-1), highAxis(-1), splitValue(0), flatOverride(-1) {
-    }
+  AxisInfo()
+      : mode(MODE_NORMAL),
+        axis(-1),
+        highAxis(-1),
+        splitValue(0),
+        flatOverride(-1) {}
 };
 
 /**
- * Describes a mapping from keyboard scan codes and joystick axes to Android key codes and axes.
+ * Describes a mapping from keyboard scan codes and joystick axes to Android key
+ * codes and axes.
  *
  * This object is immutable after it has been loaded.
  */
 class KeyLayoutMap : public RefBase {
-public:
-    static status_t load(const String8& filename, sp<KeyLayoutMap>* outMap);
+ public:
+  static status_t load(const String8& filename, sp<KeyLayoutMap>* outMap);
 
-    status_t mapKey(int32_t scanCode, int32_t usageCode,
-            int32_t* outKeyCode, uint32_t* outFlags) const;
-    status_t findScanCodesForKey(int32_t keyCode, Vector<int32_t>* outScanCodes) const;
-    status_t findScanCodeForLed(int32_t ledCode, int32_t* outScanCode) const;
-    status_t findUsageCodeForLed(int32_t ledCode, int32_t* outUsageCode) const;
+  status_t mapKey(int32_t scanCode, int32_t usageCode, int32_t* outKeyCode,
+                  uint32_t* outFlags) const;
+  status_t findScanCodesForKey(int32_t keyCode,
+                               Vector<int32_t>* outScanCodes) const;
+  status_t findScanCodeForLed(int32_t ledCode, int32_t* outScanCode) const;
+  status_t findUsageCodeForLed(int32_t ledCode, int32_t* outUsageCode) const;
 
-    status_t mapAxis(int32_t scanCode, AxisInfo* outAxisInfo) const;
+  status_t mapAxis(int32_t scanCode, AxisInfo* outAxisInfo) const;
 
-protected:
-    virtual ~KeyLayoutMap();
+ protected:
+  virtual ~KeyLayoutMap();
 
-private:
-    struct Key {
-        int32_t keyCode;
-        uint32_t flags;
-    };
+ private:
+  struct Key {
+    int32_t keyCode;
+    uint32_t flags;
+  };
 
-    struct Led {
-        int32_t ledCode;
-    };
+  struct Led {
+    int32_t ledCode;
+  };
 
+  KeyedVector<int32_t, Key> mKeysByScanCode;
+  KeyedVector<int32_t, Key> mKeysByUsageCode;
+  KeyedVector<int32_t, AxisInfo> mAxes;
+  KeyedVector<int32_t, Led> mLedsByScanCode;
+  KeyedVector<int32_t, Led> mLedsByUsageCode;
 
-    KeyedVector<int32_t, Key> mKeysByScanCode;
-    KeyedVector<int32_t, Key> mKeysByUsageCode;
-    KeyedVector<int32_t, AxisInfo> mAxes;
-    KeyedVector<int32_t, Led> mLedsByScanCode;
-    KeyedVector<int32_t, Led> mLedsByUsageCode;
+  KeyLayoutMap();
 
-    KeyLayoutMap();
+  const Key* getKey(int32_t scanCode, int32_t usageCode) const;
 
-    const Key* getKey(int32_t scanCode, int32_t usageCode) const;
+  class Parser {
+    KeyLayoutMap* mMap;
+    Tokenizer* mTokenizer;
 
-    class Parser {
-        KeyLayoutMap* mMap;
-        Tokenizer* mTokenizer;
+   public:
+    Parser(KeyLayoutMap* map, Tokenizer* tokenizer);
+    ~Parser();
+    status_t parse();
 
-    public:
-        Parser(KeyLayoutMap* map, Tokenizer* tokenizer);
-        ~Parser();
-        status_t parse();
-
-    private:
-        status_t parseKey();
-        status_t parseAxis();
-        status_t parseLed();
-    };
+   private:
+    status_t parseKey();
+    status_t parseAxis();
+    status_t parseLed();
+  };
 };
 
-} // namespace android
+}  // namespace android
 
-#endif // _ANDROIDFW_KEY_LAYOUT_MAP_H
+#endif  // _ANDROIDFW_KEY_LAYOUT_MAP_H

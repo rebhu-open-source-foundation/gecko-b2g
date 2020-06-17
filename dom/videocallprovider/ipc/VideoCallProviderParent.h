@@ -15,61 +15,53 @@ namespace mozilla {
 namespace dom {
 namespace videocallprovider {
 
-class VideoCallProviderParent : public PVideoCallProviderParent
-                              , public nsIVideoCallCallback
-{
+class VideoCallProviderParent : public PVideoCallProviderParent,
+                                public nsIVideoCallCallback {
   friend class PVideoCallProviderParent;
-public:
+
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIVIDEOCALLCALLBACK
 
   explicit VideoCallProviderParent(uint32_t aClientId, uint32_t aCallIndex);
 
-protected:
-  virtual
-  ~VideoCallProviderParent()
-  {
+ protected:
+  virtual ~VideoCallProviderParent() {
     MOZ_COUNT_DTOR(VideoCallProviderParent);
   }
 
-  void
-  ActorDestroy(ActorDestroyReason aWhy);
+  void ActorDestroy(ActorDestroyReason aWhy);
 
-  mozilla::ipc::IPCResult
-  RecvSetCamera(const int16_t& cameraId);
+  mozilla::ipc::IPCResult RecvSetCamera(const int16_t& cameraId);
 
-  mozilla::ipc::IPCResult
-  RecvSetPreviewSurface(const uint16_t& aWidth,
-                        const uint16_t& aHeight);
+  mozilla::ipc::IPCResult RecvSetPreviewSurface(const uint16_t& aWidth,
+                                                const uint16_t& aHeight);
 
-  mozilla::ipc::IPCResult
-  RecvSetDisplaySurface(const uint16_t& aWidth,
-                        const uint16_t& aHeight);
+  mozilla::ipc::IPCResult RecvSetDisplaySurface(const uint16_t& aWidth,
+                                                const uint16_t& aHeight);
 
-  mozilla::ipc::IPCResult
-  RecvSetDeviceOrientation(const uint16_t& aOrientation);
+  mozilla::ipc::IPCResult RecvSetDeviceOrientation(
+      const uint16_t& aOrientation);
 
-  mozilla::ipc::IPCResult
-  RecvSetZoom(const float& aValue);
+  mozilla::ipc::IPCResult RecvSetZoom(const float& aValue);
 
-  mozilla::ipc::IPCResult
-  RecvSendSessionModifyRequest(const nsVideoCallProfile& aFromProfile,
-                               const nsVideoCallProfile& aToProfile);
+  mozilla::ipc::IPCResult RecvSendSessionModifyRequest(
+      const nsVideoCallProfile& aFromProfile,
+      const nsVideoCallProfile& aToProfile);
 
-  mozilla::ipc::IPCResult
-  RecvSendSessionModifyResponse(const nsVideoCallProfile& aResponse);
+  mozilla::ipc::IPCResult RecvSendSessionModifyResponse(
+      const nsVideoCallProfile& aResponse);
 
-  mozilla::ipc::IPCResult
-  RecvRequestCameraCapabilities();
+  mozilla::ipc::IPCResult RecvRequestCameraCapabilities();
 
-private:
+ private:
   uint32_t mClientId;
   uint32_t mCallIndex;
   nsCOMPtr<nsIVideoCallProvider> mProvider;
 };
 
-} // videocallprovider
-} // namespace dom
-} // namespace mozilla
+}  // namespace videocallprovider
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_videocallprovider_VideoCallProviderParent_h__
+#endif  // mozilla_dom_videocallprovider_VideoCallProviderParent_h__

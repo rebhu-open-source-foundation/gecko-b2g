@@ -315,9 +315,7 @@ class AsyncIterableIterator final
     MOZ_ASSERT(mWrapFunc);
   }
 
-  void SetData(void* aData) {
-    mData = aData;
-  }
+  void SetData(void* aData) { mData = aData; }
 
   void* GetData() { return mData; }
 

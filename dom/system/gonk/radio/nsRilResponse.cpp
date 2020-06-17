@@ -172,9 +172,9 @@ Return<void> nsRilResponse::changeIccPin2ForAppResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result =
-      new nsRilResponseResult(NS_LITERAL_STRING("changeICCPIN2"), rspInfo.serial,
-                              convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
+      NS_LITERAL_STRING("changeICCPIN2"), rspInfo.serial,
+      convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateRemainRetries(remainingRetries);
   } else {
@@ -654,9 +654,9 @@ Return<void> nsRilResponse::getFacilityLockForAppResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result =
-      new nsRilResponseResult(NS_LITERAL_STRING("queryICCFacilityLock"), rspInfo.serial,
-                              convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
+      NS_LITERAL_STRING("queryICCFacilityLock"), rspInfo.serial,
+      convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateRemainRetries(response);
   } else {
@@ -671,9 +671,9 @@ Return<void> nsRilResponse::setFacilityLockForAppResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  RefPtr<nsRilResponseResult> result =
-      new nsRilResponseResult(NS_LITERAL_STRING("setICCFacilityLock"), rspInfo.serial,
-                              convertRadioErrorToNum(rspInfo.error));
+  RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
+      NS_LITERAL_STRING("setICCFacilityLock"), rspInfo.serial,
+      convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateRemainRetries(retry);
   } else {

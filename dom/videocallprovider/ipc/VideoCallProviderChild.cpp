@@ -8,25 +8,22 @@
 
 #include <android/log.h>
 #undef LOG
-#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "VideoCallProviderChild" , ## args)
+#define LOG(args...) \
+  __android_log_print(ANDROID_LOG_INFO, "VideoCallProviderChild", ##args)
 
 using namespace mozilla::dom;
 using namespace mozilla::dom::videocallprovider;
 
 // VideoCallProviderChild
 
-VideoCallProviderChild::VideoCallProviderChild(uint32_t aClientId, uint32_t aCallIndex)
-  : mLive(true),
-    mClientId(aClientId),
-    mCallIndex(aCallIndex)
-{
+VideoCallProviderChild::VideoCallProviderChild(uint32_t aClientId,
+                                               uint32_t aCallIndex)
+    : mLive(true), mClientId(aClientId), mCallIndex(aCallIndex) {
   LOG("constructor");
   MOZ_COUNT_CTOR(VideoCallProviderChild);
 }
 
-void
-VideoCallProviderChild::Shutdown()
-{
+void VideoCallProviderChild::Shutdown() {
   LOG("Shutdown");
   if (mLive) {
     LOG("Send__delete__");
@@ -37,16 +34,14 @@ VideoCallProviderChild::Shutdown()
   mCallbacks.Clear();
 }
 
-void
-VideoCallProviderChild::ActorDestroy(ActorDestroyReason aWhy)
-{
+void VideoCallProviderChild::ActorDestroy(ActorDestroyReason aWhy) {
   LOG("ActorDestroy");
   mLive = false;
 }
 
 mozilla::ipc::IPCResult
-VideoCallProviderChild::RecvNotifyReceiveSessionModifyRequest(nsIVideoCallProfile* const& aRequest)
-{
+VideoCallProviderChild::RecvNotifyReceiveSessionModifyRequest(
+    nsIVideoCallProfile* const& aRequest) {
   LOG("RecvNotifyReceiveSessionModifyRequest");
   nsCOMPtr<nsIVideoCallProfile> request = dont_AddRef(aRequest);
 
@@ -58,10 +53,9 @@ VideoCallProviderChild::RecvNotifyReceiveSessionModifyRequest(nsIVideoCallProfil
 }
 
 mozilla::ipc::IPCResult
-VideoCallProviderChild::RecvNotifyReceiveSessionModifyResponse(const uint16_t& status,
-                                                               nsIVideoCallProfile* const& aRequest,
-                                                               nsIVideoCallProfile* const& aResponse)
-{
+VideoCallProviderChild::RecvNotifyReceiveSessionModifyResponse(
+    const uint16_t& status, nsIVideoCallProfile* const& aRequest,
+    nsIVideoCallProfile* const& aResponse) {
   LOG("RecvNotifyReceiveSessionModifyResponse");
 
   nsCOMPtr<nsIVideoCallProfile> request = dont_AddRef(aRequest);
@@ -75,8 +69,8 @@ VideoCallProviderChild::RecvNotifyReceiveSessionModifyResponse(const uint16_t& s
 }
 
 mozilla::ipc::IPCResult
-VideoCallProviderChild::RecvNotifyHandleCallSessionEvent(const uint16_t& aEvent)
-{
+VideoCallProviderChild::RecvNotifyHandleCallSessionEvent(
+    const uint16_t& aEvent) {
   LOG("RecvNotifyHandleCallSessionEvent");
   for (int32_t i = 0; i < mCallbacks.Count(); i++) {
     mCallbacks[i]->OnHandleCallSessionEvent(aEvent);
@@ -84,9 +78,8 @@ VideoCallProviderChild::RecvNotifyHandleCallSessionEvent(const uint16_t& aEvent)
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult
-VideoCallProviderChild::RecvNotifyChangePeerDimensions(const uint16_t& aWidth, const uint16_t& aHeight)
-{
+mozilla::ipc::IPCResult VideoCallProviderChild::RecvNotifyChangePeerDimensions(
+    const uint16_t& aWidth, const uint16_t& aHeight) {
   LOG("RecvNotifyChangePeerDimensions");
   for (int32_t i = 0; i < mCallbacks.Count(); i++) {
     mCallbacks[i]->OnChangePeerDimensions(aWidth, aHeight);
@@ -95,19 +88,19 @@ VideoCallProviderChild::RecvNotifyChangePeerDimensions(const uint16_t& aWidth, c
 }
 
 mozilla::ipc::IPCResult
-VideoCallProviderChild::RecvNotifyChangeCameraCapabilities(nsIVideoCallCameraCapabilities* const& aCapabilities)
-{
+VideoCallProviderChild::RecvNotifyChangeCameraCapabilities(
+    nsIVideoCallCameraCapabilities* const& aCapabilities) {
   LOG("RecvNotifyChangeCameraCapabilities");
-  nsCOMPtr<nsIVideoCallCameraCapabilities> capabilities = dont_AddRef(aCapabilities);
+  nsCOMPtr<nsIVideoCallCameraCapabilities> capabilities =
+      dont_AddRef(aCapabilities);
   for (int32_t i = 0; i < mCallbacks.Count(); i++) {
     mCallbacks[i]->OnChangeCameraCapabilities(capabilities);
   }
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult
-VideoCallProviderChild::RecvNotifyChangeVideoQuality(const uint16_t& aQuality)
-{
+mozilla::ipc::IPCResult VideoCallProviderChild::RecvNotifyChangeVideoQuality(
+    const uint16_t& aQuality) {
   LOG("RecvNotifyChangeVideoQuality");
   for (int32_t i = 0; i < mCallbacks.Count(); i++) {
     mCallbacks[i]->OnChangeVideoQuality(aQuality);
@@ -119,17 +112,16 @@ VideoCallProviderChild::RecvNotifyChangeVideoQuality(const uint16_t& aQuality)
 NS_IMPL_ISUPPORTS(VideoCallProviderChild, nsIVideoCallProvider)
 
 NS_IMETHODIMP
-VideoCallProviderChild::SetCamera(int16_t cameraId)
-{
+VideoCallProviderChild::SetCamera(int16_t cameraId) {
   LOG("SetCamera:%d", cameraId);
   SendSetCamera(cameraId);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-VideoCallProviderChild::SetPreviewSurface(android::sp<android::IGraphicBufferProducer> & producer,
-                                          uint16_t aWidth, uint16_t aHeight)
-{
+VideoCallProviderChild::SetPreviewSurface(
+    android::sp<android::IGraphicBufferProducer>& producer, uint16_t aWidth,
+    uint16_t aHeight) {
   LOG("SetPreviewSurface");
   // TODO to pass producer
   SendSetPreviewSurface(aWidth, aHeight);
@@ -137,9 +129,9 @@ VideoCallProviderChild::SetPreviewSurface(android::sp<android::IGraphicBufferPro
 }
 
 NS_IMETHODIMP
-VideoCallProviderChild::SetDisplaySurface(android::sp<android::IGraphicBufferProducer> & producer,
-                                          uint16_t aWidth, uint16_t aHeight)
-{
+VideoCallProviderChild::SetDisplaySurface(
+    android::sp<android::IGraphicBufferProducer>& producer, uint16_t aWidth,
+    uint16_t aHeight) {
   LOG("SetDisplaySurface");
   // TODO to pass producer
   SendSetDisplaySurface(aWidth, aHeight);
@@ -147,46 +139,42 @@ VideoCallProviderChild::SetDisplaySurface(android::sp<android::IGraphicBufferPro
 }
 
 NS_IMETHODIMP
-VideoCallProviderChild::SetDeviceOrientation(uint16_t orientation)
-{
+VideoCallProviderChild::SetDeviceOrientation(uint16_t orientation) {
   LOG("SetDeviceOrientation");
   SendSetDeviceOrientation(orientation);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-VideoCallProviderChild::SetZoom(float value)
-{
+VideoCallProviderChild::SetZoom(float value) {
   LOG("SetZoom: %f", value);
   SendSetZoom(value);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-VideoCallProviderChild::SendSessionModifyRequest(nsIVideoCallProfile *fromProfile, nsIVideoCallProfile *toProfile)
-{
+VideoCallProviderChild::SendSessionModifyRequest(
+    nsIVideoCallProfile* fromProfile, nsIVideoCallProfile* toProfile) {
   SendSendSessionModifyRequest(fromProfile, toProfile);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-VideoCallProviderChild::SendSessionModifyResponse(nsIVideoCallProfile *aResponse)
-{
+VideoCallProviderChild::SendSessionModifyResponse(
+    nsIVideoCallProfile* aResponse) {
   SendSendSessionModifyResponse(aResponse);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-VideoCallProviderChild::RequestCameraCapabilities(void)
-{
+VideoCallProviderChild::RequestCameraCapabilities(void) {
   LOG("RequestCameraCapabilities");
   SendRequestCameraCapabilities();
   return NS_OK;
 }
 
 NS_IMETHODIMP
-VideoCallProviderChild::RegisterCallback(nsIVideoCallCallback *aCallback)
-{
+VideoCallProviderChild::RegisterCallback(nsIVideoCallCallback* aCallback) {
   LOG("RegisterCallback");
   NS_ENSURE_TRUE(!mCallbacks.Contains(aCallback), NS_ERROR_UNEXPECTED);
   mCallbacks.AppendObject(aCallback);
@@ -194,8 +182,7 @@ VideoCallProviderChild::RegisterCallback(nsIVideoCallCallback *aCallback)
 }
 
 NS_IMETHODIMP
-VideoCallProviderChild::UnregisterCallback(nsIVideoCallCallback *aCallback)
-{
+VideoCallProviderChild::UnregisterCallback(nsIVideoCallCallback* aCallback) {
   LOG("UnregisterCallback");
   NS_ENSURE_TRUE(mCallbacks.Contains(aCallback), NS_ERROR_UNEXPECTED);
   mCallbacks.RemoveObject(aCallback);

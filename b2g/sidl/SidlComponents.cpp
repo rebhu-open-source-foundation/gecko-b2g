@@ -11,7 +11,6 @@ namespace {
 extern "C" {
 void gecko_bridge_construct(nsIGeckoBridge** aResult);
 void settings_manager_construct(nsISettingsManager** aResult);
-
 }
 
 }  // namespace

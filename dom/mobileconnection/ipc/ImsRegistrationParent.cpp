@@ -15,19 +15,18 @@ using namespace mozilla::dom::mobileconnection;
 /**
  * ImsRegServiceFinderParent
  */
-mozilla::ipc::IPCResult
-ImsRegServiceFinderParent::RecvCheckDeviceCapability(bool* aIsServiceInstalled,
-                                                     nsTArray<uint32_t>* aEnabledServiceIds)
-{
+mozilla::ipc::IPCResult ImsRegServiceFinderParent::RecvCheckDeviceCapability(
+    bool* aIsServiceInstalled, nsTArray<uint32_t>* aEnabledServiceIds) {
   MOZ_ASSERT(aIsServiceInstalled);
   MOZ_ASSERT(aEnabledServiceIds);
 
-  nsCOMPtr<nsIImsRegService> imsService = do_GetService(IMS_REG_SERVICE_CONTRACTID);
+  nsCOMPtr<nsIImsRegService> imsService =
+      do_GetService(IMS_REG_SERVICE_CONTRACTID);
   if (imsService) {
     *aIsServiceInstalled = true;
 
     nsCOMPtr<nsIMobileConnectionService> service =
-      do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
+        do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
     NS_ASSERTION(service, "This shouldn't fail!");
 
     uint32_t numItems = 0;
@@ -45,33 +44,26 @@ ImsRegServiceFinderParent::RecvCheckDeviceCapability(bool* aIsServiceInstalled,
   return IPC_OK();
 }
 
-void
-ImsRegServiceFinderParent::ActorDestroy(ActorDestroyReason aWhy)
-{
-}
+void ImsRegServiceFinderParent::ActorDestroy(ActorDestroyReason aWhy) {}
 
 /**
  * ImsRegistrationParent
  */
 
 ImsRegistrationParent::ImsRegistrationParent(uint32_t aServiceId)
-  : mLive(true)
-{
-
+    : mLive(true) {
   nsCOMPtr<nsIImsRegService> service =
-    do_GetService(IMS_REG_SERVICE_CONTRACTID);
+      do_GetService(IMS_REG_SERVICE_CONTRACTID);
   NS_ASSERTION(service, "This shouldn't fail!");
 
-  nsresult rv = service->GetHandlerByServiceId(aServiceId,
-                                               getter_AddRefs(mHandler));
+  nsresult rv =
+      service->GetHandlerByServiceId(aServiceId, getter_AddRefs(mHandler));
   if (NS_SUCCEEDED(rv) && mHandler) {
     mHandler->RegisterListener(this);
   }
 }
 
-void
-ImsRegistrationParent::ActorDestroy(ActorDestroyReason aWhy)
-{
+void ImsRegistrationParent::ActorDestroy(ActorDestroyReason aWhy) {
   mLive = false;
   if (mHandler) {
     mHandler->UnregisterListener(this);
@@ -80,18 +72,25 @@ ImsRegistrationParent::ActorDestroy(ActorDestroyReason aWhy)
 }
 
 mozilla::ipc::IPCResult
-ImsRegistrationParent::RecvPImsRegistrationRequestConstructor(PImsRegistrationRequestParent* aActor,
-                                                               const ImsRegistrationRequest& aRequest)
-{
-  ImsRegistrationRequestParent* actor = static_cast<ImsRegistrationRequestParent*>(aActor);
+ImsRegistrationParent::RecvPImsRegistrationRequestConstructor(
+    PImsRegistrationRequestParent* aActor,
+    const ImsRegistrationRequest& aRequest) {
+  ImsRegistrationRequestParent* actor =
+      static_cast<ImsRegistrationRequestParent*>(aActor);
 
   switch (aRequest.type()) {
     case ImsRegistrationRequest::TSetImsEnabledRequest:
-      return actor->DoRequest(aRequest.get_SetImsEnabledRequest())? IPC_OK(): IPC_FAIL_NO_REASON(this);
+      return actor->DoRequest(aRequest.get_SetImsEnabledRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     case ImsRegistrationRequest::TSetImsPreferredProfileRequest:
-      return actor->DoRequest(aRequest.get_SetImsPreferredProfileRequest())? IPC_OK(): IPC_FAIL_NO_REASON(this);
+      return actor->DoRequest(aRequest.get_SetImsPreferredProfileRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     case ImsRegistrationRequest::TSetImsRttEnabledRequest:
-      return actor->DoRequest(aRequest.get_SetImsRttEnabledRequest())? IPC_OK(): IPC_FAIL_NO_REASON(this);
+      return actor->DoRequest(aRequest.get_SetImsRttEnabledRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     default:
       MOZ_CRASH("Received invalid request type!");
   }
@@ -100,40 +99,41 @@ ImsRegistrationParent::RecvPImsRegistrationRequestConstructor(PImsRegistrationRe
 }
 
 PImsRegistrationRequestParent*
-ImsRegistrationParent::AllocPImsRegistrationRequestParent(const ImsRegistrationRequest& request)
-{
-  //if (!AssertAppProcessPermission(Manager(), "mobileconnection")) {
+ImsRegistrationParent::AllocPImsRegistrationRequestParent(
+    const ImsRegistrationRequest& request) {
+  // if (!AssertAppProcessPermission(Manager(), "mobileconnection")) {
   //  return nullptr;
   //}
 
   ImsRegistrationRequestParent* actor =
-    new ImsRegistrationRequestParent(mHandler);
+      new ImsRegistrationRequestParent(mHandler);
   // Add an extra ref for IPDL. Will be released in
   // ImsRegistrationParent::DeallocPImsRegistrationRequestParent().
   actor->AddRef();
   return actor;
 }
 
-bool
-ImsRegistrationParent::DeallocPImsRegistrationRequestParent(PImsRegistrationRequestParent* aActor)
-{
+bool ImsRegistrationParent::DeallocPImsRegistrationRequestParent(
+    PImsRegistrationRequestParent* aActor) {
   // ImsRegistrationRequestParent is refcounted, must not be freed manually.
   static_cast<ImsRegistrationRequestParent*>(aActor)->Release();
   return true;
 }
 
-mozilla::ipc::IPCResult
-ImsRegistrationParent::RecvInit(bool* aEnabled, bool* aRttEnabled, uint16_t* aProfile,
-                                int16_t* aCapability, nsString* aUnregisteredReason,
-                                nsTArray<uint16_t>* aSupportedBearers)
-{
+mozilla::ipc::IPCResult ImsRegistrationParent::RecvInit(
+    bool* aEnabled, bool* aRttEnabled, uint16_t* aProfile, int16_t* aCapability,
+    nsString* aUnregisteredReason, nsTArray<uint16_t>* aSupportedBearers) {
   NS_ENSURE_TRUE(mHandler, IPC_FAIL_NO_REASON(this));
 
   NS_ENSURE_SUCCESS(mHandler->GetEnabled(aEnabled), IPC_FAIL_NO_REASON(this));
-  NS_ENSURE_SUCCESS(mHandler->GetPreferredProfile(aProfile), IPC_FAIL_NO_REASON(this));
-  NS_ENSURE_SUCCESS(mHandler->GetCapability(aCapability), IPC_FAIL_NO_REASON(this));
-  NS_ENSURE_SUCCESS(mHandler->GetUnregisteredReason(*aUnregisteredReason), IPC_FAIL_NO_REASON(this));
-  NS_ENSURE_SUCCESS(mHandler->GetRttEnabled(aRttEnabled), IPC_FAIL_NO_REASON(this));
+  NS_ENSURE_SUCCESS(mHandler->GetPreferredProfile(aProfile),
+                    IPC_FAIL_NO_REASON(this));
+  NS_ENSURE_SUCCESS(mHandler->GetCapability(aCapability),
+                    IPC_FAIL_NO_REASON(this));
+  NS_ENSURE_SUCCESS(mHandler->GetUnregisteredReason(*aUnregisteredReason),
+                    IPC_FAIL_NO_REASON(this));
+  NS_ENSURE_SUCCESS(mHandler->GetRttEnabled(aRttEnabled),
+                    IPC_FAIL_NO_REASON(this));
 
   // GetSupportedBearers
   uint16_t* bearers = nullptr;
@@ -153,29 +153,26 @@ ImsRegistrationParent::RecvInit(bool* aEnabled, bool* aRttEnabled, uint16_t* aPr
 NS_IMPL_ISUPPORTS(ImsRegistrationParent, nsIImsRegListener)
 
 NS_IMETHODIMP
-ImsRegistrationParent::NotifyEnabledStateChanged(bool aEnabled)
-{
+ImsRegistrationParent::NotifyEnabledStateChanged(bool aEnabled) {
   return SendNotifyEnabledStateChanged(aEnabled) ? NS_OK : NS_ERROR_FAILURE;
 }
 
 NS_IMETHODIMP
-ImsRegistrationParent::NotifyPreferredProfileChanged(uint16_t aProfile)
-{
+ImsRegistrationParent::NotifyPreferredProfileChanged(uint16_t aProfile) {
   return SendNotifyPreferredProfileChanged(aProfile) ? NS_OK : NS_ERROR_FAILURE;
 }
 
 NS_IMETHODIMP
-ImsRegistrationParent::NotifyCapabilityChanged(int16_t aCapability,
-                                               const nsAString& aUnregisteredReason)
-{
+ImsRegistrationParent::NotifyCapabilityChanged(
+    int16_t aCapability, const nsAString& aUnregisteredReason) {
   return SendNotifyImsCapabilityChanged(aCapability,
                                         nsAutoString(aUnregisteredReason))
-    ? NS_OK : NS_ERROR_FAILURE;
+             ? NS_OK
+             : NS_ERROR_FAILURE;
 }
 
 NS_IMETHODIMP
-ImsRegistrationParent::NotifyRttEnabledStateChanged(bool aEnabled)
-{
+ImsRegistrationParent::NotifyRttEnabledStateChanged(bool aEnabled) {
   return SendNotifyRttEnabledStateChanged(aEnabled) ? NS_OK : NS_ERROR_FAILURE;
 }
 
@@ -183,39 +180,33 @@ ImsRegistrationParent::NotifyRttEnabledStateChanged(bool aEnabled)
  * PImsRegistrationRequestParent
  ******************************************************************************/
 
-void
-ImsRegistrationRequestParent::ActorDestroy(ActorDestroyReason aWhy)
-{
+void ImsRegistrationRequestParent::ActorDestroy(ActorDestroyReason aWhy) {
   mLive = false;
   mHandler = nullptr;
 }
 
-bool
-ImsRegistrationRequestParent::DoRequest(const SetImsEnabledRequest& aRequest)
-{
+bool ImsRegistrationRequestParent::DoRequest(
+    const SetImsEnabledRequest& aRequest) {
   NS_ENSURE_TRUE(mHandler, false);
 
   return NS_SUCCEEDED(mHandler->SetEnabled(aRequest.enabled(), this));
 }
 
-bool
-ImsRegistrationRequestParent::DoRequest(const SetImsPreferredProfileRequest& aRequest)
-{
+bool ImsRegistrationRequestParent::DoRequest(
+    const SetImsPreferredProfileRequest& aRequest) {
   NS_ENSURE_TRUE(mHandler, false);
 
   return NS_SUCCEEDED(mHandler->SetPreferredProfile(aRequest.profile(), this));
 }
 
-bool
-ImsRegistrationRequestParent::DoRequest(const SetImsRttEnabledRequest& aRequest)
-{
+bool ImsRegistrationRequestParent::DoRequest(
+    const SetImsRttEnabledRequest& aRequest) {
   NS_ENSURE_TRUE(mHandler, false);
   return NS_SUCCEEDED(mHandler->SetRttEnabled(aRequest.enabled(), this));
 }
 
-nsresult
-ImsRegistrationRequestParent::SendReply(const ImsRegistrationReply& aReply)
-{
+nsresult ImsRegistrationRequestParent::SendReply(
+    const ImsRegistrationReply& aReply) {
   NS_ENSURE_TRUE(mLive, NS_ERROR_FAILURE);
 
   return Send__delete__(this, aReply) ? NS_OK : NS_ERROR_FAILURE;
@@ -226,13 +217,11 @@ ImsRegistrationRequestParent::SendReply(const ImsRegistrationReply& aReply)
 NS_IMPL_ISUPPORTS(ImsRegistrationRequestParent, nsIImsRegCallback);
 
 NS_IMETHODIMP
-ImsRegistrationRequestParent::NotifySuccess()
-{
+ImsRegistrationRequestParent::NotifySuccess() {
   return SendReply(ImsRegistrationReplySuccess());
 }
 
 NS_IMETHODIMP
-ImsRegistrationRequestParent::NotifyError(const nsAString& aError)
-{
+ImsRegistrationRequestParent::NotifyError(const nsAString& aError) {
   return SendReply(ImsRegistrationReplyError(nsAutoString(aError)));
 }

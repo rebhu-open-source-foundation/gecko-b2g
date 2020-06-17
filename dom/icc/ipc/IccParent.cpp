@@ -18,10 +18,8 @@ namespace icc {
  * PIccParent Implementation.
  */
 
-IccParent::IccParent(uint32_t aServiceId)
-{
-  nsCOMPtr<nsIIccService> service =
-    do_GetService(ICC_SERVICE_CONTRACTID);
+IccParent::IccParent(uint32_t aServiceId) {
+  nsCOMPtr<nsIIccService> service = do_GetService(ICC_SERVICE_CONTRACTID);
 
   NS_ASSERTION(service, "Failed to get IccService!");
 
@@ -32,19 +30,15 @@ IccParent::IccParent(uint32_t aServiceId)
   mIcc->RegisterListener(this);
 }
 
-void
-IccParent::ActorDestroy(ActorDestroyReason aWhy)
-{
+void IccParent::ActorDestroy(ActorDestroyReason aWhy) {
   if (mIcc) {
     mIcc->UnregisterListener(this);
     mIcc = nullptr;
   }
 }
 
-mozilla::ipc::IPCResult
-IccParent::RecvInit(OptionalIccInfoData* aInfoData,
-                    uint32_t* aCardState)
-{
+mozilla::ipc::IPCResult IccParent::RecvInit(OptionalIccInfoData* aInfoData,
+                                            uint32_t* aCardState) {
   NS_ENSURE_TRUE(mIcc, IPC_FAIL_NO_REASON(this));
 
   nsresult rv = mIcc->GetCardState(aCardState);
@@ -67,13 +61,12 @@ IccParent::RecvInit(OptionalIccInfoData* aInfoData,
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult
-IccParent::RecvStkResponse(const nsString& aCmd, const nsString& aResponse)
-{
+mozilla::ipc::IPCResult IccParent::RecvStkResponse(const nsString& aCmd,
+                                                   const nsString& aResponse) {
   NS_ENSURE_TRUE(mIcc, IPC_FAIL_NO_REASON(this));
 
   nsCOMPtr<nsIStkCmdFactory> cmdFactory =
-    do_GetService(ICC_STK_CMD_FACTORY_CONTRACTID);
+      do_GetService(ICC_STK_CMD_FACTORY_CONTRACTID);
   NS_ENSURE_TRUE(cmdFactory, IPC_FAIL_NO_REASON(this));
 
   nsCOMPtr<nsIStkProactiveCmd> cmd;
@@ -90,10 +83,8 @@ IccParent::RecvStkResponse(const nsString& aCmd, const nsString& aResponse)
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult
-IccParent::RecvStkMenuSelection(const uint16_t& aItemIdentifier,
-                                const bool& aHelpRequested)
-{
+mozilla::ipc::IPCResult IccParent::RecvStkMenuSelection(
+    const uint16_t& aItemIdentifier, const bool& aHelpRequested) {
   NS_ENSURE_TRUE(mIcc, IPC_FAIL_NO_REASON(this));
 
   nsresult rv = mIcc->SendStkMenuSelection(aItemIdentifier, aHelpRequested);
@@ -102,10 +93,8 @@ IccParent::RecvStkMenuSelection(const uint16_t& aItemIdentifier,
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult
-IccParent::RecvStkTimerExpiration(const uint16_t& aTimerId,
-                                  const uint32_t& aTimerValue)
-{
+mozilla::ipc::IPCResult IccParent::RecvStkTimerExpiration(
+    const uint16_t& aTimerId, const uint32_t& aTimerValue) {
   NS_ENSURE_TRUE(mIcc, IPC_FAIL_NO_REASON(this));
 
   nsresult rv = mIcc->SendStkTimerExpiration(aTimerId, aTimerValue);
@@ -114,13 +103,12 @@ IccParent::RecvStkTimerExpiration(const uint16_t& aTimerId,
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult
-IccParent::RecvStkEventDownload(const nsString& aEvent)
-{
+mozilla::ipc::IPCResult IccParent::RecvStkEventDownload(
+    const nsString& aEvent) {
   NS_ENSURE_TRUE(mIcc, IPC_FAIL_NO_REASON(this));
 
   nsCOMPtr<nsIStkCmdFactory> cmdFactory =
-    do_GetService(ICC_STK_CMD_FACTORY_CONTRACTID);
+      do_GetService(ICC_STK_CMD_FACTORY_CONTRACTID);
   NS_ENSURE_TRUE(cmdFactory, IPC_FAIL_NO_REASON(this));
 
   nsCOMPtr<nsIStkDownloadEvent> event;
@@ -133,9 +121,8 @@ IccParent::RecvStkEventDownload(const nsString& aEvent)
   return IPC_OK();
 }
 
-PIccRequestParent*
-IccParent::AllocPIccRequestParent(const IccRequest& aRequest)
-{
+PIccRequestParent* IccParent::AllocPIccRequestParent(
+    const IccRequest& aRequest) {
   NS_ASSERTION(mIcc, "AllocPIccRequestParent after actor was destroyed!");
 
   IccRequestParent* actor = new IccRequestParent(mIcc);
@@ -145,49 +132,71 @@ IccParent::AllocPIccRequestParent(const IccRequest& aRequest)
   return actor;
 }
 
-bool
-IccParent::DeallocPIccRequestParent(PIccRequestParent* aActor)
-{
+bool IccParent::DeallocPIccRequestParent(PIccRequestParent* aActor) {
   // IccRequestParent is refcounted, must not be freed manually.
   static_cast<IccRequestParent*>(aActor)->Release();
   return true;
 }
 
-mozilla::ipc::IPCResult
-IccParent::RecvPIccRequestConstructor(PIccRequestParent* aActor,
-                                      const IccRequest& aRequest)
-{
+mozilla::ipc::IPCResult IccParent::RecvPIccRequestConstructor(
+    PIccRequestParent* aActor, const IccRequest& aRequest) {
   NS_ASSERTION(mIcc, "RecvPIccRequestConstructor after actor was destroyed!");
 
   IccRequestParent* actor = static_cast<IccRequestParent*>(aActor);
 
   switch (aRequest.type()) {
     case IccRequest::TGetCardLockEnabledRequest:
-      return actor->DoRequest(aRequest.get_GetCardLockEnabledRequest())? IPC_OK(): IPC_FAIL_NO_REASON(this);
+      return actor->DoRequest(aRequest.get_GetCardLockEnabledRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     case IccRequest::TUnlockCardLockRequest:
-      return actor->DoRequest(aRequest.get_UnlockCardLockRequest())? IPC_OK(): IPC_FAIL_NO_REASON(this);
+      return actor->DoRequest(aRequest.get_UnlockCardLockRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     case IccRequest::TSetCardLockEnabledRequest:
-      return actor->DoRequest(aRequest.get_SetCardLockEnabledRequest())? IPC_OK(): IPC_FAIL_NO_REASON(this);
+      return actor->DoRequest(aRequest.get_SetCardLockEnabledRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     case IccRequest::TChangeCardLockPasswordRequest:
-      return actor->DoRequest(aRequest.get_ChangeCardLockPasswordRequest())? IPC_OK(): IPC_FAIL_NO_REASON(this);
+      return actor->DoRequest(aRequest.get_ChangeCardLockPasswordRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     case IccRequest::TGetCardLockRetryCountRequest:
-      return actor->DoRequest(aRequest.get_GetCardLockRetryCountRequest())? IPC_OK(): IPC_FAIL_NO_REASON(this);
+      return actor->DoRequest(aRequest.get_GetCardLockRetryCountRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     case IccRequest::TMatchMvnoRequest:
-      return actor->DoRequest(aRequest.get_MatchMvnoRequest())? IPC_OK(): IPC_FAIL_NO_REASON(this);
+      return actor->DoRequest(aRequest.get_MatchMvnoRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     case IccRequest::TGetServiceStateEnabledRequest:
-      return actor->DoRequest(aRequest.get_GetServiceStateEnabledRequest())? IPC_OK(): IPC_FAIL_NO_REASON(this);
+      return actor->DoRequest(aRequest.get_GetServiceStateEnabledRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     case IccRequest::TReadContactsRequest:
-      return actor->DoRequest(aRequest.get_ReadContactsRequest())? IPC_OK(): IPC_FAIL_NO_REASON(this);
+      return actor->DoRequest(aRequest.get_ReadContactsRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     case IccRequest::TUpdateContactRequest:
-      return actor->DoRequest(aRequest.get_UpdateContactRequest())? IPC_OK(): IPC_FAIL_NO_REASON(this);
+      return actor->DoRequest(aRequest.get_UpdateContactRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     case IccRequest::TGetIccAuthenticationRequest:
-      return actor->DoRequest(aRequest.get_GetIccAuthenticationRequest())? IPC_OK(): IPC_FAIL_NO_REASON(this);
+      return actor->DoRequest(aRequest.get_GetIccAuthenticationRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     case IccRequest::TIccOpenChannelRequest:
-      return actor->DoRequest(aRequest.get_IccOpenChannelRequest())? IPC_OK(): IPC_FAIL_NO_REASON(this);
+      return actor->DoRequest(aRequest.get_IccOpenChannelRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     case IccRequest::TIccCloseChannelRequest:
-      return actor->DoRequest(aRequest.get_IccCloseChannelRequest())? IPC_OK(): IPC_FAIL_NO_REASON(this);
+      return actor->DoRequest(aRequest.get_IccCloseChannelRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     case IccRequest::TIccExchangeAPDURequest:
-      return actor->DoRequest(aRequest.get_IccExchangeAPDURequest())? IPC_OK(): IPC_FAIL_NO_REASON(this);
+      return actor->DoRequest(aRequest.get_IccExchangeAPDURequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     default:
       MOZ_CRASH("Received invalid request type!");
   }
@@ -202,10 +211,9 @@ IccParent::RecvPIccRequestConstructor(PIccRequestParent* aActor,
 NS_IMPL_ISUPPORTS(IccParent, nsIIccListener)
 
 NS_IMETHODIMP
-IccParent::NotifyStkCommand(nsIStkProactiveCmd *aStkProactiveCmd)
-{
+IccParent::NotifyStkCommand(nsIStkProactiveCmd* aStkProactiveCmd) {
   nsCOMPtr<nsIStkCmdFactory> cmdFactory =
-    do_GetService(ICC_STK_CMD_FACTORY_CONTRACTID);
+      do_GetService(ICC_STK_CMD_FACTORY_CONTRACTID);
   NS_ENSURE_TRUE(cmdFactory, NS_ERROR_UNEXPECTED);
 
   nsAutoString cmd;
@@ -216,14 +224,13 @@ IccParent::NotifyStkCommand(nsIStkProactiveCmd *aStkProactiveCmd)
 }
 
 NS_IMETHODIMP
-IccParent::NotifyStkSessionEnd()
-{
-  return SendNotifyStkSessionEnd() ? NS_OK : NS_ERROR_FAILURE;;
+IccParent::NotifyStkSessionEnd() {
+  return SendNotifyStkSessionEnd() ? NS_OK : NS_ERROR_FAILURE;
+  ;
 }
 
 NS_IMETHODIMP
-IccParent::NotifyCardStateChanged()
-{
+IccParent::NotifyCardStateChanged() {
   NS_ENSURE_TRUE(mIcc, NS_ERROR_FAILURE);
 
   uint32_t cardState;
@@ -234,8 +241,7 @@ IccParent::NotifyCardStateChanged()
 }
 
 NS_IMETHODIMP
-IccParent::NotifyIccInfoChanged()
-{
+IccParent::NotifyIccInfoChanged() {
   NS_ENSURE_TRUE(mIcc, NS_ERROR_FAILURE);
 
   nsCOMPtr<nsIIccInfo> iccInfo;
@@ -244,156 +250,101 @@ IccParent::NotifyIccInfoChanged()
 
   if (!iccInfo) {
     return SendNotifyIccInfoChanged(OptionalIccInfoData(void_t()))
-      ? NS_OK : NS_ERROR_FAILURE;
+               ? NS_OK
+               : NS_ERROR_FAILURE;
   }
 
   IccInfoData data;
   IccIPCUtils::GetIccInfoDataFromIccInfo(iccInfo, data);
 
-  return SendNotifyIccInfoChanged(OptionalIccInfoData(data))
-    ? NS_OK : NS_ERROR_FAILURE;
+  return SendNotifyIccInfoChanged(OptionalIccInfoData(data)) ? NS_OK
+                                                             : NS_ERROR_FAILURE;
 }
 
 NS_IMETHODIMP
-IccParent::NotifyIsimInfoChanged()
-{
-  return NS_OK;
-}
+IccParent::NotifyIsimInfoChanged() { return NS_OK; }
 /**
  * PIccRequestParent Implementation.
  */
 
 IccRequestParent::IccRequestParent(nsIIcc* aIcc)
-  : mIcc(aIcc),
-    mChannelCallback(new ChannelCallback(*this))
-{
+    : mIcc(aIcc), mChannelCallback(new ChannelCallback(*this)) {}
+
+void IccRequestParent::ActorDestroy(ActorDestroyReason aWhy) { mIcc = nullptr; }
+
+bool IccRequestParent::DoRequest(const GetCardLockEnabledRequest& aRequest) {
+  return NS_SUCCEEDED(mIcc->GetCardLockEnabled(aRequest.lockType(), this));
 }
 
-void
-IccRequestParent::ActorDestroy(ActorDestroyReason aWhy)
-{
-  mIcc = nullptr;
+bool IccRequestParent::DoRequest(const UnlockCardLockRequest& aRequest) {
+  return NS_SUCCEEDED(mIcc->UnlockCardLock(
+      aRequest.lockType(), aRequest.password(), aRequest.newPin(), this));
 }
 
-bool
-IccRequestParent::DoRequest(const GetCardLockEnabledRequest& aRequest)
-{
-  return NS_SUCCEEDED(mIcc->GetCardLockEnabled(aRequest.lockType(),
-                                               this));
+bool IccRequestParent::DoRequest(const SetCardLockEnabledRequest& aRequest) {
+  return NS_SUCCEEDED(mIcc->SetCardLockEnabled(
+      aRequest.lockType(), aRequest.password(), aRequest.enabled(), this));
 }
 
-bool
-IccRequestParent::DoRequest(const UnlockCardLockRequest& aRequest)
-{
-  return NS_SUCCEEDED(mIcc->UnlockCardLock(aRequest.lockType(),
-                                           aRequest.password(),
-                                           aRequest.newPin(),
-                                           this));
+bool IccRequestParent::DoRequest(
+    const ChangeCardLockPasswordRequest& aRequest) {
+  return NS_SUCCEEDED(mIcc->ChangeCardLockPassword(
+      aRequest.lockType(), aRequest.password(), aRequest.newPassword(), this));
 }
 
-bool
-IccRequestParent::DoRequest(const SetCardLockEnabledRequest& aRequest)
-{
-  return NS_SUCCEEDED(mIcc->SetCardLockEnabled(aRequest.lockType(),
-                                               aRequest.password(),
-                                               aRequest.enabled(),
-                                               this));
+bool IccRequestParent::DoRequest(const GetCardLockRetryCountRequest& aRequest) {
+  return NS_SUCCEEDED(mIcc->GetCardLockRetryCount(aRequest.lockType(), this));
 }
 
-bool
-IccRequestParent::DoRequest(const ChangeCardLockPasswordRequest& aRequest)
-{
-  return NS_SUCCEEDED(mIcc->ChangeCardLockPassword(aRequest.lockType(),
-                                                   aRequest.password(),
-                                                   aRequest.newPassword(),
-                                                   this));
+bool IccRequestParent::DoRequest(const MatchMvnoRequest& aRequest) {
+  return NS_SUCCEEDED(
+      mIcc->MatchMvno(aRequest.mvnoType(), aRequest.mvnoData(), this));
 }
 
-bool
-IccRequestParent::DoRequest(const GetCardLockRetryCountRequest& aRequest)
-{
-  return NS_SUCCEEDED(mIcc->GetCardLockRetryCount(aRequest.lockType(),
-                                                  this));
+bool IccRequestParent::DoRequest(
+    const GetServiceStateEnabledRequest& aRequest) {
+  return NS_SUCCEEDED(mIcc->GetServiceStateEnabled(aRequest.service(), this));
 }
 
-bool
-IccRequestParent::DoRequest(const MatchMvnoRequest& aRequest)
-{
-  return NS_SUCCEEDED(mIcc->MatchMvno(aRequest.mvnoType(),
-                                      aRequest.mvnoData(),
-                                      this));
+bool IccRequestParent::DoRequest(const ReadContactsRequest& aRequest) {
+  return NS_SUCCEEDED(mIcc->ReadContacts(aRequest.contactType(), this));
 }
 
-bool
-IccRequestParent::DoRequest(const GetServiceStateEnabledRequest& aRequest)
-{
-  return NS_SUCCEEDED(mIcc->GetServiceStateEnabled(aRequest.service(),
-                                                   this));
-}
-
-bool
-IccRequestParent::DoRequest(const ReadContactsRequest& aRequest)
-{
-  return NS_SUCCEEDED(mIcc->ReadContacts(aRequest.contactType(),
-                                         this));
-}
-
-bool
-IccRequestParent::DoRequest(const UpdateContactRequest& aRequest)
-{
+bool IccRequestParent::DoRequest(const UpdateContactRequest& aRequest) {
   nsCOMPtr<nsIIccContact> contact;
-  nsresult rv = IccContact::Create(aRequest.contact().id(),
-                                   aRequest.contact().names(),
-                                   aRequest.contact().numbers(),
-                                   aRequest.contact().emails(),
-                                   getter_AddRefs(contact));
+  nsresult rv =
+      IccContact::Create(aRequest.contact().id(), aRequest.contact().names(),
+                         aRequest.contact().numbers(),
+                         aRequest.contact().emails(), getter_AddRefs(contact));
   NS_ENSURE_SUCCESS(rv, false);
 
-  return NS_SUCCEEDED(mIcc->UpdateContact(aRequest.contactType(),
-                                          contact,
-                                          aRequest.pin2(),
-                                          this));
+  return NS_SUCCEEDED(mIcc->UpdateContact(aRequest.contactType(), contact,
+                                          aRequest.pin2(), this));
 }
 
-bool
-IccRequestParent::DoRequest(const GetIccAuthenticationRequest& aRequest)
-{
-  return NS_SUCCEEDED(mIcc->GetIccAuthentication(aRequest.appType(),
-                                                 aRequest.authType(),
-                                                 aRequest.data(),
-                                                 this));
+bool IccRequestParent::DoRequest(const GetIccAuthenticationRequest& aRequest) {
+  return NS_SUCCEEDED(mIcc->GetIccAuthentication(
+      aRequest.appType(), aRequest.authType(), aRequest.data(), this));
 }
 
-bool
-IccRequestParent::DoRequest(const IccOpenChannelRequest& aRequest)
-{
-  return NS_SUCCEEDED(mIcc->IccOpenChannel(aRequest.aid(),
-                                           this->GetChannelCallback()));
+bool IccRequestParent::DoRequest(const IccOpenChannelRequest& aRequest) {
+  return NS_SUCCEEDED(
+      mIcc->IccOpenChannel(aRequest.aid(), this->GetChannelCallback()));
 }
 
-bool
-IccRequestParent::DoRequest(const IccCloseChannelRequest& aRequest)
-{
-  return NS_SUCCEEDED(mIcc->IccCloseChannel(aRequest.channel(),
-                                            this->GetChannelCallback()));
+bool IccRequestParent::DoRequest(const IccCloseChannelRequest& aRequest) {
+  return NS_SUCCEEDED(
+      mIcc->IccCloseChannel(aRequest.channel(), this->GetChannelCallback()));
 }
 
-bool
-IccRequestParent::DoRequest(const IccExchangeAPDURequest& aRequest)
-{
-  return NS_SUCCEEDED(mIcc->IccExchangeAPDU(aRequest.channel(),
-                                            aRequest.cla(),
-                                            aRequest.ins(),
-                                            aRequest.p1(),
-                                            aRequest.p2(),
-                                            aRequest.p3(),
-                                            aRequest.data(),
-                                            this->GetChannelCallback()));
+bool IccRequestParent::DoRequest(const IccExchangeAPDURequest& aRequest) {
+  return NS_SUCCEEDED(
+      mIcc->IccExchangeAPDU(aRequest.channel(), aRequest.cla(), aRequest.ins(),
+                            aRequest.p1(), aRequest.p2(), aRequest.p3(),
+                            aRequest.data(), this->GetChannelCallback()));
 }
 
-nsresult
-IccRequestParent::SendReply(const IccReply& aReply)
-{
+nsresult IccRequestParent::SendReply(const IccReply& aReply) {
   NS_ENSURE_TRUE(mIcc, NS_ERROR_FAILURE);
 
   return Send__delete__(this, aReply) ? NS_OK : NS_ERROR_FAILURE;
@@ -406,40 +357,32 @@ IccRequestParent::SendReply(const IccReply& aReply)
 NS_IMPL_ISUPPORTS(IccRequestParent, nsIIccCallback)
 
 NS_IMETHODIMP
-IccRequestParent::NotifySuccess()
-{
-  return SendReply(IccReplySuccess());
-}
+IccRequestParent::NotifySuccess() { return SendReply(IccReplySuccess()); }
 
 NS_IMETHODIMP
-IccRequestParent::NotifySuccessWithBoolean(bool aResult)
-{
+IccRequestParent::NotifySuccessWithBoolean(bool aResult) {
   return SendReply(IccReplySuccessWithBoolean(aResult));
 }
 
 NS_IMETHODIMP
-IccRequestParent::NotifyGetCardLockRetryCount(int32_t aCount)
-{
+IccRequestParent::NotifyGetCardLockRetryCount(int32_t aCount) {
   return SendReply(IccReplyCardLockRetryCount(aCount));
 }
 
 NS_IMETHODIMP
-IccRequestParent::NotifyError(const nsAString & aErrorMsg)
-{
+IccRequestParent::NotifyError(const nsAString& aErrorMsg) {
   return SendReply(IccReplyError(nsAutoString(aErrorMsg)));
 }
 
 NS_IMETHODIMP
-IccRequestParent::NotifyCardLockError(const nsAString & aErrorMsg,
-                                      int32_t aRetryCount)
-{
+IccRequestParent::NotifyCardLockError(const nsAString& aErrorMsg,
+                                      int32_t aRetryCount) {
   return SendReply(IccReplyCardLockError(aRetryCount, nsAutoString(aErrorMsg)));
 }
 
 NS_IMETHODIMP
 IccRequestParent::NotifyRetrievedIccContacts(nsIIccContact** aContacts,
-                                             unsigned int aCount)
-{
+                                             unsigned int aCount) {
   nsTArray<IccContactData> contacts;
 
   for (uint32_t i = 0; i < aCount; i++) {
@@ -455,8 +398,7 @@ IccRequestParent::NotifyRetrievedIccContacts(nsIIccContact** aContacts,
 }
 
 NS_IMETHODIMP
-IccRequestParent::NotifyUpdatedIccContact(nsIIccContact* aContact)
-{
+IccRequestParent::NotifyUpdatedIccContact(nsIIccContact* aContact) {
   MOZ_ASSERT(aContact);
 
   IccContactData contactData;
@@ -467,8 +409,7 @@ IccRequestParent::NotifyUpdatedIccContact(nsIIccContact* aContact)
 }
 
 NS_IMETHODIMP
-IccRequestParent::NotifyAuthResponse(const nsAString & aData)
-{
+IccRequestParent::NotifyAuthResponse(const nsAString& aData) {
   return SendReply(IccReplyAuthResponse(nsAutoString(aData)));
 }
 
@@ -478,36 +419,31 @@ IccRequestParent::NotifyAuthResponse(const nsAString & aData)
 
 NS_IMPL_ISUPPORTS(IccRequestParent::ChannelCallback, nsIIccChannelCallback)
 
-nsresult IccRequestParent::ChannelCallback::SendReply(const IccReply& aReply)
-{
+nsresult IccRequestParent::ChannelCallback::SendReply(const IccReply& aReply) {
   return mParent.SendReply(aReply);
 }
 
 NS_IMETHODIMP
-IccRequestParent::ChannelCallback::NotifyOpenChannelSuccess(int32_t aChannel)
-{
+IccRequestParent::ChannelCallback::NotifyOpenChannelSuccess(int32_t aChannel) {
   return SendReply(IccReplyOpenChannel(aChannel));
 }
 
 NS_IMETHODIMP
-IccRequestParent::ChannelCallback::NotifyCloseChannelSuccess()
-{
+IccRequestParent::ChannelCallback::NotifyCloseChannelSuccess() {
   return SendReply(IccReplyCloseChannel());
 }
 
 NS_IMETHODIMP
-IccRequestParent::ChannelCallback::NotifyExchangeAPDUResponse(uint8_t aSw1, uint8_t aSw2,
-                                                              const nsAString & aData)
-{
+IccRequestParent::ChannelCallback::NotifyExchangeAPDUResponse(
+    uint8_t aSw1, uint8_t aSw2, const nsAString& aData) {
   return SendReply(IccReplyExchangeAPDU(aSw1, aSw2, nsAutoString(aData)));
 }
 
 NS_IMETHODIMP
-IccRequestParent::ChannelCallback::NotifyError(const nsAString & aError)
-{
+IccRequestParent::ChannelCallback::NotifyError(const nsAString& aError) {
   return SendReply(IccReplyChannelError(nsAutoString(aError)));
 }
 
-} // namespace icc
-} // namespace dom
-} // namespace mozilla
+}  // namespace icc
+}  // namespace dom
+}  // namespace mozilla

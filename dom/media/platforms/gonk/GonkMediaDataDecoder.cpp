@@ -404,13 +404,9 @@ void GonkMediaDataDecoder::Output(DecodedData& aDataArray) {
   ResolveDecodePromise();
 }
 
-void GonkMediaDataDecoder::InputExhausted() {
-  ResolveDecodePromise();
-}
+void GonkMediaDataDecoder::InputExhausted() { ResolveDecodePromise(); }
 
-void GonkMediaDataDecoder::DrainComplete() {
-  ResolveDecodePromise();
-}
+void GonkMediaDataDecoder::DrainComplete() { ResolveDecodePromise(); }
 
 void GonkMediaDataDecoder::ReleaseMediaResources() {}
 

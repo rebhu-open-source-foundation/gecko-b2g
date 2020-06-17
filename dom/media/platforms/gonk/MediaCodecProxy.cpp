@@ -44,9 +44,9 @@ struct OutputGraphicBufferStub<T, true> {
     if (aMediaCodec == nullptr || aGraphicBuffer == nullptr) {
       return BAD_VALUE;
     }
-    //TODO: Fix below.
+    // TODO: Fix below.
     //*aGraphicBuffer = aMediaCodec->getOutputGraphicBufferFromIndex(aIndex);
-    //return OK;
+    // return OK;
     return ERROR_UNSUPPORTED;
   }
 };
@@ -278,7 +278,7 @@ status_t MediaCodecProxy::queueInputBuffer(size_t aIndex, size_t aOffset,
   }
 
 #ifdef DEBUG_BUFFER_USAGE
-  mInputBuffersCounter[aIndex] --;
+  mInputBuffersCounter[aIndex]--;
   PrintBufferStats(__func__, aIndex);
 #endif
 
@@ -315,7 +315,7 @@ status_t MediaCodecProxy::dequeueInputBuffer(size_t* aIndex,
 #ifdef DEBUG_BUFFER_USAGE
   status_t res = mCodec->dequeueInputBuffer(aIndex, aTimeoutUs);
   if (res == OK) {
-    mInputBuffersCounter[*aIndex] ++;
+    mInputBuffersCounter[*aIndex]++;
   }
   PrintBufferStats(__func__, *aIndex);
   return res;
@@ -337,11 +337,10 @@ status_t MediaCodecProxy::dequeueOutputBuffer(size_t* aIndex, size_t* aOffset,
   }
 
 #ifdef DEBUG_BUFFER_USAGE
-  status_t res = mCodec->dequeueOutputBuffer(aIndex, aOffset, aSize,
-                                             aPresentationTimeUs, aFlags,
-                                             aTimeoutUs);
+  status_t res = mCodec->dequeueOutputBuffer(
+      aIndex, aOffset, aSize, aPresentationTimeUs, aFlags, aTimeoutUs);
   if (res == OK) {
-    mOutputBuffersCounter[*aIndex] ++;
+    mOutputBuffersCounter[*aIndex]++;
   }
   PrintBufferStats(__func__, *aIndex);
   return res;
@@ -369,7 +368,7 @@ status_t MediaCodecProxy::releaseOutputBuffer(size_t aIndex) {
     return NO_INIT;
   }
 #ifdef DEBUG_BUFFER_USAGE
-  mOutputBuffersCounter[aIndex] --;
+  mOutputBuffersCounter[aIndex]--;
   PrintBufferStats(__func__, aIndex);
 #endif
   return mCodec->releaseOutputBuffer(aIndex);
@@ -561,23 +560,21 @@ status_t MediaCodecProxy::Input(const uint8_t* aData, uint32_t aDataSize,
 }
 
 MediaBuffer* MediaCodecProxy::CreateMediaBuffer(
-  const sp<MediaCodecBuffer>& aMediaCodecBuffer) {
-  const sp<ABuffer> buffer = new ABuffer(aMediaCodecBuffer->data(),
-                                          aMediaCodecBuffer->capacity());
-  buffer->setRange(aMediaCodecBuffer->offset(),
-                   aMediaCodecBuffer->size());
+    const sp<MediaCodecBuffer>& aMediaCodecBuffer) {
+  const sp<ABuffer> buffer =
+      new ABuffer(aMediaCodecBuffer->data(), aMediaCodecBuffer->capacity());
+  buffer->setRange(aMediaCodecBuffer->offset(), aMediaCodecBuffer->size());
   return new MediaBuffer(buffer);
 }
 
 MediaBuffer* MediaCodecProxy::CreateMediaBuffer(
-  const GraphicBuffer* aGraphicBuffer) {
+    const GraphicBuffer* aGraphicBuffer) {
   MediaBuffer* buffer = new MediaBuffer(NULL, 0);
   buffer->meta_data().setPointer(kKeyGraphicBuffer, (void*)aGraphicBuffer);
   return buffer;
 }
 
-status_t MediaCodecProxy::Output(MediaBuffer** aBuffer,
-                                 int64_t aTimeoutUs) {
+status_t MediaCodecProxy::Output(MediaBuffer** aBuffer, int64_t aTimeoutUs) {
   // Read Lock for mCodec
   {
     RWLock::AutoRLock autolock(mCodecLock);
@@ -601,7 +598,7 @@ status_t MediaCodecProxy::Output(MediaBuffer** aBuffer,
     return err;
   }
 
-  MediaBuffer *buffer;
+  MediaBuffer* buffer;
   sp<GraphicBuffer> graphicBuffer;
 
   if (getOutputGraphicBufferFromIndex(index, &graphicBuffer) == OK &&
@@ -637,32 +634,32 @@ void MediaCodecProxy::PrintBufferStats(const char* aFunc, const int aIndex) {
   uint numInputBuffers = 0;
   uint numOutputBuffers = 0;
 
-  for(uint i = 0; i < mInputBuffersCounter.size(); i++) {
+  for (uint i = 0; i < mInputBuffersCounter.size(); i++) {
     if (mInputBuffersCounter[i] > 0) {
       numInputBuffers++;
     }
   }
 
-  for(uint j = 0; j < mOutputBuffersCounter.size(); j++) {
+  for (uint j = 0; j < mOutputBuffersCounter.size(); j++) {
     if (mOutputBuffersCounter[j] > 0) {
       numOutputBuffers++;
     }
   }
 
   if (aFunc != NULL && aIndex >= 0) {
-    LOG("After %s(%d), Gecko owns MediaCodec %d/%d input buffers and %d/%d output buffers",
-        aFunc, aIndex,
-        numInputBuffers, mInputBuffersCounter.size(),
+    LOG("After %s(%d), Gecko owns MediaCodec %d/%d input buffers and %d/%d "
+        "output buffers",
+        aFunc, aIndex, numInputBuffers, mInputBuffersCounter.size(),
         numOutputBuffers, mOutputBuffersCounter.size());
   } else if (aFunc != NULL) {
-    LOG("After %s, Gecko owns MediaCodec %d/%d input buffers and %d/%d output buffers",
-        aFunc,
-        numInputBuffers, mInputBuffersCounter.size(),
-        numOutputBuffers, mOutputBuffersCounter.size());
+    LOG("After %s, Gecko owns MediaCodec %d/%d input buffers and %d/%d output "
+        "buffers",
+        aFunc, numInputBuffers, mInputBuffersCounter.size(), numOutputBuffers,
+        mOutputBuffersCounter.size());
   } else {
     LOG("Gecko owns MediaCodec %d/%d input buffers and %d/%d output buffers",
-        numInputBuffers, mInputBuffersCounter.size(),
-        numOutputBuffers, mOutputBuffersCounter.size());
+        numInputBuffers, mInputBuffersCounter.size(), numOutputBuffers,
+        mOutputBuffersCounter.size());
   }
 }
 #endif

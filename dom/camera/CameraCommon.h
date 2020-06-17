@@ -10,9 +10,11 @@
 #include "mozilla/Logging.h"
 
 extern mozilla::LogModule* GetCameraLog();
-#define DOM_CAMERA_LOG( type, ... ) MOZ_LOG(GetCameraLog(), (mozilla::LogLevel)type, ( __VA_ARGS__ ))
+#define DOM_CAMERA_LOG(type, ...) \
+  MOZ_LOG(GetCameraLog(), (mozilla::LogLevel)type, (__VA_ARGS__))
 
-#define DOM_CAMERA_LOGA( ... )      DOM_CAMERA_LOG( mozilla::LogLevel::Error, __VA_ARGS__ )
+#define DOM_CAMERA_LOGA(...) \
+  DOM_CAMERA_LOG(mozilla::LogLevel::Error, __VA_ARGS__)
 
 /**
  * From the least to the most output.
@@ -30,15 +32,15 @@ enum {
  * DOM_CAMERA_LOGR() can be called before 'gCameraLog' is set, so
  * we need to handle this one a little differently.
  */
-#define DOM_CAMERA_LOGR( ... )                                  \
-  do {                                                          \
-    if (GetCameraLog()) {                                       \
-      DOM_CAMERA_LOG( DOM_CAMERA_LOG_REFERENCES, __VA_ARGS__ ); \
-    }                                                           \
+#define DOM_CAMERA_LOGR(...)                                  \
+  do {                                                        \
+    if (GetCameraLog()) {                                     \
+      DOM_CAMERA_LOG(DOM_CAMERA_LOG_REFERENCES, __VA_ARGS__); \
+    }                                                         \
   } while (0)
-#define DOM_CAMERA_LOGT( ... )      DOM_CAMERA_LOG( DOM_CAMERA_LOG_TRACE, __VA_ARGS__ )
-#define DOM_CAMERA_LOGI( ... )      DOM_CAMERA_LOG( DOM_CAMERA_LOG_INFO, __VA_ARGS__ )
-#define DOM_CAMERA_LOGW( ... )      DOM_CAMERA_LOG( DOM_CAMERA_LOG_WARNING, __VA_ARGS__ )
-#define DOM_CAMERA_LOGE( ... )      DOM_CAMERA_LOG( DOM_CAMERA_LOG_ERROR, __VA_ARGS__ )
+#define DOM_CAMERA_LOGT(...) DOM_CAMERA_LOG(DOM_CAMERA_LOG_TRACE, __VA_ARGS__)
+#define DOM_CAMERA_LOGI(...) DOM_CAMERA_LOG(DOM_CAMERA_LOG_INFO, __VA_ARGS__)
+#define DOM_CAMERA_LOGW(...) DOM_CAMERA_LOG(DOM_CAMERA_LOG_WARNING, __VA_ARGS__)
+#define DOM_CAMERA_LOGE(...) DOM_CAMERA_LOG(DOM_CAMERA_LOG_ERROR, __VA_ARGS__)
 
-#endif // DOM_CAMERA_CAMERACOMMON_H
+#endif  // DOM_CAMERA_CAMERACOMMON_H

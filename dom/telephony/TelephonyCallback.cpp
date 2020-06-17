@@ -14,23 +14,18 @@ using namespace mozilla::dom::telephony;
 
 NS_IMPL_ISUPPORTS(TelephonyCallback, nsITelephonyCallback)
 
-TelephonyCallback::TelephonyCallback(Promise* aPromise)
-  : mPromise(aPromise)
-{
-}
+TelephonyCallback::TelephonyCallback(Promise* aPromise) : mPromise(aPromise) {}
 
 // nsITelephonyCallback
 
 NS_IMETHODIMP
-TelephonyCallback::NotifySuccess()
-{
+TelephonyCallback::NotifySuccess() {
   mPromise->MaybeResolve(JS::UndefinedHandleValue);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-TelephonyCallback::NotifyError(const nsAString& aError)
-{
+TelephonyCallback::NotifyError(const nsAString& aError) {
   mPromise->MaybeRejectBrokenly(aError);
   return NS_OK;
 }

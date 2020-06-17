@@ -14,20 +14,20 @@ namespace mozilla {
 namespace dom {
 namespace mobilemessage {
 
-class MobileMessageDatabaseService final : public nsIMobileMessageDatabaseService
-{
-private:
+class MobileMessageDatabaseService final
+    : public nsIMobileMessageDatabaseService {
+ private:
   ~MobileMessageDatabaseService() {}
 
-public:
+ public:
   MobileMessageDatabaseService();
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSIMOBILEMESSAGEDATABASESERVICE
 };
 
-} // namespace mobilemessage
-} // namespace dom
-} // namespace mozilla
+}  // namespace mobilemessage
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_mobilemessage_MobileMessageDatabaseService_h
+#endif  // mozilla_dom_mobilemessage_MobileMessageDatabaseService_h

@@ -252,7 +252,6 @@ class ContentChild final : public PContentChild,
       PScriptCacheChild*, const FileDescOrError& cacheFile,
       const bool& wantCacheData) override;
 
-
   PNeckoChild* AllocPNeckoChild();
 
   bool DeallocPNeckoChild(PNeckoChild*);
@@ -779,7 +778,7 @@ class ContentChild final : public PContentChild,
   PIccChild* AllocPIccChild(const uint32_t& aClientId);
 
   bool DeallocPIccChild(PIccChild* aActor);
-  #endif // MOZ_B2G_RIL
+#endif  // MOZ_B2G_RIL
 
   // Get a JS actor object by name.
   already_AddRefed<mozilla::dom::JSProcessActorChild> GetActor(

@@ -29,9 +29,8 @@ static void NUS_DBG(const char* format, ...) {
   va_end(args);
 }
 
-NetdUnsolService::NetdUnsolService(NetdEventCallback aCallback) :
-mNetdEventCallback(aCallback)
-{
+NetdUnsolService::NetdUnsolService(NetdEventCallback aCallback)
+    : mNetdEventCallback(aCallback) {
   android::defaultServiceManager()->addService(
       android::String16(NetdUnsolService::getServiceName()), this, false,
       android::IServiceManager::DUMP_FLAG_PRIORITY_DEFAULT);
@@ -39,9 +38,7 @@ mNetdEventCallback(aCallback)
   ps->startThreadPool();
 }
 
-void NetdUnsolService::updateDebug(bool aEnable) {
-  ENABLE_NUS_DEBUG = aEnable;
-}
+void NetdUnsolService::updateDebug(bool aEnable) { ENABLE_NUS_DEBUG = aEnable; }
 
 void NetdUnsolService::sendBroadcast(UnsolEvent evt, char* reason) {
   mozilla::dom::NetworkResultOptions result;
@@ -79,8 +76,8 @@ Status NetdUnsolService::onInterfaceDnsServerInfo(
     const std::vector<std::string>& servers) {
   char message[BUF_SIZE];
 
-  SprintfLiteral(message, "DnsInfo servers %s %" PRId64 " %s",
-           ifName.c_str(), lifetime, android::base::Join(servers, " ").c_str());
+  SprintfLiteral(message, "DnsInfo servers %s %" PRId64 " %s", ifName.c_str(),
+                 lifetime, android::base::Join(servers, " ").c_str());
   NUS_DBG("%s", message);
   sendBroadcast(InterfaceDnsServersAdded, message);
   return Status::ok();
@@ -91,8 +88,8 @@ Status NetdUnsolService::onInterfaceAddressUpdated(const std::string& addr,
                                                    int flags, int scope) {
   char message[BUF_SIZE];
 
-  SprintfLiteral(message, "Address updated %s %s %d %d",
-           addr.c_str(), ifName.c_str(), flags, scope);
+  SprintfLiteral(message, "Address updated %s %s %d %d", addr.c_str(),
+                 ifName.c_str(), flags, scope);
   NUS_DBG("%s", message);
   sendBroadcast(InterfaceAddressUpdated, message);
   return Status::ok();
@@ -102,8 +99,8 @@ Status NetdUnsolService::onInterfaceAddressRemoved(const std::string& addr,
                                                    const std::string& ifName,
                                                    int flags, int scope) {
   char message[BUF_SIZE];
-  SprintfLiteral(message, "Address updated %s %s %d %d",
-           addr.c_str(), ifName.c_str(), flags, scope);
+  SprintfLiteral(message, "Address updated %s %s %d %d", addr.c_str(),
+                 ifName.c_str(), flags, scope);
   NUS_DBG("%s", message);
   sendBroadcast(InterfaceAddressRemoved, message);
   return Status::ok();
@@ -113,7 +110,7 @@ Status NetdUnsolService::onInterfaceLinkStateChanged(const std::string& ifName,
                                                      bool status) {
   char message[BUF_SIZE];
   SprintfLiteral(message, "Iface linkstate %s %s", ifName.c_str(),
-           status ? "up" : "down");
+                 status ? "up" : "down");
   NUS_DBG("%s", message);
   sendBroadcast(InterfaceLinkStatusChanged, message);
   return Status::ok();
@@ -125,11 +122,12 @@ Status NetdUnsolService::onRouteChanged(bool updated, const std::string& route,
   char message[BUF_SIZE];
   if (gateway.empty()) {
     SprintfLiteral(message, "Route %s %s dev %s",
-             updated ? "updated" : "removed", route.c_str(), ifName.c_str());
+                   updated ? "updated" : "removed", route.c_str(),
+                   ifName.c_str());
   } else {
     SprintfLiteral(message, "Route %s %s via %s dev %s",
-             updated ? "updated" : "removed", route.c_str(), gateway.c_str(),
-             ifName.c_str());
+                   updated ? "updated" : "removed", route.c_str(),
+                   gateway.c_str(), ifName.c_str());
   }
   NUS_DBG("%s", message);
   sendBroadcast(RouteChanged, message);
@@ -140,7 +138,7 @@ Status NetdUnsolService::onQuotaLimitReached(const std::string& alertName,
                                              const std::string& ifName) {
   char message[BUF_SIZE];
   SprintfLiteral(message, "limit alert %s %s", alertName.c_str(),
-           ifName.c_str());
+                 ifName.c_str());
   NUS_DBG("%s", message);
   sendBroadcast(QuotaLimitReached, message);
   return Status::ok();

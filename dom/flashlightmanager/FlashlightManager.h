@@ -17,17 +17,17 @@ class nsIScriptContext;
 namespace mozilla {
 namespace hal {
 class FlashlightInformation;
-} // namespace hal
+}  // namespace hal
 namespace dom {
 
 typedef Observer<hal::FlashlightInformation> FlashlightObserver;
 
-class FlashlightManager final : public DOMEventTargetHelper
-                              , public FlashlightObserver
-{
-public:
+class FlashlightManager final : public DOMEventTargetHelper,
+                                public FlashlightObserver {
+ public:
   NS_DECL_ISUPPORTS_INHERITED
-  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(FlashlightManager, DOMEventTargetHelper)
+  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(FlashlightManager,
+                                           DOMEventTargetHelper)
 
   explicit FlashlightManager(nsPIDOMWindowInner* aWindow);
 
@@ -38,26 +38,24 @@ public:
 
   void Notify(const hal::FlashlightInformation& aFlashlightInfo) override;
 
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-     return GetOwner();
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return GetOwner(); }
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   bool FlashlightEnabled() const;
   void SetFlashlightEnabled(bool aEnabled);
 
   IMPL_EVENT_HANDLER(flashlightchange)
 
-private:
+ private:
   ~FlashlightManager();
 
   bool mFlashlightEnabled;
   nsTArray<RefPtr<Promise>> mPendingFlashlightPromises;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_FlashlightManager_h
+#endif  // mozilla_dom_FlashlightManager_h

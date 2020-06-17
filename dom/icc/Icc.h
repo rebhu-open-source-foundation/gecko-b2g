@@ -23,77 +23,60 @@ class OwningIccInfoOrGsmIccInfoOrCdmaIccInfo;
 // class mozContact;
 class Promise;
 
-class Icc final : public DOMEventTargetHelper
-{
-public:
+class Icc final : public DOMEventTargetHelper {
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(Icc, DOMEventTargetHelper)
-  //NS_REALLY_FORWARD_NSIDOMEVENTTARGET(DOMEventTargetHelper)
+  // NS_REALLY_FORWARD_NSIDOMEVENTTARGET(DOMEventTargetHelper)
 
   Icc(nsPIDOMWindowInner* aWindow, nsIIcc* aHandler, nsIIccInfo* aIccInfo);
 
-  void
-  Shutdown();
+  void Shutdown();
 
-  nsresult
-  NotifyEvent(const nsAString& aName);
+  nsresult NotifyEvent(const nsAString& aName);
 
-  nsresult
-  NotifyStkEvent(const nsAString& aName, nsIStkProactiveCmd* aStkProactiveCmd);
+  nsresult NotifyStkEvent(const nsAString& aName,
+                          nsIStkProactiveCmd* aStkProactiveCmd);
 
-  nsString
-  GetIccId()
-  {
-    return mIccId;
-  }
+  nsString GetIccId() { return mIccId; }
 
-  void
-  UpdateIccInfo(nsIIccInfo* aIccInfo);
+  void UpdateIccInfo(nsIIccInfo* aIccInfo);
 
-  nsPIDOMWindowInner*
-  GetParentObject() const
-  {
-    return GetOwner();
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return GetOwner(); }
 
   // WrapperCache
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   // Icc WebIDL
-  void
-  GetIccInfo(Nullable<OwningIccInfoOrGsmIccInfoOrCdmaIccInfo>& aIccInfo) const;
+  void GetIccInfo(
+      Nullable<OwningIccInfoOrGsmIccInfoOrCdmaIccInfo>& aIccInfo) const;
 
-  Nullable<IccCardState>
-  GetCardState() const;
+  Nullable<IccCardState> GetCardState() const;
 
-  void
-  SendStkResponse(const JSContext* aCx, JS::Handle<JS::Value> aCommand,
-                  JS::Handle<JS::Value> aResponse, ErrorResult& aRv);
+  void SendStkResponse(const JSContext* aCx, JS::Handle<JS::Value> aCommand,
+                       JS::Handle<JS::Value> aResponse, ErrorResult& aRv);
 
-  void
-  SendStkMenuSelection(uint16_t aItemIdentifier, bool aHelpRequested,
-                       ErrorResult& aRv);
+  void SendStkMenuSelection(uint16_t aItemIdentifier, bool aHelpRequested,
+                            ErrorResult& aRv);
 
-  void
-  SendStkTimerExpiration(const JSContext* aCx, JS::Handle<JS::Value> aTimer,
-                         ErrorResult& aRv);
+  void SendStkTimerExpiration(const JSContext* aCx,
+                              JS::Handle<JS::Value> aTimer, ErrorResult& aRv);
 
-  void
-  SendStkEventDownload(const JSContext* aCx, JS::Handle<JS::Value> aEvent,
-                       ErrorResult& aRv);
+  void SendStkEventDownload(const JSContext* aCx, JS::Handle<JS::Value> aEvent,
+                            ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  GetCardLock(IccLockType aLockType, ErrorResult& aRv);
+  already_AddRefed<DOMRequest> GetCardLock(IccLockType aLockType,
+                                           ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  UnlockCardLock(const IccUnlockCardLockOptions& aOptions, ErrorResult& aRv);
+  already_AddRefed<DOMRequest> UnlockCardLock(
+      const IccUnlockCardLockOptions& aOptions, ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  SetCardLock(const IccSetCardLockOptions& aOptions, ErrorResult& aRv);
+  already_AddRefed<DOMRequest> SetCardLock(
+      const IccSetCardLockOptions& aOptions, ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  GetCardLockRetryCount(IccLockType aLockType, ErrorResult& aRv);
+  already_AddRefed<DOMRequest> GetCardLockRetryCount(IccLockType aLockType,
+                                                     ErrorResult& aRv);
 
   // TODO contact api will be refactored.
   // already_AddRefed<DOMRequest>
@@ -104,23 +87,24 @@ public:
   // UpdateContact(IccContactType aContactType, mozContact& aContact,
   //               const nsAString& aPin2, ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  GetIccAuthentication(IccAppType aAppType, IccAuthType aAuthType,
-                       const nsAString& aAuthData, ErrorResult& aRv);
+  already_AddRefed<DOMRequest> GetIccAuthentication(IccAppType aAppType,
+                                                    IccAuthType aAuthType,
+                                                    const nsAString& aAuthData,
+                                                    ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  MatchMvno(IccMvnoType aMvnoType, const nsAString& aMatchData,
-            ErrorResult& aRv);
+  already_AddRefed<DOMRequest> MatchMvno(IccMvnoType aMvnoType,
+                                         const nsAString& aMatchData,
+                                         ErrorResult& aRv);
 
-  already_AddRefed<Promise>
-  GetServiceState(IccService aService, ErrorResult& aRv);
+  already_AddRefed<Promise> GetServiceState(IccService aService,
+                                            ErrorResult& aRv);
 
   IMPL_EVENT_HANDLER(iccinfochange)
   IMPL_EVENT_HANDLER(cardstatechange)
   IMPL_EVENT_HANDLER(stkcommand)
   IMPL_EVENT_HANDLER(stksessionend)
 
-private:
+ private:
   // Put definition of the destructor in Icc.cpp to ensure forward declaration
   // of nsIIccProvider, nsIIcc for the auto-generated .cpp file (i.e.,
   // IccManagerBinding.cpp) that includes this header.
@@ -134,7 +118,7 @@ private:
   Nullable<OwningIccInfoOrGsmIccInfoOrCdmaIccInfo> mIccInfo;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_icc_Icc_h
+#endif  // mozilla_dom_icc_Icc_h

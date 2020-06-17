@@ -1014,7 +1014,8 @@ class ContentParent final
 
   virtual PVoicemailParent* AllocPVoicemailParent();
 
-  virtual mozilla::ipc::IPCResult RecvPVoicemailConstructor(PVoicemailParent* aActor) override;
+  virtual mozilla::ipc::IPCResult RecvPVoicemailConstructor(
+      PVoicemailParent* aActor) override;
 
   virtual bool DeallocPVoicemailParent(PVoicemailParent* aActor);
 
@@ -1034,10 +1035,10 @@ class ContentParent final
   virtual mozilla::ipc::IPCResult RecvPCellBroadcastConstructor(
       PCellBroadcastParent* aActor) override;
 
-  //   virtual PSmsParent* AllocPSmsParent();
+//   virtual PSmsParent* AllocPSmsParent();
 
-  //   virtual bool DeallocPSmsParent(PSmsParent*);
-  #endif // MOZ_B2G_RIL
+//   virtual bool DeallocPSmsParent(PSmsParent*);
+#endif  // MOZ_B2G_RIL
 
   mozilla::ipc::IPCResult RecvGetGfxVars(nsTArray<GfxVarUpdate>* aVars);
 

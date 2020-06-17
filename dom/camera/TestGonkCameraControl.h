@@ -21,9 +21,8 @@
 
 namespace mozilla {
 
-class TestGonkCameraControl : public nsGonkCameraControl
-{
-public:
+class TestGonkCameraControl : public nsGonkCameraControl {
+ public:
   explicit TestGonkCameraControl(uint32_t aCameraId);
 
   virtual nsresult Start(const Configuration* aConfig = nullptr) override;
@@ -35,14 +34,16 @@ public:
   virtual nsresult StartFaceDetection() override;
   virtual nsresult StopFaceDetection() override;
   virtual nsresult TakePicture() override;
-  virtual nsresult StartRecording(DeviceStorageFileDescriptor* aFileDescriptor,
-                                  const StartRecordingOptions* aOptions) override;
+  virtual nsresult StartRecording(
+      DeviceStorageFileDescriptor* aFileDescriptor,
+      const StartRecordingOptions* aOptions) override;
   virtual nsresult StopRecording() override;
 
-protected:
+ protected:
   virtual ~TestGonkCameraControl();
 
-  virtual nsresult StartImpl(const Configuration* aInitialConfig = nullptr) override;
+  virtual nsresult StartImpl(
+      const Configuration* aInitialConfig = nullptr) override;
   virtual nsresult StopImpl() override;
   virtual nsresult SetConfigurationImpl(const Configuration& aConfig) override;
   virtual nsresult StartPreviewImpl() override;
@@ -51,21 +52,24 @@ protected:
   virtual nsresult StartFaceDetectionImpl() override;
   virtual nsresult StopFaceDetectionImpl() override;
   virtual nsresult TakePictureImpl() override;
-  virtual nsresult StartRecordingImpl(DeviceStorageFileDescriptor* aFileDescriptor,
-                                      const StartRecordingOptions* aOptions = nullptr) override;
+  virtual nsresult StartRecordingImpl(
+      DeviceStorageFileDescriptor* aFileDescriptor,
+      const StartRecordingOptions* aOptions = nullptr) override;
   virtual nsresult StopRecordingImpl() override;
 
   nsresult ForceMethodFailWithCodeInternal(const char* aFile, int aLine);
   nsresult ForceAsyncFailWithCodeInternal(const char* aFile, int aLine);
 
-private:
+ private:
   TestGonkCameraControl(const TestGonkCameraControl&) = delete;
   TestGonkCameraControl& operator=(const TestGonkCameraControl&) = delete;
 };
 
-#define ForceMethodFailWithCode() ForceMethodFailWithCodeInternal(__FILE__, __LINE__)
-#define ForceAsyncFailWithCode()  ForceAsyncFailWithCodeInternal(__FILE__, __LINE__)
+#define ForceMethodFailWithCode() \
+  ForceMethodFailWithCodeInternal(__FILE__, __LINE__)
+#define ForceAsyncFailWithCode() \
+  ForceAsyncFailWithCodeInternal(__FILE__, __LINE__)
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // DOM_CAMERA_TESTGONKCAMERACONTROL_H
+#endif  // DOM_CAMERA_TESTGONKCAMERACONTROL_H

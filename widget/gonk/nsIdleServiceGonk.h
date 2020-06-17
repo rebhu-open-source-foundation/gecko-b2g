@@ -20,28 +20,26 @@
 
 #include "nsIdleService.h"
 
-class nsIdleServiceGonk : public nsIdleService
-{
-public:
-    NS_DECL_ISUPPORTS_INHERITED
+class nsIdleServiceGonk : public nsIdleService {
+ public:
+  NS_DECL_ISUPPORTS_INHERITED
 
-    bool PollIdleTime(uint32_t* aIdleTime) override;
+  bool PollIdleTime(uint32_t* aIdleTime) override;
 
-    static already_AddRefed<nsIdleServiceGonk> GetInstance()
-    {
-        RefPtr<nsIdleServiceGonk> idleService =
-            nsIdleService::GetInstance().downcast<nsIdleServiceGonk>();
-        if (!idleService) {
-            idleService = new nsIdleServiceGonk();
-        }
-
-        return idleService.forget();
+  static already_AddRefed<nsIdleServiceGonk> GetInstance() {
+    RefPtr<nsIdleServiceGonk> idleService =
+        nsIdleService::GetInstance().downcast<nsIdleServiceGonk>();
+    if (!idleService) {
+      idleService = new nsIdleServiceGonk();
     }
 
-protected:
-    nsIdleServiceGonk() { }
-    virtual ~nsIdleServiceGonk() { }
-    bool UsePollMode() override;
+    return idleService.forget();
+  }
+
+ protected:
+  nsIdleServiceGonk() {}
+  virtual ~nsIdleServiceGonk() {}
+  bool UsePollMode() override;
 };
 
-#endif // nsIdleServiceGonk_h__
+#endif  // nsIdleServiceGonk_h__

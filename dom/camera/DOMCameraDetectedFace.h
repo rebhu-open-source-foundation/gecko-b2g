@@ -16,10 +16,8 @@ namespace mozilla {
 
 namespace dom {
 
-class DOMCameraDetectedFace final : public nsISupports
-                                  , public nsWrapperCache
-{
-public:
+class DOMCameraDetectedFace final : public nsISupports, public nsWrapperCache {
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(DOMCameraDetectedFace)
 
@@ -30,36 +28,37 @@ public:
   // Great Renaming proposed in bug 983177.
   static bool HasSupport(JSContext* aCx, JSObject* aGlobal);
 
-  static already_AddRefed<DOMCameraDetectedFace> Constructor(const GlobalObject& aGlobal,
-                                                             const dom::CameraDetectedFaceInit& aFace,
-                                                             ErrorResult& aRv);
+  static already_AddRefed<DOMCameraDetectedFace> Constructor(
+      const GlobalObject& aGlobal, const dom::CameraDetectedFaceInit& aFace,
+      ErrorResult& aRv);
 
-  DOMCameraDetectedFace(nsISupports* aParent, const ICameraControl::Face& aFace);
+  DOMCameraDetectedFace(nsISupports* aParent,
+                        const ICameraControl::Face& aFace);
 
-  uint32_t Id()       { return mId; }
-  uint32_t Score()    { return mScore; }
-  bool HasLeftEye()   { return mLeftEye; }
-  bool HasRightEye()  { return mRightEye; }
-  bool HasMouth()     { return mMouth; }
+  uint32_t Id() { return mId; }
+  uint32_t Score() { return mScore; }
+  bool HasLeftEye() { return mLeftEye; }
+  bool HasRightEye() { return mRightEye; }
+  bool HasMouth() { return mMouth; }
 
-  dom::DOMRect* Bounds()        { return mBounds; }
+  dom::DOMRect* Bounds() { return mBounds; }
 
-  dom::DOMPoint* GetLeftEye()  { return mLeftEye; }
+  dom::DOMPoint* GetLeftEye() { return mLeftEye; }
   dom::DOMPoint* GetRightEye() { return mRightEye; }
-  dom::DOMPoint* GetMouth()    { return mMouth; }
+  dom::DOMPoint* GetMouth() { return mMouth; }
 
-  nsISupports*
-  GetParentObject() const
-  {
+  nsISupports* GetParentObject() const {
     MOZ_ASSERT(mParent);
     return mParent;
   }
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-protected:
-  DOMCameraDetectedFace(nsISupports* aParent, const dom::CameraDetectedFaceInit& aFace);
-  virtual ~DOMCameraDetectedFace() { }
+ protected:
+  DOMCameraDetectedFace(nsISupports* aParent,
+                        const dom::CameraDetectedFaceInit& aFace);
+  virtual ~DOMCameraDetectedFace() {}
 
   nsCOMPtr<nsISupports> mParent;
 
@@ -73,8 +72,8 @@ protected:
   RefPtr<dom::DOMPoint> mMouth;
 };
 
-} // namespace dom
+}  // namespace dom
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // DOM_CAMERA_DOMCAMERADETECTEDFACE_H
+#endif  // DOM_CAMERA_DOMCAMERADETECTEDFACE_H

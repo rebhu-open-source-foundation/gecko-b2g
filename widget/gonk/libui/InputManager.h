@@ -40,70 +40,69 @@ namespace android {
  *
  * The input manager uses two threads.
  *
- * 1. The InputReaderThread (called "InputReader") reads and preprocesses raw input events,
- *    applies policy, and posts messages to a queue managed by the DispatcherThread.
- * 2. The InputDispatcherThread (called "InputDispatcher") thread waits for new events on the
- *    queue and asynchronously dispatches them to applications.
+ * 1. The InputReaderThread (called "InputReader") reads and preprocesses raw
+ * input events, applies policy, and posts messages to a queue managed by the
+ * DispatcherThread.
+ * 2. The InputDispatcherThread (called "InputDispatcher") thread waits for new
+ * events on the queue and asynchronously dispatches them to applications.
  *
- * By design, the InputReaderThread class and InputDispatcherThread class do not share any
- * internal state.  Moreover, all communication is done one way from the InputReaderThread
- * into the InputDispatcherThread and never the reverse.  Both classes may interact with the
- * InputDispatchPolicy, however.
+ * By design, the InputReaderThread class and InputDispatcherThread class do not
+ * share any internal state.  Moreover, all communication is done one way from
+ * the InputReaderThread into the InputDispatcherThread and never the reverse.
+ * Both classes may interact with the InputDispatchPolicy, however.
  *
  * The InputManager class never makes any calls into Java itself.  Instead, the
- * InputDispatchPolicy is responsible for performing all external interactions with the
- * system, including calling DVM services.
+ * InputDispatchPolicy is responsible for performing all external interactions
+ * with the system, including calling DVM services.
  */
 class InputManagerInterface : public virtual RefBase {
-protected:
-    InputManagerInterface() { }
-    virtual ~InputManagerInterface() { }
+ protected:
+  InputManagerInterface() {}
+  virtual ~InputManagerInterface() {}
 
-public:
-    /* Starts the input manager threads. */
-    virtual status_t start() = 0;
+ public:
+  /* Starts the input manager threads. */
+  virtual status_t start() = 0;
 
-    /* Stops the input manager threads and waits for them to exit. */
-    virtual status_t stop() = 0;
+  /* Stops the input manager threads and waits for them to exit. */
+  virtual status_t stop() = 0;
 
-    /* Gets the input reader. */
-    virtual sp<InputReaderInterface> getReader() = 0;
+  /* Gets the input reader. */
+  virtual sp<InputReaderInterface> getReader() = 0;
 
-    /* Gets the input dispatcher. */
-    virtual sp<InputDispatcherInterface> getDispatcher() = 0;
+  /* Gets the input dispatcher. */
+  virtual sp<InputDispatcherInterface> getDispatcher() = 0;
 };
 
 class InputManager : public InputManagerInterface {
-protected:
-    virtual ~InputManager();
+ protected:
+  virtual ~InputManager();
 
-public:
-    InputManager(
-            const sp<EventHubInterface>& eventHub,
-            const sp<InputReaderPolicyInterface>& readerPolicy,
-            const sp<InputDispatcherPolicyInterface>& dispatcherPolicy);
+ public:
+  InputManager(const sp<EventHubInterface>& eventHub,
+               const sp<InputReaderPolicyInterface>& readerPolicy,
+               const sp<InputDispatcherPolicyInterface>& dispatcherPolicy);
 
-    // (used for testing purposes)
-    InputManager(
-            const sp<InputReaderInterface>& reader,
-            const sp<InputDispatcherInterface>& dispatcher);
+  // (used for testing purposes)
+  InputManager(const sp<InputReaderInterface>& reader,
+               const sp<InputDispatcherInterface>& dispatcher);
 
-    virtual status_t start();
-    virtual status_t stop();
+  virtual status_t start();
+  virtual status_t stop();
 
-    virtual sp<InputReaderInterface> getReader();
-    virtual sp<InputDispatcherInterface> getDispatcher();
+  virtual sp<InputReaderInterface> getReader();
+  virtual sp<InputDispatcherInterface> getDispatcher();
 
-private:
-    sp<InputReaderInterface> mReader;
-    sp<InputReaderThread> mReaderThread;
+ private:
+  sp<InputReaderInterface> mReader;
+  sp<InputReaderThread> mReaderThread;
 
-    sp<InputDispatcherInterface> mDispatcher;
-    sp<InputDispatcherThread> mDispatcherThread;
+  sp<InputDispatcherInterface> mDispatcher;
+  sp<InputDispatcherThread> mDispatcherThread;
 
-    void initialize();
+  void initialize();
 };
 
-} // namespace android
+}  // namespace android
 
-#endif // _UI_INPUT_MANAGER_H
+#endif  // _UI_INPUT_MANAGER_H

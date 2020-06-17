@@ -17,23 +17,22 @@ class Promise;
 
 namespace telephony {
 
-class TelephonyCallback : public nsITelephonyCallback
-{
-public:
+class TelephonyCallback : public nsITelephonyCallback {
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSITELEPHONYCALLBACK
 
   explicit TelephonyCallback(Promise* aPromise);
 
-protected:
+ protected:
   virtual ~TelephonyCallback() {}
 
-protected:
+ protected:
   RefPtr<Promise> mPromise;
 };
 
-} // namespace telephony
-} // namespace dom
-} // namespace mozilla
+}  // namespace telephony
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_TelephonyCallback_h
+#endif  // mozilla_dom_TelephonyCallback_h

@@ -20,31 +20,30 @@ namespace subsidylock {
  * Parent actor of PSubsidyLock. This object is created/destroyed along
  * with child actor.
  */
-class SubsidyLockParent : public PSubsidyLockParent
-{
+class SubsidyLockParent : public PSubsidyLockParent {
   NS_INLINE_DECL_REFCOUNTING(SubsidyLockParent)
   friend PSubsidyLockParent;
 
  public:
   explicit SubsidyLockParent(uint32_t aClientId);
 
-protected:
- virtual ~SubsidyLockParent() {}
+ protected:
+  virtual ~SubsidyLockParent() {}
 
- virtual void ActorDestroy(ActorDestroyReason aWhy) override;
+  virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
- virtual mozilla::ipc::IPCResult RecvPSubsidyLockRequestConstructor(
-     PSubsidyLockRequestParent* actor,
-     const SubsidyLockRequest& aRequest) override;
+  virtual mozilla::ipc::IPCResult RecvPSubsidyLockRequestConstructor(
+      PSubsidyLockRequestParent* actor,
+      const SubsidyLockRequest& aRequest) override;
 
- PSubsidyLockRequestParent* AllocPSubsidyLockRequestParent(
-     const SubsidyLockRequest& aRequest);
+  PSubsidyLockRequestParent* AllocPSubsidyLockRequestParent(
+      const SubsidyLockRequest& aRequest);
 
- bool DeallocPSubsidyLockRequestParent(PSubsidyLockRequestParent* aActor);
+  bool DeallocPSubsidyLockRequestParent(PSubsidyLockRequestParent* aActor);
 
-private:
- nsCOMPtr<nsISubsidyLock> mSubsidyLock;
- bool mLive;
+ private:
+  nsCOMPtr<nsISubsidyLock> mSubsidyLock;
+  bool mLive;
 };
 
 /******************************************************************************
@@ -58,9 +57,8 @@ private:
  * any callback is triggered. So we use mLive to maintain the status of child
  * actor in order to present sending data to a dead one.
  */
-class SubsidyLockRequestParent : public PSubsidyLockRequestParent
-                               , public nsISubsidyLockCallback
-{
+class SubsidyLockRequestParent : public PSubsidyLockRequestParent,
+                                 public nsISubsidyLockCallback {
   friend PSubsidyLockRequestParent;
 
  public:
@@ -68,36 +66,26 @@ class SubsidyLockRequestParent : public PSubsidyLockRequestParent
   NS_DECL_NSISUBSIDYLOCKCALLBACK
 
   explicit SubsidyLockRequestParent(nsISubsidyLock* aSubsidyLock)
-    : mSubsidyLock(aSubsidyLock)
-    , mLive(true)
-  {
-  }
+      : mSubsidyLock(aSubsidyLock), mLive(true) {}
 
-  bool
-  DoRequest(const GetSubsidyLockStatusRequest& aRequest);
+  bool DoRequest(const GetSubsidyLockStatusRequest& aRequest);
 
-  bool
-  DoRequest(const UnlockSubsidyLockRequest& aRequest);
+  bool DoRequest(const UnlockSubsidyLockRequest& aRequest);
 
-protected:
-  virtual
-  ~SubsidyLockRequestParent()
-  {
-  }
+ protected:
+  virtual ~SubsidyLockRequestParent() {}
 
-  virtual void
-  ActorDestroy(ActorDestroyReason aWhy) override;
+  virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  nsresult
-  SendReply(const SubsidyLockReply& aReply);
+  nsresult SendReply(const SubsidyLockReply& aReply);
 
-private:
+ private:
   nsCOMPtr<nsISubsidyLock> mSubsidyLock;
   bool mLive;
 };
 
-} // namespace subsidylock
-} // namespace dom
-} // namespace mozilla
+}  // namespace subsidylock
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_subsidylock_SubsidyLockParent_h
+#endif  // mozilla_dom_subsidylock_SubsidyLockParent_h

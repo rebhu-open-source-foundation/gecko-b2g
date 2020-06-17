@@ -22,13 +22,12 @@ class MobileMessageManager;
 
 namespace mobilemessage {
 class MobileMessageCursorCallback;
-} // namespace mobilemessage
+}  // namespace mobilemessage
 
-class MobileMessageCursor final : public DOMCursor
-{
+class MobileMessageCursor final : public DOMCursor {
   friend class mobilemessage::MobileMessageCursorCallback;
 
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
 
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(MobileMessageCursor, DOMCursor)
@@ -40,51 +39,44 @@ public:
   NS_IMETHOD
   Continue(void) override;
 
-  virtual void
-  Continue(ErrorResult& aRv) override;
+  virtual void Continue(ErrorResult& aRv) override;
 
-private:
+ private:
   // final suppresses -Werror,-Wdelete-non-virtual-dtor
   ~MobileMessageCursor() {}
 
-private:
+ private:
   // List of read-ahead results in reversed order.
   nsTArray<nsCOMPtr<nsISupports>> mPendingResults;
 
-  nsresult
-  FireSuccessWithNextPendingResult();
+  nsresult FireSuccessWithNextPendingResult();
 };
 
 namespace mobilemessage {
 
-class MobileMessageCursorCallback final : public nsIMobileMessageCursorCallback
-{
+class MobileMessageCursorCallback final
+    : public nsIMobileMessageCursorCallback {
   friend class mozilla::dom::MobileMessageManager;
 
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_NSIMOBILEMESSAGECURSORCALLBACK
 
   NS_DECL_CYCLE_COLLECTION_CLASS(MobileMessageCursorCallback)
 
-  MobileMessageCursorCallback()
-  {
-    MOZ_COUNT_CTOR(MobileMessageCursorCallback);
-  }
+  MobileMessageCursorCallback() { MOZ_COUNT_CTOR(MobileMessageCursorCallback); }
 
-private:
+ private:
   // final suppresses -Werror,-Wdelete-non-virtual-dtor
-  ~MobileMessageCursorCallback()
-  {
+  ~MobileMessageCursorCallback() {
     MOZ_COUNT_DTOR(MobileMessageCursorCallback);
   }
 
   RefPtr<MobileMessageCursor> mDOMCursor;
 };
 
-} // namespace mobilemessage
-} // namespace dom
-} // namespace mozilla
+}  // namespace mobilemessage
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_mobilemessage_MobileMessageCursorCallback_h
-
+#endif  // mozilla_dom_mobilemessage_MobileMessageCursorCallback_h

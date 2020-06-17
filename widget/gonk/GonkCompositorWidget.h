@@ -27,7 +27,8 @@ namespace widget {
  */
 class GonkCompositorWidget final : public InProcessCompositorWidget {
  public:
-  GonkCompositorWidget(const layers::CompositorOptions& aOptions, nsBaseWidget* aWidget);
+  GonkCompositorWidget(const layers::CompositorOptions& aOptions,
+                       nsBaseWidget* aWidget);
 
   GonkCompositorWidget* AsGonk() override { return this; }
 

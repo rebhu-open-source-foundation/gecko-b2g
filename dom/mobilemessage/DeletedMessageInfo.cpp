@@ -5,7 +5,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "DeletedMessageInfo.h"
-#include "nsComponentManagerUtils.h"    // for do_CreateInstance
+#include "nsComponentManagerUtils.h"  // for do_CreateInstance
 #include "nsVariant.h"
 
 namespace mozilla {
@@ -15,46 +15,32 @@ namespace mobilemessage {
 NS_IMPL_ISUPPORTS(DeletedMessageInfo, nsIDeletedMessageInfo)
 
 DeletedMessageInfo::DeletedMessageInfo(const DeletedMessageInfoData& aData)
-  : mData(aData)
-{
-}
+    : mData(aData) {}
 
-DeletedMessageInfo::DeletedMessageInfo(int32_t* aMessageIds,
-                                       uint32_t aMsgCount,
+DeletedMessageInfo::DeletedMessageInfo(int32_t* aMessageIds, uint32_t aMsgCount,
                                        uint64_t* aThreadIds,
-                                       uint32_t  aThreadCount)
-{
+                                       uint32_t aThreadCount) {
   mData.deletedMessageIds().AppendElements(aMessageIds, aMsgCount);
   mData.deletedThreadIds().AppendElements(aThreadIds, aThreadCount);
 }
 
-DeletedMessageInfo::~DeletedMessageInfo()
-{
-}
+DeletedMessageInfo::~DeletedMessageInfo() {}
 
-/* static */ nsresult
-DeletedMessageInfo::Create(int32_t* aMessageIds,
-                           uint32_t aMsgCount,
-                           uint64_t* aThreadIds,
-                           uint32_t  aThreadCount,
-                           nsIDeletedMessageInfo** aDeletedInfo)
-{
+/* static */ nsresult DeletedMessageInfo::Create(
+    int32_t* aMessageIds, uint32_t aMsgCount, uint64_t* aThreadIds,
+    uint32_t aThreadCount, nsIDeletedMessageInfo** aDeletedInfo) {
   NS_ENSURE_ARG_POINTER(aDeletedInfo);
   NS_ENSURE_TRUE(aMsgCount || aThreadCount, NS_ERROR_INVALID_ARG);
 
   nsCOMPtr<nsIDeletedMessageInfo> deletedInfo =
-    new DeletedMessageInfo(aMessageIds,
-                           aMsgCount,
-                           aThreadIds,
-                           aThreadCount);
+      new DeletedMessageInfo(aMessageIds, aMsgCount, aThreadIds, aThreadCount);
   deletedInfo.forget(aDeletedInfo);
 
   return NS_OK;
 }
 
 NS_IMETHODIMP
-DeletedMessageInfo::GetDeletedMessageIds(nsIVariant** aDeletedMessageIds)
-{
+DeletedMessageInfo::GetDeletedMessageIds(nsIVariant** aDeletedMessageIds) {
   NS_ENSURE_ARG_POINTER(aDeletedMessageIds);
 
   if (mDeletedMessageIds) {
@@ -72,9 +58,7 @@ DeletedMessageInfo::GetDeletedMessageIds(nsIVariant** aDeletedMessageIds)
   mDeletedMessageIds = new nsVariant();
 
   nsresult rv;
-  rv = mDeletedMessageIds->SetAsArray(nsIDataType::VTYPE_INT32,
-                                      nullptr,
-                                      length,
+  rv = mDeletedMessageIds->SetAsArray(nsIDataType::VTYPE_INT32, nullptr, length,
                                       mData.deletedMessageIds().Elements());
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -86,8 +70,7 @@ DeletedMessageInfo::GetDeletedMessageIds(nsIVariant** aDeletedMessageIds)
 }
 
 NS_IMETHODIMP
-DeletedMessageInfo::GetDeletedThreadIds(nsIVariant** aDeletedThreadIds)
-{
+DeletedMessageInfo::GetDeletedThreadIds(nsIVariant** aDeletedThreadIds) {
   NS_ENSURE_ARG_POINTER(aDeletedThreadIds);
 
   if (mDeletedThreadIds) {
@@ -105,9 +88,7 @@ DeletedMessageInfo::GetDeletedThreadIds(nsIVariant** aDeletedThreadIds)
   mDeletedThreadIds = new nsVariant();
 
   nsresult rv;
-  rv = mDeletedThreadIds->SetAsArray(nsIDataType::VTYPE_UINT64,
-                                     nullptr,
-                                     length,
+  rv = mDeletedThreadIds->SetAsArray(nsIDataType::VTYPE_UINT64, nullptr, length,
                                      mData.deletedThreadIds().Elements());
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -118,6 +99,6 @@ DeletedMessageInfo::GetDeletedThreadIds(nsIVariant** aDeletedThreadIds)
   return NS_OK;
 }
 
-} // namespace mobilemessage
-} // namespace dom
-} // namespace mozilla
+}  // namespace mobilemessage
+}  // namespace dom
+}  // namespace mozilla

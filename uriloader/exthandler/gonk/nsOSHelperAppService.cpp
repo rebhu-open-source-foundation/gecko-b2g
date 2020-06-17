@@ -889,7 +889,7 @@ nsresult nsOSHelperAppService::GetHandlerAndDescriptionFromMailcapFile(
               Substring(minorTypeStart, minorTypeEnd)
                   .Equals(aMinorType,
                           nsCaseInsensitiveStringComparator)) {  // we have a
-                                                                   // match
+                                                                 // match
             bool match = true;
             ++semicolon_iter;  // point at the first char past the semicolon
             start_iter = semicolon_iter;  // handler string starts here

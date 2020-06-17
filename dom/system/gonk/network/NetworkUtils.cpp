@@ -272,9 +272,10 @@ class NetdInitRunnable : public mozilla::Runnable {
       // Register netlink unsolicited event listener.
       gNetdUnsolService = new NetdUnsolService(NetworkUtils::NotifyNetdEvent);
       Status status = gNetd->registerUnsolicitedEventListener(
-        android::interface_cast<android::net::INetdUnsolicitedEventListener>(
-        gNetdUnsolService));
-      NU_DBG("Registered NetdUnsolService %s", status.isOk() ? "Successful" : "Failed");
+          android::interface_cast<android::net::INetdUnsolicitedEventListener>(
+              gNetdUnsolService));
+      NU_DBG("Registered NetdUnsolService %s",
+             status.isOk() ? "Successful" : "Failed");
     } else {
       gNetd = nullptr;
       gDnsResolver = nullptr;
@@ -314,7 +315,8 @@ class NetworkCommandDispatcher : public mozilla::Runnable {
 };
 
 void NetworkUtils::DispatchCommand(const NetworkParams& aParams) {
-  nsCOMPtr<nsIRunnable> runnable = new NetworkCommandDispatcher(std::move(aParams));
+  nsCOMPtr<nsIRunnable> runnable =
+      new NetworkCommandDispatcher(std::move(aParams));
   if (gNetworkUtilsThread) {
     gNetworkUtilsThread->Dispatch(runnable, nsIEventTarget::DISPATCH_NORMAL);
   }
@@ -553,9 +555,10 @@ void NetworkUtils::createNetwork(CommandChain* aChain,
       gNetd->networkCreatePhysical(GET_FIELD(mNetId), INetd::PERMISSION_NONE);
   Status dnsStatus = gDnsResolver->createNetworkCache(GET_FIELD(mNetId));
   NU_DBG("createNetwork physical %s, networkCache %s",
-    networkStatus.isOk() ? "success" : "failed", dnsStatus.isOk() ? "success" : "failed");
+         networkStatus.isOk() ? "success" : "failed",
+         dnsStatus.isOk() ? "success" : "failed");
 
- bool createNetworkResult = (networkStatus.isOk() && dnsStatus.isOk());
+  bool createNetworkResult = (networkStatus.isOk() && dnsStatus.isOk());
   if (!createNetworkResult) {
     // Removed the fail network.
     gNetd->networkDestroy(GET_FIELD(mNetId));
@@ -624,7 +627,8 @@ void NetworkUtils::addDefaultRouteToNetwork(CommandChain* aChain,
                                             NetworkResultOptions& aResult) {
   nsTArray<nsString>& gateways = GET_FIELD(mGateways);
 
-  for (GET_FIELD(mLoopIndex) = 0; GET_FIELD(mLoopIndex) < GET_FIELD(mGateways).Length();
+  for (GET_FIELD(mLoopIndex) = 0;
+       GET_FIELD(mLoopIndex) < GET_FIELD(mGateways).Length();
        GET_FIELD(mLoopIndex)++) {
     char destination[BUF_SIZE];
 
@@ -680,8 +684,10 @@ void NetworkUtils::setInterfaceDns(CommandChain* aChain,
   }
   ResolverParamsParcel resolverParams;
   resolverParams.netId = GET_FIELD(mNetId);
-  resolverParams.sampleValiditySeconds = DNS_RESOLVER_DEFAULT_SAMPLE_VALIDITY_SECONDS;
-  resolverParams.successThreshold = DNS_RESOLVER_DEFAULT_SUCCESS_THRESHOLD_PERCENT;
+  resolverParams.sampleValiditySeconds =
+      DNS_RESOLVER_DEFAULT_SAMPLE_VALIDITY_SECONDS;
+  resolverParams.successThreshold =
+      DNS_RESOLVER_DEFAULT_SUCCESS_THRESHOLD_PERCENT;
   resolverParams.minSamples = DNS_RESOLVER_DEFAULT_MIN_SAMPLES;
   resolverParams.maxSamples = DNS_RESOLVER_DEFAULT_MAX_SAMPLES;
   resolverParams.baseTimeoutMsec = 0;
@@ -1258,19 +1264,19 @@ bool NetworkUtils::composeIpv6TetherConf(const char* aInternalIface,
   }
 
   SprintfLiteral(buffer,
-           "interface %s\n{\n\tAdvSendAdvert on;\n"
-           "\tMinRtrAdvInterval 3;\n\tMaxRtrAdvInterval 10;\n"
-           "\tAdvManagedFlag off;\n\tAdvOtherConfigFlag off;\n"
-           "\tprefix %s\n"
-           "\t{\n\t\tAdvOnLink off;\n"
-           "\t\tAdvAutonomous on;\n"
-           "\t\tAdvRouterAddr off;\n"
-           "\t};\n\tRDNSS%s\n"
-           "\t{\n"
-           "\t\tAdvRDNSSLifetime 3600;\n"
-           "\t};"
-           "\n};\n",
-           aInternalIface, aNetworkPrefix, dnses_list);
+                 "interface %s\n{\n\tAdvSendAdvert on;\n"
+                 "\tMinRtrAdvInterval 3;\n\tMaxRtrAdvInterval 10;\n"
+                 "\tAdvManagedFlag off;\n\tAdvOtherConfigFlag off;\n"
+                 "\tprefix %s\n"
+                 "\t{\n\t\tAdvOnLink off;\n"
+                 "\t\tAdvAutonomous on;\n"
+                 "\t\tAdvRouterAddr off;\n"
+                 "\t};\n\tRDNSS%s\n"
+                 "\t{\n"
+                 "\t\tAdvRDNSSLifetime 3600;\n"
+                 "\t};"
+                 "\n};\n",
+                 aInternalIface, aNetworkPrefix, dnses_list);
 
   if (!fwrite(buffer, sizeof(char), strlen(buffer), radvdFile)) {
     NU_DBG("Write %s fail", RADVD_CONF_FILE);
@@ -1932,9 +1938,9 @@ CommandResult NetworkUtils::setIpv6PrivacyExtensions(NetworkParams& aOptions) {
 
 CommandResult NetworkUtils::configureInterface(NetworkParams& aOptions) {
   NS_ConvertUTF16toUTF8 autoIfname(aOptions.mIfname);
-  return CommandResult(mNetUtils->do_ifc_configure(autoIfname.get(), aOptions.mIpaddr,
-                                     aOptions.mMask, aOptions.mGateway_long,
-                                     aOptions.mDns1_long, aOptions.mDns2_long));
+  return CommandResult(mNetUtils->do_ifc_configure(
+      autoIfname.get(), aOptions.mIpaddr, aOptions.mMask,
+      aOptions.mGateway_long, aOptions.mDns1_long, aOptions.mDns2_long));
 }
 
 CommandResult NetworkUtils::dhcpRequest(NetworkParams& aOptions) {
@@ -1999,13 +2005,13 @@ CommandResult NetworkUtils::stopDhcp(NetworkParams& aOptions) {
 }
 
 CommandResult NetworkUtils::enableInterface(NetworkParams& aOptions) {
-  return CommandResult(mNetUtils->do_ifc_enable(
-      NS_ConvertUTF16toUTF8(aOptions.mIfname).get()));
+  return CommandResult(
+      mNetUtils->do_ifc_enable(NS_ConvertUTF16toUTF8(aOptions.mIfname).get()));
 }
 
 CommandResult NetworkUtils::disableInterface(NetworkParams& aOptions) {
-  return CommandResult(mNetUtils->do_ifc_disable(
-      NS_ConvertUTF16toUTF8(aOptions.mIfname).get()));
+  return CommandResult(
+      mNetUtils->do_ifc_disable(NS_ConvertUTF16toUTF8(aOptions.mIfname).get()));
 }
 
 CommandResult NetworkUtils::resetConnections(NetworkParams& aOptions) {
@@ -2622,7 +2628,8 @@ CommandResult NetworkUtils::removeUpStream(NetworkParams& aOptions) {
 /**
  * callback from NetdUnsolService.
  */
-void NetworkUtils::NotifyNetdEvent(mozilla::dom::NetworkResultOptions& aResult) {
+void NetworkUtils::NotifyNetdEvent(
+    mozilla::dom::NetworkResultOptions& aResult) {
   postMessage(aResult);
 }
 

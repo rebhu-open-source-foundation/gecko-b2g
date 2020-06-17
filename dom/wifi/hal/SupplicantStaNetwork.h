@@ -121,7 +121,7 @@ class NetworkConfiguration {
            mKeyMgmt.find("WPA-EAP") != std::string::npos;
   }
 
-  int32_t     mNetworkId;
+  int32_t mNetworkId;
   std::string mSsid;
   std::string mBssid;
   std::string mKeyMgmt;
@@ -130,9 +130,9 @@ class NetworkConfiguration {
   std::string mWepKey1;
   std::string mWepKey2;
   std::string mWepKey3;
-  int32_t     mWepTxKeyIndex;
-  bool        mScanSsid;
-  bool        mPmf;
+  int32_t mWepTxKeyIndex;
+  bool mScanSsid;
+  bool mPmf;
   std::string mProto;
   std::string mAuthAlg;
   std::string mGroupCipher;
@@ -147,11 +147,11 @@ class NetworkConfiguration {
   std::string mCaPath;
   std::string mSubjectMatch;
   std::string mEngineId;
-  bool        mEngine;
+  bool mEngine;
   std::string mPrivateKeyId;
   std::string mAltSubjectMatch;
   std::string mDomainSuffixMatch;
-  bool        mProactiveKeyCaching;
+  bool mProactiveKeyCaching;
 };
 
 /**

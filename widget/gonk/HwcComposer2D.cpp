@@ -43,7 +43,7 @@
 #include "libdisplay/DisplaySurface.h"
 
 #ifdef LOG_TAG
-#undef LOG_TAG
+#  undef LOG_TAG
 #endif
 #define LOG_TAG "HWComposer"
 
@@ -54,13 +54,13 @@
 //#define HWC_DEBUG
 
 #ifdef HWC_DEBUG
-#define LOGD(args...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, ## args)
+#  define LOGD(args...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, ##args)
 #else
-#define LOGD(args...) ((void)0)
+#  define LOGD(args...) ((void)0)
 #endif
 
-#define LOGI(args...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, ## args)
-#define LOGE(args...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, ## args)
+#define LOGI(args...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, ##args)
+#define LOGE(args...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, ##args)
 
 #define LAYER_COUNT_INCREMENTS 5
 
@@ -69,230 +69,200 @@ using namespace mozilla::gfx;
 using namespace mozilla::layers;
 
 typedef android::GonkDisplay GonkDisplay;
-extern GonkDisplay * GetGonkDisplay();
+extern GonkDisplay* GetGonkDisplay();
 
 namespace mozilla {
 
-static void
-HookInvalidate()
-{
-    HwcComposer2D::GetInstance()->Invalidate();
+static void HookInvalidate() { HwcComposer2D::GetInstance()->Invalidate(); }
+
+static void HookVsync(int aDisplay, int64_t aTimestamp) {
+  HwcComposer2D::GetInstance()->Vsync(aDisplay, aTimestamp);
 }
 
-static void
-HookVsync(int aDisplay, int64_t aTimestamp)
-{
-    HwcComposer2D::GetInstance()->Vsync(aDisplay, aTimestamp);
+static void HookHotplug(int aDisplay, int aConnected) {
+  HwcComposer2D::GetInstance()->Hotplug(aDisplay, aConnected);
 }
 
-static void
-HookHotplug(int aDisplay, int aConnected)
-{
-    HwcComposer2D::GetInstance()->Hotplug(aDisplay, aConnected);
-}
-
-__attribute__ ((visibility ("default")))
-void
-HookSetVsyncAlwaysEnabled(bool aAlways)
-{
-    HwcComposer2D::GetInstance()->SetVsyncAlwaysEnabled(aAlways);
+__attribute__((visibility("default"))) void HookSetVsyncAlwaysEnabled(
+    bool aAlways) {
+  HwcComposer2D::GetInstance()->SetVsyncAlwaysEnabled(aAlways);
 }
 
 static StaticRefPtr<HwcComposer2D> sInstance;
 
 HwcComposer2D::HwcComposer2D()
-    : mList(nullptr)
-    , mMaxLayerCount(0)
-    , mColorFill(false)
-    , mRBSwapSupport(false)
-    , mPrepared(false)
-    , mHasHWVsync(false)
-    , mStopRenderWithHwc(false)
-    , mAlwaysEnabled(false)
-    , mLock("mozilla.HwcComposer2D.mLock")
-{
-    mHal = HwcHALBase::CreateHwcHAL();
-    if (!mHal->HasHwc()) {
-        LOGD("no hwc support");
-        return;
-    }
+    : mList(nullptr),
+      mMaxLayerCount(0),
+      mColorFill(false),
+      mRBSwapSupport(false),
+      mPrepared(false),
+      mHasHWVsync(false),
+      mStopRenderWithHwc(false),
+      mAlwaysEnabled(false),
+      mLock("mozilla.HwcComposer2D.mLock") {
+  mHal = HwcHALBase::CreateHwcHAL();
+  if (!mHal->HasHwc()) {
+    LOGD("no hwc support");
+    return;
+  }
 
-    RegisterHwcEventCallback();
+  RegisterHwcEventCallback();
 
-    nsIntSize screenSize;
+  nsIntSize screenSize;
 
-    GonkDisplay::NativeData data = GetGonkDisplay()->GetNativeData(DisplayType::DISPLAY_PRIMARY);
-    ANativeWindow *win = data.mNativeWindow.get();
-    win->query(win, NATIVE_WINDOW_WIDTH, &screenSize.width);
-    win->query(win, NATIVE_WINDOW_HEIGHT, &screenSize.height);
-    mScreenRect = gfx::IntRect(gfx::IntPoint(0, 0), screenSize);
+  GonkDisplay::NativeData data =
+      GetGonkDisplay()->GetNativeData(DisplayType::DISPLAY_PRIMARY);
+  ANativeWindow* win = data.mNativeWindow.get();
+  win->query(win, NATIVE_WINDOW_WIDTH, &screenSize.width);
+  win->query(win, NATIVE_WINDOW_HEIGHT, &screenSize.height);
+  mScreenRect = gfx::IntRect(gfx::IntPoint(0, 0), screenSize);
 
-    mColorFill = mHal->Query(HwcHALBase::QueryType::COLOR_FILL);
-    mRBSwapSupport = mHal->Query(HwcHALBase::QueryType::RB_SWAP);
+  mColorFill = mHal->Query(HwcHALBase::QueryType::COLOR_FILL);
+  mRBSwapSupport = mHal->Query(HwcHALBase::QueryType::RB_SWAP);
 }
 
-HwcComposer2D::~HwcComposer2D()
-{
-    free(mList);
-}
+HwcComposer2D::~HwcComposer2D() { free(mList); }
 
-HwcComposer2D*
-HwcComposer2D::GetInstance()
-{
-    if (!sInstance) {
+HwcComposer2D* HwcComposer2D::GetInstance() {
+  if (!sInstance) {
 #ifdef HWC_DEBUG
-        // Make sure only create once
-        static int timesCreated = 0;
-        ++timesCreated;
-        MOZ_ASSERT(timesCreated == 1);
+    // Make sure only create once
+    static int timesCreated = 0;
+    ++timesCreated;
+    MOZ_ASSERT(timesCreated == 1);
 #endif
-        sInstance = new HwcComposer2D();
+    sInstance = new HwcComposer2D();
 
-        // If anyone uses the compositor thread to create HwcComposer2D,
-        // we just skip this function.
-        // If ClearOnShutdown() can handle objects in other threads
-        // in the future, we can remove this check.
-        if (NS_IsMainThread()) {
-            // If we create HwcComposer2D by the main thread, we can use
-            // ClearOnShutdown() to make sure it will be nullified properly.
-            ClearOnShutdown(&sInstance);
-        }
+    // If anyone uses the compositor thread to create HwcComposer2D,
+    // we just skip this function.
+    // If ClearOnShutdown() can handle objects in other threads
+    // in the future, we can remove this check.
+    if (NS_IsMainThread()) {
+      // If we create HwcComposer2D by the main thread, we can use
+      // ClearOnShutdown() to make sure it will be nullified properly.
+      ClearOnShutdown(&sInstance);
     }
-    return sInstance;
+  }
+  return sInstance;
 }
 
-bool
-HwcComposer2D::EnableVsync(bool aEnable)
-{
-    MOZ_ASSERT(NS_IsMainThread());
-    if (!mHasHWVsync) {
-        return false;
-    }
+bool HwcComposer2D::EnableVsync(bool aEnable) {
+  MOZ_ASSERT(NS_IsMainThread());
+  if (!mHasHWVsync) {
+    return false;
+  }
 
-    // Early return if try to disable vsync when mAlwaysEnabled is true
-    if (mAlwaysEnabled && !aEnable) {
-      return true;
-    }
+  // Early return if try to disable vsync when mAlwaysEnabled is true
+  if (mAlwaysEnabled && !aEnable) {
+    return true;
+  }
 
-    return mHal->EnableVsync(aEnable) && aEnable;
+  return mHal->EnableVsync(aEnable) && aEnable;
 }
 
-bool
-HwcComposer2D::RegisterHwcEventCallback()
-{
-    const HwcHALProcs_t cHWCProcs = {
-        &HookInvalidate,    // 1st: void (*invalidate)(...)
-        &HookVsync,         // 2nd: void (*vsync)(...)
-        &HookHotplug        // 3rd: void (*hotplug)(...)
-    };
-    mHasHWVsync = mHal->RegisterHwcEventCallback(cHWCProcs);
-    return mHasHWVsync;
+bool HwcComposer2D::RegisterHwcEventCallback() {
+  const HwcHALProcs_t cHWCProcs = {
+      &HookInvalidate,  // 1st: void (*invalidate)(...)
+      &HookVsync,       // 2nd: void (*vsync)(...)
+      &HookHotplug      // 3rd: void (*hotplug)(...)
+  };
+  mHasHWVsync = mHal->RegisterHwcEventCallback(cHWCProcs);
+  return mHasHWVsync;
 }
 
-void
-HwcComposer2D::Vsync(int aDisplay, nsecs_t aVsyncTimestamp)
-{
-    // KaiOS Bug 567: The vsync here might be fired during testing whether vsync
-    // is avaliabe in gfxAndroidPlatform::CreateHardwareVsyncSource. At this
-    // timing created VsyncSource doesn't be assigned to gfxPlatform yet.
-    if (!gfxPlatform::Initialized() || !gfxPlatform::GetPlatform()->GetHardwareVsync()){
-        return;
-    }
+void HwcComposer2D::Vsync(int aDisplay, nsecs_t aVsyncTimestamp) {
+  // KaiOS Bug 567: The vsync here might be fired during testing whether vsync
+  // is avaliabe in gfxAndroidPlatform::CreateHardwareVsyncSource. At this
+  // timing created VsyncSource doesn't be assigned to gfxPlatform yet.
+  if (!gfxPlatform::Initialized() ||
+      !gfxPlatform::GetPlatform()->GetHardwareVsync()) {
+    return;
+  }
 
-    TimeStamp vsyncTime = mozilla::TimeStamp::FromSystemTime(aVsyncTimestamp);
-    gfxPlatform::GetPlatform()->GetHardwareVsync()->GetGlobalDisplay().NotifyVsync(vsyncTime);
+  TimeStamp vsyncTime = mozilla::TimeStamp::FromSystemTime(aVsyncTimestamp);
+  gfxPlatform::GetPlatform()
+      ->GetHardwareVsync()
+      ->GetGlobalDisplay()
+      .NotifyVsync(vsyncTime);
 }
 
 // Called on the "invalidator" thread (run from HAL).
-void
-HwcComposer2D::Invalidate()
-{
-    if (!mHal->HasHwc()) {
-        LOGE("HwcComposer2D::Invalidate failed!");
-        return;
-    }
+void HwcComposer2D::Invalidate() {
+  if (!mHal->HasHwc()) {
+    LOGE("HwcComposer2D::Invalidate failed!");
+    return;
+  }
 
-    MutexAutoLock lock(mLock);
-    if (mCompositorBridgeParent) {
-        mCompositorBridgeParent->ScheduleRenderOnCompositorThread();
-    }
+  MutexAutoLock lock(mLock);
+  if (mCompositorBridgeParent) {
+    mCompositorBridgeParent->ScheduleRenderOnCompositorThread();
+  }
 }
 
 namespace {
 class HotplugEvent : public mozilla::Runnable {
-public:
-    HotplugEvent(int displayId, DisplayType aType, bool aConnected)
-        : mozilla::Runnable("HotplugEvent")
-        , mId(displayId)
-        , mType(aType)
-        , mConnected(aConnected)
-    {
-    }
+ public:
+  HotplugEvent(int displayId, DisplayType aType, bool aConnected)
+      : mozilla::Runnable("HotplugEvent"),
+        mId(displayId),
+        mType(aType),
+        mConnected(aConnected) {}
 
-    NS_IMETHOD Run()
-    {
-        widget::ScreenHelperGonk* screenHelper =
-            widget::ScreenHelperGonk::GetSingleton();
-        if (mConnected) {
-            screenHelper->AddScreen(mId, mType);
-        } else {
-            screenHelper->RemoveScreen(mId);
-        }
-        return NS_OK;
+  NS_IMETHOD Run() {
+    widget::ScreenHelperGonk* screenHelper =
+        widget::ScreenHelperGonk::GetSingleton();
+    if (mConnected) {
+      screenHelper->AddScreen(mId, mType);
+    } else {
+      screenHelper->RemoveScreen(mId);
     }
-private:
-    int mId;
-    DisplayType mType;
-    bool mConnected;
+    return NS_OK;
+  }
+
+ private:
+  int mId;
+  DisplayType mType;
+  bool mConnected;
 };
-} // namespace
+}  // namespace
 
-void
-HwcComposer2D::Hotplug(int aDisplay, int aConnected)
-{
-    NS_DispatchToMainThread(new HotplugEvent(aDisplay,
-                                             DisplayType::DISPLAY_EXTERNAL,
-                                             aConnected));
+void HwcComposer2D::Hotplug(int aDisplay, int aConnected) {
+  NS_DispatchToMainThread(
+      new HotplugEvent(aDisplay, DisplayType::DISPLAY_EXTERNAL, aConnected));
 }
 
-void
-HwcComposer2D::SetCompositorBridgeParent(CompositorBridgeParent* aCompositorBridgeParent)
-{
-    MutexAutoLock lock(mLock);
-    mCompositorBridgeParent = aCompositorBridgeParent;
+void HwcComposer2D::SetCompositorBridgeParent(
+    CompositorBridgeParent* aCompositorBridgeParent) {
+  MutexAutoLock lock(mLock);
+  mCompositorBridgeParent = aCompositorBridgeParent;
 }
 
-bool
-HwcComposer2D::ReallocLayerList()
-{
-    int size = sizeof(HwcList) +
-        ((mMaxLayerCount + LAYER_COUNT_INCREMENTS) * sizeof(HwcLayer));
+bool HwcComposer2D::ReallocLayerList() {
+  int size = sizeof(HwcList) +
+             ((mMaxLayerCount + LAYER_COUNT_INCREMENTS) * sizeof(HwcLayer));
 
-    HwcList* listrealloc = (HwcList*)realloc(mList, size);
+  HwcList* listrealloc = (HwcList*)realloc(mList, size);
 
-    if (!listrealloc) {
-        return false;
-    }
-
-    if (!mList) {
-        //first alloc, initialize
-        listrealloc->numHwLayers = 0;
-        listrealloc->flags = 0;
-    }
-
-    mList = listrealloc;
-    mMaxLayerCount += LAYER_COUNT_INCREMENTS;
-    return true;
-}
-
-bool
-HwcComposer2D::PrepareLayerList(Layer* aLayer,
-                                const nsIntRect& aClip,
-                                const Matrix& aParentTransform,
-                                bool aFindSidebandStreams)
-{
-// TODO: FIXME
+  if (!listrealloc) {
     return false;
+  }
+
+  if (!mList) {
+    // first alloc, initialize
+    listrealloc->numHwLayers = 0;
+    listrealloc->flags = 0;
+  }
+
+  mList = listrealloc;
+  mMaxLayerCount += LAYER_COUNT_INCREMENTS;
+  return true;
+}
+
+bool HwcComposer2D::PrepareLayerList(Layer* aLayer, const nsIntRect& aClip,
+                                     const Matrix& aParentTransform,
+                                     bool aFindSidebandStreams) {
+  // TODO: FIXME
+  return false;
 #if 0
     // NB: we fall off this path whenever there are container layers
     // that require intermediate surfaces.  That means all the
@@ -676,12 +646,9 @@ HwcComposer2D::PrepareLayerList(Layer* aLayer,
 #endif
 }
 
-
-bool
-HwcComposer2D::TryHwComposition(nsScreenGonk* aScreen)
-{
-// TODO: FIXME
-    return false;
+bool HwcComposer2D::TryHwComposition(nsScreenGonk* aScreen) {
+  // TODO: FIXME
+  return false;
 #if 0
     DisplaySurface* dispSurface = aScreen->GetDisplaySurface();
 
@@ -781,11 +748,9 @@ HwcComposer2D::TryHwComposition(nsScreenGonk* aScreen)
 #endif
 }
 
-bool
-HwcComposer2D::Render(nsIWidget* aWidget)
-{
-    nsScreenGonk* screen = static_cast<nsWindow*>(aWidget)->GetScreen();
-    return GetGonkDisplay()->SwapBuffers(screen->GetDisplayType());
+bool HwcComposer2D::Render(nsIWidget* aWidget) {
+  nsScreenGonk* screen = static_cast<nsWindow*>(aWidget)->GetScreen();
+  return GetGonkDisplay()->SwapBuffers(screen->GetDisplayType());
 
 // TODO: FIXME
 #if 0
@@ -837,22 +802,20 @@ HwcComposer2D::Render(nsIWidget* aWidget)
 #endif
 }
 
-void
-HwcComposer2D::Prepare(buffer_handle_t dispHandle, int fence, nsScreenGonk* screen)
-{
-    if (mPrepared) {
-        LOGE("Multiple hwc prepare calls!");
-    }
-    hwc_rect_t dispRect = {0, 0, mScreenRect.width, mScreenRect.height};
-    mHal->Prepare(mList, (uint32_t)screen->GetDisplayType(), dispRect, dispHandle, fence);
-    mPrepared = true;
+void HwcComposer2D::Prepare(buffer_handle_t dispHandle, int fence,
+                            nsScreenGonk* screen) {
+  if (mPrepared) {
+    LOGE("Multiple hwc prepare calls!");
+  }
+  hwc_rect_t dispRect = {0, 0, mScreenRect.width, mScreenRect.height};
+  mHal->Prepare(mList, (uint32_t)screen->GetDisplayType(), dispRect, dispHandle,
+                fence);
+  mPrepared = true;
 }
 
-bool
-HwcComposer2D::Commit(nsScreenGonk* aScreen)
-{
-// TODO: FIXME
-    return false;
+bool HwcComposer2D::Commit(nsScreenGonk* aScreen) {
+  // TODO: FIXME
+  return false;
 #if 0
     for (uint32_t j=0; j < (mList->numHwLayers - 1); j++) {
         mList->hwLayers[j].acquireFenceFd = -1;
@@ -904,14 +867,11 @@ HwcComposer2D::Commit(nsScreenGonk* aScreen)
 #endif
 }
 
-bool
-HwcComposer2D::TryRenderWithHwc(Layer* aRoot,
-                                nsIWidget* aWidget,
-                                bool aGeometryChanged,
-                                bool aHasImageHostOverlays)
-{
-// TODO: FIXME
-    return false;
+bool HwcComposer2D::TryRenderWithHwc(Layer* aRoot, nsIWidget* aWidget,
+                                     bool aGeometryChanged,
+                                     bool aHasImageHostOverlays) {
+  // TODO: FIXME
+  return false;
 #if 0
     if (!mHal->HasHwc()) {
         return false;
@@ -986,9 +946,7 @@ HwcComposer2D::TryRenderWithHwc(Layer* aRoot,
 #endif
 }
 
-void
-HwcComposer2D::SendtoLayerScope()
-{
+void HwcComposer2D::SendtoLayerScope() {
 // TODO: FIXME
 #if 0
     if (!LayerScope::CheckSendable()) {
@@ -1004,16 +962,12 @@ HwcComposer2D::SendtoLayerScope()
 #endif
 }
 
-void
-HwcComposer2D::StopRenderWithHwc(bool aIsStop)
-{
-    mStopRenderWithHwc = aIsStop;
+void HwcComposer2D::StopRenderWithHwc(bool aIsStop) {
+  mStopRenderWithHwc = aIsStop;
 }
 
-void
-HwcComposer2D::SetVsyncAlwaysEnabled(bool aAlways)
-{
-    mAlwaysEnabled = aAlways;
+void HwcComposer2D::SetVsyncAlwaysEnabled(bool aAlways) {
+  mAlwaysEnabled = aAlways;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

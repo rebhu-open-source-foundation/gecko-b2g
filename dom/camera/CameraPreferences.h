@@ -9,19 +9,20 @@
 #include "nsString.h"
 #include "nsIObserver.h"
 #ifdef MOZ_WIDGET_GONK
-#include "mozilla/StaticPtr.h"
+#  include "mozilla/StaticPtr.h"
 #endif
 
 namespace mozilla {
 
-template<class T> class StaticAutoPtr;
+template <class T>
+class StaticAutoPtr;
 
 class CameraPreferences
 #ifdef MOZ_WIDGET_GONK
-  : public nsIObserver
+    : public nsIObserver
 #endif
 {
-public:
+ public:
 #ifdef MOZ_WIDGET_GONK
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBSERVER
@@ -35,7 +36,7 @@ public:
   static bool GetPref(const char* aPref, uint32_t& aVal);
   static bool GetPref(const char* aPref, bool& aVal);
 
-protected:
+ protected:
   static const uint32_t kPrefNotFound = UINT32_MAX;
   static uint32_t PrefToIndex(const char* aPref);
 
@@ -52,19 +53,19 @@ protected:
     kPrefValueIsBoolean
   };
   struct Pref {
-    const char* const           mPref;
-    PrefValueType               mValueType;
+    const char* const mPref;
+    PrefValueType mValueType;
     union {
       // The 'mAsVoid' member must be first and is required to allow 'mValue'
       // to be initialized with any pointer type, as not all of our platforms
       // support the use of designated initializers; in their absence, only
       // the first element of a union can be statically initialized, and
       // 'void*' lets us stuff any pointer type into it.
-      void*                     mAsVoid;
+      void* mAsVoid;
       StaticAutoPtr<nsCString>* mAsCString;
-      nsresult*                 mAsNsResult;
-      uint32_t*                 mAsUint32;
-      bool*                     mAsBoolean;
+      nsresult* mAsNsResult;
+      uint32_t* mAsUint32;
+      bool* mAsBoolean;
     } mValue;
   };
   static Pref sPrefs[];
@@ -87,18 +88,18 @@ protected:
 
   nsresult PreinitCameraHardware();
 
-protected:
+ protected:
   // Objects may be instantiated for use as observers.
-  CameraPreferences() { }
-  virtual ~CameraPreferences() { }
+  CameraPreferences() {}
+  virtual ~CameraPreferences() {}
 #else
-private:
+ private:
   // Static class only.
   CameraPreferences();
   ~CameraPreferences();
 #endif
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // DOM_CAMERA_CAMERAPREFERENCES_H
+#endif  // DOM_CAMERA_CAMERAPREFERENCES_H

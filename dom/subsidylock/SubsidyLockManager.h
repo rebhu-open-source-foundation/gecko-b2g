@@ -13,35 +13,29 @@
 namespace mozilla {
 namespace dom {
 
-class SubsidyLockManager final : public nsISupports
-                               , public nsWrapperCache
-{
-public:
+class SubsidyLockManager final : public nsISupports, public nsWrapperCache {
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(SubsidyLockManager)
 
   explicit SubsidyLockManager(nsPIDOMWindowInner* aWindow);
 
-  nsPIDOMWindowInner*
-  GetParentObject() const;
+  nsPIDOMWindowInner* GetParentObject() const;
 
   // WrapperCache
 
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   //  WebIDL
 
-  SubsidyLock*
-  Item(uint32_t aIndex);
+  SubsidyLock* Item(uint32_t aIndex);
 
-  uint32_t
-  Length();
+  uint32_t Length();
 
-  SubsidyLock*
-  IndexedGetter(uint32_t aIndex, bool& aFound);
+  SubsidyLock* IndexedGetter(uint32_t aIndex, bool& aFound);
 
-private:
+ private:
   ~SubsidyLockManager();
 
   bool mLengthInitialized;
@@ -50,8 +44,7 @@ private:
   nsTArray<RefPtr<SubsidyLock>> mSubsidyLocks;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-
-#endif // mozilla_dom_subsidylock_SubsidyLockManager_h__
+#endif  // mozilla_dom_subsidylock_SubsidyLockManager_h__

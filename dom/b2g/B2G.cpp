@@ -14,7 +14,7 @@ B2G::B2G(nsIGlobalObject* aGlobal) : mOwner(aGlobal) {
   MOZ_ASSERT(aGlobal);
 
   RefPtr<power::PowerManagerService> pmService =
-    power::PowerManagerService::GetInstance();
+      power::PowerManagerService::GetInstance();
 
   pmService->AddWakeLockListener(this);
 }
@@ -73,7 +73,6 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 NS_IMPL_CYCLE_COLLECTION_TRACE_WRAPPERCACHE(B2G)
 
 void B2G::Shutdown() {
-
   if (mFlashlightManager) {
     mFlashlightManager->Shutdown();
     mFlashlightManager = nullptr;
@@ -178,9 +177,7 @@ CellBroadcast* B2G::GetCellBroadcast(ErrorResult& aRv) {
   return mCellBroadcast;
 }
 
-Voicemail*
-B2G::GetVoicemail(ErrorResult& aRv)
-{
+Voicemail* B2G::GetVoicemail(ErrorResult& aRv) {
   if (!mVoicemail) {
     if (!mOwner) {
       aRv.Throw(NS_ERROR_UNEXPECTED);
@@ -253,7 +250,6 @@ SubsidyLockManager* B2G::GetSubsidyLockManager(ErrorResult& aRv) {
 }
 #endif
 
-
 #ifdef HAS_KOOST_MODULES
 ExternalAPI* B2G::GetExternalapi(ErrorResult& aRv) {
   if (!mExternalAPI) {
@@ -301,7 +297,7 @@ nsDOMCameraManager* B2G::GetCameras(ErrorResult& aRv) {
 
   return mCameraManager;
 }
-#endif // MOZ_B2G_CAMERA
+#endif  // MOZ_B2G_CAMERA
 
 #if defined(MOZ_WIDGET_GONK) && !defined(DISABLE_WIFI)
 WifiManager* B2G::GetWifiManager(ErrorResult& aRv) {
@@ -318,7 +314,7 @@ WifiManager* B2G::GetWifiManager(ErrorResult& aRv) {
   }
   return mWifiManager;
 }
-#endif // MOZ_WIDGET_GONK && !DISABLE_WIFI
+#endif  // MOZ_WIDGET_GONK && !DISABLE_WIFI
 
 /* static */
 bool B2G::HasCameraSupport(JSContext* /* unused */, JSObject* aGlobal) {
@@ -395,15 +391,15 @@ FMRadio* B2G::GetFmRadio(ErrorResult& aRv) {
 #endif
 
 /* static */
-bool B2G::HasWakeLockSupport(JSContext* /* unused*/, JSObject* /*unused */)
-{
+bool B2G::HasWakeLockSupport(JSContext* /* unused*/, JSObject* /*unused */) {
   nsCOMPtr<nsIPowerManagerService> pmService =
-    do_GetService(POWERMANAGERSERVICE_CONTRACTID);
+      do_GetService(POWERMANAGERSERVICE_CONTRACTID);
   // No service means no wake lock support
   return !!pmService;
 }
 
-already_AddRefed<WakeLock> B2G::RequestWakeLock(const nsAString &aTopic, ErrorResult& aRv) {
+already_AddRefed<WakeLock> B2G::RequestWakeLock(const nsAString& aTopic,
+                                                ErrorResult& aRv) {
   nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
   if (!innerWindow) {
     aRv.Throw(NS_ERROR_UNEXPECTED);
@@ -411,7 +407,7 @@ already_AddRefed<WakeLock> B2G::RequestWakeLock(const nsAString &aTopic, ErrorRe
   }
 
   RefPtr<power::PowerManagerService> pmService =
-    power::PowerManagerService::GetInstance();
+      power::PowerManagerService::GetInstance();
   // Maybe it went away for some reason... Or maybe we're just called
   // from our XPCOM method.
   if (!pmService) {
@@ -422,27 +418,20 @@ already_AddRefed<WakeLock> B2G::RequestWakeLock(const nsAString &aTopic, ErrorRe
   return pmService->NewWakeLock(aTopic, innerWindow, aRv);
 }
 
-void
-B2G::AddWakeLockListener(nsIDOMMozWakeLockListener *aListener)
-{
+void B2G::AddWakeLockListener(nsIDOMMozWakeLockListener* aListener) {
   if (!mListeners.Contains(aListener)) {
     mListeners.AppendElement(aListener);
   }
 }
 
-void
-B2G::RemoveWakeLockListener(nsIDOMMozWakeLockListener *aListener)
-{
+void B2G::RemoveWakeLockListener(nsIDOMMozWakeLockListener* aListener) {
   mListeners.RemoveElement(aListener);
 }
 
-void
-B2G::GetWakeLockState(const nsAString& aTopic,
-                      nsAString& aState,
-                      ErrorResult& aRv)
-{
+void B2G::GetWakeLockState(const nsAString& aTopic, nsAString& aState,
+                           ErrorResult& aRv) {
   RefPtr<power::PowerManagerService> pmService =
-    power::PowerManagerService::GetInstance();
+      power::PowerManagerService::GetInstance();
 
   if (pmService) {
     aRv = pmService->GetWakeLockState(aTopic, aState);
@@ -452,8 +441,7 @@ B2G::GetWakeLockState(const nsAString& aTopic,
 }
 
 NS_IMETHODIMP
-B2G::Callback(const nsAString &aTopic, const nsAString &aState)
-{
+B2G::Callback(const nsAString& aTopic, const nsAString& aState) {
   /**
    * We maintain a local listener list instead of using the global
    * list so that when the window is destroyed we don't have to

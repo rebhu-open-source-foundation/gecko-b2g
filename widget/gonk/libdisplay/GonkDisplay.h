@@ -23,112 +23,102 @@
 
 namespace android {
 
-typedef void * EGLDisplay;
-typedef void * EGLSurface;
+typedef void* EGLDisplay;
+typedef void* EGLSurface;
 
 class MOZ_EXPORT GonkDisplay {
-public:
-    struct NativeData {
-        android::sp<ANativeWindow> mNativeWindow;
-        android::sp<android::DisplaySurface> mDisplaySurface;
-        float mXdpi;
-        bool mComposer2DSupported;
-        // True if platform is capable of notifying the system when a vsync
-        // event occurs on this screen. We use it as a hint to create relative
-        // VsyncSource::Display and VsyncScheduler.
-        bool mVsyncSupported;
-    };
+ public:
+  struct NativeData {
+    android::sp<ANativeWindow> mNativeWindow;
+    android::sp<android::DisplaySurface> mDisplaySurface;
+    float mXdpi;
+    bool mComposer2DSupported;
+    // True if platform is capable of notifying the system when a vsync
+    // event occurs on this screen. We use it as a hint to create relative
+    // VsyncSource::Display and VsyncScheduler.
+    bool mVsyncSupported;
+  };
 
-    struct DisplayNativeData {
-        DisplayNativeData()
-            : mXdpi(0)
-            , mSurfaceformat(0)
-            , mWidth(0)
-            , mHeight(0)
-        {};
+  struct DisplayNativeData {
+    DisplayNativeData() : mXdpi(0), mSurfaceformat(0), mWidth(0), mHeight(0){};
 
-        float mXdpi;
-        int32_t mSurfaceformat;
-        uint32_t mWidth;
-        uint32_t mHeight;
-    };
+    float mXdpi;
+    int32_t mSurfaceformat;
+    uint32_t mWidth;
+    uint32_t mHeight;
+  };
 
-    virtual ~GonkDisplay() {};
+  virtual ~GonkDisplay(){};
 
-    virtual void SetEnabled(bool enabled) = 0;
+  virtual void SetEnabled(bool enabled) = 0;
 
-    virtual void SetExtEnabled(bool enabled) = 0;
+  virtual void SetExtEnabled(bool enabled) = 0;
 
-    typedef void (*OnEnabledCallbackType)(bool enabled);
+  typedef void (*OnEnabledCallbackType)(bool enabled);
 
-    virtual void OnEnabled(OnEnabledCallbackType callback) = 0;
+  virtual void OnEnabled(OnEnabledCallbackType callback) = 0;
 
-    virtual void* GetHWCDevice() = 0;
+  virtual void* GetHWCDevice() = 0;
 
-    virtual bool IsExtFBDeviceEnabled() = 0;
+  virtual bool IsExtFBDeviceEnabled() = 0;
 
-    /**
-     * Only GonkDisplayICS uses arguments.
-     */
-    virtual bool SwapBuffers(DisplayType aDisplayType) = 0;
+  /**
+   * Only GonkDisplayICS uses arguments.
+   */
+  virtual bool SwapBuffers(DisplayType aDisplayType) = 0;
 
-    virtual ANativeWindowBuffer* DequeueBuffer(DisplayType dpy) = 0;
+  virtual ANativeWindowBuffer* DequeueBuffer(DisplayType dpy) = 0;
 
-    virtual bool QueueBuffer(ANativeWindowBuffer* buf, DisplayType dpy) = 0;
+  virtual bool QueueBuffer(ANativeWindowBuffer* buf, DisplayType dpy) = 0;
 
-    virtual void UpdateDispSurface(EGLDisplay dpy, EGLSurface sur) = 0;
+  virtual void UpdateDispSurface(EGLDisplay dpy, EGLSurface sur) = 0;
 
-    virtual NativeData GetNativeData(
-        DisplayType aDisplayType,
-        android::IGraphicBufferProducer* aSink = nullptr) = 0;
+  virtual NativeData GetNativeData(
+      DisplayType aDisplayType,
+      android::IGraphicBufferProducer* aSink = nullptr) = 0;
 
-    virtual void NotifyBootAnimationStopped() = 0;
+  virtual void NotifyBootAnimationStopped() = 0;
 
-    virtual const DisplayNativeData& GetDispNativeData(
-        DisplayType aDisplayType) {
-        return mDispNativeData[(uint32_t)aDisplayType];
-    }
+  virtual const DisplayNativeData& GetDispNativeData(DisplayType aDisplayType) {
+    return mDispNativeData[(uint32_t)aDisplayType];
+  }
 
 #ifdef ENABLE_TEE_SUI
-    virtual int EnableSecureUI(bool enabled) = 0;
+  virtual int EnableSecureUI(bool enabled) = 0;
 
-    virtual bool GetSecureUIState() = 0;
+  virtual bool GetSecureUIState() = 0;
 #endif
 
-    virtual int TryLockScreen() = 0;
+  virtual int TryLockScreen() = 0;
 
-    virtual void UnlockScreen() = 0;
+  virtual void UnlockScreen() = 0;
 
-    virtual android::sp<ANativeWindow> GetSurface() = 0;
+  virtual android::sp<ANativeWindow> GetSurface() = 0;
 
-    typedef void (*GonkDisplayVsyncCBFun)
-            (int display, int64_t timestamp);
-    virtual void registerVsyncCallBack(GonkDisplayVsyncCBFun func) {
-        pVsyncCBFun = func;
-    }
+  typedef void (*GonkDisplayVsyncCBFun)(int display, int64_t timestamp);
+  virtual void registerVsyncCallBack(GonkDisplayVsyncCBFun func) {
+    pVsyncCBFun = func;
+  }
 
-    virtual GonkDisplayVsyncCBFun getVsyncCallBack() {
-        return pVsyncCBFun;
-    }
+  virtual GonkDisplayVsyncCBFun getVsyncCallBack() { return pVsyncCBFun; }
 
-    typedef void (*GonkDisplayInvalidateCBFun) (void);
-    virtual void registerInvalidateCallBack(GonkDisplayInvalidateCBFun func) {
-        pInvalidateCBFun = func;
-    }
+  typedef void (*GonkDisplayInvalidateCBFun)(void);
+  virtual void registerInvalidateCallBack(GonkDisplayInvalidateCBFun func) {
+    pInvalidateCBFun = func;
+  }
 
-    virtual GonkDisplayInvalidateCBFun getInvalidateCallBack() {
-        return pInvalidateCBFun;
-    }
+  virtual GonkDisplayInvalidateCBFun getInvalidateCallBack() {
+    return pInvalidateCBFun;
+  }
 
-protected:
-    DisplayNativeData mDispNativeData[NUM_DISPLAY_TYPES];
-    GonkDisplayVsyncCBFun pVsyncCBFun = nullptr;
-    GonkDisplayInvalidateCBFun pInvalidateCBFun = nullptr;
+ protected:
+  DisplayNativeData mDispNativeData[NUM_DISPLAY_TYPES];
+  GonkDisplayVsyncCBFun pVsyncCBFun = nullptr;
+  GonkDisplayInvalidateCBFun pInvalidateCBFun = nullptr;
 };
 
-extern "C" MOZ_EXPORT __attribute__ ((weak))
-GonkDisplay* GetGonkDisplayP();
+extern "C" MOZ_EXPORT __attribute__((weak)) GonkDisplay* GetGonkDisplayP();
 
-} // namespace android
+}  // namespace android
 
 #endif /* GONKDISPLAY_H */

@@ -23,37 +23,38 @@
 #include "mozilla/ReentrantMonitor.h"
 
 #ifdef MOZ_WIDGET_GONK
-#include <binder/IMemory.h>
-#include <camera/Camera.h>
-#include <camera/CameraParameters.h>
-#include <utils/threads.h>
-#include "GonkCameraListener.h"
-#include "GonkNativeWindow.h"
+#  include <binder/IMemory.h>
+#  include <camera/Camera.h>
+#  include <camera/CameraParameters.h>
+#  include <utils/threads.h>
+#  include "GonkCameraListener.h"
+#  include "GonkNativeWindow.h"
 #else
-#include "FallbackCameraPlatform.h"
+#  include "FallbackCameraPlatform.h"
 #endif
 
 namespace mozilla {
-  class nsGonkCameraControl;
-  class GonkCameraParameters;
-}
+class nsGonkCameraControl;
+class GonkCameraParameters;
+}  // namespace mozilla
 
 namespace android {
 
 class GonkCameraHardware
 #ifdef MOZ_WIDGET_GONK
-  : public GonkNativeWindowNewFrameCallback
-  , public CameraListener
+    : public GonkNativeWindowNewFrameCallback,
+      public CameraListener
 #else
-  : public nsISupports
+    : public nsISupports
 #endif
 {
 #ifndef MOZ_WIDGET_GONK
   NS_DECL_ISUPPORTS
 #endif
 
-protected:
-  GonkCameraHardware(mozilla::nsGonkCameraControl* aTarget, uint32_t aCameraId, const sp<Camera>& aCamera);
+ protected:
+  GonkCameraHardware(mozilla::nsGonkCameraControl* aTarget, uint32_t aCameraId,
+                     const sp<Camera>& aCamera);
   virtual ~GonkCameraHardware();
 
   // Initialize the AOSP camera interface.
@@ -63,8 +64,9 @@ protected:
   //  - NS_ERROR_NOT_INITIALIZED if the interface could not be initialized.
   virtual nsresult Init();
 
-public:
-  static sp<GonkCameraHardware> Connect(mozilla::nsGonkCameraControl* aTarget, uint32_t aCameraId);
+ public:
+  static sp<GonkCameraHardware> Connect(mozilla::nsGonkCameraControl* aTarget,
+                                        uint32_t aCameraId);
   virtual void Close();
 
   virtual void OnRateLimitPreview(bool aLimit);
@@ -75,12 +77,15 @@ public:
 
   // derived from CameraListener
   virtual void notify(int32_t aMsgType, int32_t ext1, int32_t ext2) override;
-  virtual void postData(int32_t aMsgType, const sp<IMemory>& aDataPtr, camera_frame_metadata_t* metadata) override;
-  virtual void postDataTimestamp(nsecs_t aTimestamp, int32_t aMsgType, const sp<IMemory>& aDataPtr) override;
-  virtual void postRecordingFrameHandleTimestamp(nsecs_t timestamp, native_handle_t* handle) override;
+  virtual void postData(int32_t aMsgType, const sp<IMemory>& aDataPtr,
+                        camera_frame_metadata_t* metadata) override;
+  virtual void postDataTimestamp(nsecs_t aTimestamp, int32_t aMsgType,
+                                 const sp<IMemory>& aDataPtr) override;
+  virtual void postRecordingFrameHandleTimestamp(
+      nsecs_t timestamp, native_handle_t* handle) override;
   virtual void postRecordingFrameHandleTimestampBatch(
-          const std::vector<nsecs_t>& timestamps,
-          const std::vector<native_handle_t*>& handles) override;
+      const std::vector<nsecs_t>& timestamps,
+      const std::vector<native_handle_t*>& handles) override;
 #endif
 
   /**
@@ -97,13 +102,10 @@ public:
    * by get_camera_info(); OFFSET_SENSOR_ORIENTATION is the offset adjusted
    * orientation.
    */
-  enum {
-    RAW_SENSOR_ORIENTATION,
-    OFFSET_SENSOR_ORIENTATION
-  };
-  virtual int      GetSensorOrientation(uint32_t aType = RAW_SENSOR_ORIENTATION);
+  enum { RAW_SENSOR_ORIENTATION, OFFSET_SENSOR_ORIENTATION };
+  virtual int GetSensorOrientation(uint32_t aType = RAW_SENSOR_ORIENTATION);
 
-  virtual bool     IsEmulated();
+  virtual bool IsEmulated();
 
   /**
    * MIN_UNDEQUEUED_BUFFERS has increased to 4 since Android JB. For FFOS, more
@@ -112,47 +114,47 @@ public:
    * set MIN_UNDEQUEUED_BUFFERS to 4 only in Android KK base.
    * See also bug 988704.
    */
-  enum { MIN_UNDEQUEUED_BUFFERS = 4};
+  enum { MIN_UNDEQUEUED_BUFFERS = 4 };
 
-  virtual int      AutoFocus();
-  virtual int      CancelAutoFocus();
-  virtual int      StartFaceDetection();
-  virtual int      StopFaceDetection();
-  virtual int      TakePicture();
-  virtual void     CancelTakePicture();
-  virtual int      StartPreview();
-  virtual void     StopPreview();
-  virtual int      PushParameters(const mozilla::GonkCameraParameters& aParams);
+  virtual int AutoFocus();
+  virtual int CancelAutoFocus();
+  virtual int StartFaceDetection();
+  virtual int StopFaceDetection();
+  virtual int TakePicture();
+  virtual void CancelTakePicture();
+  virtual int StartPreview();
+  virtual void StopPreview();
+  virtual int PushParameters(const mozilla::GonkCameraParameters& aParams);
   virtual nsresult PullParameters(mozilla::GonkCameraParameters& aParams);
 #ifdef MOZ_WIDGET_GONK
-  virtual int      PushParameters(const CameraParameters& aParams);
-  virtual void     PullParameters(CameraParameters& aParams);
-  virtual int      SetListener(const sp<GonkCameraListener>& aListener);
-  virtual void     ReleaseRecordingFrame(const sp<IMemory>& aFrame);
+  virtual int PushParameters(const CameraParameters& aParams);
+  virtual void PullParameters(CameraParameters& aParams);
+  virtual int SetListener(const sp<GonkCameraListener>& aListener);
+  virtual void ReleaseRecordingFrame(const sp<IMemory>& aFrame);
 #endif
-  virtual int      StartRecording();
-  virtual int      StopRecording();
-  virtual int      SetVideoBufferMode(int32_t videoBufferMode);
+  virtual int StartRecording();
+  virtual int StopRecording();
+  virtual int SetVideoBufferMode(int32_t videoBufferMode);
 
-protected:
-  uint32_t                      mCameraId;
-  bool                          mClosing;
-  uint32_t                      mNumFrames;
-  sp<Camera>                    mCamera;
+ protected:
+  uint32_t mCameraId;
+  bool mClosing;
+  uint32_t mNumFrames;
+  sp<Camera> mCamera;
   mozilla::nsGonkCameraControl* mTarget;
 #ifdef MOZ_WIDGET_GONK
-  sp<GonkNativeWindow>          mNativeWindow;
-  sp<GonkCameraListener>        mListener;
+  sp<GonkNativeWindow> mNativeWindow;
+  sp<GonkCameraListener> mListener;
 #endif
-  int                           mRawSensorOrientation;
-  int                           mSensorOrientation;
-  bool                          mEmulated;
+  int mRawSensorOrientation;
+  int mSensorOrientation;
+  bool mEmulated;
 
-private:
+ private:
   GonkCameraHardware(const GonkCameraHardware&) = delete;
   GonkCameraHardware& operator=(const GonkCameraHardware&) = delete;
 };
 
-} // namespace android
+}  // namespace android
 
-#endif // GONK_IMPL_HW_MGR_H
+#endif  // GONK_IMPL_HW_MGR_H

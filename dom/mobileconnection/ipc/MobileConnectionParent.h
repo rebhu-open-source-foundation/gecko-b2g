@@ -1,8 +1,8 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
-* License, v. 2.0. If a copy of the MPL was not distributed with this file,
-* You can obtain one at http://mozilla.org/MPL/2.0/. */
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #ifndef mozilla_dom_mobileconnection_MobileConnectionParent_h
 #define mozilla_dom_mobileconnection_MobileConnectionParent_h
@@ -22,34 +22,30 @@ namespace mobileconnection {
  * Parent actor of PMobileConnection. This object is created/destroyed along
  * with child actor.
  */
-class MobileConnectionParent : public PMobileConnectionParent
-                             , public nsIMobileConnectionListener
-{
+class MobileConnectionParent : public PMobileConnectionParent,
+                               public nsIMobileConnectionListener {
   friend class PMobileConnectionParent;
-public:
+
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIMOBILECONNECTIONLISTENER
 
   explicit MobileConnectionParent(uint32_t aClientId);
 
-protected:
-  virtual
-  ~MobileConnectionParent()
-  {
-  }
+ protected:
+  virtual ~MobileConnectionParent() {}
 
-  virtual void
-  ActorDestroy(ActorDestroyReason aWhy) override;
+  virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  virtual mozilla::ipc::IPCResult
-  RecvPMobileConnectionRequestConstructor(PMobileConnectionRequestParent* aActor,
-                                          const MobileConnectionRequest& aRequest) override;
+  virtual mozilla::ipc::IPCResult RecvPMobileConnectionRequestConstructor(
+      PMobileConnectionRequestParent* aActor,
+      const MobileConnectionRequest& aRequest) override;
 
-  PMobileConnectionRequestParent*
-  AllocPMobileConnectionRequestParent(const MobileConnectionRequest& request);
+  PMobileConnectionRequestParent* AllocPMobileConnectionRequestParent(
+      const MobileConnectionRequest& request);
 
-  bool
-  DeallocPMobileConnectionRequestParent(PMobileConnectionRequestParent* aActor);
+  bool DeallocPMobileConnectionRequestParent(
+      PMobileConnectionRequestParent* aActor);
 
   mozilla::ipc::IPCResult RecvInit(
       nsMobileConnectionInfo* aVoice, nsMobileConnectionInfo* aData,
@@ -59,10 +55,10 @@ protected:
       nsMobileSignalStrength* aSingalStrength,
       nsMobileDeviceIdentities* aDeviceIdentities);
 
-  mozilla::ipc::IPCResult
-  RecvGetSupportedNetworkTypes(nsTArray<int32_t>* aSupportedNetworkTypes);
+  mozilla::ipc::IPCResult RecvGetSupportedNetworkTypes(
+      nsTArray<int32_t>* aSupportedNetworkTypes);
 
-private:
+ private:
   nsCOMPtr<nsIMobileConnection> mMobileConnection;
   bool mLive;
 };
@@ -78,102 +74,73 @@ private:
  * any callback is triggered. So we use mLive to maintain the status of child
  * actor in order to present sending data to a dead one.
  */
-class MobileConnectionRequestParent : public PMobileConnectionRequestParent
-                                    , public nsIMobileConnectionCallback
-{
+class MobileConnectionRequestParent : public PMobileConnectionRequestParent,
+                                      public nsIMobileConnectionCallback {
   friend PMobileConnectionRequestParent;
-public:
+
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIMOBILECONNECTIONCALLBACK
 
   explicit MobileConnectionRequestParent(nsIMobileConnection* aMobileConnection)
-    : mMobileConnection(aMobileConnection)
-    , mLive(true)
-  {
-  }
+      : mMobileConnection(aMobileConnection), mLive(true) {}
 
-  bool
-  DoRequest(const GetNetworksRequest& aRequest);
+  bool DoRequest(const GetNetworksRequest& aRequest);
 
-  bool
-  DoRequest(const SelectNetworkRequest& aRequest);
+  bool DoRequest(const SelectNetworkRequest& aRequest);
 
-  bool
-  DoRequest(const SelectNetworkAutoRequest& aRequest);
+  bool DoRequest(const SelectNetworkAutoRequest& aRequest);
 
-  bool
-  DoRequest(const SetPreferredNetworkTypeRequest& aRequest);
+  bool DoRequest(const SetPreferredNetworkTypeRequest& aRequest);
 
-  bool
-  DoRequest(const GetPreferredNetworkTypeRequest& aRequest);
+  bool DoRequest(const GetPreferredNetworkTypeRequest& aRequest);
 
-  bool
-  DoRequest(const SetRoamingPreferenceRequest& aRequest);
+  bool DoRequest(const SetRoamingPreferenceRequest& aRequest);
 
-  bool
-  DoRequest(const GetRoamingPreferenceRequest& aRequest);
+  bool DoRequest(const GetRoamingPreferenceRequest& aRequest);
 
-  bool
-  DoRequest(const SetVoicePrivacyModeRequest& aRequest);
+  bool DoRequest(const SetVoicePrivacyModeRequest& aRequest);
 
-  bool
-  DoRequest(const GetVoicePrivacyModeRequest& aRequest);
+  bool DoRequest(const GetVoicePrivacyModeRequest& aRequest);
 
-  bool
-  DoRequest(const SetCallForwardingRequest& aRequest);
+  bool DoRequest(const SetCallForwardingRequest& aRequest);
 
-  bool
-  DoRequest(const GetCallForwardingRequest& aRequest);
+  bool DoRequest(const GetCallForwardingRequest& aRequest);
 
-  bool
-  DoRequest(const SetCallBarringRequest& aRequest);
+  bool DoRequest(const SetCallBarringRequest& aRequest);
 
-  bool
-  DoRequest(const GetCallBarringRequest& aRequest);
+  bool DoRequest(const GetCallBarringRequest& aRequest);
 
-  bool
-  DoRequest(const ChangeCallBarringPasswordRequest& aRequest);
+  bool DoRequest(const ChangeCallBarringPasswordRequest& aRequest);
 
-  bool
-  DoRequest(const SetCallWaitingRequest& aRequest);
+  bool DoRequest(const SetCallWaitingRequest& aRequest);
 
-  bool
-  DoRequest(const GetCallWaitingRequest& aRequest);
+  bool DoRequest(const GetCallWaitingRequest& aRequest);
 
-  bool
-  DoRequest(const SetCallingLineIdRestrictionRequest& aRequest);
+  bool DoRequest(const SetCallingLineIdRestrictionRequest& aRequest);
 
-  bool
-  DoRequest(const GetCallingLineIdRestrictionRequest& aRequest);
+  bool DoRequest(const GetCallingLineIdRestrictionRequest& aRequest);
 
-  bool
-  DoRequest(const ExitEmergencyCbModeRequest& aRequest);
+  bool DoRequest(const ExitEmergencyCbModeRequest& aRequest);
 
-  bool
-  DoRequest(const SetRadioEnabledRequest& aRequest);
+  bool DoRequest(const SetRadioEnabledRequest& aRequest);
 
-  bool
-  DoRequest(const GetDeviceIdentitiesRequest& aRequest);
+  bool DoRequest(const GetDeviceIdentitiesRequest& aRequest);
 
-protected:
-  virtual
-  ~MobileConnectionRequestParent()
-  {
-  }
+ protected:
+  virtual ~MobileConnectionRequestParent() {}
 
-  virtual void
-  ActorDestroy(ActorDestroyReason aWhy) override;
+  virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  nsresult
-  SendReply(const MobileConnectionReply& aReply);
+  nsresult SendReply(const MobileConnectionReply& aReply);
 
-private:
+ private:
   nsCOMPtr<nsIMobileConnection> mMobileConnection;
   bool mLive;
 };
 
-} // namespace mobileconnection
-} // namespace dom
-} // namespace mozilla
+}  // namespace mobileconnection
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_mobileconnection_MobileConnectionParent_h
+#endif  // mozilla_dom_mobileconnection_MobileConnectionParent_h

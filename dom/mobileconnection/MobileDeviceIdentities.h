@@ -33,7 +33,7 @@ class MobileDeviceIdentities final : public nsIMobileDeviceIdentities {
   nsString mMeid;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_MobileDeviceIdentities_h
+#endif  // mozilla_dom_MobileDeviceIdentities_h

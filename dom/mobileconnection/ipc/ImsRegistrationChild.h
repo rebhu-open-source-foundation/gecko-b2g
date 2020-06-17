@@ -22,59 +22,51 @@ namespace mobileconnection {
  * shutdown. For multi-sim device, more than one instance will
  * be created and each instance represents the ImsRegHandler per sim slot.
  */
-class ImsRegistrationChild final : public PImsRegistrationChild
-                                     , public nsIImsRegHandler
-{
+class ImsRegistrationChild final : public PImsRegistrationChild,
+                                   public nsIImsRegHandler {
   friend class PImsRegistrationChild;
-  //class PImsRegServiceFinderChild;
+  // class PImsRegServiceFinderChild;
 
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIIMSREGHANDLER
 
   explicit ImsRegistrationChild(uint32_t aServiceId);
 
-  void
-  Init();
+  void Init();
 
-  void
-  Shutdown();
+  void Shutdown();
 
-private:
+ private:
   ImsRegistrationChild() = delete;
 
   // final suppresses -Werror,-Wdelete-non-virtual-dtor
-  ~ImsRegistrationChild()
-  {
-  }
-public:
-//protected:
-  bool
-  SendRequest(const ImsRegistrationRequest& aRequest,
-              nsIImsRegCallback* aCallback);
+  ~ImsRegistrationChild() {}
 
-  virtual void
-  ActorDestroy(ActorDestroyReason why) override;
+ public:
+  // protected:
+  bool SendRequest(const ImsRegistrationRequest& aRequest,
+                   nsIImsRegCallback* aCallback);
 
-  PImsRegistrationRequestChild*
-  AllocPImsRegistrationRequestChild(const ImsRegistrationRequest& request);
+  virtual void ActorDestroy(ActorDestroyReason why) override;
 
-  bool
-  DeallocPImsRegistrationRequestChild(PImsRegistrationRequestChild* aActor);
+  PImsRegistrationRequestChild* AllocPImsRegistrationRequestChild(
+      const ImsRegistrationRequest& request);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyEnabledStateChanged(const bool& aEnabled);
+  bool DeallocPImsRegistrationRequestChild(
+      PImsRegistrationRequestChild* aActor);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyPreferredProfileChanged(const uint16_t& aProfile);
+  mozilla::ipc::IPCResult RecvNotifyEnabledStateChanged(const bool& aEnabled);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyImsCapabilityChanged(const int16_t& aCapability,
-                                 const nsString& UnregisteredReason);
-  mozilla::ipc::IPCResult
-  RecvNotifyRttEnabledStateChanged(const bool& aEnabled);
+  mozilla::ipc::IPCResult RecvNotifyPreferredProfileChanged(
+      const uint16_t& aProfile);
 
-private:
+  mozilla::ipc::IPCResult RecvNotifyImsCapabilityChanged(
+      const int16_t& aCapability, const nsString& UnregisteredReason);
+  mozilla::ipc::IPCResult RecvNotifyRttEnabledStateChanged(
+      const bool& aEnabled);
+
+ private:
   bool mLive;
   nsCOMArray<nsIImsRegListener> mListeners;
   bool mEnabled;
@@ -94,39 +86,32 @@ private:
  * asynchronous request is made and destroyed after receiving the response sent
  * by parent actor.
  */
-class ImsRegistrationRequestChild : public PImsRegistrationRequestChild
-{
+class ImsRegistrationRequestChild : public PImsRegistrationRequestChild {
   friend class PImsRegistrationRequestChild;
-public:
+
+ public:
   explicit ImsRegistrationRequestChild(nsIImsRegCallback* aRequestCallback)
-    : mRequestCallback(aRequestCallback)
-  {
+      : mRequestCallback(aRequestCallback) {
     MOZ_ASSERT(mRequestCallback);
   }
 
-  bool
-  DoReply(const ImsRegistrationReplySuccess& aReply);
+  bool DoReply(const ImsRegistrationReplySuccess& aReply);
 
-  bool
-  DoReply(const ImsRegistrationReplyError& aReply);
+  bool DoReply(const ImsRegistrationReplyError& aReply);
 
-//protected:
-  ~ImsRegistrationRequestChild()
-  {
-  }
+  // protected:
+  ~ImsRegistrationRequestChild() {}
 
-  virtual void
-  ActorDestroy(ActorDestroyReason why) override;
+  virtual void ActorDestroy(ActorDestroyReason why) override;
 
-  mozilla::ipc::IPCResult
-  Recv__delete__(const ImsRegistrationReply& aReply);
+  mozilla::ipc::IPCResult Recv__delete__(const ImsRegistrationReply& aReply);
 
-private:
+ private:
   nsCOMPtr<nsIImsRegCallback> mRequestCallback;
 };
 
-} // namespace mobileconnection
-} // namespace dom
-} // namespace mozilla
+}  // namespace mobileconnection
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_mobileconnection_ImsRegistrationChild_h
+#endif  // mozilla_dom_mobileconnection_ImsRegistrationChild_h

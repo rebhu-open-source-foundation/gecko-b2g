@@ -12,20 +12,19 @@
 
 #undef ALOGV
 #if 0
-#define ALOGV(args...)  __android_log_print(ANDROID_LOG_DEBUG, "GonkActivityManagerService" , ## args)
-#else //Turn off log.
-#define ALOGV(args...)
+#  define ALOGV(args...) \
+    __android_log_print(ANDROID_LOG_DEBUG, "GonkActivityManagerService", ##args)
+#else  // Turn off log.
+#  define ALOGV(args...)
 #endif
 
 namespace android {
 // NOLINTNEXTLINE(google-default-arguments)
-status_t BnActivityManager::onTransact(
-    uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags)
-{
-  switch(code) {
-
+status_t BnActivityManager::onTransact(uint32_t code, const Parcel& data,
+                                       Parcel* reply, uint32_t flags) {
+  switch (code) {
     case OPEN_CONTENT_URI_TRANSACTION: {
-      ALOGV( "%s(), line:%d", __func__, __LINE__);
+      ALOGV("%s(), line:%d", __func__, __LINE__);
       CHECK_INTERFACE(IActivityManager, data, reply);
       String16 stringUri = data.readString16();
       int res = openContentUri(stringUri);
@@ -34,9 +33,8 @@ status_t BnActivityManager::onTransact(
       return NO_ERROR;
     } break;
 
-
     case REGISTER_UID_OBSERVER_TRANSACTION: {
-      ALOGV( "%s(), line:%d", __func__, __LINE__);
+      ALOGV("%s(), line:%d", __func__, __LINE__);
       CHECK_INTERFACE(IActivityManager, data, reply);
       sp<IUidObserver> observer =
           interface_cast<IUidObserver>(data.readStrongBinder());
@@ -49,7 +47,7 @@ status_t BnActivityManager::onTransact(
     } break;
 
     case UNREGISTER_UID_OBSERVER_TRANSACTION: {
-      ALOGV( "%s(), line:%d", __func__, __LINE__);
+      ALOGV("%s(), line:%d", __func__, __LINE__);
       CHECK_INTERFACE(IActivityManager, data, reply);
       sp<IUidObserver> observer =
           interface_cast<IUidObserver>(data.readStrongBinder());
@@ -59,7 +57,7 @@ status_t BnActivityManager::onTransact(
     } break;
 
     case IS_UID_ACTIVE_TRANSACTION: {
-      ALOGV( "%s(), line:%d", __func__, __LINE__);
+      ALOGV("%s(), line:%d", __func__, __LINE__);
       CHECK_INTERFACE(IActivityManager, data, reply);
       int32_t uid = data.readInt32();
       String16 callingPackage = data.readString16();
@@ -70,7 +68,7 @@ status_t BnActivityManager::onTransact(
     } break;
 
     case GET_UID_PROCESS_STATE_TRANSACTION: {
-      ALOGV( "%s(), line:%d", __func__, __LINE__);
+      ALOGV("%s(), line:%d", __func__, __LINE__);
       CHECK_INTERFACE(IActivityManager, data, reply);
       int32_t uid = data.readInt32();
       String16 callingPackage = data.readString16();
@@ -84,63 +82,57 @@ status_t BnActivityManager::onTransact(
       return BBinder::onTransact(code, data, reply, flags);
   }
 }
-}; // namespace android
+};  // namespace android
 
 namespace mozilla {
 
-int GonkActivityManagerService::openContentUri(const android::String16& stringUri)
-{
+int GonkActivityManagerService::openContentUri(
+    const android::String16& stringUri) {
   // Gonk doesn't use this interface currently.
-  ALOGV( "%s(), line:%d", __func__, __LINE__);
+  ALOGV("%s(), line:%d", __func__, __LINE__);
   return -1;
 }
 
-void GonkActivityManagerService::registerUidObserver(const android::sp<android::IUidObserver>& observer,
-                         const int32_t event,
-                         const int32_t cutpoint,
-                         const android::String16& callingPackage)
-{
+void GonkActivityManagerService::registerUidObserver(
+    const android::sp<android::IUidObserver>& observer, const int32_t event,
+    const int32_t cutpoint, const android::String16& callingPackage) {
   // Gonk doesn't use this interface currently.
-  ALOGV( "%s(), line:%d", __func__, __LINE__);
+  ALOGV("%s(), line:%d", __func__, __LINE__);
 }
 
-void GonkActivityManagerService::unregisterUidObserver(const android::sp<android::IUidObserver>& observer)
-{
+void GonkActivityManagerService::unregisterUidObserver(
+    const android::sp<android::IUidObserver>& observer) {
   // Gonk doesn't use this interface currently.
-  ALOGV( "%s(), line:%d", __func__, __LINE__);
+  ALOGV("%s(), line:%d", __func__, __LINE__);
 }
 
-bool GonkActivityManagerService::isUidActive(const uid_t uid, const android::String16& callingPackage)
-{
-  ALOGV( "%s(), line:%d", __func__, __LINE__);
+bool GonkActivityManagerService::isUidActive(
+    const uid_t uid, const android::String16& callingPackage) {
+  ALOGV("%s(), line:%d", __func__, __LINE__);
   return true;
 }
 
-int32_t GonkActivityManagerService::getUidProcessState(const uid_t uid, const android::String16& callingPackage)
-{
-  ALOGV( "%s(), line:%d", __func__, __LINE__);
+int32_t GonkActivityManagerService::getUidProcessState(
+    const uid_t uid, const android::String16& callingPackage) {
+  ALOGV("%s(), line:%d", __func__, __LINE__);
   return android::ActivityManager::PROCESS_STATE_TOP;
 }
 
 static GonkActivityManagerService* gGonkActivityManagerService = NULL;
 
 /* static */
-void
-GonkActivityManagerService::instantiate()
-{
-  ALOGV( "%s(), line:%d", __func__, __LINE__);
-  android::defaultServiceManager()->addService(android::String16(getServiceName()),
-    GetInstance());
+void GonkActivityManagerService::instantiate() {
+  ALOGV("%s(), line:%d", __func__, __LINE__);
+  android::defaultServiceManager()->addService(
+      android::String16(getServiceName()), GetInstance());
 }
 
 /* static */
-GonkActivityManagerService*
-GonkActivityManagerService::GetInstance()
-{
-  ALOGV( "%s(), line:%d", __func__, __LINE__);
+GonkActivityManagerService* GonkActivityManagerService::GetInstance() {
+  ALOGV("%s(), line:%d", __func__, __LINE__);
   if (!gGonkActivityManagerService) {
     gGonkActivityManagerService = new GonkActivityManagerService();
   }
   return gGonkActivityManagerService;
 }
-}; // namespace mozilla
+};  // namespace mozilla

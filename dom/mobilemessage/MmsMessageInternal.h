@@ -26,60 +26,43 @@ namespace mobilemessage {
 
 class MmsMessageData;
 
-class MmsMessageInternal final : public nsIMmsMessage
-{
+class MmsMessageInternal final : public nsIMmsMessage {
   // This allows the MmsMessage class to access jsval data members
   // like |deliveryInfo|, |receivers|, and |attachments| without JS API.
   friend class mozilla::dom::MmsMessage;
 
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS(MmsMessageInternal)
   NS_DECL_NSIMMSMESSAGE
 
-  MmsMessageInternal(int32_t aId,
-                     uint64_t aThreadId,
-                     const nsAString& aIccId,
+  MmsMessageInternal(int32_t aId, uint64_t aThreadId, const nsAString& aIccId,
                      mobilemessage::DeliveryState aDelivery,
                      const nsTArray<MmsDeliveryInfo>& aDeliveryInfo,
                      const nsAString& aSender,
-                     const nsTArray<nsString>& aReceivers,
-                     uint64_t aTimestamp,
-                     uint64_t aSentTimestamp,
-                     bool aRead,
-                     const nsAString& aSubject,
-                     const nsAString& aSmil,
+                     const nsTArray<nsString>& aReceivers, uint64_t aTimestamp,
+                     uint64_t aSentTimestamp, bool aRead,
+                     const nsAString& aSubject, const nsAString& aSmil,
                      const nsTArray<MmsAttachment>& aAttachments,
-                     uint64_t aExpiryDate,
-                     bool aReadReportRequested,
+                     uint64_t aExpiryDate, bool aReadReportRequested,
                      bool aIsGroup);
 
   explicit MmsMessageInternal(const MmsMessageData& aData);
 
-  static nsresult Create(int32_t aId,
-                         uint64_t aThreadId,
-                         const nsAString& aIccId,
-                         const nsAString& aDelivery,
+  static nsresult Create(int32_t aId, uint64_t aThreadId,
+                         const nsAString& aIccId, const nsAString& aDelivery,
                          const JS::Value& aDeliveryInfo,
-                         const nsAString& aSender,
-                         const JS::Value& aReceivers,
-                         uint64_t aTimestamp,
-                         uint64_t aSentTimestamp,
-                         bool aRead,
-                         const nsAString& aSubject,
-                         const nsAString& aSmil,
-                         const JS::Value& aAttachments,
-                         uint64_t aExpiryDate,
-                         bool aReadReportRequested,
-                         bool aIsGroup,
-                         JSContext* aCx,
+                         const nsAString& aSender, const JS::Value& aReceivers,
+                         uint64_t aTimestamp, uint64_t aSentTimestamp,
+                         bool aRead, const nsAString& aSubject,
+                         const nsAString& aSmil, const JS::Value& aAttachments,
+                         uint64_t aExpiryDate, bool aReadReportRequested,
+                         bool aIsGroup, JSContext* aCx,
                          nsIMmsMessage** aMessage);
 
-  bool GetData(ContentParent* aParent,
-               MmsMessageData& aData);
+  bool GetData(ContentParent* aParent, MmsMessageData& aData);
 
-private:
-
+ private:
   ~MmsMessageInternal() {}
 
   int32_t mId;
@@ -100,8 +83,8 @@ private:
   bool mIsGroup;
 };
 
-} // namespace mobilemessage
-} // namespace dom
-} // namespace mozilla
+}  // namespace mobilemessage
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_mobilemessage_MmsMessageInternal_h
+#endif  // mozilla_dom_mobilemessage_MmsMessageInternal_h

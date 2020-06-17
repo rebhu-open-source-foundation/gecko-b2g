@@ -10,26 +10,24 @@
 namespace mozilla {
 
 GonkCameraImage::GonkCameraImage()
-  : GrallocImage()
-  , mMonitor("GonkCameraImage.Monitor")
-  , mMediaBuffer(nullptr)
+    : GrallocImage(),
+      mMonitor("GonkCameraImage.Monitor"),
+      mMediaBuffer(nullptr)
 #ifdef DEBUG
-  , mThread(nullptr)
+      ,
+      mThread(nullptr)
 #endif
 {
   mFormat = ImageFormat::GONK_CAMERA_IMAGE;
 }
 
-GonkCameraImage::~GonkCameraImage()
-{
+GonkCameraImage::~GonkCameraImage() {
   ReentrantMonitorAutoEnter mon(mMonitor);
   // mMediaBuffer must be cleared before destructor.
   MOZ_ASSERT(mMediaBuffer == nullptr);
 }
 
-nsresult
-GonkCameraImage::GetMediaBuffer(android::MediaBuffer** aBuffer)
-{
+nsresult GonkCameraImage::GetMediaBuffer(android::MediaBuffer** aBuffer) {
   ReentrantMonitorAutoEnter mon(mMonitor);
 
   if (!mMediaBuffer) {
@@ -44,16 +42,12 @@ GonkCameraImage::GetMediaBuffer(android::MediaBuffer** aBuffer)
   return NS_OK;
 }
 
-bool
-GonkCameraImage::HasMediaBuffer()
-{
+bool GonkCameraImage::HasMediaBuffer() {
   ReentrantMonitorAutoEnter mon(mMonitor);
   return mMediaBuffer != nullptr;
 }
 
-nsresult
-GonkCameraImage::SetMediaBuffer(android::MediaBuffer* aBuffer)
-{
+nsresult GonkCameraImage::SetMediaBuffer(android::MediaBuffer* aBuffer) {
   ReentrantMonitorAutoEnter mon(mMonitor);
   MOZ_ASSERT(!mMediaBuffer);
 
@@ -65,9 +59,7 @@ GonkCameraImage::SetMediaBuffer(android::MediaBuffer* aBuffer)
   return NS_OK;
 }
 
-nsresult
-GonkCameraImage::ClearMediaBuffer()
-{
+nsresult GonkCameraImage::ClearMediaBuffer() {
   ReentrantMonitorAutoEnter mon(mMonitor);
 
   if (mMediaBuffer) {
@@ -81,6 +73,4 @@ GonkCameraImage::ClearMediaBuffer()
   return NS_OK;
 }
 
-} // namespace mozilla
-
-
+}  // namespace mozilla

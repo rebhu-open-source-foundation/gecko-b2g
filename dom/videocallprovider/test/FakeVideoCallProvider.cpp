@@ -22,10 +22,10 @@
 #include <camera/CameraParameters.h>
 
 #ifdef FAKE_VIDEOCALL_PROVIDER_LOG
-#undef FAKE_VIDEOCALL_PROVIDER_LOG
+#  undef FAKE_VIDEOCALL_PROVIDER_LOG
 #endif
-#define FAKE_VIDEOCALL_PROVIDER_LOG(args...) __android_log_print(ANDROID_LOG_INFO, "FakeVideoCallProvider", ##args)
-
+#define FAKE_VIDEOCALL_PROVIDER_LOG(args...) \
+  __android_log_print(ANDROID_LOG_INFO, "FakeVideoCallProvider", ##args)
 
 using namespace android;
 
@@ -37,29 +37,25 @@ using namespace android;
 NS_IMPL_ISUPPORTS(VideoCallCameraCapabilities, nsIVideoCallCameraCapabilities)
 
 /* readonly attribute unsigned short height; */
-nsresult VideoCallCameraCapabilities::GetHeight(uint16_t *aHeight)
-{
+nsresult VideoCallCameraCapabilities::GetHeight(uint16_t* aHeight) {
   *aHeight = RESULT_PREVIEW_HEIGHT;
   return NS_OK;
 }
 
 /* readonly attribute unsigned short width; */
-nsresult VideoCallCameraCapabilities::GetWidth(uint16_t *aWidth)
-{
+nsresult VideoCallCameraCapabilities::GetWidth(uint16_t* aWidth) {
   *aWidth = RESULT_PREVIEW_WIDTH;
   return NS_OK;
 }
 
 /* readonly attribute boolean zoomSupported; */
-nsresult VideoCallCameraCapabilities::GetZoomSupported(bool *aZoomSupported)
-{
+nsresult VideoCallCameraCapabilities::GetZoomSupported(bool* aZoomSupported) {
   *aZoomSupported = false;
   return NS_OK;
 }
 
 /* readonly attribute float maxZoom; */
-nsresult VideoCallCameraCapabilities::GetMaxZoom(float *aMaxZoom)
-{
+nsresult VideoCallCameraCapabilities::GetMaxZoom(float* aMaxZoom) {
   *aMaxZoom = 0;
   return NS_OK;
 }
@@ -67,39 +63,41 @@ nsresult VideoCallCameraCapabilities::GetMaxZoom(float *aMaxZoom)
 NS_IMPL_ISUPPORTS(FakeVideoCallProvider, nsIVideoCallProvider)
 
 FakeVideoCallProvider::FakeVideoCallProvider()
-  : mVideoCallCallback(NULL)
-  , mPreferPreviewWidth(0)
-  , mPreferPreviewHeight(0)
-  , mResultPreviewWidth(RESULT_PREVIEW_WIDTH)
-  , mResultPreviewHeight(RESULT_PREVIEW_HEIGHT)
-  , mPreviewStarted(false)
-  , mVideoCallCameraCapabilities(new VideoCallCameraCapabilities())
-  , mTestImage(NULL)
-  , mTestImage2(NULL)
-  , mTestImageIndex(0)
-  , mIsTestRunning(false)
-  , mPreferDisplayWidth(0)
-  , mPreferDisplayHeight(0)
-  , mResultDisplayWidth(RESULT_DISPLAY_WIDTH)
-  , mResultDisplayHeight(RESULT_DISPLAY_HEIGHT)
-  , mDisplayStarted(false)
-{
+    : mVideoCallCallback(NULL),
+      mPreferPreviewWidth(0),
+      mPreferPreviewHeight(0),
+      mResultPreviewWidth(RESULT_PREVIEW_WIDTH),
+      mResultPreviewHeight(RESULT_PREVIEW_HEIGHT),
+      mPreviewStarted(false),
+      mVideoCallCameraCapabilities(new VideoCallCameraCapabilities()),
+      mTestImage(NULL),
+      mTestImage2(NULL),
+      mTestImageIndex(0),
+      mIsTestRunning(false),
+      mPreferDisplayWidth(0),
+      mPreferDisplayHeight(0),
+      mResultDisplayWidth(RESULT_DISPLAY_WIDTH),
+      mResultDisplayHeight(RESULT_DISPLAY_HEIGHT),
+      mDisplayStarted(false) {
   FAKE_VIDEOCALL_PROVIDER_LOG("FakeVideoCallProvider()");
 }
 
 /* void setCamera (in short cameraId); */
-nsresult FakeVideoCallProvider::SetCamera(int16_t cameraId)
-{
-  //Not implement yet.
+nsresult FakeVideoCallProvider::SetCamera(int16_t cameraId) {
+  // Not implement yet.
   return NS_OK;
 }
 
-/* void setPreviewSurface (in AGraphicBuffProducer producer, in unsigned short width, in unsigned short height); */
-nsresult FakeVideoCallProvider::SetPreviewSurface(android::sp<android::IGraphicBufferProducer> & aProducer, uint16_t aPreferWidth, uint16_t aPreferHeight)
-{
-  if(aProducer != NULL) {
-    FAKE_VIDEOCALL_PROVIDER_LOG("SetPreviewSurface aPreferWidth:%d, aPreferHeight:%d, mResultPreviewWidth:%d, mResultPreviewHeight:%d",
-      aPreferWidth, aPreferHeight, mResultPreviewWidth, mResultPreviewHeight);
+/* void setPreviewSurface (in AGraphicBuffProducer producer, in unsigned short
+ * width, in unsigned short height); */
+nsresult FakeVideoCallProvider::SetPreviewSurface(
+    android::sp<android::IGraphicBufferProducer>& aProducer,
+    uint16_t aPreferWidth, uint16_t aPreferHeight) {
+  if (aProducer != NULL) {
+    FAKE_VIDEOCALL_PROVIDER_LOG(
+        "SetPreviewSurface aPreferWidth:%d, aPreferHeight:%d, "
+        "mResultPreviewWidth:%d, mResultPreviewHeight:%d",
+        aPreferWidth, aPreferHeight, mResultPreviewWidth, mResultPreviewHeight);
 
     if (mCamera == NULL) {
       const uint32_t CAMERASERVICE_POLL_DELAY = 1000000;
@@ -113,11 +111,12 @@ nsresult FakeVideoCallProvider::SetPreviewSurface(android::sp<android::IGraphicB
         }
         FAKE_VIDEOCALL_PROVIDER_LOG("CameraService not published, waiting...");
         usleep(CAMERASERVICE_POLL_DELAY);
-      } while(true);
+      } while (true);
 
 #if ANDROID_VERSION >= 23
-      const uint32_t DEFAULT_USER_ID  = 0;
-      sp<ICameraService> gCameraService = interface_cast<ICameraService>(binder);
+      const uint32_t DEFAULT_USER_ID = 0;
+      sp<ICameraService> gCameraService =
+          interface_cast<ICameraService>(binder);
       int32_t args[1];
       args[0] = DEFAULT_USER_ID;
       int32_t event = 1;
@@ -125,22 +124,25 @@ nsresult FakeVideoCallProvider::SetPreviewSurface(android::sp<android::IGraphicB
 
       gCameraService->notifySystemEvent(event, args, length);
 #endif
-      mCamera = Camera::connect(0, /* clientPackageName */String16("gonk.camera"), Camera::USE_CALLING_UID);
+      mCamera =
+          Camera::connect(0, /* clientPackageName */ String16("gonk.camera"),
+                          Camera::USE_CALLING_UID);
     }
 
     if (mCamera != NULL) {
-        mCamera->setPreviewTarget(aProducer);
-        mPreferPreviewWidth = aPreferWidth;
-        mPreferPreviewHeight = aPreferHeight;
-        if(mVideoCallCallback) {
-          FAKE_VIDEOCALL_PROVIDER_LOG("OnChangeCameraCapabilities");
-          mVideoCallCallback->OnChangeCameraCapabilities(mVideoCallCameraCapabilities);
-        }
+      mCamera->setPreviewTarget(aProducer);
+      mPreferPreviewWidth = aPreferWidth;
+      mPreferPreviewHeight = aPreferHeight;
+      if (mVideoCallCallback) {
+        FAKE_VIDEOCALL_PROVIDER_LOG("OnChangeCameraCapabilities");
+        mVideoCallCallback->OnChangeCameraCapabilities(
+            mVideoCallCameraCapabilities);
+      }
     } else {
       FAKE_VIDEOCALL_PROVIDER_LOG("SetPreviewSurface without valid camera");
     }
 
-    //Start preview
+    // Start preview
     if ((mCamera != NULL) && !mPreviewStarted) {
       SetCameraParameters();
       FAKE_VIDEOCALL_PROVIDER_LOG("startPreview");
@@ -153,29 +155,34 @@ nsresult FakeVideoCallProvider::SetPreviewSurface(android::sp<android::IGraphicB
   return NS_OK;
 }
 
-/* void setDisplaySurface (in AGraphicBuffProducer producer, in unsigned short width, in unsigned short height); */
-nsresult FakeVideoCallProvider::SetDisplaySurface(android::sp<android::IGraphicBufferProducer> & aProducer, uint16_t aPreferWidth, uint16_t aPreferHeight)
-{
-  if(aProducer != NULL) {
-    FAKE_VIDEOCALL_PROVIDER_LOG("SetDisplaySurface aPreferWidth:%d, aPreferHeight:%d, mResultDisplayWidth:%d, mResultDisplayHeight:%d",
-      aPreferWidth, aPreferHeight, mResultDisplayWidth, mResultDisplayHeight);
-    //Do nothing, since we are TestDataSource"Camera", can only open 1 camera a time.
+/* void setDisplaySurface (in AGraphicBuffProducer producer, in unsigned short
+ * width, in unsigned short height); */
+nsresult FakeVideoCallProvider::SetDisplaySurface(
+    android::sp<android::IGraphicBufferProducer>& aProducer,
+    uint16_t aPreferWidth, uint16_t aPreferHeight) {
+  if (aProducer != NULL) {
+    FAKE_VIDEOCALL_PROVIDER_LOG(
+        "SetDisplaySurface aPreferWidth:%d, aPreferHeight:%d, "
+        "mResultDisplayWidth:%d, mResultDisplayHeight:%d",
+        aPreferWidth, aPreferHeight, mResultDisplayWidth, mResultDisplayHeight);
+    // Do nothing, since we are TestDataSource"Camera", can only open 1 camera a
+    // time.
     mFakeImageProducer = aProducer;
-    if(mVideoCallCallback) {
-      mVideoCallCallback->OnChangePeerDimensions(mResultDisplayWidth, mResultDisplayHeight);
+    if (mVideoCallCallback) {
+      mVideoCallCallback->OnChangePeerDimensions(mResultDisplayWidth,
+                                                 mResultDisplayHeight);
     }
 
-    //Start sending fake images.
+    // Start sending fake images.
     if ((mFakeImageProducer != NULL) && !mDisplayStarted) {
       if (mFakeYUVFeederLooper == NULL) {
         mFakeYUVFeederLooper = new ALooper;
         mFakeYUVFeeder = new FakeYUVFeeder(this);
         mFakeYUVFeederLooper->registerHandler(mFakeYUVFeeder);
         mFakeYUVFeederLooper->setName("FakeImageLooper");
-        mFakeYUVFeederLooper->start(
-          false, // runOnCallingThread
-          false, // canCallJava
-          ANDROID_PRIORITY_AUDIO);
+        mFakeYUVFeederLooper->start(false,  // runOnCallingThread
+                                    false,  // canCallJava
+                                    ANDROID_PRIORITY_AUDIO);
       }
       StartFakeImage();
       mDisplayStarted = true;
@@ -184,62 +191,57 @@ nsresult FakeVideoCallProvider::SetDisplaySurface(android::sp<android::IGraphicB
     StopDisplay();
   }
 
-
   return NS_OK;
 }
 
 /* void setDeviceOrientation (in unsigned short rotation); */
-nsresult FakeVideoCallProvider::SetDeviceOrientation(uint16_t rotation)
-{
-  //Not implement yet.
+nsresult FakeVideoCallProvider::SetDeviceOrientation(uint16_t rotation) {
+  // Not implement yet.
   return NS_OK;
 }
 
 /* void setZoom (in float value); */
-nsresult FakeVideoCallProvider::SetZoom(float value)
-{
-  //Not implement yet.
+nsresult FakeVideoCallProvider::SetZoom(float value) {
+  // Not implement yet.
   return NS_OK;
 }
 
-/* void sendSessionModifyRequest (in nsIVideoCallProfile fromProfile, in nsIVideoCallProfile toProfile); */
-nsresult FakeVideoCallProvider::SendSessionModifyRequest(nsIVideoCallProfile *fromProfile, nsIVideoCallProfile *toProfile)
-{
-  //Not implement yet.
+/* void sendSessionModifyRequest (in nsIVideoCallProfile fromProfile, in
+ * nsIVideoCallProfile toProfile); */
+nsresult FakeVideoCallProvider::SendSessionModifyRequest(
+    nsIVideoCallProfile* fromProfile, nsIVideoCallProfile* toProfile) {
+  // Not implement yet.
   return NS_OK;
 }
 
 /* void sendSessionModifyResponse (in nsIVideoCallProfile responseProfile); */
-nsresult FakeVideoCallProvider::SendSessionModifyResponse(nsIVideoCallProfile *responseProfile)
-{
-  //Not implement yet.
+nsresult FakeVideoCallProvider::SendSessionModifyResponse(
+    nsIVideoCallProfile* responseProfile) {
+  // Not implement yet.
   return NS_OK;
 }
 
 /* void requestCameraCapabilities (); */
-nsresult FakeVideoCallProvider::RequestCameraCapabilities(void)
-{
-  //Not implement yet.
+nsresult FakeVideoCallProvider::RequestCameraCapabilities(void) {
+  // Not implement yet.
   return NS_OK;
 }
 
 /* void registerCallback (in nsIVideoCallCallback callback); */
-nsresult FakeVideoCallProvider::RegisterCallback(nsIVideoCallCallback *callback)
-{
+nsresult FakeVideoCallProvider::RegisterCallback(
+    nsIVideoCallCallback* callback) {
   mVideoCallCallback = callback;
   return NS_OK;
 }
 
 /* void unregisterCallback (in nsIVideoCallCallback callback); */
-nsresult FakeVideoCallProvider::UnregisterCallback(nsIVideoCallCallback *callback)
-{
+nsresult FakeVideoCallProvider::UnregisterCallback(
+    nsIVideoCallCallback* callback) {
   mVideoCallCallback = NULL;
   return NS_OK;
 }
 
-void
-FakeVideoCallProvider::SetCameraParameters()
-{
+void FakeVideoCallProvider::SetCameraParameters() {
   FAKE_VIDEOCALL_PROVIDER_LOG("SetCameraParameters");
   if (mCamera != NULL) {
     CameraParameters params;
@@ -248,21 +250,23 @@ FakeVideoCallProvider::SetCameraParameters()
     params.unflatten(s1);
     // Set preferred preview frame format.
     params.setPreviewFormat("yuv420sp");
-    FAKE_VIDEOCALL_PROVIDER_LOG("PushParameters: ResultWidth:%d ResultHeight:%d", mResultPreviewWidth, mResultPreviewHeight);
+    FAKE_VIDEOCALL_PROVIDER_LOG(
+        "PushParameters: ResultWidth:%d ResultHeight:%d", mResultPreviewWidth,
+        mResultPreviewHeight);
     params.setPreviewSize(mResultPreviewWidth, mResultPreviewHeight);
     // Set parameter back to camera.
     String8 s2 = params.flatten();
-    FAKE_VIDEOCALL_PROVIDER_LOG("PushParameters:%s Line:%d", s2.string(), __LINE__);
+    FAKE_VIDEOCALL_PROVIDER_LOG("PushParameters:%s Line:%d", s2.string(),
+                                __LINE__);
     mCamera->setParameters(s2);
   } else {
     FAKE_VIDEOCALL_PROVIDER_LOG("SetCameraParameters without valid camera");
   }
 }
 
-void FakeVideoCallProvider::StopPreview()
-{
+void FakeVideoCallProvider::StopPreview() {
   FAKE_VIDEOCALL_PROVIDER_LOG("StopPreview");
-  //Stop Preview
+  // Stop Preview
   if (mCamera != NULL) {
     mCamera->stopPreview();
     mPreviewStarted = false;
@@ -271,26 +275,24 @@ void FakeVideoCallProvider::StopPreview()
   }
 }
 
-void FakeVideoCallProvider::StopDisplay()
-{
+void FakeVideoCallProvider::StopDisplay() {
   FAKE_VIDEOCALL_PROVIDER_LOG("StopDisplay");
-  //Stop Display
+  // Stop Display
   mIsTestRunning = false;
   mDisplayStarted = false;
 
   if (mTestImage) {
-    delete [] mTestImage;
+    delete[] mTestImage;
     mTestImage = NULL;
   }
 
   if (mTestImage2) {
-    delete [] mTestImage2;
+    delete[] mTestImage2;
     mTestImage2 = NULL;
   }
 }
 
-FakeVideoCallProvider::~FakeVideoCallProvider()
-{
+FakeVideoCallProvider::~FakeVideoCallProvider() {
   FAKE_VIDEOCALL_PROVIDER_LOG("~FakeVideoCallProvider");
   if (mCamera != NULL) {
     mCamera->disconnect();
@@ -298,59 +300,59 @@ FakeVideoCallProvider::~FakeVideoCallProvider()
   }
 
   if (mTestImage) {
-    delete [] mTestImage;
+    delete[] mTestImage;
     mTestImage = NULL;
   }
 
   if (mTestImage2) {
-    delete [] mTestImage2;
+    delete[] mTestImage2;
     mTestImage2 = NULL;
   }
 }
 
-bool readYUVDataFromFile(const char *path, unsigned char * pYUVData, int size){
-    FILE *fp = fopen(path,"rb");
-    if(fp == NULL){
-        return false;
-    }
-    fread(pYUVData, size, 1, fp);
-    fclose(fp);
-    return true;
+bool readYUVDataFromFile(const char* path, unsigned char* pYUVData, int size) {
+  FILE* fp = fopen(path, "rb");
+  if (fp == NULL) {
+    return false;
+  }
+  fread(pYUVData, size, 1, fp);
+  fclose(fp);
+  return true;
 }
 
-nsresult
-FakeVideoCallProvider::StartFakeImage()
-{
+nsresult FakeVideoCallProvider::StartFakeImage() {
   if (mTestANativeWindow == NULL) {
     if (mFakeImageProducer != NULL) {
-      mTestANativeWindow = new android::Surface(mFakeImageProducer, /*controlledByApp*/ true);
+      mTestANativeWindow =
+          new android::Surface(mFakeImageProducer, /*controlledByApp*/ true);
 
-      native_window_set_buffer_count(
-              mTestANativeWindow.get(),
-              8);
+      native_window_set_buffer_count(mTestANativeWindow.get(), 8);
     } else {
       return NS_ERROR_FAILURE;
     }
   }
 
-  //Prepare test data
+  // Prepare test data
   if (!mTestImage) {
-    int size = 176 * 144  * 1.5;
+    int size = 176 * 144 * 1.5;
     mTestImage = new unsigned char[size];
 
-    const char *path = "/mnt/media_rw/sdcard/tulips_yuv420_prog_planar_qcif.yuv";
+    const char* path =
+        "/mnt/media_rw/sdcard/tulips_yuv420_prog_planar_qcif.yuv";
     bool getResult = readYUVDataFromFile(path, mTestImage, size);
     if (!getResult) {
       memset(mTestImage, 120, size);
-    }  }
-
+    }
+  }
 
   if (!mTestImage2) {
-    int size = 176 * 144  * 1.5;
+    int size = 176 * 144 * 1.5;
     mTestImage2 = new unsigned char[size];
 
-    const char *path = "/mnt/media_rw/sdcard/tulips_yvu420_inter_planar_qcif.yuv";
-    bool getResult = readYUVDataFromFile(path, mTestImage2, size);//get yuv data from file;
+    const char* path =
+        "/mnt/media_rw/sdcard/tulips_yvu420_inter_planar_qcif.yuv";
+    bool getResult = readYUVDataFromFile(path, mTestImage2,
+                                         size);  // get yuv data from file;
     if (!getResult) {
       memset(mTestImage2, 60, size);
     }
@@ -358,9 +360,11 @@ FakeVideoCallProvider::StartFakeImage()
 
   mIsTestRunning = true;
 #if ANDROID_VERSION >= 23
-  sp<AMessage> msg = new AMessage(FakeYUVFeeder::kWhatSendFakeImage, mFakeYUVFeeder);
+  sp<AMessage> msg =
+      new AMessage(FakeYUVFeeder::kWhatSendFakeImage, mFakeYUVFeeder);
 #elif ANDROID_VERSION == 19
-  sp<AMessage> msg = new AMessage(FakeYUVFeeder::kWhatSendFakeImage, mFakeYUVFeeder->id());
+  sp<AMessage> msg =
+      new AMessage(FakeYUVFeeder::kWhatSendFakeImage, mFakeYUVFeeder->id());
 #endif
   msg->post();
 
@@ -368,32 +372,24 @@ FakeVideoCallProvider::StartFakeImage()
 }
 
 FakeYUVFeeder::FakeYUVFeeder(FakeVideoCallProvider* aFakeVideoCallProvider)
-  : mFakeVideoCallProvider(aFakeVideoCallProvider)
-{
-}
+    : mFakeVideoCallProvider(aFakeVideoCallProvider) {}
 
-FakeYUVFeeder::~FakeYUVFeeder()
-{
-}
+FakeYUVFeeder::~FakeYUVFeeder() {}
 
-void
-FakeYUVFeeder::onMessageReceived(const sp<AMessage> &msg)
-{
-    switch (msg->what()) {
-        case kWhatSendFakeImage:
-        {
-            SendFakeImage(mFakeVideoCallProvider);
-            break;
-        }
-        default:
-          //Do nothing
-          return;
+void FakeYUVFeeder::onMessageReceived(const sp<AMessage>& msg) {
+  switch (msg->what()) {
+    case kWhatSendFakeImage: {
+      SendFakeImage(mFakeVideoCallProvider);
+      break;
     }
+    default:
+      // Do nothing
+      return;
+  }
 }
 
-void
-FakeYUVFeeder::SendFakeImage(FakeVideoCallProvider* aFakeVideoCallProvider)
-{
+void FakeYUVFeeder::SendFakeImage(
+    FakeVideoCallProvider* aFakeVideoCallProvider) {
   if (!aFakeVideoCallProvider->mIsTestRunning) {
     return;
   }
@@ -407,49 +403,49 @@ FakeYUVFeeder::SendFakeImage(FakeVideoCallProvider* aFakeVideoCallProvider)
   int bufHeight = (cropHeight + 1) & ~1;
 
   native_window_set_usage(
-    aFakeVideoCallProvider->mTestANativeWindow.get(),
-    GRALLOC_USAGE_SW_READ_NEVER | GRALLOC_USAGE_SW_WRITE_OFTEN
-    | GRALLOC_USAGE_HW_TEXTURE | GRALLOC_USAGE_EXTERNAL_DISP);
-
+      aFakeVideoCallProvider->mTestANativeWindow.get(),
+      GRALLOC_USAGE_SW_READ_NEVER | GRALLOC_USAGE_SW_WRITE_OFTEN |
+          GRALLOC_USAGE_HW_TEXTURE | GRALLOC_USAGE_EXTERNAL_DISP);
 
   native_window_set_scaling_mode(
-    aFakeVideoCallProvider->mTestANativeWindow.get(),
-    NATIVE_WINDOW_SCALING_MODE_SCALE_TO_WINDOW);
+      aFakeVideoCallProvider->mTestANativeWindow.get(),
+      NATIVE_WINDOW_SCALING_MODE_SCALE_TO_WINDOW);
 
   native_window_set_buffers_geometry(
-      aFakeVideoCallProvider->mTestANativeWindow.get(),
-      bufWidth,
-      bufHeight,
+      aFakeVideoCallProvider->mTestANativeWindow.get(), bufWidth, bufHeight,
       halFormat);
 
-  ANativeWindowBuffer *buf;
+  ANativeWindowBuffer* buf;
 
-  if ((err = native_window_dequeue_buffer_and_wait(aFakeVideoCallProvider->mTestANativeWindow.get(),
-          &buf)) != 0) {
-      return;
+  if ((err = native_window_dequeue_buffer_and_wait(
+           aFakeVideoCallProvider->mTestANativeWindow.get(), &buf)) != 0) {
+    return;
   }
 
-  GraphicBufferMapper &mapper = GraphicBufferMapper::get();
+  GraphicBufferMapper& mapper = GraphicBufferMapper::get();
 
   android::Rect bounds(cropWidth, cropHeight);
 
-  void *dst;
+  void* dst;
   mapper.lock(buf->handle, GRALLOC_USAGE_SW_WRITE_OFTEN, bounds, &dst);
 
   if (aFakeVideoCallProvider->mTestImageIndex == 0) {
     aFakeVideoCallProvider->mTestImageIndex = 1;
-    memcpy(dst, aFakeVideoCallProvider->mTestImage, cropWidth * cropHeight * 1.5);
+    memcpy(dst, aFakeVideoCallProvider->mTestImage,
+           cropWidth * cropHeight * 1.5);
   } else {
     aFakeVideoCallProvider->mTestImageIndex = 0;
-    memcpy(dst, aFakeVideoCallProvider->mTestImage2, cropWidth * cropHeight * 1.5);
+    memcpy(dst, aFakeVideoCallProvider->mTestImage2,
+           cropWidth * cropHeight * 1.5);
   }
   mapper.unlock(buf->handle);
 
-  err = aFakeVideoCallProvider->mTestANativeWindow->queueBuffer(aFakeVideoCallProvider->mTestANativeWindow.get(), buf, -1);
+  err = aFakeVideoCallProvider->mTestANativeWindow->queueBuffer(
+      aFakeVideoCallProvider->mTestANativeWindow.get(), buf, -1);
 
   buf = NULL;
 
-  //Next round
+  // Next round
   usleep(100000);
 #if ANDROID_VERSION >= 23
   sp<AMessage> msg = new AMessage(kWhatSendFakeImage, this);

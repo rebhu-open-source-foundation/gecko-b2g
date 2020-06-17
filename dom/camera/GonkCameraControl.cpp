@@ -24,14 +24,14 @@
 #include "base/basictypes.h"
 #include "Layers.h"
 #ifdef MOZ_WIDGET_GONK
-#include <media/mediaplayer.h>
-#include <media/MediaProfiles.h>
-#include "GrallocImages.h"
-#include "imgIEncoder.h"
-#include "libyuv.h"
-#include "nsNetUtil.h" // for NS_ReadInputStreamToBuffer
+#  include <media/mediaplayer.h>
+#  include <media/MediaProfiles.h>
+#  include "GrallocImages.h"
+#  include "imgIEncoder.h"
+#  include "libyuv.h"
+#  include "nsNetUtil.h"  // for NS_ReadInputStreamToBuffer
 #endif
-#include "nsNetCID.h" // for NS_STREAMTRANSPORTSERVICE_CONTRACTID
+#include "nsNetCID.h"  // for NS_STREAMTRANSPORTSERVICE_CONTRACTID
 #include "nsCOMPtr.h"
 #include "nsMemory.h"
 #include "nsThread.h"
@@ -63,33 +63,35 @@ using namespace android;
       DOM_CAMERA_LOGE("%s:%d : mCameraHw is null\n", __func__, __LINE__); \
       return NS_ERROR_NOT_INITIALIZED;                                    \
     }                                                                     \
-  } while(0)
+  } while (0)
 
 static const unsigned long kAutoFocusCompleteTimeoutMs = 1000;
 static const int32_t kAutoFocusCompleteTimeoutLimit = 3;
 
 // Construct nsGonkCameraControl on the main thread.
 nsGonkCameraControl::nsGonkCameraControl(uint32_t aCameraId)
-  : mCameraId(aCameraId)
-  , mLastThumbnailSize({0, 0})
-  , mPreviewFps(30)
-  , mResumePreviewAfterTakingPicture(false) // XXXmikeh - see bug 950102
-  , mFlashSupported(false)
-  , mLuminanceSupported(false)
-  , mAutoFlashModeOverridden(false)
-  , mSeparateVideoAndPreviewSizesSupported(false)
-  , mDeferConfigUpdate(0)
+    : mCameraId(aCameraId),
+      mLastThumbnailSize({0, 0}),
+      mPreviewFps(30),
+      mResumePreviewAfterTakingPicture(false)  // XXXmikeh - see bug 950102
+      ,
+      mFlashSupported(false),
+      mLuminanceSupported(false),
+      mAutoFlashModeOverridden(false),
+      mSeparateVideoAndPreviewSizesSupported(false),
+      mDeferConfigUpdate(0)
 #ifdef MOZ_WIDGET_GONK
-  , mRecorder(nullptr)
+      ,
+      mRecorder(nullptr)
 #endif
-  , mRecorderMonitor("GonkCameraControl::mRecorder.Monitor")
-  , mVideoFile(nullptr)
-  , mCapturePoster(false)
-  , mAutoFocusPending(false)
-  , mAutoFocusCompleteExpired(0)
-  , mPrevFacesDetected(0)
-  , mReentrantMonitor("GonkCameraControl::OnTakePicture.Monitor")
-{
+      ,
+      mRecorderMonitor("GonkCameraControl::mRecorder.Monitor"),
+      mVideoFile(nullptr),
+      mCapturePoster(false),
+      mAutoFocusPending(false),
+      mAutoFocusCompleteExpired(0),
+      mPrevFacesDetected(0),
+      mReentrantMonitor("GonkCameraControl::OnTakePicture.Monitor") {
   // Constructor runs on the main thread...
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
   mImageContainer = LayerManager::CreateImageContainer();
@@ -100,9 +102,7 @@ nsGonkCameraControl::nsGonkCameraControl(uint32_t aCameraId)
   }
 }
 
-nsresult
-nsGonkCameraControl::StartImpl(const Configuration* aInitialConfig)
-{
+nsresult nsGonkCameraControl::StartImpl(const Configuration* aInitialConfig) {
   MOZ_ASSERT(NS_GetCurrentThread() == mCameraThread);
 
   nsresult rv = StartInternal(aInitialConfig);
@@ -113,9 +113,8 @@ nsGonkCameraControl::StartImpl(const Configuration* aInitialConfig)
   return rv;
 }
 
-nsresult
-nsGonkCameraControl::StartInternal(const Configuration* aInitialConfig)
-{
+nsresult nsGonkCameraControl::StartInternal(
+    const Configuration* aInitialConfig) {
   /**
    * For initialization, we try to return the camera control to the upper
    * upper layer (i.e. the DOM) as quickly as possible. To do this, the
@@ -174,9 +173,7 @@ nsGonkCameraControl::StartInternal(const Configuration* aInitialConfig)
   return NS_OK;
 }
 
-nsresult
-nsGonkCameraControl::Initialize()
-{
+nsresult nsGonkCameraControl::Initialize() {
   if (mCameraHw.get()) {
     DOM_CAMERA_LOGI("Camera %d already connected (this=%p)\n", mCameraId, this);
     return NS_ERROR_ALREADY_INITIALIZED;
@@ -184,11 +181,13 @@ nsGonkCameraControl::Initialize()
 
   mCameraHw = GonkCameraHardware::Connect(this, mCameraId);
   if (!mCameraHw.get()) {
-    DOM_CAMERA_LOGE("Failed to connect to camera %d (this=%p)\n", mCameraId, this);
+    DOM_CAMERA_LOGE("Failed to connect to camera %d (this=%p)\n", mCameraId,
+                    this);
     return NS_ERROR_NOT_INITIALIZED;
   }
 
-  DOM_CAMERA_LOGI("Initializing camera %d (this=%p, mCameraHw=%p)\n", mCameraId, this, mCameraHw.get());
+  DOM_CAMERA_LOGI("Initializing camera %d (this=%p, mCameraHw=%p)\n", mCameraId,
+                  this, mCameraHw.get());
   mCurrentConfiguration.mRecorderProfile.Truncate();
   mRequestedPreviewSize.width = UINT32_MAX;
   mRequestedPreviewSize.height = UINT32_MAX;
@@ -216,7 +215,7 @@ nsGonkCameraControl::Initialize()
   mParams.Get(CAMERA_PARAM_PICTURE_SIZE, mCurrentConfiguration.mPictureSize);
   mParams.Get(CAMERA_PARAM_PREVIEWSIZE, mCurrentConfiguration.mPreviewSize);
 
-  nsString luminance; // check for support
+  nsString luminance;  // check for support
   mParams.Get(CAMERA_PARAM_LUMINANCE, luminance);
   mLuminanceSupported = !luminance.IsEmpty();
 
@@ -224,25 +223,30 @@ nsGonkCameraControl::Initialize()
   mParams.Get(CAMERA_PARAM_FLASHMODE, flashMode);
   mFlashSupported = !flashMode.IsEmpty();
 
-  double quality; // informational only
+  double quality;  // informational only
   mParams.Get(CAMERA_PARAM_PICTURE_QUALITY, quality);
 
-  DOM_CAMERA_LOGI(" - maximum metering areas:        %u\n", mCurrentConfiguration.mMaxMeteringAreas);
-  DOM_CAMERA_LOGI(" - maximum focus areas:           %u\n", mCurrentConfiguration.mMaxFocusAreas);
+  DOM_CAMERA_LOGI(" - maximum metering areas:        %u\n",
+                  mCurrentConfiguration.mMaxMeteringAreas);
+  DOM_CAMERA_LOGI(" - maximum focus areas:           %u\n",
+                  mCurrentConfiguration.mMaxFocusAreas);
   DOM_CAMERA_LOGI(" - default picture size:          %u x %u\n",
-    mCurrentConfiguration.mPictureSize.width, mCurrentConfiguration.mPictureSize.height);
+                  mCurrentConfiguration.mPictureSize.width,
+                  mCurrentConfiguration.mPictureSize.height);
   DOM_CAMERA_LOGI(" - default picture file format:   %s\n",
-    NS_ConvertUTF16toUTF8(mFileFormat).get());
+                  NS_ConvertUTF16toUTF8(mFileFormat).get());
   DOM_CAMERA_LOGI(" - default picture quality:       %f\n", quality);
   DOM_CAMERA_LOGI(" - default thumbnail size:        %u x %u\n",
-    mLastThumbnailSize.width, mLastThumbnailSize.height);
+                  mLastThumbnailSize.width, mLastThumbnailSize.height);
   DOM_CAMERA_LOGI(" - default preview size:          %u x %u\n",
-    mCurrentConfiguration.mPreviewSize.width, mCurrentConfiguration.mPreviewSize.height);
+                  mCurrentConfiguration.mPreviewSize.width,
+                  mCurrentConfiguration.mPreviewSize.height);
   DOM_CAMERA_LOGI(" - luminance reporting:           %ssupported\n",
-    mLuminanceSupported ? "" : "NOT ");
+                  mLuminanceSupported ? "" : "NOT ");
   if (mFlashSupported) {
-    DOM_CAMERA_LOGI(" - flash:                         supported, default mode '%s'\n",
-      NS_ConvertUTF16toUTF8(flashMode).get());
+    DOM_CAMERA_LOGI(
+        " - flash:                         supported, default mode '%s'\n",
+        NS_ConvertUTF16toUTF8(flashMode).get());
   } else {
     DOM_CAMERA_LOGI(" - flash:                         NOT supported\n");
   }
@@ -254,12 +258,12 @@ nsGonkCameraControl::Initialize()
     DOM_CAMERA_LOGI(" - support for separate preview and video sizes\n");
     mParams.Get(CAMERA_PARAM_VIDEOSIZE, mLastRecorderSize);
     DOM_CAMERA_LOGI(" - default video recorder size:   %u x %u\n",
-      mLastRecorderSize.width, mLastRecorderSize.height);
+                    mLastRecorderSize.width, mLastRecorderSize.height);
 
     Size preferred;
     mParams.Get(CAMERA_PARAM_PREFERRED_PREVIEWSIZE_FOR_VIDEO, preferred);
     DOM_CAMERA_LOGI(" - preferred video preview size:  %u x %u\n",
-      preferred.width, preferred.height);
+                    preferred.width, preferred.height);
   } else {
     mLastRecorderSize = mCurrentConfiguration.mPreviewSize;
   }
@@ -285,23 +289,22 @@ nsGonkCameraControl::Initialize()
 
     mParams.Get(CAMERA_PARAM_METERINGMODE, mode);
     DOM_CAMERA_LOGI(" - metering mode:                 '%s'\n",
-      NS_ConvertUTF16toUTF8(mode).get());
+                    NS_ConvertUTF16toUTF8(mode).get());
   }
 
   return NS_OK;
 }
 
-nsGonkCameraControl::~nsGonkCameraControl()
-{
-  DOM_CAMERA_LOGT("%s:%d : this=%p, mCameraHw = %p\n", __func__, __LINE__, this, mCameraHw.get());
+nsGonkCameraControl::~nsGonkCameraControl() {
+  DOM_CAMERA_LOGT("%s:%d : this=%p, mCameraHw = %p\n", __func__, __LINE__, this,
+                  mCameraHw.get());
 
   StopImpl();
   DOM_CAMERA_LOGT("%s:%d\n", __func__, __LINE__);
 }
 
-nsresult
-nsGonkCameraControl::ValidateConfiguration(const Configuration& aConfig, Configuration& aValidatedConfig)
-{
+nsresult nsGonkCameraControl::ValidateConfiguration(
+    const Configuration& aConfig, Configuration& aValidatedConfig) {
   AutoTArray<Size, 16> supportedSizes;
   Get(CAMERA_PARAM_SUPPORTED_PICTURESIZES, supportedSizes);
 
@@ -309,7 +312,7 @@ nsGonkCameraControl::ValidateConfiguration(const Configuration& aConfig, Configu
                                  aValidatedConfig.mPictureSize);
   if (NS_FAILED(rv)) {
     DOM_CAMERA_LOGW("Unable to find a picture size close to %ux%u\n",
-      aConfig.mPictureSize.width, aConfig.mPictureSize.height);
+                    aConfig.mPictureSize.width, aConfig.mPictureSize.height);
     return NS_ERROR_INVALID_ARG;
   }
 
@@ -326,15 +329,15 @@ nsGonkCameraControl::ValidateConfiguration(const Configuration& aConfig, Configu
   RecorderProfile* profile;
   if (!mRecorderProfiles.Get(profileName, &profile)) {
     DOM_CAMERA_LOGE("Recorder profile '%s' is not supported\n",
-      NS_ConvertUTF16toUTF8(aConfig.mRecorderProfile).get());
+                    NS_ConvertUTF16toUTF8(aConfig.mRecorderProfile).get());
     return NS_ERROR_INVALID_ARG;
   }
 
   if (mCurrentConfiguration.mMode == aConfig.mMode &&
       mCurrentConfiguration.mRecorderProfile.Equals(profile->GetName()) &&
       mRequestedPreviewSize.Equals(aConfig.mPreviewSize) &&
-      mCurrentConfiguration.mPictureSize.Equals(aValidatedConfig.mPictureSize))
-  {
+      mCurrentConfiguration.mPictureSize.Equals(
+          aValidatedConfig.mPictureSize)) {
     DOM_CAMERA_LOGI("Camera configuration is unchanged\n");
     return NS_ERROR_ALREADY_INITIALIZED;
   }
@@ -346,9 +349,8 @@ nsGonkCameraControl::ValidateConfiguration(const Configuration& aConfig, Configu
   return NS_OK;
 }
 
-nsresult
-nsGonkCameraControl::SetConfigurationInternal(const Configuration& aConfig)
-{
+nsresult nsGonkCameraControl::SetConfigurationInternal(
+    const Configuration& aConfig) {
   DOM_CAMERA_LOGT("%s:%d\n", __func__, __LINE__);
 
   ICameraControlParameterSetAutoEnter set(this);
@@ -364,7 +366,8 @@ nsGonkCameraControl::SetConfigurationInternal(const Configuration& aConfig)
       break;
 
     default:
-      MOZ_ASSERT_UNREACHABLE("Unanticipated camera mode in SetConfigurationInternal()");
+      MOZ_ASSERT_UNREACHABLE(
+          "Unanticipated camera mode in SetConfigurationInternal()");
       rv = NS_ERROR_FAILURE;
       break;
   }
@@ -395,9 +398,8 @@ nsGonkCameraControl::SetConfigurationInternal(const Configuration& aConfig)
   return NS_OK;
 }
 
-nsresult
-nsGonkCameraControl::SetConfigurationImpl(const Configuration& aConfig)
-{
+nsresult nsGonkCameraControl::SetConfigurationImpl(
+    const Configuration& aConfig) {
   DOM_CAMERA_LOGT("%s:%d\n", __func__, __LINE__);
   MOZ_ASSERT(NS_GetCurrentThread() == mCameraThread);
 
@@ -420,7 +422,8 @@ nsGonkCameraControl::SetConfigurationImpl(const Configuration& aConfig)
   // Stop any currently running preview
   rv = PausePreview();
   if (NS_FAILED(rv)) {
-    DOM_CAMERA_LOGW("PausePreview() in SetConfigurationImpl() failed (0x%x)\n", rv);
+    DOM_CAMERA_LOGW("PausePreview() in SetConfigurationImpl() failed (0x%x)\n",
+                    rv);
     if (rv == NS_ERROR_NOT_INITIALIZED) {
       // If there no hardware available, nothing else we try will work,
       // so bail out here.
@@ -451,9 +454,7 @@ nsGonkCameraControl::SetConfigurationImpl(const Configuration& aConfig)
   return NS_OK;
 }
 
-nsresult
-nsGonkCameraControl::MaybeAdjustVideoSize()
-{
+nsresult nsGonkCameraControl::MaybeAdjustVideoSize() {
   MOZ_ASSERT(NS_GetCurrentThread() == mCameraThread);
   MOZ_ASSERT(mSeparateVideoAndPreviewSizesSupported);
 
@@ -467,8 +468,8 @@ nsGonkCameraControl::MaybeAdjustVideoSize()
   if (preview.width <= mLastRecorderSize.width &&
       preview.height <= mLastRecorderSize.height) {
     DOM_CAMERA_LOGI("Video size %ux%u is suitable for preview size %ux%u\n",
-      mLastRecorderSize.width, mLastRecorderSize.height,
-      preview.width, preview.height);
+                    mLastRecorderSize.width, mLastRecorderSize.height,
+                    preview.width, preview.height);
     return NS_OK;
   }
 
@@ -502,16 +503,17 @@ nsGonkCameraControl::MaybeAdjustVideoSize()
     // If no candidate was found, the driver will be fine with a video size
     // smaller than the chosen preview size.
     DOM_CAMERA_LOGI("No video size candidate for preview size %ux%u (0x%x)\n",
-      preview.width, preview.height, rv);
+                    preview.width, preview.height, rv);
     return NS_OK;
   }
 
-  DOM_CAMERA_LOGI("Adjusting video size upwards to %ux%u\n",
-    sizes[best].width, sizes[best].height);
+  DOM_CAMERA_LOGI("Adjusting video size upwards to %ux%u\n", sizes[best].width,
+                  sizes[best].height);
   rv = Set(CAMERA_PARAM_VIDEOSIZE, sizes[best]);
   if (NS_FAILED(rv)) {
-    DOM_CAMERA_LOGW("Failed to adjust video size for preview size %ux%u (0x%x)\n",
-      preview.width, preview.height, rv);
+    DOM_CAMERA_LOGW(
+        "Failed to adjust video size for preview size %ux%u (0x%x)\n",
+        preview.width, preview.height, rv);
     return rv;
   }
 
@@ -519,16 +521,15 @@ nsGonkCameraControl::MaybeAdjustVideoSize()
   return NS_OK;
 }
 
-nsresult
-nsGonkCameraControl::SetPictureConfiguration(const Configuration& aConfig)
-{
+nsresult nsGonkCameraControl::SetPictureConfiguration(
+    const Configuration& aConfig) {
   DOM_CAMERA_LOGT("%s:%d\n", __func__, __LINE__);
   MOZ_ASSERT(NS_GetCurrentThread() == mCameraThread);
 
   Size max({0, 0});
-  nsresult rv = SelectCaptureAndPreviewSize(aConfig.mPreviewSize,
-                                            aConfig.mPictureSize, max,
-                                            CAMERA_PARAM_PICTURE_SIZE);
+  nsresult rv =
+      SelectCaptureAndPreviewSize(aConfig.mPreviewSize, aConfig.mPictureSize,
+                                  max, CAMERA_PARAM_PICTURE_SIZE);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -547,16 +548,13 @@ nsGonkCameraControl::SetPictureConfiguration(const Configuration& aConfig)
   DOM_CAMERA_LOGI("picture mode preview: wanted %ux%u, got %ux%u (%u fps)\n",
                   aConfig.mPreviewSize.width, aConfig.mPreviewSize.height,
                   mCurrentConfiguration.mPreviewSize.width,
-                  mCurrentConfiguration.mPreviewSize.height,
-                  mPreviewFps);
+                  mCurrentConfiguration.mPreviewSize.height, mPreviewFps);
 
   return NS_OK;
 }
 
 // Parameter management.
-nsresult
-nsGonkCameraControl::PushParameters()
-{
+nsresult nsGonkCameraControl::PushParameters() {
   uint32_t dcu = mDeferConfigUpdate;
   if (dcu > 0) {
     DOM_CAMERA_LOGI("Defering config update (nest level %u)\n", dcu);
@@ -570,10 +568,11 @@ nsGonkCameraControl::PushParameters()
    * we can proceed.
    */
   if (NS_GetCurrentThread() != mCameraThread) {
-    DOM_CAMERA_LOGT("%s:%d - dispatching to Camera Thread\n", __func__, __LINE__);
+    DOM_CAMERA_LOGT("%s:%d - dispatching to Camera Thread\n", __func__,
+                    __LINE__);
     nsCOMPtr<nsIRunnable> pushParametersTask =
-      NewRunnableMethod("nsGonkCameraControl::PushParametersImpl", this,
-        &nsGonkCameraControl::PushParametersImpl);
+        NewRunnableMethod("nsGonkCameraControl::PushParametersImpl", this,
+                          &nsGonkCameraControl::PushParametersImpl);
     return mCameraThread->Dispatch(pushParametersTask, NS_DISPATCH_NORMAL);
   }
 
@@ -581,47 +580,43 @@ nsGonkCameraControl::PushParameters()
   return PushParametersImpl();
 }
 
-void
-nsGonkCameraControl::BeginBatchParameterSet()
-{
+void nsGonkCameraControl::BeginBatchParameterSet() {
   uint32_t dcu = ++mDeferConfigUpdate;
   if (dcu == 0) {
     NS_WARNING("Overflow weirdness incrementing mDeferConfigUpdate!");
     MOZ_CRASH();
   }
-  DOM_CAMERA_LOGI("Begin deferring camera configuration updates (nest level %u)\n", dcu);
+  DOM_CAMERA_LOGI(
+      "Begin deferring camera configuration updates (nest level %u)\n", dcu);
 }
 
-void
-nsGonkCameraControl::EndBatchParameterSet()
-{
+void nsGonkCameraControl::EndBatchParameterSet() {
   uint32_t dcu = mDeferConfigUpdate--;
   if (dcu == 0) {
     NS_WARNING("Underflow badness decrementing mDeferConfigUpdate!");
     MOZ_CRASH();
   }
-  DOM_CAMERA_LOGI("End deferring camera configuration updates (nest level %u)\n", dcu);
+  DOM_CAMERA_LOGI(
+      "End deferring camera configuration updates (nest level %u)\n", dcu);
 
   if (dcu == 1) {
     PushParameters();
   }
 }
 
-template<class T> nsresult
-nsGonkCameraControl::SetAndPush(uint32_t aKey, const T& aValue)
-{
+template <class T>
+nsresult nsGonkCameraControl::SetAndPush(uint32_t aKey, const T& aValue) {
   nsresult rv = mParams.Set(aKey, aValue);
   if (NS_FAILED(rv)) {
-    DOM_CAMERA_LOGE("Camera parameter aKey=%d failed to set (0x%x)\n", aKey, rv);
+    DOM_CAMERA_LOGE("Camera parameter aKey=%d failed to set (0x%x)\n", aKey,
+                    rv);
     return rv;
   }
   return PushParameters();
 }
 
 // Array-of-Size parameter accessor.
-nsresult
-nsGonkCameraControl::Get(uint32_t aKey, nsTArray<Size>& aSizes)
-{
+nsresult nsGonkCameraControl::Get(uint32_t aKey, nsTArray<Size>& aSizes) {
   if (aKey == CAMERA_PARAM_SUPPORTED_VIDEOSIZES &&
       !mSeparateVideoAndPreviewSizesSupported) {
     aKey = CAMERA_PARAM_SUPPORTED_PREVIEWSIZES;
@@ -631,23 +626,17 @@ nsGonkCameraControl::Get(uint32_t aKey, nsTArray<Size>& aSizes)
 }
 
 // Array-of-doubles parameter accessor.
-nsresult
-nsGonkCameraControl::Get(uint32_t aKey, nsTArray<double>& aValues)
-{
+nsresult nsGonkCameraControl::Get(uint32_t aKey, nsTArray<double>& aValues) {
   return mParams.Get(aKey, aValues);
 }
 
 // Array-of-nsString parameter accessor.
-nsresult
-nsGonkCameraControl::Get(uint32_t aKey, nsTArray<nsString>& aValues)
-{
+nsresult nsGonkCameraControl::Get(uint32_t aKey, nsTArray<nsString>& aValues) {
   return mParams.Get(aKey, aValues);
 }
 
 // nsString-valued parameter accessors
-nsresult
-nsGonkCameraControl::Set(uint32_t aKey, const nsAString& aValue)
-{
+nsresult nsGonkCameraControl::Set(uint32_t aKey, const nsAString& aValue) {
   nsresult rv = mParams.Set(aKey, aValue);
   if (NS_FAILED(rv)) {
     return rv;
@@ -674,75 +663,58 @@ nsGonkCameraControl::Set(uint32_t aKey, const nsAString& aValue)
   return PushParameters();
 }
 
-nsresult
-nsGonkCameraControl::Get(uint32_t aKey, nsAString& aRet)
-{
+nsresult nsGonkCameraControl::Get(uint32_t aKey, nsAString& aRet) {
   return mParams.Get(aKey, aRet);
 }
 
 // Double-valued parameter accessors
-nsresult
-nsGonkCameraControl::Set(uint32_t aKey, double aValue)
-{
+nsresult nsGonkCameraControl::Set(uint32_t aKey, double aValue) {
   return SetAndPush(aKey, aValue);
 }
 
-nsresult
-nsGonkCameraControl::Get(uint32_t aKey, double& aRet)
-{
+nsresult nsGonkCameraControl::Get(uint32_t aKey, double& aRet) {
   return mParams.Get(aKey, aRet);
 }
 
 // Signed-64-bit parameter accessors.
-nsresult
-nsGonkCameraControl::Set(uint32_t aKey, int64_t aValue)
-{
+nsresult nsGonkCameraControl::Set(uint32_t aKey, int64_t aValue) {
   return SetAndPush(aKey, aValue);
 }
 
-nsresult
-nsGonkCameraControl::Get(uint32_t aKey, int64_t& aRet)
-{
+nsresult nsGonkCameraControl::Get(uint32_t aKey, int64_t& aRet) {
   return mParams.Get(aKey, aRet);
 }
 
 // Boolean parameter accessors.
-nsresult
-nsGonkCameraControl::Set(uint32_t aKey, bool aValue)
-{
+nsresult nsGonkCameraControl::Set(uint32_t aKey, bool aValue) {
   return SetAndPush(aKey, aValue);
 }
 
-nsresult
-nsGonkCameraControl::Get(uint32_t aKey, bool& aRet)
-{
+nsresult nsGonkCameraControl::Get(uint32_t aKey, bool& aRet) {
   return mParams.Get(aKey, aRet);
 }
 
 // Weighted-region parameter accessors.
-nsresult
-nsGonkCameraControl::Set(uint32_t aKey, const nsTArray<Region>& aRegions)
-{
+nsresult nsGonkCameraControl::Set(uint32_t aKey,
+                                  const nsTArray<Region>& aRegions) {
   return SetAndPush(aKey, aRegions);
 }
 
-nsresult
-nsGonkCameraControl::Get(uint32_t aKey, nsTArray<Region>& aRegions)
-{
+nsresult nsGonkCameraControl::Get(uint32_t aKey, nsTArray<Region>& aRegions) {
   return mParams.Get(aKey, aRegions);
 }
 
 // Singleton-size parameter accessors.
-nsresult
-nsGonkCameraControl::Set(uint32_t aKey, const Size& aSize)
-{
+nsresult nsGonkCameraControl::Set(uint32_t aKey, const Size& aSize) {
   switch (aKey) {
     case CAMERA_PARAM_PICTURE_SIZE:
-      DOM_CAMERA_LOGI("setting picture size to %ux%u\n", aSize.width, aSize.height);
+      DOM_CAMERA_LOGI("setting picture size to %ux%u\n", aSize.width,
+                      aSize.height);
       return SetPictureSize(aSize);
 
     case CAMERA_PARAM_THUMBNAILSIZE:
-      DOM_CAMERA_LOGI("setting thumbnail size to %ux%u\n", aSize.width, aSize.height);
+      DOM_CAMERA_LOGI("setting thumbnail size to %ux%u\n", aSize.width,
+                      aSize.height);
       return SetThumbnailSize(aSize);
 
     default:
@@ -750,16 +722,12 @@ nsGonkCameraControl::Set(uint32_t aKey, const Size& aSize)
   }
 }
 
-nsresult
-nsGonkCameraControl::Get(uint32_t aKey, Size& aSize)
-{
+nsresult nsGonkCameraControl::Get(uint32_t aKey, Size& aSize) {
   return mParams.Get(aKey, aSize);
 }
 
 // Signed int parameter accessors.
-nsresult
-nsGonkCameraControl::Set(uint32_t aKey, int aValue)
-{
+nsresult nsGonkCameraControl::Set(uint32_t aKey, int aValue) {
   if (aKey == CAMERA_PARAM_PICTURE_ROTATION) {
     RETURN_IF_NO_CAMERA_HW();
     aValue = RationalizeRotation(aValue + mCameraHw->GetSensorOrientation());
@@ -767,9 +735,7 @@ nsGonkCameraControl::Set(uint32_t aKey, int aValue)
   return SetAndPush(aKey, aValue);
 }
 
-nsresult
-nsGonkCameraControl::Get(uint32_t aKey, int& aRet)
-{
+nsresult nsGonkCameraControl::Get(uint32_t aKey, int& aRet) {
   if (aKey == CAMERA_PARAM_SENSORANGLE) {
     RETURN_IF_NO_CAMERA_HW();
     aRet = mCameraHw->GetSensorOrientation();
@@ -780,15 +746,11 @@ nsGonkCameraControl::Get(uint32_t aKey, int& aRet)
 }
 
 // GPS location parameter accessors.
-nsresult
-nsGonkCameraControl::SetLocation(const Position& aLocation)
-{
+nsresult nsGonkCameraControl::SetLocation(const Position& aLocation) {
   return SetAndPush(CAMERA_PARAM_PICTURE_LOCATION, aLocation);
 }
 
-nsresult
-nsGonkCameraControl::StartPreviewInternal()
-{
+nsresult nsGonkCameraControl::StartPreviewInternal() {
   MOZ_ASSERT(NS_GetCurrentThread() == mCameraThread);
   RETURN_IF_NO_CAMERA_HW();
 
@@ -809,9 +771,7 @@ nsGonkCameraControl::StartPreviewInternal()
   return NS_OK;
 }
 
-nsresult
-nsGonkCameraControl::StartPreviewImpl()
-{
+nsresult nsGonkCameraControl::StartPreviewImpl() {
   nsresult rv = StartPreviewInternal();
   if (NS_SUCCEEDED(rv)) {
     OnPreviewStateChange(CameraControlListener::kPreviewStarted);
@@ -819,9 +779,7 @@ nsGonkCameraControl::StartPreviewImpl()
   return rv;
 }
 
-nsresult
-nsGonkCameraControl::StopPreviewImpl()
-{
+nsresult nsGonkCameraControl::StopPreviewImpl() {
   RETURN_IF_NO_CAMERA_HW();
 
   DOM_CAMERA_LOGI("Stopping preview (this=%p)\n", this);
@@ -831,9 +789,7 @@ nsGonkCameraControl::StopPreviewImpl()
   return NS_OK;
 }
 
-nsresult
-nsGonkCameraControl::PausePreview()
-{
+nsresult nsGonkCameraControl::PausePreview() {
   RETURN_IF_NO_CAMERA_HW();
 
   DOM_CAMERA_LOGI("Pausing preview (this=%p)\n", this);
@@ -843,9 +799,7 @@ nsGonkCameraControl::PausePreview()
   return NS_OK;
 }
 
-nsresult
-nsGonkCameraControl::AutoFocusImpl()
-{
+nsresult nsGonkCameraControl::AutoFocusImpl() {
   MOZ_ASSERT(NS_GetCurrentThread() == mCameraThread);
   RETURN_IF_NO_CAMERA_HW();
 
@@ -863,9 +817,7 @@ nsGonkCameraControl::AutoFocusImpl()
   return NS_OK;
 }
 
-nsresult
-nsGonkCameraControl::StartFaceDetectionImpl()
-{
+nsresult nsGonkCameraControl::StartFaceDetectionImpl() {
   MOZ_ASSERT(NS_GetCurrentThread() == mCameraThread);
   RETURN_IF_NO_CAMERA_HW();
 
@@ -877,9 +829,7 @@ nsGonkCameraControl::StartFaceDetectionImpl()
   return NS_OK;
 }
 
-nsresult
-nsGonkCameraControl::StopFaceDetectionImpl()
-{
+nsresult nsGonkCameraControl::StopFaceDetectionImpl() {
   MOZ_ASSERT(NS_GetCurrentThread() == mCameraThread);
   RETURN_IF_NO_CAMERA_HW();
 
@@ -891,9 +841,7 @@ nsGonkCameraControl::StopFaceDetectionImpl()
   return NS_OK;
 }
 
-nsresult
-nsGonkCameraControl::SetThumbnailSizeImpl(const Size& aSize)
-{
+nsresult nsGonkCameraControl::SetThumbnailSizeImpl(const Size& aSize) {
   MOZ_ASSERT(NS_GetCurrentThread() == mCameraThread);
 
   /**
@@ -909,8 +857,8 @@ nsGonkCameraControl::SetThumbnailSizeImpl(const Size& aSize)
    */
   if (!aSize.width || !aSize.height) {
     DOM_CAMERA_LOGW("Requested thumbnail size %ux%u, disabling thumbnail\n",
-      aSize.width, aSize.height);
-    Size size = { 0, 0 };
+                    aSize.width, aSize.height);
+    Size size = {0, 0};
     return SetAndPush(CAMERA_PARAM_THUMBNAILSIZE, size);
   }
 
@@ -931,27 +879,28 @@ nsGonkCameraControl::SetThumbnailSizeImpl(const Size& aSize)
     int area = supportedSizes[i].width * supportedSizes[i].height;
     int delta = abs(area - targetArea);
 
-    if (area != 0 &&
-        delta < smallestDelta &&
+    if (area != 0 && delta < smallestDelta &&
         supportedSizes[i].width * mCurrentConfiguration.mPictureSize.height ==
-          mCurrentConfiguration.mPictureSize.width * supportedSizes[i].height) {
+            mCurrentConfiguration.mPictureSize.width *
+                supportedSizes[i].height) {
       smallestDelta = delta;
       smallestDeltaIndex = i;
     }
   }
 
   if (smallestDeltaIndex == UINT32_MAX) {
-    DOM_CAMERA_LOGW("Unable to find a thumbnail size close to %ux%u, disabling thumbnail\n",
-      aSize.width, aSize.height);
+    DOM_CAMERA_LOGW(
+        "Unable to find a thumbnail size close to %ux%u, disabling thumbnail\n",
+        aSize.width, aSize.height);
     // If we are unable to find a thumbnail size with a suitable aspect ratio,
     // just disable the thumbnail altogether.
-    Size size = { 0, 0 };
+    Size size = {0, 0};
     return SetAndPush(CAMERA_PARAM_THUMBNAILSIZE, size);
   }
 
   Size size = supportedSizes[smallestDeltaIndex];
   DOM_CAMERA_LOGI("camera-param set thumbnail-size = %ux%u (requested %ux%u)\n",
-    size.width, size.height, aSize.width, aSize.height);
+                  size.width, size.height, aSize.width, aSize.height);
   if (size.width > INT32_MAX || size.height > INT32_MAX) {
     DOM_CAMERA_LOGE("Supported thumbnail size is too big, no change\n");
     return NS_ERROR_FAILURE;
@@ -960,37 +909,30 @@ nsGonkCameraControl::SetThumbnailSizeImpl(const Size& aSize)
   return SetAndPush(CAMERA_PARAM_THUMBNAILSIZE, size);
 }
 
-android::sp<android::GonkCameraHardware>
-nsGonkCameraControl::GetCameraHw()
-{
+android::sp<android::GonkCameraHardware> nsGonkCameraControl::GetCameraHw() {
   return mCameraHw;
 }
 
-nsresult
-nsGonkCameraControl::SetThumbnailSize(const Size& aSize)
-{
-  class SetThumbnailSize : public Runnable
-  {
-  public:
+nsresult nsGonkCameraControl::SetThumbnailSize(const Size& aSize) {
+  class SetThumbnailSize : public Runnable {
+   public:
     SetThumbnailSize(nsGonkCameraControl* aCameraControl, const Size& aSize)
-      : mozilla::Runnable("SetThumbnailSize")
-      , mCameraControl(aCameraControl)
-      , mSize(aSize)
-    {
-    }
+        : mozilla::Runnable("SetThumbnailSize"),
+          mCameraControl(aCameraControl),
+          mSize(aSize) {}
     ~SetThumbnailSize() {}
 
     NS_IMETHOD
-    Run() override
-    {
+    Run() override {
       nsresult rv = mCameraControl->SetThumbnailSizeImpl(mSize);
       if (NS_FAILED(rv)) {
-        mCameraControl->OnUserError(CameraControlListener::kInSetThumbnailSize, rv);
+        mCameraControl->OnUserError(CameraControlListener::kInSetThumbnailSize,
+                                    rv);
       }
       return NS_OK;
     }
 
-  protected:
+   protected:
     RefPtr<nsGonkCameraControl> mCameraControl;
     Size mSize;
   };
@@ -999,18 +941,15 @@ nsGonkCameraControl::SetThumbnailSize(const Size& aSize)
     return SetThumbnailSizeImpl(aSize);
   }
 
-  return mCameraThread->Dispatch(new SetThumbnailSize(this, aSize), NS_DISPATCH_NORMAL);
+  return mCameraThread->Dispatch(new SetThumbnailSize(this, aSize),
+                                 NS_DISPATCH_NORMAL);
 }
 
-nsresult
-nsGonkCameraControl::UpdateThumbnailSize()
-{
+nsresult nsGonkCameraControl::UpdateThumbnailSize() {
   return SetThumbnailSize(mLastThumbnailSize);
 }
 
-nsresult
-nsGonkCameraControl::SetPictureSizeImpl(const Size& aSize)
-{
+nsresult nsGonkCameraControl::SetPictureSizeImpl(const Size& aSize) {
   MOZ_ASSERT(NS_GetCurrentThread() == mCameraThread);
 
   /**
@@ -1019,13 +958,15 @@ nsGonkCameraControl::SetPictureSizeImpl(const Size& aSize)
    * default settings.
    */
   if (!aSize.width || !aSize.height) {
-    DOM_CAMERA_LOGW("Ignoring requested picture size of %ux%u\n", aSize.width, aSize.height);
+    DOM_CAMERA_LOGW("Ignoring requested picture size of %ux%u\n", aSize.width,
+                    aSize.height);
     return NS_ERROR_INVALID_ARG;
   }
 
   if (aSize.width == mCurrentConfiguration.mPictureSize.width &&
       aSize.height == mCurrentConfiguration.mPictureSize.height) {
-    DOM_CAMERA_LOGI("Requested picture size %ux%u unchanged\n", aSize.width, aSize.height);
+    DOM_CAMERA_LOGI("Requested picture size %ux%u unchanged\n", aSize.width,
+                    aSize.height);
     return NS_OK;
   }
 
@@ -1036,12 +977,12 @@ nsGonkCameraControl::SetPictureSizeImpl(const Size& aSize)
   nsresult rv = GetSupportedSize(aSize, supportedSizes, best);
   if (NS_FAILED(rv)) {
     DOM_CAMERA_LOGW("Unable to find a picture size close to %ux%u\n",
-      aSize.width, aSize.height);
+                    aSize.width, aSize.height);
     return NS_ERROR_INVALID_ARG;
   }
 
   DOM_CAMERA_LOGI("camera-param set picture-size = %ux%u (requested %ux%u)\n",
-    best.width, best.height, aSize.width, aSize.height);
+                  best.width, best.height, aSize.width, aSize.height);
   if (best.width > INT32_MAX || best.height > INT32_MAX) {
     DOM_CAMERA_LOGE("Supported picture size is too big, no change\n");
     return NS_ERROR_FAILURE;
@@ -1054,15 +995,13 @@ nsGonkCameraControl::SetPictureSizeImpl(const Size& aSize)
 
   mCurrentConfiguration.mPictureSize = best;
 
-  // Finally, update the thumbnail size in case the picture aspect ratio changed.
-  // Some drivers will fail to take a picture if the thumbnail size is not the
-  // same aspect ratio as the picture size.
+  // Finally, update the thumbnail size in case the picture aspect ratio
+  // changed. Some drivers will fail to take a picture if the thumbnail size is
+  // not the same aspect ratio as the picture size.
   return UpdateThumbnailSize();
 }
 
-int32_t
-nsGonkCameraControl::RationalizeRotation(int32_t aRotation)
-{
+int32_t nsGonkCameraControl::RationalizeRotation(int32_t aRotation) {
   int32_t r = aRotation;
 
   // The result of this operation is an angle from 0..270 degrees,
@@ -1084,31 +1023,26 @@ nsGonkCameraControl::RationalizeRotation(int32_t aRotation)
   return r;
 }
 
-nsresult
-nsGonkCameraControl::SetPictureSize(const Size& aSize)
-{
-  class SetPictureSize : public Runnable
-  {
-  public:
+nsresult nsGonkCameraControl::SetPictureSize(const Size& aSize) {
+  class SetPictureSize : public Runnable {
+   public:
     SetPictureSize(nsGonkCameraControl* aCameraControl, const Size& aSize)
-      : mozilla::Runnable("SetPictureSize")
-      , mCameraControl(aCameraControl)
-      , mSize(aSize)
-    {
-    }
+        : mozilla::Runnable("SetPictureSize"),
+          mCameraControl(aCameraControl),
+          mSize(aSize) {}
     ~SetPictureSize() {}
 
     NS_IMETHOD
-    Run() override
-    {
+    Run() override {
       nsresult rv = mCameraControl->SetPictureSizeImpl(mSize);
       if (NS_FAILED(rv)) {
-        mCameraControl->OnUserError(CameraControlListener::kInSetPictureSize, rv);
+        mCameraControl->OnUserError(CameraControlListener::kInSetPictureSize,
+                                    rv);
       }
       return NS_OK;
     }
 
-  protected:
+   protected:
     RefPtr<nsGonkCameraControl> mCameraControl;
     Size mSize;
   };
@@ -1117,12 +1051,11 @@ nsGonkCameraControl::SetPictureSize(const Size& aSize)
     return SetPictureSizeImpl(aSize);
   }
 
-  return mCameraThread->Dispatch(new SetPictureSize(this, aSize), NS_DISPATCH_NORMAL);
+  return mCameraThread->Dispatch(new SetPictureSize(this, aSize),
+                                 NS_DISPATCH_NORMAL);
 }
 
-nsresult
-nsGonkCameraControl::TakePictureImpl()
-{
+nsresult nsGonkCameraControl::TakePictureImpl() {
   MOZ_ASSERT(NS_GetCurrentThread() == mCameraThread);
   RETURN_IF_NO_CAMERA_HW();
 
@@ -1136,9 +1069,7 @@ nsGonkCameraControl::TakePictureImpl()
   return NS_OK;
 }
 
-nsresult
-nsGonkCameraControl::PushParametersImpl()
-{
+nsresult nsGonkCameraControl::PushParametersImpl() {
   MOZ_ASSERT(NS_GetCurrentThread() == mCameraThread);
   DOM_CAMERA_LOGI("Pushing camera parameters\n");
   RETURN_IF_NO_CAMERA_HW();
@@ -1150,9 +1081,7 @@ nsGonkCameraControl::PushParametersImpl()
   return NS_OK;
 }
 
-nsresult
-nsGonkCameraControl::PullParametersImpl()
-{
+nsresult nsGonkCameraControl::PullParametersImpl() {
   MOZ_ASSERT(NS_GetCurrentThread() == mCameraThread);
   DOM_CAMERA_LOGI("Pulling camera parameters\n");
   RETURN_IF_NO_CAMERA_HW();
@@ -1166,9 +1095,8 @@ nsGonkCameraControl::PullParametersImpl()
   return rv;
 }
 
-nsresult
-nsGonkCameraControl::SetupRecordingFlash(bool aAutoEnableLowLightTorch)
-{
+nsresult nsGonkCameraControl::SetupRecordingFlash(
+    bool aAutoEnableLowLightTorch) {
   mAutoFlashModeOverridden = false;
 
   if (!aAutoEnableLowLightTorch || !mLuminanceSupported || !mFlashSupported) {
@@ -1210,15 +1138,15 @@ nsGonkCameraControl::SetupRecordingFlash(bool aAutoEnableLowLightTorch)
   return NS_OK;
 }
 
-nsresult
-nsGonkCameraControl::StartRecordingImpl(DeviceStorageFileDescriptor* aFileDescriptor,
-                                        const StartRecordingOptions* aOptions)
-{
+nsresult nsGonkCameraControl::StartRecordingImpl(
+    DeviceStorageFileDescriptor* aFileDescriptor,
+    const StartRecordingOptions* aOptions) {
   MOZ_ASSERT(NS_GetCurrentThread() == mCameraThread);
 
   ReentrantMonitorAutoEnter mon(mRecorderMonitor);
 
-  NS_ENSURE_TRUE(!mCurrentConfiguration.mRecorderProfile.IsEmpty(), NS_ERROR_NOT_INITIALIZED);
+  NS_ENSURE_TRUE(!mCurrentConfiguration.mRecorderProfile.IsEmpty(),
+                 NS_ERROR_NOT_INITIALIZED);
 #ifdef MOZ_WIDGET_GONK
   NS_ENSURE_FALSE(mRecorder, NS_ERROR_FAILURE);
 #endif
@@ -1256,8 +1184,8 @@ nsGonkCameraControl::StartRecordingImpl(DeviceStorageFileDescriptor* aFileDescri
   nsresult rv;
   auto rawFD = aFileDescriptor->mFileDescriptor.ClonePlatformHandle();
   if (aOptions) {
-    rv = SetupRecording(rawFD.get(), aOptions->rotation, aOptions->maxFileSizeBytes,
-                        aOptions->maxVideoLengthMs);
+    rv = SetupRecording(rawFD.get(), aOptions->rotation,
+                        aOptions->maxFileSizeBytes, aOptions->maxVideoLengthMs);
     if (NS_SUCCEEDED(rv)) {
       rv = SetupRecordingFlash(aOptions->autoEnableLowLightTorch);
     }
@@ -1286,30 +1214,25 @@ nsGonkCameraControl::StartRecordingImpl(DeviceStorageFileDescriptor* aFileDescri
   return NS_OK;
 }
 
-nsresult
-nsGonkCameraControl::StopRecordingImpl()
-{
-  class RecordingComplete : public Runnable
-  {
-  public:
+nsresult nsGonkCameraControl::StopRecordingImpl() {
+  class RecordingComplete : public Runnable {
+   public:
     explicit RecordingComplete(already_AddRefed<DeviceStorageFile> aFile)
-      : mozilla::Runnable("RecordingComplete")
-      , mFile(aFile)
-    { }
+        : mozilla::Runnable("RecordingComplete"), mFile(aFile) {}
 
-    ~RecordingComplete() { }
+    ~RecordingComplete() {}
 
     NS_IMETHOD
-    Run() override
-    {
+    Run() override {
       MOZ_ASSERT(NS_IsMainThread());
 
-      nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
+      nsCOMPtr<nsIObserverService> obs =
+          mozilla::services::GetObserverService();
       obs->NotifyObservers(mFile, "file-watcher-notify", u"modified");
       return NS_OK;
     }
 
-  private:
+   private:
     RefPtr<DeviceStorageFile> mFile;
   };
 
@@ -1348,9 +1271,7 @@ nsGonkCameraControl::StopRecordingImpl()
   return NS_DispatchToMainThread(new RecordingComplete(mVideoFile.forget()));
 }
 
-nsresult
-nsGonkCameraControl::PauseRecordingImpl()
-{
+nsresult nsGonkCameraControl::PauseRecordingImpl() {
   ReentrantMonitorAutoEnter mon(mRecorderMonitor);
 
 #ifdef MOZ_WIDGET_GONK
@@ -1372,9 +1293,7 @@ nsGonkCameraControl::PauseRecordingImpl()
   return NS_OK;
 }
 
-nsresult
-nsGonkCameraControl::ResumeRecordingImpl()
-{
+nsresult nsGonkCameraControl::ResumeRecordingImpl() {
   ReentrantMonitorAutoEnter mon(mRecorderMonitor);
 
 #ifdef MOZ_WIDGET_GONK
@@ -1390,9 +1309,7 @@ nsGonkCameraControl::ResumeRecordingImpl()
   return NS_OK;
 }
 
-nsresult
-nsGonkCameraControl::ResumeContinuousFocusImpl()
-{
+nsresult nsGonkCameraControl::ResumeContinuousFocusImpl() {
   MOZ_ASSERT(NS_GetCurrentThread() == mCameraThread);
   RETURN_IF_NO_CAMERA_HW();
 
@@ -1407,41 +1324,35 @@ nsGonkCameraControl::ResumeContinuousFocusImpl()
   return NS_OK;
 }
 
-class AutoFocusMovingTimerCallback : public nsITimerCallback
-{
-public:
+class AutoFocusMovingTimerCallback : public nsITimerCallback {
+ public:
   NS_DECL_THREADSAFE_ISUPPORTS
 
   explicit AutoFocusMovingTimerCallback(nsGonkCameraControl* aCameraControl)
-    : mCameraControl(aCameraControl)
-  { }
+      : mCameraControl(aCameraControl) {}
 
   NS_IMETHODIMP
-  Notify(nsITimer* aTimer) override
-  {
+  Notify(nsITimer* aTimer) override {
     mCameraControl->OnAutoFocusComplete(true, true);
     return NS_OK;
   }
 
-protected:
-  virtual ~AutoFocusMovingTimerCallback()
-  { }
+ protected:
+  virtual ~AutoFocusMovingTimerCallback() {}
 
   RefPtr<nsGonkCameraControl> mCameraControl;
 };
 
 NS_IMPL_ISUPPORTS(AutoFocusMovingTimerCallback, nsITimerCallback);
 
-void
-nsGonkCameraControl::OnAutoFocusMoving(bool aIsMoving)
-{
+void nsGonkCameraControl::OnAutoFocusMoving(bool aIsMoving) {
   CameraControlImpl::OnAutoFocusMoving(aIsMoving);
 
   if (!aIsMoving) {
-    /* Some drivers do not signal us with the status of the continuous auto focus
-       operation, only the moving signal which comes first. As a result we need to
-       arm a timer to detect the driver behaviour and if necessary generate the
-       signal ourselves to update the application state. */
+    /* Some drivers do not signal us with the status of the continuous auto
+       focus operation, only the moving signal which comes first. As a result we
+       need to arm a timer to detect the driver behaviour and if necessary
+       generate the signal ourselves to update the application state. */
     int32_t expiredCount = 0;
 
     {
@@ -1451,9 +1362,9 @@ nsGonkCameraControl::OnAutoFocusMoving(bool aIsMoving)
         mAutoFocusCompleteTimer->Cancel();
 
         if (!mAutoFocusPending) {
-          RefPtr<nsITimerCallback> timerCb = new AutoFocusMovingTimerCallback(this);
-          DebugOnly<nsresult> rv =
-            mAutoFocusCompleteTimer->InitWithCallback(
+          RefPtr<nsITimerCallback> timerCb =
+              new AutoFocusMovingTimerCallback(this);
+          DebugOnly<nsresult> rv = mAutoFocusCompleteTimer->InitWithCallback(
               timerCb, kAutoFocusCompleteTimeoutMs, nsITimer::TYPE_ONE_SHOT);
           NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "InitWithCallback failed");
         }
@@ -1471,27 +1382,23 @@ nsGonkCameraControl::OnAutoFocusMoving(bool aIsMoving)
   }
 }
 
-void
-nsGonkCameraControl::OnAutoFocusComplete(bool aSuccess, bool aExpired)
-{
-  class AutoFocusComplete : public Runnable
-  {
-  public:
-    AutoFocusComplete(nsGonkCameraControl* aCameraControl, bool aSuccess, bool aExpired)
-      : mozilla::Runnable("AutoFocusComplete")
-      , mCameraControl(aCameraControl)
-      , mSuccess(aSuccess)
-      , mExpired(aExpired)
-    { }
+void nsGonkCameraControl::OnAutoFocusComplete(bool aSuccess, bool aExpired) {
+  class AutoFocusComplete : public Runnable {
+   public:
+    AutoFocusComplete(nsGonkCameraControl* aCameraControl, bool aSuccess,
+                      bool aExpired)
+        : mozilla::Runnable("AutoFocusComplete"),
+          mCameraControl(aCameraControl),
+          mSuccess(aSuccess),
+          mExpired(aExpired) {}
 
     NS_IMETHOD
-    Run() override
-    {
+    Run() override {
       mCameraControl->OnAutoFocusComplete(mSuccess, mExpired);
       return NS_OK;
     }
 
-  protected:
+   protected:
     RefPtr<nsGonkCameraControl> mCameraControl;
     bool mSuccess;
     bool mExpired;
@@ -1513,8 +1420,7 @@ nsGonkCameraControl::OnAutoFocusComplete(bool aSuccess, bool aExpired)
         }
 
         if (mAutoFocusCompleteExpired == kAutoFocusCompleteTimeoutLimit ||
-            mAutoFocusCompleteExpired == -kAutoFocusCompleteTimeoutLimit)
-        {
+            mAutoFocusCompleteExpired == -kAutoFocusCompleteTimeoutLimit) {
           mAutoFocusCompleteTimer = nullptr;
         }
       }
@@ -1533,12 +1439,11 @@ nsGonkCameraControl::OnAutoFocusComplete(bool aSuccess, bool aExpired)
    * Because the callback needs to call PullParametersImpl(),
    * we need to dispatch this callback through the Camera Thread.
    */
-  mCameraThread->Dispatch(new AutoFocusComplete(this, aSuccess, aExpired), NS_DISPATCH_NORMAL);
+  mCameraThread->Dispatch(new AutoFocusComplete(this, aSuccess, aExpired),
+                          NS_DISPATCH_NORMAL);
 }
 
-bool
-FeatureDetected(int32_t feature[])
-{
+bool FeatureDetected(int32_t feature[]) {
   /**
    * For information on what constitutes a valid feature, see:
    * http://androidxref.com/4.0.4/xref/system/core/include/system/camera.h#202
@@ -1550,13 +1455,12 @@ FeatureDetected(int32_t feature[])
    */
   const int32_t kLowerFeatureBound = -1000;
   const int32_t kUpperFeatureBound = 1000;
-  return (feature[0] >= kLowerFeatureBound && feature[0] <= kUpperFeatureBound) ||
+  return (feature[0] >= kLowerFeatureBound &&
+          feature[0] <= kUpperFeatureBound) ||
          (feature[1] >= kLowerFeatureBound && feature[1] <= kUpperFeatureBound);
 }
 
-void
-nsGonkCameraControl::OnFacesDetected(camera_frame_metadata_t* aMetaData)
-{
+void nsGonkCameraControl::OnFacesDetected(camera_frame_metadata_t* aMetaData) {
   NS_ENSURE_TRUE_VOID(aMetaData);
 
   nsTArray<Face> faces;
@@ -1582,15 +1486,17 @@ nsGonkCameraControl::OnFacesDetected(camera_frame_metadata_t* aMetaData)
     f->bound.top = aMetaData->faces[i].rect[1];
     f->bound.right = aMetaData->faces[i].rect[2];
     f->bound.bottom = aMetaData->faces[i].rect[3];
-    DOM_CAMERA_LOGI("Camera face[%u] appended: id=%d, score=%d, bound=(%d, %d)-(%d, %d)\n",
-      i, f->id, f->score, f->bound.left, f->bound.top, f->bound.right, f->bound.bottom);
+    DOM_CAMERA_LOGI(
+        "Camera face[%u] appended: id=%d, score=%d, bound=(%d, %d)-(%d, %d)\n",
+        i, f->id, f->score, f->bound.left, f->bound.top, f->bound.right,
+        f->bound.bottom);
 
     f->hasLeftEye = FeatureDetected(aMetaData->faces[i].left_eye);
     if (f->hasLeftEye) {
       f->leftEye.x = aMetaData->faces[i].left_eye[0];
       f->leftEye.y = aMetaData->faces[i].left_eye[1];
-      DOM_CAMERA_LOGI("    Left eye detected at (%d, %d)\n",
-        f->leftEye.x, f->leftEye.y);
+      DOM_CAMERA_LOGI("    Left eye detected at (%d, %d)\n", f->leftEye.x,
+                      f->leftEye.y);
     } else {
       DOM_CAMERA_LOGI("    No left eye detected\n");
     }
@@ -1599,8 +1505,8 @@ nsGonkCameraControl::OnFacesDetected(camera_frame_metadata_t* aMetaData)
     if (f->hasRightEye) {
       f->rightEye.x = aMetaData->faces[i].right_eye[0];
       f->rightEye.y = aMetaData->faces[i].right_eye[1];
-      DOM_CAMERA_LOGI("    Right eye detected at (%d, %d)\n",
-        f->rightEye.x, f->rightEye.y);
+      DOM_CAMERA_LOGI("    Right eye detected at (%d, %d)\n", f->rightEye.x,
+                      f->rightEye.y);
     } else {
       DOM_CAMERA_LOGI("    No right eye detected\n");
     }
@@ -1609,7 +1515,8 @@ nsGonkCameraControl::OnFacesDetected(camera_frame_metadata_t* aMetaData)
     if (f->hasMouth) {
       f->mouth.x = aMetaData->faces[i].mouth[0];
       f->mouth.y = aMetaData->faces[i].mouth[1];
-      DOM_CAMERA_LOGI("    Mouth detected at (%d, %d)\n", f->mouth.x, f->mouth.y);
+      DOM_CAMERA_LOGI("    Mouth detected at (%d, %d)\n", f->mouth.x,
+                      f->mouth.y);
     } else {
       DOM_CAMERA_LOGI("    No mouth detected\n");
     }
@@ -1618,14 +1525,14 @@ nsGonkCameraControl::OnFacesDetected(camera_frame_metadata_t* aMetaData)
   CameraControlImpl::OnFacesDetected(faces);
 }
 
-void
-nsGonkCameraControl::OnTakePictureComplete(uint8_t* aData, uint32_t aLength)
-{
+void nsGonkCameraControl::OnTakePictureComplete(uint8_t* aData,
+                                                uint32_t aLength) {
   ReentrantMonitorAutoEnter mon(mReentrantMonitor);
 
   nsString s(NS_LITERAL_STRING("image/"));
   s.Append(mFileFormat);
-  DOM_CAMERA_LOGI("Got picture, type '%s', %u bytes\n", NS_ConvertUTF16toUTF8(s).get(), aLength);
+  DOM_CAMERA_LOGI("Got picture, type '%s', %u bytes\n",
+                  NS_ConvertUTF16toUTF8(s).get(), aLength);
   OnTakePictureComplete(aData, aLength, s);
 
   if (mResumePreviewAfterTakingPicture) {
@@ -1639,18 +1546,13 @@ nsGonkCameraControl::OnTakePictureComplete(uint8_t* aData, uint32_t aLength)
   DOM_CAMERA_LOGI("nsGonkCameraControl::OnTakePictureComplete() done\n");
 }
 
-void
-nsGonkCameraControl::OnTakePictureError()
-{
+void nsGonkCameraControl::OnTakePictureError() {
   CameraControlImpl::OnUserError(CameraControlListener::kInTakePicture,
                                  NS_ERROR_FAILURE);
 }
 
-nsresult
-nsGonkCameraControl::GetSupportedSize(const Size& aSize,
-                                      const nsTArray<Size>& aSupportedSizes,
-                                      Size& best)
-{
+nsresult nsGonkCameraControl::GetSupportedSize(
+    const Size& aSize, const nsTArray<Size>& aSupportedSizes, Size& best) {
   nsresult rv = NS_ERROR_INVALID_ARG;
   best = aSize;
   uint32_t minSizeDelta = UINT32_MAX;
@@ -1681,7 +1583,7 @@ nsGonkCameraControl::GetSupportedSize(const Size& aSize,
     for (SizeIndex i = 0; i < aSupportedSizes.Length(); i++) {
       Size size = aSupportedSizes[i];
       uint32_t delta =
-        abs(static_cast<long int>(size.width * size.height - targetArea));
+          abs(static_cast<long int>(size.width * size.height - targetArea));
       if (delta < minSizeDelta) {
         minSizeDelta = delta;
         best = size;
@@ -1715,20 +1617,17 @@ nsGonkCameraControl::GetSupportedSize(const Size& aSize,
   return rv;
 }
 
-nsresult
-nsGonkCameraControl::SelectCaptureAndPreviewSize(const Size& aPreviewSize,
-                                                 const Size& aCaptureSize,
-                                                 const Size& aMaxSize,
-                                                 uint32_t aCaptureSizeKey)
-{
+nsresult nsGonkCameraControl::SelectCaptureAndPreviewSize(
+    const Size& aPreviewSize, const Size& aCaptureSize, const Size& aMaxSize,
+    uint32_t aCaptureSizeKey) {
   MOZ_ASSERT(NS_GetCurrentThread() == mCameraThread);
 
   // At this point, we know the capture size has been validated and replaced
   // if necessary with the best matching supported value.
-  DOM_CAMERA_LOGI("Select capture size %ux%u, preview size %ux%u, maximum size %ux%u\n",
-                  aCaptureSize.width, aCaptureSize.height,
-                  aPreviewSize.width, aPreviewSize.height,
-                  aMaxSize.width, aMaxSize.height);
+  DOM_CAMERA_LOGI(
+      "Select capture size %ux%u, preview size %ux%u, maximum size %ux%u\n",
+      aCaptureSize.width, aCaptureSize.height, aPreviewSize.width,
+      aPreviewSize.height, aMaxSize.width, aMaxSize.height);
 
   AutoTArray<Size, 16> sizes;
   nsresult rv = Get(CAMERA_PARAM_SUPPORTED_PREVIEWSIZES, sizes);
@@ -1752,7 +1651,7 @@ nsGonkCameraControl::SelectCaptureAndPreviewSize(const Size& aPreviewSize,
   // of the capture size, we fallback to only minimizing the delta with the
   // requested preview size.
 
-  SizeIndex bestSizeMatch = 0; // initializers to keep warnings away
+  SizeIndex bestSizeMatch = 0;  // initializers to keep warnings away
   SizeIndex bestSizeMatchWithAspectRatio = 0;
   bool foundSizeMatch = false;
   bool foundSizeMatchWithAspectRatio = false;
@@ -1797,18 +1696,20 @@ nsGonkCameraControl::SelectCaptureAndPreviewSize(const Size& aPreviewSize,
   if (foundSizeMatchWithAspectRatio) {
     previewSize = sizes[bestSizeMatchWithAspectRatio];
   } else if (foundSizeMatch) {
-    DOM_CAMERA_LOGW("Unable to match a preview size with aspect ratio of capture size %ux%u\n",
-      aCaptureSize.width, aCaptureSize.height);
+    DOM_CAMERA_LOGW(
+        "Unable to match a preview size with aspect ratio of capture size "
+        "%ux%u\n",
+        aCaptureSize.width, aCaptureSize.height);
     previewSize = sizes[bestSizeMatch];
   } else {
     DOM_CAMERA_LOGE("Unable to find a preview size for capture size %ux%u\n",
-      aCaptureSize.width, aCaptureSize.height);
+                    aCaptureSize.width, aCaptureSize.height);
     return NS_ERROR_INVALID_ARG;
   }
 
   DOM_CAMERA_LOGI("Setting capture size to %ux%u, preview size to %ux%u\n",
-                  aCaptureSize.width, aCaptureSize.height,
-                  previewSize.width, previewSize.height);
+                  aCaptureSize.width, aCaptureSize.height, previewSize.width,
+                  previewSize.height);
 
   Size oldSize;
   rv = Get(CAMERA_PARAM_PREVIEWSIZE, oldSize);
@@ -1822,7 +1723,8 @@ nsGonkCameraControl::SelectCaptureAndPreviewSize(const Size& aPreviewSize,
   }
   rv = Set(aCaptureSizeKey, aCaptureSize);
   if (NS_WARN_IF(NS_FAILED(rv))) {
-    Set(CAMERA_PARAM_PREVIEWSIZE, oldSize); // error, try to restore the original preview size
+    Set(CAMERA_PARAM_PREVIEWSIZE,
+        oldSize);  // error, try to restore the original preview size
     return rv;
   }
 
@@ -1830,15 +1732,14 @@ nsGonkCameraControl::SelectCaptureAndPreviewSize(const Size& aPreviewSize,
   return NS_OK;
 }
 
-nsresult
-nsGonkCameraControl::SetVideoConfiguration(const Configuration& aConfig)
-{
+nsresult nsGonkCameraControl::SetVideoConfiguration(
+    const Configuration& aConfig) {
   DOM_CAMERA_LOGT("%s:%d\n", __func__, __LINE__);
 
   RecorderProfile* profile;
   if (!mRecorderProfiles.Get(aConfig.mRecorderProfile, &profile)) {
     DOM_CAMERA_LOGE("Recorder profile '%s' is not supported\n",
-      NS_ConvertUTF16toUTF8(aConfig.mRecorderProfile).get());
+                    NS_ConvertUTF16toUTF8(aConfig.mRecorderProfile).get());
     return NS_ERROR_INVALID_ARG;
   }
 
@@ -1847,7 +1748,7 @@ nsGonkCameraControl::SetVideoConfiguration(const Configuration& aConfig)
   const uint32_t fps = video.GetFramesPerSecond();
   if (fps == 0 || fps > INT_MAX || size.width == 0 || size.height == 0) {
     DOM_CAMERA_LOGE("Can't configure video with fps=%u, width=%u, height=%u\n",
-      fps, size.width, size.height);
+                    fps, size.width, size.height);
     return NS_ERROR_FAILURE;
   }
 
@@ -1899,37 +1800,31 @@ nsGonkCameraControl::SetVideoConfiguration(const Configuration& aConfig)
 }
 
 #ifdef MOZ_WIDGET_GONK
-class GonkRecorderListener : public IMediaRecorderClient
-{
-public:
+class GonkRecorderListener : public IMediaRecorderClient {
+ public:
   explicit GonkRecorderListener(nsGonkCameraControl* aCameraControl)
-    : mCameraControl(aCameraControl)
-  {
-    DOM_CAMERA_LOGT("%s:%d : this=%p, aCameraControl=%p\n",
-      __func__, __LINE__, this, mCameraControl.get());
+      : mCameraControl(aCameraControl) {
+    DOM_CAMERA_LOGT("%s:%d : this=%p, aCameraControl=%p\n", __func__, __LINE__,
+                    this, mCameraControl.get());
   }
 
-  void notify(int msg, int ext1, int ext2)
-  {
+  void notify(int msg, int ext1, int ext2) {
     if (mCameraControl) {
       mCameraControl->OnRecorderEvent(msg, ext1, ext2);
     }
   }
 
-  IBinder* onAsBinder()
-  {
+  IBinder* onAsBinder() {
     DOM_CAMERA_LOGE("onAsBinder() called, should NEVER get called!\n");
     return nullptr;
   }
 
-protected:
-  ~GonkRecorderListener() { }
+ protected:
+  ~GonkRecorderListener() {}
   RefPtr<nsGonkCameraControl> mCameraControl;
 };
 
-void
-nsGonkCameraControl::OnRecorderEvent(int msg, int ext1, int ext2)
-{
+void nsGonkCameraControl::OnRecorderEvent(int msg, int ext1, int ext2) {
   /**
    * Refer to base/include/media/mediarecorder.h for a complete list
    * of error and info message codes.  There are duplicate values
@@ -1984,17 +1879,21 @@ nsGonkCameraControl::OnRecorderEvent(int msg, int ext1, int ext2)
       switch (ext1) {
         case MEDIA_RECORDER_INFO_MAX_FILESIZE_REACHED:
           DOM_CAMERA_LOGI("recorder-event : info: maximum file size reached\n");
-          OnRecorderStateChange(CameraControlListener::kFileSizeLimitReached, ext2, trackNum);
+          OnRecorderStateChange(CameraControlListener::kFileSizeLimitReached,
+                                ext2, trackNum);
           return;
 
         case MEDIA_RECORDER_INFO_MAX_DURATION_REACHED:
-          DOM_CAMERA_LOGI("recorder-event : info: maximum video duration reached\n");
-          OnRecorderStateChange(CameraControlListener::kVideoLengthLimitReached, ext2, trackNum);
+          DOM_CAMERA_LOGI(
+              "recorder-event : info: maximum video duration reached\n");
+          OnRecorderStateChange(CameraControlListener::kVideoLengthLimitReached,
+                                ext2, trackNum);
           return;
 
         case MEDIA_RECORDER_TRACK_INFO_COMPLETION_STATUS:
           DOM_CAMERA_LOGI("recorder-event : info: track completed\n");
-          OnRecorderStateChange(CameraControlListener::kTrackCompleted, ext2, trackNum);
+          OnRecorderStateChange(CameraControlListener::kTrackCompleted, ext2,
+                                trackNum);
           return;
       }
       break;
@@ -2002,13 +1901,16 @@ nsGonkCameraControl::OnRecorderEvent(int msg, int ext1, int ext2)
     case MEDIA_RECORDER_EVENT_ERROR:
       switch (ext1) {
         case MEDIA_RECORDER_ERROR_UNKNOWN:
-          DOM_CAMERA_LOGE("recorder-event : recorder-error: %d (0x%08x)\n", ext2, ext2);
-          OnRecorderStateChange(CameraControlListener::kMediaRecorderFailed, ext2, trackNum);
+          DOM_CAMERA_LOGE("recorder-event : recorder-error: %d (0x%08x)\n",
+                          ext2, ext2);
+          OnRecorderStateChange(CameraControlListener::kMediaRecorderFailed,
+                                ext2, trackNum);
           return;
 
         case MEDIA_ERROR_SERVER_DIED:
           DOM_CAMERA_LOGE("recorder-event : recorder-error: server died\n");
-          OnRecorderStateChange(CameraControlListener::kMediaServerFailed, ext2, trackNum);
+          OnRecorderStateChange(CameraControlListener::kMediaServerFailed, ext2,
+                                trackNum);
           return;
       }
       break;
@@ -2020,16 +1922,23 @@ nsGonkCameraControl::OnRecorderEvent(int msg, int ext1, int ext2)
       switch (ext1) {
         case MEDIA_RECORDER_TRACK_INFO_COMPLETION_STATUS:
           if (ext2 == OK) {
-            DOM_CAMERA_LOGI("recorder-event : track-complete: track %d, %d (0x%08x)\n", trackNum, ext2, ext2);
-            OnRecorderStateChange(CameraControlListener::kTrackCompleted, ext2, trackNum);
+            DOM_CAMERA_LOGI(
+                "recorder-event : track-complete: track %d, %d (0x%08x)\n",
+                trackNum, ext2, ext2);
+            OnRecorderStateChange(CameraControlListener::kTrackCompleted, ext2,
+                                  trackNum);
             return;
           }
-          DOM_CAMERA_LOGE("recorder-event : track-error: track %d, %d (0x%08x)\n", trackNum, ext2, ext2);
-          OnRecorderStateChange(CameraControlListener::kTrackFailed, ext2, trackNum);
+          DOM_CAMERA_LOGE(
+              "recorder-event : track-error: track %d, %d (0x%08x)\n", trackNum,
+              ext2, ext2);
+          OnRecorderStateChange(CameraControlListener::kTrackFailed, ext2,
+                                trackNum);
           return;
 
         case MEDIA_RECORDER_TRACK_INFO_PROGRESS_IN_TIME:
-          DOM_CAMERA_LOGI("recorder-event : track-info: progress in time: %d ms\n", ext2);
+          DOM_CAMERA_LOGI(
+              "recorder-event : track-info: progress in time: %d ms\n", ext2);
           return;
       }
       break;
@@ -2037,21 +1946,22 @@ nsGonkCameraControl::OnRecorderEvent(int msg, int ext1, int ext2)
     case MEDIA_RECORDER_TRACK_EVENT_ERROR:
       trackNum = (ext1 & 0xF0000000) >> 28;
       ext1 &= 0xFFFF;
-      DOM_CAMERA_LOGE("recorder-event : track-error: track %d, %d (0x%08x)\n", trackNum, ext2, ext2);
-      OnRecorderStateChange(CameraControlListener::kTrackFailed, ext2, trackNum);
+      DOM_CAMERA_LOGE("recorder-event : track-error: track %d, %d (0x%08x)\n",
+                      trackNum, ext2, ext2);
+      OnRecorderStateChange(CameraControlListener::kTrackFailed, ext2,
+                            trackNum);
       return;
   }
 
   // All unhandled cases wind up here
-  DOM_CAMERA_LOGW("recorder-event : unhandled: msg=%d, ext1=%d, ext2=%d\n", msg, ext1, ext2);
+  DOM_CAMERA_LOGW("recorder-event : unhandled: msg=%d, ext1=%d, ext2=%d\n", msg,
+                  ext1, ext2);
 }
 #endif
 
-nsresult
-nsGonkCameraControl::SetupRecording(int aFd, int aRotation,
-                                    uint64_t aMaxFileSizeBytes,
-                                    uint64_t aMaxVideoLengthMs)
-{
+nsresult nsGonkCameraControl::SetupRecording(int aFd, int aRotation,
+                                             uint64_t aMaxFileSizeBytes,
+                                             uint64_t aMaxVideoLengthMs) {
   RETURN_IF_NO_CAMERA_HW();
 
 #ifdef MOZ_WIDGET_GONK
@@ -2064,9 +1974,8 @@ nsGonkCameraControl::SetupRecording(int aFd, int aRotation,
   mRecorder = new GonkRecorder();
   CHECK_SETARG_RETURN(mRecorder->init(), NS_ERROR_FAILURE);
 
-  nsresult rv =
-    GonkRecorderProfile::ConfigureRecorder(*mRecorder, mCameraId,
-                                           mCurrentConfiguration.mRecorderProfile);
+  nsresult rv = GonkRecorderProfile::ConfigureRecorder(
+      *mRecorder, mCameraId, mCurrentConfiguration.mRecorderProfile);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -2122,9 +2031,7 @@ nsGonkCameraControl::SetupRecording(int aFd, int aRotation,
   return NS_OK;
 }
 
-nsresult
-nsGonkCameraControl::StopInternal()
-{
+nsresult nsGonkCameraControl::StopInternal() {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
 
   // if we're recording, stop recording
@@ -2134,17 +2041,15 @@ nsGonkCameraControl::StopInternal()
   nsresult rv = StopPreviewImpl();
 
   // release the hardware handle
-  if (mCameraHw.get()){
-     mCameraHw->Close();
-     mCameraHw.clear();
+  if (mCameraHw.get()) {
+    mCameraHw->Close();
+    mCameraHw.clear();
   }
 
   return rv;
 }
 
-nsresult
-nsGonkCameraControl::StopImpl()
-{
+nsresult nsGonkCameraControl::StopImpl() {
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
 
   nsresult rv = StopInternal();
@@ -2157,9 +2062,7 @@ nsGonkCameraControl::StopImpl()
   return rv;
 }
 
-nsresult
-nsGonkCameraControl::LoadRecorderProfiles()
-{
+nsresult nsGonkCameraControl::LoadRecorderProfiles() {
   if (mRecorderProfiles.Count() == 0) {
     nsTArray<RefPtr<RecorderProfile>> profiles;
     nsresult rv = GonkRecorderProfile::GetAll(mCameraId, profiles);
@@ -2178,12 +2081,14 @@ nsGonkCameraControl::LoadRecorderProfiles()
     uint32_t bestPriorityMatch = UINT32_MAX;
 
     // Limit profiles to those video sizes supported by the camera hardware...
-    for (nsTArray<RecorderProfile>::size_type i = 0; i < profiles.Length(); ++i) {
+    for (nsTArray<RecorderProfile>::size_type i = 0; i < profiles.Length();
+         ++i) {
       int width = profiles[i]->GetVideo().GetSize().width;
       int height = profiles[i]->GetVideo().GetSize().height;
       if (width < 0 || height < 0) {
-        DOM_CAMERA_LOGW("Ignoring weird profile '%s' with width and/or height < 0\n",
-          NS_ConvertUTF16toUTF8(profiles[i]->GetName()).get());
+        DOM_CAMERA_LOGW(
+            "Ignoring weird profile '%s' with width and/or height < 0\n",
+            NS_ConvertUTF16toUTF8(profiles[i]->GetName()).get());
         continue;
       }
       for (nsTArray<Size>::size_type n = 0; n < sizes.Length(); ++n) {
@@ -2216,9 +2121,8 @@ nsGonkCameraControl::LoadRecorderProfiles()
   return NS_OK;
 }
 
-nsresult
-nsGonkCameraControl::GetRecorderProfiles(nsTArray<nsString>& aProfiles)
-{
+nsresult nsGonkCameraControl::GetRecorderProfiles(
+    nsTArray<nsString>& aProfiles) {
   nsresult rv = LoadRecorderProfiles();
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
@@ -2231,9 +2135,8 @@ nsGonkCameraControl::GetRecorderProfiles(nsTArray<nsString>& aProfiles)
   return NS_OK;
 }
 
-ICameraControl::RecorderProfile*
-nsGonkCameraControl::GetProfileInfo(const nsAString& aProfile)
-{
+ICameraControl::RecorderProfile* nsGonkCameraControl::GetProfileInfo(
+    const nsAString& aProfile) {
   RecorderProfile* profile;
   if (!mRecorderProfiles.Get(aProfile, &profile)) {
     return nullptr;
@@ -2241,36 +2144,28 @@ nsGonkCameraControl::GetProfileInfo(const nsAString& aProfile)
   return profile;
 }
 
-void
-nsGonkCameraControl::OnRateLimitPreview(bool aLimit)
-{
+void nsGonkCameraControl::OnRateLimitPreview(bool aLimit) {
   CameraControlImpl::OnRateLimitPreview(aLimit);
 }
 
-void
-nsGonkCameraControl::CreatePoster(Image* aImage, uint32_t aWidth, uint32_t aHeight, int32_t aRotation)
-{
+void nsGonkCameraControl::CreatePoster(Image* aImage, uint32_t aWidth,
+                                       uint32_t aHeight, int32_t aRotation) {
   class PosterRunnable : public Runnable {
-  public:
-    PosterRunnable(nsGonkCameraControl* aTarget, Image* aImage,
-                   uint32_t aWidth, uint32_t aHeight, int32_t aRotation)
-      : mozilla::Runnable("AutoFocusComplete")
-      , mTarget(aTarget)
-      , mImage(aImage)
-      , mWidth(aWidth)
-      , mHeight(aHeight)
-      , mRotation(aRotation)
-      , mDst(nullptr)
-      , mDstLength(0)
-    { }
+   public:
+    PosterRunnable(nsGonkCameraControl* aTarget, Image* aImage, uint32_t aWidth,
+                   uint32_t aHeight, int32_t aRotation)
+        : mozilla::Runnable("AutoFocusComplete"),
+          mTarget(aTarget),
+          mImage(aImage),
+          mWidth(aWidth),
+          mHeight(aHeight),
+          mRotation(aRotation),
+          mDst(nullptr),
+          mDstLength(0) {}
 
-    virtual ~PosterRunnable()
-    {
-      mTarget->OnPoster(mDst, mDstLength);
-    }
+    virtual ~PosterRunnable() { mTarget->OnPoster(mDst, mDstLength); }
 
-    NS_IMETHOD Run() override
-    {
+    NS_IMETHOD Run() override {
 #ifdef MOZ_WIDGET_GONK
       // NV21 (yuv420sp) is 12 bits / pixel
       size_t srcLength = (mWidth * mHeight * 3 + 1) / 2;
@@ -2280,7 +2175,8 @@ nsGonkCameraControl::CreatePoster(Image* aImage, uint32_t aWidth, uint32_t aHeig
       UniquePtr<uint8_t[]> tmp = MakeUnique<uint8_t[]>(tmpLength);
 
       GrallocImage* nativeImage = static_cast<GrallocImage*>(mImage.get());
-      android::sp<GraphicBuffer> graphicBuffer = nativeImage->GetGraphicBuffer();
+      android::sp<GraphicBuffer> graphicBuffer =
+          nativeImage->GetGraphicBuffer();
 
       void* graphicSrc = nullptr;
       graphicBuffer->lock(GraphicBuffer::USAGE_SW_READ_MASK, &graphicSrc);
@@ -2303,20 +2199,18 @@ nsGonkCameraControl::CreatePoster(Image* aImage, uint32_t aWidth, uint32_t aHeig
       }
 
       nsCOMPtr<imgIEncoder> encoder =
-        do_CreateInstance("@mozilla.org/image/encoder;2?type=image/jpeg");
+          do_CreateInstance("@mozilla.org/image/encoder;2?type=image/jpeg");
       if (NS_WARN_IF(!encoder)) {
         DOM_CAMERA_LOGE("CreatePoster: no JPEG encoder\n");
         return NS_OK;
       }
 
       nsString opt;
-      nsresult rv = encoder->InitFromData(tmp.get(), tmpLength, mWidth,
-                                          mHeight, stride,
-                                          imgIEncoder::INPUT_FORMAT_HOSTARGB,
-                                          opt);
+      nsresult rv =
+          encoder->InitFromData(tmp.get(), tmpLength, mWidth, mHeight, stride,
+                                imgIEncoder::INPUT_FORMAT_HOSTARGB, opt);
       if (NS_WARN_IF(NS_FAILED(rv))) {
-        DOM_CAMERA_LOGE("CreatePoster: encoder init failed (0x%x)\n",
-                        rv);
+        DOM_CAMERA_LOGE("CreatePoster: encoder init failed (0x%x)\n", rv);
         return NS_OK;
       }
 
@@ -2329,8 +2223,7 @@ nsGonkCameraControl::CreatePoster(Image* aImage, uint32_t aWidth, uint32_t aHeig
       uint64_t length = 0;
       rv = stream->Available(&length);
       if (NS_WARN_IF(NS_FAILED(rv))) {
-        DOM_CAMERA_LOGE("CreatePoster: get length failed (0x%x)\n",
-                        rv);
+        DOM_CAMERA_LOGE("CreatePoster: get length failed (0x%x)\n", rv);
         return NS_OK;
       }
 
@@ -2346,7 +2239,7 @@ nsGonkCameraControl::CreatePoster(Image* aImage, uint32_t aWidth, uint32_t aHeig
       return NS_OK;
     }
 
-  private:
+   private:
     RefPtr<nsGonkCameraControl> mTarget;
     RefPtr<Image> mImage;
     int32_t mWidth;
@@ -2356,31 +2249,26 @@ nsGonkCameraControl::CreatePoster(Image* aImage, uint32_t aWidth, uint32_t aHeig
     size_t mDstLength;
   };
 
-  nsCOMPtr<nsIRunnable> event = new PosterRunnable(this, aImage,
-                                                   aWidth,
-                                                   aHeight,
-                                                   aRotation);
+  nsCOMPtr<nsIRunnable> event =
+      new PosterRunnable(this, aImage, aWidth, aHeight, aRotation);
 
-  nsCOMPtr<nsIEventTarget> target
-    = do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
+  nsCOMPtr<nsIEventTarget> target =
+      do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
   MOZ_ASSERT(target);
 
   target->Dispatch(event, NS_DISPATCH_NORMAL);
 }
 
-void
-nsGonkCameraControl::OnPoster(void* aData, uint32_t aLength)
-{
+void nsGonkCameraControl::OnPoster(void* aData, uint32_t aLength) {
   RefPtr<BlobImpl> blobImpl;
   if (aData) {
-    blobImpl = new MemoryBlobImpl(aData, aLength, NS_LITERAL_STRING("image/jpeg"));
+    blobImpl =
+        new MemoryBlobImpl(aData, aLength, NS_LITERAL_STRING("image/jpeg"));
   }
   CameraControlImpl::OnPoster(blobImpl);
 }
 
-void
-nsGonkCameraControl::OnNewPreviewFrame(layers::TextureClient* aBuffer)
-{
+void nsGonkCameraControl::OnNewPreviewFrame(layers::TextureClient* aBuffer) {
 #ifdef MOZ_WIDGET_GONK
   RefPtr<GrallocImage> frame = new GrallocImage();
 
@@ -2389,10 +2277,8 @@ nsGonkCameraControl::OnNewPreviewFrame(layers::TextureClient* aBuffer)
   frame->AdoptData(aBuffer, picSize);
 
   if (mCapturePoster.exchange(false)) {
-    CreatePoster(frame,
-                 mCurrentConfiguration.mPreviewSize.width,
-                 mCurrentConfiguration.mPreviewSize.height,
-                 mVideoRotation);
+    CreatePoster(frame, mCurrentConfiguration.mPreviewSize.width,
+                 mCurrentConfiguration.mPreviewSize.height, mVideoRotation);
     return;
   }
 
@@ -2401,13 +2287,12 @@ nsGonkCameraControl::OnNewPreviewFrame(layers::TextureClient* aBuffer)
 #endif
 }
 
-void
-nsGonkCameraControl::OnSystemError(CameraControlListener::SystemContext aWhere,
-                                   nsresult aError)
-{
+void nsGonkCameraControl::OnSystemError(
+    CameraControlListener::SystemContext aWhere, nsresult aError) {
   if (aWhere == CameraControlListener::kSystemService) {
     StopInternal();
-    OnHardwareStateChange(CameraControlListener::kHardwareClosed, NS_ERROR_FAILURE);
+    OnHardwareStateChange(CameraControlListener::kHardwareClosed,
+                          NS_ERROR_FAILURE);
   }
 
   CameraControlImpl::OnSystemError(aWhere, aError);
@@ -2416,61 +2301,43 @@ nsGonkCameraControl::OnSystemError(CameraControlListener::SystemContext aWhere,
 // Gonk callback handlers.
 namespace mozilla {
 
-void
-OnTakePictureComplete(nsGonkCameraControl* gc, uint8_t* aData, uint32_t aLength)
-{
+void OnTakePictureComplete(nsGonkCameraControl* gc, uint8_t* aData,
+                           uint32_t aLength) {
   gc->OnTakePictureComplete(aData, aLength);
 }
 
-void
-OnTakePictureError(nsGonkCameraControl* gc)
-{
-  gc->OnTakePictureError();
-}
+void OnTakePictureError(nsGonkCameraControl* gc) { gc->OnTakePictureError(); }
 
-void
-OnAutoFocusComplete(nsGonkCameraControl* gc, bool aSuccess)
-{
+void OnAutoFocusComplete(nsGonkCameraControl* gc, bool aSuccess) {
   gc->OnAutoFocusComplete(aSuccess, false);
 }
 
-void
-OnAutoFocusMoving(nsGonkCameraControl* gc, bool aIsMoving)
-{
+void OnAutoFocusMoving(nsGonkCameraControl* gc, bool aIsMoving) {
   gc->OnAutoFocusMoving(aIsMoving);
 }
 
-void
-OnFacesDetected(nsGonkCameraControl* gc, camera_frame_metadata_t* aMetaData)
-{
+void OnFacesDetected(nsGonkCameraControl* gc,
+                     camera_frame_metadata_t* aMetaData) {
   gc->OnFacesDetected(aMetaData);
 }
 
-void
-OnRateLimitPreview(nsGonkCameraControl* gc, bool aLimit)
-{
+void OnRateLimitPreview(nsGonkCameraControl* gc, bool aLimit) {
   gc->OnRateLimitPreview(aLimit);
 }
 
-void
-OnNewPreviewFrame(nsGonkCameraControl* gc, layers::TextureClient* aBuffer)
-{
+void OnNewPreviewFrame(nsGonkCameraControl* gc,
+                       layers::TextureClient* aBuffer) {
   gc->OnNewPreviewFrame(aBuffer);
 }
 
-void
-OnShutter(nsGonkCameraControl* gc)
-{
-  gc->OnShutter();
-}
+void OnShutter(nsGonkCameraControl* gc) { gc->OnShutter(); }
 
-void
-OnSystemError(nsGonkCameraControl* gc,
-              CameraControlListener::SystemContext aWhere,
-              int32_t aArg1, int32_t aArg2)
-{
-  DOM_CAMERA_LOGE("OnSystemError : aWhere=%d, aArg1=%d, aArg2=%d\n", aWhere, aArg1, aArg2);
+void OnSystemError(nsGonkCameraControl* gc,
+                   CameraControlListener::SystemContext aWhere, int32_t aArg1,
+                   int32_t aArg2) {
+  DOM_CAMERA_LOGE("OnSystemError : aWhere=%d, aArg1=%d, aArg2=%d\n", aWhere,
+                  aArg1, aArg2);
   gc->OnSystemError(aWhere, NS_ERROR_FAILURE);
 }
 
-} // namespace mozilla
+}  // namespace mozilla

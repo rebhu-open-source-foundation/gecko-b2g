@@ -11,9 +11,11 @@ namespace mozilla {
 namespace dom {
 namespace icc {
 
-#define ASSERT_EQUALITY(webidlType, webidlState, xpidlState) \
-  static_assert(static_cast<uint32_t>(webidlType::webidlState) == nsIIcc::xpidlState, \
-  #webidlType "::" #webidlState " should equal to nsIIccService::" #xpidlState)
+#define ASSERT_EQUALITY(webidlType, webidlState, xpidlState)                \
+  static_assert(                                                            \
+      static_cast<uint32_t>(webidlType::webidlState) == nsIIcc::xpidlState, \
+      #webidlType "::" #webidlState                                         \
+                  " should equal to nsIIccService::" #xpidlState)
 
 /**
  * Enum IccCardState
@@ -26,30 +28,49 @@ ASSERT_ICC_CARD_STATE_EQUALITY(Ready, CARD_STATE_READY);
 ASSERT_ICC_CARD_STATE_EQUALITY(PinRequired, CARD_STATE_PIN_REQUIRED);
 ASSERT_ICC_CARD_STATE_EQUALITY(PukRequired, CARD_STATE_PUK_REQUIRED);
 ASSERT_ICC_CARD_STATE_EQUALITY(PermanentBlocked, CARD_STATE_PERMANENT_BLOCKED);
-ASSERT_ICC_CARD_STATE_EQUALITY(PersonalizationInProgress, CARD_STATE_PERSONALIZATION_IN_PROGRESS);
-ASSERT_ICC_CARD_STATE_EQUALITY(PersonalizationReady, CARD_STATE_PERSONALIZATION_READY);
+ASSERT_ICC_CARD_STATE_EQUALITY(PersonalizationInProgress,
+                               CARD_STATE_PERSONALIZATION_IN_PROGRESS);
+ASSERT_ICC_CARD_STATE_EQUALITY(PersonalizationReady,
+                               CARD_STATE_PERSONALIZATION_READY);
 ASSERT_ICC_CARD_STATE_EQUALITY(NetworkLocked, CARD_STATE_NETWORK_LOCKED);
-ASSERT_ICC_CARD_STATE_EQUALITY(NetworkSubsetLocked, CARD_STATE_NETWORK_SUBSET_LOCKED);
+ASSERT_ICC_CARD_STATE_EQUALITY(NetworkSubsetLocked,
+                               CARD_STATE_NETWORK_SUBSET_LOCKED);
 ASSERT_ICC_CARD_STATE_EQUALITY(CorporateLocked, CARD_STATE_CORPORATE_LOCKED);
-ASSERT_ICC_CARD_STATE_EQUALITY(ServiceProviderLocked, CARD_STATE_SERVICE_PROVIDER_LOCKED);
+ASSERT_ICC_CARD_STATE_EQUALITY(ServiceProviderLocked,
+                               CARD_STATE_SERVICE_PROVIDER_LOCKED);
 ASSERT_ICC_CARD_STATE_EQUALITY(SimPersonalizationLocked, CARD_STATE_SIM_LOCKED);
-ASSERT_ICC_CARD_STATE_EQUALITY(NetworkPukRequired, CARD_STATE_NETWORK_PUK_REQUIRED);
-ASSERT_ICC_CARD_STATE_EQUALITY(NetworkSubsetPukRequired, CARD_STATE_NETWORK_SUBSET_PUK_REQUIRED);
-ASSERT_ICC_CARD_STATE_EQUALITY(CorporatePukRequired, CARD_STATE_CORPORATE_PUK_REQUIRED);
-ASSERT_ICC_CARD_STATE_EQUALITY(ServiceProviderPukRequired, CARD_STATE_SERVICE_PROVIDER_PUK_REQUIRED);
-ASSERT_ICC_CARD_STATE_EQUALITY(SimPersonalizationPukRequired, CARD_STATE_SIM_PUK_REQUIRED);
+ASSERT_ICC_CARD_STATE_EQUALITY(NetworkPukRequired,
+                               CARD_STATE_NETWORK_PUK_REQUIRED);
+ASSERT_ICC_CARD_STATE_EQUALITY(NetworkSubsetPukRequired,
+                               CARD_STATE_NETWORK_SUBSET_PUK_REQUIRED);
+ASSERT_ICC_CARD_STATE_EQUALITY(CorporatePukRequired,
+                               CARD_STATE_CORPORATE_PUK_REQUIRED);
+ASSERT_ICC_CARD_STATE_EQUALITY(ServiceProviderPukRequired,
+                               CARD_STATE_SERVICE_PROVIDER_PUK_REQUIRED);
+ASSERT_ICC_CARD_STATE_EQUALITY(SimPersonalizationPukRequired,
+                               CARD_STATE_SIM_PUK_REQUIRED);
 ASSERT_ICC_CARD_STATE_EQUALITY(Network1Locked, CARD_STATE_NETWORK1_LOCKED);
 ASSERT_ICC_CARD_STATE_EQUALITY(Network2Locked, CARD_STATE_NETWORK2_LOCKED);
-ASSERT_ICC_CARD_STATE_EQUALITY(HrpdNetworkLocked, CARD_STATE_HRPD_NETWORK_LOCKED);
-ASSERT_ICC_CARD_STATE_EQUALITY(RuimCorporateLocked, CARD_STATE_RUIM_CORPORATE_LOCKED);
-ASSERT_ICC_CARD_STATE_EQUALITY(RuimServiceProviderLocked, CARD_STATE_RUIM_SERVICE_PROVIDER_LOCKED);
-ASSERT_ICC_CARD_STATE_EQUALITY(RuimPersonalizationLocked, CARD_STATE_RUIM_LOCKED);
-ASSERT_ICC_CARD_STATE_EQUALITY(Network1PukRequired, CARD_STATE_NETWORK1_PUK_REQUIRED);
-ASSERT_ICC_CARD_STATE_EQUALITY(Network2PukRequired, CARD_STATE_NETWORK2_PUK_REQUIRED);
-ASSERT_ICC_CARD_STATE_EQUALITY(HrpdNetworkPukRequired, CARD_STATE_HRPD_NETWORK_PUK_REQUIRED);
-ASSERT_ICC_CARD_STATE_EQUALITY(RuimCorporatePukRequired, CARD_STATE_RUIM_CORPORATE_PUK_REQUIRED);
-ASSERT_ICC_CARD_STATE_EQUALITY(RuimServiceProviderPukRequired, CARD_STATE_RUIM_SERVICE_PROVIDER_PUK_REQUIRED);
-ASSERT_ICC_CARD_STATE_EQUALITY(RuimPersonalizationPukRequired, CARD_STATE_RUIM_PUK_REQUIRED);
+ASSERT_ICC_CARD_STATE_EQUALITY(HrpdNetworkLocked,
+                               CARD_STATE_HRPD_NETWORK_LOCKED);
+ASSERT_ICC_CARD_STATE_EQUALITY(RuimCorporateLocked,
+                               CARD_STATE_RUIM_CORPORATE_LOCKED);
+ASSERT_ICC_CARD_STATE_EQUALITY(RuimServiceProviderLocked,
+                               CARD_STATE_RUIM_SERVICE_PROVIDER_LOCKED);
+ASSERT_ICC_CARD_STATE_EQUALITY(RuimPersonalizationLocked,
+                               CARD_STATE_RUIM_LOCKED);
+ASSERT_ICC_CARD_STATE_EQUALITY(Network1PukRequired,
+                               CARD_STATE_NETWORK1_PUK_REQUIRED);
+ASSERT_ICC_CARD_STATE_EQUALITY(Network2PukRequired,
+                               CARD_STATE_NETWORK2_PUK_REQUIRED);
+ASSERT_ICC_CARD_STATE_EQUALITY(HrpdNetworkPukRequired,
+                               CARD_STATE_HRPD_NETWORK_PUK_REQUIRED);
+ASSERT_ICC_CARD_STATE_EQUALITY(RuimCorporatePukRequired,
+                               CARD_STATE_RUIM_CORPORATE_PUK_REQUIRED);
+ASSERT_ICC_CARD_STATE_EQUALITY(RuimServiceProviderPukRequired,
+                               CARD_STATE_RUIM_SERVICE_PROVIDER_PUK_REQUIRED);
+ASSERT_ICC_CARD_STATE_EQUALITY(RuimPersonalizationPukRequired,
+                               CARD_STATE_RUIM_PUK_REQUIRED);
 ASSERT_ICC_CARD_STATE_EQUALITY(Illegal, CARD_STATE_ILLEGAL);
 
 #undef ASSERT_ICC_CARD_STATE_EQUALITY
@@ -139,6 +160,6 @@ ASSERT_ICC_APP_TYPE_EQUALITY(Isim, APPTYPE_ISIM);
 
 #undef ASSERT_EQUALITY
 
-} // namespace icc
-} // namespace dom
-} // namespace mozilla
+}  // namespace icc
+}  // namespace dom
+}  // namespace mozilla

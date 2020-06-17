@@ -39,7 +39,8 @@ class MobileConnectionListener : public nsIMobileConnectionListener {
   NS_DECL_ISUPPORTS
   NS_DECL_NSIMOBILECONNECTIONLISTENER
 
-  explicit MobileConnectionListener(uint32_t aClientId) : mClientId(aClientId) {}
+  explicit MobileConnectionListener(uint32_t aClientId)
+      : mClientId(aClientId) {}
 
   bool Listen(bool aStart);
 

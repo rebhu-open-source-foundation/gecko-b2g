@@ -7,69 +7,36 @@
 
 namespace mozilla {
 
-void
-GonkClipboardData::SetText(const nsAString &aText)
-{
-  mPlain = aText;
-}
+void GonkClipboardData::SetText(const nsAString& aText) { mPlain = aText; }
 
-bool
-GonkClipboardData::HasText() const
-{
-  return !mPlain.IsEmpty();
-}
+bool GonkClipboardData::HasText() const { return !mPlain.IsEmpty(); }
 
-const nsAString&
-GonkClipboardData::GetText() const
-{
-  return mPlain;
-}
+const nsAString& GonkClipboardData::GetText() const { return mPlain; }
 
-void
-GonkClipboardData::SetHTML(const nsAString &aHTML)
-{
-  mHTML = aHTML;
-}
+void GonkClipboardData::SetHTML(const nsAString& aHTML) { mHTML = aHTML; }
 
-bool
-GonkClipboardData::HasHTML() const
-{
-  return !mHTML.IsEmpty();
-}
+bool GonkClipboardData::HasHTML() const { return !mHTML.IsEmpty(); }
 
-const nsAString&
-GonkClipboardData::GetHTML() const
-{
-  return mHTML;
-}
+const nsAString& GonkClipboardData::GetHTML() const { return mHTML; }
 
-void
-GonkClipboardData::SetImage(gfx::DataSourceSurface* aDataSource)
-{
+void GonkClipboardData::SetImage(gfx::DataSourceSurface* aDataSource) {
   // Clone a new DataSourceSurface and store it.
   mImage = gfx::CreateDataSourceSurfaceByCloning(aDataSource);
 }
 
-bool
-GonkClipboardData::HasImage() const
-{
-  return static_cast<bool>(mImage);
-}
+bool GonkClipboardData::HasImage() const { return static_cast<bool>(mImage); }
 
-already_AddRefed<gfx::DataSourceSurface>
-GonkClipboardData::GetImage() const
-{
+already_AddRefed<gfx::DataSourceSurface> GonkClipboardData::GetImage() const {
   // Return cloned DataSourceSurface.
-  RefPtr<gfx::DataSourceSurface> cloned = gfx::CreateDataSourceSurfaceByCloning(mImage);
+  RefPtr<gfx::DataSourceSurface> cloned =
+      gfx::CreateDataSourceSurfaceByCloning(mImage);
   return cloned.forget();
 }
 
-void
-GonkClipboardData::Clear()
-{
+void GonkClipboardData::Clear() {
   mPlain.Truncate(0);
   mHTML.Truncate(0);
   mImage = nullptr;
 }
 
-} // namespace mozilla
+}  // namespace mozilla

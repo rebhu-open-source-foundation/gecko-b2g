@@ -18,9 +18,8 @@ namespace dom {
 
 class Promise;
 
-class ImsRegHandler final : public DOMEventTargetHelper
-                          , private nsIImsRegListener
-{
+class ImsRegHandler final : public DOMEventTargetHelper,
+                            private nsIImsRegListener {
   /**
    * Class ImsRegHandler doesn't actually expose
    * nsIImsRegListener. Instead, it owns an
@@ -31,57 +30,47 @@ class ImsRegHandler final : public DOMEventTargetHelper
    */
   class Listener;
 
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSIIMSREGLISTENER
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(ImsRegHandler, DOMEventTargetHelper)
 
-  ImsRegHandler(nsPIDOMWindowInner *aWindow, nsIImsRegHandler *aHandler);
+  ImsRegHandler(nsPIDOMWindowInner* aWindow, nsIImsRegHandler* aHandler);
 
-  virtual void
-  DisconnectFromOwner() override;
+  virtual void DisconnectFromOwner() override;
 
   // WrapperCache
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   // WebIDL APIs
-  already_AddRefed<ImsDeviceConfiguration>
-  DeviceConfig() const;
+  already_AddRefed<ImsDeviceConfiguration> DeviceConfig() const;
 
-  already_AddRefed<Promise>
-  SetEnabled(bool aEnabled, ErrorResult& aRv);
+  already_AddRefed<Promise> SetEnabled(bool aEnabled, ErrorResult& aRv);
 
-  bool
-  GetEnabled(ErrorResult& aRv) const;
+  bool GetEnabled(ErrorResult& aRv) const;
 
-  already_AddRefed<Promise>
-  SetPreferredProfile(ImsProfile aProfile, ErrorResult& aRv);
+  already_AddRefed<Promise> SetPreferredProfile(ImsProfile aProfile,
+                                                ErrorResult& aRv);
 
-  ImsProfile
-  GetPreferredProfile(ErrorResult& aRv) const;
+  ImsProfile GetPreferredProfile(ErrorResult& aRv) const;
 
-  Nullable<ImsCapability>
-  GetCapability() const;
+  Nullable<ImsCapability> GetCapability() const;
 
-  void
-  GetUnregisteredReason(nsString& aReason) const;
+  void GetUnregisteredReason(nsString& aReason) const;
 
-  void
-  Shutdown();
+  void Shutdown();
 
-  already_AddRefed<Promise>
-  SetRttEnabled(bool aEnabled, ErrorResult& aRv);
+  already_AddRefed<Promise> SetRttEnabled(bool aEnabled, ErrorResult& aRv);
 
-  bool
-  GetRttEnabled(ErrorResult& aRv) const;
+  bool GetRttEnabled(ErrorResult& aRv) const;
 
   IMPL_EVENT_HANDLER(capabilitychange)
 
-private:
+ private:
   ~ImsRegHandler();
 
-  void
-  UpdateCapability(int16_t aCapability, const nsAString& aReason);
+  void UpdateCapability(int16_t aCapability, const nsAString& aReason);
 
   nsCOMPtr<nsIImsRegHandler> mHandler;
   RefPtr<Listener> mListener;
@@ -92,7 +81,7 @@ private:
   bool mRttEnabled;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_ImsRegHandler_h
+#endif  // mozilla_dom_ImsRegHandler_h

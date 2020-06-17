@@ -16,23 +16,22 @@ namespace subsidylock {
 
 class SubsidyLockChild;
 
-class SubsidyLockIPCService final : public nsISubsidyLockService
-{
-public:
+class SubsidyLockIPCService final : public nsISubsidyLockService {
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSISUBSIDYLOCKSERVICE
 
   SubsidyLockIPCService();
 
-private:
+ private:
   // final suppresses -Werror,-Wdelete-non-virtual-dtor
   ~SubsidyLockIPCService();
 
   nsTArray<RefPtr<SubsidyLockChild>> mItems;
 };
 
-} // namespace subsidylock
-} // namespace dom
-} // namespace mozilla
+}  // namespace subsidylock
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_subsidy_SubsidyLockIPCService_h
+#endif  // mozilla_dom_subsidy_SubsidyLockIPCService_h

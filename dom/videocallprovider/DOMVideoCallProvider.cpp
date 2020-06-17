@@ -21,11 +21,12 @@
 
 #include <android/log.h>
 #undef LOG
-#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "DOMVideoCallProvider" , ## args)
+#define LOG(args...) \
+  __android_log_print(ANDROID_LOG_INFO, "DOMVideoCallProvider", ##args)
 
 #define FEED_TEST_DATA_TO_PRODUCER
 #ifdef FEED_TEST_DATA_TO_PRODUCER
-#include <cutils/properties.h>
+#  include <cutils/properties.h>
 #endif
 
 using mozilla::ErrorResult;
@@ -38,28 +39,26 @@ const int16_t TYPE_PREVIEW = 1;
 
 const int16_t ROTATE_ANGLE = 90;
 
-class SurfaceControlBack : public IDOMSurfaceControlCallback
-{
-public:
+class SurfaceControlBack : public IDOMSurfaceControlCallback {
+ public:
   NS_INLINE_DECL_REFCOUNTING(SurfaceControlBack)
 
   SurfaceControlBack(RefPtr<DOMVideoCallProvider> aProvider, int16_t aType,
-      const SurfaceConfiguration& aConfig);
+                     const SurfaceConfiguration& aConfig);
 
   virtual void OnProducerCreated(
-    android::sp<android::IGraphicBufferProducer> aProducer) override;
+      android::sp<android::IGraphicBufferProducer> aProducer) override;
   virtual void OnProducerDestroyed() override;
   void Shutdown();
   android::sp<android::IGraphicBufferProducer> getProducer();
 
-protected:
+ protected:
   ~SurfaceControlBack() {
     LOG("%s", __FUNCTION__);
     Shutdown();
   }
 
-private:
-
+ private:
   android::sp<android::IGraphicBufferProducer> mProducer;
   RefPtr<DOMVideoCallProvider> mProvider;
   int16_t mType;
@@ -69,76 +68,60 @@ private:
   void SetProducer(android::sp<android::IGraphicBufferProducer> aProducer);
 };
 
-SurfaceControlBack::SurfaceControlBack(RefPtr<DOMVideoCallProvider> aProvider, int16_t aType,
-      const SurfaceConfiguration& aConfig)
-  : mProducer(nullptr),
-    mProvider(aProvider),
-    mType(aType),
-    mWidth(aConfig.mPreviewSize.mWidth),
-    mHeight(aConfig.mPreviewSize.mHeight)
-{
+SurfaceControlBack::SurfaceControlBack(RefPtr<DOMVideoCallProvider> aProvider,
+                                       int16_t aType,
+                                       const SurfaceConfiguration& aConfig)
+    : mProducer(nullptr),
+      mProvider(aProvider),
+      mType(aType),
+      mWidth(aConfig.mPreviewSize.mWidth),
+      mHeight(aConfig.mPreviewSize.mHeight) {
   LOG("%s", __FUNCTION__);
 }
 
-void
-SurfaceControlBack::OnProducerCreated(android::sp<android::IGraphicBufferProducer> aProducer)
-{
+void SurfaceControlBack::OnProducerCreated(
+    android::sp<android::IGraphicBufferProducer> aProducer) {
   LOG("OnProducerCreated: %p", aProducer.get());
   SetProducer(aProducer);
 }
 
-void
-SurfaceControlBack::OnProducerDestroyed()
-{
+void SurfaceControlBack::OnProducerDestroyed() {
   LOG("OnProducerDestroyed");
   SetProducer(nullptr);
 }
 
-void
-SurfaceControlBack::SetProducer(android::sp<android::IGraphicBufferProducer> aProducer)
-{
+void SurfaceControlBack::SetProducer(
+    android::sp<android::IGraphicBufferProducer> aProducer) {
   LOG("%s, mType: %d", __FUNCTION__, mType);
   mProducer = aProducer;
   mProvider->SetSurface(mType, aProducer, mWidth, mHeight);
 }
 
-void
-SurfaceControlBack::Shutdown()
-{
-}
+void SurfaceControlBack::Shutdown() {}
 
-android::sp<android::IGraphicBufferProducer>
-SurfaceControlBack::getProducer()
-{
+android::sp<android::IGraphicBufferProducer> SurfaceControlBack::getProducer() {
   return mProducer;
 }
 
-
-class DOMVideoCallProvider::Listener final : public nsIVideoCallCallback
-{
+class DOMVideoCallProvider::Listener final : public nsIVideoCallCallback {
   DOMVideoCallProvider* mVideoCallProvider;
 
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_FORWARD_SAFE_NSIVIDEOCALLCALLBACK(mVideoCallProvider)
 
   explicit Listener(DOMVideoCallProvider* aVideoCallProvider)
-    : mVideoCallProvider(aVideoCallProvider)
-  {
+      : mVideoCallProvider(aVideoCallProvider) {
     MOZ_ASSERT(mVideoCallProvider);
   }
 
-  void Disconnect()
-  {
+  void Disconnect() {
     MOZ_ASSERT(mVideoCallProvider);
     mVideoCallProvider = nullptr;
   }
 
-private:
-  ~Listener()
-  {
-    MOZ_ASSERT(!mVideoCallProvider);
-  }
+ private:
+  ~Listener() { MOZ_ASSERT(!mVideoCallProvider); }
 };
 
 NS_IMPL_ISUPPORTS(DOMVideoCallProvider::Listener, nsIVideoCallCallback)
@@ -150,11 +133,12 @@ NS_IMPL_RELEASE_INHERITED(DOMVideoCallProvider, DOMEventTargetHelper)
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(DOMVideoCallProvider)
 
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(DOMVideoCallProvider, DOMEventTargetHelper)
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(DOMVideoCallProvider,
+                                                  DOMEventTargetHelper)
   // Don't traverse mListener because it doesn't keep any reference to
-  // DOMVideoCallProvider but a raw pointer instead. Neither does mVideoCallProvider
-  // because it's an xpcom service owned object and is only released at shutting
-  // down.
+  // DOMVideoCallProvider but a raw pointer instead. Neither does
+  // mVideoCallProvider because it's an xpcom service owned object and is only
+  // released at shutting down.
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mProvider)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
@@ -167,33 +151,30 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(DOMVideoCallProvider)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
-DOMVideoCallProvider::DOMVideoCallProvider(nsPIDOMWindowInner *aWindow, nsIVideoCallProvider *aProvider)
-  : DOMEventTargetHelper(aWindow)
-  , mOrientation(0)
-  , mZoom(0)
-  , mMaxZoom(0.0)
-  , mZoomSupported(false)
-  , mProvider(aProvider)
-  , mDisplayControl(nullptr)
-  , mPreviewControl(nullptr)
-  , mDisplayCallback(nullptr)
-  , mPreviewCallback(nullptr)
-{
+DOMVideoCallProvider::DOMVideoCallProvider(nsPIDOMWindowInner* aWindow,
+                                           nsIVideoCallProvider* aProvider)
+    : DOMEventTargetHelper(aWindow),
+      mOrientation(0),
+      mZoom(0),
+      mMaxZoom(0.0),
+      mZoomSupported(false),
+      mProvider(aProvider),
+      mDisplayControl(nullptr),
+      mPreviewControl(nullptr),
+      mDisplayCallback(nullptr),
+      mPreviewCallback(nullptr) {
   MOZ_ASSERT(mProvider);
   LOG("constructor");
   mListener = new Listener(this);
   mProvider->RegisterCallback(mListener);
 }
 
-DOMVideoCallProvider::~DOMVideoCallProvider()
-{
+DOMVideoCallProvider::~DOMVideoCallProvider() {
   LOG("deconstructor");
   Shutdown();
 }
 
-void
-DOMVideoCallProvider::DisconnectFromOwner()
-{
+void DOMVideoCallProvider::DisconnectFromOwner() {
   LOG("DisconnectFromOwner");
   DOMEventTargetHelper::DisconnectFromOwner();
   // Event listeners can't be handled anymore, so we can shutdown
@@ -201,9 +182,7 @@ DOMVideoCallProvider::DisconnectFromOwner()
   Shutdown();
 }
 
-void
-DOMVideoCallProvider::Shutdown()
-{
+void DOMVideoCallProvider::Shutdown() {
   LOG("Shutdown");
 
   if (mDisplayCallback) {
@@ -251,16 +230,16 @@ DOMVideoCallProvider::Shutdown()
   }
 }
 
-JSObject*
-DOMVideoCallProvider::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* DOMVideoCallProvider::WrapObject(JSContext* aCx,
+                                           JS::Handle<JSObject*> aGivenProto) {
   return VideoCallProviderBinding::Wrap(aCx, this, aGivenProto);
 }
 
-already_AddRefed<Promise>
-DOMVideoCallProvider::SetCamera(const Optional<nsAString>& aCamera, ErrorResult& aRv)
-{
-  LOG("SetCamera: %s", (aCamera.WasPassed() ? NS_ConvertUTF16toUTF8(aCamera.Value()).get() : "null" ));
+already_AddRefed<Promise> DOMVideoCallProvider::SetCamera(
+    const Optional<nsAString>& aCamera, ErrorResult& aRv) {
+  LOG("SetCamera: %s",
+      (aCamera.WasPassed() ? NS_ConvertUTF16toUTF8(aCamera.Value()).get()
+                           : "null"));
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(GetOwner());
   if (!global) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -273,7 +252,7 @@ DOMVideoCallProvider::SetCamera(const Optional<nsAString>& aCamera, ErrorResult&
     return nullptr;
   }
 
-  int16_t cameraId = 0; // back (or forward-facing) camera by default
+  int16_t cameraId = 0;  // back (or forward-facing) camera by default
 
   if (!aCamera.WasPassed()) {
     cameraId = -1;
@@ -290,26 +269,22 @@ DOMVideoCallProvider::SetCamera(const Optional<nsAString>& aCamera, ErrorResult&
   return promise.forget();
 }
 
-already_AddRefed<Promise>
-DOMVideoCallProvider::GetPreviewStream(const SurfaceConfiguration& aOptions,
-    ErrorResult& aRv)
-{
+already_AddRefed<Promise> DOMVideoCallProvider::GetPreviewStream(
+    const SurfaceConfiguration& aOptions, ErrorResult& aRv) {
   LOG("GetPreviewStream");
 
   return GetStream(TYPE_PREVIEW, aOptions, aRv);
 }
 
-already_AddRefed<Promise>
-DOMVideoCallProvider::GetDisplayStream(const SurfaceConfiguration& aOptions,
-    ErrorResult& aRv)
-{
+already_AddRefed<Promise> DOMVideoCallProvider::GetDisplayStream(
+    const SurfaceConfiguration& aOptions, ErrorResult& aRv) {
   LOG("GetDisplayStream");
   return GetStream(TYPE_DISPLAY, aOptions, aRv);
 }
 
-already_AddRefed<Promise>
-DOMVideoCallProvider::GetStream(const int16_t aType, const SurfaceConfiguration& aOptions, ErrorResult& aRv)
-{
+already_AddRefed<Promise> DOMVideoCallProvider::GetStream(
+    const int16_t aType, const SurfaceConfiguration& aOptions,
+    ErrorResult& aRv) {
   LOG("GetStream, type: %d", aType);
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(GetOwner());
   if (!global) {
@@ -323,15 +298,17 @@ DOMVideoCallProvider::GetStream(const int16_t aType, const SurfaceConfiguration&
     return nullptr;
   }
 
-  if (!IsValidSurfaceSize(aOptions.mPreviewSize.mWidth, aOptions.mPreviewSize.mHeight)) {
+  if (!IsValidSurfaceSize(aOptions.mPreviewSize.mWidth,
+                          aOptions.mPreviewSize.mHeight)) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
   }
 
   RefPtr<DOMVideoCallProvider> provider = this;
-  RefPtr<SurfaceControlBack> callback = new SurfaceControlBack(provider, aType, aOptions);
-  RefPtr<nsDOMSurfaceControl> control = new nsDOMSurfaceControl(aOptions, promise, GetOwner(), callback);
-
+  RefPtr<SurfaceControlBack> callback =
+      new SurfaceControlBack(provider, aType, aOptions);
+  RefPtr<nsDOMSurfaceControl> control =
+      new nsDOMSurfaceControl(aOptions, promise, GetOwner(), callback);
 
   if (aType == TYPE_DISPLAY) {
     mDisplayCallback = callback;
@@ -344,15 +321,11 @@ DOMVideoCallProvider::GetStream(const int16_t aType, const SurfaceConfiguration&
   return promise.forget();
 }
 
-bool
-DOMVideoCallProvider::ValidOrientation(uint16_t aOrientation)
-{
+bool DOMVideoCallProvider::ValidOrientation(uint16_t aOrientation) {
   return (aOrientation % ROTATE_ANGLE) == 0;
 }
 
-bool
-DOMVideoCallProvider::ValidZoom(uint16_t aZoom)
-{
+bool DOMVideoCallProvider::ValidZoom(uint16_t aZoom) {
   if (!mZoomSupported) {
     return false;
   }
@@ -364,9 +337,8 @@ DOMVideoCallProvider::ValidZoom(uint16_t aZoom)
   return true;
 }
 
-bool
-DOMVideoCallProvider::IsValidSurfaceSize(const uint16_t aWidth, const uint16_t aHeight)
-{
+bool DOMVideoCallProvider::IsValidSurfaceSize(const uint16_t aWidth,
+                                              const uint16_t aHeight) {
   // width/height must have values, otherwise UI may display improperly.
   if (aWidth <= 0 || aHeight <= 0) {
     return false;
@@ -375,9 +347,8 @@ DOMVideoCallProvider::IsValidSurfaceSize(const uint16_t aWidth, const uint16_t a
   }
 }
 
-already_AddRefed<Promise>
-DOMVideoCallProvider::SetOrientation(uint16_t aOrientation, ErrorResult& aRv)
-{
+already_AddRefed<Promise> DOMVideoCallProvider::SetOrientation(
+    uint16_t aOrientation, ErrorResult& aRv) {
   LOG("SetOrientation");
 
   if (!ValidOrientation(aOrientation)) {
@@ -404,9 +375,8 @@ DOMVideoCallProvider::SetOrientation(uint16_t aOrientation, ErrorResult& aRv)
   return promise.forget();
 }
 
-already_AddRefed<Promise>
-DOMVideoCallProvider::SetZoom(float aZoom, ErrorResult& aRv)
-{
+already_AddRefed<Promise> DOMVideoCallProvider::SetZoom(float aZoom,
+                                                        ErrorResult& aRv) {
   LOG("SetZoom: %f", aZoom);
 
   if (!ValidZoom(aZoom)) {
@@ -433,12 +403,11 @@ DOMVideoCallProvider::SetZoom(float aZoom, ErrorResult& aRv)
   return promise.forget();
 }
 
-already_AddRefed<Promise>
-DOMVideoCallProvider::SendSessionModifyRequest(const VideoCallProfile& aFrom,
-                                               const VideoCallProfile& aTo,
-                                               ErrorResult& aRv)
-{
-  LOG("SendSessionModifyRequest, from {quality: %d, state: %d} to {quality: %d, state: %d}",
+already_AddRefed<Promise> DOMVideoCallProvider::SendSessionModifyRequest(
+    const VideoCallProfile& aFrom, const VideoCallProfile& aTo,
+    ErrorResult& aRv) {
+  LOG("SendSessionModifyRequest, from {quality: %d, state: %d} to {quality: "
+      "%d, state: %d}",
       static_cast<int16_t>(aFrom.mQuality.Value()),
       static_cast<int16_t>(aFrom.mState.Value()),
       static_cast<int16_t>(aTo.mQuality.Value()),
@@ -456,21 +425,17 @@ DOMVideoCallProvider::SendSessionModifyRequest(const VideoCallProfile& aFrom,
   }
 
   RefPtr<DOMVideoCallProfile> from =
-    new DOMVideoCallProfile(aFrom.mQuality.Value(),
-                            aFrom.mState.Value());
+      new DOMVideoCallProfile(aFrom.mQuality.Value(), aFrom.mState.Value());
   RefPtr<DOMVideoCallProfile> to =
-    new DOMVideoCallProfile(aTo.mQuality.Value(),
-                            aTo.mState.Value());
+      new DOMVideoCallProfile(aTo.mQuality.Value(), aTo.mState.Value());
 
   mProvider->SendSessionModifyRequest(from, to);
 
   return promise.forget();
 }
 
-already_AddRefed<Promise>
-DOMVideoCallProvider::SendSessionModifyResponse(const VideoCallProfile& aResponse,
-                                                ErrorResult& aRv)
-{
+already_AddRefed<Promise> DOMVideoCallProvider::SendSessionModifyResponse(
+    const VideoCallProfile& aResponse, ErrorResult& aRv) {
   LOG("SendSessionModifyResponse response {quality: %d, state: %d}",
       static_cast<int16_t>(aResponse.mQuality.Value()),
       static_cast<int16_t>(aResponse.mState.Value()));
@@ -486,18 +451,16 @@ DOMVideoCallProvider::SendSessionModifyResponse(const VideoCallProfile& aRespons
     return nullptr;
   }
 
-  RefPtr<DOMVideoCallProfile> response =
-    new DOMVideoCallProfile(aResponse.mQuality.Value(),
-                            aResponse.mState.Value());
+  RefPtr<DOMVideoCallProfile> response = new DOMVideoCallProfile(
+      aResponse.mQuality.Value(), aResponse.mState.Value());
 
   mProvider->SendSessionModifyResponse(response);
 
   return promise.forget();
 }
 
-already_AddRefed<Promise>
-DOMVideoCallProvider::RequestCameraCapabilities(ErrorResult& aRv)
-{
+already_AddRefed<Promise> DOMVideoCallProvider::RequestCameraCapabilities(
+    ErrorResult& aRv) {
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(GetOwner());
   if (!global) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -517,10 +480,8 @@ DOMVideoCallProvider::RequestCameraCapabilities(ErrorResult& aRv)
 
 // Class API
 
-nsresult
-DOMVideoCallProvider::DispatchSessionModifyRequestEvent(const nsAString& aType,
-                                                        nsIVideoCallProfile *aRequest)
-{
+nsresult DOMVideoCallProvider::DispatchSessionModifyRequestEvent(
+    const nsAString& aType, nsIVideoCallProfile* aRequest) {
   LOG("%s", __FUNCTION__);
   AutoJSAPI jsapi;
   if (NS_WARN_IF(!jsapi.Init(GetOwner()))) {
@@ -536,24 +497,22 @@ DOMVideoCallProvider::DispatchSessionModifyRequestEvent(const nsAString& aType,
   VideoCallSessionModifyRequestEventInit init;
   init.mRequest = jsRequest;
   RefPtr<VideoCallSessionModifyRequestEvent> event =
-    VideoCallSessionModifyRequestEvent::Constructor(this, aType, init);
+      VideoCallSessionModifyRequestEvent::Constructor(this, aType, init);
 
   uint16_t quality;
   uint16_t state;
   aRequest->GetQuality(&quality);
   aRequest->GetState(&state);
 
-  LOG("DispatchSessionModifyRequestEvent request {quality: %d, state: %d}", quality, state);
+  LOG("DispatchSessionModifyRequestEvent request {quality: %d, state: %d}",
+      quality, state);
 
   return DispatchTrustedEvent(event);
 }
 
-nsresult
-DOMVideoCallProvider::DispatchSessionModifyResponseEvent(const nsAString& aType,
-                                                         const uint16_t aStatus,
-                                                         DOMVideoCallProfile* aRequest,
-                                                         DOMVideoCallProfile* aResponse)
-{
+nsresult DOMVideoCallProvider::DispatchSessionModifyResponseEvent(
+    const nsAString& aType, const uint16_t aStatus,
+    DOMVideoCallProfile* aRequest, DOMVideoCallProfile* aResponse) {
   LOG("DispatchSessionModifyResponseEvent: %d", aStatus);
   uint16_t requestQuality = 0;
   uint16_t requestState = 0;
@@ -570,8 +529,9 @@ DOMVideoCallProvider::DispatchSessionModifyResponseEvent(const nsAString& aType,
   }
 
   // TODO: Remove me, debug info.
-  LOG("DispatchSessionModifyResponseEvent, status: %d, request {quality: %d, state: %d}, response {quality: %d, state: %d}",
-    aStatus, requestQuality, requestState, responseQuality, responseState);
+  LOG("DispatchSessionModifyResponseEvent, status: %d, request {quality: %d, "
+      "state: %d}, response {quality: %d, state: %d}",
+      aStatus, requestQuality, requestState, responseQuality, responseState);
 
   AutoJSAPI jsapi;
   if (NS_WARN_IF(!jsapi.Init(GetOwner()))) {
@@ -598,10 +558,8 @@ DOMVideoCallProvider::DispatchSessionModifyResponseEvent(const nsAString& aType,
   return DispatchTrustedEvent(event);
 }
 
-nsresult
-DOMVideoCallProvider::ConvertToJsValue(nsIVideoCallProfile *aProfile,
-                                       JS::Rooted<JS::Value>* jsResult)
-{
+nsresult DOMVideoCallProvider::ConvertToJsValue(
+    nsIVideoCallProfile* aProfile, JS::Rooted<JS::Value>* jsResult) {
   LOG("%s", __FUNCTION__);
   uint16_t quality = 0;
   uint16_t state = 0;
@@ -632,9 +590,8 @@ DOMVideoCallProvider::ConvertToJsValue(nsIVideoCallProfile *aProfile,
   return NS_OK;
 }
 
-nsresult
-DOMVideoCallProvider::DispatCallSessionEvent(const nsAString& aType, const int16_t aEvent)
-{
+nsresult DOMVideoCallProvider::DispatCallSessionEvent(const nsAString& aType,
+                                                      const int16_t aEvent) {
   LOG("DispatCallSessionEvent aEvent: %d", aEvent);
   VideoCallSessionChangeEventInit init;
   init.mType = static_cast<VideoCallSessionChangeType>(aEvent);
@@ -643,11 +600,8 @@ DOMVideoCallProvider::DispatCallSessionEvent(const nsAString& aType, const int16
   return DispatchTrustedEvent(event);
 }
 
-nsresult
-DOMVideoCallProvider::DispatchChangePeerDimensionsEvent(const nsAString& aType,
-                                                        const uint16_t aWidth,
-                                                        const uint16_t aHeight)
-{
+nsresult DOMVideoCallProvider::DispatchChangePeerDimensionsEvent(
+    const nsAString& aType, const uint16_t aWidth, const uint16_t aHeight) {
   VideoCallPeerDimensionsEventInit init;
   init.mWidth = aWidth;
   init.mHeight = aHeight;
@@ -656,9 +610,8 @@ DOMVideoCallProvider::DispatchChangePeerDimensionsEvent(const nsAString& aType,
   return DispatchTrustedEvent(event);
 }
 
-nsresult
-DOMVideoCallProvider::DispatchCameraCapabilitiesEvent(const nsAString& aType, nsIVideoCallCameraCapabilities* capabilities)
-{
+nsresult DOMVideoCallProvider::DispatchCameraCapabilitiesEvent(
+    const nsAString& aType, nsIVideoCallCameraCapabilities* capabilities) {
   VideoCallCameraCapabilitiesChangeEventInit init;
   capabilities->GetWidth(&init.mWidth);
   capabilities->GetHeight(&init.mHeight);
@@ -673,9 +626,8 @@ DOMVideoCallProvider::DispatchCameraCapabilitiesEvent(const nsAString& aType, ns
   return DispatchTrustedEvent(event);
 }
 
-nsresult
-DOMVideoCallProvider::DispatchVideoQualityChangeEvent(const nsAString& aType, const uint16_t aQuality)
-{
+nsresult DOMVideoCallProvider::DispatchVideoQualityChangeEvent(
+    const nsAString& aType, const uint16_t aQuality) {
   VideoCallQualityEventInit init;
   init.mQuality = static_cast<VideoCallQuality>(aQuality);
   RefPtr<VideoCallQualityEvent> event =
@@ -683,10 +635,10 @@ DOMVideoCallProvider::DispatchVideoQualityChangeEvent(const nsAString& aType, co
   return DispatchTrustedEvent(event);
 }
 
-void
-DOMVideoCallProvider::SetSurface(const int16_t aType, android::sp<android::IGraphicBufferProducer>& aProducer,
-                                 const uint16_t aWidth, const uint16_t aHeight)
-{
+void DOMVideoCallProvider::SetSurface(
+    const int16_t aType,
+    android::sp<android::IGraphicBufferProducer>& aProducer,
+    const uint16_t aWidth, const uint16_t aHeight) {
   LOG("SetDisplaySurface, type: %d, producer: %p", aType, aProducer.get());
   if (!mProvider) {
     return;
@@ -699,72 +651,78 @@ DOMVideoCallProvider::SetSurface(const int16_t aType, android::sp<android::IGrap
   }
 }
 
-void
-DOMVideoCallProvider::SetDataSourceSize(const int16_t aType, const uint16_t aWidth, const uint16_t aHeight)
-{
-  LOG("%s, type: %d, width: %d, height: %d", __FUNCTION__, aType, aWidth, aHeight);
-  RefPtr<nsDOMSurfaceControl> control = aType == TYPE_DISPLAY ? mDisplayControl : mPreviewControl;
+void DOMVideoCallProvider::SetDataSourceSize(const int16_t aType,
+                                             const uint16_t aWidth,
+                                             const uint16_t aHeight) {
+  LOG("%s, type: %d, width: %d, height: %d", __FUNCTION__, aType, aWidth,
+      aHeight);
+  RefPtr<nsDOMSurfaceControl> control =
+      aType == TYPE_DISPLAY ? mDisplayControl : mPreviewControl;
   if (!control) {
     return;
   }
 
   control->SetDataSourceSize(aWidth, aHeight);
-
 }
 
 // nsIVideoCallCallback
 
 NS_IMETHODIMP
-DOMVideoCallProvider::OnReceiveSessionModifyRequest(nsIVideoCallProfile *request)
-{
+DOMVideoCallProvider::OnReceiveSessionModifyRequest(
+    nsIVideoCallProfile* request) {
   LOG("%s", __FUNCTION__);
-  DispatchSessionModifyRequestEvent(NS_LITERAL_STRING("sessionmodifyrequest"), request);
+  DispatchSessionModifyRequestEvent(NS_LITERAL_STRING("sessionmodifyrequest"),
+                                    request);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-DOMVideoCallProvider::OnReceiveSessionModifyResponse(uint16_t status,
-    nsIVideoCallProfile *request, nsIVideoCallProfile *response)
-{
+DOMVideoCallProvider::OnReceiveSessionModifyResponse(
+    uint16_t status, nsIVideoCallProfile* request,
+    nsIVideoCallProfile* response) {
   LOG("%s, status: %d", __FUNCTION__, status);
 
-  DispatchSessionModifyResponseEvent(NS_LITERAL_STRING("sessionmodifyresponse"), status,
-      (request? static_cast<DOMVideoCallProfile*>(request) : nullptr),
-      (response? static_cast<DOMVideoCallProfile*>(response) : nullptr));
+  DispatchSessionModifyResponseEvent(
+      NS_LITERAL_STRING("sessionmodifyresponse"), status,
+      (request ? static_cast<DOMVideoCallProfile*>(request) : nullptr),
+      (response ? static_cast<DOMVideoCallProfile*>(response) : nullptr));
   return NS_OK;
 }
 
 NS_IMETHODIMP
-DOMVideoCallProvider::OnHandleCallSessionEvent(int16_t event)
-{
+DOMVideoCallProvider::OnHandleCallSessionEvent(int16_t event) {
   DispatCallSessionEvent(NS_LITERAL_STRING("callsessionevent"), event);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-DOMVideoCallProvider::OnChangePeerDimensions(uint16_t aWidth, uint16_t aHeight)
-{
+DOMVideoCallProvider::OnChangePeerDimensions(uint16_t aWidth,
+                                             uint16_t aHeight) {
   LOG("%s, width: %d, height: %d", __FUNCTION__, aWidth, aHeight);
-  DispatchChangePeerDimensionsEvent(NS_LITERAL_STRING("changepeerdimensions"), aWidth, aHeight);
+  DispatchChangePeerDimensionsEvent(NS_LITERAL_STRING("changepeerdimensions"),
+                                    aWidth, aHeight);
 
   if (!mDisplayCallback) {
     return NS_OK;
   }
 
-  android::sp<android::IGraphicBufferProducer> producer = mDisplayCallback->getProducer();
+  android::sp<android::IGraphicBufferProducer> producer =
+      mDisplayCallback->getProducer();
   if (producer != nullptr) {
-    LOG("%s setDisplaySurface with new width: %u, height: %u", __FUNCTION__, aWidth, aHeight);
-      SetSurface(TYPE_DISPLAY, producer, aWidth, aWidth);
+    LOG("%s setDisplaySurface with new width: %u, height: %u", __FUNCTION__,
+        aWidth, aHeight);
+    SetSurface(TYPE_DISPLAY, producer, aWidth, aWidth);
   }
 
   SetDataSourceSize(TYPE_DISPLAY, aWidth, aHeight);
   return NS_OK;
 }
 NS_IMETHODIMP
-DOMVideoCallProvider::OnChangeCameraCapabilities(nsIVideoCallCameraCapabilities *capabilities)
-{
+DOMVideoCallProvider::OnChangeCameraCapabilities(
+    nsIVideoCallCameraCapabilities* capabilities) {
   LOG("%s", __FUNCTION__);
-  DispatchCameraCapabilitiesEvent(NS_LITERAL_STRING("changecameracapabilities"), capabilities);
+  DispatchCameraCapabilitiesEvent(NS_LITERAL_STRING("changecameracapabilities"),
+                                  capabilities);
   if (!mPreviewCallback) {
     return NS_OK;
   }
@@ -775,9 +733,11 @@ DOMVideoCallProvider::OnChangeCameraCapabilities(nsIVideoCallCameraCapabilities 
   capabilities->GetHeight(&height);
   LOG("%s width: %u, height: %u", __FUNCTION__, width, height);
 
-  android::sp<android::IGraphicBufferProducer> producer = mPreviewCallback->getProducer();
+  android::sp<android::IGraphicBufferProducer> producer =
+      mPreviewCallback->getProducer();
   if (producer != nullptr) {
-    LOG("%s setPreviewSurface with new width: %u, height: %u", __FUNCTION__, width, height);
+    LOG("%s setPreviewSurface with new width: %u, height: %u", __FUNCTION__,
+        width, height);
     SetSurface(TYPE_PREVIEW, producer, width, height);
   }
 
@@ -787,11 +747,11 @@ DOMVideoCallProvider::OnChangeCameraCapabilities(nsIVideoCallCameraCapabilities 
 }
 
 NS_IMETHODIMP
-DOMVideoCallProvider::OnChangeVideoQuality(uint16_t quality)
-{
-  DispatchVideoQualityChangeEvent(NS_LITERAL_STRING("changevideoquality"), quality);
+DOMVideoCallProvider::OnChangeVideoQuality(uint16_t quality) {
+  DispatchVideoQualityChangeEvent(NS_LITERAL_STRING("changevideoquality"),
+                                  quality);
   return NS_OK;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

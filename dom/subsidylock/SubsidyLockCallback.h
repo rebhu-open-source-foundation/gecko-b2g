@@ -15,26 +15,24 @@ namespace mozilla {
 namespace dom {
 namespace subsidylock {
 
-class SubsidyLockCallback final : public nsISubsidyLockCallback
-{
-public:
+class SubsidyLockCallback final : public nsISubsidyLockCallback {
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSISUBSIDYLOCKCALLBACK
 
   SubsidyLockCallback(nsPIDOMWindowInner* aWindow, DOMRequest* aRequest);
 
-private:
+ private:
   ~SubsidyLockCallback() {}
 
-  nsresult
-  NotifySuccess(JS::Handle<JS::Value> aResult);
+  nsresult NotifySuccess(JS::Handle<JS::Value> aResult);
 
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
   RefPtr<DOMRequest> mRequest;
 };
 
-} // namespace subsidylock
-} // namespace dom
-} // namespace mozilla
+}  // namespace subsidylock
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_subsidy_SubsidyLockCallback_h
+#endif  // mozilla_dom_subsidy_SubsidyLockCallback_h

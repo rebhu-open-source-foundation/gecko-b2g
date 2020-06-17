@@ -17,22 +17,20 @@ namespace mozilla {
 namespace dom {
 namespace mobilemessage {
 
-class SmsIPCService final : public nsISmsService
-                          , public nsIMmsService
-                          , public nsIMobileMessageDatabaseService
-                          , public nsIObserver
-{
-public:
+class SmsIPCService final : public nsISmsService,
+                            public nsIMmsService,
+                            public nsIMobileMessageDatabaseService,
+                            public nsIObserver {
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSISMSSERVICE
   NS_DECL_NSIMMSSERVICE
   NS_DECL_NSIMOBILEMESSAGEDATABASESERVICE
   NS_DECL_NSIOBSERVER
 
-  static already_AddRefed<SmsIPCService>
-  GetSingleton();
+  static already_AddRefed<SmsIPCService> GetSingleton();
 
-private:
+ private:
   SmsIPCService();
 
   // final suppresses -Werror,-Wdelete-non-virtual-dtor
@@ -42,8 +40,8 @@ private:
   uint32_t mSmsDefaultServiceId;
 };
 
-} // namespace mobilemessage
-} // namespace dom
-} // namespace mozilla
+}  // namespace mobilemessage
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_mobilemessage_SmsIPCService_h
+#endif  // mozilla_dom_mobilemessage_SmsIPCService_h

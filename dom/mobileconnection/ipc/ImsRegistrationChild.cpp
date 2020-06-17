@@ -17,21 +17,14 @@ using namespace mozilla::dom::mobileconnection;
 
 NS_IMPL_ISUPPORTS(ImsRegistrationChild, nsIImsRegHandler)
 
-ImsRegistrationChild::ImsRegistrationChild(uint32_t aServiceId)
-  : mLive(true)
-{
+ImsRegistrationChild::ImsRegistrationChild(uint32_t aServiceId) : mLive(true) {}
+
+void ImsRegistrationChild::Init() {
+  SendInit(&mEnabled, &mRttEnabled, &mPreferredProfile, &mCapability,
+           &mUnregisteredReason, &mSupportedBearers);
 }
 
-void
-ImsRegistrationChild::Init()
-{
-  SendInit(&mEnabled, &mRttEnabled, &mPreferredProfile, &mCapability, &mUnregisteredReason,
-           &mSupportedBearers);
-}
-
-void
-ImsRegistrationChild::Shutdown()
-{
+void ImsRegistrationChild::Shutdown() {
   if (mLive) {
     mLive = false;
     Send__delete__(this);
@@ -40,42 +33,36 @@ ImsRegistrationChild::Shutdown()
   mListeners.Clear();
 }
 
-bool
-ImsRegistrationChild::SendRequest(const ImsRegistrationRequest& aRequest,
-                                  nsIImsRegCallback* aCallback)
-{
+bool ImsRegistrationChild::SendRequest(const ImsRegistrationRequest& aRequest,
+                                       nsIImsRegCallback* aCallback) {
   NS_ENSURE_TRUE(mLive, false);
 
   // Deallocated in ImsRegistrationChild::DeallocPImsRegistrationRequestChild().
   ImsRegistrationRequestChild* actor =
-    new ImsRegistrationRequestChild(aCallback);
+      new ImsRegistrationRequestChild(aCallback);
   SendPImsRegistrationRequestConstructor(actor, aRequest);
 
   return true;
 }
 
-void
-ImsRegistrationChild::ActorDestroy(ActorDestroyReason why)
-{
+void ImsRegistrationChild::ActorDestroy(ActorDestroyReason why) {
   mLive = false;
 }
 
 PImsRegistrationRequestChild*
-ImsRegistrationChild::AllocPImsRegistrationRequestChild(const ImsRegistrationRequest& request)
-{
+ImsRegistrationChild::AllocPImsRegistrationRequestChild(
+    const ImsRegistrationRequest& request) {
   MOZ_CRASH("Caller is supposed to manually construct a request!");
 }
 
-bool
-ImsRegistrationChild::DeallocPImsRegistrationRequestChild(PImsRegistrationRequestChild* aActor)
-{
+bool ImsRegistrationChild::DeallocPImsRegistrationRequestChild(
+    PImsRegistrationRequestChild* aActor) {
   delete aActor;
   return true;
 }
 
-mozilla::ipc::IPCResult
-ImsRegistrationChild::RecvNotifyEnabledStateChanged(const bool& aEnabled)
-{
+mozilla::ipc::IPCResult ImsRegistrationChild::RecvNotifyEnabledStateChanged(
+    const bool& aEnabled) {
   mEnabled = aEnabled;
 
   for (int32_t i = 0; i < mListeners.Count(); i++) {
@@ -85,9 +72,8 @@ ImsRegistrationChild::RecvNotifyEnabledStateChanged(const bool& aEnabled)
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult
-ImsRegistrationChild::RecvNotifyPreferredProfileChanged(const uint16_t& aProfile)
-{
+mozilla::ipc::IPCResult ImsRegistrationChild::RecvNotifyPreferredProfileChanged(
+    const uint16_t& aProfile) {
   mPreferredProfile = aProfile;
 
   for (int32_t i = 0; i < mListeners.Count(); i++) {
@@ -97,10 +83,8 @@ ImsRegistrationChild::RecvNotifyPreferredProfileChanged(const uint16_t& aProfile
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult
-ImsRegistrationChild::RecvNotifyImsCapabilityChanged(const int16_t& aCapability,
-                                                     const nsString& aUnregisteredReason)
-{
+mozilla::ipc::IPCResult ImsRegistrationChild::RecvNotifyImsCapabilityChanged(
+    const int16_t& aCapability, const nsString& aUnregisteredReason) {
   mCapability = aCapability;
   mUnregisteredReason = aUnregisteredReason;
 
@@ -111,9 +95,8 @@ ImsRegistrationChild::RecvNotifyImsCapabilityChanged(const int16_t& aCapability,
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult
-ImsRegistrationChild::RecvNotifyRttEnabledStateChanged(const bool& aEnabled)
-{
+mozilla::ipc::IPCResult ImsRegistrationChild::RecvNotifyRttEnabledStateChanged(
+    const bool& aEnabled) {
   mRttEnabled = aEnabled;
 
   for (int32_t i = 0; i < mListeners.Count(); i++) {
@@ -126,8 +109,7 @@ ImsRegistrationChild::RecvNotifyRttEnabledStateChanged(const bool& aEnabled)
 // nsIImsRegHandler
 
 NS_IMETHODIMP
-ImsRegistrationChild::RegisterListener(nsIImsRegListener* aListener)
-{
+ImsRegistrationChild::RegisterListener(nsIImsRegListener* aListener) {
   NS_ENSURE_TRUE(!mListeners.Contains(aListener), NS_ERROR_UNEXPECTED);
 
   mListeners.AppendObject(aListener);
@@ -135,8 +117,7 @@ ImsRegistrationChild::RegisterListener(nsIImsRegListener* aListener)
 }
 
 NS_IMETHODIMP
-ImsRegistrationChild::UnregisterListener(nsIImsRegListener* aListener)
-{
+ImsRegistrationChild::UnregisterListener(nsIImsRegListener* aListener) {
   NS_ENSURE_TRUE(mListeners.Contains(aListener), NS_ERROR_UNEXPECTED);
 
   mListeners.RemoveObject(aListener);
@@ -144,14 +125,13 @@ ImsRegistrationChild::UnregisterListener(nsIImsRegListener* aListener)
 }
 
 NS_IMETHODIMP
-ImsRegistrationChild::GetSupportedBearers(uint32_t *aCount, uint16_t **aBearers)
-{
+ImsRegistrationChild::GetSupportedBearers(uint32_t* aCount,
+                                          uint16_t** aBearers) {
   NS_ENSURE_ARG(aCount);
   NS_ENSURE_ARG(aBearers);
 
   *aCount = mSupportedBearers.Length();
-  *aBearers =
-    static_cast<uint16_t*>(moz_xmalloc((*aCount) * sizeof(uint16_t)));
+  *aBearers = static_cast<uint16_t*>(moz_xmalloc((*aCount) * sizeof(uint16_t)));
   NS_ENSURE_TRUE(*aBearers, NS_ERROR_OUT_OF_MEMORY);
 
   for (uint32_t i = 0; i < *aCount; i++) {
@@ -161,55 +141,55 @@ ImsRegistrationChild::GetSupportedBearers(uint32_t *aCount, uint16_t **aBearers)
   return NS_OK;
 }
 
-NS_IMETHODIMP ImsRegistrationChild::SetEnabled(bool aEnabled, nsIImsRegCallback *aCallback)
-{
+NS_IMETHODIMP ImsRegistrationChild::SetEnabled(bool aEnabled,
+                                               nsIImsRegCallback* aCallback) {
   return SendRequest(SetImsEnabledRequest(aEnabled), aCallback)
-    ? NS_OK : NS_ERROR_FAILURE;
+             ? NS_OK
+             : NS_ERROR_FAILURE;
 }
 
-NS_IMETHODIMP ImsRegistrationChild::GetEnabled(bool* aEnabled)
-{
+NS_IMETHODIMP ImsRegistrationChild::GetEnabled(bool* aEnabled) {
   MOZ_ASSERT(aEnabled);
 
   *aEnabled = mEnabled;
   return NS_OK;
 }
 
-NS_IMETHODIMP ImsRegistrationChild::SetPreferredProfile(uint16_t aProfile, nsIImsRegCallback *aCallback)
-{
+NS_IMETHODIMP ImsRegistrationChild::SetPreferredProfile(
+    uint16_t aProfile, nsIImsRegCallback* aCallback) {
   return SendRequest(SetImsPreferredProfileRequest(aProfile), aCallback)
-    ? NS_OK : NS_ERROR_FAILURE;
+             ? NS_OK
+             : NS_ERROR_FAILURE;
 }
 
-NS_IMETHODIMP ImsRegistrationChild::GetPreferredProfile(uint16_t* aProfile)
-{
+NS_IMETHODIMP ImsRegistrationChild::GetPreferredProfile(uint16_t* aProfile) {
   MOZ_ASSERT(aProfile);
 
   *aProfile = mPreferredProfile;
   return NS_OK;
 }
 
-NS_IMETHODIMP ImsRegistrationChild::GetCapability(int16_t *aCapability)
-{
+NS_IMETHODIMP ImsRegistrationChild::GetCapability(int16_t* aCapability) {
   MOZ_ASSERT(aCapability);
 
   *aCapability = mCapability;
   return NS_OK;
 }
 
-NS_IMETHODIMP ImsRegistrationChild::GetUnregisteredReason(nsAString & aUnregisteredReason)
-{
+NS_IMETHODIMP ImsRegistrationChild::GetUnregisteredReason(
+    nsAString& aUnregisteredReason) {
   aUnregisteredReason = mUnregisteredReason;
   return NS_OK;
 }
 
-NS_IMETHODIMP ImsRegistrationChild::SetRttEnabled(bool aEnabled, nsIImsRegCallback *aCallback)
-{
-  return SendRequest(SetImsRttEnabledRequest(aEnabled), aCallback)? NS_OK : NS_ERROR_FAILURE;
+NS_IMETHODIMP ImsRegistrationChild::SetRttEnabled(
+    bool aEnabled, nsIImsRegCallback* aCallback) {
+  return SendRequest(SetImsRttEnabledRequest(aEnabled), aCallback)
+             ? NS_OK
+             : NS_ERROR_FAILURE;
 }
 
-NS_IMETHODIMP ImsRegistrationChild::GetRttEnabled(bool* aEnabled)
-{
+NS_IMETHODIMP ImsRegistrationChild::GetRttEnabled(bool* aEnabled) {
   MOZ_ASSERT(aEnabled);
 
   *aEnabled = mRttEnabled;
@@ -220,34 +200,35 @@ NS_IMETHODIMP ImsRegistrationChild::GetRttEnabled(bool* aEnabled)
  * ImsRegistrationRequestChild
  ******************************************************************************/
 
-void
-ImsRegistrationRequestChild::ActorDestroy(ActorDestroyReason why)
-{
+void ImsRegistrationRequestChild::ActorDestroy(ActorDestroyReason why) {
   mRequestCallback = nullptr;
 }
 
-bool
-ImsRegistrationRequestChild::DoReply(const ImsRegistrationReplySuccess& aReply)
-{
+bool ImsRegistrationRequestChild::DoReply(
+    const ImsRegistrationReplySuccess& aReply) {
   return NS_SUCCEEDED(mRequestCallback->NotifySuccess());
 }
 
-bool
-ImsRegistrationRequestChild::DoReply(const ImsRegistrationReplyError& aReply)
-{
+bool ImsRegistrationRequestChild::DoReply(
+    const ImsRegistrationReplyError& aReply) {
   return NS_SUCCEEDED(mRequestCallback->NotifyError(aReply.error()));
 }
 
-mozilla::ipc::IPCResult
-ImsRegistrationRequestChild::Recv__delete__(const ImsRegistrationReply& aReply)
-{
+mozilla::ipc::IPCResult ImsRegistrationRequestChild::Recv__delete__(
+    const ImsRegistrationReply& aReply) {
   MOZ_ASSERT(mRequestCallback);
 
   switch (aReply.type()) {
     case ImsRegistrationReply::TImsRegistrationReplySuccess:
-      return DoReply(aReply.get_ImsRegistrationReplySuccess())? IPC_OK(): IPC_FAIL_NO_REASON(this);;
+      return DoReply(aReply.get_ImsRegistrationReplySuccess())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
+      ;
     case ImsRegistrationReply::TImsRegistrationReplyError:
-      return DoReply(aReply.get_ImsRegistrationReplyError())? IPC_OK(): IPC_FAIL_NO_REASON(this);;
+      return DoReply(aReply.get_ImsRegistrationReplyError())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
+      ;
     default:
       MOZ_CRASH("Received invalid response type!");
   }

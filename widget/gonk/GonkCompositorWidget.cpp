@@ -11,16 +11,15 @@
 namespace mozilla {
 namespace widget {
 
-GonkCompositorWidget::GonkCompositorWidget(const layers::CompositorOptions& aOptions, nsBaseWidget* aWidget)
-    : InProcessCompositorWidget(aOptions, aWidget) {
-}
+GonkCompositorWidget::GonkCompositorWidget(
+    const layers::CompositorOptions& aOptions, nsBaseWidget* aWidget)
+    : InProcessCompositorWidget(aOptions, aWidget) {}
 
 EGLNativeWindowType GonkCompositorWidget::GetEGLNativeWindow() {
   return (EGLNativeWindowType)mWidget->GetNativeData(NS_NATIVE_WINDOW);
 }
 
-int32_t GonkCompositorWidget::GetNativeSurfaceFormat()
-{
+int32_t GonkCompositorWidget::GetNativeSurfaceFormat() {
   nsWindow* window = static_cast<nsWindow*>(mWidget);
   return window->GetScreen()->GetSurfaceFormat();
 }

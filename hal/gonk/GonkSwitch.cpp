@@ -33,7 +33,7 @@
 using namespace mozilla::hal;
 
 #define SWITCH_HEADSET_DEVPATH "/devices/virtual/switch/h2w"
-#define SWITCH_USB_DEVPATH_GB  "/devices/virtual/switch/usb_configuration"
+#define SWITCH_USB_DEVPATH_GB "/devices/virtual/switch/usb_configuration"
 #define SWITCH_USB_DEVPATH_ICS "/devices/virtual/android_usb/android0"
 
 namespace mozilla {
@@ -49,56 +49,39 @@ namespace hal_impl {
  *    SWITCH_STATE=0
  *    SEQNUM=5038
  */
-class SwitchHandler
-{
-public:
+class SwitchHandler {
+ public:
   NS_INLINE_DECL_REFCOUNTING(SwitchHandler)
 
   SwitchHandler(const char* aDevPath, SwitchDevice aDevice)
-    : mDevPath(aDevPath),
-      mState(SWITCH_STATE_UNKNOWN),
-      mDevice(aDevice)
-  {
+      : mDevPath(aDevPath), mState(SWITCH_STATE_UNKNOWN), mDevice(aDevice) {
     GetInitialState();
   }
 
-  bool CheckEvent(NetlinkEvent* aEvent)
-  {
+  bool CheckEvent(NetlinkEvent* aEvent) {
     if (strcmp(GetSubsystem(), aEvent->getSubsystem()) ||
         strcmp(mDevPath, aEvent->findParam("DEVPATH"))) {
-        return false;
+      return false;
     }
 
     mState = ConvertState(GetStateString(aEvent));
     return mState != SWITCH_STATE_UNKNOWN;
   }
 
-  SwitchState GetState()
-  {
-    return mState;
-  }
+  SwitchState GetState() { return mState; }
 
-  SwitchDevice GetType()
-  {
-    return mDevice;
-  }
-protected:
-  virtual ~SwitchHandler()
-  {
-  }
+  SwitchDevice GetType() { return mDevice; }
 
-  virtual const char* GetSubsystem()
-  {
-    return "switch";
-  }
+ protected:
+  virtual ~SwitchHandler() {}
 
-  virtual const char* GetStateString(NetlinkEvent* aEvent)
-  {
+  virtual const char* GetSubsystem() { return "switch"; }
+
+  virtual const char* GetStateString(NetlinkEvent* aEvent) {
     return aEvent->findParam("SWITCH_STATE");
   }
 
-  void GetInitialState()
-  {
+  void GetInitialState() {
     nsPrintfCString statePath("/sys%s/state", mDevPath);
     int fd = open(statePath.get(), O_RDONLY);
     if (fd <= 0) {
@@ -121,8 +104,7 @@ protected:
     mState = ConvertState(state);
   }
 
-  virtual SwitchState ConvertState(const char* aState)
-  {
+  virtual SwitchState ConvertState(const char* aState) {
     MOZ_ASSERT(aState);
     return aState[0] == '0' ? SWITCH_STATE_OFF : SWITCH_STATE_ON;
   }
@@ -142,31 +124,26 @@ protected:
  *    USB_STATE=CONFIGURED
  *    SEQNUM=1802
  */
-class SwitchHandlerUsbIcs: public SwitchHandler
-{
-public:
-  explicit SwitchHandlerUsbIcs(const char* aDevPath) : SwitchHandler(aDevPath, SWITCH_USB)
-  {
+class SwitchHandlerUsbIcs : public SwitchHandler {
+ public:
+  explicit SwitchHandlerUsbIcs(const char* aDevPath)
+      : SwitchHandler(aDevPath, SWITCH_USB) {
     SwitchHandler::GetInitialState();
   }
 
-  virtual ~SwitchHandlerUsbIcs() { }
+  virtual ~SwitchHandlerUsbIcs() {}
 
-protected:
-  virtual const char* GetSubsystem()
-  {
-    return "android_usb";
-  }
+ protected:
+  virtual const char* GetSubsystem() { return "android_usb"; }
 
-  virtual const char* GetStateString(NetlinkEvent* aEvent)
-  {
+  virtual const char* GetStateString(NetlinkEvent* aEvent) {
     return aEvent->findParam("USB_STATE");
   }
 
-  SwitchState ConvertState(const char* aState)
-  {
+  SwitchState ConvertState(const char* aState) {
     MOZ_ASSERT(aState);
-    return strcmp(aState, "CONFIGURED") == 0 ? SWITCH_STATE_ON : SWITCH_STATE_OFF;
+    return strcmp(aState, "CONFIGURED") == 0 ? SWITCH_STATE_ON
+                                             : SWITCH_STATE_OFF;
   }
 };
 
@@ -189,82 +166,63 @@ protected:
  *   SWITCH_STATE=1 // Headset with mic
  *   SEQNUM=1602
  */
-class SwitchHandlerHeadphone: public SwitchHandler
-{
-public:
-  explicit SwitchHandlerHeadphone(const char* aDevPath) :
-    SwitchHandler(aDevPath, SWITCH_HEADPHONES)
-  {
+class SwitchHandlerHeadphone : public SwitchHandler {
+ public:
+  explicit SwitchHandlerHeadphone(const char* aDevPath)
+      : SwitchHandler(aDevPath, SWITCH_HEADPHONES) {
     SwitchHandler::GetInitialState();
   }
 
-  virtual ~SwitchHandlerHeadphone() { }
+  virtual ~SwitchHandlerHeadphone() {}
 
-protected:
-  SwitchState ConvertState(const char* aState)
-  {
+ protected:
+  SwitchState ConvertState(const char* aState) {
     MOZ_ASSERT(aState);
 
-    return aState[0] == '0' ? SWITCH_STATE_OFF :
-      (aState[0] == '1' ? SWITCH_STATE_HEADSET : SWITCH_STATE_HEADPHONE);
+    return aState[0] == '0' ? SWITCH_STATE_OFF
+                            : (aState[0] == '1' ? SWITCH_STATE_HEADSET
+                                                : SWITCH_STATE_HEADPHONE);
   }
 };
-
 
 typedef nsTArray<RefPtr<SwitchHandler> > SwitchHandlerArray;
 
-class SwitchEventRunnable : public Runnable
-{
-public:
-  explicit SwitchEventRunnable(SwitchEvent& aEvent) : Runnable("SwitchEventRunnable"),
-                                             mEvent(aEvent)
-  {
-  }
+class SwitchEventRunnable : public Runnable {
+ public:
+  explicit SwitchEventRunnable(SwitchEvent& aEvent)
+      : Runnable("SwitchEventRunnable"), mEvent(aEvent) {}
 
-  NS_IMETHOD Run() override
-  {
+  NS_IMETHOD Run() override {
     NotifySwitchChange(mEvent);
     return NS_OK;
   }
-private:
+
+ private:
   SwitchEvent mEvent;
 };
 
-class SwitchEventObserver final : public IUeventObserver
-{
-  ~SwitchEventObserver()
-  {
-    mHandler.Clear();
-  }
+class SwitchEventObserver final : public IUeventObserver {
+  ~SwitchEventObserver() { mHandler.Clear(); }
 
-public:
+ public:
   NS_INLINE_DECL_REFCOUNTING(SwitchEventObserver)
-  SwitchEventObserver()
-    : mEnableCount(0),
-    mHeadphonesFromInputDev(false)
-  {
+  SwitchEventObserver() : mEnableCount(0), mHeadphonesFromInputDev(false) {
     Init();
   }
 
-  int GetEnableCount()
-  {
-    return mEnableCount;
-  }
+  int GetEnableCount() { return mEnableCount; }
 
-  void EnableSwitch(SwitchDevice aDevice)
-  {
+  void EnableSwitch(SwitchDevice aDevice) {
     mEventInfo[aDevice].mEnabled = true;
     mEnableCount++;
   }
 
-  void DisableSwitch(SwitchDevice aDevice)
-  {
+  void DisableSwitch(SwitchDevice aDevice) {
     mEventInfo[aDevice].mEnabled = false;
     mEnableCount--;
   }
 
-  void Notify(const NetlinkEvent& aEvent)
-  {
+  void Notify(const NetlinkEvent& aEvent) {
     SwitchState currState;
 
     SwitchDevice device = GetEventInfo(aEvent, currState);
@@ -284,8 +242,7 @@ public:
     }
   }
 
-  void Notify(SwitchDevice aDevice, SwitchState aState)
-  {
+  void Notify(SwitchDevice aDevice, SwitchState aState) {
     EventInfo& info = mEventInfo[aDevice];
     if (aState == info.mEvent.status()) {
       return;
@@ -298,30 +255,23 @@ public:
     }
   }
 
-  SwitchState GetCurrentInformation(SwitchDevice aDevice)
-  {
+  SwitchState GetCurrentInformation(SwitchDevice aDevice) {
     return mEventInfo[aDevice].mEvent.status();
   }
 
-  void NotifyAnEvent(SwitchDevice aDevice)
-  {
+  void NotifyAnEvent(SwitchDevice aDevice) {
     EventInfo& info = mEventInfo[aDevice];
     if (info.mEvent.status() != SWITCH_STATE_UNKNOWN) {
       NS_DispatchToMainThread(new SwitchEventRunnable(info.mEvent));
     }
   }
 
-  bool GetHeadphonesFromInputDev()
-  {
-    return mHeadphonesFromInputDev;
-  }
+  bool GetHeadphonesFromInputDev() { return mHeadphonesFromInputDev; }
 
-private:
-  class EventInfo
-  {
-  public:
-    EventInfo() : mEnabled(false)
-    {
+ private:
+  class EventInfo {
+   public:
+    EventInfo() : mEnabled(false) {
       mEvent.status() = SWITCH_STATE_UNKNOWN;
       mEvent.device() = SWITCH_DEVICE_UNKNOWN;
     }
@@ -336,13 +286,14 @@ private:
 
   // This function might also get called on the main thread
   // (from IsHeadphoneEventFromInputDev)
-  void Init()
-  {
+  void Init() {
     RefPtr<SwitchHandlerHeadphone> switchHeadPhone =
-      new SwitchHandlerHeadphone(SWITCH_HEADSET_DEVPATH);
+        new SwitchHandlerHeadphone(SWITCH_HEADSET_DEVPATH);
 
-    // If the initial state is unknown, it means the headphone event is from input dev
-    mHeadphonesFromInputDev = switchHeadPhone->GetState() == SWITCH_STATE_UNKNOWN ? true : false;
+    // If the initial state is unknown, it means the headphone event is from
+    // input dev
+    mHeadphonesFromInputDev =
+        switchHeadPhone->GetState() == SWITCH_STATE_UNKNOWN ? true : false;
 
     if (!mHeadphonesFromInputDev) {
       mHandler.AppendElement(switchHeadPhone);
@@ -352,7 +303,8 @@ private:
       mEventInfo[SWITCH_HEADPHONES].mEvent.device() = SWITCH_HEADPHONES;
       mEventInfo[SWITCH_HEADPHONES].mEvent.status() = SWITCH_STATE_OFF;
     }
-    mHandler.AppendElement(new SwitchHandler(SWITCH_USB_DEVPATH_GB, SWITCH_USB));
+    mHandler.AppendElement(
+        new SwitchHandler(SWITCH_USB_DEVPATH_GB, SWITCH_USB));
     mHandler.AppendElement(new SwitchHandlerUsbIcs(SWITCH_USB_DEVPATH_ICS));
 
     SwitchHandlerArray::index_type handlerIndex;
@@ -370,10 +322,9 @@ private:
     }
   }
 
-  SwitchDevice GetEventInfo(const NetlinkEvent& aEvent, SwitchState& aState)
-  {
-    //working around the android code not being const-correct
-    NetlinkEvent *e = const_cast<NetlinkEvent*>(&aEvent);
+  SwitchDevice GetEventInfo(const NetlinkEvent& aEvent, SwitchState& aState) {
+    // working around the android code not being const-correct
+    NetlinkEvent* e = const_cast<NetlinkEvent*>(&aEvent);
 
     for (size_t i = 0; i < mHandler.Length(); i++) {
       if (mHandler[i]->CheckEvent(e)) {
@@ -387,27 +338,22 @@ private:
 
 static RefPtr<SwitchEventObserver> sSwitchObserver;
 
-static void
-InitializeResourceIfNeed()
-{
+static void InitializeResourceIfNeed() {
   if (!sSwitchObserver) {
     sSwitchObserver = new SwitchEventObserver();
     RegisterUeventListener(sSwitchObserver);
   }
 }
 
-static void
-ReleaseResourceIfNeed()
-{
+static void ReleaseResourceIfNeed() {
   if (sSwitchObserver->GetEnableCount() == 0) {
     UnregisterUeventListener(sSwitchObserver);
     sSwitchObserver = nullptr;
   }
 }
 
-static void
-EnableSwitchNotificationsIOThread(SwitchDevice aDevice, Monitor *aMonitor)
-{
+static void EnableSwitchNotificationsIOThread(SwitchDevice aDevice,
+                                              Monitor* aMonitor) {
   InitializeResourceIfNeed();
   sSwitchObserver->EnableSwitch(aDevice);
   {
@@ -421,63 +367,53 @@ EnableSwitchNotificationsIOThread(SwitchDevice aDevice, Monitor *aMonitor)
   }
 }
 
-void
-EnableSwitchNotifications(SwitchDevice aDevice)
-{
+void EnableSwitchNotifications(SwitchDevice aDevice) {
   Monitor monitor("EnableSwitch.monitor");
   {
     MonitorAutoLock lock(monitor);
-    XRE_GetIOMessageLoop()->PostTask(
-        NewRunnableFunction("SwitchEventObserver::EnableSwitchNotifications",
-                            EnableSwitchNotificationsIOThread, aDevice, &monitor));
+    XRE_GetIOMessageLoop()->PostTask(NewRunnableFunction(
+        "SwitchEventObserver::EnableSwitchNotifications",
+        EnableSwitchNotificationsIOThread, aDevice, &monitor));
     lock.Wait();
   }
 }
 
-static void
-DisableSwitchNotificationsIOThread(SwitchDevice aDevice)
-{
+static void DisableSwitchNotificationsIOThread(SwitchDevice aDevice) {
   MOZ_ASSERT(sSwitchObserver->GetEnableCount());
   sSwitchObserver->DisableSwitch(aDevice);
   ReleaseResourceIfNeed();
 }
 
-void
-DisableSwitchNotifications(SwitchDevice aDevice)
-{
+void DisableSwitchNotifications(SwitchDevice aDevice) {
   XRE_GetIOMessageLoop()->PostTask(
       NewRunnableFunction("SwitchEventObserver::DisableSwitchNotifications",
                           DisableSwitchNotificationsIOThread, aDevice));
 }
 
-SwitchState
-GetCurrentSwitchState(SwitchDevice aDevice)
-{
+SwitchState GetCurrentSwitchState(SwitchDevice aDevice) {
   MOZ_ASSERT(sSwitchObserver && sSwitchObserver->GetEnableCount());
   return sSwitchObserver->GetCurrentInformation(aDevice);
 }
 
-static void
-NotifySwitchStateIOThread(SwitchDevice aDevice, SwitchState aState)
-{
+static void NotifySwitchStateIOThread(SwitchDevice aDevice,
+                                      SwitchState aState) {
   InitializeResourceIfNeed();
   sSwitchObserver->Notify(aDevice, aState);
 }
 
-void NotifySwitchStateFromInputDevice(SwitchDevice aDevice, SwitchState aState)
-{
-  XRE_GetIOMessageLoop()->PostTask(
-      NewRunnableFunction("SwitchEventObserver::NotifySwitchStateFromInputDevice",
-                          NotifySwitchStateIOThread, aDevice, aState));
+void NotifySwitchStateFromInputDevice(SwitchDevice aDevice,
+                                      SwitchState aState) {
+  XRE_GetIOMessageLoop()->PostTask(NewRunnableFunction(
+      "SwitchEventObserver::NotifySwitchStateFromInputDevice",
+      NotifySwitchStateIOThread, aDevice, aState));
 }
 
-bool IsHeadphoneEventFromInputDev()
-{
+bool IsHeadphoneEventFromInputDev() {
   // Instead of calling InitializeResourceIfNeed, create new SwitchEventObserver
   // to prevent calling RegisterUeventListener in main thread.
   RefPtr<SwitchEventObserver> switchObserver = new SwitchEventObserver();
   return switchObserver->GetHeadphonesFromInputDev();
 }
 
-} // hal_impl
-} //mozilla
+}  // namespace hal_impl
+}  // namespace mozilla

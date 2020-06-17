@@ -277,5 +277,4 @@ SpeakerManagerService::SpeakerManagerService() : mOrgSpeakerStatus(false) {
   }
 }
 
-SpeakerManagerService::~SpeakerManagerService() {
-}
+SpeakerManagerService::~SpeakerManagerService() {}

@@ -21,13 +21,12 @@ namespace mobilemessage {
 
 class ThreadData;
 
-class MobileMessageThreadInternal final : public nsIMobileMessageThread
-{
-  // This allows the MobileMessageThread class to access data members, i.e. participants
-  // without JS API.
+class MobileMessageThreadInternal final : public nsIMobileMessageThread {
+  // This allows the MobileMessageThread class to access data members, i.e.
+  // participants without JS API.
   friend class mozilla::dom::MobileMessageThread;
 
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIMOBILEMESSAGETHREAD
 
@@ -35,27 +34,22 @@ public:
                               const nsTArray<nsString>& aParticipants,
                               uint64_t aTimestamp,
                               const nsString& aLastMessageSubject,
-                              const nsString& aBody,
-                              uint64_t aUnreadCount,
+                              const nsString& aBody, uint64_t aUnreadCount,
                               mobilemessage::MessageType aLastMessageType,
                               bool aIsGroup);
 
   explicit MobileMessageThreadInternal(const ThreadData& aData);
 
-  static nsresult Create(uint64_t aId,
-                         const JS::Value& aParticipants,
+  static nsresult Create(uint64_t aId, const JS::Value& aParticipants,
                          uint64_t aTimestamp,
                          const nsAString& aLastMessageSubject,
-                         const nsAString& aBody,
-                         uint64_t aUnreadCount,
-                         const nsAString& aLastMessageType,
-                         bool aIsGroup,
-                         JSContext* aCx,
-                         nsIMobileMessageThread** aThread);
+                         const nsAString& aBody, uint64_t aUnreadCount,
+                         const nsAString& aLastMessageType, bool aIsGroup,
+                         JSContext* aCx, nsIMobileMessageThread** aThread);
 
   const ThreadData& GetData() const { return mData; }
 
-private:
+ private:
   ~MobileMessageThreadInternal() {}
 
   // Don't try to use the default constructor.
@@ -64,8 +58,8 @@ private:
   ThreadData mData;
 };
 
-} // namespace mobilemessage
-} // namespace dom
-} // namespace mozilla
+}  // namespace mobilemessage
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_mobilemessage_MobileMessageThreadInternal_h
+#endif  // mozilla_dom_mobilemessage_MobileMessageThreadInternal_h

@@ -13,17 +13,23 @@ namespace mozilla {
 namespace dom {
 
 #define ASSERT_NETWORK_SELECTION_MODE_EQUALITY(webidlState, xpidlState) \
-  static_assert(static_cast<int32_t>(MobileNetworkSelectionMode::webidlState) == nsIMobileConnection::xpidlState, \
-                "MobileNetworkSelectionMode::" #webidlState " should equal to nsIMobileConnection::" #xpidlState)
+  static_assert(                                                        \
+      static_cast<int32_t>(MobileNetworkSelectionMode::webidlState) ==  \
+          nsIMobileConnection::xpidlState,                              \
+      "MobileNetworkSelectionMode::" #webidlState                       \
+      " should equal to nsIMobileConnection::" #xpidlState)
 
-ASSERT_NETWORK_SELECTION_MODE_EQUALITY(Automatic, NETWORK_SELECTION_MODE_AUTOMATIC);
+ASSERT_NETWORK_SELECTION_MODE_EQUALITY(Automatic,
+                                       NETWORK_SELECTION_MODE_AUTOMATIC);
 ASSERT_NETWORK_SELECTION_MODE_EQUALITY(Manual, NETWORK_SELECTION_MODE_MANUAL);
 
 #undef ASSERT_NETWORK_SELECTION_MODE_EQUALITY
 
-#define ASSERT_MOBILE_RADIO_STATE_EQUALITY(webidlState, xpidlState) \
-  static_assert(static_cast<int32_t>(MobileRadioState::webidlState) == nsIMobileConnection::xpidlState, \
-                "MobileRadioState::" #webidlState " should equal to nsIMobileConnection::" #xpidlState)
+#define ASSERT_MOBILE_RADIO_STATE_EQUALITY(webidlState, xpidlState)    \
+  static_assert(static_cast<int32_t>(MobileRadioState::webidlState) == \
+                    nsIMobileConnection::xpidlState,                   \
+                "MobileRadioState::" #webidlState                      \
+                " should equal to nsIMobileConnection::" #xpidlState)
 
 ASSERT_MOBILE_RADIO_STATE_EQUALITY(Enabling, MOBILE_RADIO_STATE_ENABLING);
 ASSERT_MOBILE_RADIO_STATE_EQUALITY(Enabled, MOBILE_RADIO_STATE_ENABLED);
@@ -33,37 +39,53 @@ ASSERT_MOBILE_RADIO_STATE_EQUALITY(Disabled, MOBILE_RADIO_STATE_DISABLED);
 #undef ASSERT_MOBILE_RADIO_STATE_EQUALITY
 
 #define ASSERT_PREFERRED_NETWORK_TYPE_EQUALITY(webidlState, xpidlState) \
-  static_assert(static_cast<int32_t>(MobilePreferredNetworkType::webidlState) == nsIMobileConnection::xpidlState, \
-                "MobilePreferredNetworkType::" #webidlState " should equal to nsIMobileConnection::" #xpidlState)
+  static_assert(                                                        \
+      static_cast<int32_t>(MobilePreferredNetworkType::webidlState) ==  \
+          nsIMobileConnection::xpidlState,                              \
+      "MobilePreferredNetworkType::" #webidlState                       \
+      " should equal to nsIMobileConnection::" #xpidlState)
 
-ASSERT_PREFERRED_NETWORK_TYPE_EQUALITY(Wcdma_gsm, PREFERRED_NETWORK_TYPE_WCDMA_GSM);
+ASSERT_PREFERRED_NETWORK_TYPE_EQUALITY(Wcdma_gsm,
+                                       PREFERRED_NETWORK_TYPE_WCDMA_GSM);
 ASSERT_PREFERRED_NETWORK_TYPE_EQUALITY(Gsm, PREFERRED_NETWORK_TYPE_GSM_ONLY);
-ASSERT_PREFERRED_NETWORK_TYPE_EQUALITY(Wcdma, PREFERRED_NETWORK_TYPE_WCDMA_ONLY);
-ASSERT_PREFERRED_NETWORK_TYPE_EQUALITY(Wcdma_gsm_auto, PREFERRED_NETWORK_TYPE_WCDMA_GSM_AUTO);
-ASSERT_PREFERRED_NETWORK_TYPE_EQUALITY(Cdma_evdo, PREFERRED_NETWORK_TYPE_CDMA_EVDO);
+ASSERT_PREFERRED_NETWORK_TYPE_EQUALITY(Wcdma,
+                                       PREFERRED_NETWORK_TYPE_WCDMA_ONLY);
+ASSERT_PREFERRED_NETWORK_TYPE_EQUALITY(Wcdma_gsm_auto,
+                                       PREFERRED_NETWORK_TYPE_WCDMA_GSM_AUTO);
+ASSERT_PREFERRED_NETWORK_TYPE_EQUALITY(Cdma_evdo,
+                                       PREFERRED_NETWORK_TYPE_CDMA_EVDO);
 ASSERT_PREFERRED_NETWORK_TYPE_EQUALITY(Cdma, PREFERRED_NETWORK_TYPE_CDMA_ONLY);
 ASSERT_PREFERRED_NETWORK_TYPE_EQUALITY(Evdo, PREFERRED_NETWORK_TYPE_EVDO_ONLY);
-ASSERT_PREFERRED_NETWORK_TYPE_EQUALITY(Wcdma_gsm_cdma_evdo, PREFERRED_NETWORK_TYPE_WCDMA_GSM_CDMA_EVDO);
-ASSERT_PREFERRED_NETWORK_TYPE_EQUALITY(Lte_cdma_evdo, PREFERRED_NETWORK_TYPE_LTE_CDMA_EVDO);
-ASSERT_PREFERRED_NETWORK_TYPE_EQUALITY(Lte_wcdma_gsm, PREFERRED_NETWORK_TYPE_LTE_WCDMA_GSM);
-ASSERT_PREFERRED_NETWORK_TYPE_EQUALITY(Lte_wcdma_gsm_cdma_evdo, PREFERRED_NETWORK_TYPE_LTE_WCDMA_GSM_CDMA_EVDO);
+ASSERT_PREFERRED_NETWORK_TYPE_EQUALITY(
+    Wcdma_gsm_cdma_evdo, PREFERRED_NETWORK_TYPE_WCDMA_GSM_CDMA_EVDO);
+ASSERT_PREFERRED_NETWORK_TYPE_EQUALITY(Lte_cdma_evdo,
+                                       PREFERRED_NETWORK_TYPE_LTE_CDMA_EVDO);
+ASSERT_PREFERRED_NETWORK_TYPE_EQUALITY(Lte_wcdma_gsm,
+                                       PREFERRED_NETWORK_TYPE_LTE_WCDMA_GSM);
+ASSERT_PREFERRED_NETWORK_TYPE_EQUALITY(
+    Lte_wcdma_gsm_cdma_evdo, PREFERRED_NETWORK_TYPE_LTE_WCDMA_GSM_CDMA_EVDO);
 ASSERT_PREFERRED_NETWORK_TYPE_EQUALITY(Lte, PREFERRED_NETWORK_TYPE_LTE_ONLY);
 
 #undef ASSERT_PREFERRED_NETWORK_TYPE_EQUALITY
 
-#define ASSERT_MOBILE_ROAMING_MODE_EQUALITY(webidlState, xpidlState) \
-  static_assert(static_cast<int32_t>(MobileRoamingMode::webidlState) == nsIMobileConnection::xpidlState, \
-                "MobileRoamingMode::" #webidlState " should equal to nsIMobileConnection::" #xpidlState)
+#define ASSERT_MOBILE_ROAMING_MODE_EQUALITY(webidlState, xpidlState)    \
+  static_assert(static_cast<int32_t>(MobileRoamingMode::webidlState) == \
+                    nsIMobileConnection::xpidlState,                    \
+                "MobileRoamingMode::" #webidlState                      \
+                " should equal to nsIMobileConnection::" #xpidlState)
 
 ASSERT_MOBILE_ROAMING_MODE_EQUALITY(Home, CDMA_ROAMING_PREFERENCE_HOME);
-ASSERT_MOBILE_ROAMING_MODE_EQUALITY(Affiliated, CDMA_ROAMING_PREFERENCE_AFFILIATED);
+ASSERT_MOBILE_ROAMING_MODE_EQUALITY(Affiliated,
+                                    CDMA_ROAMING_PREFERENCE_AFFILIATED);
 ASSERT_MOBILE_ROAMING_MODE_EQUALITY(Any, CDMA_ROAMING_PREFERENCE_ANY);
 
 #undef ASSERT_MOBILE_ROAMING_MODE_EQUALITY
 
-#define ASSERT_MOBILE_NETWORK_TYPE_EQUALITY(webidlState, xpidlState) \
-  static_assert(static_cast<int32_t>(MobileNetworkType::webidlState) == nsIMobileConnection::xpidlState, \
-                "MobileNetworkType::" #webidlState " should equal to nsIMobileConnection::" #xpidlState)
+#define ASSERT_MOBILE_NETWORK_TYPE_EQUALITY(webidlState, xpidlState)    \
+  static_assert(static_cast<int32_t>(MobileNetworkType::webidlState) == \
+                    nsIMobileConnection::xpidlState,                    \
+                "MobileNetworkType::" #webidlState                      \
+                " should equal to nsIMobileConnection::" #xpidlState)
 
 ASSERT_MOBILE_NETWORK_TYPE_EQUALITY(Gsm, MOBILE_NETWORK_TYPE_GSM);
 ASSERT_MOBILE_NETWORK_TYPE_EQUALITY(Wcdma, MOBILE_NETWORK_TYPE_WCDMA);
@@ -73,9 +95,11 @@ ASSERT_MOBILE_NETWORK_TYPE_EQUALITY(Lte, MOBILE_NETWORK_TYPE_LTE);
 
 #undef ASSERT_MOBILE_NETWORK_TYPE_EQUALITY
 
-#define ASSERT_IMS_CAPABILITY(webidlState, xpidlState) \
-  static_assert(static_cast<int32_t>(ImsCapability::webidlState) == nsIImsRegHandler::xpidlState, \
-                "ImsCapability::" #webidlState " should equal to nsIImsRegHandler::" #xpidlState)
+#define ASSERT_IMS_CAPABILITY(webidlState, xpidlState)              \
+  static_assert(static_cast<int32_t>(ImsCapability::webidlState) == \
+                    nsIImsRegHandler::xpidlState,                   \
+                "ImsCapability::" #webidlState                      \
+                " should equal to nsIImsRegHandler::" #xpidlState)
 ASSERT_IMS_CAPABILITY(Voice_over_cellular, IMS_CAPABILITY_VOICE_OVER_CELLULAR);
 ASSERT_IMS_CAPABILITY(Voice_over_wifi, IMS_CAPABILITY_VOICE_OVER_WIFI);
 ASSERT_IMS_CAPABILITY(Video_over_cellular, IMS_CAPABILITY_VIDEO_OVER_CELLULAR);
@@ -83,9 +107,11 @@ ASSERT_IMS_CAPABILITY(Video_over_wifi, IMS_CAPABILITY_VIDEO_OVER_WIFI);
 
 #undef ASSERT_IMS_CAPABILITY
 
-#define ASSERT_IMS_PROFILE(webidlState, xpidlState) \
-  static_assert(static_cast<int32_t>(ImsProfile::webidlState) == nsIImsRegHandler::xpidlState, \
-                "ImsProfile::" #webidlState " should equal to nsIImsRegHandler::" #xpidlState)
+#define ASSERT_IMS_PROFILE(webidlState, xpidlState)              \
+  static_assert(static_cast<int32_t>(ImsProfile::webidlState) == \
+                    nsIImsRegHandler::xpidlState,                \
+                "ImsProfile::" #webidlState                      \
+                " should equal to nsIImsRegHandler::" #xpidlState)
 ASSERT_IMS_PROFILE(Cellular_preferred, IMS_PROFILE_CELLULAR_PREFERRED);
 ASSERT_IMS_PROFILE(Cellular_only, IMS_PROFILE_CELLULAR_ONLY);
 ASSERT_IMS_PROFILE(Wifi_preferred, IMS_PROFILE_WIFI_PREFERRED);
@@ -93,13 +119,15 @@ ASSERT_IMS_PROFILE(Wifi_only, IMS_PROFILE_WIFI_ONLY);
 
 #undef ASSERT_IMS_PROFILE
 
-#define ASSERT_IMS_BEARER(webidlState, xpidlState) \
-  static_assert(static_cast<int32_t>(ImsBearer::webidlState) == nsIImsRegHandler::xpidlState, \
-                "ImsBearer::" #webidlState " should equal to nsIImsRegHandler::" #xpidlState)
+#define ASSERT_IMS_BEARER(webidlState, xpidlState)              \
+  static_assert(static_cast<int32_t>(ImsBearer::webidlState) == \
+                    nsIImsRegHandler::xpidlState,               \
+                "ImsBearer::" #webidlState                      \
+                " should equal to nsIImsRegHandler::" #xpidlState)
 ASSERT_IMS_BEARER(Cellular, IMS_BEARER_CELLULAR);
 ASSERT_IMS_BEARER(Wifi, IMS_BEARER_WIFI);
 
 #undef ASSERT_IMS_BEARER
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

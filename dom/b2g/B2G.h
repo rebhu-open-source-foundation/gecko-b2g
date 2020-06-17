@@ -58,8 +58,7 @@ namespace dom {
 
 class DeviceStorageAreaListener;
 
-class B2G final : public nsIDOMMozWakeLockListener
-                , public nsWrapperCache {
+class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
   nsCOMPtr<nsIGlobalObject> mOwner;
 
  public:
@@ -111,11 +110,10 @@ class B2G final : public nsIDOMMozWakeLockListener
   FMRadio* GetFmRadio(ErrorResult& aRv);
 #endif
 
-  static
-  bool HasWakeLockSupport(JSContext* /* unused*/, JSObject* /*unused */);
+  static bool HasWakeLockSupport(JSContext* /* unused*/, JSObject* /*unused */);
 
-  already_AddRefed<WakeLock>
-  RequestWakeLock(const nsAString &aTopic, ErrorResult& aRv);
+  already_AddRefed<WakeLock> RequestWakeLock(const nsAString& aTopic,
+                                             ErrorResult& aRv);
 
   void AddWakeLockListener(nsIDOMMozWakeLockListener* aListener);
   void RemoveWakeLockListener(nsIDOMMozWakeLockListener* aListener);
@@ -177,7 +175,7 @@ class B2G final : public nsIDOMMozWakeLockListener
 #ifdef MOZ_B2G_FM
   RefPtr<FMRadio> mFMRadio;
 #endif
-  nsTArray<nsCOMPtr<nsIDOMMozWakeLockListener> > mListeners;
+  nsTArray<nsCOMPtr<nsIDOMMozWakeLockListener>> mListeners;
 };
 
 }  // namespace dom

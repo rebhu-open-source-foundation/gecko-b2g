@@ -13,29 +13,27 @@
 namespace mozilla {
 namespace dom {
 
-class DOMVideoCallProfile final : public nsIVideoCallProfile
-{
-public:
+class DOMVideoCallProfile final : public nsIVideoCallProfile {
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIVIDEOCALLPROFILE
 
   DOMVideoCallProfile(VideoCallQuality aQuality, VideoCallState aState);
 
-  void
-  Update(nsIVideoCallProfile* aProfile);
+  void Update(nsIVideoCallProfile* aProfile);
 
-private:
+ private:
   // Don't try to use the default constructor.
   DOMVideoCallProfile() {}
 
   ~DOMVideoCallProfile() {}
 
-private:
+ private:
   VideoCallQuality mQuality;
   VideoCallState mState;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_domvideocallprofile_h__
+#endif  // mozilla_dom_domvideocallprofile_h__

@@ -3278,7 +3278,8 @@ double nsGlobalWindowInner::GetDevicePixelRatio(CallerType aCallerType,
 
 float nsPIDOMWindowInner::GetDevicePixelRatio(CallerType aCallerType) {
   ErrorResult aError;
-  return nsGlobalWindowInner::Cast(this)->GetDevicePixelRatio(aCallerType, aError);
+  return nsGlobalWindowInner::Cast(this)->GetDevicePixelRatio(aCallerType,
+                                                              aError);
 }
 
 uint64_t nsGlobalWindowInner::GetMozPaintCount(ErrorResult& aError) {

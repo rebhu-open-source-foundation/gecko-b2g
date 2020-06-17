@@ -5,11 +5,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #if !defined(GonkAudioDecoderManager_h_)
-#define GonkAudioDecoderManager_h_
+#  define GonkAudioDecoderManager_h_
 
-#include "AudioCompactor.h"
-#include "mozilla/RefPtr.h"
-#include "GonkMediaDataDecoder.h"
+#  include "AudioCompactor.h"
+#  include "mozilla/RefPtr.h"
+#  include "GonkMediaDataDecoder.h"
 
 using namespace android;
 

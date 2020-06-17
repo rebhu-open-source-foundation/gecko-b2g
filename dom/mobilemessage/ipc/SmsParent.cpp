@@ -21,7 +21,7 @@
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/File.h"
 #include "mozilla/dom/ToJSValue.h"
-#include "mozilla/dom/mobilemessage/Constants.h" // For MessageType
+#include "mozilla/dom/mobilemessage/Constants.h"  // For MessageType
 #include "mozilla/UniquePtr.h"
 #include "nsContentUtils.h"
 #include "nsTArrayHelpers.h"
@@ -33,30 +33,29 @@ namespace mozilla {
 namespace dom {
 namespace mobilemessage {
 
-static JSObject*
-MmsAttachmentDataToJSObject(JSContext* aContext,
-                            const MmsAttachmentData& aAttachment)
-{
+static JSObject* MmsAttachmentDataToJSObject(
+    JSContext* aContext, const MmsAttachmentData& aAttachment) {
   JS::Rooted<JSObject*> obj(aContext, JS_NewPlainObject(aContext));
   NS_ENSURE_TRUE(obj, nullptr);
 
-  JS::Rooted<JSString*> idStr(aContext, JS_NewUCStringCopyN(aContext,
-                                                            aAttachment.id().get(),
-                                                            aAttachment.id().Length()));
+  JS::Rooted<JSString*> idStr(
+      aContext, JS_NewUCStringCopyN(aContext, aAttachment.id().get(),
+                                    aAttachment.id().Length()));
   NS_ENSURE_TRUE(idStr, nullptr);
   if (!JS_DefineProperty(aContext, obj, "id", idStr, 0)) {
     return nullptr;
   }
 
-  JS::Rooted<JSString*> locStr(aContext, JS_NewUCStringCopyN(aContext,
-                                                             aAttachment.location().get(),
-                                                             aAttachment.location().Length()));
+  JS::Rooted<JSString*> locStr(
+      aContext, JS_NewUCStringCopyN(aContext, aAttachment.location().get(),
+                                    aAttachment.location().Length()));
   NS_ENSURE_TRUE(locStr, nullptr);
   if (!JS_DefineProperty(aContext, obj, "location", locStr, 0)) {
     return nullptr;
   }
 
-  RefPtr<BlobImpl> blobImpl = static_cast<BlobParent*>(aAttachment.contentParent())->GetBlobImpl();
+  RefPtr<BlobImpl> blobImpl =
+      static_cast<BlobParent*>(aAttachment.contentParent())->GetBlobImpl();
 
   // RefPtr<File> needs to go out of scope before toObjectOrNull() is
   // called because the static analysis thinks dereferencing XPCOM objects
@@ -65,7 +64,8 @@ MmsAttachmentDataToJSObject(JSContext* aContext,
   // while destructors are running.
   JS::Rooted<JS::Value> content(aContext);
   {
-    nsIGlobalObject *global = xpc::NativeGlobal(JS::CurrentGlobalOrNull(aContext));
+    nsIGlobalObject* global =
+        xpc::NativeGlobal(JS::CurrentGlobalOrNull(aContext));
     MOZ_ASSERT(global);
 
     RefPtr<Blob> blob = Blob::Create(global, blobImpl);
@@ -81,36 +81,32 @@ MmsAttachmentDataToJSObject(JSContext* aContext,
   return obj;
 }
 
-static bool
-GetParamsFromSendMmsMessageRequest(JSContext* aCx,
-                                   const SendMmsMessageRequest& aRequest,
-                                   JS::Value* aParam)
-{
+static bool GetParamsFromSendMmsMessageRequest(
+    JSContext* aCx, const SendMmsMessageRequest& aRequest, JS::Value* aParam) {
   JS::Rooted<JSObject*> paramsObj(aCx, JS_NewPlainObject(aCx));
   NS_ENSURE_TRUE(paramsObj, false);
 
   // smil
-  JS::Rooted<JSString*> smilStr(aCx, JS_NewUCStringCopyN(aCx,
-                                                         aRequest.smil().get(),
-                                                         aRequest.smil().Length()));
+  JS::Rooted<JSString*> smilStr(aCx,
+                                JS_NewUCStringCopyN(aCx, aRequest.smil().get(),
+                                                    aRequest.smil().Length()));
   NS_ENSURE_TRUE(smilStr, false);
-  if(!JS_DefineProperty(aCx, paramsObj, "smil", smilStr, 0)) {
+  if (!JS_DefineProperty(aCx, paramsObj, "smil", smilStr, 0)) {
     return false;
   }
 
   // subject
-  JS::Rooted<JSString*> subjectStr(aCx, JS_NewUCStringCopyN(aCx,
-                                                            aRequest.subject().get(),
-                                                            aRequest.subject().Length()));
+  JS::Rooted<JSString*> subjectStr(
+      aCx, JS_NewUCStringCopyN(aCx, aRequest.subject().get(),
+                               aRequest.subject().Length()));
   NS_ENSURE_TRUE(subjectStr, false);
-  if(!JS_DefineProperty(aCx, paramsObj, "subject", subjectStr, 0)) {
+  if (!JS_DefineProperty(aCx, paramsObj, "subject", subjectStr, 0)) {
     return false;
   }
 
   // receivers
   JS::Rooted<JSObject*> receiverArray(aCx);
-  if (NS_FAILED(nsTArrayToJSArray(aCx, aRequest.receivers(), &receiverArray)))
-  {
+  if (NS_FAILED(nsTArrayToJSArray(aCx, aRequest.receivers(), &receiverArray))) {
     return false;
   }
   if (!JS_DefineProperty(aCx, paramsObj, "receivers", receiverArray, 0)) {
@@ -118,11 +114,12 @@ GetParamsFromSendMmsMessageRequest(JSContext* aCx,
   }
 
   // attachments
-  JS::Rooted<JSObject*> attachmentArray(aCx, JS_NewArrayObject(aCx,
-                                                               aRequest.attachments().Length()));
+  JS::Rooted<JSObject*> attachmentArray(
+      aCx, JS_NewArrayObject(aCx, aRequest.attachments().Length()));
   for (uint32_t i = 0; i < aRequest.attachments().Length(); i++) {
-    JS::Rooted<JSObject*> obj(aCx,
-      MmsAttachmentDataToJSObject(aCx, aRequest.attachments().ElementAt(i)));
+    JS::Rooted<JSObject*> obj(
+        aCx,
+        MmsAttachmentDataToJSObject(aCx, aRequest.attachments().ElementAt(i)));
     NS_ENSURE_TRUE(obj, false);
     if (!JS_DefineElement(aCx, attachmentArray, i, obj, JSPROP_ENUMERATE)) {
       return false;
@@ -135,7 +132,7 @@ GetParamsFromSendMmsMessageRequest(JSContext* aCx,
 
   // group
   JS::Rooted<JS::Value> isGroupBool(aCx, JS::BooleanValue(aRequest.isGroup()));
-  if(!JS_DefineProperty(aCx, paramsObj, "isGroup", isGroupBool, 0)) {
+  if (!JS_DefineProperty(aCx, paramsObj, "isGroup", isGroupBool, 0)) {
     return false;
   }
 
@@ -143,11 +140,9 @@ GetParamsFromSendMmsMessageRequest(JSContext* aCx,
   return true;
 }
 
-static bool
-GetMobileMessageDataFromMessage(ContentParent* aParent,
-                                nsISupports *aMsg,
-                                MobileMessageData &aData)
-{
+static bool GetMobileMessageDataFromMessage(ContentParent* aParent,
+                                            nsISupports* aMsg,
+                                            MobileMessageData& aData) {
   if (!aMsg) {
     NS_WARNING("Invalid message to convert!");
     return false;
@@ -160,7 +155,8 @@ GetMobileMessageDataFromMessage(ContentParent* aParent,
       return false;
     }
     MmsMessageData data;
-    if (!static_cast<MmsMessageInternal*>(mmsMsg.get())->GetData(aParent, data)) {
+    if (!static_cast<MmsMessageInternal*>(mmsMsg.get())
+             ->GetData(aParent, data)) {
       return false;
     }
     aData = data;
@@ -179,8 +175,7 @@ GetMobileMessageDataFromMessage(ContentParent* aParent,
 
 NS_IMPL_ISUPPORTS(SmsParent, nsIObserver)
 
-SmsParent::SmsParent()
-{
+SmsParent::SmsParent() {
   MOZ_COUNT_CTOR(SmsParent);
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   if (!obs) {
@@ -200,9 +195,7 @@ SmsParent::SmsParent()
   obs->AddObserver(this, kSmsDeletedObserverTopic, false);
 }
 
-void
-SmsParent::ActorDestroy(ActorDestroyReason why)
-{
+void SmsParent::ActorDestroy(ActorDestroyReason why) {
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   if (!obs) {
     return;
@@ -223,9 +216,8 @@ SmsParent::ActorDestroy(ActorDestroyReason why)
 
 NS_IMETHODIMP
 SmsParent::Observe(nsISupports* aSubject, const char* aTopic,
-                   const char16_t* aData)
-{
-  ContentParent *parent = static_cast<ContentParent*>(Manager());
+                   const char16_t* aData) {
+  ContentParent* parent = static_cast<ContentParent*>(Manager());
 
   if (!strcmp(aTopic, kSmsReceivedObserverTopic)) {
     MobileMessageData msgData;
@@ -317,7 +309,7 @@ SmsParent::Observe(nsISupports* aSubject, const char* aTopic,
     }
 
     MobileMessageData msgData =
-      static_cast<SmsMessageInternal*>(smsMsg.get())->GetData();
+        static_cast<SmsMessageInternal*>(smsMsg.get())->GetData();
     Unused << SendNotifyReceivedSilentMessage(msgData);
     return NS_OK;
   }
@@ -352,16 +344,14 @@ SmsParent::Observe(nsISupports* aSubject, const char* aTopic,
     }
 
     Unused << SendNotifyDeletedMessageInfo(
-      static_cast<DeletedMessageInfo*>(deletedInfo.get())->GetData());
+        static_cast<DeletedMessageInfo*>(deletedInfo.get())->GetData());
     return NS_OK;
   }
 
   return NS_OK;
 }
 
-bool
-SmsParent::RecvAddSilentNumber(const nsString& aNumber)
-{
+bool SmsParent::RecvAddSilentNumber(const nsString& aNumber) {
   if (mSilentNumbers.Contains(aNumber)) {
     return true;
   }
@@ -377,9 +367,7 @@ SmsParent::RecvAddSilentNumber(const nsString& aNumber)
   return true;
 }
 
-bool
-SmsParent::RecvRemoveSilentNumber(const nsString& aNumber)
-{
+bool SmsParent::RecvRemoveSilentNumber(const nsString& aNumber) {
   if (!mSilentNumbers.Contains(aNumber)) {
     return true;
   }
@@ -395,10 +383,8 @@ SmsParent::RecvRemoveSilentNumber(const nsString& aNumber)
   return true;
 }
 
-bool
-SmsParent::RecvPSmsRequestConstructor(PSmsRequestParent* aActor,
-                                      const IPCSmsRequest& aRequest)
-{
+bool SmsParent::RecvPSmsRequestConstructor(PSmsRequestParent* aActor,
+                                           const IPCSmsRequest& aRequest) {
   SmsRequestParent* actor = static_cast<SmsRequestParent*>(aActor);
 
   switch (aRequest.type()) {
@@ -425,9 +411,8 @@ SmsParent::RecvPSmsRequestConstructor(PSmsRequestParent* aActor,
   return false;
 }
 
-PSmsRequestParent*
-SmsParent::AllocPSmsRequestParent(const IPCSmsRequest& aRequest)
-{
+PSmsRequestParent* SmsParent::AllocPSmsRequestParent(
+    const IPCSmsRequest& aRequest) {
   SmsRequestParent* actor = new SmsRequestParent();
   // Add an extra ref for IPDL. Will be released in
   // SmsParent::DeallocPSmsRequestParent().
@@ -436,20 +421,17 @@ SmsParent::AllocPSmsRequestParent(const IPCSmsRequest& aRequest)
   return actor;
 }
 
-bool
-SmsParent::DeallocPSmsRequestParent(PSmsRequestParent* aActor)
-{
+bool SmsParent::DeallocPSmsRequestParent(PSmsRequestParent* aActor) {
   // SmsRequestParent is refcounted, must not be freed manually.
   static_cast<SmsRequestParent*>(aActor)->Release();
   return true;
 }
 
-bool
-SmsParent::RecvPMobileMessageCursorConstructor(PMobileMessageCursorParent* aActor,
-                                               const IPCMobileMessageCursor& aRequest)
-{
+bool SmsParent::RecvPMobileMessageCursorConstructor(
+    PMobileMessageCursorParent* aActor,
+    const IPCMobileMessageCursor& aRequest) {
   MobileMessageCursorParent* actor =
-    static_cast<MobileMessageCursorParent*>(aActor);
+      static_cast<MobileMessageCursorParent*>(aActor);
 
   switch (aRequest.type()) {
     case IPCMobileMessageCursor::TCreateMessageCursorRequest:
@@ -463,9 +445,8 @@ SmsParent::RecvPMobileMessageCursorConstructor(PMobileMessageCursorParent* aActo
   return false;
 }
 
-PMobileMessageCursorParent*
-SmsParent::AllocPMobileMessageCursorParent(const IPCMobileMessageCursor& aRequest)
-{
+PMobileMessageCursorParent* SmsParent::AllocPMobileMessageCursorParent(
+    const IPCMobileMessageCursor& aRequest) {
   MobileMessageCursorParent* actor = new MobileMessageCursorParent();
   // Add an extra ref for IPDL. Will be released in
   // SmsParent::DeallocPMobileMessageCursorParent().
@@ -474,9 +455,8 @@ SmsParent::AllocPMobileMessageCursorParent(const IPCMobileMessageCursor& aReques
   return actor;
 }
 
-bool
-SmsParent::DeallocPMobileMessageCursorParent(PMobileMessageCursorParent* aActor)
-{
+bool SmsParent::DeallocPMobileMessageCursorParent(
+    PMobileMessageCursorParent* aActor) {
   // MobileMessageCursorParent is refcounted, must not be freed manually.
   static_cast<MobileMessageCursorParent*>(aActor)->Release();
   return true;
@@ -488,27 +468,24 @@ SmsParent::DeallocPMobileMessageCursorParent(PMobileMessageCursorParent* aActor)
 
 NS_IMPL_ISUPPORTS(SmsRequestParent, nsIMobileMessageCallback)
 
-void
-SmsRequestParent::ActorDestroy(ActorDestroyReason aWhy)
-{
+void SmsRequestParent::ActorDestroy(ActorDestroyReason aWhy) {
   mActorDestroyed = true;
 }
 
-bool
-SmsRequestParent::DoRequest(const SendMessageRequest& aRequest)
-{
-  switch(aRequest.type()) {
-  case SendMessageRequest::TSendSmsMessageRequest: {
-      nsCOMPtr<nsISmsService> smsService = do_GetService(SMS_SERVICE_CONTRACTID);
+bool SmsRequestParent::DoRequest(const SendMessageRequest& aRequest) {
+  switch (aRequest.type()) {
+    case SendMessageRequest::TSendSmsMessageRequest: {
+      nsCOMPtr<nsISmsService> smsService =
+          do_GetService(SMS_SERVICE_CONTRACTID);
       NS_ENSURE_TRUE(smsService, true);
 
-      const SendSmsMessageRequest &req = aRequest.get_SendSmsMessageRequest();
+      const SendSmsMessageRequest& req = aRequest.get_SendSmsMessageRequest();
       smsService->Send(req.serviceId(), req.number(), req.message(),
                        req.silent(), this);
-    }
-    break;
-  case SendMessageRequest::TSendMmsMessageRequest: {
-      nsCOMPtr<nsIMmsService> mmsService = do_GetService(MMS_SERVICE_CONTRACTID);
+    } break;
+    case SendMessageRequest::TSendMmsMessageRequest: {
+      nsCOMPtr<nsIMmsService> mmsService =
+          do_GetService(MMS_SERVICE_CONTRACTID);
       NS_ENSURE_TRUE(mmsService, true);
 
       // There are cases (see bug 981202) where this is called with no JS on the
@@ -518,25 +495,20 @@ SmsRequestParent::DoRequest(const SendMessageRequest& aRequest)
       AutoJSContext cx;
       JSAutoCompartment ac(cx, xpc::PrivilegedJunkScope());
       JS::Rooted<JS::Value> params(cx);
-      const SendMmsMessageRequest &req = aRequest.get_SendMmsMessageRequest();
-      if (!GetParamsFromSendMmsMessageRequest(cx,
-                                              req,
-                                              params.address())) {
+      const SendMmsMessageRequest& req = aRequest.get_SendMmsMessageRequest();
+      if (!GetParamsFromSendMmsMessageRequest(cx, req, params.address())) {
         NS_WARNING("SmsRequestParent: Fail to build MMS params.");
         return true;
       }
       mmsService->Send(req.serviceId(), params, this);
-    }
-    break;
-  default:
-    MOZ_CRASH("Unknown type of SendMessageRequest!");
+    } break;
+    default:
+      MOZ_CRASH("Unknown type of SendMessageRequest!");
   }
   return true;
 }
 
-bool
-SmsRequestParent::DoRequest(const RetrieveMessageRequest& aRequest)
-{
+bool SmsRequestParent::DoRequest(const RetrieveMessageRequest& aRequest) {
   nsresult rv = NS_ERROR_FAILURE;
 
   nsCOMPtr<nsIMmsService> mmsService = do_GetService(MMS_SERVICE_CONTRACTID);
@@ -545,33 +517,31 @@ SmsRequestParent::DoRequest(const RetrieveMessageRequest& aRequest)
   }
 
   if (NS_FAILED(rv)) {
-    return NS_SUCCEEDED(NotifyGetMessageFailed(nsIMobileMessageCallback::INTERNAL_ERROR));
+    return NS_SUCCEEDED(
+        NotifyGetMessageFailed(nsIMobileMessageCallback::INTERNAL_ERROR));
   }
 
   return true;
 }
 
-bool
-SmsRequestParent::DoRequest(const GetMessageRequest& aRequest)
-{
+bool SmsRequestParent::DoRequest(const GetMessageRequest& aRequest) {
   nsresult rv = NS_ERROR_FAILURE;
 
   nsCOMPtr<nsIMobileMessageDatabaseService> dbService =
-    do_GetService(MOBILE_MESSAGE_DATABASE_SERVICE_CONTRACTID);
+      do_GetService(MOBILE_MESSAGE_DATABASE_SERVICE_CONTRACTID);
   if (dbService) {
     rv = dbService->GetMessageMoz(aRequest.messageId(), this);
   }
 
   if (NS_FAILED(rv)) {
-    return NS_SUCCEEDED(NotifyGetMessageFailed(nsIMobileMessageCallback::INTERNAL_ERROR));
+    return NS_SUCCEEDED(
+        NotifyGetMessageFailed(nsIMobileMessageCallback::INTERNAL_ERROR));
   }
 
   return true;
 }
 
-bool
-SmsRequestParent::DoRequest(const GetSmscAddressRequest& aRequest)
-{
+bool SmsRequestParent::DoRequest(const GetSmscAddressRequest& aRequest) {
   nsresult rv = NS_ERROR_FAILURE;
 
   nsCOMPtr<nsISmsService> smsService = do_GetService(SMS_SERVICE_CONTRACTID);
@@ -580,77 +550,72 @@ SmsRequestParent::DoRequest(const GetSmscAddressRequest& aRequest)
   }
 
   if (NS_FAILED(rv)) {
-    return NS_SUCCEEDED(NotifyGetSmscAddressFailed(nsIMobileMessageCallback::INTERNAL_ERROR));
+    return NS_SUCCEEDED(
+        NotifyGetSmscAddressFailed(nsIMobileMessageCallback::INTERNAL_ERROR));
   }
 
   return true;
 }
 
-bool
-SmsRequestParent::DoRequest(const SetSmscAddressRequest& aRequest)
-{
+bool SmsRequestParent::DoRequest(const SetSmscAddressRequest& aRequest) {
   nsresult rv = NS_ERROR_FAILURE;
 
   nsCOMPtr<nsISmsService> smsService = do_GetService(SMS_SERVICE_CONTRACTID);
   if (smsService) {
-    rv = smsService->SetSmscAddress(aRequest.serviceId(),
-                                    aRequest.number(),
+    rv = smsService->SetSmscAddress(aRequest.serviceId(), aRequest.number(),
                                     aRequest.typeOfNumber(),
-                                    aRequest.numberPlanIdentification(),
-                                    this);
+                                    aRequest.numberPlanIdentification(), this);
   } else {
-    return NS_SUCCEEDED(NotifySetSmscAddressFailed(nsIMobileMessageCallback::INTERNAL_ERROR));
+    return NS_SUCCEEDED(
+        NotifySetSmscAddressFailed(nsIMobileMessageCallback::INTERNAL_ERROR));
   }
 
   if (NS_FAILED(rv)) {
-    return NS_SUCCEEDED(NotifySetSmscAddressFailed(nsIMobileMessageCallback::INTERNAL_ERROR));
+    return NS_SUCCEEDED(
+        NotifySetSmscAddressFailed(nsIMobileMessageCallback::INTERNAL_ERROR));
   }
 
   return true;
 }
 
-bool
-SmsRequestParent::DoRequest(const DeleteMessageRequest& aRequest)
-{
+bool SmsRequestParent::DoRequest(const DeleteMessageRequest& aRequest) {
   nsresult rv = NS_ERROR_FAILURE;
 
   nsCOMPtr<nsIMobileMessageDatabaseService> dbService =
-    do_GetService(MOBILE_MESSAGE_DATABASE_SERVICE_CONTRACTID);
+      do_GetService(MOBILE_MESSAGE_DATABASE_SERVICE_CONTRACTID);
   if (dbService) {
     const InfallibleTArray<int32_t>& messageIds = aRequest.messageIds();
-    rv = dbService->DeleteMessage(const_cast<int32_t *>(messageIds.Elements()),
+    rv = dbService->DeleteMessage(const_cast<int32_t*>(messageIds.Elements()),
                                   messageIds.Length(), this);
   }
 
   if (NS_FAILED(rv)) {
-    return NS_SUCCEEDED(NotifyDeleteMessageFailed(nsIMobileMessageCallback::INTERNAL_ERROR));
+    return NS_SUCCEEDED(
+        NotifyDeleteMessageFailed(nsIMobileMessageCallback::INTERNAL_ERROR));
   }
 
   return true;
 }
 
-bool
-SmsRequestParent::DoRequest(const MarkMessageReadRequest& aRequest)
-{
+bool SmsRequestParent::DoRequest(const MarkMessageReadRequest& aRequest) {
   nsresult rv = NS_ERROR_FAILURE;
 
   nsCOMPtr<nsIMobileMessageDatabaseService> dbService =
-    do_GetService(MOBILE_MESSAGE_DATABASE_SERVICE_CONTRACTID);
+      do_GetService(MOBILE_MESSAGE_DATABASE_SERVICE_CONTRACTID);
   if (dbService) {
     rv = dbService->MarkMessageRead(aRequest.messageId(), aRequest.value(),
                                     aRequest.sendReadReport(), this);
   }
 
   if (NS_FAILED(rv)) {
-    return NS_SUCCEEDED(NotifyMarkMessageReadFailed(nsIMobileMessageCallback::INTERNAL_ERROR));
+    return NS_SUCCEEDED(
+        NotifyMarkMessageReadFailed(nsIMobileMessageCallback::INTERNAL_ERROR));
   }
 
   return true;
 }
 
-bool
-SmsRequestParent::DoRequest(const GetSegmentInfoForTextRequest& aRequest)
-{
+bool SmsRequestParent::DoRequest(const GetSegmentInfoForTextRequest& aRequest) {
   nsresult rv = NS_ERROR_FAILURE;
 
   nsCOMPtr<nsISmsService> smsService = do_GetService(SMS_SERVICE_CONTRACTID);
@@ -660,15 +625,13 @@ SmsRequestParent::DoRequest(const GetSegmentInfoForTextRequest& aRequest)
 
   if (NS_FAILED(rv)) {
     return NS_SUCCEEDED(NotifyGetSegmentInfoForTextFailed(
-                          nsIMobileMessageCallback::INTERNAL_ERROR));
+        nsIMobileMessageCallback::INTERNAL_ERROR));
   }
 
   return true;
 }
 
-nsresult
-SmsRequestParent::SendReply(const MessageReply& aReply)
-{
+nsresult SmsRequestParent::SendReply(const MessageReply& aReply) {
   // The child process could die before this asynchronous notification, in which
   // case ActorDestroy() was called and mActorDestroyed is set to true. Return
   // an error here to avoid sending a message to the dead process.
@@ -680,11 +643,10 @@ SmsRequestParent::SendReply(const MessageReply& aReply)
 // nsIMobileMessageCallback
 
 NS_IMETHODIMP
-SmsRequestParent::NotifyMessageSent(nsISupports *aMessage)
-{
+SmsRequestParent::NotifyMessageSent(nsISupports* aMessage) {
   NS_ENSURE_TRUE(!mActorDestroyed, NS_ERROR_FAILURE);
 
-  ContentParent *parent = static_cast<ContentParent*>(Manager()->Manager());
+  ContentParent* parent = static_cast<ContentParent*>(Manager()->Manager());
   MobileMessageData data;
   if (GetMobileMessageDataFromMessage(parent, aMessage, data)) {
     return SendReply(ReplyMessageSend(data));
@@ -694,25 +656,26 @@ SmsRequestParent::NotifyMessageSent(nsISupports *aMessage)
 }
 
 NS_IMETHODIMP
-SmsRequestParent::NotifySendMessageFailed(int32_t aError, nsISupports *aMessage)
-{
+SmsRequestParent::NotifySendMessageFailed(int32_t aError,
+                                          nsISupports* aMessage) {
   NS_ENSURE_TRUE(!mActorDestroyed, NS_ERROR_FAILURE);
 
-  ContentParent *parent = static_cast<ContentParent*>(Manager()->Manager());
+  ContentParent* parent = static_cast<ContentParent*>(Manager()->Manager());
   MobileMessageData data;
   if (!GetMobileMessageDataFromMessage(parent, aMessage, data)) {
-    return SendReply(ReplyMessageSendFail(aError, OptionalMobileMessageData(void_t())));
+    return SendReply(
+        ReplyMessageSendFail(aError, OptionalMobileMessageData(void_t())));
   }
 
-  return SendReply(ReplyMessageSendFail(aError, OptionalMobileMessageData(data)));
+  return SendReply(
+      ReplyMessageSendFail(aError, OptionalMobileMessageData(data)));
 }
 
 NS_IMETHODIMP
-SmsRequestParent::NotifyMessageGot(nsISupports *aMessage)
-{
+SmsRequestParent::NotifyMessageGot(nsISupports* aMessage) {
   NS_ENSURE_TRUE(!mActorDestroyed, NS_ERROR_FAILURE);
 
-  ContentParent *parent = static_cast<ContentParent*>(Manager()->Manager());
+  ContentParent* parent = static_cast<ContentParent*>(Manager()->Manager());
   MobileMessageData data;
   if (GetMobileMessageDataFromMessage(parent, aMessage, data)) {
     return SendReply(ReplyGetMessage(data));
@@ -722,78 +685,65 @@ SmsRequestParent::NotifyMessageGot(nsISupports *aMessage)
 }
 
 NS_IMETHODIMP
-SmsRequestParent::NotifyGetMessageFailed(int32_t aError)
-{
+SmsRequestParent::NotifyGetMessageFailed(int32_t aError) {
   return SendReply(ReplyGetMessageFail(aError));
 }
 
 NS_IMETHODIMP
-SmsRequestParent::NotifyMessageDeleted(bool *aDeleted, uint32_t aSize)
-{
+SmsRequestParent::NotifyMessageDeleted(bool* aDeleted, uint32_t aSize) {
   ReplyMessageDelete data;
   data.deleted().AppendElements(aDeleted, aSize);
   return SendReply(data);
 }
 
 NS_IMETHODIMP
-SmsRequestParent::NotifyDeleteMessageFailed(int32_t aError)
-{
+SmsRequestParent::NotifyDeleteMessageFailed(int32_t aError) {
   return SendReply(ReplyMessageDeleteFail(aError));
 }
 
 NS_IMETHODIMP
-SmsRequestParent::NotifyMessageMarkedRead(bool aRead)
-{
+SmsRequestParent::NotifyMessageMarkedRead(bool aRead) {
   return SendReply(ReplyMarkeMessageRead(aRead));
 }
 
 NS_IMETHODIMP
-SmsRequestParent::NotifyMarkMessageReadFailed(int32_t aError)
-{
+SmsRequestParent::NotifyMarkMessageReadFailed(int32_t aError) {
   return SendReply(ReplyMarkeMessageReadFail(aError));
 }
 
 NS_IMETHODIMP
-SmsRequestParent::NotifySegmentInfoForTextGot(int32_t aSegments,
-                                              int32_t aCharsPerSegment,
-                                              int32_t aCharsAvailableInLastSegment)
-{
-  return SendReply(ReplyGetSegmentInfoForText(aSegments,
-                                              aCharsPerSegment,
+SmsRequestParent::NotifySegmentInfoForTextGot(
+    int32_t aSegments, int32_t aCharsPerSegment,
+    int32_t aCharsAvailableInLastSegment) {
+  return SendReply(ReplyGetSegmentInfoForText(aSegments, aCharsPerSegment,
                                               aCharsAvailableInLastSegment));
 }
 
 NS_IMETHODIMP
-SmsRequestParent::NotifyGetSegmentInfoForTextFailed(int32_t aError)
-{
+SmsRequestParent::NotifyGetSegmentInfoForTextFailed(int32_t aError) {
   return SendReply(ReplyGetSegmentInfoForTextFail(aError));
 }
 
 NS_IMETHODIMP
 SmsRequestParent::NotifyGetSmscAddress(const nsAString& aSmscAddress,
                                        uint32_t aTypeOfNumber,
-                                       uint32_t aNumberPlanIdentification)
-{
-  return SendReply(ReplyGetSmscAddress(nsString(aSmscAddress),
-                                       aTypeOfNumber,
+                                       uint32_t aNumberPlanIdentification) {
+  return SendReply(ReplyGetSmscAddress(nsString(aSmscAddress), aTypeOfNumber,
                                        aNumberPlanIdentification));
 }
 
 NS_IMETHODIMP
-SmsRequestParent::NotifyGetSmscAddressFailed(int32_t aError)
-{
+SmsRequestParent::NotifyGetSmscAddressFailed(int32_t aError) {
   return SendReply(ReplyGetSmscAddressFail(aError));
 }
 
 NS_IMETHODIMP
-SmsRequestParent::NotifySetSmscAddress()
-{
+SmsRequestParent::NotifySetSmscAddress() {
   return SendReply(ReplySetSmscAddress());
 }
 
 NS_IMETHODIMP
-SmsRequestParent::NotifySetSmscAddressFailed(int32_t aError)
-{
+SmsRequestParent::NotifySetSmscAddressFailed(int32_t aError) {
   return SendReply(ReplySetSmscAddressFail(aError));
 }
 
@@ -803,9 +753,7 @@ SmsRequestParent::NotifySetSmscAddressFailed(int32_t aError)
 
 NS_IMPL_ISUPPORTS(MobileMessageCursorParent, nsIMobileMessageCursorCallback)
 
-void
-MobileMessageCursorParent::ActorDestroy(ActorDestroyReason aWhy)
-{
+void MobileMessageCursorParent::ActorDestroy(ActorDestroyReason aWhy) {
   // Two possible scenarios here:
   // 1) When parent fails to SendNotifyResult() in NotifyCursorResult(), it's
   //    destroyed without nulling out mContinueCallback.
@@ -814,25 +762,23 @@ MobileMessageCursorParent::ActorDestroy(ActorDestroyReason aWhy)
   mContinueCallback = nullptr;
 }
 
-bool
-MobileMessageCursorParent::RecvContinue()
-{
+bool MobileMessageCursorParent::RecvContinue() {
   MOZ_ASSERT(mContinueCallback);
 
   if (NS_FAILED(mContinueCallback->HandleContinue())) {
-    return NS_SUCCEEDED(NotifyCursorError(nsIMobileMessageCallback::INTERNAL_ERROR));
+    return NS_SUCCEEDED(
+        NotifyCursorError(nsIMobileMessageCallback::INTERNAL_ERROR));
   }
 
   return true;
 }
 
-bool
-MobileMessageCursorParent::DoRequest(const CreateMessageCursorRequest& aRequest)
-{
+bool MobileMessageCursorParent::DoRequest(
+    const CreateMessageCursorRequest& aRequest) {
   nsresult rv = NS_ERROR_FAILURE;
 
   nsCOMPtr<nsIMobileMessageDatabaseService> dbService =
-    do_GetService(MOBILE_MESSAGE_DATABASE_SERVICE_CONTRACTID);
+      do_GetService(MOBILE_MESSAGE_DATABASE_SERVICE_CONTRACTID);
   if (dbService) {
     const SmsFilterData& filter = aRequest.filter();
 
@@ -848,42 +794,35 @@ MobileMessageCursorParent::DoRequest(const CreateMessageCursorRequest& aRequest)
       }
     }
 
-    rv = dbService->CreateMessageCursor(filter.hasStartDate(),
-                                        filter.startDate(),
-                                        filter.hasEndDate(),
-                                        filter.endDate(),
-                                        ptrNumbers.get(), numbersCount,
-                                        filter.delivery(),
-                                        filter.hasRead(),
-                                        filter.read(),
-                                        filter.hasThreadId(),
-                                        filter.threadId(),
-                                        aRequest.reverse(),
-                                        this,
-                                        getter_AddRefs(mContinueCallback));
+    rv = dbService->CreateMessageCursor(
+        filter.hasStartDate(), filter.startDate(), filter.hasEndDate(),
+        filter.endDate(), ptrNumbers.get(), numbersCount, filter.delivery(),
+        filter.hasRead(), filter.read(), filter.hasThreadId(),
+        filter.threadId(), aRequest.reverse(), this,
+        getter_AddRefs(mContinueCallback));
   }
 
   if (NS_FAILED(rv)) {
-    return NS_SUCCEEDED(NotifyCursorError(nsIMobileMessageCallback::INTERNAL_ERROR));
+    return NS_SUCCEEDED(
+        NotifyCursorError(nsIMobileMessageCallback::INTERNAL_ERROR));
   }
 
   return true;
 }
 
-bool
-MobileMessageCursorParent::DoRequest(const CreateThreadCursorRequest& aRequest)
-{
+bool MobileMessageCursorParent::DoRequest(
+    const CreateThreadCursorRequest& aRequest) {
   nsresult rv = NS_ERROR_FAILURE;
 
   nsCOMPtr<nsIMobileMessageDatabaseService> dbService =
-    do_GetService(MOBILE_MESSAGE_DATABASE_SERVICE_CONTRACTID);
+      do_GetService(MOBILE_MESSAGE_DATABASE_SERVICE_CONTRACTID);
   if (dbService) {
-    rv = dbService->CreateThreadCursor(this,
-                                       getter_AddRefs(mContinueCallback));
+    rv = dbService->CreateThreadCursor(this, getter_AddRefs(mContinueCallback));
   }
 
   if (NS_FAILED(rv)) {
-    return NS_SUCCEEDED(NotifyCursorError(nsIMobileMessageCallback::INTERNAL_ERROR));
+    return NS_SUCCEEDED(
+        NotifyCursorError(nsIMobileMessageCallback::INTERNAL_ERROR));
   }
 
   return true;
@@ -892,8 +831,7 @@ MobileMessageCursorParent::DoRequest(const CreateThreadCursorRequest& aRequest)
 // nsIMobileMessageCursorCallback
 
 NS_IMETHODIMP
-MobileMessageCursorParent::NotifyCursorError(int32_t aError)
-{
+MobileMessageCursorParent::NotifyCursorError(int32_t aError) {
   // The child process could die before this asynchronous notification, in which
   // case ActorDestroy() was called and mContinueCallback is now null. Return an
   // error here to avoid sending a message to the dead process.
@@ -906,8 +844,7 @@ MobileMessageCursorParent::NotifyCursorError(int32_t aError)
 
 NS_IMETHODIMP
 MobileMessageCursorParent::NotifyCursorResult(nsISupports** aResults,
-                                              uint32_t aSize)
-{
+                                              uint32_t aSize) {
   MOZ_ASSERT(aResults && *aResults && aSize);
 
   // The child process could die before this asynchronous notification, in which
@@ -915,23 +852,22 @@ MobileMessageCursorParent::NotifyCursorResult(nsISupports** aResults,
   // error here to avoid sending a message to the dead process.
   NS_ENSURE_TRUE(mContinueCallback, NS_ERROR_FAILURE);
 
-  nsCOMPtr<nsIMobileMessageThread> iThread =
-    do_QueryInterface(aResults[0]);
+  nsCOMPtr<nsIMobileMessageThread> iThread = do_QueryInterface(aResults[0]);
   if (iThread) {
     nsTArray<ThreadData> threads;
 
     for (uint32_t i = 0; i < aSize; i++) {
-      nsCOMPtr<nsIMobileMessageThread> iThread =
-        do_QueryInterface(aResults[i]);
+      nsCOMPtr<nsIMobileMessageThread> iThread = do_QueryInterface(aResults[i]);
       NS_ENSURE_TRUE(iThread, NS_ERROR_FAILURE);
 
       MobileMessageThreadInternal* thread =
-        static_cast<MobileMessageThreadInternal*>(iThread.get());
+          static_cast<MobileMessageThreadInternal*>(iThread.get());
       threads.AppendElement(thread->GetData());
     }
 
     return SendNotifyResult(MobileMessageCursorData(ThreadArrayData(threads)))
-      ? NS_OK : NS_ERROR_FAILURE;
+               ? NS_OK
+               : NS_ERROR_FAILURE;
   }
 
   ContentParent* parent = static_cast<ContentParent*>(Manager()->Manager());
@@ -940,7 +876,7 @@ MobileMessageCursorParent::NotifyCursorResult(nsISupports** aResults,
     nsCOMPtr<nsISmsMessage> sms = do_QueryInterface(aResults[i]);
     if (sms) {
       messages.AppendElement(
-        static_cast<SmsMessageInternal*>(sms.get())->GetData());
+          static_cast<SmsMessageInternal*>(sms.get())->GetData());
       continue;
     }
 
@@ -948,9 +884,8 @@ MobileMessageCursorParent::NotifyCursorResult(nsISupports** aResults,
     if (mms) {
       MmsMessageData mmsData;
       NS_ENSURE_TRUE(
-        static_cast<MmsMessageInternal*>(mms.get())->GetData(parent, mmsData),
-        NS_ERROR_FAILURE
-      );
+          static_cast<MmsMessageInternal*>(mms.get())->GetData(parent, mmsData),
+          NS_ERROR_FAILURE);
       messages.AppendElement(mmsData);
       continue;
     }
@@ -958,16 +893,17 @@ MobileMessageCursorParent::NotifyCursorResult(nsISupports** aResults,
     return NS_ERROR_FAILURE;
   }
 
-  return SendNotifyResult(MobileMessageCursorData(MobileMessageArrayData(messages)))
-    ? NS_OK : NS_ERROR_FAILURE;
+  return SendNotifyResult(
+             MobileMessageCursorData(MobileMessageArrayData(messages)))
+             ? NS_OK
+             : NS_ERROR_FAILURE;
 }
 
 NS_IMETHODIMP
-MobileMessageCursorParent::NotifyCursorDone()
-{
+MobileMessageCursorParent::NotifyCursorDone() {
   return NotifyCursorError(nsIMobileMessageCallback::SUCCESS_NO_ERROR);
 }
 
-} // namespace mobilemessage
-} // namespace dom
-} // namespace mozilla
+}  // namespace mobilemessage
+}  // namespace dom
+}  // namespace mozilla

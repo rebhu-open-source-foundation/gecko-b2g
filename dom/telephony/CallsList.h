@@ -14,40 +14,36 @@
 namespace mozilla {
 namespace dom {
 
-class CallsList final : public nsISupports,
-                        public nsWrapperCache
-{
+class CallsList final : public nsISupports, public nsWrapperCache {
   RefPtr<Telephony> mTelephony;
   RefPtr<TelephonyCallGroup> mGroup;
 
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(CallsList)
 
-  explicit CallsList(Telephony* aTelephony, TelephonyCallGroup* aGroup = nullptr);
+  explicit CallsList(Telephony* aTelephony,
+                     TelephonyCallGroup* aGroup = nullptr);
 
-  nsPIDOMWindowInner*
-  GetParentObject() const;
+  nsPIDOMWindowInner* GetParentObject() const;
 
   // WrapperCache
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   // CallsList WebIDL
-  already_AddRefed<TelephonyCall>
-  Item(uint32_t aIndex) const;
+  already_AddRefed<TelephonyCall> Item(uint32_t aIndex) const;
 
-  uint32_t
-  Length() const;
+  uint32_t Length() const;
 
-  already_AddRefed<TelephonyCall>
-  IndexedGetter(uint32_t aIndex, bool& aFound) const;
+  already_AddRefed<TelephonyCall> IndexedGetter(uint32_t aIndex,
+                                                bool& aFound) const;
 
-private:
+ private:
   ~CallsList();
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_telephony_CallsList_h__
+#endif  // mozilla_dom_telephony_CallsList_h__

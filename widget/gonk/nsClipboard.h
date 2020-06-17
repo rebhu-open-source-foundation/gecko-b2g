@@ -9,18 +9,17 @@
 #include "mozilla/UniquePtr.h"
 #include "nsIClipboard.h"
 
-class nsClipboard final : public nsIClipboard
-{
-public:
+class nsClipboard final : public nsIClipboard {
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSICLIPBOARD
 
   nsClipboard();
 
-protected:
+ protected:
   ~nsClipboard() {}
 
-private:
+ private:
   mozilla::UniquePtr<mozilla::GonkClipboardData> mClipboard;
 };
 

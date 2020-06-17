@@ -42,7 +42,7 @@
 #include "base/task.h"
 
 #ifdef MOZ_WIDGET_GONK
-#include "DOMCameraManager.h"
+#  include "DOMCameraManager.h"
 #endif
 class nsIPrefBranch;
 
@@ -374,7 +374,7 @@ class MediaManager final : public nsIMediaManagerService, public nsIObserver {
 #if defined(MOZ_B2G_CAMERA) && defined(MOZ_WIDGET_GONK)
   RefPtr<nsDOMCameraManager> mCameraManager;
 #endif
-public:
+ public:
   RefPtr<media::Parent<media::NonE10s>> mNonE10sParent;
 };
 

@@ -23,7 +23,8 @@ BEGIN_BLUETOOTH_NAMESPACE
  */
 class SocketMessageWatcherWrapper {
  public:
-  explicit SocketMessageWatcherWrapper(SocketMessageWatcher* aSocketMessageWatcher)
+  explicit SocketMessageWatcherWrapper(
+      SocketMessageWatcher* aSocketMessageWatcher)
       : mSocketMessageWatcher(aSocketMessageWatcher) {
     MOZ_ASSERT(mSocketMessageWatcher);
   }

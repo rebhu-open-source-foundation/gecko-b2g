@@ -15,25 +15,24 @@ namespace mozilla {
 namespace dom {
 namespace mobileconnection {
 
-class MobileCallForwardingOptions final : public nsIMobileCallForwardingOptions
-{
-public:
+class MobileCallForwardingOptions final
+    : public nsIMobileCallForwardingOptions {
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIMOBILECALLFORWARDINGOPTIONS
 
-  MobileCallForwardingOptions(bool aActive, int16_t aAction,
-                              int16_t aReason, const nsAString& aNumber,
-                              int16_t aTimeSeconds, int16_t aServiceClass);
+  MobileCallForwardingOptions(bool aActive, int16_t aAction, int16_t aReason,
+                              const nsAString& aNumber, int16_t aTimeSeconds,
+                              int16_t aServiceClass);
 
-private:
+ private:
   // Don't try to use the default constructor.
   MobileCallForwardingOptions()
-    : mActive(false)
-    , mAction(0)
-    , mReason(0)
-    , mTimeSeconds(0)
-    , mServiceClass(0)
-  {}
+      : mActive(false),
+        mAction(0),
+        mReason(0),
+        mTimeSeconds(0),
+        mServiceClass(0) {}
 
   ~MobileCallForwardingOptions() {}
 
@@ -45,8 +44,8 @@ private:
   int16_t mServiceClass;
 };
 
-} // namespace mobileconnection
-} // namespace dom
-} // namespace mozilla
+}  // namespace mobileconnection
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_MobileCallForwardingOptions_h
+#endif  // mozilla_dom_MobileCallForwardingOptions_h

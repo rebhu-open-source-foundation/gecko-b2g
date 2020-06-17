@@ -319,9 +319,7 @@ nsTArray<RefPtr<VolumeInfo>>& VolumeManager::GetVolumeInfoArray() {
   return sVolumeManager->mVolumeInfoArray;
 }
 
-void VolumeManager::Restart() {
-  Start();
-}
+void VolumeManager::Restart() { Start(); }
 
 // static
 void VolumeManager::Start() {

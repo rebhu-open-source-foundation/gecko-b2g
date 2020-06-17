@@ -22,63 +22,62 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(MobileSignalStrength)
 NS_INTERFACE_MAP_END
 
 MobileSignalStrength::MobileSignalStrength(nsPIDOMWindowInner* aWindow)
-  : mWindow(aWindow) {
-}
+    : mWindow(aWindow) {}
 
-MobileSignalStrength::MobileSignalStrength(nsPIDOMWindowInner* aWindow,
-  const int16_t& aLevel, const int16_t& aGsmSignalStrength,
-  const int16_t& aGsmSignalBitErrorRate, const int16_t& aCdmaDbm,
-  const int16_t& aCdmaEcio, const int16_t& aCdmaEvdoDbm,
-  const int16_t& aCdmaEvdoEcio, const int16_t& aCdmaEvdoSNR,
-  const int16_t& aLteSignalStrength, const int32_t& aLteRsrp,
-  const int32_t& aLteRsrq, const int32_t& aLteRssnr, const int32_t& aLteCqi,
-  const int32_t& aLteTimingAdvance, const int32_t& aTdscdmaRscp)
-  : mWindow(aWindow)
-  , mLevel(aLevel)
-  , mGsmSignalStrength(aGsmSignalStrength)
-  , mGsmSignalBitErrorRate(aGsmSignalBitErrorRate)
-  , mCdmaDbm(aCdmaDbm)
-  , mCdmaEcio(aCdmaEcio)
-  , mCdmaEvdoDbm(aCdmaEvdoDbm)
-  , mCdmaEvdoEcio(aCdmaEvdoEcio)
-  , mCdmaEvdoSNR(aCdmaEvdoSNR)
-  , mLteSignalStrength(aLteSignalStrength)
-  , mLteRsrp(aLteRsrp)
-  , mLteRsrq(aLteRsrq)
-  , mLteRssnr(aLteRssnr)
-  , mLteCqi(aLteCqi)
-  , mLteTimingAdvance(aLteTimingAdvance)
-  , mTdscdmaRscp(aTdscdmaRscp) {
-}
+MobileSignalStrength::MobileSignalStrength(
+    nsPIDOMWindowInner* aWindow, const int16_t& aLevel,
+    const int16_t& aGsmSignalStrength, const int16_t& aGsmSignalBitErrorRate,
+    const int16_t& aCdmaDbm, const int16_t& aCdmaEcio,
+    const int16_t& aCdmaEvdoDbm, const int16_t& aCdmaEvdoEcio,
+    const int16_t& aCdmaEvdoSNR, const int16_t& aLteSignalStrength,
+    const int32_t& aLteRsrp, const int32_t& aLteRsrq, const int32_t& aLteRssnr,
+    const int32_t& aLteCqi, const int32_t& aLteTimingAdvance,
+    const int32_t& aTdscdmaRscp)
+    : mWindow(aWindow),
+      mLevel(aLevel),
+      mGsmSignalStrength(aGsmSignalStrength),
+      mGsmSignalBitErrorRate(aGsmSignalBitErrorRate),
+      mCdmaDbm(aCdmaDbm),
+      mCdmaEcio(aCdmaEcio),
+      mCdmaEvdoDbm(aCdmaEvdoDbm),
+      mCdmaEvdoEcio(aCdmaEvdoEcio),
+      mCdmaEvdoSNR(aCdmaEvdoSNR),
+      mLteSignalStrength(aLteSignalStrength),
+      mLteRsrp(aLteRsrp),
+      mLteRsrq(aLteRsrq),
+      mLteRssnr(aLteRssnr),
+      mLteCqi(aLteCqi),
+      mLteTimingAdvance(aLteTimingAdvance),
+      mTdscdmaRscp(aTdscdmaRscp) {}
 
-MobileSignalStrength::MobileSignalStrength(const int16_t& aLevel,
-  const int16_t& aGsmSignalStrength, const int16_t& aGsmSignalBitErrorRate,
-  const int16_t& aCdmaDbm, const int16_t& aCdmaEcio, const int16_t& aCdmaEvdoDbm,
-  const int16_t& aCdmaEvdoEcio, const int16_t& aCdmaEvdoSNR,
-  const int16_t& aLteSignalStrength, const int32_t& aLteRsrp,
-  const int32_t& aLteRsrq, const int32_t& aLteRssnr, const int32_t& aLteCqi,
-  const int32_t& aLteTimingAdvance, const int32_t& aTdscdmaRscp)
-  : mLevel(aLevel)
-  , mGsmSignalStrength(aGsmSignalStrength)
-  , mGsmSignalBitErrorRate(aGsmSignalBitErrorRate)
-  , mCdmaDbm(aCdmaDbm)
-  , mCdmaEcio(aCdmaEcio)
-  , mCdmaEvdoDbm(aCdmaEvdoDbm)
-  , mCdmaEvdoEcio(aCdmaEvdoEcio)
-  , mCdmaEvdoSNR(aCdmaEvdoSNR)
-  , mLteSignalStrength(aLteSignalStrength)
-  , mLteRsrp(aLteRsrp)
-  , mLteRsrq(aLteRsrq)
-  , mLteRssnr(aLteRssnr)
-  , mLteCqi(aLteCqi)
-  , mLteTimingAdvance(aLteTimingAdvance)
-  , mTdscdmaRscp(aTdscdmaRscp) {
+MobileSignalStrength::MobileSignalStrength(
+    const int16_t& aLevel, const int16_t& aGsmSignalStrength,
+    const int16_t& aGsmSignalBitErrorRate, const int16_t& aCdmaDbm,
+    const int16_t& aCdmaEcio, const int16_t& aCdmaEvdoDbm,
+    const int16_t& aCdmaEvdoEcio, const int16_t& aCdmaEvdoSNR,
+    const int16_t& aLteSignalStrength, const int32_t& aLteRsrp,
+    const int32_t& aLteRsrq, const int32_t& aLteRssnr, const int32_t& aLteCqi,
+    const int32_t& aLteTimingAdvance, const int32_t& aTdscdmaRscp)
+    : mLevel(aLevel),
+      mGsmSignalStrength(aGsmSignalStrength),
+      mGsmSignalBitErrorRate(aGsmSignalBitErrorRate),
+      mCdmaDbm(aCdmaDbm),
+      mCdmaEcio(aCdmaEcio),
+      mCdmaEvdoDbm(aCdmaEvdoDbm),
+      mCdmaEvdoEcio(aCdmaEvdoEcio),
+      mCdmaEvdoSNR(aCdmaEvdoSNR),
+      mLteSignalStrength(aLteSignalStrength),
+      mLteRsrp(aLteRsrp),
+      mLteRsrq(aLteRsrq),
+      mLteRssnr(aLteRssnr),
+      mLteCqi(aLteCqi),
+      mLteTimingAdvance(aLteTimingAdvance),
+      mTdscdmaRscp(aTdscdmaRscp) {
   // The parent object is nullptr when MobileSignalStrength is created by this
   // way, and it won't be exposed to web content.
 }
 
-void
-MobileSignalStrength::Update(nsIMobileSignalStrength* aInfo) {
+void MobileSignalStrength::Update(nsIMobileSignalStrength* aInfo) {
   if (!aInfo) {
     return;
   }
@@ -100,114 +99,98 @@ MobileSignalStrength::Update(nsIMobileSignalStrength* aInfo) {
   aInfo->GetTdscdmaRscp(&mTdscdmaRscp);
 }
 
-JSObject*
-MobileSignalStrength::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* MobileSignalStrength::WrapObject(JSContext* aCx,
+                                           JS::Handle<JSObject*> aGivenProto) {
   return MobileSignalStrength_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 // nsIMobileSignalStrength
 NS_IMETHODIMP
-MobileSignalStrength::GetLevel(int16_t *aLevel)
-{
+MobileSignalStrength::GetLevel(int16_t* aLevel) {
   *aLevel = mLevel;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileSignalStrength::GetGsmSignalStrength(int16_t *aGsmSignalStrength)
-{
+MobileSignalStrength::GetGsmSignalStrength(int16_t* aGsmSignalStrength) {
   *aGsmSignalStrength = mGsmSignalStrength;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileSignalStrength::GetGsmBitErrorRate(int16_t *aGsmBitErrorRate)
-{
+MobileSignalStrength::GetGsmBitErrorRate(int16_t* aGsmBitErrorRate) {
   *aGsmBitErrorRate = mGsmSignalBitErrorRate;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileSignalStrength::GetCdmaDbm(int16_t *aCdmaDbm)
-{
+MobileSignalStrength::GetCdmaDbm(int16_t* aCdmaDbm) {
   *aCdmaDbm = mCdmaDbm;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileSignalStrength::GetCdmaEcio(int16_t *aCdmaEcio)
-{
+MobileSignalStrength::GetCdmaEcio(int16_t* aCdmaEcio) {
   *aCdmaEcio = mCdmaEcio;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileSignalStrength::GetCdmaEvdoDbm(int16_t *aCdmaEvdoDbm)
-{
+MobileSignalStrength::GetCdmaEvdoDbm(int16_t* aCdmaEvdoDbm) {
   *aCdmaEvdoDbm = mCdmaEvdoDbm;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileSignalStrength::GetCdmaEvdoEcio(int16_t *aCdmaEvdoEcio)
-{
+MobileSignalStrength::GetCdmaEvdoEcio(int16_t* aCdmaEvdoEcio) {
   *aCdmaEvdoEcio = mCdmaEvdoEcio;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileSignalStrength::GetCdmaEvdoSNR(int16_t *aCdmaEvdoSNR)
-{
+MobileSignalStrength::GetCdmaEvdoSNR(int16_t* aCdmaEvdoSNR) {
   *aCdmaEvdoSNR = mCdmaEvdoSNR;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileSignalStrength::GetLteSignalStrength(int16_t *aLteSignalStrength)
-{
+MobileSignalStrength::GetLteSignalStrength(int16_t* aLteSignalStrength) {
   *aLteSignalStrength = mLteSignalStrength;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileSignalStrength::GetLteRsrp(int32_t *aLteRsrp)
-{
+MobileSignalStrength::GetLteRsrp(int32_t* aLteRsrp) {
   *aLteRsrp = mLteRsrp;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileSignalStrength::GetLteRsrq(int32_t *aLteRsrq)
-{
+MobileSignalStrength::GetLteRsrq(int32_t* aLteRsrq) {
   *aLteRsrq = mLteRsrq;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileSignalStrength::GetLteRssnr(int32_t *aLteRssnr)
-{
+MobileSignalStrength::GetLteRssnr(int32_t* aLteRssnr) {
   *aLteRssnr = mLteRssnr;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileSignalStrength::GetLteCqi(int32_t *aLteCqi)
-{
+MobileSignalStrength::GetLteCqi(int32_t* aLteCqi) {
   *aLteCqi = mLteCqi;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileSignalStrength::GetLteTimingAdvance(int32_t *aLteTimingAdvance)
-{
+MobileSignalStrength::GetLteTimingAdvance(int32_t* aLteTimingAdvance) {
   *aLteTimingAdvance = mLteTimingAdvance;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileSignalStrength::GetTdscdmaRscp(int32_t *aTdscdmaRscp)
-{
+MobileSignalStrength::GetTdscdmaRscp(int32_t* aTdscdmaRscp) {
   *aTdscdmaRscp = mTdscdmaRscp;
   return NS_OK;
 }

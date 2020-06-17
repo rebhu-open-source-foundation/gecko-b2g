@@ -32,7 +32,7 @@ class CellBroadcast final : public DOMEventTargetHelper,
   // final suppresses -Werror,-Wdelete-non-virtual-dtor
   ~CellBroadcast();
 
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSICELLBROADCASTLISTENER
 
@@ -46,16 +46,16 @@ public:
   CellBroadcast() = delete;
   CellBroadcast(nsIGlobalObject* aGlobal, nsICellBroadcastService* aService);
 
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   IMPL_EVENT_HANDLER(received)
 
-private:
+ private:
   RefPtr<Listener> mListener;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
 #endif /* mozilla_dom_CellBroadcast_h__ */

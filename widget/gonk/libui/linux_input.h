@@ -24,40 +24,40 @@
 #include <sys/types.h>
 #include <linux/types.h>
 struct input_event {
- struct timeval time;
-/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
- __u16 type;
- __u16 code;
- __s32 value;
+  struct timeval time;
+  /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+  __u16 type;
+  __u16 code;
+  __s32 value;
 };
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #define EV_VERSION 0x010001
 struct input_id {
- __u16 bustype;
- __u16 vendor;
-/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
- __u16 product;
- __u16 version;
+  __u16 bustype;
+  __u16 vendor;
+  /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+  __u16 product;
+  __u16 version;
 };
 struct input_absinfo {
-/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
- __s32 value;
- __s32 minimum;
- __s32 maximum;
- __s32 fuzz;
-/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
- __s32 flat;
- __s32 resolution;
+  /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+  __s32 value;
+  __s32 minimum;
+  __s32 maximum;
+  __s32 fuzz;
+  /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+  __s32 flat;
+  __s32 resolution;
 };
 struct input_keymap_entry {
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #define INPUT_KEYMAP_BY_INDEX (1 << 0)
- __u8 flags;
- __u8 len;
- __u16 index;
-/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
- __u32 keycode;
- __u8 scancode[32];
+  __u8 flags;
+  __u8 len;
+  __u16 index;
+  /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+  __u32 keycode;
+  __u8 scancode[32];
 };
 #define EVIOCGVERSION _IOR('E', 0x01, int)
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
@@ -81,7 +81,7 @@ struct input_keymap_entry {
 #define EVIOCGSND(len) _IOC(_IOC_READ, 'E', 0x1a, len)
 #define EVIOCGSW(len) _IOC(_IOC_READ, 'E', 0x1b, len)
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
-#define EVIOCGBIT(ev,len) _IOC(_IOC_READ, 'E', 0x20 + (ev), len)
+#define EVIOCGBIT(ev, len) _IOC(_IOC_READ, 'E', 0x20 + (ev), len)
 #define EVIOCGABS(abs) _IOR('E', 0x40 + (abs), struct input_absinfo)
 #define EVIOCSABS(abs) _IOW('E', 0xc0 + (abs), struct input_absinfo)
 #define EVIOCSFF _IOC(_IOC_WRITE, 'E', 0x80, sizeof(struct ff_effect))
@@ -117,7 +117,7 @@ struct input_keymap_entry {
 #define EV_FF_STATUS 0x17
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #define EV_MAX 0x1f
-#define EV_CNT (EV_MAX+1)
+#define EV_CNT (EV_MAX + 1)
 #define SYN_REPORT 0
 #define SYN_CONFIG 1
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
@@ -759,7 +759,7 @@ struct input_keymap_entry {
 #define BTN_TRIGGER_HAPPY40 0x2e7
 #define KEY_MIN_INTERESTING KEY_MUTE
 #define KEY_MAX 0x2ff
-#define KEY_CNT (KEY_MAX+1)
+#define KEY_CNT (KEY_MAX + 1)
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #define REL_X 0x00
 #define REL_Y 0x01
@@ -774,7 +774,7 @@ struct input_keymap_entry {
 #define REL_WHEEL 0x08
 #define REL_MISC 0x09
 #define REL_MAX 0x0f
-#define REL_CNT (REL_MAX+1)
+#define REL_CNT (REL_MAX + 1)
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #define ABS_X 0x00
 #define ABS_Y 0x01
@@ -826,7 +826,7 @@ struct input_keymap_entry {
 #define ABS_MT_DISTANCE 0x3b
 #define ABS_MAX 0x3f
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
-#define ABS_CNT (ABS_MAX+1)
+#define ABS_CNT (ABS_MAX + 1)
 #define SW_LID 0x00
 #define SW_TABLET_MODE 0x01
 #define SW_HEADPHONE_INSERT 0x02
@@ -851,7 +851,7 @@ struct input_keymap_entry {
 #define SW_UNSUPPORT_INSERT 0x10
 #define SW_MAX 0x20
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
-#define SW_CNT (SW_MAX+1)
+#define SW_CNT (SW_MAX + 1)
 #define MSC_SERIAL 0x00
 #define MSC_PULSELED 0x01
 #define MSC_GESTURE 0x02
@@ -859,7 +859,7 @@ struct input_keymap_entry {
 #define MSC_RAW 0x03
 #define MSC_SCAN 0x04
 #define MSC_MAX 0x07
-#define MSC_CNT (MSC_MAX+1)
+#define MSC_CNT (MSC_MAX + 1)
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #define LED_NUML 0x00
 #define LED_CAPSL 0x01
@@ -876,18 +876,18 @@ struct input_keymap_entry {
 #define LED_CHARGING 0x0a
 #define LED_MAX 0x0f
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
-#define LED_CNT (LED_MAX+1)
+#define LED_CNT (LED_MAX + 1)
 #define REP_DELAY 0x00
 #define REP_PERIOD 0x01
 #define REP_MAX 0x01
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
-#define REP_CNT (REP_MAX+1)
+#define REP_CNT (REP_MAX + 1)
 #define SND_CLICK 0x00
 #define SND_BELL 0x01
 #define SND_TONE 0x02
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #define SND_MAX 0x07
-#define SND_CNT (SND_MAX+1)
+#define SND_CNT (SND_MAX + 1)
 #define ID_BUS 0
 #define ID_VENDOR 1
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
@@ -925,78 +925,78 @@ struct input_keymap_entry {
 #define FF_STATUS_PLAYING 0x01
 #define FF_STATUS_MAX 0x01
 struct ff_replay {
-/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
- __u16 length;
- __u16 delay;
+  /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+  __u16 length;
+  __u16 delay;
 };
 struct ff_trigger {
-/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
- __u16 button;
- __u16 interval;
+  /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+  __u16 button;
+  __u16 interval;
 };
 struct ff_envelope {
-/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
- __u16 attack_length;
- __u16 attack_level;
- __u16 fade_length;
- __u16 fade_level;
-/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+  /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+  __u16 attack_length;
+  __u16 attack_level;
+  __u16 fade_length;
+  __u16 fade_level;
+  /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 };
 struct ff_constant_effect {
- __s16 level;
- struct ff_envelope envelope;
-/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+  __s16 level;
+  struct ff_envelope envelope;
+  /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 };
 struct ff_ramp_effect {
- __s16 start_level;
- __s16 end_level;
-/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
- struct ff_envelope envelope;
+  __s16 start_level;
+  __s16 end_level;
+  /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+  struct ff_envelope envelope;
 };
 struct ff_condition_effect {
- __u16 right_saturation;
-/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
- __u16 left_saturation;
- __s16 right_coeff;
- __s16 left_coeff;
- __u16 deadband;
-/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
- __s16 center;
+  __u16 right_saturation;
+  /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+  __u16 left_saturation;
+  __s16 right_coeff;
+  __s16 left_coeff;
+  __u16 deadband;
+  /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+  __s16 center;
 };
 struct ff_periodic_effect {
- __u16 waveform;
-/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
- __u16 period;
- __s16 magnitude;
- __s16 offset;
- __u16 phase;
-/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
- struct ff_envelope envelope;
- __u32 custom_len;
- __s16 __user *custom_data;
+  __u16 waveform;
+  /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+  __u16 period;
+  __s16 magnitude;
+  __s16 offset;
+  __u16 phase;
+  /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+  struct ff_envelope envelope;
+  __u32 custom_len;
+  __s16 __user* custom_data;
 };
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 struct ff_rumble_effect {
- __u16 strong_magnitude;
- __u16 weak_magnitude;
+  __u16 strong_magnitude;
+  __u16 weak_magnitude;
 };
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 struct ff_effect {
- __u16 type;
- __s16 id;
- __u16 direction;
-/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
- struct ff_trigger trigger;
- struct ff_replay replay;
- union {
- struct ff_constant_effect constant;
-/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
- struct ff_ramp_effect ramp;
- struct ff_periodic_effect periodic;
- struct ff_condition_effect condition[2];
- struct ff_rumble_effect rumble;
-/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
- } u;
+  __u16 type;
+  __s16 id;
+  __u16 direction;
+  /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+  struct ff_trigger trigger;
+  struct ff_replay replay;
+  union {
+    struct ff_constant_effect constant;
+    /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+    struct ff_ramp_effect ramp;
+    struct ff_periodic_effect periodic;
+    struct ff_condition_effect condition[2];
+    struct ff_rumble_effect rumble;
+    /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+  } u;
 };
 #define FF_RUMBLE 0x50
 #define FF_PERIODIC 0x51
@@ -1024,6 +1024,6 @@ struct ff_effect {
 #define FF_GAIN 0x60
 #define FF_AUTOCENTER 0x61
 #define FF_MAX 0x7f
-#define FF_CNT (FF_MAX+1)
+#define FF_CNT (FF_MAX + 1)
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #endif

@@ -17,10 +17,8 @@ class nsPIDOMWindowInner;
 namespace mozilla {
 namespace dom {
 
-class TelephonyCallId final : public nsISupports,
-                              public nsWrapperCache
-{
-public:
+class TelephonyCallId final : public nsISupports, public nsWrapperCache {
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(TelephonyCallId)
 
@@ -28,42 +26,24 @@ public:
                   uint16_t aNumberPresentation, const nsAString& aName,
                   uint16_t aNamePresentation);
 
-  nsPIDOMWindowInner*
-  GetParentObject() const
-  {
-    return mWindow;
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return mWindow; }
 
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   // WebIDL
 
-  void
-  GetNumber(nsString& aNumber) const
-  {
-    aNumber.Assign(mNumber);
-  }
+  void GetNumber(nsString& aNumber) const { aNumber.Assign(mNumber); }
 
-  CallIdPresentation
-  NumberPresentation() const;
+  CallIdPresentation NumberPresentation() const;
 
-  void
-  GetName(nsString& aName) const
-  {
-    aName.Assign(mName);
-  }
+  void GetName(nsString& aName) const { aName.Assign(mName); }
 
-  CallIdPresentation
-  NamePresentation() const;
+  CallIdPresentation NamePresentation() const;
 
-  void
-  UpdateNumber(const nsAString& aNumber)
-  {
-    mNumber = aNumber;
-  }
+  void UpdateNumber(const nsAString& aNumber) { mNumber = aNumber; }
 
-private:
+ private:
   ~TelephonyCallId();
 
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
@@ -72,11 +52,10 @@ private:
   nsString mName;
   uint16_t mNamePresentation;
 
-  CallIdPresentation
-  GetPresentationStr(uint16_t aPresentation) const;
+  CallIdPresentation GetPresentationStr(uint16_t aPresentation) const;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_TelephonyCallId_h
+#endif  // mozilla_dom_TelephonyCallId_h

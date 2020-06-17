@@ -280,10 +280,10 @@ struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattResponse> {
 
 template <>
 struct ParamTraits<mozilla::dom::bluetooth::ControlPlayStatus>
-  : public ContiguousEnumSerializer<
-             mozilla::dom::bluetooth::ControlPlayStatus,
-             mozilla::dom::bluetooth::ControlPlayStatus::PLAYSTATUS_STOPPED,
-             mozilla::dom::bluetooth::ControlPlayStatus::PLAYSTATUS_ERROR> {};
+    : public ContiguousEnumSerializer<
+          mozilla::dom::bluetooth::ControlPlayStatus,
+          mozilla::dom::bluetooth::ControlPlayStatus::PLAYSTATUS_STOPPED,
+          mozilla::dom::bluetooth::ControlPlayStatus::PLAYSTATUS_ERROR> {};
 
 template <>
 struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattAdvertisingData> {

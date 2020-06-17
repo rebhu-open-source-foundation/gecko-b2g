@@ -58,9 +58,8 @@ class PostResultRunnable final : public ActivityRequestHandlerProxyRunnable,
  public:
   explicit PostResultRunnable(const nsAString& aId)
       : ActivityRequestHandlerProxyRunnable(aId),
-        StructuredCloneHolder(
-            CloningSupported, TransferringSupported,
-            StructuredCloneScope::SameProcess) {}
+        StructuredCloneHolder(CloningSupported, TransferringSupported,
+                              StructuredCloneScope::SameProcess) {}
 
  protected:
   void ExecActivityProxy(nsIActivityRequestHandlerProxy* aProxy) {

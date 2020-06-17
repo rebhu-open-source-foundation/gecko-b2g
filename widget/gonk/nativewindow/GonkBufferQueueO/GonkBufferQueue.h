@@ -26,60 +26,67 @@
 namespace android {
 
 class GonkBufferQueue {
-public:
-    // GonkBufferQueue will keep track of at most this value of buffers.
-    // Attempts at runtime to increase the number of buffers past this will fail.
-    enum { NUM_BUFFER_SLOTS = GonkBufferQueueDefs::NUM_BUFFER_SLOTS };
-    // Used as a placeholder slot# when the value isn't pointing to an existing buffer.
-    enum { INVALID_BUFFER_SLOT = IGonkGraphicBufferConsumer::BufferItem::INVALID_BUFFER_SLOT };
-    // Alias to <IGonkGraphicBufferConsumer.h> -- please scope from there in future code!
-    enum {
-        NO_BUFFER_AVAILABLE = IGonkGraphicBufferConsumer::NO_BUFFER_AVAILABLE,
-        PRESENT_LATER = IGonkGraphicBufferConsumer::PRESENT_LATER,
-    };
+ public:
+  // GonkBufferQueue will keep track of at most this value of buffers.
+  // Attempts at runtime to increase the number of buffers past this will fail.
+  enum { NUM_BUFFER_SLOTS = GonkBufferQueueDefs::NUM_BUFFER_SLOTS };
+  // Used as a placeholder slot# when the value isn't pointing to an existing
+  // buffer.
+  enum {
+    INVALID_BUFFER_SLOT =
+        IGonkGraphicBufferConsumer::BufferItem::INVALID_BUFFER_SLOT
+  };
+  // Alias to <IGonkGraphicBufferConsumer.h> -- please scope from there in
+  // future code!
+  enum {
+    NO_BUFFER_AVAILABLE = IGonkGraphicBufferConsumer::NO_BUFFER_AVAILABLE,
+    PRESENT_LATER = IGonkGraphicBufferConsumer::PRESENT_LATER,
+  };
 
-    // When in async mode we reserve two slots in order to guarantee that the
-    // producer and consumer can run asynchronously.
-    enum { MAX_MAX_ACQUIRED_BUFFERS = NUM_BUFFER_SLOTS - 2 };
+  // When in async mode we reserve two slots in order to guarantee that the
+  // producer and consumer can run asynchronously.
+  enum { MAX_MAX_ACQUIRED_BUFFERS = NUM_BUFFER_SLOTS - 2 };
 
-    // for backward source compatibility
-    typedef ::android::ConsumerListener ConsumerListener;
-    typedef IGonkGraphicBufferConsumer::BufferItem BufferItem;
+  // for backward source compatibility
+  typedef ::android::ConsumerListener ConsumerListener;
+  typedef IGonkGraphicBufferConsumer::BufferItem BufferItem;
 
-    // ProxyConsumerListener is a ConsumerListener implementation that keeps a weak
-    // reference to the actual consumer object.  It forwards all calls to that
-    // consumer object so long as it exists.
-    //
-    // This class exists to avoid having a circular reference between the
-    // GonkBufferQueue object and the consumer object.  The reason this can't be a weak
-    // reference in the GonkBufferQueue class is because we're planning to expose the
-    // consumer side of a GonkBufferQueue as a binder interface, which doesn't support
-    // weak references.
-    class ProxyConsumerListener : public BnConsumerListener {
-    public:
-        explicit ProxyConsumerListener(const wp<ConsumerListener>& consumerListener);
-        virtual ~ProxyConsumerListener();
-        virtual void onFrameAvailable(const ::android::BufferItem& item);
-        virtual void onFrameReplaced(const ::android::BufferItem& item);
-        virtual void onBuffersReleased();
-        virtual void onSidebandStreamChanged();
-    private:
-        // mConsumerListener is a weak reference to the IConsumerListener.  This is
-        // the raison d'etre of ProxyConsumerListener.
-        wp<ConsumerListener> mConsumerListener;
-    };
+  // ProxyConsumerListener is a ConsumerListener implementation that keeps a
+  // weak reference to the actual consumer object.  It forwards all calls to
+  // that consumer object so long as it exists.
+  //
+  // This class exists to avoid having a circular reference between the
+  // GonkBufferQueue object and the consumer object.  The reason this can't be a
+  // weak reference in the GonkBufferQueue class is because we're planning to
+  // expose the consumer side of a GonkBufferQueue as a binder interface, which
+  // doesn't support weak references.
+  class ProxyConsumerListener : public BnConsumerListener {
+   public:
+    explicit ProxyConsumerListener(
+        const wp<ConsumerListener>& consumerListener);
+    virtual ~ProxyConsumerListener();
+    virtual void onFrameAvailable(const ::android::BufferItem& item);
+    virtual void onFrameReplaced(const ::android::BufferItem& item);
+    virtual void onBuffersReleased();
+    virtual void onSidebandStreamChanged();
 
-    // GonkBufferQueue manages a pool of gralloc memory slots to be used by
-    // producers and consumers. allocator is used to allocate all the
-    // needed gralloc buffers.
-    static void createBufferQueue(sp<IGraphicBufferProducer>* outProducer,
-            sp<IGonkGraphicBufferConsumer>* outConsumer);
+   private:
+    // mConsumerListener is a weak reference to the IConsumerListener.  This is
+    // the raison d'etre of ProxyConsumerListener.
+    wp<ConsumerListener> mConsumerListener;
+  };
 
-private:
-    GonkBufferQueue(); // Create through createBufferQueue
+  // GonkBufferQueue manages a pool of gralloc memory slots to be used by
+  // producers and consumers. allocator is used to allocate all the
+  // needed gralloc buffers.
+  static void createBufferQueue(sp<IGraphicBufferProducer>* outProducer,
+                                sp<IGonkGraphicBufferConsumer>* outConsumer);
+
+ private:
+  GonkBufferQueue();  // Create through createBufferQueue
 };
 
 // ----------------------------------------------------------------------------
-}; // namespace android
+};  // namespace android
 
-#endif // NATIVEWINDOW_GONKBUFFERQUEUE_LL_H
+#endif  // NATIVEWINDOW_GONKBUFFERQUEUE_LL_H

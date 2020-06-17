@@ -15,9 +15,7 @@ using namespace mozilla::dom;
 NS_IMPL_ISUPPORTS(IccListener, nsIIccListener)
 
 IccListener::IccListener(IccManager* aIccManager, uint32_t aClientId)
-  : mClientId(aClientId)
-  , mIccManager(aIccManager)
-{
+    : mClientId(aClientId), mIccManager(aIccManager) {
   MOZ_ASSERT(mIccManager);
 
   nsCOMPtr<nsIIccService> iccService = do_GetService(ICC_SERVICE_CONTRACTID);
@@ -48,14 +46,9 @@ IccListener::IccListener(IccManager* aIccManager, uint32_t aClientId)
                        "Failed registering icc listener with Icc Handler");
 }
 
-IccListener::~IccListener()
-{
-  Shutdown();
-}
+IccListener::~IccListener() { Shutdown(); }
 
-void
-IccListener::Shutdown()
-{
+void IccListener::Shutdown() {
   if (mHandler) {
     mHandler->UnregisterListener(this);
     mHandler = nullptr;
@@ -72,18 +65,17 @@ IccListener::Shutdown()
 // nsIIccListener
 
 NS_IMETHODIMP
-IccListener::NotifyStkCommand(nsIStkProactiveCmd *aStkProactiveCmd)
-{
+IccListener::NotifyStkCommand(nsIStkProactiveCmd* aStkProactiveCmd) {
   if (!mIcc) {
     return NS_OK;
   }
 
-  return mIcc->NotifyStkEvent(NS_LITERAL_STRING("stkcommand"), aStkProactiveCmd);
+  return mIcc->NotifyStkEvent(NS_LITERAL_STRING("stkcommand"),
+                              aStkProactiveCmd);
 }
 
 NS_IMETHODIMP
-IccListener::NotifyStkSessionEnd()
-{
+IccListener::NotifyStkSessionEnd() {
   if (!mIcc) {
     return NS_OK;
   }
@@ -92,8 +84,7 @@ IccListener::NotifyStkSessionEnd()
 }
 
 NS_IMETHODIMP
-IccListener::NotifyCardStateChanged()
-{
+IccListener::NotifyCardStateChanged() {
   if (!mIcc) {
     return NS_OK;
   }
@@ -102,8 +93,7 @@ IccListener::NotifyCardStateChanged()
 }
 
 NS_IMETHODIMP
-IccListener::NotifyIccInfoChanged()
-{
+IccListener::NotifyIccInfoChanged() {
   if (!mHandler) {
     return NS_OK;
   }
@@ -147,7 +137,4 @@ IccListener::NotifyIccInfoChanged()
 }
 
 NS_IMETHODIMP
-IccListener::NotifyIsimInfoChanged()
-{
-  return NS_OK;
-}
+IccListener::NotifyIsimInfoChanged() { return NS_OK; }

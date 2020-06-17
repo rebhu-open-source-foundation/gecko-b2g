@@ -16,22 +16,21 @@ namespace icc {
 
 class IccChild;
 
-class IccIPCService final : public nsIIccService
-{
-public:
+class IccIPCService final : public nsIIccService {
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIICCSERVICE
 
   IccIPCService();
 
-private:
+ private:
   ~IccIPCService();
 
   nsTArray<RefPtr<IccChild>> mIccs;
 };
 
-} // namespace icc
-} // namespace dom
-} // namespace mozilla
+}  // namespace icc
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_icc_IccIPCService_h
+#endif  // mozilla_dom_icc_IccIPCService_h

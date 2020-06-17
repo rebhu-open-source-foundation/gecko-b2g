@@ -1245,8 +1245,7 @@ nsresult nsXREDirProvider::GetUpdateRootDir(nsIFile** aResult,
   nsCOMPtr<nsIFile> updRoot;
 #if defined(MOZ_WIDGET_GONK)
 
-  nsresult rv = NS_NewNativeLocalFile(nsDependentCString("/data/local"),
-                                      true,
+  nsresult rv = NS_NewNativeLocalFile(nsDependentCString("/data/local"), true,
                                       getter_AddRefs(updRoot));
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -1258,7 +1257,7 @@ nsresult nsXREDirProvider::GetUpdateRootDir(nsIFile** aResult,
   rv = appFile->GetParent(getter_AddRefs(updRoot));
   NS_ENSURE_SUCCESS(rv, rv);
 
-#ifdef XP_MACOSX
+#  ifdef XP_MACOSX
   nsCOMPtr<nsIFile> appRootDirFile;
   nsCOMPtr<nsIFile> localDir;
   nsAutoString appDirPath;
@@ -1292,7 +1291,7 @@ nsresult nsXREDirProvider::GetUpdateRootDir(nsIFile** aResult,
   localDir.forget(aResult);
   return NS_OK;
 
-#elif XP_WIN
+#  elif XP_WIN
   nsAutoString installPath;
   rv = updRoot->GetPath(installPath);
   NS_ENSURE_SUCCESS(rv, rv);
@@ -1321,8 +1320,8 @@ nsresult nsXREDirProvider::GetUpdateRootDir(nsIFile** aResult,
   nsAutoString updatePathStr;
   updatePathStr.Assign(updatePath.get());
   updRoot->InitWithPath(updatePathStr);
-#endif  // XP_WIN
-#endif  // MOZ_WIDGET_GONK
+#  endif  // XP_WIN
+#endif    // MOZ_WIDGET_GONK
   updRoot.forget(aResult);
   return NS_OK;
 }

@@ -44,8 +44,8 @@ WakeLock::~WakeLock() {
   DetachEventListener();
 }
 
-JSObject* WakeLock::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* WakeLock::WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) {
   return WakeLock_Binding::Wrap(aCx, this, aGivenProto);
 }
 

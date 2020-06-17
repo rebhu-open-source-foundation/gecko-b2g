@@ -26,10 +26,9 @@ class ImsRegHandler;
 class DOMMobileConnectionDeviceIds;
 class MobileDeviceIdentities;
 
-class MobileConnection final : public DOMEventTargetHelper
-                             , private nsIMobileConnectionListener
-                             , private nsIIccListener
-{
+class MobileConnection final : public DOMEventTargetHelper,
+                               private nsIMobileConnectionListener,
+                               private nsIIccListener {
   /**
    * Class MobileConnection doesn't actually expose
    * nsIMobileConnectionListener. Instead, it owns an
@@ -41,7 +40,7 @@ class MobileConnection final : public DOMEventTargetHelper
   class Listener;
   nsCOMPtr<nsIGlobalObject> mOwner;
 
-public:
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSIMOBILECONNECTIONLISTENER
   NS_DECL_NSIICCLISTENER
@@ -50,122 +49,94 @@ public:
 
   MobileConnection(nsIGlobalObject* aGlobal, uint32_t aClientId);
 
-  void
-  Shutdown();
+  void Shutdown();
 
-  virtual void
-  DisconnectFromOwner() override;
+  virtual void DisconnectFromOwner() override;
 
-  nsIGlobalObject*
-  GetParentObject() const
-  {
-    return mOwner;
-  }
+  nsIGlobalObject* GetParentObject() const { return mOwner; }
 
   // WrapperCache
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   // WebIDL interface
-  void
-  GetLastKnownNetwork(nsString& aRetVal) const;
+  void GetLastKnownNetwork(nsString& aRetVal) const;
 
-  void
-  GetLastKnownHomeNetwork(nsString& aRetVal) const;
+  void GetLastKnownHomeNetwork(nsString& aRetVal) const;
 
-  MobileConnectionInfo*
-  Voice() const;
+  MobileConnectionInfo* Voice() const;
 
-  MobileConnectionInfo*
-  Data() const;
+  MobileConnectionInfo* Data() const;
 
   already_AddRefed<DOMMobileConnectionDeviceIds> GetDeviceIdentities();
 
-  void
-  GetIccId(nsString& aRetVal) const;
+  void GetIccId(nsString& aRetVal) const;
 
-  bool
-  GetIsInEmergencyCbMode(ErrorResult& aRv) const;
+  bool GetIsInEmergencyCbMode(ErrorResult& aRv) const;
 
-  Nullable<MobileNetworkSelectionMode>
-  GetNetworkSelectionMode() const;
+  Nullable<MobileNetworkSelectionMode> GetNetworkSelectionMode() const;
 
-  Nullable<MobileRadioState>
-  GetRadioState() const;
+  Nullable<MobileRadioState> GetRadioState() const;
 
-  already_AddRefed<MobileSignalStrength>
-  SignalStrength() const;
+  already_AddRefed<MobileSignalStrength> SignalStrength() const;
 
-  void
-  GetSupportedNetworkTypes(nsTArray<MobileNetworkType>& aTypes) const;
+  void GetSupportedNetworkTypes(nsTArray<MobileNetworkType>& aTypes) const;
 
-  already_AddRefed<Promise>
-  GetSupportedNetworkTypes(ErrorResult& aRv);
+  already_AddRefed<Promise> GetSupportedNetworkTypes(ErrorResult& aRv);
 
-  already_AddRefed<ImsRegHandler>
-  GetImsHandler() const;
+  already_AddRefed<ImsRegHandler> GetImsHandler() const;
 
-  already_AddRefed<DOMRequest>
-  GetNetworks(ErrorResult& aRv);
+  already_AddRefed<DOMRequest> GetNetworks(ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  SelectNetwork(DOMMobileNetworkInfo& aNetwork, ErrorResult& aRv);
+  already_AddRefed<DOMRequest> SelectNetwork(DOMMobileNetworkInfo& aNetwork,
+                                             ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  SelectNetworkAutomatically(ErrorResult& aRv);
+  already_AddRefed<DOMRequest> SelectNetworkAutomatically(ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  SetPreferredNetworkType(MobilePreferredNetworkType& aType, ErrorResult& aRv);
+  already_AddRefed<DOMRequest> SetPreferredNetworkType(
+      MobilePreferredNetworkType& aType, ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  GetPreferredNetworkType(ErrorResult& aRv);
+  already_AddRefed<DOMRequest> GetPreferredNetworkType(ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  SetRoamingPreference(MobileRoamingMode& aMode, ErrorResult& aRv);
+  already_AddRefed<DOMRequest> SetRoamingPreference(MobileRoamingMode& aMode,
+                                                    ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  GetRoamingPreference(ErrorResult& aRv);
+  already_AddRefed<DOMRequest> GetRoamingPreference(ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  SetVoicePrivacyMode(bool aEnabled, ErrorResult& aRv);
+  already_AddRefed<DOMRequest> SetVoicePrivacyMode(bool aEnabled,
+                                                   ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  GetVoicePrivacyMode(ErrorResult& aRv);
+  already_AddRefed<DOMRequest> GetVoicePrivacyMode(ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  SetCallForwardingOption(const CallForwardingOptions& aOptions,
-                          ErrorResult& aRv);
+  already_AddRefed<DOMRequest> SetCallForwardingOption(
+      const CallForwardingOptions& aOptions, ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  GetCallForwardingOption(uint16_t aReason, uint16_t aServiceClass, ErrorResult& aRv);
+  already_AddRefed<DOMRequest> GetCallForwardingOption(uint16_t aReason,
+                                                       uint16_t aServiceClass,
+                                                       ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  SetCallBarringOption(const CallBarringOptions& aOptions, ErrorResult& aRv);
+  already_AddRefed<DOMRequest> SetCallBarringOption(
+      const CallBarringOptions& aOptions, ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  GetCallBarringOption(const CallBarringOptions& aOptions, ErrorResult& aRv);
+  already_AddRefed<DOMRequest> GetCallBarringOption(
+      const CallBarringOptions& aOptions, ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  ChangeCallBarringPassword(const CallBarringOptions& aOptions,
-                            ErrorResult& aRv);
+  already_AddRefed<DOMRequest> ChangeCallBarringPassword(
+      const CallBarringOptions& aOptions, ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  SetCallWaitingOption(bool aEnabled, ErrorResult& aRv);
+  already_AddRefed<DOMRequest> SetCallWaitingOption(bool aEnabled,
+                                                    ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  GetCallWaitingOption(ErrorResult& aRv);
+  already_AddRefed<DOMRequest> GetCallWaitingOption(ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  SetCallingLineIdRestriction(uint16_t aMode, ErrorResult& aRv);
+  already_AddRefed<DOMRequest> SetCallingLineIdRestriction(uint16_t aMode,
+                                                           ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  GetCallingLineIdRestriction(ErrorResult& aRv);
+  already_AddRefed<DOMRequest> GetCallingLineIdRestriction(ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  ExitEmergencyCbMode(ErrorResult& aRv);
+  already_AddRefed<DOMRequest> ExitEmergencyCbMode(ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest>
-  SetRadioEnabled(bool aEnabled, ErrorResult& aRv);
+  already_AddRefed<DOMRequest> SetRadioEnabled(bool aEnabled, ErrorResult& aRv);
 
   IMPL_EVENT_HANDLER(voicechange)
   IMPL_EVENT_HANDLER(datachange)
@@ -180,10 +151,10 @@ public:
   IMPL_EVENT_HANDLER(modemrestart)
   IMPL_EVENT_HANDLER(networkselectionmodechange)
 
-private:
+ private:
   ~MobileConnection();
 
-private:
+ private:
   uint32_t mClientId;
   nsString mIccId;
   nsCOMPtr<nsIMobileConnection> mMobileConnection;
@@ -194,44 +165,33 @@ private:
   // mutable for lazy initialization in GetImsRegHandler() const.
   mutable RefPtr<ImsRegHandler> mImsHandler;
 
-  bool
-  CheckPermission(const char* aType) const;
+  bool CheckPermission(const char* aType) const;
 
-  void
-  UpdateVoice();
+  void UpdateVoice();
 
-  void
-  UpdateData();
+  void UpdateData();
 
-  bool
-  UpdateIccId();
+  bool UpdateIccId();
 
-  nsresult
-  NotifyError(DOMRequest* aRequest, const nsAString& aMessage);
+  nsresult NotifyError(DOMRequest* aRequest, const nsAString& aMessage);
 
-  bool
-  IsValidPassword(const nsAString& aPassword);
+  bool IsValidPassword(const nsAString& aPassword);
 
-  bool
-  IsValidCallBarringOptions(const CallBarringOptions& aOptions, bool isSetting);
+  bool IsValidCallBarringOptions(const CallBarringOptions& aOptions,
+                                 bool isSetting);
 
-  bool
-  IsValidCallForwardingOptions(const CallForwardingOptions& aOptions);
+  bool IsValidCallForwardingOptions(const CallForwardingOptions& aOptions);
 
-  bool
-  IsValidCallForwardingService(int32_t aServiceClass);
+  bool IsValidCallForwardingService(int32_t aServiceClass);
 
-  bool
-  IsValidCallForwardingReason(int32_t aReason);
+  bool IsValidCallForwardingReason(int32_t aReason);
 
-  bool
-  IsValidCallForwardingAction(int32_t aAction);
+  bool IsValidCallForwardingAction(int32_t aAction);
 
-  bool
-  IsValidCallBarringProgram(int32_t aProgram);
+  bool IsValidCallBarringProgram(int32_t aProgram);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_MobileConnection_h
+#endif  // mozilla_dom_MobileConnection_h

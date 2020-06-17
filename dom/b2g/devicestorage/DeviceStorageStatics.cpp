@@ -101,9 +101,8 @@ void DeviceStorageStatics::Init() {
   sMutex.AssertCurrentThreadOwns();
   DS_LOG_INFO("");
 
-  Preferences::RegisterPrefixCallbacks(
-      DeviceStorageStatics::PrefsChanged, gObservedPrefs,
-      this);
+  Preferences::RegisterPrefixCallbacks(DeviceStorageStatics::PrefsChanged,
+                                       gObservedPrefs, this);
 
   Preferences::GetString(kPrefWritableName, mWritableName);
   mPromptTesting = Preferences::GetBool(kPrefPromptTesting, false);
@@ -260,9 +259,9 @@ void DeviceStorageStatics::InitDirs() {
   // Directories which don't depend on a volume should be calculated once
   // here. Directories which depend on the root directory of a volume
   // should be calculated in DeviceStorageFile::GetRootDirectoryForType.
-  Preferences::RegisterPrefixCallback(
-      DeviceStorageStatics::PrefsChanged,
-      nsDependentCString(kPrefOverrideRootDir), this);
+  Preferences::RegisterPrefixCallback(DeviceStorageStatics::PrefsChanged,
+                                      nsDependentCString(kPrefOverrideRootDir),
+                                      this);
   ResetOverrideRootDir();
 }
 
@@ -298,9 +297,8 @@ void DeviceStorageStatics::Shutdown() {
   sMutex.AssertCurrentThreadOwns();
   DS_LOG_INFO("");
 
-  Preferences::UnregisterPrefixCallbacks(
-      DeviceStorageStatics::PrefsChanged, gObservedPrefs,
-      this);
+  Preferences::UnregisterPrefixCallbacks(DeviceStorageStatics::PrefsChanged,
+                                         gObservedPrefs, this);
   Preferences::UnregisterPrefixCallback(
       DeviceStorageStatics::PrefsChanged,
       nsDependentCString(kPrefOverrideRootDir), this);
@@ -578,8 +576,7 @@ void DeviceStorageStatics::ResetOverrideRootDir() {
 }
 
 // static
-void DeviceStorageStatics::PrefsChanged(const char* aPref,
-                                        void* aSelf) {
+void DeviceStorageStatics::PrefsChanged(const char* aPref, void* aSelf) {
   static_cast<DeviceStorageStatics*>(aSelf)->PrefsChanged(aPref);
 }
 

@@ -20,7 +20,7 @@
 #include "CameraCommon.h"
 
 #ifdef MOZ_WIDGET_GONK
-#include "GonkRecorder.h"
+#  include "GonkRecorder.h"
 #endif
 
 using namespace mozilla;
@@ -34,9 +34,9 @@ struct ProfileConfig {
   uint32_t priority;
 };
 
-#define DEF_GONK_RECORDER_PROFILE(e, n, p) { n, e, p },
+#define DEF_GONK_RECORDER_PROFILE(e, n, p) {n, e, p},
 static const ProfileConfig ProfileList[] = {
-  #include "GonkRecorderProfiles.def"
+#include "GonkRecorderProfiles.def"
 };
 
 static const size_t ProfileListSize = MOZ_ARRAY_LENGTH(ProfileList);
@@ -48,21 +48,20 @@ struct ProfileConfigDetect {
   uint32_t priority;
 };
 
-#define DEF_GONK_RECORDER_PROFILE_DETECT(n, w, h, p) { n, w, h, p },
+#define DEF_GONK_RECORDER_PROFILE_DETECT(n, w, h, p) {n, w, h, p},
 static const ProfileConfigDetect ProfileListDetect[] = {
-  #include "GonkRecorderProfiles.def"
+#include "GonkRecorderProfiles.def"
 };
 
 static const size_t ProfileListDetectSize = MOZ_ARRAY_LENGTH(ProfileListDetect);
 
-};
+};  // namespace mozilla
 
-/* static */ nsClassHashtable<nsUint32HashKey, ProfileHashtable> GonkRecorderProfile::sProfiles;
+/* static */ nsClassHashtable<nsUint32HashKey, ProfileHashtable>
+    GonkRecorderProfile::sProfiles;
 /* static */ android::MediaProfiles* sMediaProfiles = nullptr;
 
-static MediaProfiles*
-GetMediaProfiles()
-{
+static MediaProfiles* GetMediaProfiles() {
   if (!sMediaProfiles) {
     sMediaProfiles = MediaProfiles::getInstance();
   }
@@ -70,25 +69,22 @@ GetMediaProfiles()
   return sMediaProfiles;
 }
 
-static bool
-IsProfileSupported(uint32_t aCameraId, int aQuality)
-{
+static bool IsProfileSupported(uint32_t aCameraId, int aQuality) {
   MediaProfiles* profiles = GetMediaProfiles();
-  return profiles->hasCamcorderProfile(static_cast<int>(aCameraId),
-                                       static_cast<camcorder_quality>(aQuality));
+  return profiles->hasCamcorderProfile(
+      static_cast<int>(aCameraId), static_cast<camcorder_quality>(aQuality));
 }
 
-static int
-GetProfileParameter(uint32_t aCameraId, int aQuality, const char* aParameter)
-{
+static int GetProfileParameter(uint32_t aCameraId, int aQuality,
+                               const char* aParameter) {
   MediaProfiles* profiles = GetMediaProfiles();
-  return profiles->getCamcorderProfileParamByName(aParameter, static_cast<int>(aCameraId),
-                                                  static_cast<camcorder_quality>(aQuality));
+  return profiles->getCamcorderProfileParamByName(
+      aParameter, static_cast<int>(aCameraId),
+      static_cast<camcorder_quality>(aQuality));
 }
 
-/* static */ bool
-GonkRecorderVideo::Translate(video_encoder aCodec, nsAString& aCodecName)
-{
+/* static */ bool GonkRecorderVideo::Translate(video_encoder aCodec,
+                                               nsAString& aCodecName) {
   switch (aCodec) {
     case VIDEO_ENCODER_H263:
       aCodecName.AssignASCII("h263");
@@ -109,18 +105,14 @@ GonkRecorderVideo::Translate(video_encoder aCodec, nsAString& aCodecName)
   return true;
 }
 
-int
-GonkRecorderVideo::GetProfileParameter(const char* aParameter)
-{
+int GonkRecorderVideo::GetProfileParameter(const char* aParameter) {
   return ::GetProfileParameter(mCameraId, mQuality, aParameter);
 }
 
 GonkRecorderVideo::GonkRecorderVideo(uint32_t aCameraId, int aQuality)
-  : mCameraId(aCameraId)
-  , mQuality(aQuality)
-  , mIsValid(false)
-{
-  mPlatformEncoder = static_cast<video_encoder>(GetProfileParameter("vid.codec"));
+    : mCameraId(aCameraId), mQuality(aQuality), mIsValid(false) {
+  mPlatformEncoder =
+      static_cast<video_encoder>(GetProfileParameter("vid.codec"));
   bool isValid = Translate(mPlatformEncoder, mCodec);
 
   int v = GetProfileParameter("vid.width");
@@ -151,9 +143,8 @@ GonkRecorderVideo::GonkRecorderVideo(uint32_t aCameraId, int aQuality)
   mIsValid = isValid;
 }
 
-/* static */ bool
-GonkRecorderAudio::Translate(audio_encoder aCodec, nsAString& aCodecName)
-{
+/* static */ bool GonkRecorderAudio::Translate(audio_encoder aCodec,
+                                               nsAString& aCodecName) {
   switch (aCodec) {
     case AUDIO_ENCODER_AMR_NB:
       aCodecName.AssignASCII("amrnb");
@@ -174,18 +165,14 @@ GonkRecorderAudio::Translate(audio_encoder aCodec, nsAString& aCodecName)
   return true;
 }
 
-int
-GonkRecorderAudio::GetProfileParameter(const char* aParameter)
-{
+int GonkRecorderAudio::GetProfileParameter(const char* aParameter) {
   return ::GetProfileParameter(mCameraId, mQuality, aParameter);
 }
 
 GonkRecorderAudio::GonkRecorderAudio(uint32_t aCameraId, int aQuality)
-  : mCameraId(aCameraId)
-  , mQuality(aQuality)
-  , mIsValid(false)
-{
-  mPlatformEncoder = static_cast<audio_encoder>(GetProfileParameter("aud.codec"));
+    : mCameraId(aCameraId), mQuality(aQuality), mIsValid(false) {
+  mPlatformEncoder =
+      static_cast<audio_encoder>(GetProfileParameter("aud.codec"));
   bool isValid = Translate(mPlatformEncoder, mCodec);
 
   int v = GetProfileParameter("aud.ch");
@@ -210,9 +197,8 @@ GonkRecorderAudio::GonkRecorderAudio(uint32_t aCameraId, int aQuality)
   mIsValid = isValid;
 }
 
-/* static */ bool
-GonkRecorderProfile::Translate(output_format aContainer, nsAString& aContainerName)
-{
+/* static */ bool GonkRecorderProfile::Translate(output_format aContainer,
+                                                 nsAString& aContainerName) {
   switch (aContainer) {
     case OUTPUT_FORMAT_THREE_GPP:
       aContainerName.AssignASCII("3gp");
@@ -229,9 +215,8 @@ GonkRecorderProfile::Translate(output_format aContainer, nsAString& aContainerNa
   return true;
 }
 
-/* static */ bool
-GonkRecorderProfile::GetMimeType(output_format aContainer, nsAString& aMimeType)
-{
+/* static */ bool GonkRecorderProfile::GetMimeType(output_format aContainer,
+                                                   nsAString& aMimeType) {
   switch (aContainer) {
     case OUTPUT_FORMAT_THREE_GPP:
       aMimeType.AssignASCII(VIDEO_3GPP);
@@ -248,21 +233,18 @@ GonkRecorderProfile::GetMimeType(output_format aContainer, nsAString& aMimeType)
   return true;
 }
 
-int
-GonkRecorderProfile::GetProfileParameter(const char* aParameter)
-{
+int GonkRecorderProfile::GetProfileParameter(const char* aParameter) {
   return ::GetProfileParameter(mCameraId, mQuality, aParameter);
 }
 
-GonkRecorderProfile::GonkRecorderProfile(uint32_t aCameraId,
-                                         int aQuality)
-  : GonkRecorderProfileBase<GonkRecorderAudio, GonkRecorderVideo>(aCameraId,
-                                                                  aQuality)
-  , mCameraId(aCameraId)
-  , mQuality(aQuality)
-  , mIsValid(false)
-{
-  mOutputFormat = static_cast<output_format>(GetProfileParameter("file.format"));
+GonkRecorderProfile::GonkRecorderProfile(uint32_t aCameraId, int aQuality)
+    : GonkRecorderProfileBase<GonkRecorderAudio, GonkRecorderVideo>(aCameraId,
+                                                                    aQuality),
+      mCameraId(aCameraId),
+      mQuality(aQuality),
+      mIsValid(false) {
+  mOutputFormat =
+      static_cast<output_format>(GetProfileParameter("file.format"));
   bool isValid = Translate(mOutputFormat, mContainer);
   isValid = GetMimeType(mOutputFormat, mMimeType) ? isValid : false;
 
@@ -270,15 +252,15 @@ GonkRecorderProfile::GonkRecorderProfile(uint32_t aCameraId,
 }
 
 /* static */
-already_AddRefed<GonkRecorderProfile>
-GonkRecorderProfile::CreateProfile(uint32_t aCameraId, int aQuality)
-{
+already_AddRefed<GonkRecorderProfile> GonkRecorderProfile::CreateProfile(
+    uint32_t aCameraId, int aQuality) {
   if (!IsProfileSupported(aCameraId, aQuality)) {
     DOM_CAMERA_LOGI("Profile %d not supported by platform\n", aQuality);
     return nullptr;
   }
 
-  RefPtr<GonkRecorderProfile> profile = new GonkRecorderProfile(aCameraId, aQuality);
+  RefPtr<GonkRecorderProfile> profile =
+      new GonkRecorderProfile(aCameraId, aQuality);
   if (!profile->IsValid()) {
     DOM_CAMERA_LOGE("Profile %d is not valid\n", aQuality);
     return nullptr;
@@ -288,9 +270,7 @@ GonkRecorderProfile::CreateProfile(uint32_t aCameraId, int aQuality)
 }
 
 /* static */
-ProfileHashtable*
-GonkRecorderProfile::GetProfileHashtable(uint32_t aCameraId)
-{
+ProfileHashtable* GonkRecorderProfile::GetProfileHashtable(uint32_t aCameraId) {
   ProfileHashtable* profiles = sProfiles.Get(aCameraId);
   if (!profiles) {
     profiles = new ProfileHashtable();
@@ -310,7 +290,8 @@ GonkRecorderProfile::GetProfileHashtable(uint32_t aCameraId)
         continue;
       }
 
-      DOM_CAMERA_LOGI("Profile %d '%s' supported by platform\n", p.quality, p.name);
+      DOM_CAMERA_LOGI("Profile %d '%s' supported by platform\n", p.quality,
+                      p.name);
       profile->mName.AssignASCII(p.name);
       profile->mPriority = p.priority;
       profiles->Put(profile->GetName(), RefPtr{profile});
@@ -329,7 +310,8 @@ GonkRecorderProfile::GetProfileHashtable(uint32_t aCameraId)
        only one WVGA profile given there is only one enum for it. In the
        situation there is a collision, it will merely select the last
        detected profile. */
-    for (int q = highestKnownQuality + 1; q <= CAMCORDER_QUALITY_LIST_END; ++q) {
+    for (int q = highestKnownQuality + 1; q <= CAMCORDER_QUALITY_LIST_END;
+         ++q) {
       RefPtr<GonkRecorderProfile> profile = CreateProfile(aCameraId, q);
       if (!profile) {
         continue;
@@ -349,18 +331,17 @@ GonkRecorderProfile::GetProfileHashtable(uint32_t aCameraId)
       }
 
       if (match == ProfileListDetectSize) {
-        DOM_CAMERA_LOGW("Profile %d size %u x %u is not recognized\n",
-                        q, s.width, s.height);
+        DOM_CAMERA_LOGW("Profile %d size %u x %u is not recognized\n", q,
+                        s.width, s.height);
       }
     }
   }
   return profiles;
 }
 
-/* static */ nsresult
-GonkRecorderProfile::GetAll(uint32_t aCameraId,
-                            nsTArray<RefPtr<ICameraControl::RecorderProfile>>& aProfiles)
-{
+/* static */ nsresult GonkRecorderProfile::GetAll(
+    uint32_t aCameraId,
+    nsTArray<RefPtr<ICameraControl::RecorderProfile>>& aProfiles) {
   ProfileHashtable* profiles = GetProfileHashtable(aCameraId);
   if (!profiles) {
     return NS_ERROR_FAILURE;
@@ -375,9 +356,7 @@ GonkRecorderProfile::GetAll(uint32_t aCameraId,
 }
 
 #ifdef MOZ_WIDGET_GONK
-nsresult
-GonkRecorderProfile::ConfigureRecorder(GonkRecorder& aRecorder)
-{
+nsresult GonkRecorderProfile::ConfigureRecorder(GonkRecorder& aRecorder) {
   static const size_t SIZE = 256;
   char buffer[SIZE];
 
@@ -386,30 +365,33 @@ GonkRecorderProfile::ConfigureRecorder(GonkRecorder& aRecorder)
   CHECK_SETARG(aRecorder.setVideoSource(VIDEO_SOURCE_CAMERA));
   CHECK_SETARG(aRecorder.setOutputFormat(mOutputFormat));
   CHECK_SETARG(aRecorder.setVideoFrameRate(mVideo.GetFramesPerSecond()));
-  CHECK_SETARG(aRecorder.setVideoSize(mVideo.GetSize().width, mVideo.GetSize().height));
+  CHECK_SETARG(
+      aRecorder.setVideoSize(mVideo.GetSize().width, mVideo.GetSize().height));
   CHECK_SETARG(aRecorder.setVideoEncoder(mVideo.GetPlatformEncoder()));
   CHECK_SETARG(aRecorder.setAudioEncoder(mAudio.GetPlatformEncoder()));
 
-  snprintf(buffer, SIZE, "video-param-encoding-bitrate=%d", mVideo.GetBitsPerSecond());
+  snprintf(buffer, SIZE, "video-param-encoding-bitrate=%d",
+           mVideo.GetBitsPerSecond());
   CHECK_SETARG(aRecorder.setParameters(String8(buffer)));
 
-  snprintf(buffer, SIZE, "audio-param-encoding-bitrate=%d", mAudio.GetBitsPerSecond());
+  snprintf(buffer, SIZE, "audio-param-encoding-bitrate=%d",
+           mAudio.GetBitsPerSecond());
   CHECK_SETARG(aRecorder.setParameters(String8(buffer)));
 
-  snprintf(buffer, SIZE, "audio-param-number-of-channels=%d", mAudio.GetChannels());
+  snprintf(buffer, SIZE, "audio-param-number-of-channels=%d",
+           mAudio.GetChannels());
   CHECK_SETARG(aRecorder.setParameters(String8(buffer)));
 
-  snprintf(buffer, SIZE, "audio-param-sampling-rate=%d", mAudio.GetSamplesPerSecond());
+  snprintf(buffer, SIZE, "audio-param-sampling-rate=%d",
+           mAudio.GetSamplesPerSecond());
   CHECK_SETARG(aRecorder.setParameters(String8(buffer)));
 
   return NS_OK;
 }
 
-/* static */ nsresult
-GonkRecorderProfile::ConfigureRecorder(android::GonkRecorder& aRecorder,
-                                       uint32_t aCameraId,
-                                       const nsAString& aProfileName)
-{
+/* static */ nsresult GonkRecorderProfile::ConfigureRecorder(
+    android::GonkRecorder& aRecorder, uint32_t aCameraId,
+    const nsAString& aProfileName) {
   ProfileHashtable* profiles = GetProfileHashtable(aCameraId);
   if (!profiles) {
     return NS_ERROR_FAILURE;

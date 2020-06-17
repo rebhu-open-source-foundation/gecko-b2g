@@ -25,8 +25,8 @@ namespace ipc {
 class DaemonSocketPDU;
 class DaemonSocketPDUHeader;
 
-}
-}
+}  // namespace ipc
+}  // namespace mozilla
 
 namespace mozilla {
 namespace hal {
@@ -41,10 +41,8 @@ using mozilla::ipc::DaemonSocketResultHandler;
  * This class is the result-handler interface for the Sensors
  * Registry interface. Methods always run on the main thread.
  */
-class GonkSensorsRegistryResultHandler : public DaemonSocketResultHandler
-{
-public:
-
+class GonkSensorsRegistryResultHandler : public DaemonSocketResultHandler {
+ public:
   /**
    * Called if a registry command failed.
    *
@@ -65,7 +63,7 @@ public:
    */
   virtual void UnregisterModule();
 
-protected:
+ protected:
   virtual ~GonkSensorsRegistryResultHandler();
 };
 
@@ -76,12 +74,9 @@ protected:
  *
  * This is an internal class, use |GonkSensorsRegistryInterface| instead.
  */
-class GonkSensorsRegistryModule
-{
-public:
-  enum {
-    SERVICE_ID = 0x00
-  };
+class GonkSensorsRegistryModule {
+ public:
+  enum { SERVICE_ID = 0x00 };
 
   enum {
     OPCODE_ERROR = 0x00,
@@ -102,30 +97,29 @@ public:
   nsresult UnregisterModuleCmd(uint8_t aId,
                                GonkSensorsRegistryResultHandler* aRes);
 
-protected:
+ protected:
   virtual ~GonkSensorsRegistryModule();
 
-  void HandleSvc(const DaemonSocketPDUHeader& aHeader,
-                 DaemonSocketPDU& aPDU, DaemonSocketResultHandler* aRes);
+  void HandleSvc(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+                 DaemonSocketResultHandler* aRes);
 
   //
   // Responses
   //
 
-  typedef mozilla::ipc::DaemonResultRunnable0<
-    GonkSensorsRegistryResultHandler, void>
-    ResultRunnable;
+  typedef mozilla::ipc::DaemonResultRunnable0<GonkSensorsRegistryResultHandler,
+                                              void>
+      ResultRunnable;
 
-  typedef mozilla::ipc::DaemonResultRunnable1<
-    GonkSensorsRegistryResultHandler, void, uint32_t, uint32_t>
-    Uint32ResultRunnable;
+  typedef mozilla::ipc::DaemonResultRunnable1<GonkSensorsRegistryResultHandler,
+                                              void, uint32_t, uint32_t>
+      Uint32ResultRunnable;
 
-  typedef mozilla::ipc::DaemonResultRunnable1<
-    GonkSensorsRegistryResultHandler, void, SensorsError, SensorsError>
-    ErrorRunnable;
+  typedef mozilla::ipc::DaemonResultRunnable1<GonkSensorsRegistryResultHandler,
+                                              void, SensorsError, SensorsError>
+      ErrorRunnable;
 
-  void ErrorRsp(const DaemonSocketPDUHeader& aHeader,
-                DaemonSocketPDU& aPDU,
+  void ErrorRsp(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
                 GonkSensorsRegistryResultHandler* aRes);
 
   void RegisterModuleRsp(const DaemonSocketPDUHeader& aHeader,
@@ -142,9 +136,8 @@ protected:
  * component. Use |SensorsInterface::GetRegistryInterface| to retrieve
  * an instance. All methods run on the main thread.
  */
-class GonkSensorsRegistryInterface final
-{
-public:
+class GonkSensorsRegistryInterface final {
+ public:
   GonkSensorsRegistryInterface(GonkSensorsRegistryModule* aModule);
   ~GonkSensorsRegistryInterface();
 
@@ -167,16 +160,15 @@ public:
    */
   void UnregisterModule(uint8_t aId, GonkSensorsRegistryResultHandler* aRes);
 
-private:
+ private:
   void DispatchError(GonkSensorsRegistryResultHandler* aRes,
                      SensorsError aError);
-  void DispatchError(GonkSensorsRegistryResultHandler* aRes,
-                     nsresult aRv);
+  void DispatchError(GonkSensorsRegistryResultHandler* aRes, nsresult aRv);
 
   GonkSensorsRegistryModule* mModule;
 };
 
-} // namespace hal
-} // namespace mozilla
+}  // namespace hal
+}  // namespace mozilla
 
-#endif // hal_gonk_GonkSensorsRegistryInterface_h
+#endif  // hal_gonk_GonkSensorsRegistryInterface_h

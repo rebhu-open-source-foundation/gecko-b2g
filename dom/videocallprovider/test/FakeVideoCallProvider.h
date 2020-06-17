@@ -32,46 +32,51 @@ using namespace android;
 
 class FakeYUVFeeder;
 
-class VideoCallCameraCapabilities : public nsIVideoCallCameraCapabilities
-{
-public:
+class VideoCallCameraCapabilities : public nsIVideoCallCameraCapabilities {
+ public:
   NS_DECL_ISUPPORTS
 
   VideoCallCameraCapabilities(){};
 
   /* readonly attribute unsigned short height; */
-  NS_IMETHOD GetHeight(uint16_t *aHeight);
+  NS_IMETHOD GetHeight(uint16_t* aHeight);
 
   /* readonly attribute unsigned short width; */
-  NS_IMETHOD GetWidth(uint16_t *aWidth);
+  NS_IMETHOD GetWidth(uint16_t* aWidth);
 
   /* readonly attribute boolean zoomSupported; */
-  NS_IMETHOD GetZoomSupported(bool *aZoomSupported);
+  NS_IMETHOD GetZoomSupported(bool* aZoomSupported);
 
   /* readonly attribute float maxZoom; */
-  NS_IMETHOD GetMaxZoom(float *aMaxZoom);
+  NS_IMETHOD GetMaxZoom(float* aMaxZoom);
 
-private:
+ private:
   virtual ~VideoCallCameraCapabilities(){};
 };
 
-class FakeVideoCallProvider : public nsIVideoCallProvider
-{
+class FakeVideoCallProvider : public nsIVideoCallProvider {
   friend FakeYUVFeeder;
-public:
+
+ public:
   NS_DECL_ISUPPORTS
 
   FakeVideoCallProvider();
 
-  //nsIVideoCallProvider interface
+  // nsIVideoCallProvider interface
   /* void setCamera (in short cameraId); */
   NS_IMETHOD SetCamera(int16_t cameraId);
 
-  /* void setPreviewSurface (in AGraphicBuffProducer producer, in unsigned short width, in unsigned short height); */
-  NS_IMETHOD SetPreviewSurface(android::sp<android::IGraphicBufferProducer> & aProducer, uint16_t aPreferWidth, uint16_t aPreferHeight);
+  /* void setPreviewSurface (in AGraphicBuffProducer producer, in unsigned short
+   * width, in unsigned short height); */
+  NS_IMETHOD SetPreviewSurface(
+      android::sp<android::IGraphicBufferProducer>& aProducer,
+      uint16_t aPreferWidth, uint16_t aPreferHeight);
 
-  /* void setDisplaySurface (in AGraphicBuffProducer producer, in unsigned short width, in unsigned short height); */
-  NS_IMETHOD SetDisplaySurface(android::sp<android::IGraphicBufferProducer> & aProducer, uint16_t aPreferWidth, uint16_t aPreferHeight);
+  /* void setDisplaySurface (in AGraphicBuffProducer producer, in unsigned short
+   * width, in unsigned short height); */
+  NS_IMETHOD SetDisplaySurface(
+      android::sp<android::IGraphicBufferProducer>& aProducer,
+      uint16_t aPreferWidth, uint16_t aPreferHeight);
 
   /* void setDeviceOrientation (in unsigned short rotation); */
   NS_IMETHOD SetDeviceOrientation(uint16_t rotation);
@@ -79,29 +84,31 @@ public:
   /* void setZoom (in float value); */
   NS_IMETHOD SetZoom(float value);
 
-  /* void sendSessionModifyRequest (in nsIVideoCallProfile fromProfile, in nsIVideoCallProfile toProfile); */
-  NS_IMETHOD SendSessionModifyRequest(nsIVideoCallProfile *fromProfile, nsIVideoCallProfile *toProfile);
+  /* void sendSessionModifyRequest (in nsIVideoCallProfile fromProfile, in
+   * nsIVideoCallProfile toProfile); */
+  NS_IMETHOD SendSessionModifyRequest(nsIVideoCallProfile* fromProfile,
+                                      nsIVideoCallProfile* toProfile);
 
   /* void sendSessionModifyResponse (in nsIVideoCallProfile responseProfile); */
-  NS_IMETHOD SendSessionModifyResponse(nsIVideoCallProfile *responseProfile);
+  NS_IMETHOD SendSessionModifyResponse(nsIVideoCallProfile* responseProfile);
 
   /* void requestCameraCapabilities (); */
   NS_IMETHOD RequestCameraCapabilities(void);
 
   /* void registerCallback (in nsIVideoCallCallback callback); */
-  NS_IMETHOD RegisterCallback(nsIVideoCallCallback *callback);
+  NS_IMETHOD RegisterCallback(nsIVideoCallCallback* callback);
 
   /* void unregisterCallback (in nsIVideoCallCallback callback); */
-  NS_IMETHOD UnregisterCallback(nsIVideoCallCallback *callback);
+  NS_IMETHOD UnregisterCallback(nsIVideoCallCallback* callback);
 
-private:
+ private:
   FakeVideoCallProvider(const FakeVideoCallProvider&) = delete;
   FakeVideoCallProvider& operator=(const FakeVideoCallProvider&) = delete;
   virtual ~FakeVideoCallProvider();
 
-  nsIVideoCallCallback *mVideoCallCallback;
+  nsIVideoCallCallback* mVideoCallCallback;
 
-  //Preview surface
+  // Preview surface
   void StopPreview();
   void SetCameraParameters();
 
@@ -113,8 +120,9 @@ private:
   bool mPreviewStarted;
   nsIVideoCallCameraCapabilities* mVideoCallCameraCapabilities;
 
-  //Display surface
-  nsresult StartFakeImage();//Test function to feed image data to the created surface.
+  // Display surface
+  nsresult
+  StartFakeImage();  // Test function to feed image data to the created surface.
   void StopDisplay();
   sp<ANativeWindow> mTestANativeWindow;
   unsigned char* mTestImage;
@@ -131,19 +139,17 @@ private:
   bool mDisplayStarted;
 };
 
-class FakeYUVFeeder : public AHandler
-{
-public:
-  enum {
-    kWhatSendFakeImage
-  };
+class FakeYUVFeeder : public AHandler {
+ public:
+  enum { kWhatSendFakeImage };
 
   FakeYUVFeeder(FakeVideoCallProvider* aFakeVideoCallProvider);
   virtual ~FakeYUVFeeder();
-  virtual void onMessageReceived(const sp<AMessage> &msg);
+  virtual void onMessageReceived(const sp<AMessage>& msg);
   void SendFakeImage(FakeVideoCallProvider* aFakeVideoCallProvider);
-private:
+
+ private:
   RefPtr<FakeVideoCallProvider> mFakeVideoCallProvider;
 };
 
-#endif // DOM_FAKE_VIDEO_CALL_PROVIDER_H
+#endif  // DOM_FAKE_VIDEO_CALL_PROVIDER_H

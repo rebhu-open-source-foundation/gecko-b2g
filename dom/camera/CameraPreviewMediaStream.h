@@ -11,15 +11,12 @@
 
 namespace mozilla {
 
-class FakeMediaTrackGraph : public MediaTrackGraph
-{
+class FakeMediaTrackGraph : public MediaTrackGraph {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(FakeMediaTrackGraph)
-public:
+ public:
   FakeMediaTrackGraph()
-    : MediaTrackGraph(16000),
-    mCurrentTime((long long)0, "FakeMediaTrackGraph:CurrentTime")
-  {
-  }
+      : MediaTrackGraph(16000),
+        mCurrentTime((long long)0, "FakeMediaTrackGraph:CurrentTime") {}
 
   void DispatchToMainThreadStableState(already_AddRefed<nsIRunnable> aRunnable);
   virtual nsresult OpenAudioInput(CubebUtils::AudioDeviceID aID,
@@ -32,10 +29,9 @@ public:
   virtual bool OnGraphThread() const override;
   virtual bool Destroyed() const override;
 
-protected:
+ protected:
   Watchable<mozilla::GraphTime> mCurrentTime;
-  ~FakeMediaTrackGraph()
-  {}
+  ~FakeMediaTrackGraph() {}
 };
 
 /**
@@ -45,11 +41,10 @@ protected:
  * A camera preview requests no delay and no buffering stream,
  * but the SourceMediaStream does not support it.
  */
-class CameraPreviewMediaStream : public ProcessedMediaTrack
-{
+class CameraPreviewMediaStream : public ProcessedMediaTrack {
   typedef mozilla::layers::Image Image;
 
-public:
+ public:
   CameraPreviewMediaStream();
 
   void AddAudioOutput(void* aKey) override;
@@ -73,7 +68,7 @@ public:
   void ClearCurrentFrame();
   void RateLimit(bool aLimit);
 
-protected:
+ protected:
   // mMutex protects all the class' fields.
   // This class is not registered to MediaTrackGraph.
   // It needs to protect all the fields.
@@ -84,12 +79,10 @@ protected:
   bool mTrackCreated;
   RefPtr<FakeMediaTrackGraph> mFakeMediaTrackGraph;
 
-  //TODO:from mediastream
+  // TODO:from mediastream
   nsTArray<RefPtr<MediaTrackListener> > mListeners;
 };
 
+}  // namespace mozilla
 
-
-} // namespace mozilla
-
-#endif // DOM_CAMERA_CAMERAPREVIEWMEDIASTREAM_H
+#endif  // DOM_CAMERA_CAMERAPREVIEWMEDIASTREAM_H

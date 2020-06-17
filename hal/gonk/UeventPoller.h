@@ -33,17 +33,16 @@ typedef mozilla::Observer<NetlinkEvent> IUeventObserver;
  * @aObserver the observer to be added. The observer's Notify() is only called
  * on the <b> IO Thread </b>
  */
-void RegisterUeventListener(IUeventObserver *aObserver);
+void RegisterUeventListener(IUeventObserver* aObserver);
 
 /**
  * Unregister for uevent notification. Note that the method should run on the
  * <b> IO Thread </b>
  * @aObserver the observer to be removed
  */
-void UnregisterUeventListener(IUeventObserver *aObserver);
+void UnregisterUeventListener(IUeventObserver* aObserver);
 
-}
-}
+}  // namespace hal_impl
+}  // namespace mozilla
 
 #endif
-

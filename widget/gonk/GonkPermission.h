@@ -22,76 +22,66 @@
 #include "nsTArray.h"
 
 namespace mozilla {
-class PermissionGrant
-{
-public:
-  PermissionGrant(const char* perm, int32_t p) : mPid(p)
-  {
+class PermissionGrant {
+ public:
+  PermissionGrant(const char* perm, int32_t p) : mPid(p) {
     mPermission.Assign(perm);
   }
 
-  PermissionGrant(const nsACString& permission, int32_t pid) : mPid(pid),
-    mPermission(permission)
-  {
-  }
+  PermissionGrant(const nsACString& permission, int32_t pid)
+      : mPid(pid), mPermission(permission) {}
 
-  bool operator==(const PermissionGrant& other) const
-  {
+  bool operator==(const PermissionGrant& other) const {
     return (mPid == other.pid() && mPermission.Equals(other.permission()));
   }
 
-  int32_t pid() const
-  {
-    return mPid;
-  }
+  int32_t pid() const { return mPid; }
 
-  const nsACString& permission() const
-  {
-    return mPermission;
-  }
+  const nsACString& permission() const { return mPermission; }
 
-private:
+ private:
   int32_t mPid;
   nsCString mPermission;
 };
 
 class PermissionGrant;
 
-class GonkPermissionService :
-  public android::BinderService<GonkPermissionService>,
-  public android::BnPermissionController
-{
-public:
+class GonkPermissionService
+    : public android::BinderService<GonkPermissionService>,
+      public android::BnPermissionController {
+ public:
   virtual ~GonkPermissionService() {}
   static GonkPermissionService* GetInstance();
-  static const char *getServiceName() {
-    return "permission";
-  }
+  static const char* getServiceName() { return "permission"; }
 
   static void instantiate();
 
-  android::status_t dump(int fd, const android::Vector<android::String16>& args) override {
+  android::status_t dump(
+      int fd, const android::Vector<android::String16>& args) override {
     return android::NO_ERROR;
   }
   bool checkPermission(const android::String16& permission, int32_t pid,
-      int32_t uid) override;
+                       int32_t uid) override;
 
-  virtual void getPackagesForUid(const uid_t uid,
-                                 android::Vector<android::String16>& packages) override;
+  virtual void getPackagesForUid(
+      const uid_t uid, android::Vector<android::String16>& packages) override;
 
-  virtual bool isRuntimePermission(const android::String16& permission) override;
+  virtual bool isRuntimePermission(
+      const android::String16& permission) override;
 
   virtual int32_t noteOp(const android::String16& op, int32_t uid,
                          const android::String16& packageName) override;
 
-  virtual int getPackageUid(const android::String16& package, int flags) override;
+  virtual int getPackageUid(const android::String16& package,
+                            int flags) override;
 
   void addGrantInfo(const char* permission, int32_t pid);
-private:
-  GonkPermissionService(): android::BnPermissionController() {}
+
+ private:
+  GonkPermissionService() : android::BnPermissionController() {}
   nsTArray<PermissionGrant> mGrantArray;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // GONKPERMISSION_H
+#endif  // GONKPERMISSION_H

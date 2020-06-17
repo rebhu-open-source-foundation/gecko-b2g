@@ -15,42 +15,38 @@ namespace mozilla {
 namespace dom {
 namespace voicemail {
 
-class VoicemailChild final : public PVoicemailChild
-                                , public nsIVoicemailService
-{
-public:
+class VoicemailChild final : public PVoicemailChild,
+                             public nsIVoicemailService {
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIVOICEMAILSERVICE
 
   VoicemailChild();
 
-  bool
-  RecvNotifyInfoChanged(const uint32_t& aServiceId,
-                        const nsString& aNumber,
-                        const nsString& aDisplayName);
+  bool RecvNotifyInfoChanged(const uint32_t& aServiceId,
+                             const nsString& aNumber,
+                             const nsString& aDisplayName);
 
-  bool
-  RecvNotifyStatusChanged(const uint32_t& aServiceId,
-                          const bool& aHasMessages,
-                          const int32_t& aMessageCount,
-                          const nsString& aNumber,
-                          const nsString& aDisplayName);
+  bool RecvNotifyStatusChanged(const uint32_t& aServiceId,
+                               const bool& aHasMessages,
+                               const int32_t& aMessageCount,
+                               const nsString& aNumber,
+                               const nsString& aDisplayName);
 
-  void
-  ActorDestroy(ActorDestroyReason aWhy) override;
+  void ActorDestroy(ActorDestroyReason aWhy) override;
 
-private:
+ private:
   // final suppresses -Werror,-Wdelete-non-virtual-dtor
   ~VoicemailChild();
 
-private:
+ private:
   bool mActorDestroyed;
   nsTArray<nsCOMPtr<nsIVoicemailListener>> mListeners;
   nsTArray<nsCOMPtr<nsIVoicemailProvider>> mProviders;
 };
 
-} // namespace voicemail
-} // namespace dom
-} // namespace mozilla
+}  // namespace voicemail
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_voicemail_VoicemailChild_h
+#endif  // mozilla_dom_voicemail_VoicemailChild_h

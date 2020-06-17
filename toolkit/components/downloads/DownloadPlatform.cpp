@@ -145,7 +145,8 @@ nsresult DownloadPlatform::DownloadDone(nsIURI* aSource, nsIURI* aReferrer,
 
   nsAutoString path;
   if (aTarget && NS_SUCCEEDED(aTarget->GetPath(path))) {
-#  if defined(XP_WIN) || defined(MOZ_WIDGET_GTK) || defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WIDGET_GONK)
+#  if defined(XP_WIN) || defined(MOZ_WIDGET_GTK) || \
+      defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WIDGET_GONK)
     // On Windows and Gtk, add the download to the system's "recent documents"
     // list, with a pref to disable.
     {

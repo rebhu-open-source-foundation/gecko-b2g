@@ -22,45 +22,39 @@ struct JSContext;
 namespace mozilla {
 namespace dom {
 
-class USSDSession final : public nsISupports,
-                          public nsWrapperCache
-{
-public:
+class USSDSession final : public nsISupports, public nsWrapperCache {
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(USSDSession)
 
   USSDSession(nsPIDOMWindowInner* aWindow, nsITelephonyService* aService,
               uint32_t aServiceId);
 
-  nsPIDOMWindowInner*
-  GetParentObject() const;
+  nsPIDOMWindowInner* GetParentObject() const;
 
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   // WebIDL
-  static already_AddRefed<USSDSession>
-  Constructor(const GlobalObject& aGlobal, uint32_t aServiceId,
-              ErrorResult& aRv);
+  static already_AddRefed<USSDSession> Constructor(const GlobalObject& aGlobal,
+                                                   uint32_t aServiceId,
+                                                   ErrorResult& aRv);
 
-  already_AddRefed<Promise>
-  Send(const nsAString& aUssd, ErrorResult& aRv);
+  already_AddRefed<Promise> Send(const nsAString& aUssd, ErrorResult& aRv);
 
-  already_AddRefed<Promise>
-  Cancel(ErrorResult& aRv);
+  already_AddRefed<Promise> Cancel(ErrorResult& aRv);
 
-private:
+ private:
   ~USSDSession();
 
-  already_AddRefed<Promise>
-  CreatePromise(ErrorResult& aRv);
+  already_AddRefed<Promise> CreatePromise(ErrorResult& aRv);
 
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
   nsCOMPtr<nsITelephonyService> mService;
   uint32_t mServiceId;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_USSDSession_h
+#endif  // mozilla_dom_USSDSession_h

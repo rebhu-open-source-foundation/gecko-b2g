@@ -20,55 +20,58 @@
 namespace android {
 
 enum audio_io_config_event {
-    AUDIO_OUTPUT_REGISTERED,
-    AUDIO_OUTPUT_OPENED,
-    AUDIO_OUTPUT_CLOSED,
-    AUDIO_OUTPUT_CONFIG_CHANGED,
-    AUDIO_INPUT_REGISTERED,
-    AUDIO_INPUT_OPENED,
-    AUDIO_INPUT_CLOSED,
-    AUDIO_INPUT_CONFIG_CHANGED,
+  AUDIO_OUTPUT_REGISTERED,
+  AUDIO_OUTPUT_OPENED,
+  AUDIO_OUTPUT_CLOSED,
+  AUDIO_OUTPUT_CONFIG_CHANGED,
+  AUDIO_INPUT_REGISTERED,
+  AUDIO_INPUT_OPENED,
+  AUDIO_INPUT_CLOSED,
+  AUDIO_INPUT_CONFIG_CHANGED,
 };
 
-// audio input/output descriptor used to cache output configurations in client process to avoid
-// frequent calls through IAudioFlinger
+// audio input/output descriptor used to cache output configurations in client
+// process to avoid frequent calls through IAudioFlinger
 class AudioIoDescriptor : public RefBase {
-public:
-    AudioIoDescriptor() :
-        mIoHandle(AUDIO_IO_HANDLE_NONE),
-        mSamplingRate(0), mFormat(AUDIO_FORMAT_DEFAULT), mChannelMask(AUDIO_CHANNEL_NONE),
-        mFrameCount(0), mFrameCountHAL(0), mLatency(0)
-    {
-        memset(&mPatch, 0, sizeof(struct audio_patch));
+ public:
+  AudioIoDescriptor()
+      : mIoHandle(AUDIO_IO_HANDLE_NONE),
+        mSamplingRate(0),
+        mFormat(AUDIO_FORMAT_DEFAULT),
+        mChannelMask(AUDIO_CHANNEL_NONE),
+        mFrameCount(0),
+        mFrameCountHAL(0),
+        mLatency(0) {
+    memset(&mPatch, 0, sizeof(struct audio_patch));
+  }
+
+  virtual ~AudioIoDescriptor() {}
+
+  audio_port_handle_t getDeviceId() {
+    if (mPatch.num_sources != 0 && mPatch.num_sinks != 0) {
+      if (mPatch.sources[0].type == AUDIO_PORT_TYPE_MIX) {
+        // this is an output mix
+        // FIXME: the API only returns the first device in case of multiple
+        // device selection
+        return mPatch.sinks[0].id;
+      } else {
+        // this is an input mix
+        return mPatch.sources[0].id;
+      }
     }
+    return AUDIO_PORT_HANDLE_NONE;
+  }
 
-    virtual ~AudioIoDescriptor() {}
-
-    audio_port_handle_t getDeviceId() {
-        if (mPatch.num_sources != 0 && mPatch.num_sinks != 0) {
-            if (mPatch.sources[0].type == AUDIO_PORT_TYPE_MIX) {
-                // this is an output mix
-                // FIXME: the API only returns the first device in case of multiple device selection
-                return mPatch.sinks[0].id;
-            } else {
-                // this is an input mix
-                return mPatch.sources[0].id;
-            }
-        }
-        return AUDIO_PORT_HANDLE_NONE;
-    }
-
-    audio_io_handle_t       mIoHandle;
-    struct audio_patch      mPatch;
-    uint32_t                mSamplingRate;
-    audio_format_t          mFormat;
-    audio_channel_mask_t    mChannelMask;
-    size_t                  mFrameCount;
-    size_t                  mFrameCountHAL;
-    uint32_t                mLatency;   // only valid for output
+  audio_io_handle_t mIoHandle;
+  struct audio_patch mPatch;
+  uint32_t mSamplingRate;
+  audio_format_t mFormat;
+  audio_channel_mask_t mChannelMask;
+  size_t mFrameCount;
+  size_t mFrameCountHAL;
+  uint32_t mLatency;  // only valid for output
 };
-
 
 };  // namespace android
 
-#endif  /*ANDROID_AUDIO_IO_DESCRIPTOR_H*/
+#endif /*ANDROID_AUDIO_IO_DESCRIPTOR_H*/

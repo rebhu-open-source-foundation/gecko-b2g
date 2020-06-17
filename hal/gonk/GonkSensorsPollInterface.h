@@ -26,8 +26,8 @@ namespace ipc {
 class DaemonSocketPDU;
 class DaemonSocketPDUHeader;
 
-}
-}
+}  // namespace ipc
+}  // namespace mozilla
 
 namespace mozilla {
 namespace hal {
@@ -42,10 +42,8 @@ using mozilla::ipc::DaemonSocketResultHandler;
  * This class is the result-handler interface for the Sensors
  * Poll interface. Methods always run on the main thread.
  */
-class GonkSensorsPollResultHandler : public DaemonSocketResultHandler
-{
-public:
-
+class GonkSensorsPollResultHandler : public DaemonSocketResultHandler {
+ public:
   /**
    * Called if a poll command failed.
    *
@@ -68,7 +66,7 @@ public:
    */
   virtual void SetPeriod();
 
-protected:
+ protected:
   virtual ~GonkSensorsPollResultHandler();
 };
 
@@ -76,10 +74,8 @@ protected:
  * This is the notification-handler interface. Implement this classes
  * methods to handle event and notifications from the sensors daemon.
  */
-class GonkSensorsPollNotificationHandler
-{
-public:
-
+class GonkSensorsPollNotificationHandler {
+ public:
   /**
    * The notification handler for errors. You'll receive this call if
    * there's been a critical error in the daemon. Either try to handle
@@ -126,7 +122,7 @@ public:
    */
   virtual void EventNotification(int32_t aId, const SensorsEvent& aEvent);
 
-protected:
+ protected:
   virtual ~GonkSensorsPollNotificationHandler();
 };
 
@@ -137,14 +133,11 @@ protected:
  *
  * This is an internal class, use |GonkSensorsPollInterface| instead.
  */
-class GonkSensorsPollModule
-{
-public:
+class GonkSensorsPollModule {
+ public:
   class NotificationHandlerWrapper;
 
-  enum {
-    SERVICE_ID = 0x01
-  };
+  enum { SERVICE_ID = 0x01 };
 
   enum {
     OPCODE_ERROR = 0x00,
@@ -153,10 +146,7 @@ public:
     OPCODE_SET_PERIOD = 0x03
   };
 
-  enum {
-    MIN_PROTOCOL_VERSION = 1,
-    MAX_PROTOCOL_VERSION = 1
-  };
+  enum { MIN_PROTOCOL_VERSION = 1, MAX_PROTOCOL_VERSION = 1 };
 
   virtual nsresult Send(DaemonSocketPDU* aPDU,
                         DaemonSocketResultHandler* aRes) = 0;
@@ -167,39 +157,34 @@ public:
   // Commands
   //
 
-  nsresult EnableSensorCmd(int32_t aId,
-                           GonkSensorsPollResultHandler* aRes);
+  nsresult EnableSensorCmd(int32_t aId, GonkSensorsPollResultHandler* aRes);
 
-  nsresult DisableSensorCmd(int32_t aId,
-                            GonkSensorsPollResultHandler* aRes);
+  nsresult DisableSensorCmd(int32_t aId, GonkSensorsPollResultHandler* aRes);
 
   nsresult SetPeriodCmd(int32_t aId, uint64_t aPeriod,
                         GonkSensorsPollResultHandler* aRes);
 
-protected:
+ protected:
   GonkSensorsPollModule();
   virtual ~GonkSensorsPollModule();
 
-  void HandleSvc(const DaemonSocketPDUHeader& aHeader,
-                 DaemonSocketPDU& aPDU,
+  void HandleSvc(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
                  DaemonSocketResultHandler* aRes);
 
-private:
-
+ private:
   //
   // Responses
   //
 
-  typedef mozilla::ipc::DaemonResultRunnable0<
-    GonkSensorsPollResultHandler, void>
-    ResultRunnable;
+  typedef mozilla::ipc::DaemonResultRunnable0<GonkSensorsPollResultHandler,
+                                              void>
+      ResultRunnable;
 
-  typedef mozilla::ipc::DaemonResultRunnable1<
-    GonkSensorsPollResultHandler, void, SensorsError, SensorsError>
-    ErrorRunnable;
+  typedef mozilla::ipc::DaemonResultRunnable1<GonkSensorsPollResultHandler,
+                                              void, SensorsError, SensorsError>
+      ErrorRunnable;
 
-  void ErrorRsp(const DaemonSocketPDUHeader& aHeader,
-                DaemonSocketPDU& aPDU,
+  void ErrorRsp(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
                 GonkSensorsPollResultHandler* aRes);
 
   void EnableSensorRsp(const DaemonSocketPDUHeader& aHeader,
@@ -210,43 +195,39 @@ private:
                         DaemonSocketPDU& aPDU,
                         GonkSensorsPollResultHandler* aRes);
 
-  void SetPeriodRsp(const DaemonSocketPDUHeader& aHeader,
-                    DaemonSocketPDU& aPDU,
+  void SetPeriodRsp(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
                     GonkSensorsPollResultHandler* aRes);
 
-  void HandleRsp(const DaemonSocketPDUHeader& aHeader,
-                 DaemonSocketPDU& aPDU,
+  void HandleRsp(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
                  DaemonSocketResultHandler* aRes);
 
   //
   // Notifications
   //
 
-  typedef mozilla::ipc::DaemonNotificationRunnable1<
-    NotificationHandlerWrapper, void, SensorsError>
-    ErrorNotification;
+  typedef mozilla::ipc::DaemonNotificationRunnable1<NotificationHandlerWrapper,
+                                                    void, SensorsError>
+      ErrorNotification;
 
   typedef mozilla::ipc::DaemonNotificationRunnable9<
-    NotificationHandlerWrapper, void, int32_t, SensorsType,
-    float, float, float, int32_t, int32_t, SensorsTriggerMode,
-    SensorsDeliveryMode>
-    SensorDetectedNotification;
+      NotificationHandlerWrapper, void, int32_t, SensorsType, float, float,
+      float, int32_t, int32_t, SensorsTriggerMode, SensorsDeliveryMode>
+      SensorDetectedNotification;
 
-  typedef mozilla::ipc::DaemonNotificationRunnable1<
-    NotificationHandlerWrapper, void, int32_t>
-    SensorLostNotification;
+  typedef mozilla::ipc::DaemonNotificationRunnable1<NotificationHandlerWrapper,
+                                                    void, int32_t>
+      SensorLostNotification;
 
   typedef mozilla::ipc::DaemonNotificationRunnable2<
-    NotificationHandlerWrapper, void, int32_t, SensorsEvent, int32_t,
-    const SensorsEvent&>
-    EventNotification;
+      NotificationHandlerWrapper, void, int32_t, SensorsEvent, int32_t,
+      const SensorsEvent&>
+      EventNotification;
 
   class SensorDetectedInitOp;
   class SensorLostInitOp;
   class EventInitOp;
 
-  void ErrorNtf(const DaemonSocketPDUHeader& aHeader,
-                DaemonSocketPDU& aPDU);
+  void ErrorNtf(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU);
 
   void SensorDetectedNtf(const DaemonSocketPDUHeader& aHeader,
                          DaemonSocketPDU& aPDU);
@@ -254,14 +235,12 @@ private:
   void SensorLostNtf(const DaemonSocketPDUHeader& aHeader,
                      DaemonSocketPDU& aPDU);
 
-  void EventNtf(const DaemonSocketPDUHeader& aHeader,
-                DaemonSocketPDU& aPDU);
+  void EventNtf(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU);
 
-  void HandleNtf(const DaemonSocketPDUHeader& aHeader,
-                 DaemonSocketPDU& aPDU,
+  void HandleNtf(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
                  DaemonSocketResultHandler* aRes);
 
-private:
+ private:
   unsigned long mProtocolVersion;
 };
 
@@ -270,9 +249,8 @@ private:
  * component. Use |SensorsInterface::GetPollInterface| to retrieve
  * an instance. All methods run on the main thread.
  */
-class GonkSensorsPollInterface final
-{
-public:
+class GonkSensorsPollInterface final {
+ public:
   GonkSensorsPollInterface(GonkSensorsPollModule* aModule);
   ~GonkSensorsPollInterface();
 
@@ -285,7 +263,7 @@ public:
    * @param aNotificationHandler An instance of a poll notification handler.
    */
   void SetNotificationHandler(
-    GonkSensorsPollNotificationHandler* aNotificationHandler);
+      GonkSensorsPollNotificationHandler* aNotificationHandler);
 
   /**
    * This method sets the protocol version. You should set it to the
@@ -325,16 +303,17 @@ public:
    * @param aPeriod The sensor's new period.
    * @param aRes The result handler.
    */
-  void SetPeriod(int32_t aId, uint64_t aPeriod, GonkSensorsPollResultHandler* aRes);
+  void SetPeriod(int32_t aId, uint64_t aPeriod,
+                 GonkSensorsPollResultHandler* aRes);
 
-private:
+ private:
   void DispatchError(GonkSensorsPollResultHandler* aRes, SensorsError aError);
   void DispatchError(GonkSensorsPollResultHandler* aRes, nsresult aRv);
 
   GonkSensorsPollModule* mModule;
 };
 
-} // hal
-} // namespace mozilla
+}  // namespace hal
+}  // namespace mozilla
 
-#endif // hal_gonk_GonkSensorsPollInterface_h
+#endif  // hal_gonk_GonkSensorsPollInterface_h

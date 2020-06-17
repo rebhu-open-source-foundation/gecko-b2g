@@ -13,9 +13,7 @@ namespace hal {
 // Unpacking
 //
 
-nsresult
-UnpackPDU(DaemonSocketPDU& aPDU, SensorsEvent& aOut)
-{
+nsresult UnpackPDU(DaemonSocketPDU& aPDU, SensorsEvent& aOut) {
   nsresult rv = UnpackPDU(aPDU, aOut.mType);
   if (NS_FAILED(rv)) {
     return rv;
@@ -108,5 +106,5 @@ UnpackPDU(DaemonSocketPDU& aPDU, SensorsEvent& aOut)
   return NS_OK;
 }
 
-} // namespace hal
-} // namespace mozilla
+}  // namespace hal
+}  // namespace mozilla

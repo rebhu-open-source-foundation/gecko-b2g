@@ -29,10 +29,8 @@ namespace dom {
 
 namespace {
 
-bool
-IsPukCardLockType(IccLockType aLockType)
-{
-  switch(aLockType) {
+bool IsPukCardLockType(IccLockType aLockType) {
+  switch (aLockType) {
     case IccLockType::Puk:
     case IccLockType::Puk2:
     case IccLockType::NckPuk:
@@ -51,10 +49,8 @@ IsPukCardLockType(IccLockType aLockType)
   }
 }
 
-uint32_t
-ConvertToAuthType(IccAuthType aAuthType)
-{
-  switch(aAuthType) {
+uint32_t ConvertToAuthType(IccAuthType aAuthType) {
+  switch (aAuthType) {
     case IccAuthType::EapSim:
       return nsIIcc::AUTHTYPE_EAP_SIM;
     case IccAuthType::EapAka:
@@ -64,7 +60,7 @@ ConvertToAuthType(IccAuthType aAuthType)
   }
 }
 
-} // namespace
+}  // namespace
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(Icc, DOMEventTargetHelper, mIccInfo)
 
@@ -75,9 +71,7 @@ NS_IMPL_ADDREF_INHERITED(Icc, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(Icc, DOMEventTargetHelper)
 
 Icc::Icc(nsPIDOMWindowInner* aWindow, nsIIcc* aHandler, nsIIccInfo* aIccInfo)
-  : mLive(true)
-  , mHandler(aHandler)
-{
+    : mLive(true), mHandler(aHandler) {
   nsIGlobalObject* global = aWindow ? aWindow->AsGlobal() : nullptr;
   BindToOwner(global);
 
@@ -87,27 +81,20 @@ Icc::Icc(nsPIDOMWindowInner* aWindow, nsIIcc* aHandler, nsIIccInfo* aIccInfo)
   }
 }
 
-Icc::~Icc()
-{
-}
+Icc::~Icc() {}
 
-void
-Icc::Shutdown()
-{
+void Icc::Shutdown() {
   mIccInfo.SetNull();
   mHandler = nullptr;
   mLive = false;
 }
 
-nsresult
-Icc::NotifyEvent(const nsAString& aName)
-{
+nsresult Icc::NotifyEvent(const nsAString& aName) {
   return DispatchTrustedEvent(aName);
 }
 
-nsresult
-Icc::NotifyStkEvent(const nsAString& aName, nsIStkProactiveCmd* aStkProactiveCmd)
-{
+nsresult Icc::NotifyStkEvent(const nsAString& aName,
+                             nsIStkProactiveCmd* aStkProactiveCmd) {
   /* TODO:
     JSContext* cx = nsContentUtils::RootingCxForThread();
     JS::Rooted<JS::Value> value(cx);
@@ -132,9 +119,7 @@ Icc::NotifyStkEvent(const nsAString& aName, nsIStkProactiveCmd* aStkProactiveCmd
   return NS_OK;
 }
 
-void
-Icc::UpdateIccInfo(nsIIccInfo* aIccInfo)
-{
+void Icc::UpdateIccInfo(nsIIccInfo* aIccInfo) {
   if (!aIccInfo) {
     mIccInfo.SetNull();
     return;
@@ -166,28 +151,22 @@ Icc::UpdateIccInfo(nsIIccInfo* aIccInfo)
 
 // WrapperCache
 
-JSObject*
-Icc::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* Icc::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
   return Icc_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 // Icc WebIDL
 
-void
-Icc::GetIccInfo(Nullable<OwningIccInfoOrGsmIccInfoOrCdmaIccInfo>& aIccInfo) const
-{
+void Icc::GetIccInfo(
+    Nullable<OwningIccInfoOrGsmIccInfoOrCdmaIccInfo>& aIccInfo) const {
   aIccInfo = mIccInfo;
 }
 
-Nullable<IccCardState>
-Icc::GetCardState() const
-{
+Nullable<IccCardState> Icc::GetCardState() const {
   Nullable<IccCardState> result;
 
   uint32_t cardState = nsIIcc::CARD_STATE_UNDETECTED;
-  if (mHandler &&
-      NS_SUCCEEDED(mHandler->GetCardState(&cardState)) &&
+  if (mHandler && NS_SUCCEEDED(mHandler->GetCardState(&cardState)) &&
       cardState != nsIIcc::CARD_STATE_UNDETECTED) {
     MOZ_ASSERT(cardState < static_cast<uint32_t>(IccCardState::EndGuard_));
     result.SetValue(static_cast<IccCardState>(cardState));
@@ -196,17 +175,15 @@ Icc::GetCardState() const
   return result;
 }
 
-void
-Icc::SendStkResponse(const JSContext* aCx, JS::Handle<JS::Value> aCommand,
-                     JS::Handle<JS::Value> aResponse, ErrorResult& aRv)
-{
+void Icc::SendStkResponse(const JSContext* aCx, JS::Handle<JS::Value> aCommand,
+                          JS::Handle<JS::Value> aResponse, ErrorResult& aRv) {
   if (!mHandler) {
     aRv.Throw(NS_ERROR_FAILURE);
     return;
   }
 
   nsCOMPtr<nsIStkCmdFactory> cmdFactory =
-    do_GetService(ICC_STK_CMD_FACTORY_CONTRACTID);
+      do_GetService(ICC_STK_CMD_FACTORY_CONTRACTID);
   if (!cmdFactory) {
     aRv.Throw(NS_ERROR_FAILURE);
     return;
@@ -232,10 +209,8 @@ Icc::SendStkResponse(const JSContext* aCx, JS::Handle<JS::Value> aCommand,
   }
 }
 
-void
-Icc::SendStkMenuSelection(uint16_t aItemIdentifier, bool aHelpRequested,
-                          ErrorResult& aRv)
-{
+void Icc::SendStkMenuSelection(uint16_t aItemIdentifier, bool aHelpRequested,
+                               ErrorResult& aRv) {
   if (!mHandler) {
     aRv.Throw(NS_ERROR_FAILURE);
     return;
@@ -247,17 +222,16 @@ Icc::SendStkMenuSelection(uint16_t aItemIdentifier, bool aHelpRequested,
   }
 }
 
-void
-Icc::SendStkTimerExpiration(const JSContext* aCx, JS::Handle<JS::Value> aTimer,
-                            ErrorResult& aRv)
-{
+void Icc::SendStkTimerExpiration(const JSContext* aCx,
+                                 JS::Handle<JS::Value> aTimer,
+                                 ErrorResult& aRv) {
   if (!mHandler) {
     aRv.Throw(NS_ERROR_FAILURE);
     return;
   }
 
   nsCOMPtr<nsIStkCmdFactory> cmdFactory =
-    do_GetService(ICC_STK_CMD_FACTORY_CONTRACTID);
+      do_GetService(ICC_STK_CMD_FACTORY_CONTRACTID);
   if (!cmdFactory) {
     aRv.Throw(NS_ERROR_FAILURE);
     return;
@@ -291,17 +265,15 @@ Icc::SendStkTimerExpiration(const JSContext* aCx, JS::Handle<JS::Value> aTimer,
   }
 }
 
-void
-Icc::SendStkEventDownload(const JSContext* aCx, JS::Handle<JS::Value> aEvent,
-                          ErrorResult& aRv)
-{
+void Icc::SendStkEventDownload(const JSContext* aCx,
+                               JS::Handle<JS::Value> aEvent, ErrorResult& aRv) {
   if (!mHandler) {
     aRv.Throw(NS_ERROR_FAILURE);
     return;
   }
 
   nsCOMPtr<nsIStkCmdFactory> cmdFactory =
-    do_GetService(ICC_STK_CMD_FACTORY_CONTRACTID);
+      do_GetService(ICC_STK_CMD_FACTORY_CONTRACTID);
   if (!cmdFactory) {
     aRv.Throw(NS_ERROR_FAILURE);
     return;
@@ -320,9 +292,8 @@ Icc::SendStkEventDownload(const JSContext* aCx, JS::Handle<JS::Value> aEvent,
   }
 }
 
-already_AddRefed<DOMRequest>
-Icc::GetCardLock(IccLockType aLockType, ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> Icc::GetCardLock(IccLockType aLockType,
+                                              ErrorResult& aRv) {
   if (!mHandler) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -332,7 +303,7 @@ Icc::GetCardLock(IccLockType aLockType, ErrorResult& aRv)
   // TODO: Bug 1125018 - Simplify The Result of GetCardLock and
   // getCardLockRetryCount in Icc.webidl without a wrapper object.
   RefPtr<IccCallback> requestCallback =
-    new IccCallback(GetOwner(), request, true);
+      new IccCallback(GetOwner(), request, true);
   nsresult rv = mHandler->GetCardLockEnabled(static_cast<uint32_t>(aLockType),
                                              requestCallback);
   if (NS_FAILED(rv)) {
@@ -343,22 +314,20 @@ Icc::GetCardLock(IccLockType aLockType, ErrorResult& aRv)
   return request.forget();
 }
 
-already_AddRefed<DOMRequest>
-Icc::UnlockCardLock(const IccUnlockCardLockOptions& aOptions, ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> Icc::UnlockCardLock(
+    const IccUnlockCardLockOptions& aOptions, ErrorResult& aRv) {
   if (!mHandler) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
   }
 
   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
-  RefPtr<IccCallback> requestCallback =
-    new IccCallback(GetOwner(), request);
-  const nsString& password = IsPukCardLockType(aOptions.mLockType)
-                           ? aOptions.mPuk : aOptions.mPin;
+  RefPtr<IccCallback> requestCallback = new IccCallback(GetOwner(), request);
+  const nsString& password =
+      IsPukCardLockType(aOptions.mLockType) ? aOptions.mPuk : aOptions.mPin;
   nsresult rv =
-    mHandler->UnlockCardLock(static_cast<uint32_t>(aOptions.mLockType),
-                             password, aOptions.mNewPin, requestCallback);
+      mHandler->UnlockCardLock(static_cast<uint32_t>(aOptions.mLockType),
+                               password, aOptions.mNewPin, requestCallback);
   if (NS_FAILED(rv)) {
     aRv.Throw(rv);
     return nullptr;
@@ -367,9 +336,8 @@ Icc::UnlockCardLock(const IccUnlockCardLockOptions& aOptions, ErrorResult& aRv)
   return request.forget();
 }
 
-already_AddRefed<DOMRequest>
-Icc::SetCardLock(const IccSetCardLockOptions& aOptions, ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> Icc::SetCardLock(
+    const IccSetCardLockOptions& aOptions, ErrorResult& aRv) {
   if (!mHandler) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -377,24 +345,22 @@ Icc::SetCardLock(const IccSetCardLockOptions& aOptions, ErrorResult& aRv)
 
   nsresult rv;
   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
-  RefPtr<IccCallback> requestCallback =
-    new IccCallback(GetOwner(), request);
+  RefPtr<IccCallback> requestCallback = new IccCallback(GetOwner(), request);
 
-  if (aOptions.mEnabled) { //TODO: fix the condition
+  if (aOptions.mEnabled) {  // TODO: fix the condition
     // Enable card lock.
-    const nsString& password = (aOptions.mLockType == IccLockType::Fdn) ?
-                               aOptions.mPin2 : aOptions.mPin;
+    const nsString& password = (aOptions.mLockType == IccLockType::Fdn)
+                                   ? aOptions.mPin2
+                                   : aOptions.mPin;
 
-    rv =
-      mHandler->SetCardLockEnabled(static_cast<uint32_t>(aOptions.mLockType),
-                                   password, aOptions.mEnabled,
-                                   requestCallback);
+    rv = mHandler->SetCardLockEnabled(static_cast<uint32_t>(aOptions.mLockType),
+                                      password, aOptions.mEnabled,
+                                      requestCallback);
   } else {
     // Change card lock password.
-    rv =
-      mHandler->ChangeCardLockPassword(static_cast<uint32_t>(aOptions.mLockType),
-                                       aOptions.mPin, aOptions.mNewPin,
-                                       requestCallback);
+    rv = mHandler->ChangeCardLockPassword(
+        static_cast<uint32_t>(aOptions.mLockType), aOptions.mPin,
+        aOptions.mNewPin, requestCallback);
   }
 
   if (NS_FAILED(rv)) {
@@ -405,19 +371,17 @@ Icc::SetCardLock(const IccSetCardLockOptions& aOptions, ErrorResult& aRv)
   return request.forget();
 }
 
-already_AddRefed<DOMRequest>
-Icc::GetCardLockRetryCount(IccLockType aLockType, ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> Icc::GetCardLockRetryCount(IccLockType aLockType,
+                                                        ErrorResult& aRv) {
   if (!mHandler) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
   }
 
   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
-  RefPtr<IccCallback> requestCallback =
-    new IccCallback(GetOwner(), request);
-  nsresult rv = mHandler->GetCardLockRetryCount(static_cast<uint32_t>(aLockType),
-                                                requestCallback);
+  RefPtr<IccCallback> requestCallback = new IccCallback(GetOwner(), request);
+  nsresult rv = mHandler->GetCardLockRetryCount(
+      static_cast<uint32_t>(aLockType), requestCallback);
   if (NS_FAILED(rv)) {
     aRv.Throw(rv);
     return nullptr;
@@ -487,10 +451,9 @@ Icc::GetCardLockRetryCount(IccLockType aLockType, ErrorResult& aRv)
 //   return request.forget();
 // }
 
-already_AddRefed<DOMRequest>
-Icc::GetIccAuthentication(IccAppType aAppType, IccAuthType aAuthType,
-                          const nsAString& aAuthData, ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> Icc::GetIccAuthentication(
+    IccAppType aAppType, IccAuthType aAuthType, const nsAString& aAuthData,
+    ErrorResult& aRv) {
   if (!mHandler) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -499,11 +462,10 @@ Icc::GetIccAuthentication(IccAppType aAppType, IccAuthType aAuthType,
   uint32_t authType = ConvertToAuthType(aAuthType);
 
   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
-  RefPtr<IccCallback> requestCallback =
-    new IccCallback(GetOwner(), request);
+  RefPtr<IccCallback> requestCallback = new IccCallback(GetOwner(), request);
 
-  nsresult rv = mHandler->GetIccAuthentication(static_cast<uint32_t>(aAppType),
-                                               authType, aAuthData, requestCallback);
+  nsresult rv = mHandler->GetIccAuthentication(
+      static_cast<uint32_t>(aAppType), authType, aAuthData, requestCallback);
   if (NS_FAILED(rv)) {
     aRv.Throw(rv);
     return nullptr;
@@ -511,20 +473,18 @@ Icc::GetIccAuthentication(IccAppType aAppType, IccAuthType aAuthType,
   return request.forget();
 }
 
-already_AddRefed<DOMRequest>
-Icc::MatchMvno(IccMvnoType aMvnoType, const nsAString& aMvnoData,
-               ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> Icc::MatchMvno(IccMvnoType aMvnoType,
+                                            const nsAString& aMvnoData,
+                                            ErrorResult& aRv) {
   if (!mHandler) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
   }
 
   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
-  RefPtr<IccCallback> requestCallback =
-    new IccCallback(GetOwner(), request);
-  nsresult rv = mHandler->MatchMvno(static_cast<uint32_t>(aMvnoType),
-                                    aMvnoData, requestCallback);
+  RefPtr<IccCallback> requestCallback = new IccCallback(GetOwner(), request);
+  nsresult rv = mHandler->MatchMvno(static_cast<uint32_t>(aMvnoType), aMvnoData,
+                                    requestCallback);
   if (NS_FAILED(rv)) {
     aRv.Throw(rv);
     return nullptr;
@@ -533,9 +493,8 @@ Icc::MatchMvno(IccMvnoType aMvnoType, const nsAString& aMvnoData,
   return request.forget();
 }
 
-already_AddRefed<Promise>
-Icc::GetServiceState(IccService aService, ErrorResult& aRv)
-{
+already_AddRefed<Promise> Icc::GetServiceState(IccService aService,
+                                               ErrorResult& aRv) {
   if (!mHandler) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -551,12 +510,10 @@ Icc::GetServiceState(IccService aService, ErrorResult& aRv)
     return nullptr;
   }
 
-  RefPtr<IccCallback> requestCallback =
-    new IccCallback(GetOwner(), promise);
+  RefPtr<IccCallback> requestCallback = new IccCallback(GetOwner(), promise);
 
-  nsresult rv =
-    mHandler->GetServiceStateEnabled(static_cast<uint32_t>(aService),
-                                     requestCallback);
+  nsresult rv = mHandler->GetServiceStateEnabled(
+      static_cast<uint32_t>(aService), requestCallback);
 
   if (NS_FAILED(rv)) {
     promise->MaybeReject(NS_ERROR_DOM_INVALID_STATE_ERR);
@@ -566,5 +523,5 @@ Icc::GetServiceState(IccService aService, ErrorResult& aRv)
   return promise.forget();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

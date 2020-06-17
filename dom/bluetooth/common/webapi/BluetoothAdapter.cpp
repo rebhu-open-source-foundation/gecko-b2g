@@ -264,7 +264,8 @@ class GetDevicesTask : public BluetoothReplyRunnable {
 
 class GetScoConnectionStatusTask : public BluetoothReplyRunnable {
  public:
-  explicit GetScoConnectionStatusTask(DOMRequest* aReq) : BluetoothReplyRunnable(aReq) {
+  explicit GetScoConnectionStatusTask(DOMRequest* aReq)
+      : BluetoothReplyRunnable(aReq) {
     MOZ_ASSERT(aReq);
   }
 

@@ -17,117 +17,97 @@ BEGIN_TELEPHONY_NAMESPACE
 
 class TelephonyIPCService;
 
-class TelephonyChild : public PTelephonyChild
-{
+class TelephonyChild : public PTelephonyChild {
   friend class PTelephonyChild;
-public:
+
+ public:
   explicit TelephonyChild(TelephonyIPCService* aService);
 
-protected:
+ protected:
   virtual ~TelephonyChild();
 
-  virtual void
-  ActorDestroy(ActorDestroyReason aWhy) override;
+  virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  PTelephonyRequestChild*
-  AllocPTelephonyRequestChild(const IPCTelephonyRequest& aRequest);
+  PTelephonyRequestChild* AllocPTelephonyRequestChild(
+      const IPCTelephonyRequest& aRequest);
 
-  bool
-  DeallocPTelephonyRequestChild(PTelephonyRequestChild* aActor);
-/*
-#ifdef MOZ_WIDGET_GONK
-  PVideoCallProviderChild*
-  AllocPVideoCallProviderChild(const uint32_t& clientId,
-                               const uint32_t& callIndex);
+  bool DeallocPTelephonyRequestChild(PTelephonyRequestChild* aActor);
+  /*
+  #ifdef MOZ_WIDGET_GONK
+    PVideoCallProviderChild*
+    AllocPVideoCallProviderChild(const uint32_t& clientId,
+                                 const uint32_t& callIndex);
 
-  bool
-  DeallocPVideoCallProviderChild(PVideoCallProviderChild* aActor);
-#endif
-*/
-  mozilla::ipc::IPCResult
-  RecvNotifyCallStateChanged(nsTArray<nsITelephonyCallInfo*>&& aAllInfo);
+    bool
+    DeallocPVideoCallProviderChild(PVideoCallProviderChild* aActor);
+  #endif
+  */
+  mozilla::ipc::IPCResult RecvNotifyCallStateChanged(
+      nsTArray<nsITelephonyCallInfo*>&& aAllInfo);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyCdmaCallWaiting(const uint32_t& aClientId,
-                            const IPCCdmaWaitingCallData& aData);
+  mozilla::ipc::IPCResult RecvNotifyCdmaCallWaiting(
+      const uint32_t& aClientId, const IPCCdmaWaitingCallData& aData);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyConferenceError(const nsString& aName,
-                            const nsString& aMessage);
+  mozilla::ipc::IPCResult RecvNotifyConferenceError(const nsString& aName,
+                                                    const nsString& aMessage);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyRingbackTone(const bool& PlayRingbackTone);
+  mozilla::ipc::IPCResult RecvNotifyRingbackTone(const bool& PlayRingbackTone);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyTtyModeReceived(const uint16_t& aMode);
+  mozilla::ipc::IPCResult RecvNotifyTtyModeReceived(const uint16_t& aMode);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyTelephonyCoverageLosing(const uint16_t& aType);
+  mozilla::ipc::IPCResult RecvNotifyTelephonyCoverageLosing(
+      const uint16_t& aType);
 
-  mozilla::ipc::IPCResult
-  RecvNotifySupplementaryService(const uint32_t& aClientId,
-                                 const int32_t& aNotificationType,
-                                 const int32_t& aCode,
-                                 const int32_t& aIndex,
-                                 const int32_t& aType,
-                                 const nsString& aNumber);
+  mozilla::ipc::IPCResult RecvNotifySupplementaryService(
+      const uint32_t& aClientId, const int32_t& aNotificationType,
+      const int32_t& aCode, const int32_t& aIndex, const int32_t& aType,
+      const nsString& aNumber);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyRttModifyRequestReceived(const uint32_t& aClientId,
-                                     const int32_t& aCallIndex,
-                                     const uint16_t& aRttMode);
+  mozilla::ipc::IPCResult RecvNotifyRttModifyRequestReceived(
+      const uint32_t& aClientId, const int32_t& aCallIndex,
+      const uint16_t& aRttMode);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyRttModifyResponseReceived(const uint32_t& aClientId,
-                                      const int32_t& aCallIndex,
-                                      const uint16_t& aStatus);
+  mozilla::ipc::IPCResult RecvNotifyRttModifyResponseReceived(
+      const uint32_t& aClientId, const int32_t& aCallIndex,
+      const uint16_t& aStatus);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyRttMessageReceived(const uint32_t& aClientId,
-                               const int32_t& aCallIndex,
-                               const nsString& aMessage);
+  mozilla::ipc::IPCResult RecvNotifyRttMessageReceived(
+      const uint32_t& aClientId, const int32_t& aCallIndex,
+      const nsString& aMessage);
 
-private:
+ private:
   RefPtr<TelephonyIPCService> mService;
 };
 
-class TelephonyRequestChild : public PTelephonyRequestChild
-{
+class TelephonyRequestChild : public PTelephonyRequestChild {
   friend class PTelephonyRequestChild;
-public:
+
+ public:
   TelephonyRequestChild(nsITelephonyListener* aListener,
                         nsITelephonyCallback* aCallback);
 
-protected:
+ protected:
   virtual ~TelephonyRequestChild() {}
 
-  virtual void
-  ActorDestroy(ActorDestroyReason aWhy) override;
+  virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  mozilla::ipc::IPCResult
-  Recv__delete__(const IPCTelephonyResponse& aResponse);
+  mozilla::ipc::IPCResult Recv__delete__(const IPCTelephonyResponse& aResponse);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyEnumerateCallState(nsITelephonyCallInfo* const& aInfo);
+  mozilla::ipc::IPCResult RecvNotifyEnumerateCallState(
+      nsITelephonyCallInfo* const& aInfo);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyDialMMI(const nsString& aServiceCode);
+  mozilla::ipc::IPCResult RecvNotifyDialMMI(const nsString& aServiceCode);
 
-private:
-  bool
-  DoResponse(const SuccessResponse& aResponse);
+ private:
+  bool DoResponse(const SuccessResponse& aResponse);
 
-  bool
-  DoResponse(const ErrorResponse& aResponse);
+  bool DoResponse(const ErrorResponse& aResponse);
 
-  bool
-  DoResponse(const DialResponseCallSuccess& aResponse);
+  bool DoResponse(const DialResponseCallSuccess& aResponse);
 
-  bool
-  DoResponse(const DialResponseMMISuccess& aResponse);
+  bool DoResponse(const DialResponseMMISuccess& aResponse);
 
-  bool
-  DoResponse(const DialResponseMMIError& aResponse);
+  bool DoResponse(const DialResponseMMIError& aResponse);
 
   nsCOMPtr<nsITelephonyListener> mListener;
   nsCOMPtr<nsITelephonyCallback> mCallback;
@@ -135,4 +115,4 @@ private:
 
 END_TELEPHONY_NAMESPACE
 
-#endif // mozilla_dom_telephony_TelephonyChild_h
+#endif  // mozilla_dom_telephony_TelephonyChild_h

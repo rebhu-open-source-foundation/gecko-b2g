@@ -25,40 +25,36 @@ namespace android {
 // --- InputWindowInfo ---
 
 bool InputWindowInfo::touchableRegionContainsPoint(int32_t x, int32_t y) const {
-    return touchableRegion.contains(x, y);
+  return touchableRegion.contains(x, y);
 }
 
 bool InputWindowInfo::frameContainsPoint(int32_t x, int32_t y) const {
-    return x >= frameLeft && x <= frameRight
-            && y >= frameTop && y <= frameBottom;
+  return x >= frameLeft && x <= frameRight && y >= frameTop && y <= frameBottom;
 }
 
 bool InputWindowInfo::isTrustedOverlay() const {
-    return layoutParamsType == TYPE_INPUT_METHOD
-            || layoutParamsType == TYPE_INPUT_METHOD_DIALOG
-            || layoutParamsType == TYPE_SECURE_SYSTEM_OVERLAY;
+  return layoutParamsType == TYPE_INPUT_METHOD ||
+         layoutParamsType == TYPE_INPUT_METHOD_DIALOG ||
+         layoutParamsType == TYPE_SECURE_SYSTEM_OVERLAY;
 }
 
 bool InputWindowInfo::supportsSplitTouch() const {
-    return layoutParamsFlags & FLAG_SPLIT_TOUCH;
+  return layoutParamsFlags & FLAG_SPLIT_TOUCH;
 }
-
 
 // --- InputWindowHandle ---
 
-InputWindowHandle::InputWindowHandle(const sp<InputApplicationHandle>& inputApplicationHandle) :
-    inputApplicationHandle(inputApplicationHandle), mInfo(NULL) {
-}
+InputWindowHandle::InputWindowHandle(
+    const sp<InputApplicationHandle>& inputApplicationHandle)
+    : inputApplicationHandle(inputApplicationHandle), mInfo(NULL) {}
 
-InputWindowHandle::~InputWindowHandle() {
-    delete mInfo;
-}
+InputWindowHandle::~InputWindowHandle() { delete mInfo; }
 
 void InputWindowHandle::releaseInfo() {
-    if (mInfo) {
-        delete mInfo;
-        mInfo = NULL;
-    }
+  if (mInfo) {
+    delete mInfo;
+    mInfo = NULL;
+  }
 }
 
-} // namespace android
+}  // namespace android

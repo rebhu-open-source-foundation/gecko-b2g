@@ -10,7 +10,6 @@
 namespace mozilla {
 namespace dom {
 
-
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(ImsDeviceConfiguration, mWindow)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(ImsDeviceConfiguration)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(ImsDeviceConfiguration)
@@ -19,28 +18,21 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(ImsDeviceConfiguration)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-ImsDeviceConfiguration::ImsDeviceConfiguration(nsPIDOMWindowInner* aWindow,
-                                               const nsTArray<ImsBearer>& aBearers)
-  : mWindow(aWindow)
-  , mBearers(aBearers.Clone())
-{
-}
+ImsDeviceConfiguration::ImsDeviceConfiguration(
+    nsPIDOMWindowInner* aWindow, const nsTArray<ImsBearer>& aBearers)
+    : mWindow(aWindow), mBearers(aBearers.Clone()) {}
 
-ImsDeviceConfiguration::~ImsDeviceConfiguration()
-{
-}
+ImsDeviceConfiguration::~ImsDeviceConfiguration() {}
 
-JSObject*
-ImsDeviceConfiguration::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* ImsDeviceConfiguration::WrapObject(
+    JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
   return ImsDeviceConfiguration_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-void
-ImsDeviceConfiguration::GetSupportedBearers(nsTArray<ImsBearer>& aBearers) const
-{
+void ImsDeviceConfiguration::GetSupportedBearers(
+    nsTArray<ImsBearer>& aBearers) const {
   aBearers = mBearers.Clone();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -76,7 +76,9 @@ class BluetoothDevice final : public DOMEventTargetHelper,
                                JS::Handle<JSObject*> aGivenProto) override;
   virtual void DisconnectFromOwner() override;
 
-  void GetUuids(nsTArray<BluetoothUuid>& aUuids) const { aUuids = mUuids.Clone(); }
+  void GetUuids(nsTArray<BluetoothUuid>& aUuids) const {
+    aUuids = mUuids.Clone();
+  }
 
  private:
   BluetoothDevice(nsPIDOMWindowInner* aOwner, const BluetoothValue& aValue);

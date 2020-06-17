@@ -77,9 +77,8 @@ enum {
   CAMERA_PARAM_SUPPORTED_METERINGMODES
 };
 
-class ICameraControl
-{
-public:
+class ICameraControl {
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(ICameraControl)
 
   // Returns the number of cameras supported by the system.
@@ -113,130 +112,125 @@ public:
   };
 
   struct Size {
-    uint32_t  width;
-    uint32_t  height;
+    uint32_t width;
+    uint32_t height;
 
-    bool Equals(const Size& aSize) const
-    {
+    bool Equals(const Size& aSize) const {
       return width == aSize.width && height == aSize.height;
     }
   };
 
   struct Region {
-    int32_t   top;
-    int32_t   left;
-    int32_t   bottom;
-    int32_t   right;
-    uint32_t  weight;
+    int32_t top;
+    int32_t left;
+    int32_t bottom;
+    int32_t right;
+    uint32_t weight;
   };
 
   struct Position {
-    double    latitude;
-    double    longitude;
-    double    altitude;
-    double    timestamp;
+    double latitude;
+    double longitude;
+    double altitude;
+    double timestamp;
   };
 
   struct StartRecordingOptions {
-    uint32_t  rotation;
-    uint64_t  maxFileSizeBytes;
-    uint64_t  maxVideoLengthMs;
-    bool      autoEnableLowLightTorch;
-    bool      createPoster;
+    uint32_t rotation;
+    uint64_t maxFileSizeBytes;
+    uint64_t maxVideoLengthMs;
+    bool autoEnableLowLightTorch;
+    bool createPoster;
   };
 
   struct Configuration {
-    Mode      mMode;
-    Size      mPreviewSize;
-    Size      mPictureSize;
-    nsString  mRecorderProfile;
+    Mode mMode;
+    Size mPreviewSize;
+    Size mPictureSize;
+    nsString mRecorderProfile;
   };
 
   struct Point {
-    int32_t   x;
-    int32_t   y;
+    int32_t x;
+    int32_t y;
   };
 
   struct Face {
-    uint32_t  id;
-    uint32_t  score;
-    Region    bound;
-    bool      hasLeftEye;
-    Point     leftEye;
-    bool      hasRightEye;
-    Point     rightEye;
-    bool      hasMouth;
-    Point     mouth;
+    uint32_t id;
+    uint32_t score;
+    Region bound;
+    bool hasLeftEye;
+    Point leftEye;
+    bool hasRightEye;
+    Point rightEye;
+    bool hasMouth;
+    Point mouth;
   };
 
-  class RecorderProfile
-  {
-  public:
-    class Video
-    {
-    public:
-      Video() { }
-      virtual ~Video() { }
+  class RecorderProfile {
+   public:
+    class Video {
+     public:
+      Video() {}
+      virtual ~Video() {}
 
-      const nsString& GetCodec() const    { return mCodec; }
-      const Size& GetSize() const         { return mSize; }
-      uint32_t GetBitsPerSecond() const   { return mBitsPerSecond; }
+      const nsString& GetCodec() const { return mCodec; }
+      const Size& GetSize() const { return mSize; }
+      uint32_t GetBitsPerSecond() const { return mBitsPerSecond; }
       uint32_t GetFramesPerSecond() const { return mFramesPerSecond; }
 
-    protected:
-      nsString  mCodec;
-      Size      mSize;
-      uint32_t  mBitsPerSecond;
-      uint32_t  mFramesPerSecond;
+     protected:
+      nsString mCodec;
+      Size mSize;
+      uint32_t mBitsPerSecond;
+      uint32_t mFramesPerSecond;
 
-    private:
+     private:
       DISALLOW_EVIL_CONSTRUCTORS(Video);
     };
 
-    class Audio
-    {
-    public:
-      Audio() { }
-      virtual ~Audio() { }
+    class Audio {
+     public:
+      Audio() {}
+      virtual ~Audio() {}
 
-      const nsString& GetCodec() const    { return mCodec; }
+      const nsString& GetCodec() const { return mCodec; }
 
-      uint32_t GetChannels() const        { return mChannels; }
-      uint32_t GetBitsPerSecond() const   { return mBitsPerSecond; }
+      uint32_t GetChannels() const { return mChannels; }
+      uint32_t GetBitsPerSecond() const { return mBitsPerSecond; }
       uint32_t GetSamplesPerSecond() const { return mSamplesPerSecond; }
 
-    protected:
-      nsString  mCodec;
-      uint32_t  mChannels;
-      uint32_t  mBitsPerSecond;
-      uint32_t  mSamplesPerSecond;
+     protected:
+      nsString mCodec;
+      uint32_t mChannels;
+      uint32_t mBitsPerSecond;
+      uint32_t mSamplesPerSecond;
 
-    private:
+     private:
       DISALLOW_EVIL_CONSTRUCTORS(Audio);
     };
 
     NS_INLINE_DECL_THREADSAFE_REFCOUNTING(RecorderProfile)
 
-    RecorderProfile()
-    { }
+    RecorderProfile() {}
 
-    const nsString& GetName() const       { return mName; }
-    const nsString& GetContainer() const  { return mContainer; }
-    const nsString& GetMimeType() const   { return mMimeType; }
-    uint32_t GetPriority() const          { return mPriority; }
+    const nsString& GetName() const { return mName; }
+    const nsString& GetContainer() const { return mContainer; }
+    const nsString& GetMimeType() const { return mMimeType; }
+    uint32_t GetPriority() const { return mPriority; }
 
     virtual const Video& GetVideo() const = 0;
     virtual const Audio& GetAudio() const = 0;
 
-  protected:
-    virtual ~RecorderProfile() { }
+   protected:
+    virtual ~RecorderProfile() {}
 
-    nsString    mName;
-    nsString    mContainer;
-    nsString    mMimeType;
-    uint32_t    mPriority;
+    nsString mName;
+    nsString mContainer;
+    nsString mMimeType;
+    uint32_t mPriority;
 
-  private:
+   private:
     DISALLOW_EVIL_CONSTRUCTORS(RecorderProfile);
   };
 
@@ -259,8 +253,9 @@ public:
   virtual nsresult StopPreview() = 0;
   virtual nsresult AutoFocus() = 0;
   virtual nsresult TakePicture() = 0;
-  virtual nsresult StartRecording(DeviceStorageFileDescriptor* aFileDescriptor,
-                                  const StartRecordingOptions* aOptions = nullptr) = 0;
+  virtual nsresult StartRecording(
+      DeviceStorageFileDescriptor* aFileDescriptor,
+      const StartRecordingOptions* aOptions = nullptr) = 0;
   virtual nsresult StopRecording() = 0;
   virtual nsresult PauseRecording() = 0;
   virtual nsresult ResumeRecording() = 0;
@@ -303,8 +298,8 @@ public:
   virtual nsresult GetRecorderProfiles(nsTArray<nsString>& aProfiles) = 0;
   virtual RecorderProfile* GetProfileInfo(const nsAString& aProfile) = 0;
 
-protected:
-  virtual ~ICameraControl() { }
+ protected:
+  virtual ~ICameraControl() {}
 
   friend class ICameraControlParameterSetAutoEnter;
 
@@ -315,23 +310,20 @@ protected:
 // Helper class to make it easy to update a batch of camera parameters;
 // the parameters are applied atomically when this object goes out of
 // scope.
-class ICameraControlParameterSetAutoEnter
-{
-public:
+class ICameraControlParameterSetAutoEnter {
+ public:
   explicit ICameraControlParameterSetAutoEnter(ICameraControl* aCameraControl)
-    : mCameraControl(aCameraControl)
-  {
+      : mCameraControl(aCameraControl) {
     mCameraControl->BeginBatchParameterSet();
   }
-  virtual ~ICameraControlParameterSetAutoEnter()
-  {
+  virtual ~ICameraControlParameterSetAutoEnter() {
     mCameraControl->EndBatchParameterSet();
   }
 
-protected:
+ protected:
   RefPtr<ICameraControl> mCameraControl;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // DOM_CAMERA_ICAMERACONTROL_H
+#endif  // DOM_CAMERA_ICAMERACONTROL_H

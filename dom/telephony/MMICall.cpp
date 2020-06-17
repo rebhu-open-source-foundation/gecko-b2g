@@ -21,8 +21,7 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(MMICall)
 NS_INTERFACE_MAP_END
 
 MMICall::MMICall(nsPIDOMWindowInner* aWindow, const nsAString& aServiceCode)
-  : mWindow(aWindow), mServiceCode(aServiceCode)
-{
+    : mWindow(aWindow), mServiceCode(aServiceCode) {
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(mWindow);
   if (!global) {
     return;
@@ -37,25 +36,16 @@ MMICall::MMICall(nsPIDOMWindowInner* aWindow, const nsAString& aServiceCode)
   mPromise = promise;
 }
 
-MMICall::~MMICall()
-{
-}
+MMICall::~MMICall() {}
 
-nsPIDOMWindowInner*
-MMICall::GetParentObject() const
-{
-  return mWindow;
-}
+nsPIDOMWindowInner* MMICall::GetParentObject() const { return mWindow; }
 
-JSObject*
-MMICall::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* MMICall::WrapObject(JSContext* aCx,
+                              JS::Handle<JSObject*> aGivenProto) {
   return MMICall_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-void
-MMICall::NotifyResult(JS::Handle<JS::Value> aResult)
-{
+void MMICall::NotifyResult(JS::Handle<JS::Value> aResult) {
   if (!mPromise) {
     return;
   }
@@ -65,9 +55,7 @@ MMICall::NotifyResult(JS::Handle<JS::Value> aResult)
 
 // WebIDL
 
-already_AddRefed<Promise>
-MMICall::GetResult(ErrorResult& aRv)
-{
+already_AddRefed<Promise> MMICall::GetResult(ErrorResult& aRv) {
   if (!mPromise) {
     aRv.Throw(NS_ERROR_UNEXPECTED);
     return nullptr;

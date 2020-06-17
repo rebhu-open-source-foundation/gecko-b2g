@@ -21,24 +21,21 @@
 #include "TestGonkCameraControl.h"
 
 #ifdef MOZ_WIDGET_GONK
-#include <camera/Camera.h>
+#  include <camera/Camera.h>
 #else
-#include "FallbackCameraPlatform.h"
+#  include "FallbackCameraPlatform.h"
 #endif
 
 using namespace mozilla;
 
 // From ICameraControl, gonk-specific management functions
-nsresult
-ICameraControl::GetNumberOfCameras(int32_t& aDeviceCount)
-{
+nsresult ICameraControl::GetNumberOfCameras(int32_t& aDeviceCount) {
   aDeviceCount = android::Camera::getNumberOfCameras();
   return NS_OK;
 }
 
-nsresult
-ICameraControl::GetCameraName(uint32_t aDeviceNum, nsCString& aDeviceName)
-{
+nsresult ICameraControl::GetCameraName(uint32_t aDeviceNum,
+                                       nsCString& aDeviceName) {
   int32_t count = android::Camera::getNumberOfCameras();
   int32_t deviceNum = static_cast<int32_t>(aDeviceNum);
 
@@ -51,7 +48,8 @@ ICameraControl::GetCameraName(uint32_t aDeviceNum, nsCString& aDeviceName)
   android::CameraInfo info;
   int rv = android::Camera::getCameraInfo(deviceNum, &info);
   if (rv != 0) {
-    DOM_CAMERA_LOGE("GetCameraName : get_camera_info(%d) failed: %d\n", deviceNum, rv);
+    DOM_CAMERA_LOGE("GetCameraName : get_camera_info(%d) failed: %d\n",
+                    deviceNum, rv);
     return NS_ERROR_NOT_AVAILABLE;
   }
 
@@ -72,11 +70,10 @@ ICameraControl::GetCameraName(uint32_t aDeviceNum, nsCString& aDeviceName)
   return NS_OK;
 }
 
-nsresult
-ICameraControl::GetListOfCameras(nsTArray<nsString>& aList)
-{
+nsresult ICameraControl::GetListOfCameras(nsTArray<nsString>& aList) {
   int32_t count = android::Camera::getNumberOfCameras();
-  DOM_CAMERA_LOGT("getListOfCameras : getNumberOfCameras() returned %d\n", count);
+  DOM_CAMERA_LOGT("getListOfCameras : getNumberOfCameras() returned %d\n",
+                  count);
   if (count <= 0) {
     aList.Clear();
     return NS_OK;
@@ -121,9 +118,7 @@ ICameraControl::GetListOfCameras(nsTArray<nsString>& aList)
 }
 
 // implementation-specific camera factory
-already_AddRefed<ICameraControl>
-ICameraControl::Create(uint32_t aCameraId)
-{
+already_AddRefed<ICameraControl> ICameraControl::Create(uint32_t aCameraId) {
   nsCString test;
   CameraPreferences::GetPref("camera.control.test.enabled", test);
   RefPtr<nsGonkCameraControl> control;

@@ -17,12 +17,12 @@
 #include "mozilla/dom/MobileConnectionBinding.h"
 
 using mozilla::AutoJSContext;
-using mozilla::dom::mobileconnection::MobileCallForwardingOptions;
-using mozilla::dom::MobileNetworkInfo;
 using mozilla::dom::MobileCellInfo;
 using mozilla::dom::MobileConnectionInfo;
 using mozilla::dom::MobileDeviceIdentities;
+using mozilla::dom::MobileNetworkInfo;
 using mozilla::dom::MobileSignalStrength;
+using mozilla::dom::mobileconnection::MobileCallForwardingOptions;
 
 typedef nsIMobileCellInfo* nsMobileCellInfo;
 typedef nsIMobileConnectionInfo* nsMobileConnectionInfo;
@@ -33,8 +33,7 @@ typedef nsIMobileSignalStrength* nsMobileSignalStrength;
 
 namespace IPC {
 
-struct CallForwardingOptions
-    : public mozilla::dom::CallForwardingOptions {
+struct CallForwardingOptions : public mozilla::dom::CallForwardingOptions {
   bool operator==(const CallForwardingOptions& aOther) const {
     return  // Compare mActive
         ((!mActive.IsNull() && !aOther.mActive.IsNull()) ||
@@ -121,17 +120,15 @@ struct ParamTraits<nsIMobileCallForwardingOptions*> {
     int16_t serviceClass;
 
     // It's not important to us where it fails, but rather if it fails
-    if (!(ReadParam(aMsg, aIter, &active) &&
-          ReadParam(aMsg, aIter, &action) &&
-          ReadParam(aMsg, aIter, &reason) &&
-          ReadParam(aMsg, aIter, &number) &&
+    if (!(ReadParam(aMsg, aIter, &active) && ReadParam(aMsg, aIter, &action) &&
+          ReadParam(aMsg, aIter, &reason) && ReadParam(aMsg, aIter, &number) &&
           ReadParam(aMsg, aIter, &timeSeconds) &&
           ReadParam(aMsg, aIter, &serviceClass))) {
       return false;
     }
 
-    *aResult = new MobileCallForwardingOptions(active, action, reason,
-                                               number, timeSeconds, serviceClass);
+    *aResult = new MobileCallForwardingOptions(active, action, reason, number,
+                                               timeSeconds, serviceClass);
 
     // We release this ref after receiver finishes processing.
     NS_ADDREF(*aResult);
@@ -177,8 +174,8 @@ struct ParamTraits<nsIMobileNetworkInfo*> {
   }
 
   // Function to de-serialize a MobileNetworkInfo.
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
-  {
+  static bool Read(const Message* aMsg, PickleIterator* aIter,
+                   paramType* aResult) {
     // Check if is the null pointer we have transfered.
     bool isNull;
     if (!ReadParam(aMsg, aIter, &isNull)) {
@@ -198,18 +195,12 @@ struct ParamTraits<nsIMobileNetworkInfo*> {
 
     // It's not important to us where it fails, but rather if it fails
     if (!(ReadParam(aMsg, aIter, &shortName) &&
-          ReadParam(aMsg, aIter, &longName) &&
-          ReadParam(aMsg, aIter, &mcc) &&
-          ReadParam(aMsg, aIter, &mnc) &&
-          ReadParam(aMsg, aIter, &state))) {
+          ReadParam(aMsg, aIter, &longName) && ReadParam(aMsg, aIter, &mcc) &&
+          ReadParam(aMsg, aIter, &mnc) && ReadParam(aMsg, aIter, &state))) {
       return false;
     }
 
-    *aResult = new MobileNetworkInfo(shortName,
-                                     longName,
-                                     mcc,
-                                     mnc,
-                                     state);
+    *aResult = new MobileNetworkInfo(shortName, longName, mcc, mnc, state);
     // We release this ref after receiver finishes processing.
     NS_ADDREF(*aResult);
 
@@ -275,7 +266,6 @@ struct ParamTraits<nsIMobileCellInfo*> {
   // Function to de-serialize a MobileCellInfo.
   static bool Read(const Message* aMsg, PickleIterator* aIter,
                    paramType* aResult) {
-
     // Check if is the null pointer we have transfered.
     bool isNull;
     if (!ReadParam(aMsg, aIter, &isNull)) {
@@ -312,10 +302,10 @@ struct ParamTraits<nsIMobileCellInfo*> {
       return false;
     }
 
-    *aResult = new MobileCellInfo(gsmLac, gsmCellId, cdmaBsId, cdmaBsLat,
-                                  cdmaBsLong, cdmaSystemId, cdmaNetworkId,
-                                  cdmaRoamingIndicator, cdmaDefaultRoamingIndicator,
-                                  cdmaSystemIsInPRL);
+    *aResult =
+        new MobileCellInfo(gsmLac, gsmCellId, cdmaBsId, cdmaBsLat, cdmaBsLong,
+                           cdmaSystemId, cdmaNetworkId, cdmaRoamingIndicator,
+                           cdmaDefaultRoamingIndicator, cdmaSystemIsInPRL);
     // We release this ref after receiver finishes processing.
     NS_ADDREF(*aResult);
 
@@ -400,20 +390,14 @@ struct ParamTraits<nsIMobileConnectionInfo*> {
     if (!(ReadParam(aMsg, aIter, &state) &&
           ReadParam(aMsg, aIter, &connected) &&
           ReadParam(aMsg, aIter, &emergencyOnly) &&
-          ReadParam(aMsg, aIter, &roaming) &&
-          ReadParam(aMsg, aIter, &type) &&
+          ReadParam(aMsg, aIter, &roaming) && ReadParam(aMsg, aIter, &type) &&
           ReadParam(aMsg, aIter, &networkInfo) &&
           ReadParam(aMsg, aIter, &cellInfo))) {
       return false;
     }
 
-    *aResult = new MobileConnectionInfo(state,
-                                        connected,
-                                        emergencyOnly,
-                                        roaming,
-                                        networkInfo,
-                                        type,
-                                        cellInfo);
+    *aResult = new MobileConnectionInfo(state, connected, emergencyOnly,
+                                        roaming, networkInfo, type, cellInfo);
     // We release this ref after receiver finishes processing.
     NS_ADDREF(*aResult);
     // We already clone the data into MobileConnectionInfo, so release the ref
@@ -581,8 +565,8 @@ struct ParamTraits<CallForwardingOptions> {
       }
 
       if (!isNull) {
-        if (!ReadParam(aMsg, aIter, &aResult->mTimeSeconds.Value().SetValue())) {
-          return false;
+        if (!ReadParam(aMsg, aIter, &aResult->mTimeSeconds.Value().SetValue()))
+    { return false;
         }
       }
     }
@@ -598,8 +582,8 @@ struct ParamTraits<CallForwardingOptions> {
       }
 
       if (!isNull) {
-        if (!ReadParam(aMsg, aIter, &aResult->mServiceClass.Value().SetValue())) {
-          return false;
+        if (!ReadParam(aMsg, aIter, &aResult->mServiceClass.Value().SetValue()))
+    { return false;
         }
       }
     }
@@ -666,10 +650,8 @@ struct ParamTraits<nsIMobileDeviceIdentities*> {
     nsString meid;
 
     // It's not important to us where it fails, but rather if it fails
-    if (!(ReadParam(aMsg, aIter, &imei) &&
-          ReadParam(aMsg, aIter, &imeisv) &&
-          ReadParam(aMsg, aIter, &esn) &&
-          ReadParam(aMsg, aIter, &meid))) {
+    if (!(ReadParam(aMsg, aIter, &imei) && ReadParam(aMsg, aIter, &imeisv) &&
+          ReadParam(aMsg, aIter, &esn) && ReadParam(aMsg, aIter, &meid))) {
       return false;
     }
 
@@ -786,21 +768,10 @@ struct ParamTraits<nsIMobileSignalStrength*> {
       return false;
     }
 
-    *aResult = new MobileSignalStrength(level,
-                                        gsmSignalStrength,
-                                        gsmBitErrorRate,
-                                        cdmaDbm,
-                                        cdmaEcio,
-                                        cdmaEvdoDbm,
-                                        cdmaEvdoEcio,
-                                        cdmaEvdoSNR,
-                                        lteSignalStrength,
-                                        lteRsrp,
-                                        lteRsrq,
-                                        lteRssnr,
-                                        lteCqi,
-                                        lteTimingAdvance,
-                                        tdscdmaRscp);
+    *aResult = new MobileSignalStrength(
+        level, gsmSignalStrength, gsmBitErrorRate, cdmaDbm, cdmaEcio,
+        cdmaEvdoDbm, cdmaEvdoEcio, cdmaEvdoSNR, lteSignalStrength, lteRsrp,
+        lteRsrq, lteRssnr, lteCqi, lteTimingAdvance, tdscdmaRscp);
 
     // We release this ref after receiver finishes processing.
     NS_ADDREF(*aResult);
@@ -809,6 +780,6 @@ struct ParamTraits<nsIMobileSignalStrength*> {
   }
 };
 
-} // namespace IPC
+}  // namespace IPC
 
-#endif // mozilla_dom_mobileconnection_MobileConnectionIPCSerialiser_h
+#endif  // mozilla_dom_mobileconnection_MobileConnectionIPCSerialiser_h

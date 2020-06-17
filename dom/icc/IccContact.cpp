@@ -71,46 +71,38 @@ NS_IMPL_ISUPPORTS(IccContact, nsIIccContact)
 //   return NS_OK;
 // }
 
-/*static*/ nsresult
-IccContact::Create(const nsAString& aId,
-                   const nsTArray<nsString>& aNames,
-                   const nsTArray<nsString>& aNumbers,
-                   const nsTArray<nsString>& aEmails,
-                   nsIIccContact** aIccContact)
-{
+/*static*/ nsresult IccContact::Create(const nsAString& aId,
+                                       const nsTArray<nsString>& aNames,
+                                       const nsTArray<nsString>& aNumbers,
+                                       const nsTArray<nsString>& aEmails,
+                                       nsIIccContact** aIccContact) {
   *aIccContact = nullptr;
 
-  nsCOMPtr<nsIIccContact> iccContact = new IccContact(aId,
-                                                      aNames,
-                                                      aNumbers,
-                                                      aEmails);
+  nsCOMPtr<nsIIccContact> iccContact =
+      new IccContact(aId, aNames, aNumbers, aEmails);
   iccContact.forget(aIccContact);
 
   return NS_OK;
 }
 
-IccContact::IccContact(const nsAString& aId,
-                       const nsTArray<nsString>& aNames,
+IccContact::IccContact(const nsAString& aId, const nsTArray<nsString>& aNames,
                        const nsTArray<nsString>& aNumbers,
                        const nsTArray<nsString>& aEmails)
-  : mId(aId),
-    mNames(aNames.Clone()),
-    mNumbers(aNumbers.Clone()),
-    mEmails(aEmails.Clone())
-{
-}
+    : mId(aId),
+      mNames(aNames.Clone()),
+      mNumbers(aNumbers.Clone()),
+      mEmails(aEmails.Clone()) {}
 
 // nsIIccInfo implementation.
 
-NS_IMETHODIMP IccContact::GetId(nsAString & aId)
-{
+NS_IMETHODIMP IccContact::GetId(nsAString& aId) {
   aId = mId;
   return NS_OK;
 }
 
 #define ICCCONTACT_IMPL_GET_CONTACT_FIELD(_field)                        \
   NS_IMETHODIMP IccContact::Get##_field(nsTArray<nsString>& a##_field) { \
-    a##_field = m##_field.Clone();                                               \
+    a##_field = m##_field.Clone();                                       \
     return NS_OK;                                                        \
   }
 

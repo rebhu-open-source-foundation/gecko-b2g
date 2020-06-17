@@ -32,25 +32,22 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(SubsidyLock)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-SubsidyLock::SubsidyLock(nsPIDOMWindowInner* aWindow,
-                         uint32_t aClientId)
-  : mClientId(aClientId)
-  , mWindow(aWindow)
-{
+SubsidyLock::SubsidyLock(nsPIDOMWindowInner* aWindow, uint32_t aClientId)
+    : mClientId(aClientId), mWindow(aWindow) {
   if (!CheckPermission("mobileconnection")) {
     return;
   }
 
   nsCOMPtr<nsISubsidyLockService> service =
-    do_GetService(NS_SUBSIDY_LOCK_SERVICE_CONTRACTID);
+      do_GetService(NS_SUBSIDY_LOCK_SERVICE_CONTRACTID);
 
   if (!service) {
     NS_WARNING("Could not acquire nsISubsidyLockService!");
     return;
   }
 
-  nsresult rv = service->GetItemByServiceId(mClientId,
-                                            getter_AddRefs(mSubsidyLock));
+  nsresult rv =
+      service->GetItemByServiceId(mClientId, getter_AddRefs(mSubsidyLock));
 
   if (NS_FAILED(rv) || !mSubsidyLock) {
     NS_WARNING("Could not acquire nsISubsidyLock!");
@@ -58,34 +55,23 @@ SubsidyLock::SubsidyLock(nsPIDOMWindowInner* aWindow,
   }
 }
 
-void
-SubsidyLock::Shutdown()
-{
-}
+void SubsidyLock::Shutdown() {}
 
-SubsidyLock::~SubsidyLock()
-{
-  Shutdown();
-}
+SubsidyLock::~SubsidyLock() { Shutdown(); }
 
-nsPIDOMWindowInner*
-SubsidyLock::GetParentObject() const
-{
+nsPIDOMWindowInner* SubsidyLock::GetParentObject() const {
   MOZ_ASSERT(mWindow);
   return mWindow;
 }
 
 // WrapperCache
 
-JSObject*
-SubsidyLock::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* SubsidyLock::WrapObject(JSContext* aCx,
+                                  JS::Handle<JSObject*> aGivenProto) {
   return SubsidyLock_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-bool
-SubsidyLock::CheckPermission(const char* aType) const
-{
+bool SubsidyLock::CheckPermission(const char* aType) const {
   // nsCOMPtr<nsIPermissionManager> permMgr =
   //  mozilla::services::GetPermissionManager();
   // NS_ENSURE_TRUE(permMgr, false);
@@ -98,9 +84,8 @@ SubsidyLock::CheckPermission(const char* aType) const
 
 // WebIDL interface
 
-already_AddRefed<DOMRequest>
-SubsidyLock::GetSubsidyLockStatus(ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> SubsidyLock::GetSubsidyLockStatus(
+    ErrorResult& aRv) {
   if (!mSubsidyLock) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -108,7 +93,7 @@ SubsidyLock::GetSubsidyLockStatus(ErrorResult& aRv)
 
   RefPtr<DOMRequest> request = new DOMRequest(mWindow);
   RefPtr<SubsidyLockCallback> requestCallback =
-    new SubsidyLockCallback(mWindow, request);
+      new SubsidyLockCallback(mWindow, request);
 
   nsresult rv = mSubsidyLock->GetSubsidyLockStatus(requestCallback);
 
@@ -120,9 +105,8 @@ SubsidyLock::GetSubsidyLockStatus(ErrorResult& aRv)
   return request.forget();
 }
 
-already_AddRefed<DOMRequest>
-SubsidyLock::UnlockSubsidyLock(const UnlockOptions& aOptions, ErrorResult& aRv)
-{
+already_AddRefed<DOMRequest> SubsidyLock::UnlockSubsidyLock(
+    const UnlockOptions& aOptions, ErrorResult& aRv) {
   if (!mSubsidyLock) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -138,11 +122,10 @@ SubsidyLock::UnlockSubsidyLock(const UnlockOptions& aOptions, ErrorResult& aRv)
 
   RefPtr<DOMRequest> request = new DOMRequest(mWindow);
   RefPtr<SubsidyLockCallback> requestCallback =
-    new SubsidyLockCallback(mWindow, request);
+      new SubsidyLockCallback(mWindow, request);
 
-  nsresult rv = mSubsidyLock->UnlockSubsidyLock(type,
-                                                aOptions.mPassword.Value(),
-                                                requestCallback);
+  nsresult rv = mSubsidyLock->UnlockSubsidyLock(
+      type, aOptions.mPassword.Value(), requestCallback);
   if (NS_FAILED(rv)) {
     aRv.Throw(rv);
     return nullptr;
@@ -151,5 +134,5 @@ SubsidyLock::UnlockSubsidyLock(const UnlockOptions& aOptions, ErrorResult& aRv)
   return request.forget();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

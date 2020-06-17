@@ -15,15 +15,13 @@ namespace mobilemessage {
 
 NS_IMPL_ISUPPORTS(MobileMessageDatabaseService, nsIMobileMessageDatabaseService)
 
-MobileMessageDatabaseService::MobileMessageDatabaseService()
-{
+MobileMessageDatabaseService::MobileMessageDatabaseService() {
   SmsManager::Init();
 }
 
 NS_IMETHODIMP
-MobileMessageDatabaseService::GetMessageMoz(int32_t aMessageId,
-                                            nsIMobileMessageCallback* aRequest)
-{
+MobileMessageDatabaseService::GetMessageMoz(
+    int32_t aMessageId, nsIMobileMessageCallback* aRequest) {
   if (!AndroidBridge::Bridge()) {
     return NS_OK;
   }
@@ -33,10 +31,9 @@ MobileMessageDatabaseService::GetMessageMoz(int32_t aMessageId,
 }
 
 NS_IMETHODIMP
-MobileMessageDatabaseService::DeleteMessage(int32_t *aMessageIds,
-                                            uint32_t aLength,
-                                            nsIMobileMessageCallback* aRequest)
-{
+MobileMessageDatabaseService::DeleteMessage(
+    int32_t* aMessageIds, uint32_t aLength,
+    nsIMobileMessageCallback* aRequest) {
   if (!AndroidBridge::Bridge()) {
     return NS_OK;
   }
@@ -54,76 +51,55 @@ MobileMessageDatabaseService::DeleteMessage(int32_t *aMessageIds,
 }
 
 NS_IMETHODIMP
-MobileMessageDatabaseService::CreateMessageCursor(bool aHasStartDate,
-                                                  uint64_t aStartDate,
-                                                  bool aHasEndDate,
-                                                  uint64_t aEndDate,
-                                                  const char16_t** aNumbers,
-                                                  uint32_t aNumbersCount,
-                                                  const nsAString& aDelivery,
-                                                  bool aHasRead,
-                                                  bool aRead,
-                                                  bool aHasThreadId,
-                                                  uint64_t aThreadId,
-                                                  bool aReverse,
-                                                  nsIMobileMessageCursorCallback* aCallback,
-                                                  nsICursorContinueCallback** aCursor)
-{
+MobileMessageDatabaseService::CreateMessageCursor(
+    bool aHasStartDate, uint64_t aStartDate, bool aHasEndDate,
+    uint64_t aEndDate, const char16_t** aNumbers, uint32_t aNumbersCount,
+    const nsAString& aDelivery, bool aHasRead, bool aRead, bool aHasThreadId,
+    uint64_t aThreadId, bool aReverse,
+    nsIMobileMessageCursorCallback* aCallback,
+    nsICursorContinueCallback** aCursor) {
   if (!AndroidBridge::Bridge()) {
     *aCursor = nullptr;
     return NS_OK;
   }
 
   nsCOMPtr<nsICursorContinueCallback> cursor =
-    AndroidBridge::Bridge()->CreateMessageCursor(aHasStartDate,
-                                                 aStartDate,
-                                                 aHasEndDate,
-                                                 aEndDate,
-                                                 aNumbers,
-                                                 aNumbersCount,
-                                                 aDelivery,
-                                                 aHasRead,
-                                                 aRead,
-                                                 aHasThreadId,
-                                                 aThreadId,
-                                                 aReverse,
-                                                 aCallback);
+      AndroidBridge::Bridge()->CreateMessageCursor(
+          aHasStartDate, aStartDate, aHasEndDate, aEndDate, aNumbers,
+          aNumbersCount, aDelivery, aHasRead, aRead, aHasThreadId, aThreadId,
+          aReverse, aCallback);
   cursor.forget(aCursor);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileMessageDatabaseService::MarkMessageRead(int32_t aMessageId,
-                                              bool aValue,
-                                              bool aSendReadReport,
-                                              nsIMobileMessageCallback* aRequest)
-{
+MobileMessageDatabaseService::MarkMessageRead(
+    int32_t aMessageId, bool aValue, bool aSendReadReport,
+    nsIMobileMessageCallback* aRequest) {
   if (!AndroidBridge::Bridge()) {
     return NS_OK;
   }
 
-  AndroidBridge::Bridge()->MarkMessageRead(aMessageId,
-                                           aValue,
-                                           aSendReadReport,
+  AndroidBridge::Bridge()->MarkMessageRead(aMessageId, aValue, aSendReadReport,
                                            aRequest);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileMessageDatabaseService::CreateThreadCursor(nsIMobileMessageCursorCallback* aRequest,
-                                                 nsICursorContinueCallback** aCursor)
-{
+MobileMessageDatabaseService::CreateThreadCursor(
+    nsIMobileMessageCursorCallback* aRequest,
+    nsICursorContinueCallback** aCursor) {
   if (!AndroidBridge::Bridge()) {
     *aCursor = nullptr;
     return NS_OK;
   }
 
   nsCOMPtr<nsICursorContinueCallback> cursor =
-    AndroidBridge::Bridge()->CreateThreadCursor(aRequest);
+      AndroidBridge::Bridge()->CreateThreadCursor(aRequest);
   cursor.forget(aCursor);
   return NS_OK;
 }
 
-} // namespace mobilemessage
-} // namespace dom
-} // namespace mozilla
+}  // namespace mobilemessage
+}  // namespace dom
+}  // namespace mozilla

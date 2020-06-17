@@ -28,9 +28,8 @@ namespace icc {
  * - non-OOP mode: IccService
  * The reference should be released after Notify*Success/Error is called.
  */
-class IccCallback final : public nsIIccCallback
-{
-public:
+class IccCallback final : public nsIIccCallback {
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIICCCALLBACK
 
@@ -40,16 +39,14 @@ public:
               bool aIsCardLockEnabled = false);
   IccCallback(nsPIDOMWindowInner* aWindow, Promise* aPromise);
 
-private:
+ private:
   ~IccCallback() {}
 
-  nsresult
-  NotifySuccess(JS::Handle<JS::Value> aResult);
+  nsresult NotifySuccess(JS::Handle<JS::Value> aResult);
 
   // TODO: Bug 1125018 - Simplify The Result of GetCardLock and
   // getCardLockRetryCount in Icc.webidl without a wrapper object.
-  nsresult
-  NotifyGetCardLockEnabled(bool aResult);
+  nsresult NotifyGetCardLockEnabled(bool aResult);
 
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
   RefPtr<DOMRequest> mRequest;
@@ -59,8 +56,8 @@ private:
   bool mIsCardLockEnabled;
 };
 
-} // namespace icc
-} // namespace dom
-} // namespace mozilla
+}  // namespace icc
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_icc_IccCallback_h
+#endif  // mozilla_dom_icc_IccCallback_h

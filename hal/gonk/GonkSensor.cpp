@@ -49,16 +49,12 @@ namespace mozilla {
 
 // This is present in Android from API level 18 onwards, which is 4.3.  We might
 // be building on something before 4.3, so use a local define for its value
-#define MOZ_SENSOR_TYPE_GAME_ROTATION_VECTOR   15
+#define MOZ_SENSOR_TYPE_GAME_ROTATION_VECTOR 15
 
-double radToDeg(double a) {
-  return a * (180.0 / M_PI);
-}
+double radToDeg(double a) { return a * (180.0 / M_PI); }
 
-static SensorType
-HardwareSensorToHalSensor(int type)
-{
-  switch(type) {
+static SensorType HardwareSensorToHalSensor(int type) {
+  switch (type) {
     case SENSOR_TYPE_ORIENTATION:
       return SENSOR_ORIENTATION;
     case SENSOR_TYPE_ACCELEROMETER:
@@ -80,15 +76,12 @@ HardwareSensorToHalSensor(int type)
   }
 }
 
-static SensorAccuracyType
-HardwareStatusToHalAccuracy(int status) {
+static SensorAccuracyType HardwareStatusToHalAccuracy(int status) {
   return static_cast<SensorAccuracyType>(status);
 }
 
-static int
-HalSensorToHardwareSensor(SensorType type)
-{
-  switch(type) {
+static int HalSensorToHardwareSensor(SensorType type) {
+  switch (type) {
     case SENSOR_ORIENTATION:
       return SENSOR_TYPE_ORIENTATION;
     case SENSOR_ACCELERATION:
@@ -110,11 +103,9 @@ HalSensorToHardwareSensor(SensorType type)
   }
 }
 
-static int
-SensorseventStatus(const sensors_event_t& data)
-{
+static int SensorseventStatus(const sensors_event_t& data) {
   int type = data.type;
-  switch(type) {
+  switch (type) {
     case SENSOR_ORIENTATION:
       return data.orientation.status;
     case SENSOR_LINEAR_ACCELERATION:
@@ -127,13 +118,13 @@ SensorseventStatus(const sensors_event_t& data)
   return SENSOR_STATUS_UNRELIABLE;
 }
 
-class SensorRunnable : public Runnable
-{
-public:
-  SensorRunnable(const sensors_event_t& data, const sensor_t* sensors, ssize_t size)
-  {
+class SensorRunnable : public Runnable {
+ public:
+  SensorRunnable(const sensors_event_t& data, const sensor_t* sensors,
+                 ssize_t size) {
     mSensorData.sensor() = HardwareSensorToHalSensor(data.type);
-    mSensorData.accuracy() = HardwareStatusToHalAccuracy(SensorseventStatus(data));
+    mSensorData.accuracy() =
+        HardwareStatusToHalAccuracy(SensorseventStatus(data));
     mSensorData.timestamp() = data.timestamp;
     if (mSensorData.sensor() == SENSOR_GYROSCOPE) {
       // libhardware returns gyro as rad.  convert.
@@ -157,14 +148,16 @@ public:
       mSensorValues.AppendElement(data.data[1]);
       mSensorValues.AppendElement(data.data[2]);
       if (data.data[3] == 0.0) {
-        // data.data[3] was optional in Android <= API level 18.  It can be computed from 012,
-        // but it's better to take the actual value if one is provided.  The computation is
+        // data.data[3] was optional in Android <= API level 18.  It can be
+        // computed from 012, but it's better to take the actual value if one is
+        // provided.  The computation is
         //   v = 1 - d[0]*d[0] - d[1]*d[1] - d[2]*d[2]
         //   d[3] = v > 0 ? sqrt(v) : 0;
-        // I'm assuming that it will be 0 if it's not passed in.  (The values form a unit
-        // quaternion, so the angle can be computed from the direction vector.)
+        // I'm assuming that it will be 0 if it's not passed in.  (The values
+        // form a unit quaternion, so the angle can be computed from the
+        // direction vector.)
         float sx = data.data[0], sy = data.data[1], sz = data.data[2];
-        float v = 1.0f - sx*sx - sy*sy - sz*sz;
+        float v = 1.0f - sx * sx - sy * sy - sz * sz;
         mSensorValues.AppendElement(v > 0.0f ? sqrt(v) : 0.0f);
       } else {
         mSensorValues.AppendElement(data.data[3]);
@@ -184,13 +177,12 @@ public:
 
   ~SensorRunnable() {}
 
-  NS_IMETHOD Run() override
-  {
+  NS_IMETHOD Run() override {
     NotifySensorChange(mSensorData);
     return NS_OK;
   }
 
-private:
+ private:
   SensorData mSensorData;
   AutoTArray<float, 4> mSensorValues;
 };
@@ -202,16 +194,15 @@ static base::Thread* sPollingThread;
 static sensors_poll_device_t* sSensorDevice;
 static sensors_module_t* sSensorModule;
 
-static void
-PollSensors()
-{
+static void PollSensors() {
   const size_t numEventMax = 16;
   sensors_event_t buffer[numEventMax];
   const sensor_t* sensors;
   int size = sSensorModule->get_sensors_list(sSensorModule, &sensors);
 
   do {
-    // didn't check sSensorDevice because already be done on creating pollingThread.
+    // didn't check sSensorDevice because already be done on creating
+    // pollingThread.
     int n = sSensorDevice->poll(sSensorDevice, buffer, numEventMax);
     if (n < 0) {
       HAL_ERR("Error polling for sensor data (err=%d)", n);
@@ -220,8 +211,7 @@ PollSensors()
 
     for (int i = 0; i < n; ++i) {
       // FIXME: bug 802004, add proper support for the magnetic field sensor.
-      if (buffer[i].type == SENSOR_TYPE_MAGNETIC_FIELD)
-        continue;
+      if (buffer[i].type == SENSOR_TYPE_MAGNETIC_FIELD) continue;
 
       // Bug 938035, transfer HAL data for orientation sensor to meet w3c spec
       // ex: HAL report alpha=90 means East but alpha=90 means West in w3c spec
@@ -253,9 +243,8 @@ PollSensors()
   } while (true);
 }
 
-static void
-SwitchSensor(bool aActivate, sensor_t aSensor, pthread_t aThreadId)
-{
+static void SwitchSensor(bool aActivate, sensor_t aSensor,
+                         pthread_t aThreadId) {
   int index = HardwareSensorToHalSensor(aSensor.type);
 
   MOZ_ASSERT(sSensorRefCount[index] || aActivate);
@@ -265,10 +254,10 @@ SwitchSensor(bool aActivate, sensor_t aSensor, pthread_t aThreadId)
   if (aActivate) {
     if (aSensor.type == SENSOR_TYPE_ACCELEROMETER) {
       sSensorDevice->setDelay(sSensorDevice, aSensor.handle,
-                   ACCELEROMETER_POLL_RATE);
+                              ACCELEROMETER_POLL_RATE);
     } else {
       sSensorDevice->setDelay(sSensorDevice, aSensor.handle,
-                   DEFAULT_DEVICE_POLL_RATE);
+                              DEFAULT_DEVICE_POLL_RATE);
     }
   }
 
@@ -279,9 +268,7 @@ SwitchSensor(bool aActivate, sensor_t aSensor, pthread_t aThreadId)
   }
 }
 
-static void
-SetSensorState(SensorType aSensor, bool activate)
-{
+static void SetSensorState(SensorType aSensor, bool activate) {
   int type = HalSensorToHardwareSensor(aSensor);
   const sensor_t* sensors = nullptr;
 
@@ -294,12 +281,10 @@ SetSensorState(SensorType aSensor, bool activate)
   }
 }
 
-static void
-EnableSensorNotificationsInternal(SensorType aSensor)
-{
+static void EnableSensorNotificationsInternal(SensorType aSensor) {
   if (!sSensorModule) {
     hw_get_module(SENSORS_HARDWARE_MODULE_ID,
-                       (hw_module_t const**)&sSensorModule);
+                  (hw_module_t const**)&sSensorModule);
     if (!sSensorModule) {
       HAL_ERR("Can't get sensor HAL module\n");
       return;
@@ -314,7 +299,7 @@ EnableSensorNotificationsInternal(SensorType aSensor)
 
     sensor_t const* sensors;
     int count = sSensorModule->get_sensors_list(sSensorModule, &sensors);
-    for (size_t i=0 ; i<size_t(count) ; i++) {
+    for (size_t i = 0; i < size_t(count); i++) {
       sSensorDevice->activate(sSensorDevice, sensors[i].handle, 0);
     }
   }
@@ -324,16 +309,13 @@ EnableSensorNotificationsInternal(SensorType aSensor)
     MOZ_ASSERT(sPollingThread);
     // sPollingThread never terminates because poll may never return
     sPollingThread->Start();
-    sPollingThread->message_loop()->PostTask(
-      NewRunnableFunction(PollSensors));
+    sPollingThread->message_loop()->PostTask(NewRunnableFunction(PollSensors));
   }
 
   SetSensorState(aSensor, true);
 }
 
-static void
-DisableSensorNotificationsInternal(SensorType aSensor)
-{
+static void DisableSensorNotificationsInternal(SensorType aSensor) {
   if (!sSensorModule) {
     return;
   }
@@ -351,19 +333,16 @@ typedef detail::SaturateOp<uint32_t> SaturateOpUint32;
  * sensor events.
  */
 class SensorsPollNotificationHandler final
-  : public GonkSensorsPollNotificationHandler
-{
-public:
+    : public GonkSensorsPollNotificationHandler {
+ public:
   SensorsPollNotificationHandler(GonkSensorsPollInterface* aPollInterface)
-    : mPollInterface(aPollInterface)
-  {
+      : mPollInterface(aPollInterface) {
     MOZ_ASSERT(mPollInterface);
 
     mPollInterface->SetNotificationHandler(this);
   }
 
-  void EnableSensorsByType(SensorsType aType)
-  {
+  void EnableSensorsByType(SensorsType aType) {
     if (SaturateOpUint32(mClasses[aType].mActivated)++) {
       return;
     }
@@ -382,8 +361,7 @@ public:
     }
   }
 
-  void DisableSensorsByType(SensorsType aType)
-  {
+  void DisableSensorsByType(SensorsType aType) {
     if (SaturateOpUint32(mClasses[aType].mActivated)-- != 1) {
       return;
     }
@@ -400,33 +378,26 @@ public:
     }
   }
 
-  void ClearSensorClasses()
-  {
+  void ClearSensorClasses() {
     for (size_t i = 0; i < MOZ_ARRAY_LENGTH(mClasses); ++i) {
       mClasses[i] = SensorsSensorClass();
     }
   }
 
-  void ClearSensors()
-  {
-    mSensors.Clear();
-  }
+  void ClearSensors() { mSensors.Clear(); }
 
   // Methods for SensorsPollNotificationHandler
   //
 
-  void ErrorNotification(SensorsError aError) override
-  {
+  void ErrorNotification(SensorsError aError) override {
     // XXX: Bug 1206056: Try to repair some of the errors or restart cleanly.
   }
 
-  void SensorDetectedNotification(int32_t aId, SensorsType aType,
-                                  float aRange, float aResolution,
-                                  float aPower, int32_t aMinPeriod,
-                                  int32_t aMaxPeriod,
+  void SensorDetectedNotification(int32_t aId, SensorsType aType, float aRange,
+                                  float aResolution, float aPower,
+                                  int32_t aMinPeriod, int32_t aMaxPeriod,
                                   SensorsTriggerMode aTriggerMode,
-                                  SensorsDeliveryMode aDeliveryMode) override
-  {
+                                  SensorsDeliveryMode aDeliveryMode) override {
     auto i = FindSensorIndexById(aId);
     if (i == -1) {
       // Add a new sensor...
@@ -436,9 +407,9 @@ public:
                                            aTriggerMode, aDeliveryMode));
     } else {
       // ...or update an existing one.
-      mSensors[i] = SensorsSensor(aId, aType, aRange, aResolution, aPower,
-                                  aMinPeriod, aMaxPeriod, aTriggerMode,
-                                  aDeliveryMode);
+      mSensors[i] =
+          SensorsSensor(aId, aType, aRange, aResolution, aPower, aMinPeriod,
+                        aMaxPeriod, aTriggerMode, aDeliveryMode);
     }
 
     mClasses[aType].UpdateFromSensor(mSensors[i]);
@@ -452,16 +423,14 @@ public:
     }
   }
 
-  void SensorLostNotification(int32_t aId) override
-  {
+  void SensorLostNotification(int32_t aId) override {
     auto i = FindSensorIndexById(aId);
     if (i != -1) {
       mSensors.RemoveElementAt(i);
     }
   }
 
-  void EventNotification(int32_t aId, const SensorsEvent& aEvent) override
-  {
+  void EventNotification(int32_t aId, const SensorsEvent& aEvent) override {
     auto i = FindSensorIndexById(aId);
     if (i == -1) {
       HAL_ERR("Sensor %d not registered", aId);
@@ -469,8 +438,7 @@ public:
     }
 
     SensorData sensorData;
-    auto rv = CreateSensorData(aEvent, mClasses[mSensors[i].mType],
-                               sensorData);
+    auto rv = CreateSensorData(aEvent, mClasses[mSensors[i].mType], sensorData);
     if (NS_FAILED(rv)) {
       return;
     }
@@ -478,9 +446,8 @@ public:
     NotifySensorChange(sensorData);
   }
 
-private:
-  ssize_t FindSensorIndexById(int32_t aId) const
-  {
+ private:
+  ssize_t FindSensorIndexById(int32_t aId) const {
     for (size_t i = 0; i < mSensors.Length(); ++i) {
       if (mSensors[i].mId == aId) {
         return i;
@@ -489,14 +456,12 @@ private:
     return -1;
   }
 
-  uint64_t DefaultSensorPeriod(SensorsType aType) const
-  {
+  uint64_t DefaultSensorPeriod(SensorsType aType) const {
     return aType == SENSORS_TYPE_ACCELEROMETER ? ACCELEROMETER_POLL_RATE
                                                : DEFAULT_DEVICE_POLL_RATE;
   }
 
-  SensorsDeliveryMode DefaultSensorsDeliveryMode(SensorsType aType) const
-  {
+  SensorsDeliveryMode DefaultSensorsDeliveryMode(SensorsType aType) const {
     if (aType == SENSORS_TYPE_PROXIMITY ||
         aType == SENSORS_TYPE_SIGNIFICANT_MOTION) {
       return SENSORS_DELIVERY_MODE_IMMEDIATE;
@@ -504,8 +469,7 @@ private:
     return SENSORS_DELIVERY_MODE_BEST_EFFORT;
   }
 
-  SensorType HardwareSensorToHalSensor(SensorsType aType) const
-  {
+  SensorType HardwareSensorToHalSensor(SensorsType aType) const {
     // FIXME: bug 802004, add proper support for the magnetic-field sensor.
     switch (aType) {
       case SENSORS_TYPE_ORIENTATION:
@@ -530,15 +494,13 @@ private:
     return SENSOR_UNKNOWN;
   }
 
-  SensorAccuracyType HardwareStatusToHalAccuracy(SensorsStatus aStatus) const
-  {
+  SensorAccuracyType HardwareStatusToHalAccuracy(SensorsStatus aStatus) const {
     return static_cast<SensorAccuracyType>(aStatus - 1);
   }
 
   nsresult CreateSensorData(const SensorsEvent& aEvent,
                             const SensorsSensorClass& aSensorClass,
-                            SensorData& aSensorData) const
-  {
+                            SensorData& aSensorData) const {
     AutoTArray<float, 4> sensorValues;
 
     auto sensor = HardwareSensorToHalSensor(aEvent.mType);
@@ -603,23 +565,20 @@ static StaticAutoPtr<SensorsPollNotificationHandler> sPollNotificationHandler;
  * This is the notifiaction handler for the Sensors interface. If the backend
  * crashes, we can restart it from here.
  */
-class SensorsNotificationHandler final : public GonkSensorsNotificationHandler
-{
-public:
+class SensorsNotificationHandler final : public GonkSensorsNotificationHandler {
+ public:
   SensorsNotificationHandler(GonkSensorsInterface* aInterface)
-    : mInterface(aInterface)
-  {
+      : mInterface(aInterface) {
     MOZ_ASSERT(mInterface);
 
     mInterface->SetNotificationHandler(this);
   }
 
-  void BackendErrorNotification(bool aCrashed) override
-  {
+  void BackendErrorNotification(bool aCrashed) override {
     // XXX: Bug 1206056: restart sensorsd
   }
 
-private:
+ private:
   GonkSensorsInterface* mInterface;
 };
 
@@ -632,25 +591,19 @@ static StaticAutoPtr<SensorsNotificationHandler> sNotificationHandler;
  * disconnects and closes the backend.
  */
 class SensorsRegisterModuleResultHandler final
-  : public GonkSensorsRegistryResultHandler
-{
-public:
-  SensorsRegisterModuleResultHandler(
-    uint32_t* aSensorsTypeActivated,
-    GonkSensorsInterface* aInterface)
-    : mSensorsTypeActivated(aSensorsTypeActivated)
-    , mInterface(aInterface)
-  {
+    : public GonkSensorsRegistryResultHandler {
+ public:
+  SensorsRegisterModuleResultHandler(uint32_t* aSensorsTypeActivated,
+                                     GonkSensorsInterface* aInterface)
+      : mSensorsTypeActivated(aSensorsTypeActivated), mInterface(aInterface) {
     MOZ_ASSERT(mSensorsTypeActivated);
     MOZ_ASSERT(mInterface);
   }
-  void OnError(SensorsError aError) override
-  {
-    GonkSensorsRegistryResultHandler::OnError(aError); // print error message
-    Disconnect(); // Registering failed, so close the connection completely
+  void OnError(SensorsError aError) override {
+    GonkSensorsRegistryResultHandler::OnError(aError);  // print error message
+    Disconnect();  // Registering failed, so close the connection completely
   }
-  void RegisterModule(uint32_t aProtocolVersion) override
-  {
+  void RegisterModule(uint32_t aProtocolVersion) override {
     MOZ_ASSERT(NS_IsMainThread());
     MOZ_ASSERT(!sPollNotificationHandler);
 
@@ -666,36 +619,32 @@ public:
     }
 
     sPollNotificationHandler =
-      new SensorsPollNotificationHandler(pollInterface);
+        new SensorsPollNotificationHandler(pollInterface);
 
     // Init, step 4: activate sensors
     for (int i = 0; i < SENSORS_NUM_TYPES; ++i) {
       while (mSensorsTypeActivated[i]) {
         sPollNotificationHandler->EnableSensorsByType(
-          static_cast<SensorsType>(i));
+            static_cast<SensorsType>(i));
         --mSensorsTypeActivated[i];
       }
     }
   }
-public:
-  void Disconnect()
-  {
-    class DisconnectResultHandler final : public GonkSensorsResultHandler
-    {
-    public:
-      void OnError(SensorsError aError)
-      {
-        GonkSensorsResultHandler::OnError(aError); // print error message
+
+ public:
+  void Disconnect() {
+    class DisconnectResultHandler final : public GonkSensorsResultHandler {
+     public:
+      void OnError(SensorsError aError) {
+        GonkSensorsResultHandler::OnError(aError);  // print error message
         sNotificationHandler = nullptr;
       }
-      void Disconnect() override
-      {
-        sNotificationHandler = nullptr;
-      }
+      void Disconnect() override { sNotificationHandler = nullptr; }
     };
     mInterface->Disconnect(new DisconnectResultHandler());
   }
-private:
+
+ private:
   uint32_t* mSensorsTypeActivated;
   GonkSensorsInterface* mInterface;
 };
@@ -704,25 +653,19 @@ private:
  * |SensorsConnectResultHandler| implements the result-handler
  * callback for starting the Sensors backend.
  */
-class SensorsConnectResultHandler final : public GonkSensorsResultHandler
-{
-public:
-  SensorsConnectResultHandler(
-    uint32_t* aSensorsTypeActivated,
-    GonkSensorsInterface* aInterface)
-    : mSensorsTypeActivated(aSensorsTypeActivated)
-    , mInterface(aInterface)
-  {
+class SensorsConnectResultHandler final : public GonkSensorsResultHandler {
+ public:
+  SensorsConnectResultHandler(uint32_t* aSensorsTypeActivated,
+                              GonkSensorsInterface* aInterface)
+      : mSensorsTypeActivated(aSensorsTypeActivated), mInterface(aInterface) {
     MOZ_ASSERT(mSensorsTypeActivated);
     MOZ_ASSERT(mInterface);
   }
-  void OnError(SensorsError aError) override
-  {
-    GonkSensorsResultHandler::OnError(aError); // print error message
+  void OnError(SensorsError aError) override {
+    GonkSensorsResultHandler::OnError(aError);  // print error message
     sNotificationHandler = nullptr;
   }
-  void Connect() override
-  {
+  void Connect() override {
     MOZ_ASSERT(NS_IsMainThread());
 
     // Init, step 2: register poll service
@@ -730,12 +673,12 @@ public:
     if (!registryInterface) {
       return;
     }
-    registryInterface->RegisterModule(
-      GonkSensorsPollModule::SERVICE_ID,
-      new SensorsRegisterModuleResultHandler(mSensorsTypeActivated,
-                                             mInterface));
+    registryInterface->RegisterModule(GonkSensorsPollModule::SERVICE_ID,
+                                      new SensorsRegisterModuleResultHandler(
+                                          mSensorsTypeActivated, mInterface));
   }
-private:
+
+ private:
   uint32_t* mSensorsTypeActivated;
   GonkSensorsInterface* mInterface;
 };
@@ -743,23 +686,20 @@ private:
 static uint32_t sSensorsTypeActivated[SENSORS_NUM_TYPES];
 
 static const SensorsType sSensorsType[] = {
-  [SENSOR_ORIENTATION] = SENSORS_TYPE_ORIENTATION,
-  [SENSOR_ACCELERATION] = SENSORS_TYPE_ACCELEROMETER,
-  [SENSOR_PROXIMITY] = SENSORS_TYPE_PROXIMITY,
-  [SENSOR_LINEAR_ACCELERATION] = SENSORS_TYPE_LINEAR_ACCELERATION,
-  [SENSOR_GYROSCOPE] = SENSORS_TYPE_GYROSCOPE,
-  [SENSOR_LIGHT] = SENSORS_TYPE_LIGHT,
-  [SENSOR_ROTATION_VECTOR] = SENSORS_TYPE_ROTATION_VECTOR,
-  [SENSOR_GAME_ROTATION_VECTOR] = SENSORS_TYPE_GAME_ROTATION_VECTOR
-};
+    [SENSOR_ORIENTATION] = SENSORS_TYPE_ORIENTATION,
+    [SENSOR_ACCELERATION] = SENSORS_TYPE_ACCELEROMETER,
+    [SENSOR_PROXIMITY] = SENSORS_TYPE_PROXIMITY,
+    [SENSOR_LINEAR_ACCELERATION] = SENSORS_TYPE_LINEAR_ACCELERATION,
+    [SENSOR_GYROSCOPE] = SENSORS_TYPE_GYROSCOPE,
+    [SENSOR_LIGHT] = SENSORS_TYPE_LIGHT,
+    [SENSOR_ROTATION_VECTOR] = SENSORS_TYPE_ROTATION_VECTOR,
+    [SENSOR_GAME_ROTATION_VECTOR] = SENSORS_TYPE_GAME_ROTATION_VECTOR};
 
-void
-EnableSensorNotificationsDaemon(SensorType aSensor)
-{
+void EnableSensorNotificationsDaemon(SensorType aSensor) {
   if ((aSensor < 0) ||
       (aSensor > static_cast<ssize_t>(MOZ_ARRAY_LENGTH(sSensorsType)))) {
     HAL_ERR("Sensor type %d not known", aSensor);
-    return; // Unsupported sensor type
+    return;  // Unsupported sensor type
   }
 
   auto interface = GonkSensorsInterface::GetInstance();
@@ -789,17 +729,15 @@ EnableSensorNotificationsDaemon(SensorType aSensor)
 
   // Init, step 1: connect to Sensors backend
   interface->Connect(
-    sNotificationHandler,
-    new SensorsConnectResultHandler(sSensorsTypeActivated, interface));
+      sNotificationHandler,
+      new SensorsConnectResultHandler(sSensorsTypeActivated, interface));
 }
 
-void
-DisableSensorNotificationsDaemon(SensorType aSensor)
-{
+void DisableSensorNotificationsDaemon(SensorType aSensor) {
   if ((aSensor < 0) ||
       (aSensor > static_cast<ssize_t>(MOZ_ARRAY_LENGTH(sSensorsType)))) {
     HAL_ERR("Sensor type %d not known", aSensor);
-    return; // Unsupported sensor type
+    return;  // Unsupported sensor type
   }
 
   if (sPollNotificationHandler) {
@@ -823,9 +761,7 @@ DisableSensorNotificationsDaemon(SensorType aSensor)
 // in-Gecko implementation as well. So we test for the existance
 // of the binary. If it's there, we use it. Otherwise we run the
 // old code.
-static bool
-HasDaemon()
-{
+static bool HasDaemon() {
   static bool tested;
   static bool hasDaemon;
 
@@ -837,9 +773,7 @@ HasDaemon()
   return hasDaemon;
 }
 
-void
-EnableSensorNotifications(SensorType aSensor)
-{
+void EnableSensorNotifications(SensorType aSensor) {
   if (HasDaemon()) {
     EnableSensorNotificationsDaemon(aSensor);
   } else {
@@ -847,9 +781,7 @@ EnableSensorNotifications(SensorType aSensor)
   }
 }
 
-void
-DisableSensorNotifications(SensorType aSensor)
-{
+void DisableSensorNotifications(SensorType aSensor) {
   if (HasDaemon()) {
     DisableSensorNotificationsDaemon(aSensor);
   } else {
@@ -857,5 +789,5 @@ DisableSensorNotifications(SensorType aSensor)
   }
 }
 
-} // hal_impl
-} // mozilla
+}  // namespace hal_impl
+}  // namespace mozilla

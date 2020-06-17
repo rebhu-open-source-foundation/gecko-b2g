@@ -1,8 +1,8 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
-* License, v. 2.0. If a copy of the MPL was not distributed with this file,
-* You can obtain one at http://mozilla.org/MPL/2.0/. */
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #ifndef mozilla_dom_mobileconnection_MobileConnectionChild_h
 #define mozilla_dom_mobileconnection_MobileConnectionChild_h
@@ -28,85 +28,73 @@ namespace mobileconnection {
  * shutdown. For multi-sim device, more than one instance will
  * be created and each instance represents a sim slot.
  */
-class MobileConnectionChild final : public PMobileConnectionChild
-                                  , public nsIMobileConnection
-{
+class MobileConnectionChild final : public PMobileConnectionChild,
+                                    public nsIMobileConnection {
   friend class PMobileConnectionChild;
-public:
+
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIMOBILECONNECTION
 
   explicit MobileConnectionChild(uint32_t aServiceId);
 
-  void
-  Init();
+  void Init();
 
-  void
-  Shutdown();
+  void Shutdown();
 
-private:
+ private:
   MobileConnectionChild() = delete;
 
   // final suppresses -Werror,-Wdelete-non-virtual-dtor
-  ~MobileConnectionChild()
-  {
-  }
+  ~MobileConnectionChild() {}
 
-protected:
-  bool
-  SendRequest(const MobileConnectionRequest& aRequest,
-              nsIMobileConnectionCallback* aCallback);
+ protected:
+  bool SendRequest(const MobileConnectionRequest& aRequest,
+                   nsIMobileConnectionCallback* aCallback);
 
-  virtual void
-  ActorDestroy(ActorDestroyReason why) override;
+  virtual void ActorDestroy(ActorDestroyReason why) override;
 
-  PMobileConnectionRequestChild*
-  AllocPMobileConnectionRequestChild(const MobileConnectionRequest& request);
+  PMobileConnectionRequestChild* AllocPMobileConnectionRequestChild(
+      const MobileConnectionRequest& request);
 
-  bool
-  DeallocPMobileConnectionRequestChild(PMobileConnectionRequestChild* aActor);
+  bool DeallocPMobileConnectionRequestChild(
+      PMobileConnectionRequestChild* aActor);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyVoiceInfoChanged(nsIMobileConnectionInfo* const& aInfo);
+  mozilla::ipc::IPCResult RecvNotifyVoiceInfoChanged(
+      nsIMobileConnectionInfo* const& aInfo);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyDataInfoChanged(nsIMobileConnectionInfo* const& aInfo);
+  mozilla::ipc::IPCResult RecvNotifyDataInfoChanged(
+      nsIMobileConnectionInfo* const& aInfo);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyDataError(const nsString& aMessage);
+  mozilla::ipc::IPCResult RecvNotifyDataError(const nsString& aMessage);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyCFStateChanged(const uint16_t& aAction, const uint16_t& aReason,
-                           const nsString& aNumber, const uint16_t& aTimeSeconds,
-                           const uint16_t& aServiceClass);
+  mozilla::ipc::IPCResult RecvNotifyCFStateChanged(
+      const uint16_t& aAction, const uint16_t& aReason, const nsString& aNumber,
+      const uint16_t& aTimeSeconds, const uint16_t& aServiceClass);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyEmergencyCbModeChanged(const bool& aActive,
-                                   const uint32_t& aTimeoutMs);
+  mozilla::ipc::IPCResult RecvNotifyEmergencyCbModeChanged(
+      const bool& aActive, const uint32_t& aTimeoutMs);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyOtaStatusChanged(const nsString& aStatus);
+  mozilla::ipc::IPCResult RecvNotifyOtaStatusChanged(const nsString& aStatus);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyRadioStateChanged(const int32_t& aRadioState);
+  mozilla::ipc::IPCResult RecvNotifyRadioStateChanged(
+      const int32_t& aRadioState);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyClirModeChanged(const uint32_t& aMode);
+  mozilla::ipc::IPCResult RecvNotifyClirModeChanged(const uint32_t& aMode);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyLastNetworkChanged(const nsString& aNetwork);
+  mozilla::ipc::IPCResult RecvNotifyLastNetworkChanged(
+      const nsString& aNetwork);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyLastHomeNetworkChanged(const nsString& aNetwork);
+  mozilla::ipc::IPCResult RecvNotifyLastHomeNetworkChanged(
+      const nsString& aNetwork);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyNetworkSelectionModeChanged(const int32_t& aMode);
+  mozilla::ipc::IPCResult RecvNotifyNetworkSelectionModeChanged(
+      const int32_t& aMode);
 
-  mozilla::ipc::IPCResult
-  RecvNotifySignalStrengthChanged(nsIMobileSignalStrength* const& aSignalStrength);
+  mozilla::ipc::IPCResult RecvNotifySignalStrengthChanged(
+      nsIMobileSignalStrength* const& aSignalStrength);
 
-  mozilla::ipc::IPCResult
-  RecvNotifyModemRestart(const nsString& aReason);
+  mozilla::ipc::IPCResult RecvNotifyModemRestart(const nsString& aReason);
 
   mozilla::ipc::IPCResult RecvNotifyDeviceIdentitiesChanged(
       nsIMobileDeviceIdentities* const& aDeviceIdentities);
@@ -136,67 +124,51 @@ protected:
  * asynchronous request is made and destroyed after receiving the response sent
  * by parent actor.
  */
-class MobileConnectionRequestChild : public PMobileConnectionRequestChild
-{
+class MobileConnectionRequestChild : public PMobileConnectionRequestChild {
   friend class PMobileConnectionRequestChild;
-public:
-  explicit MobileConnectionRequestChild(nsIMobileConnectionCallback* aRequestCallback)
-    : mRequestCallback(aRequestCallback)
-  {
+
+ public:
+  explicit MobileConnectionRequestChild(
+      nsIMobileConnectionCallback* aRequestCallback)
+      : mRequestCallback(aRequestCallback) {
     MOZ_ASSERT(mRequestCallback);
   }
 
-  bool
-  DoReply(const MobileConnectionReplySuccess& aReply);
+  bool DoReply(const MobileConnectionReplySuccess& aReply);
 
-  bool
-  DoReply(const MobileConnectionReplySuccessBoolean& aReply);
+  bool DoReply(const MobileConnectionReplySuccessBoolean& aReply);
 
-  bool
-  DoReply(const MobileConnectionReplySuccessDeviceIdentities& aReply);
+  bool DoReply(const MobileConnectionReplySuccessDeviceIdentities& aReply);
 
-  bool
-  DoReply(const MobileConnectionReplySuccessNetworks& aReply);
+  bool DoReply(const MobileConnectionReplySuccessNetworks& aReply);
 
-  bool
-  DoReply(const MobileConnectionReplySuccessCallForwarding& aReply);
+  bool DoReply(const MobileConnectionReplySuccessCallForwarding& aReply);
 
-  bool
-  DoReply(const MobileConnectionReplySuccessCallBarring& aReply);
+  bool DoReply(const MobileConnectionReplySuccessCallBarring& aReply);
 
-  bool
-  DoReply(const MobileConnectionReplySuccessCallWaiting& aReply);
+  bool DoReply(const MobileConnectionReplySuccessCallWaiting& aReply);
 
-  bool
-  DoReply(const MobileConnectionReplySuccessClirStatus& aReply);
+  bool DoReply(const MobileConnectionReplySuccessClirStatus& aReply);
 
-  bool
-  DoReply(const MobileConnectionReplySuccessPreferredNetworkType& aReply);
+  bool DoReply(const MobileConnectionReplySuccessPreferredNetworkType& aReply);
 
-  bool
-  DoReply(const MobileConnectionReplySuccessRoamingPreference& aMode);
+  bool DoReply(const MobileConnectionReplySuccessRoamingPreference& aMode);
 
-  bool
-  DoReply(const MobileConnectionReplyError& aReply);
+  bool DoReply(const MobileConnectionReplyError& aReply);
 
-protected:
-  virtual
-  ~MobileConnectionRequestChild()
-  {
-  }
+ protected:
+  virtual ~MobileConnectionRequestChild() {}
 
-  virtual void
-  ActorDestroy(ActorDestroyReason why) override;
+  virtual void ActorDestroy(ActorDestroyReason why) override;
 
-  mozilla::ipc::IPCResult
-  Recv__delete__(const MobileConnectionReply& aReply);
+  mozilla::ipc::IPCResult Recv__delete__(const MobileConnectionReply& aReply);
 
-private:
+ private:
   nsCOMPtr<nsIMobileConnectionCallback> mRequestCallback;
 };
 
-} // namespace mobileconnection
-} // namespace dom
-} // namespace mozilla
+}  // namespace mobileconnection
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_mobileconnection_MobileConnectionChild_h
+#endif  // mozilla_dom_mobileconnection_MobileConnectionChild_h

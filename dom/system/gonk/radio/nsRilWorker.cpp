@@ -871,96 +871,155 @@ NS_IMETHODIMP nsRilWorker::ExitEmergencyCallbackMode(int32_t serial) {
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilWorker::SupplyIccPinForApp(int32_t serial, const nsAString& pin, const nsAString& aid) {
-  INFO("nsRilWorker: [%d] > RIL_REQUEST_ENTER_SIM_PIN pin = %s , aid = %s", serial, NS_ConvertUTF16toUTF8(pin).get(), NS_ConvertUTF16toUTF8(aid).get());
+NS_IMETHODIMP nsRilWorker::SupplyIccPinForApp(int32_t serial,
+                                              const nsAString& pin,
+                                              const nsAString& aid) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_ENTER_SIM_PIN pin = %s , aid = %s",
+       serial, NS_ConvertUTF16toUTF8(pin).get(),
+       NS_ConvertUTF16toUTF8(aid).get());
   GetRadioProxy();
   if (mRadioProxy == nullptr) {
     ERROR("No Radio HAL exist");
   }
-  mRadioProxy->supplyIccPinForApp(serial, NS_ConvertUTF16toUTF8(pin).get(), NS_ConvertUTF16toUTF8(aid).get());
+  mRadioProxy->supplyIccPinForApp(serial, NS_ConvertUTF16toUTF8(pin).get(),
+                                  NS_ConvertUTF16toUTF8(aid).get());
 
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilWorker::SupplyIccPin2ForApp(int32_t serial, const nsAString& pin, const nsAString& aid) {
-  INFO("nsRilWorker: [%d] > RIL_REQUEST_ENTER_SIM_PIN2 pin = %s , aid = %s", serial, NS_ConvertUTF16toUTF8(pin).get(), NS_ConvertUTF16toUTF8(aid).get());
+NS_IMETHODIMP nsRilWorker::SupplyIccPin2ForApp(int32_t serial,
+                                               const nsAString& pin,
+                                               const nsAString& aid) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_ENTER_SIM_PIN2 pin = %s , aid = %s",
+       serial, NS_ConvertUTF16toUTF8(pin).get(),
+       NS_ConvertUTF16toUTF8(aid).get());
   GetRadioProxy();
   if (mRadioProxy == nullptr) {
     ERROR("No Radio HAL exist");
   }
-  mRadioProxy->supplyIccPin2ForApp(serial, NS_ConvertUTF16toUTF8(pin).get(), NS_ConvertUTF16toUTF8(aid).get());
+  mRadioProxy->supplyIccPin2ForApp(serial, NS_ConvertUTF16toUTF8(pin).get(),
+                                   NS_ConvertUTF16toUTF8(aid).get());
 
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilWorker::SupplyIccPukForApp(int32_t serial, const nsAString& puk, const nsAString& newPin, const nsAString& aid) {
-  INFO("nsRilWorker: [%d] > RIL_REQUEST_ENTER_SIM_PUK puk = %s , newPin = %s ,aid = %s", serial, NS_ConvertUTF16toUTF8(puk).get(), NS_ConvertUTF16toUTF8(newPin).get(), NS_ConvertUTF16toUTF8(aid).get());
+NS_IMETHODIMP nsRilWorker::SupplyIccPukForApp(int32_t serial,
+                                              const nsAString& puk,
+                                              const nsAString& newPin,
+                                              const nsAString& aid) {
+  INFO(
+      "nsRilWorker: [%d] > RIL_REQUEST_ENTER_SIM_PUK puk = %s , newPin = %s "
+      ",aid = %s",
+      serial, NS_ConvertUTF16toUTF8(puk).get(),
+      NS_ConvertUTF16toUTF8(newPin).get(), NS_ConvertUTF16toUTF8(aid).get());
   GetRadioProxy();
   if (mRadioProxy == nullptr) {
     ERROR("No Radio HAL exist");
   }
-  mRadioProxy->supplyIccPukForApp(serial, NS_ConvertUTF16toUTF8(puk).get(), NS_ConvertUTF16toUTF8(newPin).get(), NS_ConvertUTF16toUTF8(aid).get());
+  mRadioProxy->supplyIccPukForApp(serial, NS_ConvertUTF16toUTF8(puk).get(),
+                                  NS_ConvertUTF16toUTF8(newPin).get(),
+                                  NS_ConvertUTF16toUTF8(aid).get());
 
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilWorker::SupplyIccPuk2ForApp(int32_t serial, const nsAString& puk, const nsAString& newPin, const nsAString& aid) {
-  INFO("nsRilWorker: [%d] > RIL_REQUEST_ENTER_SIM_PUK2 puk = %s , newPin = %s ,aid = %s", serial, NS_ConvertUTF16toUTF8(puk).get(), NS_ConvertUTF16toUTF8(newPin).get(), NS_ConvertUTF16toUTF8(aid).get());
+NS_IMETHODIMP nsRilWorker::SupplyIccPuk2ForApp(int32_t serial,
+                                               const nsAString& puk,
+                                               const nsAString& newPin,
+                                               const nsAString& aid) {
+  INFO(
+      "nsRilWorker: [%d] > RIL_REQUEST_ENTER_SIM_PUK2 puk = %s , newPin = %s "
+      ",aid = %s",
+      serial, NS_ConvertUTF16toUTF8(puk).get(),
+      NS_ConvertUTF16toUTF8(newPin).get(), NS_ConvertUTF16toUTF8(aid).get());
   GetRadioProxy();
   if (mRadioProxy == nullptr) {
     ERROR("No Radio HAL exist");
   }
-  mRadioProxy->supplyIccPuk2ForApp(serial, NS_ConvertUTF16toUTF8(puk).get(), NS_ConvertUTF16toUTF8(newPin).get(), NS_ConvertUTF16toUTF8(aid).get());
+  mRadioProxy->supplyIccPuk2ForApp(serial, NS_ConvertUTF16toUTF8(puk).get(),
+                                   NS_ConvertUTF16toUTF8(newPin).get(),
+                                   NS_ConvertUTF16toUTF8(aid).get());
 
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilWorker::SetFacilityLockForApp(int32_t serial, const nsAString& facility, bool lockState, const nsAString& password, int32_t serviceClass, const nsAString& aid) {
+NS_IMETHODIMP nsRilWorker::SetFacilityLockForApp(
+    int32_t serial, const nsAString& facility, bool lockState,
+    const nsAString& password, int32_t serviceClass, const nsAString& aid) {
   INFO("nsRilWorker: [%d] > RIL_REQUEST_SET_FACILITY_LOCK ", serial);
   GetRadioProxy();
   if (mRadioProxy == nullptr) {
     ERROR("No Radio HAL exist");
   }
-  mRadioProxy->setFacilityLockForApp(serial, NS_ConvertUTF16toUTF8(facility).get(), lockState, NS_ConvertUTF16toUTF8(password).get(), serviceClass, NS_ConvertUTF16toUTF8(aid).get());
+  mRadioProxy->setFacilityLockForApp(
+      serial, NS_ConvertUTF16toUTF8(facility).get(), lockState,
+      NS_ConvertUTF16toUTF8(password).get(), serviceClass,
+      NS_ConvertUTF16toUTF8(aid).get());
 
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilWorker::GetFacilityLockForApp(int32_t serial, const nsAString& facility, const nsAString& password, int32_t serviceClass, const nsAString& aid) {
+NS_IMETHODIMP nsRilWorker::GetFacilityLockForApp(int32_t serial,
+                                                 const nsAString& facility,
+                                                 const nsAString& password,
+                                                 int32_t serviceClass,
+                                                 const nsAString& aid) {
   INFO("nsRilWorker: [%d] > RIL_REQUEST_GET_FACILITY_LOCK ", serial);
   GetRadioProxy();
   if (mRadioProxy == nullptr) {
     ERROR("No Radio HAL exist");
   }
-  mRadioProxy->getFacilityLockForApp(serial, NS_ConvertUTF16toUTF8(facility).get(), NS_ConvertUTF16toUTF8(password).get(), serviceClass, NS_ConvertUTF16toUTF8(aid).get());
+  mRadioProxy->getFacilityLockForApp(
+      serial, NS_ConvertUTF16toUTF8(facility).get(),
+      NS_ConvertUTF16toUTF8(password).get(), serviceClass,
+      NS_ConvertUTF16toUTF8(aid).get());
 
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilWorker::ChangeIccPinForApp(int32_t serial, const nsAString& oldPin, const nsAString& newPin, const nsAString& aid) {
-  INFO("nsRilWorker: [%d] > RIL_REQUEST_CHANGE_SIM_PIN oldPin = %s , newPin = %s ,aid = %s", serial, NS_ConvertUTF16toUTF8(oldPin).get(), NS_ConvertUTF16toUTF8(newPin).get(), NS_ConvertUTF16toUTF8(aid).get());
+NS_IMETHODIMP nsRilWorker::ChangeIccPinForApp(int32_t serial,
+                                              const nsAString& oldPin,
+                                              const nsAString& newPin,
+                                              const nsAString& aid) {
+  INFO(
+      "nsRilWorker: [%d] > RIL_REQUEST_CHANGE_SIM_PIN oldPin = %s , newPin = "
+      "%s ,aid = %s",
+      serial, NS_ConvertUTF16toUTF8(oldPin).get(),
+      NS_ConvertUTF16toUTF8(newPin).get(), NS_ConvertUTF16toUTF8(aid).get());
   GetRadioProxy();
   if (mRadioProxy == nullptr) {
     ERROR("No Radio HAL exist");
   }
-  mRadioProxy->changeIccPinForApp(serial, NS_ConvertUTF16toUTF8(oldPin).get(), NS_ConvertUTF16toUTF8(newPin).get(), NS_ConvertUTF16toUTF8(aid).get());
+  mRadioProxy->changeIccPinForApp(serial, NS_ConvertUTF16toUTF8(oldPin).get(),
+                                  NS_ConvertUTF16toUTF8(newPin).get(),
+                                  NS_ConvertUTF16toUTF8(aid).get());
 
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilWorker::ChangeIccPin2ForApp(int32_t serial, const nsAString& oldPin, const nsAString& newPin, const nsAString& aid) {
-  INFO("nsRilWorker: [%d] > RIL_REQUEST_CHANGE_SIM_PIN2 oldPin = %s , newPin = %s ,aid = %s", serial, NS_ConvertUTF16toUTF8(oldPin).get(), NS_ConvertUTF16toUTF8(newPin).get(), NS_ConvertUTF16toUTF8(aid).get());
+NS_IMETHODIMP nsRilWorker::ChangeIccPin2ForApp(int32_t serial,
+                                               const nsAString& oldPin,
+                                               const nsAString& newPin,
+                                               const nsAString& aid) {
+  INFO(
+      "nsRilWorker: [%d] > RIL_REQUEST_CHANGE_SIM_PIN2 oldPin = %s , newPin = "
+      "%s ,aid = %s",
+      serial, NS_ConvertUTF16toUTF8(oldPin).get(),
+      NS_ConvertUTF16toUTF8(newPin).get(), NS_ConvertUTF16toUTF8(aid).get());
   GetRadioProxy();
   if (mRadioProxy == nullptr) {
     ERROR("No Radio HAL exist");
   }
-  mRadioProxy->changeIccPin2ForApp(serial, NS_ConvertUTF16toUTF8(oldPin).get(), NS_ConvertUTF16toUTF8(newPin).get(), NS_ConvertUTF16toUTF8(aid).get());
+  mRadioProxy->changeIccPin2ForApp(serial, NS_ConvertUTF16toUTF8(oldPin).get(),
+                                   NS_ConvertUTF16toUTF8(newPin).get(),
+                                   NS_ConvertUTF16toUTF8(aid).get());
 
   return NS_OK;
 }
 
 NS_IMETHODIMP nsRilWorker::ReportStkServiceIsRunning(int32_t serial) {
-  INFO("nsRilWorker: [%d] > RIL_REQUEST_REPORT_STK_SERVICE_IS_RUNNING ", serial);
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_REPORT_STK_SERVICE_IS_RUNNING ",
+       serial);
   GetRadioProxy();
   if (mRadioProxy == nullptr) {
     ERROR("No Radio HAL exist");
@@ -994,7 +1053,7 @@ NS_IMETHODIMP nsRilWorker::SetGsmBroadcastConfig(
     GsmBroadcastSmsConfigInfo info;
     // convert [from, to) to [from, to - 1]
     info.fromServiceId = ranges[i++];
-    info.toServiceId = ranges[i++]-1;
+    info.toServiceId = ranges[i++] - 1;
     info.fromCodeScheme = 0x00;
     info.toCodeScheme = 0xFF;
     info.selected = 1;

@@ -39,7 +39,7 @@ class MediaCodecProxy : public RefBase,
   };
 
   enum {
-    kKeyBufferIndex   = 'bfin',
+    kKeyBufferIndex = 'bfin',
     kKeyGraphicBuffer = 'gbuf',
   };
 
@@ -150,10 +150,10 @@ class MediaCodecProxy : public RefBase,
   // Release Codec Resource
   void releaseCodec();
 
-  //Convert AOSP MediaCodec's MediaCodecBuffer to AOSP MediaBuffer
-  //The caller takes the ownership of the result MediaBuffer.
+  // Convert AOSP MediaCodec's MediaCodecBuffer to AOSP MediaBuffer
+  // The caller takes the ownership of the result MediaBuffer.
   MediaBuffer* CreateMediaBuffer(const sp<MediaCodecBuffer>& aMediaCodecBuffer);
-  //Callfer should take care the life of aGraphicBuffer.
+  // Callfer should take care the life of aGraphicBuffer.
   MediaBuffer* CreateMediaBuffer(const GraphicBuffer* aGraphicBuffer);
 
   // MediaCodec Parameter
@@ -182,7 +182,6 @@ class MediaCodecProxy : public RefBase,
   std::vector<int> mInputBuffersCounter;
   std::vector<int> mOutputBuffersCounter;
 #endif
-
 };
 
 }  // namespace android

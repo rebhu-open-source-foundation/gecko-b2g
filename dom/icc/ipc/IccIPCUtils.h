@@ -15,21 +15,20 @@ namespace icc {
 class IccInfoData;
 class IccContactData;
 
-class IccIPCUtils
-{
-public:
+class IccIPCUtils {
+ public:
   static void GetIccInfoDataFromIccInfo(nsIIccInfo* aInInfo,
                                         IccInfoData& aOutData);
   static void GetIccContactDataFromIccContact(nsIIccContact* aContact,
                                               IccContactData& aOutData);
 
-private:
+ private:
   IccIPCUtils() {}
   virtual ~IccIPCUtils() {}
 };
 
-} // namespace icc
-} // namespace dom
-} // namespace mozilla
+}  // namespace icc
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_icc_IccIPCUtils_h
+#endif  // mozilla_dom_icc_IccIPCUtils_h

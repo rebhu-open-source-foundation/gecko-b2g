@@ -14,14 +14,9 @@ NS_IMPL_ISUPPORTS(DOMVideoCallProfile, nsIVideoCallProfile)
 
 DOMVideoCallProfile::DOMVideoCallProfile(VideoCallQuality aQuality,
                                          VideoCallState aState)
-  : mQuality(aQuality)
-  , mState(aState)
-{
-}
+    : mQuality(aQuality), mState(aState) {}
 
-void
-DOMVideoCallProfile::Update(nsIVideoCallProfile* aProfile)
-{
+void DOMVideoCallProfile::Update(nsIVideoCallProfile* aProfile) {
   uint16_t quality;
   uint16_t state;
   aProfile->GetQuality(&quality);
@@ -32,18 +27,16 @@ DOMVideoCallProfile::Update(nsIVideoCallProfile* aProfile)
 }
 
 NS_IMETHODIMP
-DOMVideoCallProfile::GetQuality(uint16_t *aQuality)
-{
+DOMVideoCallProfile::GetQuality(uint16_t* aQuality) {
   *aQuality = static_cast<uint16_t>(mQuality);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-DOMVideoCallProfile::GetState(uint16_t *aState)
-{
+DOMVideoCallProfile::GetState(uint16_t* aState) {
   *aState = static_cast<uint16_t>(mState);
   return NS_OK;
 }
 
-} // namespace mozilla
-} // namespace dom
+}  // namespace dom
+}  // namespace mozilla

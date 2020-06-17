@@ -23,13 +23,12 @@
 
 namespace mozilla {
 
-class TestGonkCameraHardware : public android::GonkCameraHardware
-{
+class TestGonkCameraHardware : public android::GonkCameraHardware {
 #ifndef MOZ_WIDGET_GONK
   NS_DECL_ISUPPORTS_INHERITED
 #endif
 
-public:
+ public:
   virtual nsresult Init() override;
   virtual int AutoFocus() override;
   virtual int CancelAutoFocus() override;
@@ -39,8 +38,10 @@ public:
   virtual void CancelTakePicture() override;
   virtual int StartPreview() override;
   virtual void StopPreview() override;
-  virtual int PushParameters(const mozilla::GonkCameraParameters& aParams) override;
-  virtual nsresult PullParameters(mozilla::GonkCameraParameters& aParams) override;
+  virtual int PushParameters(
+      const mozilla::GonkCameraParameters& aParams) override;
+  virtual nsresult PullParameters(
+      mozilla::GonkCameraParameters& aParams) override;
   virtual int StartRecording() override;
   virtual int StopRecording() override;
   virtual int SetVideoBufferMode(int32_t videoBufferMode) override;
@@ -53,7 +54,7 @@ public:
                          uint32_t aCameraId,
                          const android::sp<android::Camera>& aCamera);
 
-protected:
+ protected:
   virtual ~TestGonkCameraHardware();
 
   class ControlMessage;
@@ -68,11 +69,11 @@ protected:
   mozilla::CondVar mCondVar;
   nsresult mStatus;
 
-private:
+ private:
   TestGonkCameraHardware(const TestGonkCameraHardware&) = delete;
   TestGonkCameraHardware& operator=(const TestGonkCameraHardware&) = delete;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // DOM_CAMERA_TESTGONKCAMERAHARDWARE_H
+#endif  // DOM_CAMERA_TESTGONKCAMERAHARDWARE_H

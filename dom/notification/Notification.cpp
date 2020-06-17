@@ -60,7 +60,7 @@
 #include "nsXULAppAPI.h"
 
 #ifdef MOZ_B2G
-#include "nsIDOMDesktopNotification.h"
+#  include "nsIDOMDesktopNotification.h"
 #endif
 
 namespace mozilla {

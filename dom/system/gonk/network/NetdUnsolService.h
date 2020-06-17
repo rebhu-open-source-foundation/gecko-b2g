@@ -27,8 +27,7 @@ enum UnsolEvent : uint32_t {
   StrictCleartextDetected = 1 << 10,
 };
 
-typedef void (*NetdEventCallback)(
-    mozilla::dom::NetworkResultOptions& aResult);
+typedef void (*NetdEventCallback)(mozilla::dom::NetworkResultOptions& aResult);
 
 class NetdUnsolService : public android::BinderService<NetdUnsolService>,
                          public android::net::BnNetdUnsolicitedEventListener {

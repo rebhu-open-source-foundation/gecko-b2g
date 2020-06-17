@@ -17,28 +17,28 @@ namespace mozilla {
 namespace dom {
 namespace mobilemessage {
 
-class MobileMessageCallback final : public nsIMobileMessageCallback
-{
-public:
+class MobileMessageCallback final : public nsIMobileMessageCallback {
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIMOBILEMESSAGECALLBACK
 
   explicit MobileMessageCallback(DOMRequest* aDOMRequest);
   explicit MobileMessageCallback(Promise* aPromise);
 
-private:
+ private:
   ~MobileMessageCallback();
 
   RefPtr<DOMRequest> mDOMRequest;
   RefPtr<Promise> mPromise;
 
   nsresult NotifySuccess(JS::Handle<JS::Value> aResult, bool aAsync = false);
-  nsresult NotifySuccess(nsISupports *aMessage, bool aAsync = false);
-  nsresult NotifyError(int32_t aError, DOMError *aDetailedError = nullptr, bool aAsync = false);
+  nsresult NotifySuccess(nsISupports* aMessage, bool aAsync = false);
+  nsresult NotifyError(int32_t aError, DOMError* aDetailedError = nullptr,
+                       bool aAsync = false);
 };
 
-} // namespace mobilemessage
-} // namespace dom
-} // namespace mozilla
+}  // namespace mobilemessage
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_mobilemessage_MobileMessageCallback_h
+#endif  // mozilla_dom_mobilemessage_MobileMessageCallback_h

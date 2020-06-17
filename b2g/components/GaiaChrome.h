@@ -14,16 +14,14 @@
 
 using namespace mozilla;
 
-class GaiaChrome final : public nsIGaiaChrome
-{
-public:
+class GaiaChrome final : public nsIGaiaChrome {
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIGAIACHROME
 
-  static already_AddRefed<GaiaChrome>
-  FactoryCreate();
+  static already_AddRefed<GaiaChrome> FactoryCreate();
 
-private:
+ private:
   nsCString mPackageName;
 
   nsAutoString mAppsDir;

@@ -19,8 +19,8 @@
 #include "prenv.h"
 
 #if defined(MOZ_B2G_CAMERA) && defined(MOZ_WIDGET_GONK)
-#include "ICameraControl.h"
-#include "MediaEngineGonkVideoSource.h"
+#  include "ICameraControl.h"
+#  include "MediaEngineGonkVideoSource.h"
 #endif
 
 #define FAKE_ONDEVICECHANGE_EVENT_PERIOD_IN_MS 500
@@ -140,7 +140,7 @@ void MediaEngineWebRTC::EnumerateVideoDevices(
    * for a given instance of the engine.
    */
   int num;
-#if defined(_ARM64_) && defined(XP_WIN)
+#  if defined(_ARM64_) && defined(XP_WIN)
   // There are problems with using DirectShow on versions of Windows before
   // 19H1 on arm64. This disables the camera on older versions of Windows.
   if (aCapEngine == camera::CameraEngine) {
@@ -158,7 +158,7 @@ void MediaEngineWebRTC::EnumerateVideoDevices(
       }
     }
   }
-#endif
+#  endif
   num = GetChildAndCall(&CamerasChild::NumberOfCaptureDevices, aCapEngine);
 
   for (int i = 0; i < num; i++) {
@@ -178,7 +178,7 @@ void MediaEngineWebRTC::EnumerateVideoDevices(
       LOG(("camera:GetCaptureDevice: Failed %d", error));
       continue;
     }
-#ifdef DEBUG
+#  ifdef DEBUG
     LOG(("  Capture Device Index %d, Name %s", i, deviceName));
 
     webrtc::CaptureCapability cap;
@@ -193,7 +193,7 @@ void MediaEngineWebRTC::EnumerateVideoDevices(
       LOG(("type=%d width=%d height=%d maxFPS=%d",
            static_cast<int>(cap.videoType), cap.width, cap.height, cap.maxFPS));
     }
-#endif
+#  endif
 
     if (uniqueId[0] == '\0') {
       // In case a device doesn't set uniqueId!

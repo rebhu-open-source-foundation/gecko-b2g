@@ -18,10 +18,9 @@
 namespace mozilla {
 namespace dom {
 
-class MobileConnectionInfo final : public nsIMobileConnectionInfo
-                                 , public nsWrapperCache
-{
-public:
+class MobileConnectionInfo final : public nsIMobileConnectionInfo,
+                                   public nsWrapperCache {
+ public:
   NS_DECL_NSIMOBILECONNECTIONINFO
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(MobileConnectionInfo)
@@ -31,66 +30,36 @@ public:
   MobileConnectionInfo(const nsAString& aState, bool aConnected,
                        bool aEmergencyCallsOnly, bool aRoaming,
                        nsIMobileNetworkInfo* aNetworkInfo,
-                       const nsAString& aType,
-                       nsIMobileCellInfo* aCellInfo);
+                       const nsAString& aType, nsIMobileCellInfo* aCellInfo);
 
   void UpdateDOMNetworkInfo(nsIMobileConnectionInfo* aInfo);
 
-  void
-  Update(nsIMobileConnectionInfo* aInfo);
+  void Update(nsIMobileConnectionInfo* aInfo);
 
-  nsPIDOMWindowInner*
-  GetParentObject() const
-  {
-    return mWindow;
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return mWindow; }
 
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   // WebIDL interface
-  bool
-  Connected() const
-  {
-    return mConnected;
-  }
+  bool Connected() const { return mConnected; }
 
-  bool
-  EmergencyCallsOnly() const
-  {
-    return mEmergencyCallsOnly;
-  }
+  bool EmergencyCallsOnly() const { return mEmergencyCallsOnly; }
 
-  bool
-  Roaming() const
-  {
-    return mRoaming;
-  }
+  bool Roaming() const { return mRoaming; }
 
-  Nullable<MobileConnectionState>
-  GetState() const
-  {
-    return mState;
-  }
+  Nullable<MobileConnectionState> GetState() const { return mState; }
 
-  Nullable<MobileConnectionType>
-  GetType() const
-  {
-    return mType;
-  }
+  Nullable<MobileConnectionType> GetType() const { return mType; }
 
   DOMMobileNetworkInfo* GetNetwork() const { return mDOMNetworkInfo; }
 
-  MobileCellInfo*
-  GetCell() const
-  {
-    return mCellInfo;
-  }
+  MobileCellInfo* GetCell() const { return mCellInfo; }
 
-private:
+ private:
   ~MobileConnectionInfo() {}
 
-private:
+ private:
   bool mConnected;
   bool mEmergencyCallsOnly;
   bool mRoaming;
@@ -102,7 +71,7 @@ private:
   Nullable<MobileConnectionType> mType;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_MobileConnectionInfo_h
+#endif  // mozilla_dom_MobileConnectionInfo_h

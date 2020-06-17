@@ -13,34 +13,29 @@
 namespace mozilla {
 namespace dom {
 
-class MobileConnectionArray final : public nsISupports
-                                  , public nsWrapperCache
-{
+class MobileConnectionArray final : public nsISupports, public nsWrapperCache {
   nsCOMPtr<nsIGlobalObject> mOwner;
-public:
+
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(MobileConnectionArray)
 
   explicit MobileConnectionArray(nsIGlobalObject* aGlobal);
 
-  nsIGlobalObject*
-  GetParentObject() const;
+  nsIGlobalObject* GetParentObject() const;
 
   // WrapperCache
-  virtual JSObject*
-  WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   //  WebIDL
-  MobileConnection*
-  Item(uint32_t aIndex);
+  MobileConnection* Item(uint32_t aIndex);
 
-  uint32_t
-  Length();
+  uint32_t Length();
 
-  MobileConnection*
-  IndexedGetter(uint32_t aIndex, bool& aFound);
+  MobileConnection* IndexedGetter(uint32_t aIndex, bool& aFound);
 
-private:
+ private:
   ~MobileConnectionArray();
 
   bool mLengthInitialized;
@@ -48,7 +43,7 @@ private:
   nsTArray<RefPtr<MobileConnection>> mMobileConnections;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_network_MobileConnectionArray_h__
+#endif  // mozilla_dom_network_MobileConnectionArray_h__

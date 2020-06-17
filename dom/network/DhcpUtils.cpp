@@ -4,7 +4,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-
 /* Utilities for managing the dhcpcd DHCP client daemon */
 
 #include "DhcpUtils.h"
@@ -93,15 +92,14 @@ static int GetIpInfo(const char* interface, char* ipAddr, char* gateway,
   P2pIfaceReplace(interface, p2pInterface);
 
   SprintfLiteral(propName, "%s.%s.ipaddress", DHCP_PROP_NAME_PREFIX,
-           p2pInterface);
+                 p2pInterface);
   Property::Get(propName, ipAddr, NULL);
 
   SprintfLiteral(propName, "%s.%s.gateway", DHCP_PROP_NAME_PREFIX,
-           p2pInterface);
+                 p2pInterface);
   Property::Get(propName, gateway, NULL);
 
-  SprintfLiteral(propName, "%s.%s.server", DHCP_PROP_NAME_PREFIX,
-           p2pInterface);
+  SprintfLiteral(propName, "%s.%s.server", DHCP_PROP_NAME_PREFIX, p2pInterface);
   Property::Get(propName, server, NULL);
 
   // TODO: Handle IPv6 when we change system property usage
@@ -110,8 +108,7 @@ static int GetIpInfo(const char* interface, char* ipAddr, char* gateway,
     strncpy(gateway, server, Property::VALUE_MAX_LENGTH);
   }
 
-  SprintfLiteral(propName, "%s.%s.mask", DHCP_PROP_NAME_PREFIX,
-           p2pInterface);
+  SprintfLiteral(propName, "%s.%s.mask", DHCP_PROP_NAME_PREFIX, p2pInterface);
   if (Property::Get(propName, propValue, NULL)) {
     int p;
     // this conversion is v4 only, but this dhcp client is v4 only anyway
@@ -120,16 +117,14 @@ static int GetIpInfo(const char* interface, char* ipAddr, char* gateway,
     // for non 255.255.255.255 inputs.  if we get that value check if it is
     // legit..
     if (mask == INADDR_NONE && strcmp(propValue, "255.255.255.255") != 0) {
-      SprintfLiteral(errMsg, "DHCP gave invalid net mask %s",
-               propValue);
+      SprintfLiteral(errMsg, "DHCP gave invalid net mask %s", propValue);
       return -1;
     }
     for (p = 0; p < 32; p++) {
       if (mask == 0) break;
       // check for non-contiguous netmask, e.g., 255.254.255.0
       if ((mask & 0x80000000) == 0) {
-        SprintfLiteral(errMsg, "DHCP gave invalid net mask %s",
-                 propValue);
+        SprintfLiteral(errMsg, "DHCP gave invalid net mask %s", propValue);
         return -1;
       }
       mask = mask << 1;
@@ -138,27 +133,25 @@ static int GetIpInfo(const char* interface, char* ipAddr, char* gateway,
   }
 
   for (x = 0; dns[x] != NULL; x++) {
-    SprintfLiteral(propName, "%s.%s.dns%d", DHCP_PROP_NAME_PREFIX,
-             p2pInterface, x + 1);
+    SprintfLiteral(propName, "%s.%s.dns%d", DHCP_PROP_NAME_PREFIX, p2pInterface,
+                   x + 1);
     Property::Get(propName, dns[x], NULL);
   }
 
   SprintfLiteral(propName, "%s.%s.leasetime", DHCP_PROP_NAME_PREFIX,
-           p2pInterface);
+                 p2pInterface);
   if (Property::Get(propName, propValue, NULL)) {
     *lease = atol(propValue);
   }
 
-  SprintfLiteral(propName, "%s.%s.vendorInfo",
-           DHCP_PROP_NAME_PREFIX, p2pInterface);
+  SprintfLiteral(propName, "%s.%s.vendorInfo", DHCP_PROP_NAME_PREFIX,
+                 p2pInterface);
   Property::Get(propName, vendorInfo, NULL);
 
-  SprintfLiteral(propName, "%s.%s.domain", DHCP_PROP_NAME_PREFIX,
-           p2pInterface);
+  SprintfLiteral(propName, "%s.%s.domain", DHCP_PROP_NAME_PREFIX, p2pInterface);
   Property::Get(propName, domain, NULL);
 
-  SprintfLiteral(propName, "%s.%s.mtu", DHCP_PROP_NAME_PREFIX,
-           p2pInterface);
+  SprintfLiteral(propName, "%s.%s.mtu", DHCP_PROP_NAME_PREFIX, p2pInterface);
   Property::Get(propName, mtu, NULL);
 
   return 0;
@@ -180,8 +173,8 @@ int DhcpUtils::GetDhcpResults(const char* interface, char* ipAddr,
    * properties */
   char p2pInterface[MAX_INTERFACE_LENGTH];
   P2pIfaceReplace(interface, p2pInterface);
-  SprintfLiteral(resultPropName, "%s.%s.result",
-           DHCP_PROP_NAME_PREFIX, p2pInterface);
+  SprintfLiteral(resultPropName, "%s.%s.result", DHCP_PROP_NAME_PREFIX,
+                 p2pInterface);
 
   memset(propValue, '\0', Property::VALUE_MAX_LENGTH);
   if (!Property::Get(resultPropName, propValue, NULL)) {
@@ -222,11 +215,10 @@ int DhcpUtils::DhcpStart(const char* interface) {
 
   P2pIfaceReplace(interface, p2pInterface);
 
-  SprintfLiteral(resultPropName, "%s.%s.result",
-           DHCP_PROP_NAME_PREFIX, p2pInterface);
+  SprintfLiteral(resultPropName, "%s.%s.result", DHCP_PROP_NAME_PREFIX,
+                 p2pInterface);
 
-  SprintfLiteral(daemonPropName, "%s_%s", DAEMON_PROP_NAME,
-           p2pInterface);
+  SprintfLiteral(daemonPropName, "%s_%s", DAEMON_PROP_NAME, p2pInterface);
 
   /* Erase any previous setting of the dhcp result property */
   Property::Set(resultPropName, "");
@@ -234,22 +226,20 @@ int DhcpUtils::DhcpStart(const char* interface) {
   /* Start the daemon and wait until it's ready */
   if (Property::Get(HOSTNAME_PROP_NAME, propValue, NULL) &&
       (propValue[0] != '\0'))
-    SprintfLiteral(daemonCmd, "%s_%s:-f %s -h %s %s", DAEMON_NAME,
-             p2pInterface, DHCP_CONFIG_PATH, propValue, interface);
+    SprintfLiteral(daemonCmd, "%s_%s:-f %s -h %s %s", DAEMON_NAME, p2pInterface,
+                   DHCP_CONFIG_PATH, propValue, interface);
   else
     SprintfLiteral(daemonCmd, "%s_%s", DAEMON_NAME, p2pInterface);
   memset(propValue, '\0', Property::VALUE_MAX_LENGTH);
   Property::Set(ctrlProp, daemonCmd);
   if (WaitForProperty(daemonPropName, desiredStatus, 10) < 0) {
-    SprintfLiteral(errMsg, "%s",
-             "Timed out waiting for dhcpcd to start");
+    SprintfLiteral(errMsg, "%s", "Timed out waiting for dhcpcd to start");
     return -1;
   }
 
   /* Wait for the daemon to return a result */
   if (WaitForProperty(resultPropName, NULL, 30) < 0) {
-    SprintfLiteral(errMsg, "%s",
-             "Timed out waiting for DHCP to finish");
+    SprintfLiteral(errMsg, "%s", "Timed out waiting for DHCP to finish");
     return -1;
   }
 
@@ -270,11 +260,10 @@ int DhcpUtils::DhcpStop(const char* interface) {
 
   P2pIfaceReplace(interface, p2pInterface);
 
-  SprintfLiteral(resultPropName, "%s.%s.result",
-           DHCP_PROP_NAME_PREFIX, p2pInterface);
+  SprintfLiteral(resultPropName, "%s.%s.result", DHCP_PROP_NAME_PREFIX,
+                 p2pInterface);
 
-  SprintfLiteral(daemonPropName, "%s_%s", DAEMON_PROP_NAME,
-           p2pInterface);
+  SprintfLiteral(daemonPropName, "%s_%s", DAEMON_PROP_NAME, p2pInterface);
 
   SprintfLiteral(daemonCmd, "%s_%s", DAEMON_NAME, p2pInterface);
 
@@ -300,8 +289,7 @@ int DhcpUtils::DhcpRelease(const char* interface) {
 
   P2pIfaceReplace(interface, p2pInterface);
 
-  SprintfLiteral(daemonPropName, "%s_%s", DAEMON_PROP_NAME,
-           p2pInterface);
+  SprintfLiteral(daemonPropName, "%s_%s", DAEMON_PROP_NAME, p2pInterface);
 
   SprintfLiteral(daemonCmd, "%s_%s", DAEMON_NAME, p2pInterface);
 
@@ -332,22 +320,21 @@ int DhcpUtils::DhcpRenew(const char* interface) {
 
   P2pIfaceReplace(interface, p2pInterface);
 
-  SprintfLiteral(resultPropName, "%s.%s.result",
-           DHCP_PROP_NAME_PREFIX, p2pInterface);
+  SprintfLiteral(resultPropName, "%s.%s.result", DHCP_PROP_NAME_PREFIX,
+                 p2pInterface);
 
   // Erase any previous setting of the dhcp result property
   Property::Set(resultPropName, "");
 
   // Start the renew daemon and wait until it's ready
-  SprintfLiteral(daemonCmd, "%s_%s:%s", DAEMON_NAME_RENEW,
-           p2pInterface, interface);
+  SprintfLiteral(daemonCmd, "%s_%s:%s", DAEMON_NAME_RENEW, p2pInterface,
+                 interface);
   memset(propValue, '\0', Property::VALUE_MAX_LENGTH);
   Property::Set(ctrlProp, daemonCmd);
 
   // Wait for the daemon to return a result
   if (WaitForProperty(resultPropName, NULL, 30) < 0) {
-    SprintfLiteral(errMsg, "%s",
-             "Timed out waiting for DHCP Renew to finish");
+    SprintfLiteral(errMsg, "%s", "Timed out waiting for DHCP Renew to finish");
     return -1;
   }
 

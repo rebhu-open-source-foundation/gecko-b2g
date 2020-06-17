@@ -17,83 +17,59 @@ namespace dom {
 
 namespace mobilemessage {
 class MmsMessageInternal;
-} // namespace mobilemessage
+}  // namespace mobilemessage
 
 struct MmsAttachment;
 struct MmsDeliveryInfo;
 
-class MmsMessage final : public nsISupports,
-                         public nsWrapperCache
-{
-public:
+class MmsMessage final : public nsISupports, public nsWrapperCache {
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(MmsMessage)
 
   MmsMessage(nsPIDOMWindowInner* aWindow,
              mobilemessage::MmsMessageInternal* aMessage);
 
-  nsPIDOMWindowInner*
-  GetParentObject() const
-  {
-    return mWindow;
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return mWindow; }
 
-  virtual JSObject*
-  WrapObject(JSContext* aCx,
-             JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-  void
-  GetType(nsString& aRetVal) const;
+  void GetType(nsString& aRetVal) const;
 
-  int32_t
-  Id() const;
+  int32_t Id() const;
 
-  uint64_t
-  ThreadId() const;
+  uint64_t ThreadId() const;
 
-  void
-  GetIccId(nsString& aRetVal) const;
+  void GetIccId(nsString& aRetVal) const;
 
-  void
-  GetDelivery(nsString& aRetVal) const;
+  void GetDelivery(nsString& aRetVal) const;
 
-  void
-  GetDeliveryInfo(nsTArray<MmsDeliveryInfo>& aRetVal) const;
+  void GetDeliveryInfo(nsTArray<MmsDeliveryInfo>& aRetVal) const;
 
-  void
-  GetSender(nsString& aRetVal) const;
+  void GetSender(nsString& aRetVal) const;
 
-  void
-  GetReceivers(nsTArray<nsString>& aRetVal) const;
+  void GetReceivers(nsTArray<nsString>& aRetVal) const;
 
-  uint64_t
-  Timestamp() const;
+  uint64_t Timestamp() const;
 
-  uint64_t
-  SentTimestamp() const;
+  uint64_t SentTimestamp() const;
 
-  bool
-  Read() const;
+  bool Read() const;
 
-  void
-  GetSubject(nsString& aRetVal) const;
+  void GetSubject(nsString& aRetVal) const;
 
-  void
-  GetSmil(nsString& aRetVal) const;
+  void GetSmil(nsString& aRetVal) const;
 
-  void
-  GetAttachments(nsTArray<MmsAttachment>& aRetVal) const;
+  void GetAttachments(nsTArray<MmsAttachment>& aRetVal) const;
 
-  uint64_t
-  ExpiryDate() const;
+  uint64_t ExpiryDate() const;
 
-  bool
-  ReadReportRequested() const;
+  bool ReadReportRequested() const;
 
-  bool
-  IsGroup() const;
+  bool IsGroup() const;
 
-private:
+ private:
   // Don't try to use the default constructor.
   MmsMessage() = delete;
 
@@ -103,7 +79,7 @@ private:
   RefPtr<mobilemessage::MmsMessageInternal> mMessage;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_MmsMessage_h
+#endif  // mozilla_dom_MmsMessage_h

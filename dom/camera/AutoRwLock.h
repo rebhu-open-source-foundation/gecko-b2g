@@ -8,42 +8,30 @@
 #include "prrwlock.h"
 #include "mozilla/Assertions.h"
 
-class RwLockAutoEnterRead
-{
-public:
-  explicit RwLockAutoEnterRead(PRRWLock* aRwLock)
-    : mRwLock(aRwLock)
-  {
+class RwLockAutoEnterRead {
+ public:
+  explicit RwLockAutoEnterRead(PRRWLock* aRwLock) : mRwLock(aRwLock) {
     MOZ_ASSERT(mRwLock);
     PR_RWLock_Rlock(mRwLock);
   }
 
-  ~RwLockAutoEnterRead()
-  {
-    PR_RWLock_Unlock(mRwLock);
-  }
+  ~RwLockAutoEnterRead() { PR_RWLock_Unlock(mRwLock); }
 
-protected:
+ protected:
   PRRWLock* mRwLock;
 };
 
-class RwLockAutoEnterWrite
-{
-public:
-  explicit RwLockAutoEnterWrite(PRRWLock* aRwLock)
-    : mRwLock(aRwLock)
-  {
+class RwLockAutoEnterWrite {
+ public:
+  explicit RwLockAutoEnterWrite(PRRWLock* aRwLock) : mRwLock(aRwLock) {
     MOZ_ASSERT(mRwLock);
     PR_RWLock_Wlock(mRwLock);
   }
 
-  ~RwLockAutoEnterWrite()
-  {
-    PR_RWLock_Unlock(mRwLock);
-  }
+  ~RwLockAutoEnterWrite() { PR_RWLock_Unlock(mRwLock); }
 
-protected:
+ protected:
   PRRWLock* mRwLock;
 };
 
-#endif // RWLOCK_AUTO_ENTER_H
+#endif  // RWLOCK_AUTO_ENTER_H

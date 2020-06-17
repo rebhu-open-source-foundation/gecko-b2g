@@ -1,8 +1,8 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
-* License, v. 2.0. If a copy of the MPL was not distributed with this
-* file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #ifndef mozilla_dom_telephony_TelephonyIPCSerializer_h
 #define mozilla_dom_telephony_TelephonyIPCSerializer_h
@@ -22,8 +22,7 @@ namespace IPC {
  * nsITelephonyCallInfo Serialize/De-serialize.
  */
 template <>
-struct ParamTraits<nsITelephonyCallInfo*>
-{
+struct ParamTraits<nsITelephonyCallInfo*> {
   typedef nsITelephonyCallInfo* paramType;
 
   static void Write(Message* aMsg, const paramType& aParam) {
@@ -106,8 +105,8 @@ struct ParamTraits<nsITelephonyCallInfo*>
     WriteParam(aMsg, vowifiQuality);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
-  {
+  static bool Read(const Message* aMsg, PickleIterator* aIter,
+                   paramType* aResult) {
     // Check if is the null pointer we have transfered.
     bool isNull;
     if (!ReadParam(aMsg, aIter, &isNull)) {
@@ -169,27 +168,11 @@ struct ParamTraits<nsITelephonyCallInfo*>
       return false;
     }
 
-    nsCOMPtr<nsITelephonyCallInfo> info =
-        new TelephonyCallInfo(clientId,
-                              callIndex,
-                              callState,
-                              voiceQuality,
-                              capabilities,
-                              videoCallState,
-                              disconnectedReason,
-                              number,
-                              numberPresentation,
-                              name,
-                              namePresentation,
-                              radioTech,
-                              isOutgoing,
-                              isEmergency,
-                              isConference,
-                              isSwitchable,
-                              isMergeable,
-                              isConferenceParent,
-                              rttMode,
-                              vowifiQuality);
+    nsCOMPtr<nsITelephonyCallInfo> info = new TelephonyCallInfo(
+        clientId, callIndex, callState, voiceQuality, capabilities,
+        videoCallState, disconnectedReason, number, numberPresentation, name,
+        namePresentation, radioTech, isOutgoing, isEmergency, isConference,
+        isSwitchable, isMergeable, isConferenceParent, rttMode, vowifiQuality);
 
     info.forget(aResult);
 
@@ -197,7 +180,6 @@ struct ParamTraits<nsITelephonyCallInfo*>
   }
 };
 
+}  // namespace IPC
 
-} // namespace IPC
-
-#endif // mozilla_dom_telephony_TelephonyIPCSerializer_h
+#endif  // mozilla_dom_telephony_TelephonyIPCSerializer_h

@@ -11,20 +11,20 @@
 
 class nsMIMEInfoGonk : public nsMIMEInfoImpl {
  public:
-  explicit nsMIMEInfoGonk(const char *aMIMEType = "")
+  explicit nsMIMEInfoGonk(const char* aMIMEType = "")
       : nsMIMEInfoImpl(aMIMEType) {}
-  explicit nsMIMEInfoGonk(const nsACString &aMIMEType)
+  explicit nsMIMEInfoGonk(const nsACString& aMIMEType)
       : nsMIMEInfoImpl(aMIMEType) {}
-  nsMIMEInfoGonk(const nsACString &aType, HandlerClass aClass)
+  nsMIMEInfoGonk(const nsACString& aType, HandlerClass aClass)
       : nsMIMEInfoImpl(aType, aClass) {}
-  static bool HandlerExists(const char *aProtocolScheme);
+  static bool HandlerExists(const char* aProtocolScheme);
 
  protected:
-  NS_IMETHOD GetHasDefaultHandler(bool *_retval) override;
+  NS_IMETHOD GetHasDefaultHandler(bool* _retval) override;
 
-  virtual nsresult LoadUriInternal(nsIURI *aURI) override;
+  virtual nsresult LoadUriInternal(nsIURI* aURI) override;
 
-  virtual nsresult LaunchDefaultWithFile(nsIFile *aFile) override;
+  virtual nsresult LaunchDefaultWithFile(nsIFile* aFile) override;
 };
 
 #endif  // nsMIMEInfoGonk_h_

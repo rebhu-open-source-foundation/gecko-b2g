@@ -20,117 +20,84 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(SmsMessage)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-SmsMessage::SmsMessage(nsPIDOMWindowInner* aWindow, SmsMessageInternal* aMessage)
-  : mWindow(aWindow)
-  , mMessage(aMessage)
-{
-}
+SmsMessage::SmsMessage(nsPIDOMWindowInner* aWindow,
+                       SmsMessageInternal* aMessage)
+    : mWindow(aWindow), mMessage(aMessage) {}
 
-SmsMessage::~SmsMessage()
-{
-}
+SmsMessage::~SmsMessage() {}
 
-JSObject*
-SmsMessage::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* SmsMessage::WrapObject(JSContext* aCx,
+                                 JS::Handle<JSObject*> aGivenProto) {
   return SmsMessageBinding::Wrap(aCx, this, aGivenProto);
 }
 
-void
-SmsMessage::GetType(nsString& aRetVal) const
-{
+void SmsMessage::GetType(nsString& aRetVal) const {
   mMessage->GetType(aRetVal);
 }
 
-int32_t
-SmsMessage::Id() const
-{
+int32_t SmsMessage::Id() const {
   int32_t id;
   mMessage->GetId(&id);
   return id;
 }
 
-uint64_t
-SmsMessage::ThreadId() const
-{
+uint64_t SmsMessage::ThreadId() const {
   uint64_t id;
   mMessage->GetThreadId(&id);
   return id;
 }
 
-void
-SmsMessage::GetIccId(nsString& aRetVal) const
-{
+void SmsMessage::GetIccId(nsString& aRetVal) const {
   mMessage->GetIccId(aRetVal);
 }
 
-void
-SmsMessage::GetDelivery(nsString& aRetVal) const
-{
+void SmsMessage::GetDelivery(nsString& aRetVal) const {
   mMessage->GetDelivery(aRetVal);
 }
 
-void
-SmsMessage::GetDeliveryStatus(nsString& aRetVal) const
-{
+void SmsMessage::GetDeliveryStatus(nsString& aRetVal) const {
   mMessage->GetDeliveryStatus(aRetVal);
 }
 
-void
-SmsMessage::GetSender(nsString& aRetVal) const
-{
+void SmsMessage::GetSender(nsString& aRetVal) const {
   mMessage->GetSender(aRetVal);
 }
 
-void
-SmsMessage::GetReceiver(nsString& aRetVal) const
-{
+void SmsMessage::GetReceiver(nsString& aRetVal) const {
   mMessage->GetReceiver(aRetVal);
 }
 
-void
-SmsMessage::GetBody(nsString& aRetVal) const
-{
+void SmsMessage::GetBody(nsString& aRetVal) const {
   mMessage->GetBody(aRetVal);
 }
 
-void
-SmsMessage::GetMessageClass(nsString& aRetVal) const
-{
+void SmsMessage::GetMessageClass(nsString& aRetVal) const {
   mMessage->GetMessageClass(aRetVal);
 }
 
-uint64_t
-SmsMessage::Timestamp() const
-{
+uint64_t SmsMessage::Timestamp() const {
   uint64_t timestamp;
   mMessage->GetTimestamp(&timestamp);
   return timestamp;
 }
 
-uint64_t
-SmsMessage::SentTimestamp() const
-{
+uint64_t SmsMessage::SentTimestamp() const {
   uint64_t timestamp;
   mMessage->GetSentTimestamp(&timestamp);
   return timestamp;
 }
 
-uint64_t
-SmsMessage::DeliveryTimestamp() const
-{
+uint64_t SmsMessage::DeliveryTimestamp() const {
   uint64_t timestamp;
   mMessage->GetDeliveryTimestamp(&timestamp);
   return timestamp;
 }
 
-bool
-SmsMessage::Read() const
-{
+bool SmsMessage::Read() const {
   bool read;
   mMessage->GetRead(&read);
   return read;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

@@ -21,16 +21,16 @@
 #include "GonkBufferSlot.h"
 
 namespace android {
-    class GonkBufferQueueCore;
+class GonkBufferQueueCore;
 
-    namespace GonkBufferQueueDefs {
-        // GonkBufferQueue will keep track of at most this value of buffers.
-        // Attempts at runtime to increase the number of buffers past this
-        // will fail.
-        enum { NUM_BUFFER_SLOTS = 64 };
+namespace GonkBufferQueueDefs {
+// GonkBufferQueue will keep track of at most this value of buffers.
+// Attempts at runtime to increase the number of buffers past this
+// will fail.
+enum { NUM_BUFFER_SLOTS = 64 };
 
-        typedef GonkBufferSlot SlotsType[NUM_BUFFER_SLOTS];
-    } // namespace GonkBufferQueueDefs
-} // namespace android
+typedef GonkBufferSlot SlotsType[NUM_BUFFER_SLOTS];
+}  // namespace GonkBufferQueueDefs
+}  // namespace android
 
 #endif

@@ -28,29 +28,30 @@ namespace dom {
 /**
  * CameraRecorderVideoProfile
  */
-class CameraRecorderVideoProfile final : public nsISupports
-                                       , public nsWrapperCache
-{
-public:
+class CameraRecorderVideoProfile final : public nsISupports,
+                                         public nsWrapperCache {
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(CameraRecorderVideoProfile)
 
-  explicit CameraRecorderVideoProfile(nsISupports* aParent,
-    const ICameraControl::RecorderProfile::Video& aProfile);
-  nsISupports* GetParentObject() const        { return mParent; }
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  explicit CameraRecorderVideoProfile(
+      nsISupports* aParent,
+      const ICameraControl::RecorderProfile::Video& aProfile);
+  nsISupports* GetParentObject() const { return mParent; }
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-  uint32_t BitsPerSecond() const              { return mBitrate; }
-  uint32_t FramesPerSecond() const            { return mFramerate; }
-  void GetCodec(nsAString& aCodec) const      { aCodec = mCodec; }
+  uint32_t BitsPerSecond() const { return mBitrate; }
+  uint32_t FramesPerSecond() const { return mFramerate; }
+  void GetCodec(nsAString& aCodec) const { aCodec = mCodec; }
 
-  void GetSize(dom::CameraSize& aSize) const  { aSize = mSize; }
+  void GetSize(dom::CameraSize& aSize) const { aSize = mSize; }
 
   // XXXmikeh - legacy, remove these when the Camera app is updated
-  uint32_t Width() const                      { return mSize.mWidth; }
-  uint32_t Height() const                     { return mSize.mHeight; }
+  uint32_t Width() const { return mSize.mWidth; }
+  uint32_t Height() const { return mSize.mHeight; }
 
-protected:
+ protected:
   virtual ~CameraRecorderVideoProfile();
 
   nsCOMPtr<nsISupports> mParent;
@@ -60,31 +61,32 @@ protected:
   uint32_t mFramerate;
   dom::CameraSize mSize;
 
-private:
+ private:
   DISALLOW_EVIL_CONSTRUCTORS(CameraRecorderVideoProfile);
 };
 
 /**
  * CameraRecorderAudioProfile
  */
-class CameraRecorderAudioProfile final : public nsISupports
-                                       , public nsWrapperCache
-{
-public:
+class CameraRecorderAudioProfile final : public nsISupports,
+                                         public nsWrapperCache {
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(CameraRecorderAudioProfile)
 
-  explicit CameraRecorderAudioProfile(nsISupports* aParent,
-    const ICameraControl::RecorderProfile::Audio& aProfile);
-  nsISupports* GetParentObject() const    { return mParent; }
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  explicit CameraRecorderAudioProfile(
+      nsISupports* aParent,
+      const ICameraControl::RecorderProfile::Audio& aProfile);
+  nsISupports* GetParentObject() const { return mParent; }
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-  uint32_t BitsPerSecond() const          { return mBitrate; }
-  uint32_t SamplesPerSecond() const       { return mSamplerate; }
-  uint32_t Channels() const               { return mChannels; }
-  void GetCodec(nsAString& aCodec) const  { aCodec = mCodec; }
+  uint32_t BitsPerSecond() const { return mBitrate; }
+  uint32_t SamplesPerSecond() const { return mSamplerate; }
+  uint32_t Channels() const { return mChannels; }
+  void GetCodec(nsAString& aCodec) const { aCodec = mCodec; }
 
-protected:
+ protected:
   virtual ~CameraRecorderAudioProfile();
 
   nsCOMPtr<nsISupports> mParent;
@@ -94,39 +96,36 @@ protected:
   uint32_t mSamplerate;
   uint32_t mChannels;
 
-private:
+ private:
   DISALLOW_EVIL_CONSTRUCTORS(CameraRecorderAudioProfile);
 };
 
 /**
  * CameraRecorderProfile
  */
-class CameraRecorderProfile final : public nsISupports
-                                  , public nsWrapperCache
-{
-public:
+class CameraRecorderProfile final : public nsISupports, public nsWrapperCache {
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(CameraRecorderProfile)
 
-  explicit CameraRecorderProfile(nsISupports* aParent,
-                                 const ICameraControl::RecorderProfile& aProfile);
-  nsISupports* GetParentObject() const          { return mParent; }
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  explicit CameraRecorderProfile(
+      nsISupports* aParent, const ICameraControl::RecorderProfile& aProfile);
+  nsISupports* GetParentObject() const { return mParent; }
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-  void GetMimeType(nsAString& aMimeType) const  { aMimeType = mMimeType; }
+  void GetMimeType(nsAString& aMimeType) const { aMimeType = mMimeType; }
 
-  CameraRecorderVideoProfile* Video()           { return mVideo; }
-  CameraRecorderAudioProfile* Audio()           { return mAudio; }
+  CameraRecorderVideoProfile* Video() { return mVideo; }
+  CameraRecorderAudioProfile* Audio() { return mAudio; }
 
-  void GetName(nsAString& aName) const          { aName = mName; }
+  void GetName(nsAString& aName) const { aName = mName; }
 
-  void
-  GetContainerFormat(nsAString& aContainerFormat) const
-  {
+  void GetContainerFormat(nsAString& aContainerFormat) const {
     aContainerFormat = mContainerFormat;
   }
 
-protected:
+ protected:
   virtual ~CameraRecorderProfile();
 
   nsCOMPtr<nsISupports> mParent;
@@ -138,33 +137,33 @@ protected:
   RefPtr<CameraRecorderVideoProfile> mVideo;
   RefPtr<CameraRecorderAudioProfile> mAudio;
 
-private:
+ private:
   DISALLOW_EVIL_CONSTRUCTORS(CameraRecorderProfile);
 };
 
 /**
  * CameraRecorderProfiles
  */
-template<class T> class CameraClosedListenerProxy;
+template <class T>
+class CameraClosedListenerProxy;
 
-class CameraRecorderProfiles final : public nsISupports
-                                   , public nsWrapperCache
-{
-public:
+class CameraRecorderProfiles final : public nsISupports, public nsWrapperCache {
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(CameraRecorderProfiles)
 
   explicit CameraRecorderProfiles(nsISupports* aParent,
                                   ICameraControl* aCameraControl);
   nsISupports* GetParentObject() const { return mParent; }
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   CameraRecorderProfile* NamedGetter(const nsAString& aName, bool& aFound);
   void GetSupportedNames(nsTArray<nsString>& aNames);
 
   virtual void OnHardwareClosed();
 
-protected:
+ protected:
   virtual ~CameraRecorderProfiles();
 
   nsCOMPtr<nsISupports> mParent;
@@ -172,17 +171,15 @@ protected:
   nsRefPtrHashtable<nsStringHashKey, CameraRecorderProfile> mProfiles;
   RefPtr<CameraClosedListenerProxy<CameraRecorderProfiles>> mListener;
 
-private:
+ private:
   DISALLOW_EVIL_CONSTRUCTORS(CameraRecorderProfiles);
 };
 
 /**
  * CameraCapabilities
  */
-class CameraCapabilities final : public nsISupports
-                               , public nsWrapperCache
-{
-public:
+class CameraCapabilities final : public nsISupports, public nsWrapperCache {
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(CameraCapabilities)
 
@@ -198,7 +195,8 @@ public:
 
   nsPIDOMWindowInner* GetParentObject() const { return mWindow; }
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
   void GetPreviewSizes(nsTArray<CameraSize>& aRetVal);
   void GetPictureSizes(nsTArray<CameraSize>& aRetVal);
@@ -224,7 +222,7 @@ public:
 
   virtual void OnHardwareClosed();
 
-protected:
+ protected:
   ~CameraCapabilities();
 
   nsresult TranslateToDictionary(uint32_t aKey, nsTArray<CameraSize>& aSizes);
@@ -233,11 +231,11 @@ protected:
   RefPtr<ICameraControl> mCameraControl;
   RefPtr<CameraClosedListenerProxy<CameraCapabilities>> mListener;
 
-private:
+ private:
   DISALLOW_EVIL_CONSTRUCTORS(CameraCapabilities);
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_CameraCapabilities_h__
+#endif  // mozilla_dom_CameraCapabilities_h__

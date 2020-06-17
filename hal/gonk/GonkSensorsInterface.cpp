@@ -21,30 +21,21 @@ using namespace mozilla::ipc;
 // GonkSensorsResultHandler
 //
 
-void
-GonkSensorsResultHandler::OnError(SensorsError aError)
-{
+void GonkSensorsResultHandler::OnError(SensorsError aError) {
   HAL_ERR("Received error code %d", static_cast<int>(aError));
 }
 
-void
-GonkSensorsResultHandler::Connect()
-{ }
+void GonkSensorsResultHandler::Connect() {}
 
-void
-GonkSensorsResultHandler::Disconnect()
-{ }
+void GonkSensorsResultHandler::Disconnect() {}
 
-GonkSensorsResultHandler::~GonkSensorsResultHandler()
-{ }
+GonkSensorsResultHandler::~GonkSensorsResultHandler() {}
 
 //
 // GonkSensorsNotificationHandler
 //
 
-void
-GonkSensorsNotificationHandler::BackendErrorNotification(bool aCrashed)
-{
+void GonkSensorsNotificationHandler::BackendErrorNotification(bool aCrashed) {
   if (aCrashed) {
     HAL_ERR("Sensors backend crashed");
   } else {
@@ -52,25 +43,22 @@ GonkSensorsNotificationHandler::BackendErrorNotification(bool aCrashed)
   }
 }
 
-GonkSensorsNotificationHandler::~GonkSensorsNotificationHandler()
-{ }
+GonkSensorsNotificationHandler::~GonkSensorsNotificationHandler() {}
 
 //
 // GonkSensorsProtocol
 //
 
-class GonkSensorsProtocol final
-  : public DaemonSocketIOConsumer
-  , public GonkSensorsRegistryModule
-  , public GonkSensorsPollModule
-{
-public:
+class GonkSensorsProtocol final : public DaemonSocketIOConsumer,
+                                  public GonkSensorsRegistryModule,
+                                  public GonkSensorsPollModule {
+ public:
   GonkSensorsProtocol();
 
   void SetConnection(DaemonSocket* aConnection);
 
   already_AddRefed<DaemonSocketResultHandler> FetchResultHandler(
-    const DaemonSocketPDUHeader& aHeader);
+      const DaemonSocketPDUHeader& aHeader);
 
   // Methods for |SensorsRegistryModule| and |SensorsPollModule|
   //
@@ -84,34 +72,29 @@ public:
   void Handle(DaemonSocketPDU& aPDU) override;
   void StoreResultHandler(const DaemonSocketPDU& aPDU) override;
 
-private:
+ private:
   void HandleRegistrySvc(const DaemonSocketPDUHeader& aHeader,
                          DaemonSocketPDU& aPDU,
                          DaemonSocketResultHandler* aRes);
   void HandlePollSvc(const DaemonSocketPDUHeader& aHeader,
-                     DaemonSocketPDU& aPDU,
-                     DaemonSocketResultHandler* aRes);
+                     DaemonSocketPDU& aPDU, DaemonSocketResultHandler* aRes);
 
   DaemonSocket* mConnection;
   nsTArray<RefPtr<DaemonSocketResultHandler>> mResultHandlerQ;
 };
 
-GonkSensorsProtocol::GonkSensorsProtocol()
-{ }
+GonkSensorsProtocol::GonkSensorsProtocol() {}
 
-void
-GonkSensorsProtocol::SetConnection(DaemonSocket* aConnection)
-{
+void GonkSensorsProtocol::SetConnection(DaemonSocket* aConnection) {
   mConnection = aConnection;
 }
 
 already_AddRefed<DaemonSocketResultHandler>
-GonkSensorsProtocol::FetchResultHandler(const DaemonSocketPDUHeader& aHeader)
-{
+GonkSensorsProtocol::FetchResultHandler(const DaemonSocketPDUHeader& aHeader) {
   MOZ_ASSERT(!NS_IsMainThread());
 
   if (aHeader.mOpcode & 0x80) {
-    return nullptr; // Ignore notifications
+    return nullptr;  // Ignore notifications
   }
 
   RefPtr<DaemonSocketResultHandler> res = mResultHandlerQ.ElementAt(0);
@@ -120,28 +103,22 @@ GonkSensorsProtocol::FetchResultHandler(const DaemonSocketPDUHeader& aHeader)
   return res.forget();
 }
 
-void
-GonkSensorsProtocol::HandleRegistrySvc(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
-  DaemonSocketResultHandler* aRes)
-{
+void GonkSensorsProtocol::HandleRegistrySvc(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    DaemonSocketResultHandler* aRes) {
   GonkSensorsRegistryModule::HandleSvc(aHeader, aPDU, aRes);
 }
 
-void
-GonkSensorsProtocol::HandlePollSvc(
-  const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
-  DaemonSocketResultHandler* aRes)
-{
+void GonkSensorsProtocol::HandlePollSvc(const DaemonSocketPDUHeader& aHeader,
+                                        DaemonSocketPDU& aPDU,
+                                        DaemonSocketResultHandler* aRes) {
   GonkSensorsPollModule::HandleSvc(aHeader, aPDU, aRes);
 }
 
 // |SensorsRegistryModule|, |SensorsPollModule|
 
-nsresult
-GonkSensorsProtocol::Send(DaemonSocketPDU* aPDU,
-                          DaemonSocketResultHandler* aRes)
-{
+nsresult GonkSensorsProtocol::Send(DaemonSocketPDU* aPDU,
+                                   DaemonSocketResultHandler* aRes) {
   MOZ_ASSERT(mConnection);
   MOZ_ASSERT(aPDU);
 
@@ -154,24 +131,21 @@ GonkSensorsProtocol::Send(DaemonSocketPDU* aPDU,
     return NS_ERROR_FAILURE;
   }
 
-  mConnection->SendSocketData(aPDU); // Forward PDU to data channel
+  mConnection->SendSocketData(aPDU);  // Forward PDU to data channel
 
   return NS_OK;
 }
 
 // |DaemonSocketIOConsumer|
 
-void
-GonkSensorsProtocol::Handle(DaemonSocketPDU& aPDU)
-{
-  static void (GonkSensorsProtocol::* const HandleSvc[])(
-    const DaemonSocketPDUHeader&, DaemonSocketPDU&,
-    DaemonSocketResultHandler*) = {
-    [GonkSensorsRegistryModule::SERVICE_ID] =
-      &GonkSensorsProtocol::HandleRegistrySvc,
-    [GonkSensorsPollModule::SERVICE_ID] =
-      &GonkSensorsProtocol::HandlePollSvc
-  };
+void GonkSensorsProtocol::Handle(DaemonSocketPDU& aPDU) {
+  static void (GonkSensorsProtocol::*const HandleSvc[])(
+      const DaemonSocketPDUHeader&, DaemonSocketPDU&,
+      DaemonSocketResultHandler*) = {
+      [GonkSensorsRegistryModule::SERVICE_ID] =
+          &GonkSensorsProtocol::HandleRegistrySvc,
+      [GonkSensorsPollModule::SERVICE_ID] =
+          &GonkSensorsProtocol::HandlePollSvc};
 
   DaemonSocketPDUHeader header;
 
@@ -189,9 +163,7 @@ GonkSensorsProtocol::Handle(DaemonSocketPDU& aPDU)
   (this->*(HandleSvc[header.mService]))(header, aPDU, res);
 }
 
-void
-GonkSensorsProtocol::StoreResultHandler(const DaemonSocketPDU& aPDU)
-{
+void GonkSensorsProtocol::StoreResultHandler(const DaemonSocketPDU& aPDU) {
   MOZ_ASSERT(!NS_IsMainThread());
 
   mResultHandlerQ.AppendElement(aPDU.GetResultHandler());
@@ -201,9 +173,7 @@ GonkSensorsProtocol::StoreResultHandler(const DaemonSocketPDU& aPDU)
 // GonkSensorsInterface
 //
 
-GonkSensorsInterface*
-GonkSensorsInterface::GetInstance()
-{
+GonkSensorsInterface* GonkSensorsInterface::GetInstance() {
   static GonkSensorsInterface* sGonkSensorsInterface;
 
   if (sGonkSensorsInterface) {
@@ -215,10 +185,8 @@ GonkSensorsInterface::GetInstance()
   return sGonkSensorsInterface;
 }
 
-void
-GonkSensorsInterface::SetNotificationHandler(
-  GonkSensorsNotificationHandler* aNotificationHandler)
-{
+void GonkSensorsInterface::SetNotificationHandler(
+    GonkSensorsNotificationHandler* aNotificationHandler) {
   MOZ_ASSERT(NS_IsMainThread());
 
   mNotificationHandler = aNotificationHandler;
@@ -242,10 +210,9 @@ GonkSensorsInterface::SetNotificationHandler(
  * If any step fails, we roll-back the procedure and signal an error to the
  * caller.
  */
-void
-GonkSensorsInterface::Connect(GonkSensorsNotificationHandler* aNotificationHandler,
-                          GonkSensorsResultHandler* aRes)
-{
+void GonkSensorsInterface::Connect(
+    GonkSensorsNotificationHandler* aNotificationHandler,
+    GonkSensorsResultHandler* aRes) {
 #define BASE_SOCKET_NAME "sensorsd"
   static unsigned long POSTFIX_LENGTH = 16;
 
@@ -282,7 +249,7 @@ GonkSensorsInterface::Connect(GonkSensorsNotificationHandler* aNotificationHandl
   // the daemon can do so. If no random postfix can be generated, we
   // simply use the base name as-is.
   nsresult rv = DaemonSocketConnector::CreateRandomAddressString(
-    NS_LITERAL_CSTRING(BASE_SOCKET_NAME), POSTFIX_LENGTH, mListenSocketName);
+      NS_LITERAL_CSTRING(BASE_SOCKET_NAME), POSTFIX_LENGTH, mListenSocketName);
   if (NS_FAILED(rv)) {
     mListenSocketName.AssignLiteral(BASE_SOCKET_NAME);
   }
@@ -319,9 +286,7 @@ GonkSensorsInterface::Connect(GonkSensorsNotificationHandler* aNotificationHandl
  * an error, we simply push forward and try to recover during the next
  * initialization.
  */
-void
-GonkSensorsInterface::Disconnect(GonkSensorsResultHandler* aRes)
-{
+void GonkSensorsInterface::Disconnect(GonkSensorsResultHandler* aRes) {
   mNotificationHandler = nullptr;
 
   // Cleanup, step 1: Close data channel
@@ -331,20 +296,18 @@ GonkSensorsInterface::Disconnect(GonkSensorsResultHandler* aRes)
 }
 
 GonkSensorsRegistryInterface*
-GonkSensorsInterface::GetSensorsRegistryInterface()
-{
+GonkSensorsInterface::GetSensorsRegistryInterface() {
   if (mRegistryInterface) {
     return mRegistryInterface.get();
   }
 
-  mRegistryInterface = MakeUnique<GonkSensorsRegistryInterface>(mProtocol.get());
+  mRegistryInterface =
+      MakeUnique<GonkSensorsRegistryInterface>(mProtocol.get());
 
   return mRegistryInterface.get();
 }
 
-GonkSensorsPollInterface*
-GonkSensorsInterface::GetSensorsPollInterface()
-{
+GonkSensorsPollInterface* GonkSensorsInterface::GetSensorsPollInterface() {
   if (mPollInterface) {
     return mPollInterface.get();
   }
@@ -354,27 +317,20 @@ GonkSensorsInterface::GetSensorsPollInterface()
   return mPollInterface.get();
 }
 
-GonkSensorsInterface::GonkSensorsInterface()
-  : mNotificationHandler(nullptr)
-{ }
+GonkSensorsInterface::GonkSensorsInterface() : mNotificationHandler(nullptr) {}
 
-GonkSensorsInterface::~GonkSensorsInterface()
-{ }
+GonkSensorsInterface::~GonkSensorsInterface() {}
 
-void
-GonkSensorsInterface::DispatchError(GonkSensorsResultHandler* aRes,
-                                SensorsError aError)
-{
-  DaemonResultRunnable1<GonkSensorsResultHandler, void,
-                        SensorsError, SensorsError>::Dispatch(
-    aRes, &GonkSensorsResultHandler::OnError,
-    ConstantInitOp1<SensorsError>(aError));
+void GonkSensorsInterface::DispatchError(GonkSensorsResultHandler* aRes,
+                                         SensorsError aError) {
+  DaemonResultRunnable1<
+      GonkSensorsResultHandler, void, SensorsError,
+      SensorsError>::Dispatch(aRes, &GonkSensorsResultHandler::OnError,
+                              ConstantInitOp1<SensorsError>(aError));
 }
 
-void
-GonkSensorsInterface::DispatchError(
-  GonkSensorsResultHandler* aRes, nsresult aRv)
-{
+void GonkSensorsInterface::DispatchError(GonkSensorsResultHandler* aRes,
+                                         nsresult aRv) {
   SensorsError error;
 
   if (NS_FAILED(Convert(aRv, error))) {
@@ -385,20 +341,17 @@ GonkSensorsInterface::DispatchError(
 
 // |DaemonSocketConsumer|, |ListenSocketConsumer|
 
-void
-GonkSensorsInterface::OnConnectSuccess(int aIndex)
-{
+void GonkSensorsInterface::OnConnectSuccess(int aIndex) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!mResultHandlerQ.IsEmpty());
 
   switch (aIndex) {
     case LISTEN_SOCKET: {
-        // Init, step 2: Start Sensors daemon
-        nsCString args("-a ");
-        args.Append(mListenSocketName);
-        mozilla::hal::StartSystemService("sensorsd", args.get());
-      }
-      break;
+      // Init, step 2: Start Sensors daemon
+      nsCString args("-a ");
+      args.Append(mListenSocketName);
+      mozilla::hal::StartSystemService("sensorsd", args.get());
+    } break;
     case DATA_SOCKET:
       if (!mResultHandlerQ.IsEmpty()) {
         // Init, step 3: Signal success
@@ -412,9 +365,7 @@ GonkSensorsInterface::OnConnectSuccess(int aIndex)
   }
 }
 
-void
-GonkSensorsInterface::OnConnectError(int aIndex)
-{
+void GonkSensorsInterface::OnConnectError(int aIndex) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!mResultHandlerQ.IsEmpty());
 
@@ -455,9 +406,7 @@ GonkSensorsInterface::OnConnectError(int aIndex)
  *  (3) After all resources have been cleaned up, let the caller restart
  *      the daemon.
  */
-void
-GonkSensorsInterface::OnDisconnect(int aIndex)
-{
+void GonkSensorsInterface::OnDisconnect(int aIndex) {
   MOZ_ASSERT(NS_IsMainThread());
 
   switch (aIndex) {
@@ -490,5 +439,5 @@ GonkSensorsInterface::OnDisconnect(int aIndex)
   }
 }
 
-} // namespace hal
-} // namespace mozilla
+}  // namespace hal
+}  // namespace mozilla
