@@ -5,6 +5,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 include('../../../webrtc.mozbuild')
 
+EXPORTS += [
+    'WebrtcImageBuffer.h',
+]
+
 LOCAL_INCLUDES += [
     '!/ipc/ipdl/_ipdlheaders',
     '/dom/media/gmp', # for GMPLog.h
@@ -29,6 +33,7 @@ UNIFIED_SOURCES += [
     'VideoConduit.cpp',
     'VideoStreamFactory.cpp',
     'WebrtcGmpVideoCodec.cpp',
+    'WebrtcImageBuffer.cpp',
     'WebrtcMediaDataDecoderCodec.cpp',
     'WebrtcMediaDataEncoderCodec.cpp',
 ]

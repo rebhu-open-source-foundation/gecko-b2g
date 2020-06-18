@@ -49,6 +49,8 @@ class WebrtcOMXH264VideoEncoder : public WebrtcVideoEncoder {
 
   virtual int32_t SetRates(uint32_t aBitRate, uint32_t aFrameRate) override;
 
+  virtual bool SupportsNativeHandle() const override { return true; }
+
  private:
   UniquePtr<android::OMXVideoEncoder> mOMX;
   android::sp<android::OMXCodecReservation> mReservation;

@@ -22,6 +22,11 @@
 #include "webrtc/rtc_base/keep_ref_until_done.h"
 #include "webrtc/system_wrappers/include/clock.h"
 
+#ifdef MOZ_WIDGET_GONK
+#  include "GrallocImages.h"
+#  include "WebrtcImageBuffer.h"
+#endif
+
 // The number of frame buffers VideoFrameConverter may create before returning
 // errors.
 // Sometimes these are released synchronously but they can be forwarded all the
@@ -334,6 +339,21 @@ class VideoFrameConverter {
     }
 
     MOZ_ASSERT(aFrame.mImage->GetSize() == aFrame.mSize);
+
+#ifdef MOZ_WIDGET_GONK
+    if (layers::GrallocImage* grallocImage = aFrame.mImage->AsGrallocImage()) {
+      rtc::scoped_refptr<ImageBuffer> imageBuffer(
+          new rtc::RefCountedObject<ImageBuffer>(
+              RefPtr<layers::GrallocImage>(grallocImage)));
+      webrtc::VideoFrame nativeFrame(imageBuffer,
+                                     0,  // not setting rtp timestamp
+                                     now, webrtc::kVideoRotation_0);
+      MOZ_LOG(gVideoFrameConverterLog, LogLevel::Verbose,
+              ("Sending a native video frame"));
+      VideoFrameConverted(nativeFrame);
+      return;
+    }
+#endif
 
     if (layers::PlanarYCbCrImage* image = aFrame.mImage->AsPlanarYCbCrImage()) {
       dom::ImageUtils utils(image);

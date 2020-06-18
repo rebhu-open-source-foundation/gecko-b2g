@@ -270,47 +270,12 @@ nsresult OMXVideoEncoder::ConfigureDirect(sp<AMessage>& aFormat,
 // in aDestination, whose size needs to be >= Y plane size * 3 / 2.
 static void ConvertPlanarYCbCrToNV12(const PlanarYCbCrData* aSource,
                                      uint8_t* aDestination) {
-  // Fill Y plane.
-  uint8_t* y = aSource->mYChannel;
-  IntSize ySize = aSource->mYSize;
-
-  // Y plane.
-  for (int i = 0; i < ySize.height; i++) {
-    memcpy(aDestination, y, ySize.width);
-    aDestination += ySize.width;
-    y += aSource->mYStride;
-  }
-
-  // Fill interleaved UV plane.
-  uint8_t* u = aSource->mCbChannel;
-  uint8_t* v = aSource->mCrChannel;
-  IntSize uvSize = aSource->mCbCrSize;
-  // Subsample to 4:2:0 if source is 4:4:4 or 4:2:2.
-  // Y plane width & height should be multiple of U/V plane width & height.
-  MOZ_ASSERT(ySize.width % uvSize.width == 0 &&
-             ySize.height % uvSize.height == 0);
-  size_t uvWidth = ySize.width / 2;
-  size_t uvHeight = ySize.height / 2;
-  size_t horiSubsample = uvSize.width / uvWidth;
-  size_t uPixStride = horiSubsample * (1 + aSource->mCbSkip);
-  size_t vPixStride = horiSubsample * (1 + aSource->mCrSkip);
-  size_t lineStride = uvSize.height / uvHeight * aSource->mCbCrStride;
-
-  for (size_t i = 0; i < uvHeight; i++) {
-    // 1st pixel per line.
-    uint8_t* uSrc = u;
-    uint8_t* vSrc = v;
-    for (size_t j = 0; j < uvWidth; j++) {
-      *aDestination++ = *uSrc;
-      *aDestination++ = *vSrc;
-      // Pick next source pixel.
-      uSrc += uPixStride;
-      vSrc += vPixStride;
-    }
-    // Pick next source line.
-    u += lineStride;
-    v += lineStride;
-  }
+  int32_t width = aSource->mYSize.width;
+  int32_t height = aSource->mYSize.height;
+  libyuv::I420ToNV12(aSource->mYChannel, aSource->mYStride, aSource->mCbChannel,
+                     aSource->mCbCrStride, aSource->mCrChannel,
+                     aSource->mCbCrStride, aDestination, width,
+                     aDestination + width * height, width, width, height);
 }
 
 // Convert pixels in graphic buffer to NV12 format. aSource is the layer image

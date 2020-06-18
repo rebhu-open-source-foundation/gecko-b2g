@@ -1972,7 +1972,7 @@ MediaConduitErrorCode WebrtcVideoConduit::SendVideoFrame(
       CSFLogWarn(LOGTAG, "Creating a buffer for scaling failed, pool is empty");
       return kMediaConduitNoError;
     }
-    i420Buffer->CropAndScaleFrom(*frame.video_frame_buffer()->GetI420().get(),
+    i420Buffer->CropAndScaleFrom(*frame.video_frame_buffer()->ToI420().get(),
                                  cropX, cropY, cropWidth, cropHeight);
     buffer = i420Buffer;
   }

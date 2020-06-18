@@ -21,6 +21,12 @@ class ImageBuffer : public webrtc::VideoFrameBuffer {
       : mImage(std::move(aImage)) {}
 
   rtc::scoped_refptr<webrtc::I420BufferInterface> ToI420() override {
+#ifdef MOZ_WIDGET_GONK
+    if (mImage->AsGrallocImage()) {
+      return GrallocToI420();
+    }
+#endif
+
     RefPtr<layers::PlanarYCbCrImage> image = mImage->AsPlanarYCbCrImage();
     MOZ_ASSERT(image);
     if (!image) {
@@ -46,6 +52,10 @@ class ImageBuffer : public webrtc::VideoFrameBuffer {
   RefPtr<layers::Image> GetNativeImage() const { return mImage; }
 
  private:
+#ifdef MOZ_WIDGET_GONK
+  rtc::scoped_refptr<webrtc::I420BufferInterface> GrallocToI420();
+#endif
+
   const RefPtr<layers::Image> mImage;
 };
 

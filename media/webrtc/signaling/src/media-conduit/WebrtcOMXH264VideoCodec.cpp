@@ -414,25 +414,33 @@ int32_t WebrtcOMXH264VideoEncoder::Encode(
 #endif
   }
 
-  // Wrap I420VideoFrame input with PlanarYCbCrImage for OMXVideoEncoder.
-  rtc::scoped_refptr<webrtc::I420BufferInterface> buffer =
-      aInputImage.video_frame_buffer()->ToI420();
-  layers::PlanarYCbCrData yuvData;
-  yuvData.mYChannel = const_cast<uint8_t*>(buffer->DataY());
-  yuvData.mYSize = gfx::IntSize(buffer->width(), buffer->height());
-  yuvData.mYStride = buffer->StrideY();
-  MOZ_ASSERT(buffer->StrideU() == buffer->StrideV());
-  yuvData.mCbCrStride = buffer->StrideU();
-  yuvData.mCbChannel = const_cast<uint8_t*>(buffer->DataU());
-  yuvData.mCrChannel = const_cast<uint8_t*>(buffer->DataV());
-  yuvData.mCbCrSize =
-      gfx::IntSize(buffer->ChromaWidth(), buffer->ChromaHeight());
-  yuvData.mPicSize = yuvData.mYSize;
-  yuvData.mStereoMode = StereoMode::MONO;
-  layers::RecyclingPlanarYCbCrImage img(nullptr);
-  // AdoptData() doesn't need AllocateAndGetNewBuffer(); OMXVideoEncoder is ok
-  // with this
-  img.AdoptData(yuvData);
+  RefPtr<layers::Image> img;
+  if (aInputImage.video_frame_buffer()->type() ==
+      webrtc::VideoFrameBuffer::Type::kNative) {
+    rtc::scoped_refptr<webrtc::VideoFrameBuffer> frameBuffer =
+        aInputImage.video_frame_buffer();
+    img = static_cast<ImageBuffer*>(frameBuffer.get())->GetNativeImage();
+  } else {
+    // Wrap I420VideoFrame input with PlanarYCbCrImage for OMXVideoEncoder.
+    rtc::scoped_refptr<webrtc::I420BufferInterface> buffer =
+        aInputImage.video_frame_buffer()->ToI420();
+    layers::PlanarYCbCrData yuvData;
+    yuvData.mYChannel = const_cast<uint8_t*>(buffer->DataY());
+    yuvData.mYSize = gfx::IntSize(buffer->width(), buffer->height());
+    yuvData.mYStride = buffer->StrideY();
+    MOZ_ASSERT(buffer->StrideU() == buffer->StrideV());
+    yuvData.mCbCrStride = buffer->StrideU();
+    yuvData.mCbChannel = const_cast<uint8_t*>(buffer->DataU());
+    yuvData.mCrChannel = const_cast<uint8_t*>(buffer->DataV());
+    yuvData.mCbCrSize =
+        gfx::IntSize(buffer->ChromaWidth(), buffer->ChromaHeight());
+    yuvData.mPicSize = yuvData.mYSize;
+    yuvData.mStereoMode = StereoMode::MONO;
+    img = new layers::RecyclingPlanarYCbCrImage(nullptr);
+    // AdoptData() doesn't need AllocateAndGetNewBuffer(); OMXVideoEncoder is ok
+    // with this
+    img->AsPlanarYCbCrImage()->AdoptData(yuvData);
+  }
 
   CODEC_LOGD("Encode frame: %dx%d, timestamp %u (%lld), renderTimeMs %" PRIu64,
              aInputImage.width(), aInputImage.height(), aInputImage.timestamp(),
@@ -440,7 +448,7 @@ int32_t WebrtcOMXH264VideoEncoder::Encode(
              aInputImage.render_time_ms());
 
   nsresult rv =
-      mOMX->Encode(&img, yuvData.mYSize.width, yuvData.mYSize.height,
+      mOMX->Encode(img.get(), aInputImage.width(), aInputImage.height(),
                    aInputImage.timestamp() * 1000ll / 90,  // 90kHz -> us.
                    0);
   if (rv == NS_OK) {
