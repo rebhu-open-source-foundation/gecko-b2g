@@ -31,6 +31,8 @@ const GET_CURRENT_CALLS_RETRY_MAX = 3;
 // Timeout value for _waitingModemRestart
 const MODEM_RESTART_TIMEOUT_MS = 15000; // 15 seconds
 
+const PDU_HEX_OCTET_SIZE =2;
+
 var RILQUIRKS_CALLSTATE_EXTRA_UINT32;
 var RILQUIRKS_REQUEST_USE_DIAL_EMERGENCY_CALL;
 var RILQUIRKS_SIM_APP_STATE_EXTRA_FIELDS;
@@ -75,7 +77,7 @@ Context.prototype = {
 
 (function() {
   let lazySymbols = [
-    "ICCRecordHelper","ICCIOHelper", "ICCFileHelper",
+    "ICCContactHelper","ICCRecordHelper","ICCIOHelper", "ICCFileHelper",
     "ICCUtilsHelper","ICCPDUHelper","GsmPDUHelper", "SimRecordHelper",
     "ISimRecordHelper","BerTlvHelper","ComprehensionTlvHelper","StkProactiveCmdHelper",
     "StkCommandParamsFactory",
@@ -184,6 +186,11 @@ ICCIOHelperObject.prototype = {
       options.p1 = options.recordNumber;
       options.p2 = READ_RECORD_ABSOLUTE_MODE;
       options.p3 = options.recordSize;
+      if (options.command == ICC_COMMAND_UPDATE_RECORD &&
+          options.dataWriter) {
+        options.dataWriter(options.recordSize);
+        options.dataWriter = this.context.GsmPDUHelper.pdu;
+      }
       this.context.RIL.sendWorkerMessage("iccIO", options, null);
     }.bind(this);
     this.getResponse(options);
@@ -327,11 +334,9 @@ ICCIOHelperObject.prototype = {
    */
   processSimGetResponse: function(options) {
     let GsmPDUHelper = this.context.GsmPDUHelper;
-
     // The format is from TS 51.011, clause 9.2.1
 
     // Skip RFU, data[0] data[1].
-
     // File size, data[2], data[3]
     options.fileSize = GsmPDUHelper.processHexToInt(options.simResponse.slice(4, 8), 16);
 
@@ -851,8 +856,7 @@ ICCUtilsHelperObject.prototype = {
         tag : GsmPDUHelper.readHexOctet(),
         length : GsmPDUHelper.readHexOctet(),
       };
-      // Cameron mark first.
-      //simTlv.value = GsmPDUHelper.readHexOctetArray(simTlv.length);
+      simTlv.value = GsmPDUHelper.readHexOctetArray(simTlv.length);
       tlvs.push(simTlv);
       index += simTlv.length + 2; // The length of 'tag' and 'length' field.
     }
@@ -3157,8 +3161,12 @@ ICCRecordHelperObject.prototype = {
     function callback(options) {
       let RIL = this.context.RIL;
       let GsmPDUHelper = this.context.GsmPDUHelper;
+      let strLen = options.simResponse.length;
+      let octetLen = strLen / 2;
+      GsmPDUHelper.pduReadIndex = 0;
+      GsmPDUHelper.pdu = options.simResponse;
 
-      RIL.iccInfo.iccid = GsmPDUHelper.readSwappedNibbleBcdString(options.simResponse, true);
+      RIL.iccInfo.iccid = GsmPDUHelper.readSwappedNibbleBcdString(octetLen, true);
       if (DEBUG) this.context.debug("ICCID: " + RIL.iccInfo.iccid);
       if (RIL.iccInfo.iccid) {
         this.context.ICCUtilsHelper.handleICCInfoChange();
@@ -3170,6 +3178,25 @@ ICCRecordHelperObject.prototype = {
       fileId: ICC_EF_ICCID,
       callback: callback.bind(this)
     });
+  },
+
+  /**
+   * Read ICC ADN like EF, i.e. EF_ADN, EF_FDN.
+   *
+   * @param fileId      EF id of the ADN, FDN or SDN.
+   * @param onsuccess   Callback to be called when success.
+   * @param onerror     Callback to be called when error.
+   */
+  readRecordCount: function(fileId, onsuccess, onerror) {
+    let ICCIOHelper = this.context.ICCIOHelper;
+    function callback(options) {
+      if (onsuccess) {
+        onsuccess(options.totalRecords);
+      }
+    }
+    ICCIOHelper.loadLinearFixedEF({fileId: fileId,
+      callback: callback.bind(this),
+      onerror: onerror});
   },
 
   /**
@@ -3276,22 +3303,24 @@ ICCRecordHelperObject.prototype = {
    * @param onerror     Callback to be called when error.
    */
   readPBR: function(onsuccess, onerror) {
-    let Buf = this.context.Buf;
     let GsmPDUHelper = this.context.GsmPDUHelper;
     let ICCIOHelper = this.context.ICCIOHelper;
     let ICCUtilsHelper = this.context.ICCUtilsHelper;
     let RIL = this.context.RIL;
 
     function callback(options) {
-      let strLen = Buf.readInt32();
+      let value = options.simResponse;
+      let strLen = value.length;
       let octetLen = strLen / 2, readLen = 0;
+      GsmPDUHelper.pduReadIndex = 0;
+      GsmPDUHelper.pdu = value;
 
       let pbrTlvs = [];
       while (readLen < octetLen) {
         let tag = GsmPDUHelper.readHexOctet();
         if (tag == 0xff) {
           readLen++;
-          Buf.seekIncoming((octetLen - readLen) * Buf.PDU_HEX_OCTET_SIZE);
+          GsmPDUHelper.pduReadIndex += ((octetLen - readLen) * PDU_HEX_OCTET_SIZE);
           break;
         }
 
@@ -3303,7 +3332,6 @@ ICCRecordHelperObject.prototype = {
 
         readLen += tlvLen + 2; // +2 for tag and tlvLen
       }
-      Buf.readStringDelimiter(strLen);
 
       if (pbrTlvs.length > 0) {
         let pbr = ICCUtilsHelper.parsePbrTlvs(pbrTlvs);
@@ -3353,15 +3381,14 @@ ICCRecordHelperObject.prototype = {
    */
   readIAP: function(fileId, recordNumber, onsuccess, onerror) {
     function callback(options) {
-      let Buf = this.context.Buf;
-      let strLen = Buf.readInt32();
+      let value = options.simResponse;
+      let strLen = value.length;
       let octetLen = strLen / 2;
+      GsmPDUHelper.pduReadIndex = 0;
+      GsmPDUHelper.pdu = value;
       this._iapRecordSize = options.recordSize;
 
-      // Cameron mark first.
-      //let iap = this.context.GsmPDUHelper.readHexOctetArray(octetLen);
-      Buf.readStringDelimiter(strLen);
-
+      let iap = this.context.GsmPDUHelper.readHexOctetArray(octetLen);
       if (onsuccess) {
         onsuccess(iap);
       }
@@ -3389,18 +3416,14 @@ ICCRecordHelperObject.prototype = {
    */
   updateIAP: function(fileId, recordNumber, iap, onsuccess, onerror) {
     let dataWriter = function dataWriter(recordSize) {
-      let Buf = this.context.Buf;
       let GsmPDUHelper = this.context.GsmPDUHelper;
-
-      // Write String length
-      let strLen = recordSize * 2;
-      Buf.writeInt32(strLen);
+      GsmPDUHelper.pduWriteIndex = 0;
+      GsmPDUHelper.pdu = "";
 
       for (let i = 0; i < iap.length; i++) {
         GsmPDUHelper.writeHexOctet(iap[i]);
       }
 
-      Buf.writeStringDelimiter(strLen);
     }.bind(this);
 
     this.context.ICCIOHelper.updateLinearFixedEF({
@@ -3430,11 +3453,12 @@ ICCRecordHelperObject.prototype = {
    */
   readEmail: function(fileId, fileType, recordNumber, onsuccess, onerror) {
     function callback(options) {
-      let Buf = this.context.Buf;
-      let ICCPDUHelper = this.context.ICCPDUHelper;
-
-      let strLen = Buf.readInt32();
+      let value = options.simResponse;
+      let strLen = value.length;
       let octetLen = strLen / 2;
+      GsmPDUHelper.pduReadIndex = 0;
+      GsmPDUHelper.pdu = value;
+      let ICCPDUHelper = this.context.ICCPDUHelper;
       let email = null;
       this._emailRecordSize = options.recordSize;
 
@@ -3447,15 +3471,10 @@ ICCRecordHelperObject.prototype = {
       // Note: The fields marked as C above are mandatort if the file
       //       is not type 1 (as specified in EF_PBR)
       if (fileType == ICC_USIM_TYPE1_TAG) {
-        email = ICCPDUHelper.read8BitUnpackedToString(octetLen);
+        email = ICCPDUHelper.read8BitUnpackedToString(value, octetLen);
       } else {
-        email = ICCPDUHelper.read8BitUnpackedToString(octetLen - 2);
-
-        // Consumes the remaining buffer
-        Buf.seekIncoming(2 * Buf.PDU_HEX_OCTET_SIZE); // For ADN SFI and Record Identifier
+        email = ICCPDUHelper.read8BitUnpackedToString(value, octetLen - 2);
       }
-
-      Buf.readStringDelimiter(strLen);
 
       if (onsuccess) {
         onsuccess(email);
@@ -3488,13 +3507,10 @@ ICCRecordHelperObject.prototype = {
     let fileType = pbr[USIM_PBR_EMAIL].fileType;
     let writtenEmail;
     let dataWriter = function dataWriter(recordSize) {
-      let Buf = this.context.Buf;
       let GsmPDUHelper = this.context.GsmPDUHelper;
+      GsmPDUHelper.pduWriteIndex = 0;
+      GsmPDUHelper.pdu = "";
       let ICCPDUHelper = this.context.ICCPDUHelper;
-
-      // Write String length
-      let strLen = recordSize * 2;
-      Buf.writeInt32(strLen);
 
       if (fileType == ICC_USIM_TYPE1_TAG) {
         writtenEmail = ICCPDUHelper.writeStringTo8BitUnpacked(recordSize, email);
@@ -3504,7 +3520,6 @@ ICCRecordHelperObject.prototype = {
         GsmPDUHelper.writeHexOctet(adnRecordId);
       }
 
-      Buf.writeStringDelimiter(strLen);
     }.bind(this);
 
     let callback = (options) => {
@@ -3540,26 +3555,12 @@ ICCRecordHelperObject.prototype = {
    */
   readANR: function(fileId, fileType, recordNumber, onsuccess, onerror) {
     function callback(options) {
-      let Buf = this.context.Buf;
-      let strLen = Buf.readInt32();
+      let value = options.simResponse;
       let number = null;
       this._anrRecordSize = options.recordSize;
 
       // Skip EF_AAS Record ID.
-      Buf.seekIncoming(1 * Buf.PDU_HEX_OCTET_SIZE);
-
-      number = this.context.ICCPDUHelper.readNumberWithLength();
-
-      // Skip 2 unused octets, CCP and EXT1.
-      Buf.seekIncoming(2 * Buf.PDU_HEX_OCTET_SIZE);
-
-      // For Type 2 there are two extra octets.
-      if (fileType == ICC_USIM_TYPE2_TAG) {
-        // Skip 2 unused octets, ADN SFI and Record Identifier.
-        Buf.seekIncoming(2 * Buf.PDU_HEX_OCTET_SIZE);
-      }
-
-      Buf.readStringDelimiter(strLen);
+      number = this.context.ICCPDUHelper.readNumberWithLength(value.slice(PDU_HEX_OCTET_SIZE));
 
       if (onsuccess) {
         onsuccess(number);
@@ -3592,12 +3593,9 @@ ICCRecordHelperObject.prototype = {
     let fileType = pbr[USIM_PBR_ANR0].fileType;
     let writtenNumber;
     let dataWriter = function dataWriter(recordSize) {
-      let Buf = this.context.Buf;
       let GsmPDUHelper = this.context.GsmPDUHelper;
-
-      // Write String length
-      let strLen = recordSize * 2;
-      Buf.writeInt32(strLen);
+      GsmPDUHelper.pduWriteIndex = 0;
+      GsmPDUHelper.pdu = "";
 
       // EF_AAS record Id. Unused for now.
       GsmPDUHelper.writeHexOctet(0xff);
@@ -3614,7 +3612,6 @@ ICCRecordHelperObject.prototype = {
         GsmPDUHelper.writeHexOctet(adnRecordId);
       }
 
-      Buf.writeStringDelimiter(strLen);
     }.bind(this);
 
     let callback = (options) => {
@@ -3646,14 +3643,15 @@ ICCRecordHelperObject.prototype = {
    */
   findFreeRecordId: function(fileId, onsuccess, onerror) {
     let ICCIOHelper = this.context.ICCIOHelper;
-
     function callback(options) {
-      let Buf = this.context.Buf;
-      let GsmPDUHelper = this.context.GsmPDUHelper;
-
-      let strLen = Buf.readInt32();
+      let value = options.simResponse;
+      let strLen = value.length;
       let octetLen = strLen / 2;
       let readLen = 0;
+
+      let GsmPDUHelper = this.context.GsmPDUHelper;
+      GsmPDUHelper.pduReadIndex = 0;
+      GsmPDUHelper.pdu = value;
 
       while (readLen < octetLen) {
         let octet = GsmPDUHelper.readHexOctet();
@@ -3667,20 +3665,20 @@ ICCRecordHelperObject.prototype = {
 
       if (readLen == octetLen) {
         // Find free record, assume next record is probably free.
+        if (DEBUG) {
+          this.context.debug("findFreeRecordId free record found: " + options.p1);
+        }
         this._freeRecordIds[fileId] = nextRecord;
         if (onsuccess) {
           onsuccess(options.p1);
         }
         return;
       } else {
-        Buf.seekIncoming((octetLen - readLen) * Buf.PDU_HEX_OCTET_SIZE);
+        GsmPDUHelper.pduReadIndex += ((octetLen - readLen) * PDU_HEX_OCTET_SIZE);
       }
-
-      Buf.readStringDelimiter(strLen);
 
       if (nextRecord !== recordNumber) {
         options.p1 = nextRecord;
-        //this.context.RIL.iccIO(options);
         this.context.RIL.sendWorkerMessage("iccIO", options, null);
       } else {
         // No free record found.
@@ -3710,8 +3708,12 @@ ICCRecordHelperObject.prototype = {
    */
   readExtension: function(fileId, recordNumber, onsuccess, onerror) {
     let callback = (options) => {
-      let Buf = this.context.Buf;
-      let length = Buf.readInt32();
+      let value = options.simResponse;
+      let strLen = value.length;
+      let GsmPDUHelper = this.context.GsmPDUHelper;
+      GsmPDUHelper.pduReadIndex = 0;
+      GsmPDUHelper.pdu = value;
+
       let recordType = this.context.GsmPDUHelper.readHexOctet();
       let number = "";
 
@@ -3725,28 +3727,22 @@ ICCRecordHelperObject.prototype = {
               this.context.debug(
               "Error: invalid length of BCD number/SSC contents - " + numLen);
             }
-            // +1 to skip Identifier
-            Buf.seekIncoming((EXT_MAX_BCD_NUMBER_BYTES + 1) * Buf.PDU_HEX_OCTET_SIZE);
-            Buf.readStringDelimiter(length);
             onerror();
             return;
           }
 
           number = this.context.GsmPDUHelper.readSwappedNibbleExtendedBcdString(numLen);
           if (DEBUG) this.context.debug("Contact Extension Number: "+ number);
-          Buf.seekIncoming((EXT_MAX_BCD_NUMBER_BYTES - numLen) * Buf.PDU_HEX_OCTET_SIZE);
+          GsmPDUHelper.pduReadIndex += ((EXT_MAX_BCD_NUMBER_BYTES - numLen) * PDU_HEX_OCTET_SIZE);
         } else {
-          Buf.seekIncoming(EXT_MAX_BCD_NUMBER_BYTES * Buf.PDU_HEX_OCTET_SIZE);
+          GsmPDUHelper.pduReadIndex += (EXT_MAX_BCD_NUMBER_BYTES * PDU_HEX_OCTET_SIZE);
         }
       } else {
         // Don't support Case 2, Extension1 record is Called Party Subaddress.
         // +1 skip numLen
-        Buf.seekIncoming((EXT_MAX_BCD_NUMBER_BYTES + 1) * Buf.PDU_HEX_OCTET_SIZE);
+        //Buf.seekIncoming((EXT_MAX_BCD_NUMBER_BYTES + 1) * Buf.PDU_HEX_OCTET_SIZE);
       }
 
-      // Skip Identifier
-      Buf.seekIncoming(Buf.PDU_HEX_OCTET_SIZE);
-      Buf.readStringDelimiter(length);
       onsuccess(number);
     }
 
@@ -3771,9 +3767,8 @@ ICCRecordHelperObject.prototype = {
     let dataWriter = (recordSize) => {
       let GsmPDUHelper = this.context.GsmPDUHelper;
       // Write String length
-      let strLen = recordSize * 2;
-      let Buf = this.context.Buf;
-      Buf.writeInt32(strLen);
+      GsmPDUHelper.pduWriteIndex = 0;
+      GsmPDUHelper.pdu = "";
 
       // We don't support extension chain.
       if (number.length > EXT_MAX_NUMBER_DIGITS) {
@@ -3791,7 +3786,6 @@ ICCRecordHelperObject.prototype = {
       }
       // Write trailing 0xff for Identifier.
       GsmPDUHelper.writeHexOctet(0xff);
-      Buf.writeStringDelimiter(strLen);
     };
 
     this.context.ICCIOHelper.updateLinearFixedEF({
@@ -3814,16 +3808,14 @@ ICCRecordHelperObject.prototype = {
   cleanEFRecord: function(fileId, recordNumber, onsuccess, onerror) {
     let dataWriter = (recordSize) => {
       let GsmPDUHelper = this.context.GsmPDUHelper;
-      let Buf = this.context.Buf;
-      // Write String length
-      let strLen = recordSize * 2;
+      GsmPDUHelper.pduWriteIndex = 0;
+      GsmPDUHelper.pdu = "";
 
-      Buf.writeInt32(strLen);
       // Write record to 0xff
       for (let i = 0; i < recordSize; i++) {
         GsmPDUHelper.writeHexOctet(0xff);
       }
-      Buf.writeStringDelimiter(strLen);
+      //Buf.writeStringDelimiter(strLen);
     }
 
     this.context.ICCIOHelper.updateLinearFixedEF({
@@ -3845,15 +3837,14 @@ ICCRecordHelperObject.prototype = {
    */
   getADNLikeExtensionRecordNumber: function(fileId, recordNumber, onsuccess, onerror) {
     let callback = (options) => {
-      let Buf = this.context.Buf;
-      let length = Buf.readInt32();
+      let GsmPDUHelper = this.context.GsmPDUHelper;
+      GsmPDUHelper.pduReadIndex = 0;
+      GsmPDUHelper.pdu = options.simResponse;
 
       // Skip alphaLen, numLen, BCD Number, CCP octets.
-      Buf.seekIncoming((options.recordSize -1) * Buf.PDU_HEX_OCTET_SIZE);
+      GsmPDUHelper.pduReadIndex += ((options.recordSize -1) * PDU_HEX_OCTET_SIZE);
 
       let extRecordNumber = this.context.GsmPDUHelper.readHexOctet();
-      Buf.readStringDelimiter(length);
-
       onsuccess(extRecordNumber);
     }
 
@@ -5822,12 +5813,9 @@ ICCPDUHelperObject.prototype = {
    *         that have been written into Buf.
    */
   writeAlphaIdDiallingNumber: function(recordSize, alphaId, number, extRecordNumber) {
-    let Buf = this.context.Buf;
     let GsmPDUHelper = this.context.GsmPDUHelper;
-
-    // Write String length
-    let strLen = recordSize * 2;
-    Buf.writeInt32(strLen);
+    GsmPDUHelper.pduWriteIndex = 0;
+    GsmPDUHelper.pdu = "";
 
     let alphaLen = recordSize - ADN_FOOTER_SIZE_BYTES;
     let writtenAlphaId = this.writeAlphaIdentifier(alphaLen, alphaId);
@@ -5836,8 +5824,6 @@ ICCPDUHelperObject.prototype = {
     // Write unused CCP octet 0xff.
     GsmPDUHelper.writeHexOctet(0xff);
     GsmPDUHelper.writeHexOctet((extRecordNumber != null) ? extRecordNumber : 0xff);
-
-    Buf.writeStringDelimiter(strLen);
 
     return {alphaId: writtenAlphaId,
             number: writtenNumber};
@@ -6024,6 +6010,899 @@ ICCPDUHelperObject.prototype = {
       return "";
     }
   }
+};
+
+/**
+ * Helper for ICC Contacts.
+ */
+function ICCContactHelperObject(aContext) {
+  this.context = aContext;
+}
+ICCContactHelperObject.prototype = {
+  context: null,
+
+  /**
+   * Helper function to check DF_PHONEBOOK.
+   */
+  hasDfPhoneBook: function(appType) {
+    switch (appType) {
+      case CARD_APPTYPE_SIM:
+        return false;
+      case CARD_APPTYPE_USIM:
+        return true;
+      case CARD_APPTYPE_RUIM:
+        let ICCUtilsHelper = this.context.ICCUtilsHelper;
+        return ICCUtilsHelper.isICCServiceAvailable("ENHANCED_PHONEBOOK");
+      default:
+        return false;
+    }
+  },
+
+  /**
+   * Helper function to read ICC contacts.
+   *
+   * @param appType       One of CARD_APPTYPE_*.
+   * @param contactType   One of GECKO_CARDCONTACT_TYPE_*.
+   * @param onsuccess     Callback to be called when success.
+   * @param onerror       Callback to be called when error.
+   */
+  readICCContacts: function(appType, contactType, onsuccess, onerror) {
+    let ICCRecordHelper = this.context.ICCRecordHelper;
+    let ICCUtilsHelper = this.context.ICCUtilsHelper;
+
+    switch (contactType) {
+      case GECKO_CARDCONTACT_TYPE_ADN:
+        if (!this.hasDfPhoneBook(appType)) {
+          ICCRecordHelper.readADNLike(ICC_EF_ADN,
+            (ICCUtilsHelper.isICCServiceAvailable("EXT1")) ? ICC_EF_EXT1 : null,
+            onsuccess, onerror);
+        } else {
+          this.readUSimContacts(onsuccess, onerror);
+        }
+        break;
+      case GECKO_CARDCONTACT_TYPE_FDN:
+        if (!ICCUtilsHelper.isICCServiceAvailable("FDN")) {
+          onerror(CONTACT_ERR_CONTACT_TYPE_NOT_SUPPORTED);
+          break;
+        }
+        ICCRecordHelper.readADNLike(ICC_EF_FDN,
+          (ICCUtilsHelper.isICCServiceAvailable("EXT2")) ? ICC_EF_EXT2 : null,
+          onsuccess, onerror);
+        break;
+      case GECKO_CARDCONTACT_TYPE_SDN:
+        if (!ICCUtilsHelper.isICCServiceAvailable("SDN")) {
+          onerror(CONTACT_ERR_CONTACT_TYPE_NOT_SUPPORTED);
+          break;
+        }
+
+        ICCRecordHelper.readADNLike(ICC_EF_SDN,
+          (ICCUtilsHelper.isICCServiceAvailable("EXT3")) ? ICC_EF_EXT3 : null,
+          onsuccess, onerror);
+        break;
+      default:
+        if (DEBUG) {
+          this.context.debug("Unsupported contactType :" + contactType);
+        }
+        onerror(CONTACT_ERR_CONTACT_TYPE_NOT_SUPPORTED);
+        break;
+    }
+  },
+
+  getMaxContactCount: function(appType, contactType, onsuccess, onerror) {
+    let ICCRecordHelper = this.context.ICCRecordHelper;
+    let ICCUtilsHelper = this.context.ICCUtilsHelper;
+    switch (contactType) {
+      case GECKO_CARDCONTACT_TYPE_ADN:
+        if (!this.hasDfPhoneBook(appType)) {
+          ICCRecordHelper.readRecordCount(ICC_EF_ADN,
+            onsuccess, onerror);
+        } else {
+          let gotPbrCb = function gotPbrCb(pbrs) {
+            this.readAllPbrRecordCount(pbrs, onsuccess,
+              onerror);
+          }.bind(this);
+
+          let gotPbrErrCb = function gotPbrErrCb() {
+            ICCRecordHelper.readRecordCount(ICC_EF_ADN,
+              onsuccess, onerror);
+          }.bind(this);
+          this.context.ICCRecordHelper.readPBR(gotPbrCb, gotPbrErrCb);
+        }
+        break;
+      default:
+        if (DEBUG) {
+          this.context.debug("Unsupported contactType :" + contactType);
+        }
+        onerror(CONTACT_ERR_CONTACT_TYPE_NOT_SUPPORTED);
+    }
+  },
+
+  /**
+   * Helper function to find free contact record.
+   *
+   * @param appType       One of CARD_APPTYPE_*.
+   * @param contactType   One of GECKO_CARDCONTACT_TYPE_*.
+   * @param onsuccess     Callback to be called when success.
+   * @param onerror       Callback to be called when error.
+   */
+  findFreeICCContact: function(appType, contactType, onsuccess, onerror) {
+    let ICCRecordHelper = this.context.ICCRecordHelper;
+    switch (contactType) {
+      case GECKO_CARDCONTACT_TYPE_ADN:
+        if (!this.hasDfPhoneBook(appType)) {
+          ICCRecordHelper.findFreeRecordId(ICC_EF_ADN, onsuccess.bind(null, 0), onerror);
+        } else {
+          let gotPbrCb = function gotPbrCb(pbrs) {
+            this.findUSimFreeADNRecordId(pbrs, onsuccess, onerror);
+          }.bind(this);
+
+          let gotPbrErrCb = function gotPbrErrCb() {
+            if (DEBUG) {
+              this.context.debug("findFreeICCContact gotPbrErrCb");
+            }
+            ICCRecordHelper.findFreeRecordId(ICC_EF_ADN, onsuccess.bind(null, 0), onerror);
+          }.bind(this);
+
+          ICCRecordHelper.readPBR(gotPbrCb, gotPbrErrCb);
+        }
+        break;
+      case GECKO_CARDCONTACT_TYPE_FDN:
+        ICCRecordHelper.findFreeRecordId(ICC_EF_FDN, onsuccess.bind(null, 0), onerror);
+        break;
+      default:
+        if (DEBUG) {
+          this.context.debug("Unsupported contactType :" + contactType);
+        }
+        onerror(CONTACT_ERR_CONTACT_TYPE_NOT_SUPPORTED);
+        break;
+    }
+  },
+
+  /**
+   * Cache the pbr index of the possible free record.
+   */
+  _freePbrIndex: 0,
+
+   /**
+    * Find free ADN record id in USIM.
+    *
+    * @param pbrs          All Phonebook Reference Files read.
+    * @param onsuccess     Callback to be called when success.
+    * @param onerror       Callback to be called when error.
+    */
+  findUSimFreeADNRecordId: function(pbrs, onsuccess, onerror) {
+    let ICCRecordHelper = this.context.ICCRecordHelper;
+
+    function callback(pbrIndex, recordId) {
+      // Assume other free records are probably in the same phonebook set.
+      this._freePbrIndex = pbrIndex;
+      onsuccess(pbrIndex, recordId);
+    }
+
+    let nextPbrIndex = -1;
+    (function findFreeRecordId(pbrIndex) {
+      if (nextPbrIndex === this._freePbrIndex) {
+        // No free record found, reset the pbr index of free record.
+        this._freePbrIndex = 0;
+        if (DEBUG) {
+          this.context.debug(CONTACT_ERR_NO_FREE_RECORD_FOUND);
+        }
+        onerror(CONTACT_ERR_NO_FREE_RECORD_FOUND);
+        return;
+      }
+
+      let pbr = pbrs[pbrIndex];
+      nextPbrIndex = (pbrIndex + 1) % pbrs.length;
+      ICCRecordHelper.findFreeRecordId(
+        pbr.adn.fileId,
+        callback.bind(this, pbrIndex),
+        findFreeRecordId.bind(this, nextPbrIndex));
+    }).call(this, this._freePbrIndex);
+  },
+
+  /**
+   * Helper function to add a new ICC contact.
+   *
+   * @param appType       One of CARD_APPTYPE_*.
+   * @param contactType   One of GECKO_CARDCONTACT_TYPE_*.
+   * @param contact       The contact will be added.
+   * @param pin2          PIN2 is required for FDN.
+   * @param onsuccess     Callback to be called when success.
+   * @param onerror       Callback to be called when error.
+   */
+  addICCContact: function(appType, contactType, contact, pin2, onsuccess, onerror) {
+    let foundFreeCb = (function foundFreeCb(pbrIndex, recordId) {
+      contact.pbrIndex = pbrIndex;
+      contact.recordId = recordId;
+      this.updateICCContact(appType, contactType, contact, pin2, onsuccess, onerror);
+    }).bind(this);
+
+    // Find free record first.
+    this.findFreeICCContact(appType, contactType, foundFreeCb, onerror);
+  },
+
+  /**
+   * Helper function to update ICC contact.
+   *
+   * @param appType       One of CARD_APPTYPE_*.
+   * @param contactType   One of GECKO_CARDCONTACT_TYPE_*.
+   * @param contact       The contact will be updated.
+   * @param pin2          PIN2 is required for FDN.
+   * @param onsuccess     Callback to be called when success.
+   * @param onerror       Callback to be called when error.
+   */
+  updateICCContact: function(appType, contactType, contact, pin2, onsuccess, onerror) {
+    let ICCRecordHelper = this.context.ICCRecordHelper;
+    let ICCUtilsHelper = this.context.ICCUtilsHelper;
+
+    let updateContactCb = (updatedContact) => {
+      updatedContact.pbrIndex = contact.pbrIndex;
+      updatedContact.recordId = contact.recordId;
+      onsuccess(updatedContact);
+    }
+
+    switch (contactType) {
+      case GECKO_CARDCONTACT_TYPE_ADN:
+        if (!this.hasDfPhoneBook(appType)) {
+          if (ICCUtilsHelper.isICCServiceAvailable("EXT1")) {
+            this.updateADNLikeWithExtension(ICC_EF_ADN, ICC_EF_EXT1,
+                                            contact, null,
+                                            updateContactCb, onerror);
+          } else {
+            ICCRecordHelper.updateADNLike(ICC_EF_ADN, 0xff,
+                                          contact, null,
+                                          updateContactCb, onerror);
+          }
+        } else {
+          this.updateUSimContact(contact, updateContactCb, onerror);
+        }
+        break;
+      case GECKO_CARDCONTACT_TYPE_FDN:
+        if (!pin2) {
+          onerror(GECKO_ERROR_SIM_PIN2);
+          return;
+        }
+        if (!ICCUtilsHelper.isICCServiceAvailable("FDN")) {
+          onerror(CONTACT_ERR_CONTACT_TYPE_NOT_SUPPORTED);
+          break;
+        }
+        if (ICCUtilsHelper.isICCServiceAvailable("EXT2")) {
+          this.updateADNLikeWithExtension(ICC_EF_FDN, ICC_EF_EXT2,
+                                          contact, pin2,
+                                          updateContactCb, onerror);
+        } else {
+          ICCRecordHelper.updateADNLike(ICC_EF_FDN,
+                                        0xff,
+                                        contact, pin2,
+                                        updateContactCb, onerror);
+        }
+        break;
+      default:
+        if (DEBUG) {
+          this.context.debug("Unsupported contactType :" + contactType);
+        }
+        onerror(CONTACT_ERR_CONTACT_TYPE_NOT_SUPPORTED);
+        break;
+    }
+  },
+
+  /**
+   * Read contacts from USIM.
+   *
+   * @param onsuccess     Callback to be called when success.
+   * @param onerror       Callback to be called when error.
+   */
+  readUSimContacts: function(onsuccess, onerror) {
+    let gotPbrCb = function gotPbrCb(pbrs) {
+      this.readAllPhonebookSets(pbrs, onsuccess, onerror);
+    }.bind(this);
+
+    let gotPbrErrCb = function gotPbrErrCb() {
+      if (DEBUG) {
+        this.context.debug("readUSimContacts gotPbrErrCb");
+      }
+      this.context.ICCRecordHelper.readADNLike(ICC_EF_ADN,
+        this.context.ICCUtilsHelper.isICCServiceAvailable("EXT1")
+          ? ICC_EF_EXT1 : null, onsuccess, onerror);
+    }.bind(this);
+
+    this.context.ICCRecordHelper.readPBR(gotPbrCb, gotPbrErrCb);
+  },
+
+  /**
+   * Read all Phonebook sets.
+   *
+   * @param pbrs          All Phonebook Reference Files read.
+   * @param onsuccess     Callback to be called when success.
+   * @param onerror       Callback to be called when error.
+   */
+  readAllPhonebookSets: function(pbrs, onsuccess, onerror) {
+    let allContacts = [], pbrIndex = 0;
+    let readPhonebook = function(contacts) {
+      if (contacts) {
+        allContacts = allContacts.concat(contacts);
+      }
+
+      let cLen = contacts ? contacts.length : 0;
+      for (let i = 0; i < cLen; i++) {
+        contacts[i].pbrIndex = pbrIndex;
+      }
+
+      pbrIndex++;
+      if (pbrIndex >= pbrs.length) {
+        if (onsuccess) {
+          onsuccess(allContacts);
+        }
+        return;
+      }
+
+      this.readPhonebookSet(pbrs[pbrIndex], readPhonebook, onerror);
+    }.bind(this);
+
+    this.readPhonebookSet(pbrs[pbrIndex], readPhonebook, onerror);
+  },
+
+  readAllPbrRecordCount: function(pbrs, onsuccess, onerror) {
+    let totalRecords = 0, pbrIndex = 0;
+    let readPhoneBook = function(aTotalRecord) {
+      totalRecords += aTotalRecord;
+      pbrIndex++;
+      if (pbrIndex >= pbrs.length) {
+        if (onsuccess) {
+          onsuccess(totalRecords);
+        }
+        return;
+      }
+
+      this.readPerPbrRecordCount(pbrs[pbrIndex], readPhoneBook, onerror);
+    }.bind(this);
+
+    this.readPerPbrRecordCount(pbrs[pbrIndex], readPhoneBook, onerror);
+  },
+
+  readPerPbrRecordCount: function(pbr, onsuccess, onerror) {
+    let ICCRecordHelper = this.context.ICCRecordHelper;
+    ICCRecordHelper.readRecordCount(pbr.adn.fileId, onsuccess, onerror);
+  },
+
+  /**
+   * Read from Phonebook Reference File.
+   *
+   * @param pbr           Phonebook Reference File to be read.
+   * @param onsuccess     Callback to be called when success.
+   * @param onerror       Callback to be called when error.
+   */
+  readPhonebookSet: function(pbr, onsuccess, onerror) {
+    let ICCRecordHelper = this.context.ICCRecordHelper;
+    let gotAdnCb = function gotAdnCb(contacts) {
+      this.readSupportedPBRFields(pbr, contacts, onsuccess, onerror);
+    }.bind(this);
+
+    ICCRecordHelper.readADNLike(pbr.adn.fileId,
+      (pbr.ext1) ? pbr.ext1.fileId : null, gotAdnCb, onerror);
+  },
+
+  /**
+   * Read supported Phonebook fields.
+   *
+   * @param pbr         Phone Book Reference file.
+   * @param contacts    Contacts stored on ICC.
+   * @param onsuccess   Callback to be called when success.
+   * @param onerror     Callback to be called when error.
+   */
+  readSupportedPBRFields: function(pbr, contacts, onsuccess, onerror) {
+    let fieldIndex = 0;
+    (function readField() {
+      let field = USIM_PBR_FIELDS[fieldIndex];
+      fieldIndex += 1;
+      if (!field) {
+        if (onsuccess) {
+          onsuccess(contacts);
+        }
+        return;
+      }
+
+      this.readPhonebookField(pbr, contacts, field, readField.bind(this), onerror);
+    }).call(this);
+  },
+
+  /**
+   * Read Phonebook field.
+   *
+   * @param pbr           The phonebook reference file.
+   * @param contacts      Contacts stored on ICC.
+   * @param field         Phonebook field to be retrieved.
+   * @param onsuccess     Callback to be called when success.
+   * @param onerror       Callback to be called when error.
+   */
+  readPhonebookField: function(pbr, contacts, field, onsuccess, onerror) {
+    if (!pbr[field]) {
+      if (onsuccess) {
+        onsuccess(contacts);
+      }
+      return;
+    }
+
+    (function doReadContactField(n) {
+      if (n >= contacts.length) {
+        // All contact's fields are read.
+        if (onsuccess) {
+          onsuccess(contacts);
+        }
+        return;
+      }
+
+      // get n-th contact's field.
+      this.readContactField(pbr, contacts[n], field,
+                            doReadContactField.bind(this, n + 1), onerror);
+    }).call(this, 0);
+  },
+
+  /**
+   * Read contact's field from USIM.
+   *
+   * @param pbr           The phonebook reference file.
+   * @param contact       The contact needs to get field.
+   * @param field         Phonebook field to be retrieved.
+   * @param onsuccess     Callback to be called when success.
+   * @param onerror       Callback to be called when error.
+   */
+  readContactField: function(pbr, contact, field, onsuccess, onerror) {
+    let gotRecordIdCb = function gotRecordIdCb(recordId) {
+      if (recordId == 0xff) {
+        if (onsuccess) {
+          onsuccess();
+        }
+        return;
+      }
+
+      let fileId = pbr[field].fileId;
+      let fileType = pbr[field].fileType;
+      let gotFieldCb = function gotFieldCb(value) {
+        if (value) {
+          // Move anr0 anr1,.. into anr[].
+          if (field.startsWith(USIM_PBR_ANR)) {
+            if (!contact[USIM_PBR_ANR]) {
+              contact[USIM_PBR_ANR] = [];
+            }
+            contact[USIM_PBR_ANR].push(value);
+          } else {
+            contact[field] = value;
+          }
+        }
+
+        if (onsuccess) {
+          onsuccess();
+        }
+      }.bind(this);
+
+      let ICCRecordHelper = this.context.ICCRecordHelper;
+      // Detect EF to be read, for anr, it could have anr0, anr1,...
+      let ef = field.startsWith(USIM_PBR_ANR) ? USIM_PBR_ANR : field;
+      switch (ef) {
+        case USIM_PBR_EMAIL:
+          ICCRecordHelper.readEmail(fileId, fileType, recordId, gotFieldCb, onerror);
+          break;
+        case USIM_PBR_ANR:
+          ICCRecordHelper.readANR(fileId, fileType, recordId, gotFieldCb, onerror);
+          break;
+        default:
+          if (DEBUG) {
+            this.context.debug("Unsupported field :" + field);
+          }
+          onerror(CONTACT_ERR_FIELD_NOT_SUPPORTED);
+          break;
+      }
+    }.bind(this);
+
+    this.getContactFieldRecordId(pbr, contact, field, gotRecordIdCb, onerror);
+  },
+
+  /**
+   * Get the recordId.
+   *
+   * If the fileType of field is ICC_USIM_TYPE1_TAG, use corresponding ADN recordId.
+   * otherwise get the recordId from IAP.
+   *
+   * @see TS 131.102, clause 4.4.2.2
+   *
+   * @param pbr          The phonebook reference file.
+   * @param contact      The contact will be updated.
+   * @param onsuccess    Callback to be called when success.
+   * @param onerror      Callback to be called when error.
+   */
+  getContactFieldRecordId: function(pbr, contact, field, onsuccess, onerror) {
+    if (pbr[field].fileType == ICC_USIM_TYPE1_TAG) {
+      // If the file type is ICC_USIM_TYPE1_TAG, use corresponding ADN recordId.
+      if (onsuccess) {
+        onsuccess(contact.recordId);
+      }
+    } else if (pbr[field].fileType == ICC_USIM_TYPE2_TAG) {
+      // If the file type is ICC_USIM_TYPE2_TAG, the recordId shall be got from IAP.
+      let gotIapCb = function gotIapCb(iap) {
+        let indexInIAP = pbr[field].indexInIAP;
+        let recordId = iap[indexInIAP];
+
+        if (onsuccess) {
+          onsuccess(recordId);
+        }
+      }.bind(this);
+
+      this.context.ICCRecordHelper.readIAP(pbr.iap.fileId, contact.recordId,
+                                           gotIapCb, onerror);
+    } else {
+      if (DEBUG) {
+        this.context.debug("USIM PBR files in Type 3 format are not supported.");
+      }
+      onerror(CONTACT_ERR_REQUEST_NOT_SUPPORTED);
+    }
+  },
+
+  /**
+   * Update USIM contact.
+   *
+   * @param contact       The contact will be updated.
+   * @param onsuccess     Callback to be called when success.
+   * @param onerror       Callback to be called when error.
+   */
+  updateUSimContact: function(contact, onsuccess, onerror) {
+    let updateContactCb = (updatedContact) => {
+      updatedContact.pbrIndex = contact.pbrIndex;
+      updatedContact.recordId = contact.recordId;
+      onsuccess(updatedContact);
+    }
+
+    let gotPbrCb = function gotPbrCb(pbrs) {
+      let pbr = pbrs[contact.pbrIndex];
+      if (!pbr) {
+        if (DEBUG) {
+          this.context.debug(CONTACT_ERR_CANNOT_ACCESS_PHONEBOOK);
+        }
+        onerror(CONTACT_ERR_CANNOT_ACCESS_PHONEBOOK);
+        return;
+      }
+      this.updatePhonebookSet(pbr, contact, onsuccess, onerror);
+    }.bind(this);
+
+    let gotPbrErrCb = function gotPbrErrCb() {
+      if (DEBUG) {
+        this.context.debug("updateUSimContact gotPbrErrCb");
+      }
+      if (this.context.ICCUtilsHelper.isICCServiceAvailable("EXT1")) {
+        this.updateADNLikeWithExtension(ICC_EF_ADN, ICC_EF_EXT1,
+                                        contact, null,
+                                        updateContactCb, onerror);
+      } else {
+        this.context.ICCRecordHelper.updateADNLike(ICC_EF_ADN, 0xff,
+                                                   contact, null,
+                                                   updateContactCb, onerror);
+      }
+    }.bind(this);
+
+    this.context.ICCRecordHelper.readPBR(gotPbrCb, gotPbrErrCb);
+  },
+
+  /**
+   * Update fields in Phonebook Reference File.
+   *
+   * @param pbr           Phonebook Reference File to be read.
+   * @param onsuccess     Callback to be called when success.
+   * @param onerror       Callback to be called when error.
+   */
+  updatePhonebookSet: function(pbr, contact, onsuccess, onerror) {
+    let updateAdnCb = function(updatedContact) {
+      this.updateSupportedPBRFields(pbr, contact, (updatedContactField) => {
+        onsuccess(Object.assign(updatedContact, updatedContactField));
+      }, onerror);
+    }.bind(this);
+
+    if (pbr.ext1) {
+      this.updateADNLikeWithExtension(pbr.adn.fileId, pbr.ext1.fileId,
+                                      contact, null, updateAdnCb, onerror);
+    } else {
+      this.context.ICCRecordHelper.updateADNLike(pbr.adn.fileId, 0xff, contact,
+                                                 null, updateAdnCb, onerror);
+    }
+  },
+
+  /**
+   * Update supported Phonebook fields.
+   *
+   * @param pbr         Phone Book Reference file.
+   * @param contact     Contact to be updated.
+   * @param onsuccess   Callback to be called when success.
+   * @param onerror     Callback to be called when error.
+   */
+  updateSupportedPBRFields: function(pbr, contact, onsuccess, onerror) {
+    let fieldIndex = 0;
+    let contactField = {};
+
+    (function updateField() {
+      let field = USIM_PBR_FIELDS[fieldIndex];
+      fieldIndex += 1;
+
+      if (!field) {
+        if (onsuccess) {
+          onsuccess(contactField);
+        }
+        return;
+      }
+
+      // Check if PBR has this field.
+      if (!pbr[field]) {
+        updateField.call(this);
+        return;
+      }
+
+      this.updateContactField(pbr, contact, field, (fieldEntry) => {
+        contactField = Object.assign(contactField, fieldEntry);
+        updateField.call(this);
+      }, (errorMsg) => {
+        // Bug 1194149, there are some sim cards without sufficient
+        // Type 2 USIM contact fields record. We allow user continue
+        // importing contacts.
+        if (errorMsg === CONTACT_ERR_NO_FREE_RECORD_FOUND) {
+          updateField.call(this);
+          return;
+        }
+        onerror(errorMsg);
+      });
+    }).call(this);
+  },
+
+  /**
+   * Update contact's field from USIM.
+   *
+   * @param pbr           The phonebook reference file.
+   * @param contact       The contact needs to be updated.
+   * @param field         Phonebook field to be updated.
+   * @param onsuccess     Callback to be called when success.
+   * @param onerror       Callback to be called when error.
+   */
+  updateContactField: function(pbr, contact, field, onsuccess, onerror) {
+    if (pbr[field].fileType === ICC_USIM_TYPE1_TAG) {
+      this.updateContactFieldType1(pbr, contact, field, onsuccess, onerror);
+    } else if (pbr[field].fileType === ICC_USIM_TYPE2_TAG) {
+      this.updateContactFieldType2(pbr, contact, field, onsuccess, onerror);
+    } else {
+      if (DEBUG) {
+        this.context.debug("USIM PBR files in Type 3 format are not supported.");
+      }
+      onerror(CONTACT_ERR_REQUEST_NOT_SUPPORTED);
+    }
+  },
+
+  /**
+   * Update Type 1 USIM contact fields.
+   *
+   * @param pbr           The phonebook reference file.
+   * @param contact       The contact needs to be updated.
+   * @param field         Phonebook field to be updated.
+   * @param onsuccess     Callback to be called when success.
+   * @param onerror       Callback to be called when error.
+   */
+  updateContactFieldType1: function(pbr, contact, field, onsuccess, onerror) {
+    let ICCRecordHelper = this.context.ICCRecordHelper;
+
+    if (field === USIM_PBR_EMAIL) {
+      ICCRecordHelper.updateEmail(pbr, contact.recordId, contact.email, null,
+        (updatedEmail) => {
+          onsuccess({email: updatedEmail});
+      }, onerror);
+    } else if (field === USIM_PBR_ANR0) {
+      let anr = Array.isArray(contact.anr) ? contact.anr[0] : null;
+      ICCRecordHelper.updateANR(pbr, contact.recordId, anr, null,
+        (updatedANR) => {
+          // ANR could have multiple files. If we support more than one anr,
+          // we will save it as anr0, anr1,...etc.
+          onsuccess((updatedANR) ? {anr: [updatedANR]} : null);
+      }, onerror);
+    } else {
+     if (DEBUG) {
+       this.context.debug("Unsupported field :" + field);
+     }
+     onerror(CONTACT_ERR_FIELD_NOT_SUPPORTED);
+    }
+  },
+
+  /**
+   * Update Type 2 USIM contact fields.
+   *
+   * @param pbr           The phonebook reference file.
+   * @param contact       The contact needs to be updated.
+   * @param field         Phonebook field to be updated.
+   * @param onsuccess     Callback to be called when success.
+   * @param onerror       Callback to be called when error.
+   */
+  updateContactFieldType2: function(pbr, contact, field, onsuccess, onerror) {
+    let ICCRecordHelper = this.context.ICCRecordHelper;
+
+    // Case 1 : EF_IAP[adnRecordId] doesn't have a value(0xff)
+    //   Find a free recordId for EF_field
+    //   Update field with that free recordId.
+    //   Update IAP.
+    //
+    // Case 2: EF_IAP[adnRecordId] has a value
+    //   update EF_field[iap[field.indexInIAP]]
+
+    let gotIapCb = function gotIapCb(iap) {
+      let recordId = iap[pbr[field].indexInIAP];
+      if (recordId === 0xff) {
+        // If the value in IAP[index] is 0xff, which means the contact stored on
+        // the SIM doesn't have the additional attribute (email or anr).
+        // So if the contact to be updated doesn't have the attribute either,
+        // we don't have to update it.
+        if ((field === USIM_PBR_EMAIL && contact.email) ||
+            (field === USIM_PBR_ANR0 &&
+             (Array.isArray(contact.anr) && contact.anr[0]))) {
+          // Case 1.
+          this.addContactFieldType2(pbr, contact, field, onsuccess, onerror);
+        } else {
+          if (onsuccess) {
+            onsuccess();
+          }
+        }
+        return;
+      }
+
+      // Case 2.
+      if (field === USIM_PBR_EMAIL) {
+        ICCRecordHelper.updateEmail(pbr, recordId, contact.email, contact.recordId,
+          (updatedEmail) => {
+            onsuccess({email: updatedEmail});
+        }, onerror);
+      } else if (field === USIM_PBR_ANR0) {
+        let anr = Array.isArray(contact.anr) ? contact.anr[0] : null;
+        ICCRecordHelper.updateANR(pbr, recordId, anr, contact.recordId,
+          (updatedANR) => {
+            // ANR could have multiple files. If we support more than one anr,
+            // we will save it as anr0, anr1,...etc.
+            onsuccess((updatedANR) ? {anr: [updatedANR]} : null);
+        }, onerror);
+      } else {
+        if (DEBUG) {
+          this.context.debug("Unsupported field :" + field);
+        }
+        onerror(CONTACT_ERR_FIELD_NOT_SUPPORTED);
+      }
+
+    }.bind(this);
+
+    ICCRecordHelper.readIAP(pbr.iap.fileId, contact.recordId, gotIapCb, onerror);
+  },
+
+  /**
+   * Add Type 2 USIM contact fields.
+   *
+   * @param pbr           The phonebook reference file.
+   * @param contact       The contact needs to be updated.
+   * @param field         Phonebook field to be updated.
+   * @param onsuccess     Callback to be called when success.
+   * @param onerror       Callback to be called when error.
+   */
+  addContactFieldType2: function(pbr, contact, field, onsuccess, onerror) {
+    let ICCRecordHelper = this.context.ICCRecordHelper;
+    let successCb = function successCb(recordId) {
+
+      let updateCb = function updateCb(contactField) {
+        this.updateContactFieldIndexInIAP(pbr, contact.recordId, field, recordId, () => {
+          onsuccess(contactField);
+        }, onerror);
+      }.bind(this);
+
+      if (field === USIM_PBR_EMAIL) {
+        ICCRecordHelper.updateEmail(pbr, recordId, contact.email, contact.recordId,
+          (updatedEmail) => {
+          updateCb({email: updatedEmail});
+        }, onerror);
+      } else if (field === USIM_PBR_ANR0) {
+        ICCRecordHelper.updateANR(pbr, recordId, contact.anr[0], contact.recordId,
+          (updatedANR) => {
+            // ANR could have multiple files. If we support more than one anr,
+            // we will save it as anr0, anr1,...etc.
+            updateCb((updatedANR) ? {anr: [updatedANR]} : null);
+        }, onerror);
+      }
+    }.bind(this);
+
+    let errorCb = function errorCb(errorMsg) {
+      if (DEBUG) {
+        this.context.debug(errorMsg + " USIM field " + field);
+      }
+      onerror(errorMsg);
+    }.bind(this);
+
+    ICCRecordHelper.findFreeRecordId(pbr[field].fileId, successCb, errorCb);
+  },
+
+  /**
+   * Update IAP value.
+   *
+   * @param pbr           The phonebook reference file.
+   * @param recordNumber  The record identifier of EF_IAP.
+   * @param field         Phonebook field.
+   * @param value         The value of 'field' in IAP.
+   * @param onsuccess     Callback to be called when success.
+   * @param onerror       Callback to be called when error.
+   *
+   */
+  updateContactFieldIndexInIAP: function(pbr, recordNumber, field, value, onsuccess, onerror) {
+    let ICCRecordHelper = this.context.ICCRecordHelper;
+
+    let gotIAPCb = function gotIAPCb(iap) {
+      iap[pbr[field].indexInIAP] = value;
+      ICCRecordHelper.updateIAP(pbr.iap.fileId, recordNumber, iap, onsuccess, onerror);
+    }.bind(this);
+    ICCRecordHelper.readIAP(pbr.iap.fileId, recordNumber, gotIAPCb, onerror);
+  },
+
+  /**
+   * Update ICC ADN like EFs with Extension, like EF_ADN, EF_FDN.
+   *
+   * @param  fileId    EF id of the ADN or FDN.
+   * @param  extFileId EF id of the EXT.
+   * @param  contact   The contact will be updated. (Shall have recordId property)
+   * @param  pin2      PIN2 is required when updating ICC_EF_FDN.
+   * @param  onsuccess Callback to be called when success.
+   * @param  onerror   Callback to be called when error.
+   */
+  updateADNLikeWithExtension: function(fileId, extFileId, contact, pin2, onsuccess, onerror) {
+    let ICCRecordHelper = this.context.ICCRecordHelper;
+    let extNumber;
+
+    if (contact.number) {
+      let numStart = contact.number[0] == "+" ? 1 : 0;
+      let number = contact.number.substring(0, numStart) +
+                   this.context.GsmPDUHelper.stringToExtendedBcd(
+                    contact.number.substring(numStart));
+      extNumber = number.substr(numStart + ADN_MAX_NUMBER_DIGITS,
+                                EXT_MAX_NUMBER_DIGITS);
+    }
+
+    ICCRecordHelper.getADNLikeExtensionRecordNumber(fileId, contact.recordId,
+                                                    (extRecordNumber) => {
+        let updateADNLike = (extRecordNumber) => {
+          ICCRecordHelper.updateADNLike(fileId, extRecordNumber, contact,
+                                        pin2, (updatedContact) => {
+            if (extNumber && extRecordNumber != 0xff) {
+              updatedContact.number = updatedContact.number.concat(extNumber);
+            }
+            onsuccess(updatedContact);
+          }, onerror);
+        };
+
+        let updateExtension = (extRecordNumber) => {
+          ICCRecordHelper.updateExtension(extFileId, extRecordNumber,  extNumber,
+                                          () => updateADNLike(extRecordNumber),
+                                          () => updateADNLike(0xff));
+        };
+
+        if (extNumber) {
+          if (extRecordNumber != 0xff) {
+            updateExtension(extRecordNumber);
+            return;
+          }
+
+          ICCRecordHelper.findFreeRecordId(extFileId,
+            (extRecordNumber) => updateExtension(extRecordNumber),
+            (errorMsg) => {
+              if (DEBUG) {
+                this.context.debug("Couldn't find free extension record Id for " + extFileId + ": " + errorMsg);
+              }
+              updateADNLike(0xff);
+            });
+          return;
+        }
+
+        if (extRecordNumber != 0xff) {
+          ICCRecordHelper.cleanEFRecord(extFileId, extRecordNumber,
+            () => updateADNLike(0xff), onerror);
+          return;
+        }
+
+        updateADNLike(0xff);
+      }, onerror);
+  },
 };
 
 function BerTlvHelperObject(aContext) {

@@ -81,6 +81,8 @@ const NETWORK_TYPE_MOBILE      = Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE;
 
 const INVALID_UPTIME = undefined;
 
+const ICC_MAX_LINEAR_FIXED_RECORDS = 0xfe;
+
 // set to true in ril_consts.js to see debug messages
 //var DEBUG = RIL.DEBUG_RIL;
 var DEBUG = true;
@@ -1605,7 +1607,107 @@ RadioInterface.prototype = {
 
   },
 
-  //Cameron mark first.
+  /**
+   * Read UICC Phonebook contacts.
+   *
+   * @param contactType
+   *        One of GECKO_CARDCONTACT_TYPE_*.
+   * @param requestId
+   *        Request id from RadioInterfaceLayer.
+   */
+  readICCContacts: function(options) {
+    if (!this.appType) {
+      options.errorMsg = CONTACT_ERR_REQUEST_NOT_SUPPORTED;
+      this.handleRilResponse(options);
+      return;
+    }
+    this.simIOcontext.ICCContactHelper.readICCContacts(
+      this.appType,
+      options.contactType,
+      function onsuccess(contacts) {
+        for (let i = 0; i < contacts.length; i++) {
+          let contact = contacts[i];
+          let pbrIndex = contact.pbrIndex || 0;
+          let recordIndex = pbrIndex * ICC_MAX_LINEAR_FIXED_RECORDS + contact.recordId;
+          contact.contactId = this.iccInfo.iccid + recordIndex;
+        }
+        // Reuse 'options' to get 'requestId' and 'contactType'.
+        options.contacts = contacts;
+        this.handleRilResponse(options);
+      }.bind(this),
+      function onerror(errorMsg) {
+        options.errorMsg = errorMsg;
+        this.handleRilResponse(options);
+      }.bind(this));
+  },
+
+  getMaxContactCount: function (options) {
+    this.simIOcontext.ICCContactHelper.getMaxContactCount(this.appType,
+      options.contactType,
+      (aTotalRecords) => {
+        options.totalRecords = aTotalRecords;
+        this.handleRilResponse(options);
+      },
+      (aError) => {
+        options.errorMsg = aError;
+        this.handleRilResponse(options);
+      });
+  },
+
+  /**
+   * Update UICC Phonebook.
+   *
+   * @param contactType   One of GECKO_CARDCONTACT_TYPE_*.
+   * @param contact       The contact will be updated.
+   * @param pin2          PIN2 is required for updating FDN.
+   * @param requestId     Request id from RadioInterfaceLayer.
+   */
+  updateICCContact: function(options) {
+    let onsuccess = function onsuccess(updatedContact) {
+      let recordIndex =
+        updatedContact.pbrIndex * ICC_MAX_LINEAR_FIXED_RECORDS + updatedContact.recordId;
+      updatedContact.contactId = this.iccInfo.iccid + recordIndex;
+      options.contact = updatedContact;
+      // Reuse 'options' to get 'requestId' and 'contactType'.
+      this.handleRilResponse(options);
+    }.bind(this);
+
+    let onerror = function onerror(errorMsg) {
+      options.errorMsg = errorMsg;
+      this.handleRilResponse(options);
+    }.bind(this);
+
+    if (!this.appType || !options.contact) {
+      onerror(CONTACT_ERR_REQUEST_NOT_SUPPORTED );
+      return;
+    }
+
+    let contact = options.contact;
+    let iccid = this.iccInfo.iccid;
+    let isValidRecordId = false;
+    if (typeof contact.contactId === "string" &&
+        contact.contactId.startsWith(iccid)) {
+      let recordIndex = contact.contactId.substring(iccid.length);
+      contact.pbrIndex = Math.floor(recordIndex / ICC_MAX_LINEAR_FIXED_RECORDS);
+      contact.recordId = recordIndex % ICC_MAX_LINEAR_FIXED_RECORDS;
+      isValidRecordId = contact.recordId > 0 && contact.recordId < 0xff;
+    }
+
+    if (DEBUG) {
+      this.simIOcontext.debug("Update ICC Contact " + JSON.stringify(contact));
+    }
+
+    let ICCContactHelper = this.simIOcontext.ICCContactHelper;
+    // If contact has 'recordId' property, updates corresponding record.
+    // If not, inserts the contact into a free record.
+    if (isValidRecordId) {
+      ICCContactHelper.updateICCContact(
+        this.appType, options.contactType, contact, options.pin2, onsuccess, onerror);
+    } else {
+      ICCContactHelper.addICCContact(
+        this.appType, options.contactType, contact, options.pin2, onsuccess, onerror);
+    }
+  },
 
   /**
    * Set the setting value of "time.clock.automatic-update.available".
@@ -2763,6 +2865,18 @@ RadioInterface.prototype = {
         } else {
           if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_GET_RADIO_CAPABILITY error = " + response.errorMsg);
         }
+        break;
+      case "updateICCContact":
+        // This is not a ril reponse.
+        result = response;
+        break;
+      case "readICCContacts":
+        // This is not a ril reponse.
+        result = response;
+        break;
+      case "getMaxContactCount":
+        // This is not a ril reponse.
+        result = response;
         break;
       default:
     }
@@ -4083,7 +4197,7 @@ RadioInterface.prototype = {
                     + " , data = " + message.dataWriter + " , pin2 = " + message.pin2 + " , aid = " + message.aid);
         // Store the command options(message).
         this.tokenOptionsMap[message.rilMessageToken] = message;
-        this.rilworker.iccIOForApp(message.rilMessageToken, message.command, message.fileId, message.pathId, message.p1, message.p2, message.p3, message.data, message.pin2, (message.aid || this.aid));
+        this.rilworker.iccIOForApp(message.rilMessageToken, message.command, message.fileId, message.pathId, message.p1, message.p2, message.p3, message.dataWriter, message.pin2, (message.aid || this.aid));
         break;
       case "sendUSSD":
         if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SEND_USSD ussd = " + message.ussd);
@@ -4337,6 +4451,19 @@ RadioInterface.prototype = {
       case "getRadioCapability":
         if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_GET_RADIO_CAPABILITY");
         this.rilworker.getRadioCapability(message.rilMessageToken);
+        break;
+      case "updateICCContact":
+        // This is not a ril request.
+        this.updateICCContact(message);
+        break;
+      case "readICCContacts":
+        // This is not a ril request.
+        this.readICCContacts(message);
+        break;
+      //TODO: Refactor and simplify this checking mechanism.
+      case "getMaxContactCount":
+        // This is not a ril request.
+        this.getMaxContactCount(message);
         break;
       default:
     }

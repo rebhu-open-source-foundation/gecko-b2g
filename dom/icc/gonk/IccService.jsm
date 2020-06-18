@@ -26,6 +26,12 @@ const NS_PREFBRANCH_PREFCHANGE_TOPIC_ID  = "nsPref:changed";
 const kPrefRilDebuggingEnabled = "ril.debugging.enabled";
 const kPrefRilNumRadioInterfaces = "ril.numRadioInterfaces";
 
+const CARDCONTACT_TYPE_ADN = 0;
+
+const CONTACT_OPERATION_ADD = 0;
+const CONTACT_OPERATION_REMOVE = 1;
+const CONTACT_OPERATION_UPDATE = 2;
+
 XPCOMUtils.defineLazyServiceGetter(this, "gRadioInterfaceLayer",
                                    "@mozilla.org/ril;1",
                                    "nsIRadioInterfaceLayer");
@@ -44,7 +50,7 @@ XPCOMUtils.defineLazyServiceGetter(this, "gStkCmdFactory",
 
 var DEBUG = RIL.DEBUG_RIL;
 function debug(s) {
-  dump("IccService: " + s);
+  console.log("IccService: " + s + "\n");
 }
 
 function IccInfo() {}
@@ -263,8 +269,6 @@ IccService.prototype = {
       debug("notifyIccInfoChanged for service Id: " + aServiceId +
             ", IccInfo: " + JSON.stringify(aIccInfo));
     }
-    console.log("notifyIccInfoChanged for service Id: " + aServiceId +
-            ", IccInfo: " + JSON.stringify(aIccInfo));
 
     this.getIccByServiceId(aServiceId)._updateIccInfo(aIccInfo);
   },
@@ -314,6 +318,8 @@ function Icc(aClientId) {
   this._clientId = aClientId;
   this._radioInterface = gRadioInterfaceLayer.getRadioInterface(aClientId);
   this._listeners = [];
+  this._totalContacts = -1;
+  this._totalRecords = -1;
 }
 Icc.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsIIcc]),
@@ -321,10 +327,16 @@ Icc.prototype = {
   _clientId: 0,
   _radioInterface: null,
   _listeners: null,
+  _totalRecords: null,
+  _totalContacts: null,
 
   _updateCardState: function(aCardState) {
     if (this.cardState != aCardState) {
       this.cardState = aCardState;
+      if(this.cardState === RIL.GECKO_CARDSTATE_READY) {
+        //Reread the total contact records
+        this.getMaxContactCount(CARDCONTACT_TYPE_ADN);
+      }
     }
 
     this._deliverListenerEvent("notifyCardStateChanged");
@@ -724,6 +736,50 @@ Icc.prototype = {
                          { event: gStkCmdFactory.createEventMessage(aEvent) });
   },
 
+  //TODO: Refactory with IccContact Webapi.
+  getUserOperation: function(aContact) {
+    let iccid = this.iccInfo.iccid;
+    function isExistContact(aContact) {
+      let isExist = false;
+      if (typeof aContact.contactId === "string" &&
+        aContact.contactId.startsWith(iccid)) {
+        let recordIndex = aContact.contactId.substring(iccid.length);
+        aContact.pbrIndex = Math.floor(recordIndex / ICC_MAX_LINEAR_FIXED_RECORDS);
+        aContact.recordId = recordIndex % ICC_MAX_LINEAR_FIXED_RECORDS;
+        isExist = aContact.recordId > 0 && aContact.recordId < 0xff;
+      }
+      return isExist;
+    }
+
+    if(isExistContact(aContact)) {
+      if (aContact.alphaId ){
+        return CONTACT_OPERATION_UPDATE;
+      }
+      if (aContact.number) {
+        return CONTACT_OPERATION_UPDATE;
+      }
+      return CONTACT_OPERATION_REMOVE;
+    }
+    return CONTACT_OPERATION_ADD;
+  },
+
+  getMaxContactCount: function(aContactType) {
+    this._radioInterface.sendWorkerMessage("getMaxContactCount",
+      {contactType : aContactType},
+      (aResponse) => {
+        if (aResponse.errorMsg) {
+          if (DEBUG) {
+            debug("getMaxContactCount failed " + errorMsg);
+          }
+          return;
+        }
+        this._totalRecords = aResponse.totalRecords;
+        if (DEBUG) {
+          debug("_totalRecords = " + this._totalRecords);
+        }
+    })
+  },
+
   readContacts: function(aContactType, aCallback) {
     this._radioInterface
       .sendWorkerMessage("readICCContacts",
@@ -737,13 +793,21 @@ Icc.prototype = {
       let iccContacts = [];
 
       aResponse.contacts.forEach(c => iccContacts.push(new IccContact(c)));
-
+      if(aContactType == CARDCONTACT_TYPE_ADN) {
+        this._totalContacts = iccContacts.length;
+        if (DEBUG) {
+          debug("_totalContacts = " + this._totalContacts);
+        }
+      }
       aCallback.notifyRetrievedIccContacts(iccContacts, iccContacts.length);
     });
   },
 
   updateContact: function(aContactType, aContact, aPin2, aCallback) {
     let iccContact = { contactId: aContact.id };
+    iccContact.number = aContact.number;
+    iccContact.alphaId = aContact.name;
+/* //FIXME
     let count = { value: 0 };
     let names = aContact.getNames(count);
     if (count.value > 0) {
@@ -768,6 +832,21 @@ Icc.prototype = {
     if (count.value > 0) {
       iccContact.email = emails[0];
     }
+*/
+    let operation;
+    if(aContactType == CARDCONTACT_TYPE_ADN) {
+      operation = this.getUserOperation(iccContact);
+      if(DEBUG) {
+        debug("User operation is" + operation);
+      }
+      if(operation === CONTACT_OPERATION_ADD &&
+        this._totalRecords != -1 &&
+        this._totalContacts != -1 &&
+        this._totalContacts >= this._totalRecords) {
+        aCallback.notifyError(RIL.CONTACT_ERR_NO_FREE_RECORD_FOUND);
+        return;
+      }
+    }
 
     this._radioInterface
       .sendWorkerMessage("updateICCContact",
@@ -779,7 +858,23 @@ Icc.prototype = {
         aCallback.notifyError(aResponse.errorMsg);
         return;
       }
-
+      switch (operation) {
+        case CONTACT_OPERATION_ADD:
+          if(this._totalContacts != -1) {
+            this._totalContacts += 1;
+          }
+          break;
+        case CONTACT_OPERATION_REMOVE:
+          if(this._totalContacts != -1) {
+            this._totalContacts -= 1;
+          }
+          break;
+        default:
+          break;
+      }
+      if(DEBUG) {
+        debug("current _totalContacts =" + this._totalContacts)
+      }
       aCallback.notifyUpdatedIccContact(new IccContact(aResponse.contact));
     });
   },
