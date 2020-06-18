@@ -4,15 +4,19 @@
 
 // Implementation of the nsISettings xpcom interface
 
+use super::setting_error::*;
+use super::setting_info::*;
 use crate::common::client_object::*;
 use crate::common::core::BaseMessage;
 use crate::common::event_manager::*;
 use crate::common::sidl_task::*;
 use crate::common::traits::{Shared, TrackerId};
 use crate::common::uds_transport::*;
+use crate::geterror_as_isettingerror;
 use crate::services::core::service::*;
 use crate::services::settings::messages::*;
 use crate::services::settings::observer::*;
+use crate::settinginfo_as_isettingsinfo;
 use log::{debug, error};
 use moz_task::{TaskRunnable, ThreadPtrHandle, ThreadPtrHolder};
 use nserror::{nsresult, NS_ERROR_INVALID_ARG, NS_OK};
@@ -23,18 +27,22 @@ use std::sync::Arc;
 use thin_vec::ThinVec;
 use xpcom::{
     interfaces::{
-        nsISettingInfo, nsISettingsGetResponse, nsISettingsManager, nsISettingsObserver,
-        nsISidlDefaultResponse, nsISidlEventListener,
+        nsISettingError, nsISettingInfo, nsISettingsGetResponse, nsISettingsManager,
+        nsISettingsObserver, nsISidlDefaultResponse, nsISidlEventListener,
     },
     RefPtr,
 };
-use super::setting_info::*;
-use crate::as_isettingsinfo;
 
 type GetSuccessType = SettingInfo;
 
 sidl_callback_for!(nsISidlDefaultResponse);
-sidl_callback_for!(nsISettingsGetResponse, GetSuccessType, as_isettingsinfo);
+sidl_callback_for!(
+    nsISettingsGetResponse,
+    GetSuccessType,
+    GetError,
+    settinginfo_as_isettingsinfo,
+    geterror_as_isettingerror
+);
 
 // Task types
 type ClearTask = SidlCallTask<(), (), nsISidlDefaultResponse>;
@@ -43,7 +51,7 @@ type SetTask = (
     Vec<SettingInfo>, /* settings */
 );
 type GetTask = (
-    SidlCallTask<GetSuccessType, (), nsISettingsGetResponse>,
+    SidlCallTask<GetSuccessType, GetError, nsISettingsGetResponse>,
     String, /* name */
 );
 type AddObserverTask = (
@@ -134,11 +142,7 @@ impl ServiceClientImpl<SettingsTask> for SettingsManagerImpl {
     fn new(mut transport: UdsTransport, service_id: TrackerId) -> Self {
         let core_service = Arc::new(Mutex::new(CoreService::new(&transport)));
         transport.register_session_object(core_service.clone());
-        let sender = TaskSender::new(
-            transport.clone(),
-            service_id,
-            0, /* service object */
-        );
+        let sender = TaskSender::new(transport.clone(), service_id, 0 /* service object */);
 
         let event_manager = Shared::adopt(EventManager::new(
             core_service.clone(),
@@ -305,13 +309,14 @@ task_receiver!(
     SettingsFactorySetError
 );
 
-task_receiver_success!(
+task_receiver_success_error!(
     GetTaskReceiver,
     nsISettingsGetResponse,
     SettingsManagerToClient,
     SettingsFactoryGetSuccess,
     SettingsFactoryGetError,
-    GetSuccessType
+    GetSuccessType,
+    GetError
 );
 
 task_receiver!(

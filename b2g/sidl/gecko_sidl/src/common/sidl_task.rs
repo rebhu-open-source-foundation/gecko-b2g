@@ -128,7 +128,7 @@ macro_rules! sidl_callback_for {
                 }
             }
 
-            fn reject(&self, _value: &Self::Error) {
+            fn reject(&self, value: &Self::Error) {
                 unsafe {
                     self.Reject($errtrans!(value));
                 }
@@ -262,13 +262,13 @@ macro_rules! task_receiver_success_error {
                         debug!("{}", stringify!($succname));
                         self.task.set_value(Ok(value.into()));
                         let _ = TaskRunnable::new(stringify!($name), Box::new(self.task.clone()))
-                            .and_then(|r| r.dispatch(self.task.thread()));
+                            .and_then(|r| TaskRunnable::dispatch(r, self.task.thread()));
                     }
                     Ok($base::$errname(value)) => {
                         debug!("{}", stringify!($errname));
                         self.task.set_value(Err(value.into()));
                         let _ = TaskRunnable::new(stringify!($name), Box::new(self.task.clone()))
-                            .and_then(|r| r.dispatch(self.task.thread()));
+                            .and_then(|r| TaskRunnable::dispatch(r, self.task.thread()));
                     }
                     other => {
                         error!("Unexpected {} message: {:?}", stringify!($name), other);

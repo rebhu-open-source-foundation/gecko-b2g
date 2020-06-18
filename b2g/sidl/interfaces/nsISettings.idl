@@ -10,12 +10,22 @@ interface nsISettingInfo : nsISupports {
   attribute AString value;
 };
 
+// A setting error.
+[scriptable, uuid(f18f37f8-5f90-4713-9ea0-05e70a0da364)]
+interface nsISettingError : nsISupports {
+  const unsigned short UNKNOWN_ERROR = 0;
+  const unsigned short NON_EXISTING_SETTING = 1;
+
+  attribute AString name;
+  attribute unsigned short reason;
+};
+
 // A callback returning a single setting.
 [scriptable, uuid(292e5ce6-fd62-4ae6-803b-b001596614f0)]
 interface nsISettingsGetResponse : nsISupports
 {
   void resolve(in nsISettingInfo setting);
-  void reject();
+  void reject(in nsISettingError error);
 };
 
 // The Observer callback.

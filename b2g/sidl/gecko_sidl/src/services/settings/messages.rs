@@ -23,7 +23,20 @@ impl From<ObjectRef> for TrackerId {
 }
 
 pub static SERVICE_FINGERPRINT: &str =
-    "fc2921a98dc0e8b2b52c5bb0278b3a74bc6f98e18577b9fba445de59c60a7e9";
+    "5d48958d28487986f180bb35534c8345ef72e0d593552c7c9b121e7f6ee3c";
+
+#[derive(Clone, PartialEq, Deserialize, Serialize, Debug)]
+pub enum GetErrorReason {
+    UnknownError, // #0
+    NonExistingSetting, // #1
+}
+impl Copy for GetErrorReason {}
+
+#[derive(Clone, Deserialize, Serialize, Debug)]
+pub struct GetError {
+    pub name: String,
+    pub reason: GetErrorReason,
+}
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct SettingInfo {
@@ -49,7 +62,7 @@ pub enum SettingsManagerToClient {
     SettingsFactoryClearSuccess,             // 2
     SettingsFactoryClearError,               // 3
     SettingsFactoryGetSuccess(SettingInfo),  // 4
-    SettingsFactoryGetError,                 // 5
+    SettingsFactoryGetError(GetError),       // 5
     SettingsFactoryRemoveObserverSuccess,    // 6
     SettingsFactoryRemoveObserverError,      // 7
     SettingsFactorySetSuccess,               // 8

@@ -608,7 +608,7 @@ nsGeolocationService::Resolve(nsISettingInfo* info) {
 }
 
 NS_IMETHODIMP
-nsGeolocationService::Reject() { return NS_OK; }
+nsGeolocationService::Reject(nsISettingError* error) { return NS_OK; }
 
 NS_IMETHODIMP
 nsGeolocationService::ObserveSetting(nsISettingInfo* info) {

@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/// Events related support.
 use crate::common::sidl_task::*;
 use crate::services::settings::messages::SettingInfo;
 use log::debug;
@@ -60,7 +59,7 @@ impl SettingInfoXpcom {
 }
 
 // Turns a SettingInfo into an xpcom nsISupports.
-macro_rules! as_isupports {
+macro_rules! settinginfo_as_isupports {
     ($obj:ident) => {
         {
             let xpcom = SettingInfoXpcom::new(&$obj);
@@ -74,7 +73,7 @@ macro_rules! as_isupports {
 
 // Turns a SettingInfo into an xpcom nsISettingsInfo.
 #[macro_export]
-macro_rules! as_isettingsinfo {
+macro_rules! settinginfo_as_isettingsinfo {
     ($obj:ident) => {
         {
             let xpcom = SettingInfoXpcom::new(&$obj);
@@ -86,4 +85,4 @@ macro_rules! as_isettingsinfo {
     }
 }
 
-sidl_event_for!(nsISidlEventListener, SettingInfo, as_isupports);
+sidl_event_for!(nsISidlEventListener, SettingInfo, settinginfo_as_isupports);
