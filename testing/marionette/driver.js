@@ -1587,7 +1587,10 @@ GeckoDriver.prototype.setWindowRect = async function(cmd) {
  */
 GeckoDriver.prototype.switchToWindow = async function(cmd) {
   let focus = true;
-  if (typeof cmd.parameters.focus != "undefined") {
+  if (this.appName == 'b2g') {
+    // B2G shouldn't switch app window directly but should be controlled by system app or user behaviors.
+    focus = false;
+  } else if (typeof cmd.parameters.focus != "undefined") {
     focus = cmd.parameters.focus;
   }
 
