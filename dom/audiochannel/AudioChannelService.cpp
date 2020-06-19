@@ -408,9 +408,11 @@ AudioPlaybackConfig AudioChannelService::GetMediaConfig(
   nsCOMPtr<nsPIDOMWindowOuter> window = GetTopAppWindow(aWindow);
   if (window) {
     AudioChannelWindow* winData = GetWindowData(window->WindowID());
-    config.mVolume = winData->mChannels[aAudioChannel].mVolume;
-    config.mMuted = winData->mChannels[aAudioChannel].mMuted;
-    config.mSuspend = winData->mChannels[aAudioChannel].mSuspend;
+    if (winData) {
+      config.mVolume = winData->mChannels[aAudioChannel].mVolume;
+      config.mMuted = winData->mChannels[aAudioChannel].mMuted;
+      config.mSuspend = winData->mChannels[aAudioChannel].mSuspend;
+    }
   }
   return config;
 #else
