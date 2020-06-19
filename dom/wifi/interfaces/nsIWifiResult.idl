@@ -117,6 +117,22 @@ interface nsIWifiResult : nsISupports
    * Error alerts.
    */
   const uint32_t FEATURE_DEBUG_ERROR_ALERTS = (1 << 22);
+  /**
+   * WPA3-Personal SAE.
+   */
+  const uint32_t FEATURE_WPA3_SAE = (1 << 23);
+  /**
+   * WPA3-Enterprise Suite-B.
+   */
+  const uint32_t FEATURE_WPA3_SUITE_B = (1 << 24);
+  /**
+   * Enhanced Open (Opportunistic Wireless Encryption).
+   */
+  const uint32_t FEATURE_OWE = (1 << 25);
+  /**
+   * Easy-Connect (Device Provisioning Protocol).
+   */
+  const uint32_t FEATURE_DPP = (1 << 26);
 
   /**
    * The integer value to specify each command.

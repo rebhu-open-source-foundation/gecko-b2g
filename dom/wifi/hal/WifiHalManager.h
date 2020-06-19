@@ -291,4 +291,4 @@ class WifiHal
   DISALLOW_COPY_AND_ASSIGN(WifiHal);
 };
 
-#endif /* WifiHalManager_H */
+#endif  // WifiHalManager_H

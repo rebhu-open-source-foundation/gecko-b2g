@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef SOFTAPMANAGER_H
-#define SOFTAPMANAGER_H
+#ifndef SoftapManager_H
+#define SoftapManager_H
 
 #include "WifiCommon.h"
 #include "SoftapManager.h"
@@ -104,4 +104,4 @@ class SoftapManager
   DISALLOW_COPY_AND_ASSIGN(SoftapManager);
 };
 
-#endif /* SOFTAPMANAGER_H */
+#endif  // SoftapManager_H

@@ -25,6 +25,20 @@ constexpr uint32_t key_mgmt_ft_eap =
 constexpr uint32_t key_mgmt_osen =
     (ISupplicantStaNetwork::KeyMgmtMask::OSEN | 0x0);
 
+// key management supported on 1.2
+constexpr uint32_t key_mgmt_wpa_eap_sha256 =
+    (ISupplicantStaNetworkV1_2::KeyMgmtMask::WPA_EAP_SHA256 | 0x0);
+constexpr uint32_t key_mgmt_wpa_psk_sha256 =
+    (ISupplicantStaNetworkV1_2::KeyMgmtMask::WPA_PSK_SHA256 | 0x0);
+constexpr uint32_t key_mgmt_sae =
+    (ISupplicantStaNetworkV1_2::KeyMgmtMask::SAE | 0x0);
+constexpr uint32_t key_mgmt_suite_b_192 =
+    (ISupplicantStaNetworkV1_2::KeyMgmtMask::SUITE_B_192 | 0x0);
+constexpr uint32_t key_mgmt_owe =
+    (ISupplicantStaNetworkV1_2::KeyMgmtMask::OWE | 0x0);
+constexpr uint32_t key_mgmt_dpp =
+    (ISupplicantStaNetworkV1_2::KeyMgmtMask::DPP | 0x0);
+
 constexpr uint32_t protocol_wpa = (ISupplicantStaNetwork::ProtoMask::WPA | 0x0);
 constexpr uint32_t protocol_rsn = (ISupplicantStaNetwork::ProtoMask::RSN | 0x0);
 constexpr uint32_t protocol_osen =
@@ -61,15 +75,32 @@ constexpr uint32_t pairwise_cipher_ccmp =
 
 mozilla::Mutex SupplicantStaNetwork::sLock("supplicant-network");
 
-SupplicantStaNetwork::SupplicantStaNetwork(const std::string& aInterfaceName,
-                                           WifiEventCallback* aCallback,
-                                           ISupplicantStaNetwork* aNetwork)
+SupplicantStaNetwork::SupplicantStaNetwork(
+    const std::string& aInterfaceName,
+    const android::sp<WifiEventCallback>& aCallback,
+    const android::sp<ISupplicantStaNetwork>& aNetwork)
     : mInterfaceName(aInterfaceName),
       mCallback(aCallback),
       mNetwork(aNetwork) {}
 
 SupplicantStaNetwork::~SupplicantStaNetwork() {}
 
+/**
+ * Hal wrapper functions
+ */
+android::sp<ISupplicantStaNetworkV1_1>
+SupplicantStaNetwork::GetSupplicantStaNetworkV1_1() {
+  return ISupplicantStaNetworkV1_1::castFrom(mNetwork);
+}
+
+android::sp<ISupplicantStaNetworkV1_2>
+SupplicantStaNetwork::GetSupplicantStaNetworkV1_2() {
+  return ISupplicantStaNetworkV1_2::castFrom(mNetwork);
+}
+
+/**
+ * Set configurations to supplicant.
+ */
 Result_t SupplicantStaNetwork::SetConfiguration(
     const NetworkConfiguration& aConfig) {
   NetworkConfiguration config(aConfig);
@@ -108,7 +139,17 @@ Result_t SupplicantStaNetwork::SetConfiguration(
 
   // psk
   if (!config.mPsk.empty()) {
-    stateCode = SetPsk(config.mPsk);
+    if (config.mPsk.front() == '"' && config.mPsk.back() == '"') {
+      Dequote(config.mPsk);
+      if (keyMgmtMask & key_mgmt_sae) {
+        stateCode = SetSaePassword(config.mPsk);
+      } else {
+        stateCode = SetPassphrase(config.mPsk);
+      }
+    } else {
+      stateCode = SetPsk(config.mPsk);
+    }
+
     if (stateCode != SupplicantStatusCode::SUCCESS) {
       return ConvertStatusToResult(stateCode);
     }
@@ -149,12 +190,18 @@ Result_t SupplicantStaNetwork::SetConfiguration(
     }
   }
 
-  // proto
+  // pairwise cipher
   if (!config.mPairwiseCipher.empty()) {
     stateCode = SetPairwiseCipher(config.mPairwiseCipher);
     if (stateCode != SupplicantStatusCode::SUCCESS) {
       return ConvertStatusToResult(stateCode);
     }
+  }
+
+  // pmf
+  stateCode = SetRequirePmf(config.mPmf);
+  if (stateCode != SupplicantStatusCode::SUCCESS) {
+    return ConvertStatusToResult(stateCode);
   }
 
   // eap configurations
@@ -339,30 +386,78 @@ SupplicantStatusCode SupplicantStaNetwork::SetKeyMgmt(uint32_t aKeyMgmtMask) {
   MOZ_ASSERT(mNetwork);
   WIFI_LOGD(LOG_TAG, "key_mgmt => %d", aKeyMgmtMask);
 
+  android::sp<ISupplicantStaNetworkV1_2> networkV1_2 =
+      GetSupplicantStaNetworkV1_2();
+
   SupplicantStatus response;
   HIDL_SET(mNetwork, setKeyMgmt, SupplicantStatus, response, aKeyMgmtMask);
+  if (networkV1_2.get()) {
+    // Use HAL V1.2 if supported.
+    HIDL_SET(networkV1_2, setKeyMgmt_1_2, SupplicantStatus, response,
+             aKeyMgmtMask);
+  } else {
+    HIDL_SET(mNetwork, setKeyMgmt, SupplicantStatus, response, aKeyMgmtMask);
+  }
+
   WIFI_LOGD(LOG_TAG, "set key_mgmt return: %s",
             ConvertStatusToString(response.code).c_str());
   return response.code;
 }
 
-SupplicantStatusCode SupplicantStaNetwork::SetPsk(const std::string& aPsk) {
+SupplicantStatusCode SupplicantStaNetwork::SetSaePassword(
+    const std::string& aSaePassword) {
   MOZ_ASSERT(mNetwork);
-  std::string psk(aPsk);
-  Dequote(psk);
-  WIFI_LOGD(LOG_TAG, "psk => %s", psk.c_str());
+  WIFI_LOGD(LOG_TAG, "sae => %s", aSaePassword.c_str());
+
+  android::sp<ISupplicantStaNetworkV1_2> networkV1_2 =
+      GetSupplicantStaNetworkV1_2();
+
+  if (!networkV1_2.get()) {
+    return SupplicantStatusCode::FAILURE_NETWORK_INVALID;
+  }
+
+  SupplicantStatus response;
+  HIDL_SET(networkV1_2, setPskPassphrase, SupplicantStatus, response,
+           aSaePassword);
+  WIFI_LOGD(LOG_TAG, "set psk return: %s",
+            ConvertStatusToString(response.code).c_str());
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::SetPassphrase(
+    const std::string& aPassphrase) {
+  MOZ_ASSERT(mNetwork);
+  WIFI_LOGD(LOG_TAG, "passphrase => %s", aPassphrase.c_str());
 
   uint32_t minPskPassphrase = static_cast<uint32_t>(
       ISupplicantStaNetwork::ParamSizeLimits::PSK_PASSPHRASE_MIN_LEN_IN_BYTES);
   uint32_t maxPskPassphrase = static_cast<uint32_t>(
       ISupplicantStaNetwork::ParamSizeLimits::PSK_PASSPHRASE_MAX_LEN_IN_BYTES);
 
-  if (psk.size() < minPskPassphrase || psk.size() > maxPskPassphrase) {
+  if (aPassphrase.size() < minPskPassphrase ||
+      aPassphrase.size() > maxPskPassphrase) {
     return SupplicantStatusCode::FAILURE_ARGS_INVALID;
   }
 
   SupplicantStatus response;
-  HIDL_SET(mNetwork, setPskPassphrase, SupplicantStatus, response, psk);
+  HIDL_SET(mNetwork, setPskPassphrase, SupplicantStatus, response, aPassphrase);
+  WIFI_LOGD(LOG_TAG, "set passphrase return: %s",
+            ConvertStatusToString(response.code).c_str());
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::SetPsk(const std::string& aPsk) {
+  MOZ_ASSERT(mNetwork);
+  WIFI_LOGD(LOG_TAG, "psk => %s", aPsk.c_str());
+
+  std::array<uint8_t, 32> psk;
+  // Hex string for raw psk, convert to byte array.
+  if (ConvertHexStringToByteArray(aPsk, psk) < 0) {
+    return SupplicantStatusCode::FAILURE_ARGS_INVALID;
+  }
+
+  SupplicantStatus response;
+  HIDL_SET(mNetwork, setPsk, SupplicantStatus, response, psk);
   WIFI_LOGD(LOG_TAG, "set psk return: %s",
             ConvertStatusToString(response.code).c_str());
   return response.code;
@@ -519,6 +614,17 @@ SupplicantStatusCode SupplicantStaNetwork::SetPairwiseCipher(
   HIDL_SET(mNetwork, setPairwiseCipher, SupplicantStatus, response,
            pairwiseCipher);
   WIFI_LOGD(LOG_TAG, "set pairwiseCipher return: %s",
+            ConvertStatusToString(response.code).c_str());
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::SetRequirePmf(bool aEnable) {
+  MOZ_ASSERT(mNetwork);
+  WIFI_LOGD(LOG_TAG, "enable pmf => %d", aEnable);
+
+  SupplicantStatus response;
+  HIDL_SET(mNetwork, setRequirePmf, SupplicantStatus, response, aEnable);
+  WIFI_LOGD(LOG_TAG, "set pmf return: %s",
             ConvertStatusToString(response.code).c_str());
   return response.code;
 }
@@ -942,46 +1048,44 @@ SupplicantStatusCode SupplicantStaNetwork::RegisterNetworkCallback() {
  */
 uint32_t SupplicantStaNetwork::ConvertKeyMgmtToMask(
     const std::string& aKeyMgmt) {
-  uint32_t mask;
+  uint32_t mask = 0;
   if (aKeyMgmt.compare("NONE") == 0) {
-    mask = key_mgmt_none;
-  } else if (aKeyMgmt.compare("WPA-PSK") == 0 ||
-             aKeyMgmt.compare("WPA2-PSK") == 0) {
-    mask = key_mgmt_wpa_psk;
-  } else if (aKeyMgmt.find("WPA-EAP") != std::string::npos) {
-    mask = key_mgmt_wpa_eap;
-  } else if (aKeyMgmt.compare("FT-PSK") == 0) {
-    mask = key_mgmt_ft_psk;
-  } else if (aKeyMgmt.compare("FT_EAP") == 0) {
-    mask = key_mgmt_ft_eap;
-  } else if (aKeyMgmt.compare("OSEN") == 0) {
-    mask = key_mgmt_osen;
-  } else {
-    WIFI_LOGD(LOG_TAG, "Unknown key management, use default NONE");
-    mask = key_mgmt_none;
+    mask |= key_mgmt_none;
+  }
+  if (aKeyMgmt.compare("WPA-PSK") == 0 || aKeyMgmt.compare("WPA2-PSK") == 0) {
+    mask |= key_mgmt_wpa_psk;
+  }
+  if (aKeyMgmt.find("WPA-EAP") != std::string::npos) {
+    mask |= key_mgmt_wpa_eap;
+  }
+  if (aKeyMgmt.compare("FT-PSK") == 0) {
+    mask |= key_mgmt_ft_psk;
+  }
+  if (aKeyMgmt.compare("FT-EAP") == 0) {
+    mask |= key_mgmt_ft_eap;
+  }
+  if (aKeyMgmt.compare("OSEN") == 0) {
+    mask |= key_mgmt_osen;
+  }
+  if (aKeyMgmt.compare("WPA-EAP-SHA256") == 0) {
+    mask |= key_mgmt_wpa_eap_sha256;
+  }
+  if (aKeyMgmt.compare("WPA-PSK-SHA256") == 0) {
+    mask |= key_mgmt_wpa_psk_sha256;
+  }
+  if (aKeyMgmt.compare("SAE") == 0) {
+    mask |= key_mgmt_sae;
+  }
+  if (aKeyMgmt.compare("SUITE-B-192") == 0) {
+    mask |= key_mgmt_suite_b_192;
+  }
+  if (aKeyMgmt.compare("OWE") == 0) {
+    mask |= key_mgmt_owe;
+  }
+  if (aKeyMgmt.compare("DPP") == 0) {
+    mask |= key_mgmt_dpp;
   }
   return mask;
-}
-
-std::string SupplicantStaNetwork::ConvertMaskToKeyMgmt(uint32_t aMask) {
-  std::string keyMgmt;
-
-  if (aMask == key_mgmt_none) {
-    keyMgmt.assign("NONE");
-  } else if (aMask == key_mgmt_wpa_psk) {
-    keyMgmt.assign("WPA-PSK");
-  } else if (key_mgmt_wpa_eap) {
-    keyMgmt.assign("WPA-EAP");
-  } else if (key_mgmt_ft_psk) {
-    keyMgmt.assign("FT-PSK");
-  } else if (key_mgmt_ft_eap) {
-    keyMgmt.assign("FT_EAP");
-  } else if (key_mgmt_osen) {
-    keyMgmt.assign("OSEN");
-  } else {
-    keyMgmt.assign("UNKNOWN");
-  }
-  return keyMgmt;
 }
 
 std::string SupplicantStaNetwork::ConvertStatusToString(
@@ -1053,9 +1157,7 @@ void SupplicantStaNetwork::NotifyEapSimGsmAuthRequest(
   }
   event->updateGsmRands(rands);
 
-  if (mCallback) {
-    mCallback->Notify(event, iface);
-  }
+  INVOKE_CALLBACK(mCallback, event, iface);
 }
 
 void SupplicantStaNetwork::NotifyEapSimUmtsAuthRequest(
@@ -1074,18 +1176,14 @@ void SupplicantStaNetwork::NotifyEapSimUmtsAuthRequest(
   event->mRand = NS_ConvertUTF8toUTF16(randStream.str().c_str());
   event->mAutn = NS_ConvertUTF8toUTF16(autnStream.str().c_str());
 
-  if (mCallback) {
-    mCallback->Notify(event, iface);
-  }
+  INVOKE_CALLBACK(mCallback, event, iface);
 }
 
 void SupplicantStaNetwork::NotifyEapIdentityRequest() {
   nsCString iface(mInterfaceName);
   RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_EAP_SIM_IDENTITY_REQUEST);
 
-  if (mCallback) {
-    mCallback->Notify(event, iface);
-  }
+  INVOKE_CALLBACK(mCallback, event, iface);
 }
 
 /**

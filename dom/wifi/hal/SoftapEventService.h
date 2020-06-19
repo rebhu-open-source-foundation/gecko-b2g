@@ -22,7 +22,7 @@ class SoftapEventService
   static char const* GetServiceName() { return "softap.event"; }
   static SoftapEventService* CreateService(const std::string& aInterfaceName);
 
-  void RegisterEventCallback(WifiEventCallback* aCallback);
+  void RegisterEventCallback(const android::sp<WifiEventCallback>& aCallback);
   void UnregisterEventCallback();
 
   // IApInterfaceEventCallback

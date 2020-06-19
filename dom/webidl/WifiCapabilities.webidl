@@ -14,6 +14,7 @@ enum WifiSecurityMethod {
   "WEP",
   "WPA-PSK",
   "WPA-EAP",
+  "SAE",
   "WAPI-PSK",
   "WAPI-CERT"
 };

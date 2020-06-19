@@ -47,7 +47,8 @@ SoftapEventService* SoftapEventService::CreateService(
   return sInstance;
 }
 
-void SoftapEventService::RegisterEventCallback(WifiEventCallback* aCallback) {
+void SoftapEventService::RegisterEventCallback(
+    const android::sp<WifiEventCallback>& aCallback) {
   mCallback = aCallback;
 }
 
@@ -66,9 +67,7 @@ android::binder::Status SoftapEventService::onNumAssociatedStationsChanged(
   }
   event->mNumStations = (numStations < 0) ? 0 : numStations;
 
-  if (mCallback) {
-    mCallback->Notify(event, iface);
-  }
+  INVOKE_CALLBACK(mCallback, event, iface);
   return android::binder::Status::ok();
 }
 

@@ -342,6 +342,7 @@ this.WifiConfigUtils = (function() {
       isRSN: false,
       isPSK: false,
       isEAP: false,
+      isSAE: false,
     };
 
     if (!flags) {
@@ -359,6 +360,8 @@ this.WifiConfigUtils = (function() {
           encryptType.isPSK = true;
         } else if (flags.keyManagement[i][j] == KEY_MGMT_EAP) {
           encryptType.isEAP = true;
+        } else if (flags.keyManagement[i][j] == KEY_MGMT_SAE) {
+          encryptType.isSAE = true;
         }
       }
     }
@@ -383,24 +386,26 @@ this.WifiConfigUtils = (function() {
   }
 
   function getSecurity(flags) {
-    var types = [];
+    var types = "";
     if (!flags) {
       return types;
     }
 
     let encrypt = parseEncryption(flags);
     if (encrypt.isEAP) {
-      types.push("WPA-EAP");
+      types = "WPA-EAP";
+    } else if (encrypt.isSAE) {
+      types = "SAE";
     } else if (encrypt.isPSK) {
       if (encrypt.isWPA && encrypt.isRSN) {
-        types.push("WPA/WPA2-PSK");
+        types = "WPA/WPA2-PSK";
       } else if (encrypt.isWPA) {
-        types.push("WPA-PSK");
+        types = "WPA-PSK";
       } else if (encrypt.isRSN) {
-        types.push("WPA2-PSK");
+        types = "WPA2-PSK";
       }
     } else if (flags.isWEP) {
-      types.push("WEP");
+      types = "WEP";
     }
     return types;
   }
@@ -416,6 +421,8 @@ this.WifiConfigUtils = (function() {
       return callback("WPA-PSK");
     } else if (keyMgmt.includes("WPA-EAP")) {
       return callback("WPA-EAP");
+    } else if (keyMgmt.includes("SAE")) {
+      return callback("SAE");
     } else if (keyMgmt == "WAPI-PSK") {
       return callback("WAPI-PSK");
     } else if (keyMgmt == "WAPI-CERT") {
@@ -435,6 +442,8 @@ this.WifiConfigUtils = (function() {
     let encrypt = parseEncryption(flags);
     if (encrypt.isEAP) {
       keyMgmt = "WPA-EAP";
+    } else if (encrypt.isSAE) {
+      keyMgmt = "SAE";
     } else if (encrypt.isPSK) {
       if (encrypt.isWPA || encrypt.isRSN) {
         keyMgmt = "WPA-PSK";
@@ -505,6 +514,8 @@ this.WifiConfigUtils = (function() {
         encryption = "WPA-PSK";
       } else if (security === "WPA-EAP") {
         encryption = "WPA-EAP";
+      } else if (security === "SAE") {
+        encryption = "SAE";
       } else if (security === "WEP") {
         encryption = "WEP";
       } else if (security === "WAPI-PSK") {
@@ -534,6 +545,8 @@ this.WifiConfigUtils = (function() {
         encryption = "WPA-PSK";
       } else if (keyMgmt.includes("WPA-EAP")) {
         encryption = "WPA-EAP";
+      } else if (keyMgmt == "SAE") {
+        encryption = "SAE";
       } else if (keyMgmt == "WAPI-PSK") {
         encryption = "WAPI-PSK";
       } else if (keyMgmt == "WAPI-CERT") {

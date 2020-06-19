@@ -7,15 +7,6 @@
 [scriptable, uuid(391e476b-8620-4abf-8701-7b058dc78fc2)]
 interface nsIWifiConfiguration: nsISupports
 {
-  /** KeyMgmtMask */
-  const int32_t KEYMGMT_WPA_EAP   = (1 << 0);
-  const int32_t KEYMGMT_WPA_PSK   = (1 << 1);
-  const int32_t KEYMGMT_NONE      = (1 << 2);
-  const int32_t KEYMGMT_IEEE8021X = (1 << 3);
-  const int32_t KEYMGMT_FT_EAP    = (1 << 5);
-  const int32_t KEYMGMT_FT_PSK    = (1 << 6);
-  const int32_t KEYMGMT_OSEN      = (1 << 15);
-
   readonly attribute int32_t netId;
   readonly attribute AString ssid;
   readonly attribute AString bssid;

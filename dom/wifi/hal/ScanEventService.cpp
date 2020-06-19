@@ -31,7 +31,8 @@ static std::string g_InterfaceName;
 /**
  * EventCallbackHandler
  */
-void EventCallbackHandler::RegisterEventCallback(WifiEventCallback* aCallback) {
+void EventCallbackHandler::RegisterEventCallback(
+    const android::sp<WifiEventCallback>& aCallback) {
   mCallback = aCallback;
 }
 
@@ -73,9 +74,7 @@ android::binder::Status ScanEventService::OnScanResultReady() {
   nsCString iface(g_InterfaceName);
   RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_SCAN_RESULT_READY);
 
-  if (mCallback) {
-    mCallback->Notify(event, iface);
-  }
+  INVOKE_CALLBACK(mCallback, event, iface);
   return android::binder::Status::ok();
 }
 
@@ -85,9 +84,7 @@ android::binder::Status ScanEventService::OnScanFailed() {
   nsCString iface(g_InterfaceName);
   RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_SCAN_RESULT_FAILED);
 
-  if (mCallback) {
-    mCallback->Notify(event, iface);
-  }
+  INVOKE_CALLBACK(mCallback, event, iface);
   return android::binder::Status::ok();
 }
 
@@ -126,9 +123,7 @@ android::binder::Status PnoScanEventService::OnPnoNetworkFound() {
   nsCString iface(g_InterfaceName);
   RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_PNO_SCAN_FOUND);
 
-  if (mCallback) {
-    mCallback->Notify(event, iface);
-  }
+  INVOKE_CALLBACK(mCallback, event, iface);
   return android::binder::Status::ok();
 }
 
@@ -138,9 +133,7 @@ android::binder::Status PnoScanEventService::OnPnoScanFailed() {
   nsCString iface(g_InterfaceName);
   RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_PNO_SCAN_FAILED);
 
-  if (mCallback) {
-    mCallback->Notify(event, iface);
-  }
+  INVOKE_CALLBACK(mCallback, event, iface);
   return android::binder::Status::ok();
 }
 

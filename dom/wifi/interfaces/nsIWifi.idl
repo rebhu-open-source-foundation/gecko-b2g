@@ -23,6 +23,7 @@ interface nsIWifiScanResult : nsISupports {
   const int32_t WEP = 0x04;
   const int32_t WAPI_PSK = 0x08;
   const int32_t WAPI_CERT = 0x10;
+  const int32_t SAE = 0x20;
 
   /**
    * Contain the capabilities of security type for the network.

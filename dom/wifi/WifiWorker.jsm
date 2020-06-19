@@ -338,7 +338,15 @@ var WifiManager = (function() {
   manager.user_cert_file = user_cert_file;
 
   let capabilities = {
-    security: ["OPEN", "WEP", "WPA-PSK", "WPA-EAP", "WAPI-PSK", "WAPI-CERT"],
+    security: [
+      "OPEN",
+      "WEP",
+      "WPA-PSK",
+      "WPA-EAP",
+      "SAE",
+      "WAPI-PSK",
+      "WAPI-CERT",
+    ],
     eapMethod: ["PEAP", "TTLS", "TLS"],
     eapPhase2: ["PAP", "MSCHAP", "MSCHAPV2", "GTC"],
     certificate: ["SERVER", "USER"],
@@ -2486,6 +2494,8 @@ function WifiWorker() {
         net.keyManagement = "NONE";
       } else if (net.keyManagement === "WPA-EAP") {
         net.keyManagement += " IEEE8021X";
+      } else if (net.keyManagement === "SAE") {
+        net.pmf = true;
       }
       configured.keyMgmt = net.keyMgmt = net.keyManagement; // WPA2-PSK, WPA-PSK, etc.
       delete net.keyManagement;
@@ -3828,6 +3838,8 @@ WifiWorker.prototype = {
             result[id] = Ci.nsIWifiScanResult.WAPI_PSK;
           } else if (security === "WAPI-CERT") {
             result[id] = Ci.nsIWifiScanResult.WAPI_CERT;
+          } else if (security === "SAE") {
+            result[id] = Ci.nsIWifiScanResult.SAE;
           } else {
             result[id] = 0;
           }

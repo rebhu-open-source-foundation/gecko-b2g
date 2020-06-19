@@ -21,12 +21,13 @@ WifiHal* WifiNative::sWifiHal = nullptr;
 WificondControl* WifiNative::sWificondControl = nullptr;
 SoftapManager* WifiNative::sSoftapManager = nullptr;
 SupplicantStaManager* WifiNative::sSupplicantStaManager = nullptr;
-WifiEventCallback* WifiNative::sCallback = nullptr;
+android::sp<WifiEventCallback> WifiNative::sCallback;
 
 WifiNative::WifiNative()
     : mScanEventService(nullptr),
       mPnoScanEventService(nullptr),
-      mSoftapEventService(nullptr) {
+      mSoftapEventService(nullptr),
+      mSupportedFeatures(0) {
   sWifiHal = WifiHal::Get();
   sWificondControl = WificondControl::Get();
   sSoftapManager = SoftapManager::Get();
@@ -276,7 +277,25 @@ Result_t WifiNative::InitHal() {
 Result_t WifiNative::DeinitHal() { return nsIWifiResult::SUCCESS; }
 
 Result_t WifiNative::GetSupportedFeatures(uint32_t& aSupportedFeatures) {
-  return sWifiHal->GetSupportedFeatures(aSupportedFeatures);
+  // Return the cached value if already set.
+  // So that we can still query the result while wifi is off.
+  if (mSupportedFeatures != 0) {
+    aSupportedFeatures = mSupportedFeatures;
+    return nsIWifiResult::SUCCESS;
+  }
+
+  if (sWifiHal->GetSupportedFeatures(aSupportedFeatures) !=
+      nsIWifiResult::SUCCESS) {
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  }
+
+  if (sSupplicantStaManager->GetSupportedFeatures(aSupportedFeatures) !=
+      nsIWifiResult::SUCCESS) {
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  }
+
+  mSupportedFeatures = aSupportedFeatures;
+  return nsIWifiResult::SUCCESS;
 }
 
 Result_t WifiNative::GetDriverModuleInfo(nsAString& aDriverVersion,

@@ -11,8 +11,8 @@
 
 #include <string.h>
 #include <android/hardware/wifi/supplicant/1.0/ISupplicantNetwork.h>
-#include <android/hardware/wifi/supplicant/1.0/ISupplicantStaNetwork.h>
 #include <android/hardware/wifi/supplicant/1.0/types.h>
+#include <android/hardware/wifi/supplicant/1.2/ISupplicantStaNetwork.h>
 
 #include "mozilla/Mutex.h"
 
@@ -22,6 +22,11 @@ using ::android::hardware::wifi::supplicant::V1_0::
     ISupplicantStaNetworkCallback;
 using ::android::hardware::wifi::supplicant::V1_0::SupplicantStatus;
 using ::android::hardware::wifi::supplicant::V1_0::SupplicantStatusCode;
+
+using ISupplicantStaNetworkV1_1 =
+    ::android::hardware::wifi::supplicant::V1_1::ISupplicantStaNetwork;
+using ISupplicantStaNetworkV1_2 =
+    ::android::hardware::wifi::supplicant::V1_2::ISupplicantStaNetwork;
 
 using RequestGsmAuthParams =
     ISupplicantStaNetworkCallback::NetworkRequestEapSimGsmAuthParams;
@@ -163,9 +168,10 @@ class SupplicantStaNetwork
       virtual public android::hardware::wifi::supplicant::V1_0::
           ISupplicantStaNetworkCallback {
  public:
-  explicit SupplicantStaNetwork(const std::string& aInterfaceName,
-                                WifiEventCallback* aCallback,
-                                ISupplicantStaNetwork* aNetwork);
+  explicit SupplicantStaNetwork(
+      const std::string& aInterfaceName,
+      const android::sp<WifiEventCallback>& aCallback,
+      const android::sp<ISupplicantStaNetwork>& aNetwork);
 
   Result_t SetConfiguration(const NetworkConfiguration& aConfig);
   Result_t EnableNetwork();
@@ -184,6 +190,9 @@ class SupplicantStaNetwork
 
  private:
   virtual ~SupplicantStaNetwork();
+
+  android::sp<ISupplicantStaNetworkV1_1> GetSupplicantStaNetworkV1_1();
+  android::sp<ISupplicantStaNetworkV1_2> GetSupplicantStaNetworkV1_2();
 
   //..................... ISupplicantStaNetworkCallback ......................./
   /**
@@ -219,6 +228,8 @@ class SupplicantStaNetwork
   SupplicantStatusCode SetSsid(const std::string& aSsid);
   SupplicantStatusCode SetBssid(const std::string& aBssid);
   SupplicantStatusCode SetKeyMgmt(uint32_t aKeyMgmtMask);
+  SupplicantStatusCode SetSaePassword(const std::string& aSaePassword);
+  SupplicantStatusCode SetPassphrase(const std::string& aPassphrase);
   SupplicantStatusCode SetPsk(const std::string& aPsk);
   SupplicantStatusCode SetWepKey(
       const std::array<std::string, max_wep_key_num>& aWepKeys,
@@ -227,6 +238,7 @@ class SupplicantStaNetwork
   SupplicantStatusCode SetAuthAlg(const std::string& aAuthAlg);
   SupplicantStatusCode SetGroupCipher(const std::string& aGroupCipher);
   SupplicantStatusCode SetPairwiseCipher(const std::string& aPairwiseCipher);
+  SupplicantStatusCode SetRequirePmf(bool aEnable);
 
   SupplicantStatusCode SetEapConfiguration(const NetworkConfiguration& aConfig);
   SupplicantStatusCode SetEapMethod(const std::string& aEapMethod);
@@ -258,7 +270,6 @@ class SupplicantStaNetwork
   void NotifyEapIdentityRequest();
 
   static uint32_t ConvertKeyMgmtToMask(const std::string& aKeyMgmt);
-  static std::string ConvertMaskToKeyMgmt(uint32_t aMask);
   static std::string ConvertStatusToString(const SupplicantStatusCode& aCode);
   static Result_t ConvertStatusToResult(const SupplicantStatusCode& aCode);
 
@@ -269,4 +280,4 @@ class SupplicantStaNetwork
   std::string mInterfaceName;
 };
 
-#endif /* SupplicantStaNetwork_H */
+#endif  // SupplicantStaNetwork_H

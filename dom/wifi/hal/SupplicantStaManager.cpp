@@ -7,22 +7,23 @@
 #define LOG_TAG "SupplicantStaManager"
 
 #include "SupplicantStaManager.h"
+#include "SupplicantCallback.h"
 #include <utils/Log.h>
 #include <string.h>
 #include <mozilla/ClearOnShutdown.h>
 
 #define EVENT_SUPPLICANT_TERMINATING u"SUPPLICANT_TERMINATING"_ns
-#define EVENT_SUPPLICANT_STATE_CHANGED u"SUPPLICANT_STATE_CHANGED"_ns
-#define EVENT_SUPPLICANT_NETWORK_CONNECTED u"SUPPLICANT_NETWORK_CONNECTED"_ns
-#define EVENT_SUPPLICANT_NETWORK_DISCONNECTED \
-  u"SUPPLICANT_NETWORK_DISCONNECTED"_ns
-#define EVENT_SUPPLICANT_AUTH_FAILURE u"SUPPLICANT_AUTH_FAILURE"_ns
-#define EVENT_SUPPLICANT_ASSOC_REJECT u"SUPPLICANT_ASSOC_REJECT"_ns
-#define EVENT_SUPPLICANT_TARGET_BSSID u"SUPPLICANT_TARGET_BSSID"_ns
-#define EVENT_SUPPLICANT_ASSOCIATED_BSSID u"SUPPLICANT_ASSOCIATED_BSSID"_ns
 
-static const char SUPPLICANT_INTERFACE_NAME[] =
+static const char SUPPLICANT_INTERFACE_NAME_V1_0[] =
+    "android.hardware.wifi.supplicant@1.0::ISupplicant";
+
+static const char SUPPLICANT_INTERFACE_NAME_V1_1[] =
+    "android.hardware.wifi.supplicant@1.1::ISupplicant";
+
+static const char SUPPLICANT_INTERFACE_NAME_V1_2[] =
     "android.hardware.wifi.supplicant@1.2::ISupplicant";
+
+static const char HAL_INSTANCE_NAME[] = "default";
 
 mozilla::Mutex SupplicantStaManager::sLock("supplicant-sta");
 SupplicantStaManager* SupplicantStaManager::sInstance = nullptr;
@@ -34,8 +35,7 @@ SupplicantStaManager::SupplicantStaManager()
       mServiceManagerDeathRecipient(nullptr),
       mSupplicantDeathRecipient(nullptr),
       mDeathEventHandler(nullptr),
-      mDeathRecipientCookie(0),
-      mFourwayHandshake(false) {}
+      mDeathRecipientCookie(0) {}
 
 SupplicantStaManager::~SupplicantStaManager() {}
 
@@ -78,7 +78,8 @@ void SupplicantStaManager::SupplicantDeathRecipient::serviceDied(
   }
 }
 
-void SupplicantStaManager::RegisterEventCallback(WifiEventCallback* aCallback) {
+void SupplicantStaManager::RegisterEventCallback(
+    const android::sp<WifiEventCallback>& aCallback) {
   mCallback = aCallback;
 }
 
@@ -120,8 +121,8 @@ Result_t SupplicantStaManager::InitServiceManager() {
     return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
 
-  if (!mServiceManager->registerForNotifications(SUPPLICANT_INTERFACE_NAME, "",
-                                                 this)) {
+  if (!mServiceManager->registerForNotifications(SUPPLICANT_INTERFACE_NAME_V1_2,
+                                                 "", this)) {
     WIFI_LOGE(LOG_TAG, "Failed to register for notifications to ISupplicant");
     mServiceManager = nullptr;
     return nsIWifiResult::ERROR_COMMAND_FAILED;
@@ -179,18 +180,21 @@ bool SupplicantStaManager::IsInterfaceReady() {
 Result_t SupplicantStaManager::TearDownInterface() {
   MutexAutoLock lock(sLock);
 
-  if (mSupplicantStaIface.get()) {
-    SupplicantStatus response;
-    ISupplicant::IfaceInfo info;
-    info.name = mInterfaceName;
-    info.type = SupplicantNameSpaceV1_0::IfaceType::STA;
+  // Should remove wireless interface from supplicant since version 1.1.
+  if (IsSupplicantV1_1()) {
+    if (mSupplicantStaIface.get()) {
+      SupplicantStatus response;
+      ISupplicant::IfaceInfo info;
+      info.name = mInterfaceName;
+      info.type = SupplicantNameSpaceV1_0::IfaceType::STA;
 
-    mSupplicant->removeInterface(
-        info, [&](const SupplicantStatus& status) { response = status; });
+      GetSupplicantV1_1()->removeInterface(
+          info, [&](const SupplicantStatus& status) { response = status; });
 
-    if (response.code != SupplicantStatusCode::SUCCESS) {
-      WIFI_LOGE(LOG_TAG, "Failed to remove sta interface");
-      return nsIWifiResult::ERROR_COMMAND_FAILED;
+      if (response.code != SupplicantStatusCode::SUCCESS) {
+        WIFI_LOGE(LOG_TAG, "Failed to remove sta interface");
+        return nsIWifiResult::ERROR_COMMAND_FAILED;
+      }
     }
   }
 
@@ -216,6 +220,48 @@ Result_t SupplicantStaManager::GetMacAddress(nsAString& aMacAddress) {
         }
       });
   return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
+}
+
+Result_t SupplicantStaManager::GetSupportedFeatures(
+    uint32_t& aSupportedFeatures) {
+  uint32_t capabilities = 0;
+
+  SupplicantStatus response;
+  if (IsSupplicantV1_2()) {
+    android::sp<ISupplicantStaIfaceV1_2> supplicantV1_2 =
+        GetSupplicantStaIfaceV1_2();
+    if (!supplicantV1_2.get()) {
+      return nsIWifiResult::ERROR_INVALID_INTERFACE;
+    }
+
+    supplicantV1_2->getKeyMgmtCapabilities(
+        [&](const SupplicantStatus& status, uint32_t keyMgmtMask) {
+          capabilities = keyMgmtMask;
+          response = status;
+        });
+
+    if (response.code != SupplicantStatusCode::SUCCESS) {
+      return nsIWifiResult::ERROR_COMMAND_FAILED;
+    }
+
+    if (capabilities & ISupplicantStaNetworkV1_2::KeyMgmtMask::SAE) {
+      // SAE supported
+      aSupportedFeatures |= nsIWifiResult::FEATURE_WPA3_SAE;
+    }
+    if (capabilities & ISupplicantStaNetworkV1_2::KeyMgmtMask::SUITE_B_192) {
+      // SUITE_B supported
+      aSupportedFeatures |= nsIWifiResult::FEATURE_WPA3_SUITE_B;
+    }
+    if (capabilities & ISupplicantStaNetworkV1_2::KeyMgmtMask::OWE) {
+      // OWE supported
+      aSupportedFeatures |= nsIWifiResult::FEATURE_OWE;
+    }
+    if (capabilities & ISupplicantStaNetworkV1_2::KeyMgmtMask::DPP) {
+      // DPP supported
+      aSupportedFeatures |= nsIWifiResult::FEATURE_DPP;
+    }
+  }
+  return nsIWifiResult::SUCCESS;
 }
 
 Result_t SupplicantStaManager::GetSupplicantDebugLevel(uint32_t& aLevel) {
@@ -340,9 +386,50 @@ Result_t SupplicantStaManager::SetupStaInterface(
     const std::string& aInterfaceName) {
   mInterfaceName = aInterfaceName;
 
-  if (mSupplicantStaIface == nullptr) {
-    mSupplicantStaIface = AddSupplicantStaIface();
+  if (!mSupplicantStaIface.get()) {
+    // Since hal version 1.1, hidl client can add or remove wireless interface
+    // in supplicant dynamically.
+    if (IsSupplicantV1_1()) {
+      mSupplicantStaIface = AddSupplicantStaIface();
+    } else {
+      mSupplicantStaIface = GetSupplicantStaIface();
+    }
   }
+
+  if (!mSupplicantStaIface.get()) {
+    WIFI_LOGE(LOG_TAG, "Failed to create STA interface in supplicant");
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  }
+
+  SupplicantStatus response;
+  // Instantiate supplicant callback
+  android::sp<SupplicantStaIfaceCallback> supplicantCallback =
+      new SupplicantStaIfaceCallback(mInterfaceName, mCallback);
+  if (IsSupplicantV1_2()) {
+    android::sp<SupplicantStaIfaceCallbackV1_1> supplicantCallbackV1_1 =
+        new SupplicantStaIfaceCallbackV1_1(mInterfaceName, mCallback,
+                                           supplicantCallback);
+    android::sp<SupplicantStaIfaceCallbackV1_2> supplicantCallbackV1_2 =
+        new SupplicantStaIfaceCallbackV1_2(mInterfaceName, mCallback,
+                                           supplicantCallbackV1_1);
+    HIDL_SET(GetSupplicantStaIfaceV1_2(), registerCallback_1_2,
+             SupplicantStatus, response, supplicantCallbackV1_2);
+  } else if (IsSupplicantV1_1()) {
+    android::sp<SupplicantStaIfaceCallbackV1_1> supplicantCallbackV1_1 =
+        new SupplicantStaIfaceCallbackV1_1(mInterfaceName, mCallback,
+                                           supplicantCallback);
+    HIDL_SET(GetSupplicantStaIfaceV1_1(), registerCallback_1_1,
+             SupplicantStatus, response, supplicantCallbackV1_1);
+  } else {
+    HIDL_SET(mSupplicantStaIface, registerCallback, SupplicantStatus, response,
+             supplicantCallback);
+  }
+
+  if (response.code != SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGE(LOG_TAG, "registerCallback failed: %d", response.code);
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  }
+
   return CHECK_SUCCESS(mSupplicantStaIface != nullptr);
 }
 
@@ -372,13 +459,6 @@ android::sp<ISupplicantStaIface> SupplicantStaManager::GetSupplicantStaIface() {
     return nullptr;
   }
 
-  staIface->registerCallback(
-      this, [&response](const SupplicantStatus& status) { response = status; });
-
-  if (response.code != SupplicantStatusCode::SUCCESS) {
-    WIFI_LOGE(LOG_TAG, "registerCallback failed: %d", response.code);
-    return nullptr;
-  }
   return staIface;
 }
 
@@ -392,7 +472,7 @@ android::sp<ISupplicantStaIface> SupplicantStaManager::AddSupplicantStaIface() {
   if (FindIfaceOfType(SupplicantNameSpaceV1_0::IfaceType::STA, &info) ==
       nsIWifiResult::SUCCESS) {
     // STA interface already exist, remove it to add a new one
-    mSupplicant->removeInterface(
+    GetSupplicantV1_1()->removeInterface(
         info, [&](const SupplicantStatus& status) { response = status; });
 
     if (response.code != SupplicantStatusCode::SUCCESS) {
@@ -403,7 +483,8 @@ android::sp<ISupplicantStaIface> SupplicantStaManager::AddSupplicantStaIface() {
   info.name = mInterfaceName;
   info.type = SupplicantNameSpaceV1_0::IfaceType::STA;
   android::sp<ISupplicantStaIface> staIface;
-  mSupplicant->addInterface(
+  // Here add a STA interface in supplicant.
+  GetSupplicantV1_1()->addInterface(
       info, [&](const SupplicantStatus& status,
                 const android::sp<ISupplicantIface>& iface) {
         response = status;
@@ -416,13 +497,6 @@ android::sp<ISupplicantStaIface> SupplicantStaManager::AddSupplicantStaIface() {
     return nullptr;
   }
 
-  staIface->registerCallback(
-      this, [&response](const SupplicantStatus& status) { response = status; });
-
-  if (response.code != SupplicantStatusCode::SUCCESS) {
-    WIFI_LOGE(LOG_TAG, "registerCallback failed: %d", response.code);
-    return nullptr;
-  }
   return staIface;
 }
 
@@ -447,8 +521,7 @@ android::sp<SupplicantStaNetwork> SupplicantStaManager::CreateStaNetwork() {
               response.code);
     return nullptr;
   }
-  return new SupplicantStaNetwork(mInterfaceName, mCallback.get(),
-                                  staNetwork.get());
+  return new SupplicantStaNetwork(mInterfaceName, mCallback, staNetwork);
 }
 
 android::sp<SupplicantStaNetwork> SupplicantStaManager::GetStaNetwork(
@@ -473,8 +546,7 @@ android::sp<SupplicantStaNetwork> SupplicantStaManager::GetStaNetwork(
               response.code);
     return nullptr;
   }
-  return new SupplicantStaNetwork(mInterfaceName, mCallback.get(),
-                                  staNetwork.get());
+  return new SupplicantStaNetwork(mInterfaceName, mCallback, staNetwork);
 }
 
 android::sp<SupplicantStaNetwork> SupplicantStaManager::GetCurrentNetwork() {
@@ -772,106 +844,51 @@ bool SupplicantStaManager::CompareConfiguration(
   return true;
 }
 
-void SupplicantStaManager::NotifyTerminating() {
-  nsCString iface(mInterfaceName);
-  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_SUPPLICANT_TERMINATING);
-
-  if (mCallback) {
-    mCallback->Notify(event, iface);
-  }
+/**
+ * Hal wrapper functions
+ */
+android::sp<IServiceManager> SupplicantStaManager::GetServiceManager() {
+  return mServiceManager.get() ? mServiceManager
+                               : IServiceManager::getService();
 }
 
-void SupplicantStaManager::NotifyStateChanged(uint32_t aState,
-                                              const std::string& aSsid,
-                                              const std::string& aBssid) {
-  mFourwayHandshake =
-      (aState ==
-       (uint32_t)ISupplicantStaIfaceCallback::State::FOURWAY_HANDSHAKE);
-
-  nsCString iface(mInterfaceName);
-  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_SUPPLICANT_STATE_CHANGED);
-  RefPtr<nsStateChanged> stateChanged =
-      new nsStateChanged(aState, 0, NS_ConvertUTF8toUTF16(aBssid.c_str()),
-                         NS_ConvertUTF8toUTF16(aSsid.c_str()));
-  event->updateStateChanged(stateChanged);
-
-  if (mCallback) {
-    mCallback->Notify(event, iface);
-  }
+android::sp<ISupplicant> SupplicantStaManager::GetSupplicant() {
+  return mSupplicant.get() ? mSupplicant : ISupplicant::getService();
 }
 
-void SupplicantStaManager::NotifyConnected(const std::string& aSsid,
-                                           const std::string& aBssid) {
-  nsCString iface(mInterfaceName);
-  RefPtr<nsWifiEvent> event =
-      new nsWifiEvent(EVENT_SUPPLICANT_NETWORK_CONNECTED);
-  event->mBssid = NS_ConvertUTF8toUTF16(aBssid.c_str());
-
-  if (mCallback) {
-    mCallback->Notify(event, iface);
-  }
+android::sp<ISupplicantV1_1> SupplicantStaManager::GetSupplicantV1_1() {
+  return ISupplicantV1_1::castFrom(GetSupplicant());
 }
 
-void SupplicantStaManager::NotifyDisconnected(const std::string& aBssid,
-                                              bool aLocallyGenerated,
-                                              uint32_t aReason) {
-  nsCString iface(mInterfaceName);
-  RefPtr<nsWifiEvent> event =
-      new nsWifiEvent(EVENT_SUPPLICANT_NETWORK_DISCONNECTED);
-  event->mBssid = NS_ConvertUTF8toUTF16(aBssid.c_str());
-  event->mLocallyGenerated = aLocallyGenerated;
-  event->mReason = aReason;
-
-  if (mCallback) {
-    mCallback->Notify(event, iface);
-  }
+android::sp<ISupplicantV1_2> SupplicantStaManager::GetSupplicantV1_2() {
+  return ISupplicantV1_2::castFrom(GetSupplicant());
 }
 
-void SupplicantStaManager::NotifyAuthenticationFailure(uint32_t aReason,
-                                                       int32_t aErrorCode) {
-  nsCString iface(mInterfaceName);
-  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_SUPPLICANT_AUTH_FAILURE);
-  event->mReason = aReason;
-  event->mErrorCode = aErrorCode;
-
-  if (mCallback) {
-    mCallback->Notify(event, iface);
-  }
+android::sp<ISupplicantStaIfaceV1_1>
+SupplicantStaManager::GetSupplicantStaIfaceV1_1() {
+  return ISupplicantStaIfaceV1_1::castFrom(mSupplicantStaIface);
 }
 
-void SupplicantStaManager::NotifyAssociationReject(const std::string& aBssid,
-                                                   uint32_t aStatusCode,
-                                                   bool aTimeout) {
-  nsCString iface(mInterfaceName);
-  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_SUPPLICANT_ASSOC_REJECT);
-  event->mBssid = NS_ConvertUTF8toUTF16(aBssid.c_str());
-  event->mStatusCode = aStatusCode;
-  event->mTimeout = aTimeout;
-
-  if (mCallback) {
-    mCallback->Notify(event, iface);
-  }
+android::sp<ISupplicantStaIfaceV1_2>
+SupplicantStaManager::GetSupplicantStaIfaceV1_2() {
+  return ISupplicantStaIfaceV1_2::castFrom(mSupplicantStaIface);
 }
 
-void SupplicantStaManager::NotifyTargetBssid(const std::string& aBssid) {
-  nsCString iface(mInterfaceName);
-  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_SUPPLICANT_TARGET_BSSID);
-  event->mBssid = NS_ConvertUTF8toUTF16(aBssid.c_str());
-
-  if (mCallback) {
-    mCallback->Notify(event, iface);
-  }
+bool SupplicantStaManager::IsSupplicantV1_1() {
+  return SupplicantVersionSupported(SUPPLICANT_INTERFACE_NAME_V1_1);
 }
 
-void SupplicantStaManager::NotifyAssociatedBssid(const std::string& aBssid) {
-  nsCString iface(mInterfaceName);
-  RefPtr<nsWifiEvent> event =
-      new nsWifiEvent(EVENT_SUPPLICANT_ASSOCIATED_BSSID);
-  event->mBssid = NS_ConvertUTF8toUTF16(aBssid.c_str());
+bool SupplicantStaManager::IsSupplicantV1_2() {
+  return SupplicantVersionSupported(SUPPLICANT_INTERFACE_NAME_V1_2);
+}
 
-  if (mCallback) {
-    mCallback->Notify(event, iface);
+bool SupplicantStaManager::SupplicantVersionSupported(const std::string& name) {
+  if (!mServiceManager.get()) {
+    return false;
   }
+
+  return mServiceManager->getTransport(name, HAL_INSTANCE_NAME) !=
+         IServiceManager::Transport::EMPTY;
 }
 
 /**
@@ -886,6 +903,16 @@ Return<void> SupplicantStaManager::onRegistration(const hidl_string& fqName,
     SupplicantServiceDiedHandler(mDeathRecipientCookie);
   }
   return Return<void>();
+}
+
+/**
+ * Helper functions to notify event callback for ISupplicantCallback.
+ */
+void SupplicantStaManager::NotifyTerminating() {
+  nsCString iface(mInterfaceName);
+  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_SUPPLICANT_TERMINATING);
+
+  INVOKE_CALLBACK(mCallback, event, iface);
 }
 
 /**
@@ -910,176 +937,5 @@ Return<void> SupplicantStaManager::onTerminating() {
   WIFI_LOGD(LOG_TAG, "SupplicantCallback.onTerminating()");
 
   NotifyTerminating();
-  return android::hardware::Void();
-}
-
-/**
- * ISupplicantStaIfaceCallback implementation
- */
-Return<void> SupplicantStaManager::onNetworkAdded(uint32_t id) {
-  WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onNetworkAdded()");
-  return android::hardware::Void();
-}
-
-Return<void> SupplicantStaManager::onNetworkRemoved(uint32_t id) {
-  MutexAutoLock lock(sLock);
-  WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onNetworkRemoved()");
-  mFourwayHandshake = false;
-  return android::hardware::Void();
-}
-
-Return<void> SupplicantStaManager::onStateChanged(
-    ISupplicantStaIfaceCallback::State newState,
-    const android::hardware::hidl_array<uint8_t, 6>& bssid, uint32_t id,
-    const android::hardware::hidl_vec<uint8_t>& ssid) {
-  MutexAutoLock lock(sLock);
-  WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onStateChanged()");
-
-  std::string bssid_str = ConvertMacToString(bssid);
-  std::string ssid_str(ssid.begin(), ssid.end());
-
-  if (newState == ISupplicantStaIfaceCallback::State::COMPLETED) {
-    NotifyConnected(ssid_str, bssid_str);
-  }
-
-  NotifyStateChanged((uint32_t)newState, ssid_str, bssid_str);
-  return android::hardware::Void();
-}
-
-Return<void> SupplicantStaManager::onAnqpQueryDone(
-    const android::hardware::hidl_array<uint8_t, 6>& bssid,
-    const ISupplicantStaIfaceCallback::AnqpData& data,
-    const ISupplicantStaIfaceCallback::Hs20AnqpData& hs20Data) {
-  WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onAnqpQueryDone()");
-  return android::hardware::Void();
-}
-
-Return<void> SupplicantStaManager::onHs20IconQueryDone(
-    const android::hardware::hidl_array<uint8_t, 6>& bssid,
-    const ::android::hardware::hidl_string& fileName,
-    const ::android::hardware::hidl_vec<uint8_t>& data) {
-  WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onHs20IconQueryDone()");
-  return android::hardware::Void();
-}
-
-Return<void> SupplicantStaManager::onHs20SubscriptionRemediation(
-    const ::android::hardware::hidl_array<uint8_t, 6>& bssid,
-    ISupplicantStaIfaceCallback::OsuMethod osuMethod,
-    const ::android::hardware::hidl_string& url) {
-  WIFI_LOGD(LOG_TAG,
-            "ISupplicantStaIfaceCallback.onHs20SubscriptionRemediation()");
-  return android::hardware::Void();
-}
-
-Return<void> SupplicantStaManager::onHs20DeauthImminentNotice(
-    const ::android::hardware::hidl_array<uint8_t, 6>& bssid,
-    uint32_t reasonCode, uint32_t reAuthDelayInSec,
-    const ::android::hardware::hidl_string& url) {
-  WIFI_LOGD(LOG_TAG,
-            "ISupplicantStaIfaceCallback.onHs20DeauthImminentNotice()");
-  return android::hardware::Void();
-}
-
-Return<void> SupplicantStaManager::onDisconnected(
-    const ::android::hardware::hidl_array<uint8_t, 6>& bssid,
-    bool locallyGenerated, ISupplicantStaIfaceCallback::ReasonCode reasonCode) {
-  MutexAutoLock lock(sLock);
-  WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onDisconnected()");
-
-  if (mFourwayHandshake &&
-      (!locallyGenerated ||
-       reasonCode !=
-           ISupplicantStaIfaceCallback::ReasonCode::IE_IN_4WAY_DIFFERS)) {
-    NotifyAuthenticationFailure(nsIWifiEvent::AUTH_FAILURE_WRONG_KEY,
-                                nsIWifiEvent::ERROR_CODE_NONE);
-  }
-
-  std::string bssid_str = ConvertMacToString(bssid);
-  NotifyDisconnected(bssid_str, locallyGenerated, (uint32_t)reasonCode);
-  return android::hardware::Void();
-}
-
-Return<void> SupplicantStaManager::onAssociationRejected(
-    const ::android::hardware::hidl_array<uint8_t, 6>& bssid,
-    ISupplicantStaIfaceCallback::StatusCode statusCode, bool timedOut) {
-  MutexAutoLock lock(sLock);
-  WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onAssociationRejected()");
-
-  if (statusCode ==
-      ISupplicantStaIfaceCallback::StatusCode::UNSPECIFIED_FAILURE) {
-    // Special handling for WPA3-Personal networks. If the password is
-    // incorrect, the AP will send association rejection, with status code 1
-    // (unspecified failure). In SAE networks, the password authentication
-    // is not related to the 4-way handshake. In this case, we will send an
-    // authentication failure event up.
-
-    // TODO: check if current connecting network is WPA3-Personal
-    // NotifyAuthenticationFailure(nsIWifiEvent::AUTH_FAILURE_WRONG_KEY,
-    //                             nsIWifiEvent::ERROR_CODE_NONE);
-  }
-
-  std::string bssid_str = ConvertMacToString(bssid);
-  NotifyAssociationReject(bssid_str, (uint32_t)statusCode, timedOut);
-  return android::hardware::Void();
-}
-
-Return<void> SupplicantStaManager::onAuthenticationTimeout(
-    const ::android::hardware::hidl_array<uint8_t, 6>& bssid) {
-  MutexAutoLock lock(sLock);
-  WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onAuthenticationTimeout()");
-  NotifyAuthenticationFailure(nsIWifiEvent::AUTH_FAILURE_TIMEOUT,
-                              nsIWifiEvent::ERROR_CODE_NONE);
-  return android::hardware::Void();
-}
-
-Return<void> SupplicantStaManager::onEapFailure() {
-  MutexAutoLock lock(sLock);
-  WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onEapFailure()");
-  NotifyAuthenticationFailure(nsIWifiEvent::AUTH_FAILURE_EAP_FAILURE,
-                              nsIWifiEvent::ERROR_CODE_NONE);
-  return android::hardware::Void();
-}
-
-Return<void> SupplicantStaManager::onBssidChanged(
-    ISupplicantStaIfaceCallback::BssidChangeReason reason,
-    const ::android::hardware::hidl_array<uint8_t, 6>& bssid) {
-  MutexAutoLock lock(sLock);
-  WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onBssidChanged()");
-
-  std::string bssid_str = ConvertMacToString(bssid);
-  if (reason == ISupplicantStaIfaceCallback::BssidChangeReason::ASSOC_START) {
-    NotifyTargetBssid(bssid_str);
-  } else if (reason ==
-             ISupplicantStaIfaceCallback::BssidChangeReason::ASSOC_COMPLETE) {
-    NotifyAssociatedBssid(bssid_str);
-  }
-  return android::hardware::Void();
-}
-
-Return<void> SupplicantStaManager::onWpsEventSuccess() {
-  WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onWpsEventSuccess()");
-  return android::hardware::Void();
-}
-
-Return<void> SupplicantStaManager::onWpsEventFail(
-    const ::android::hardware::hidl_array<uint8_t, 6>& bssid,
-    ISupplicantStaIfaceCallback::WpsConfigError configError,
-    ISupplicantStaIfaceCallback::WpsErrorIndication errorInd) {
-  WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onWpsEventFail()");
-  return android::hardware::Void();
-}
-
-Return<void> SupplicantStaManager::onWpsEventPbcOverlap() {
-  WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onWpsEventPbcOverlap()");
-  return android::hardware::Void();
-}
-
-Return<void> SupplicantStaManager::onExtRadioWorkStart(uint32_t id) {
-  WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onExtRadioWorkStart()");
-  return android::hardware::Void();
-}
-
-Return<void> SupplicantStaManager::onExtRadioWorkTimeout(uint32_t id) {
-  WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onExtRadioWorkTimeout()");
   return android::hardware::Void();
 }

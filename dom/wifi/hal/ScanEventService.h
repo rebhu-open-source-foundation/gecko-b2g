@@ -16,7 +16,8 @@ class EventCallbackHandler {
   EventCallbackHandler() {}
   virtual ~EventCallbackHandler() = default;
 
-  virtual void RegisterEventCallback(WifiEventCallback* aCallback);
+  virtual void RegisterEventCallback(
+      const android::sp<WifiEventCallback>& aCallback);
 
   virtual void UnregisterEventCallback();
 

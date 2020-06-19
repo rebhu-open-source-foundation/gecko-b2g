@@ -459,7 +459,14 @@ void Dequote(std::string& s);
     }                                                                  \
   } while (0)
 
+#define INVOKE_CALLBACK(callback, event, interface) \
+  do {                                              \
+    if (callback) {                                 \
+      callback->Notify(event, interface);           \
+    }                                               \
+  } while (0)
+
 #define CHECK_SUCCESS(condition) \
   (condition) ? nsIWifiResult::SUCCESS : nsIWifiResult::ERROR_COMMAND_FAILED
 
-#endif /* WifiCommon_H */
+#endif  // WifiCommon_H

@@ -61,6 +61,7 @@ if not CONFIG['DISABLE_WIFI']:
           'hal/ScanEventService.cpp',
           'hal/SoftapEventService.cpp',
           'hal/SoftapManager.cpp',
+          'hal/SupplicantCallback.cpp',
           'hal/SupplicantStaManager.cpp',
           'hal/SupplicantStaNetwork.cpp',
           'hal/WifiCommon.cpp',

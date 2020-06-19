@@ -111,13 +111,15 @@ class WifiNative {
   static WificondControl* sWificondControl;
   static SupplicantStaManager* sSupplicantStaManager;
   static SoftapManager* sSoftapManager;
-  static WifiEventCallback* sCallback;
+  static android::sp<WifiEventCallback> sCallback;
 
   std::string mStaInterfaceName;
   std::string mApInterfaceName;
   android::sp<ScanEventService> mScanEventService;
   android::sp<PnoScanEventService> mPnoScanEventService;
   android::sp<SoftapEventService> mSoftapEventService;
+
+  uint32_t mSupportedFeatures;
 };
 
 #endif  // WifiNative_h

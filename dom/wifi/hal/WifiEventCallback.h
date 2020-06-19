@@ -20,4 +20,4 @@ struct WifiEventCallback : public virtual android::RefBase {
   virtual void Notify(nsWifiEvent* aEvent, const nsACString& aInterface) = 0;
 };
 
-#endif /* WifiEventCallback_H */
+#endif  // WifiEventCallback_H
