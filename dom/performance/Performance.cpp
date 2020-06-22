@@ -533,8 +533,7 @@ void Performance::RemoveObserver(PerformanceObserver* aObserver) {
 
 void Performance::NotifyObservers() {
   mPendingNotificationObserversTask = false;
-  NS_OBSERVER_ARRAY_NOTIFY_XPCOM_OBSERVERS(mObservers, PerformanceObserver,
-                                           Notify, ());
+  NS_OBSERVER_ARRAY_NOTIFY_XPCOM_OBSERVERS(mObservers, Notify, ());
 }
 
 void Performance::CancelNotificationObservers() {
@@ -597,21 +596,18 @@ void Performance::QueueEntry(PerformanceEntry* aEntry) {
   }
 
   nsTObserverArray<PerformanceObserver*> interestedObservers;
-  nsTObserverArray<PerformanceObserver*>::ForwardIterator observerIt(
-      mObservers);
-  while (observerIt.HasMore()) {
-    PerformanceObserver* observer = observerIt.GetNext();
-    if (observer->ObservesTypeOfEntry(aEntry)) {
-      interestedObservers.AppendElement(observer);
-    }
-  }
+  const auto [begin, end] = mObservers.NonObservingRange();
+  std::copy_if(begin, end, MakeBackInserter(interestedObservers),
+               [aEntry](PerformanceObserver* observer) {
+                 return observer->ObservesTypeOfEntry(aEntry);
+               });
 
   if (interestedObservers.IsEmpty()) {
     return;
   }
 
-  NS_OBSERVER_ARRAY_NOTIFY_XPCOM_OBSERVERS(
-      interestedObservers, PerformanceObserver, QueueEntry, (aEntry));
+  NS_OBSERVER_ARRAY_NOTIFY_XPCOM_OBSERVERS(interestedObservers, QueueEntry,
+                                           (aEntry));
 
   QueueNotificationObserversTask();
 }

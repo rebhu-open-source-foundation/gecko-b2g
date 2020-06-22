@@ -1706,7 +1706,7 @@ fuzzy-if(skiaContent,0-1,0-1) == 751012-1b.html 751012-1-ref.html
 == 753329-1.html about:blank
 == 758561-1.html 758561-1-ref.html
 fuzzy-if(true,0-1,0-90) fuzzy-if(skiaContent,0-1,0-320) == 759036-1.html 759036-1-ref.html
-fuzzy-if(true,0-17,0-5886) fuzzy-if(skiaContent,0-9,0-5894) fuzzy-if(geckoview&&webrender&&device,3-3,5897-5897) == 759036-2.html 759036-2-ref.html
+fuzzy-if(true,0-17,0-5886) fuzzy-if(skiaContent,0-9,0-5894) fuzzy-if(geckoview&&webrender&&device,3-3,5850-5855) == 759036-2.html 759036-2-ref.html
 == 776265-1a.html 776265-1-ref.html
 == 776265-1b.html 776265-1-ref.html
 == 776265-1c.html 776265-1-ref.html
@@ -2103,3 +2103,4 @@ fuzzy(0-145,0-48536) == 1614788-1.svg 1614788-1-ref.svg # large fuzz necesary to
 fuzzy-if(OSX,0-42,0-4) fuzzy-if((Android||winWidget)&&!webrender,0-115,0-2) == 1617515-1.html 1617515-1-ref.html
 fuzzy(0-2,0-21184) == 1626259-1.html 1626259-1-ref.html
 fuzzy(0-2,0-21184) == 1626259-2.html 1626259-2-ref.html
+== 1642603-1.html 1642603-1-ref.html

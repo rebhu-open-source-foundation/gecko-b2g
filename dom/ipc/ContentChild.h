@@ -508,10 +508,6 @@ class ContentChild final : public PContentChild,
                                             const nsString& aMessageName,
                                             const nsString& aMessageData);
 
-  mozilla::ipc::IPCResult RecvActivate(PBrowserChild* aTab);
-
-  mozilla::ipc::IPCResult RecvDeactivate(PBrowserChild* aTab);
-
   mozilla::ipc::IPCResult RecvRefreshScreens(
       nsTArray<ScreenDetails>&& aScreens);
 

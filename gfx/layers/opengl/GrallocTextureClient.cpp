@@ -15,7 +15,6 @@
 #include "mozilla/layers/ShadowLayerUtilsGralloc.h"
 #include "mozilla/layers/SharedBufferManagerChild.h"
 #include "gfx2DGlue.h"
-#include "SharedSurfaceGralloc.h"
 
 #if defined(MOZ_WIDGET_GONK)
 #include <ui/Fence.h>

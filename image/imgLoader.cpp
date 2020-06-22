@@ -748,30 +748,7 @@ static bool ValidateSecurityInfo(imgRequest* request, bool forcePrincipalCheck,
                                  int32_t corsmode,
                                  nsIPrincipal* triggeringPrincipal,
                                  Document* aLoadingDocument,
-                                 nsContentPolicyType aPolicyType,
-                                 nsIReferrerInfo* aReferrerInfo) {
-  // If the referrer policy doesn't match, we can't use this request.
-  // XXX: Note that we only validate referrer policy, not referrerInfo object.
-  // We should do with referrerInfo object, but it will cause us to use more
-  // resources in the common case (the same policies but different original
-  // referrers).
-  // XXX: this will return false if an image has different referrer attributes,
-  // i.e. we currently don't use the cached image but reload the image with
-  // the new referrer policy bug 1174921
-  ReferrerPolicy referrerPolicy = ReferrerPolicy::_empty;
-  if (aReferrerInfo) {
-    referrerPolicy = aReferrerInfo->ReferrerPolicy();
-  }
-
-  ReferrerPolicy requestReferrerPolicy = ReferrerPolicy::_empty;
-  if (request->GetReferrerInfo()) {
-    requestReferrerPolicy = request->GetReferrerInfo()->ReferrerPolicy();
-  }
-
-  if (referrerPolicy != requestReferrerPolicy) {
-    return false;
-  }
-
+                                 nsContentPolicyType aPolicyType) {
   // If the entry's CORS mode doesn't match, or the CORS mode matches but the
   // document principal isn't the same, we can't use this request.
   if (request->GetCORSMode() != corsmode) {
@@ -960,11 +937,11 @@ static nsresult NewImageChannel(
   return NS_OK;
 }
 
-/* static */
-uint32_t imgCacheEntry::SecondsFromPRTime(PRTime prTime) {
-  return uint32_t(int64_t(prTime) / int64_t(PR_USEC_PER_SEC));
+static uint32_t SecondsFromPRTime(PRTime aTime) {
+  return nsContentUtils::SecondsFromPRTime(aTime);
 }
 
+/* static */
 imgCacheEntry::imgCacheEntry(imgLoader* loader, imgRequest* request,
                              bool forcePrincipalCheck)
     : mLoader(loader),
@@ -1709,12 +1686,10 @@ bool imgLoader::ValidateRequestWithNewChannel(
 
       if (aLinkPreload) {
         MOZ_ASSERT(aLoadingDocument);
-        MOZ_ASSERT(aReferrerInfo);
         proxy->PrioritizeAsPreload();
         auto preloadKey = PreloadHashKey::CreateAsImage(
-            aURI, aTriggeringPrincipal, ConvertToCORSMode(aCORSMode),
-            aReferrerInfo->ReferrerPolicy());
-        proxy->NotifyOpen(&preloadKey, aLoadingDocument, true);
+            aURI, aTriggeringPrincipal, ConvertToCORSMode(aCORSMode));
+        proxy->NotifyOpen(preloadKey, aLoadingDocument, true);
       }
 
       // Attach the proxy without notifying
@@ -1778,12 +1753,10 @@ bool imgLoader::ValidateRequestWithNewChannel(
 
   if (aLinkPreload) {
     MOZ_ASSERT(aLoadingDocument);
-    MOZ_ASSERT(aReferrerInfo);
     req->PrioritizeAsPreload();
     auto preloadKey = PreloadHashKey::CreateAsImage(
-        aURI, aTriggeringPrincipal, ConvertToCORSMode(aCORSMode),
-        aReferrerInfo->ReferrerPolicy());
-    req->NotifyOpen(&preloadKey, aLoadingDocument, true);
+        aURI, aTriggeringPrincipal, ConvertToCORSMode(aCORSMode));
+    req->NotifyOpen(preloadKey, aLoadingDocument, true);
   }
 
   // Add the proxy without notifying
@@ -1822,8 +1795,8 @@ bool imgLoader::ValidateEntry(
   // If the expiration time is zero, then the request has not gotten far enough
   // to know when it will expire.
   uint32_t expiryTime = aEntry->GetExpiryTime();
-  bool hasExpired = expiryTime != 0 &&
-                    expiryTime <= imgCacheEntry::SecondsFromPRTime(PR_Now());
+  bool hasExpired =
+      expiryTime != 0 && expiryTime <= SecondsFromPRTime(PR_Now());
 
   nsresult rv;
 
@@ -1840,8 +1813,7 @@ bool imgLoader::ValidateEntry(
       if (NS_SUCCEEDED(rv)) {
         // nsIFile uses millisec, NSPR usec
         fileLastMod *= 1000;
-        hasExpired =
-            imgCacheEntry::SecondsFromPRTime((PRTime)fileLastMod) > lastModTime;
+        hasExpired = SecondsFromPRTime((PRTime)fileLastMod) > lastModTime;
       }
     }
   }
@@ -1854,7 +1826,7 @@ bool imgLoader::ValidateEntry(
 
   if (!ValidateSecurityInfo(request, aEntry->ForcePrincipalCheck(), aCORSMode,
                             aTriggeringPrincipal, aLoadingDocument,
-                            aLoadPolicyType, aReferrerInfo)) {
+                            aLoadPolicyType)) {
     return false;
   }
 
@@ -2245,12 +2217,10 @@ nsresult imgLoader::LoadImage(
 
   // Look in the preloaded images of loading document first.
   if (StaticPrefs::network_preload() && !aLinkPreload && aLoadingDocument) {
-    auto key = PreloadHashKey::CreateAsImage(
-        aURI, aTriggeringPrincipal, ConvertToCORSMode(corsmode),
-        aReferrerInfo ? aReferrerInfo->ReferrerPolicy()
-                      : ReferrerPolicy::_empty);
+    auto key = PreloadHashKey::CreateAsImage(aURI, aTriggeringPrincipal,
+                                             ConvertToCORSMode(corsmode));
     if (RefPtr<PreloaderBase> preload =
-            aLoadingDocument->Preloads().LookupPreload(&key)) {
+            aLoadingDocument->Preloads().LookupPreload(key)) {
       RefPtr<imgRequestProxy> proxy = do_QueryObject(preload);
       MOZ_ASSERT(proxy);
 
@@ -2476,12 +2446,10 @@ nsresult imgLoader::LoadImage(
 
     if (aLinkPreload) {
       MOZ_ASSERT(aLoadingDocument);
-      MOZ_ASSERT(aReferrerInfo);
       proxy->PrioritizeAsPreload();
       auto preloadKey = PreloadHashKey::CreateAsImage(
-          aURI, aTriggeringPrincipal, ConvertToCORSMode(corsmode),
-          aReferrerInfo->ReferrerPolicy());
-      proxy->NotifyOpen(&preloadKey, aLoadingDocument, true);
+          aURI, aTriggeringPrincipal, ConvertToCORSMode(corsmode));
+      proxy->NotifyOpen(preloadKey, aLoadingDocument, true);
     }
 
     // Note that it's OK to add here even if the request is done.  If it is,

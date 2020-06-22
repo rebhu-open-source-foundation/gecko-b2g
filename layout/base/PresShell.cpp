@@ -12,6 +12,7 @@
 #include "mozilla/dom/FontFaceSet.h"
 #include "mozilla/ArrayUtils.h"
 #include "mozilla/Attributes.h"
+#include "mozilla/AutoResizeReflowSquasher.h"
 #include "mozilla/AutoRestore.h"
 #include "mozilla/ContentIterator.h"
 #include "mozilla/EventDispatcher.h"
@@ -1939,6 +1940,11 @@ void PresShell::sPaintSuppressionCallback(nsITimer* aTimer, void* aPresShell) {
 
 nsresult PresShell::ResizeReflow(nscoord aWidth, nscoord aHeight,
                                  ResizeReflowOptions aOptions) {
+  if (AutoResizeReflowSquasher::CaptureResizeReflow(this, aWidth, aHeight,
+                                                    aOptions)) {
+    return NS_OK;
+  }
+
   if (mZoomConstraintsClient) {
     // If we have a ZoomConstraintsClient and the available screen area
     // changed, then we might need to disable double-tap-to-zoom, so notify
@@ -1954,6 +1960,9 @@ nsresult PresShell::ResizeReflow(nscoord aWidth, nscoord aHeight,
     MOZ_ASSERT(mMobileViewportManager);
     mMobileViewportManager->RequestReflow(false);
     return NS_OK;
+  }
+  if (mMobileViewportManager) {
+    mMobileViewportManager->NotifyResizeReflow();
   }
 
   return ResizeReflowIgnoreOverride(aWidth, aHeight, aOptions);
@@ -3402,8 +3411,8 @@ static void ScrollToShowRect(nsIScrollableFrame* aFrameAsScrollable,
 
   const nsMargin scrollPadding =
       (aScrollFlags & ScrollFlags::IgnoreMarginAndPadding)
-      ? nsMargin()
-      : aFrameAsScrollable->GetScrollPadding();
+          ? nsMargin()
+          : aFrameAsScrollable->GetScrollPadding();
 
   const nsRect rectToScrollIntoView = [&] {
     nsRect r(aRect);
@@ -3435,8 +3444,8 @@ static void ScrollToShowRect(nsIScrollableFrame* aFrameAsScrollable,
       nscoord maxHeight;
       scrollPt.y = ComputeWhereToScroll(
           aVertical.mWhereToScroll, scrollPt.y, rectToScrollIntoView.y,
-          rectToScrollIntoView.YMost(),
-          visibleRect.y, visibleRect.YMost(), &allowedRange.y, &maxHeight);
+          rectToScrollIntoView.YMost(), visibleRect.y, visibleRect.YMost(),
+          &allowedRange.y, &maxHeight);
       allowedRange.height = maxHeight - allowedRange.y;
     }
   }
@@ -3465,9 +3474,9 @@ static void ScrollToShowRect(nsIScrollableFrame* aFrameAsScrollable,
 
   ScrollMode scrollMode = ScrollMode::Instant;
   bool autoBehaviorIsSmooth = aFrameAsScrollable->IsSmoothScroll();
-  bool smoothScroll = (aScrollFlags & ScrollFlags::ScrollSmooth) ||
-                      ((aScrollFlags & ScrollFlags::ScrollSmoothAuto) &&
-                       autoBehaviorIsSmooth);
+  bool smoothScroll =
+      (aScrollFlags & ScrollFlags::ScrollSmooth) ||
+      ((aScrollFlags & ScrollFlags::ScrollSmoothAuto) && autoBehaviorIsSmooth);
   if (StaticPrefs::layout_css_scroll_behavior_enabled() && smoothScroll) {
     scrollMode = ScrollMode::SmoothMsd;
   }
@@ -5291,11 +5300,21 @@ void PresShell::UpdateCanvasBackground() {
     // style frame but we don't have access to the canvasframe here. It isn't
     // a problem because only a few frames can return something other than true
     // and none of them would be a canvas frame or root element style frame.
-    bool drawBackgroundImage;
-    bool drawBackgroundColor;
-    mCanvasBackgroundColor = nsCSSRendering::DetermineBackgroundColor(
-        mPresContext, bgStyle, rootStyleFrame, drawBackgroundImage,
-        drawBackgroundColor);
+    bool drawBackgroundImage = false;
+    bool drawBackgroundColor = false;
+    const nsStyleDisplay* disp = rootStyleFrame->StyleDisplay();
+    if (rootStyleFrame->IsThemed(disp) &&
+        disp->mAppearance != StyleAppearance::MozWinGlass &&
+        disp->mAppearance != StyleAppearance::MozWinBorderlessGlass) {
+      // Ignore the CSS background-color if -moz-appearance is used and it is
+      // not one of the glass values. (Windows 7 Glass has traditionally not
+      // overridden background colors, so we preserve that behavior for now.)
+      mCanvasBackgroundColor = NS_RGBA(0, 0, 0, 0);
+    } else {
+      mCanvasBackgroundColor = nsCSSRendering::DetermineBackgroundColor(
+          mPresContext, bgStyle, rootStyleFrame, drawBackgroundImage,
+          drawBackgroundColor);
+    }
     mHasCSSBackgroundColor = drawBackgroundColor;
     if (mPresContext->IsRootContentDocumentCrossProcess() &&
         !IsTransparentContainerElement(mPresContext)) {
@@ -7678,8 +7697,9 @@ nsIFrame* PresShell::EventHandler::ComputeRootFrameToHandleEventWithPopup(
 
   // If a remote browser is currently capturing input break out if we
   // detect a chrome generated popup.
+  // XXXedgar, do we need to check fission OOP iframe?
   if (aCapturingContent &&
-      EventStateManager::IsRemoteTarget(aCapturingContent)) {
+      EventStateManager::IsTopLevelRemoteTarget(aCapturingContent)) {
     *aIsCapturingContentIgnored = true;
   }
 
@@ -10537,8 +10557,7 @@ void ReflowCountMgr::PaintCount(const char* aName,
 
       // We don't care about the document language or user fonts here;
       // just get a default Latin font.
-      nsFont font(StyleGenericFontFamily::Serif,
-                  nsPresContext::CSSPixelsToAppUnits(11));
+      nsFont font(StyleGenericFontFamily::Serif, Length::FromPixels(11));
       nsFontMetrics::Params params;
       params.language = nsGkAtoms::x_western;
       params.textPerf = aPresContext->GetTextPerfMetrics();
@@ -11057,11 +11076,57 @@ void PresShell::MarkFixedFramesForReflow(IntrinsicDirty aIntrinsicDirty) {
   }
 }
 
-void PresShell::CompleteChangeToVisualViewportSize() {
-  if (nsIScrollableFrame* rootScrollFrame = GetRootScrollFrameAsScrollable()) {
-    rootScrollFrame->MarkScrollbarsDirtyForReflow();
+void PresShell::MaybeReflowForInflationScreenSizeChange() {
+  nsPresContext* pc = GetPresContext();
+  const bool fontInflationWasEnabled = FontSizeInflationEnabled();
+  RecomputeFontSizeInflationEnabled();
+  bool changed = false;
+  if (FontSizeInflationEnabled() && FontSizeInflationMinTwips() != 0) {
+    pc->ScreenSizeInchesForFontInflation(&changed);
   }
-  MarkFixedFramesForReflow(IntrinsicDirty::Resize);
+
+  changed = changed || fontInflationWasEnabled != FontSizeInflationEnabled();
+  if (!changed) {
+    return;
+  }
+  if (nsCOMPtr<nsIDocShell> docShell = pc->GetDocShell()) {
+    nsCOMPtr<nsIContentViewer> cv;
+    docShell->GetContentViewer(getter_AddRefs(cv));
+    if (!cv) {
+      return;
+    }
+    nsTArray<nsCOMPtr<nsIContentViewer>> array;
+    cv->AppendSubtree(array);
+    for (uint32_t i = 0, iEnd = array.Length(); i < iEnd; ++i) {
+      nsCOMPtr<nsIContentViewer> cv = array[i];
+      if (RefPtr<PresShell> descendantPresShell = cv->GetPresShell()) {
+        nsIFrame* rootFrame = descendantPresShell->GetRootFrame();
+        if (rootFrame) {
+          descendantPresShell->FrameNeedsReflow(
+              rootFrame, IntrinsicDirty::StyleChange, NS_FRAME_IS_DIRTY);
+        }
+      }
+    }
+  }
+}
+
+void PresShell::CompleteChangeToVisualViewportSize() {
+  // This can get called during reflow, if the caller wants to get the latest
+  // visual viewport size after scrollbars have been added/removed. In such a
+  // case, we don't need to mark things as dirty because the things that we
+  // would mark dirty either just got updated (the root scrollframe's
+  // scrollbars), or will be laid out later during this reflow cycle (fixed-pos
+  // items). Callers that update the visual viewport during a reflow are
+  // responsible for maintaining these invariants.
+  if (!mIsReflowing) {
+    if (nsIScrollableFrame* rootScrollFrame =
+            GetRootScrollFrameAsScrollable()) {
+      rootScrollFrame->MarkScrollbarsDirtyForReflow();
+    }
+    MarkFixedFramesForReflow(IntrinsicDirty::Resize);
+  }
+
+  MaybeReflowForInflationScreenSizeChange();
 
   if (auto* window = nsGlobalWindowInner::Cast(mDocument->GetInnerWindow())) {
     window->VisualViewport()->PostResizeEvent();
@@ -11074,6 +11139,8 @@ void PresShell::CompleteChangeToVisualViewportSize() {
 }
 
 void PresShell::SetVisualViewportSize(nscoord aWidth, nscoord aHeight) {
+  MOZ_ASSERT(aWidth >= 0.0 && aHeight >= 0.0);
+
   if (!mVisualViewportSizeSet || mVisualViewportSize.width != aWidth ||
       mVisualViewportSize.height != aHeight) {
     mVisualViewportSizeSet = true;

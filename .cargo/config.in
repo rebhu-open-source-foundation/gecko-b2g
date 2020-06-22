@@ -15,7 +15,7 @@ rev = "e3c3388e6632cf55e08d773b32e58b1cab9b2731"
 [source."https://github.com/mozilla/neqo"]
 git = "https://github.com/mozilla/neqo"
 replace-with = "vendored-sources"
-tag = "v0.4.1"
+tag = "v0.4.3"
 
 [source."https://github.com/mozilla/mp4parse-rust"]
 git = "https://github.com/mozilla/mp4parse-rust"
@@ -25,12 +25,12 @@ rev = "0dc3e6e7c5371fe21f69b847f61c65fe6d6dc317"
 [source."https://github.com/mozilla/application-services"]
 git = "https://github.com/mozilla/application-services"
 replace-with = "vendored-sources"
-rev = "e8d7530319fa6c20d9de78d031c9398630eca3cd"
+rev = "61dcc364ac0d6d0816ab88a494bbf20d824b009b"
 
 [source."https://github.com/mozilla-spidermonkey/jsparagus"]
 git = "https://github.com/mozilla-spidermonkey/jsparagus"
 replace-with = "vendored-sources"
-rev = "14e2bb2f1b9ea7c1a65208a252c6dbe279612180"
+rev = "f94e3c1ab5d98c9fcfddd6441ce0d66169321035"
 
 [source."https://github.com/kvark/spirv_cross"]
 branch = "wgpu3"
@@ -60,7 +60,7 @@ rev = "3224e2dee65c0726c448484d4c3c43956b9330ec"
 [source."https://github.com/bytecodealliance/wasmtime"]
 git = "https://github.com/bytecodealliance/wasmtime"
 replace-with = "vendored-sources"
-rev = "4d5fdfcbba1a8f38002a4223d7a329fc795d0e9f"
+rev = "238ae3bf2111847f60089656eb97fc9345295b1f"
 
 [source."https://github.com/badboy/failure"]
 git = "https://github.com/badboy/failure"

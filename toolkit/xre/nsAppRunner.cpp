@@ -105,6 +105,9 @@
 #  include "mozilla/WindowsProcessMitigations.h"
 #  include "mozilla/WinHeaderOnlyUtils.h"
 #  include "mozilla/mscom/ProcessRuntime.h"
+#  if defined(MOZ_GECKO_PROFILER)
+#    include "mozilla/mscom/ProfilerMarkers.h"
+#  endif  // defined(MOZ_GECKO_PROFILER)
 #  include "mozilla/widget/AudioSession.h"
 #  include "WinTokenUtils.h"
 
@@ -4256,7 +4259,11 @@ nsresult XREMain::XRE_mainRun() {
   dllServices->StartUntrustedModulesProcessor();
   auto dllServicesDisable =
       MakeScopeExit([&dllServices]() { dllServices->DisableFull(); });
-#endif  // defined(XP_WIN)
+
+#  if defined(MOZ_GECKO_PROFILER)
+  mozilla::mscom::InitProfilerMarkers();
+#  endif  // defined(MOZ_GECKO_PROFILER)
+#endif    // defined(XP_WIN)
 
 #ifdef NS_FUNCTION_TIMER
   // initialize some common services, so we don't pay the cost for these at odd
@@ -5060,7 +5067,8 @@ bool BrowserTabsRemoteAutostart() {
 
 bool FissionAutostart() {
   return !gSafeMode &&
-         StaticPrefs::fission_autostart_AtStartup_DoNotUseDirectly();
+         (StaticPrefs::fission_autostart_AtStartup_DoNotUseDirectly() ||
+          EnvHasValue("MOZ_FORCE_ENABLE_FISSION"));
 }
 
 uint32_t GetMaxWebProcessCount() {

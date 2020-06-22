@@ -39,27 +39,28 @@ class PreloadService {
   //
   // Returns false and does nothing if a preload is already registered under
   // this key, true otherwise.
-  bool RegisterPreload(PreloadHashKey* aKey, PreloaderBase* aPreload);
+  bool RegisterPreload(const PreloadHashKey& aKey, PreloaderBase* aPreload);
 
   // Called when the load is about to be cancelled.  Exact behavior is to be
   // determined yet.
-  void DeregisterPreload(PreloadHashKey* aKey);
+  void DeregisterPreload(const PreloadHashKey& aKey);
 
   // Called when the scope is to go away.
   void ClearAllPreloads();
 
   // True when there is a preload registered under the key.
-  bool PreloadExists(PreloadHashKey* aKey);
+  bool PreloadExists(const PreloadHashKey& aKey);
 
   // Returns an existing preload under the key or null, when there is none
   // registered under the key.
-  already_AddRefed<PreloaderBase> LookupPreload(PreloadHashKey* aKey) const;
+  already_AddRefed<PreloaderBase> LookupPreload(
+      const PreloadHashKey& aKey) const;
 
   void SetSpeculationBase(nsIURI* aURI) { mSpeculationBaseURI = aURI; }
   already_AddRefed<nsIURI> GetPreloadURI(const nsAString& aURL);
 
   already_AddRefed<PreloaderBase> PreloadLinkElement(
-      dom::HTMLLinkElement* aLinkElement, nsContentPolicyType aPolicyType,
+      dom::HTMLLinkElement* aLink, nsContentPolicyType aPolicyType,
       nsIReferrerInfo* aReferrerInfo);
 
   already_AddRefed<PreloaderBase> PreloadLinkHeader(
@@ -99,8 +100,7 @@ class PreloadService {
       const nsAString& aAs, const nsAString& aType, const nsAString& aCharset,
       const nsAString& aSrcset, const nsAString& aSizes,
       const nsAString& aIntegrity, const nsAString& aCORS,
-      dom::ReferrerPolicy aReferrerPolicy, const nsAString& aReferrerPolicyAttr,
-      nsIReferrerInfo* aReferrerInfo);
+      const nsAString& aReferrerPolicy);
 
  private:
   nsRefPtrHashtable<PreloadHashKey, PreloaderBase> mPreloads;

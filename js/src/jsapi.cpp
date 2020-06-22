@@ -464,6 +464,10 @@ JS_PUBLIC_API bool JS::InitSelfHostedCode(JSContext* cx) {
     return false;
   }
 
+  if (!rt->initializeParserAtoms(cx)) {
+    return false;
+  }
+
 #ifndef JS_CODEGEN_NONE
   if (!rt->createJitRuntime(cx)) {
     return false;
@@ -3600,39 +3604,6 @@ CompileOptions& CompileOptions::setIntroductionInfoToCaller(
   } else {
     return setIntroductionType(introductionType);
   }
-}
-
-JSScript* JS::DecodeBinAST(JSContext* cx, const ReadOnlyCompileOptions& options,
-                           const uint8_t* buf, size_t length,
-                           JS::BinASTFormat format) {
-#if defined(JS_BUILD_BINAST)
-  MOZ_ASSERT(!cx->zone()->isAtomsZone());
-  AssertHeapIsIdle();
-  CHECK_THREAD(cx);
-
-  return frontend::CompileGlobalBinASTScript(cx, options, buf, length, format);
-#else   // !JS_BUILD_BINAST
-  JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
-                            JSMSG_SUPPORT_NOT_ENABLED, "BinAST");
-  return nullptr;
-#endif  // JS_BUILD_BINAST
-}
-
-JSScript* JS::DecodeBinAST(JSContext* cx, const ReadOnlyCompileOptions& options,
-                           FILE* file, JS::BinASTFormat format) {
-#if defined(JS_BUILD_BINAST)
-  FileContents fileContents(cx);
-  if (!ReadCompleteFile(cx, file, fileContents)) {
-    return nullptr;
-  }
-
-  return DecodeBinAST(cx, options, fileContents.begin(), fileContents.length(),
-                      format);
-#else   // !JS_BUILD_BINAST
-  JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
-                            JSMSG_SUPPORT_NOT_ENABLED, "BinAST");
-  return nullptr;
-#endif  // JS_BUILD_BINAST
 }
 
 JS_PUBLIC_API JSObject* JS_GetGlobalFromScript(JSScript* script) {

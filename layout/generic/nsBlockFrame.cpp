@@ -71,8 +71,9 @@ using namespace mozilla;
 using namespace mozilla::css;
 using namespace mozilla::dom;
 using namespace mozilla::layout;
+using AbsPosReflowFlags = nsAbsoluteContainingBlock::AbsPosReflowFlags;
+using ClearFloatsResult = BlockReflowInput::ClearFloatsResult;
 using ShapeType = nsFloatManager::ShapeType;
-typedef nsAbsoluteContainingBlock::AbsPosReflowFlags AbsPosReflowFlags;
 
 static void MarkAllDescendantLinesDirty(nsBlockFrame* aBlock) {
   for (auto& line : aBlock->Lines()) {
@@ -1852,10 +1853,11 @@ void nsBlockFrame::ComputeFinalSize(const ReflowInput& aReflowInput,
   if (aState.mFlags.mBlockNeedsFloatManager) {
     // Include the float manager's state to properly account for the
     // block-end margin of any floated elements; e.g., inside a table cell.
-    nscoord floatHeight =
-        aState.ClearFloats(blockEndEdgeOfChildren, StyleClear::Both, nullptr,
-                           nsFloatManager::DONT_CLEAR_PUSHED_FLOATS);
-    blockEndEdgeOfChildren = std::max(blockEndEdgeOfChildren, floatHeight);
+    //
+    // Note: The block coordinate returned by ClearFloats is always greater than
+    // or equal to blockEndEdgeOfChildren.
+    std::tie(blockEndEdgeOfChildren, std::ignore) =
+        aState.ClearFloats(blockEndEdgeOfChildren, StyleClear::Both);
   }
 
   if (NS_UNCONSTRAINEDSIZE != aReflowInput.ComputedBSize()) {
@@ -1910,12 +1912,6 @@ void nsBlockFrame::ComputeFinalSize(const ReflowInput& aReflowInput,
   } else {
     NS_ASSERTION(aReflowInput.AvailableBSize() != NS_UNCONSTRAINEDSIZE,
                  "Shouldn't be incomplete if availableBSize is UNCONSTRAINED.");
-    if (aState.mBCoord == nscoord_MAX) {
-      // FIXME bug 1574046.
-      // This should never happen, but it does. nsFloatManager::ClearFloats
-      // returns |nscoord_MAX| when DONT_CLEAR_PUSHED_FLOATS is false.
-      blockEndEdgeOfChildren = aState.mBCoord = aReflowInput.AvailableBSize();
-    }
     nscoord bSize = std::max(aState.mBCoord, aReflowInput.AvailableBSize());
     if (aReflowInput.AvailableBSize() == NS_UNCONSTRAINEDSIZE) {
       // This should never happen, but it does. See bug 414255
@@ -2514,15 +2510,16 @@ void nsBlockFrame::ReflowDirtyLines(BlockReflowInput& aState) {
       // See where we would be after applying any clearance due to
       // BRs.
       if (inlineFloatBreakType != StyleClear::None) {
-        curBCoord = aState.ClearFloats(curBCoord, inlineFloatBreakType);
+        std::tie(curBCoord, std::ignore) =
+            aState.ClearFloats(curBCoord, inlineFloatBreakType);
       }
 
-      nscoord newBCoord = aState.ClearFloats(
+      auto [newBCoord, result] = aState.ClearFloats(
           curBCoord, line->GetBreakTypeBefore(), replacedBlock);
 
       if (line->HasClearance()) {
         // Reflow the line if it might not have clearance anymore.
-        if (newBCoord == curBCoord
+        if (result == ClearFloatsResult::BCoordNoChange
             // aState.mBCoord is the clearance point which should be the
             // block-start border-edge of the block frame. If sliding the
             // block by deltaBCoord isn't going to put it in the predicted
@@ -2532,7 +2529,7 @@ void nsBlockFrame::ReflowDirtyLines(BlockReflowInput& aState) {
         }
       } else {
         // Reflow the line if the line might have clearance now.
-        if (curBCoord != newBCoord) {
+        if (result != ClearFloatsResult::BCoordNoChange) {
           line->MarkDirty();
         }
       }
@@ -2540,7 +2537,8 @@ void nsBlockFrame::ReflowDirtyLines(BlockReflowInput& aState) {
 
     // We might have to reflow a line that is after a clearing BR.
     if (inlineFloatBreakType != StyleClear::None) {
-      aState.mBCoord = aState.ClearFloats(aState.mBCoord, inlineFloatBreakType);
+      std::tie(aState.mBCoord, std::ignore) =
+          aState.ClearFloats(aState.mBCoord, inlineFloatBreakType);
       if (aState.mBCoord != line->BStart() + deltaBCoord) {
         // SlideLine is not going to put the line where the clearance
         // put it. Reflow the line to be sure.
@@ -2809,7 +2807,8 @@ void nsBlockFrame::ReflowDirtyLines(BlockReflowInput& aState) {
 
   // Handle BR-clearance from the last line of the block
   if (inlineFloatBreakType != StyleClear::None) {
-    aState.mBCoord = aState.ClearFloats(aState.mBCoord, inlineFloatBreakType);
+    std::tie(aState.mBCoord, std::ignore) =
+        aState.ClearFloats(aState.mBCoord, inlineFloatBreakType);
   }
 
   if (needToRecoverState) {
@@ -3479,9 +3478,11 @@ void nsBlockFrame::ReflowBlockFrame(BlockReflowInput& aState,
   if (!treatWithClearance && !applyBStartMargin && mightClearFloats &&
       aState.mReflowInput.mDiscoveredClearance) {
     nscoord curBCoord = aState.mBCoord + aState.mPrevBEndMargin.get();
-    nscoord clearBCoord =
-        aState.ClearFloats(curBCoord, breakType, replacedBlock);
-    if (clearBCoord != curBCoord) {
+    if (auto [clearBCoord, result] =
+            aState.ClearFloats(curBCoord, breakType, replacedBlock);
+        result != ClearFloatsResult::BCoordNoChange) {
+      Unused << clearBCoord;
+
       // Only record the first frame that requires clearance
       if (!*aState.mReflowInput.mDiscoveredClearance) {
         *aState.mReflowInput.mDiscoveredClearance = frame;
@@ -3508,6 +3509,7 @@ void nsBlockFrame::ReflowBlockFrame(BlockReflowInput& aState,
     nscoord bStartMargin = 0;
     bool mayNeedRetry = false;
     bool clearedFloats = false;
+    bool clearedPushedOrSplitFloat = false;
     if (applyBStartMargin) {
       // Precompute the blocks block-start margin value so that we can get the
       // correct available space (there might be a float that's
@@ -3556,9 +3558,11 @@ void nsBlockFrame::ReflowBlockFrame(BlockReflowInput& aState,
         // decision is only allowed to be made under the optimistic
         // first pass.
         nscoord curBCoord = aState.mBCoord + aState.mPrevBEndMargin.get();
-        nscoord clearBCoord =
-            aState.ClearFloats(curBCoord, breakType, replacedBlock);
-        if (clearBCoord != curBCoord) {
+        if (auto [clearBCoord, result] =
+                aState.ClearFloats(curBCoord, breakType, replacedBlock);
+            result != ClearFloatsResult::BCoordNoChange) {
+          Unused << clearBCoord;
+
           // Looks like we need clearance and we didn't know about it already.
           // So recompute collapsed margin
           treatWithClearance = true;
@@ -3585,10 +3589,13 @@ void nsBlockFrame::ReflowBlockFrame(BlockReflowInput& aState,
       if (treatWithClearance) {
         nscoord currentBCoord = aState.mBCoord;
         // advance mBCoord to the clear position.
-        aState.mBCoord =
+        auto [clearBCoord, result] =
             aState.ClearFloats(aState.mBCoord, breakType, replacedBlock);
+        aState.mBCoord = clearBCoord;
 
-        clearedFloats = aState.mBCoord != currentBCoord;
+        clearedFloats = result != ClearFloatsResult::BCoordNoChange;
+        clearedPushedOrSplitFloat =
+            result == ClearFloatsResult::FloatsPushedOrSplit;
 
         // Compute clearance. It's the amount we need to add to the block-start
         // border-edge of the frame, after applying collapsed margins
@@ -3627,17 +3634,13 @@ void nsBlockFrame::ReflowBlockFrame(BlockReflowInput& aState,
     // margins at the top of the page as we ought to, it wouldn't be
     // needed.
     if ((!aState.mReflowInput.mFlags.mIsTopOfPage || clearedFloats) &&
-        availSpace.BSize(wm) < 0) {
+        (availSpace.BSize(wm) < 0 || clearedPushedOrSplitFloat)) {
       // We know already that this child block won't fit on this
       // page/column due to the block-start margin or the clearance.  So we
       // need to get out of here now.  (If we don't, most blocks will handle
       // things fine, and report break-before, but zero-height blocks
       // won't, and will thus make their parent overly-large and force
       // *it* to be pushed in its entirety.)
-      // Doing this means that we also don't need to worry about the
-      // |availSpace.BSize(wm) += bStartMargin| below interacting with
-      // pushed floats (which force nscoord_MAX clearance) to cause a
-      // constrained block size to turn into an unconstrained one.
       aState.mBCoord = startingBCoord;
       aState.mPrevBEndMargin = incomingMargin;
       *aKeepReflowGoing = false;
@@ -3811,8 +3814,9 @@ void nsBlockFrame::ReflowBlockFrame(BlockReflowInput& aState,
           advanced = true;
         }
         // ClearFloats might be able to advance us further once we're there.
-        aState.mBCoord =
+        std::tie(aState.mBCoord, std::ignore) =
             aState.ClearFloats(newBCoord, StyleClear::None, replacedBlock);
+
         // Start over with a new available space rect at the new height.
         floatAvailableSpace = aState.GetFloatAvailableSpaceWithState(
             aState.mBCoord, ShapeType::ShapeOutside, &floatManagerState);
@@ -4990,7 +4994,7 @@ bool nsBlockFrame::PlaceLine(BlockReflowInput& aState,
   // Apply break-after clearing if necessary
   // This must stay in sync with |ReflowDirtyLines|.
   if (aLine->HasFloatBreakAfter()) {
-    aState.mBCoord =
+    std::tie(aState.mBCoord, std::ignore) =
         aState.ClearFloats(aState.mBCoord, aLine->GetBreakTypeAfter());
   }
   return true;
@@ -6698,8 +6702,11 @@ void nsBlockFrame::ReflowPushedFloats(BlockReflowInput& aState,
     f = next;
   }
 
-  // If there are continued floats, then we may need to continue BR clearance
-  if (0 != aState.ClearFloats(0, StyleClear::Both)) {
+  // If there are pushed or split floats, then we may need to continue BR
+  // clearance
+  if (auto [bCoord, result] = aState.ClearFloats(0, StyleClear::Both);
+      result != ClearFloatsResult::BCoordNoChange) {
+    Unused << bCoord;
     nsBlockFrame* prevBlock = static_cast<nsBlockFrame*>(GetPrevInFlow());
     if (prevBlock) {
       aState.mFloatBreakType = prevBlock->FindTrailingClear();

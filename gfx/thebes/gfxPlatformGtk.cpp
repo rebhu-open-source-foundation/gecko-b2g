@@ -555,9 +555,8 @@ class GtkVsyncSource final : public VsyncSource {
         return;
       }
 
-      mGLContext = gl::GLContextGLX::CreateGLContext(
-          gl::CreateContextFlags::NONE, gl::SurfaceCaps::Any(), false,
-          mXDisplay, root, config, false, nullptr);
+      mGLContext = gl::GLContextGLX::CreateGLContext({}, mXDisplay, root,
+                                                     config, false, nullptr);
 
       if (!mGLContext) {
         lock.NotifyAll();
@@ -726,7 +725,9 @@ bool gfxPlatformGtk::UseWaylandDMABufTextures() {
   return IsWaylandDisplay() && nsWaylandDisplay::IsDMABufTexturesEnabled();
 }
 bool gfxPlatformGtk::UseWaylandDMABufVideoTextures() {
-  return IsWaylandDisplay() && nsWaylandDisplay::IsDMABufVideoTexturesEnabled();
+  return IsWaylandDisplay() &&
+         (nsWaylandDisplay::IsDMABufVideoTexturesEnabled() ||
+          nsWaylandDisplay::IsDMABufVAAPIEnabled());
 }
 bool gfxPlatformGtk::UseWaylandDMABufWebGL() {
   return IsWaylandDisplay() && nsWaylandDisplay::IsDMABufWebGLEnabled();

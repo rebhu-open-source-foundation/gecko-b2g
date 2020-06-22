@@ -68,27 +68,6 @@
       return ["remote"];
     }
 
-    attributeChangedCallback(name, oldValue, newValue) {
-      // When we have already been set up via connectedCallback and the
-      // and the [remote] value changes, we need to start over. This used
-      // to happen due to a XBL binding change.
-      //
-      // Only do this when the rebuild frameloaders pref is off. This update isn't
-      // required when we rebuild the frameloaders in the backend.
-      let rebuildFrameLoaders =
-        LazyModules.E10SUtils.rebuildFrameloadersOnRemotenessChange ||
-        this.ownerGlobal.docShell.nsILoadContext.useRemoteSubframes;
-      if (
-        !rebuildFrameLoaders &&
-        name === "remote" &&
-        oldValue != newValue &&
-        this.isConnectedAndReady
-      ) {
-        this.destroy();
-        this.construct();
-      }
-    }
-
     constructor() {
       super();
 
@@ -250,8 +229,6 @@
       this._remoteFinder = null;
 
       this._fastFind = null;
-
-      this._outerWindowID = null;
 
       this._innerWindowID = null;
 
@@ -606,10 +583,7 @@
     }
 
     get outerWindowID() {
-      if (this.isRemoteBrowser) {
-        return this._outerWindowID;
-      }
-      return this.docShell.outerWindowID;
+      return this.browsingContext?.currentWindowGlobal?.outerWindowId;
     }
 
     get innerWindowID() {
@@ -642,12 +616,7 @@
     }
 
     get webProgress() {
-      return this.isRemoteBrowser
-        ? this._remoteWebProgress
-        : this.docShell &&
-            this.docShell
-              .QueryInterface(Ci.nsIInterfaceRequestor)
-              .getInterface(Ci.nsIWebProgress);
+      return this.browsingContext?.webProgress;
     }
 
     get sessionHistory() {
@@ -1139,8 +1108,6 @@
         // we should re-evaluate the CSP here.
         this._csp = null;
 
-        this.messageManager.addMessageListener("Browser:Init", this);
-
         // Start WebView additions.
         [
           "backgroundcolor",
@@ -1275,9 +1242,6 @@
       if (this.isRemoteBrowser) {
         const data = aMessage.data;
         switch (aMessage.name) {
-          case "Browser:Init":
-            this._outerWindowID = data.outerWindowID;
-            break;
           case "WebView::backgroundcolor":
             this.webViewDispatchEventFromData("backgroundcolor", data, [
               "backgroundcolor",
@@ -2104,21 +2068,67 @@
       return origins;
     }
 
-    get canPerformProcessSwitch() {
-      return this.getTabBrowser() != null;
+    get processSwitchBehavior() {
+      // If a `remotenessChangeHandler` is attached to this browser, it supports
+      // having its toplevel process switched dynamically in response to
+      // navigations.
+      if (this.hasAttribute("maychangeremoteness")) {
+        return Ci.nsIBrowser.PROCESS_BEHAVIOR_STANDARD;
+      }
+
+      // For backwards compatibility, we need to mark remote, but
+      // non-`allowremote`, frames as `PROCESS_BEHAVIOR_SUBFRAME_ONLY`, as some
+      // tests rely on it.
+      // FIXME: Remove this?
+      if (this.isRemoteBrowser) {
+        return Ci.nsIBrowser.PROCESS_BEHAVIOR_SUBFRAME_ONLY;
+      }
+      // Otherwise, don't allow gecko-initiated toplevel process switches.
+      return Ci.nsIBrowser.PROCESS_BEHAVIOR_DISABLED;
     }
 
-    performProcessSwitch(
-      remoteType,
-      redirectLoadSwitchId,
-      replaceBrowsingContext
-    ) {
-      return this.getTabBrowser().performProcessSwitch(
-        this,
-        remoteType,
-        redirectLoadSwitchId,
-        replaceBrowsingContext
-      );
+    // This method is replaced by frontend code in order to delay performing the
+    // process switch until some async operatin is completed.
+    //
+    // This is used by tabbrowser to flush SessionStore before a process switch.
+    async prepareToChangeRemoteness() {
+      /* no-op unless replaced */
+    }
+
+    // Called by Gecko before the remoteness change happens, allowing for
+    // listeners, etc. to be stashed before the process switch.
+    beforeChangeRemoteness() {
+      // Fire the `WillChangeBrowserRemoteness` event, which may be hooked by
+      // frontend code for custom behaviour.
+      let event = document.createEvent("Events");
+      event.initEvent("WillChangeBrowserRemoteness", true, false);
+      this.dispatchEvent(event);
+
+      // Destroy ourselves to unregister from observer notifications
+      // FIXME: Can we get away with something less destructive here?
+      this.destroy();
+    }
+
+    finishChangeRemoteness(redirectLoadSwitchId) {
+      // Re-construct ourselves after the destroy in `beforeChangeRemoteness`.
+      this.construct();
+
+      // Fire the `DidChangeBrowserRemoteness` event, which may be hooked by
+      // frontend code for custom behaviour.
+      let event = document.createEvent("Events");
+      event.initEvent("DidChangeBrowserRemoteness", true, false);
+      this.dispatchEvent(event);
+
+      // If we have a tabbrowser, we need to let it handle restoring session
+      // history, and performing the `resumeRedirectedLoad`, in order to get
+      // sesssion state set up correctly.
+      // FIXME: This probably needs to be hookable by GeckoView.
+      let tabbrowser = this.getTabBrowser();
+      if (tabbrowser) {
+        tabbrowser.finishBrowserRemotenessChange(this, redirectLoadSwitchId);
+        return true;
+      }
+      return false;
     }
   }
 

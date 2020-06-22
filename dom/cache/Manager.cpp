@@ -293,9 +293,7 @@ class Manager::Factory {
       AutoRestore<bool> restore(sFactory->mInSyncAbortOrShutdown);
       sFactory->mInSyncAbortOrShutdown = true;
 
-      ManagerList::ForwardIterator iter(sFactory->mManagerList);
-      while (iter.HasMore()) {
-        Manager* manager = iter.GetNext();
+      for (auto* manager : sFactory->mManagerList.ForwardRange()) {
         if (aOrigin.IsVoid() || manager->mManagerId->QuotaOrigin() == aOrigin) {
           auto pinnedManager =
               SafeRefPtr{manager, AcquireStrongRefFromRawPtr{}};
@@ -323,10 +321,8 @@ class Manager::Factory {
       AutoRestore<bool> restore(sFactory->mInSyncAbortOrShutdown);
       sFactory->mInSyncAbortOrShutdown = true;
 
-      ManagerList::ForwardIterator iter(sFactory->mManagerList);
-      while (iter.HasMore()) {
-        auto pinnedManager =
-            SafeRefPtr{iter.GetNext(), AcquireStrongRefFromRawPtr{}};
+      for (auto* manager : sFactory->mManagerList.ForwardRange()) {
+        auto pinnedManager = SafeRefPtr{manager, AcquireStrongRefFromRawPtr{}};
         pinnedManager->Shutdown();
       }
     }
@@ -407,15 +403,15 @@ class Manager::Factory {
     // Iterate in reverse to find the most recent, matching Manager.  This
     // is important when looking for a Closing Manager.  If a new Manager
     // chains to an old Manager we want it to be the most recent one.
-    ManagerList::BackwardIterator iter(sFactory->mManagerList);
-    while (iter.HasMore()) {
-      Manager* manager = iter.GetNext();
-      if (aState == manager->GetState() && *manager->mManagerId == aManagerId) {
-        return {manager, AcquireStrongRefFromRawPtr{}};
-      }
-    }
-
-    return nullptr;
+    const auto range = Reversed(sFactory->mManagerList.NonObservingRange());
+    const auto foundIt = std::find_if(
+        range.begin(), range.end(), [aState, &aManagerId](const auto* manager) {
+          return aState == manager->GetState() &&
+                 *manager->mManagerId == aManagerId;
+        });
+    return foundIt != range.end()
+               ? SafeRefPtr{*foundIt, AcquireStrongRefFromRawPtr{}}
+               : nullptr;
   }
 
   // Singleton created on demand and deleted when last Manager is cleared
@@ -433,8 +429,7 @@ class Manager::Factory {
   // Weak references as we don't want to keep Manager objects alive forever.
   // When a Manager is destroyed it calls Factory::Remove() to clear itself.
   // PBackground thread only.
-  typedef nsTObserverArray<Manager*> ManagerList;
-  ManagerList mManagerList;
+  nsTObserverArray<Manager*> mManagerList;
 
   // This flag is set when we are looping through the list and calling Abort()
   // or Shutdown() on each Manager.  We need to be careful not to synchronously

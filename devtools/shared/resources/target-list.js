@@ -7,8 +7,10 @@
 const Services = require("Services");
 const EventEmitter = require("devtools/shared/event-emitter");
 
+// eslint-disable-next-line mozilla/reject-some-requires
+const { gDevTools } = require("devtools/client/framework/devtools");
+
 const BROWSERTOOLBOX_FISSION_ENABLED = "devtools.browsertoolbox.fission";
-const CONTENTTOOLBOX_FISSION_ENABLED = "devtools.contenttoolbox.fission";
 
 const {
   LegacyProcessesWatcher,
@@ -99,6 +101,7 @@ class TargetList {
     // For now, this is only toggled by tests.
     this.listenForWorkers = false;
     this.listenForServiceWorkers = false;
+    this.destroyServiceWorkersOnNavigation = false;
   }
 
   // Called whenever a new Target front is available.
@@ -171,10 +174,7 @@ class TargetList {
         types = TargetList.ALL_TYPES;
       }
     } else if (this.targetFront.isLocalTab) {
-      const fissionContentToolboxEnabled = Services.prefs.getBoolPref(
-        CONTENTTOOLBOX_FISSION_ENABLED
-      );
-      if (fissionContentToolboxEnabled) {
+      if (gDevTools.isFissionContentToolboxEnabled()) {
         types = [TargetList.TYPES.FRAME];
       }
     }
@@ -423,6 +423,10 @@ class TargetList {
     // Re-register the listeners as the top level target changed
     // and some targets are fetched from it
     await this.startListening();
+  }
+
+  isTargetRegistered(targetFront) {
+    return this._targets.has(targetFront);
   }
 }
 

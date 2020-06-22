@@ -30,6 +30,7 @@ typedef nsTObserverArray<int> IntArray;
         << "During test " << testNum << ", iterator finished too early"; \
   } while (0)
 
+// XXX Split this up into independent test cases
 TEST(ObserverArray, Tests)
 {
   IntArray arr;
@@ -154,6 +155,24 @@ TEST(ObserverArray, Tests)
    * first element.
    * In that case BackwardIterator does not traverse the newly prepended Element
    */
+}
+
+TEST(ObserverArray, ForwardIterator_Remove)
+{
+  static const int expected[] = {3, 4};
+
+  IntArray arr;
+  arr.AppendElement(3);
+  arr.AppendElement(4);
+
+  size_t count = 0;
+  for (auto iter = IntArray::ForwardIterator{arr}; iter.HasMore();) {
+    const int next = iter.GetNext();
+    iter.Remove();
+
+    ASSERT_EQ(expected[count++], next);
+  }
+  ASSERT_EQ(2u, count);
 }
 
 TEST(ObserverArray, RangeBasedFor_Value_Forward_NonEmpty)
@@ -530,3 +549,25 @@ TEST(ObserverArray, RangeBasedFor_NonConstReference_EndLimited_NonEmpty)
   EXPECT_EQ(2u, iterations);
   EXPECT_EQ(7, sum);
 }
+
+TEST(ObserverArray, RangeBasedFor_Reference_NonObserving_NonEmpty)
+{
+  const auto arr = [] {
+    nsTObserverArray<UniquePtr<int>> arr;
+    arr.AppendElement(MakeUnique<int>(3));
+    arr.AppendElement(MakeUnique<int>(4));
+    return arr;
+  }();
+
+  size_t iterations = 0;
+  int sum = 0;
+  for (const UniquePtr<int>& element : arr.NonObservingRange()) {
+    sum += *element;
+    ++iterations;
+  }
+
+  EXPECT_EQ(2u, iterations);
+  EXPECT_EQ(7, sum);
+}
+
+// TODO add tests for EndLimitedIterator

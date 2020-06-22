@@ -2635,7 +2635,13 @@ Nullable<WindowProxyHolder> nsGlobalWindowInner::GetParent(
 }
 
 /**
- * GetInProcessScriptableParent is called when script reads window.parent.
+ * GetInProcessScriptableParent used to be called when a script read
+ * window.parent. Under Fission, that is now handled by
+ * BrowsingContext::GetParent, and the result is a WindowProxyHolder rather than
+ * an actual global window. This method still exists for legacy callers which
+ * relied on the old logic, and require in-process windows. However, it only
+ * works correctly when no out-of-process frames exist between this window and
+ * the top-level window, so it should not be used in new code.
  *
  * In contrast to GetRealParent, GetInProcessScriptableParent respects <iframe
  * mozbrowser> boundaries, so if |this| is contained by an <iframe
@@ -2646,7 +2652,13 @@ nsPIDOMWindowOuter* nsGlobalWindowInner::GetInProcessScriptableParent() {
 }
 
 /**
- * GetInProcessScriptableTop is called when script reads window.top.
+ * GetInProcessScriptableTop used to be called when a script read window.top.
+ * Under Fission, that is now handled by BrowsingContext::Top, and the result is
+ * a WindowProxyHolder rather than an actual global window. This method still
+ * exists for legacy callers which relied on the old logic, and require
+ * in-process windows. However, it only works correctly when no out-of-process
+ * frames exist between this window and the top-level window, so it should not
+ * be used in new code.
  *
  * In contrast to GetRealTop, GetInProcessScriptableTop respects <iframe
  * mozbrowser> boundaries.  If we encounter a window owned by an <iframe
@@ -5682,7 +5694,7 @@ nsIPrincipal* nsGlobalWindowInner::GetTopLevelStorageAreaPrincipal() {
     return nullptr;
   }
 
-  if (!outerWindow->IsTopLevelWindow()) {
+  if (!outerWindow->GetBrowsingContext()->IsTop()) {
     return nullptr;
   }
 
@@ -6765,6 +6777,8 @@ void nsGlobalWindowInner::CancelDocumentFlushedResolvers() {
 }
 
 void nsGlobalWindowInner::DidRefresh() {
+  RefPtr<nsGlobalWindowInner> kungFuDeathGrip(this);
+
   auto rejectionGuard = MakeScopeExit([&] {
     CancelDocumentFlushedResolvers();
     mObservingDidRefresh = false;
@@ -7003,7 +7017,8 @@ void nsGlobalWindowInner::SetReplaceableWindowCoord(
    * just treat this the way we would an IDL replaceable property.
    */
   nsGlobalWindowOuter* outer = GetOuterWindowInternal();
-  if (!outer || !outer->CanMoveResizeWindows(aCallerType) || outer->IsFrame()) {
+  if (!outer || !outer->CanMoveResizeWindows(aCallerType) ||
+      mBrowsingContext->IsFrame()) {
     RedefineProperty(aCx, aPropName, aValue, aError);
     return;
   }

@@ -146,7 +146,7 @@ inline bool typeHasVTable(QualType T) {
   return Offender && Offender->hasDefinition() && Offender->isDynamicClass();
 }
 
-inline std::string getDeclarationNamespace(const Decl *Declaration) {
+inline StringRef getDeclarationNamespace(const Decl *Declaration) {
   const DeclContext *DC =
       Declaration->getDeclContext()->getEnclosingNamespaceContext();
   const NamespaceDecl *ND = dyn_cast<NamespaceDecl>(DC);
@@ -166,7 +166,7 @@ inline std::string getDeclarationNamespace(const Decl *Declaration) {
 }
 
 inline bool isInIgnoredNamespaceForImplicitCtor(const Decl *Declaration) {
-  std::string Name = getDeclarationNamespace(Declaration);
+  StringRef Name = getDeclarationNamespace(Declaration);
   if (Name == "") {
     return false;
   }
@@ -176,7 +176,7 @@ inline bool isInIgnoredNamespaceForImplicitCtor(const Decl *Declaration) {
          Name == "boost" ||             // boost
          Name == "webrtc" ||            // upstream webrtc
          Name == "rtc" ||               // upstream webrtc 'base' package
-         Name.substr(0, 4) == "icu_" || // icu
+         Name.startswith("icu_") ||     // icu
          Name == "google" ||            // protobuf
          Name == "google_breakpad" ||   // breakpad
          Name == "soundtouch" ||        // libsoundtouch
@@ -191,7 +191,7 @@ inline bool isInIgnoredNamespaceForImplicitCtor(const Decl *Declaration) {
 }
 
 inline bool isInIgnoredNamespaceForImplicitConversion(const Decl *Declaration) {
-  std::string Name = getDeclarationNamespace(Declaration);
+  StringRef Name = getDeclarationNamespace(Declaration);
   if (Name == "") {
     return false;
   }

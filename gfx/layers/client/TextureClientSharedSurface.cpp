@@ -14,26 +14,23 @@
 #include "nsThreadUtils.h"
 #include "SharedSurface.h"
 
-#ifdef MOZ_WIDGET_GONK
-#include "SharedSurfaceGralloc.h"
-#endif
-
 using namespace mozilla::gl;
 
 namespace mozilla {
 namespace layers {
 
 SharedSurfaceTextureData::SharedSurfaceTextureData(
-    UniquePtr<gl::SharedSurface> surf)
-    : mSurf(std::move(surf)) {}
+    const SurfaceDescriptor& desc, const gfx::SurfaceFormat format,
+    const gfx::IntSize size)
+    : mDesc(desc), mFormat(format), mSize(size) {}
 
 SharedSurfaceTextureData::~SharedSurfaceTextureData() = default;
 
 void SharedSurfaceTextureData::Deallocate(LayersIPCChannel*) {}
 
 void SharedSurfaceTextureData::FillInfo(TextureData::Info& aInfo) const {
-  aInfo.size = mSurf->mSize;
-  aInfo.format = gfx::SurfaceFormat::UNKNOWN;
+  aInfo.size = mSize;
+  aInfo.format = mFormat;
   aInfo.hasIntermediateBuffer = false;
   aInfo.hasSynchronization = false;
   aInfo.supportsMoz2D = false;
@@ -41,36 +38,34 @@ void SharedSurfaceTextureData::FillInfo(TextureData::Info& aInfo) const {
 }
 
 bool SharedSurfaceTextureData::Serialize(SurfaceDescriptor& aOutDescriptor) {
-  return mSurf->ToSurfaceDescriptor(&aOutDescriptor);
+  aOutDescriptor = mDesc;
+  return true;
 }
 
 #ifdef MOZ_WIDGET_GONK
 GrallocTextureData* SharedSurfaceTextureData::AsGrallocTextureData() {
-  auto* surf = mSurf->AsSharedSurface_Gralloc();
-  if (!surf) {
-    return nullptr;
-  }
-  return surf->GetGrallocTextureData();
+  // auto* surf = mSurf->AsSharedSurface_Gralloc();
+  // if (!surf) {
+  //   return nullptr;
+  // }
+  // return surf->GetGrallocTextureData();
+  return nullptr;
 }
 #endif
 
-SharedSurfaceTextureClient::SharedSurfaceTextureClient(
-    SharedSurfaceTextureData* aData, TextureFlags aFlags,
-    LayersIPCChannel* aAllocator)
-    : TextureClient(aData, aFlags, aAllocator) {
-  mWorkaroundAnnoyingSharedSurfaceLifetimeIssues = true;
+/*
+static TextureFlags FlagsFrom(const SharedSurfaceDescriptor& desc) {
+  auto flags = TextureFlags::ORIGIN_BOTTOM_LEFT;
+  if (!desc.isPremultAlpha) {
+    flags |= TextureFlags::NON_PREMULTIPLIED;
+  }
+  return flags;
 }
 
-already_AddRefed<SharedSurfaceTextureClient> SharedSurfaceTextureClient::Create(
-    UniquePtr<gl::SharedSurface> surf, gl::SurfaceFactory* factory,
-    LayersIPCChannel* aAllocator, TextureFlags aFlags) {
-  if (!surf) {
-    return nullptr;
-  }
-  TextureFlags flags = aFlags | TextureFlags::RECYCLE | surf->GetTextureFlags();
-  SharedSurfaceTextureData* data =
-      new SharedSurfaceTextureData(std::move(surf));
-  return MakeAndAddRef<SharedSurfaceTextureClient>(data, flags, aAllocator);
+SharedSurfaceTextureClient::SharedSurfaceTextureClient(
+    const SharedSurfaceDescriptor& aDesc, LayersIPCChannel* aAllocator)
+    : TextureClient(new SharedSurfaceTextureData(desc), FlagsFrom(desc),
+aAllocator) { mWorkaroundAnnoyingSharedSurfaceLifetimeIssues = true;
 }
 
 SharedSurfaceTextureClient::~SharedSurfaceTextureClient() {
@@ -94,6 +89,7 @@ SharedSurfaceTextureClient::~SharedSurfaceTextureClient() {
     delete data;
   }
 }
+*/
 
 }  // namespace layers
 }  // namespace mozilla

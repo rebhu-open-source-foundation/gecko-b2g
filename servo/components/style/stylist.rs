@@ -15,7 +15,7 @@ use crate::invalidation::element::invalidation_map::InvalidationMap;
 use crate::invalidation::media_queries::{EffectiveMediaQueryResults, ToMediaListKey};
 use crate::media_queries::Device;
 use crate::properties::{self, CascadeMode, ComputedValues};
-use crate::properties::{AnimationRules, PropertyDeclarationBlock};
+use crate::properties::{AnimationDeclarations, PropertyDeclarationBlock};
 use crate::rule_cache::{RuleCache, RuleCacheConditions};
 use crate::rule_collector::{containing_shadow_ignoring_svg_use, RuleCollector};
 use crate::rule_tree::{CascadeLevel, RuleTree, StrongRuleNode, StyleSource};
@@ -33,8 +33,8 @@ use crate::stylesheets::{CounterStyleRule, FontFaceRule, FontFeatureValuesRule, 
 use crate::stylesheets::{CssRule, Origin, OriginSet, PerOrigin, PerOriginIter};
 use crate::thread_state::{self, ThreadState};
 use crate::{Atom, LocalName, Namespace, WeakAtom};
-use fallible::{FallibleHashMap, FallibleVec};
-use hashbrown::CollectionAllocErr;
+use fallible::FallibleVec;
+use hashglobe::FailedAllocationError;
 use malloc_size_of::MallocSizeOf;
 #[cfg(feature = "gecko")]
 use malloc_size_of::{MallocShallowSizeOf, MallocSizeOfOps, MallocUnconditionalShallowSizeOf};
@@ -88,7 +88,7 @@ impl UserAgentCascadeDataCache {
         device: &Device,
         quirks_mode: QuirksMode,
         guard: &SharedRwLockReadGuard,
-    ) -> Result<Arc<UserAgentCascadeData>, CollectionAllocErr>
+    ) -> Result<Arc<UserAgentCascadeData>, FailedAllocationError>
     where
         I: Iterator<Item = &'a S> + Clone,
         S: StylesheetInDocument + ToMediaListKey + PartialEq + 'static,
@@ -260,7 +260,7 @@ impl DocumentCascadeData {
         quirks_mode: QuirksMode,
         mut flusher: DocumentStylesheetFlusher<'a, S>,
         guards: &StylesheetGuards,
-    ) -> Result<(), CollectionAllocErr>
+    ) -> Result<(), FailedAllocationError>
     where
         S: StylesheetInDocument + ToMediaListKey + PartialEq + 'static,
     {
@@ -974,7 +974,7 @@ impl Stylist {
             Some(&pseudo),
             None,
             None,
-            AnimationRules(None, None),
+            /* animation_declarations = */ Default::default(),
             rule_inclusion,
             &mut declarations,
             &mut matching_context,
@@ -1004,7 +1004,7 @@ impl Stylist {
                 Some(&pseudo),
                 None,
                 None,
-                AnimationRules(None, None),
+                /* animation_declarations = */ Default::default(),
                 rule_inclusion,
                 &mut declarations,
                 &mut matching_context,
@@ -1127,7 +1127,7 @@ impl Stylist {
         pseudo_element: Option<&PseudoElement>,
         style_attribute: Option<ArcBorrow<Locked<PropertyDeclarationBlock>>>,
         smil_override: Option<ArcBorrow<Locked<PropertyDeclarationBlock>>>,
-        animation_rules: AnimationRules,
+        animation_declarations: AnimationDeclarations,
         rule_inclusion: RuleInclusion,
         applicable_declarations: &mut ApplicableDeclarationList,
         context: &mut MatchingContext<E::Impl>,
@@ -1142,7 +1142,7 @@ impl Stylist {
             pseudo_element,
             style_attribute,
             smil_override,
-            animation_rules,
+            animation_declarations,
             rule_inclusion,
             applicable_declarations,
             context,
@@ -1835,7 +1835,7 @@ impl CascadeData {
         quirks_mode: QuirksMode,
         collection: SheetCollectionFlusher<S>,
         guard: &SharedRwLockReadGuard,
-    ) -> Result<(), CollectionAllocErr>
+    ) -> Result<(), FailedAllocationError>
     where
         S: StylesheetInDocument + ToMediaListKey + PartialEq + 'static,
     {
@@ -1972,7 +1972,7 @@ impl CascadeData {
         guard: &SharedRwLockReadGuard,
         rebuild_kind: SheetRebuildKind,
         mut precomputed_pseudo_element_decls: Option<&mut PrecomputedPseudoElementDeclarations>,
-    ) -> Result<(), CollectionAllocErr>
+    ) -> Result<(), FailedAllocationError>
     where
         S: StylesheetInDocument + ToMediaListKey + 'static,
     {

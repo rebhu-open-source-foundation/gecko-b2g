@@ -67,7 +67,7 @@ firefox-accounts-bridge = { path = "../../../../services/fxaccounts/rust-bridge/
 
 # Build it on Gonk for now.
 # [target.'cfg(not(target_os = "android"))'.dependencies]
-viaduct = { git = "https://github.com/mozilla/application-services", rev = "e8d7530319fa6c20d9de78d031c9398630eca3cd"}
+viaduct = { git = "https://github.com/mozilla/application-services", rev = "61dcc364ac0d6d0816ab88a494bbf20d824b009b"}
 webext_storage_bridge = { path = "../../../components/extensions/storage/webext_storage_bridge" }
 
 # Gecko <-> SIDL integration

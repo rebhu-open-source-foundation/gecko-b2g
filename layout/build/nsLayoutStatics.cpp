@@ -48,7 +48,6 @@
 #include "nsHTMLDNSPrefetch.h"
 #include "nsHtml5Module.h"
 #include "nsHTMLTags.h"
-#include "mozilla/dom/FallbackEncoding.h"
 #include "nsFocusManager.h"
 #include "nsListControlFrame.h"
 #include "mozilla/dom/HTMLInputElement.h"
@@ -236,7 +235,6 @@ nsresult nsLayoutStatics::Initialize() {
   CubebUtils::InitLibrary();
 
   nsHtml5Module::InitializeStatics();
-  mozilla::dom::FallbackEncoding::Initialize();
   nsLayoutUtils::Initialize();
   PointerEventHandler::InitializeStatics();
   TouchManager::InitializeStatics();
@@ -384,8 +382,6 @@ void nsLayoutStatics::Shutdown() {
   nsTreeSanitizer::ReleaseStatics();
 
   nsHtml5Module::ReleaseStatics();
-
-  mozilla::dom::FallbackEncoding::Shutdown();
 
   mozilla::EventDispatcher::Shutdown();
 

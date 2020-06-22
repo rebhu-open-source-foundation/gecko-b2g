@@ -461,8 +461,6 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
     return GetBrowsingContext()->HadOriginalOpener();
   }
 
-  bool IsTopLevelWindow();
-
   virtual void FirePopupBlockedEvent(
       Document* aDoc, nsIURI* aPopupURI, const nsAString& aPopupWindowName,
       const nsAString& aPopupWindowFeatures) override;
@@ -811,10 +809,6 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
                        const nsAString& aPopupWindowName,
                        const nsAString& aPopupWindowFeatures);
 
- private:
-  void ReportLargeAllocStatus();
-
- public:
   void FlushPendingNotifications(mozilla::FlushType aType);
 
   // Outer windows only.
@@ -856,8 +850,6 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
                     mozilla::ErrorResult& aError);
   nsRect GetInnerScreenRect();
   static Maybe<mozilla::CSSIntSize> GetRDMDeviceSize(const Document& aDocument);
-
-  bool IsFrame();
 
   // Outer windows only.
   // If aLookForCallerOnJSStack is true, this method will look at the JS stack
@@ -1190,15 +1182,6 @@ inline nsGlobalWindowInner* nsGlobalWindowOuter::GetCurrentInnerWindowInternal()
 
 inline nsGlobalWindowInner* nsGlobalWindowOuter::EnsureInnerWindowInternal() {
   return nsGlobalWindowInner::Cast(EnsureInnerWindow());
-}
-
-inline bool nsGlobalWindowOuter::IsTopLevelWindow() {
-  nsPIDOMWindowOuter* parentWindow = GetInProcessScriptableTop();
-  return parentWindow == this;
-}
-
-inline bool nsGlobalWindowOuter::IsFrame() {
-  return GetInProcessParentInternal() != nullptr;
 }
 
 inline void nsGlobalWindowOuter::MaybeClearInnerWindow(

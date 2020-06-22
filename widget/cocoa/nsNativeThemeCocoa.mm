@@ -2733,15 +2733,6 @@ Maybe<nsNativeThemeCocoa::WidgetInfo> nsNativeThemeCocoa::ComputeWidgetInfo(
   EventStates eventState = GetContentState(aFrame, aAppearance);
 
   switch (aAppearance) {
-    case StyleAppearance::Dialog:
-      if (IsWindowSheet(aFrame)) {
-        if (VibrancyManager::SystemSupportsVibrancy()) {
-          return Nothing();
-        }
-        return Some(WidgetInfo::SheetBackground());
-      }
-      return Some(WidgetInfo::DialogBackground());
-
     case StyleAppearance::Menupopup:
       if (VibrancyManager::SystemSupportsVibrancy()) {
         return Nothing();
@@ -3083,11 +3074,8 @@ Maybe<nsNativeThemeCocoa::WidgetInfo> nsNativeThemeCocoa::ComputeWidgetInfo(
 
     case StyleAppearance::MozMacSourceListSelection:
     case StyleAppearance::MozMacActiveSourceListSelection: {
-      // If we're in XUL tree, we need to rely on the source list's clear
-      // background display item. If we cleared the background behind the
-      // selections, the source list would not pick up the right font
-      // smoothing background. So, to simplify a bit, we only support vibrancy
-      // if we're in a source list.
+      // We only support vibrancy for source list selections if we're inside
+      // a source list, because we need the background to be transparent.
       if (VibrancyManager::SystemSupportsVibrancy() && IsInSourceList(aFrame)) {
         return Nothing();
       }
@@ -3178,16 +3166,6 @@ void nsNativeThemeCocoa::RenderWidget(const WidgetInfo& aWidgetInfo, DrawTarget&
     case Widget::eColorFill: {
       sRGBColor params = aWidgetInfo.Params<sRGBColor>();
       SetCGContextFillColor(cgContext, params);
-      CGContextFillRect(cgContext, macRect);
-      break;
-    }
-    case Widget::eSheetBackground: {
-      HIThemeSetFill(kThemeBrushSheetBackgroundTransparent, NULL, cgContext, HITHEME_ORIENTATION);
-      CGContextFillRect(cgContext, macRect);
-      break;
-    }
-    case Widget::eDialogBackground: {
-      HIThemeSetFill(kThemeBrushDialogBackgroundActive, NULL, cgContext, HITHEME_ORIENTATION);
       CGContextFillRect(cgContext, macRect);
       break;
     }
@@ -3407,12 +3385,6 @@ bool nsNativeThemeCocoa::CreateWebRenderCommandsForWidget(
   //  - If the case in DrawWidgetBackground draws something complicated for the
   //    given widget type, return false here.
   switch (aAppearance) {
-    case StyleAppearance::Dialog:
-      if (IsWindowSheet(aFrame) && VibrancyManager::SystemSupportsVibrancy()) {
-        return true;
-      }
-      return false;
-
     case StyleAppearance::Menupopup:
       if (VibrancyManager::SystemSupportsVibrancy()) {
         return true;
@@ -4306,32 +4278,6 @@ bool nsNativeThemeCocoa::IsWindowSheet(nsIFrame* aFrame) {
   return (widget->WindowType() == eWindowType_sheet);
 }
 
-bool nsNativeThemeCocoa::NeedToClearBackgroundBehindWidget(nsIFrame* aFrame,
-                                                           StyleAppearance aAppearance) {
-  switch (aAppearance) {
-    case StyleAppearance::MozMacSourceList:
-    // If we're in a XUL tree, we don't want to clear the background behind the
-    // selections below, since that would make our source list to not pick up
-    // the right font smoothing background. But since we don't call this method
-    // in nsTreeBodyFrame::BuildDisplayList, we never get here.
-    case StyleAppearance::MozMacSourceListSelection:
-    case StyleAppearance::MozMacActiveSourceListSelection:
-    case StyleAppearance::MozMacVibrancyLight:
-    case StyleAppearance::MozMacVibrancyDark:
-    case StyleAppearance::MozMacVibrantTitlebarLight:
-    case StyleAppearance::MozMacVibrantTitlebarDark:
-    case StyleAppearance::Tooltip:
-    case StyleAppearance::Menupopup:
-    case StyleAppearance::Menuitem:
-    case StyleAppearance::Checkmenuitem:
-      return true;
-    case StyleAppearance::Dialog:
-      return IsWindowSheet(aFrame);
-    default:
-      return false;
-  }
-}
-
 nsITheme::ThemeGeometryType nsNativeThemeCocoa::ThemeGeometryTypeForWidget(
     nsIFrame* aFrame, StyleAppearance aAppearance) {
   switch (aAppearance) {
@@ -4384,10 +4330,8 @@ nsITheme::Transparency nsNativeThemeCocoa::GetWidgetTransparency(nsIFrame* aFram
   switch (aAppearance) {
     case StyleAppearance::Menupopup:
     case StyleAppearance::Tooltip:
-      return eTransparent;
-
     case StyleAppearance::Dialog:
-      return IsWindowSheet(aFrame) ? eTransparent : eOpaque;
+      return eTransparent;
 
     case StyleAppearance::ScrollbarSmall:
     case StyleAppearance::Scrollbar:

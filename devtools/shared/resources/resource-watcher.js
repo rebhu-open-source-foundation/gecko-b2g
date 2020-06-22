@@ -5,7 +5,9 @@
 "use strict";
 
 const EventEmitter = require("devtools/shared/event-emitter");
-const Services = require("Services");
+
+// eslint-disable-next-line mozilla/reject-some-requires
+const { gDevTools } = require("devtools/client/framework/devtools");
 
 // eslint-disable-next-line mozilla/reject-some-requires
 loader.lazyRequireGetter(
@@ -45,16 +47,6 @@ class ResourceWatcher {
     // Cache for all resources by the order that the resource was taken.
     this._cache = [];
     this._listenerCount = new Map();
-  }
-
-  get contentToolboxFissionPrefValue() {
-    if (!this._contentToolboxFissionPrefValue) {
-      this._contentToolboxFissionPrefValue = Services.prefs.getBoolPref(
-        "devtools.contenttoolbox.fission",
-        false
-      );
-    }
-    return this._contentToolboxFissionPrefValue;
   }
 
   /**
@@ -359,7 +351,7 @@ class ResourceWatcher {
     return LegacyListeners[resourceType]({
       targetList: this.targetList,
       targetFront,
-      isFissionEnabledOnContentToolbox: this.contentToolboxFissionPrefValue,
+      isFissionEnabledOnContentToolbox: gDevTools.isFissionContentToolboxEnabled(),
       onAvailable,
     });
   }
@@ -422,6 +414,7 @@ class ResourceWatcher {
 ResourceWatcher.TYPES = ResourceWatcher.prototype.TYPES = {
   CONSOLE_MESSAGE: "console-message",
   CSS_CHANGE: "css-change",
+  CSS_MESSAGE: "css-message",
   ERROR_MESSAGE: "error-message",
   PLATFORM_MESSAGE: "platform-message",
   DOCUMENT_EVENT: "document-event",
@@ -437,6 +430,8 @@ const LegacyListeners = {
     .CONSOLE_MESSAGE]: require("devtools/shared/resources/legacy-listeners/console-messages"),
   [ResourceWatcher.TYPES
     .CSS_CHANGE]: require("devtools/shared/resources/legacy-listeners/css-changes"),
+  [ResourceWatcher.TYPES
+    .CSS_MESSAGE]: require("devtools/shared/resources/legacy-listeners/css-messages"),
   [ResourceWatcher.TYPES
     .ERROR_MESSAGE]: require("devtools/shared/resources/legacy-listeners/error-messages"),
   [ResourceWatcher.TYPES

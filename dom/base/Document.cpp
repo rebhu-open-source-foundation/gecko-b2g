@@ -2352,10 +2352,6 @@ nsresult Document::Init() {
       static_cast<nsIMutationObserver*>(this));
 
   mOnloadBlocker = new OnloadBlocker();
-  mCSSLoader = new css::Loader(this);
-  // Assume we're not quirky, until we know otherwise
-  mCSSLoader->SetCompatibilityMode(eCompatibility_FullStandards);
-
   mStyleImageLoader = new css::ImageLoader(this);
 
   mNodeInfoManager = new nsNodeInfoManager();
@@ -2369,6 +2365,10 @@ nsresult Document::Init() {
              "Bad NodeType in aNodeInfo");
 
   NS_ASSERTION(OwnerDoc() == this, "Our nodeinfo is busted!");
+
+  mCSSLoader = new css::Loader(this);
+  // Assume we're not quirky, until we know otherwise
+  mCSSLoader->SetCompatibilityMode(eCompatibility_FullStandards);
 
   // If after creation the owner js global is not set for a document
   // we use the default compartment for this document, instead of creating
@@ -2643,24 +2643,17 @@ already_AddRefed<nsIPrincipal> Document::MaybeDowngradePrincipal(
     return do_AddRef(expanded->AllowList().LastElement());
   }
 
-  if (aPrincipal->IsSystemPrincipal()) {
+  if (aPrincipal->IsSystemPrincipal() && mDocumentContainer) {
     // We basically want the parent document here, but because this is very
     // early in the load, GetInProcessParentDocument() returns null, so we use
     // the docshell hierarchy to get this information instead.
-    if (mDocumentContainer) {
-      nsCOMPtr<nsIDocShellTreeItem> parentDocShellItem;
-      mDocumentContainer->GetInProcessParent(
-          getter_AddRefs(parentDocShellItem));
-      nsCOMPtr<nsIDocShell> parentDocShell =
-          do_QueryInterface(parentDocShellItem);
-      if (parentDocShell) {
-        nsCOMPtr<Document> parentDoc;
-        parentDoc = parentDocShell->GetDocument();
-        if (!parentDoc || !parentDoc->NodePrincipal()->IsSystemPrincipal()) {
-          nsCOMPtr<nsIPrincipal> nullPrincipal =
-              do_CreateInstance("@mozilla.org/nullprincipal;1");
-          return nullPrincipal.forget();
-        }
+    if (RefPtr<BrowsingContext> parent =
+            mDocumentContainer->GetBrowsingContext()->GetParent()) {
+      auto* parentWin = nsGlobalWindowOuter::Cast(parent->GetDOMWindow());
+      if (!parentWin || !parentWin->GetPrincipal()->IsSystemPrincipal()) {
+        nsCOMPtr<nsIPrincipal> nullPrincipal =
+            do_CreateInstance("@mozilla.org/nullprincipal;1");
+        return nullPrincipal.forget();
       }
     }
   }
@@ -2817,12 +2810,6 @@ void Document::FillStyleSetUserAndUASheets() {
   mStyleSet->AppendStyleSheet(*cache->FormsSheet());
   mStyleSet->AppendStyleSheet(*cache->ScrollbarsSheet());
   mStyleSet->AppendStyleSheet(*cache->PluginProblemSheet());
-
-  if (StyleSheet* sheet = cache->GetGeckoViewSheet()) {
-    if (!StaticPrefs::widget_disable_native_theme_for_content()) {
-      mStyleSet->AppendStyleSheet(*sheet);
-    }
-  }
 
   for (StyleSheet* sheet : *sheetService->AgentStyleSheets()) {
     mStyleSet->AppendStyleSheet(*sheet);
@@ -3727,8 +3714,13 @@ void Document::SetPrincipals(nsIPrincipal* aNewPrincipal,
       mAllowDNSPrefetch = false;
     }
   }
+
+  mCSSLoader->DeregisterFromSheetCache();
+
   mNodeInfoManager->SetDocumentPrincipal(aNewPrincipal);
   mPartitionedPrincipal = aNewPartitionedPrincipal;
+
+  mCSSLoader->RegisterInSheetCache();
 
   ContentBlockingAllowList::ComputePrincipal(
       aNewPrincipal, getter_AddRefs(mContentBlockingAllowListPrincipal));
@@ -11415,9 +11407,9 @@ void Document::MaybePreLoadImage(nsIURI* aUri,
     // Check if the image was already preloaded in this document to avoid
     // duplicate preloading.
     PreloadHashKey key = PreloadHashKey::CreateAsImage(
-        aUri, NodePrincipal(), dom::Element::StringToCORSMode(aCrossOriginAttr),
-        aReferrerPolicy);
-    if (!mPreloadService.PreloadExists(&key)) {
+        aUri, NodePrincipal(),
+        dom::Element::StringToCORSMode(aCrossOriginAttr));
+    if (!mPreloadService.PreloadExists(key)) {
       PreLoadImage(aUri, aCrossOriginAttr, aReferrerPolicy, aIsImgSet,
                    aLinkPreload);
     }
@@ -15412,7 +15404,7 @@ class UserIntractionTimer final : public Runnable,
   }
 
   static already_AddRefed<nsIAsyncShutdownClient> GetShutdownPhase() {
-    nsCOMPtr<nsIAsyncShutdownService> svc = services::GetAsyncShutdown();
+    nsCOMPtr<nsIAsyncShutdownService> svc = services::GetAsyncShutdownService();
     NS_ENSURE_TRUE(!!svc, nullptr);
 
     nsCOMPtr<nsIAsyncShutdownClient> phase;

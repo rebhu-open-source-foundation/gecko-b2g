@@ -58,6 +58,7 @@ SIGNING_SCOPE_ALIAS_TO_PROJECT = [[
         'mozilla-beta',
         'mozilla-release',
         'mozilla-esr68',
+        'mozilla-esr78',
         'comm-beta',
         'comm-esr68',
     ])
@@ -95,6 +96,7 @@ BEETMOVER_SCOPE_ALIAS_TO_PROJECT = [[
         'mozilla-beta',
         'mozilla-release',
         'mozilla-esr68',
+        'mozilla-esr78',
         'comm-beta',
         'comm-esr68',
     ])
@@ -143,6 +145,10 @@ BALROG_SCOPE_ALIAS_TO_PROJECT = [[
 ], [
     'esr68', set([
         'mozilla-esr68',
+    ])
+], [
+    'esr78', set([
+        'mozilla-esr78',
     ])
 ]]
 
@@ -314,7 +320,6 @@ def get_release_config(config):
 
     partial_updates = os.environ.get("PARTIAL_UPDATES", "")
     if partial_updates != "" and config.kind in ('release-bouncer-sub',
-                                                 'release-bouncer-sub-nazgul',
                                                  'release-bouncer-check',
                                                  'release-update-verify-config',
                                                  'release-secondary-update-verify-config',

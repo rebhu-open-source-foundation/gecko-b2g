@@ -210,6 +210,10 @@ button > hbox > label {
   list-style-image: url("chrome://browser/skin/preferences/sync.svg");
 }
 
+#category-experimental > .category-icon {
+  list-style-image: url("chrome://mozapps/skin/extensions/category-experiments.svg");
+}
+
 /* header */
 .header {
   display: flex;
@@ -1103,4 +1107,37 @@ richlistitem .text-link:hover {
 #proxy-grid > .thin {
   grid-column: span 2;
   height: 20px;
+}
+
+#pane-experimental-subtitle {
+  background-image: url("chrome://global/skin/icons/warning.svg");
+  background-repeat: no-repeat;
+  background-position: 0 center;
+  background-size: contain;
+  min-height: 30px;
+  padding-inline-start: 38px;
+  display: flex;
+  align-items: center;
+}
+
+#pane-experimental-featureGates {
+  margin-top: 16px;
+}
+
+.featureGate {
+  display: grid;
+  grid-template-columns: min-content 1fr;
+  margin-bottom: 16px;
+}
+
+.featureGateCheckbox {
+  align-self: center;
+}
+
+.featureGateTitle {
+  font-size: 1.14em;
+}
+
+.featureGateDescription {
+  grid-column: 2;
 }

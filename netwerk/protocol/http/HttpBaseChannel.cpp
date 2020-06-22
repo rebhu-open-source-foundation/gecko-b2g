@@ -2166,10 +2166,22 @@ nsresult HttpBaseChannel::ProcessCrossOriginResourcePolicyHeader() {
   if (mLoadInfo->GetExternalContentPolicyType() ==
           nsIContentPolicy::TYPE_DOCUMENT ||
       mLoadInfo->GetExternalContentPolicyType() ==
-          nsIContentPolicy::TYPE_SUBDOCUMENT ||
-      mLoadInfo->GetExternalContentPolicyType() ==
           nsIContentPolicy::TYPE_WEBSOCKET) {
     return NS_OK;
+  }
+
+  if (mLoadInfo->GetExternalContentPolicyType() ==
+      nsIContentPolicy::TYPE_SUBDOCUMENT) {
+    // COEP pref off, skip CORP checking for subdocument.
+    if (!StaticPrefs::browser_tabs_remote_useCrossOriginEmbedderPolicy()) {
+      return NS_OK;
+    }
+    // COEP 3.2.1.2 when request targets a nested browsing context then embedder
+    // policy value is "unsafe-none", then return allowed.
+    if (mLoadInfo->GetLoadingEmbedderPolicy() ==
+        nsILoadInfo::EMBEDDER_POLICY_NULL) {
+      return NS_OK;
+    }
   }
 
   MOZ_ASSERT(mLoadInfo->GetLoadingPrincipal(),
@@ -2182,9 +2194,9 @@ nsresult HttpBaseChannel::ProcessCrossOriginResourcePolicyHeader() {
   Unused << mResponseHead->GetHeader(nsHttp::Cross_Origin_Resource_Policy,
                                      content);
 
-  // 3.2.1.6 If policy is null, and embedder policy is "require-corp", set
-  // policy to "same-origin".
   if (StaticPrefs::browser_tabs_remote_useCrossOriginEmbedderPolicy()) {
+    // COEP 3.2.1.6 If policy is null, and embedder policy is "require-corp",
+    // set policy to "same-origin".
     // Note that we treat invalid value as "cross-origin", which spec
     // indicates. We might want to make that stricter.
     if (content.IsEmpty() && mLoadInfo->GetLoadingEmbedderPolicy() ==
@@ -2322,12 +2334,16 @@ nsresult HttpBaseChannel::ComputeCrossOriginOpenerPolicyMismatch() {
         ("HttpBaseChannel::HasCrossOriginOpenerPolicyMismatch - "
          "doc:%d result:%d - compare:%d\n",
          documentPolicy, resultPolicy, compareResult));
-    nsAutoCString docOrigin;
+    nsAutoCString docOrigin("(null)");
     nsCOMPtr<nsIURI> uri = documentOrigin->GetURI();
-    uri->GetSpec(docOrigin);
-    nsAutoCString resOrigin;
+    if (uri) {
+      uri->GetSpec(docOrigin);
+    }
+    nsAutoCString resOrigin("(null)");
     uri = resultOrigin->GetURI();
-    uri->GetSpec(resOrigin);
+    if (uri) {
+      uri->GetSpec(resOrigin);
+    }
     LOG(("doc origin:%s - res origin: %s\n", docOrigin.get(), resOrigin.get()));
   }
 

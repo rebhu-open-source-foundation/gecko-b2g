@@ -6,10 +6,8 @@ from __future__ import absolute_import
 
 import os
 import re
-import sys
 from os.path import expanduser
 
-import mozpack.path as mozpath
 import sentry_sdk
 from mozboot.util import get_state_dir
 from six import string_types
@@ -19,7 +17,7 @@ from six.moves.configparser import SafeConfigParser, NoOptionError
 _SENTRY_DSN = "https://8228c9aff64949c2ba4a2154dc515f55@sentry.prod.mozaws.net/525"
 
 
-def register_sentry(topsrcdir=None):
+def register_sentry(argv, topsrcdir=None):
     cfg_file = os.path.join(get_state_dir(), 'machrc')
     config = SafeConfigParser()
 
@@ -36,10 +34,11 @@ def register_sentry(topsrcdir=None):
 
     sentry_sdk.init(_SENTRY_DSN,
                     before_send=lambda event, _: _process_event(event, topsrcdir))
+    sentry_sdk.add_breadcrumb(message="./mach {}".format(" ".join(argv)))
 
 
 def _process_event(sentry_event, topsrcdir):
-    for map_fn in (_settle_mach_module_id, _patch_absolute_paths):
+    for map_fn in (_settle_mach_module_id, _patch_absolute_paths, _delete_server_name):
         sentry_event = map_fn(sentry_event, topsrcdir)
     return sentry_event
 
@@ -63,11 +62,6 @@ def _settle_mach_module_id(sentry_event, _):
     return sentry_event
 
 
-def _resolve_topobjdir():
-    topobjdir = os.path.join(os.path.dirname(sys.prefix), "..")
-    return mozpath.normsep(os.path.normpath(topobjdir))
-
-
 def _patch_absolute_paths(sentry_event, topsrcdir):
     # As discussed here (https://bugzilla.mozilla.org/show_bug.cgi?id=1636251#c28),
     # we remove usernames from file names with a best-effort basis. The most likely
@@ -83,17 +77,16 @@ def _patch_absolute_paths(sentry_event, topsrcdir):
         elif isinstance(value, dict):
             for key in list(value.keys()):
                 next_value = value.pop(key)
-                key = key.replace(needle, replacement)
+                key = needle.sub(replacement, key)
                 value[key] = recursive_patch(next_value, needle, replacement)
             return value
         elif isinstance(value, string_types):
-            return value.replace(needle, replacement)
+            return needle.sub(replacement, value)
         else:
             return value
 
     for (needle, replacement) in (
             (get_state_dir(), "<statedir>"),
-            (_resolve_topobjdir(), "<topobjdir>"),
             (topsrcdir, "<topsrcdir>"),
             (expanduser("~"), "~"),
             # Sentry converts "vars" to their "representations". When paths are in local
@@ -105,7 +98,13 @@ def _patch_absolute_paths(sentry_event, topsrcdir):
     ):
         if needle is None:
             continue  # topsrcdir isn't always defined
-        sentry_event = recursive_patch(sentry_event, needle, replacement)
+        needle_regex = re.compile(re.escape(needle), re.IGNORECASE)
+        sentry_event = recursive_patch(sentry_event, needle_regex, replacement)
+    return sentry_event
+
+
+def _delete_server_name(sentry_event, _):
+    sentry_event.pop("server_name")
     return sentry_event
 
 

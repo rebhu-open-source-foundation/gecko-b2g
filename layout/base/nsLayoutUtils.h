@@ -921,6 +921,8 @@ class nsLayoutUtils {
    * aAncestor. Computes the bounding-box of the true quadrilateral.
    * Pass non-null aPreservesAxisAlignedRectangles and it will be set to true if
    * we only need to use a 2d transform that PreservesAxisAlignedRectangles().
+   * The corner positions of aRect are treated as meaningful even if aRect is
+   * empty.
    *
    * |aMatrixCache| allows for optimizations in recomputing the same matrix over
    * and over. The argument can be one of the following values:
@@ -1017,6 +1019,15 @@ class nsLayoutUtils {
    */
   static const nsIFrame* FindNearestCommonAncestorFrame(
       const nsIFrame* aFrame1, const nsIFrame* aFrame2);
+
+  /**
+   * Find the nearest common ancestor frame for aFrame1 and aFrame2, assuming
+   * that they are within the same block.
+   *
+   * Returns null if they are not within the same block.
+   */
+  static const nsIFrame* FindNearestCommonAncestorFrameWithinBlock(
+      const nsTextFrame* aFrame1, const nsTextFrame* aFrame2);
 
   /**
    * Transforms a list of CSSPoints from aFromFrame to aToFrame, taking into
@@ -2695,7 +2706,8 @@ class nsLayoutUtils {
    * are likely to need special-case handling of the RCD-RSF.
    */
   static nsSize CalculateCompositionSizeForFrame(
-      nsIFrame* aFrame, bool aSubtractScrollbars = true);
+      nsIFrame* aFrame, bool aSubtractScrollbars = true,
+      const nsSize* aOverrideScrollPortSize = nullptr);
 
   /**
    * Calculate the composition size for the root scroll frame of the root
@@ -2863,13 +2875,6 @@ class nsLayoutUtils {
       mozilla::WritingMode aFrameWM);
 
   static bool HasDocumentLevelListenersForApzAwareEvents(PresShell* aPresShell);
-
-  /**
-   * Set the viewport size for the purpose of clamping the scroll position
-   * for the root scroll frame of this document
-   * (see nsIDOMWindowUtils.setVisualViewportSize).
-   */
-  static void SetVisualViewportSize(PresShell* aPresShell, CSSSize aSize);
 
   /**
    * Returns true if the given scroll origin is "higher priority" than APZ.
@@ -3040,7 +3045,8 @@ class nsLayoutUtils {
   // aUseUserFontSet is true.
   static already_AddRefed<nsFontMetrics> GetMetricsFor(
       nsPresContext* aPresContext, bool aIsVertical,
-      const nsStyleFont* aStyleFont, nscoord aFontSize, bool aUseUserFontSet);
+      const nsStyleFont* aStyleFont, mozilla::Length aFontSize,
+      bool aUseUserFontSet);
 
   static void ComputeSystemFont(nsFont* aSystemFont,
                                 mozilla::LookAndFeel::FontID aFontID,

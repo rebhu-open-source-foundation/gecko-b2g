@@ -173,24 +173,76 @@ fn textures_compatible(t1: TextureSource, t2: TextureSource) -> bool {
     t1 == TextureSource::Invalid || t2 == TextureSource::Invalid || t1 == t2
 }
 
+pub struct BatchRects {
+    /// Union of all of the batch's item rects.
+    ///
+    /// Very often we can skip iterating over item rects by testing against
+    /// this one first.
+    batch: PictureRect,
+    /// When the batch rectangle above isn't a good enough approximation, we
+    /// store per item rects.
+    items: Option<Vec<PictureRect>>,
+}
+
+impl BatchRects {
+    fn new() -> Self {
+        BatchRects {
+            batch: PictureRect::zero(),
+            items: None,
+        }
+    }
+
+    #[inline]
+    fn add_rect(&mut self, rect: &PictureRect) {
+        let union = self.batch.union(rect);
+        // If we have already started storing per-item rects, continue doing so.
+        // Otherwise, check whether only storing the batch rect is a good enough
+        // apporximation.
+        if let Some(items) = &mut self.items {
+            items.push(*rect);
+        } else if self.batch.area() + rect.area() > union.area() {
+            let mut items = Vec::with_capacity(16);
+            items.push(self.batch);
+            items.push(*rect);
+            self.items = Some(items);
+        }
+
+        self.batch = union;
+    }
+
+    #[inline]
+    fn intersects(&mut self, rect: &PictureRect) -> bool {
+        if !self.batch.intersects(rect) {
+            return false;
+        }
+
+        if let Some(items) = &self.items {
+            items.iter().any(|item| item.intersects(rect))
+        } else {    
+            // If we don't have per-item rects it means the batch rect is a good
+            // enough approximation and we didn't bother storing per-rect items.
+            true
+        }
+    }
+}
+
+
 pub struct AlphaBatchList {
     pub batches: Vec<PrimitiveBatch>,
-    pub item_rects: Vec<Vec<PictureRect>>,
+    pub batch_rects: Vec<BatchRects>,
     current_batch_index: usize,
     current_z_id: ZBufferId,
     break_advanced_blend_batches: bool,
-    lookback_count: usize,
 }
 
 impl AlphaBatchList {
-    fn new(break_advanced_blend_batches: bool, lookback_count: usize) -> Self {
+    fn new(break_advanced_blend_batches: bool) -> Self {
         AlphaBatchList {
             batches: Vec::new(),
-            item_rects: Vec::new(),
+            batch_rects: Vec::new(),
             current_z_id: ZBufferId::invalid(),
             current_batch_index: usize::MAX,
             break_advanced_blend_batches,
-            lookback_count,
         }
     }
 
@@ -201,7 +253,7 @@ impl AlphaBatchList {
         self.current_batch_index = usize::MAX;
         self.current_z_id = ZBufferId::invalid();
         self.batches.clear();
-        self.item_rects.clear();
+        self.batch_rects.clear();
     }
 
     pub fn set_params_and_get_batch(
@@ -221,14 +273,12 @@ impl AlphaBatchList {
 
             match key.blend_mode {
                 BlendMode::SubpixelWithBgColor => {
-                    'outer_multipass: for (batch_index, batch) in self.batches.iter().enumerate().rev().take(self.lookback_count) {
+                    for (batch_index, batch) in self.batches.iter().enumerate().rev() {
                         // Some subpixel batches are drawn in two passes. Because of this, we need
                         // to check for overlaps with every batch (which is a bit different
                         // than the normal batching below).
-                        for item_rect in &self.item_rects[batch_index] {
-                            if item_rect.intersects(z_bounding_rect) {
-                                break 'outer_multipass;
-                            }
+                        if self.batch_rects[batch_index].intersects(z_bounding_rect) {
+                            break;
                         }
 
                         if batch.key.is_compatible_with(&key) {
@@ -241,7 +291,7 @@ impl AlphaBatchList {
                     // don't try to find a batch
                 }
                 _ => {
-                    'outer_default: for (batch_index, batch) in self.batches.iter().enumerate().rev().take(self.lookback_count) {
+                    for (batch_index, batch) in self.batches.iter().enumerate().rev() {
                         // For normal batches, we only need to check for overlaps for batches
                         // other than the first batch we consider. If the first batch
                         // is compatible, then we know there isn't any potential overlap
@@ -252,10 +302,8 @@ impl AlphaBatchList {
                         }
 
                         // check for intersections
-                        for item_rect in &self.item_rects[batch_index] {
-                            if item_rect.intersects(z_bounding_rect) {
-                                break 'outer_default;
-                            }
+                        if self.batch_rects[batch_index].intersects(z_bounding_rect) {
+                            break;
                         }
                     }
                 }
@@ -277,16 +325,12 @@ impl AlphaBatchList {
                 new_batch.instances.reserve(prealloc);
                 selected_batch_index = Some(self.batches.len());
                 self.batches.push(new_batch);
-                self.item_rects.push(Vec::with_capacity(prealloc));
+                self.batch_rects.push(BatchRects::new());
             }
 
             self.current_batch_index = selected_batch_index.unwrap();
-            self.item_rects[self.current_batch_index].push(*z_bounding_rect);
+            self.batch_rects[self.current_batch_index].add_rect(z_bounding_rect);
             self.current_z_id = z_id;
-        } else if cfg!(debug_assertions) {
-            // If it's a different segment of the same (larger) primitive, we expect the bounding box
-            // to be the same - coming from the primitive itself, not the segment.
-            assert_eq!(self.item_rects[self.current_batch_index].last(), Some(z_bounding_rect));
         }
 
         let batch = &mut self.batches[self.current_batch_index];
@@ -525,7 +569,7 @@ impl AlphaBatchBuilder {
         let batch_area_threshold = (screen_size.width * screen_size.height) as f32 / 4.0;
 
         AlphaBatchBuilder {
-            alpha_batch_list: AlphaBatchList::new(break_advanced_blend_batches, lookback_count),
+            alpha_batch_list: AlphaBatchList::new(break_advanced_blend_batches),
             opaque_batch_list: OpaqueBatchList::new(batch_area_threshold, lookback_count),
             render_task_id,
             render_task_address,
@@ -1938,15 +1982,11 @@ impl BatchBuilder {
                     ctx,
                 );
             }
-            PrimitiveInstanceKind::Rectangle { data_handle, segment_instance_index, opacity_binding_index, .. } => {
+            PrimitiveInstanceKind::Rectangle { data_handle, segment_instance_index, .. } => {
                 let prim_data = &ctx.data_stores.prim[data_handle];
                 let specified_blend_mode = BlendMode::PremultipliedAlpha;
-                let opacity_binding = ctx.prim_store.get_opacity_binding(opacity_binding_index);
 
-                let opacity = PrimitiveOpacity::from_alpha(opacity_binding);
-                let opacity = opacity.combine(prim_data.opacity);
-
-                let non_segmented_blend_mode = if !opacity.is_opaque ||
+                let non_segmented_blend_mode = if !prim_data.opacity.is_opaque ||
                     prim_info.clip_task_index != ClipTaskIndex::INVALID ||
                     transform_kind == TransformedRectKind::Complex
                 {
@@ -1958,7 +1998,7 @@ impl BatchBuilder {
                 let batch_params = BrushBatchParameters::shared(
                     BrushBatchKind::Solid,
                     BatchTextures::no_texture(),
-                    [get_shader_opacity(opacity_binding), 0, 0, 0],
+                    [get_shader_opacity(1.0), 0, 0, 0],
                     0,
                 );
 
@@ -1985,7 +2025,7 @@ impl BatchBuilder {
 
                 self.add_segmented_prim_to_batch(
                     segments,
-                    opacity,
+                    prim_data.opacity,
                     &batch_params,
                     specified_blend_mode,
                     non_segmented_blend_mode,
@@ -2139,7 +2179,6 @@ impl BatchBuilder {
                 let image_data = &ctx.data_stores.image[data_handle].kind;
                 let common_data = &ctx.data_stores.image[data_handle].common;
                 let image_instance = &ctx.prim_store.images[image_instance_index];
-                let opacity_binding = ctx.prim_store.get_opacity_binding(image_instance.opacity_binding_index);
                 let specified_blend_mode = match image_data.alpha_type {
                     AlphaType::PremultipliedAlpha => BlendMode::PremultipliedAlpha,
                     AlphaType::Alpha => BlendMode::Alpha,
@@ -2153,7 +2192,7 @@ impl BatchBuilder {
                     color_mode: ShaderColorMode::Image,
                     alpha_type: image_data.alpha_type,
                     raster_space: RasterizationSpace::Local,
-                    opacity: opacity_binding,
+                    opacity: 1.0,
                 }.encode();
 
                 if image_instance.visible_tiles.is_empty() {
@@ -2182,10 +2221,7 @@ impl BatchBuilder {
 
                     let textures = BatchTextures::color(cache_item.texture_id);
 
-                    let opacity = PrimitiveOpacity::from_alpha(opacity_binding);
-                    let opacity = opacity.combine(common_data.opacity);
-
-                    let non_segmented_blend_mode = if !opacity.is_opaque ||
+                    let non_segmented_blend_mode = if !common_data.opacity.is_opaque ||
                         prim_info.clip_task_index != ClipTaskIndex::INVALID ||
                         transform_kind == TransformedRectKind::Complex
                     {
@@ -2225,7 +2261,7 @@ impl BatchBuilder {
 
                     self.add_segmented_prim_to_batch(
                         segments,
-                        opacity,
+                        common_data.opacity,
                         &batch_params,
                         specified_blend_mode,
                         non_segmented_blend_mode,

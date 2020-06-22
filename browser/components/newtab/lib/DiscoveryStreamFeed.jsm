@@ -62,6 +62,8 @@ const PREF_SPOC_IMPRESSIONS = "discoverystream.spoc.impressions";
 const PREF_FLIGHT_BLOCKS = "discoverystream.flight.blocks";
 const PREF_REC_IMPRESSIONS = "discoverystream.rec.impressions";
 const PREF_COLLECTION_DISMISSIBLE = "discoverystream.isCollectionDismissible";
+const PREF_RECS_PERSONALIZED = "discoverystream.recs.personalized";
+const PREF_SPOCS_PERSONALIZED = "discoverystream.spocs.personalized";
 
 let getHardcodedLayout;
 
@@ -184,7 +186,19 @@ this.DiscoveryStreamFeed = class DiscoveryStreamFeed {
   }
 
   get personalized() {
-    return this.config.personalized && !!this.providerSwitcher;
+    // If both spocs and recs are not personalized, we might as well return false here.
+    const spocsPersonalized = this.store.getState().Prefs.values[
+      PREF_SPOCS_PERSONALIZED
+    ];
+    const recsPersonalized = this.store.getState().Prefs.values[
+      PREF_RECS_PERSONALIZED
+    ];
+
+    return (
+      this.config.personalized &&
+      !!this.providerSwitcher &&
+      (spocsPersonalized || recsPersonalized)
+    );
   }
 
   get providerSwitcher() {
@@ -598,6 +612,11 @@ this.DiscoveryStreamFeed = class DiscoveryStreamFeed {
     const items = spocs.items || spocs;
     const title = spocs.title || "";
     const context = spocs.context || "";
+    const sponsor = spocs.sponsor || "";
+    // We do not stub sponsored_by_override with an empty string. It is an override, and an empty string
+    // explicitly means to override the client to display an empty string.
+    // An empty string is not an no op in this case. Undefined is the proper no op here.
+    const { sponsored_by_override } = spocs;
     // Undefined is fine here. It's optional and only used by collections.
     // If we leave it out, you get a collection that cannot be dismissed.
     const { flight_id } = spocs;
@@ -605,6 +624,8 @@ this.DiscoveryStreamFeed = class DiscoveryStreamFeed {
       items,
       title,
       context,
+      sponsor,
+      sponsored_by_override,
       ...(flight_id ? { flight_id } : {}),
     };
   }
@@ -669,6 +690,8 @@ this.DiscoveryStreamFeed = class DiscoveryStreamFeed {
                 items: normalizedSpocsItems,
                 title,
                 context,
+                sponsor,
+                sponsored_by_override,
               } = this.normalizeSpocsItems(freshSpocs);
 
               if (!normalizedSpocsItems || !normalizedSpocsItems.length) {
@@ -708,7 +731,7 @@ this.DiscoveryStreamFeed = class DiscoveryStreamFeed {
               const {
                 data: scoredResults,
                 filtered: minScoreFilter,
-              } = await this.scoreItems(blockedResults);
+              } = await this.scoreItems(blockedResults, "spocs");
 
               belowMinScore = [...belowMinScore, ...minScoreFilter];
 
@@ -723,6 +746,8 @@ this.DiscoveryStreamFeed = class DiscoveryStreamFeed {
                 [placement.name]: {
                   title,
                   context,
+                  sponsor,
+                  sponsored_by_override,
                   items: dupesResult,
                 },
               };
@@ -873,11 +898,23 @@ this.DiscoveryStreamFeed = class DiscoveryStreamFeed {
     }
   }
 
-  async scoreItems(items) {
+  async scoreItems(items, type) {
     const filtered = [];
     const scoreStart = Cu.now();
+    const spocsPersonalized = this.store.getState().Prefs.values[
+      PREF_SPOCS_PERSONALIZED
+    ];
+    const recsPersonalized = this.store.getState().Prefs.values[
+      PREF_RECS_PERSONALIZED
+    ];
+    const personalizedByType =
+      type === "feed" ? recsPersonalized : spocsPersonalized;
 
-    const data = (await Promise.all(items.map(item => this.scoreItem(item))))
+    const data = (
+      await Promise.all(
+        items.map(item => this.scoreItem(item, personalizedByType))
+      )
+    )
       // Remove spocs that are scored too low.
       .filter(s => {
         if (s.score >= s.min_score) {
@@ -889,19 +926,19 @@ this.DiscoveryStreamFeed = class DiscoveryStreamFeed {
       // Sort by highest scores.
       .sort((a, b) => b.score - a.score);
 
-    if (this.personalized) {
+    if (this.personalized && personalizedByType) {
       this.providerSwitcher.dispatchRelevanceScoreDuration(scoreStart);
     }
     return { data, filtered };
   }
 
-  async scoreItem(item) {
+  async scoreItem(item, personalizedByType) {
     item.score = item.item_score;
     item.min_score = item.min_score || 0;
     if (item.score !== 0 && !item.score) {
       item.score = 1;
     }
-    if (this.personalized) {
+    if (this.personalized && personalizedByType) {
       await this.providerSwitcher.calculateItemRelevanceScore(item);
     }
     return item;
@@ -1085,7 +1122,8 @@ this.DiscoveryStreamFeed = class DiscoveryStreamFeed {
       const feedResponse = await this.fetchFromEndpoint(feedUrl);
       if (feedResponse) {
         const { data: scoredItems } = await this.scoreItems(
-          feedResponse.recommendations
+          feedResponse.recommendations,
+          "feed"
         );
         const { recsExpireTime } = feedResponse.settings;
         const recommendations = this.rotate(scoredItems, recsExpireTime);
@@ -1141,6 +1179,14 @@ this.DiscoveryStreamFeed = class DiscoveryStreamFeed {
    */
   async refreshAll(options = {}) {
     const affinityCacheLoadPromise = this.loadAffinityScoresCache();
+
+    const spocsPersonalized = this.store.getState().Prefs.values[
+      PREF_SPOCS_PERSONALIZED
+    ];
+    const recsPersonalized = this.store.getState().Prefs.values[
+      PREF_RECS_PERSONALIZED
+    ];
+
     let expirationPerComponent = {};
     if (this.personalized) {
       // We store this before we refresh content.
@@ -1164,10 +1210,18 @@ this.DiscoveryStreamFeed = class DiscoveryStreamFeed {
           // but they don't need to wait for each other.
           // We can just fire them and forget at this point.
           const { feeds, spocs } = this.store.getState().DiscoveryStream;
-          if (feeds.loaded && expirationPerComponent.feeds) {
+          if (
+            recsPersonalized &&
+            feeds.loaded &&
+            expirationPerComponent.feeds
+          ) {
             this.scoreFeeds(feeds);
           }
-          if (spocs.loaded && expirationPerComponent.spocs) {
+          if (
+            spocsPersonalized &&
+            spocs.loaded &&
+            expirationPerComponent.spocs
+          ) {
             this.scoreSpocs(spocs);
           }
         });
@@ -1180,7 +1234,7 @@ this.DiscoveryStreamFeed = class DiscoveryStreamFeed {
       const feeds = {};
       const feedsPromises = Object.keys(feedsState.data).map(url => {
         let feed = feedsState.data[url];
-        const feedPromise = this.scoreItems(feed.data.recommendations);
+        const feedPromise = this.scoreItems(feed.data.recommendations, "feed");
         feedPromise.then(({ data: scoredItems }) => {
           const { recsExpireTime } = feed.data.settings;
           const recommendations = this.rotate(scoredItems, recsExpireTime);
@@ -1224,7 +1278,7 @@ this.DiscoveryStreamFeed = class DiscoveryStreamFeed {
       const {
         data: scoreResult,
         filtered: minScoreFilter,
-      } = await this.scoreItems(items);
+      } = await this.scoreItems(items, "spocs");
 
       belowMinScore = [...belowMinScore, ...minScoreFilter];
 

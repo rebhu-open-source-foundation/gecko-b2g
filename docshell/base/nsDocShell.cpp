@@ -527,14 +527,16 @@ already_AddRefed<nsDocShell> nsDocShell::Create(
   // Set |ds| default load flags on load group.
   ds->SetLoadGroupDefaultLoadFlags(aBrowsingContext->GetDefaultLoadFlags());
 
+  if (XRE_IsParentProcess()) {
+    aBrowsingContext->Canonical()->MaybeAddAsProgressListener(ds);
+  }
+
   return ds.forget();
 }
 
 void nsDocShell::DestroyChildren() {
-  nsCOMPtr<nsIDocShellTreeItem> shell;
-  nsTObserverArray<nsDocLoader*>::ForwardIterator iter(mChildList);
-  while (iter.HasMore()) {
-    shell = do_QueryObject(iter.GetNext());
+  for (auto* child : mChildList.ForwardRange()) {
+    nsCOMPtr<nsIDocShellTreeItem> shell = do_QueryObject(child);
     NS_ASSERTION(shell, "docshell has null child");
 
     if (shell) {
@@ -1354,12 +1356,6 @@ nsDocShell::GatherCharsetMenuTelemetry() {
 
 NS_IMETHODIMP
 nsDocShell::SetCharset(const nsACString& aCharset) {
-  // set the charset override
-  return SetForcedCharset(aCharset);
-}
-
-NS_IMETHODIMP
-nsDocShell::SetForcedCharset(const nsACString& aCharset) {
   if (aCharset.IsEmpty()) {
     mForcedCharset = nullptr;
     return NS_OK;
@@ -1374,16 +1370,6 @@ nsDocShell::SetForcedCharset(const nsACString& aCharset) {
     return NS_ERROR_INVALID_ARG;
   }
   mForcedCharset = encoding;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-nsDocShell::GetForcedCharset(nsACString& aResult) {
-  if (mForcedCharset) {
-    mForcedCharset->Name(aResult);
-  } else {
-    aResult.Truncate();
-  }
   return NS_OK;
 }
 
@@ -1503,7 +1489,7 @@ void nsDocShell::NotifyPrivateBrowsingChanged() {
     nsWeakPtr ref = iter.GetNext();
     nsCOMPtr<nsIPrivacyTransitionObserver> obs = do_QueryReferent(ref);
     if (!obs) {
-      mPrivacyObservers.RemoveElement(ref);
+      iter.Remove();
     } else {
       obs->PrivateModeChanged(UsePrivateBrowsing());
     }
@@ -1564,9 +1550,8 @@ nsDocShell::SetAffectPrivateSessionLifetime(bool aAffectLifetime) {
   }
   mAffectPrivateSessionLifetime = aAffectLifetime;
 
-  nsTObserverArray<nsDocLoader*>::ForwardIterator iter(mChildList);
-  while (iter.HasMore()) {
-    nsCOMPtr<nsIDocShell> shell = do_QueryObject(iter.GetNext());
+  for (auto* child : mChildList.ForwardRange()) {
+    nsCOMPtr<nsIDocShell> shell = do_QueryObject(child);
     if (shell) {
       shell->SetAffectPrivateSessionLifetime(aAffectLifetime);
     }
@@ -1616,7 +1601,7 @@ nsDocShell::NotifyReflowObservers(bool aInterruptible,
     nsWeakPtr ref = iter.GetNext();
     nsCOMPtr<nsIReflowObserver> obs = do_QueryReferent(ref);
     if (!obs) {
-      mReflowObservers.RemoveElement(ref);
+      iter.Remove();
     } else if (aInterruptible) {
       obs->ReflowInterruptible(aStart, aEnd);
     } else {
@@ -1917,9 +1902,8 @@ nsDocShell::HistoryPurged(int32_t aNumEntries) {
   mPreviousEntryIndex = std::max(-1, mPreviousEntryIndex - aNumEntries);
   mLoadedEntryIndex = std::max(0, mLoadedEntryIndex - aNumEntries);
 
-  nsTObserverArray<nsDocLoader*>::ForwardIterator iter(mChildList);
-  while (iter.HasMore()) {
-    nsCOMPtr<nsIDocShell> shell = do_QueryObject(iter.GetNext());
+  for (auto* child : mChildList.ForwardRange()) {
+    nsCOMPtr<nsIDocShell> shell = do_QueryObject(child);
     if (shell) {
       shell->HistoryPurged(aNumEntries);
     }
@@ -1958,9 +1942,8 @@ nsresult nsDocShell::HistoryEntryRemoved(int32_t aIndex) {
     --mLoadedEntryIndex;
   }
 
-  nsTObserverArray<nsDocLoader*>::ForwardIterator iter(mChildList);
-  while (iter.HasMore()) {
-    nsCOMPtr<nsIDocShell> shell = do_QueryObject(iter.GetNext());
+  for (auto* child : mChildList.ForwardRange()) {
+    nsCOMPtr<nsIDocShell> shell = do_QueryObject(child);
     if (shell) {
       static_cast<nsDocShell*>(shell.get())->HistoryEntryRemoved(aIndex);
     }
@@ -2094,7 +2077,7 @@ void nsDocShell::NotifyAsyncPanZoomStarted() {
     if (obs) {
       obs->AsyncPanZoomStarted();
     } else {
-      mScrollObservers.RemoveElement(ref);
+      iter.Remove();
     }
   }
 }
@@ -2107,7 +2090,7 @@ void nsDocShell::NotifyAsyncPanZoomStopped() {
     if (obs) {
       obs->AsyncPanZoomStopped();
     } else {
-      mScrollObservers.RemoveElement(ref);
+      iter.Remove();
     }
   }
 }
@@ -2121,7 +2104,7 @@ nsDocShell::NotifyScrollObservers() {
     if (obs) {
       obs->ScrollPositionChanged();
     } else {
-      mScrollObservers.RemoveElement(ref);
+      iter.Remove();
     }
   }
   return NS_OK;
@@ -2412,9 +2395,8 @@ void nsDocShell::RecomputeCanExecuteScripts() {
   // If our value has changed, our children might be affected. Recompute their
   // value as well.
   if (old != mCanExecuteScripts) {
-    nsTObserverArray<nsDocLoader*>::ForwardIterator iter(mChildList);
-    while (iter.HasMore()) {
-      static_cast<nsDocShell*>(iter.GetNext())->RecomputeCanExecuteScripts();
+    for (auto* child : mChildList.ForwardRange()) {
+      static_cast<nsDocShell*>(child)->RecomputeCanExecuteScripts();
     }
   }
 }
@@ -2499,9 +2481,8 @@ void nsDocShell::MaybeClearStorageAccessFlag() {
     mScriptGlobal->ParentWindowChanged();
 
     // Tell all of our children about the change recursively as well.
-    nsTObserverArray<nsDocLoader*>::ForwardIterator iter(mChildList);
-    while (iter.HasMore()) {
-      nsCOMPtr<nsIDocShell> child = do_QueryObject(iter.GetNext());
+    for (auto* childDocLoader : mChildList.ForwardRange()) {
+      nsCOMPtr<nsIDocShell> child = do_QueryObject(childDocLoader);
       if (child) {
         static_cast<nsDocShell*>(child.get())->MaybeClearStorageAccessFlag();
       }
@@ -2609,9 +2590,8 @@ nsDocShell::SetTreeOwner(nsIDocShellTreeOwner* aTreeOwner) {
 
   mTreeOwner = aTreeOwner;  // Weak reference per API
 
-  nsTObserverArray<nsDocLoader*>::ForwardIterator iter(mChildList);
-  while (iter.HasMore()) {
-    nsCOMPtr<nsIDocShellTreeItem> child = do_QueryObject(iter.GetNext());
+  for (auto* childDocLoader : mChildList.ForwardRange()) {
+    nsCOMPtr<nsIDocShellTreeItem> child = do_QueryObject(childDocLoader);
     NS_ENSURE_TRUE(child, NS_ERROR_FAILURE);
 
     if (child->ItemType() == mItemType) {
@@ -3914,9 +3894,8 @@ nsDocShell::Stop(uint32_t aStopFlags) {
     Stop();
   }
 
-  nsTObserverArray<nsDocLoader*>::ForwardIterator iter(mChildList);
-  while (iter.HasMore()) {
-    nsCOMPtr<nsIWebNavigation> shellAsNav(do_QueryObject(iter.GetNext()));
+  for (auto* child : mChildList.ForwardRange()) {
+    nsCOMPtr<nsIWebNavigation> shellAsNav(do_QueryObject(child));
     if (shellAsNav) {
       shellAsNav->Stop(aStopFlags);
     }
@@ -4531,9 +4510,8 @@ nsDocShell::SetIsActive(bool aIsActive) {
 
   // Recursively tell all of our children, but don't tell <iframe mozbrowser>
   // children; they handle their state separately.
-  nsTObserverArray<nsDocLoader*>::ForwardIterator iter(mChildList);
-  while (iter.HasMore()) {
-    nsCOMPtr<nsIDocShell> docshell = do_QueryObject(iter.GetNext());
+  for (auto* child : mChildList.ForwardRange()) {
+    nsCOMPtr<nsIDocShell> docshell = do_QueryObject(child);
     if (!docshell) {
       continue;
     }
@@ -5258,9 +5236,8 @@ nsDocShell::SuspendRefreshURIs() {
   }
 
   // Suspend refresh URIs for our child shells as well.
-  nsTObserverArray<nsDocLoader*>::ForwardIterator iter(mChildList);
-  while (iter.HasMore()) {
-    nsCOMPtr<nsIDocShell> shell = do_QueryObject(iter.GetNext());
+  for (auto* child : mChildList.ForwardRange()) {
+    nsCOMPtr<nsIDocShell> shell = do_QueryObject(child);
     if (shell) {
       shell->SuspendRefreshURIs();
     }
@@ -5274,9 +5251,8 @@ nsDocShell::ResumeRefreshURIs() {
   RefreshURIFromQueue();
 
   // Resume refresh URIs for our child shells as well.
-  nsTObserverArray<nsDocLoader*>::ForwardIterator iter(mChildList);
-  while (iter.HasMore()) {
-    nsCOMPtr<nsIDocShell> shell = do_QueryObject(iter.GetNext());
+  for (auto* child : mChildList.ForwardRange()) {
+    nsCOMPtr<nsIDocShell> shell = do_QueryObject(child);
     if (shell) {
       shell->ResumeRefreshURIs();
     }
@@ -6685,9 +6661,8 @@ nsDocShell::BeginRestore(nsIContentViewer* aContentViewer, bool aTop) {
 }
 
 nsresult nsDocShell::BeginRestoreChildren() {
-  nsTObserverArray<nsDocLoader*>::ForwardIterator iter(mChildList);
-  while (iter.HasMore()) {
-    nsCOMPtr<nsIDocShell> child = do_QueryObject(iter.GetNext());
+  for (auto* childDocLoader : mChildList.ForwardRange()) {
+    nsCOMPtr<nsIDocShell> child = do_QueryObject(childDocLoader);
     if (child) {
       nsresult rv = child->BeginRestore(nullptr, false);
       NS_ENSURE_SUCCESS(rv, rv);
@@ -6701,9 +6676,8 @@ nsDocShell::FinishRestore() {
   // First we call finishRestore() on our children.  In the simulated load,
   // all of the child frames finish loading before the main document.
 
-  nsTObserverArray<nsDocLoader*>::ForwardIterator iter(mChildList);
-  while (iter.HasMore()) {
-    nsCOMPtr<nsIDocShell> child = do_QueryObject(iter.GetNext());
+  for (auto* childDocLoader : mChildList.ForwardRange()) {
+    nsCOMPtr<nsIDocShell> child = do_QueryObject(childDocLoader);
     if (child) {
       child->FinishRestore();
     }
@@ -7260,9 +7234,8 @@ nsresult nsDocShell::RestoreFromHistory() {
 
   // Meta-refresh timers have been restarted for this shell, but not
   // for our children.  Walk the child shells and restart their timers.
-  nsTObserverArray<nsDocLoader*>::ForwardIterator iter(mChildList);
-  while (iter.HasMore()) {
-    nsCOMPtr<nsIDocShell> child = do_QueryObject(iter.GetNext());
+  for (auto* childDocLoader : mChildList.ForwardRange()) {
+    nsCOMPtr<nsIDocShell> child = do_QueryObject(childDocLoader);
     if (child) {
       child->ResumeRefreshURIs();
     }
@@ -9034,11 +9007,19 @@ nsIPrincipal* nsDocShell::GetInheritedPrincipal(
   // If the HTTPS-Only mode is enabled, every insecure request gets upgraded to
   // HTTPS by default. This behavior can be disabled through the loadinfo flag
   // HTTPS_ONLY_EXEMPT.
-  if (aLoadState->IsHttpsOnlyModeUpgradeExempt() &&
-      mozilla::StaticPrefs::dom_security_https_only_mode()) {
-    uint32_t httpsOnlyStatus = aLoadInfo->GetHttpsOnlyStatus();
-    httpsOnlyStatus |= nsILoadInfo::HTTPS_ONLY_EXEMPT;
-    aLoadInfo->SetHttpsOnlyStatus(httpsOnlyStatus);
+  if (mozilla::StaticPrefs::dom_security_https_only_mode()) {
+    // Let's create a new content principal based on the URI for the
+    // PermissionManager
+    nsCOMPtr<nsIPrincipal> permissionPrincipal =
+        BasePrincipal::CreateContentPrincipal(aLoadState->URI(), attrs);
+
+    if (nsContentUtils::IsExactSitePermAllow(
+            permissionPrincipal,
+            NS_LITERAL_CSTRING("https-only-mode-exception"))) {
+      uint32_t httpsOnlyStatus = aLoadInfo->GetHttpsOnlyStatus();
+      httpsOnlyStatus |= nsILoadInfo::HTTPS_ONLY_EXEMPT;
+      aLoadInfo->SetHttpsOnlyStatus(httpsOnlyStatus);
+    }
   }
 
   nsCOMPtr<nsIChannel> channel;
@@ -10762,7 +10743,6 @@ nsresult nsDocShell::AddToSessionHistory(
       }
     }
   } else {
-
     // This is a subframe, make sure that this new SHEntry will be
     // marked with user interaction.
     WindowContext* topWc = mBrowsingContext->GetTopWindowContext();
@@ -11108,7 +11088,7 @@ void nsDocShell::SaveLastVisit(nsIChannel* aChannel, nsIURI* aURI,
     return;
   }
 
-  nsCOMPtr<IHistory> history = services::GetHistoryService();
+  nsCOMPtr<IHistory> history = services::GetHistory();
 
   if (history) {
     uint32_t visitURIFlags = 0;
@@ -12245,7 +12225,7 @@ void nsDocShell::UpdateGlobalHistoryTitle(nsIURI* aURI) {
     return;
   }
 
-  if (nsCOMPtr<IHistory> history = services::GetHistoryService()) {
+  if (nsCOMPtr<IHistory> history = services::GetHistory()) {
     history->SetURITitle(aURI, mTitle);
   }
 }
@@ -12381,19 +12361,6 @@ already_AddRefed<nsIBrowserChild> nsDocShell::GetBrowserChild() {
 nsCommandManager* nsDocShell::GetCommandManager() {
   NS_ENSURE_SUCCESS(EnsureCommandHandler(), nullptr);
   return mCommandManager;
-}
-
-NS_IMETHODIMP
-nsDocShell::GetAwaitingLargeAlloc(bool* aResult) {
-  MOZ_ASSERT(aResult);
-  nsCOMPtr<nsIBrowserChild> browserChild = GetBrowserChild();
-  if (!browserChild) {
-    *aResult = false;
-    return NS_OK;
-  }
-  *aResult =
-      static_cast<BrowserChild*>(browserChild.get())->IsAwaitingLargeAlloc();
-  return NS_OK;
 }
 
 NS_IMETHODIMP_(void)

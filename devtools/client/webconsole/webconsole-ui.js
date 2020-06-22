@@ -4,6 +4,7 @@
 
 "use strict";
 
+const { gDevTools } = require("devtools/client/framework/devtools");
 const EventEmitter = require("devtools/shared/event-emitter");
 const Services = require("Services");
 const {
@@ -346,13 +347,23 @@ class WebConsoleUI {
     );
   }
 
+  async watchCssMessages() {
+    const { resourceWatcher } = this.hud;
+    await resourceWatcher.watchResources([resourceWatcher.TYPES.CSS_MESSAGE], {
+      onAvailable: this._onResourceAvailable,
+    });
+  }
+
   _onResourceAvailable({ resourceType, targetFront, resource }) {
+    const { TYPES } = this.hud.resourceWatcher;
     // Ignore messages forwarded from content processes if we're in fission browser toolbox.
     if (
-      resourceType === this.hud.resourceWatcher.TYPES.ERROR_MESSAGE &&
-      resource.pageError.isForwardedFromContentProcess &&
-      (this.isBrowserToolboxConsole || this.isBrowserConsole) &&
-      this.fissionSupport
+      !this.wrapper ||
+      ((resourceType === TYPES.ERROR_MESSAGE ||
+        resourceType === TYPES.CSS_MESSAGE) &&
+        resource.pageError?.isForwardedFromContentProcess &&
+        (this.isBrowserToolboxConsole || this.isBrowserConsole) &&
+        this.fissionSupport)
     ) {
       return;
     }
@@ -403,8 +414,7 @@ class WebConsoleUI {
     // Also ignore workers as they are not supported yet. (see bug 1592584)
     const isContentToolbox = this.hud.targetList.targetFront.isLocalTab;
     const listenForFrames =
-      isContentToolbox &&
-      Services.prefs.getBoolPref("devtools.contenttoolbox.fission");
+      isContentToolbox && gDevTools.isFissionContentToolboxEnabled();
     if (
       targetFront.targetType != this.hud.targetList.TYPES.PROCESS &&
       (targetFront.targetType != this.hud.targetList.TYPES.FRAME ||

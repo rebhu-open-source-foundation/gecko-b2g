@@ -11,8 +11,8 @@ use crate::selector_map::{
 };
 use crate::selector_parser::SelectorImpl;
 use crate::{Atom, LocalName, Namespace};
-use fallible::{FallibleVec, FallibleHashMap};
-use hashbrown::CollectionAllocErr;
+use fallible::FallibleVec;
+use hashglobe::FailedAllocationError;
 use selectors::attr::NamespaceConstraint;
 use selectors::parser::{Combinator, Component};
 use selectors::parser::{Selector, SelectorIter};
@@ -244,7 +244,7 @@ impl InvalidationMap {
         &mut self,
         selector: &Selector<SelectorImpl>,
         quirks_mode: QuirksMode,
-    ) -> Result<(), CollectionAllocErr> {
+    ) -> Result<(), FailedAllocationError> {
         debug!("InvalidationMap::note_selector({:?})", selector);
 
         let mut document_state = DocumentState::empty();
@@ -325,7 +325,7 @@ struct SelectorDependencyCollector<'a> {
     compound_state: PerCompoundState,
 
     /// The allocation error, if we OOM.
-    alloc_error: &'a mut Option<CollectionAllocErr>,
+    alloc_error: &'a mut Option<FailedAllocationError>,
 }
 
 impl<'a> SelectorDependencyCollector<'a> {

@@ -215,7 +215,7 @@ TEST_SUITES = {
         'mach_command': 'web-platform-tests',
         'build_flavor': 'web-platform-tests',
         'kwargs': {'subsuite': 'testharness'},
-        'task_regex': ['web-platform-tests($|.*(-1|[^0-9])$)',
+        'task_regex': ['web-platform-tests(?!-crashtest|-reftest|-wdspec)($|.*(-1|[^0-9])$)',
                        'test-verify-wpt'],
     },
     'web-platform-tests-crashtest': {
@@ -693,20 +693,26 @@ class TestResolver(MozbuildObject):
             return True
         return False
 
-    def get_wpt_group(self, test):
-        """Given a test object, set the group (aka manifest) that it belongs to.
+    def get_wpt_group(self, test, depth=3):
+        """Given a test object set the group (aka manifest) that it belongs to.
+
+        If a custom value for `depth` is provided, it will override the default
+        value of 3 path components.
 
         Args:
             test (dict): Test object for the particular suite and subsuite.
+            depth (int, optional): Custom number of path elements.
 
         Returns:
             str: The group the given test belongs to.
         """
-        # Extract the first path component (top level directory) as the key.
-        # This value should match the path in manifest-runtimes JSON data.
-        # Mozilla WPT paths have one extra URL component in the front.
-        components = 3 if test['name'].startswith('/_mozilla') else 2
-        group = '/'.join(test['name'].split('/')[:components])
+        # This takes into account that for mozilla-specific WPT tests, the path
+        # contains an extra '/_mozilla' prefix that must be accounted for.
+        depth = depth + 1 if test['name'].startswith('/_mozilla') else depth
+
+        group = os.path.dirname(test['name'])
+        while group.count('/') > depth:
+            group = os.path.dirname(group)
         return group
 
     def add_wpt_manifest_data(self):
@@ -843,24 +849,6 @@ class TestResolver(MozbuildObject):
                 yield rewrite_test_base(test, rewrite_base)
             else:
                 yield test
-
-    def get_outgoing_metadata(self):
-        paths, tags, flavors = set(), set(), set()
-        changed_files = self.repository.get_outgoing_files('AM')
-        if changed_files:
-            reader = self.mozbuild_reader(config_mode='empty')
-            files_info = reader.files_info(changed_files)
-
-            for path, info in six.iteritems(files_info):
-                paths |= info.test_files
-                tags |= info.test_tags
-                flavors |= info.test_flavors
-
-        return {
-            'paths': paths,
-            'tags': tags,
-            'flavors': flavors,
-        }
 
     def resolve_metadata(self, what):
         """Resolve tests based on the given metadata. If not specified, metadata

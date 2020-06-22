@@ -28,21 +28,22 @@ use std::iter::{DoubleEndedIterator, Zip};
 use std::slice::Iter;
 use style_traits::{CssWriter, ParseError, ParsingMode, StyleParseErrorKind, ToCss};
 
-/// The animation rules.
-///
-/// The first one is for Animation cascade level, and the second one is for
-/// Transition cascade level.
-pub struct AnimationRules(
-    pub Option<Arc<Locked<PropertyDeclarationBlock>>>,
-    pub Option<Arc<Locked<PropertyDeclarationBlock>>>,
-);
+/// A set of property declarations including animations and transitions.
+#[derive(Default)]
+pub struct AnimationDeclarations {
+    /// Declarations for animations.
+    pub animations: Option<Arc<Locked<PropertyDeclarationBlock>>>,
+    /// Declarations for transitions.
+    pub transitions: Option<Arc<Locked<PropertyDeclarationBlock>>>,
+}
 
-impl AnimationRules {
-    /// Returns whether these animation rules represents an actual rule or not.
+impl AnimationDeclarations {
+    /// Whether or not this `AnimationDeclarations` is empty.
     pub fn is_empty(&self) -> bool {
-        self.0.is_none() && self.1.is_none()
+        self.animations.is_none() && self.transitions.is_none()
     }
 }
+
 
 /// An enum describes how a declaration should update
 /// the declaration block.
@@ -319,6 +320,13 @@ impl PropertyDeclarationBlock {
     #[inline]
     pub fn contains_any_reset(&self) -> bool {
         self.longhands.contains_any_reset()
+    }
+
+    /// Returns a `LonghandIdSet` representing the properties that are changed in
+    /// this block.
+    #[inline]
+    pub fn longhands(&self) -> &LonghandIdSet {
+        &self.longhands
     }
 
     /// Get a declaration for a given property.
@@ -1363,7 +1371,7 @@ impl<'a, 'b, 'i> DeclarationParser<'i> for PropertyDeclarationParser<'a, 'b> {
         input.parse_until_before(Delimiter::Bang, |input| {
             PropertyDeclaration::parse_into(self.declarations, id, self.context, input)
         })?;
-        let importance = match input.try(parse_important) {
+        let importance = match input.try_parse(parse_important) {
             Ok(()) => Importance::Important,
             Err(_) => Importance::Normal,
         };

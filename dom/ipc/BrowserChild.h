@@ -632,11 +632,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   uintptr_t GetNativeWindowHandle() const { return mNativeWindowHandle; }
 #endif
 
-  // These methods return `true` if this BrowserChild is currently awaiting a
-  // Large-Allocation header.
-  bool StopAwaitingLargeAlloc();
-  bool IsAwaitingLargeAlloc();
-
   BrowsingContext* GetBrowsingContext() const { return mBrowsingContext; }
 
 #if defined(ACCESSIBILITY)
@@ -753,8 +748,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
       const UIStateChangeType& aShowFocusRings);
 
   mozilla::ipc::IPCResult RecvStopIMEStateManagement();
-
-  mozilla::ipc::IPCResult RecvAwaitLargeAlloc();
 
   mozilla::ipc::IPCResult RecvAllowScriptsToClose();
 
@@ -894,7 +887,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   CSSSize mUnscaledInnerSize;
   bool mDidSetRealShowInfo;
   bool mDidLoadURLInit;
-  bool mAwaitingLA;
 
   bool mSkipKeyPress;
 

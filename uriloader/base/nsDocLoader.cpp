@@ -248,7 +248,7 @@ nsDocLoader::Stop(void) {
   MOZ_LOG(gDocLoaderLog, LogLevel::Debug,
           ("DocLoader:%p: Stop() called\n", this));
 
-  NS_OBSERVER_ARRAY_NOTIFY_XPCOM_OBSERVERS(mChildList, nsDocLoader, Stop, ());
+  NS_OBSERVER_ARRAY_NOTIFY_XPCOM_OBSERVERS(mChildList, Stop, ());
 
   if (mLoadGroup) rv = mLoadGroup->Cancel(NS_BINDING_ABORTED);
 
@@ -1018,18 +1018,8 @@ nsDocLoader::GetInnerDOMWindowID(uint64_t* aResult) {
 
 NS_IMETHODIMP
 nsDocLoader::GetIsTopLevel(bool* aResult) {
-  *aResult = false;
-
-  nsCOMPtr<mozIDOMWindowProxy> window;
-  GetDOMWindow(getter_AddRefs(window));
-  if (window) {
-    nsCOMPtr<nsPIDOMWindowOuter> piwindow = nsPIDOMWindowOuter::From(window);
-    NS_ENSURE_STATE(piwindow);
-
-    nsCOMPtr<nsPIDOMWindowOuter> topWindow = piwindow->GetInProcessTop();
-    *aResult = piwindow == topWindow;
-  }
-
+  nsCOMPtr<nsIDocShell> docShell = do_QueryInterface(this);
+  *aResult = docShell && docShell->GetBrowsingContext()->IsTop();
   return NS_OK;
 }
 
@@ -1543,7 +1533,7 @@ NS_IMETHODIMP nsDocLoader::SetPriority(int32_t aPriority) {
   nsCOMPtr<nsISupportsPriority> p = do_QueryInterface(mLoadGroup);
   if (p) p->SetPriority(aPriority);
 
-  NS_OBSERVER_ARRAY_NOTIFY_XPCOM_OBSERVERS(mChildList, nsDocLoader, SetPriority,
+  NS_OBSERVER_ARRAY_NOTIFY_XPCOM_OBSERVERS(mChildList, SetPriority,
                                            (aPriority));
 
   return NS_OK;
@@ -1556,8 +1546,8 @@ NS_IMETHODIMP nsDocLoader::AdjustPriority(int32_t aDelta) {
   nsCOMPtr<nsISupportsPriority> p = do_QueryInterface(mLoadGroup);
   if (p) p->AdjustPriority(aDelta);
 
-  NS_OBSERVER_ARRAY_NOTIFY_XPCOM_OBSERVERS(mChildList, nsDocLoader,
-                                           AdjustPriority, (aDelta));
+  NS_OBSERVER_ARRAY_NOTIFY_XPCOM_OBSERVERS(mChildList, AdjustPriority,
+                                           (aDelta));
 
   return NS_OK;
 }

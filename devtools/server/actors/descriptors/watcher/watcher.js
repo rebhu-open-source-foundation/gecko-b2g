@@ -51,7 +51,7 @@ exports.WatcherActor = protocol.ActorClassWithSpec(watcherSpec, {
    * If this Watcher is related to a precise BrowsingContext,
    * return its Browsing Context ID.
    *
-   * @return String
+   * @return {Integer|null}
    *         The related browsing context ID, or null if we observe all of them.
    */
   get browsingContextID() {
@@ -75,7 +75,7 @@ exports.WatcherActor = protocol.ActorClassWithSpec(watcherSpec, {
         // FF77+ supports frames in Watcher actor
         frame: true,
         resources: {
-          // FF79+ supports console messages, but this isn't enabled yet.
+          // FF79+ supports console messages and platform messages, but this isn't enabled yet.
           // We will implement a few other resources before enabling it in bug 1642295.
           // This is to prevent having to handle backward compat if we have to change Watcher
           // Actor API while implementing other resources.
@@ -83,6 +83,7 @@ exports.WatcherActor = protocol.ActorClassWithSpec(watcherSpec, {
           // content process targets yet. Bug 1620248 should help supporting them and enable
           // this more broadly.
           [Resources.TYPES.CONSOLE_MESSAGE]: false,
+          [Resources.TYPES.PLATFORM_MESSAGE]: false,
         },
       },
     };
@@ -110,6 +111,12 @@ exports.WatcherActor = protocol.ActorClassWithSpec(watcherSpec, {
     await targetHelperModule.createTargets(this, watchedResources);
   },
 
+  /**
+   * Stop watching for a given target type.
+   *
+   * @param {string} targetType
+   *        Type of context to observe. See TARGET_TYPES object.
+   */
   unwatchTargets(targetType) {
     const isWatchingTargets = WatcherRegistry.unwatchTargets(this, targetType);
     if (!isWatchingTargets) {
@@ -137,6 +144,14 @@ exports.WatcherActor = protocol.ActorClassWithSpec(watcherSpec, {
     this.emit("target-destroyed-form", actor);
   },
 
+  /**
+   * Given a browsingContextID, returns its parent browsingContextID. Returns null if a
+   * parent browsing context couldn't be found. Throws if the browsing context
+   * corresponding to the passed browsingContextID couldn't be found.
+   *
+   * @param {Integer} browsingContextID
+   * @returns {Integer|null}
+   */
   getParentBrowsingContextID(browsingContextID) {
     const browsingContext = BrowsingContext.get(browsingContextID);
     if (!browsingContext) {
@@ -185,16 +200,28 @@ exports.WatcherActor = protocol.ActorClassWithSpec(watcherSpec, {
       });
     }
 
-    // If we are debugging the parent process, we will also have a target actor,
-    // still using the message manager, running in this process.
-    // Previous call to watchResources will only go through Browsing Context.
-    // So that it won't iterate over ParentProcessTargetActor, which:
-    // * doesn't relate to one Browsing Context
-    // * still uses process message manager
-    // * runs in the same process as this Watcher Actor.
-    const targetActor = TargetActorRegistry.getTargetActor(
-      this.browsingContextID
-    );
+    /*
+     * The Watcher actor doesn't support watching for targets other than frame targets yet:
+     *  - process targets (bug 1620248)
+     *  - worker targets (bug 1633712)
+     *  - top level tab target (bug 1644397 and possibly some other followup).
+     *
+     * Because of that, we miss reaching these targets in the previous lines of this function.
+     * Since all BrowsingContext target actors register themselves to the TargetActorRegistry,
+     * we use it here in order to reach those missing targets, which are running in the
+     * parent process (where this WatcherActor lives as well):
+     *  - the parent process target (which inherits from BrowsingContextTargetActor)
+     *  - top level tab target for documents loaded in the parent process (e.g. about:robots).
+     *    When the tab loads document in the content process, the FrameTargetHelper will
+     *    reach it via the JSWindowActor API. Even if it uses MessageManager for anything
+     *    else (RDP packet forwarding, creation and destruction).
+     *
+     * We will eventually get rid of this code once all targets are properly supported by
+     * the Watcher Actor and we have target helpers for all of them.
+     */
+    const targetActor = this.browsingContextID
+      ? TargetActorRegistry.getTargetActor(this.browsingContextID)
+      : TargetActorRegistry.getParentProcessTargetActor();
     if (targetActor) {
       await targetActor.watchTargetResources(resourceTypes);
     }
@@ -233,6 +260,14 @@ exports.WatcherActor = protocol.ActorClassWithSpec(watcherSpec, {
           resourceTypes,
         });
       }
+    }
+
+    // See comment in watchResources.
+    const targetActor = this.browsingContextID
+      ? TargetActorRegistry.getTargetActor(this.browsingContextID)
+      : TargetActorRegistry.getParentProcessTargetActor();
+    if (targetActor) {
+      targetActor.unwatchTargetResources(resourceTypes);
     }
 
     // Unregister the JS Window Actor if there is no more DevTools code observing any target/resource

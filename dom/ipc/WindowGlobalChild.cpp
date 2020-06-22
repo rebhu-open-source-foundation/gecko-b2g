@@ -220,8 +220,11 @@ void WindowGlobalChild::OnNewDocument(Document* aDocument) {
   }
 
   // Init Mixed Content Fields
-  txn.SetIsPotentiallyTrustWorthy(
-      aDocument->NodePrincipal()->GetIsOriginPotentiallyTrustworthy());
+  nsCOMPtr<nsIURI> innerDocURI =
+      NS_GetInnermostURI(aDocument->GetDocumentURI());
+  if (innerDocURI) {
+    txn.SetIsSecure(innerDocURI->SchemeIs("https"));
+  }
   nsCOMPtr<nsIChannel> mixedChannel;
   mWindowGlobal->GetDocShell()->GetMixedContentChannel(
       getter_AddRefs(mixedChannel));
@@ -368,6 +371,7 @@ mozilla::ipc::IPCResult WindowGlobalChild::RecvMakeFrameLocal(
   RemotenessOptions options;
   options.mRemoteType.Assign(VoidString());
   options.mPendingSwitchID.Construct(aPendingSwitchId);
+  options.mSwitchingInProgressLoad = true;
   flo->ChangeRemoteness(options, IgnoreErrors());
   return IPC_OK();
 }

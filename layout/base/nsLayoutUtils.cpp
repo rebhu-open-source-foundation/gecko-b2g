@@ -845,36 +845,69 @@ static nsRect GetDisplayPortFromMarginsData(
   //   screen resolution; since this is what Layout does most of the time,
   //   this is a good approximation. A proper solution would involve moving
   //   the choosing of the resolution to display-list building time.
-  ScreenSize alignment;
+  // We separate the alignment of the position and size of the displayport in
+  // order to allow moving by large increments with WebRender without enlarging
+  // the displayport.
+  ScreenSize posAlignment;
+  ScreenSize sizeAlignment;
 
   PresShell* presShell = presContext->PresShell();
   MOZ_ASSERT(presShell);
 
+  bool useWebRender = gfxVars::UseWebRender();
+
   if (presShell->IsDisplayportSuppressed()) {
-    alignment = ScreenSize(1, 1);
+    posAlignment = ScreenSize(1, 1);
+    sizeAlignment = ScreenSize(1, 1);
+  } else if (useWebRender) {
+    // With WebRender we benefit from updating the displaylist and scene less often.
+    // For this we need to move the displayport less often which we achieve by using
+    // larger alignments for the displayport's position.
+    float w = screenRect.width;
+    float h = screenRect.height;
+    // Scale the alignment so that we never move by more than a quarter of the total
+    // unaligned displayport size. At most (1.0) we move by a screenful of content.
+    float sx = fmin(1.0, (aMarginsData->mMargins.LeftRight() + w) / w * 0.25);
+    float sy = fmin(1.0, (aMarginsData->mMargins.TopBottom() + h) / h * 0.25);
+    posAlignment.width = fmax(128.0, 512.0 * round(sx * w / 512.0));
+    posAlignment.height = fmax(128.0, 512.0 * round(sy * h / 512.0));
+    // tscrollx is very sensitive to the size of the displayport. We could just accept
+    // the regression and change it to something larger if need be, however smaller
+    // displayports also means less CPU work for most stages in webrender so we generally
+    // want to avoid very large displayports.
+    sizeAlignment = ScreenSize(128, 128);
   } else if (StaticPrefs::layers_enable_tiles_AtStartup()) {
     // Don't align to tiles if they are too large, because we could expand
     // the displayport by a lot which can take more paint time. It's a tradeoff
     // though because if we don't align to tiles we have more waste on upload.
     IntSize tileSize = gfxVars::TileSize();
-    alignment = ScreenSize(std::min(256, tileSize.width),
-                           std::min(256, tileSize.height));
+    posAlignment = ScreenSize(std::min(256, tileSize.width),
+                              std::min(256, tileSize.height));
+    sizeAlignment = posAlignment;
   } else {
     // If we're not drawing with tiles then we need to be careful about not
     // hitting the max texture size and we only need 1 draw call per layer
     // so we can align to a smaller multiple.
-    alignment = ScreenSize(128, 128);
+    posAlignment = ScreenSize(128, 128);
+    sizeAlignment = ScreenSize(128, 128);
   }
 
   // Avoid division by zero.
-  if (alignment.width == 0) {
-    alignment.width = 128;
+  if (posAlignment.width == 0) {
+    posAlignment.width = 128;
   }
-  if (alignment.height == 0) {
-    alignment.height = 128;
+  if (posAlignment.height == 0) {
+    posAlignment.height = 128;
   }
 
-  if (StaticPrefs::layers_enable_tiles_AtStartup()) {
+  if (sizeAlignment.width == 0) {
+    sizeAlignment.width = 128;
+  }
+  if (sizeAlignment.height == 0) {
+    sizeAlignment.height = 128;
+  }
+
+  if (StaticPrefs::layers_enable_tiles_AtStartup() || useWebRender) {
     // Expand the rect by the margins
     screenRect.Inflate(aMarginsData->mMargins);
   } else {
@@ -891,9 +924,9 @@ static nsRect GetDisplayPortFromMarginsData(
     // Find the maximum size in screen pixels.
     int32_t maxSizeDevPx = presContext->AppUnitsToDevPixels(maxSizeAppUnits);
     int32_t maxWidthScreenPx = floor(double(maxSizeDevPx) * res.xScale) -
-                               MAX_ALIGN_ROUNDING * alignment.width;
+                               MAX_ALIGN_ROUNDING * sizeAlignment.width;
     int32_t maxHeightScreenPx = floor(double(maxSizeDevPx) * res.yScale) -
-                                MAX_ALIGN_ROUNDING * alignment.height;
+                                MAX_ALIGN_ROUNDING * sizeAlignment.height;
 
     // For each axis, inflate the margins up to the maximum size.
     const ScreenMargin& margins = aMarginsData->mMargins;
@@ -928,10 +961,10 @@ static nsRect GetDisplayPortFromMarginsData(
 
   // Round-out the display port to the nearest alignment (tiles)
   screenRect += scrollPosScreen;
-  float x = alignment.width * floor(screenRect.x / alignment.width);
-  float y = alignment.height * floor(screenRect.y / alignment.height);
-  float w = alignment.width * ceil(screenRect.width / alignment.width + 1);
-  float h = alignment.height * ceil(screenRect.height / alignment.height + 1);
+  float x = posAlignment.width * floor(screenRect.x / posAlignment.width);
+  float y = posAlignment.height * floor(screenRect.y / posAlignment.height);
+  float w = sizeAlignment.width * ceil(screenRect.width / sizeAlignment.width + 1);
+  float h = sizeAlignment.height * ceil(screenRect.height / sizeAlignment.height + 1);
   screenRect = ScreenRect(x, y, w, h);
   screenRect -= scrollPosScreen;
 
@@ -2723,6 +2756,49 @@ const nsIFrame* nsLayoutUtils::FindNearestCommonAncestorFrame(
     }
   }
   return commonAncestor;
+}
+
+const nsIFrame* nsLayoutUtils::FindNearestCommonAncestorFrameWithinBlock(
+    const nsTextFrame* aFrame1, const nsTextFrame* aFrame2) {
+  MOZ_ASSERT(aFrame1);
+  MOZ_ASSERT(aFrame2);
+
+  const nsIFrame* f1 = aFrame1;
+  const nsIFrame* f2 = aFrame2;
+
+  int n1 = 1;
+  int n2 = 1;
+
+  for (auto f = f1->GetParent(); !f->IsBlockFrameOrSubclass();
+       f = f->GetParent()) {
+    ++n1;
+  }
+
+  for (auto f = f2->GetParent(); !f->IsBlockFrameOrSubclass();
+       f = f->GetParent()) {
+    ++n2;
+  }
+
+  if (n1 > n2) {
+    std::swap(n1, n2);
+    std::swap(f1, f2);
+  }
+
+  while (n2 > n1) {
+    f2 = f2->GetParent();
+    --n2;
+  }
+
+  while (n2 >= 0) {
+    if (f1 == f2) {
+      return f1;
+    }
+    f1 = f1->GetParent();
+    f2 = f2->GetParent();
+    --n2;
+  }
+
+  return nullptr;
 }
 
 nsLayoutUtils::TransformResult nsLayoutUtils::TransformPoints(
@@ -4801,7 +4877,7 @@ already_AddRefed<nsFontMetrics> nsLayoutUtils::GetFontMetricsForComputedStyle(
   }
 
   nsFont font = styleFont->mFont;
-  font.size = NSToCoordRound(font.size * aInflation);
+  font.size.ScaleBy(aInflation);
   font.variantWidth = aVariantWidth;
   return aPresContext->DeviceContext()->GetMetricsFor(font, params);
 }
@@ -7430,7 +7506,8 @@ nsIFrame* nsLayoutUtils::GetReferenceFrame(nsIFrame* aFrame) {
       result |= gfx::ShapedTextFlags::TEXT_OPTIMIZE_SPEED;
       break;
     case StyleTextRendering::Auto:
-      if (aStyleFont->mFont.size < aPresContext->GetAutoQualityMinFontSize()) {
+      if (aStyleFont->mFont.size.ToCSSPixels() <
+          aPresContext->GetAutoQualityMinFontSize()) {
         result |= gfx::ShapedTextFlags::TEXT_OPTIMIZE_SPEED;
       }
       break;
@@ -8314,7 +8391,7 @@ float nsLayoutUtils::FontSizeInflationInner(const nsIFrame* aFrame,
   // Note that line heights should be inflated by the same ratio as the
   // font size of the same text; thus we operate only on the font size
   // even when we're scaling a line height.
-  nscoord styleFontSize = aFrame->StyleFont()->mFont.size;
+  nscoord styleFontSize = aFrame->StyleFont()->mFont.size.ToAppUnits();
   if (styleFontSize <= 0) {
     // Never scale zero font size.
     return 1.0;
@@ -8625,14 +8702,16 @@ nsMargin nsLayoutUtils::ScrollbarAreaToExcludeFromCompositionBoundsFor(
 
 /* static */
 nsSize nsLayoutUtils::CalculateCompositionSizeForFrame(
-    nsIFrame* aFrame, bool aSubtractScrollbars) {
+    nsIFrame* aFrame, bool aSubtractScrollbars,
+    const nsSize* aOverrideScrollPortSize) {
   // If we have a scrollable frame, restrict the composition bounds to its
   // scroll port. The scroll port excludes the frame borders and the scroll
   // bars, which we don't want to be part of the composition bounds.
   nsIScrollableFrame* scrollableFrame = aFrame->GetScrollTargetFrame();
   nsRect rect = scrollableFrame ? scrollableFrame->GetScrollPortRect()
                                 : aFrame->GetRect();
-  nsSize size = rect.Size();
+  nsSize size =
+      aOverrideScrollPortSize ? *aOverrideScrollPortSize : rect.Size();
 
   nsPresContext* presContext = aFrame->PresContext();
   PresShell* presShell = presContext->PresShell();
@@ -8975,63 +9054,6 @@ bool nsLayoutUtils::HasDocumentLevelListenersForApzAwareEvents(
     }
   }
   return false;
-}
-
-static void MaybeReflowForInflationScreenSizeChange(
-    nsPresContext* aPresContext) {
-  if (aPresContext) {
-    PresShell* presShell = aPresContext->GetPresShell();
-    const bool fontInflationWasEnabled = presShell->FontSizeInflationEnabled();
-    presShell->RecomputeFontSizeInflationEnabled();
-    bool changed = false;
-    if (presShell->FontSizeInflationEnabled() &&
-        presShell->FontSizeInflationMinTwips() != 0) {
-      aPresContext->ScreenSizeInchesForFontInflation(&changed);
-    }
-
-    changed = changed ||
-              fontInflationWasEnabled != presShell->FontSizeInflationEnabled();
-    if (changed) {
-      nsCOMPtr<nsIDocShell> docShell = aPresContext->GetDocShell();
-      if (docShell) {
-        nsCOMPtr<nsIContentViewer> cv;
-        docShell->GetContentViewer(getter_AddRefs(cv));
-        if (cv) {
-          nsTArray<nsCOMPtr<nsIContentViewer>> array;
-          cv->AppendSubtree(array);
-          for (uint32_t i = 0, iEnd = array.Length(); i < iEnd; ++i) {
-            nsCOMPtr<nsIContentViewer> cv = array[i];
-            if (RefPtr<PresShell> descendantPresShell = cv->GetPresShell()) {
-              nsIFrame* rootFrame = descendantPresShell->GetRootFrame();
-              if (rootFrame) {
-                descendantPresShell->FrameNeedsReflow(
-                    rootFrame, IntrinsicDirty::StyleChange, NS_FRAME_IS_DIRTY);
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-}
-
-/* static */
-void nsLayoutUtils::SetVisualViewportSize(PresShell* aPresShell,
-                                          CSSSize aSize) {
-  // TODO, comment this line to prevent content process crash.
-  // MOZ_ASSERT(aSize.width >= 0.0 && aSize.height >= 0.0);
-
-  aPresShell->SetVisualViewportSize(
-      nsPresContext::CSSPixelsToAppUnits(aSize.width),
-      nsPresContext::CSSPixelsToAppUnits(aSize.height));
-
-  // When the "font.size.inflation.minTwips" preference is set, the
-  // layout depends on the size of the screen.  Since when the size
-  // of the screen changes, the scroll position clamping scroll port
-  // size also changes, we hook in the needed updates here rather
-  // than adding a separate notification just for this change.
-  nsPresContext* presContext = aPresShell->GetPresContext();
-  MaybeReflowForInflationScreenSizeChange(presContext);
 }
 
 /* static */
@@ -10167,7 +10189,7 @@ nsLayoutUtils::ControlCharVisibilityDefault() {
 /* static */
 already_AddRefed<nsFontMetrics> nsLayoutUtils::GetMetricsFor(
     nsPresContext* aPresContext, bool aIsVertical,
-    const nsStyleFont* aStyleFont, nscoord aFontSize, bool aUseUserFontSet) {
+    const nsStyleFont* aStyleFont, Length aFontSize, bool aUseUserFontSet) {
   nsFont font = aStyleFont->mFont;
   font.size = aFontSize;
   gfxFont::Orientation orientation =
@@ -10200,7 +10222,7 @@ void nsLayoutUtils::ComputeSystemFont(nsFont* aSystemFont,
     aSystemFont->systemFont = fontStyle.systemFont;
     aSystemFont->weight = fontStyle.weight;
     aSystemFont->stretch = fontStyle.stretch;
-    aSystemFont->size = CSSPixel::ToAppUnits(fontStyle.size);
+    aSystemFont->size = Length::FromPixels(fontStyle.size);
     // aSystemFont->langGroup = fontStyle.langGroup;
     aSystemFont->sizeAdjust = fontStyle.sizeAdjust;
 
@@ -10224,9 +10246,9 @@ void nsLayoutUtils::ComputeSystemFont(nsFont* aSystemFont,
       //    always use 2 points smaller than what the browser has defined as
       //    the default proportional font.
       // Assumption: system defined font is proportional
-      aSystemFont->size = std::max(
-          aDefaultVariableFont->size - nsPresContext::CSSPointsToAppUnits(2),
-          0);
+      auto newSize =
+          aDefaultVariableFont->size.ToCSSPixels() - CSSPixel::FromPoints(2.0f);
+      aSystemFont->size = Length::FromPixels(std::max(float(newSize), 0.0f));
     }
 #endif
   }

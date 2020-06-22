@@ -81,7 +81,7 @@ New ICU versions are announced on the [icu-announce](https://lists.sourceforge.n
 ```bash
 $ cd "$topsrcdir/intl"
 $ # Ensure certain Python modules in the tree are accessible when updating.
-$ export PYTHONPATH="$topsrcdir/build/pymake/:$topsrcdir/python/mozbuild/"
+$ export PYTHONPATH="$topsrcdir/python/mozbuild/"
 $ #               <URL to ICU Git>                       <release tag name>
 $ ./update-icu.sh https://github.com/unicode-org/icu.git release-67-1
 ```
@@ -93,7 +93,7 @@ But usually you'll want to update to the latest commit from the corresponding IC
 ```bash
 $ cd "$topsrcdir/intl"
 $ # Ensure certain Python modules in the tree are accessible when updating.
-$ export PYTHONPATH="$topsrcdir/build/pymake/:$topsrcdir/python/mozbuild/"
+$ export PYTHONPATH="$topsrcdir/python/mozbuild/"
 $ #               <URL to ICU Git>                       <maintenance name>
 $ ./update-icu.sh https://github.com/unicode-org/icu.git maint/maint-67
 ```
@@ -168,7 +168,7 @@ Use `make_intl_data.py`'s `tzdata` mode to update time zone information:
 ```bash
 $ cd "$topsrcdir/js/src/builtin/intl"
 $ # make_intl_data.py requires yaml.
-$ export PYTHONPATH="$topsrcdir/third_party/python/pyyaml/lib3/"
+$ export PYTHONPATH="$topsrcdir/third_party/python/PyYAML/lib3/"
 $ python3 ./make_intl_data.py tzdata
 ```
 
@@ -193,7 +193,7 @@ Use `make_intl_data.py`'s `langtags` mode to update language tag information to 
 ```bash
 $ cd "$topsrcdir/js/src/builtin/intl"
 $ # make_intl_data.py requires yaml.
-$ export PYTHONPATH="$topsrcdir/third_party/python/pyyaml/lib3/"
+$ export PYTHONPATH="$topsrcdir/third_party/python/PyYAML/lib3/"
 $ python3 ./make_intl_data.py langtags
 ```
 
@@ -216,7 +216,7 @@ Use `make_intl_data.py`'s `currency` mode to update currency fractional digit in
 ```bash
 $ cd "$topsrcdir/js/src/builtin/intl"
 $ # make_intl_data.py requires yaml.
-$ export PYTHONPATH="$topsrcdir/third_party/python/pyyaml/lib3/"
+$ export PYTHONPATH="$topsrcdir/third_party/python/PyYAML/lib3/"
 $ python3 ./make_intl_data.py currency
 ```
 
@@ -233,6 +233,6 @@ Second, use `make_intl_data.py`'s `units` mode to update unit handling and assoc
 ```bash
 $ cd "$topsrcdir/js/src/builtin/intl"
 $ # make_intl_data.py requires yaml.
-$ export PYTHONPATH="$topsrcdir/third_party/python/pyyaml/lib3/"
+$ export PYTHONPATH="$topsrcdir/third_party/python/PyYAML/lib3/"
 $ python3 ./make_intl_data.py units
 ```

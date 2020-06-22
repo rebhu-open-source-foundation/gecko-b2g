@@ -74,6 +74,12 @@ class MobileViewportManager final : public nsIDOMEventListener,
   void SetRestoreResolution(float aResolution);
 
  public:
+  /* Notify the MobileViewportManager that a resize-reflow is about to happen,
+   * possibly indicating a change in the display size or some other quantity
+   * that the visual viewport depends on.
+   */
+  void NotifyResizeReflow();
+
   /* Notify the MobileViewportManager that a reflow was requested in the
    * presShell.*/
   void RequestReflow(bool aForceAdjustResolution);
@@ -111,6 +117,14 @@ class MobileViewportManager final : public nsIDOMEventListener,
   nsSize GetVisualViewportSizeUpdatedByDynamicToolbar() const {
     return mVisualViewportSizeUpdatedByDynamicToolbar;
   }
+
+  /*
+   * This refreshes the visual viewport size based on the most recently
+   * available information. It is intended to be called in particular after
+   * the root scrollframe does a reflow, which may make scrollbars appear or
+   * disappear if the content changed size.
+   */
+  void UpdateVisualViewportSizeForPotentialScrollbarChange();
 
  private:
   ~MobileViewportManager();

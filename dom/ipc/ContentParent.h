@@ -27,7 +27,6 @@
 #include "mozilla/LinkedList.h"
 #include "mozilla/MemoryReportingProcess.h"
 #include "mozilla/MozPromise.h"
-#include "mozilla/StaticPtr.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/Variant.h"
 #include "mozilla/UniquePtr.h"
@@ -701,17 +700,17 @@ class ContentParent final
    */
   static nsClassHashtable<nsStringHashKey, nsTArray<ContentParent*>>*
       sBrowserContentParents;
-  static nsTArray<ContentParent*>* sPrivateContent;
-  static nsDataHashtable<nsUint32HashKey, ContentParent*>*
+  static UniquePtr<nsTArray<ContentParent*>> sPrivateContent;
+  static UniquePtr<nsDataHashtable<nsUint32HashKey, ContentParent*>>
       sJSPluginContentParents;
-  static StaticAutoPtr<LinkedList<ContentParent>> sContentParents;
+  static UniquePtr<LinkedList<ContentParent>> sContentParents;
 
   void AddShutdownBlockers();
   void RemoveShutdownBlockers();
 
 #if defined(XP_MACOSX) && defined(MOZ_SANDBOX)
   // Cached Mac sandbox params used when launching content processes.
-  static StaticAutoPtr<std::vector<std::string>> sMacSandboxParams;
+  static UniquePtr<std::vector<std::string>> sMacSandboxParams;
 #endif
 
   // Set aLoadUri to true to load aURIToLoad and to false to only create the
@@ -1435,10 +1434,6 @@ class ContentParent final
 
   JSActor::Type GetSide() override { return JSActor::Type::Parent; }
 
-  static const nsTArray<RefPtr<BrowsingContextGroup>>& BrowsingContextGroups() {
-    return *sBrowsingContextGroupHolder;
-  }
-
  private:
   // Return an existing ContentParent if possible. Otherwise, `nullptr`.
   static already_AddRefed<ContentParent> GetUsedBrowserProcess(
@@ -1452,6 +1447,10 @@ class ContentParent final
   void ReceiveRawMessage(const JSActorMessageMeta& aMeta,
                          StructuredCloneData&& aData,
                          StructuredCloneData&& aStack);
+
+  void AddToPool(nsTArray<ContentParent*>&);
+  void RemoveFromPool(nsTArray<ContentParent*>&);
+  void AssertNotInPool();
 
  private:
   // Released in ActorDealloc; deliberately not exposed to the CC.
@@ -1523,27 +1522,25 @@ class ContentParent final
 
   LifecycleState mLifecycleState;
 
-  // True only the if process is already a browser or has
-  // been transformed into one.
-  bool mMetamorphosed;
-
-  bool mIsForBrowser;
+  uint8_t mIsForBrowser : 1;
 
   // These variables track whether we've called Close() and KillHard() on our
   // channel.
-  bool mCalledClose;
-  bool mCalledKillHard;
-  bool mCreatedPairedMinidumps;
-  bool mShutdownPending;
-  bool mIPCOpen;
+  uint8_t mCalledClose : 1;
+  uint8_t mCalledKillHard : 1;
+  uint8_t mCreatedPairedMinidumps : 1;
+  uint8_t mShutdownPending : 1;
+  uint8_t mIPCOpen : 1;
 
   // True if the input event queue on the main thread of the content process is
   // enabled.
-  bool mIsRemoteInputEventQueueEnabled;
+  uint8_t mIsRemoteInputEventQueueEnabled : 1;
 
   // True if we send input events with input priority. Otherwise, we send input
   // events with normal priority.
-  bool mIsInputPriorityEventEnabled;
+  uint8_t mIsInputPriorityEventEnabled : 1;
+
+  uint8_t mIsInPool : 1;
 
   RefPtr<nsConsoleService> mConsoleService;
   nsConsoleService* GetConsoleService();
@@ -1597,9 +1594,6 @@ class ContentParent final
   nsTArray<Pref> mQueuedPrefs;
 
   RefPtr<mozilla::dom::ProcessMessageManager> mMessageManager;
-
-  static StaticAutoPtr<nsTArray<RefPtr<BrowsingContextGroup>>>
-      sBrowsingContextGroupHolder;
 
 #if defined(XP_MACOSX) && defined(MOZ_SANDBOX)
   // When set to true, indicates that content processes should

@@ -42,6 +42,8 @@ def silence(layer=None):
     oldout, olderr = sys.stdout, sys.stderr
     try:
         sys.stdout, sys.stderr = StringIO(), StringIO()
+        sys.stdout.buffer = sys.stdout
+        sys.stderr.buffer = sys.stderr
         sys.stdout.fileno = sys.stderr.fileno = lambda: -1
         yield sys.stdout, sys.stderr
     finally:
@@ -193,13 +195,15 @@ def temporary_env(**env):
                 os.environ[key] = value
 
 
-def get_multi_tasks_url(route, previous=True):
+def get_multi_tasks_url(route, day="yesterday"):
     """Builds a URL to obtain all the tasks of a given build route for a single day.
 
     If previous is true, then we get builds from the previous day,
     otherwise, we look at the current day.
     """
-    curr = date.today()
-    if previous:
-        curr = curr - timedelta(1)
-    return f"""{MULTI_TASK_ROOT}{route}.{curr.strftime("%Y.%m.%d")}.revision"""
+    if day in ("yesterday", "today"):
+        curr = date.today()
+        if day == "yesterday":
+            curr = curr - timedelta(1)
+        day = curr.strftime("%Y.%m.%d")
+    return f"""{MULTI_TASK_ROOT}{route}.{day}.revision"""

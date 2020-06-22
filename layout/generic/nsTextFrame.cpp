@@ -1914,8 +1914,16 @@ bool BuildTextRunsScanner::ContinueTextRunAcrossFrames(nsTextFrame* aFrame1,
     };
 
     const nsIFrame* ancestor =
-        nsLayoutUtils::FindNearestCommonAncestorFrame(aFrame1, aFrame2);
-    MOZ_ASSERT(ancestor);
+        nsLayoutUtils::FindNearestCommonAncestorFrameWithinBlock(aFrame1,
+                                                                 aFrame2);
+
+    if (!ancestor) {
+      // The two frames are within different blocks, e.g. due to block
+      // fragmentation. In theory we shouldn't prevent cross-frame shaping
+      // here, but it's an edge case where we should rarely decide to allow
+      // cross-frame shaping, so we don't try harder here.
+      return false;
+    }
 
     // Map inline-end and inline-start to physical sides for checking presence
     // of non-zero margin/border/padding.
@@ -5618,13 +5626,14 @@ gfxFloat nsTextFrame::ComputeSelectionUnderlineHeight(
       // the default font size, we should use the actual font size because the
       // computed value from the default font size can be too thick for the
       // current font size.
-      nscoord defaultFontSize =
+      Length defaultFontSize =
           aPresContext->Document()
               ->GetFontPrefsForLang(nullptr)
               ->GetDefaultFont(StyleGenericFontFamily::None)
               ->size;
-      int32_t zoomedFontSize = aPresContext->AppUnitsToDevPixels(
-          nsStyleFont::ZoomText(*aPresContext->Document(), defaultFontSize));
+      int32_t zoomedFontSize = aPresContext->CSSPixelsToDevPixels(
+          nsStyleFont::ZoomText(*aPresContext->Document(), defaultFontSize)
+              .ToCSSPixels());
       gfxFloat fontSize =
           std::min(gfxFloat(zoomedFontSize), aFontMetrics.emHeight);
       fontSize = std::max(fontSize, 1.0);

@@ -103,8 +103,6 @@ cfr-whatsnew-button =
   .label = What’s New
   .tooltiptext = What’s New
 
-cfr-whatsnew-panel-header = What’s New
-
 cfr-whatsnew-release-notes-link-text = Read the release notes
 
 cfr-whatsnew-fx70-title = { -brand-short-name } now fights harder for your privacy
@@ -230,6 +228,8 @@ cfr-doorhanger-milestone-heading =
   }
 cfr-doorhanger-milestone-ok-button = See All
   .accesskey = S
+cfr-doorhanger-milestone-close-button = Close
+  .accesskey = C
 
 ## What’s New Panel Content for Firefox 76
 

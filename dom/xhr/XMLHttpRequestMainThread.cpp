@@ -2743,9 +2743,8 @@ already_AddRefed<PreloaderBase> XMLHttpRequestMainThread::FindPreload() {
                       : CORSMode::CORS_USE_CREDENTIALS;
   nsCOMPtr<nsIReferrerInfo> referrerInfo =
       ReferrerInfo::CreateForFetch(mPrincipal, doc);
-  auto key = PreloadHashKey::CreateAsFetch(mRequestURL, cors,
-                                           referrerInfo->ReferrerPolicy());
-  RefPtr<PreloaderBase> preload = doc->Preloads().LookupPreload(&key);
+  auto key = PreloadHashKey::CreateAsFetch(mRequestURL, cors);
+  RefPtr<PreloaderBase> preload = doc->Preloads().LookupPreload(key);
   if (!preload) {
     return nullptr;
   }

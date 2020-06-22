@@ -1686,10 +1686,10 @@ nsresult nsGlobalWindowOuter::EnsureScriptEnvironment() {
                "No cached wrapper, but we have an inner window?");
   NS_ASSERTION(!mContext, "Will overwrite mContext!");
 
-  // If this window is a [i]frame, don't bother GC'ing when the frame's context
+  // If this window is an [i]frame, don't bother GC'ing when the frame's context
   // is destroyed since a GC will happen when the frameset or host document is
   // destroyed anyway.
-  mContext = new nsJSContext(!IsFrame(), this);
+  mContext = new nsJSContext(mBrowsingContext->IsTop(), this);
   return NS_OK;
 }
 
@@ -2458,11 +2458,6 @@ nsresult nsGlobalWindowOuter::SetNewDocument(Document* aDocument,
 
   PreloadLocalStorage();
 
-  // If we have a recorded interesting Large-Allocation header status, report it
-  // to the newly attached document.
-  ReportLargeAllocStatus();
-  mLargeAllocStatus = LargeAllocStatus::NONE;
-
   mStorageAccessPermissionGranted =
       CheckStorageAccessPermission(aDocument, newInnerWindow);
 
@@ -2633,8 +2628,7 @@ void nsGlobalWindowOuter::SetDocShell(nsDocShell* aDocShell) {
   MOZ_RELEASE_ASSERT(!parentContext ||
                      GetBrowsingContextGroup() == parentContext->Group());
 
-  mTopLevelOuterContentWindow =
-      !mIsChrome && GetInProcessScriptableTopInternal() == this;
+  mTopLevelOuterContentWindow = mBrowsingContext->IsTopContent();
 
   // Get our enclosing chrome shell and retrieve its global window impl, so
   // that we can do some forwarding to the chrome document.
@@ -3154,7 +3148,13 @@ Nullable<WindowProxyHolder> nsGlobalWindowOuter::GetParentOuter() {
 }
 
 /**
- * GetInProcessScriptableParent is called when script reads window.parent.
+ * GetInProcessScriptableParent used to be called when a script read
+ * window.parent. Under Fission, that is now handled by
+ * BrowsingContext::GetParent, and the result is a WindowProxyHolder rather than
+ * an actual global window. This method still exists for legacy callers which
+ * relied on the old logic, and require in-process windows. However, it only
+ * works correctly when no out-of-process frames exist between this window and
+ * the top-level window, so it should not be used in new code.
  *
  * In contrast to GetRealParent, GetInProcessScriptableParent respects <iframe
  * mozbrowser> boundaries, so if |this| is contained by an <iframe
@@ -3275,7 +3275,13 @@ static nsresult GetTopImpl(nsGlobalWindowOuter* aWin, nsIURI* aURIBeingLoaded,
 }
 
 /**
- * GetInProcessScriptableTop is called when script reads window.top.
+ * GetInProcessScriptableTop used to be called when a script read window.top.
+ * Under Fission, that is now handled by BrowsingContext::Top, and the result is
+ * a WindowProxyHolder rather than an actual global window. This method still
+ * exists for legacy callers which relied on the old logic, and require
+ * in-process windows. However, it only works correctly when no out-of-process
+ * frames exist between this window and the top-level window, so it should not
+ * be used in new code.
  *
  * In contrast to GetRealTop, GetInProcessScriptableTop respects <iframe
  * mozbrowser> boundaries.  If we encounter a window owned by an <iframe
@@ -5276,7 +5282,7 @@ void nsGlobalWindowOuter::MoveToOuter(int32_t aXPos, int32_t aYPos,
    * prevent window.moveTo() by exiting early
    */
 
-  if (!CanMoveResizeWindows(aCallerType) || IsFrame()) {
+  if (!CanMoveResizeWindows(aCallerType) || mBrowsingContext->IsFrame()) {
     return;
   }
 
@@ -5333,7 +5339,7 @@ void nsGlobalWindowOuter::MoveByOuter(int32_t aXDif, int32_t aYDif,
    * prevent window.moveBy() by exiting early
    */
 
-  if (!CanMoveResizeWindows(aCallerType) || IsFrame()) {
+  if (!CanMoveResizeWindows(aCallerType) || mBrowsingContext->IsFrame()) {
     return;
   }
 
@@ -5384,7 +5390,7 @@ void nsGlobalWindowOuter::ResizeToOuter(int32_t aWidth, int32_t aHeight,
    * prevent window.resizeTo() by exiting early
    */
 
-  if (!CanMoveResizeWindows(aCallerType) || IsFrame()) {
+  if (!CanMoveResizeWindows(aCallerType) || mBrowsingContext->IsFrame()) {
     return;
   }
 
@@ -5412,7 +5418,7 @@ void nsGlobalWindowOuter::ResizeByOuter(int32_t aWidthDif, int32_t aHeightDif,
    * prevent window.resizeBy() by exiting early
    */
 
-  if (!CanMoveResizeWindows(aCallerType) || IsFrame()) {
+  if (!CanMoveResizeWindows(aCallerType) || mBrowsingContext->IsFrame()) {
     return;
   }
 
@@ -5458,7 +5464,7 @@ void nsGlobalWindowOuter::SizeToContentOuter(CallerType aCallerType,
    * prevent window.sizeToContent() by exiting early
    */
 
-  if (!CanMoveResizeWindows(aCallerType) || IsFrame()) {
+  if (!CanMoveResizeWindows(aCallerType) || mBrowsingContext->IsFrame()) {
     return;
   }
 
@@ -6074,7 +6080,7 @@ bool nsGlobalWindowOuter::CanClose() {
 }
 
 void nsGlobalWindowOuter::CloseOuter(bool aTrustedCaller) {
-  if (!mDocShell || IsInModalState() || IsFrame()) {
+  if (!mDocShell || IsInModalState() || mBrowsingContext->IsFrame()) {
     // window.close() is called on a frame in a frameset, on a window
     // that's already closed, or on a window for which there's
     // currently a modal dialog open. Ignore such calls.
@@ -6170,7 +6176,7 @@ nsresult nsGlobalWindowOuter::Close() {
 void nsGlobalWindowOuter::ForceClose() {
   MOZ_ASSERT(XRE_GetProcessType() == GeckoProcessType_Default);
 
-  if (IsFrame() || !mDocShell) {
+  if (mBrowsingContext->IsFrame() || !mDocShell) {
     // This may be a frame in a frameset, or a window that's already closed.
     // Ignore such calls.
     return;
@@ -7478,49 +7484,8 @@ int16_t nsGlobalWindowOuter::Orientation(CallerType aCallerType) const {
 }
 #endif
 
-void nsPIDOMWindowOuter::SetLargeAllocStatus(LargeAllocStatus aStatus) {
-  MOZ_ASSERT(mLargeAllocStatus == LargeAllocStatus::NONE);
-  mLargeAllocStatus = aStatus;
-}
-
-bool nsPIDOMWindowOuter::IsTopLevelWindow() {
-  return nsGlobalWindowOuter::Cast(this)->IsTopLevelWindow();
-}
-
 bool nsPIDOMWindowOuter::HadOriginalOpener() const {
   return nsGlobalWindowOuter::Cast(this)->HadOriginalOpener();
-}
-
-void nsGlobalWindowOuter::ReportLargeAllocStatus() {
-  uint32_t errorFlags = nsIScriptError::warningFlag;
-  const char* message = nullptr;
-
-  switch (mLargeAllocStatus) {
-    case LargeAllocStatus::SUCCESS:
-      // Override the error flags such that the success message isn't reported
-      // as a warning.
-      errorFlags = nsIScriptError::infoFlag;
-      message = "LargeAllocationSuccess";
-      break;
-    case LargeAllocStatus::NON_WIN32:
-      errorFlags = nsIScriptError::infoFlag;
-      message = "LargeAllocationNonWin32";
-      break;
-    case LargeAllocStatus::NON_GET:
-      message = "LargeAllocationNonGetRequest";
-      break;
-    case LargeAllocStatus::NON_E10S:
-      message = "LargeAllocationNonE10S";
-      break;
-    case LargeAllocStatus::NOT_ONLY_TOPLEVEL_IN_TABGROUP:
-      message = "LargeAllocationNotOnlyToplevelInTabGroup";
-      break;
-    default:   // LargeAllocStatus::NONE
-      return;  // Don't report a message to the console
-  }
-
-  nsContentUtils::ReportToConsole(errorFlags, NS_LITERAL_CSTRING("DOM"), mDoc,
-                                  nsContentUtils::eDOM_PROPERTIES, message);
 }
 
 #if defined(_WINDOWS_) && !defined(MOZ_WRAPPED_WINDOWS_H)
@@ -7664,7 +7629,6 @@ nsPIDOMWindowOuter::nsPIDOMWindowOuter(uint64_t aWindowID)
       mInnerWindow(nullptr),
       mWindowID(aWindowID),
       mMarkedCCGeneration(0),
-      mServiceWorkersTestingEnabled(false),
-      mLargeAllocStatus(LargeAllocStatus::NONE) {}
+      mServiceWorkersTestingEnabled(false) {}
 
 nsPIDOMWindowOuter::~nsPIDOMWindowOuter() = default;

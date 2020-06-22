@@ -183,6 +183,8 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
   virtual void SetWindowShadowStyle(
       mozilla::StyleWindowShadow aStyle) override {}
   virtual void SetShowsToolbarButton(bool aShow) override {}
+  virtual void SetSupportsNativeFullscreen(
+      bool aSupportsNativeFullscreen) override {}
   virtual void SetWindowAnimationType(WindowAnimationType aType) override {}
   virtual void HideWindowChrome(bool aShouldHide) override {}
   virtual bool PrepareForFullscreenTransition(nsISupports** aData) override {
@@ -463,9 +465,6 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
   }
   virtual uint32_t GetGLFrameBufferFormat();
   virtual bool CompositorInitiallyPaused() { return false; }
-#ifdef XP_MACOSX
-  virtual LayoutDeviceIntRegion GetOpaqueWidgetRegion() { return {}; }
-#endif
 
  protected:
   void ResolveIconName(const nsAString& aIconName, const nsAString& aIconSuffix,

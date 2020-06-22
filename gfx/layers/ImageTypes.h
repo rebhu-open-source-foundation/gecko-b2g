@@ -112,6 +112,11 @@ enum class ImageFormat {
    * camera.
    */
   GONK_CAMERA_IMAGE,
+  /*
+   * The DMABUF format creates a SharedDMABUFImage, which stores YUV
+   * data in DMABUF memory. Used by VAAPI decoder on Linux.
+   */
+  DMABUF,
 };
 
 enum class StereoMode {

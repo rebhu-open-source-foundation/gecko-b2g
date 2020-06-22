@@ -10,6 +10,7 @@
 /* import-globals-from containers.js */
 /* import-globals-from privacy.js */
 /* import-globals-from sync.js */
+/* import-globals-from experimental.js */
 /* import-globals-from findInPage.js */
 /* import-globals-from ../../base/content/utilityOverlay.js */
 /* import-globals-from ../../../toolkit/content/preferencesBindings.js */
@@ -86,9 +87,10 @@ function init_all() {
   if (Services.prefs.getBoolPref("identity.fxaccounts.enabled")) {
     document.getElementById("category-sync").hidden = false;
     register_module("paneSync", gSyncPane);
-  } else {
-    // Remove the pane from the DOM so it doesn't get incorrectly included in search results.
-    document.getElementById("template-paneSync").remove();
+  }
+  if (Services.prefs.getBoolPref("browser.preferences.experimental")) {
+    document.getElementById("category-experimental").hidden = false;
+    register_module("paneExperimental", gExperimentalPane);
   }
   register_module("paneSearchResults", gSearchResultsPane);
   gSearchResultsPane.init();
@@ -122,7 +124,7 @@ function init_all() {
         // Ignore right clicks.
         return;
       }
-      let mainWindow = window.docShell.rootTreeItem.domWindow;
+      let mainWindow = window.browsingContext.topChromeWindow;
       mainWindow.BrowserOpenAddonsMgr();
       AMTelemetry.recordLinkEvent({
         object: "aboutPreferences",

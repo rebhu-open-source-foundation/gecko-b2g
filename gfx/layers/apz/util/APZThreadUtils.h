@@ -9,7 +9,9 @@
 
 #include "nsINamed.h"
 #include "nsITimer.h"
-#include "nsISerialEventTarget.h"
+#include "nsString.h"
+
+class nsISerialEventTarget;
 
 namespace mozilla {
 

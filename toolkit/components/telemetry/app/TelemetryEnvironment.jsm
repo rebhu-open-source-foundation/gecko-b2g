@@ -312,6 +312,7 @@ const DEFAULT_ENVIRONMENT_PREFS = new Map([
   ["signon.autofillForms", { what: RECORD_PREF_VALUE }],
   ["signon.generation.enabled", { what: RECORD_PREF_VALUE }],
   ["signon.rememberSignons", { what: RECORD_PREF_VALUE }],
+  ["toolkit.telemetry.pioneerId", { what: RECORD_PREF_STATE }],
   ["xpinstall.signatures.required", { what: RECORD_PREF_VALUE }],
 ]);
 
@@ -1422,11 +1423,6 @@ EnvironmentCache.prototype = {
   async _updateSearchEngine() {
     if (!this._canQuerySearch) {
       this._log.trace("_updateSearchEngine - ignoring early call");
-      return;
-    }
-
-    if (!Services.search) {
-      // Just ignore cases where the search service is not implemented.
       return;
     }
 

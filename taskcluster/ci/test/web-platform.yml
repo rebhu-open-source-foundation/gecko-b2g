@@ -87,16 +87,16 @@ web-platform-tests-backlog:
     treeherder-symbol: W-b(wpt)
     chunks:
         by-test-platform:
-            android.*: 6
-            linux.*64-asan/opt: 6
-            linux.*64-ccov/opt: 6
-            linux.*/debug: 6
-            macosx.*/debug: 5
-            windows7.*/opt: 3
-            windows7.*/debug: 5
-            windows10.*/debug: 3
-            windows10-64-ccov/opt: 6
-            default: 3
+            android.*: 3
+            linux.*64-asan/opt: 3
+            linux.*64-ccov/opt: 3
+            linux.*/debug: 3
+            macosx.*/debug: 3
+            windows7.*/opt: 1
+            windows7.*/debug: 3
+            windows10.*/debug: 1
+            windows10-64-ccov/opt: 3
+            default: 1
     max-run-time:
         by-test-platform:
             .*/debug: 7200
@@ -104,7 +104,11 @@ web-platform-tests-backlog:
             default: 3600
     variants: []
     e10s: true
-    run-on-projects: ['mozilla-central']
+    run-on-projects:
+        by-test-platform:
+            .*-ccov.*: []  # Bug 1643177 - do not run backlog on coverage
+            .*-devedition.*: []  # Bug 1643177 - do not run backlog on devedition
+            default: ['mozilla-central']
     tier: 2
     mozharness:
         chunked: true
@@ -160,7 +164,11 @@ web-platform-tests-reftest-backlog:
             default: 1
     variants: []
     e10s: true
-    run-on-projects: ['mozilla-central']
+    run-on-projects:
+        by-test-platform:
+            .*-ccov.*: []  # Bug 1643177 - do not run backlog on coverage
+            .*-devedition.*: []  # Bug 1643177 - do not run backlog on devedition
+            default: ['mozilla-central']
     tier: 2
     mozharness:
         extra-options:
@@ -303,6 +311,7 @@ test-verify-wpt:
             (?:windows10-64|windows7-32|linux1804-64|macosx.*64)(?:-qr)?/opt: ['try']
             # do not run on beta or release: usually just confirms earlier results
             default: ['autoland', 'try']
+    built-projects-only: true
     tier: 2
     mozharness:
         extra-options:

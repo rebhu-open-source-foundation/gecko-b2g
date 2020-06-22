@@ -380,16 +380,6 @@ void HttpChannelChild::OnBackgroundChildDestroyed(
   }
 }
 
-mozilla::ipc::IPCResult HttpChannelChild::RecvAssociateApplicationCache(
-    const nsCString& aGroupID, const nsCString& aClientID) {
-  LOG(("HttpChannelChild::RecvAssociateApplicationCache [this=%p]\n", this));
-  mEventQ->RunOrEnqueue(new NeckoTargetChannelFunctionEvent(
-      this, [self = UnsafePtr<HttpChannelChild>(this), aGroupID, aClientID]() {
-        self->AssociateApplicationCache(aGroupID, aClientID);
-      }));
-  return IPC_OK();
-}
-
 void HttpChannelChild::AssociateApplicationCache(const nsCString& aGroupID,
                                                  const nsCString& aClientID) {
   LOG(("HttpChannelChild::AssociateApplicationCache [this=%p]\n", this));
@@ -543,6 +533,22 @@ void HttpChannelChild::OnStartRequest(
 
   mMultiPartID = aArgs.multiPartID();
   mIsLastPartOfMultiPart = aArgs.isLastPartOfMultiPart();
+
+  if (!aArgs.appCacheGroupId().IsEmpty() &&
+      !aArgs.appCacheClientId().IsEmpty()) {
+    AssociateApplicationCache(aArgs.appCacheGroupId(),
+                              aArgs.appCacheClientId());
+  }
+
+  if (aArgs.overrideReferrerInfo()) {
+    // The arguments passed to SetReferrerInfoInternal here should mirror the
+    // arguments passed in
+    // nsHttpChannel::ReEvaluateReferrerAfterTrackingStatusIsKnown(), except for
+    // aRespectBeforeConnect which we pass false here since we're intentionally
+    // overriding the referrer after BeginConnect().
+    Unused << SetReferrerInfoInternal(aArgs.overrideReferrerInfo(), false, true,
+                                      false);
+  }
 
   DoOnStartRequest(this, nullptr);
 }
@@ -2000,6 +2006,7 @@ void HttpChannelChild::CleanupRedirectingChannel(nsresult rv) {
     mInterceptListener = nullptr;
   }
   ReleaseListeners();
+  CleanupBackgroundChannel();
 }
 
 //-----------------------------------------------------------------------------
@@ -3187,19 +3194,6 @@ mozilla::ipc::IPCResult HttpChannelChild::RecvAltDataCacheInputStreamAvailable(
   if (receiver) {
     receiver->OnInputStreamReady(stream);
   }
-
-  return IPC_OK();
-}
-
-mozilla::ipc::IPCResult
-HttpChannelChild::RecvOverrideReferrerInfoDuringBeginConnect(
-    nsIReferrerInfo* aReferrerInfo) {
-  // The arguments passed to SetReferrerInfoInternal here should mirror the
-  // arguments passed in
-  // nsHttpChannel::ReEvaluateReferrerAfterTrackingStatusIsKnown(), except for
-  // aRespectBeforeConnect which we pass false here since we're intentionally
-  // overriding the referrer after BeginConnect().
-  Unused << SetReferrerInfoInternal(aReferrerInfo, false, true, false);
 
   return IPC_OK();
 }

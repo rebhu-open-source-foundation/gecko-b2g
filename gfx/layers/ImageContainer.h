@@ -170,7 +170,7 @@ class SurfaceTextureImage;
 #elif defined(XP_MACOSX)
 class MacIOSurfaceImage;
 #elif MOZ_WAYLAND
-class WaylandDMABUFSurfaceImage;
+class DMABUFSurfaceImage;
 #endif
 
 /**
@@ -234,9 +234,7 @@ class Image {
 #endif
   virtual PlanarYCbCrImage* AsPlanarYCbCrImage() { return nullptr; }
 #ifdef MOZ_WAYLAND
-  virtual WaylandDMABUFSurfaceImage* AsWaylandDMABUFSurfaceImage() {
-    return nullptr;
-  }
+  virtual DMABUFSurfaceImage* AsDMABUFSurfaceImage() { return nullptr; }
 #endif
 
   virtual NVImage* AsNVImage() { return nullptr; }

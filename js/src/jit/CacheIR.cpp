@@ -2300,6 +2300,24 @@ static Scalar::Type TypedThingElementType(JSObject* obj) {
                                      : PrimitiveArrayTypedObjectType(obj);
 }
 
+// For Uint32Array we let the stub return a double only if the current result is
+// a double, to allow better codegen in Warp.
+static bool AllowDoubleForUint32Array(TypedArrayObject* tarr, uint32_t index) {
+  if (TypedThingElementType(tarr) != Scalar::Type::Uint32) {
+    // Return value is only relevant for Uint32Array.
+    return false;
+  }
+
+  if (index >= tarr->length()) {
+    return false;
+  }
+
+  Value res;
+  MOZ_ALWAYS_TRUE(tarr->getElementPure(index, &res));
+  MOZ_ASSERT(res.isNumber());
+  return res.isDouble();
+}
+
 AttachDecision GetPropIRGenerator::tryAttachTypedElement(
     HandleObject obj, ObjOperandId objId, uint32_t index,
     Int32OperandId indexId) {
@@ -2324,9 +2342,11 @@ AttachDecision GetPropIRGenerator::tryAttachTypedElement(
   // Don't handle out-of-bounds accesses here because we have to ensure the
   // |undefined| type is monitored. See also tryAttachTypedArrayNonInt32Index.
   if (layout == TypedThingLayout::TypedArray) {
-    writer.loadTypedArrayElementResult(objId, indexId,
-                                       TypedThingElementType(obj),
-                                       /* handleOOB = */ false);
+    TypedArrayObject* tarr = &obj->as<TypedArrayObject>();
+    bool allowDoubleForUint32 = AllowDoubleForUint32Array(tarr, index);
+    writer.loadTypedArrayElementResult(
+        objId, indexId, TypedThingElementType(obj),
+        /* handleOOB = */ false, allowDoubleForUint32);
   } else {
     writer.loadTypedObjectElementResult(objId, indexId, layout,
                                         TypedThingElementType(obj));
@@ -2354,13 +2374,27 @@ AttachDecision GetPropIRGenerator::tryAttachTypedArrayNonInt32Index(
     return AttachDecision::NoAction;
   }
 
+  TypedArrayObject* tarr = &obj->as<TypedArrayObject>();
+
+  // Try to convert the number to a typed array index. Use NumberEqualsInt32
+  // because ToPropertyKey(-0) is 0. If the number is not representable as an
+  // int32 the result will be |undefined| so we leave |allowDoubleForUint32| as
+  // false.
+  bool allowDoubleForUint32 = false;
+  int32_t indexInt32;
+  if (mozilla::NumberEqualsInt32(idVal_.toNumber(), &indexInt32)) {
+    uint32_t index = uint32_t(indexInt32);
+    allowDoubleForUint32 = AllowDoubleForUint32Array(tarr, index);
+  }
+
   ValOperandId keyId = getElemKeyValueId();
   Int32OperandId indexId = writer.guardToTypedArrayIndex(keyId);
 
-  writer.guardShapeForClass(objId, obj->as<TypedArrayObject>().shape());
+  writer.guardShapeForClass(objId, tarr->shape());
 
   writer.loadTypedArrayElementResult(objId, indexId, TypedThingElementType(obj),
-                                     /* handleOOB = */ true);
+                                     /* handleOOB = */ true,
+                                     allowDoubleForUint32);
 
   // Always monitor the result when out-of-bounds accesses are expected.
   writer.typeMonitorResult();
@@ -5741,12 +5775,8 @@ AttachDecision CallIRGenerator::tryAttachMathRound(HandleFunction callee) {
 }
 
 AttachDecision CallIRGenerator::tryAttachMathSqrt(HandleFunction callee) {
-  // Need one argument.
-  if (argc_ != 1) {
-    return AttachDecision::NoAction;
-  }
-
-  if (!args_[0].isNumber()) {
+  // Need one (number) argument.
+  if (argc_ != 1 || !args_[0].isNumber()) {
     return AttachDecision::NoAction;
   }
 
@@ -5766,6 +5796,31 @@ AttachDecision CallIRGenerator::tryAttachMathSqrt(HandleFunction callee) {
   cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
 
   trackAttached("MathSqrt");
+  return AttachDecision::Attach;
+}
+
+AttachDecision CallIRGenerator::tryAttachMathFRound(HandleFunction callee) {
+  // Need one (number) argument.
+  if (argc_ != 1 || !args_[0].isNumber()) {
+    return AttachDecision::NoAction;
+  }
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Guard callee is the 'fround' native function.
+  emitNativeCalleeGuard(callee);
+
+  ValOperandId argumentId =
+      writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
+  NumberOperandId numberId = writer.guardIsNumber(argumentId);
+  writer.mathFRoundNumberResult(numberId);
+
+  // Math.fround always returns a double so we don't need type monitoring.
+  writer.returnFromIC();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
+
+  trackAttached("MathFRound");
   return AttachDecision::Attach;
 }
 
@@ -6190,6 +6245,8 @@ AttachDecision CallIRGenerator::tryAttachInlinableNative(
       return tryAttachMathRound(callee);
     case InlinableNative::MathSqrt:
       return tryAttachMathSqrt(callee);
+    case InlinableNative::MathFRound:
+      return tryAttachMathFRound(callee);
     case InlinableNative::MathATan2:
       return tryAttachMathATan2(callee);
     case InlinableNative::MathSin:
@@ -6281,10 +6338,16 @@ bool CallIRGenerator::getTemplateObjectForScripted(HandleFunction calleeFunc,
     return true;
   }
 
-  // Only attach a stub if the function already has a prototype and
-  // we can look it up without causing side effects.
+  // Only attach a stub if the newTarget is a function that already has a
+  // prototype and we can look it up without causing side effects.
   RootedValue protov(cx_);
   RootedObject newTarget(cx_, &newTarget_.toObject());
+  if (!newTarget->is<JSFunction>() ||
+      !newTarget->as<JSFunction>().hasNonConfigurablePrototypeDataProperty()) {
+    trackAttached(IRGenerator::NotAttached);
+    *skipAttach = true;
+    return true;
+  }
   if (!GetPropertyPure(cx_, newTarget, NameToId(cx_->names().prototype),
                        protov.address())) {
     // Can't purely lookup function prototype
@@ -6384,6 +6447,28 @@ AttachDecision CallIRGenerator::tryAttachCallScripted(
   if (isSpecialized) {
     // Ensure callee matches this stub's callee
     writer.guardSpecificFunction(calleeObjId, calleeFunc);
+    if (templateObj) {
+      // Call metaScriptedTemplateObject before emitting the call, so that Warp
+      // can use this template object before transpiling the call.
+      if (JitOptions.warpBuilder) {
+        // Emit guards to ensure the newTarget's .prototype property is what we
+        // expect. Note that getTemplateObjectForScripted checked newTarget is a
+        // function with a non-configurable .prototype data property.
+        JSFunction* newTarget = &newTarget_.toObject().as<JSFunction>();
+        Shape* shape = newTarget->lookupPure(cx_->names().prototype);
+        MOZ_ASSERT(shape);
+        uint32_t slot = shape->slot();
+        JSObject* prototypeObject = &newTarget->getSlot(slot).toObject();
+
+        ValOperandId newTargetValId = writer.loadArgumentDynamicSlot(
+            ArgumentKind::NewTarget, argcId, flags);
+        ObjOperandId newTargetObjId = writer.guardToObject(newTargetValId);
+        writer.guardShape(newTargetObjId, newTarget->lastProperty());
+        ObjOperandId protoId = writer.loadObject(prototypeObject);
+        writer.guardFunctionPrototype(newTargetObjId, protoId, slot);
+      }
+      writer.metaScriptedTemplateObject(calleeFunc, templateObj);
+    }
   } else {
     // Guard that object is a scripted function
     writer.guardClass(calleeObjId, GuardClassKind::JSFunction);
@@ -6400,11 +6485,6 @@ AttachDecision CallIRGenerator::tryAttachCallScripted(
 
   writer.callScriptedFunction(calleeObjId, argcId, flags);
   writer.typeMonitorResult();
-
-  if (templateObj) {
-    MOZ_ASSERT(isSpecialized);
-    writer.metaScriptedTemplateObject(calleeFunc, templateObj);
-  }
 
   cacheIRStubKind_ = BaselineCacheIRStubKind::Monitored;
   if (isSpecialized) {

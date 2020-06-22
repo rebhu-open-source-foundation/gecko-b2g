@@ -1511,14 +1511,8 @@ function _loadURI(browser, uri, params = {}) {
     uri = "about:blank";
   }
 
-  let {
-    triggeringPrincipal,
-    referrerInfo,
-    postData,
-    userContextId,
-    csp,
-    isHttpsOnlyModeUpgradeExempt,
-  } = params || {};
+  let { triggeringPrincipal, referrerInfo, postData, userContextId, csp } =
+    params || {};
   let loadFlags =
     params.loadFlags || params.flags || Ci.nsIWebNavigation.LOAD_FLAGS_NONE;
   let hasValidUserGestureActivation =
@@ -1565,7 +1559,6 @@ function _loadURI(browser, uri, params = {}) {
     referrerInfo,
     postData,
     hasValidUserGestureActivation,
-    isHttpsOnlyModeUpgradeExempt,
   };
   try {
     if (!mustChangeProcess) {
@@ -1641,21 +1634,6 @@ function RedirectLoad(browser, data) {
   if (browser.getAttribute("preloadedState") === "consumed") {
     browser.removeAttribute("preloadedState");
     data.loadOptions.newFrameloader = true;
-  }
-
-  if (data.loadOptions.reloadInFreshProcess) {
-    // Convert the fresh process load option into a large allocation remote type
-    // to use common processing from this point.
-    data.loadOptions.remoteType = E10SUtils.LARGE_ALLOCATION_REMOTE_TYPE;
-    data.loadOptions.newFrameloader = true;
-  } else if (browser.remoteType == E10SUtils.LARGE_ALLOCATION_REMOTE_TYPE) {
-    // If we're in a Large-Allocation process, we prefer switching back into a
-    // normal content process, as that way we can clean up the L-A process.
-    data.loadOptions.remoteType = E10SUtils.getRemoteTypeForURI(
-      data.loadOptions.uri,
-      gMultiProcessBrowser,
-      gFissionBrowser
-    );
   }
 
   // We should only start the redirection if the browser window has finished
@@ -5121,7 +5099,6 @@ var XULBrowserWindow = {
         aURI,
         aReferrerInfo,
         aTriggeringPrincipal,
-        false,
         null,
         aCsp
       );
@@ -5500,22 +5477,6 @@ var XULBrowserWindow = {
       return;
     }
     this.onStatusChange(gBrowser.webProgress, null, 0, aMessage);
-  },
-
-  navigateAndRestoreByIndex: function XWB_navigateAndRestoreByIndex(
-    aBrowser,
-    aIndex
-  ) {
-    let tab = gBrowser.getTabForBrowser(aBrowser);
-    if (tab) {
-      SessionStore.navigateAndRestore(tab, {}, aIndex);
-      return;
-    }
-
-    throw new Error(
-      "Trying to navigateAndRestore a browser which was " +
-        "not attached to this tabbrowser is unsupported"
-    );
   },
 };
 
@@ -6442,9 +6403,11 @@ function onViewToolbarsPopupShowing(aEvent, aInsertPoint) {
 
 function onViewToolbarCommand(aEvent) {
   let node = aEvent.originalTarget;
+  let menuId = node.parentNode.id;
   let toolbarId = node.getAttribute("toolbarId");
   let isVisible = node.getAttribute("checked") == "true";
   CustomizableUI.setToolbarVisibility(toolbarId, isVisible);
+  BrowserUsageTelemetry.recordToolbarVisibility(toolbarId, isVisible, menuId);
   updateToggleControlLabel(node);
 }
 
@@ -8003,7 +7966,7 @@ function BrowserOpenAddonsMgr(aView) {
     let browserWindow;
 
     var receivePong = function(aSubject, aTopic, aData) {
-      let browserWin = aSubject.docShell.rootTreeItem.domWindow;
+      let browserWin = aSubject.browsingContext.topChromeWindow;
       if (!emWindow || browserWin == window /* favor the current window */) {
         emWindow = aSubject;
         browserWindow = browserWin;

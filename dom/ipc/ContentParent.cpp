@@ -79,7 +79,6 @@
 #include "mozilla/Sprintf.h"
 #include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/StaticPrefs_media.h"
-#include "mozilla/StaticPtr.h"
 #include "mozilla/StyleSheet.h"
 #include "mozilla/StyleSheetInlines.h"
 #include "mozilla/Telemetry.h"
@@ -647,16 +646,16 @@ ProcessID GetTelemetryProcessID(const nsAString& remoteType) {
 
 }  // anonymous namespace
 
-nsDataHashtable<nsUint32HashKey, ContentParent*>*
+UniquePtr<nsDataHashtable<nsUint32HashKey, ContentParent*>>
     ContentParent::sJSPluginContentParents;
-nsTArray<ContentParent*>* ContentParent::sPrivateContent;
-StaticAutoPtr<LinkedList<ContentParent>> ContentParent::sContentParents;
+UniquePtr<nsTArray<ContentParent*>> ContentParent::sPrivateContent;
+UniquePtr<LinkedList<ContentParent>> ContentParent::sContentParents;
 #if defined(XP_LINUX) && defined(MOZ_SANDBOX)
 UniquePtr<SandboxBrokerPolicyFactory>
     ContentParent::sSandboxBrokerPolicyFactory;
 #endif
 #if defined(XP_MACOSX) && defined(MOZ_SANDBOX)
-StaticAutoPtr<std::vector<std::string>> ContentParent::sMacSandboxParams;
+UniquePtr<std::vector<std::string>> ContentParent::sMacSandboxParams;
 #endif
 
 // Whether a private docshell has been seen before.
@@ -747,7 +746,7 @@ void ContentParent::StartUp() {
 #endif
 
 #if defined(XP_MACOSX) && defined(MOZ_SANDBOX)
-  sMacSandboxParams = new std::vector<std::string>;
+  sMacSandboxParams = MakeUnique<std::vector<std::string>>();
 #endif
 }
 
@@ -1020,11 +1019,21 @@ already_AddRefed<ContentParent> ContentParent::GetUsedBrowserProcess(
              NS_ConvertUTF16toUTF8(aRemoteType).get()));
     p->mOpener = aOpener;
     p->mActivateTS = TimeStamp::Now();
-    aContentParents.AppendElement(p);
+    p->AddToPool(aContentParents);
     if (preallocated) {
       p->mRemoteType.Assign(aRemoteType);
       // Specialize this process for the appropriate eTLD+1
       Unused << p->SendRemoteType(p->mRemoteType);
+
+      nsCOMPtr<nsIObserverService> obs =
+          mozilla::services::GetObserverService();
+
+      if (obs) {
+        nsAutoString cpId;
+        cpId.AppendInt(static_cast<uint64_t>(p->ChildID()));
+        obs->NotifyObservers(static_cast<nsIObserver*>(p), "process-type-set",
+                             cpId.get());
+      }
     } else {
       // we only allow "web" to "web" for security reasons
       MOZ_RELEASE_ASSERT(p->mRemoteType.EqualsLiteral(DEFAULT_REMOTE_TYPE) &&
@@ -1086,7 +1095,7 @@ ContentParent::GetNewOrUsedBrowserProcessInternal(Element* aFrameElement,
     return nullptr;
   }
   // Store this process for future reuse.
-  contentParents.AppendElement(contentParent);
+  contentParent->AddToPool(contentParents);
 
   // Until the new process is ready let's not allow to start up any
   // preallocated processes. The blocker will be removed once we receive
@@ -1195,7 +1204,7 @@ already_AddRefed<ContentParent> ContentParent::GetNewOrUsedJSPluginProcess(
     p = sJSPluginContentParents->Get(aPluginID);
   } else {
     sJSPluginContentParents =
-        new nsDataHashtable<nsUint32HashKey, ContentParent*>();
+        MakeUnique<nsDataHashtable<nsUint32HashKey, ContentParent*>>();
   }
 
   if (p) {
@@ -1394,7 +1403,7 @@ already_AddRefed<RemoteBrowser> ContentParent::CreateBrowser(
   RefPtr<ContentParent> constructorSender;
   MOZ_RELEASE_ASSERT(XRE_IsParentProcess(),
                      "Cannot allocate BrowserParent in content process");
-  if (aOpenerContentParent) {
+  if (aOpenerContentParent && aOpenerContentParent->IsAlive()) {
     constructorSender = aOpenerContentParent;
   } else {
     if (aContext.IsJSPlugin()) {
@@ -1494,12 +1503,6 @@ already_AddRefed<RemoteBrowser> ContentParent::CreateBrowser(
 
   windowParent->Init();
 
-  if (remoteType.EqualsLiteral(LARGE_ALLOCATION_REMOTE_TYPE)) {
-    // Tell the BrowserChild object that it was created due to a
-    // Large-Allocation request.
-    Unused << browserParent->SendAwaitLargeAlloc();
-  }
-
   RefPtr<BrowserHost> browserHost = new BrowserHost(browserParent);
   browserParent->SetOwnerElement(aFrameElement);
   return browserHost.forget();
@@ -1597,12 +1600,6 @@ void ContentParent::Init() {
 }
 
 void ContentParent::ForwardKnownInfo() {
-  /* TODO: This flag does not function yet.
-  MOZ_ASSERT(mMetamorphosed);
-  if (!mMetamorphosed) {
-    return;
-  }
-  */
 #ifdef MOZ_WIDGET_GONK
   nsTArray<VolumeInfo> volumeInfo;
   // TODO: SystemWorkerManager::FactoryCreate() was originally called by
@@ -1729,19 +1726,63 @@ void ContentParent::ShutDownMessageManager() {
   mMessageManager = nullptr;
 }
 
+void ContentParent::AddToPool(nsTArray<ContentParent*>& aPool) {
+  MOZ_DIAGNOSTIC_ASSERT(!mIsInPool);
+  aPool.AppendElement(this);
+  mIsInPool = true;
+}
+
+void ContentParent::RemoveFromPool(nsTArray<ContentParent*>& aPool) {
+  MOZ_DIAGNOSTIC_ASSERT(mIsInPool);
+  aPool.RemoveElement(this);
+  mIsInPool = false;
+}
+
+void ContentParent::AssertNotInPool() {
+  MOZ_RELEASE_ASSERT(!mIsInPool);
+
+  MOZ_RELEASE_ASSERT(!sPrivateContent || !sPrivateContent->Contains(this));
+  if (IsForJSPlugin()) {
+    MOZ_RELEASE_ASSERT(!sJSPluginContentParents ||
+                       !sJSPluginContentParents->Get(mJSPluginID));
+  } else {
+    MOZ_RELEASE_ASSERT(
+        !sBrowserContentParents ||
+        !sBrowserContentParents->Contains(mRemoteType) ||
+        !sBrowserContentParents->Get(mRemoteType)->Contains(this) ||
+        !sCanLaunchSubprocesses);  // aka in shutdown - avoid timing issues
+  }
+}
+
 void ContentParent::RemoveFromList() {
   if (IsForJSPlugin()) {
     if (sJSPluginContentParents) {
       sJSPluginContentParents->Remove(mJSPluginID);
       if (!sJSPluginContentParents->Count()) {
-        delete sJSPluginContentParents;
         sJSPluginContentParents = nullptr;
       }
     }
-  } else if (sBrowserContentParents) {
+    return;
+  }
+
+  if (sPrivateContent) {
+    sPrivateContent->RemoveElement(this);
+    if (!sPrivateContent->Length()) {
+      sPrivateContent = nullptr;
+    }
+  }
+
+  if (!mIsInPool) {
+#ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
+    AssertNotInPool();
+#endif
+    return;
+  }
+
+  if (sBrowserContentParents) {
     if (auto entry = sBrowserContentParents->Lookup(mRemoteType)) {
       const auto& contentParents = entry.Data();
-      contentParents->RemoveElement(this);
+      RemoveFromPool(*contentParents);
       if (contentParents->IsEmpty()) {
         entry.Remove();
       }
@@ -1749,14 +1790,6 @@ void ContentParent::RemoveFromList() {
     if (sBrowserContentParents->IsEmpty()) {
       delete sBrowserContentParents;
       sBrowserContentParents = nullptr;
-    }
-  }
-
-  if (sPrivateContent) {
-    sPrivateContent->RemoveElement(this);
-    if (!sPrivateContent->Length()) {
-      delete sPrivateContent;
-      sPrivateContent = nullptr;
     }
   }
 }
@@ -2492,7 +2525,6 @@ ContentParent::ContentParent(ContentParent* aOpener,
       mRemoteWorkerActorData("ContentParent::mRemoteWorkerActorData"),
       mNumDestroyingTabs(0),
       mLifecycleState(LifecycleState::LAUNCHING),
-      mMetamorphosed(false),
       mIsForBrowser(!mRemoteType.IsEmpty()),
       mCalledClose(false),
       mCalledKillHard(false),
@@ -2501,10 +2533,11 @@ ContentParent::ContentParent(ContentParent* aOpener,
       mIPCOpen(true),
       mIsRemoteInputEventQueueEnabled(false),
       mIsInputPriorityEventEnabled(false),
+      mIsInPool(false),
       mHangMonitorActor(nullptr) {
   // Insert ourselves into the global linked list of ContentParent objects.
   if (!sContentParents) {
-    sContentParents = new LinkedList<ContentParent>();
+    sContentParents = MakeUnique<LinkedList<ContentParent>>();
   }
   sContentParents->insertBack(this);
 
@@ -2549,17 +2582,7 @@ ContentParent::~ContentParent() {
   }
 
   // We should be removed from all these lists in ActorDestroy.
-  MOZ_ASSERT(!sPrivateContent || !sPrivateContent->Contains(this));
-  if (IsForJSPlugin()) {
-    MOZ_ASSERT(!sJSPluginContentParents ||
-               !sJSPluginContentParents->Get(mJSPluginID));
-  } else {
-    MOZ_ASSERT(!sBrowserContentParents ||
-               !sBrowserContentParents->Contains(mRemoteType) ||
-               !sBrowserContentParents->Get(mRemoteType)->Contains(this) ||
-               sCanLaunchSubprocesses ==
-                   false);  // aka in shutdown - avoid timing issues
-  }
+  AssertNotInPool();
 
   // Normally mSubprocess is destroyed in ActorDestroy, but that won't
   // happen if the process wasn't launched or if it failed to launch.
@@ -3295,7 +3318,7 @@ static StaticRefPtr<nsIAsyncShutdownClient> sProfileBeforeChangeClient;
 static void InitClients() {
   if (!sXPCOMShutdownClient) {
     nsresult rv;
-    nsCOMPtr<nsIAsyncShutdownService> svc = services::GetAsyncShutdown();
+    nsCOMPtr<nsIAsyncShutdownService> svc = services::GetAsyncShutdownService();
 
     nsCOMPtr<nsIAsyncShutdownClient> client;
     rv = svc->GetXpcomWillShutdown(getter_AddRefs(client));
@@ -4375,7 +4398,7 @@ mozilla::ipc::IPCResult ContentParent::RecvPSystemMessageServiceConstructor(
 
 mozilla::ipc::IPCResult ContentParent::RecvStartVisitedQueries(
     const nsTArray<RefPtr<nsIURI>>& aUris) {
-  nsCOMPtr<IHistory> history = services::GetHistoryService();
+  nsCOMPtr<IHistory> history = services::GetHistory();
   if (!history) {
     return IPC_OK();
   }
@@ -4393,7 +4416,7 @@ mozilla::ipc::IPCResult ContentParent::RecvSetURITitle(nsIURI* uri,
   if (!uri) {
     return IPC_FAIL_NO_REASON(this);
   }
-  nsCOMPtr<IHistory> history = services::GetHistoryService();
+  nsCOMPtr<IHistory> history = services::GetHistory();
   if (history) {
     history->SetURITitle(uri, title);
   }
@@ -4766,7 +4789,7 @@ mozilla::ipc::IPCResult ContentParent::RecvScriptErrorInternal(
 mozilla::ipc::IPCResult ContentParent::RecvPrivateDocShellsExist(
     const bool& aExist) {
   if (!sPrivateContent) {
-    sPrivateContent = new nsTArray<ContentParent*>();
+    sPrivateContent = MakeUnique<nsTArray<ContentParent*>>();
     if (!sHasSeenPrivateDocShell) {
       sHasSeenPrivateDocShell = true;
       Telemetry::ScalarSet(
@@ -4786,7 +4809,6 @@ mozilla::ipc::IPCResult ContentParent::RecvPrivateDocShellsExist(
       nsCOMPtr<nsIObserverService> obs =
           mozilla::services::GetObserverService();
       obs->NotifyObservers(nullptr, "last-pb-context-exited", nullptr);
-      delete sPrivateContent;
       sPrivateContent = nullptr;
     }
   }

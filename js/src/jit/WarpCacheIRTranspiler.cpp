@@ -220,6 +220,28 @@ bool WarpCacheIRTranspiler::emitGuardShape(ObjOperandId objId,
   return true;
 }
 
+bool WarpCacheIRTranspiler::emitGuardFunctionPrototype(ObjOperandId objId,
+                                                       ObjOperandId protoId,
+                                                       uint32_t slotOffset) {
+  size_t slotIndex = int32StubField(slotOffset);
+  MDefinition* obj = getOperand(objId);
+  MDefinition* proto = getOperand(protoId);
+
+  auto* slots = MSlots::New(alloc(), obj);
+  add(slots);
+
+  auto* load = MLoadDynamicSlot::New(alloc(), slots, slotIndex);
+  add(load);
+
+  auto* unbox = MUnbox::New(alloc(), load, MIRType::Object, MUnbox::Fallible);
+  add(unbox);
+
+  auto* guard = MGuardObjectIdentity::New(alloc(), unbox, proto,
+                                          /* bailOnEquality = */ false);
+  add(guard);
+  return true;
+}
+
 bool WarpCacheIRTranspiler::emitGuardSpecificAtom(StringOperandId strId,
                                                   uint32_t expectedOffset) {
   MDefinition* str = getOperand(strId);
@@ -429,7 +451,11 @@ bool WarpCacheIRTranspiler::emitGuardToInt32Index(ValOperandId inputId,
 bool WarpCacheIRTranspiler::emitGuardToTypedArrayIndex(
     ValOperandId inputId, Int32OperandId resultId) {
   MDefinition* input = getOperand(inputId);
-  auto* ins = MTypedArrayIndexToInt32::New(alloc(), input);
+
+  auto* number = MUnbox::New(alloc(), input, MIRType::Double, MUnbox::Fallible);
+  add(number);
+
+  auto* ins = MTypedArrayIndexToInt32::New(alloc(), number);
   add(ins);
 
   return defineOperand(resultId, ins);
@@ -730,14 +756,13 @@ bool WarpCacheIRTranspiler::emitLoadDenseElementHoleResult(
 
 bool WarpCacheIRTranspiler::emitLoadTypedArrayElementResult(
     ObjOperandId objId, Int32OperandId indexId, Scalar::Type elementType,
-    bool handleOOB) {
+    bool handleOOB, bool allowDoubleForUint32) {
   MDefinition* obj = getOperand(objId);
   MDefinition* index = getOperand(indexId);
 
   if (handleOOB) {
-    bool allowDouble = true;
-    auto* load = MLoadTypedArrayElementHole::New(alloc(), obj, index,
-                                                 elementType, allowDouble);
+    auto* load = MLoadTypedArrayElementHole::New(
+        alloc(), obj, index, elementType, allowDoubleForUint32);
     add(load);
 
     pushResult(load);
@@ -753,8 +778,8 @@ bool WarpCacheIRTranspiler::emitLoadTypedArrayElementResult(
   add(elements);
 
   auto* load = MLoadUnboxedScalar::New(alloc(), elements, index, elementType);
-  // TODO: Uint32 always loaded as double.
-  load->setResultType(MIRTypeForArrayBufferViewRead(elementType, true));
+  load->setResultType(
+      MIRTypeForArrayBufferViewRead(elementType, allowDoubleForUint32));
   add(load);
 
   pushResult(load);
@@ -1243,6 +1268,17 @@ bool WarpCacheIRTranspiler::emitMathSqrtNumberResult(NumberOperandId inputId) {
   return true;
 }
 
+bool WarpCacheIRTranspiler::emitMathFRoundNumberResult(
+    NumberOperandId inputId) {
+  MDefinition* input = getOperand(inputId);
+
+  auto* ins = MToFloat32::New(alloc(), input);
+  add(ins);
+
+  pushResult(ins);
+  return true;
+}
+
 bool WarpCacheIRTranspiler::emitMathAtan2NumberResult(NumberOperandId yId,
                                                       NumberOperandId xId) {
   MDefinition* y = getOperand(yId);
@@ -1533,27 +1569,37 @@ bool WarpCacheIRTranspiler::emitCallFunction(ObjOperandId calleeId,
   if (callInfo_->constructing()) {
     MOZ_ASSERT(flags.isConstructing());
 
-    callInfo_->thisArg()->setImplicitlyUsedUnchecked();
+    MDefinition* thisArg = callInfo_->thisArg();
 
     if (kind == CallKind::Native) {
-      // We know we are constructing a native function even if we don't know the
-      // actual target.
-
-      // Magic value passed to natives to indicate construction.
-      callInfo_->setThis(constant(MagicValue(JS_IS_CONSTRUCTING)));
-
-      needsThisCheck = false;
+      // Native functions keep the is-constructing MagicValue as |this|.
+      // If one of the arguments uses spread syntax this can be a loop phi with
+      // MIRType::Value.
+      MOZ_ASSERT_IF(!thisArg->isPhi(),
+                    thisArg->type() == MIRType::MagicIsConstructing);
     } else {
       MOZ_ASSERT(kind == CallKind::Scripted);
 
-      // TODO: Optimize |this| creation based on CacheIR.
-      MDefinition* newTarget = callInfo_->getNewTarget();
-      auto* createThis = MCreateThis::New(alloc(), callee, newTarget);
-      add(createThis);
-      callInfo_->setThis(createThis);
+      // TODO: if wrappedTarget->constructorNeedsUninitializedThis(), use an
+      // uninitialized-lexical constant as |this|. To do this we need to either
+      // store a new flag in the GuardSpecificFunction CacheIR/MIR instructions
+      // or we could add a new op similar to MetaTwoByte.
 
-      wrappedTarget = nullptr;
-      needsThisCheck = true;
+      if (!thisArg->isCreateThisWithTemplate()) {
+        // Note: guard against Value loop phis similar to the Native case above.
+        MOZ_ASSERT_IF(!thisArg->isPhi(),
+                      thisArg->type() == MIRType::MagicIsConstructing);
+
+        MDefinition* newTarget = callInfo_->getNewTarget();
+        auto* createThis = MCreateThis::New(alloc(), callee, newTarget);
+        add(createThis);
+
+        thisArg->setImplicitlyUsedUnchecked();
+        callInfo_->setThis(createThis);
+
+        wrappedTarget = nullptr;
+        needsThisCheck = true;
+      }
     }
   }
 
@@ -1595,9 +1641,26 @@ bool WarpCacheIRTranspiler::emitCallScriptedFunction(ObjOperandId calleeId,
   return emitCallFunction(calleeId, argcId, flags, CallKind::Scripted);
 }
 
+// TODO: rename the MetaTwoByte op when IonBuilder is gone.
 bool WarpCacheIRTranspiler::emitMetaTwoByte(MetaTwoByteKind kind,
                                             uint32_t functionObjectOffset,
                                             uint32_t templateObjectOffset) {
+  if (kind != MetaTwoByteKind::ScriptedTemplateObject) {
+    return true;
+  }
+
+  JSObject* templateObj = objectStubField(templateObjectOffset);
+  MConstant* templateConst = constant(ObjectValue(*templateObj));
+
+  // TODO: support pre-tenuring.
+  gc::InitialHeap heap = gc::DefaultHeap;
+
+  auto* createThis = MCreateThisWithTemplate::New(
+      alloc(), /* constraints = */ nullptr, templateConst, heap);
+  add(createThis);
+
+  callInfo_->thisArg()->setImplicitlyUsedUnchecked();
+  callInfo_->setThis(createThis);
   return true;
 }
 

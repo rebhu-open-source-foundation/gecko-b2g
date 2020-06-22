@@ -11,6 +11,7 @@
 #include "mozilla/FloatingPoint.h"
 #include "mozilla/IntegerPrintfMacros.h"
 #include "mozilla/MathAlgorithms.h"
+#include "mozilla/ScopeExit.h"
 
 #include "jslibmath.h"
 #include "jsmath.h"
@@ -4045,6 +4046,12 @@ MDefinition* MToFloat32::foldsTo(TempAllocator& alloc) {
                                  float(input->toConstant()->numberToDouble()));
   }
 
+  // Fold ToFloat32(ToDouble(int32)) to ToFloat32(int32).
+  if (input->isToDouble() &&
+      input->toToDouble()->input()->type() == MIRType::Int32) {
+    return MToFloat32::New(alloc, input->toToDouble()->input());
+  }
+
   return this;
 }
 
@@ -4950,8 +4957,13 @@ bool MWasmLoadGlobalCell::congruentTo(const MDefinition* ins) const {
   return congruentIfOperandsEqual(other);
 }
 
-MDefinition* MWasmScalarToSimd128::foldsTo(TempAllocator& alloc) {
 #ifdef ENABLE_WASM_SIMD
+MDefinition* MWasmScalarToSimd128::foldsTo(TempAllocator& alloc) {
+#  ifdef DEBUG
+  auto logging = mozilla::MakeScopeExit([&] {
+    js::wasm::ReportSimdAnalysis("scalar-to-simd128 -> constant folded");
+  });
+#  endif
   if (input()->isConstant()) {
     MConstant* c = input()->toConstant();
     switch (simdOp()) {
@@ -4968,6 +4980,9 @@ MDefinition* MWasmScalarToSimd128::foldsTo(TempAllocator& alloc) {
         return MWasmFloatConstant::NewSimd128(
             alloc, SimdConstant::SplatX2(c->toInt64()));
       default:
+#  ifdef DEBUG
+        logging.release();
+#  endif
         return this;
     }
   }
@@ -4981,14 +4996,128 @@ MDefinition* MWasmScalarToSimd128::foldsTo(TempAllocator& alloc) {
         return MWasmFloatConstant::NewSimd128(
             alloc, SimdConstant::SplatX2(c->toDouble()));
       default:
+#  ifdef DEBUG
+        logging.release();
+#  endif
         return this;
     }
   }
+#  ifdef DEBUG
+  logging.release();
+#  endif
   return this;
-#else
-  MOZ_CRASH("No SIMD");
-#endif
 }
+
+template <typename T>
+static bool AllTrue(const T& v) {
+  constexpr size_t count = sizeof(T) / sizeof(*v);
+  static_assert(count == 16 || count == 8 || count == 4);
+  bool result = true;
+  for (unsigned i = 0; i < count; i++) {
+    result = result && v[i] != 0;
+  }
+  return result;
+}
+
+template <typename T>
+static int32_t Bitmask(const T& v) {
+  constexpr size_t count = sizeof(T) / sizeof(*v);
+  constexpr size_t shift = 8 * sizeof(*v) - 1;
+  static_assert(shift == 7 || shift == 15 || shift == 31);
+  int32_t result = 0;
+  for (unsigned i = 0; i < count; i++) {
+    result = result | (((v[i] >> shift) & 1) << i);
+  }
+  return result;
+}
+
+MDefinition* MWasmReduceSimd128::foldsTo(TempAllocator& alloc) {
+#  ifdef DEBUG
+  auto logging = mozilla::MakeScopeExit([&] {
+    js::wasm::ReportSimdAnalysis("simd128-to-scalar -> constant folded");
+  });
+#  endif
+  if (input()->isWasmFloatConstant()) {
+    SimdConstant c = input()->toWasmFloatConstant()->toSimd128();
+    int32_t i32Result = 0;
+    switch (simdOp()) {
+      case wasm::SimdOp::I8x16AnyTrue:
+      case wasm::SimdOp::I16x8AnyTrue:
+      case wasm::SimdOp::I32x4AnyTrue:
+        i32Result = !c.isIntegerZero();
+        break;
+      case wasm::SimdOp::I8x16AllTrue:
+        i32Result = AllTrue(
+            SimdConstant::CreateSimd128((int8_t*)c.bytes()).asInt8x16());
+        break;
+      case wasm::SimdOp::I8x16Bitmask:
+        i32Result = Bitmask(
+            SimdConstant::CreateSimd128((int8_t*)c.bytes()).asInt8x16());
+        break;
+      case wasm::SimdOp::I16x8AllTrue:
+        i32Result = AllTrue(
+            SimdConstant::CreateSimd128((int16_t*)c.bytes()).asInt16x8());
+        break;
+      case wasm::SimdOp::I16x8Bitmask:
+        i32Result = Bitmask(
+            SimdConstant::CreateSimd128((int16_t*)c.bytes()).asInt16x8());
+        break;
+      case wasm::SimdOp::I32x4AllTrue:
+        i32Result = AllTrue(
+            SimdConstant::CreateSimd128((int32_t*)c.bytes()).asInt32x4());
+        break;
+      case wasm::SimdOp::I32x4Bitmask:
+        i32Result = Bitmask(
+            SimdConstant::CreateSimd128((int32_t*)c.bytes()).asInt32x4());
+        break;
+      case wasm::SimdOp::I8x16ExtractLaneS:
+        i32Result =
+            SimdConstant::CreateSimd128((int8_t*)c.bytes()).asInt8x16()[imm()];
+        break;
+      case wasm::SimdOp::I8x16ExtractLaneU:
+        i32Result = int32_t(SimdConstant::CreateSimd128((int8_t*)c.bytes())
+                                .asInt8x16()[imm()]) &
+                    0xFF;
+        break;
+      case wasm::SimdOp::I16x8ExtractLaneS:
+        i32Result =
+            SimdConstant::CreateSimd128((int16_t*)c.bytes()).asInt16x8()[imm()];
+        break;
+      case wasm::SimdOp::I16x8ExtractLaneU:
+        i32Result = int32_t(SimdConstant::CreateSimd128((int16_t*)c.bytes())
+                                .asInt16x8()[imm()]) &
+                    0xFFFF;
+        break;
+      case wasm::SimdOp::I32x4ExtractLane:
+        i32Result =
+            SimdConstant::CreateSimd128((int32_t*)c.bytes()).asInt32x4()[imm()];
+        break;
+      case wasm::SimdOp::I64x2ExtractLane:
+        return MConstant::NewInt64(
+            alloc, SimdConstant::CreateSimd128((int64_t*)c.bytes())
+                       .asInt64x2()[imm()]);
+      case wasm::SimdOp::F32x4ExtractLane:
+        return MWasmFloatConstant::NewFloat32(
+            alloc, SimdConstant::CreateSimd128((float*)c.bytes())
+                       .asFloat32x4()[imm()]);
+      case wasm::SimdOp::F64x2ExtractLane:
+        return MWasmFloatConstant::NewDouble(
+            alloc, SimdConstant::CreateSimd128((double*)c.bytes())
+                       .asFloat64x2()[imm()]);
+      default:
+#  ifdef DEBUG
+        logging.release();
+#  endif
+        return this;
+    }
+    return MConstant::New(alloc, Int32Value(i32Result), MIRType::Int32);
+  }
+#  ifdef DEBUG
+  logging.release();
+#  endif
+  return this;
+}
+#endif  // ENABLE_WASM_SIMD
 
 MDefinition::AliasType MLoadDynamicSlot::mightAlias(
     const MDefinition* def) const {
@@ -5621,6 +5750,11 @@ MDefinition* MGetFirstDollarIndex::foldsTo(TempAllocator& alloc) {
 
 MDefinition* MTypedArrayIndexToInt32::foldsTo(TempAllocator& alloc) {
   MDefinition* input = getOperand(0);
+
+  if (input->isToDouble() && input->getOperand(0)->type() == MIRType::Int32) {
+    return input->getOperand(0);
+  }
+
   if (!input->isConstant() || input->type() != MIRType::Double) {
     return this;
   }

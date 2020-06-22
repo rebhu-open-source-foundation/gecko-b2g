@@ -123,6 +123,26 @@ bool SocketProcessChild::Init(base::ProcessId aParentPid,
   // because it's not running a native event loop. See bug 1384336.
   CGSShutdownServerConnections();
 #endif  // XP_MACOSX
+
+  nsresult rv;
+  nsCOMPtr<nsIIOService> ios = do_GetIOService(&rv);
+  if (NS_FAILED(rv)) {
+    return false;
+  }
+
+  nsCOMPtr<nsIProtocolHandler> handler;
+  rv = ios->GetProtocolHandler("http", getter_AddRefs(handler));
+  if (NS_FAILED(rv)) {
+    return false;
+  }
+
+  // Initialize DNS Service here, since it needs to be done in main thread.
+  nsCOMPtr<nsIDNSService> dns =
+      do_GetService("@mozilla.org/network/dns-service;1", &rv);
+  if (NS_FAILED(rv)) {
+    return false;
+  }
+
   return true;
 }
 
@@ -155,6 +175,11 @@ void SocketProcessChild::CleanUp() {
     if (!iter.Data()->Closed()) {
       iter.Data()->Close();
     }
+  }
+
+  {
+    MutexAutoLock lock(mMutex);
+    mBackgroundDataBridgeMap.Clear();
   }
   NS_ShutdownXPCOM(nullptr);
 }
@@ -311,40 +336,28 @@ PFileDescriptorSetChild* SocketProcessChild::SendPFileDescriptorSetConstructor(
 }
 
 already_AddRefed<PHttpConnectionMgrChild>
-SocketProcessChild::AllocPHttpConnectionMgrChild() {
+SocketProcessChild::AllocPHttpConnectionMgrChild(
+    const HttpHandlerInitArgs& aArgs) {
   LOG(("SocketProcessChild::AllocPHttpConnectionMgrChild \n"));
-  if (!gHttpHandler) {
-    nsresult rv;
-    nsCOMPtr<nsIIOService> ios = do_GetIOService(&rv);
-    if (NS_FAILED(rv)) {
-      return nullptr;
-    }
+  MOZ_ASSERT(gHttpHandler);
+  gHttpHandler->SetHttpHandlerInitArgs(aArgs);
 
-    nsCOMPtr<nsIProtocolHandler> handler;
-    rv = ios->GetProtocolHandler("http", getter_AddRefs(handler));
-    if (NS_FAILED(rv)) {
-      return nullptr;
-    }
+  RefPtr<HttpConnectionMgrChild> actor = new HttpConnectionMgrChild();
+  return actor.forget();
+}
 
-    // Initialize DNS Service here, since it needs to be done in main thread.
-    nsCOMPtr<nsIDNSService> dns =
-        do_GetService("@mozilla.org/network/dns-service;1", &rv);
-    if (NS_FAILED(rv)) {
-      return nullptr;
-    }
-
-    RefPtr<HttpConnectionMgrChild> actor = new HttpConnectionMgrChild();
-    return actor.forget();
-  }
-
-  return nullptr;
+mozilla::ipc::IPCResult SocketProcessChild::RecvUpdateDeviceModelId(
+    const nsCString& aModelId) {
+  MOZ_ASSERT(gHttpHandler);
+  gHttpHandler->SetDeviceModelId(aModelId);
+  return IPC_OK();
 }
 
 mozilla::ipc::IPCResult
 SocketProcessChild::RecvOnHttpActivityDistributorActivated(
     const bool& aIsActivated) {
   if (nsCOMPtr<nsIHttpActivityObserver> distributor =
-          services::GetActivityDistributor()) {
+          services::GetHttpActivityDistributor()) {
     distributor->SetIsActive(aIsActivated);
   }
   return IPC_OK();

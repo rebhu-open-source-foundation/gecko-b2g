@@ -6,6 +6,7 @@ license = "MPL-2.0"
 publish = false
 
 build = "build.rs"
+edition = "2018"
 
 # https://github.com/rust-lang/cargo/issues/3544
 links = "servo_style_crate"
@@ -16,7 +17,7 @@ path = "lib.rs"
 doctest = false
 
 [features]
-gecko = ["nsstring", "serde", "style_traits/gecko", "bindgen", "regex", "toml"]
+gecko = ["nsstring", "serde", "style_traits/gecko", "fallible/known_system_malloc", "bindgen", "regex", "toml"]
 servo = ["serde", "style_traits/servo", "servo_atoms", "servo_config", "html5ever",
          "cssparser/serde", "encoding_rs", "malloc_size_of/servo", "arrayvec/use_union",
          "servo_url", "string_cache", "to_shmem/servo", "servo_arc/servo"]
@@ -40,6 +41,7 @@ euclid = "0.20"
 fallible = { path = "../fallible" }
 fxhash = "0.2"
 hashbrown = "0.7"
+hashglobe = { path = "../hashglobe" }
 html5ever = {version = "0.24", optional = true}
 indexmap = "1.0"
 itertools = "0.8"

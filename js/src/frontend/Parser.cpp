@@ -1872,7 +1872,8 @@ static bool SetTypeForExposedFunctions(JSContext* cx, FunctionBox* listHead) {
       continue;
     }
 
-    if (!funbox->setTypeForScriptedFunction(cx)) {
+    RootedFunction fun(cx, funbox->function());
+    if (!JSFunction::setTypeForScriptedFunction(cx, fun, funbox->isSingleton)) {
       return false;
     }
   }
@@ -1904,11 +1905,8 @@ static bool InstantiateScriptStencils(JSContext* cx,
     } else if (funbox->isAsmJSModule()) {
       MOZ_ASSERT(funbox->function()->isAsmJSNative());
     } else if (funbox->function()->isIncomplete()) {
-      // Lazy functions are generally only allocated in the initial parse. The
-      // exception to this is BinAST which does not allocate lazy functions
-      // inside lazy functions until delazification occurs.
-      MOZ_ASSERT(compilationInfo.lazy == nullptr ||
-                 compilationInfo.lazy->isBinAST());
+      // Lazy functions are generally only allocated in the initial parse.
+      MOZ_ASSERT(compilationInfo.lazy == nullptr);
 
       if (!CreateLazyScript(cx, compilationInfo, funbox)) {
         return false;
@@ -3214,6 +3212,10 @@ FunctionNode* Parser<FullParseHandler, Unit>::standaloneLazyFunction(
   funbox->initWithEnclosingScope(this->getCompilationInfo().scopeContext,
                                  fun->enclosingScope(), fun->flags(),
                                  syntaxKind);
+  if (fun->isClassConstructor()) {
+    funbox->fieldInitializers =
+        mozilla::Some(fun->baseScript()->getFieldInitializers());
+  }
 
   Directives newDirectives = directives;
   SourceParseContext funpc(this, funbox, &newDirectives);

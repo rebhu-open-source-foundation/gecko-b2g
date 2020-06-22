@@ -1725,7 +1725,8 @@ static void MergeStacks(uint32_t aFeatures, bool aIsSynchronous,
         js::ProfilingStackFrame stackFrame;
         constexpr uint32_t ExtraFlags =
             uint32_t(js::ProfilingStackFrame::Flags::IS_BLINTERP_FRAME);
-        stackFrame.initJsFrame<ExtraFlags>("", jsFrame.label, script, pc,
+        stackFrame.initJsFrame<JS::ProfilingCategoryPair::JS_BaselineInterpret,
+                               ExtraFlags>("", jsFrame.label, script, pc,
                                            jsFrame.realmID);
         aCollector.CollectProfilingStackFrame(stackFrame);
       } else {
@@ -2232,8 +2233,9 @@ static void StreamCategories(SpliceableJSONWriter& aWriter) {
   aWriter.EndArray();              \
   aWriter.EndObject();
 
-  PROFILING_CATEGORY_LIST(CATEGORY_JSON_BEGIN_CATEGORY,
-                          CATEGORY_JSON_SUBCATEGORY, CATEGORY_JSON_END_CATEGORY)
+  MOZ_PROFILING_CATEGORY_LIST(CATEGORY_JSON_BEGIN_CATEGORY,
+                              CATEGORY_JSON_SUBCATEGORY,
+                              CATEGORY_JSON_END_CATEGORY)
 
 #undef CATEGORY_JSON_BEGIN_CATEGORY
 #undef CATEGORY_JSON_SUBCATEGORY

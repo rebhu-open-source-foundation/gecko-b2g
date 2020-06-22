@@ -168,6 +168,8 @@ enum class TextureType : int8_t {
   AndroidNativeWindow,
   WaylandDMABUF,
   GrallocBuffer,
+  DMABUF,
+  EGLImage,
   Last
 };
 

@@ -199,7 +199,8 @@ LoadInfo::LoadInfo(
       mParentOuterWindowID = parent ? parent->WindowID() : mOuterWindowID;
       mTopOuterWindowID = FindTopOuterWindowID(contextOuter);
       RefPtr<dom::BrowsingContext> bc = contextOuter->GetBrowsingContext();
-      mBrowsingContextID = bc ? bc->Id() : 0;
+      MOZ_ASSERT(bc);
+      mBrowsingContextID = bc->Id();
 
       nsGlobalWindowInner* innerWindow =
           nsGlobalWindowInner::Cast(contextOuter->GetCurrentInnerWindow());
@@ -214,7 +215,7 @@ LoadInfo::LoadInfo(
         if (externalType != nsIContentPolicy::TYPE_SUBDOCUMENT) {
           mTopLevelStorageAreaPrincipal =
               innerWindow->GetTopLevelStorageAreaPrincipal();
-        } else if (contextOuter->IsTopLevelWindow()) {
+        } else if (bc->IsTop()) {
           Document* doc = innerWindow->GetExtantDoc();
           if (!doc || (!doc->StorageAccessSandboxed())) {
             mTopLevelStorageAreaPrincipal = innerWindow->GetPrincipal();
@@ -229,10 +230,13 @@ LoadInfo::LoadInfo(
 
         mDocumentHasLoaded = innerWindow->IsDocumentLoaded();
 
-        if (innerWindow->IsFrame()) {
+        if (bc->IsFrame()) {
           // For resources within iframes, we actually want the
           // top-level document's flag, not the iframe document's.
           mDocumentHasLoaded = false;
+          // FIXME: This is not Fission-compatible. The flag needs to be moved
+          // from the document to the WindowContext, and the check updated
+          // accordingly.
           nsGlobalWindowOuter* topOuter =
               innerWindow->GetInProcessScriptableTopInternal();
           if (topOuter) {

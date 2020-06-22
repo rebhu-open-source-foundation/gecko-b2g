@@ -27,7 +27,6 @@
 #ifdef JS_HAS_INTL_API
 #  include "builtin/intl/SharedIntlData.h"
 #endif
-#include "frontend/BinASTRuntimeSupport.h"
 #include "frontend/NameCollections.h"
 #include "gc/GCRuntime.h"
 #include "gc/Tracer.h"
@@ -109,6 +108,10 @@ typedef vixl::Simulator Simulator;
 class Simulator;
 #endif
 }  // namespace jit
+
+namespace frontend {
+class WellKnownParserAtoms;
+}  // namespace frontend
 
 // [SMDOC] JS Engine Threading
 //
@@ -593,10 +596,8 @@ struct JSRuntime {
   static js::GlobalObject* createSelfHostingGlobal(JSContext* cx);
 
  public:
-  bool getUnclonedSelfHostedValue(JSContext* cx, js::HandlePropertyName name,
-                                  js::MutableHandleValue vp);
-  JSFunction* getUnclonedSelfHostedFunction(JSContext* cx,
-                                            js::HandlePropertyName name);
+  void getUnclonedSelfHostedValue(js::PropertyName* name, JS::Value* vp);
+  JSFunction* getUnclonedSelfHostedFunction(js::PropertyName* name);
 
   MOZ_MUST_USE bool createJitRuntime(JSContext* cx);
   js::jit::JitRuntime* jitRuntime() const { return jitRuntime_.ref(); }
@@ -629,10 +630,10 @@ struct JSRuntime {
   bool isSelfHostingGlobal(JSObject* global) {
     return global == selfHostingGlobal_;
   }
+  js::GeneratorKind getSelfHostedFunctionGeneratorKind(JSAtom* name);
   bool createLazySelfHostedFunctionClone(JSContext* cx,
                                          js::HandlePropertyName selfHostedName,
                                          js::HandleAtom name, unsigned nargs,
-                                         js::HandleObject proto,
                                          js::NewObjectKind newKind,
                                          js::MutableHandleFunction fun);
   bool cloneSelfHostedFunctionScript(JSContext* cx,
@@ -745,7 +746,9 @@ struct JSRuntime {
 
  public:
   bool initializeAtoms(JSContext* cx);
+  bool initializeParserAtoms(JSContext* cx);
   void finishAtoms();
+  void finishParserAtoms();
   bool atomsAreFinished() const {
     return !atoms_ && !permanentAtomsDuringInit_;
   }
@@ -786,6 +789,7 @@ struct JSRuntime {
 
   // Cached pointers to various permanent property names.
   js::WriteOnceData<JSAtomState*> commonNames;
+  js::WriteOnceData<js::frontend::WellKnownParserAtoms*> commonParserNames;
 
   // All permanent atoms in the runtime, other than those in staticStrings.
   // Access to this does not require a lock because it is frozen and thus
@@ -1024,14 +1028,6 @@ struct JSRuntime {
       scriptPrivateReleaseHook(value);
     }
   }
-
- public:
-#if defined(JS_BUILD_BINAST)
-  js::BinaryASTSupport& binast() { return binast_; }
-
- private:
-  js::BinaryASTSupport binast_;
-#endif  // defined(JS_BUILD_BINAST)
 
  public:
 #if defined(NIGHTLY_BUILD)

@@ -581,7 +581,8 @@ class PresShell final : public nsStubDocumentObserver,
    * Scrolls the view of the document so that the given area of a frame
    * is visible, if possible. Layout is not flushed before scrolling.
    *
-   * @param aRect relative to aFrame
+   * @param aRect Relative to aFrame. The rect edges will be respected even if
+   * the rect is empty.
    * @param aVertical see ScrollContentIntoView and ScrollAxis
    * @param aHorizontal see ScrollContentIntoView and ScrollAxis
    * @param aScrollFlags if SCROLL_FIRST_ANCESTOR_ONLY is set, only the
@@ -1459,6 +1460,8 @@ class PresShell final : public nsStubDocumentObserver,
    * Calls FrameNeedsReflow on all fixed position children of the root frame.
    */
   void MarkFixedFramesForReflow(IntrinsicDirty aIntrinsicDirty);
+
+  void MaybeReflowForInflationScreenSizeChange();
 
   // This function handles all the work after VisualViewportSize is set
   // or reset.

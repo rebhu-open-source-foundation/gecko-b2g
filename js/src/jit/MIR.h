@@ -3544,8 +3544,10 @@ class MCreateThisWithTemplate : public MUnaryInstruction,
       : MUnaryInstruction(classOpcode, templateConst),
         initialHeap_(initialHeap) {
     setResultType(MIRType::Object);
-    setResultTypeSet(
-        MakeSingletonTypeSet(alloc, constraints, templateObject()));
+    if (!JitOptions.warpBuilder) {
+      setResultTypeSet(
+          MakeSingletonTypeSet(alloc, constraints, templateObject()));
+    }
   }
 
  public:
@@ -12315,6 +12317,7 @@ class MWasmStackResult : public MUnaryInstruction, public NoTypePolicy::Data {
   MWasmStackResult(MWasmStackResultArea* resultArea, size_t idx)
       : MUnaryInstruction(classOpcode, resultArea), resultIdx_(idx) {
     setResultType(result().type());
+    setCallResultCapture();
   }
 
  public:
@@ -12691,7 +12694,9 @@ class MWasmScalarToSimd128 : public MUnaryInstruction,
     return ins->toWasmScalarToSimd128()->simdOp() == simdOp_ &&
            congruentIfOperandsEqual(ins);
   }
+#ifdef ENABLE_WASM_SIMD
   MDefinition* foldsTo(TempAllocator& alloc) override;
+#endif
 
   wasm::SimdOp simdOp() const { return simdOp_; }
 
@@ -12725,6 +12730,9 @@ class MWasmReduceSimd128 : public MUnaryInstruction, public NoTypePolicy::Data {
            ins->toWasmReduceSimd128()->imm() == imm_ &&
            congruentIfOperandsEqual(ins);
   }
+#ifdef ENABLE_WASM_SIMD
+  MDefinition* foldsTo(TempAllocator& alloc) override;
+#endif
 
   uint32_t imm() const { return imm_; }
   wasm::SimdOp simdOp() const { return simdOp_; }

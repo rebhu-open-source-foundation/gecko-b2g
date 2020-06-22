@@ -240,6 +240,8 @@ FunctionBox::FunctionBox(JSContext* cx, FunctionBox* traceListHead,
 }
 
 JSFunction* FunctionBox::createFunction(JSContext* cx) {
+  // Determine the new function's proto. This must be done for singleton
+  // functions.
   RootedObject proto(cx);
   if (!GetFunctionPrototype(cx, generatorKind(), asyncKind(), &proto)) {
     return nullptr;
@@ -283,10 +285,6 @@ void FunctionBox::initFromLazyFunction(JSFunction* fun) {
   BaseScript* lazy = fun->baseScript();
   immutableFlags_ = lazy->immutableFlags();
   extent = lazy->extent();
-
-  if (fun->isClassConstructor()) {
-    fieldInitializers = mozilla::Some(lazy->getFieldInitializers());
-  }
 }
 
 void FunctionBox::initWithEnclosingParseContext(ParseContext* enclosing,

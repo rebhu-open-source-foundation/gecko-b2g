@@ -195,14 +195,6 @@ struct nsContentAndOffset {
 #define FORCE_SELECTION_UPDATE 1
 #define CALC_DEBUG 0
 
-// This is faster than nsBidiPresUtils::IsFrameInParagraphDirection,
-// because it uses the frame pointer passed in without drilling down to
-// the leaf frame.
-static bool IsReversedDirectionFrame(nsIFrame* aFrame) {
-  FrameBidiData bidiData = aFrame->GetBidiData();
-  return !IS_SAME_DIRECTION(bidiData.embeddingLevel, bidiData.baseLevel);
-}
-
 #include "nsILineIterator.h"
 #include "prenv.h"
 
@@ -1620,7 +1612,7 @@ void nsIFrame::SyncFrameViewProperties(nsView* aView) {
   vm->SetViewZIndex(aView, autoZIndex, zIndex);
 }
 
-void nsFrame::CreateView() {
+void nsIFrame::CreateView() {
   MOZ_ASSERT(!HasView());
 
   nsView* parentView = GetParent()->GetClosestView();
@@ -2566,8 +2558,8 @@ bool nsIFrame::CanBeDynamicReflowRoot() const {
  * Refreshes each content's frame
  *********************************************************/
 
-void nsFrame::DisplayOutlineUnconditional(nsDisplayListBuilder* aBuilder,
-                                          const nsDisplayListSet& aLists) {
+void nsIFrame::DisplayOutlineUnconditional(nsDisplayListBuilder* aBuilder,
+                                           const nsDisplayListSet& aLists) {
   // Per https://drafts.csswg.org/css-tables-3/#global-style-overrides:
   // "All css properties of table-column and table-column-group boxes are
   // ignored, except when explicitly specified by this specification."
@@ -2605,15 +2597,15 @@ void nsFrame::DisplayOutlineUnconditional(nsDisplayListBuilder* aBuilder,
   aLists.Outlines()->AppendNewToTop<nsDisplayOutline>(aBuilder, this);
 }
 
-void nsFrame::DisplayOutline(nsDisplayListBuilder* aBuilder,
-                             const nsDisplayListSet& aLists) {
+void nsIFrame::DisplayOutline(nsDisplayListBuilder* aBuilder,
+                              const nsDisplayListSet& aLists) {
   if (!IsVisibleForPainting()) return;
 
   DisplayOutlineUnconditional(aBuilder, aLists);
 }
 
-void nsFrame::DisplayInsetBoxShadowUnconditional(nsDisplayListBuilder* aBuilder,
-                                                 nsDisplayList* aList) {
+void nsIFrame::DisplayInsetBoxShadowUnconditional(
+    nsDisplayListBuilder* aBuilder, nsDisplayList* aList) {
   // XXXbz should box-shadow for rows/rowgroups/columns/colgroups get painted
   // just because we're visible?  Or should it depend on the cell visibility
   // when we're not the whole table?
@@ -2623,14 +2615,14 @@ void nsFrame::DisplayInsetBoxShadowUnconditional(nsDisplayListBuilder* aBuilder,
   }
 }
 
-void nsFrame::DisplayInsetBoxShadow(nsDisplayListBuilder* aBuilder,
-                                    nsDisplayList* aList) {
+void nsIFrame::DisplayInsetBoxShadow(nsDisplayListBuilder* aBuilder,
+                                     nsDisplayList* aList) {
   if (!IsVisibleForPainting()) return;
 
   DisplayInsetBoxShadowUnconditional(aBuilder, aList);
 }
 
-void nsFrame::DisplayOutsetBoxShadowUnconditional(
+void nsIFrame::DisplayOutsetBoxShadowUnconditional(
     nsDisplayListBuilder* aBuilder, nsDisplayList* aList) {
   // XXXbz should box-shadow for rows/rowgroups/columns/colgroups get painted
   // just because we're visible?  Or should it depend on the cell visibility
@@ -2641,8 +2633,8 @@ void nsFrame::DisplayOutsetBoxShadowUnconditional(
   }
 }
 
-void nsFrame::DisplayOutsetBoxShadow(nsDisplayListBuilder* aBuilder,
-                                     nsDisplayList* aList) {
+void nsIFrame::DisplayOutsetBoxShadow(nsDisplayListBuilder* aBuilder,
+                                      nsDisplayList* aList) {
   if (!IsVisibleForPainting()) return;
 
   DisplayOutsetBoxShadowUnconditional(aBuilder, aList);
@@ -2659,9 +2651,9 @@ nscolor nsIFrame::GetCaretColorAt(int32_t aOffset) {
   return nsLayoutUtils::GetColor(this, &nsStyleUI::mCaretColor);
 }
 
-bool nsFrame::DisplayBackgroundUnconditional(nsDisplayListBuilder* aBuilder,
-                                             const nsDisplayListSet& aLists,
-                                             bool aForceBackground) {
+bool nsIFrame::DisplayBackgroundUnconditional(nsDisplayListBuilder* aBuilder,
+                                              const nsDisplayListSet& aLists,
+                                              bool aForceBackground) {
   const bool hitTesting = aBuilder->IsForEventDelivery();
   if (hitTesting && !aBuilder->HitTestIsForVisibility()) {
     // For hit-testing, we generally just need a light-weight data structure
@@ -2688,9 +2680,9 @@ bool nsFrame::DisplayBackgroundUnconditional(nsDisplayListBuilder* aBuilder,
   return false;
 }
 
-void nsFrame::DisplayBorderBackgroundOutline(nsDisplayListBuilder* aBuilder,
-                                             const nsDisplayListSet& aLists,
-                                             bool aForceBackground) {
+void nsIFrame::DisplayBorderBackgroundOutline(nsDisplayListBuilder* aBuilder,
+                                              const nsDisplayListSet& aLists,
+                                              bool aForceBackground) {
   // The visibility check belongs here since child elements have the
   // opportunity to override the visibility property and display even if
   // their parent is hidden.
@@ -4968,10 +4960,10 @@ nsIFrame::HandleMultiplePress(nsPresContext* aPresContext,
                              (aControlHeld ? SELECT_ACCUMULATE : 0));
 }
 
-nsresult nsFrame::PeekBackwardAndForward(nsSelectionAmount aAmountBack,
-                                         nsSelectionAmount aAmountForward,
-                                         int32_t aStartPos, bool aJumpLines,
-                                         uint32_t aSelectFlags) {
+nsresult nsIFrame::PeekBackwardAndForward(nsSelectionAmount aAmountBack,
+                                          nsSelectionAmount aAmountForward,
+                                          int32_t aStartPos, bool aJumpLines,
+                                          uint32_t aSelectFlags) {
   nsIFrame* baseFrame = this;
   int32_t baseOffset = aStartPos;
   nsresult rv;
@@ -5692,7 +5684,7 @@ nsIFrame::ContentOffsets nsIFrame::GetContentOffsetsFromPoint(
   // to the same visual position?
 }
 
-nsIFrame::ContentOffsets nsFrame::CalcContentOffsetsFromFramePoint(
+nsIFrame::ContentOffsets nsIFrame::CalcContentOffsetsFromFramePoint(
     const nsPoint& aPoint) {
   return OffsetsForSingleFrame(this, aPoint);
 }
@@ -6444,9 +6436,9 @@ nscoord nsIFrame::ComputeISizeValue(gfxContext* aRenderingContext,
   return std::max(0, result);
 }
 
-void nsFrame::DidReflow(nsPresContext* aPresContext,
-                        const ReflowInput* aReflowInput) {
-  NS_FRAME_TRACE(NS_FRAME_TRACE_CALLS, ("nsFrame::DidReflow"));
+void nsIFrame::DidReflow(nsPresContext* aPresContext,
+                         const ReflowInput* aReflowInput) {
+  NS_FRAME_TRACE(NS_FRAME_TRACE_CALLS, ("nsIFrame::DidReflow"));
 
   SVGObserverUtils::InvalidateDirectRenderingObservers(
       this, SVGObserverUtils::INVALIDATE_REFLOW);
@@ -6473,11 +6465,11 @@ void nsFrame::DidReflow(nsPresContext* aPresContext,
   aPresContext->ReflowedFrame();
 }
 
-void nsFrame::FinishReflowWithAbsoluteFrames(nsPresContext* aPresContext,
-                                             ReflowOutput& aDesiredSize,
-                                             const ReflowInput& aReflowInput,
-                                             nsReflowStatus& aStatus,
-                                             bool aConstrainBSize) {
+void nsIFrame::FinishReflowWithAbsoluteFrames(nsPresContext* aPresContext,
+                                              ReflowOutput& aDesiredSize,
+                                              const ReflowInput& aReflowInput,
+                                              nsReflowStatus& aStatus,
+                                              bool aConstrainBSize) {
   ReflowAbsoluteFrames(aPresContext, aDesiredSize, aReflowInput, aStatus,
                        aConstrainBSize);
 
@@ -7947,11 +7939,11 @@ nsresult nsIFrame::GetChildFrameContainingOffset(int32_t inContentOffset,
 // aOutSideLimit != 0 means ignore aLineStart, instead work from
 // the end (if > 0) or beginning (if < 0).
 //
-nsresult nsFrame::GetNextPrevLineFromeBlockFrame(nsPresContext* aPresContext,
-                                                 nsPeekOffsetStruct* aPos,
-                                                 nsIFrame* aBlockFrame,
-                                                 int32_t aLineStart,
-                                                 int8_t aOutSideLimit) {
+nsresult nsIFrame::GetNextPrevLineFromeBlockFrame(nsPresContext* aPresContext,
+                                                  nsPeekOffsetStruct* aPos,
+                                                  nsIFrame* aBlockFrame,
+                                                  int32_t aLineStart,
+                                                  int8_t aOutSideLimit) {
   // magic numbers aLineStart will be -1 for end of block 0 will be start of
   // block
   if (!aBlockFrame || !aPos) return NS_ERROR_NULL_POINTER;
@@ -8345,7 +8337,8 @@ nsresult nsIFrame::PeekOffsetParagraph(nsPeekOffsetStruct* aPos) {
 // Determine movement direction relative to frame
 static bool IsMovingInFrameDirection(nsIFrame* frame, nsDirection aDirection,
                                      bool aVisual) {
-  bool isReverseDirection = aVisual && IsReversedDirectionFrame(frame);
+  bool isReverseDirection =
+      aVisual && nsBidiPresUtils::IsReversedDirectionFrame(frame);
   return aDirection == (isReverseDirection ? eDirPrevious : eDirNext);
 }
 
@@ -8541,7 +8534,7 @@ nsresult nsIFrame::PeekOffset(nsPeekOffsetStruct* aPos) {
         // error.
         nsIFrame* lastFrame = this;
         do {
-          result = nsFrame::GetNextPrevLineFromeBlockFrame(
+          result = nsIFrame::GetNextPrevLineFromeBlockFrame(
               PresContext(), aPos, blockFrame, thisLine,
               edgeCase);  // start from thisLine
 
@@ -8958,7 +8951,7 @@ nsresult nsIFrame::GetFrameFromDirection(
 
   *aOutOffset = (aDirection == eDirNext) ? 0 : -1;
 
-  if (aVisual && IsReversedDirectionFrame(traversedFrame)) {
+  if (aVisual && nsBidiPresUtils::IsReversedDirectionFrame(traversedFrame)) {
     // The new frame is reverse-direction, go to the other end
     *aOutOffset = -1 - *aOutOffset;
   }
@@ -9706,8 +9699,8 @@ static nsIFrame* GetCorrectedParent(const nsIFrame* aFrame) {
 }
 
 /* static */
-nsIFrame* nsFrame::CorrectStyleParentFrame(nsIFrame* aProspectiveParent,
-                                           PseudoStyleType aChildPseudo) {
+nsIFrame* nsIFrame::CorrectStyleParentFrame(nsIFrame* aProspectiveParent,
+                                            PseudoStyleType aChildPseudo) {
   MOZ_ASSERT(aProspectiveParent, "Must have a prospective parent");
 
   if (aChildPseudo != PseudoStyleType::NotPseudo) {
@@ -9847,7 +9840,7 @@ ComputedStyle* nsIFrame::DoGetParentComputedStyle(
   return placeholder->GetParentComputedStyleForOutOfFlow(aProviderFrame);
 }
 
-void nsFrame::GetLastLeaf(nsPresContext* aPresContext, nsIFrame** aFrame) {
+void nsIFrame::GetLastLeaf(nsPresContext* aPresContext, nsIFrame** aFrame) {
   if (!aFrame || !*aFrame) return;
   nsIFrame* child = *aFrame;
   // if we are a block frame then go for the last line of 'this'
@@ -9866,7 +9859,7 @@ void nsFrame::GetLastLeaf(nsPresContext* aPresContext, nsIFrame** aFrame) {
   }
 }
 
-void nsFrame::GetFirstLeaf(nsPresContext* aPresContext, nsIFrame** aFrame) {
+void nsIFrame::GetFirstLeaf(nsPresContext* aPresContext, nsIFrame** aFrame) {
   if (!aFrame || !*aFrame) return;
   nsIFrame* child = *aFrame;
   while (1) {
@@ -11240,7 +11233,7 @@ void nsAdaptorPrintReason(ReflowInput& aReflowInput) {
 #endif
 
 #ifdef DEBUG
-static void GetTagName(nsFrame* aFrame, nsIContent* aContent, int aResultSize,
+static void GetTagName(nsIFrame* aFrame, nsIContent* aContent, int aResultSize,
                        char* aResult) {
   if (aContent) {
     snprintf(aResult, aResultSize, "%s@%p",
@@ -11250,7 +11243,7 @@ static void GetTagName(nsFrame* aFrame, nsIContent* aContent, int aResultSize,
   }
 }
 
-void nsFrame::Trace(const char* aMethod, bool aEnter) {
+void nsIFrame::Trace(const char* aMethod, bool aEnter) {
   if (NS_FRAME_LOG_TEST(sFrameLogModule, NS_FRAME_TRACE_CALLS)) {
     char tagbuf[40];
     GetTagName(this, mContent, sizeof(tagbuf), tagbuf);
@@ -11258,8 +11251,8 @@ void nsFrame::Trace(const char* aMethod, bool aEnter) {
   }
 }
 
-void nsFrame::Trace(const char* aMethod, bool aEnter,
-                    const nsReflowStatus& aStatus) {
+void nsIFrame::Trace(const char* aMethod, bool aEnter,
+                     const nsReflowStatus& aStatus) {
   if (NS_FRAME_LOG_TEST(sFrameLogModule, NS_FRAME_TRACE_CALLS)) {
     char tagbuf[40];
     GetTagName(this, mContent, sizeof(tagbuf), tagbuf);
@@ -11270,7 +11263,7 @@ void nsFrame::Trace(const char* aMethod, bool aEnter,
   }
 }
 
-void nsFrame::TraceMsg(const char* aFormatString, ...) {
+void nsIFrame::TraceMsg(const char* aFormatString, ...) {
   if (NS_FRAME_LOG_TEST(sFrameLogModule, NS_FRAME_TRACE_CALLS)) {
     // Format arguments into a buffer
     char argbuf[200];
@@ -11285,7 +11278,7 @@ void nsFrame::TraceMsg(const char* aFormatString, ...) {
   }
 }
 
-void nsFrame::VerifyDirtyBitSet(const nsFrameList& aFrameList) {
+void nsIFrame::VerifyDirtyBitSet(const nsFrameList& aFrameList) {
   for (nsFrameList::Enumerator e(aFrameList); !e.AtEnd(); e.Next()) {
     NS_ASSERTION(e.get()->GetStateBits() & NS_FRAME_IS_DIRTY,
                  "dirty bit not set");
@@ -11302,34 +11295,34 @@ DR_cookie::DR_cookie(nsPresContext* aPresContext, nsIFrame* aFrame,
       mMetrics(aMetrics),
       mStatus(aStatus) {
   MOZ_COUNT_CTOR(DR_cookie);
-  mValue = nsFrame::DisplayReflowEnter(aPresContext, mFrame, mReflowInput);
+  mValue = nsIFrame::DisplayReflowEnter(aPresContext, mFrame, mReflowInput);
 }
 
 DR_cookie::~DR_cookie() {
   MOZ_COUNT_DTOR(DR_cookie);
-  nsFrame::DisplayReflowExit(mPresContext, mFrame, mMetrics, mStatus, mValue);
+  nsIFrame::DisplayReflowExit(mPresContext, mFrame, mMetrics, mStatus, mValue);
 }
 
 DR_layout_cookie::DR_layout_cookie(nsIFrame* aFrame) : mFrame(aFrame) {
   MOZ_COUNT_CTOR(DR_layout_cookie);
-  mValue = nsFrame::DisplayLayoutEnter(mFrame);
+  mValue = nsIFrame::DisplayLayoutEnter(mFrame);
 }
 
 DR_layout_cookie::~DR_layout_cookie() {
   MOZ_COUNT_DTOR(DR_layout_cookie);
-  nsFrame::DisplayLayoutExit(mFrame, mValue);
+  nsIFrame::DisplayLayoutExit(mFrame, mValue);
 }
 
 DR_intrinsic_inline_size_cookie::DR_intrinsic_inline_size_cookie(
     nsIFrame* aFrame, const char* aType, nscoord& aResult)
     : mFrame(aFrame), mType(aType), mResult(aResult) {
   MOZ_COUNT_CTOR(DR_intrinsic_inline_size_cookie);
-  mValue = nsFrame::DisplayIntrinsicISizeEnter(mFrame, mType);
+  mValue = nsIFrame::DisplayIntrinsicISizeEnter(mFrame, mType);
 }
 
 DR_intrinsic_inline_size_cookie::~DR_intrinsic_inline_size_cookie() {
   MOZ_COUNT_DTOR(DR_intrinsic_inline_size_cookie);
-  nsFrame::DisplayIntrinsicISizeExit(mFrame, mType, mResult, mValue);
+  nsIFrame::DisplayIntrinsicISizeExit(mFrame, mType, mResult, mValue);
 }
 
 DR_intrinsic_size_cookie::DR_intrinsic_size_cookie(nsIFrame* aFrame,
@@ -11337,12 +11330,12 @@ DR_intrinsic_size_cookie::DR_intrinsic_size_cookie(nsIFrame* aFrame,
                                                    nsSize& aResult)
     : mFrame(aFrame), mType(aType), mResult(aResult) {
   MOZ_COUNT_CTOR(DR_intrinsic_size_cookie);
-  mValue = nsFrame::DisplayIntrinsicSizeEnter(mFrame, mType);
+  mValue = nsIFrame::DisplayIntrinsicSizeEnter(mFrame, mType);
 }
 
 DR_intrinsic_size_cookie::~DR_intrinsic_size_cookie() {
   MOZ_COUNT_DTOR(DR_intrinsic_size_cookie);
-  nsFrame::DisplayIntrinsicSizeExit(mFrame, mType, mResult, mValue);
+  nsIFrame::DisplayIntrinsicSizeExit(mFrame, mType, mResult, mValue);
 }
 
 DR_init_constraints_cookie::DR_init_constraints_cookie(
@@ -12014,8 +12007,9 @@ static void DisplayReflowEnterPrint(nsPresContext* aPresContext,
   }
 }
 
-void* nsFrame::DisplayReflowEnter(nsPresContext* aPresContext, nsIFrame* aFrame,
-                                  const ReflowInput& aReflowInput) {
+void* nsIFrame::DisplayReflowEnter(nsPresContext* aPresContext,
+                                   nsIFrame* aFrame,
+                                   const ReflowInput& aReflowInput) {
   if (!DR_state->mInited) DR_state->Init();
   if (!DR_state->mActive) return nullptr;
 
@@ -12029,7 +12023,7 @@ void* nsFrame::DisplayReflowEnter(nsPresContext* aPresContext, nsIFrame* aFrame,
   return treeNode;
 }
 
-void* nsFrame::DisplayLayoutEnter(nsIFrame* aFrame) {
+void* nsIFrame::DisplayLayoutEnter(nsIFrame* aFrame) {
   if (!DR_state->mInited) DR_state->Init();
   if (!DR_state->mActive) return nullptr;
 
@@ -12043,7 +12037,8 @@ void* nsFrame::DisplayLayoutEnter(nsIFrame* aFrame) {
   return treeNode;
 }
 
-void* nsFrame::DisplayIntrinsicISizeEnter(nsIFrame* aFrame, const char* aType) {
+void* nsIFrame::DisplayIntrinsicISizeEnter(nsIFrame* aFrame,
+                                           const char* aType) {
   if (!DR_state->mInited) DR_state->Init();
   if (!DR_state->mActive) return nullptr;
 
@@ -12057,7 +12052,7 @@ void* nsFrame::DisplayIntrinsicISizeEnter(nsIFrame* aFrame, const char* aType) {
   return treeNode;
 }
 
-void* nsFrame::DisplayIntrinsicSizeEnter(nsIFrame* aFrame, const char* aType) {
+void* nsIFrame::DisplayIntrinsicSizeEnter(nsIFrame* aFrame, const char* aType) {
   if (!DR_state->mInited) DR_state->Init();
   if (!DR_state->mActive) return nullptr;
 
@@ -12071,10 +12066,10 @@ void* nsFrame::DisplayIntrinsicSizeEnter(nsIFrame* aFrame, const char* aType) {
   return treeNode;
 }
 
-void nsFrame::DisplayReflowExit(nsPresContext* aPresContext, nsIFrame* aFrame,
-                                ReflowOutput& aMetrics,
-                                const nsReflowStatus& aStatus,
-                                void* aFrameTreeNode) {
+void nsIFrame::DisplayReflowExit(nsPresContext* aPresContext, nsIFrame* aFrame,
+                                 ReflowOutput& aMetrics,
+                                 const nsReflowStatus& aStatus,
+                                 void* aFrameTreeNode) {
   if (!DR_state->mActive) return;
 
   NS_ASSERTION(aFrame, "DisplayReflowExit - invalid call");
@@ -12132,7 +12127,7 @@ void nsFrame::DisplayReflowExit(nsPresContext* aPresContext, nsIFrame* aFrame,
   DR_state->DeleteTreeNode(*treeNode);
 }
 
-void nsFrame::DisplayLayoutExit(nsIFrame* aFrame, void* aFrameTreeNode) {
+void nsIFrame::DisplayLayoutExit(nsIFrame* aFrame, void* aFrameTreeNode) {
   if (!DR_state->mActive) return;
 
   NS_ASSERTION(aFrame, "non-null frame required");
@@ -12147,8 +12142,9 @@ void nsFrame::DisplayLayoutExit(nsIFrame* aFrame, void* aFrameTreeNode) {
   DR_state->DeleteTreeNode(*treeNode);
 }
 
-void nsFrame::DisplayIntrinsicISizeExit(nsIFrame* aFrame, const char* aType,
-                                        nscoord aResult, void* aFrameTreeNode) {
+void nsIFrame::DisplayIntrinsicISizeExit(nsIFrame* aFrame, const char* aType,
+                                         nscoord aResult,
+                                         void* aFrameTreeNode) {
   if (!DR_state->mActive) return;
 
   NS_ASSERTION(aFrame, "non-null frame required");
@@ -12164,8 +12160,8 @@ void nsFrame::DisplayIntrinsicISizeExit(nsIFrame* aFrame, const char* aType,
   DR_state->DeleteTreeNode(*treeNode);
 }
 
-void nsFrame::DisplayIntrinsicSizeExit(nsIFrame* aFrame, const char* aType,
-                                       nsSize aResult, void* aFrameTreeNode) {
+void nsIFrame::DisplayIntrinsicSizeExit(nsIFrame* aFrame, const char* aType,
+                                        nsSize aResult, void* aFrameTreeNode) {
   if (!DR_state->mActive) return;
 
   NS_ASSERTION(aFrame, "non-null frame required");
@@ -12185,10 +12181,10 @@ void nsFrame::DisplayIntrinsicSizeExit(nsIFrame* aFrame, const char* aType,
 }
 
 /* static */
-void nsFrame::DisplayReflowStartup() { DR_state = new DR_State(); }
+void nsIFrame::DisplayReflowStartup() { DR_state = new DR_State(); }
 
 /* static */
-void nsFrame::DisplayReflowShutdown() {
+void nsIFrame::DisplayReflowShutdown() {
   delete DR_state;
   DR_state = nullptr;
 }

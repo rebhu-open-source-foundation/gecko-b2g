@@ -230,13 +230,12 @@ nsChildView::nsChildView()
       mView(nullptr),
       mParentView(nil),
       mParentWidget(nullptr),
-      mViewTearDownLock("ChildViewTearDown"),
+      mCompositingLock("ChildViewCompositing"),
       mBackingScaleFactor(0.0),
       mVisible(false),
       mDrawing(false),
       mIsDispatchPaint(false),
       mPluginFocused{false},
-      mOpaqueRegion("nsChildView::mOpaqueRegion"),
       mCurrentPanGestureBelongsToSwipe{false} {}
 
 nsChildView::~nsChildView() {
@@ -393,7 +392,7 @@ void nsChildView::Destroy() {
 
   // Make sure that no composition is in progress while disconnecting
   // ourselves from the view.
-  MutexAutoLock lock(mViewTearDownLock);
+  MutexAutoLock lock(mCompositingLock);
 
   if (mOnDestroyCalled) return;
   mOnDestroyCalled = true;
@@ -505,8 +504,6 @@ void nsChildView::SetTransparencyMode(nsTransparencyMode aMode) {
   if (windowWidget) {
     windowWidget->SetTransparencyMode(aMode);
   }
-
-  UpdateInternalOpaqueRegion();
 
   NS_OBJC_END_TRY_ABORT_BLOCK;
 }
@@ -1356,7 +1353,8 @@ void nsChildView::PaintWindowInContentLayer() {
   EnsureContentLayerForMainThreadPainting();
   mPoolHandle->OnBeginFrame();
   RefPtr<DrawTarget> dt = mContentLayer->NextSurfaceAsDrawTarget(
-      mContentLayerInvalidRegion.ToUnknownRegion(), gfx::BackendType::SKIA);
+      gfx::IntRect({}, mContentLayer->GetSize()), mContentLayerInvalidRegion.ToUnknownRegion(),
+      gfx::BackendType::SKIA);
   if (!dt) {
     return;
   }
@@ -1382,10 +1380,14 @@ void nsChildView::HandleMainThreadCATransaction() {
     PaintWindow(LayoutDeviceIntRegion(GetBounds()));
   }
 
-  // Apply the changes inside mNativeLayerRoot to the underlying CALayers. Now is a
-  // good time to call this because we know we're currently inside a main thread
-  // CATransaction.
-  mNativeLayerRoot->CommitToScreen();
+  {
+    // Apply the changes inside mNativeLayerRoot to the underlying CALayers. Now is a
+    // good time to call this because we know we're currently inside a main thread
+    // CATransaction, and the lock makes sure that no composition is currently in
+    // progress, so we won't present half-composited state to the screen.
+    MutexAutoLock lock(mCompositingLock);
+    mNativeLayerRoot->CommitToScreen();
+  }
 
   MaybeScheduleUnsuspendAsyncCATransactions();
 }
@@ -1432,11 +1434,6 @@ LayoutDeviceIntPoint nsChildView::WidgetToScreenOffset() {
   return CocoaPointsToDevPixels(origin);
 
   NS_OBJC_END_TRY_ABORT_BLOCK_RETURN(LayoutDeviceIntPoint(0, 0));
-}
-
-LayoutDeviceIntRegion nsChildView::GetOpaqueWidgetRegion() {
-  auto opaqueRegion = mOpaqueRegion.Lock();
-  return *opaqueRegion;
 }
 
 nsresult nsChildView::SetTitle(const nsAString& title) {
@@ -1715,7 +1712,7 @@ bool nsChildView::PreRender(WidgetRenderingContext* aContext) {
   // The lock makes sure that we don't attempt to tear down the view while
   // compositing. That would make us unable to call postRender on it when the
   // composition is done, thus keeping the GL context locked forever.
-  mViewTearDownLock.Lock();
+  mCompositingLock.Lock();
 
   if (aContext->mGL && gfxPlatform::CanMigrateMacGPUs()) {
     GLContextCGL::Cast(aContext->mGL)->MigrateToActiveGPU();
@@ -1724,7 +1721,7 @@ bool nsChildView::PreRender(WidgetRenderingContext* aContext) {
   return true;
 }
 
-void nsChildView::PostRender(WidgetRenderingContext* aContext) { mViewTearDownLock.Unlock(); }
+void nsChildView::PostRender(WidgetRenderingContext* aContext) { mCompositingLock.Unlock(); }
 
 RefPtr<layers::NativeLayerRoot> nsChildView::GetNativeLayerRoot() { return mNativeLayerRoot; }
 
@@ -1900,8 +1897,6 @@ void nsChildView::UpdateVibrancy(const nsTArray<ThemeGeometry>& aThemeGeometries
   changed |= vm.UpdateVibrantRegion(VibrancyType::ACTIVE_SOURCE_LIST_SELECTION,
                                     activeSourceListSelectionRegion);
 
-  UpdateInternalOpaqueRegion();
-
   if (changed) {
     SuspendAsyncCATransactions();
   }
@@ -1913,19 +1908,6 @@ mozilla::VibrancyManager& nsChildView::EnsureVibrancyManager() {
     mVibrancyManager = MakeUnique<VibrancyManager>(*this, [mView vibrancyViewsContainer]);
   }
   return *mVibrancyManager;
-}
-
-void nsChildView::UpdateInternalOpaqueRegion() {
-  MOZ_RELEASE_ASSERT(NS_IsMainThread(), "This should only be called on the main thread.");
-  auto opaqueRegion = mOpaqueRegion.Lock();
-  bool widgetIsOpaque = GetTransparencyMode() == eTransparencyOpaque;
-  if (!widgetIsOpaque) {
-    opaqueRegion->SetEmpty();
-  } else if (VibrancyManager::SystemSupportsVibrancy()) {
-    opaqueRegion->Sub(mBounds, EnsureVibrancyManager().GetUnionOfVibrantRegions());
-  } else {
-    *opaqueRegion = mBounds;
-  }
 }
 
 nsChildView::SwipeInfo nsChildView::SendMayStartSwipe(

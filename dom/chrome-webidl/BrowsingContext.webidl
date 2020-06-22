@@ -5,6 +5,7 @@
 
 interface nsIDocShell;
 interface nsISecureBrowserUI;
+interface nsIWebProgress;
 
 interface mixin LoadContextMixin {
   readonly attribute WindowProxy? associatedWindow;
@@ -105,6 +106,16 @@ interface BrowsingContext {
   // The watchedByDevTools flag indicates whether or not DevTools are currently
   // debugging this browsing context.
   [SetterThrows] attribute boolean watchedByDevTools;
+
+  /**
+   * A unique identifier for the browser element that is hosting this
+   * BrowsingContext tree. Every BrowsingContext in the element's tree will
+   * return the same ID in all processes and it will remain stable regardless of
+   * process changes. When a browser element's frameloader is switched to
+   * another browser element this ID will remain the same but hosted under the
+   * under the new browser element.
+   */
+  attribute unsigned long long browserId;
 };
 
 BrowsingContext includes LoadContextMixin;
@@ -114,6 +125,8 @@ interface CanonicalBrowsingContext : BrowsingContext {
   sequence<WindowGlobalParent> getWindowGlobals();
 
   readonly attribute WindowGlobalParent? currentWindowGlobal;
+
+  readonly attribute WindowProxy? topChromeWindow;
 
   // XXX(nika): This feels kinda hacky, but will do for now while we don't
   // synchronously create WindowGlobalParent. It can throw if somehow the
@@ -127,6 +140,15 @@ interface CanonicalBrowsingContext : BrowsingContext {
   void notifyMediaMutedChanged(boolean muted);
 
   readonly attribute nsISecureBrowserUI? secureBrowserUI;
+
+  /**
+   * Returns an nsIWebProgress object for this BrowsingContext, if this
+   * is a top-level content BC.
+   *
+   * Progress listeners attached to this will get notifications filtered by
+   * nsBrowserStatusFilter, and don't get any notifications from sub frames.
+   */
+  readonly attribute nsIWebProgress? webProgress;
 
   static unsigned long countSiteOrigins(sequence<BrowsingContext> roots);
 

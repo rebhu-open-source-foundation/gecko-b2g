@@ -1,4 +1,3 @@
-
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*-
  * vim: set ts=8 sts=2 et sw=2 tw=80:
  * This Source Code Form is subject to the terms of the Mozilla Public
@@ -118,6 +117,7 @@ bool GlobalObject::skipDeselectedConstructor(JSContext* cx, JSProtoKey key) {
     case JSProto_RegExp:
     case JSProto_Error:
     case JSProto_InternalError:
+    case JSProto_AggregateError:
     case JSProto_EvalError:
     case JSProto_RangeError:
     case JSProto_ReferenceError:
@@ -215,13 +215,6 @@ bool GlobalObject::skipDeselectedConstructor(JSContext* cx, JSProtoKey key) {
     case JSProto_AsyncIterator:
       return !cx->realm()->creationOptions().getIteratorHelpersEnabled();
 
-    case JSProto_AggregateError:
-#ifndef NIGHTLY_BUILD
-      return true;
-#else
-      return false;
-#endif
-
     default:
       MOZ_CRASH("unexpected JSProtoKey");
   }
@@ -292,6 +285,23 @@ bool GlobalObject::resolveConstructor(JSContext* cx,
       global->getPrototype(JSProto_Object).isUndefined()) {
     return resolveConstructor(cx, global, JSProto_Object,
                               IfClassIsDisabled::DoNothing);
+  }
+
+  // %IteratorPrototype%.map.[[Prototype]] is %Generator% and
+  // %Generator%.prototype.[[Prototype]] is %IteratorPrototype%.
+  // A workaround in initIteratorProto prevents runaway mutual recursion while
+  // setting these up. Ensure the workaround is triggered already:
+  if (key == JSProto_GeneratorFunction &&
+      !global->getSlotRef(ITERATOR_PROTO).isObject()) {
+    if (!getOrCreateIteratorPrototype(cx, global)) {
+      return false;
+    }
+
+    // If iterator helpers are enabled, populating %IteratorPrototype% will
+    // have recursively gone through here.
+    if (global->isStandardClassResolved(key)) {
+      return true;
+    }
   }
 
   // We don't always have a prototype (i.e. Math and JSON). If we don't,
@@ -1070,8 +1080,7 @@ bool GlobalObject::getSelfHostedFunction(JSContext* cx,
 
   RootedFunction fun(cx);
   if (!cx->runtime()->createLazySelfHostedFunctionClone(
-          cx, selfHostedName, name, nargs,
-          /* proto = */ nullptr, SingletonObject, &fun)) {
+          cx, selfHostedName, name, nargs, SingletonObject, &fun)) {
     return false;
   }
   funVal.setObject(*fun);

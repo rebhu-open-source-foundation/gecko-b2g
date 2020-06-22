@@ -229,7 +229,9 @@ ScriptLoader::~ScriptLoader() {
     mPendingChildLoaders[j]->RemoveParserBlockingScriptExecutionBlocker();
   }
 
+  // Cancel any unused preload requests
   for (size_t i = 0; i < mPreloads.Length(); i++) {
+    mPreloads[i].mRequest->Cancel();
     AccumulateCategorical(LABELS_DOM_SCRIPT_PRELOAD_RESULT::NotUsed);
   }
 }
@@ -621,34 +623,43 @@ nsresult ScriptLoader::CreateModuleScript(ModuleLoadRequest* aRequest) {
   return rv;
 }
 
-static nsresult HandleResolveFailure(JSContext* aCx, ModuleScript* aScript,
+static nsresult HandleResolveFailure(JSContext* aCx, LoadedScript* aScript,
                                      const nsAString& aSpecifier,
                                      uint32_t aLineNumber,
-                                     uint32_t aColumnNumber) {
-  nsAutoCString url;
-  aScript->BaseURL()->GetAsciiSpec(url);
-
+                                     uint32_t aColumnNumber,
+                                     JS::MutableHandle<JS::Value> errorOut) {
   JS::Rooted<JSString*> filename(aCx);
-  filename = JS_NewStringCopyZ(aCx, url.get());
+  if (aScript) {
+    nsAutoCString url;
+    aScript->BaseURL()->GetAsciiSpec(url);
+    filename = JS_NewStringCopyZ(aCx, url.get());
+  } else {
+    filename = JS_NewStringCopyZ(aCx, "(unknown)");
+  }
+
   if (!filename) {
     return NS_ERROR_OUT_OF_MEMORY;
   }
 
-  nsAutoString message(NS_LITERAL_STRING("Error resolving module specifier: "));
-  message.Append(aSpecifier);
+  AutoTArray<nsString, 1> errorParams;
+  errorParams.AppendElement(aSpecifier);
 
-  JS::Rooted<JSString*> string(aCx, JS_NewUCStringCopyZ(aCx, message.get()));
+  nsAutoString errorText;
+  nsresult rv = nsContentUtils::FormatLocalizedString(
+      nsContentUtils::eDOM_PROPERTIES, "ModuleResolveFailure", errorParams,
+      errorText);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  JS::Rooted<JSString*> string(aCx, JS_NewUCStringCopyZ(aCx, errorText.get()));
   if (!string) {
     return NS_ERROR_OUT_OF_MEMORY;
   }
 
-  JS::Rooted<JS::Value> error(aCx);
   if (!JS::CreateError(aCx, JSEXN_TYPEERR, nullptr, filename, aLineNumber,
-                       aColumnNumber, nullptr, string, &error)) {
+                       aColumnNumber, nullptr, string, errorOut)) {
     return NS_ERROR_OUT_OF_MEMORY;
   }
 
-  aScript->SetParseError(error);
   return NS_OK;
 }
 
@@ -736,9 +747,12 @@ static nsresult ResolveRequestedModules(ModuleLoadRequest* aRequest,
       uint32_t columnNumber = 0;
       JS::GetRequestedModuleSourcePos(cx, element, &lineNumber, &columnNumber);
 
-      nsresult rv =
-          HandleResolveFailure(cx, ms, specifier, lineNumber, columnNumber);
+      JS::Rooted<JS::Value> error(cx);
+      nsresult rv = HandleResolveFailure(cx, ms, specifier, lineNumber,
+                                         columnNumber, &error);
       NS_ENSURE_SUCCESS(rv, rv);
+
+      ms->SetParseError(error);
       return NS_ERROR_FAILURE;
     }
 
@@ -972,8 +986,8 @@ bool HostImportModuleDynamically(JSContext* aCx,
   RefPtr<LoadedScript> script(GetLoadedScriptOrNull(aCx, aReferencingPrivate));
 
   // Attempt to resolve the module specifier.
-  nsAutoJSString string;
-  if (!string.init(aCx, aSpecifier)) {
+  nsAutoJSString specifier;
+  if (!specifier.init(aCx, aSpecifier)) {
     return false;
   }
 
@@ -982,10 +996,16 @@ bool HostImportModuleDynamically(JSContext* aCx,
     return false;
   }
 
-  nsCOMPtr<nsIURI> uri = ResolveModuleSpecifier(loader, script, string);
+  nsCOMPtr<nsIURI> uri = ResolveModuleSpecifier(loader, script, specifier);
   if (!uri) {
-    JS_ReportErrorNumberUC(aCx, js::GetErrorMessage, nullptr,
-                           JSMSG_BAD_MODULE_SPECIFIER, string.get());
+    JS::Rooted<JS::Value> error(aCx);
+    nsresult rv = HandleResolveFailure(aCx, script, specifier, 0, 0, &error);
+    if (NS_FAILED(rv)) {
+      JS_ReportOutOfMemory(aCx);
+      return false;
+    }
+
+    JS_SetPendingException(aCx, error);
     return false;
   }
 
@@ -1504,9 +1524,8 @@ nsresult ScriptLoader::StartLoad(ScriptLoadRequest* aRequest) {
   NS_ENSURE_SUCCESS(rv, rv);
 
   auto key = PreloadHashKey::CreateAsScript(
-      aRequest->mURI, aRequest->CORSMode(), aRequest->mKind,
-      aRequest->ReferrerPolicy());
-  aRequest->NotifyOpen(&key, channel, mDocument,
+      aRequest->mURI, aRequest->CORSMode(), aRequest->mKind);
+  aRequest->NotifyOpen(key, channel, mDocument,
                        aRequest->IsLinkPreloadScript());
 
   rv = channel->AsyncOpen(loader);
@@ -1958,11 +1977,9 @@ ScriptLoadRequest* ScriptLoader::LookupPreloadRequest(
   // we have now.
   nsAutoString elementCharset;
   aElement->GetScriptCharset(elementCharset);
-  ReferrerPolicy referrerPolicy = GetReferrerPolicy(aElement);
 
   if (!elementCharset.Equals(preloadCharset) ||
       aElement->GetCORSMode() != request->CORSMode() ||
-      referrerPolicy != request->ReferrerPolicy() ||
       aScriptKind != request->mKind) {
     // Drop the preload.
     request->Cancel();
@@ -2103,8 +2120,7 @@ nsresult ScriptLoader::ProcessOffThreadRequest(ScriptLoadRequest* aRequest) {
 
   // Async scripts and blocking scripts can be executed right away.
   if (aRequest->IsAsyncScript() || aRequest->IsBlockingScript()) {
-    nsresult rv = ProcessRequest(aRequest);
-    return rv;
+    return ProcessRequest(aRequest);
   }
 
   // Process other scripts in the proper order.
@@ -2255,13 +2271,6 @@ nsresult ScriptLoader::AttemptAsyncScriptCompile(ScriptLoadRequest* aRequest,
     if (!JS::CanCompileOffThread(cx, options, aRequest->ScriptTextLength())) {
       return NS_OK;
     }
-#ifdef JS_BUILD_BINAST
-  } else if (aRequest->IsBinASTSource()) {
-    if (!JS::CanDecodeBinASTOffThread(cx, options,
-                                      aRequest->ScriptBinASTData().length())) {
-      return NS_OK;
-    }
-#endif
   } else {
     MOZ_ASSERT(aRequest->IsBytecode());
     size_t length =
@@ -2300,16 +2309,6 @@ nsresult ScriptLoader::AttemptAsyncScriptCompile(ScriptLoadRequest* aRequest,
             OffThreadScriptLoaderCallback, static_cast<void*>(runnable))) {
       return NS_ERROR_OUT_OF_MEMORY;
     }
-#ifdef JS_BUILD_BINAST
-  } else if (aRequest->IsBinASTSource()) {
-    MOZ_ASSERT(aRequest->IsSource());
-    if (!JS::DecodeBinASTOffThread(
-            cx, options, aRequest->ScriptBinASTData().begin(),
-            aRequest->ScriptBinASTData().length(), JS::BinASTFormat::Multipart,
-            OffThreadScriptLoaderCallback, static_cast<void*>(runnable))) {
-      return NS_ERROR_OUT_OF_MEMORY;
-    }
-#endif
   } else {
     MOZ_ASSERT(aRequest->IsTextSource());
     MaybeSourceText maybeSource;

@@ -144,7 +144,7 @@
               <menupopup id="menu_viewPopup"
                          onpopupshowing="updateCharacterEncodingMenuState();">
                 <menu id="viewToolbarsMenu" data-l10n-id="menu-view-toolbars-menu">
-                  <menupopup onpopupshowing="onViewToolbarsPopupShowing(event);">
+                  <menupopup id="view-menu-popup" onpopupshowing="onViewToolbarsPopupShowing(event);">
                     <menuseparator/>
                     <menuitem id="menu_customizeToolbars"
                               command="cmd_CustomizeToolbars" data-l10n-id="menu-view-customize-toolbar"/>
@@ -193,7 +193,7 @@
                               oncommand="gPageStyleMenu.disableStyle();"
                               type="radio" data-l10n-id="menu-view-page-style-no-style"/>
                     <menuitem id="menu_pageStylePersistentOnly"
-                              oncommand="gPageStyleMenu.switchStyleSheet('');"
+                              oncommand="gPageStyleMenu.switchStyleSheet(null);"
                               type="radio"
                               checked="true" data-l10n-id="menu-view-page-basic-style"/>
                     <menuseparator/>

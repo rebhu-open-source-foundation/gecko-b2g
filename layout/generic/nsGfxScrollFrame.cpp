@@ -94,6 +94,9 @@
 static mozilla::LazyLogModule sApzPaintSkipLog("apz.paintskip");
 #define PAINT_SKIP_LOG(...) \
   MOZ_LOG(sApzPaintSkipLog, LogLevel::Debug, (__VA_ARGS__))
+static mozilla::LazyLogModule sScrollRestoreLog("scrollrestore");
+#define SCROLLRESTORE_LOG(...) \
+  MOZ_LOG(sScrollRestoreLog, LogLevel::Debug, (__VA_ARGS__))
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -464,14 +467,16 @@ bool nsHTMLScrollFrame::TryLayout(ScrollReflowInput* aState,
   nsSize visualViewportSize = scrollPortSize;
   mozilla::PresShell* presShell = PresShell();
   if (mHelper.mIsRoot && presShell->IsVisualViewportSizeSet()) {
-    nsSize compositionSize =
-        nsLayoutUtils::CalculateCompositionSizeForFrame(this, false);
+    visualViewportSize = nsLayoutUtils::CalculateCompositionSizeForFrame(
+        this, false, &layoutSize);
+
+    visualViewportSize = nsSize(
+        std::max(0, visualViewportSize.width - vScrollbarDesiredWidth),
+        std::max(0, visualViewportSize.height - hScrollbarDesiredHeight));
+
     float resolution = presShell->GetResolution();
-    compositionSize.width /= resolution;
-    compositionSize.height /= resolution;
-    visualViewportSize =
-        nsSize(std::max(0, compositionSize.width - vScrollbarDesiredWidth),
-               std::max(0, compositionSize.height - hScrollbarDesiredHeight));
+    visualViewportSize.width /= resolution;
+    visualViewportSize.height /= resolution;
   }
 
   nsRect overflowRect = aState->mContentsOverflowAreas.ScrollableOverflow();
@@ -2324,6 +2329,8 @@ void ScrollFrameHelper::ScrollToWithOrigin(
   if (aOrigin != ScrollOrigin::Restore) {
     // If we're doing a non-restore scroll, we don't want to later
     // override it by restoring our saved scroll position.
+    SCROLLRESTORE_LOG("%p: Clearing mRestorePos (cur=%d, dst=%d)\n", this,
+                      GetScrollPosition().y, aScrollPosition.y);
     mRestorePos.x = mRestorePos.y = -1;
   }
 
@@ -3498,7 +3505,8 @@ void ScrollFrameHelper::BuildDisplayList(nsDisplayListBuilder* aBuilder,
   // Root scrollframes have FrameMetrics and clipping on their container
   // layers, so don't apply clipping again.
   mAddClipRectToLayer =
-      !(mIsRoot && mOuter->PresShell()->GetIsViewportOverridden());
+      !(mIsRoot && mOuter->PresShell()->UsesMobileViewportSizing());
+
 
   // Whether we might want to build a scrollable layer for this scroll frame
   // at some point in the future. This controls whether we add the information
@@ -4231,6 +4239,9 @@ nsSize ScrollFrameHelper::GetVisualViewportSize() const {
 nsPoint ScrollFrameHelper::GetVisualViewportOffset() const {
   PresShell* presShell = mOuter->PresShell();
   if (mIsRoot && presShell->IsVisualViewportSizeSet()) {
+    if (auto pendingUpdate = presShell->GetPendingVisualScrollUpdate()) {
+      return pendingUpdate->mVisualScrollOffset;
+    }
     return presShell->GetVisualViewportOffset();
   }
   return GetScrollPosition();
@@ -4661,6 +4672,7 @@ void ScrollFrameHelper::ScrollToRestoredPosition() {
   // RestoreState(), since the scrollable rect (which the clamping depends
   // on) can change over the course of the restoration process.
   nsPoint layoutRestorePos = GetLayoutScrollRange().ClampPoint(mRestorePos);
+  nsPoint visualRestorePos = GetVisualScrollRange().ClampPoint(mRestorePos);
 
   // Continue restoring until both the layout and visual scroll positions
   // reach the destination. (Note that the two can only be different for
@@ -4669,6 +4681,14 @@ void ScrollFrameHelper::ScrollToRestoredPosition() {
   // at different values and nothing reconciles them (see bug 1519621 comment
   // 8).
   nsPoint logicalLayoutScrollPos = GetLogicalScrollPosition();
+
+  SCROLLRESTORE_LOG(
+      "%p: ScrollToRestoredPosition (mRestorePos.y=%d, mLastPos.y=%d, "
+      "layoutRestorePos.y=%d, visualRestorePos.y=%d, "
+      "logicalLayoutScrollPos.y=%d, "
+      "GetLogicalVisualViewportOffset().y=%d)\n",
+      this, mRestorePos.y, mLastPos.y, layoutRestorePos.y, visualRestorePos.y,
+      logicalLayoutScrollPos.y, GetLogicalVisualViewportOffset().y);
 
   // if we didn't move, we still need to restore
   if (GetLogicalVisualViewportOffset() == mLastPos ||
@@ -4682,7 +4702,7 @@ void ScrollFrameHelper::ScrollToRestoredPosition() {
       if (state == LoadingState::Stopped && !NS_SUBTREE_DIRTY(mOuter)) {
         return;
       }
-      nsPoint visualScrollToPos = mRestorePos;
+      nsPoint visualScrollToPos = visualRestorePos;
       nsPoint layoutScrollToPos = layoutRestorePos;
       if (!IsPhysicalLTR()) {
         // convert from logical to physical scroll position
@@ -5962,23 +5982,38 @@ void ScrollFrameHelper::UpdateMinimumScaleSize(
 bool ScrollFrameHelper::ReflowFinished() {
   mPostedReflowCallback = false;
 
-  if (mIsRoot && mMinimumScaleSizeChanged &&
-      mOuter->PresShell()->UsesMobileViewportSizing() &&
-      !mOuter->PresShell()->IsResolutionUpdatedByApz()) {
-    PresShell* presShell = mOuter->PresShell();
-    RefPtr<MobileViewportManager> manager =
-        presShell->GetMobileViewportManager();
-    MOZ_ASSERT(manager);
+  if (mIsRoot) {
+    if (mMinimumScaleSizeChanged &&
+        mOuter->PresShell()->UsesMobileViewportSizing() &&
+        !mOuter->PresShell()->IsResolutionUpdatedByApz()) {
+      PresShell* presShell = mOuter->PresShell();
+      RefPtr<MobileViewportManager> manager =
+          presShell->GetMobileViewportManager();
+      MOZ_ASSERT(manager);
 
-    ScreenIntSize displaySize = ViewAs<ScreenPixel>(
-        manager->DisplaySize(),
-        PixelCastJustification::LayoutDeviceIsScreenForBounds);
+      ScreenIntSize displaySize = ViewAs<ScreenPixel>(
+          manager->DisplaySize(),
+          PixelCastJustification::LayoutDeviceIsScreenForBounds);
 
-    Document* doc = presShell->GetDocument();
-    MOZ_ASSERT(doc, "The document should be valid");
-    nsViewportInfo viewportInfo = doc->GetViewportInfo(displaySize);
-    manager->ShrinkToDisplaySizeIfNeeded(viewportInfo, displaySize);
-    mMinimumScaleSizeChanged = false;
+      Document* doc = presShell->GetDocument();
+      MOZ_ASSERT(doc, "The document should be valid");
+      nsViewportInfo viewportInfo = doc->GetViewportInfo(displaySize);
+      manager->ShrinkToDisplaySizeIfNeeded(viewportInfo, displaySize);
+      mMinimumScaleSizeChanged = false;
+    }
+
+    if (!UsesOverlayScrollbars()) {
+      // Layout scrollbars may have added or removed during reflow, so let's
+      // update the visual viewport accordingly. Note that this may be a no-op
+      // because we might have recomputed the visual viewport size during the
+      // reflow itself, just before laying out the fixed-pos items. But there
+      // might be cases where that code doesn't run, so this is a sort of
+      // backstop to ensure we do that recomputation.
+      if (RefPtr<MobileViewportManager> manager =
+              mOuter->PresShell()->GetMobileViewportManager()) {
+        manager->UpdateVisualViewportSizeForPotentialScrollbarChange();
+      }
+    }
   }
 
   bool doScroll = true;
@@ -6674,6 +6709,8 @@ UniquePtr<PresState> ScrollFrameHelper::SaveState() const {
     pt = mDestination;
     allowScrollOriginDowngrade = false;
   }
+  SCROLLRESTORE_LOG("%p: SaveState, pt.y=%d, mLastPos.y=%d, mRestorePos.y=%d\n",
+                    this, pt.y, mLastPos.y, mRestorePos.y);
   if (mRestorePos.y != -1 && pt == mLastPos) {
     pt = mRestorePos;
   }
@@ -6702,6 +6739,8 @@ void ScrollFrameHelper::RestoreState(PresState* aState) {
   mLastScrollOrigin = ScrollOrigin::Other;
   mDidHistoryRestore = true;
   mLastPos = mScrolledFrame ? GetLogicalVisualViewportOffset() : nsPoint(0, 0);
+  SCROLLRESTORE_LOG("%p: RestoreState, set mRestorePos.y=%d mLastPos.y=%d\n",
+                    this, mRestorePos.y, mLastPos.y);
 
   // Resolution properties should only exist on root scroll frames.
   MOZ_ASSERT(mIsRoot || aState->resolution() == 1.0);

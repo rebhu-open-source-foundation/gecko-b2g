@@ -692,6 +692,13 @@ child:
      */
     async Show(ParentShowInfo parentInfo, OwnerShowInfo childInfo);
 
+    /**
+     * Sending an activate message moves focus to the child.
+     */
+    async Activate();
+
+    async Deactivate();
+
     async ScrollbarPreferenceChanged(ScrollbarPreference pref);
 
     async InitRendering(TextureFactoryIdentifier textureFactoryIdentifier,
@@ -1008,12 +1015,6 @@ child:
      * @param aNewHandle The native window handle of the tab's top-level window.
      */
     async UpdateNativeWindowHandle(uintptr_t aNewHandle);
-
-    /**
-     * Tell the BrowserChild that it should expect a Large-Allocation load to occur.
-     * Loads which occur until this flag is cleared will not leave the process.
-     */
-    async AwaitLargeAlloc();
 
     /**
      * Tell the BrowserChild to allow scripts in the docshell to close the window.

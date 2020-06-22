@@ -25,6 +25,7 @@
 #include "mozilla/dom/Touch.h"
 #include "mozilla/dom/UserActivation.h"
 #include "mozilla/PendingAnimationTracker.h"
+#include "mozilla/SharedStyleSheetCache.h"
 #include "nsIObjectLoadingContent.h"
 #include "nsFrame.h"
 #include "mozilla/layers/APZCCallbackHelper.h"
@@ -984,6 +985,23 @@ nsDOMWindowUtils::SuppressAnimation(bool aSuppress) {
   if (widget) {
     widget->SuppressAnimation(aSuppress);
   }
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsDOMWindowUtils::ClearSharedStyleSheetCache() {
+  SharedStyleSheetCache::ClearForTest();
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsDOMWindowUtils::GetParsedStyleSheets(uint32_t* aSheets) {
+  RefPtr<Document> doc = GetDocument();
+  if (!doc) {
+    return NS_ERROR_UNEXPECTED;
+  }
+
+  *aSheets = doc->CSSLoader()->ParsedSheetCount();
   return NS_OK;
 }
 
@@ -3149,7 +3167,8 @@ nsDOMWindowUtils::SetVisualViewportSize(float aWidth, float aHeight) {
     return NS_ERROR_FAILURE;
   }
 
-  nsLayoutUtils::SetVisualViewportSize(presShell, CSSSize(aWidth, aHeight));
+  presShell->SetVisualViewportSize(nsPresContext::CSSPixelsToAppUnits(aWidth),
+                                   nsPresContext::CSSPixelsToAppUnits(aHeight));
 
   return NS_OK;
 }

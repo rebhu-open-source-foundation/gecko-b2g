@@ -697,7 +697,11 @@
 # 2 = visual, but logical during selection
 - name: bidi.edit.caret_movement_style
   type: int32_t
-  value: 2
+#if !defined(XP_LINUX) && defined(NIGHTLY_BUILD)
+  value: 1
+#else
+  value: 2 # See Bug 1638240
+#endif
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -2155,11 +2159,6 @@
   value: false
   mirror: always
 
-- name: dom.largeAllocation.testing.allHttpLoads
-  type: bool
-  value: false
-  mirror: always
-
 # Whether "W3C Web Manifest" processing is enabled
 - name: dom.manifest.enabled
   type: bool
@@ -2533,18 +2532,6 @@
   type: bool
   value: true
   mirror: always
-
-#ifdef JS_BUILD_BINAST
--   name: dom.script_loader.binast_encoding.domain.restrict
-    type: bool
-    value: true
-    mirror: always
-
--   name: dom.script_loader.binast_encoding.enabled
-    type: RelaxedAtomicBool
-    value: false
-    mirror: always
-#endif
 
 # Whether to enable the JavaScript start-up cache. This causes one of the first
 # execution to record the bytecode of the JavaScript function used, and save it
@@ -3507,12 +3494,19 @@
 # * 2: Replace newlines with spaces (default of Firefox).
 # * 3: Remove newlines from the string.
 # * 4: Replace newlines with commas (default of Thunderbird).
-# * 5: Collapse newlines and surrounding whitespace characters and
+# * 5: Collapse newlines and surrounding white space characters and
 #      remove them from the string.
 # Other values are treated as 1.
 - name: editor.singleLine.pasteNewlines
   type: int32_t
   value: 2
+  mirror: always
+
+# Whether enabling blink compatible white-space normalizer or keep using
+# Gecko's traditional white-space normalizer.
+- name: editor.white_space_normalization.blink_compatible
+  type: bool
+  value: false
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -4139,7 +4133,7 @@
 
 - name: gfx.e10s.font-list.shared
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: once
 
 # Disable antialiasing of Ahem, for use in tests.
@@ -4422,7 +4416,7 @@
 
 - name: gfx.webrender.compositor
   type: bool
-#if defined(XP_WIN)
+#if defined(XP_WIN) || defined(XP_MACOSX)
   value: true
 #else
   value: false
@@ -4850,19 +4844,6 @@
 # Prefs starting with "intl."
 #---------------------------------------------------------------------------
 
-# Whether ISO-2022-JP is a permitted content-based encoding detection
-# outcome in the JapaneseDetector.
-- name: intl.charset.detector.iso2022jp.allowed
-  type: bool
-  value: true
-  mirror: always
-
-# Whether the new encoding detector is enabled (except for Japan's ccTLDs).
-- name: intl.charset.detector.ng.enabled
-  type: bool
-  value: true
-  mirror: always
-
 # Whether the new encoding detector is enabled for the .jp TLD.
 - name: intl.charset.detector.ng.jp.enabled
   type: bool
@@ -4879,12 +4860,6 @@
 - name: intl.charset.detector.ng.lk.enabled
   type: bool
   value: false
-  mirror: always
-
-# Whether the TLD is considered if the new encoding detector is disabled.
-- name: intl.charset.fallback.tld
-  type: bool
-  value: true
   mirror: always
 
 # If true, dispatch the keydown and keyup events on any web apps even during
@@ -5548,6 +5523,11 @@
   mirror: once
 
 - name: layers.use-image-offscreen-surfaces
+  type: bool
+  value: true
+  mirror: once
+
+- name: layers.recycle-allocator-rdd
   type: bool
   value: true
   mirror: once
@@ -8047,7 +8027,7 @@
 # Whether we can send OnDataAvailable to content process directly.
 - name: network.send_ODA_to_content_directly
   type: RelaxedAtomicBool
-  value: true
+  value: false
   mirror: always
 
 # Perform all network access on the socket process.
@@ -9125,11 +9105,6 @@
   value: 2000
   mirror: always
 
-- name: toolkit.telemetry.isGeckoViewMode
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
 - name: toolkit.telemetry.geckoview.batchDurationMS
   type: RelaxedAtomicUint32
   value: 5000
@@ -9268,6 +9243,120 @@
 - name: ui.click_hold_context_menus.delay
   type: RelaxedAtomicInt32
   value: 500
+  mirror: always
+
+# When enabled, the touch.radius and mouse.radius prefs allow events to be
+# dispatched to nearby elements that are sensitive to the event. See
+# PositionedEventTargeting.cpp. The 'mm' prefs define a rectangle around the
+# nominal event target point within which we will search for suitable elements.
+# 'visitedWeight' is a percentage weight; a value > 100 makes a visited link be
+# treated as further away from the event target than it really is, while a
+# value < 100 makes a visited link be treated as closer to the event target
+# than it really is.
+
+- name: ui.touch.radius.enabled
+  type: bool
+  value: false
+  mirror: always
+
+- name: ui.touch.radius.topmm
+  type: uint32_t
+#ifdef ANDROID
+  value: 5
+#else
+  value: 12
+#endif
+  mirror: always
+
+- name: ui.touch.radius.rightmm
+  type: uint32_t
+#ifdef ANDROID
+  value: 3
+#else
+  value: 8
+#endif
+  mirror: always
+
+- name: ui.touch.radius.bottommm
+  type: uint32_t
+#ifdef ANDROID
+  value: 2
+#else
+  value: 4
+#endif
+  mirror: always
+
+- name: ui.touch.radius.leftmm
+  type: uint32_t
+#ifdef ANDROID
+  value: 3
+#else
+  value: 8
+#endif
+  mirror: always
+
+- name: ui.touch.radius.visitedWeight
+  type: uint32_t
+  value: 120
+  mirror: always
+
+- name: ui.mouse.radius.enabled
+  type: bool
+  value: @IS_ANDROID@
+  mirror: always
+
+- name: ui.mouse.radius.topmm
+  type: uint32_t
+#ifdef ANDROID
+  value: 5
+#else
+  value: 12
+#endif
+  mirror: always
+
+- name: ui.mouse.radius.rightmm
+  type: uint32_t
+#ifdef ANDROID
+  value: 3
+#else
+  value: 8
+#endif
+  mirror: always
+
+- name: ui.mouse.radius.bottommm
+  type: uint32_t
+#ifdef ANDROID
+  value: 2
+#else
+  value: 4
+#endif
+  mirror: always
+
+- name: ui.mouse.radius.leftmm
+  type: uint32_t
+#ifdef ANDROID
+  value: 3
+#else
+  value: 8
+#endif
+  mirror: always
+
+- name: ui.mouse.radius.visitedWeight
+  type: uint32_t
+  value: 120
+  mirror: always
+
+- name: ui.mouse.radius.reposition
+  type: bool
+  value: @IS_ANDROID@
+  mirror: always
+
+# When true, the ui.mouse.radius.* prefs will only affect simulated mouse
+# events generated by touch input. When false, the prefs will be used for all
+# mouse events.
+- name: ui.mouse.radius.inputSource.touchOnly
+  type: bool
+  value: true
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -9596,7 +9685,7 @@
 # Use DMABuf for video textures.
 - name: widget.wayland-dmabuf-video-textures.enabled
   type: RelaxedAtomicBool
-  value: true
+  value: false
   mirror: always
 
 # Use smooth rendering for basic compositor.

@@ -485,6 +485,14 @@ bool DOMLocalization::ApplyTranslations(
       hasMissingTranslation = true;
       continue;
     }
+    // If we have a proto, we expect all elements are connected up.
+    // If they're not, they may have been removed by earlier translations.
+    // We will have added an error in L10nOverlays in this case.
+    // This is an error in fluent use, but shouldn't be crashing. There's
+    // also no point translating the element - skip it:
+    if (aProto && !elem->IsInComposedDoc()) {
+      continue;
+    }
     L10nOverlays::TranslateElement(*elem, aTranslations[i].Value(), errors,
                                    aRv);
     if (NS_WARN_IF(aRv.Failed())) {
@@ -566,10 +574,29 @@ void DOMLocalization::ReportL10nOverlaysErrors(
                      " didn't match the element found in the source ") +
                  error.mSourceElementName.Value() + NS_LITERAL_STRING(".");
           break;
+        case L10nOverlays_Binding::ERROR_TRANSLATED_ELEMENT_DISCONNECTED:
+          msg += NS_LITERAL_STRING("The element using message \"") +
+                 error.mL10nName.Value() +
+                 NS_LITERAL_STRING(
+                     "\" was removed from the DOM when translating its \"") +
+                 error.mTranslatedElementName.Value() +
+                 NS_LITERAL_STRING("\" parent.");
+          break;
+        case L10nOverlays_Binding::ERROR_TRANSLATED_ELEMENT_DISALLOWED_DOM:
+          msg += NS_LITERAL_STRING(
+                     "While translating an element with fluent ID \"") +
+                 error.mL10nName.Value() +
+                 NS_LITERAL_STRING("\" a child element of type \"") +
+                 error.mTranslatedElementName.Value() +
+                 NS_LITERAL_STRING(
+                     "\" was removed. Either the fluent message "
+                     "does not contain markup, or it does not contain markup "
+                     "of this type.");
+          break;
         case L10nOverlays_Binding::ERROR_UNKNOWN:
         default:
           msg += NS_LITERAL_STRING(
-              "Unknown error happened while translation of an element.");
+              "Unknown error happened while translating an element.");
           break;
       }
       nsPIDOMWindowInner* innerWindow = GetParentObject()->AsInnerWindow();
