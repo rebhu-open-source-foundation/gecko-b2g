@@ -1,0 +1,638 @@
+/* -*- Mode: python; c-basic-offset: 4; indent-tabs-mode: nil; tab-width: 40 -*-
+ vim: set filetype=python:
+
+ (c) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED All rights reserved. This
+ file or any portion thereof may not be reproduced or used in any manner
+ whatsoever without the express written permission of KAI OS TECHNOLOGIES
+ (HONG KONG) LIMITED. KaiOS is the trademark of KAI OS TECHNOLOGIES (HONG KONG)
+ LIMITED or its affiliate company and may be registered in some jurisdictions.
+ All other trademarks are the property of their respective owners.*/
+
+#include "nsISupports.idl"
+#include "nsIImsRegistration.idl"
+
+interface nsIImsCallSessionListener;
+interface nsIImsDtmfCallback;
+interface nsIImsStreamMediaProfile;
+interface nsIImsCallProfile;
+interface nsIImsReasonInfo;
+interface nsIImsSuppServiceNotification;
+interface nsIImsConferenceParticipant;
+
+[scriptable, uuid(0a848ca7-4f7a-467b-855d-9a4f16162bee)]
+interface nsIImsCallSessionListener : nsISupports
+{
+  /**
+   * Notifies call session is progressing. (Alerting).
+   *
+   * @param profile the stream media profile this call session associated with.
+   */
+  void onCallSessionProgressing(in nsIImsStreamMediaProfile profile);
+
+  /**
+   * Notifies call session is started. (IN_CALL).
+   *
+   * @param profile call profile this call session associated with.
+   */
+  void onCallSessionStarted(in nsIImsCallProfile profile);
+
+  /**
+   * Notifies call session start failed. (ENDED)
+   *
+   * @param reasonInfo start failure reason info.
+   */
+  void onCallSessionStartFailed(in nsIImsReasonInfo reasonInfo);
+
+  /**
+   * Notifies call session is terminated. (ENDED)
+   *
+   * @param reasonInfo termination reason info.
+   */
+  void onCallSessionTerminated(in nsIImsReasonInfo reasonInfo);
+
+  /**
+   * Notifies call session hold request is succeed. (HELD).
+   *
+   * @param profile call profile this call session associated with.
+   */
+  void onCallSessionHeld(in nsIImsCallProfile profile);
+
+  /**
+   * Notifies call session hold request is failed.
+   *
+   * @param reasonInfo hold failure reason info.
+   */
+  void onCallSessionHoldFailed(in nsIImsReasonInfo reasonInfo);
+
+  /**
+   * Notifies call session resume request is succeed.
+   *
+   * @param profile call profile this call session associated with.
+   */
+  void onCallSessionResumed(in nsIImsCallProfile profile);
+
+  /**
+   * Notifies call session resume request is failed.
+   *
+   * @param reasonInfo resume failure reason info.
+   */
+  void onCallSessionResumeFailed(in nsIImsReasonInfo reasonInfo);
+
+  /**
+   * Notifies remote hold this call session.
+   *
+   * @param profile The profile associted with this session.
+   */
+  void onCallSessionHoldReceived(in nsIImsCallProfile profile);
+
+  /**
+   * Notifies remote resume a call which is previously held by remote.
+   *
+   * @param profile The profile associted with this session.
+   */
+  void onCallSessionResumeReceived(in nsIImsCallProfile profile);
+
+  /**
+   * Notifies the result of call upgrade / downgrade or other updates.
+   * @param profile the updated call profile.
+   */
+  void onCallSessionUpdated(in nsIImsCallProfile profile);
+
+  /**
+   * Device received RTT modify request from remote.
+   * @param toProfile call profile with updated attribute.
+   */
+  void onCallSessionRttModifyRequestReceived(in nsIImsCallProfile profile);
+
+  /**
+   * Device issued RTT modify request and received remote response.
+   * @param status remote response.
+   *        Possible values: IImsCallSession#SESSION_MODIFY_REQUEST_*.
+   */
+  void onCallSessionRttModifyResponseReceived(in long status);
+
+  /**
+   * Device received RTT message from remote.
+   * @param rttMessage rtt message.
+   */
+  void onCallSessionRttMessageReceived(in AString rttMessage);
+
+  /**
+   * Notifies the supplementary service information for this session.
+   */
+  void onCallSessionSuppServiceReceived(in nsIImsSuppServiceNotification suppSrvNotification);
+
+  /**
+   * Notifies the TTY mode change by remote.
+   * @param mode new tty mode.
+   *        Possible values: IImsMMTelFeature#TTY_MODE_*.
+   */
+  void onCallSessionTtyModeReceived(in long mode);
+
+  /**
+   * Notifies the call session may handover from one network type to another.
+   *
+   * @param srcTech the source radio technology.
+   *        Possible values: IImsRegistration#RADIO_TECH_*.
+   * @param targetTech the target radio technology.
+   *        Possible values: IImsRegistration#RADIO_TECH_*.
+   */
+  void onCallSessionMayHandover(in long srcTech, in long targetTech);
+
+  /**
+   * Notifies call session's access techonology has changed.
+   *
+   * @param srcTech the source radio technology.
+   *        Possible values: IImsRegistration#RADIO_TECH_*.
+   * @param targetTech the target radio technology.
+   *        Possible values: IImsRegistration#RADIO_TECH_*.
+   */
+  void onCallSessionHandover(in long srcTech, in long targetTech);
+
+  /**
+   * Notifies call session's access techonology change has failed.
+   * @param srcTech the source radio technology.
+   *        Possible values: IImsRegistration#RADIO_TECH_*.
+   * @param targetTech the target radio technology.
+   *        Possible values: IImsRegistration#RADIO_TECH_*.
+   * @param reasonInfo the fail reason.
+   *        The reason code are mostly IImsRasonInfo#CODE_UNSPECIFIED and
+   *        IImsRasonInfo#CODE_CALL_DROP_IWLAN_TO_LTE_UNAVAILABLE.
+   */
+  void onCallSessionHandoverFailed(in long srcTech, in long targetTech, in nsIImsReasonInfo reasonInfo);
+
+  /**
+   * Notifies conference state change info in the conference call.
+   *
+   * @param participants the update conference state info.
+   */
+  void onCallSessionConferenceStateUpdated(in Array<nsIImsConferenceParticipant> participants);
+
+  /**
+   * Notifies remove participants from conference request has been delievered to conference server.
+   * onCallSessionConferenceStateUpdated is expected to refresh the participants list.
+   */
+  void onCallSessionRemoveParticipantsRequestDelivered();
+
+  /**
+   * Notifies remove participants from conerence request has been delivered to conference server and failed.
+   */
+  void onCallSessionRemoveParticipantsRequestFailed(in nsIImsReasonInfo reasonInfo);
+};
+
+[scriptable, uuid(e6f0df18-a74c-4068-99e9-3cef7e58372c)]
+interface nsIImsSuppServiceNotification : nsISupports
+{
+  /** Type of notification: 0 = MO; 1 = MT */
+  readonly attribute long notificationType;
+
+  /** TS 27.007 7.17 "code1" or "code2" */
+  readonly attribute long code;
+
+  /** TS 27.007 7.17 "index" - Not used currently*/
+  readonly attribute long index;
+
+  /** TS 27.007 7.17 "type" (MT only) - Not used currently */
+  readonly attribute long type;
+
+  /** TS 27.007 7.17 "number" (MT only) */
+  readonly attribute AString number;
+
+  /** List of forwarded numbers, if any */
+  readonly attribute Array<AString> history;
+};
+
+[scriptable, uuid(2a1982ec-bdad-43b2-89e9-532ed6f27bd1)]
+interface nsIImsConferenceParticipant : nsISupports
+{
+
+  /**
+   * status-type
+   * STATUS_PENDING : Endpoint is not yet in the session, but it is anticipated that he/she will
+   *      join in the near future.
+   * STATUS_DIALING_OUT : Focus has dialed out to connect the endpoint to the conference,
+   *      but the endpoint is not yet in the roster (probably being authenticated).
+   * STATUS_DIALING_IN : Endpoint is dialing into the conference, not yet in the roster
+   *      (probably being authenticated).
+   * STATUS_ALERTING : PSTN alerting or SIP 180 Ringing was returned for the outbound call;
+   *      endpoint is being alerted.
+   * STATUS_ON_HOLD : Active signaling dialog exists between an endpoint and a focus,
+   *      but endpoint is "on-hold" for this conference, i.e., he/she is neither "hearing"
+   *      the conference mix nor is his/her media being mixed in the conference.
+   * STATUS_CONNECTED : Endpoint is a participant in the conference. Depending on the media policies,
+   *      he/she can send and receive media to and from other participants.
+   * STATUS_DISCONNECTING : Focus is in the process of disconnecting the endpoint
+   *      (e.g. in SIP a DISCONNECT or BYE was sent to the endpoint).
+   * STATUS_DISCONNECTED : Endpoint is not a participant in the conference, and no active dialog
+   *      exists between the endpoint and the focus.
+   * STATUS_MUTED_VIA_FOCUS : Active signaling dialog exists beween an endpoint and a focus and
+   *      the endpoint can "listen" to the conference, but the endpoint's media is not being
+   *      mixed into the conference.
+   * STATUS_CONNECT_FAIL : Endpoint fails to join the conference by rejecting the conference call.
+   */
+  const long STATUS_PENDING = 0;
+  const long STATUS_DIALING_OUT = 1;
+  const long STATUS_DIALING_IN = 2;
+  const long STATUS_ALERTING = 3;
+  const long STATUS_ON_HOLD = 4;
+  const long STATUS_CONNECTED = 5;
+  const long STATUS_DISCONNECTING = 6;
+  const long STATUS_DISCONNECTED = 7;
+  const long STATUS_MUTED_VIA_FOCUS = 8;
+  const long STATUS_CONNECT_FAIL = 9;
+  const long STATUS_SEND_ONLY = 10;
+  const long STATUS_SEND_RECV = 11;
+
+  /**
+   * The state of participant in conference.
+   * Possible values: IImsConferenceParticipant#STATUS_*.
+   */
+  readonly attribute long  status;
+
+  /**
+   * The conference participant's handle, ex: phone number.
+   */
+  readonly attribute AString handleUri;
+
+  /**
+   * The endpoint uri uniquely identifies this confernce participant.
+   */
+  readonly attribute AString endpointUri;
+
+  /**
+   * The display name of this confernce participant.
+   */
+  readonly attribute AString displayName;
+};
+
+[scriptable, uuid(ef74c969-59c7-40a6-a504-0b126cba8330)]
+interface nsIImsDtmfCallback : nsISupports
+{
+  void onDtmfDone();
+};
+
+[scriptable, uuid(9df2ad74-72bd-442b-afa0-3ad8274ce8e7)]
+interface nsIImsStreamMediaProfile : nsISupports
+{
+
+  /**
+   * Audio information
+   */
+  const long AUDIO_QUALITY_NONE = 0;
+  const long AUDIO_QUALITY_AMR = 1;
+  const long AUDIO_QUALITY_AMR_WB = 2;
+  const long AUDIO_QUALITY_QCELP13K = 3;
+  const long AUDIO_QUALITY_EVRC = 4;
+  const long AUDIO_QUALITY_EVRC_B = 5;
+  const long AUDIO_QUALITY_EVRC_WB = 6;
+  const long AUDIO_QUALITY_EVRC_NW = 7;
+  const long AUDIO_QUALITY_GSM_EFR = 8;
+  const long AUDIO_QUALITY_GSM_FR = 9;
+  const long AUDIO_QUALITY_GSM_HR = 10;
+  const long AUDIO_QUALITY_G711U = 11;
+  const long AUDIO_QUALITY_G723 = 12;
+  const long AUDIO_QUALITY_G711A = 13;
+  const long AUDIO_QUALITY_G722 = 14;
+  const long AUDIO_QUALITY_G711AB = 15;
+  const long AUDIO_QUALITY_G729 = 16;
+  const long AUDIO_QUALITY_EVS_NB = 17;
+  const long AUDIO_QUALITY_EVS_WB = 18;
+  const long AUDIO_QUALITY_EVS_SWB = 19;
+  const long AUDIO_QUALITY_EVS_FB = 20;
+
+  /**
+   * The audio quality.
+   * Possible values: IImsStreamMediaProfile#AUDIO_QUALITY_*.
+   */
+  readonly attribute long audioQuality;
+
+  /**
+   * RTT modes.
+   */
+  const long RTT_MODE_DISABLED = 0;
+  const long RTT_MODE_FULL = 1;
+
+  /**
+   * Current RTT mode.
+   * Possible values: IImsStreamMediaProfile#RTT_MODE_*.
+   */
+  readonly attribute long rttMode;
+
+  // Currently, Kai does not expose video quality info to user.
+  // readonly attribute long videoQuality;
+
+  /**
+   * Media directions.
+   */
+  const long DIRECTION_INVALID = -1;
+  const long DIRECTION_INACTIVE = 0;
+  const long DIRECTION_RECEIVE = 1;
+  const long DIRECTION_SEND = 2;
+  const long DIRECTION_SEND_RECEIVE = 3;
+
+  /**
+   * Current audio direction.
+   * Mostly used for MO call ringback tone indication.
+   * Possible values: IImsStreamMediaProfile#DIRECTION_INVALID.
+   */
+  readonly attribute long audioDirection;
+
+};
+
+[scriptable, uuid(e765244a-8509-4437-93b3-d10ad4ef47a0)]
+interface nsIImsCallProfile : nsISupports
+{
+  /**
+   * Service types.
+   */
+  /**
+   * It is for a special case. It helps that the application can make a call
+   * without IMS connection (not registered).
+   * In the moment of the call initiation, the device try to connect to the IMS network
+   * and initiates the call.
+   */
+  const long SERVICE_TYPE_NONE = 0;
+
+  /**
+   * Default type and can be selected when device is connected to the IMS network.
+   */
+  const long SERVICE_TYPE_NORMAL = 1;
+
+  /**
+   * For emergency call.
+   */
+  const long SERVICE_TYPE_EMERGENCY = 2;
+
+  /**
+   * The service type this call associated with.
+   * Possible values: IImsCallProfile#SERVICE_TYPE_*.
+   */
+  readonly attribute long serviceType;
+
+
+  /**
+   * Call types.
+   */
+  /**
+   * IMSPhone to support IR.92 & IR.94 (voice + video upgrade/downgrade)
+   */
+  const long CALL_TYPE_VOICE_N_VIDEO = 1;
+
+  /**
+   * IR.92 (Voice only)
+   */
+  const long CALL_TYPE_VOICE = 2;
+
+  /**
+   * VT to support IR.92 & IR.94 (voice + video upgrade/downgrade)
+   */
+  const long CALL_TYPE_VIDEO_N_VOICE = 3;
+
+  /**
+   * Video Telephony (audio / video two way)
+   */
+  const long CALL_TYPE_VT = 4;
+
+  /**
+   * Video Telephony (audio two way / video TX one way)
+   */
+  const long CALL_TYPE_VT_TX = 5;
+
+  /**
+   * Video Telephony (audio two way / video RX one way)
+   */
+  const long CALL_TYPE_VT_RX = 6;
+
+  /**
+   * Video Telephony (audio two way / video inactive)
+   */
+  const long CALL_TYPE_VT_NODIR = 7;
+
+  /**
+   * VideoShare (video two way)
+   */
+  const long CALL_TYPE_VS = 8;
+
+  /**
+   * VideoShare (video TX one way)
+   */
+  const long CALL_TYPE_VS_TX = 9;
+
+  /**
+   * VideoShare (video RX one way)
+   */
+  const long CALL_TYPE_VS_RX = 10;
+
+  /**
+   * The call type this call associated with.
+   * Possible values: IImsCallProfile#CALL_TYPE_*.
+   */
+  readonly attribute long callType;
+
+  /**
+   * The media profile this call associated with.
+   */
+  readonly attribute nsIImsStreamMediaProfile mediaProfile;
+
+  /**
+   * String properties for IMS call.
+   */
+  /**
+   * Originating identity (number), MT only;
+   * (OI)
+   */
+  readonly attribute AString originatingIdentity;
+
+  /**
+   * Calling name.
+   * (CNA).
+   */
+  readonly attribute AString callingName;
+
+  /**
+   * Values for OIR / CNAP
+   */
+  /**
+   * Default presentation for Originating Identity.
+   */
+  const long OIR_DEFAULT = 0;    // "user subscription default value"
+
+  /**
+   * Restricted presentation for Originating Identity.
+   */
+  const long OIR_PRESENTATION_RESTRICTED = 1;
+
+  /**
+   * Not restricted presentation for Originating Identity.
+   */
+  const long OIR_PRESENTATION_NOT_RESTRICTED = 2;
+
+  /**
+   * Presentation unknown for Originating Identity.
+   */
+  const long OIR_PRESENTATION_UNKNOWN = 3;
+
+  /**
+   * Payphone presentation for Originating Identity.
+   */
+  const long OIR_PRESENTATION_PAYPHONE = 4;
+
+  /**
+   * int properties for IMS call.
+   */
+  /**
+   * Rule for originating identity (number) presentation, MO/MT.
+   * Possible values: IImsCallProfile#OIR_*.
+   */
+  readonly attribute long oir;
+
+  /**
+   * Rule for calling name presentation.
+   * Possible values: IImsCallProfile#OIR_*.
+   */
+  readonly attribute long cnap;
+
+  /**
+   * A default or normal call.
+   */
+  const long DIALSTRING_NORMAL = 0;
+  // const long DIALSTRING_SS_CONF = 1;
+  // const long DIALSTRING_USSD = 2;
+
+  /**
+   * To identify the IMS call type, MO
+   * Possible values: IImsCallProfile#DIALSTRING_*.
+   */
+  readonly attribute long dialString;
+};
+
+
+[scriptable, uuid(48a5bc25-8d3e-4b88-b1ec-16139ea3f545)]
+interface nsIImsCallSession : nsISupports
+{
+  /**
+   * The call ID of the session.
+   * @return call ID.
+   */
+  AString getCallId();
+
+  /**
+   * Gets the call profile that this session is associated with.
+   * @return the call profile.
+   */
+  nsIImsCallProfile getCallProfile();
+
+  // Kai doesn't support loca/remote call profile for now.
+  // nsIImsCallProfile getLocalCallProfile();
+  // nsIImsCallProfile getRemoteCallProfile();
+
+  /**
+   * Call session states.
+   */
+  const long STATE_IDLE = 0;
+  const long STATE_INITIATED = 1;
+  const long STATE_NEGOTIATING = 2;
+  const long STATE_ESTABLISHING = 3;
+  const long STATE_ESTABLISHED = 4;
+
+  const long STATE_RENEGOTIATING = 5;
+  const long STATE_REESTABLISHING = 6;
+
+  const long STATE_TERMINATING = 7;
+  const long STATE_TERMINATED = 8;
+
+  const long STATE_INVALID = -1;
+  /**
+   * Gets the session state.
+   *
+   * @return the session state. Possible values are STATE_*.
+   */
+  long getState();
+
+  /**
+   * Sets listener to listen session events of this object.
+   *
+   * @param listener to listen events of this call session.
+   */
+  void setListener(in nsIImsCallSessionListener listener);
+
+  /**
+   * Initiates an IMS call with specified profile and callee.
+   *
+   * @param callee dialed string to make call to.
+   * @param profile call profile to make call to with specified service call
+   *      type and media information.
+   */
+  void start(in AString callee, in nsIImsCallProfile profile);
+
+  /**
+   * To accept an incoming call.
+   *
+   * @param callType call type to be answered.
+   * @param profile stream media profile to be answered.
+   */
+  void accept(in long callType, in nsIImsStreamMediaProfile profile);
+
+  /**
+   * To reject a incoming call or session update.
+   *
+   * @param reason reject reason.
+   *      Possible values: IImsReasonInfo#CODE_USER_*.
+   */
+  void reject(in long reason);
+
+  /**
+   * To terminate a call.
+   *
+   * @param reason termination reason.
+   *      Possible values: IImsReasonInfo#CODE_USER_*.
+   */
+  void terminate(in long reason);
+
+  /**
+   * To put a call on hold.
+   */
+  void hold();
+
+  /**
+   * To resume a held call.
+   */
+  void resume();
+
+  /**
+   * Sends a DTMF code. According to <a href="http://tools.ietf.org/html/rfc2833">RFC 2833</a>,
+   * event 0 ~ 9 maps to decimal value 0 ~ 9, '*' to 10, '#' to 11, event 'A' ~ 'D' to 12 ~ 15,
+   * and event flash to 16.
+   *
+   * @param c the DTMF to send. '0' ~ '9', 'A' ~ 'D', '*', '#' are valid inputs.
+   * @param callback dtmf sending result callback.
+   */
+  void sendDtmf(in AString c, in nsIImsDtmfCallback callback);
+
+  /**
+   * Start a DTMF code. According to <a href="http://tools.ietf.org/html/rfc2833">RFC 2833</a>,
+   * event 0 ~ 9 maps to decimal value 0 ~ 9, '*' to 10, '#' to 11, event 'A' ~ 'D' to 12 ~ 15,
+   * and event flash to 16.
+   *
+   * @param c the DTMF to send. '0' ~ '9', 'A' ~ 'D', '*', '#' are valid inputs.
+   */
+  void startDtmf(in AString c);
+
+  /**
+   * Stop a DTMF code.
+   */
+  void stopDtmf();
+
+  /**
+   * To close this call session.
+   * This objection is not usable after been closed.
+   */
+  void close();
+
+  /**
+   * Mode of USSD message.
+   */
+  const long USSD_MODE_NOTIFY = 0;
+  const long USSD_MODE_REQUEST = 1;
+};
+

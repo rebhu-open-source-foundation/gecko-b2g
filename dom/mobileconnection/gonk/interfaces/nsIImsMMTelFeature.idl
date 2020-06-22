@@ -4,12 +4,17 @@
 
 #include "nsISupports.idl"
 #include "nsIImsUt.idl"
+#include "nsIImsCallSession.idl"
 
 interface nsIImsCapabilityListener;
 interface nsIImsCapabilityCallback;
 interface nsICapabilityChangeRequest;
 interface nsICapabilityPair;
 interface nsIImsUt;
+interface nsIImsCallSession;
+interface nsIImsCallProfile;
+interface nsIImsSmsListener;
+interface nsIImsTtyCallback;
 
 [scriptable, uuid(508d25ce-cd53-4a02-bc1f-926fc322d9d6)]
 interface nsICapabilityPair : nsISupports
@@ -57,7 +62,13 @@ interface nsIImsCapabilityCallback : nsISupports
   void onChangeCapabilityResponse(in long capability, in long radioTech, in long status);
 };
 
-[scriptable, uuid(5195c827-69d0-4167-ae7d-9772bd491c8b)]
+[scriptable, uuid(f6dcc28c-7334-43a5-b1f4-c1fc7f6eff15)]
+interface nsIImsTtyCallback : nsISupports
+{
+  void onSetUiTtyMode(in boolean success);
+};
+
+[scriptable, uuid(2eab1431-7017-46d1-aee4-0d3d9146daef)]
 interface nsIImsCapabilityListener : nsISupports
 {
 
@@ -70,7 +81,100 @@ interface nsIImsCapabilityListener : nsISupports
   void onCapabilitiesChanged(in long capabilities);
 };
 
-[scriptable, uuid(6345655f-4077-4837-a478-26967c27068a)]
+[scriptable, uuid(7f9f4c80-8c15-4493-8370-29be40ba180b)]
+interface nsIImsMMTelListener : nsISupports
+{
+  /**
+   * Called whenever there is a new incoming call.
+   *
+   * @param session call session object represents the new incoming call.
+   */
+
+  void onIncomingCall(in nsIImsCallSession session);
+
+  /**
+   * Notifed when Voice Message count change.
+   * @param count the new voice message count.
+   */
+  void onVoiceMessageCountUpdate(in long count);
+
+  /*
+   * Conference call apis.
+   * These event should go through IImsCallSessionListener, but it looks like aidl-cpp doesn't allow
+   * cyclic import, like A import B and B import A.
+   * As a workaround, we import aidls in tree style.
+   */
+  /**
+   * Notifies when call session merge started.
+   *
+   * @param newSession new call session after conference.
+   * @param callProfile call profile associated with this call session.
+   */
+  void onCallSessionMergeStarted(in nsIImsCallSession newSession, in nsIImsCallProfile profile);
+
+  /**
+   * Notifies when call session merge complete.
+   *
+   * @param newSession new conference call session after conference.
+   */
+  void onCallSessionMergeComplete(in nsIImsCallSession newSession);
+
+  /**
+   * Notifies when call session merge fails.
+   *
+   * @param session the host session who request merge.
+   * @param reasonInfo failure reason.
+   */
+  void onCallSessionMergeFailed(in nsIImsCallSession session, in nsIImsReasonInfo reasonInfo);
+};
+
+[scriptable, uuid(4a1a10c0-e5d1-4550-87a1-6fea2048d62a)]
+interface nsIImsSmsListener : nsISupports
+{
+  /**
+   * Triggered when an outgoing SMS message failes to be sent.
+   *
+   * @param token token provided in IImsMMTelFeature#sendSms.
+   * @param messageRef the message reference, which may be
+   *        1 byte if it is in FORMAT_3GPP format (see TS.123.040) or
+   *        2 bytes if it is in FORMAT_3GPP2 format (see 3GPP2 C.S0015-B).
+   * @param status result of sending the SMS.
+   *        Possible values: IImsMMTelFeature#SEND_STATUS_*.
+   * @param reason failure reason.
+   *        The reason is only valid if status is not SEND_STATUS_OK.
+   *        Possible values: IImsMMTelFeature#RESULT_*
+   * @param networkErrorCode the error code reported by the carrier network if sending this SMS
+   *        has resulted in an error or IImsMMTelFeature#RESULT_NO_NETWORK_ERROR if no network error was
+   *        generated. See 3GPP TS 24.011 Section 7.3.4 for valid error codes and more information.
+   *        The networkErrorCode is only valid if status is not SEND_STATUS_OK.
+   */
+  void onSendSmsResult(in long token, in long messageRef, in long status, in long reason, in long networkErrorCode);
+
+  /**
+   * Triggered when the status report of the sent message is received.
+   *
+   * @param token unique token will be used to trigger IImsMMTelFeature#acknowledgeSmsReport
+   * @param format the format of message.
+   *        Possible values: IImsMMTelFeature#FORMAT_*.
+   * @param pdu content of status report.
+   */
+  void onSmsStatusReportReceived(in long token, in AString format, in unsigned long aLength
+                                 , [array, size_is(aLength)] in octet pdu);
+
+  /**
+   * Triggered when there is an incoming message.
+   * Framework will deliver message to database and the result will be provided by
+   * IImsMMTelFeature#acknowledgeSms.
+   *
+   * @param token unique token will be used to trigger IImsMMTelFeature#acknowledgeSms.
+   * @param format the format of message.
+   *        Possible values: IImsMMTelFeature#FORMAT_*.
+   * @param pdu content of message.
+   */
+  void onSmsReceived(in long token, in AString format, in unsigned long aLength, [array, size_is(aLength)] in octet pdu);
+};
+
+[scriptable, uuid(096115d6-ab15-4b1a-99fa-412d2e30da8d)]
 interface nsIImsMMTelFeature : nsISupports
 {
   const long STATE_UNAVAILABLE = 0;
@@ -147,5 +251,278 @@ interface nsIImsMMTelFeature : nsISupports
    * @return The IMS UT interface object to set/query supplementary service configuration.
    */
   nsIImsUt getUtInterface();
+
+
+  /**
+   * Sets listener to listen events. Mostly for incoming call at this moment.
+   * @param listener the listener to listen events
+   */
+  void setListener(in nsIImsMMTelListener listener);
+
+  /**
+   * To create an outgoing call session.
+   *
+   * @param profile call profile the call associated with.
+   */
+  nsIImsCallSession createCallSession(in nsIImsCallProfile profile);
+
+
+  // SMS APIs
+  /**
+   * Indicates a 3GPP format SMS message.
+   */
+  //const AString FORMAT_3GPP = "3gpp";
+
+  /**
+   * Indicates a 3GPP2 format SMS message.
+   */
+  //const AString FORMAT_3GPP2 = "3gpp2";
+
+  /**
+   * Message was delivered successfully.
+   */
+  const long DELIVER_STATUS_OK = 1;
+
+  /**
+   * Message was not delivered.
+   */
+  const long DELIVER_STATUS_ERROR_GENERIC = 2;
+
+  /**
+   * Message was not delivered due to lack of memory.
+   */
+  const long DELIVER_STATUS_ERROR_NO_MEMORY = 3;
+
+  /**
+   * Message was not delivered as the request is not supported.
+   */
+  const long DELIVER_STATUS_ERROR_REQUEST_NOT_SUPPORTED = 4;
+
+  /**
+   * Message was sent successfully.
+   */
+  const long SEND_STATUS_OK = 1;
+
+  /**
+   * IMS provider failed to send the message and platform should not retry falling back to sending
+   * the message using the radio.
+   */
+  const long SEND_STATUS_ERROR = 2;
+
+  /**
+   * IMS provider failed to send the message and platform should retry again after setting TP-RD
+   * bit to high.
+   */
+  const long SEND_STATUS_ERROR_RETRY = 3;
+
+  /**
+   * IMS provider failed to send the message and platform should retry falling back to sending
+   * the message using the radio.
+   */
+  const long SEND_STATUS_ERROR_FALLBACK = 4;
+
+  /**
+   * Status Report was set successfully.
+   */
+  const long STATUS_REPORT_STATUS_OK = 1;
+
+  /**
+   * Error while setting status report.
+   */
+  const long STATUS_REPORT_STATUS_ERROR = 2;
+
+  /**
+   * No error.
+   */
+  const long RESULT_ERROR_NONE    = 0;
+
+  /** Generic failure cause */
+  const long RESULT_ERROR_GENERIC_FAILURE    = 1;
+
+  /** Failed because radio was explicitly turned off */
+  const long RESULT_ERROR_RADIO_OFF          = 2;
+
+  /** Failed because no pdu provided */
+  const long RESULT_ERROR_NULL_PDU           = 3;
+
+  /** Failed because service is currently unavailable */
+  const long RESULT_ERROR_NO_SERVICE         = 4;
+
+  /** Failed because we reached the sending queue limit. */
+  const long RESULT_ERROR_LIMIT_EXCEEDED     = 5;
+
+  /**
+   * Failed because FDN is enabled.
+   */
+  const long RESULT_ERROR_FDN_CHECK_FAILURE  = 6;
+
+  /** Failed because user denied the sending of this short code. */
+  const long RESULT_ERROR_SHORT_CODE_NOT_ALLOWED = 7;
+
+  /** Failed because the user has denied this app ever send premium short codes. */
+  const long RESULT_ERROR_SHORT_CODE_NEVER_ALLOWED = 8;
+
+  /**
+   * Failed because the radio was not available
+   */
+  const long RESULT_RADIO_NOT_AVAILABLE = 9;
+
+  /**
+   * Failed because of network rejection
+   */
+  const long RESULT_NETWORK_REJECT = 10;
+
+  /**
+   * Failed because of invalid arguments
+   */
+  const long RESULT_INVALID_ARGUMENTS = 11;
+
+  /**
+   * Failed because of an invalid state
+   */
+  const long RESULT_INVALID_STATE = 12;
+
+  /**
+   * Failed because there is no memory
+   */
+  const long RESULT_NO_MEMORY = 13;
+
+  /**
+   * Failed because the sms format is not valid
+   */
+  const long RESULT_INVALID_SMS_FORMAT = 14;
+
+  /**
+   * Failed because of a system error
+   */
+  const long RESULT_SYSTEM_ERROR = 15;
+
+  /**
+   * Failed because of a modem error
+   */
+  const long RESULT_MODEM_ERROR = 16;
+
+  /**
+   * Failed because of a network error
+   */
+  const long RESULT_NETWORK_ERROR = 17;
+
+  /**
+   * Failed because of an encoding error
+   */
+  const long RESULT_ENCODING_ERROR = 18;
+
+  /**
+   * Failed because of an invalid smsc address
+   */
+  const long RESULT_INVALID_SMSC_ADDRESS = 19;
+
+  /**
+   * Failed because the operation is not allowed
+   */
+  const long RESULT_OPERATION_NOT_ALLOWED = 20;
+
+  /**
+   * Failed because of an internal error
+   */
+  const long RESULT_INTERNAL_ERROR = 21;
+
+  /**
+   * Failed because there are no resources
+   */
+  const long RESULT_NO_RESOURCES = 22;
+
+  /**
+   * Failed because the operation was cancelled
+   */
+  const long RESULT_CANCELLED = 23;
+
+  /**
+   * Failed because the request is not supported
+   */
+  const long RESULT_REQUEST_NOT_SUPPORTED = 24;
+
+  /**
+   * Set listener to receive SMS related evnts.
+   * @param smsListener listener to receive sms events.
+   */
+  void setSmsListener(in nsIImsSmsListener smsListener);
+
+  /**
+   * To send a sms.
+   *
+   * @param token unique token that should be used when
+   *              triggering callbacks for this specific message.
+   * @param messageRef the message reference, which may be
+   *        1 byte if it is in FORMAT_3GPP format (see TS.123.040) or
+   *        2 bytes if it is in FORMAT_3GPP2 format (see 3GPP2 C.S0015-B).
+   * @param format the format of message
+   *        Possible values: IImsMMTelFeature#FORMAT_*
+   * @param smsc the Short Message Service Center address.
+   * @param isRetry whether it is a retry of an already attempted message or not.
+   * @param pdu PDU representing the contents of the message.
+   */
+  void sendSms(in long token, in long messageRef, in AString format,
+                      in AString smsc, in boolean isRetry, in unsigned long aLength, [array, size_is(aLength)] in octet pdu);
+
+  /**
+   * This method will be triggered by the platform after
+   * IImsMMTelListener#onSmsReceived has been called to deliver the result to the IMS provider.
+   *
+   * @param token token provided in IImsMMTelListener#onSmsReceived.
+   * @param messageRef the message reference, which may be
+   *        1 byte if it is in FORMAT_3GPP format (see TS.123.040) or
+   *        2 bytes if it is in FORMAT_3GPP2 format (see 3GPP2 C.S0015-B).
+   * @param result the result of delivering the message.
+   *        Possible values: DELIVER_STATUS_*
+   */
+  void acknowledgeSms(in long token, in long messageRef, in long result);
+
+  /**
+   * This method will be triggered by the platform after
+   * IImsMMTelListener#onSmsStatusReportReceived has been called to provide the
+   * result to the IMS provider.
+   *
+   * @param token token provided in IImsMMTelListener#onSmsStatusReportReceived.
+   * @param messageRef the message reference, which may be
+   *        1 byte if it is in FORMAT_3GPP format (see TS.123.040) or
+   *        2 bytes if it is in FORMAT_3GPP2 format (see 3GPP2 C.S0015-B).
+   * @param result the result of delivering the message.
+   *        Possible values: STATUS_REPORT_STATUS_*.
+   */
+  void acknowledgeSmsReport(in long token, in long messageRef, in long result);
+
+  /**
+   * Returns the SMS format that the ImsService expects.
+   *
+   * @return sms the expected format. Will be used in IImsMMTelFeature#sendSms.
+   *         Possible values: IImsMMTelFeature#FORMAT_*
+   */
+  AString getSmsFormat();
+
+
+  const long TTY_MODE_OFF = 0;
+  const long TTY_MODE_FULL = 1;
+  const long TTY_MODE_HCO = 2;
+  const long TTY_MODE_VCO = 4;
+
+  /**
+   * Set UI TTY mode.
+   * @param uiTtyMode.
+   *        Possible values: TTY_MODE_*.
+   * @param callback the callback to receive update result.
+   */
+  void setUiTtyMode(in long uiTtyMode, in nsIImsTtyCallback callback);
+
+  /**
+   * To merge active and hold call.
+   * There are 2 possible merge scenarios:
+   * case 1: 3-way call, active and hold are both single party call.
+   * case 2: 4-way call, active or hold call is conference and merge with single party call.
+   * When merge starts, IImsMMTeListener#onCallSessionMergeStarted is called.
+   * IImsMMTeListener#onCallSessionMergeComplete is called if merge is succeed.
+   * IImsMMTeListener#onCallSessionMergeFailed is called if merge fails.
+   */
+  void merge(in nsIImsCallSession host, in nsIImsCallSession peer);
 };
 
