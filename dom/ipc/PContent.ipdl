@@ -5,7 +5,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 include protocol PBackground;
+#ifdef MOZ_B2G_BT
 include protocol PBluetooth;
+#endif
 include protocol PBrowser;
 include protocol PCompositorManager;
 include protocol PContentPermissionRequest;
@@ -574,7 +576,9 @@ union SyncedContextInitializer
  */
 nested(upto inside_cpow) sync protocol PContent
 {
+#ifdef MOZ_B2G_BT
     manages PBluetooth;
+#endif
     manages PBrowser;
     manages PContentPermissionRequest;
     manages PCycleCollectWithLogs;
@@ -1209,7 +1213,9 @@ parent:
 
     async PMedia();
 
+#ifdef MOZ_B2G_BT
     async PBluetooth();
+#endif
 
 #ifdef MOZ_B2G_FM
     async PFMRadio();

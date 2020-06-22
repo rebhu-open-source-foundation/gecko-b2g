@@ -35,7 +35,6 @@ DIRS += [
     'b2g',
     'base',
     'bindings',
-    'bluetooth',
     'battery',
     'browser-element',
     'cache',
@@ -137,6 +136,9 @@ if CONFIG['MOZ_B2G_RIL']:
         'voicemail',
     ]
 # MOZ_B2G_RIL_END
+
+if CONFIG['MOZ_B2G_BT']:
+    DIRS += ['bluetooth']
 
 if CONFIG['MOZ_B2G_FM']:
     DIRS += ['fmradio']

@@ -4,108 +4,110 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-if CONFIG['MOZ_B2G_BT']:
+#
+# Generic code
+#
 
-    #
-    # Generic code
-    #
+if CONFIG['MOZ_B2G_RIL']:
+    SOURCES += [
+        'common/BluetoothRilListener.cpp'
+    ]
 
-    if CONFIG['MOZ_B2G_RIL']:
+UNIFIED_SOURCES += [
+    'common/BluetoothCommon.cpp',
+]
+
+SOURCES += [
+    'common/BluetoothGattReplyRunnable.cpp',
+    'common/BluetoothInterface.cpp',
+    'common/BluetoothProfileController.cpp',
+    'common/BluetoothReplyRunnable.cpp',
+    'common/BluetoothService.cpp',
+    'common/BluetoothUtils.cpp',
+    'common/BluetoothUuidHelper.cpp',
+    'common/ObexBase.cpp',
+    'common/webapi/BluetoothAdapter.cpp',
+    'common/webapi/BluetoothClassOfDevice.cpp',
+    'common/webapi/BluetoothConnectionHandle.cpp',
+    'common/webapi/BluetoothDevice.cpp',
+    'common/webapi/BluetoothDiscoveryHandle.cpp',
+    'common/webapi/BluetoothGatt.cpp',
+    'common/webapi/BluetoothGattAttributeEvent.cpp',
+    'common/webapi/BluetoothGattCharacteristic.cpp',
+    'common/webapi/BluetoothGattDescriptor.cpp',
+    'common/webapi/BluetoothGattServer.cpp',
+    'common/webapi/BluetoothGattService.cpp',
+    'common/webapi/BluetoothLeDeviceEvent.cpp',
+    'common/webapi/BluetoothManager.cpp',
+    'common/webapi/BluetoothMapRequestHandle.cpp',
+    'common/webapi/BluetoothObexAuthHandle.cpp',
+    'common/webapi/BluetoothPairingHandle.cpp',
+    'common/webapi/BluetoothPairingListener.cpp',
+    'common/webapi/BluetoothPbapRequestHandle.cpp',
+    'common/webapi/BluetoothUUID.cpp',
+    'ipc/BluetoothChild.cpp',
+    'ipc/BluetoothParent.cpp',
+    'ipc/BluetoothRequestChild.cpp',
+    'ipc/BluetoothRequestParent.cpp',
+    'ipc/BluetoothServiceChildProcess.cpp'
+]
+LOCAL_INCLUDES += [
+    'common',
+    'common/webapi',
+    'ipc'
+]
+
+#
+# Bluetooth backends
+#
+
+if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
+    if CONFIG['MOZ_B2G_BT_DAEMON']:
         SOURCES += [
-            'common/BluetoothRilListener.cpp'
+            'bluedroid/BluetoothA2dpManager.cpp',
+            'bluedroid/BluetoothAvrcpManager.cpp',
+            'bluedroid/BluetoothDaemonA2dpInterface.cpp',
+            'bluedroid/BluetoothDaemonAvrcpInterface.cpp',
+            'bluedroid/BluetoothDaemonCoreInterface.cpp',
+            'bluedroid/BluetoothDaemonGattInterface.cpp',
+            'bluedroid/BluetoothDaemonHandsfreeInterface.cpp',
+            'bluedroid/BluetoothDaemonHelpers.cpp',
+            'bluedroid/BluetoothDaemonHidInterface.cpp',
+            'bluedroid/BluetoothDaemonInterface.cpp',
+            'bluedroid/BluetoothDaemonSdpInterface.cpp',
+            'bluedroid/BluetoothDaemonSetupInterface.cpp',
+            'bluedroid/BluetoothDaemonSocketInterface.cpp',
+            'bluedroid/BluetoothGattManager.cpp',
+            'bluedroid/BluetoothHidManager.cpp',
+            'bluedroid/BluetoothMapBMessage.cpp',
+            'bluedroid/BluetoothMapFolder.cpp',
+            'bluedroid/BluetoothMapSmsManager.cpp',
+            'bluedroid/BluetoothOppManager.cpp',
+            'bluedroid/BluetoothPbapManager.cpp',
+            'bluedroid/BluetoothServiceBluedroid.cpp',
+            'bluedroid/BluetoothSocket.cpp',
+            'bluedroid/BluetoothSocketMessageWatcher.cpp'
+        ]
+        LOCAL_INCLUDES += [
+            'bluedroid',
         ]
 
-    SOURCES += [
-        'common/BluetoothGattReplyRunnable.cpp',
-        'common/BluetoothInterface.cpp',
-        'common/BluetoothProfileController.cpp',
-        'common/BluetoothReplyRunnable.cpp',
-        'common/BluetoothService.cpp',
-        'common/BluetoothUtils.cpp',
-        'common/BluetoothUuidHelper.cpp',
-        'common/ObexBase.cpp',
-        'common/webapi/BluetoothAdapter.cpp',
-        'common/webapi/BluetoothClassOfDevice.cpp',
-        'common/webapi/BluetoothConnectionHandle.cpp',
-        'common/webapi/BluetoothDevice.cpp',
-        'common/webapi/BluetoothDiscoveryHandle.cpp',
-        'common/webapi/BluetoothGatt.cpp',
-        'common/webapi/BluetoothGattAttributeEvent.cpp',
-        'common/webapi/BluetoothGattCharacteristic.cpp',
-        'common/webapi/BluetoothGattDescriptor.cpp',
-        'common/webapi/BluetoothGattServer.cpp',
-        'common/webapi/BluetoothGattService.cpp',
-        'common/webapi/BluetoothLeDeviceEvent.cpp',
-        'common/webapi/BluetoothManager.cpp',
-        'common/webapi/BluetoothMapRequestHandle.cpp',
-        'common/webapi/BluetoothObexAuthHandle.cpp',
-        'common/webapi/BluetoothPairingHandle.cpp',
-        'common/webapi/BluetoothPairingListener.cpp',
-        'common/webapi/BluetoothPbapRequestHandle.cpp',
-        'common/webapi/BluetoothUUID.cpp',
-        'ipc/BluetoothChild.cpp',
-        'ipc/BluetoothParent.cpp',
-        'ipc/BluetoothRequestChild.cpp',
-        'ipc/BluetoothRequestParent.cpp',
-        'ipc/BluetoothServiceChildProcess.cpp'
-    ]
-    LOCAL_INCLUDES += [
-        'common',
-        'common/webapi',
-        'ipc'
-    ]
-
-    #
-    # Bluetooth backends
-    #
-
-    if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
-        if CONFIG['MOZ_B2G_BT_DAEMON']:
+        if CONFIG['MOZ_B2G_RIL']:
             SOURCES += [
-                'bluedroid/BluetoothA2dpManager.cpp',
-                'bluedroid/BluetoothAvrcpManager.cpp',
-                'bluedroid/BluetoothDaemonA2dpInterface.cpp',
-                'bluedroid/BluetoothDaemonAvrcpInterface.cpp',
-                'bluedroid/BluetoothDaemonCoreInterface.cpp',
-                'bluedroid/BluetoothDaemonGattInterface.cpp',
-                'bluedroid/BluetoothDaemonHandsfreeInterface.cpp',
-                'bluedroid/BluetoothDaemonHelpers.cpp',
-                'bluedroid/BluetoothDaemonHidInterface.cpp',
-                'bluedroid/BluetoothDaemonInterface.cpp',
-                'bluedroid/BluetoothDaemonSdpInterface.cpp',
-                'bluedroid/BluetoothDaemonSetupInterface.cpp',
-                'bluedroid/BluetoothDaemonSocketInterface.cpp',
-                'bluedroid/BluetoothGattManager.cpp',
-                'bluedroid/BluetoothHidManager.cpp',
-                'bluedroid/BluetoothMapBMessage.cpp',
-                'bluedroid/BluetoothMapFolder.cpp',
-                'bluedroid/BluetoothMapSmsManager.cpp',
-                'bluedroid/BluetoothOppManager.cpp',
-                'bluedroid/BluetoothPbapManager.cpp',
-                'bluedroid/BluetoothServiceBluedroid.cpp',
-                'bluedroid/BluetoothSocket.cpp',
-                'bluedroid/BluetoothSocketMessageWatcher.cpp'
+                'bluedroid/hfp/BluetoothHfpManager.cpp',
             ]
             LOCAL_INCLUDES += [
-                'bluedroid',
+                'bluedroid/hfp',
+            ]
+        else:
+            SOURCES += [
+                'bluedroid/hfp-fallback/BluetoothHfpManager.cpp',
+            ]
+            LOCAL_INCLUDES += [
+                'bluedroid/hfp-fallback',
             ]
 
-            if CONFIG['MOZ_B2G_RIL']:
-                SOURCES += [
-                    'bluedroid/hfp/BluetoothHfpManager.cpp',
-                ]
-                LOCAL_INCLUDES += [
-                    'bluedroid/hfp',
-                ]
-            else:
-                SOURCES += [
-                    'bluedroid/hfp-fallback/BluetoothHfpManager.cpp',
-                ]
-                LOCAL_INCLUDES += [
-                    'bluedroid/hfp-fallback',
-                ]
-
-            DEFINES['MOZ_B2G_BT_DAEMON'] = True
+        DEFINES['MOZ_B2G_BT_DAEMON'] = True
 
 #
 # Exported interfaces
@@ -145,10 +147,6 @@ EXPORTS.mozilla.dom.bluetooth += [
 
 EXPORTS.mozilla.dom += [
     'common/webapi/BluetoothUUID.h'
-]
-
-UNIFIED_SOURCES += [
-    'common/BluetoothCommon.cpp',
 ]
 
 IPDL_SOURCES += [

@@ -960,12 +960,14 @@ class ContentParent final
 
   bool DeallocPMediaParent(PMediaParent* aActor);
 
+#ifdef MOZ_B2G_BT
   PBluetoothParent* AllocPBluetoothParent();
 
   bool DeallocPBluetoothParent(PBluetoothParent* aActor);
 
   virtual mozilla::ipc::IPCResult RecvPBluetoothConstructor(
       PBluetoothParent* aActor) override;
+#endif
 
 #ifdef MOZ_B2G_FM
   PFMRadioParent* AllocPFMRadioParent();

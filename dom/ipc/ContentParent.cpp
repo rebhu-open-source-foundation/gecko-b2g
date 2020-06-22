@@ -130,7 +130,9 @@
 #include "mozilla/dom/URLClassifierParent.h"
 #include "mozilla/dom/WakeLock.h"
 #include "mozilla/dom/WindowGlobalParent.h"
+#ifdef MOZ_B2G_BT
 #include "mozilla/dom/bluetooth/PBluetoothParent.h"
+#endif
 #include "mozilla/dom/ipc/SharedMap.h"
 #include "mozilla/dom/ipc/StructuredCloneData.h"
 #include "mozilla/dom/nsMixedContentBlocker.h"
@@ -375,7 +377,9 @@ using namespace mozilla::dom::subsidylock;
 #endif  // MOZ_B2G_RIL
 
 using namespace CrashReporter;
+#ifdef MOZ_B2G_BT
 using namespace mozilla::dom::bluetooth;
+#endif
 using namespace mozilla::dom::devicestorage;
 using namespace mozilla::dom::power;
 using namespace mozilla::media;
@@ -4277,41 +4281,30 @@ bool ContentParent::DeallocPMediaParent(media::PMediaParent* aActor) {
   return media::DeallocPMediaParent(aActor);
 }
 
-PBluetoothParent* ContentParent::AllocPBluetoothParent() {
 #ifdef MOZ_B2G_BT
+PBluetoothParent* ContentParent::AllocPBluetoothParent() {
   // TODO: add 'bluetooth' permission check
   // if (!AssertAppProcessPermission(this, "bluetooth")) {
   //   return nullptr;
   // }
   return new mozilla::dom::bluetooth::BluetoothParent();
-#else
-  MOZ_CRASH("No support for bluetooth on this platform!");
-#endif
 }
 
 bool ContentParent::DeallocPBluetoothParent(PBluetoothParent* aActor) {
-#ifdef MOZ_B2G_BT
   delete aActor;
   return true;
-#else
-  MOZ_CRASH("No support for bluetooth on this platform!");
-#endif
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvPBluetoothConstructor(
     PBluetoothParent* aActor) {
-#ifdef MOZ_B2G_BT
   RefPtr<BluetoothService> btService = BluetoothService::Get();
   NS_ENSURE_TRUE(btService, IPC_FAIL_NO_REASON(this));
 
   return static_cast<BluetoothParent*>(aActor)->InitWithService(btService)
              ? IPC_OK()
              : IPC_FAIL_NO_REASON(this);
-#else
-  MOZ_CRASH("No support for bluetooth on this platform!");
-  return IPC_FAIL_NO_REASON(this);
-#endif
 }
+#endif
 
 #ifdef MOZ_B2G_FM
 PFMRadioParent* ContentParent::AllocPFMRadioParent() {

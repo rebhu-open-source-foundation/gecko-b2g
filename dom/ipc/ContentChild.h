@@ -270,9 +270,11 @@ class ContentChild final : public PContentChild,
 
   bool DeallocPMediaChild(PMediaChild* aActor);
 
+#ifdef MOZ_B2G_BT
   PBluetoothChild* AllocPBluetoothChild();
 
   bool DeallocPBluetoothChild(PBluetoothChild* aActor);
+#endif
 
 #ifdef MOZ_B2G_FM
   PFMRadioChild* AllocPFMRadioChild();
