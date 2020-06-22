@@ -616,7 +616,13 @@
     }
 
     get webProgress() {
-      return this.browsingContext?.webProgress;
+      if (this.browsingContext && this.browsingContext.isContent) {
+        return this.browsingContext.webProgress;
+      }
+
+      return this.docShell
+        .QueryInterface(Ci.nsIInterfaceRequestor)
+        .getInterface(Ci.nsIWebProgress);
     }
 
     get sessionHistory() {
