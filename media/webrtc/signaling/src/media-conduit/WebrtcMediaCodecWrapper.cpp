@@ -118,14 +118,13 @@ WebrtcOMXDecoder::~WebrtcOMXDecoder() {
   mLooper.clear();
 }
 
-WebrtcOMXDecoder::WebrtcOMXDecoder(const char* aMimeType,
-                                   webrtc::DecodedImageCallback* aCallback)
+WebrtcOMXDecoder::WebrtcOMXDecoder(const char* aMimeType)
     : mWidth(0),
       mHeight(0),
       mStarted(false),
       mEnding(false),
       mMimeType(aMimeType),
-      mCallback(aCallback),
+      mCallback(nullptr),
       mDecodedFrameLock("WebRTC decoded frame lock") {
   // Create binder thread pool required by stagefright.
   android::ProcessState::self()->startThreadPool();
@@ -172,6 +171,12 @@ status_t WebrtcOMXDecoder::ConfigureWithPicDimensions(int32_t aWidth,
   }
   CODEC_LOGD("OMX:%p decoder configured", this);
   return Start();
+}
+
+status_t WebrtcOMXDecoder::SetDecodedCallback(
+    webrtc::DecodedImageCallback* aCallback) {
+  mCallback = aCallback;
+  return OK;
 }
 
 status_t WebrtcOMXDecoder::FillInput(const webrtc::EncodedImage& aEncoded,

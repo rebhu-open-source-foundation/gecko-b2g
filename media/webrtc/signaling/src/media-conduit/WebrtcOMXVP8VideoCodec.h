@@ -42,7 +42,6 @@ class WebrtcOMXVP8VideoDecoder : public WebrtcVideoDecoder {
   static int32_t ExtractPicDimensions(uint8_t* aData, size_t aSize,
                                       int32_t* aWidth, int32_t* aHeight);
 
-  webrtc::DecodedImageCallback* mCallback;
   RefPtr<WebrtcOMXDecoder> mOMX;
   android::sp<android::OMXCodecReservation> mReservation;
 };

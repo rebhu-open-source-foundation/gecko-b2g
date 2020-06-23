@@ -91,11 +91,12 @@ class WebrtcOMXDecoder final
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(WebrtcOMXDecoder)
 
-  WebrtcOMXDecoder(const char* aMimeType,
-                   webrtc::DecodedImageCallback* aCallback);
+  WebrtcOMXDecoder(const char* aMimeType);
 
   // Configure decoder using image width/height.
   status_t ConfigureWithPicDimensions(int32_t aWidth, int32_t aHeight);
+
+  status_t SetDecodedCallback(webrtc::DecodedImageCallback* aCallback);
 
   status_t FillInput(const webrtc::EncodedImage& aEncoded, bool aIsCodecConfig,
                      int64_t aRenderTimeMs);

@@ -16,10 +16,12 @@
 #include "webrtc/modules/video_coding/include/video_error_codes.h"
 #include "WebrtcMediaCodecWrapper.h"
 
+using android::ABuffer;
 using android::MediaCodec;
 using android::OMXCodecReservation;
 using android::OMXCodecWrapper;
 using android::OMXVideoEncoder;
+using android::sp;
 
 #define DRAIN_THREAD_TIMEOUT_US (1000 * 1000ll)  // 1s.
 
@@ -322,7 +324,7 @@ int32_t WebrtcOMXH264VideoEncoder::Encode(
         OMX_Video_ControlRateConstantSkipFrames;
 
     // Set up configuration parameters for AVC/H.264 encoder.
-    android::sp<android::AMessage> format = new android::AMessage;
+    sp<android::AMessage> format = new android::AMessage;
     // Fixed values
     format->setString("mime", android::MEDIA_MIMETYPE_VIDEO_AVC);
     // XXX We should only set to < infinity if we're not using any recovery RTCP
@@ -576,40 +578,26 @@ int32_t WebrtcOMXH264VideoEncoder::SetRates(uint32_t aBitRateKbps,
 
 // Decoder.
 WebrtcOMXH264VideoDecoder::WebrtcOMXH264VideoDecoder()
-    : mCallback(nullptr), mOMX(nullptr) {
+    : mCodecConfigSubmitted(false) {
   mReservation = new OMXCodecReservation(false);
   CODEC_LOGD("WebrtcOMXH264VideoDecoder:%p will be constructed", this);
 }
 
 int32_t WebrtcOMXH264VideoDecoder::InitDecode(
     const webrtc::VideoCodec* aCodecSettings, int32_t aNumOfCores) {
-  CODEC_LOGD("WebrtcOMXH264VideoDecoder:%p init OMX:%p", this, mOMX.get());
-
   if (!mReservation->ReserveOMXCodec()) {
-    CODEC_LOGD("WebrtcOMXH264VideoDecoder:%p Decoder in use", this);
+    CODEC_LOGE("WebrtcOMXH264VideoDecoder:%p decoder in use", this);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
 
-  // Defer configuration until SPS/PPS NALUs (where actual decoder config
-  // values can be extracted) are received.
-
-  CODEC_LOGD("WebrtcOMXH264VideoDecoder:%p OMX Decoder reserved", this);
-  return WEBRTC_VIDEO_CODEC_OK;
-}
-
-// Find SPS in input data and extract picture width and height if found.
-/* static */
-int32_t WebrtcOMXH264VideoDecoder::ExtractPicDimensions(uint8_t* aData,
-                                                        size_t aSize,
-                                                        int32_t* aWidth,
-                                                        int32_t* aHeight) {
-  MOZ_ASSERT(aData && aSize > sizeof(kNALStartCode));
-  if ((aData[sizeof(kNALStartCode)] & 0x1f) != kNALTypeSPS) {
+  mOMX = new WebrtcOMXDecoder(android::MEDIA_MIMETYPE_VIDEO_AVC);
+  if (mOMX->ConfigureWithPicDimensions(aCodecSettings->width,
+                                       aCodecSettings->height) != android::OK) {
+    mOMX = nullptr;
+    CODEC_LOGE("WebrtcOMXH264VideoDecoder:%p decoder not started", this);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
-  android::sp<android::ABuffer> sps = new android::ABuffer(
-      &aData[sizeof(kNALStartCode)], aSize - sizeof(kNALStartCode));
-  android::FindAVCDimensions(sps, aWidth, aHeight);
+  CODEC_LOGD("WebrtcOMXH264VideoDecoder:%p decoder started", this);
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
@@ -619,63 +607,35 @@ int32_t WebrtcOMXH264VideoDecoder::Decode(
     const webrtc::CodecSpecificInfo* aCodecSpecificInfo,
     int64_t aRenderTimeMs) {
   if (aInputImage._length == 0 || !aInputImage._buffer) {
+    CODEC_LOGE("WebrtcOMXH264VideoDecoder:%p empty input data", this);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
 
-  if (!mOMX) {
-    // Search for SPS NALU in input to get width/height config.
-    int32_t width;
-    int32_t height;
-    int32_t result = ExtractPicDimensions(aInputImage._buffer,
-                                          aInputImage._length, &width, &height);
-    if (result != WEBRTC_VIDEO_CODEC_OK) {
-      // Cannot config decoder because SPS haven't been seen.
-      CODEC_LOGI(
-          "WebrtcOMXH264VideoDecoder:%p missing SPS in input (nal 0x%02x, len "
-          "%d)",
-          this, aInputImage._buffer[sizeof(kNALStartCode)] & 0x1f,
-          aInputImage._length);
-      return WEBRTC_VIDEO_CODEC_UNINITIALIZED;
-    }
-    RefPtr<WebrtcOMXDecoder> omx =
-        new WebrtcOMXDecoder(android::MEDIA_MIMETYPE_VIDEO_AVC, mCallback);
-    android::status_t err = omx->ConfigureWithPicDimensions(width, height);
-    if (NS_WARN_IF(err != android::OK)) {
-      return WEBRTC_VIDEO_CODEC_UNINITIALIZED;
-    }
-    CODEC_LOGD("WebrtcOMXH264VideoDecoder:%p start OMX", this);
-    mOMX = omx;
-  }
-
-  // Break input encoded data into NALUs and send each one to decode.
-  // 8x10 decoder doesn't allow picture coding NALs to be in the same buffer
-  // with SPS/PPS (BUFFER_FLAG_CODECCONFIG) per QC
-  const uint8_t* data = aInputImage._buffer;
-  size_t size = aInputImage._length;
-  const uint8_t* nalStart = nullptr;
-  size_t nalSize = 0;
-
-  // this returns a pointer to the NAL byte (after the StartCode)
-  while (android::getNextNALUnit(&data, &size, &nalStart, &nalSize, true) ==
-         android::OK) {
-    // Individual NALU inherits metadata from input encoded data.
-    webrtc::EncodedImage nalu(aInputImage);
-
-    nalu._buffer = const_cast<uint8_t*>(nalStart) - sizeof(kNALStartCode);
-    MOZ_ASSERT(nalu._buffer >= aInputImage._buffer);
-    nalu._length = nalSize + sizeof(kNALStartCode);
-    MOZ_ASSERT(nalu._buffer + nalu._length <=
-               aInputImage._buffer + aInputImage._length);
-
-    int nalType = nalStart[0] & 0x1f;
-    bool isCodecConfig = false;
-    if (nalType == kNALTypeSPS || nalType == kNALTypePPS) {
-      isCodecConfig = true;
-    }
-    android::status_t err = mOMX->FillInput(nalu, isCodecConfig, aRenderTimeMs);
-    if (NS_WARN_IF(err != android::OK)) {
+  if (!mCodecConfigSubmitted) {
+    int32_t width, height;
+    sp<ABuffer> au = new ABuffer(aInputImage._buffer, aInputImage._length);
+    sp<ABuffer> csd = android::MakeAVCCodecSpecificData(au, &width, &height);
+    if (!csd) {
+      CODEC_LOGE("WebrtcOMXH264VideoDecoder:%p missing codec config", this);
       return WEBRTC_VIDEO_CODEC_ERROR;
     }
+
+    // Inherits metadata from input image.
+    webrtc::EncodedImage codecConfig(aInputImage);
+    codecConfig._buffer = csd->data();
+    codecConfig._length = csd->size();
+    codecConfig._size = csd->size();
+    if (mOMX->FillInput(codecConfig, true, aRenderTimeMs) != android::OK) {
+      CODEC_LOGE("WebrtcOMXH264VideoDecoder:%p error sending codec config",
+                 this);
+      return WEBRTC_VIDEO_CODEC_ERROR;
+    }
+    mCodecConfigSubmitted = true;
+  }
+
+  if (mOMX->FillInput(aInputImage, false, aRenderTimeMs) != android::OK) {
+    CODEC_LOGE("WebrtcOMXH264VideoDecoder:%p error sending input data", this);
+    return WEBRTC_VIDEO_CODEC_ERROR;
   }
   return WEBRTC_VIDEO_CODEC_OK;
 }
@@ -684,8 +644,8 @@ int32_t WebrtcOMXH264VideoDecoder::RegisterDecodeCompleteCallback(
     webrtc::DecodedImageCallback* aCallback) {
   CODEC_LOGD("WebrtcOMXH264VideoDecoder:%p set callback:%p", this, aCallback);
   MOZ_ASSERT(aCallback);
-  mCallback = aCallback;
-
+  MOZ_ASSERT(mOMX);
+  mOMX->SetDecodedCallback(aCallback);
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
@@ -694,7 +654,7 @@ int32_t WebrtcOMXH264VideoDecoder::Release() {
 
   mOMX = nullptr;  // calls Stop()
   mReservation->ReleaseOMXCodec();
-
+  mCodecConfigSubmitted = false;
   return WEBRTC_VIDEO_CODEC_OK;
 }
 

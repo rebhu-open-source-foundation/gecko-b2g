@@ -15,41 +15,26 @@ using android::OMXCodecReservation;
 namespace mozilla {
 
 // Decoder.
-WebrtcOMXVP8VideoDecoder::WebrtcOMXVP8VideoDecoder()
-    : mCallback(nullptr), mOMX(nullptr) {
+WebrtcOMXVP8VideoDecoder::WebrtcOMXVP8VideoDecoder() {
   mReservation = new OMXCodecReservation(false);
   CODEC_LOGD("WebrtcOMXVP8VideoDecoder:%p will be constructed", this);
 }
 
 int32_t WebrtcOMXVP8VideoDecoder::InitDecode(
     const webrtc::VideoCodec* aCodecSettings, int32_t aNumOfCores) {
-  CODEC_LOGD("WebrtcOMXVP8VideoDecoder:%p init OMX:%p", this, mOMX.get());
-
   if (!mReservation->ReserveOMXCodec()) {
-    CODEC_LOGD("WebrtcOMXVP8VideoDecoder:%p Decoder in use", this);
+    CODEC_LOGE("WebrtcOMXVP8VideoDecoder:%p decoder in use", this);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
 
-  // Defer configuration until first frame are received.
-
-  CODEC_LOGD("WebrtcOMXVP8VideoDecoder:%p OMX Decoder reserved", this);
-  return WEBRTC_VIDEO_CODEC_OK;
-}
-
-/* static */
-int32_t WebrtcOMXVP8VideoDecoder::ExtractPicDimensions(uint8_t* aData,
-                                                       size_t aSize,
-                                                       int32_t* aWidth,
-                                                       int32_t* aHeight) {
-  if (aSize < 10) {
+  mOMX = new WebrtcOMXDecoder(android::MEDIA_MIMETYPE_VIDEO_VP8);
+  if (mOMX->ConfigureWithPicDimensions(aCodecSettings->width,
+                                       aCodecSettings->height) != android::OK) {
+    mOMX = nullptr;
+    CODEC_LOGE("WebrtcOMXVP8VideoDecoder:%p decoder not started", this);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
-  // Cannot get dimension from delta frames
-  if (aData[0] & 0x01) {
-    return WEBRTC_VIDEO_CODEC_ERROR;
-  }
-  *aWidth = ((aData[7] << 8) + aData[6]) & 0x3fff;
-  *aHeight = ((aData[9] << 8) + aData[8]) & 0x3fff;
+  CODEC_LOGD("WebrtcOMXVP8VideoDecoder:%p decoder started", this);
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
@@ -59,32 +44,12 @@ int32_t WebrtcOMXVP8VideoDecoder::Decode(
     const webrtc::CodecSpecificInfo* aCodecSpecificInfo,
     int64_t aRenderTimeMs) {
   if (aInputImage._length == 0 || !aInputImage._buffer) {
+    CODEC_LOGE("WebrtcOMXVP8VideoDecoder:%p empty input data", this);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
 
-  bool configured = !!mOMX;
-  if (!configured) {
-    int32_t width;
-    int32_t height;
-    int32_t result = ExtractPicDimensions(aInputImage._buffer,
-                                          aInputImage._length, &width, &height);
-    if (result != WEBRTC_VIDEO_CODEC_OK) {
-      // Cannot config decoder because key frame hasn't been seen.
-      CODEC_LOGI("WebrtcOMXVP8VideoDecoder:%p skipping delta frame", this);
-      return WEBRTC_VIDEO_CODEC_UNINITIALIZED;
-    }
-    RefPtr<WebrtcOMXDecoder> omx =
-        new WebrtcOMXDecoder(android::MEDIA_MIMETYPE_VIDEO_VP8, mCallback);
-    result = omx->ConfigureWithPicDimensions(width, height);
-    if (NS_WARN_IF(result != android::OK)) {
-      return WEBRTC_VIDEO_CODEC_UNINITIALIZED;
-    }
-    CODEC_LOGD("WebrtcOMXVP8VideoDecoder:%p start OMX", this);
-    mOMX = omx;
-  }
-
-  android::status_t err = mOMX->FillInput(aInputImage, false, aRenderTimeMs);
-  if (NS_WARN_IF(err != android::OK)) {
+  if (mOMX->FillInput(aInputImage, false, aRenderTimeMs) != android::OK) {
+    CODEC_LOGE("WebrtcOMXVP8VideoDecoder:%p error sending input data", this);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
   return WEBRTC_VIDEO_CODEC_OK;
@@ -94,8 +59,8 @@ int32_t WebrtcOMXVP8VideoDecoder::RegisterDecodeCompleteCallback(
     webrtc::DecodedImageCallback* aCallback) {
   CODEC_LOGD("WebrtcOMXVP8VideoDecoder:%p set callback:%p", this, aCallback);
   MOZ_ASSERT(aCallback);
-  mCallback = aCallback;
-
+  MOZ_ASSERT(mOMX);
+  mOMX->SetDecodedCallback(aCallback);
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
@@ -104,7 +69,6 @@ int32_t WebrtcOMXVP8VideoDecoder::Release() {
 
   mOMX = nullptr;  // calls Stop()
   mReservation->ReleaseOMXCodec();
-
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
