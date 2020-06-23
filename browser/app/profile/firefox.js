@@ -127,6 +127,10 @@ pref("app.update.download.promptMaxAttempts", 2);
 // download a fresh installer.
 pref("app.update.elevation.promptMaxAttempts", 2);
 
+// If set to true, a message will be displayed in the hamburger menu while
+// an update is being downloaded.
+pref("app.update.notifyDuringDownload", false);
+
 // If set to true, the Update Service will automatically download updates if the
 // user can apply updates. This pref is no longer used on Windows, except as the
 // default value to migrate to the new location that this data is now stored
@@ -314,7 +318,11 @@ pref("browser.urlbar.switchTabs.adoptIntoActiveWindow", false);
 pref("browser.urlbar.openintab", false);
 
 // If true, we show tail suggestions when available.
+#ifdef EARLY_BETA_OR_EARLIER
+pref("browser.urlbar.richSuggestions.tail", true);
+#else
 pref("browser.urlbar.richSuggestions.tail", false);
+#endif
 
 // Whether we expand the font size when when the urlbar is
 // focused in design update 2.

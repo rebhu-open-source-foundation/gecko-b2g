@@ -181,6 +181,7 @@
 #include "nsDirectoryServiceDefs.h"
 #include "nsDocShell.h"
 #include "nsEmbedCID.h"
+#include "nsFocusManager.h"
 #include "nsFrameLoader.h"
 #include "nsFrameMessageManager.h"
 #include "nsHashPropertyBag.h"
@@ -1002,6 +1003,8 @@ already_AddRefed<ContentParent> ContentParent::GetUsedBrowserProcess(
       !aRemoteType.EqualsLiteral(EXTENSION_REMOTE_TYPE) &&  // Bug 1638119
       (p = PreallocatedProcessManager::Take(aRemoteType)) &&
       !p->mShutdownPending) {
+    MOZ_DIAGNOSTIC_ASSERT(!p->IsDead());
+
     // p may be a preallocated process, or (if not PREALLOC_REMOTE_TYPE)
     // a perviously-used process that's being recycled.  Currently this is
     // only done for short-duration web (DEFAULT_REMOTE_TYPE) processes
@@ -1051,12 +1054,11 @@ already_AddRefed<ContentParent> ContentParent::GetUsedBrowserProcess(
 
 /*static*/
 already_AddRefed<ContentParent>
-ContentParent::GetNewOrUsedBrowserProcessInternal(Element* aFrameElement,
-                                                  const nsAString& aRemoteType,
-                                                  ProcessPriority aPriority,
-                                                  ContentParent* aOpener,
-                                                  bool aPreferUsed,
-                                                  bool aIsSync) {
+ContentParent::GetNewOrUsedLaunchingBrowserProcess(Element* aFrameElement,
+                                                   const nsAString& aRemoteType,
+                                                   ProcessPriority aPriority,
+                                                   ContentParent* aOpener,
+                                                   bool aPreferUsed) {
   MOZ_LOG(ContentParent::GetLog(), LogLevel::Debug,
           ("GetNewOrUsedProcess for type %s",
            NS_ConvertUTF16toUTF8(aRemoteType).get()));
@@ -1068,9 +1070,9 @@ ContentParent::GetNewOrUsedBrowserProcessInternal(Element* aFrameElement,
       && contentParents.Length() >= maxContentParents) {
     MOZ_LOG(ContentParent::GetLog(), LogLevel::Debug,
             ("GetNewOrUsedProcess: returning Large Used process"));
-    return GetNewOrUsedBrowserProcessInternal(
+    return GetNewOrUsedLaunchingBrowserProcess(
         aFrameElement, NS_LITERAL_STRING(DEFAULT_REMOTE_TYPE), aPriority,
-        aOpener, /*aPreferUsed =*/false, aIsSync);
+        aOpener, /*aPreferUsed =*/false);
   }
 
   // Let's try and reuse an existing process.
@@ -1093,7 +1095,7 @@ ContentParent::GetNewOrUsedBrowserProcessInternal(Element* aFrameElement,
            NS_ConvertUTF16toUTF8(aRemoteType).get()));
 
   contentParent = new ContentParent(aOpener, aRemoteType);
-  if (!contentParent->BeginSubprocessLaunch(aIsSync, aPriority)) {
+  if (!contentParent->BeginSubprocessLaunch(aPriority)) {
     // Launch aborted because of shutdown. Bailout.
     contentParent->LaunchSubprocessReject();
     return nullptr;
@@ -1121,83 +1123,90 @@ ContentParent::GetNewOrUsedBrowserProcessAsync(Element* aFrameElement,
                                                ContentParent* aOpener,
                                                bool aPreferUsed) {
   // Obtain a `ContentParent` launched asynchronously.
-  RefPtr<ContentParent> contentParent = GetNewOrUsedBrowserProcessInternal(
-      aFrameElement, aRemoteType, aPriority, aOpener, aPreferUsed,
-      /* aIsSync = */ false);
+  RefPtr<ContentParent> contentParent = GetNewOrUsedLaunchingBrowserProcess(
+      aFrameElement, aRemoteType, aPriority, aOpener, aPreferUsed);
   if (!contentParent) {
     // In case of launch error, stop here.
     return LaunchPromise::CreateAndReject(LaunchError(), __func__);
   }
-
-  MOZ_ASSERT(!contentParent->IsDead());
-  if (!contentParent->IsLaunching()) {
-    // `contentParent` is already ready and initialized.
-    return LaunchPromise::CreateAndResolve(contentParent, __func__);
-  }
-
-  // We have located a process that hasn't finished initializing. Let's race
-  // against whoever launched it (and whoever else is already racing). Once
-  // the race is complete, the winner will finish the initialization.
-  RefPtr<ProcessHandlePromise> ready =
-      contentParent->mSubprocess->WhenProcessHandleReady();
-  return ready->Then(
-      GetCurrentThreadSerialEventTarget(), __func__,
-      // On resolve.
-      [contentParent, aPriority]() {
-        if (contentParent->IsLaunching()) {
-          if (!contentParent->LaunchSubprocessResolve(/* aIsSync = */ false,
-                                                      aPriority)) {
-            contentParent->LaunchSubprocessReject();
-            return LaunchPromise::CreateAndReject(LaunchError(), __func__);
-          }
-          contentParent->mActivateTS = TimeStamp::Now();
-        } else if (contentParent->IsDead()) {
-          // This could happen if we're racing against a sync launch and it
-          // failed.
-          return LaunchPromise::CreateAndReject(LaunchError(), __func__);
-        }
-        return LaunchPromise::CreateAndResolve(contentParent, __func__);
-      },
-      // On reject.
-      [contentParent]() {
-        if (contentParent->IsLaunching()) {
-          contentParent->LaunchSubprocessReject();
-        }
-        return LaunchPromise::CreateAndReject(LaunchError(), __func__);
-      });
+  return contentParent->WaitForLaunchAsync(aPriority);
 }
 
 /*static*/
 already_AddRefed<ContentParent> ContentParent::GetNewOrUsedBrowserProcess(
     Element* aFrameElement, const nsAString& aRemoteType,
     ProcessPriority aPriority, ContentParent* aOpener, bool aPreferUsed) {
-  RefPtr<ContentParent> contentParent = GetNewOrUsedBrowserProcessInternal(
-      aFrameElement, aRemoteType, aPriority, aOpener, aPreferUsed,
-      /* aIsSync = */ true);
-  if (!contentParent) {
+  RefPtr<ContentParent> contentParent = GetNewOrUsedLaunchingBrowserProcess(
+      aFrameElement, aRemoteType, aPriority, aOpener, aPreferUsed);
+  if (!contentParent || !contentParent->WaitForLaunchSync(aPriority)) {
     // In case of launch error, stop here.
     return nullptr;
   }
+  return contentParent.forget();
+}
 
-  MOZ_ASSERT(!contentParent->IsDead());
-  if (!contentParent->IsLaunching()) {
-    // `contentParent` is already ready and initialized
-    return contentParent.forget();
+RefPtr<ContentParent::LaunchPromise> ContentParent::WaitForLaunchAsync(
+    ProcessPriority aPriority) {
+  MOZ_DIAGNOSTIC_ASSERT(!IsDead());
+  if (!IsLaunching()) {
+    return LaunchPromise::CreateAndResolve(this, __func__);
   }
 
-  // We have located a process that hasn't finished initializing. We may be
-  // racing against whoever launched it (and whoever else is already racing).
-  // Since we're sync, we win the race and finish the initialization.
-  const bool launchSuccess = contentParent->mSubprocess->WaitForProcessHandle();
+  // We've started an async content process launch.
+  Telemetry::Accumulate(Telemetry::CONTENT_PROCESS_LAUNCH_IS_SYNC, 0);
+
+  // We have located a process that hasn't finished initializing. Let's race
+  // against whoever launched it (and whoever else is already racing). Once
+  // the race is complete, the winner will finish the initialization.
+  return mSubprocess->WhenProcessHandleReady()->Then(
+      GetCurrentSerialEventTarget(), __func__,
+      // On resolve.
+      [self = RefPtr{this}, aPriority]() {
+        if (self->IsLaunching()) {
+          if (!self->LaunchSubprocessResolve(/* aIsSync = */ false,
+                                             aPriority)) {
+            self->LaunchSubprocessReject();
+            return LaunchPromise::CreateAndReject(LaunchError(), __func__);
+          }
+          self->mActivateTS = TimeStamp::Now();
+        } else if (self->IsDead()) {
+          // This could happen if we're racing against a sync launch and it
+          // failed.
+          return LaunchPromise::CreateAndReject(LaunchError(), __func__);
+        }
+        return LaunchPromise::CreateAndResolve(self, __func__);
+      },
+      // On reject.
+      [self = RefPtr{this}]() {
+        if (self->IsLaunching()) {
+          self->LaunchSubprocessReject();
+        }
+        return LaunchPromise::CreateAndReject(LaunchError(), __func__);
+      });
+}
+
+bool ContentParent::WaitForLaunchSync(ProcessPriority aPriority) {
+  MOZ_DIAGNOSTIC_ASSERT(!IsDead());
+  if (!IsLaunching()) {
+    return true;
+  }
+
+  // We've started a sync content process launch.
+  Telemetry::Accumulate(Telemetry::CONTENT_PROCESS_LAUNCH_IS_SYNC, 1);
+
+  // We're a process which hasn't finished initializing. We may be racing
+  // against whoever launched it (and whoever else is already racing). Since
+  // we're sync, we win the race and finish the initialization.
+  bool launchSuccess = mSubprocess->WaitForProcessHandle();
   if (launchSuccess &&
-      contentParent->LaunchSubprocessResolve(/* aIsSync = */ true, aPriority)) {
-    contentParent->mActivateTS = TimeStamp::Now();
-    contentParent->ForwardKnownInfo();
-    return contentParent.forget();
+      LaunchSubprocessResolve(/* aIsSync = */ true, aPriority)) {
+    mActivateTS = TimeStamp::Now();
+    ForwardKnownInfo();
+    return true;
   }
   // In case of failure.
-  contentParent->LaunchSubprocessReject();
-  return nullptr;
+  LaunchSubprocessReject();
+  return false;
 }
 
 /*static*/
@@ -1599,8 +1608,6 @@ void ContentParent::Init() {
   RefPtr<GeckoMediaPluginServiceParent> gmps(
       GeckoMediaPluginServiceParent::GetSingleton());
   gmps->UpdateContentProcessGMPCapabilities();
-
-  mScriptableHelper = new ScriptableCPInfo(this);
 }
 
 void ContentParent::ForwardKnownInfo() {
@@ -1647,11 +1654,6 @@ void ContentParent::MaybeAsyncSendShutDownMessage() {
 }
 
 void ContentParent::ShutDownProcess(ShutDownMethod aMethod) {
-  if (mScriptableHelper) {
-    static_cast<ScriptableCPInfo*>(mScriptableHelper.get())->ProcessDied();
-    mScriptableHelper = nullptr;
-  }
-
   // Shutting down by sending a shutdown message works differently than the
   // other methods. We first call Shutdown() in the child. After the child is
   // ready, it calls FinishShutdown() on us. Then we close the channel.
@@ -1732,6 +1734,9 @@ void ContentParent::ShutDownMessageManager() {
 
 void ContentParent::AddToPool(nsTArray<ContentParent*>& aPool) {
   MOZ_DIAGNOSTIC_ASSERT(!mIsInPool);
+  MOZ_DIAGNOSTIC_ASSERT(!IsDead());
+  MOZ_DIAGNOSTIC_ASSERT(!mShutdownPending);
+  MOZ_DIAGNOSTIC_ASSERT(!mCalledKillHard);
   aPool.AppendElement(this);
   mIsInPool = true;
 }
@@ -1805,6 +1810,8 @@ void ContentParent::MarkAsDead() {
     RemoveFromList();
   }
 
+  PreallocatedProcessManager::Erase(this);
+
 #ifdef MOZ_WIDGET_ANDROID
   if (mLifecycleState == LifecycleState::ALIVE) {
     nsCOMPtr<nsIEventTarget> launcherThread(GetIPCLauncher());
@@ -1822,6 +1829,11 @@ void ContentParent::MarkAsDead() {
         }));
   }
 #endif
+
+  if (mScriptableHelper) {
+    static_cast<ScriptableCPInfo*>(mScriptableHelper.get())->ProcessDied();
+    mScriptableHelper = nullptr;
+  }
 
   mLifecycleState = LifecycleState::DEAD;
 }
@@ -2031,7 +2043,6 @@ bool ContentParent::TryToRecycle() {
        (unsigned int)ChildID(), (TimeStamp::Now() - mActivateTS).ToSeconds()));
 
   if (mShutdownPending || mCalledKillHard || !IsAlive() ||
-      !mRemoteType.EqualsLiteral(DEFAULT_REMOTE_TYPE) ||
       (TimeStamp::Now() - mActivateTS).ToSeconds() > kMaxLifeSpan) {
     MOZ_LOG(ContentParent::GetLog(), LogLevel::Debug,
             ("TryToRecycle did not take ownership of %p", this));
@@ -2078,12 +2089,16 @@ bool ContentParent::ShouldKeepProcessAlive() {
     return true;
   }
 
-  if (!sBrowserContentParents) {
-    return false;
+  if (mNumKeepaliveCalls > 0) {
+    return true;
   }
 
   // If we have already been marked as dead, don't prevent shutdown.
   if (!IsAlive()) {
+    return false;
+  }
+
+  if (!sBrowserContentParents) {
     return false;
   }
 
@@ -2144,6 +2159,22 @@ void ContentParent::NotifyTabDestroying() {
   // recycled during its shutdown procedure.
   MarkAsDead();
   StartForceKillTimer();
+}
+
+void ContentParent::AddKeepAlive() {
+  // Something wants to keep this content process alive.
+  ++mNumKeepaliveCalls;
+}
+
+void ContentParent::RemoveKeepAlive() {
+  MOZ_DIAGNOSTIC_ASSERT(mNumKeepaliveCalls > 0);
+  --mNumKeepaliveCalls;
+
+  if (ManagedPBrowserParent().Count() == 0 && !ShouldKeepProcessAlive() &&
+      !TryToRecycle()) {
+    MarkAsDead();
+    MaybeAsyncSendShutDownMessage();
+  }
 }
 
 void ContentParent::StartForceKillTimer() {
@@ -2326,14 +2357,8 @@ void ContentParent::AppendSandboxParams(std::vector<std::string>& aArgs) {
 }
 #endif  // XP_MACOSX && MOZ_SANDBOX
 
-bool ContentParent::BeginSubprocessLaunch(bool aIsSync,
-                                          ProcessPriority aPriority) {
+bool ContentParent::BeginSubprocessLaunch(ProcessPriority aPriority) {
   AUTO_PROFILER_LABEL("ContentParent::LaunchSubprocess", OTHER);
-
-  // Note that, in case of race, we can have a launch started as async
-  // and finished as sync.
-  Telemetry::Accumulate(Telemetry::CONTENT_PROCESS_LAUNCH_IS_SYNC,
-                        static_cast<uint32_t>(aIsSync));
 
   if (!ContentProcessManager::GetSingleton()) {
     // Shutdown has begun, we shouldn't spawn any more child processes.
@@ -2475,7 +2500,10 @@ bool ContentParent::LaunchSubprocessResolve(bool aIsSync,
 
 bool ContentParent::LaunchSubprocessSync(
     hal::ProcessPriority aInitialPriority) {
-  if (!BeginSubprocessLaunch(/* aIsSync = */ true, aInitialPriority)) {
+  // We've started a sync content process launch.
+  Telemetry::Accumulate(Telemetry::CONTENT_PROCESS_LAUNCH_IS_SYNC, 1);
+
+  if (!BeginSubprocessLaunch(aInitialPriority)) {
     return false;
   }
   const bool ok = mSubprocess->WaitForProcessHandle();
@@ -2488,7 +2516,10 @@ bool ContentParent::LaunchSubprocessSync(
 
 RefPtr<ContentParent::LaunchPromise> ContentParent::LaunchSubprocessAsync(
     hal::ProcessPriority aInitialPriority) {
-  if (!BeginSubprocessLaunch(/* aIsSync = */ false, aInitialPriority)) {
+  // We've started an async content process launch.
+  Telemetry::Accumulate(Telemetry::CONTENT_PROCESS_LAUNCH_IS_SYNC, 0);
+
+  if (!BeginSubprocessLaunch(aInitialPriority)) {
     // Launch aborted because of shutdown. Bailout.
     LaunchSubprocessReject();
     return LaunchPromise::CreateAndReject(LaunchError(), __func__);
@@ -2500,7 +2531,7 @@ RefPtr<ContentParent::LaunchPromise> ContentParent::LaunchSubprocessAsync(
   mLaunchYieldTS = TimeStamp::Now();
 
   return ready->Then(
-      GetCurrentThreadSerialEventTarget(), __func__,
+      GetCurrentSerialEventTarget(), __func__,
       [self, aInitialPriority](
           const ProcessHandlePromise::ResolveOrRejectValue& aValue) {
         if (aValue.IsResolve() &&
@@ -2528,6 +2559,7 @@ ContentParent::ContentParent(ContentParent* aOpener,
       mJSPluginID(aJSPluginID),
       mRemoteWorkerActorData("ContentParent::mRemoteWorkerActorData"),
       mNumDestroyingTabs(0),
+      mNumKeepaliveCalls(0),
       mLifecycleState(LifecycleState::LAUNCHING),
       mIsForBrowser(!mRemoteType.IsEmpty()),
       mCalledClose(false),
@@ -2569,6 +2601,10 @@ ContentParent::ContentParent(ContentParent* aOpener,
           ("CreateSubprocess: ContentParent %p mSubprocess %p handle %ld", this,
            mSubprocess,
            mSubprocess ? (long)mSubprocess->GetChildProcessHandle() : -1));
+
+  // This is safe to do in the constructor, as it doesn't take a strong
+  // reference.
+  mScriptableHelper = new ScriptableCPInfo(this);
 }
 
 ContentParent::~ContentParent() {
@@ -2596,6 +2632,13 @@ ContentParent::~ContentParent() {
              this, mSubprocess,
              mSubprocess ? (long)mSubprocess->GetChildProcessHandle() : -1));
     mSubprocess->Destroy();
+  }
+
+  // Make sure to clear the connection from `mScriptableHelper` if it hasn't
+  // been cleared yet.
+  if (mScriptableHelper) {
+    static_cast<ScriptableCPInfo*>(mScriptableHelper.get())->ProcessDied();
+    mScriptableHelper = nullptr;
   }
 }
 
@@ -4194,7 +4237,7 @@ mozilla::ipc::IPCResult ContentParent::RecvInitStreamFilter(
     InitStreamFilterResolver&& aResolver) {
   extensions::StreamFilterParent::Create(this, aChannelId, aAddonId)
       ->Then(
-          GetCurrentThreadSerialEventTarget(), __func__,
+          GetCurrentSerialEventTarget(), __func__,
           [aResolver](mozilla::ipc::Endpoint<PStreamFilterChild>&& aEndpoint) {
             aResolver(std::move(aEndpoint));
           },
@@ -6523,7 +6566,7 @@ ContentParent::RecvStorageAccessPermissionGrantedForOrigin(
       aTopLevelWindowId, aParentContext.get_canonical(), aTrackingPrincipal,
       aTrackingOrigin, aAllowMode)
       ->Then(
-          GetCurrentThreadSerialEventTarget(), __func__,
+          GetCurrentSerialEventTarget(), __func__,
           [aResolver = std::move(aResolver)](
               ContentBlocking::ParentAccessGrantPromise::ResolveOrRejectValue&&
                   aValue) {
@@ -6548,7 +6591,7 @@ mozilla::ipc::IPCResult ContentParent::RecvCompleteAllowAccessFor(
   ContentBlocking::CompleteAllowAccessFor(
       aParentContext.get_canonical(), aTopLevelWindowId, aTrackingPrincipal,
       aTrackingOrigin, aCookieBehavior, aReason, nullptr)
-      ->Then(GetCurrentThreadSerialEventTarget(), __func__,
+      ->Then(GetCurrentSerialEventTarget(), __func__,
              [aResolver = std::move(aResolver)](
                  ContentBlocking::StorageAccessPermissionGrantPromise::
                      ResolveOrRejectValue&& aValue) {

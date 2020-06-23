@@ -116,7 +116,11 @@ void nsFrameLoaderOwner::ChangeRemotenessCommon(
     // If we already have a Frameloader, destroy it, possibly preserving its
     // browsing context.
     if (mFrameLoader) {
-      bc = mFrameLoader->GetExtantBrowsingContext();
+      // Calling `GetBrowsingContext` here will force frameloader
+      // initialization if it hasn't already happened, which we neither need
+      // or want, so we use the initial (possibly pending) browsing context
+      // directly, instead.
+      bc = mFrameLoader->GetMaybePendingBrowsingContext();
       if (aContextType == ChangeRemotenessContextType::PRESERVE) {
         mFrameLoader->SetWillChangeProcess();
       }
@@ -283,10 +287,4 @@ void nsFrameLoaderOwner::SubframeCrashed() {
   ChangeRemotenessCommon(ChangeRemotenessContextType::PRESERVE,
                          /* inProgress */ false,
                          /* isRemote */ false, frameLoaderInit, IgnoreErrors());
-}
-
-void nsFrameLoaderOwner::UnbindFromTree() {
-  // If we're being adopted into a different document, we'll want to inherit a
-  // browser ID from our new BrowsingContext, so clear our current ID here.
-  mBrowserId = 0;
 }

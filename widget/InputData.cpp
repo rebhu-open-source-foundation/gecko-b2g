@@ -222,7 +222,7 @@ WidgetMouseEvent MultiTouchInput::ToWidgetMouseEvent(nsIWidget* aWidget) const {
   event.mRefPoint.y = firstTouch.mScreenPoint.y;
 
   event.mTime = mTime;
-  event.mButton = MouseButton::eLeft;
+  event.mButton = MouseButton::ePrimary;
   event.mInputSource = MouseEvent_Binding::MOZ_SOURCE_TOUCH;
   event.mModifiers = modifiers;
   event.mFlags.mHandledByAPZ = mHandledByAPZ;
@@ -291,14 +291,14 @@ MouseInput::MouseInput(const WidgetMouseEventBase& aMouseEvent)
   mButtonType = NONE;
 
   switch (aMouseEvent.mButton) {
-    case MouseButton::eLeft:
-      mButtonType = MouseInput::LEFT_BUTTON;
+    case MouseButton::ePrimary:
+      mButtonType = MouseInput::PRIMARY_BUTTON;
       break;
     case MouseButton::eMiddle:
       mButtonType = MouseInput::MIDDLE_BUTTON;
       break;
-    case MouseButton::eRight:
-      mButtonType = MouseInput::RIGHT_BUTTON;
+    case MouseButton::eSecondary:
+      mButtonType = MouseInput::SECONDARY_BUTTON;
       break;
   }
 
@@ -337,7 +337,7 @@ MouseInput::MouseInput(const WidgetMouseEventBase& aMouseEvent)
       PixelCastJustification::LayoutDeviceIsScreenForUntransformedEvent));
 }
 
-bool MouseInput::IsLeftButton() const { return mButtonType == LEFT_BUTTON; }
+bool MouseInput::IsLeftButton() const { return mButtonType == PRIMARY_BUTTON; }
 
 bool MouseInput::TransformToLocal(
     const ScreenToParentLayerMatrix4x4& aTransform) {
@@ -397,14 +397,14 @@ WidgetMouseEvent MouseInput::ToWidgetMouseEvent(nsIWidget* aWidget) const {
   }
 
   switch (mButtonType) {
-    case MouseInput::LEFT_BUTTON:
-      event.mButton = MouseButton::eLeft;
+    case MouseInput::PRIMARY_BUTTON:
+      event.mButton = MouseButton::ePrimary;
       break;
     case MouseInput::MIDDLE_BUTTON:
       event.mButton = MouseButton::eMiddle;
       break;
-    case MouseInput::RIGHT_BUTTON:
-      event.mButton = MouseButton::eRight;
+    case MouseInput::SECONDARY_BUTTON:
+      event.mButton = MouseButton::eSecondary;
       break;
     case MouseInput::NONE:
     default:

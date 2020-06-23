@@ -9,6 +9,7 @@
 
 #include <queue>
 
+#include "mozilla/AbstractThread.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/Monitor.h"
 #include "mozilla/MozPromise.h"
@@ -17,9 +18,6 @@
 #include "mozilla/Unused.h"
 #include "nsIDirectTaskDispatcher.h"
 #include "nsThreadUtils.h"
-
-class nsIEventTarget;
-class nsIRunnable;
 
 namespace mozilla {
 
@@ -55,16 +53,29 @@ class TaskQueue : public AbstractThread, public nsIDirectTaskDispatcher {
 
  public:
   explicit TaskQueue(already_AddRefed<nsIEventTarget> aTarget,
-                     bool aSupportsTailDispatch = false,
-                     bool aRetainFlags = false);
+                     bool aSupportsTailDispatch = false);
 
   TaskQueue(already_AddRefed<nsIEventTarget> aTarget, const char* aName,
-            bool aSupportsTailDispatch = false, bool aRetainFlags = false);
+            bool aSupportsTailDispatch = false);
 
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSIDIRECTTASKDISPATCHER
 
   TaskDispatcher& TailDispatcher() override;
+
+  NS_IMETHOD Dispatch(already_AddRefed<nsIRunnable> aEvent,
+                      uint32_t aFlags) override {
+    nsCOMPtr<nsIRunnable> runnable = aEvent;
+    {
+      MonitorAutoLock mon(mQueueMonitor);
+      return DispatchLocked(/* passed by ref */ runnable, aFlags,
+                            NormalDispatch);
+    }
+    // If the ownership of |r| is not transferred in DispatchLocked() due to
+    // dispatch failure, it will be deleted here outside the lock. We do so
+    // since the destructor of the runnable might access TaskQueue and result
+    // in deadlocks.
+  }
 
   [[nodiscard]] nsresult Dispatch(
       already_AddRefed<nsIRunnable> aRunnable,
@@ -80,8 +91,8 @@ class TaskQueue : public AbstractThread, public nsIDirectTaskDispatcher {
     // in deadlocks.
   }
 
-  // Prevent a GCC warning about the other overload of Dispatch being hidden.
-  using AbstractThread::Dispatch;
+  // So we can access nsIEventTarget::Dispatch(nsIRunnable*, uint32_t aFlags)
+  using nsIEventTarget::Dispatch;
 
   // Puts the queue in a shutdown state and returns immediately. The queue will
   // remain alive at least until all the events are drained, because the Runners
@@ -103,10 +114,6 @@ class TaskQueue : public AbstractThread, public nsIDirectTaskDispatcher {
   // Returns true if the current thread is currently running a Runnable in
   // the task queue.
   bool IsCurrentThreadIn() const override;
-
-  // Create a new nsIEventTarget wrapper object that dispatches to this
-  // TaskQueue.
-  already_AddRefed<nsISerialEventTarget> WrapAsEventTarget();
 
  protected:
   virtual ~TaskQueue();
@@ -187,11 +194,6 @@ class TaskQueue : public AbstractThread, public nsIDirectTaskDispatcher {
   };
 
   TaskDispatcher* mTailDispatcher;
-
-  // TaskQueues should specify if they want all tasks to dispatch with their
-  // original flags included, which means the flags will be retained in the
-  // TaskStruct.
-  bool mShouldRetainFlags;
 
   // True if we've dispatched an event to the target to execute events from
   // the queue.

@@ -1081,7 +1081,7 @@ bool TextureClient::InitIPDLActor(CompositableForwarder* aForwarder) {
       }
       if (ShadowLayerForwarder* forwarder = aForwarder->AsLayerForwarder()) {
         // Do the DOM labeling.
-        if (nsIEventTarget* target = forwarder->GetEventTarget()) {
+        if (nsISerialEventTarget* target = forwarder->GetEventTarget()) {
           forwarder->GetCompositorBridgeChild()->ReplaceEventTargetForActor(
               mActor, target);
         }
@@ -1104,7 +1104,7 @@ bool TextureClient::InitIPDLActor(CompositableForwarder* aForwarder) {
   mExternalImageId =
       aForwarder->GetTextureForwarder()->GetNextExternalImageId();
 
-  nsIEventTarget* target = nullptr;
+  nsISerialEventTarget* target = nullptr;
   // Get the layers id if the forwarder is a ShadowLayerForwarder.
   if (ShadowLayerForwarder* forwarder = aForwarder->AsLayerForwarder()) {
     target = forwarder->GetEventTarget();

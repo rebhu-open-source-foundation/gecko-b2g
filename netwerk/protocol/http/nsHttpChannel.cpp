@@ -1424,7 +1424,7 @@ nsresult nsHttpChannel::SetupTransaction() {
   }
   rv = mTransaction->Init(
       mCaps, mConnectionInfo, &mRequestHead, mUploadStream, mReqContentLength,
-      mUploadStreamHasHeaders, GetCurrentThreadEventTarget(), callbacks, this,
+      mUploadStreamHasHeaders, GetCurrentEventTarget(), callbacks, this,
       mTopLevelOuterContentWindowId, category, mRequestContext, mClassOfService,
       mInitialRwin, mResponseTimeoutEnabled, mChannelId, std::move(observer),
       std::move(pushCallback), mTransWithPushedStream, mPushedStreamId);
@@ -2427,13 +2427,21 @@ void nsHttpChannel::ProcessAltService() {
   nsCOMPtr<nsProxyInfo> proxyInfo;
   NS_NewNotificationCallbacksAggregation(mCallbacks, mLoadGroup,
                                          getter_AddRefs(callbacks));
+
   if (mProxyInfo) {
     proxyInfo = do_QueryInterface(mProxyInfo);
   }
 
   OriginAttributes originAttributes;
-  StoragePrincipalHelper::GetOriginAttributes(
-      this, originAttributes, StoragePrincipalHelper::eRegularPrincipal);
+  // Regular principal in case we have a proxy.
+  if (proxyInfo &&
+      !StaticPrefs::privacy_partition_network_state_connection_with_proxy()) {
+    StoragePrincipalHelper::GetOriginAttributes(
+        this, originAttributes, StoragePrincipalHelper::eRegularPrincipal);
+  } else {
+    StoragePrincipalHelper::GetOriginAttributesForNetworkState(
+        this, originAttributes);
+  }
 
   AltSvcMapping::ProcessHeader(
       altSvc, scheme, originHost, originPort, mUsername, GetTopWindowOrigin(),
@@ -6761,8 +6769,15 @@ nsresult nsHttpChannel::BeginConnect() {
   SetDoNotTrack();
 
   OriginAttributes originAttributes;
-  StoragePrincipalHelper::GetOriginAttributes(
-      this, originAttributes, StoragePrincipalHelper::eRegularPrincipal);
+  // Regular principal in case we have a proxy.
+  if (proxyInfo &&
+      !StaticPrefs::privacy_partition_network_state_connection_with_proxy()) {
+    StoragePrincipalHelper::GetOriginAttributes(
+        this, originAttributes, StoragePrincipalHelper::eRegularPrincipal);
+  } else {
+    StoragePrincipalHelper::GetOriginAttributesForNetworkState(
+        this, originAttributes);
+  }
 
   RefPtr<nsHttpConnectionInfo> connInfo = new nsHttpConnectionInfo(
       host, port, EmptyCString(), mUsername, GetTopWindowOrigin(), proxyInfo,
@@ -9199,7 +9214,7 @@ void nsHttpChannel::UpdateAggregateCallbacks() {
   }
   nsCOMPtr<nsIInterfaceRequestor> callbacks;
   NS_NewNotificationCallbacksAggregation(mCallbacks, mLoadGroup,
-                                         GetCurrentThreadEventTarget(),
+                                         GetCurrentEventTarget(),
                                          getter_AddRefs(callbacks));
   mTransaction->SetSecurityCallbacks(callbacks);
 }

@@ -747,7 +747,7 @@ nsISerialEventTarget* AudioContext::GetMainThread() const {
     return window->AsGlobal()->EventTargetFor(TaskCategory::Other);
   }
 
-  return GetCurrentThreadSerialEventTarget();
+  return GetCurrentSerialEventTarget();
 }
 
 void AudioContext::DisconnectFromOwner() {

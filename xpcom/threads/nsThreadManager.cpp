@@ -184,14 +184,10 @@ already_AddRefed<nsISerialEventTarget>
 BackgroundEventTarget::CreateBackgroundTaskQueue(const char* aName) {
   MutexAutoLock lock(mMutex);
 
-  RefPtr<TaskQueue> queue = new TaskQueue(do_AddRef(this), aName,
-                                          /*aSupportsTailDispatch=*/false,
-                                          /*aRetainFlags=*/true);
-  nsCOMPtr<nsISerialEventTarget> target(queue->WrapAsEventTarget());
+  RefPtr<TaskQueue> queue = new TaskQueue(do_AddRef(this), aName);
+  mTaskQueues.AppendElement(queue);
 
-  mTaskQueues.AppendElement(queue.forget());
-
-  return target.forget();
+  return queue.forget();
 }
 
 extern "C" {
@@ -206,6 +202,10 @@ void NS_SetMainThread() {
   }
   sTLSIsMainThread.set(true);
   MOZ_ASSERT(NS_IsMainThread());
+  // We initialize the SerialEventTargetGuard's TLS here for simplicity as it
+  // needs to be initialized around the same time you would initialize
+  // sTLSIsMainThread.
+  SerialEventTargetGuard::InitTLS();
 }
 
 #ifdef DEBUG

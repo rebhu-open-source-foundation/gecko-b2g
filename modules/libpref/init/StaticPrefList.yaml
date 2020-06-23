@@ -2064,6 +2064,12 @@
   value: @IS_ANDROID@
   mirror: always
 
+# Is support for HTMLElement.enterKeyHint enabled?
+- name: dom.forms.enterkeyhint
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 # Is support for HTMLElement.inputMode enabled?
 - name: dom.forms.inputmode
   type: bool
@@ -8703,6 +8709,13 @@
 - name: privacy.partition.network_state
   type: RelaxedAtomicBool
   value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
+# By default, the network state isolation is not active when there is a proxy
+# setting. This pref forces the network isolation even in these scenarios.
+- name: privacy.partition.network_state.connection_with_proxy
+  type: bool
+  value: false
   mirror: always
 
 #---------------------------------------------------------------------------

@@ -560,10 +560,10 @@ class nsWindow::NPZCSupport final
 
     switch (button) {
       case java::sdk::MotionEvent::BUTTON_PRIMARY:
-        result = MouseInput::LEFT_BUTTON;
+        result = MouseInput::PRIMARY_BUTTON;
         break;
       case java::sdk::MotionEvent::BUTTON_SECONDARY:
-        result = MouseInput::RIGHT_BUTTON;
+        result = MouseInput::SECONDARY_BUTTON;
         break;
       case java::sdk::MotionEvent::BUTTON_TERTIARY:
         result = MouseInput::MIDDLE_BUTTON;
@@ -579,10 +579,10 @@ class nsWindow::NPZCSupport final
     int16_t result = 0;
 
     if (buttons & java::sdk::MotionEvent::BUTTON_PRIMARY) {
-      result |= MouseButtonsFlag::eLeftFlag;
+      result |= MouseButtonsFlag::ePrimaryFlag;
     }
     if (buttons & java::sdk::MotionEvent::BUTTON_SECONDARY) {
-      result |= MouseButtonsFlag::eRightFlag;
+      result |= MouseButtonsFlag::eSecondaryFlag;
     }
     if (buttons & java::sdk::MotionEvent::BUTTON_TERTIARY) {
       result |= MouseButtonsFlag::eMiddleFlag;

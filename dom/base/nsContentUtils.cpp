@@ -4338,29 +4338,6 @@ Element* nsContentUtils::MatchElementId(nsIContent* aContent,
 }
 
 /* static */
-Document* nsContentUtils::GetSubdocumentWithOuterWindowId(
-    Document* aDocument, uint64_t aOuterWindowId) {
-  if (!aDocument || !aOuterWindowId) {
-    return nullptr;
-  }
-
-  RefPtr<nsGlobalWindowOuter> window =
-      nsGlobalWindowOuter::GetOuterWindowWithId(aOuterWindowId);
-  if (!window) {
-    return nullptr;
-  }
-
-  RefPtr<Document> foundDoc = window->GetDoc();
-  if (nsContentUtils::ContentIsCrossDocDescendantOf(foundDoc, aDocument)) {
-    // Note that ContentIsCrossDocDescendantOf will return true if
-    // foundDoc == aDocument.
-    return foundDoc;
-  }
-
-  return nullptr;
-}
-
-/* static */
 void nsContentUtils::RegisterShutdownObserver(nsIObserver* aObserver) {
   nsCOMPtr<nsIObserverService> observerService =
       mozilla::services::GetObserverService();
@@ -7773,12 +7750,12 @@ int16_t nsContentUtils::GetButtonsFlagForButton(int32_t aButton) {
   switch (aButton) {
     case -1:
       return MouseButtonsFlag::eNoButtons;
-    case MouseButton::eLeft:
-      return MouseButtonsFlag::eLeftFlag;
+    case MouseButton::ePrimary:
+      return MouseButtonsFlag::ePrimaryFlag;
     case MouseButton::eMiddle:
       return MouseButtonsFlag::eMiddleFlag;
-    case MouseButton::eRight:
-      return MouseButtonsFlag::eRightFlag;
+    case MouseButton::eSecondary:
+      return MouseButtonsFlag::eSecondaryFlag;
     case 4:
       return MouseButtonsFlag::e4thFlag;
     case 5:

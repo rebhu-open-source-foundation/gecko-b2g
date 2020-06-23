@@ -1345,7 +1345,7 @@ class GetUserMediaStreamRunnable : public Runnable {
       // Call GetPrincipalKey again, this time w/persist = true, to promote
       // deviceIds to persistent, in case they're not already. Fire'n'forget.
       media::GetPrincipalKey(mPrincipalInfo, true)
-          ->Then(GetCurrentThreadSerialEventTarget(), __func__,
+          ->Then(GetCurrentSerialEventTarget(), __func__,
                  [](const media::PrincipalKeyPromise::ResolveOrRejectValue&
                         aValue) {
                    if (aValue.IsReject()) {
@@ -2216,7 +2216,7 @@ void MediaManager::DeviceListChanged() {
                       MediaSinkEnum::Speaker, DeviceEnumerationType::Normal,
                       DeviceEnumerationType::Normal, false, devices)
       ->Then(
-          GetCurrentThreadSerialEventTarget(), __func__,
+          GetCurrentSerialEventTarget(), __func__,
           [self = RefPtr<MediaManager>(this), this, devices](bool) {
             if (!MediaManager::GetIfExists()) {
               return;
@@ -2702,7 +2702,7 @@ RefPtr<MediaManager::StreamPromise> MediaManager::GetUserMedia(
                               MediaSinkEnum::Other, videoEnumerationType,
                               audioEnumerationType, true, devices)
       ->Then(
-          GetCurrentThreadSerialEventTarget(), __func__,
+          GetCurrentSerialEventTarget(), __func__,
           [self, windowID, c, windowListener, isChrome, devices](bool) {
             LOG("GetUserMedia: post enumeration promise success callback "
                 "starting");
@@ -2727,7 +2727,7 @@ RefPtr<MediaManager::StreamPromise> MediaManager::GetUserMedia(
                                                           __func__);
           })
       ->Then(
-          GetCurrentThreadSerialEventTarget(), __func__,
+          GetCurrentSerialEventTarget(), __func__,
           [self, windowID, c, windowListener, sourceListener, askPermission,
            prefs, isSecure, isHandlingUserInput, callID, principalInfo,
            isChrome, devices,
@@ -3247,7 +3247,7 @@ RefPtr<MediaManager::DevicesPromise> MediaManager::EnumerateDevices(
                               videoEnumerationType, audioEnumerationType, false,
                               devices)
       ->Then(
-          GetCurrentThreadSerialEventTarget(), __func__,
+          GetCurrentSerialEventTarget(), __func__,
           [self = RefPtr<MediaManager>(this), this, windowListener,
            sourceListener, devices](bool) {
             if (!IsWindowListenerStillActive(windowListener)) {
@@ -3266,6 +3266,40 @@ RefPtr<MediaManager::DevicesPromise> MediaManager::EnumerateDevices(
             MOZ_ASSERT(!windowListener->Remove(sourceListener));
             return DevicesPromise::CreateAndReject(std::move(aError), __func__);
           });
+}
+
+RefPtr<AudioDeviceInfo> CopyWithNullDeviceId(AudioDeviceInfo* aDeviceInfo) {
+  MOZ_ASSERT(aDeviceInfo->Preferred());
+
+  nsString vendor;
+  aDeviceInfo->GetVendor(vendor);
+  uint16_t type;
+  aDeviceInfo->GetType(&type);
+  uint16_t state;
+  aDeviceInfo->GetState(&state);
+  uint16_t pref;
+  aDeviceInfo->GetPreferred(&pref);
+  uint16_t supportedFormat;
+  aDeviceInfo->GetSupportedFormat(&supportedFormat);
+  uint16_t defaultFormat;
+  aDeviceInfo->GetDefaultFormat(&defaultFormat);
+  uint32_t maxChannels;
+  aDeviceInfo->GetMaxChannels(&maxChannels);
+  uint32_t defaultRate;
+  aDeviceInfo->GetDefaultRate(&defaultRate);
+  uint32_t maxRate;
+  aDeviceInfo->GetMaxRate(&maxRate);
+  uint32_t minRate;
+  aDeviceInfo->GetMinRate(&minRate);
+  uint32_t maxLatency;
+  aDeviceInfo->GetMaxLatency(&maxLatency);
+  uint32_t minLatency;
+  aDeviceInfo->GetMinLatency(&minLatency);
+
+  return MakeRefPtr<AudioDeviceInfo>(
+      nullptr, aDeviceInfo->Name(), aDeviceInfo->GroupID(), vendor, type, state,
+      pref, supportedFormat, defaultFormat, maxChannels, defaultRate, maxRate,
+      minRate, maxLatency, minLatency);
 }
 
 RefPtr<SinkInfoPromise> MediaManager::GetSinkDevice(nsPIDOMWindowInner* aWindow,
@@ -3300,12 +3334,12 @@ RefPtr<SinkInfoPromise> MediaManager::GetSinkDevice(nsPIDOMWindowInner* aWindow,
                               DeviceEnumerationType::Normal,
                               DeviceEnumerationType::Normal, true, devices)
       ->Then(
-          GetCurrentThreadSerialEventTarget(), __func__,
+          GetCurrentSerialEventTarget(), __func__,
           [aDeviceId, isSecure, devices](bool) {
             for (RefPtr<MediaDevice>& device : *devices) {
               if (aDeviceId.IsEmpty() && device->mSinkInfo->Preferred()) {
-                return SinkInfoPromise::CreateAndResolve(device->mSinkInfo,
-                                                         __func__);
+                return SinkInfoPromise::CreateAndResolve(
+                    CopyWithNullDeviceId(device->mSinkInfo), __func__);
               }
               if (device->mID.Equals(aDeviceId)) {
                 // TODO: Check if the application is authorized to play audio

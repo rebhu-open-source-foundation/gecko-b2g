@@ -302,6 +302,30 @@ class PSMutex : private ::mozilla::detail::MutexImpl {
     mOwningThreadId = tid;
   }
 
+  [[nodiscard]] bool TryLock() {
+    const int tid = profiler_current_thread_id();
+    MOZ_ASSERT(tid != 0);
+
+    // This is only designed to catch recursive locking:
+    // - If the current thread doesn't own the mutex, `mOwningThreadId` must be
+    //   zero or a different thread id written by another thread; it may change
+    //   again at any time, but never to the current thread's id.
+    // - If the current thread owns the mutex, `mOwningThreadId` must be its id.
+    MOZ_ASSERT(mOwningThreadId != tid);
+
+    if (!::mozilla::detail::MutexImpl::tryLock()) {
+      // Failed to lock, nothing more to do.
+      return false;
+    }
+
+    // We now hold the mutex, it should have been in the unlocked state before.
+    MOZ_ASSERT(mOwningThreadId == 0);
+    // And we can write our own thread id.
+    mOwningThreadId = tid;
+
+    return true;
+  }
+
   void Unlock() {
     // This should never trigger! But check just in case something has gone
     // very wrong (e.g., memory corruption).
@@ -350,7 +374,45 @@ class MOZ_RAII PSAutoLock {
   ~PSAutoLock() { mMutex.Unlock(); }
 
  private:
+  // Allow PSAutoTryLock to call the following `PSAutoLock(PSMutex&, int)`
+  // constructor through `Maybe<const PSAutoLock>::emplace()`.
+  friend class Maybe<const PSAutoLock>;
+
+  // Special constructor taking an already-locked mutex. The `int` parameter is
+  // necessary to distinguish it from the main constructor.
+  PSAutoLock(PSMutex& aAlreadyLockedMutex, int) : mMutex(aAlreadyLockedMutex) {
+    mMutex.AssertCurrentThreadOwns();
+  }
+
   PSMutex& mMutex;
+};
+
+// RAII class that attempts to lock the profiler mutex. Example usage:
+//   PSAutoTryLock tryLock(gPSMutex);
+//   if (tryLock.IsLocked()) { locked_foo(tryLock.LockRef()); }
+class MOZ_RAII PSAutoTryLock {
+ public:
+  explicit PSAutoTryLock(PSMutex& aMutex) {
+    if (aMutex.TryLock()) {
+      mMaybePSAutoLock.emplace(aMutex, 0);
+    }
+  }
+
+  // Return true if the mutex was aquired and locked.
+  [[nodiscard]] bool IsLocked() const { return mMaybePSAutoLock.isSome(); }
+
+  // Assuming the mutex is locked, return a reference to a `PSAutoLock` for that
+  // mutex, which can be passed as proof-of-lock.
+  [[nodiscard]] const PSAutoLock& LockRef() const {
+    MOZ_ASSERT(IsLocked());
+    return mMaybePSAutoLock.ref();
+  }
+
+ private:
+  // `mMaybePSAutoLock` is `Nothing` if locking failed, otherwise it contains a
+  // `const PSAutoLock` holding the locked mutex, and whose reference may be
+  // passed to functions expecting a proof-of-lock.
+  Maybe<const PSAutoLock> mMaybePSAutoLock;
 };
 
 // Only functions that take a PSLockRef arg can access CorePS's and ActivePS's
@@ -4842,22 +4904,13 @@ double profiler_time() {
   return delta.ToMilliseconds();
 }
 
-UniqueProfilerBacktrace profiler_get_backtrace() {
-  MOZ_RELEASE_ASSERT(CorePS::Exists());
-
-  // Fast racy early return.
-  if (!profiler_is_active()) {
-    return nullptr;
-  }
-
-  PSAutoLock lock(gPSMutex);
-
-  if (!ActivePS::Exists(lock)) {
+static UniqueProfilerBacktrace locked_profiler_get_backtrace(PSLockRef aLock) {
+  if (!ActivePS::Exists(aLock)) {
     return nullptr;
   }
 
   RegisteredThread* registeredThread =
-      TLSRegisteredThread::RegisteredThread(lock);
+      TLSRegisteredThread::RegisteredThread(aLock);
   if (!registeredThread) {
     // If this was called from a non-registered thread, return a nullptr
     // and do no more work. This can happen from a memory hook. Before
@@ -4882,10 +4935,23 @@ UniqueProfilerBacktrace profiler_get_backtrace() {
       MakeUnique<ProfileBufferChunkManagerSingle>(scExpectedMaximumStackSize));
   auto buffer = MakeUnique<ProfileBuffer>(*bufferManager);
 
-  DoSyncSample(lock, *registeredThread, now, regs, *buffer.get());
+  DoSyncSample(aLock, *registeredThread, now, regs, *buffer);
 
   return UniqueProfilerBacktrace(new ProfilerBacktrace(
       "SyncProfile", tid, std::move(bufferManager), std::move(buffer)));
+}
+
+UniqueProfilerBacktrace profiler_get_backtrace() {
+  MOZ_RELEASE_ASSERT(CorePS::Exists());
+
+  // Fast racy early return.
+  if (!profiler_is_active()) {
+    return nullptr;
+  }
+
+  PSAutoLock lock(gPSMutex);
+
+  return locked_profiler_get_backtrace(lock);
 }
 
 void ProfilerBacktraceDestructor::operator()(ProfilerBacktrace* aBacktrace) {
@@ -4963,20 +5029,6 @@ bool profiler_is_locked_on_current_thread() {
          CorePS::CoreBuffer().IsThreadSafeAndLockedOnCurrentThread();
 }
 
-bool profiler_add_native_allocation_marker(int aMainThreadId, int64_t aSize,
-                                           uintptr_t aMemoryAddress) {
-  if (!profiler_can_accept_markers()) {
-    return false;
-  }
-  AUTO_PROFILER_STATS(add_marker_with_NativeAllocationMarkerPayload);
-  profiler_add_marker_for_thread(
-      aMainThreadId, JS::ProfilingCategoryPair::OTHER, "Native allocation",
-      NativeAllocationMarkerPayload(TimeStamp::Now(), aSize, aMemoryAddress,
-                                    profiler_current_thread_id(),
-                                    profiler_get_backtrace()));
-  return true;
-}
-
 void profiler_add_network_marker(
     nsIURI* aURI, int32_t aPriority, uint64_t aChannelId, NetworkLoadType aType,
     mozilla::TimeStamp aStart, mozilla::TimeStamp aEnd, int64_t aCount,
@@ -5010,10 +5062,10 @@ void profiler_add_network_marker(
                            std::move(aSource), aContentType));
 }
 
-void profiler_add_marker_for_thread(int aThreadId,
-                                    JS::ProfilingCategoryPair aCategoryPair,
-                                    const char* aMarkerName,
-                                    const ProfilerMarkerPayload& aPayload) {
+static void maybelocked_profiler_add_marker_for_thread(
+    int aThreadId, JS::ProfilingCategoryPair aCategoryPair,
+    const char* aMarkerName, const ProfilerMarkerPayload& aPayload,
+    const PSAutoLock* aLockOrNull) {
   MOZ_RELEASE_ASSERT(CorePS::Exists());
 
   if (!profiler_can_accept_markers()) {
@@ -5021,16 +5073,15 @@ void profiler_add_marker_for_thread(int aThreadId,
   }
 
 #ifdef DEBUG
-  {
-    PSAutoLock lock(gPSMutex);
-    if (!ActivePS::Exists(lock)) {
+  auto checkThreadId = [](int aThreadId, const PSAutoLock& aLock) {
+    if (!ActivePS::Exists(aLock)) {
       return;
     }
 
     // Assert that our thread ID makes sense
     bool realThread = false;
     const Vector<UniquePtr<RegisteredThread>>& registeredThreads =
-        CorePS::RegisteredThreads(lock);
+        CorePS::RegisteredThreads(aLock);
     for (auto& thread : registeredThreads) {
       RefPtr<ThreadInfo> info = thread->Info();
       if (info->ThreadId() == aThreadId) {
@@ -5039,6 +5090,13 @@ void profiler_add_marker_for_thread(int aThreadId,
       }
     }
     MOZ_ASSERT(realThread, "Invalid thread id");
+  };
+
+  if (aLockOrNull) {
+    checkThreadId(aThreadId, *aLockOrNull);
+  } else {
+    PSAutoLock lock(gPSMutex);
+    checkThreadId(aThreadId, lock);
   }
 #endif
 
@@ -5052,11 +5110,47 @@ void profiler_add_marker_for_thread(int aThreadId,
       static_cast<uint32_t>(aCategoryPair), &aPayload, delta.ToMilliseconds());
 }
 
+void profiler_add_marker_for_thread(int aThreadId,
+                                    JS::ProfilingCategoryPair aCategoryPair,
+                                    const char* aMarkerName,
+                                    const ProfilerMarkerPayload& aPayload) {
+  return maybelocked_profiler_add_marker_for_thread(
+      aThreadId, aCategoryPair, aMarkerName, aPayload, nullptr);
+}
+
 void profiler_add_marker_for_mainthread(JS::ProfilingCategoryPair aCategoryPair,
                                         const char* aMarkerName,
                                         const ProfilerMarkerPayload& aPayload) {
   profiler_add_marker_for_thread(CorePS::MainThreadId(), aCategoryPair,
                                  aMarkerName, aPayload);
+}
+
+bool profiler_add_native_allocation_marker(int aMainThreadId, int64_t aSize,
+                                           uintptr_t aMemoryAddress) {
+  if (!profiler_can_accept_markers()) {
+    return false;
+  }
+
+  // Because native allocations may be intercepted anywhere, blocking while
+  // locking the profiler mutex here could end up causing a deadlock if another
+  // mutex is taken, which the profiler may indirectly need elsewhere.
+  // See bug 1642726 for such a scenario.
+  // So instead we only try to lock, and bail out if the mutex is already
+  // locked. Native allocations are statistically sampled anyway, so missing a
+  // few because of this is acceptable.
+  PSAutoTryLock tryLock(gPSMutex);
+  if (!tryLock.IsLocked()) {
+    return false;
+  }
+
+  AUTO_PROFILER_STATS(add_marker_with_NativeAllocationMarkerPayload);
+  maybelocked_profiler_add_marker_for_thread(
+      aMainThreadId, JS::ProfilingCategoryPair::OTHER, "Native allocation",
+      NativeAllocationMarkerPayload(
+          TimeStamp::Now(), aSize, aMemoryAddress, profiler_current_thread_id(),
+          locked_profiler_get_backtrace(tryLock.LockRef())),
+      &tryLock.LockRef());
+  return true;
 }
 
 void profiler_tracing_marker(const char* aCategoryString,

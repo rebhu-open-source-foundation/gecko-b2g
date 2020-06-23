@@ -21,6 +21,7 @@
 #include "mozilla/SchedulerGroup.h"
 #include "mozilla/URLPreloader.h"
 #include "nsIRunnable.h"
+#include "nsISupportsPriority.h"
 #include "nsITimedChannel.h"
 #include "nsICachingChannel.h"
 #include "nsSyncLoadService.h"
@@ -146,6 +147,69 @@ SheetLoadDataHashKey::SheetLoadDataHashKey(const css::SheetLoadData& aLoadData)
   MOZ_ASSERT(mPrincipal);
   MOZ_ASSERT(mLoaderPrincipal);
   aLoadData.mSheet->GetIntegrity(mSRIMetadata);
+}
+
+bool SheetLoadDataHashKey::KeyEquals(const SheetLoadDataHashKey& aKey) const {
+  {
+    bool eq;
+    if (NS_FAILED(mURI->Equals(aKey.mURI, &eq)) || !eq) {
+      return false;
+    }
+  }
+
+  LOG_URI("KeyEquals(%s)\n", mURI);
+
+  // The loader principal doesn't really need to match to be a cache hit, it's
+  // just useful for cache-eviction purposes.
+
+  if (!mPrincipal->Equals(aKey.mPrincipal)) {
+    LOG((" > Principal mismatch\n"));
+    return false;
+  }
+
+  if (mCORSMode != aKey.mCORSMode) {
+    LOG((" > CORS mismatch\n"));
+    return false;
+  }
+
+  if (mParsingMode != aKey.mParsingMode) {
+    LOG((" > Parsing mode mismatch\n"));
+    return false;
+  }
+
+  if (mCompatMode != aKey.mCompatMode) {
+    LOG((" > Quirks mismatch\n"));
+    return false;
+  }
+
+  // If encoding differs, then don't reuse the cache.
+  //
+  // TODO(emilio): When the encoding is determined from the request (either
+  // BOM or Content-Length or @charset), we could do a bit better,
+  // theoretically.
+  if (mEncodingGuess != aKey.mEncodingGuess) {
+    LOG((" > Encoding guess mismatch\n"));
+    return false;
+  }
+
+  // Consuming stylesheet tags must never coalesce to <link preload> initiated
+  // speculative loads with a weaker SRI hash or its different value.  This
+  // check makes sure that regular loads will never find such a weaker preload
+  // and rather start a new, independent load with new, stronger SRI checker
+  // set up, so that integrity is ensured.
+  if (mIsLinkPreload != aKey.mIsLinkPreload) {
+    const auto& linkPreloadMetadata =
+        mIsLinkPreload ? mSRIMetadata : aKey.mSRIMetadata;
+    const auto& consumerPreloadMetadata =
+        mIsLinkPreload ? aKey.mSRIMetadata : mSRIMetadata;
+
+    if (!consumerPreloadMetadata.CanTrustBeDelegatedTo(linkPreloadMetadata)) {
+      LOG((" > Preload SRI metadata mismatch\n"));
+      return false;
+    }
+  }
+
+  return true;
 }
 
 namespace css {
@@ -348,6 +412,14 @@ SheetLoadData::AfterProcessNextEvent(nsIThreadInternal* aThread,
   FireLoadEvent(aThread);
   return NS_OK;
 }
+
+void SheetLoadData::PrioritizeAsPreload(nsIChannel* aChannel) {
+  if (nsCOMPtr<nsISupportsPriority> sp = do_QueryInterface(aChannel)) {
+    sp->AdjustPriority(nsISupportsPriority::PRIORITY_HIGHEST);
+  }
+}
+
+void SheetLoadData::PrioritizeAsPreload() { PrioritizeAsPreload(Channel()); }
 
 void SheetLoadData::FireLoadEvent(nsIThreadInternal* aThread) {
   // First remove ourselves as a thread observer.  But we need to keep
@@ -1176,6 +1248,9 @@ nsresult Loader::LoadSheet(SheetLoadData& aLoadData, SheetState aSheetState) {
 
   SheetLoadDataHashKey key(aLoadData);
   mLoadsPerformed.PutEntry(key);
+
+  auto preloadKey = PreloadHashKey::CreateAsStyle(aLoadData);
+  bool coalescedLoad = false;
   if (mSheets) {
     // If we have at least one other load ongoing, then we can defer it until
     // all non-pending loads are done.
@@ -1186,15 +1261,21 @@ nsresult Loader::LoadSheet(SheetLoadData& aLoadData, SheetState aSheetState) {
       mSheets->DeferSheetLoad(aLoadData);
       return NS_OK;
     }
-    if (mSheets->CoalesceLoad(key, aLoadData, aSheetState)) {
+
+    if ((coalescedLoad = mSheets->CoalesceLoad(key, aLoadData, aSheetState))) {
       if (aSheetState == SheetState::Pending) {
         ++mPendingLoadCount;
+        return NS_OK;
       }
-
-      // All done here; once the load completes we'll be marked complete
-      // automatically
-      return NS_OK;
     }
+  }
+
+  aLoadData.NotifyOpen(preloadKey, mDocument,
+                       aLoadData.mIsPreload == IsPreload::FromLink);
+  if (coalescedLoad) {
+    // All done here; once the load completes we'll be marked complete
+    // automatically.
+    return NS_OK;
   }
 
   nsCOMPtr<nsILoadGroup> loadGroup;
@@ -1276,8 +1357,8 @@ nsresult Loader::LoadSheet(SheetLoadData& aLoadData, SheetState aSheetState) {
       cos->AddClassFlags(nsIClassOfService::Leader);
     }
     if (aLoadData.mIsPreload == IsPreload::FromLink) {
-      StreamLoader::PrioritizeAsPreload(channel);
-      StreamLoader::AddLoadBackgroundFlag(channel);
+      SheetLoadData::PrioritizeAsPreload(channel);
+      SheetLoadData::AddLoadBackgroundFlag(channel);
     }
   }
 
@@ -1351,16 +1432,12 @@ nsresult Loader::LoadSheet(SheetLoadData& aLoadData, SheetState aSheetState) {
                         nsINetworkPredictor::LEARN_LOAD_SUBRESOURCE, mDocument);
   }
 
-  auto preloadKey = PreloadHashKey::CreateAsStyle(aLoadData);
-  streamLoader->NotifyOpen(preloadKey, channel, mDocument,
-                           aLoadData.mIsPreload == IsPreload::FromLink);
-
   rv = channel->AsyncOpen(streamLoader);
   if (NS_FAILED(rv)) {
     LOG_ERROR(("  Failed to create stream loader"));
-    // ChannelOpenFailed makes sure that <link preload> nodes will get the
-    // proper notification about not being able to load this resource.
     streamLoader->ChannelOpenFailed(rv);
+    // NOTE: NotifyStop will be done in SheetComplete -> NotifyObservers.
+    aLoadData.NotifyStart(channel);
     SheetComplete(aLoadData, rv);
     return rv;
   }
@@ -1431,15 +1508,10 @@ Loader::Completed Loader::ParseSheet(const nsACString& aBytes,
 
 void Loader::NotifyObservers(SheetLoadData& aData, nsresult aStatus) {
   RecordUseCountersIfNeeded(mDocument, aData.mUseCounters.get());
-
-  // Constructable sheets do get here via StyleSheet::Replace, but they don't
-  // count like a regular sheet load.
-  //
-  // TODO(emilio, 1642227): They don't set mMustNotify, should they notify
-  // global observers? If not, maybe this can be simplified.
-  if (!aData.mSheet->IsConstructed()) {
+  if (aData.mURI) {
     MOZ_DIAGNOSTIC_ASSERT(mOngoingLoadCount);
     --mOngoingLoadCount;
+    aData.NotifyStop(aStatus);
   }
 
   if (aData.mMustNotify) {
@@ -1596,8 +1668,6 @@ Result<Loader::LoadSheetResult, nsresult> Loader::LoadInlineStyle(
         matched, IsPreload::No, aObserver, principal, aInfo.mReferrerInfo,
         aInfo.mContent);
     data->mLineNumber = aLineNumber;
-
-    ++mOngoingLoadCount;
 
     // Parse completion releases the load data.
     //

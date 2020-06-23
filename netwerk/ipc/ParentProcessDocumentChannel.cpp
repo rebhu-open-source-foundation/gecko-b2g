@@ -192,7 +192,7 @@ NS_IMETHODIMP ParentProcessDocumentChannel::AsyncOpen(
 
   RefPtr<ParentProcessDocumentChannel> self = this;
   promise->Then(
-      GetCurrentThreadSerialEventTarget(), __func__,
+      GetCurrentSerialEventTarget(), __func__,
       [self](DocumentLoadListener::OpenPromiseSucceededType&& aResolveValue) {
         // The DLL is waiting for us to resolve the
         // RedirectToRealChannelPromise given as parameter.
@@ -201,7 +201,7 @@ NS_IMETHODIMP ParentProcessDocumentChannel::AsyncOpen(
                     std::move(aResolveValue.mStreamFilterEndpoints),
                     aResolveValue.mRedirectFlags, aResolveValue.mLoadFlags)
                 ->Then(
-                    GetCurrentThreadSerialEventTarget(), __func__,
+                    GetCurrentSerialEventTarget(), __func__,
                     [self](RedirectToRealChannelPromise::ResolveOrRejectValue&&
                                aValue) -> RefPtr<RedirectToRealChannelPromise> {
                       MOZ_ASSERT(aValue.IsResolve());
@@ -298,7 +298,7 @@ NS_IMETHODIMP
 ParentChannelWrapper::NotifyFlashPluginStateChanged(
     nsIHttpChannel::FlashPluginState aState) {
   // For now, only HttpChannel use this attribute.
-  RefPtr<HttpBaseChannel> httpChannel = do_QueryObject(mChannel.get());
+  RefPtr<HttpBaseChannel> httpChannel = do_QueryObject(mChannel);
   if (httpChannel) {
     httpChannel->SetFlashPluginState(aState);
   }

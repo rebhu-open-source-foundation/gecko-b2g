@@ -486,7 +486,7 @@ auto DocumentLoadListener::Open(
   if (promise) {
     RefPtr<DocumentLoadListener> self = this;
     promise->Then(
-        GetCurrentThreadSerialEventTarget(), __func__,
+        GetCurrentSerialEventTarget(), __func__,
         [=](const MozPromise<bool, bool, false>::ResolveOrRejectValue& aValue) {
           if (aValue.IsResolve()) {
             bool handled = aValue.ResolveValue();
@@ -986,7 +986,7 @@ void DocumentLoadListener::SerializeRedirectData(
   nsCOMPtr<nsIPrincipal> principalToInherit;
   channelLoadInfo->GetPrincipalToInherit(getter_AddRefs(principalToInherit));
 
-  const RefPtr<nsHttpChannel> baseChannel = do_QueryObject(mChannel.get());
+  const RefPtr<nsHttpChannel> baseChannel = do_QueryObject(mChannel);
 
   nsCOMPtr<nsILoadContext> loadContext;
   NS_QueryNotificationCallbacks(mChannel, loadContext);
@@ -1074,7 +1074,7 @@ void DocumentLoadListener::SerializeRedirectData(
   aArgs.newLoadFlags() = aLoadFlags;
   aArgs.redirectFlags() = aRedirectFlags;
   aArgs.redirectIdentifier() = mCrossProcessRedirectIdentifier;
-  aArgs.properties() = do_QueryObject(mChannel.get());
+  aArgs.properties() = do_QueryObject(mChannel);
   aArgs.srcdocData() = mSrcdocData;
   aArgs.baseUri() = mBaseURI;
   aArgs.loadStateLoadFlags() = mLoadStateLoadFlags;
@@ -1516,7 +1516,7 @@ void DocumentLoadListener::TriggerRedirectToRealChannel(
   RedirectToRealChannel(redirectFlags, newLoadFlags, aDestinationProcess,
                         std::move(parentEndpoints))
       ->Then(
-          GetCurrentThreadSerialEventTarget(), __func__,
+          GetCurrentSerialEventTarget(), __func__,
           [self, requests = std::move(mStreamFilterRequests)](
               const nsresult& aResponse) mutable {
             for (StreamFilterRequest& request : requests) {
@@ -1876,7 +1876,7 @@ DocumentLoadListener::AsyncOnChannelRedirect(
   if (promise) {
     RefPtr<nsIAsyncVerifyRedirectCallback> cb = aCallback;
     promise->Then(
-        GetCurrentThreadSerialEventTarget(), __func__,
+        GetCurrentSerialEventTarget(), __func__,
         [=](const MozPromise<bool, bool, false>::ResolveOrRejectValue& aValue) {
           if (aValue.IsResolve()) {
             bool handled = aValue.ResolveValue();

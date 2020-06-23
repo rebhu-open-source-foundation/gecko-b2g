@@ -1526,7 +1526,7 @@ already_AddRefed<Promise> Navigator::GetVRDisplays(ErrorResult& aRv) {
     int browserID = browser->ChromeOuterWindowID();
 
     browser->SendIsWindowSupportingWebVR(browserID)->Then(
-        GetCurrentThreadSerialEventTarget(), __func__,
+        GetCurrentSerialEventTarget(), __func__,
         [self, p](bool isSupported) {
           self->FinishGetVRDisplays(isSupported, p);
         },
@@ -1775,7 +1775,7 @@ bool Navigator::HasUserMediaSupport(JSContext* cx, JSObject* obj) {
 
 /* static */
 bool Navigator::HasShareSupport(JSContext* cx, JSObject* obj) {
-  if (!Preferences::GetBool("dom.webshare.enabled")) {
+  if (!StaticPrefs::dom_webshare_enabled()) {
     return false;
   }
 #if defined(XP_WIN) && !defined(__MINGW32__)

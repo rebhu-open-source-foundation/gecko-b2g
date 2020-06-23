@@ -798,6 +798,9 @@ class HTMLMediaElement : public nsGenericHTMLElement,
 
   void PlayInternal(bool aHandlingUserInput);
 
+  // See spec, https://html.spec.whatwg.org/#internal-pause-steps
+  void PauseInternal();
+
   /** Use this method to change the mReadyState member, so required
    * events can be fired.
    */
@@ -1865,6 +1868,8 @@ class HTMLMediaElement : public nsGenericHTMLElement,
    * @param aNotify Whether we plan to notify document observers.
    */
   void AfterMaybeChangeAttr(int32_t aNamespaceID, nsAtom* aName, bool aNotify);
+
+  RefPtr<GenericPromise> SetSrcMediaStreamSink(AudioDeviceInfo* aSink);
 
   // Total time a video has spent playing.
   TimeDurationAccumulator mPlayTime;
