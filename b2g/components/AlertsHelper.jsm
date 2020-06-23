@@ -316,7 +316,14 @@ var AlertsHelper = {
     );
   },
 
-  closeAlert(name) {},
+  closeAlert(name) {
+    if (!this._embedderNotifications || !this._embedderNotifications.closeNotification) {
+      debug(`No embedder support for 'closeNotification()'`);
+      return;
+    }
+
+    this._embedderNotifications.closeNotification(name);
+  },
 
   receiveMessage(aMessage) {
     // TODO: Need a DesktopNotification permission check in here which gecko48
