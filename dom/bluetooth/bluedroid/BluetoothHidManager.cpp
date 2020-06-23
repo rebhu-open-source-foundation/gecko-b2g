@@ -33,9 +33,9 @@ USING_BLUETOOTH_NAMESPACE
 namespace {
 StaticRefPtr<BluetoothHidManager> sBluetoothHidManager;
 static BluetoothHidInterface* sBluetoothHidInterface = nullptr;
-bool sInShutdown = false;
 }  // namespace
 
+bool BluetoothHidManager::sInShutdown = false;
 const int BluetoothHidManager::MAX_NUM_CLIENTS = 1;
 
 BluetoothHidManager::BluetoothHidManager() : mHidConnected(false) {}

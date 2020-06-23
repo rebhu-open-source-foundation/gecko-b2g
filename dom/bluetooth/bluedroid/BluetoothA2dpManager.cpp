@@ -31,10 +31,10 @@ USING_BLUETOOTH_NAMESPACE
 
 namespace {
 StaticRefPtr<BluetoothA2dpManager> sBluetoothA2dpManager;
-bool sInShutdown = false;
 static BluetoothA2dpInterface* sBtA2dpInterface;
 }  // namespace
 
+bool BluetoothA2dpManager::sInShutdown = false;
 const int BluetoothA2dpManager::MAX_NUM_CLIENTS = 1;
 
 NS_IMETHODIMP

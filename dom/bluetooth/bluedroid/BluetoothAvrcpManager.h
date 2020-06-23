@@ -102,6 +102,7 @@ class BluetoothAvrcpManager : public BluetoothProfileManagerBase,
 
   void PassthroughCmdNotification(uint8_t aId, uint8_t aKeyState) override;
 
+  static bool sInShutdown;
   BluetoothAddress mDeviceAddress;
   RefPtr<BluetoothProfileController> mController;
 

@@ -69,6 +69,7 @@ class BluetoothHidManager : public BluetoothProfileManagerBase,
   void ConnectionStateNotification(const BluetoothAddress& aBdAddr,
                                    BluetoothHidConnectionState aState) override;
 
+  static bool sInShutdown;
   bool mHidConnected;
   BluetoothAddress mDeviceAddress;
   RefPtr<BluetoothProfileController> mController;

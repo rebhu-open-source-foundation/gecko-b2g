@@ -277,6 +277,8 @@ class BluetoothMapSmsManager : public BluetoothSocketObserver,
    * Build mandatory folders
    */
   void BuildDefaultFolderStructure();
+
+  static bool sInShutdown;
   /**
    * Current virtual folder path
    */

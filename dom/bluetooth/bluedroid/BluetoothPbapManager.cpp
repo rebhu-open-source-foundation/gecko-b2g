@@ -54,10 +54,11 @@ static const AppParameterTag sVCardEntryTags[] = {
     AppParameterTag::Format, AppParameterTag::PropertySelector};
 
 StaticRefPtr<BluetoothPbapManager> sPbapManager;
-static bool sInShutdown = false;
 }  // namespace
 
 BEGIN_BLUETOOTH_NAMESPACE
+
+bool BluetoothPbapManager::sInShutdown = false;
 
 NS_IMETHODIMP
 BluetoothPbapManager::Observe(nsISupports* aSubject, const char* aTopic,

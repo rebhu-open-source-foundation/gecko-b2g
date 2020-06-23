@@ -32,10 +32,10 @@ USING_BLUETOOTH_NAMESPACE
 
 namespace {
 StaticRefPtr<BluetoothAvrcpManager> sBluetoothAvrcpManager;
-bool sInShutdown = false;
 static BluetoothAvrcpInterface* sBtAvrcpInterface;
 }  // namespace
 
+bool BluetoothAvrcpManager::sInShutdown = false;
 const int BluetoothAvrcpManager::MAX_NUM_CLIENTS = 1;
 
 /*

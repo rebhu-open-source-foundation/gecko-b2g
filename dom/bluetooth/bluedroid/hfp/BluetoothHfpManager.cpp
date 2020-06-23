@@ -43,8 +43,6 @@ namespace {
 StaticRefPtr<BluetoothHfpManager> sBluetoothHfpManager;
 static BluetoothHandsfreeInterface* sBluetoothHfpInterface = nullptr;
 
-bool sInShutdown = false;
-
 // Wait for 2 seconds for Dialer processing event 'BLDN'. '2' seconds is a
 // magic number. The mechanism should be revised once we can get call history.
 static int sWaitingForDialingInterval = 2000;  // unit: ms
@@ -56,6 +54,7 @@ static int sWaitingForDialingInterval = 2000;  // unit: ms
 static int sBusyToneInterval = 3700;  // unit: ms
 }  // namespace
 
+bool BluetoothHfpManager::sInShutdown = false;
 const int BluetoothHfpManager::MAX_NUM_CLIENTS = 1;
 
 static bool IsValidDtmf(const char aChar) {

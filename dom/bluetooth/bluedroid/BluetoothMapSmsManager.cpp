@@ -50,12 +50,13 @@ static const BluetoothUuid kMapMnsObexTarget(0xBB, 0x58, 0x2B, 0x41, 0x42, 0x0C,
                                              0x20, 0x0C, 0x9A, 0x66);
 
 StaticRefPtr<BluetoothMapSmsManager> sMapSmsManager;
-static bool sInShutdown = false;
 static BluetoothSdpInterface* sBtSdpInterface;
 static int sSdpMasHandle = 0;
 }  // namespace
 
 BEGIN_BLUETOOTH_NAMESPACE
+
+bool BluetoothMapSmsManager::sInShutdown = false;
 
 NS_IMETHODIMP
 BluetoothMapSmsManager::Observe(nsISupports* aSubject, const char* aTopic,

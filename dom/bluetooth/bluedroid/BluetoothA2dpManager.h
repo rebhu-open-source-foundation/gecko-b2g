@@ -67,6 +67,7 @@ class BluetoothA2dpManager : public BluetoothProfileManagerBase,
   void AudioStateNotification(BluetoothA2dpAudioState aState,
                               const BluetoothAddress& aBdAddr) override;
 
+  static bool sInShutdown;
   BluetoothAddress mDeviceAddress;
   RefPtr<BluetoothProfileController> mController;
 

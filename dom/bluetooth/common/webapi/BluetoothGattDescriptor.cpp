@@ -159,6 +159,8 @@ void BluetoothGattDescriptor::GetPermissions(
   GattPermissionsToDictionary(mPermissions, aPermissions);
 }
 
+// Use this namespace to prevent redefinition caused by UNIFIED_SOURCES
+namespace descriptor {
 class ReadValueTask final : public BluetoothReplyRunnable {
  public:
   ReadValueTask(BluetoothGattDescriptor* aDescriptor, Promise* aPromise)
@@ -193,6 +195,7 @@ class ReadValueTask final : public BluetoothReplyRunnable {
  private:
   RefPtr<BluetoothGattDescriptor> mDescriptor;
 };
+}  // namespace descriptor
 
 already_AddRefed<Promise> BluetoothGattDescriptor::ReadValue(ErrorResult& aRv) {
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(GetParentObject());
@@ -220,7 +223,7 @@ already_AddRefed<Promise> BluetoothGattDescriptor::ReadValue(ErrorResult& aRv) {
   bs->GattClientReadDescriptorValueInternal(
       appUuid, mCharacteristic->Service()->GetServiceId(),
       mCharacteristic->GetCharacteristicId(), mDescriptorId,
-      new ReadValueTask(this, promise));
+      new descriptor::ReadValueTask(this, promise));
 
   return promise.forget();
 }

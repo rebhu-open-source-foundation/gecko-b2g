@@ -42,6 +42,8 @@ class BluetoothHfpManager : public BluetoothHfpManagerBase {
   BluetoothHfpManager() {}
   bool Init();
   void HandleShutdown();
+
+  static bool sInShutdown;
 };
 
 END_BLUETOOTH_NAMESPACE

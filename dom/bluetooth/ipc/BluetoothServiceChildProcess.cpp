@@ -26,7 +26,7 @@ namespace {
 BluetoothChild* sBluetoothChild;
 
 inline void SendRequest(BluetoothReplyRunnable* aRunnable,
-                        const Request& aRequest) {
+                        const mozilla::dom::bluetooth::Request& aRequest) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aRunnable);
 

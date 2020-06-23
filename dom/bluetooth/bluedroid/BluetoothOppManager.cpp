@@ -62,10 +62,11 @@ static const double kSdpUpdatingTimeoutMs = 3000.0;
 static const BluetoothUuid kObexObjectPush(OBJECT_PUSH);
 
 StaticRefPtr<BluetoothOppManager> sBluetoothOppManager;
-static bool sInShutdown = false;
 }  // namespace
 
 BEGIN_BLUETOOTH_NAMESPACE
+
+bool BluetoothOppManager::sInShutdown = false;
 
 NS_IMETHODIMP
 BluetoothOppManager::Observe(nsISupports* aSubject, const char* aTopic,

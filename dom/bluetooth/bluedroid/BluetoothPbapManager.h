@@ -146,6 +146,7 @@ class BluetoothPbapManager : public BluetoothSocketObserver,
   void AfterPbapDisconnected();
   nsresult MD5Hash(char* buf, uint32_t len);  // mHashRes stores the result
 
+  static bool sInShutdown;
   /**
    * The nonce for OBEX authentication procedure.
    * Its value shall differ each time remote OBEX client sends it

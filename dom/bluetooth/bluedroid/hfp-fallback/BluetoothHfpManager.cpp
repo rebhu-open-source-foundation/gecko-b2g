@@ -17,8 +17,9 @@ USING_BLUETOOTH_NAMESPACE
 
 namespace {
 StaticRefPtr<BluetoothHfpManager> sBluetoothHfpManager;
-bool sInShutdown = false;
 }  // namespace
+
+bool BluetoothHfpManager::sInShutdown = false;
 
 /**
  * nsIObserver function

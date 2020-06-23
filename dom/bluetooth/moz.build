@@ -9,7 +9,7 @@
 #
 
 if CONFIG['MOZ_B2G_RIL']:
-    SOURCES += [
+    UNIFIED_SOURCES += [
         'common/BluetoothRilListener.cpp'
     ]
 
@@ -17,7 +17,7 @@ UNIFIED_SOURCES += [
     'common/BluetoothCommon.cpp',
 ]
 
-SOURCES += [
+UNIFIED_SOURCES += [
     'common/BluetoothGattReplyRunnable.cpp',
     'common/BluetoothInterface.cpp',
     'common/BluetoothProfileController.cpp',
@@ -63,7 +63,7 @@ LOCAL_INCLUDES += [
 
 if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
     if CONFIG['MOZ_B2G_BT_DAEMON']:
-        SOURCES += [
+        UNIFIED_SOURCES += [
             'bluedroid/BluetoothA2dpManager.cpp',
             'bluedroid/BluetoothAvrcpManager.cpp',
             'bluedroid/BluetoothDaemonA2dpInterface.cpp',
@@ -93,14 +93,14 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         ]
 
         if CONFIG['MOZ_B2G_RIL']:
-            SOURCES += [
+            UNIFIED_SOURCES += [
                 'bluedroid/hfp/BluetoothHfpManager.cpp',
             ]
             LOCAL_INCLUDES += [
                 'bluedroid/hfp',
             ]
         else:
-            SOURCES += [
+            UNIFIED_SOURCES += [
                 'bluedroid/hfp-fallback/BluetoothHfpManager.cpp',
             ]
             LOCAL_INCLUDES += [

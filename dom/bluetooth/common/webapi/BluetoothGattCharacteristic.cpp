@@ -271,6 +271,8 @@ void BluetoothGattCharacteristic::GetProperties(
   GattPropertiesToDictionary(mProperties, aProperties);
 }
 
+// Use this namespace to prevent redefinition caused by UNIFIED_SOURCES
+namespace characteristic {
 class ReadValueTask final : public BluetoothReplyRunnable {
  public:
   ReadValueTask(BluetoothGattCharacteristic* aCharacteristic, Promise* aPromise)
@@ -306,6 +308,7 @@ class ReadValueTask final : public BluetoothReplyRunnable {
  private:
   RefPtr<BluetoothGattCharacteristic> mCharacteristic;
 };
+}  // namespace characteristic
 
 already_AddRefed<Promise> BluetoothGattCharacteristic::ReadValue(
     ErrorResult& aRv) {
@@ -336,7 +339,7 @@ already_AddRefed<Promise> BluetoothGattCharacteristic::ReadValue(
 
   bs->GattClientReadCharacteristicValueInternal(
       appUuid, mService->GetServiceId(), mCharId,
-      new ReadValueTask(this, promise));
+      new characteristic::ReadValueTask(this, promise));
 
   return promise.forget();
 }

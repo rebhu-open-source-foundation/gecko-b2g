@@ -125,6 +125,7 @@ class BluetoothOppManager : public BluetoothSocketObserver,
    */
   bool ComposePacket(uint8_t aOpCode, mozilla::ipc::UnixSocketBuffer* aMessage);
 
+  static bool sInShutdown;
   /**
    * OBEX session status.
    * Set when OBEX session is established.

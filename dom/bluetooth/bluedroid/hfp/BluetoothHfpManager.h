@@ -209,6 +209,7 @@ class BluetoothHfpManager : public BluetoothHfpManagerBase,
   void SendLine(const char* aMessage);
   void SendResponse(BluetoothHandsfreeAtResponse aResponseCode);
 
+  static bool sInShutdown;
   BluetoothHandsfreeConnectionState mConnectionState;
   BluetoothHandsfreeConnectionState mPrevConnectionState;
   BluetoothHandsfreeAudioState mAudioState;
