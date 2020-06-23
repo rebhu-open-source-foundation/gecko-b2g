@@ -16,6 +16,7 @@
 #include <android/log.h>
 #include <cutils/properties.h>
 #include <binder/IServiceManager.h>
+#include <string.h>
 
 #include "AudioChannelService.h"
 #include "AudioManager.h"
@@ -24,7 +25,7 @@
 #ifdef MOZ_B2G_RIL
 #  include "nsIRadioInterfaceLayer.h"
 #endif
-//#include "nsISettingsService.h" //TODO FIXME
+#include "nsISettings.h"
 #ifdef MOZ_B2G_RIL
 #  include "nsITelephonyService.h"
 #endif
@@ -48,7 +49,6 @@
 #include "nsContentUtils.h"
 #include "nsXULAppAPI.h"
 #include "mozilla/dom/BindingUtils.h"
-//#include "mozilla/dom/SettingChangeNotificationBinding.h" //TODO: FIXME
 #include "mozilla/dom/power/PowerManagerService.h"
 
 #include "mozilla/Preferences.h"
@@ -64,9 +64,20 @@ using namespace mozilla::dom::gonk;
 using namespace mozilla::dom::bluetooth;
 using android::AudioSystem;
 
-#undef LOG
-#define LOG(args...) \
+#undef ANDLOG
+#define ANDLOG(args...) \
   __android_log_print(ANDROID_LOG_INFO, "AudioManager", ##args)
+
+mozilla::LazyLogModule gAudioManagerLog("AudioManager");
+#undef LOG
+#undef LOGE
+
+#define LOG(x, ...)                                   \
+  MOZ_LOG(gAudioManagerLog, mozilla::LogLevel::Debug, \
+          ("%p " x, this, ##__VA_ARGS__))
+#define LOGE(x, ...)                                  \
+  MOZ_LOG(gAudioManagerLog, mozilla::LogLevel::Error, \
+          ("%p " x, this, ##__VA_ARGS__))
 
 #define HEADPHONES_STATUS_HEADSET u"headset"
 #define HEADPHONES_STATUS_HEADPHONE u"headphone"
@@ -74,10 +85,9 @@ using android::AudioSystem;
 #define HEADPHONES_STATUS_OFF u"off"
 #define HEADPHONES_STATUS_UNKNOWN u"unknown"
 #define HEADPHONES_STATUS_CHANGED "headphones-status-changed"
-#define MOZ_SETTINGS_CHANGE_ID "mozsettings-changed"
 #define SCREEN_STATE_CHANGED "screen-state-changed"
 #define AUDIO_POLICY_SERVICE_NAME "media.audio_policy"
-#define SETTINGS_SERVICE "@mozilla.org/settingsService;1"
+#define SETTINGS_MANAGER "@mozilla.org/sidl-native/settings;1"
 
 // Refer AudioService.java from Android
 static const uint32_t sMaxStreamVolumeTbl[AUDIO_STREAM_CNT] = {
@@ -177,24 +187,6 @@ static const VolumeData gVolumeData[] = {
     {"audio.volume.telephony", AUDIO_STREAM_VOICE_CALL},
     {"audio.volume.bt_sco", AUDIO_STREAM_BLUETOOTH_SCO}};
 
-// TODO FIXME
-// nsCOMPtr<nsISettingsServiceLock>
-// GetSettingServiceLock()
-// {
-//   nsresult rv;
-//   nsCOMPtr<nsISettingsService> service = do_GetService(SETTINGS_SERVICE,
-//   &rv); if (NS_WARN_IF(NS_FAILED(rv))) {
-//     return nullptr;
-//   }
-
-//   nsCOMPtr<nsISettingsServiceLock> lock;
-//   rv = service->CreateLock(nullptr, getter_AddRefs(lock));
-//   if (NS_WARN_IF(NS_FAILED(rv))) {
-//     return nullptr;
-//   }
-//   return lock.forget();
-// }
-
 class GonkAudioPortCallback : public AudioSystem::AudioPortCallback {
  public:
   virtual void onAudioPortListUpdate() {
@@ -277,91 +269,222 @@ void AudioManager::HandleAudioFlingerDied() {
   AudioSystem::setAssistantUid(AUDIO_UID_INVALID);
 }
 
-// TODO FIXME
-// class VolumeInitCallback final : public nsISettingsServiceCallback
-// {
-// public:
-//   NS_DECL_ISUPPORTS
+class SettingInfo final : public nsISettingInfo {
+ public:
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSISETTINGINFO
 
-//   VolumeInitCallback()
-//     : mInitCounter(0)
-//   {
-//     mPromise = mPromiseHolder.Ensure(__func__);
-//   }
+  explicit SettingInfo(nsAString& aName, nsAString& aValue);
 
-//   RefPtr<VolumeInitPromise> GetPromise() const
-//   {
-//     return mPromise;
-//   }
+ protected:
+  ~SettingInfo() = default;
 
-//   NS_IMETHOD Handle(const nsAString& aName, JS::Handle<JS::Value> aResult)
-//   {
-//     RefPtr<AudioManager> audioManager = AudioManager::GetInstance();
-//     MOZ_ASSERT(audioManager);
-//     for (uint32_t idx = 0; idx < MOZ_ARRAY_LENGTH(gVolumeData); ++idx) {
-//       NS_ConvertASCIItoUTF16 volumeType(gVolumeData[idx].mChannelName);
-//       if (StringBeginsWith(aName, volumeType)) {
-//         uint32_t device = GetDeviceFromSettingName(aName);
-//         if (aResult.isInt32()) {
-//           int32_t stream = gVolumeData[idx].mStreamType;
-//           uint32_t volIndex = aResult.toInt32();
-//           nsresult rv = NS_OK;
-//           // The key from FE in the first booting would be like
-//           "audio.volumes.content"
-//           // (without device suffix). For such cases, we have to set the
-//           volumes of
-//           // all devices with this value. If not, the following stages will
-//           set the
-//           // volumes by Gecko's defaults that could conflict with the UX
-//           specifications. if (device == AUDIO_DEVICE_NONE) {
-//             rv = audioManager->SetStreamVolumeIndex(stream, volIndex);
-//           } else {
-//             rv = audioManager->SetStreamVolumeForDevice(stream, volIndex,
-//             device);
-//           }
-//           if (rv != NS_OK) {
-//             mPromiseHolder.RejectIfExists("Error : set volume failed",
-//             __func__); return rv;
-//           }
-//         }
+ private:
+  nsString mName;
+  nsString mValue;
+};
 
-//         if (++mInitCounter == audioManager->GetSpecificVolumeCount()) {
-//           mPromiseHolder.ResolveIfExists(true, __func__);
-//         }
-//         return NS_OK;
-//       }
-//     }
-//     mPromiseHolder.RejectIfExists("Error : unexpected audio init event.",
-//     __func__); return NS_OK;
-//   }
+NS_IMPL_ISUPPORTS(SettingInfo, nsISettingInfo)
+SettingInfo::SettingInfo(nsAString& aName, nsAString& aValue)
+    : mName(aName), mValue(aValue) {}
 
-//   NS_IMETHOD HandleError(const nsAString& aName)
-//   {
-//     mPromiseHolder.Reject(NS_ConvertUTF16toUTF8(aName).get(), __func__);
-//     return NS_OK;
-//   }
+NS_IMETHODIMP
+SettingInfo::GetName(nsAString& aName) {
+  aName = mName;
+  return NS_OK;
+}
 
-// protected:
-//   ~VolumeInitCallback() {}
+NS_IMETHODIMP
+SettingInfo::SetName(const nsAString& aName) {
+  mName = aName;
+  return NS_OK;
+}
 
-//   uint32_t GetDeviceFromSettingName(const nsAString& aName) const
-//   {
-//     for (uint32_t idx = 0; idx < MOZ_ARRAY_LENGTH(kAudioDeviceInfos); ++idx)
-//     {
-//       NS_ConvertASCIItoUTF16 device(kAudioDeviceInfos[idx].tag);
-//       if (StringEndsWith(aName, device)) {
-//         return kAudioDeviceInfos[idx].value;
-//       }
-//     }
-//     return AUDIO_DEVICE_NONE;
-//   }
+NS_IMETHODIMP
+SettingInfo::GetValue(nsAString& aValue) {
+  aValue = mValue;
+  return NS_OK;
+}
 
-//   RefPtr<VolumeInitPromise> mPromise;
-//   MozPromiseHolder<VolumeInitPromise> mPromiseHolder;
-//   uint32_t mInitCounter;
-// };
+NS_IMETHODIMP
+SettingInfo::SetValue(const nsAString& aValue) {
+  mValue = aValue;
+  return NS_OK;
+}
 
-// NS_IMPL_ISUPPORTS(VolumeInitCallback, nsISettingsServiceCallback)
+class VolumeInitCallback final : public nsISettingsGetResponse {
+ public:
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSISETTINGSGETRESPONSE
+
+  VolumeInitCallback() : mInitCounter(0) {
+    mPromise = mPromiseHolder.Ensure(__func__);
+  }
+
+  RefPtr<VolumeInitPromise> GetPromise() const { return mPromise; }
+
+ protected:
+  ~VolumeInitCallback() {}
+
+  uint32_t GetDeviceFromSettingName(const nsAString& aName) const {
+    for (uint32_t idx = 0; idx < MOZ_ARRAY_LENGTH(kAudioDeviceInfos); ++idx) {
+      NS_ConvertASCIItoUTF16 device(kAudioDeviceInfos[idx].tag);
+      if (StringEndsWith(aName, device)) {
+        return kAudioDeviceInfos[idx].value;
+      }
+    }
+    return AUDIO_DEVICE_NONE;
+  }
+
+  RefPtr<VolumeInitPromise> mPromise;
+  MozPromiseHolder<VolumeInitPromise> mPromiseHolder;
+  uint32_t mInitCounter;
+};
+
+NS_IMPL_ISUPPORTS(VolumeInitCallback, nsISettingsGetResponse)
+
+NS_IMETHODIMP VolumeInitCallback::Resolve(nsISettingInfo* aSettingInfo) {
+  RefPtr<AudioManager> audioManager = AudioManager::GetInstance();
+  MOZ_ASSERT(audioManager);
+  nsString name;
+  nsString valueStr;
+  aSettingInfo->GetName(name);
+  aSettingInfo->GetValue(valueStr);
+  char* valueCStr = ToNewUTF8String(valueStr);
+  uint32_t value = atoi(valueCStr);
+  free(valueCStr);
+
+  for (uint32_t idx = 0; idx < MOZ_ARRAY_LENGTH(gVolumeData); ++idx) {
+    NS_ConvertASCIItoUTF16 volumeType(gVolumeData[idx].mChannelName);
+    if (StringBeginsWith(name, volumeType)) {
+      uint32_t device = GetDeviceFromSettingName(name);
+
+      int32_t stream = gVolumeData[idx].mStreamType;
+      uint32_t volIndex = value;
+      nsresult rv = NS_OK;
+      // The key from FE in the first booting would be like
+      // "audio.volumes.content" (without device suffix). For such cases, we
+      // have to set the volumes of all devices with this value. If not, the
+      // following stages will set the volumes by Gecko's defaults that could
+      // conflict with the UX specifications.
+      if (device == AUDIO_DEVICE_NONE) {
+        rv = audioManager->SetStreamVolumeIndex(stream, volIndex);
+      } else {
+        rv = audioManager->SetStreamVolumeForDevice(stream, volIndex, device);
+      }
+      if (rv != NS_OK) {
+        mPromiseHolder.RejectIfExists("Error : set volume failed", __func__);
+        return rv;
+      }
+
+      if (++mInitCounter == audioManager->GetSpecificVolumeCount()) {
+        mPromiseHolder.ResolveIfExists(true, __func__);
+      }
+      return NS_OK;
+    }
+  }
+  mPromiseHolder.RejectIfExists("Error : unexpected audio init event.",
+                                __func__);
+  return NS_ERROR_FAILURE;
+}
+
+NS_IMETHODIMP VolumeInitCallback::Reject(nsISettingError* aSettingError) {
+  nsString name;
+  unsigned short reason;
+  aSettingError->GetName(name);
+  aSettingError->GetReason(&reason);
+  char* nameCStr = ToNewUTF8String(name);
+  LOG("%s, name:%s reason:%s", __func__, nameCStr,
+      (reason == nsISettingError::UNKNOWN_ERROR) ? "UNKNOWN_ERROR"
+                                                 : "NON_EXISTING_SETTING");
+  free(nameCStr);
+  mPromiseHolder.RejectIfExists("VolumeInitCallback Reject", __func__);
+  return NS_ERROR_NOT_AVAILABLE;
+}
+
+class VolumeSetCallback final : public nsISidlDefaultResponse {
+ public:
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSISIDLDEFAULTRESPONSE
+
+ protected:
+  ~VolumeSetCallback() = default;
+};
+
+NS_IMPL_ISUPPORTS(VolumeSetCallback, nsISidlDefaultResponse)
+
+NS_IMETHODIMP
+VolumeSetCallback::Resolve() { return NS_OK; }
+
+NS_IMETHODIMP
+VolumeSetCallback::Reject() { return NS_ERROR_FAILURE; }
+
+class VolumeAddObserverCallback final : public nsISidlDefaultResponse {
+ public:
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSISIDLDEFAULTRESPONSE
+
+ protected:
+  ~VolumeAddObserverCallback() = default;
+};
+
+NS_IMPL_ISUPPORTS(VolumeAddObserverCallback, nsISidlDefaultResponse)
+NS_IMETHODIMP
+VolumeAddObserverCallback::Resolve() { return NS_OK; }
+
+NS_IMETHODIMP
+VolumeAddObserverCallback::Reject() { return NS_ERROR_FAILURE; }
+
+class VolumeRemoveObserverCallback final : public nsISidlDefaultResponse {
+ public:
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSISIDLDEFAULTRESPONSE
+
+ protected:
+  ~VolumeRemoveObserverCallback() = default;
+};
+
+NS_IMPL_ISUPPORTS(VolumeRemoveObserverCallback, nsISidlDefaultResponse)
+NS_IMETHODIMP
+VolumeRemoveObserverCallback::Resolve() { return NS_OK; }
+
+NS_IMETHODIMP
+VolumeRemoveObserverCallback::Reject() { return NS_ERROR_FAILURE; }
+
+class VolumeSettingsObserver final : public nsISettingsObserver {
+ public:
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSISETTINGSOBSERVER
+
+ protected:
+  ~VolumeSettingsObserver() = default;
+};
+
+NS_IMPL_ISUPPORTS(VolumeSettingsObserver, nsISettingsObserver)
+NS_IMETHODIMP
+VolumeSettingsObserver::ObserveSetting(nsISettingInfo* aSettingInfo) {
+  nsString name;
+  nsString value;
+  aSettingInfo->GetName(name);
+  aSettingInfo->GetValue(value);
+
+  // To process the volume control on each volume categories according to
+  // change of settings
+  char* valueCStr = ToNewUTF8String(value);
+  uint32_t volIndex = atoi(valueCStr);
+  free(valueCStr);
+
+  for (uint32_t idx = 0; idx < MOZ_ARRAY_LENGTH(gVolumeData); ++idx) {
+    if (name.EqualsASCII(gVolumeData[idx].mChannelName)) {
+      RefPtr<AudioManager> audioManager = AudioManager::GetInstance();
+      audioManager->SetStreamVolumeIndex(gVolumeData[idx].mStreamType,
+                                         volIndex);
+      return NS_OK;
+    }
+  }
+
+  return NS_OK;
+}
 
 static void BinderDeadCallback(android::status_t aErr) {
   if (aErr != android::DEAD_OBJECT) {
@@ -583,30 +706,6 @@ nsresult AudioManager::Observe(nsISupports* aSubject, const char* aTopic,
     HandleBluetoothStatusChanged(aSubject, aTopic, address);
     return NS_OK;
   }
-  // To process the volume control on each volume categories according to
-  // change of settings
-  // else if (!strcmp(aTopic, MOZ_SETTINGS_CHANGE_ID)) {//TODO FIXME
-  //   RootedDictionary<dom::SettingChangeNotification>
-  //   setting(nsContentUtils::RootingCxForThread()); if
-  //   (!WrappedJSToDictionary(aSubject, setting)) {
-  //     return NS_OK;
-  //   }
-  //   if (!StringBeginsWith(setting.mKey, NS_LITERAL_STRING("audio.volume.")))
-  //   {
-  //     return NS_OK;
-  //   }
-  //   if (!setting.mValue.isNumber()) {
-  //     return NS_OK;
-  //   }
-
-  //   uint32_t volIndex = setting.mValue.toNumber();
-  //   for (uint32_t idx = 0; idx < MOZ_ARRAY_LENGTH(gVolumeData); ++idx) {
-  //     if (setting.mKey.EqualsASCII(gVolumeData[idx].mChannelName)) {
-  //       SetStreamVolumeIndex(gVolumeData[idx].mStreamType, volIndex);
-  //       return NS_OK;
-  //     }
-  //   }
-  // }
 #ifdef PRODUCT_MANUFACTURER_MTK
   // Notify screen state to audio HAL in order to save power when screen is off.
   else if (!strcmp(aTopic, SCREEN_STATE_CHANGED)) {
@@ -796,10 +895,23 @@ AudioManager::AudioManager()
           obs->AddObserver(this, BLUETOOTH_HFP_WBS_STATUS_CHANGED_ID, false))) {
     NS_WARNING("Failed to add bluetooth hfp WBS status changed observer!");
   }
-  // TODO FIXME
-  // if (NS_FAILED(obs->AddObserver(this, MOZ_SETTINGS_CHANGE_ID, false))) {
-  //  NS_WARNING("Failed to add mozsettings-changed observer!");
-  // }
+
+  // Add volume change observer.
+  nsCOMPtr<nsISettingsManager> settingsManager =
+      do_GetService(SETTINGS_MANAGER);
+  if (!mVolumeAddObserverCallback) {
+    mVolumeAddObserverCallback = new VolumeAddObserverCallback();
+  }
+  if (!mVolumeSettingsObserver) {
+    mVolumeSettingsObserver = new VolumeSettingsObserver();
+  }
+  for (uint32_t idx = 0; idx < MOZ_ARRAY_LENGTH(gVolumeData); ++idx) {
+    // FE use mChannelName only for the key.
+    NS_ConvertASCIItoUTF16 volumeType(gVolumeData[idx].mChannelName);
+    settingsManager->AddObserver(volumeType, mVolumeSettingsObserver,
+                                 mVolumeAddObserverCallback);
+  }
+
 #ifdef PRODUCT_MANUFACTURER_MTK
   if (NS_FAILED(obs->AddObserver(this, SCREEN_STATE_CHANGED, false))) {
     NS_WARNING("Failed to add screen-state-changed observer!");
@@ -848,8 +960,18 @@ AudioManager::~AudioManager() {
           obs->RemoveObserver(this, BLUETOOTH_HFP_WBS_STATUS_CHANGED_ID))) {
     NS_WARNING("Failed to remove bluetooth hfp WBS status changed observer!");
   }
-  if (NS_FAILED(obs->RemoveObserver(this, MOZ_SETTINGS_CHANGE_ID))) {
-    NS_WARNING("Failed to remove mozsettings-changed observer!");
+  // Remove volume change observer.
+  nsCOMPtr<nsISettingsManager> settingsManager =
+      do_GetService(SETTINGS_MANAGER);
+  if (!mVolumeRemoveObserverCallback) {
+    mVolumeRemoveObserverCallback = new VolumeRemoveObserverCallback();
+  }
+  for (uint32_t idx = 0; idx < MOZ_ARRAY_LENGTH(gVolumeData); ++idx) {
+    // We also need to get the value with mChannelName. FE use mChannelName only
+    // for the key.
+    NS_ConvertASCIItoUTF16 volumeType(gVolumeData[idx].mChannelName);
+    settingsManager->RemoveObserver(volumeType, mVolumeSettingsObserver,
+                                    mVolumeRemoveObserverCallback);
   }
 #ifdef PRODUCT_MANUFACTURER_MTK
   if (NS_FAILED(obs->RemoveObserver(this, SCREEN_STATE_CHANGED))) {
@@ -1211,44 +1333,40 @@ nsAutoCString AudioManager::AppendDeviceToVolumeSetting(const char* aName,
 }
 
 void AudioManager::InitVolumeFromDatabase() {
-  // nsresult rv; //TODO: FIXME
-  // nsCOMPtr<nsISettingsService> service = do_GetService(SETTINGS_SERVICE,
-  // &rv); if (NS_WARN_IF(NS_FAILED(rv))) {
-  //   return;
-  // }
+  nsCOMPtr<nsISettingsManager> settingsManager =
+      do_GetService(SETTINGS_MANAGER);
 
-  // nsCOMPtr<nsISettingsServiceLock> lock;
-  // rv = service->CreateLock(nullptr, getter_AddRefs(lock));
-  // if (NS_WARN_IF(NS_FAILED(rv))) {
-  //   return;
-  // }
+  if (!mVolumeInitCallback) {
+    mVolumeInitCallback = new VolumeInitCallback();
+  }
 
-  // RefPtr<VolumeInitCallback> callback = new VolumeInitCallback();
-  // MOZ_ASSERT(callback);
-  // callback->GetPromise()->Then(AbstractThread::MainThread(), __func__, this,
-  //                              &AudioManager::InitDeviceVolumeSucceeded,
-  //                              &AudioManager::InitDeviceVolumeFailed);
+  mVolumeInitCallback->GetPromise()->Then(
+      AbstractThread::MainThread(), __func__, this,
+      &AudioManager::InitDeviceVolumeSucceeded,
+      &AudioManager::InitDeviceVolumeFailed);
 
-  // for (uint32_t idx = 0; idx < MOZ_ARRAY_LENGTH(gVolumeData); ++idx) {
-  //   // We also need to get the value with mChannelName. FE use mChannelName
-  //   only
-  //   // for the key.
-  //   lock->Get(gVolumeData[idx].mChannelName, callback);
+  for (uint32_t idx = 0; idx < MOZ_ARRAY_LENGTH(gVolumeData); ++idx) {
+    // We also need to get the value with mChannelName. FE use mChannelName only
+    // for the key.
+    NS_ConvertASCIItoUTF16 volumeType(gVolumeData[idx].mChannelName);
+    settingsManager->Get(volumeType, mVolumeInitCallback);
 
-  //   VolumeStreamState* streamState =
-  //   mStreamStates[gVolumeData[idx].mStreamType].get(); if
-  //   (!streamState->IsDeviceSpecificVolume()) {
-  //     //volume type has no specific volume for different device
-  //     continue;
-  //   }
+    VolumeStreamState* streamState =
+        mStreamStates[gVolumeData[idx].mStreamType].get();
+    if (!streamState->IsDeviceSpecificVolume()) {
+      // volume type has no specific volume for different device
+      continue;
+    }
 
-  //   for (uint32_t idx2 = 0; idx2 < MOZ_ARRAY_LENGTH(kAudioDeviceInfos);
-  //   ++idx2) {
-  //     lock->Get(AppendDeviceToVolumeSetting(gVolumeData[idx].mChannelName,
-  //                                           kAudioDeviceInfos[idx2].value).get(),
-  //               callback);
-  //   }
-  // }
+    for (uint32_t idx2 = 0; idx2 < MOZ_ARRAY_LENGTH(kAudioDeviceInfos);
+         ++idx2) {
+      NS_ConvertASCIItoUTF16 volumeType(
+          AppendDeviceToVolumeSetting(gVolumeData[idx].mChannelName,
+                                      kAudioDeviceInfos[idx2].value)
+              .get());
+      settingsManager->Get(volumeType, mVolumeInitCallback);
+    }
+  }
 }
 
 void AudioManager::InitDeviceVolumeSucceeded() {
@@ -1268,62 +1386,72 @@ void AudioManager::MaybeUpdateVolumeSettingToDatabase(bool aForce) {
     return;
   }
 
-  // TODO FIXME
-  // nsCOMPtr<nsISettingsServiceLock> lock = GetSettingServiceLock();
-  // if (NS_WARN_IF(!lock)) {
-  //   return;
-  // }
+  // Send events to update the Gaia volumes
+  nsTArray<RefPtr<nsISettingInfo>> settings;
 
-  // // Send events to update the Gaia volumes
-  // JS::Rooted<JS::Value> value(nsContentUtils::RootingCx());
-  // uint32_t volume = 0;
-  // for (uint32_t idx = 0; idx < MOZ_ARRAY_LENGTH(gVolumeData); ++idx) {
-  //   int32_t streamType = gVolumeData[idx].mStreamType;
-  //   VolumeStreamState* streamState = mStreamStates[streamType].get();
+  uint32_t volume = 0;
+  for (uint32_t idx = 0; idx < MOZ_ARRAY_LENGTH(gVolumeData); ++idx) {
+    int32_t streamType = gVolumeData[idx].mStreamType;
+    VolumeStreamState* streamState = mStreamStates[streamType].get();
 
-  //   bool isVolumeUpdated = streamState->IsDevicesChanged() &&
-  //   streamState->IsDeviceSpecificVolume(); if (!aForce && !isVolumeUpdated) {
-  //     continue;
-  //   }
-  //   // Get volume index of active device.
-  //   volume = streamState->GetVolumeIndex();
-  //   value.setInt32(volume);
-  //   lock->Set(gVolumeData[idx].mChannelName, value, nullptr, nullptr);
-  // }
+    bool isVolumeUpdated = streamState->IsDevicesChanged() &&
+                           streamState->IsDeviceSpecificVolume();
+    if (!aForce && !isVolumeUpdated) {
+      continue;
+    }
+    // Get volume index of active device.
+    volume = streamState->GetVolumeIndex();
 
-  // // For reducing the code dependency, Gaia doesn't need to know the
-  // // device volume, it only need to care about different volume categories.
-  // // However, we need to send the setting volume to the permanent database,
-  // // so that we can store the volume setting even if the phone reboots.
+    NS_ConvertASCIItoUTF16 volumeType(gVolumeData[idx].mChannelName);
+    NS_ConvertASCIItoUTF16 volumeValue(std::to_string(volume).c_str());
+    RefPtr<nsISettingInfo> settingInfo =
+        new SettingInfo(volumeType, volumeValue);
+    settings.AppendElement(settingInfo);
+  }
 
-  // for (uint32_t idx = 0; idx < MOZ_ARRAY_LENGTH(gVolumeData); ++idx) {
-  //   int32_t  streamType = gVolumeData[idx].mStreamType;
-  //   VolumeStreamState* streamState = mStreamStates[streamType].get();
+  // For reducing the code dependency, Gaia doesn't need to know the
+  // device volume, it only need to care about different volume categories.
+  // However, we need to send the setting volume to the permanent database,
+  // so that we can store the volume setting even if the phone reboots.
 
-  //   uint32_t remainingDevices = streamState->GetDevicesWithVolumeChange();
-  //   for (uint32_t i = 0; remainingDevices != 0; i++) {
-  //     uint32_t device = (1 << i);
-  //     if ((device & remainingDevices) == 0) {
-  //       continue;
-  //     }
-  //     remainingDevices &= ~device;
-  //     if (!mAudioDeviceTableIdMaps.Get(device, nullptr)) {
-  //       continue;
-  //     }
-  //     volume = streamState->GetVolumeIndex(device);
-  //     value.setInt32(volume);
-  //     lock->Set(AppendDeviceToVolumeSetting(gVolumeData[idx].mChannelName,
-  //                                           device).get(),
-  //               value, nullptr, nullptr);
-  //   }
-  // }
+  for (uint32_t idx = 0; idx < MOZ_ARRAY_LENGTH(gVolumeData); ++idx) {
+    int32_t streamType = gVolumeData[idx].mStreamType;
+    VolumeStreamState* streamState = mStreamStates[streamType].get();
 
-  // // Clear changed flags
-  // for (uint32_t idx = 0; idx < MOZ_ARRAY_LENGTH(gVolumeData); ++idx) {
-  //   int32_t  streamType = gVolumeData[idx].mStreamType;
-  //   mStreamStates[streamType]->ClearDevicesChanged();
-  //   mStreamStates[streamType]->ClearDevicesWithVolumeChange();
-  // }
+    uint32_t remainingDevices = streamState->GetDevicesWithVolumeChange();
+    for (uint32_t i = 0; remainingDevices != 0; i++) {
+      uint32_t device = (1 << i);
+      if ((device & remainingDevices) == 0) {
+        continue;
+      }
+      remainingDevices &= ~device;
+      if (!mAudioDeviceTableIdMaps.Get(device, nullptr)) {
+        continue;
+      }
+      volume = streamState->GetVolumeIndex(device);
+      NS_ConvertASCIItoUTF16 volumeType(
+          AppendDeviceToVolumeSetting(gVolumeData[idx].mChannelName, device)
+              .get());
+      NS_ConvertASCIItoUTF16 volumeValue(std::to_string(volume).c_str());
+      RefPtr<nsISettingInfo> settingInfo =
+          new SettingInfo(volumeType, volumeValue);
+      settings.AppendElement(settingInfo);
+    }
+  }
+
+  if (settings.Length() > 0) {
+    nsCOMPtr<nsISettingsManager> settingsManager =
+        do_GetService(SETTINGS_MANAGER);
+    mVolumeSetCallback = new VolumeSetCallback();
+    settingsManager->Set(settings, mVolumeSetCallback);
+  }
+
+  // Clear changed flags
+  for (uint32_t idx = 0; idx < MOZ_ARRAY_LENGTH(gVolumeData); ++idx) {
+    int32_t streamType = gVolumeData[idx].mStreamType;
+    mStreamStates[streamType]->ClearDevicesChanged();
+    mStreamStates[streamType]->ClearDevicesWithVolumeChange();
+  }
 }
 
 void AudioManager::UpdateCachedActiveDevicesForStreams() {
@@ -1599,12 +1727,12 @@ AudioManager::SetHacMode(bool aHacMode) {
 
 static nsresult SetAudioSystemParameters(
     audio_io_handle_t aIoHandle, const android::String8& aKeyValuePairs) {
-  LOG("Set audio system parameter: %s", aKeyValuePairs.string());
+  ANDLOG("Set audio system parameter: %s", aKeyValuePairs.string());
   android::status_t status =
       AudioSystem::setParameters(aIoHandle, aKeyValuePairs);
   if (status != android::OK) {
-    LOG("Failed to set parameter: %s, error status: %d",
-        aKeyValuePairs.string(), status);
+    ANDLOG("Failed to set parameter: %s, error status: %d",
+           aKeyValuePairs.string(), status);
     return NS_ERROR_FAILURE;
   }
   return NS_OK;
@@ -1624,7 +1752,7 @@ nsresult AudioManager::SetParameters(const char* aFormat, ...) {
   va_end(args);
 
   if (status != android::OK) {
-    LOG("Invalid parameter, error status: %d", status);
+    LOGE("Invalid parameter, error status: %d", status);
     return NS_ERROR_FAILURE;
   }
   return SetAudioSystemParameters(0, cmd);

@@ -25,8 +25,6 @@
 #include "mozilla/dom/WakeLock.h"
 #include "android_audio/AudioSystem.h"
 
-class nsISettingsServiceLock;
-
 namespace mozilla {
 namespace hal {
 class SwitchEvent;
@@ -38,6 +36,10 @@ namespace gonk {
 
 class AudioPortCallbackHolder;
 class VolumeInitCallback;
+class VolumeSetCallback;
+class VolumeAddObserverCallback;
+class VolumeRemoveObserverCallback;
+class VolumeSettingsObserver;
 
 class AudioManager final : public nsIAudioManager, public nsIObserver {
  public:
@@ -187,9 +189,16 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
   AudioManager();
   ~AudioManager();
 
+  RefPtr<VolumeInitCallback> mVolumeInitCallback;
+  RefPtr<VolumeSetCallback> mVolumeSetCallback;
+  RefPtr<VolumeAddObserverCallback> mVolumeAddObserverCallback;
+  RefPtr<VolumeRemoveObserverCallback> mVolumeRemoveObserverCallback;
+  RefPtr<VolumeSettingsObserver> mVolumeSettingsObserver;
+
   friend class VolumeInitCallback;
   friend class VolumeStreamState;
   friend class GonkAudioPortCallback;
+  friend class VolumeSettingsObserver;
 };
 
 } /* namespace gonk */
