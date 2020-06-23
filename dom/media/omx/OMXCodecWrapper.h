@@ -315,10 +315,8 @@ class OMXVideoEncoder final : public OMXCodecWrapper {
                   int64_t aTimestamp, int aInputFlags = 0,
                   bool* aSendEOS = nullptr);
 
-#if ANDROID_VERSION >= 18
   /** Set encoding bitrate (in kbps). */
   nsresult SetBitrate(int32_t aKbps);
-#endif
 
   /**
    * Ask codec to generate an instantaneous decoding refresh (IDR) frame

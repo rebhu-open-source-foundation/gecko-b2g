@@ -16,9 +16,7 @@
 #include <utils/RefBase.h>
 
 // Gecko
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 21
-#  include "GonkBufferQueueProducer.h"
-#endif
+#include "GonkBufferQueueProducer.h"
 #include "GrallocImages.h"
 #include "mozilla/layers/TextureClient.h"
 #include "mozilla/Mutex.h"
@@ -155,39 +153,25 @@ status_t WebrtcOMXDecoder::ConfigureWithPicDimensions(int32_t aWidth,
   mWidth = aWidth;
   mHeight = aHeight;
 
-  sp<Surface> surface = nullptr;
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 21
   sp<IGraphicBufferProducer> producer;
   sp<IGonkGraphicBufferConsumer> consumer;
   GonkBufferQueue::createBufferQueue(&producer, &consumer);
   mNativeWindow = new GonkNativeWindow(consumer);
-#else
-  mNativeWindow = new GonkNativeWindow();
-#endif
-  if (mNativeWindow.get()) {
-    // listen to buffers queued by MediaCodec::RenderOutputBufferAndRelease().
-    mNativeWindow->setNewFrameCallback(this);
-    // XXX remove buffer changes after a better solution lands - bug 1009420
-#if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 21
-    static_cast<GonkBufferQueueProducer*>(producer.get())
-        ->setSynchronousMode(false);
-    // More spare buffers to avoid OMX decoder waiting for native window
-    consumer->setMaxAcquiredBufferCount(WEBRTC_OMX_MIN_DECODE_BUFFERS);
-    surface = new Surface(producer);
-#else
-    sp<GonkBufferQueue> bq = mNativeWindow->getBufferQueue();
-    bq->setSynchronousMode(false);
-    // More spare buffers to avoid OMX decoder waiting for native window
-    bq->setMaxAcquiredBufferCount(WEBRTC_OMX_MIN_DECODE_BUFFERS);
-    surface = new Surface(bq);
-#endif
+  // listen to buffers queued by MediaCodec::RenderOutputBufferAndRelease().
+  mNativeWindow->setNewFrameCallback(this);
+  // XXX remove buffer changes after a better solution lands - bug 1009420
+
+  static_cast<GonkBufferQueueProducer*>(producer.get())
+      ->setSynchronousMode(false);
+  // More spare buffers to avoid OMX decoder waiting for native window
+  consumer->setMaxAcquiredBufferCount(WEBRTC_OMX_MIN_DECODE_BUFFERS);
+  sp<Surface> surface = new Surface(producer);
+  status_t err = mCodec->configure(config, surface, nullptr, 0);
+  if (err != OK) {
+    return err;
   }
-  status_t result = mCodec->configure(config, surface, nullptr, 0);
-  if (result == OK) {
-    CODEC_LOGD("OMX:%p decoder configured", this);
-    result = Start();
-  }
-  return result;
+  CODEC_LOGD("OMX:%p decoder configured", this);
+  return Start();
 }
 
 status_t WebrtcOMXDecoder::FillInput(const webrtc::EncodedImage& aEncoded,
