@@ -149,7 +149,7 @@ AlertsService.prototype = {
       observer: aAlertListener,
       title: aTitle,
       text: aText,
-      manifestURL: aDetails.manifestURL,
+      origin: aDetails.origin,
       imageURL: aImageURL,
       lang: aDetails.lang || undefined,
       id: aDetails.id || undefined,
@@ -222,7 +222,7 @@ AlertsService.prototype = {
         }
       }
       if (topic === kTopicAlertFinished && listener.dbId) {
-        notificationStorage.delete(listener.manifestURL, listener.dbId);
+        notificationStorage.delete(listener.origin, listener.dbId);
       }
     }
 

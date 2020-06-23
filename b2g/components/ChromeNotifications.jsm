@@ -58,6 +58,7 @@ var ChromeNotifications = {
         null,
         {
           id: notification.alertName,
+          origin: notification.origin,
           dir: notification.dir,
           lang: notification.lang,
           tag: notification.tag,

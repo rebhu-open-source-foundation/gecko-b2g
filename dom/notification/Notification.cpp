@@ -1386,6 +1386,28 @@ void Notification::ShowInternal() {
   nsCOMPtr<nsIObserver> alertObserver =
       new NotificationObserver(observer, GetPrincipal(), IsInPrivateBrowsing());
 
+  // In the case of IPC, the parent process uses the cookie to map to
+  // nsIObserver. Thus the cookie must be unique to differentiate observers.
+  nsString uniqueCookie = NS_LITERAL_STRING("notification:");
+  uniqueCookie.AppendInt(sCount++);
+  bool inPrivateBrowsing = IsInPrivateBrowsing();
+
+  bool requireInteraction = mRequireInteraction;
+  if (!StaticPrefs::dom_webnotifications_requireinteraction_enabled()) {
+    requireInteraction = false;
+  }
+
+  nsAutoString alertName;
+  GetAlertName(alertName);
+  nsCOMPtr<nsIAlertNotification> alert =
+      do_CreateInstance(ALERT_NOTIFICATION_CONTRACTID);
+  NS_ENSURE_TRUE_VOID(alert);
+  nsIPrincipal* principal = GetPrincipal();
+  rv = alert->Init(alertName, iconUrl, mTitle, mBody, true, uniqueCookie,
+                   DirectionToString(mDir), mLang, mDataAsBase64,
+                   GetPrincipal(), inPrivateBrowsing, requireInteraction);
+  NS_ENSURE_SUCCESS_VOID(rv);
+
 #ifdef MOZ_B2G
   // TODO: We need to pass mManifestURL when appService is ready for gecko-dev.
   // We also need to pass ServiceWorkerRegistrationID, RequireInteraction,
@@ -1398,6 +1420,7 @@ void Notification::ShowInternal() {
     AppNotificationServiceOptions ops;
     ops.mTextClickable = true;
     GetAlertName(ops.mId);
+    Notification::GetOrigin(principal, ops.mOrigin);
     ops.mDbId = mID;
     ops.mDir = DirectionToString(mDir);
     ops.mLang = mLang;
@@ -1420,27 +1443,6 @@ void Notification::ShowInternal() {
     return;
   }
 #endif
-  // In the case of IPC, the parent process uses the cookie to map to
-  // nsIObserver. Thus the cookie must be unique to differentiate observers.
-  nsString uniqueCookie = NS_LITERAL_STRING("notification:");
-  uniqueCookie.AppendInt(sCount++);
-  bool inPrivateBrowsing = IsInPrivateBrowsing();
-
-  bool requireInteraction = mRequireInteraction;
-  if (!StaticPrefs::dom_webnotifications_requireinteraction_enabled()) {
-    requireInteraction = false;
-  }
-
-  nsAutoString alertName;
-  GetAlertName(alertName);
-  nsCOMPtr<nsIAlertNotification> alert =
-      do_CreateInstance(ALERT_NOTIFICATION_CONTRACTID);
-  NS_ENSURE_TRUE_VOID(alert);
-  nsIPrincipal* principal = GetPrincipal();
-  rv = alert->Init(alertName, iconUrl, mTitle, mBody, true, uniqueCookie,
-                   DirectionToString(mDir), mLang, mDataAsBase64,
-                   GetPrincipal(), inPrivateBrowsing, requireInteraction);
-  NS_ENSURE_SUCCESS_VOID(rv);
 
   if (isPersistent) {
     nsAutoString persistentData;

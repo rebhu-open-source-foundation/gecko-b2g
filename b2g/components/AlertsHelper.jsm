@@ -167,7 +167,7 @@ var AlertsHelper = {
           }
         }
         if (detail.type === kDesktopNotificationClose && listener.dbId) {
-          notificationStorage.delete(listener.manifestURL, listener.dbId);
+          notificationStorage.delete(listener.origin, listener.dbId);
         }
       }
     }
@@ -223,7 +223,7 @@ var AlertsHelper = {
     dir,
     lang,
     dataObj,
-    manifestURL,
+    origin,
     timestamp,
     behavior,
     serviceWorkerRegistrationScope
@@ -244,9 +244,7 @@ var AlertsHelper = {
       text,
       dir,
       lang,
-      appName: null,
-      appIcon: null,
-      manifestURL,
+      origin: origin,
       timestamp,
       data: dataObj,
       mozbehavior: behavior,
@@ -289,7 +287,7 @@ var AlertsHelper = {
       mm: aMessage.target,
       title: data.title,
       text: data.text,
-      manifestURL: details.manifestURL,
+      origin: details.origin,
       imageURL: data.imageURL,
       lang: details.lang || undefined,
       id: details.id || undefined,
@@ -311,7 +309,7 @@ var AlertsHelper = {
       details.dir,
       details.lang,
       details.data,
-      details.manifestURL,
+      details.origin,
       details.timestamp,
       details.mozbehavior,
       details.serviceWorkerRegistrationScope
