@@ -8804,6 +8804,21 @@ nsresult nsDocShell::InternalLoad(nsDocShellLoadState* aLoadState,
 /* static */
 bool nsDocShell::CanLoadInParentProcess(nsIURI* aURI) {
   nsCOMPtr<nsIURI> uri = aURI;
+#if defined(MOZ_B2G)
+  // On b2g, allow loading of the https:// served iframe used to
+  // register a service worker, since service workers can't be
+  // registered by chrome:// documents.
+  // This url needs to be set in the b2g.system_sw_frame_url preference.
+  nsAutoCString swFrame;
+  nsresult rv = Preferences::GetCString("b2g.system_sw_frame_url", swFrame);
+  if (NS_SUCCEEDED(rv)) {
+    nsAutoCString spec;
+    uri->GetSpec(spec);
+    if (spec == swFrame) {
+      return true;
+    }
+  }
+#endif
   // In e10s, in the parent process, we refuse to load anything other than
   // "safe" resources that we ship or trust enough to give "special" URLs.
   bool canLoadInParent = false;
