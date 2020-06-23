@@ -10,7 +10,7 @@
         "@mozilla.org/telephony/gonktelephonyservice;1"
 %}
 
-[scriptable, uuid(0eebc599-38f6-4560-b6a6-b4fa4a2643ab)]
+[scriptable, uuid(7370503c-cad2-4b6c-a31c-3b2b4a249079)]
 interface nsIGonkTelephonyService : nsITelephonyService
 {
   void notifyCallRing();
@@ -27,6 +27,15 @@ interface nsIGonkTelephonyService : nsITelephonyService
                                   in long index,
                                   in long type,
                                   in AString number);
+  /**
+   * Notify when RIL receives srvcc state notification.
+   *
+   * @param clientId
+            Indicate the RIL client, 0 ~ (number of client - 1).
+   * @param state
+   *        One of the nsIRilIndicationResult#SRVCC_STATE_HANDOVER_* values.
+   */
+  void notifySrvccState(in unsigned long clientId, in long state);
 
   void notifyUssdReceived(in unsigned long clientId, in AString message,
                           in boolean sessionEnded);

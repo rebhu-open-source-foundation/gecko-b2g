@@ -2686,6 +2686,15 @@ TelephonyService.prototype = {
                              aIndex, aType, aNumber]);
   },
 
+  notifySrvccState: function(aClientId, aState) {
+    if (DEBUG) {
+      debug("notifySrvccState for " + aClientId + ": " +
+        " (aState : " + aState + ")");
+    }
+    /*this._notifyAllListeners("srvccStateNotification",
+                             [aClientId, aState]);*/
+  },
+
   notifyUssdReceived: function(aClientId, aMessage, aSessionEnded) {
     if (DEBUG) {
       debug("notifyUssdReceived for " + aClientId + ": " +

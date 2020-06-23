@@ -1140,6 +1140,18 @@ NS_IMETHODIMP nsRilWorker::AcknowledgeGsmSms(int32_t serial, bool success,
   return NS_OK;
 }
 
+NS_IMETHODIMP nsRilWorker::SetSuppServiceNotifications(int32_t serial,
+                                                    bool enable) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_SET_SUPP_SVC_NOTIFICATION "
+       "enable = %d",serial, enable);
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->setSuppServiceNotifications(serial, enable);
+  return NS_OK;
+}
+
 nsRilWorker::~nsRilWorker() {
   INFO("Destructor nsRilWorker");
   mRilResponse = nullptr;

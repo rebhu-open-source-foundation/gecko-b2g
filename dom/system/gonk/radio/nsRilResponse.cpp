@@ -889,6 +889,7 @@ Return<void> nsRilResponse::setSuppServiceNotificationsResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
+  defaultResponse(rspInfo, u"setSuppServiceNotifications"_ns);
   return Void();
 }
 

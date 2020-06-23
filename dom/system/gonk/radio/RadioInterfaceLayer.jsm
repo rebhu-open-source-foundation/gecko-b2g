@@ -826,6 +826,11 @@ RadioInterface.prototype = {
                                                      message.type,
                                                      message.number);
         break;
+      case "srvccStateNotify":
+        let srvccState = message.srvccState;
+        if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_SRVCC_STATE_NOTIFY srvccState = " + JSON.stringify(srvccState));
+        gTelephonyService.notifySrvccState(this.clientId, srvccState);
+        break;
       case "ussdreceived":
         if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_ON_USSD typeCode = " + message.typeCode + " , message = " + message.message);
         // Per ril.h the USSD session is assumed to persist if
@@ -998,11 +1003,6 @@ RadioInterface.prototype = {
         // Gecko do not handle this UNSL command.
         if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_UICC_SUBSCRIPTION_STATUS_CHANGED activate = " + JSON.stringify(activate));
         break;
-      case "srvccStateNotify":
-        // Gecko do not handle this UNSL command.
-        let srvccState = message.srvccState;
-        if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_SRVCC_STATE_NOTIFY srvccState = " + JSON.stringify(srvccState));
-        break;
       case "hardwareConfigChanged":
         // Gecko do not handle this UNSL command.
         let HWConfigs = message.getHardwardConfig();
@@ -1083,6 +1083,8 @@ RadioInterface.prototype = {
       this.sendRilRequest("getBasebandVersion", null);
 
       this.updateCellBroadcastConfig();
+
+      this.sendRilRequest("setSuppServiceNotifications", {enable: true});
 
       if (libcutils.property_get("ro.moz.ril.data_reg_on_demand", "false") === "true" &&
         !this._attachDataRegistration.result) {
@@ -2878,6 +2880,14 @@ RadioInterface.prototype = {
         // This is not a ril reponse.
         result = response;
         break;
+      case "setSuppServiceNotifications":
+        if (response.errorMsg == 0) {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_SET_SUPP_SVC_NOTIFICATION");
+          result = response;
+        } else {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_SET_SUPP_SVC_NOTIFICATION error = " + response.errorMsg);
+        }
+        break;
       default:
     }
 
@@ -4439,6 +4449,10 @@ RadioInterface.prototype = {
         } else {
           this.rilworker.setCellInfoListRate(message.rilMessageToken);
         }
+        break;
+      case "setSuppServiceNotifications":
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SET_SUPP_SVC_NOTIFICATION enable = " + message.enable);
+        this.rilworker.setSuppServiceNotifications(message.rilMessageToken, message.enable);
         break;
       case "setCellBroadcastDisabled":
         // This is not a ril request.
