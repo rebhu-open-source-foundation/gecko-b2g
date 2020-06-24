@@ -5,6 +5,8 @@
 
 #include "OMXCodecDescriptorUtil.h"
 
+#include <media/stagefright/foundation/ABuffer.h>
+
 namespace android {
 
 // The utility functions in this file concatenate two AVC/H.264 parameter sets,
@@ -171,7 +173,7 @@ status_t GenerateAVCDescriptorBlob(sp<AMessage>& aConfigData,
         pps = paramSet;
         break;
       default:
-        NS_NOTREACHED("Should not get here!");
+        MOZ_ASSERT_UNREACHABLE("Should not get here!");
     }
   }
 

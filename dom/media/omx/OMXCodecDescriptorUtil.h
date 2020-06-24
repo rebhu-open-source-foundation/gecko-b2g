@@ -6,8 +6,8 @@
 #ifndef OMXCodecDescriptorUtil_h_
 #define OMXCodecDescriptorUtil_h_
 
-#include <stagefright/foundation/AMessage.h>
-#include <stagefright/MediaErrors.h>
+#include <media/stagefright/foundation/AMessage.h>
+#include <media/stagefright/MediaErrors.h>
 
 #include <nsTArray.h>
 

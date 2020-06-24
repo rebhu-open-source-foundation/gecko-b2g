@@ -9,11 +9,11 @@
 
 #include <binder/ProcessState.h>
 #include <cutils/properties.h>
-#include <media/ICrypto.h>
-#include <media/IOMX.h>
+#include <media/MediaCodecBuffer.h>
+#include <media/stagefright/MediaDefs.h>
+#include <media/stagefright/MediaErrors.h>
+#include <mediadrm/ICrypto.h>
 #include <OMX_Component.h>
-#include <stagefright/MediaDefs.h>
-#include <stagefright/MediaErrors.h>
 
 #include "AudioChannelFormat.h"
 #include "GrallocImages.h"
@@ -41,7 +41,7 @@ namespace android {
 
 const char* MEDIA_MIMETYPE_AUDIO_EVRC = "audio/evrc";
 
-enum BufferState { BUFFER_OK, BUFFER_FAIL, WAIT_FOR_NEW_BUFFER };
+enum MediaBufferState { BUFFER_OK, BUFFER_FAIL, WAIT_FOR_NEW_BUFFER };
 
 bool OMXCodecReservation::ReserveOMXCodec() {
   if (!mClient) {
@@ -74,43 +74,43 @@ void OMXCodecReservation::ReleaseOMXCodec() {
 }
 
 OMXAudioEncoder* OMXCodecWrapper::CreateAACEncoder() {
-  nsAutoPtr<OMXAudioEncoder> aac(new OMXAudioEncoder(CodecType::AAC_ENC));
+  UniquePtr<OMXAudioEncoder> aac(new OMXAudioEncoder(CodecType::AAC_ENC));
   // Return the object only when media codec is valid.
   NS_ENSURE_TRUE(aac->IsValid(), nullptr);
 
-  return aac.forget();
+  return aac.release();
 }
 
 OMXAudioEncoder* OMXCodecWrapper::CreateAMRNBEncoder() {
-  nsAutoPtr<OMXAudioEncoder> amr(new OMXAudioEncoder(CodecType::AMR_NB_ENC));
+  UniquePtr<OMXAudioEncoder> amr(new OMXAudioEncoder(CodecType::AMR_NB_ENC));
   // Return the object only when media codec is valid.
   NS_ENSURE_TRUE(amr->IsValid(), nullptr);
 
-  return amr.forget();
+  return amr.release();
 }
 
 OMXAudioEncoder* OMXCodecWrapper::CreateAMRWBEncoder() {
-  nsAutoPtr<OMXAudioEncoder> amr(new OMXAudioEncoder(CodecType::AMR_WB_ENC));
+  UniquePtr<OMXAudioEncoder> amr(new OMXAudioEncoder(CodecType::AMR_WB_ENC));
   // Return the object only when media codec is valid.
   NS_ENSURE_TRUE(amr->IsValid(), nullptr);
 
-  return amr.forget();
+  return amr.release();
 }
 
 OMXAudioEncoder* OMXCodecWrapper::CreateEVRCEncoder() {
-  nsAutoPtr<OMXAudioEncoder> evrc(new OMXAudioEncoder(CodecType::EVRC_ENC));
+  UniquePtr<OMXAudioEncoder> evrc(new OMXAudioEncoder(CodecType::EVRC_ENC));
   // Return the object only when media codec is valid.
   NS_ENSURE_TRUE(evrc->IsValid(), nullptr);
 
-  return evrc.forget();
+  return evrc.release();
 }
 
 OMXVideoEncoder* OMXCodecWrapper::CreateAVCEncoder() {
-  nsAutoPtr<OMXVideoEncoder> avc(new OMXVideoEncoder(CodecType::AVC_ENC));
+  UniquePtr<OMXVideoEncoder> avc(new OMXVideoEncoder(CodecType::AVC_ENC));
   // Return the object only when media codec is valid.
   NS_ENSURE_TRUE(avc->IsValid(), nullptr);
 
-  return avc.forget();
+  return avc.release();
 }
 
 OMXCodecWrapper::OMXCodecWrapper(CodecType aCodecType)
@@ -437,7 +437,7 @@ static nsresult ConvertSourceSurfaceToNV12(
   switch (aSurface->GetFormat()) {
     case SurfaceFormat::B8G8R8A8:
     case SurfaceFormat::B8G8R8X8:
-      rv = libyuv::ARGBToNV12(static_cast<uint8*>(map.GetData()),
+      rv = libyuv::ARGBToNV12(static_cast<uint8_t*>(map.GetData()),
                               map.GetStride(), y, yStride, uv, uvStride, width,
                               height);
       break;
@@ -509,7 +509,7 @@ nsresult OMXVideoEncoder::Encode(const Image* aImage, int aWidth, int aHeight,
   }
   NS_ENSURE_TRUE(result == OK, NS_ERROR_FAILURE);
 
-  const sp<ABuffer>& inBuf = mInputBufs.itemAt(index);
+  const sp<MediaCodecBuffer>& inBuf = mInputBufs.itemAt(index);
   uint8_t* dst = inBuf->data();
   size_t dstSize = inBuf->capacity();
 
@@ -553,7 +553,7 @@ nsresult OMXVideoEncoder::Encode(const Image* aImage, int aWidth, int aHeight,
 }
 
 status_t OMXVideoEncoder::AppendDecoderConfig(nsTArray<uint8_t>* aOutputBuf,
-                                              ABuffer* aData) {
+                                              MediaCodecBuffer* aData) {
   // Codec already parsed aData. Using its result makes generating config blob
   // much easier.
   sp<AMessage> format;
@@ -671,7 +671,8 @@ nsresult OMXAudioEncoder::Configure(int aChannels, int aInputSampleRate,
 
 class InputBufferHelper final {
  public:
-  InputBufferHelper(sp<MediaCodec>& aCodec, Vector<sp<ABuffer> >& aBuffers,
+  InputBufferHelper(sp<MediaCodec>& aCodec,
+                    Vector<sp<MediaCodecBuffer> >& aBuffers,
                     OMXAudioEncoder& aEncoder, int aInputFlags)
       : mCodec(aCodec),
         mBuffers(aBuffers),
@@ -694,7 +695,7 @@ class InputBufferHelper final {
     status_t result =
         mCodec->dequeueInputBuffer(&mIndex, INPUT_BUFFER_TIMEOUT_US);
     NS_ENSURE_TRUE(result == OK, result);
-    sp<ABuffer> inBuf = mBuffers.itemAt(mIndex);
+    sp<MediaCodecBuffer> inBuf = mBuffers.itemAt(mIndex);
     mData = inBuf->data();
     mCapicity = inBuf->capacity();
     mOffset = 0;
@@ -719,7 +720,7 @@ class InputBufferHelper final {
   // and then send the result to OMX input buffer (or buffers if one buffer is
   // not enough). aSamplesRead will be the number of samples that have been read
   // from aChunk.
-  BufferState ReadChunk(AudioChunk& aChunk, size_t* aSamplesRead) {
+  MediaBufferState ReadChunk(AudioChunk& aChunk, size_t* aSamplesRead) {
     size_t chunkSamples = aChunk.GetDuration();
     size_t bytesToCopy = chunkSamples * mOMXAEncoder.mResamplingRatio *
                          mOMXAEncoder.mChannels * sizeof(AudioDataValue);
@@ -879,7 +880,7 @@ class InputBufferHelper final {
   }
 
   sp<MediaCodec>& mCodec;
-  Vector<sp<ABuffer> >& mBuffers;
+  Vector<sp<MediaCodecBuffer> >& mBuffers;
   OMXAudioEncoder& mOMXAEncoder;
   int mInputFlags;
   size_t mIndex;
@@ -921,7 +922,7 @@ nsresult OMXAudioEncoder::Encode(AudioSegment& aSegment, int aInputFlags,
     // Copy input PCM data to input buffer until queue is empty.
     AudioSegment::ChunkIterator iter(const_cast<AudioSegment&>(aSegment));
     while (!iter.IsEnded()) {
-      BufferState result = buffer.ReadChunk(*iter, &sourceSamplesCopied);
+      MediaBufferState result = buffer.ReadChunk(*iter, &sourceSamplesCopied);
       if (result == WAIT_FOR_NEW_BUFFER) {
         // All input buffers are full. Caller can try again later after
         // consuming some output buffers.
@@ -960,7 +961,7 @@ nsresult OMXAudioEncoder::Encode(AudioSegment& aSegment, int aInputFlags,
 // AAC. The hard-coded bytes are copied from
 // MPEG4Writer::Track::writeMp4aEsdsBox() implementation in libstagefright.
 status_t OMXAudioEncoder::AppendDecoderConfig(nsTArray<uint8_t>* aOutputBuf,
-                                              ABuffer* aData) {
+                                              MediaCodecBuffer* aData) {
   MOZ_ASSERT(aData);
 
   const size_t csdSize = aData->size();
@@ -1050,7 +1051,7 @@ nsresult OMXCodecWrapper::GetNextEncodedFrame(nsTArray<uint8_t>* aOutputBuf,
 
   if (aOutputBuf) {
     aOutputBuf->Clear();
-    const sp<ABuffer> omxBuf = mOutputBufs.itemAt(index);
+    const sp<MediaCodecBuffer> omxBuf = mOutputBufs.itemAt(index);
     if (outFlags & MediaCodec::BUFFER_FLAG_CODECCONFIG) {
       // Codec specific data.
       if (AppendDecoderConfig(aOutputBuf, omxBuf.get()) != OK) {

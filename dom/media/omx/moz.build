@@ -1,0 +1,49 @@
+# -*- Mode: python; c-basic-offset: 4; indent-tabs-mode: nil; tab-width: 40 -*-
+# vim: set filetype=python:
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+EXPORTS += [
+    'OMXCodecWrapper.h',
+]
+
+LOCAL_INCLUDES += [
+    '/dom/base',
+    '/dom/html',
+    '/ipc/chromium/src',
+    '/media/libyuv/libyuv/include',
+]
+
+LOCAL_INCLUDES += [
+    '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
+        'frameworks/native/include/media/openmax',
+        'out/soong/.intermediates/hardware/interfaces/graphics/bufferqueue/1.0/android.hardware.graphics.bufferqueue@1.0_genc++_headers/gen',
+        'out/soong/.intermediates/hardware/interfaces/graphics/bufferqueue/2.0/android.hardware.graphics.bufferqueue@2.0_genc++_headers/gen',
+        'out/soong/.intermediates/hardware/interfaces/graphics/common/1.0/android.hardware.graphics.common@1.0_genc++_headers/gen',
+        'out/soong/.intermediates/hardware/interfaces/graphics/common/1.1/android.hardware.graphics.common@1.1_genc++_headers/gen',
+        'out/soong/.intermediates/hardware/interfaces/graphics/common/1.2/android.hardware.graphics.common@1.2_genc++_headers/gen',
+        'out/soong/.intermediates/hardware/interfaces/media/1.0/android.hardware.media@1.0_genc++_headers/gen',
+        'system/libhidl/transport/token/1.0/utils/include',
+    ]
+]
+
+SOURCES += [
+    'OMXCodecDescriptorUtil.cpp',
+    'OMXCodecWrapper.cpp',
+]
+
+include('/ipc/chromium/chromium-config.mozbuild')
+
+# Suppress some GCC/clang warnings being treated as errors:
+#  - about attributes on forward declarations for types that are already
+#    defined, which complains about an important MOZ_EXPORT for android::AString
+#  - about multi-character constants which are used in codec-related code
+#    and are part of Android's libstagefright API style.
+if CONFIG['GNU_CC'] or CONFIG['CLANG_CL']:
+    CXXFLAGS += [
+        '-Wno-error=attributes',
+        '-Wno-multichar'
+    ]
+
+FINAL_LIBRARY = 'xul'
