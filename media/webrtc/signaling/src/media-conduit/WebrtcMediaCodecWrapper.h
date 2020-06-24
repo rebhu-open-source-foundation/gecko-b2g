@@ -126,8 +126,6 @@ class WebrtcOMXDecoder final
   status_t Start();
   status_t Stop();
 
-  int mWidth;
-  int mHeight;
   bool mStarted;
   bool mEnding;
   const char* mMimeType;

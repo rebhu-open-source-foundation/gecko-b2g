@@ -119,9 +119,7 @@ WebrtcOMXDecoder::~WebrtcOMXDecoder() {
 }
 
 WebrtcOMXDecoder::WebrtcOMXDecoder(const char* aMimeType)
-    : mWidth(0),
-      mHeight(0),
-      mStarted(false),
+    : mStarted(false),
       mEnding(false),
       mMimeType(aMimeType),
       mCallback(nullptr),
@@ -149,8 +147,6 @@ status_t WebrtcOMXDecoder::ConfigureWithPicDimensions(int32_t aWidth,
   config->setString("mime", mMimeType);
   config->setInt32("width", aWidth);
   config->setInt32("height", aHeight);
-  mWidth = aWidth;
-  mHeight = aHeight;
 
   sp<IGraphicBufferProducer> producer;
   sp<IGonkGraphicBufferConsumer> consumer;
@@ -219,8 +215,8 @@ status_t WebrtcOMXDecoder::FillInput(const webrtc::EncodedImage& aEncoded,
       mOutputDrain->Start();
     }
     EncodedFrame frame;
-    frame.mWidth = mWidth;
-    frame.mHeight = mHeight;
+    frame.mWidth = aEncoded._encodedWidth;
+    frame.mHeight = aEncoded._encodedHeight;
     frame.mTimestamp = aEncoded._timeStamp;
     frame.mRenderTimeMs = aRenderTimeMs;
     mOutputDrain->QueueInput(frame);
