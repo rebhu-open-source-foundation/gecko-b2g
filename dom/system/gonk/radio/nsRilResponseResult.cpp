@@ -312,6 +312,15 @@ void nsRilResponseResult::updateRadioCapability(
 }
 
 /**
+ * For sendSMS */
+void nsRilResponseResult::updateSendSmsResponse(
+    nsSendSmsResult* aSendSmsResult) {
+  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
+                      "updateSendSmsResponse");
+  mSendSmsResult = aSendSmsResult;
+}
+
+/**
  *
  */
 nsRilResponseResult::~nsRilResponseResult() {}
@@ -583,7 +592,12 @@ NS_IMETHODIMP nsRilResponseResult::GetRadioCapability(
     nsIRadioCapability** aRadioCapability) {
   RefPtr<nsIRadioCapability> radioCapability(mRadioCapability);
   radioCapability.forget(aRadioCapability);
+  return NS_OK;
+}
 
+NS_IMETHODIMP nsRilResponseResult::GetSms(nsISendSmsResult** aSendSmsResult) {
+  RefPtr<nsISendSmsResult> sendSmsResult(mSendSmsResult);
+  sendSmsResult.forget(aSendSmsResult);
   return NS_OK;
 }
 

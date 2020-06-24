@@ -8,6 +8,7 @@
 #define mozilla_dom_SmsMessage_h
 
 #include "mozilla/dom/BindingDeclarations.h"
+#include "nsCycleCollectionParticipant.h"
 #include "nsWrapperCache.h"
 
 class nsPIDOMWindowInner;

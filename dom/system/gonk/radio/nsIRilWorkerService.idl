@@ -102,10 +102,15 @@ interface nsIRilWorker : nsISupports
 
   void setGsmBroadcastActivation(in long serial, in boolean activate);
   void setGsmBroadcastConfig(in long serial, in Array<long> ranges);
+
   void getPreferredVoicePrivacy(in long serial);
   void setPreferredVoicePrivacy(in long serial, in boolean enable);
   void requestIccSimAuthentication(in long serial, in long authContext, in AString data, in AString aid);
   void getRadioCapability(in long serial);
+
+  void sendSMS(in long serial, in AString smsc, in AString pdu);
+  void acknowledgeGsmSms(in long serial, in boolean success, in long cause);
+
 };
 
 /**

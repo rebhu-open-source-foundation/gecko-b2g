@@ -11,15 +11,16 @@ if CONFIG['MOZ_BUILD_APP'] == 'browser':
 
 XPCSHELL_TESTS_MANIFESTS += ['tests/xpcshell/xpcshell.ini']
 
-#EXPORTS.mozilla.dom.mobilemessage += [
-#    'Constants.h',            # Required by almost all cpp files
-#    'ipc/SmsChild.h',
-#    'ipc/SmsParent.h',
-#    'Types.h',                # Required by IPDL SmsTypes.h
-#]
-#EXPORTS += [
-#  'SMSTypesTest.h'
-#]
+EXPORTS.mozilla.dom.mobilemessage += [
+    'Constants.h',            # Required by almost all cpp files
+    'ipc/SmsChild.h',
+    'ipc/SmsParent.h',
+    'Types.h',                # Required by IPDL SmsTypes.h
+]
+
+EXPORTS += [
+    'MobileMessageService.h',
+]
 
 EXTRA_JS_MODULES += [
     'gonk/mms_consts.js',
@@ -42,17 +43,18 @@ XPCOM_MANIFESTS += [
     'components.conf',
 ]
 
-#EXPORTS.mozilla.dom += [
-#    'DOMMobileMessageError.h',
-#    'MmsMessage.h',
-#    'MobileMessageManager.h',
-#    'MobileMessageThread.h',
-#    'SmsMessage.h',
-#]
 
-#UNIFIED_SOURCES += [
+EXPORTS.mozilla.dom += [
+    'DOMMobileMessageError.h',
+    'MmsMessage.h',
+    'MobileMessageManager.h',
+    'MobileMessageThread.h',
+    'SmsMessage.h',
+]
+
+UNIFIED_SOURCES += [
 #    'Assertions.cpp',
-#    'Constants.cpp',
+    'Constants.cpp',
 #    'DeletedMessageInfo.cpp',
 #    'DOMMobileMessageError.cpp',
 #    'ipc/SmsChild.cpp',
@@ -63,24 +65,24 @@ XPCOM_MANIFESTS += [
 #    'MobileMessageCallback.cpp',
 #    'MobileMessageCursorCallback.cpp',
 #    'MobileMessageManager.cpp',
-#    'MobileMessageService.cpp',
+    'MobileMessageService.cpp',
 #    'MobileMessageThread.cpp',
 #    'MobileMessageThreadInternal.cpp',
 #    'SmsMessage.cpp',
-#    'SmsMessageInternal.cpp',
-#]
+    'SmsMessageInternal.cpp',
+]
 
-# IPDL_SOURCES += [
-#     'ipc/PMobileMessageCursor.ipdl',
-#     'ipc/PSms.ipdl',
-#     'ipc/PSmsRequest.ipdl',
-#     'ipc/SmsTypes.ipdlh',
-# ]
+IPDL_SOURCES += [
+#    'ipc/PMobileMessageCursor.ipdl',
+#    'ipc/PSms.ipdl',
+#    'ipc/PSmsRequest.ipdl',
+    'ipc/SmsTypes.ipdlh',
+]
 
-#LOCAL_INCLUDES += [
-#    '/dom/base',
-#    '/widget/android',
-#]
+LOCAL_INCLUDES += [
+    '/dom/base',
+    '/widget/android',
+]
 
 include('/ipc/chromium/chromium-config.mozbuild')
 

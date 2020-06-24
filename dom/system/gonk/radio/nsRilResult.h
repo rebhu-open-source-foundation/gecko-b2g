@@ -590,6 +590,20 @@ class nsDataRegState final : public nsIDataRegState {
   RefPtr<nsCellIdentity> mCellIdentity;
 };
 
+class nsSendSmsResult final : public nsISendSmsResult {
+ public:
+  NS_DECL_THREADSAFE_ISUPPORTS
+  NS_DECL_NSISENDSMSRESULT
+  nsSendSmsResult(int32_t aMessageRef, const nsAString& aAckPDU,
+                  int32_t aErrorCode);
+
+ private:
+  ~nsSendSmsResult(){};
+  int32_t mMessageRef;
+  nsString mAckPDU;
+  int32_t mErrorCode;
+};
+
 class nsOperatorInfo final : public nsIOperatorInfo {
  public:
   NS_DECL_THREADSAFE_ISUPPORTS

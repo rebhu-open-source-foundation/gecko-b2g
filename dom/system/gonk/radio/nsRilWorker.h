@@ -53,6 +53,7 @@ using ::android::hardware::radio::V1_0::RadioResponseType;
 using ::android::hardware::radio::V1_0::RadioTechnology;
 using ::android::hardware::radio::V1_0::SelectUiccSub;
 using ::android::hardware::radio::V1_0::SimRefreshType;
+using ::android::hardware::radio::V1_0::SmsAcknowledgeFailCause;
 using ::android::hardware::radio::V1_0::SrvccState;
 using ::android::hardware::radio::V1_0::SubscriptionType;
 using ::android::hardware::radio::V1_0::TtyMode;

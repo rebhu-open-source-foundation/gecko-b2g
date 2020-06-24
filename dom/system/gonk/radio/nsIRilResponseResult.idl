@@ -406,6 +406,9 @@ interface nsIRilResponseResult : nsISupports
 
   readonly attribute nsIRadioCapability radioCapability;
 
+  // sendSms
+  readonly attribute nsISendSmsResult sms;
+
 /*
   //void supplyIccPinForAppResponse(out long remainingRetries);
 
@@ -414,8 +417,6 @@ interface nsIRilResponseResult : nsISupports
   readonly attribute AString opShortName;
 
   readonly attribute AString opNumeric;
-
-  readonly attribute nsISendSmsResult sms;
 
   readonly attribute long facilityLockResponse;
 

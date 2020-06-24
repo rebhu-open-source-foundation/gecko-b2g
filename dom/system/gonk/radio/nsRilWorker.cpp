@@ -1073,8 +1073,8 @@ NS_IMETHODIMP nsRilWorker::GetPreferredVoicePrivacy(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR("No Radio HAL exist");
   }
-  mRadioProxy->getPreferredVoicePrivacy(serial);
 
+  mRadioProxy->getPreferredVoicePrivacy(serial);
   return NS_OK;
 }
 
@@ -1088,6 +1088,7 @@ NS_IMETHODIMP nsRilWorker::SetPreferredVoicePrivacy(int32_t serial,
   if (mRadioProxy == nullptr) {
     ERROR("No Radio HAL exist");
   }
+
   mRadioProxy->setPreferredVoicePrivacy(serial, enable);
   return NS_OK;
 }
@@ -1105,6 +1106,37 @@ NS_IMETHODIMP nsRilWorker::RequestIccSimAuthentication(int32_t serial,
   mRadioProxy->requestIccSimAuthentication(serial, authContext,
                                            NS_ConvertUTF16toUTF8(data).get(),
                                            NS_ConvertUTF16toUTF8(aid).get());
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::SendSMS(int32_t serial, const nsAString& smsc,
+                                   const nsAString& pdu) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_SEND_SMS ", serial);
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+
+  GsmSmsMessage smsMessage;
+  smsMessage.smscPdu = NS_ConvertUTF16toUTF8(smsc).get();
+  smsMessage.pdu = NS_ConvertUTF16toUTF8(pdu).get();
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_SEND_SMS %s", serial,
+       NS_ConvertUTF16toUTF8(pdu).get());
+
+  mRadioProxy->sendSms(serial, smsMessage);
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::AcknowledgeGsmSms(int32_t serial, bool success,
+                                             int32_t cause) {
+  INFO("nsRilWorker: [%d] > RIL_REQUEST_ACKNOWLEDGE_GSM_SMS ", serial);
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+
+  mRadioProxy->acknowledgeLastIncomingGsmSms(serial, success,
+                                             SmsAcknowledgeFailCause(cause));
   return NS_OK;
 }
 

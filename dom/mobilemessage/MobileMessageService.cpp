@@ -5,10 +5,10 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "SmsMessageInternal.h"
-#include "MmsMessageInternal.h"
-#include "MobileMessageThreadInternal.h"
+//#include "MmsMessageInternal.h"
+//#include "MobileMessageThreadInternal.h"
 #include "MobileMessageService.h"
-#include "DeletedMessageInfo.h"
+//#include "DeletedMessageInfo.h"
 
 namespace mozilla {
 namespace dom {
@@ -29,7 +29,8 @@ MobileMessageService::CreateSmsMessage(
                                     aMessageClass, aTimestamp, aSentTimestamp,
                                     aDeliveryTimestamp, aRead, aCx, aMessage);
 }
-
+// FIXME
+#if 0
 NS_IMETHODIMP
 MobileMessageService::CreateMmsMessage(
     int32_t aId, uint64_t aThreadId, const nsAString& aIccId,
@@ -64,7 +65,14 @@ MobileMessageService::CreateDeletedMessageInfo(
   return DeletedMessageInfo::Create(aMessageIds, aMsgCount, aThreadIds,
                                     aThreadCount, aDeletedInfo);
 }
+#endif
 
-}  // namespace mobilemessage
-}  // namespace dom
-}  // namespace mozilla
+} // namespace mobilemessage
+} // namespace dom
+} // namespace mozilla
+
+already_AddRefed<nsIMobileMessageService> NS_CreateMobileMessageService() {
+  nsCOMPtr<nsIMobileMessageService> service =
+      new mozilla::dom::mobilemessage::MobileMessageService();
+  return service.forget();
+}

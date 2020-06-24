@@ -56,9 +56,22 @@ Return<void> nsRilIndication::networkStateChanged(RadioIndicationType type) {
 }
 
 Return<void> nsRilIndication::newSms(
-    RadioIndicationType /*type*/,
-    const ::android::hardware::hidl_vec<uint8_t>& /*pdu*/) {
-  INFO("Not implement newSms");
+    RadioIndicationType type,
+    const ::android::hardware::hidl_vec<uint8_t>& pdu) {
+  mRIL->processIndication(type);
+
+  nsString rilmessageType(NS_LITERAL_STRING("sms-received"));
+  RefPtr<nsRilIndicationResult> result =
+      new nsRilIndicationResult(rilmessageType);
+  uint32_t size = pdu.size();
+
+  nsTArray<int32_t> pdu_u32;
+  for (uint32_t i = 0; i < size; i++) {
+    pdu_u32.AppendElement(pdu[i]);
+  }
+  result->updateOnSms(pdu_u32);
+
+  mRIL->sendRilIndicationResult(result);
   return Void();
 }
 
@@ -250,9 +263,23 @@ Return<void> nsRilIndication::cdmaNewSms(RadioIndicationType /*type*/,
 }
 
 Return<void> nsRilIndication::newBroadcastSms(
-    RadioIndicationType /*type*/,
-    const ::android::hardware::hidl_vec<uint8_t>& /*data*/) {
-  INFO("Not implement newBroadcastSms");
+    RadioIndicationType type,
+    const ::android::hardware::hidl_vec<uint8_t>& data) {
+  mRIL->processIndication(type);
+
+  nsString rilmessageType(NS_LITERAL_STRING("cellbroadcast-received"));
+  RefPtr<nsRilIndicationResult> result =
+      new nsRilIndicationResult(rilmessageType);
+  uint32_t size = data.size();
+
+  nsTArray<int32_t> aData;
+  for(uint32_t i=0; i<size; i++)
+    {
+      aData.AppendElement(data[i]);
+    }
+  result->updateNewBroadcastSms(aData);
+
+  mRIL->sendRilIndicationResult(result);
   return Void();
 }
 

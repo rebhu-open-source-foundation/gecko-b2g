@@ -140,8 +140,9 @@ function SmsService() {
   this.smsDefaultServiceId = this._getDefaultServiceId();
 
   this._portAddressedSmsApps = {};
-  this._portAddressedSmsApps[gWAP.WDP_PORT_PUSH] =
-    (aMessage, aServiceId) => this._handleSmsWdpPortPush(aMessage, aServiceId);
+  //FIXME
+  //this._portAddressedSmsApps[gWAP.WDP_PORT_PUSH] =
+  //  (aMessage, aServiceId) => this._handleSmsWdpPortPush(aMessage, aServiceId);
   this._portAddressedSmsApps[SMS_SUPL_INIT_PORT] =
     (aMessage, aServiceId) => this._handleSmsSuplInitMessage(aMessage, aServiceId);
 
@@ -168,7 +169,7 @@ SmsService.prototype = {
   },
 
   _getDefaultServiceId: function() {
-    let id = Services.prefs.getIntPref(kPrefDefaultServiceId);
+    let id = Services.prefs.getIntPref(kPrefDefaultServiceId, 0);
     let numRil = Services.prefs.getIntPref(kPrefRilNumRadioInterfaces);
 
     if (id >= numRil || id < 0) {
@@ -833,8 +834,12 @@ SmsService.prototype = {
       let smsMessage = null;
       try {
         smsMessage = aDomMessage.QueryInterface(Ci.nsISmsMessage);
-      } catch (e) {}
-      let success = Components.isSuccessCode(aRv);
+      } catch (e) {
+        if(DEBUG) debug("Could not get nsISmsMessage");
+      }
+      //FIXME
+      //let success = Components.isSuccessCode(aRv);
+      let success = true;
 
       this._sendAckSms(aRv, aMessage, aServiceId);
 
@@ -975,7 +980,7 @@ SmsService.prototype = {
     }
 
     let options = gSmsSegmentHelper.fragmentText(aMessage, null, strict7BitEncoding);
-    options.number = gPhoneNumberUtils.normalize(aNumber);
+    options.number = aNumber;//gPhoneNumberUtils.normalize(aNumber); //FIXME
     let requestStatusReport;
     try {
       requestStatusReport =
@@ -1022,10 +1027,13 @@ SmsService.prototype = {
       // return with the corresponding error code.
       let errorCode;
       let radioState = connection && connection.radioState;
-      if (!gPhoneNumberUtils.isPlainPhoneNumber(options.number)) {
-        if (DEBUG) debug("Error! Address is invalid when sending SMS: " + options.number);
-        errorCode = Ci.nsIMobileMessageCallback.INVALID_ADDRESS_ERROR;
-      } else if (radioState == Ci.nsIMobileConnection.MOBILE_RADIO_STATE_UNKNOWN ||
+
+      //FIXME
+      //if (!gPhoneNumberUtils.isPlainPhoneNumber(options.number)) {
+      //  if (DEBUG) debug("Error! Address is invalid when sending SMS: " + options.number);
+      //  errorCode = Ci.nsIMobileMessageCallback.INVALID_ADDRESS_ERROR;
+      //} else
+      if (radioState == Ci.nsIMobileConnection.MOBILE_RADIO_STATE_UNKNOWN ||
                  (radioState == Ci.nsIMobileConnection.MOBILE_RADIO_STATE_DISABLED &&
                   !gSmsSendingSchedulers.getSchedulerByServiceId(aServiceId).isVoWifiConnected())) {
         if (DEBUG) debug("Error! Radio is disabled when sending SMS.");
@@ -1354,7 +1362,7 @@ SmsSendingScheduler.prototype = {
         debug("scheduling message: messageId=" + aSendingRequest.messageId +
               ", serviceId=" + this._serviceId);
       }
-      this._ensureMoboConnObserverRegistration();
+      //this._ensureMoboConnObserverRegistration();//FIXME
       this._queue.push(aSendingRequest)
 
       // Keep the queue in order to guarantee the sending order matches user
@@ -1368,10 +1376,12 @@ SmsSendingScheduler.prototype = {
   },
 
   isVoWifiConnected: function() {
-    let imsService = gImsRegService.getHandlerByServiceId(this._serviceId);
-    let capability = imsService && imsService.capability;
-    return capability === Ci.nsIImsRegHandler.IMS_CAPABILITY_VOICE_OVER_WIFI ||
-           capability === Ci.nsIImsRegHandler.IMS_CAPABILITY_VIDEO_OVER_WIFI;
+    //FIXME
+    //let imsService = gImsRegService.getHandlerByServiceId(this._serviceId);
+    //let capability = imsService && imsService.capability;
+    //return capability === Ci.nsIImsRegHandler.IMS_CAPABILITY_VOICE_OVER_WIFI ||
+    //       capability === Ci.nsIImsRegHandler.IMS_CAPABILITY_VIDEO_OVER_WIFI;
+    return false;
   },
 
   /**
@@ -1401,7 +1411,7 @@ SmsSendingScheduler.prototype = {
     // The sending / retry could fail and being re-scheduled immediately.
     // Only unregister listener when the queue is empty after retries.
     if (this._queue.length === 0) {
-      this._ensureMoboConnObserverUnregistration();
+      //this._ensureMoboConnObserverUnregistration();//FIXME
     }
   },
 

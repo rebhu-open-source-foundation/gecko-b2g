@@ -21,14 +21,15 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(SmsMessage)
 NS_INTERFACE_MAP_END
 
 SmsMessage::SmsMessage(nsPIDOMWindowInner* aWindow,
-                       SmsMessageInternal* aMessage)
+                       mobilemessage::SmsMessageInternal* aMessage)
     : mWindow(aWindow), mMessage(aMessage) {}
 
 SmsMessage::~SmsMessage() {}
 
-JSObject* SmsMessage::WrapObject(JSContext* aCx,
-                                 JS::Handle<JSObject*> aGivenProto) {
-  return SmsMessageBinding::Wrap(aCx, this, aGivenProto);
+JSObject*
+SmsMessage::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
+{
+  return SmsMessage_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 void SmsMessage::GetType(nsString& aRetVal) const {

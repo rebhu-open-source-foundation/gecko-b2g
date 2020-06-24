@@ -1810,6 +1810,37 @@ NS_IMETHODIMP nsCallForwardInfo::GetTimeSeconds(int32_t* aTimeSeconds) {
 }
 
 NS_IMPL_ISUPPORTS(nsCallForwardInfo, nsICallForwardInfo)
+
+/*============================================================================
+ *============ Implementation of Class nsSendSmsResult ===================
+ *============================================================================*/
+/**
+ * nsSendSmsResult implementation
+ */
+nsSendSmsResult::nsSendSmsResult(int32_t aMessageRef, const nsAString& aAckPDU,
+                                 int32_t aErrorCode)
+    : mMessageRef(aMessageRef), mAckPDU(aAckPDU), mErrorCode(aErrorCode) {
+  __android_log_print(ANDROID_LOG_INFO, " nsSendSmsResult",
+                      "init nsSendSmsResult");
+}
+
+NS_IMETHODIMP nsSendSmsResult::GetMessageRef(int32_t* aMessageRef) {
+  *aMessageRef = mMessageRef;
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsSendSmsResult::GetAckPDU(nsAString& aAckPDU) {
+  aAckPDU = mAckPDU;
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsSendSmsResult::GetErrorCode(int32_t* aErrorCode) {
+  *aErrorCode = mErrorCode;
+  return NS_OK;
+}
+
+NS_IMPL_ISUPPORTS(nsSendSmsResult, nsISendSmsResult)
+
 /*============================================================================
  *======================Implementation of Class nsRilResult
  *=====================

@@ -5,7 +5,6 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "SmsMessageInternal.h"
-#include "nsIDOMClassInfo.h"
 #include "mozilla/dom/mobilemessage/Constants.h"  // For MessageType
 
 namespace mozilla {

@@ -110,9 +110,9 @@ XPCOMUtils.defineLazyServiceGetter(this, "gIccService",
 //                                    "@mozilla.org/mobilemessage/mobilemessageservice;1",
 //                                    "nsIMobileMessageService");
 
-// XPCOMUtils.defineLazyServiceGetter(this, "gSmsService",
-//                                    "@mozilla.org/sms/gonksmsservice;1",
-//                                    "nsIGonkSmsService");
+XPCOMUtils.defineLazyServiceGetter(this, "gSmsService",
+                                   "@mozilla.org/sms/gonksmsservice;1",
+                                   "nsIGonkSmsService");
 
 // XPCOMUtils.defineLazyServiceGetter(this, "ppmm",
 //                                    "@mozilla.org/parentprocessmessagemanager;1",
@@ -894,6 +894,7 @@ RadioInterface.prototype = {
         this.handleSmsReceived(message);
         break;
       case "cellbroadcast-received":
+        if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_RESPONSE_NEW_CBS");
         this.handleCellbroadcastMessageReceived(message);
         break;
       case "nitzTimeReceived":
@@ -1531,7 +1532,22 @@ RadioInterface.prototype = {
    * handle received SMS.
    */
   handleSmsReceived: function(aMessage) {
-    let header = aMessage.header;
+
+    let pdu = {};
+    let pduLength = aMessage.getPdu(pdu);
+    let GsmPDUHelper = this.simIOcontext.GsmPDUHelper
+    GsmPDUHelper.pdu = "";
+    GsmPDUHelper.pduReadIndex = 0;
+    GsmPDUHelper.pduWriteIndex = 0;
+    for(let i=0; i<pduLength; i++) {
+      GsmPDUHelper.writeHexOctet(pdu.value[i]);
+    }
+
+    let [message, result] = GsmPDUHelper.processReceivedSms(pduLength);
+
+    if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_RESPONSE_NEW_SMS :" + JSON.stringify(message));
+
+    let header = message.header;
     // Concatenation Info:
     // - segmentRef: a modulo 256 counter indicating the reference number for a
     //               particular concatenated short message. '0' is a valid number.
@@ -1552,25 +1568,25 @@ RadioInterface.prototype = {
       ? header.destinationPort
       : Ci.nsIGonkSmsService.SMS_APPLICATION_PORT_INVALID;
     // MWI info:
-    let mwiPresent = (aMessage.mwi)? true : false;
-    let mwiDiscard = (mwiPresent)? aMessage.mwi.discard: false;
-    let mwiMsgCount = (mwiPresent)? aMessage.mwi.msgCount: 0;
-    let mwiActive = (mwiPresent)? aMessage.mwi.active: false;
+    let mwiPresent = (message.mwi)? true : false;
+    let mwiDiscard = (mwiPresent)? message.mwi.discard: false;
+    let mwiMsgCount = (mwiPresent)? message.mwi.msgCount: 0;
+    let mwiActive = (mwiPresent)? message.mwi.active: false;
     // CDMA related attributes:
-    let cdmaMessageType = aMessage.messageType || 0;
-    let cdmaTeleservice = aMessage.teleservice || 0;
-    let cdmaServiceCategory = aMessage.serviceCategory || 0;
+    let cdmaMessageType = message.messageType || 0;
+    let cdmaTeleservice = message.teleservice || 0;
+    let cdmaServiceCategory = message.serviceCategory || 0;
 
     gSmsService
       .notifyMessageReceived(this.clientId,
-                             aMessage.SMSC || null,
-                             aMessage.sentTimestamp,
-                             aMessage.sender,
-                             aMessage.pid,
-                             aMessage.encoding,
+                             message.SMSC || null,
+                             message.sentTimestamp,
+                             message.sender,
+                             message.pid,
+                             message.encoding,
                              RIL.GECKO_SMS_MESSAGE_CLASSES
-                               .indexOf(aMessage.messageClass),
-                             aMessage.language || null,
+                               .indexOf(message.messageClass),
+                             message.language || null,
                              segmentRef,
                              segmentSeq,
                              segmentMaxSeq,
@@ -1583,9 +1599,10 @@ RadioInterface.prototype = {
                              cdmaMessageType,
                              cdmaTeleservice,
                              cdmaServiceCategory,
-                             aMessage.body || null,
-                             aMessage.data || [],
-                             (aMessage.data) ? aMessage.data.length : 0);
+                             message.body || null,
+                             message.data || [],
+                             (message.data) ? message.data.length : 0);
+
   },
 
   //Cameron mark first.
@@ -1723,20 +1740,33 @@ RadioInterface.prototype = {
   },
 
   handleCellbroadcastMessageReceived: function(aMessage) {
-    let etwsInfo = aMessage.etws;
+
+    let data = {};
+    let dataLength = aMessage.GetNewBroadcastSms(data);
+    let GsmPDUHelper = this.simIOcontext.GsmPDUHelper
+    GsmPDUHelper.pdu = "";
+    GsmPDUHelper.pduReadIndex = 0;
+    GsmPDUHelper.pduWriteIndex = 0;
+    for(let i=0; i<dataLength; i++) {
+      GsmPDUHelper.writeHexOctet(data.value[i]);
+    }
+
+    let [message, result] = GsmPDUHelper.readCbMessage(dataLength);
+
+    let etwsInfo = message.etws;
     let hasEtwsInfo = etwsInfo != null;
-    let serviceCategory = (aMessage.serviceCategory)
-      ? aMessage.serviceCategory
+    let serviceCategory = (message.serviceCategory)
+      ? message.serviceCategory
       : Ci.nsICellBroadcastService.CDMA_SERVICE_CATEGORY_INVALID;
 
     gCellBroadcastService
       .notifyMessageReceived(this.clientId,
-                             this._convertCbGsmGeographicalScope(aMessage.geographicalScope),
-                             aMessage.messageCode,
-                             aMessage.messageId,
-                             aMessage.language,
-                             aMessage.fullBody,
-                             this._convertCbMessageClass(aMessage.messageClass),
+                             this._convertCbGsmGeographicalScope(message.geographicalScope),
+                             message.messageCode,
+                             message.messageId,
+                             message.language,
+                             message.fullBody,
+                             this._convertCbMessageClass(message.messageClass),
                              Date.now(),
                              serviceCategory,
                              hasEtwsInfo,
@@ -2306,8 +2336,6 @@ RadioInterface.prototype = {
           if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_RADIO_POWER error = " + response.errorMsg);
         }
         break;
-      case "sendSMS":
-        break;
       case "setupDataCall":
         if (response.errorMsg == 0) {
           if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_SETUP_DATA_CALL dcResponse = " + JSON.stringify(response.dcResponse));
@@ -2393,7 +2421,13 @@ RadioInterface.prototype = {
           if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_SET_CALL_WAITING error = " + response.errorMsg);
         }
         break;
-      case "acknowledgeGsmSms":
+      case "ackSMS":
+        if (response.errorMsg == 0) {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_ACKNOWLEDGE_GSM_SMS");
+          result = response
+        } else {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_ACKNOWLEDGE_GSM_SMS error = " + response.errorMsg);
+        }
         break;
       case "answerCall":
         if (response.errorMsg == 0) {
@@ -2572,6 +2606,13 @@ RadioInterface.prototype = {
       case "cdmaFlash":
         break;
       case "sendSMS":
+        if (response.errorMsg == 0) {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < REQUEST_SEND_SMS");
+          //TODO: Handle segment and status report
+          result = response;
+        } else {
+          if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < REQUEST_SEND_SMS error = " + response.errorMsg);
+        }
         break;
       case "acknowledgeCdmaSms":
         break;
@@ -4016,6 +4057,20 @@ RadioInterface.prototype = {
         this.rilworker.setRadioPower(message.rilMessageToken, message.enabled);
         break;
       case "sendSMS":
+        if (this._isCdma) {
+          if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > REQUEST_SEND_CDMA_SMS");
+          //FIXME
+          //let CdmaPDUHelper = this.simIOcontext.CdmaPDUHelper;
+          //CdmaPDUHelper.writeMessage(message);
+          //this.rilworker.sendCdmaSMS(message.rilMessageToken, );
+        } else {
+          if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > REQUEST_SEND_SMS");
+          let GsmPDUHelper = this.simIOcontext.GsmPDUHelper;
+          GsmPDUHelper.pduWriteIndex = 0;
+          GsmPDUHelper.pdu = "";
+          GsmPDUHelper.writeMessage(message);
+          this.rilworker.sendSMS(message.rilMessageToken, message.SMSC, GsmPDUHelper.pdu);
+        }
         break;
       case "setupDataCall":
         if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SETUP_DATA_CALL radioTechnology = " + message.radioTechnology + ", isRoaming = "
@@ -4031,34 +4086,36 @@ RadioInterface.prototype = {
         this.rilworker.iccIOForApp(message.rilMessageToken, message.command, message.fileId, message.pathId, message.p1, message.p2, message.p3, message.data, message.pin2, (message.aid || this.aid));
         break;
       case "sendUSSD":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SEND_USSD ussd = " + message.ussd);
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SEND_USSD ussd = " + message.ussd);
         this.rilworker.sendUssd(message.rilMessageToken, message.ussd);
         break;
       case "cancelUSSD":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_CANCEL_USSD ussd = " + message.ussd);
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_CANCEL_USSD ussd = " + message.ussd);
         this.rilworker.cancelPendingUssd(message.rilMessageToken);
         break;
       case "setCallBarring":
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SET_CALLBARRING");
         this.processSetCallBarring(message);
         break;
       case "queryCallBarringStatus":
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_QUERY_CALLBARRING");
         this.processQueryCallBarringStatus(message);
         break;
       case "getCLIR":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_GET_CLIR");
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_GET_CLIR");
         this.rilworker.getClir(message.rilMessageToken);
         break;
       case "setCLIR":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SET_CLIR clirMode = " + message.clirMode);
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SET_CLIR clirMode = " + message.clirMode);
         this.rilworker.setClir(message.rilMessageToken, message.clirMode);
         break;
       case "queryCallForwardStatus":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_QUERY_CALL_FORWARD_STATUS reason = " + message.reason + " , serviceClass = " + message.serviceClass + " , number = " + message.number || "");
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_QUERY_CALL_FORWARD_STATUS reason = " + message.reason + " , serviceClass = " + message.serviceClass + " , number = " + message.number || "");
         let toaNumber = this._toaFromString(message.number);
         this.rilworker.getCallForwardStatus(message.rilMessageToken, message.reason, message.serviceClass, message.number || "", toaNumber || "");
         break;
       case "setCallForward":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SET_CALL_FORWARD action = " + message.action + " , reason = " + message.reason + " , serviceClass = " + message.serviceClass + " , number = " + message.number || "");
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SET_CALL_FORWARD action = " + message.action + " , reason = " + message.reason + " , serviceClass = " + message.serviceClass + " , number = " + message.number || "");
         let number = this._toaFromString(message.number);
         this._callForwardOptions.action = message.action;
         this._callForwardOptions.reason = message.reason;
@@ -4068,14 +4125,16 @@ RadioInterface.prototype = {
         this.rilworker.setCallForwardStatus(message.rilMessageToken, message.action, message.reason, message.serviceClass, message.number || "", number || "");
         break;
       case "queryCallWaiting":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_QUERY_CALL_WAITING serviceClass = " + message.serviceClass);
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_QUERY_CALL_WAITING serviceClass = " + message.serviceClass);
         this.rilworker.getCallWaiting(message.rilMessageToken, message.serviceClass);
         break;
       case "setCallWaiting":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SET_CALL_WAITING enable = " + message.enable + " , serviceClass = " + message.serviceClass);
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SET_CALL_WAITING enable = " + message.enable + " , serviceClass = " + message.serviceClass);
         this.rilworker.setCallWaiting(message.rilMessageToken, message.enable, message.serviceClass);
         break;
-      case "acknowledgeGsmSms":
+      case "ackSMS":
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_ACKNOWLEDGE_GSM_SMS result = " + message.result);
+        this.rilworker.acknowledgeGsmSms(message.rilMessageToken, message.result == RIL.PDU_FCS_OK, message.result);
         break;
       case "answerCall":
         this.processAnswerCall(message);
@@ -4110,11 +4169,11 @@ RadioInterface.prototype = {
         this.rilworker.sendDtmf(message.rilMessageToken,  message.dtmfChar+"");
         break;
       case "startTone":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_DTMF_START dtmfChar = " + message.dtmfChar);
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_DTMF_START dtmfChar = " + message.dtmfChar);
         this.rilworker.startDtmf(message.rilMessageToken, message.dtmfChar+"");
         break;
       case "stopTone":
-        console.log("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_DTMF_STOP");
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_DTMF_STOP");
         this.rilworker.stopDtmf(message.rilMessageToken);
         break;
       case "getBasebandVersion":
@@ -4182,8 +4241,6 @@ RadioInterface.prototype = {
         this.rilworker.getPreferredVoicePrivacy(message.rilMessageToken);
         break;
       case "cdmaFlash":
-        break;
-      case "sendSMS":
         break;
       case "acknowledgeCdmaSms":
         break;

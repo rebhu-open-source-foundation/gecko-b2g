@@ -57,7 +57,7 @@ var RILQUIRKS_APP_CB_LIST;
 if (!this.debug) {
   // Debugging stub that goes nowhere.
   this.debug = function debug(message) {
-    dump("SimIOHelper: " + message + "\n");
+    console.log("SimIOHelper: " + message + "\n");
   };
 }
 
@@ -1101,9 +1101,16 @@ ICCUtilsHelperObject.prototype = {
  */
 function GsmPDUHelperObject(aContext) {
   this.context = aContext;
+  this.pdu = '';
+  this.pduWriteIndex = 0;
+  this.pduReadIndex = 0;
 }
 GsmPDUHelperObject.prototype = {
   context: null,
+
+  pdu: null,
+  pduWriteIndex: null,
+  pduReadIndex: null,
 
   /**
    * Helper function for HEX to INT.
@@ -1120,7 +1127,7 @@ GsmPDUHelperObject.prototype = {
    * @return the nibble as a number.
    */
   readHexNibble: function() {
-    let nibble = this.context.Buf.readUint16();
+    let nibble = this.pdu.charCodeAt(this.pduReadIndex);
     if (nibble >= 48 && nibble <= 57) {
       nibble -= 48; // ASCII '0'..'9'
     } else if (nibble >= 65 && nibble <= 70) {
@@ -1131,6 +1138,7 @@ GsmPDUHelperObject.prototype = {
       throw "Found invalid nibble during PDU parsing: " +
             String.fromCharCode(nibble);
     }
+    this.pduReadIndex++;
     return nibble;
   },
 
@@ -1142,12 +1150,8 @@ GsmPDUHelperObject.prototype = {
    */
   writeHexNibble: function(nibble) {
     nibble &= 0x0f;
-    if (nibble < 10) {
-      nibble += 48; // ASCII '0'
-    } else {
-      nibble += 55; // ASCII 'A'
-    }
-    this.context.Buf.writeUint16(nibble);
+    this.pdu += nibble.toString(16);
+    this.pduWriteIndex++;
   },
 
   /**
@@ -1173,10 +1177,10 @@ GsmPDUHelperObject.prototype = {
   /**
    * Read an array of hex-encoded octets.
    */
-  readHexOctetArray: function(value, octetLen) {
-    let array = [];
-    for (let i = 0; i < octetLen *2; i+=2) {
-      array [i/2] = this.processHexToInt(value.slice(i, i+2), 16);
+  readHexOctetArray: function(length) {
+    let array = new Uint8Array(length);
+    for (let i = 0; i < length; i++) {
+      array[i] = this.readHexOctet();
     }
     return array;
   },
@@ -1341,22 +1345,21 @@ GsmPDUHelperObject.prototype = {
    *
    * @return The BCD string.
    */
-  readSwappedNibbleBcdString: function(value, suppressException) {
-    let GsmPDUHelper = this.context.GsmPDUHelper;
+  readSwappedNibbleBcdString: function(pairs, suppressException) {
     let str = "";
-    let strLen = value.length;
-    for (let i = 0; i < strLen; i+=2) {
-      let nibbleH = value[i];
-      let nibbleL = value[i+1];
-      if (GsmPDUHelper.processHexToInt(nibbleL, 16) == 0x0F) {
+    for (let i = 0; i < pairs; i++) {
+      let nibbleH = this.readHexNibble();
+      let nibbleL = this.readHexNibble();
+      if (nibbleL == 0x0F) {
         break;
       }
 
       str += this.semiOctetToBcdChar(nibbleL, suppressException);
-      if (GsmPDUHelper.processHexToInt(nibbleH, 16) != 0x0F) {
+      if (nibbleH != 0x0F) {
         str += this.semiOctetToBcdChar(nibbleH, suppressException);
       }
     }
+
     return str;
   },
 
@@ -1371,21 +1374,21 @@ GsmPDUHelperObject.prototype = {
    *
    * @return The BCD string.
    */
-  readSwappedNibbleExtendedBcdString: function(value, pairs, suppressException) {
-    let GsmPDUHelper = this.context.GsmPDUHelper;
+  readSwappedNibbleExtendedBcdString: function(pairs, suppressException) {
     let str = "";
-    for (let i = 0; i < pairs*2; i+=2) {
-      let nibbleH = value[i];
-      let nibbleL = value[i+1];
-      if (GsmPDUHelper.processHexToInt(nibbleL, 16) == 0x0F) {
+    for (let i = 0; i < pairs; i++) {
+      let nibbleH = this.readHexNibble();
+      let nibbleL = this.readHexNibble();
+      if (nibbleL == 0x0F) {
         break;
       }
 
       str += this.semiOctetToExtendedBcdChar(nibbleL, suppressException);
-      if (GsmPDUHelper.processHexToInt(nibbleH, 16) != 0x0F) {
+      if (nibbleH != 0x0F) {
         str += this.semiOctetToExtendedBcdChar(nibbleH, suppressException);
       }
     }
+
     return str;
   },
 
@@ -1400,10 +1403,11 @@ GsmPDUHelperObject.prototype = {
     if (data.length % 2) {
       data += "F";
     }
-    let Buf = this.context.Buf;
     for (let i = 0; i < data.length; i += 2) {
-      Buf.writeUint16(data.charCodeAt(i + 1));
-      Buf.writeUint16(data.charCodeAt(i));
+      this.pdu += data.charAt(i + 1);
+      this.pduWriteIndex++;
+      this.pdu += data.charAt(i);
+      this.pduWriteIndex++;
     }
   },
 
@@ -1419,10 +1423,11 @@ GsmPDUHelperObject.prototype = {
     if (data.length % 2) {
       data = "0" + data;
     }
-    let Buf = this.context.Buf;
     for (let i = 0; i < data.length; i += 2) {
-      Buf.writeUint16(data.charCodeAt(i + 1));
-      Buf.writeUint16(data.charCodeAt(i));
+      this.pdu += data.charAt(i + 1);
+      this.pduWriteIndex++;
+      this.pdu += data.charAt(i);
+      this.pduWriteIndex++;
     }
   },
 
@@ -1441,10 +1446,10 @@ GsmPDUHelperObject.prototype = {
    *
    * @return a string.
    */
-  readSeptetsToString: function(value, length, paddingBits, langIndex, langShiftIndex) {
+  readSeptetsToString: function(length, paddingBits, langIndex, langShiftIndex) {
     let ret = "";
     let byteLength = Math.ceil((length * 7 + paddingBits) / 8);
-    let GsmPDUHelper = this.context.GsmPDUHelper;
+
     /**
      * |<-                    last byte in header                    ->|
      * |<-           incompleteBits          ->|<- last header septet->|
@@ -1461,8 +1466,7 @@ GsmPDUHelperObject.prototype = {
     let data = 0;
     let dataBits = 0;
     if (paddingBits) {
-      let byte = GsmPDUHelper.processHexToInt(value.slice(0,2), 16);
-      data = byte >> paddingBits;
+      data = this.readHexOctet() >> paddingBits;
       dataBits = 8 - paddingBits;
       --byteLength;
     }
@@ -1474,13 +1478,11 @@ GsmPDUHelperObject.prototype = {
       // Read as much as fits in 32bit word
       let bytesToRead = Math.min(byteLength, dataBits ? 3 : 4);
       for (let i = 0; i < bytesToRead; i++) {
-        let byte = GsmPDUHelper.processHexToInt(value.slice(i*2,i*2+2), 16);
-        data |= byte << dataBits;
+        data |= this.readHexOctet() << dataBits;
         dataBits += 8;
         --byteLength;
       }
-      // Remove the readed byte.
-      value = value.slice(bytesToRead*2);
+
       // Consume available full septets
       for (; dataBits >= 7; dataBits -= 7) {
         let septet = data & 0x7F;
@@ -1511,6 +1513,7 @@ GsmPDUHelperObject.prototype = {
         }
       }
     } while (byteLength);
+
     if (ret.length != length) {
       /**
        * If num of effective characters does not equal to the length of read
@@ -1884,8 +1887,8 @@ GsmPDUHelperObject.prototype = {
           PDU_NL_IDENTIFIER_DEFAULT , PDU_NL_IDENTIFIER_DEFAULT );
       return addr;
     }
-    // Cameron mark first.
-    //addr = this.readSwappedNibbleExtendedBcdString(len / 2);
+
+    addr = this.readSwappedNibbleExtendedBcdString(len / 2);
     if (addr.length <= 0) {
       if (DEBUG) this.context.debug("PDU error: no number provided");
       return null;
@@ -2145,8 +2148,7 @@ GsmPDUHelperObject.prototype = {
                                             langShiftIndex);
         break;
       case PDU_DCS_MSG_CODING_8BITS_ALPHABET:
-        //Cameron mark first.
-        //msg.data = this.readHexOctetArray(length);
+        msg.data = this.readHexOctetArray(length);
         break;
       case PDU_DCS_MSG_CODING_16BITS_ALPHABET:
         msg.body = this.readUCS2String(length);
@@ -2164,9 +2166,11 @@ GsmPDUHelperObject.prototype = {
     // Because each PDU octet is converted to two UCS2 char2, we should always
     // get even messageStringLength in this#_processReceivedSms(). So, we'll
     // always need two delimitors at the end.
-    if (this.context.Buf.getReadAvailable() <= 4) {
-      return;
-    }
+
+    //FIXME
+    //if (this.context.Buf.getReadAvailable() <= 4) {
+    //  return;
+    //}
 
     // TP-Parameter-Indicator
     let pi;
@@ -2236,8 +2240,7 @@ GsmPDUHelperObject.prototype = {
     if (smscLength > 0) {
       let smscTypeOfAddress = this.readHexOctet();
       // Subtract the type-of-address octet we just read from the length.
-      // Cameron mark first.
-      //msg.SMSC = this.readSwappedNibbleExtendedBcdString(smscLength - 1);
+      msg.SMSC = this.readSwappedNibbleExtendedBcdString(smscLength - 1);
       if ((smscTypeOfAddress >> 4) == (PDU_TOA_INTERNATIONAL >> 4)) {
         msg.SMSC = '+' + msg.SMSC;
       }
@@ -2278,17 +2281,12 @@ GsmPDUHelperObject.prototype = {
       return [null, PDU_FCS_UNSPECIFIED];
     }
 
-    let Buf = this.context.Buf;
-
     // An SMS is a string, but we won't read it as such, so let's read the
     // string length and then defer to PDU parsing helper.
-    let messageStringLength = Buf.readInt32();
+    let messageStringLength = length;
     if (DEBUG) this.context.debug("Got new SMS, length " + messageStringLength);
     let message = this.readMessage();
     if (DEBUG) this.context.debug("Got new SMS: " + JSON.stringify(message));
-
-    // Read string delimiters. See Buf.readString().
-    Buf.readStringDelimiter(length);
 
     // Determine result
     if (!message) {
@@ -2432,7 +2430,14 @@ GsmPDUHelperObject.prototype = {
     if (DEBUG) {
       this.context.debug("writeMessage: " + JSON.stringify(options));
     }
-    let Buf = this.context.Buf;
+
+    if (!options.segmentSeq) {
+      // Fist segment to send
+      options.segmentSeq = 1;
+      options.body = options.segments[0].body;
+      options.encodedBodyLength = options.segments[0].encodedBodyLength;
+    }
+
     let address = options.number;
     let body = options.body;
     let dcs = options.dcs;
@@ -2481,10 +2486,6 @@ GsmPDUHelperObject.prototype = {
     if (validity) {
       //TODO: add more to pduOctetLength
     }
-
-    // Start the string. Since octets are represented in hex, we will need
-    // twice as many characters as octets.
-    Buf.writeInt32(pduOctetLength * 2);
 
     // - PDU-TYPE-
 
@@ -2572,10 +2573,6 @@ GsmPDUHelperObject.prototype = {
         break;
     }
 
-    // End of the string. The string length is always even by definition, so
-    // we write two \0 delimiters.
-    Buf.writeUint16(0);
-    Buf.writeUint16(0);
   },
 
   /**
@@ -2587,8 +2584,7 @@ GsmPDUHelperObject.prototype = {
    * @see 3GPP TS 23.041 section 9.4.1.2.1
    */
   readCbSerialNumber: function(msg) {
-    let Buf = this.context.Buf;
-    msg.serial = Buf.readUint8() << 8 | Buf.readUint8();
+    msg.serial = this.readHexOctet() << 8 | this.readHexOctet();
     msg.geographicalScope = (msg.serial >>> 14) & 0x03;
     msg.messageCode = (msg.serial >>> 4) & 0x03FF;
     msg.updateNumber = msg.serial & 0x0F;
@@ -2603,8 +2599,7 @@ GsmPDUHelperObject.prototype = {
    * @see 3GPP TS 23.041 section 9.4.1.2.2
    */
   readCbMessageIdentifier: function(msg) {
-    let Buf = this.context.Buf;
-    msg.messageId = Buf.readUint8() << 8 | Buf.readUint8();
+    msg.messageId = this.readHexOctet() << 8 | this.readHexOctet();
   },
 
   /**
@@ -2641,7 +2636,7 @@ GsmPDUHelperObject.prototype = {
    * @see 3GPP TS 23.038 section 5.
    */
   readCbDataCodingScheme: function(msg) {
-    let dcs = this.context.Buf.readUint8();
+    let dcs = this.readHexOctet();
     if (DEBUG) this.context.debug("PDU: read CBS dcs: " + dcs);
 
     let language = null, hasLanguageIndicator = false;
@@ -2720,7 +2715,7 @@ GsmPDUHelperObject.prototype = {
    * @see 3GPP TS 23.041 section 9.4.1.2.4
    */
   readCbPageParameter: function(msg) {
-    let octet = this.context.Buf.readUint8();
+    let octet = this.readHexOctet();
     msg.pageIndex = (octet >>> 4) & 0x0F;
     msg.numPages = octet & 0x0F;
     if (!msg.pageIndex || !msg.numPages) {
@@ -2740,8 +2735,7 @@ GsmPDUHelperObject.prototype = {
    * @see 3GPP TS 23.041 section 9.3.24
    */
   readCbWarningType: function(msg) {
-    let Buf = this.context.Buf;
-    let word = Buf.readUint8() << 8 | Buf.readUint8();
+    let word = this.readHexOctet() << 8 | this.readHexOctet();
     msg.etws = {
       warningType:        (word >>> 9) & 0x7F,
       popup:              word & 0x80 ? true : false,
@@ -2758,11 +2752,10 @@ GsmPDUHelperObject.prototype = {
    * @see  3GPP TS 23.041 section 9.4.1.2.5
    */
   readGsmCbData: function(msg, length) {
-    let Buf = this.context.Buf;
     let bufAdapter = {
       context: this.context,
       readHexOctet: function() {
-        return Buf.readUint8();
+        return (this.readHexNibble() << 4) | this.readHexNibble();
       }
     };
 
@@ -2781,7 +2774,7 @@ GsmPDUHelperObject.prototype = {
         break;
 
       case PDU_DCS_MSG_CODING_8BITS_ALPHABET:
-        msg.data = Buf.readUint8Array(length);
+        msg.data = this.readHexOctetArray(length);
         break;
 
       case PDU_DCS_MSG_CODING_16BITS_ALPHABET:
@@ -2829,8 +2822,7 @@ GsmPDUHelperObject.prototype = {
    * @see 3GPP TS 23.041 section 9.4.2.2.5
    */
   readUmtsCbData: function(msg) {
-    let Buf = this.context.Buf;
-    let numOfPages = Buf.readUint8();
+    let numOfPages = this.readHexOctet();
     if (numOfPages < 0 || numOfPages > 15) {
       throw new Error("Invalid numOfPages: " + numOfPages);
     }
@@ -2838,7 +2830,7 @@ GsmPDUHelperObject.prototype = {
     let bufAdapter = {
       context: this.context,
       readHexOctet: function() {
-        return Buf.readUint8();
+        return (this.readHexNibble() << 4) | this.readHexNibble();
       }
     };
 
@@ -2853,14 +2845,14 @@ GsmPDUHelperObject.prototype = {
 
     let totalLength = 0, length, pageLengths = [];
     for (let i = 0; i < numOfPages; i++) {
-      Buf.seekIncoming(CB_MSG_PAGE_INFO_SIZE);
-      length = Buf.readUint8();
+      this.pduReadIndex += CB_MSG_PAGE_INFO_SIZE;
+      length = this.readHexOctet();
       totalLength += length;
       pageLengths.push(length);
     }
 
     // Seek back to beginning of CB Data.
-    Buf.seekIncoming(-numOfPages * (CB_MSG_PAGE_INFO_SIZE + 1));
+    this.pduReadIndex += (-numOfPages * (CB_MSG_PAGE_INFO_SIZE + 1));
 
     switch (msg.encoding) {
       case PDU_DCS_MSG_CODING_7BITS_ALPHABET: {
@@ -2882,9 +2874,9 @@ GsmPDUHelperObject.prototype = {
           msg.body += removePaddingCharactors(body);
 
           // Skip padding octets
-          Buf.seekIncoming(CB_MSG_PAGE_INFO_SIZE - pageLengths[i]);
+          this.pduReadIndex += (CB_MSG_PAGE_INFO_SIZE - pageLengths[i]);
           // Read the octet of CBS-Message-Information-Length
-          Buf.readUint8();
+          this.readHexOctet();
         }
 
         break;
@@ -2894,13 +2886,13 @@ GsmPDUHelperObject.prototype = {
         msg.data = new Uint8Array(totalLength);
         for (let i = 0, j = 0; i < numOfPages; i++) {
           for (let pageLength = pageLengths[i]; pageLength > 0; pageLength--) {
-              msg.data[j++] = Buf.readUint8();
+              msg.data[j++] = this.readHexOctet();
           }
 
           // Skip padding octets
-          Buf.seekIncoming(CB_MSG_PAGE_INFO_SIZE - pageLengths[i]);
+          this.pduReadIndex += (CB_MSG_PAGE_INFO_SIZE - pageLengths[i]);
           // Read the octet of CBS-Message-Information-Length
-          Buf.readUint8();
+          this.readHexOctet();
         }
 
         break;
@@ -2918,7 +2910,8 @@ GsmPDUHelperObject.prototype = {
                                                            PDU_NL_IDENTIFIER_DEFAULT,
                                                            PDU_NL_IDENTIFIER_DEFAULT);
             } else {
-              Buf.readUint16();
+              this.readHexOctet();
+              this.readHexOctet();
             }
 
             pageLength -= 2;
@@ -2928,9 +2921,9 @@ GsmPDUHelperObject.prototype = {
                         this.readUCS2String.call(bufAdapter, pageLength));
 
           // Skip padding octets
-          Buf.seekIncoming(CB_MSG_PAGE_INFO_SIZE - pageLengths[i]);
+          this.pduReadIndex += (CB_MSG_PAGE_INFO_SIZE - pageLengths[i]);
           // Read the octet of CBS-Message-Information-Length
-          Buf.readUint8();
+          this.readHexOctet();
         }
 
         break;
@@ -3015,8 +3008,7 @@ GsmPDUHelperObject.prototype = {
    * @see 3GPP TS 25.324 section 10.2
    */
   readUmtsCbMessage: function(msg) {
-    let Buf = this.context.Buf;
-    let type = Buf.readUint8();
+    let type = this.readHexOctet();;
     if (type != CB_UMTS_MESSAGE_TYPE_CBS) {
       throw new Error("Unsupported UMTS Cell Broadcast message type: " + type);
     }
@@ -3739,8 +3731,8 @@ ICCRecordHelperObject.prototype = {
             onerror();
             return;
           }
-          // Cameron mark first.
-          //number = this.context.GsmPDUHelper.readSwappedNibbleExtendedBcdString(numLen);
+
+          number = this.context.GsmPDUHelper.readSwappedNibbleExtendedBcdString(numLen);
           if (DEBUG) this.context.debug("Contact Extension Number: "+ number);
           Buf.seekIncoming((EXT_MAX_BCD_NUMBER_BYTES - numLen) * Buf.PDU_HEX_OCTET_SIZE);
         } else {
@@ -4226,7 +4218,9 @@ SimRecordHelperObject.prototype = {
       let strLen = value.length;
       // Each octet is encoded into two chars.
       let octetLen = strLen / 2;
-      let sst = this.context.GsmPDUHelper.readHexOctetArray(value, octetLen);
+      this.context.GsmPDUHelper.pdu = options.simResponse;
+      this.context.GsmPDUHelper.pduReadIndex = 0;
+      let sst = this.context.GsmPDUHelper.readHexOctetArray(octetLen);
       RIL.iccInfoPrivate.sst = sst;
       if (DEBUG) {
         let str = "";
@@ -4396,7 +4390,9 @@ SimRecordHelperObject.prototype = {
       let strLen = value.length;
       // Each octet is encoded into two chars.
       let octetLen = strLen / 2;
-      let mwis = this.context.GsmPDUHelper.readHexOctetArray(value, octetLen);
+      this.context.GsmPDUHelper.pdu = options.simResponse;
+      this.context.GsmPDUHelper.pduReadIndex = 0;
+      let mwis = this.context.GsmPDUHelper.readHexOctetArray(octetLen);
       if (!mwis) {
         return;
       }
@@ -5937,8 +5933,9 @@ ICCPDUHelperObject.prototype = {
 
     // TOA = TON + NPI. 1 byte.
     let toa = GsmPDUHelper.processHexToInt(value.slice(0, 2), 16);
-    let number_value = value.slice(2);
-    let number = GsmPDUHelper.readSwappedNibbleExtendedBcdString(number_value, len - 1);
+    GsmPDUHelper.pdu = value.slice(2);
+    GsmPDUHelper.pduReadIndex = 0
+    let number = GsmPDUHelper.readSwappedNibbleExtendedBcdString(len - 1);
     if (number.length <= 0) {
       if (DEBUG) this.context.debug("No number provided");
       return "";

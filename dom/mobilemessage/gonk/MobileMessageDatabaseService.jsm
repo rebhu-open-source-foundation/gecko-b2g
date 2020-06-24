@@ -131,4 +131,4 @@ MobileMessageDatabaseService.prototype = {
   }
 };
 
-this.NSGetFactory = XPCOMUtils.generateNSGetFactory([MobileMessageDatabaseService]);
+var EXPORTED_SYMBOLS = ["MobileMessageDatabaseService"];

@@ -457,8 +457,18 @@ Return<void> nsRilResponse::sendSmsResponse(const RadioResponseInfo& info,
                                             const SendSmsResult& sms) {
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
-  // sendSmsResult = sms;
+  RefPtr<nsRilResponseResult> result =
+      new nsRilResponseResult(NS_LITERAL_STRING("sendSMS"), rspInfo.serial,
+                              convertRadioErrorToNum(rspInfo.error));
 
+  if (rspInfo.error == RadioError::NONE) {
+    RefPtr<nsSendSmsResult> smsResult = new nsSendSmsResult(
+        sms.messageRef, NS_ConvertUTF8toUTF16(sms.ackPDU.c_str()),
+        sms.errorCode);
+    result->updateSendSmsResponse(smsResult);
+  } else {
+    INFO("sendSMS error.");
+  }
   return Void();
 }
 
@@ -629,6 +639,7 @@ Return<void> nsRilResponse::acknowledgeLastIncomingGsmSmsResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
+  defaultResponse(rspInfo, NS_LITERAL_STRING("ackSMS"));
   return Void();
 }
 

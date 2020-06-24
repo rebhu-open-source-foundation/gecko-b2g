@@ -32,39 +32,40 @@ interface nsIMobileMessageService : nsISupports
                                  in unsigned long long deliveryTimestamp,
                                  in bool               read);
 
-  [implicit_jscontext]
-  nsIMmsMessage createMmsMessage(in long               id,
-                                 in unsigned long long threadId,
-                                 in AString          iccId,
-                                 in AString          delivery,
-                                 in jsval              deliveryInfo,
-                                 in AString          sender,
-                                 in jsval              receivers,
-                                 in unsigned long long timestamp,
-                                 in unsigned long long sentTimestamp,
-                                 in boolean            read,
-                                 in AString          subject,
-                                 in AString          smil,
-                                 in jsval              attachments,
-                                 in unsigned long long expiryDate,
-                                 in boolean            readReportRequested,
-                                 in boolean            isGroup);
+  //FIXME
+  //[implicit_jscontext]
+  //nsIMmsMessage createMmsMessage(in long               id,
+  //                               in unsigned long long threadId,
+  //                               in AString          iccId,
+  //                               in AString          delivery,
+  //                               in jsval              deliveryInfo,
+  //                               in AString          sender,
+  //                               in jsval              receivers,
+  //                               in unsigned long long timestamp,
+  //                               in unsigned long long sentTimestamp,
+  //                               in boolean            read,
+  //                               in AString          subject,
+  //                               in AString          smil,
+  //                               in jsval              attachments,
+  //                               in unsigned long long expiryDate,
+  //                               in boolean            readReportRequested,
+  //                               in boolean            isGroup);
 
-  [implicit_jscontext]
-  nsIMobileMessageThread createThread(in unsigned long long id,
-                                      in jsval              participants,
-                                      in unsigned long long timestamp,
-                                      in AString          lastMessageSubject,
-                                      in AString          body,
-                                      in unsigned long long unreadCount,
-                                      in AString          aLastMessageType,
-                                      in boolean            isGroup);
+  //[implicit_jscontext]
+  //nsIMobileMessageThread createThread(in unsigned long long id,
+  //                                    in jsval              participants,
+  //                                    in unsigned long long timestamp,
+  //                                    in AString          lastMessageSubject,
+  //                                    in AString          body,
+  //                                    in unsigned long long unreadCount,
+  //                                    in AString          aLastMessageType,
+  //                                    in boolean            isGroup);
 
-  nsIDeletedMessageInfo createDeletedMessageInfo(
-    [array, size_is(msgCount)] in long messageIds,
-    in uint32_t msgCount,
-    [array, size_is(threadCount)] in unsigned long long threadIds,
-    in uint32_t threadCount);
+  //nsIDeletedMessageInfo createDeletedMessageInfo(
+  //  [array, size_is(msgCount)] in long messageIds,
+  //  in uint32_t msgCount,
+  //  [array, size_is(threadCount)] in unsigned long long threadIds,
+  //  in uint32_t threadCount);
 };
 
 %{C++

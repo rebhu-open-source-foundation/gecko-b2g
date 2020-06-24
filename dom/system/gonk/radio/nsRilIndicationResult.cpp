@@ -52,6 +52,16 @@ void nsRilIndicationResult::updateRadioStateChanged(int32_t aRadioState) {
 
 /**
  * Constructor for a nsRilIndicationResult
+ * For onSms
+ */
+void nsRilIndicationResult::updateOnSms(nsTArray<int32_t>& aPdu) {
+  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
+                      "updateOnSms");
+  mPdu = aPdu.Clone();
+}
+
+/**
+ * Constructor for a nsRilIndicationResult
  * For newSmsOnSim
  */
 void nsRilIndicationResult::updateNewSmsOnSim(int32_t aRecordNumber) {
@@ -307,6 +317,17 @@ NS_IMETHODIMP nsRilIndicationResult::GetRilMessageType(
 
 NS_IMETHODIMP nsRilIndicationResult::GetRadioState(int32_t* aRadioState) {
   *aRadioState = mRadioState;
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilIndicationResult::GetPdu(int32_t** data, uint32_t* count) {
+  *count = mPdu.Length();
+  *data = (int32_t*)moz_xmalloc((*count) * sizeof(int32_t));
+  NS_ENSURE_TRUE(*data, NS_ERROR_OUT_OF_MEMORY);
+
+  for (uint32_t i = 0; i < *count; i++) {
+    (*data)[i] = mPdu[i];
+  }
   return NS_OK;
 }
 

@@ -2853,6 +2853,11 @@
   value: true
   mirror: always
 
+- name: dom.sms.enabled
+  type: bool
+  value: true
+  mirror: always
+
 #- name: telephony.vt.loopback.enabled
 #  type: bool
 #  value: false

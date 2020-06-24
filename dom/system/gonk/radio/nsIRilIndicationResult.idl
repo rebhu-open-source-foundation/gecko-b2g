@@ -52,8 +52,8 @@ interface nsIRilIndicationResult : nsISupports
    *
    * @returns the length of the lists.
    */
-  /*void getPdu([array, size_is(count)] out long pdu,
-                    [retval] out unsigned long count);*/
+  void getPdu([array, size_is(count)] out long pdu,
+                    [retval] out unsigned long count);
 
   /**
    * Record number for newSmsOnSim.

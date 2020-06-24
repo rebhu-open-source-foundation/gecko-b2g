@@ -37,8 +37,9 @@ const { Services } = ChromeUtils.import(
   "resource://gre/modules/Services.jsm"
 );
 
-Cu.import("resource://gre/modules/PhoneNumberUtils.jsm");
-Cu.importGlobalProperties(["indexedDB"]);
+//FIXME
+//Cu.import("resource://gre/modules/PhoneNumberUtils.jsm");
+//Cu.importGlobalProperties(["indexedDB"]);
 
 XPCOMUtils.defineLazyGetter(this, "RIL", function () {
   let obj = {};
@@ -716,8 +717,9 @@ MobileMessageDB.prototype = {
     this.dbName = aDbName;
     this.dbVersion = aDbVersion || DB_VERSION;
 
-    this.contactDB = new ContactDB();
-    this.contactDB.init();
+    //FIXME
+    //this.contactDB = new ContactDB();
+    //this.contactDB.init();
 
     let self = this;
     this.newTxn(READ_ONLY, function(error, txn, messageStore){
@@ -2246,6 +2248,7 @@ MobileMessageDB.prototype = {
     // phonenumberutils will be "987654321" in this case.
 
     // Normalize address before searching for participant record.
+/* FIXME
     let normalizedAddress = PhoneNumberUtils.normalize(aAddress, false);
     let allPossibleAddresses = [normalizedAddress];
     let parsedAddress = PhoneNumberUtils.parse(normalizedAddress);
@@ -2260,6 +2263,10 @@ MobileMessageDB.prototype = {
       debug("findParticipantRecordByPlmnAddress: allPossibleAddresses = " +
             JSON.stringify(allPossibleAddresses));
     }
+*/
+    //FIXME
+    let normalizedAddress = aAddress;
+    let allPossibleAddresses = [normalizedAddress];
 
     // Make a copy here because we may need allPossibleAddresses again.
     let needles = allPossibleAddresses.slice(0);
@@ -2301,9 +2308,12 @@ MobileMessageDB.prototype = {
 
         let participantRecord = cursor.value;
         for (let storedAddress of participantRecord.addresses) {
-          let parsedStoredAddress = PhoneNumberUtils.parseWithMCC(storedAddress, null);
-          let match = this.matchPhoneNumbers(normalizedAddress, parsedAddress,
-                                             storedAddress, parsedStoredAddress);
+          //FIXME
+          //let parsedStoredAddress = PhoneNumberUtils.parseWithMCC(storedAddress, null);
+          //let match = this.matchPhoneNumbers(normalizedAddress, parsedAddress,
+          //                                   storedAddress, parsedStoredAddress);
+          let match = false;
+
           if (!match) {
             // 3) Else we fail to match current stored participant record.
             continue;
@@ -3401,7 +3411,7 @@ MobileMessageDB.prototype = {
     } else { // SMS
       threadParticipants = [{
         address: aMessage.sender,
-        type: MMS.Address.resolveType(aMessage.sender)
+        type: "PLMN"//MMS.Address.resolveType(aMessage.sender) //FIXME
       }];
     }
 
@@ -3491,22 +3501,24 @@ MobileMessageDB.prototype = {
           aCallback.notify(Cr.NS_ERROR_FAILURE, domMessage);
         }
       } else {
-        self.contactDB.findBlockedNumbers(findBlockContactsSuccess,
-                                          findBlockContactsFail, {
-          filterBy: ['number'],
-          filterValue: aMessage.sender,
-          filterOp: 'fuzzyMatch'
-        });
+        //FIXME
+        //self.contactDB.findBlockedNumbers(findBlockContactsSuccess,
+        //                                  findBlockContactsFail, {
+        //  filterBy: ['number'],
+        //  filterValue: aMessage.sender,
+        //  filterOp: 'fuzzyMatch'
+        //});
       }
     }
 
     function findResultFail(error) {
-      self.contactDB.findBlockedNumbers(findBlockContactsSuccess,
-                                        findBlockContactsFail, {
-        filterBy: ['number'],
-        filterValue: aMessage.sender,
-        filterOp: 'fuzzyMatch'
-      });
+      //FIXME
+      //self.contactDB.findBlockedNumbers(findBlockContactsSuccess,
+      //                                  findBlockContactsFail, {
+      //  filterBy: ['number'],
+      //  filterValue: aMessage.sender,
+      //  filterOp: 'fuzzyMatch'
+      //});
     }
 
     // Parent control need block non contact number, it is diferent with normal.
@@ -3516,6 +3528,9 @@ MobileMessageDB.prototype = {
       parentalControlEnabled = Services.prefs.getBoolPref(DEVICE_CAPABILITY_CONTROL);
     } catch (e) {}
 
+    //FIXME
+    self.saveRecord(aMessage, threadParticipants, aCallback);
+/*
     if (parentalControlEnabled) {
       if (DEBUG) debug("Parent control feature work well");
       let emailRegexp = /[\w.+-]+@[\w.-]+\.[a-z]{2,6}/mgi;
@@ -3540,6 +3555,7 @@ MobileMessageDB.prototype = {
         filterOp: 'fuzzyMatch'
       });
     }
+*/
   },
 
   /**
@@ -3612,7 +3628,8 @@ MobileMessageDB.prototype = {
     if (aMessage.type == "sms") {
       threadParticipants = [{
         address: aMessage.receiver,
-        type :MMS.Address.resolveType(aMessage.receiver)
+        //type :MMS.Address.resolveType(aMessage.receiver) //FIXME
+        type : "PLMN"
       }];
     } else if (aMessage.type == "mms") {
       threadParticipants = [];
@@ -5384,6 +5401,7 @@ this.EXPORTED_SYMBOLS = [
   'MobileMessageDB'
 ];
 
-function debug() {
-  dump("MobileMessageDB: " + Array.slice(arguments).join(" ") + "\n");
+function debug(s) {
+  //dump("MobileMessageDB: " + Array.slice(arguments).join(" ") + "\n");
+  console.log("MobileMessageDB: " + s + "\n");
 }

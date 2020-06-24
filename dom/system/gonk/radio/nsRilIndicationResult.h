@@ -25,6 +25,8 @@ class nsRilIndicationResult final : public nsRilResult,
   explicit nsRilIndicationResult(const nsAString& aRilMessageType);
   // For radioStateChanged
   void updateRadioStateChanged(int32_t aRadioState);
+  // For newSms
+  void updateOnSms(nsTArray<int32_t>& aPdu);
   // For newSmsOnSim
   void updateNewSmsOnSim(int32_t aRecordNumber);
   // For onUssd
@@ -103,6 +105,7 @@ class nsRilIndicationResult final : public nsRilResult,
   nsCOMPtr<nsILceDataInfo> mLce;
   nsCOMPtr<nsIPcoDataInfo> mPco;
   nsString mReason;
+  nsTArray<int32_t> mPdu;
 
  private:
   ~nsRilIndicationResult();
