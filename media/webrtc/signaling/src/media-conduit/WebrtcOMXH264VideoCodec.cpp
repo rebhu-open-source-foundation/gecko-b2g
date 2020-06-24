@@ -85,16 +85,14 @@ class EncOutputDrain : public OMXOutputDrain {
       return false;
     }
 
-    // Conversion to us rounds down, so we need to round up for us->90KHz
-    uint32_t target_timestamp = (timeUs * 90ll + 999) / 1000;  // us -> 90KHz
     // 8x10 v2.0 encoder doesn't set this reliably:
     // bool isParamSets = (flags & MediaCodec::BUFFER_FLAG_CODECCONFIG);
     // Assume that SPS/PPS will be at the start of any buffer
     // Assume PPS will not be in a separate buffer - SPS/PPS or SPS/PPS/iframe
     bool isParamSets = IsParamSets(output.Elements(), output.Length());
     bool isIFrame = (flags & MediaCodec::BUFFER_FLAG_SYNCFRAME);
-    CODEC_LOGD("OMX: encoded frame (%d): time %lld (%u), flags x%x",
-               output.Length(), timeUs, target_timestamp, flags);
+    CODEC_LOGD("OMX: encoded frame (%d): time %lld, flags x%x", output.Length(),
+               timeUs, flags);
     // Should not be parameter sets and I-frame at the same time.
     // Except that it is possible, apparently, after an encoder re-config (bug
     // 1063883) MOZ_ASSERT(!(isParamSets && isIFrame));
@@ -111,33 +109,7 @@ class EncOutputDrain : public OMXOutputDrain {
       EncodedFrame input_frame;
       {
         MonitorAutoLock lock(mMonitor);
-        // will sps/pps have the same timestamp as their iframe? Initial one on
-        // 8x10 has 0 timestamp.
-        if (isParamSets) {
-          // Let's assume it was the first item in the queue, but leave it there
-          // since an IDR will follow
-          input_frame = mInputFrames.front();
-        } else {
-          do {
-            if (mInputFrames.empty()) {
-              // Let's assume it was the last item in the queue, but leave it
-              // there
-              mInputFrames.push(input_frame);
-              CODEC_LOGE(
-                  "OMX: encoded timestamp %u which doesn't match input queue!! "
-                  "(head %u)",
-                  target_timestamp, input_frame.mTimestamp);
-              break;
-            }
-
-            input_frame = mInputFrames.front();
-            mInputFrames.pop();
-            if (input_frame.mTimestamp != target_timestamp) {
-              CODEC_LOGD("OMX: encoder skipped frame timestamp %u",
-                         input_frame.mTimestamp);
-            }
-          } while (input_frame.mTimestamp != target_timestamp);
-        }
+        input_frame = mInputFrames.Pop(timeUs);
       }
 
       encoded._encodedWidth = input_frame.mWidth;
@@ -444,15 +416,14 @@ int32_t WebrtcOMXH264VideoEncoder::Encode(
     img->AsPlanarYCbCrImage()->AdoptData(yuvData);
   }
 
+  int64_t timestampUs = mUnwrapper.Unwrap(aInputImage.timestamp()) * 1000 / 90;
+
   CODEC_LOGD("Encode frame: %dx%d, timestamp %u (%lld), renderTimeMs %" PRIu64,
              aInputImage.width(), aInputImage.height(), aInputImage.timestamp(),
-             aInputImage.timestamp() * 1000ll / 90,
-             aInputImage.render_time_ms());
+             timestampUs, aInputImage.render_time_ms());
 
-  nsresult rv =
-      mOMX->Encode(img.get(), aInputImage.width(), aInputImage.height(),
-                   aInputImage.timestamp() * 1000ll / 90,  // 90kHz -> us.
-                   0);
+  nsresult rv = mOMX->Encode(img.get(), aInputImage.width(),
+                             aInputImage.height(), timestampUs, 0);
   if (rv == NS_OK) {
     if (mOutputDrain == nullptr) {
       mOutputDrain = new EncOutputDrain(mOMX.get(), mCallback);
@@ -462,6 +433,7 @@ int32_t WebrtcOMXH264VideoEncoder::Encode(
     frame.mWidth = mWidth;
     frame.mHeight = mHeight;
     frame.mTimestamp = aInputImage.timestamp();
+    frame.mTimestampUs = timestampUs;
     frame.mRenderTimeMs = aInputImage.render_time_ms();
     mOutputDrain->QueueInput(frame);
   }

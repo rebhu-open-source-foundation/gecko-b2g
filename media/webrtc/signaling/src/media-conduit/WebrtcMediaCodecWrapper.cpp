@@ -69,7 +69,7 @@ void OMXOutputDrain::QueueInput(const EncodedFrame& aFrame) {
 
   MOZ_ASSERT(mThread);
 
-  mInputFrames.push(aFrame);
+  mInputFrames.Push(aFrame);
   // Notify Run() about queued input and it can start working.
   lock.NotifyAll();
 }
@@ -83,7 +83,7 @@ OMXOutputDrain::Run() {
   MOZ_ASSERT(mThread);
 
   while (true) {
-    if (mInputFrames.empty()) {
+    if (mInputFrames.Empty()) {
       // Wait for new input.
       lock.Wait();
     }
@@ -94,7 +94,7 @@ OMXOutputDrain::Run() {
       break;
     }
 
-    MOZ_ASSERT(!mInputFrames.empty());
+    MOZ_ASSERT(!mInputFrames.Empty());
     {
       // Release monitor while draining because it's blocking.
       MonitorAutoUnlock unlock(mMonitor);
@@ -195,17 +195,17 @@ status_t WebrtcOMXDecoder::FillInput(const webrtc::EncodedImage& aEncoded,
 
   const sp<MediaCodecBuffer>& omxIn = mInputBuffers.itemAt(index);
   MOZ_ASSERT(omxIn->capacity() >= aEncoded._length);
+  if (omxIn->capacity() < aEncoded._length) {
+    CODEC_LOGE("insufficient input buffer capacity");
+    return UNKNOWN_ERROR;
+  }
   omxIn->setRange(0, aEncoded._length);
   // Copying is needed because MediaCodec API doesn't support externally
   // allocated buffer as input.
-  uint8_t* dst = omxIn->data();
-  memcpy(dst, aEncoded._buffer, aEncoded._length);
-  int64_t inputTimeUs = (aEncoded._timeStamp * 1000ll) / 90;  // 90kHz -> us.
-  // Assign input flags according to frame header
-  uint32_t flags = 0;
-  if (aIsCodecConfig) {
-    flags = MediaCodec::BUFFER_FLAG_CODECCONFIG;
-  }
+  memcpy(omxIn->data(), aEncoded._buffer, aEncoded._length);
+  // Unwrap RTP timestamp and convert it from 90kHz clock to usec.
+  int64_t inputTimeUs = mUnwrapper.Unwrap(aEncoded._timeStamp) * 1000 / 90;
+  uint32_t flags = aIsCodecConfig ? MediaCodec::BUFFER_FLAG_CODECCONFIG : 0;
 
   err =
       mCodec->queueInputBuffer(index, 0, aEncoded._length, inputTimeUs, flags);
@@ -218,6 +218,7 @@ status_t WebrtcOMXDecoder::FillInput(const webrtc::EncodedImage& aEncoded,
     frame.mWidth = aEncoded._encodedWidth;
     frame.mHeight = aEncoded._encodedHeight;
     frame.mTimestamp = aEncoded._timeStamp;
+    frame.mTimestampUs = inputTimeUs;
     frame.mRenderTimeMs = aRenderTimeMs;
     mOutputDrain->QueueInput(frame);
   }
@@ -225,7 +226,7 @@ status_t WebrtcOMXDecoder::FillInput(const webrtc::EncodedImage& aEncoded,
   return err;
 }
 
-status_t WebrtcOMXDecoder::DrainOutput(std::queue<EncodedFrame>& aInputFrames,
+status_t WebrtcOMXDecoder::DrainOutput(FrameList& aInputFrames,
                                        Monitor& aMonitor) {
   MOZ_ASSERT(mCodec != nullptr);
   if (mCodec == nullptr) {
@@ -261,9 +262,6 @@ status_t WebrtcOMXDecoder::DrainOutput(std::queue<EncodedFrame>& aInputFrames,
       return INFO_OUTPUT_BUFFERS_CHANGED;
     default:
       CODEC_LOGE("decode dequeue OMX output buffer error:%d", err);
-      // Return OK to instruct OutputDrain to drop input from queue.
-      MonitorAutoLock lock(aMonitor);
-      aInputFrames.pop();
       return OK;
   }
 
@@ -271,8 +269,7 @@ status_t WebrtcOMXDecoder::DrainOutput(std::queue<EncodedFrame>& aInputFrames,
     EncodedFrame frame;
     {
       MonitorAutoLock lock(aMonitor);
-      frame = aInputFrames.front();
-      aInputFrames.pop();
+      frame = aInputFrames.Pop(outTime);
     }
     {
       // Store info of this frame. OnNewFrame() will need the timestamp later.
@@ -307,7 +304,7 @@ void WebrtcOMXDecoder::OnNewFrame() {
   grallocImage->AdoptData(buffer, picSize);
 
   // Get timestamp of the frame about to render.
-  int64_t timestamp = -1;
+  uint32_t timestamp = 0;
   int64_t renderTimeMs = -1;
   {
     MutexAutoLock lock(mDecodedFrameLock);
@@ -319,7 +316,7 @@ void WebrtcOMXDecoder::OnNewFrame() {
     renderTimeMs = decoded.mRenderTimeMs;
     mDecodedFrames.pop();
   }
-  MOZ_ASSERT(timestamp >= 0 && renderTimeMs >= 0);
+  MOZ_ASSERT(renderTimeMs >= 0);
 
   rtc::scoped_refptr<ImageBuffer> imageBuffer(
       new rtc::RefCountedObject<ImageBuffer>(std::move(grallocImage)));

@@ -11,6 +11,7 @@
 #include "GonkNativeWindow.h"
 #include "runnable_utils.h"
 #include "webrtc/api/video_codecs/video_decoder.h"
+#include "webrtc/modules/include/module_common_types_public.h"
 
 #define CODEC_LOG_TAG "OMX"
 #define CODEC_LOGV(...) CSFLogInfo(CODEC_LOG_TAG, __VA_ARGS__)
@@ -22,10 +23,50 @@
 namespace mozilla {
 
 struct EncodedFrame {
-  uint32_t mWidth;
-  uint32_t mHeight;
-  uint32_t mTimestamp;
-  int64_t mRenderTimeMs;
+  uint32_t mWidth = 0;
+  uint32_t mHeight = 0;
+  uint32_t mTimestamp = 0;
+  int64_t mTimestampUs = 0;
+  int64_t mRenderTimeMs = 0;
+};
+
+class FrameList {
+ public:
+  bool Empty() { return mQueue.empty(); }
+
+  void Push(const EncodedFrame& aFrame) {
+    mQueue.push_back(aFrame);
+    if (mQueue.size() > 32) {
+      CODEC_LOGE("FrameList exceeds max capacity, dropping one frame");
+      mQueue.pop_front();
+    }
+  }
+
+  EncodedFrame Pop(int64_t aTimestampUs) {
+    EncodedFrame frame;
+    if (mQueue.empty()) {
+      CODEC_LOGE("FrameList has no frame, return an empty one");
+      return frame;
+    }
+
+    // Find the target frame and clear the frames before it.
+    do {
+      frame = mQueue.front();
+      mQueue.pop_front();
+    } while (!mQueue.empty() && mQueue.front().mTimestampUs <= aTimestampUs);
+
+    if (frame.mTimestampUs != aTimestampUs) {
+      CODEC_LOGE("FrameList has no matched frame, return the nearby one");
+    }
+
+    // Keep the found frame in the list, in case the next Pop() maps to the same
+    // frame.
+    mQueue.push_front(frame);
+    return frame;
+  }
+
+ private:
+  std::deque<EncodedFrame> mQueue;
 };
 
 // Base runnable class to repeatly pull OMX output buffers in seperate thread.
@@ -69,7 +110,7 @@ class OMXOutputDrain : public Runnable {
   // This monitor protects all things below it, and is also used to
   // wait/notify queued input.
   Monitor mMonitor;
-  std::queue<EncodedFrame> mInputFrames;
+  FrameList mInputFrames;
 
  private:
   // also protected by mMonitor
@@ -101,8 +142,7 @@ class WebrtcOMXDecoder final
   status_t FillInput(const webrtc::EncodedImage& aEncoded, bool aIsCodecConfig,
                      int64_t aRenderTimeMs);
 
-  status_t DrainOutput(std::queue<EncodedFrame>& aInputFrames,
-                       Monitor& aMonitor);
+  status_t DrainOutput(FrameList& aInputFrames, Monitor& aMonitor);
 
   // Will be called when MediaCodec::RenderOutputBufferAndRelease() returns
   // buffers back to native window for rendering.
@@ -130,6 +170,7 @@ class WebrtcOMXDecoder final
   bool mEnding;
   const char* mMimeType;
   webrtc::DecodedImageCallback* mCallback;
+  webrtc::TimestampUnwrapper mUnwrapper;
 
   android::sp<ALooper> mLooper;
   android::sp<MediaCodec> mCodec;

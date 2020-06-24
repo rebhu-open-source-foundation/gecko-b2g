@@ -8,6 +8,7 @@
 #include <utils/RefBase.h>
 
 #include "VideoConduit.h"
+#include "webrtc/modules/include/module_common_types_public.h"
 
 namespace android {
 class OMXCodecReservation;
@@ -68,6 +69,7 @@ class WebrtcOMXH264VideoEncoder : public WebrtcVideoEncoder {
   bool mOMXConfigured;
   bool mOMXReconfigure;
   webrtc::EncodedImage mEncodedImage;
+  webrtc::TimestampUnwrapper mUnwrapper;
 };
 
 class WebrtcOMXH264VideoDecoder : public WebrtcVideoDecoder {
