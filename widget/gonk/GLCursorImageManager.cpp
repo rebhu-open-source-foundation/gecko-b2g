@@ -23,6 +23,7 @@
 #include "nsIFrame.h"
 #include "nsIWidgetListener.h"
 #include "nsWindow.h"
+#include "PresShell.h"
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -190,9 +191,9 @@ void GLCursorImageManager::PrepareCursorImage(nsCursor aCursor,
 
   // Create a new loading task for cursor.
   RefPtr<mozilla::dom::AnonymousContent> cursorElementHolder;
-  nsIPresShell* presShell = aWindow->GetWidgetListener()->GetPresShell();
+  PresShell* presShell = aWindow->GetWidgetListener()->GetPresShell();
   if (presShell && presShell->GetDocument()) {
-    nsIDocument* doc = presShell->GetDocument();
+    Document* doc = presShell->GetDocument();
 
     // Insert new element to ensure restyle
     nsCOMPtr<dom::Element> image = doc->CreateHTMLElement(nsGkAtoms::div);
@@ -202,32 +203,31 @@ void GLCursorImageManager::PrepareCursorImage(nsCursor aCursor,
     cursorElementHolder = doc->InsertAnonymousContent(*image, rv);
 
     if (cursorElementHolder) {
-      nsCOMPtr<dom::Element> element = cursorElementHolder->GetContentNode();
-      nsIFrame* frame = element->GetPrimaryFrame();
+      dom::Element &element = cursorElementHolder->ContentNode();
+      nsIFrame* frame = element.GetPrimaryFrame();
       if (!frame) {
         // Force the document to construct a primary frame immediately if
         // it hasn't constructed yet.
         doc->FlushPendingNotifications(FlushType::Frames);
-        frame = element->GetPrimaryFrame();
+        frame = element.GetPrimaryFrame();
       }
       MOZ_ASSERT(frame);
 
       // Create an empty GLCursorLoadRequest.
       GLCursorLoadRequest& loadRequest =
           mGLCursorLoadingRequestMap[supportedCursor];
-      const nsStyleUserInterface* ui = frame->StyleUserInterface();
+      const nsStyleUI* ui = frame->StyleUI();
 
       // Retrieve first cursor property from css.
-      MOZ_ASSERT(ui->mCursorArrayLength > 0);
-      nsCursorImage* item = ui->mCursorArray;
-      nsIntPoint hotspot(item->mHotspotX, item->mHotspotY);
+      MOZ_ASSERT(ui->mCursor.images.Length() > 0);
+      StyleCursorImage *item = ui->mCursor.images.ptr;
+      nsIntPoint hotspot((int)item->hotspot_x, (int)item->hotspot_y);
       loadRequest.mTask = new LoadCursorTask(supportedCursor, hotspot, this);
 
-      item->GetImage()->Clone(loadRequest.mTask.get(),
+      item->url.GetImage()->Clone(loadRequest.mTask.get(),
                               getter_AddRefs(loadRequest.mRequest));
 
-      // Ask decode after load complete.
-      loadRequest.mRequest->StartDecoding();
+      loadRequest.mRequest->StartDecoding(imgIContainer::FLAG_NONE);
 
       // Since we have cloned the imgIRequest, we can remove the element.
       doc->RemoveAnonymousContent(*cursorElementHolder, rv);
