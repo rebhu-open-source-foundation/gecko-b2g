@@ -546,6 +546,7 @@ nsDisplayListBuilder::nsDisplayListBuilder(nsIFrame* aReferenceFrame,
       mIsInChromePresContext(false),
       mSyncDecodeImages(false),
       mIsPaintingToWindow(false),
+      mUseHighQualityScaling(false),
       mIsPaintingForWebRender(false),
       mIsCompositingCheap(false),
       mContainsPluginItem(false),
@@ -565,6 +566,7 @@ nsDisplayListBuilder::nsDisplayListBuilder(nsIFrame* aReferenceFrame,
       mBuildAsyncZoomContainer(false),
       mContainsBackdropFilter(false),
       mIsRelativeToLayoutViewport(false),
+      mUseOverlayScrollbars(false),
       mHitTestArea(),
       mHitTestInfo(CompositorHitTestInvisibleToHit) {
   MOZ_COUNT_CTOR(nsDisplayListBuilder);
@@ -572,6 +574,9 @@ nsDisplayListBuilder::nsDisplayListBuilder(nsIFrame* aReferenceFrame,
   mBuildCompositorHitTestInfo = mAsyncPanZoomEnabled && IsForPainting();
 
   ShouldRebuildDisplayListDueToPrefChange();
+
+  mUseOverlayScrollbars =
+      (LookAndFeel::GetInt(LookAndFeel::IntID::UseOverlayScrollbars) != 0);
 
   static_assert(
       static_cast<uint32_t>(DisplayItemType::TYPE_MAX) < (1 << TYPE_BITS),
@@ -599,6 +604,7 @@ void nsDisplayListBuilder::BeginFrame() {
   mFrameToAnimatedGeometryRootMap.Put(mReferenceFrame, mRootAGR);
 
   mIsPaintingToWindow = false;
+  mUseHighQualityScaling = false;
   mIgnoreSuppression = false;
   mInTransform = false;
   mInFilter = false;
@@ -807,7 +813,16 @@ bool nsDisplayListBuilder::ShouldRebuildDisplayListDueToPrefChange() {
   // (manually by the user, or during test setup).
   bool didBuildAsyncZoomContainer = mBuildAsyncZoomContainer;
   UpdateShouldBuildAsyncZoomContainer();
+
+  bool hadOverlayScrollbarsLastTime = mUseOverlayScrollbars;
+  mUseOverlayScrollbars =
+      (LookAndFeel::GetInt(LookAndFeel::IntID::UseOverlayScrollbars) != 0);
+
   if (didBuildAsyncZoomContainer != mBuildAsyncZoomContainer) {
+    return true;
+  }
+
+  if (hadOverlayScrollbarsLastTime != mUseOverlayScrollbars) {
     return true;
   }
 
@@ -886,6 +901,9 @@ uint32_t nsDisplayListBuilder::GetBackgroundPaintFlags() {
   if (mIsPaintingToWindow) {
     flags |= nsCSSRendering::PAINTBG_TO_WINDOW;
   }
+  if (mUseHighQualityScaling) {
+    flags |= nsCSSRendering::PAINTBG_HIGH_QUALITY_SCALING;
+  }
   return flags;
 }
 
@@ -896,7 +914,7 @@ uint32_t nsDisplayListBuilder::GetImageDecodeFlags() const {
   } else {
     flags |= imgIContainer::FLAG_SYNC_DECODE_IF_FAST;
   }
-  if (mIsPaintingToWindow) {
+  if (mIsPaintingToWindow || mUseHighQualityScaling) {
     flags |= imgIContainer::FLAG_HIGH_QUALITY_SCALING;
   }
   return flags;

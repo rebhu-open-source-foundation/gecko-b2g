@@ -1113,7 +1113,7 @@ class ContentParent final
       nsIURI* uri, nsIPrincipal* triggeringPrincipal,
       const MaybeDiscarded<BrowsingContext>& aContext);
   mozilla::ipc::IPCResult RecvExtProtocolChannelConnectParent(
-      const uint32_t& registrarId);
+      const uint64_t& registrarId);
 
   mozilla::ipc::IPCResult RecvSyncMessage(
       const nsString& aMsg, const ClonedMessageData& aData,
@@ -1471,6 +1471,8 @@ class ContentParent final
   void AddToPool(nsTArray<ContentParent*>&);
   void RemoveFromPool(nsTArray<ContentParent*>&);
   void AssertNotInPool();
+
+  void AssertAlive();
 
  private:
   // Released in ActorDealloc; deliberately not exposed to the CC.

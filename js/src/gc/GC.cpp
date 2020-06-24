@@ -470,8 +470,8 @@ inline size_t Arena::finalize(JSFreeOp* fop, AllocKind thingKind,
   FreeSpan* newListTail = &newListHead;
   size_t nmarked = 0;
 
-  for (ArenaCellIterUnderFinalize i(this); !i.done(); i.next()) {
-    T* t = i.get<T>();
+  for (ArenaCellIterUnderFinalize cell(this); !cell.done(); cell.next()) {
+    T* t = cell.as<T>();
     if (t->asTenured().isMarkedAny()) {
       uint_fast16_t thing = uintptr_t(t) & ArenaMask;
       if (thing != firstThingOrSuccessorOfLastMarkedThing) {
@@ -1945,14 +1945,14 @@ static void RelocateArena(Arena* arena, SliceBudget& sliceBudget) {
   AllocKind thingKind = arena->getAllocKind();
   size_t thingSize = arena->getThingSize();
 
-  for (ArenaCellIterUnderGC i(arena); !i.done(); i.next()) {
-    RelocateCell(zone, i.getCell(), thingKind, thingSize);
+  for (ArenaCellIterUnderGC cell(arena); !cell.done(); cell.next()) {
+    RelocateCell(zone, cell, thingKind, thingSize);
     sliceBudget.step();
   }
 
 #ifdef DEBUG
-  for (ArenaCellIterUnderGC i(arena); !i.done(); i.next()) {
-    TenuredCell* src = i.getCell();
+  for (ArenaCellIterUnderGC cell(arena); !cell.done(); cell.next()) {
+    TenuredCell* src = cell;
     MOZ_ASSERT(src->isForwarded());
     TenuredCell* dest = Forwarded(src);
     MOZ_ASSERT(src->isMarkedBlack() == dest->isMarkedBlack());
@@ -2209,8 +2209,8 @@ static inline void UpdateCellPointers(MovingTracer* trc, T* cell) {
 
 template <typename T>
 static void UpdateArenaPointersTyped(MovingTracer* trc, Arena* arena) {
-  for (ArenaCellIterUnderGC i(arena); !i.done(); i.next()) {
-    UpdateCellPointers(trc, reinterpret_cast<T*>(i.getCell()));
+  for (ArenaCellIterUnderGC cell(arena); !cell.done(); cell.next()) {
+    UpdateCellPointers(trc, cell.as<T>());
   }
 }
 
@@ -4035,55 +4035,7 @@ void GCRuntime::purgeSourceURLsForShrinkingGC() {
   }
 }
 
-class ArenasToUnmark {
- public:
-  explicit ArenasToUnmark(GCRuntime* gc);
-
-  bool done() const { return arenas.isNothing(); }
-
-  ArenaListSegment get() const {
-    MOZ_ASSERT(!done());
-    return arenas.ref().get();
-  }
-
-  void next();
-
- private:
-  void settle();
-
-  GCZonesIter zones;
-  Maybe<ArenasToUpdate> arenas;
-};
-
-ArenasToUnmark::ArenasToUnmark(GCRuntime* gc) : zones(gc) { settle(); }
-
-void ArenasToUnmark::settle() {
-  MOZ_ASSERT(arenas.isNothing());
-
-  while (!zones.done()) {
-    arenas.emplace(zones.get());
-    if (!arenas.ref().done()) {
-      break;
-    }
-
-    arenas.reset();
-    zones.next();
-  }
-
-  MOZ_ASSERT(done() || !arenas.ref().done());
-}
-
-void ArenasToUnmark::next() {
-  MOZ_ASSERT(!done());
-
-  arenas.ref().next();
-
-  if (arenas.ref().done()) {
-    arenas.reset();
-    zones.next();
-    settle();
-  }
-}
+using ArenasToUnmark = NestedIterator<GCZonesIter, ArenasToUpdate>;
 
 static size_t UnmarkArenaListSegment(GCRuntime* gc,
                                      const ArenaListSegment& arenas) {
@@ -4205,7 +4157,7 @@ bool GCRuntime::beginMarkPhase(JS::GCReason reason, AutoGCSession& session) {
 
     if (IsShutdownGC(reason)) {
       /* Clear any engine roots that may hold external data live. */
-      for (GCZonesIter zone(this, SkipAtoms); !zone.done(); zone.next()) {
+      for (GCZonesIter zone(this); !zone.done(); zone.next()) {
         zone->clearRootsForShutdownGC();
       }
     }
@@ -4315,7 +4267,7 @@ void GCRuntime::updateMemoryCountersOnGCStart() {
   heapSize.updateOnGCStart();
 
   // Update memory counters for the zones we are collecting.
-  for (GCZonesIter zone(this, WithAtoms); !zone.done(); zone.next()) {
+  for (GCZonesIter zone(this); !zone.done(); zone.next()) {
     zone->updateMemoryCountersOnGCStart();
   }
 }
@@ -5463,11 +5415,13 @@ bool GCRuntime::shouldYieldForZeal(ZealMode mode) {
 
 IncrementalProgress GCRuntime::endSweepingSweepGroup(JSFreeOp* fop,
                                                      SliceBudget& budget) {
-  // This is to prevent TSan data race, sweepMarkTask will check if the GC state
-  // is Marking, but later below we will change GC state to Finished.
+  // This is to prevent a race between sweepMarkTask checking the zone state and
+  // us changing it below.
   if (joinSweepMarkTask() == NotFinished) {
     return NotFinished;
   }
+
+  MOZ_ASSERT(marker.isDrained());
 
   // Disable background marking during sweeping until we start sweeping the next
   // zone group.
@@ -5609,9 +5563,13 @@ void js::gc::SweepMarkTask::run() {
 }
 
 IncrementalProgress GCRuntime::joinSweepMarkTask() {
+  MOZ_ASSERT_IF(!sweepMarkTaskStarted, sweepMarkTask.isIdle());
   joinTask(sweepMarkTask, gcstats::PhaseKind::SWEEP_MARK);
 
-  return sweepMarkTaskStarted ? sweepMarkResult : Finished;
+  IncrementalProgress result =
+      sweepMarkTaskStarted ? sweepMarkResult : Finished;
+  sweepMarkTaskStarted = false;
+  return result;
 }
 
 IncrementalProgress GCRuntime::markUntilBudgetExhausted(
@@ -5655,8 +5613,8 @@ static bool SweepArenaList(JSFreeOp* fop, Arena** arenasToSweep,
   while (Arena* arena = *arenasToSweep) {
     MOZ_ASSERT(arena->zone->isGCSweeping());
 
-    for (ArenaCellIterUnderGC i(arena); !i.done(); i.next()) {
-      SweepThing(fop, i.get<T>());
+    for (ArenaCellIterUnderGC cell(arena); !cell.done(); cell.next()) {
+      SweepThing(fop, cell.as<T>());
     }
 
     Arena* next = arena->next;
@@ -6226,12 +6184,8 @@ IncrementalProgress GCRuntime::performSweepActions(SliceBudget& budget) {
   SweepAction::Args args{this, &fop, budget};
   IncrementalProgress progress = sweepActions->run(args);
 
-  if (sweepMarkTaskStarted) {
-    joinSweepMarkTask();
-    sweepMarkTaskStarted = false;
-    if (sweepMarkResult == NotFinished) {
-      progress = NotFinished;
-    }
+  if (sweepMarkTaskStarted && joinSweepMarkTask() == NotFinished) {
+    progress = NotFinished;
   }
 
   MOZ_ASSERT_IF(progress == NotFinished, isIncremental);
@@ -7898,8 +7852,7 @@ void GCRuntime::mergeRealms(Realm* source, Realm* target) {
         // If we are currently collecting the target zone then we must
         // treat all merged things as if they were allocated during the
         // collection.
-        for (ArenaCellIter iter(arena); !iter.done(); iter.next()) {
-          TenuredCell* cell = iter.getCell();
+        for (ArenaCellIter cell(arena); !cell.done(); cell.next()) {
           MOZ_ASSERT(!cell->isMarkedAny());
           cell->markBlack();
         }

@@ -56,6 +56,7 @@
 #include "URIUtils.h"
 #include "gfxPlatform.h"
 #include "gfxPlatformFontList.h"
+#include "mozilla/AutoRestore.h"
 #include "mozilla/ContentBlocking.h"
 #include "mozilla/BasePrincipal.h"
 #include "mozilla/BenchmarkStorageParent.h"
@@ -673,6 +674,12 @@ static bool sCanLaunchSubprocesses;
 // Set to true when the first content process gets created.
 static bool sCreatedFirstContentProcess = false;
 
+#ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
+// True when we're running the process selection code, and do not expect to
+// enter code paths where processes may die.
+static bool sInProcessSelector = false;
+#endif
+
 // The first content child has ID 1, so the chrome process can have ID 0.
 static uint64_t gContentChildID = 1;
 
@@ -941,6 +948,11 @@ already_AddRefed<ContentParent> ContentParent::GetUsedBrowserProcess(
     ContentParent* aOpener, const nsAString& aRemoteType,
     nsTArray<ContentParent*>& aContentParents, uint32_t aMaxContentParents,
     bool aPreferUsed) {
+#ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
+  AutoRestore ar(sInProcessSelector);
+  sInProcessSelector = true;
+#endif
+
   uint32_t numberOfParents = aContentParents.Length();
   nsTArray<RefPtr<nsIContentProcessInfo>> infos(numberOfParents);
   for (auto* cp : aContentParents) {
@@ -976,6 +988,7 @@ already_AddRefed<ContentParent> ContentParent::GetUsedBrowserProcess(
               ("GetUsedProcess: Reused process %p (%u) for %s", retval.get(),
                (unsigned int)retval->ChildID(),
                NS_ConvertUTF16toUTF8(aRemoteType).get()));
+      retval->AssertAlive();
       return retval.forget();
     }
   } else {
@@ -989,11 +1002,12 @@ already_AddRefed<ContentParent> ContentParent::GetUsedBrowserProcess(
               ("GetUsedProcess: Reused random process %p (%d) for %s",
                random.get(), (unsigned int)random->ChildID(),
                NS_ConvertUTF16toUTF8(aRemoteType).get()));
+      random->AssertAlive();
       return random.forget();
     }
   }
 
-  // Try to take the preallocated process except for blacklisted types.
+  // Try to take the preallocated process except for certain remote types.
   // The preallocated process manager might not had the chance yet to release
   // the process after a very recent ShutDownProcess, let's make sure we don't
   // try to reuse a process that is being shut down.
@@ -1003,7 +1017,7 @@ already_AddRefed<ContentParent> ContentParent::GetUsedBrowserProcess(
       !aRemoteType.EqualsLiteral(EXTENSION_REMOTE_TYPE) &&  // Bug 1638119
       (p = PreallocatedProcessManager::Take(aRemoteType)) &&
       !p->mShutdownPending) {
-    MOZ_DIAGNOSTIC_ASSERT(!p->IsDead());
+    p->AssertAlive();
 
     // p may be a preallocated process, or (if not PREALLOC_REMOTE_TYPE)
     // a perviously-used process that's being recycled.  Currently this is
@@ -1040,6 +1054,7 @@ already_AddRefed<ContentParent> ContentParent::GetUsedBrowserProcess(
         cpId.AppendInt(static_cast<uint64_t>(p->ChildID()));
         obs->NotifyObservers(static_cast<nsIObserver*>(p), "process-type-set",
                              cpId.get());
+        p->AssertAlive();
       }
     } else {
       // we only allow "web" to "web" for security reasons
@@ -1085,6 +1100,7 @@ ContentParent::GetNewOrUsedLaunchingBrowserProcess(Element* aFrameElement,
     MOZ_LOG(ContentParent::GetLog(), LogLevel::Debug,
             ("GetNewOrUsedProcess: Used process %p (launching %d)",
              contentParent.get(), contentParent->IsLaunching()));
+    contentParent->AssertAlive();
     return contentParent.forget();
   }
 
@@ -1112,6 +1128,7 @@ ContentParent::GetNewOrUsedLaunchingBrowserProcess(Element* aFrameElement,
   MOZ_ASSERT(contentParent->IsLaunching());
   MOZ_LOG(ContentParent::GetLog(), LogLevel::Debug,
           ("GetNewOrUsedProcess: new process %p", contentParent.get()));
+  contentParent->AssertAlive();
   return contentParent.forget();
 }
 
@@ -1734,8 +1751,7 @@ void ContentParent::ShutDownMessageManager() {
 
 void ContentParent::AddToPool(nsTArray<ContentParent*>& aPool) {
   MOZ_DIAGNOSTIC_ASSERT(!mIsInPool);
-  MOZ_DIAGNOSTIC_ASSERT(!IsDead());
-  MOZ_DIAGNOSTIC_ASSERT(!mShutdownPending);
+  AssertAlive();
   MOZ_DIAGNOSTIC_ASSERT(!mCalledKillHard);
   aPool.AppendElement(this);
   mIsInPool = true;
@@ -1761,6 +1777,11 @@ void ContentParent::AssertNotInPool() {
         !sBrowserContentParents->Get(mRemoteType)->Contains(this) ||
         !sCanLaunchSubprocesses);  // aka in shutdown - avoid timing issues
   }
+}
+
+void ContentParent::AssertAlive() {
+  MOZ_DIAGNOSTIC_ASSERT(!IsDead());
+  MOZ_DIAGNOSTIC_ASSERT(!mShutdownPending);
 }
 
 void ContentParent::RemoveFromList() {
@@ -1806,6 +1827,7 @@ void ContentParent::RemoveFromList() {
 void ContentParent::MarkAsDead() {
   MOZ_LOG(ContentParent::GetLog(), LogLevel::Verbose,
           ("Marking ContentProcess %p as dead", this));
+  MOZ_DIAGNOSTIC_ASSERT(!sInProcessSelector);
   if (!mShutdownPending) {
     RemoveFromList();
   }
@@ -3403,7 +3425,7 @@ ContentParent::Observe(nsISupports* aSubject, const char* aTopic,
   }
 
   if (!strcmp(aTopic, "nsPref:changed")) {
-    // A pref changed. If it's not on the blacklist, inform child processes.
+    // A pref changed. If it is useful to do so, inform child processes.
     if (!ShouldSyncPreference(aData)) {
       return NS_OK;
     }
@@ -3603,28 +3625,28 @@ ContentParent::Observe(nsISupports* aSubject, const char* aTopic,
 
 /* static */
 bool ContentParent::ShouldSyncPreference(const char16_t* aData) {
-#define BLACKLIST_ENTRY(s) \
+#define PARENT_ONLY_PREF_LIST_ENTRY(s) \
   { s, (sizeof(s) / sizeof(char16_t)) - 1 }
-  struct BlacklistEntry {
+  struct ParentOnlyPrefListEntry {
     const char16_t* mPrefBranch;
     size_t mLen;
   };
   // These prefs are not useful in child processes.
-  static const BlacklistEntry sContentPrefBranchBlacklist[] = {
-      BLACKLIST_ENTRY(u"app.update.lastUpdateTime."),
-      BLACKLIST_ENTRY(u"datareporting.policy."),
-      BLACKLIST_ENTRY(u"browser.safebrowsing.provider."),
-      BLACKLIST_ENTRY(u"browser.shell."),
-      BLACKLIST_ENTRY(u"browser.slowStartup."),
-      BLACKLIST_ENTRY(u"browser.startup."),
-      BLACKLIST_ENTRY(u"extensions.getAddons.cache."),
-      BLACKLIST_ENTRY(u"media.gmp-manager."),
-      BLACKLIST_ENTRY(u"media.gmp-gmpopenh264."),
-      BLACKLIST_ENTRY(u"privacy.sanitize."),
+  static const ParentOnlyPrefListEntry sParentOnlyPrefBranchList[] = {
+      PARENT_ONLY_PREF_LIST_ENTRY(u"app.update.lastUpdateTime."),
+      PARENT_ONLY_PREF_LIST_ENTRY(u"datareporting.policy."),
+      PARENT_ONLY_PREF_LIST_ENTRY(u"browser.safebrowsing.provider."),
+      PARENT_ONLY_PREF_LIST_ENTRY(u"browser.shell."),
+      PARENT_ONLY_PREF_LIST_ENTRY(u"browser.slowStartup."),
+      PARENT_ONLY_PREF_LIST_ENTRY(u"browser.startup."),
+      PARENT_ONLY_PREF_LIST_ENTRY(u"extensions.getAddons.cache."),
+      PARENT_ONLY_PREF_LIST_ENTRY(u"media.gmp-manager."),
+      PARENT_ONLY_PREF_LIST_ENTRY(u"media.gmp-gmpopenh264."),
+      PARENT_ONLY_PREF_LIST_ENTRY(u"privacy.sanitize."),
   };
-#undef BLACKLIST_ENTRY
+#undef PARENT_ONLY_PREF_LIST_ENTRY
 
-  for (const auto& entry : sContentPrefBranchBlacklist) {
+  for (const auto& entry : sParentOnlyPrefBranchList) {
     if (NS_strncmp(entry.mPrefBranch, aData, entry.mLen) == 0) {
       return false;
     }
@@ -4511,7 +4533,7 @@ mozilla::ipc::IPCResult ContentParent::RecvLoadURIExternal(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvExtProtocolChannelConnectParent(
-    const uint32_t& registrarId) {
+    const uint64_t& registrarId) {
   nsresult rv;
 
   // First get the real channel created before redirect on the parent.

@@ -15,41 +15,48 @@
   <script type="application/javascript"
           src="../states.js"></script>
   <script type="application/javascript"
-          src="../events.js"></script>
+          src="../promisified-events.js"></script>
 
   <script type="application/javascript">
-    // gA11yEventDumpToConsole = true; // debugging stuff
+    const { BrowserTestUtils } = ChromeUtils.import(
+      "resource://testing-common/BrowserTestUtils.jsm");
 
-    function loadFile() {
-      var eventSeq = [
-        new stateChangeChecker(STATE_BUSY, false, true, document, null, false, true),
-        new stateChangeChecker(STATE_BUSY, false, false, document),
-      ];
-      defineScenario(this, eventSeq); // both events were fired
-
-      var unexpectedEventSeq = [
-        new stateChangeChecker(STATE_BUSY, false, true, document),
-        new stateChangeChecker(STATE_BUSY, false, false, document),
-      ];
-      defineScenario(this, [], unexpectedEventSeq); // events were coalesced
-
-      this.invoke = function loadFile_invoke() {
-        synthesizeMouse(getNode("link"), 1, 1, {});
-      };
-
-      this.getID = function loadFile_getID() {
-        return "load file: state busy change events on document";
+    function matchDocBusyChange(isBusy) {
+      return function(event) {
+        const scEvent = event.QueryInterface(nsIAccessibleStateChangeEvent);
+        return (
+          event.DOMNode == document &&
+          scEvent.state === STATE_BUSY &&
+          scEvent.isEnabled === isBusy
+        );
       };
     }
 
-    var gQueue = null;
-    function doTest() {
-      // State busy change event on file loading.
-      // enableLogging("docload"); // debugging
-      gQueue = new eventQueue();
-      gQueue.push(new loadFile());
-      // gQueue.onFinish = function() { disableLogging(); } // debugging
-      gQueue.invoke(); // Will call SimpleTest.finish();
+    async function doTest() {
+      const busyEvents = waitForOrderedEvents([
+        [EVENT_STATE_CHANGE, matchDocBusyChange(true)],
+        [EVENT_STATE_CHANGE, matchDocBusyChange(false)]
+      ]);
+      const downloadPromptOpened = BrowserTestUtils.domWindowOpened(null,
+        async win => {
+          info("Window opened, waiting for load event");
+          await BrowserTestUtils.waitForEvent(win, "load");
+          info("Window loaded, checking if download prompt");
+          return win.location &&
+            win.location.href == "chrome://mozapps/content/downloads/unknownContentType.xhtml";
+        }
+      );
+      info("Clicking link to trigger download");
+      synthesizeMouse(getNode("link"), 1, 1, {});
+      info("Waiting for a11y busy events");
+      await busyEvents;
+
+      info("Waiting for download prompt to open");
+      const downloadWin = await downloadPromptOpened;
+      info("Closing download prompt");
+      downloadWin.close();
+
+      SimpleTest.finish();
     }
 
     SimpleTest.waitForExplicitFinish();

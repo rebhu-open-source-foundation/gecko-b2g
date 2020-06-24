@@ -39,6 +39,7 @@
 #include "audioipc_client_ffi_generated.h"
 #include <cmath>
 #include <thread>
+#include "AudioThreadRegistry.h"
 
 #define AUDIOIPC_POOL_SIZE_DEFAULT 1
 #define AUDIOIPC_STACK_SIZE_DEFAULT (64 * 4096)
@@ -113,6 +114,7 @@ size_t sAudioIPCStackSize;
 StaticAutoPtr<char> sBrandName;
 StaticAutoPtr<char> sCubebBackendName;
 StaticAutoPtr<char> sCubebOutputDeviceName;
+StaticAutoPtr<AudioThreadRegistry> sAudioThreadRegistry;
 #ifdef MOZ_WIDGET_ANDROID
 // Counts the number of time a request for switching to global "communication
 // mode" has been received. If this is > 0, global communication mode is to be
@@ -624,6 +626,8 @@ void InitLibrary() {
     InitAudioIPCConnection();
   }
 #endif
+
+  sAudioThreadRegistry = new AudioThreadRegistry;
 }
 
 void ShutdownLibrary() {
@@ -649,6 +653,7 @@ void ShutdownLibrary() {
   sIPCConnection = nullptr;
   ShutdownAudioIPCServer();
 #endif
+  sAudioThreadRegistry = nullptr;
 }
 
 bool SandboxEnabled() {
@@ -659,6 +664,8 @@ bool SandboxEnabled() {
   return false;
 #endif
 }
+
+AudioThreadRegistry* GetAudioThreadRegistry() { return sAudioThreadRegistry; }
 
 uint32_t MaxNumberOfChannels() {
   cubeb* cubebContext = GetCubebContext();

@@ -137,16 +137,16 @@ class DocumentLoadListener : public nsIInterfaceRequestor,
   // and clean up.
   static bool OpenFromParent(dom::CanonicalBrowsingContext* aBrowsingContext,
                              nsDocShellLoadState* aLoadState,
-                             uint64_t aOuterWindowId, uint32_t* aOutIdent);
+                             uint64_t aOuterWindowId);
 
   // Ensures that a load identifier allocated by OpenFromParent has
   // been deregistered if it hasn't already been claimed.
   // This also cancels the load.
-  static void CleanupParentLoadAttempt(uint32_t aLoadIdent);
+  static void CleanupParentLoadAttempt(uint64_t aLoadIdent);
 
   // Looks up aLoadIdent to find the associated, cleans up the registration
   static RefPtr<OpenPromise> ClaimParentLoad(DocumentLoadListener** aListener,
-                                             uint32_t aLoadIdent);
+                                             uint64_t aLoadIdent);
 
   // Called by the DocumentChannelParent if actor got destroyed or the parent
   // channel got deleted.
@@ -227,6 +227,8 @@ class DocumentLoadListener : public nsIInterfaceRequestor,
                              bool aIsCrossProcess, uint32_t aRedirectFlags,
                              uint32_t aLoadFlags,
                              dom::ContentParent* aParent) const;
+
+  uint64_t GetLoadIdentifier() const { return mLoadIdentifier; }
 
  protected:
   virtual ~DocumentLoadListener();
@@ -415,7 +417,7 @@ class DocumentLoadListener : public nsIInterfaceRequestor,
   // Corresponding redirect channel registrar Id for the final channel that
   // we want to use when redirecting the child, or doing a process switch.
   // 0 means redirection is not started.
-  uint32_t mRedirectChannelId = 0;
+  uint64_t mRedirectChannelId = 0;
   // Set to true once we initiate the redirect to a real channel (either
   // via a process switch or a same-process redirect, and Suspend the
   // underlying channel.
@@ -439,6 +441,9 @@ class DocumentLoadListener : public nsIInterfaceRequestor,
   // This identifier is set by MaybeTriggerProcessSwitch, and is later
   // passed to the childChannel in order to identify it in the new process.
   uint64_t mCrossProcessRedirectIdentifier = 0;
+
+  // The id of the currently pending load.
+  uint64_t mLoadIdentifier = 0;
 
   // True if cancelled.
   bool mCancelled = false;

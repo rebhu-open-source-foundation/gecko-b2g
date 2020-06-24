@@ -263,6 +263,7 @@ struct DocShellLoadStateInit
   nsIContentSecurityPolicy Csp;
 
   MaybeDiscardedBrowsingContext SourceBrowsingContext;
+  MaybeDiscardedBrowsingContext TargetBrowsingContext;
 
   nsCString? OriginalURIString;
   int32_t? CancelContentJSEpoch;
@@ -277,7 +278,9 @@ struct DocShellLoadStateInit
   // bool mIsSrcDocLoad; // useless without sourcedocshell
   // nsIChannel pendingRedirectedChannel; // sent through other mechanism
 
-  uint32_t LoadIdentifier;
+  uint64_t LoadIdentifier;
+
+  bool ChannelInitialized;
 };
 
 struct TimedChannelInfo

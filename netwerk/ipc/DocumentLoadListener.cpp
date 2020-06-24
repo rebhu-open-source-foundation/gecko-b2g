@@ -377,6 +377,7 @@ auto DocumentLoadListener::Open(
   OriginAttributes attrs;
   browsingContext->GetOriginAttributes(attrs);
 
+  mLoadIdentifier = aLoadState->GetLoadIdentifier();
   MOZ_DIAGNOSTIC_ASSERT_IF(browsingContext->GetParent(),
                            browsingContext->GetParentWindowContext());
 
@@ -525,9 +526,7 @@ auto DocumentLoadListener::Open(
         browsingContext->CreateSessionHistoryEntryForLoad(aLoadState, mChannel);
   }
 
-  if (auto* ctx = GetBrowsingContext()) {
-    ctx->StartDocumentLoad(this);
-  }
+  browsingContext->StartDocumentLoad(this);
 
   *aRv = NS_OK;
   mOpenPromise = new OpenPromise::Private(__func__);
@@ -540,8 +539,7 @@ auto DocumentLoadListener::Open(
 /* static */
 bool DocumentLoadListener::OpenFromParent(
     dom::CanonicalBrowsingContext* aBrowsingContext,
-    nsDocShellLoadState* aLoadState, uint64_t aOuterWindowId,
-    uint32_t* aOutIdent) {
+    nsDocShellLoadState* aLoadState, uint64_t aOuterWindowId) {
   LOG(("DocumentLoadListener::OpenFromParent"));
 
   // We currently only support passing nullptr for aLoadInfo for
@@ -616,16 +614,17 @@ bool DocumentLoadListener::OpenFromParent(
     // allocate an identifier for this load.
     nsCOMPtr<nsIRedirectChannelRegistrar> registrar =
         RedirectChannelRegistrar::GetOrCreate();
-    rv = registrar->RegisterChannel(nullptr, aOutIdent);
+    uint64_t loadIdentifier = aLoadState->GetLoadIdentifier();
+    rv = registrar->RegisterChannel(nullptr, loadIdentifier);
     MOZ_ASSERT(NS_SUCCEEDED(rv));
     // Register listener (as an nsIParentChannel) under our new identifier.
-    rv = registrar->LinkChannels(*aOutIdent, listener, nullptr);
+    rv = registrar->LinkChannels(loadIdentifier, listener, nullptr);
     MOZ_ASSERT(NS_SUCCEEDED(rv));
   }
   return !!promise;
 }
 
-void DocumentLoadListener::CleanupParentLoadAttempt(uint32_t aLoadIdent) {
+void DocumentLoadListener::CleanupParentLoadAttempt(uint64_t aLoadIdent) {
   nsCOMPtr<nsIRedirectChannelRegistrar> registrar =
       RedirectChannelRegistrar::GetOrCreate();
 
@@ -643,7 +642,7 @@ void DocumentLoadListener::CleanupParentLoadAttempt(uint32_t aLoadIdent) {
 }
 
 auto DocumentLoadListener::ClaimParentLoad(DocumentLoadListener** aListener,
-                                           uint32_t aLoadIdent)
+                                           uint64_t aLoadIdent)
     -> RefPtr<OpenPromise> {
   nsCOMPtr<nsIRedirectChannelRegistrar> registrar =
       RedirectChannelRegistrar::GetOrCreate();
@@ -683,7 +682,7 @@ void DocumentLoadListener::Disconnect() {
   }
 
   if (auto* ctx = GetBrowsingContext()) {
-    ctx->EndDocumentLoad(this);
+    ctx->EndDocumentLoad(mDoingProcessSwitch);
   }
 }
 
@@ -776,6 +775,12 @@ void DocumentLoadListener::FinishReplacementChannelSetup(nsresult aResult) {
        "aResult=%x]",
        this, int(aResult)));
 
+  auto endDocumentLoad = MakeScopeExit([&]() {
+    if (auto* ctx = GetBrowsingContext()) {
+      ctx->EndDocumentLoad(false);
+    }
+  });
+
   if (mDoingProcessSwitch) {
     DisconnectListeners(NS_BINDING_ABORTED, NS_BINDING_ABORTED);
   }
@@ -801,9 +806,6 @@ void DocumentLoadListener::FinishReplacementChannelSetup(nsresult aResult) {
     }
     mChannel->Cancel(aResult);
     mChannel->Resume();
-    if (auto* ctx = GetBrowsingContext()) {
-      ctx->EndDocumentLoad(this);
-    }
     return;
   }
 
@@ -959,7 +961,7 @@ bool DocumentLoadListener::ResumeSuspendedChannel(
   mChannel->Resume();
 
   if (auto* ctx = GetBrowsingContext()) {
-    ctx->EndDocumentLoad(this);
+    ctx->EndDocumentLoad(mDoingProcessSwitch);
   }
 
   return !mIsFinished;
@@ -975,6 +977,8 @@ void DocumentLoadListener::SerializeRedirectData(
   if (!aArgs.uri()) {
     mChannel->GetOriginalURI(getter_AddRefs(aArgs.uri()));
   }
+
+  aArgs.loadIdentifier() = mLoadIdentifier;
 
   // I previously used HttpBaseChannel::CloneLoadInfoForRedirect, but that
   // clears the principal to inherit, which fails tests (probably because this
@@ -1369,8 +1373,8 @@ DocumentLoadListener::RedirectToRealChannel(
   nsCOMPtr<nsIRedirectChannelRegistrar> registrar =
       RedirectChannelRegistrar::GetOrCreate();
   MOZ_ASSERT(registrar);
-  MOZ_ALWAYS_SUCCEEDS(
-      registrar->RegisterChannel(mChannel, &mRedirectChannelId));
+  mRedirectChannelId = nsContentUtils::GenerateLoadIdentifier();
+  MOZ_ALWAYS_SUCCEEDS(registrar->RegisterChannel(mChannel, mRedirectChannelId));
 
   if (aDestinationProcess) {
     dom::ContentParent* cp =

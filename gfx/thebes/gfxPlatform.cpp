@@ -3419,7 +3419,7 @@ void gfxPlatform::InitOpenGLConfig() {
   openGLFeature.EnableByDefault();
 #endif
 
-  // When layers acceleration is force-enabled, enable it even for blacklisted
+  // When layers acceleration is force-enabled, enable it even for blocklisted
   // devices.
   if (StaticPrefs::
           layers_acceleration_force_enabled_AtStartup_DoNotUseDirectly()) {
@@ -3431,7 +3431,7 @@ void gfxPlatform::InitOpenGLConfig() {
   nsCString failureId;
   if (!IsGfxInfoStatusOkay(nsIGfxInfo::FEATURE_OPENGL_LAYERS, &message,
                            failureId)) {
-    openGLFeature.Disable(FeatureStatus::Blacklisted, message.get(), failureId);
+    openGLFeature.Disable(FeatureStatus::Blocklisted, message.get(), failureId);
   }
 }
 

@@ -307,7 +307,6 @@ class MOZ_STACK_CLASS WSRunScanner {
       : WSRunScanner(aHTMLEditor,
                      EditorRawDOMPoint(aScanStartNode, aScanStartOffset),
                      EditorRawDOMPoint(aScanStartNode, aScanStartOffset)) {}
-  ~WSRunScanner();
 
   // ScanNextVisibleNodeOrBlockBoundaryForwardFrom() returns the first visible
   // node after aPoint.  If there is no visible nodes after aPoint, returns
@@ -428,19 +427,15 @@ class MOZ_STACK_CLASS WSRunScanner {
   // WSFragment represents a single run of ws (all leadingws, or all normalws,
   // or all trailingws, or all leading+trailingws).  Note that this single run
   // may still span multiple nodes.
-  struct WSFragment final {
+  struct MOZ_STACK_CLASS WSFragment final {
     nsCOMPtr<nsINode> mStartNode;  // node where ws run starts
     nsCOMPtr<nsINode> mEndNode;    // node where ws run ends
     int32_t mStartOffset;          // offset where ws run starts
     int32_t mEndOffset;            // offset where ws run ends
-    // other ws runs to left or right.  may be null.
-    WSFragment *mLeft, *mRight;
 
     WSFragment()
         : mStartOffset(0),
           mEndOffset(0),
-          mLeft(nullptr),
-          mRight(nullptr),
           mLeftWSType(WSType::NotInitialized),
           mRightWSType(WSType::NotInitialized),
           mIsVisible(Visible::No),
@@ -531,15 +526,17 @@ class MOZ_STACK_CLASS WSRunScanner {
     EndOfHardLine mIsEndOfHardLine;
   };
 
+  using WSFragmentArray = AutoTArray<WSFragment, 3>;
+
   /**
-   * FindNearestFragment() looks for a WSFragment which is closest to specified
-   * direction from aPoint.
+   * FindNearestFragment() and FindNearestFragmentIndex() look for a WSFragment
+   * which is closest to specified direction from aPoint.
    *
    * @param aPoint      The point to start to look for.
    * @param aForward    true if caller needs to look for a WSFragment after the
    *                    point in the DOM tree.  Otherwise, i.e., before the
    *                    point, false.
-   * @return            Found WSFragment instance.
+   * @return            Found WSFragment instance or index.
    *                    If aForward is true and:
    *                      if aPoint is end of a run, returns next run.
    *                      if aPoint is start of a run, returns the run.
@@ -554,6 +551,16 @@ class MOZ_STACK_CLASS WSRunScanner {
    */
   template <typename PT, typename CT>
   const WSFragment* FindNearestFragment(
+      const EditorDOMPointBase<PT, CT>& aPoint, bool aForward) const {
+    WSFragmentArray::index_type index =
+        FindNearestFragmentIndex(aPoint, aForward);
+    if (index == WSFragmentArray::NoIndex) {
+      return nullptr;
+    }
+    return &mFragments[index];
+  }
+  template <typename PT, typename CT>
+  WSFragmentArray::index_type FindNearestFragmentIndex(
       const EditorDOMPointBase<PT, CT>& aPoint, bool aForward) const;
 
   /**
@@ -690,7 +697,6 @@ class MOZ_STACK_CLASS WSRunScanner {
   };
 
   void GetRuns();
-  void ClearRuns();
   void InitializeWithSingleFragment(
       WSFragment::Visible aIsVisible,
       WSFragment::StartOfHardLine aIsStartOfHardLine,
@@ -720,11 +726,7 @@ class MOZ_STACK_CLASS WSRunScanner {
   // true if we are in preformatted white-space context.
   bool mPRE;
 
-  // The first WSFragment in the run.
-  WSFragment* mStartRun;
-
-  // The last WSFragment in the run, may be same as first.
-  WSFragment* mEndRun;
+  WSFragmentArray mFragments;
 
   // Non-owning.
   const HTMLEditor* mHTMLEditor;

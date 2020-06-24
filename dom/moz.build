@@ -89,6 +89,7 @@ DIRS += [
     'url',
     'webauthn',
     'webidl',
+    'webshare',
     'xml',
     'xslt',
     'xul',

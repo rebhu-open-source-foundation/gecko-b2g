@@ -17,6 +17,7 @@
 #include "mozilla/MathAlgorithms.h"
 #include "CubebDeviceEnumerator.h"
 #include "MediaTrackGraphImpl.h"
+#include "AudioThreadRegistry.h"
 #include "Tracing.h"
 
 #ifdef MOZ_WEBRTC
@@ -506,7 +507,7 @@ AudioCallbackDriver::AudioCallbackDriver(
       mInitShutdownThread(
           SharedThreadPool::Get(NS_LITERAL_CSTRING("CubebOperation"), 1)),
       mAudioChannel(aGraphInterface->AudioChannel()),
-      mAudioThreadId(std::thread::id()),
+      mAudioThreadId(0),
       mAudioThreadIdInCb(std::thread::id()),
       mAudioStreamState(AudioStreamState::None),
       mFallback("AudioCallbackDriver::mFallback"),
@@ -874,13 +875,13 @@ AudioCallbackDriver::AutoInCallback::~AutoInCallback() {
 }
 
 bool AudioCallbackDriver::CheckThreadIdChanged() {
-  auto id = std::this_thread::get_id();
+#ifdef MOZ_GECKO_PROFILER
+  auto id = profiler_current_thread_id();
   if (id != mAudioThreadId) {
-    if (mAudioThreadId != std::thread::id()) {
-      mAudioThreadId = id;
-      return true;
-    }
+    mAudioThreadId = id;
+    return true;
   }
+#endif
   return false;
 }
 
@@ -888,7 +889,7 @@ long AudioCallbackDriver::DataCallback(const AudioDataValue* aInputBuffer,
                                        AudioDataValue* aOutputBuffer,
                                        long aFrames) {
   if (!mSandboxed && CheckThreadIdChanged()) {
-    PROFILER_REGISTER_THREAD("NativeAudioCallback");
+    CubebUtils::GetAudioThreadRegistry()->Register(mAudioThreadId);
   }
   FallbackDriverState fallbackState = mFallbackDriverState;
   if (MOZ_UNLIKELY(fallbackState == FallbackDriverState::Running)) {
@@ -902,6 +903,9 @@ long AudioCallbackDriver::DataCallback(const AudioDataValue* aInputBuffer,
   if (MOZ_UNLIKELY(fallbackState == FallbackDriverState::Stopped)) {
     // We're supposed to stop.
     PodZero(aOutputBuffer, aFrames * mOutputChannelCount);
+    if (!mSandboxed) {
+      CubebUtils::GetAudioThreadRegistry()->Unregister(mAudioThreadId);
+    }
     return aFrames - 1;
   }
 
@@ -1033,7 +1037,7 @@ long AudioCallbackDriver::DataCallback(const AudioDataValue* aInputBuffer,
     // Update the flag before handing over the graph and going to drain.
     mAudioStreamState = AudioStreamState::Stopping;
     if (!mSandboxed) {
-      PROFILER_UNREGISTER_THREAD();
+      CubebUtils::GetAudioThreadRegistry()->Unregister(mAudioThreadId);
     }
     return aFrames - 1;
   }
@@ -1047,7 +1051,7 @@ long AudioCallbackDriver::DataCallback(const AudioDataValue* aInputBuffer,
     nextDriver->SetState(mIterationStart, mIterationEnd, mStateComputedTime);
     nextDriver->Start();
     if (!mSandboxed) {
-      PROFILER_UNREGISTER_THREAD();
+      CubebUtils::GetAudioThreadRegistry()->Unregister(mAudioThreadId);
     }
     // Returning less than aFrames starts the draining and eventually stops the
     // audio thread. This function will never get called again.
