@@ -263,6 +263,17 @@ class CompositorOGL final : public Compositor {
   void RegisterTextureSource(TextureSource* aTextureSource);
   void UnregisterTextureSource(TextureSource* aTextureSource);
 
+  /**
+   * GLCursor draws a cursor image if widget receives eMouseMove event. It
+   * is
+   * usually enabled with SpatialNavigation.
+   */
+  void DrawGLCursor(LayoutDeviceIntRect aRect, LayoutDeviceIntPoint
+      aCursorPos,
+      RefPtr<gfx::DataSourceSurface> aSource,
+      nsIntSize aCursorSize,
+      nsIntPoint aHotspot);
+
  private:
   template <typename Geometry>
   void DrawGeometry(const Geometry& aGeometry, const gfx::Rect& aRect,
@@ -512,6 +523,9 @@ class CompositorOGL final : public Compositor {
   gfx::IntRegion mCurrentFrameInvalidRegion;
 
   ShaderProgramOGL* mCurrentProgram;
+
+  RefPtr<gfx::DataSourceSurface> mCursorSurfaceCache;
+  RefPtr<DataTextureSource> mCursorTextureCache;
 };
 
 }  // namespace layers

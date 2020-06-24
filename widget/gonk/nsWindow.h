@@ -109,7 +109,7 @@ class nsWindow : public nsBaseWidget {
   virtual void EndRemoteDrawing() override;
 
   void SetCursor(nsCursor aDefaultCursor, imgIContainer* aImageCursor,
-                 uint32_t aHotspotX, uint32_t aHotspotY) override {}
+                 uint32_t aHotspotX, uint32_t aHotspotY) override;
 
   void UpdateCursorSourceMap(nsCursor aCursor);
   already_AddRefed<mozilla::gfx::SourceSurface> RestyleCursorElement(
@@ -162,7 +162,7 @@ class nsWindow : public nsBaseWidget {
   // event (like a keypress or mouse click).
   void UserActivity();
 
-  void DrawWindowOverlay(mozilla::widget::WidgetRenderingContext* aContext,
+  void DrawWindowOverlay(LayerManagerComposite* aManager,
                          LayoutDeviceIntRect aRect);
 
  private:
@@ -185,7 +185,7 @@ class nsWindow : public nsBaseWidget {
   //    above. On the other hand the timing it becomes nullptr is inside
   //    destructor of nsWindow and the one access it on compositor thread owns
   //    strong reference of nsWindow so it is impossible to be happened.
-  // nsAutoPtr<GLCursorImageManager> mGLCursorImageManager;
+  mozilla::UniquePtr<GLCursorImageManager> mGLCursorImageManager;
 
   virtual bool IsBelongedToPrimaryScreen();
   RefPtr<mozilla::widget::GeckoEditableSupport> mEditableSupport;

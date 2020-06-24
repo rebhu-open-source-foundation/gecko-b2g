@@ -4255,6 +4255,12 @@
   mirror: always
   rust: true
 
+# Whether to enable glcursor for spatial navagation
+- name: gfx.glcursor_enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 #  Whether to enable LayerScope tool and default listening port.
 - name: gfx.layerscope.enabled
   type: RelaxedAtomicBool

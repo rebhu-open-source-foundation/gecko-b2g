@@ -64,8 +64,7 @@ SOURCES += [
     'GeckoEditableSupport.cpp',
     'GeckoTouchDispatcher.cpp',
     'GfxInfo.cpp',
-# TODO: fixme
-#   'GLCursorImageManager.cpp',
+    'GLCursorImageManager.cpp',
     'GonkActivityManagerService.cpp',
     'GonkClipboardData.cpp',
     'GonkCompositorWidget.cpp',
