@@ -101,8 +101,7 @@ class MobileViewportManager final : public nsIDOMEventListener,
    * Shrink the content to fit it to the display width if no initial-scale is
    * specified and if the content is still wider than the display width.
    */
-  void ShrinkToDisplaySizeIfNeeded(nsViewportInfo& aViewportInfo,
-                                   const mozilla::ScreenIntSize& aDisplaySize);
+  void ShrinkToDisplaySizeIfNeeded();
 
   /*
    * Similar to UpdateVisualViewportSize but this should be called only when we
@@ -149,21 +148,22 @@ class MobileViewportManager final : public nsIDOMEventListener,
       const mozilla::CSSSize& aNewViewport,
       const mozilla::CSSSize& aOldViewport);
 
-  /* Helper enum for UpdateResolution().
-   * UpdateResolution() is called twice during RefreshViewportSize():
-   * First, to choose an initial resolution based on the viewport size.
-   * Second, after reflow when we know the content size, to make any
-   * necessary adjustments to the resolution.
-   * This enumeration discriminates between the two situations.
-   */
-  enum class UpdateType { ViewportSize, ContentSize };
+  mozilla::CSSToScreenScale ResolutionToZoom(
+      const mozilla::LayoutDeviceToLayerScale& aResolution) const;
+  mozilla::LayoutDeviceToLayerScale ZoomToResolution(
+      const mozilla::CSSToScreenScale& aZoom) const;
 
-  /* Updates the presShell resolution and the visual viewport size. */
-  void UpdateResolution(const nsViewportInfo& aViewportInfo,
-                        const mozilla::ScreenIntSize& aDisplaySize,
-                        const mozilla::CSSSize& aViewportOrContentSize,
-                        const mozilla::Maybe<float>& aDisplayWidthChangeRatio,
-                        UpdateType aType);
+  /* Updates the presShell resolution and the visual viewport size for various
+   * types of changes. */
+  void UpdateResolutionForFirstPaint(const mozilla::CSSSize& aViewportSize);
+  void UpdateResolutionForViewportSizeChange(
+      const mozilla::CSSSize& aViewportSize,
+      const mozilla::Maybe<float>& aDisplayWidthChangeRatio);
+  void UpdateResolutionForContentSizeChange(
+      const mozilla::CSSSize& aContentSize);
+
+  void ApplyNewZoom(const mozilla::ScreenIntSize& aDisplaySize,
+                    const mozilla::CSSToScreenScale& aNewZoom);
 
   void UpdateVisualViewportSize(const mozilla::ScreenIntSize& aDisplaySize,
                                 const mozilla::CSSToScreenScale& aZoom);

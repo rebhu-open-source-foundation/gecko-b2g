@@ -774,6 +774,8 @@ child:
      */
     async ThemeChanged(LookAndFeelInt[] lookAndFeelIntCache);
 
+    async UpdateSystemParameters(SystemParameterKVPair[] aUpdates);
+
     async PreferenceUpdate(Pref pref);
     async VarUpdate(GfxVarUpdate var);
 
@@ -1873,6 +1875,14 @@ parent:
         bool aEnabled);
 
     /**
+     * This method is used to notify the media controller in chrome process that
+     * the media element in the browsing context entered fullscreen.
+     */
+    async NotifyMediaFullScreenState(
+        MaybeDiscardedBrowsingContext aContext,
+        bool aIsInFullScreen);
+
+    /**
      * Due to sandboxing, a child process's UntrustedModulesProcessor cannot
      * obtain enough information about a DLL file to determine its
      * trustworthiness. This API asks the chrome process to perform that
@@ -1996,6 +2006,18 @@ child:
     // WindowContext is managed using the PWindowGlobal actor's lifecycle.
     async CreateWindowContext(WindowContextInitializer aInit);
     async DiscardWindowContext(uint64_t aContextId) returns (bool unused);
+
+parent:
+    // Temporary (bug 1641989) conduit for Glean data in content processes.
+    // Sent from time-to-time to limit the amount of data vulnerable to loss.
+    // Buffer contains bincoded Rust structs.
+    async FOGData(ByteBuf buf);
+
+child:
+    // Temporary (bug 1641989) conduit for Glean data in content processes.
+    // Tells the child to flush any pending data. Used in tests and ping
+    // assembly. Buffer contains bincoded Rust structs.
+    async FlushFOGData() returns (ByteBuf buf);
 };
 
 }

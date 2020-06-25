@@ -33,6 +33,7 @@
 #include "mozilla/StaticPrefs_image.h"
 #include "mozilla/StaticPrefs_layers.h"
 #include "mozilla/StaticPrefs_layout.h"
+#include "mozilla/SVGTextFrame.h"
 #include "mozilla/Unused.h"
 #include "mozilla/ViewportFrame.h"
 #include "mozilla/ViewportUtils.h"
@@ -108,7 +109,6 @@
 #include "nsSVGIntegrationUtils.h"
 #include "nsSVGUtils.h"
 #include "SVGImageContext.h"
-#include "SVGTextFrame.h"
 #include "nsStyleStructInlines.h"
 #include "nsStyleTransformMatrix.h"
 #include "nsIFrameInlines.h"
@@ -860,21 +860,22 @@ static nsRect GetDisplayPortFromMarginsData(
     posAlignment = ScreenSize(1, 1);
     sizeAlignment = ScreenSize(1, 1);
   } else if (useWebRender) {
-    // With WebRender we benefit from updating the displaylist and scene less often.
-    // For this we need to move the displayport less often which we achieve by using
-    // larger alignments for the displayport's position.
+    // With WebRender we benefit from updating the displaylist and scene less
+    // often. For this we need to move the displayport less often which we
+    // achieve by using larger alignments for the displayport's position.
     float w = screenRect.width;
     float h = screenRect.height;
-    // Scale the alignment so that we never move by more than a quarter of the total
-    // unaligned displayport size. At most (1.0) we move by a screenful of content.
+    // Scale the alignment so that we never move by more than a quarter of the
+    // total unaligned displayport size. At most (1.0) we move by a screenful of
+    // content.
     float sx = fmin(1.0, (aMarginsData->mMargins.LeftRight() + w) / w * 0.25);
     float sy = fmin(1.0, (aMarginsData->mMargins.TopBottom() + h) / h * 0.25);
     posAlignment.width = fmax(128.0, 512.0 * round(sx * w / 512.0));
     posAlignment.height = fmax(128.0, 512.0 * round(sy * h / 512.0));
-    // tscrollx is very sensitive to the size of the displayport. We could just accept
-    // the regression and change it to something larger if need be, however smaller
-    // displayports also means less CPU work for most stages in webrender so we generally
-    // want to avoid very large displayports.
+    // tscrollx is very sensitive to the size of the displayport. We could just
+    // accept the regression and change it to something larger if need be,
+    // however smaller displayports also means less CPU work for most stages in
+    // webrender so we generally want to avoid very large displayports.
     sizeAlignment = ScreenSize(128, 128);
   } else if (StaticPrefs::layers_enable_tiles_AtStartup()) {
     // Don't align to tiles if they are too large, because we could expand
@@ -963,8 +964,10 @@ static nsRect GetDisplayPortFromMarginsData(
   screenRect += scrollPosScreen;
   float x = posAlignment.width * floor(screenRect.x / posAlignment.width);
   float y = posAlignment.height * floor(screenRect.y / posAlignment.height);
-  float w = sizeAlignment.width * ceil(screenRect.width / sizeAlignment.width + 1);
-  float h = sizeAlignment.height * ceil(screenRect.height / sizeAlignment.height + 1);
+  float w =
+      sizeAlignment.width * ceil(screenRect.width / sizeAlignment.width + 1);
+  float h =
+      sizeAlignment.height * ceil(screenRect.height / sizeAlignment.height + 1);
   screenRect = ScreenRect(x, y, w, h);
   screenRect -= scrollPosScreen;
 
@@ -8606,8 +8609,10 @@ nsRect nsLayoutUtils::GetBoxShadowRectForFrame(nsIFrame* aFrame,
 }
 
 /* static */
-bool nsLayoutUtils::GetContentViewerSize(nsPresContext* aPresContext,
-                                         LayoutDeviceIntSize& aOutSize) {
+bool nsLayoutUtils::GetContentViewerSize(
+    nsPresContext* aPresContext,
+    LayoutDeviceIntSize& aOutSize,
+    SubtractDynamicToolbar aSubtractDynamicToolbar) {
   nsCOMPtr<nsIDocShell> docShell = aPresContext->GetDocShell();
   if (!docShell) {
     return false;
@@ -8622,7 +8627,8 @@ bool nsLayoutUtils::GetContentViewerSize(nsPresContext* aPresContext,
   nsIntRect bounds;
   cv->GetBounds(bounds);
 
-  if (aPresContext->HasDynamicToolbar() && !bounds.IsEmpty()) {
+  if (aSubtractDynamicToolbar == SubtractDynamicToolbar::Yes &&
+      aPresContext->HasDynamicToolbar() && !bounds.IsEmpty()) {
     MOZ_ASSERT(aPresContext->IsRootContentDocumentCrossProcess());
     bounds.height -= aPresContext->GetDynamicToolbarMaxHeight();
     // Collapse the size in the case the dynamic toolbar max height is greater
@@ -8637,43 +8643,18 @@ bool nsLayoutUtils::GetContentViewerSize(nsPresContext* aPresContext,
   return true;
 }
 
-static bool UpdateCompositionBoundsForRCDRSF(ParentLayerRect& aCompBounds,
-                                             nsPresContext* aPresContext,
-                                             bool aScaleContentViewerSize) {
-  nsIFrame* rootFrame = aPresContext->PresShell()->GetRootFrame();
-  if (!rootFrame) {
+bool nsLayoutUtils::UpdateCompositionBoundsForRCDRSF(
+    ParentLayerRect& aCompBounds,
+    nsPresContext* aPresContext) {
+  LayoutDeviceIntSize contentSize;
+  if (!GetContentViewerSize(aPresContext, contentSize,
+                            SubtractDynamicToolbar::No)) {
     return false;
   }
-
-#if defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WIDGET_UIKIT)
-  nsIWidget* widget = rootFrame->GetNearestWidget();
-#else
-  nsView* view = rootFrame->GetView();
-  nsIWidget* widget = view ? view->GetWidget() : nullptr;
-#endif
-
-  if (widget) {
-    aCompBounds = ParentLayerRect(ViewAs<ParentLayerPixel>(
-        LayoutDeviceIntRect(LayoutDeviceIntPoint(),
-                            widget->GetCompositionSize()),
-        PixelCastJustification::LayoutDeviceIsParentLayerForRCDRSF));
-    return true;
-  }
-
-  LayoutDeviceIntSize contentSize;
-  if (nsLayoutUtils::GetContentViewerSize(aPresContext, contentSize)) {
-    LayoutDeviceToParentLayerScale scale;
-    if (aScaleContentViewerSize && aPresContext->GetParentPresContext()) {
-      scale =
-          LayoutDeviceToParentLayerScale(aPresContext->GetParentPresContext()
-                                             ->PresShell()
-                                             ->GetCumulativeResolution());
-    }
-    aCompBounds.SizeTo(contentSize * scale);
-    return true;
-  }
-
-  return false;
+  aCompBounds = ParentLayerRect(ViewAs<ParentLayerPixel>(
+      LayoutDeviceIntRect(LayoutDeviceIntPoint(), contentSize),
+      PixelCastJustification::LayoutDeviceIsParentLayerForRCDRSF));
+  return true;
 }
 
 /* static */
@@ -8724,7 +8705,7 @@ nsSize nsLayoutUtils::CalculateCompositionSizeForFrame(
       aFrame == presShell->GetRootScrollFrame();
   if (isRootContentDocRootScrollFrame) {
     ParentLayerRect compBounds;
-    if (UpdateCompositionBoundsForRCDRSF(compBounds, presContext, false)) {
+    if (UpdateCompositionBoundsForRCDRSF(compBounds, presContext)) {
       int32_t auPerDevPixel = presContext->AppUnitsPerDevPixel();
       size = nsSize(compBounds.width * auPerDevPixel,
                     compBounds.height * auPerDevPixel);
@@ -8765,7 +8746,7 @@ CSSSize nsLayoutUtils::CalculateRootCompositionSize(
           rootPresShell->GetCumulativeResolution() *
           nsLayoutUtils::GetTransformToAncestorScale(rootFrame));
       ParentLayerRect compBounds;
-      if (UpdateCompositionBoundsForRCDRSF(compBounds, rootPresContext, true)) {
+      if (UpdateCompositionBoundsForRCDRSF(compBounds, rootPresContext)) {
         rootCompositionSize = ViewAs<ScreenPixel>(
             compBounds.Size(),
             PixelCastJustification::ScreenIsParentLayerForRoot);
@@ -9383,7 +9364,7 @@ ScrollMetadata nsLayoutUtils::ComputeScrollMetadata(
   bool isRootContentDocRootScrollFrame =
       isRootScrollFrame && presContext->IsRootContentDocumentCrossProcess();
   if (isRootContentDocRootScrollFrame) {
-    UpdateCompositionBoundsForRCDRSF(frameBounds, presContext, true);
+    UpdateCompositionBoundsForRCDRSF(frameBounds, presContext);
   }
 
   nsMargin sizes = ScrollbarAreaToExcludeFromCompositionBoundsFor(aScrollFrame);

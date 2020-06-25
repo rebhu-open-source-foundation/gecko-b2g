@@ -1079,9 +1079,13 @@ class Document : public nsINode,
    */
   uint32_t GetSandboxFlags() const { return mSandboxFlags; }
 
-  Maybe<nsILoadInfo::CrossOriginEmbedderPolicy> GetEmbedderPolicyFromHTTP()
-      const {
-    return mEmbedderPolicyFromHTTP;
+  Maybe<nsILoadInfo::CrossOriginEmbedderPolicy> GetEmbedderPolicy() const {
+    return mEmbedderPolicy;
+  }
+
+  void SetEmbedderPolicy(
+      const Maybe<nsILoadInfo::CrossOriginEmbedderPolicy>& aCOEP) {
+    mEmbedderPolicy = aCOEP;
   }
 
   /**
@@ -3116,8 +3120,9 @@ class Document : public nsINode,
   };
 #undef DEPRECATED_OPERATION
   bool HasWarnedAbout(DeprecatedOperations aOperation) const;
-  void WarnOnceAbout(DeprecatedOperations aOperation,
-                     bool asError = false) const;
+  void WarnOnceAbout(
+      DeprecatedOperations aOperation, bool asError = false,
+      const nsTArray<nsString>& aParams = nsTArray<nsString>()) const;
 
 #define DOCUMENT_WARNING(_op) e##_op,
   enum DocumentWarnings {
@@ -4670,8 +4675,9 @@ class Document : public nsINode,
   // possible flags.
   uint32_t mSandboxFlags;
 
-  // The embedder policy obtained from parsing the HTTP response header.
-  Maybe<nsILoadInfo::CrossOriginEmbedderPolicy> mEmbedderPolicyFromHTTP;
+  // The embedder policy obtained from parsing the HTTP response header or from
+  // our opener if this is the initial about:blank document.
+  Maybe<nsILoadInfo::CrossOriginEmbedderPolicy> mEmbedderPolicy;
 
   nsCString mContentLanguage;
 

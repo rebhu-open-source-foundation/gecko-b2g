@@ -11,6 +11,7 @@ EXPORTS.mozilla.webrender += [
     'RenderBufferTextureHost.h',
     'RenderCompositor.h',
     'RenderCompositorOGL.h',
+    'RenderCompositorSWGL.h',
     'RenderEGLImageTextureHost.h',
     'RendererOGL.h',
     'RendererScreenshotGrabber.h',
@@ -29,6 +30,7 @@ UNIFIED_SOURCES += [
     'RenderBufferTextureHost.cpp',
     'RenderCompositor.cpp',
     'RenderCompositorOGL.cpp',
+    'RenderCompositorSWGL.cpp',
     'RenderEGLImageTextureHost.cpp',
     'RendererOGL.cpp',
     'RendererScreenshotGrabber.cpp',
@@ -43,9 +45,11 @@ UNIFIED_SOURCES += [
 
 if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'cocoa':
     EXPORTS.mozilla.webrender += [
+        'RenderCompositorNative.h',
         'RenderMacIOSurfaceTextureHostOGL.h',
     ]
     UNIFIED_SOURCES += [
+        'RenderCompositorNative.cpp',
         'RenderMacIOSurfaceTextureHostOGL.cpp',
     ]
 

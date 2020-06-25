@@ -32,7 +32,6 @@
 #include "ipc/nsGUIEventIPC.h"
 #include "js/JSON.h"
 #include "mozilla/AsyncEventDispatcher.h"
-#include "mozilla/AutoResizeReflowSquasher.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/EventForwards.h"
 #include "mozilla/EventListenerManager.h"
@@ -1242,33 +1241,17 @@ mozilla::ipc::IPCResult BrowserChild::RecvUpdateDimensions(
   ScreenIntSize screenSize = GetInnerSize();
   ScreenIntRect screenRect = GetOuterRect();
 
-  {
-#ifdef MOZ_WIDGET_ANDROID
-    // For some reason on geckoview-junit tests we get multiple reflows on the
-    // top-level presShell, but with different sizes. This seems kinda wrong,
-    // but for now let's just leave it as-is and not squash them, since handling
-    // the multiple reflows in order might be important. Filed bug 1646261 to
-    // investigate this more closely.
-#else
-    AutoResizeReflowSquasher squasher(GetTopLevelPresShell());
-#endif
+  // Make sure to set the size on the document viewer first.  The
+  // MobileViewportManager needs the content viewer size to be updated before
+  // the reflow, otherwise it gets a stale size when it computes a new CSS
+  // viewport.
+  nsCOMPtr<nsIBaseWindow> baseWin = do_QueryInterface(WebNavigation());
+  baseWin->SetPositionAndSize(0, 0, screenSize.width, screenSize.height,
+                              nsIBaseWindow::eRepaint);
 
-    // Make sure to set the size on the document viewer and the widget before
-    // triggering a reflow. We do this by capturing the reflows and making
-    // that happen at the end of this scoped block, using the squasher.
-    // The MobileViewportManager needs the content viewer size to be updated
-    // before the reflow, otherwise it gets a stale size when it computes
-    // a new CSS viewport. Similarly, the widget size needs to be updated before
-    // the root scrollframe figures out which scrollbars are needed because
-    // it might read the composition size from the widget.
-    nsCOMPtr<nsIBaseWindow> baseWin = do_QueryInterface(WebNavigation());
-    baseWin->SetPositionAndSize(0, 0, screenSize.width, screenSize.height,
-                                nsIBaseWindow::eRepaint);
-
-    mPuppetWidget->Resize(screenRect.x + mClientOffset.x + mChromeOffset.x,
-                          screenRect.y + mClientOffset.y + mChromeOffset.y,
-                          screenSize.width, screenSize.height, true);
-  }
+  mPuppetWidget->Resize(screenRect.x + mClientOffset.x + mChromeOffset.x,
+                        screenRect.y + mClientOffset.y + mChromeOffset.y,
+                        screenSize.width, screenSize.height, true);
 
   RecvSafeAreaInsetsChanged(mPuppetWidget->GetSafeAreaInsets());
 
@@ -3344,13 +3327,15 @@ mozilla::ipc::IPCResult BrowserChild::RecvUIResolutionChanged(
   ScreenIntSize screenSize = GetInnerSize();
   if (mHasValidInnerSize && oldScreenSize != screenSize) {
     ScreenIntRect screenRect = GetOuterRect();
-    mPuppetWidget->Resize(screenRect.x + mClientOffset.x + mChromeOffset.x,
-                          screenRect.y + mClientOffset.y + mChromeOffset.y,
-                          screenSize.width, screenSize.height, true);
 
+    // See RecvUpdateDimensions for the order of these operations.
     nsCOMPtr<nsIBaseWindow> baseWin = do_QueryInterface(WebNavigation());
     baseWin->SetPositionAndSize(0, 0, screenSize.width, screenSize.height,
                                 nsIBaseWindow::eRepaint);
+
+    mPuppetWidget->Resize(screenRect.x + mClientOffset.x + mChromeOffset.x,
+                          screenRect.y + mClientOffset.y + mChromeOffset.y,
+                          screenSize.width, screenSize.height, true);
   }
 
   return IPC_OK();
@@ -3687,29 +3672,6 @@ NS_IMETHODIMP BrowserChild::OnStateChange(nsIWebProgress* aWebProgress,
   MOZ_TRY(PrepareProgressListenerData(aWebProgress, aRequest, webProgressData,
                                       requestData));
 
-  /*
-   * If
-   * 1) this is a document,
-   * 2) the document is top-level,
-   * 3) the document is completely loaded (STATE_STOP), and
-   * 4) this is the end of activity for the document
-   *    (STATE_IS_WINDOW, STATE_IS_NETWORK),
-   * then record the elapsed time that it took to load.
-   */
-  if (document && webProgressData->isTopLevel() &&
-      (aStateFlags & nsIWebProgressListener::STATE_STOP) &&
-      (aStateFlags & nsIWebProgressListener::STATE_IS_WINDOW) &&
-      (aStateFlags & nsIWebProgressListener::STATE_IS_NETWORK)) {
-    RefPtr<nsDOMNavigationTiming> navigationTiming =
-        document->GetNavigationTiming();
-    if (navigationTiming) {
-      TimeDuration elapsedLoadTimeMS =
-          TimeStamp::Now() - navigationTiming->GetNavigationStartTimeStamp();
-      requestData.elapsedLoadTimeMS() =
-          Some(elapsedLoadTimeMS.ToMilliseconds());
-    }
-  }
-
   if (webProgressData->isTopLevel()) {
     stateChangeData.emplace();
 
@@ -3939,17 +3901,6 @@ nsresult BrowserChild::PrepareProgressListenerData(
     rv = aWebProgress->GetLoadType(&loadType);
     NS_ENSURE_SUCCESS(rv, rv);
     aWebProgressData->loadType() = loadType;
-
-    uint64_t outerDOMWindowID = 0;
-    uint64_t innerDOMWindowID = 0;
-    // The DOM Window ID getters here may throw if the inner or outer windows
-    // aren't created yet or are destroyed at the time we're making this call
-    // but that isn't fatal so ignore the exceptions here.
-    Unused << aWebProgress->GetDOMWindowID(&outerDOMWindowID);
-    aWebProgressData->outerDOMWindowID() = outerDOMWindowID;
-
-    Unused << aWebProgress->GetInnerDOMWindowID(&innerDOMWindowID);
-    aWebProgressData->innerDOMWindowID() = innerDOMWindowID;
   }
 
   nsCOMPtr<nsIChannel> channel = do_QueryInterface(aRequest);

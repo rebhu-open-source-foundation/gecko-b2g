@@ -109,6 +109,7 @@
 #include "mozilla/dom/BindingDeclarations.h"
 #include "mozilla/dom/BrowsingContext.h"
 #include "mozilla/dom/ContentChild.h"
+#include "mozilla/dom/ContentMediaController.h"
 #include "mozilla/dom/CSSImportRule.h"
 #include "mozilla/dom/CSPDictionariesBinding.h"
 #include "mozilla/dom/DOMIntersectionObserver.h"
@@ -120,6 +121,7 @@
 #include "mozilla/dom/HTMLMetaElement.h"
 #include "mozilla/dom/HTMLSharedElement.h"
 #include "mozilla/dom/HTMLDialogElement.h"
+#include "mozilla/dom/MediaStatusManager.h"
 #include "mozilla/dom/MutationObservers.h"
 #include "mozilla/dom/Navigator.h"
 #include "mozilla/dom/Performance.h"
@@ -3553,7 +3555,7 @@ nsresult Document::InitCOEP(nsIChannel* aChannel) {
   nsILoadInfo::CrossOriginEmbedderPolicy policy =
       nsILoadInfo::EMBEDDER_POLICY_NULL;
   if (NS_SUCCEEDED(intChannel->GetResponseEmbedderPolicy(&policy))) {
-    mEmbedderPolicyFromHTTP = Some(policy);
+    mEmbedderPolicy = Some(policy);
   }
 
   return NS_OK;
@@ -12214,8 +12216,9 @@ bool Document::HasWarnedAbout(DeprecatedOperations aOperation) const {
   return mDeprecationWarnedAbout[aOperation];
 }
 
-void Document::WarnOnceAbout(DeprecatedOperations aOperation,
-                             bool asError /* = false */) const {
+void Document::WarnOnceAbout(
+    DeprecatedOperations aOperation, bool asError /* = false */,
+    const nsTArray<nsString>& aParams /* = empty array */) const {
   MOZ_ASSERT(NS_IsMainThread());
   if (HasWarnedAbout(aOperation)) {
     return;
@@ -12232,7 +12235,7 @@ void Document::WarnOnceAbout(DeprecatedOperations aOperation,
       asError ? nsIScriptError::errorFlag : nsIScriptError::warningFlag;
   nsContentUtils::ReportToConsole(flags, NS_LITERAL_CSTRING("DOM Core"), this,
                                   nsContentUtils::eDOM_PROPERTIES,
-                                  kDeprecationWarnings[aOperation]);
+                                  kDeprecationWarnings[aOperation], aParams);
 }
 
 bool Document::HasWarnedAbout(DocumentWarnings aWarning) const {
@@ -13352,9 +13355,26 @@ static void UpdateViewportScrollbarOverrideForFullscreen(Document* aDoc) {
   }
 }
 
+static void NotifyFullScreenChangedForMediaControl(Element* aElement,
+                                                   bool aIsInFullScreen) {
+  // When a media element enters the fullscreen, we would like to notify that
+  // to the media controller in order to update its status.
+  if (!aElement->IsAnyOfHTMLElements(nsGkAtoms::audio, nsGkAtoms::video)) {
+    return;
+  }
+  RefPtr<BrowsingContext> bc = aElement->OwnerDoc()->GetBrowsingContext();
+  if (!bc) {
+    return;
+  }
+  if (RefPtr<IMediaInfoUpdater> updater = ContentMediaAgent::Get(bc)) {
+    updater->NotifyMediaFullScreenState(bc->Id(), aIsInFullScreen);
+  }
+}
+
 static void ClearFullscreenStateOnElement(Element* aElement) {
   // Remove styles from existing top element.
   EventStateManager::SetFullscreenState(aElement, false);
+  NotifyFullScreenChangedForMediaControl(aElement, false);
   // Reset iframe fullscreen flag.
   if (aElement->IsHTMLElement(nsGkAtoms::iframe)) {
     static_cast<HTMLIFrameElement*>(aElement)->SetFullscreenFlag(false);
@@ -13409,6 +13429,7 @@ void Document::UnsetFullscreenElement() {
 bool Document::SetFullscreenElement(Element* aElement) {
   if (TopLayerPush(aElement)) {
     EventStateManager::SetFullscreenState(aElement, true);
+    NotifyFullScreenChangedForMediaControl(aElement, true);
     UpdateViewportScrollbarOverrideForFullscreen(this);
     return true;
   }

@@ -230,13 +230,7 @@
 
       this._fastFind = null;
 
-      this._innerWindowID = null;
-
       this._lastSearchString = null;
-
-      this._remoteWebNavigation = null;
-
-      this._remoteWebProgress = null;
 
       this._characterSet = "";
 
@@ -587,17 +581,7 @@
     }
 
     get innerWindowID() {
-      if (this.isRemoteBrowser) {
-        return this._innerWindowID;
-      }
-      try {
-        return this.contentWindow.windowUtils.currentInnerWindowID;
-      } catch (e) {
-        if (e.result != Cr.NS_ERROR_NOT_AVAILABLE) {
-          throw e;
-        }
-        return null;
-      }
+      return this.browsingContext?.currentWindowGlobal?.innerWindowId || null;
     }
 
     get browsingContext() {
@@ -1101,6 +1085,7 @@
          * the <browser> element may not be initialized yet.
          */
 
+        let oldNavigation = this._remoteWebNavigation;
         this._remoteWebNavigation = new LazyModules.RemoteWebNavigation(this);
 
         // Initialize contentPrincipal to the about:blank principal for this loadcontext
@@ -1132,22 +1117,8 @@
         this.screenshot_id = 0;
         // End WebView additions.
 
-        let jsm = "resource://gre/modules/RemoteWebProgress.jsm";
-        let { RemoteWebProgressManager } = ChromeUtils.import(jsm, {});
-
-        let oldManager = this._remoteWebProgressManager;
-        this._remoteWebProgressManager = new RemoteWebProgressManager(this);
-        if (oldManager) {
-          // We're transitioning from one remote type to another. This means that
-          // the RemoteWebProgress listener is listening to the old message manager,
-          // and needs to be pointed at the new one.
-          this._remoteWebProgressManager.swapListeners(oldManager);
-        }
-
-        this._remoteWebProgress = this._remoteWebProgressManager.topLevelWebProgress;
-
-        if (!oldManager) {
-          // If we didn't have a manager, then we're transitioning from local to
+        if (!oldNavigation) {
+          // If we weren't remote, then we're transitioning from local to
           // remote. Add all listeners from the previous <browser> to the new
           // RemoteWebProgress.
           this.restoreProgressListeners();
@@ -1200,13 +1171,8 @@
       } catch (e) {}
 
       if (!this.isRemoteBrowser) {
-        // If we've transitioned from remote to non-remote, we no longer need
-        // our RemoteWebProgress or its associated manager, but we'll need to
-        // add the progress listeners to the new non-remote WebProgress.
-        this._remoteWebProgressManager = null;
-        this._remoteWebProgress = null;
+        this._remoteWebNavigation = null;
         this.restoreProgressListeners();
-
         this.addEventListener("pagehide", this.onPageHide, true);
       }
     }
@@ -1298,6 +1264,7 @@
             break;
         }
       }
+      return true;
     }
 
     // Returns a promise resolving with the screenshot as a Blob.
@@ -1383,10 +1350,6 @@
       });
     }
 
-    get remoteWebProgressManager() {
-      return this._remoteWebProgressManager;
-    }
-
     updateForStateChange(aCharset, aDocumentURI, aContentType) {
       if (this.isRemoteBrowser && this.messageManager) {
         if (aCharset != null) {
@@ -1422,7 +1385,6 @@
       aCSP,
       aReferrerInfo,
       aIsSynthetic,
-      aInnerWindowID,
       aHaveRequestContextID,
       aRequestContextID,
       aContentType
@@ -1445,7 +1407,6 @@
         this._csp = aCSP;
         this._referrerInfo = aReferrerInfo;
         this._isSyntheticDocument = aIsSynthetic;
-        this._innerWindowID = aInnerWindowID;
         this._contentRequestContextID = aHaveRequestContextID
           ? aRequestContextID
           : null;
@@ -1826,10 +1787,7 @@
         fieldsToSwap.push(
           ...[
             "_remoteWebNavigation",
-            "_remoteWebProgressManager",
-            "_remoteWebProgress",
             "_remoteFinder",
-            "_securityUI",
             "_documentURI",
             "_documentContentType",
             "_characterSet",
@@ -1838,7 +1796,6 @@
             "_contentPrincipal",
             "_contentPartitionedPrincipal",
             "_isSyntheticDocument",
-            "_innerWindowID",
           ]
         );
       }
@@ -1875,14 +1832,6 @@
         // Rewire the remote listeners
         this._remoteWebNavigation.swapBrowser(this);
         aOtherBrowser._remoteWebNavigation.swapBrowser(aOtherBrowser);
-
-        if (
-          this._remoteWebProgressManager &&
-          aOtherBrowser._remoteWebProgressManager
-        ) {
-          this._remoteWebProgressManager.swapBrowser(this);
-          aOtherBrowser._remoteWebProgressManager.swapBrowser(aOtherBrowser);
-        }
 
         if (this._remoteFinder) {
           this._remoteFinder.swapBrowser(this);

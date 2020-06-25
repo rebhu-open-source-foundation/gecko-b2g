@@ -2168,7 +2168,7 @@
 # Whether "W3C Web Manifest" processing is enabled
 - name: dom.manifest.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # Enable mapped array buffer by default.
@@ -2481,6 +2481,13 @@
     value: true
     mirror: always
     do_not_use_directly: true
+
+  # Preference that is used to enable the hack for overrriding xFullPathname in
+  # TelemetryVFS.
+-   name: dom.quotaManager.overrideXFullPathname
+    type: RelaxedAtomicBool
+    value: true
+    mirror: always
 #endif
 
 # Reporting API.
@@ -6573,6 +6580,12 @@
 
 # Whether to disable support for XLink on MathML elements.
 - name: mathml.xlink.disabled
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
+# Whether to disable support for stretching operators with STIXGeneral fonts.
+- name: mathml.stixgeneral_operator_stretching.disabled
   type: bool
   value: @IS_NIGHTLY_BUILD@
   mirror: always
