@@ -196,12 +196,10 @@ XPCOMUtils.defineLazyModuleGetters(this, {
 
       this.systemAlerts = systemAlerts;
 
-      Services.obs.addObserver(
-        (/* shell_window */) => {
-          this.dispatchEvent(new CustomEvent("runtime-ready"));
-        },
-        "shell-ready"
-      );
+      Services.obs.addObserver(shell_window => {
+        this.eventDocument = shell_window.document;
+        this.dispatchEvent(new CustomEvent("runtime-ready"));
+      }, "shell-ready");
 
       // Hook up the process provider implementation.
       // First make sure the service was started so it can receive the observer notification.
@@ -258,6 +256,27 @@ XPCOMUtils.defineLazyModuleGetters(this, {
         "resource://gre/modules/AppConstants.jsm"
       );
       return AppConstants.platform === "gonk";
+    }
+
+    // Proxies a subset of nsIEventListenerService, useful eg. to listen
+    // to hardware keys in the system app directly.
+    // We need to set the target to the shell.js document to avoid focus issues.
+    addSystemEventListener(type, listener, useCapture) {
+      Services.els.addSystemEventListener(
+        this.eventDocument,
+        type,
+        listener,
+        useCapture
+      );
+    }
+
+    removeSystemEventListener(type, listener, useCapture) {
+      Services.els.removeSystemEventListener(
+        this.eventDocument,
+        type,
+        listener,
+        useCapture
+      );
     }
   }
 
