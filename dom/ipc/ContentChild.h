@@ -21,7 +21,7 @@
 #include "mozilla/ipc/InputStreamUtils.h"
 #include "mozilla/ipc/Shmem.h"
 #include "nsHashKeys.h"
-#include "nsIContentChild.h"
+#include "nsIDOMProcessChild.h"
 #include "nsIObserver.h"
 #include "nsTHashtable.h"
 #include "nsStringFwd.h"
@@ -42,7 +42,6 @@ struct LookAndFeelInt;
 class nsDocShellLoadState;
 class nsFrameLoader;
 class nsIOpenWindowInfo;
-class JSProcessActorChild;
 
 namespace mozilla {
 class RemoteSpellcheckEngineChild;
@@ -74,7 +73,7 @@ class GetFilesHelperChild;
 class TabContext;
 
 class ContentChild final : public PContentChild,
-                           public nsIContentChild,
+                           public nsIDOMProcessChild,
                            public mozilla::ipc::IShmemAllocator,
                            public mozilla::ipc::ChildToParentStreamActorManager,
                            public ProcessActor {
@@ -85,7 +84,7 @@ class ContentChild final : public PContentChild,
   friend class PContentChild;
 
  public:
-  NS_DECL_NSICONTENTCHILD
+  NS_DECL_NSIDOMPROCESSCHILD
 
   ContentChild();
   virtual ~ContentChild();
@@ -781,10 +780,6 @@ class ContentChild final : public PContentChild,
   bool DeallocPIccChild(PIccChild* aActor);
 #endif  // MOZ_B2G_RIL
 
-  // Get a JS actor object by name.
-  already_AddRefed<mozilla::dom::JSProcessActorChild> GetActor(
-      const nsACString& aName, ErrorResult& aRv);
-
  private:
   static void ForceKillTimerCallback(nsITimer* aTimer, void* aClosure);
   void StartForceKillTimer();
@@ -883,10 +878,6 @@ class ContentChild final : public PContentChild,
   mozilla::ipc::IPCResult RecvRawMessage(const JSActorMessageMeta& aMeta,
                                          const ClonedMessageData& aData,
                                          const ClonedMessageData& aStack);
-
-  void ReceiveRawMessage(const JSActorMessageMeta& aMeta,
-                         ipc::StructuredCloneData&& aData,
-                         ipc::StructuredCloneData&& aStack);
 
   JSActor::Type GetSide() override { return JSActor::Type::Child; }
 
@@ -994,7 +985,7 @@ class ContentChild final : public PContentChild,
 };
 
 inline nsISupports* ToSupports(mozilla::dom::ContentChild* aContentChild) {
-  return static_cast<nsIContentChild*>(aContentChild);
+  return static_cast<nsIDOMProcessChild*>(aContentChild);
 }
 
 }  // namespace dom

@@ -44,6 +44,7 @@
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/RemoteWebProgress.h"
 #include "mozilla/dom/RemoteWebProgressRequest.h"
+#include "mozilla/net/UrlClassifierFeatureFactory.h"
 
 #ifdef MOZ_WIDGET_ANDROID
 #  include "mozilla/widget/nsWindow.h"
@@ -175,7 +176,7 @@ class ParentProcessDocumentOpenInfo final : public nsDocumentOpenInfo,
     // default listener. This happens when the channel is in
     // an error state, and we want to just forward that on to be
     // handled in the content process.
-    if (!mUsedContentHandler && !m_targetStreamListener) {
+    if (NS_SUCCEEDED(rv) && !mUsedContentHandler && !m_targetStreamListener) {
       m_targetStreamListener = mListener;
       return m_targetStreamListener->OnStartRequest(request);
     }
@@ -198,7 +199,8 @@ class ParentProcessDocumentOpenInfo final : public nsDocumentOpenInfo,
       nsCOMPtr<nsIMultiPartChannel> multiPartChannel =
           do_QueryInterface(request);
       if (!multiPartChannel && !mCloned) {
-        DisconnectChildListeners();
+        DisconnectChildListeners(NS_FAILED(rv) ? rv : NS_BINDING_RETARGETED,
+                                 rv);
       }
     }
     return rv;
@@ -214,14 +216,14 @@ class ParentProcessDocumentOpenInfo final : public nsDocumentOpenInfo,
     LOG(("ParentProcessDocumentOpenInfo dtor [this=%p]", this));
   }
 
-  void DisconnectChildListeners() {
+  void DisconnectChildListeners(nsresult aStatus, nsresult aLoadGroupStatus) {
     // Tell the DocumentLoadListener to notify the content process that it's
     // been entirely retargeted, and to stop waiting.
     // Clear mListener's pointer to the DocumentLoadListener to break the
     // reference cycle.
     RefPtr<DocumentLoadListener> doc = do_GetInterface(ToSupports(mListener));
     MOZ_ASSERT(doc);
-    doc->DisconnectListeners(NS_BINDING_RETARGETED, NS_OK);
+    doc->DisconnectListeners(aStatus, aLoadGroupStatus);
     mListener->SetListenerAfterRedirect(nullptr);
   }
 
@@ -520,6 +522,7 @@ auto DocumentLoadListener::Open(
   mTiming = aTiming;
   mSrcdocData = aLoadState->SrcdocData();
   mBaseURI = aLoadState->BaseURI();
+  mOriginalUriString = aLoadState->GetOriginalURIString();
   if (StaticPrefs::fission_sessionHistoryInParent() &&
       browsingContext->GetSessionHistory()) {
     mSessionHistoryInfo =
@@ -1083,10 +1086,9 @@ void DocumentLoadListener::SerializeRedirectData(
   aArgs.baseUri() = mBaseURI;
   aArgs.loadStateLoadFlags() = mLoadStateLoadFlags;
   aArgs.loadStateLoadType() = mLoadStateLoadType;
+  aArgs.originalUriString() = mOriginalUriString;
   if (mSessionHistoryInfo) {
-    aArgs.sessionHistoryInfo().emplace(
-        mSessionHistoryInfo->mId, MakeUnique<mozilla::dom::SessionHistoryInfo>(
-                                      *mSessionHistoryInfo->mInfo));
+    aArgs.sessionHistoryInfo().emplace(*mSessionHistoryInfo);
   }
 }
 
@@ -1537,6 +1539,48 @@ void DocumentLoadListener::TriggerRedirectToRealChannel(
           });
 }
 
+void DocumentLoadListener::MaybeReportBlockedByURLClassifier(nsresult aStatus) {
+  if (!GetBrowsingContext() || GetBrowsingContext()->IsTop() ||
+      !StaticPrefs::privacy_trackingprotection_testing_report_blocked_node()) {
+    return;
+  }
+
+  if (!UrlClassifierFeatureFactory::IsClassifierBlockingErrorCode(aStatus)) {
+    return;
+  }
+
+  RefPtr<WindowGlobalParent> parent =
+      GetBrowsingContext()->GetParentWindowContext();
+  if (parent) {
+    Unused << parent->SendAddBlockedFrameNodeByClassifier(GetBrowsingContext());
+  }
+}
+
+bool DocumentLoadListener::DocShellWillDisplayContent(nsresult aStatus) {
+  if (NS_SUCCEEDED(aStatus)) {
+    return true;
+  }
+
+  // nsDocShell attempts urifixup on some failure types,
+  // but also of those also display an error page if we don't
+  // succeed with fixup, so we don't need to check for it
+  // here.
+
+  bool isInitialDocument = true;
+  if (WindowGlobalParent* currentWindow =
+          GetBrowsingContext()->GetCurrentWindowGlobal()) {
+    isInitialDocument = currentWindow->IsInitialDocument();
+  }
+
+  nsresult rv = nsDocShell::FilterStatusForErrorPage(
+      aStatus, mChannel, mLoadStateLoadType, GetBrowsingContext()->IsTop(),
+      GetBrowsingContext()->GetUseErrorPages(), isInitialDocument, nullptr);
+
+  // If filtering returned a failure code, then an error page will
+  // be display for that code, so return true;
+  return NS_FAILED(rv);
+}
+
 NS_IMETHODIMP
 DocumentLoadListener::OnStartRequest(nsIRequest* aRequest) {
   LOG(("DocumentLoadListener OnStartRequest [this=%p]", this));
@@ -1583,11 +1627,16 @@ DocumentLoadListener::OnStartRequest(nsIRequest* aRequest) {
 
   mInitiatedRedirectToRealChannel = true;
 
+  MaybeReportBlockedByURLClassifier(status);
+
   // Determine if a new process needs to be spawned. If it does, this will
   // trigger a cross process switch, and we should hold off on redirecting to
   // the real channel.
+  // If the channel has failed, and the docshell isn't going to display an
+  // error page for that failure, then don't allow process switching, since
+  // we just want to keep our existing document.
   bool willBeRemote = false;
-  if (status == NS_BINDING_ABORTED ||
+  if (!DocShellWillDisplayContent(status) ||
       !MaybeTriggerProcessSwitch(&willBeRemote)) {
     TriggerRedirectToRealChannel();
 
@@ -1752,6 +1801,21 @@ DocumentLoadListener::NotifyClassificationFlags(uint32_t aClassificationFlags,
 NS_IMETHODIMP
 DocumentLoadListener::Delete() {
   MOZ_ASSERT_UNREACHABLE("This method is unused");
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+DocumentLoadListener::GetRemoteType(nsAString& aRemoteType) {
+  RefPtr<CanonicalBrowsingContext> browsingContext = GetBrowsingContext();
+  if (!browsingContext) {
+    return NS_ERROR_UNEXPECTED;
+  }
+
+  ErrorResult error;
+  browsingContext->GetCurrentRemoteType(aRemoteType, error);
+  if (error.Failed()) {
+    aRemoteType = VoidString();
+  }
   return NS_OK;
 }
 

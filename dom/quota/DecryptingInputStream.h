@@ -9,7 +9,9 @@
 
 #include "mozilla/InitializedOnce.h"
 #include "nsCOMPtr.h"
+#include "nsICloneableInputStream.h"
 #include "nsIInputStream.h"
+#include "nsIIPCSerializableInputStream.h"
 #include "nsISeekableStream.h"
 
 #include "EncryptedBlock.h"
@@ -17,7 +19,9 @@
 namespace mozilla::dom::quota {
 
 class DecryptingInputStreamBase : public nsIInputStream,
-                                  public nsISeekableStream {
+                                  public nsISeekableStream,
+                                  public nsICloneableInputStream,
+                                  public nsIIPCSerializableInputStream {
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
 
@@ -26,11 +30,26 @@ class DecryptingInputStreamBase : public nsIInputStream,
 
   NS_IMETHOD SetEOF() final;
 
+  using nsICloneableInputStream::GetCloneable;
+  NS_IMETHOD GetCloneable(bool* aCloneable) final;
+
+  using nsIIPCSerializableInputStream::Serialize;
+  void Serialize(mozilla::ipc::InputStreamParams& aParams,
+                 FileDescriptorArray& aFileDescriptors, bool aDelayedStart,
+                 uint32_t aMaxSize, uint32_t* aSizeUsed,
+                 mozilla::ipc::ChildToParentStreamActorManager* aManager) final;
+
  protected:
   DecryptingInputStreamBase(MovingNotNull<nsCOMPtr<nsIInputStream>> aBaseStream,
                             size_t aBlockSize);
 
+  // For deserialization only.
+  DecryptingInputStreamBase() = default;
+
   virtual ~DecryptingInputStreamBase() = default;
+
+  void Init(MovingNotNull<nsCOMPtr<nsIInputStream>> aBaseStream,
+            size_t aBlockSize);
 
   // Convenience routine to determine how many bytes of plain data
   // we currently have in our buffer.
@@ -38,8 +57,13 @@ class DecryptingInputStreamBase : public nsIInputStream,
 
   size_t EncryptedBufferLength() const;
 
-  InitializedOnce<const NotNull<nsCOMPtr<nsIInputStream>>> mBaseStream;
+  LazyInitializedOnceEarlyDestructible<const NotNull<nsCOMPtr<nsIInputStream>>>
+      mBaseStream;
   LazyInitializedOnce<const NotNull<nsISeekableStream*>> mBaseSeekableStream;
+  LazyInitializedOnce<const NotNull<nsICloneableInputStream*>>
+      mBaseCloneableInputStream;
+  LazyInitializedOnce<const NotNull<nsIIPCSerializableInputStream*>>
+      mBaseIPCSerializableInputStream;
 
   // Number of bytes of plain data in mBuffer.
   size_t mPlainBytes = 0;
@@ -47,7 +71,7 @@ class DecryptingInputStreamBase : public nsIInputStream,
   // Next byte of mBuffer to return in ReadSegments().
   size_t mNextByte = 0;
 
-  const size_t mBlockSize;
+  LazyInitializedOnceNotNull<const size_t> mBlockSize;
 
   size_t mLastBlockLength = 0;
 };
@@ -65,6 +89,9 @@ class DecryptingInputStream final : public DecryptingInputStreamBase {
                         size_t aBlockSize, CipherStrategy aCipherStrategy,
                         typename CipherStrategy::KeyType aKey);
 
+  // For deserialization only.
+  explicit DecryptingInputStream(CipherStrategy aCipherStrategy);
+
   NS_IMETHOD Close() override;
   NS_IMETHOD Available(uint64_t* _retval) override;
   NS_IMETHOD ReadSegments(nsWriteSegmentFun aWriter, void* aClosure,
@@ -73,6 +100,18 @@ class DecryptingInputStream final : public DecryptingInputStreamBase {
   NS_DECL_NSITELLABLESTREAM
 
   NS_IMETHOD Seek(int32_t aWhence, int64_t aOffset) override;
+
+  NS_IMETHOD Clone(nsIInputStream** _retval) override;
+
+  using DecryptingInputStreamBase::Serialize;
+  void Serialize(
+      mozilla::ipc::InputStreamParams& aParams,
+      FileDescriptorArray& aFileDescriptors, bool aDelayedStart,
+      uint32_t aMaxSize, uint32_t* aSizeUsed,
+      mozilla::ipc::ParentToChildStreamActorManager* aManager) override;
+
+  bool Deserialize(const mozilla::ipc::InputStreamParams& aParams,
+                   const FileDescriptorArray& aFileDescriptors) override;
 
  private:
   ~DecryptingInputStream();
@@ -99,7 +138,7 @@ class DecryptingInputStream final : public DecryptingInputStreamBase {
   bool EnsureBuffers();
 
   const CipherStrategy mCipherStrategy;
-  const typename CipherStrategy::KeyType mKey;
+  LazyInitializedOnce<const typename CipherStrategy::KeyType> mKey;
 
   // Buffer to hold encrypted data.  Must copy here since we need a
   // flat buffer to run the decryption process on.

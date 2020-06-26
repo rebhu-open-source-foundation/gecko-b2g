@@ -860,9 +860,8 @@ static bool EnforceRangeU32(JSContext* cx, HandleValue v, const char* kind,
   return true;
 }
 
-static bool GetLimits(JSContext* cx, HandleObject obj, uint32_t maxInitial,
-                      uint32_t maxMaximum, const char* kind, Limits* limits,
-                      Shareable allowShared) {
+static bool GetLimits(JSContext* cx, HandleObject obj, uint32_t maximumField,
+                      const char* kind, Limits* limits, Shareable allowShared) {
   JSAtom* initialAtom = Atomize(cx, "initial", strlen("initial"));
   if (!initialAtom) {
     return false;
@@ -874,12 +873,13 @@ static bool GetLimits(JSContext* cx, HandleObject obj, uint32_t maxInitial,
     return false;
   }
 
-  if (!EnforceRangeU32(cx, initialVal, kind, "initial size",
-                       &limits->initial)) {
+  uint32_t initial = 0;
+  if (!EnforceRangeU32(cx, initialVal, kind, "initial size", &initial)) {
     return false;
   }
+  limits->initial = initial;
 
-  if (limits->initial > maxInitial) {
+  if (limits->initial > maximumField) {
     JS_ReportErrorNumberUTF8(cx, GetErrorMessage, nullptr, JSMSG_WASM_BAD_RANGE,
                              kind, "initial size");
     return false;
@@ -898,13 +898,13 @@ static bool GetLimits(JSContext* cx, HandleObject obj, uint32_t maxInitial,
 
   // maxVal does not have a default value.
   if (!maxVal.isUndefined()) {
-    limits->maximum.emplace();
-    if (!EnforceRangeU32(cx, maxVal, kind, "maximum size",
-                         limits->maximum.ptr())) {
+    uint32_t maximum = 0;
+    if (!EnforceRangeU32(cx, maxVal, kind, "maximum size", &maximum)) {
       return false;
     }
+    limits->maximum = Some(maximum);
 
-    if (*limits->maximum > maxMaximum || limits->initial > *limits->maximum) {
+    if (*limits->maximum > maximumField || limits->initial > *limits->maximum) {
       JS_ReportErrorNumberUTF8(cx, GetErrorMessage, nullptr,
                                JSMSG_WASM_BAD_RANGE, kind, "maximum size");
       return false;
@@ -2057,8 +2057,14 @@ bool WasmMemoryObject::construct(JSContext* cx, unsigned argc, Value* vp) {
 
   RootedObject obj(cx, &args[0].toObject());
   Limits limits;
-  if (!GetLimits(cx, obj, MaxMemoryInitialPages, MaxMemoryMaximumPages,
-                 "Memory", &limits, Shareable::True)) {
+  if (!GetLimits(cx, obj, MaxMemoryLimitField, "Memory", &limits,
+                 Shareable::True)) {
+    return false;
+  }
+
+  if (limits.initial > MaxMemoryPages) {
+    JS_ReportErrorNumberUTF8(cx, GetErrorMessage, nullptr,
+                             JSMSG_WASM_MEM_IMP_LIMIT);
     return false;
   }
 
@@ -2413,7 +2419,8 @@ void WasmTableObject::trace(JSTracer* trc, JSObject* obj) {
 }
 
 /* static */
-WasmTableObject* WasmTableObject::create(JSContext* cx, const Limits& limits,
+WasmTableObject* WasmTableObject::create(JSContext* cx, uint32_t initialLength,
+                                         Maybe<uint32_t> maximumLength,
                                          TableKind tableKind,
                                          HandleObject proto) {
   AutoSetNewObjectMetadata metadata(cx);
@@ -2425,10 +2432,12 @@ WasmTableObject* WasmTableObject::create(JSContext* cx, const Limits& limits,
 
   MOZ_ASSERT(obj->isNewborn());
 
-  TableDesc td(tableKind, limits, /*importedOrExported=*/true);
+  TableDesc td(tableKind, initialLength, maximumLength,
+               /*importedOrExported=*/true);
 
   SharedTable table = Table::create(cx, td, obj);
   if (!table) {
+    ReportOutOfMemory(cx);
     return nullptr;
   }
 
@@ -2506,8 +2515,14 @@ bool WasmTableObject::construct(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   Limits limits;
-  if (!GetLimits(cx, obj, MaxTableInitialLength, MaxTableLength, "Table",
-                 &limits, Shareable::False)) {
+  if (!GetLimits(cx, obj, MaxTableLimitField, "Table", &limits,
+                 Shareable::False)) {
+    return false;
+  }
+
+  if (limits.initial > MaxTableLength) {
+    JS_ReportErrorNumberUTF8(cx, GetErrorMessage, nullptr,
+                             JSMSG_WASM_TABLE_IMP_LIMIT);
     return false;
   }
 
@@ -2520,8 +2535,17 @@ bool WasmTableObject::construct(JSContext* cx, unsigned argc, Value* vp) {
     proto = GlobalObject::getOrCreatePrototype(cx, JSProto_WasmTable);
   }
 
+  // The rest of the runtime expects table limits to be within a 32-bit range.
+  static_assert(MaxTableLimitField <= UINT32_MAX, "invariant");
+  uint32_t initialLength = uint32_t(limits.initial);
+  Maybe<uint32_t> maximumLength;
+  if (limits.maximum) {
+    maximumLength = Some(uint32_t(*limits.maximum));
+  }
+
   RootedWasmTableObject table(
-      cx, WasmTableObject::create(cx, limits, tableKind, proto));
+      cx, WasmTableObject::create(cx, initialLength, maximumLength, tableKind,
+                                  proto));
   if (!table) {
     return false;
   }

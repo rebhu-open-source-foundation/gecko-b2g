@@ -671,7 +671,6 @@ XPCOMUtils.defineLazyGetter(
 // lazy module getters
 
 XPCOMUtils.defineLazyModuleGetters(this, {
-  AboutCertViewerHandler: "resource://gre/modules/AboutCertViewerHandler.jsm",
   AddonManager: "resource://gre/modules/AddonManager.jsm",
   AppMenuNotifications: "resource://gre/modules/AppMenuNotifications.jsm",
   AsyncShutdown: "resource://gre/modules/AsyncShutdown.jsm",
@@ -1772,8 +1771,6 @@ BrowserGlue.prototype = {
 
     NewTabUtils.init();
 
-    AboutCertViewerHandler.init();
-
     Services.telemetry.setEventRecordingEnabled(
       "security.ui.protections",
       true
@@ -2026,7 +2023,6 @@ BrowserGlue.prototype = {
     SearchTelemetry.uninit();
     PageThumbs.uninit();
     NewTabUtils.uninit();
-    AboutCertViewerHandler.uninit();
 
     Normandy.uninit();
     RFPHelper.uninit();
@@ -5003,6 +4999,7 @@ var AboutHomeStartupCache = {
     Services.obs.addObserver(this, "ipc:content-created");
     Services.obs.addObserver(this, "process-type-set");
     Services.obs.addObserver(this, "ipc:content-shutdown");
+    Services.obs.addObserver(this, "intl:app-locales-changed");
 
     this._cacheEntryPromise = new Promise(resolve => {
       this._cacheEntryResolver = resolve;
@@ -5046,6 +5043,7 @@ var AboutHomeStartupCache = {
     Services.obs.removeObserver(this, "ipc:content-created");
     Services.obs.removeObserver(this, "process-type-set");
     Services.obs.removeObserver(this, "ipc:content-shutdown");
+    Services.obs.removeObserver(this, "intl:app-locales-changed");
 
     if (this._cacheTask) {
       this._cacheTask.disarm();
@@ -5554,6 +5552,10 @@ var AboutHomeStartupCache = {
 
   observe(aSubject, aTopic, aData) {
     switch (aTopic) {
+      case "intl:app-locales-changed": {
+        this.clearCache();
+        break;
+      }
       case "process-type-set":
       // Intentional fall-through
       case "ipc:content-created": {

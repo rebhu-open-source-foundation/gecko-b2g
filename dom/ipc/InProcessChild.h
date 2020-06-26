@@ -4,20 +4,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_ipc_InProcessChild_h
-#define mozilla_ipc_InProcessChild_h
+#ifndef mozilla_dom_InProcessChild_h
+#define mozilla_dom_InProcessChild_h
 
-#include "mozilla/ipc/PInProcessChild.h"
+#include "mozilla/dom/PInProcessChild.h"
+#include "mozilla/dom/JSProcessActorChild.h"
+#include "mozilla/dom/ProcessActor.h"
 #include "mozilla/StaticPtr.h"
+#include "nsIDOMProcessChild.h"
 
 namespace mozilla {
 namespace dom {
 class PWindowGlobalParent;
 class PWindowGlobalChild;
-}  // namespace dom
-
-namespace ipc {
-
 class InProcessParent;
 
 /**
@@ -28,12 +27,15 @@ class InProcessParent;
  * for async actors which want to communicate uniformly between Content->Chrome
  * and Chrome->Chrome situations.
  */
-class InProcessChild final : public PInProcessChild {
+class InProcessChild final : public nsIDOMProcessChild,
+                             public PInProcessChild,
+                             public ProcessActor {
  public:
   friend class InProcessParent;
   friend class PInProcessChild;
 
-  NS_INLINE_DECL_REFCOUNTING(InProcessChild, final)
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSIDOMPROCESSCHILD
 
   // Get the singleton instance of this actor.
   static InProcessChild* Singleton();
@@ -43,6 +45,9 @@ class InProcessChild final : public PInProcessChild {
   // |nullptr|.
   static IProtocol* ParentActorFor(IProtocol* aActor);
 
+  const nsAString& GetRemoteType() const override { return VoidString(); }
+  JSActor::Type GetSide() override { return JSActor::Type::Child; }
+
  private:
   // NOTE: PInProcess lifecycle management is declared as staic methods and
   // state on InProcessParent, and implemented in InProcessImpl.cpp.
@@ -50,9 +55,11 @@ class InProcessChild final : public PInProcessChild {
   ~InProcessChild() = default;
 
   static StaticRefPtr<InProcessChild> sSingleton;
+
+  nsRefPtrHashtable<nsCStringHashKey, JSProcessActorChild> mProcessActors;
 };
 
-}  // namespace ipc
+}  // namespace dom
 }  // namespace mozilla
 
-#endif  // defined(mozilla_ipc_InProcessChild_h)
+#endif  // defined(mozilla_dom_InProcessChild_h)

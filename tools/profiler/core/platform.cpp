@@ -1538,6 +1538,19 @@ void ProfilingStackOwner::DumpStackAndCrash() const {
 // The name of the main thread.
 static const char* const kMainThreadName = "GeckoMain";
 
+// Add the marker to the given buffer with the given information.
+// This is a unified insertion point for all the markers.
+template <typename Buffer>
+static void StoreMarker(Buffer& aBuffer, int aThreadId, const char* aMarkerName,
+                        JS::ProfilingCategoryPair aCategoryPair,
+                        const ProfilerMarkerPayload* aPayload,
+                        const mozilla::TimeStamp& aTime) {
+  aBuffer.PutObjects(ProfileBufferEntry::Kind::MarkerData, aThreadId,
+                     WrapProfileBufferUnownedCString(aMarkerName),
+                     static_cast<uint32_t>(aCategoryPair), aPayload,
+                     (aTime - CorePS::ProcessStartTime()).ToMilliseconds());
+}
+
 ////////////////////////////////////////////////////////////////////////
 // BEGIN sampling/unwinding code
 
@@ -2510,6 +2523,10 @@ static void CollectJavaThreadProfileData(ProfileBuffer& aProfileBuffer) {
   // locked_profiler_start uses sample count is 1000 for Java thread.
   // This entry size is enough now, but we might have to estimate it
   // if we can customize it
+
+  // Pass the samples
+  // FIXME(bug 1618560): We are currently only profiling the Java main thread.
+  constexpr int threadId = 0;
   int sampleId = 0;
   while (true) {
     // Gets the data from the java main thread only.
@@ -2518,7 +2535,7 @@ static void CollectJavaThreadProfileData(ProfileBuffer& aProfileBuffer) {
       break;
     }
 
-    aProfileBuffer.AddThreadIdEntry(0);
+    aProfileBuffer.AddThreadIdEntry(threadId);
     aProfileBuffer.AddEntry(ProfileBufferEntry::Time(sampleTime));
     int frameId = 0;
     while (true) {
@@ -2535,6 +2552,52 @@ static void CollectJavaThreadProfileData(ProfileBuffer& aProfileBuffer) {
                                          Some(categoryPair));
     }
     sampleId++;
+  }
+
+  // Pass the markers now
+  while (true) {
+    // Gets the data from the java main thread only.
+    java::GeckoJavaSampler::Marker::LocalRef marker =
+        java::GeckoJavaSampler::PollNextMarker();
+    if (!marker) {
+      // All markers are transferred.
+      break;
+    }
+
+    // Get all the marker information from the Java thread using JNI.
+    nsCString markerName = marker->GetMarkerName()->ToCString();
+    jni::String::LocalRef text = marker->GetMarkerText();
+    TimeStamp startTime =
+        CorePS::ProcessStartTime() +
+        TimeDuration::FromMilliseconds(marker->GetStartTime());
+
+    double endTimeMs = marker->GetEndTime();
+    // A marker can be either a duration with start and end, or a point in time
+    // with only startTime. If endTime is 0, this means it's a point in time.
+    TimeStamp endTime = endTimeMs == 0
+                            ? startTime
+                            : CorePS::ProcessStartTime() +
+                                  TimeDuration::FromMilliseconds(endTimeMs);
+
+    // Text field is optional, create different type of payloads depending on
+    // this.
+    if (!text) {
+      // This marker doesn't have a text
+      const TimingMarkerPayload payload(startTime, endTime);
+
+      // Put the marker inside the buffer
+      StoreMarker(aProfileBuffer, threadId, markerName.get(),
+                  JS::ProfilingCategoryPair::JAVA_ANDROID, &payload, startTime);
+    } else {
+      // This marker has a text
+      nsCString textString = text->ToCString();
+      const TextMarkerPayload payload(textString, startTime, endTime, Nothing(),
+                                      nullptr);
+
+      // Put the marker inside the buffer
+      StoreMarker(aProfileBuffer, threadId, markerName.get(),
+                  JS::ProfilingCategoryPair::JAVA_ANDROID, &payload, startTime);
+    }
   }
 }
 #endif
@@ -4052,6 +4115,14 @@ void GetProfilerEnvVarsForChildProcess(
   }
 
   aSetEnv("MOZ_PROFILER_STARTUP", "1");
+
+  // Hidden option to stop Base Profiler, mostly due to Talos intermittents,
+  // see https://bugzilla.mozilla.org/show_bug.cgi?id=1638851#c3
+  // TODO: Investigate root cause and remove this in bugs 1648324 and 1648325.
+  if (getenv("MOZ_PROFILER_STARTUP_NO_BASE")) {
+    aSetEnv("MOZ_PROFILER_STARTUP_NO_BASE", "1");
+  }
+
   auto capacityString =
       Smprintf("%u", unsigned(ActivePS::Capacity(lock).Value()));
   aSetEnv("MOZ_PROFILER_STARTUP_ENTRIES", capacityString.get());
@@ -4981,11 +5052,8 @@ static void racy_profiler_add_marker(const char* aMarkerName,
   TimeStamp origin = (aPayload && !aPayload->GetStartTime().IsNull())
                          ? aPayload->GetStartTime()
                          : TimeStamp::NowUnfuzzed();
-  TimeDuration delta = origin - CorePS::ProcessStartTime();
-  CorePS::CoreBuffer().PutObjects(
-      ProfileBufferEntry::Kind::MarkerData, racyRegisteredThread->ThreadId(),
-      WrapProfileBufferUnownedCString(aMarkerName),
-      static_cast<uint32_t>(aCategoryPair), aPayload, delta.ToMilliseconds());
+  StoreMarker(CorePS::CoreBuffer(), racyRegisteredThread->ThreadId(),
+              aMarkerName, aCategoryPair, aPayload, origin);
 }
 
 void profiler_add_marker(const char* aMarkerName,
@@ -5103,11 +5171,8 @@ static void maybelocked_profiler_add_marker_for_thread(
   TimeStamp origin = (!aPayload.GetStartTime().IsNull())
                          ? aPayload.GetStartTime()
                          : TimeStamp::NowUnfuzzed();
-  TimeDuration delta = origin - CorePS::ProcessStartTime();
-  CorePS::CoreBuffer().PutObjects(
-      ProfileBufferEntry::Kind::MarkerData, aThreadId,
-      WrapProfileBufferUnownedCString(aMarkerName),
-      static_cast<uint32_t>(aCategoryPair), &aPayload, delta.ToMilliseconds());
+  StoreMarker(CorePS::CoreBuffer(), aThreadId, aMarkerName, aCategoryPair,
+              &aPayload, origin);
 }
 
 void profiler_add_marker_for_thread(int aThreadId,

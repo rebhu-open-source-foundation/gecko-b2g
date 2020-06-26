@@ -24,7 +24,9 @@ namespace mozilla::dom::quota {
 // Similar to ArrayBufferInputStream from netwerk/base/ArrayBufferInputStream.h,
 // but this is initialized from a Span on construction, rather than lazily from
 // a JS ArrayBuffer.
-class ArrayBufferInputStream : public nsIInputStream, public nsISeekableStream {
+class ArrayBufferInputStream : public nsIInputStream,
+                               public nsISeekableStream,
+                               public nsICloneableInputStream {
  public:
   explicit ArrayBufferInputStream(mozilla::Span<const uint8_t> aData);
 
@@ -32,6 +34,7 @@ class ArrayBufferInputStream : public nsIInputStream, public nsISeekableStream {
   NS_DECL_NSIINPUTSTREAM
   NS_DECL_NSITELLABLESTREAM
   NS_DECL_NSISEEKABLESTREAM
+  NS_DECL_NSICLONEABLEINPUTSTREAM
 
  private:
   virtual ~ArrayBufferInputStream() = default;
@@ -48,6 +51,7 @@ NS_IMPL_RELEASE(ArrayBufferInputStream);
 NS_INTERFACE_MAP_BEGIN(ArrayBufferInputStream)
   NS_INTERFACE_MAP_ENTRY(nsIInputStream)
   NS_INTERFACE_MAP_ENTRY(nsISeekableStream)
+  NS_INTERFACE_MAP_ENTRY(nsICloneableInputStream)
   NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsIInputStream)
 NS_INTERFACE_MAP_END
 
@@ -177,6 +181,18 @@ NS_IMETHODIMP ArrayBufferInputStream::SetEOF() {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
+NS_IMETHODIMP ArrayBufferInputStream::GetCloneable(bool* aCloneable) {
+  *aCloneable = true;
+  return NS_OK;
+}
+
+NS_IMETHODIMP ArrayBufferInputStream::Clone(nsIInputStream** _retval) {
+  *_retval = MakeAndAddRef<ArrayBufferInputStream>(
+                 AsBytes(Span{mArrayBuffer.get(), mBufferLength}))
+                 .take();
+
+  return NS_OK;
+}
 }  // namespace mozilla::dom::quota
 
 using namespace mozilla;
@@ -301,14 +317,16 @@ static void WriteTestData(nsCOMPtr<nsIOutputStream>&& aBaseOutputStream,
 }
 
 template <typename CipherStrategy>
-static void ReadTestData(
-    MovingNotNull<nsCOMPtr<nsIInputStream>>&& aBaseInputStream,
-    const Span<const uint8_t> aExpectedData, const size_t aReadChunkSize,
-    const size_t aBlockSize, const CipherStrategy& aCipherStrategy,
-    const typename CipherStrategy::KeyType& aKey) {
-  auto inStream = MakeSafeRefPtr<DecryptingInputStream<CipherStrategy>>(
-      std::move(aBaseInputStream), aBlockSize, aCipherStrategy, aKey);
+static void NoExtraChecks(DecryptingInputStream<CipherStrategy>& aInputStream,
+                          Span<const uint8_t> aExpectedData,
+                          Span<const uint8_t> aRemainder) {}
 
+template <typename CipherStrategy,
+          typename ExtraChecks = decltype(NoExtraChecks<CipherStrategy>)>
+static void ReadTestData(
+    DecryptingInputStream<CipherStrategy>& aDecryptingInputStream,
+    const Span<const uint8_t> aExpectedData, const size_t aReadChunkSize,
+    const ExtraChecks& aExtraChecks = NoExtraChecks<CipherStrategy>) {
   auto readData = nsTArray<uint8_t>();
   readData.SetLength(aReadChunkSize);
   for (auto remainder = aExpectedData; !remainder.IsEmpty();) {
@@ -317,34 +335,49 @@ static void ReadTestData(
     remainder = newExpectedRemainder;
 
     uint32_t read;
-    EXPECT_EQ(NS_OK,
-              inStream->Read(reinterpret_cast<char*>(readData.Elements()),
-                             currentExpected.Length(), &read));
+    EXPECT_EQ(NS_OK, aDecryptingInputStream.Read(
+                         reinterpret_cast<char*>(readData.Elements()),
+                         currentExpected.Length(), &read));
     EXPECT_EQ(currentExpected.Length(), read);
     EXPECT_EQ(currentExpected,
               Span{readData}.First(currentExpected.Length()).AsConst());
 
-    // Check that Tell tells the right position.
-    int64_t pos;
-    EXPECT_EQ(NS_OK, inStream->Tell(&pos));
-    EXPECT_EQ(aExpectedData.Length() - remainder.Length(),
-              static_cast<uint64_t>(pos));
+    aExtraChecks(aDecryptingInputStream, aExpectedData, remainder);
   }
 
   // Expect EOF.
   uint32_t read;
-  EXPECT_EQ(NS_OK, inStream->Read(reinterpret_cast<char*>(readData.Elements()),
-                                  readData.Length(), &read));
+  EXPECT_EQ(NS_OK, aDecryptingInputStream.Read(
+                       reinterpret_cast<char*>(readData.Elements()),
+                       readData.Length(), &read));
   EXPECT_EQ(0u, read);
 }
 
+template <typename CipherStrategy,
+          typename ExtraChecks = decltype(NoExtraChecks<CipherStrategy>)>
+static auto ReadTestData(
+    MovingNotNull<nsCOMPtr<nsIInputStream>>&& aBaseInputStream,
+    const Span<const uint8_t> aExpectedData, const size_t aReadChunkSize,
+    const size_t aBlockSize, const CipherStrategy& aCipherStrategy,
+    const typename CipherStrategy::KeyType& aKey,
+    const ExtraChecks& aExtraChecks = NoExtraChecks<CipherStrategy>) {
+  auto inStream = MakeSafeRefPtr<DecryptingInputStream<CipherStrategy>>(
+      std::move(aBaseInputStream), aBlockSize, aCipherStrategy, aKey);
+
+  ReadTestData(*inStream, aExpectedData, aReadChunkSize, aExtraChecks);
+
+  return inStream;
+}
+
 // XXX Change to return the buffer instead.
-template <typename CipherStrategy>
+template <typename CipherStrategy,
+          typename ExtraChecks = decltype(NoExtraChecks<CipherStrategy>)>
 static RefPtr<dom::quota::MemoryOutputStream> DoRoundtripTest(
     const size_t aDataSize, const size_t aWriteChunkSize,
     const size_t aReadChunkSize, const size_t aBlockSize,
     const CipherStrategy& aCipherStrategy,
-    const typename CipherStrategy::KeyType& aKey, const FlushMode aFlushMode) {
+    const typename CipherStrategy::KeyType& aKey, const FlushMode aFlushMode,
+    const ExtraChecks& aExtraChecks = NoExtraChecks<CipherStrategy>) {
   // XXX Add deduction guide for RefPtr from already_AddRefed
   const auto baseOutputStream =
       WrapNotNull(RefPtr<dom::quota::MemoryOutputStream>{
@@ -359,12 +392,13 @@ static RefPtr<dom::quota::MemoryOutputStream> DoRoundtripTest(
       MakeRefPtr<ArrayBufferInputStream>(baseOutputStream->Data());
 
   ReadTestData(WrapNotNull(nsCOMPtr<nsIInputStream>{baseInputStream}),
-               Span{data}, aReadChunkSize, aBlockSize, aCipherStrategy, aKey);
+               Span{data}, aReadChunkSize, aBlockSize, aCipherStrategy, aKey,
+               aExtraChecks);
 
   return baseOutputStream;
 }
 
-TEST_P(ParametrizedCryptTest, DummyCipherStrategy) {
+TEST_P(ParametrizedCryptTest, DummyCipherStrategy_CheckOutput) {
   using CipherStrategy = DummyCipherStrategy;
   const CipherStrategy cipherStrategy;
   const TestParams& testParams = GetParam();
@@ -413,6 +447,76 @@ TEST_P(ParametrizedCryptTest, DummyCipherStrategy) {
         currentPlain,
         Span(untransformedPayload).AsConst().First(currentPlain.Length()));
   }
+}
+
+TEST_P(ParametrizedCryptTest, DummyCipherStrategy_Tell) {
+  using CipherStrategy = DummyCipherStrategy;
+  const CipherStrategy cipherStrategy;
+  const TestParams& testParams = GetParam();
+
+  DoRoundtripTest(testParams.DataSize(), testParams.EffectiveWriteChunkSize(),
+                  testParams.EffectiveReadChunkSize(), testParams.BlockSize(),
+                  cipherStrategy, CipherStrategy::KeyType{},
+                  testParams.FlushMode(),
+                  [](auto& inStream, Span<const uint8_t> expectedData,
+                     Span<const uint8_t> remainder) {
+                    // Check that Tell tells the right position.
+                    int64_t pos;
+                    EXPECT_EQ(NS_OK, inStream.Tell(&pos));
+                    EXPECT_EQ(expectedData.Length() - remainder.Length(),
+                              static_cast<uint64_t>(pos));
+                  });
+}
+
+TEST_P(ParametrizedCryptTest, DummyCipherStrategy_Available) {
+  using CipherStrategy = DummyCipherStrategy;
+  const CipherStrategy cipherStrategy;
+  const TestParams& testParams = GetParam();
+
+  DoRoundtripTest(testParams.DataSize(), testParams.EffectiveWriteChunkSize(),
+                  testParams.EffectiveReadChunkSize(), testParams.BlockSize(),
+                  cipherStrategy, CipherStrategy::KeyType{},
+                  testParams.FlushMode(),
+                  [](auto& inStream, Span<const uint8_t> expectedData,
+                     Span<const uint8_t> remainder) {
+                    // Check that Available tells the right remainder.
+                    uint64_t available;
+                    EXPECT_EQ(NS_OK, inStream.Available(&available));
+                    EXPECT_EQ(remainder.Length(), available);
+                  });
+}
+
+TEST_P(ParametrizedCryptTest, DummyCipherStrategy_Clone) {
+  using CipherStrategy = DummyCipherStrategy;
+  const CipherStrategy cipherStrategy;
+  const TestParams& testParams = GetParam();
+
+  // XXX Add deduction guide for RefPtr from already_AddRefed
+  const auto baseOutputStream =
+      WrapNotNull(RefPtr<dom::quota::MemoryOutputStream>{
+          dom::quota::MemoryOutputStream::Create(2048)});
+
+  const auto data = MakeTestData(testParams.DataSize());
+
+  WriteTestData(nsCOMPtr<nsIOutputStream>{baseOutputStream.get()}, Span{data},
+                testParams.EffectiveWriteChunkSize(), testParams.BlockSize(),
+                cipherStrategy, CipherStrategy::KeyType{},
+                testParams.FlushMode());
+
+  const auto baseInputStream =
+      MakeRefPtr<ArrayBufferInputStream>(baseOutputStream->Data());
+
+  const auto inStream = ReadTestData(
+      WrapNotNull(nsCOMPtr<nsIInputStream>{baseInputStream}), Span{data},
+      testParams.EffectiveReadChunkSize(), testParams.BlockSize(),
+      cipherStrategy, CipherStrategy::KeyType{});
+
+  nsCOMPtr<nsIInputStream> clonedInputStream;
+  EXPECT_EQ(NS_OK, inStream->Clone(getter_AddRefs(clonedInputStream)));
+
+  ReadTestData(
+      static_cast<DecryptingInputStream<CipherStrategy>&>(*clonedInputStream),
+      Span{data}, testParams.EffectiveReadChunkSize());
 }
 
 // XXX This test is actually only parametrized on the block size.

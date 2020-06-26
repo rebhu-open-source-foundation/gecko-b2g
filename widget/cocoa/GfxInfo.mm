@@ -120,6 +120,9 @@ NS_IMETHODIMP GfxInfo::GetHasBattery(bool* aHasBattery) { return NS_ERROR_NOT_IM
 NS_IMETHODIMP
 GfxInfo::GetDWriteVersion(nsAString& aDwriteVersion) { return NS_ERROR_FAILURE; }
 
+NS_IMETHODIMP
+GfxInfo::GetEmbeddedInFirefoxReality(bool* aEmbeddedInFirefoxReality) { return NS_ERROR_FAILURE; }
+
 /* readonly attribute DOMString cleartypeParameters; */
 NS_IMETHODIMP
 GfxInfo::GetCleartypeParameters(nsAString& aCleartypeParams) { return NS_ERROR_FAILURE; }
@@ -302,6 +305,12 @@ const nsTArray<GfxDriverInfo>& GfxInfo::GetGfxDriverInfo() {
     IMPLEMENT_MAC_DRIVER_BLOCKLIST(
         OperatingSystem::OSX, DeviceFamily::IntelRolloutWebRender, nsIGfxInfo::FEATURE_WEBRENDER,
         nsIGfxInfo::FEATURE_ALLOW_QUALIFIED, "FEATURE_ROLLOUT_INTEL_MAC");
+    IMPLEMENT_MAC_DRIVER_BLOCKLIST(
+        OperatingSystem::OSX, DeviceFamily::AtiRolloutWebRender, nsIGfxInfo::FEATURE_WEBRENDER,
+        nsIGfxInfo::FEATURE_ALLOW_QUALIFIED, "FEATURE_ROLLOUT_AMD_MAC");
+    IMPLEMENT_MAC_DRIVER_BLOCKLIST(
+        OperatingSystem::OSX, DeviceFamily::NvidiaRolloutWebRender, nsIGfxInfo::FEATURE_WEBRENDER,
+        nsIGfxInfo::FEATURE_ALLOW_QUALIFIED, "FEATURE_ROLLOUT_NVIDIA_MAC");
 #endif
   }
   return *sDriverInfo;

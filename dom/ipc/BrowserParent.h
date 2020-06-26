@@ -316,8 +316,6 @@ class BrowserParent final : public PBrowserParent,
       const Maybe<mozilla::ContentBlockingNotifier::
                       StorageAccessPermissionGrantedReason>& aReason);
 
-  mozilla::ipc::IPCResult RecvReportBlockedEmbedderNodeByClassifier();
-
   mozilla::ipc::IPCResult RecvNavigationFinished();
 
   already_AddRefed<nsIBrowser> GetBrowser();

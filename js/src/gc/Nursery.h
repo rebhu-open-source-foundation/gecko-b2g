@@ -514,8 +514,6 @@ class Nursery {
   };
   PreviousGC previousGC;
 
-  double smoothedGrowthFactor;
-
   // Calculate the promotion rate of the most recent minor GC.
   // The valid_for_tenuring parameter is used to return whether this
   // promotion rate is accurate enough (the nursery was full enough) to be
@@ -583,26 +581,25 @@ class Nursery {
     }
 
     static MOZ_ALWAYS_INLINE bool match(const Key& key, const Lookup& lookup) {
-      if (key->length() != lookup->length() || key->zone() != lookup->zone() ||
-          key->flags() != lookup->flags() ||
+      if (!key->sameLengthAndFlags(*lookup) ||
+          key->asTenured().zone() != lookup->zone() ||
           key->asTenured().getAllocKind() != lookup->getAllocKind()) {
         return false;
       }
 
       JS::AutoCheckCannotGC nogc;
 
-      if (key->asLinear().hasLatin1Chars() &&
-          lookup->asLinear().hasLatin1Chars()) {
+      if (key->asLinear().hasLatin1Chars()) {
+        MOZ_ASSERT(lookup->asLinear().hasLatin1Chars());
         return mozilla::ArrayEqual(key->asLinear().latin1Chars(nogc),
                                    lookup->asLinear().latin1Chars(nogc),
                                    lookup->length());
-      } else if (key->asLinear().hasTwoByteChars() &&
-                 lookup->asLinear().hasTwoByteChars()) {
+      } else {
+        MOZ_ASSERT(key->asLinear().hasTwoByteChars());
+        MOZ_ASSERT(lookup->asLinear().hasTwoByteChars());
         return EqualChars(key->asLinear().twoByteChars(nogc),
                           lookup->asLinear().twoByteChars(nogc),
                           lookup->length());
-      } else {
-        return false;
       }
     }
   };

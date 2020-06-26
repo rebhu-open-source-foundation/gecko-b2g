@@ -1061,10 +1061,9 @@ void nsGlobalWindowInner::FreeInnerObjects() {
   // Kill all of the workers for this window.
   CancelWorkersForWindow(*this);
 
-  nsTObserverArray<RefPtr<mozilla::dom::SharedWorker>>::ForwardIterator iter(
-      mSharedWorkers);
-  while (iter.HasMore()) {
-    iter.GetNext()->Close();
+  for (RefPtr<mozilla::dom::SharedWorker> pinnedWorker :
+       mSharedWorkers.ForwardRange()) {
+    pinnedWorker->Close();
   }
 
   if (mTimeoutManager) {
@@ -4763,6 +4762,9 @@ nsGlobalWindowInner::ShowSlowScriptDialog(JSContext* aCx,
   }
   mHasHadSlowScript = true;
 
+  // Override the cursor to something that we're sure the user can see.
+  SetCursor(NS_LITERAL_CSTRING("auto"), IgnoreErrors());
+
   if (XRE_IsContentProcess() && ProcessHangMonitor::Get()) {
     ProcessHangMonitor::SlowScriptAction action;
     RefPtr<ProcessHangMonitor> monitor = ProcessHangMonitor::Get();
@@ -5226,10 +5228,9 @@ void nsGlobalWindowInner::Suspend() {
 
   SuspendWorkersForWindow(*this);
 
-  nsTObserverArray<RefPtr<mozilla::dom::SharedWorker>>::ForwardIterator iter(
-      mSharedWorkers);
-  while (iter.HasMore()) {
-    iter.GetNext()->Suspend();
+  for (RefPtr<mozilla::dom::SharedWorker> pinnedWorker :
+       mSharedWorkers.ForwardRange()) {
+    pinnedWorker->Suspend();
   }
 
   SuspendIdleRequests();
@@ -5296,10 +5297,9 @@ void nsGlobalWindowInner::Resume() {
   // a setTimeout().
   ResumeWorkersForWindow(*this);
 
-  nsTObserverArray<RefPtr<mozilla::dom::SharedWorker>>::ForwardIterator iter(
-      mSharedWorkers);
-  while (iter.HasMore()) {
-    iter.GetNext()->Resume();
+  for (RefPtr<mozilla::dom::SharedWorker> pinnedWorker :
+       mSharedWorkers.ForwardRange()) {
+    pinnedWorker->Resume();
   }
 }
 
@@ -5331,10 +5331,9 @@ void nsGlobalWindowInner::FreezeInternal() {
 
   FreezeWorkersForWindow(*this);
 
-  nsTObserverArray<RefPtr<mozilla::dom::SharedWorker>>::ForwardIterator iter(
-      mSharedWorkers);
-  while (iter.HasMore()) {
-    iter.GetNext()->Freeze();
+  for (RefPtr<mozilla::dom::SharedWorker> pinnedWorker :
+       mSharedWorkers.ForwardRange()) {
+    pinnedWorker->Freeze();
   }
 
   mTimeoutManager->Freeze();
@@ -5372,10 +5371,9 @@ void nsGlobalWindowInner::ThawInternal() {
 
   ThawWorkersForWindow(*this);
 
-  nsTObserverArray<RefPtr<mozilla::dom::SharedWorker>>::ForwardIterator iter(
-      mSharedWorkers);
-  while (iter.HasMore()) {
-    iter.GetNext()->Thaw();
+  for (RefPtr<mozilla::dom::SharedWorker> pinnedWorker :
+       mSharedWorkers.ForwardRange()) {
+    pinnedWorker->Thaw();
   }
 
   NotifyDOMWindowThawed(this);

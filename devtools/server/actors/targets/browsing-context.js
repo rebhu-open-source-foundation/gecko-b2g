@@ -313,11 +313,6 @@ const browsingContextTargetPrototype = {
     this.onResourceAvailable = this.onResourceAvailable.bind(this);
 
     TargetActorRegistry.registerTargetActor(this);
-
-    // Map of all resource watchers.
-    // Keys are resource types
-    // Values are instances of resource watcher
-    this._resourceWatchers = new Map();
   },
 
   /**
@@ -344,6 +339,11 @@ const browsingContextTargetPrototype = {
    *        It may contain actor IDs, actor forms, to be manually marshalled by the client.
    */
   onResourceAvailable(resources) {
+    if (!this.actorID) {
+      // Don't try to emit if the actor was destroyed.
+      return;
+    }
+
     this.emit("resource-available-form", resources);
   },
 
@@ -601,9 +601,7 @@ const browsingContextTargetPrototype = {
     this.exit();
     Actor.prototype.destroy.call(this);
     TargetActorRegistry.unregisterTargetActor(this);
-    if (this._resourceWatchers) {
-      this.unwatchTargetResources([...this._resourceWatchers.keys()]);
-    }
+    Resources.unwatchAllTargetResources(this);
   },
 
   /**

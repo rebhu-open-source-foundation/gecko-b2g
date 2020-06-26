@@ -284,6 +284,14 @@ class DocumentLoadListener : public nsIInterfaceRequestor,
 
   void Disconnect();
 
+  void MaybeReportBlockedByURLClassifier(nsresult aStatus);
+
+  // Returns true if a channel with aStatus will display
+  // some sort of content (could be the actual channel data,
+  // attempt a uri fixup and new load, or an error page).
+  // Returns false if the docshell will ignore the load entirely.
+  bool DocShellWillDisplayContent(nsresult aStatus);
+
   // This defines a variant that describes all the attribute setters (and their
   // parameters) from nsIParentChannel
   //
@@ -403,7 +411,7 @@ class DocumentLoadListener : public nsIInterfaceRequestor,
   nsString mSrcdocData;
   nsCOMPtr<nsIURI> mBaseURI;
 
-  mozilla::UniquePtr<mozilla::dom::SessionHistoryInfoAndId> mSessionHistoryInfo;
+  mozilla::UniquePtr<mozilla::dom::SessionHistoryInfo> mSessionHistoryInfo;
 
   // Flags from nsDocShellLoadState::LoadFlags/Type that we want to make
   // available to the new docshell if we switch processes.
@@ -443,6 +451,8 @@ class DocumentLoadListener : public nsIInterfaceRequestor,
 
   // True if cancelled.
   bool mCancelled = false;
+
+  Maybe<nsCString> mOriginalUriString;
 
   // The process id of the content process that we are being called from
   // or 0 initiated from a parent process load.

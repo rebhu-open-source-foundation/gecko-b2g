@@ -359,6 +359,13 @@ pref("browser.download.animateNotifications", true);
 // This records whether or not the panel has been shown at least once.
 pref("browser.download.panel.shown", false);
 
+// This records whether or not to show the 'Open in system viewer' context menu item when appropriate
+pref("browser.download.openInSystemViewerContextMenuItem", true);
+
+// This records whether or not to show the 'Always open...' context menu item when appropriate
+pref("browser.download.alwaysOpenInSystemViewerContextMenuItem", true);
+
+
 // This controls whether the button is automatically shown/hidden depending
 // on whether there are downloads to show.
 pref("browser.download.autohideButton", true);
@@ -2129,12 +2136,8 @@ pref("devtools.netmonitor.enabled", true);
 pref("devtools.netmonitor.features.search", true);
 pref("devtools.netmonitor.features.requestBlocking", true);
 
-// Enable the Application panel on Nightly
-#if defined(NIGHTLY_BUILD) || defined(MOZ_DEV_EDITION)
-  pref("devtools.application.enabled", true);
-#else
-  pref("devtools.application.enabled", false);
-#endif
+// Enable the Application panel
+pref("devtools.application.enabled", true);
 
 // The default Network Monitor UI settings
 pref("devtools.netmonitor.panes-network-details-width", 550);
@@ -2319,19 +2322,14 @@ pref("devtools.responsive.touchSimulation.enabled", false);
 pref("devtools.responsive.metaViewport.enabled", true);
 // The user agent of the viewport.
 pref("devtools.responsive.userAgent", "");
+// Enable the RDM browser UI in all builds.
+pref("devtools.responsive.browserUI.enabled", true);
 
 // Show the custom user agent input only in Nightly.
 #if defined(NIGHTLY_BUILD)
   pref("devtools.responsive.showUserAgentInput", true);
 #else
   pref("devtools.responsive.showUserAgentInput", false);
-#endif
-
-// Show the RDM browser UI in Nightly or DevEdition builds.
-#if defined(NIGHTLY_BUILD) || defined(MOZ_DEV_EDITION)
-  pref("devtools.responsive.browserUI.enabled", true);
-#else
-  pref("devtools.responsive.browserUI.enabled", false);
 #endif
 
 // Show tab debug targets for This Firefox (on by default for local builds).
@@ -2364,13 +2362,9 @@ pref("devtools.aboutdebugging.collapsibilities.temporaryExtension", false);
 // Map top-level await expressions in the console
 pref("devtools.debugger.features.map-await-expression", true);
 
-#if defined(NIGHTLY_BUILD) || defined(MOZ_DEV_EDITION)
+// This relies on javascript.options.asyncstack as well or it has no effect.
 pref("devtools.debugger.features.async-captured-stacks", true);
 pref("devtools.debugger.features.async-live-stacks", false);
-#else
-pref("devtools.debugger.features.async-live-stacks", true);
-pref("devtools.debugger.features.async-captured-stacks", false);
-#endif
 
 // Disable autohide for DevTools popups and tooltips.
 // This is currently not exposed by any UI to avoid making

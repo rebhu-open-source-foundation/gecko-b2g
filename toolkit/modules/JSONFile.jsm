@@ -72,6 +72,12 @@ const FileInputStream = Components.Constructor(
   "init"
 );
 
+ChromeUtils.defineModuleGetter(
+  this,
+  "Services",
+  "resource://gre/modules/Services.jsm"
+);
+
 /**
  * Delay between a change to the data and the related save operation.
  */
@@ -103,6 +109,8 @@ const kSaveDelayMs = 1500;
  *                      testing.
  *        - compression: A compression algorithm to use when reading and
  *                       writing the data.
+ *        - backupTo: A boolean value indicating whether writeAtomic should create
+ *                    a backup before writing to json files.
  */
 function JSONFile(config) {
   this.path = config.path;
@@ -124,12 +132,18 @@ function JSONFile(config) {
     this._options.compression = config.compression;
   }
 
+  if (config.backupTo) {
+    this._options.backupTo = config.backupTo;
+  }
+
   this._finalizeAt = config.finalizeAt || AsyncShutdown.profileBeforeChange;
   this._finalizeInternalBound = this._finalizeInternal.bind(this);
   this._finalizeAt.addBlocker(
     "JSON store: writing data",
     this._finalizeInternalBound
   );
+
+  Services.telemetry.setEventRecordingEnabled("jsonfile", true);
 }
 
 JSONFile.prototype = {
@@ -213,6 +227,16 @@ JSONFile.prototype = {
       // just start with new data.  Other errors may indicate that the file is
       // corrupt, thus we move it to a backup location before allowing it to
       // be overwritten by an empty file.
+      let cleansedBasename = OS.Path.basename(this.path)
+        .replace(/\.json$/, "")
+        .replaceAll(/[^a-zA-Z0-9_.]/g, "");
+      let errorNo = ex.winLastError || ex.unixErrno;
+      Services.telemetry.recordEvent(
+        "jsonfile",
+        "load",
+        cleansedBasename,
+        errorNo ? errorNo.toString() : ""
+      );
       if (!(ex instanceof OS.File.Error && ex.becauseNoSuchFile)) {
         Cu.reportError(ex);
 
@@ -223,6 +247,12 @@ JSONFile.prototype = {
           });
           await openInfo.file.close();
           await OS.File.move(this.path, openInfo.path);
+          Services.telemetry.recordEvent(
+            "jsonfile",
+            "load",
+            cleansedBasename,
+            "invalid_json"
+          );
         } catch (e2) {
           Cu.reportError(e2);
         }

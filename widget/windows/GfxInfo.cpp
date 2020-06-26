@@ -86,6 +86,12 @@ int32_t GfxInfo::GetMaxRefreshRate() {
   return refreshRate;
 }
 
+NS_IMETHODIMP
+GfxInfo::GetEmbeddedInFirefoxReality(bool* aEmbeddedInFirefoxReality) {
+  *aEmbeddedInFirefoxReality = gfxVars::FxREmbedded();
+  return NS_OK;
+}
+
 #define PIXEL_STRUCT_RGB 1
 #define PIXEL_STRUCT_BGR 2
 
@@ -1451,7 +1457,7 @@ const nsTArray<GfxDriverInfo>& GfxInfo::GetGfxDriverInfo() {
      * 4578. See bug 1432610
      */
     APPEND_TO_DRIVER_BLOCKLIST2(OperatingSystem::Windows7,
-                                DeviceFamily::IntelHDGraphicsToHaswell,
+                                DeviceFamily::IntelHaswell,
                                 nsIGfxInfo::FEATURE_DIRECT2D,
                                 nsIGfxInfo::FEATURE_BLOCKED_DRIVER_VERSION,
                                 DRIVER_BUILD_ID_LESS_THAN_OR_EQUAL, 4578,
@@ -1803,8 +1809,8 @@ const nsTArray<GfxDriverInfo>& GfxInfo::GetGfxDriverInfo() {
         BatteryStatus::Present, DesktopEnvironment::All, WindowProtocol::All,
         DriverVendor::All, DeviceFamily::IntelModernRolloutWebRender,
         nsIGfxInfo::FEATURE_WEBRENDER, nsIGfxInfo::FEATURE_ALLOW_ALWAYS,
-        DRIVER_GREATER_THAN, V(25, 20, 100, 6472),
-        "FEATURE_ROLLOUT_DESKTOP_INTEL_S_SCRN");
+        DRIVER_GREATER_THAN_OR_EQUAL, V(25, 20, 100, 6373),
+        "FEATURE_ROLLOUT_BATTERY_INTEL_S_SCRN");
 
     APPEND_TO_DRIVER_BLOCKLIST2_EXT(
         OperatingSystem::Windows, ScreenSizeStatus::All, BatteryStatus::All,

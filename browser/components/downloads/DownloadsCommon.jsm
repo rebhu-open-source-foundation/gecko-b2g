@@ -51,6 +51,7 @@ XPCOMUtils.defineLazyServiceGetters(this, {
     "@mozilla.org/widget/clipboardhelper;1",
     "nsIClipboardHelper",
   ],
+  gMIMEService: ["@mozilla.org/mime;1", "nsIMIMEService"],
 });
 
 XPCOMUtils.defineLazyGetter(this, "DownloadsLogger", () => {
@@ -185,6 +186,12 @@ const kFileExtensions = [
   "zip",
 ];
 
+const kGenericContentTypes = [
+  "application/octet-stream",
+  "binary/octet-stream",
+  "application/unknown",
+];
+
 const TELEMETRY_EVENT_CATEGORY = "downloads";
 
 var PrefObserver = {
@@ -222,6 +229,8 @@ var PrefObserver = {
 PrefObserver.register({
   // prefName: defaultValue
   animateNotifications: true,
+  openInSystemViewerContextMenuItem: true,
+  alwaysOpenInSystemViewerContextMenuItem: true,
 });
 
 // DownloadsCommon
@@ -287,6 +296,20 @@ var DownloadsCommon = {
    */
   get animateNotifications() {
     return PrefObserver.animateNotifications;
+  },
+
+  /**
+   * Indicates whether or not to show the 'Open in system viewer' context menu item when appropriate
+   */
+  get openInSystemViewerItemEnabled() {
+    return PrefObserver.openInSystemViewerContextMenuItem;
+  },
+
+  /**
+   * Indicates whether or not to show the 'Always open...' context menu item when appropriate
+   */
+  get alwaysOpenInSystemViewerItemEnabled() {
+    return PrefObserver.alwaysOpenInSystemViewerContextMenuItem;
   },
 
   /**
@@ -417,6 +440,67 @@ var DownloadsCommon = {
   },
 
   /**
+   * Get a nsIMIMEInfo object for a download
+   */
+  getMimeInfo(download) {
+    if (!download.succeeded) {
+      return null;
+    }
+    let contentType = download.contentType;
+    let url = Cc["@mozilla.org/network/standard-url-mutator;1"]
+      .createInstance(Ci.nsIURIMutator)
+      .setSpec("http://example.com") // construct the URL
+      .setFilePath(download.target.path)
+      .finalize()
+      .QueryInterface(Ci.nsIURL);
+    let fileExtension = url.fileExtension;
+
+    // look at file extension if there's no contentType or it is generic
+    if (!contentType || kGenericContentTypes.includes(contentType)) {
+      try {
+        contentType = gMIMEService.getTypeFromExtension(fileExtension);
+      } catch (ex) {
+        DownloadsCommon.log(
+          "Cant get mimeType from file extension: ",
+          fileExtension
+        );
+      }
+    }
+    if (!(contentType || fileExtension)) {
+      return null;
+    }
+    let mimeInfo = null;
+    try {
+      mimeInfo = gMIMEService.getFromTypeAndExtension(
+        contentType || "",
+        fileExtension || ""
+      );
+    } catch (ex) {
+      DownloadsCommon.log(
+        "Can't get nsIMIMEInfo for contentType: ",
+        contentType,
+        "and fileExtension:",
+        fileExtension
+      );
+    }
+    return mimeInfo;
+  },
+
+  /**
+   * Confirm if the download exists on the filesystem and is a given mime-type
+   */
+  isFileOfType(download, mimeType) {
+    if (!(download.succeeded && download.target?.exists)) {
+      DownloadsCommon.log(
+        `isFileOfType returning false for mimeType: ${mimeType}, succeeded: ${download.succeeded}, exists: ${download.target?.exists}`
+      );
+      return false;
+    }
+    let mimeInfo = DownloadsCommon.getMimeInfo(download);
+    return mimeInfo?.type === mimeType.toLowerCase();
+  },
+
+  /**
    * Copies the source URI of the given Download object to the clipboard.
    */
   copyDownloadLink(download) {
@@ -542,6 +626,9 @@ var DownloadsCommon = {
    * @param options.openWhere
    *        Optional string indicating how to handle opening a download target file URI.
    *        One of "window", "tab", "tabshifted".
+   * @param options.useSystemDefault
+   *        Optional value indicating how to handle launching this download,
+   *        this call only. Will override the associated mimeInfo.preferredAction
    * @return {Promise}
    * @resolves When the instruction to launch the file has been
    *           successfully given to the operating system or handled internally
