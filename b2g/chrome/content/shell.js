@@ -178,7 +178,6 @@ var shell = {
   // and <script defer>s are loaded and run.
   notifyContentWindowLoaded() {
     debug("notifyContentWindowLoaded");
-    isGonk && libcutils.property_set("sys.boot_completed", "1");
     // This will cause Gonk Widget to remove boot animation from the screen
     // and reveals the page.
     Services.obs.notifyObservers(null, "browser-ui-startup-complete");
