@@ -153,6 +153,11 @@ nsresult GfxInfo::GetFeatureStatusImpl(
 }
 
 NS_IMETHODIMP
+GfxInfo::GetEmbeddedInFirefoxReality(bool* aEmbeddedInFirefoxReality) {
+  return NS_ERROR_FAILURE;
+}
+
+NS_IMETHODIMP
 GfxInfo::GetDisplayInfo(nsTArray<nsString>& aDisplayInfo) {
   return NS_ERROR_FAILURE;
 }
