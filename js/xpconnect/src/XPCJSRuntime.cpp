@@ -566,6 +566,14 @@ JSObject* UnprivilegedJunkScope() {
   return XPCJSRuntime::Get()->UnprivilegedJunkScope();
 }
 
+JSObject* UnprivilegedJunkScope(const fallible_t&) {
+  return XPCJSRuntime::Get()->UnprivilegedJunkScope(fallible);
+}
+
+bool IsUnprivilegedJunkScope(JSObject* obj) {
+  return XPCJSRuntime::Get()->IsUnprivilegedJunkScope(obj);
+}
+
 JSObject* NACScope(JSObject* global) {
   // If we're a chrome global, just use ourselves.
   if (AccessCheck::isChrome(global)) {
@@ -2188,14 +2196,13 @@ class XPCJSRuntimeStats : public JS::RuntimeStats {
 
   virtual void initExtraZoneStats(JS::Zone* zone,
                                   JS::ZoneStats* zStats) override {
-    AutoSafeJSContext cx;
     xpc::ZoneStatsExtras* extras = new xpc::ZoneStatsExtras;
     extras->pathPrefix.AssignLiteral("explicit/js-non-window/zones/");
 
     // Get some global in this zone.
-    Rooted<Realm*> realm(cx, js::GetAnyRealmInZone(zone));
+    Rooted<Realm*> realm(dom::RootingCx(), js::GetAnyRealmInZone(zone));
     if (realm) {
-      RootedObject global(cx, JS::GetRealmGlobalOrNull(realm));
+      RootedObject global(dom::RootingCx(), JS::GetRealmGlobalOrNull(realm));
       if (global) {
         RefPtr<nsGlobalWindowInner> window;
         if (NS_SUCCEEDED(UNWRAP_NON_WRAPPER_OBJECT(Window, global, window))) {
@@ -2221,9 +2228,8 @@ class XPCJSRuntimeStats : public JS::RuntimeStats {
     GetRealmName(realm, rName, &mAnonymizeID, /* replaceSlashes = */ true);
 
     // Get the realm's global.
-    AutoSafeJSContext cx;
     bool needZone = true;
-    RootedObject global(cx, JS::GetRealmGlobalOrNull(realm));
+    RootedObject global(dom::RootingCx(), JS::GetRealmGlobalOrNull(realm));
     if (global) {
       RefPtr<nsGlobalWindowInner> window;
       if (NS_SUCCEEDED(UNWRAP_NON_WRAPPER_OBJECT(Window, global, window))) {
@@ -3014,7 +3020,6 @@ HelperThreadPoolShutdownObserver::Observe(nsISupports* aSubject,
 }
 
 void XPCJSRuntime::Initialize(JSContext* cx) {
-  mUnprivilegedJunkScope.init(cx, nullptr);
   mLoaderGlobal.init(cx, nullptr);
 
   // these jsids filled in later when we have a JSContext to work with.
@@ -3291,30 +3296,46 @@ JSObject* XPCJSRuntime::GetUAWidgetScope(JSContext* cx,
   return scope;
 }
 
-void XPCJSRuntime::InitSingletonScopes() {
-  // This all happens very early, so we don't bother with cx pushing.
-  JSContext* cx = XPCJSContext::Get()->Context();
-  RootedValue v(cx);
-  nsresult rv;
+JSObject* XPCJSRuntime::UnprivilegedJunkScope(const mozilla::fallible_t&) {
+  if (!mUnprivilegedJunkScope) {
+    dom::AutoJSAPI jsapi;
+    jsapi.Init();
+    JSContext* cx = jsapi.cx();
 
-  // Create the Unprivileged Junk Scope.
-  SandboxOptions unprivilegedJunkScopeOptions;
-  unprivilegedJunkScopeOptions.sandboxName.AssignLiteral(
-      "XPConnect Junk Compartment");
-  unprivilegedJunkScopeOptions.invisibleToDebugger = true;
-  rv = CreateSandboxObject(cx, &v, nullptr, unprivilegedJunkScopeOptions);
-  MOZ_RELEASE_ASSERT(NS_SUCCEEDED(rv));
-  mUnprivilegedJunkScope = js::UncheckedUnwrap(&v.toObject());
+    SandboxOptions options;
+    options.sandboxName.AssignLiteral("XPConnect Junk Compartment");
+    options.invisibleToDebugger = true;
+
+    RootedValue sandbox(cx);
+    nsresult rv = CreateSandboxObject(cx, &sandbox, nullptr, options);
+    NS_ENSURE_SUCCESS(rv, nullptr);
+
+    mUnprivilegedJunkScope =
+        SandboxPrivate::GetPrivate(sandbox.toObjectOrNull());
+  }
+  MOZ_ASSERT(mUnprivilegedJunkScope->GetWrapper(),
+             "Wrapper should have same lifetime as weak reference");
+  return mUnprivilegedJunkScope->GetWrapper();
+}
+
+JSObject* XPCJSRuntime::UnprivilegedJunkScope() {
+  JSObject* scope = UnprivilegedJunkScope(fallible);
+  MOZ_RELEASE_ASSERT(scope);
+  return scope;
+}
+
+bool XPCJSRuntime::IsUnprivilegedJunkScope(JSObject* obj) {
+  return mUnprivilegedJunkScope && obj == mUnprivilegedJunkScope->GetWrapper();
 }
 
 void XPCJSRuntime::DeleteSingletonScopes() {
   // We're pretty late in shutdown, so we call ReleaseWrapper on the scopes.
   // This way the GC can collect them immediately, and we don't rely on the CC
   // to clean up.
-  RefPtr<SandboxPrivate> sandbox =
-      SandboxPrivate::GetPrivate(mUnprivilegedJunkScope);
-  sandbox->ReleaseWrapper(sandbox);
-  mUnprivilegedJunkScope = nullptr;
+  if (RefPtr<SandboxPrivate> sandbox = mUnprivilegedJunkScope.get()) {
+    sandbox->ReleaseWrapper(sandbox);
+    mUnprivilegedJunkScope = nullptr;
+  }
   mLoaderGlobal = nullptr;
 }
 

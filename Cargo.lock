@@ -28,6 +28,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2494382e9ba43995f3c56359e518641f450f5c36feeb4632a75cde2ec297c867"
 
 [[package]]
+name = "app_services_logger"
+version = "0.1.0"
+dependencies = [
+ "cstr",
+ "golden_gate",
+ "log",
+ "nserror",
+ "nsstring",
+ "once_cell",
+ "xpcom",
+]
+
+[[package]]
 name = "app_units"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1612,6 +1625,7 @@ dependencies = [
 name = "gecko_logger"
 version = "0.1.0"
 dependencies = [
+ "app_services_logger",
  "env_logger",
  "lazy_static",
  "log",
@@ -1871,6 +1885,7 @@ dependencies = [
 name = "gkrust-shared"
 version = "0.1.0"
 dependencies = [
+ "app_services_logger",
  "audio_thread_priority",
  "audioipc-client",
  "audioipc-server",
@@ -5260,6 +5275,7 @@ dependencies = [
  "raw-cpuid",
  "rust-ini",
  "winapi 0.3.7",
+ "wineventlog",
  "wio",
  "xml-rs",
 ]
@@ -5670,6 +5686,15 @@ checksum = "96f5016b18804d24db43cebf3c77269e7569b8954a8464501c216cc5e070eaa9"
 dependencies = [
  "winapi 0.3.7",
  "winapi-util",
+]
+
+[[package]]
+name = "wineventlog"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "winapi 0.3.7",
+ "wio",
 ]
 
 [[package]]

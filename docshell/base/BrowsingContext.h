@@ -148,7 +148,8 @@ class WindowProxyHolder;
    * This is only ever set to true on the top BC, so consumers need to get   \
    * the value from the top BC! */                                           \
   FIELD(HasSessionHistory, bool)                                             \
-  FIELD(UseErrorPages, bool)
+  FIELD(UseErrorPages, bool)                                                 \
+  FIELD(PlatformOverride, nsString)
 
 // BrowsingContext, in this context, is the cross process replicated
 // environment in which information about documents is stored. In
@@ -410,6 +411,12 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   bool IsLoading();
 
+  void GetEmbedderElementType(nsString& aElementType) {
+    if (GetEmbedderElementType().isSome()) {
+      aElementType = GetEmbedderElementType().value();
+    }
+  }
+
   bool IsLoadingIdentifier(uint64_t aLoadIdentifer) {
     if (GetCurrentLoadIdentifier() &&
         *GetCurrentLoadIdentifier() == aLoadIdentifer) {
@@ -556,6 +563,11 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
     aUserAgent = Top()->GetUserAgentOverride();
   }
   void SetCustomUserAgent(const nsAString& aUserAgent);
+
+  void GetCustomPlatform(nsAString& aPlatform) {
+    aPlatform = Top()->GetPlatformOverride();
+  }
+  void SetCustomPlatform(const nsAString& aPlatform);
 
   JSObject* WrapObject(JSContext* aCx);
 
@@ -749,6 +761,10 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   void DidSet(FieldIndex<IDX_Loading>);
 
   void DidSet(FieldIndex<IDX_AncestorLoading>);
+
+  void DidSet(FieldIndex<IDX_PlatformOverride>);
+  bool CanSet(FieldIndex<IDX_PlatformOverride>,
+              const nsString& aPlatformOverride, ContentParent* aSource);
 
   void DidSet(FieldIndex<IDX_UserAgentOverride>);
   bool CanSet(FieldIndex<IDX_UserAgentOverride>, const nsString& aUserAgent,

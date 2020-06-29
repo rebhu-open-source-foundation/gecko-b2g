@@ -2746,82 +2746,6 @@ devtools.toolbox:
     record_in_processes:
       - 'main'
 
-devtools.webreplay:
-  new_recording:
-    bug_numbers:
-      - 1495910
-    description: >
-      Number of times a blank recording tab was created.
-    expires: never
-    kind: uint
-    notification_emails:
-      - bhackett@mozilla.com
-    products:
-      - 'firefox'
-      - 'fennec'
-    record_in_processes:
-      - 'main'
-
-  reload_recording:
-    bug_numbers:
-      - 1495910
-    description: >
-      Number of times a non-recording tab was reloaded to create a recording tab.
-    expires: never
-    kind: uint
-    notification_emails:
-      - bhackett@mozilla.com
-    products:
-      - 'firefox'
-      - 'fennec'
-    record_in_processes:
-      - 'main'
-
-  stop_recording:
-    bug_numbers:
-      - 1495910
-    description: >
-      Number of times a recording tab was reloaded to create a non-recording tab.
-    expires: never
-    kind: uint
-    notification_emails:
-      - bhackett@mozilla.com
-    products:
-      - 'firefox'
-      - 'fennec'
-    record_in_processes:
-      - 'main'
-
-  save_recording:
-    bug_numbers:
-      - 1495910
-    description: >
-      Number of times a recording was saved.
-    expires: never
-    kind: uint
-    notification_emails:
-      - bhackett@mozilla.com
-    products:
-      - 'firefox'
-      - 'fennec'
-    record_in_processes:
-      - 'main'
-
-  load_recording:
-    bug_numbers:
-      - 1495910
-    description: >
-      Number of times a recording was loaded.
-    expires: never
-    kind: uint
-    notification_emails:
-      - bhackett@mozilla.com
-    products:
-      - 'firefox'
-      - 'fennec'
-    record_in_processes:
-      - 'main'
-
 devtools.changesview:
   opened_count:
     bug_numbers:
@@ -3237,6 +3161,55 @@ gfx.omtp:
       - 'fennec'
     record_in_processes:
       - 'content'
+
+gfx.canvas.remote:
+  activated:
+    bug_numbers:
+      - 1641722
+    description: >
+      Number of times remote canvas 2D has been activated.
+    kind: uint
+    expires: "85"
+    notification_emails:
+      - gfx-telemetry-alerts@mozilla.com
+      - bowen@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'gpu'
+
+  deactivated_no_device:
+    bug_numbers:
+      - 1641722
+    description: >
+      Number of times remote canvas 2D has been deactivated due to device creation failure.
+    kind: uint
+    expires: "85"
+    notification_emails:
+      - gfx-telemetry-alerts@mozilla.com
+      - bowen@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'gpu'
+
+  deactivated_bad_stream:
+    bug_numbers:
+      - 1641722
+    description: >
+      Number of times remote canvas 2D has been deactivated due to a stream read failure.
+    kind: uint
+    expires: "85"
+    notification_emails:
+      - gfx-telemetry-alerts@mozilla.com
+      - bowen@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'gpu'
 
 gfx.hdr:
   windows_display_colorspace_bitfield:

@@ -189,12 +189,12 @@ class ContentParent final
   static void ReleaseCachedProcesses();
 
   /**
-   * Picks a random content parent from |aContentParents| with a given |aOpener|
-   * respecting the index limit set by |aMaxContentParents|.
+   * Picks a random content parent from |aContentParents| respecting the index
+   * limit set by |aMaxContentParents|.
    * Returns null if non available.
    */
   static already_AddRefed<ContentParent> MinTabSelect(
-      const nsTArray<ContentParent*>& aContentParents, ContentParent* aOpener,
+      const nsTArray<ContentParent*>& aContentParents,
       int32_t maxContentParents);
 
   /**
@@ -207,12 +207,12 @@ class ContentParent final
       Element* aFrameElement, const nsAString& aRemoteType,
       hal::ProcessPriority aPriority =
           hal::ProcessPriority::PROCESS_PRIORITY_FOREGROUND,
-      ContentParent* aOpener = nullptr, bool aPreferUsed = false);
+      bool aPreferUsed = false);
   static already_AddRefed<ContentParent> GetNewOrUsedBrowserProcess(
       Element* aFrameElement, const nsAString& aRemoteType,
       hal::ProcessPriority aPriority =
           hal::ProcessPriority::PROCESS_PRIORITY_FOREGROUND,
-      ContentParent* aOpener = nullptr, bool aPreferUsed = false);
+      bool aPreferUsed = false);
 
   /**
    * Get or create a content process, but without waiting for the process
@@ -228,7 +228,7 @@ class ContentParent final
       Element* aFrameElement, const nsAString& aRemoteType,
       hal::ProcessPriority aPriority =
           hal::ProcessPriority::PROCESS_PRIORITY_FOREGROUND,
-      ContentParent* aOpener = nullptr, bool aPreferUsed = false);
+      bool aPreferUsed = false);
 
   RefPtr<ContentParent::LaunchPromise> WaitForLaunchAsync(
       hal::ProcessPriority aPriority =
@@ -417,7 +417,6 @@ class ContentParent final
 
   GeckoChildProcessHost* Process() const { return mSubprocess; }
 
-  ContentParent* Opener() const { return mOpener; }
   nsIContentProcessInfo* ScriptableHelper() const { return mScriptableHelper; }
 
   mozilla::dom::ProcessMessageManager* GetMessageManager() const {
@@ -756,12 +755,11 @@ class ContentParent final
       const OriginAttributes& aOriginAttributes);
 
   explicit ContentParent(int32_t aPluginID)
-      : ContentParent(nullptr, EmptyString(), aPluginID) {}
-  ContentParent(ContentParent* aOpener, const nsAString& aRemoteType)
-      : ContentParent(aOpener, aRemoteType, nsFakePluginTag::NOT_JSPLUGIN) {}
+      : ContentParent(EmptyString(), aPluginID) {}
+  explicit ContentParent(const nsAString& aRemoteType)
+      : ContentParent(aRemoteType, nsFakePluginTag::NOT_JSPLUGIN) {}
 
-  ContentParent(ContentParent* aOpener, const nsAString& aRemoteType,
-                int32_t aPluginID);
+  ContentParent(const nsAString& aRemoteType, int32_t aPluginID);
 
   // Launch the subprocess and associated initialization.
   // Returns false if the process fails to start.
@@ -1417,6 +1415,10 @@ class ContentParent final
   mozilla::ipc::IPCResult RecvAbortOtherOrientationPendingPromises(
       const MaybeDiscarded<BrowsingContext>& aContext);
 
+  mozilla::ipc::IPCResult RecvNotifyOnHistoryReload(
+      const MaybeDiscarded<BrowsingContext>& aContext,
+      NotifyOnHistoryReloadResolver&& aResolver);
+
   mozilla::ipc::IPCResult RecvHistoryCommit(
       const MaybeDiscarded<BrowsingContext>& aContext,
       uint64_t aSessionHistoryEntryID);
@@ -1462,9 +1464,8 @@ class ContentParent final
  private:
   // Return an existing ContentParent if possible. Otherwise, `nullptr`.
   static already_AddRefed<ContentParent> GetUsedBrowserProcess(
-      ContentParent* aOpener, const nsAString& aRemoteType,
-      nsTArray<ContentParent*>& aContentParents, uint32_t aMaxContentParents,
-      bool aPreferUsed);
+      const nsAString& aRemoteType, nsTArray<ContentParent*>& aContentParents,
+      uint32_t aMaxContentParents, bool aPreferUsed);
 
   void AddToPool(nsTArray<ContentParent*>&);
   void RemoveFromPool(nsTArray<ContentParent*>&);
@@ -1484,7 +1485,6 @@ class ContentParent final
   const TimeStamp mLaunchTS;  // used to calculate time to start content process
   TimeStamp mLaunchYieldTS;   // used to calculate async launch main thread time
   TimeStamp mActivateTS;
-  ContentParent* mOpener;
 
   bool mIsAPreallocBlocker;  // We called AddBlocker for this ContentParent
 

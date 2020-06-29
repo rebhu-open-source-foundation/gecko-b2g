@@ -574,7 +574,7 @@ bool IsMacbookOrMacbookAir() {
 }
 
 void AudioCallbackDriver::Init() {
-  AUTO_PROFILER_LABEL("AudioCallbackDriver::Init", MEDIA_CUBEB);
+  TRACE();
   MOZ_ASSERT(OnCubebOperationThread());
   MOZ_ASSERT(mAudioStreamState == AudioStreamState::Pending);
   FallbackDriverState fallbackState = mFallbackDriverState;
@@ -784,7 +784,7 @@ void AudioCallbackDriver::Start() {
 }
 
 bool AudioCallbackDriver::StartStream() {
-  AUTO_PROFILER_LABEL("AudioCallbackDriver::StartStream", MEDIA_CUBEB);
+  TRACE();
   MOZ_ASSERT(!IsStarted() && OnCubebOperationThread());
   // Set mStarted before cubeb_stream_start, since starting the cubeb stream can
   // result in a callback (that may read mStarted) before mStarted would
@@ -800,7 +800,7 @@ bool AudioCallbackDriver::StartStream() {
 }
 
 void AudioCallbackDriver::Stop() {
-  AUTO_PROFILER_LABEL("AudioCallbackDriver::Stop", MEDIA_CUBEB);
+  TRACE();
   MOZ_ASSERT(OnCubebOperationThread());
   if (cubeb_stream_stop(mAudioStream) != CUBEB_OK) {
     NS_WARNING("Could not stop cubeb stream for MTG.");
@@ -832,7 +832,7 @@ void AudioCallbackDriver::Shutdown() {
 
 #if defined(XP_WIN)
 void AudioCallbackDriver::ResetDefaultDevice() {
-  AUTO_PROFILER_LABEL("AudioCallbackDriver::ResetDefaultDevice", MEDIA_CUBEB);
+  TRACE();
   if (cubeb_stream_reset_default_device(mAudioStream) != CUBEB_OK) {
     NS_WARNING("Could not reset cubeb stream to default output device.");
   }
@@ -1126,7 +1126,7 @@ void AudioCallbackDriver::MixerCallback(AudioDataValue* aMixedBuffer,
 
 void AudioCallbackDriver::PanOutputIfNeeded(bool aMicrophoneActive) {
 #ifdef XP_MACOSX
-  AUTO_PROFILER_LABEL("AudioCallbackDriver::PanOutputIfNeeded", MEDIA_CUBEB);
+  TRACE();
   cubeb_device* out = nullptr;
   int rv;
   char name[128];
@@ -1215,7 +1215,7 @@ void AudioCallbackDriver::EnsureNextIteration() {
 bool AudioCallbackDriver::IsStarted() { return mStarted; }
 
 TimeDuration AudioCallbackDriver::AudioOutputLatency() {
-  AUTO_PROFILER_LABEL("AudioCallbackDriver::AudioOutputLatency", MEDIA_CUBEB);
+  TRACE();
   uint32_t latencyFrames;
   int rv = cubeb_stream_get_latency(mAudioStream, &latencyFrames);
   if (rv || mSampleRate == 0) {

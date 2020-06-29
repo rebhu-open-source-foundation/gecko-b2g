@@ -147,6 +147,33 @@ function documentChannelPermittedForURI(aURI) {
   );
 }
 
+function canProcessSwitchWithDocumentChannel(
+  aURI,
+  aRemoteSubframes,
+  aDesiredRemoteType,
+  aBrowsingContext
+) {
+  if (
+    aBrowsingContext &&
+    aBrowsingContext.top &&
+    aBrowsingContext.inRDMPane &&
+    aBrowsingContext.embedderElementType == "iframe" &&
+    aDesiredRemoteType == NOT_REMOTE
+  ) {
+    // If we're in an old-style <iframe mozbrowser> RDM pane,
+    // and we need to switch to the parent process, then we can't
+    // use DocumentChannel process switching (since it doesn't
+    // support tunneling to the outer <browser>.
+    // We can remove this once bug 1648616 removes the tests
+    // depending on it.
+    return false;
+  }
+  return (
+    (aRemoteSubframes || documentChannel) &&
+    documentChannelPermittedForURI(aURI)
+  );
+}
+
 // Note that even if the scheme fits the criteria for a web-handled scheme
 // (ie it is compatible with the checks registerProtocolHandler uses), it may
 // not be web-handled - it could still be handled via the OS by another app.
@@ -824,10 +851,13 @@ var E10SUtils = {
     // handled using DocumentChannel, then we can skip switching
     // for now, and let DocumentChannel do it during the response.
     if (
-      requiredRemoteType != NOT_REMOTE &&
       uriObject &&
-      (remoteSubframes || documentChannel) &&
-      documentChannelPermittedForURI(uriObject)
+      canProcessSwitchWithDocumentChannel(
+        uriObject,
+        remoteSubframes,
+        requiredRemoteType,
+        browser.browsingContext
+      )
     ) {
       mustChangeProcess = false;
       newFrameloader = false;
@@ -854,9 +884,11 @@ var E10SUtils = {
     );
 
     if (
-      (aRemoteSubframes || documentChannel) &&
-      wantRemoteType != NOT_REMOTE &&
-      documentChannelPermittedForURI(aURI)
+      canProcessSwitchWithDocumentChannel(
+        aURI,
+        aRemoteSubframes,
+        wantRemoteType
+      )
     ) {
       // We can switch later with documentchannel.
       return true;
@@ -892,9 +924,12 @@ var E10SUtils = {
     // 1640019).
     if (
       AppConstants.MOZ_WIDGET_TOOLKIT != "android" &&
-      (useRemoteSubframes || documentChannel) &&
-      wantRemoteType != NOT_REMOTE &&
-      documentChannelPermittedForURI(aURI)
+      canProcessSwitchWithDocumentChannel(
+        aURI,
+        useRemoteSubframes,
+        wantRemoteType,
+        aDocShell.browsingContext
+      )
     ) {
       return true;
     }

@@ -6435,9 +6435,10 @@ Maybe<bool> nsContentUtils::IsPatternMatching(nsAString& aValue,
   JSContext* cx = jsapi.cx();
   AutoDisableJSInterruptCallback disabler(cx);
 
-  // We can use the junk scope here, because we're just using it for
-  // regexp evaluation, not actual script execution.
-  JSAutoRealm ar(cx, xpc::UnprivilegedJunkScope());
+  // We can use the junk scope here, because we're just using it for regexp
+  // evaluation, not actual script execution, and we disable statics so that the
+  // evaluation does not interact with the execution global.
+  JSAutoRealm ar(cx, xpc::PrivilegedJunkScope());
 
   // Check if the pattern by itself is valid first, and not that it only becomes
   // valid once we add ^(?: and )$.
@@ -9778,6 +9779,21 @@ bool nsContentUtils::IsMessageInputEvent(const IPC::Message& aMsg) {
       case mozilla::dom::PBrowser::Msg_UpdateDimensions__ID:
       case mozilla::dom::PBrowser::Msg_MouseEvent__ID:
       case mozilla::dom::PBrowser::Msg_SetDocShellIsActive__ID:
+        return true;
+    }
+  }
+  return false;
+}
+
+/* static */
+bool nsContentUtils::IsMessageCriticalInputEvent(const IPC::Message& aMsg) {
+  if ((aMsg.type() & mozilla::dom::PBrowser::PBrowserStart) ==
+      mozilla::dom::PBrowser::PBrowserStart) {
+    switch (aMsg.type()) {
+      case mozilla::dom::PBrowser::Msg_RealMouseButtonEvent__ID:
+      case mozilla::dom::PBrowser::Msg_RealKeyEvent__ID:
+      case mozilla::dom::PBrowser::Msg_RealTouchEvent__ID:
+      case mozilla::dom::PBrowser::Msg_RealDragEvent__ID:
         return true;
     }
   }

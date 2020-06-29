@@ -149,6 +149,10 @@ class Navigator final : public nsISupports, public nsWrapperCache {
                                nsIPrincipal* aCallerPrincipal,
                                bool aIsCallerChrome, nsAString& aUserAgent);
 
+  // Clears the platform cache by calling:
+  // Navigator_Binding::ClearCachedPlatformValue(this);
+  void ClearPlatformCache();
+
   // Clears the user agent cache by calling:
   // Navigator_Binding::ClearCachedUserAgentValue(this);
   void ClearUserAgentCache();
@@ -299,6 +303,8 @@ class Navigator final : public nsISupports, public nsWrapperCache {
   RefPtr<AddonManager> mAddonManager;
   RefPtr<webgpu::Instance> mWebGpu;
   RefPtr<Promise> mSharePromise;  // Web Share API related
+  // Gamepad moving to secure contexts
+  bool mGamepadSecureContextWarningShown = false;
 };
 
 }  // namespace dom

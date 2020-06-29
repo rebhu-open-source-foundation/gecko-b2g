@@ -603,6 +603,10 @@ class nsDocShell final : public nsDocLoader,
   nsresult AddChildSHEntryToParent(nsISHEntry* aNewEntry, int32_t aChildOffset,
                                    bool aCloneChildren);
 
+  nsresult AddChildSHEntryInternal(nsISHEntry* aCloneRef, nsISHEntry* aNewEntry,
+                                   int32_t aChildOffset, uint32_t aLoadType,
+                                   bool aCloneChildren);
+
   // Call this method to swap in a new history entry to m[OL]SHE, rather than
   // setting it directly. This completes the navigation in all docshells
   // in the case of a subframe navigation.
@@ -618,6 +622,11 @@ class nsDocShell final : public nsDocLoader,
   mozilla::dom::ChildSHistory* GetSessionHistory() {
     return mBrowsingContext->GetChildSessionHistory();
   }
+
+  static nsresult ReloadDocument(
+      nsDocShell* aDocShell, mozilla::dom::Document* aDocument,
+      uint32_t aLoadType, mozilla::dom::BrowsingContext* aBrowsingContext,
+      nsIURI* aCurrentURI, nsIReferrerInfo* aReferrerInfo);
 
   //
   // URI Load
@@ -644,6 +653,9 @@ class nsDocShell final : public nsDocLoader,
   nsresult OpenInitializedChannel(nsIChannel* aChannel,
                                   nsIURILoader* aURILoader,
                                   uint32_t aOpenFlags);
+  nsresult OpenRedirectedChannel(nsDocShellLoadState* aLoadState);
+
+  void UpdateMixedContentChannelForNewLoad(nsIChannel* aChannel);
 
   MOZ_CAN_RUN_SCRIPT
   nsresult ScrollToAnchor(bool aCurHasRef, bool aNewHasRef,
@@ -959,6 +971,8 @@ class nsDocShell final : public nsDocLoader,
   nsPresContext* GetEldestPresContext();
   nsresult CheckLoadingPermissions();
   nsresult LoadHistoryEntry(nsISHEntry* aEntry, uint32_t aLoadType);
+  nsresult LoadHistoryEntry(nsDocShellLoadState* aLoadState, uint32_t aLoadType,
+                            bool aReloadingActiveEntry);
   nsresult GetHttpChannel(nsIChannel* aChannel, nsIHttpChannel** aReturn);
   nsresult ConfirmRepost(bool* aRepost);
   nsresult GetPromptAndStringBundle(nsIPrompt** aPrompt,

@@ -66,7 +66,11 @@ interface BrowsingContext {
 
   readonly attribute WindowContext? topWindowContext;
 
+  attribute [TreatNullAs=EmptyString] DOMString customPlatform;
+
   attribute [TreatNullAs=EmptyString] DOMString customUserAgent;
+
+  readonly attribute DOMString embedderElementType;
 
   /**
    * The sandbox flags on the browsing context. These reflect the value of the

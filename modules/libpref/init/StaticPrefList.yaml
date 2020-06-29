@@ -4151,7 +4151,7 @@
 
 - name: gfx.e10s.font-list.shared
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: false
   mirror: once
 
 # Disable antialiasing of Ahem, for use in tests.
@@ -8267,12 +8267,6 @@
 - name: network.http.http3.recvBufferSize
   type: RelaxedAtomicInt32
   value: 1048576
-  mirror: always
-
-# Support http3 draft 28
-- name: network.http.http3.support_draft28
-  type: RelaxedAtomicBool
-  value: false
   mirror: always
 
 #---------------------------------------------------------------------------

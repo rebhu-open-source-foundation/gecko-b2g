@@ -1268,7 +1268,7 @@ class TextNodeCorrespondenceRecorder {
 
 /* static */
 void TextNodeCorrespondenceRecorder::RecordCorrespondence(SVGTextFrame* aRoot) {
-  if (aRoot->GetStateBits() & NS_STATE_SVG_TEXT_CORRESPONDENCE_DIRTY) {
+  if (aRoot->HasAnyStateBits(NS_STATE_SVG_TEXT_CORRESPONDENCE_DIRTY)) {
     // Resolve bidi so that continuation frames are created if necessary:
     aRoot->MaybeResolveBidiForAnonymousBlockChild();
     TextNodeCorrespondenceRecorder recorder(aRoot);
@@ -1580,7 +1580,7 @@ class TextFrameIterator {
 
 uint32_t TextFrameIterator::UndisplayedCharacters() const {
   MOZ_ASSERT(
-      !(mRootFrame->GetStateBits() & NS_STATE_SVG_TEXT_CORRESPONDENCE_DIRTY),
+      !mRootFrame->HasAnyStateBits(NS_STATE_SVG_TEXT_CORRESPONDENCE_DIRTY),
       "Text correspondence must be up to date");
 
   if (!mCurrentFrame) {
@@ -2763,7 +2763,8 @@ NS_QUERYFRAME_TAIL_INHERITING(nsSVGDisplayContainerFrame)
 // ---------------------------------------------------------------------
 // Implementation
 
-nsIFrame* NS_NewSVGTextFrame(PresShell* aPresShell, ComputedStyle* aStyle) {
+nsIFrame* NS_NewSVGTextFrame(mozilla::PresShell* aPresShell,
+                             mozilla::ComputedStyle* aStyle) {
   return new (aPresShell)
       mozilla::SVGTextFrame(aStyle, aPresShell->GetPresContext());
 }
@@ -2880,7 +2881,7 @@ void SVGTextFrame::ScheduleReflowSVGNonDisplayText(IntrinsicDirty aReason) {
 
   nsIFrame* f = this;
   while (f) {
-    if (!(f->GetStateBits() & NS_FRAME_IS_NONDISPLAY)) {
+    if (!f->HasAnyStateBits(NS_FRAME_IS_NONDISPLAY)) {
       if (NS_SUBTREE_DIRTY(f)) {
         // This is a displayed frame, so if it is already dirty, we will be
         // reflowed soon anyway.  No need to call FrameNeedsReflow again, then.
@@ -2964,7 +2965,7 @@ void SVGTextFrame::HandleAttributeChangeInDescendant(Element* aElement,
 
 void SVGTextFrame::FindCloserFrameForSelection(
     const nsPoint& aPoint, FrameWithDistance* aCurrentBestFrame) {
-  if (GetStateBits() & NS_FRAME_IS_NONDISPLAY) {
+  if (HasAnyStateBits(NS_FRAME_IS_NONDISPLAY)) {
     return;
   }
 
@@ -3295,7 +3296,7 @@ void SVGTextFrame::ReflowSVG() {
   NS_ASSERTION(nsSVGUtils::OuterSVGIsCallingReflowSVG(this),
                "This call is probaby a wasteful mistake");
 
-  MOZ_ASSERT(!(GetStateBits() & NS_FRAME_IS_NONDISPLAY),
+  MOZ_ASSERT(!HasAnyStateBits(NS_FRAME_IS_NONDISPLAY),
              "ReflowSVG mechanism not designed for this");
 
   if (!nsSVGUtils::NeedsReflowSVG(this)) {
@@ -5029,7 +5030,7 @@ void SVGTextFrame::UpdateGlyphPositioning() {
 void SVGTextFrame::MaybeResolveBidiForAnonymousBlockChild() {
   nsIFrame* kid = PrincipalChildList().FirstChild();
 
-  if (kid && kid->GetStateBits() & NS_BLOCK_NEEDS_BIDI_RESOLUTION &&
+  if (kid && kid->HasAnyStateBits(NS_BLOCK_NEEDS_BIDI_RESOLUTION) &&
       PresContext()->BidiEnabled()) {
     MOZ_ASSERT(static_cast<nsBlockFrame*>(do_QueryFrame(kid)),
                "Expect anonymous child to be an nsBlockFrame");
@@ -5043,7 +5044,7 @@ void SVGTextFrame::MaybeReflowAnonymousBlockChild() {
     return;
   }
 
-  NS_ASSERTION(!(kid->GetStateBits() & NS_FRAME_IN_REFLOW),
+  NS_ASSERTION(!kid->HasAnyStateBits(NS_FRAME_IN_REFLOW),
                "should not be in reflow when about to reflow again");
 
   if (NS_SUBTREE_DIRTY(this)) {
