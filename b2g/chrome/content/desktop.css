@@ -44,7 +44,7 @@ html, body {
 #funcpad-box {
   display: flex;
   flex-direction: row;
-  margin-bottom: 1.7rem;
+  margin: 0.5rem 0;
 }
 
 #funcpad-box .anchor {
@@ -109,7 +109,7 @@ html, body {
 
 #funcpad-center .row .arrow:active {
   background: url("images/controls/CSK_arrow_press.png");
-  background-size: 100% 100%;
+  background-size: 100% auto;
 }
 
 #funcpad-center .row.middle .anchor {
@@ -144,7 +144,13 @@ html, body {
 }
 
 /* numpad */
+#numpad {
+  display: flex;
+  flex-direction: column;
+}
+
 #numpad-bg {
+  align-self: center;
   position: absolute;
   width: 36rem;
   height: 27.4rem;
@@ -165,11 +171,10 @@ html, body {
 }
 
 #numpad-box .anchor {
-  width: 11.6rem;
+  width: calc(100%/3);
   height: 6.4rem;
   background: url("images/controls/keypad_number_normal.png") center no-repeat;
   background-size: 100% 100%;
-  margin: 0 0.5rem 0 0;
   cursor: pointer;
 }
 
