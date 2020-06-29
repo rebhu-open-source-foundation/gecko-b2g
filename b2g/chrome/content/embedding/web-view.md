@@ -12,6 +12,7 @@ The <web-view> element supports the following attributes:
 
 - `focus() : void` : focuses the browser.
 - `blur() : void` : blurs the browser.
+- `getBackgroundColor() : Promise<String>`: returns the CSS value of the page's background color.
 - `getScreenshot(max_width, max_height, mime_type) : Promise<Blob>` : takes a screenshot of the current page.
 - `goForward() : void` : navigates one step forwared in the history.
 - `goBack() : void` : navigates one step back in the history.

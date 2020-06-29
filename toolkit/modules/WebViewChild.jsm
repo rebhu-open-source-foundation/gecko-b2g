@@ -68,24 +68,24 @@ var WebViewChild = {
       this.recvFireCtxCallback.bind(this)
     );
 
-    let metachange_handler = this.metaChangeHandler.bind(this);
+    let metachangeHandler = this.metaChangeHandler.bind(this);
     global.addEventListener(
       "DOMMetaAdded",
-      metachange_handler,
+      metachangeHandler,
       /* useCapture = */ true,
       /* wantsUntrusted = */ false
     );
 
     global.addEventListener(
       "DOMMetaChanged",
-      metachange_handler,
+      metachangeHandler,
       /* useCapture = */ true,
       /* wantsUntrusted = */ false
     );
 
     global.addEventListener(
       "DOMMetaRemoved",
-      metachange_handler,
+      metachangeHandler,
       /* useCapture = */ true,
       /* wantsUntrusted = */ false
     );
@@ -103,7 +103,7 @@ var WebViewChild = {
     // this value in the loadend event handler of the <web-view> element.
     let seenLoadStart = false;
     let seenLoadEnd = false;
-    let progress_listener = {
+    let progressListener = {
       QueryInterface: ChromeUtils.generateQI([
         Ci.nsIWebProgressListener,
         Ci.nsISupportsWeakReference,
@@ -120,7 +120,9 @@ var WebViewChild = {
             backgroundcolor = global.content
               .getComputedStyle(global.content.document.body)
               .getPropertyValue("background-color");
-          } catch (e) {}
+          } catch (e) {
+            WebViewChild.log(`Failed to get background-color property: ${e}`);
+          }
           if (seenLoadStart && !seenLoadEnd) {
             global.sendAsyncMessage("WebView::backgroundcolor", {
               backgroundcolor,
@@ -134,7 +136,7 @@ var WebViewChild = {
     global.docShell
       .QueryInterface(Ci.nsIWebProgress)
       .addProgressListener(
-        progress_listener,
+        progressListener,
         Ci.nsIWebProgress.NOTIFY_STATE_WINDOW
       );
 
@@ -143,6 +145,39 @@ var WebViewChild = {
       "WebView::GetScreenshot",
       this.getScreenshot.bind(this)
     );
+
+    // Installs a message listener for background color requests.
+    global.addMessageListener(
+      "WebView::GetBackgroundColor",
+      this.getBackgroundColor.bind(this)
+    );
+  },
+
+  getBackgroundColor(message) {
+    let messageName = message.data.id;
+
+    let content = this.global.content;
+    if (!content) {
+      this.global.sendAsyncMessage(messageName, {
+        success: false,
+      });
+      return;
+    }
+
+    let backgroundcolor = "transparent";
+    try {
+      backgroundcolor = content
+        .getComputedStyle(content.document.body)
+        .getPropertyValue("background-color");
+      this.global.sendAsyncMessage(messageName, {
+        success: true,
+        result: backgroundcolor,
+      });
+    } catch (e) {
+      this.global.sendAsyncMessage(messageName, {
+        success: false,
+      });
+    }
   },
 
   getScreenshot(message) {
@@ -151,14 +186,14 @@ var WebViewChild = {
 
     let takeScreenshotClosure = () => {
       this.takeScreenshot(
-        data.max_width,
-        data.max_height,
-        data.mime_type,
+        data.maxWidth,
+        data.maxHeight,
+        data.mimeType,
         data.id
       );
     };
 
-    let max_delay_ms = Services.prefs.getIntPref(
+    let maxDelayMs = Services.prefs.getIntPref(
       "dom.webview.maxScreenshotDelayMS",
       /* default */ 2000
     );
@@ -168,26 +203,26 @@ var WebViewChild = {
     // anyway.
     Cc["@mozilla.org/message-loop;1"]
       .getService(Ci.nsIMessageLoop)
-      .postIdleTask(takeScreenshotClosure, max_delay_ms);
+      .postIdleTask(takeScreenshotClosure, maxDelayMs);
   },
 
   // Actually take a screenshot and foward the result up to our parent, given
   // the desired maxWidth and maxHeight (in CSS pixels), and given the
   // message manager id associated with the request from the parent.
-  takeScreenshot(max_width, max_height, mime_type, id) {
+  takeScreenshot(maxWidth, maxHeight, mimeType, id) {
     // You can think of the screenshotting algorithm as carrying out the
     // following steps:
     //
     // - Calculate maxWidth, maxHeight, and viewport's width and height in the
     //   dimension of device pixels by multiply the numbers with
-    //   window.device_pixel_ratio.
+    //   window.devicePixelRatio.
     //
-    // - Let scale_width be the factor by which we'd need to downscale the
-    //   viewport pixel width so it would fit within max_pixel_width.
-    //   (If the viewport's pixel width is less than max_pixel_width, let
-    //   scale_width be 1.) Compute scale_height the same way.
+    // - Let scaleWidth be the factor by which we'd need to downscale the
+    //   viewport pixel width so it would fit within maxPixelWidth.
+    //   (If the viewport's pixel width is less than maxPixelWidth, let
+    //   scaleWidth be 1.) Compute scaleHeight the same way.
     //
-    // - Scale the viewport by max(scale_width, scale_height).  Now either the
+    // - Scale the viewport by max(scaleWidth, scaleHeight).  Now either the
     //   viewport's width is no larger than maxWidth, the viewport's height is
     //   no larger than maxHeight, or both.
     //
@@ -207,26 +242,26 @@ var WebViewChild = {
       return;
     }
 
-    let device_pixel_ratio = content.devicePixelRatio;
+    let devicePixelRatio = content.devicePixelRatio;
 
-    let max_pixel_width = Math.round(max_width * device_pixel_ratio);
-    let max_pixel_height = Math.round(max_height * device_pixel_ratio);
+    let maxPixelWidth = Math.round(maxWidth * devicePixelRatio);
+    let maxPixelHeight = Math.round(maxHeight * devicePixelRatio);
 
-    let content_pixel_width = content.innerWidth * device_pixel_ratio;
-    let content_pixel_height = content.innerHeight * device_pixel_ratio;
+    let contentPixelWidth = content.innerWidth * devicePixelRatio;
+    let contentPixelHeight = content.innerHeight * devicePixelRatio;
 
-    let scale_width = Math.min(1, max_pixel_width / content_pixel_width);
-    let scale_height = Math.min(1, max_pixel_height / content_pixel_height);
+    let scaleWidth = Math.min(1, maxPixelWidth / contentPixelWidth);
+    let scaleHeight = Math.min(1, maxPixelHeight / contentPixelHeight);
 
-    let scale = Math.max(scale_width, scale_height);
+    let scale = Math.max(scaleWidth, scaleHeight);
 
-    let canvas_width = Math.min(
-      max_pixel_width,
-      Math.round(content_pixel_width * scale)
+    let canvasWidth = Math.min(
+      maxPixelWidth,
+      Math.round(contentPixelWidth * scale)
     );
-    let canvas_height = Math.min(
-      max_pixel_height,
-      Math.round(content_pixel_height * scale)
+    let canvasHeight = Math.min(
+      maxPixelHeight,
+      Math.round(contentPixelHeight * scale)
     );
 
     var canvas = content.document.createElementNS(
@@ -234,15 +269,15 @@ var WebViewChild = {
       "canvas"
     );
 
-    let transparent = mime_type !== "image/jpeg";
+    let transparent = mimeType !== "image/jpeg";
     if (!transparent) {
       canvas.mozOpaque = true;
     }
-    canvas.width = canvas_width;
-    canvas.height = canvas_height;
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
 
     let ctx = canvas.getContext("2d", { willReadFrequently: true });
-    ctx.scale(scale * device_pixel_ratio, scale * device_pixel_ratio);
+    ctx.scale(scale * devicePixelRatio, scale * devicePixelRatio);
 
     let flags =
       ctx.DRAWWINDOW_DRAW_VIEW |
@@ -268,7 +303,7 @@ var WebViewChild = {
         success: true,
         result: blob,
       });
-    }, mime_type);
+    }, mimeType);
   },
 
   // Processes the "rel" field in <link> tags and forward to specific handlers.
@@ -278,11 +313,11 @@ var WebViewChild = {
       return;
     }
 
-    let iconchange_handler = this.iconChangedHandler.bind(this);
+    let iconchangeHandler = this.iconChangedHandler.bind(this);
     let handlers = {
-      icon: iconchange_handler,
-      "apple-touch-icon": iconchange_handler,
-      "apple-touch-icon-precomposed": iconchange_handler,
+      icon: iconchangeHandler,
+      "apple-touch-icon": iconchangeHandler,
+      "apple-touch-icon-precomposed": iconchangeHandler,
       search: this.openSearchHandler.bind(this),
       manifest: this.manifestChangedHandler.bind(this),
     };
@@ -341,19 +376,19 @@ var WebViewChild = {
 
     this.log(`Got metaChanged: (${name || property}) ${event.target.content}`);
 
-    let generic_handler = this.genericMetaHandler.bind(this);
+    let genericHandler = this.genericMetaHandler.bind(this);
 
     let handlers = {
-      viewmode: generic_handler,
-      "theme-color": generic_handler,
-      "theme-group": generic_handler,
+      viewmode: genericHandler,
+      "theme-color": genericHandler,
+      "theme-group": genericHandler,
       "application-name": this.applicationNameChangedHandler.bind(this),
     };
     let handler = handlers[name];
 
     if ((property || name).match(/^og:/)) {
       name = property || name;
-      handler = generic_handler;
+      handler = genericHandler;
     }
 
     if (handler) {

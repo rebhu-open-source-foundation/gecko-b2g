@@ -1114,7 +1114,7 @@
         ].forEach(item => {
           this.messageManager.addMessageListener(`WebView::${item}`, this);
         });
-        this.screenshot_id = 0;
+        this.webViewRequestId = 0;
         // End WebView additions.
 
         if (!oldNavigation) {
@@ -1270,9 +1270,9 @@
     // Returns a promise resolving with the screenshot as a Blob.
     // We don't use drawSnapshot because we can't get the content
     // size from it.
-    webViewGetScreenshot(max_width, max_height, mime_type) {
-      let id = `WebView::ReturnScreenShot::${this.screenshot_id}`;
-      this.screenshot_id += 1;
+    webViewGetScreenshot(maxWidth, maxHeight, mimeType) {
+      let id = `WebView::ReturnScreenShot::${this.webViewRequestId}`;
+      this.webViewRequestId += 1;
 
       return new Promise((resolve, reject) => {
         let mm = this.messageManager;
@@ -1287,11 +1287,32 @@
         });
 
         mm.sendAsyncMessage("WebView::GetScreenshot", {
-          max_width,
-          max_height,
-          mime_type,
+          maxWidth,
+          maxHeight,
+          mimeType,
           id,
         });
+      });
+    }
+
+    // Returns a promis resolving to the current background color.
+    webViewGetBackgroundColor() {
+      let id = `WebView::ReturnBackgroundColor::${this.webViewRequestId}`;
+      this.webViewRequestId += 1;
+
+      return new Promise((resolve, reject) => {
+        let mm = this.messageManager;
+        mm.addMessageListener(id, function gotBackgroundColor(message) {
+          mm.removeMessageListener(id, gotBackgroundColor);
+          let data = message.data;
+          if (data.success) {
+            resolve(data.result);
+          } else {
+            reject();
+          }
+        });
+
+        mm.sendAsyncMessage("WebView::GetBackgroundColor", { id });
       });
     }
 

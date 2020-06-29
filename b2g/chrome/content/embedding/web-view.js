@@ -528,6 +528,15 @@
       );
     }
 
+    // Returns a promise that will resolve with the background color.
+    getBackgroundColor() {
+      this.log(`getBackgroundColor `);
+      if (!this.browser) {
+        return Promise.reject();
+      }
+      return this.browser.webViewGetBackgroundColor();
+    }
+
     reload(forced) {
       let webNav = Ci.nsIWebNavigation;
       let reloadFlags = forced
