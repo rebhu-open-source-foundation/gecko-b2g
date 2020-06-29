@@ -10,6 +10,7 @@
 #include "SpeechSynthesisUtterance.h"
 #include "AudioChannelAgent.h"
 #include "nsISpeechService.h"
+#include "MediaTrackGraph.h"
 
 namespace mozilla {
 
@@ -19,10 +20,13 @@ namespace dom {
 
 class SpeechSynthesisUtterance;
 class SpeechSynthesis;
+class SynthStreamListener;
 
 class nsSpeechTask : public nsISpeechTask,
                      public nsIAudioChannelAgentCallback,
                      public nsSupportsWeakReference {
+  friend class SynthStreamListener;
+
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(nsSpeechTask, nsISpeechTask)
@@ -40,6 +44,10 @@ class nsSpeechTask : public nsISpeechTask,
   virtual void Cancel();
 
   virtual void ForceEnd();
+  
+  float GetCurrentTime();
+
+  uint32_t GetCurrentCharOffset();
 
   void SetSpeechSynthesis(SpeechSynthesis* aSpeechSynthesis);
 
@@ -106,6 +114,8 @@ class nsSpeechTask : public nsISpeechTask,
 
   void DestroyAudioChannelAgent();
 
+  void SendAudioImpl(RefPtr<mozilla::SharedBuffer>& aSamples, uint32_t aDataLen);
+
   nsCOMPtr<nsISpeechTaskCallback> mCallback;
 
   RefPtr<mozilla::dom::AudioChannelAgent> mAudioChannelAgent;
@@ -117,6 +127,8 @@ class nsSpeechTask : public nsISpeechTask,
   bool mIsChrome;
 
   uint32_t mState;
+
+  RefPtr<SourceMediaTrack> mStream;
 };
 
 }  // namespace dom

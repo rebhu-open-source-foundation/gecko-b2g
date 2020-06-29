@@ -47,6 +47,11 @@ interface nsISpeechTask : nsISupports
    */
   void setup(in nsISpeechTaskCallback aCallback);
 
+  void setupAudioNative(in nsISpeechTaskCallback aCallback, in uint32_t aSampleRate);
+
+  [noscript]
+  void sendAudioNative([array, size_is(aDataLen)] in short aData, in unsigned long aDataLen);
+
   /**
    * Dispatch start event.
    */

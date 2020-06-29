@@ -10,6 +10,7 @@
 #include "nsSynthVoiceRegistry.h"
 #include "SharedBuffer.h"
 #include "SpeechSynthesis.h"
+#include "MediaTrackListener.h"
 
 #undef LOG
 extern mozilla::LogModule* GetSpeechSynthLog();
@@ -19,6 +20,53 @@ extern mozilla::LogModule* GetSpeechSynthLog();
 
 namespace mozilla {
 namespace dom {
+
+class SynthStreamListener : public MediaTrackListener {
+public:
+  explicit SynthStreamListener(nsSpeechTask* aSpeechTask,
+                               MediaTrack* aStream) :
+    mSpeechTask(aSpeechTask),
+    mStream(aStream),
+    mStarted(false) {}
+
+  void DoNotifyStarted() {
+    if (mSpeechTask && !mStream->IsDestroyed()) {
+      mSpeechTask->DispatchStart();
+    }
+  }
+
+  void DoNotifyFinished() {
+    if (mSpeechTask && !mStream->IsDestroyed()) {
+      mSpeechTask->DispatchEnd(mSpeechTask->GetCurrentTime(),
+                               mSpeechTask->GetCurrentCharOffset());
+    }
+  }
+
+  void NotifyEnded(MediaTrackGraph* aGraph) override {
+    if (!mStarted) {
+      mStarted = true;
+      aGraph->DispatchToMainThreadStableState(NS_NewRunnableFunction(
+        "NotifyEnded startRunnable", [this]() { DoNotifyStarted(); }));
+    }
+    aGraph->DispatchToMainThreadStableState(NS_NewRunnableFunction(
+      "NotifyEnded endRunnable", [this]() { DoNotifyFinished(); }));
+  }
+
+  void NotifyRemoved(MediaTrackGraph* aGraph) override {
+    mSpeechTask = nullptr;
+    // Dereference MediaTrack to destroy safety
+    mStream = nullptr;
+  }
+
+private:
+  // Raw pointer; if we exist, the stream exists,
+  // and 'mSpeechTask' exclusively owns it and therefor exists as well.
+  nsSpeechTask* mSpeechTask;
+  // This is KungFuDeathGrip for MediaTrack
+  RefPtr<MediaTrack> mStream;
+
+  bool mStarted;
+};
 
 // nsSpeechTask
 
@@ -76,6 +124,72 @@ nsSpeechTask::Setup(nsISpeechTaskCallback* aCallback) {
   mCallback = aCallback;
 
   return NS_OK;
+}
+
+NS_IMETHODIMP
+nsSpeechTask::SetupAudioNative(nsISpeechTaskCallback* aCallback, uint32_t aRate) {
+  MOZ_ASSERT(XRE_IsParentProcess());
+
+  MediaTrackGraph* g1 = MediaTrackGraph::GetInstance(
+      MediaTrackGraph::AUDIO_THREAD_DRIVER,
+      mozilla::dom::AudioChannel::Normal, /*window*/ nullptr,
+      aRate,
+      /*OutputDeviceID*/ nullptr);
+  mStream = g1->CreateSourceTrack(MediaSegment::AUDIO);
+
+  MOZ_ASSERT(!mStream);
+
+  mStream->AddListener(new SynthStreamListener(this, mStream));
+  mStream->AddAudioOutput(this);
+  mStream->SetAudioOutputVolume(this, mVolume);
+
+  mCallback = aCallback;
+
+  return NS_OK;
+}
+
+static RefPtr<mozilla::SharedBuffer>
+makeSamples(int16_t* aData, uint32_t aDataLen) {
+  CheckedInt<size_t> size = aDataLen * sizeof(int16_t);
+  RefPtr<mozilla::SharedBuffer> samples = SharedBuffer::Create(size);
+  int16_t* frames = static_cast<int16_t*>(samples->Data());
+
+  for (uint32_t i = 0; i < aDataLen; i++) {
+    frames[i] = aData[i];
+  }
+  return samples;
+}
+
+NS_IMETHODIMP
+nsSpeechTask::SendAudioNative(int16_t* aData, uint32_t aDataLen) {
+  MOZ_ASSERT(XRE_IsParentProcess());
+
+  if(NS_WARN_IF(!(mStream))) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+  if(NS_WARN_IF(mStream->IsDestroyed())) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+
+  RefPtr<mozilla::SharedBuffer> samples = makeSamples(aData, aDataLen);
+  SendAudioImpl(samples, aDataLen);
+
+  return NS_OK;
+}
+
+void
+nsSpeechTask::SendAudioImpl(RefPtr<mozilla::SharedBuffer>& aSamples, uint32_t aDataLen) {
+  if (aDataLen == 0) {
+    mStream->End();
+    return;
+  }
+
+  AudioSegment segment;
+  AutoTArray<const int16_t*, 1> channelData;
+  channelData.AppendElement(static_cast<int16_t*>(aSamples->Data()));
+  segment.AppendFrames(aSamples.forget(), channelData, aDataLen,
+                       PRINCIPAL_HANDLE_NONE);
+  mStream->AppendData(&segment);
 }
 
 NS_IMETHODIMP
@@ -308,17 +422,35 @@ void nsSpeechTask::Cancel() {
                          "Unable to call onCancel() callback");
   }
 
+  if (mStream) {
+    mStream->Suspend();
+  }
+
   if (!mInited) {
     mPreCanceled = true;
   }
 }
 
 void nsSpeechTask::ForceEnd() {
+  if (mStream) {
+    mStream->Suspend();
+  }
+
   if (!mInited) {
     mPreCanceled = true;
   }
 
   DispatchEnd(0, 0);
+}
+
+float
+nsSpeechTask::GetCurrentTime() {
+  return mStream ? (float)(mStream->GetCurrentTime() / 1000000.0) : 0;
+}
+
+uint32_t
+nsSpeechTask::GetCurrentCharOffset() {
+  return mStream && mStream->IsEnded() ? mText.Length() : 0;
 }
 
 void nsSpeechTask::SetSpeechSynthesis(SpeechSynthesis* aSpeechSynthesis) {
