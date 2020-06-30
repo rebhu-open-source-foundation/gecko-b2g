@@ -4856,7 +4856,7 @@ MOZ_EXPORT void* (*__memalign_hook)(size_t, size_t) = memalign_impl;
 #endif
 
 #ifdef XP_WIN
-void* _recalloc(void* aPtr, size_t aCount, size_t aSize) {
+MOZ_EXPORT void* _recalloc(void* aPtr, size_t aCount, size_t aSize) {
   size_t oldsize = aPtr ? AllocInfo::Get(aPtr).Size() : 0;
   CheckedInt<size_t> checkedSize = CheckedInt<size_t>(aCount) * aSize;
 
@@ -4881,7 +4881,7 @@ void* _recalloc(void* aPtr, size_t aCount, size_t aSize) {
 
 // This impl of _expand doesn't ever actually expand or shrink blocks: it
 // simply replies that you may continue using a shrunk block.
-void* _expand(void* aPtr, size_t newsize) {
+MOZ_EXPORT void* _expand(void* aPtr, size_t newsize) {
   if (AllocInfo::Get(aPtr).Size() >= newsize) {
     return aPtr;
   }
@@ -4889,5 +4889,7 @@ void* _expand(void* aPtr, size_t newsize) {
   return nullptr;
 }
 
-size_t _msize(void* aPtr) { return DefaultMalloc::malloc_usable_size(aPtr); }
+MOZ_EXPORT size_t _msize(void* aPtr) {
+  return DefaultMalloc::malloc_usable_size(aPtr);
+}
 #endif

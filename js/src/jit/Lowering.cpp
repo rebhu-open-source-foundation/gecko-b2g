@@ -544,6 +544,16 @@ void LIRGenerator::visitEncodeSnapshot(MEncodeSnapshot* mir) {
   add(lir, mir);
 }
 
+void LIRGenerator::visitUnreachableResult(MUnreachableResult* mir) {
+  if (mir->type() == MIRType::Value) {
+    auto* lir = new (alloc()) LUnreachableResultV();
+    defineBox(lir, mir);
+  } else {
+    auto* lir = new (alloc()) LUnreachableResultT();
+    define(lir, mir);
+  }
+}
+
 void LIRGenerator::visitAssertFloat32(MAssertFloat32* assertion) {
   MIRType type = assertion->input()->type();
   DebugOnly<bool> checkIsFloat32 = assertion->mustBeFloat32();
@@ -898,10 +908,6 @@ void LIRGenerator::visitTest(MTest* test) {
     default:
       MOZ_CRASH("Bad type");
   }
-}
-
-void LIRGenerator::visitGotoWithFake(MGotoWithFake* gotoWithFake) {
-  add(new (alloc()) LGoto(gotoWithFake->target()));
 }
 
 void LIRGenerator::visitFunctionDispatch(MFunctionDispatch* ins) {

@@ -6301,6 +6301,8 @@ nsHttpChannel::Cancel(nsresult status) {
     return NS_OK;
   }
 
+  LogCallingScriptLocation(this);
+
   if (mWaitingForRedirectCallback) {
     LOG(("channel canceled during wait for redirect callback"));
   }
@@ -6484,6 +6486,7 @@ nsHttpChannel::AsyncOpen(nsIStreamListener* aListener) {
       "security flags in loadInfo but doContentSecurityCheck() not called");
 
   LOG(("nsHttpChannel::AsyncOpen [this=%p]\n", this));
+  LogCallingScriptLocation(this);
 
 #ifdef MOZ_TASK_TRACER
   if (tasktracer::IsStartLogging()) {
@@ -7068,6 +7071,9 @@ base::ProcessId nsHttpChannel::ProcessId() {
 
 auto nsHttpChannel::AttachStreamFilter(base::ProcessId aChildProcessId)
     -> RefPtr<ChildEndpointPromise> {
+  LOG(("nsHttpChannel::AttachStreamFilter [this=%p]", this));
+  MOZ_ASSERT(!mOnStartRequestCalled);
+
   nsCOMPtr<nsIParentChannel> parentChannel;
   NS_QueryNotificationCallbacks(this, parentChannel);
 
@@ -7088,7 +7094,7 @@ auto nsHttpChannel::AttachStreamFilter(base::ProcessId aChildProcessId)
   }
 
   if (RefPtr<HttpChannelParent> httpParent = do_QueryObject(parentChannel)) {
-    if (httpParent->SendAttachStreamFilter(std::move(parent))) {
+    if (httpParent->AttachStreamFilter(std::move(parent))) {
       return ChildEndpointPromise::CreateAndResolve(std::move(child), __func__);
     }
     return ChildEndpointPromise::CreateAndReject(false, __func__);
@@ -7100,7 +7106,7 @@ auto nsHttpChannel::AttachStreamFilter(base::ProcessId aChildProcessId)
 
 NS_IMETHODIMP
 nsHttpChannel::GetNavigationStartTimeStamp(TimeStamp* aTimeStamp) {
-  LOG(("nsHttpChannel::GetNavigationStartTimeStamp %p", this));
+  LOG(("nsHttpChannel::GetNavigationStartTimeStamp [this=%p]", this));
   MOZ_ASSERT(aTimeStamp);
   *aTimeStamp = mNavigationStartTimeStamp;
   return NS_OK;
@@ -7108,7 +7114,7 @@ nsHttpChannel::GetNavigationStartTimeStamp(TimeStamp* aTimeStamp) {
 
 NS_IMETHODIMP
 nsHttpChannel::SetNavigationStartTimeStamp(TimeStamp aTimeStamp) {
-  LOG(("nsHttpChannel::SetNavigationStartTimeStamp %p", this));
+  LOG(("nsHttpChannel::SetNavigationStartTimeStamp [this=%p]", this));
   mNavigationStartTimeStamp = aTimeStamp;
   return NS_OK;
 }
@@ -9391,6 +9397,7 @@ nsHttpChannel::SuspendInternal() {
   NS_ENSURE_TRUE(mIsPending, NS_ERROR_NOT_AVAILABLE);
 
   LOG(("nsHttpChannel::SuspendInternal [this=%p]\n", this));
+  LogCallingScriptLocation(this);
 
   ++mSuspendCount;
 
@@ -9432,6 +9439,7 @@ nsHttpChannel::ResumeInternal() {
   NS_ENSURE_TRUE(mSuspendCount > 0, NS_ERROR_UNEXPECTED);
 
   LOG(("nsHttpChannel::ResumeInternal [this=%p]\n", this));
+  LogCallingScriptLocation(this);
 
   if (--mSuspendCount == 0) {
     mSuspendTotalTime +=

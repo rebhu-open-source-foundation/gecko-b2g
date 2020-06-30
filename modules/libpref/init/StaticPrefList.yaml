@@ -1068,11 +1068,19 @@
   value: true
   mirror: always
 
-# If set, use DocumentChannel to directly initiate loads from
-# parent-process BrowsingContexts
+# If set, use DocumentChannel to initiate loads from
+# parent-process BrowsingContexts in parallel with the content
+# process.
 - name: browser.tabs.documentchannel.parent-initiated
   type: bool
   value: true
+  mirror: always
+
+# If set, use DocumentChannel to directly initiate loads entirely
+# from parent-process BrowsingContexts
+- name: browser.tabs.documentchannel.parent-controlled
+  type: bool
+  value: false 
   mirror: always
 
 - name: browser.tabs.remote.desktopbehavior
@@ -3587,7 +3595,7 @@
 # between process swaps.
 - name: fission.preserve_browsing_contexts
   type: bool
-  value: true
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Store the session history in the parent process, and access it over IPC

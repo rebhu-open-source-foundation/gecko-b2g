@@ -24,7 +24,7 @@ include protocol PHeapSnapshotTempFileHelper;
 include protocol PProcessHangMonitor;
 include protocol PSharedBufferManager;
 include protocol PImageBridge;
-include protocol PIPCBlobInputStream;
+include protocol PRemoteLazyInputStream;
 include protocol PLoginReputation;
 include protocol PMedia;
 include protocol PNecko;
@@ -591,7 +591,7 @@ nested(upto inside_cpow) sync protocol PContent
     manages PHal;
     manages PHandlerService;
     manages PHeapSnapshotTempFileHelper;
-    manages PIPCBlobInputStream;
+    manages PRemoteLazyInputStream;
     manages PMedia;
     manages PNecko;
     manages POfflineCacheUpdate;
@@ -994,7 +994,7 @@ child:
 
     async RefreshScreens(ScreenDetails[] aScreens);
 
-    async PIPCBlobInputStream(nsID aID, uint64_t aSize);
+    async PRemoteLazyInputStream(nsID aID, uint64_t aSize);
 
     /**
      * This call takes the set of plugins loaded in the chrome process, and
@@ -1119,6 +1119,12 @@ child:
     async InternalLoad(MaybeDiscardedBrowsingContext aContext, nsDocShellLoadState aLoadState, bool aTakeFocus);
 
     async DisplayLoadError(MaybeDiscardedBrowsingContext aContext, nsString aURI);
+
+    async GoBack(MaybeDiscardedBrowsingContext aContext, int32_t? aCancelContentJSEpoch, bool aRequireUserInteraction);
+    async GoForward(MaybeDiscardedBrowsingContext aContext, int32_t? aCancelContentJSEpoch, bool aRequireUserInteraction);
+    async GoToIndex(MaybeDiscardedBrowsingContext aContext, int32_t aIndex, int32_t? aCancelContentJSEpoch);
+    async Reload(MaybeDiscardedBrowsingContext aContext, uint32_t aReloadFlags);
+    async StopLoad(MaybeDiscardedBrowsingContext aContext, uint32_t aStopFlags);
 
     async OnAllowAccessFor(MaybeDiscardedBrowsingContext aParentContext,
                            nsCString aTrackingOrigin,

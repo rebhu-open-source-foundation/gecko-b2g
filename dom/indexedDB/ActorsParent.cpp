@@ -62,7 +62,6 @@
 #include "mozilla/dom/indexedDB/PBackgroundIDBTransactionParent.h"
 #include "mozilla/dom/indexedDB/PBackgroundIDBVersionChangeTransactionParent.h"
 #include "mozilla/dom/indexedDB/PBackgroundIndexedDBUtilsParent.h"
-#include "mozilla/dom/IPCBlobInputStreamParent.h"
 #include "mozilla/dom/IPCBlobUtils.h"
 #include "mozilla/dom/quota/CheckedUnsafePtr.h"
 #include "mozilla/dom/quota/Client.h"
@@ -77,6 +76,7 @@
 #include "mozilla/ipc/InputStreamUtils.h"
 #include "mozilla/ipc/PBackground.h"
 #include "mozilla/ipc/PBackgroundParent.h"
+#include "mozilla/RemoteLazyInputStreamParent.h"
 #include "mozilla/Scoped.h"
 #include "mozilla/storage/Variant.h"
 #include "mozIStorageFunction.h"
@@ -6053,7 +6053,7 @@ class Database::StartTransactionOp final
 };
 
 class Database::UnmapBlobCallback final
-    : public IPCBlobInputStreamParentCallback {
+    : public RemoteLazyInputStreamParentCallback {
   SafeRefPtr<Database> mDatabase;
 
  public:
@@ -13796,11 +13796,12 @@ void Database::MapBlob(const IPCBlob& aIPCBlob,
                        SafeRefPtr<FileInfo> aFileInfo) {
   AssertIsOnBackgroundThread();
 
-  const IPCBlobStream& stream = aIPCBlob.inputStream();
-  MOZ_ASSERT(stream.type() == IPCBlobStream::TPIPCBlobInputStreamParent);
+  const RemoteLazyStream& stream = aIPCBlob.inputStream();
+  MOZ_ASSERT(stream.type() == RemoteLazyStream::TPRemoteLazyInputStreamParent);
 
-  IPCBlobInputStreamParent* actor = static_cast<IPCBlobInputStreamParent*>(
-      stream.get_PIPCBlobInputStreamParent());
+  RemoteLazyInputStreamParent* actor =
+      static_cast<RemoteLazyInputStreamParent*>(
+          stream.get_PRemoteLazyInputStreamParent());
 
   MOZ_ASSERT(!mMappedBlobs.GetWeak(actor->ID()));
   mMappedBlobs.Put(actor->ID(), AsRefPtr(std::move(aFileInfo)));
@@ -13853,25 +13854,25 @@ void Database::Stringify(nsACString& aResult) const {
 SafeRefPtr<FileInfo> Database::GetBlob(const IPCBlob& aIPCBlob) {
   AssertIsOnBackgroundThread();
 
-  const IPCBlobStream& stream = aIPCBlob.inputStream();
-  MOZ_ASSERT(stream.type() == IPCBlobStream::TIPCStream);
+  const RemoteLazyStream& stream = aIPCBlob.inputStream();
+  MOZ_ASSERT(stream.type() == RemoteLazyStream::TIPCStream);
 
   const IPCStream& ipcStream = stream.get_IPCStream();
 
   const InputStreamParams& inputStreamParams = ipcStream.stream();
   if (inputStreamParams.type() !=
-      InputStreamParams::TIPCBlobInputStreamParams) {
+      InputStreamParams::TRemoteLazyInputStreamParams) {
     return nullptr;
   }
 
-  const IPCBlobInputStreamParams& ipcBlobInputStreamParams =
-      inputStreamParams.get_IPCBlobInputStreamParams();
+  const RemoteLazyInputStreamParams& ipcBlobInputStreamParams =
+      inputStreamParams.get_RemoteLazyInputStreamParams();
   if (ipcBlobInputStreamParams.type() !=
-      IPCBlobInputStreamParams::TIPCBlobInputStreamRef) {
+      RemoteLazyInputStreamParams::TRemoteLazyInputStreamRef) {
     return nullptr;
   }
 
-  const nsID& id = ipcBlobInputStreamParams.get_IPCBlobInputStreamRef().id();
+  const nsID& id = ipcBlobInputStreamParams.get_RemoteLazyInputStreamRef().id();
 
   RefPtr<FileInfo> fileInfo;
   if (!mMappedBlobs.Get(id, getter_AddRefs(fileInfo))) {

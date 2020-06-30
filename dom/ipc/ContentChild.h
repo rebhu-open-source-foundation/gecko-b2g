@@ -204,8 +204,8 @@ class ContentChild final : public PContentChild,
   mozilla::ipc::IPCResult RecvSetProcessSandbox(
       const Maybe<FileDescriptor>& aBroker);
 
-  already_AddRefed<PIPCBlobInputStreamChild> AllocPIPCBlobInputStreamChild(
-      const nsID& aID, const uint64_t& aSize);
+  already_AddRefed<PRemoteLazyInputStreamChild>
+  AllocPRemoteLazyInputStreamChild(const nsID& aID, const uint64_t& aSize);
 
   PHalChild* AllocPHalChild();
   bool DeallocPHalChild(PHalChild*);
@@ -875,6 +875,24 @@ class ContentChild final : public PContentChild,
   mozilla::ipc::IPCResult RecvDisplayLoadError(
       const MaybeDiscarded<BrowsingContext>& aContext, const nsAString& aURI);
 
+  mozilla::ipc::IPCResult RecvGoBack(
+      const MaybeDiscarded<BrowsingContext>& aContext,
+      const Maybe<int32_t>& aCancelContentJSEpoch,
+      bool aRequireUserInteraction);
+  mozilla::ipc::IPCResult RecvGoForward(
+      const MaybeDiscarded<BrowsingContext>& aContext,
+      const Maybe<int32_t>& aCancelContentJSEpoch,
+      bool aRequireUserInteraction);
+  mozilla::ipc::IPCResult RecvGoToIndex(
+      const MaybeDiscarded<BrowsingContext>& aContext, const int32_t& aIndex,
+      const Maybe<int32_t>& aCancelContentJSEpoch);
+  mozilla::ipc::IPCResult RecvReload(
+      const MaybeDiscarded<BrowsingContext>& aContext,
+      const uint32_t aReloadFlags);
+  mozilla::ipc::IPCResult RecvStopLoad(
+      const MaybeDiscarded<BrowsingContext>& aContext,
+      const uint32_t aStopFlags);
+
   mozilla::ipc::IPCResult RecvRawMessage(const JSActorMessageMeta& aMeta,
                                          const ClonedMessageData& aData,
                                          const ClonedMessageData& aStack);
@@ -981,7 +999,9 @@ class ContentChild final : public PContentChild,
   uint64_t mBrowsingContextFieldEpoch = 0;
 
   nsRefPtrHashtable<nsCStringHashKey, JSProcessActorChild> mProcessActors;
-  DISALLOW_EVIL_CONSTRUCTORS(ContentChild);
+  ContentChild(const ContentChild&) = delete;
+
+  const ContentChild& operator=(const ContentChild&) = delete;
 };
 
 inline nsISupports* ToSupports(mozilla::dom::ContentChild* aContentChild) {

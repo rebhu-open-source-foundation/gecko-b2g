@@ -81,8 +81,8 @@
 #include "nsStreamUtils.h"
 #include "nsThreadUtils.h"
 #include "nsURLHelper.h"
-#include "mozilla/dom/IPCBlobUtils.h"
-#include "mozilla/dom/IPCBlobInputStreamChild.h"
+#include "mozilla/RemoteLazyInputStreamChild.h"
+#include "mozilla/RemoteLazyInputStreamUtils.h"
 
 namespace mozilla {
 namespace net {
@@ -3680,9 +3680,8 @@ HttpBaseChannel::ReplacementChannelConfig::ReplacementChannelConfig(
   method = aInit.method();
   referrerInfo = aInit.referrerInfo();
   timedChannel = aInit.timedChannel();
-  if (dom::IPCBlobInputStreamChild* actor =
-          static_cast<dom::IPCBlobInputStreamChild*>(
-              aInit.uploadStreamChild())) {
+  if (RemoteLazyInputStreamChild* actor =
+          static_cast<RemoteLazyInputStreamChild*>(aInit.uploadStreamChild())) {
     uploadStreamLength = actor->Size();
     uploadStream = actor->CreateStream();
     // actor can be deleted by CreateStream, so don't touch it
@@ -3706,8 +3705,10 @@ HttpBaseChannel::ReplacementChannelConfig::Serialize(
   config.referrerInfo() = referrerInfo;
   config.timedChannel() = timedChannel;
   if (uploadStream) {
-    dom::IPCBlobUtils::SerializeInputStream(
-        uploadStream, uploadStreamLength, config.uploadStreamParent(), aParent);
+    RemoteLazyStream ipdlStream;
+    RemoteLazyInputStreamUtils::SerializeInputStream(
+        uploadStream, uploadStreamLength, ipdlStream, aParent);
+    config.uploadStreamParent() = ipdlStream;
   }
   config.uploadStreamHasHeaders() = uploadStreamHasHeaders;
   config.contentType() = contentType;
