@@ -6,10 +6,11 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["WifiInfo"];
+const { WifiConstants } = ChromeUtils.import(
+  "resource://gre/modules/WifiConstants.jsm"
+);
 
-const INVALID_RSSI = -127;
-const INVALID_NETWORK_ID = -1;
+this.EXPORTED_SYMBOLS = ["WifiInfo"];
 
 /**
  * Describes the state of any Wifi connection that is active or
@@ -22,8 +23,8 @@ WifiInfo.prototype = {
   bssid: null,
   wifiSsid: null,
   security: null,
-  networkId: INVALID_NETWORK_ID,
-  rssi: INVALID_RSSI,
+  networkId: WifiConstants.INVALID_NETWORK_ID,
+  rssi: WifiConstants.INVALID_RSSI,
   linkSpeed: null,
   frequency: -1,
   ipAddress: -1,
@@ -73,8 +74,8 @@ WifiInfo.prototype = {
     this.bssid = null;
     this.wifiSsid = null;
     this.security = null;
-    this.networkId = INVALID_NETWORK_ID;
-    this.rssi = INVALID_RSSI;
+    this.networkId = WifiConstants.INVALID_NETWORK_ID;
+    this.rssi = WifiConstants.INVALID_RSSI;
     this.linkSpeed = -1;
     this.frequency = -1;
     this.ipAddress = null;

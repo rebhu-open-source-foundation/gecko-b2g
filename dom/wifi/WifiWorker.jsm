@@ -39,6 +39,9 @@ const { WifiScanSettings, WifiPnoSettings } = ChromeUtils.import(
 const { Timer, clearTimeout, setTimeout } = ChromeUtils.import(
   "resource://gre/modules/Timer.jsm"
 );
+const { WifiConstants } = ChromeUtils.import(
+  "resource://gre/modules/WifiConstants.jsm"
+);
 const { ScanResult, WifiNetwork, WifiConfigUtils } = ChromeUtils.import(
   "resource://gre/modules/WifiConfiguration.jsm"
 );
@@ -198,14 +201,6 @@ const POWER_MODE_DHCP = 1;
 const POWER_MODE_SCREEN_STATE = 1 << 1;
 const POWER_MODE_SETTING_CHANGED = 1 << 2;
 
-const PROMPT_UNVALIDATED_DELAY_MS = 8000;
-
-const INVALID_RSSI = -127;
-const INVALID_NETWORK_ID = -1;
-
-const WIFI_ASSOCIATED_SCAN_INTERVAL = 20 * 1000;
-const WIFI_MAX_SCAN_CACHED_TIME = 60 * 1000;
-
 XPCOMUtils.defineLazyGetter(this, "ppmm", () => {
   return Cc["@mozilla.org/parentprocessmessagemanager;1"].getService();
 });
@@ -347,7 +342,7 @@ var WifiManager = (function() {
     eapMethod: ["PEAP", "TTLS", "TLS"],
     eapPhase2: ["PAP", "MSCHAP", "MSCHAPV2", "GTC"],
     certificate: ["SERVER", "USER"],
-    mode: [WifiConfigUtils.MODE_ESS],
+    mode: [WifiConstants.MODE_ESS],
   };
   if (eapSimSupported) {
     capabilities.eapMethod.unshift("SIM");
@@ -355,7 +350,7 @@ var WifiManager = (function() {
     capabilities.eapMethod.unshift("AKA'");
   }
   if (ibssSupported) {
-    capabilities.mode.push(WifiConfigUtils.MODE_IBSS);
+    capabilities.mode.push(WifiConstants.MODE_IBSS);
   }
   // Features supported by vendor module.
   let supportedFeatures = 0;
@@ -441,7 +436,8 @@ var WifiManager = (function() {
   function handleScreenStateChanged(enabled) {
     screenOn = enabled;
     if (screenOn) {
-      fullBandConnectedTimeIntervalMilli = WIFI_ASSOCIATED_SCAN_INTERVAL;
+      fullBandConnectedTimeIntervalMilli =
+        WifiConstants.WIFI_ASSOCIATED_SCAN_INTERVAL;
       setSuspendOptimizationsMode(
         POWER_MODE_SCREEN_STATE,
         false,
@@ -554,9 +550,10 @@ var WifiManager = (function() {
     });
   }
 
-  var delay = 15000;
+  var delayScanInterval = WifiConstants.WIFI_SCHEDULED_SCAN_INTERVAL;
   var delayScanId = null;
-  var fullBandConnectedTimeIntervalMilli = WIFI_ASSOCIATED_SCAN_INTERVAL;
+  var fullBandConnectedTimeIntervalMilli =
+    WifiConstants.WIFI_ASSOCIATED_SCAN_INTERVAL;
   var maxFullBandConnectedTimeIntervalMilli = 5 * 60 * 1000;
   var lastFullBandConnectedTimeMilli = -1;
   manager.currentConfigChannels = [];
@@ -572,7 +569,7 @@ var WifiManager = (function() {
 
     if (screenOn) {
       if (manager.state == "COMPLETED") {
-        delay = 20000;
+        delayScanInterval = WifiConstants.WIFI_ASSOCIATED_SCAN_INTERVAL;
 
         let tryFullBandScan = false;
         var now_ms = Date.now();
@@ -608,12 +605,12 @@ var WifiManager = (function() {
           handleScanRequest(function() {});
         }
       } else if (!manager.isConnectState(manager.state)) {
-        delay = 15000;
+        delayScanInterval = WifiConstants.WIFI_SCHEDULED_SCAN_INTERVAL;
         handleScanRequest(function() {});
       }
     }
 
-    delayScanId = setTimeout(manager.startDelayScan, delay);
+    delayScanId = setTimeout(manager.startDelayScan, delayScanInterval);
   };
 
   var debugEnabled = false;
@@ -875,11 +872,11 @@ var WifiManager = (function() {
           }
           WifiConfigManager.updateNetworkSelectionStatus(
             lastNetwork.netId,
-            WifiConfigManager.DISABLED_DHCP_FAILURE,
+            WifiConstants.DISABLED_DHCP_FAILURE,
             function(doDisable) {
               if (doDisable) {
                 notify("networkdisable", {
-                  reason: WifiConfigManager.DISABLED_DHCP_FAILURE,
+                  reason: WifiConstants.DISABLED_DHCP_FAILURE,
                 });
               } else {
                 WifiManager.disconnect(function() {
@@ -1022,7 +1019,7 @@ var WifiManager = (function() {
       WifiConfigManager.getNetworkConfiguration(
         manager.targetNetworkId,
         function(network) {
-          if (network && network.netId !== INVALID_NETWORK_ID) {
+          if (network && network.netId !== WifiConstants.INVALID_NETWORK_ID) {
             wifiInfo.setNetworkId(network.netId);
             WifiConfigUtils.getSecurityByKeyMgmt(network, function(security) {
               wifiInfo.setSecurity(security);
@@ -1073,7 +1070,7 @@ var WifiManager = (function() {
     notifyStateChange(fields);
     if (fields.state === "COMPLETED") {
       manager.lastDriverRoamAttempt = 0;
-      manager.targetNetworkId = INVALID_NETWORK_ID;
+      manager.targetNetworkId = WifiConstants.INVALID_NETWORK_ID;
       onconnected();
       if (isDriverRoaming) {
         isDriverRoaming = false;
@@ -1110,7 +1107,8 @@ var WifiManager = (function() {
   function supplicantNetworkDisconnected(event) {
     var reason = event.reason;
     var lastRoam = 0;
-    fullBandConnectedTimeIntervalMilli = WIFI_ASSOCIATED_SCAN_INTERVAL;
+    fullBandConnectedTimeIntervalMilli =
+      WifiConstants.WIFI_ASSOCIATED_SCAN_INTERVAL;
     if (manager.lastDriverRoamAttempt != 0) {
       lastRoam = Date.now() - manager.lastDriverRoamAttempt;
       manager.lastDriverRoamAttempt = 0;
@@ -1137,9 +1135,9 @@ var WifiManager = (function() {
           !WifiConfigManager.isLastSelectedNetwork(lastNetwork.netId) &&
           (reason != 3 || (lastRoam > 0 && lastRoam < 2000)) &&
           ((wifiInfo.is24G &&
-            wifiInfo.rssi > WifiNetworkSelector.RSSI_THRESHOLD_LOW_24G) ||
+            wifiInfo.rssi > WifiConstants.RSSI_THRESHOLD_LOW_24G) ||
             (wifiInfo.is5G &&
-              wifiInfo.rssi > WifiNetworkSelector.RSSI_THRESHOLD_LOW_5G))
+              wifiInfo.rssi > WifiConstants.RSSI_THRESHOLD_LOW_5G))
         ) {
           handleScanRequest(function() {});
           manager.linkDebouncing = true;
@@ -1200,7 +1198,7 @@ var WifiManager = (function() {
 
   function supplicantAuthenticationFailure(event) {
     let reasonCode = event.reason;
-    let disableReason = WifiConfigManager.DISABLED_AUTHENTICATION_FAILURE;
+    let disableReason = WifiConstants.DISABLED_AUTHENTICATION_FAILURE;
     WifiConfigManager.getNetworkConfiguration(manager.targetNetworkId, function(
       network
     ) {
@@ -1208,13 +1206,12 @@ var WifiManager = (function() {
         if (network && network.hasEverConnected) {
           debug("Network " + manager.targetNetworkId + " is ever connected");
         } else {
-          disableReason = WifiConfigManager.DISABLED_BY_WRONG_PASSWORD;
+          disableReason = WifiConstants.DISABLED_BY_WRONG_PASSWORD;
         }
       } else if (reasonCode == AUTH_FAILURE_EAP_FAILURE) {
         let errorCode = event.errorCode;
         if (errorCode == ERROR_EAP_SIM_NOT_SUBSCRIBED) {
-          disableReason =
-            WifiConfigManager.DISABLED_AUTHENTICATION_NO_SUBSCRIBED;
+          disableReason = WifiConstants.DISABLED_AUTHENTICATION_NO_SUBSCRIBED;
         }
       }
       WifiConfigManager.updateNetworkSelectionStatus(
@@ -1223,7 +1220,7 @@ var WifiManager = (function() {
         function(doDisable) {
           if (doDisable) {
             notify("networkdisable", {
-              reason: WifiConfigManager.DISABLED_AUTHENTICATION_FAILURE,
+              reason: WifiConstants.DISABLED_AUTHENTICATION_FAILURE,
             });
           }
         }
@@ -1244,11 +1241,11 @@ var WifiManager = (function() {
 
       WifiConfigManager.updateNetworkSelectionStatus(
         manager.targetNetworkId,
-        WifiConfigManager.DISABLED_ASSOCIATION_REJECTION,
+        WifiConstants.DISABLED_ASSOCIATION_REJECTION,
         function(doDisable) {
           if (doDisable) {
             notify("networkdisable", {
-              reason: WifiConfigManager.DISABLED_ASSOCIATION_REJECTION,
+              reason: WifiConstants.DISABLED_ASSOCIATION_REJECTION,
             });
           }
         }
@@ -1370,7 +1367,7 @@ var WifiManager = (function() {
   manager.numRil = numRil;
   manager.cachedScanResults = [];
   manager.cachedScanTime = 0;
-  manager.targetNetworkId = INVALID_NETWORK_ID;
+  manager.targetNetworkId = WifiConstants.INVALID_NETWORK_ID;
 
   manager.__defineGetter__("enabled", function() {
     switch (manager.state) {
@@ -1449,7 +1446,7 @@ var WifiManager = (function() {
       debug("SIM is not ready or iccInfo is invalid");
       WifiConfigManager.updateNetworkSelectionStatus(
         networkId,
-        WifiConfigManager.DISABLED_AUTHENTICATION_NO_CREDENTIALS,
+        WifiConstants.DISABLED_AUTHENTICATION_NO_CREDENTIALS,
         function(doDisable) {
           if (doDisable) {
             manager.disableNetwork(function() {});
@@ -1859,7 +1856,10 @@ var WifiManager = (function() {
   };
 
   manager.setAutoRoam = function(candidate, callback) {
-    if (candidate == null || candidate.netId === INVALID_NETWORK_ID) {
+    if (
+      candidate == null ||
+      candidate.netId === WifiConstants.INVALID_NETWORK_ID
+    ) {
       debug("Roam to invalid candidate");
       callback(false);
       return;
@@ -1873,7 +1873,10 @@ var WifiManager = (function() {
   };
 
   manager.setAutoConnect = function(candidate, callback) {
-    if (candidate == null || candidate.netId === INVALID_NETWORK_ID) {
+    if (
+      candidate == null ||
+      candidate.netId === WifiConstants.INVALID_NETWORK_ID
+    ) {
       debug("Connect to invalid candidate");
       callback(false);
       return;
@@ -2019,12 +2022,12 @@ var WifiManager = (function() {
         if (manager.loopDetectionCount > MAX_SUPPLICANT_LOOP_ITERATIONS) {
           WifiConfigManager.updateNetworkSelectionStatus(
             lastNetwork.netId,
-            WifiConfigManager.DISABLED_AUTHENTICATION_FAILURE,
+            WifiConstants.DISABLED_AUTHENTICATION_FAILURE,
             function(doDisable) {
               manager.loopDetectionCount = 0;
               if (doDisable) {
                 notify("networkdisable", {
-                  reason: WifiConfigManager.DISABLED_AUTHENTICATION_FAILURE,
+                  reason: WifiConstants.DISABLED_AUTHENTICATION_FAILURE,
                 });
               }
             }
@@ -2125,7 +2128,7 @@ var WifiManager = (function() {
 
 function shouldBroadcastRSSIForIMS(newRssi, lastRssi) {
   let needBroadcast = false;
-  if (newRssi == lastRssi || lastRssi == INVALID_RSSI) {
+  if (newRssi == lastRssi || lastRssi == WifiConstants.INVALID_RSSI) {
     return needBroadcast;
   }
 
@@ -2655,15 +2658,15 @@ function WifiWorker() {
     );
     self.handleNetworkConnectionFailure(lastNetwork);
     switch (this.reason) {
-      case WifiConfigManager.DISABLED_DHCP_FAILURE:
+      case WifiConstants.DISABLED_DHCP_FAILURE:
         self._fireEvent("ondhcpfailed", { network: netToDOM(lastNetwork) });
         break;
-      case WifiConfigManager.DISABLED_AUTHENTICATION_FAILURE:
+      case WifiConstants.DISABLED_AUTHENTICATION_FAILURE:
         self._fireEvent("onauthenticationfailed", {
           network: netToDOM(lastNetwork),
         });
         break;
-      case WifiConfigManager.DISABLED_ASSOCIATION_REJECTION:
+      case WifiConstants.DISABLED_ASSOCIATION_REJECTION:
         self._fireEvent("onassociationreject", {
           network: netToDOM(lastNetwork),
         });
@@ -2697,12 +2700,12 @@ function WifiWorker() {
         lastNetwork = {
           bssid: wifiInfo.bssid,
           ssid: quote(wifiInfo.wifiSsid),
-          mode: WifiConfigUtils.MODE_ESS,
+          mode: WifiConstants.MODE_ESS,
           frequency: 0,
           everValidated: networkEverValidated,
           everCaptivePortalDetected: networkEverCaptivePortalDetected,
         };
-        if (wifiInfo.networkId !== INVALID_NETWORK_ID) {
+        if (wifiInfo.networkId !== WifiConstants.INVALID_NETWORK_ID) {
           lastNetwork.netId = wifiInfo.networkId;
         }
         self._fireEvent("onconnecting", { network: netToDOM(lastNetwork) });
@@ -2837,7 +2840,7 @@ function WifiWorker() {
 
     self.handlePromptUnvalidatedId = setTimeout(
       self.handlePromptUnvalidated.bind(self),
-      PROMPT_UNVALIDATED_DELAY_MS
+      WifiConstants.PROMPT_UNVALIDATED_DELAY_MS
     );
 
     // wifi connected and reset open network notification.
@@ -3363,7 +3366,6 @@ WifiWorker.prototype = {
 
       WifiNetworkSelector.selectNetwork(
         scanResults,
-        WifiConfigManager.configuredNetworks,
         WifiManager.linkDebouncing,
         translateState(WifiManager.state),
         wifiInfo,
@@ -3414,7 +3416,7 @@ WifiWorker.prototype = {
 
   handleNetworkConnectionFailure(network, callback) {
     let netId = network.netId;
-    if (netId !== INVALID_NETWORK_ID) {
+    if (netId !== WifiConstants.INVALID_NETWORK_ID) {
       WifiManager.disableNetwork(function() {
         debug("disable network - id: " + netId);
       });
@@ -3731,7 +3733,8 @@ WifiWorker.prototype = {
         // if last results are available, return the cached scan results.
         if (
           WifiManager.cachedScanTime > 0 &&
-          Date.now() - WifiManager.cachedScanTime < WIFI_MAX_SCAN_CACHED_TIME
+          Date.now() - WifiManager.cachedScanTime <
+            WifiConstants.WIFI_MAX_SCAN_CACHED_TIME
         ) {
           this._sendMessage(
             message,
@@ -4358,7 +4361,7 @@ WifiWorker.prototype = {
         if (
           WifiManager.state == "COMPLETED" &&
           lastNetwork &&
-          lastNetwork.netId !== INVALID_NETWORK_ID &&
+          lastNetwork.netId !== WifiConstants.INVALID_NETWORK_ID &&
           lastNetwork.netId !== privnet.netId
         ) {
           WifiManager.disconnect(function() {

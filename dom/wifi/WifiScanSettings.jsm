@@ -6,6 +6,10 @@
 
 "use strict";
 
+const { WifiConstants } = ChromeUtils.import(
+  "resource://gre/modules/WifiConstants.jsm"
+);
+
 this.EXPORTED_SYMBOLS = ["WifiScanSettings", "WifiPnoSettings"];
 
 /**
@@ -51,12 +55,10 @@ this.WifiPnoSettings = (function() {
   var wifiPnoSettings = {};
 
   const DEFAULT_PNO_INTERVAL_MS = 20 * 1000;
-  const DEFAULT_MIN_2G_RSSI = -73;
-  const DEFAULT_MIN_5G_RSSI = -70;
 
   var interval = DEFAULT_PNO_INTERVAL_MS;
-  var min2gRssi = DEFAULT_MIN_2G_RSSI;
-  var min5gRssi = DEFAULT_MIN_5G_RSSI;
+  var min2gRssi = WifiConstants.RSSI_THRESHOLD_LOW_24G;
+  var min5gRssi = WifiConstants.RSSI_THRESHOLD_LOW_24G;
   var pnoNetworks = [];
 
   var pnoSettings = Object.create(null);

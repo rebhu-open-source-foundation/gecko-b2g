@@ -26,11 +26,13 @@ if not CONFIG['DISABLE_WIFI']:
   EXTRA_JS_MODULES += [
       'DOMWifiManager.jsm',
       'OpenNetworkNotifier.jsm',
+      'SavedNetworkSelector.jsm',
       'StateMachine.jsm',
       'WifiCommand.jsm',
       'WifiConfigManager.jsm',
       'WifiConfigStore.jsm',
       'WifiConfiguration.jsm',
+      'WifiConstants.jsm',
       'WifiInfo.jsm',
       'WifiNetUtil.jsm',
       'WifiNetworkSelector.jsm',

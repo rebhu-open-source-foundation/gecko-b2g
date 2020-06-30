@@ -9,12 +9,16 @@
 const { WifiConfigManager } = ChromeUtils.import(
   "resource://gre/modules/WifiConfigManager.jsm"
 );
+const { WifiConstants } = ChromeUtils.import(
+  "resource://gre/modules/WifiConstants.jsm"
+);
+const { SavedNetworkSelector } = ChromeUtils.import(
+  "resource://gre/modules/SavedNetworkSelector.jsm"
+);
 
 this.EXPORTED_SYMBOLS = ["WifiNetworkSelector"];
 
 var gDebug = false;
-
-const INVALID_TIME_STAMP = -1;
 
 function BssidBlacklistStatus() {}
 
@@ -23,53 +27,31 @@ BssidBlacklistStatus.prototype = {
   // (association rejection trigger this)
   counter: 0,
   isBlacklisted: false,
-  blacklistedTimeStamp: INVALID_TIME_STAMP,
+  blacklistedTimeStamp: WifiConstants.INVALID_TIME_STAMP,
 };
 
 this.WifiNetworkSelector = (function() {
   var wifiNetworkSelector = {};
-
-  const INVALID_NETWORK_ID = -1;
 
   // Minimum time gap between last successful Network Selection and
   // new selection attempt usable only when current state is connected state.
   const MINIMUM_NETWORK_SELECTION_INTERVAL = 10 * 1000;
   const MINIMUM_LAST_USER_SELECTION_INTERVAL = 30 * 1000;
 
-  const RSSI_THRESHOLD_GOOD_24G = -60;
-  const RSSI_THRESHOLD_LOW_24G = -73;
-  const RSSI_THRESHOLD_BAD_24G = -83;
-  const RSSI_THRESHOLD_GOOD_5G = -57;
-  const RSSI_THRESHOLD_LOW_5G = -70;
-  const RSSI_THRESHOLD_BAD_5G = -80;
-
-  const RSSI_SCORE_OFFSET = 85;
-  const RSSI_SCORE_SLOPE = 4;
-
-  const BAND_AWARD_5GHZ = 40;
-  const LAST_SELECTION_AWARD = 480;
-  const CURRENT_NETWORK_BOOST = 16;
-  const SAME_BSSID_AWARD = 24;
-  const SECURITY_AWARD = 80;
-  const NO_INTERNET_PENALTY =
-    (RSSI_THRESHOLD_GOOD_24G + RSSI_SCORE_OFFSET) * RSSI_SCORE_SLOPE +
-    BAND_AWARD_5GHZ +
-    CURRENT_NETWORK_BOOST +
-    SAME_BSSID_AWARD +
-    SECURITY_AWARD;
-
   const BSSID_BLACKLIST_THRESHOLD = 3;
   const BSSID_BLACKLIST_EXPIRE_TIME = 30 * 60 * 1000;
 
   const REASON_AP_UNABLE_TO_HANDLE_NEW_STA = 17;
 
-  var lastNetworkSelectionTimeStamp = INVALID_TIME_STAMP;
+  var lastNetworkSelectionTimeStamp = WifiConstants.INVALID_TIME_STAMP;
   var enableAutoJoinWhenAssociated = true;
   var bssidBlacklist = new Map();
 
-  // WifiNetworkSelector parameters
-  wifiNetworkSelector.RSSI_THRESHOLD_LOW_24G = RSSI_THRESHOLD_LOW_24G;
-  wifiNetworkSelector.RSSI_THRESHOLD_LOW_5G = RSSI_THRESHOLD_LOW_5G;
+  var savedNetworkSelector = new SavedNetworkSelector();
+
+  // Network selector would go through each of the selectors.
+  // Once a candidate is found, the iterator will stop.
+  var networkSelectors = [savedNetworkSelector];
 
   // WifiNetworkSelector functions
   wifiNetworkSelector.bssidBlacklist = bssidBlacklist;
@@ -80,6 +62,10 @@ this.WifiNetworkSelector = (function() {
 
   function setDebug(aDebug) {
     gDebug = aDebug;
+
+    if (savedNetworkSelector) {
+      savedNetworkSelector.setDebug(aDebug);
+    }
   }
 
   function debug(aMsg) {
@@ -90,7 +76,6 @@ this.WifiNetworkSelector = (function() {
 
   function selectNetwork(
     scanResults,
-    configuredNetworks,
     isLinkDebouncing,
     wifiState,
     wifiInfo,
@@ -108,10 +93,8 @@ this.WifiNetworkSelector = (function() {
       return callback(null);
     }
 
-    var lastUserSelectedNetwork = WifiConfigManager.getLastSelectedNetwork();
-    var lastUserSelectedNetworkTimeStamp = WifiConfigManager.getLastSelectedTimeStamp();
-    var highestScore = 0;
-    var scanResultCandidate = null;
+    var candidate = null;
+    var configuredNetworks = WifiConfigManager.configuredNetworks;
 
     updateSavedNetworkSelectionStatus(configuredNetworks);
 
@@ -121,106 +104,23 @@ this.WifiNetworkSelector = (function() {
       wifiInfo.bssid
     );
 
-    // iterate all scan results and find the best candidate with the highest score
-    for (let i in filteredResults) {
-      let result = filteredResults[i];
-      // If network disabled, it didn't need to calculate bssid score.
-      if (configuredNetworks[result.networkKey].networkSelectionStatus) {
-        continue;
-      }
-      var score = calculateBssidScore(
-        result,
-        lastUserSelectedNetwork == null
-          ? false
-          : lastUserSelectedNetwork == result.netId,
-        wifiInfo.networkId == result.netId,
-        wifiInfo.bssid == null ? false : wifiInfo.bssid == result.bssid,
-        lastUserSelectedNetworkTimeStamp
-      );
+    const selectorCallback = element => {
+      candidate = element.chooseNetwork(filteredResults, wifiInfo);
 
-      if (score > highestScore) {
-        highestScore = score;
-        scanResultCandidate = result;
-      }
-    }
+      // If candidate is found, just break the loop.
+      return candidate != null;
+    };
 
-    if (scanResultCandidate == null) {
+    // Iterate the selectors in networkSelectors.
+    networkSelectors.some(selectorCallback);
+
+    if (candidate == null) {
       debug("Can not find any suitable candidates");
       return callback(null);
     }
 
     lastNetworkSelectionTimeStamp = Date.now();
-    return callback(scanResultCandidate);
-  }
-
-  function calculateBssidScore(
-    scanResult,
-    sameSelect,
-    sameNetworkId,
-    sameBssid,
-    lastUserSelectedNetworkTimeStamp
-  ) {
-    var score = 0;
-    // calculate the RSSI score
-    var rssi =
-      scanResult.signalStrength <= RSSI_THRESHOLD_GOOD_24G
-        ? scanResult.signalStrength
-        : RSSI_THRESHOLD_GOOD_24G;
-    score += (parseInt(rssi, 10) + RSSI_SCORE_OFFSET) * RSSI_SCORE_SLOPE;
-    debug("RSSI score: " + score);
-    if (scanResult.is5G) {
-      // 5GHz band
-      score += BAND_AWARD_5GHZ;
-      debug("5GHz bonus: " + BAND_AWARD_5GHZ);
-    }
-    // last user selection award
-    if (sameSelect) {
-      var timeDifference = Date.now() - lastUserSelectedNetworkTimeStamp;
-
-      if (timeDifference > 0) {
-        var bonus = LAST_SELECTION_AWARD - timeDifference / 1000 / 60;
-        score += bonus > 0 ? bonus : 0;
-        debug(
-          " User selected it last time " +
-            timeDifference / 1000 / 60 +
-            " minutes ago, bonus:" +
-            bonus
-        );
-      }
-    }
-    // same network award
-    if (sameNetworkId) {
-      score += CURRENT_NETWORK_BOOST;
-      debug(
-        "Same network with current associated. Bonus: " + CURRENT_NETWORK_BOOST
-      );
-    }
-    // same BSSID award
-    if (sameBssid) {
-      score += SAME_BSSID_AWARD;
-      debug("Same BSSID with current association. Bonus: " + SAME_BSSID_AWARD);
-    }
-    // security award
-    if (scanResult.security !== "") {
-      score += SECURITY_AWARD;
-      debug("Secure network Bonus: " + SECURITY_AWARD);
-    }
-    // Penalty for no internet network. Make sure if there is any network with
-    // Internet.However, if there is no any other network with internet, this
-    // network can be chosen.
-    // FIXME: network validation is not ready
-    // if (
-    //   typeof scanResult.hasInternet !== "undefined" &&
-    //   !scanResult.hasInternet
-    // ) {
-    //   score -= NO_INTERNET_PENALTY;
-    //   debug(" No internet Penalty:-" + NO_INTERNET_PENALTY);
-    // }
-
-    debug(
-      " Score for scanResult: " + uneval(scanResult) + " final score:" + score
-    );
-    return score;
+    return callback(candidate);
   }
 
   function isNetworkSelectionNeeded(isLinkDebouncing, wifiState, wifiInfo) {
@@ -245,7 +145,7 @@ this.WifiNetworkSelector = (function() {
       }
 
       // Has it been at least the minimum interval since last network selection?
-      if (lastNetworkSelectionTimeStamp != INVALID_TIME_STAMP) {
+      if (lastNetworkSelectionTimeStamp != WifiConstants.INVALID_TIME_STAMP) {
         var now = Date.now();
         var gap = now - lastNetworkSelectionTimeStamp;
         if (gap < MINIMUM_NETWORK_SELECTION_INTERVAL) {
@@ -273,7 +173,7 @@ this.WifiNetworkSelector = (function() {
   }
 
   function isCurrentNetworkSufficient(wifiInfo) {
-    if (wifiInfo.networkId == INVALID_NETWORK_ID) {
+    if (wifiInfo.networkId == WifiConstants.INVALID_NETWORK_ID) {
       debug("WifiWorker in connected state but WifiInfo is not");
       return false;
     }
@@ -305,8 +205,8 @@ this.WifiNetworkSelector = (function() {
     //       2. Tx/Rx Success rate shall be considered.
     let currentRssi = wifiInfo.rssi;
     let hasQualifiedRssi =
-      (wifiInfo.is24G && currentRssi > RSSI_THRESHOLD_LOW_24G) ||
-      (wifiInfo.is5G && currentRssi > RSSI_THRESHOLD_LOW_5G);
+      (wifiInfo.is24G && currentRssi > WifiConstants.RSSI_THRESHOLD_LOW_24G) ||
+      (wifiInfo.is5G && currentRssi > WifiConstants.RSSI_THRESHOLD_LOW_5G);
 
     if (!hasQualifiedRssi) {
       debug(
@@ -351,10 +251,10 @@ this.WifiNetworkSelector = (function() {
 
       let isWeak24G =
         scanResults[i].is24G &&
-        scanResults[i].signalStrength < RSSI_THRESHOLD_BAD_24G;
+        scanResults[i].signalStrength < WifiConstants.RSSI_THRESHOLD_BAD_24G;
       let isWeak5G =
         scanResults[i].is5G &&
-        scanResults[i].signalStrength < RSSI_THRESHOLD_BAD_5G;
+        scanResults[i].signalStrength < WifiConstants.RSSI_THRESHOLD_BAD_5G;
       // skip scan result with too weak signals
       if (isWeak24G || isWeak5G) {
         debug(

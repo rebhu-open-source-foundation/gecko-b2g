@@ -6,13 +6,14 @@
 
 "use strict";
 
+const { WifiConstants } = ChromeUtils.import(
+  "resource://gre/modules/WifiConstants.jsm"
+);
+
 this.EXPORTED_SYMBOLS = ["ScanResult", "WifiNetwork", "WifiConfigUtils"];
 
 this.WifiConfigUtils = (function() {
   var wifiConfigUtils = {};
-
-  const MODE_ESS = 0;
-  const MODE_IBSS = 1;
 
   const EID_SSID = 0;
   const EID_SUPPORTED_RATES = 1;
@@ -96,20 +97,6 @@ this.WifiConfigUtils = (function() {
   const RSN_CIPHER_CCMP = 0x04ac0f00;
   const RSN_CIPHER_NO_GROUP_ADDRESSED = 0x07ac0f00;
   const RSN_CIPHER_GCMP_256 = 0x09ac0f00;
-
-  // These constants shamelessly ripped from WifiManager.java
-  // strength is the value returned by scan_results. It is nominally in dB. We
-  // transform it into a percentage for clients looking to simply show a
-  // relative indication of the strength of a network.
-  const MIN_RSSI = -100;
-  const MAX_RSSI = -55;
-
-  // WifiConfigUtils parameters
-  wifiConfigUtils.MODE_ESS = MODE_ESS;
-  wifiConfigUtils.MODE_IBSS = MODE_IBSS;
-
-  wifiConfigUtils.MIN_RSSI = MIN_RSSI;
-  wifiConfigUtils.MAX_RSSI = MAX_RSSI;
 
   // WifiConfigUtils functions
   wifiConfigUtils.getMode = getMode;
@@ -380,9 +367,9 @@ this.WifiConfigUtils = (function() {
 
   function getMode(flags) {
     if (flags.ibss) {
-      return MODE_IBSS;
+      return WifiConstants.MODE_IBSS;
     }
-    return MODE_ESS;
+    return WifiConstants.MODE_ESS;
   }
 
   function isWepEncryption(network) {
@@ -463,13 +450,19 @@ this.WifiConfigUtils = (function() {
       strength -= 256;
     }
 
-    if (strength <= MIN_RSSI) {
+    if (strength <= WifiConstants.MIN_RSSI) {
       return 0;
     }
-    if (strength >= MAX_RSSI) {
+
+    if (strength >= WifiConstants.MAX_RSSI) {
       return 100;
     }
-    return Math.floor(((strength - MIN_RSSI) / (MAX_RSSI - MIN_RSSI)) * 100);
+
+    return Math.floor(
+      ((strength - WifiConstants.MIN_RSSI) /
+        (WifiConstants.MAX_RSSI - WifiConstants.MIN_RSSI)) *
+        100
+    );
   }
 
   function dequote(s) {

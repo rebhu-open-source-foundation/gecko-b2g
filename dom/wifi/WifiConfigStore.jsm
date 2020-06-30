@@ -20,9 +20,6 @@ this.WifiConfigStore = (function() {
 
   const WIFI_CONFIG_PATH = "/data/misc/wifi/wifi_config.json";
 
-  // WifiConfigStore parameters
-  // configManager.QUALITY_NETWORK_SELECTION_DISABLE_REASON = QUALITY_NETWORK_SELECTION_DISABLE_REASON;
-
   // WifiConfigStore functions
   wifiConfigStore.read = read;
   wifiConfigStore.write = write;
