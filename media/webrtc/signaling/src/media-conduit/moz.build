@@ -54,13 +54,13 @@ if CONFIG['OS_TARGET'] == 'Android':
         ]
 
         UNIFIED_SOURCES += [
-            'OMXVideoCodec.cpp',
-            'WebrtcOMXH264VideoCodec.cpp',
-            'WebrtcOMXVP8VideoCodec.cpp',
+            'GonkVideoCodec.cpp',
+            'WebrtcGonkH264VideoCodec.cpp',
+            'WebrtcGonkVP8VideoCodec.cpp',
         ]
 
         SOURCES += [
-            'WebrtcMediaCodecWrapper.cpp',
+            'WebrtcGonkVideoCodec.cpp',
         ]
 
     else:

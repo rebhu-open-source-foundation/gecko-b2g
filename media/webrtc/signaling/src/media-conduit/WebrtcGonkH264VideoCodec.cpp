@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "WebrtcOMXH264VideoCodec.h"
+#include "WebrtcGonkH264VideoCodec.h"
 
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/AMessage.h>
@@ -14,7 +14,7 @@
 
 #include "OMXCodecWrapper.h"
 #include "webrtc/modules/video_coding/include/video_error_codes.h"
-#include "WebrtcMediaCodecWrapper.h"
+#include "WebrtcGonkVideoCodec.h"
 
 using android::ABuffer;
 using android::MediaCodec;

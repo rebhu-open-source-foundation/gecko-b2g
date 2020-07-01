@@ -2,10 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "OMXVideoCodec.h"
+#include "GonkVideoCodec.h"
 
-#include "WebrtcOMXH264VideoCodec.h"
-#include "WebrtcOMXVP8VideoCodec.h"
+#include "WebrtcGonkH264VideoCodec.h"
+#include "WebrtcGonkVP8VideoCodec.h"
 
 namespace mozilla {
 
