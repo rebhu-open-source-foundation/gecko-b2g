@@ -2,13 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::common::get_bincode;
+use bincode::Options;
 use byteorder::{NativeEndian, ReadBytesExt, WriteBytesExt};
+use log::debug;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::io::BufWriter;
 use std::io::{Read, Write};
 use thiserror::Error as ThisError;
-use log::debug;
 
 #[derive(ThisError, Debug)]
 pub enum Error {
@@ -51,13 +53,11 @@ impl Frame {
 
     /// Tries to write a struct that can be serialized with bincode.
     pub fn serialize_to<T: Write, S: Serialize>(obj: &S, dest: &mut T) -> Result<()> {
-        let mut bincode = bincode::config();
-        let size = bincode.big_endian().serialized_size(obj)?;
+        let size = get_bincode().serialized_size(obj)?;
         debug!("serialize_to size={}", size);
         dest.write_u32::<NativeEndian>(size as u32)?;
         let buffer = BufWriter::new(dest);
-        bincode
-            .big_endian()
+        get_bincode()
             .serialize_into(buffer, obj)
             .map_err(|e| e.into())
     }
@@ -68,10 +68,6 @@ impl Frame {
     pub fn deserialize_from<T: Read, D: DeserializeOwned>(source: &mut T) -> Result<D> {
         let size = source.read_u32::<NativeEndian>()?;
         debug!("deserialize_from size={}", size);
-        let mut bincode = bincode::config();
-        bincode
-            .big_endian()
-            .deserialize_from(source)
-            .map_err(|e| e.into())
+        get_bincode().deserialize_from(source).map_err(|e| e.into())
     }
 }

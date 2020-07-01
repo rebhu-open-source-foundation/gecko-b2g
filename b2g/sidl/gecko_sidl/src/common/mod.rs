@@ -12,11 +12,23 @@ pub mod sidl_task;
 pub mod traits;
 pub mod uds_transport;
 
+use bincode::Options;
 use nsstring::nsString;
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::ops::Deref;
+
+pub fn get_bincode() -> impl Options {
+    bincode::options().with_big_endian().with_fixint_encoding()
+}
+
+pub fn deserialize_bincode<'a, T>(input: &'a [u8]) -> Result<T, bincode::Error>
+where
+    T: Deserialize<'a>,
+{
+    get_bincode().deserialize(input)
+}
 
 // A wrapper around a JsonValue to help with the encoding/decoding of JSON strings.
 #[derive(Clone, Debug)]

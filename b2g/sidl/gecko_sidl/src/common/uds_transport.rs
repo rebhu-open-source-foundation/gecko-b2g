@@ -7,6 +7,7 @@ use crate::adopt_current_thread;
 use crate::common::core::{BaseMessage, BaseMessageKind};
 use crate::common::frame::{Error as FrameError, Frame};
 use crate::common::traits::Shared;
+use bincode::Options;
 use log::{debug, error};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
@@ -217,14 +218,12 @@ impl UdsTransport {
             session_data.request_id
         };
 
-        let mut bincode = bincode::config();
-
         // Wrap the payload in a base message and send it.
         let message = BaseMessage {
             service,
             object,
             kind: BaseMessageKind::Request(request_id),
-            content: bincode.big_endian().serialize(payload).unwrap(),
+            content: crate::common::get_bincode().serialize(payload).unwrap(),
         };
 
         // Register the sender in the requests HashMap.
@@ -275,9 +274,6 @@ impl Drop for UdsTransport {
 }
 
 pub fn from_base_message<'a, T: Deserialize<'a>>(message: &'a BaseMessage) -> UdsResult<T> {
-    let mut bincode = bincode::config();
-    bincode
-        .big_endian()
-        .deserialize(&message.content)
+    crate::common::deserialize_bincode(&message.content)
         .map_err(|err| UdsError::Generic(format!("Failed to deserialize base message: {}", err)))
 }

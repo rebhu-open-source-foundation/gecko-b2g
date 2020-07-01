@@ -10,6 +10,7 @@ use crate::common::core::{BaseMessage, BaseMessageKind};
 use crate::common::traits::TrackerId;
 use crate::common::uds_transport::UdsTransport;
 use crate::common::uds_transport::{from_base_message, SessionObject};
+use bincode::Options;
 use log::{debug, error};
 use moz_task::{Task, TaskRunnable, ThreadPtrHandle};
 use nserror::nsresult;
@@ -53,14 +54,13 @@ impl SessionObject for ObserverWrapper {
                 .and_then(|r| TaskRunnable::dispatch(r, self.xpcom.owning_thread()));
             // Unconditionally Return a success response for now.
             let payload = SettingsManagerFromClient::SettingObserverCallbackSuccess;
-            let mut bincode = bincode::config();
 
             // Wrap the payload in a base message and send it.
             let message = BaseMessage {
                 service: self.service_id,
                 object: self.object_id,
                 kind: BaseMessageKind::Response(request_id),
-                content: bincode.big_endian().serialize(&payload).unwrap(),
+                content: crate::common::get_bincode().serialize(&payload).unwrap(),
             };
             let _ = self.transport.send_message(&message);
         } else {
