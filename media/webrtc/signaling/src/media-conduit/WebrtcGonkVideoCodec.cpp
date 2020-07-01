@@ -37,19 +37,19 @@ namespace mozilla {
 #define DEQUEUE_BUFFER_TIMEOUT_US (100 * 1000ll)  // 100ms.
 #define DRAIN_THREAD_TIMEOUT_US (1000 * 1000ll)   // 1s.
 
-void OMXOutputDrain::Start() {
-  CODEC_LOGD("OMXOutputDrain starting");
+void CodecOutputDrain::Start() {
+  CODEC_LOGD("CodecOutputDrain starting");
   MonitorAutoLock lock(mMonitor);
   if (mThread == nullptr) {
-    NS_NewNamedThread("OMXOutputDrain", getter_AddRefs(mThread));
+    NS_NewNamedThread("OutputDrain", getter_AddRefs(mThread));
   }
-  CODEC_LOGD("OMXOutputDrain started");
+  CODEC_LOGD("CodecOutputDrain started");
   mEnding = false;
   mThread->Dispatch(this, NS_DISPATCH_NORMAL);
 }
 
-void OMXOutputDrain::Stop() {
-  CODEC_LOGD("OMXOutputDrain stopping");
+void CodecOutputDrain::Stop() {
+  CODEC_LOGD("CodecOutputDrain stopping");
   MonitorAutoLock lock(mMonitor);
   mEnding = true;
   lock.NotifyAll();  // In case Run() is waiting.
@@ -57,14 +57,14 @@ void OMXOutputDrain::Stop() {
   if (mThread != nullptr) {
     MonitorAutoUnlock unlock(mMonitor);
     NS_DispatchToMainThread(
-        NS_NewRunnableFunction("OMXOutputDrain::ShutdownThread",
+        NS_NewRunnableFunction("CodecOutputDrain::ShutdownThread",
                                [thread = mThread]() { thread->Shutdown(); }));
     mThread = nullptr;
   }
-  CODEC_LOGD("OMXOutputDrain stopped");
+  CODEC_LOGD("CodecOutputDrain stopped");
 }
 
-void OMXOutputDrain::QueueInput(const EncodedFrame& aFrame) {
+void CodecOutputDrain::QueueInput(const EncodedFrame& aFrame) {
   MonitorAutoLock lock(mMonitor);
 
   MOZ_ASSERT(mThread);
@@ -75,7 +75,7 @@ void OMXOutputDrain::QueueInput(const EncodedFrame& aFrame) {
 }
 
 NS_IMETHODIMP
-OMXOutputDrain::Run() {
+CodecOutputDrain::Run() {
   MonitorAutoLock lock(mMonitor);
   if (mEnding) {
     return NS_OK;
@@ -89,7 +89,7 @@ OMXOutputDrain::Run() {
     }
 
     if (mEnding) {
-      CODEC_LOGD("OMXOutputDrain Run() ending");
+      CODEC_LOGD("CodecOutputDrain Run() ending");
       // Stop draining.
       break;
     }
@@ -102,12 +102,12 @@ OMXOutputDrain::Run() {
     }
   }
 
-  CODEC_LOGD("OMXOutputDrain Ended");
+  CODEC_LOGD("CodecOutputDrain Ended");
   return NS_OK;
 }
 
 WebrtcGonkVideoDecoder::~WebrtcGonkVideoDecoder() {
-  CODEC_LOGD("WebrtcGonkVideoDecoder:%p OMX destructor", this);
+  CODEC_LOGD("WebrtcGonkVideoDecoder:%p destructor", this);
   if (mStarted) {
     Stop();
   }
@@ -129,9 +129,8 @@ WebrtcGonkVideoDecoder::WebrtcGonkVideoDecoder(const char* aMimeType)
 
   mLooper = new ALooper;
   mLooper->start();
-  CODEC_LOGD("WebrtcGonkVideoDecoder:%p creating decoder", this);
   mCodec = MediaCodec::CreateByType(mLooper, aMimeType, false /* encoder */);
-  CODEC_LOGD("WebrtcGonkVideoDecoder:%p OMX created", this);
+  CODEC_LOGD("WebrtcGonkVideoDecoder:%p created", this);
 }
 
 status_t WebrtcGonkVideoDecoder::ConfigureWithPicDimensions(int32_t aWidth,
@@ -141,7 +140,8 @@ status_t WebrtcGonkVideoDecoder::ConfigureWithPicDimensions(int32_t aWidth,
     return INVALID_OPERATION;
   }
 
-  CODEC_LOGD("OMX:%p decoder width:%d height:%d", this, aWidth, aHeight);
+  CODEC_LOGD("WebrtcGonkVideoDecoder:%p configuring with width:%d height:%d",
+             this, aWidth, aHeight);
 
   sp<AMessage> config = new AMessage();
   config->setString("mime", mMimeType);
@@ -158,14 +158,14 @@ status_t WebrtcGonkVideoDecoder::ConfigureWithPicDimensions(int32_t aWidth,
 
   static_cast<GonkBufferQueueProducer*>(producer.get())
       ->setSynchronousMode(false);
-  // More spare buffers to avoid OMX decoder waiting for native window
+  // More spare buffers to avoid MediaCodec waiting for native window
   consumer->setMaxAcquiredBufferCount(WEBRTC_OMX_MIN_DECODE_BUFFERS);
   sp<Surface> surface = new Surface(producer);
   status_t err = mCodec->configure(config, surface, nullptr, 0);
   if (err != OK) {
     return err;
   }
-  CODEC_LOGD("OMX:%p decoder configured", this);
+  CODEC_LOGD("WebrtcGonkVideoDecoder:%p decoder configured", this);
   return Start();
 }
 
@@ -186,9 +186,11 @@ status_t WebrtcGonkVideoDecoder::FillInput(const webrtc::EncodedImage& aEncoded,
   status_t err = mCodec->dequeueInputBuffer(&index, DEQUEUE_BUFFER_TIMEOUT_US);
   if (err != OK) {
     if (err != -EAGAIN) {
-      CODEC_LOGE("decode dequeue input buffer error:%d", err);
+      CODEC_LOGE("WebrtcGonkVideoDecoder:%p dequeue input buffer error:%d",
+                 this, err);
     } else {
-      CODEC_LOGE("decode dequeue 100ms without a buffer (EAGAIN)");
+      CODEC_LOGE("WebrtcGonkVideoDecoder:%p dequeue input buffer timed out",
+                 this);
     }
     return err;
   }
@@ -196,7 +198,8 @@ status_t WebrtcGonkVideoDecoder::FillInput(const webrtc::EncodedImage& aEncoded,
   const sp<MediaCodecBuffer>& omxIn = mInputBuffers.itemAt(index);
   MOZ_ASSERT(omxIn->capacity() >= aEncoded._length);
   if (omxIn->capacity() < aEncoded._length) {
-    CODEC_LOGE("insufficient input buffer capacity");
+    CODEC_LOGE("WebrtcGonkVideoDecoder:%p insufficient input buffer capacity",
+               this);
     return UNKNOWN_ERROR;
   }
   omxIn->setRange(0, aEncoded._length);
@@ -246,22 +249,24 @@ status_t WebrtcGonkVideoDecoder::DrainOutput(FrameList& aInputFrames,
       break;
     case -EAGAIN:
       // Not an error: output not available yet. Try later.
-      CODEC_LOGI("decode dequeue OMX output buffer timed out. Try later.");
+      CODEC_LOGI("WebrtcGonkVideoDecoder:%p dequeue output buffer timed out",
+                 this);
       return err;
     case INFO_FORMAT_CHANGED:
-      // Not an error: will get this value when OMX output buffer is enabled,
-      // or when input size changed.
-      CODEC_LOGD("decode dequeue OMX output buffer format change");
+      // Not an error: will get this value when MediaCodec output buffer is
+      // enabled, or when input size changed.
+      CODEC_LOGD("WebrtcGonkVideoDecoder:%p output buffer format change", this);
       return err;
     case INFO_OUTPUT_BUFFERS_CHANGED:
-      // Not an error: will get this value when OMX output buffer changed
+      // Not an error: will get this value when MediaCodec output buffer changed
       // (probably because of input size change).
-      CODEC_LOGD("decode dequeue OMX output buffer change");
+      CODEC_LOGD("WebrtcGonkVideoDecoder:%p output buffer change", this);
       err = mCodec->getOutputBuffers(&mOutputBuffers);
       MOZ_ASSERT(err == OK);
       return INFO_OUTPUT_BUFFERS_CHANGED;
     default:
-      CODEC_LOGE("decode dequeue OMX output buffer error:%d", err);
+      CODEC_LOGE("WebrtcGonkVideoDecoder:%p dequeue output buffer error:%d",
+                 this, err);
       return OK;
   }
 
@@ -295,7 +300,7 @@ status_t WebrtcGonkVideoDecoder::DrainOutput(FrameList& aInputFrames,
 void WebrtcGonkVideoDecoder::OnNewFrame() {
   RefPtr<layers::TextureClient> buffer = mNativeWindow->getCurrentBuffer();
   if (!buffer) {
-    CODEC_LOGE("Decoder NewFrame: Get null buffer");
+    CODEC_LOGE("WebrtcGonkVideoDecoder:%p OnNewFrame got null buffer", this);
     return;
   }
 
@@ -351,7 +356,7 @@ status_t WebrtcGonkVideoDecoder::Stop() {
     return OK;
   }
 
-  CODEC_LOGD("OMXOutputDrain decoder stopping");
+  CODEC_LOGD("WebrtcGonkVideoDecoder:%p decoder stopping", this);
   // Drop all 'pending to render' frames.
   {
     MutexAutoLock lock(mDecodedFrameLock);
@@ -362,7 +367,7 @@ status_t WebrtcGonkVideoDecoder::Stop() {
   }
 
   if (mOutputDrain != nullptr) {
-    CODEC_LOGD("decoder's OutputDrain stopping");
+    CODEC_LOGD("WebrtcGonkVideoDecoder:%p OutputDrain stopping", this);
     mOutputDrain->Stop();
     mOutputDrain = nullptr;
   }
@@ -375,7 +380,7 @@ status_t WebrtcGonkVideoDecoder::Stop() {
   } else {
     MOZ_ASSERT(false);
   }
-  CODEC_LOGD("OMXOutputDrain decoder stopped");
+  CODEC_LOGD("WebrtcGonkVideoDecoder:%p decoder stopped", this);
   return err;
 }
 

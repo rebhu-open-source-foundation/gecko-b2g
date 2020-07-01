@@ -69,8 +69,8 @@ class FrameList {
   std::deque<EncodedFrame> mQueue;
 };
 
-// Base runnable class to repeatly pull OMX output buffers in seperate thread.
-// How to use:
+// Base runnable class to repeatly pull MediaCodec output buffers in seperate
+// thread. How to use:
 // - implementing DrainOutput() to get output. Remember to return false to tell
 //   drain not to pop input queue.
 // - call QueueInput() to schedule a run to drain output. The input, aFrame,
@@ -80,7 +80,7 @@ class FrameList {
 // TODO: Bug 997110 - Revisit queue/drain logic. Current design assumes that
 //       encoder only generate one output buffer per input frame and won't work
 //       if encoder drops frames or generates multiple output per input.
-class OMXOutputDrain : public Runnable {
+class CodecOutputDrain : public Runnable {
  public:
   void Start();
 
@@ -91,9 +91,9 @@ class OMXOutputDrain : public Runnable {
   NS_IMETHODIMP Run() override;
 
  protected:
-  OMXOutputDrain()
-      : Runnable("OMXOutputDrain"),
-        mMonitor("OMXOutputDrain monitor"),
+  CodecOutputDrain()
+      : Runnable("CodecOutputDrain"),
+        mMonitor("CodecOutputDrain monitor"),
         mEnding(false) {}
 
   // Drain output buffer for input frame queue mInputFrames.
@@ -149,10 +149,10 @@ class WebrtcGonkVideoDecoder final
   void OnNewFrame() override;
 
  private:
-  class OutputDrain : public OMXOutputDrain {
+  class OutputDrain : public CodecOutputDrain {
    public:
     OutputDrain(WebrtcGonkVideoDecoder* aDecoder)
-        : OMXOutputDrain(), mDecoder(aDecoder) {}
+        : CodecOutputDrain(), mDecoder(aDecoder) {}
 
    protected:
     virtual bool DrainOutput() override {

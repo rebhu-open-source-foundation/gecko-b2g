@@ -57,10 +57,10 @@ static size_t ParamSetLength(uint8_t* aData, size_t aSize) {
   return aSize;  // it's only SPS/PPS
 }
 
-class EncOutputDrain : public OMXOutputDrain {
+class EncOutputDrain : public CodecOutputDrain {
  public:
   EncOutputDrain(OMXVideoEncoder* aOMX, webrtc::EncodedImageCallback* aCallback)
-      : OMXOutputDrain(),
+      : CodecOutputDrain(),
         mOMX(aOMX),
         mCallback(aCallback),
         mIsPrevFrameParamSets(false) {}
