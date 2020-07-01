@@ -2143,6 +2143,15 @@ class nsIWidget : public nsISupports {
    */
   virtual double GetDefaultScaleInternal() { return 1.0; }
 
+ public:
+    /**
+     * Called after the LayerManager draws the layer tree
+     *
+     * Always called from the compositing thread.
+     */
+    virtual void DrawWindowOverlay(LayerManagerComposite* aManager,
+                                   LayoutDeviceIntRect aRect) = 0;
+
  protected:
   // keep the list of children.  We also keep track of our siblings.
   // The ownership model is as follows: parent holds a strong ref to
