@@ -271,13 +271,6 @@
 @RESPATH@/components/AuthorizationManager.manifest
 @RESPATH@/components/AuthorizationService.js
 
-#ifdef MOZ_PAY
-@RESPATH@/components/Payment.js
-@RESPATH@/components/PaymentFlowInfo.js
-@RESPATH@/components/PaymentProvider.js
-@RESPATH@/components/Payment.manifest
-#endif
-
 #ifdef MOZ_DEBUG
 @RESPATH@/components/TestInterfaceJS.js
 @RESPATH@/components/TestInterfaceJS.manifest
