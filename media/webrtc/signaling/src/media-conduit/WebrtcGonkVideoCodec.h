@@ -121,7 +121,7 @@ class OMXOutputDrain : public Runnable {
 // Generic decoder using stagefright.
 // It implements gonk native window callback to receive buffers from
 // MediaCodec::RenderOutputBufferAndRelease().
-class WebrtcOMXDecoder final
+class WebrtcGonkVideoDecoder final
     : public android::GonkNativeWindowNewFrameCallback {
   typedef android::status_t status_t;
   typedef android::ALooper ALooper;
@@ -130,9 +130,9 @@ class WebrtcOMXDecoder final
   typedef android::GonkNativeWindow GonkNativeWindow;
 
  public:
-  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(WebrtcOMXDecoder)
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(WebrtcGonkVideoDecoder)
 
-  WebrtcOMXDecoder(const char* aMimeType);
+  WebrtcGonkVideoDecoder(const char* aMimeType);
 
   // Configure decoder using image width/height.
   status_t ConfigureWithPicDimensions(int32_t aWidth, int32_t aHeight);
@@ -151,18 +151,19 @@ class WebrtcOMXDecoder final
  private:
   class OutputDrain : public OMXOutputDrain {
    public:
-    OutputDrain(WebrtcOMXDecoder* aOMX) : OMXOutputDrain(), mOMX(aOMX) {}
+    OutputDrain(WebrtcGonkVideoDecoder* aDecoder)
+        : OMXOutputDrain(), mDecoder(aDecoder) {}
 
    protected:
     virtual bool DrainOutput() override {
-      return (mOMX->DrainOutput(mInputFrames, mMonitor) == android::OK);
+      return (mDecoder->DrainOutput(mInputFrames, mMonitor) == android::OK);
     }
 
    private:
-    WebrtcOMXDecoder* mOMX;
+    WebrtcGonkVideoDecoder* mDecoder;
   };
 
-  virtual ~WebrtcOMXDecoder();
+  virtual ~WebrtcGonkVideoDecoder();
   status_t Start();
   status_t Stop();
 

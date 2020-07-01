@@ -15,7 +15,7 @@ class OMXCodecReservation;
 
 namespace mozilla {
 
-class WebrtcOMXDecoder;
+class WebrtcGonkVideoDecoder;
 
 class WebrtcGonkVP8VideoDecoder : public WebrtcVideoDecoder {
  public:
@@ -42,7 +42,7 @@ class WebrtcGonkVP8VideoDecoder : public WebrtcVideoDecoder {
   static int32_t ExtractPicDimensions(uint8_t* aData, size_t aSize,
                                       int32_t* aWidth, int32_t* aHeight);
 
-  RefPtr<WebrtcOMXDecoder> mOMX;
+  RefPtr<WebrtcGonkVideoDecoder> mDecoder;
   android::sp<android::OMXCodecReservation> mReservation;
 };
 

@@ -554,10 +554,10 @@ int32_t WebrtcGonkH264VideoDecoder::InitDecode(
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
 
-  mOMX = new WebrtcOMXDecoder(android::MEDIA_MIMETYPE_VIDEO_AVC);
-  if (mOMX->ConfigureWithPicDimensions(aCodecSettings->width,
-                                       aCodecSettings->height) != android::OK) {
-    mOMX = nullptr;
+  mDecoder = new WebrtcGonkVideoDecoder(android::MEDIA_MIMETYPE_VIDEO_AVC);
+  if (mDecoder->ConfigureWithPicDimensions(
+          aCodecSettings->width, aCodecSettings->height) != android::OK) {
+    mDecoder = nullptr;
     CODEC_LOGE("WebrtcGonkH264VideoDecoder:%p decoder not started", this);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
@@ -589,7 +589,7 @@ int32_t WebrtcGonkH264VideoDecoder::Decode(
     codecConfig._buffer = csd->data();
     codecConfig._length = csd->size();
     codecConfig._size = csd->size();
-    if (mOMX->FillInput(codecConfig, true, aRenderTimeMs) != android::OK) {
+    if (mDecoder->FillInput(codecConfig, true, aRenderTimeMs) != android::OK) {
       CODEC_LOGE("WebrtcGonkH264VideoDecoder:%p error sending codec config",
                  this);
       return WEBRTC_VIDEO_CODEC_ERROR;
@@ -597,7 +597,7 @@ int32_t WebrtcGonkH264VideoDecoder::Decode(
     mCodecConfigSubmitted = true;
   }
 
-  if (mOMX->FillInput(aInputImage, false, aRenderTimeMs) != android::OK) {
+  if (mDecoder->FillInput(aInputImage, false, aRenderTimeMs) != android::OK) {
     CODEC_LOGE("WebrtcGonkH264VideoDecoder:%p error sending input data", this);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
@@ -608,15 +608,15 @@ int32_t WebrtcGonkH264VideoDecoder::RegisterDecodeCompleteCallback(
     webrtc::DecodedImageCallback* aCallback) {
   CODEC_LOGD("WebrtcGonkH264VideoDecoder:%p set callback:%p", this, aCallback);
   MOZ_ASSERT(aCallback);
-  MOZ_ASSERT(mOMX);
-  mOMX->SetDecodedCallback(aCallback);
+  MOZ_ASSERT(mDecoder);
+  mDecoder->SetDecodedCallback(aCallback);
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
 int32_t WebrtcGonkH264VideoDecoder::Release() {
   CODEC_LOGD("WebrtcGonkH264VideoDecoder:%p will be released", this);
 
-  mOMX = nullptr;  // calls Stop()
+  mDecoder = nullptr;  // calls Stop()
   mReservation->ReleaseOMXCodec();
   mCodecConfigSubmitted = false;
   return WEBRTC_VIDEO_CODEC_OK;

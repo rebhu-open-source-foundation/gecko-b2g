@@ -106,8 +106,8 @@ OMXOutputDrain::Run() {
   return NS_OK;
 }
 
-WebrtcOMXDecoder::~WebrtcOMXDecoder() {
-  CODEC_LOGD("WebrtcOMXDecoder:%p OMX destructor", this);
+WebrtcGonkVideoDecoder::~WebrtcGonkVideoDecoder() {
+  CODEC_LOGD("WebrtcGonkVideoDecoder:%p OMX destructor", this);
   if (mStarted) {
     Stop();
   }
@@ -118,7 +118,7 @@ WebrtcOMXDecoder::~WebrtcOMXDecoder() {
   mLooper.clear();
 }
 
-WebrtcOMXDecoder::WebrtcOMXDecoder(const char* aMimeType)
+WebrtcGonkVideoDecoder::WebrtcGonkVideoDecoder(const char* aMimeType)
     : mStarted(false),
       mEnding(false),
       mMimeType(aMimeType),
@@ -129,13 +129,13 @@ WebrtcOMXDecoder::WebrtcOMXDecoder(const char* aMimeType)
 
   mLooper = new ALooper;
   mLooper->start();
-  CODEC_LOGD("WebrtcOMXDecoder:%p creating decoder", this);
+  CODEC_LOGD("WebrtcGonkVideoDecoder:%p creating decoder", this);
   mCodec = MediaCodec::CreateByType(mLooper, aMimeType, false /* encoder */);
-  CODEC_LOGD("WebrtcOMXDecoder:%p OMX created", this);
+  CODEC_LOGD("WebrtcGonkVideoDecoder:%p OMX created", this);
 }
 
-status_t WebrtcOMXDecoder::ConfigureWithPicDimensions(int32_t aWidth,
-                                                      int32_t aHeight) {
+status_t WebrtcGonkVideoDecoder::ConfigureWithPicDimensions(int32_t aWidth,
+                                                            int32_t aHeight) {
   MOZ_ASSERT(mCodec != nullptr);
   if (mCodec == nullptr) {
     return INVALID_OPERATION;
@@ -169,15 +169,15 @@ status_t WebrtcOMXDecoder::ConfigureWithPicDimensions(int32_t aWidth,
   return Start();
 }
 
-status_t WebrtcOMXDecoder::SetDecodedCallback(
+status_t WebrtcGonkVideoDecoder::SetDecodedCallback(
     webrtc::DecodedImageCallback* aCallback) {
   mCallback = aCallback;
   return OK;
 }
 
-status_t WebrtcOMXDecoder::FillInput(const webrtc::EncodedImage& aEncoded,
-                                     bool aIsCodecConfig,
-                                     int64_t aRenderTimeMs) {
+status_t WebrtcGonkVideoDecoder::FillInput(const webrtc::EncodedImage& aEncoded,
+                                           bool aIsCodecConfig,
+                                           int64_t aRenderTimeMs) {
   if (mCodec == nullptr || !aEncoded._buffer || aEncoded._length == 0) {
     return INVALID_OPERATION;
   }
@@ -226,8 +226,8 @@ status_t WebrtcOMXDecoder::FillInput(const webrtc::EncodedImage& aEncoded,
   return err;
 }
 
-status_t WebrtcOMXDecoder::DrainOutput(FrameList& aInputFrames,
-                                       Monitor& aMonitor) {
+status_t WebrtcGonkVideoDecoder::DrainOutput(FrameList& aInputFrames,
+                                             Monitor& aMonitor) {
   MOZ_ASSERT(mCodec != nullptr);
   if (mCodec == nullptr) {
     return INVALID_OPERATION;
@@ -292,7 +292,7 @@ status_t WebrtcOMXDecoder::DrainOutput(FrameList& aInputFrames,
   return err;
 }
 
-void WebrtcOMXDecoder::OnNewFrame() {
+void WebrtcGonkVideoDecoder::OnNewFrame() {
   RefPtr<layers::TextureClient> buffer = mNativeWindow->getCurrentBuffer();
   if (!buffer) {
     CODEC_LOGE("Decoder NewFrame: Get null buffer");
@@ -325,7 +325,7 @@ void WebrtcOMXDecoder::OnNewFrame() {
   mCallback->Decoded(videoFrame);
 }
 
-status_t WebrtcOMXDecoder::Start() {
+status_t WebrtcGonkVideoDecoder::Start() {
   MOZ_ASSERT(!mStarted);
   if (mStarted) {
     return OK;
@@ -345,7 +345,7 @@ status_t WebrtcOMXDecoder::Start() {
   return err;
 }
 
-status_t WebrtcOMXDecoder::Stop() {
+status_t WebrtcGonkVideoDecoder::Stop() {
   MOZ_ASSERT(mStarted);
   if (!mStarted) {
     return OK;

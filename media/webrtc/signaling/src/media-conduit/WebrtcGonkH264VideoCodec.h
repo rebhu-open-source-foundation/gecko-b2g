@@ -17,7 +17,7 @@ class OMXVideoEncoder;
 
 namespace mozilla {
 
-class WebrtcOMXDecoder;
+class WebrtcGonkVideoDecoder;
 class OMXOutputDrain;
 
 #define OMX_IDR_NEEDED_FOR_BITRATE 0
@@ -94,7 +94,7 @@ class WebrtcGonkH264VideoDecoder : public WebrtcVideoDecoder {
   virtual int32_t Release() override;
 
  private:
-  RefPtr<WebrtcOMXDecoder> mOMX;
+  RefPtr<WebrtcGonkVideoDecoder> mDecoder;
   android::sp<android::OMXCodecReservation> mReservation;
   bool mCodecConfigSubmitted;
 };
