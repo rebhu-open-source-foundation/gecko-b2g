@@ -22,6 +22,11 @@ class GonkVideoCodec {
    * failed.
    */
   static WebrtcVideoDecoder* CreateDecoder(webrtc::VideoCodecType aCodecType);
+
+ private:
+  static bool CodecEnabled(webrtc::VideoCodecType aCodecType, bool aIsEncoder);
+  static bool CodecSupported(webrtc::VideoCodecType aCodecType,
+                             bool aIsEncoder);
 };
 
 }  // namespace mozilla

@@ -49,6 +49,10 @@
 
 #include "MediaDataCodec.h"
 
+#ifdef MOZ_WIDGET_GONK
+#  include "GonkVideoCodec.h"
+#endif
+
 // for ntohs
 #ifdef _MSC_VER
 #  include "Winsock2.h"
@@ -1647,6 +1651,13 @@ std::unique_ptr<webrtc::VideoDecoder> WebrtcVideoConduit::CreateDecoder(
   bool enabled = false;
 #endif
 
+#ifdef MOZ_WIDGET_GONK
+  decoder.reset(GonkVideoCodec::CreateDecoder(aType));
+  if (decoder) {
+    return decoder;
+  }
+#endif
+
   // Attempt to create a decoder using MediaDataDecoder.
   decoder.reset(MediaDataCodec::CreateDecoder(aType));
   if (decoder) {
@@ -1715,6 +1726,13 @@ std::unique_ptr<webrtc::VideoEncoder> WebrtcVideoConduit::CreateEncoder(
 
 #ifdef MOZ_WEBRTC_MEDIACODEC
   bool enabled = false;
+#endif
+
+#ifdef MOZ_WIDGET_GONK
+  encoder.reset(GonkVideoCodec::CreateEncoder(aType));
+  if (encoder) {
+    return encoder;
+  }
 #endif
 
   if (StaticPrefs::media_webrtc_platformencoder()) {

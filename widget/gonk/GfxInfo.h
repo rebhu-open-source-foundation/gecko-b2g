@@ -67,6 +67,11 @@ class GfxInfo : public GfxInfoBase {
       const nsTArray<GfxDriverInfo>& aDriverInfo, nsACString& aFailureId,
       OperatingSystem* aOS = nullptr) override;
   virtual const nsTArray<GfxDriverInfo>& GetGfxDriverInfo() override;
+
+private:
+  int32_t WebRtcHwVp8EncodeSupported();
+  int32_t WebRtcHwVp8DecodeSupported();
+  int32_t WebRtcHwH264Supported();
 };
 
 }  // namespace widget

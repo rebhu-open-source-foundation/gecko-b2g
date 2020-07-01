@@ -3,6 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include <media/stagefright/MediaCodecList.h>
+
 #include "nsTArray.h"
 #include "GfxInfo.h"
 
@@ -145,6 +147,15 @@ nsresult GfxInfo::GetFeatureStatusImpl(
 
   if (aFeature == nsIGfxInfo::FEATURE_WEBRENDER) {
     *aStatus = nsIGfxInfo::FEATURE_ALLOW_ALWAYS;
+  } else if (aFeature == FEATURE_WEBRTC_HW_ACCELERATION_ENCODE) {
+    *aStatus = WebRtcHwVp8EncodeSupported();
+    aFailureId = "FEATURE_FAILURE_WEBRTC_ENCODE";
+  } else if (aFeature == FEATURE_WEBRTC_HW_ACCELERATION_DECODE) {
+    *aStatus = WebRtcHwVp8DecodeSupported();
+    aFailureId = "FEATURE_FAILURE_WEBRTC_DECODE";
+  } else if (aFeature == FEATURE_WEBRTC_HW_ACCELERATION_H264) {
+    *aStatus = WebRtcHwH264Supported();
+    aFailureId = "FEATURE_FAILURE_WEBRTC_H264";
   } else {
     *aStatus = nsIGfxInfo::FEATURE_STATUS_OK;
   }
@@ -182,6 +193,33 @@ GfxInfo::GetHasBattery(bool* aHasBattery) {
   // All Gonk devices should have a battery!
   *aHasBattery = true;
   return NS_OK;
+}
+
+static bool HwCodecSupported(const char* aMimeType, bool aIsEncoder) {
+  uint32_t flags = android::MediaCodecList::kHardwareCodecsOnly;
+  android::Vector<android::AString> matchingCodecs;
+  android::MediaCodecList::findMatchingCodecs(aMimeType, aIsEncoder, flags,
+                                              &matchingCodecs);
+  return !matchingCodecs.isEmpty();
+}
+
+int32_t GfxInfo::WebRtcHwVp8EncodeSupported() {
+  bool supported = HwCodecSupported("video/x-vnd.on2.vp8", true);
+  return supported ? nsIGfxInfo::FEATURE_STATUS_OK
+                   : nsIGfxInfo::FEATURE_STATUS_UNKNOWN;
+}
+
+int32_t GfxInfo::WebRtcHwVp8DecodeSupported() {
+  bool supported = HwCodecSupported("video/x-vnd.on2.vp8", false);
+  return supported ? nsIGfxInfo::FEATURE_STATUS_OK
+                   : nsIGfxInfo::FEATURE_STATUS_UNKNOWN;
+}
+
+int32_t GfxInfo::WebRtcHwH264Supported() {
+  bool supported = HwCodecSupported("video/avc", true) &&
+                   HwCodecSupported("video/avc", false);
+  return supported ? nsIGfxInfo::FEATURE_STATUS_OK
+                   : nsIGfxInfo::FEATURE_STATUS_UNKNOWN;
 }
 
 #ifdef DEBUG

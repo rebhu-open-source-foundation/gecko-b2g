@@ -171,6 +171,14 @@
 #define IS_NOT_ANDROID true
 #endif
 
+#ifdef MOZ_WIDGET_GONK
+#define IS_GONK true
+#define IS_NOT_GONK false
+#else
+#define IS_GONK false
+#define IS_NOT_GONK true
+#endif
+
 #---------------------------------------------------------------------------
 # Prefs starting with "accessibility."
 #---------------------------------------------------------------------------
@@ -7487,7 +7495,7 @@
 
 -     name: media.navigator.hardware.vp8_decode.acceleration_enabled
       type: bool
-      value: false
+      value: @IS_GONK@
       mirror: never
   #endif  # ANDROID
 
@@ -7607,7 +7615,7 @@
 
 - name: media.webrtc.hw.h264.enabled
   type: bool
-#if defined(MOZ_WIDGET_ANDROID)
+#if defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WIDGET_GONK)
   value: true
 #else
   value: false
