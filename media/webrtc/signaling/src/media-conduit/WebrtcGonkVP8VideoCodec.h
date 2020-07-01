@@ -17,11 +17,11 @@ namespace mozilla {
 
 class WebrtcOMXDecoder;
 
-class WebrtcOMXVP8VideoDecoder : public WebrtcVideoDecoder {
+class WebrtcGonkVP8VideoDecoder : public WebrtcVideoDecoder {
  public:
-  WebrtcOMXVP8VideoDecoder();
+  WebrtcGonkVP8VideoDecoder();
 
-  virtual ~WebrtcOMXVP8VideoDecoder();
+  virtual ~WebrtcGonkVP8VideoDecoder();
 
   // Implement VideoDecoder interface.
   virtual uint64_t PluginID() const override { return 0; }

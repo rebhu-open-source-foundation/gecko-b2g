@@ -8,7 +8,8 @@
 #include "VideoConduit.h"
 
 namespace mozilla {
-class OMXVideoCodec {
+
+class GonkVideoCodec {
  public:
   /**
    * Create encoder object for codec type |aCodecType|. Return |nullptr| when

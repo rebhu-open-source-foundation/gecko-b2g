@@ -22,11 +22,11 @@ class OMXOutputDrain;
 
 #define OMX_IDR_NEEDED_FOR_BITRATE 0
 
-class WebrtcOMXH264VideoEncoder : public WebrtcVideoEncoder {
+class WebrtcGonkH264VideoEncoder : public WebrtcVideoEncoder {
  public:
-  WebrtcOMXH264VideoEncoder();
+  WebrtcGonkH264VideoEncoder();
 
-  virtual ~WebrtcOMXH264VideoEncoder();
+  virtual ~WebrtcGonkH264VideoEncoder();
 
   // Implement VideoEncoder interface.
   virtual uint64_t PluginID() const override { return 0; }
@@ -72,11 +72,11 @@ class WebrtcOMXH264VideoEncoder : public WebrtcVideoEncoder {
   webrtc::TimestampUnwrapper mUnwrapper;
 };
 
-class WebrtcOMXH264VideoDecoder : public WebrtcVideoDecoder {
+class WebrtcGonkH264VideoDecoder : public WebrtcVideoDecoder {
  public:
-  WebrtcOMXH264VideoDecoder();
+  WebrtcGonkH264VideoDecoder();
 
-  virtual ~WebrtcOMXH264VideoDecoder();
+  virtual ~WebrtcGonkH264VideoDecoder();
 
   // Implement VideoDecoder interface.
   virtual uint64_t PluginID() const override { return 0; }

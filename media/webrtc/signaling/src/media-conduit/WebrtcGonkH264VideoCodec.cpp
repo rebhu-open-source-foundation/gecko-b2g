@@ -210,7 +210,7 @@ class EncOutputDrain : public OMXOutputDrain {
 };
 
 // Encoder.
-WebrtcOMXH264VideoEncoder::WebrtcOMXH264VideoEncoder()
+WebrtcGonkH264VideoEncoder::WebrtcGonkH264VideoEncoder()
     : mOMX(nullptr),
       mCallback(nullptr),
       mWidth(0),
@@ -223,13 +223,13 @@ WebrtcOMXH264VideoEncoder::WebrtcOMXH264VideoEncoder()
       mOMXConfigured(false),
       mOMXReconfigure(false) {
   mReservation = new OMXCodecReservation(true);
-  CODEC_LOGD("WebrtcOMXH264VideoEncoder:%p constructed", this);
+  CODEC_LOGD("WebrtcGonkH264VideoEncoder:%p constructed", this);
 }
 
-int32_t WebrtcOMXH264VideoEncoder::InitEncode(
+int32_t WebrtcGonkH264VideoEncoder::InitEncode(
     const webrtc::VideoCodec* aCodecSettings, int32_t aNumOfCores,
     size_t aMaxPayloadSize) {
-  CODEC_LOGD("WebrtcOMXH264VideoEncoder:%p init", this);
+  CODEC_LOGD("WebrtcGonkH264VideoEncoder:%p init", this);
 
   if (mOMX == nullptr) {
     UniquePtr<OMXVideoEncoder> omx(OMXCodecWrapper::CreateAVCEncoder());
@@ -237,11 +237,11 @@ int32_t WebrtcOMXH264VideoEncoder::InitEncode(
       return WEBRTC_VIDEO_CODEC_ERROR;
     }
     mOMX = std::move(omx);
-    CODEC_LOGD("WebrtcOMXH264VideoEncoder:%p OMX created", this);
+    CODEC_LOGD("WebrtcGonkH264VideoEncoder:%p OMX created", this);
   }
 
   if (!mReservation->ReserveOMXCodec()) {
-    CODEC_LOGD("WebrtcOMXH264VideoEncoder:%p Encoder in use", this);
+    CODEC_LOGD("WebrtcGonkH264VideoEncoder:%p Encoder in use", this);
     mOMX = nullptr;
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
@@ -255,11 +255,11 @@ int32_t WebrtcOMXH264VideoEncoder::InitEncode(
   mBitRateKbps = aCodecSettings->startBitrate;
   // XXX handle maxpayloadsize (aka mode 0/1)
 
-  CODEC_LOGD("WebrtcOMXH264VideoEncoder:%p OMX Encoder reserved", this);
+  CODEC_LOGD("WebrtcGonkH264VideoEncoder:%p OMX Encoder reserved", this);
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
-int32_t WebrtcOMXH264VideoEncoder::Encode(
+int32_t WebrtcGonkH264VideoEncoder::Encode(
     const webrtc::VideoFrame& aInputImage,
     const webrtc::CodecSpecificInfo* aCodecSpecificInfo,
     const std::vector<webrtc::FrameType>* aFrameTypes) {
@@ -281,7 +281,7 @@ int32_t WebrtcOMXH264VideoEncoder::Encode(
   if (!mOMXConfigured || mOMXReconfigure) {
     if (mOMXConfigured) {
       CODEC_LOGD(
-          "WebrtcOMXH264VideoEncoder:%p reconfiguring encoder %dx%d @ %u fps",
+          "WebrtcGonkH264VideoEncoder:%p reconfiguring encoder %dx%d @ %u fps",
           this, mWidth, mHeight, mFrameRate);
       mOMXConfigured = false;
     }
@@ -323,13 +323,13 @@ int32_t WebrtcOMXH264VideoEncoder::Encode(
     format->setInt32("bitrate", mBitRateKbps * 1000);
 
     CODEC_LOGD(
-        "WebrtcOMXH264VideoEncoder:%p configuring encoder %dx%d @ %d fps, rate "
-        "%d kbps",
+        "WebrtcGonkH264VideoEncoder:%p configuring encoder %dx%d @ %d fps, "
+        "rate %d kbps",
         this, mWidth, mHeight, mFrameRate, mBitRateKbps);
     nsresult rv =
         mOMX->ConfigureDirect(format, OMXVideoEncoder::BlobFormat::AVC_NAL);
     if (NS_WARN_IF(NS_FAILED(rv))) {
-      CODEC_LOGE("WebrtcOMXH264VideoEncoder:%p FAILED configuring encoder %d",
+      CODEC_LOGE("WebrtcGonkH264VideoEncoder:%p FAILED configuring encoder %d",
                  this, int(rv));
       return WEBRTC_VIDEO_CODEC_ERROR;
     }
@@ -439,17 +439,17 @@ int32_t WebrtcOMXH264VideoEncoder::Encode(
   return (rv == NS_OK) ? WEBRTC_VIDEO_CODEC_OK : WEBRTC_VIDEO_CODEC_ERROR;
 }
 
-int32_t WebrtcOMXH264VideoEncoder::RegisterEncodeCompleteCallback(
+int32_t WebrtcGonkH264VideoEncoder::RegisterEncodeCompleteCallback(
     webrtc::EncodedImageCallback* aCallback) {
-  CODEC_LOGD("WebrtcOMXH264VideoEncoder:%p set callback:%p", this, aCallback);
+  CODEC_LOGD("WebrtcGonkH264VideoEncoder:%p set callback:%p", this, aCallback);
   MOZ_ASSERT(aCallback);
   mCallback = aCallback;
 
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
-int32_t WebrtcOMXH264VideoEncoder::Release() {
-  CODEC_LOGD("WebrtcOMXH264VideoEncoder:%p will be released", this);
+int32_t WebrtcGonkH264VideoEncoder::Release() {
+  CODEC_LOGD("WebrtcGonkH264VideoEncoder:%p will be released", this);
 
   if (mOutputDrain != nullptr) {
     mOutputDrain->Stop();
@@ -461,13 +461,13 @@ int32_t WebrtcOMXH264VideoEncoder::Release() {
   if (hadOMX) {
     mReservation->ReleaseOMXCodec();
   }
-  CODEC_LOGD("WebrtcOMXH264VideoEncoder:%p released", this);
+  CODEC_LOGD("WebrtcGonkH264VideoEncoder:%p released", this);
 
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
-WebrtcOMXH264VideoEncoder::~WebrtcOMXH264VideoEncoder() {
-  CODEC_LOGD("WebrtcOMXH264VideoEncoder:%p will be destructed", this);
+WebrtcGonkH264VideoEncoder::~WebrtcGonkH264VideoEncoder() {
+  CODEC_LOGD("WebrtcGonkH264VideoEncoder:%p will be destructed", this);
 
   Release();
 }
@@ -476,20 +476,21 @@ WebrtcOMXH264VideoEncoder::~WebrtcOMXH264VideoEncoder() {
 // the network. aPacketLossRate is fraction lost and can be 0~255
 // (255 means 100% lost).
 // Note: stagefright doesn't handle these parameters.
-int32_t WebrtcOMXH264VideoEncoder::SetChannelParameters(
+int32_t WebrtcGonkH264VideoEncoder::SetChannelParameters(
     uint32_t aPacketLossRate, int64_t aRoundTripTimeMs) {
   CODEC_LOGD(
-      "WebrtcOMXH264VideoEncoder:%p set channel packet loss:%u, rtt:%" PRIi64,
+      "WebrtcGonkH264VideoEncoder:%p set channel packet loss:%u, rtt:%" PRIi64,
       this, aPacketLossRate, aRoundTripTimeMs);
 
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
 // TODO: Bug 997567. Find the way to support frame rate change.
-int32_t WebrtcOMXH264VideoEncoder::SetRates(uint32_t aBitRateKbps,
-                                            uint32_t aFrameRate) {
-  CODEC_LOGE("WebrtcOMXH264VideoEncoder:%p set bitrate:%u, frame rate:%u (%u))",
-             this, aBitRateKbps, aFrameRate, mFrameRate);
+int32_t WebrtcGonkH264VideoEncoder::SetRates(uint32_t aBitRateKbps,
+                                             uint32_t aFrameRate) {
+  CODEC_LOGE(
+      "WebrtcGonkH264VideoEncoder:%p set bitrate:%u, frame rate:%u (%u))", this,
+      aBitRateKbps, aFrameRate, mFrameRate);
   MOZ_ASSERT(mOMX != nullptr);
   if (mOMX == nullptr) {
     return WEBRTC_VIDEO_CODEC_UNINITIALIZED;
@@ -540,16 +541,16 @@ int32_t WebrtcOMXH264VideoEncoder::SetRates(uint32_t aBitRateKbps,
 }
 
 // Decoder.
-WebrtcOMXH264VideoDecoder::WebrtcOMXH264VideoDecoder()
+WebrtcGonkH264VideoDecoder::WebrtcGonkH264VideoDecoder()
     : mCodecConfigSubmitted(false) {
   mReservation = new OMXCodecReservation(false);
-  CODEC_LOGD("WebrtcOMXH264VideoDecoder:%p will be constructed", this);
+  CODEC_LOGD("WebrtcGonkH264VideoDecoder:%p will be constructed", this);
 }
 
-int32_t WebrtcOMXH264VideoDecoder::InitDecode(
+int32_t WebrtcGonkH264VideoDecoder::InitDecode(
     const webrtc::VideoCodec* aCodecSettings, int32_t aNumOfCores) {
   if (!mReservation->ReserveOMXCodec()) {
-    CODEC_LOGE("WebrtcOMXH264VideoDecoder:%p decoder in use", this);
+    CODEC_LOGE("WebrtcGonkH264VideoDecoder:%p decoder in use", this);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
 
@@ -557,20 +558,20 @@ int32_t WebrtcOMXH264VideoDecoder::InitDecode(
   if (mOMX->ConfigureWithPicDimensions(aCodecSettings->width,
                                        aCodecSettings->height) != android::OK) {
     mOMX = nullptr;
-    CODEC_LOGE("WebrtcOMXH264VideoDecoder:%p decoder not started", this);
+    CODEC_LOGE("WebrtcGonkH264VideoDecoder:%p decoder not started", this);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
-  CODEC_LOGD("WebrtcOMXH264VideoDecoder:%p decoder started", this);
+  CODEC_LOGD("WebrtcGonkH264VideoDecoder:%p decoder started", this);
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
-int32_t WebrtcOMXH264VideoDecoder::Decode(
+int32_t WebrtcGonkH264VideoDecoder::Decode(
     const webrtc::EncodedImage& aInputImage, bool aMissingFrames,
     const webrtc::RTPFragmentationHeader* aFragmentation,
     const webrtc::CodecSpecificInfo* aCodecSpecificInfo,
     int64_t aRenderTimeMs) {
   if (aInputImage._length == 0 || !aInputImage._buffer) {
-    CODEC_LOGE("WebrtcOMXH264VideoDecoder:%p empty input data", this);
+    CODEC_LOGE("WebrtcGonkH264VideoDecoder:%p empty input data", this);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
 
@@ -579,7 +580,7 @@ int32_t WebrtcOMXH264VideoDecoder::Decode(
     sp<ABuffer> au = new ABuffer(aInputImage._buffer, aInputImage._length);
     sp<ABuffer> csd = android::MakeAVCCodecSpecificData(au, &width, &height);
     if (!csd) {
-      CODEC_LOGE("WebrtcOMXH264VideoDecoder:%p missing codec config", this);
+      CODEC_LOGE("WebrtcGonkH264VideoDecoder:%p missing codec config", this);
       return WEBRTC_VIDEO_CODEC_ERROR;
     }
 
@@ -589,7 +590,7 @@ int32_t WebrtcOMXH264VideoDecoder::Decode(
     codecConfig._length = csd->size();
     codecConfig._size = csd->size();
     if (mOMX->FillInput(codecConfig, true, aRenderTimeMs) != android::OK) {
-      CODEC_LOGE("WebrtcOMXH264VideoDecoder:%p error sending codec config",
+      CODEC_LOGE("WebrtcGonkH264VideoDecoder:%p error sending codec config",
                  this);
       return WEBRTC_VIDEO_CODEC_ERROR;
     }
@@ -597,23 +598,23 @@ int32_t WebrtcOMXH264VideoDecoder::Decode(
   }
 
   if (mOMX->FillInput(aInputImage, false, aRenderTimeMs) != android::OK) {
-    CODEC_LOGE("WebrtcOMXH264VideoDecoder:%p error sending input data", this);
+    CODEC_LOGE("WebrtcGonkH264VideoDecoder:%p error sending input data", this);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
-int32_t WebrtcOMXH264VideoDecoder::RegisterDecodeCompleteCallback(
+int32_t WebrtcGonkH264VideoDecoder::RegisterDecodeCompleteCallback(
     webrtc::DecodedImageCallback* aCallback) {
-  CODEC_LOGD("WebrtcOMXH264VideoDecoder:%p set callback:%p", this, aCallback);
+  CODEC_LOGD("WebrtcGonkH264VideoDecoder:%p set callback:%p", this, aCallback);
   MOZ_ASSERT(aCallback);
   MOZ_ASSERT(mOMX);
   mOMX->SetDecodedCallback(aCallback);
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
-int32_t WebrtcOMXH264VideoDecoder::Release() {
-  CODEC_LOGD("WebrtcOMXH264VideoDecoder:%p will be released", this);
+int32_t WebrtcGonkH264VideoDecoder::Release() {
+  CODEC_LOGD("WebrtcGonkH264VideoDecoder:%p will be released", this);
 
   mOMX = nullptr;  // calls Stop()
   mReservation->ReleaseOMXCodec();
@@ -621,8 +622,8 @@ int32_t WebrtcOMXH264VideoDecoder::Release() {
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
-WebrtcOMXH264VideoDecoder::~WebrtcOMXH264VideoDecoder() {
-  CODEC_LOGD("WebrtcOMXH264VideoDecoder:%p will be destructed", this);
+WebrtcGonkH264VideoDecoder::~WebrtcGonkH264VideoDecoder() {
+  CODEC_LOGD("WebrtcGonkH264VideoDecoder:%p will be destructed", this);
   Release();
 }
 

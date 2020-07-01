@@ -9,20 +9,20 @@
 
 namespace mozilla {
 
-WebrtcVideoEncoder* OMXVideoCodec::CreateEncoder(
+WebrtcVideoEncoder* GonkVideoCodec::CreateEncoder(
     webrtc::VideoCodecType aCodecType) {
   if (aCodecType == webrtc::VideoCodecType::kVideoCodecH264) {
-    return new WebrtcOMXH264VideoEncoder();
+    return new WebrtcGonkH264VideoEncoder();
   }
   return nullptr;
 }
 
-WebrtcVideoDecoder* OMXVideoCodec::CreateDecoder(
+WebrtcVideoDecoder* GonkVideoCodec::CreateDecoder(
     webrtc::VideoCodecType aCodecType) {
   if (aCodecType == webrtc::VideoCodecType::kVideoCodecH264) {
-    return new WebrtcOMXH264VideoDecoder();
+    return new WebrtcGonkH264VideoDecoder();
   } else if (aCodecType == webrtc::VideoCodecType::kVideoCodecVP8) {
-    return new WebrtcOMXVP8VideoDecoder();
+    return new WebrtcGonkVP8VideoDecoder();
   }
   return nullptr;
 }

@@ -15,15 +15,15 @@ using android::OMXCodecReservation;
 namespace mozilla {
 
 // Decoder.
-WebrtcOMXVP8VideoDecoder::WebrtcOMXVP8VideoDecoder() {
+WebrtcGonkVP8VideoDecoder::WebrtcGonkVP8VideoDecoder() {
   mReservation = new OMXCodecReservation(false);
-  CODEC_LOGD("WebrtcOMXVP8VideoDecoder:%p will be constructed", this);
+  CODEC_LOGD("WebrtcGonkVP8VideoDecoder:%p will be constructed", this);
 }
 
-int32_t WebrtcOMXVP8VideoDecoder::InitDecode(
+int32_t WebrtcGonkVP8VideoDecoder::InitDecode(
     const webrtc::VideoCodec* aCodecSettings, int32_t aNumOfCores) {
   if (!mReservation->ReserveOMXCodec()) {
-    CODEC_LOGE("WebrtcOMXVP8VideoDecoder:%p decoder in use", this);
+    CODEC_LOGE("WebrtcGonkVP8VideoDecoder:%p decoder in use", this);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
 
@@ -31,49 +31,49 @@ int32_t WebrtcOMXVP8VideoDecoder::InitDecode(
   if (mOMX->ConfigureWithPicDimensions(aCodecSettings->width,
                                        aCodecSettings->height) != android::OK) {
     mOMX = nullptr;
-    CODEC_LOGE("WebrtcOMXVP8VideoDecoder:%p decoder not started", this);
+    CODEC_LOGE("WebrtcGonkVP8VideoDecoder:%p decoder not started", this);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
-  CODEC_LOGD("WebrtcOMXVP8VideoDecoder:%p decoder started", this);
+  CODEC_LOGD("WebrtcGonkVP8VideoDecoder:%p decoder started", this);
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
-int32_t WebrtcOMXVP8VideoDecoder::Decode(
+int32_t WebrtcGonkVP8VideoDecoder::Decode(
     const webrtc::EncodedImage& aInputImage, bool aMissingFrames,
     const webrtc::RTPFragmentationHeader* aFragmentation,
     const webrtc::CodecSpecificInfo* aCodecSpecificInfo,
     int64_t aRenderTimeMs) {
   if (aInputImage._length == 0 || !aInputImage._buffer) {
-    CODEC_LOGE("WebrtcOMXVP8VideoDecoder:%p empty input data", this);
+    CODEC_LOGE("WebrtcGonkVP8VideoDecoder:%p empty input data", this);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
 
   if (mOMX->FillInput(aInputImage, false, aRenderTimeMs) != android::OK) {
-    CODEC_LOGE("WebrtcOMXVP8VideoDecoder:%p error sending input data", this);
+    CODEC_LOGE("WebrtcGonkVP8VideoDecoder:%p error sending input data", this);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
-int32_t WebrtcOMXVP8VideoDecoder::RegisterDecodeCompleteCallback(
+int32_t WebrtcGonkVP8VideoDecoder::RegisterDecodeCompleteCallback(
     webrtc::DecodedImageCallback* aCallback) {
-  CODEC_LOGD("WebrtcOMXVP8VideoDecoder:%p set callback:%p", this, aCallback);
+  CODEC_LOGD("WebrtcGonkVP8VideoDecoder:%p set callback:%p", this, aCallback);
   MOZ_ASSERT(aCallback);
   MOZ_ASSERT(mOMX);
   mOMX->SetDecodedCallback(aCallback);
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
-int32_t WebrtcOMXVP8VideoDecoder::Release() {
-  CODEC_LOGD("WebrtcOMXVP8VideoDecoder:%p will be released", this);
+int32_t WebrtcGonkVP8VideoDecoder::Release() {
+  CODEC_LOGD("WebrtcGonkVP8VideoDecoder:%p will be released", this);
 
   mOMX = nullptr;  // calls Stop()
   mReservation->ReleaseOMXCodec();
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
-WebrtcOMXVP8VideoDecoder::~WebrtcOMXVP8VideoDecoder() {
-  CODEC_LOGD("WebrtcOMXVP8VideoDecoder:%p will be destructed", this);
+WebrtcGonkVP8VideoDecoder::~WebrtcGonkVP8VideoDecoder() {
+  CODEC_LOGD("WebrtcGonkVP8VideoDecoder:%p will be destructed", this);
   Release();
 }
 
