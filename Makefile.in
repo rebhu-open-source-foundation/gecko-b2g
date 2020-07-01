@@ -188,13 +188,27 @@ include $(topsrcdir)/toolkit/mozapps/installer/package-name.mk
 
 endif
 
+define dump_syms_out
+$(PYTHON3) $(topsrcdir)/toolkit/crashreporter/tools/symbolstore.py \
+  $(topobjdir)/dist/host/bin/dump_syms \
+  $(topobjdir)/dist/crashreporter-symbols \
+  $(1)
+
+endef
+
+SYMBOLS := $(shell find $(TARGET_OUT_UNSTRIPPED)/system -name *.so)
+SYMBOLS += $(shell find $(TARGET_OUT_UNSTRIPPED)/vendor -name *.so)
+.PHONY: syms_out
+syms_out:
+	$(foreach file,$(SYMBOLS),$(call dump_syms_out,$(file)))
+
 .PHONY: prepsymbolsarchive
 prepsymbolsarchive:
 	echo packing symbols
 	$(NSINSTALL) -D $(DIST)/$(PKG_PATH)
 
 ifndef MOZ_AUTOMATION
-prepsymbolsarchive: recurse_syms
+prepsymbolsarchive: recurse_syms syms_out
 endif
 
 .PHONY: symbolsfullarchive
