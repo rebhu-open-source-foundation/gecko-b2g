@@ -291,9 +291,7 @@ int32_t WebrtcOMXH264VideoEncoder::Encode(
 
     // XXX take from negotiated SDP in codecSpecific data
     OMX_VIDEO_AVCLEVELTYPE level = OMX_VIDEO_AVCLevel3;
-    // OMX_Video_ControlRateConstant is not supported on QC 8x10
-    OMX_VIDEO_CONTROLRATETYPE bitrateMode =
-        OMX_Video_ControlRateConstantSkipFrames;
+    OMX_VIDEO_CONTROLRATETYPE bitrateMode = OMX_Video_ControlRateConstant;
 
     // Set up configuration parameters for AVC/H.264 encoder.
     sp<android::AMessage> format = new android::AMessage;
@@ -535,13 +533,6 @@ int32_t WebrtcOMXH264VideoEncoder::SetRates(uint32_t aBitRateKbps,
   }
 #endif
 
-  // XXX Limit bitrate for 8x10 devices to a specific level depending on fps and
-  // resolution mBitRateKbps = LimitBitrate8x10(mWidth, mHeight, mFrameRate,
-  // aBitRateKbps); Rely on global single setting (~720 kbps for HVGA@30fps) for
-  // now
-  if (aBitRateKbps > 700) {
-    aBitRateKbps = 700;
-  }
   mBitRateKbps = aBitRateKbps;
   nsresult rv = mOMX->SetBitrate(mBitRateKbps);
   NS_WARN_IF(NS_FAILED(rv));
