@@ -746,7 +746,9 @@ DocInfo::DocInfo(nsPIDOMWindowOuter* aWindow)
 bool DocInfo::IsTopLevel() const {
   if (mIsTopLevel.isNothing()) {
     struct Matcher {
-      bool operator()(Window aWin) { return aWin->GetBrowsingContext()->IsTop(); }
+      bool operator()(Window aWin) {
+        return aWin->GetBrowsingContext()->IsTop();
+      }
       bool operator()(LoadInfo aLoadInfo) {
         return aLoadInfo->GetIsTopLevelLoad();
       }

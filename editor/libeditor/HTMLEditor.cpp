@@ -729,7 +729,7 @@ nsresult HTMLEditor::HandleKeyPressEvent(WidgetKeyboardEvent* aKeyboardEvent) {
       }
 
       // If selection is in a table element, we need special handling.
-      if (HTMLEditUtils::IsTableElement(blockParent)) {
+      if (HTMLEditUtils::IsAnyTableElement(blockParent)) {
         EditActionResult result = HandleTabKeyPressInTable(aKeyboardEvent);
         if (result.Failed()) {
           NS_WARNING("HTMLEditor::HandleTabKeyPressInTable() failed");
@@ -1531,7 +1531,8 @@ NS_IMETHODIMP HTMLEditor::RebuildDocumentFromSource(
 }
 
 EditorRawDOMPoint HTMLEditor::GetBetterInsertionPointFor(
-    nsIContent& aContentToInsert, const EditorRawDOMPoint& aPointToInsert) {
+    nsIContent& aContentToInsert,
+    const EditorRawDOMPoint& aPointToInsert) const {
   if (NS_WARN_IF(!aPointToInsert.IsSet())) {
     return aPointToInsert;
   }
@@ -1786,7 +1787,7 @@ EditorDOMPoint HTMLEditor::InsertNodeIntoProperAncestorWithTransaction(
     // If the current parent is a root (body or table element)
     // then go no further - we can't insert.
     if (pointToInsert.IsContainerHTMLElement(nsGkAtoms::body) ||
-        HTMLEditUtils::IsTableElement(pointToInsert.GetContainer())) {
+        HTMLEditUtils::IsAnyTableElement(pointToInsert.GetContainer())) {
       return EditorDOMPoint();
     }
 
@@ -2555,7 +2556,7 @@ Element* HTMLEditor::GetInclusiveAncestorByTagNameInternal(
       }
     } else if (&aTagName == nsGkAtoms::list_) {
       // Match "ol", "ul", or "dl" for lists
-      if (HTMLEditUtils::IsList(element)) {
+      if (HTMLEditUtils::IsAnyListElement(element)) {
         return element;
       }
     } else if (&aTagName == nsGkAtoms::td) {
@@ -3985,7 +3986,7 @@ bool HTMLEditor::SetCaretInTableCell(Element* aElement) {
   MOZ_ASSERT(IsEditActionDataAvailable());
 
   if (!aElement || !aElement->IsHTMLElement() ||
-      !HTMLEditUtils::IsTableElement(aElement) ||
+      !HTMLEditUtils::IsAnyTableElement(aElement) ||
       !IsDescendantOfEditorRoot(aElement)) {
     return false;
   }
@@ -5250,7 +5251,7 @@ bool HTMLEditor::IsEmptyNodeImpl(nsINode& aNode, bool aSingleBRDoesntCount,
           // if they contain other lists or tables
           if (child->IsElement()) {
             if (isListItemOrCell) {
-              if (HTMLEditUtils::IsList(child) ||
+              if (HTMLEditUtils::IsAnyListElement(child) ||
                   child->IsHTMLElement(nsGkAtoms::table)) {
                 // break out if we find we aren't empty
                 return false;

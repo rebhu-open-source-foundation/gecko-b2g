@@ -304,7 +304,7 @@ nsresult HTMLEditor::DoInsertHTMLWithContext(
     // but if not we want to delete _contents_ of cells and replace
     // with non-table elements.  Use cellSelectionMode bool to
     // indicate results.
-    if (!HTMLEditUtils::IsTableElement(arrayOfTopMostChildContents[0])) {
+    if (!HTMLEditUtils::IsAnyTableElement(arrayOfTopMostChildContents[0])) {
       cellSelectionMode = false;
     }
   }
@@ -413,7 +413,8 @@ nsresult HTMLEditor::DoInsertHTMLWithContext(
     }
   }
 
-  bool insertionPointWasInLink = !!GetLinkElement(pointToInsert.GetContainer());
+  const bool insertionPointWasInLink =
+      !!GetLinkElement(pointToInsert.GetContainer());
 
   if (pointToInsert.IsInTextNode()) {
     SplitNodeResult splitNodeResult = SplitNodeDeepWithTransaction(
@@ -505,13 +506,13 @@ nsresult HTMLEditor::DoInsertHTMLWithContext(
     // If a list element on the clipboard, and pasting it into a list or
     // list item element, insert the appropriate children instead.  I.e.,
     // merge the list elements instead of pasting as a sublist.
-    else if (HTMLEditUtils::IsList(content) &&
-             (HTMLEditUtils::IsList(pointToInsert.GetContainer()) ||
+    else if (HTMLEditUtils::IsAnyListElement(content) &&
+             (HTMLEditUtils::IsAnyListElement(pointToInsert.GetContainer()) ||
               HTMLEditUtils::IsListItem(pointToInsert.GetContainer()))) {
       for (nsCOMPtr<nsIContent> firstChild = content->GetFirstChild();
            firstChild; firstChild = content->GetFirstChild()) {
         if (HTMLEditUtils::IsListItem(firstChild) ||
-            HTMLEditUtils::IsList(firstChild)) {
+            HTMLEditUtils::IsAnyListElement(firstChild)) {
           // If we're pasting into empty list item, we should remove it
           // and past current node into the parent list directly.
           // XXX This creates invalid structure if current list item element
@@ -791,11 +792,12 @@ Element* HTMLEditor::GetLinkElement(nsINode* aNode) {
   return nullptr;
 }
 
+// static
 nsresult HTMLEditor::StripFormattingNodes(nsIContent& aNode, bool aListOnly) {
   if (aNode.TextIsOnlyWhitespace()) {
     nsCOMPtr<nsINode> parent = aNode.GetParentNode();
     if (parent) {
-      if (!aListOnly || HTMLEditUtils::IsList(parent)) {
+      if (!aListOnly || HTMLEditUtils::IsAnyListElement(parent)) {
         ErrorResult error;
         parent->RemoveChild(aNode, error);
         NS_WARNING_ASSERTION(!error.Failed(), "nsINode::RemoveChild() failed");
@@ -809,7 +811,7 @@ nsresult HTMLEditor::StripFormattingNodes(nsIContent& aNode, bool aListOnly) {
     nsCOMPtr<nsIContent> child = aNode.GetLastChild();
     while (child) {
       nsCOMPtr<nsIContent> previous = child->GetPreviousSibling();
-      nsresult rv = StripFormattingNodes(*child, aListOnly);
+      nsresult rv = HTMLEditor::StripFormattingNodes(*child, aListOnly);
       if (NS_FAILED(rv)) {
         NS_WARNING("HTMLEditor::StripFormattingNodes() failed");
         return rv;
@@ -2919,9 +2921,9 @@ nsresult HTMLEditor::CreateDOMFragmentFromPaste(
   nsCOMPtr<nsINode> targetNode;
   RefPtr<DocumentFragment> documentFragmentForContext;
   if (!aContextStr.IsEmpty()) {
-    nsresult rv = ParseFragment(aContextStr, nullptr, document,
-                                getter_AddRefs(documentFragmentForContext),
-                                aTrustedInput);
+    nsresult rv = HTMLEditor::ParseFragment(
+        aContextStr, nullptr, document,
+        getter_AddRefs(documentFragmentForContext), aTrustedInput);
     if (NS_FAILED(rv)) {
       NS_WARNING("HTMLEditor::ParseFragment(aContextStr) failed");
       return rv;
@@ -2931,7 +2933,7 @@ nsresult HTMLEditor::CreateDOMFragmentFromPaste(
       return NS_ERROR_FAILURE;
     }
 
-    rv = StripFormattingNodes(*documentFragmentForContext);
+    rv = HTMLEditor::StripFormattingNodes(*documentFragmentForContext);
     if (NS_FAILED(rv)) {
       NS_WARNING("HTMLEditor::StripFormattingNodes() failed");
       return rv;
@@ -2956,9 +2958,9 @@ nsresult HTMLEditor::CreateDOMFragmentFromPaste(
     contextLocalNameAtom = nsGkAtoms::body;
   }
   RefPtr<DocumentFragment> documentFragmentToInsert;
-  nsresult rv =
-      ParseFragment(aInputString, contextLocalNameAtom, document,
-                    getter_AddRefs(documentFragmentToInsert), aTrustedInput);
+  nsresult rv = HTMLEditor::ParseFragment(
+      aInputString, contextLocalNameAtom, document,
+      getter_AddRefs(documentFragmentToInsert), aTrustedInput);
   if (NS_FAILED(rv)) {
     NS_WARNING("HTMLEditor::ParseFragment(aInputString) failed");
     return rv;
@@ -2979,7 +2981,7 @@ nsresult HTMLEditor::CreateDOMFragmentFromPaste(
     documentFragmentToInsert = documentFragmentForContext;
   }
 
-  rv = StripFormattingNodes(*documentFragmentToInsert, true);
+  rv = HTMLEditor::StripFormattingNodes(*documentFragmentToInsert, true);
   if (NS_FAILED(rv)) {
     NS_WARNING("HTMLEditor::StripFormattingNodes() failed");
     return rv;
@@ -2996,35 +2998,12 @@ nsresult HTMLEditor::CreateDOMFragmentFromPaste(
   *aOutFragNode = std::move(documentFragmentToInsert);
   *aOutStartOffset = 0;
 
-  // get the infoString contents
   if (!aInfoStr.IsEmpty()) {
-    int32_t sep = aInfoStr.FindChar((char16_t)',');
-    nsAutoString numstr1(Substring(aInfoStr, 0, sep));
-    nsAutoString numstr2(
-        Substring(aInfoStr, sep + 1, aInfoStr.Length() - (sep + 1)));
-
-    // Move the start and end children.
-    nsresult rvIgnored;
-    int32_t num = numstr1.ToInteger(&rvIgnored);
-    NS_WARNING_ASSERTION(NS_SUCCEEDED(rvIgnored),
-                         "nsAString::ToInteger() failed, but ignored");
-    while (num--) {
-      nsINode* tmp = (*aOutStartNode)->GetFirstChild();
-      if (!tmp) {
-        NS_WARNING("aOutStartNode did not have children");
-        return NS_ERROR_FAILURE;
-      }
-      *aOutStartNode = tmp;
-    }
-
-    num = numstr2.ToInteger(&rvIgnored);
-    while (num--) {
-      nsINode* tmp = (*aOutEndNode)->GetLastChild();
-      if (!tmp) {
-        NS_WARNING("aOutEndNode did not have children");
-        return NS_ERROR_FAILURE;
-      }
-      *aOutEndNode = tmp;
+    const nsresult rv = HTMLEditor::MoveStartAndEndAccordingToHTMLInfo(
+        aInfoStr, aOutStartNode, aOutEndNode);
+    if (NS_FAILED(rv)) {
+      NS_WARNING("HTMLEditor::MoveStartAndEndAccordingToHTMLInfo() failed");
+      return rv;
     }
   }
 
@@ -3032,6 +3011,43 @@ nsresult HTMLEditor::CreateDOMFragmentFromPaste(
   return NS_OK;
 }
 
+// static
+nsresult HTMLEditor::MoveStartAndEndAccordingToHTMLInfo(
+    const nsAString& aInfoStr, nsCOMPtr<nsINode>* aOutStartNode,
+    nsCOMPtr<nsINode>* aOutEndNode) {
+  int32_t sep = aInfoStr.FindChar((char16_t)',');
+  nsAutoString numstr1(Substring(aInfoStr, 0, sep));
+  nsAutoString numstr2(
+      Substring(aInfoStr, sep + 1, aInfoStr.Length() - (sep + 1)));
+
+  // Move the start and end children.
+  nsresult rvIgnored;
+  int32_t num = numstr1.ToInteger(&rvIgnored);
+  NS_WARNING_ASSERTION(NS_SUCCEEDED(rvIgnored),
+                       "nsAString::ToInteger() failed, but ignored");
+  while (num--) {
+    nsINode* tmp = (*aOutStartNode)->GetFirstChild();
+    if (!tmp) {
+      NS_WARNING("aOutStartNode did not have children");
+      return NS_ERROR_FAILURE;
+    }
+    *aOutStartNode = tmp;
+  }
+
+  num = numstr2.ToInteger(&rvIgnored);
+  while (num--) {
+    nsINode* tmp = (*aOutEndNode)->GetLastChild();
+    if (!tmp) {
+      NS_WARNING("aOutEndNode did not have children");
+      return NS_ERROR_FAILURE;
+    }
+    *aOutEndNode = tmp;
+  }
+
+  return NS_OK;
+}
+
+// static
 nsresult HTMLEditor::ParseFragment(const nsAString& aFragStr,
                                    nsAtom* aContextLocalName,
                                    Document* aTargetDocument,
@@ -3092,28 +3108,29 @@ HTMLEditor::AutoHTMLFragmentBoundariesFixer::AutoHTMLFragmentBoundariesFixer(
                                      aArrayOfTopMostChildContents);
 }
 
+// static
 void HTMLEditor::AutoHTMLFragmentBoundariesFixer::
-    CollectListAndTableRelatedElementsAt(
+    CollectTableAndAnyListElementsOfInclusiveAncestorsAt(
         nsIContent& aContent,
-        nsTArray<OwningNonNull<Element>>& aOutArrayOfListAndTableElements)
-        const {
+        nsTArray<OwningNonNull<Element>>& aOutArrayOfListAndTableElements) {
   for (Element* element = aContent.GetAsElementOrParentElement(); element;
        element = element->GetParentElement()) {
-    if (HTMLEditUtils::IsList(element) || HTMLEditUtils::IsTable(element)) {
+    if (HTMLEditUtils::IsAnyListElement(element) ||
+        HTMLEditUtils::IsTable(element)) {
       aOutArrayOfListAndTableElements.AppendElement(*element);
     }
   }
 }
 
+// static
 Element*
 HTMLEditor::AutoHTMLFragmentBoundariesFixer::GetMostAncestorListOrTableElement(
     const nsTArray<OwningNonNull<nsIContent>>& aArrayOfTopMostChildContents,
-    const nsTArray<OwningNonNull<Element>>& aArrayOfListAndTableRelatedElements)
-    const {
+    const nsTArray<OwningNonNull<Element>>&
+        aArrayOfListAndTableRelatedElements) {
   Element* lastFoundAncestorListOrTableElement = nullptr;
   for (auto& content : aArrayOfTopMostChildContents) {
-    if (HTMLEditUtils::IsTableElement(content) &&
-        !content->IsHTMLElement(nsGkAtoms::table)) {
+    if (HTMLEditUtils::IsAnyTableElementButNotTable(content)) {
       Element* tableElement = nullptr;
       for (Element* maybeTableElement = content->GetParentElement();
            maybeTableElement;
@@ -3153,7 +3170,7 @@ HTMLEditor::AutoHTMLFragmentBoundariesFixer::GetMostAncestorListOrTableElement(
     for (Element* maybeListElement = content->GetParentElement();
          maybeListElement;
          maybeListElement = maybeListElement->GetParentElement()) {
-      if (HTMLEditUtils::IsList(maybeListElement)) {
+      if (HTMLEditUtils::IsAnyListElement(maybeListElement)) {
         listElement = maybeListElement;
         break;
       }
@@ -3199,7 +3216,7 @@ HTMLEditor::AutoHTMLFragmentBoundariesFixer::FindReplaceableTableElement(
   for (Element* element =
            aContentMaybeInTableElement.GetAsElementOrParentElement();
        element; element = element->GetParentElement()) {
-    if (!HTMLEditUtils::IsTableElement(element) ||
+    if (!HTMLEditUtils::IsAnyTableElement(element) ||
         element->IsHTMLElement(nsGkAtoms::table)) {
       // XXX Perhaps, the original developer of this method assumed that
       //     aTableElement won't be skipped because if it's assumed, we can
@@ -3228,7 +3245,7 @@ HTMLEditor::AutoHTMLFragmentBoundariesFixer::FindReplaceableTableElement(
 
 bool HTMLEditor::AutoHTMLFragmentBoundariesFixer::IsReplaceableListElement(
     Element& aListElement, nsIContent& aContentMaybeInListElement) const {
-  MOZ_ASSERT(HTMLEditUtils::IsList(&aListElement));
+  MOZ_ASSERT(HTMLEditUtils::IsAnyListElement(&aListElement));
   // Perhaps, this is designed for climbing up the DOM tree from
   // aContentMaybeInListElement to aListElement and making sure that
   // aContentMaybeInListElement itself or its ancestor is an list item.
@@ -3250,7 +3267,7 @@ bool HTMLEditor::AutoHTMLFragmentBoundariesFixer::IsReplaceableListElement(
     for (Element* maybeListElement = element->GetParentElement();
          maybeListElement;
          maybeListElement = maybeListElement->GetParentElement()) {
-      if (HTMLEditUtils::IsList(maybeListElement)) {
+      if (HTMLEditUtils::IsAnyListElement(maybeListElement)) {
         listElement = maybeListElement;
         break;
       }
@@ -3274,7 +3291,7 @@ void HTMLEditor::AutoHTMLFragmentBoundariesFixer::
   // in aArrayOfTopMostChildContents.
   AutoTArray<OwningNonNull<Element>, 4>
       arrayOfListAndTableRelatedElementsAtEdge;
-  CollectListAndTableRelatedElementsAt(
+  CollectTableAndAnyListElementsOfInclusiveAncestorsAt(
       aStartOrEnd == StartOrEnd::end
           ? aArrayOfTopMostChildContents.LastElement()
           : aArrayOfTopMostChildContents[0],
@@ -3311,7 +3328,7 @@ void HTMLEditor::AutoHTMLFragmentBoundariesFixer::
 
   // Find substructure of list or table that must be included in paste.
   Element* replaceElement;
-  if (HTMLEditUtils::IsList(listOrTableElement)) {
+  if (HTMLEditUtils::IsAnyListElement(listOrTableElement)) {
     if (!IsReplaceableListElement(*listOrTableElement,
                                   firstOrLastChildContent)) {
       return;

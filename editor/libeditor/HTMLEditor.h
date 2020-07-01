@@ -4382,15 +4382,29 @@ class HTMLEditor final : public TextEditor,
   nsresult ParseCFHTML(nsCString& aCfhtml, char16_t** aStuffToPaste,
                        char16_t** aCfcontext);
 
-  nsresult StripFormattingNodes(nsIContent& aNode, bool aOnlyList = false);
+  static nsresult StripFormattingNodes(nsIContent& aNode,
+                                       bool aOnlyList = false);
+
+  /**
+   * @param aContextStr as indicated by nsITransferable's kHTMLContext.
+   * @param aInfoStr as indicated by nsITransferable's kHTMLInfo.
+   */
   nsresult CreateDOMFragmentFromPaste(
       const nsAString& aInputString, const nsAString& aContextStr,
       const nsAString& aInfoStr, nsCOMPtr<nsINode>* aOutFragNode,
       nsCOMPtr<nsINode>* aOutStartNode, nsCOMPtr<nsINode>* aOutEndNode,
       int32_t* aOutStartOffset, int32_t* aOutEndOffset, bool aTrustedInput);
-  nsresult ParseFragment(const nsAString& aStr, nsAtom* aContextLocalName,
+  static nsresult ParseFragment(const nsAString& aStr, nsAtom* aContextLocalName,
                          Document* aTargetDoc,
                          dom::DocumentFragment** aFragment, bool aTrustedInput);
+
+  /**
+   * @param aInfoStr as indicated by nsITransferable's kHTMLInfo.
+   */
+  [[nodiscard]] static nsresult MoveStartAndEndAccordingToHTMLInfo(
+      const nsAString& aInfoStr, nsCOMPtr<nsINode>* aOutStartNode,
+      nsCOMPtr<nsINode>* aOutEndNode);
+
   /**
    * CollectTopMostChildContentsCompletelyInRange() collects topmost child
    * contents which are completely in the given range.
@@ -4434,7 +4448,7 @@ class HTMLEditor final : public TextEditor,
      * start or end with proper element node if it's necessary.
      * If first or last node of aArrayOfTopMostChildContents is in list and/or
      * `<table>` element, looks for topmost list element or `<table>` element
-     * with `CollectListAndTableRelatedElementsAt()` and
+     * with `CollectTableAndAnyListElementsOfInclusiveAncestorsAt()` and
      * `GetMostAncestorListOrTableElement()`.  Then, checks whether
      * some nodes are in aArrayOfTopMostChildContents are the topmost list/table
      * element or its descendant and if so, removes the nodes from
@@ -4449,24 +4463,23 @@ class HTMLEditor final : public TextEditor,
         const;
 
     /**
-     * CollectListAndTableRelatedElementsAt() collects list elements and
-     * table related elements from aNode (meaning aNode may be in the first of
-     * the result) to the root element.
+     * CollectTableAndAnyListElementsOfInclusiveAncestorsAt() collects list
+     * elements and table related elements from the inclusive ancestors
+     * (https://dom.spec.whatwg.org/#concept-tree-inclusive-ancestor) of aNode.
      */
-    void CollectListAndTableRelatedElementsAt(
+    static void CollectTableAndAnyListElementsOfInclusiveAncestorsAt(
         nsIContent& aContent,
-        nsTArray<OwningNonNull<Element>>& aOutArrayOfListAndTableElements)
-        const;
+        nsTArray<OwningNonNull<Element>>& aOutArrayOfListAndTableElements);
 
     /**
      * GetMostAncestorListOrTableElement() returns a list or a `<table>`
      * element which is in aArrayOfListAndTableElements and they are
      * actually valid ancestor of at least one of aArrayOfTopMostChildContents.
      */
-    Element* GetMostAncestorListOrTableElement(
+    static Element* GetMostAncestorListOrTableElement(
         const nsTArray<OwningNonNull<nsIContent>>& aArrayOfTopMostChildContents,
         const nsTArray<OwningNonNull<Element>>&
-            aArrayOfListAndTableRelatedElements) const;
+            aArrayOfListAndTableRelatedElements);
 
     /**
      * FindReplaceableTableElement() is a helper method of
@@ -4505,7 +4518,8 @@ class HTMLEditor final : public TextEditor,
    *                            different block level element.
    */
   EditorRawDOMPoint GetBetterInsertionPointFor(
-      nsIContent& aContentToInsert, const EditorRawDOMPoint& aPointToInsert);
+      nsIContent& aContentToInsert,
+      const EditorRawDOMPoint& aPointToInsert) const;
 
   /**
    * MakeDefinitionListItemWithTransaction() replaces parent list of current
