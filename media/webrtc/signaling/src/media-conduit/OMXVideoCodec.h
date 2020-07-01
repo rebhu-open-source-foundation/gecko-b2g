@@ -10,22 +10,17 @@
 namespace mozilla {
 class OMXVideoCodec {
  public:
-  enum CodecType {
-    CODEC_H264,
-    CODEC_VP8,
-  };
-
   /**
    * Create encoder object for codec type |aCodecType|. Return |nullptr| when
    * failed.
    */
-  static WebrtcVideoEncoder* CreateEncoder(CodecType aCodecType);
+  static WebrtcVideoEncoder* CreateEncoder(webrtc::VideoCodecType aCodecType);
 
   /**
    * Create decoder object for codec type |aCodecType|. Return |nullptr| when
    * failed.
    */
-  static WebrtcVideoDecoder* CreateDecoder(CodecType aCodecType);
+  static WebrtcVideoDecoder* CreateDecoder(webrtc::VideoCodecType aCodecType);
 };
 
 }  // namespace mozilla
