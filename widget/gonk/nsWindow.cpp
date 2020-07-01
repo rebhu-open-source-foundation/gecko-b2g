@@ -50,6 +50,7 @@
 #include "mozilla/layers/CompositorBridgeParent.h"
 #include "mozilla/layers/LayerManagerComposite.h"
 #include "mozilla/layers/LayerTransactionChild.h"
+#include "mozilla/Preferences.h"
 #include "mozilla/TouchEvents.h"
 #include "HwcComposer2D.h"
 #include "nsImageLoadingContent.h"
@@ -384,6 +385,11 @@ nsresult nsWindow::SynthesizeNativeTouchPoint(uint32_t aPointerId,
   return NS_OK;
 }
 
+void ThemePrefChanged(const char* aPref, void* aModule) {
+  auto window = static_cast<nsWindow*>(aModule);
+  window->NotifyThemeChanged();
+}
+
 NS_IMETHODIMP
 nsWindow::Create(nsIWidget* aParent, void* aNativeParent,
                  const LayoutDeviceIntRect& aRect,
@@ -414,10 +420,15 @@ nsWindow::Create(nsIWidget* aParent, void* aNativeParent,
 
   Resize(0, 0, mBounds.width, mBounds.height, false);
 
+  Preferences::RegisterCallback(ThemePrefChanged, "ui.systemUsesDarkTheme", this);
+
   return NS_OK;
 }
 
 void nsWindow::Destroy(void) {
+
+  Preferences::UnregisterCallback(ThemePrefChanged, "ui.systemUsesDarkTheme", this);
+
   mOnDestroyCalled = true;
   mScreen->UnregisterWindow(this);
   if (this == gFocusedWindow) {
