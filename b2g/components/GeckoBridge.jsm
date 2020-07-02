@@ -51,11 +51,16 @@ function log(msg) {
 
 this.GeckoBridge = {
   start() {
-    log(`Starting GeckoBridge`);
+    log(`Starting`);
     try {
       this._bridge = Cc["@mozilla.org/sidl-native/bridge;1"].getService(
         Ci.nsIGeckoBridge
       );
+
+      this._powerManagerDelegate = Cc[
+        "@mozilla.org/sidl-native/powermanager;1"
+      ].getService(Ci.nsIPowerManagerDelegate);
+
       this.setup();
     } catch (e) {
       log(`Failed to create GeckoBridge component: ${e}`);
@@ -67,15 +72,41 @@ this.GeckoBridge = {
     // initial value.
     kWatchedPrefs.forEach(pref => {
       Services.prefs.addObserver(pref, this);
-      this.set_pref(pref);
+      this.setPref(pref);
     });
+
+    this.setPowerManagerDelegate();
   },
 
   observe(subject, topic, data) {
-    this.set_pref(data);
+    this.setPref(data);
   },
 
-  set_pref(pref) {
+  setPowerManagerDelegate() {
+    if (!this._bridge || !this._powerManagerDelegate) {
+      log(`Invalid powermanager delegate`);
+      return;
+    }
+
+    const callback = {
+      resolve() {
+        log(`Set powermanager delegate successfully`);
+      },
+      reject() {
+        log(`Failed to set powermanager delegate`);
+      },
+    };
+
+    if (this._bridge) {
+      log(`Setting PowerManagerDelegate`);
+      this._bridge.setPowerManagerDelegate(
+        this._powerManagerDelegate,
+        callback
+      );
+    }
+  },
+
+  setPref(pref) {
     let prefs = Services.prefs;
     let kind = prefs.getPrefType(pref);
     log(`Setting pref ${pref} (${kind})`);
