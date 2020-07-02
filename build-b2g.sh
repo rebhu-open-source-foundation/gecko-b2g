@@ -94,6 +94,12 @@ case $TARGET_ARCH in
         TARGET_TRIPLE=$ARCH_NAME-linux-$ARCH_ABI
         BINSUFFIX=64
         ;;
+    x86)
+        ARCH_NAME="i686"
+        ARCH_DIR="arch-x86"
+        ARCH_ABI="android"
+        TARGET_TRIPLE=$ARCH_NAME-linux-$ARCH_ABI
+        ;;
     x86_64)
         ARCH_NAME="x86"
         ARCH_DIR="arch-x86_64"
