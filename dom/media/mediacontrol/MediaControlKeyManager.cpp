@@ -146,5 +146,32 @@ void MediaControlKeyManager::SetSupportedMediaKeys(
   }
 }
 
+void MediaControlKeyManager::SetControlledTabBrowsingContextId(
+    Maybe<uint64_t> aTopLevelBrowsingContextId) {
+  if (aTopLevelBrowsingContextId) {
+    LOG_INFO("Controlled tab Id=%" PRId64, *aTopLevelBrowsingContextId);
+  } else {
+    LOG_INFO("No controlled tab exists");
+  }
+  if (mEventSource && mEventSource->IsOpened()) {
+    mEventSource->SetControlledTabBrowsingContextId(aTopLevelBrowsingContextId);
+  }
+}
+
+void MediaControlKeyManager::SetEnableFullScreen(bool aIsEnabled) {
+  LOG_INFO("Set fullscreen %s", aIsEnabled ? "enabled" : "disabled");
+  if (mEventSource && mEventSource->IsOpened()) {
+    mEventSource->SetEnableFullScreen(aIsEnabled);
+  }
+}
+
+void MediaControlKeyManager::SetEnablePictureInPictureMode(bool aIsEnabled) {
+  LOG_INFO("Set Picture-In-Picture mode %s",
+           aIsEnabled ? "enabled" : "disabled");
+  if (mEventSource && mEventSource->IsOpened()) {
+    mEventSource->SetEnablePictureInPictureMode(aIsEnabled);
+  }
+}
+
 }  // namespace dom
 }  // namespace mozilla

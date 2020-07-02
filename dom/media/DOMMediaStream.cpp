@@ -396,7 +396,7 @@ void DOMMediaStream::AddTrackInternal(MediaStreamTrack* aTrack) {
   LOG(LogLevel::Debug,
       ("DOMMediaStream %p Adding owned track %p", this, aTrack));
   AddTrack(*aTrack);
-  DispatchTrackEvent(NS_LITERAL_STRING("addtrack"), aTrack);
+  DispatchTrackEvent(u"addtrack"_ns, aTrack);
 }
 
 void DOMMediaStream::RemoveTrackInternal(MediaStreamTrack* aTrack) {
@@ -406,7 +406,7 @@ void DOMMediaStream::RemoveTrackInternal(MediaStreamTrack* aTrack) {
     return;
   }
   RemoveTrack(*aTrack);
-  DispatchTrackEvent(NS_LITERAL_STRING("removetrack"), aTrack);
+  DispatchTrackEvent(u"removetrack"_ns, aTrack);
 }
 
 already_AddRefed<nsIPrincipal> DOMMediaStream::GetPrincipal() {

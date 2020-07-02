@@ -534,12 +534,11 @@ ContentParentsMemoryReporter::CollectReports(
         NS_ConvertUTF16toUTF8(friendlyName).get(), cp->Pid(), channelStr,
         static_cast<nsIObserver*>(cp), refcnt);
 
-    NS_NAMED_LITERAL_CSTRING(
-        desc,
+    constexpr auto desc =
         "The number of unset IPC messages held in this ContentParent's "
         "channel.  A large value here might indicate that we're leaking "
         "messages.  Similarly, a ContentParent object for a process that's no "
-        "longer running could indicate that we're leaking ContentParents.");
+        "longer running could indicate that we're leaking ContentParents."_ns;
 
     aHandleReport->Callback(/* process */ EmptyCString(), path, KIND_OTHER,
                             UNITS_COUNT, numQueuedMessages, desc, aData);
@@ -704,7 +703,7 @@ static const char* sObserverTopics[] = {
 /*static*/ RefPtr<ContentParent::LaunchPromise>
 ContentParent::PreallocateProcess() {
   RefPtr<ContentParent> process =
-      new ContentParent(NS_LITERAL_STRING(PREALLOC_REMOTE_TYPE));
+      new ContentParent(NS_LITERAL_STRING_FROM_CSTRING(PREALLOC_REMOTE_TYPE));
 
   MOZ_LOG(ContentParent::GetLog(), LogLevel::Debug,
           ("Preallocating process of type " PREALLOC_REMOTE_TYPE));
@@ -803,12 +802,13 @@ bool IsWebRemoteType(const nsAString& aContentProcessType) {
   // Note: matches webIsolated as well as web (and webLargeAllocation, and
   // webCOOP+COEP)
   return StringBeginsWith(aContentProcessType,
-                          NS_LITERAL_STRING(DEFAULT_REMOTE_TYPE));
+                          NS_LITERAL_STRING_FROM_CSTRING(DEFAULT_REMOTE_TYPE));
 }
 
 bool IsWebCoopCoepRemoteType(const nsAString& aContentProcessType) {
-  return StringBeginsWith(aContentProcessType,
-                          NS_LITERAL_STRING(WITH_COOP_COEP_REMOTE_TYPE_PREFIX));
+  return StringBeginsWith(
+      aContentProcessType,
+      NS_LITERAL_STRING_FROM_CSTRING(WITH_COOP_COEP_REMOTE_TYPE_PREFIX));
 }
 
 /*static*/
@@ -1076,7 +1076,8 @@ ContentParent::GetNewOrUsedLaunchingBrowserProcess(Element* aFrameElement,
     MOZ_LOG(ContentParent::GetLog(), LogLevel::Debug,
             ("GetNewOrUsedProcess: returning Large Used process"));
     return GetNewOrUsedLaunchingBrowserProcess(
-        aFrameElement, NS_LITERAL_STRING(DEFAULT_REMOTE_TYPE), aPriority,
+        aFrameElement, NS_LITERAL_STRING_FROM_CSTRING(DEFAULT_REMOTE_TYPE),
+        aPriority,
         /*aPreferUsed =*/false);
   }
 
@@ -1937,13 +1938,13 @@ void ContentParent::ActorDestroy(ActorDestroyReason why) {
   if (obs) {
     RefPtr<nsHashPropertyBag> props = new nsHashPropertyBag();
 
-    props->SetPropertyAsUint64(NS_LITERAL_STRING("childID"), mChildID);
+    props->SetPropertyAsUint64(u"childID"_ns, mChildID);
 
     if (AbnormalShutdown == why) {
-      Telemetry::Accumulate(Telemetry::SUBPROCESS_ABNORMAL_ABORT,
-                            NS_LITERAL_CSTRING("content"), 1);
+      Telemetry::Accumulate(Telemetry::SUBPROCESS_ABNORMAL_ABORT, "content"_ns,
+                            1);
 
-      props->SetPropertyAsBool(NS_LITERAL_STRING("abnormal"), true);
+      props->SetPropertyAsBool(u"abnormal"_ns, true);
 
       nsAutoString dumpID;
       // There's a window in which child processes can crash
@@ -1955,7 +1956,7 @@ void ContentParent::ActorDestroy(ActorDestroyReason why) {
         if (!mCreatedPairedMinidumps) {
           if (mCrashReporter->GenerateCrashReport(OtherPid())) {
             // Propagate `isLikelyOOM`.
-            Unused << props->SetPropertyAsBool(NS_LITERAL_STRING("isLikelyOOM"),
+            Unused << props->SetPropertyAsBool(u"isLikelyOOM"_ns,
                                                mCrashReporter->IsLikelyOOM());
           }
         }
@@ -1968,7 +1969,7 @@ void ContentParent::ActorDestroy(ActorDestroyReason why) {
       }
 
       if (!dumpID.IsEmpty()) {
-        props->SetPropertyAsAString(NS_LITERAL_STRING("dumpID"), dumpID);
+        props->SetPropertyAsAString(u"dumpID"_ns, dumpID);
       }
     }
     nsAutoString cpId;
@@ -2125,8 +2126,8 @@ bool ContentParent::ShouldKeepProcessAlive() {
 
   nsAutoCString keepAlivePref("dom.ipc.keepProcessesAlive.");
 
-  if (StringBeginsWith(mRemoteType,
-                       NS_LITERAL_STRING(FISSION_WEB_REMOTE_TYPE)) &&
+  if (StringBeginsWith(mRemoteType, NS_LITERAL_STRING_FROM_CSTRING(
+                                        FISSION_WEB_REMOTE_TYPE)) &&
       xpc::IsInAutomation()) {
     keepAlivePref.Append(FISSION_WEB_REMOTE_TYPE);
     keepAlivePref.AppendLiteral(".perOrigin");
@@ -2959,39 +2960,38 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
 
   {
     nsTArray<BlobURLRegistrationData> registrations;
-    BlobURLProtocolHandler::ForEachBlobURL([&](BlobImpl* aBlobImpl,
-                                               nsIPrincipal* aPrincipal,
-                                               const nsACString& aURI,
-                                               bool aRevoked) {
-      nsAutoCString origin;
-      nsresult rv = aPrincipal->GetOrigin(origin);
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        return false;
-      }
+    BlobURLProtocolHandler::ForEachBlobURL(
+        [&](BlobImpl* aBlobImpl, nsIPrincipal* aPrincipal,
+            const nsACString& aURI, bool aRevoked) {
+          nsAutoCString origin;
+          nsresult rv = aPrincipal->GetOrigin(origin);
+          if (NS_WARN_IF(NS_FAILED(rv))) {
+            return false;
+          }
 
-      // We send all moz-extension Blob URL's to all content processes because
-      // content scripts mean that a moz-extension can live in any process.
-      // Same thing for system principal Blob URLs.
-      // Content Blob URL's are sent for content principals on-demand by
-      // AboutToLoadHttpFtpDocumentForChild and RemoteWorkerManager.
-      if (!StringBeginsWith(origin, NS_LITERAL_CSTRING("moz-extension://")) &&
-          !aPrincipal->IsSystemPrincipal()) {
-        return true;
-      }
+          // We send all moz-extension Blob URL's to all content processes
+          // because content scripts mean that a moz-extension can live in any
+          // process. Same thing for system principal Blob URLs. Content Blob
+          // URL's are sent for content principals on-demand by
+          // AboutToLoadHttpFtpDocumentForChild and RemoteWorkerManager.
+          if (!StringBeginsWith(origin, "moz-extension://"_ns) &&
+              !aPrincipal->IsSystemPrincipal()) {
+            return true;
+          }
 
-      IPCBlob ipcBlob;
-      rv = IPCBlobUtils::Serialize(aBlobImpl, this, ipcBlob);
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        return false;
-      }
+          IPCBlob ipcBlob;
+          rv = IPCBlobUtils::Serialize(aBlobImpl, this, ipcBlob);
+          if (NS_WARN_IF(NS_FAILED(rv))) {
+            return false;
+          }
 
-      registrations.AppendElement(BlobURLRegistrationData(
-          nsCString(aURI), ipcBlob, aPrincipal, aRevoked));
+          registrations.AppendElement(BlobURLRegistrationData(
+              nsCString(aURI), ipcBlob, aPrincipal, aRevoked));
 
-      rv = TransmitPermissionsForPrincipal(aPrincipal);
-      Unused << NS_WARN_IF(NS_FAILED(rv));
-      return true;
-    });
+          rv = TransmitPermissionsForPrincipal(aPrincipal);
+          Unused << NS_WARN_IF(NS_FAILED(rv));
+          return true;
+        });
 
     if (!registrations.IsEmpty()) {
       Unused << SendInitBlobURLs(registrations);
@@ -3363,7 +3363,7 @@ ContentParent::GetName(nsAString& aName) {
 NS_IMETHODIMP
 ContentParent::GetState(nsIPropertyBag** aResult) {
   auto props = MakeRefPtr<nsHashPropertyBag>();
-  props->SetPropertyAsAString(NS_LITERAL_STRING("remoteTypePrefix"),
+  props->SetPropertyAsAString(u"remoteTypePrefix"_ns,
                               RemoteTypePrefix(mRemoteType));
   *aResult = props.forget().downcast<nsIWritablePropertyBag>().take();
   return NS_OK;
@@ -3394,10 +3394,10 @@ static void InitClients() {
 void ContentParent::AddShutdownBlockers() {
   InitClients();
 
-  sXPCOMShutdownClient->AddBlocker(this, NS_LITERAL_STRING(__FILE__), __LINE__,
-                                   EmptyString());
-  sProfileBeforeChangeClient->AddBlocker(this, NS_LITERAL_STRING(__FILE__),
-                                         __LINE__, EmptyString());
+  sXPCOMShutdownClient->AddBlocker(
+      this, NS_LITERAL_STRING_FROM_CSTRING(__FILE__), __LINE__, EmptyString());
+  sProfileBeforeChangeClient->AddBlocker(
+      this, NS_LITERAL_STRING_FROM_CSTRING(__FILE__), __LINE__, EmptyString());
 }
 
 void ContentParent::RemoveShutdownBlockers() {
@@ -3448,7 +3448,7 @@ ContentParent::Observe(nsISupports* aSubject, const char* aTopic,
       return NS_ERROR_NOT_AVAILABLE;
     }
   } else if (!strcmp(aTopic, NS_IPC_IOSERVICE_SET_CONNECTIVITY_TOPIC)) {
-    if (!SendSetConnectivity(NS_LITERAL_STRING("true").Equals(aData))) {
+    if (!SendSetConnectivity(u"true"_ns.Equals(aData))) {
       return NS_ERROR_NOT_AVAILABLE;
     }
   } else if (!strcmp(aTopic, NS_IPC_CAPTIVE_PORTAL_SET_STATE)) {
@@ -3878,8 +3878,7 @@ void ContentParent::GeneratePairedMinidump(const char* aReason) {
                                   reason);
 
     // Generate the report and insert into the queue for submittal.
-    if (mCrashReporter->GenerateMinidumpAndPair(
-            this, nullptr, NS_LITERAL_CSTRING("browser"))) {
+    if (mCrashReporter->GenerateMinidumpAndPair(this, nullptr, "browser"_ns)) {
       mCreatedPairedMinidumps = mCrashReporter->FinalizeCrashReport();
     }
   }
@@ -5034,10 +5033,10 @@ mozilla::ipc::IPCResult ContentParent::RecvRecordingDeviceEvents(
     // recording-device-ipc-events needs to gather more information from content
     // process
     RefPtr<nsHashPropertyBag> props = new nsHashPropertyBag();
-    props->SetPropertyAsUint64(NS_LITERAL_STRING("childID"), ChildID());
-    props->SetPropertyAsBool(NS_LITERAL_STRING("isAudio"), aIsAudio);
-    props->SetPropertyAsBool(NS_LITERAL_STRING("isVideo"), aIsVideo);
-    props->SetPropertyAsAString(NS_LITERAL_STRING("requestURL"), aPageURL);
+    props->SetPropertyAsUint64(u"childID"_ns, ChildID());
+    props->SetPropertyAsBool(u"isAudio"_ns, aIsAudio);
+    props->SetPropertyAsBool(u"isVideo"_ns, aIsVideo);
+    props->SetPropertyAsAString(u"requestURL"_ns, aPageURL);
 
     obs->NotifyObservers((nsIPropertyBag2*)props, "recording-device-ipc-events",
                          aRecordingStatus.get());
@@ -5971,9 +5970,8 @@ void ContentParent::BroadcastBlobURLRegistration(const nsACString& aURI,
 
   uint64_t originHash = ComputeLoadedOriginHash(aPrincipal);
 
-  bool toBeSent =
-      StringBeginsWith(origin, NS_LITERAL_CSTRING("moz-extension://")) ||
-      aPrincipal->IsSystemPrincipal();
+  bool toBeSent = StringBeginsWith(origin, "moz-extension://"_ns) ||
+                  aPrincipal->IsSystemPrincipal();
 
   nsCString uri(aURI);
   IPC::Principal principal(aPrincipal);
@@ -6010,9 +6008,8 @@ void ContentParent::BroadcastBlobURLUnregistration(
 
   uint64_t originHash = ComputeLoadedOriginHash(aPrincipal);
 
-  bool toBeSent =
-      StringBeginsWith(origin, NS_LITERAL_CSTRING("moz-extension://")) ||
-      aPrincipal->IsSystemPrincipal();
+  bool toBeSent = StringBeginsWith(origin, "moz-extension://"_ns) ||
+                  aPrincipal->IsSystemPrincipal();
 
   nsCString uri(aURI);
 
@@ -7320,6 +7317,11 @@ mozilla::ipc::IPCResult ContentParent::RecvCommitWindowContextTransaction(
 
 NS_IMETHODIMP ContentParent::GetChildID(uint64_t* aOut) {
   *aOut = this->ChildID();
+  return NS_OK;
+}
+
+NS_IMETHODIMP ContentParent::GetOsPid(int32_t* aOut) {
+  *aOut = Pid();
   return NS_OK;
 }
 

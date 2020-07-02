@@ -154,7 +154,7 @@ void ServiceWorkerContainer::ControllerChanged(ErrorResult& aRv) {
     return;
   }
   mControllerWorker = go->GetOrCreateServiceWorker(go->GetController().ref());
-  aRv = DispatchTrustedEvent(NS_LITERAL_STRING("controllerchange"));
+  aRv = DispatchTrustedEvent(u"controllerchange"_ns);
 }
 
 using mozilla::dom::ipc::StructuredCloneData;
@@ -266,7 +266,7 @@ already_AddRefed<Promise> ServiceWorkerContainer::Register(
 
   // Step 4. If none passed, parse against script's URL
   if (!aOptions.mScope.WasPassed()) {
-    NS_NAMED_LITERAL_CSTRING(defaultScope, "./");
+    constexpr auto defaultScope = "./"_ns;
     rv = NS_NewURI(getter_AddRefs(scopeURI), defaultScope, nullptr, scriptURI);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       nsAutoCString spec;
@@ -336,8 +336,7 @@ already_AddRefed<Promise> ServiceWorkerContainer::Register(
   // Check content policy.
   int16_t decision = nsIContentPolicy::ACCEPT;
   rv = NS_CheckContentLoadPolicy(scriptURI, secCheckLoadInfo,
-                                 NS_LITERAL_CSTRING("application/javascript"),
-                                 &decision);
+                                 "application/javascript"_ns, &decision);
   if (NS_FAILED(rv)) {
     aRv.Throw(NS_ERROR_DOM_SECURITY_ERR);
     return nullptr;
@@ -368,7 +367,7 @@ already_AddRefed<Promise> ServiceWorkerContainer::Register(
     AutoTArray<nsString, 1> param;
     CopyUTF8toUTF16(cleanedScopeURL, *param.AppendElement());
     nsContentUtils::ReportToConsole(nsIScriptError::errorFlag,
-                                    NS_LITERAL_CSTRING("Service Workers"), aDoc,
+                                    "Service Workers"_ns, aDoc,
                                     nsContentUtils::eDOM_PROPERTIES,
                                     "ServiceWorkerRegisterStorageError", param);
   });
@@ -411,7 +410,7 @@ already_AddRefed<Promise> ServiceWorkerContainer::GetRegistrations(
     ErrorResult& aRv) {
   nsIGlobalObject* global = GetGlobalIfValid(aRv, [](Document* aDoc) {
     nsContentUtils::ReportToConsole(nsIScriptError::errorFlag,
-                                    NS_LITERAL_CSTRING("Service Workers"), aDoc,
+                                    "Service Workers"_ns, aDoc,
                                     nsContentUtils::eDOM_PROPERTIES,
                                     "ServiceWorkerGetRegistrationStorageError");
   });
@@ -470,7 +469,7 @@ already_AddRefed<Promise> ServiceWorkerContainer::GetRegistration(
     const nsAString& aURL, ErrorResult& aRv) {
   nsIGlobalObject* global = GetGlobalIfValid(aRv, [](Document* aDoc) {
     nsContentUtils::ReportToConsole(nsIScriptError::errorFlag,
-                                    NS_LITERAL_CSTRING("Service Workers"), aDoc,
+                                    "Service Workers"_ns, aDoc,
                                     nsContentUtils::eDOM_PROPERTIES,
                                     "ServiceWorkerGetRegistrationStorageError");
   });
@@ -709,10 +708,7 @@ void ServiceWorkerContainer::DispatchMessage(RefPtr<ReceivedMessage> aMessage) {
     }
 
     RefPtr<MessageEvent> event = MessageEvent::Constructor(
-        this,
-        deserializationFailed ? NS_LITERAL_STRING("messageerror")
-                              : NS_LITERAL_STRING("message"),
-        init);
+        this, deserializationFailed ? u"messageerror"_ns : u"message"_ns, init);
     event->SetTrusted(true);
 
     result = NS_OK;

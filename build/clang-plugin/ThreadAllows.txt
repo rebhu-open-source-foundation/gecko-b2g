@@ -15,7 +15,6 @@ COM MTA
 Cache Deleter
 Cache I/O
 Cameras IPC
-Canvas
 ChainedPipePump
 ChainedPipeRecv
 Checker Test
@@ -43,7 +42,6 @@ IMAP
 IPC Launch
 IPDL Background
 IdentityCrypto
-ImageBridgeChld
 LS Thread
 LayerScope
 MDCDMThread
@@ -69,7 +67,6 @@ RemoteLzyStream
 RWLockTester
 RacingServMan
 RemVidChild
-RemVidParent
 Sandbox Testing
 SaveScripts
 Socket Thread

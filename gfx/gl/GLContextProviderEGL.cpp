@@ -409,8 +409,7 @@ bool GLContextEGL::Init() {
 
   bool current = MakeCurrent();
   if (!current) {
-    gfx::LogFailure(
-        NS_LITERAL_CSTRING("Couldn't get device attachments for device."));
+    gfx::LogFailure("Couldn't get device attachments for device."_ns);
     return false;
   }
 
@@ -609,7 +608,7 @@ already_AddRefed<GLContextEGL> GLContextEGL::CreateGLContext(
 
   if (useGles) {
     if (egl->fBindAPI(LOCAL_EGL_OPENGL_ES_API) == LOCAL_EGL_FALSE) {
-      *out_failureId = NS_LITERAL_CSTRING("FEATURE_FAILURE_EGL_ES");
+      *out_failureId = "FEATURE_FAILURE_EGL_ES"_ns;
       NS_WARNING("Failed to bind API to GLES!");
       return nullptr;
     }
@@ -621,7 +620,7 @@ already_AddRefed<GLContextEGL> GLContextEGL::CreateGLContext(
     }
   } else {
     if (egl->fBindAPI(LOCAL_EGL_OPENGL_API) == LOCAL_EGL_FALSE) {
-      *out_failureId = NS_LITERAL_CSTRING("FEATURE_FAILURE_EGL");
+      *out_failureId = "FEATURE_FAILURE_EGL"_ns;
       NS_WARNING("Failed to bind API to GL!");
       return nullptr;
     }
@@ -721,7 +720,7 @@ already_AddRefed<GLContextEGL> GLContextEGL::CreateGLContext(
     if (context) break;
     NS_WARNING("Failed to create EGLContext with required_attribs");
 
-    *out_failureId = NS_LITERAL_CSTRING("FEATURE_FAILURE_EGL_CREATE");
+    *out_failureId = "FEATURE_FAILURE_EGL_CREATE"_ns;
     return nullptr;
   } while (false);
   MOZ_ASSERT(context);
@@ -729,7 +728,7 @@ already_AddRefed<GLContextEGL> GLContextEGL::CreateGLContext(
   RefPtr<GLContextEGL> glContext =
       new GLContextEGL(egl, desc, config, surface, context);
   if (!glContext->Init()) {
-    *out_failureId = NS_LITERAL_CSTRING("FEATURE_FAILURE_EGL_INIT");
+    *out_failureId = "FEATURE_FAILURE_EGL_INIT"_ns;
     return nullptr;
   }
 
@@ -1121,7 +1120,7 @@ GLContextEGL::CreateEGLPBufferOffscreenContextImpl(
   auto* egl = gl::GLLibraryEGL::Get();
   const EGLConfig config = ChooseConfig(egl, desc, useGles);
   if (config == EGL_NO_CONFIG) {
-    *out_failureId = NS_LITERAL_CSTRING("FEATURE_FAILURE_EGL_NO_CONFIG");
+    *out_failureId = "FEATURE_FAILURE_EGL_NO_CONFIG"_ns;
     NS_WARNING("Failed to find a compatible config.");
     return nullptr;
   }
@@ -1142,7 +1141,7 @@ GLContextEGL::CreateEGLPBufferOffscreenContextImpl(
         egl, config, LOCAL_EGL_NONE, pbSize);
   }
   if (!surface) {
-    *out_failureId = NS_LITERAL_CSTRING("FEATURE_FAILURE_EGL_POT");
+    *out_failureId = "FEATURE_FAILURE_EGL_POT"_ns;
     NS_WARNING("Failed to create PBuffer for context!");
     return nullptr;
   }

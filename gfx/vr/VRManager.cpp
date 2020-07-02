@@ -1355,7 +1355,7 @@ void VRManager::SubmitFrame(VRLayerParent* aLayer,
     mCurrentSubmitTask = task;
 #if !defined(MOZ_WIDGET_ANDROID) && !defined(MOZ_WIDGET_GONK)
     if (!mSubmitThread) {
-      mSubmitThread = new VRThread(NS_LITERAL_CSTRING("VR_SubmitFrame"));
+      mSubmitThread = new VRThread("VR_SubmitFrame"_ns);
     }
     mSubmitThread->Start();
     mSubmitThread->PostTask(task.forget());
