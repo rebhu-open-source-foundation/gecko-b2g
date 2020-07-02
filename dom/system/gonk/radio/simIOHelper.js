@@ -24,8 +24,6 @@ var GLOBAL = this;
 // Timeout value for emergency callback mode.
 const EMERGENCY_CB_MODE_TIMEOUT_MS = 300000;  // 5 mins = 300000 ms.
 
-const ICC_MAX_LINEAR_FIXED_RECORDS = 0xfe;
-
 const GET_CURRENT_CALLS_RETRY_MAX = 3;
 
 // Timeout value for _waitingModemRestart
@@ -874,7 +872,6 @@ ICCUtilsHelperObject.prototype = {
       for (let j = 0; j < pbrTlv.value.length; j++) {
         let tlv = pbrTlv.value[j];
         let tagName = USIM_TAG_NAME[tlv.tag];
-
         // ANR could have multiple files. We save it as anr0, anr1,...etc.
         if (tlv.tag == ICC_USIM_EFANR_TAG) {
           tagName += anrIndex;

@@ -8,7 +8,7 @@
 
 #include "IccCallback.h"
 #include "IccContact.h"
-// #include "mozilla/dom/ContactsBinding.h"
+#include "mozilla/dom/IccContactBinding.h"
 #include "mozilla/dom/DOMRequest.h"
 #include "mozilla/dom/IccInfo.h"
 #include "mozilla/dom/StkCommandEvent.h"
@@ -22,7 +22,7 @@
 #include "nsContentUtils.h"
 
 using mozilla::dom::icc::IccCallback;
-using mozilla::dom::icc::IccContact;
+using mozilla::dom::icc::nsIccContact;
 
 namespace mozilla {
 namespace dom {
@@ -390,66 +390,65 @@ already_AddRefed<DOMRequest> Icc::GetCardLockRetryCount(IccLockType aLockType,
   return request.forget();
 }
 
-// TODO contact api will be refactored.
-// already_AddRefed<DOMRequest>
-// Icc::ReadContacts(IccContactType aContactType, ErrorResult& aRv)
-// {
-//   if (!mHandler) {
-//     aRv.Throw(NS_ERROR_FAILURE);
-//     return nullptr;
-//   }
+already_AddRefed<DOMRequest> Icc::ReadContacts(IccContactType aContactType,
+                                               ErrorResult& aRv) {
+  if (!mHandler) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
 
-//   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
-//   RefPtr<IccCallback> requestCallback =
-//     new IccCallback(GetOwner(), request);
+  RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
+  RefPtr<IccCallback> requestCallback = new IccCallback(GetOwner(), request);
 
-//   nsresult rv = mHandler->ReadContacts(static_cast<uint32_t>(aContactType),
-//                                        requestCallback);
-//   if (NS_FAILED(rv)) {
-//     aRv.Throw(rv);
-//     return nullptr;
-//   }
+  nsresult rv = mHandler->ReadContacts(static_cast<uint32_t>(aContactType),
+                                       requestCallback);
+  if (NS_FAILED(rv)) {
+    aRv.Throw(rv);
+    return nullptr;
+  }
 
-//   return request.forget();
-// }
+  return request.forget();
+}
 
-// TODO contact api will be refactored.
-// already_AddRefed<DOMRequest>
-// Icc::UpdateContact(IccContactType aContactType, mozContact& aContact,
-//                    const nsAString& aPin2, ErrorResult& aRv)
-// {
-//   if (!mHandler) {
-//     aRv.Throw(NS_ERROR_FAILURE);
-//     return nullptr;
-//   }
+already_AddRefed<DOMRequest> Icc::UpdateContact(IccContactType aContactType,
+                                                const icc::IccContact& aContact,
+                                                const nsAString& aPin2,
+                                                ErrorResult& aRv) {
+  if (!mHandler) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
 
-//   if (IccContactType::Adn == aContactType) {
-//     aRv.Throw(NS_ERROR_ILLEGAL_VALUE);
-//     return nullptr;
-//   }
+  RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
+  RefPtr<IccCallback> requestCallback = new IccCallback(GetOwner(), request);
 
-//   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
-//   RefPtr<IccCallback> requestCallback =
-//     new IccCallback(GetOwner(), request);
+  nsCOMPtr<nsIIccContact> iccContact;
+  nsTArray<nsString> names, numbers, emails;
+  nsAutoString data, id;
+  aContact.GetId(id);
+  aContact.GetName(data);
+  names.AppendElement(data);
+  aContact.GetNumber(data);
+  numbers.AppendElement(data);
+  aContact.GetEmail(data);
+  emails.AppendElement(data);
 
-//   nsCOMPtr<nsIIccContact> iccContact;
-//   nsresult rv = IccContact::Create(aContact, getter_AddRefs(iccContact));
-//   if (NS_FAILED(rv)) {
-//     aRv.Throw(rv);
-//     return nullptr;
-//   }
+  nsresult rv = nsIccContact::Create(id, names, numbers, emails,
+                                     getter_AddRefs(iccContact));
+  if (NS_FAILED(rv)) {
+    aRv.Throw(rv);
+    return nullptr;
+  }
 
-//   rv = mHandler->UpdateContact(static_cast<uint32_t>(aContactType),
-//                                iccContact,
-//                                aPin2,
-//                                requestCallback);
-//   if (NS_FAILED(rv)) {
-//     aRv.Throw(rv);
-//     return nullptr;
-//   }
+  rv = mHandler->UpdateContact(static_cast<uint32_t>(aContactType), iccContact,
+                               aPin2, requestCallback);
+  if (NS_FAILED(rv)) {
+    aRv.Throw(rv);
+    return nullptr;
+  }
 
-//   return request.forget();
-// }
+  return request.forget();
+}
 
 already_AddRefed<DOMRequest> Icc::GetIccAuthentication(
     IccAppType aAppType, IccAuthType aAuthType, const nsAString& aAuthData,

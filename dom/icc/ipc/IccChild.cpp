@@ -455,9 +455,9 @@ mozilla::ipc::IPCResult IccRequestChild::Recv__delete__(
       nsresult rv;
       for (uint32_t i = 0; i < count; i++) {
         nsCOMPtr<nsIIccContact> contact;
-        rv =
-            IccContact::Create(data[i].id(), data[i].names(), data[i].numbers(),
-                               data[i].emails(), getter_AddRefs(contact));
+        rv = nsIccContact::Create(data[i].id(), data[i].names(),
+                                  data[i].numbers(), data[i].emails(),
+                                  getter_AddRefs(contact));
         NS_ENSURE_SUCCESS(rv, IPC_FAIL_NO_REASON(this));
         contactList.AppendElement(contact);
       }
@@ -470,8 +470,8 @@ mozilla::ipc::IPCResult IccRequestChild::Recv__delete__(
     case IccReply::TIccReplyUpdateContact: {
       IccContactData data = aResponse.get_IccReplyUpdateContact().contact();
       nsCOMPtr<nsIIccContact> contact;
-      IccContact::Create(data.id(), data.names(), data.numbers(), data.emails(),
-                         getter_AddRefs(contact));
+      nsIccContact::Create(data.id(), data.names(), data.numbers(),
+                           data.emails(), getter_AddRefs(contact));
 
       return NS_SUCCEEDED(mRequestReply->NotifyUpdatedIccContact(contact))
                  ? IPC_OK()

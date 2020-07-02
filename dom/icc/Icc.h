@@ -18,9 +18,12 @@ class nsIStkProactiveCmd;
 namespace mozilla {
 namespace dom {
 
+namespace icc {
+class IccContact;
+}
+
 class DOMRequest;
 class OwningIccInfoOrGsmIccInfoOrCdmaIccInfo;
-// class mozContact;
 class Promise;
 
 class Icc final : public DOMEventTargetHelper {
@@ -78,14 +81,13 @@ class Icc final : public DOMEventTargetHelper {
   already_AddRefed<DOMRequest> GetCardLockRetryCount(IccLockType aLockType,
                                                      ErrorResult& aRv);
 
-  // TODO contact api will be refactored.
-  // already_AddRefed<DOMRequest>
-  // ReadContacts(IccContactType aContactType, ErrorResult& aRv);
+  already_AddRefed<DOMRequest> ReadContacts(IccContactType aContactType,
+                                            ErrorResult& aRv);
 
-  // TODO contact api will be refactored.
-  // already_AddRefed<DOMRequest>
-  // UpdateContact(IccContactType aContactType, mozContact& aContact,
-  //               const nsAString& aPin2, ErrorResult& aRv);
+  already_AddRefed<DOMRequest> UpdateContact(IccContactType aContactType,
+                                             const icc::IccContact& aContact,
+                                             const nsAString& aPin2,
+                                             ErrorResult& aRv);
 
   already_AddRefed<DOMRequest> GetIccAuthentication(IccAppType aAppType,
                                                     IccAuthType aAuthType,

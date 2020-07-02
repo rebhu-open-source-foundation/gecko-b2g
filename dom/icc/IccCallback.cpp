@@ -19,109 +19,6 @@ namespace mozilla {
 namespace dom {
 namespace icc {
 
-namespace {
-/* TODO contact api will refactored.
-static nsresult
-IccContactToMozContact(JSContext* aCx, GlobalObject& aGlobal,
-                       nsIIccContact* aIccContact,
-                       mozContact** aMozContact)
-{
-
-  *aMozContact = nullptr;
-
-  ContactProperties properties;
-
-  // Names
-  char16_t** rawStringArray = nullptr;
-  uint32_t count = 0;
-  nsresult rv = aIccContact->GetNames(&count, &rawStringArray);
-  NS_ENSURE_SUCCESS(rv, rv);
-  if (count > 0) {
-    Sequence<nsString>& nameSeq = properties.mName;
-    for (uint32_t i = 0; i < count; i++) {
-      nameSeq.AppendElement(
-        rawStringArray[i] ? nsDependentString(rawStringArray[i])
-                          : EmptyString(),
-        fallible);
-    }
-    //NS_FREE_XPCOM_ALLOCATED_POINTER_ARRAY(count, rawStringArray);
-  }
-
-  // Numbers
-  rawStringArray = nullptr;
-  count = 0;
-  rv = aIccContact->GetNumbers(&count, &rawStringArray);
-  NS_ENSURE_SUCCESS(rv, rv);
-  if (count > 0) {
-    Sequence<ContactTelField>& numberSeq =
-properties.mTel.Construct().SetValue(); for (uint32_t i = 0; i < count; i++) {
-      ContactTelField number;
-      number.mValue =
-        rawStringArray[i] ? nsDependentString(rawStringArray[i])
-                          : EmptyString();
-      numberSeq.AppendElement(number, fallible);
-    }
-    NS_FREE_XPCOM_ALLOCATED_POINTER_ARRAY(count, rawStringArray);
-  }
-
-  // Emails
-  rawStringArray = nullptr;
-  count = 0;
-  rv = aIccContact->GetEmails(&count, &rawStringArray);
-  NS_ENSURE_SUCCESS(rv, rv);
-  if (count > 0) {
-    Sequence<ContactField>& emailSeq = properties.mEmail.SetValue();
-    for (uint32_t i = 0; i < count; i++) {
-      ContactField email;
-      email.mValue =
-        rawStringArray[i] ? nsDependentString(rawStringArray[i])
-                          : EmptyString();
-      emailSeq.AppendElement(email, fallible);
-    }
-   // NS_FREE_XPCOM_ALLOCATED_POINTER_ARRAY(count, rawStringArray);
-  }
-
-  ErrorResult er;
-  RefPtr<mozContact> contact
-    = mozContact::Constructor(aGlobal, aCx, properties, er);
-  rv = er.StealNSResult();
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  nsAutoString contactId;
-  rv = aIccContact->GetId(contactId);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  contact->SetId(contactId, er);
-  rv = er.StealNSResult();
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  contact.forget(aMozContact);
-
-  return NS_OK;
-}
-*/
-
-/* TODO contact api will refactored.
-static NS_IMETHODIMP
-IccContactListToMozContactList(JSContext* aCx, GlobalObject& aGlobal,
-                               nsIIccContact** aContacts, uint32_t aCount,
-                               nsTArray<RefPtr<mozContact>>& aContactList)
-{
-  aContactList.SetCapacity(aCount);
-  for (uint32_t i = 0; i < aCount ; i++) {
-    RefPtr<mozContact> contact;
-    nsresult rv =
-      IccContactToMozContact(aCx, aGlobal, aContacts[i],
-getter_AddRefs(contact)); NS_ENSURE_SUCCESS(rv, rv);
-
-    aContactList.AppendElement(contact);
-  }
-
-  return NS_OK;
-}
-*/
-}  // anonymous namespace
-
 NS_IMPL_ISUPPORTS(IccCallback, nsIIccCallback)
 
 IccCallback::IccCallback(nsPIDOMWindowInner* aWindow, DOMRequest* aRequest,
@@ -232,23 +129,19 @@ IccCallback::NotifyRetrievedIccContacts(nsIIccContact** aContacts,
     return NS_ERROR_FAILURE;
   }
 
+  nsTArray<RefPtr<IccContact>> contactList;
+  contactList.SetCapacity(aCount);
+  for (uint32_t i = 0; i < aCount; i++) {
+    RefPtr<IccContact> contact = new IccContact(mWindow);
+    contact->Update(aContacts[i]);
+    contactList.AppendElement(contact);
+  }
+
   JSContext* cx = jsapi.cx();
-  nsCOMPtr<nsIGlobalObject> go = do_QueryInterface(mWindow);
-  GlobalObject global(cx, go->GetGlobalJSObject());
-
-  // TODO contact api will refactored.
-  // nsTArray<RefPtr<mozContact>> contactList;
-
-  // nsresult rv =
-  //   IccContactListToMozContactList(cx, global, aContacts, aCount,
-  //   contactList);
-  // NS_ENSURE_SUCCESS(rv, rv);
-
   JS::Rooted<JS::Value> jsResult(cx);
-
-  // if (!ToJSValue(cx, contactList, &jsResult)) {
-  //   return NS_ERROR_FAILURE;
-  // }
+  if (!ToJSValue(cx, contactList, &jsResult)) {
+    return NS_ERROR_FAILURE;
+  }
 
   return NotifySuccess(jsResult);
 }
@@ -262,21 +155,15 @@ IccCallback::NotifyUpdatedIccContact(nsIIccContact* aContact) {
     return NS_ERROR_FAILURE;
   }
 
+  RefPtr<IccContact> contact = new IccContact(mWindow);
+  contact->Update(aContact);
+
   JSContext* cx = jsapi.cx();
-  nsCOMPtr<nsIGlobalObject> go = do_QueryInterface(mWindow);
-  GlobalObject global(cx, go->GetGlobalJSObject());
-
-  // TODO contact api will refactored.
-  // RefPtr<mozContact> mozContact;
-  // nsresult rv =
-  //   IccContactToMozContact(cx, global, aContact, getter_AddRefs(mozContact));
-  // NS_ENSURE_SUCCESS(rv, rv);
-
   JS::Rooted<JS::Value> jsResult(cx);
 
-  // if (!ToJSValue(cx, mozContact, &jsResult)) {
-  //   return NS_ERROR_FAILURE;
-  // }
+  if (!ToJSValue(cx, contact, &jsResult)) {
+    return NS_ERROR_FAILURE;
+  }
 
   return NotifySuccess(jsResult);
 }

@@ -272,6 +272,7 @@ interface Icc : EventTarget
 
   // Integrated Circuit Card Lock interfaces.
 
+//TODO: Use Promis instead of DOMRequest for all below
   /**
    * Find out about the status of an ICC lock (e.g. the PIN lock).
    *
@@ -342,9 +343,8 @@ interface Icc : EventTarget
    *
    * @return a DOMRequest.
    */
-  // TODO contact api will be refactored.
-  // [Throws]
-  // DOMRequest readContacts(IccContactType contactType);
+  [Throws]
+  DOMRequest readContacts(IccContactType contactType);
 
   /**
    * Update ICC Phonebook contact.
@@ -360,11 +360,10 @@ interface Icc : EventTarget
    *
    * @return a DOMRequest.
    */
-  // TODO contact api will be refactored.
-  // [Throws]
-  // DOMRequest updateContact(IccContactType contactType,
-  //                          mozContact contact,
-  //                          optional DOMString? pin2 = null);
+  [Throws]
+  DOMRequest updateContact(IccContactType contactType,
+                           IccContact contact,
+                           optional DOMString? pin2 = null);
 
   // Integrated Circuit Card Helpers.
 

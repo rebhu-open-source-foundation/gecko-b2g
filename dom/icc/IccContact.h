@@ -9,29 +9,62 @@
 
 namespace mozilla {
 namespace dom {
-// class mozContact;
 namespace icc {
 
-class IccContact : public nsIIccContact {
+class nsIccContact : public nsIIccContact {
  public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIICCCONTACT
-
-  // static nsresult
-  // Create(mozContact& aMozContact,
-  //        nsIIccContact** aIccContact);
+  explicit nsIccContact();
 
   static nsresult Create(const nsAString& aId, const nsTArray<nsString>& aNames,
                          const nsTArray<nsString>& aNumbers,
                          const nsTArray<nsString>& aEmails,
                          nsIIccContact** aIccContact);
 
- private:
-  IccContact(const nsAString& aId, const nsTArray<nsString>& aNames,
-             const nsTArray<nsString>& aNumbers,
-             const nsTArray<nsString>& aEmails);
-  virtual ~IccContact() {}
+  nsIccContact(const nsAString& aId, const nsTArray<nsString>& aNames,
+               const nsTArray<nsString>& aNumbers,
+               const nsTArray<nsString>& aEmails);
 
+ private:
+  virtual ~nsIccContact() {}
+
+  nsString mId;
+  nsTArray<nsString> mNames;
+  nsTArray<nsString> mNumbers;
+  nsTArray<nsString> mEmails;
+};
+
+class IccContact : public nsISupports, public nsWrapperCache {
+ public:
+  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
+  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(IccContact)
+
+  explicit IccContact(nsPIDOMWindowInner* aWindow);
+
+  static already_AddRefed<IccContact> Constructor(
+      const GlobalObject& aGlobal, const nsAString& aId, const nsAString& aName,
+      const nsAString& aNumber, const nsAString& aEmail, ErrorResult& aRv);
+
+  void Update(nsIIccContact* aIccContact);
+
+  nsPIDOMWindowInner* GetParentObject() const;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
+
+  void GetId(nsAString& aId) const;
+
+  void GetNumber(nsAString& aNumber) const;
+
+  void GetName(nsAString& aName) const;
+
+  void GetEmail(nsAString& aEmail) const;
+
+ protected:
+  ~IccContact();
+
+ private:
+  nsCOMPtr<nsPIDOMWindowInner> mWindow;
   nsString mId;
   nsTArray<nsString> mNames;
   nsTArray<nsString> mNumbers;

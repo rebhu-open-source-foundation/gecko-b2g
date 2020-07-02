@@ -312,10 +312,10 @@ bool IccRequestParent::DoRequest(const ReadContactsRequest& aRequest) {
 
 bool IccRequestParent::DoRequest(const UpdateContactRequest& aRequest) {
   nsCOMPtr<nsIIccContact> contact;
-  nsresult rv =
-      IccContact::Create(aRequest.contact().id(), aRequest.contact().names(),
-                         aRequest.contact().numbers(),
-                         aRequest.contact().emails(), getter_AddRefs(contact));
+  nsresult rv = nsIccContact::Create(
+      aRequest.contact().id(), aRequest.contact().names(),
+      aRequest.contact().numbers(), aRequest.contact().emails(),
+      getter_AddRefs(contact));
   NS_ENSURE_SUCCESS(rv, false);
 
   return NS_SUCCEEDED(mIcc->UpdateContact(aRequest.contactType(), contact,

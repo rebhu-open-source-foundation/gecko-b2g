@@ -18,6 +18,7 @@ EXPORTS.mozilla.dom += [
 ]
 
 EXPORTS.mozilla.dom.icc += [
+    'IccContact.h',
     'ipc/IccChild.h',
     'ipc/IccIPCUtils.h',
     'ipc/IccParent.h'
