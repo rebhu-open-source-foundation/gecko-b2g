@@ -899,17 +899,21 @@ AudioManager::AudioManager()
   // Add volume change observer.
   nsCOMPtr<nsISettingsManager> settingsManager =
       do_GetService(SETTINGS_MANAGER);
-  if (!mVolumeAddObserverCallback) {
-    mVolumeAddObserverCallback = new VolumeAddObserverCallback();
-  }
-  if (!mVolumeSettingsObserver) {
-    mVolumeSettingsObserver = new VolumeSettingsObserver();
-  }
-  for (uint32_t idx = 0; idx < MOZ_ARRAY_LENGTH(gVolumeData); ++idx) {
-    // FE use mChannelName only for the key.
-    NS_ConvertASCIItoUTF16 volumeType(gVolumeData[idx].mChannelName);
-    settingsManager->AddObserver(volumeType, mVolumeSettingsObserver,
-                                 mVolumeAddObserverCallback);
+  if (settingsManager) {
+    if (!mVolumeAddObserverCallback) {
+      mVolumeAddObserverCallback = new VolumeAddObserverCallback();
+    }
+    if (!mVolumeSettingsObserver) {
+      mVolumeSettingsObserver = new VolumeSettingsObserver();
+    }
+    for (uint32_t idx = 0; idx < MOZ_ARRAY_LENGTH(gVolumeData); ++idx) {
+      // FE use mChannelName only for the key.
+      NS_ConvertASCIItoUTF16 volumeType(gVolumeData[idx].mChannelName);
+      settingsManager->AddObserver(volumeType, mVolumeSettingsObserver,
+                                  mVolumeAddObserverCallback);
+    }
+  } else {
+    LOGE("Failed to Get SETTINGS MANAGER to AddObserver!");
   }
 
 #ifdef PRODUCT_MANUFACTURER_MTK
@@ -963,15 +967,19 @@ AudioManager::~AudioManager() {
   // Remove volume change observer.
   nsCOMPtr<nsISettingsManager> settingsManager =
       do_GetService(SETTINGS_MANAGER);
-  if (!mVolumeRemoveObserverCallback) {
-    mVolumeRemoveObserverCallback = new VolumeRemoveObserverCallback();
-  }
-  for (uint32_t idx = 0; idx < MOZ_ARRAY_LENGTH(gVolumeData); ++idx) {
-    // We also need to get the value with mChannelName. FE use mChannelName only
-    // for the key.
-    NS_ConvertASCIItoUTF16 volumeType(gVolumeData[idx].mChannelName);
-    settingsManager->RemoveObserver(volumeType, mVolumeSettingsObserver,
-                                    mVolumeRemoveObserverCallback);
+  if (settingsManager) {
+    if (!mVolumeRemoveObserverCallback) {
+      mVolumeRemoveObserverCallback = new VolumeRemoveObserverCallback();
+    }
+    for (uint32_t idx = 0; idx < MOZ_ARRAY_LENGTH(gVolumeData); ++idx) {
+      // We also need to get the value with mChannelName. FE use mChannelName only
+      // for the key.
+      NS_ConvertASCIItoUTF16 volumeType(gVolumeData[idx].mChannelName);
+      settingsManager->RemoveObserver(volumeType, mVolumeSettingsObserver,
+                                      mVolumeRemoveObserverCallback);
+    }
+  } else {
+    LOGE("Failed to Get SETTINGS MANAGER to RemoveObserver!");
   }
 #ifdef PRODUCT_MANUFACTURER_MTK
   if (NS_FAILED(obs->RemoveObserver(this, SCREEN_STATE_CHANGED))) {
@@ -1336,6 +1344,11 @@ void AudioManager::InitVolumeFromDatabase() {
   nsCOMPtr<nsISettingsManager> settingsManager =
       do_GetService(SETTINGS_MANAGER);
 
+  if (!settingsManager) {
+    LOGE("Failed to get SETTINGS_MANAGER for init volume from database.");
+    return;
+  }
+
   if (!mVolumeInitCallback) {
     mVolumeInitCallback = new VolumeInitCallback();
   }
@@ -1442,8 +1455,12 @@ void AudioManager::MaybeUpdateVolumeSettingToDatabase(bool aForce) {
   if (settings.Length() > 0) {
     nsCOMPtr<nsISettingsManager> settingsManager =
         do_GetService(SETTINGS_MANAGER);
-    mVolumeSetCallback = new VolumeSetCallback();
-    settingsManager->Set(settings, mVolumeSetCallback);
+    if (settingsManager) {
+      mVolumeSetCallback = new VolumeSetCallback();
+      settingsManager->Set(settings, mVolumeSetCallback);
+    } else {
+      LOGE("Fail to get SETTINGS_MANAGER to set the volume.");
+    }
   }
 
   // Clear changed flags
