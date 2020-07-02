@@ -240,7 +240,7 @@ NS_IMETHODIMP
 MediaPermissionRequest::Cancel() {
   nsString callID;
   mRequest->GetCallID(callID);
-  NotifyPermissionDeny(callID, NS_LITERAL_STRING("SecurityError"));
+  NotifyPermissionDeny(callID, u"SecurityError"_ns);
   return NS_OK;
 }
 
@@ -377,7 +377,7 @@ MediaPermissionManager::Observe(nsISupports* aSubject, const char* aTopic,
       nsString callID;
       req->GetCallID(callID);
       NotifyPermissionDeny(
-          callID, NS_LITERAL_STRING("unable to enumerate media device"));
+          callID, u"unable to enumerate media device"_ns);
     }
   } else if (!strcmp(aTopic, "xpcom-shutdown")) {
     rv = this->Deinit();

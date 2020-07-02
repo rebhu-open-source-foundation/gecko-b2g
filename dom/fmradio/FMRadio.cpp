@@ -149,38 +149,38 @@ JSObject* FMRadio::WrapObject(JSContext* aCx,
 void FMRadio::Notify(const FMRadioEventType& aType) {
   switch (aType) {
     case FrequencyChanged:
-      DispatchTrustedEvent(NS_LITERAL_STRING("frequencychange"));
+      DispatchTrustedEvent(u"frequencychange"_ns);
       break;
     case EnabledChanged:
       if (Enabled()) {
         EnableAudioChannelAgent();
-        DispatchTrustedEvent(NS_LITERAL_STRING("enabled"));
+        DispatchTrustedEvent(u"enabled"_ns);
       } else {
         DisableAudioChannelAgent();
-        DispatchTrustedEvent(NS_LITERAL_STRING("disabled"));
+        DispatchTrustedEvent(u"disabled"_ns);
       }
       break;
     case RDSEnabledChanged:
       if (RdsEnabled()) {
-        DispatchTrustedEvent(NS_LITERAL_STRING("rdsenabled"));
+        DispatchTrustedEvent(u"rdsenabled"_ns);
       } else {
-        DispatchTrustedEvent(NS_LITERAL_STRING("rdsdisabled"));
+        DispatchTrustedEvent(u"rdsdisabled"_ns);
       }
       break;
     case PIChanged:
-      DispatchTrustedEvent(NS_LITERAL_STRING("pichange"));
+      DispatchTrustedEvent(u"pichange"_ns);
       break;
     case PSChanged:
-      DispatchTrustedEvent(NS_LITERAL_STRING("pschange"));
+      DispatchTrustedEvent(u"pschange"_ns);
       break;
     case RadiotextChanged:
-      DispatchTrustedEvent(NS_LITERAL_STRING("rtchange"));
+      DispatchTrustedEvent(u"rtchange"_ns);
       break;
     case PTYChanged:
-      DispatchTrustedEvent(NS_LITERAL_STRING("ptychange"));
+      DispatchTrustedEvent(u"ptychange"_ns);
       break;
     case NewRDSGroup:
-      DispatchTrustedEvent(NS_LITERAL_STRING("newrdsgroup"));
+      DispatchTrustedEvent(u"newrdsgroup"_ns);
       break;
     default:
       MOZ_CRASH();

@@ -407,7 +407,7 @@ bool MmsMessageInternal::GetData(ContentParent* aParent,
 
 NS_IMETHODIMP
 MmsMessageInternal::GetType(nsAString& aType) {
-  aType = NS_LITERAL_STRING("mms");
+  aType = u"mms"_ns;
   return NS_OK;
 }
 

@@ -681,7 +681,7 @@ void BluetoothService::FireAdapterStateChanged(bool aEnable) {
   nsTArray<BluetoothNamedValue> props;
   AppendNamedValue(props, "State", aEnable);
 
-  DistributeSignal(NS_LITERAL_STRING("PropertyChanged"),
+  DistributeSignal(u"PropertyChanged"_ns,
                    NS_LITERAL_STRING(KEY_ADAPTER), BluetoothValue(props));
 }
 

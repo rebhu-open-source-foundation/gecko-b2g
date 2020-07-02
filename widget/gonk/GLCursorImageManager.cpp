@@ -37,25 +37,25 @@ nsString GetCursorElementClassID(nsCursor aCursor) {
   nsString strClassID;
   switch (aCursor) {
     case eCursor_standard:
-      strClassID = NS_LITERAL_STRING("std");
+      strClassID = u"std"_ns;
       break;
     case eCursor_wait:
-      strClassID = NS_LITERAL_STRING("wait");
+      strClassID = u"wait"_ns;
       break;
     case eCursor_select:
-      strClassID = NS_LITERAL_STRING("select");
+      strClassID = u"select"_ns;
       break;
     case eCursor_hyperlink:
-      strClassID = NS_LITERAL_STRING("link");
+      strClassID = u"link"_ns;
       break;
     case eCursor_vertical_text:
-      strClassID = NS_LITERAL_STRING("vertical_text");
+      strClassID = u"vertical_text"_ns;
       break;
     case eCursor_spinning:
-      strClassID = NS_LITERAL_STRING("spinning");
+      strClassID = u"spinning"_ns;
       break;
     default:
-      strClassID = NS_LITERAL_STRING("std");
+      strClassID = u"std"_ns;
   }
   return strClassID;
 }
@@ -197,7 +197,7 @@ void GLCursorImageManager::PrepareCursorImage(nsCursor aCursor,
     // Insert new element to ensure restyle
     nsCOMPtr<dom::Element> image = doc->CreateHTMLElement(nsGkAtoms::div);
     ErrorResult rv;
-    image->ClassList()->Add(NS_LITERAL_STRING("gonk-cursor"), rv);
+    image->ClassList()->Add(u"gonk-cursor"_ns, rv);
     image->ClassList()->Add(GetCursorElementClassID(supportedCursor), rv);
     cursorElementHolder = doc->InsertAnonymousContent(*image, rv);
 

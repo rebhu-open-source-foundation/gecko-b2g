@@ -81,7 +81,7 @@ USING_MTP_NAMESPACE
  *
  **************************************************************************/
 
-#define USB_CONFIGURATION_SWITCH_NAME NS_LITERAL_STRING("usb_configuration")
+#define USB_CONFIGURATION_SWITCH_NAME u"usb_configuration"_ns
 
 #define GB_SYS_UMS_ENABLE \
   "/sys/devices/virtual/usb_composite/usb_mass_storage/enable"

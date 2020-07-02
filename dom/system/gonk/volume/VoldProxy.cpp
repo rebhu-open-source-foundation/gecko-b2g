@@ -120,14 +120,14 @@ android::binder::Status VoldListener::onVolumeStateChanged(
       via[volIndex]->setState(state);
       if (state == static_cast<int32_t>(VolumeInfo::State::kMounted)) {
         RefPtr<Volume> vol = VolumeManager::FindAddVolumeByName(
-            NS_LITERAL_CSTRING("sdcard1"), id);
+            "sdcard1"_ns, id);
         // update state and set mountpoint of volume
         DBG("Add sdcard1 and update volume state!\n");
         vol->SetMountPoint(via[volIndex]->getMountPoint());
         vol->HandleVolumeStateChanged(state);
       } else {
         RefPtr<Volume> vol =
-            VolumeManager::FindVolumeByName(NS_LITERAL_CSTRING("sdcard1"));
+            VolumeManager::FindVolumeByName("sdcard1"_ns);
         if (!vol) {
           DBG("No volume name sdcard1 found!\n");
           break;

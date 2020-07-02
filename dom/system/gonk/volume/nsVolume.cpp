@@ -204,7 +204,7 @@ NS_IMETHODIMP nsVolume::GetMountGeneration(int32_t* aMountGeneration) {
 }
 
 NS_IMETHODIMP nsVolume::GetMountLockName(nsAString& aMountLockName) {
-  aMountLockName = NS_LITERAL_STRING("volume-") + Name();
+  aMountLockName = u"volume-"_ns + Name();
   aMountLockName.AppendPrintf("-%d", mMountGeneration);
 
   return NS_OK;

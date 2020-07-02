@@ -700,7 +700,7 @@ void BluetoothA2dpManager::ConnectionStateNotification(
   AddressToString(aBdAddr, addressStr);
 
   HandleSinkPropertyChanged(
-      BluetoothSignal(NS_LITERAL_STRING("AudioSink"), addressStr, props));
+      BluetoothSignal(u"AudioSink"_ns, addressStr, props));
 }
 
 void BluetoothA2dpManager::AudioStateNotification(
@@ -710,13 +710,13 @@ void BluetoothA2dpManager::AudioStateNotification(
   nsString a2dpState;
 
   if (aState == A2DP_AUDIO_STATE_STARTED) {
-    a2dpState = NS_LITERAL_STRING("playing");
+    a2dpState = u"playing"_ns;
   } else if (aState == A2DP_AUDIO_STATE_STOPPED) {
     // for avdtp state stop stream
-    a2dpState = NS_LITERAL_STRING("connected");
+    a2dpState = u"connected"_ns;
   } else if (aState == A2DP_AUDIO_STATE_REMOTE_SUSPEND) {
     // for avdtp state suspend stream from remote side
-    a2dpState = NS_LITERAL_STRING("connected");
+    a2dpState = u"connected"_ns;
   }
 
   // InfallibleTArray<BluetoothNamedValue> props;
@@ -727,7 +727,7 @@ void BluetoothA2dpManager::AudioStateNotification(
   AddressToString(aBdAddr, addressStr);
 
   HandleSinkPropertyChanged(
-      BluetoothSignal(NS_LITERAL_STRING("AudioSink"), addressStr, props));
+      BluetoothSignal(u"AudioSink"_ns, addressStr, props));
 }
 
 NS_IMPL_ISUPPORTS(BluetoothA2dpManager, nsIObserver)

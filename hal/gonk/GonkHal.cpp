@@ -506,9 +506,9 @@ class BatteryUpdater : public Runnable {
       nsCOMPtr<nsIWritablePropertyBag2> propbag =
           do_CreateInstance("@mozilla.org/hash-property-bag;1");
       if (obsService && propbag) {
-        propbag->SetPropertyAsBool(NS_LITERAL_STRING("charging"),
+        propbag->SetPropertyAsBool(u"charging"_ns,
                                    info.charging());
-        propbag->SetPropertyAsDouble(NS_LITERAL_STRING("level"), info.level());
+        propbag->SetPropertyAsDouble(u"level"_ns, info.level());
 
         obsService->NotifyObservers(propbag, "gonkhal-battery-notifier",
                                     nullptr);
@@ -1625,8 +1625,8 @@ private:
       cgroupName.AppendLiteral("/");
     }
 
-    return NS_LITERAL_CSTRING("/dev/cpuctl/") + cgroupName +
-           NS_LITERAL_CSTRING("cgroup.procs");
+    return "/dev/cpuctl/"_ns + cgroupName +
+           "cgroup.procs"_ns;
   }
 
   nsCString MemCGroupProcsFilename()
@@ -1641,8 +1641,8 @@ private:
       cgroupName.AppendLiteral("/");
     }
 
-    return NS_LITERAL_CSTRING("/sys/fs/cgroup/memory/") + cgroupName +
-           NS_LITERAL_CSTRING("cgroup.procs");
+    return "/sys/fs/cgroup/memory/"_ns + cgroupName +
+           "cgroup.procs"_ns;
   }
 
   int OpenCpuCGroupProcs()
@@ -1680,14 +1680,14 @@ EnsureCpuCGroupExists(const nsACString &aGroup)
   /* If cgroup is not empty, append the cgroup name and a dot to obtain the
    * group specific preferences. */
   if (!aGroup.IsEmpty()) {
-    prefPrefix += aGroup + NS_LITERAL_CSTRING(".");
+    prefPrefix += aGroup + "."_ns;
   }
 
-  nsAutoCString cpuSharesPref(prefPrefix + NS_LITERAL_CSTRING("cpu_shares"));
+  nsAutoCString cpuSharesPref(prefPrefix + "cpu_shares"_ns);
   int cpuShares = Preferences::GetInt(cpuSharesPref.get());
 
   nsAutoCString cpuNotifyOnMigratePref(prefPrefix
-    + NS_LITERAL_CSTRING("cpu_notify_on_migrate"));
+    + "cpu_notify_on_migrate"_ns);
   int cpuNotifyOnMigrate = Preferences::GetInt(cpuNotifyOnMigratePref.get());
 
   // Create mCGroup and its parent directories, as necessary.
@@ -1708,7 +1708,7 @@ EnsureCpuCGroupExists(const nsACString &aGroup)
   HAL_LOG("EnsureCpuCGroupExists created group '%s'", groupName.get());
 
   nsAutoCString pathPrefix(kDevCpuCtl + aGroup + kSlash);
-  nsAutoCString cpuSharesPath(pathPrefix + NS_LITERAL_CSTRING("cpu.shares"));
+  nsAutoCString cpuSharesPath(pathPrefix + "cpu.shares"_ns);
   if (cpuShares && !WriteSysFile(cpuSharesPath.get(),
                                  nsPrintfCString("%d", cpuShares).get())) {
     HAL_LOG("Could not set the cpu share for group %s", cpuSharesPath.get());
@@ -1716,7 +1716,7 @@ EnsureCpuCGroupExists(const nsACString &aGroup)
   }
 
   nsAutoCString notifyOnMigratePath(pathPrefix
-    + NS_LITERAL_CSTRING("cpu.notify_on_migrate"));
+    + "cpu.notify_on_migrate"_ns);
   if (!WriteSysFile(notifyOnMigratePath.get(),
                     nsPrintfCString("%d", cpuNotifyOnMigrate).get())) {
     HAL_LOG("Could not set the cpu migration notification flag for group %s",
@@ -1741,10 +1741,10 @@ EnsureMemCGroupExists(const nsACString &aGroup)
   /* If cgroup is not empty, append the cgroup name and a dot to obtain the
    * group specific preferences. */
   if (!aGroup.IsEmpty()) {
-    prefPrefix += aGroup + NS_LITERAL_CSTRING(".");
+    prefPrefix += aGroup + "."_ns;
   }
 
-  nsAutoCString memSwappinessPref(prefPrefix + NS_LITERAL_CSTRING("memory_swappiness"));
+  nsAutoCString memSwappinessPref(prefPrefix + "memory_swappiness"_ns);
   int memSwappiness = Preferences::GetInt(memSwappinessPref.get());
 
   // Create mCGroup and its parent directories, as necessary.
@@ -1765,7 +1765,7 @@ EnsureMemCGroupExists(const nsACString &aGroup)
   HAL_LOG("EnsureMemCGroupExists created group '%s'", groupName.get());
 
   nsAutoCString pathPrefix(kMemCtl + aGroup + kSlash);
-  nsAutoCString memSwappinessPath(pathPrefix + NS_LITERAL_CSTRING("memory.swappiness"));
+  nsAutoCString memSwappinessPath(pathPrefix + "memory.swappiness"_ns);
   if (!WriteSysFile(memSwappinessPath.get(),
                     nsPrintfCString("%d", memSwappiness).get())) {
     HAL_LOG("Could not set the memory.swappiness for group %s", memSwappinessPath.get());

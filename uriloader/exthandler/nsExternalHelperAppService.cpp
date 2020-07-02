@@ -317,12 +317,12 @@ static nsresult GetDownloadDirectory(nsIFile** _directory,
   // Pick the default storage in case multiple (internal and external) ones
   // are available.
   nsString storageName;
-  nsDOMDeviceStorage::GetDefaultStorageName(NS_LITERAL_STRING("sdcard"),
+  nsDOMDeviceStorage::GetDefaultStorageName(u"sdcard"_ns,
                                             storageName);
 
   RefPtr<DeviceStorageFile> dsf(
-      new DeviceStorageFile(NS_LITERAL_STRING("sdcard"), storageName,
-                            NS_LITERAL_STRING("downloads")));
+      new DeviceStorageFile(u"sdcard"_ns, storageName,
+                            u"downloads"_ns));
   NS_ENSURE_TRUE(dsf->mFile, NS_ERROR_FILE_ACCESS_DENIED);
 
   // If we're not checking for availability we're done.

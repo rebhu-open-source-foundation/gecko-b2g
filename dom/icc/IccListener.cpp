@@ -70,7 +70,7 @@ IccListener::NotifyStkCommand(nsIStkProactiveCmd* aStkProactiveCmd) {
     return NS_OK;
   }
 
-  return mIcc->NotifyStkEvent(NS_LITERAL_STRING("stkcommand"),
+  return mIcc->NotifyStkEvent(u"stkcommand"_ns,
                               aStkProactiveCmd);
 }
 
@@ -80,7 +80,7 @@ IccListener::NotifyStkSessionEnd() {
     return NS_OK;
   }
 
-  return mIcc->NotifyEvent(NS_LITERAL_STRING("stksessionend"));
+  return mIcc->NotifyEvent(u"stksessionend"_ns);
 }
 
 NS_IMETHODIMP
@@ -89,7 +89,7 @@ IccListener::NotifyCardStateChanged() {
     return NS_OK;
   }
 
-  return mIcc->NotifyEvent(NS_LITERAL_STRING("cardstatechange"));
+  return mIcc->NotifyEvent(u"cardstatechange"_ns);
 }
 
 NS_IMETHODIMP
@@ -113,12 +113,12 @@ IccListener::NotifyIccInfoChanged() {
       if (!iccId.IsEmpty()) {
         mIcc = new Icc(mIccManager->GetOwner(), mHandler, iccInfo);
         mIccManager->NotifyIccAdd(iccId);
-        mIcc->NotifyEvent(NS_LITERAL_STRING("iccinfochange"));
+        mIcc->NotifyEvent(u"iccinfochange"_ns);
       }
     }
   } else {
     mIcc->UpdateIccInfo(iccInfo);
-    mIcc->NotifyEvent(NS_LITERAL_STRING("iccinfochange"));
+    mIcc->NotifyEvent(u"iccinfochange"_ns);
 
     if (iccInfo) {
       nsString newIccId;

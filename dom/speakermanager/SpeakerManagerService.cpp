@@ -207,7 +207,7 @@ void SpeakerManagerService::Notify() {
   for (auto iter = mRegisteredSpeakerManagers.Iter(); !iter.Done();
        iter.Next()) {
     RefPtr<SpeakerManager> sm = iter.Data();
-    sm->DispatchSimpleEvent(NS_LITERAL_STRING("speakerforcedchange"));
+    sm->DispatchSimpleEvent(u"speakerforcedchange"_ns);
   }
 }
 
@@ -232,7 +232,7 @@ SpeakerManagerService::Observe(nsISupports* aSubject, const char* aTopic,
 
     uint64_t childID = 0;
     nsresult rv =
-        props->GetPropertyAsUint64(NS_LITERAL_STRING("childID"), &childID);
+        props->GetPropertyAsUint64(u"childID"_ns, &childID);
     if (NS_SUCCEEDED(rv)) {
       MOZ_LOG(GetSpeakerManagerLog(), LogLevel::Debug,
               ("SpeakerManagerService, Observe, remove child %llu", childID));

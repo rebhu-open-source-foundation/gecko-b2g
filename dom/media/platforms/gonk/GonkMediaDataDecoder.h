@@ -217,7 +217,7 @@ class GonkMediaDataDecoder : public MediaDataDecoder {
   RefPtr<ShutdownPromise> Shutdown() override;
 
   nsCString GetDescriptionName() const override {
-    return NS_LITERAL_CSTRING("gonk decoder");
+    return "gonk decoder"_ns;
   }
 
   ConversionRequired NeedsConversion() const override {

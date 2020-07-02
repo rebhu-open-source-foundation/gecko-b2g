@@ -1436,7 +1436,7 @@ void gfxFT2FontList::FindFonts() {
     if (androidRoot) {
       root = androidRoot;
     } else {
-      root = NS_LITERAL_CSTRING("/system");
+      root = "/system"_ns;
     }
     root.AppendLiteral("/hidden");
     FindFontsInDir(root, mFontNameCache.get());

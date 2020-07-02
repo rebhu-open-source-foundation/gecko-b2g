@@ -33,7 +33,7 @@ AudioChannelManager::~AudioChannelManager() {
   nsCOMPtr<EventTarget> target = do_QueryInterface(GetOwner());
   NS_ENSURE_TRUE_VOID(target);
 
-  target->RemoveSystemEventListener(NS_LITERAL_STRING("visibilitychange"), this,
+  target->RemoveSystemEventListener(u"visibilitychange"_ns, this,
                                     /* useCapture = */ true);
 }
 
@@ -43,7 +43,7 @@ void AudioChannelManager::Init(nsIGlobalObject* aGlobal) {
   nsCOMPtr<EventTarget> target = do_QueryInterface(GetOwner());
   NS_ENSURE_TRUE_VOID(target);
 
-  target->AddSystemEventListener(NS_LITERAL_STRING("visibilitychange"), this,
+  target->AddSystemEventListener(u"visibilitychange"_ns, this,
                                  /* useCapture = */ true,
                                  /* wantsUntrusted = */ false);
 }
@@ -56,7 +56,7 @@ JSObject* AudioChannelManager::WrapObject(JSContext* aCx,
 void AudioChannelManager::Notify(const hal::SwitchEvent& aEvent) {
   mState = Some(aEvent.status());
 
-  DispatchTrustedEvent(NS_LITERAL_STRING("headphoneschange"));
+  DispatchTrustedEvent(u"headphoneschange"_ns);
 }
 
 void AudioChannelManager::SetVolumeControlChannel(const nsAString& aChannel) {

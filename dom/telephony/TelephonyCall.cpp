@@ -272,7 +272,7 @@ nsresult TelephonyCall::NotifyStateChanged() {
   // we must save current state. Maybe we should figure out something smarter.
   TelephonyCallState prevState = mState;
 
-  nsresult res = DispatchCallEvent(NS_LITERAL_STRING("statechange"), this);
+  nsresult res = DispatchCallEvent(u"statechange"_ns, this);
   if (NS_FAILED(res)) {
     NS_WARNING("Failed to dispatch specific event!");
   }
@@ -347,7 +347,7 @@ void TelephonyCall::NotifyError(const nsAString& aError) {
   // aError,
   //                     DOMException_Binding::INVALID_STATE_ERR);
 
-  nsresult rv = DispatchCallEvent(NS_LITERAL_STRING("error"), this);
+  nsresult rv = DispatchCallEvent(u"error"_ns, this);
   if (NS_FAILED(rv)) {
     NS_WARNING("Failed to dispatch error event!");
   }
@@ -377,7 +377,7 @@ void TelephonyCall::UpdateDisconnectedReason(
 void TelephonyCall::ChangeGroup(TelephonyCallGroup* aGroup) {
   mGroup = aGroup;
 
-  nsresult rv = DispatchCallEvent(NS_LITERAL_STRING("groupchange"), this);
+  nsresult rv = DispatchCallEvent(u"groupchange"_ns, this);
   if (NS_FAILED(rv)) {
     NS_WARNING("Failed to dispatch error event!");
   }
@@ -388,7 +388,7 @@ void TelephonyCall::NotifyRttModifyRequest(uint16_t aRttMode) {
   init.mMode = ConvertToTelephonyRttMode(aRttMode);
   RefPtr<RttModifyRequestReceivedEvent> event =
       RttModifyRequestReceivedEvent::Constructor(
-          this, NS_LITERAL_STRING("rttmodifyrequest"), init);
+          this, u"rttmodifyrequest"_ns, init);
   nsresult rv = DispatchTrustedEvent(event);
   if (NS_FAILED(rv)) {
     NS_WARNING("Failed to dispatch rttmodifyrequest event!");
@@ -400,7 +400,7 @@ void TelephonyCall::NotifyRttModifyResponse(uint16_t aStatus) {
   init.mStatus = (unsigned short)aStatus;
   RefPtr<RttModifyResponseReceivedEvent> event =
       RttModifyResponseReceivedEvent::Constructor(
-          this, NS_LITERAL_STRING("rttmodifyresponse"), init);
+          this, u"rttmodifyresponse"_ns, init);
   nsresult rv = DispatchTrustedEvent(event);
   if (NS_FAILED(rv)) {
     NS_WARNING("Failed to dispatch rttmodifyresponse event!");
@@ -411,7 +411,7 @@ void TelephonyCall::NotifyRttMessage(const nsAString& aMessage) {
   RttMessageReceivedEventInit init;
   init.mMessage = aMessage;
   RefPtr<RttMessageReceivedEvent> event = RttMessageReceivedEvent::Constructor(
-      this, NS_LITERAL_STRING("rttmessage"), init);
+      this, u"rttmessage"_ns, init);
   nsresult rv = DispatchTrustedEvent(event);
   if (NS_FAILED(rv)) {
     NS_WARNING("Failed to dispatch rttmessage event!");
@@ -540,19 +540,19 @@ nsresult TelephonyCall::Hold(nsITelephonyCallback* aCallback) {
                                " (State: %s)",
                                TELEPHONY_CALL_STATE(mState))
                    .get());
-    aCallback->NotifyError(NS_LITERAL_STRING("InvalidStateError"));
+    aCallback->NotifyError(u"InvalidStateError"_ns);
     return NS_ERROR_DOM_INVALID_STATE_ERR;
   }
 
   if (mGroup) {
     NS_WARNING("Hold a call in conference is rejected!");
-    aCallback->NotifyError(NS_LITERAL_STRING("InvalidStateError"));
+    aCallback->NotifyError(u"InvalidStateError"_ns);
     return NS_ERROR_DOM_INVALID_STATE_ERR;
   }
 
   if (!mSwitchable) {
     NS_WARNING("Hold a non-switchable call is rejected!");
-    aCallback->NotifyError(NS_LITERAL_STRING("InvalidStateError"));
+    aCallback->NotifyError(u"InvalidStateError"_ns);
     return NS_ERROR_DOM_INVALID_STATE_ERR;
   }
 
@@ -594,19 +594,19 @@ nsresult TelephonyCall::Resume(nsITelephonyCallback* aCallback) {
                                " (State: %s)",
                                TELEPHONY_CALL_STATE(mState))
                    .get());
-    aCallback->NotifyError(NS_LITERAL_STRING("InvalidStateError"));
+    aCallback->NotifyError(u"InvalidStateError"_ns);
     return NS_ERROR_DOM_INVALID_STATE_ERR;
   }
 
   if (mGroup) {
     NS_WARNING("Resume a call in conference is rejected!");
-    aCallback->NotifyError(NS_LITERAL_STRING("InvalidStateError"));
+    aCallback->NotifyError(u"InvalidStateError"_ns);
     return NS_ERROR_DOM_INVALID_STATE_ERR;
   }
 
   if (!mSwitchable) {
     NS_WARNING("Resume a non-switchable call is rejected!");
-    aCallback->NotifyError(NS_LITERAL_STRING("InvalidStateError"));
+    aCallback->NotifyError(u"InvalidStateError"_ns);
     return NS_ERROR_DOM_INVALID_STATE_ERR;
   }
 

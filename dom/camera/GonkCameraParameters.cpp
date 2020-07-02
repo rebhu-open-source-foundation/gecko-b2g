@@ -369,7 +369,7 @@ nsresult GonkCameraParameters::Initialize() {
   GetListAsArray(CAMERA_PARAM_SUPPORTED_SCENEMODES, mSceneModes);
   if (IsLowMemoryPlatform()) {
     bool hdrRemoved = false;
-    while (mSceneModes.RemoveElement(NS_LITERAL_STRING("hdr"))) {
+    while (mSceneModes.RemoveElement(u"hdr"_ns)) {
       hdrRemoved = true;
     }
     if (hdrRemoved) {

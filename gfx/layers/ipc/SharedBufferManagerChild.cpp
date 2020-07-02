@@ -115,7 +115,8 @@ void
 SharedBufferManagerChild::BindSameProcess(RefPtr<SharedBufferManagerParent> aParent) {
   MessageLoop* parentMsgLoop = aParent->GetMessageLoop();
   ipc::MessageChannel* parentChannel = aParent->GetIPCChannel();
-  Open(parentChannel, parentMsgLoop, mozilla::ipc::ChildSide);
+
+  Open(parentChannel, parentMsgLoop->SerialEventTarget(), mozilla::ipc::ChildSide);
 
   // This reference is dropped in DeallocPSharedBufferManagerChild.
   this->AddRef();

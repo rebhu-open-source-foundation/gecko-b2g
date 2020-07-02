@@ -106,6 +106,6 @@ void SpeakerManagerServiceChild::Notify() {
   for (auto iter = mRegisteredSpeakerManagers.Iter(); !iter.Done();
        iter.Next()) {
     RefPtr<SpeakerManager> sm = iter.Data();
-    sm->DispatchSimpleEvent(NS_LITERAL_STRING("speakerforcedchange"));
+    sm->DispatchSimpleEvent(u"speakerforcedchange"_ns);
   }
 }

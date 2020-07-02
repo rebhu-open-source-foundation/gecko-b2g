@@ -24,32 +24,32 @@ extern const char* kSmsReadSuccessObserverTopic;
 extern const char* kSmsReadErrorObserverTopic;
 extern const char* kSmsDeletedObserverTopic;
 
-#define DELIVERY_RECEIVED NS_LITERAL_STRING("received")
-#define DELIVERY_SENDING NS_LITERAL_STRING("sending")
-#define DELIVERY_SENT NS_LITERAL_STRING("sent")
-#define DELIVERY_ERROR NS_LITERAL_STRING("error")
-#define DELIVERY_NOT_DOWNLOADED NS_LITERAL_STRING("not-downloaded")
+#define DELIVERY_RECEIVED u"received"_ns
+#define DELIVERY_SENDING u"sending"_ns
+#define DELIVERY_SENT u"sent"_ns
+#define DELIVERY_ERROR u"error"_ns
+#define DELIVERY_NOT_DOWNLOADED u"not-downloaded"_ns
 
-#define DELIVERY_STATUS_NOT_APPLICABLE NS_LITERAL_STRING("not-applicable")
-#define DELIVERY_STATUS_SUCCESS NS_LITERAL_STRING("success")
-#define DELIVERY_STATUS_PENDING NS_LITERAL_STRING("pending")
-#define DELIVERY_STATUS_ERROR NS_LITERAL_STRING("error")
-#define DELIVERY_STATUS_REJECTED NS_LITERAL_STRING("rejected")
-#define DELIVERY_STATUS_MANUAL NS_LITERAL_STRING("manual")
+#define DELIVERY_STATUS_NOT_APPLICABLE u"not-applicable"_ns
+#define DELIVERY_STATUS_SUCCESS u"success"_ns
+#define DELIVERY_STATUS_PENDING u"pending"_ns
+#define DELIVERY_STATUS_ERROR u"error"_ns
+#define DELIVERY_STATUS_REJECTED u"rejected"_ns
+#define DELIVERY_STATUS_MANUAL u"manual"_ns
 
-#define READ_STATUS_NOT_APPLICABLE NS_LITERAL_STRING("not-applicable")
-#define READ_STATUS_SUCCESS NS_LITERAL_STRING("success")
-#define READ_STATUS_PENDING NS_LITERAL_STRING("pending")
-#define READ_STATUS_ERROR NS_LITERAL_STRING("error")
+#define READ_STATUS_NOT_APPLICABLE u"not-applicable"_ns
+#define READ_STATUS_SUCCESS u"success"_ns
+#define READ_STATUS_PENDING u"pending"_ns
+#define READ_STATUS_ERROR u"error"_ns
 
-#define MESSAGE_CLASS_NORMAL NS_LITERAL_STRING("normal")
-#define MESSAGE_CLASS_CLASS_0 NS_LITERAL_STRING("class-0")
-#define MESSAGE_CLASS_CLASS_1 NS_LITERAL_STRING("class-1")
-#define MESSAGE_CLASS_CLASS_2 NS_LITERAL_STRING("class-2")
-#define MESSAGE_CLASS_CLASS_3 NS_LITERAL_STRING("class-3")
+#define MESSAGE_CLASS_NORMAL u"normal"_ns
+#define MESSAGE_CLASS_CLASS_0 u"class-0"_ns
+#define MESSAGE_CLASS_CLASS_1 u"class-1"_ns
+#define MESSAGE_CLASS_CLASS_2 u"class-2"_ns
+#define MESSAGE_CLASS_CLASS_3 u"class-3"_ns
 
-#define MESSAGE_TYPE_SMS NS_LITERAL_STRING("sms")
-#define MESSAGE_TYPE_MMS NS_LITERAL_STRING("mms")
+#define MESSAGE_TYPE_SMS u"sms"_ns
+#define MESSAGE_TYPE_MMS u"mms"_ns
 
 }  // namespace mobilemessage
 }  // namespace dom

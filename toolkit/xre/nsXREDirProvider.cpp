@@ -1443,7 +1443,7 @@ nsresult nsXREDirProvider::GetUserDataDirectoryHome(nsIFile** aFile,
 
   rv = NS_NewLocalFile(path, true, getter_AddRefs(localDir));
 #elif defined(MOZ_WIDGET_GONK)
-  rv = NS_NewNativeLocalFile(NS_LITERAL_CSTRING("/data/b2g"), true,
+  rv = NS_NewNativeLocalFile("/data/b2g"_ns, true,
                              getter_AddRefs(localDir));
 #elif defined(XP_UNIX)
   const char* homeDir = getenv("HOME");

@@ -37,7 +37,7 @@ inline void SendRequest(BluetoothReplyRunnable* aRunnable,
       sBluetoothChild->SendPBluetoothRequestConstructor(actor, aRequest);
     } else {
       BT_WARNING("Failed to send Bluetooth IPC request to parent.");
-      aRunnable->SetError(NS_LITERAL_STRING("BluetoothIpcMsgChannelError"));
+      aRunnable->SetError(u"BluetoothIpcMsgChannelError"_ns);
     }
   } else {
     BT_WARNING(

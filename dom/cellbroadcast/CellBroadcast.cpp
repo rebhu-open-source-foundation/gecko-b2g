@@ -130,7 +130,7 @@ CellBroadcast::NotifyMessageReceived(
       aHasEtwsInfo, aEtwsWarningType, aEtwsEmergencyUserAlert, aEtwsPopup);
 
   RefPtr<CellBroadcastEvent> event = CellBroadcastEvent::Constructor(
-      this, NS_LITERAL_STRING("received"), init);
+      this, u"received"_ns, init);
   return DispatchTrustedEvent(event);
 }
 

@@ -28,8 +28,8 @@
 #include "nsServiceManagerUtils.h"
 #include "nsContentUtils.h"
 
-#define MOBILECONN_ERROR_INVALID_PARAMETER NS_LITERAL_STRING("InvalidParameter")
-#define MOBILECONN_ERROR_INVALID_PASSWORD NS_LITERAL_STRING("InvalidPassword")
+#define MOBILECONN_ERROR_INVALID_PARAMETER u"InvalidParameter"_ns
+#define MOBILECONN_ERROR_INVALID_PASSWORD u"InvalidPassword"_ns
 
 #ifdef CONVERT_STRING_TO_NULLABLE_ENUM
 #  undef CONVERT_STRING_TO_NULLABLE_ENUM
@@ -1075,7 +1075,7 @@ MobileConnection::NotifyVoiceChanged() {
 
   UpdateVoice();
 
-  return DispatchTrustedEvent(NS_LITERAL_STRING("voicechange"));
+  return DispatchTrustedEvent(u"voicechange"_ns);
 }
 
 NS_IMETHODIMP
@@ -1086,7 +1086,7 @@ MobileConnection::NotifyDataChanged() {
 
   UpdateData();
 
-  return DispatchTrustedEvent(NS_LITERAL_STRING("datachange"));
+  return DispatchTrustedEvent(u"datachange"_ns);
 }
 
 NS_IMETHODIMP
@@ -1101,7 +1101,7 @@ MobileConnection::NotifyDataError(const nsAString& aMessage) {
   init.mMessage = aMessage;
 
   RefPtr<DataErrorEvent> event =
-      DataErrorEvent::Constructor(this, NS_LITERAL_STRING("dataerror"), init);
+      DataErrorEvent::Constructor(this, u"dataerror"_ns, init);
 
   return DispatchTrustedEvent(event);
 }
@@ -1126,7 +1126,7 @@ MobileConnection::NotifyCFStateChanged(unsigned short aAction,
   init.mServiceClass = aServiceClass;
 
   RefPtr<CFStateChangeEvent> event = CFStateChangeEvent::Constructor(
-      this, NS_LITERAL_STRING("cfstatechange"), init);
+      this, u"cfstatechange"_ns, init);
 
   return DispatchTrustedEvent(event);
 }
@@ -1145,7 +1145,7 @@ MobileConnection::NotifyEmergencyCbModeChanged(bool aActive,
   init.mTimeoutMs = aTimeoutMs;
 
   RefPtr<EmergencyCbModeEvent> event = EmergencyCbModeEvent::Constructor(
-      this, NS_LITERAL_STRING("emergencycbmodechange"), init);
+      this, u"emergencycbmodechange"_ns, init);
 
   return DispatchTrustedEvent(event);
 }
@@ -1161,7 +1161,7 @@ MobileConnection::NotifyOtaStatusChanged(const nsAString& aStatus) {
   init.mStatus = aStatus;
 
   RefPtr<OtaStatusEvent> event = OtaStatusEvent::Constructor(
-      this, NS_LITERAL_STRING("otastatuschange"), init);
+      this, u"otastatuschange"_ns, init);
 
   return DispatchTrustedEvent(event);
 }
@@ -1172,7 +1172,7 @@ MobileConnection::NotifyRadioStateChanged() {
     return NS_OK;
   }
 
-  return DispatchTrustedEvent(NS_LITERAL_STRING("radiostatechange"));
+  return DispatchTrustedEvent(u"radiostatechange"_ns);
 }
 
 NS_IMETHODIMP
@@ -1187,7 +1187,7 @@ MobileConnection::NotifyClirModeChanged(uint32_t aMode) {
   init.mMode = aMode;
 
   RefPtr<ClirModeEvent> event = ClirModeEvent::Constructor(
-      this, NS_LITERAL_STRING("clirmodechange"), init);
+      this, u"clirmodechange"_ns, init);
 
   return DispatchTrustedEvent(event);
 }
@@ -1204,7 +1204,7 @@ MobileConnection::NotifyNetworkSelectionModeChanged() {
     return NS_OK;
   }
 
-  return DispatchTrustedEvent(NS_LITERAL_STRING("networkselectionmodechange"));
+  return DispatchTrustedEvent(u"networkselectionmodechange"_ns);
 }
 
 NS_IMETHODIMP
@@ -1219,7 +1219,7 @@ MobileConnection::NotifySignalStrengthChanged() {
     return NS_OK;
   }
 
-  return DispatchTrustedEvent(NS_LITERAL_STRING("signalstrengthchange"));
+  return DispatchTrustedEvent(u"signalstrengthchange"_ns);
 }
 
 NS_IMETHODIMP
@@ -1232,7 +1232,7 @@ MobileConnection::NotifyModemRestart(const nsAString& aReason) {
   init.mReason = aReason;
 
   RefPtr<ModemRestartEvent> event = ModemRestartEvent::Constructor(
-      this, NS_LITERAL_STRING("modemrestart"), init);
+      this, u"modemrestart"_ns, init);
 
   return DispatchTrustedEvent(event);
 }
@@ -1261,7 +1261,7 @@ MobileConnection::NotifyIccInfoChanged() {
   }
 
   RefPtr<AsyncEventDispatcher> asyncDispatcher = new AsyncEventDispatcher(
-      this, NS_LITERAL_STRING("iccchange"), CanBubble::eNo);
+      this, u"iccchange"_ns, CanBubble::eNo);
 
   return asyncDispatcher->PostDOMEvent();
 }

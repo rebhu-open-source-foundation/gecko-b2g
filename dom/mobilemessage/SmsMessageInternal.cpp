@@ -102,7 +102,7 @@ const SmsMessageData& SmsMessageInternal::GetData() const { return mData; }
 
 NS_IMETHODIMP
 SmsMessageInternal::GetType(nsAString& aType) {
-  aType = NS_LITERAL_STRING("sms");
+  aType = u"sms"_ns;
   return NS_OK;
 }
 

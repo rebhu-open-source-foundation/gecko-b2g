@@ -285,7 +285,7 @@ nsresult Telephony::NotifyEvent(const nsAString& aType) {
 }
 
 nsresult Telephony::NotifyCallsChanged(TelephonyCall* aCall) {
-  return DispatchCallEvent(NS_LITERAL_STRING("callschanged"), aCall);
+  return DispatchCallEvent(u"callschanged"_ns, aCall);
 }
 
 already_AddRefed<TelephonyCall> Telephony::GetCall(uint32_t aServiceId,
@@ -375,7 +375,7 @@ nsresult Telephony::HandleCallInfo(nsITelephonyCallInfo* aInfo) {
                       vowifiCallQuality);
     // The newly created call is an incoming call.
     if (call && state == TelephonyCallState::Incoming) {
-      nsresult rv = DispatchCallEvent(NS_LITERAL_STRING("incoming"), call);
+      nsresult rv = DispatchCallEvent(u"incoming"_ns, call);
       NS_ENSURE_SUCCESS(rv, rv);
     }
     return NS_OK;
@@ -849,10 +849,10 @@ Telephony::WindowVolumeChanged(float aVolume, bool aMuted) {
     // the telephony audio from muted to unmuted at the first time. The event
     // "mozinterruptend" must be dispatched after the "mozinterruptbegin".
     if (!mHaveDispatchedInterruptBeginEvent && mMuted) {
-      DispatchTrustedEvent(NS_LITERAL_STRING("mozinterruptbegin"));
+      DispatchTrustedEvent(u"mozinterruptbegin"_ns);
       mHaveDispatchedInterruptBeginEvent = mMuted;
     } else if (mHaveDispatchedInterruptBeginEvent && !mMuted) {
-      DispatchTrustedEvent(NS_LITERAL_STRING("mozinterruptend"));
+      DispatchTrustedEvent(u"mozinterruptend"_ns);
       mHaveDispatchedInterruptBeginEvent = mMuted;
     }
   }
@@ -922,7 +922,7 @@ Telephony::SupplementaryServiceNotification(uint32_t aServiceId,
                                             int32_t aCode, int32_t aIndex,
                                             int32_t aType,
                                             const nsAString& aNumber) {
-  DispatchSsnEvent(NS_LITERAL_STRING("suppservicenotification"),
+  DispatchSsnEvent(u"suppservicenotification"_ns,
                    aNotificationType, aCode, aIndex, aIndex, aNumber);
   return NS_OK;
 }
@@ -940,7 +940,7 @@ Telephony::NotifyCdmaCallWaiting(uint32_t aServiceId, const nsAString& aNumber,
   RefPtr<TelephonyCallId> id = new TelephonyCallId(
       GetOwner(), aNumber, aNumberPresentation, aName, aNamePresentation);
   callToNotify->UpdateSecondId(id);
-  DispatchCallEvent(NS_LITERAL_STRING("callschanged"), callToNotify);
+  DispatchCallEvent(u"callschanged"_ns, callToNotify);
   return NS_OK;
 }
 
@@ -953,21 +953,21 @@ Telephony::NotifyConferenceError(const nsAString& aName,
 
 NS_IMETHODIMP
 Telephony::NotifyRingbackTone(bool aPlayRingbackTone) {
-  DispatchRingbackToneEvent(NS_LITERAL_STRING("ringbacktone"),
+  DispatchRingbackToneEvent(u"ringbacktone"_ns,
                             aPlayRingbackTone);
   return NS_OK;
 }
 
 NS_IMETHODIMP
 Telephony::NotifyTtyModeReceived(uint16_t aMode) {
-  DispatchTtyModeReceived(NS_LITERAL_STRING("ttymodereceived"), aMode);
+  DispatchTtyModeReceived(u"ttymodereceived"_ns, aMode);
   return NS_OK;
 }
 
 NS_IMETHODIMP
 Telephony::NotifyTelephonyCoverageLosing(uint16_t aType) {
   DispatchTelephonyCoverageLosingEvent(
-      NS_LITERAL_STRING("telephonycoveragelosing"), aType);
+      u"telephonycoveragelosing"_ns, aType);
   return NS_OK;
 }
 

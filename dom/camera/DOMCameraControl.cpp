@@ -118,8 +118,8 @@ static nsresult RegisterStorageRequestEvents(DOMRequest* aRequest,
     return NS_ERROR_UNEXPECTED;
   }
 
-  elm->AddEventListener(NS_LITERAL_STRING("success"), aListener, false, false);
-  elm->AddEventListener(NS_LITERAL_STRING("error"), aListener, false, false);
+  elm->AddEventListener(u"success"_ns, aListener, false, false);
+  elm->AddEventListener(u"error"_ns, aListener, false, false);
   return NS_OK;
 }
 
@@ -742,7 +742,7 @@ already_AddRefed<Promise> nsDOMCameraControl::StartRecording(
     return promise.forget();
   }
 
-  aRv = NotifyRecordingStatusChange(NS_LITERAL_STRING("starting"));
+  aRv = NotifyRecordingStatusChange(u"starting"_ns);
   if (aRv.Failed()) {
     return nullptr;
   }
@@ -751,14 +751,14 @@ already_AddRefed<Promise> nsDOMCameraControl::StartRecording(
   RefPtr<DOMRequest> request = aStorageArea.CreateFileDescriptor(
       aFilename, mDSFileDescriptor.get(), aRv);
   if (aRv.Failed()) {
-    NotifyRecordingStatusChange(NS_LITERAL_STRING("shutdown"));
+    NotifyRecordingStatusChange(u"shutdown"_ns);
     return nullptr;
   }
 
   nsCOMPtr<nsIDOMEventListener> listener = new StartRecordingHelper(this);
   aRv = RegisterStorageRequestEvents(request, listener);
   if (aRv.Failed()) {
-    NotifyRecordingStatusChange(NS_LITERAL_STRING("shutdown"));
+    NotifyRecordingStatusChange(u"shutdown"_ns);
     return nullptr;
   }
 
@@ -893,7 +893,7 @@ already_AddRefed<Promise> nsDOMCameraControl::AutoFocus(ErrorResult& aRv) {
     return nullptr;
   }
 
-  DispatchStateEvent(NS_LITERAL_STRING("focus"), NS_LITERAL_STRING("focusing"));
+  DispatchStateEvent(u"focus"_ns, u"focusing"_ns);
 
   mAutoFocusPromise = promise;
   return promise.forget();
@@ -1087,15 +1087,15 @@ void nsDOMCameraControl::DispatchPreviewStateEvent(
   nsString state;
   switch (aState) {
     case CameraControlListener::kPreviewStarted:
-      state = NS_LITERAL_STRING("started");
+      state = u"started"_ns;
       break;
 
     default:
-      state = NS_LITERAL_STRING("stopped");
+      state = u"stopped"_ns;
       break;
   }
 
-  DispatchStateEvent(NS_LITERAL_STRING("previewstatechange"), state);
+  DispatchStateEvent(u"previewstatechange"_ns, state);
 }
 
 void nsDOMCameraControl::DispatchStateEvent(const nsString& aType,
@@ -1149,26 +1149,26 @@ void nsDOMCameraControl::OnHardwareStateChange(
         CameraClosedEventInit eventInit;
         switch (aReason) {
           case NS_OK:
-            eventInit.mReason = NS_LITERAL_STRING("HardwareReleased");
+            eventInit.mReason = u"HardwareReleased"_ns;
             break;
 
           case NS_ERROR_FAILURE:
-            eventInit.mReason = NS_LITERAL_STRING("SystemFailure");
+            eventInit.mReason = u"SystemFailure"_ns;
             break;
 
           case NS_ERROR_NOT_AVAILABLE:
-            eventInit.mReason = NS_LITERAL_STRING("NotAvailable");
+            eventInit.mReason = u"NotAvailable"_ns;
             break;
 
           default:
             DOM_CAMERA_LOGE("Unhandled hardware close reason, 0x%x\n", aReason);
             MOZ_ASSERT_UNREACHABLE("Unanticipated reason for hardware close");
-            eventInit.mReason = NS_LITERAL_STRING("SystemFailure");
+            eventInit.mReason = u"SystemFailure"_ns;
             break;
         }
 
         RefPtr<CameraClosedEvent> event = CameraClosedEvent::Constructor(
-            this, NS_LITERAL_STRING("close"), eventInit);
+            this, u"close"_ns, eventInit);
         DispatchTrustedEvent(event);
       } else {
         // The configuration failed and we forced the camera to shutdown.
@@ -1196,7 +1196,7 @@ void nsDOMCameraControl::OnHardwareStateChange(
 void nsDOMCameraControl::OnShutter() {
   DOM_CAMERA_LOGI("DOM ** SNAP **\n");
   MOZ_ASSERT(NS_IsMainThread());
-  DispatchTrustedEvent(NS_LITERAL_STRING("shutter"));
+  DispatchTrustedEvent(u"shutter"_ns);
 }
 
 void nsDOMCameraControl::OnPreviewStateChange(
@@ -1208,11 +1208,11 @@ void nsDOMCameraControl::OnPreviewStateChange(
   nsString state;
   switch (aState) {
     case CameraControlListener::kPreviewStarted:
-      state = NS_LITERAL_STRING("started");
+      state = u"started"_ns;
       break;
 
     default:
-      state = NS_LITERAL_STRING("stopped");
+      state = u"stopped"_ns;
       break;
   }
 
@@ -1234,7 +1234,7 @@ void nsDOMCameraControl::OnPoster(BlobImpl* aPoster) {
   eventInit.mData = blob;
 
   RefPtr<BlobEvent> event =
-      BlobEvent::Constructor(this, NS_LITERAL_STRING("poster"), eventInit);
+      BlobEvent::Constructor(this, u"poster"_ns, eventInit);
 
   DispatchTrustedEvent(event);
   OnRecorderStateChange(CameraControlListener::kPosterCreated, 0, 0);
@@ -1257,7 +1257,7 @@ void nsDOMCameraControl::OnRecorderStateChange(
         promise->MaybeResolveWithUndefined();
       }
 
-      state = NS_LITERAL_STRING("Started");
+      state = u"Started"_ns;
     } break;
 
     case CameraControlListener::kRecorderStopped:
@@ -1266,51 +1266,51 @@ void nsDOMCameraControl::OnRecorderStateChange(
         return;
       }
 
-      NotifyRecordingStatusChange(NS_LITERAL_STRING("shutdown"));
-      state = NS_LITERAL_STRING("Stopped");
+      NotifyRecordingStatusChange(u"shutdown"_ns);
+      state = u"Stopped"_ns;
       break;
 
     case CameraControlListener::kPosterCreated:
-      state = NS_LITERAL_STRING("PosterCreated");
+      state = u"PosterCreated"_ns;
       mOptions.mCreatePoster = false;
       break;
 
     case CameraControlListener::kPosterFailed:
-      state = NS_LITERAL_STRING("PosterFailed");
+      state = u"PosterFailed"_ns;
       mOptions.mCreatePoster = false;
       break;
 
     case CameraControlListener::kRecorderPaused:
-      state = NS_LITERAL_STRING("Paused");
+      state = u"Paused"_ns;
       break;
 
     case CameraControlListener::kRecorderResumed:
-      state = NS_LITERAL_STRING("Resumed");
+      state = u"Resumed"_ns;
       break;
 
 #ifdef MOZ_B2G_CAMERA
     case CameraControlListener::kFileSizeLimitReached:
-      state = NS_LITERAL_STRING("FileSizeLimitReached");
+      state = u"FileSizeLimitReached"_ns;
       break;
 
     case CameraControlListener::kVideoLengthLimitReached:
-      state = NS_LITERAL_STRING("VideoLengthLimitReached");
+      state = u"VideoLengthLimitReached"_ns;
       break;
 
     case CameraControlListener::kTrackCompleted:
-      state = NS_LITERAL_STRING("TrackCompleted");
+      state = u"TrackCompleted"_ns;
       break;
 
     case CameraControlListener::kTrackFailed:
-      state = NS_LITERAL_STRING("TrackFailed");
+      state = u"TrackFailed"_ns;
       break;
 
     case CameraControlListener::kMediaRecorderFailed:
-      state = NS_LITERAL_STRING("MediaRecorderFailed");
+      state = u"MediaRecorderFailed"_ns;
       break;
 
     case CameraControlListener::kMediaServerFailed:
-      state = NS_LITERAL_STRING("MediaServerFailed");
+      state = u"MediaServerFailed"_ns;
       break;
 #endif
 
@@ -1319,7 +1319,7 @@ void nsDOMCameraControl::OnRecorderStateChange(
       return;
   }
 
-  DispatchStateEvent(NS_LITERAL_STRING("recorderstatechange"), state);
+  DispatchStateEvent(u"recorderstatechange"_ns, state);
 
   if (mRecordingStoppedDeferred && !mOptions.mCreatePoster) {
     mRecordingStoppedDeferred = false;
@@ -1379,7 +1379,7 @@ void nsDOMCameraControl::OnConfigurationChange(
 
   RefPtr<CameraConfigurationEvent> event =
       CameraConfigurationEvent::Constructor(
-          this, NS_LITERAL_STRING("configurationchanged"), eventInit);
+          this, u"configurationchanged"_ns, eventInit);
 
   DispatchTrustedEvent(event);
 }
@@ -1394,11 +1394,11 @@ void nsDOMCameraControl::OnAutoFocusComplete(bool aAutoFocusSucceeded) {
   }
 
   if (aAutoFocusSucceeded) {
-    DispatchStateEvent(NS_LITERAL_STRING("focus"),
-                       NS_LITERAL_STRING("focused"));
+    DispatchStateEvent(u"focus"_ns,
+                       u"focused"_ns);
   } else {
-    DispatchStateEvent(NS_LITERAL_STRING("focus"),
-                       NS_LITERAL_STRING("unfocused"));
+    DispatchStateEvent(u"focus"_ns,
+                       u"unfocused"_ns);
   }
 }
 
@@ -1407,8 +1407,8 @@ void nsDOMCameraControl::OnAutoFocusMoving(bool aIsMoving) {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (aIsMoving) {
-    DispatchStateEvent(NS_LITERAL_STRING("focus"),
-                       NS_LITERAL_STRING("focusing"));
+    DispatchStateEvent(u"focus"_ns,
+                       u"focusing"_ns);
   }
 }
 
@@ -1432,10 +1432,10 @@ void nsDOMCameraControl::OnFacesDetected(
 
   // RefPtr<CameraFacesDetectedEvent> event =
   //  CameraFacesDetectedEvent::Constructor(this,
-  //                                        NS_LITERAL_STRING("facesdetected"),
+  //                                        u"facesdetected"_ns,
   //                                       eventInit);
 
-  DispatchTrustedEvent(NS_LITERAL_STRING("facesdetected"));
+  DispatchTrustedEvent(u"facesdetected"_ns);
 }
 
 void nsDOMCameraControl::OnTakePictureComplete(dom::Blob* aPicture) {
@@ -1453,7 +1453,7 @@ void nsDOMCameraControl::OnTakePictureComplete(dom::Blob* aPicture) {
   BlobEventInit eventInit;
   eventInit.mData = blob;
 
-  DispatchTrustedEvent(NS_LITERAL_STRING("picture"));
+  DispatchTrustedEvent(u"picture"_ns);
 }
 
 void nsDOMCameraControl::OnUserError(
@@ -1502,8 +1502,8 @@ void nsDOMCameraControl::OnUserError(
 
     case CameraControlListener::kInAutoFocus:
       promise = mAutoFocusPromise.forget();
-      DispatchStateEvent(NS_LITERAL_STRING("focus"),
-                         NS_LITERAL_STRING("unfocused"));
+      DispatchStateEvent(u"focus"_ns,
+                         u"unfocused"_ns);
       break;
 
     case CameraControlListener::kInTakePicture:
@@ -1513,7 +1513,7 @@ void nsDOMCameraControl::OnUserError(
     case CameraControlListener::kInStartRecording:
       promise = mStartRecordingPromise.forget();
       mRecording = false;
-      NotifyRecordingStatusChange(NS_LITERAL_STRING("shutdown"));
+      NotifyRecordingStatusChange(u"shutdown"_ns);
       break;
 
     case CameraControlListener::kInStartFaceDetection:

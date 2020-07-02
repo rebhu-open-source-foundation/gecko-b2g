@@ -398,10 +398,10 @@ void BluetoothDaemonInterface::Init(
   }
 
   const static nsTArray<nsCString> sDaemonCandidates(
-      {NS_LITERAL_CSTRING("bluetoothd_socket1"),
-       NS_LITERAL_CSTRING("bluetoothd_socket2"),
-       NS_LITERAL_CSTRING("bluetoothd_socket3"),
-       NS_LITERAL_CSTRING("bluetoothd_socket4")});
+      {"bluetoothd_socket1"_ns,
+       "bluetoothd_socket2"_ns,
+       "bluetoothd_socket3"_ns,
+       "bluetoothd_socket4"_ns});
   const static unsigned int kBluetoothSocketLength = sDaemonCandidates.Length();
 
   static int socketIdx = 0;

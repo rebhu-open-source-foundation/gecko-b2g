@@ -490,7 +490,7 @@ DeviceStorageRequestParent::PostFileDescriptorResultEvent::CancelableRun() {
 nsresult DeviceStorageRequestParent::PostFormatResultEvent::CancelableRun() {
   MOZ_ASSERT(NS_IsMainThread());
 
-  nsString state = NS_LITERAL_STRING("unavailable");
+  nsString state = u"unavailable"_ns;
   if (mFile) {
     mFile->DoFormat(state);
   }
@@ -503,7 +503,7 @@ nsresult DeviceStorageRequestParent::PostFormatResultEvent::CancelableRun() {
 nsresult DeviceStorageRequestParent::PostMountResultEvent::CancelableRun() {
   MOZ_ASSERT(NS_IsMainThread());
 
-  nsString state = NS_LITERAL_STRING("unavailable");
+  nsString state = u"unavailable"_ns;
   if (mFile) {
     mFile->DoMount(state);
   }
@@ -516,7 +516,7 @@ nsresult DeviceStorageRequestParent::PostMountResultEvent::CancelableRun() {
 nsresult DeviceStorageRequestParent::PostUnmountResultEvent::CancelableRun() {
   MOZ_ASSERT(NS_IsMainThread());
 
-  nsString state = NS_LITERAL_STRING("unavailable");
+  nsString state = u"unavailable"_ns;
   if (mFile) {
     mFile->DoUnmount(state);
   }

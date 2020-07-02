@@ -45,16 +45,16 @@
 #endif
 #include "nsXULAppAPI.h"  // For XRE_GetProcessType()
 
-#define RECEIVED_EVENT_NAME NS_LITERAL_STRING("received")
-#define RETRIEVING_EVENT_NAME NS_LITERAL_STRING("retrieving")
-#define SENDING_EVENT_NAME NS_LITERAL_STRING("sending")
-#define SENT_EVENT_NAME NS_LITERAL_STRING("sent")
-#define FAILED_EVENT_NAME NS_LITERAL_STRING("failed")
-#define DELIVERY_SUCCESS_EVENT_NAME NS_LITERAL_STRING("deliverysuccess")
-#define DELIVERY_ERROR_EVENT_NAME NS_LITERAL_STRING("deliveryerror")
-#define READ_SUCCESS_EVENT_NAME NS_LITERAL_STRING("readsuccess")
-#define READ_ERROR_EVENT_NAME NS_LITERAL_STRING("readerror")
-#define DELETED_EVENT_NAME NS_LITERAL_STRING("deleted")
+#define RECEIVED_EVENT_NAME u"received"_ns
+#define RETRIEVING_EVENT_NAME u"retrieving"_ns
+#define SENDING_EVENT_NAME u"sending"_ns
+#define SENT_EVENT_NAME u"sent"_ns
+#define FAILED_EVENT_NAME u"failed"_ns
+#define DELIVERY_SUCCESS_EVENT_NAME u"deliverysuccess"_ns
+#define DELIVERY_ERROR_EVENT_NAME u"deliveryerror"_ns
+#define READ_SUCCESS_EVENT_NAME u"readsuccess"_ns
+#define READ_ERROR_EVENT_NAME u"readerror"_ns
+#define DELETED_EVENT_NAME u"deleted"_ns
 
 using namespace mozilla::dom::mobilemessage;
 

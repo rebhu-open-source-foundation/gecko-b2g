@@ -35,7 +35,7 @@ already_AddRefed<AudioChannelClient> AudioChannelClient::Constructor(
   }
 
   if (!CheckAudioChannelPermissions(window, aChannel)) {
-    aRv.ThrowSecurityError(NS_LITERAL_CSTRING("Permission denied"));
+    aRv.ThrowSecurityError("Permission denied"_ns);
     return nullptr;
   }
 
@@ -87,7 +87,7 @@ bool AudioChannelClient::CheckAudioChannelPermissions(
                       AudioChannelValues::strings[uint32_t(aChannel)].length);
   permissionManager->TestExactPermissionFromPrincipal(
       principal,
-      nsCString(NS_LITERAL_CSTRING("audio-channel-") + channel).get(),
+      nsCString("audio-channel-"_ns + channel).get(),
       &perm);
 
   return perm == nsIPermissionManager::ALLOW_ACTION;
@@ -153,7 +153,7 @@ AudioChannelClient::WindowSuspendChanged(nsSuspendedTypes aSuspend) {
     mSuspended = suspended;
     MOZ_LOG(AudioChannelService::GetAudioChannelLog(), LogLevel::Debug,
             ("AudioChannelClient, state changed, suspended %d", mSuspended));
-    DispatchTrustedEvent(NS_LITERAL_STRING("statechange"));
+    DispatchTrustedEvent(u"statechange"_ns);
   }
   return NS_OK;
 }

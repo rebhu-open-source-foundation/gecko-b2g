@@ -37,7 +37,7 @@ Return<void> nsRilIndication::radioStateChanged(RadioIndicationType type,
   INFO("radioStateChanged");
   mRIL->processIndication(type);
 
-  nsString rilmessageType(NS_LITERAL_STRING("radiostatechange"));
+  nsString rilmessageType(u"radiostatechange"_ns);
   RefPtr<nsRilIndicationResult> result =
       new nsRilIndicationResult(rilmessageType);
   result->updateRadioStateChanged(convertRadioStateToNum(radioState));
@@ -46,12 +46,12 @@ Return<void> nsRilIndication::radioStateChanged(RadioIndicationType type,
 }
 
 Return<void> nsRilIndication::callStateChanged(RadioIndicationType type) {
-  defaultResponse(type, NS_LITERAL_STRING("callStateChanged"));
+  defaultResponse(type, u"callStateChanged"_ns);
   return Void();
 }
 
 Return<void> nsRilIndication::networkStateChanged(RadioIndicationType type) {
-  defaultResponse(type, NS_LITERAL_STRING("networkStateChanged"));
+  defaultResponse(type, u"networkStateChanged"_ns);
   return Void();
 }
 
@@ -60,7 +60,7 @@ Return<void> nsRilIndication::newSms(
     const ::android::hardware::hidl_vec<uint8_t>& pdu) {
   mRIL->processIndication(type);
 
-  nsString rilmessageType(NS_LITERAL_STRING("sms-received"));
+  nsString rilmessageType(u"sms-received"_ns);
   RefPtr<nsRilIndicationResult> result =
       new nsRilIndicationResult(rilmessageType);
   uint32_t size = pdu.size();
@@ -93,7 +93,7 @@ Return<void> nsRilIndication::onUssd(
     const ::android::hardware::hidl_string& msg) {
   mRIL->processIndication(type);
 
-  nsString rilmessageType(NS_LITERAL_STRING("ussdreceived"));
+  nsString rilmessageType(u"ussdreceived"_ns);
 
   RefPtr<nsRilIndicationResult> result =
       new nsRilIndicationResult(rilmessageType);
@@ -109,7 +109,7 @@ Return<void> nsRilIndication::nitzTimeReceived(
   INFO("nitzTimeReceived");
   mRIL->processIndication(type);
 
-  nsString rilmessageType(NS_LITERAL_STRING("nitzTimeReceived"));
+  nsString rilmessageType(u"nitzTimeReceived"_ns);
 
   RefPtr<nsRilIndicationResult> result =
       new nsRilIndicationResult(rilmessageType);
@@ -125,7 +125,7 @@ Return<void> nsRilIndication::currentSignalStrength(
   INFO("currentSignalStrength");
   mRIL->processIndication(type);
 
-  nsString rilmessageType(NS_LITERAL_STRING("signalstrengthchange"));
+  nsString rilmessageType(u"signalstrengthchange"_ns);
 
   RefPtr<nsRilIndicationResult> result =
       new nsRilIndicationResult(rilmessageType);
@@ -144,7 +144,7 @@ Return<void> nsRilIndication::dataCallListChanged(
   mRIL->processIndication(type);
 
   RefPtr<nsRilIndicationResult> result =
-      new nsRilIndicationResult(NS_LITERAL_STRING("datacalllistchanged"));
+      new nsRilIndicationResult(u"datacalllistchanged"_ns);
   uint32_t numDataCall = dcList.size();
   INFO("getDataCallListResponse numDataCall= %d", numDataCall);
   nsTArray<RefPtr<nsSetupDataCallResult>> aDcLists(numDataCall);
@@ -165,7 +165,7 @@ Return<void> nsRilIndication::suppSvcNotify(
   INFO("suppSvcNotification");
   mRIL->processIndication(type);
 
-  nsString rilmessageType(NS_LITERAL_STRING("suppSvcNotification"));
+  nsString rilmessageType(u"suppSvcNotification"_ns);
 
   RefPtr<nsRilIndicationResult> result =
       new nsRilIndicationResult(rilmessageType);
@@ -179,7 +179,7 @@ Return<void> nsRilIndication::suppSvcNotify(
 }
 
 Return<void> nsRilIndication::stkSessionEnd(RadioIndicationType type) {
-  defaultResponse(type, NS_LITERAL_STRING("stksessionend"));
+  defaultResponse(type, u"stksessionend"_ns);
   return Void();
 }
 
@@ -187,7 +187,7 @@ Return<void> nsRilIndication::stkProactiveCommand(
     RadioIndicationType type, const ::android::hardware::hidl_string& cmd) {
   mRIL->processIndication(type);
 
-  nsString rilmessageType(NS_LITERAL_STRING("stkProactiveCommand"));
+  nsString rilmessageType(u"stkProactiveCommand"_ns);
 
   RefPtr<nsRilIndicationResult> result =
       new nsRilIndicationResult(rilmessageType);
@@ -200,7 +200,7 @@ Return<void> nsRilIndication::stkEventNotify(
     RadioIndicationType type, const ::android::hardware::hidl_string& cmd) {
   mRIL->processIndication(type);
 
-  nsString rilmessageType(NS_LITERAL_STRING("stkEventNotify"));
+  nsString rilmessageType(u"stkEventNotify"_ns);
 
   RefPtr<nsRilIndicationResult> result =
       new nsRilIndicationResult(rilmessageType);
@@ -216,7 +216,7 @@ Return<void> nsRilIndication::stkCallSetup(RadioIndicationType /*type*/,
 }
 
 Return<void> nsRilIndication::simSmsStorageFull(RadioIndicationType type) {
-  defaultResponse(type, NS_LITERAL_STRING("simSmsStorageFull"));
+  defaultResponse(type, u"simSmsStorageFull"_ns);
   return Void();
 }
 
@@ -225,7 +225,7 @@ Return<void> nsRilIndication::simRefresh(
   INFO("simRefresh");
   mRIL->processIndication(type);
 
-  nsString rilmessageType(NS_LITERAL_STRING("simRefresh"));
+  nsString rilmessageType(u"simRefresh"_ns);
 
   RefPtr<nsRilIndicationResult> result =
       new nsRilIndicationResult(rilmessageType);
@@ -243,7 +243,7 @@ Return<void> nsRilIndication::callRing(RadioIndicationType type, bool isGsm,
 
   // TODO impelment CDMA later.
 
-  nsString rilmessageType(NS_LITERAL_STRING("callRing"));
+  nsString rilmessageType(u"callRing"_ns);
 
   RefPtr<nsRilIndicationResult> result =
       new nsRilIndicationResult(rilmessageType);
@@ -252,7 +252,7 @@ Return<void> nsRilIndication::callRing(RadioIndicationType type, bool isGsm,
 }
 
 Return<void> nsRilIndication::simStatusChanged(RadioIndicationType type) {
-  defaultResponse(type, NS_LITERAL_STRING("simStatusChanged"));
+  defaultResponse(type, u"simStatusChanged"_ns);
   return Void();
 }
 
@@ -267,7 +267,7 @@ Return<void> nsRilIndication::newBroadcastSms(
     const ::android::hardware::hidl_vec<uint8_t>& data) {
   mRIL->processIndication(type);
 
-  nsString rilmessageType(NS_LITERAL_STRING("cellbroadcast-received"));
+  nsString rilmessageType(u"cellbroadcast-received"_ns);
   RefPtr<nsRilIndicationResult> result =
       new nsRilIndicationResult(rilmessageType);
   uint32_t size = data.size();
@@ -294,7 +294,7 @@ Return<void> nsRilIndication::restrictedStateChanged(
   INFO("restrictedStateChanged");
   mRIL->processIndication(type);
 
-  nsString rilmessageType(NS_LITERAL_STRING("restrictedStateChanged"));
+  nsString rilmessageType(u"restrictedStateChanged"_ns);
 
   RefPtr<nsRilIndicationResult> result =
       new nsRilIndicationResult(rilmessageType);
@@ -305,7 +305,7 @@ Return<void> nsRilIndication::restrictedStateChanged(
 
 Return<void> nsRilIndication::enterEmergencyCallbackMode(
     RadioIndicationType type) {
-  defaultResponse(type, NS_LITERAL_STRING("enterEmergencyCbMode"));
+  defaultResponse(type, u"enterEmergencyCbMode"_ns);
   return Void();
 }
 
@@ -333,7 +333,7 @@ Return<void> nsRilIndication::indicateRingbackTone(RadioIndicationType type,
   INFO("ringbackTone");
   mRIL->processIndication(type);
 
-  nsString rilmessageType(NS_LITERAL_STRING("ringbackTone"));
+  nsString rilmessageType(u"ringbackTone"_ns);
   RefPtr<nsRilIndicationResult> result =
       new nsRilIndicationResult(rilmessageType);
   result->updateIndicateRingbackTone(start);
@@ -342,7 +342,7 @@ Return<void> nsRilIndication::indicateRingbackTone(RadioIndicationType type,
 }
 
 Return<void> nsRilIndication::resendIncallMute(RadioIndicationType type) {
-  defaultResponse(type, NS_LITERAL_STRING("resendIncallMute"));
+  defaultResponse(type, u"resendIncallMute"_ns);
   return Void();
 }
 
@@ -360,12 +360,12 @@ Return<void> nsRilIndication::cdmaPrlChanged(RadioIndicationType /*type*/,
 
 Return<void> nsRilIndication::exitEmergencyCallbackMode(
     RadioIndicationType type) {
-  defaultResponse(type, NS_LITERAL_STRING("exitEmergencyCbMode"));
+  defaultResponse(type, u"exitEmergencyCbMode"_ns);
   return Void();
 }
 
 Return<void> nsRilIndication::rilConnected(RadioIndicationType type) {
-  defaultResponse(type, NS_LITERAL_STRING("rilconnected"));
+  defaultResponse(type, u"rilconnected"_ns);
   return Void();
 }
 
@@ -374,7 +374,7 @@ Return<void> nsRilIndication::voiceRadioTechChanged(RadioIndicationType type,
   INFO("voiceRadioTechChanged");
   mRIL->processIndication(type);
 
-  nsString rilmessageType(NS_LITERAL_STRING("voiceRadioTechChanged"));
+  nsString rilmessageType(u"voiceRadioTechChanged"_ns);
 
   RefPtr<nsRilIndicationResult> result =
       new nsRilIndicationResult(rilmessageType);
@@ -391,7 +391,7 @@ Return<void> nsRilIndication::cellInfoList(
   mRIL->processIndication(type);
 
   RefPtr<nsRilIndicationResult> result =
-      new nsRilIndicationResult(NS_LITERAL_STRING("cellInfoList"));
+      new nsRilIndicationResult(u"cellInfoList"_ns);
   uint32_t numCellInfo = records.size();
   INFO("cellInfoList numCellInfo= %d", numCellInfo);
   nsTArray<RefPtr<nsRilCellInfo>> aCellInfoLists(numCellInfo);
@@ -407,7 +407,7 @@ Return<void> nsRilIndication::cellInfoList(
 }
 
 Return<void> nsRilIndication::imsNetworkStateChanged(RadioIndicationType type) {
-  defaultResponse(type, NS_LITERAL_STRING("imsNetworkStateChanged"));
+  defaultResponse(type, u"imsNetworkStateChanged"_ns);
   return Void();
 }
 
@@ -416,7 +416,7 @@ Return<void> nsRilIndication::subscriptionStatusChanged(
   INFO("subscriptionStatusChanged");
   mRIL->processIndication(type);
 
-  nsString rilmessageType(NS_LITERAL_STRING("subscriptionStatusChanged"));
+  nsString rilmessageType(u"subscriptionStatusChanged"_ns);
 
   RefPtr<nsRilIndicationResult> result =
       new nsRilIndicationResult(rilmessageType);
@@ -430,7 +430,7 @@ Return<void> nsRilIndication::srvccStateNotify(RadioIndicationType type,
   INFO("srvccStateNotify");
   mRIL->processIndication(type);
 
-  nsString rilmessageType(NS_LITERAL_STRING("srvccStateNotify"));
+  nsString rilmessageType(u"srvccStateNotify"_ns);
 
   RefPtr<nsRilIndicationResult> result =
       new nsRilIndicationResult(rilmessageType);
@@ -445,7 +445,7 @@ Return<void> nsRilIndication::hardwareConfigChanged(
   INFO("hardwareConfigChanged");
   mRIL->processIndication(type);
 
-  nsString rilmessageType(NS_LITERAL_STRING("hardwareConfigChanged"));
+  nsString rilmessageType(u"hardwareConfigChanged"_ns);
   RefPtr<nsRilIndicationResult> result =
       new nsRilIndicationResult(rilmessageType);
 
@@ -484,7 +484,7 @@ Return<void> nsRilIndication::radioCapabilityIndication(
   INFO("radioCapabilityIndication");
   mRIL->processIndication(type);
 
-  nsString rilmessageType(NS_LITERAL_STRING("radioCapabilityIndication"));
+  nsString rilmessageType(u"radioCapabilityIndication"_ns);
 
   RefPtr<nsRilIndicationResult> result =
       new nsRilIndicationResult(rilmessageType);
@@ -516,7 +516,7 @@ Return<void> nsRilIndication::lceData(RadioIndicationType type,
   INFO("lceData");
   mRIL->processIndication(type);
 
-  nsString rilmessageType(NS_LITERAL_STRING("lceData"));
+  nsString rilmessageType(u"lceData"_ns);
 
   RefPtr<nsRilIndicationResult> result =
       new nsRilIndicationResult(rilmessageType);
@@ -532,7 +532,7 @@ Return<void> nsRilIndication::pcoData(RadioIndicationType type,
   INFO("pcoData");
   mRIL->processIndication(type);
 
-  nsString rilmessageType(NS_LITERAL_STRING("pcoData"));
+  nsString rilmessageType(u"pcoData"_ns);
 
   RefPtr<nsRilIndicationResult> result =
       new nsRilIndicationResult(rilmessageType);
@@ -556,7 +556,7 @@ Return<void> nsRilIndication::modemReset(
   INFO("modemReset");
   mRIL->processIndication(type);
 
-  nsString rilmessageType(NS_LITERAL_STRING("modemReset"));
+  nsString rilmessageType(u"modemReset"_ns);
 
   RefPtr<nsRilIndicationResult> result =
       new nsRilIndicationResult(rilmessageType);

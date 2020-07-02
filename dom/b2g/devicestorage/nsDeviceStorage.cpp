@@ -109,7 +109,7 @@ DeviceStorageUsedSpaceCache::DeviceStorageUsedSpaceCache() {
 
   mIOThread =
       new LazyIdleThread(DEFAULT_THREAD_TIMEOUT_MS,
-                         NS_LITERAL_CSTRING("DeviceStorageUsedSpaceCache I/O"));
+                         "DeviceStorageUsedSpaceCache I/O"_ns);
 }
 
 DeviceStorageUsedSpaceCache::~DeviceStorageUsedSpaceCache() {}
@@ -239,15 +239,15 @@ bool DeviceStorageTypeChecker::Check(const nsAString& aType, BlobImpl* aBlob) {
   aBlob->GetType(mimeType);
 
   if (aType.EqualsLiteral(DEVICESTORAGE_PICTURES)) {
-    return StringBeginsWith(mimeType, NS_LITERAL_STRING("image/"));
+    return StringBeginsWith(mimeType, u"image/"_ns);
   }
 
   if (aType.EqualsLiteral(DEVICESTORAGE_VIDEOS)) {
-    return StringBeginsWith(mimeType, NS_LITERAL_STRING("video/"));
+    return StringBeginsWith(mimeType, u"video/"_ns);
   }
 
   if (aType.EqualsLiteral(DEVICESTORAGE_MUSIC)) {
-    return StringBeginsWith(mimeType, NS_LITERAL_STRING("audio/"));
+    return StringBeginsWith(mimeType, u"audio/"_ns);
   }
 
   if (aType.EqualsLiteral(DEVICESTORAGE_APPS) ||
@@ -703,15 +703,15 @@ bool DeviceStorageFile::ValidateAndSplitPath(const nsAString& aPath,
   aPath.EndReading(end);
 
   // if the path is a '~' or starts with '~/', return false.
-  NS_NAMED_LITERAL_STRING(tilde, "~");
-  NS_NAMED_LITERAL_STRING(tildeSlash, "~/");
+  constexpr auto tilde = u"~"_ns;
+  constexpr auto tildeSlash = u"~/"_ns;
   if (aPath.Equals(tilde) || StringBeginsWith(aPath, tildeSlash)) {
     NS_WARNING("Path name starts with tilde!");
     return false;
   }
 
-  NS_NAMED_LITERAL_STRING(kCurrentDir, ".");
-  NS_NAMED_LITERAL_STRING(kParentDir, "..");
+  constexpr auto kCurrentDir = u"."_ns;
+  constexpr auto kParentDir = u".."_ns;
 
   // Split path and check each path component.
   nsCharSeparatedTokenizerTemplate<TokenizerIgnoreNothing> tokenizer(
@@ -2070,7 +2070,7 @@ class DeviceStorageAvailableRequest final : public DeviceStorageRequest {
   }
 
   NS_IMETHOD Run() override {
-    nsString state = NS_LITERAL_STRING("unavailable");
+    nsString state = u"unavailable"_ns;
     if (mFile) {
       mFile->GetStatus(state);
     }
@@ -2087,7 +2087,7 @@ class DeviceStorageStatusRequest final : public DeviceStorageRequest {
   }
 
   NS_IMETHOD Run() override {
-    nsString state = NS_LITERAL_STRING("undefined");
+    nsString state = u"undefined"_ns;
     if (mFile) {
       mFile->GetStorageStatus(state);
     }
@@ -2114,7 +2114,7 @@ class DeviceStorageFormatRequest final : public DeviceStorageRequest {
   }
 
   NS_IMETHOD Run() override {
-    nsString state = NS_LITERAL_STRING("unavailable");
+    nsString state = u"unavailable"_ns;
     if (mFile) {
       mFile->DoFormat(state);
     }
@@ -2137,7 +2137,7 @@ class DeviceStorageMountRequest final : public DeviceStorageRequest {
   }
 
   NS_IMETHOD Run() override {
-    nsString state = NS_LITERAL_STRING("unavailable");
+    nsString state = u"unavailable"_ns;
     if (mFile) {
       mFile->DoMount(state);
     }
@@ -2160,7 +2160,7 @@ class DeviceStorageUnmountRequest final : public DeviceStorageRequest {
   }
 
   NS_IMETHOD Run() override {
-    nsString state = NS_LITERAL_STRING("unavailable");
+    nsString state = u"unavailable"_ns;
     if (mFile) {
       mFile->DoUnmount(state);
     }
@@ -2185,7 +2185,7 @@ class DeviceStoragePermissionCheck final : public ContentPermissionRequestBase,
       already_AddRefed<DeviceStorageRequest>&& aRequest)
       : ContentPermissionRequestBase(aPrincipal, aWindow,
                                      NS_LITERAL_CSTRING(""),
-                                     NS_LITERAL_CSTRING("devicestorage")),
+                                     "devicestorage"_ns),
         mRequest(std::move(aRequest)) {
     MOZ_ASSERT(mRequest);
   }
@@ -2425,7 +2425,7 @@ nsresult nsDOMDeviceStorage::CheckPrincipal(nsPIDOMWindowInner* aWindow,
 
     uint32_t permission;
     nsresult rv = permissionManager->TestPermissionFromPrincipal(
-        principal, NS_LITERAL_CSTRING("webapps-manage"), &permission);
+        principal, "webapps-manage"_ns, &permission);
 
     if (NS_FAILED(rv) || permission != nsIPermissionManager::ALLOW_ACTION) {
       return NS_ERROR_NOT_AVAILABLE;
@@ -2503,10 +2503,10 @@ void nsDOMDeviceStorage::GetOrderedVolumeNames(
     // If the volume sdcard exists, then we want it to be first.
 
     VolumeNameArray::index_type sdcardIndex;
-    sdcardIndex = aVolumeNames.IndexOf(NS_LITERAL_STRING("sdcard"));
+    sdcardIndex = aVolumeNames.IndexOf(u"sdcard"_ns);
     if (sdcardIndex != VolumeNameArray::NoIndex && sdcardIndex > 0) {
       aVolumeNames.RemoveElementAt(sdcardIndex);
-      aVolumeNames.InsertElementAt(0, NS_LITERAL_STRING("sdcard"));
+      aVolumeNames.InsertElementAt(0, u"sdcard"_ns);
     }
   }
 #endif
@@ -2571,7 +2571,7 @@ bool nsDOMDeviceStorage::ParseFullPath(const nsAString& aFullPath,
   aOutStorageName.Truncate();
   aOutStoragePath.Truncate();
 
-  NS_NAMED_LITERAL_STRING(slash, "/");
+  constexpr auto slash = u"/"_ns;
 
   nsDependentSubstring storageName;
 
@@ -3235,7 +3235,7 @@ void nsDOMDeviceStorage::DispatchStorageStatusChangeEvent(
 
   RefPtr<DeviceStorageChangeEvent> event =
       DeviceStorageChangeEvent::Constructor(
-          this, NS_LITERAL_STRING("storage-state-change"), init);
+          this, u"storage-state-change"_ns, init);
   event->SetTrusted(true);
 
   DispatchEvent(*event);

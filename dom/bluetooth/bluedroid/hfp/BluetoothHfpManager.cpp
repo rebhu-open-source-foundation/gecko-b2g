@@ -613,7 +613,7 @@ void BluetoothHfpManager::NotifyConnectionStateChanged(const nsAString& aType) {
 }
 
 void BluetoothHfpManager::NotifyDialer(const nsAString& aCommand) {
-  NS_NAMED_LITERAL_STRING(type, "bluetooth-dialer-command");
+  constexpr auto type = u"bluetooth-dialer-command"_ns;
   nsTArray<BluetoothNamedValue> parameters;
 
   AppendNamedValue(parameters, "command", nsString(aCommand));
@@ -1436,14 +1436,14 @@ void BluetoothHfpManager::AnswerCallNotification(
     const BluetoothAddress& aBdAddress) {
   MOZ_ASSERT(NS_IsMainThread());
 
-  NotifyDialer(NS_LITERAL_STRING("ATA"));
+  NotifyDialer(u"ATA"_ns);
 }
 
 void BluetoothHfpManager::HangupCallNotification(
     const BluetoothAddress& aBdAddress) {
   MOZ_ASSERT(NS_IsMainThread());
 
-  NotifyDialer(NS_LITERAL_STRING("CHUP"));
+  NotifyDialer(u"CHUP"_ns);
 }
 
 void BluetoothHfpManager::VolumeNotification(
@@ -1592,7 +1592,7 @@ void BluetoothHfpManager::DialCallNotification(
   // 3):                Respond here
   if (message.IsEmpty()) {
     mDialingRequestProcessed = false;
-    NotifyDialer(NS_LITERAL_STRING("BLDN"));
+    NotifyDialer(u"BLDN"_ns);
 
     RefPtr<RespondToBLDNTask> task = new RespondToBLDNTask();
     MessageLoop::current()->PostDelayedTask(task.forget(),
@@ -1734,7 +1734,7 @@ void BluetoothHfpManager::KeyPressedNotification(
      * and SCO will be established after we get the CallStateChanged event
      * indicating the call is answered successfully.
      */
-    NotifyDialer(NS_LITERAL_STRING("ATA"));
+    NotifyDialer(u"ATA"_ns);
   } else if (hasActiveCall) {
     if (!IsScoConnected()) {
       /*
@@ -1749,12 +1749,12 @@ void BluetoothHfpManager::KeyPressedNotification(
        * SCO socket directly. We notify dialer only if there is at least one
        * active call.
        */
-      NotifyDialer(NS_LITERAL_STRING("CHUP"));
+      NotifyDialer(u"CHUP"_ns);
     }
   } else {
     // BLDN
 
-    NotifyDialer(NS_LITERAL_STRING("BLDN"));
+    NotifyDialer(u"BLDN"_ns);
 
     RefPtr<RespondToBLDNTask> task = new RespondToBLDNTask();
     MessageLoop::current()->PostDelayedTask(task.forget(),

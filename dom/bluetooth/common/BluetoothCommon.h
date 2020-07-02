@@ -1403,7 +1403,7 @@ struct BluetoothSdpRecord {
 struct BluetoothMasRecord : public BluetoothSdpRecord {
   BluetoothMasRecord(int32_t aRfcommChannelNumber, int32_t aInstanceId)
       : BluetoothSdpRecord(SDP_TYPE_MAP_MAS, BluetoothUuid(MAP_MAS),
-                           NS_LITERAL_CSTRING("SMS Message Access"),
+                           "SMS Message Access"_ns,
                            aRfcommChannelNumber,
                            -1,  // don't specify L2CAP PSM
                            MAP_PROFILE_VERSION, MAP_SUPPORTED_FEATURES,

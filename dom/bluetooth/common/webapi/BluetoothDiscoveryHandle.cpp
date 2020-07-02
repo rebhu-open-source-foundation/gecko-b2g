@@ -66,7 +66,7 @@ void BluetoothDiscoveryHandle::DispatchDeviceEvent(BluetoothDevice* aDevice) {
   init.mDevice = aDevice;
 
   RefPtr<BluetoothDeviceEvent> event = BluetoothDeviceEvent::Constructor(
-      this, NS_LITERAL_STRING("devicefound"), init);
+      this, u"devicefound"_ns, init);
   DispatchTrustedEvent(event);
 }
 
@@ -102,7 +102,7 @@ void BluetoothDiscoveryHandle::DispatchLeDeviceEvent(
   //  - the given UUIDs is empty.
   if (matched || mServiceUuids.IsEmpty()) {
     RefPtr<BluetoothLeDeviceEvent> event = BluetoothLeDeviceEvent::Constructor(
-        this, NS_LITERAL_STRING("devicefound"), aLeDevice, aRssi, aScanRecord);
+        this, u"devicefound"_ns, aLeDevice, aRssi, aScanRecord);
     DispatchTrustedEvent(event);
   }
 }

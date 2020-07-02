@@ -28,7 +28,7 @@ class CreateSubscriptionRunnable final : public WorkerMainThreadRunnable {
                                       const nsAString& aMessageName)
       : WorkerMainThreadRunnable(
             aWorkerPrivate,
-            NS_LITERAL_CSTRING("SystemMessage :: CreateSubscription")),
+            "SystemMessage :: CreateSubscription"_ns),
         mManager(aManager),
         mProxy(aProxy),
         mMessageName(aMessageName) {}

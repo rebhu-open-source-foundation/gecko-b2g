@@ -37,7 +37,7 @@ SpeakerManager::~SpeakerManager() {
   nsCOMPtr<EventTarget> target = do_QueryInterface(GetOwner());
   NS_ENSURE_TRUE_VOID(target);
 
-  target->RemoveSystemEventListener(NS_LITERAL_STRING("visibilitychange"), this,
+  target->RemoveSystemEventListener(u"visibilitychange"_ns, this,
                                     /* useCapture = */ true);
 }
 
@@ -88,7 +88,7 @@ nsresult SpeakerManager::Init(nsPIDOMWindowInner* aWindow) {
   nsCOMPtr<EventTarget> target = do_QueryInterface(GetOwner());
   NS_ENSURE_TRUE(target, NS_ERROR_FAILURE);
 
-  target->AddSystemEventListener(NS_LITERAL_STRING("visibilitychange"), this,
+  target->AddSystemEventListener(u"visibilitychange"_ns, this,
                                  /* useCapture = */ true,
                                  /* wantsUntrusted = */ false);
 

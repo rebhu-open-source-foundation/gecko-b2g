@@ -175,7 +175,7 @@ void FMRadioService::EnableFMRadio() {
     // hal::FMRadioSeek and hal::SetFMRadioFrequency run on this thread. These
     // call ioctls that can stall the main thread, so we run them here.
     mTuneThread = new LazyIdleThread(TUNE_THREAD_TIMEOUT_MS,
-                                     NS_LITERAL_CSTRING("FM Tuning"));
+                                     "FM Tuning"_ns);
   }
 }
 
@@ -201,7 +201,7 @@ class ReadAirplaneModeSettingTask final : public nsISettingsServiceCallback {
     if (!aResult.isBoolean()) {
       // Failed to read the setting value, set the state back to Disabled.
       fmRadioService->TransitionState(
-          ErrorResponse(NS_LITERAL_STRING("Unexpected error")), Disabled);
+          ErrorResponse(u"Unexpected error"_ns), Disabled);
       return NS_OK;
     }
 
@@ -213,7 +213,7 @@ class ReadAirplaneModeSettingTask final : public nsISettingsServiceCallback {
     } else {
       // Airplane mode is enabled, set the state back to Disabled.
       fmRadioService->TransitionState(
-          ErrorResponse(NS_LITERAL_STRING("Airplane mode currently enabled")),
+          ErrorResponse(u"Airplane mode currently enabled"_ns),
           Disabled);
     }
 
@@ -226,7 +226,7 @@ class ReadAirplaneModeSettingTask final : public nsISettingsServiceCallback {
     MOZ_ASSERT(mPendingRequest == fmRadioService->mPendingRequest);
 
     fmRadioService->TransitionState(
-        ErrorResponse(NS_LITERAL_STRING("Unexpected error")), Disabled);
+        ErrorResponse(u"Unexpected error"_ns), Disabled);
 
     return NS_OK;
   }
@@ -419,17 +419,17 @@ void FMRadioService::Enable(double aFrequencyInMHz,
     case Seeking:
     case Enabled:
       aReplyRunnable->SetReply(
-          ErrorResponse(NS_LITERAL_STRING("FM radio currently enabled")));
+          ErrorResponse(u"FM radio currently enabled"_ns));
       NS_DispatchToMainThread(aReplyRunnable);
       return;
     case Disabling:
       aReplyRunnable->SetReply(
-          ErrorResponse(NS_LITERAL_STRING("FM radio currently disabling")));
+          ErrorResponse(u"FM radio currently disabling"_ns));
       NS_DispatchToMainThread(aReplyRunnable);
       return;
     case Enabling:
       aReplyRunnable->SetReply(
-          ErrorResponse(NS_LITERAL_STRING("FM radio currently enabling")));
+          ErrorResponse(u"FM radio currently enabling"_ns));
       NS_DispatchToMainThread(aReplyRunnable);
       return;
     case Disabled:
@@ -440,14 +440,14 @@ void FMRadioService::Enable(double aFrequencyInMHz,
 
   if (!roundedFrequency) {
     aReplyRunnable->SetReply(
-        ErrorResponse(NS_LITERAL_STRING("Frequency is out of range")));
+        ErrorResponse(u"Frequency is out of range"_ns));
     NS_DispatchToMainThread(aReplyRunnable);
     return;
   }
 
   if (mHasReadAirplaneModeSetting && mAirplaneModeEnabled) {
     aReplyRunnable->SetReply(
-        ErrorResponse(NS_LITERAL_STRING("Airplane mode currently enabled")));
+        ErrorResponse(u"Airplane mode currently enabled"_ns));
     NS_DispatchToMainThread(aReplyRunnable);
     return;
   }
@@ -469,7 +469,7 @@ void FMRadioService::Enable(double aFrequencyInMHz,
     nsresult rv = settings->CreateLock(nullptr, getter_AddRefs(settingsLock));
     if (NS_FAILED(rv)) {
       TransitionState(
-          ErrorResponse(NS_LITERAL_STRING("Can't create settings lock")),
+          ErrorResponse(u"Can't create settings lock"_ns),
           Disabled);
       return;
     }
@@ -480,7 +480,7 @@ void FMRadioService::Enable(double aFrequencyInMHz,
     rv = settingsLock->Get(SETTING_KEY_AIRPLANEMODE_ENABLED, callback);
     if (NS_FAILED(rv)) {
       TransitionState(
-          ErrorResponse(NS_LITERAL_STRING("Can't get settings lock")),
+          ErrorResponse(u"Can't get settings lock"_ns),
           Disabled);
     }
 
@@ -503,14 +503,14 @@ void FMRadioService::Disable(FMRadioReplyRunnable* aReplyRunnable) {
     case Disabling:
       if (aReplyRunnable) {
         aReplyRunnable->SetReply(
-            ErrorResponse(NS_LITERAL_STRING("FM radio currently disabling")));
+            ErrorResponse(u"FM radio currently disabling"_ns));
         NS_DispatchToMainThread(aReplyRunnable);
       }
       return;
     case Disabled:
       if (aReplyRunnable) {
         aReplyRunnable->SetReply(
-            ErrorResponse(NS_LITERAL_STRING("FM radio currently disabled")));
+            ErrorResponse(u"FM radio currently disabled"_ns));
         NS_DispatchToMainThread(aReplyRunnable);
       }
       return;
@@ -526,7 +526,7 @@ void FMRadioService::Disable(FMRadioReplyRunnable* aReplyRunnable) {
   // event will be fired, execute the seek callback manually.
   if (mState == Seeking) {
     TransitionState(
-        ErrorResponse(NS_LITERAL_STRING("Seek action is cancelled")),
+        ErrorResponse(u"Seek action is cancelled"_ns),
         Disabling);
   }
 
@@ -539,7 +539,7 @@ void FMRadioService::Disable(FMRadioReplyRunnable* aReplyRunnable) {
     // enable request immediately. When the radio finishes enabling, we'll call
     // DoDisable and fire the success callback on the disable request.
     enablingRequest->SetReply(
-        ErrorResponse(NS_LITERAL_STRING("Enable action is cancelled")));
+        ErrorResponse(u"Enable action is cancelled"_ns));
     NS_DispatchToMainThread(enablingRequest);
 
     // If we haven't read the airplane mode settings yet we won't enable the
@@ -581,23 +581,23 @@ void FMRadioService::SetFrequency(double aFrequencyInMHz,
   switch (mState) {
     case Disabled:
       aReplyRunnable->SetReply(
-          ErrorResponse(NS_LITERAL_STRING("FM radio currently disabled")));
+          ErrorResponse(u"FM radio currently disabled"_ns));
       NS_DispatchToMainThread(aReplyRunnable);
       return;
     case Enabling:
       aReplyRunnable->SetReply(
-          ErrorResponse(NS_LITERAL_STRING("FM radio currently enabling")));
+          ErrorResponse(u"FM radio currently enabling"_ns));
       NS_DispatchToMainThread(aReplyRunnable);
       return;
     case Disabling:
       aReplyRunnable->SetReply(
-          ErrorResponse(NS_LITERAL_STRING("FM radio currently disabling")));
+          ErrorResponse(u"FM radio currently disabling"_ns));
       NS_DispatchToMainThread(aReplyRunnable);
       return;
     case Seeking:
       hal::CancelFMRadioSeek();
       TransitionState(
-          ErrorResponse(NS_LITERAL_STRING("Seek action is cancelled")),
+          ErrorResponse(u"Seek action is cancelled"_ns),
           Enabled);
       break;
     case Enabled:
@@ -608,7 +608,7 @@ void FMRadioService::SetFrequency(double aFrequencyInMHz,
 
   if (!roundedFrequency) {
     aReplyRunnable->SetReply(
-        ErrorResponse(NS_LITERAL_STRING("Frequency is out of range")));
+        ErrorResponse(u"Frequency is out of range"_ns));
     NS_DispatchToMainThread(aReplyRunnable);
     return;
   }
@@ -632,22 +632,22 @@ void FMRadioService::Seek(hal::FMRadioSeekDirection aDirection,
   switch (mState) {
     case Enabling:
       aReplyRunnable->SetReply(
-          ErrorResponse(NS_LITERAL_STRING("FM radio currently enabling")));
+          ErrorResponse(u"FM radio currently enabling"_ns));
       NS_DispatchToMainThread(aReplyRunnable);
       return;
     case Disabled:
       aReplyRunnable->SetReply(
-          ErrorResponse(NS_LITERAL_STRING("FM radio currently disabled")));
+          ErrorResponse(u"FM radio currently disabled"_ns));
       NS_DispatchToMainThread(aReplyRunnable);
       return;
     case Seeking:
       aReplyRunnable->SetReply(
-          ErrorResponse(NS_LITERAL_STRING("FM radio currently seeking")));
+          ErrorResponse(u"FM radio currently seeking"_ns));
       NS_DispatchToMainThread(aReplyRunnable);
       return;
     case Disabling:
       aReplyRunnable->SetReply(
-          ErrorResponse(NS_LITERAL_STRING("FM radio currently disabling")));
+          ErrorResponse(u"FM radio currently disabling"_ns));
       NS_DispatchToMainThread(aReplyRunnable);
       return;
     case Enabled:
@@ -679,7 +679,7 @@ void FMRadioService::CancelSeek(FMRadioReplyRunnable* aReplyRunnable) {
   // We accept canceling seek request only if it's currently seeking.
   if (mState != Seeking) {
     aReplyRunnable->SetReply(
-        ErrorResponse(NS_LITERAL_STRING("FM radio currently not seeking")));
+        ErrorResponse(u"FM radio currently not seeking"_ns));
     NS_DispatchToMainThread(aReplyRunnable);
     return;
   }
@@ -687,7 +687,7 @@ void FMRadioService::CancelSeek(FMRadioReplyRunnable* aReplyRunnable) {
   // Cancel the seek immediately to prevent it from completing.
   hal::CancelFMRadioSeek();
 
-  TransitionState(ErrorResponse(NS_LITERAL_STRING("Seek action is cancelled")),
+  TransitionState(ErrorResponse(u"Seek action is cancelled"_ns),
                   Enabled);
 
   aReplyRunnable->SetReply(SuccessResponse());
@@ -710,7 +710,7 @@ void FMRadioService::EnableRDS(FMRadioReplyRunnable* aReplyRunnable) {
   if (hal::IsFMRadioOn()) {
     if (!hal::EnableRDS(mRDSGroupMask | DOM_PARSED_RDS_GROUPS)) {
       aReplyRunnable->SetReply(
-          ErrorResponse(NS_LITERAL_STRING("Could not enable RDS")));
+          ErrorResponse(u"Could not enable RDS"_ns));
       NS_DispatchToMainThread(aReplyRunnable);
       return;
     }
@@ -1384,7 +1384,7 @@ void FMRadioService::WakeLockCreate() {
     NS_ENSURE_TRUE_VOID(pmService);
 
     ErrorResult rv;
-    mWakeLock = pmService->NewWakeLock(NS_LITERAL_STRING("cpu"), nullptr, rv);
+    mWakeLock = pmService->NewWakeLock(u"cpu"_ns, nullptr, rv);
   }
 }
 

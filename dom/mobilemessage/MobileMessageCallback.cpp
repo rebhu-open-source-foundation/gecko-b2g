@@ -29,55 +29,55 @@ static nsAutoString ConvertErrorCodeToErrorString(int32_t aError) {
   nsAutoString errorStr;
   switch (aError) {
     case nsIMobileMessageCallback::NO_SIGNAL_ERROR:
-      errorStr = NS_LITERAL_STRING("NoSignalError");
+      errorStr = u"NoSignalError"_ns;
       break;
     case nsIMobileMessageCallback::NOT_FOUND_ERROR:
-      errorStr = NS_LITERAL_STRING("NotFoundError");
+      errorStr = u"NotFoundError"_ns;
       break;
     case nsIMobileMessageCallback::UNKNOWN_ERROR:
-      errorStr = NS_LITERAL_STRING("UnknownError");
+      errorStr = u"UnknownError"_ns;
       break;
     case nsIMobileMessageCallback::INTERNAL_ERROR:
-      errorStr = NS_LITERAL_STRING("InternalError");
+      errorStr = u"InternalError"_ns;
       break;
     case nsIMobileMessageCallback::NO_SIM_CARD_ERROR:
-      errorStr = NS_LITERAL_STRING("NoSimCardError");
+      errorStr = u"NoSimCardError"_ns;
       break;
     case nsIMobileMessageCallback::RADIO_DISABLED_ERROR:
-      errorStr = NS_LITERAL_STRING("RadioDisabledError");
+      errorStr = u"RadioDisabledError"_ns;
       break;
     case nsIMobileMessageCallback::INVALID_ADDRESS_ERROR:
-      errorStr = NS_LITERAL_STRING("InvalidAddressError");
+      errorStr = u"InvalidAddressError"_ns;
       break;
     case nsIMobileMessageCallback::FDN_CHECK_ERROR:
-      errorStr = NS_LITERAL_STRING("FdnCheckError");
+      errorStr = u"FdnCheckError"_ns;
       break;
     case nsIMobileMessageCallback::NON_ACTIVE_SIM_CARD_ERROR:
-      errorStr = NS_LITERAL_STRING("NonActiveSimCardError");
+      errorStr = u"NonActiveSimCardError"_ns;
       break;
     case nsIMobileMessageCallback::STORAGE_FULL_ERROR:
-      errorStr = NS_LITERAL_STRING("StorageFullError");
+      errorStr = u"StorageFullError"_ns;
       break;
     case nsIMobileMessageCallback::SIM_NOT_MATCHED_ERROR:
-      errorStr = NS_LITERAL_STRING("SimNotMatchedError");
+      errorStr = u"SimNotMatchedError"_ns;
       break;
     case nsIMobileMessageCallback::NETWORK_PROBLEMS_ERROR:
-      errorStr = NS_LITERAL_STRING("NetworkProblemsError");
+      errorStr = u"NetworkProblemsError"_ns;
       break;
     case nsIMobileMessageCallback::GENERAL_PROBLEMS_ERROR:
-      errorStr = NS_LITERAL_STRING("GeneralProblemsError");
+      errorStr = u"GeneralProblemsError"_ns;
       break;
     case nsIMobileMessageCallback::SERVICE_NOT_AVAILABLE_ERROR:
-      errorStr = NS_LITERAL_STRING("ServiceNotAvailableError");
+      errorStr = u"ServiceNotAvailableError"_ns;
       break;
     case nsIMobileMessageCallback::MESSAGE_TOO_LONG_FOR_NETWORK_ERROR:
-      errorStr = NS_LITERAL_STRING("MessageTooLongForNetworkError");
+      errorStr = u"MessageTooLongForNetworkError"_ns;
       break;
     case nsIMobileMessageCallback::SERVICE_NOT_SUPPORTED_ERROR:
-      errorStr = NS_LITERAL_STRING("ServiceNotSupportedError");
+      errorStr = u"ServiceNotSupportedError"_ns;
       break;
     case nsIMobileMessageCallback::RETRY_REQUIRED_ERROR:
-      errorStr = NS_LITERAL_STRING("RetryRequiredError");
+      errorStr = u"RetryRequiredError"_ns;
       break;
     default:  // SUCCESS_NO_ERROR is handled above.
       MOZ_CRASH("Should never get here!");

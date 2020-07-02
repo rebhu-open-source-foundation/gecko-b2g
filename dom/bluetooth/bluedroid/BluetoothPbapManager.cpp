@@ -217,7 +217,7 @@ bool BluetoothPbapManager::Listen() {
   mServerSocket = new BluetoothSocket(this);
 
   nsresult rv = mServerSocket->Listen(
-      NS_LITERAL_STRING("OBEX Phonebook Access Server"), kPbapPSE,
+      u"OBEX Phonebook Access Server"_ns, kPbapPSE,
       BluetoothSocketType::RFCOMM, BluetoothReservedChannels::CHANNEL_PBAP_PSE,
       false, true);
 
@@ -538,7 +538,7 @@ ObexResponseCode BluetoothPbapManager::NotifyPbapRequest(
     // ... PullvCardListing function uses relative paths. An empty name header
     // may be sent to retrieve the vCard Listing object of the current folder.
     name = name.IsEmpty() ? mCurrentPath
-                          : mCurrentPath + NS_LITERAL_STRING("/") + name;
+                          : mCurrentPath + u"/"_ns + name;
 
     BT_LOGD("List phonebook [%s]", NS_ConvertUTF16toUTF8(name).get());
 
@@ -554,9 +554,9 @@ ObexResponseCode BluetoothPbapManager::NotifyPbapRequest(
     // Section 5.4 "PullvCardEntry Function", PBAP 1.2
     // The value of header "Name" is object name (*.vcf) or
     // X-BT-UID (X-BT-UID:*)
-    if (name.Find(NS_LITERAL_STRING(".vcf")) != kNotFound) {
+    if (name.Find(u".vcf"_ns) != kNotFound) {
       // Convert relative path to absolute path if the object name is *.vcf
-      name = mCurrentPath + NS_LITERAL_STRING("/") + name;
+      name = mCurrentPath + u"/"_ns + name;
     } else {
       // H5OS curretly supports phonebook object with "vcf" format only
       BT_LOGR("Uhacceptable phonebook object name: %s",

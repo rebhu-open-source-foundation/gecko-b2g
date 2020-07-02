@@ -1599,8 +1599,8 @@ class HTMLMediaElement::AudioChannelAgentCallback final
     }
 
     mOwner->DispatchAsyncEvent(aSuspend == nsISuspendedTypes::NONE_SUSPENDED
-                                   ? NS_LITERAL_STRING("mozinterruptend")
-                                   : NS_LITERAL_STRING("mozinterruptbegin"));
+                                   ? u"mozinterruptend"_ns
+                                   : u"mozinterruptbegin"_ns);
 
     mSuspended = aSuspend;
     MOZ_LOG(AudioChannelService::GetAudioChannelLog(), LogLevel::Debug,

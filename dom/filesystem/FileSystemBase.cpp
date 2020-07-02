@@ -19,7 +19,7 @@ already_AddRefed<FileSystemBase> FileSystemBase::DeserializeDOMPath(
   MOZ_ASSERT(XRE_IsParentProcess(), "Only call from parent process!");
   AssertIsOnBackgroundThread();
 
-  if (StringBeginsWith(aString, NS_LITERAL_STRING("devicestorage-"))) {
+  if (StringBeginsWith(aString, u"devicestorage-"_ns)) {
     // The string representation of devicestorage file system is of the format:
     // devicestorage-StorageType-StorageName
 

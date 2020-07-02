@@ -43,7 +43,7 @@
   do {                                                                   \
     if (!IsEnabled() || !sBtCoreInterface) {                             \
       DispatchReplyError(runnable,                                       \
-                         NS_LITERAL_STRING("Bluetooth is not enabled")); \
+                         u"Bluetooth is not enabled"_ns); \
       return result;                                                     \
     }                                                                    \
   } while (0)
@@ -52,7 +52,7 @@
   do {                                                                   \
     if (!IsEnabled() || !sBtCoreInterface) {                             \
       DispatchReplyError(runnable,                                       \
-                         NS_LITERAL_STRING("Bluetooth is not enabled")); \
+                         u"Bluetooth is not enabled"_ns); \
       return;                                                            \
     }                                                                    \
   } while (0)
@@ -61,7 +61,7 @@
   do {                                                                   \
     if (!gatt) {                                                         \
       DispatchReplyError(runnable,                                       \
-                         NS_LITERAL_STRING("GattManager is not ready")); \
+                         u"GattManager is not ready"_ns); \
       return;                                                            \
     }                                                                    \
   } while (0)
@@ -253,7 +253,7 @@ nsresult BluetoothServiceBluedroid::StartInternal(
 
     // Reject Promise
     if (aRunnable) {
-      DispatchReplyError(aRunnable, NS_LITERAL_STRING("StartBluetoothError"));
+      DispatchReplyError(aRunnable, u"StartBluetoothError"_ns);
       mChangeAdapterStateRunnables.RemoveElement(aRunnable);
     }
 
@@ -305,7 +305,7 @@ nsresult BluetoothServiceBluedroid::StopInternal(
 
     // Reject Promise
     if (aRunnable) {
-      DispatchReplyError(aRunnable, NS_LITERAL_STRING("StopBluetoothError"));
+      DispatchReplyError(aRunnable, u"StopBluetoothError"_ns);
       mChangeAdapterStateRunnables.RemoveElement(aRunnable);
     }
 
@@ -1240,7 +1240,7 @@ void BluetoothServiceBluedroid::AcceptConnection(
   if (!profile) {
     BT_WARNING("Can't find profile manager with uuid: %x", aServiceUuid);
     DispatchReplyError(aRunnable,
-                       NS_LITERAL_STRING("Failed to get profile manager"));
+                       u"Failed to get profile manager"_ns);
     return;
   }
 
@@ -1264,7 +1264,7 @@ void BluetoothServiceBluedroid::RejectConnection(
   if (!profile) {
     BT_WARNING("Can't find profile manager with uuid: %x", aServiceUuid);
     DispatchReplyError(aRunnable,
-                       NS_LITERAL_STRING("Failed to get profile manager"));
+                       u"Failed to get profile manager"_ns);
     return;
   }
 
@@ -1291,7 +1291,7 @@ void BluetoothServiceBluedroid::SendFile(const BluetoothAddress& aDeviceAddress,
 
   BluetoothOppManager* opp = BluetoothOppManager::Get();
   if (!opp || !opp->SendFile(aDeviceAddress, aBlob)) {
-    DispatchReplyError(aRunnable, NS_LITERAL_STRING("SendFile failed"));
+    DispatchReplyError(aRunnable, u"SendFile failed"_ns);
     return;
   }
 
@@ -1311,7 +1311,7 @@ void BluetoothServiceBluedroid::StopSendingFile(
   BluetoothOppManager* opp = BluetoothOppManager::Get();
   nsAutoString errorStr;
   if (!opp || !opp->StopSendingFile()) {
-    DispatchReplyError(aRunnable, NS_LITERAL_STRING("StopSendingFile failed"));
+    DispatchReplyError(aRunnable, u"StopSendingFile failed"_ns);
     return;
   }
 
@@ -1333,7 +1333,7 @@ void BluetoothServiceBluedroid::ConfirmReceivingFile(
   nsAutoString errorStr;
   if (!opp || !opp->ConfirmReceivingFile(aConfirm)) {
     DispatchReplyError(aRunnable,
-                       NS_LITERAL_STRING("ConfirmReceivingFile failed"));
+                       u"ConfirmReceivingFile failed"_ns);
     return;
   }
 
@@ -1346,7 +1346,7 @@ void BluetoothServiceBluedroid::ConnectSco(BluetoothReplyRunnable* aRunnable) {
 
   BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
   if (!hfp || !hfp->ConnectSco()) {
-    DispatchReplyError(aRunnable, NS_LITERAL_STRING("ConnectSco failed"));
+    DispatchReplyError(aRunnable, u"ConnectSco failed"_ns);
     return;
   }
 
@@ -1360,7 +1360,7 @@ void BluetoothServiceBluedroid::DisconnectSco(
 
   BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
   if (!hfp || !hfp->DisconnectSco()) {
-    DispatchReplyError(aRunnable, NS_LITERAL_STRING("DisconnectSco failed"));
+    DispatchReplyError(aRunnable, u"DisconnectSco failed"_ns);
     return;
   }
 
@@ -1373,7 +1373,7 @@ void BluetoothServiceBluedroid::IsScoConnected(
 
   BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
   if (!hfp) {
-    DispatchReplyError(aRunnable, NS_LITERAL_STRING("IsScoConnected failed"));
+    DispatchReplyError(aRunnable, u"IsScoConnected failed"_ns);
     return;
   }
 
@@ -1389,7 +1389,7 @@ void BluetoothServiceBluedroid::SetObexPassword(
   BluetoothPbapManager* pbap = BluetoothPbapManager::Get();
   if (!pbap) {
     DispatchReplyError(aRunnable,
-                       NS_LITERAL_STRING("Failed to set OBEX password"));
+                       u"Failed to set OBEX password"_ns);
     return;
   }
 
@@ -1407,7 +1407,7 @@ void BluetoothServiceBluedroid::RejectObexAuth(
   if (!pbap) {
     DispatchReplyError(
         aRunnable,
-        NS_LITERAL_STRING("Failed to reject OBEX authentication request"));
+        u"Failed to reject OBEX authentication request"_ns);
     return;
   }
 
@@ -1420,7 +1420,7 @@ void BluetoothServiceBluedroid::ReplyTovCardPulling(
   BluetoothPbapManager* pbap = BluetoothPbapManager::Get();
   if (!pbap) {
     DispatchReplyError(aRunnable,
-                       NS_LITERAL_STRING("Reply to vCardPulling failed"));
+                       u"Reply to vCardPulling failed"_ns);
     return;
   }
 
@@ -1434,7 +1434,7 @@ void BluetoothServiceBluedroid::ReplyToPhonebookPulling(
   BluetoothPbapManager* pbap = BluetoothPbapManager::Get();
   if (!pbap) {
     DispatchReplyError(aRunnable,
-                       NS_LITERAL_STRING("Reply to Phonebook Pulling failed"));
+                       u"Reply to Phonebook Pulling failed"_ns);
     return;
   }
 
@@ -1448,7 +1448,7 @@ void BluetoothServiceBluedroid::ReplyTovCardListing(
   BluetoothPbapManager* pbap = BluetoothPbapManager::Get();
   if (!pbap) {
     DispatchReplyError(aRunnable,
-                       NS_LITERAL_STRING("Reply to vCard Listing failed"));
+                       u"Reply to vCard Listing failed"_ns);
     return;
   }
 
@@ -1468,7 +1468,7 @@ void BluetoothServiceBluedroid::ReplyToMapMessagesListing(
   BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
   if (!map) {
     DispatchReplyError(aRunnable,
-                       NS_LITERAL_STRING("Reply to Messages Listing failed"));
+                       u"Reply to Messages Listing failed"_ns);
     return;
   }
 
@@ -1481,7 +1481,7 @@ void BluetoothServiceBluedroid::ReplyToMapGetMessage(
   BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
   if (!map) {
     DispatchReplyError(aRunnable,
-                       NS_LITERAL_STRING("Reply to Get Message failed"));
+                       u"Reply to Get Message failed"_ns);
     return;
   }
 
@@ -1494,7 +1494,7 @@ void BluetoothServiceBluedroid::ReplyToMapSetMessageStatus(
   BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
   if (!map) {
     DispatchReplyError(aRunnable,
-                       NS_LITERAL_STRING("Reply to Set Message failed"));
+                       u"Reply to Set Message failed"_ns);
     return;
   }
 
@@ -1508,7 +1508,7 @@ void BluetoothServiceBluedroid::ReplyToMapSendMessage(
   BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
   if (!map) {
     DispatchReplyError(aRunnable,
-                       NS_LITERAL_STRING("Reply to Send Message failed"));
+                       u"Reply to Send Message failed"_ns);
     return;
   }
 
@@ -1521,7 +1521,7 @@ void BluetoothServiceBluedroid::ReplyToMapMessageUpdate(
   BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
   if (!map) {
     DispatchReplyError(aRunnable,
-                       NS_LITERAL_STRING("Reply to MessageUpdate failed"));
+                       u"Reply to MessageUpdate failed"_ns);
     return;
   }
 
@@ -1559,7 +1559,7 @@ void BluetoothServiceBluedroid::SendMessageEvent(
   BT_LOGR("MAS ID: %u", aMasId);
   BluetoothMapSmsManager* map = BluetoothMapSmsManager::Get();
   if (!map) {
-    DispatchReplyError(aRunnable, NS_LITERAL_STRING("SendMessageEvent failed"));
+    DispatchReplyError(aRunnable, u"SendMessageEvent failed"_ns);
     return;
   }
 
@@ -1575,7 +1575,7 @@ void BluetoothServiceBluedroid::AnswerWaitingCall(
   BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
   if (!hfp) {
     DispatchReplyError(aRunnable,
-                       NS_LITERAL_STRING("Fail to get BluetoothHfpManager"));
+                       u"Fail to get BluetoothHfpManager"_ns);
     return;
   }
 
@@ -1706,7 +1706,7 @@ void BluetoothServiceBluedroid::AdapterStateChangedNotification(bool aState) {
       AppendNamedValue(props, "Discovering", false);
     }
 
-    bs->DistributeSignal(NS_LITERAL_STRING("PropertyChanged"),
+    bs->DistributeSignal(u"PropertyChanged"_ns,
                          NS_LITERAL_STRING(KEY_ADAPTER), BluetoothValue(props));
 
     // Cleanup Bluetooth interfaces after state becomes BT_STATE_OFF. This
@@ -1831,7 +1831,7 @@ void BluetoothServiceBluedroid::AdapterPropertiesNotification(
 
   NS_ENSURE_TRUE_VOID(propertiesArray.Length() > 0);
 
-  DistributeSignal(NS_LITERAL_STRING("PropertyChanged"),
+  DistributeSignal(u"PropertyChanged"_ns,
                    NS_LITERAL_STRING(KEY_ADAPTER),
                    BluetoothValue(propertiesArray));
 
@@ -1936,7 +1936,7 @@ void BluetoothServiceBluedroid::RemoteDevicePropertiesNotification(
   // Update to registered BluetoothDevice objects
   nsAutoString bdAddrStr;
   AddressToString(aBdAddr, bdAddrStr);
-  BluetoothSignal signal(NS_LITERAL_STRING("PropertyChanged"), bdAddrStr,
+  BluetoothSignal signal(u"PropertyChanged"_ns, bdAddrStr,
                          propertiesArray);
 
   // FetchUuids task
@@ -2010,7 +2010,7 @@ void BluetoothServiceBluedroid::DeviceFoundNotification(
   mDeviceNameMap.Remove(bdAddr);
   mDeviceNameMap.Put(bdAddr, bdName);
 
-  DistributeSignal(NS_LITERAL_STRING("DeviceFound"),
+  DistributeSignal(u"DeviceFound"_ns,
                    NS_LITERAL_STRING(KEY_ADAPTER),
                    BluetoothValue(propertiesArray));
 }
@@ -2024,7 +2024,7 @@ void BluetoothServiceBluedroid::DiscoveryStateChangedNotification(bool aState) {
   nsTArray<BluetoothNamedValue> propertiesArray;
   AppendNamedValue(propertiesArray, "Discovering", mDiscovering);
 
-  DistributeSignal(NS_LITERAL_STRING("PropertyChanged"),
+  DistributeSignal(u"PropertyChanged"_ns,
                    NS_LITERAL_STRING(KEY_ADAPTER),
                    BluetoothValue(propertiesArray));
 
@@ -2072,7 +2072,7 @@ void BluetoothServiceBluedroid::PinRequestNotification(
                    static_cast<const mozilla::dom::bluetooth::BluetoothValue>(
                        NS_LITERAL_STRING(PAIRING_REQ_TYPE_ENTERPINCODE)));
 
-  DistributeSignal(NS_LITERAL_STRING("PairingRequest"),
+  DistributeSignal(u"PairingRequest"_ns,
                    NS_LITERAL_STRING(KEY_PAIRING_LISTENER),
                    BluetoothValue(propertiesArray));
 }
@@ -2137,7 +2137,7 @@ void BluetoothServiceBluedroid::SspRequestNotification(
   AppendNamedValue(propertiesArray, "passkey", passkey);
   AppendNamedValue(propertiesArray, "type", pairingType);
 
-  DistributeSignal(NS_LITERAL_STRING("PairingRequest"),
+  DistributeSignal(u"PairingRequest"_ns,
                    NS_LITERAL_STRING(KEY_PAIRING_LISTENER),
                    BluetoothValue(propertiesArray));
 }
@@ -2211,7 +2211,7 @@ void BluetoothServiceBluedroid::BondStateChangedNotification(
   nsAutoString remoteBdAddr;
   AddressToString(aRemoteBdAddr, remoteBdAddr);
   AppendNamedValue(propertiesArray, "Paired", bonded);
-  DistributeSignal(NS_LITERAL_STRING("PropertyChanged"), remoteBdAddr,
+  DistributeSignal(u"PropertyChanged"_ns, remoteBdAddr,
                    BluetoothValue(propertiesArray));
 
   // Notify adapter of device paired/unpaired

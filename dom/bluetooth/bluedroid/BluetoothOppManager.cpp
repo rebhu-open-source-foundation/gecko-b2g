@@ -384,7 +384,7 @@ bool BluetoothOppManager::Listen() {
   mServerSocket = new BluetoothSocket(this);
 
   nsresult rv = mServerSocket->Listen(
-      NS_LITERAL_STRING("OBEX Object Push"), kObexObjectPush,
+      u"OBEX Object Push"_ns, kObexObjectPush,
       BluetoothSocketType::RFCOMM, BluetoothReservedChannels::CHANNEL_OPUSH,
       false, true);
   if (NS_FAILED(rv)) {
@@ -1387,7 +1387,7 @@ void BluetoothOppManager::FileTransferComplete() {
     return;
   }
 
-  NS_NAMED_LITERAL_STRING(type, "bluetooth-opp-transfer-complete");
+  constexpr auto type = u"bluetooth-opp-transfer-complete"_ns;
   nsTArray<BluetoothNamedValue> parameters;
 
   AppendNamedValue(parameters, "address", mDeviceAddress);
@@ -1404,7 +1404,7 @@ void BluetoothOppManager::FileTransferComplete() {
 }
 
 void BluetoothOppManager::StartFileTransfer() {
-  NS_NAMED_LITERAL_STRING(type, "bluetooth-opp-transfer-start");
+  constexpr auto type = u"bluetooth-opp-transfer-start"_ns;
   nsTArray<BluetoothNamedValue> parameters;
 
   AppendNamedValue(parameters, "address", mDeviceAddress);
@@ -1419,7 +1419,7 @@ void BluetoothOppManager::StartFileTransfer() {
 }
 
 void BluetoothOppManager::UpdateProgress() {
-  NS_NAMED_LITERAL_STRING(type, "bluetooth-opp-update-progress");
+  constexpr auto type = u"bluetooth-opp-update-progress"_ns;
   nsTArray<BluetoothNamedValue> parameters;
 
   AppendNamedValue(parameters, "address", mDeviceAddress);
@@ -1431,7 +1431,7 @@ void BluetoothOppManager::UpdateProgress() {
 }
 
 void BluetoothOppManager::ReceivingFileConfirmation() {
-  NS_NAMED_LITERAL_STRING(type, "bluetooth-opp-receiving-file-confirmation");
+  constexpr auto type = u"bluetooth-opp-receiving-file-confirmation"_ns;
   nsTArray<BluetoothNamedValue> parameters;
 
   AppendNamedValue(parameters, "address", mDeviceAddress);
@@ -1445,7 +1445,7 @@ void BluetoothOppManager::ReceivingFileConfirmation() {
 }
 
 void BluetoothOppManager::NotifyAboutFileChange() {
-  NS_NAMED_LITERAL_STRING(data, "modified");
+  constexpr auto data = u"modified"_ns;
 
   nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
   NS_ENSURE_TRUE_VOID(obs);
@@ -1563,7 +1563,7 @@ bool BluetoothOppManager::AcquireSdcardMountLock() {
       do_GetService(NS_VOLUMESERVICE_CONTRACTID);
   NS_ENSURE_TRUE(volumeSrv, false);
 
-  NS_ENSURE_SUCCESS(volumeSrv->CreateMountLock(NS_LITERAL_STRING("sdcard"),
+  NS_ENSURE_SUCCESS(volumeSrv->CreateMountLock(u"sdcard"_ns,
                                                getter_AddRefs(mMountLock)),
                     false);
 

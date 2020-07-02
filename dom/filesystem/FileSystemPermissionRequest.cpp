@@ -124,7 +124,7 @@ FileSystemPermissionRequest::FileSystemPermissionRequest(
     nsIPrincipal* aPrincipal, nsPIDOMWindowInner* aWindow,
     FileSystemTaskChildBase* aTask)
     : ContentPermissionRequestBase(aPrincipal, aWindow, NS_LITERAL_CSTRING(""),
-                                   NS_LITERAL_CSTRING("filesystem")),
+                                   "filesystem"_ns),
       mTask(aTask) {
   MOZ_ASSERT(mTask, "aTask should not be null!");
   MOZ_ASSERT(NS_IsMainThread());

@@ -1215,11 +1215,11 @@ void nsRilWorker::sendAck() {
 
 // Helper function
 MvnoType nsRilWorker::convertToHalMvnoType(const nsAString& mvnoType) {
-  if (NS_LITERAL_STRING("imsi").Equals(mvnoType)) {
+  if (u"imsi"_ns.Equals(mvnoType)) {
     return MvnoType::IMSI;
-  } else if (NS_LITERAL_STRING("gid").Equals(mvnoType)) {
+  } else if (u"gid"_ns.Equals(mvnoType)) {
     return MvnoType::GID;
-  } else if (NS_LITERAL_STRING("spn").Equals(mvnoType)) {
+  } else if (u"spn"_ns.Equals(mvnoType)) {
     return MvnoType::SPN;
   } else {
     return MvnoType::NONE;

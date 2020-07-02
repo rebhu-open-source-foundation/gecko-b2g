@@ -148,16 +148,16 @@ MobileMessageCursorCallback::NotifyCursorError(int32_t aError) {
 
   switch (aError) {
     case nsIMobileMessageCallback::NO_SIGNAL_ERROR:
-      cursor->FireError(NS_LITERAL_STRING("NoSignalError"));
+      cursor->FireError(u"NoSignalError"_ns);
       break;
     case nsIMobileMessageCallback::NOT_FOUND_ERROR:
-      cursor->FireError(NS_LITERAL_STRING("NotFoundError"));
+      cursor->FireError(u"NotFoundError"_ns);
       break;
     case nsIMobileMessageCallback::UNKNOWN_ERROR:
-      cursor->FireError(NS_LITERAL_STRING("UnknownError"));
+      cursor->FireError(u"UnknownError"_ns);
       break;
     case nsIMobileMessageCallback::INTERNAL_ERROR:
-      cursor->FireError(NS_LITERAL_STRING("InternalError"));
+      cursor->FireError(u"InternalError"_ns);
       break;
     default:  // SUCCESS_NO_ERROR is handled above.
       MOZ_CRASH("Should never get here!");

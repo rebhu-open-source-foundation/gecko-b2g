@@ -196,7 +196,7 @@ nsresult nsGonkCameraControl::Initialize() {
   mCameraHw->PullParameters(mParams);
 
   // Set preferred preview frame format.
-  mParams.Set(CAMERA_PARAM_PREVIEWFORMAT, NS_LITERAL_STRING("yuv420sp"));
+  mParams.Set(CAMERA_PARAM_PREVIEWFORMAT, u"yuv420sp"_ns);
   // Turn off any normal pictures returned by the HDR scene mode
   mParams.Set(CAMERA_PARAM_SCENEMODE_HDR_RETURNNORMALPICTURE, false);
   PushParametersImpl();
@@ -1126,7 +1126,7 @@ nsresult nsGonkCameraControl::SetupRecordingFlash(
 
   if (luminance.EqualsASCII("low") && flashMode.EqualsASCII("auto")) {
     DOM_CAMERA_LOGI("Low luminance detected, turning on flash\n");
-    rv = SetAndPush(CAMERA_PARAM_FLASHMODE, NS_LITERAL_STRING("torch"));
+    rv = SetAndPush(CAMERA_PARAM_FLASHMODE, u"torch"_ns);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       // If we failed to turn on the flash, swallow the error
       return NS_OK;
@@ -1203,7 +1203,7 @@ nsresult nsGonkCameraControl::StartRecordingImpl(
     mRecorder = nullptr;
     // put the flash back to the 'auto' state
     if (mAutoFlashModeOverridden) {
-      SetAndPush(CAMERA_PARAM_FLASHMODE, NS_LITERAL_STRING("auto"));
+      SetAndPush(CAMERA_PARAM_FLASHMODE, u"auto"_ns);
     }
     return NS_ERROR_FAILURE;
   }
@@ -1260,7 +1260,7 @@ nsresult nsGonkCameraControl::StopRecordingImpl() {
     ICameraControlParameterSetAutoEnter set(this);
 
     if (mAutoFlashModeOverridden) {
-      nsresult rv = Set(CAMERA_PARAM_FLASHMODE, NS_LITERAL_STRING("auto"));
+      nsresult rv = Set(CAMERA_PARAM_FLASHMODE, u"auto"_ns);
       if (NS_FAILED(rv)) {
         DOM_CAMERA_LOGE("Failed to set flash mode (0x%x)\n", rv);
       }
@@ -1529,7 +1529,7 @@ void nsGonkCameraControl::OnTakePictureComplete(uint8_t* aData,
                                                 uint32_t aLength) {
   ReentrantMonitorAutoEnter mon(mReentrantMonitor);
 
-  nsString s(NS_LITERAL_STRING("image/"));
+  nsString s(u"image/"_ns);
   s.Append(mFileFormat);
   DOM_CAMERA_LOGI("Got picture, type '%s', %u bytes\n",
                   NS_ConvertUTF16toUTF8(s).get(), aLength);
@@ -2263,7 +2263,7 @@ void nsGonkCameraControl::OnPoster(void* aData, uint32_t aLength) {
   RefPtr<BlobImpl> blobImpl;
   if (aData) {
     blobImpl =
-        new MemoryBlobImpl(aData, aLength, NS_LITERAL_STRING("image/jpeg"));
+        new MemoryBlobImpl(aData, aLength, u"image/jpeg"_ns);
   }
   CameraControlImpl::OnPoster(blobImpl);
 }

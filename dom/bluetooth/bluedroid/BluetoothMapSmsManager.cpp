@@ -1750,7 +1750,7 @@ void BluetoothMapSmsManager::HandleSmsMmsMsgListing(
 
   // Get the absolute path of the folder to be retrieved.
   name = name.IsEmpty() ? currentFolderPath
-                        : currentFolderPath + NS_LITERAL_STRING("/") + name;
+                        : currentFolderPath + u"/"_ns + name;
 
   nsTArray<BluetoothNamedValue> data;
   AppendNamedValue(data, "name", name);
@@ -1832,13 +1832,13 @@ void BluetoothMapSmsManager::BuildDefaultFolderStructure() {
    */
   mRootFolder = new BluetoothMapFolder(NS_LITERAL_STRING(""), nullptr);
   BluetoothMapFolder* folder =
-      mRootFolder->AddSubFolder(NS_LITERAL_STRING("telecom"));
-  folder = folder->AddSubFolder(NS_LITERAL_STRING("msg"));
+      mRootFolder->AddSubFolder(u"telecom"_ns);
+  folder = folder->AddSubFolder(u"msg"_ns);
 
   // Add mandatory folders
-  folder->AddSubFolder(NS_LITERAL_STRING("inbox"));
-  folder->AddSubFolder(NS_LITERAL_STRING("sent"));
-  folder->AddSubFolder(NS_LITERAL_STRING("outbox"));
+  folder->AddSubFolder(u"inbox"_ns);
+  folder->AddSubFolder(u"sent"_ns);
+  folder->AddSubFolder(u"outbox"_ns);
   // TODO: Add 'draft' and 'deleted' folder once they are supported by frond end
   //       The task is tracked by CORE-3628.
 
@@ -1943,7 +1943,7 @@ void BluetoothMapSmsManager::HandleSmsMmsPushMessage(
   nsString currentFolderPath;
   mCurrentFolder->GetPath(currentFolderPath);
   name = name.IsEmpty() ? currentFolderPath
-                        : currentFolderPath + NS_LITERAL_STRING("/") + name;
+                        : currentFolderPath + u"/"_ns + name;
 
   // If the message will to be pushed to 'outbox' folder
   //   1. Parse body to get SMS

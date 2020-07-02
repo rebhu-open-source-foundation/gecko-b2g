@@ -622,7 +622,7 @@ AudioChannelService::Observe(nsISupports* aSubject, const char* aTopic,
 
     uint64_t childID = 0;
     nsresult rv =
-        props->GetPropertyAsUint64(NS_LITERAL_STRING("childID"), &childID);
+        props->GetPropertyAsUint64(u"childID"_ns, &childID);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }

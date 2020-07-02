@@ -40,7 +40,7 @@ mozilla::ipc::IPCResult TelephonyParent::RecvPTelephonyRequestConstructor(
 
   if (!service) {
     return NS_SUCCEEDED(actor->GetCallback()->NotifyError(
-               NS_LITERAL_STRING("InvalidStateError")))
+               u"InvalidStateError"_ns))
                ? IPC_OK()
                : IPC_FAIL_NO_REASON(this);
   }

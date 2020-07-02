@@ -504,7 +504,7 @@ static void BinderDeadCallback(android::status_t aErr) {
 
 bool AudioManager::IsFmOutConnected() {
 #if defined(PRODUCT_MANUFACTURER_QUALCOMM)
-  return GetParameters("fm_status") == NS_LITERAL_CSTRING("fm_status=1");
+  return GetParameters("fm_status") == "fm_status=1"_ns;
 #elif defined(PRODUCT_MANUFACTURER_SPRD)
   return mConnectedDevices.Get(AUDIO_DEVICE_OUT_FM_HEADSET, nullptr) ||
          mConnectedDevices.Get(AUDIO_DEVICE_OUT_FM_SPEAKER, nullptr);
@@ -709,7 +709,7 @@ nsresult AudioManager::Observe(nsISupports* aSubject, const char* aTopic,
 #ifdef PRODUCT_MANUFACTURER_MTK
   // Notify screen state to audio HAL in order to save power when screen is off.
   else if (!strcmp(aTopic, SCREEN_STATE_CHANGED)) {
-    if (NS_LITERAL_STRING("on").Equals(aData)) {
+    if (u"on"_ns.Equals(aData)) {
       SetParameters("screen_state=on");
     } else {
       SetParameters("screen_state=off");
@@ -813,7 +813,7 @@ void AudioManager::CreateWakeLock() {
   }
 
   ErrorResult rv;
-  mWakeLock = pmService->NewWakeLock(NS_LITERAL_STRING("cpu"), nullptr, rv);
+  mWakeLock = pmService->NewWakeLock(u"cpu"_ns, nullptr, rv);
 }
 
 void AudioManager::ReleaseWakeLock() {

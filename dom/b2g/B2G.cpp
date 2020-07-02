@@ -342,7 +342,7 @@ bool B2G::HasWifiManagerSupport(JSContext* /* unused */, JSObject* aGlobal) {
   //
   // uint32_t permission = nsIPermissionManager::DENY_ACTION;
   // permMgr->TestPermissionFromPrincipal(principal,
-  // NS_LITERAL_CSTRING("wifi-manage"), &permission); return
+  // "wifi-manage"_ns, &permission); return
   // nsIPermissionManager::ALLOW_ACTION == permission;
   return true;
 }

@@ -248,7 +248,7 @@ GonkGPSGeolocationProvider::Startup() {
         do_CreateInstance("@mozilla.org/toolkit/URLFormatterService;1", &rv);
     if (NS_SUCCEEDED(rv)) {
       nsString key;
-      rv = formatter->FormatURLPref(NS_LITERAL_STRING("geo.fauthorization.key"),
+      rv = formatter->FormatURLPref(u"geo.fauthorization.key"_ns,
                                     key);
       if (NS_SUCCEEDED(rv) && !key.IsEmpty()) {
         mNetworkLocationProvider =

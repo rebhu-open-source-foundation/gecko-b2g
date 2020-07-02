@@ -671,7 +671,7 @@ NS_IMETHODIMP
 DOMVideoCallProvider::OnReceiveSessionModifyRequest(
     nsIVideoCallProfile* request) {
   LOG("%s", __FUNCTION__);
-  DispatchSessionModifyRequestEvent(NS_LITERAL_STRING("sessionmodifyrequest"),
+  DispatchSessionModifyRequestEvent(u"sessionmodifyrequest"_ns,
                                     request);
   return NS_OK;
 }
@@ -683,7 +683,7 @@ DOMVideoCallProvider::OnReceiveSessionModifyResponse(
   LOG("%s, status: %d", __FUNCTION__, status);
 
   DispatchSessionModifyResponseEvent(
-      NS_LITERAL_STRING("sessionmodifyresponse"), status,
+      u"sessionmodifyresponse"_ns, status,
       (request ? static_cast<DOMVideoCallProfile*>(request) : nullptr),
       (response ? static_cast<DOMVideoCallProfile*>(response) : nullptr));
   return NS_OK;
@@ -691,7 +691,7 @@ DOMVideoCallProvider::OnReceiveSessionModifyResponse(
 
 NS_IMETHODIMP
 DOMVideoCallProvider::OnHandleCallSessionEvent(int16_t event) {
-  DispatCallSessionEvent(NS_LITERAL_STRING("callsessionevent"), event);
+  DispatCallSessionEvent(u"callsessionevent"_ns, event);
   return NS_OK;
 }
 
@@ -699,7 +699,7 @@ NS_IMETHODIMP
 DOMVideoCallProvider::OnChangePeerDimensions(uint16_t aWidth,
                                              uint16_t aHeight) {
   LOG("%s, width: %d, height: %d", __FUNCTION__, aWidth, aHeight);
-  DispatchChangePeerDimensionsEvent(NS_LITERAL_STRING("changepeerdimensions"),
+  DispatchChangePeerDimensionsEvent(u"changepeerdimensions"_ns,
                                     aWidth, aHeight);
 
   if (!mDisplayCallback) {
@@ -721,7 +721,7 @@ NS_IMETHODIMP
 DOMVideoCallProvider::OnChangeCameraCapabilities(
     nsIVideoCallCameraCapabilities* capabilities) {
   LOG("%s", __FUNCTION__);
-  DispatchCameraCapabilitiesEvent(NS_LITERAL_STRING("changecameracapabilities"),
+  DispatchCameraCapabilitiesEvent(u"changecameracapabilities"_ns,
                                   capabilities);
   if (!mPreviewCallback) {
     return NS_OK;
@@ -748,7 +748,7 @@ DOMVideoCallProvider::OnChangeCameraCapabilities(
 
 NS_IMETHODIMP
 DOMVideoCallProvider::OnChangeVideoQuality(uint16_t quality) {
-  DispatchVideoQualityChangeEvent(NS_LITERAL_STRING("changevideoquality"),
+  DispatchVideoQualityChangeEvent(u"changevideoquality"_ns,
                                   quality);
   return NS_OK;
 }

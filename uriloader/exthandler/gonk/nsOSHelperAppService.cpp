@@ -227,7 +227,7 @@ inline bool IsNetscapeFormat(const nsACString& aBuffer) {
              NS_LITERAL_CSTRING(
                  "#--Netscape Communications Corporation MIME Information")) ||
          StringBeginsWith(aBuffer,
-                          NS_LITERAL_CSTRING("#--MCOM MIME Information"));
+                          "#--MCOM MIME Information"_ns);
 }
 
 /*
@@ -570,7 +570,7 @@ nsresult nsOSHelperAppService::ParseNetscapeMIMETypesEntry(
 
   // Get the major and minor types
   // First the major type
-  if (!FindInReadable(NS_LITERAL_STRING("type="), match_start, match_end)) {
+  if (!FindInReadable(u"type="_ns, match_start, match_end)) {
     return NS_ERROR_FAILURE;
   }
 
@@ -610,7 +610,7 @@ nsresult nsOSHelperAppService::ParseNetscapeMIMETypesEntry(
   // get the extensions
   match_start = match_end;
   match_end = end_iter;
-  if (FindInReadable(NS_LITERAL_STRING("exts="), match_start, match_end)) {
+  if (FindInReadable(u"exts="_ns, match_start, match_end)) {
     nsAString::const_iterator extStart, extEnd;
 
     if (match_end == end_iter ||
@@ -652,7 +652,7 @@ nsresult nsOSHelperAppService::ParseNetscapeMIMETypesEntry(
     aDescriptionStart = match_end;
     match_start = aDescriptionStart;
     match_end = end_iter;
-    if (FindInReadable(NS_LITERAL_STRING("exts="), match_start, match_end)) {
+    if (FindInReadable(u"exts="_ns, match_start, match_end)) {
       // exts= after desc=, so have to find actual end of description
       aDescriptionEnd = match_start;
       if (aDescriptionEnd == aDescriptionStart) {
@@ -779,13 +779,13 @@ nsresult nsOSHelperAppService::LookUpHandlerAndDescription(
 
   // maybe we have an entry for "aMajorType/*"?
   if (NS_FAILED(rv)) {
-    rv = DoLookUpHandlerAndDescription(aMajorType, NS_LITERAL_STRING("*"),
+    rv = DoLookUpHandlerAndDescription(aMajorType, u"*"_ns,
                                        aHandler, aDescription, aMozillaFlags,
                                        true);
   }
 
   if (NS_FAILED(rv)) {
-    rv = DoLookUpHandlerAndDescription(aMajorType, NS_LITERAL_STRING("*"),
+    rv = DoLookUpHandlerAndDescription(aMajorType, u"*"_ns,
                                        aHandler, aDescription, aMozillaFlags,
                                        false);
   }
@@ -973,7 +973,7 @@ nsresult nsOSHelperAppService::GetHandlerAndDescriptionFromMailcapFile(
                   nsCOMPtr<nsIFile> file(
                       do_CreateInstance(NS_LOCAL_FILE_CONTRACTID, &rv));
                   if (NS_FAILED(rv)) continue;
-                  rv = file->InitWithNativePath(NS_LITERAL_CSTRING("/bin/sh"));
+                  rv = file->InitWithNativePath("/bin/sh"_ns);
                   if (NS_FAILED(rv)) continue;
                   rv = process->Init(file);
                   if (NS_FAILED(rv)) continue;
@@ -1168,7 +1168,7 @@ already_AddRefed<nsMIMEInfoBase> nsOSHelperAppService::GetFromExtension(
     return nullptr;
   }
 
-  nsAutoCString mimeType(asciiMajorType + NS_LITERAL_CSTRING("/") +
+  nsAutoCString mimeType(asciiMajorType + "/"_ns +
                          asciiMinorType);
   RefPtr<nsMIMEInfoGonk> mimeInfo = new nsMIMEInfoGonk(mimeType);
 
@@ -1273,12 +1273,12 @@ already_AddRefed<nsMIMEInfoBase> nsOSHelperAppService::GetFromType(
   }
 
   if (handler.IsEmpty()) {
-    DoLookUpHandlerAndDescription(majorType, NS_LITERAL_STRING("*"), handler,
+    DoLookUpHandlerAndDescription(majorType, u"*"_ns, handler,
                                   mailcap_description, mozillaFlags, true);
   }
 
   if (handler.IsEmpty()) {
-    DoLookUpHandlerAndDescription(majorType, NS_LITERAL_STRING("*"), handler,
+    DoLookUpHandlerAndDescription(majorType, u"*"_ns, handler,
                                   mailcap_description, mozillaFlags, false);
   }
 

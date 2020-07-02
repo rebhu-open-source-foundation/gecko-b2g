@@ -171,7 +171,7 @@ void BluetoothManager::HandleAdapterAdded(const BluetoothValue& aValue) {
   // Notify application of added adapter
   BluetoothAdapterEventInit init;
   init.mAdapter = mAdapters.LastElement();
-  DispatchAdapterEvent(NS_LITERAL_STRING("adapteradded"), init);
+  DispatchAdapterEvent(u"adapteradded"_ns, init);
 }
 
 void BluetoothManager::HandleAdapterRemoved(const BluetoothValue& aValue) {
@@ -195,7 +195,7 @@ void BluetoothManager::HandleAdapterRemoved(const BluetoothValue& aValue) {
   // Notify application of removed adapter
   BluetoothAdapterEventInit init;
   init.mAddress = addressToRemove;
-  DispatchAdapterEvent(NS_LITERAL_STRING("adapterremoved"), init);
+  DispatchAdapterEvent(u"adapterremoved"_ns, init);
 
   // Reselect default adapter if it's removed
   if (mDefaultAdapterIndex == (int)i) {

@@ -118,7 +118,7 @@ nsStatusReporterManager::Init() {
 #ifdef DO_STATUS_REPORT
   if (FifoWatcher::MaybeCreate()) {
     FifoWatcher* fw = FifoWatcher::GetSingleton();
-    fw->RegisterCallback(NS_LITERAL_CSTRING("status report"), doStatusReport);
+    fw->RegisterCallback("status report"_ns, doStatusReport);
   }
 #endif
 
@@ -141,9 +141,9 @@ nsStatusReporterManager::DumpReports() {
   // the begining, it will be rename as "status-reports-pid-number.json" in the
   // end.
   nsCOMPtr<nsIFile> tmpFile;
-  rv = nsDumpUtils::OpenTempFile(NS_LITERAL_CSTRING("incomplete-") + filename,
+  rv = nsDumpUtils::OpenTempFile("incomplete-"_ns + filename,
                                  getter_AddRefs(tmpFile),
-                                 NS_LITERAL_CSTRING("status-reports"));
+                                 "status-reports"_ns);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -212,7 +212,7 @@ nsStatusReporterManager::DumpReports() {
   }
 
 #ifdef ANDROID
-  rv = srFinalFile->AppendNative(NS_LITERAL_CSTRING("status-reports"));
+  rv = srFinalFile->AppendNative("status-reports"_ns);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }

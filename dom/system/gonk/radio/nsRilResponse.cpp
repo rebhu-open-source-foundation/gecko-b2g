@@ -39,7 +39,7 @@ Return<void> nsRilResponse::getIccCardStatusResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result =
-      new nsRilResponseResult(NS_LITERAL_STRING("getICCStatus"), rspInfo.serial,
+      new nsRilResponseResult(u"getICCStatus"_ns, rspInfo.serial,
                               convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     INFO("getICCStatus success.");
@@ -88,7 +88,7 @@ Return<void> nsRilResponse::supplyIccPinForAppResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result =
-      new nsRilResponseResult(NS_LITERAL_STRING("enterICCPIN"), rspInfo.serial,
+      new nsRilResponseResult(u"enterICCPIN"_ns, rspInfo.serial,
                               convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateRemainRetries(remainingRetries);
@@ -105,7 +105,7 @@ Return<void> nsRilResponse::supplyIccPukForAppResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result =
-      new nsRilResponseResult(NS_LITERAL_STRING("enterICCPUK"), rspInfo.serial,
+      new nsRilResponseResult(u"enterICCPUK"_ns, rspInfo.serial,
                               convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateRemainRetries(remainingRetries);
@@ -122,7 +122,7 @@ Return<void> nsRilResponse::supplyIccPin2ForAppResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result =
-      new nsRilResponseResult(NS_LITERAL_STRING("enterICCPIN2"), rspInfo.serial,
+      new nsRilResponseResult(u"enterICCPIN2"_ns, rspInfo.serial,
                               convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateRemainRetries(remainingRetries);
@@ -139,7 +139,7 @@ Return<void> nsRilResponse::supplyIccPuk2ForAppResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result =
-      new nsRilResponseResult(NS_LITERAL_STRING("enterICCPUK2"), rspInfo.serial,
+      new nsRilResponseResult(u"enterICCPUK2"_ns, rspInfo.serial,
                               convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateRemainRetries(remainingRetries);
@@ -156,7 +156,7 @@ Return<void> nsRilResponse::changeIccPinForAppResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result =
-      new nsRilResponseResult(NS_LITERAL_STRING("changeICCPIN"), rspInfo.serial,
+      new nsRilResponseResult(u"changeICCPIN"_ns, rspInfo.serial,
                               convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateRemainRetries(remainingRetries);
@@ -173,7 +173,7 @@ Return<void> nsRilResponse::changeIccPin2ForAppResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      NS_LITERAL_STRING("changeICCPIN2"), rspInfo.serial,
+      u"changeICCPIN2"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateRemainRetries(remainingRetries);
@@ -199,7 +199,7 @@ Return<void> nsRilResponse::getCurrentCallsResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      NS_LITERAL_STRING("getCurrentCalls"), rspInfo.serial,
+      u"getCurrentCalls"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     uint32_t numCalls = calls.size();
@@ -245,7 +245,7 @@ Return<void> nsRilResponse::dialResponse(const RadioResponseInfo& info) {
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("dial"));
+  defaultResponse(rspInfo, u"dial"_ns);
   return Void();
 }
 
@@ -256,7 +256,7 @@ Return<void> nsRilResponse::getIMSIForAppResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result =
-      new nsRilResponseResult(NS_LITERAL_STRING("getIMSI"), rspInfo.serial,
+      new nsRilResponseResult(u"getIMSI"_ns, rspInfo.serial,
                               convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateIMSI(NS_ConvertUTF8toUTF16(imsi.c_str()));
@@ -272,7 +272,7 @@ Return<void> nsRilResponse::hangupConnectionResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("hangUpCall"));
+  defaultResponse(rspInfo, u"hangUpCall"_ns);
   return Void();
 }
 
@@ -281,7 +281,7 @@ Return<void> nsRilResponse::hangupWaitingOrBackgroundResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("hangUpBackground"));
+  defaultResponse(rspInfo, u"hangUpBackground"_ns);
   return Void();
 }
 
@@ -290,7 +290,7 @@ Return<void> nsRilResponse::hangupForegroundResumeBackgroundResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("hangUpForeground"));
+  defaultResponse(rspInfo, u"hangUpForeground"_ns);
   return Void();
 }
 
@@ -299,7 +299,7 @@ Return<void> nsRilResponse::switchWaitingOrHoldingAndActiveResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("switchActiveCall"));
+  defaultResponse(rspInfo, u"switchActiveCall"_ns);
   return Void();
 }
 
@@ -307,7 +307,7 @@ Return<void> nsRilResponse::conferenceResponse(const RadioResponseInfo& info) {
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("conferenceCall"));
+  defaultResponse(rspInfo, u"conferenceCall"_ns);
   return Void();
 }
 
@@ -315,7 +315,7 @@ Return<void> nsRilResponse::rejectCallResponse(const RadioResponseInfo& info) {
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("udub"));
+  defaultResponse(rspInfo, u"udub"_ns);
   return Void();
 }
 
@@ -325,7 +325,7 @@ Return<void> nsRilResponse::getLastCallFailCauseResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result =
-      new nsRilResponseResult(NS_LITERAL_STRING("getFailCause"), rspInfo.serial,
+      new nsRilResponseResult(u"getFailCause"_ns, rspInfo.serial,
                               convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateFailCause(
@@ -345,7 +345,7 @@ Return<void> nsRilResponse::getSignalStrengthResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      NS_LITERAL_STRING("getSignalStrength"), rspInfo.serial,
+      u"getSignalStrength"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     RefPtr<nsSignalStrength> signalStrength =
@@ -366,7 +366,7 @@ Return<void> nsRilResponse::getVoiceRegistrationStateResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      NS_LITERAL_STRING("getVoiceRegistrationState"), rspInfo.serial,
+      u"getVoiceRegistrationState"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     INFO("getVoiceRegistrationState success.");
@@ -393,7 +393,7 @@ Return<void> nsRilResponse::getDataRegistrationStateResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      NS_LITERAL_STRING("getDataRegistrationState"), rspInfo.serial,
+      u"getDataRegistrationState"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     INFO("getDataRegistrationState success.");
@@ -421,7 +421,7 @@ Return<void> nsRilResponse::getOperatorResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result =
-      new nsRilResponseResult(NS_LITERAL_STRING("getOperator"), rspInfo.serial,
+      new nsRilResponseResult(u"getOperator"_ns, rspInfo.serial,
                               convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     RefPtr<nsOperatorInfo> operatorInfo =
@@ -441,7 +441,7 @@ Return<void> nsRilResponse::setRadioPowerResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("setRadioEnabled"));
+  defaultResponse(rspInfo, u"setRadioEnabled"_ns);
   return Void();
 }
 
@@ -449,7 +449,7 @@ Return<void> nsRilResponse::sendDtmfResponse(const RadioResponseInfo& info) {
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("sendTone"));
+  defaultResponse(rspInfo, u"sendTone"_ns);
   return Void();
 }
 
@@ -458,7 +458,7 @@ Return<void> nsRilResponse::sendSmsResponse(const RadioResponseInfo& info,
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
   RefPtr<nsRilResponseResult> result =
-      new nsRilResponseResult(NS_LITERAL_STRING("sendSMS"), rspInfo.serial,
+      new nsRilResponseResult(u"sendSMS"_ns, rspInfo.serial,
                               convertRadioErrorToNum(rspInfo.error));
 
   if (rspInfo.error == RadioError::NONE) {
@@ -487,7 +487,7 @@ Return<void> nsRilResponse::setupDataCallResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      NS_LITERAL_STRING("setupDataCall"), rspInfo.serial,
+      u"setupDataCall"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     RefPtr<nsSetupDataCallResult> datacallresponse =
@@ -507,7 +507,7 @@ Return<void> nsRilResponse::iccIOForAppResponse(const RadioResponseInfo& info,
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result =
-      new nsRilResponseResult(NS_LITERAL_STRING("iccIO"), rspInfo.serial,
+      new nsRilResponseResult(u"iccIO"_ns, rspInfo.serial,
                               convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     RefPtr<nsIccIoResult> iccIoResult = new nsIccIoResult(
@@ -528,7 +528,7 @@ Return<void> nsRilResponse::sendUssdResponse(const RadioResponseInfo& info) {
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("sendUSSD"));
+  defaultResponse(rspInfo, u"sendUSSD"_ns);
   return Void();
 }
 
@@ -537,7 +537,7 @@ Return<void> nsRilResponse::cancelPendingUssdResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("cancelUSSD"));
+  defaultResponse(rspInfo, u"cancelUSSD"_ns);
   return Void();
 }
 
@@ -547,7 +547,7 @@ Return<void> nsRilResponse::getClirResponse(const RadioResponseInfo& info,
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result =
-      new nsRilResponseResult(NS_LITERAL_STRING("getCLIR"), rspInfo.serial,
+      new nsRilResponseResult(u"getCLIR"_ns, rspInfo.serial,
                               convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateClir(n, m);
@@ -563,7 +563,7 @@ Return<void> nsRilResponse::setClirResponse(const RadioResponseInfo& info) {
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("setCLIR"));
+  defaultResponse(rspInfo, u"setCLIR"_ns);
   return Void();
 }
 
@@ -574,7 +574,7 @@ Return<void> nsRilResponse::getCallForwardStatusResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      NS_LITERAL_STRING("queryCallForwardStatus"), rspInfo.serial,
+      u"queryCallForwardStatus"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     uint32_t numCallForwardInfo = callForwardInfos.size();
@@ -603,7 +603,7 @@ Return<void> nsRilResponse::setCallForwardResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("setCallForward"));
+  defaultResponse(rspInfo, u"setCallForward"_ns);
   return Void();
 }
 
@@ -613,7 +613,7 @@ Return<void> nsRilResponse::getCallWaitingResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      NS_LITERAL_STRING("queryCallWaiting"), rspInfo.serial,
+      u"queryCallWaiting"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateCallWaiting(enable, serviceClass);
@@ -630,7 +630,7 @@ Return<void> nsRilResponse::setCallWaitingResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("setCallWaiting"));
+  defaultResponse(rspInfo, u"setCallWaiting"_ns);
   return Void();
 }
 
@@ -639,7 +639,7 @@ Return<void> nsRilResponse::acknowledgeLastIncomingGsmSmsResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("ackSMS"));
+  defaultResponse(rspInfo, u"ackSMS"_ns);
   return Void();
 }
 
@@ -647,7 +647,7 @@ Return<void> nsRilResponse::acceptCallResponse(const RadioResponseInfo& info) {
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("answerCall"));
+  defaultResponse(rspInfo, u"answerCall"_ns);
   return Void();
 }
 
@@ -656,7 +656,7 @@ Return<void> nsRilResponse::deactivateDataCallResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("deactivateDataCall"));
+  defaultResponse(rspInfo, u"deactivateDataCall"_ns);
   return Void();
 }
 
@@ -666,7 +666,7 @@ Return<void> nsRilResponse::getFacilityLockForAppResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      NS_LITERAL_STRING("queryICCFacilityLock"), rspInfo.serial,
+      u"queryICCFacilityLock"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateRemainRetries(response);
@@ -683,7 +683,7 @@ Return<void> nsRilResponse::setFacilityLockForAppResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      NS_LITERAL_STRING("setICCFacilityLock"), rspInfo.serial,
+      u"setICCFacilityLock"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateRemainRetries(retry);
@@ -699,7 +699,7 @@ Return<void> nsRilResponse::setBarringPasswordResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("changeCallBarringPassword"));
+  defaultResponse(rspInfo, u"changeCallBarringPassword"_ns);
   return Void();
 }
 
@@ -709,7 +709,7 @@ Return<void> nsRilResponse::getNetworkSelectionModeResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      NS_LITERAL_STRING("getNetworkSelectionMode"), rspInfo.serial,
+      u"getNetworkSelectionMode"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
   result->updateNetworkSelectionMode(manual);
   mRIL->sendRilResponseResult(result);
@@ -722,7 +722,7 @@ Return<void> nsRilResponse::setNetworkSelectionModeAutomaticResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("selectNetworkAuto"));
+  defaultResponse(rspInfo, u"selectNetworkAuto"_ns);
   return Void();
 }
 
@@ -731,7 +731,7 @@ Return<void> nsRilResponse::setNetworkSelectionModeManualResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("selectNetwork"));
+  defaultResponse(rspInfo, u"selectNetwork"_ns);
   return Void();
 }
 
@@ -742,7 +742,7 @@ Return<void> nsRilResponse::getAvailableNetworksResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      NS_LITERAL_STRING("getAvailableNetworks"), rspInfo.serial,
+      u"getAvailableNetworks"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     uint32_t numNetworks = networkInfos.size();
@@ -769,7 +769,7 @@ Return<void> nsRilResponse::startDtmfResponse(const RadioResponseInfo& info) {
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("startTone"));
+  defaultResponse(rspInfo, u"startTone"_ns);
   return Void();
 }
 
@@ -777,7 +777,7 @@ Return<void> nsRilResponse::stopDtmfResponse(const RadioResponseInfo& info) {
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("stopTone"));
+  defaultResponse(rspInfo, u"stopTone"_ns);
   return Void();
 }
 
@@ -788,7 +788,7 @@ Return<void> nsRilResponse::getBasebandVersionResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      NS_LITERAL_STRING("getBasebandVersion"), rspInfo.serial,
+      u"getBasebandVersion"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateBasebandVersion(NS_ConvertUTF8toUTF16(version.c_str()));
@@ -803,7 +803,7 @@ Return<void> nsRilResponse::separateConnectionResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("separateCall"));
+  defaultResponse(rspInfo, u"separateCall"_ns);
   return Void();
 }
 
@@ -811,7 +811,7 @@ Return<void> nsRilResponse::setMuteResponse(const RadioResponseInfo& info) {
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("setMute"));
+  defaultResponse(rspInfo, u"setMute"_ns);
   return Void();
 }
 
@@ -821,7 +821,7 @@ Return<void> nsRilResponse::getMuteResponse(const RadioResponseInfo& info,
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result =
-      new nsRilResponseResult(NS_LITERAL_STRING("getMute"), rspInfo.serial,
+      new nsRilResponseResult(u"getMute"_ns, rspInfo.serial,
                               convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateMute(enable);
@@ -836,7 +836,7 @@ Return<void> nsRilResponse::getClipResponse(const RadioResponseInfo& info,
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result =
-      new nsRilResponseResult(NS_LITERAL_STRING("queryCLIP"), rspInfo.serial,
+      new nsRilResponseResult(u"queryCLIP"_ns, rspInfo.serial,
                               convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateClip(convertClipState(status));
@@ -852,7 +852,7 @@ Return<void> nsRilResponse::getDataCallListResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      NS_LITERAL_STRING("getDataCallList"), rspInfo.serial,
+      u"getDataCallList"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     uint32_t numDataCall = dcResponse.size();
@@ -955,7 +955,7 @@ Return<void> nsRilResponse::explicitCallTransferResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("explicitCallTransfer"));
+  defaultResponse(rspInfo, u"explicitCallTransfer"_ns);
   return Void();
 }
 
@@ -964,7 +964,7 @@ Return<void> nsRilResponse::setPreferredNetworkTypeResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("setPreferredNetworkType"));
+  defaultResponse(rspInfo, u"setPreferredNetworkType"_ns);
   return Void();
 }
 
@@ -974,7 +974,7 @@ Return<void> nsRilResponse::getPreferredNetworkTypeResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      NS_LITERAL_STRING("getPreferredNetworkType"), rspInfo.serial,
+      u"getPreferredNetworkType"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updatePreferredNetworkType(convertPreferredNetworkType(nw_type));
@@ -991,7 +991,7 @@ Return<void> nsRilResponse::getNeighboringCidsResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      NS_LITERAL_STRING("getNeighboringCellIds"), rspInfo.serial,
+      u"getNeighboringCellIds"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     uint32_t numCells = cells.size();
@@ -1047,7 +1047,7 @@ Return<void> nsRilResponse::setTTYModeResponse(const RadioResponseInfo& info) {
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("setTtyMode"));
+  defaultResponse(rspInfo, u"setTtyMode"_ns);
   return Void();
 }
 
@@ -1057,7 +1057,7 @@ Return<void> nsRilResponse::getTTYModeResponse(const RadioResponseInfo& info,
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result =
-      new nsRilResponseResult(NS_LITERAL_STRING("queryTtyMode"), rspInfo.serial,
+      new nsRilResponseResult(u"queryTtyMode"_ns, rspInfo.serial,
                               convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateTtyMode(convertTtyMode(mode));
@@ -1072,7 +1072,7 @@ Return<void> nsRilResponse::setPreferredVoicePrivacyResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("setVoicePrivacyMode"));
+  defaultResponse(rspInfo, u"setVoicePrivacyMode"_ns);
   return Void();
 }
 
@@ -1082,7 +1082,7 @@ Return<void> nsRilResponse::getPreferredVoicePrivacyResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      NS_LITERAL_STRING("queryVoicePrivacyMode"), rspInfo.serial,
+      u"queryVoicePrivacyMode"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateVoicePrivacy(enable);
@@ -1140,7 +1140,7 @@ Return<void> nsRilResponse::setGsmBroadcastConfigResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("setGsmBroadcastConfig"));
+  defaultResponse(rspInfo, u"setGsmBroadcastConfig"_ns);
   return Void();
 }
 
@@ -1149,7 +1149,7 @@ Return<void> nsRilResponse::setGsmBroadcastActivationResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("setGsmBroadcastActivation"));
+  defaultResponse(rspInfo, u"setGsmBroadcastActivation"_ns);
   return Void();
 }
 
@@ -1218,7 +1218,7 @@ Return<void> nsRilResponse::getDeviceIdentityResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      NS_LITERAL_STRING("getDeviceIdentity"), rspInfo.serial,
+      u"getDeviceIdentity"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateDeviceIdentity(NS_ConvertUTF8toUTF16(imei.c_str()),
@@ -1236,7 +1236,7 @@ Return<void> nsRilResponse::exitEmergencyCallbackModeResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("sendExitEmergencyCbModeRequest"));
+  defaultResponse(rspInfo, u"sendExitEmergencyCbModeRequest"_ns);
   return Void();
 }
 
@@ -1247,7 +1247,7 @@ Return<void> nsRilResponse::getSmscAddressResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      NS_LITERAL_STRING("getSmscAddress"), rspInfo.serial,
+      u"getSmscAddress"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateSmscAddress(NS_ConvertUTF8toUTF16(smsc.c_str()));
@@ -1278,7 +1278,7 @@ Return<void> nsRilResponse::reportStkServiceIsRunningResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("reportStkServiceIsRunning"));
+  defaultResponse(rspInfo, u"reportStkServiceIsRunning"_ns);
   return Void();
 }
 
@@ -1321,7 +1321,7 @@ Return<void> nsRilResponse::getVoiceRadioTechnologyResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      NS_LITERAL_STRING("getVoiceRadioTechnology"), rspInfo.serial,
+      u"getVoiceRadioTechnology"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     result->updateVoiceRadioTechnology(
@@ -1339,7 +1339,7 @@ Return<void> nsRilResponse::getCellInfoListResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      NS_LITERAL_STRING("getCellInfoList"), rspInfo.serial,
+      u"getCellInfoList"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     uint32_t numCellInfo = cellInfo.size();
@@ -1362,7 +1362,7 @@ Return<void> nsRilResponse::setCellInfoListRateResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("setCellInfoListRate"));
+  defaultResponse(rspInfo, u"setCellInfoListRate"_ns);
   return Void();
 }
 
@@ -1371,7 +1371,7 @@ Return<void> nsRilResponse::setInitialAttachApnResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("setInitialAttachApn"));
+  defaultResponse(rspInfo, u"setInitialAttachApn"_ns);
   return Void();
 }
 
@@ -1463,7 +1463,7 @@ Return<void> nsRilResponse::setUiccSubscriptionResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("setUiccSubscription"));
+  defaultResponse(rspInfo, u"setUiccSubscription"_ns);
   return Void();
 }
 
@@ -1472,7 +1472,7 @@ Return<void> nsRilResponse::setDataAllowedResponse(
   rspInfo = info;
   mRIL->processResponse(rspInfo.type);
 
-  defaultResponse(rspInfo, NS_LITERAL_STRING("setDataRegistration"));
+  defaultResponse(rspInfo, u"setDataRegistration"_ns);
   return Void();
 }
 
@@ -1491,7 +1491,7 @@ Return<void> nsRilResponse::requestIccSimAuthenticationResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      NS_LITERAL_STRING("getIccAuthentication"), rspInfo.serial,
+      u"getIccAuthentication"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     RefPtr<nsIccIoResult> iccIoResult = new nsIccIoResult(
@@ -1530,7 +1530,7 @@ Return<void> nsRilResponse::getRadioCapabilityResponse(
   mRIL->processResponse(rspInfo.type);
 
   RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
-      NS_LITERAL_STRING("getRadioCapability"), rspInfo.serial,
+      u"getRadioCapability"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
 
   if (rspInfo.error == RadioError::NONE) {

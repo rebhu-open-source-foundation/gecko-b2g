@@ -219,7 +219,7 @@ void DeviceStorageStatics::InitDirs() {
                   getter_AddRefs(mDirs[TYPE_SDCARD]));
   if (mDirs[TYPE_SDCARD]) {
     mDirs[TYPE_SDCARD]->AppendRelativeNativePath(
-        NS_LITERAL_CSTRING("fake-sdcard"));
+        "fake-sdcard"_ns);
   }
 #  endif  // !MOZ_WIDGET_ANDROID
 
@@ -227,32 +227,32 @@ void DeviceStorageStatics::InitDirs() {
                   getter_AddRefs(mDirs[TYPE_APPS]));
 
   if (mDirs[TYPE_APPS]) {
-    mDirs[TYPE_APPS]->AppendRelativeNativePath(NS_LITERAL_CSTRING("webapps"));
+    mDirs[TYPE_APPS]->AppendRelativeNativePath("webapps"_ns);
   }
 #endif  // !MOZ_WIDGET_GONK
 
 #ifdef MOZ_WIDGET_GONK
-  NS_NewLocalFile(NS_LITERAL_STRING("/data"), false,
+  NS_NewLocalFile(u"/data"_ns, false,
                   getter_AddRefs(mDirs[TYPE_APPS]));
 #endif
 
   if (XRE_IsParentProcess()) {
     NS_GetSpecialDirectory("UAppData", getter_AddRefs(mDirs[TYPE_CRASHES]));
     if (mDirs[TYPE_CRASHES]) {
-      mDirs[TYPE_CRASHES]->Append(NS_LITERAL_STRING("Crash Reports"));
+      mDirs[TYPE_CRASHES]->Append(u"Crash Reports"_ns);
     }
   }
 #ifdef MOZ_WIDGET_GONK
   // NS_GetSpecialDirectory("UAppData") fails in content processes because
   // gAppData from toolkit/xre/nsAppRunner.cpp is not initialized.
   else {
-    NS_NewLocalFile(NS_LITERAL_STRING("/data/b2g/mozilla/Crash Reports"), false,
+    NS_NewLocalFile(u"/data/b2g/mozilla/Crash Reports"_ns, false,
                     getter_AddRefs(mDirs[TYPE_CRASHES]));
   }
 #endif
 
 #ifdef MOZ_WIDGET_GONK
-  NS_NewLocalFile(NS_LITERAL_STRING("/data/local/storage"), false,
+  NS_NewLocalFile(u"/data/local/storage"_ns, false,
                   getter_AddRefs(mDirs[TYPE_APPSSTORAGE]));
 #endif
 
@@ -549,7 +549,7 @@ void DeviceStorageStatics::ResetOverrideRootDir() {
     MOZ_ASSERT(dirService);
     dirService->Get(NS_OS_TEMP_DIR, NS_GET_IID(nsIFile), getter_AddRefs(f));
     if (f) {
-      f->AppendRelativeNativePath(NS_LITERAL_CSTRING("device-storage-testing"));
+      f->AppendRelativeNativePath("device-storage-testing"_ns);
     }
   }
 

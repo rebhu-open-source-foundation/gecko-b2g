@@ -102,7 +102,7 @@ GonkPermissionChecker::Run() {
     }
 
     uint32_t permission = nsIPermissionManager::UNKNOWN_ACTION;
-    permissionHandler->GetPermission(NS_LITERAL_CSTRING("camera"), &permission,
+    permissionHandler->GetPermission("camera"_ns, &permission,
                                      false);
 
     if (permission == nsIPermissionManager::DENY_ACTION) {

@@ -30,10 +30,10 @@ StaticRefPtr<GaiaChrome> gGaiaChrome;
 NS_IMPL_ISUPPORTS(GaiaChrome, nsIGaiaChrome)
 
 GaiaChrome::GaiaChrome()
-    : mPackageName(NS_LITERAL_CSTRING("system")),
-      mAppsDir(NS_LITERAL_STRING("webapps")),
-      mDataRoot(NS_LITERAL_STRING("/data/local")),
-      mSystemRoot(NS_LITERAL_STRING("/system/b2g")) {
+    : mPackageName("system"_ns),
+      mAppsDir(u"webapps"_ns),
+      mDataRoot(u"/data/local"_ns),
+      mSystemRoot(u"/system/b2g"_ns) {
   MOZ_ASSERT(NS_IsMainThread());
 
   GetProfileDir();
@@ -79,7 +79,7 @@ nsresult GaiaChrome::ComputeAppsPath(nsIFile* aPath) {
 #endif
 
   aPath->Append(mAppsDir);
-  aPath->Append(NS_LITERAL_STRING("."));
+  aPath->Append(u"."_ns);
 
   return NS_OK;
 }
@@ -94,7 +94,7 @@ nsresult GaiaChrome::EnsureValidSystemPath(nsIFile* appsDir) {
   // Ensure there is a valid "apps/system" directory
   nsCOMPtr<nsIFile> systemAppDir = new nsLocalFile();
   systemAppDir->InitWithFile(appsDir);
-  systemAppDir->Append(NS_LITERAL_STRING("system"));
+  systemAppDir->Append(u"system"_ns);
 
   bool hasSystemAppDir = EnsureIsDirectory(systemAppDir);
   if (!hasSystemAppDir) {
@@ -140,8 +140,8 @@ GaiaChrome::Register() {
     // when loading from a file hierarchy, but not from a zip.
     nsresult rv = EnsureValidSystemPath(aPath);
     NS_ENSURE_SUCCESS(rv, rv);
-    aPath->Append(NS_LITERAL_STRING("system"));
-    aPath->Append(NS_LITERAL_STRING("."));
+    aPath->Append(u"system"_ns);
+    aPath->Append(u"."_ns);
     appsLocation = FileLocation(aPath);
   }
 

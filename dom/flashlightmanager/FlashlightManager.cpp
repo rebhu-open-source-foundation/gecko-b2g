@@ -54,7 +54,7 @@ void FlashlightManager::Notify(
   mPendingFlashlightPromises.Clear();
 
   if (hasChanged) {
-    DispatchTrustedEvent(NS_LITERAL_STRING("flashlightchange"));
+    DispatchTrustedEvent(u"flashlightchange"_ns);
   }
 }
 

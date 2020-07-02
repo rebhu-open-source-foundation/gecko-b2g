@@ -807,7 +807,7 @@ class SystemMessageEventOp final : public ExtendableEventOp {
     ErrorResult result;
     GlobalObject globalObj(aCx, aWorkerPrivate->GlobalScope()->GetWrapper());
     RefPtr<SystemMessageEvent> event = SystemMessageEvent::Constructor(
-        globalObj, NS_LITERAL_STRING("systemmessage"), args.messageName(), smei,
+        globalObj, u"systemmessage"_ns, args.messageName(), smei,
         result);
     if (NS_WARN_IF(result.Failed())) {
       RejectAll(NS_ERROR_FAILURE);

@@ -73,7 +73,7 @@ nsresult IccManager::NotifyIccAdd(const nsAString& aIccId) {
   init.mIccId = aIccId;
 
   RefPtr<IccChangeEvent> event =
-      IccChangeEvent::Constructor(this, NS_LITERAL_STRING("iccdetected"), init);
+      IccChangeEvent::Constructor(this, u"iccdetected"_ns, init);
   event->SetTrusted(true);
 
   RefPtr<AsyncEventDispatcher> asyncDispatcher =
@@ -91,7 +91,7 @@ nsresult IccManager::NotifyIccRemove(const nsAString& aIccId) {
   init.mIccId = aIccId;
 
   RefPtr<IccChangeEvent> event = IccChangeEvent::Constructor(
-      this, NS_LITERAL_STRING("iccundetected"), init);
+      this, u"iccundetected"_ns, init);
   event->SetTrusted(true);
 
   RefPtr<AsyncEventDispatcher> asyncDispatcher =

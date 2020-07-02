@@ -110,7 +110,7 @@ VolumeTestObserver::Observe(nsISupports* aSubject, const char* aTopic,
   }
 
   nsresult rv =
-      vs->GetVolumeByName(NS_LITERAL_STRING("sdcard"), getter_AddRefs(vol));
+      vs->GetVolumeByName(u"sdcard"_ns, getter_AddRefs(vol));
   if (NS_SUCCEEDED(rv)) {
     LOG("GetVolumeByName( 'sdcard' ) succeeded (expected)");
     LogVolume(vol);
@@ -118,14 +118,14 @@ VolumeTestObserver::Observe(nsISupports* aSubject, const char* aTopic,
     ERR("GetVolumeByName( 'sdcard' ) failed (unexpected)");
   }
 
-  rv = vs->GetVolumeByName(NS_LITERAL_STRING("foo"), getter_AddRefs(vol));
+  rv = vs->GetVolumeByName(u"foo"_ns, getter_AddRefs(vol));
   if (NS_SUCCEEDED(rv)) {
     ERR("GetVolumeByName( 'foo' ) succeeded (unexpected)");
   } else {
     LOG("GetVolumeByName( 'foo' ) failed (expected)");
   }
 
-  rv = vs->GetVolumeByPath(NS_LITERAL_STRING("/mnt/sdcard"),
+  rv = vs->GetVolumeByPath(u"/mnt/sdcard"_ns,
                            getter_AddRefs(vol));
   if (NS_SUCCEEDED(rv)) {
     LOG("GetVolumeByPath( '/mnt/sdcard' ) succeeded (expected)");
@@ -134,7 +134,7 @@ VolumeTestObserver::Observe(nsISupports* aSubject, const char* aTopic,
     ERR("GetVolumeByPath( '/mnt/sdcard' ) failed (unexpected");
   }
 
-  rv = vs->GetVolumeByPath(NS_LITERAL_STRING("/mnt/sdcard/foo"),
+  rv = vs->GetVolumeByPath(u"/mnt/sdcard/foo"_ns,
                            getter_AddRefs(vol));
   if (NS_SUCCEEDED(rv)) {
     LOG("GetVolumeByPath( '/mnt/sdcard/foo' ) succeeded (expected)");
@@ -143,7 +143,7 @@ VolumeTestObserver::Observe(nsISupports* aSubject, const char* aTopic,
     LOG("GetVolumeByPath( '/mnt/sdcard/foo' ) failed (unexpected)");
   }
 
-  rv = vs->GetVolumeByPath(NS_LITERAL_STRING("/mnt/sdcardfoo"),
+  rv = vs->GetVolumeByPath(u"/mnt/sdcardfoo"_ns,
                            getter_AddRefs(vol));
   if (NS_SUCCEEDED(rv)) {
     ERR("GetVolumeByPath( '/mnt/sdcardfoo' ) succeeded (unexpected)");

@@ -840,7 +840,7 @@ void BluetoothAvrcpManager::PassthroughCmdNotification(uint8_t aId,
 
   BT_LOGR("broadcast media-button: %s", NS_ConvertUTF16toUTF8(name).get());
 
-  NS_NAMED_LITERAL_STRING(type, "media-button");
+  constexpr auto type = u"media-button"_ns;
   BroadcastSystemMessage(type, BluetoothValue(name));
 }
 

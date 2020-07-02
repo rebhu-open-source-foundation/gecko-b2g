@@ -216,7 +216,7 @@ class GetDevicesTask : public BluetoothReplyRunnable {
     const BluetoothValue& v = mReply->get_BluetoothReplySuccess().value();
     if (v.type() != BluetoothValue::TArrayOfBluetoothNamedValue) {
       BT_WARNING("Not a BluetoothNamedValue array!");
-      SetError(NS_LITERAL_STRING("BluetoothReplyTypeError"));
+      SetError(u"BluetoothReplyTypeError"_ns);
       return false;
     }
 
@@ -228,7 +228,7 @@ class GetDevicesTask : public BluetoothReplyRunnable {
       const BluetoothValue properties = values[i].value();
       if (properties.type() != BluetoothValue::TArrayOfBluetoothNamedValue) {
         BT_WARNING("Not a BluetoothNamedValue array!");
-        SetError(NS_LITERAL_STRING("BluetoothReplyTypeError"));
+        SetError(u"BluetoothReplyTypeError"_ns);
         return false;
       }
       RefPtr<BluetoothDevice> d =
@@ -239,13 +239,13 @@ class GetDevicesTask : public BluetoothReplyRunnable {
     AutoJSAPI jsapi;
     if (!jsapi.Init(mAdapterPtr->GetOwner())) {
       BT_WARNING("Failed to initialise AutoJSAPI!");
-      SetError(NS_LITERAL_STRING("BluetoothAutoJSAPIInitError"));
+      SetError(u"BluetoothAutoJSAPIInitError"_ns);
       return false;
     }
     JSContext* cx = jsapi.cx();
     if (!ToJSValue(cx, devices, aValue)) {
       BT_WARNING("Cannot create JS array!");
-      SetError(NS_LITERAL_STRING("BluetoothError"));
+      SetError(u"BluetoothError"_ns);
       jsapi.ClearException();
       return false;
     }
@@ -275,7 +275,7 @@ class GetScoConnectionStatusTask : public BluetoothReplyRunnable {
     const BluetoothValue& v = mReply->get_BluetoothReplySuccess().value();
     if (v.type() != BluetoothValue::Tbool) {
       BT_WARNING("Not a boolean!");
-      SetError(NS_LITERAL_STRING("BluetoothReplyTypeError"));
+      SetError(u"BluetoothReplyTypeError"_ns);
       return false;
     }
 
@@ -728,7 +728,7 @@ already_AddRefed<Promise> BluetoothAdapter::SetName(const nsAString& aName,
 
   // Wrap property to set and runnable to handle result
   BluetoothNamedValue property(
-      NS_LITERAL_STRING("Name"),
+      u"Name"_ns,
       BluetoothValue(BluetoothRemoteName(NS_ConvertUTF16toUTF8(aName))));
   BT_ENSURE_SUCCESS_REJECT(
       bs->SetProperty(BluetoothObjectType::TYPE_ADAPTER, property,
@@ -763,7 +763,7 @@ already_AddRefed<Promise> BluetoothAdapter::SetDiscoverable(bool aDiscoverable,
   BT_ENSURE_TRUE_REJECT(bs, promise, NS_ERROR_NOT_AVAILABLE);
 
   // Wrap property to set and runnable to handle result
-  BluetoothNamedValue property(NS_LITERAL_STRING("Discoverable"),
+  BluetoothNamedValue property(u"Discoverable"_ns,
                                BluetoothValue(aDiscoverable));
   BT_ENSURE_SUCCESS_REJECT(
       bs->SetProperty(BluetoothObjectType::TYPE_ADAPTER, property,

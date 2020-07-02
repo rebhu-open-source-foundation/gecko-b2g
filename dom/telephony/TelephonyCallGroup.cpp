@@ -75,7 +75,7 @@ nsresult TelephonyCallGroup::NotifyError(const nsAString& aName,
   init.mMessage = aMessage;
 
   RefPtr<CallGroupErrorEvent> event =
-      CallGroupErrorEvent::Constructor(this, NS_LITERAL_STRING("error"), init);
+      CallGroupErrorEvent::Constructor(this, u"error"_ns, init);
 
   return DispatchTrustedEvent(event);
 }
@@ -136,7 +136,7 @@ nsresult TelephonyCallGroup::NotifyStateChanged() {
   // we must save current state. Maybe we should figure out something smarter.
   TelephonyCallGroupState prevState = mState;
 
-  nsresult res = DispatchCallEvent(NS_LITERAL_STRING("statechange"), nullptr);
+  nsresult res = DispatchCallEvent(u"statechange"_ns, nullptr);
   if (NS_FAILED(res)) {
     NS_WARNING("Failed to dispatch specific event!");
   }
@@ -163,7 +163,7 @@ nsresult TelephonyCallGroup::NotifyStateChanged() {
 }
 
 nsresult TelephonyCallGroup::NotifyCallsChanged(TelephonyCall* aCall) {
-  return DispatchCallEvent(NS_LITERAL_STRING("callschanged"), aCall);
+  return DispatchCallEvent(u"callschanged"_ns, aCall);
 }
 
 nsresult TelephonyCallGroup::DispatchCallEvent(const nsAString& aType,
@@ -409,7 +409,7 @@ nsresult TelephonyCallGroup::Hold(nsITelephonyCallback* aCallback) {
                                " (State: %s)",
                                TELEPHONY_GROUP_STATE(mState))
                    .get());
-    aCallback->NotifyError(NS_LITERAL_STRING("InvalidStateError"));
+    aCallback->NotifyError(u"InvalidStateError"_ns);
     return NS_ERROR_DOM_INVALID_STATE_ERR;
   }
 
@@ -446,7 +446,7 @@ nsresult TelephonyCallGroup::Resume(nsITelephonyCallback* aCallback) {
                                " (State: %s)",
                                TELEPHONY_GROUP_STATE(mState))
                    .get());
-    aCallback->NotifyError(NS_LITERAL_STRING("InvalidStateError"));
+    aCallback->NotifyError(u"InvalidStateError"_ns);
     return NS_ERROR_DOM_INVALID_STATE_ERR;
   }
 

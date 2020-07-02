@@ -4851,7 +4851,7 @@ void profiler_pause_sampling() {
       return;
     }
 
-#if defined(GP_OS_android)
+#if defined(GP_OS_android) && !defined(MOZ_WIDGET_GONK)
     if (ActivePS::FeatureJava(lock) && !ActivePS::IsSamplingPaused(lock)) {
       // Not paused yet, so this is the first pause, let Java know.
       // TODO: Distinguish Pause and PauseSampling in Java.
@@ -4887,7 +4887,7 @@ void profiler_resume_sampling() {
     ActivePS::SetIsSamplingPaused(lock, false);
     RacyFeatures::SetSamplingUnpaused();
 
-#if defined(GP_OS_android)
+#if defined(GP_OS_android) && !defined(MOZ_WIDGET_GONK)
     if (ActivePS::FeatureJava(lock) && !ActivePS::IsSamplingPaused(lock)) {
       // Not paused anymore, so this is the last unpause, let Java know.
       // TODO: Distinguish Unpause and UnpauseSampling in Java.

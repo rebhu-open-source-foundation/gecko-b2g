@@ -128,7 +128,7 @@ void DeviceStorageAreaListener::DispatchStorageAreaChangedEvent(
 
   RefPtr<DeviceStorageAreaChangedEvent> event =
       DeviceStorageAreaChangedEvent::Constructor(
-          this, NS_LITERAL_STRING("storageareachanged"), init);
+          this, u"storageareachanged"_ns, init);
   event->SetTrusted(true);
 
   mStorageAreaStateMap[aStorageName] = aOperation;

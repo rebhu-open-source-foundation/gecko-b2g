@@ -331,7 +331,7 @@ ImsRegHandler::NotifyCapabilityChanged(int16_t aCapability,
                                        const nsAString& aUnregisteredReason) {
   UpdateCapability(aCapability, aUnregisteredReason);
 
-  return DispatchTrustedEvent(NS_LITERAL_STRING("capabilitychange"));
+  return DispatchTrustedEvent(u"capabilitychange"_ns);
 }
 
 NS_IMETHODIMP

@@ -43,7 +43,7 @@ class ActivityInitRunnable : public WorkerMainThreadRunnable,
   ActivityInitRunnable(WorkerPrivate* aWorkerPrivate, WebActivity* aWebActivity)
       : WorkerMainThreadRunnable(
             aWorkerPrivate,
-            NS_LITERAL_CSTRING("WebActivity :: ActivityInitialize")),
+            "WebActivity :: ActivityInitialize"_ns),
         StructuredCloneHolder(CloningSupported, TransferringSupported,
                               StructuredCloneScope::SameProcess),
         mWebActivity(aWebActivity) {}

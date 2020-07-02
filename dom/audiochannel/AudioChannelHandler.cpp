@@ -438,7 +438,7 @@ void AudioChannelHandler::ProcessStateChanged(const char16_t* aData) {
 
   nsAutoString value(aData);
   mState = value.EqualsASCII("active") ? eStateActive : eStateInactive;
-  DispatchTrustedEvent(NS_LITERAL_STRING("activestatechanged"));
+  DispatchTrustedEvent(u"activestatechanged"_ns);
 }
 
 }  // namespace dom
