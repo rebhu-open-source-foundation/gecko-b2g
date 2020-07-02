@@ -8,11 +8,41 @@ const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 this.EXPORTED_SYMBOLS = ["GeckoBridge"];
 
+/*
+  Preferences listed in kWatchedPrefs can be accessed by sidl.
+  Please put the preferences in alphabetical order.
+  When adding a new preference name, please follow the naming conventions:
+  - Use dot "." to hierarchically distinguish different types of groups.
+  - Use hyphen "-" to join two or more words together into a compound term.
+  If the preference is already in upstream, then just follow upstream.
+*/
 const kWatchedPrefs = [
   "app.update.custom",
   "b2g.version",
+  "device.bt",
+  "device.cdma-apn",
   "device.commercial.ref",
+  "device.flip",
+  "device.fm.recorder",
+  "device.gps",
+  "device.group-message",
+  "device.key.camera",
+  "device.key.endcall",
+  "device.key.volume",
+  "device.parental-control",
+  "device.qwerty",
+  "device.readout",
+  "device.rtt",
+  "device.sim-hotswap",
+  "device.storage.size",
+  "device.tethering",
+  "device.torch",
+  "device.vilte",
+  "device.volte",
+  "device.vowifi",
+  "device.wifi",
   "oem.software.version",
+  "ril.support.primarysim.switch",
 ];
 
 function log(msg) {
