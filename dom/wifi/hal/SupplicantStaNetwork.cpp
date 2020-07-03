@@ -55,9 +55,9 @@ constexpr uint32_t pairwise_cipher_tkip =
 constexpr uint32_t pairwise_cipher_ccmp =
     (ISupplicantStaNetwork::PairwiseCipherMask::CCMP | 0x0);
 
-#define EVENT_EAP_SIM_GSM_AUTH_REQUEST "EAP_SIM_GSM_AUTH_REQUEST"
-#define EVENT_EAP_SIM_UMTS_AUTH_REQUEST "EAP_SIM_UMTS_AUTH_REQUEST"
-#define EVENT_EAP_SIM_IDENTITY_REQUEST "EAP_SIM_IDENTITY_REQUEST"
+#define EVENT_EAP_SIM_GSM_AUTH_REQUEST u"EAP_SIM_GSM_AUTH_REQUEST"_ns
+#define EVENT_EAP_SIM_UMTS_AUTH_REQUEST u"EAP_SIM_UMTS_AUTH_REQUEST"_ns
+#define EVENT_EAP_SIM_IDENTITY_REQUEST u"EAP_SIM_IDENTITY_REQUEST"_ns
 
 mozilla::Mutex SupplicantStaNetwork::sLock("supplicant-network");
 
@@ -1036,8 +1036,7 @@ Result_t SupplicantStaNetwork::ConvertStatusToResult(
 void SupplicantStaNetwork::NotifyEapSimGsmAuthRequest(
     const RequestGsmAuthParams& aParams) {
   nsCString iface(mInterfaceName);
-  RefPtr<nsWifiEvent> event =
-      new nsWifiEvent(NS_LITERAL_STRING(EVENT_EAP_SIM_GSM_AUTH_REQUEST));
+  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_EAP_SIM_GSM_AUTH_REQUEST);
 
   nsTArray<nsString> rands(aParams.rands.size());
   for (const auto& element : aParams.rands) {
@@ -1062,8 +1061,7 @@ void SupplicantStaNetwork::NotifyEapSimGsmAuthRequest(
 void SupplicantStaNetwork::NotifyEapSimUmtsAuthRequest(
     const RequestUmtsAuthParams& aParams) {
   nsCString iface(mInterfaceName);
-  RefPtr<nsWifiEvent> event =
-      new nsWifiEvent(NS_LITERAL_STRING(EVENT_EAP_SIM_UMTS_AUTH_REQUEST));
+  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_EAP_SIM_UMTS_AUTH_REQUEST);
 
   std::stringstream randStream, autnStream;
   for (size_t i = 0; i < 16; i++) {
@@ -1083,8 +1081,7 @@ void SupplicantStaNetwork::NotifyEapSimUmtsAuthRequest(
 
 void SupplicantStaNetwork::NotifyEapIdentityRequest() {
   nsCString iface(mInterfaceName);
-  RefPtr<nsWifiEvent> event =
-      new nsWifiEvent(NS_LITERAL_STRING(EVENT_EAP_SIM_IDENTITY_REQUEST));
+  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_EAP_SIM_IDENTITY_REQUEST);
 
   if (mCallback) {
     mCallback->Notify(event, iface);

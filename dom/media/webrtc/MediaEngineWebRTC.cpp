@@ -124,7 +124,7 @@ void MediaEngineWebRTC::EnumerateVideoDevices(
 
     aDevices->AppendElement(MakeRefPtr<MediaDevice>(
         vSource, vSource->GetName(), NS_ConvertUTF8toUTF16(vSource->GetUUID()),
-        vSource->GetGroupId(), NS_LITERAL_STRING("")));
+        vSource->GetGroupId(), u""_ns));
   }
 
   return;

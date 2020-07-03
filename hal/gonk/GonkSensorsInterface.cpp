@@ -249,7 +249,7 @@ void GonkSensorsInterface::Connect(
   // the daemon can do so. If no random postfix can be generated, we
   // simply use the base name as-is.
   nsresult rv = DaemonSocketConnector::CreateRandomAddressString(
-      NS_LITERAL_CSTRING(BASE_SOCKET_NAME), POSTFIX_LENGTH, mListenSocketName);
+      BASE_SOCKET_NAME_ns, POSTFIX_LENGTH, mListenSocketName);
   if (NS_FAILED(rv)) {
     mListenSocketName.AssignLiteral(BASE_SOCKET_NAME);
   }

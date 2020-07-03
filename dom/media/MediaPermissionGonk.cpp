@@ -28,6 +28,9 @@
 #define AUDIO_PERMISSION_NAME "audio-capture"
 #define VIDEO_PERMISSION_NAME "video-capture"
 
+constexpr auto kAUDIO_PERMISSION_NAME = "audio-capture"_ns;
+constexpr auto kVIDEO_PERMISSION_NAME = "video-capture"_ns;
+
 using namespace mozilla::dom;
 
 namespace mozilla {
@@ -162,15 +165,15 @@ MediaPermissionRequest::GetTypes(nsIArray** aTypes) {
   if (mAudio) {
     nsTArray<nsString> audioDeviceNames;
     CreateDeviceNameList(mAudioDevices, audioDeviceNames);
-    nsCOMPtr<nsISupports> AudioType = new ContentPermissionType(
-        NS_LITERAL_CSTRING(AUDIO_PERMISSION_NAME), audioDeviceNames);
+    nsCOMPtr<nsISupports> AudioType =
+        new ContentPermissionType(kAUDIO_PERMISSION_NAME, audioDeviceNames);
     types->AppendElement(AudioType);
   }
   if (mVideo) {
     nsTArray<nsString> videoDeviceNames;
     CreateDeviceNameList(mVideoDevices, videoDeviceNames);
-    nsCOMPtr<nsISupports> VideoType = new ContentPermissionType(
-        NS_LITERAL_CSTRING(VIDEO_PERMISSION_NAME), videoDeviceNames);
+    nsCOMPtr<nsISupports> VideoType =
+        new ContentPermissionType(kVIDEO_PERMISSION_NAME, videoDeviceNames);
     types->AppendElement(VideoType);
   }
   NS_IF_ADDREF(*aTypes = types);
@@ -376,8 +379,7 @@ MediaPermissionManager::Observe(nsISupports* aSubject, const char* aTopic,
     if (NS_FAILED(rv)) {
       nsString callID;
       req->GetCallID(callID);
-      NotifyPermissionDeny(
-          callID, u"unable to enumerate media device"_ns);
+      NotifyPermissionDeny(callID, u"unable to enumerate media device"_ns);
     }
   } else if (!strcmp(aTopic, "xpcom-shutdown")) {
     rv = this->Deinit();

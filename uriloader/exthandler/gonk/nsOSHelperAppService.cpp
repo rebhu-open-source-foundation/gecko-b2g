@@ -224,8 +224,7 @@ nsresult nsOSHelperAppService::LookUpTypeAndDescription(
 inline bool IsNetscapeFormat(const nsACString& aBuffer) {
   return StringBeginsWith(
              aBuffer,
-             NS_LITERAL_CSTRING(
-                 "#--Netscape Communications Corporation MIME Information")) ||
+             "#--Netscape Communications Corporation MIME Information"_ns) ||
          StringBeginsWith(aBuffer,
                           "#--MCOM MIME Information"_ns);
 }
@@ -621,7 +620,7 @@ nsresult nsOSHelperAppService::ParseNetscapeMIMETypesEntry(
     extStart = match_end;
     match_start = extStart;
     match_end = end_iter;
-    if (FindInReadable(NS_LITERAL_STRING("desc=\""), match_start, match_end)) {
+    if (FindInReadable(u"desc=\""_ns, match_start, match_end)) {
       // exts= before desc=, so we have to find the actual end of the extensions
       extEnd = match_start;
       if (extEnd == extStart) {
@@ -648,7 +647,7 @@ nsresult nsOSHelperAppService::ParseNetscapeMIMETypesEntry(
   // get the description
   match_start = start_iter;
   match_end = end_iter;
-  if (FindInReadable(NS_LITERAL_STRING("desc=\""), match_start, match_end)) {
+  if (FindInReadable(u"desc=\""_ns, match_start, match_end)) {
     aDescriptionStart = match_end;
     match_start = aDescriptionStart;
     match_end = end_iter;

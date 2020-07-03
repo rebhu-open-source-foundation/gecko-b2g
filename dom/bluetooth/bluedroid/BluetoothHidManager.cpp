@@ -357,8 +357,8 @@ void BluetoothHidManager::NotifyConnectionStateChanged(const nsAString& aType) {
   }
 
   // Dispatch an event of status change
-  DispatchStatusChangedEvent(NS_LITERAL_STRING(HID_STATUS_CHANGED_ID),
-                             mDeviceAddress, IsConnected());
+  DispatchStatusChangedEvent(HID_STATUS_CHANGED_ID, mDeviceAddress,
+                             IsConnected());
 }
 
 bool BluetoothHidManager::IsConnected() { return mHidConnected; }
@@ -372,7 +372,7 @@ bool BluetoothHidManager::ReplyToConnectionRequest(bool aAccept) {
 void BluetoothHidManager::OnConnectError() {
   MOZ_ASSERT(NS_IsMainThread());
 
-  mController->NotifyCompletion(NS_LITERAL_STRING(ERR_CONNECTION_FAILED));
+  mController->NotifyCompletion(ERR_CONNECTION_FAILED);
   Reset();
 }
 
@@ -400,18 +400,18 @@ void BluetoothHidManager::Connect(const BluetoothAddress& aDeviceAddress,
   MOZ_ASSERT(aController && !mController);
 
   if (sInShutdown) {
-    aController->NotifyCompletion(NS_LITERAL_STRING(ERR_NO_AVAILABLE_RESOURCE));
+    aController->NotifyCompletion(ERR_NO_AVAILABLE_RESOURCE);
     return;
   }
 
   if (IsConnected()) {
-    aController->NotifyCompletion(NS_LITERAL_STRING(ERR_ALREADY_CONNECTED));
+    aController->NotifyCompletion(ERR_ALREADY_CONNECTED);
     return;
   }
 
   if (!sBluetoothHidInterface) {
     BT_LOGR("sBluetoothHidInterface is null");
-    aController->NotifyCompletion(NS_LITERAL_STRING(ERR_NO_AVAILABLE_RESOURCE));
+    aController->NotifyCompletion(ERR_NO_AVAILABLE_RESOURCE);
     return;
   }
 
@@ -426,7 +426,7 @@ void BluetoothHidManager::OnDisconnectError() {
   MOZ_ASSERT(NS_IsMainThread());
   NS_ENSURE_TRUE_VOID(mController);
 
-  mController->NotifyCompletion(NS_LITERAL_STRING(ERR_CONNECTION_FAILED));
+  mController->NotifyCompletion(ERR_CONNECTION_FAILED);
 
   mController = nullptr;
 }
@@ -454,8 +454,7 @@ void BluetoothHidManager::Disconnect(BluetoothProfileController* aController) {
 
   if (!IsConnected()) {
     if (aController) {
-      aController->NotifyCompletion(
-          NS_LITERAL_STRING(ERR_ALREADY_DISCONNECTED));
+      aController->NotifyCompletion(ERR_ALREADY_DISCONNECTED);
     }
     return;
   }
@@ -465,8 +464,7 @@ void BluetoothHidManager::Disconnect(BluetoothProfileController* aController) {
   if (!sBluetoothHidInterface) {
     BT_LOGR("sBluetoothHidInterface is null");
     if (aController) {
-      aController->NotifyCompletion(
-          NS_LITERAL_STRING(ERR_NO_AVAILABLE_RESOURCE));
+      aController->NotifyCompletion(ERR_NO_AVAILABLE_RESOURCE);
     }
     return;
   }
@@ -640,13 +638,11 @@ void BluetoothHidManager::ConnectionStateNotification(
   if (aState == HID_CONNECTION_STATE_CONNECTED) {
     mHidConnected = true;
     mDeviceAddress = aBdAddr;
-    NotifyConnectionStateChanged(
-        NS_LITERAL_STRING(BLUETOOTH_HID_STATUS_CHANGED_ID));
+    NotifyConnectionStateChanged(BLUETOOTH_HID_STATUS_CHANGED_ID);
     OnConnect(EmptyString());
   } else if (aState == HID_CONNECTION_STATE_DISCONNECTED) {
     mHidConnected = false;
-    NotifyConnectionStateChanged(
-        NS_LITERAL_STRING(BLUETOOTH_HID_STATUS_CHANGED_ID));
+    NotifyConnectionStateChanged(BLUETOOTH_HID_STATUS_CHANGED_ID);
     OnDisconnect(EmptyString());
   }
 }

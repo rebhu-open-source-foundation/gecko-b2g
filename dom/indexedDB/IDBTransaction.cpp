@@ -26,6 +26,7 @@
 #include "nsTHashtable.h"
 #include "ProfilerHelpers.h"
 #include "ReportInternalError.h"
+#include "ThreadLocal.h"
 
 // Include this last to avoid path problems on Windows.
 #include "ActorsChild.h"
@@ -433,8 +434,9 @@ void IDBTransaction::SendAbort(const nsresult aResultCode) {
   const uint64_t requestSerialNumber = IDBRequest::NextSerialNumber();
 
   IDB_LOG_MARK_CHILD_TRANSACTION_REQUEST(
-      "Aborting transaction with result 0x%x", "IDBTransaction abort (0x%x)",
-      LoggingSerialNumber(), requestSerialNumber, aResultCode);
+      "Aborting transaction with result 0x%" PRIx32,
+      "IDBTransaction abort (0x%" PRIx32 ")", LoggingSerialNumber(),
+      requestSerialNumber, static_cast<uint32_t>(aResultCode));
 
   DoWithTransactionChild(
       [aResultCode](auto& actor) { actor.SendAbort(aResultCode); });
@@ -795,9 +797,10 @@ void IDBTransaction::FireCompleteOrAbortEvents(const nsresult aResult) {
                                    "IDBTransaction 'complete' event",
                                    mLoggingSerialNumber);
   } else {
-    IDB_LOG_MARK_CHILD_TRANSACTION("Firing 'abort' event with error 0x%x",
-                                   "IDBTransaction 'abort' event (0x%x)",
-                                   mLoggingSerialNumber, mAbortCode);
+    IDB_LOG_MARK_CHILD_TRANSACTION(
+        "Firing 'abort' event with error 0x%" PRIx32,
+        "IDBTransaction 'abort' event (0x%" PRIx32 ")", mLoggingSerialNumber,
+        static_cast<uint32_t>(mAbortCode));
   }
 
   IgnoredErrorResult rv;

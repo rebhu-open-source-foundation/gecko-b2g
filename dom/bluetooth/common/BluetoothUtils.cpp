@@ -778,7 +778,7 @@ void DispatchStatusChangedEvent(const nsAString& aType,
   BluetoothService* bs = BluetoothService::Get();
   NS_ENSURE_TRUE_VOID(bs);
 
-  bs->DistributeSignal(aType, NS_LITERAL_STRING(KEY_ADAPTER), data);
+  bs->DistributeSignal(aType, KEY_ADAPTER, data);
 }
 
 void AppendNamedValue(nsTArray<BluetoothNamedValue>& aArray, const char* aName,

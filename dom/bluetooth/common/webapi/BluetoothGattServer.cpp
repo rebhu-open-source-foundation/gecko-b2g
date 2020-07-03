@@ -89,7 +89,7 @@ void BluetoothGattServer::HandleConnectionStateChanged(
 
   RefPtr<BluetoothStatusChangedEvent> event =
       BluetoothStatusChangedEvent::Constructor(
-          this, NS_LITERAL_STRING(GATT_CONNECTION_STATE_CHANGED_ID), init);
+          this, GATT_CONNECTION_STATE_CHANGED_ID, init);
 
   DispatchTrustedEvent(event);
 }
@@ -234,7 +234,7 @@ void BluetoothGattServer::Notify(const BluetoothSignal& aData) {
     HandleServerRegistered(v);
   } else if (aData.name().EqualsLiteral("ServerUnregistered")) {
     HandleServerUnregistered(v);
-  } else if (aData.name().EqualsLiteral(GATT_CONNECTION_STATE_CHANGED_ID)) {
+  } else if (aData.name().Equals(GATT_CONNECTION_STATE_CHANGED_ID)) {
     HandleConnectionStateChanged(v);
   } else if (aData.name().EqualsLiteral("ServiceHandleUpdated")) {
     HandleServiceHandleUpdated(v);
@@ -243,9 +243,9 @@ void BluetoothGattServer::Notify(const BluetoothSignal& aData) {
   } else if (aData.name().EqualsLiteral("DescriptorHandleUpdated")) {
     HandleDescriptorHandleUpdated(v);
   } else if (aData.name().EqualsLiteral("ReadRequested")) {
-    HandleReadWriteRequest(v, NS_LITERAL_STRING(ATTRIBUTE_READ_REQUEST));
+    HandleReadWriteRequest(v, ATTRIBUTE_READ_REQUEST);
   } else if (aData.name().EqualsLiteral("WriteRequested")) {
-    HandleReadWriteRequest(v, NS_LITERAL_STRING(ATTRIBUTE_WRITE_REQUEST));
+    HandleReadWriteRequest(v, ATTRIBUTE_WRITE_REQUEST);
   } else {
     BT_WARNING("Not handling GATT signal: %s",
                NS_ConvertUTF16toUTF8(aData.name()).get());

@@ -40,8 +40,7 @@ already_AddRefed<BluetoothPairingListener> BluetoothPairingListener::Create(
 }
 
 BluetoothPairingListener::~BluetoothPairingListener() {
-  UnregisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_PAIRING_LISTENER),
-                                   this);
+  UnregisterBluetoothSignalHandler(KEY_PAIRING_LISTENER, this);
 }
 
 void BluetoothPairingListener::DispatchPairingEvent(
@@ -114,8 +113,7 @@ JSObject* BluetoothPairingListener::WrapObject(
 
 void BluetoothPairingListener::DisconnectFromOwner() {
   DOMEventTargetHelper::DisconnectFromOwner();
-  UnregisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_PAIRING_LISTENER),
-                                   this);
+  UnregisterBluetoothSignalHandler(KEY_PAIRING_LISTENER, this);
 }
 
 void BluetoothPairingListener::EventListenerAdded(nsAtom* aType) {
@@ -143,7 +141,7 @@ void BluetoothPairingListener::TryListeningToBluetoothSignal() {
   // }
 
   // Start listening to bluetooth signal to handle pairing requests
-  RegisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_PAIRING_LISTENER), this);
+  RegisterBluetoothSignalHandler(KEY_PAIRING_LISTENER, this);
 
   mHasListenedToSignal = true;
 }

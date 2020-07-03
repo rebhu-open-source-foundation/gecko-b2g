@@ -217,9 +217,8 @@ bool BluetoothPbapManager::Listen() {
   mServerSocket = new BluetoothSocket(this);
 
   nsresult rv = mServerSocket->Listen(
-      u"OBEX Phonebook Access Server"_ns, kPbapPSE,
-      BluetoothSocketType::RFCOMM, BluetoothReservedChannels::CHANNEL_PBAP_PSE,
-      false, true);
+      u"OBEX Phonebook Access Server"_ns, kPbapPSE, BluetoothSocketType::RFCOMM,
+      BluetoothReservedChannels::CHANNEL_PBAP_PSE, false, true);
 
   if (NS_FAILED(rv)) {
     mServerSocket = nullptr;
@@ -427,8 +426,7 @@ ObexResponseCode BluetoothPbapManager::NotifyConnectionRequest() {
   AddressToString(mDeviceAddress, deviceAddressStr);
 
   bs->DistributeSignal(
-      BluetoothSignal(NS_LITERAL_STRING(PBAP_CONNECTION_REQ_ID),
-                      NS_LITERAL_STRING(KEY_PBAP), deviceAddressStr));
+      BluetoothSignal(PBAP_CONNECTION_REQ_ID, KEY_PBAP, deviceAddressStr));
 
   BT_LOGR("Notify front-end app of the PBAP connection request.");
 
@@ -512,7 +510,7 @@ ObexResponseCode BluetoothPbapManager::NotifyPbapRequest(
   uint8_t tagCount;
   const AppParameterTag* tags;
   if (type.EqualsLiteral("x-bt/phonebook")) {
-    reqId.AssignLiteral(PULL_PHONEBOOK_REQ_ID);
+    reqId.Assign(PULL_PHONEBOOK_REQ_ID);
     tagCount = MOZ_ARRAY_LENGTH(sPhonebookTags);
     tags = sPhonebookTags;
 
@@ -530,15 +528,14 @@ ObexResponseCode BluetoothPbapManager::NotifyPbapRequest(
       mNewMissedCallsRequired = true;
     }
   } else if (type.EqualsLiteral("x-bt/vcard-listing")) {
-    reqId.AssignLiteral(PULL_VCARD_LISTING_REQ_ID);
+    reqId.Assign(PULL_VCARD_LISTING_REQ_ID);
     tagCount = MOZ_ARRAY_LENGTH(sVCardListingTags);
     tags = sVCardListingTags;
 
     // Section 5.3.3 "Name", PBAP 1.2:
     // ... PullvCardListing function uses relative paths. An empty name header
     // may be sent to retrieve the vCard Listing object of the current folder.
-    name = name.IsEmpty() ? mCurrentPath
-                          : mCurrentPath + u"/"_ns + name;
+    name = name.IsEmpty() ? mCurrentPath : mCurrentPath + u"/"_ns + name;
 
     BT_LOGD("List phonebook [%s]", NS_ConvertUTF16toUTF8(name).get());
 
@@ -547,7 +544,7 @@ ObexResponseCode BluetoothPbapManager::NotifyPbapRequest(
       mNewMissedCallsRequired = true;
     }
   } else if (type.EqualsLiteral("x-bt/vcard")) {
-    reqId.AssignLiteral(PULL_VCARD_ENTRY_REQ_ID);
+    reqId.Assign(PULL_VCARD_ENTRY_REQ_ID);
     tagCount = MOZ_ARRAY_LENGTH(sVCardEntryTags);
     tags = sVCardEntryTags;
 
@@ -582,7 +579,7 @@ ObexResponseCode BluetoothPbapManager::NotifyPbapRequest(
     AppendNamedValueByTagId(aHeader, data, tags[i]);
   }
 
-  bs->DistributeSignal(reqId, NS_LITERAL_STRING(KEY_PBAP), data);
+  bs->DistributeSignal(reqId, KEY_PBAP, data);
 
   return ObexResponseCode::Success;
 }
@@ -600,8 +597,7 @@ ObexResponseCode BluetoothPbapManager::NotifyPasswordRequest() {
   // TODO: Append realm if 1) gaia needs to display it and
   //       2) it's in authenticate challenge header
   nsTArray<BluetoothNamedValue> props;
-  bs->DistributeSignal(NS_LITERAL_STRING(OBEX_PASSWORD_REQ_ID),
-                       NS_LITERAL_STRING(KEY_ADAPTER), props);
+  bs->DistributeSignal(OBEX_PASSWORD_REQ_ID, KEY_ADAPTER, props);
 
   return ObexResponseCode::Success;
 }

@@ -11,14 +11,15 @@
 #include <string.h>
 #include <mozilla/ClearOnShutdown.h>
 
-#define EVENT_SUPPLICANT_TERMINATING "SUPPLICANT_TERMINATING"
-#define EVENT_SUPPLICANT_STATE_CHANGED "SUPPLICANT_STATE_CHANGED"
-#define EVENT_SUPPLICANT_NETWORK_CONNECTED "SUPPLICANT_NETWORK_CONNECTED"
-#define EVENT_SUPPLICANT_NETWORK_DISCONNECTED "SUPPLICANT_NETWORK_DISCONNECTED"
-#define EVENT_SUPPLICANT_AUTH_FAILURE "SUPPLICANT_AUTH_FAILURE"
-#define EVENT_SUPPLICANT_ASSOC_REJECT "SUPPLICANT_ASSOC_REJECT"
-#define EVENT_SUPPLICANT_TARGET_BSSID "SUPPLICANT_TARGET_BSSID"
-#define EVENT_SUPPLICANT_ASSOCIATED_BSSID "SUPPLICANT_ASSOCIATED_BSSID"
+#define EVENT_SUPPLICANT_TERMINATING u"SUPPLICANT_TERMINATING"_ns
+#define EVENT_SUPPLICANT_STATE_CHANGED u"SUPPLICANT_STATE_CHANGED"_ns
+#define EVENT_SUPPLICANT_NETWORK_CONNECTED u"SUPPLICANT_NETWORK_CONNECTED"_ns
+#define EVENT_SUPPLICANT_NETWORK_DISCONNECTED \
+  u"SUPPLICANT_NETWORK_DISCONNECTED"_ns
+#define EVENT_SUPPLICANT_AUTH_FAILURE u"SUPPLICANT_AUTH_FAILURE"_ns
+#define EVENT_SUPPLICANT_ASSOC_REJECT u"SUPPLICANT_ASSOC_REJECT"_ns
+#define EVENT_SUPPLICANT_TARGET_BSSID u"SUPPLICANT_TARGET_BSSID"_ns
+#define EVENT_SUPPLICANT_ASSOCIATED_BSSID u"SUPPLICANT_ASSOCIATED_BSSID"_ns
 
 static const char SUPPLICANT_INTERFACE_NAME[] =
     "android.hardware.wifi.supplicant@1.2::ISupplicant";
@@ -773,8 +774,7 @@ bool SupplicantStaManager::CompareConfiguration(
 
 void SupplicantStaManager::NotifyTerminating() {
   nsCString iface(mInterfaceName);
-  RefPtr<nsWifiEvent> event =
-      new nsWifiEvent(NS_LITERAL_STRING(EVENT_SUPPLICANT_TERMINATING));
+  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_SUPPLICANT_TERMINATING);
 
   if (mCallback) {
     mCallback->Notify(event, iface);
@@ -789,8 +789,7 @@ void SupplicantStaManager::NotifyStateChanged(uint32_t aState,
        (uint32_t)ISupplicantStaIfaceCallback::State::FOURWAY_HANDSHAKE);
 
   nsCString iface(mInterfaceName);
-  RefPtr<nsWifiEvent> event =
-      new nsWifiEvent(NS_LITERAL_STRING(EVENT_SUPPLICANT_STATE_CHANGED));
+  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_SUPPLICANT_STATE_CHANGED);
   RefPtr<nsStateChanged> stateChanged =
       new nsStateChanged(aState, 0, NS_ConvertUTF8toUTF16(aBssid.c_str()),
                          NS_ConvertUTF8toUTF16(aSsid.c_str()));
@@ -805,7 +804,7 @@ void SupplicantStaManager::NotifyConnected(const std::string& aSsid,
                                            const std::string& aBssid) {
   nsCString iface(mInterfaceName);
   RefPtr<nsWifiEvent> event =
-      new nsWifiEvent(NS_LITERAL_STRING(EVENT_SUPPLICANT_NETWORK_CONNECTED));
+      new nsWifiEvent(EVENT_SUPPLICANT_NETWORK_CONNECTED);
   event->mBssid = NS_ConvertUTF8toUTF16(aBssid.c_str());
 
   if (mCallback) {
@@ -818,7 +817,7 @@ void SupplicantStaManager::NotifyDisconnected(const std::string& aBssid,
                                               uint32_t aReason) {
   nsCString iface(mInterfaceName);
   RefPtr<nsWifiEvent> event =
-      new nsWifiEvent(NS_LITERAL_STRING(EVENT_SUPPLICANT_NETWORK_DISCONNECTED));
+      new nsWifiEvent(EVENT_SUPPLICANT_NETWORK_DISCONNECTED);
   event->mBssid = NS_ConvertUTF8toUTF16(aBssid.c_str());
   event->mLocallyGenerated = aLocallyGenerated;
   event->mReason = aReason;
@@ -831,8 +830,7 @@ void SupplicantStaManager::NotifyDisconnected(const std::string& aBssid,
 void SupplicantStaManager::NotifyAuthenticationFailure(uint32_t aReason,
                                                        int32_t aErrorCode) {
   nsCString iface(mInterfaceName);
-  RefPtr<nsWifiEvent> event =
-      new nsWifiEvent(NS_LITERAL_STRING(EVENT_SUPPLICANT_AUTH_FAILURE));
+  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_SUPPLICANT_AUTH_FAILURE);
   event->mReason = aReason;
   event->mErrorCode = aErrorCode;
 
@@ -845,8 +843,7 @@ void SupplicantStaManager::NotifyAssociationReject(const std::string& aBssid,
                                                    uint32_t aStatusCode,
                                                    bool aTimeout) {
   nsCString iface(mInterfaceName);
-  RefPtr<nsWifiEvent> event =
-      new nsWifiEvent(NS_LITERAL_STRING(EVENT_SUPPLICANT_ASSOC_REJECT));
+  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_SUPPLICANT_ASSOC_REJECT);
   event->mBssid = NS_ConvertUTF8toUTF16(aBssid.c_str());
   event->mStatusCode = aStatusCode;
   event->mTimeout = aTimeout;
@@ -858,8 +855,7 @@ void SupplicantStaManager::NotifyAssociationReject(const std::string& aBssid,
 
 void SupplicantStaManager::NotifyTargetBssid(const std::string& aBssid) {
   nsCString iface(mInterfaceName);
-  RefPtr<nsWifiEvent> event =
-      new nsWifiEvent(NS_LITERAL_STRING(EVENT_SUPPLICANT_TARGET_BSSID));
+  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_SUPPLICANT_TARGET_BSSID);
   event->mBssid = NS_ConvertUTF8toUTF16(aBssid.c_str());
 
   if (mCallback) {
@@ -870,7 +866,7 @@ void SupplicantStaManager::NotifyTargetBssid(const std::string& aBssid) {
 void SupplicantStaManager::NotifyAssociatedBssid(const std::string& aBssid) {
   nsCString iface(mInterfaceName);
   RefPtr<nsWifiEvent> event =
-      new nsWifiEvent(NS_LITERAL_STRING(EVENT_SUPPLICANT_ASSOCIATED_BSSID));
+      new nsWifiEvent(EVENT_SUPPLICANT_ASSOCIATED_BSSID);
   event->mBssid = NS_ConvertUTF8toUTF16(aBssid.c_str());
 
   if (mCallback) {

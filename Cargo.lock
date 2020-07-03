@@ -734,7 +734,7 @@ dependencies = [
 [[package]]
 name = "cranelift-bforest"
 version = "0.65.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=238ae3bf2111847f60089656eb97fc9345295b1f#238ae3bf2111847f60089656eb97fc9345295b1f"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=47a218f908e6bdeb7a0fb65ed74e58a0b608080d#47a218f908e6bdeb7a0fb65ed74e58a0b608080d"
 dependencies = [
  "cranelift-entity 0.65.0",
 ]
@@ -742,7 +742,7 @@ dependencies = [
 [[package]]
 name = "cranelift-codegen"
 version = "0.65.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=238ae3bf2111847f60089656eb97fc9345295b1f#238ae3bf2111847f60089656eb97fc9345295b1f"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=47a218f908e6bdeb7a0fb65ed74e58a0b608080d#47a218f908e6bdeb7a0fb65ed74e58a0b608080d"
 dependencies = [
  "byteorder",
  "cranelift-bforest",
@@ -759,7 +759,7 @@ dependencies = [
 [[package]]
 name = "cranelift-codegen-meta"
 version = "0.65.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=238ae3bf2111847f60089656eb97fc9345295b1f#238ae3bf2111847f60089656eb97fc9345295b1f"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=47a218f908e6bdeb7a0fb65ed74e58a0b608080d#47a218f908e6bdeb7a0fb65ed74e58a0b608080d"
 dependencies = [
  "cranelift-codegen-shared",
  "cranelift-entity 0.65.0",
@@ -768,7 +768,7 @@ dependencies = [
 [[package]]
 name = "cranelift-codegen-shared"
 version = "0.65.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=238ae3bf2111847f60089656eb97fc9345295b1f#238ae3bf2111847f60089656eb97fc9345295b1f"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=47a218f908e6bdeb7a0fb65ed74e58a0b608080d#47a218f908e6bdeb7a0fb65ed74e58a0b608080d"
 
 [[package]]
 name = "cranelift-entity"
@@ -778,12 +778,12 @@ source = "git+https://github.com/PLSysSec/lucet_sandbox_compiler?rev=5e870faf6f9
 [[package]]
 name = "cranelift-entity"
 version = "0.65.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=238ae3bf2111847f60089656eb97fc9345295b1f#238ae3bf2111847f60089656eb97fc9345295b1f"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=47a218f908e6bdeb7a0fb65ed74e58a0b608080d#47a218f908e6bdeb7a0fb65ed74e58a0b608080d"
 
 [[package]]
 name = "cranelift-frontend"
 version = "0.65.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=238ae3bf2111847f60089656eb97fc9345295b1f#238ae3bf2111847f60089656eb97fc9345295b1f"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=47a218f908e6bdeb7a0fb65ed74e58a0b608080d#47a218f908e6bdeb7a0fb65ed74e58a0b608080d"
 dependencies = [
  "cranelift-codegen",
  "log",
@@ -794,14 +794,14 @@ dependencies = [
 [[package]]
 name = "cranelift-wasm"
 version = "0.65.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=238ae3bf2111847f60089656eb97fc9345295b1f#238ae3bf2111847f60089656eb97fc9345295b1f"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=47a218f908e6bdeb7a0fb65ed74e58a0b608080d#47a218f908e6bdeb7a0fb65ed74e58a0b608080d"
 dependencies = [
  "cranelift-codegen",
  "cranelift-entity 0.65.0",
  "cranelift-frontend",
  "log",
  "thiserror",
- "wasmparser 0.57.0",
+ "wasmparser 0.58.0",
 ]
 
 [[package]]
@@ -2376,7 +2376,7 @@ dependencies = [
 [[package]]
 name = "jsparagus"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=f94e3c1ab5d98c9fcfddd6441ce0d66169321035#f94e3c1ab5d98c9fcfddd6441ce0d66169321035"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=90744b6c7bf9936174ab5fe62d1e17dde65bf64f#90744b6c7bf9936174ab5fe62d1e17dde65bf64f"
 dependencies = [
  "jsparagus-ast",
  "jsparagus-emitter",
@@ -2390,7 +2390,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-ast"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=f94e3c1ab5d98c9fcfddd6441ce0d66169321035#f94e3c1ab5d98c9fcfddd6441ce0d66169321035"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=90744b6c7bf9936174ab5fe62d1e17dde65bf64f#90744b6c7bf9936174ab5fe62d1e17dde65bf64f"
 dependencies = [
  "bumpalo",
  "indexmap",
@@ -2399,7 +2399,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-emitter"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=f94e3c1ab5d98c9fcfddd6441ce0d66169321035#f94e3c1ab5d98c9fcfddd6441ce0d66169321035"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=90744b6c7bf9936174ab5fe62d1e17dde65bf64f#90744b6c7bf9936174ab5fe62d1e17dde65bf64f"
 dependencies = [
  "bumpalo",
  "byteorder",
@@ -2412,7 +2412,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-generated-parser"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=f94e3c1ab5d98c9fcfddd6441ce0d66169321035#f94e3c1ab5d98c9fcfddd6441ce0d66169321035"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=90744b6c7bf9936174ab5fe62d1e17dde65bf64f#90744b6c7bf9936174ab5fe62d1e17dde65bf64f"
 dependencies = [
  "bumpalo",
  "jsparagus-ast",
@@ -2422,12 +2422,12 @@ dependencies = [
 [[package]]
 name = "jsparagus-json-log"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=f94e3c1ab5d98c9fcfddd6441ce0d66169321035#f94e3c1ab5d98c9fcfddd6441ce0d66169321035"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=90744b6c7bf9936174ab5fe62d1e17dde65bf64f#90744b6c7bf9936174ab5fe62d1e17dde65bf64f"
 
 [[package]]
 name = "jsparagus-parser"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=f94e3c1ab5d98c9fcfddd6441ce0d66169321035#f94e3c1ab5d98c9fcfddd6441ce0d66169321035"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=90744b6c7bf9936174ab5fe62d1e17dde65bf64f#90744b6c7bf9936174ab5fe62d1e17dde65bf64f"
 dependencies = [
  "bumpalo",
  "jsparagus-ast",
@@ -2438,7 +2438,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-scope"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=f94e3c1ab5d98c9fcfddd6441ce0d66169321035#f94e3c1ab5d98c9fcfddd6441ce0d66169321035"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=90744b6c7bf9936174ab5fe62d1e17dde65bf64f#90744b6c7bf9936174ab5fe62d1e17dde65bf64f"
 dependencies = [
  "indexmap",
  "jsparagus-ast",
@@ -2448,7 +2448,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-stencil"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=f94e3c1ab5d98c9fcfddd6441ce0d66169321035#f94e3c1ab5d98c9fcfddd6441ce0d66169321035"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=90744b6c7bf9936174ab5fe62d1e17dde65bf64f#90744b6c7bf9936174ab5fe62d1e17dde65bf64f"
 dependencies = [
  "jsparagus-ast",
 ]
@@ -5401,9 +5401,9 @@ checksum = "073da89bf1c84db000dd68ce660c1b4a08e3a2d28fd1e3394ab9e7abdde4a0f8"
 
 [[package]]
 name = "wasmparser"
-version = "0.57.0"
+version = "0.58.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32fddd575d477c6e9702484139cf9f23dcd554b06d185ed0f56c857dd3a47aa6"
+checksum = "721a8d79483738d7aef6397edcf8f04cd862640b1ad5973adf5bb50fc10e86db"
 
 [[package]]
 name = "wast"

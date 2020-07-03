@@ -70,8 +70,8 @@ already_AddRefed<Promise> BluetoothPairingHandle::SetPinCode(
   RefPtr<Promise> promise = Promise::Create(global, aRv);
   NS_ENSURE_TRUE(!aRv.Failed(), nullptr);
 
-  BT_ENSURE_TRUE_REJECT(mType.EqualsLiteral(PAIRING_REQ_TYPE_ENTERPINCODE),
-                        promise, NS_ERROR_DOM_INVALID_STATE_ERR);
+  BT_ENSURE_TRUE_REJECT(mType.Equals(PAIRING_REQ_TYPE_ENTERPINCODE), promise,
+                        NS_ERROR_DOM_INVALID_STATE_ERR);
 
   BluetoothAddress deviceAddress;
   BT_ENSURE_TRUE_REJECT(
@@ -143,7 +143,7 @@ already_AddRefed<Promise> BluetoothPairingHandle::Reject(ErrorResult& aRv) {
   BluetoothService* bs = BluetoothService::Get();
   BT_ENSURE_TRUE_REJECT(bs, promise, NS_ERROR_NOT_AVAILABLE);
 
-  if (mType.EqualsLiteral(PAIRING_REQ_TYPE_ENTERPINCODE)) {  // Pin request
+  if (mType.Equals(PAIRING_REQ_TYPE_ENTERPINCODE)) {  // Pin request
     bs->PinReplyInternal(deviceAddress, false /* aAccept */, BluetoothPinCode(),
                          new BluetoothVoidReplyRunnable(nullptr, promise));
   } else {  // Ssp request

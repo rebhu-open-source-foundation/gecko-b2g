@@ -16,8 +16,8 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   AddonManager: "resource://gre/modules/AddonManager.jsm",
   clearTimeout: "resource://gre/modules/Timer.jsm",
   ExtensionParent: "resource://gre/modules/ExtensionParent.jsm",
-  getVerificationHash: "resource://gre/modules/SearchEngine.jsm",
   IgnoreLists: "resource://gre/modules/IgnoreLists.jsm",
+  OpenSearchEngine: "resource://gre/modules/OpenSearchEngine.jsm",
   OS: "resource://gre/modules/osfile.jsm",
   Region: "resource://gre/modules/Region.jsm",
   RemoteSettings: "resource://services-settings/remote-settings.js",
@@ -1576,6 +1576,7 @@ SearchService.prototype = {
         // We renamed isBuiltin to isAppProvided in 1631898,
         // keep checking isBuiltin for older caches.
         isAppProvided: !!json._isAppProvided || !!json._isBuiltin,
+        loadPath: json._loadPath,
       });
       engine._initWithJSON(json);
       this._addEngineToStore(engine);
@@ -1626,7 +1627,7 @@ SearchService.prototype = {
       try {
         let file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
         file.initWithPath(osfile.path);
-        addedEngine = new SearchEngine({
+        addedEngine = new OpenSearchEngine({
           fileURI: file,
           isAppProvided: true,
         });
@@ -2245,7 +2246,12 @@ SearchService.prototype = {
     return null;
   },
 
-  async addEngineWithDetails(name, details, isReload = false) {
+  async addEngineWithDetails(
+    name,
+    details,
+    initEngine = false,
+    isReload = false
+  ) {
     if (!name) {
       throw Components.Exception(
         "Empty name passed to addEngineWithDetails!",
@@ -2266,7 +2272,7 @@ SearchService.prototype = {
     // We install search extensions during the init phase, both built in
     // web extensions freshly installed (via addEnginesFromExtension) or
     // user installed extensions being reenabled calling this directly.
-    if (!gInitialized && !isAppProvided && !params.initEngine) {
+    if (!gInitialized && !isAppProvided && !initEngine) {
       await this.init();
     }
     let existingEngine = this._engines.get(name);
@@ -2300,15 +2306,17 @@ SearchService.prototype = {
       }
     }
 
+    let loadPath = "[other]addEngineWithDetails";
+    if (params.extensionID) {
+      loadPath += ":" + params.extensionID;
+    }
+
     let newEngine = new SearchEngine({
       name,
       isAppProvided,
+      loadPath,
     });
     newEngine._initFromMetadata(name, params);
-    newEngine._loadPath = "[other]addEngineWithDetails";
-    if (params.extensionID) {
-      newEngine._loadPath += ":" + params.extensionID;
-    }
     if (isReload && this._engines.has(newEngine.name)) {
       newEngine._engineToUpdate = this._engines.get(newEngine.name);
     }
@@ -2442,24 +2450,31 @@ SearchService.prototype = {
       params
     );
 
+    let loadPath = "[other]addEngineWithDetails";
+    if (engineParams.extensionID) {
+      loadPath += ":" + engineParams.extensionID;
+    }
+
     let engine = new SearchEngine({
       // No need to sanitize the name, as shortName uses the WebExtension id
       // which should already be sanitized.
       shortName: engineParams.shortName,
       isAppProvided: engineParams.isAppProvided,
+      loadPath,
     });
     engine._initFromMetadata(engineParams.name, engineParams);
-    engine._loadPath = "[other]addEngineWithDetails";
-    if (engineParams.extensionID) {
-      engine._loadPath += ":" + engineParams.extensionID;
-    }
     if (isReload && this._engines.has(engine.name)) {
       engine._engineToUpdate = this._engines.get(engine.name);
     }
     return engine;
   },
 
-  async _installExtensionEngine(extension, locales, initEngine, isReload) {
+  async _installExtensionEngine(
+    extension,
+    locales,
+    initEngine = false,
+    isReload = false
+  ) {
     logConsole.debug("installExtensionEngine:", extension.id);
 
     let installLocale = async locale => {
@@ -2512,10 +2527,8 @@ SearchService.prototype = {
         return engine;
       }
     }
-    let params = this.getEngineParams(extension, manifest, locale, {
-      initEngine,
-    });
-    return this.addEngineWithDetails(params.name, params, isReload);
+    let params = this.getEngineParams(extension, manifest, locale);
+    return this.addEngineWithDetails(params.name, params, initEngine, isReload);
   },
 
   getEngineParams(extension, manifest, locale, engineParams = {}) {
@@ -2601,7 +2614,6 @@ SearchService.prototype = {
       queryCharset: searchProvider.encoding || "UTF-8",
       mozParams,
       telemetryId: engineParams.telemetryId,
-      initEngine: engineParams.initEngine || false,
     };
 
     return params;
@@ -2612,7 +2624,7 @@ SearchService.prototype = {
     await this.init();
     let errCode;
     try {
-      var engine = new SearchEngine({
+      var engine = new OpenSearchEngine({
         uri: engineURL,
         isAppProvided: false,
       });
@@ -2832,7 +2844,7 @@ SearchService.prototype = {
         engine &&
         (engine.isAppProvided ||
           this._cache.getAttribute(this._cache.getHashName(attributeName)) ==
-            getVerificationHash(name))
+            SearchUtils.getVerificationHash(name))
       ) {
         // If the current engine is a default one, we can relax the
         // verification hash check to reduce the annoyance for users who
@@ -2925,7 +2937,9 @@ SearchService.prototype = {
       if (!newCurrentEngine._loadPath) {
         newCurrentEngine._loadPath = "[other]unknown";
       }
-      let loadPathHash = getVerificationHash(newCurrentEngine._loadPath);
+      let loadPathHash = SearchUtils.getVerificationHash(
+        newCurrentEngine._loadPath
+      );
       let currentHash = newCurrentEngine.getAttr("loadPathHash");
       if (!currentHash || currentHash != loadPathHash) {
         newCurrentEngine.setAttr("loadPathHash", loadPathHash);
@@ -3055,7 +3069,7 @@ SearchService.prototype = {
       if (!currentHash) {
         engineData.origin = "unverified";
       } else {
-        let loadPathHash = getVerificationHash(engine._loadPath);
+        let loadPathHash = SearchUtils.getVerificationHash(engine._loadPath);
         engineData.origin =
           currentHash == loadPathHash ? "verified" : "invalid";
       }
@@ -3552,7 +3566,7 @@ var engineUpdateService = {
       }
 
       logConsole.debug("updating", engine.name, updateURI.spec);
-      testEngine = new SearchEngine({
+      testEngine = new OpenSearchEngine({
         uri: updateURI,
         isAppProvided: false,
       });

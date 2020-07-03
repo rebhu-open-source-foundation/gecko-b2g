@@ -315,8 +315,8 @@ void BluetoothDevice::DispatchAttributeEvent(const Sequence<nsString>& aTypes) {
 
   BluetoothAttributeEventInit init;
   init.mAttrs = aTypes;
-  RefPtr<BluetoothAttributeEvent> event = BluetoothAttributeEvent::Constructor(
-      this, NS_LITERAL_STRING(ATTRIBUTE_CHANGED_ID), init);
+  RefPtr<BluetoothAttributeEvent> event =
+      BluetoothAttributeEvent::Constructor(this, ATTRIBUTE_CHANGED_ID, init);
 
   DispatchTrustedEvent(event);
 }

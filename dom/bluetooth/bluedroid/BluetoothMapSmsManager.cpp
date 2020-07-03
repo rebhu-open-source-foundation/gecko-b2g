@@ -848,9 +848,8 @@ ObexResponseCode BluetoothMapSmsManager::NotifyConnectionRequest() {
   nsAutoString deviceAddressStr;
   AddressToString(mDeviceAddress, deviceAddressStr);
 
-  bs->DistributeSignal(BluetoothSignal(NS_LITERAL_STRING(MAP_CONNECTION_REQ_ID),
-                                       NS_LITERAL_STRING(KEY_MAP),
-                                       deviceAddressStr));
+  bs->DistributeSignal(
+      BluetoothSignal(MAP_CONNECTION_REQ_ID, KEY_MAP, deviceAddressStr));
 
   return ObexResponseCode::Success;
 }
@@ -1749,8 +1748,8 @@ void BluetoothMapSmsManager::HandleSmsMmsMsgListing(
   }
 
   // Get the absolute path of the folder to be retrieved.
-  name = name.IsEmpty() ? currentFolderPath
-                        : currentFolderPath + u"/"_ns + name;
+  name =
+      name.IsEmpty() ? currentFolderPath : currentFolderPath + u"/"_ns + name;
 
   nsTArray<BluetoothNamedValue> data;
   AppendNamedValue(data, "name", name);
@@ -1795,8 +1794,7 @@ void BluetoothMapSmsManager::HandleSmsMmsMsgListing(
     AppendBtNamedValueByTagId(aHeader, data, sMsgListingParameters[i]);
   }
 
-  bs->DistributeSignal(NS_LITERAL_STRING(MAP_MESSAGES_LISTING_REQ_ID),
-                       NS_LITERAL_STRING(KEY_MAP), data);
+  bs->DistributeSignal(MAP_MESSAGES_LISTING_REQ_ID, KEY_MAP, data);
 }
 
 void BluetoothMapSmsManager::HandleSmsMmsGetMessage(
@@ -1817,8 +1815,7 @@ void BluetoothMapSmsManager::HandleSmsMmsGetMessage(
   AppendBtNamedValueByTagId(aHeader, data,
                             Map::AppParametersTagId::FractionRequest);
 
-  bs->DistributeSignal(NS_LITERAL_STRING(MAP_GET_MESSAGE_REQ_ID),
-                       NS_LITERAL_STRING(KEY_MAP), data);
+  bs->DistributeSignal(MAP_GET_MESSAGE_REQ_ID, KEY_MAP, data);
 }
 
 void BluetoothMapSmsManager::BuildDefaultFolderStructure() {
@@ -1830,9 +1827,8 @@ void BluetoothMapSmsManager::BuildDefaultFolderStructure() {
    * "telecom/msg/outbox"
    * "telecom/msg/sent"
    */
-  mRootFolder = new BluetoothMapFolder(NS_LITERAL_STRING(""), nullptr);
-  BluetoothMapFolder* folder =
-      mRootFolder->AddSubFolder(u"telecom"_ns);
+  mRootFolder = new BluetoothMapFolder(u""_ns, nullptr);
+  BluetoothMapFolder* folder = mRootFolder->AddSubFolder(u"telecom"_ns);
   folder = folder->AddSubFolder(u"msg"_ns);
 
   // Add mandatory folders
@@ -1914,8 +1910,7 @@ void BluetoothMapSmsManager::HandleSetMessageStatus(
   AppendBtNamedValueByTagId(aHeader, data,
                             Map::AppParametersTagId::StatusValue);
 
-  bs->DistributeSignal(NS_LITERAL_STRING(MAP_SET_MESSAGE_STATUS_REQ_ID),
-                       NS_LITERAL_STRING(KEY_MAP), data);
+  bs->DistributeSignal(MAP_SET_MESSAGE_STATUS_REQ_ID, KEY_MAP, data);
 }
 
 void BluetoothMapSmsManager::HandleSmsMmsPushMessage(
@@ -1942,8 +1937,8 @@ void BluetoothMapSmsManager::HandleSmsMmsPushMessage(
   // Get the absolute path of the folder to be pushed.
   nsString currentFolderPath;
   mCurrentFolder->GetPath(currentFolderPath);
-  name = name.IsEmpty() ? currentFolderPath
-                        : currentFolderPath + u"/"_ns + name;
+  name =
+      name.IsEmpty() ? currentFolderPath : currentFolderPath + u"/"_ns + name;
 
   // If the message will to be pushed to 'outbox' folder
   //   1. Parse body to get SMS
@@ -1996,8 +1991,7 @@ void BluetoothMapSmsManager::HandleSmsMmsPushMessage(
     AppendNamedValue(data, "recipient", recipient);
   }
 
-  bs->DistributeSignal(NS_LITERAL_STRING(MAP_SEND_MESSAGE_REQ_ID),
-                       NS_LITERAL_STRING(KEY_ADAPTER), data);
+  bs->DistributeSignal(MAP_SEND_MESSAGE_REQ_ID, KEY_ADAPTER, data);
 }
 
 bool BluetoothMapSmsManager::GetInputStreamFromBlob(BlobImpl* aBlob,

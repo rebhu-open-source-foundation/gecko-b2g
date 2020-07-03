@@ -396,7 +396,7 @@ void BluetoothA2dpManager::HandleShutdown() {
 void BluetoothA2dpManager::OnConnectError() {
   MOZ_ASSERT(NS_IsMainThread());
 
-  mController->NotifyCompletion(NS_LITERAL_STRING(ERR_CONNECTION_FAILED));
+  mController->NotifyCompletion(ERR_CONNECTION_FAILED);
 
   mController = nullptr;
   mDeviceAddress.Clear();
@@ -421,12 +421,12 @@ void BluetoothA2dpManager::Connect(const BluetoothAddress& aDeviceAddress,
 
   BluetoothService* bs = BluetoothService::Get();
   if (!bs || sInShutdown) {
-    aController->NotifyCompletion(NS_LITERAL_STRING(ERR_NO_AVAILABLE_RESOURCE));
+    aController->NotifyCompletion(ERR_NO_AVAILABLE_RESOURCE);
     return;
   }
 
   if (mA2dpConnected) {
-    aController->NotifyCompletion(NS_LITERAL_STRING(ERR_ALREADY_CONNECTED));
+    aController->NotifyCompletion(ERR_ALREADY_CONNECTED);
     return;
   }
 
@@ -435,7 +435,7 @@ void BluetoothA2dpManager::Connect(const BluetoothAddress& aDeviceAddress,
 
   if (!sBtA2dpInterface) {
     BT_LOGR("sBluetoothA2dpInterface is null");
-    aController->NotifyCompletion(NS_LITERAL_STRING(ERR_NO_AVAILABLE_RESOURCE));
+    aController->NotifyCompletion(ERR_NO_AVAILABLE_RESOURCE);
     return;
   }
 
@@ -446,7 +446,7 @@ void BluetoothA2dpManager::OnDisconnectError() {
   MOZ_ASSERT(NS_IsMainThread());
   NS_ENSURE_TRUE_VOID(mController);
 
-  mController->NotifyCompletion(NS_LITERAL_STRING(ERR_DISCONNECTION_FAILED));
+  mController->NotifyCompletion(ERR_DISCONNECTION_FAILED);
 }
 
 class BluetoothA2dpManager::DisconnectResultHandler final
@@ -467,16 +467,14 @@ void BluetoothA2dpManager::Disconnect(BluetoothProfileController* aController) {
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
     if (aController) {
-      aController->NotifyCompletion(
-          NS_LITERAL_STRING(ERR_NO_AVAILABLE_RESOURCE));
+      aController->NotifyCompletion(ERR_NO_AVAILABLE_RESOURCE);
     }
     return;
   }
 
   if (!mA2dpConnected) {
     if (aController) {
-      aController->NotifyCompletion(
-          NS_LITERAL_STRING(ERR_ALREADY_DISCONNECTED));
+      aController->NotifyCompletion(ERR_ALREADY_DISCONNECTED);
     }
     return;
   }
@@ -488,8 +486,7 @@ void BluetoothA2dpManager::Disconnect(BluetoothProfileController* aController) {
   if (!sBtA2dpInterface) {
     BT_LOGR("sBluetoothA2dpInterface is null");
     if (aController) {
-      aController->NotifyCompletion(
-          NS_LITERAL_STRING(ERR_NO_AVAILABLE_RESOURCE));
+      aController->NotifyCompletion(ERR_NO_AVAILABLE_RESOURCE);
     }
     return;
   }
@@ -611,7 +608,7 @@ void BluetoothA2dpManager::HandleSinkPropertyChanged(
     case SinkState::SINK_DISCONNECTED:
       // case 2: Connection attempt failed
       if (prevState == SinkState::SINK_CONNECTING) {
-        OnConnect(NS_LITERAL_STRING(ERR_CONNECTION_FAILED));
+        OnConnect(ERR_CONNECTION_FAILED);
         break;
       }
 
@@ -656,8 +653,8 @@ void BluetoothA2dpManager::NotifyConnectionStatusChanged() {
   }
 
   // Dispatch an event of status change
-  DispatchStatusChangedEvent(NS_LITERAL_STRING(A2DP_STATUS_CHANGED_ID),
-                             mDeviceAddress, mA2dpConnected);
+  DispatchStatusChangedEvent(A2DP_STATUS_CHANGED_ID, mDeviceAddress,
+                             mA2dpConnected);
 }
 
 void BluetoothA2dpManager::OnGetServiceChannel(

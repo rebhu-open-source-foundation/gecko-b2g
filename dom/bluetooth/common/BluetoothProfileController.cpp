@@ -109,7 +109,7 @@ void BluetoothProfileController::AddProfileWithServiceClass(
       profile = BluetoothHidManager::Get();
       break;
     default:
-      DispatchReplyError(mRunnable, NS_LITERAL_STRING(ERR_UNKNOWN_PROFILE));
+      DispatchReplyError(mRunnable, ERR_UNKNOWN_PROFILE);
       mCallback();
       return;
   }
@@ -120,7 +120,7 @@ void BluetoothProfileController::AddProfileWithServiceClass(
 void BluetoothProfileController::AddProfile(
     BluetoothProfileManagerBase* aProfile, bool aCheckConnected) {
   if (!aProfile) {
-    DispatchReplyError(mRunnable, NS_LITERAL_STRING(ERR_NO_AVAILABLE_RESOURCE));
+    DispatchReplyError(mRunnable, ERR_NO_AVAILABLE_RESOURCE);
     mCallback();
     return;
   }
@@ -262,9 +262,9 @@ void BluetoothProfileController::EndSession() {
   if (mSuccess) {
     DispatchReplySuccess(mRunnable);
   } else if (mConnect) {
-    DispatchReplyError(mRunnable, NS_LITERAL_STRING(ERR_CONNECTION_FAILED));
+    DispatchReplyError(mRunnable, ERR_CONNECTION_FAILED);
   } else {
-    DispatchReplyError(mRunnable, NS_LITERAL_STRING(ERR_DISCONNECTION_FAILED));
+    DispatchReplyError(mRunnable, ERR_DISCONNECTION_FAILED);
   }
 
   mCallback();

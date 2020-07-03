@@ -155,8 +155,8 @@ void DeviceStorageRequestParent::Dispatch() {
 
     case DeviceStorageParams::TDeviceStorageEnumerationParams: {
       DeviceStorageEnumerationParams p = mParams;
-      RefPtr<DeviceStorageFile> dsf = new DeviceStorageFile(
-          p.type(), p.storageName(), p.rootdir(), NS_LITERAL_STRING(""));
+      RefPtr<DeviceStorageFile> dsf =
+          new DeviceStorageFile(p.type(), p.storageName(), p.rootdir(), u""_ns);
       r = new EnumerateFileEvent(this, dsf.forget(), p.since());
       break;
     }
@@ -255,7 +255,8 @@ nsresult DeviceStorageRequestParent::PostBlobSuccessEvent::CancelableRun() {
   IPCBlob ipcBlob;
   nsresult rv = IPCBlobUtils::Serialize(blob, cp, ipcBlob);
   if (NS_WARN_IF(NS_FAILED(rv))) {
-    ErrorResponse response(NS_LITERAL_STRING(POST_ERROR_EVENT_UNKNOWN));
+    ErrorResponse response(
+        NS_LITERAL_STRING_FROM_CSTRING(POST_ERROR_EVENT_UNKNOWN));
     Unused << mParent->Send__delete__(mParent, response);
     return NS_OK;
   }

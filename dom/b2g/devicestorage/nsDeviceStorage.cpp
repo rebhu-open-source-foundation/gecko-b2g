@@ -71,7 +71,7 @@
 #define DEVICESTORAGE_PROPERTIES \
   "chrome://global/content/devicestorage.properties"
 #define DEFAULT_THREAD_TIMEOUT_MS 30000
-#define STORAGE_CHANGE_EVENT "change"
+#define STORAGE_CHANGE_EVENT "change"_ns
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -107,9 +107,8 @@ StaticAutoPtr<DeviceStorageUsedSpaceCache>
 DeviceStorageUsedSpaceCache::DeviceStorageUsedSpaceCache() {
   MOZ_ASSERT(NS_IsMainThread());
 
-  mIOThread =
-      new LazyIdleThread(DEFAULT_THREAD_TIMEOUT_MS,
-                         "DeviceStorageUsedSpaceCache I/O"_ns);
+  mIOThread = new LazyIdleThread(DEFAULT_THREAD_TIMEOUT_MS,
+                                 "DeviceStorageUsedSpaceCache I/O"_ns);
 }
 
 DeviceStorageUsedSpaceCache::~DeviceStorageUsedSpaceCache() {}
@@ -145,7 +144,7 @@ static int64_t GetFreeBytes(const nsAString& aStorageName) {
   // are all stored on the same filesystem. So we use pictures.
 
   RefPtr<DeviceStorageFile> dsf(new DeviceStorageFile(
-      NS_LITERAL_STRING(DEVICESTORAGE_PICTURES), aStorageName));
+      NS_LITERAL_STRING_FROM_CSTRING(DEVICESTORAGE_PICTURES), aStorageName));
   int64_t freeBytes = 0;
   dsf->GetStorageFreeSpace(&freeBytes);
   return freeBytes;
@@ -509,7 +508,7 @@ void DeviceStorageFile::Dump(const char* label) {
   if (mFile) {
     mFile->GetPath(path);
   } else {
-    path = NS_LITERAL_STRING("(null)");
+    path = u"(null)"_ns;
   }
   const char* ptStr;
   if (XRE_IsParentProcess()) {
@@ -2183,8 +2182,7 @@ class DeviceStoragePermissionCheck final : public ContentPermissionRequestBase,
   DeviceStoragePermissionCheck(
       nsIPrincipal* aPrincipal, nsPIDOMWindowInner* aWindow,
       already_AddRefed<DeviceStorageRequest>&& aRequest)
-      : ContentPermissionRequestBase(aPrincipal, aWindow,
-                                     NS_LITERAL_CSTRING(""),
+      : ContentPermissionRequestBase(aPrincipal, aWindow, ""_ns,
                                      "devicestorage"_ns),
         mRequest(std::move(aRequest)) {
     MOZ_ASSERT(mRequest);
@@ -3190,7 +3188,7 @@ void nsDOMDeviceStorage::OnWritableNameChanged() {
 
   RefPtr<DeviceStorageChangeEvent> event =
       DeviceStorageChangeEvent::Constructor(
-          this, NS_LITERAL_STRING(STORAGE_CHANGE_EVENT), init);
+          this, NS_LITERAL_STRING_FROM_CSTRING(STORAGE_CHANGE_EVENT), init);
   event->SetTrusted(true);
 
   DispatchEvent(*event);
@@ -3213,7 +3211,7 @@ void nsDOMDeviceStorage::DispatchStatusChangeEvent(nsAString& aStatus) {
 
   RefPtr<DeviceStorageChangeEvent> event =
       DeviceStorageChangeEvent::Constructor(
-          this, NS_LITERAL_STRING(STORAGE_CHANGE_EVENT), init);
+          this, NS_LITERAL_STRING_FROM_CSTRING(STORAGE_CHANGE_EVENT), init);
   event->SetTrusted(true);
 
   DispatchEvent(*event);
@@ -3234,8 +3232,8 @@ void nsDOMDeviceStorage::DispatchStorageStatusChangeEvent(
   init.mReason = aStorageStatus;
 
   RefPtr<DeviceStorageChangeEvent> event =
-      DeviceStorageChangeEvent::Constructor(
-          this, u"storage-state-change"_ns, init);
+      DeviceStorageChangeEvent::Constructor(this, u"storage-state-change"_ns,
+                                            init);
   event->SetTrusted(true);
 
   DispatchEvent(*event);
@@ -3317,7 +3315,7 @@ nsresult nsDOMDeviceStorage::Notify(const char* aReason,
 
   RefPtr<DeviceStorageChangeEvent> event =
       DeviceStorageChangeEvent::Constructor(
-          this, NS_LITERAL_STRING(STORAGE_CHANGE_EVENT), init);
+          this, NS_LITERAL_STRING_FROM_CSTRING(STORAGE_CHANGE_EVENT), init);
   event->SetTrusted(true);
 
   DispatchEvent(*event);
@@ -3538,13 +3536,15 @@ nsresult DeviceStorageRequestManager::Resolve(uint32_t aId,
 
   AutoJSAPI jsapi;
   if (NS_WARN_IF(!jsapi.Init(global))) {
-    return RejectInternal(i, NS_LITERAL_STRING(POST_ERROR_EVENT_UNKNOWN));
+    return RejectInternal(
+        i, NS_LITERAL_STRING_FROM_CSTRING(POST_ERROR_EVENT_UNKNOWN));
   }
 
   JS::RootedValue rvalue(jsapi.cx());
   JS::MutableHandleValue mvalue(&rvalue);
   if (NS_WARN_IF(!xpc::StringToJsval(jsapi.cx(), aResult, mvalue))) {
-    return RejectInternal(i, NS_LITERAL_STRING(POST_ERROR_EVENT_UNKNOWN));
+    return RejectInternal(
+        i, NS_LITERAL_STRING_FROM_CSTRING(POST_ERROR_EVENT_UNKNOWN));
   }
 
   return ResolveInternal(i, rvalue);
@@ -3635,7 +3635,8 @@ nsresult DeviceStorageRequestManager::Resolve(uint32_t aId, BlobImpl* aBlobImpl,
 
   AutoJSAPI jsapi;
   if (NS_WARN_IF(!jsapi.Init(global))) {
-    return RejectInternal(i, NS_LITERAL_STRING(POST_ERROR_EVENT_UNKNOWN));
+    return RejectInternal(
+        i, NS_LITERAL_STRING_FROM_CSTRING(POST_ERROR_EVENT_UNKNOWN));
   }
 
   RefPtr<Blob> blob = Blob::Create(global, aBlobImpl);

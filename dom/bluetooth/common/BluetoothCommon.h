@@ -198,40 +198,40 @@ extern bool gBluetoothDebugFlag;
 
 #define KEY_LOCAL_AGENT "/B2G/bluetooth/agent"
 #define KEY_REMOTE_AGENT "/B2G/bluetooth/remote_device_agent"
-#define KEY_MANAGER "/B2G/bluetooth/manager"
-#define KEY_ADAPTER "/B2G/bluetooth/adapter"
-#define KEY_PAIRING_LISTENER "/B2G/bluetooth/pairing_listener"
-#define KEY_PBAP "/B2G/bluetooth/pbap"
-#define KEY_MAP "/B2G/bluetooth/map"
+#define KEY_MANAGER u"/B2G/bluetooth/manager"_ns
+#define KEY_ADAPTER u"/B2G/bluetooth/adapter"_ns
+#define KEY_PAIRING_LISTENER u"/B2G/bluetooth/pairing_listener"_ns
+#define KEY_PBAP u"/B2G/bluetooth/pbap"_ns
+#define KEY_MAP u"/B2G/bluetooth/map"_ns
 
 /**
  * When the connection status of a Bluetooth profile is changed, we'll notify
  * observers which register the following topics.
  */
 #define BLUETOOTH_A2DP_STATUS_CHANGED_ID "bluetooth-a2dp-status-changed"
-#define BLUETOOTH_HFP_STATUS_CHANGED_ID "bluetooth-hfp-status-changed"
+#define BLUETOOTH_HFP_STATUS_CHANGED_ID u"bluetooth-hfp-status-changed"_ns
 #define BLUETOOTH_HFP_NREC_STATUS_CHANGED_ID "bluetooth-hfp-nrec-status-changed"
 #define BLUETOOTH_HFP_WBS_STATUS_CHANGED_ID "bluetooth-hfp-wbs-status-changed"
-#define BLUETOOTH_HID_STATUS_CHANGED_ID "bluetooth-hid-status-changed"
-#define BLUETOOTH_SCO_STATUS_CHANGED_ID "bluetooth-sco-status-changed"
+#define BLUETOOTH_HID_STATUS_CHANGED_ID u"bluetooth-hid-status-changed"_ns
+#define BLUETOOTH_SCO_STATUS_CHANGED_ID u"bluetooth-sco-status-changed"_ns
 
 /**
  * When receiving the pbap connection request, will dispatch this event.
  */
-#define PBAP_CONNECTION_REQ_ID "pbapconnectionreq"
+#define PBAP_CONNECTION_REQ_ID u"pbapconnectionreq"_ns
 
 /**
  * When receiving the map connection request, will dispatch this event.
  */
-#define MAP_CONNECTION_REQ_ID "mapconnectionreq"
+#define MAP_CONNECTION_REQ_ID u"mapconnectionreq"_ns
 
 /**
  * When the connection status of a Bluetooth profile is changed, we'll
  * dispatch one of the following events.
  */
-#define A2DP_STATUS_CHANGED_ID "a2dpstatuschanged"
+#define A2DP_STATUS_CHANGED_ID u"a2dpstatuschanged"_ns
 #define HFP_STATUS_CHANGED_ID "hfpstatuschanged"
-#define HID_STATUS_CHANGED_ID "hidstatuschanged"
+#define HID_STATUS_CHANGED_ID u"hidstatuschanged"_ns
 #define SCO_STATUS_CHANGED_ID "scostatuschanged"
 
 /**
@@ -239,7 +239,7 @@ extern bool gBluetoothDebugFlag;
  * BluetoothPairingHandle.
  */
 #define PAIRING_REQ_TYPE_DISPLAYPASSKEY "displaypasskeyreq"
-#define PAIRING_REQ_TYPE_ENTERPINCODE "enterpincodereq"
+#define PAIRING_REQ_TYPE_ENTERPINCODE u"enterpincodereq"_ns
 #define PAIRING_REQ_TYPE_CONFIRMATION "pairingconfirmationreq"
 #define PAIRING_REQ_TYPE_CONSENT "pairingconsentreq"
 
@@ -247,7 +247,7 @@ extern bool gBluetoothDebugFlag;
  * System message to launch bluetooth app if no pairing listener is ready to
  * receive pairing requests.
  */
-#define SYS_MSG_BT_PAIRING_REQ "bluetooth-pairing-request"
+#define SYS_MSG_BT_PAIRING_REQ u"bluetooth-pairing-request"_ns
 
 /**
  * System message to launch bluetooth PBAP app,
@@ -271,64 +271,64 @@ extern bool gBluetoothDebugFlag;
  * When a remote device gets paired / unpaired with local bluetooth adapter or
  * pairing process is aborted, we'll dispatch an event.
  */
-#define DEVICE_PAIRED_ID "devicepaired"
-#define DEVICE_UNPAIRED_ID "deviceunpaired"
-#define PAIRING_ABORTED_ID "pairingaborted"
+#define DEVICE_PAIRED_ID u"devicepaired"_ns
+#define DEVICE_UNPAIRED_ID u"deviceunpaired"_ns
+#define PAIRING_ABORTED_ID u"pairingaborted"_ns
 
 /**
  * When receiving a query about current play status from remote device, we'll
  * dispatch an event.
  */
-#define REQUEST_MEDIA_PLAYSTATUS_ID "requestmediaplaystatus"
+#define REQUEST_MEDIA_PLAYSTATUS_ID u"requestmediaplaystatus"_ns
 
 /**
  * When receiving an OBEX authenticate challenge request from a remote device,
  * we'll dispatch an event.
  */
-#define OBEX_PASSWORD_REQ_ID "obexpasswordreq"
+#define OBEX_PASSWORD_REQ_ID u"obexpasswordreq"_ns
 
 /**
  * When receiving a PBAP request from a remote device, we'll dispatch an event.
  */
-#define PULL_PHONEBOOK_REQ_ID "pullphonebookreq"
-#define PULL_VCARD_ENTRY_REQ_ID "pullvcardentryreq"
-#define PULL_VCARD_LISTING_REQ_ID "pullvcardlistingreq"
+#define PULL_PHONEBOOK_REQ_ID u"pullphonebookreq"_ns
+#define PULL_VCARD_ENTRY_REQ_ID u"pullvcardentryreq"_ns
+#define PULL_VCARD_LISTING_REQ_ID u"pullvcardlistingreq"_ns
 
 /**
  * When receiving a MAP request from a remote device,
  * we'll dispatch an event.
  */
-#define MAP_MESSAGES_LISTING_REQ_ID "mapmessageslistingreq"
-#define MAP_GET_MESSAGE_REQ_ID "mapgetmessagereq"
-#define MAP_SET_MESSAGE_STATUS_REQ_ID "mapsetmessagestatusreq"
-#define MAP_SEND_MESSAGE_REQ_ID "mapsendmessagereq"
-#define MAP_FOLDER_LISTING_REQ_ID "mapfolderlistingreq"
-#define MAP_MESSAGE_UPDATE_REQ_ID "mapmessageupdatereq"
+#define MAP_MESSAGES_LISTING_REQ_ID u"mapmessageslistingreq"_ns
+#define MAP_GET_MESSAGE_REQ_ID u"mapgetmessagereq"_ns
+#define MAP_SET_MESSAGE_STATUS_REQ_ID u"mapsetmessagestatusreq"_ns
+#define MAP_SEND_MESSAGE_REQ_ID u"mapsendmessagereq"_ns
+#define MAP_FOLDER_LISTING_REQ_ID u"mapfolderlistingreq"_ns
+#define MAP_MESSAGE_UPDATE_REQ_ID u"mapmessageupdatereq"_ns
 
 /**
  * When the value of a characteristic of a remote BLE device changes, we'll
  * dispatch an event
  */
-#define GATT_CHARACTERISTIC_CHANGED_ID "characteristicchanged"
+#define GATT_CHARACTERISTIC_CHANGED_ID u"characteristicchanged"_ns
 
 /**
  * When a remote BLE device gets connected / disconnected, we'll dispatch an
  * event.
  */
-#define GATT_CONNECTION_STATE_CHANGED_ID "connectionstatechanged"
+#define GATT_CONNECTION_STATE_CHANGED_ID u"connectionstatechanged"_ns
 
 /**
  * When attributes of BluetoothManager, BluetoothAdapter, or BluetoothDevice
  * are changed, we'll dispatch an event.
  */
-#define ATTRIBUTE_CHANGED_ID "attributechanged"
+#define ATTRIBUTE_CHANGED_ID u"attributechanged"_ns
 
 /**
  * When the local GATT server received attribute read/write requests, we'll
  * dispatch an event.
  */
-#define ATTRIBUTE_READ_REQUEST "attributereadreq"
-#define ATTRIBUTE_WRITE_REQUEST "attributewritereq"
+#define ATTRIBUTE_READ_REQUEST u"attributereadreq"_ns
+#define ATTRIBUTE_WRITE_REQUEST u"attributewritereq"_ns
 
 // Bluetooth address format: xx:xx:xx:xx:xx:xx (or xx_xx_xx_xx_xx_xx)
 #define BLUETOOTH_ADDRESS_LENGTH 17
@@ -1403,8 +1403,7 @@ struct BluetoothSdpRecord {
 struct BluetoothMasRecord : public BluetoothSdpRecord {
   BluetoothMasRecord(int32_t aRfcommChannelNumber, int32_t aInstanceId)
       : BluetoothSdpRecord(SDP_TYPE_MAP_MAS, BluetoothUuid(MAP_MAS),
-                           "SMS Message Access"_ns,
-                           aRfcommChannelNumber,
+                           "SMS Message Access"_ns, aRfcommChannelNumber,
                            -1,  // don't specify L2CAP PSM
                            MAP_PROFILE_VERSION, MAP_SUPPORTED_FEATURES,
                            MAP_SUPPORTED_MSG_TYPES, aInstanceId) {}

@@ -23,10 +23,10 @@ using ::android::String16;
 static std::string g_InterfaceName;
 
 /* event name */
-#define EVENT_SCAN_RESULT_READY "SCAN_RESULT_READY"
-#define EVENT_SCAN_RESULT_FAILED "SCAN_RESULT_FAILED"
-#define EVENT_PNO_SCAN_FOUND "PNO_SCAN_FOUND"
-#define EVENT_PNO_SCAN_FAILED "PNO_SCAN_FAILED"
+#define EVENT_SCAN_RESULT_READY u"SCAN_RESULT_READY"_ns
+#define EVENT_SCAN_RESULT_FAILED u"SCAN_RESULT_FAILED"_ns
+#define EVENT_PNO_SCAN_FOUND u"PNO_SCAN_FOUND"_ns
+#define EVENT_PNO_SCAN_FAILED u"PNO_SCAN_FAILED"_ns
 
 /**
  * EventCallbackHandler
@@ -71,8 +71,7 @@ android::binder::Status ScanEventService::OnScanResultReady() {
   MutexAutoLock lock(sLock);
 
   nsCString iface(g_InterfaceName);
-  RefPtr<nsWifiEvent> event =
-      new nsWifiEvent(NS_LITERAL_STRING(EVENT_SCAN_RESULT_READY));
+  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_SCAN_RESULT_READY);
 
   if (mCallback) {
     mCallback->Notify(event, iface);
@@ -84,8 +83,7 @@ android::binder::Status ScanEventService::OnScanFailed() {
   MutexAutoLock lock(sLock);
 
   nsCString iface(g_InterfaceName);
-  RefPtr<nsWifiEvent> event =
-      new nsWifiEvent(NS_LITERAL_STRING(EVENT_SCAN_RESULT_FAILED));
+  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_SCAN_RESULT_FAILED);
 
   if (mCallback) {
     mCallback->Notify(event, iface);
@@ -126,8 +124,7 @@ android::binder::Status PnoScanEventService::OnPnoNetworkFound() {
   MutexAutoLock lock(sLock);
 
   nsCString iface(g_InterfaceName);
-  RefPtr<nsWifiEvent> event =
-      new nsWifiEvent(NS_LITERAL_STRING(EVENT_PNO_SCAN_FOUND));
+  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_PNO_SCAN_FOUND);
 
   if (mCallback) {
     mCallback->Notify(event, iface);
@@ -139,8 +136,7 @@ android::binder::Status PnoScanEventService::OnPnoScanFailed() {
   MutexAutoLock lock(sLock);
 
   nsCString iface(g_InterfaceName);
-  RefPtr<nsWifiEvent> event =
-      new nsWifiEvent(NS_LITERAL_STRING(EVENT_PNO_SCAN_FAILED));
+  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_PNO_SCAN_FAILED);
 
   if (mCallback) {
     mCallback->Notify(event, iface);

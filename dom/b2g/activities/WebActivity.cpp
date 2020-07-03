@@ -41,9 +41,8 @@ class ActivityInitRunnable : public WorkerMainThreadRunnable,
                              public StructuredCloneHolder {
  public:
   ActivityInitRunnable(WorkerPrivate* aWorkerPrivate, WebActivity* aWebActivity)
-      : WorkerMainThreadRunnable(
-            aWorkerPrivate,
-            "WebActivity :: ActivityInitialize"_ns),
+      : WorkerMainThreadRunnable(aWorkerPrivate,
+                                 "WebActivity :: ActivityInitialize"_ns),
         StructuredCloneHolder(CloningSupported, TransferringSupported,
                               StructuredCloneScope::SameProcess),
         mWebActivity(aWebActivity) {}
@@ -263,8 +262,8 @@ nsresult WebActivity::PermissionCheck() {
           do_GetService("@mozilla.org/consoleservice;1"));
       NS_ENSURE_TRUE(console, NS_ERROR_FAILURE);
 
-      nsString message = NS_LITERAL_STRING(
-          "Can only start activity from user input or chrome code");
+      nsString message =
+          u"Can only start activity from user input or chrome code"_ns;
       console->LogStringMessage(message.get());
 
       return NS_ERROR_FAILURE;

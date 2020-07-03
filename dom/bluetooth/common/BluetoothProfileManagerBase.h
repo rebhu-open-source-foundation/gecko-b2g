@@ -12,14 +12,14 @@
  *
  * These error messages would be sent to Gaia as an argument of onError event.
  */
-#define ERR_ALREADY_CONNECTED "AlreadyConnectedError"
-#define ERR_ALREADY_DISCONNECTED "AlreadyDisconnectedError"
-#define ERR_CONNECTION_FAILED "ConnectionFailedError"
-#define ERR_DISCONNECTION_FAILED "DisconnectionFailedError"
-#define ERR_NO_AVAILABLE_RESOURCE "NoAvailableResourceError"
+#define ERR_ALREADY_CONNECTED u"AlreadyConnectedError"_ns
+#define ERR_ALREADY_DISCONNECTED u"AlreadyDisconnectedError"_ns
+#define ERR_CONNECTION_FAILED u"ConnectionFailedError"_ns
+#define ERR_DISCONNECTION_FAILED u"DisconnectionFailedError"_ns
+#define ERR_NO_AVAILABLE_RESOURCE u"NoAvailableResourceError"_ns
 #define ERR_REACHED_CONNECTION_LIMIT "ReachedConnectionLimitError"
 #define ERR_SERVICE_CHANNEL_NOT_FOUND "DeviceChannelRetrievalError"
-#define ERR_UNKNOWN_PROFILE "UnknownProfileError"
+#define ERR_UNKNOWN_PROFILE u"UnknownProfileError"_ns
 #define ERR_OPERATION_TIMEOUT "OperationTimeout"
 
 #include "BluetoothCommon.h"

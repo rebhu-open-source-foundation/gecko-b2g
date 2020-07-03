@@ -61,8 +61,7 @@ namespace dom {
 StaticRefPtr<nsPicoService> nsPicoService::sSingleton;
 
 class PicoApi {
-public:
-
+ public:
   PicoApi() : mInitialized(false) {}
 
   bool Init() {
@@ -77,59 +76,53 @@ public:
       return false;
     }
 
-    pico_initialize =
-      (pico_Status (*)(void*, uint32_t, pico_System*))dlsym(
+    pico_initialize = (pico_Status(*)(void*, uint32_t, pico_System*))dlsym(
         handle, "pico_initialize");
 
     pico_terminate =
-      (pico_Status (*)(pico_System*))dlsym(handle, "pico_terminate");
+        (pico_Status(*)(pico_System*))dlsym(handle, "pico_terminate");
 
     pico_getSystemStatusMessage =
-      (pico_Status (*)(pico_System, pico_Status, pico_Retstring))dlsym(
-        handle, "pico_getSystemStatusMessage");;
+        (pico_Status(*)(pico_System, pico_Status, pico_Retstring))dlsym(
+            handle, "pico_getSystemStatusMessage");
+    ;
 
     pico_loadResource =
-      (pico_Status (*)(pico_System, const char*, pico_Resource*))dlsym(
-        handle, "pico_loadResource");
+        (pico_Status(*)(pico_System, const char*, pico_Resource*))dlsym(
+            handle, "pico_loadResource");
 
-    pico_unloadResource =
-      (pico_Status (*)(pico_System, pico_Resource*))dlsym(
+    pico_unloadResource = (pico_Status(*)(pico_System, pico_Resource*))dlsym(
         handle, "pico_unloadResource");
 
     pico_getResourceName =
-      (pico_Status (*)(pico_System, pico_Resource, pico_Retstring))dlsym(
-        handle, "pico_getResourceName");
+        (pico_Status(*)(pico_System, pico_Resource, pico_Retstring))dlsym(
+            handle, "pico_getResourceName");
 
-    pico_createVoiceDefinition =
-      (pico_Status (*)(pico_System, const char*))dlsym(
-        handle, "pico_createVoiceDefinition");
+    pico_createVoiceDefinition = (pico_Status(*)(
+        pico_System, const char*))dlsym(handle, "pico_createVoiceDefinition");
 
     pico_addResourceToVoiceDefinition =
-      (pico_Status (*)(pico_System, const char*, const char*))dlsym(
-        handle, "pico_addResourceToVoiceDefinition");
+        (pico_Status(*)(pico_System, const char*, const char*))dlsym(
+            handle, "pico_addResourceToVoiceDefinition");
 
-    pico_releaseVoiceDefinition =
-      (pico_Status (*)(pico_System, const char*))dlsym(
-        handle, "pico_releaseVoiceDefinition");
+    pico_releaseVoiceDefinition = (pico_Status(*)(
+        pico_System, const char*))dlsym(handle, "pico_releaseVoiceDefinition");
 
-    pico_newEngine =
-      (pico_Status (*)(pico_System, const char*, pico_Engine*))dlsym(
-        handle, "pico_newEngine");
+    pico_newEngine = (pico_Status(*)(
+        pico_System, const char*, pico_Engine*))dlsym(handle, "pico_newEngine");
 
-    pico_disposeEngine =
-      (pico_Status (*)(pico_System, pico_Engine*))dlsym(
+    pico_disposeEngine = (pico_Status(*)(pico_System, pico_Engine*))dlsym(
         handle, "pico_disposeEngine");
 
     pico_resetEngine =
-      (pico_Status (*)(pico_Engine, int32_t))dlsym(handle, "pico_resetEngine");
+        (pico_Status(*)(pico_Engine, int32_t))dlsym(handle, "pico_resetEngine");
 
     pico_putTextUtf8 =
-      (pico_Status (*)(pico_Engine, const char*, const int16_t, int16_t*))dlsym(
-        handle, "pico_putTextUtf8");
+        (pico_Status(*)(pico_Engine, const char*, const int16_t,
+                        int16_t*))dlsym(handle, "pico_putTextUtf8");
 
-    pico_getData =
-      (pico_Status (*)(pico_Engine, void*, int16_t, int16_t*, int16_t*))dlsym(
-        handle, "pico_getData");
+    pico_getData = (pico_Status(*)(pico_Engine, void*, int16_t, int16_t*,
+                                   int16_t*))dlsym(handle, "pico_getData");
 
     mInitialized = true;
     return true;
@@ -138,59 +131,56 @@ public:
   typedef signed int pico_Status;
   typedef char pico_Retstring[PICO_RETSTRINGSIZE];
 
-  pico_Status (* pico_initialize)(void*, uint32_t, pico_System*);
-  pico_Status (* pico_terminate)(pico_System*);
-  pico_Status (* pico_getSystemStatusMessage)(
-    pico_System, pico_Status, pico_Retstring);
+  pico_Status (*pico_initialize)(void*, uint32_t, pico_System*);
+  pico_Status (*pico_terminate)(pico_System*);
+  pico_Status (*pico_getSystemStatusMessage)(pico_System, pico_Status,
+                                             pico_Retstring);
 
-  pico_Status (* pico_loadResource)(pico_System, const char*, pico_Resource*);
-  pico_Status (* pico_unloadResource)(pico_System, pico_Resource*);
-  pico_Status (* pico_getResourceName)(
-    pico_System, pico_Resource, pico_Retstring);
-  pico_Status (* pico_createVoiceDefinition)(pico_System, const char*);
-  pico_Status (* pico_addResourceToVoiceDefinition)(
-    pico_System, const char*, const char*);
-  pico_Status (* pico_releaseVoiceDefinition)(pico_System, const char*);
-  pico_Status (* pico_newEngine)(pico_System, const char*, pico_Engine*);
-  pico_Status (* pico_disposeEngine)(pico_System, pico_Engine*);
+  pico_Status (*pico_loadResource)(pico_System, const char*, pico_Resource*);
+  pico_Status (*pico_unloadResource)(pico_System, pico_Resource*);
+  pico_Status (*pico_getResourceName)(pico_System, pico_Resource,
+                                      pico_Retstring);
+  pico_Status (*pico_createVoiceDefinition)(pico_System, const char*);
+  pico_Status (*pico_addResourceToVoiceDefinition)(pico_System, const char*,
+                                                   const char*);
+  pico_Status (*pico_releaseVoiceDefinition)(pico_System, const char*);
+  pico_Status (*pico_newEngine)(pico_System, const char*, pico_Engine*);
+  pico_Status (*pico_disposeEngine)(pico_System, pico_Engine*);
 
-  pico_Status (* pico_resetEngine)(pico_Engine, int32_t);
-  pico_Status (* pico_putTextUtf8)(
-    pico_Engine, const char*, const int16_t, int16_t*);
-  pico_Status (* pico_getData)(
-    pico_Engine, void*, const int16_t, int16_t*, int16_t*);
+  pico_Status (*pico_resetEngine)(pico_Engine, int32_t);
+  pico_Status (*pico_putTextUtf8)(pico_Engine, const char*, const int16_t,
+                                  int16_t*);
+  pico_Status (*pico_getData)(pico_Engine, void*, const int16_t, int16_t*,
+                              int16_t*);
 
-private:
-
+ private:
   bool mInitialized;
 
 } sPicoApi;
 
-#define PICO_ENSURE_SUCCESS_VOID(_funcName, _status)                      \
-  if (_status < 0) {                                                      \
-    PicoApi::pico_Retstring message;                                      \
-    sPicoApi.pico_getSystemStatusMessage(                                 \
-      nsPicoService::sSingleton->mPicoSystem, _status, message);          \
-    NS_WARNING(                                                           \
-      nsPrintfCString("Error running %s: %s", _funcName, message).get()); \
-    return;                                                               \
+#define PICO_ENSURE_SUCCESS_VOID(_funcName, _status)                        \
+  if (_status < 0) {                                                        \
+    PicoApi::pico_Retstring message;                                        \
+    sPicoApi.pico_getSystemStatusMessage(                                   \
+        nsPicoService::sSingleton->mPicoSystem, _status, message);          \
+    NS_WARNING(                                                             \
+        nsPrintfCString("Error running %s: %s", _funcName, message).get()); \
+    return;                                                                 \
   }
 
-#define PICO_ENSURE_SUCCESS(_funcName, _status, _rv)                      \
-  if (_status < 0) {                                                      \
-    PicoApi::pico_Retstring message;                                      \
-    sPicoApi.pico_getSystemStatusMessage(                                 \
-      nsPicoService::sSingleton->mPicoSystem, _status, message);          \
-    NS_WARNING(                                                           \
-      nsPrintfCString("Error running %s: %s", _funcName, message).get()); \
-    return _rv;                                                           \
+#define PICO_ENSURE_SUCCESS(_funcName, _status, _rv)                        \
+  if (_status < 0) {                                                        \
+    PicoApi::pico_Retstring message;                                        \
+    sPicoApi.pico_getSystemStatusMessage(                                   \
+        nsPicoService::sSingleton->mPicoSystem, _status, message);          \
+    NS_WARNING(                                                             \
+        nsPrintfCString("Error running %s: %s", _funcName, message).get()); \
+    return _rv;                                                             \
   }
 
 class PicoVoice {
-public:
-
-  PicoVoice(const nsAString& aLanguage)
-    : mLanguage(aLanguage) {}
+ public:
+  PicoVoice(const nsAString& aLanguage) : mLanguage(aLanguage) {}
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(PicoVoice)
 
@@ -203,25 +193,24 @@ public:
   // Speaker resource file
   nsCString mSgFile;
 
-private:
+ private:
   ~PicoVoice() {}
 };
 
-class PicoCallbackRunnable : public Runnable,
-                             public nsISpeechTaskCallback {
+class PicoCallbackRunnable : public Runnable, public nsISpeechTaskCallback {
   friend class PicoSynthDataRunnable;
 
-public:
-  PicoCallbackRunnable(const nsAString& aText, PicoVoice* aVoice,
-                       float aRate, float aPitch, nsISpeechTask* aTask,
+ public:
+  PicoCallbackRunnable(const nsAString& aText, PicoVoice* aVoice, float aRate,
+                       float aPitch, nsISpeechTask* aTask,
                        nsPicoService* aService)
-    : mozilla::Runnable("PicoCallbackRunnable")
-    , mText(NS_ConvertUTF16toUTF8(aText))
-    , mRate(aRate)
-    , mPitch(aPitch)
-    , mTask(aTask)
-    , mVoice(aVoice)
-    , mService(aService) {}
+      : mozilla::Runnable("PicoCallbackRunnable"),
+        mText(NS_ConvertUTF16toUTF8(aText)),
+        mRate(aRate),
+        mPitch(aPitch),
+        mTask(aTask),
+        mVoice(aVoice),
+        mService(aService) {}
 
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSISPEECHTASKCALLBACK
@@ -230,7 +219,7 @@ public:
 
   bool IsCurrentTask() { return mService->mCurrentTask == mTask; }
 
-private:
+ private:
   ~PicoCallbackRunnable() {}
 
   void DispatchSynthDataRunnable(already_AddRefed<SharedBuffer>&& aBuffer,
@@ -255,7 +244,8 @@ private:
   RefPtr<nsPicoService> mService;
 };
 
-NS_IMPL_ISUPPORTS_INHERITED(PicoCallbackRunnable, Runnable, nsISpeechTaskCallback)
+NS_IMPL_ISUPPORTS_INHERITED(PicoCallbackRunnable, Runnable,
+                            nsISpeechTaskCallback)
 
 // Runnable
 
@@ -274,10 +264,9 @@ PicoCallbackRunnable::Run() {
   // Add SSML markup for pitch and rate. Pico uses a minimal parser,
   // so no namespace is needed.
   nsPrintfCString markedUpText(
-    "<pitch level=\"%0.0f\"><speed level=\"%0.0f\">%s</speed></pitch>",
-    std::min(std::max(50.0f, mPitch * 100), 200.0f),
-    std::min(std::max(20.0f, mRate * 100), 500.0f),
-    mText.get());
+      "<pitch level=\"%0.0f\"><speed level=\"%0.0f\">%s</speed></pitch>",
+      std::min(std::max(50.0f, mPitch * 100), 200.0f),
+      std::min(std::max(20.0f, mRate * 100), 500.0f), mText.get());
 
   const char* text = markedUpText.get();
   size_t buffer_size = 512, buffer_offset = 0;
@@ -289,9 +278,9 @@ PicoCallbackRunnable::Run() {
   // Run this loop while this is the current task
   while (IsCurrentTask()) {
     if (text_remaining) {
-      status = sPicoApi.pico_putTextUtf8(mService->mPicoEngine,
-                                         text + text_offset, text_remaining,
-                                         &bytes_sent);
+      status =
+          sPicoApi.pico_putTextUtf8(mService->mPicoEngine, text + text_offset,
+                                    text_remaining, &bytes_sent);
       PICO_ENSURE_SUCCESS("pico_putTextUtf8", status, NS_ERROR_FAILURE);
       // XXX: End speech task on error
       text_remaining -= bytes_sent;
@@ -304,9 +293,10 @@ PicoCallbackRunnable::Run() {
     }
 
     do {
-      // Run this loop while the result of getData is STEP_BUSY, when it finishes
-      // synthesizing audio for the given text, it returns STEP_IDLE. We then
-      // break to the outer loop and feed more text, if there is any left.
+      // Run this loop while the result of getData is STEP_BUSY, when it
+      // finishes synthesizing audio for the given text, it returns STEP_IDLE.
+      // We then break to the outer loop and feed more text, if there is any
+      // left.
       if (!IsCurrentTask()) {
         // If the task has changed, quit.
         break;
@@ -320,10 +310,9 @@ PicoCallbackRunnable::Run() {
         buffer = SharedBuffer::Create(size);
       }
 
-      status = sPicoApi.pico_getData(mService->mPicoEngine,
-                                     (uint8_t*)buffer->Data() + buffer_offset,
-                                     PICO_MAX_CHUNK_SIZE,
-                                     &bytes_recv, &out_data_type);
+      status = sPicoApi.pico_getData(
+          mService->mPicoEngine, (uint8_t*)buffer->Data() + buffer_offset,
+          PICO_MAX_CHUNK_SIZE, &bytes_recv, &out_data_type);
       PICO_ENSURE_SUCCESS("pico_getData", status, NS_ERROR_FAILURE);
       buffer_offset += bytes_recv;
     } while (status == PICO_STEP_BUSY);
@@ -339,17 +328,16 @@ PicoCallbackRunnable::Run() {
   return NS_OK;
 }
 
-void
-PicoCallbackRunnable::DispatchSynthDataRunnable(
-  already_AddRefed<SharedBuffer>&& aBuffer, size_t aBufferSize) {
+void PicoCallbackRunnable::DispatchSynthDataRunnable(
+    already_AddRefed<SharedBuffer>&& aBuffer, size_t aBufferSize) {
   class PicoSynthDataRunnable final : public Runnable {
-  public:
+   public:
     PicoSynthDataRunnable(already_AddRefed<SharedBuffer>& aBuffer,
                           size_t aBufferSize, PicoCallbackRunnable* aCallback)
-      : mozilla::Runnable("PicoSynthDataRunnable")
-      , mBuffer(aBuffer)
-      , mBufferSize(aBufferSize)
-      , mCallback(aCallback) {}
+        : mozilla::Runnable("PicoSynthDataRunnable"),
+          mBuffer(aBuffer),
+          mBufferSize(aBufferSize),
+          mCallback(aCallback) {}
 
     NS_IMETHOD Run() {
       MOZ_ASSERT(NS_IsMainThread());
@@ -361,10 +349,11 @@ PicoCallbackRunnable::DispatchSynthDataRunnable(
       nsISpeechTask* task = mCallback->mTask;
 
       return task->SendAudioNative(
-        mBufferSize ? static_cast<short*>(mBuffer->Data()) : nullptr, mBufferSize / 2);
+          mBufferSize ? static_cast<short*>(mBuffer->Data()) : nullptr,
+          mBufferSize / 2);
     }
 
-  private:
+   private:
     RefPtr<SharedBuffer> mBuffer;
 
     size_t mBufferSize;
@@ -373,7 +362,7 @@ PicoCallbackRunnable::DispatchSynthDataRunnable(
   };
 
   nsCOMPtr<nsIRunnable> sendEvent =
-    new PicoSynthDataRunnable(aBuffer, aBufferSize, this);
+      new PicoSynthDataRunnable(aBuffer, aBufferSize, this);
 
   NS_DispatchToMainThread(sendEvent);
 }
@@ -381,14 +370,10 @@ PicoCallbackRunnable::DispatchSynthDataRunnable(
 // nsISpeechTaskCallback
 
 NS_IMETHODIMP
-PicoCallbackRunnable::OnPause() {
-  return NS_OK;
-}
+PicoCallbackRunnable::OnPause() { return NS_OK; }
 
 NS_IMETHODIMP
-PicoCallbackRunnable::OnResume() {
-  return NS_OK;
-}
+PicoCallbackRunnable::OnResume() { return NS_OK; }
 
 NS_IMETHODIMP
 PicoCallbackRunnable::OnCancel() {
@@ -397,9 +382,7 @@ PicoCallbackRunnable::OnCancel() {
 }
 
 NS_IMETHODIMP
-PicoCallbackRunnable::OnVolumeChanged(float aVolume) {
-  return NS_OK;
-}
+PicoCallbackRunnable::OnVolumeChanged(float aVolume) { return NS_OK; }
 
 NS_INTERFACE_MAP_BEGIN(nsPicoService)
   NS_INTERFACE_MAP_ENTRY(nsISpeechService)
@@ -411,14 +394,14 @@ NS_IMPL_ADDREF(nsPicoService)
 NS_IMPL_RELEASE(nsPicoService)
 
 nsPicoService::nsPicoService()
-  : mInitialized(false)
-  , mVoicesMonitor("nsPicoService::mVoices")
-  , mCurrentTask(nullptr)
-  , mPicoSystem(nullptr)
-  , mPicoEngine(nullptr)
-  , mSgResource(nullptr)
-  , mTaResource(nullptr)
-  , mPicoMemArea(nullptr) {}
+    : mInitialized(false),
+      mVoicesMonitor("nsPicoService::mVoices"),
+      mCurrentTask(nullptr),
+      mPicoSystem(nullptr),
+      mPicoEngine(nullptr),
+      mSgResource(nullptr),
+      mTaResource(nullptr),
+      mPicoMemArea(nullptr) {}
 
 nsPicoService::~nsPicoService() {
   // We don't worry about removing the voices because this gets
@@ -439,7 +422,7 @@ NS_IMETHODIMP
 nsPicoService::Observe(nsISupports* aSubject, const char* aTopic,
                        const char16_t* aData) {
   MOZ_ASSERT(NS_IsMainThread());
-  if(NS_WARN_IF(!(!strcmp(aTopic, "profile-after-change")))) {
+  if (NS_WARN_IF(!(!strcmp(aTopic, "profile-after-change")))) {
     return NS_ERROR_UNEXPECTED;
   }
 
@@ -448,10 +431,11 @@ nsPicoService::Observe(nsISupports* aSubject, const char* aTopic,
     return NS_OK;
   }
 
-  DebugOnly<nsresult> rv = NS_NewNamedThread("Pico Worker", getter_AddRefs(mThread));
+  DebugOnly<nsresult> rv =
+      NS_NewNamedThread("Pico Worker", getter_AddRefs(mThread));
   MOZ_ASSERT(NS_SUCCEEDED(rv));
-  return mThread->Dispatch(NS_NewRunnableFunction(
-        "nsPicoService::Observe::Run", [this]() { Init(); }));
+  return mThread->Dispatch(NS_NewRunnableFunction("nsPicoService::Observe::Run",
+                                                  [this]() { Init(); }));
 }
 // nsISpeechService
 
@@ -459,23 +443,25 @@ NS_IMETHODIMP
 nsPicoService::Speak(const nsAString& aText, const nsAString& aUri,
                      float aVolume, float aRate, float aPitch,
                      nsISpeechTask* aTask) {
-  if(NS_WARN_IF(!(mInitialized))) {
+  if (NS_WARN_IF(!(mInitialized))) {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
   MonitorAutoLock autoLock(mVoicesMonitor);
   bool found = false;
   PicoVoice* voice = mVoices.GetWeak(aUri, &found);
-  if(NS_WARN_IF(!(found))) {
+  if (NS_WARN_IF(!(found))) {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
   mCurrentTask = aTask;
-  RefPtr<PicoCallbackRunnable> cb = new PicoCallbackRunnable(aText, voice, aRate, aPitch, aTask, this);
+  RefPtr<PicoCallbackRunnable> cb =
+      new PicoCallbackRunnable(aText, voice, aRate, aPitch, aTask, this);
   // Calling setup first for preventing the following case
   // 1. User call speak
   // 2. before PicoSynthDataRunnable::Run calls Setup, use calls Cancel.
-  // 3. nsSpeechTask::Cancel is unable to inform PicoCallbackRunnable because of mCallback is not set.
+  // 3. nsSpeechTask::Cancel is unable to inform PicoCallbackRunnable because of
+  // mCallback is not set.
   // 4. nsSpeechTask is deleted and PicoCallbackRunnable has a dangling pointer.
   aTask->SetupAudioNative(cb, PICO_SAMPLE_RATE);
   return mThread->Dispatch(cb, NS_DISPATCH_NORMAL);
@@ -483,8 +469,7 @@ nsPicoService::Speak(const nsAString& aText, const nsAString& aUri,
 
 // private methods
 
-void
-nsPicoService::Init() {
+void nsPicoService::Init() {
   MOZ_ASSERT(!NS_IsMainThread());
   MOZ_ASSERT(!mInitialized);
 
@@ -506,7 +491,9 @@ nsPicoService::Init() {
   nsresult rv = voicesDir->GetDirectoryEntries(getter_AddRefs(dirIterator));
 
   if (NS_FAILED(rv)) {
-    NS_WARNING(nsPrintfCString("Failed to get contents of directory: %s", langPath.get()).get());
+    NS_WARNING(nsPrintfCString("Failed to get contents of directory: %s",
+                               langPath.get())
+                   .get());
     return;
   }
 
@@ -545,10 +532,10 @@ nsPicoService::Init() {
       // Each voice consists of two lingware files: A language resource file,
       // suffixed by _ta.bin, and a speaker resource file, suffixed by _sb.bin.
       // We currently assume that there is a pair of files for each language.
-      if (StringEndsWith(leafName, NS_LITERAL_CSTRING("_ta.bin"))) {
+      if (StringEndsWith(leafName, "_ta.bin"_ns)) {
         rv = voiceFile->GetPersistentDescriptor(voice->mTaFile);
         MOZ_ASSERT(NS_SUCCEEDED(rv));
-      } else if (StringEndsWith(leafName, NS_LITERAL_CSTRING("_sg.bin"))) {
+      } else if (StringEndsWith(leafName, "_sg.bin"_ns)) {
         rv = voiceFile->GetPersistentDescriptor(voice->mSgFile);
         MOZ_ASSERT(NS_SUCCEEDED(rv));
       }
@@ -565,16 +552,15 @@ nsPicoService::Init() {
   if (!mPicoMemArea) {
     mPicoMemArea = MakeUnique<uint8_t[]>(PICO_MEM_SIZE);
   }
-  status = sPicoApi.pico_initialize(mPicoMemArea.get(),
-                                    PICO_MEM_SIZE, &mPicoSystem);
+  status =
+      sPicoApi.pico_initialize(mPicoMemArea.get(), PICO_MEM_SIZE, &mPicoSystem);
   PICO_ENSURE_SUCCESS_VOID("pico_initialize", status);
 
-  NS_DispatchToMainThread(
-    NS_NewRunnableFunction("nsPicoService::Init::Run", [this]() { RegisterVoices(); }));
+  NS_DispatchToMainThread(NS_NewRunnableFunction(
+      "nsPicoService::Init::Run", [this]() { RegisterVoices(); }));
 }
 
-void
-nsPicoService::RegisterVoices() {
+void nsPicoService::RegisterVoices() {
   nsSynthVoiceRegistry* registry = nsSynthVoiceRegistry::GetInstance();
 
   for (auto iter = mVoices.Iter(); !iter.Done(); iter.Next()) {
@@ -591,24 +577,24 @@ nsPicoService::RegisterVoices() {
     name.AssignLiteral("Pico ");
     name.Append(voice->mLanguage);
 
-    // This service is multi-threaded and can handle more than one utterance at a
-    // time before previous utterances end. So, aQueuesUtterances == false
+    // This service is multi-threaded and can handle more than one utterance at
+    // a time before previous utterances end. So, aQueuesUtterances == false
     DebugOnly<nsresult> rv =
-      registry->AddVoice(this, uri, name, voice->mLanguage, true, false);
+        registry->AddVoice(this, uri, name, voice->mLanguage, true, false);
   }
 
   mInitialized = true;
 }
 
-bool
-nsPicoService::GetVoiceFileLanguage(const nsACString& aFileName, nsAString& aLang) {
+bool nsPicoService::GetVoiceFileLanguage(const nsACString& aFileName,
+                                         nsAString& aLang) {
   nsACString::const_iterator start, end;
   aFileName.BeginReading(start);
   aFileName.EndReading(end);
 
   // The lingware filename syntax is language_(ta/sg).bin,
   // we extract the language prefix here.
-  if (FindInReadable(NS_LITERAL_CSTRING("_"), start, end)) {
+  if (FindInReadable("_"_ns, start, end)) {
     end = start;
     aFileName.BeginReading(start);
     aLang.Assign(NS_ConvertUTF8toUTF16(Substring(start, end)));
@@ -618,8 +604,7 @@ nsPicoService::GetVoiceFileLanguage(const nsACString& aFileName, nsAString& aLan
   return false;
 }
 
-void
-nsPicoService::LoadEngine(PicoVoice* aVoice) {
+void nsPicoService::LoadEngine(PicoVoice* aVoice) {
   PicoApi::pico_Status status = 0;
 
   if (mPicoSystem) {
@@ -630,14 +615,16 @@ nsPicoService::LoadEngine(PicoVoice* aVoice) {
     mPicoMemArea = MakeUnique<uint8_t[]>(PICO_MEM_SIZE);
   }
 
-  status = sPicoApi.pico_initialize(mPicoMemArea.get(),
-                                    PICO_MEM_SIZE, &mPicoSystem);
+  status =
+      sPicoApi.pico_initialize(mPicoMemArea.get(), PICO_MEM_SIZE, &mPicoSystem);
   PICO_ENSURE_SUCCESS_VOID("pico_initialize", status);
 
-  status = sPicoApi.pico_loadResource(mPicoSystem, aVoice->mTaFile.get(), &mTaResource);
+  status = sPicoApi.pico_loadResource(mPicoSystem, aVoice->mTaFile.get(),
+                                      &mTaResource);
   PICO_ENSURE_SUCCESS_VOID("pico_loadResource", status);
 
-  status = sPicoApi.pico_loadResource(mPicoSystem, aVoice->mSgFile.get(), &mSgResource);
+  status = sPicoApi.pico_loadResource(mPicoSystem, aVoice->mSgFile.get(),
+                                      &mSgResource);
   PICO_ENSURE_SUCCESS_VOID("pico_loadResource", status);
 
   status = sPicoApi.pico_createVoiceDefinition(mPicoSystem, PICO_VOICE_NAME);
@@ -647,16 +634,16 @@ nsPicoService::LoadEngine(PicoVoice* aVoice) {
   status = sPicoApi.pico_getResourceName(mPicoSystem, mTaResource, taName);
   PICO_ENSURE_SUCCESS_VOID("pico_getResourceName", status);
 
-  status = sPicoApi.pico_addResourceToVoiceDefinition(
-    mPicoSystem, PICO_VOICE_NAME, taName);
+  status = sPicoApi.pico_addResourceToVoiceDefinition(mPicoSystem,
+                                                      PICO_VOICE_NAME, taName);
   PICO_ENSURE_SUCCESS_VOID("pico_addResourceToVoiceDefinition", status);
 
   char sgName[PICO_RETSTRINGSIZE];
   status = sPicoApi.pico_getResourceName(mPicoSystem, mSgResource, sgName);
   PICO_ENSURE_SUCCESS_VOID("pico_getResourceName", status);
 
-  status = sPicoApi.pico_addResourceToVoiceDefinition(
-    mPicoSystem, PICO_VOICE_NAME, sgName);
+  status = sPicoApi.pico_addResourceToVoiceDefinition(mPicoSystem,
+                                                      PICO_VOICE_NAME, sgName);
   PICO_ENSURE_SUCCESS_VOID("pico_addResourceToVoiceDefinition", status);
 
   status = sPicoApi.pico_newEngine(mPicoSystem, PICO_VOICE_NAME, &mPicoEngine);
@@ -667,8 +654,7 @@ nsPicoService::LoadEngine(PicoVoice* aVoice) {
   }
 }
 
-void
-nsPicoService::UnloadEngine() {
+void nsPicoService::UnloadEngine() {
   PicoApi::pico_Status status = 0;
 
   if (mPicoEngine) {
@@ -698,8 +684,7 @@ nsPicoService::UnloadEngine() {
   }
 }
 
-PicoVoice*
-nsPicoService::CurrentVoice() {
+PicoVoice* nsPicoService::CurrentVoice() {
   MOZ_ASSERT(!NS_IsMainThread());
 
   return mCurrentVoice;
@@ -707,11 +692,11 @@ nsPicoService::CurrentVoice() {
 
 // static methods
 
-nsPicoService*
-nsPicoService::GetInstance() {
+nsPicoService* nsPicoService::GetInstance() {
   MOZ_ASSERT(NS_IsMainThread());
   if (!XRE_IsParentProcess()) {
-    MOZ_ASSERT(false, "nsPicoService can only be started on main gecko process");
+    MOZ_ASSERT(false,
+               "nsPicoService can only be started on main gecko process");
     return nullptr;
   }
 
@@ -722,14 +707,12 @@ nsPicoService::GetInstance() {
   return sSingleton;
 }
 
-already_AddRefed<nsPicoService>
-nsPicoService::GetInstanceForService() {
+already_AddRefed<nsPicoService> nsPicoService::GetInstanceForService() {
   RefPtr<nsPicoService> picoService = GetInstance();
   return picoService.forget();
 }
 
-void
-nsPicoService::Shutdown() {
+void nsPicoService::Shutdown() {
   if (!sSingleton) {
     return;
   }
@@ -739,5 +722,5 @@ nsPicoService::Shutdown() {
   sSingleton = nullptr;
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

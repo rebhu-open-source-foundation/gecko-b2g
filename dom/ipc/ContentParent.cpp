@@ -1654,7 +1654,7 @@ void ContentParent::MaybeAsyncSendShutDownMessage() {
 
   // In the case of normal shutdown, send a shutdown message to child to
   // allow it to perform shutdown tasks.
-  MessageLoop::current()->PostTask(NewRunnableMethod<ShutDownMethod>(
+  GetCurrentSerialEventTarget()->Dispatch(NewRunnableMethod<ShutDownMethod>(
       "dom::ContentParent::ShutDownProcess", this,
       &ContentParent::ShutDownProcess, SEND_SHUTDOWN_MESSAGE));
 }
@@ -1995,7 +1995,7 @@ void ContentParent::ActorDestroy(ActorDestroyReason why) {
            this, mSubprocess,
            mSubprocess ? (uintptr_t)mSubprocess->GetChildProcessHandle() : -1));
   // FIXME (bug 1520997): does this really need an additional dispatch?
-  MessageLoop::current()->PostTask(NS_NewRunnableFunction(
+  GetCurrentSerialEventTarget()->Dispatch(NS_NewRunnableFunction(
       "DelayedDeleteSubprocessRunnable", [subprocess = mSubprocess] {
         MOZ_LOG(
             ContentParent::GetLog(), LogLevel::Debug,
@@ -6566,9 +6566,20 @@ ContentParent::RecvStorageAccessPermissionGrantedForOrigin(
     const MaybeDiscarded<BrowsingContext>& aParentContext,
     const Principal& aTrackingPrincipal, const nsCString& aTrackingOrigin,
     const int& aAllowMode,
+    const Maybe<ContentBlockingNotifier::StorageAccessPermissionGrantedReason>&
+        aReason,
     StorageAccessPermissionGrantedForOriginResolver&& aResolver) {
   if (aParentContext.IsNullOrDiscarded()) {
     return IPC_OK();
+  }
+
+  // We only report here if we cannot report the console directly in the content
+  // process. In that case, the `aReason` would be given a value. Otherwise, it
+  // will be nothing.
+  if (aReason) {
+    ContentBlockingNotifier::ReportUnblockingToConsole(
+        aParentContext.get_canonical(), NS_ConvertUTF8toUTF16(aTrackingOrigin),
+        aReason.value());
   }
 
   ContentBlocking::SaveAccessForOriginOnParentProcess(
@@ -6746,6 +6757,19 @@ mozilla::ipc::IPCResult ContentParent::RecvNotifyMediaFullScreenState(
   if (RefPtr<IMediaInfoUpdater> updater =
           aContext.get_canonical()->GetMediaController()) {
     updater->NotifyMediaFullScreenState(aContext.ContextId(), aIsInFullScreen);
+  }
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentParent::RecvNotifyPositionStateChanged(
+    const MaybeDiscarded<BrowsingContext>& aContext,
+    const PositionState& aState) {
+  if (aContext.IsNullOrDiscarded()) {
+    return IPC_OK();
+  }
+  if (RefPtr<IMediaInfoUpdater> updater =
+          aContext.get_canonical()->GetMediaController()) {
+    updater->UpdatePositionState(aContext.ContextId(), aState);
   }
   return IPC_OK();
 }

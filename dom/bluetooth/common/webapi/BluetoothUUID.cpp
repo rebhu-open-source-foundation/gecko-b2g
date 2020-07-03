@@ -126,11 +126,11 @@ void BluetoothUUID::ResolveUUIDName(const GlobalObject& aGlobal,
       CanonicalUUID(aGlobal, alias, aReturn);
     } else {
       // Syntax error, assign aReturn the error message
-      aRv.ThrowNotSupportedError(NS_LITERAL_CSTRING(
+      aRv.ThrowNotSupportedError(
           "Invalid name: It can be a 32-bit UUID alias, 128-bit valid UUID "
           "(lower-case hex characters) or known "
           "Service/Characteristic/Descriptor"
-          " name."));
+          " name."_ns);
       return;
     }
   } else {

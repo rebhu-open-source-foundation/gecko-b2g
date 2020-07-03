@@ -574,10 +574,10 @@ void BluetoothHfpManager::NotifyConnectionStateChanged(const nsAString& aType) {
   // Dispatch an event of status change
   bool status;
   nsAutoString eventName;
-  if (aType.EqualsLiteral(BLUETOOTH_HFP_STATUS_CHANGED_ID)) {
+  if (aType.Equals(BLUETOOTH_HFP_STATUS_CHANGED_ID)) {
     status = IsConnected();
     eventName.AssignLiteral(HFP_STATUS_CHANGED_ID);
-  } else if (aType.EqualsLiteral(BLUETOOTH_SCO_STATUS_CHANGED_ID)) {
+  } else if (aType.Equals(BLUETOOTH_SCO_STATUS_CHANGED_ID)) {
     status = IsScoConnected();
     eventName.AssignLiteral(SCO_STATUS_CHANGED_ID);
   } else {
@@ -588,7 +588,7 @@ void BluetoothHfpManager::NotifyConnectionStateChanged(const nsAString& aType) {
   DispatchStatusChangedEvent(eventName, mDeviceAddress, status);
 
   // Notify profile controller
-  if (aType.EqualsLiteral(BLUETOOTH_HFP_STATUS_CHANGED_ID)) {
+  if (aType.Equals(BLUETOOTH_HFP_STATUS_CHANGED_ID)) {
     if (IsConnected()) {
       MOZ_ASSERT(mListener);
 
@@ -603,7 +603,7 @@ void BluetoothHfpManager::NotifyConnectionStateChanged(const nsAString& aType) {
         // When the outgoing hfp connection fails, state changes to disconnected
         // state. Since bluedroid would not report connecting state, but only
         // report connected/disconnected.
-        OnConnect(NS_LITERAL_STRING(ERR_CONNECTION_FAILED));
+        OnConnect(ERR_CONNECTION_FAILED);
       } else {
         OnDisconnect(EmptyString());
       }
@@ -1254,7 +1254,7 @@ bool BluetoothHfpManager::IsWbsEnabled() { return mWbsEnabled; }
 void BluetoothHfpManager::OnConnectError() {
   MOZ_ASSERT(NS_IsMainThread());
 
-  mController->NotifyCompletion(NS_LITERAL_STRING(ERR_CONNECTION_FAILED));
+  mController->NotifyCompletion(ERR_CONNECTION_FAILED);
 
   mController = nullptr;
   mDeviceAddress.Clear();
@@ -1283,13 +1283,13 @@ void BluetoothHfpManager::Connect(const BluetoothAddress& aDeviceAddress,
   MOZ_ASSERT(aController && !mController);
 
   if (sInShutdown) {
-    aController->NotifyCompletion(NS_LITERAL_STRING(ERR_NO_AVAILABLE_RESOURCE));
+    aController->NotifyCompletion(ERR_NO_AVAILABLE_RESOURCE);
     return;
   }
 
   if (!sBluetoothHfpInterface) {
     BT_LOGR("sBluetoothHfpInterface is null");
-    aController->NotifyCompletion(NS_LITERAL_STRING(ERR_NO_AVAILABLE_RESOURCE));
+    aController->NotifyCompletion(ERR_NO_AVAILABLE_RESOURCE);
     return;
   }
 
@@ -1304,7 +1304,7 @@ void BluetoothHfpManager::OnDisconnectError() {
   MOZ_ASSERT(NS_IsMainThread());
   NS_ENSURE_TRUE_VOID(mController);
 
-  mController->NotifyCompletion(NS_LITERAL_STRING(ERR_CONNECTION_FAILED));
+  mController->NotifyCompletion(ERR_CONNECTION_FAILED);
 }
 
 class BluetoothHfpManager::DisconnectResultHandler final
@@ -1332,8 +1332,7 @@ void BluetoothHfpManager::Disconnect(BluetoothProfileController* aController) {
   if (!sBluetoothHfpInterface) {
     BT_LOGR("sBluetoothHfpInterface is null");
     if (aController) {
-      aController->NotifyCompletion(
-          NS_LITERAL_STRING(ERR_NO_AVAILABLE_RESOURCE));
+      aController->NotifyCompletion(ERR_NO_AVAILABLE_RESOURCE);
     }
     return;
   }
@@ -1403,13 +1402,11 @@ void BluetoothHfpManager::ConnectionStateNotification(
 
   if (aState == HFP_CONNECTION_STATE_SLC_CONNECTED) {
     mDeviceAddress = aBdAddress;
-    NotifyConnectionStateChanged(
-        NS_LITERAL_STRING(BLUETOOTH_HFP_STATUS_CHANGED_ID));
+    NotifyConnectionStateChanged(BLUETOOTH_HFP_STATUS_CHANGED_ID);
 
   } else if (aState == HFP_CONNECTION_STATE_DISCONNECTED) {
     DisconnectSco();
-    NotifyConnectionStateChanged(
-        NS_LITERAL_STRING(BLUETOOTH_HFP_STATUS_CHANGED_ID));
+    NotifyConnectionStateChanged(BLUETOOTH_HFP_STATUS_CHANGED_ID);
 
   } else if (aState == HFP_CONNECTION_STATE_CONNECTED) {
     // Once RFCOMM is connected, enable NREC before each new SLC connection
@@ -1427,8 +1424,7 @@ void BluetoothHfpManager::AudioStateNotification(
 
   if (aState == HFP_AUDIO_STATE_CONNECTED ||
       aState == HFP_AUDIO_STATE_DISCONNECTED) {
-    NotifyConnectionStateChanged(
-        NS_LITERAL_STRING(BLUETOOTH_SCO_STATUS_CHANGED_ID));
+    NotifyConnectionStateChanged(BLUETOOTH_SCO_STATUS_CHANGED_ID);
   }
 }
 

@@ -103,6 +103,12 @@ struct SurfaceTextureDescriptor {
   bool ignoreTransform;
 };
 
+struct SurfaceDescriptorAndroidHardwareBuffer {
+  FileDescriptor handle;
+  IntSize size;
+  SurfaceFormat format;
+};
+
 struct EGLImageDescriptor {
   uintptr_t image; // `EGLImage` is a `void*`.
   uintptr_t fence;
@@ -204,6 +210,7 @@ union SurfaceDescriptor {
   SurfaceDescriptorX11;
   SurfaceDescriptorDMABuf;
   SurfaceTextureDescriptor;
+  SurfaceDescriptorAndroidHardwareBuffer;
   EGLImageDescriptor;
   SurfaceDescriptorMacIOSurface;
   SurfaceDescriptorGralloc;

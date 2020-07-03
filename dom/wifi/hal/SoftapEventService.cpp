@@ -19,7 +19,7 @@ using ::android::defaultServiceManager;
 using ::android::IBinder;
 using ::android::String16;
 
-#define EVENT_HOTSPOT_CLIENT_CHANGED "HOTSPOT_CLIENT_CHANGED"
+#define EVENT_HOTSPOT_CLIENT_CHANGED u"HOTSPOT_CLIENT_CHANGED"_ns
 
 SoftapEventService* SoftapEventService::sInstance = nullptr;
 
@@ -59,8 +59,7 @@ void SoftapEventService::UnregisterEventCallback() { mCallback = nullptr; }
 android::binder::Status SoftapEventService::onNumAssociatedStationsChanged(
     int32_t numStations) {
   nsCString iface(mSoftapInterfaceName);
-  RefPtr<nsWifiEvent> event =
-      new nsWifiEvent(NS_LITERAL_STRING(EVENT_HOTSPOT_CLIENT_CHANGED));
+  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_HOTSPOT_CLIENT_CHANGED);
 
   if (numStations < 0) {
     WIFI_LOGE(LOG_TAG, "Invalid number of associated stations %d", numStations);

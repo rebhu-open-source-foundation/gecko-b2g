@@ -64,6 +64,9 @@ using namespace mozilla::dom::gonk;
 using namespace mozilla::dom::bluetooth;
 using android::AudioSystem;
 
+#define BLUETOOTH_HFP_STATUS_CHANGED_ID "bluetooth-hfp-status-changed"
+#define BLUETOOTH_SCO_STATUS_CHANGED_ID "bluetooth-sco-status-changed"
+
 #undef ANDLOG
 #define ANDLOG(args...) \
   __android_log_print(ANDROID_LOG_INFO, "AudioManager", ##args)
@@ -526,31 +529,24 @@ void AudioManager::UpdateHeadsetConnectionState(hal::SwitchState aState) {
   bool lineoutConnected = mConnectedDevices.Get(AUDIO_DEVICE_OUT_LINE, nullptr);
 
   if (aState == hal::SWITCH_STATE_HEADSET) {
-    UpdateDeviceConnectionState(true, AUDIO_DEVICE_OUT_WIRED_HEADSET,
-                                NS_LITERAL_CSTRING(""));
-    UpdateDeviceConnectionState(true, AUDIO_DEVICE_IN_WIRED_HEADSET,
-                                NS_LITERAL_CSTRING(""));
+    UpdateDeviceConnectionState(true, AUDIO_DEVICE_OUT_WIRED_HEADSET, ""_ns);
+    UpdateDeviceConnectionState(true, AUDIO_DEVICE_IN_WIRED_HEADSET, ""_ns);
 
   } else if (aState == hal::SWITCH_STATE_HEADPHONE) {
-    UpdateDeviceConnectionState(true, AUDIO_DEVICE_OUT_WIRED_HEADPHONE,
-                                NS_LITERAL_CSTRING(""));
+    UpdateDeviceConnectionState(true, AUDIO_DEVICE_OUT_WIRED_HEADPHONE, ""_ns);
   } else if (aState == hal::SWITCH_STATE_LINEOUT) {
-    UpdateDeviceConnectionState(true, AUDIO_DEVICE_OUT_LINE,
-                                NS_LITERAL_CSTRING(""));
+    UpdateDeviceConnectionState(true, AUDIO_DEVICE_OUT_LINE, ""_ns);
   } else if (aState == hal::SWITCH_STATE_OFF) {
     if (headsetConnected) {
-      UpdateDeviceConnectionState(false, AUDIO_DEVICE_OUT_WIRED_HEADSET,
-                                  NS_LITERAL_CSTRING(""));
-      UpdateDeviceConnectionState(false, AUDIO_DEVICE_IN_WIRED_HEADSET,
-                                  NS_LITERAL_CSTRING(""));
+      UpdateDeviceConnectionState(false, AUDIO_DEVICE_OUT_WIRED_HEADSET, ""_ns);
+      UpdateDeviceConnectionState(false, AUDIO_DEVICE_IN_WIRED_HEADSET, ""_ns);
     }
     if (headphoneConnected) {
       UpdateDeviceConnectionState(false, AUDIO_DEVICE_OUT_WIRED_HEADPHONE,
-                                  NS_LITERAL_CSTRING(""));
+                                  ""_ns);
     }
     if (lineoutConnected) {
-      UpdateDeviceConnectionState(false, AUDIO_DEVICE_OUT_LINE,
-                                  NS_LITERAL_CSTRING(""));
+      UpdateDeviceConnectionState(false, AUDIO_DEVICE_OUT_LINE, ""_ns);
     }
   }
 }
@@ -910,7 +906,7 @@ AudioManager::AudioManager()
       // FE use mChannelName only for the key.
       NS_ConvertASCIItoUTF16 volumeType(gVolumeData[idx].mChannelName);
       settingsManager->AddObserver(volumeType, mVolumeSettingsObserver,
-                                  mVolumeAddObserverCallback);
+                                   mVolumeAddObserverCallback);
     }
   } else {
     LOGE("Failed to Get SETTINGS MANAGER to AddObserver!");
@@ -972,8 +968,8 @@ AudioManager::~AudioManager() {
       mVolumeRemoveObserverCallback = new VolumeRemoveObserverCallback();
     }
     for (uint32_t idx = 0; idx < MOZ_ARRAY_LENGTH(gVolumeData); ++idx) {
-      // We also need to get the value with mChannelName. FE use mChannelName only
-      // for the key.
+      // We also need to get the value with mChannelName. FE use mChannelName
+      // only for the key.
       NS_ConvertASCIItoUTF16 volumeType(gVolumeData[idx].mChannelName);
       settingsManager->RemoveObserver(volumeType, mVolumeSettingsObserver,
                                       mVolumeRemoveObserverCallback);
@@ -1219,13 +1215,13 @@ AudioManager::SetFmRadioAudioEnabled(bool aFmRadioAudioEnabled) {
   }
 #elif defined(PRODUCT_MANUFACTURER_SPRD)
   UpdateDeviceConnectionState(aFmRadioAudioEnabled, AUDIO_DEVICE_OUT_FM_HEADSET,
-                              NS_LITERAL_CSTRING(""));
+                              ""_ns);
 
   UpdateDeviceConnectionState(aFmRadioAudioEnabled, AUDIO_DEVICE_OUT_FM_SPEAKER,
-                              NS_LITERAL_CSTRING(""));
+                              ""_ns);
 #elif defined(PRODUCT_MANUFACTURER_MTK)
   UpdateDeviceConnectionState(aFmRadioAudioEnabled, AUDIO_DEVICE_IN_FM_TUNER,
-                              NS_LITERAL_CSTRING(""));
+                              ""_ns);
 #else
   MOZ_CRASH("FM radio not supported");
 #endif

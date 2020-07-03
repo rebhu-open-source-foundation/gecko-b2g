@@ -241,8 +241,7 @@ void BluetoothGatt::UpdateConnectionState(BluetoothConnectionState aState) {
   // Dispatch connectionstatechanged event to application
   RefPtr<Event> event = NS_NewDOMEvent(this, nullptr, nullptr);
 
-  event->InitEvent(NS_LITERAL_STRING(GATT_CONNECTION_STATE_CHANGED_ID), false,
-                   false);
+  event->InitEvent(GATT_CONNECTION_STATE_CHANGED_ID, false, false);
 
   DispatchTrustedEvent(event);
 }
@@ -359,7 +358,8 @@ void BluetoothGatt::HandleCharacteristicChanged(const BluetoothValue& aValue) {
   init.mCharacteristic = characteristic;
   RefPtr<BluetoothGattCharacteristicEvent> event =
       BluetoothGattCharacteristicEvent::Constructor(
-          this, NS_LITERAL_STRING(GATT_CHARACTERISTIC_CHANGED_ID), init);
+          this, NS_LITERAL_STRING_FROM_CSTRING(GATT_CHARACTERISTIC_CHANGED_ID),
+          init);
 
   DispatchTrustedEvent(event);
 }
@@ -374,7 +374,9 @@ void BluetoothGatt::Notify(const BluetoothSignal& aData) {
     mClientIf = v.get_uint32_t();
   } else if (aData.name().EqualsLiteral("ClientUnregistered")) {
     mClientIf = 0;
-  } else if (aData.name().EqualsLiteral(GATT_CONNECTION_STATE_CHANGED_ID)) {
+  } else if (
+      aData.name().EqualsLiteral(
+          "connectionstatechanged" /* GATT_CONNECTION_STATE_CHANGED_ID */)) {
     MOZ_ASSERT(v.type() == BluetoothValue::Tbool);
 
     BluetoothConnectionState state =
@@ -399,7 +401,7 @@ void BluetoothGatt::Notify(const BluetoothSignal& aData) {
     HandleCharacteristicsDiscovered(v);
   } else if (aData.name().EqualsLiteral("DescriptorsDiscovered")) {
     HandleDescriptorsDiscovered(v);
-  } else if (aData.name().EqualsLiteral(GATT_CHARACTERISTIC_CHANGED_ID)) {
+  } else if (aData.name().Equals(GATT_CHARACTERISTIC_CHANGED_ID)) {
     HandleCharacteristicChanged(v);
   } else {
     BT_WARNING("Not handling GATT signal: %s",

@@ -348,11 +348,9 @@ void BluetoothService::DistributeSignal(const BluetoothSignal& aSignal) {
 
     // Still send system message even KEY_PAIRING_LISTENER is in observer table.
     // The message benifits those apps which don't have BluetoohPairingListener.
-    if (aSignal.path().EqualsLiteral(KEY_PAIRING_LISTENER) &&
-        XRE_IsParentProcess()) {
-      BT_ENSURE_TRUE_VOID_BROADCAST_SYSMSG(
-          NS_LITERAL_STRING(SYS_MSG_BT_PAIRING_REQ),
-          BluetoothValue(EmptyString()));
+    if (aSignal.path().Equals(KEY_PAIRING_LISTENER) && XRE_IsParentProcess()) {
+      BT_ENSURE_TRUE_VOID_BROADCAST_SYSMSG(SYS_MSG_BT_PAIRING_REQ,
+                                           BluetoothValue(EmptyString()));
     }
     return;
   }
@@ -681,8 +679,7 @@ void BluetoothService::FireAdapterStateChanged(bool aEnable) {
   nsTArray<BluetoothNamedValue> props;
   AppendNamedValue(props, "State", aEnable);
 
-  DistributeSignal(u"PropertyChanged"_ns,
-                   NS_LITERAL_STRING(KEY_ADAPTER), BluetoothValue(props));
+  DistributeSignal(u"PropertyChanged"_ns, KEY_ADAPTER, BluetoothValue(props));
 }
 
 void BluetoothService::AcknowledgeToggleBt(bool aEnabled) {

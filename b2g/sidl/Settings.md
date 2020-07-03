@@ -104,9 +104,9 @@ nsCOMPtr<nsISettingsManager> settingsManager = do_GetService("@mozilla.org/sidl-
 
 nsTArray<RefPtr<nsISettingInfo>> settings;
 // set testing.setting1 to number 42
-RefPtr<nsISettingInfo> settingInfo1 = new SettingInfo(NS_LITERAL_STRING("testing.setting1"), NS_LITERAL_STRING("42"));
+RefPtr<nsISettingInfo> settingInfo1 = new SettingInfo(u"testing.setting1"_ns, u"42"_ns_);
 // set setting:json to object {"foo": bar, "success": true, "amount": 42}
-RefPtr<nsISettingInfo> settingInfo2 = new SettingInfo(NS_LITERAL_STRING("setting:json"), NS_LITERAL_STRING("{\"foo\":\"bar\",\"success\":true,\"amount\":42}"));
+RefPtr<nsISettingInfo> settingInfo2 = new SettingInfo(u"setting:json"_ns, u"{\"foo\":\"bar\",\"success\":true,\"amount\":42}"_ns);
 settings.AppendElement(settingInfo1);
 settings.AppendElement(settingInfo2);
 
@@ -271,10 +271,10 @@ nsCOMPtr<nsISettingsManager> settingsManager = do_GetService("@mozilla.org/sidl-
 nsCOMPtr<nsISettingsObserver> observer = new TestSettingsObserver();
 
 nsCOMPtr<nsISidlDefaultResponse> addObsCallback = new TestAddObserverCallback();
-settingsManager->AddObserver(NS_LITERAL_STRING("testing.observed"), observer, addObsCallback);
+settingsManager->AddObserver(u"testing.observed"_ns, observer, addObsCallback);
 
 nsCOMPtr<nsISidlDefaultResponse> removeObsCallback = new TestRemoveObserverCallback();
-settingsManager->RemoveObserver(NS_LITERAL_STRING("testing.observed"), observer, removeObsCallback);
+settingsManager->RemoveObserver(u"testing.observed"_ns, observer, removeObsCallback);
 ```
 
 ## Sample Codes of Settings API Callers from Gecko in JS

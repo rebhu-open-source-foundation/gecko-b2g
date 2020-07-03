@@ -175,22 +175,22 @@ void DeviceStorageStatics::InitDirs() {
 #  elif defined(MOZ_WIDGET_ANDROID)
   nsAutoString path;
   if (NS_SUCCEEDED(mozilla::AndroidBridge::GetExternalPublicDirectory(
-          NS_LITERAL_STRING(DEVICESTORAGE_PICTURES), path))) {
+          NS_LITERAL_STRING_FROM_CSTRING(DEVICESTORAGE_PICTURES), path))) {
     NS_NewLocalFile(path, /* aFollowLinks */ true,
                     getter_AddRefs(mDirs[TYPE_PICTURES]));
   }
   if (NS_SUCCEEDED(mozilla::AndroidBridge::GetExternalPublicDirectory(
-          NS_LITERAL_STRING(DEVICESTORAGE_VIDEOS), path))) {
+          NS_LITERAL_STRING_FROM_CSTRING(DEVICESTORAGE_VIDEOS), path))) {
     NS_NewLocalFile(path, /* aFollowLinks */ true,
                     getter_AddRefs(mDirs[TYPE_VIDEOS]));
   }
   if (NS_SUCCEEDED(mozilla::AndroidBridge::GetExternalPublicDirectory(
-          NS_LITERAL_STRING(DEVICESTORAGE_MUSIC), path))) {
+          NS_LITERAL_STRING_FROM_CSTRING(DEVICESTORAGE_MUSIC), path))) {
     NS_NewLocalFile(path, /* aFollowLinks */ true,
                     getter_AddRefs(mDirs[TYPE_MUSIC]));
   }
   if (NS_SUCCEEDED(mozilla::AndroidBridge::GetExternalPublicDirectory(
-          NS_LITERAL_STRING(DEVICESTORAGE_SDCARD), path))) {
+          NS_LITERAL_STRING_FROM_CSTRING(DEVICESTORAGE_SDCARD), path))) {
     NS_NewLocalFile(path, /* aFollowLinks */ true,
                     getter_AddRefs(mDirs[TYPE_SDCARD]));
   }
@@ -218,8 +218,7 @@ void DeviceStorageStatics::InitDirs() {
   dirService->Get(NS_APP_USER_PROFILE_50_DIR, NS_GET_IID(nsIFile),
                   getter_AddRefs(mDirs[TYPE_SDCARD]));
   if (mDirs[TYPE_SDCARD]) {
-    mDirs[TYPE_SDCARD]->AppendRelativeNativePath(
-        "fake-sdcard"_ns);
+    mDirs[TYPE_SDCARD]->AppendRelativeNativePath("fake-sdcard"_ns);
   }
 #  endif  // !MOZ_WIDGET_ANDROID
 
@@ -232,8 +231,7 @@ void DeviceStorageStatics::InitDirs() {
 #endif  // !MOZ_WIDGET_GONK
 
 #ifdef MOZ_WIDGET_GONK
-  NS_NewLocalFile(u"/data"_ns, false,
-                  getter_AddRefs(mDirs[TYPE_APPS]));
+  NS_NewLocalFile(u"/data"_ns, false, getter_AddRefs(mDirs[TYPE_APPS]));
 #endif
 
   if (XRE_IsParentProcess()) {
@@ -715,7 +713,7 @@ DeviceStorageStatics::Observe(nsISupports* aSubject, const char* aTopic,
     nsString volName;
 #ifdef MOZ_WIDGET_GONK
     if (DeviceStorageTypeChecker::IsVolumeBased(
-            NS_LITERAL_STRING(DEVICESTORAGE_SDCARD))) {
+            NS_LITERAL_STRING_FROM_CSTRING(DEVICESTORAGE_SDCARD))) {
       nsCOMPtr<nsIVolumeService> vs =
           do_GetService(NS_VOLUMESERVICE_CONTRACTID);
       if (NS_WARN_IF(!vs)) {
@@ -741,8 +739,8 @@ DeviceStorageStatics::Observe(nsISupports* aSubject, const char* aTopic,
       path = Substring(path, mountPoint.Length() + 1);
     }
 #endif
-    dsf = new DeviceStorageFile(NS_LITERAL_STRING(DEVICESTORAGE_SDCARD),
-                                volName, path);
+    dsf = new DeviceStorageFile(
+        NS_LITERAL_STRING_FROM_CSTRING(DEVICESTORAGE_SDCARD), volName, path);
 
   } else if (!strcmp(aTopic, kFileWatcherNotify) ||
              !strcmp(aTopic, kMtpWatcherNotify)) {
@@ -773,10 +771,10 @@ DeviceStorageStatics::Observe(nsISupports* aSubject, const char* aTopic,
     MOZ_ASSERT(typeChecker);
 
     static const nsLiteralString kMediaTypes[] = {
-        NS_LITERAL_STRING(DEVICESTORAGE_SDCARD),
-        NS_LITERAL_STRING(DEVICESTORAGE_PICTURES),
-        NS_LITERAL_STRING(DEVICESTORAGE_VIDEOS),
-        NS_LITERAL_STRING(DEVICESTORAGE_MUSIC),
+        NS_LITERAL_STRING_FROM_CSTRING(DEVICESTORAGE_SDCARD),
+        NS_LITERAL_STRING_FROM_CSTRING(DEVICESTORAGE_PICTURES),
+        NS_LITERAL_STRING_FROM_CSTRING(DEVICESTORAGE_VIDEOS),
+        NS_LITERAL_STRING_FROM_CSTRING(DEVICESTORAGE_MUSIC),
     };
 
     for (size_t i = 0; i < MOZ_ARRAY_LENGTH(kMediaTypes); i++) {

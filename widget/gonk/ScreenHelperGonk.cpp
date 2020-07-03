@@ -718,7 +718,7 @@ ScreenHelperGonk::ScreenHelperGonk()
     property_get("ro.bootloader", propValue, NULL);
     LOGE("Bootloader        = %s", propValue);
 
-    nsCString osVersion = NS_LITERAL_CSTRING(
+    nsCString osVersion(
         MOZ_STRINGIFY(MOZ_B2G_OS_NAME) " " MOZ_STRINGIFY(MOZ_B2G_VERSION));
     LOGE("OS Version        = %s", osVersion.get());
 
@@ -751,35 +751,33 @@ ScreenHelperGonk::~ScreenHelperGonk() { gHelper = nullptr; }
   return gHelper;
 }
 
-
-/* static */ already_AddRefed<nsScreenGonk> ScreenHelperGonk::GetPrimaryScreen() {
+/* static */ already_AddRefed<nsScreenGonk>
+ScreenHelperGonk::GetPrimaryScreen() {
   return GetScreenGonk(GetIdFromType(DisplayType::DISPLAY_PRIMARY));
 }
 
 /* static */
-already_AddRefed<nsScreenGonk> ScreenHelperGonk::GetScreenGonk(uint32_t aScreenId) {
+already_AddRefed<nsScreenGonk> ScreenHelperGonk::GetScreenGonk(
+    uint32_t aScreenId) {
   ScreenHelperGonk* screenHelper = ScreenHelperGonk::GetSingleton();
   RefPtr<nsScreenGonk> screen = screenHelper->mScreenGonks.Get(aScreenId);
   return screen.forget();
 }
 
 already_AddRefed<Screen> ScreenHelperGonk::MakeScreen(
-                uint32_t id,
-                NotifyDisplayChangedEvent aEventVisibility) {
+    uint32_t id, NotifyDisplayChangedEvent aEventVisibility) {
   MOZ_ASSERT(XRE_IsParentProcess());
   DisplayType displayType = (DisplayType)id;
   NS_ENSURE_TRUE(!IsScreenConnected(id), nullptr);
   GonkDisplay::NativeData nativeData =
 
-  GetGonkDisplay()->GetNativeData(displayType, nullptr);
-  RefPtr<nsScreenGonk> screengonk  = new nsScreenGonk(id,
-                                    displayType,
-                                    nativeData,
-                                    aEventVisibility);
+      GetGonkDisplay()->GetNativeData(displayType, nullptr);
+  RefPtr<nsScreenGonk> screengonk =
+      new nsScreenGonk(id, displayType, nativeData, aEventVisibility);
   mScreenGonks.Put(id, screengonk);
 
   if (aEventVisibility == NotifyDisplayChangedEvent::Observable) {
-      NotifyDisplayChange(id, true);
+    NotifyDisplayChange(id, true);
   }
 
 // TODO: FIXME
@@ -800,7 +798,7 @@ already_AddRefed<Screen> ScreenHelperGonk::MakeScreen(
   int32_t depth;
 
   screengonk->GetColorDepth(&depth);
-  float density = 160.0f; // FIXME: This is the default density
+  float density = 160.0f;  // FIXME: This is the default density
   float dpi = screengonk->GetDpi();
 
   RefPtr<Screen> screen = new Screen(bounds, bounds, depth, depth,
@@ -810,14 +808,13 @@ already_AddRefed<Screen> ScreenHelperGonk::MakeScreen(
 }
 
 void ScreenHelperGonk::Refresh() {
-
   AutoTArray<RefPtr<Screen>, 1> screenList;
   uint32_t id = GetIdFromType(DisplayType::DISPLAY_PRIMARY);
   RefPtr<Screen> screen = mScreens.Get(id);
   if (!screen) {
     screen = MakeScreen(id);
     if (screen) {
-        mScreens.Put(id, screen);
+      mScreens.Put(id, screen);
     }
   }
 
@@ -829,8 +826,7 @@ void ScreenHelperGonk::Refresh() {
   manager.Refresh(std::move(screenList));
 }
 
-void ScreenHelperGonk::AddScreen(uint32_t aScreenId,
-                                 DisplayType aDisplayType,
+void ScreenHelperGonk::AddScreen(uint32_t aScreenId, DisplayType aDisplayType,
                                  LayoutDeviceIntRect aRect, float aDensity,
                                  NotifyDisplayChangedEvent aEventVisibility) {
   MOZ_ASSERT(aScreenId > 0);
@@ -843,13 +839,14 @@ void ScreenHelperGonk::AddScreen(uint32_t aScreenId,
 }
 
 void ScreenHelperGonk::RemoveScreen(uint32_t aScreenId) {
-  NotifyDisplayChangedEvent eventVisibility = NotifyDisplayChangedEvent::Observable;
+  NotifyDisplayChangedEvent eventVisibility =
+      NotifyDisplayChangedEvent::Observable;
 
   mScreenGonks.Remove(aScreenId);
   mScreens.Remove(aScreenId);
 
   if (eventVisibility == NotifyDisplayChangedEvent::Observable) {
-     NotifyDisplayChange(aScreenId, false);
+    NotifyDisplayChange(aScreenId, false);
   }
 
   Refresh();
@@ -869,13 +866,14 @@ already_AddRefed<Screen> ScreenHelperGonk::ScreenForId(uint32_t aScreenId) {
   return screen.forget();
 }
 
-already_AddRefed<nsScreenGonk> ScreenHelperGonk::ScreenGonkForId(uint32_t aScreenId) {
+already_AddRefed<nsScreenGonk> ScreenHelperGonk::ScreenGonkForId(
+    uint32_t aScreenId) {
   RefPtr<nsScreenGonk> screen = mScreenGonks.Get(aScreenId);
 
   if (!screen && aScreenId == 0) {
     RefPtr<Screen> screen2 = MakeScreen(aScreenId);
     if (screen2) {
-        mScreens.Put(0, screen2);
+      mScreens.Put(0, screen2);
     }
     screen = mScreenGonks.Get(aScreenId);
   }
@@ -883,11 +881,7 @@ already_AddRefed<nsScreenGonk> ScreenHelperGonk::ScreenGonkForId(uint32_t aScree
   return screen.forget();
 }
 
-uint32_t
-ScreenHelperGonk::GetNumberOfScreens()
-{
-    return mScreens.Count();
-}
+uint32_t ScreenHelperGonk::GetNumberOfScreens() { return mScreens.Count(); }
 
 void ScreenHelperGonk::DisplayEnabled(bool aEnabled) {
   MOZ_ASSERT(NS_IsMainThread());

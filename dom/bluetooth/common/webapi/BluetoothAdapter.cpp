@@ -59,7 +59,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(BluetoothAdapter,
    * accessing deleted objects while receiving signals from parent process
    * after unlinked. Please see Bug 1138267 for detail informations.
    */
-  UnregisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_ADAPTER), tmp);
+  UnregisterBluetoothSignalHandler(KEY_ADAPTER, tmp);
   // if (tmp->mHasListenedToPbapSignal) {
   //   UnregisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_PBAP), tmp);
   // }
@@ -308,7 +308,7 @@ BluetoothAdapter::BluetoothAdapter(nsPIDOMWindowInner* aWindow,
     SetPropertyByValue(values[i]);
   }
 
-  RegisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_ADAPTER), this);
+  RegisterBluetoothSignalHandler(KEY_ADAPTER, this);
 
   // TryListeningToBluetoothPbapSignal();
   // TryListeningToBluetoothMapSignal();
@@ -322,7 +322,7 @@ void BluetoothAdapter::DisconnectFromOwner() {
 }
 
 void BluetoothAdapter::Cleanup() {
-  UnregisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_ADAPTER), this);
+  UnregisterBluetoothSignalHandler(KEY_ADAPTER, this);
   // if (mHasListenedToPbapSignal) {
   //   UnregisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_PBAP), this);
   // }
@@ -492,14 +492,14 @@ void BluetoothAdapter::Notify(const BluetoothSignal& aData) {
     if (!mLeScanHandleArray.IsEmpty()) {
       HandleLeDeviceFound(v);
     }
-  } else if (aData.name().EqualsLiteral(DEVICE_PAIRED_ID)) {
+  } else if (aData.name().Equals(DEVICE_PAIRED_ID)) {
     HandleDevicePaired(aData.value());
-  } else if (aData.name().EqualsLiteral(DEVICE_UNPAIRED_ID)) {
+  } else if (aData.name().Equals(DEVICE_UNPAIRED_ID)) {
     HandleDeviceUnpaired(aData.value());
   } else if (aData.name().EqualsLiteral(HFP_STATUS_CHANGED_ID) ||
              aData.name().EqualsLiteral(SCO_STATUS_CHANGED_ID) ||
-             aData.name().EqualsLiteral(HID_STATUS_CHANGED_ID) ||
-             aData.name().EqualsLiteral(A2DP_STATUS_CHANGED_ID)) {
+             aData.name().Equals(HID_STATUS_CHANGED_ID) ||
+             aData.name().Equals(A2DP_STATUS_CHANGED_ID)) {
     MOZ_ASSERT(v.type() == BluetoothValue::TArrayOfBluetoothNamedValue);
     const nsTArray<BluetoothNamedValue>& arr =
         v.get_ArrayOfBluetoothNamedValue();
@@ -520,33 +520,33 @@ void BluetoothAdapter::Notify(const BluetoothSignal& aData) {
     DispatchTrustedEvent(event);
     BT_LOGR("dispatch event to %s with status: %d",
             NS_ConvertUTF16toUTF8(aData.name()).get(), status);
-  } else if (aData.name().EqualsLiteral(REQUEST_MEDIA_PLAYSTATUS_ID)) {
+  } else if (aData.name().Equals(REQUEST_MEDIA_PLAYSTATUS_ID)) {
     DispatchEmptyEvent(aData.name());
-  } else if (aData.name().EqualsLiteral(PAIRING_ABORTED_ID)) {
+  } else if (aData.name().Equals(PAIRING_ABORTED_ID)) {
     HandlePairingAborted(aData.value());
-  } else if (aData.name().EqualsLiteral(OBEX_PASSWORD_REQ_ID)) {
+  } else if (aData.name().Equals(OBEX_PASSWORD_REQ_ID)) {
     HandleObexPasswordReq(aData.value());
-  } else if (aData.name().EqualsLiteral(PBAP_CONNECTION_REQ_ID)) {
+  } else if (aData.name().Equals(PBAP_CONNECTION_REQ_ID)) {
     HandlePbapConnectionReq(aData.value());
-  } else if (aData.name().EqualsLiteral(PULL_PHONEBOOK_REQ_ID)) {
+  } else if (aData.name().Equals(PULL_PHONEBOOK_REQ_ID)) {
     HandlePullPhonebookReq(aData.value());
-  } else if (aData.name().EqualsLiteral(PULL_VCARD_ENTRY_REQ_ID)) {
+  } else if (aData.name().Equals(PULL_VCARD_ENTRY_REQ_ID)) {
     HandlePullVCardEntryReq(aData.value());
-  } else if (aData.name().EqualsLiteral(PULL_VCARD_LISTING_REQ_ID)) {
+  } else if (aData.name().Equals(PULL_VCARD_LISTING_REQ_ID)) {
     HandlePullVCardListingReq(aData.value());
-  } else if (aData.name().EqualsLiteral(MAP_CONNECTION_REQ_ID)) {
+  } else if (aData.name().Equals(MAP_CONNECTION_REQ_ID)) {
     HandleMapConnectionReq(aData.value());
-  } else if (aData.name().EqualsLiteral(MAP_MESSAGES_LISTING_REQ_ID)) {
+  } else if (aData.name().Equals(MAP_MESSAGES_LISTING_REQ_ID)) {
     HandleMapMessagesListing(aData.value());
-  } else if (aData.name().EqualsLiteral(MAP_FOLDER_LISTING_REQ_ID)) {
+  } else if (aData.name().Equals(MAP_FOLDER_LISTING_REQ_ID)) {
     HandleMapFolderListing(aData.value());
-  } else if (aData.name().EqualsLiteral(MAP_GET_MESSAGE_REQ_ID)) {
+  } else if (aData.name().Equals(MAP_GET_MESSAGE_REQ_ID)) {
     HandleMapGetMessage(aData.value());
-  } else if (aData.name().EqualsLiteral(MAP_SET_MESSAGE_STATUS_REQ_ID)) {
+  } else if (aData.name().Equals(MAP_SET_MESSAGE_STATUS_REQ_ID)) {
     HandleMapSetMessageStatus(aData.value());
-  } else if (aData.name().EqualsLiteral(MAP_SEND_MESSAGE_REQ_ID)) {
+  } else if (aData.name().Equals(MAP_SEND_MESSAGE_REQ_ID)) {
     HandleMapSendMessage(aData.value());
-  } else if (aData.name().EqualsLiteral(MAP_MESSAGE_UPDATE_REQ_ID)) {
+  } else if (aData.name().Equals(MAP_MESSAGE_UPDATE_REQ_ID)) {
     HandleMapMessageUpdate(aData.value());
   } else {
     BT_WARNING("Not handling adapter signal: %s",
@@ -1019,8 +1019,8 @@ void BluetoothAdapter::HandlePbapConnectionReq(const BluetoothValue& aValue) {
       GetOwner(), BluetoothServiceClass::PBAP_PSE);
 
   RefPtr<BluetoothPbapConnectionReqEvent> event =
-      BluetoothPbapConnectionReqEvent::Constructor(
-          this, NS_LITERAL_STRING(PBAP_CONNECTION_REQ_ID), init);
+      BluetoothPbapConnectionReqEvent::Constructor(this, PBAP_CONNECTION_REQ_ID,
+                                                   init);
 
   DispatchTrustedEvent(event);
 }
@@ -1148,7 +1148,7 @@ void BluetoothAdapter::HandleDevicePaired(const BluetoothValue& aValue) {
   // Notify application of paired device
   BluetoothDeviceEventInit init;
   init.mDevice = mDevices[index];
-  DispatchDeviceEvent(NS_LITERAL_STRING(DEVICE_PAIRED_ID), init);
+  DispatchDeviceEvent(DEVICE_PAIRED_ID, init);
 }
 
 void BluetoothAdapter::HandleDeviceUnpaired(const BluetoothValue& aValue) {
@@ -1176,7 +1176,7 @@ void BluetoothAdapter::HandleDeviceUnpaired(const BluetoothValue& aValue) {
   // Notify application of unpaired device
   BluetoothDeviceEventInit init;
   init.mAddress = deviceAddress;
-  DispatchDeviceEvent(NS_LITERAL_STRING(DEVICE_UNPAIRED_ID), init);
+  DispatchDeviceEvent(DEVICE_UNPAIRED_ID, init);
 }
 
 void BluetoothAdapter::HandlePairingAborted(const BluetoothValue& aValue) {
@@ -1189,7 +1189,7 @@ void BluetoothAdapter::HandlePairingAborted(const BluetoothValue& aValue) {
   // Notify application of the device of aborted pairing
   BluetoothDeviceEventInit init;
   init.mAddress = aValue.get_nsString();
-  DispatchDeviceEvent(NS_LITERAL_STRING(PAIRING_ABORTED_ID), init);
+  DispatchDeviceEvent(PAIRING_ABORTED_ID, init);
 }
 
 void BluetoothAdapter::HandleObexPasswordReq(const BluetoothValue& aValue) {
@@ -1201,8 +1201,8 @@ void BluetoothAdapter::HandleObexPasswordReq(const BluetoothValue& aValue) {
 
   // TODO: Retrieve optional userId from aValue and assign into event
 
-  RefPtr<BluetoothObexAuthEvent> event = BluetoothObexAuthEvent::Constructor(
-      this, NS_LITERAL_STRING(OBEX_PASSWORD_REQ_ID), init);
+  RefPtr<BluetoothObexAuthEvent> event =
+      BluetoothObexAuthEvent::Constructor(this, OBEX_PASSWORD_REQ_ID, init);
   DispatchTrustedEvent(event);
 }
 
@@ -1242,8 +1242,8 @@ void BluetoothAdapter::HandlePullPhonebookReq(const BluetoothValue& aValue) {
   init.mHandle = BluetoothPbapRequestHandle::Create(GetOwner());
 
   RefPtr<BluetoothPhonebookPullingEvent> event =
-      BluetoothPhonebookPullingEvent::Constructor(
-          this, NS_LITERAL_STRING(PULL_PHONEBOOK_REQ_ID), init);
+      BluetoothPhonebookPullingEvent::Constructor(this, PULL_PHONEBOOK_REQ_ID,
+                                                  init);
   DispatchTrustedEvent(event);
 }
 
@@ -1274,8 +1274,8 @@ void BluetoothAdapter::HandlePullVCardEntryReq(const BluetoothValue& aValue) {
   init.mHandle = BluetoothPbapRequestHandle::Create(GetOwner());
 
   RefPtr<BluetoothVCardPullingEvent> event =
-      BluetoothVCardPullingEvent::Constructor(
-          this, NS_LITERAL_STRING(PULL_VCARD_ENTRY_REQ_ID), init);
+      BluetoothVCardPullingEvent::Constructor(this, PULL_VCARD_ENTRY_REQ_ID,
+                                              init);
   DispatchTrustedEvent(event);
 }
 
@@ -1316,8 +1316,8 @@ void BluetoothAdapter::HandlePullVCardListingReq(const BluetoothValue& aValue) {
   init.mHandle = BluetoothPbapRequestHandle::Create(GetOwner());
 
   RefPtr<BluetoothVCardListingEvent> event =
-      BluetoothVCardListingEvent::Constructor(
-          this, NS_LITERAL_STRING(PULL_VCARD_LISTING_REQ_ID), init);
+      BluetoothVCardListingEvent::Constructor(this, PULL_VCARD_LISTING_REQ_ID,
+                                              init);
   DispatchTrustedEvent(event);
 }
 
@@ -1382,7 +1382,7 @@ void BluetoothAdapter::HandleMapFolderListing(const BluetoothValue& aValue) {
 
   RefPtr<BluetoothMapFolderListingEvent> event =
       BluetoothMapFolderListingEvent::Constructor(
-          this, NS_LITERAL_STRING(MAP_FOLDER_LISTING_REQ_ID), init);
+          this, MAP_FOLDER_LISTING_REQ_ID, init);
   DispatchTrustedEvent(event);
 }
 
@@ -1395,8 +1395,8 @@ void BluetoothAdapter::HandleMapConnectionReq(const BluetoothValue& aValue) {
       GetOwner(), BluetoothServiceClass::MAP_MAS);
 
   RefPtr<BluetoothMapConnectionReqEvent> event =
-      BluetoothMapConnectionReqEvent::Constructor(
-          this, NS_LITERAL_STRING(MAP_CONNECTION_REQ_ID), init);
+      BluetoothMapConnectionReqEvent::Constructor(this, MAP_CONNECTION_REQ_ID,
+                                                  init);
 
   DispatchTrustedEvent(event);
 }
@@ -1451,7 +1451,7 @@ void BluetoothAdapter::HandleMapMessagesListing(const BluetoothValue& aValue) {
 
   RefPtr<BluetoothMapMessagesListingEvent> event =
       BluetoothMapMessagesListingEvent::Constructor(
-          this, NS_LITERAL_STRING(MAP_MESSAGES_LISTING_REQ_ID), init);
+          this, MAP_MESSAGES_LISTING_REQ_ID, init);
   DispatchTrustedEvent(event);
 }
 
@@ -1485,8 +1485,8 @@ void BluetoothAdapter::HandleMapGetMessage(const BluetoothValue& aValue) {
   init.mHandle = BluetoothMapRequestHandle::Create(GetOwner());
 
   RefPtr<BluetoothMapGetMessageEvent> event =
-      BluetoothMapGetMessageEvent::Constructor(
-          this, NS_LITERAL_STRING(MAP_GET_MESSAGE_REQ_ID), init);
+      BluetoothMapGetMessageEvent::Constructor(this, MAP_GET_MESSAGE_REQ_ID,
+                                               init);
   DispatchTrustedEvent(event);
 }
 
@@ -1521,7 +1521,7 @@ void BluetoothAdapter::HandleMapSetMessageStatus(const BluetoothValue& aValue) {
 
   RefPtr<BluetoothMapSetMessageStatusEvent> event =
       BluetoothMapSetMessageStatusEvent::Constructor(
-          this, NS_LITERAL_STRING(MAP_SET_MESSAGE_STATUS_REQ_ID), init);
+          this, MAP_SET_MESSAGE_STATUS_REQ_ID, init);
   DispatchTrustedEvent(event);
 }
 
@@ -1551,8 +1551,8 @@ void BluetoothAdapter::HandleMapSendMessage(const BluetoothValue& aValue) {
   init.mHandle = BluetoothMapRequestHandle::Create(GetOwner());
 
   RefPtr<BluetoothMapSendMessageEvent> event =
-      BluetoothMapSendMessageEvent::Constructor(
-          this, NS_LITERAL_STRING(MAP_SEND_MESSAGE_REQ_ID), init);
+      BluetoothMapSendMessageEvent::Constructor(this, MAP_SEND_MESSAGE_REQ_ID,
+                                                init);
   DispatchTrustedEvent(event);
 }
 
@@ -1579,7 +1579,7 @@ void BluetoothAdapter::HandleMapMessageUpdate(const BluetoothValue& aValue) {
 
   RefPtr<BluetoothMapMessageUpdateEvent> event =
       BluetoothMapMessageUpdateEvent::Constructor(
-          this, NS_LITERAL_STRING(MAP_MESSAGE_UPDATE_REQ_ID), init);
+          this, MAP_MESSAGE_UPDATE_REQ_ID, init);
   DispatchTrustedEvent(event);
 }
 
@@ -1590,8 +1590,8 @@ void BluetoothAdapter::DispatchAttributeEvent(
   BluetoothAttributeEventInit init;
   init.mAttrs = aTypes;
 
-  RefPtr<BluetoothAttributeEvent> event = BluetoothAttributeEvent::Constructor(
-      this, NS_LITERAL_STRING(ATTRIBUTE_CHANGED_ID), init);
+  RefPtr<BluetoothAttributeEvent> event =
+      BluetoothAttributeEvent::Constructor(this, ATTRIBUTE_CHANGED_ID, init);
 
   DispatchTrustedEvent(event);
 }

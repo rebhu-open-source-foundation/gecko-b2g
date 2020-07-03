@@ -65,7 +65,7 @@ class nsIPrincipal;
 #define PREF_GEO_SECURITY_ALLOWINSECURE "geo.security.allowinsecure"
 
 // The geolocation enabled setting
-#define GEO_SETTINGS_ENABLED "geolocation.enabled"
+#define GEO_SETTINGS_ENABLED u"geolocation.enabled"_ns
 
 using mozilla::Unused;  // <snicker>
 using namespace mozilla;
@@ -532,7 +532,7 @@ nsresult nsGeolocationService::Init() {
   nsCOMPtr<nsISettingsManager> settings =
       do_GetService("@mozilla.org/sidl-native/settings;1");
   if (settings) {
-    nsString key = NS_LITERAL_STRING(GEO_SETTINGS_ENABLED);
+    nsString key = GEO_SETTINGS_ENABLED;
     settings->Get(key, this);
 
     // Skip the 3rd arguments since nsISidlDefaultResponse isn't necessary
@@ -653,8 +653,7 @@ nsGeolocationService::Observe(nsISupports* aSubject, const char* aTopic,
         do_GetService("@mozilla.org/sidl-native/settings;1");
     if (settings) {
       // Skip the 3rd arguments since nsISidlDefaultResponse isn't necessary
-      settings->RemoveObserver(NS_LITERAL_STRING(GEO_SETTINGS_ENABLED), this,
-                               nullptr);
+      settings->RemoveObserver(GEO_SETTINGS_ENABLED, this, nullptr);
     }
 #endif
 

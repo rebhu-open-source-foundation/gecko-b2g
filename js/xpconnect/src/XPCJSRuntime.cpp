@@ -2542,9 +2542,6 @@ static void AccumulateTelemetryCallback(int id, uint32_t sample,
     case JS_TELEMETRY_GC_MS:
       Telemetry::Accumulate(Telemetry::GC_MS, sample);
       break;
-    case JS_TELEMETRY_GC_BUDGET_MS:
-      Telemetry::Accumulate(Telemetry::GC_BUDGET_MS, sample);
-      break;
     case JS_TELEMETRY_GC_BUDGET_MS_2:
       Telemetry::Accumulate(Telemetry::GC_BUDGET_MS_2, sample);
       break;
@@ -2569,14 +2566,8 @@ static void AccumulateTelemetryCallback(int id, uint32_t sample,
     case JS_TELEMETRY_GC_COMPACT_MS:
       Telemetry::Accumulate(Telemetry::GC_COMPACT_MS, sample);
       break;
-    case JS_TELEMETRY_GC_MARK_ROOTS_MS:
-      Telemetry::Accumulate(Telemetry::GC_MARK_ROOTS_MS, sample);
-      break;
     case JS_TELEMETRY_GC_MARK_ROOTS_US:
       Telemetry::Accumulate(Telemetry::GC_MARK_ROOTS_US, sample);
-      break;
-    case JS_TELEMETRY_GC_MARK_GRAY_MS:
-      Telemetry::Accumulate(Telemetry::GC_MARK_GRAY_MS, sample);
       break;
     case JS_TELEMETRY_GC_MARK_GRAY_MS_2:
       Telemetry::Accumulate(Telemetry::GC_MARK_GRAY_MS_2, sample);
@@ -2620,9 +2611,6 @@ static void AccumulateTelemetryCallback(int id, uint32_t sample,
     case JS_TELEMETRY_GC_NURSERY_BYTES:
       Telemetry::Accumulate(Telemetry::GC_NURSERY_BYTES_2, sample);
       break;
-    case JS_TELEMETRY_GC_PRETENURE_COUNT:
-      Telemetry::Accumulate(Telemetry::GC_PRETENURE_COUNT, sample);
-      break;
     case JS_TELEMETRY_GC_PRETENURE_COUNT_2:
       Telemetry::Accumulate(Telemetry::GC_PRETENURE_COUNT_2, sample);
       break;
@@ -2631,9 +2619,6 @@ static void AccumulateTelemetryCallback(int id, uint32_t sample,
       break;
     case JS_TELEMETRY_GC_TENURED_SURVIVAL_RATE:
       Telemetry::Accumulate(Telemetry::GC_TENURED_SURVIVAL_RATE, sample);
-      break;
-    case JS_TELEMETRY_GC_MARK_RATE:
-      Telemetry::Accumulate(Telemetry::GC_MARK_RATE, sample);
       break;
     case JS_TELEMETRY_GC_MARK_RATE_2:
       Telemetry::Accumulate(Telemetry::GC_MARK_RATE_2, sample);

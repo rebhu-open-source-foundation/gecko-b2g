@@ -36,7 +36,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(BluetoothManager,
    * accessing deleted objects while receiving signals from parent process
    * after unlinked. Please see Bug 1138267 for detail informations.
    */
-  UnregisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_MANAGER), tmp);
+  UnregisterBluetoothSignalHandler(KEY_MANAGER, tmp);
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(BluetoothManager,
@@ -104,7 +104,7 @@ BluetoothManager::BluetoothManager(nsPIDOMWindowInner* aWindow)
     : DOMEventTargetHelper(aWindow), mDefaultAdapterIndex(-1) {
   MOZ_ASSERT(aWindow);
 
-  RegisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_MANAGER), this);
+  RegisterBluetoothSignalHandler(KEY_MANAGER, this);
 
   // Query adapters list from bluetooth backend
   BluetoothService* bs = BluetoothService::Get();
@@ -115,12 +115,12 @@ BluetoothManager::BluetoothManager(nsPIDOMWindowInner* aWindow)
 }
 
 BluetoothManager::~BluetoothManager() {
-  UnregisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_MANAGER), this);
+  UnregisterBluetoothSignalHandler(KEY_MANAGER, this);
 }
 
 void BluetoothManager::DisconnectFromOwner() {
   DOMEventTargetHelper::DisconnectFromOwner();
-  UnregisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_MANAGER), this);
+  UnregisterBluetoothSignalHandler(KEY_MANAGER, this);
 }
 
 BluetoothAdapter* BluetoothManager::GetDefaultAdapter() {
@@ -228,8 +228,8 @@ void BluetoothManager::DispatchAttributeEvent() {
   // Notify application of default adapter change
   BluetoothAttributeEventInit init;
   init.mAttrs = types;
-  RefPtr<BluetoothAttributeEvent> event = BluetoothAttributeEvent::Constructor(
-      this, NS_LITERAL_STRING(ATTRIBUTE_CHANGED_ID), init);
+  RefPtr<BluetoothAttributeEvent> event =
+      BluetoothAttributeEvent::Constructor(this, ATTRIBUTE_CHANGED_ID, init);
 
   DispatchTrustedEvent(event);
 }
