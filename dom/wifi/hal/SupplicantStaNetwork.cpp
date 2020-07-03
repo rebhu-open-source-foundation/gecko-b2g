@@ -73,6 +73,8 @@ constexpr uint32_t pairwise_cipher_ccmp =
 #define EVENT_EAP_SIM_UMTS_AUTH_REQUEST u"EAP_SIM_UMTS_AUTH_REQUEST"_ns
 #define EVENT_EAP_SIM_IDENTITY_REQUEST u"EAP_SIM_IDENTITY_REQUEST"_ns
 
+using namespace mozilla::dom::wifi;
+
 mozilla::Mutex SupplicantStaNetwork::sLock("supplicant-network");
 
 SupplicantStaNetwork::SupplicantStaNetwork(

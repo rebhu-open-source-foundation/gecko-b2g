@@ -7,6 +7,7 @@
 #ifndef WifiNative_h
 #define WifiNative_h
 
+#include "PasspointHandler.h"
 #include "WifiEventCallback.h"
 #include "WifiHalManager.h"
 #include "WificondControl.h"
@@ -18,6 +19,8 @@
 #include "nsWifiElement.h"
 #include "nsIWifiCommand.h"
 #include "mozilla/UniquePtr.h"
+
+BEGIN_WIFI_NAMESPACE
 
 class WifiNative {
  public:
@@ -90,11 +93,7 @@ class WifiNative {
   Result_t SendEapSimUmtsAutsResponse(
       SimUmtsAutsRespDataOptions* aUmtsAutsResp);
   Result_t SendEapSimUmtsAuthFailure();
-
-  SimIdentityRespDataOptions mIdentityResp;
-  SimUmtsAuthRespDataOptions mUmtsAuthResp;
-  SimUmtsAutsRespDataOptions mUmtsAutsResp;
-  nsTArray<SimGsmAuthRespDataOptions> mGsmAuthResp;
+  Result_t RequestAnqp(AnqpRequestSettingsOptions* aRequest);
 
   Result_t StartSoftAp(SoftapConfigurationOptions* aSoftapConfig,
                        nsAString& aIfaceName);
@@ -120,6 +119,9 @@ class WifiNative {
   android::sp<SoftapEventService> mSoftapEventService;
 
   uint32_t mSupportedFeatures;
+  RefPtr<PasspointHandler> mPasspointHandler;
 };
+
+END_WIFI_NAMESPACE
 
 #endif  // WifiNative_h

@@ -17,6 +17,8 @@
 #define EVENT_SUPPLICANT_TARGET_BSSID u"SUPPLICANT_TARGET_BSSID"_ns
 #define EVENT_SUPPLICANT_ASSOCIATED_BSSID u"SUPPLICANT_ASSOCIATED_BSSID"_ns
 
+using namespace mozilla::dom::wifi;
+
 static mozilla::Mutex sLock("supplicant-callback");
 
 /**
@@ -24,10 +26,12 @@ static mozilla::Mutex sLock("supplicant-callback");
  */
 SupplicantStaIfaceCallback::SupplicantStaIfaceCallback(
     const std::string& aInterfaceName,
-    const android::sp<WifiEventCallback>& aCallback)
+    const android::sp<WifiEventCallback>& aCallback,
+    const android::sp<PasspointEventCallback>& aPasspointCallback)
     : mFourwayHandshake(false),
       mInterfaceName(aInterfaceName),
-      mCallback(aCallback) {}
+      mCallback(aCallback),
+      mPasspointCallback(aPasspointCallback) {}
 
 Return<void> SupplicantStaIfaceCallback::onNetworkAdded(uint32_t id) {
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onNetworkAdded()");
@@ -66,7 +70,13 @@ Return<void> SupplicantStaIfaceCallback::onAnqpQueryDone(
     const android::hardware::hidl_array<uint8_t, 6>& bssid,
     const ISupplicantStaIfaceCallback::AnqpData& data,
     const ISupplicantStaIfaceCallback::Hs20AnqpData& hs20Data) {
+  MutexAutoLock lock(sLock);
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onAnqpQueryDone()");
+
+  nsCString iface(mInterfaceName);
+  if (mPasspointCallback) {
+    mPasspointCallback->NotifyAnqpResponse(iface);
+  }
   return android::hardware::Void();
 }
 
@@ -74,7 +84,13 @@ Return<void> SupplicantStaIfaceCallback::onHs20IconQueryDone(
     const android::hardware::hidl_array<uint8_t, 6>& bssid,
     const ::android::hardware::hidl_string& fileName,
     const ::android::hardware::hidl_vec<uint8_t>& data) {
+  MutexAutoLock lock(sLock);
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onHs20IconQueryDone()");
+
+  nsCString iface(mInterfaceName);
+  if (mPasspointCallback) {
+    mPasspointCallback->NotifyIconResponse(iface);
+  }
   return android::hardware::Void();
 }
 
@@ -82,8 +98,14 @@ Return<void> SupplicantStaIfaceCallback::onHs20SubscriptionRemediation(
     const ::android::hardware::hidl_array<uint8_t, 6>& bssid,
     ISupplicantStaIfaceCallback::OsuMethod osuMethod,
     const ::android::hardware::hidl_string& url) {
+  MutexAutoLock lock(sLock);
   WIFI_LOGD(LOG_TAG,
             "ISupplicantStaIfaceCallback.onHs20SubscriptionRemediation()");
+
+  nsCString iface(mInterfaceName);
+  if (mPasspointCallback) {
+    mPasspointCallback->NotifyWnmFrameReceived(iface);
+  }
   return android::hardware::Void();
 }
 
@@ -91,8 +113,14 @@ Return<void> SupplicantStaIfaceCallback::onHs20DeauthImminentNotice(
     const ::android::hardware::hidl_array<uint8_t, 6>& bssid,
     uint32_t reasonCode, uint32_t reAuthDelayInSec,
     const ::android::hardware::hidl_string& url) {
+  MutexAutoLock lock(sLock);
   WIFI_LOGD(LOG_TAG,
             "ISupplicantStaIfaceCallback.onHs20DeauthImminentNotice()");
+
+  nsCString iface(mInterfaceName);
+  if (mPasspointCallback) {
+    mPasspointCallback->NotifyWnmFrameReceived(iface);
+  }
   return android::hardware::Void();
 }
 

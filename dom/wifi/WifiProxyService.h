@@ -16,6 +16,7 @@
 #include "nsWifiEvent.h"
 #include "WifiEventCallback.h"
 
+using namespace mozilla::dom::wifi;
 namespace mozilla {
 
 class WifiProxyService final : public nsIWifiProxyService,

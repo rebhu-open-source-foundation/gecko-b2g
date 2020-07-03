@@ -65,6 +65,8 @@ interface nsIWifiCommand: nsISupports
   const uint32_t SEND_UMTS_AUTH_RESPONSE     = 0x300D;
   const uint32_t SEND_UMTS_AUTS_RESPONSE     = 0x300E;
   const uint32_t SEND_UMTS_AUTH_FAILURE      = 0x300F;
+  const uint32_t REQUEST_ANQP                = 0x3010;
+
 
   /** Softap mode */
   const uint32_t START_SOFTAP                = 0x4000;

@@ -32,9 +32,6 @@
 
 #include "mozilla/Mutex.h"
 
-/**
- * Class for supplicant HIDL client implementation.
- */
 using ::android::hardware::hidl_array;
 using ::android::hardware::hidl_death_recipient;
 using ::android::hardware::hidl_string;
@@ -57,8 +54,18 @@ using ISupplicantStaIfaceV1_1 =
 using ISupplicantStaIfaceV1_2 =
     android::hardware::wifi::supplicant::V1_2::ISupplicantStaIface;
 
+using AnqpInfoId = ::android::hardware::wifi::supplicant::V1_0::
+    ISupplicantStaIface::AnqpInfoId;
+using Hs20AnqpSubtypes = ::android::hardware::wifi::supplicant::V1_0::
+    ISupplicantStaIface::Hs20AnqpSubtypes;
+
 namespace SupplicantNameSpaceV1_0 = ::android::hardware::wifi::supplicant::V1_0;
 
+BEGIN_WIFI_NAMESPACE
+
+/**
+ * Class for supplicant HIDL client implementation.
+ */
 class SupplicantStaManager
     : virtual public android::hidl::manager::V1_0::IServiceNotification,
       virtual public SupplicantNameSpaceV1_0::ISupplicantCallback {
@@ -67,6 +74,9 @@ class SupplicantStaManager
   static void CleanUp();
   void RegisterEventCallback(const android::sp<WifiEventCallback>& aCallback);
   void UnregisterEventCallback();
+
+  void RegisterPasspointCallback(PasspointEventCallback* aCallback);
+  void UnregisterPasspointCallback();
 
   // HIDL initialization
   Result_t InitInterface();
@@ -107,6 +117,9 @@ class SupplicantStaManager
   Result_t SendEapSimUmtsAutsResponse(
       SimUmtsAutsRespDataOptions* aUmtsAutsResp);
   Result_t SendEapSimUmtsAuthFailure();
+  Result_t SendAnqpRequest(const std::array<uint8_t, 6>& aBssid,
+                           const std::vector<uint32_t>& aInfoElements,
+                           const std::vector<uint32_t>& aHs20SubTypes);
 
   android::sp<SupplicantStaNetwork> CreateStaNetwork();
   android::sp<SupplicantStaNetwork> GetStaNetwork(uint32_t aNetId);
@@ -201,6 +214,7 @@ class SupplicantStaManager
   android::sp<SupplicantDeathRecipient> mSupplicantDeathRecipient;
 
   android::sp<SupplicantDeathEventHandler> mDeathEventHandler;
+  android::sp<PasspointEventCallback> mPasspointCallback;
   android::sp<WifiEventCallback> mCallback;
 
   int32_t mDeathRecipientCookie;
@@ -213,5 +227,7 @@ class SupplicantStaManager
 
   DISALLOW_COPY_AND_ASSIGN(SupplicantStaManager);
 };
+
+END_WIFI_NAMESPACE
 
 #endif  // SupplicantStaManager_H

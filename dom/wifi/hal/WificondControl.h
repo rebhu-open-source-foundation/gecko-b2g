@@ -20,6 +20,8 @@ using ::android::net::wifi::IWifiScannerImpl;
 
 namespace Wificond = ::com::android::server::wifi::wificond;
 
+BEGIN_WIFI_NAMESPACE
+
 class WificondControl : virtual public android::RefBase {
  public:
   WificondControl();
@@ -81,5 +83,7 @@ class WificondControl : virtual public android::RefBase {
 
   DISALLOW_COPY_AND_ASSIGN(WificondControl);
 };
+
+END_WIFI_NAMESPACE
 
 #endif  // WificondControl_H

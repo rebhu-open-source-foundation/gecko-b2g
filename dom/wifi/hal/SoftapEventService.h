@@ -10,6 +10,8 @@
 #include <android/net/wifi/BnApInterfaceEventCallback.h>
 #include <binder/BinderService.h>
 
+BEGIN_WIFI_NAMESPACE
+
 class SoftapEventService
     : virtual public android::BinderService<SoftapEventService>,
       virtual public android::net::wifi::BnApInterfaceEventCallback {
@@ -37,5 +39,7 @@ class SoftapEventService
 
   android::sp<WifiEventCallback> mCallback;
 };
+
+END_WIFI_NAMESPACE
 
 #endif  // SoftapEventService_H

@@ -975,6 +975,9 @@ var WifiManager = (function() {
     ["PNO_SCAN_FOUND", pnoScanFound],
     ["PNO_SCAN_FAILED", pnoScanFailed],
     ["HOTSPOT_CLIENT_CHANGED", hotspotClientChanged],
+    ["ANQP_QUERY_DONE", anqpResponse],
+    ["HS20_ICON_QUERY_DONE", iconResponse],
+    ["WNM_FRAME_RECEIVED", wnmFrameReceived],
   ]);
 
   var linkDebouncingId = null;
@@ -1307,6 +1310,18 @@ var WifiManager = (function() {
 
   function hotspotClientChanged(event) {
     notify("stationinfoupdate", { station: event.numStations });
+  }
+
+  function anqpResponse() {
+    // TODO: handle anqp response
+  }
+
+  function iconResponse() {
+    // TODO: handle icon response
+  }
+
+  function wnmFrameReceived() {
+    // TODO: handle management frame received
   }
 
   var requestOptimizationMode = 0;
@@ -2915,6 +2930,7 @@ function WifiWorker() {
           infoElement,
           result.capability
         );
+        let passpoint = WifiConfigUtils.parsePasspointElements(infoElement);
 
         /* Skip networks with unknown or unsupported modes. */
         if (!capabilities.mode.includes(WifiConfigUtils.getMode(flags))) {
@@ -2935,6 +2951,7 @@ function WifiWorker() {
 
         let networkKey = WifiConfigUtils.getNetworkKey(network);
         network.networkKey = networkKey;
+        network.passpoint = passpoint;
 
         // Check whether open network is found.
         if (network.keyManagement.includes("NONE")) {

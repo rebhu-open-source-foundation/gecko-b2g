@@ -26,6 +26,8 @@ using ::android::net::wifi::IApInterfaceEventCallback;
 using ::android::net::wifi::IPnoScanEvent;
 using ::android::net::wifi::IScanEvent;
 
+using namespace mozilla::dom::wifi;
+
 static const char* CTL_START_PROPERTY = "ctl.start";
 static const char* CTL_STOP_PROPERTY = "ctl.stop";
 static const char* SUPPLICANT_SERVICE_NAME = "wpa_supplicant";

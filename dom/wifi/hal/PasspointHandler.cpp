@@ -1,0 +1,176 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#define LOG_TAG "PasspointHandler"
+
+#include "PasspointHandler.h"
+
+using namespace mozilla;
+using namespace mozilla::dom::wifi;
+
+/* passpoint event name */
+#define EVENT_ANQP_QUERY_DONE u"ANQP_QUERY_DONE"_ns
+#define EVENT_HS20_ICON_QUERY_DONE u"HS20_ICON_QUERY_DONE"_ns
+#define EVENT_WNM_FRAME_RECEIVED u"WNM_FRAME_RECEIVED"_ns
+
+static const uint32_t minAnqpEscapeTimeMs = 1000;
+static const uint32_t maxAnqpTimeIncrement = 6;
+
+static StaticRefPtr<PasspointHandler> sPasspointHandler;
+
+already_AddRefed<PasspointHandler> PasspointHandler::Get() {
+  MOZ_ASSERT(XRE_IsParentProcess());
+
+  if (!sPasspointHandler) {
+    sPasspointHandler = new PasspointHandler();
+    ClearOnShutdown(&sPasspointHandler);
+  }
+
+  RefPtr<PasspointHandler> PasspointHandler = sPasspointHandler.get();
+  return PasspointHandler.forget();
+}
+
+PasspointHandler::PasspointHandler() {}
+
+void PasspointHandler::CleanUp() {
+  mAnqpRequestTime.Clear();
+  mAnqpPendingRequest.Clear();
+}
+
+void PasspointHandler::SetSupplicantManager(
+    const android::sp<SupplicantStaManager>& aManager) {
+  mSupplicantManager = aManager;
+
+  if (mSupplicantManager) {
+    mSupplicantManager->RegisterPasspointCallback(this);
+  }
+}
+
+void PasspointHandler::RegisterEventCallback(
+    const android::sp<WifiEventCallback>& aCallback) {
+  mCallback = aCallback;
+}
+
+void PasspointHandler::UnregisterEventCallback() { mCallback = nullptr; }
+
+Result_t PasspointHandler::RequestAnqp(const nsAString& aAnqpKey,
+                                       const nsAString& aBssid,
+                                       bool aRoamingConsortiumOIs,
+                                       bool aSupportRelease2) {
+  if (!ReadyToRequest(aBssid)) {
+    // Just ignore this request.
+    return nsIWifiResult::SUCCESS;
+  }
+
+  if (StartAnqpQuery(aBssid, aRoamingConsortiumOIs, aSupportRelease2) !=
+      nsIWifiResult::SUCCESS) {
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  }
+
+  UpdateTimeStame(aBssid);
+  mAnqpPendingRequest.Put(aBssid, new AnqpIdentity(aAnqpKey, aBssid));
+
+  return nsIWifiResult::SUCCESS;
+}
+
+Result_t PasspointHandler::StartAnqpQuery(const nsAString& aBssid,
+                                          bool aRoamingConsortiumOIs,
+                                          bool aSupportRelease2) {
+  std::vector<uint32_t> infoElements;
+  std::vector<uint32_t> hs20SubTypes;
+
+  for (const auto& element : R1_ANQP_SET) {
+    infoElements.push_back(element);
+  }
+
+  if (aRoamingConsortiumOIs) {
+    infoElements.push_back((uint32_t)AnqpElementType::ANQPRoamingConsortium);
+  }
+
+  if (aSupportRelease2) {
+    for (const auto& element : R2_ANQP_SET) {
+      hs20SubTypes.push_back(element);
+    }
+  }
+
+  std::array<uint8_t, 6> bssid;
+  ConvertMacToByteArray(NS_ConvertUTF16toUTF8(aBssid).get(), bssid);
+  return mSupplicantManager->SendAnqpRequest(bssid, infoElements, hs20SubTypes);
+}
+
+bool PasspointHandler::ReadyToRequest(const nsAString& aBssid) {
+  // check mAnqpTimeStamp to see if this bssid has already sent ANQP
+  // requested in certain time interval, which get twice increment of
+  // minAnqpEscapeTimeMs.
+  AnqpRequestTime* requestTime;
+  mozilla::TimeStamp currentTime = TimeStamp::Now();
+  if (!mAnqpRequestTime.Get(aBssid, &requestTime)) {
+    requestTime = new AnqpRequestTime(currentTime);
+    mAnqpRequestTime.Put(aBssid, requestTime);
+    return true;
+  }
+
+  TimeDuration delta = currentTime - requestTime->mTimeStamp;
+  if (delta.ToMilliseconds() <=
+      minAnqpEscapeTimeMs * (1 << requestTime->mTimeIncrement)) {
+    // Delta time is not long enough, return false to skip this request.
+    return false;
+  }
+  return true;
+}
+
+bool PasspointHandler::UpdateTimeStame(const nsAString& aBssid) {
+  AnqpRequestTime* requestTime = mAnqpRequestTime.Get(aBssid);
+  if (requestTime) {
+    if (requestTime->mTimeIncrement < maxAnqpTimeIncrement) {
+      requestTime->mTimeIncrement += 1;
+    }
+    // Update timestamp for current bssid.
+    requestTime->mTimeStamp = TimeStamp::Now();
+  }
+  return true;
+}
+
+bool PasspointHandler::AnqpIdentity::Compare(AnqpIdentity* aIdentity) {
+  if (!aIdentity) {
+    return false;
+  }
+  if (aIdentity->mAnqpKey.IsEmpty() || aIdentity->mBssid.IsEmpty()) {
+    return false;
+  }
+  if (!mAnqpKey.Equals(aIdentity->mAnqpKey)) {
+    return false;
+  }
+  if (!mBssid.Equals(aIdentity->mBssid)) {
+    return false;
+  }
+  return true;
+}
+
+// PasspointEventCallback
+void PasspointHandler::NotifyAnqpResponse(const nsACString& aIface) {
+  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_ANQP_QUERY_DONE);
+
+  // TODO: parse anqp data
+
+  INVOKE_CALLBACK(mCallback, event, aIface);
+}
+
+void PasspointHandler::NotifyIconResponse(const nsACString& aIface) {
+  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_HS20_ICON_QUERY_DONE);
+
+  // TODO: parse icon data
+
+  INVOKE_CALLBACK(mCallback, event, aIface);
+}
+
+void PasspointHandler::NotifyWnmFrameReceived(const nsACString& aIface) {
+  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_WNM_FRAME_RECEIVED);
+
+  // TODO: parse wireless network management frame
+
+  INVOKE_CALLBACK(mCallback, event, aIface);
+}
+
+NS_IMPL_ISUPPORTS0(PasspointHandler)

@@ -98,6 +98,15 @@ this.WifiConfigUtils = (function() {
   const RSN_CIPHER_NO_GROUP_ADDRESSED = 0x07ac0f00;
   const RSN_CIPHER_GCMP_256 = 0x09ac0f00;
 
+  const LITTLE_ENDIAN = 0;
+  const BIG_ENDIAN = 1;
+
+  const hsReleaseMap = [
+    WifiConstants.PasspointVersion.R1,
+    WifiConstants.PasspointVersion.R2,
+    WifiConstants.PasspointVersion.R3,
+  ];
+
   // WifiConfigUtils functions
   wifiConfigUtils.getMode = getMode;
   wifiConfigUtils.getSecurity = getSecurity;
@@ -107,6 +116,7 @@ this.WifiConfigUtils = (function() {
   wifiConfigUtils.getNetworkKey = getNetworkKey;
   wifiConfigUtils.parseInformationElements = parseInformationElements;
   wifiConfigUtils.parseCapabilities = parseCapabilities;
+  wifiConfigUtils.parsePasspointElements = parsePasspointElements;
 
   function byte2String(buf) {
     var result = "";
@@ -116,11 +126,16 @@ this.WifiConfigUtils = (function() {
     return result;
   }
 
-  function byte2Int(buf, pos, len) {
+  function byte2Int(buf, pos, len, endian) {
     let result = 0;
     let bytes = buf.splice(pos, len);
+
     for (let i = 0; i < bytes.length; i++) {
-      result += bytes[i] << (8 * i);
+      if (endian == LITTLE_ENDIAN) {
+        result += bytes[i] << (8 * i);
+      } else {
+        result += bytes[i] << (8 * (bytes.length - i - 1));
+      }
     }
     pos = pos + len;
     return result;
@@ -173,7 +188,7 @@ this.WifiConfigUtils = (function() {
         parseRsnElement(ies[i].bytes, flags);
       }
       if (ies[i].id == EID_VSA) {
-        parseVsaElement(ies[i].bytes, flags);
+        parseVendorOuiElement(ies[i].bytes, flags);
       }
     }
     flags.isWEP = flags.protocol.length == 0 && privacy;
@@ -255,23 +270,23 @@ this.WifiConfigUtils = (function() {
     // | PMKID Count | PMKID List | Group Management Cipher Suite |
     //        2          16 * s                 4
     let pos = 0;
-    let version = byte2Int(buf, pos, 2);
+    let version = byte2Int(buf, pos, 2, LITTLE_ENDIAN);
     if (version != RSNE_VERSION) {
       return;
     }
-    let groupCipher = byte2Int(buf, pos, 4);
-    let cipherCount = byte2Int(buf, pos, 2);
+    let groupCipher = byte2Int(buf, pos, 4, LITTLE_ENDIAN);
+    let cipherCount = byte2Int(buf, pos, 2, LITTLE_ENDIAN);
     let pairwiseCipher = [];
     let cipher = 0;
     for (let i = 0; i < cipherCount; i++) {
-      cipher = byte2Int(buf, pos, 4);
+      cipher = byte2Int(buf, pos, 4, LITTLE_ENDIAN);
       pairwiseCipher.push(parseRsnCipher(cipher));
     }
-    let akmCount = byte2Int(buf, pos, 2);
+    let akmCount = byte2Int(buf, pos, 2, LITTLE_ENDIAN);
     let keyManagement = [];
     let akm = 0;
     for (let i = 0; i < akmCount; i++) {
-      akm = byte2Int(buf, pos, 4);
+      akm = byte2Int(buf, pos, 4, LITTLE_ENDIAN);
       keyManagement.push(parseAKM(akm));
     }
 
@@ -293,24 +308,24 @@ this.WifiConfigUtils = (function() {
     // | AKM Suite Count | AKM Suite List |
     //          2               4 * n
     let pos = 0;
-    byte2Int(buf, pos, 4);
-    let version = byte2Int(buf, pos, 2);
+    byte2Int(buf, pos, 4, LITTLE_ENDIAN);
+    let version = byte2Int(buf, pos, 2, LITTLE_ENDIAN);
     if (version != WPA_VENDOR_OUI_VERSION) {
       return;
     }
-    let groupCipher = byte2Int(buf, pos, 4);
-    let cipherCount = byte2Int(buf, pos, 2);
+    let groupCipher = byte2Int(buf, pos, 4, LITTLE_ENDIAN);
+    let cipherCount = byte2Int(buf, pos, 2, LITTLE_ENDIAN);
     let pairwiseCipher = [];
     let cipher = 0;
     for (let i = 0; i < cipherCount; i++) {
-      cipher = byte2Int(buf, pos, 4);
+      cipher = byte2Int(buf, pos, 4, LITTLE_ENDIAN);
       pairwiseCipher.push(parseWpaCipher(cipher));
     }
-    let akmCount = byte2Int(buf, pos, 2);
+    let akmCount = byte2Int(buf, pos, 2, LITTLE_ENDIAN);
     let keyManagement = [];
     let akm = 0;
     for (let i = 0; i < akmCount; i++) {
-      akm = byte2Int(buf, pos, 4);
+      akm = byte2Int(buf, pos, 4, LITTLE_ENDIAN);
       if (akm == WPA_AKM_EAP) {
         keyManagement.push(KEY_MGMT_EAP);
       } else if (akm == WPA_AKM_PSK) {
@@ -323,9 +338,9 @@ this.WifiConfigUtils = (function() {
     flags.keyManagement.push(keyManagement);
   }
 
-  function parseVsaElement(buf, flags) {
+  function parseVendorOuiElement(buf, flags) {
     let pos = 0;
-    let elementType = byte2Int(buf, pos, 4);
+    let elementType = byte2Int(buf, pos, 4, LITTLE_ENDIAN);
     if (elementType == WPA_VENDOR_OUI_TYPE_ONE) {
       // WPA one
       parseWpaOneElement(buf, flags);
@@ -334,6 +349,110 @@ this.WifiConfigUtils = (function() {
       // WPS
       flags.isWPS = true;
     }
+  }
+
+  function parseInterworking(buf, element) {
+    let pos = 0;
+    let anOptions = byte2Int(buf, pos, 1, LITTLE_ENDIAN);
+
+    element.ant = Object.values(WifiConstants.Ant)[anOptions & 0x0f];
+    element.internet = (anOptions & 0x10) != 0;
+
+    if (
+      buf.length != 1 &&
+      buf.length != 3 &&
+      buf.length != 7 &&
+      buf.length != 9
+    ) {
+      debug("Invalid interworking element length");
+      return;
+    }
+
+    let venueInfo;
+    if (buf.length == 3 || buf.length == 9) {
+      venueInfo = byte2Int(buf, pos, 2, BIG_ENDIAN);
+    }
+    if (buf.length == 7 || buf.length == 9) {
+      element.hessid = byte2Int(buf, pos, 6, BIG_ENDIAN);
+    }
+  }
+
+  function parseRoamingConsortium(buf, element) {
+    let pos = 0;
+    element.anqpOICount = byte2Int(buf, pos, 1, LITTLE_ENDIAN);
+
+    let oi12Length = byte2Int(buf, pos, 1, LITTLE_ENDIAN);
+    let oi1Length = byte2Int(buf, pos, 1, LITTLE_ENDIAN) & 0x0f;
+    let oi2Length = (oi12Length >>> 4) & 0x0f;
+    let oi3Length = buf.length - 2 - oi1Length - oi2Length;
+
+    if (oi1Length > 0) {
+      element.roamingConsortiums.push(
+        byte2Int(buf, pos, oi1Length, BIG_ENDIAN)
+      );
+      if (oi2Length > 0) {
+        element.roamingConsortiums.push(
+          byte2Int(buf, pos, oi2Length, BIG_ENDIAN)
+        );
+        if (oi3Length > 0) {
+          element.roamingConsortiums.push(
+            byte2Int(buf, pos, oi3Length, BIG_ENDIAN)
+          );
+        }
+      }
+    }
+  }
+
+  function parseVsaElement(buf, element) {
+    let pos = 0;
+    let prefix = byte2Int(buf, pos, 4, LITTLE_ENDIAN);
+
+    if (buf.length >= 5 && prefix == WifiConstants.HS20_FRAME_PREFIX) {
+      let hsConf = byte2Int(buf, pos, 1, LITTLE_ENDIAN);
+      let hsVersion = (hsConf >> 4) & 0x0f;
+
+      if (hsVersion < hsReleaseMap.length) {
+        element.hsRelease = hsReleaseMap[hsVersion];
+      } else {
+        element.hsRelease = WifiConstants.PasspointVersion.Unknown;
+      }
+
+      if ((hsConf & ANQP_DOMID_BIT) != 0) {
+        if (buf.length < 7) {
+          debug("Not enough element for domain ID");
+          return;
+        }
+        element.anqpDomainID = byte2Int(buf, pos, 2, LITTLE_ENDIAN);
+      }
+    }
+  }
+
+  function parsePasspointElements(ies) {
+    if (!ies) {
+      return {};
+    }
+    let element = {
+      ant: null,
+      internet: false,
+      hessid: 0,
+      anqpOICount: 0,
+      roamingConsortiums: [],
+      hsRelease: WifiConstants.PasspointVersion.Unknown,
+      anqpDomainID: 0,
+    };
+
+    for (let ie in ies) {
+      if (ie.id == EID_INTERWORKING) {
+        parseInterworking(ie.bytes, element);
+      }
+      if (ie.id == EID_ROAMING_CONSORTIUM) {
+        parseRoamingConsortium(ie.bytes, element);
+      }
+      if (ie.id == EID_VSA) {
+        parseVsaElement(ie.bytes, element);
+      }
+    }
+    return element;
   }
 
   function parseEncryption(flags) {

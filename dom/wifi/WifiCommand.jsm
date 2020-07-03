@@ -57,6 +57,7 @@ const WIFI_CMD_GSM_AUTH_FAILURE = Ci.nsIWifiCommand.SEND_GSM_AUTH_FAILURE;
 const WIFI_CMD_UMTS_AUTH_RESPONSE = Ci.nsIWifiCommand.SEND_UMTS_AUTH_RESPONSE;
 const WIFI_CMD_UMTS_AUTS_RESPONSE = Ci.nsIWifiCommand.SEND_UMTS_AUTS_RESPONSE;
 const WIFI_CMD_UMTS_AUTH_FAILURE = Ci.nsIWifiCommand.SEND_UMTS_AUTH_FAILURE;
+const WIFI_CMD_REQUEST_ANQP = Ci.nsIWifiCommand.REQUEST_ANQP;
 const WIFI_CMD_START_SOFTAP = Ci.nsIWifiCommand.START_SOFTAP;
 const WIFI_CMD_STOP_SOFTAP = Ci.nsIWifiCommand.STOP_SOFTAP;
 const WIFI_CMD_GET_AP_IFACE = Ci.nsIWifiCommand.GET_AP_IFACE;
@@ -331,6 +332,10 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
 
   command.simUmtsAuthFailure = function(callback) {
     doCommand(WIFI_CMD_UMTS_AUTH_FAILURE, callback);
+  };
+
+  command.requestAnqp = function(data, callback) {
+    doCommandWithParams(WIFI_CMD_REQUEST_ANQP, "anqpSettings", data, callback);
   };
 
   command.startSoftap = function(config, callback) {

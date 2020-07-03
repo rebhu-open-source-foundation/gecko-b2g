@@ -46,4 +46,35 @@ const WifiConstants = {
   DISABLED_BY_WRONG_PASSWORD: 10,
   DISABLED_AUTHENTICATION_NO_SUBSCRIBED: 11,
   NETWORK_SELECTION_DISABLED_MAX: 12,
+
+  PasspointVersion: {
+    R1: 1,
+    R2: 2,
+    R3: 3,
+    Unknown: -1,
+  },
+
+  HS20_PREFIX: 0x119a6f50,
+  HS20_FRAME_PREFIX: 0x109a6f50,
+  ANQP_DOMID_BIT: 4,
+  VENUE_INFO_LENGTH: 2,
+
+  Ant: {
+    Private: 0,
+    PrivateWithGuest: 1,
+    ChargeablePublic: 2,
+    FreePublic: 3,
+    Personal: 4,
+    EmergencyOnly: 5,
+    Resvd6: 6,
+    Resvd7: 7,
+    Resvd8: 8,
+    Resvd9: 9,
+    Resvd10: 10,
+    Resvd11: 11,
+    Resvd12: 12,
+    Resvd13: 13,
+    TestOrExperimental: 14,
+    Wildcard: 15,
+  },
 };

@@ -11,6 +11,8 @@
 #include <utils/Log.h>
 #include <mozilla/ClearOnShutdown.h>
 
+using namespace mozilla::dom::wifi;
+
 mozilla::Mutex SoftapManager::sLock("softap");
 SoftapManager* SoftapManager::sInstance = nullptr;
 

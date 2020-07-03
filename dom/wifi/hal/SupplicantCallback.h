@@ -18,6 +18,8 @@ using ISupplicantStaIfaceCallbackV1_1 =
 using ISupplicantStaIfaceCallbackV1_2 =
     ::android::hardware::wifi::supplicant::V1_2::ISupplicantStaIfaceCallback;
 
+BEGIN_WIFI_NAMESPACE
+
 /**
  * Class to handle callback from supplicant station mode interface.
  * Implement supplicant hal version 1.0.
@@ -26,7 +28,8 @@ class SupplicantStaIfaceCallback : public ISupplicantStaIfaceCallbackV1_0 {
  public:
   explicit SupplicantStaIfaceCallback(
       const std::string& aInterfaceName,
-      const android::sp<WifiEventCallback>& aCallback);
+      const android::sp<WifiEventCallback>& aCallback,
+      const android::sp<PasspointEventCallback>& aPasspointCallback);
 
   /**
    * Used to indicate that a new network has been added.
@@ -211,6 +214,7 @@ class SupplicantStaIfaceCallback : public ISupplicantStaIfaceCallbackV1_0 {
   bool mFourwayHandshake;
   std::string mInterfaceName;
   android::sp<WifiEventCallback> mCallback;
+  android::sp<PasspointEventCallback> mPasspointCallback;
 };
 
 /**
@@ -367,5 +371,7 @@ class SupplicantStaIfaceCallbackV1_2 : public ISupplicantStaIfaceCallbackV1_2 {
   android::sp<WifiEventCallback> mCallback;
   android::sp<SupplicantStaIfaceCallbackV1_1> mSupplicantCallbackV1_1;
 };
+
+END_WIFI_NAMESPACE
 
 #endif  // SupplicantCallback_H

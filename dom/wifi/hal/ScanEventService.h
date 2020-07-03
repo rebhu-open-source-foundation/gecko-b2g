@@ -11,6 +11,8 @@
 #include <android/net/wifi/BnPnoScanEvent.h>
 #include <binder/BinderService.h>
 
+BEGIN_WIFI_NAMESPACE
+
 class EventCallbackHandler {
  public:
   EventCallbackHandler() {}
@@ -74,5 +76,7 @@ class PnoScanEventService final
   static android::sp<PnoScanEventService> sPnoScanEvent;
   static mozilla::Mutex sLock;
 };
+
+END_WIFI_NAMESPACE
 
 #endif  // ScanEventService_H

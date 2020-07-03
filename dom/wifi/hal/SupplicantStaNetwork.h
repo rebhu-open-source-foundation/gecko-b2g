@@ -43,6 +43,8 @@ constexpr uint32_t max_wep_key_num =
     field = std::string();                                 \
   }
 
+BEGIN_WIFI_NAMESPACE
+
 /**
  * Class that contains the network configurations.
  */
@@ -279,5 +281,7 @@ class SupplicantStaNetwork
   android::sp<WifiEventCallback> mCallback;
   std::string mInterfaceName;
 };
+
+END_WIFI_NAMESPACE
 
 #endif  // SupplicantStaNetwork_H

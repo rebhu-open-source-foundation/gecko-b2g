@@ -15,6 +15,8 @@ using ChipCapabilityMask =
 using StaIfaceCapabilityMask =
     ::android::hardware::wifi::V1_0::IWifiStaIface::StaIfaceCapabilityMask;
 
+using namespace mozilla::dom::wifi;
+
 static const char WIFI_INTERFACE_NAME[] = "android.hardware.wifi@1.0::IWifi";
 
 WifiHal* WifiHal::sInstance = nullptr;

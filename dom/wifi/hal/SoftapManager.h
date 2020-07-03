@@ -17,9 +17,6 @@
 #include <android/hardware/wifi/hostapd/1.1/IHostapdCallback.h>
 #include "mozilla/Mutex.h"
 
-/**
- * Class for softap management and hostpad HIDL client implementation.
- */
 using ::android::hardware::hidl_death_recipient;
 using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_vec;
@@ -32,6 +29,11 @@ using ::android::hidl::manager::V1_0::IServiceNotification;
 
 using IHostapd_1_1 = ::android::hardware::wifi::hostapd::V1_1::IHostapd;
 
+BEGIN_WIFI_NAMESPACE
+
+/**
+ * Class for softap management and hostpad HIDL client implementation.
+ */
 class SoftapManager
     : virtual public android::hidl::manager::V1_0::IServiceNotification,
       virtual public android::hardware::wifi::hostapd::V1_1::IHostapdCallback {
@@ -103,5 +105,7 @@ class SoftapManager
 
   DISALLOW_COPY_AND_ASSIGN(SoftapManager);
 };
+
+END_WIFI_NAMESPACE
 
 #endif  // SoftapManager_H

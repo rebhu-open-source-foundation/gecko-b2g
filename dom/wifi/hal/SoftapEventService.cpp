@@ -19,6 +19,8 @@ using ::android::defaultServiceManager;
 using ::android::IBinder;
 using ::android::String16;
 
+using namespace mozilla::dom::wifi;
+
 #define EVENT_HOTSPOT_CLIENT_CHANGED u"HOTSPOT_CLIENT_CHANGED"_ns
 
 SoftapEventService* SoftapEventService::sInstance = nullptr;

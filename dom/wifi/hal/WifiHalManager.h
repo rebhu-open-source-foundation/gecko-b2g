@@ -22,7 +22,6 @@
 #include <android/hardware/wifi/1.0/IWifiEventCallback.h>
 #include <android/hardware/wifi/1.2/IWifiChipEventCallback.h>
 #include <android/hardware/wifi/1.3/types.h>
-#include <unordered_map>
 
 #include "mozilla/Mutex.h"
 
@@ -53,6 +52,8 @@ using ::android::hardware::wifi::V1_2::IWifiChipEventCallback;
 using ::android::hidl::base::V1_0::IBase;
 
 namespace wifiNameSpaceV1_0 = ::android::hardware::wifi::V1_0;
+
+BEGIN_WIFI_NAMESPACE
 
 class WifiHal
     : virtual public android::hidl::manager::V1_0::IServiceNotification,
@@ -290,5 +291,7 @@ class WifiHal
 
   DISALLOW_COPY_AND_ASSIGN(WifiHal);
 };
+
+END_WIFI_NAMESPACE
 
 #endif  // WifiHalManager_H

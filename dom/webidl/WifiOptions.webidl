@@ -30,6 +30,7 @@ dictionary WifiCommandOptions
   ScanSettings         scanSettings = {};
   PnoScanSettings      pnoScanSettings = {};
   RoamingConfiguration roamingConfig = {};
+  AnqpRequestSettings  requestSettings = {};
 };
 
 /**
@@ -209,4 +210,16 @@ dictionary SimUmtsAuthRespData
 dictionary SimUmtsAutsRespData
 {
   DOMString auts;
+};
+
+/**
+ * The dictionary holds settings to query ANQP with the specified access point.
+ */
+[GenerateInit]
+dictionary AnqpRequestSettings
+{
+  DOMString anqpKey;
+  DOMString bssid;
+  boolean   roamingConsortiumOIs;
+  boolean   supportRelease2;
 };

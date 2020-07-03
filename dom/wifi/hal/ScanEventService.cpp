@@ -20,6 +20,8 @@ using ::android::IBinder;
 using ::android::interface_cast;
 using ::android::String16;
 
+using namespace mozilla::dom::wifi;
+
 static std::string g_InterfaceName;
 
 /* event name */

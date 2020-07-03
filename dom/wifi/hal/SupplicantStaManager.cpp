@@ -14,6 +14,8 @@
 
 #define EVENT_SUPPLICANT_TERMINATING u"SUPPLICANT_TERMINATING"_ns
 
+using namespace mozilla::dom::wifi;
+
 static const char SUPPLICANT_INTERFACE_NAME_V1_0[] =
     "android.hardware.wifi.supplicant@1.0::ISupplicant";
 
@@ -84,6 +86,15 @@ void SupplicantStaManager::RegisterEventCallback(
 }
 
 void SupplicantStaManager::UnregisterEventCallback() { mCallback = nullptr; }
+
+void SupplicantStaManager::RegisterPasspointCallback(
+    PasspointEventCallback* aCallback) {
+  mPasspointCallback = aCallback;
+}
+
+void SupplicantStaManager::UnregisterPasspointCallback() {
+  mPasspointCallback = nullptr;
+}
 
 Result_t SupplicantStaManager::InitInterface() {
   if (mSupplicant != nullptr) {
@@ -404,7 +415,8 @@ Result_t SupplicantStaManager::SetupStaInterface(
   SupplicantStatus response;
   // Instantiate supplicant callback
   android::sp<SupplicantStaIfaceCallback> supplicantCallback =
-      new SupplicantStaIfaceCallback(mInterfaceName, mCallback);
+      new SupplicantStaIfaceCallback(mInterfaceName, mCallback,
+                                     mPasspointCallback);
   if (IsSupplicantV1_2()) {
     android::sp<SupplicantStaIfaceCallbackV1_1> supplicantCallbackV1_1 =
         new SupplicantStaIfaceCallbackV1_1(mInterfaceName, mCallback,
@@ -765,6 +777,17 @@ Result_t SupplicantStaManager::SendEapSimUmtsAuthFailure() {
     return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
   return network->SendEapSimUmtsAuthFailure();
+}
+
+Result_t SupplicantStaManager::SendAnqpRequest(
+    const std::array<uint8_t, 6>& aBssid,
+    const std::vector<uint32_t>& aInfoElements,
+    const std::vector<uint32_t>& aHs20SubTypes) {
+  SupplicantStatus response;
+  HIDL_SET(mSupplicantStaIface, initiateAnqpQuery, SupplicantStatus, response,
+           aBssid, (std::vector<AnqpInfoId>&)aInfoElements,
+           (std::vector<Hs20AnqpSubtypes>&)aHs20SubTypes);
+  return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
 }
 
 /**

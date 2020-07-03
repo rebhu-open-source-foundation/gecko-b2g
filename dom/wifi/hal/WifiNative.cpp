@@ -12,6 +12,7 @@
 #include "js/CharacterEncoding.h"
 
 using namespace mozilla::dom;
+using namespace mozilla::dom::wifi;
 
 static const int32_t CONNECTION_RETRY_INTERVAL_US = 100000;
 static const int32_t CONNECTION_RETRY_TIMES = 50;
@@ -217,6 +218,8 @@ bool WifiNative::ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
     aResult->mStatus = SendEapSimUmtsAutsResponse(&aOptions.mUmtsAutsResp);
   } else if (aOptions.mCmd == nsIWifiCommand::SEND_UMTS_AUTH_FAILURE) {
     aResult->mStatus = SendEapSimUmtsAuthFailure();
+  } else if (aOptions.mCmd == nsIWifiCommand::REQUEST_ANQP) {
+    aResult->mStatus = RequestAnqp(&aOptions.mRequestSettings);
   } else if (aOptions.mCmd == nsIWifiCommand::START_SOFTAP) {
     aResult->mStatus =
         StartSoftAp(&aOptions.mSoftapConfig, aResult->mApInterface);
@@ -384,6 +387,13 @@ Result_t WifiNative::StartWifi(nsAString& aIfaceName) {
     return result;
   }
 
+  // Initiate passpoint handler
+  mPasspointHandler = PasspointHandler::Get();
+  if (mPasspointHandler) {
+    mPasspointHandler->SetSupplicantManager(sSupplicantStaManager);
+    mPasspointHandler->RegisterEventCallback(sCallback);
+  }
+
   nsString iface(NS_ConvertUTF8toUTF16(mStaInterfaceName.c_str()));
   aIfaceName.Assign(iface);
   return CHECK_SUCCESS(aIfaceName.Length() > 0);
@@ -405,6 +415,9 @@ Result_t WifiNative::StopWifi() {
     return result;
   }
 
+  if (mPasspointHandler) {
+    mPasspointHandler->UnregisterEventCallback();
+  }
   if (mScanEventService) {
     mScanEventService->UnregisterEventCallback();
   }
@@ -671,6 +684,22 @@ Result_t WifiNative::SendEapSimUmtsAuthFailure() {
   return sSupplicantStaManager->SendEapSimUmtsAuthFailure();
 }
 
+Result_t WifiNative::RequestAnqp(AnqpRequestSettingsOptions* aRequest) {
+  if (aRequest == nullptr || aRequest->mBssid.IsEmpty()) {
+    WIFI_LOGE(LOG_TAG, "Invalid ANQP request settings");
+    return nsIWifiResult::ERROR_INVALID_ARGS;
+  }
+
+  if (!mPasspointHandler) {
+    WIFI_LOGE(LOG_TAG, "Passpoint handler is not ready yet");
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  }
+
+  return mPasspointHandler->RequestAnqp(aRequest->mAnqpKey, aRequest->mBssid,
+                                        aRequest->mRoamingConsortiumOIs,
+                                        aRequest->mSupportRelease2);
+}
+
 /**
  * To enable wifi hotspot
  *
@@ -815,11 +844,11 @@ Result_t WifiNative::StopHostapd() {
   return nsIWifiResult::SUCCESS;
 }
 
+Result_t WifiNative::GetSoftapStations(uint32_t& aNumStations) {
+  return sWificondControl->GetSoftapStations(aNumStations);
+}
+
 void WifiNative::SupplicantDeathHandler::OnDeath() {
   // supplicant died, start to clean up.
   WIFI_LOGE(LOG_TAG, "Supplicant DIED: ##############################");
-}
-
-Result_t WifiNative::GetSoftapStations(uint32_t& aNumStations) {
-  return sWificondControl->GetSoftapStations(aNumStations);
 }

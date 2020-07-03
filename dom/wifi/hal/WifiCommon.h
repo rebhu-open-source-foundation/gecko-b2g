@@ -8,6 +8,7 @@
 #define WifiCommon_H
 
 #include <android-base/macros.h>
+#include <unordered_map>
 #include <utils/RefBase.h>
 #include <utils/threads.h>
 #include "mozilla/dom/WifiOptionsBinding.h"
@@ -44,6 +45,16 @@
 #endif /* MOZ_WIDGET_GONK */
 
 typedef uint32_t Result_t;
+
+#define BEGIN_WIFI_NAMESPACE \
+  namespace mozilla {        \
+  namespace dom {            \
+  namespace wifi {
+
+#define END_WIFI_NAMESPACE \
+  } /* namespace wifi */   \
+  } /* namespace dom */    \
+  } /* namespace mozilla */
 
 #define INVALID_NETWORK_ID -1
 
@@ -344,6 +355,24 @@ struct SimUmtsAutsRespDataOptions {
   nsString mAuts;
 };
 
+struct AnqpRequestSettingsOptions {
+ public:
+  AnqpRequestSettingsOptions() = default;
+
+  explicit AnqpRequestSettingsOptions(
+      const mozilla::dom::AnqpRequestSettings& aOther) {
+    COPY_OPT_FIELD(mAnqpKey, EmptyString())
+    COPY_OPT_FIELD(mBssid, EmptyString())
+    COPY_OPT_FIELD(mRoamingConsortiumOIs, false)
+    COPY_OPT_FIELD(mSupportRelease2, false) {}
+  }
+
+  nsString mAnqpKey;
+  nsString mBssid;
+  bool mRoamingConsortiumOIs;
+  bool mSupportRelease2;
+};
+
 // Needed to add a copy constructor to WifiCommandOptions.
 struct CommandOptions {
  public:
@@ -375,6 +404,7 @@ struct CommandOptions {
     mScanSettings = ScanSettingsOptions(aOther.mScanSettings);
     mPnoScanSettings = PnoScanSettingsOptions(aOther.mPnoScanSettings);
     mRoamingConfig = RoamingConfigurationOptions(aOther.mRoamingConfig);
+    mRequestSettings = AnqpRequestSettingsOptions(aOther.mRequestSettings);
   }
 
   CommandOptions(const CommandOptions& aOther) {
@@ -398,6 +428,7 @@ struct CommandOptions {
     mScanSettings = aOther.mScanSettings.Clone();
     mPnoScanSettings = aOther.mPnoScanSettings.Clone();
     mRoamingConfig = aOther.mRoamingConfig.Clone();
+    mRequestSettings = AnqpRequestSettingsOptions(aOther.mRequestSettings);
   }
 
   // All the fields, not Optional<> anymore to get copy constructors.
@@ -422,6 +453,7 @@ struct CommandOptions {
   ScanSettingsOptions mScanSettings;
   PnoScanSettingsOptions mPnoScanSettings;
   RoamingConfigurationOptions mRoamingConfig;
+  AnqpRequestSettingsOptions mRequestSettings;
 };
 
 #undef COPY_SEQUENCE_FIELD
