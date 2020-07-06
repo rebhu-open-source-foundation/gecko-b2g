@@ -17,6 +17,9 @@ const { libcutils } = ChromeUtils.import(
 const { BinderServices } = ChromeUtils.import(
   "resource://gre/modules/BinderServices.jsm"
 );
+const { TetheringConfigStore } = ChromeUtils.import(
+  "resource://gre/modules/TetheringConfigStore.jsm"
+);
 
 const TETHERINGSERVICE_CONTRACTID = "@mozilla.org/tethering/service;1";
 const TETHERINGSERVICE_CID = Components.ID(
@@ -37,15 +40,12 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsINetworkService"
 );
 
-// TODO: pending for SettingsService.
-/*
 XPCOMUtils.defineLazyServiceGetter(
   this,
-  "gSettingsService",
-  "@mozilla.org/settingsService;1",
-  "nsISettingsService"
+  "gSettingsManager",
+  "@mozilla.org/sidl-native/settings;1",
+  "nsISettingsManager"
 );
-*/
 
 XPCOMUtils.defineLazyGetter(this, "ppmm", () => {
   return Cc["@mozilla.org/parentprocessmessagemanager;1"].getService();
@@ -69,7 +69,6 @@ XPCOMUtils.defineLazyGetter(this, "gRil", function() {
   return null;
 });
 
-const TOPIC_MOZSETTINGS_CHANGED = "mozsettings-changed";
 const TOPIC_PREF_CHANGED = "nsPref:changed";
 const TOPIC_XPCOM_SHUTDOWN = "xpcom-shutdown";
 const PREF_MANAGE_OFFLINE_STATUS = "network.gonk.manage-offline-status";
@@ -100,23 +99,6 @@ const TETHERING_STATE_ONGOING = "ongoing";
 const TETHERING_STATE_IDLE = "idle";
 const TETHERING_STATE_ACTIVE = "active";
 
-// Settings DB path for USB tethering.
-const SETTINGS_USB_ENABLED = "tethering.usb.enabled";
-const SETTINGS_USB_IP = "tethering.usb.ip";
-const SETTINGS_USB_PREFIX = "tethering.usb.prefix";
-const SETTINGS_USB_DHCPSERVER_STARTIP = "tethering.usb.dhcpserver.startip";
-const SETTINGS_USB_DHCPSERVER_ENDIP = "tethering.usb.dhcpserver.endip";
-const SETTINGS_USB_DNS1 = "tethering.usb.dns1";
-const SETTINGS_USB_DNS2 = "tethering.usb.dns2";
-
-// Settings DB path for WIFI tethering.
-const SETTINGS_WIFI_TETHERING_ENABLED = "tethering.wifi.enabled";
-const SETTINGS_WIFI_DHCPSERVER_STARTIP = "tethering.wifi.dhcpserver.startip";
-const SETTINGS_WIFI_DHCPSERVER_ENDIP = "tethering.wifi.dhcpserver.endip";
-
-// Settings DB patch for dun required setting.
-const SETTINGS_DUN_REQUIRED = "tethering.dun.required";
-
 // Default value for USB tethering.
 const DEFAULT_USB_IP = "192.168.0.1";
 const DEFAULT_USB_PREFIX = "24";
@@ -136,6 +118,7 @@ const DEFAULT_WIFI_DHCPSERVER_STARTIP = "192.168.1.10";
 const DEFAULT_WIFI_DHCPSERVER_ENDIP = "192.168.1.30";
 
 const SETTINGS_DATA_DEFAULT_SERVICE_ID = "ril.data.defaultServiceId";
+const DUN_REQUIRED_PROPERTY = "ro.tethering.dun_required";
 const MOBILE_DUN_CONNECT_TIMEOUT = 15000;
 const MOBILE_DUN_RETRY_INTERVAL = 5000;
 const MOBILE_DUN_MAX_RETRIES = 2;
@@ -178,7 +161,6 @@ function TetheringService() {
   );
 
   Services.obs.addObserver(this, TOPIC_XPCOM_SHUTDOWN);
-  Services.obs.addObserver(this, TOPIC_MOZSETTINGS_CHANGED);
   Services.prefs.addObserver(PREF_NETWORK_DEBUG_ENABLED, this);
   Services.prefs.addObserver(PREF_MANAGE_OFFLINE_STATUS, this);
 
@@ -211,46 +193,24 @@ function TetheringService() {
     }
   );
 
-  this.tetheringSettings = {};
-  this.initTetheringSettings();
+  // Read usb tethering configuration.
+  this._usbTetheringConfig = TetheringConfigStore.read(
+    TetheringConfigStore.TETHERING_TYPE_USB);
+  if (!this._usbTetheringConfig) {
+    this._usbTetheringConfig = this.fillUSBTetheringConfiguration({});
+    TetheringConfigStore.write(
+      TetheringConfigStore.TETHERING_TYPE_USB, this._usbTetheringConfig, null);
+  }
+  this._fireEvent("tetheringconfigchange", { usbTetheringConfig: this._usbTetheringConfig });
 
-  // TODO: pending for SettingsService.
-  /*
-  let settingsLock = gSettingsService.createLock();
-  // Read the default service id for data call.
-  settingsLock.get(SETTINGS_DATA_DEFAULT_SERVICE_ID, this);
-
-  // Read usb tethering data from settings DB.
-  settingsLock.get(SETTINGS_USB_IP, this);
-  settingsLock.get(SETTINGS_USB_PREFIX, this);
-  settingsLock.get(SETTINGS_USB_DHCPSERVER_STARTIP, this);
-  settingsLock.get(SETTINGS_USB_DHCPSERVER_ENDIP, this);
-  settingsLock.get(SETTINGS_USB_DNS1, this);
-  settingsLock.get(SETTINGS_USB_DNS2, this);
-  settingsLock.get(SETTINGS_USB_ENABLED, this);
-
-  // Read wifi tethering data from settings DB.
-  settingsLock.get(SETTINGS_WIFI_TETHERING_ENABLED, this);
-  settingsLock.get(SETTINGS_WIFI_DHCPSERVER_STARTIP, this);
-  settingsLock.get(SETTINGS_WIFI_DHCPSERVER_ENDIP, this);
-  */
-
-  this._usbTetheringSettingsToRead = [
-    SETTINGS_USB_IP,
-    SETTINGS_USB_PREFIX,
-    SETTINGS_USB_DHCPSERVER_STARTIP,
-    SETTINGS_USB_DHCPSERVER_ENDIP,
-    SETTINGS_USB_DNS1,
-    SETTINGS_USB_DNS2,
-    SETTINGS_USB_ENABLED,
-    SETTINGS_WIFI_DHCPSERVER_STARTIP,
-    SETTINGS_WIFI_DHCPSERVER_ENDIP,
-  ];
+  this.getSettingValue(SETTINGS_DATA_DEFAULT_SERVICE_ID);
+  this.addSettingObserver(SETTINGS_DATA_DEFAULT_SERVICE_ID);
 
   this.wantConnectionEvent = null;
 
+  this.dunRequired =
+    libcutils.property_get(DUN_REQUIRED_PROPERTY) === "1";
   this.dunConnectTimer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
-
   this.dunRetryTimer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
 
   this._pendingTetheringRequests = [];
@@ -261,7 +221,7 @@ TetheringService.prototype = {
     Ci.nsITetheringService,
     Ci.nsISupportsWeakReference,
     Ci.nsIObserver,
-    Ci.nsISettingsServiceCallback,
+    Ci.nsISettingsObserver,
   ]),
 
   // Flag to record the default client id for data call.
@@ -273,12 +233,6 @@ TetheringService.prototype = {
   // Wifi tethering state.
   _wifiTetheringAction: TETHERING_STATE_IDLE,
 
-  // Tethering settings.
-  tetheringSettings: null,
-
-  // Tethering settings need to be read from settings DB.
-  _usbTetheringSettingsToRead: null,
-
   // Previous usb tethering enabled state.
   _oldUsbTetheringEnabledState: null,
 
@@ -286,6 +240,9 @@ TetheringService.prototype = {
   _externalInterface: null,
 
   _internalInterface: null,
+
+  // Dun required.
+  dunRequired: false,
 
   // Dun connection timer.
   dunConnectTimer: null,
@@ -378,17 +335,11 @@ TetheringService.prototype = {
           updateDebug();
         }
         break;
-      case TOPIC_MOZSETTINGS_CHANGED:
-        if ("wrappedJSObject" in aSubject) {
-          aSubject = aSubject.wrappedJSObject;
-        }
-        this.handle(aSubject.key, aSubject.value);
-        break;
       case TOPIC_XPCOM_SHUTDOWN:
         Services.obs.removeObserver(this, TOPIC_XPCOM_SHUTDOWN);
-        Services.obs.removeObserver(this, TOPIC_MOZSETTINGS_CHANGED);
         Services.prefs.removeObserver(PREF_NETWORK_DEBUG_ENABLED, this);
         Services.prefs.removeObserver(PREF_MANAGE_OFFLINE_STATUS, this);
+        this.removeSettingObservers(SETTINGS_DATA_DEFAULT_SERVICE_ID);
 
         this.dunConnectTimer.cancel();
         this.dunRetryTimer.cancel();
@@ -405,67 +356,80 @@ TetheringService.prototype = {
     }
   },
 
-  // nsISettingsServiceCallback
+  // nsISettingsObserver
+  observeSetting: function(aSettingInfo) {
+    if (aSettingInfo) {
+      let name = aSettingInfo.name;
+      let result = aSettingInfo.value;
+      this.handleSettingChanged(name, result);
+    }
+  },
 
-  handle(aName, aResult) {
+  // Helper functions.
+  getSettingValue: function(aKey) {
+    if (!aKey) {
+      return;
+    }
+
+    if (gSettingsManager) {
+      debug("get "+ aKey + " setting.");
+      let self = this;
+      gSettingsManager.get(aKey,
+        {
+          "resolve": info => {
+            self.observeSetting(info);
+          },
+          "reject": () => {
+            debug("get "+ aKey +" failed.");
+          }
+        });
+    }
+  },
+
+  //When the setting value change would be notify by the observe function.
+  addSettingObserver: function(aKey) {
+    if (!aKey) {
+      return;
+    }
+
+    if (gSettingsManager) {
+      debug("add "+ aKey + " setting observer.");
+      gSettingsManager.addObserver(aKey, this,
+        {
+          "resolve": () => {
+            debug("observed "+ aKey +" successed.");
+          },
+          "reject": () => {
+            debug("observed "+ aKey +" failed.");
+          }
+        });
+    }
+  },
+
+  removeSettingObserver: function(aKey) {
+    if (!aKey) {
+      return;
+    }
+
+    if (gSettingsManager) {
+      debug("remove "+ aKey + " setting observer.");
+      gSettingsManager.removeObserver(aKey, this,
+        {
+          "resolve": () => {
+            debug("remove observer "+ aKey +" successed.");
+          },
+          "reject": () => {
+            debug("remove observer "+ aKey +" failed.");
+          }
+        });
+    }
+  },
+
+  handleSettingChanged(aName, aResult) {
     switch (aName) {
       case SETTINGS_DATA_DEFAULT_SERVICE_ID:
         this._dataDefaultServiceId = aResult || 0;
         debug("'_dataDefaultServiceId' is now " + this._dataDefaultServiceId);
-        break;
-      case SETTINGS_WIFI_TETHERING_ENABLED:
-        if (aResult !== null) {
-          this.tetheringSettings[aName] = aResult;
-        }
-        debug("'" + aName + "'" + " is now " + this.tetheringSettings[aName]);
-        return;
-      case SETTINGS_USB_ENABLED:
-        this._oldUsbTetheringEnabledState = this.tetheringSettings[
-          SETTINGS_USB_ENABLED
-        ];
-      case SETTINGS_USB_IP:
-      case SETTINGS_USB_PREFIX:
-      case SETTINGS_USB_DHCPSERVER_STARTIP:
-      case SETTINGS_USB_DHCPSERVER_ENDIP:
-      case SETTINGS_USB_DNS1:
-      case SETTINGS_USB_DNS2:
-      case SETTINGS_WIFI_DHCPSERVER_STARTIP:
-      case SETTINGS_WIFI_DHCPSERVER_ENDIP:
-        // TODO: code related to usb-tethering setting should be removed after GAIA
-        //       use tethering API
-        if (this.useTetheringAPI) {
-          break;
-        }
-
-        if (aResult !== null) {
-          this.tetheringSettings[aName] = aResult;
-        }
-        debug("'" + aName + "'" + " is now " + this.tetheringSettings[aName]);
-        let index = this._usbTetheringSettingsToRead.indexOf(aName);
-
-        if (index != -1) {
-          this._usbTetheringSettingsToRead.splice(index, 1);
-        }
-
-        if (this._usbTetheringSettingsToRead.length) {
-          debug(
-            "We haven't read completely the usb Tethering data from settings db."
-          );
-          break;
-        }
-
-        if (
-          this._oldUsbTetheringEnabledState ===
-          this.tetheringSettings[SETTINGS_USB_ENABLED]
-        ) {
-          debug("No changes for SETTINGS_USB_ENABLED flag. Nothing to do.");
-          break;
-        }
-
-        this.handleUsbRequest(
-          this.tetheringSettings[SETTINGS_USB_ENABLED],
-          null
-        );
         break;
     }
   },
@@ -487,31 +451,6 @@ TetheringService.prototype = {
       config: aConfig,
       callback: aCallback,
     });
-  },
-
-  initTetheringSettings() {
-    this.tetheringSettings[SETTINGS_USB_ENABLED] = false;
-    this.tetheringSettings[SETTINGS_USB_IP] = DEFAULT_USB_IP;
-    this.tetheringSettings[SETTINGS_USB_PREFIX] = DEFAULT_USB_PREFIX;
-    this.tetheringSettings[
-      SETTINGS_USB_DHCPSERVER_STARTIP
-    ] = DEFAULT_USB_DHCPSERVER_STARTIP;
-    this.tetheringSettings[
-      SETTINGS_USB_DHCPSERVER_ENDIP
-    ] = DEFAULT_USB_DHCPSERVER_ENDIP;
-    this.tetheringSettings[SETTINGS_USB_DNS1] = DEFAULT_DNS1;
-    this.tetheringSettings[SETTINGS_USB_DNS2] = DEFAULT_DNS2;
-
-    this.tetheringSettings[SETTINGS_WIFI_TETHERING_ENABLED] = false;
-    this.tetheringSettings[
-      SETTINGS_WIFI_DHCPSERVER_STARTIP
-    ] = DEFAULT_WIFI_DHCPSERVER_STARTIP;
-    this.tetheringSettings[
-      SETTINGS_WIFI_DHCPSERVER_ENDIP
-    ] = DEFAULT_WIFI_DHCPSERVER_ENDIP;
-
-    this.tetheringSettings[SETTINGS_DUN_REQUIRED] =
-      libcutils.property_get("ro.tethering.dun_required") === "1";
   },
 
   getNetworkInfo(aType, aServiceId) {
@@ -639,21 +578,13 @@ TetheringService.prototype = {
   },
 
   getUSBTetheringParameters(aEnable, aTetheringInterface) {
-    if (this.useTetheringAPI) {
-      return this.getUSBTetheringConfiguration(aEnable, aTetheringInterface);
-    }
-    return this.getUSBTetheringParametersBySetting(
-      aEnable,
-      aTetheringInterface
-    );
+    return this.getUSBTetheringConfiguration(aEnable, aTetheringInterface);
   },
 
-  getUSBTetheringConfiguration(aEnable, aTetheringInterface) {
+  fillUSBTetheringConfiguration(aConfig) {
     let config = {};
-    let params = this.tetheringConfig;
-
     let check = function(field, _default) {
-      config[field] = field in params ? params[field] : _default;
+      config[field] = field in aConfig ? aConfig[field] : _default;
     };
 
     check("ip", DEFAULT_USB_IP);
@@ -665,9 +596,17 @@ TetheringService.prototype = {
     check("dns1", DEFAULT_DNS1);
     check("dns2", DEFAULT_DNS2);
 
+    return config;
+  },
+
+  getUSBTetheringConfiguration(aEnable, aTetheringInterface) {
+    let config = {};
+    let params = this._usbTetheringConfig;
+
+    config = this.fillUSBTetheringConfiguration(params);
     // Assigned external interface if try to bring up Usb Tethering
     if (aEnable) {
-      this.setExternalInterface();
+      this.setExternalInterface(TETHERING_TYPE_USB);
     }
 
     config.ifname = aTetheringInterface;
@@ -695,67 +634,9 @@ TetheringService.prototype = {
     return config;
   },
 
-  getUSBTetheringParametersBySetting(aEnable, aTetheringInterface) {
-    let interfaceIp = this.tetheringSettings[SETTINGS_USB_IP];
-    let interfacePrefix = this.tetheringSettings[SETTINGS_USB_PREFIX];
-    let wifiDhcpStartIp = this.tetheringSettings[
-      SETTINGS_WIFI_DHCPSERVER_STARTIP
-    ];
-    let wifiDhcpEndIp = this.tetheringSettings[SETTINGS_WIFI_DHCPSERVER_ENDIP];
-    let usbDhcpStartIp = this.tetheringSettings[
-      SETTINGS_USB_DHCPSERVER_STARTIP
-    ];
-    let usbDhcpEndIp = this.tetheringSettings[SETTINGS_USB_DHCPSERVER_ENDIP];
-    let interfaceDns1 = this.tetheringSettings[SETTINGS_USB_DNS1];
-    let interfaceDns2 = this.tetheringSettings[SETTINGS_USB_DNS2];
-    let internalInterface = aTetheringInterface;
-    let interfaceDnses = gNetworkManager.activeNetworkInfo
-      ? gNetworkManager.activeNetworkInfo.getDnses()
-      : new Array(0);
-    let interfaceIpv6Ip = this.getIpv6TetheringAddress(
-      gNetworkManager.activeNetworkInfo
-    );
-
-    // Assigned external interface if try to bring up Usb Tethering
-    if (aEnable) {
-      this.setExternalInterface(TETHERING_TYPE_USB);
-    }
-
-    // Using the default values here until application support these settings.
-    if (
-      interfaceIp == "" ||
-      interfacePrefix == "" ||
-      wifiDhcpStartIp == "" ||
-      wifiDhcpEndIp == "" ||
-      usbDhcpStartIp == "" ||
-      usbDhcpEndIp == ""
-    ) {
-      debug("Invalid subnet information.");
-      return null;
-    }
-
-    return {
-      ifname: internalInterface,
-      ip: interfaceIp,
-      prefix: interfacePrefix,
-      wifiStartIp: wifiDhcpStartIp,
-      wifiEndIp: wifiDhcpEndIp,
-      usbStartIp: usbDhcpStartIp,
-      usbEndIp: usbDhcpEndIp,
-      dns1: interfaceDns1,
-      dns2: interfaceDns2,
-      internalIfname: internalInterface,
-      externalIfname: this._externalInterface[TETHERING_TYPE_USB],
-      enable: aEnable,
-      link: aEnable ? NETWORK_INTERFACE_UP : NETWORK_INTERFACE_DOWN,
-      dnses: interfaceDnses,
-      ipv6Ip: interfaceIpv6Ip,
-    };
-  },
-
   notifyError(aResetSettings, aCallback, aMsg) {
     if (aResetSettings) {
-      // TODO: pending for SettingsService.
+      //TODO: need to request WifiWorker disable softap.
       /*
       let settingsLock = gSettingsService.createLock();
       // Disable wifi tethering with a useful error message for the user.
@@ -787,8 +668,8 @@ TetheringService.prototype = {
     }
 
     // Re-check again, test cases set this property later.
-    this.tetheringSettings[SETTINGS_DUN_REQUIRED] =
-      libcutils.property_get("ro.tethering.dun_required") === "1";
+    this.dunRequired =
+      libcutils.property_get(DUN_REQUIRED_PROPERTY) === "1";
 
     this._internalInterface[TETHERING_TYPE_WIFI] = aInterfaceName;
 
@@ -819,7 +700,7 @@ TetheringService.prototype = {
     }
 
     this._wifiTetheringAction = TETHERING_STATE_ONGOING;
-    if (this.tetheringSettings[SETTINGS_DUN_REQUIRED]) {
+    if (this.dunRequired) {
       this.handleDunConnection(true, aNetworkInfo => {
         if (!aNetworkInfo) {
           debug(
@@ -864,7 +745,7 @@ TetheringService.prototype = {
       this.wifiState = Ci.nsITetheringService.TETHERING_STATE_INACTIVE;
 
       // Disconnect dun on error or when wifi tethering is disabled.
-      if (this.tetheringSettings[SETTINGS_DUN_REQUIRED]) {
+      if (this.dunRequired) {
         this.handleDunConnection(false);
       }
       this._wifiTetheringAction = TETHERING_STATE_IDLE;
@@ -928,7 +809,7 @@ TetheringService.prototype = {
       this.refineTetherSubnet(false);
     }
 
-    if (this.tetheringSettings[SETTINGS_DUN_REQUIRED]) {
+    if (this.dunRequired) {
       this.handleDunConnection(true, aNetworkInfo => {
         // If dun and wifi not active, just re-enable rndis with default interface
         if (!aNetworkInfo) {
@@ -1018,16 +899,13 @@ TetheringService.prototype = {
   usbTetheringResult(aEnable, aError, aMsgCallback) {
     let self = this;
 
-    // TODO: pending for SettingsService.
-    //let settingsLock = gSettingsService.createLock();
-
     debug(
       "usbTetheringResult callback. enable: " + aEnable + ", error: " + aError
     );
 
     // Disable tethering settings when fail to enable it.
     if (aError) {
-      if (this.tetheringSettings[SETTINGS_DUN_REQUIRED]) {
+      if (this.dunRequired) {
         this.handleDunConnection(false);
         if (aError == "Dun connection failed") {
           gNetworkService.enableUsbRndis(
@@ -1038,11 +916,6 @@ TetheringService.prototype = {
           return;
         }
       }
-      this.tetheringSettings[SETTINGS_USB_ENABLED] = false;
-      // TODO: pending for SettingsService.
-      /*
-      settingsLock.set("tethering.usb.enabled", false, null);
-      */
       this._usbTetheringRequestRestart = false;
       this._usbTetheringAction = TETHERING_STATE_IDLE;
       this.usbState = Ci.nsITetheringService.TETHERING_STATE_INACTIVE;
@@ -1053,17 +926,14 @@ TetheringService.prototype = {
       } else {
         this._usbTetheringAction = TETHERING_STATE_IDLE;
         this.usbState = Ci.nsITetheringService.TETHERING_STATE_INACTIVE;
-        if (this.tetheringSettings[SETTINGS_DUN_REQUIRED]) {
+        if (this.dunRequired) {
           this.handleDunConnection(false);
         }
         // Restart USB tethering if needed
         if (this._usbTetheringRequestRestart) {
           debug("Restart USB tethering by request");
           this._usbTetheringRequestRestart = false;
-          // TODO: pending for SettingsService.
-          /*
-          settingsLock.set("tethering.usb.enabled", true, null);
-          */
+          this.handleUsbRequest(true, null);
         }
       }
 
@@ -1114,14 +984,11 @@ TetheringService.prototype = {
   onExternalConnectionChanged(aNetworkInfo) {
     let self = this;
     // Check if the aNetworkInfo change is the external connection.
-    // SETTINGS_DUN_REQUIRED
-    // true: dun as external interface
-    // false: default as external interface
     if (
       aNetworkInfo.type === Ci.nsINetworkInfo.NETWORK_TYPE_WIFI ||
-      (this.tetheringSettings[SETTINGS_DUN_REQUIRED] &&
+      (this.dunRequired &&
         aNetworkInfo.type === Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_DUN) ||
-      (!this.tetheringSettings[SETTINGS_DUN_REQUIRED] &&
+      (!this.dunRequired &&
         aNetworkInfo.type === Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE)
     ) {
       debug(
@@ -1130,7 +997,7 @@ TetheringService.prototype = {
           " , aNetworkInfo.state = " +
           aNetworkInfo.state +
           " , dun_required = " +
-          this.tetheringSettings[SETTINGS_DUN_REQUIRED]
+          this.dunRequired
       );
 
       let wifiTetheringEnabled =
@@ -1172,7 +1039,7 @@ TetheringService.prototype = {
       if (aNetworkInfo.state == Ci.nsINetworkInfo.NETWORK_STATE_CONNECTED) {
         // Handle the wifi as external interface case, when embedded is dun.
         if (
-          this.tetheringSettings[SETTINGS_DUN_REQUIRED] &&
+          this.dunRequired &&
           aNetworkInfo.type === Ci.nsINetworkInfo.NETWORK_TYPE_WIFI
         ) {
           let dun = this.getNetworkInfo(
@@ -1190,7 +1057,7 @@ TetheringService.prototype = {
         }
         // Handle the dun as external interface case, when embedded is dun.
         else if (
-          this.tetheringSettings[SETTINGS_DUN_REQUIRED] &&
+          this.dunRequired &&
           aNetworkInfo.type === Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_DUN
         ) {
           this.dunConnectTimer.cancel();
@@ -1285,7 +1152,7 @@ TetheringService.prototype = {
         // If dun required, retrigger dun connection.
         if (
           aNetworkInfo.type === Ci.nsINetworkInfo.NETWORK_TYPE_WIFI &&
-          this.tetheringSettings[SETTINGS_DUN_REQUIRED]
+          this.dunRequired
         ) {
           let dun = this.getNetworkInfo(
             Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_DUN,
@@ -1298,7 +1165,7 @@ TetheringService.prototype = {
           }
         }
       }
-    } else if (this.tetheringSettings[SETTINGS_DUN_REQUIRED]) {
+    } else if (this.dunRequired) {
       debug("onExternalConnectionChanged. Not dun type state change, return.");
     } else {
       debug(
@@ -1324,7 +1191,7 @@ TetheringService.prototype = {
   // Provide suitable external interface
   setExternalInterface(aType) {
     // Dun case, find Wifi or Dun as external interface.
-    if (this.tetheringSettings[SETTINGS_DUN_REQUIRED]) {
+    if (this.dunRequired) {
       let allNetworkInfo = gNetworkManager.allNetworkInfo;
       this._externalInterface[aType] = null;
       for (let networkId in allNetworkInfo) {
@@ -1365,10 +1232,11 @@ TetheringService.prototype = {
       // Get external interface ipaddr & prefix
       let ips = {};
       let prefixLengths = {};
+      let localConfig = this._usbTetheringConfig;
       gNetworkManager.activeNetworkInfo.getAddresses(ips, prefixLengths);
 
       if (
-        !this.tetheringSettings[SETTINGS_USB_IP] ||
+        !localConfig.ip ||
         !ips.value ||
         !prefixLengths.value
       ) {
@@ -1385,9 +1253,7 @@ TetheringService.prototype = {
         let subnet = this.cidrToSubnet(prefixLengths.value[i]);
         let lanMask = [],
           wanMask = [];
-        let lanIpaddrStr = this.tetheringSettings[
-          SETTINGS_USB_IP
-        ].toString().split(".");
+        let lanIpaddrStr = localConfig.ip.toString().split(".");
         let wanIpaddrStr = ips.value[i].toString().split(".");
         let subnetStr = subnet.toString().split(".");
 
@@ -1418,28 +1284,27 @@ TetheringService.prototype = {
 
   // Replace non-conflict subnet for tether ipaddr
   refineTetherSubnet(restartTether) {
-    // TODO: pending for SettingsService.
-    /*
-    let settingsLock = gSettingsService.createLock();
-
-    if (this.tetheringSettings[SETTINGS_USB_IP] == DEFAULT_USB_IP) {
+    if (this._usbTetheringConfig.ip == DEFAULT_USB_IP) {
       debug("setup backup tethering settings");
-      settingsLock.set(SETTINGS_USB_IP, BACKUP_USB_IP, null);
-      settingsLock.set(SETTINGS_USB_DHCPSERVER_STARTIP, BACKUP_USB_DHCPSERVER_STARTIP, null);
-      settingsLock.set(SETTINGS_USB_DHCPSERVER_ENDIP, BACKUP_USB_DHCPSERVER_ENDIP, null);
+      this._usbTetheringConfig.ip = BACKUP_USB_IP;
+      this._usbTetheringConfig.usbStartIp = BACKUP_USB_DHCPSERVER_STARTIP;
+      this._usbTetheringConfig.usbEndIp = BACKUP_USB_DHCPSERVER_ENDIP;
     } else {
-      debug("setup defaul tethering settings");
-      settingsLock.set(SETTINGS_USB_IP, DEFAULT_USB_IP, null);
-      settingsLock.set(SETTINGS_USB_DHCPSERVER_STARTIP, DEFAULT_USB_DHCPSERVER_STARTIP, null);
-      settingsLock.set(SETTINGS_USB_DHCPSERVER_ENDIP, DEFAULT_USB_DHCPSERVER_ENDIP, null);
+      this._usbTetheringConfig.ip = DEFAULT_USB_IP;
+      this._usbTetheringConfig.usbStartIp = DEFAULT_USB_DHCPSERVER_STARTIP;
+      this._usbTetheringConfig.usbEndIp = DEFAULT_USB_DHCPSERVER_ENDIP;
     }
+
+    TetheringConfigStore.write(
+      TetheringConfigStore.TETHERING_TYPE_USB, this._usbTetheringConfig, null);
+    this._fireEvent("tetheringconfigchange", { usbTetheringConfig: this._usbTetheringConfig });
 
     if (restartTether) {
       debug("restart USB tethering due to subnet conflict with external interface");
       this._usbTetheringRequestRestart = restartTether;
-      settingsLock.set(SETTINGS_USB_ENABLED, false, null);
+      this.handleUsbRequest(false, null);
+
     }
-    */
   },
 
   getIpv6TetheringAddress(aNetworkInfo) {
@@ -1468,17 +1333,30 @@ TetheringService.prototype = {
     return null;
   },
 
-  // TODO : These two variables should be removed once GAIA uses tethering API.
-  useTetheringAPI: false,
-  tetheringConfig: {},
+  _usbTetheringConfig: {},
+
+  get usbTetheringConfig() {
+    return this._usbTetheringConfig;
+  },
 
   _setUsbTethering(msg) {
     const message = "TetheringService:setUsbTethering:Return";
     let self = this;
     let enabled = msg.data.enabled;
 
-    this.useTetheringAPI = true;
-    this.tetheringConfig = msg.data.config;
+    // Save the new usb tethering configuration when idle.
+    if (
+      this._usbTetheringAction == TETHERING_STATE_IDLE &&
+      Object.entries(msg.data.config).length != 0
+    ) {
+      let newConfig = this.fillUSBTetheringConfiguration(msg.data.config);
+      if (JSON.stringify(this._usbTetheringConfig) != JSON.stringify(newConfig)) {
+        this._usbTetheringConfig = newConfig;
+        TetheringConfigStore.write(
+          TetheringConfigStore.TETHERING_TYPE_USB, this._usbTetheringConfig, null);
+        this._fireEvent("tetheringconfigchange", { usbTetheringConfig: this._usbTetheringConfig });
+      }
+    }
 
     if (
       (enabled && this._usbTetheringAction == TETHERING_STATE_ACTIVE) ||
@@ -1572,7 +1450,8 @@ TetheringService.prototype = {
           this._domManagers.push(message.manager);
         }
         return { wifiTetheringState: this.wifiState,
-                 usbTetheringState: this.usbState };
+                 usbTetheringState: this.usbState,
+                 usbTetheringConfig: this._usbTetheringConfig };
     }
   },
 };

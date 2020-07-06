@@ -9,7 +9,7 @@ const { DOMRequestIpcHelper } = ChromeUtils.import(
   "resource://gre/modules/DOMRequestHelper.jsm"
 );
 
-const DEBUG = false;
+const DEBUG = true;
 
 var debug = DEBUG
   ? s => {
@@ -20,6 +20,27 @@ var debug = DEBUG
 const TETHERING_TYPE_WIFI = "wifi";
 const TETHERING_TYPE_BLUETOOTH = "bt";
 const TETHERING_TYPE_USB = "usb";
+
+function TetheringConfigInfo() {}
+
+TetheringConfigInfo.prototype = {
+  init(aWindow) {
+    this._window = aWindow;
+  },
+
+  __init(obj) {
+    for (let key in obj) {
+      this[key] = obj[key];
+    }
+  },
+
+  classID: Components.ID("{1923236b-a9bc-4f54-a394-37487dac3a7b}"),
+  contractID: "@mozilla.org/tetheringconfiginfo;1",
+  QueryInterface: ChromeUtils.generateQI([
+    Ci.nsISupports,
+    Ci.nsIDOMGlobalPropertyInitializer,
+  ]),
+};
 
 function TetheringManager() {
   this.defineEventHandlerGetterSetter("ontetheringstatuschange");
@@ -45,6 +66,7 @@ TetheringManager.prototype = {
       "TetheringService:setUsbTethering:Return:OK",
       "TetheringService:setUsbTethering:Return:NO",
       "TetheringService:tetheringstatuschange",
+      "TetheringService:tetheringconfigchange",
     ];
 
     this._window = aWindow;
@@ -53,14 +75,48 @@ TetheringManager.prototype = {
     if (state) {
       this._wifiTetheringState = state.wifiTetheringState;
       this._usbTetheringState = state.usbTetheringState;
+      this._usbTetheringConfig = this._convertTetheringConfigInfo(
+        TETHERING_TYPE_USB,
+        state.usbTetheringConfig
+      );
     } else {
       this._wifiTetheringState =
         Ci.nsITetheringService.TETHERING_STATE_INACTIVE;
       this._usbTetheringState = Ci.nsITetheringService.TETHERING_STATE_INACTIVE;
+      this._usbTetheringConfig = this._convertTetheringConfigInfo(
+        TETHERING_TYPE_USB,
+        null
+      );
+    }
+
+    // Acquire wifi tethering configuration.
+    var wifiConfig = Services.cpmm.sendSyncMessage("WifiManager:getState")[0];
+    if (wifiConfig) {
+      this._wifiTetheringConfig = this._convertTetheringConfigInfo(
+        TETHERING_TYPE_WIFI,
+        wifiConfig.wifiTetheringConfig
+      );
+    } else {
+      this._wifiTetheringConfig = this._convertTetheringConfigInfo(
+        TETHERING_TYPE_WIFI,
+        null
+      );
     }
   },
 
   receiveMessage(aMessage) {
+    let msg = aMessage.json;
+    if (msg.mid && msg.mid != this._id) {
+      return;
+    }
+
+    let request;
+    if (msg.rid) {
+      request = this.takeRequest(msg.rid);
+      if (!request) {
+        return;
+      }
+    }
     switch (aMessage.name) {
       case "WifiManager:setWifiTethering:Return:OK":
       case "TetheringService:setUsbTethering:Return:OK":
@@ -71,21 +127,27 @@ TetheringManager.prototype = {
         this.handlePromiseMessage(false, aMessage);
         break;
       case "TetheringService:tetheringstatuschange":
-        let msg = aMessage.json;
-        if (msg.mid && msg.mid != this._id) {
-          return;
-        }
-
-        let request;
-        if (msg.rid) {
-          request = this.takeRequest(msg.rid);
-          if (!request) {
-            return;
-          }
-        }
         this._wifiTetheringState = msg.wifiTetheringState;
         this._usbTetheringState = msg.usbTetheringState;
         this._fireTetheringStatusChangeEvent(msg);
+        break;
+      case "TetheringService:tetheringconfigchange":
+        if (msg.wifiTetheringConfig) {
+          this._wifiTetheringConfig = this._convertTetheringConfigInfo(
+            TETHERING_TYPE_WIFI,
+            msg.wifiTetheringConfig
+          );
+        }
+        if (msg.usbTetheringConfig) {
+          this._usbTetheringConfig = this._convertTetheringConfigInfo(
+            TETHERING_TYPE_USB,
+            msg.usbTetheringConfig
+          );
+        }
+        this._fireTetheringConfigChangeEvent(
+          this._wifiTetheringConfig,
+          this._usbTetheringConfig
+        );
         break;
     }
   },
@@ -145,10 +207,47 @@ TetheringManager.prototype = {
     return this._usbTetheringState;
   },
 
+  get usbTetheringConfig() {
+    return this._usbTetheringConfig;
+  },
+
+  get wifiTetheringConfig() {
+    return this._wifiTetheringConfig;
+  },
+
+  _convertTetheringConfigInfo(aType, aConfig) {
+    if (!aConfig) {
+      return null;
+    }
+
+    // Upper layer no need to distinguish between usb/wifi.
+    aConfig.startIp =
+      aType == TETHERING_TYPE_WIFI ? aConfig.wifiStartIp : aConfig.usbStartIp;
+    aConfig.endIp =
+      aType == TETHERING_TYPE_WIFI ? aConfig.wifiEndIp : aConfig.usbEndIp;
+
+    let config = new this._window.TetheringConfigInfo(aConfig);
+    return config;
+  },
+
   _fireTetheringStatusChangeEvent: function onTetheringStatusChangeEvent(info) {
     var event = new this._window.TetheringStatusChangeEvent(
       "tetheringstatuschange",
-      { tetheringState: info.tetheringState }
+      {
+        usbTetheringState: info.usbTetheringState,
+        wifiTetheringState: info.wifiTetheringState,
+      }
+    );
+    this.__DOM_IMPL__.dispatchEvent(event);
+  },
+
+  _fireTetheringConfigChangeEvent: function onTetheringConfigChangeEvent(
+    wifiConfig,
+    usbConfig
+  ) {
+    var event = new this._window.TetheringConfigChangeEvent(
+      "tetheringconfigchange",
+      { wifiTetheringConfig: wifiConfig, usbTetheringConfig: usbConfig }
     );
     this.__DOM_IMPL__.dispatchEvent(event);
   },
@@ -165,4 +264,4 @@ TetheringManager.prototype = {
   },
 };
 
-this.EXPORTED_SYMBOLS = ["TetheringManager"];
+this.EXPORTED_SYMBOLS = ["TetheringManager", "TetheringConfigInfo"];

@@ -28,6 +28,23 @@ dictionary TetheringConfiguration {
   unsigned long channel;
 };
 
+[JSImplementation="@mozilla.org/tetheringconfiginfo;1",
+ Exposed=Window]
+interface TetheringConfigInfo {
+  constructor(optional TetheringConfiguration tetheringConfigurationDict = {});
+  readonly attribute DOMString? ssid;
+  readonly attribute SecurityType? security;
+  readonly attribute DOMString? key;
+  readonly attribute DOMString? ip;
+  readonly attribute DOMString? prefix;
+  readonly attribute DOMString? startIp;
+  readonly attribute DOMString? endIp;
+  readonly attribute DOMString? dns1;
+  readonly attribute DOMString? dns2;
+  readonly attribute unsigned long channel;
+};
+
+
 [JSImplementation="@mozilla.org/tetheringmanager;1",
  Exposed=Window]
 interface TetheringManager : EventTarget {
@@ -75,5 +92,21 @@ interface TetheringManager : EventTarget {
    * connection status.
    */
   attribute EventHandler ontetheringstatuschange;
+
+  /**
+   * An event listener that is called with notification about the tethering
+   * configuration.
+   */
+  attribute EventHandler ontetheringconfigchange;
+
+  /**
+   * Return wifi tethering current configuration.
+   */
+  readonly attribute TetheringConfigInfo wifiTetheringConfig;
+
+  /**
+   * Return usb tethering current configuration.
+   */
+  readonly attribute TetheringConfigInfo usbTetheringConfig;
 
 };

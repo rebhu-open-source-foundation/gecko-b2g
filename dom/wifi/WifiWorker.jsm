@@ -42,6 +42,9 @@ const { Timer, clearTimeout, setTimeout } = ChromeUtils.import(
 const { ScanResult, WifiNetwork, WifiConfigUtils } = ChromeUtils.import(
   "resource://gre/modules/WifiConfiguration.jsm"
 );
+const { TetheringConfigStore } = ChromeUtils.import(
+  "resource://gre/modules/TetheringConfigStore.jsm"
+);
 
 var DEBUG = true; // set to true to show debug messages.
 
@@ -3126,6 +3129,16 @@ function WifiWorker() {
   // Initialize configured network from config file.
   WifiConfigManager.loadFromStore();
 
+  // Read wifi tethering configuration.
+  this._wifiTetheringConfig = TetheringConfigStore.read(
+    TetheringConfigStore.TETHERING_TYPE_WIFI);
+  if (!this._wifiTetheringConfig) {
+    this._wifiTetheringConfig = this.fillWifiTetheringConfiguration({});
+    TetheringConfigStore.write(
+      TetheringConfigStore.TETHERING_TYPE_WIFI, this._wifiTetheringConfig, null);
+  }
+  this._fireEvent("tetheringconfigchange", { wifiTetheringConfig: this._wifiTetheringConfig });
+
   this.initTetheringSettings();
   //FIXME: TypeError: gSettingsService is undefined
   // let lock = gSettingsService.createLock();
@@ -3672,6 +3685,7 @@ WifiWorker.prototype = {
           status: translateState(WifiManager.state),
           macAddress: this._macAddress,
           capabilities: WifiManager.getCapabilities(),
+          wifiTetheringConfig: this._wifiTetheringConfig,
         };
       }
     }
@@ -3993,16 +4007,15 @@ WifiWorker.prototype = {
     return this.getWifiTetheringParametersBySetting(enable);
   },
 
-  getWifiTetheringConfiguration(enable) {
+  fillWifiTetheringConfiguration(aConfig) {
     let config = {};
-    let params = this.tetheringConfig;
+    let check = function(field, _default) {
+      config[field] = field in aConfig ? aConfig[field] : _default;
+    };
+
     // TODO: need more conditions if we support 5GHz hotspot.
     // Random choose 1, 6, 11 if there's no specify channel.
     let defaultChannel = 11 - Math.floor(Math.random() * 3) * 5;
-
-    let check = function(field, _default) {
-      config[field] = field in params ? params[field] : _default;
-    };
 
     check("ssid", DEFAULT_HOTSPOT_SSID);
     check("security", DEFAULT_HOTSPOT_SECURITY_TYPE);
@@ -4023,6 +4036,14 @@ WifiWorker.prototype = {
     check("dns2", DEFAULT_DNS2);
     check("channel", defaultChannel);
 
+    return config;
+  },
+
+  getWifiTetheringConfiguration(enable) {
+    let config = {};
+    let params = this._wifiTetheringConfig;
+
+    config = this.fillWifiTetheringConfiguration(params);
     config.enable = enable;
     config.mode = enable ? WIFI_FIRMWARE_AP : WIFI_FIRMWARE_STATION;
     config.link = enable ? NETWORK_INTERFACE_UP : NETWORK_INTERFACE_DOWN;
@@ -4191,14 +4212,23 @@ WifiWorker.prototype = {
 
   // TODO : These two variables should be removed once GAIA uses tethering API.
   useTetheringAPI: false,
-  tetheringConfig: {},
+  _wifiTetheringConfig: {},
 
   setWifiTethering(msg) {
     const message = "WifiManager:setWifiTethering:Return";
     let enabled = msg.data.enabled;
 
     this.useTetheringAPI = true;
-    this.tetheringConfig = msg.data.config;
+    if (!WifiManager.isWifiTetheringEnabled(WifiManager.tetheringState) &&
+      Object.entries(msg.data.config).length != 0) {
+      let newConfig = this.fillWifiTetheringConfiguration(msg.data.config);
+      if (JSON.stringify(this._wifiTetheringConfig) != JSON.stringify(newConfig)) {
+        this._wifiTetheringConfig = newConfig;
+        TetheringConfigStore.write(
+          TetheringConfigStore.TETHERING_TYPE_WIFI, this._wifiTetheringConfig, null);
+        this._fireEvent("tetheringconfigchange", { wifiTetheringConfig: this._wifiTetheringConfig });
+      }
+    }
 
     if (enabled && WifiManager.enabled) {
       this.queueRequest(

@@ -1141,6 +1141,7 @@ GENERATED_EVENTS_WEBIDL_FILES = [
     'TCPServerSocketEvent.webidl',
     'TCPSocketErrorEvent.webidl',
     'TCPSocketEvent.webidl',
+    'TetheringConfigChangeEvent.webidl',
     'TetheringStatusChangeEvent.webidl',
     'TrackEvent.webidl',
     'UDPMessageEvent.webidl',

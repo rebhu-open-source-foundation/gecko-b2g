@@ -25,6 +25,11 @@ interface nsITetheringService : nsISupports
   readonly attribute long usbState;
 
   /**
+   * Current usb tethering configuration.
+   */
+  readonly attribute jsval usbTetheringConfig;
+
+  /**
    * Handle external interface change for Tethering.
    *
    * @param networkInfo

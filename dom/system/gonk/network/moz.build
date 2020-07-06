@@ -41,6 +41,7 @@ EXTRA_JS_MODULES += [
     'NetworkInterfaceListService.jsm',
     'NetworkManager.jsm',
     'NetworkService.jsm',
+    'TetheringConfigStore.jsm',
     'TetheringService.jsm',
 ]
 LOCAL_INCLUDES += [
