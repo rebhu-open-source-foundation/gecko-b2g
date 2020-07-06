@@ -105,7 +105,7 @@ gfxPlatformGtk::gfxPlatformGtk() {
 #endif
 
   gPlatformFTLibrary = Factory::NewFTLibrary();
-  MOZ_ASSERT(gPlatformFTLibrary);
+  MOZ_RELEASE_ASSERT(gPlatformFTLibrary);
   Factory::SetFTLibrary(gPlatformFTLibrary);
 }
 
@@ -727,8 +727,7 @@ bool gfxPlatformGtk::UseDMABufTextures() {
   return IsWaylandDisplay() && GetDMABufDevice()->IsDMABufTexturesEnabled();
 }
 bool gfxPlatformGtk::UseDMABufVideoTextures() {
-  return IsWaylandDisplay() &&
-         (GetDMABufDevice()->IsDMABufVideoTexturesEnabled() ||
+  return (GetDMABufDevice()->IsDMABufVideoTexturesEnabled() ||
           StaticPrefs::media_ffmpeg_vaapi_enabled());
 }
 bool gfxPlatformGtk::UseHardwareVideoDecoding() {
