@@ -218,8 +218,9 @@ class AndroidXPCShellRunner(MozbuildObject):
 
 def get_parser():
     build_obj = MozbuildObject.from_environment(cwd=here)
-    if conditions.is_android(build_obj) or build_obj.substs.get('MOZ_BUILD_APP') == 'b2g':
-        return parser_remote()
+    if conditions.is_android(build_obj) or (build_obj.substs.get('MOZ_BUILD_APP') == 'b2g' and
+        build_obj.substs.get('MOZ_WIDGET_TOOLKIT') == 'gonk'):
+            return parser_remote()
     else:
         return parser_desktop()
 
@@ -259,13 +260,14 @@ class MachCommands(MachCommandBase):
         if not params['threadCount']:
             params['threadCount'] = int((cpu_count() * 3) / 2)
 
-        if conditions.is_android(self) or self.substs.get('MOZ_BUILD_APP') == 'b2g':
-            from mozrunner.devices.android_device import verify_android_device, get_adb_path
-            device_serial = params.get('deviceSerial')
-            verify_android_device(self, network=True, device_serial=device_serial)
-            if not params['adbPath']:
-                params['adbPath'] = get_adb_path(self)
-            xpcshell = self._spawn(AndroidXPCShellRunner)
+        if conditions.is_android(self) or (self.substs.get('MOZ_BUILD_APP') == 'b2g' and
+            self.substs.get('MOZ_WIDGET_TOOLKIT') == 'gonk'):
+                from mozrunner.devices.android_device import verify_android_device, get_adb_path
+                device_serial = params.get('deviceSerial')
+                verify_android_device(self, network=True, device_serial=device_serial)
+                if not params['adbPath']:
+                    params['adbPath'] = get_adb_path(self)
+                xpcshell = self._spawn(AndroidXPCShellRunner)
         else:
             xpcshell = self._spawn(XPCShellRunner)
         xpcshell.cwd = self._mach_context.cwd
