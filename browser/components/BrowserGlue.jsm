@@ -453,7 +453,7 @@ let JSWINDOWACTORS = {
 
     // Only matching web pages, as opposed to internal about:, chrome: or
     // resource: pages. See https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Match_patterns
-    matches: ["*://*/*"],
+    matches: ["*://*/*", "file:///*"],
     messageManagerGroups: ["browsers"],
     allFrames: true,
   },
@@ -2092,6 +2092,32 @@ BrowserGlue.prototype = {
 
     Services.prefs.addObserver(PREF_ENABLED, _checkHTTPSOnlyPref);
     _checkHTTPSOnlyPref();
+
+    const PREF_PBM_WAS_ENABLED =
+      "dom.security.https_only_mode_ever_enabled_pbm";
+    const PREF_PBM_ENABLED = "dom.security.https_only_mode_pbm";
+
+    const _checkHTTPSOnlyPBMPref = async () => {
+      const enabledPBM = Services.prefs.getBoolPref(PREF_PBM_ENABLED, false);
+      const was_enabledPBM = Services.prefs.getBoolPref(
+        PREF_PBM_WAS_ENABLED,
+        false
+      );
+      let valuePBM = 0;
+      if (enabledPBM) {
+        valuePBM = 1;
+        Services.prefs.setBoolPref(PREF_PBM_WAS_ENABLED, true);
+      } else if (was_enabledPBM) {
+        valuePBM = 2;
+      }
+      Services.telemetry.scalarSet(
+        "security.https_only_mode_enabled_pbm",
+        valuePBM
+      );
+    };
+
+    Services.prefs.addObserver(PREF_PBM_ENABLED, _checkHTTPSOnlyPBMPref);
+    _checkHTTPSOnlyPBMPref();
   },
 
   _monitorPioneerPref() {

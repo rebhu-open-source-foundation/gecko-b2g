@@ -77,12 +77,13 @@ def test_compare_to_success(notebook, stats):
             m(metadata)
 
     args, kwargs = notebook.call_args_list[0]
+
     if not stats:
-        assert len(args[0]) == 2
-        assert args[0][0]["name"] == "browsertime-newestRun"
-        assert args[0][1]["name"] == "browsertime-results"
+        assert len(kwargs["data"]) == 2
+        assert kwargs["data"][0]["name"] == "browsertime- newest run"
+        assert kwargs["data"][1]["name"] == "browsertime-results"
     else:
-        assert any(["statistics" in element["subtest"] for element in args[0]])
+        assert any("statistics" in element["subtest"] for element in kwargs["data"])
 
     notebook.assert_has_calls(
         mock.call().post_to_iodide(["compare"], start_local_server=True)

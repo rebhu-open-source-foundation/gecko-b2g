@@ -6,7 +6,7 @@
 
 /* base class of all rendering objects */
 
-#include "nsFrame.h"
+#include "nsIFrame.h"
 
 #include <stdarg.h>
 #include <algorithm>
@@ -209,7 +209,7 @@ static void InitBoxMetrics(nsIFrame* aFrame, bool aClear) {
   nsBoxLayoutMetrics* metrics = new nsBoxLayoutMetrics();
   aFrame->SetProperty(BoxMetricsProperty(), metrics);
 
-  static_cast<nsFrame*>(aFrame)->nsFrame::MarkIntrinsicISizesDirty();
+  aFrame->nsIFrame::MarkIntrinsicISizesDirty();
   metrics->mBlockAscent = 0;
   metrics->mLastSize.SizeTo(0, 0);
 }
@@ -466,12 +466,8 @@ void WeakFrame::Init(nsIFrame* aFrame) {
 }
 
 nsIFrame* NS_NewEmptyFrame(PresShell* aPresShell, ComputedStyle* aStyle) {
-  return new (aPresShell) nsFrame(aStyle, aPresShell->GetPresContext());
+  return new (aPresShell) nsIFrame(aStyle, aPresShell->GetPresContext());
 }
-
-nsFrame::nsFrame(ComputedStyle* aStyle, nsPresContext* aPresContext,
-                 ClassID aID)
-    : nsIFrame(aStyle, aPresContext, aID) {}
 
 nsIFrame::~nsIFrame() {
   MOZ_COUNT_DTOR(nsIFrame);
@@ -480,15 +476,15 @@ nsIFrame::~nsIFrame() {
              "Visible nsFrame is being destroyed");
 }
 
-NS_IMPL_FRAMEARENA_HELPERS(nsFrame)
+NS_IMPL_FRAMEARENA_HELPERS(nsIFrame)
 
 // Dummy operator delete.  Will never be called, but must be defined
 // to satisfy some C++ ABIs.
-void nsFrame::operator delete(void*, size_t) {
-  MOZ_CRASH("nsFrame::operator delete should never be called");
+void nsIFrame::operator delete(void*, size_t) {
+  MOZ_CRASH("nsIFrame::operator delete should never be called");
 }
 
-NS_QUERYFRAME_HEAD(nsFrame)
+NS_QUERYFRAME_HEAD(nsIFrame)
   NS_QUERYFRAME_ENTRY(nsIFrame)
 NS_QUERYFRAME_TAIL_INHERITANCE_ROOT
 
@@ -1629,7 +1625,7 @@ void nsIFrame::CreateView() {
   SetView(view);
 
   NS_FRAME_LOG(NS_FRAME_TRACE_CALLS,
-               ("nsFrame::CreateView: frame=%p view=%p", this, view));
+               ("nsIFrame::CreateView: frame=%p view=%p", this, view));
 }
 
 // MSVC fails with link error "one or more multiply defined symbols found",
@@ -2834,13 +2830,13 @@ static void DisplayDebugBorders(nsDisplayListBuilder* aBuilder,
                                 const nsDisplayListSet& aLists) {
   // Draw a border around the child
   // REVIEW: From nsContainerFrame::PaintChild
-  if (nsFrame::GetShowFrameBorders() && !aFrame->GetRect().IsEmpty()) {
+  if (nsIFrame::GetShowFrameBorders() && !aFrame->GetRect().IsEmpty()) {
     aLists.Outlines()->AppendNewToTop<nsDisplayGeneric>(
         aBuilder, aFrame, PaintDebugBorder, "DebugBorder",
         DisplayItemType::TYPE_DEBUG_BORDER);
   }
   // Draw a border around the current event target
-  if (nsFrame::GetShowEventTargetFrameBorder() &&
+  if (nsIFrame::GetShowEventTargetFrameBorder() &&
       aFrame->PresShell()->GetDrawEventTargetFrame() == aFrame) {
     aLists.Outlines()->AppendNewToTop<nsDisplayGeneric>(
         aBuilder, aFrame, PaintEventTargetBorder, "EventTargetBorder",
@@ -4879,11 +4875,11 @@ nsresult nsIFrame::SelectByTypeAtPoint(nsPresContext* aPresContext,
   if (!offsets.content) return NS_ERROR_FAILURE;
 
   int32_t offset;
-  nsIFrame* theFrame = nsFrameSelection::GetFrameForNodeOffset(
+  nsIFrame* frame = nsFrameSelection::GetFrameForNodeOffset(
       offsets.content, offsets.offset, offsets.associate, &offset);
-  if (!theFrame) return NS_ERROR_FAILURE;
-
-  nsFrame* frame = static_cast<nsFrame*>(theFrame);
+  if (!frame) {
+    return NS_ERROR_FAILURE;
+  }
   return frame->PeekBackwardAndForward(aBeginAmountType, aEndAmountType, offset,
                                        aBeginAmountType != eSelectWord,
                                        aSelectFlags);
@@ -5074,7 +5070,7 @@ NS_IMETHODIMP nsIFrame::HandleDrag(nsPresContext* aPresContext,
 }
 
 /**
- * This static method handles part of the nsFrame::HandleRelease in a way
+ * This static method handles part of the nsIFrame::HandleRelease in a way
  * which doesn't rely on the nsFrame object to stay alive.
  */
 static nsresult HandleFrameSelection(nsFrameSelection* aFrameSelection,
@@ -5186,9 +5182,8 @@ NS_IMETHODIMP nsIFrame::HandleRelease(nsPresContext* aPresContext,
   // trickle down here. Make sure that document's frame selection is notified.
   // Note, this may cause the current nsFrame object to be deleted, bug 336592.
   RefPtr<nsFrameSelection> frameSelection;
-  if (activeFrame != this &&
-      static_cast<nsFrame*>(activeFrame)->DetermineDisplaySelection() !=
-          nsISelectionController::SELECTION_OFF) {
+  if (activeFrame != this && activeFrame->DetermineDisplaySelection() !=
+                                 nsISelectionController::SELECTION_OFF) {
     frameSelection = activeFrame->GetFrameSelection();
   }
 
@@ -5652,8 +5647,7 @@ nsIFrame::ContentOffsets nsIFrame::GetContentOffsetsFromPoint(
   } else {
     pt = aPoint;
   }
-  return static_cast<nsFrame*>(closest.frame)
-      ->CalcContentOffsetsFromFramePoint(pt);
+  return closest.frame->CalcContentOffsetsFromFramePoint(pt);
 
   // XXX should I add some kind of offset standardization?
   // consider <b>xxxxx</b><i>zzzzz</i>; should any click between the last
@@ -6045,7 +6039,7 @@ LogicalSize nsIFrame::ComputeSize(gfxContext* aRenderingContext,
                                   ComputeSizeFlags aFlags) {
   MOZ_ASSERT(!GetIntrinsicRatio(),
              "Please override this method and call "
-             "nsFrame::ComputeSizeWithIntrinsicDimensions instead.");
+             "nsIFrame::ComputeSizeWithIntrinsicDimensions instead.");
   LogicalSize result =
       ComputeAutoSize(aRenderingContext, aWM, aCBSize, aAvailableISize, aMargin,
                       aBorder, aPadding, aFlags);
@@ -6098,7 +6092,7 @@ LogicalSize nsIFrame::ComputeSize(gfxContext* aRenderingContext,
                        : eLogicalAxisBlock;
 
     // NOTE: The logic here should match the similar chunk for updating
-    // mainAxisCoord in nsFrame::ComputeSizeWithIntrinsicDimensions() (aside
+    // mainAxisCoord in nsIFrame::ComputeSizeWithIntrinsicDimensions() (aside
     // from using a different dummy value in the IsUsedFlexBasisContent() case).
     const auto* flexBasis = &stylePos->mFlexBasis;
     auto& mainAxisCoord =
@@ -7572,7 +7566,7 @@ int32_t nsIFrame::ContentIndexInContainer(const nsIFrame* aFrame) {
 /**
  * List a frame tree to stderr. Meant to be called from gdb.
  */
-void DebugListFrameTree(nsIFrame* aFrame) { ((nsFrame*)aFrame)->List(stderr); }
+void DebugListFrameTree(nsIFrame* aFrame) { ((nsIFrame*)aFrame)->List(stderr); }
 
 nsAutoCString nsIFrame::ListTag() const {
   nsAutoString tmp;
@@ -8826,9 +8820,9 @@ Result<bool, nsresult> nsIFrame::IsVisuallyAtLineEdge(
 
   bool frameIsRTL = (nsBidiPresUtils::FrameDirection(*framePtr) == NSBIDI_RTL);
   if ((frameIsRTL == lineIsRTL) == (aDirection == eDirPrevious)) {
-    nsFrame::GetFirstLeaf(framePtr);
+    nsIFrame::GetFirstLeaf(framePtr);
   } else {
-    nsFrame::GetLastLeaf(framePtr);
+    nsIFrame::GetLastLeaf(framePtr);
   }
   return *framePtr == this;
 }
@@ -8848,7 +8842,7 @@ Result<bool, nsresult> nsIFrame::IsLogicallyAtLineEdge(
   }
 
   if (aDirection == eDirPrevious) {
-    nsFrame::GetFirstLeaf(&firstFrame);
+    nsIFrame::GetFirstLeaf(&firstFrame);
     return firstFrame == this;
   }
 
@@ -8857,11 +8851,11 @@ Result<bool, nsresult> nsIFrame::IsLogicallyAtLineEdge(
   for (; lineFrameCount > 1; lineFrameCount--) {
     result = it->GetNextSiblingOnLine(lastFrame, aLine);
     if (NS_FAILED(result) || !lastFrame) {
-      NS_ERROR("should not be reached nsFrame");
+      NS_ERROR("should not be reached nsIFrame");
       return Err(NS_ERROR_FAILURE);
     }
   }
-  nsFrame::GetLastLeaf(&lastFrame);
+  nsIFrame::GetLastLeaf(&lastFrame);
   return lastFrame == this;
 }
 
@@ -9687,7 +9681,7 @@ static nsIFrame* GetCorrectedParent(const nsIFrame* aFrame) {
     }
   }
 
-  return nsFrame::CorrectStyleParentFrame(parent, pseudo);
+  return nsIFrame::CorrectStyleParentFrame(parent, pseudo);
 }
 
 /* static */
