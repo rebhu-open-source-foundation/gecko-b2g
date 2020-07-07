@@ -170,9 +170,9 @@ var shell = {
         // sites should be paused when this browser tab has sent back to
         // background or phone has flip closed.
         if (window.windowState == window.STATE_MINIMIZED) {
-          this.contentBrowser.setVisible(false);
+          this.contentBrowser.docShellIsActive = false;
         } else {
-          this.contentBrowser.setVisible(true);
+          this.contentBrowser.docShellIsActive = true;
         }
         break;
       case "MozAfterPaint":
