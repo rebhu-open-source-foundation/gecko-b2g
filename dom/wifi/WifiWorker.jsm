@@ -447,13 +447,11 @@ var WifiManager = (function() {
         false,
         function() {}
       );
+
       enableBackgroundScan(false);
-      if (manager.state == "COMPLETED") {
+      if (!manager.isHandShakeState(manager.state)) {
         // Scan after 500ms
-        setTimeout(handleScanRequest, 500);
-      } else if (!manager.isConnectState(manager.state)) {
-        // Scan after 500ms
-        setTimeout(handleScanRequest, 500);
+        setTimeout(handleScanRequest, 500, function() {});
       }
     } else {
       setSuspendOptimizationsMode(POWER_MODE_SCREEN_STATE, true, function() {});
@@ -502,16 +500,22 @@ var WifiManager = (function() {
 
       if (pnoSettings.pnoNetworks.length == 0) {
         debug("Empty PNO network list");
-        callback(false);
+        if (callback) {
+          callback(false);
+        }
         return;
       }
 
       wifiCommand.startPnoScan(pnoSettings, function(result) {
-        callback(result.status == SUCCESS);
+        if (callback) {
+          callback(result.status == SUCCESS);
+        }
       });
     } else {
       wifiCommand.stopPnoScan(function(result) {
-        callback(result.status == SUCCESS);
+        if (callback) {
+          callback(result.status == SUCCESS);
+        }
       });
     }
   }
@@ -807,8 +811,8 @@ var WifiManager = (function() {
   }
 
   function notifyStateChange(fields) {
-    // Enable background scan when device disconnected and screen off.
-    // Disable background scan when device connecting and screen off.
+    // If screen is off, enable background scan when wifi is disconnected,
+    // or disable background scan when wifi is connecting.
     if (!screenOn) {
       if (
         manager.isConnectState(manager.state) &&
@@ -1307,6 +1311,7 @@ var WifiManager = (function() {
 
   function pnoScanFailed() {
     debug("Receive PNO scan failure");
+    schedulePnoFailed = true;
   }
 
   function hotspotClientChanged(event) {
