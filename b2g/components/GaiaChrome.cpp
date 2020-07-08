@@ -15,6 +15,7 @@
 #include "mozilla/ModuleUtils.h"
 #include "mozilla/Services.h"
 #include "mozilla/FileLocation.h"
+#include "mozilla/Omnijar.h"
 
 #define NS_GAIACHROME_CID                            \
   {                                                  \

@@ -63,6 +63,7 @@ include protocol PVRManager;
 include protocol PRemoteDecoderManager;
 include protocol PProfiler;
 include protocol PScriptCache;
+include protocol PStartupCache;
 include protocol PSessionStorageObserver;
 include protocol PSystemMessageService;
 include protocol PBenchmarkStorage;
@@ -523,7 +524,7 @@ struct IPCURLClassifierFeature
 {
     nsCString featureName;
     nsCString[] tables;
-    nsCString skipHostList;
+    nsCString exceptionHostList;
 };
 
 // Transport structure for Notifications API notifications
@@ -621,6 +622,7 @@ nested(upto inside_cpow) sync protocol PContent
     manages PURLClassifier;
     manages PURLClassifierLocal;
     manages PScriptCache;
+    manages PStartupCache;
     manages PLoginReputation;
     manages PSessionStorageObserver;
     manages PSystemMessageService;
@@ -756,6 +758,8 @@ child:
     async PTestShell();
 
     async PScriptCache(FileDescOrError cacheFile, bool wantCacheData);
+
+    async PStartupCache(bool wantCacheData);
 
     async RegisterChrome(ChromePackage[] packages, SubstitutionMapping[] substitutions,
                          OverrideMapping[] overrides, nsCString locale, bool reset);

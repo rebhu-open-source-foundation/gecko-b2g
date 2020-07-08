@@ -65,7 +65,6 @@
 #include "nsFrameSelection.h"
 #include "nsGkAtoms.h"
 #include "nsCSSAnonBoxes.h"
-#include "nsCSSClipPathInstance.h"
 #include "nsCanvasFrame.h"
 
 #include "nsFrameTraversal.h"
@@ -105,6 +104,7 @@
 #include "nsWindowSizes.h"
 
 #include "mozilla/AsyncEventDispatcher.h"
+#include "mozilla/CSSClipPathInstance.h"
 #include "mozilla/EffectCompositor.h"
 #include "mozilla/EffectSet.h"
 #include "mozilla/EventListenerManager.h"
@@ -3012,7 +3012,7 @@ static Maybe<nsRect> ComputeClipForMaskItem(nsDisplayListBuilder* aBuilder,
   Maybe<gfxRect> combinedClip;
   if (maskUsage.shouldApplyBasicShapeOrPath) {
     Maybe<Rect> result =
-        nsCSSClipPathInstance::GetBoundingRectForBasicShapeOrPathClip(
+        CSSClipPathInstance::GetBoundingRectForBasicShapeOrPathClip(
             aMaskedFrame, svgReset->mClipPath);
     if (result) {
       combinedClip = Some(ThebesRect(*result));
@@ -7563,11 +7563,6 @@ int32_t nsIFrame::ContentIndexInContainer(const nsIFrame* aFrame) {
   return result;
 }
 
-/**
- * List a frame tree to stderr. Meant to be called from gdb.
- */
-void DebugListFrameTree(nsIFrame* aFrame) { ((nsIFrame*)aFrame)->List(stderr); }
-
 nsAutoCString nsIFrame::ListTag() const {
   nsAutoString tmp;
   GetFrameName(tmp);
@@ -7686,9 +7681,6 @@ void nsIFrame::ListGeneric(nsACString& aTo, const char* aPrefix,
   if (hasNormalPosition) {
     aTo += nsPrintfCString(" normal-position=%s",
                            ConvertToString(normalPosition, aFlags).c_str());
-  }
-  if (0 != mState) {
-    aTo += nsPrintfCString(" [state=%016llx]", (unsigned long long)mState);
   }
   if (HasProperty(BidiDataProperty())) {
     FrameBidiData bidi = GetBidiData();

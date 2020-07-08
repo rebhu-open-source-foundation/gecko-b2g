@@ -324,10 +324,12 @@ bool ICScript::initICEntries(JSContext* cx, JSScript* script) {
         break;
       }
       case JSOp::InitElem:
+      case JSOp::InitPrivateElem:
       case JSOp::InitHiddenElem:
       case JSOp::InitElemArray:
       case JSOp::InitElemInc:
       case JSOp::SetElem:
+      case JSOp::SetPrivateElem:
       case JSOp::StrictSetElem: {
         ICStub* stub = alloc.newStub<ICSetElem_Fallback>(Kind::SetElem);
         if (!addIC(loc, stub)) {
@@ -369,6 +371,7 @@ bool ICScript::initICEntries(JSContext* cx, JSScript* script) {
         break;
       }
       case JSOp::GetElem:
+      case JSOp::GetPrivateElem:
       case JSOp::CallElem: {
         ICStub* stub = alloc.newStub<ICGetElem_Fallback>(Kind::GetElem);
         if (!addIC(loc, stub)) {
@@ -546,12 +549,14 @@ ICStubIterator& ICStubIterator::operator++() {
   return *this;
 }
 
-void ICStubIterator::unlink(JSContext* cx) {
+void ICStubIterator::unlink(JSContext* cx, JSScript* script) {
   MOZ_ASSERT(currentStub_->next() != nullptr);
   MOZ_ASSERT(currentStub_ != fallbackStub_);
   MOZ_ASSERT(!unlinked_);
 
-  fallbackStub_->unlinkStub(cx->zone(), previousStub_, currentStub_);
+  fallbackStub_->maybeInvalidateWarp(cx, script);
+  fallbackStub_->unlinkStubDontInvalidateWarp(cx->zone(), previousStub_,
+                                              currentStub_);
 
   // Mark the current iterator position as unlinked, so operator++ works
   // properly.
@@ -600,6 +605,19 @@ uint32_t ICStub::getEnteredCount() const {
       return toCacheIR_Monitored()->enteredCount();
     default:
       return toFallbackStub()->enteredCount();
+  }
+}
+
+void ICFallbackStub::maybeInvalidateWarp(JSContext* cx, JSScript* script) {
+  if (!state_.usedByTranspiler()) {
+    return;
+  }
+
+  MOZ_ASSERT(JitOptions.warpBuilder);
+  clearUsedByTranspiler();
+
+  if (script->hasIonScript()) {
+    Invalidate(cx, script);
   }
 }
 
@@ -772,7 +790,7 @@ static void TryAttachStub(const char* name, JSContext* cx, BaselineFrame* frame,
                           ICFallbackStub* stub, BaselineCacheIRStubKind kind,
                           Args&&... args) {
   if (stub->state().maybeTransition()) {
-    stub->discardStubs(cx);
+    stub->discardStubs(cx, frame->script());
   }
 
   if (stub->state().canAttachStub()) {
@@ -805,7 +823,8 @@ static void TryAttachStub(const char* name, JSContext* cx, BaselineFrame* frame,
   }
 }
 
-void ICFallbackStub::unlinkStub(Zone* zone, ICStub* prev, ICStub* stub) {
+void ICFallbackStub::unlinkStubDontInvalidateWarp(Zone* zone, ICStub* prev,
+                                                  ICStub* stub) {
   MOZ_ASSERT(stub->next());
 
   if (prev) {
@@ -849,9 +868,9 @@ void ICFallbackStub::unlinkStub(Zone* zone, ICStub* prev, ICStub* stub) {
 #endif
 }
 
-void ICFallbackStub::discardStubs(JSContext* cx) {
+void ICFallbackStub::discardStubs(JSContext* cx, JSScript* script) {
   for (ICStubIterator iter = beginChain(); !iter.atEnd(); iter++) {
-    iter.unlink(cx);
+    iter.unlink(cx, script);
   }
 }
 
@@ -1817,7 +1836,8 @@ bool FallbackICCodeCompiler::emit_ToBool() {
   return tailCallVM<Fn, DoToBoolFallback>(masm);
 }
 
-static void StripPreliminaryObjectStubs(JSContext* cx, ICFallbackStub* stub) {
+static void StripPreliminaryObjectStubs(JSContext* cx, ICFallbackStub* stub,
+                                        JSScript* script) {
   // Before the new script properties analysis has been performed on a type,
   // all instances of that type have the maximum number of fixed slots.
   // Afterwards, the objects (even the preliminary ones) might be changed
@@ -1830,13 +1850,13 @@ static void StripPreliminaryObjectStubs(JSContext* cx, ICFallbackStub* stub) {
   for (ICStubIterator iter = stub->beginChain(); !iter.atEnd(); iter++) {
     if (iter->isCacheIR_Regular() &&
         iter->toCacheIR_Regular()->hasPreliminaryObject()) {
-      iter.unlink(cx);
+      iter.unlink(cx, script);
     } else if (iter->isCacheIR_Monitored() &&
                iter->toCacheIR_Monitored()->hasPreliminaryObject()) {
-      iter.unlink(cx);
+      iter.unlink(cx, script);
     } else if (iter->isCacheIR_Updated() &&
                iter->toCacheIR_Updated()->hasPreliminaryObject()) {
-      iter.unlink(cx);
+      iter.unlink(cx, script);
     }
   }
 }
@@ -1848,7 +1868,7 @@ static bool TryAttachGetPropStub(const char* name, JSContext* cx,
   bool attached = false;
 
   if (stub->state().maybeTransition()) {
-    stub->discardStubs(cx);
+    stub->discardStubs(cx, frame->script());
   }
 
   if (stub->state().canAttachStub()) {
@@ -1869,7 +1889,7 @@ static bool TryAttachGetPropStub(const char* name, JSContext* cx,
           if (gen.shouldNotePreliminaryObjectStub()) {
             newStub->toCacheIR_Monitored()->notePreliminaryObject();
           } else if (gen.shouldUnlinkPreliminaryObjectStubs()) {
-            StripPreliminaryObjectStubs(cx, stub);
+            StripPreliminaryObjectStubs(cx, stub, script);
           }
         }
       } break;
@@ -1886,9 +1906,107 @@ static bool TryAttachGetPropStub(const char* name, JSContext* cx,
   return attached;
 }
 
+// This is a separate function rather than recycling what already exists in
+// the SetPrivateElementOperation etc so that we can use HasOwnDataPropertyPure
+// to avoid side-effects.
+//
+// This is a conservative allow-list, to ensure safety.
+static MOZ_ALWAYS_INLINE bool CanAttachPrivateSetGetIC(JSContext* cx,
+                                                       HandleObject obj,
+                                                       HandleId id) {
+  // Only allow plain objects.
+  if (!obj->is<PlainObject>()) {
+    return false;
+  }
+
+  bool hasOwn = false;
+  if (!HasOwnDataPropertyPure(cx, obj, id, &hasOwn)) {
+    return false;
+  }
+
+  // Set/Get require the prop already exist. This will have to be rethought for
+  // getters and setters when they are implemented.
+  return hasOwn;
+}
+
+static void VerifyPrivateElemThrow(JSContext* cx, bool attached,
+                                   bool mayThrow) {
+  // If we attached a stub but threw for OOM, that doesn't mean that the stub
+  // attached is broken; so the below checks don't apply.
+  //
+  // Setters and Getters will require changing this when they are implemented.
+  bool throwingOOM =
+      cx->isThrowingOutOfMemory() || cx->isThrowingOverRecursed();
+  if (!throwingOOM) {
+    // If attached, then we attached a broken stub.
+    MOZ_RELEASE_ASSERT(!attached);
+    // if !mayThrow, then the throw check was insufficiently stringent,
+    // and should we expand the set of ICs, we could get into a situation
+    // where we -could- attach a broken stub.
+    MOZ_RELEASE_ASSERT(mayThrow);
+  }
+}
+
+bool DoPrivateGetElemFallback(JSContext* cx, BaselineFrame* frame,
+                              ICGetElem_Fallback* stub, HandleValue lhs,
+                              HandleValue rhs, MutableHandleValue res) {
+  RootedScript script(cx, frame->script());
+  jsbytecode* pc = stub->icEntry()->pc(frame->script());
+
+  MOZ_ASSERT(JSOp(*pc) == JSOp::GetPrivateElem);
+  MOZ_ASSERT(rhs.isSymbol());
+  MOZ_ASSERT(rhs.toSymbol()->isPrivateName());
+
+  // To simplify compatibility with our IC implementation below, ensure that
+  // the PrivateElem operations throw their potential exceptions, before we
+  // attach a stub.
+  //
+  // Accessing a private field that does not exist throws a TypeError. We
+  // handle that case in the fallback stub by calling
+  // GetPrivateElemOperation. We have to ensure that GetPropIRGenerator does
+  // not attach a stub in this situation, because that might prevent us from
+  // reaching the fallback in the future.
+  //
+  // Accessing an existing private field is just like accessing a regular
+  // property. Once we have verified that the field exists on the object, we
+  // can use our regular guards, so regular stubs apply so long as we
+  // ensure we never throw.
+
+  RootedId id(cx);
+  if (!ToPropertyKey(cx, rhs, &id)) {
+    return false;
+  }
+
+  // LHS must be an object.
+  if (!lhs.isObject()) {
+    ReportNotObject(cx, lhs);
+    return false;
+  }
+
+  RootedObject obj(cx, &lhs.toObject());
+  bool mayThrow = !CanAttachPrivateSetGetIC(cx, obj, id);
+
+  // We don't handle magic arguments here.
+  MOZ_ASSERT(!lhs.isMagic(JS_OPTIMIZED_ARGUMENTS));
+
+  bool attached = false;
+  if (!mayThrow) {
+    attached = TryAttachGetPropStub("GetPrivateElem", cx, frame, stub,
+                                    CacheKind::GetElem, lhs, rhs, lhs);
+  }
+
+  if (!GetPrivateElemOperation(cx, pc, lhs, rhs, res)) {
+    VerifyPrivateElemThrow(cx, attached, mayThrow);
+    return false;
+  }
+
+  return true;
+}
+
 //
 // GetElem_Fallback
 //
+// - GetPrivateElem shares this trampoline target for now.
 
 bool DoGetElemFallback(JSContext* cx, BaselineFrame* frame,
                        ICGetElem_Fallback* stub, HandleValue lhs,
@@ -1901,13 +2019,19 @@ bool DoGetElemFallback(JSContext* cx, BaselineFrame* frame,
   JSOp op = JSOp(*pc);
   FallbackICSpew(cx, stub, "GetElem(%s)", CodeName(op));
 
-  MOZ_ASSERT(op == JSOp::GetElem || op == JSOp::CallElem);
+  MOZ_ASSERT(op == JSOp::GetElem || op == JSOp::GetPrivateElem ||
+             op == JSOp::CallElem);
+
+  if (op == JSOp::GetPrivateElem) {
+    return DoPrivateGetElemFallback(cx, frame, stub, lhs, rhs, res);
+  }
 
   // Don't pass lhs directly, we need it when generating stubs.
   RootedValue lhsCopy(cx, lhs);
 
   bool isOptimizedArgs = false;
   if (lhs.isMagic(JS_OPTIMIZED_ARGUMENTS)) {
+    MOZ_ASSERT(op != JSOp::GetPrivateElem);
     // Handle optimized arguments[i] access.
     if (!GetElemOptimizedArguments(cx, frame, &lhsCopy, rhs, res,
                                    &isOptimizedArgs)) {
@@ -2096,6 +2220,24 @@ static void SetUpdateStubData(ICCacheIR_Updated* stub,
   }
 }
 
+// This is a conservative approximation.
+static MOZ_ALWAYS_INLINE bool CanAttachPrivateInitIC(JSContext* cx,
+                                                     HandleObject obj,
+                                                     HandleId id) {
+  // Only allow plain objects; this also means we have no hooks to worry about.
+  if (!obj->is<PlainObject>()) {
+    return false;
+  }
+
+  PropertyResult prop;
+  if (!LookupOwnPropertyPure(cx, obj, id, &prop)) {
+    return false;
+  }
+
+  // Init requires the prop not already exist
+  return !prop;
+}
+
 bool DoSetElemFallback(JSContext* cx, BaselineFrame* frame,
                        ICSetElem_Fallback* stub, Value* stack, HandleValue objv,
                        HandleValue index, HandleValue rhs) {
@@ -2109,8 +2251,9 @@ bool DoSetElemFallback(JSContext* cx, BaselineFrame* frame,
   JSOp op = JSOp(*pc);
   FallbackICSpew(cx, stub, "SetElem(%s)", CodeName(JSOp(*pc)));
 
-  MOZ_ASSERT(op == JSOp::SetElem || op == JSOp::StrictSetElem ||
-             op == JSOp::InitElem || op == JSOp::InitHiddenElem ||
+  MOZ_ASSERT(op == JSOp::SetElem || op == JSOp::SetPrivateElem ||
+             op == JSOp::StrictSetElem || op == JSOp::InitElem ||
+             op == JSOp::InitPrivateElem || op == JSOp::InitHiddenElem ||
              op == JSOp::InitElemArray || op == JSOp::InitElemInc);
 
   int objvIndex = -3;
@@ -2126,14 +2269,34 @@ bool DoSetElemFallback(JSContext* cx, BaselineFrame* frame,
     return false;
   }
 
+  // We cannot attach a stub if the operation executed after the stub
+  // is attached may throw.
+  bool mayThrow = false;
+
+  // Also used in the call to SetPrivateElementOperation below, so
+  // we declare and fill in here.
+  RootedId id(cx);
+  if (op == JSOp::InitPrivateElem || op == JSOp::SetPrivateElem) {
+    if (!ToPropertyKey(cx, index, &id)) {
+      return false;
+    }
+
+    if (op == JSOp::InitPrivateElem) {
+      mayThrow = !CanAttachPrivateInitIC(cx, obj, id);
+    } else {
+      MOZ_ASSERT(op == JSOp::SetPrivateElem);
+      mayThrow = !CanAttachPrivateSetGetIC(cx, obj, id);
+    }
+  }
+
   DeferType deferType = DeferType::None;
   bool attached = false;
 
   if (stub->state().maybeTransition()) {
-    stub->discardStubs(cx);
+    stub->discardStubs(cx, script);
   }
 
-  if (stub->state().canAttachStub()) {
+  if (stub->state().canAttachStub() && !mayThrow) {
     ICScript* icScript = frame->icScript();
     SetPropIRGenerator gen(cx, script, pc, CacheKind::SetElem,
                            stub->state().mode(), objv, index, rhs);
@@ -2151,7 +2314,7 @@ bool DoSetElemFallback(JSContext* cx, BaselineFrame* frame,
           if (gen.shouldNotePreliminaryObjectStub()) {
             newStub->toCacheIR_Updated()->notePreliminaryObject();
           } else if (gen.shouldUnlinkPreliminaryObjectStubs()) {
-            StripPreliminaryObjectStubs(cx, stub);
+            StripPreliminaryObjectStubs(cx, stub, script);
           }
 
           if (gen.attachedTypedArrayOOBStub()) {
@@ -2188,6 +2351,16 @@ bool DoSetElemFallback(JSContext* cx, BaselineFrame* frame,
     if (!InitArrayElemOperation(cx, pc, obj, index.toInt32(), rhs)) {
       return false;
     }
+  } else if (op == JSOp::InitPrivateElem) {
+    if (!InitPrivateElemOperation(cx, pc, obj, index, rhs)) {
+      VerifyPrivateElemThrow(cx, attached, mayThrow);
+      return false;
+    }
+  } else if (op == JSOp::SetPrivateElem) {
+    if (!SetPrivateElementOperation(cx, obj, id, rhs, objv)) {
+      VerifyPrivateElemThrow(cx, attached, mayThrow);
+      return false;
+    }
   } else {
     if (!SetObjectElement(cx, obj, index, rhs, objv,
                           JSOp(*pc) == JSOp::StrictSetElem, script, pc)) {
@@ -2212,7 +2385,7 @@ bool DoSetElemFallback(JSContext* cx, BaselineFrame* frame,
   // The SetObjectElement call might have entered this IC recursively, so try
   // to transition.
   if (stub->state().maybeTransition()) {
-    stub->discardStubs(cx);
+    stub->discardStubs(cx, script);
   }
 
   bool canAttachStub = stub->state().canAttachStub();
@@ -2239,7 +2412,7 @@ bool DoSetElemFallback(JSContext* cx, BaselineFrame* frame,
           if (gen.shouldNotePreliminaryObjectStub()) {
             newStub->toCacheIR_Updated()->notePreliminaryObject();
           } else if (gen.shouldUnlinkPreliminaryObjectStubs()) {
-            StripPreliminaryObjectStubs(cx, stub);
+            StripPreliminaryObjectStubs(cx, stub, script);
           }
         }
       } break;
@@ -2722,7 +2895,7 @@ bool DoSetPropFallback(JSContext* cx, BaselineFrame* frame,
   DeferType deferType = DeferType::None;
   bool attached = false;
   if (stub->state().maybeTransition()) {
-    stub->discardStubs(cx);
+    stub->discardStubs(cx, script);
   }
 
   if (stub->state().canAttachStub()) {
@@ -2744,7 +2917,7 @@ bool DoSetPropFallback(JSContext* cx, BaselineFrame* frame,
           if (gen.shouldNotePreliminaryObjectStub()) {
             newStub->toCacheIR_Updated()->notePreliminaryObject();
           } else if (gen.shouldUnlinkPreliminaryObjectStubs()) {
-            StripPreliminaryObjectStubs(cx, stub);
+            StripPreliminaryObjectStubs(cx, stub, script);
           }
         }
       } break;
@@ -2801,7 +2974,7 @@ bool DoSetPropFallback(JSContext* cx, BaselineFrame* frame,
   // The SetProperty call might have entered this IC recursively, so try
   // to transition.
   if (stub->state().maybeTransition()) {
-    stub->discardStubs(cx);
+    stub->discardStubs(cx, script);
   }
 
   bool canAttachStub = stub->state().canAttachStub();
@@ -2829,7 +3002,7 @@ bool DoSetPropFallback(JSContext* cx, BaselineFrame* frame,
           if (gen.shouldNotePreliminaryObjectStub()) {
             newStub->toCacheIR_Updated()->notePreliminaryObject();
           } else if (gen.shouldUnlinkPreliminaryObjectStubs()) {
-            StripPreliminaryObjectStubs(cx, stub);
+            StripPreliminaryObjectStubs(cx, stub, script);
           }
         }
       } break;
@@ -2926,7 +3099,7 @@ bool DoCallFallback(JSContext* cx, BaselineFrame* frame, ICCall_Fallback* stub,
 
   // Transition stub state to megamorphic or generic if warranted.
   if (stub->state().maybeTransition()) {
-    stub->discardStubs(cx);
+    stub->discardStubs(cx, script);
   }
 
   bool canAttachStub = stub->state().canAttachStub();
@@ -2999,7 +3172,7 @@ bool DoCallFallback(JSContext* cx, BaselineFrame* frame, ICCall_Fallback* stub,
 
   // Try to transition again in case we called this IC recursively.
   if (stub->state().maybeTransition()) {
-    stub->discardStubs(cx);
+    stub->discardStubs(cx, script);
   }
   canAttachStub = stub->state().canAttachStub();
 
@@ -3059,7 +3232,7 @@ bool DoSpreadCallFallback(JSContext* cx, BaselineFrame* frame,
 
   // Transition stub state to megamorphic or generic if warranted.
   if (stub->state().maybeTransition()) {
-    stub->discardStubs(cx);
+    stub->discardStubs(cx, script);
   }
 
   // Try attaching a call stub.

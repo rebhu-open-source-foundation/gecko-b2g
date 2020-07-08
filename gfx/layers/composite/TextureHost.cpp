@@ -30,7 +30,9 @@
 #include "mozilla/layers/GPUVideoTextureHost.h"
 #include "mozilla/layers/WebRenderTextureHost.h"
 #include "mozilla/StaticPrefs_layers.h"
+#include "mozilla/StaticPrefs_gfx.h"
 #include "mozilla/webrender/RenderBufferTextureHost.h"
+#include "mozilla/webrender/RenderExternalTextureHost.h"
 #include "mozilla/webrender/RenderThread.h"
 #include "mozilla/webrender/WebRenderAPI.h"
 #include "nsAString.h"
@@ -580,6 +582,17 @@ BufferTextureHost::BufferTextureHost(const BufferDescriptor& aDesc,
     // See bug 1138934
     mNeedsFullUpdate = true;
   }
+
+#ifdef XP_MACOSX
+  const int kMinSize = 1024;
+  const int kMaxSize = 4096;
+  mUseExternalTextures =
+      kMaxSize >= mSize.width && mSize.width >= kMinSize &&
+      kMaxSize >= mSize.height && mSize.height >= kMinSize &&
+      StaticPrefs::gfx_webrender_enable_client_storage_AtStartup();
+#else
+  mUseExternalTextures = false;
+#endif
 }
 
 BufferTextureHost::~BufferTextureHost() = default;
@@ -658,8 +671,15 @@ void BufferTextureHost::Unlock() {
 
 void BufferTextureHost::CreateRenderTexture(
     const wr::ExternalImageId& aExternalImageId) {
-  RefPtr<wr::RenderTextureHost> texture =
-      new wr::RenderBufferTextureHost(GetBuffer(), GetBufferDescriptor());
+  RefPtr<wr::RenderTextureHost> texture;
+
+  if (UseExternalTextures()) {
+    texture =
+        new wr::RenderExternalTextureHost(GetBuffer(), GetBufferDescriptor());
+  } else {
+    texture =
+        new wr::RenderBufferTextureHost(GetBuffer(), GetBufferDescriptor());
+  }
 
   wr::RenderThread::Get()->RegisterExternalImage(wr::AsUint64(aExternalImageId),
                                                  texture.forget());
@@ -679,7 +699,11 @@ void BufferTextureHost::PushResourceUpdates(
   auto method = aOp == TextureHost::ADD_IMAGE
                     ? &wr::TransactionBuilder::AddExternalImage
                     : &wr::TransactionBuilder::UpdateExternalImage;
-  auto imageType = wr::ExternalImageType::Buffer();
+
+  auto imageType =
+      UseExternalTextures()
+          ? wr::ExternalImageType::TextureHandle(wr::TextureTarget::Rect)
+          : wr::ExternalImageType::Buffer();
 
   if (GetFormat() != gfx::SurfaceFormat::YUV) {
     MOZ_ASSERT(aImageKeys.length() == 1);
