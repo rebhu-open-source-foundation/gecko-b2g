@@ -121,7 +121,6 @@ const ERROR_EAP_SIM_VENDOR_SPECIFIC_EXPIRED_CERT =
 const WIFIWORKER_CONTRACTID = "@mozilla.org/wifi/worker;1";
 const WIFIWORKER_CID = Components.ID("{a14e8977-d259-433a-a88d-58dd44657e5b}");
 
-const kMozSettingsChangedObserverTopic = "mozsettings-changed";
 const kXpcomShutdownChangedTopic = "xpcom-shutdown";
 const kScreenStateChangedTopic = "screen-state-changed";
 const kInterfaceAddressChangedTopic = "interface-address-change";
@@ -139,22 +138,6 @@ const MAX_SUPPLICANT_LOOP_ITERATIONS = 4;
 // Settings DB path for wifi
 const SETTINGS_WIFI_ENABLED = "wifi.enabled";
 const SETTINGS_WIFI_DEBUG_ENABLED = "wifi.debugging.enabled";
-// Settings DB path for Wifi tethering.
-const SETTINGS_WIFI_TETHERING_ENABLED = "tethering.wifi.enabled";
-const SETTINGS_WIFI_SSID = "tethering.wifi.ssid";
-const SETTINGS_WIFI_SECURITY_TYPE = "tethering.wifi.security.type";
-const SETTINGS_WIFI_SECURITY_PASSWORD = "tethering.wifi.security.password";
-const SETTINGS_WIFI_CHANNEL = "tethering.wifi.channel";
-const SETTINGS_WIFI_IP = "tethering.wifi.ip";
-const SETTINGS_WIFI_PREFIX = "tethering.wifi.prefix";
-const SETTINGS_WIFI_DHCPSERVER_STARTIP = "tethering.wifi.dhcpserver.startip";
-const SETTINGS_WIFI_DHCPSERVER_ENDIP = "tethering.wifi.dhcpserver.endip";
-const SETTINGS_WIFI_DNS1 = "tethering.wifi.dns1";
-const SETTINGS_WIFI_DNS2 = "tethering.wifi.dns2";
-
-// Settings DB path for USB tethering.
-const SETTINGS_USB_DHCPSERVER_STARTIP = "tethering.usb.dhcpserver.startip";
-const SETTINGS_USB_DHCPSERVER_ENDIP = "tethering.usb.dhcpserver.endip";
 
 // Settings DB for airplane mode.
 const SETTINGS_AIRPLANE_MODE = "airplaneMode.enabled";
@@ -225,10 +208,6 @@ XPCOMUtils.defineLazyServiceGetter(
   "@mozilla.org/tethering/service;1",
   "nsITetheringService"
 );
-
-// XPCOMUtils.defineLazyServiceGetter(this, "gSettingsService",
-//                                    "@mozilla.org/settingsService;1",
-//                                    "nsISettingsService");
 
 XPCOMUtils.defineLazyServiceGetter(
   this,
@@ -2344,7 +2323,6 @@ function WifiWorker() {
     }.bind(this)
   );
 
-  Services.obs.addObserver(this, kMozSettingsChangedObserverTopic);
   Services.obs.addObserver(this, kXpcomShutdownChangedTopic);
   Services.obs.addObserver(this, kScreenStateChangedTopic);
   Services.obs.addObserver(this, kInterfaceAddressChangedTopic);
@@ -2356,8 +2334,6 @@ function WifiWorker() {
   Services.prefs.addObserver(kPrefDefaultServiceId, this);
 
   this.wantScanResults = [];
-
-  this._highestPriority = -1;
 
   this._addingNetworks = Object.create(null);
 
@@ -3072,78 +3048,6 @@ function WifiWorker() {
     self._stopConnectionInfoTimer();
   };
 
-  // Read the 'wifi.enabled' setting in order to start with a known
-  // value at boot time. The handle() will be called after reading.
-  //
-  // nsISettingsServiceCallback implementation.
-  var initWifiEnabledCb = {
-    handle: function handle(aName, aResult) {
-      if (aName !== SETTINGS_WIFI_ENABLED) {
-        return;
-      }
-      if (aResult === null) {
-        aResult = true;
-      }
-      self.handleWifiEnabled(aResult);
-    },
-    handleError: function handleError(aErrorMessage) {
-      debug("Error reading the 'wifi.enabled' setting. Default to wifi on.");
-      self.handleWifiEnabled(true);
-    },
-  };
-
-  var initWifiDebuggingEnabledCb = {
-    handle: function handle(aName, aResult) {
-      if (aName !== SETTINGS_WIFI_DEBUG_ENABLED) {
-        return;
-      }
-      if (aResult === null) {
-        aResult = false;
-      }
-      DEBUG = aResult;
-      updateDebug();
-    },
-    handleError: function handleError(aErrorMessage) {
-      debug(
-        "Error reading the 'wifi.debugging.enabled' setting. Default to debugging off."
-      );
-      DEBUG = false;
-      updateDebug();
-    },
-  };
-
-  var initAirplaneModeCb = {
-    handle: function handle(aName, aResult) {
-      if (aName !== SETTINGS_AIRPLANE_MODE) {
-        return;
-      }
-      if (aResult === null) {
-        aResult = false;
-      }
-      self._airplaneMode = aResult;
-    },
-    handleError: function handleError(aErrorMessage) {
-      debug("Error reading the 'SETTINGS_AIRPLANE_MODE' setting.");
-      self._airplaneMode = false;
-    },
-  };
-
-  var initWifiNotifycationCb = {
-    handle: function handle(aName, aResult) {
-      if (aName !== SETTINGS_WIFI_NOTIFYCATION) {
-        return;
-      }
-      if (aResult === null) {
-        aResult = false;
-      }
-      OpenNetworkNotifier.setOpenNetworkNotifyEnabled(aResult);
-    },
-    handleError: function handleError(aErrorMessage) {
-      debug("Error reading the 'SETTINGS_WIFI_NOTIFYCATION' setting.");
-      OpenNetworkNotifier.setOpenNetworkNotifyEnabled(true);
-    },
-  };
-
   // Initialize configured network from config file.
   WifiConfigManager.loadFromStore();
 
@@ -3156,43 +3060,6 @@ function WifiWorker() {
       TetheringConfigStore.TETHERING_TYPE_WIFI, this._wifiTetheringConfig, null);
   }
   this._fireEvent("tetheringconfigchange", { wifiTetheringConfig: this._wifiTetheringConfig });
-
-  this.initTetheringSettings();
-  //FIXME: TypeError: gSettingsService is undefined
-  // let lock = gSettingsService.createLock();
-  // lock.get(SETTINGS_WIFI_ENABLED, initWifiEnabledCb);
-  // lock.get(SETTINGS_WIFI_DEBUG_ENABLED, initWifiDebuggingEnabledCb);
-  // lock.get(SETTINGS_AIRPLANE_MODE, initAirplaneModeCb);
-  // lock.get(SETTINGS_WIFI_NOTIFYCATION, initWifiNotifycationCb);
-
-  // lock.get(SETTINGS_WIFI_SSID, this);
-  // lock.get(SETTINGS_WIFI_SECURITY_TYPE, this);
-  // lock.get(SETTINGS_WIFI_SECURITY_PASSWORD, this);
-  // lock.get(SETTINGS_WIFI_CHANNEL, this);
-  // lock.get(SETTINGS_WIFI_IP, this);
-  // lock.get(SETTINGS_WIFI_PREFIX, this);
-  // lock.get(SETTINGS_WIFI_DHCPSERVER_STARTIP, this);
-  // lock.get(SETTINGS_WIFI_DHCPSERVER_ENDIP, this);
-  // lock.get(SETTINGS_WIFI_DNS1, this);
-  // lock.get(SETTINGS_WIFI_DNS2, this);
-
-  // lock.get(SETTINGS_USB_DHCPSERVER_STARTIP, this);
-  // lock.get(SETTINGS_USB_DHCPSERVER_ENDIP, this);
-  this._wifiTetheringSettingsToRead = [
-    SETTINGS_WIFI_SSID,
-    SETTINGS_WIFI_SECURITY_TYPE,
-    SETTINGS_WIFI_SECURITY_PASSWORD,
-    SETTINGS_WIFI_CHANNEL,
-    SETTINGS_WIFI_IP,
-    SETTINGS_WIFI_PREFIX,
-    SETTINGS_WIFI_DHCPSERVER_STARTIP,
-    SETTINGS_WIFI_DHCPSERVER_ENDIP,
-    SETTINGS_WIFI_DNS1,
-    SETTINGS_WIFI_DNS2,
-    SETTINGS_WIFI_TETHERING_ENABLED,
-    SETTINGS_USB_DHCPSERVER_STARTIP,
-    SETTINGS_USB_DHCPSERVER_ENDIP,
-  ];
 }
 
 function translateState(state) {
@@ -3223,7 +3090,6 @@ WifiWorker.prototype = {
     Ci.nsIWorkerHolder,
     Ci.nsIWifi,
     Ci.nsIObserver,
-    Ci.nsISettingsServiceCallback,
     Ci.nsIMobileConnectionListener,
     Ci.nsIImsRegListener,
     Ci.nsIIccListener,
@@ -3236,45 +3102,12 @@ WifiWorker.prototype = {
   lastKnownCountryCode: null,
   mobileConnectionRegistered: false,
 
-  _wifiTetheringSettingsToRead: [],
-
-  _oldWifiTetheringEnabledState: null,
-
   _airplaneMode: false,
   _airplaneMode_status: null,
 
   _listeners: null,
 
-  tetheringSettings: {},
   wifiNetworkInfo: wifiInfo,
-
-  initTetheringSettings() {
-    this.tetheringSettings[SETTINGS_WIFI_TETHERING_ENABLED] = null;
-    this.tetheringSettings[SETTINGS_WIFI_SSID] = DEFAULT_HOTSPOT_SSID;
-    this.tetheringSettings[
-      SETTINGS_WIFI_SECURITY_TYPE
-    ] = DEFAULT_HOTSPOT_SECURITY_TYPE;
-    this.tetheringSettings[
-      SETTINGS_WIFI_SECURITY_PASSWORD
-    ] = DEFAULT_HOTSPOT_SECURITY_PASSWORD;
-    this.tetheringSettings[SETTINGS_WIFI_CHANNEL] = DEFAULT_HOTSPOT_CHANNEL;
-    this.tetheringSettings[SETTINGS_WIFI_IP] = DEFAULT_HOTSPOT_IP;
-    this.tetheringSettings[SETTINGS_WIFI_PREFIX] = DEFAULT_HOTSPOT_PREFIX;
-    this.tetheringSettings[
-      SETTINGS_WIFI_DHCPSERVER_STARTIP
-    ] = DEFAULT_HOTSPOT_DHCPSERVER_STARTIP;
-    this.tetheringSettings[
-      SETTINGS_WIFI_DHCPSERVER_ENDIP
-    ] = DEFAULT_HOTSPOT_DHCPSERVER_ENDIP;
-    this.tetheringSettings[SETTINGS_WIFI_DNS1] = DEFAULT_DNS1;
-    this.tetheringSettings[SETTINGS_WIFI_DNS2] = DEFAULT_DNS2;
-    this.tetheringSettings[
-      SETTINGS_USB_DHCPSERVER_STARTIP
-    ] = DEFAULT_USB_DHCPSERVER_STARTIP;
-    this.tetheringSettings[
-      SETTINGS_USB_DHCPSERVER_ENDIP
-    ] = DEFAULT_USB_DHCPSERVER_ENDIP;
-  },
 
   // nsIImsRegListener
   notifyEnabledStateChanged(aEnabled) {},
@@ -4021,10 +3854,7 @@ WifiWorker.prototype = {
   },
 
   getWifiTetheringParameters(enable) {
-    if (this.useTetheringAPI) {
-      return this.getWifiTetheringConfiguration(enable);
-    }
-    return this.getWifiTetheringParametersBySetting(enable);
+    return this.getWifiTetheringConfiguration(enable);
   },
 
   fillWifiTetheringConfiguration(aConfig) {
@@ -4123,89 +3953,6 @@ WifiWorker.prototype = {
     return config;
   },
 
-  getWifiTetheringParametersBySetting(enable) {
-    let ssid;
-    let securityType;
-    let securityId;
-    let channel;
-    let interfaceIp;
-    let prefix;
-    let wifiDhcpStartIp;
-    let wifiDhcpEndIp;
-    let usbDhcpStartIp;
-    let usbDhcpEndIp;
-    let dns1;
-    let dns2;
-
-    ssid = this.tetheringSettings[SETTINGS_WIFI_SSID];
-    securityType = this.tetheringSettings[SETTINGS_WIFI_SECURITY_TYPE];
-    securityId = this.tetheringSettings[SETTINGS_WIFI_SECURITY_PASSWORD];
-    channel = this.tetheringSettings[SETTINGS_WIFI_CHANNEL];
-    interfaceIp = this.tetheringSettings[SETTINGS_WIFI_IP];
-    prefix = this.tetheringSettings[SETTINGS_WIFI_PREFIX];
-    wifiDhcpStartIp = this.tetheringSettings[SETTINGS_WIFI_DHCPSERVER_STARTIP];
-    wifiDhcpEndIp = this.tetheringSettings[SETTINGS_WIFI_DHCPSERVER_ENDIP];
-    usbDhcpStartIp = this.tetheringSettings[SETTINGS_USB_DHCPSERVER_STARTIP];
-    usbDhcpEndIp = this.tetheringSettings[SETTINGS_USB_DHCPSERVER_ENDIP];
-    dns1 = this.tetheringSettings[SETTINGS_WIFI_DNS1];
-    dns2 = this.tetheringSettings[SETTINGS_WIFI_DNS2];
-
-    // Check the format to prevent netd from crash.
-    if (!ssid || ssid == "") {
-      debug("Invalid SSID value.");
-      return null;
-    }
-    // Truncate ssid if its length of encoded to utf8 is longer than 32.
-    while (unescape(encodeURIComponent(ssid)).length > 32) {
-      ssid = ssid.substring(0, ssid.length - 1);
-    }
-
-    if (
-      securityType != WIFI_SECURITY_TYPE_NONE &&
-      securityType != WIFI_SECURITY_TYPE_WPA_PSK &&
-      securityType != WIFI_SECURITY_TYPE_WPA2_PSK
-    ) {
-      debug("Invalid security type.");
-      return null;
-    }
-
-    if (securityType != WIFI_SECURITY_TYPE_NONE && !securityId) {
-      debug("Invalid security password.");
-      return null;
-    }
-
-    // Using the default values here until application supports these settings.
-    if (
-      interfaceIp == "" ||
-      prefix == "" ||
-      wifiDhcpStartIp == "" ||
-      wifiDhcpEndIp == "" ||
-      usbDhcpStartIp == "" ||
-      usbDhcpEndIp == ""
-    ) {
-      debug("Invalid subnet information.");
-      return null;
-    }
-
-    return {
-      ssid,
-      security: securityType,
-      key: securityId,
-      channel,
-      ip: interfaceIp,
-      prefix,
-      wifiStartIp: wifiDhcpStartIp,
-      wifiEndIp: wifiDhcpEndIp,
-      usbStartIp: usbDhcpStartIp,
-      usbEndIp: usbDhcpEndIp,
-      dns1,
-      dns2,
-      enable,
-      mode: enable ? WIFI_FIRMWARE_AP : WIFI_FIRMWARE_STATION,
-      link: enable ? NETWORK_INTERFACE_UP : NETWORK_INTERFACE_DOWN,
-    };
-  },
-
   handleHotspotEnabled(enabled, callback) {
     let configuration = this.getWifiTetheringParameters(enabled);
 
@@ -4230,15 +3977,12 @@ WifiWorker.prototype = {
     this.requestDone();
   },
 
-  // TODO : These two variables should be removed once GAIA uses tethering API.
-  useTetheringAPI: false,
   _wifiTetheringConfig: {},
 
   setWifiTethering(msg) {
     const message = "WifiManager:setWifiTethering:Return";
     let enabled = msg.data.enabled;
 
-    this.useTetheringAPI = true;
     if (!WifiManager.isWifiTetheringEnabled(WifiManager.tetheringState) &&
       Object.entries(msg.data.config).length != 0) {
       let newConfig = this.fillWifiTetheringConfiguration(msg.data.config);
@@ -4349,7 +4093,6 @@ WifiWorker.prototype = {
     netFromDOM(privnet, configured);
 
     privnet.hasEverConnected = false;
-    privnet.priority = ++this._highestPriority;
     debug("Device associate with ap info: " + uneval(privnet));
 
     if (configured) {
@@ -4669,13 +4412,6 @@ WifiWorker.prototype = {
 
   shutdown() {
     debug("shutting down ...");
-    this.queueRequest(
-      { command: "setWifiEnabled", value: false },
-      function(data) {
-        this._setWifiEnabled(false, this._setWifiEnabledCallback.bind(this));
-      }.bind(this)
-    );
-    Services.obs.removeObserver(this, kMozSettingsChangedObserverTopic);
     Services.obs.removeObserver(this, kXpcomShutdownChangedTopic);
     Services.obs.removeObserver(this, kScreenStateChangedTopic);
     Services.obs.removeObserver(this, kInterfaceAddressChangedTopic);
@@ -4731,19 +4467,6 @@ WifiWorker.prototype = {
   // nsIObserver implementation
   observe(subject, topic, data) {
     switch (topic) {
-      case kMozSettingsChangedObserverTopic:
-        // To avoid WifiWorker setting the wifi again, don't need to deal with
-        // the "mozsettings-changed" event fired from internal setting.
-        if ("wrappedJSObject" in subject) {
-          subject = subject.wrappedJSObject;
-        }
-
-        if (subject.isInternalChange) {
-          return;
-        }
-        this.handle(subject.key, subject.value);
-        break;
-
       case kXpcomShutdownChangedTopic:
         // Ensure the supplicant is detached from B2G to avoid XPCOM shutdown
         // blocks forever.
@@ -4757,7 +4480,6 @@ WifiWorker.prototype = {
           ].getService(Ci.nsIWifiCertService);
           wifiCertService.shutdown();
         });
-        Services.obs.removeObserver(this, kMozSettingsChangedObserverTopic);
         Services.obs.removeObserver(this, kXpcomShutdownChangedTopic);
         Services.obs.removeObserver(this, kScreenStateChangedTopic);
         Services.obs.removeObserver(this, kInterfaceAddressChangedTopic);
@@ -4957,102 +4679,6 @@ WifiWorker.prototype = {
         });
         break;
     }
-  },
-
-  handle(aName, aResult) {
-    switch (aName) {
-      // TODO: Remove function call in Bug 1050147.
-      case SETTINGS_WIFI_ENABLED:
-        this.handleWifiEnabled(aResult);
-        break;
-      case SETTINGS_WIFI_DEBUG_ENABLED:
-        if (aResult === null) {
-          aResult = false;
-        }
-        DEBUG = aResult;
-        updateDebug();
-        break;
-      case SETTINGS_AIRPLANE_MODE:
-        this._airplaneMode = aResult;
-        break;
-      case SETTINGS_AIRPLANE_MODE_STATUS:
-        this._airplaneMode_status = aResult;
-        break;
-      case SETTINGS_WIFI_NOTIFYCATION:
-        OpenNetworkNotifier.setOpenNetworkNotifyEnabled(aResult);
-        break;
-      case SETTINGS_WIFI_TETHERING_ENABLED:
-        this._oldWifiTetheringEnabledState = this.tetheringSettings[
-          SETTINGS_WIFI_TETHERING_ENABLED
-        ];
-      // Fall through!
-      case SETTINGS_WIFI_SSID:
-      case SETTINGS_WIFI_SECURITY_TYPE:
-      case SETTINGS_WIFI_SECURITY_PASSWORD:
-      case SETTINGS_WIFI_CHANNEL:
-      case SETTINGS_WIFI_IP:
-      case SETTINGS_WIFI_PREFIX:
-      case SETTINGS_WIFI_DHCPSERVER_STARTIP:
-      case SETTINGS_WIFI_DHCPSERVER_ENDIP:
-      case SETTINGS_WIFI_DNS1:
-      case SETTINGS_WIFI_DNS2:
-      case SETTINGS_USB_DHCPSERVER_STARTIP:
-      case SETTINGS_USB_DHCPSERVER_ENDIP:
-        // TODO: code related to wifi-tethering setting should be removed after GAIA
-        //       use tethering API
-        if (this.useTetheringAPI) {
-          break;
-        }
-
-        if (aResult !== null) {
-          this.tetheringSettings[aName] = aResult;
-        }
-        debug("'" + aName + "' is now " + this.tetheringSettings[aName]);
-        let index = this._wifiTetheringSettingsToRead.indexOf(aName);
-
-        if (index != -1) {
-          this._wifiTetheringSettingsToRead.splice(index, 1);
-        }
-
-        if (this._wifiTetheringSettingsToRead.length) {
-          debug(
-            "We haven't read completely the wifi Tethering data from settings db."
-          );
-          break;
-        }
-
-        if (
-          this._oldWifiTetheringEnabledState ===
-          this.tetheringSettings[SETTINGS_WIFI_TETHERING_ENABLED]
-        ) {
-          debug(
-            "No changes for SETTINGS_WIFI_TETHERING_ENABLED flag. Nothing to do."
-          );
-          break;
-        }
-
-        if (
-          this._oldWifiTetheringEnabledState === null &&
-          !this.tetheringSettings[SETTINGS_WIFI_TETHERING_ENABLED]
-        ) {
-          debug(
-            "Do nothing when initial settings for SETTINGS_WIFI_TETHERING_ENABLED flag is false."
-          );
-          break;
-        }
-
-        this._oldWifiTetheringEnabledState = this.tetheringSettings[
-          SETTINGS_WIFI_TETHERING_ENABLED
-        ];
-        this.handleWifiTetheringEnabled(aResult);
-        break;
-    }
-  },
-
-  handleError(aErrorMessage) {
-    debug("There was an error while reading Tethering settings.");
-    this.tetheringSettings = {};
-    this.tetheringSettings[SETTINGS_WIFI_TETHERING_ENABLED] = false;
   },
 };
 
