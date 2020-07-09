@@ -17,12 +17,15 @@ pub struct CoreService {
 }
 
 impl SessionObject for CoreService {
-    fn on_request(&mut self, _request: BaseMessage, _id: u64) {
+    fn on_request(&mut self, _request: BaseMessage, _id: u64) -> Option<BaseMessage> {
         debug!("CoreService::on_request");
+        None
     }
+
     fn on_event(&mut self, _event: Vec<u8>) {
         debug!("CoreService::on_event");
     }
+
     fn get_ids(&self) -> (u32, u32) {
         (0, 0)
     }

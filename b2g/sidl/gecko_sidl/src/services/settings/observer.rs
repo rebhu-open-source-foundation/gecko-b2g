@@ -8,7 +8,6 @@ use super::messages::*;
 use super::setting_info::SettingInfoXpcom;
 use crate::common::core::{BaseMessage, BaseMessageKind};
 use crate::common::traits::TrackerId;
-use crate::common::uds_transport::UdsTransport;
 use crate::common::uds_transport::{from_base_message, SessionObject};
 use bincode::Options;
 use log::{debug, error};
@@ -20,7 +19,6 @@ pub struct ObserverWrapper {
     xpcom: ThreadPtrHandle<nsISettingsObserver>,
     service_id: TrackerId,
     object_id: TrackerId,
-    transport: UdsTransport,
 }
 
 impl ObserverWrapper {
@@ -28,19 +26,17 @@ impl ObserverWrapper {
         xpcom: ThreadPtrHandle<nsISettingsObserver>,
         service_id: TrackerId,
         object_id: TrackerId,
-        transport: &UdsTransport,
     ) -> Self {
         Self {
             xpcom,
             service_id,
             object_id,
-            transport: transport.clone(),
         }
     }
 }
 
 impl SessionObject for ObserverWrapper {
-    fn on_request(&mut self, request: BaseMessage, request_id: u64) {
+    fn on_request(&mut self, request: BaseMessage, request_id: u64) -> Option<BaseMessage> {
         // Unpack the request.
         if let Ok(SettingsManagerToClient::SettingObserverCallback(setting_info)) =
             from_base_message(&request)
@@ -62,12 +58,13 @@ impl SessionObject for ObserverWrapper {
                 kind: BaseMessageKind::Response(request_id),
                 content: crate::common::get_bincode().serialize(&payload).unwrap(),
             };
-            let _ = self.transport.send_message(&message);
+            Some(message)
         } else {
             error!(
                 "ObserverWrapper::on_request unexpected message: {:?}",
                 request.content
             );
+            None
         }
     }
 

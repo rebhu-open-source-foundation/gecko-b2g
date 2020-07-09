@@ -53,7 +53,7 @@ impl MobileManagerDelegate {
 }
 
 impl SessionObject for MobileManagerDelegate {
-    fn on_request(&mut self, request: BaseMessage, request_id: u64) {
+    fn on_request(&mut self, request: BaseMessage, request_id: u64) -> Option<BaseMessage> {
         // Unpack the request.
         match from_base_message(&request) {
             Ok(GeckoBridgeToClient::MobileManagerDelegateGetCardInfo(id, info_type)) => {
@@ -67,6 +67,7 @@ impl SessionObject for MobileManagerDelegate {
                 request.content
             ),
         }
+        None
     }
 
     fn on_event(&mut self, _event: Vec<u8>) {}

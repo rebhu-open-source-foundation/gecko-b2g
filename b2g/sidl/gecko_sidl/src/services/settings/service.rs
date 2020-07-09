@@ -8,6 +8,7 @@ use super::setting_error::*;
 use super::setting_info::*;
 use crate::common::client_object::*;
 use crate::common::core::BaseMessage;
+use crate::common::default_response::*;
 use crate::common::event_manager::*;
 use crate::common::sidl_task::*;
 use crate::common::traits::{Shared, TrackerId};
@@ -28,7 +29,8 @@ use thin_vec::ThinVec;
 use xpcom::{
     interfaces::{
         nsISettingError, nsISettingInfo, nsISettingsGetResponse, nsISettingsManager,
-        nsISettingsObserver, nsISidlDefaultResponse, nsISidlEventListener,
+        nsISettingsObserver, nsISidlConnectionObserver, nsISidlDefaultResponse,
+        nsISidlEventListener,
     },
     RefPtr,
 };
@@ -90,8 +92,9 @@ struct SettingsManagerImpl {
 }
 
 impl SessionObject for SettingsManagerImpl {
-    fn on_request(&mut self, _request: BaseMessage, _id: u64) {
+    fn on_request(&mut self, _request: BaseMessage, _id: u64) -> Option<BaseMessage> {
         debug!("SettingsManagerImpl::on_request");
+        None
     }
 
     fn on_event(&mut self, event_data: Vec<u8>) {
@@ -160,11 +163,11 @@ impl ServiceClientImpl<SettingsTask> for SettingsManagerImpl {
 
     fn dispatch_queue(
         &mut self,
-        queue: &Shared<Vec<SettingsTask>>,
+        task_queue: &Shared<Vec<SettingsTask>>,
         pending_listeners: &PendingListeners,
     ) {
-        let mut queue = queue.lock();
-        debug!("Running the {} pending tasks", queue.len());
+        let mut task_queue = task_queue.lock();
+        debug!("Running the {} pending tasks", task_queue.len());
 
         // Manage event listeners.
         {
@@ -175,7 +178,7 @@ impl ServiceClientImpl<SettingsTask> for SettingsManagerImpl {
         }
 
         // drain the queue.
-        for task in queue.drain(..) {
+        for task in task_queue.drain(..) {
             match task {
                 SettingsTask::Clear(task) => {
                     let _ = self.clear(task);
@@ -198,6 +201,26 @@ impl ServiceClientImpl<SettingsTask> for SettingsManagerImpl {
 }
 
 impl SettingsManagerImpl {
+    fn get_tasks_to_reconnect(&mut self) -> Vec<SettingsTask> {
+        let mut tasks = vec![];
+
+        // Re-create the tasks to add the observers.
+        for (_object_id, key, client_object, name) in &mut self.observers {
+            client_object.dont_release();
+
+            if let Some(delegate) = client_object.maybe_xpcom::<nsISettingsObserver>() {
+                let task = (
+                    SidlCallTask::new(SidlDefaultResponseXpcom::as_callback()),
+                    (name.clone(), delegate, *key),
+                );
+                tasks.push(SettingsTask::AddObserver(task));
+            }
+        }
+        self.observers.clear();
+
+        tasks
+    }
+
     fn clear(&mut self, task: ClearTask) -> Result<(), nsresult> {
         debug!("SettingsManager::clear");
 
@@ -229,7 +252,7 @@ impl SettingsManagerImpl {
 
         let (task, (name, observer, key)) = task;
         // Create a lightweight xpcom wrapper + session proxy that manages object release for us.
-        let wrapper = ObserverWrapper::new(observer, self.service_id, object_id, &self.transport);
+        let wrapper = ObserverWrapper::new(observer, self.service_id, object_id);
         let proxy = ClientObject::new(wrapper, &mut self.transport);
 
         self.observers.push((object_id, key, proxy, name.clone()));
@@ -333,6 +356,7 @@ task_receiver!(
 
 #[derive(xpcom)]
 #[xpimplements(nsISettingsManager)]
+#[xpimplements(nsISidlConnectionObserver)]
 #[refcnt = "atomic"]
 struct InitSettingsManagerXpcom {
     // The underlying UDS transport we are connected to.
@@ -348,27 +372,38 @@ struct InitSettingsManagerXpcom {
     pending_listeners: PendingListeners,
     // Flag to know if are already fetching the service id.
     getting_service: AtomicBool,
+    // Id of ourselves as a connection observer.
+    connection_observer_id: usize,
 }
 
 impl SettingsManagerXpcom {
-    fn new() -> Option<RefPtr<Self>> {
+    fn new() -> RefPtr<Self> {
         debug!("SettingsManagerXpcom::new");
-        if let Some(transport) = UdsTransport::open() {
-            let core_service = Arc::new(Mutex::new(CoreService::new(&transport)));
+        let mut transport = UdsTransport::open();
+        let core_service = Arc::new(Mutex::new(CoreService::new(&transport)));
 
-            Some(Self::allocate(InitSettingsManagerXpcom {
-                transport,
-                core_service,
-                pending_tasks: Shared::adopt(vec![]),
-                pending_listeners: Shared::adopt(vec![]),
-                inner: Shared::adopt(None),
-                getting_service: AtomicBool::new(false),
-            }))
-        } else {
-            error!("Failed to connect to api-daemon socket");
-            None
-        }
+        let instance = Self::allocate(InitSettingsManagerXpcom {
+            transport: transport.clone(),
+            core_service,
+            pending_tasks: Shared::adopt(vec![]),
+            pending_listeners: Shared::adopt(vec![]),
+            inner: Shared::adopt(None),
+            getting_service: AtomicBool::new(false),
+            connection_observer_id: transport.next_connection_observer_id(),
+        });
+
+        let obs = instance.coerce::<nsISidlConnectionObserver>();
+        transport.add_connection_observer(
+            ThreadPtrHolder::new(cstr!("nsISidlConnectionObserver"), RefPtr::new(obs)).unwrap(),
+        );
+
+        instance
     }
+
+    // nsISidlConnectionObserver implementation.
+    implement_connection_observer!("SettingsManagerXpcom");
+
+    // nsISettingsManager implementation.
 
     xpcom_method!(clear => Clear(callback: *const nsISidlDefaultResponse));
     fn clear(&self, callback: &nsISidlDefaultResponse) -> Result<(), nsresult> {
@@ -550,15 +585,16 @@ impl Drop for SettingsManagerXpcom {
         if let Some(inner) = self.inner.lock().as_ref() {
             self.transport.unregister_session_object(inner.clone());
         }
+
+        // Remove ourselves as a connection observer.
+        self.transport
+            .remove_connection_observer(self.connection_observer_id);
     }
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn settings_manager_construct(result: &mut *const nsISettingsManager) {
-    if let Some(inst) = SettingsManagerXpcom::new() {
-        *result = inst.coerce::<nsISettingsManager>();
-        std::mem::forget(inst);
-    } else {
-        *result = std::ptr::null();
-    }
+    let inst = SettingsManagerXpcom::new();
+    *result = inst.coerce::<nsISettingsManager>();
+    std::mem::forget(inst);
 }

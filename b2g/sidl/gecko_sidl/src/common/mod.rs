@@ -3,7 +3,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 pub mod client_object;
+#[macro_use]
+pub mod connection_observer;
 pub mod core;
+pub mod default_response;
+pub mod daemon_manager;
 #[macro_use]
 pub mod event_manager;
 pub mod frame;

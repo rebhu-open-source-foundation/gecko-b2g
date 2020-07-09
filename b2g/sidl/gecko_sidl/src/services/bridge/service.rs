@@ -11,6 +11,7 @@ use super::network_manager_delegate::*;
 use super::power_manager_delegate::*;
 use crate::common::client_object::*;
 use crate::common::core::BaseMessage;
+use crate::common::default_response::*;
 use crate::common::sidl_task::*;
 use crate::common::traits::{Shared, TrackerId};
 use crate::common::uds_transport::*;
@@ -25,7 +26,8 @@ use std::sync::Arc;
 use xpcom::{
     interfaces::{
         nsIAppsServiceDelegate, nsIGeckoBridge, nsIMobileManagerDelegate,
-        nsINetworkManagerDelegate, nsIPowerManagerDelegate, nsISidlDefaultResponse,
+        nsINetworkManagerDelegate, nsIPowerManagerDelegate, nsISidlConnectionObserver,
+        nsISidlDefaultResponse, nsISidlEventListener,
     },
     RefPtr,
 };
@@ -83,15 +85,16 @@ struct GeckoBridgeImpl {
     apps_service_delegate: Option<ClientObject>,
     // The power manager delegate.
     power_manager_delegate: Option<ClientObject>,
-    // The card info manager delegate.
+    // The mobile manager delegate.
     mobile_manager_delegate: Option<ClientObject>,
     // The network manager delegate.
     network_manager_delegate: Option<ClientObject>,
 }
 
 impl SessionObject for GeckoBridgeImpl {
-    fn on_request(&mut self, _request: BaseMessage, _id: u64) {
+    fn on_request(&mut self, _request: BaseMessage, _id: u64) -> Option<BaseMessage> {
         debug!("GeckoBridgeImpl::on_request");
+        None
     }
 
     fn on_event(&mut self, _event_data: Vec<u8>) {
@@ -122,14 +125,14 @@ impl ServiceClientImpl<GeckoBridgeTask> for GeckoBridgeImpl {
 
     fn dispatch_queue(
         &mut self,
-        queue: &Shared<Vec<GeckoBridgeTask>>,
+        task_queue: &Shared<Vec<GeckoBridgeTask>>,
         _pending_listeners: &PendingListeners,
     ) {
-        let mut queue = queue.lock();
-        debug!("Running the {} pending tasks", queue.len());
+        let mut task_queue = task_queue.lock();
+        debug!("Running the {} pending tasks", task_queue.len());
 
         // drain the queue.
-        for task in queue.drain(..) {
+        for task in task_queue.drain(..) {
             match task {
                 GeckoBridgeTask::SetAppsServiceDelegate(task) => {
                     let _ = self.set_apps_service_delegate(task);
@@ -167,8 +170,7 @@ impl GeckoBridgeImpl {
         let (task, delegate) = task;
 
         // Create a lightweight xpcom wrapper + session proxy that manages object release for us.
-        let wrapper =
-            AppsServiceDelegate::new(delegate, self.service_id, object_id, &self.transport);
+        let wrapper = AppsServiceDelegate::new(delegate, self.service_id, object_id);
         self.apps_service_delegate = Some(ClientObject::new(wrapper, &mut self.transport));
 
         let request = GeckoBridgeFromClient::GeckoFeaturesSetAppsServiceDelegate(object_id.into());
@@ -197,6 +199,62 @@ impl GeckoBridgeImpl {
             .send_task(&request, SetMobileManagerDelegateTaskReceiver { task });
 
         Ok(())
+    }
+
+    fn get_tasks_to_reconnect(&mut self) -> Vec<GeckoBridgeTask> {
+        let mut tasks = vec![];
+
+        // Helper macro to generate tasks and reset delegates.
+        macro_rules! delegate_task {
+            ($delegate:tt, $interface:ty, $enum:tt) => {
+                // If we have a delegate, recreate the task to add it.
+                // For that we need to get the origin xpcom delegate handle, and create
+                // a fake callback since there is no point calling the original one again.
+                if let Some(client_object) = &mut self.$delegate {
+                    // Since the session was dead, we can't send a release request anymore.
+                    client_object.dont_release();
+                    if let Some(delegate) = client_object.maybe_xpcom::<$interface>() {
+                        let task = (
+                            SidlCallTask::new(SidlDefaultResponseXpcom::as_callback()),
+                            delegate,
+                        );
+                        tasks.push(GeckoBridgeTask::$enum(task));
+                    }
+                }
+                // Make sure we drop any existing power manager delegate.
+                self.$delegate = None;
+            };
+        }
+
+        delegate_task!(
+            apps_service_delegate,
+            nsIAppsServiceDelegate,
+            SetAppsServiceDelegate
+        );
+        delegate_task!(
+            mobile_manager_delegate,
+            nsIMobileManagerDelegate,
+            SetMobileManagerDelegate
+        );
+        delegate_task!(
+            network_manager_delegate,
+            nsINetworkManagerDelegate,
+            SetNetworkManagerDelegate
+        );
+        delegate_task!(
+            power_manager_delegate,
+            nsIPowerManagerDelegate,
+            SetPowerManagerDelegate
+        );
+
+        tasks
+    }
+
+    // Empty implementation needed by the nsISidlConnectionObserver implementation
+    fn get_event_listeners_to_reconnect(
+        &mut self,
+    ) -> Vec<(i32, RefPtr<ThreadPtrHolder<nsISidlEventListener>>, usize)> {
+        vec![]
     }
 
     fn set_network_manager_delegate(
@@ -231,8 +289,7 @@ impl GeckoBridgeImpl {
         let (task, delegate) = task;
 
         // Create a lightweight xpcom wrapper + session proxy that manages object release for us.
-        let wrapper =
-            PowerManagerDelegate::new(delegate, self.service_id, object_id, &self.transport);
+        let wrapper = PowerManagerDelegate::new(delegate, self.service_id, object_id);
         self.power_manager_delegate = Some(ClientObject::new(wrapper, &mut self.transport));
 
         let request = GeckoBridgeFromClient::GeckoFeaturesSetPowerManagerDelegate(object_id.into());
@@ -337,6 +394,7 @@ task_receiver!(
 
 #[derive(xpcom)]
 #[xpimplements(nsIGeckoBridge)]
+#[xpimplements(nsISidlConnectionObserver)]
 #[refcnt = "atomic"]
 struct InitGeckoBridgeXpcom {
     // The underlying UDS transport we are connected to.
@@ -352,27 +410,36 @@ struct InitGeckoBridgeXpcom {
     pending_listeners: PendingListeners,
     // Flag to know if are already fetching the service id.
     getting_service: AtomicBool,
+    // Id of ourselves as a connection observer.
+    connection_observer_id: usize,
 }
 
 impl GeckoBridgeXpcom {
-    fn new() -> Option<RefPtr<Self>> {
+    fn new() -> RefPtr<Self> {
         debug!("GeckoBridgeXpcom::new");
-        if let Some(transport) = UdsTransport::open() {
-            let core_service = Arc::new(Mutex::new(CoreService::new(&transport)));
+        let mut transport = UdsTransport::open();
+        let core_service = Arc::new(Mutex::new(CoreService::new(&transport)));
 
-            Some(Self::allocate(InitGeckoBridgeXpcom {
-                transport,
-                core_service,
-                pending_tasks: Shared::adopt(vec![]),
-                pending_listeners: Shared::adopt(vec![]),
-                inner: Shared::adopt(None),
-                getting_service: AtomicBool::new(false),
-            }))
-        } else {
-            error!("Failed to connect to api-daemon socket");
-            None
-        }
+        let instance = Self::allocate(InitGeckoBridgeXpcom {
+            transport: transport.clone(),
+            core_service,
+            pending_tasks: Shared::adopt(vec![]),
+            pending_listeners: Shared::adopt(vec![]),
+            inner: Shared::adopt(None),
+            getting_service: AtomicBool::new(false),
+            connection_observer_id: transport.next_connection_observer_id(),
+        });
+
+        let obs = instance.coerce::<nsISidlConnectionObserver>();
+        transport.add_connection_observer(
+            ThreadPtrHolder::new(cstr!("nsISidlConnectionObserver"), RefPtr::new(obs)).unwrap(),
+        );
+
+        instance
     }
+
+    // nsISidlConnectionObserver implementation.
+    implement_connection_observer!("GeckoBridgeXpcom");
 
     xpcom_method!(set_apps_service_delegate => SetAppsServiceDelegate(delegate: *const nsIAppsServiceDelegate, callback: *const nsISidlDefaultResponse));
     fn set_apps_service_delegate(
@@ -583,15 +650,16 @@ impl Drop for GeckoBridgeXpcom {
         if let Some(inner) = self.inner.lock().as_ref() {
             self.transport.unregister_session_object(inner.clone());
         }
+
+        // Remove ourselves as a connection observer.
+        self.transport
+            .remove_connection_observer(self.connection_observer_id);
     }
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn gecko_bridge_construct(result: &mut *const nsIGeckoBridge) {
-    if let Some(inst) = GeckoBridgeXpcom::new() {
-        *result = inst.coerce::<nsIGeckoBridge>();
-        std::mem::forget(inst);
-    } else {
-        *result = std::ptr::null();
-    }
+    let inst = GeckoBridgeXpcom::new();
+    *result = inst.coerce::<nsIGeckoBridge>();
+    std::mem::forget(inst);
 }

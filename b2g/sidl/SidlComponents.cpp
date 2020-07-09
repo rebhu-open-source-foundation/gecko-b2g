@@ -11,6 +11,7 @@ namespace {
 extern "C" {
 void gecko_bridge_construct(nsIGeckoBridge** aResult);
 void settings_manager_construct(nsISettingsManager** aResult);
+void daemon_manager_construct(nsIDaemonManager** aResult);
 }
 
 }  // namespace
@@ -28,5 +29,12 @@ already_AddRefed<nsISettingsManager> ConstructSettingsManager() {
   settings_manager_construct(getter_AddRefs(manager));
   return manager.forget();
 }
+
+already_AddRefed<nsIDaemonManager> ConstructDaemonManager() {
+  nsCOMPtr<nsIDaemonManager> manager;
+  daemon_manager_construct(getter_AddRefs(manager));
+  return manager.forget();
+}
+
 
 }  // namespace sidl

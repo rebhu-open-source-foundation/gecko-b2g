@@ -16,6 +16,8 @@ already_AddRefed<nsIGeckoBridge> ConstructGeckoBridge();
 
 already_AddRefed<nsISettingsManager> ConstructSettingsManager();
 
+already_AddRefed<nsIDaemonManager> ConstructDaemonManager();
+
 }  // namespace sidl
 
 #endif  // SIDL_COMPONENTS_H_

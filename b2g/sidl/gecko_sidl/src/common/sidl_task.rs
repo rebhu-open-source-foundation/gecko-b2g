@@ -215,6 +215,7 @@ macro_rules! task_receiver {
 }
 
 // Common case with only a success type.
+#[allow(unused_macros)]
 macro_rules! task_receiver_success {
     ($name:ident, $interface:ty, $base:ident, $succname:ident, $errname:ident, $succtype:ty) => {
         struct $name {
@@ -281,11 +282,12 @@ macro_rules! task_receiver_success_error {
 
 // Struct providing the get_service() delegate for a service.
 
+// Vec<(event_type, handler, key)>
 pub type PendingListeners = Shared<Vec<(i32, ThreadPtrHandle<nsISidlEventListener>, usize)>>;
 
 pub trait ServiceClientImpl<T> {
     fn new(transport: UdsTransport, service_id: TrackerId) -> Self;
-    fn dispatch_queue(&mut self, queue: &Shared<Vec<T>>, pending_listeners: &PendingListeners);
+    fn dispatch_queue(&mut self, task_queue: &Shared<Vec<T>>, pending_listeners: &PendingListeners);
 }
 
 pub struct GetServiceDelegate<I, T> {
@@ -481,7 +483,7 @@ where
 // Extracts commononly used boilerplate.
 
 macro_rules! ensure_service_and_queue {
-    ($tasks:ty, $name:expr, $fingerprint:expr) => {
+    ($tasks:ty, $service_name:expr, $fingerprint:expr) => {
         // Returns true if the service is available.
         fn ensure_service(&self) -> bool {
             if self.inner.lock().is_some() {
@@ -501,10 +503,11 @@ macro_rules! ensure_service_and_queue {
                 self.pending_listeners.clone(),
                 self.transport.clone(),
             )));
-            self.getting_service.store(true, Ordering::Relaxed);
             let mut lock = self.core_service.lock();
-            if let Err(err) = lock.get_service($name, $fingerprint, Box::new(receiver)) {
-                error!("Failed to get {} service: {}", $name, err);
+            if let Err(err) = lock.get_service($service_name, $fingerprint, Box::new(receiver)) {
+                error!("Failed to get {} service: {}", $service_name, err);
+            } else {
+                self.getting_service.store(true, Ordering::Relaxed);
             }
             false
         }

@@ -93,7 +93,7 @@ impl NetworkManagerDelegate {
 }
 
 impl SessionObject for NetworkManagerDelegate {
-    fn on_request(&mut self, request: BaseMessage, request_id: u64) {
+    fn on_request(&mut self, request: BaseMessage, request_id: u64) -> Option<BaseMessage> {
         // Unpack the request.
         if let Ok(GeckoBridgeToClient::NetworkManagerDelegateGetNetworkInfo) =
             from_base_message(&request)
@@ -105,6 +105,7 @@ impl SessionObject for NetworkManagerDelegate {
                 request.content
             );
         }
+        None
     }
 
     fn on_event(&mut self, _event: Vec<u8>) {}

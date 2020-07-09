@@ -8,22 +8,27 @@ use crate::common::core::{BaseMessage, BaseMessageKind};
 use crate::common::frame::{Error as FrameError, Frame};
 use crate::common::traits::Shared;
 use bincode::Options;
-use log::{debug, error};
+use log::{debug, error, info};
+use moz_task::{Task, TaskRunnable, ThreadPtrHandle};
+use nserror::{nsresult, NS_OK};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
+use std::any::Any;
 use std::collections::HashMap;
 use std::net::Shutdown;
 use std::os::unix::net::UnixStream;
 use std::result::Result as StdResult;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use std::thread;
 use thiserror::Error as ThisError;
+use xpcom::interfaces::nsISidlConnectionObserver;
 
 #[derive(ThisError, Debug)]
 pub enum UdsError {
     #[error("Framing error")]
     Frame(#[from] FrameError),
+    #[error("No stream available")]
+    NoStreamAvailable,
     #[error("Generic Error: {0}")]
     Generic(String),
 }
@@ -53,16 +58,21 @@ pub trait ResponseReceiver: Send {
 pub trait SessionObject: Send {
     // Requests are messages initiated by the service to the client, used
     // when calling methods on callbacks.
-    fn on_request(&mut self, request: BaseMessage, request_id: u64);
+    // If this returns a BaseMessage, it will be sent by the transport layer.
+    fn on_request(&mut self, request: BaseMessage, request_id: u64) -> Option<BaseMessage>;
     // Events are messages for all events on this object.
     fn on_event(&mut self, event: Vec<u8>);
     // Returns the (service, object) tuple.
     fn get_ids(&self) -> (u32, u32);
+    // Escape hatch to get the XPCom that can be tied to this session object without having
+    // to add multiple trait bounds everywhere.
+    fn maybe_xpcom(&self) -> Option<&dyn Any> {
+        None
+    }
 }
 
 pub type SharedSessionObject = Arc<Mutex<dyn SessionObject>>;
 
-#[derive(Default)]
 struct SessionData {
     // The map from request IDs to messages for the client.
     pending_responses: HashMap<u64, Box<dyn ResponseReceiver>>,
@@ -70,86 +80,241 @@ struct SessionData {
     request_id: u64,
     // Session objects. The key is (service, object)
     session_objects: HashMap<(u32, u32), SharedSessionObject>,
-    // Is that transport really usable?
-    zombie: bool,
-}
-
-pub struct UdsTransport {
     // The connection to the Unix Domain Socket.
-    stream: UnixStream,
-    // The book keeping data for this session.
-    session_data: Shared<SessionData>,
-    // Custom addref/release to know when to close the underlying socket.
-    ref_count: Arc<AtomicU32>,
+    stream: Option<UnixStream>,
 }
 
-impl Clone for UdsTransport {
-    fn clone(&self) -> Self {
-        self.ref_count.fetch_add(1, Ordering::SeqCst);
+impl SessionData {
+    fn new(stream: Option<UnixStream>) -> Self {
         Self {
-            stream: self.stream.try_clone().unwrap(),
-            session_data: self.session_data.clone(),
-            ref_count: Arc::clone(&self.ref_count),
+            pending_responses: HashMap::default(),
+            request_id: 0,
+            session_objects: HashMap::default(),
+            stream,
+        }
+    }
+
+    fn replace_stream(&mut self, stream: UnixStream) {
+        self.stream = Some(stream);
+    }
+}
+
+struct ConnectionChangeTask {
+    disconnected: bool,
+    observer: ThreadPtrHandle<nsISidlConnectionObserver>,
+}
+
+impl Task for ConnectionChangeTask {
+    fn run(&self) {
+        info!(
+            "Running ConnectionChangeTask disconnected=`{}`",
+            self.disconnected
+        );
+
+        let result = unsafe {
+            if self.disconnected {
+                self.observer.get().unwrap().Disconnected()
+            } else {
+                self.observer.get().unwrap().Reconnected()
+            }
+        };
+        if result != NS_OK {
+            error!(
+                "Error notifying disconnected={} : {}",
+                self.disconnected, result
+            );
+        } else {
+            debug!("Notified observer, disconnected={}", self.disconnected);
+        }
+    }
+
+    fn done(&self) -> Result<(), nsresult> {
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+struct ConnectionObservers {
+    observers: HashMap<usize, ThreadPtrHandle<nsISidlConnectionObserver>>,
+    current_id: usize,
+}
+
+impl ConnectionObservers {
+    fn add(&mut self, observer: ThreadPtrHandle<nsISidlConnectionObserver>) -> usize {
+        self.current_id += 1;
+        self.observers.insert(self.current_id, observer);
+        self.current_id
+    }
+
+    fn remove(&mut self, id: usize) {
+        self.observers.remove(&id);
+    }
+
+    fn next_id(&self) -> usize {
+        self.current_id + 1
+    }
+
+    fn len(&self) -> usize {
+        self.observers.len()
+    }
+
+    fn for_each<T>(&self, closure: T)
+    where
+        T: Fn(&ThreadPtrHandle<nsISidlConnectionObserver>),
+    {
+        for observer in self.observers.values() {
+            closure(observer)
         }
     }
 }
 
+#[derive(Clone)]
+pub struct UdsTransport {
+    // The book keeping data for this session.
+    session_data: Shared<SessionData>,
+    // The current id that will be set for connection observers.
+    // The observers of disconnection and reconnection events.
+    connection_observers: Shared<ConnectionObservers>,
+}
+
 impl UdsTransport {
-    pub fn open() -> Option<Self> {
+    pub fn is_ready(&self) -> bool {
+        self.session_data.lock().stream.is_some()
+    }
+
+    fn notify_observers(&self, disconnected: bool) {
+        let observers = self.connection_observers.lock();
+        info!(
+            "Will notify connection status change to {} observers",
+            observers.len()
+        );
+        observers.for_each(move |observer| {
+            let _ = TaskRunnable::new(
+                "ApiDaemonNotifyObservers",
+                Box::new(ConnectionChangeTask {
+                    disconnected,
+                    observer: observer.clone(),
+                }),
+            )
+            .and_then(|r| TaskRunnable::dispatch(r, observer.owning_thread()));
+        });
+    }
+
+    pub fn next_connection_observer_id(&self) -> usize {
+        self.connection_observers.lock().next_id()
+    }
+
+    pub fn add_connection_observer(
+        &mut self,
+        observer: ThreadPtrHandle<nsISidlConnectionObserver>,
+    ) -> usize {
+        let mut observers = self.connection_observers.lock();
+        let res = observers.add(observer.clone());
+        info!("Connection observer added, total is {}", observers.len());
+        res
+    }
+
+    pub fn remove_connection_observer(&mut self, observer_id: usize) {
+        let mut observers = self.connection_observers.lock();
+        observers.remove(observer_id);
+        info!("Connection observer removed, total is {}", observers.len());
+    }
+
+    pub fn open() -> Self {
         #[cfg(target_os = "android")]
         let path = "/dev/socket/api-daemon";
         #[cfg(not(target_os = "android"))]
         let path = "/tmp/api-daemon-socket";
 
-        match UnixStream::connect(path) {
+        let (transport, mut recv_stream) = match UnixStream::connect(path) {
             Ok(stream) => {
-                // TODO: fail gracefully.
-                let mut recv_stream = stream.try_clone().expect("Failed to clone UDS stream");
+                let reader = stream.try_clone().expect("Failed to clone UDS stream");
+                (
+                    Self {
+                        session_data: Shared::adopt(SessionData::new(Some(stream))),
+                        connection_observers: Shared::default(),
+                    },
+                    Some(reader),
+                )
+            }
+            Err(_) => (
+                Self {
+                    session_data: Shared::adopt(SessionData::new(None)),
+                    connection_observers: Shared::default(),
+                },
+                None,
+            ),
+        };
 
-                let transport = Self {
-                    stream,
-                    session_data: Shared::adopt(SessionData::default()),
-                    ref_count: Arc::new(AtomicU32::new(0)),
-                };
+        let mut transport_inner = transport.clone();
 
-                let mut transport_inner = transport.clone();
+        // Start the reading thread.
+        thread::spawn(move || {
+            // Needed to make this thread known from Gecko, since we can dispatch Tasks
+            // from there.
+            let _thread = adopt_current_thread();
 
-                // Start the reading thread.
-                thread::spawn(move || {
-                    // Needed to make this thread known from Gecko, since we can dispatch Tasks
-                    // from there.
-                    let _thread = adopt_current_thread();
-
+            loop {
+                // Try to reconnect every 5 seconds.
+                if recv_stream.is_none() {
                     loop {
-                        // TODO: check if we need a BufReader for performance reasons.
-                        match Frame::deserialize_from(&mut recv_stream) {
-                            Ok(data) => {
-                                transport_inner.dispatch(data);
-                            }
-                            Err(err) => {
-                                // That can happen if the server side is closed under us, eg. if
-                                // the daemon restarts.
-                                // In that case we need to mark this transport as "zombie" and try
-                                // to reconnect it.
-                                let mut data = transport_inner.session_data.lock();
-                                error!(
-                                    "Failed to read frame (zombie: {}): {}, closing uds session.",
-                                    data.zombie, err
-                                );
-                                data.zombie = true;
-                                break;
-                            }
+                        info!("Waiting 5 seconds to reconnect to {} ...", path);
+                        thread::sleep(std::time::Duration::from_secs(5));
+                        if let Ok(stream) = UnixStream::connect(path) {
+                            // Update the receiving stream.
+                            recv_stream =
+                                Some(stream.try_clone().expect("Failed to clone UDS stream"));
+                            info!("Reconnected successfully");
+                            // Update the session data with the new stream.
+                            let mut data = transport_inner.session_data.lock();
+                            data.replace_stream(stream);
+
+                            transport_inner.notify_observers(false);
+                            break;
                         }
                     }
-                });
+                }
 
-                Some(transport)
+                if let Some(reader) = &mut recv_stream {
+                    // TODO: check if we need a BufReader for performance reasons.
+                    match Frame::deserialize_from(reader) {
+                        Ok(data) => {
+                            transport_inner.dispatch(data);
+                        }
+                        Err(crate::common::frame::Error::Io(err)) => {
+                            // That can happen if the server side is closed under us, eg. if
+                            // the daemon restarts.
+                            // In that case we need to mark this transport as "zombie" and try
+                            // to reconnect it.
+                            let mut session = transport_inner.session_data.lock();
+                            error!(
+                                "Unexpected daemon deconnection, will try to reconnect: {}",
+                                err
+                            );
+                            error!(
+                                "There were {} pending requests.",
+                                session.pending_responses.len()
+                            );
+
+                            // TODO: manage replay of in flight requests/responses. For now we just drop them.
+                            session.pending_responses.clear();
+                            // Clear our session objects, since they can't be linked to the daemon side anymore.
+                            session.session_objects.clear();
+                            session.stream = None;
+
+                            transport_inner.notify_observers(true);
+                            recv_stream = None;
+                        }
+                        Err(err) => {
+                            // Can be a bincode error, considered not fatal for now.
+                            error!("Unexpected error: {}", err);
+                        }
+                    }
+                }
             }
-            Err(err) => {
-                error!("Failed to connect to UDS socket {} : {}", path, err);
-                None
-            }
-        }
+        });
+
+        transport
     }
 
     pub fn dispatch(&mut self, message: BaseMessage) {
@@ -190,10 +355,18 @@ impl UdsTransport {
             BaseMessageKind::Request(id) => {
                 // Look for the session object that should receive this request.
                 let key = (message.service, message.object);
-                let session_data = self.session_data.lock();
+                let mut session_data = self.session_data.lock();
                 if let Some(target) = session_data.session_objects.get(&key) {
-                    log::debug!("Found session object!");
-                    target.lock().on_request(message, id);
+                    let message = target.lock().on_request(message, id);
+                    if let Some(message) = message {
+                        // Call directly Frame::serialize_to so that we can reuse the session_data
+                        // lock we already hold.
+                        if let Some(stream) = &mut session_data.stream {
+                            let _ = Frame::serialize_to(&message, stream);
+                        } else {
+                            error!("Trying to send data but no stream is available.");
+                        }
+                    }
                 } else {
                     error!(
                         "No session object found for service #{} object #{}",
@@ -233,21 +406,34 @@ impl UdsTransport {
             .insert(request_id, response_task);
 
         // Send the message.
-        Frame::serialize_to(&message, &mut self.stream).map_err(|e| e.into())
+        if let Some(stream) = &mut session_data.stream {
+            Frame::serialize_to(&message, stream).map_err(|e| e.into())
+        } else {
+            Err(UdsError::NoStreamAvailable)
+        }
     }
 
     // Sends a BaseMessage fully build.
     pub fn send_message(&mut self, message: &BaseMessage) -> UdsResult<()> {
-        Frame::serialize_to(&message, &mut self.stream).map_err(|e| e.into())
+        let mut session_data = self.session_data.lock();
+        if let Some(stream) = &mut session_data.stream {
+            Frame::serialize_to(&message, stream).map_err(|e| e.into())
+        } else {
+            Err(UdsError::NoStreamAvailable)
+        }
     }
 
     fn close(&mut self) {
+        info!("Closing UdsTransport");
         let mut session_data = self.session_data.lock();
-        session_data.zombie = true;
         session_data.pending_responses.clear();
         session_data.session_objects.clear();
 
-        let _ = self.stream.shutdown(Shutdown::Both);
+        if let Some(stream) = &session_data.stream {
+            let _ = stream.shutdown(Shutdown::Both);
+        }
+
+        session_data.stream = None;
     }
 
     pub fn register_session_object(&mut self, object: SharedSessionObject) {
@@ -266,8 +452,12 @@ impl UdsTransport {
 
 impl Drop for UdsTransport {
     fn drop(&mut self) {
-        self.ref_count.fetch_sub(1, Ordering::SeqCst);
-        if self.ref_count.load(Ordering::SeqCst) == 0 {
+        let ref_count = self.session_data.ref_count();
+        info!(
+            "Dropping UdsTransport session_data ref count is {}, connection observer ref count is {}",
+            ref_count, self.connection_observers.ref_count()
+        );
+        if ref_count == 0 {
             self.close();
         }
     }

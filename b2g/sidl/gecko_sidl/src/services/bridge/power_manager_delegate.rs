@@ -7,19 +7,18 @@
 use super::messages::*;
 use crate::common::core::{BaseMessage, BaseMessageKind};
 use crate::common::traits::TrackerId;
-use crate::common::uds_transport::UdsTransport;
 use crate::common::uds_transport::{from_base_message, SessionObject};
 use bincode::Options;
 use log::{debug, error};
 use moz_task::{Task, TaskRunnable, ThreadPtrHandle};
 use nserror::nsresult;
+use std::any::Any;
 use xpcom::interfaces::nsIPowerManagerDelegate;
 
 pub struct PowerManagerDelegate {
     xpcom: ThreadPtrHandle<nsIPowerManagerDelegate>,
     service_id: TrackerId,
     object_id: TrackerId,
-    transport: UdsTransport,
 }
 
 impl PowerManagerDelegate {
@@ -27,23 +26,23 @@ impl PowerManagerDelegate {
         xpcom: ThreadPtrHandle<nsIPowerManagerDelegate>,
         service_id: TrackerId,
         object_id: TrackerId,
-        transport: &UdsTransport,
     ) -> Self {
         Self {
             xpcom,
             service_id,
             object_id,
-            transport: transport.clone(),
         }
     }
 }
 
 impl SessionObject for PowerManagerDelegate {
-    fn on_request(&mut self, request: BaseMessage, request_id: u64) {
+    fn on_request(&mut self, request: BaseMessage, request_id: u64) -> Option<BaseMessage> {
+        debug!("PowerManagerDelegate on_request {}", request_id);
         // Unpack the request.
         if let Ok(GeckoBridgeToClient::PowerManagerDelegateSetScreenEnabled(value)) =
             from_base_message(&request)
         {
+            debug!("PowerManagerDelegate set_screen_enabled {}", value);
             // Dispatch the setting change to the xpcom observer.
             let task = PowerManagerDelegateTask {
                 xpcom: self.xpcom.clone(),
@@ -62,12 +61,13 @@ impl SessionObject for PowerManagerDelegate {
                 kind: BaseMessageKind::Response(request_id),
                 content: crate::common::get_bincode().serialize(&payload).unwrap(),
             };
-            let _ = self.transport.send_message(&message);
+            Some(message)
         } else {
             error!(
                 "PowerManagerDelegate::on_request unexpected message: {:?}",
                 request.content
             );
+            None
         }
     }
 
@@ -75,6 +75,10 @@ impl SessionObject for PowerManagerDelegate {
 
     fn get_ids(&self) -> (u32, u32) {
         (self.service_id, self.object_id)
+    }
+
+    fn maybe_xpcom(&self) -> Option<&dyn Any> {
+        Some(&self.xpcom)
     }
 }
 

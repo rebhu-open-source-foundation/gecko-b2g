@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 #include "nsISupports.idl"
 
 // A default callback with no success or error types.
@@ -24,4 +28,20 @@ interface nsISidlEventTarget : nsISupports
 {
   void addEventListener(in long event, in nsISidlEventListener handler);
   void removeEventListener(in long event, in nsISidlEventListener handler);
+};
+
+[scriptable, uuid(288afb57-8518-404c-8baf-3f22220524e3)]
+interface nsISidlConnectionObserver : nsISupports {
+  void disconnected();
+  void reconnected();
+};
+
+[scriptable, uuid(865bb9c7-d6e7-40c5-b100-d2bda723be0c)]
+interface nsIDaemonManager : nsISupports {
+  // Allows to set an observer that is notified when the api-deamon
+  // status changes.
+  void setObserver(in nsISidlConnectionObserver observer);
+
+  // Synchronous access to the current daemon state.
+  bool isReady();
 };

@@ -192,6 +192,24 @@ XPCOMUtils.defineLazyModuleGetters(this, {
 
       _webembed_log(`constructor in ${window}`);
 
+      this.daemonManager = Cc["@mozilla.org/sidl-native/manager;1"].getService(
+        Ci.nsIDaemonManager
+      );
+      if (this.daemonManager) {
+        let self = this;
+        this.daemonManager.setObserver({
+          // nsISidlConnectionObserver
+          disconnected() {
+            self.dispatchEvent(new CustomEvent("daemon-disconnected"));
+          },
+          reconnected() {
+            self.dispatchEvent(new CustomEvent("daemon-reconnected"));
+          },
+        });
+      } else {
+        _webembed_error("Unable to get nsIDaemonManager service.");
+      }
+
       this.browserDomWindow = delegates.windowProvider;
 
       this.systemAlerts = systemAlerts;
@@ -244,6 +262,10 @@ XPCOMUtils.defineLazyModuleGetters(this, {
           "web-embedder-notifications"
         );
       }
+    }
+
+    isDaemonReady() {
+      return this.daemonManager ? this.daemonManager.isReady() : false;
     }
 
     launchPreallocatedProcess() {

@@ -154,6 +154,10 @@ impl<T> Shared<T> {
             inner: Arc::new(Mutex::new(what)),
         }
     }
+
+    pub fn ref_count(&self) -> usize {
+        Arc::strong_count(&self.inner)
+    }
 }
 
 impl<T> Clone for Shared<T> {

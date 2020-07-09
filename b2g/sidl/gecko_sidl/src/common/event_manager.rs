@@ -138,6 +138,24 @@ macro_rules! impl_event_listener {
 
             Ok(())
         }
+
+        fn get_event_listeners_to_reconnect(
+            &mut self,
+        ) -> Vec<(i32, RefPtr<ThreadPtrHolder<nsISidlEventListener>>, usize)> {
+            let mut list = vec![];
+
+            let mut manager = self.event_manager.lock();
+            for (event, handlers) in manager.handlers.iter() {
+                // handlers is a Vec<(ThreadPtrHandle<nsISidlEventListener>, usize)>
+                for (handler, key) in handlers {
+                    list.push((*event, handler.clone(), *key));
+                }
+            }
+            // Clear the list of outdated event listeners.
+            manager.handlers.clear();
+
+            list
+        }
     };
 }
 
