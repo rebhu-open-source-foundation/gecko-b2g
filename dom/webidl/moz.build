@@ -539,6 +539,7 @@ WEBIDL_FILES = [
     'FetchEvent.webidl',
     'FetchObserver.webidl',
     'File.webidl',
+    'FileIterable.webidl',
     'FileList.webidl',
     'FileMode.webidl',
     'FileReader.webidl',
