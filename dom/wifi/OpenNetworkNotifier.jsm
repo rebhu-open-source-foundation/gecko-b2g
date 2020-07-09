@@ -16,7 +16,7 @@ this.OpenNetworkNotifier = (function() {
   // For at Least scans before showing notification.
   const MIN_NUMBER_SCANS_BEFORE_SHOW_NOTIFICATION = 3;
   const NOTIFICATION_REPEAT_DELAY_MS = 900 * 1000;
-  var settingEnabled = true;
+  var settingsEnabled = true;
   var notificationRepeatTime = 0;
   var numScansSinceNetworkStateChange = 0;
 
@@ -37,12 +37,12 @@ this.OpenNetworkNotifier = (function() {
 
   function setOpenNetworkNotifyEnabled(enable) {
     debug("setOpenNetworkNotifyEnabled: " + enable);
-    settingEnabled = enable;
+    settingsEnabled = enable;
     clearPendingNotification();
   }
 
   function handleOpenNetworkFound() {
-    if (!settingEnabled) {
+    if (!settingsEnabled) {
       return;
     }
 

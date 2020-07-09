@@ -144,7 +144,7 @@ const SETTINGS_AIRPLANE_MODE = "airplaneMode.enabled";
 const SETTINGS_AIRPLANE_MODE_STATUS = "airplaneMode.status";
 
 // Settings DB for open network notify
-const SETTINGS_WIFI_NOTIFYCATION = "wifi.notification";
+const SETTINGS_WIFI_NOTIFICATION = "wifi.notification";
 
 // Default value for WIFI tethering.
 const DEFAULT_HOTSPOT_IP = "192.168.1.1";
@@ -207,6 +207,13 @@ XPCOMUtils.defineLazyServiceGetter(
   "gTetheringService",
   "@mozilla.org/tethering/service;1",
   "nsITetheringService"
+);
+
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gSettingsManager",
+  "@mozilla.org/sidl-native/settings;1",
+  "nsISettingsManager"
 );
 
 XPCOMUtils.defineLazyServiceGetter(
@@ -3048,6 +3055,15 @@ function WifiWorker() {
     self._stopConnectionInfoTimer();
   };
 
+  // Get settings value and initialize.
+  this.getSettings(SETTINGS_WIFI_ENABLED);
+  this.getSettings(SETTINGS_WIFI_DEBUG_ENABLED);
+  this.getSettings(SETTINGS_WIFI_NOTIFICATION);
+
+  // Add settings observers.
+  this.addSettingsObserver(SETTINGS_WIFI_DEBUG_ENABLED);
+  this.addSettingsObserver(SETTINGS_WIFI_NOTIFICATION);
+
   // Initialize configured network from config file.
   WifiConfigManager.loadFromStore();
 
@@ -3090,6 +3106,7 @@ WifiWorker.prototype = {
     Ci.nsIWorkerHolder,
     Ci.nsIWifi,
     Ci.nsIObserver,
+    Ci.nsISettingsObserver,
     Ci.nsIMobileConnectionListener,
     Ci.nsIImsRegListener,
     Ci.nsIIccListener,
@@ -3761,6 +3778,7 @@ WifiWorker.prototype = {
     }
     this.requestDone();
   },
+
   setWifiEnabled(msg) {
     const message = "WifiManager:setWifiEnabled:Return";
     let enabled = msg.data;
@@ -3769,6 +3787,9 @@ WifiWorker.prototype = {
       this._sendMessage(message, true, true, msg);
       return;
     }
+
+    // Store persist wifi state.
+    this.setSettings(SETTINGS_WIFI_ENABLED, enabled);
 
     // Make sure Wifi hotspot is idle before switching to Wifi mode.
     if (
@@ -4412,6 +4433,10 @@ WifiWorker.prototype = {
 
   shutdown() {
     debug("shutting down ...");
+
+    this.removeSettingsObserver(SETTINGS_WIFI_DEBUG_ENABLED);
+    this.removeSettingsObserver(SETTINGS_WIFI_NOTIFICATION);
+
     Services.obs.removeObserver(this, kXpcomShutdownChangedTopic);
     Services.obs.removeObserver(this, kScreenStateChangedTopic);
     Services.obs.removeObserver(this, kInterfaceAddressChangedTopic);
@@ -4480,15 +4505,8 @@ WifiWorker.prototype = {
           ].getService(Ci.nsIWifiCertService);
           wifiCertService.shutdown();
         });
-        Services.obs.removeObserver(this, kXpcomShutdownChangedTopic);
-        Services.obs.removeObserver(this, kScreenStateChangedTopic);
-        Services.obs.removeObserver(this, kInterfaceAddressChangedTopic);
-        Services.obs.removeObserver(this, kInterfaceDnsInfoTopic);
-        Services.obs.removeObserver(this, kRouteChangedTopic);
-        Services.obs.removeObserver(this, kCaptivePortalResult);
-        Services.obs.removeObserver(this, kOpenCaptivePortalLoginEvent);
-        Services.obs.removeObserver(this, kCaptivePortalLoginSuccessEvent);
-        Services.prefs.removeObserver(kPrefDefaultServiceId, this);
+
+        this.shutdown();
 
         if (this.mobileConnectionRegistered) {
           gMobileConnectionService
@@ -4677,6 +4695,101 @@ WifiWorker.prototype = {
           loginSuccess: true,
           network: netToDOM(lastNetwork),
         });
+        break;
+    }
+  },
+
+  // nsISettingsObserver
+  observeSettings(aInfo) {
+    if (aInfo) {
+      let obj = JSON.parse(aInfo.value);
+      this.handleSettingsChanged(aInfo.name, obj);
+    }
+  },
+
+  // Helper functions.
+  getSettings(aKey) {
+    if (!aKey || !gSettingsManager) {
+      return;
+    }
+
+    gSettingsManager.get(aKey, {
+      resolve: info => {
+        this.observeSettings(info);
+      },
+      reject: () => {
+        debug("Get " + aKey + " failed");
+      },
+    });
+  },
+
+  setSettings(aKey, aValue) {
+    if (!aKey || !gSettingsManager) {
+      return;
+    }
+    if (aValue === null) {
+      aValue = true;
+    }
+
+    debug("Set " + aKey + " settings with value: " + JSON.stringify(aValue));
+    gSettingsManager.set([{ name: aKey, value: JSON.stringify(aValue) }], {
+      resolve: () => {
+        debug("Set " + aKey + " success");
+      },
+      reject: () => {
+        debug("Set " + aKey + " failed");
+      },
+    });
+  },
+
+  addSettingsObserver(aKey) {
+    if (!aKey || !gSettingsManager) {
+      return;
+    }
+
+    gSettingsManager.addObserver(aKey, this, {
+      resolve: () => {
+        debug("Observe " + aKey + " success");
+      },
+      reject: () => {
+        debug("Observe " + aKey + " failed");
+      },
+    });
+  },
+
+  removeSettingsObserver(aKey) {
+    if (!aKey || !gSettingsManager) {
+      return;
+    }
+
+    gSettingsManager.removeObserver(aKey, this, {
+      resolve: () => {
+        debug("Remove observer " + aKey + " success");
+      },
+      reject: () => {
+        debug("Remove observer " + aKey + " failed");
+      },
+    });
+  },
+
+  handleSettingsChanged(aName, aValue) {
+    switch (aName) {
+      case SETTINGS_WIFI_ENABLED:
+        debug((aValue ? "Enable" : "Disable") + " wifi from settings");
+        this.handleWifiEnabled(aValue, function(ok) {
+          if (ok && WifiManager.supplicantStarted) {
+            WifiManager.supplicantConnected();
+          }
+        });
+        break;
+      case SETTINGS_WIFI_DEBUG_ENABLED:
+        debug("'" + SETTINGS_WIFI_DEBUG_ENABLED + "' is now " + aValue);
+        DEBUG = aValue;
+        updateDebug();
+        break;
+      case SETTINGS_WIFI_NOTIFICATION:
+        debug("'" + SETTINGS_WIFI_NOTIFICATION + "' is now " + aValue);
+        OpenNetworkNotifier.setOpenNetworkNotifyEnabled(aValue);
         break;
     }
   },
