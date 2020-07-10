@@ -36,11 +36,10 @@ class EventListenerManager;
 namespace dom {
 class Blob;
 struct DeviceStorageEnumerationParameters;
-// TODO: Temporary comment out usage of DOMCursor.
-// class DOMCursor;
 class DOMRequest;
 class Promise;
 class DeviceStorageFileSystem;
+class FileIterable;
 }  // namespace dom
 namespace ipc {
 class FileDescriptor;
@@ -150,11 +149,10 @@ class nsDOMDeviceStorage final : public mozilla::DOMEventTargetHelper,
   typedef mozilla::ErrorResult ErrorResult;
   typedef mozilla::dom::DeviceStorageEnumerationParameters
       EnumerationParameters;
-  // TODO: Temporary comment out usage of DOMCursor.
-  // typedef mozilla::dom::DOMCursor DOMCursor;
   typedef mozilla::dom::DOMRequest DOMRequest;
   typedef mozilla::dom::Promise Promise;
   typedef mozilla::dom::DeviceStorageFileSystem DeviceStorageFileSystem;
+  typedef mozilla::dom::FileIterable FileIterable;
 
  public:
   typedef nsTArray<nsString> VolumeNameArray;
@@ -207,25 +205,20 @@ class nsDOMDeviceStorage final : public mozilla::DOMEventTargetHelper,
   }
   already_AddRefed<DOMRequest> Delete(const nsAString& aPath, ErrorResult& aRv);
 
-  // TODO: Temporary comment out usage of DOMCursor.
-  /*
-  already_AddRefed<DOMCursor>
-  Enumerate(const EnumerationParameters& aOptions, ErrorResult& aRv)
-  {
-    return Enumerate(NullString(), aOptions, aRv);
+  already_AddRefed<FileIterable> Enumerate(
+      const EnumerationParameters& aOptions, ErrorResult& aRv) {
+    return Enumerate(VoidString(), aOptions, aRv);
   }
-  already_AddRefed<DOMCursor>
-  Enumerate(const nsAString& aPath, const EnumerationParameters& aOptions,
-            ErrorResult& aRv);
-  already_AddRefed<DOMCursor>
-  EnumerateEditable(const EnumerationParameters& aOptions, ErrorResult& aRv)
-  {
-    return EnumerateEditable(NullString(), aOptions, aRv);
+  already_AddRefed<FileIterable> Enumerate(
+      const nsAString& aPath, const EnumerationParameters& aOptions,
+      ErrorResult& aRv);
+  already_AddRefed<FileIterable> EnumerateEditable(
+      const EnumerationParameters& aOptions, ErrorResult& aRv) {
+    return EnumerateEditable(VoidString(), aOptions, aRv);
   }
-  already_AddRefed<DOMCursor>
-  EnumerateEditable(const nsAString& aPath,
-                    const EnumerationParameters& aOptions, ErrorResult& aRv);
-  */
+  already_AddRefed<FileIterable> EnumerateEditable(
+      const nsAString& aPath, const EnumerationParameters& aOptions,
+      ErrorResult& aRv);
   already_AddRefed<DOMRequest> FreeSpace(ErrorResult& aRv);
   already_AddRefed<DOMRequest> UsedSpace(ErrorResult& aRv);
   already_AddRefed<DOMRequest> Available(ErrorResult& aRv);
@@ -284,12 +277,8 @@ class nsDOMDeviceStorage final : public mozilla::DOMEventTargetHelper,
 #endif
 
   uint32_t CreateDOMRequest(DOMRequest** aRequest, ErrorResult& aRv);
-  // TODO: Temporary comment out usage of DOMCursor.
-  /*
-  uint32_t CreateDOMCursor(DeviceStorageCursorRequest* aRequest,
-                           nsDOMDeviceStorageCursor** aCursor,
-                           ErrorResult& aRv);
-  */
+  uint32_t CreateFileIterable(DeviceStorageCursorRequest* aRequest,
+                              FileIterable** aIterable, ErrorResult& aRv);
   already_AddRefed<DOMRequest> CreateAndRejectDOMRequest(const char* aReason,
                                                          ErrorResult& aRv);
 
@@ -315,13 +304,9 @@ class nsDOMDeviceStorage final : public mozilla::DOMEventTargetHelper,
   void DeleteInternal(nsPIDOMWindowInner* aWin, const nsAString& aPath,
                       DOMRequest* aRequest);
 
-  // TODO: Temporary comment out usage of DOMCursor.
-  /*
-  already_AddRefed<DOMCursor>
-  EnumerateInternal(const nsAString& aName,
-                    const EnumerationParameters& aOptions, bool aEditable,
-                    ErrorResult& aRv);
-  */
+  already_AddRefed<FileIterable> EnumerateInternal(
+      const nsAString& aName, const EnumerationParameters& aOptions,
+      bool aEditable, ErrorResult& aRv);
 
   static int sInstanceCount;
 

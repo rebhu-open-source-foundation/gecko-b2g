@@ -116,7 +116,7 @@ mozilla::ipc::IPCResult DeviceStorageRequestChild::Recv__delete__(
                                   r.rootdir(), r.paths()[i].name());
         request->AddFile(dsf.forget());
       }
-      request->Continue();
+      request->EnumeratePrepared();
       break;
     }
 

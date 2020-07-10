@@ -12,8 +12,6 @@
 #include "mozilla/dom/devicestorage/DeviceStorageRequestChild.h"
 
 #include "mozilla/dom/DOMRequest.h"
-// TODO: Temporary comment out usage of DOMCursor.
-// #include "DOMCursor.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsIClassInfo.h"
 #include "nsIDOMWindow.h"
@@ -41,7 +39,7 @@ class DeviceStorageParams;
 class nsDOMDeviceStorage;
 class DeviceStorageCursorRequest;
 
-//#define DS_LOGGING 1
+#define DS_LOGGING 0
 
 #ifdef DS_LOGGING
 // FIXME -- use MOZ_LOG and set to warn by default
@@ -208,32 +206,6 @@ class DeviceStorageTypeChecker final {
       sDeviceStorageTypeChecker;
 };
 
-// TODO: Temporary comment out usage of DOMCursor.
-/*
-class nsDOMDeviceStorageCursor final
-  : public mozilla::dom::DOMCursor
-{
-public:
-  NS_FORWARD_NSIDOMDOMCURSOR(mozilla::dom::DOMCursor::)
-
-  // DOMCursor
-  virtual void Continue(mozilla::ErrorResult& aRv) override;
-
-  nsDOMDeviceStorageCursor(nsIGlobalObject* aGlobal,
-                           DeviceStorageCursorRequest* aRequest);
-
-  void FireSuccess(JS::Handle<JS::Value> aResult);
-  void FireError(const nsString& aReason);
-  void FireDone();
-
-private:
-  virtual ~nsDOMDeviceStorageCursor();
-
-  bool mOkToCallContinue;
-  RefPtr<DeviceStorageCursorRequest> mRequest;
-};
-*/
-
 class DeviceStorageRequestManager final {
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(DeviceStorageRequestManager)
@@ -253,16 +225,14 @@ class DeviceStorageRequestManager final {
      all of the pending requests are completed or shutdown is called. */
   uint32_t Create(nsDOMDeviceStorage* aDeviceStorage,
                   mozilla::dom::DOMRequest** aRequest);
-  // TODO: Temporary comment out usage of DOMCursor.
-  /*
+
   uint32_t Create(nsDOMDeviceStorage* aDeviceStorage,
                   DeviceStorageCursorRequest* aRequest,
-                  nsDOMDeviceStorageCursor** aCursor);
-*/
+                  mozilla::dom::FileIterable** aIterable);
 
   /* These may be called from any thread context and post a request
      to the owning thread to resolve the underlying DOMRequest or
-     DOMCursor. In order to trigger FireDone for a DOMCursor, one
+     FileIterable. In order to trigger FireDone for a FileIterable, one
      should call Resolve with only the request ID. */
   nsresult Resolve(uint32_t aId, bool aForceDispatch);
   nsresult Resolve(uint32_t aId, const nsString& aValue, bool aForceDispatch);
@@ -274,6 +244,8 @@ class DeviceStorageRequestManager final {
   nsresult Reject(uint32_t aId, const nsString& aReason);
   nsresult Reject(uint32_t aId, const char* aReason);
 
+  nsresult EnumeratePrepared(uint32_t aId);
+
   void Shutdown();
 
  private:
@@ -283,15 +255,17 @@ class DeviceStorageRequestManager final {
 
   struct ListEntry {
     RefPtr<mozilla::dom::DOMRequest> mRequest;
+    RefPtr<mozilla::dom::FileIterable> mIterable;
     uint32_t mId;
-    bool mCursor;
+    bool mIsIterable;
   };
 
   typedef nsTArray<ListEntry> ListType;
   typedef ListType::index_type ListIndex;
 
   virtual ~DeviceStorageRequestManager();
-  uint32_t CreateInternal(mozilla::dom::DOMRequest* aRequest, bool aCursor);
+  uint32_t CreateInternal(mozilla::dom::DOMRequest* aRequest,
+                          mozilla::dom::FileIterable* aIterable);
   nsresult ResolveInternal(ListIndex aIndex, JS::HandleValue aResult);
   nsresult RejectInternal(ListIndex aIndex, const nsString& aReason);
   nsresult DispatchOrAbandon(uint32_t aId,
@@ -404,6 +378,7 @@ class DeviceStorageCursorRequest final : public DeviceStorageRequest {
 
   void AddFiles(size_t aSize);
   void AddFile(already_AddRefed<DeviceStorageFile> aFile);
+  nsresult EnumeratePrepared();
   nsresult Continue();
   NS_IMETHOD Run() override;
 

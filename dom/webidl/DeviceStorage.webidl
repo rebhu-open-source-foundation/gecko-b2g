@@ -38,19 +38,14 @@ interface DeviceStorage : EventTarget {
   [Throws]
   DOMRequest delete(DOMString aName);
 
-  // TODO: Temporary comment out usage of DOMCursor.
-  /*
   [Throws]
-  DOMCursor enumerate(optional DeviceStorageEnumerationParameters options);
+  FileIterable enumerate(optional DeviceStorageEnumerationParameters options = {});
   [Throws]
-  DOMCursor enumerate(DOMString path,
-                      optional DeviceStorageEnumerationParameters options);
+  FileIterable enumerate(DOMString path, optional DeviceStorageEnumerationParameters options = {});
   [Throws]
-  DOMCursor enumerateEditable(optional DeviceStorageEnumerationParameters options);
+  FileIterable enumerateEditable(optional DeviceStorageEnumerationParameters options = {});
   [Throws]
-  DOMCursor enumerateEditable(DOMString path,
-                              optional DeviceStorageEnumerationParameters options);
-  */
+  FileIterable enumerateEditable(DOMString path, optional DeviceStorageEnumerationParameters options = {});
 
   [Throws]
   DOMRequest freeSpace();

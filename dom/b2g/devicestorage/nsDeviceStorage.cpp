@@ -16,6 +16,7 @@
 #include "mozilla/dom/devicestorage/PDeviceStorageRequestChild.h"
 #include "mozilla/dom/Directory.h"
 #include "mozilla/dom/FileBlobImpl.h"
+#include "mozilla/dom/FileIterable.h"
 #include "mozilla/dom/FileSystemUtils.h"
 #include "mozilla/dom/IPCBlobUtils.h"
 #include "mozilla/dom/PBrowserChild.h"
@@ -1348,69 +1349,6 @@ void nsDOMDeviceStorage::SetRootDirectoryForType(
   mStorageName = aStorageName;
 }
 
-// TODO: Temporary comment out usage of DOMCursor.
-/*
-nsDOMDeviceStorageCursor::nsDOMDeviceStorageCursor(nsIGlobalObject* aGlobal,
-                                                   DeviceStorageCursorRequest*
-aRequest) : DOMCursor(aGlobal, nullptr) , mOkToCallContinue(false) ,
-mRequest(aRequest)
-{
-}
-
-nsDOMDeviceStorageCursor::~nsDOMDeviceStorageCursor()
-{
-}
-
-void
-nsDOMDeviceStorageCursor::FireSuccess(JS::Handle<JS::Value> aResult)
-{
-  mOkToCallContinue = true;
-  DOMCursor::FireSuccess(aResult);
-}
-
-void
-nsDOMDeviceStorageCursor::FireDone()
-{
-  mRequest = nullptr;
-  DOMCursor::FireDone();
-}
-
-void
-nsDOMDeviceStorageCursor::FireError(const nsString& aReason)
-{
-  mOkToCallContinue = false;
-  mRequest = nullptr;
-
-  if (!mResult.isUndefined()) {
-    // If we previously succeeded, we cannot fail without
-    // clearing the last result.
-    mResult.setUndefined();
-    mDone = false;
-  }
-
-  DOMCursor::FireError(aReason);
-}
-
-void
-nsDOMDeviceStorageCursor::Continue(ErrorResult& aRv)
-{
-  if (!mOkToCallContinue || !mRequest) {
-    aRv.Throw(NS_ERROR_UNEXPECTED);
-    return;
-  }
-
-  if (!mResult.isUndefined()) {
-    // We call onsuccess multiple times. Clear the last
-    // result.
-    mResult.setUndefined();
-    mDone = false;
-  }
-
-  mOkToCallContinue = false;
-  aRv = mRequest->Continue();
-}
-*/
-
 DeviceStorageRequest::DeviceStorageRequest()
     : Runnable("devicestorate:DeviceStorageRequest"),
       mId(DeviceStorageRequestManager::INVALID_ID),
@@ -1640,6 +1578,10 @@ nsresult DeviceStorageCursorRequest::SendContinueToParentProcess() {
   ContentChild::GetSingleton()->SendPDeviceStorageRequestConstructor(child,
                                                                      params);
   return NS_OK;
+}
+
+nsresult DeviceStorageCursorRequest::EnumeratePrepared() {
+  return mManager->EnumeratePrepared(mId);
 }
 
 nsresult DeviceStorageCursorRequest::Continue() {
@@ -2728,21 +2670,18 @@ uint32_t nsDOMDeviceStorage::CreateDOMRequest(DOMRequest** aRequest,
   return mManager->Create(this, aRequest);
 }
 
-// TODO: Temporary comment out usage of DOMCursor.
-/*
-uint32_t
-nsDOMDeviceStorage::CreateDOMCursor(DeviceStorageCursorRequest* aRequest,
-nsDOMDeviceStorageCursor** aCursor, ErrorResult& aRv)
-{
+uint32_t nsDOMDeviceStorage::CreateFileIterable(
+    DeviceStorageCursorRequest* aRequest, FileIterable** aIterable,
+    ErrorResult& aRv) {
   if (!mManager) {
     DS_LOG_WARN("shutdown");
     aRv.Throw(NS_ERROR_UNEXPECTED);
     return DeviceStorageRequestManager::INVALID_ID;
   }
+  DS_LOG_INFO("CreateFileIterable, request: %p", aRequest);
 
-  return mManager->Create(this, aRequest, aCursor);
+  return mManager->Create(this, aRequest, aIterable);
 }
-*/
 
 already_AddRefed<DOMRequest> nsDOMDeviceStorage::CreateAndRejectDOMRequest(
     const char* aReason, ErrorResult& aRv) {
@@ -3116,35 +3055,26 @@ void nsDOMDeviceStorage::GetStoragePath(nsAString& aStoragePath) {
 #endif
 }
 
-// TODO: Temporary comment out usage of DOMCursor.
-/*
-already_AddRefed<DOMCursor>
-nsDOMDeviceStorage::Enumerate(const nsAString& aPath,
-                              const EnumerationParameters& aOptions,
-                              ErrorResult& aRv)
-{
+already_AddRefed<FileIterable> nsDOMDeviceStorage::Enumerate(
+    const nsAString& aPath, const EnumerationParameters& aOptions,
+    ErrorResult& aRv) {
   return EnumerateInternal(aPath, aOptions, false, aRv);
 }
 
-already_AddRefed<DOMCursor>
-nsDOMDeviceStorage::EnumerateEditable(const nsAString& aPath,
-                                      const EnumerationParameters& aOptions,
-                                      ErrorResult& aRv)
-{
+already_AddRefed<FileIterable> nsDOMDeviceStorage::EnumerateEditable(
+    const nsAString& aPath, const EnumerationParameters& aOptions,
+    ErrorResult& aRv) {
   return EnumerateInternal(aPath, aOptions, true, aRv);
 }
 
-
-already_AddRefed<DOMCursor>
-nsDOMDeviceStorage::EnumerateInternal(const nsAString& aPath,
-                                      const EnumerationParameters& aOptions,
-                                      bool aEditable, ErrorResult& aRv)
-{
+already_AddRefed<FileIterable> nsDOMDeviceStorage::EnumerateInternal(
+    const nsAString& aPath, const EnumerationParameters& aOptions,
+    bool aEditable, ErrorResult& aRv) {
   MOZ_ASSERT(IsOwningThread());
 
   PRTime since = 0;
-  if (aOptions.mSince.WasPassed() && !aOptions.mSince.Value().IsUndefined()) {
-    since = PRTime(aOptions.mSince.Value().TimeStamp().toDouble());
+  if (aOptions.mSince.WasPassed()) {
+    since = PRTime(aOptions.mSince.Value());
   }
 
   RefPtr<DeviceStorageFile> dsf = new DeviceStorageFile(mStorageType,
@@ -3154,8 +3084,8 @@ nsDOMDeviceStorage::EnumerateInternal(const nsAString& aPath,
   dsf->SetEditable(aEditable);
 
   RefPtr<DeviceStorageCursorRequest> request = new DeviceStorageCursorRequest();
-  RefPtr<nsDOMDeviceStorageCursor> cursor;
-  uint32_t id = CreateDOMCursor(request, getter_AddRefs(cursor), aRv);
+  RefPtr<FileIterable> iterable;
+  uint32_t id = CreateFileIterable(request, getter_AddRefs(iterable), aRv);
   if (aRv.Failed()) {
     return nullptr;
   }
@@ -3167,9 +3097,8 @@ nsDOMDeviceStorage::EnumerateInternal(const nsAString& aPath,
     aRv = CheckPermission(request.forget());
   }
 
-  return cursor.forget();
+  return iterable.forget();
 }
-*/
 
 void nsDOMDeviceStorage::OnWritableNameChanged() {
   nsAutoString DefaultLocation;
@@ -3375,6 +3304,8 @@ DeviceStorageRequestManager::~DeviceStorageRequestManager() {
       DS_LOG_ERROR("terminate %u", mPending[i].mId);
       NS_ProxyRelease("DeviceStorageRequestManager::mPending[i].mRequest",
                       mOwningThread, mPending[i].mRequest.forget());
+      NS_ProxyRelease("DeviceStorageRequestManager::mPending[i].mIterable",
+                      mOwningThread, mPending[i].mIterable.forget());
     }
   }
 }
@@ -3429,25 +3360,20 @@ nsresult DeviceStorageRequestManager::DispatchOrAbandon(
   return rv;
 }
 
-// TODO: Temporary comment out usage of DOMCursor.
-/*
-uint32_t
-DeviceStorageRequestManager::Create(nsDOMDeviceStorage* aDeviceStorage,
-                                    DeviceStorageCursorRequest* aRequest,
-                                    nsDOMDeviceStorageCursor** aCursor)
-{
+uint32_t DeviceStorageRequestManager::Create(
+    nsDOMDeviceStorage* aDeviceStorage, DeviceStorageCursorRequest* aRequest,
+    FileIterable** aIterable) {
   MOZ_ASSERT(aDeviceStorage);
   MOZ_ASSERT(aRequest);
-  MOZ_ASSERT(aCursor);
+  MOZ_ASSERT(aIterable);
 
-  RefPtr<nsDOMDeviceStorageCursor> request
-    = new nsDOMDeviceStorageCursor(aDeviceStorage->GetOwnerGlobal(), aRequest);
-  uint32_t id = CreateInternal(request, true);
+  RefPtr<FileIterable> iterable =
+      new FileIterable(aDeviceStorage->GetOwnerGlobal(), aRequest);
+  uint32_t id = CreateInternal(nullptr, iterable);
   DS_LOG_INFO("%u", id);
-  request.forget(aCursor);
+  iterable.forget(aIterable);
   return id;
 }
-*/
 
 uint32_t DeviceStorageRequestManager::Create(nsDOMDeviceStorage* aDeviceStorage,
                                              DOMRequest** aRequest) {
@@ -3455,14 +3381,14 @@ uint32_t DeviceStorageRequestManager::Create(nsDOMDeviceStorage* aDeviceStorage,
   MOZ_ASSERT(aRequest);
 
   RefPtr<DOMRequest> request = new DOMRequest(aDeviceStorage->GetOwnerGlobal());
-  uint32_t id = CreateInternal(request, false);
+  uint32_t id = CreateInternal(request, nullptr);
   DS_LOG_INFO("%u", id);
   request.forget(aRequest);
   return id;
 }
 
 uint32_t DeviceStorageRequestManager::CreateInternal(DOMRequest* aRequest,
-                                                     bool aCursor) {
+                                                     FileIterable* aIterable) {
   MOZ_ASSERT(IsOwningThread());
   MOZ_ASSERT(!mShutdown);
 
@@ -3473,8 +3399,12 @@ uint32_t DeviceStorageRequestManager::CreateInternal(DOMRequest* aRequest,
 
   ListEntry* entry = mPending.AppendElement();
   entry->mId = id;
-  entry->mRequest = aRequest;
-  entry->mCursor = aCursor;
+  if (aRequest) {
+    entry->mRequest = aRequest;
+  } else {
+    entry->mIterable = aIterable;
+  }
+  entry->mIsIterable = !!(entry->mIterable);
   return entry->mId;
 }
 
@@ -3532,7 +3462,9 @@ nsresult DeviceStorageRequestManager::Resolve(uint32_t aId,
     return NS_OK;
   }
 
-  nsIGlobalObject* global = mPending[i].mRequest->GetOwnerGlobal();
+  nsIGlobalObject* global = (mPending[i].mRequest)
+                                ? mPending[i].mRequest->GetOwnerGlobal()
+                                : mPending[i].mIterable->GetParentObject();
 
   AutoJSAPI jsapi;
   if (NS_WARN_IF(!jsapi.Init(global))) {
@@ -3631,7 +3563,9 @@ nsresult DeviceStorageRequestManager::Resolve(uint32_t aId, BlobImpl* aBlobImpl,
     return ResolveInternal(i, JS::NullHandleValue);
   }
 
-  nsIGlobalObject* global = mPending[i].mRequest->GetOwnerGlobal();
+  nsIGlobalObject* global = (mPending[i].mRequest)
+                                ? mPending[i].mRequest->GetOwnerGlobal()
+                                : mPending[i].mIterable->GetParentObject();
 
   AutoJSAPI jsapi;
   if (NS_WARN_IF(!jsapi.Init(global))) {
@@ -3656,32 +3590,25 @@ nsresult DeviceStorageRequestManager::ResolveInternal(ListIndex aIndex,
      which in term may call back into our code (as observed in Shutdown).
      The safest thing to do is to ensure the very last thing we do is the
      DOM call so that there is no inconsistent state. */
-  RefPtr<DOMRequest> request;
-  bool isCursor = mPending[aIndex].mCursor;
-  if (!isCursor || aResult.isUndefined()) {
-    request = mPending[aIndex].mRequest.forget();
-    mPending.RemoveElementAt(aIndex);
-  } else {
-    request = mPending[aIndex].mRequest;
-  }
 
-  if (isCursor) {
-    // TODO: Temporary comment out usage of DOMCursor.
-    // auto cursor = static_cast<nsDOMDeviceStorageCursor*>(request.get());
-
-    /* Must call it with the right pointer type since the base class does
-       not define FireDone and FireSuccess as virtual. */
-    /*
+  bool isIterable = mPending[aIndex].mIsIterable;
+  DS_LOG_DEBUG("ResolveInternal, index: %u, isIterable: %d", aIndex,
+               isIterable);
+  if (isIterable) {
     if (aResult.isUndefined()) {
-      DS_LOG_INFO("cursor complete");
-      cursor->FireDone();
+      RefPtr<FileIterable> iterable = mPending[aIndex].mIterable.forget();
+      mPending.RemoveElementAt(aIndex);
+      DS_LOG_INFO("iterable complete");
+      iterable->FireDone();
     } else {
-      DS_LOG_INFO("cursor continue");
-      cursor->FireSuccess(aResult);
+      DS_LOG_INFO("iterable continue");
+      RefPtr<FileIterable> iterable = mPending[aIndex].mIterable;
+      iterable->FireSuccess(aResult);
     }
-    */
   } else {
     DS_LOG_INFO("request complete");
+    RefPtr<DOMRequest> request = mPending[aIndex].mRequest.forget();
+    mPending.RemoveElementAt(aIndex);
     request->FireSuccess(aResult);
   }
   return NS_OK;
@@ -3697,19 +3624,15 @@ nsresult DeviceStorageRequestManager::RejectInternal(
      which in term may call back into our code (as observed in Shutdown).
      The safest thing to do is to ensure the very last thing we do is the
      DOM call so that there is no inconsistent state. */
-  RefPtr<DOMRequest> request = mPending[aIndex].mRequest.forget();
-  bool isCursor = mPending[aIndex].mCursor;
-  mPending.RemoveElementAt(aIndex);
 
-  if (isCursor) {
-    /* Must call it with the right pointer type since the base class does
-       not define FireError as virtual. */
-    // TODO: Temporary comment out usage of DOMCursor.
-    /*
-    auto cursor = static_cast<nsDOMDeviceStorageCursor*>(request.get());
-    cursor->FireError(aReason);
-    */
+  bool isIterable = mPending[aIndex].mIsIterable;
+  if (isIterable) {
+    RefPtr<FileIterable> iterable = mPending[aIndex].mIterable.forget();
+    mPending.RemoveElementAt(aIndex);
+    iterable->FireError(aReason);
   } else {
+    RefPtr<DOMRequest> request = mPending[aIndex].mRequest.forget();
+    mPending.RemoveElementAt(aIndex);
     request->FireError(aReason);
   }
   return NS_OK;
@@ -3749,6 +3672,37 @@ nsresult DeviceStorageRequestManager::Reject(uint32_t aId,
   return Reject(aId, reason);
 }
 
+nsresult DeviceStorageRequestManager::EnumeratePrepared(uint32_t aId) {
+  if (!IsOwningThread()) {
+    DS_LOG_DEBUG("recv %u", aId);
+    RefPtr<DeviceStorageRequestManager> self = this;
+    nsCOMPtr<nsIRunnable> r = NS_NewRunnableFunction(
+        "DeviceStorageRequestManager::EnumeratePrepared(uint64_t)",
+        [self, aId]() -> void { self->EnumeratePrepared(aId); });
+    return DispatchOrAbandon(aId, r.forget());
+  }
+
+  DS_LOG_INFO("posted %u", aId);
+
+  if (NS_WARN_IF(aId == INVALID_ID)) {
+    DS_LOG_ERROR("invalid");
+    MOZ_ASSERT_UNREACHABLE("cannot complete enumerate request");
+    return NS_OK;
+  }
+
+  ListIndex i = Find(aId);
+  if (NS_WARN_IF(i == mPending.Length())) {
+    return NS_OK;
+  }
+
+  RefPtr<FileIterable> iterable = mPending[i].mIterable;
+  if (iterable) {
+    iterable->EnumeratePrepared();
+  }
+
+  return NS_OK;
+}
+
 void DeviceStorageRequestManager::Shutdown() {
   MOZ_ASSERT(IsOwningThread());
 
@@ -3758,7 +3712,7 @@ void DeviceStorageRequestManager::Shutdown() {
   DS_LOG_INFO("pending %zu", i);
   while (i > 0) {
     --i;
-    DS_LOG_INFO("terminate %u (%u)", mPending[i].mId, mPending[i].mCursor);
+    DS_LOG_INFO("terminate %u (%u)", mPending[i].mId, mPending[i].mIsIterable);
   }
   mPending.Clear();
 }
