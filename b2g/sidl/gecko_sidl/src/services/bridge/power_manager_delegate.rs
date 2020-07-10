@@ -51,6 +51,7 @@ impl SessionObject for PowerManagerDelegate {
             };
             let _ = TaskRunnable::new("PowerManagerDelegate", Box::new(task))
                 .and_then(|r| TaskRunnable::dispatch(r, self.xpcom.owning_thread()));
+
             // Unconditionally Return a success response for now.
             let payload = GeckoBridgeFromClient::PowerManagerDelegateSetScreenEnabledSuccess;
 

@@ -61,6 +61,10 @@ this.GeckoBridge = {
         "@mozilla.org/sidl-native/powermanager;1"
       ].getService(Ci.nsIPowerManagerDelegate);
 
+      this._cardInfoManagerDelegate = Cc[
+        "@mozilla.org/sidl-native/cardinfomanager;1"
+      ].getService(Ci.nsICardInfoManagerDelegate);
+
       this.setup();
     } catch (e) {
       log(`Failed to create GeckoBridge component: ${e}`);
@@ -76,10 +80,37 @@ this.GeckoBridge = {
     });
 
     this.setPowerManagerDelegate();
+    this.setCardInfoManagerDelegate();
   },
 
   observe(subject, topic, data) {
     this.setPref(data);
+  },
+
+  generateLoggingCallback(delegate) {
+    return {
+      resolve() {
+        log(`Success setting ${delegate}`);
+      },
+      reject() {
+        log(`Failure setting ${delegate}`);
+      },
+    }
+  },
+
+  setCardInfoManagerDelegate() {
+    if (!this._bridge || !this._cardInfoManagerDelegate) {
+      log(`Invalid cardinfomanager delegate`);
+      return;
+    }
+
+    if (this._bridge) {
+      log(`Setting CardInfoManagerDelegate`);
+      this._bridge.setCardInfoManagerDelegate(
+        this._cardInfoManagerDelegate,
+        this.generateLoggingCallback("CardInfoManagerDelegate")
+      );
+    }
   },
 
   setPowerManagerDelegate() {
@@ -88,20 +119,11 @@ this.GeckoBridge = {
       return;
     }
 
-    const callback = {
-      resolve() {
-        log(`Set powermanager delegate successfully`);
-      },
-      reject() {
-        log(`Failed to set powermanager delegate`);
-      },
-    };
-
     if (this._bridge) {
       log(`Setting PowerManagerDelegate`);
       this._bridge.setPowerManagerDelegate(
         this._powerManagerDelegate,
-        callback
+        this.generateLoggingCallback("PowerManagerDelegate")
       );
     }
   },

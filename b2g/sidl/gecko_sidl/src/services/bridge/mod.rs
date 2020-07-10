@@ -5,3 +5,4 @@
 pub mod messages;
 pub mod service;
 pub mod power_manager_delegate;
+pub mod card_info_manager_delegate;

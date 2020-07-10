@@ -22,27 +22,41 @@ impl From<ObjectRef> for TrackerId {
 }
 
 pub static SERVICE_FINGERPRINT: &str =
-    "3dbad0dfaf9a25ece80ed85289a4e971115113fe3ba8d5c7abb29d9988bc5cf";
+    "637dd1395aef8431d42f926c616c8b86bec61272f16126bda7430a0c9f6650";
+
+#[derive(Clone, PartialEq, Deserialize, Serialize, Debug)]
+pub enum CardInfoType {
+    Imsi, // #0
+    Imei, // #1
+    Msisdn, // #2
+}
+impl Copy for CardInfoType {}
 
 #[derive(Debug, Deserialize, Serialize)]
 pub enum GeckoBridgeFromClient {
-    GeckoFeaturesBoolPrefChanged(String, bool),      // 0
-    GeckoFeaturesCharPrefChanged(String, String),    // 1
-    GeckoFeaturesIntPrefChanged(String, i64),        // 2
-    GeckoFeaturesSetPowerManagerDelegate(ObjectRef), // 3
-    PowerManagerDelegateSetScreenEnabledSuccess,     // 4
-    PowerManagerDelegateSetScreenEnabledError,       // 5
+    GeckoFeaturesBoolPrefChanged(String,bool,), // 0
+    GeckoFeaturesCharPrefChanged(String,String,), // 1
+    GeckoFeaturesIntPrefChanged(String,i64,), // 2
+    GeckoFeaturesSetCardInfoManagerDelegate(ObjectRef,), // 3
+    GeckoFeaturesSetPowerManagerDelegate(ObjectRef,), // 4
+    CardInfoManagerDelegateGetCardInfoSuccess(String), // 5
+    CardInfoManagerDelegateGetCardInfoError, // 6
+    PowerManagerDelegateSetScreenEnabledSuccess, // 7
+    PowerManagerDelegateSetScreenEnabledError, // 8
 }
 
 #[derive(Debug, Deserialize)]
 pub enum GeckoBridgeToClient {
-    GeckoFeaturesBoolPrefChangedSuccess,         // 0
-    GeckoFeaturesBoolPrefChangedError,           // 1
-    GeckoFeaturesCharPrefChangedSuccess,         // 2
-    GeckoFeaturesCharPrefChangedError,           // 3
-    GeckoFeaturesIntPrefChangedSuccess,          // 4
-    GeckoFeaturesIntPrefChangedError,            // 5
-    GeckoFeaturesSetPowerManagerDelegateSuccess, // 6
-    GeckoFeaturesSetPowerManagerDelegateError,   // 7
-    PowerManagerDelegateSetScreenEnabled(bool),  // 8
+    GeckoFeaturesBoolPrefChangedSuccess, // 0
+    GeckoFeaturesBoolPrefChangedError, // 1
+    GeckoFeaturesCharPrefChangedSuccess, // 2
+    GeckoFeaturesCharPrefChangedError, // 3
+    GeckoFeaturesIntPrefChangedSuccess, // 4
+    GeckoFeaturesIntPrefChangedError, // 5
+    GeckoFeaturesSetCardInfoManagerDelegateSuccess, // 6
+    GeckoFeaturesSetCardInfoManagerDelegateError, // 7
+    GeckoFeaturesSetPowerManagerDelegateSuccess, // 8
+    GeckoFeaturesSetPowerManagerDelegateError, // 9
+    CardInfoManagerDelegateGetCardInfo(CardInfoType,i64,), // 10
+    PowerManagerDelegateSetScreenEnabled(bool,), // 11
 }

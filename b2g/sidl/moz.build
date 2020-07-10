@@ -11,6 +11,15 @@ SOURCES += [
     "SidlComponents.cpp"
 ]
 
+if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk' and CONFIG['MOZ_B2G_RIL']:
+    EXPORTS.sidl += [
+        "CardInfoManagerDelegate.h",
+    ]
+
+    SOURCES += [
+        "CardInfoManagerDelegate.cpp",
+    ]
+
 XPCOM_MANIFESTS += [
     'components.conf',
 ]
