@@ -1192,6 +1192,7 @@ security:
     notification_emails:
       - julianwels@mozilla.com
       - seceng-telemetry@mozilla.com
+    release_channel_collection: opt-out
     products:
       - 'firefox'
     record_in_processes:
@@ -4486,7 +4487,7 @@ script.preloader:
     description:
       How many times we ended up recompiling a script from the script preloader
       on the main thread.
-    expires: "81"
+    expires: "88"
     keyed: false
     kind: uint
     notification_emails:
@@ -4682,17 +4683,19 @@ blocklist:
     bug_numbers:
       - 1572711
       - 1607744
+      - 1649960
     description: >
       Keep track of the last time the "addons" remotesetting blocklist has been successfully
       updated (as a datetime string in UTC format), set to "Missing Date" when the timestamp
       couldn't be retrieved.
-    expires: "81"
+    expires: "88"
     kind: string
     release_channel_collection: opt-out
     notification_emails:
       - addons-dev-internal@mozilla.com
       - lgreco@mozilla.com
       - awagner@mozilla.com
+      - rwu@mozilla.com
     products:
       - 'firefox'
       - 'fennec'
@@ -4703,11 +4706,12 @@ blocklist:
   lastModified_rs_addons_mlbf:
     bug_numbers:
       - 1633466
+      - 1649960
     description: >
       Keep track of the last time the "addons-bloomfilters" remotesetting blocklist has been successfully
       updated (as a datetime string in UTC format), set to "Missing Date" when the timestamp
       couldn't be retrieved.
-    expires: "81"
+    expires: "88"
     kind: string
     release_channel_collection: opt-out
     notification_emails:
@@ -4724,17 +4728,19 @@ blocklist:
     bug_numbers:
       - 1572711
       - 1607744
+      - 1649960
     description: >
       Keep track of the last time the "plugins" remotesetting blocklist has been successfully
       updated (as a datetime string in UTC format), set to "Missing Date" when the timestamp
       couldn't be retrieved.
-    expires: "81"
+    expires: "88"
     kind: string
     release_channel_collection: opt-out
     notification_emails:
       - addons-dev-internal@mozilla.com
       - lgreco@mozilla.com
       - awagner@mozilla.com
+      - rwu@mozilla.com
     products:
       - 'firefox'
       - 'thunderbird'
@@ -4744,10 +4750,11 @@ blocklist:
   mlbf_enabled:
     bug_numbers:
       - 1633466
+      - 1649960
     description: >
       Keep track of whether the addons blocklist engine uses bloom filters (blocklist v3).
       If false, the blocklist v2 is used instead.
-    expires: "81"
+    expires: "88"
     kind: boolean
     release_channel_collection: opt-out
     notification_emails:
@@ -4763,12 +4770,13 @@ blocklist:
   mlbf_stashes:
     bug_numbers:
       - 1633466
+      - 1649960
     description: >
       Keep track of whether the bloomfilter-based blocklist engine uses stashes from the
       addons-bloomfilters collection, together with an infrequently updated base bloomfilter.
       If false, the latest (full) bloom filter is downloaded on every update of the addon blocklist.
       This metric is only meaningful if mlbf_enabled is true.
-    expires: "81"
+    expires: "88"
     kind: boolean
     release_channel_collection: opt-out
     notification_emails:
@@ -4784,12 +4792,13 @@ blocklist:
   mlbf_generation_time:
     bug_numbers:
       - 1633466
+      - 1649960
     description: >
       Keep track of the generation time of the addon blocklist's bloom filter. This marks the
       point in time until which signed add-ons are recognized by the selected bloom filter from the
       addons-bloomfilters collection.
       The value is a datetime string in UTC format, or  "Missing Date" when unavailable.
-    expires: "81"
+    expires: "88"
     kind: string
     release_channel_collection: opt-out
     notification_emails:
@@ -4805,11 +4814,12 @@ blocklist:
   mlbf_stash_time_oldest:
     bug_numbers:
       - 1633466
+      - 1649960
     description: >
       Keep track of the timestamp of the oldest stash of the addons blocklist.
       Only meaningful when mlbf_enabled and mlbf_stashes are true.
       The value is a datetime string in UTC format, or "Missing Date" when unavailable.
-    expires: "81"
+    expires: "88"
     kind: string
     release_channel_collection: opt-out
     notification_emails:
@@ -4825,11 +4835,12 @@ blocklist:
   mlbf_stash_time_newest:
     bug_numbers:
       - 1633466
+      - 1649960
     description: >
       Keep track of the timestamp of the most recent stash of the addons blocklist.
       Only meaningful when mlbf_enabled and mlbf_stashes are true.
       The value is a datetime string in UTC format, or "Missing Date" when unavailable.
-    expires: "81"
+    expires: "88"
     kind: string
     release_channel_collection: opt-out
     notification_emails:
@@ -4984,6 +4995,74 @@ migration:
     operating_systems:
       - windows
 
+fog.eval:
+  user_active:
+    bug_numbers:
+      - 1647876
+    description: >
+      Whether the user is presently actively interacting with Firefox.
+      For use in evaluating baseline engagement for Project FOG.
+    expires: '85'
+    kind: 'boolean'
+    notification_emails:
+      - 'chutten@mozilla.com'
+    release_channel_collection: 'opt-out'
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
+
+  window_raised:
+    bug_numbers:
+      - 1647876
+    description: >
+      Whether a Firefox window is presently raised.
+      For use in evaluating baseline engagement for Project FOG.
+    expires: '85'
+    kind: 'boolean'
+    notification_emails:
+      - 'chutten@mozilla.com'
+    release_channel_collection: 'opt-out'
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
+
+  user_active_error:
+    bug_numbers:
+      - 1647876
+    description: >
+      How many Telemetry stopwatch errors did we have while trying to measure user activity?
+      These could be attempts to start a started timer or finish an unstarted timer or so forth.
+      See Stopwatch::Start and Stopwatch::Finish for details.
+      For use in evaluating baseline engagement for Project FOG.
+    expires: '85'
+    kind: 'uint'
+    notification_emails:
+      - 'chutten@mozilla.com'
+    release_channel_collection: 'opt-out'
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
+
+  window_raised_error:
+    bug_numbers:
+      - 1647876
+    description: >
+      How many Telemetry stopwatch errors did we have while trying to measure window raising?
+      These could be attempts to start a started timer or finish an unstarted timer or so forth.
+      See Stopwatch::Start and Stopwatch::Finish for details.
+      For use in evaluating baseline engagement for Project FOG.
+    expires: '85'
+    kind: 'uint'
+    notification_emails:
+      - 'chutten@mozilla.com'
+    release_channel_collection: 'opt-out'
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
 
 # The following section is for probes testing the Telemetry system. They will not be
 # submitted in pings and are only used for testing.

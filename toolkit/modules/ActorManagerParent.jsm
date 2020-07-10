@@ -34,6 +34,15 @@ const { DefaultMap } = ExtensionUtils;
  * available at https://firefox-source-docs.mozilla.org/dom/Fission.html#jsprocessactor
  */
 let JSPROCESSACTORS = {
+  AsyncPrefs: {
+    parent: {
+      moduleURI: "resource://gre/modules/AsyncPrefs.jsm",
+    },
+    child: {
+      moduleURI: "resource://gre/modules/AsyncPrefs.jsm",
+    },
+  },
+
   ContentPrefs: {
     parent: {
       moduleURI: "resource://gre/modules/ContentPrefServiceParent.jsm",
@@ -364,14 +373,6 @@ let JSWINDOWACTORS = {
         "mozshowdropdown-sourcetouch": {},
         mozhidedropdown: { mozSystemGroup: true },
       },
-    },
-
-    allFrames: true,
-  },
-
-  SidebarSearch: {
-    parent: {
-      moduleURI: "resource://gre/actors/SidebarSearchParent.jsm",
     },
 
     allFrames: true,

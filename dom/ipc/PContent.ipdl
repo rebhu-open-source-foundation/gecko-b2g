@@ -450,7 +450,7 @@ struct JSWindowActorInfo
   // Observer notifications this actor listens to.
   nsCString[] observers;
   nsString[] matches;
-  nsString[] remoteTypes;
+  nsCString[] remoteTypes;
   nsString[] messageManagerGroups;
 };
 
@@ -463,7 +463,7 @@ struct JSProcessActorInfo
 
     // Observer notifications this actor listens to.
     nsCString[] observers;
-    nsString[] remoteTypes;
+    nsCString[] remoteTypes;
 };
 
 struct GMPAPITags
@@ -856,7 +856,7 @@ child:
     /**
      * Send the remote type associated with the content process.
      */
-    async RemoteType(nsString aRemoteType);
+    async RemoteType(nsCString aRemoteType);
 
     /**
      * Send ServiceWorkerRegistrationData to child process.
@@ -1399,8 +1399,8 @@ parent:
 
     sync KeywordToURI(nsCString keyword, bool isPrivateContext)
         returns (nsString providerName, nsIInputStream postData, nsIURI uri);
-    sync GetFixupURIInfo(nsCString uriString, uint32_t fixupflags)
-        returns (nsString providerName, nsIInputStream postData, nsIURI fixedURI, nsIURI preferredURI);
+    sync GetFixupURIInfo(nsString uriString, uint32_t fixupflags, bool aAllowThirdPartyFixup)
+        returns (nsString providerName, nsIInputStream postData, nsIURI preferredURI);
 
     sync NotifyKeywordSearchLoading(nsString providerName, nsString keyword);
 

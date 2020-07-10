@@ -24,6 +24,8 @@
 #include "js/Vector.h"
 #include "js/WasmModule.h"
 #include "vm/JSContext.h"
+#include "vm/JSFunction.h"  // JSFunction
+#include "vm/JSScript.h"    // SourceExtent
 #include "vm/Realm.h"
 
 namespace js {
@@ -70,10 +72,77 @@ struct ScopeContext {
   void computeInClass(Scope* scope);
 };
 
+struct CompilationInfo;
+
+class ScriptStencilIterable {
+ public:
+  class ScriptAndFunction {
+   public:
+    ScriptStencil& stencil;
+    HandleFunction function;
+    FunctionIndex functionIndex;
+
+    ScriptAndFunction() = delete;
+    ScriptAndFunction(ScriptStencil& stencil, HandleFunction function,
+                      FunctionIndex functionIndex)
+        : stencil(stencil), function(function), functionIndex(functionIndex) {}
+  };
+
+  class Iterator {
+    enum class State {
+      TopLevel,
+      Functions,
+    };
+    State state_ = State::TopLevel;
+    size_t index_ = 0;
+    CompilationInfo* compilationInfo_;
+
+    Iterator(CompilationInfo* compilationInfo, State state, size_t index)
+        : state_(state), index_(index), compilationInfo_(compilationInfo) {
+      skipNonFunctions();
+    }
+
+   public:
+    explicit Iterator(CompilationInfo* compilationInfo)
+        : compilationInfo_(compilationInfo) {
+      skipNonFunctions();
+    }
+
+    Iterator operator++() {
+      next();
+      skipNonFunctions();
+      return *this;
+    }
+
+    inline void next();
+
+    inline void skipNonFunctions();
+
+    bool operator!=(const Iterator& other) const {
+      return state_ != other.state_ || index_ != other.index_;
+    }
+
+    inline ScriptAndFunction operator*();
+
+    static inline Iterator end(CompilationInfo* compilationInfo);
+  };
+
+  CompilationInfo* compilationInfo_;
+
+  explicit ScriptStencilIterable(CompilationInfo* compilationInfo)
+      : compilationInfo_(compilationInfo) {}
+
+  Iterator begin() const { return Iterator(compilationInfo_); }
+
+  Iterator end() const { return Iterator::end(compilationInfo_); }
+};
+
 // CompilationInfo owns a number of pieces of information about script
 // compilation as well as controls the lifetime of parse nodes and other data by
 // controling the mark and reset of the LifoAlloc.
 struct MOZ_RAII CompilationInfo : public JS::CustomAutoRooter {
+  static constexpr FunctionIndex TopLevelFunctionIndex = FunctionIndex(0);
+
   JSContext* cx;
   const JS::ReadOnlyCompileOptions& options;
 
@@ -110,11 +179,13 @@ struct MOZ_RAII CompilationInfo : public JS::CustomAutoRooter {
   JS::RootedVector<JSFunction*> functions;
   JS::RootedVector<ScriptStencil> funcData;
 
+  // The enclosing scope of the function if we're compiling standalone function.
+  // Null otherwise.
+  JS::Rooted<Scope*> topLevelFunctionEnclosingScope;
+
   // Stencil for top-level script. This includes standalone functions and
   // functions being delazified.
   JS::Rooted<ScriptStencil> topLevel;
-  SourceExtent topLevelExtent = {};
-  bool topLevelAsmJS = false;
 
   // A rooted list of scopes created during this parse.
   //
@@ -137,6 +208,7 @@ struct MOZ_RAII CompilationInfo : public JS::CustomAutoRooter {
   // encounter discarded frontend state.
   struct RewindToken {
     FunctionBox* funbox = nullptr;
+    size_t funcDataLength = 0;
   };
 
   RewindToken getRewindToken();
@@ -162,6 +234,7 @@ struct MOZ_RAII CompilationInfo : public JS::CustomAutoRooter {
         bigIntData(cx),
         functions(cx),
         funcData(cx),
+        topLevelFunctionEnclosingScope(cx),
         topLevel(cx),
         scopeCreationData(cx),
         asmJS(cx),
@@ -169,9 +242,22 @@ struct MOZ_RAII CompilationInfo : public JS::CustomAutoRooter {
 
   bool init(JSContext* cx);
 
+  bool initForStandaloneFunction(JSContext* cx, HandleScope enclosingScope) {
+    if (!init(cx)) {
+      return false;
+    }
+    this->topLevelFunctionEnclosingScope = enclosingScope;
+    return true;
+  }
+
   void initFromLazy(BaseScript* lazy) {
     this->lazy = lazy;
     this->sourceObject = lazy->sourceObject();
+    this->topLevelFunctionEnclosingScope = lazy->function()->enclosingScope();
+  }
+
+  void setTopLevelFunctionEnclosingScope(Scope* scope) {
+    topLevelFunctionEnclosingScope = scope;
   }
 
   template <typename Unit>
@@ -189,7 +275,60 @@ struct MOZ_RAII CompilationInfo : public JS::CustomAutoRooter {
   CompilationInfo(CompilationInfo&&) = delete;
   CompilationInfo& operator=(const CompilationInfo&) = delete;
   CompilationInfo& operator=(CompilationInfo&&) = delete;
+
+  ScriptStencilIterable functionScriptStencils() {
+    return ScriptStencilIterable(this);
+  }
 };
+
+inline void ScriptStencilIterable::Iterator::next() {
+  if (state_ == State::TopLevel) {
+    state_ = State::Functions;
+  } else {
+    MOZ_ASSERT(index_ < compilationInfo_->funcData.length());
+    index_++;
+  }
+}
+
+inline void ScriptStencilIterable::Iterator::skipNonFunctions() {
+  if (state_ == State::TopLevel) {
+    if (compilationInfo_->topLevel.get().isFunction()) {
+      return;
+    }
+
+    next();
+  }
+
+  size_t length = compilationInfo_->funcData.length();
+  while (index_ < length) {
+    // NOTE: If topLevel is a function, funcData can contain unused item,
+    //       and the item isn't marked as a function.
+    if (compilationInfo_->funcData[index_].get().isFunction()) {
+      return;
+    }
+
+    index_++;
+  }
+}
+
+inline ScriptStencilIterable::ScriptAndFunction
+ScriptStencilIterable::Iterator::operator*() {
+  ScriptStencil& stencil = state_ == State::TopLevel
+                               ? compilationInfo_->topLevel.get()
+                               : compilationInfo_->funcData[index_].get();
+
+  FunctionIndex functionIndex = FunctionIndex(
+      state_ == State::TopLevel ? CompilationInfo::TopLevelFunctionIndex
+                                : index_);
+  return ScriptAndFunction(stencil, compilationInfo_->functions[functionIndex],
+                           functionIndex);
+}
+
+/* static */ inline ScriptStencilIterable::Iterator
+ScriptStencilIterable::Iterator::end(CompilationInfo* compilationInfo) {
+  return Iterator(compilationInfo, State::Functions,
+                  compilationInfo->funcData.length());
+}
 
 }  // namespace frontend
 }  // namespace js

@@ -97,8 +97,7 @@ SystemMessageService::SendMessage(const nsAString& aMessageName,
     nsTArray<ContentParent*> contentActors;
     ContentParent::GetAll(contentActors);
     for (uint32_t i = 0; i < contentActors.Length(); ++i) {
-      if (!contentActors[i]->GetRemoteType().EqualsLiteral(
-              DEFAULT_REMOTE_TYPE)) {
+      if (contentActors[i]->GetRemoteType() != DEFAULT_REMOTE_TYPE) {
         continue;
       }
       // TODO: PushNotifier transmit the permission to content scope here, not

@@ -23,8 +23,8 @@
 #include "nsDeviceContext.h"
 #include "nsIFrame.h"
 #include "nsStyleStructInlines.h"
-#include "nsSVGDisplayableFrame.h"
-#include "SVGObserverUtils.h"
+#include "mozilla/ISVGDisplayableFrame.h"
+#include "mozilla/SVGObserverUtils.h"
 #include "nsSVGIntegrationUtils.h"
 
 using namespace mozilla;
@@ -134,6 +134,11 @@ bool nsImageRenderer::PrepareImage() {
                "If GetImage() is failing, mImage->IsComplete() "
                "should have returned false");
 
+    if (srcImage) {
+      srcImage = nsLayoutUtils::OrientImage(
+          srcImage, mForFrame->StyleVisibility()->mImageOrientation);
+    }
+
     if (!mImage->IsRect()) {
       mImageContainer.swap(srcImage);
     } else {
@@ -172,7 +177,7 @@ bool nsImageRenderer::PrepareImage() {
       if (!paintServerFrame ||
           (paintServerFrame->IsFrameOfType(nsIFrame::eSVG) &&
            !paintServerFrame->IsFrameOfType(nsIFrame::eSVGPaintServer) &&
-           !static_cast<nsSVGDisplayableFrame*>(
+           !static_cast<ISVGDisplayableFrame*>(
                do_QueryFrame(paintServerFrame)))) {
         mPrepareResult = ImgDrawResult::BAD_IMAGE;
         return false;

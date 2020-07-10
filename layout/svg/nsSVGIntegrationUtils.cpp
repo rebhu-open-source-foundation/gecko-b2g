@@ -193,7 +193,7 @@ bool nsSVGIntegrationUtils::UsingSimpleClipPathForFrame(
 nsPoint nsSVGIntegrationUtils::GetOffsetToBoundingBox(nsIFrame* aFrame) {
   if (aFrame->HasAnyStateBits(NS_FRAME_SVG_LAYOUT)) {
     // Do NOT call GetAllInFlowRectsUnion for SVG - it will get the
-    // covered region relative to the nsSVGOuterSVGFrame, which is absolutely
+    // covered region relative to the SVGOuterSVGFrame, which is absolutely
     // not what we want. SVG frames are always in user space, so they have
     // no offset adjustment to make.
     return nsPoint();
@@ -227,7 +227,7 @@ nsSize nsSVGIntegrationUtils::GetContinuationUnionSize(nsIFrame* aNonSVGFrame) {
 
 gfxRect nsSVGIntegrationUtils::GetSVGBBoxForNonSVGFrame(
     nsIFrame* aNonSVGFrame, bool aUnionContinuations) {
-  // Except for nsSVGOuterSVGFrame, we shouldn't be getting here with SVG
+  // Except for SVGOuterSVGFrame, we shouldn't be getting here with SVG
   // frames at all. This function is for elements that are laid out using the
   // CSS box model rules.
   NS_ASSERTION(!aNonSVGFrame->HasAnyStateBits(NS_FRAME_SVG_LAYOUT),
@@ -625,7 +625,7 @@ static bool ValidateSVGFrame(nsIFrame* aFrame) {
   bool hasSVGLayout = aFrame->HasAnyStateBits(NS_FRAME_SVG_LAYOUT);
   if (hasSVGLayout) {
 #ifdef DEBUG
-    nsSVGDisplayableFrame* svgFrame = do_QueryFrame(aFrame);
+    ISVGDisplayableFrame* svgFrame = do_QueryFrame(aFrame);
     MOZ_ASSERT(svgFrame && aFrame->GetContent()->IsSVGElement(),
                "A non-SVG frame carries NS_FRAME_SVG_LAYOUT flag?");
 #endif
@@ -1366,7 +1366,7 @@ already_AddRefed<gfxDrawable> nsSVGIntegrationUtils::DrawableFromPaintServer(
   }
 
   if (aFrame->IsFrameOfType(nsIFrame::eSVG) &&
-      !static_cast<nsSVGDisplayableFrame*>(do_QueryFrame(aFrame))) {
+      !static_cast<ISVGDisplayableFrame*>(do_QueryFrame(aFrame))) {
     MOZ_ASSERT_UNREACHABLE(
         "We should prevent painting of unpaintable SVG "
         "before we get here");

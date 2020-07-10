@@ -7,6 +7,7 @@
 #ifndef frontend_AbstractScopePtr_h
 #define frontend_AbstractScopePtr_h
 
+#include "mozilla/Maybe.h"
 #include "mozilla/Variant.h"
 
 #include "frontend/TypedIndex.h"
@@ -25,7 +26,6 @@ class GCMarker;
 
 namespace frontend {
 struct CompilationInfo;
-class FunctionBox;
 class ScopeCreationData;
 }  // namespace frontend
 
@@ -65,7 +65,6 @@ class AbstractScopePtr {
 
  public:
   friend class js::Scope;
-  friend class js::frontend::FunctionBox;
 
   AbstractScopePtr() = default;
 
@@ -91,6 +90,7 @@ class AbstractScopePtr {
 
   // Note: this handle is rooted in the CompilationInfo.
   MutableHandle<frontend::ScopeCreationData> scopeCreationData() const;
+  frontend::CompilationInfo& compilationInfo() const;
 
   Scope* scope() const { return scope_.as<HeapPtrScope>(); }
 

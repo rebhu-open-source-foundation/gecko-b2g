@@ -42,6 +42,7 @@ IMAP
 IPC Launch
 IPDL Background
 IdentityCrypto
+ImageBridgeChld
 LS Thread
 LayerScope
 MDCDMThread
@@ -66,7 +67,6 @@ ProxyResolution
 RemoteLzyStream
 RWLockTester
 RacingServMan
-RemVidChild
 Sandbox Testing
 SaveScripts
 Socket Thread

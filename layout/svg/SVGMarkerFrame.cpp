@@ -45,8 +45,8 @@ nsresult SVGMarkerFrame::AttributeChanged(int32_t aNameSpaceID,
     SVGObserverUtils::InvalidateDirectRenderingObservers(this);
   }
 
-  return nsSVGContainerFrame::AttributeChanged(aNameSpaceID, aAttribute,
-                                               aModType);
+  return SVGContainerFrame::AttributeChanged(aNameSpaceID, aAttribute,
+                                             aModType);
 }
 
 #ifdef DEBUG
@@ -55,12 +55,12 @@ void SVGMarkerFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
   NS_ASSERTION(aContent->IsSVGElement(nsGkAtoms::marker),
                "Content is not an SVG marker");
 
-  nsSVGContainerFrame::Init(aContent, aParent, aPrevInFlow);
+  SVGContainerFrame::Init(aContent, aParent, aPrevInFlow);
 }
 #endif /* DEBUG */
 
 //----------------------------------------------------------------------
-// nsSVGContainerFrame methods:
+// SVGContainerFrame methods:
 
 gfxMatrix SVGMarkerFrame::GetCanvasTM() {
   NS_ASSERTION(mMarkedFrame, "null SVGGeometry frame");
@@ -129,9 +129,9 @@ void SVGMarkerFrame::PaintMark(gfxContext& aContext,
   }
 
   nsIFrame* kid = GetAnonymousChildFrame(this);
-  nsSVGDisplayableFrame* SVGFrame = do_QueryFrame(kid);
+  ISVGDisplayableFrame* SVGFrame = do_QueryFrame(kid);
   // The CTM of each frame referencing us may be different.
-  SVGFrame->NotifySVGChanged(nsSVGDisplayableFrame::TRANSFORM_CHANGED);
+  SVGFrame->NotifySVGChanged(ISVGDisplayableFrame::TRANSFORM_CHANGED);
   nsSVGUtils::PaintFrameWithEffects(kid, aContext, markTM, aImgParams);
 
   if (StyleDisplay()->IsScrollableOverflow()) aContext.Restore();
@@ -169,7 +169,7 @@ SVGBBox SVGMarkerFrame::GetMarkBBoxContribution(const Matrix& aToBBoxUserspace,
 
   Matrix tm = viewBoxTM * mMarkerTM * aToBBoxUserspace;
 
-  nsSVGDisplayableFrame* child = do_QueryFrame(GetAnonymousChildFrame(this));
+  ISVGDisplayableFrame* child = do_QueryFrame(GetAnonymousChildFrame(this));
   // When we're being called to obtain the invalidation area, we need to
   // pass down all the flags so that stroke is included. However, once DOM
   // getBBox() accepts flags, maybe we should strip some of those here?
@@ -234,7 +234,7 @@ void SVGMarkerAnonChildFrame::Init(nsIContent* aContent,
                                    nsContainerFrame* aParent,
                                    nsIFrame* aPrevInFlow) {
   MOZ_ASSERT(aParent->IsSVGMarkerFrame(), "Unexpected parent");
-  nsSVGDisplayContainerFrame::Init(aContent, aParent, aPrevInFlow);
+  SVGDisplayContainerFrame::Init(aContent, aParent, aPrevInFlow);
 }
 #endif
 

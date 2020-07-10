@@ -244,18 +244,23 @@ inline void GeneralParser<ParseHandler, Unit>::setInParametersOfAsyncFunction(
 }
 
 template <class ParseHandler>
-FunctionBox* PerHandlerParser<ParseHandler>::newFunctionBox(
-    FunctionNodeType funNode, JSFunction* fun, uint32_t toStringStart,
-    Directives inheritedDirectives, GeneratorKind generatorKind,
-    FunctionAsyncKind asyncKind) {
+FunctionBox* PerHandlerParser<ParseHandler>::newFunctionBoxImpl(
+    FunctionNodeType funNode, JSFunction* fun, JSAtom* explicitName,
+    FunctionFlags flags, uint32_t toStringStart, Directives inheritedDirectives,
+    GeneratorKind generatorKind, FunctionAsyncKind asyncKind,
+    TopLevelFunction isTopLevel) {
   MOZ_ASSERT(funNode);
-  MOZ_ASSERT(fun);
 
-  size_t index = this->getCompilationInfo().funcData.length();
-  if (!this->getCompilationInfo().functions.emplaceBack(fun)) {
+  FunctionIndex index = FunctionIndex(compilationInfo_.funcData.length());
+  MOZ_ASSERT_IF(isTopLevel == TopLevelFunction::Yes,
+                index == CompilationInfo::TopLevelFunctionIndex);
+
+  if (!compilationInfo_.functions.emplaceBack(fun)) {
     return nullptr;
   }
-  if (!this->getCompilationInfo().funcData.emplaceBack(cx_)) {
+  // Allocate `funcData` item even if isTopLevel == Yes, to use same index
+  // with `compilationInfo_.functions` and `compilationInfo_.asmJS`.
+  if (!compilationInfo_.funcData.emplaceBack(cx_)) {
     return nullptr;
   }
 
@@ -271,9 +276,9 @@ FunctionBox* PerHandlerParser<ParseHandler>::newFunctionBox(
    * function.
    */
   FunctionBox* funbox = alloc_.new_<FunctionBox>(
-      cx_, compilationInfo_.traceListHead, extent, this->getCompilationInfo(),
-      inheritedDirectives, generatorKind, asyncKind, fun->displayAtom(),
-      fun->flags(), index);
+      cx_, compilationInfo_.traceListHead, extent, compilationInfo_,
+      inheritedDirectives, generatorKind, asyncKind, explicitName, flags, index,
+      isTopLevel);
   if (!funbox) {
     ReportOutOfMemory(cx_);
     return nullptr;
@@ -287,46 +292,24 @@ FunctionBox* PerHandlerParser<ParseHandler>::newFunctionBox(
 
 template <class ParseHandler>
 FunctionBox* PerHandlerParser<ParseHandler>::newFunctionBox(
+    FunctionNodeType funNode, JSFunction* fun, uint32_t toStringStart,
+    Directives inheritedDirectives, GeneratorKind generatorKind,
+    FunctionAsyncKind asyncKind, TopLevelFunction isTopLevel) {
+  MOZ_ASSERT(fun);
+  return newFunctionBoxImpl(funNode, fun, fun->displayAtom(), fun->flags(),
+                            toStringStart, inheritedDirectives, generatorKind,
+                            asyncKind, isTopLevel);
+}
+
+template <class ParseHandler>
+FunctionBox* PerHandlerParser<ParseHandler>::newFunctionBox(
     FunctionNodeType funNode, HandleAtom explicitName, FunctionFlags flags,
     uint32_t toStringStart, Directives inheritedDirectives,
-    GeneratorKind generatorKind, FunctionAsyncKind asyncKind) {
-  MOZ_ASSERT(funNode);
-
-  CompilationInfo& compilationInfo = this->getCompilationInfo();
-
-  size_t index = compilationInfo.funcData.length();
-  if (!compilationInfo.functions.emplaceBack(nullptr)) {
-    return nullptr;
-  }
-  if (!compilationInfo.funcData.emplaceBack(cx_)) {
-    return nullptr;
-  }
-
-  // This source extent will be further filled in during the remainder of parse.
-  SourceExtent extent;
-  extent.toStringStart = toStringStart;
-
-  /*
-   * We use JSContext.tempLifoAlloc to allocate parsed objects and place them
-   * on a list in this Parser to ensure GC safety. Thus the tempLifoAlloc
-   * arenas containing the entries must be alive until we are done with
-   * scanning, parsing and code generation for the whole script or top-level
-   * function.
-   */
-  FunctionBox* funbox = alloc_.new_<FunctionBox>(
-      cx_, compilationInfo.traceListHead, extent, compilationInfo,
-      inheritedDirectives, generatorKind, asyncKind, explicitName, flags,
-      index);
-
-  if (!funbox) {
-    ReportOutOfMemory(cx_);
-    return nullptr;
-  }
-
-  compilationInfo.traceListHead = funbox;
-  handler_.setFunctionBox(funNode, funbox);
-
-  return funbox;
+    GeneratorKind generatorKind, FunctionAsyncKind asyncKind,
+    TopLevelFunction isTopLevel) {
+  return newFunctionBoxImpl(funNode, nullptr, explicitName, flags,
+                            toStringStart, inheritedDirectives, generatorKind,
+                            asyncKind, isTopLevel);
 }
 
 void CompilationInfo::trace(JSTracer* trc) {
@@ -1803,6 +1786,7 @@ bool PerHandlerParser<FullParseHandler>::finishFunction(
   }
 
   FunctionBox* funbox = pc_->functionBox();
+  ScriptStencil& stencil = funbox->functionStencil().get();
 
   if (funbox->isInterpreted()) {
     // BCE will need to generate bytecode for this.
@@ -1841,6 +1825,9 @@ bool PerHandlerParser<FullParseHandler>::finishFunction(
     funbox->namedLambdaBindings().set(*bindings);
   }
 
+  funbox->finishScriptFlags();
+  funbox->copyFunctionFields(stencil);
+
   return true;
 }
 
@@ -1859,13 +1846,9 @@ bool PerHandlerParser<SyntaxParseHandler>::finishFunction(
   FunctionBox* funbox = pc_->functionBox();
   ScriptStencil& stencil = funbox->functionStencil().get();
 
-  // Compute the flags for the BaseScript.
-  using ImmutableFlags = ImmutableScriptFlagsEnum;
-  stencil.immutableFlags = funbox->immutableFlags();
-  stencil.immutableFlags.setFlag(ImmutableFlags::HasMappedArgsObj,
-                                 funbox->hasMappedArgsObj());
-  stencil.immutableFlags.setFlag(ImmutableFlags::IsLikelyConstructorWrapper,
-                                 funbox->isLikelyConstructorWrapper());
+  funbox->finishScriptFlags();
+  funbox->copyFunctionFields(stencil);
+  funbox->copyScriptFields(stencil);
 
   // Elide nullptr sentinels from end of binding list. These are inserted for
   // each scope regardless of if any bindings are actually closed over.
@@ -1914,16 +1897,13 @@ bool PerHandlerParser<SyntaxParseHandler>::finishFunction(
 }
 
 static bool CreateLazyScript(JSContext* cx, CompilationInfo& compilationInfo,
-                             FunctionBox* funbox) {
-  RootedFunction function(cx, funbox->function());
-
-  ScriptStencil& stencil = funbox->functionStencil().get();
+                             ScriptStencil& stencil, HandleFunction function) {
   const ScriptThingsVector& gcthings = stencil.gcThings;
 
   Rooted<BaseScript*> lazy(
       cx, BaseScript::CreateRawLazy(cx, gcthings.length(), function,
                                     compilationInfo.sourceObject,
-                                    funbox->extent, stencil.immutableFlags));
+                                    stencil.extent, stencil.immutableFlags));
   if (!lazy) {
     return false;
   }
@@ -1938,20 +1918,73 @@ static bool CreateLazyScript(JSContext* cx, CompilationInfo& compilationInfo,
   return true;
 }
 
+static JSFunction* CreateFunction(JSContext* cx,
+                                  CompilationInfo& compilationInfo,
+                                  ScriptStencil& stencil,
+                                  FunctionIndex functionIndex) {
+  GeneratorKind generatorKind =
+      stencil.immutableFlags.hasFlag(ImmutableScriptFlagsEnum::IsGenerator)
+          ? GeneratorKind::Generator
+          : GeneratorKind::NotGenerator;
+  FunctionAsyncKind asyncKind =
+      stencil.immutableFlags.hasFlag(ImmutableScriptFlagsEnum::IsAsync)
+          ? FunctionAsyncKind::AsyncFunction
+          : FunctionAsyncKind::SyncFunction;
+
+  // Determine the new function's proto. This must be done for singleton
+  // functions.
+  RootedObject proto(cx);
+  if (!GetFunctionPrototype(cx, generatorKind, asyncKind, &proto)) {
+    return nullptr;
+  }
+
+  gc::AllocKind allocKind = stencil.functionFlags.isExtended()
+                                ? gc::AllocKind::FUNCTION_EXTENDED
+                                : gc::AllocKind::FUNCTION;
+
+  JSNative maybeNative = stencil.isAsmJSModule ? InstantiateAsmJS : nullptr;
+
+  RootedAtom displayAtom(cx, stencil.functionAtom);
+  RootedFunction fun(
+      cx, NewFunctionWithProto(cx, maybeNative, stencil.nargs,
+                               stencil.functionFlags, nullptr, displayAtom,
+                               proto, allocKind, TenuredObject));
+  if (!fun) {
+    return nullptr;
+  }
+
+  if (stencil.isAsmJSModule) {
+    RefPtr<const JS::WasmModule> asmJS =
+        compilationInfo.asmJS.lookup(functionIndex)->value();
+
+    JSObject* moduleObj = asmJS->createObjectForAsmJS(cx);
+    if (!moduleObj) {
+      return nullptr;
+    }
+
+    fun->setExtendedSlot(FunctionExtended::ASMJS_MODULE_SLOT,
+                         ObjectValue(*moduleObj));
+  }
+
+  return fun;
+}
+
 // Instantiate JSFunctions for each FunctionBox.
 static bool InstantiateFunctions(JSContext* cx,
-                                 CompilationInfo& compilationInfo,
-                                 FunctionBox* listHead) {
-  for (FunctionBox* funbox = listHead; funbox; funbox = funbox->traceLink()) {
-    if (funbox->hasFunction()) {
+                                 CompilationInfo& compilationInfo) {
+  for (auto item : compilationInfo.functionScriptStencils()) {
+    auto& stencil = item.stencil;
+    auto functionIndex = item.functionIndex;
+    if (item.function) {
       continue;
     }
 
-    RootedFunction fun(cx, funbox->createFunction(cx));
+    RootedFunction fun(
+        cx, CreateFunction(cx, compilationInfo, stencil, functionIndex));
     if (!fun) {
       return false;
     }
-    funbox->initializeFunction(fun);
+    compilationInfo.functions[functionIndex].set(fun);
   }
 
   return true;
@@ -1961,20 +1994,23 @@ static bool InstantiateFunctions(JSContext* cx,
 // enclosing script is compiled, we have more precise heuristic information and
 // now compute their final group. These functions have not been exposed to
 // script before this point.
-static bool SetTypeForExposedFunctions(JSContext* cx, FunctionBox* listHead) {
-  for (FunctionBox* funbox = listHead; funbox; funbox = funbox->traceLink()) {
-    if (!funbox->isInterpreted()) {
+static bool SetTypeForExposedFunctions(JSContext* cx,
+                                       CompilationInfo& compilationInfo) {
+  for (auto item : compilationInfo.functionScriptStencils()) {
+    auto& stencil = item.stencil;
+    auto& fun = item.function;
+    if (!stencil.functionFlags.hasBaseScript()) {
       continue;
     }
 
     // If the function was not referenced by enclosing script's bytecode, we do
     // not generate a BaseScript for it. For example, `(function(){});`.
-    if (!funbox->wasEmitted && !funbox->isStandalone) {
+    if (!stencil.wasFunctionEmitted && !stencil.isStandaloneFunction) {
       continue;
     }
 
-    RootedFunction fun(cx, funbox->function());
-    if (!JSFunction::setTypeForScriptedFunction(cx, fun, funbox->isSingleton)) {
+    if (!JSFunction::setTypeForScriptedFunction(cx, fun,
+                                                stencil.isSingletonFunction)) {
       return false;
     }
   }
@@ -1986,30 +2022,29 @@ static bool SetTypeForExposedFunctions(JSContext* cx, FunctionBox* listHead) {
 // compilation. Note that standalone functions and functions being delazified
 // are handled below with other top-levels.
 static bool InstantiateScriptStencils(JSContext* cx,
-                                      CompilationInfo& compilationInfo,
-                                      FunctionBox* listHead) {
-  for (FunctionBox* funbox = listHead; funbox; funbox = funbox->traceLink()) {
-    if (funbox->emitBytecode) {
+                                      CompilationInfo& compilationInfo) {
+  for (auto item : compilationInfo.functionScriptStencils()) {
+    auto& stencil = item.stencil;
+    auto& fun = item.function;
+    if (stencil.immutableScriptData) {
       // If the function was not referenced by enclosing script's bytecode, we
       // do not generate a BaseScript for it. For example, `(function(){});`.
-      if (!funbox->wasEmitted) {
+      if (!stencil.wasFunctionEmitted) {
         continue;
       }
 
-      RootedScript script(cx,
-                          JSScript::fromStencil(cx, compilationInfo,
-                                                funbox->functionStencil().get(),
-                                                funbox->extent));
+      RootedScript script(
+          cx, JSScript::fromStencil(cx, compilationInfo, stencil, fun));
       if (!script) {
         return false;
       }
-    } else if (funbox->isAsmJSModule()) {
-      MOZ_ASSERT(funbox->function()->isAsmJSNative());
-    } else if (funbox->function()->isIncomplete()) {
+    } else if (stencil.isAsmJSModule) {
+      MOZ_ASSERT(fun->isAsmJSNative());
+    } else if (fun->isIncomplete()) {
       // Lazy functions are generally only allocated in the initial parse.
       MOZ_ASSERT(compilationInfo.lazy == nullptr);
 
-      if (!CreateLazyScript(cx, compilationInfo, funbox)) {
+      if (!CreateLazyScript(cx, compilationInfo, stencil, fun)) {
         return false;
       }
     }
@@ -2023,9 +2058,13 @@ static bool InstantiateScriptStencils(JSContext* cx,
 static bool InstantiateTopLevel(JSContext* cx,
                                 CompilationInfo& compilationInfo) {
   ScriptStencil& stencil = compilationInfo.topLevel.get();
+  RootedFunction fun(cx);
+  if (stencil.isFunction()) {
+    fun = compilationInfo.functions[CompilationInfo::TopLevelFunctionIndex];
+  }
 
   // Top-level asm.js does not generate a JSScript.
-  if (compilationInfo.topLevelAsmJS) {
+  if (stencil.isAsmJSModule) {
     return true;
   }
 
@@ -2034,11 +2073,11 @@ static bool InstantiateTopLevel(JSContext* cx,
   if (compilationInfo.lazy) {
     compilationInfo.script = JSScript::CastFromLazy(compilationInfo.lazy);
     return JSScript::fullyInitFromStencil(cx, compilationInfo,
-                                          compilationInfo.script, stencil);
+                                          compilationInfo.script, stencil, fun);
   }
 
-  compilationInfo.script = JSScript::fromStencil(
-      cx, compilationInfo, stencil, compilationInfo.topLevelExtent);
+  compilationInfo.script =
+      JSScript::fromStencil(cx, compilationInfo, stencil, fun);
   return !!compilationInfo.script;
 }
 
@@ -2046,29 +2085,61 @@ static bool InstantiateTopLevel(JSContext* cx,
 // to update it with information determined by the BytecodeEmitter. This applies
 // to both initial and delazification parses. The functions being update may or
 // may not have bytecode at this point.
-static void UpdateEmittedInnerFunctions(FunctionBox* listHead) {
-  for (FunctionBox* funbox = listHead; funbox; funbox = funbox->traceLink()) {
-    if (!funbox->wasEmitted) {
+static void UpdateEmittedInnerFunctions(CompilationInfo& compilationInfo) {
+  for (auto item : compilationInfo.functionScriptStencils()) {
+    auto& stencil = item.stencil;
+    auto& fun = item.function;
+    if (!stencil.wasFunctionEmitted) {
       continue;
     }
 
-    funbox->finish();
+    if (stencil.isAsmJSModule || fun->baseScript()->hasBytecode()) {
+      // Non-lazy inner functions don't use the enclosingScope_ field.
+      MOZ_ASSERT(stencil.lazyFunctionEnclosingScopeIndex_.isNothing());
+    } else {
+      // Apply updates from FunctionEmitter::emitLazy().
+      BaseScript* script = fun->baseScript();
+
+      ScopeIndex index = *stencil.lazyFunctionEnclosingScopeIndex_;
+      Scope* scope = compilationInfo.scopeCreationData[index].get().getScope();
+      script->setEnclosingScope(scope);
+      script->initTreatAsRunOnce(stencil.immutableFlags.hasFlag(
+          ImmutableScriptFlagsEnum::TreatAsRunOnce));
+
+      if (stencil.fieldInitializers) {
+        script->setFieldInitializers(*stencil.fieldInitializers);
+      }
+    }
+
+    // Inferred and Guessed names are computed by BytecodeEmitter and so may
+    // need to be applied to existing JSFunctions during delazification.
+    if (fun->displayAtom() == nullptr) {
+      if (stencil.functionFlags.hasInferredName()) {
+        fun->setInferredName(stencil.functionAtom);
+      }
+
+      if (stencil.functionFlags.hasGuessedAtom()) {
+        fun->setGuessedAtom(stencil.functionAtom);
+      }
+    }
   }
 }
 
 // During initial parse we must link lazy-functions-inside-lazy-functions to
 // their enclosing script.
-static void LinkEnclosingLazyScript(FunctionBox* listHead) {
-  for (FunctionBox* funbox = listHead; funbox; funbox = funbox->traceLink()) {
-    if (!funbox->isInterpreted()) {
+static void LinkEnclosingLazyScript(CompilationInfo& compilationInfo) {
+  for (auto item : compilationInfo.functionScriptStencils()) {
+    auto& stencil = item.stencil;
+    auto& fun = item.function;
+    if (!stencil.functionFlags.hasBaseScript()) {
       continue;
     }
 
-    if (funbox->emitBytecode) {
+    if (fun->baseScript()->hasBytecode()) {
       continue;
     }
 
-    BaseScript* script = funbox->function()->baseScript();
+    BaseScript* script = fun->baseScript();
     MOZ_ASSERT(!script->hasBytecode());
 
     for (auto inner : script->gcthings()) {
@@ -2081,15 +2152,15 @@ static void LinkEnclosingLazyScript(FunctionBox* listHead) {
 }
 
 bool CompilationInfo::instantiateStencils() {
-  if (!InstantiateFunctions(cx, *this, traceListHead)) {
+  if (!InstantiateFunctions(cx, *this)) {
     return false;
   }
 
-  if (!SetTypeForExposedFunctions(cx, traceListHead)) {
+  if (!SetTypeForExposedFunctions(cx, *this)) {
     return false;
   }
 
-  if (!InstantiateScriptStencils(cx, *this, traceListHead)) {
+  if (!InstantiateScriptStencils(cx, *this)) {
     return false;
   }
 
@@ -2099,10 +2170,10 @@ bool CompilationInfo::instantiateStencils() {
 
   // Must be infallible from here forward.
 
-  UpdateEmittedInnerFunctions(traceListHead);
+  UpdateEmittedInnerFunctions(*this);
 
   if (lazy == nullptr) {
-    LinkEnclosingLazyScript(traceListHead);
+    LinkEnclosingLazyScript(*this);
   }
 
   return true;
@@ -2185,10 +2256,9 @@ FunctionFlags InitialFunctionFlags(FunctionSyntaxKind kind,
 
 template <typename Unit>
 FunctionNode* Parser<FullParseHandler, Unit>::standaloneFunction(
-    HandleScope enclosingScope, const Maybe<uint32_t>& parameterListEnd,
-    FunctionSyntaxKind syntaxKind, GeneratorKind generatorKind,
-    FunctionAsyncKind asyncKind, Directives inheritedDirectives,
-    Directives* newDirectives) {
+    const Maybe<uint32_t>& parameterListEnd, FunctionSyntaxKind syntaxKind,
+    GeneratorKind generatorKind, FunctionAsyncKind asyncKind,
+    Directives inheritedDirectives, Directives* newDirectives) {
   MOZ_ASSERT(checkOptionsCalled_);
   // Skip prelude.
   TokenKind tt;
@@ -2235,23 +2305,18 @@ FunctionNode* Parser<FullParseHandler, Unit>::standaloneFunction(
   bool isSelfHosting = options().selfHostingMode;
   FunctionFlags flags =
       InitialFunctionFlags(syntaxKind, generatorKind, asyncKind, isSelfHosting);
-  FunctionBox* funbox =
-      newFunctionBox(funNode, explicitName, flags, /* toStringStart = */ 0,
-                     inheritedDirectives, generatorKind, asyncKind);
+  FunctionBox* funbox = newFunctionBox(
+      funNode, explicitName, flags, /* toStringStart = */ 0,
+      inheritedDirectives, generatorKind, asyncKind, TopLevelFunction::Yes);
   if (!funbox) {
     return null();
   }
 
   // Function is not syntactically part of another script.
-  funbox->isStandalone = true;
+  funbox->setIsStandalone(true);
 
-  // Standalone functions are always scoped to the global. Note: HTML form event
-  // handlers are standalone functions, but have a non-syntactic global scope
-  // chain here.
-  MOZ_ASSERT(enclosingScope->is<GlobalScope>());
-
-  funbox->initWithEnclosingScope(this->compilationInfo_.scopeContext,
-                                 enclosingScope, flags, syntaxKind);
+  funbox->initStandalone(this->compilationInfo_.scopeContext, flags,
+                         syntaxKind);
 
   SourceParseContext funpc(this, funbox, newDirectives);
   if (!funpc.init()) {
@@ -2751,7 +2816,7 @@ bool GeneralParser<ParseHandler, Unit>::functionArguments(
 
           // The Function.length property is the number of formals
           // before the first default argument.
-          funbox->length = positionalFormals.length() - 1;
+          funbox->setLength(positionalFormals.length() - 1);
         }
         funbox->hasParameterExprs = true;
 
@@ -2805,7 +2870,7 @@ bool GeneralParser<ParseHandler, Unit>::functionArguments(
     }
 
     if (!hasDefault) {
-      funbox->length = positionalFormals.length() - hasRest;
+      funbox->setLength(positionalFormals.length() - hasRest);
     }
 
     funbox->setArgCount(positionalFormals.length());
@@ -2827,14 +2892,17 @@ bool Parser<FullParseHandler, Unit>::skipLazyInnerFunction(
   // so we can skip over them after accounting for their free variables.
 
   RootedFunction fun(cx_, handler_.nextLazyInnerFunction());
-  FunctionBox* funbox = newFunctionBox(funNode, fun, toStringStart,
-                                       Directives(/* strict = */ false),
-                                       fun->generatorKind(), fun->asyncKind());
+  FunctionBox* funbox = newFunctionBox(
+      funNode, fun, toStringStart, Directives(/* strict = */ false),
+      fun->generatorKind(), fun->asyncKind(), TopLevelFunction::No);
   if (!funbox) {
     return false;
   }
 
+  ScriptStencil& stencil = funbox->functionStencil().get();
   funbox->initFromLazyFunction(fun);
+  funbox->copyFunctionFields(stencil);
+  funbox->copyScriptFields(stencil);
 
   // See: CompilationInfo::publishDeferredFunctions()
   MOZ_ASSERT_IF(pc_->isFunctionBox(),
@@ -2849,7 +2917,7 @@ bool Parser<FullParseHandler, Unit>::skipLazyInnerFunction(
 
   PropagateTransitiveParseFlags(funbox, pc_->sc());
 
-  if (!tokenStream.advance(funbox->extent.sourceEnd)) {
+  if (!tokenStream.advance(funbox->extent().sourceEnd)) {
     return false;
   }
 
@@ -3096,9 +3164,9 @@ bool Parser<FullParseHandler, Unit>::trySyntaxParseInnerFunction(
     // Make a FunctionBox before we enter the syntax parser, because |pn|
     // still expects a FunctionBox to be attached to it during BCE, and
     // the syntax parser cannot attach one to it.
-    FunctionBox* funbox =
-        newFunctionBox(*funNode, explicitName, flags, toStringStart,
-                       inheritedDirectives, generatorKind, asyncKind);
+    FunctionBox* funbox = newFunctionBox(
+        *funNode, explicitName, flags, toStringStart, inheritedDirectives,
+        generatorKind, asyncKind, TopLevelFunction::No);
     if (!funbox) {
       return false;
     }
@@ -3230,9 +3298,9 @@ GeneralParser<ParseHandler, Unit>::innerFunction(
   // parser. In that case, outerpc is a SourceParseContext from the full parser
   // instead of the current top of the stack of the syntax parser.
 
-  FunctionBox* funbox =
-      newFunctionBox(funNode, explicitName, flags, toStringStart,
-                     inheritedDirectives, generatorKind, asyncKind);
+  FunctionBox* funbox = newFunctionBox(
+      funNode, explicitName, flags, toStringStart, inheritedDirectives,
+      generatorKind, asyncKind, TopLevelFunction::No);
   if (!funbox) {
     return null();
   }
@@ -3308,18 +3376,17 @@ FunctionNode* Parser<FullParseHandler, Unit>::standaloneLazyFunction(
   }
 
   Directives directives(strict);
-  FunctionBox* funbox = newFunctionBox(funNode, fun, toStringStart, directives,
-                                       generatorKind, asyncKind);
+  FunctionBox* funbox =
+      newFunctionBox(funNode, fun, toStringStart, directives, generatorKind,
+                     asyncKind, TopLevelFunction::Yes);
   if (!funbox) {
     return null();
   }
   funbox->initFromLazyFunction(fun);
-  funbox->initWithEnclosingScope(this->getCompilationInfo().scopeContext,
-                                 fun->enclosingScope(), fun->flags(),
-                                 syntaxKind);
+  funbox->initStandalone(this->getCompilationInfo().scopeContext, fun->flags(),
+                         syntaxKind);
   if (fun->isClassConstructor()) {
-    funbox->fieldInitializers =
-        mozilla::Some(fun->baseScript()->getFieldInitializers());
+    funbox->setFieldInitializers(fun->baseScript()->getFieldInitializers());
   }
 
   Directives newDirectives = directives;
@@ -7434,11 +7501,11 @@ bool GeneralParser<ParseHandler, Unit>::finishClassConstructor(
 
     // Amend the toStringEnd offset for the constructor now that we've
     // finished parsing the class.
-    ctorbox->extent.toStringEnd = classEndOffset;
+    ctorbox->setCtorToStringEnd(classEndOffset);
 
     if (numFields > 0) {
       // Field initialization need access to `this`.
-      ctorbox->setFunctionHasThisBinding();
+      ctorbox->setCtorFunctionHasThisBinding();
     }
   }
 
@@ -7671,9 +7738,10 @@ GeneralParser<ParseHandler, Unit>::synthesizeConstructor(
 
   // Create the FunctionBox and link it to the function object.
   Directives directives(true);
-  FunctionBox* funbox = newFunctionBox(
-      funNode, className, flags, classNameOffset, directives,
-      GeneratorKind::NotGenerator, FunctionAsyncKind::SyncFunction);
+  FunctionBox* funbox =
+      newFunctionBox(funNode, className, flags, classNameOffset, directives,
+                     GeneratorKind::NotGenerator,
+                     FunctionAsyncKind::SyncFunction, TopLevelFunction::No);
   if (!funbox) {
     return null();
   }
@@ -7843,7 +7911,7 @@ GeneralParser<ParseHandler, Unit>::fieldInitializerOpt(
   Directives directives(true);
   FunctionBox* funbox =
       newFunctionBox(funNode, nullptr, flags, firstTokenPos.begin, directives,
-                     generatorKind, asyncKind);
+                     generatorKind, asyncKind, TopLevelFunction::No);
   if (!funbox) {
     return null();
   }
@@ -11394,11 +11462,14 @@ template class Parser<FullParseHandler, char16_t>;
 template class Parser<SyntaxParseHandler, char16_t>;
 
 CompilationInfo::RewindToken CompilationInfo::getRewindToken() {
-  return RewindToken{traceListHead};
+  MOZ_ASSERT(funcData.length() == functions.length());
+  return RewindToken{traceListHead, funcData.length()};
 }
 
 void CompilationInfo::rewind(const CompilationInfo::RewindToken& pos) {
   traceListHead = pos.funbox;
+  funcData.get().shrinkTo(pos.funcDataLength);
+  functions.get().shrinkTo(pos.funcDataLength);
 }
 
 }  // namespace js::frontend

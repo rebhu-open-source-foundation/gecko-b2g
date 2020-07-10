@@ -8,11 +8,11 @@
 #define __SVGGEOMETRYFRAME_H__
 
 #include "mozilla/Attributes.h"
+#include "mozilla/ISVGDisplayableFrame.h"
 #include "gfxMatrix.h"
 #include "gfxRect.h"
 #include "nsDisplayList.h"
 #include "nsIFrame.h"
-#include "nsSVGDisplayableFrame.h"
 #include "nsLiteralString.h"
 #include "nsQueryFrame.h"
 #include "nsSVGUtils.h"
@@ -28,6 +28,10 @@ namespace gfx {
 class DrawTarget;
 }  // namespace gfx
 
+namespace image {
+struct imgDrawingParams;
+}  // namespace image
+
 }  // namespace mozilla
 
 class gfxContext;
@@ -42,8 +46,8 @@ nsIFrame* NS_NewSVGGeometryFrame(mozilla::PresShell* aPresShell,
 
 namespace mozilla {
 
-class SVGGeometryFrame : public nsIFrame, public nsSVGDisplayableFrame {
-  typedef mozilla::gfx::DrawTarget DrawTarget;
+class SVGGeometryFrame : public nsIFrame, public ISVGDisplayableFrame {
+  typedef gfx::DrawTarget DrawTarget;
 
   friend nsIFrame* ::NS_NewSVGGeometryFrame(mozilla::PresShell* aPresShell,
                                             ComputedStyle* aStyle);
@@ -95,7 +99,7 @@ class SVGGeometryFrame : public nsIFrame, public nsSVGDisplayableFrame {
   gfxMatrix GetCanvasTM();
 
  protected:
-  // nsSVGDisplayableFrame interface:
+  // ISVGDisplayableFrame interface:
   virtual void PaintSVG(gfxContext& aContext, const gfxMatrix& aTransform,
                         imgDrawingParams& aImgParams,
                         const nsIntRect* aDirtyRect = nullptr) override;
@@ -141,7 +145,7 @@ class SVGGeometryFrame : public nsIFrame, public nsSVGDisplayableFrame {
 // Display list item:
 
 class DisplaySVGGeometry final : public nsPaintedDisplayItem {
-  typedef mozilla::image::imgDrawingParams imgDrawingParams;
+  typedef image::imgDrawingParams imgDrawingParams;
 
  public:
   DisplaySVGGeometry(nsDisplayListBuilder* aBuilder, SVGGeometryFrame* aFrame)

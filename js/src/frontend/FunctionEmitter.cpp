@@ -43,11 +43,11 @@ bool FunctionEmitter::prepareForNonLazy() {
 
   MOZ_ASSERT(funbox_->isInterpreted());
   MOZ_ASSERT(funbox_->emitBytecode);
-  MOZ_ASSERT(!funbox_->wasEmitted);
+  MOZ_ASSERT(!funbox_->wasEmitted());
 
   //                [stack]
 
-  funbox_->wasEmitted = true;
+  funbox_->setWasEmitted(true);
 
 #ifdef DEBUG
   state_ = State::NonLazy;
@@ -76,15 +76,15 @@ bool FunctionEmitter::emitLazy() {
 
   MOZ_ASSERT(funbox_->isInterpreted());
   MOZ_ASSERT(!funbox_->emitBytecode);
-  MOZ_ASSERT(!funbox_->wasEmitted);
+  MOZ_ASSERT(!funbox_->wasEmitted());
 
   //                [stack]
 
-  funbox_->wasEmitted = true;
+  funbox_->setWasEmitted(true);
 
   // Prepare to update the inner lazy script now that it's parent is fully
-  // compiled. These updates will be applied in FunctionBox::finish().
-  funbox_->setEnclosingScopeForInnerLazyFunction(bce_->innermostScope());
+  // compiled. These updates will be applied in UpdateEmittedInnerFunctions().
+  funbox_->setEnclosingScopeForInnerLazyFunction(bce_->innermostScopeIndex());
 
   if (!emitFunction()) {
     //              [stack] FUN?
@@ -99,7 +99,7 @@ bool FunctionEmitter::emitLazy() {
 
 bool FunctionEmitter::emitAgain() {
   MOZ_ASSERT(state_ == State::Start);
-  MOZ_ASSERT(funbox_->wasEmitted);
+  MOZ_ASSERT(funbox_->wasEmitted());
 
   //                [stack]
 
@@ -168,12 +168,14 @@ bool FunctionEmitter::emitAgain() {
 bool FunctionEmitter::emitAsmJSModule() {
   MOZ_ASSERT(state_ == State::Start);
 
-  MOZ_ASSERT(!funbox_->wasEmitted);
+  MOZ_ASSERT(!funbox_->wasEmitted());
   MOZ_ASSERT(funbox_->isAsmJSModule());
 
   //                [stack]
 
-  funbox_->wasEmitted = true;
+  ScriptStencil& stencil = funbox_->functionStencil().get();
+  funbox_->setWasEmitted(true);
+  funbox_->copyScriptFields(stencil);
 
   if (!emitFunction()) {
     //              [stack]
@@ -699,16 +701,10 @@ bool FunctionScriptEmitter::emitEndBody() {
   return true;
 }
 
-bool FunctionScriptEmitter::intoStencil(TopLevelFunction isTopLevel) {
+bool FunctionScriptEmitter::intoStencil() {
   MOZ_ASSERT(state_ == State::EndBody);
 
-  // If this function is the top-level of the compile, store directly into the
-  // CompilationInfo like all other top-level scripts.
-  ScriptStencil* stencilPtr = isTopLevel == TopLevelFunction::Yes
-                                  ? bce_->compilationInfo.topLevel.address()
-                                  : funbox_->functionStencil().address();
-
-  if (!bce_->intoScriptStencil(stencilPtr)) {
+  if (!bce_->intoScriptStencil(funbox_->functionStencil().address())) {
     return false;
   }
 

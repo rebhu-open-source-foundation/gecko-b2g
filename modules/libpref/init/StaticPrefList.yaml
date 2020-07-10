@@ -1088,7 +1088,7 @@
 # from parent-process BrowsingContexts
 - name: browser.tabs.documentchannel.parent-controlled
   type: bool
-  value: false 
+  value: false
   mirror: always
 
 - name: browser.tabs.remote.desktopbehavior
@@ -1518,6 +1518,12 @@
 - name: dom.block_external_protocol_in_iframes
   type: bool
   value: true
+  mirror: always
+
+# Block Insecure downloads from Secure Origins
+- name: dom.block_download_insecure
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Block multiple window.open() per single event.
@@ -2736,6 +2742,11 @@
   value: false
   mirror: always
 
+- name: dom.security.unexpected_system_load_telemetry_enabled
+  type: bool
+  value: true
+  mirror: always
+
 # Is support for selection event APIs enabled?
 - name: dom.select_events.enabled
   type: bool
@@ -2777,13 +2788,6 @@
 
 - name: dom.workers.serialized-sab-access
   type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-# External.AddSearchProvider is deprecated and it will be removed in the next
-# cycles.
-- name: dom.sidebar.enabled
-  type: bool
   value: false
   mirror: always
 
@@ -4610,7 +4614,7 @@
 #ifdef XP_MACOSX
 - name: gfx.webrender.enable-client-storage
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: false
   mirror: once
 #endif
 
@@ -8131,7 +8135,7 @@
 #if defined(ANDROID) || defined(MOZ_THUNDERBIRD)
   value: false # see bug 1641427
 #else
-  value: @IS_NIGHTLY_BUILD@
+  value: @IS_EARLY_BETA_OR_EARLIER@
 #endif
 
 # Whether we can send OnDataAvailable to content process directly.
@@ -9009,6 +9013,18 @@
     type: RelaxedAtomicUint32
     value: 0
     mirror: always
+#endif
+
+#if defined(XP_LINUX) && defined(MOZ_SANDBOX)
+  # Run content processes in headless mode and disallow connections to
+  # the X server.  Experimental; breaks WebGL and Flash, and requires
+  # `widget.disable-native-theme-for-content`.  Changing it requires a
+  # restart because sandbox policy information dependent on it is cached.
+  # See bug 1640345 for details.
+- name: security.sandbox.content.headless
+  type: bool
+  value: false
+  mirror: once
 #endif
 
 # When comparing schemes, if this pref is set, view-source URIs are reachable

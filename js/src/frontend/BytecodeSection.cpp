@@ -9,6 +9,7 @@
 #include "mozilla/Assertions.h"       // MOZ_ASSERT
 #include "mozilla/ReverseIterator.h"  // mozilla::Reversed
 
+#include "frontend/AbstractScopePtr.h"  // ScopeIndex
 #include "frontend/CompilationInfo.h"
 #include "frontend/SharedContext.h"  // FunctionBox
 #include "frontend/Stencil.h"        // ScopeCreationData
@@ -24,10 +25,7 @@ bool GCThingList::append(FunctionBox* funbox, uint32_t* index) {
   // Append the function to the vector and return the index in *index.
   *index = vector.length();
 
-  // To avoid circular include issues, funbox can't return a FunctionIndex, so
-  // instead it returns a size_t, which we wrap in FunctionIndex here to
-  // disambiguate the variant.
-  return vector.append(mozilla::AsVariant(FunctionIndex(funbox->index())));
+  return vector.append(mozilla::AsVariant(funbox->index()));
 }
 
 AbstractScopePtr GCThingList::getScope(size_t index) const {
@@ -36,6 +34,10 @@ AbstractScopePtr GCThingList::getScope(size_t index) const {
     return AbstractScopePtr(&compilationInfo.cx->global()->emptyGlobalScope());
   }
   return AbstractScopePtr(compilationInfo, elem.as<ScopeIndex>());
+}
+
+ScopeIndex GCThingList::getScopeIndex(size_t index) const {
+  return vector[index].as<ScopeIndex>();
 }
 
 bool js::frontend::EmitScriptThingsVector(JSContext* cx,
@@ -94,7 +96,7 @@ bool js::frontend::EmitScriptThingsVector(JSContext* cx,
     bool operator()(const ScopeIndex& index) {
       MutableHandle<ScopeCreationData> data =
           compilationInfo.scopeCreationData[index];
-      Scope* scope = data.get().createScope(cx);
+      Scope* scope = data.get().createScope(cx, compilationInfo);
       if (!scope) {
         return false;
       }

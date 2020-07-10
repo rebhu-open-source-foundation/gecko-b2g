@@ -25,8 +25,8 @@
 
 #include "jstypes.h"  // JS_BIT
 
-#include "ds/Nestable.h"  // Nestable
-#include "frontend/AbstractScopePtr.h"
+#include "ds/Nestable.h"                         // Nestable
+#include "frontend/AbstractScopePtr.h"           // ScopeIndex
 #include "frontend/BytecodeControlStructures.h"  // NestableControl, BreakableControl, LabelControl, LoopControl, TryFinallyControl
 #include "frontend/CallOrNewEmitter.h"           // CallOrNewEmitter
 #include "frontend/CForEmitter.h"                // CForEmitter
@@ -104,7 +104,7 @@ BytecodeEmitter::BytecodeEmitter(BytecodeEmitter* parent, SharedContext* sc,
     : sc(sc),
       cx(sc->cx_),
       parent(parent),
-      bytecodeSection_(cx, sc->extent.lineno),
+      bytecodeSection_(cx, sc->extent().lineno),
       perScriptData_(cx, compilationInfo),
       compilationInfo(compilationInfo),
       emitterMode(emitterMode) {
@@ -858,6 +858,10 @@ bool BytecodeEmitter::emitGoto(NestableControl* target, JumpList* jumplist,
 
 AbstractScopePtr BytecodeEmitter::innermostScope() const {
   return innermostEmitterScope()->scope(this);
+}
+
+ScopeIndex BytecodeEmitter::innermostScopeIndex() const {
+  return innermostEmitterScope()->scopeIndex(this);
 }
 
 bool BytecodeEmitter::emitIndexOp(JSOp op, uint32_t index) {
@@ -2444,7 +2448,6 @@ bool BytecodeEmitter::emitScript(ParseNode* body) {
   }
 
   // Create a Stencil and convert it into a JSScript.
-  compilationInfo.topLevelExtent = sc->extent;
   return intoScriptStencil(compilationInfo.topLevel.address());
 }
 
@@ -2456,7 +2459,7 @@ js::UniquePtr<ImmutableScriptData> BytecodeEmitter::createImmutableScriptData(
   }
 
   bool isFunction = sc->isFunctionBox();
-  uint16_t funLength = isFunction ? sc->asFunctionBox()->length : 0;
+  uint16_t funLength = isFunction ? sc->asFunctionBox()->length() : 0;
 
   return ImmutableScriptData::new_(
       cx, mainOffset(), maxFixedSlots, nslots, bodyScopeIndex,
@@ -2524,7 +2527,7 @@ bool BytecodeEmitter::emitFunctionScript(FunctionNode* funNode,
     }
   }
 
-  return fse.intoStencil(isTopLevel);
+  return fse.intoStencil();
 }
 
 bool BytecodeEmitter::emitDestructuringLHSRef(ParseNode* target,
@@ -5666,7 +5669,7 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitFunction(
   // Set the |wasEmitted| flag in the funbox once the function has been
   // emitted. Function definitions that need hoisting to the top of the
   // function will be seen by emitFunction in two places.
-  if (funbox->wasEmitted) {
+  if (funbox->wasEmitted()) {
     if (!fe.emitAgain()) {
       //            [stack]
       return false;
@@ -5679,16 +5682,15 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitFunction(
     // Compute the field initializers data and update the funbox.
     //
     // NOTE: For a lazy function, this will be applied to any existing function
-    //       in FunctionBox::finish().
+    //       in UpdateEmittedInnerFunctions().
     if (classContentsIfConstructor) {
-      MOZ_ASSERT(funbox->fieldInitializers.isNothing(),
-                 "FieldInitializers should only be set once");
-      funbox->fieldInitializers = setupFieldInitializers(
-          classContentsIfConstructor, FieldPlacement::Instance);
-      if (!funbox->fieldInitializers) {
+      mozilla::Maybe<FieldInitializers> fieldInitializers =
+          setupFieldInitializers(classContentsIfConstructor,
+                                 FieldPlacement::Instance);
+      if (!fieldInitializers) {
         ReportAllocationOverflow(cx);
-        return false;
       }
+      funbox->setFieldInitializers(*fieldInitializers);
     }
 
     // A function is a run-once lambda if the following all hold:
@@ -5703,7 +5705,7 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitFunction(
     // NOTE: This is a heuristic and through trick such as `fun.caller` it may
     //       still be run more than once. The VM must accomodate this.
     // NOTE: For a lazy function, this will be applied to any existing function
-    //       in FunctionBox::finish().
+    //       in UpdateEmittedInnerFunctions().
     bool isRunOnceLambda =
         emittingRunOnceLambda && !funbox->shouldSuppressRunOnce();
     funbox->setTreatAsRunOnce(isRunOnceLambda);
@@ -5716,7 +5718,7 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitFunction(
     //
     // NOTE: This heuristic is arbitrary, but some debugger tests rely on the
     //       current behaviour and need to be updated if the condiditons change.
-    funbox->isSingleton = checkRunOnceContext();
+    funbox->setIsSingleton(checkRunOnceContext());
 
     if (!funbox->emitBytecode) {
       return fe.emitLazy();
@@ -9110,8 +9112,8 @@ const FieldInitializers& BytecodeEmitter::findFieldInitializersForCall() {
       // expect fields in the first place.
       MOZ_RELEASE_ASSERT(funbox->isClassConstructor());
 
-      MOZ_ASSERT(funbox->fieldInitializers->valid);
-      return *funbox->fieldInitializers;
+      MOZ_ASSERT(funbox->fieldInitializers().valid);
+      return funbox->fieldInitializers();
     }
   }
 
@@ -10903,15 +10905,11 @@ bool BytecodeEmitter::newSrcNoteOperand(ptrdiff_t operand) {
 }
 
 bool BytecodeEmitter::intoScriptStencil(ScriptStencil* stencil) {
-  using ImmutableFlags = ImmutableScriptFlagsEnum;
-
   js::UniquePtr<ImmutableScriptData> immutableScriptData =
       createImmutableScriptData(cx);
   if (!immutableScriptData) {
     return false;
   }
-
-  stencil->immutableFlags = sc->immutableFlags();
 
   MOZ_ASSERT(outermostScope().hasOnChain(ScopeKind::NonSyntactic) ==
              sc->hasNonSyntacticScope());
@@ -10924,16 +10922,11 @@ bool BytecodeEmitter::intoScriptStencil(ScriptStencil* stencil) {
   // Update flags specific to functions.
   if (sc->isFunctionBox()) {
     FunctionBox* funbox = sc->asFunctionBox();
-    stencil->functionIndex.emplace(funbox->index());
-    stencil->fieldInitializers = funbox->fieldInitializers;
-
-    // Set flags that don't have direct flag representation within the
-    // FunctionBox.
-    stencil->immutableFlags.setFlag(ImmutableFlags::HasMappedArgsObj,
-                                    funbox->hasMappedArgsObj());
-    stencil->immutableFlags.setFlag(ImmutableFlags::IsLikelyConstructorWrapper,
-                                    funbox->isLikelyConstructorWrapper());
-  } /* isFunctionBox */
+    funbox->copyScriptFields(*stencil);
+    MOZ_ASSERT(stencil->isFunction());
+  } else {
+    sc->copyScriptFields(*stencil);
+  }
 
   return true;
 }

@@ -2376,7 +2376,7 @@ dependencies = [
 [[package]]
 name = "jsparagus"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=90744b6c7bf9936174ab5fe62d1e17dde65bf64f#90744b6c7bf9936174ab5fe62d1e17dde65bf64f"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b987c8f4d4bc878dd79c58ad3917c0db3f7341b3#b987c8f4d4bc878dd79c58ad3917c0db3f7341b3"
 dependencies = [
  "jsparagus-ast",
  "jsparagus-emitter",
@@ -2390,7 +2390,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-ast"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=90744b6c7bf9936174ab5fe62d1e17dde65bf64f#90744b6c7bf9936174ab5fe62d1e17dde65bf64f"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b987c8f4d4bc878dd79c58ad3917c0db3f7341b3#b987c8f4d4bc878dd79c58ad3917c0db3f7341b3"
 dependencies = [
  "bumpalo",
  "indexmap",
@@ -2399,7 +2399,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-emitter"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=90744b6c7bf9936174ab5fe62d1e17dde65bf64f#90744b6c7bf9936174ab5fe62d1e17dde65bf64f"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b987c8f4d4bc878dd79c58ad3917c0db3f7341b3#b987c8f4d4bc878dd79c58ad3917c0db3f7341b3"
 dependencies = [
  "bumpalo",
  "byteorder",
@@ -2412,7 +2412,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-generated-parser"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=90744b6c7bf9936174ab5fe62d1e17dde65bf64f#90744b6c7bf9936174ab5fe62d1e17dde65bf64f"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b987c8f4d4bc878dd79c58ad3917c0db3f7341b3#b987c8f4d4bc878dd79c58ad3917c0db3f7341b3"
 dependencies = [
  "bumpalo",
  "jsparagus-ast",
@@ -2422,13 +2422,14 @@ dependencies = [
 [[package]]
 name = "jsparagus-json-log"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=90744b6c7bf9936174ab5fe62d1e17dde65bf64f#90744b6c7bf9936174ab5fe62d1e17dde65bf64f"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b987c8f4d4bc878dd79c58ad3917c0db3f7341b3#b987c8f4d4bc878dd79c58ad3917c0db3f7341b3"
 
 [[package]]
 name = "jsparagus-parser"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=90744b6c7bf9936174ab5fe62d1e17dde65bf64f#90744b6c7bf9936174ab5fe62d1e17dde65bf64f"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b987c8f4d4bc878dd79c58ad3917c0db3f7341b3#b987c8f4d4bc878dd79c58ad3917c0db3f7341b3"
 dependencies = [
+ "arrayvec",
  "bumpalo",
  "jsparagus-ast",
  "jsparagus-generated-parser",
@@ -2438,7 +2439,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-scope"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=90744b6c7bf9936174ab5fe62d1e17dde65bf64f#90744b6c7bf9936174ab5fe62d1e17dde65bf64f"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b987c8f4d4bc878dd79c58ad3917c0db3f7341b3#b987c8f4d4bc878dd79c58ad3917c0db3f7341b3"
 dependencies = [
  "indexmap",
  "jsparagus-ast",
@@ -2448,7 +2449,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-stencil"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=90744b6c7bf9936174ab5fe62d1e17dde65bf64f#90744b6c7bf9936174ab5fe62d1e17dde65bf64f"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b987c8f4d4bc878dd79c58ad3917c0db3f7341b3#b987c8f4d4bc878dd79c58ad3917c0db3f7341b3"
 dependencies = [
  "jsparagus-ast",
 ]
@@ -3104,8 +3105,8 @@ dependencies = [
 
 [[package]]
 name = "neqo-common"
-version = "0.4.5"
-source = "git+https://github.com/mozilla/neqo?tag=v0.4.5#5161a451caefa2a99d9abad2cf93d83fb7e85a97"
+version = "0.4.6"
+source = "git+https://github.com/mozilla/neqo?tag=v0.4.6#334e3116a3f796bc9249b297537c575322d0f158"
 dependencies = [
  "chrono",
  "env_logger",
@@ -3117,8 +3118,8 @@ dependencies = [
 
 [[package]]
 name = "neqo-crypto"
-version = "0.4.5"
-source = "git+https://github.com/mozilla/neqo?tag=v0.4.5#5161a451caefa2a99d9abad2cf93d83fb7e85a97"
+version = "0.4.6"
+source = "git+https://github.com/mozilla/neqo?tag=v0.4.6#334e3116a3f796bc9249b297537c575322d0f158"
 dependencies = [
  "bindgen",
  "log",
@@ -3130,8 +3131,8 @@ dependencies = [
 
 [[package]]
 name = "neqo-http3"
-version = "0.4.5"
-source = "git+https://github.com/mozilla/neqo?tag=v0.4.5#5161a451caefa2a99d9abad2cf93d83fb7e85a97"
+version = "0.4.6"
+source = "git+https://github.com/mozilla/neqo?tag=v0.4.6#334e3116a3f796bc9249b297537c575322d0f158"
 dependencies = [
  "log",
  "neqo-common",
@@ -3145,8 +3146,8 @@ dependencies = [
 
 [[package]]
 name = "neqo-qpack"
-version = "0.4.5"
-source = "git+https://github.com/mozilla/neqo?tag=v0.4.5#5161a451caefa2a99d9abad2cf93d83fb7e85a97"
+version = "0.4.6"
+source = "git+https://github.com/mozilla/neqo?tag=v0.4.6#334e3116a3f796bc9249b297537c575322d0f158"
 dependencies = [
  "lazy_static",
  "log",
@@ -3160,8 +3161,8 @@ dependencies = [
 
 [[package]]
 name = "neqo-transport"
-version = "0.4.5"
-source = "git+https://github.com/mozilla/neqo?tag=v0.4.5#5161a451caefa2a99d9abad2cf93d83fb7e85a97"
+version = "0.4.6"
+source = "git+https://github.com/mozilla/neqo?tag=v0.4.6#334e3116a3f796bc9249b297537c575322d0f158"
 dependencies = [
  "lazy_static",
  "log",

@@ -635,8 +635,8 @@ bool EmitterScope::enterFunction(BytecodeEmitter* bce, FunctionBox* funbox) {
     return ScopeCreationData::create(
         cx, bce->compilationInfo, funbox->functionScopeBindings(),
         funbox->hasParameterExprs,
-        funbox->needsCallObjectRegardlessOfBindings(), funbox, enclosing,
-        index);
+        funbox->needsCallObjectRegardlessOfBindings(), funbox->index(),
+        funbox->isArrow(), enclosing, index);
   };
   if (!internBodyScopeCreationData(bce, createScope)) {
     return false;
@@ -1048,6 +1048,10 @@ bool EmitterScope::leave(BytecodeEmitter* bce, bool nonLocal) {
 
 AbstractScopePtr EmitterScope::scope(const BytecodeEmitter* bce) const {
   return bce->perScriptData().gcThingList().getScope(index());
+}
+
+ScopeIndex EmitterScope::scopeIndex(const BytecodeEmitter* bce) const {
+  return bce->perScriptData().gcThingList().getScopeIndex(index());
 }
 
 NameLocation EmitterScope::lookup(BytecodeEmitter* bce, JSAtom* name) {

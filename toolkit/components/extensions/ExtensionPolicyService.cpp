@@ -119,7 +119,7 @@ bool ExtensionPolicyService::IsExtensionProcess() const {
 
   if (isRemote && XRE_IsContentProcess()) {
     auto& remoteType = dom::ContentChild::GetSingleton()->GetRemoteType();
-    return remoteType.EqualsLiteral(EXTENSION_REMOTE_TYPE);
+    return remoteType == EXTENSION_REMOTE_TYPE;
   }
   return !isRemote && XRE_IsParentProcess();
 }
@@ -466,8 +466,11 @@ void ExtensionPolicyService::CheckDocument(Document* aDocument) {
     if ((!mm || !mMessageManagers.Contains(mm)) &&
         // With Fission, OOP iframes don't have a frame message manager, so we
         // use the browser's MessageManagerGroup attribute to decide if content
-        // scripts should run.  The "browsers" group includes iframes from tabs.
-        !group.EqualsLiteral("browsers")) {
+        // scripts should run.  The "browsers" group includes iframes from tabs,
+        // and the "webext-browsers" group includes custom browsers for
+        // extension popups/sidebars and xpcshell tests.
+        !group.EqualsLiteral("browsers") &&
+        !group.EqualsLiteral("webext-browsers")) {
       return;
     }
 

@@ -294,7 +294,7 @@ class MOZ_STACK_CLASS frontend::StandaloneFunctionCompiler final
   using Base::createSourceAndParser;
 
   FunctionNode* parse(CompilationInfo& compilationInfo,
-                      HandleScope enclosingScope, FunctionSyntaxKind syntaxKind,
+                      FunctionSyntaxKind syntaxKind,
                       GeneratorKind generatorKind, FunctionAsyncKind asyncKind,
                       const Maybe<uint32_t>& parameterListEnd);
 
@@ -340,7 +340,7 @@ AutoFrontendTraceLog::AutoFrontendTraceLog(JSContext* cx,
   }
 
   frontendEvent_.emplace(TraceLogger_Frontend, errorReporter.getFilename(),
-                         funbox->extent.lineno, funbox->extent.column);
+                         funbox->extent().lineno, funbox->extent().column);
   frontendLog_.emplace(logger_, *frontendEvent_);
   typeLog_.emplace(logger_, id);
 }
@@ -577,9 +577,9 @@ ModuleObject* frontend::ModuleCompiler<Unit>::compile(
 // constructor.
 template <typename Unit>
 FunctionNode* frontend::StandaloneFunctionCompiler<Unit>::parse(
-    CompilationInfo& compilationInfo, HandleScope enclosingScope,
-    FunctionSyntaxKind syntaxKind, GeneratorKind generatorKind,
-    FunctionAsyncKind asyncKind, const Maybe<uint32_t>& parameterListEnd) {
+    CompilationInfo& compilationInfo, FunctionSyntaxKind syntaxKind,
+    GeneratorKind generatorKind, FunctionAsyncKind asyncKind,
+    const Maybe<uint32_t>& parameterListEnd) {
   assertSourceAndParserCreated(compilationInfo);
 
   TokenStreamPosition startPosition(compilationInfo.keepAtoms,
@@ -594,9 +594,9 @@ FunctionNode* frontend::StandaloneFunctionCompiler<Unit>::parse(
   FunctionNode* fn;
   for (;;) {
     Directives newDirectives = compilationInfo.directives;
-    fn = parser->standaloneFunction(enclosingScope, parameterListEnd,
-                                    syntaxKind, generatorKind, asyncKind,
-                                    compilationInfo.directives, &newDirectives);
+    fn = parser->standaloneFunction(parameterListEnd, syntaxKind, generatorKind,
+                                    asyncKind, compilationInfo.directives,
+                                    &newDirectives);
     if (fn) {
       break;
     }
@@ -621,18 +621,6 @@ JSFunction* frontend::StandaloneFunctionCompiler<Unit>::compile(
   if (funbox->isInterpreted()) {
     MOZ_ASSERT(funbox->function() == nullptr);
 
-    // The parser extent has stripped off the leading `function...` but
-    // we want the SourceExtent used in the final standalone script to
-    // start from the beginning of the buffer, and use the provided
-    // line and column.
-    compilationInfo.topLevelExtent =
-        SourceExtent{/* sourceStart = */ 0,
-                     sourceBuffer_.length(),
-                     funbox->extent.toStringStart,
-                     funbox->extent.toStringEnd,
-                     compilationInfo.options.lineno,
-                     compilationInfo.options.column};
-
     Maybe<BytecodeEmitter> emitter;
     if (!emplaceEmitter(compilationInfo, emitter, funbox)) {
       return nullptr;
@@ -641,13 +629,26 @@ JSFunction* frontend::StandaloneFunctionCompiler<Unit>::compile(
     if (!emitter->emitFunctionScript(parsedFunction, TopLevelFunction::Yes)) {
       return nullptr;
     }
+
+    // The parser extent has stripped off the leading `function...` but
+    // we want the SourceExtent used in the final standalone script to
+    // start from the beginning of the buffer, and use the provided
+    // line and column.
+    compilationInfo.topLevel.get().extent =
+        SourceExtent{/* sourceStart = */ 0,
+                     sourceBuffer_.length(),
+                     funbox->extent().toStringStart,
+                     funbox->extent().toStringEnd,
+                     compilationInfo.options.lineno,
+                     compilationInfo.options.column};
   } else {
     // The asm.js module was created by parser. Instantiation below will
     // allocate the JSFunction that wraps it.
     MOZ_ASSERT(funbox->isAsmJSModule());
-    MOZ_ASSERT(compilationInfo.asmJS.has(FunctionIndex(funbox->index())));
+    MOZ_ASSERT(compilationInfo.asmJS.has(funbox->index()));
 
-    compilationInfo.topLevelAsmJS = true;
+    compilationInfo.topLevel.get().isAsmJSModule = true;
+    funbox->copyScriptFields(compilationInfo.topLevel.get());
   }
 
   if (!compilationInfo.instantiateStencils()) {
@@ -896,9 +897,14 @@ static JSFunction* CompileStandaloneFunction(
     FunctionAsyncKind asyncKind, HandleScope enclosingScope = nullptr) {
   AutoAssertReportedException assertException(cx);
 
+  RootedScope scope(cx, enclosingScope);
+  if (!scope) {
+    scope = &cx->global()->emptyGlobalScope();
+  }
+
   LifoAllocScope allocScope(&cx->tempLifoAlloc());
   CompilationInfo compilationInfo(cx, allocScope, options, enclosingScope);
-  if (!compilationInfo.init(cx)) {
+  if (!compilationInfo.initForStandaloneFunction(cx, scope)) {
     return nullptr;
   }
 
@@ -907,14 +913,8 @@ static JSFunction* CompileStandaloneFunction(
     return nullptr;
   }
 
-  RootedScope scope(cx, enclosingScope);
-  if (!scope) {
-    scope = &cx->global()->emptyGlobalScope();
-  }
-
-  FunctionNode* parsedFunction =
-      compiler.parse(compilationInfo, scope, syntaxKind, generatorKind,
-                     asyncKind, parameterListEnd);
+  FunctionNode* parsedFunction = compiler.parse(
+      compilationInfo, syntaxKind, generatorKind, asyncKind, parameterListEnd);
   if (!parsedFunction) {
     return nullptr;
   }
