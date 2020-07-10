@@ -466,7 +466,7 @@ nsresult OMXVideoEncoder::Encode(const Image* aImage, int aWidth, int aHeight,
   status_t result;
 
   // Dequeue an input buffer.
-  uint32_t index;
+  size_t index;
   result = mCodec->dequeueInputBuffer(&index, INPUT_BUFFER_TIMEOUT_US);
   if (result == -EAGAIN) {
     // Drop the frame when out of input buffer.
@@ -788,9 +788,10 @@ class InputBufferHelper final {
       AudioTrackEncoder::InterleaveTrackData(
           aSource, aSamplesNum, mOMXAEncoder.mChannels, pcm.Elements());
       int16_t* tempSource = reinterpret_cast<int16_t*>(pcm.Elements());
+      uint32_t srcSamplesProcessed = aSamplesNum;
       speex_resampler_process_interleaved_int(mOMXAEncoder.mResampler,
-                                              tempSource, &aSamplesNum, dst,
-                                              &dstSamplesCopied);
+                                              tempSource, &srcSamplesProcessed,
+                                              dst, &dstSamplesCopied);
     } else {
       AudioTrackEncoder::InterleaveTrackData(aSource, aSamplesNum,
                                              mOMXAEncoder.mChannels, dst);
@@ -806,9 +807,10 @@ class InputBufferHelper final {
     uint32_t dstSamplesCopied = aSamplesNum;
     if (mOMXAEncoder.mResampler) {
       int16_t* tempSource = reinterpret_cast<int16_t*>(aSource);
+      uint32_t srcSamplesProcessed = aSamplesNum;
       speex_resampler_process_interleaved_int(mOMXAEncoder.mResampler,
-                                              tempSource, &aSamplesNum, dst,
-                                              &dstSamplesCopied);
+                                              tempSource, &srcSamplesProcessed,
+                                              dst, &dstSamplesCopied);
     } else {
       // Directly copy interleaved data into buffer
       memcpy(dst, aSource,
