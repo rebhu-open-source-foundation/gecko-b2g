@@ -93,10 +93,6 @@ XPCOMUtils.defineLazyModuleGetter(this, "gTelephonyUtils",
                                   "resource://gre/modules/TelephonyUtils.jsm",
                                   "TelephonyUtils");
 
-XPCOMUtils.defineLazyModuleGetter(this, "gImsRegService",
-                                  "resource://gre/modules/ImsRegService.jsm",
-                                  "nsIImsRegService");
-
 // XPCOMUtils.defineLazyServiceGetter(this, "gCustomizationInfo",
 //                                    "@kaiostech.com/customizationinfo;1",
 //                                    "nsICustomizationInfo");
@@ -762,12 +758,9 @@ CdmaCellInfo.prototype = {
   evdoSnr: UNKNOWN_VALUE
 };
 
-function MobileConnectionProvider(aClientId, aRadioInterface, aImsRegHandler) {
+function MobileConnectionProvider(aClientId, aRadioInterface) {
   this._clientId = aClientId;
   this._radioInterface = aRadioInterface;
-  this._imsRegHandler = aImsRegHandler.QueryInterface(Ci.nsIGonkImsRegHandler);
-  this._imsUt = null;
-  this._tokenUtMap = [];
   this._operatorInfo = new MobileNetworkInfo();
   // An array of nsIMobileConnectionListener instances.
   this._listeners = [];
@@ -778,15 +771,12 @@ function MobileConnectionProvider(aClientId, aRadioInterface, aImsRegHandler) {
   this.deviceIdentities = new MobileDeviceIdentities();
 }
 MobileConnectionProvider.prototype = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIMobileConnection,
-                                          Ci.nsIImsUtCallback]),
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIMobileConnection]),
 
   _clientId: null,
   _radioInterface: null,
   _operatorInfo: null,
   _listeners: null,
-  _imsRegHandler: null,
-  _imsUt: null,
 
   /**
    * The networks that are currently trying to be selected (or "automatic").
@@ -816,9 +806,6 @@ MobileConnectionProvider.prototype = {
    */
   _preferredNetworkType: Ci.nsIMobileConnection.PREFERRED_NETWORK_TYPE_LTE_WCDMA_GSM_CDMA_EVDO,
   _needRestorePreferredNetworkType: false,
-
-  // Maps tokens we send out with UT message to the message callback.
-  _tokenUtMap: [],
 
   /**
    * A utility function to dump debug message.
@@ -1506,195 +1493,84 @@ MobileConnectionProvider.prototype = {
 
   setCallForwarding: function(aAction, aReason, aNumber, aTimeSeconds,
                               aServiceClass, aCallback) {
-    if (this._imsRegHandler.isImsRegistered) {
-      if (!this._imsUt) {
-        this.initUt();
-      }
+    let options = {
+      action: aAction,
+      reason: aReason,
+      number: aNumber,
+      timeSeconds: aTimeSeconds,
+      serviceClass: aServiceClass
+    };
 
-      if (this._imsUt) {
-        let condition = this.getConditionFromCFReason(aReason);
-        let requestId = this._imsUt.updateCallForward(aAction, condition, aNumber, aServiceClass, aTimeSeconds);
-
-        if (requestId >= 0) {
-          // Store the token for the callback notify.
-          let token = {
-            request: "setCallForwarding",
-            action: aAction,
-            reason:aReason,
-            number: aNumber,
-            timeseconds: aTimeSeconds,
-            serviceclass: aServiceClass,
-            callback: aCallback
-          };
-          this._tokenUtMap[requestId] = token;
-        } else {
-          this._debug("Error setCallForwarding requestId =" + requestId);
-          this._dispatchNotifyError(aCallback, RIL.GECKO_ERROR_GENERIC_FAILURE);
-        }
-      } else {
-        this._debug("Error _imsUt is null.");
-        this._dispatchNotifyError(aCallback, RIL.GECKO_ERROR_GENERIC_FAILURE);
-      }
-    } else {
-      let options = {
-        action: aAction,
-        reason: aReason,
-        number: aNumber,
-        timeSeconds: aTimeSeconds,
-        serviceClass: aServiceClass
-      };
-
-      this._radioInterface.sendWorkerMessage("setCallForward", options,
-                                             (function(aResponse) {
-        if (aResponse.errorMsg) {
-          aCallback.notifyError(aResponse.errorMsg);
-          return false;
-        }
-
-        this.notifyCFStateChanged(aResponse.action, aResponse.reason,
-                                  aResponse.number, aResponse.timeSeconds,
-                                  aResponse.serviceClass);
-        aCallback.notifySuccess();
+    this._radioInterface.sendWorkerMessage("setCallForward", options,
+                                           (function(aResponse) {
+      if (aResponse.errorMsg) {
+        aCallback.notifyError(aResponse.errorMsg);
         return false;
-      }).bind(this));
-    }
+      }
+
+      this.notifyCFStateChanged(aResponse.action, aResponse.reason,
+                                aResponse.number, aResponse.timeSeconds,
+                                aResponse.serviceClass);
+      aCallback.notifySuccess();
+      return false;
+    }).bind(this));
   },
 
   getCallForwarding: function(aReason, aServiceClass, aCallback) {
-    if (this._imsRegHandler.isImsRegistered) {
-      if (!this._imsUt) {
-        this.initUt();
-      }
-
-      if (this._imsUt) {
-        // Send the request.
-        let condition = this.getConditionFromCFReason(aReason);
-        let requestId = this._imsUt.queryCallForward(condition, null);
-
-        if (requestId >= 0) {
-          // Store the token for the callback notify.
-          let token = {
-            request: "getCallForwarding",
-            callback: aCallback
-          };
-          this._tokenUtMap[requestId] = token;
-        } else {
-          this._debug("Error getCallForwarding requestId =" + requestId);
-          this._dispatchNotifyError(aCallback, RIL.GECKO_ERROR_GENERIC_FAILURE);
-        }
-      } else {
-        this._debug("Error _imsUt null.");
-        this._dispatchNotifyError(aCallback, RIL.GECKO_ERROR_GENERIC_FAILURE);
-      }
-    } else {
-      this._radioInterface.sendWorkerMessage("queryCallForwardStatus",
-                                             {reason: aReason, serviceClass: aServiceClass},
-                                             (function(aResponse) {
-        if (aResponse.errorMsg) {
-          aCallback.notifyError(aResponse.errorMsg);
-          return false;
-        }
-
-        let infos = this._rulesToCallForwardingOptions(aResponse.rules);
-        aCallback.notifyGetCallForwardingSuccess(infos.length, infos);
+    this._radioInterface.sendWorkerMessage("queryCallForwardStatus",
+                                           {reason: aReason, serviceClass: aServiceClass},
+                                           (function(aResponse) {
+      if (aResponse.errorMsg) {
+        aCallback.notifyError(aResponse.errorMsg);
         return false;
-      }).bind(this));
-    }
+      }
+
+      let infos = this._rulesToCallForwardingOptions(aResponse.rules);
+      aCallback.notifyGetCallForwardingSuccess(infos.length, infos);
+      return false;
+    }).bind(this));
   },
 
   setCallBarring: function(aProgram, aEnabled, aPassword, aServiceClass,
                            aCallback) {
-    if (this._imsRegHandler.isImsRegistered) {
-      if (!this._imsUt) {
-        this.initUt();
-      }
+    let options = {
+      program: aProgram,
+      enabled: aEnabled,
+      password: aPassword,
+      serviceClass: aServiceClass
+    };
 
-      if (this._imsUt) {
-        let cbType = RIL.CALL_BARRING_PROGRAM_TO_FACILITY[aProgram];
-        let requestId = this._imsUt.updateCallBarring(cbType, aEnabled, null, aServiceClass, aPassword);
-
-        if (requestId >= 0) {
-          let token = {
-            request: "setCallBarring",
-            callback: aCallback
-          };
-          this._tokenUtMap[requestId] = token;
-        } else {
-          this._debug("Error setCallBarring requestId =" + requestId);
-          this._dispatchNotifyError(aCallback, RIL.GECKO_ERROR_GENERIC_FAILURE);
-        }
-      } else {
-        this._debug("Error _imsUt null.");
-        this._dispatchNotifyError(aCallback, RIL.GECKO_ERROR_GENERIC_FAILURE);
-      }
-    } else {
-      let options = {
-        program: aProgram,
-        enabled: aEnabled,
-        password: aPassword,
-        serviceClass: aServiceClass
-      };
-
-      this._radioInterface.sendWorkerMessage("setCallBarring", options,
-                                             (function(aResponse) {
-        if (aResponse.errorMsg) {
-          aCallback.notifyError(aResponse.errorMsg);
-          return false;
-        }
-
-        aCallback.notifySuccess();
+    this._radioInterface.sendWorkerMessage("setCallBarring", options,
+                                           (function(aResponse) {
+      if (aResponse.errorMsg) {
+        aCallback.notifyError(aResponse.errorMsg);
         return false;
-      }).bind(this));
-    }
+      }
+
+      aCallback.notifySuccess();
+      return false;
+    }).bind(this));
   },
 
   getCallBarring: function(aProgram, aPassword, aServiceClass, aCallback) {
-    if (this._imsRegHandler.isImsRegistered) {
-      if (!this._imsUt) {
-        this.initUt();
-      }
+    let options = {
+      program: aProgram,
+      password: aPassword,
+      serviceClass: aServiceClass
+    };
 
-      if (this._imsUt) {
-        let cbType = RIL.CALL_BARRING_PROGRAM_TO_FACILITY[aProgram];
-        let requestId = this._imsUt.queryCallBarring(cbType, aServiceClass);
-
-        if (requestId >= 0) {
-          // Store the token for the callback notify.
-          let token = {
-            request: "getCallBarring",
-            program: aProgram,
-            callback: aCallback
-          };
-          this._tokenUtMap[requestId] = token;
-
-        } else {
-          this._debug("Error getCallBarring requestId =" + requestId);
-          this._dispatchNotifyError(aCallback, RIL.GECKO_ERROR_GENERIC_FAILURE);
-        }
-      } else {
-        this._debug("Error _imsUt null.");
-        this._dispatchNotifyError(aCallback, RIL.GECKO_ERROR_GENERIC_FAILURE);
-      }
-    } else {
-      let options = {
-        program: aProgram,
-        password: aPassword,
-        serviceClass: aServiceClass
-      };
-
-      this._radioInterface.sendWorkerMessage("queryCallBarringStatus", options,
-                                             (function(aResponse) {
-        if (aResponse.errorMsg) {
-          aCallback.notifyError(aResponse.errorMsg);
-          return false;
-        }
-
-        aCallback.notifyGetCallBarringSuccess(aResponse.program,
-                                              aResponse.enabled,
-                                              aResponse.serviceClass);
+    this._radioInterface.sendWorkerMessage("queryCallBarringStatus", options,
+                                           (function(aResponse) {
+      if (aResponse.errorMsg) {
+        aCallback.notifyError(aResponse.errorMsg);
         return false;
-      }).bind(this));
-    }
+      }
+
+      aCallback.notifyGetCallBarringSuccess(aResponse.program,
+                                            aResponse.enabled,
+                                            aResponse.serviceClass);
+      return false;
+    }).bind(this));
   },
 
   changeCallBarringPassword: function(aPin, aNewPin, aCallback) {
@@ -1716,82 +1592,34 @@ MobileConnectionProvider.prototype = {
   },
 
   setCallWaiting: function(aEnabled, aServiceClass, aCallback) {
-    if (this._imsRegHandler.isImsRegistered) {
-      if (!this._imsUt) {
-        this.initUt();
-      }
+    let options = {
+      enabled: aEnabled,
+      serviceClass: aServiceClass
+    };
 
-      if (this._imsUt) {
-        let requestId = this._imsUt.updateCallWaiting(aEnabled, aServiceClass);
-        if (requestId >= 0) {
-          // Store the token for the callback notify.
-          let token = {
-            request: "setCallWaiting",
-            callback: aCallback
-          };
-          this._tokenUtMap[requestId] = token;
-        } else {
-          this._debug("Error setCallBarring requestId =" + requestId);
-          this._dispatchNotifyError(aCallback, RIL.GECKO_ERROR_GENERIC_FAILURE);
-        }
-      } else {
-        this._debug("Error _imsUt null.");
-        this._dispatchNotifyError(aCallback, RIL.GECKO_ERROR_GENERIC_FAILURE);
-      }
-    } else {
-      let options = {
-        enabled: aEnabled,
-        serviceClass: aServiceClass
-      };
-
-      this._radioInterface.sendWorkerMessage("setCallWaiting", options,
-                                             (function(aResponse) {
-        if (aResponse.errorMsg) {
-          aCallback.notifyError(aResponse.errorMsg);
-          return false;
-        }
-
-        aCallback.notifySuccess();
+    this._radioInterface.sendWorkerMessage("setCallWaiting", options,
+                                           (function(aResponse) {
+      if (aResponse.errorMsg) {
+        aCallback.notifyError(aResponse.errorMsg);
         return false;
-      }).bind(this));
-    }
+      }
+
+      aCallback.notifySuccess();
+      return false;
+    }).bind(this));
   },
 
   getCallWaiting: function(aCallback) {
-    if (this._imsRegHandler.isImsRegistered) {
-      if (!this._imsUt) {
-        this.initUt();
-      }
-
-      if (this._imsUt) {
-        let requestId = this._imsUt.queryCallWaiting();
-        if (requestId >= 0) {
-          // Store the token for the callback notify.
-          let token = {
-            request: "getCallWaiting",
-            callback: aCallback
-          };
-          this._tokenUtMap[requestId] = token;
-        } else {
-          this._debug("Error getCallBarring requestId =" + requestId);
-          this._dispatchNotifyError(aCallback, RIL.GECKO_ERROR_GENERIC_FAILURE);
-        }
-      } else {
-        this._debug("Error _imsUt null.");
-        this._dispatchNotifyError(aCallback, RIL.GECKO_ERROR_GENERIC_FAILURE);
-      }
-    } else {
-      this._radioInterface.sendWorkerMessage("queryCallWaiting", null,
-                                             (function(aResponse) {
-        if (aResponse.errorMsg) {
-          aCallback.notifyError(aResponse.errorMsg);
-          return false;
-        }
-
-        aCallback.notifyGetCallWaitingSuccess(aResponse.serviceClass);
+    this._radioInterface.sendWorkerMessage("queryCallWaiting", null,
+                                           (function(aResponse) {
+      if (aResponse.errorMsg) {
+        aCallback.notifyError(aResponse.errorMsg);
         return false;
-      }).bind(this));
-    }
+      }
+
+      aCallback.notifyGetCallWaitingSuccess(aResponse.serviceClass);
+      return false;
+    }).bind(this));
   },
 
   setCallingLineIdRestriction: function(aMode, aCallback) {
@@ -1800,88 +1628,40 @@ MobileConnectionProvider.prototype = {
       return;
     }
 
-    if (this._imsRegHandler.isImsRegistered) {
-      if (!this._imsUt) {
-        this.initUt();
-      }
-
-      if (this._imsUt) {
-        let requestId = this._imsUt.updateCLIR(aMode);
-        if (requestId >= 0) {
-          // Store the token for the callback notify.
-          let token = {
-            request: "setCallingLineIdRestriction",
-            callback: aCallback
-          };
-          this._tokenUtMap[requestId] = token;
-        } else {
-          this._debug("Error setCallingLineIdRestriction requestId =" + requestId);
-          this._dispatchNotifyError(aCallback, RIL.GECKO_ERROR_GENERIC_FAILURE);
-        }
-      } else {
-        this._debug("Error _imsUt null.");
-        this._dispatchNotifyError(aCallback, RIL.GECKO_ERROR_GENERIC_FAILURE);
-      }
-    } else {
-      if (this.radioState !== Ci.nsIMobileConnection.MOBILE_RADIO_STATE_ENABLED) {
-        this._dispatchNotifyError(aCallback, RIL.GECKO_ERROR_RADIO_NOT_AVAILABLE);
-        return;
-      }
-
-      this._radioInterface.sendWorkerMessage("setCLIR", {clirMode: aMode},
-                                             (function(aResponse) {
-        if (aResponse.errorMsg) {
-          aCallback.notifyError(aResponse.errorMsg);
-          return false;
-        }
-
-        this.deliverListenerEvent("notifyClirModeChanged", [aResponse.mode]);
-        aCallback.notifySuccess();
-        return false;
-      }).bind(this));
+    if (this.radioState !== Ci.nsIMobileConnection.MOBILE_RADIO_STATE_ENABLED) {
+      this._dispatchNotifyError(aCallback, RIL.GECKO_ERROR_RADIO_NOT_AVAILABLE);
+      return;
     }
+
+    this._radioInterface.sendWorkerMessage("setCLIR", {clirMode: aMode},
+                                           (function(aResponse) {
+      if (aResponse.errorMsg) {
+        aCallback.notifyError(aResponse.errorMsg);
+        return false;
+      }
+
+      this.deliverListenerEvent("notifyClirModeChanged", [aResponse.mode]);
+      aCallback.notifySuccess();
+      return false;
+    }).bind(this));
   },
 
   getCallingLineIdRestriction: function(aCallback) {
-    if (this._imsRegHandler.isImsRegistered) {
-      if (!this._imsUt) {
-        this.initUt();
-      }
-
-      if (this._imsUt) {
-        let requestId = this._imsUt.queryCLIR();
-        if (requestId >= 0) {
-          // Store the token for the callback notify.
-          let token = {
-            request: "getCallingLineIdRestriction",
-            callback: aCallback
-          };
-          this._tokenUtMap[requestId] = token;
-        } else {
-          this._debug("Error getCallBarring requestId =" + requestId);
-          this._dispatchNotifyError(aCallback, RIL.GECKO_ERROR_GENERIC_FAILURE);
-        }
-      } else {
-        this._debug("Error _imsUt null.");
-        this._dispatchNotifyError(aCallback, RIL.GECKO_ERROR_GENERIC_FAILURE);
-      }
-    } else {
-      if (this.radioState !== Ci.nsIMobileConnection.MOBILE_RADIO_STATE_ENABLED) {
-        this._dispatchNotifyError(aCallback, RIL.GECKO_ERROR_RADIO_NOT_AVAILABLE);
-        return;
-      }
-
-      this._radioInterface.sendWorkerMessage("getCLIR", null,
-                                             (function(aResponse) {
-        if (aResponse.errorMsg) {
-          aCallback.notifyError(aResponse.errorMsg);
-          return false;
-        }
-
-        aCallback.notifyGetClirStatusSuccess(aResponse.n, aResponse.m);
-        return false;
-      }).bind(this));
+    if (this.radioState !== Ci.nsIMobileConnection.MOBILE_RADIO_STATE_ENABLED) {
+      this._dispatchNotifyError(aCallback, RIL.GECKO_ERROR_RADIO_NOT_AVAILABLE);
+      return;
     }
+
+    this._radioInterface.sendWorkerMessage("getCLIR", null,
+                                           (function(aResponse) {
+      if (aResponse.errorMsg) {
+        aCallback.notifyError(aResponse.errorMsg);
+        return false;
+      }
+
+      aCallback.notifyGetClirStatusSuccess(aResponse.n, aResponse.m);
+      return false;
+    }).bind(this));
   },
 
   exitEmergencyCbMode: function(aCallback) {
@@ -1993,185 +1773,6 @@ MobileConnectionProvider.prototype = {
 
     aCallback.notifyGetDeviceIdentitiesRequestSuccess(deviceId);
   },
-
-  initUt: function() {
-    if (!this._imsUt) {
-      if (this._imsRegHandler) {
-        let imsMMTel = this._imsRegHandler.imsMMTelFeature;
-        if (imsMMTel) {
-          this._imsUt = imsMMTel.getUtInterface();
-          if (this._imsUt) {
-            this._imsUt.setCallback(this);
-          } else {
-            this.debug("_imsUt not ready.");
-          }
-        } else {
-          this.debug("imsMMTel not ready.");
-        }
-      } else {
-        this.debug("_imsRegHandler not ready.");
-      }
-    }
-  },
-
-  //nsIImsUtCallback implement.
-  onUtConfigurationUpdated: function(aId) {
-    let token = this._tokenUtMap[aId];
-    if (!token) {
-      if (DEBUG) this.debug("Ignore orphan ut aId: " + aId);
-      return;
-    }
-
-    this.debug("onUtConfigurationUpdated. aId= " + aId + ", aReqeust = " + token.request);
-
-    if (token.request === "setCallForwarding") {
-      this.notifyCFStateChanged(token.action, token.reason, token.number, token.timeseconds, token.serviceclass);
-      token.callback.notifySuccess();
-    } else {
-      token.callback.notifySuccess();
-    }
-    delete this._tokenUtMap[aId];
-  },
-
-  onUtConfigurationUpdateFailed: function(aId, aError) {
-    let token = this._tokenUtMap[aId];
-    if (!token) {
-      if (DEBUG) this.debug("Ignore orphan ut aId: " + aId);
-      return;
-    }
-
-    this.debug("onUtConfigurationUpdateFailed. aId=" + aId + " , aReqeust="+ token.reqeust + " , aError=" + aError);
-    this._dispatchNotifyError(token.callback, aError);
-    delete this._tokenUtMap[aId];
-  },
-
-  onCallForwardQueried: function(aId, aCfInfos) {
-    this.debug("onCallForwardQueried. aId=" + aId + " , aCfInfos=" + JSON.stringify(aCfInfos));
-    let token = this._tokenUtMap[aId];
-    if (!token) {
-      if (DEBUG) this.debug("Ignore orphan ut aId: " + aId);
-      return;
-    }
-
-    // For mapping from the nsIImsCallForwardInfo to nsIMobileCallForwardingOptions format.
-    let cfInfos = [];
-    for (let i = 0; i < aCfInfos.length ; i++) {
-      let cfInfo = {};
-      cfInfo.active = (aCfInfos[i].status == Ci.nsIImsUt.CF_STATUS_ACTIVE ? true : false);
-      cfInfo.action = Ci.nsIMobileConnection.CALL_FORWARD_ACTION_QUERY_STATUS;
-      cfInfo.reason = this.getCFReasonFromCondition(aCfInfos[i].condition);
-      cfInfo.number = aCfInfos[i].number;
-      cfInfo.timeSeconds = aCfInfos[i].timeSeconds;
-      cfInfo.serviceClass = aCfInfos[i].serviceClass;
-      cfInfos.push(cfInfo);
-    }
-
-    let infos = this._rulesToCallForwardingOptions(cfInfo);
-    token.callback.notifyGetCallForwardingSuccess(infos.length, infos);
-    delete this._tokenUtMap[aId];
-  },
-
-  onCallBarringQueried: function(aId, aCbInfo) {
-    this.debug("onCallBarringQueried. aId=" + aId + " , aCbInfo=" + JSON.stringify(aCbInfo));
-    let token = this._tokenUtMap[aId];
-    if (!token) {
-      if (DEBUG) this.debug("Ignore orphan ut aId: " + aId);
-      return;
-    }
-
-    let serviceClass =  (aCbInfo.status == Ci.nsIImsUt.STATUS_ENABLED) ? Ci.nsIMobileConnection.ICC_SERVICE_CLASS_VOICE
-                                                                       : Ci.nsIMobileConnection.ICC_SERVICE_CLASS_NONE;
-    token.callback.notifyGetCallBarringSuccess(token.program, token.enabled, serviceClass);
-    delete this._tokenUtMap[aId];
-  },
-
-  onCallWaitingQueried: function(aId, aCwInfo) {
-    this.debug("onCallBarringQueried. aId=" + aId + " , aCwInfo=" + JSON.stringify(aCwInfo));
-    let token = this._tokenUtMap[aId];
-    if (!token) {
-      if (DEBUG) this.debug("Ignore orphan ut aId: " + aId);
-      return;
-    }
-
-    let serviceClass =  (aCbInfo.status == Ci.nsIImsUt.STATUS_ENABLED) ? Ci.nsIMobileConnection.ICC_SERVICE_CLASS_VOICE
-                                                                       : Ci.nsIMobileConnection.ICC_SERVICE_CLASS_NONE;
-    token.callback.notifyGetCallWaitingSuccess(serviceClass);
-    delete this._tokenUtMap[aId];
-  },
-
-  onClirQueried: function(aId, aClirStatus) {
-    this.debug("onClirQueried. aId=" + aId + " , aClirStatus=" + JSON.stringify(aClirStatus));
-    let token = this._tokenUtMap[aId];
-    if (!token) {
-      if (DEBUG) this.debug("Ignore orphan ut aId: " + aId);
-      return;
-    }
-
-    token.callback.notifyGetClirStatusSuccess(aClirStatus.clirOutgoingStatus, aClirStatus.clirInterrogationStatus);
-    delete this._tokenUtMap[aId];
-  },
-
-  utConfigurationQueryFailed: function(aId, aError) {
-    let token = this._tokenUtMap[aId];
-    if (!token) {
-      if (DEBUG) this.debug("Ignore orphan ut aId: " + aId);
-      return;
-    }
-
-    this.debug("onCallBarringQueried. aId=" + aId +  " , aRequest= " + token.request + " , aError=" + aError);
-    this._dispatchNotifyError(token.callback, aError);
-  },
-
-  // Helper functions
-  getConditionFromCFReason: function (aReason) {
-    let condition = Ci.nsIImsUt.CDIV_CF_UNCONDITIONAL;
-    switch(aReason) {
-      case Ci.nsIMobileConnection.CALL_FORWARD_REASON_UNCONDITIONAL:
-        condition = Ci.nsIImsUt.CDIV_CF_UNCONDITIONAL;
-        break;
-      case Ci.nsIMobileConnection.CALL_FORWARD_REASON_MOBILE_BUSY:
-        condition = Ci.nsIImsUt.CDIV_CF_BUSY;
-        break;
-      case Ci.nsIMobileConnection.CALL_FORWARD_REASON_NO_REPLY:
-        condition = Ci.nsIImsUt.CDIV_CF_NO_REPLY;
-        break;
-      case Ci.nsIMobileConnection.CALL_FORWARD_REASON_NOT_REACHABLE:
-        condition = Ci.nsIImsUt.CDIV_CF_NOT_REACHABLE;
-        break;
-      case Ci.nsIMobileConnection.CALL_FORWARD_REASON_ALL_CALL_FORWARDING:
-        condition = Ci.nsIImsUt.CDIV_CF_ALL;
-        break;
-      case Ci.nsIMobileConnection.CALL_FORWARD_REASON_ALL_CONDITIONAL_CALL_FORWARDING:
-        condition = Ci.nsIImsUt.CDIV_CF_ALL_CONDITIONAL;
-        break;
-    };
-    return condition;
-  },
-
-  getCFReasonFromCondition: function (aCondition) {
-    let reason = Ci.nsIMobileConnection.CALL_FORWARD_REASON_UNKNOWN;
-    switch(aCondition) {
-      case Ci.nsIImsUt.CDIV_CF_UNCONDITIONAL:
-        reason = Ci.nsIMobileConnection.CALL_FORWARD_REASON_UNCONDITIONAL;
-        break;
-      case Ci.nsIImsUt.CDIV_CF_BUSY:
-        reason = Ci.nsIMobileConnection.CALL_FORWARD_REASON_MOBILE_BUSY;
-        break;
-      case Ci.nsIImsUt.CDIV_CF_NO_REPLY:
-        reason = Ci.nsIMobileConnection.CALL_FORWARD_REASON_NO_REPLY;
-        break;
-      case Ci.nsIImsUt.CDIV_CF_NOT_REACHABLE:
-        reason = Ci.nsIMobileConnection.CALL_FORWARD_REASON_NOT_REACHABLE;
-        break;
-      case Ci.nsIImsUt.CDIV_CF_ALL:
-        reason = Ci.nsIMobileConnection.CALL_FORWARD_REASON_ALL_CALL_FORWARDING;
-        break;
-      case Ci.nsIImsUt.CDIV_CF_ALL_CONDITIONAL:
-        reason = Ci.nsIMobileConnection.CALL_FORWARD_REASON_ALL_CONDITIONAL_CALL_FORWARDING;
-        break;
-    };
-    return reason;
-  },
 };
 
 function MobileConnectionService() {
@@ -2186,8 +1787,7 @@ function MobileConnectionService() {
   }
   for (let i = 0; i < numClients; i++) {
     let radioInterface = gRadioInterfaceLayer.getRadioInterface(i);
-    let imsRegHandler = gImsRegService.getHandlerByServiceId(i);
-    let provider = new MobileConnectionProvider(i, radioInterface, imsRegHandler);
+    let provider = new MobileConnectionProvider(i, radioInterface);
     this._providers.push(provider);
   }
 
