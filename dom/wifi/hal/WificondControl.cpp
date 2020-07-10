@@ -39,7 +39,11 @@ WificondControl::WificondControl()
     : mWificond(nullptr),
       mClientInterface(nullptr),
       mApInterface(nullptr),
-      mScanner(nullptr) {}
+      mScanner(nullptr) {
+  // To make sure remote process is not in any unexpected state,
+  // cleanup remote interfaces here.
+  TearDownInterfaces();
+}
 
 WificondControl* WificondControl::Get() {
   MOZ_ASSERT(NS_IsMainThread());
@@ -162,6 +166,31 @@ Result_t WificondControl::TearDownSoftapInterface(
   }
 
   mApInterface = nullptr;
+  return nsIWifiResult::SUCCESS;
+}
+
+Result_t WificondControl::TearDownInterfaces() {
+  Result_t result = nsIWifiResult::ERROR_UNKNOWN;
+
+  result = InitWificondInterface();
+  if (result != nsIWifiResult::SUCCESS) {
+    return result;
+  }
+
+  if (mScanner != nullptr) {
+    mScanner->unsubscribeScanEvents();
+    mScanner->unsubscribePnoScanEvents();
+  }
+
+  if (!mWificond->tearDownInterfaces().isOk()) {
+    WIFI_LOGE(LOG_TAG, "Failed to teardown interfaces due to remote exception");
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  }
+
+  mWificond = nullptr;
+  mClientInterface = nullptr;
+  mApInterface = nullptr;
+  mScanner = nullptr;
   return nsIWifiResult::SUCCESS;
 }
 

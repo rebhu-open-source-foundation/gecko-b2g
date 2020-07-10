@@ -69,6 +69,8 @@ class WificondControl : virtual public android::RefBase {
 
   virtual ~WificondControl() {}
 
+  Result_t TearDownInterfaces();
+
   static WificondControl* sInstance;
 
   android::sp<IWificond> mWificond;
