@@ -224,8 +224,9 @@ const RECOMMENDED_PREFS = new Map([
   // Make sure opening about:addons will not hit the network
   ["extensions.getAddons.discovery.api_url", "data:, "],
 
-  // Allow the application to have focus even it runs in the background
-  ["focusmanager.testmode", true],
+  // Set true to allow the application to have focus even it runs in the background
+  // B2G device build shouldn't enable this by default. Leave this to client to determine.
+  ["focusmanager.testmode", false],
 
   // Disable useragent updates
   ["general.useragent.updates.enabled", false],
