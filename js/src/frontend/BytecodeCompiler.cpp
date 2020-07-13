@@ -23,6 +23,7 @@
 #include "frontend/ModuleSharedContext.h"
 #include "frontend/Parser.h"
 #include "js/SourceText.h"
+#include "vm/FunctionFlags.h"          // FunctionFlags
 #include "vm/GeneratorAndAsyncKind.h"  // js::GeneratorKind, js::FunctionAsyncKind
 #include "vm/GlobalObject.h"
 #include "vm/JSContext.h"
@@ -525,12 +526,10 @@ ModuleObject* frontend::ModuleCompiler<Unit>::compile(
 
   ModuleBuilder builder(cx, parser.ptr());
 
-  RootedScope enclosingScope(cx, &cx->global()->emptyGlobalScope());
   uint32_t len = this->sourceBuffer_.length();
   SourceExtent extent =
       SourceExtent::makeGlobalExtent(len, compilationInfo.options);
-  ModuleSharedContext modulesc(cx, module, compilationInfo, enclosingScope,
-                               builder, extent);
+  ModuleSharedContext modulesc(cx, module, compilationInfo, builder, extent);
 
   ParseNode* pn = parser->moduleBody(&modulesc);
   if (!pn) {
@@ -619,8 +618,6 @@ JSFunction* frontend::StandaloneFunctionCompiler<Unit>::compile(
   FunctionBox* funbox = parsedFunction->funbox();
 
   if (funbox->isInterpreted()) {
-    MOZ_ASSERT(funbox->function() == nullptr);
-
     Maybe<BytecodeEmitter> emitter;
     if (!emplaceEmitter(compilationInfo, emitter, funbox)) {
       return nullptr;
@@ -646,9 +643,7 @@ JSFunction* frontend::StandaloneFunctionCompiler<Unit>::compile(
     // allocate the JSFunction that wraps it.
     MOZ_ASSERT(funbox->isAsmJSModule());
     MOZ_ASSERT(compilationInfo.asmJS.has(funbox->index()));
-
-    compilationInfo.topLevel.get().isAsmJSModule = true;
-    funbox->copyScriptFields(compilationInfo.topLevel.get());
+    MOZ_ASSERT(compilationInfo.topLevel.get().functionFlags.isAsmJSNative());
   }
 
   if (!compilationInfo.instantiateStencils()) {
@@ -722,6 +717,7 @@ static ModuleObject* InternalParseModule(
   if (!compilationInfo.init(cx)) {
     return nullptr;
   }
+  compilationInfo.setEnclosingScope(&cx->global()->emptyGlobalScope());
 
   if (sourceObjectOut) {
     *sourceObjectOut = compilationInfo.sourceObject;

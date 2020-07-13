@@ -18,6 +18,9 @@
 
 var EXPORTED_SYMBOLS = ["URIFixup", "URIFixupInfo"];
 
+const { ComponentUtils } = ChromeUtils.import(
+  "resource://gre/modules/ComponentUtils.jsm"
+);
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
@@ -181,8 +184,8 @@ XPCOMUtils.defineLazyGetter(this, "knownDomains", () => {
       }
     },
     QueryInterface: ChromeUtils.generateQI([
-      Ci.nsIObserver,
-      Ci.nsISupportsWeakReference,
+      "nsIObserver",
+      "nsISupportsWeakReference",
     ]),
   };
   Services.prefs.addObserver(branch, domains._observer, true);
@@ -239,8 +242,8 @@ XPCOMUtils.defineLazyGetter(this, "knownSuffixes", () => {
       }
     },
     QueryInterface: ChromeUtils.generateQI([
-      Ci.nsIObserver,
-      Ci.nsISupportsWeakReference,
+      "nsIObserver",
+      "nsISupportsWeakReference",
     ]),
   };
   Services.prefs.addObserver(branch, suffixes._observer, true);
@@ -555,8 +558,8 @@ URIFixup.prototype = {
   isDomainKnown,
 
   classID: Components.ID("{c6cf88b7-452e-47eb-bdc9-86e3561648ef}"),
-  _xpcom_factory: XPCOMUtils.generateSingletonFactory(URIFixup),
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIURIFixup]),
+  _xpcom_factory: ComponentUtils.generateSingletonFactory(URIFixup),
+  QueryInterface: ChromeUtils.generateQI(["nsIURIFixup"]),
 };
 
 function URIFixupInfo(originalInput = "") {
@@ -621,7 +624,7 @@ URIFixupInfo.prototype = {
   },
 
   classID: Components.ID("{33d75835-722f-42c0-89cc-44f328e56a86}"),
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIURIFixupInfo]),
+  QueryInterface: ChromeUtils.generateQI(["nsIURIFixupInfo"]),
 };
 
 // Helpers

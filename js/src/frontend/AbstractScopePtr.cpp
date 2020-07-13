@@ -26,44 +26,6 @@ CompilationInfo& AbstractScopePtr::compilationInfo() const {
   return data.compilationInfo;
 }
 
-// This is used during allocation of the scopes to ensure that we only
-// allocate GC scopes with GC-enclosing scopes. This can recurse through
-// the scope chain.
-//
-// Once all ScopeCreation for a compilation tree is centralized, this
-// will go away, to be replaced with a single top down GC scope allocation.
-//
-// This uses an outparam to disambiguate between the case where we have a
-// real nullptr scope and we failed to allocate a new scope because of OOM.
-bool AbstractScopePtr::getOrCreateScope(JSContext* cx,
-                                        MutableHandleScope scope) {
-  if (isScopeCreationData()) {
-    MutableHandle<ScopeCreationData> scd = scopeCreationData();
-    if (scd.get().hasScope()) {
-      scope.set(scd.get().getScope());
-      return true;
-    }
-
-    scope.set(scd.get().createScope(cx, compilationInfo()));
-    return scope;
-  }
-
-  scope.set(this->scope());
-  return true;
-}
-
-Scope* AbstractScopePtr::getExistingScope() const {
-  if (scope_.is<HeapPtrScope>()) {
-    return scope_.as<HeapPtrScope>();
-  }
-  MOZ_ASSERT(isScopeCreationData());
-  // This should only be called post-reification, as it needs to return a real
-  // Scope* unless it represents nullptr (in which case the variant should be
-  // in HeapPtrScope and handled above)
-  MOZ_ASSERT(scopeCreationData().get().getScope());
-  return scopeCreationData().get().getScope();
-}
-
 ScopeKind AbstractScopePtr::kind() const {
   MOZ_ASSERT(!isNullptr());
   if (isScopeCreationData()) {

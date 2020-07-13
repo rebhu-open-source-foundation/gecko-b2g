@@ -191,10 +191,6 @@ class SharedContext {
   SharedContext(JSContext* cx, Kind kind, CompilationInfo& compilationInfo,
                 Directives directives, SourceExtent extent);
 
-  // If this is the outermost SharedContext, the Scope that encloses
-  // it. Otherwise nullptr.
-  virtual Scope* compilationEnclosingScope() const = 0;
-
   IMMUTABLE_FLAG_GETTER_SETTER(isForEval, IsForEval)
   IMMUTABLE_FLAG_GETTER_SETTER(isModule, IsModule)
   IMMUTABLE_FLAG_GETTER_SETTER(isFunction, IsFunction)
@@ -284,8 +280,6 @@ class MOZ_STACK_CLASS GlobalSharedContext : public SharedContext {
     MOZ_ASSERT(thisBinding_ == ThisBinding::Global);
   }
 
-  Scope* compilationEnclosingScope() const override { return nullptr; }
-
   ScopeKind scopeKind() const { return scopeKind_; }
 };
 
@@ -295,16 +289,11 @@ inline GlobalSharedContext* SharedContext::asGlobalContext() {
 }
 
 class MOZ_STACK_CLASS EvalSharedContext : public SharedContext {
-  RootedScope enclosingScope_;
-
  public:
   Rooted<EvalScope::Data*> bindings;
 
   EvalSharedContext(JSContext* cx, CompilationInfo& compilationInfo,
-                    Scope* enclosingScope, Directives directives,
-                    SourceExtent extent);
-
-  Scope* compilationEnclosingScope() const override { return enclosingScope_; }
+                    Directives directives, SourceExtent extent);
 };
 
 inline EvalSharedContext* SharedContext::asEvalContext() {
@@ -397,12 +386,8 @@ class FunctionBox : public SharedContext {
   bool isAnnexB : 1;
 
   // Track if we saw "use asm".
+  // If we successfully validated it, `flags_` is seto to `AsmJS` kind.
   bool useAsm : 1;
-
-  // Track if we saw "use asm" and if we successfully validated.
-  // This field is copied to ScriptStencil, and shouldn't be modified after the
-  // copy.
-  bool isAsmJSModule_ : 1;
 
   // Analysis of parameter list
   bool hasParameterExprs : 1;
@@ -431,8 +416,6 @@ class FunctionBox : public SharedContext {
               TopLevelFunction isTopLevel);
 
   MutableHandle<ScriptStencil> functionStencil() const;
-
-  bool hasFunction() const;
 
 #ifdef DEBUG
   bool atomsAreKept();
@@ -492,9 +475,7 @@ class FunctionBox : public SharedContext {
   }
 
   MOZ_MUST_USE bool setAsmJSModule(const JS::WasmModule* module);
-  bool isAsmJSModule() const { return isAsmJSModule_; }
-
-  Scope* compilationEnclosingScope() const override;
+  bool isAsmJSModule() const { return flags_.isAsmJSNative(); }
 
   bool hasEnclosingScopeIndex() const { return enclosingScopeIndex_.isSome(); }
   ScopeIndex getEnclosingScopeIndex() const { return *enclosingScopeIndex_; }

@@ -203,10 +203,8 @@ void ScopeContext::computeExternalInitializers(Scope* scope) {
 
 EvalSharedContext::EvalSharedContext(JSContext* cx,
                                      CompilationInfo& compilationInfo,
-                                     Scope* enclosingScope,
                                      Directives directives, SourceExtent extent)
     : SharedContext(cx, Kind::Eval, compilationInfo, directives, extent),
-      enclosingScope_(cx, enclosingScope),
       bindings(cx) {
   // Eval inherits syntax and binding rules from enclosing environment.
   allowNewTarget_ = compilationInfo.scopeContext.allowNewTarget;
@@ -239,7 +237,6 @@ FunctionBox::FunctionBox(JSContext* cx, FunctionBox* traceListHead,
       isSingleton_(false),
       isAnnexB(false),
       useAsm(false),
-      isAsmJSModule_(false),
       hasParameterExprs(false),
       hasDestructuringArgs(false),
       hasDuplicateParameters(false),
@@ -252,10 +249,6 @@ FunctionBox::FunctionBox(JSContext* cx, FunctionBox* traceListHead,
           generatorKind == GeneratorKind::Generator);
   setFlag(ImmutableFlags::IsAsync,
           asyncKind == FunctionAsyncKind::AsyncFunction);
-}
-
-bool FunctionBox::hasFunction() const {
-  return compilationInfo_.functions[funcDataIndex_] != nullptr;
 }
 
 void FunctionBox::initFromLazyFunction(JSFunction* fun) {
@@ -370,9 +363,7 @@ void FunctionBox::setEnclosingScopeForInnerLazyFunction(ScopeIndex scopeIndex) {
 
 bool FunctionBox::setAsmJSModule(const JS::WasmModule* module) {
   MOZ_ASSERT(!isFunctionFieldCopiedToStencil);
-  isAsmJSModule_ = true;
 
-  MOZ_ASSERT(!hasFunction());
   MOZ_ASSERT(flags_.kind() == FunctionFlags::NormalFunction);
 
   // Update flags we will use to allocate the JSFunction.
@@ -400,23 +391,13 @@ JSFunction* FunctionBox::function() const {
   return compilationInfo_.functions[funcDataIndex_];
 }
 
-Scope* FunctionBox::compilationEnclosingScope() const {
-  // This is used when emitting code for the current FunctionBox and therefore
-  // the topLevelFunctionEnclosingScope must have be set correctly during
-  // initalization.
-  MOZ_ASSERT(compilationInfo_.topLevelFunctionEnclosingScope);
-  return compilationInfo_.topLevelFunctionEnclosingScope;
-}
-
 ModuleSharedContext::ModuleSharedContext(JSContext* cx, ModuleObject* module,
                                          CompilationInfo& compilationInfo,
-                                         Scope* enclosingScope,
                                          ModuleBuilder& builder,
                                          SourceExtent extent)
     : SharedContext(cx, Kind::Module, compilationInfo, Directives(true),
                     extent),
       module_(cx, module),
-      enclosingScope_(cx, enclosingScope),
       bindings(cx),
       builder(builder) {
   thisBinding_ = ThisBinding::Module;
@@ -450,6 +431,7 @@ void FunctionBox::finishScriptFlags() {
 
 void FunctionBox::copyScriptFields(ScriptStencil& stencil) {
   MOZ_ASSERT(&stencil == &functionStencil().get());
+  MOZ_ASSERT(!isAsmJSModule());
 
   SharedContext::copyScriptFields(stencil);
 
@@ -466,7 +448,6 @@ void FunctionBox::copyFunctionFields(ScriptStencil& stencil) {
   stencil.functionFlags = flags_;
   stencil.nargs = nargs_;
   stencil.lazyFunctionEnclosingScopeIndex_ = enclosingScopeIndex_;
-  stencil.isAsmJSModule = isAsmJSModule_;
   stencil.isStandaloneFunction = isStandalone_;
   stencil.wasFunctionEmitted = wasEmitted_;
   stencil.isSingletonFunction = isSingleton_;

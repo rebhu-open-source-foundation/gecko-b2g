@@ -694,6 +694,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
     "resource://gre/modules/ContextualIdentityService.jsm",
   Corroborate: "resource://gre/modules/Corroborate.jsm",
   Discovery: "resource:///modules/Discovery.jsm",
+  DoHController: "resource:///modules/DoHController.jsm",
   ExtensionsUI: "resource:///modules/ExtensionsUI.jsm",
   FirefoxMonitor: "resource:///modules/FirefoxMonitor.jsm",
   FxAccounts: "resource://gre/modules/FxAccounts.jsm",
@@ -2263,6 +2264,7 @@ BrowserGlue.prototype = {
       this._showNewInstallModal();
     }
 
+    DoHController.init();
     FirefoxMonitor.init();
   },
 
@@ -4167,8 +4169,8 @@ BrowserGlue.prototype = {
   },
 
   QueryInterface: ChromeUtils.generateQI([
-    Ci.nsIObserver,
-    Ci.nsISupportsWeakReference,
+    "nsIObserver",
+    "nsISupportsWeakReference",
   ]),
 };
 
@@ -4450,7 +4452,7 @@ function ContentPermissionPrompt() {}
 ContentPermissionPrompt.prototype = {
   classID: Components.ID("{d8903bf6-68d5-4e97-bcd1-e4d3012f721a}"),
 
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIContentPermissionPrompt]),
+  QueryInterface: ChromeUtils.generateQI(["nsIContentPermissionPrompt"]),
 
   /**
    * This implementation of nsIContentPermissionPrompt.prompt ensures
@@ -4871,8 +4873,8 @@ var JawsScreenReaderVersionCheck = {
   },
 
   QueryInterface: ChromeUtils.generateQI([
-    Ci.nsIObserver,
-    Ci.nsISupportsWeakReference,
+    "nsIObserver",
+    "nsISupportsWeakReference",
   ]),
 
   observe(subject, topic, data) {
@@ -5720,8 +5722,8 @@ var AboutHomeStartupCache = {
   },
 
   QueryInterface: ChromeUtils.generateQI([
-    Ci.nsICacheEntryOpenallback,
-    Ci.nsIObserver,
+    "nsICacheEntryOpenallback",
+    "nsIObserver",
   ]),
 
   /** MessageListener **/

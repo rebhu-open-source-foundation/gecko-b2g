@@ -98,7 +98,7 @@ def patch(patch, srcdir):
                '-s'])
 
 
-def import_clang_tidy(source_dir, build_clang_tidy_alpha):
+def import_clang_tidy(source_dir, build_clang_tidy_alpha, build_clang_tidy_external):
     clang_plugin_path = os.path.join(os.path.dirname(sys.argv[0]),
                                      '..', 'clang-plugin')
     clang_tidy_path = os.path.join(source_dir,
@@ -107,7 +107,7 @@ def import_clang_tidy(source_dir, build_clang_tidy_alpha):
     from import_mozilla_checks import do_import
     import_options = {
       "alpha": build_clang_tidy_alpha,
-      "external": False
+      "external": build_clang_tidy_external
     }
     do_import(clang_plugin_path, clang_tidy_path, import_options)
 
@@ -652,6 +652,12 @@ if __name__ == "__main__":
         build_clang_tidy_alpha = config["build_clang_tidy_alpha"]
         if build_clang_tidy_alpha not in (True, False):
             raise ValueError("Only boolean values are accepted for build_clang_tidy_alpha.")
+    build_clang_tidy_external = False
+    # check for build_clang_tidy_external only if build_clang_tidy is true
+    if build_clang_tidy and "build_clang_tidy_external" in config:
+        build_clang_tidy_external = config["build_clang_tidy_external"]
+        if build_clang_tidy_external not in (True, False):
+            raise ValueError("Only boolean values are accepted for build_clang_tidy_external.")
     osx_cross_compile = False
     if "osx_cross_compile" in config:
         osx_cross_compile = config["osx_cross_compile"]
@@ -731,7 +737,7 @@ if __name__ == "__main__":
     package_name = "clang"
     if build_clang_tidy:
         package_name = "clang-tidy"
-        import_clang_tidy(source_dir, build_clang_tidy_alpha)
+        import_clang_tidy(source_dir, build_clang_tidy_alpha, build_clang_tidy_external)
 
     if not os.path.exists(build_dir):
         os.makedirs(build_dir)
@@ -765,6 +771,12 @@ if __name__ == "__main__":
         extra_asmflags = []
         # Avoid libLLVM internal function calls going through the PLT.
         extra_ldflags = ['-Wl,-Bsymbolic-functions']
+        # For whatever reason, LLVM's build system will set things up to turn
+        # on -ffunction-sections and -fdata-sections, but won't turn on the
+        # corresponding option to strip unused sections.  We do it explicitly
+        # here.  LLVM's build system is also picky about turning on ICF, so
+        # we do that explicitly here, too.
+        extra_ldflags += ['-fuse-ld=gold', '-Wl,--gc-sections', '-Wl,--icf=safe']
 
         if 'LD_LIBRARY_PATH' in os.environ:
             os.environ['LD_LIBRARY_PATH'] = ('%s/lib64/:%s' %

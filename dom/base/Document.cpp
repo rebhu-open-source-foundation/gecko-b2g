@@ -244,7 +244,6 @@
 
 #include "mozilla/SMILAnimationController.h"
 #include "imgIContainer.h"
-#include "nsSVGUtils.h"
 
 #include "nsRefreshDriver.h"
 
@@ -9769,10 +9768,25 @@ nsViewportInfo Document::GetViewportInfo(const ScreenIntSize& aDisplaySize) {
             // the layout of such pages. To keep text readable in that case, we
             // rely on font inflation instead.
 
+            BrowsingContext* bc = GetBrowsingContext();
+            nsIDocShell* docShell = GetDocShell();
+            if (docShell &&
+                docShell->GetTouchEventsOverride() ==
+                    nsIDocShell::TOUCHEVENTS_OVERRIDE_ENABLED &&
+                bc && bc->InRDMPane()) {
+              // If RDM and touch simulation are active, then use the simulated
+              // screen width to accomodate for cases where the screen width is
+              // larger than the desktop viewport default.
+              width = nsViewportInfo::Max(
+                  displaySize.width,
+                  StaticPrefs::browser_viewport_desktopWidth());
+            } else {
+              width = StaticPrefs::browser_viewport_desktopWidth();
+            }
             // Divide by fullZoom to stretch CSS pixel size of viewport in order
             // to keep device pixel size unchanged after full zoom applied.
             // See bug 974242.
-            width = StaticPrefs::browser_viewport_desktopWidth() / fullZoom;
+            width /= fullZoom;
           } else {
             // Some viewport information was provided; follow the spec.
             width = displaySize.width;
@@ -13503,10 +13517,12 @@ Element* Document::TopLayerPop(FunctionRef<bool(Element*)> aPredicateFunc) {
   // Pop from the stack null elements (references to elements which have
   // been GC'd since they were added to the stack) and elements which are
   // no longer in this document.
+  //
+  // FIXME(emilio): If this loop does something, it'd violate the assertions
+  // from GetTopLayerTop()... What gives?
   while (!mTopLayer.IsEmpty()) {
     Element* element = GetTopLayerTop();
-    if (!element || !element->IsInUncomposedDoc() ||
-        element->OwnerDoc() != this) {
+    if (!element || element->GetComposedDoc() != this) {
       mTopLayer.RemoveLastElement();
     } else {
       // The top element of the stack is now an in-doc element. Return here.

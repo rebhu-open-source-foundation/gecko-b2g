@@ -1060,10 +1060,10 @@ class nsIFrame : public nsQueryFrame {
    *
    * Frames that are laid out according to SVG's coordinate space based rules
    * (frames with the NS_FRAME_SVG_LAYOUT bit set, which *excludes*
-   * nsSVGOuterSVGFrame) are different.  Many frames of this type do not set or
+   * SVGOuterSVGFrame) are different.  Many frames of this type do not set or
    * use mRect, in which case the frame rect is undefined.  The exceptions are:
    *
-   *   - nsSVGInnerSVGFrame
+   *   - SVGInnerSVGFrame
    *   - SVGGeometryFrame (used for <path>, <circle>, etc.)
    *   - SVGImageFrame
    *   - SVGForeignObjectFrame
@@ -3316,7 +3316,7 @@ class nsIFrame : public nsQueryFrame {
   bool IsBlockFrameOrSubclass() const;
 
   /**
-   * Returns true if the frame is an instance of nsSVGGeometryFrame or one
+   * Returns true if the frame is an instance of SVGGeometryFrame or one
    * of its subclasses.
    */
   inline bool IsSVGGeometryFrameOrSubclass() const;
@@ -3749,10 +3749,26 @@ class nsIFrame : public nsQueryFrame {
    * Uses frame's begin selection state to start. If no selection on this frame
    * will return NS_ERROR_FAILURE.
    *
-   * @param aPOS is defined in nsFrameSelection
+   * @param aPos is defined in nsFrameSelection
    */
   virtual nsresult PeekOffset(nsPeekOffsetStruct* aPos);
 
+ private:
+  nsresult PeekOffsetForCharacter(nsPeekOffsetStruct* aPos, int32_t offset);
+  nsresult PeekOffsetForWord(nsPeekOffsetStruct* aPos, int32_t offset);
+  nsresult PeekOffsetForLine(nsPeekOffsetStruct* aPos);
+  nsresult PeekOffsetForLineEdge(nsPeekOffsetStruct* aPos);
+
+  /**
+   * Search for the first paragraph boundary before or after the given position
+   * @param  aPos See description in nsFrameSelection.h. The following fields
+   *              are used by this method:
+   *              Input: mDirection
+   *              Output: mResultContent, mContentOffset
+   */
+  nsresult PeekOffsetForParagraph(nsPeekOffsetStruct* aPos);
+
+ public:
   // given a frame five me the first/last leaf available
   // XXX Robert O'Callahan wants to move these elsewhere
   static void GetLastLeaf(nsIFrame** aFrame);
@@ -5143,9 +5159,14 @@ class nsIFrame : public nsQueryFrame {
     // true when we're still at the start of the search, i.e., we can't return
     // this point as a valid offset!
     bool mAtStart;
-    // true when we've encountered at least one character of the pre-boundary
-    // type (whitespace if aWordSelectEatSpace is true, non-whitespace
-    // otherwise)
+    // true when we've encountered at least one character of the type before the
+    // boundary we're looking for:
+    // 1. If we're moving forward and eating whitepace, looking for a word
+    //    beginning (i.e. a boundary between whitespace and non-whitespace),
+    //    then mSawBeforeType==true means "we already saw some whitespace".
+    // 2. Otherwise, looking for a word beginning (i.e. a boundary between
+    //    non-whitespace and whitespace), then mSawBeforeType==true means "we
+    //    already saw some non-whitespace".
     bool mSawBeforeType;
     // true when the last character encountered was punctuation
     bool mLastCharWasPunctuation;
@@ -5210,15 +5231,6 @@ class nsIFrame : public nsQueryFrame {
                                           bool aForward, bool aPunctAfter,
                                           bool aWhitespaceAfter,
                                           bool aIsKeyboardSelect);
-
-  /**
-   * Search for the first paragraph boundary before or after the given position
-   * @param  aPos See description in nsFrameSelection.h. The following fields
-   *              are used by this method:
-   *              Input: mDirection
-   *              Output: mResultContent, mContentOffset
-   */
-  nsresult PeekOffsetParagraph(nsPeekOffsetStruct* aPos);
 
  private:
   // Get a pointer to the overflow areas property attached to the frame.
