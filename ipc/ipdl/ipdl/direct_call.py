@@ -113,18 +113,18 @@ DIRECT_CALL_OVERRIDES = {
     ("PSubsidyLockRequest", "parent"): (
         "SubsidyLockRequestParent", "mozilla/dom/subsidylock/SubsidyLockParent.h"
     ),
-#    ("PSms", "child"): (
-#        "PSmsChild", "mozilla/dom/mobilemessage/SmsChild.h"
-#    ),
-#    ("PSms", "parent"): (
-#        "PSmsParent", "mozilla/dom/mobilemessage/SmsParent.h"
-#    ),
-#    ("PSmsRequest", "child"): (
-#        "PSmsRequestChild", "mozilla/dom/mobilemessage/SmsRequestChild.h"
-#    ),
-#    ("PSmsRequest", "parent"): (
-#        "PSmsRequestParent", "mozilla/dom/mobilemessage/SmsRequestParent.h"
-#    ),
+    ("PSms", "child"): (
+        "SmsChild", "mozilla/dom/mobilemessage/SmsChild.h"
+    ),
+    ("PSms", "parent"): (
+        "SmsParent", "mozilla/dom/mobilemessage/SmsParent.h"
+    ),
+    ("PSmsRequest", "child"): (
+        "SmsRequestChild", "mozilla/dom/mobilemessage/SmsChild.h"
+    ),
+    ("PSmsRequest", "parent"): (
+        "SmsRequestParent", "mozilla/dom/mobilemessage/SmsParent.h"
+    ),
 #    ("PMobileMessageCursor", "child"): (
 #        "PMobileMessageCursorChild", "mozilla/dom/mobilemessage/MobileMessageCursorChild.h"
 #    ),

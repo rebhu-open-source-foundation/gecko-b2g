@@ -7,13 +7,14 @@
 #ifndef mozilla_dom_mobilemessage_SmsParent_h
 #define mozilla_dom_mobilemessage_SmsParent_h
 
+#include "mozilla/Observer.h"
 #include "mozilla/dom/mobilemessage/PSmsParent.h"
 #include "mozilla/dom/mobilemessage/PSmsRequestParent.h"
-#include "mozilla/dom/mobilemessage/PMobileMessageCursorParent.h"
-#include "nsIDOMDOMCursor.h"
+//#include "mozilla/dom/mobilemessage/PMobileMessageCursorParent.h"
+//#include "nsIDOMDOMCursor.h"
 #include "nsIMobileMessageCallback.h"
-#include "nsIMobileMessageCursorCallback.h"
-#include "nsIObserver.h"
+//#include "nsIMobileMessageCursorCallback.h"
+//#include "nsIObserver.h"
 
 namespace mozilla {
 namespace dom {
@@ -24,29 +25,29 @@ namespace mobilemessage {
 
 class SmsParent : public PSmsParent, public nsIObserver {
   friend class mozilla::dom::ContentParent;
+  friend class PSmsParent;
 
  public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBSERVER
 
  protected:
-  virtual bool RecvAddSilentNumber(const nsString& aNumber) override;
+  bool RecvAddSilentNumber(const nsString& aNumber);
 
-  virtual bool RecvRemoveSilentNumber(const nsString& aNumber) override;
+  bool RecvRemoveSilentNumber(const nsString& aNumber);
 
   SmsParent();
   virtual ~SmsParent() { MOZ_COUNT_DTOR(SmsParent); }
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  virtual bool RecvPSmsRequestConstructor(
+  virtual mozilla::ipc::IPCResult RecvPSmsRequestConstructor(
       PSmsRequestParent* aActor, const IPCSmsRequest& aRequest) override;
 
-  virtual PSmsRequestParent* AllocPSmsRequestParent(
-      const IPCSmsRequest& aRequest) override;
+  PSmsRequestParent* AllocPSmsRequestParent(const IPCSmsRequest& aRequest);
 
-  virtual bool DeallocPSmsRequestParent(PSmsRequestParent* aActor) override;
-
+  virtual bool DeallocPSmsRequestParent(PSmsRequestParent* aActor);
+  /*
   virtual bool RecvPMobileMessageCursorConstructor(
       PMobileMessageCursorParent* aActor,
       const IPCMobileMessageCursor& aCursor) override;
@@ -56,7 +57,7 @@ class SmsParent : public PSmsParent, public nsIObserver {
 
   virtual bool DeallocPMobileMessageCursorParent(
       PMobileMessageCursorParent* aActor) override;
-
+*/
  private:
   nsTArray<nsString> mSilentNumbers;
 };
@@ -99,6 +100,7 @@ class SmsRequestParent : public PSmsRequestParent,
   nsresult SendReply(const MessageReply& aReply);
 };
 
+/*
 class MobileMessageCursorParent : public PMobileMessageCursorParent,
                                   public nsIMobileMessageCursorCallback {
   friend class SmsParent;
@@ -124,7 +126,7 @@ class MobileMessageCursorParent : public PMobileMessageCursorParent,
 
   bool DoRequest(const CreateThreadCursorRequest& aRequest);
 };
-
+*/
 }  // namespace mobilemessage
 }  // namespace dom
 }  // namespace mozilla

@@ -4,8 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//include protocol PBlob;
-
+//include IPCBlob;
 
 using DeliveryState from "mozilla/dom/mobilemessage/Types.h";
 using DeliveryStatus from "mozilla/dom/mobilemessage/Types.h";
@@ -13,14 +12,7 @@ using MessageClass from "mozilla/dom/mobilemessage/Types.h";
 using ReadStatus from "mozilla/dom/mobilemessage/Types.h";
 using ReadState from "mozilla/dom/mobilemessage/Types.h";
 using MessageType from "mozilla/dom/mobilemessage/Types.h";
-/*
-using DeliveryState from "SMSTypesTest.h"
-using DeliveryStatus from "SMSTypesTest.h"
-using MessageClass from "SMSTypesTest.h"
-using ReadStatus from "SMSTypesTest.h"
-using ReadState from "SMSTypesTest.h"
-using MessageType from "SMSTypesTest.h"
-*/
+
 namespace mozilla {
 namespace dom {
 namespace mobilemessage {

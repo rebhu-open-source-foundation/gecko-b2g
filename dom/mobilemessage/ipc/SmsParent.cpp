@@ -7,24 +7,24 @@
 #include "SmsParent.h"
 
 #include "nsISmsService.h"
-#include "nsIMmsService.h"
+//#include "nsIMmsService.h"
 #include "nsIObserverService.h"
 #include "mozilla/Services.h"
 #include "nsISmsMessage.h"
-#include "nsIMmsMessage.h"
-#include "mozilla/unused.h"
+//#include "nsIMmsMessage.h"
+//#include "mozilla/unused.h"
 #include "SmsMessageInternal.h"
-#include "MmsMessageInternal.h"
+//#include "MmsMessageInternal.h"
 #include "nsIMobileMessageDatabaseService.h"
-#include "MobileMessageThreadInternal.h"
-#include "mozilla/dom/ipc/BlobParent.h"
+//#include "MobileMessageThreadInternal.h"
+//#include "mozilla/dom/ipc/BlobParent.h"
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/File.h"
 #include "mozilla/dom/ToJSValue.h"
 #include "mozilla/dom/mobilemessage/Constants.h"  // For MessageType
 #include "mozilla/UniquePtr.h"
 #include "nsContentUtils.h"
-#include "nsTArrayHelpers.h"
+//#include "nsTArrayHelpers.h"
 #include "xpcpublic.h"
 #include "nsServiceManagerUtils.h"
 #include "DeletedMessageInfo.h"
@@ -32,7 +32,7 @@
 namespace mozilla {
 namespace dom {
 namespace mobilemessage {
-
+/*
 static JSObject* MmsAttachmentDataToJSObject(
     JSContext* aContext, const MmsAttachmentData& aAttachment) {
   JS::Rooted<JSObject*> obj(aContext, JS_NewPlainObject(aContext));
@@ -115,7 +115,7 @@ static bool GetParamsFromSendMmsMessageRequest(
 
   // attachments
   JS::Rooted<JSObject*> attachmentArray(
-      aCx, JS_NewArrayObject(aCx, aRequest.attachments().Length()));
+      aCx, JS::NewArrayObject(aCx, aRequest.attachments().Length()));
   for (uint32_t i = 0; i < aRequest.attachments().Length(); i++) {
     JS::Rooted<JSObject*> obj(
         aCx,
@@ -139,7 +139,7 @@ static bool GetParamsFromSendMmsMessageRequest(
   aParam->setObject(*paramsObj);
   return true;
 }
-
+*/
 static bool GetMobileMessageDataFromMessage(ContentParent* aParent,
                                             nsISupports* aMsg,
                                             MobileMessageData& aData) {
@@ -147,22 +147,22 @@ static bool GetMobileMessageDataFromMessage(ContentParent* aParent,
     NS_WARNING("Invalid message to convert!");
     return false;
   }
-
-  nsCOMPtr<nsIMmsMessage> mmsMsg = do_QueryInterface(aMsg);
-  if (mmsMsg) {
-    if (!aParent) {
-      NS_ERROR("Invalid ContentParent to convert MMS Message!");
-      return false;
+  /*
+    nsCOMPtr<nsIMmsMessage> mmsMsg = do_QueryInterface(aMsg);
+    if (mmsMsg) {
+      if (!aParent) {
+        NS_ERROR("Invalid ContentParent to convert MMS Message!");
+        return false;
+      }
+      MmsMessageData data;
+      if (!static_cast<MmsMessageInternal*>(mmsMsg.get())
+               ->GetData(aParent, data)) {
+        return false;
+      }
+      aData = data;
+      return true;
     }
-    MmsMessageData data;
-    if (!static_cast<MmsMessageInternal*>(mmsMsg.get())
-             ->GetData(aParent, data)) {
-      return false;
-    }
-    aData = data;
-    return true;
-  }
-
+  */
   nsCOMPtr<nsISmsMessage> smsMsg = do_QueryInterface(aMsg);
   if (smsMsg) {
     aData = static_cast<SmsMessageInternal*>(smsMsg.get())->GetData();
@@ -383,32 +383,48 @@ bool SmsParent::RecvRemoveSilentNumber(const nsString& aNumber) {
   return true;
 }
 
-bool SmsParent::RecvPSmsRequestConstructor(PSmsRequestParent* aActor,
-                                           const IPCSmsRequest& aRequest) {
+mozilla::ipc::IPCResult SmsParent::RecvPSmsRequestConstructor(
+    PSmsRequestParent* aActor, const IPCSmsRequest& aRequest) {
   SmsRequestParent* actor = static_cast<SmsRequestParent*>(aActor);
 
   switch (aRequest.type()) {
     case IPCSmsRequest::TSendMessageRequest:
-      return actor->DoRequest(aRequest.get_SendMessageRequest());
+      return actor->DoRequest(aRequest.get_SendMessageRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     case IPCSmsRequest::TRetrieveMessageRequest:
-      return actor->DoRequest(aRequest.get_RetrieveMessageRequest());
+      return actor->DoRequest(aRequest.get_RetrieveMessageRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     case IPCSmsRequest::TGetMessageRequest:
-      return actor->DoRequest(aRequest.get_GetMessageRequest());
+      return actor->DoRequest(aRequest.get_GetMessageRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     case IPCSmsRequest::TDeleteMessageRequest:
-      return actor->DoRequest(aRequest.get_DeleteMessageRequest());
+      return actor->DoRequest(aRequest.get_DeleteMessageRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     case IPCSmsRequest::TMarkMessageReadRequest:
-      return actor->DoRequest(aRequest.get_MarkMessageReadRequest());
+      return actor->DoRequest(aRequest.get_MarkMessageReadRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     case IPCSmsRequest::TGetSegmentInfoForTextRequest:
-      return actor->DoRequest(aRequest.get_GetSegmentInfoForTextRequest());
+      return actor->DoRequest(aRequest.get_GetSegmentInfoForTextRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     case IPCSmsRequest::TGetSmscAddressRequest:
-      return actor->DoRequest(aRequest.get_GetSmscAddressRequest());
+      return actor->DoRequest(aRequest.get_GetSmscAddressRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     case IPCSmsRequest::TSetSmscAddressRequest:
-      return actor->DoRequest(aRequest.get_SetSmscAddressRequest());
+      return actor->DoRequest(aRequest.get_SetSmscAddressRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     default:
       MOZ_CRASH("Unknown type!");
   }
 
-  return false;
+  return IPC_OK();
 }
 
 PSmsRequestParent* SmsParent::AllocPSmsRequestParent(
@@ -426,7 +442,7 @@ bool SmsParent::DeallocPSmsRequestParent(PSmsRequestParent* aActor) {
   static_cast<SmsRequestParent*>(aActor)->Release();
   return true;
 }
-
+/*
 bool SmsParent::RecvPMobileMessageCursorConstructor(
     PMobileMessageCursorParent* aActor,
     const IPCMobileMessageCursor& aRequest) {
@@ -461,7 +477,7 @@ bool SmsParent::DeallocPMobileMessageCursorParent(
   static_cast<MobileMessageCursorParent*>(aActor)->Release();
   return true;
 }
-
+*/
 /*******************************************************************************
  * SmsRequestParent
  ******************************************************************************/
@@ -483,25 +499,31 @@ bool SmsRequestParent::DoRequest(const SendMessageRequest& aRequest) {
       smsService->Send(req.serviceId(), req.number(), req.message(),
                        req.silent(), this);
     } break;
-    case SendMessageRequest::TSendMmsMessageRequest: {
-      nsCOMPtr<nsIMmsService> mmsService =
-          do_GetService(MMS_SERVICE_CONTRACTID);
-      NS_ENSURE_TRUE(mmsService, true);
+      /*
+          case SendMessageRequest::TSendMmsMessageRequest: {
+            nsCOMPtr<nsIMmsService> mmsService =
+                do_GetService(MMS_SERVICE_CONTRACTID);
+            NS_ENSURE_TRUE(mmsService, true);
 
-      // There are cases (see bug 981202) where this is called with no JS on the
-      // stack. And since mmsService might be JS-Implemented, we need to pass a
-      // jsval to ::Send. Only system code should be looking at the result here,
-      // so we just create it in the System-Principaled Junk Scope.
-      AutoJSContext cx;
-      JSAutoCompartment ac(cx, xpc::PrivilegedJunkScope());
-      JS::Rooted<JS::Value> params(cx);
-      const SendMmsMessageRequest& req = aRequest.get_SendMmsMessageRequest();
-      if (!GetParamsFromSendMmsMessageRequest(cx, req, params.address())) {
-        NS_WARNING("SmsRequestParent: Fail to build MMS params.");
-        return true;
-      }
-      mmsService->Send(req.serviceId(), params, this);
-    } break;
+            // There are cases (see bug 981202) where this is called with no JS
+         on the
+            // stack. And since mmsService might be JS-Implemented, we need to
+         pass a
+            // jsval to ::Send. Only system code should be looking at the result
+         here,
+            // so we just create it in the System-Principaled Junk Scope.
+            AutoJSContext cx;
+            JSAutoCompartment ac(cx, xpc::PrivilegedJunkScope());
+            JS::Rooted<JS::Value> params(cx);
+            const SendMmsMessageRequest& req =
+         aRequest.get_SendMmsMessageRequest(); if
+         (!GetParamsFromSendMmsMessageRequest(cx, req, params.address())) {
+              NS_WARNING("SmsRequestParent: Fail to build MMS params.");
+              return true;
+            }
+            mmsService->Send(req.serviceId(), params, this);
+          } break;
+      */
     default:
       MOZ_CRASH("Unknown type of SendMessageRequest!");
   }
@@ -584,7 +606,7 @@ bool SmsRequestParent::DoRequest(const DeleteMessageRequest& aRequest) {
   nsCOMPtr<nsIMobileMessageDatabaseService> dbService =
       do_GetService(MOBILE_MESSAGE_DATABASE_SERVICE_CONTRACTID);
   if (dbService) {
-    const InfallibleTArray<int32_t>& messageIds = aRequest.messageIds();
+    const nsTArray<int32_t>& messageIds = aRequest.messageIds();
     rv = dbService->DeleteMessage(const_cast<int32_t*>(messageIds.Elements()),
                                   messageIds.Length(), this);
   }
@@ -750,7 +772,7 @@ SmsRequestParent::NotifySetSmscAddressFailed(int32_t aError) {
 /*******************************************************************************
  * MobileMessageCursorParent
  ******************************************************************************/
-
+/*
 NS_IMPL_ISUPPORTS(MobileMessageCursorParent, nsIMobileMessageCursorCallback)
 
 void MobileMessageCursorParent::ActorDestroy(ActorDestroyReason aWhy) {
@@ -903,7 +925,7 @@ NS_IMETHODIMP
 MobileMessageCursorParent::NotifyCursorDone() {
   return NotifyCursorError(nsIMobileMessageCallback::SUCCESS_NO_ERROR);
 }
-
+*/
 }  // namespace mobilemessage
 }  // namespace dom
 }  // namespace mozilla

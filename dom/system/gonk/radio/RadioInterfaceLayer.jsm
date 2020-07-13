@@ -590,6 +590,8 @@ function RadioInterface(aClientId) {
    */
   this._radioCapability = {};
 
+  this._pendingSentSmsMap = {};
+
   //Cameron mark first.
   /*
   let lock = gSettingsService.createLock();
@@ -760,6 +762,11 @@ RadioInterface.prototype = {
    */
   _radioCapability: null,
 
+  /**
+   * Outgoing messages waiting for SMS-STATUS-REPORT.
+   */
+  _pendingSentSmsMap: null,
+
   debug: function(s) {
     dump("-*- RadioInterface[" + this.clientId + "]: " + s + "\n");
   },
@@ -899,6 +906,10 @@ RadioInterface.prototype = {
       case "sms-received":
         if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_RESPONSE_NEW_SMS");
         this.handleSmsReceived(message);
+        break;
+      case "smsstatusreport":
+        if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_RESPONSE_SMS_STATUS_REPORT");
+        this.handleSmsStatusReport(message);
         break;
       case "cellbroadcast-received":
         if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_RESPONSE_NEW_CBS");
@@ -1606,6 +1617,73 @@ RadioInterface.prototype = {
                              message.body || null,
                              message.data || [],
                              (message.data) ? message.data.length : 0);
+
+  },
+
+  /**
+   * handle received SMS.
+   */
+  handleSmsStatusReport: function(aMessage) {
+
+    let pdu = {};
+    let pduLength = aMessage.getPdu(pdu);
+    let GsmPDUHelper = this.simIOcontext.GsmPDUHelper
+    GsmPDUHelper.pdu = "";
+    GsmPDUHelper.pduReadIndex = 0;
+    GsmPDUHelper.pduWriteIndex = 0;
+    for(let i=0; i<pduLength; i++) {
+      GsmPDUHelper.writeHexOctet(pdu.value[i]);
+    }
+
+    let [message, result] = GsmPDUHelper.processReceivedSms(pduLength);
+    if (!message) {
+      if (DEBUG) this.debug("invalid SMS-STATUS-REPORT");
+      return RIL.PDU_FCS_UNSPECIFIED;
+    }
+
+    let pendingSms = this._pendingSentSmsMap[message.messageRef];
+    if (!pendingSms) {
+      if (DEBUG) this.debug("no pending SMS-SUBMIT message");
+      return RIL.PDU_FCS_OK;
+    }
+
+    let status = message.status;
+
+    // 3GPP TS 23.040 9.2.3.15 `The MS shall interpret any reserved values as
+    // "Service Rejected"(01100011) but shall store them exactly as received.
+    if ((status >= 0x80)
+        || ((status >= RIL.PDU_ST_0_RESERVED_BEGIN)
+            && (status < RIL.PDU_ST_0_SC_SPECIFIC_BEGIN))
+        || ((status >= RIL.PDU_ST_1_RESERVED_BEGIN)
+            && (status < RIL.PDU_ST_1_SC_SPECIFIC_BEGIN))
+        || ((status >= RIL.PDU_ST_2_RESERVED_BEGIN)
+            && (status < RIL.PDU_ST_2_SC_SPECIFIC_BEGIN))
+        || ((status >= RIL.PDU_ST_3_RESERVED_BEGIN)
+            && (status < RIL.PDU_ST_3_SC_SPECIFIC_BEGIN))
+        ) {
+      status = RIL.PDU_ST_3_SERVICE_REJECTED;
+    }
+
+    // Pending. Waiting for next status report.
+    if ((status >>> 5) == 0x01) {
+      if (DEBUG) this.debug("SMS-STATUS-REPORT: delivery still pending");
+      return RIL.PDU_FCS_OK;
+    }
+
+    let _deliveryStatus = ((status >>> 5) === 0x00)
+                       ? RIL.GECKO_SMS_DELIVERY_STATUS_SUCCESS
+                       : RIL.GECKO_SMS_DELIVERY_STATUS_ERROR;
+
+    let response = {rilMessageType: "updateSMSDeliveryStatus",
+                 deliveryStatus: _deliveryStatus,
+                 rilMessageToken: pendingSms.rilMessageToken,
+                 errorMsg: 0};
+    delete this._pendingSentSmsMap[message.messageRef];
+    this.handleRilResponse(response);
+
+    //TODO: Find better place to send ack.
+    this.sendRilRequest("ackSMS", {result: RIL.PDU_FCS_OK});
+    return RIL.PDU_FCS_OK;
 
   },
 
@@ -2712,7 +2790,8 @@ RadioInterface.prototype = {
       case "sendSMS":
         if (response.errorMsg == 0) {
           if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < REQUEST_SEND_SMS");
-          //TODO: Handle segment and status report
+          //TODO: Handle segment and check if requestStatusReport is on
+          this._pendingSentSmsMap[response.sms.messageRef] = response;
           result = response;
         } else {
           if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < REQUEST_SEND_SMS error = " + response.errorMsg);
@@ -2888,7 +2967,12 @@ RadioInterface.prototype = {
           if (DEBUG) this.debug("RILJ: ["+ response.rilMessageToken +"] < RIL_REQUEST_SET_SUPP_SVC_NOTIFICATION error = " + response.errorMsg);
         }
         break;
+      case "updateSMSDeliveryStatus":
+        result = response;
+        break;
       default:
+        throw new Error("Unknow response message type : " + response.rilMessageType);
+        break;
     }
 
     let token = response.rilMessageToken;
@@ -3874,6 +3958,17 @@ RadioInterface.prototype = {
     let result = {};
     let tosca = RIL.TOA_UNKNOWN;
     let smsc = response.smsc;
+
+    let segments = smsc.split(",", 2);
+    console.log("handleSmscAddress segments「[0] "+segments[0] + "segments[1] "+ segments[1]);
+    // Parse TOA only if it presents since some devices might omit the TOA
+    // segment in the reported SMSC address. If TOA does not present, keep the
+    // default value TOA_UNKNOWN.
+    if (segments.length === 2) {
+      tosca = parseInt(segments[1], 10);
+    }
+    smsc = segments[0].replace(/\"/g, "");
+
     // Convert the NPI value to the corresponding index of CALLED_PARTY_BCD_NPI
     // array. If the value does not present in the array, use
     // CALLED_PARTY_BCD_NPI_ISDN.
@@ -4393,6 +4488,7 @@ RadioInterface.prototype = {
         this.rilworker.getSmscAddress(message.rilMessageToken);
         break;
       case "setSmscAddress":
+        this.processSetSmscAddress(message);
         break;
       case "reportSmsMemoryStatus":
         if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_REPORT_SMS_MEMORY_STATUS");
@@ -4791,6 +4887,39 @@ RadioInterface.prototype = {
     }*/
     // New ril do not support this REQUEST_GET_UNLOCK_RETRY_COUNT command.
     //this.queryICCLockRetryCount(message);
+  },
+
+  processSetSmscAddress: function(message) {
+    if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SET_SMSC_ADDRESS");
+    let ton = message.typeOfNumber;
+    let npi = CALLED_PARTY_BCD_NPI[message.numberPlanIdentification];
+
+    // If any of the mandatory arguments is not available, return an error
+    // immediately.
+    if (ton === undefined || npi === undefined || !message.smscAddress) {
+      message.errorMsg = GECKO_ERROR_INVALID_PARAMETER;
+      //this.sendChromeMessage(options);
+      return;
+    }
+
+    // Remove all illegal characters in the number string for user-input fault
+    // tolerance.
+    let tosca = (0x1 << 7) + (ton << 4) + npi;
+    let numStart = message.smscAddress[0] === "+" ? 1 : 0;
+    let number = message.smscAddress.substring(0, numStart) +
+                 message.smscAddress.substring(numStart)
+                                    .replace(/[^0-9*#abc]/ig, "");
+
+    // If the filtered number is an empty string, return an error immediately.
+    if (number.length === 0) {
+      message.errorMsg = GECKO_ERROR_INVALID_PARAMETER;
+      //this.sendChromeMessage(message);
+      return;
+    }
+
+    let sca;
+    sca = '"' + number + '"' + ',' + tosca;
+    this.rilworker.setSmscAddress(message.rilMessageToken, sca);
   },
 
   sendWorkerMessage: function(rilMessageType, message, callback) {

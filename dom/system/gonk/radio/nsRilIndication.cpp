@@ -76,9 +76,20 @@ Return<void> nsRilIndication::newSms(
 }
 
 Return<void> nsRilIndication::newSmsStatusReport(
-    RadioIndicationType /*type*/,
-    const ::android::hardware::hidl_vec<uint8_t>& /*pdu*/) {
-  INFO("Not implement newSmsStatusReport");
+    RadioIndicationType type,
+    const ::android::hardware::hidl_vec<uint8_t>& pdu) {
+  nsString rilmessageType(u"smsstatusreport"_ns);
+  RefPtr<nsRilIndicationResult> result =
+      new nsRilIndicationResult(rilmessageType);
+  uint32_t size = pdu.size();
+
+  nsTArray<int32_t> pdu_u32;
+  for (uint32_t i = 0; i < size; i++) {
+    pdu_u32.AppendElement(pdu[i]);
+  }
+  result->updateOnSms(pdu_u32);
+
+  mRIL->sendRilIndicationResult(result);
   return Void();
 }
 

@@ -2563,6 +2563,15 @@ STATIC_ATOMS = [
     Atom("onstatuschanged", "onstatuschanged"),
 
     Atom("onreceived", "onreceived"),
+    Atom("onretrieving", "onretrieving"),
+    Atom("onsending", "onsending"),
+    Atom("onsent", "onsent"),
+    Atom("onfailed", "onfailed"),
+    Atom("ondeliverysuccess", "ondeliverysuccess"),
+    Atom("ondeliveryerror", "ondeliveryerror"),
+    Atom("onreadsuccess", "onreadsuccess"),
+    Atom("onreaderror", "onreaderror"),
+    Atom("ondeleted", "ondeleted"),
 # B2G_RIL_END
 
     # CSS pseudo-elements -- these must appear in the same order as

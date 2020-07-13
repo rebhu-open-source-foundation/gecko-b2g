@@ -9,16 +9,18 @@
 
 #include "mozilla/dom/mobilemessage/PSmsChild.h"
 #include "mozilla/dom/mobilemessage/PSmsRequestChild.h"
-#include "mozilla/dom/mobilemessage/PMobileMessageCursorChild.h"
-#include "nsIDOMDOMCursor.h"
+//#include "mozilla/dom/mobilemessage/PMobileMessageCursorChild.h"
+//#include "nsIDOMDOMCursor.h"
 #include "nsIMobileMessageCallback.h"
-#include "nsIMobileMessageCursorCallback.h"
+//#include "nsIMobileMessageCursorCallback.h"
 
 namespace mozilla {
 namespace dom {
 namespace mobilemessage {
 
 class SmsChild : public PSmsChild {
+  friend class PSmsChild;
+
  public:
   SmsChild() { MOZ_COUNT_CTOR(SmsChild); }
 
@@ -27,53 +29,44 @@ class SmsChild : public PSmsChild {
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  virtual bool RecvNotifyReceivedMessage(
-      const MobileMessageData& aMessage) override;
+  bool RecvNotifyReceivedMessage(const MobileMessageData& aMessage);
 
-  virtual bool RecvNotifyRetrievingMessage(
-      const MobileMessageData& aMessage) override;
+  bool RecvNotifyRetrievingMessage(const MobileMessageData& aMessage);
 
-  virtual bool RecvNotifySendingMessage(
-      const MobileMessageData& aMessage) override;
+  bool RecvNotifySendingMessage(const MobileMessageData& aMessage);
 
-  virtual bool RecvNotifySentMessage(
-      const MobileMessageData& aMessage) override;
+  bool RecvNotifySentMessage(const MobileMessageData& aMessage);
 
-  virtual bool RecvNotifyFailedMessage(
-      const MobileMessageData& aMessage) override;
+  bool RecvNotifyFailedMessage(const MobileMessageData& aMessage);
 
-  virtual bool RecvNotifyDeliverySuccessMessage(
-      const MobileMessageData& aMessage) override;
+  bool RecvNotifyDeliverySuccessMessage(const MobileMessageData& aMessage);
 
-  virtual bool RecvNotifyDeliveryErrorMessage(
-      const MobileMessageData& aMessage) override;
+  bool RecvNotifyDeliveryErrorMessage(const MobileMessageData& aMessage);
 
-  virtual bool RecvNotifyReceivedSilentMessage(
-      const MobileMessageData& aMessage) override;
+  bool RecvNotifyReceivedSilentMessage(const MobileMessageData& aMessage);
 
-  virtual bool RecvNotifyReadSuccessMessage(
-      const MobileMessageData& aMessage) override;
+  bool RecvNotifyReadSuccessMessage(const MobileMessageData& aMessage);
 
-  virtual bool RecvNotifyReadErrorMessage(
-      const MobileMessageData& aMessage) override;
+  bool RecvNotifyReadErrorMessage(const MobileMessageData& aMessage);
 
-  virtual bool RecvNotifyDeletedMessageInfo(
-      const DeletedMessageInfoData& aDeletedInfo) override;
+  bool RecvNotifyDeletedMessageInfo(const DeletedMessageInfoData& aDeletedInfo);
 
-  virtual PSmsRequestChild* AllocPSmsRequestChild(
-      const IPCSmsRequest& aRequest) override;
+  PSmsRequestChild* AllocPSmsRequestChild(const IPCSmsRequest& aRequest);
 
-  virtual bool DeallocPSmsRequestChild(PSmsRequestChild* aActor) override;
+  bool DeallocPSmsRequestChild(PSmsRequestChild* aActor);
 
-  virtual PMobileMessageCursorChild* AllocPMobileMessageCursorChild(
-      const IPCMobileMessageCursor& aCursor) override;
+  /*
+  PMobileMessageCursorChild* AllocPMobileMessageCursorChild(
+      const IPCMobileMessageCursor& aCursor);
 
-  virtual bool DeallocPMobileMessageCursorChild(
-      PMobileMessageCursorChild* aActor) override;
+  bool DeallocPMobileMessageCursorChild(
+      PMobileMessageCursorChild* aActor);
+*/
 };
 
 class SmsRequestChild : public PSmsRequestChild {
   friend class SmsChild;
+  friend class PSmsRequestChild;
 
   nsCOMPtr<nsIMobileMessageCallback> mReplyRequest;
 
@@ -81,13 +74,14 @@ class SmsRequestChild : public PSmsRequestChild {
   explicit SmsRequestChild(nsIMobileMessageCallback* aReplyRequest);
 
  protected:
-  virtual ~SmsRequestChild() { MOZ_COUNT_DTOR(SmsRequestChild); }
+  ~SmsRequestChild() { MOZ_COUNT_DTOR(SmsRequestChild); }
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  virtual bool Recv__delete__(const MessageReply& aReply) override;
+  mozilla::ipc::IPCResult Recv__delete__(const MessageReply& aReply);
 };
 
+/*
 class MobileMessageCursorChild : public PMobileMessageCursorChild,
                                  public nsICursorContinueCallback {
   friend class SmsChild;
@@ -116,7 +110,7 @@ class MobileMessageCursorChild : public PMobileMessageCursorChild,
 
   void DoNotifyResult(const nsTArray<ThreadData>& aData);
 };
-
+*/
 }  // namespace mobilemessage
 }  // namespace dom
 }  // namespace mozilla

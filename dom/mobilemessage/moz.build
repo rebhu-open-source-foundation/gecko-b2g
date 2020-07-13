@@ -19,6 +19,7 @@ EXPORTS.mozilla.dom.mobilemessage += [
 ]
 
 EXPORTS += [
+    'ipc/SmsIPCService.h',
     'MobileMessageService.h',
 ]
 
@@ -45,37 +46,37 @@ XPCOM_MANIFESTS += [
 
 
 EXPORTS.mozilla.dom += [
-    'DOMMobileMessageError.h',
     'MmsMessage.h',
+    'MobileMessageError.h',
     'MobileMessageManager.h',
     'MobileMessageThread.h',
     'SmsMessage.h',
 ]
 
 UNIFIED_SOURCES += [
-#    'Assertions.cpp',
+    'Assertions.cpp',
     'Constants.cpp',
-#    'DeletedMessageInfo.cpp',
-#    'DOMMobileMessageError.cpp',
-#    'ipc/SmsChild.cpp',
-#    'ipc/SmsIPCService.cpp',
-#    'ipc/SmsParent.cpp',
+    'DeletedMessageInfo.cpp',
+    'ipc/SmsChild.cpp',
+    'ipc/SmsIPCService.cpp',
+    'ipc/SmsParent.cpp',
 #    'MmsMessage.cpp',
 #    'MmsMessageInternal.cpp',
-#    'MobileMessageCallback.cpp',
+    'MobileMessageCallback.cpp',
 #    'MobileMessageCursorCallback.cpp',
-#    'MobileMessageManager.cpp',
+    'MobileMessageError.cpp',
+    'MobileMessageManager.cpp',
     'MobileMessageService.cpp',
 #    'MobileMessageThread.cpp',
 #    'MobileMessageThreadInternal.cpp',
-#    'SmsMessage.cpp',
+    'SmsMessage.cpp',
     'SmsMessageInternal.cpp',
 ]
 
 IPDL_SOURCES += [
 #    'ipc/PMobileMessageCursor.ipdl',
-#    'ipc/PSms.ipdl',
-#    'ipc/PSmsRequest.ipdl',
+    'ipc/PSms.ipdl',
+    'ipc/PSmsRequest.ipdl',
     'ipc/SmsTypes.ipdlh',
 ]
 

@@ -70,6 +70,12 @@ partial interface B2G {
   [Throws, Pref="dom.cellbroadcast.enabled"]
   readonly attribute CellBroadcast cellBroadcast;
 };
+
+[Exposed=Window]
+partial interface B2G {
+  [Throws, Pref="dom.sms.enabled"]
+  readonly attribute MobileMessageManager mobileMessageManager;
+};
 #endif //MOZ_B2G_RIL
 
 #ifdef HAS_KOOST_MODULES

@@ -8,7 +8,7 @@
 //#include "MmsMessageInternal.h"
 //#include "MobileMessageThreadInternal.h"
 #include "MobileMessageService.h"
-//#include "DeletedMessageInfo.h"
+#include "DeletedMessageInfo.h"
 
 namespace mozilla {
 namespace dom {
@@ -30,7 +30,7 @@ MobileMessageService::CreateSmsMessage(
                                     aDeliveryTimestamp, aRead, aCx, aMessage);
 }
 // FIXME
-#if 0
+/*
 NS_IMETHODIMP
 MobileMessageService::CreateMmsMessage(
     int32_t aId, uint64_t aThreadId, const nsAString& aIccId,
@@ -57,7 +57,7 @@ MobileMessageService::CreateThread(
       aId, aParticipants, aTimestamp, aLastMessageSubject, aBody, aUnreadCount,
       aLastMessageType, aIsGroup, aCx, aThread);
 }
-
+*/
 NS_IMETHODIMP
 MobileMessageService::CreateDeletedMessageInfo(
     int32_t* aMessageIds, uint32_t aMsgCount, uint64_t* aThreadIds,
@@ -65,14 +65,7 @@ MobileMessageService::CreateDeletedMessageInfo(
   return DeletedMessageInfo::Create(aMessageIds, aMsgCount, aThreadIds,
                                     aThreadCount, aDeletedInfo);
 }
-#endif
 
 } // namespace mobilemessage
 } // namespace dom
 } // namespace mozilla
-
-already_AddRefed<nsIMobileMessageService> NS_CreateMobileMessageService() {
-  nsCOMPtr<nsIMobileMessageService> service =
-      new mozilla::dom::mobilemessage::MobileMessageService();
-  return service.forget();
-}

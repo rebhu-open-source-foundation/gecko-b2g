@@ -4,10 +4,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "SmsMessage.h"
+#include "mozilla/dom/SmsMessage.h"
+#include "mozilla/dom/SmsMessageBinding.h"
 
 #include "SmsMessageInternal.h"
-#include "mozilla/dom/SmsMessageBinding.h"
 
 namespace mozilla {
 namespace dom {
@@ -21,7 +21,7 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(SmsMessage)
 NS_INTERFACE_MAP_END
 
 SmsMessage::SmsMessage(nsPIDOMWindowInner* aWindow,
-                       mobilemessage::SmsMessageInternal* aMessage)
+                       SmsMessageInternal* aMessage)
     : mWindow(aWindow), mMessage(aMessage) {}
 
 SmsMessage::~SmsMessage() {}
@@ -31,6 +31,8 @@ SmsMessage::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
   return SmsMessage_Binding::Wrap(aCx, this, aGivenProto);
 }
+
+nsPIDOMWindowInner* SmsMessage::GetParentObject() const { return mWindow; }
 
 void SmsMessage::GetType(nsString& aRetVal) const {
   mMessage->GetType(aRetVal);

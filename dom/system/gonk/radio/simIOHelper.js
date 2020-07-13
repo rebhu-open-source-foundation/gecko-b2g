@@ -2168,10 +2168,9 @@ GsmPDUHelperObject.prototype = {
     // get even messageStringLength in this#_processReceivedSms(). So, we'll
     // always need two delimitors at the end.
 
-    //FIXME
-    //if (this.context.Buf.getReadAvailable() <= 4) {
-    //  return;
-    //}
+    if (this.pduWriteIndex - this.pduReadIndex<= 4) {
+      return;
+    }
 
     // TP-Parameter-Indicator
     let pi;

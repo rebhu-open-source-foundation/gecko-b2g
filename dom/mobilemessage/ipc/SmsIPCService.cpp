@@ -13,8 +13,8 @@
 #include "mozilla/dom/BindingUtils.h"
 #include "mozilla/Preferences.h"
 #include "nsString.h"
-#include "mozilla/dom/ipc/BlobChild.h"
-#include "mozilla/unused.h"
+//#include "mozilla/dom/ipc/BlobChild.h"
+//#include "mozilla/unused.h"
 
 using namespace mozilla::dom;
 using namespace mozilla::dom::mobilemessage;
@@ -38,8 +38,8 @@ PSmsChild* GetSmsChild() {
   if (!gSmsChild) {
     gSmsChild = ContentChild::GetSingleton()->SendPSmsConstructor();
 
-    NS_WARN_IF_FALSE(gSmsChild,
-                     "Calling methods on SmsIPCService during shutdown!");
+    NS_WARNING_ASSERTION(gSmsChild,
+                         "Calling methods on SmsIPCService during shutdown!");
   }
 
   return gSmsChild;
@@ -55,7 +55,7 @@ nsresult SendRequest(const IPCSmsRequest& aRequest,
 
   return NS_OK;
 }
-
+/*
 nsresult SendCursorRequest(const IPCMobileMessageCursor& aRequest,
                            nsIMobileMessageCursorCallback* aRequestReply,
                            nsICursorContinueCallback** aResult) {
@@ -75,7 +75,7 @@ nsresult SendCursorRequest(const IPCMobileMessageCursor& aRequest,
   actor.forget(aResult);
   return NS_OK;
 }
-
+*/
 uint32_t getDefaultServiceId(const char* aPrefKey) {
   static const char* kPrefRilNumRadioInterfaces = "ril.numRadioInterfaces";
   int32_t id = mozilla::Preferences::GetInt(aPrefKey, 0);
@@ -212,7 +212,7 @@ SmsIPCService::DeleteMessage(int32_t* aMessageIds, uint32_t aSize,
   data.messageIds().AppendElements(aMessageIds, aSize);
   return SendRequest(data, aRequest);
 }
-
+/*
 NS_IMETHODIMP
 SmsIPCService::CreateMessageCursor(
     bool aHasStartDate, uint64_t aStartDate, bool aHasEndDate,
@@ -246,7 +246,7 @@ SmsIPCService::CreateMessageCursor(
   return SendCursorRequest(CreateMessageCursorRequest(data, aReverse),
                            aCursorCallback, aResult);
 }
-
+*/
 NS_IMETHODIMP
 SmsIPCService::MarkMessageRead(int32_t aMessageId, bool aValue,
                                bool aSendReadReport,
@@ -254,7 +254,7 @@ SmsIPCService::MarkMessageRead(int32_t aMessageId, bool aValue,
   return SendRequest(
       MarkMessageReadRequest(aMessageId, aValue, aSendReadReport), aRequest);
 }
-
+/*
 NS_IMETHODIMP
 SmsIPCService::CreateThreadCursor(
     nsIMobileMessageCursorCallback* aCursorCallback,
@@ -312,7 +312,7 @@ bool GetSendMmsMessageRequestFromParams(uint32_t aServiceId,
 
   return true;
 }
-
+*/
 /*
  * Implementation of nsIMmsService.
  */
@@ -326,16 +326,20 @@ SmsIPCService::GetMmsDefaultServiceId(uint32_t* aServiceId) {
 NS_IMETHODIMP
 SmsIPCService::Send(uint32_t aServiceId, JS::Handle<JS::Value> aParameters,
                     nsIMobileMessageCallback* aRequest) {
-  SendMmsMessageRequest req;
-  if (!GetSendMmsMessageRequestFromParams(aServiceId, aParameters, req)) {
-    return NS_ERROR_INVALID_ARG;
-  }
-  return SendRequest(SendMessageRequest(req), aRequest);
+  // SendMmsMessageRequest req;
+  // if (!GetSendMmsMessageRequestFromParams(aServiceId, aParameters, req)) {
+  //  return NS_ERROR_INVALID_ARG;
+  //}
+  // return SendRequest(SendMessageRequest(req), aRequest);
+  NS_ERROR("Not implemented yet");
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 SmsIPCService::Retrieve(int32_t aId, nsIMobileMessageCallback* aRequest) {
-  return SendRequest(RetrieveMessageRequest(aId), aRequest);
+  // return SendRequest(RetrieveMessageRequest(aId), aRequest);
+  NS_ERROR("Not implemented yet");
+  return NS_OK;
 }
 
 NS_IMETHODIMP

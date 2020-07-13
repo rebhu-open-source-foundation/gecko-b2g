@@ -49,7 +49,7 @@ class SmsMessageInternal final : public nsISmsMessage {
   ~SmsMessageInternal() {}
 
   // Don't try to use the default constructor.
-  SmsMessageInternal();
+  SmsMessageInternal() = delete;
 
   SmsMessageData mData;
 };

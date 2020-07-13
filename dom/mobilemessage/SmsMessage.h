@@ -7,11 +7,12 @@
 #ifndef mozilla_dom_SmsMessage_h
 #define mozilla_dom_SmsMessage_h
 
+#include "js/TypeDecls.h"
+#include "mozilla/Attributes.h"
+#include "mozilla/ErrorResult.h"
 #include "mozilla/dom/BindingDeclarations.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsWrapperCache.h"
-
-class nsPIDOMWindowInner;
 
 namespace mozilla {
 namespace dom {
@@ -32,8 +33,7 @@ class SmsMessage final : public nsISupports, public nsWrapperCache {
   SmsMessage(nsPIDOMWindowInner* aWindow,
              mobilemessage::SmsMessageInternal* aMessage);
 
- public:
-  nsPIDOMWindowInner* GetParentObject() const { return mWindow; }
+  nsPIDOMWindowInner* GetParentObject() const;
 
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;

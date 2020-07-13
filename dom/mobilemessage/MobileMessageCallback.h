@@ -10,6 +10,7 @@
 #include "nsIMobileMessageCallback.h"
 #include "nsCOMPtr.h"
 #include "DOMRequest.h"
+#include "MobileMessageError.h"
 
 class Promise;
 
@@ -33,7 +34,8 @@ class MobileMessageCallback final : public nsIMobileMessageCallback {
 
   nsresult NotifySuccess(JS::Handle<JS::Value> aResult, bool aAsync = false);
   nsresult NotifySuccess(nsISupports* aMessage, bool aAsync = false);
-  nsresult NotifyError(int32_t aError, DOMError* aDetailedError = nullptr,
+  nsresult NotifyError(int32_t aError,
+                       MobileMessageError* aDetailedError = nullptr,
                        bool aAsync = false);
 };
 

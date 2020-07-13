@@ -274,7 +274,7 @@
 #  include "mozilla/dom/icc/IccChild.h"
 #  include "mozilla/dom/mobileconnection/ImsRegistrationChild.h"
 #  include "mozilla/dom/mobileconnection/MobileConnectionChild.h"
-//#include "mozilla/dom/mobilemessage/SmsChild.h"
+#  include "mozilla/dom/mobilemessage/SmsChild.h"
 #  include "mozilla/dom/subsidylock/SubsidyLockChild.h"
 #  include "mozilla/dom/telephony/TelephonyChild.h"
 #  include "mozilla/dom/voicemail/VoicemailChild.h"
@@ -339,7 +339,7 @@ using namespace mozilla::dom::ipc;
 using namespace mozilla::dom::cellbroadcast;
 using namespace mozilla::dom::icc;
 using namespace mozilla::dom::mobileconnection;
-// using namespace mozilla::dom::mobilemessage;
+using namespace mozilla::dom::mobilemessage;
 using namespace mozilla::dom::telephony;
 using namespace mozilla::dom::voicemail;
 using namespace mozilla::dom::subsidylock;
@@ -2102,20 +2102,14 @@ bool ContentChild::DeallocPCellBroadcastChild(PCellBroadcastChild* aActor) {
   static_cast<CellBroadcastChild*>(aActor)->Release();
   return true;
 }
-/*
-PSmsChild*
-ContentChild::AllocPSmsChild()
-{
-  return new SmsChild();
-}
 
-bool
-ContentChild::DeallocPSmsChild(PSmsChild* aSms)
-{
-  delete aSms;
+PSmsChild* ContentChild::AllocPSmsChild() { return new SmsChild(); }
+
+bool ContentChild::DeallocPSmsChild(PSmsChild* aActor) {
+  delete aActor;
   return true;
 }
-*/
+
 PTelephonyChild* ContentChild::AllocPTelephonyChild() {
   MOZ_CRASH("No one should be allocating PTelephonyChild actors");
 }

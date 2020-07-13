@@ -7,13 +7,13 @@
 #include "SmsChild.h"
 
 #include "SmsMessageInternal.h"
-#include "MmsMessageInternal.h"
+//#include "MmsMessageInternal.h"
 #include "DeletedMessageInfo.h"
 #include "nsIObserverService.h"
 #include "mozilla/Services.h"
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/dom/mobilemessage/Constants.h"  // For MessageType
-#include "MobileMessageThreadInternal.h"
+//#include "MobileMessageThreadInternal.h"
 #include "MainThreadUtils.h"
 
 using namespace mozilla;
@@ -27,9 +27,10 @@ already_AddRefed<nsISupports> CreateMessageFromMessageData(
   nsCOMPtr<nsISupports> message;
 
   switch (aData.type()) {
-    case MobileMessageData::TMmsMessageData:
-      message = new MmsMessageInternal(aData.get_MmsMessageData());
-      break;
+      // FIXME
+      //    case MobileMessageData::TMmsMessageData:
+      //      message = new MmsMessageInternal(aData.get_MmsMessageData());
+      //      break;
     case MobileMessageData::TSmsMessageData:
       message = new SmsMessageInternal(aData.get_SmsMessageData());
       break;
@@ -133,7 +134,7 @@ bool SmsChild::DeallocPSmsRequestChild(PSmsRequestChild* aActor) {
   delete aActor;
   return true;
 }
-
+/*
 PMobileMessageCursorChild* SmsChild::AllocPMobileMessageCursorChild(
     const IPCMobileMessageCursor& aCursor) {
   MOZ_CRASH("Caller is supposed to manually construct a cursor!");
@@ -146,7 +147,7 @@ bool SmsChild::DeallocPMobileMessageCursorChild(
   static_cast<MobileMessageCursorChild*>(aActor)->Release();
   return true;
 }
-
+*/
 /*******************************************************************************
  * SmsRequestChild
  ******************************************************************************/
@@ -161,7 +162,8 @@ void SmsRequestChild::ActorDestroy(ActorDestroyReason aWhy) {
   // Nothing needed here.
 }
 
-bool SmsRequestChild::Recv__delete__(const MessageReply& aReply) {
+mozilla::ipc::IPCResult SmsRequestChild::Recv__delete__(
+    const MessageReply& aReply) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(mReplyRequest);
   switch (aReply.type()) {
@@ -194,7 +196,7 @@ bool SmsRequestChild::Recv__delete__(const MessageReply& aReply) {
           aReply.get_ReplyGetMessageFail().error());
       break;
     case MessageReply::TReplyMessageDelete: {
-      const InfallibleTArray<bool>& deletedResult =
+      const nsTArray<bool>& deletedResult =
           aReply.get_ReplyMessageDelete().deleted();
       mReplyRequest->NotifyMessageDeleted(
           const_cast<bool*>(deletedResult.Elements()), deletedResult.Length());
@@ -243,13 +245,13 @@ bool SmsRequestChild::Recv__delete__(const MessageReply& aReply) {
       MOZ_CRASH("Received invalid response parameters!");
   }
 
-  return true;
+  return IPC_OK();
 }
 
 /*******************************************************************************
  * MobileMessageCursorChild
  ******************************************************************************/
-
+/*
 NS_IMPL_ISUPPORTS(MobileMessageCursorChild, nsICursorContinueCallback)
 
 MobileMessageCursorChild::MobileMessageCursorChild(
@@ -344,7 +346,7 @@ void MobileMessageCursorChild::DoNotifyResult(
 
   mCursorCallback->NotifyCursorResult(autoArray.Elements(), length);
 }
-
+*/
 }  // namespace mobilemessage
 }  // namespace dom
 }  // namespace mozilla

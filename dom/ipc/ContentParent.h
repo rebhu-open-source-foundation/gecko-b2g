@@ -1055,9 +1055,9 @@ class ContentParent final
   virtual mozilla::ipc::IPCResult RecvPCellBroadcastConstructor(
       PCellBroadcastParent* aActor) override;
 
-//   virtual PSmsParent* AllocPSmsParent();
+  virtual PSmsParent* AllocPSmsParent();
 
-//   virtual bool DeallocPSmsParent(PSmsParent*);
+  virtual bool DeallocPSmsParent(PSmsParent* aActor);
 #endif  // MOZ_B2G_RIL
 
   mozilla::ipc::IPCResult RecvGetGfxVars(nsTArray<GfxVarUpdate>* aVars);

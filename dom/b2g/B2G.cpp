@@ -48,6 +48,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(B2G)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMobileConnections)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTelephony)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDataCallManager)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMobileMessageManager)
 #endif
 #ifdef HAS_KOOST_MODULES
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mExternalAPI)
@@ -247,6 +248,24 @@ SubsidyLockManager* B2G::GetSubsidyLockManager(ErrorResult& aRv) {
   mSubsidyLocks = new SubsidyLockManager(innerWindow);
 
   return mSubsidyLocks;
+}
+
+MobileMessageManager* B2G::GetMobileMessageManager(ErrorResult& aRv) {
+  if (!mMobileMessageManager) {
+    if (!mOwner) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+    nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+    if (!innerWindow) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+
+    mMobileMessageManager = new MobileMessageManager(innerWindow);
+  }
+
+  return mMobileMessageManager;
 }
 #endif
 

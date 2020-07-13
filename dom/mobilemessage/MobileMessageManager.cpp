@@ -7,25 +7,25 @@
 #include "MobileMessageManager.h"
 
 #include "DeletedMessageInfo.h"
-#include "DOMCursor.h"
-#include "DOMRequest.h"
-#include "MmsMessage.h"
-#include "MmsMessageInternal.h"
+//#include "DOMCursor.h"
+//#include "DOMRequest.h"
+//#include "MmsMessage.h"
+//#include "MmsMessageInternal.h"
 #include "MobileMessageCallback.h"
-#include "MobileMessageCursorCallback.h"
+//#include "MobileMessageCursorCallback.h"
 #include "SmsMessage.h"
 #include "SmsMessageInternal.h"
 #include "mozilla/dom/mobilemessage/Constants.h"  // For kSms*ObserverTopic
-#include "mozilla/dom/MozMessageDeletedEvent.h"
-#include "mozilla/dom/MozMmsEvent.h"
+//#include "mozilla/dom/MozMessageDeletedEvent.h"
+//#include "mozilla/dom/MozMmsEvent.h"
 #include "mozilla/dom/MobileMessageManagerBinding.h"
-#include "mozilla/dom/MozSmsEvent.h"
+#include "mozilla/dom/SmsEvent.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/ToJSValue.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/Services.h"
 #include "mozilla/UniquePtr.h"
-#include "nsIMmsService.h"
+//#include "nsIMmsService.h"
 #include "nsIMobileMessageCallback.h"
 #include "nsIMobileMessageDatabaseService.h"
 #include "nsIMobileMessageService.h"
@@ -43,6 +43,7 @@
 #  include "nsIGonkMobileMessageDatabaseService.h"
 #  include "nsIGonkSmsService.h"
 #endif
+
 #include "nsXULAppAPI.h"  // For XRE_GetProcessType()
 
 #define RECEIVED_EVENT_NAME u"received"_ns
@@ -111,7 +112,7 @@ void MobileMessageManager::Shutdown() {
 
 JSObject* MobileMessageManager::WrapObject(JSContext* aCx,
                                            JS::Handle<JSObject*> aGivenProto) {
-  return MozMobileMessageManagerBinding::Wrap(aCx, this, aGivenProto);
+  return MobileMessageManager_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 already_AddRefed<DOMRequest> MobileMessageManager::GetSegmentInfoForText(
@@ -175,8 +176,8 @@ already_AddRefed<DOMRequest> MobileMessageManager::Send(
 
   // Use the default one unless |aSendParams.serviceId| is available.
   uint32_t serviceId;
-  if (aSendParams.mServiceId.WasPassed()) {
-    serviceId = aSendParams.mServiceId.Value();
+  if (aSendParams.mServiceId) {
+    serviceId = aSendParams.mServiceId;
   } else {
     nsresult rv = smsService->GetSmsDefaultServiceId(&serviceId);
     if (NS_FAILED(rv)) {
@@ -201,8 +202,8 @@ void MobileMessageManager::Send(const Sequence<nsString>& aNumbers,
 
   // Use the default one unless |aSendParams.serviceId| is available.
   uint32_t serviceId;
-  if (aSendParams.mServiceId.WasPassed()) {
-    serviceId = aSendParams.mServiceId.Value();
+  if (aSendParams.mServiceId) {
+    serviceId = aSendParams.mServiceId;
   } else {
     nsresult rv = smsService->GetSmsDefaultServiceId(&serviceId);
     if (NS_FAILED(rv)) {
@@ -221,7 +222,7 @@ void MobileMessageManager::Send(const Sequence<nsString>& aNumbers,
     aReturn.AppendElement(request);
   }
 }
-
+/*
 already_AddRefed<DOMRequest> MobileMessageManager::SendMMS(
     const MmsParameters& aParams, const MmsSendParameters& aSendParams,
     ErrorResult& aRv) {
@@ -275,7 +276,7 @@ already_AddRefed<DOMRequest> MobileMessageManager::SendMMS(
 
   return request.forget();
 }
-
+*/
 already_AddRefed<DOMRequest> MobileMessageManager::GetMessage(
     int32_t aId, ErrorResult& aRv) {
   nsCOMPtr<nsIMobileMessageDatabaseService> dbService =
@@ -341,7 +342,7 @@ already_AddRefed<DOMRequest> MobileMessageManager::Delete(SmsMessage& aMessage,
                                                           ErrorResult& aRv) {
   return Delete(aMessage.Id(), aRv);
 }
-
+/*
 already_AddRefed<DOMRequest> MobileMessageManager::Delete(MmsMessage& aMessage,
                                                           ErrorResult& aRv) {
   return Delete(aMessage.Id(), aRv);
@@ -366,7 +367,7 @@ already_AddRefed<DOMRequest> MobileMessageManager::Delete(
       id = element.GetAsLong();
     } else if (element.IsMmsMessage()) {
       id = element.GetAsMmsMessage()->Id();
-    } else /*if (element.IsSmsMessage())*/ {
+    } else { //if (element.IsSmsMessage()) {
       id = element.GetAsSmsMessage()->Id();
     }
   }
@@ -452,7 +453,7 @@ already_AddRefed<DOMCursor> MobileMessageManager::GetMessages(
   RefPtr<DOMCursor> cursor(cursorCallback->mDOMCursor);
   return cursor.forget();
 }
-
+*/
 already_AddRefed<DOMRequest> MobileMessageManager::MarkMessageRead(
     int32_t aId, bool aValue, bool aSendReadReport, ErrorResult& aRv) {
   nsCOMPtr<nsIMobileMessageDatabaseService> dbService =
@@ -480,7 +481,7 @@ already_AddRefed<DOMRequest> MobileMessageManager::MarkMessageRead(
 
   return request.forget();
 }
-
+/*
 already_AddRefed<DOMCursor> MobileMessageManager::GetThreads(ErrorResult& aRv) {
   nsCOMPtr<nsIMobileMessageDatabaseService> dbService =
       do_GetService(MOBILE_MESSAGE_DATABASE_SERVICE_CONTRACTID);
@@ -544,7 +545,7 @@ already_AddRefed<DOMRequest> MobileMessageManager::RetrieveMMS(
     MmsMessage& aMessage, ErrorResult& aRv) {
   return RetrieveMMS(aMessage.Id(), aRv);
 }
-
+*/
 nsresult MobileMessageManager::DispatchTrustedSmsEventToSelf(
     const char* aTopic, const nsAString& aEventName, nsISupports* aMsg) {
   nsCOMPtr<nsPIDOMWindowInner> window = GetOwner();
@@ -552,30 +553,30 @@ nsresult MobileMessageManager::DispatchTrustedSmsEventToSelf(
 
   nsCOMPtr<nsISmsMessage> sms = do_QueryInterface(aMsg);
   if (sms) {
-    MozSmsEventInit init;
+    SmsEventInit init;
     init.mBubbles = false;
     init.mCancelable = false;
     init.mMessage =
         new SmsMessage(window, static_cast<SmsMessageInternal*>(sms.get()));
 
-    RefPtr<MozSmsEvent> event =
-        MozSmsEvent::Constructor(this, aEventName, init);
+    RefPtr<SmsEvent> event = SmsEvent::Constructor(this, aEventName, init);
     return DispatchTrustedEvent(event);
   }
 
-  nsCOMPtr<nsIMmsMessage> mms = do_QueryInterface(aMsg);
-  if (mms) {
-    MozMmsEventInit init;
-    init.mBubbles = false;
-    init.mCancelable = false;
-    init.mMessage =
-        new MmsMessage(window, static_cast<MmsMessageInternal*>(mms.get()));
+  /*
+    nsCOMPtr<nsIMmsMessage> mms = do_QueryInterface(aMsg);
+    if (mms) {
+      MozMmsEventInit init;
+      init.mBubbles = false;
+      init.mCancelable = false;
+      init.mMessage =
+          new MmsMessage(window, static_cast<MmsMessageInternal*>(mms.get()));
 
-    RefPtr<MozMmsEvent> event =
-        MozMmsEvent::Constructor(this, aEventName, init);
-    return DispatchTrustedEvent(event);
-  }
-
+      RefPtr<MozMmsEvent> event =
+          MozMmsEvent::Constructor(this, aEventName, init);
+      return DispatchTrustedEvent(event);
+    }
+  */
   nsAutoCString errorMsg;
   errorMsg.AssignLiteral("Got a '");
   errorMsg.Append(aTopic);
@@ -584,6 +585,7 @@ nsresult MobileMessageManager::DispatchTrustedSmsEventToSelf(
   return NS_OK;
 }
 
+/*
 nsresult MobileMessageManager::DispatchTrustedDeletedEventToSelf(
     nsISupports* aDeletedInfo) {
   nsCOMPtr<nsIDeletedMessageInfo> deletedInfo = do_QueryInterface(aDeletedInfo);
@@ -621,6 +623,7 @@ nsresult MobileMessageManager::DispatchTrustedDeletedEventToSelf(
 
   return NS_OK;
 }
+*/
 
 NS_IMETHODIMP
 MobileMessageManager::Observe(nsISupports* aSubject, const char* aTopic,
@@ -667,7 +670,7 @@ MobileMessageManager::Observe(nsISupports* aSubject, const char* aTopic,
   }
 
   if (!strcmp(aTopic, kSmsDeletedObserverTopic)) {
-    return DispatchTrustedDeletedEventToSelf(aSubject);
+    return NS_OK;  // DispatchTrustedDeletedEventToSelf(aSubject);//FIXME
   }
 
   return NS_OK;
@@ -762,14 +765,14 @@ already_AddRefed<Promise> MobileMessageManager::SetSmscAddress(
     return nullptr;
   }
 
-  if (!aSmscAddress.mAddress.WasPassed()) {
+  if (aSmscAddress.mAddress.IsEmpty()) {
     NS_WARNING(
         "SmscAddress.address is a mandatory field and can not be omitted.");
     promise->MaybeReject(NS_ERROR_DOM_INVALID_ACCESS_ERR);
     return promise.forget();
   }
 
-  nsString address = aSmscAddress.mAddress.Value();
+  nsString address = aSmscAddress.mAddress;
   TypeOfNumber ton = aSmscAddress.mTypeOfAddress.mTypeOfNumber;
   NumberPlanIdentification npi =
       aSmscAddress.mTypeOfAddress.mNumberPlanIdentification;
@@ -829,7 +832,7 @@ NS_CreateMobileMessageDatabaseService() {
 
   return mobileMessageDBService.forget();
 }
-
+/*
 already_AddRefed<nsIMmsService> NS_CreateMmsService() {
   nsCOMPtr<nsIMmsService> mmsService;
 
@@ -843,7 +846,7 @@ already_AddRefed<nsIMmsService> NS_CreateMmsService() {
 
   return mmsService.forget();
 }
-
+*/
 already_AddRefed<nsIMobileMessageService> NS_CreateMobileMessageService() {
   nsCOMPtr<nsIMobileMessageService> service = new MobileMessageService();
   return service.forget();

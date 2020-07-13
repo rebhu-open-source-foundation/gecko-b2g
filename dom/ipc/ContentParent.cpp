@@ -262,7 +262,7 @@
 #  include "mozilla/dom/icc/IccParent.h"
 #  include "mozilla/dom/mobileconnection/ImsRegistrationParent.h"
 #  include "mozilla/dom/mobileconnection/MobileConnectionParent.h"
-// #include "mozilla/dom/mobilemessage/SmsParent.h"
+#  include "mozilla/dom/mobilemessage/SmsParent.h"
 #  include "mozilla/dom/subsidylock/SubsidyLockParent.h"
 #  include "mozilla/dom/telephony/TelephonyParent.h"
 #  include "mozilla/dom/voicemail/VoicemailParent.h"
@@ -379,7 +379,7 @@ using base::KillProcess;
 using namespace mozilla::dom::icc;
 using namespace mozilla::dom::cellbroadcast;
 using namespace mozilla::dom::mobileconnection;
-// using namespace mozilla::dom::mobilemessage;
+using namespace mozilla::dom::mobilemessage;
 using namespace mozilla::dom::telephony;
 using namespace mozilla::dom::voicemail;
 using namespace mozilla::dom::subsidylock;
@@ -4155,24 +4155,20 @@ mozilla::ipc::IPCResult ContentParent::RecvPCellBroadcastConstructor(
   return static_cast<CellBroadcastParent*>(aActor)->Init();
 }
 
-// PSmsParent*
-// ContentParent::AllocPSmsParent()
-// {
-//   if (!AssertAppProcessPermission(this, "sms")) {
-//     return nullptr;
-//   }
+PSmsParent* ContentParent::AllocPSmsParent() {
+  // if (!AssertAppProcessPermission(this, "sms")) {
+  //  return nullptr;
+  //}
 
-//   SmsParent* parent = new SmsParent();
-//   parent->AddRef();
-//   return parent;
-// }
+  SmsParent* parent = new SmsParent();
+  parent->AddRef();
+  return parent;
+}
 
-// bool
-// ContentParent::DeallocPSmsParent(PSmsParent* aSms)
-// {
-//   static_cast<SmsParent*>(aSms)->Release();
-//   return true;
-// }
+bool ContentParent::DeallocPSmsParent(PSmsParent* aActor) {
+  delete aActor;
+  return true;
+}
 
 #endif  // MOZ_B2G_RIL
 

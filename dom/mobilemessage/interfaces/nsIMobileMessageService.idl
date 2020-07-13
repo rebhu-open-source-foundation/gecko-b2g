@@ -61,11 +61,11 @@ interface nsIMobileMessageService : nsISupports
   //                                    in AString          aLastMessageType,
   //                                    in boolean            isGroup);
 
-  //nsIDeletedMessageInfo createDeletedMessageInfo(
-  //  [array, size_is(msgCount)] in long messageIds,
-  //  in uint32_t msgCount,
-  //  [array, size_is(threadCount)] in unsigned long long threadIds,
-  //  in uint32_t threadCount);
+  nsIDeletedMessageInfo createDeletedMessageInfo(
+    [array, size_is(msgCount)] in long messageIds,
+    in uint32_t msgCount,
+    [array, size_is(threadCount)] in unsigned long long threadIds,
+    in uint32_t threadCount);
 };
 
 %{C++

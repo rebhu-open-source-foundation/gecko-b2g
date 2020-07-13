@@ -46,7 +46,7 @@ include protocol PImsRegServiceFinder;
 include protocol PImsRegistration;
 include protocol PCellBroadcast;
 include protocol PIcc;
-//include protocol PSms;
+include protocol PSms;
 include protocol PSubsidyLock;
 include protocol PTelephony;
 include protocol PVoicemail;
@@ -611,7 +611,7 @@ nested(upto inside_cpow) sync protocol PContent
     manages PImsRegistration;
     manages PCellBroadcast;
     manages PIcc;
-    //manages PSms;
+    manages PSms;
     manages PSubsidyLock;
     manages PTelephony;
     manages PVoicemail;
@@ -1228,7 +1228,7 @@ parent:
 
     async PCellBroadcast();
 
-    //async PSms();
+    async PSms();
 
     async PSubsidyLock(uint32_t clientId);
 

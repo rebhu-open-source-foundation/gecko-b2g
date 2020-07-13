@@ -5,25 +5,15 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 include protocol PSms;
-//include protocol PBlob;
+//include IPCBlob;
 include SmsTypes;
 
-using struct mozilla::void_t from "ipc/IPCMessageUtils.h";
+using struct mozilla::void_t
+  from "ipc/IPCMessageUtils.h";
 
 namespace mozilla {
 namespace dom {
 namespace mobilemessage {
-
-protocol PSmsRequest
-{
-  manager PSms;
-
-child:
-  /**
-   * Sent when the asynchronous request has completed.
-   */
-  async __delete__(MessageReply response);
-};
 
 struct ReplyMessageSend
 {
@@ -123,6 +113,16 @@ union MessageReply
   ReplySetSmscAddressFail;
 };
 
+protocol PSmsRequest
+{
+  manager PSms;
+
+child:
+  /**
+   * Sent when the asynchronous request has completed.
+   */
+  async __delete__(MessageReply response);
+};
 } // namespace mobilemessage
 } // namespace dom
 } // namespace mozilla

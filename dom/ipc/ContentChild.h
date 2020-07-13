@@ -766,9 +766,9 @@ class ContentChild final : public PContentChild,
 
   bool DeallocPCellBroadcastChild(PCellBroadcastChild* aActor);
 
-  //    virtual PSmsChild* AllocPSmsChild();
+  PSmsChild* AllocPSmsChild();
 
-  //    virtual bool DeallocPSmsChild(PSmsChild*);
+  bool DeallocPSmsChild(PSmsChild* aActor);
 
   PTelephonyChild* AllocPTelephonyChild();
 

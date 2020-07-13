@@ -469,6 +469,8 @@ Return<void> nsRilResponse::sendSmsResponse(const RadioResponseInfo& info,
   } else {
     INFO("sendSMS error.");
   }
+
+  mRIL->sendRilResponseResult(result);
   return Void();
 }
 

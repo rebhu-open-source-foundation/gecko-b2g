@@ -22,6 +22,7 @@
 #  include "mozilla/dom/MobileConnectionArray.h"
 #  include "mozilla/dom/DataCallManagerBinding.h"
 #  include "mozilla/dom/SubsidyLockManager.h"
+#  include "mozilla/dom/MobileMessageManager.h"
 #endif
 
 #ifdef HAS_KOOST_MODULES
@@ -84,6 +85,7 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
   DataCallManager* GetDataCallManager(ErrorResult& aRv);
   CellBroadcast* GetCellBroadcast(ErrorResult& aRv);
   SubsidyLockManager* GetSubsidyLockManager(ErrorResult& aRv);
+  MobileMessageManager* GetMobileMessageManager(ErrorResult& aRv);
 #endif  // MOZ_B2G_RIL
 
 #ifdef HAS_KOOST_MODULES
@@ -153,6 +155,7 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
   RefPtr<Telephony> mTelephony;
   RefPtr<DataCallManager> mDataCallManager;
   RefPtr<SubsidyLockManager> mSubsidyLocks;
+  RefPtr<MobileMessageManager> mMobileMessageManager;
 #endif
 
 #ifdef HAS_KOOST_MODULES
