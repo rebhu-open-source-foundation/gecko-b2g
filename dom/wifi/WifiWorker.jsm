@@ -5044,8 +5044,6 @@ WifiWorker.prototype = {
   },
 };
 
-this.NSGetFactory = XPCOMUtils.generateNSGetFactory([WifiWorker]);
-
 var debug;
 function updateDebug() {
   if (DEBUG) {
