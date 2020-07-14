@@ -5,6 +5,9 @@
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
+const { ComponentUtils } = ChromeUtils.import(
+  "resource://gre/modules/ComponentUtils.jsm"
+);
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 // const {} = ChromeUtils.import("resource://gre/modules/DOMRequestHelper.jsm");
@@ -125,4 +128,4 @@ SimulatorScreen.prototype = {
   },
 };
 
-this.NSGetFactory = XPCOMUtils.generateNSGetFactory([SimulatorScreen]);
+this.NSGetFactory = ComponentUtils.generateNSGetFactory([SimulatorScreen]);

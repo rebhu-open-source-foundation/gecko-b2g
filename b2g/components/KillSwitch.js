@@ -13,6 +13,9 @@ function debug(s) {
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
+const { ComponentUtils } = ChromeUtils.import(
+  "resource://gre/modules/ComponentUtils.jsm"
+);
 const { DOMRequestIpcHelper } = ChromeUtils.import(
   "resource://gre/modules/DOMRequestHelper.jsm"
 );
@@ -122,4 +125,4 @@ KillSwitch.prototype = {
   ]),
 };
 
-this.NSGetFactory = XPCOMUtils.generateNSGetFactory([KillSwitch]);
+this.NSGetFactory = ComponentUtils.generateNSGetFactory([KillSwitch]);

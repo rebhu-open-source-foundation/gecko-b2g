@@ -6,6 +6,9 @@
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
+const { ComponentUtils } = ChromeUtils.import(
+  "resource://gre/modules/ComponentUtils.jsm"
+);
 ChromeUtils.defineModuleGetter(
   this,
   "Downloads",
@@ -126,4 +129,6 @@ HelperAppLauncherDialog.prototype = {
   },
 };
 
-this.NSGetFactory = XPCOMUtils.generateNSGetFactory([HelperAppLauncherDialog]);
+this.NSGetFactory = ComponentUtils.generateNSGetFactory([
+  HelperAppLauncherDialog,
+]);

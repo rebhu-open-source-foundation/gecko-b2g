@@ -5,6 +5,9 @@
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
+const { ComponentUtils } = ChromeUtils.import(
+  "resource://gre/modules/ComponentUtils.jsm"
+);
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 function oopCommandlineHandler() {}
@@ -45,4 +48,4 @@ oopCommandlineHandler.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsICommandLineHandler]),
 };
 
-this.NSGetFactory = XPCOMUtils.generateNSGetFactory([oopCommandlineHandler]);
+this.NSGetFactory = ComponentUtils.generateNSGetFactory([oopCommandlineHandler]);

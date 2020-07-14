@@ -6,6 +6,9 @@ const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
+const { ComponentUtils } = ChromeUtils.import(
+  "resource://gre/modules/ComponentUtils.jsm"
+);
 const { AppConstants } = ChromeUtils.import(
   "resource://gre/modules/AppConstants.jsm"
 );
@@ -58,7 +61,7 @@ DirectoryProvider.prototype = {
   classID: Components.ID("{9181eb7c-6f87-11e1-90b1-4f59d80dd2e5}"),
 
   QueryInterface: ChromeUtils.generateQI([Ci.nsIDirectoryServiceProvider]),
-  _xpcom_factory: XPCOMUtils.generateSingletonFactory(DirectoryProvider),
+  _xpcom_factory: ComponentUtils.generateSingletonFactory(DirectoryProvider),
 
   _profD: null,
 
@@ -317,4 +320,4 @@ DirectoryProvider.prototype = {
   },
 };
 
-this.NSGetFactory = XPCOMUtils.generateNSGetFactory([DirectoryProvider]);
+this.NSGetFactory = ComponentUtils.generateNSGetFactory([DirectoryProvider]);

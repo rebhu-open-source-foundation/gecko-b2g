@@ -5,6 +5,9 @@
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
+const { ComponentUtils } = ChromeUtils.import(
+  "resource://gre/modules/ComponentUtils.jsm"
+);
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 // Small helper to expose nsICommandLine object to chrome code
@@ -27,4 +30,4 @@ CommandlineHandler.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsICommandLineHandler]),
 };
 
-this.NSGetFactory = XPCOMUtils.generateNSGetFactory([CommandlineHandler]);
+this.NSGetFactory = ComponentUtils.generateNSGetFactory([CommandlineHandler]);

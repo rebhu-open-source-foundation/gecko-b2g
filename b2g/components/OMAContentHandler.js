@@ -9,6 +9,9 @@
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
+const { ComponentUtils } = ChromeUtils.import(
+  "resource://gre/modules/ComponentUtils.jsm"
+);
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 function debug(aMsg) {
@@ -48,4 +51,4 @@ OMAContentHandler.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsIContentHandler]),
 };
 
-this.NSGetFactory = XPCOMUtils.generateNSGetFactory([OMAContentHandler]);
+this.NSGetFactory = ComponentUtils.generateNSGetFactory([OMAContentHandler]);

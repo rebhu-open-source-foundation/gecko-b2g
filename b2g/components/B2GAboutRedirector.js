@@ -5,6 +5,9 @@ const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
+const { ComponentUtils } = ChromeUtils.import(
+  "resource://gre/modules/ComponentUtils.jsm"
+);
 
 function debug(msg) {
   console.log("B2GAboutRedirector: " + msg);
@@ -83,4 +86,4 @@ B2GAboutRedirector.prototype = {
   },
 };
 
-this.NSGetFactory = XPCOMUtils.generateNSGetFactory([B2GAboutRedirector]);
+this.NSGetFactory = ComponentUtils.generateNSGetFactory([B2GAboutRedirector]);

@@ -14,6 +14,9 @@
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
+const { ComponentUtils } = ChromeUtils.import(
+  "resource://gre/modules/ComponentUtils.jsm"
+);
 const { TelURIParser } = ChromeUtils.import(
   "resource:///modules/TelURIParser.jsm"
 );
@@ -73,4 +76,4 @@ SmsProtocolHandler.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsIProtocolHandler]),
 };
 
-this.NSGetFactory = XPCOMUtils.generateNSGetFactory([SmsProtocolHandler]);
+this.NSGetFactory = ComponentUtils.generateNSGetFactory([SmsProtocolHandler]);
