@@ -3276,7 +3276,6 @@ void GCRuntime::decommitFreeArenas(const bool& cancel, AutoLockGC& lock) {
 // Do all possible decommit immediately from the current thread without
 // releasing the GC lock or allocating any memory.
 void GCRuntime::decommitFreeArenasWithoutUnlocking(const AutoLockGC& lock) {
-  MOZ_ASSERT(emptyChunks(lock).count() == 0);
   for (ChunkPool::Iter chunk(availableChunks(lock)); !chunk.done();
        chunk.next()) {
     chunk->decommitFreeArenasWithoutUnlocking(lock);
@@ -7075,7 +7074,8 @@ MOZ_NEVER_INLINE GCRuntime::IncrementalResult GCRuntime::gcCycle(
   }
 
   if (shouldCollectNurseryForSlice(nonincrementalByAPI, budget)) {
-    collectNursery(reason, gcstats::PhaseKind::EVICT_NURSERY_FOR_MAJOR_GC);
+    collectNursery(gckind.valueOr(GC_NORMAL), reason,
+                   gcstats::PhaseKind::EVICT_NURSERY_FOR_MAJOR_GC);
   } else {
     ++number;  // This otherwise happens in Nursery::collect().
   }
@@ -7535,7 +7535,7 @@ void GCRuntime::minorGC(JS::GCReason reason, gcstats::PhaseKind phase) {
     return;
   }
 
-  collectNursery(reason, phase);
+  collectNursery(GC_NORMAL, reason, phase);
 
   for (ZonesIter zone(this, WithAtoms); !zone.done(); zone.next()) {
     maybeAllocTriggerZoneGC(zone);
@@ -7543,7 +7543,8 @@ void GCRuntime::minorGC(JS::GCReason reason, gcstats::PhaseKind phase) {
   }
 }
 
-void GCRuntime::collectNursery(JS::GCReason reason, gcstats::PhaseKind phase) {
+void GCRuntime::collectNursery(JSGCInvocationKind kind, JS::GCReason reason,
+                               gcstats::PhaseKind phase) {
   AutoMaybeLeaveAtomsZone leaveAtomsZone(rt->mainContextFromOwnThread());
 
   // Note that we aren't collecting the updated alloc counts from any helper
@@ -7561,7 +7562,7 @@ void GCRuntime::collectNursery(JS::GCReason reason, gcstats::PhaseKind phase) {
   nursery().clearMinorGCRequest();
   TraceLoggerThread* logger = TraceLoggerForCurrentThread();
   AutoTraceLog logMinorGC(logger, TraceLogger_MinorGC);
-  nursery().collect(reason);
+  nursery().collect(kind, reason);
   MOZ_ASSERT(nursery().isEmpty());
 
   startBackgroundFreeAfterMinorGC();

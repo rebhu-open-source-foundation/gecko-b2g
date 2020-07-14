@@ -7,12 +7,12 @@ from __future__ import absolute_import
 from setuptools import setup, find_packages
 
 PACKAGE_NAME = 'mozrunner'
-PACKAGE_VERSION = '8.0.0'
+PACKAGE_VERSION = '8.0.1'
 
 desc = """Reliable start/stop/configuration of Mozilla Applications (Firefox, Thunderbird, etc.)"""
 
 deps = [
-    'mozdevice>=3.0.1',
+    'mozdevice>=3.0.1,<4',
     'mozfile>=1.2',
     'mozinfo>=0.7,<2',
     'mozlog>=6.0',

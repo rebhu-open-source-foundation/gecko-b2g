@@ -24,9 +24,9 @@ static_assert(!std::is_polymorphic_v<WarpOpSnapshot>,
               "WarpOpSnapshot should not have any virtual methods");
 
 WarpSnapshot::WarpSnapshot(JSContext* cx, TempAllocator& alloc,
-                           WarpScriptSnapshot* script,
+                           WarpScriptSnapshotList&& scriptSnapshots,
                            const WarpBailoutInfo& bailoutInfo)
-    : script_(script),
+    : scriptSnapshots_(std::move(scriptSnapshots)),
       globalLexicalEnv_(&cx->global()->lexicalEnvironment()),
       globalLexicalEnvThis_(globalLexicalEnv_->thisObject()),
       bailoutInfo_(bailoutInfo),
@@ -68,10 +68,14 @@ void WarpSnapshot::dump(GenericPrinter& out) const {
   }
   out.printf("\n");
 
-  script_->dump(out);
+  for (auto* scriptSnapshot : scriptSnapshots_) {
+    scriptSnapshot->dump(out);
+  }
 }
 
 void WarpScriptSnapshot::dump(GenericPrinter& out) const {
+  out.printf("WarpScriptSnapshot (0x%p)\n", this);
+  out.printf("------------------------------\n");
   out.printf("Script: %s:%u:%u (0x%p)\n", script_->filename(),
              script_->lineno(), script_->column(),
              static_cast<JSScript*>(script_));
@@ -178,6 +182,12 @@ void WarpCacheIR::dumpData(GenericPrinter& out) const {
   out.printf("(CacheIR spew unavailable)\n");
 #  endif
 }
+
+void WarpInlinedCall::dumpData(GenericPrinter& out) const {
+  out.printf("    scriptSnapshot: 0x%p\n", scriptSnapshot_);
+  cacheIRSnapshot_->dumpData(out);
+  // TODO: dump callInfo
+}
 #endif  // JS_JITSPEW
 
 template <typename T>
@@ -189,7 +199,9 @@ static void TraceWarpGCPtr(JSTracer* trc, WarpGCPtr<T>& thing,
 }
 
 void WarpSnapshot::trace(JSTracer* trc) {
-  script_->trace(trc);
+  for (auto* script : scriptSnapshots_) {
+    script->trace(trc);
+  }
   TraceWarpGCPtr(trc, globalLexicalEnv_, "warp-lexical");
   TraceWarpGCPtr(trc, globalLexicalEnvThis_, "warp-lexicalthis");
 
@@ -288,4 +300,9 @@ void WarpCacheIR::traceData(JSTracer* trc) {
 
   // TODO: trace pointers in stub data. Beware of nursery indexes in the stub
   // data. See WarpObjectField.
+}
+
+void WarpInlinedCall::traceData(JSTracer* trc) {
+  // Note: scriptSnapshot_ is traced through WarpSnapshot.
+  cacheIRSnapshot_->trace(trc);
 }

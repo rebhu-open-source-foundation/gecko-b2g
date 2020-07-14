@@ -58,6 +58,17 @@ class InliningRoot {
   js::Vector<js::UniquePtr<ICScript>> inlinedScripts_;
 };
 
+class InlinableCallData {
+ public:
+  ObjOperandId calleeOperand;
+  CallFlags callFlags;
+  const uint8_t* endOfSharedPrefix = nullptr;
+  JSFunction* target = nullptr;
+  ICScript* icScript = nullptr;
+};
+
+mozilla::Maybe<InlinableCallData> FindInlinableCallData(ICStub* stub);
+
 class MOZ_RAII TrialInliner {
  public:
   TrialInliner(JSContext* cx, HandleScript script, ICScript* icScript,

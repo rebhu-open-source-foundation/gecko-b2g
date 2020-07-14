@@ -1494,13 +1494,11 @@ EditActionResult HTMLEditor::HandleInsertText(
     if (!compositionEndPoint.IsSet()) {
       compositionEndPoint = compositionStartPoint;
     }
-    WSRunObject wsObj(*this, compositionStartPoint, compositionEndPoint);
-    nsresult rv = wsObj.InsertText(*document, aInsertionString);
-    if (NS_WARN_IF(Destroyed())) {
-      return EditActionHandled(NS_ERROR_EDITOR_DESTROYED);
-    }
+    nsresult rv = WSRunObject::ReplaceText(
+        *this, aInsertionString,
+        EditorDOMRange(compositionStartPoint, compositionEndPoint));
     if (NS_FAILED(rv)) {
-      NS_WARNING("WSRunObject::InsertText() failed");
+      NS_WARNING("WSRunObject::ReplaceText() failed");
       return EditActionHandled(rv);
     }
 
@@ -1634,16 +1632,12 @@ EditActionResult HTMLEditor::HandleInsertText(
         }
 
         nsDependentSubstring subStr(insertionString, oldPos, subStrLen);
-        WSRunObject wsObj(*this, currentPoint);
 
         // is it a tab?
         if (subStr.Equals(tabStr)) {
           EditorRawDOMPoint pointAfterInsertedSpaces;
-          nsresult rv =
-              wsObj.InsertText(*document, spacesStr, &pointAfterInsertedSpaces);
-          if (NS_WARN_IF(Destroyed())) {
-            return EditActionHandled(NS_ERROR_EDITOR_DESTROYED);
-          }
+          nsresult rv = WSRunObject::InsertText(*this, spacesStr, currentPoint,
+                                                &pointAfterInsertedSpaces);
           if (NS_FAILED(rv)) {
             NS_WARNING("WSRunObject::InsertText() failed");
             return EditActionHandled(rv);
@@ -1655,17 +1649,15 @@ EditActionResult HTMLEditor::HandleInsertText(
         }
         // is it a return?
         else if (subStr.Equals(newlineStr)) {
-          RefPtr<Element> newBRElement =
-              wsObj.InsertBreak(MOZ_KnownLive(*SelectionRefPtr()), currentPoint,
-                                nsIEditor::eNone);
-          if (NS_WARN_IF(Destroyed())) {
-            return EditActionHandled(NS_ERROR_EDITOR_DESTROYED);
-          }
-          if (!newBRElement) {
-            NS_WARNING("WSRunObject::InsertBreak(eNone) failed");
-            return EditActionHandled(NS_ERROR_FAILURE);
+          Result<RefPtr<Element>, nsresult> result =
+              WSRunObject::InsertBRElement(*this, currentPoint);
+          if (result.isErr()) {
+            NS_WARNING("WSRunObject::InsertBRElement() failed");
+            return EditActionHandled(result.inspectErr());
           }
           pos++;
+          RefPtr<Element> newBRElement = result.unwrap();
+          MOZ_DIAGNOSTIC_ASSERT(newBRElement);
           if (newBRElement->GetNextSibling()) {
             pointToInsert.Set(newBRElement->GetNextSibling());
           } else {
@@ -1683,11 +1675,8 @@ EditActionResult HTMLEditor::HandleInsertText(
               "Perhaps, newBRElement has been moved or removed unexpectedly");
         } else {
           EditorRawDOMPoint pointAfterInsertedString;
-          nsresult rv =
-              wsObj.InsertText(*document, subStr, &pointAfterInsertedString);
-          if (NS_WARN_IF(Destroyed())) {
-            return EditActionHandled(NS_ERROR_EDITOR_DESTROYED);
-          }
+          nsresult rv = WSRunObject::InsertText(*this, subStr, currentPoint,
+                                                &pointAfterInsertedString);
           if (NS_FAILED(rv)) {
             NS_WARNING("WSRunObject::InsertText() failed");
             return EditActionHandled(rv);
@@ -2087,15 +2076,14 @@ nsresult HTMLEditor::InsertBRElement(const EditorDOMPoint& aPointToBreak) {
       }
       pointToBreak = splitLinkNodeResult.SplitPoint();
     }
-    brElement = wsObj.InsertBreak(MOZ_KnownLive(*SelectionRefPtr()),
-                                  pointToBreak, nsIEditor::eNone);
-    if (NS_WARN_IF(Destroyed())) {
-      return NS_ERROR_EDITOR_DESTROYED;
+    Result<RefPtr<Element>, nsresult> result =
+        WSRunObject::InsertBRElement(*this, pointToBreak);
+    if (result.isErr()) {
+      NS_WARNING("WSRunObject::InsertBRElement() failed");
+      return result.inspectErr();
     }
-    if (!brElement) {
-      NS_WARNING("WSRunObject::InsertBreak(eNone) failed");
-      return NS_ERROR_FAILURE;
-    }
+    brElement = result.unwrap();
+    MOZ_ASSERT(brElement);
   }
 
   // If the <br> element has already been removed from the DOM tree by a
@@ -8069,7 +8057,7 @@ Element* HTMLEditor::GetInvisibleBRElementAt(
     return nullptr;
   }
 
-  WSRunScanner wsScannerForPoint(this, aPoint);
+  WSRunScanner wsScannerForPoint(*this, aPoint);
   return wsScannerForPoint.StartsFromBRElement()
              ? wsScannerForPoint.StartReasonBRElementPtr()
              : nullptr;
@@ -8142,7 +8130,7 @@ HTMLEditor::GetRangeExtendedToIncludeInvisibleNodes(
         break;
       }
       MOZ_ASSERT(backwardScanFromStartResult.GetContent() ==
-                 WSRunScanner(this, atStart).GetStartReasonContent());
+                 WSRunScanner(*this, atStart).GetStartReasonContent());
       // We want to keep looking up.  But stop if we are crossing table
       // element boundaries, or if we hit the root.
       if (HTMLEditUtils::IsAnyTableElement(
@@ -8164,7 +8152,7 @@ HTMLEditor::GetRangeExtendedToIncludeInvisibleNodes(
       atEnd.GetContainer() != editingHost) {
     EditorDOMPoint atFirstInvisibleBRElement;
     for (;;) {
-      WSRunScanner wsScannerAtEnd(this, atEnd);
+      WSRunScanner wsScannerAtEnd(*this, atEnd);
       WSScanResult forwardScanFromEndResult =
           wsScannerAtEnd.ScanNextVisibleNodeOrBlockBoundaryFrom(atEnd);
       if (forwardScanFromEndResult.ReachedBRElement()) {
@@ -8280,7 +8268,7 @@ nsresult HTMLEditor::MaybeExtendSelectionToHardLineEdgesForBlockEditAction() {
 
   // Is there any intervening visible white-space?  If so we can't push
   // selection past that, it would visibly change meaning of users selection.
-  WSRunScanner wsScannerAtEnd(this, endPoint);
+  WSRunScanner wsScannerAtEnd(*this, endPoint);
   if (wsScannerAtEnd.ScanPreviousVisibleNodeOrBlockBoundaryFrom(endPoint)
           .ReachedSomething()) {
     // eThisBlock and eOtherBlock conveniently distinguish cases
@@ -8309,7 +8297,7 @@ nsresult HTMLEditor::MaybeExtendSelectionToHardLineEdgesForBlockEditAction() {
 
   // Is there any intervening visible white-space?  If so we can't push
   // selection past that, it would visibly change meaning of users selection.
-  WSRunScanner wsScannerAtStart(this, startPoint);
+  WSRunScanner wsScannerAtStart(*this, startPoint);
   if (wsScannerAtStart.ScanNextVisibleNodeOrBlockBoundaryFrom(startPoint)
           .ReachedSomething()) {
     // eThisBlock and eOtherBlock conveniently distinguish cases
