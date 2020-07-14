@@ -347,51 +347,102 @@
 
     connectedCallback() {
       this.log(`connectedCallback`);
-      if (!this.browser) {
-        this.log(`creating xul:browser`);
-        // Creates a xul:browser with default attributes.
-        this.browser = document.createXULElement("browser");
-        // Identify this `<browser>` element uniquely to Marionette, devtools, etc.
-        this.browser.permanentKey = new (Cu.getGlobalForObject(
-          Services
-        ).Object)();
-
-        this.browser.setAttribute("src", "about:blank");
-        this.browser.setAttribute("type", "content");
-        this.browser.setAttribute(
-          "style",
-          "border: none; width: 100%; height: 100%"
-        );
-
-        let src = null;
-
-        // Apply buffered attribute changes.
-        this.attrs.forEach(attr => {
-          if (attr.name == "src") {
-            src = attr.new_value;
-            return;
-          }
-          this.update_attr(attr.name, attr.old_value, attr.new_value);
-        });
-        this.attrs = [];
-
-        // Hack around failing to add the progress listener before construct() runs.
-        this.browser.delayConnectedCallback = () => {
-          return false;
-        };
-
-        this.appendChild(this.browser);
-        this.progressListener = new ProgressListener(this);
-        this.browser.addProgressListener(this.progressListener);
-
-        kRelayedEvents.forEach(name => {
-          this.browser.addEventListener(name, this);
-        });
-
-        // Set the src to load once we have setup all listeners to not miss progress events
-        // like loadstart.
-        src && this.browser.setAttribute("src", src);
+      if (this.browser) {
+        return;
       }
+      this.log(`creating xul:browser`);
+      // Creates a xul:browser with default attributes.
+      this.browser = document.createXULElement("browser");
+      // Identify this `<browser>` element uniquely to Marionette, devtools, etc.
+      this.browser.permanentKey = new (Cu.getGlobalForObject(
+        Services
+      ).Object)();
+
+      this.browser.setAttribute("src", "about:blank");
+      this.browser.setAttribute("type", "content");
+      this.browser.setAttribute(
+        "style",
+        "border: none; width: 100%; height: 100%"
+      );
+
+      let src = null;
+
+      // Apply buffered attribute changes.
+      this.attrs.forEach(attr => {
+        if (attr.name == "src") {
+          src = attr.new_value;
+          return;
+        }
+        this.update_attr(attr.name, attr.old_value, attr.new_value);
+      });
+      this.attrs = [];
+
+      // Hack around failing to add the progress listener before construct() runs.
+      this.browser.delayConnectedCallback = () => {
+        return false;
+      };
+
+      this.appendChild(this.browser);
+      this.progressListener = new ProgressListener(this);
+      this.browser.addProgressListener(this.progressListener);
+
+      kRelayedEvents.forEach(name => {
+        this.browser.addEventListener(name, this);
+      });
+
+      // TODO: figure out why we can't just set `observe()` as a class method.
+      // Logic here is similar to the one used in GeckoView:
+      // https://searchfox.org/mozilla-central/rev/82c04b9cad5b98bdf682bd477f2b1e3071b004ad/mobile/android/modules/geckoview/GeckoViewContent.jsm#202
+      let self = this;
+      this.crashObserver = {
+        observe(subject, topic, _data) {
+          this._contentCrashed = false;
+          const browser = subject.ownerElement;
+
+          switch (topic) {
+            case "oop-frameloader-crashed": {
+              if (!browser || browser != self.browser) {
+                return;
+              }
+              window.setTimeout(() => {
+                if (this._contentCrashed) {
+                  self.dispatchCustomEvent("error", {
+                    type: "fatal",
+                    reason: "content-crash",
+                  });
+                } else {
+                  self.dispatchCustomEvent("error", {
+                    type: "fatal",
+                    reason: "content-kill",
+                  });
+                }
+              }, 250);
+              break;
+            }
+            case "ipc:content-shutdown": {
+              subject.QueryInterface(Ci.nsIPropertyBag2);
+              if (subject.get("dumpID")) {
+                if (
+                  browser &&
+                  subject.get("childID") != browser.frameLoader.childID
+                ) {
+                  return;
+                }
+                this._contentCrashed = true;
+              }
+              break;
+            }
+          }
+        },
+      };
+
+      // Observe content crashes notifications.
+      Services.obs.addObserver(this.crashObserver, "oop-frameloader-crashed");
+      Services.obs.addObserver(this.crashObserver, "ipc:content-shutdown");
+
+      // Set the src to load once we have setup all listeners to not miss progress events
+      // like loadstart.
+      src && this.browser.setAttribute("src", src);
     }
 
     disconnectedCallback() {
@@ -401,6 +452,14 @@
 
       this.browser.removeProgressListener(this.progressListener);
       this.progressListener = null;
+
+      this.browser = null;
+
+      Services.obs.removeObserver(
+        this.crashObserver,
+        "oop-frameloader-crashed"
+      );
+      Services.obs.removeObserver(this.crashObserver, "ipc:content-shutdown");
     }
 
     dispatchCustomEvent(name, detail) {
