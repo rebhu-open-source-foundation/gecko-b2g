@@ -1326,53 +1326,20 @@ NS_IMETHODIMP nsRilWorker::GetRadioCapability(int32_t serial) {
   return NS_OK;
 }
 
-// Runnable used dispatch command result on the main thread.
-class RilResultDispatcher : public mozilla::Runnable {
- public:
-  RilResultDispatcher(nsRilWorker* aRil, nsRilIndicationResult* aIndication)
-      : mozilla::Runnable("RilIndicationResultDispatcher"),
-        mRil(aRil),
-        mResponse(nullptr),
-        mIndication(aIndication) {
-    INFO("RilResultDispatcher nsRilIndicationResult");
-    MOZ_ASSERT(!NS_IsMainThread());
-  }
-  RilResultDispatcher(nsRilWorker* aRil, nsRilResponseResult* aResponse)
-      : mozilla::Runnable("RilResponseResultDispatcher"),
-        mRil(aRil),
-        mResponse(aResponse),
-        mIndication(nullptr) {
-    INFO("RilResultDispatcher nsRilResponseResult");
-    MOZ_ASSERT(!NS_IsMainThread());
-  }
-  NS_IMETHOD Run() override {
-    MOZ_ASSERT(NS_IsMainThread());
-    if (mRil && mRil->mRilCallback) {
-      if (mResponse) {
-        mRil->mRilCallback->HandleRilResponse(mResponse);
-      } else if (mIndication) {
-        mRil->mRilCallback->HandleRilIndication(mIndication);
-      } else {
-        INFO("RilIndicationResultDispatcher: no result");
-      }
-    } else {
-      INFO("RilIndicationResultDispatcher: no mRIL or callback");
-    }
-    return NS_OK;
-  }
-
- private:
-  nsRilWorker* mRil;
-  RefPtr<nsRilResponseResult> mResponse;
-  RefPtr<nsRilIndicationResult> mIndication;
-};
-
 void nsRilWorker::sendRilIndicationResult(nsRilIndicationResult* aIndication) {
   INFO("nsRilWorker: [USOL]< %s",
        NS_LossyConvertUTF16toASCII(aIndication->mRilMessageType).get());
-  nsCOMPtr<nsIRunnable> runnable = new RilResultDispatcher(this, aIndication);
-  NS_DispatchToMainThread(runnable);
-  INFO("IndicationResult.mRilMessageType done.");
+
+  RefPtr<nsRilIndicationResult> indication = aIndication;
+  nsCOMPtr<nsIRunnable> r = NS_NewRunnableFunction(
+      "nsRilWorker::sendRilIndicationResult", [this, indication]() {
+        if (mRilCallback) {
+          mRilCallback->HandleRilIndication(indication);
+        } else {
+          INFO("sendRilIndicationResult: no callback");
+        }
+      });
+  NS_DispatchToMainThread(r);
 }
 
 void nsRilWorker::sendRilResponseResult(nsRilResponseResult* aResponse) {
@@ -1380,9 +1347,16 @@ void nsRilWorker::sendRilResponseResult(nsRilResponseResult* aResponse) {
        NS_LossyConvertUTF16toASCII(aResponse->mRilMessageType).get());
 
   if (aResponse->mRilMessageToken > 0) {
-    nsCOMPtr<nsIRunnable> runnable = new RilResultDispatcher(this, aResponse);
-    NS_DispatchToMainThread(runnable);
-    INFO("ResponseResult.mRilMessageType done.");
+    RefPtr<nsRilResponseResult> response = aResponse;
+    nsCOMPtr<nsIRunnable> r = NS_NewRunnableFunction(
+        "nsRilWorker::sendRilResponseResult", [this, response]() {
+          if (mRilCallback) {
+            mRilCallback->HandleRilResponse(response);
+          } else {
+            INFO("sendRilResponseResult: no callback");
+          }
+        });
+    NS_DispatchToMainThread(r);
   } else {
     INFO("ResponseResult internal reqeust.");
   }
