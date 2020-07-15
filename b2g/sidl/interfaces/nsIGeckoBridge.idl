@@ -12,7 +12,8 @@ interface nsICardInfoManagerDelegate : nsISupports {
     const unsigned long CIT_IMSI    = 1;
     const unsigned long CIT_MSISDN  = 2;
 
-    AString getCardInfo(in long type, in long id);
+    AString getCardInfo(in long id, in long type);
+    void getMncMcc(in long id, in bool isSim, out AString mnc, out AString mcc);
 };
 
 [scriptable, uuid(8df2de66-e2dc-4dd9-9a50-e530fb52fc9a)]

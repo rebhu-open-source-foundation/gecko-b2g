@@ -22,7 +22,7 @@ impl From<ObjectRef> for TrackerId {
 }
 
 pub static SERVICE_FINGERPRINT: &str =
-    "637dd1395aef8431d42f926c616c8b86bec61272f16126bda7430a0c9f6650";
+    "6a1e68bb0df899394ca849e09ad8046ebe4cfd690af334284d84efd8bbb32";
 
 #[derive(Clone, PartialEq, Deserialize, Serialize, Debug)]
 pub enum CardInfoType {
@@ -30,7 +30,14 @@ pub enum CardInfoType {
     Imei, // #1
     Msisdn, // #2
 }
+
 impl Copy for CardInfoType {}
+
+#[derive(Clone, Deserialize, Serialize, Debug)]
+pub struct NetworkOperator {
+    pub mnc: String,
+    pub mcc: String,
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 pub enum GeckoBridgeFromClient {
@@ -41,8 +48,10 @@ pub enum GeckoBridgeFromClient {
     GeckoFeaturesSetPowerManagerDelegate(ObjectRef,), // 4
     CardInfoManagerDelegateGetCardInfoSuccess(String), // 5
     CardInfoManagerDelegateGetCardInfoError, // 6
-    PowerManagerDelegateSetScreenEnabledSuccess, // 7
-    PowerManagerDelegateSetScreenEnabledError, // 8
+    CardInfoManagerDelegateGetMncMccSuccess(NetworkOperator), // 7
+    CardInfoManagerDelegateGetMncMccError, // 8
+    PowerManagerDelegateSetScreenEnabledSuccess, // 9
+    PowerManagerDelegateSetScreenEnabledError, // 10
 }
 
 #[derive(Debug, Deserialize)]
@@ -57,6 +66,7 @@ pub enum GeckoBridgeToClient {
     GeckoFeaturesSetCardInfoManagerDelegateError, // 7
     GeckoFeaturesSetPowerManagerDelegateSuccess, // 8
     GeckoFeaturesSetPowerManagerDelegateError, // 9
-    CardInfoManagerDelegateGetCardInfo(CardInfoType,i64,), // 10
-    PowerManagerDelegateSetScreenEnabled(bool,), // 11
+    CardInfoManagerDelegateGetCardInfo(i64,CardInfoType,), // 10
+    CardInfoManagerDelegateGetMncMcc(i64,bool,), // 11
+    PowerManagerDelegateSetScreenEnabled(bool,), // 12
 }

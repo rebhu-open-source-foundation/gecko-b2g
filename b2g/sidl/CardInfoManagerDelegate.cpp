@@ -60,19 +60,18 @@ CardInfoManagerDelegateService::ConstructCardInfoManagerDelegate() {
 }
 
 NS_IMETHODIMP
-CardInfoManagerDelegateService::GetCardInfo(int type, int cardId, nsAString& result) {
-  printf_stderr("GetCardInfo %d %d\n", type, cardId);
+CardInfoManagerDelegateService::GetCardInfo(int cardId, int type, nsAString& result) {
   if (CIT_IMEI == type) { //IMEI
     nsCOMPtr<nsIMobileConnectionService> service = do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
-    RETURN_IF_NULL_MSG(service, "Invalid mobile connection service")
+    RETURN_IF_NULL_MSG(service, "Invalid nsIMobileConnectionService")
 
     nsCOMPtr<nsIMobileConnection> connection;
     service->GetItemByServiceId(cardId, getter_AddRefs(connection));
-    RETURN_IF_NULL_MSG(connection, "Invalid mobile connection")
+    RETURN_IF_NULL_MSG(connection, "Invalid nsIMobileConnection")
 
     nsCOMPtr<nsIMobileDeviceIdentities> deviceIdentities;
     connection->GetDeviceIdentities(getter_AddRefs(deviceIdentities));
-    RETURN_IF_NULL_MSG(deviceIdentities, "Invalid mobile device identities")
+    RETURN_IF_NULL_MSG(deviceIdentities, "Invalid nsIMobileDeviceIdentities")
 
     RETURN_IF_ERROR_MSG(deviceIdentities->GetImei(result), "Failed to get IMEI")
   } else { //IMSI and MSISDN both used icc
@@ -80,25 +79,65 @@ CardInfoManagerDelegateService::GetCardInfo(int type, int cardId, nsAString& res
 
     nsCOMPtr<nsIIcc> icc;
     iccService->GetIccByServiceId(cardId, getter_AddRefs(icc));
-    RETURN_IF_NULL_MSG(icc, "Invalid icc service")
+    RETURN_IF_NULL_MSG(icc, "Invalid nsIIcc")
 
     if (CIT_IMSI == type) { //IMSI ends here
       RETURN_IF_ERROR_MSG(icc->GetImsi(result), "Failed to get IMSI")
     } else { //MSISDN should do something more
       nsCOMPtr<nsIIccInfo> iccInfo;
-      RETURN_IF_ERROR_MSG(icc->GetIccInfo(getter_AddRefs(iccInfo)), "Invalid icc info")
+      RETURN_IF_ERROR_MSG(icc->GetIccInfo(getter_AddRefs(iccInfo)), "Invalid nsIIccInfo")
 
       nsCOMPtr<nsIGsmIccInfo> gsmIccInfo = do_QueryInterface(iccInfo);
       if (gsmIccInfo) {
         RETURN_IF_ERROR_MSG(gsmIccInfo->GetMsisdn(result), "Failed to get MSISDN")
       } else {
         nsCOMPtr<nsICdmaIccInfo> cdmaIccInfo = do_QueryInterface(iccInfo);
-        RETURN_IF_NULL_MSG(cdmaIccInfo, "Invalid cdma icc info")
+        RETURN_IF_NULL_MSG(cdmaIccInfo, "Invalid nsICdmaIccInfo")
         RETURN_IF_ERROR_MSG(cdmaIccInfo->GetMdn(result), "Failed to get MDN")
       }
     } //end of IMSI and MSISDN
   } // end of IMEI and IMSI and MSISDN
 
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+CardInfoManagerDelegateService::GetMncMcc(int cardId, bool isSim, nsAString& mnc, nsAString& mcc) {
+  if (isSim) {
+    // Get simcard mnc/mcc.
+    nsCOMPtr<nsIIccService> iccService = do_GetService(ICC_SERVICE_CONTRACTID);
+    RETURN_IF_NULL_MSG(iccService, "Invalid nsIIccService");
+
+    nsCOMPtr<nsIIcc> icc;
+    iccService->GetIccByServiceId(cardId, getter_AddRefs(icc));
+    RETURN_IF_NULL_MSG(iccService, "Invalid nsIIcc");
+
+    nsCOMPtr<nsIIccInfo> iccInfo;
+    icc->GetIccInfo(getter_AddRefs(iccInfo));
+    RETURN_IF_NULL_MSG(iccInfo, "Invalid nsIIccInfo");
+
+    RETURN_IF_ERROR_MSG(iccInfo->GetMnc(mnc), "Failed to get MNC")
+    RETURN_IF_ERROR_MSG(iccInfo->GetMcc(mcc), "Failed to get MCC")
+  } else {
+    // Get network mnc/mcc.
+    nsCOMPtr<nsIMobileConnectionService> service = do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
+    RETURN_IF_NULL_MSG(service, "Invalid nsIMobileConnectionService");
+
+    nsCOMPtr<nsIMobileConnection> connection;
+    service->GetItemByServiceId(cardId, getter_AddRefs(connection));
+    RETURN_IF_NULL_MSG(connection, "Invalid nsIMobileConnection");
+
+    nsCOMPtr<nsIMobileConnectionInfo> connectionInfo;
+    connection->GetVoice(getter_AddRefs(connectionInfo));
+    RETURN_IF_NULL_MSG(connectionInfo, "Invalid nsIMobileConnectionInfo");
+
+    nsCOMPtr<nsIMobileNetworkInfo> networkInfo;
+    connectionInfo->GetNetwork(getter_AddRefs(networkInfo));
+    RETURN_IF_NULL_MSG(networkInfo, "Invalid nsIMobileNetworkInfo");
+
+    RETURN_IF_ERROR_MSG(networkInfo->GetMnc(mnc), "Failed to get MNC");
+    RETURN_IF_ERROR_MSG(networkInfo->GetMcc(mcc), "Failed to get MCC");
+  }
   return NS_OK;
 }
 

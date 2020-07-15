@@ -12,7 +12,7 @@ use crate::common::uds_transport::{from_base_message, SessionObject};
 use bincode::Options;
 use log::{debug, error};
 use moz_task::{Task, TaskRunnable, ThreadPtrHandle};
-use nserror::nsresult;
+use nserror::{nsresult, NS_OK};
 use nsstring::*;
 use xpcom::interfaces::nsICardInfoManagerDelegate;
 
@@ -37,30 +37,36 @@ impl CardInfoManagerDelegate {
             transport: transport.clone(),
         }
     }
+
+    fn postTask(&mut self, command: CardInfoManagerCommand, request_id: u64) {
+        let task = CardInfoManagerDelegateTask {
+            xpcom: self.xpcom.clone(),
+            command,
+            transport: self.transport.clone(),
+            service_id: self.service_id,
+            object_id: self.object_id,
+            request_id,
+        };
+        let _ = TaskRunnable::new("CardInfoManagerDelegate", Box::new(task))
+            .and_then(|r| TaskRunnable::dispatch(r, self.xpcom.owning_thread()));
+    }
 }
 
 impl SessionObject for CardInfoManagerDelegate {
     fn on_request(&mut self, request: BaseMessage, request_id: u64) {
         // Unpack the request.
-        if let Ok(GeckoBridgeToClient::CardInfoManagerDelegateGetCardInfo(info_type, id)) =
-            from_base_message(&request)
-        {
-            // Dispatch the setting change to the xpcom observer.
-            let task = CardInfoManagerDelegateTask {
-                xpcom: self.xpcom.clone(),
-                command: CardInfoManagerCommand::GetCardInfo(info_type, id),
-                transport: self.transport.clone(),
-                service_id: self.service_id,
-                object_id: self.object_id,
-                request_id: request_id,
-            };
-            let _ = TaskRunnable::new("CardInfoManagerDelegate", Box::new(task))
-                .and_then(|r| TaskRunnable::dispatch(r, self.xpcom.owning_thread()));
-        } else {
-            error!(
-                "PowerManagerDelegate::on_request unexpected message: {:?}",
-                request.content
-            );
+        match from_base_message(&request) {
+            Ok(GeckoBridgeToClient::CardInfoManagerDelegateGetCardInfo(id, info_type)) => {
+                self.postTask(CardInfoManagerCommand::GetCardInfo(id, info_type), request_id);
+            }
+            Ok(GeckoBridgeToClient::CardInfoManagerDelegateGetMncMcc(id, isSim)) => {
+                self.postTask(CardInfoManagerCommand::GetMncMcc(id, isSim), request_id);
+            }
+            other => {
+                error!(
+                    "CardInfoManagerDelegate::on_request unexpected message: {:?}",
+                    request.content)
+            }
         }
     }
 
@@ -74,7 +80,8 @@ impl SessionObject for CardInfoManagerDelegate {
 // Commands supported by the card info manager delegate.
 #[derive(Clone)]
 enum CardInfoManagerCommand {
-    GetCardInfo(CardInfoType,i64),
+    GetCardInfo(i64, CardInfoType), // Get imsi/imei/msisdn by service id.
+    GetMncMcc(i64, bool), // Get mnc mcc from simcard or network by service id.
 }
 
 // A Task to dispatch commands to the delegate.
@@ -88,26 +95,50 @@ struct CardInfoManagerDelegateTask {
     request_id: u64,
 }
 
+impl CardInfoManagerDelegateTask{
+    fn reply(&self, payload: GeckoBridgeFromClient) {
+        let message = BaseMessage {
+            service: self.service_id,
+            object: self.object_id,
+            kind: BaseMessageKind::Response(self.request_id),
+            content: crate::common::get_bincode().serialize(&payload).unwrap(),
+        };
+        let mut t = self.transport.clone();
+        let _ = t.send_message(&message);
+    }
+}
+
 impl Task for CardInfoManagerDelegateTask {
     fn run(&self) {
         // Call the method on the initial thread.
         debug!("CardInfoManagerDelegateTask::run");
         if let Some(object) = self.xpcom.get() {
             match self.command {
-                CardInfoManagerCommand::GetCardInfo(info_type, id) => {
-                    let mut result = nsString::new();
-                    unsafe { object.GetCardInfo(info_type as i32, id as i32, &mut *result) };
+                CardInfoManagerCommand::GetCardInfo(id, info_type) => {
+                    let mut card_info = nsString::new();
+                    let mut status;
+                    unsafe { status = object.GetCardInfo(id as i32, info_type as i32, &mut *card_info) };
 
-                    let payload = GeckoBridgeFromClient::CardInfoManagerDelegateGetCardInfoSuccess(result.to_string());
-                    // Wrap the payload in a base message and send it.
-                    let message = BaseMessage {
-                        service: self.service_id,
-                        object: self.object_id,
-                        kind: BaseMessageKind::Response(self.request_id),
-                        content: crate::common::get_bincode().serialize(&payload).unwrap(),
+                    let mut payload = match status {
+                        NS_OK => GeckoBridgeFromClient::CardInfoManagerDelegateGetCardInfoSuccess(card_info.to_string()),
+                        _ => GeckoBridgeFromClient::CardInfoManagerDelegateGetCardInfoError,
                     };
-                    let mut t = self.transport.clone();
-                    let _ = t.send_message(&message);
+                    self.reply(payload);
+                },
+                CardInfoManagerCommand::GetMncMcc(id, isSim) => {
+                    let mut _mnc = nsString::new();
+                    let mut _mcc = nsString::new();
+                    let mut status;
+                    unsafe { status = object.GetMncMcc(id as i32, isSim, &mut *_mnc, &mut *_mcc) };
+
+                    let mut payload = match status {
+                        NS_OK => GeckoBridgeFromClient::CardInfoManagerDelegateGetMncMccSuccess(NetworkOperator{
+                                                                                                    mnc: _mnc.to_string(),
+                                                                                                    mcc: _mcc.to_string(),
+                                                                                                }),
+                        _ => GeckoBridgeFromClient::CardInfoManagerDelegateGetMncMccError,
+                    };
+                    self.reply(payload);
                 },
             }
         }
