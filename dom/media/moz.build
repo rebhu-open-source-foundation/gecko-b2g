@@ -65,7 +65,7 @@ if CONFIG["MOZ_WEBRTC"]:
     DIRS += ["bridge"]
 
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
-    DIRS += ["omx"]
+    DIRS += ["gonk"]
 
 TEST_DIRS += [
     "gtest",
