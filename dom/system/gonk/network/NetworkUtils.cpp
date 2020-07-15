@@ -1446,7 +1446,18 @@ NetworkUtils::NetworkUtils(MessageCallback aCallback)
     return;
   }
 
-  // TODO: StartNetd and use Netd aidl
+  // Restart netd if b2g restart.
+  char value[Property::VALUE_MAX_LENGTH];
+  Property::Get("dev.b2g.pid", value, "0");
+  unsigned int prePid = atoi(value);
+  unsigned int curPid = getpid();
+  snprintf(value, Property::VALUE_MAX_LENGTH - 1, "%d", curPid);
+  Property::Set("dev.b2g.pid", value);
+  if (prePid > 0) {
+    NU_DBG("Stop Netd due to b2g restart");
+    setupNetd(false);
+  }
+
   NU_DBG("Start Netd Service");
   setupNetd(true);
 
