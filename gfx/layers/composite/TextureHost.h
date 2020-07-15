@@ -862,6 +862,7 @@ class BufferTextureHost : public TextureHost {
   };
 
   bool CanUnlock() { return !mFirstSource || mFirstSource->Sync(false); }
+  void DisableExternalTextures() { mUseExternalTextures = false; }
 
  protected:
   bool UseExternalTextures() const { return mUseExternalTextures; }

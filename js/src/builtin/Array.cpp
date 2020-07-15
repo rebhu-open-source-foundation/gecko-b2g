@@ -547,8 +547,7 @@ static bool DeleteArrayElement(JSContext* cx, HandleObject obj, uint64_t index,
         if (idx + 1 == aobj->getDenseInitializedLength()) {
           aobj->setDenseInitializedLengthMaybeNonExtensible(cx, idx);
         } else {
-          aobj->markDenseElementsNotPacked(cx);
-          aobj->setDenseElement(idx, MagicValue(JS_ELEMENTS_HOLE));
+          aobj->setDenseElementHole(cx, idx);
         }
         if (!SuppressDeletedElement(cx, obj, idx)) {
           return false;
@@ -1645,20 +1644,27 @@ static DenseElementResult ArrayReverseDenseKernel(JSContext* cx,
     return DenseElementResult::Success;
   }
 
+  auto setElementMaybeHole = [](JSContext* cx, HandleNativeObject obj,
+                                uint32_t index, const Value& val) {
+    if (MOZ_LIKELY(!val.isMagic(JS_ELEMENTS_HOLE))) {
+      obj->setDenseElement(index, val);
+      return true;
+    }
+
+    obj->setDenseElementHole(cx, index);
+    return SuppressDeletedProperty(cx, obj, INT_TO_JSID(index));
+  };
+
   RootedValue origlo(cx), orighi(cx);
 
   uint32_t lo = 0, hi = length - 1;
   for (; lo < hi; lo++, hi--) {
     origlo = obj->getDenseElement(lo);
     orighi = obj->getDenseElement(hi);
-    obj->setDenseElement(lo, orighi);
-    if (orighi.isMagic(JS_ELEMENTS_HOLE) &&
-        !SuppressDeletedProperty(cx, obj, INT_TO_JSID(lo))) {
+    if (!setElementMaybeHole(cx, obj, lo, orighi)) {
       return DenseElementResult::Failure;
     }
-    obj->setDenseElement(hi, origlo);
-    if (origlo.isMagic(JS_ELEMENTS_HOLE) &&
-        !SuppressDeletedProperty(cx, obj, INT_TO_JSID(hi))) {
+    if (!setElementMaybeHole(cx, obj, hi, origlo)) {
       return DenseElementResult::Failure;
     }
   }
@@ -2858,7 +2864,7 @@ static ArrayObject* CopyDenseArrayElements(JSContext* cx,
   narr->setLength(cx, count);
 
   if (newlength > 0) {
-    narr->initDenseElements(obj, begin, newlength);
+    narr->initDenseElements(cx, obj, begin, newlength);
   }
 
   return narr;
@@ -3629,7 +3635,7 @@ static bool ArraySliceDenseKernel(JSContext* cx, ArrayObject* arr,
       if (!result->ensureElements(cx, newlength)) {
         return false;
       }
-      result->initDenseElements(arr, begin, newlength);
+      result->initDenseElements(cx, arr, begin, newlength);
     }
   }
 

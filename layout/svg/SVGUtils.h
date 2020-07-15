@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef NS_SVGUTILS_H
-#define NS_SVGUTILS_H
+#ifndef LAYOUT_SVG_SVGUTILS_H_
+#define LAYOUT_SVG_SVGUTILS_H_
 
 // include math.h to pick up definition of M_ maths defines e.g. M_PI
 #include <math.h>
@@ -79,7 +79,7 @@ namespace mozilla {
  * that contains an element that has no size e.g. a point at the origin.
  */
 class SVGBBox final {
-  typedef gfx::Rect Rect;
+  using Rect = gfx::Rect;
 
  public:
   SVGBBox() : mIsEmpty(true) {}
@@ -129,7 +129,7 @@ class SVGBBox final {
 #undef CLIP_MASK
 
 class MOZ_RAII SVGAutoRenderState final {
-  typedef gfx::DrawTarget DrawTarget;
+  using DrawTarget = gfx::DrawTarget;
 
  public:
   explicit SVGAutoRenderState(
@@ -154,14 +154,14 @@ class MOZ_RAII SVGAutoRenderState final {
  */
 class SVGUtils final {
  public:
-  typedef dom::Element Element;
-  typedef dom::SVGElement SVGElement;
-  typedef gfx::AntialiasMode AntialiasMode;
-  typedef gfx::DrawTarget DrawTarget;
-  typedef gfx::FillRule FillRule;
-  typedef gfx::GeneralPattern GeneralPattern;
-  typedef gfx::Size Size;
-  typedef image::imgDrawingParams imgDrawingParams;
+  using Element = dom::Element;
+  using SVGElement = dom::SVGElement;
+  using AntialiasMode = gfx::AntialiasMode;
+  using DrawTarget = gfx::DrawTarget;
+  using FillRule = gfx::FillRule;
+  using GeneralPattern = gfx::GeneralPattern;
+  using Size = gfx::Size;
+  using imgDrawingParams = image::imgDrawingParams;
 
   NS_DECLARE_FRAME_PROPERTY_DELETABLE(ObjectBoundingBoxProperty, gfxRect)
 
@@ -598,4 +598,4 @@ class SVGUtils final {
 
 }  // namespace mozilla
 
-#endif
+#endif  // LAYOUT_SVG_SVGUTILS_H_

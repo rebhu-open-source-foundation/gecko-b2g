@@ -780,6 +780,28 @@ pwmgr:
     products:
       - "firefox"
     record_in_processes: [content, main]
+  doorhanger_submitted:
+    description: >
+      A login is saved or updated via the capture doorhanger. Carries information about whether 
+      or not the username and password were modified by the user. 
+      
+      The `object` describes the type of doorhanger when it was originally created. Note that user 
+      updates to the doorhanger may change whether a login is actually saved or updated, but will 
+      not impact the sent object.
+    objects: ["save", "update"]
+    bug_numbers: [1650929]
+    expiry_version: "86"
+    release_channel_collection: opt-out
+    products: ["firefox"]
+    record_in_processes: [main] 
+    notification_emails: ["srudie@mozilla.com", "passwords-dev@mozilla.org"]
+    extra_keys:
+      did_edit_un: >
+        Whether or not the username field of the doorhanger was modified by the user.  
+        This does not count selecting an autocompleted value.
+      did_edit_pw: >
+        Whether or not the password field of the doorhanger was modified by the user.  
+        This does not count selecting an autocompleted value.
 
 jsonfile:
   load:
@@ -1565,8 +1587,8 @@ devtools.main:
       runtime_name: Name of the runtime
       session_id: The start time of the session in milliseconds since epoch (Unix Timestamp) e.g. 1396381378123.
   select_page:
-    objects: ["aboutdebugging"]
-    bug_numbers: [1504173]
+    objects: ["aboutdebugging", "application"]
+    bug_numbers: [1504173, 1643253]
     notification_emails: ["dev-developer-tools@lists.mozilla.org", "hkirschner@mozilla.com"]
     products:
       - "firefox"
@@ -1621,6 +1643,18 @@ devtools.main:
       newpanel: The panel the user is switching to
       os: The OS name and version e.g. "Linux 4.4.0-1014-aws", "Darwin 14.5.0", "Windows_NT 6.1.7601" or "Windows_NT 10.0.15063." This can be used to make sense of data when a feature is only available from a particular operating system build number.
       session_id: The start time of the session in milliseconds since epoch (Unix Timestamp) e.g. 1396381378123.
+  start_worker:
+    objects: ["application"]
+    bug_numbers: [1643253]
+    notification_emails: ["dev-developer-tools@lists.mozilla.org", "hkirschner@mozilla.com"]
+    products:
+      - "firefox"
+    record_in_processes: ["main"]
+    description: User manually starts a service worker
+    release_channel_collection: opt-out
+    expiry_version: never
+    extra_keys:
+      session_id: The start time of the session in milliseconds since epoch (Unix Timestamp) e.g. 1396381378123.
   throttle_changed:
     objects: ["netmonitor"]
     bug_numbers: [1463147]
@@ -1649,6 +1683,18 @@ devtools.main:
     extra_keys:
       time_open: Time open.
       os: The OS name and version e.g. "Linux 4.4.0-1014-aws", "Darwin 14.5.0", "Windows_NT 6.1.7601" or "Windows_NT 10.0.15063." This can be used to make sense of data when a feature is only available from a particular operating system build number.
+      session_id: The start time of the session in milliseconds since epoch (Unix Timestamp) e.g. 1396381378123.
+  unregister_worker:
+    objects: ["application"]
+    bug_numbers: [1643253]
+    notification_emails: ["dev-developer-tools@lists.mozilla.org", "hkirschner@mozilla.com"]
+    products:
+      - "firefox"
+    record_in_processes: ["main"]
+    description: User manually unregisters a service worker registration
+    release_channel_collection: opt-out
+    expiry_version: never
+    extra_keys:
       session_id: The start time of the session in milliseconds since epoch (Unix Timestamp) e.g. 1396381378123.
   update_conn_prompt:
     objects: ["aboutdebugging"]
@@ -2048,7 +2094,7 @@ pictureinpicture:
     expiry_version: "86"
     release_channel_collection: opt-out
 
-security.doh.heuristics:
+doh:
   evaluate:
     methods: ["evaluate"]
     objects: ["heuristics"]

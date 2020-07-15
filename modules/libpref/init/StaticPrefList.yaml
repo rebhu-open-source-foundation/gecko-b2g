@@ -768,6 +768,13 @@
   value: true
   mirror: always
 
+# Disk cache capacity in kilobytes. It's used only when
+# browser.cache.disk.smart_size.enabled == false
+- name: browser.cache.disk.capacity
+  type: RelaxedAtomicUint32
+  value: 256000
+  mirror: always
+
 # Enable/Disable Origin based cache isolation
 - name: browser.cache.cache_isolation
   type: RelaxedAtomicBool
@@ -2766,7 +2773,7 @@
 
 - name: dom.arena_allocator.enabled
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: once
 
 - name: dom.serviceWorkers.enabled
@@ -4625,7 +4632,7 @@
 #ifdef XP_MACOSX
 - name: gfx.webrender.enable-client-storage
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: once
 #endif
 

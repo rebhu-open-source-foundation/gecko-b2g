@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef NSSVGEFFECTS_H_
-#define NSSVGEFFECTS_H_
+#ifndef LAYOUT_SVG_SVGOBSERVERUTILS_H_
+#define LAYOUT_SVG_SVGOBSERVERUTILS_H_
 
 #include "mozilla/Attributes.h"
 #include "mozilla/dom/IDTracker.h"
@@ -96,7 +96,7 @@ class SVGRenderingObserver : public nsStubMutationObserver {
   virtual ~SVGRenderingObserver() = default;
 
  public:
-  typedef mozilla::dom::Element Element;
+  using Element = dom::Element;
 
   SVGRenderingObserver() : mInObserverSet(false) {}
 
@@ -163,9 +163,9 @@ class SVGRenderingObserver : public nsStubMutationObserver {
 
 class SVGObserverUtils {
  public:
-  typedef mozilla::dom::CanvasRenderingContext2D CanvasRenderingContext2D;
-  typedef mozilla::dom::Element Element;
-  typedef dom::SVGGeometryElement SVGGeometryElement;
+  using CanvasRenderingContext2D = dom::CanvasRenderingContext2D;
+  using Element = dom::Element;
+  using SVGGeometryElement = dom::SVGGeometryElement;
   using HrefToTemplateCallback = const std::function<void(nsAString&)>&;
 
   /**
@@ -415,4 +415,4 @@ class SVGObserverUtils {
 
 }  // namespace mozilla
 
-#endif /*NSSVGEFFECTS_H_*/
+#endif  // LAYOUT_SVG_SVGOBSERVERUTILS_H_

@@ -416,7 +416,8 @@ HttpTransactionChild::OnStartRequest(nsIRequest* aRequest) {
   Maybe<nsCString> optionalAltSvcUsed;
   nsCString altSvcUsed;
   if (NS_SUCCEEDED(mTransaction->RequestHead()->GetHeader(
-          nsHttp::Alternate_Service_Used, altSvcUsed))) {
+          nsHttp::Alternate_Service_Used, altSvcUsed)) &&
+      !altSvcUsed.IsEmpty()) {
     optionalAltSvcUsed.emplace(altSvcUsed);
   }
 
@@ -485,14 +486,11 @@ HttpTransactionChild::OnStopRequest(nsIRequest* aRequest, nsresult aStatus) {
     responseTrailers.emplace(*headerArray);
   }
 
-  int64_t requestSize = mTransaction->GetRequestSize();
-
-  Unused << SendOnStopRequest(aStatus, mTransaction->ResponseIsComplete(),
-                              mTransaction->GetTransferSize(),
-                              ToTimingStructArgs(mTransaction->Timings()),
-                              responseTrailers,
-                              mTransaction->HasStickyConnection(),
-                              mTransactionObserverResult, requestSize);
+  Unused << SendOnStopRequest(
+      aStatus, mTransaction->ResponseIsComplete(),
+      mTransaction->GetTransferSize(),
+      ToTimingStructArgs(mTransaction->Timings()), responseTrailers,
+      mTransaction->HasStickyConnection(), mTransactionObserverResult);
 
   return NS_OK;
 }
@@ -513,6 +511,7 @@ HttpTransactionChild::OnTransportStatus(nsITransport* aTransport,
     return NS_OK;
   }
 
+  Maybe<NetworkAddressArg> arg;
   if (aStatus == NS_NET_STATUS_CONNECTED_TO ||
       aStatus == NS_NET_STATUS_WAITING_FOR) {
     NetAddr selfAddr;
@@ -529,10 +528,10 @@ HttpTransactionChild::OnTransportStatus(nsITransport* aTransport,
         socketTransport->ResolvedByTRR(&isTrr);
       }
     }
-    Unused << SendOnNetAddrUpdate(selfAddr, peerAddr, isTrr);
+    arg.emplace(selfAddr, peerAddr, isTrr);
   }
 
-  Unused << SendOnTransportStatus(aStatus, aProgress, aProgressMax);
+  Unused << SendOnTransportStatus(aStatus, aProgress, aProgressMax, arg);
   return NS_OK;
 }
 

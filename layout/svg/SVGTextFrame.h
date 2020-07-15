@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef MOZILLA_SVGTEXTFRAME_H
-#define MOZILLA_SVGTEXTFRAME_H
+#ifndef LAYOUT_SVG_SVGTEXTFRAME_H_
+#define LAYOUT_SVG_SVGTEXTFRAME_H_
 
 #include "mozilla/Attributes.h"
 #include "mozilla/PresShellForwards.h"
@@ -175,10 +175,10 @@ class SVGTextFrame final : public SVGDisplayContainerFrame {
   friend struct TextRenderedRun;
   friend class TextRenderedRunIterator;
 
-  typedef gfxTextRun::Range Range;
-  typedef gfx::DrawTarget DrawTarget;
-  typedef gfx::Path Path;
-  typedef gfx::Point Point;
+  using Range = gfxTextRun::Range;
+  using DrawTarget = gfx::DrawTarget;
+  using Path = gfx::Path;
+  using Point = gfx::Point;
 
  protected:
   explicit SVGTextFrame(ComputedStyle* aStyle, nsPresContext* aPresContext)
@@ -574,4 +574,4 @@ class SVGTextFrame final : public SVGDisplayContainerFrame {
 
 }  // namespace mozilla
 
-#endif
+#endif  // LAYOUT_SVG_SVGTEXTFRAME_H_

@@ -1044,7 +1044,7 @@ nsresult ExternalResourceMap::PendingLoad::StartLoad(
   nsresult rv = NS_OK;
   nsCOMPtr<nsIChannel> channel;
   rv = NS_NewChannel(getter_AddRefs(channel), aURI, aRequestingNode,
-                     nsILoadInfo::SEC_REQUIRE_SAME_ORIGIN_DATA_INHERITS,
+                     nsILoadInfo::SEC_REQUIRE_SAME_ORIGIN_INHERITS_SEC_CONTEXT,
                      nsIContentPolicy::TYPE_OTHER,
                      nullptr,  // aPerformanceStorage
                      loadGroup);
@@ -16256,24 +16256,22 @@ bool Document::ModuleScriptsEnabled() {
 }
 
 void Document::ReportShadowDOMUsage() {
-  if (mHasReportedShadowDOMUsage) {
+  nsPIDOMWindowInner* inner = GetInnerWindow();
+  if (NS_WARN_IF(!inner)) {
     return;
   }
 
-  Document* topLevel = GetTopLevelContentDocument();
-  if (topLevel && !topLevel->mHasReportedShadowDOMUsage) {
-    topLevel->mHasReportedShadowDOMUsage = true;
-    nsString uri;
-    Unused << topLevel->GetDocumentURI(uri);
-    if (!uri.IsEmpty()) {
-      nsAutoString msg = u"Shadow DOM used in ["_ns + uri +
-                         u"] or in some of its subdocuments."_ns;
-      nsContentUtils::ReportToConsoleNonLocalized(msg, nsIScriptError::infoFlag,
-                                                  "DOM"_ns, topLevel);
-    }
+  WindowContext* wc = inner->GetWindowContext();
+  if (NS_WARN_IF(!wc)) {
+    return;
   }
 
-  mHasReportedShadowDOMUsage = true;
+  WindowContext* topWc = wc->TopWindowContext();
+  if (topWc->GetHasReportedShadowDOMUsage()) {
+    return;
+  }
+
+  topWc->SetHasReportedShadowDOMUsage(true);
 }
 
 // static

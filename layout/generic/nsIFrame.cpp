@@ -5722,8 +5722,7 @@ void nsIFrame::MarkIntrinsicISizesDirty() {
 
   // If we're a flex item, clear our flex-item-specific cached measurements
   // (which likely depended on our now-stale intrinsic isize).
-  auto* parentFrame = GetParent();
-  if (parentFrame && parentFrame->IsFlexContainerFrame()) {
+  if (IsFlexItem()) {
     nsFlexContainerFrame::MarkCachedFlexMeasurementsDirty(this);
   }
 
@@ -6059,8 +6058,7 @@ LogicalSize nsIFrame::ComputeSize(gfxContext* aRenderingContext,
 
   auto parentFrame = GetParent();
   auto alignCB = parentFrame;
-  bool isGridItem = parentFrame && parentFrame->IsGridContainerFrame() &&
-                    !HasAnyStateBits(NS_FRAME_OUT_OF_FLOW);
+  bool isGridItem = IsGridItem();
   if (parentFrame && parentFrame->IsTableWrapperFrame() && IsTableFrame()) {
     // An inner table frame is sized as a grid item if its table wrapper is,
     // because they actually have the same CB (the wrapper's CB).
@@ -6075,10 +6073,9 @@ LogicalSize nsIFrame::ComputeSize(gfxContext* aRenderingContext,
       alignCB = grandParent;
     }
   }
-  bool isFlexItem =
-      parentFrame && parentFrame->IsFlexContainerFrame() &&
-      !parentFrame->HasAnyStateBits(NS_STATE_FLEX_IS_EMULATING_LEGACY_BOX) &&
-      !HasAnyStateBits(NS_FRAME_OUT_OF_FLOW);
+  const bool isFlexItem =
+      IsFlexItem() &&
+      !parentFrame->HasAnyStateBits(NS_STATE_FLEX_IS_EMULATING_LEGACY_BOX);
   // This variable only gets set (and used) if isFlexItem is true.  It
   // indicates which axis (in this frame's own WM) corresponds to its
   // flex container's main axis.
