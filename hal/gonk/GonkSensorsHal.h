@@ -5,6 +5,7 @@
 #ifndef HAL_GONK_GONKSENSORSHAL_H_
 #define HAL_GONK_GONKSENSORSHAL_H_
 
+#include "base/thread.h"
 #include "HalSensor.h"
 
 #include "android/hardware/sensors/1.0/ISensors.h"

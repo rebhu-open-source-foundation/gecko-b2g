@@ -259,15 +259,24 @@ class AecLogging extends Control {
   }
   refresh();
 
-  window.setInterval(async () => {
-    const reports = await getStats();
-    reports.forEach(report => {
-      const statsDiv = document.getElementById("frame-stats: " + report.pcid);
-      if (statsDiv) {
-        statsDiv.replaceWith(renderFrameRateStats(report));
-      }
-    });
-  }, 500);
+  window.setInterval(
+    async history => {
+      const reports = await getStats();
+      reports.forEach(report => {
+        const replace = (id, renderFunc) => {
+          const elem = document.getElementById(`${id}: ${report.pcid}`);
+          if (elem) {
+            elem.replaceWith(renderFunc(report, history));
+          }
+        };
+        replace("ice-stats", renderICEStats);
+        replace("rtp-stats", renderRTPStats);
+        replace("frame-stats", renderFrameRateStats);
+      });
+    },
+    500,
+    {}
+  );
 })();
 
 function renderPeerConnection(report) {
@@ -440,7 +449,7 @@ function renderFrameRateStats(report) {
   return statsDiv;
 }
 
-function renderRTPStats(report) {
+function renderRTPStats(report, history) {
   const rtpStats = [
     ...(report.inboundRtpStreamStats || []),
     ...(report.outboundRtpStreamStats || []),
@@ -466,17 +475,17 @@ function renderRTPStats(report) {
   const stats = [...rtpStats, ...remoteRtpStats];
 
   // Render stats set
-  return renderElements("div", {}, [
+  return renderElements("div", { id: "rtp-stats: " + report.pcid }, [
     renderText("h4", string("rtp_stats_heading")),
     ...stats.map(stat => {
       const { id, remoteId, remoteRtpStats } = stat;
       const div = renderElements("div", {}, [
         renderText("h5", id),
         renderCoderStats(stat),
-        renderTransportStats(stat, string("typeLocal")),
+        renderTransportStats(stat, true, history),
       ]);
       if (remoteId && remoteRtpStats) {
-        div.append(renderTransportStats(remoteRtpStats, string("typeRemote")));
+        div.append(renderTransportStats(remoteRtpStats, false));
       }
       return div;
     }),
@@ -522,6 +531,7 @@ function renderCoderStats({
 
 function renderTransportStats(
   {
+    id,
     timestamp,
     type,
     ssrc,
@@ -533,8 +543,28 @@ function renderTransportStats(
     packetsSent,
     bytesSent,
   },
-  typeLabel
+  local,
+  history
 ) {
+  const typeLabel = local ? string("typeLocal") : string("typeRemote");
+
+  if (history) {
+    if (history[id] === undefined) {
+      history[id] = {};
+    }
+  }
+
+  const estimateKbps = (timestamp, lastTimestamp, bytes, lastBytes) => {
+    if (!timestamp || !lastTimestamp || !bytes || !lastBytes) {
+      return string("n_a");
+    }
+    const elapsedTime = timestamp - lastTimestamp;
+    if (elapsedTime <= 0) {
+      return string("n_a");
+    }
+    return ((bytes - lastBytes) / elapsedTime).toFixed(1);
+  };
+
   const time = new Date(timestamp).toTimeString();
   let s = `${typeLabel}: ${time} ${type} SSRC: ${ssrc}`;
 
@@ -543,8 +573,18 @@ function renderTransportStats(
     s += ` ${string("received_label")}: ${packetsReceived} ${packets}`;
 
     if (bytesReceived) {
-      s += ` (${(bytesReceived / 1024).toFixed(2)} Kb)`;
+      s += ` (${(bytesReceived / 1024).toFixed(2)} Kb`;
+      if (local && history) {
+        s += ` , ~${estimateKbps(
+          timestamp,
+          history[id].lastTimestamp,
+          bytesReceived,
+          history[id].lastBytesReceived
+        )} Kbps`;
+      }
+      s += ")";
     }
+
     s += ` ${string("lost_label")}: ${packetsLost} ${string(
       "jitter_label"
     )}: ${jitter}`;
@@ -555,9 +595,26 @@ function renderTransportStats(
   } else if (packetsSent) {
     s += ` ${string("sent_label")}: ${packetsSent} ${packets}`;
     if (bytesSent) {
-      s += ` (${(bytesSent / 1024).toFixed(2)} Kb)`;
+      s += ` (${(bytesSent / 1024).toFixed(2)} Kb`;
+      if (local && history) {
+        s += `, ~${estimateKbps(
+          timestamp,
+          history[id].lastTimestamp,
+          bytesSent,
+          history[id].lastBytesSent
+        )} Kbps`;
+      }
+      s += ")";
     }
   }
+
+  // Update history
+  if (history) {
+    history[id].lastBytesReceived = bytesReceived;
+    history[id].lastBytesSent = bytesSent;
+    history[id].lastTimestamp = timestamp;
+  }
+
   return renderText("p", s);
 }
 
@@ -614,7 +671,7 @@ function renderConfiguration(c) {
 }
 
 function renderICEStats(report) {
-  const iceDiv = renderElements("div", {}, [
+  const iceDiv = renderElements("div", { id: "ice-stats: " + report.pcid }, [
     renderText("h4", string("ice_stats_heading")),
   ]);
 

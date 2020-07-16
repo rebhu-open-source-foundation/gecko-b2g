@@ -104,8 +104,7 @@ class MOZ_STACK_CLASS frontend::SourceAwareCompiler {
                                           CompilationInfo& compilationInfo);
 
   void assertSourceAndParserCreated(CompilationInfo& compilationInfo) const {
-    MOZ_ASSERT(compilationInfo.sourceObject != nullptr);
-    MOZ_ASSERT(compilationInfo.sourceObject->source() != nullptr);
+    MOZ_ASSERT(compilationInfo.source() != nullptr);
     MOZ_ASSERT(parser.isSome());
   }
 
@@ -399,7 +398,7 @@ bool frontend::SourceAwareCompiler<Unit>::createSourceAndParser(
                  sourceBuffer_.units(), sourceBuffer_.length(),
                  /* foldConstants = */ true, compilationInfo,
                  syntaxParser.ptrOr(nullptr), nullptr);
-  parser->ss = compilationInfo.sourceObject->source();
+  parser->ss = compilationInfo.source();
   return parser->checkOptions();
 }
 
@@ -499,11 +498,13 @@ JSScript* frontend::ScriptCompiler<Unit>::compileScript(
 
   // We have just finished parsing the source. Inform the source so that we
   // can compute statistics (e.g. how much time our functions remain lazy).
-  compilationInfo.sourceObject->source()->recordParseEnded();
+  compilationInfo.source()->recordParseEnded();
 
   // Enqueue an off-thread source compression task after finishing parsing.
-  if (!compilationInfo.sourceObject->source()->tryCompressOffThread(cx)) {
-    return nullptr;
+  if (!compilationInfo.cx->isHelperThreadContext()) {
+    if (!compilationInfo.source()->tryCompressOffThread(cx)) {
+      return nullptr;
+    }
   }
 
   MOZ_ASSERT_IF(!cx->isHelperThreadContext(), !cx->isExceptionPending());
@@ -551,8 +552,10 @@ ModuleObject* frontend::ModuleCompiler<Unit>::compile(
   MOZ_ASSERT(compilationInfo.module);
 
   // Enqueue an off-thread source compression task after finishing parsing.
-  if (!compilationInfo.sourceObject->source()->tryCompressOffThread(cx)) {
-    return nullptr;
+  if (!cx->isHelperThreadContext()) {
+    if (!compilationInfo.source()->tryCompressOffThread(cx)) {
+      return nullptr;
+    }
   }
 
   MOZ_ASSERT_IF(!cx->isHelperThreadContext(), !cx->isExceptionPending());
@@ -643,47 +646,13 @@ JSFunction* frontend::StandaloneFunctionCompiler<Unit>::compile(
   MOZ_ASSERT(fun->hasBytecode() || IsAsmJSModule(fun));
 
   // Enqueue an off-thread source compression task after finishing parsing.
-  if (!compilationInfo.sourceObject->source()->tryCompressOffThread(
-          compilationInfo.cx)) {
-    return nullptr;
-  }
-
-  return fun;
-}
-
-ScriptSourceObject* frontend::CreateScriptSourceObject(
-    JSContext* cx, const ReadOnlyCompileOptions& options) {
-  ScriptSource* ss = cx->new_<ScriptSource>();
-  if (!ss) {
-    return nullptr;
-  }
-  ScriptSourceHolder ssHolder(ss);
-
-  if (!ss->initFromOptions(cx, options)) {
-    return nullptr;
-  }
-
-  RootedScriptSourceObject sso(cx, ScriptSourceObject::create(cx, ss));
-  if (!sso) {
-    return nullptr;
-  }
-
-  // Off-thread compilations do all their GC heap allocation, including the
-  // SSO, in a temporary compartment. Hence, for the SSO to refer to the
-  // gc-heap-allocated values in |options|, it would need cross-compartment
-  // wrappers from the temporary compartment to the real compartment --- which
-  // would then be inappropriate once we merged the temporary and real
-  // compartments.
-  //
-  // Instead, we put off populating those SSO slots in off-thread compilations
-  // until after we've merged compartments.
-  if (!cx->isHelperThreadContext()) {
-    if (!ScriptSourceObject::initFromOptions(cx, sso, options)) {
+  if (!compilationInfo.cx->isHelperThreadContext()) {
+    if (!compilationInfo.source()->tryCompressOffThread(compilationInfo.cx)) {
       return nullptr;
     }
   }
 
-  return sso;
+  return fun;
 }
 
 template <typename Unit>
@@ -708,12 +677,15 @@ static ModuleObject* InternalParseModule(
   }
   compilationInfo.setEnclosingScope(&cx->global()->emptyGlobalScope());
 
+  ModuleCompiler<Unit> compiler(srcBuf);
+  Rooted<ModuleObject*> module(cx, compiler.compile(compilationInfo));
+
+  // Even if compile fails, we may have generated some of the scripts so expose
+  // the ScriptSourceObject to the caller.
   if (sourceObjectOut) {
     *sourceObjectOut = compilationInfo.sourceObject;
   }
 
-  ModuleCompiler<Unit> compiler(srcBuf);
-  Rooted<ModuleObject*> module(cx, compiler.compile(compilationInfo));
   if (!module) {
     return nullptr;
   }
@@ -914,8 +886,7 @@ static JSFunction* CompileStandaloneFunction(
   // interpreted script.
   if (compilationInfo.script) {
     if (parameterListEnd) {
-      compilationInfo.sourceObject->source()->setParameterListEnd(
-          *parameterListEnd);
+      compilationInfo.source()->setParameterListEnd(*parameterListEnd);
     }
     tellDebuggerAboutCompiledScript(cx, options.hideScriptFromDebugger,
                                     compilationInfo.script);
@@ -963,6 +934,11 @@ JSFunction* frontend::CompileStandaloneAsyncGenerator(
 }
 
 bool frontend::CompilationInfo::init(JSContext* cx) {
-  sourceObject = CreateScriptSourceObject(cx, options);
-  return !!sourceObject;
+  ScriptSource* ss = cx->new_<ScriptSource>();
+  if (!ss) {
+    return false;
+  }
+  setSource(ss);
+
+  return ss->initFromOptions(cx, options);
 }

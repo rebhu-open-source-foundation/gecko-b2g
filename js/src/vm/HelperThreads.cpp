@@ -6,6 +6,7 @@
 
 #include "vm/HelperThreads.h"
 
+#include "mozilla/DebugOnly.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/ScopeExit.h"
 #include "mozilla/Unused.h"
@@ -611,18 +612,20 @@ void ScriptParseTask<Unit>::parse(JSContext* cx) {
     return;
   }
 
-  // Whatever happens to the top-level script compilation (even if it fails),
-  // we must finish initializing the SSO.  This is because there may be valid
-  // inner scripts observable by the debugger which reference the partially-
-  // initialized SSO.
-  sourceObjects.infallibleAppend(compilationInfo.sourceObject);
-
   uint32_t len = data.length();
   SourceExtent extent = SourceExtent::makeGlobalExtent(len, options);
   frontend::GlobalSharedContext globalsc(cx, scopeKind, compilationInfo,
                                          compilationInfo.directives, extent);
   JSScript* script =
       frontend::CompileGlobalScript(compilationInfo, globalsc, data);
+
+  // Whatever happens to the top-level script compilation (even if it fails),
+  // we must finish initializing the SSO.  This is because there may be valid
+  // inner scripts observable by the debugger which reference the partially-
+  // initialized SSO.
+  if (compilationInfo.sourceObject) {
+    sourceObjects.infallibleAppend(compilationInfo.sourceObject);
+  }
 
   if (script) {
     scripts.infallibleAppend(script);
@@ -654,11 +657,13 @@ void ModuleParseTask<Unit>::parse(JSContext* cx) {
 
   ModuleObject* module =
       frontend::ParseModule(cx, options, data, &sourceObject.get());
+
+  if (sourceObject) {
+    sourceObjects.infallibleAppend(sourceObject);
+  }
+
   if (module) {
     scripts.infallibleAppend(module->script());
-    if (sourceObject) {
-      sourceObjects.infallibleAppend(sourceObject);
-    }
   }
 }
 
@@ -683,13 +688,16 @@ void ScriptDecodeTask::parse(JSContext* cx) {
     ReportOutOfMemory(cx);
     return;
   }
-  XDRResult res = decoder->codeScript(&resultScript);
-  MOZ_ASSERT(bool(resultScript) == res.isOk());
-  if (res.isOk()) {
+
+  mozilla::DebugOnly<XDRResult> res = decoder->codeScript(&resultScript);
+  MOZ_ASSERT(bool(resultScript) == static_cast<XDRResult>(res).isOk());
+
+  if (sourceObject) {
+    sourceObjects.infallibleAppend(sourceObject);
+  }
+
+  if (resultScript) {
     scripts.infallibleAppend(resultScript);
-    if (sourceObject) {
-      sourceObjects.infallibleAppend(sourceObject);
-    }
   }
 }
 
@@ -722,15 +730,20 @@ void MultiScriptsDecodeTask::parse(JSContext* cx) {
       ReportOutOfMemory(cx);
       return;
     }
-    XDRResult res = decoder->codeScript(&resultScript);
-    MOZ_ASSERT(bool(resultScript) == res.isOk());
 
-    if (res.isErr()) {
+    mozilla::DebugOnly<XDRResult> res = decoder->codeScript(&resultScript);
+    MOZ_ASSERT(bool(resultScript) == static_cast<XDRResult>(res).isOk());
+
+    if (sourceObject) {
+      sourceObjects.infallibleAppend(sourceObject);
+    }
+
+    if (resultScript) {
+      scripts.infallibleAppend(resultScript);
+    } else {
+      // If any decodes fail, don't process the rest. We likely are hitting OOM.
       break;
     }
-    MOZ_ASSERT(resultScript);
-    scripts.infallibleAppend(resultScript);
-    sourceObjects.infallibleAppend(sourceObject);
   }
 }
 
@@ -1046,45 +1059,28 @@ bool js::StartOffThreadDecodeMultiScripts(JSContext* cx,
 void js::EnqueuePendingParseTasksAfterGC(JSRuntime* rt) {
   MOZ_ASSERT(!OffThreadParsingMustWaitForGC(rt));
 
-  GlobalHelperThreadState::ParseTaskVector newTasks;
-  {
-    AutoLockHelperThreadState lock;
-    GlobalHelperThreadState::ParseTaskVector& waiting =
-        HelperThreadState().parseWaitingOnGC(lock);
-
-    for (size_t i = 0; i < waiting.length(); i++) {
-      if (waiting[i]->runtimeMatches(rt)) {
-        AutoEnterOOMUnsafeRegion oomUnsafe;
-        if (!newTasks.append(std::move(waiting[i]))) {
-          oomUnsafe.crash("EnqueuePendingParseTasksAfterGC");
-        }
-        HelperThreadState().remove(waiting, &i);
-      }
-    }
-  }
-
-  if (newTasks.empty()) {
-    return;
-  }
-
-  // This logic should mirror the contents of the
-  // !OffThreadParsingMustWaitForGC() branch in QueueOffThreadParseTask:
-
-  for (size_t i = 0; i < newTasks.length(); i++) {
-    newTasks[i]->activate(rt);
-  }
-
   AutoLockHelperThreadState lock;
 
-  {
-    AutoEnterOOMUnsafeRegion oomUnsafe;
-    GlobalHelperThreadState::ParseTaskVector& worklist =
-        HelperThreadState().parseWorklist(lock);
-    for (size_t i = 0; i < newTasks.length(); i++) {
-      if (!worklist.append(std::move(newTasks[i]))) {
+  GlobalHelperThreadState::ParseTaskVector& waiting =
+      HelperThreadState().parseWaitingOnGC(lock);
+  GlobalHelperThreadState::ParseTaskVector& worklist =
+      HelperThreadState().parseWorklist(lock);
+  for (size_t i = 0; i < waiting.length(); i++) {
+    if (!waiting[i]->runtimeMatches(rt)) {
+      continue;
+    }
+
+    // This logic should mirror the contents of the
+    // !OffThreadParsingMustWaitForGC() branch in QueueOffThreadParseTask:
+    waiting[i]->activate(rt);
+
+    {
+      AutoEnterOOMUnsafeRegion oomUnsafe;
+      if (!worklist.append(std::move(waiting[i]))) {
         oomUnsafe.crash("EnqueuePendingParseTasksAfterGC");
       }
     }
+    HelperThreadState().remove(waiting, &i);
   }
 
   HelperThreadState().notifyAll(GlobalHelperThreadState::PRODUCER, lock);
@@ -1746,11 +1742,15 @@ UniquePtr<ParseTask> GlobalHelperThreadState::finishParseTaskCommon(
     cx->releaseCheck(script);
   }
 
+  // Finish initializing ScriptSourceObject now that we are back on main-thread
+  // and in the correct realm.
   for (auto& sourceObject : parseTask->sourceObjects) {
     RootedScriptSourceObject sso(cx, sourceObject);
+
     if (!ScriptSourceObject::initFromOptions(cx, sso, parseTask->options)) {
       return nullptr;
     }
+
     if (!sso->source()->tryCompressOffThread(cx)) {
       return nullptr;
     }

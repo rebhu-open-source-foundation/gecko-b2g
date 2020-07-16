@@ -16,7 +16,7 @@
 
 #include "Hal.h"
 #include "GonkSensorsHal.h"
-
+#include "base/task.h"
 
 using namespace mozilla::hal;
 

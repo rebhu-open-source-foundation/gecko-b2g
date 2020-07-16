@@ -33,6 +33,7 @@
 #include "mozilla/PresShell.h"
 #include "mozilla/PresShellInlines.h"
 #include "mozilla/RestyleManager.h"
+#include "mozilla/StaticPrefs_apz.h"
 #include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/StaticPrefs_full_screen_api.h"
@@ -59,6 +60,7 @@
 #include "mozilla/Sprintf.h"
 
 #include "mozilla/Telemetry.h"
+#include "nsIApplicationCache.h"
 #include "nsIInlineSpellChecker.h"
 #include "nsIInterfaceRequestor.h"
 #include "nsIInterfaceRequestorUtils.h"
@@ -114,7 +116,9 @@
 #include "mozilla/dom/CSPDictionariesBinding.h"
 #include "mozilla/dom/DOMIntersectionObserver.h"
 #include "mozilla/dom/Element.h"
+#include "mozilla/dom/ElementBinding.h"
 #include "mozilla/dom/Event.h"
+#include "mozilla/dom/FailedCertSecurityInfoBinding.h"
 #include "mozilla/dom/FeaturePolicy.h"
 #include "mozilla/dom/FeaturePolicyUtils.h"
 #include "mozilla/dom/HTMLAllCollection.h"
@@ -124,6 +128,7 @@
 #include "mozilla/dom/MediaStatusManager.h"
 #include "mozilla/dom/MutationObservers.h"
 #include "mozilla/dom/Navigator.h"
+#include "mozilla/dom/NetErrorInfoBinding.h"
 #include "mozilla/dom/Performance.h"
 #include "mozilla/dom/TreeOrderedArrayInlines.h"
 #include "mozilla/dom/ResizeObserver.h"
@@ -1193,6 +1198,19 @@ void Document::SelectorCache::NotifyExpired(SelectorCacheKey* aSelector) {
 Document::FrameRequest::FrameRequest(FrameRequestCallback& aCallback,
                                      int32_t aHandle)
     : mCallback(&aCallback), mHandle(aHandle) {}
+
+Document::FrameRequest::~FrameRequest() = default;
+
+Document::PendingFrameStaticClone::~PendingFrameStaticClone() = default;
+
+struct Document::MetaViewportElementAndData {
+  RefPtr<HTMLMetaElement> mElement;
+  ViewportMetaData mData;
+
+  bool operator==(const MetaViewportElementAndData& aOther) const {
+    return mElement == aOther.mElement && mData == aOther.mData;
+  }
+};
 
 // ==================================================================
 // =
@@ -15893,6 +15911,10 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccess(
 
   // Step 2. If the document has a null origin, reject.
   if (NodePrincipal()->GetIsNullPrincipal()) {
+    nsContentUtils::ReportToConsole(nsIScriptError::errorFlag,
+                                    nsLiteralCString("requestStorageAccess"),
+                                    this, nsContentUtils::eDOM_PROPERTIES,
+                                    "RequestStorageAccessNullPrincipal");
     promise->MaybeRejectWithUndefined();
     return promise.forget();
   }
@@ -15942,6 +15964,9 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccess(
   // Step 6. If the sub frame doesn't have the token
   //         "allow-storage-access-by-user-activation", reject.
   if (StorageAccessSandboxed()) {
+    nsContentUtils::ReportToConsole(
+        nsIScriptError::errorFlag, nsLiteralCString("requestStorageAccess"),
+        this, nsContentUtils::eDOM_PROPERTIES, "RequestStorageAccessSandboxed");
     promise->MaybeRejectWithUndefined();
     return promise.forget();
   }
@@ -15949,12 +15974,19 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccess(
   // Step 7. If the sub frame's parent frame is not the top frame, reject.
   RefPtr<BrowsingContext> parentBC = bc->GetParent();
   if (parentBC && !parentBC->IsTopContent()) {
+    nsContentUtils::ReportToConsole(
+        nsIScriptError::errorFlag, nsLiteralCString("requestStorageAccess"),
+        this, nsContentUtils::eDOM_PROPERTIES, "RequestStorageAccessNested");
     promise->MaybeRejectWithUndefined();
     return promise.forget();
   }
 
   // Step 8. If the browser is not processing a user gesture, reject.
   if (!UserActivation::IsHandlingUserInput()) {
+    nsContentUtils::ReportToConsole(nsIScriptError::errorFlag,
+                                    nsLiteralCString("requestStorageAccess"),
+                                    this, nsContentUtils::eDOM_PROPERTIES,
+                                    "RequestStorageAccessUserGesture");
     promise->MaybeRejectWithUndefined();
     return promise.forget();
   }
