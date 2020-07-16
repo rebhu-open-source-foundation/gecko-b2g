@@ -81,7 +81,18 @@ AVD_DICT = {
                         '-ranchu',
                         '-selinux', 'permissive',
                         '-memory', '3072', '-cores', '4'],
-                       True)
+                       True),
+    'x86-KaiOS': AvdInfo('KaiOS x86/x86_64',
+                         'mozemulator-x86-kaios',
+                         None,
+                         'linux64-b2g-emulator',
+                         ['-verbose', '-show-kernel',
+                          '-ranchu',
+                          '-writable-system',
+                          '-selinux', 'permissive',
+                          '-feature', 'GrallocSync,LogcatPipe,GLAsyncSwap,GLESDynamicVersion,GLDMA,EncryptUserData,IntelPerformanceMonitoringUnit,Wifi,HostComposition,DynamicPartition',  # NOQA: E501
+                          '-memory', '3072', '-cores', '4'],
+                         True)
 }
 
 
