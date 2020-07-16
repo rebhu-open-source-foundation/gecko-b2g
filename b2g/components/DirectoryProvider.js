@@ -18,7 +18,6 @@ const UPDATE_ARCHIVE_DIR = "UpdArchD";
 const LOCAL_DIR = "/data/local";
 const UPDATES_DIR = "updates/0";
 const FOTA_DIR = "updates/fota";
-const COREAPPSDIR_PREF = "b2g.coreappsdir";
 
 XPCOMUtils.defineLazyServiceGetter(
   Services,
@@ -73,21 +72,6 @@ DirectoryProvider.prototype = {
   },
 
   getFileOnGonk(prop, persistent) {
-    let localProps = [
-      "cachePDir",
-      "webappsDir",
-      "PrefD",
-      "indexedDBPDir",
-      "permissionDBPDir",
-      "UpdRootD",
-      "customizationPDir",
-    ];
-    if (localProps.includes(prop)) {
-      let file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
-      file.initWithPath(LOCAL_DIR);
-      persistent.value = true;
-      return file;
-    }
     if (prop == "ProfD") {
       let dir = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
       dir.initWithPath(LOCAL_DIR + "/tests/profile");
@@ -96,12 +80,7 @@ DirectoryProvider.prototype = {
         return dir;
       }
     }
-    if (prop == "coreAppsDir") {
-      let file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
-      file.initWithPath("/system/b2g");
-      persistent.value = true;
-      return file;
-    }
+
     if (prop == UPDATE_ARCHIVE_DIR) {
       // getUpdateDir will set persistent to false since it may toggle between
       // /data/local/ and /mnt/sdcard based on free space and/or availability
@@ -120,24 +99,7 @@ DirectoryProvider.prototype = {
   },
 
   getFileNotGonk(prop, persistent) {
-    // In desktop builds, coreAppsDir is the same as the profile
-    // directory unless otherwise specified. We just need to get the
-    // path from the parent, and it is then used to build
-    // jar:remoteopenfile:// uris.
-    if (prop == "coreAppsDir") {
-      let coreAppsDirPref = Services.prefs.getCharPref(COREAPPSDIR_PREF, "");
-      let appsDir;
-      // If pref doesn't exist or isn't set, default to old value
-      if (!coreAppsDirPref || coreAppsDirPref == "") {
-        appsDir = Services.dirsvc.get("ProfD", Ci.nsIFile);
-        appsDir.append("webapps");
-      } else {
-        appsDir = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
-        appsDir.initWithPath(coreAppsDirPref);
-      }
-      persistent.value = true;
-      return appsDir;
-    } else if (prop == "ProfD") {
+    if (prop == "ProfD") {
       let inParent =
         Services.appinfo.processType == Ci.nsIXULRuntime.PROCESS_TYPE_DEFAULT;
       if (inParent) {
