@@ -202,6 +202,7 @@ GonkSensorsHal::Init() {
 
   if (mSensors == nullptr) {
     HAL_ERR("Init finally failed");
+    return;
   }
 
   // start a polling thread reading sensors events
