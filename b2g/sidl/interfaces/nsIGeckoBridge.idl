@@ -16,12 +16,19 @@ interface nsICardInfoManagerDelegate : nsISupports {
     void getMncMcc(in long id, in bool isSim, out AString mnc, out AString mcc);
 };
 
-[scriptable, uuid(8df2de66-e2dc-4dd9-9a50-e530fb52fc9a)]
+[scriptable, uuid(39bff5db-afd9-4f24-9166-12749fbaf0da)]
+interface nsINetworkManagerDelegate : nsISupports {
+    void getNetworkInfo(out long state, out long type);
+};
+
+[scriptable, uuid(cacfb50a-31eb-45b2-b5d1-a79cd493b3e1)]
 interface nsIGeckoBridge : nsISupports {
     // Register a power manager delegate that will be called by the power manager service.
     void setPowerManagerDelegate(in nsIPowerManagerDelegate delegate, in nsISidlDefaultResponse callback);
     // Register a card info manager delegate that will be called by the fota service.
     void setCardInfoManagerDelegate(in nsICardInfoManagerDelegate delegate, in nsISidlDefaultResponse callback);
+    // Register a network manager delegate that will be called by the fota service.
+    void setNetworkManagerDelegate(in nsINetworkManagerDelegate delegate, in nsISidlDefaultResponse callback);
 
     // Preferences related methods. Call these when a watched preference changes.
     void charPrefChanged(in ACString aPrefName, in ACString aValue, in nsISidlDefaultResponse callback);

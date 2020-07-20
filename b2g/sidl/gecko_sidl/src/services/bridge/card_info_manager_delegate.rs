@@ -38,7 +38,7 @@ impl CardInfoManagerDelegate {
         }
     }
 
-    fn postTask(&mut self, command: CardInfoManagerCommand, request_id: u64) {
+    fn post_task(&mut self, command: CardInfoManagerCommand, request_id: u64) {
         let task = CardInfoManagerDelegateTask {
             xpcom: self.xpcom.clone(),
             command,
@@ -57,16 +57,18 @@ impl SessionObject for CardInfoManagerDelegate {
         // Unpack the request.
         match from_base_message(&request) {
             Ok(GeckoBridgeToClient::CardInfoManagerDelegateGetCardInfo(id, info_type)) => {
-                self.postTask(CardInfoManagerCommand::GetCardInfo(id, info_type), request_id);
+                self.post_task(
+                    CardInfoManagerCommand::GetCardInfo(id, info_type),
+                    request_id,
+                );
             }
-            Ok(GeckoBridgeToClient::CardInfoManagerDelegateGetMncMcc(id, isSim)) => {
-                self.postTask(CardInfoManagerCommand::GetMncMcc(id, isSim), request_id);
+            Ok(GeckoBridgeToClient::CardInfoManagerDelegateGetMncMcc(id, is_sim)) => {
+                self.post_task(CardInfoManagerCommand::GetMncMcc(id, is_sim), request_id);
             }
-            other => {
-                error!(
-                    "CardInfoManagerDelegate::on_request unexpected message: {:?}",
-                    request.content)
-            }
+            _ => error!(
+                "CardInfoManagerDelegate::on_request unexpected message: {:?}",
+                request.content
+            ),
         }
     }
 
@@ -81,7 +83,7 @@ impl SessionObject for CardInfoManagerDelegate {
 #[derive(Clone)]
 enum CardInfoManagerCommand {
     GetCardInfo(i64, CardInfoType), // Get imsi/imei/msisdn by service id.
-    GetMncMcc(i64, bool), // Get mnc mcc from simcard or network by service id.
+    GetMncMcc(i64, bool),           // Get mnc mcc from simcard or network by service id.
 }
 
 // A Task to dispatch commands to the delegate.
@@ -95,7 +97,7 @@ struct CardInfoManagerDelegateTask {
     request_id: u64,
 }
 
-impl CardInfoManagerDelegateTask{
+impl CardInfoManagerDelegateTask {
     fn reply(&self, payload: GeckoBridgeFromClient) {
         let message = BaseMessage {
             service: self.service_id,
@@ -116,30 +118,36 @@ impl Task for CardInfoManagerDelegateTask {
             match self.command {
                 CardInfoManagerCommand::GetCardInfo(id, info_type) => {
                     let mut card_info = nsString::new();
-                    let mut status;
-                    unsafe { status = object.GetCardInfo(id as i32, info_type as i32, &mut *card_info) };
+                    let status;
+                    unsafe {
+                        status = object.GetCardInfo(id as i32, info_type as i32, &mut *card_info)
+                    };
 
-                    let mut payload = match status {
-                        NS_OK => GeckoBridgeFromClient::CardInfoManagerDelegateGetCardInfoSuccess(card_info.to_string()),
+                    let payload = match status {
+                        NS_OK => GeckoBridgeFromClient::CardInfoManagerDelegateGetCardInfoSuccess(
+                            card_info.to_string(),
+                        ),
                         _ => GeckoBridgeFromClient::CardInfoManagerDelegateGetCardInfoError,
                     };
                     self.reply(payload);
-                },
-                CardInfoManagerCommand::GetMncMcc(id, isSim) => {
+                }
+                CardInfoManagerCommand::GetMncMcc(id, is_sim) => {
                     let mut _mnc = nsString::new();
                     let mut _mcc = nsString::new();
-                    let mut status;
-                    unsafe { status = object.GetMncMcc(id as i32, isSim, &mut *_mnc, &mut *_mcc) };
+                    let status;
+                    unsafe { status = object.GetMncMcc(id as i32, is_sim, &mut *_mnc, &mut *_mcc) };
 
-                    let mut payload = match status {
-                        NS_OK => GeckoBridgeFromClient::CardInfoManagerDelegateGetMncMccSuccess(NetworkOperator{
-                                                                                                    mnc: _mnc.to_string(),
-                                                                                                    mcc: _mcc.to_string(),
-                                                                                                }),
+                    let payload = match status {
+                        NS_OK => GeckoBridgeFromClient::CardInfoManagerDelegateGetMncMccSuccess(
+                            NetworkOperator {
+                                mnc: _mnc.to_string(),
+                                mcc: _mcc.to_string(),
+                            },
+                        ),
                         _ => GeckoBridgeFromClient::CardInfoManagerDelegateGetMncMccError,
                     };
                     self.reply(payload);
-                },
+                }
             }
         }
     }
