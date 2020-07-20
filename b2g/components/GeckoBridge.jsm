@@ -61,6 +61,10 @@ this.GeckoBridge = {
         "@mozilla.org/sidl-native/powermanager;1"
       ].getService(Ci.nsIPowerManagerDelegate);
 
+      this._networkManagerDelegate = Cc[
+        "@mozilla.org/sidl-native/networkmanager;1"
+      ].getService(Ci.nsINetworkManagerDelegate);
+
       this._cardInfoManagerDelegate = Cc[
         "@mozilla.org/sidl-native/cardinfomanager;1"
       ].getService(Ci.nsICardInfoManagerDelegate);
@@ -81,6 +85,7 @@ this.GeckoBridge = {
 
     this.setPowerManagerDelegate();
     this.setCardInfoManagerDelegate();
+    this.setNetworkManagerDelegate();
   },
 
   observe(subject, topic, data) {
@@ -109,6 +114,21 @@ this.GeckoBridge = {
       this._bridge.setCardInfoManagerDelegate(
         this._cardInfoManagerDelegate,
         this.generateLoggingCallback("CardInfoManagerDelegate")
+      );
+    }
+  },
+
+  setNetworkManagerDelegate() {
+    if (!this._bridge || !this._networkManagerDelegate) {
+      log(`Invalid networkmanager delegate`);
+      return;
+    }
+
+    if (this._bridge) {
+      log(`Setting NetworkManagerDelegate`);
+      this._bridge.setNetworkManagerDelegate(
+        this._networkManagerDelegate,
+        this.generateLoggingCallback("NetworkManagerDelegate")
       );
     }
   },
