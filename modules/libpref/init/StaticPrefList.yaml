@@ -208,6 +208,11 @@
   value: false
   mirror: always
 
+- name: accessibility.volume_balance
+  type: uint32_t
+  value: 50
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "alerts."
 #---------------------------------------------------------------------------

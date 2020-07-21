@@ -12,6 +12,7 @@
 #include "mozilla/PodOperations.h"
 #include "mozilla/SyncRunnable.h"
 #include "VideoUtils.h"
+#include "mozilla/StaticPrefs_accessibility.h"
 
 #undef LOG
 #define LOG(type, msg) MOZ_LOG(sPDMLog, type, msg)
@@ -240,7 +241,7 @@ RefPtr<MediaDataDecoder::DecodePromise> VorbisDataDecoder::ProcessDecode(
           AudioConfig::ChannelLayout(channels, VorbisLayout(channels));
       AudioConfig in(layout, channels, rate);
       AudioConfig out(AudioConfig::ChannelLayout::SMPTEDefault(layout),
-                      channels, rate);
+                      channels, rate, StaticPrefs::accessibility_volume_balance());
       mAudioConverter = MakeUnique<AudioConverter>(in, out);
     }
     MOZ_ASSERT(mAudioConverter->CanWorkInPlace());

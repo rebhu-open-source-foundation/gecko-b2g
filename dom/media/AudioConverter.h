@@ -264,6 +264,8 @@ class AudioConverter {
   size_t SamplesInToFrames(size_t aSamples) const;
   size_t FramesOutToBytes(size_t aFrames) const;
 
+  void ApplyAudioBalance(void* aOut, uint32_t aFrames, uint32_t aAudioBalance) const;
+
   // Resampler context.
   SpeexResamplerState* mResampler;
   size_t ResampleAudio(void* aOut, const void* aIn, size_t aFrames);

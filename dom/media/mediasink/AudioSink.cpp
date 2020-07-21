@@ -12,6 +12,7 @@
 #include "mozilla/CheckedInt.h"
 #include "mozilla/DebugOnly.h"
 #include "mozilla/IntegerPrintfMacros.h"
+#include "mozilla/StaticPrefs_accessibility.h"
 #include "mozilla/StaticPrefs_media.h"
 #include "nsPrintfCString.h"
 
@@ -402,7 +403,7 @@ void AudioSink::NotifyAudioNeeded() {
       AudioConfig inConfig =
           AudioConfig(inputLayout, data->mChannels, data->mRate);
       AudioConfig outConfig =
-          AudioConfig(outputLayout, mOutputChannels, mOutputRate);
+          AudioConfig(outputLayout, mOutputChannels, mOutputRate, StaticPrefs::accessibility_volume_balance());
       if (!AudioConverter::CanConvert(inConfig, outConfig)) {
         mErrored = true;
         return;

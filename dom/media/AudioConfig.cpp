@@ -321,23 +321,28 @@ AudioConfig::AudioConfig(const ChannelLayout& aChannelLayout, uint32_t aRate,
       mChannels(aChannelLayout.Count()),
       mRate(aRate),
       mFormat(aFormat),
-      mInterleaved(aInterleaved) {}
+      mInterleaved(aInterleaved),
+      mAudioBalance(DEFAULT_BALANCE) {}
 
 AudioConfig::AudioConfig(const ChannelLayout& aChannelLayout,
                          uint32_t aChannels, uint32_t aRate,
+                         uint32_t aBalance,
                          AudioConfig::SampleFormat aFormat, bool aInterleaved)
     : mChannelLayout(aChannelLayout),
       mChannels(aChannels),
       mRate(aRate),
       mFormat(aFormat),
-      mInterleaved(aInterleaved) {}
+      mInterleaved(aInterleaved),
+      mAudioBalance(aBalance) {}
 
 AudioConfig::AudioConfig(uint32_t aChannels, uint32_t aRate,
+                         uint32_t aBalance,
                          AudioConfig::SampleFormat aFormat, bool aInterleaved)
     : mChannelLayout(aChannels),
       mChannels(aChannels),
       mRate(aRate),
       mFormat(aFormat),
-      mInterleaved(aInterleaved) {}
+      mInterleaved(aInterleaved),
+      mAudioBalance(aBalance) {}
 
 }  // namespace mozilla

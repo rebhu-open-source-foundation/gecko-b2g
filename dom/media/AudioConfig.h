@@ -13,6 +13,8 @@
 
 namespace mozilla {
 
+const uint32_t DEFAULT_BALANCE = 50;
+
 class AudioConfig {
  public:
   // Channel definition is conveniently defined to be in the same order as
@@ -199,10 +201,12 @@ class AudioConfig {
               bool aInterleaved = true);
   AudioConfig(const ChannelLayout& aChannelLayout, uint32_t aChannels,
               uint32_t aRate,
+              uint32_t aBalance = DEFAULT_BALANCE,
               AudioConfig::SampleFormat aFormat = FORMAT_DEFAULT,
               bool aInterleaved = true);
   // Will create a channel configuration from default SMPTE ordering.
   AudioConfig(uint32_t aChannels, uint32_t aRate,
+              uint32_t aBalance = DEFAULT_BALANCE,
               AudioConfig::SampleFormat aFormat = FORMAT_DEFAULT,
               bool aInterleaved = true);
 
@@ -218,7 +222,8 @@ class AudioConfig {
   bool Interleaved() const { return mInterleaved; }
   bool operator==(const AudioConfig& aOther) const {
     return mChannelLayout == aOther.mChannelLayout && mRate == aOther.mRate &&
-           mFormat == aOther.mFormat && mInterleaved == aOther.mInterleaved;
+           mFormat == aOther.mFormat && mInterleaved == aOther.mInterleaved &&
+           mAudioBalance == aOther.mAudioBalance;
   }
   bool operator!=(const AudioConfig& aOther) const {
     return !(*this == aOther);
@@ -227,6 +232,8 @@ class AudioConfig {
   bool IsValid() const {
     return mChannelLayout.IsValid() && Format() != FORMAT_NONE && Rate() > 0;
   }
+
+  uint32_t AudioBalance() const { return mAudioBalance; }
 
   static const char* FormatToString(SampleFormat aFormat);
   static uint32_t SampleSize(SampleFormat aFormat);
@@ -246,6 +253,7 @@ class AudioConfig {
   SampleFormat mFormat;
 
   bool mInterleaved;
+  uint32_t mAudioBalance;
 };
 
 }  // namespace mozilla
