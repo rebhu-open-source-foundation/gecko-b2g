@@ -18,7 +18,7 @@
 #include "nsIdleServiceGonk.h"
 #include "nsIServiceManager.h"
 
-NS_IMPL_ISUPPORTS_INHERITED0(nsIdleServiceGonk, nsIdleService)
+NS_IMPL_ISUPPORTS_INHERITED0(nsIdleServiceGonk, nsUserIdleService)
 
 bool nsIdleServiceGonk::PollIdleTime(uint32_t* aIdleTime) { return false; }
 

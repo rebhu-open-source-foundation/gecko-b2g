@@ -386,8 +386,8 @@ void CompositorVsyncScheduler::Composite(const VsyncEvent& aVsyncEvent) {
     }
   }
 
-  DispatchTouchEvents(aVsyncTimestamp);
-  DispatchVREvents(aVsyncTimestamp);
+  DispatchTouchEvents(aVsyncEvent.mTime);
+  DispatchVREvents(aVsyncEvent.mTime);
 
   if (mCompositeRequestedAt || mAsapScheduling) {
     mCompositeRequestedAt = TimeStamp();

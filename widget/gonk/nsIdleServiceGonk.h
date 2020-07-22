@@ -18,9 +18,9 @@
 #ifndef nsIdleServiceGonk_h__
 #define nsIdleServiceGonk_h__
 
-#include "nsIdleService.h"
+#include "nsUserIdleService.h"
 
-class nsIdleServiceGonk : public nsIdleService {
+class nsIdleServiceGonk : public nsUserIdleService {
  public:
   NS_DECL_ISUPPORTS_INHERITED
 
@@ -28,7 +28,7 @@ class nsIdleServiceGonk : public nsIdleService {
 
   static already_AddRefed<nsIdleServiceGonk> GetInstance() {
     RefPtr<nsIdleServiceGonk> idleService =
-        nsIdleService::GetInstance().downcast<nsIdleServiceGonk>();
+        nsUserIdleService::GetInstance().downcast<nsIdleServiceGonk>();
     if (!idleService) {
       idleService = new nsIdleServiceGonk();
     }

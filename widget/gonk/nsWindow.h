@@ -20,7 +20,7 @@
 #include "mozilla/UniquePtr.h"
 #include "nsBaseWidget.h"
 #include "nsRegion.h"
-#include "nsIIdleServiceInternal.h"
+#include "nsIUserIdleServiceInternal.h"
 #include "Units.h"
 
 class ANativeWindowBuffer;
@@ -149,7 +149,7 @@ class nsWindow : public nsBaseWidget {
   nsWindow* mParent;
   bool mVisible;
   InputContext mInputContext;
-  nsCOMPtr<nsIIdleServiceInternal> mIdleService;
+  nsCOMPtr<nsIUserIdleServiceInternal> mIdleService;
 
   virtual ~nsWindow();
 

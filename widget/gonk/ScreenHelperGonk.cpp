@@ -31,7 +31,7 @@
 #include "mozilla/Services.h"
 #include "mozilla/ProcessPriorityManager.h"
 #include "mozilla/widget/ScreenManager.h"
-#include "nsIdleService.h"
+#include "nsUserIdleService.h"
 #include "nsIObserverService.h"
 #include "nsAppShell.h"
 #include "nsProxyRelease.h"
