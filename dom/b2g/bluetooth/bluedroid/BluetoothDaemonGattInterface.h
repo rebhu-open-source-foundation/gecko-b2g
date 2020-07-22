@@ -25,9 +25,6 @@ class BluetoothDaemonGattModule {
     OPCODE_ERROR = 0x00,
 
     // TODO: Relace the following withdrawal opcodes with new opcodes
-    // replaced by OPCODE_SCANNER_SCAN
-    OPCODE_CLIENT_SCAN = OPCODE_ERROR,
-
     // replaced by OPCODE_ADVERTISER_ENABLE
     OPCODE_CLIENT_LISTEN = OPCODE_ERROR,
 
@@ -194,9 +191,14 @@ class BluetoothDaemonGattModule {
   nsresult ClientUnregisterClientCmd(int aClientIf,
                                      BluetoothGattResultHandler* aRes);
 
+  nsresult ScannerRegisterScannerCmd(const BluetoothUuid& aUuid,
+                                     BluetoothGattResultHandler* aRes);
+
+  nsresult ScannerUnregisterScannerCmd(int aScannerId,
+                                       BluetoothGattResultHandler* aRes);
+
   /* Start / Stop LE Scan */
-  nsresult ClientScanCmd(int aClientIf, bool aStart,
-                         BluetoothGattResultHandler* aRes);
+  nsresult ScannerScanCmd(bool aStart, BluetoothGattResultHandler* aRes);
 
   /* Connect / Disconnect */
   nsresult ClientConnectCmd(int aClientIf, const BluetoothAddress& aBdAddr,
@@ -396,8 +398,16 @@ class BluetoothDaemonGattModule {
                                  DaemonSocketPDU& aPDU,
                                  BluetoothGattResultHandler* aRes);
 
-  void ClientScanRsp(const DaemonSocketPDUHeader& aHeader,
-                     DaemonSocketPDU& aPDU, BluetoothGattResultHandler* aRes);
+  void ScannerRegisterScannerRsp(const DaemonSocketPDUHeader& aHeader,
+                                 DaemonSocketPDU& aPDU,
+                                 BluetoothGattResultHandler* aRes);
+
+  void ScannerUnregisterScannerRsp(const DaemonSocketPDUHeader& aHeader,
+                                   DaemonSocketPDU& aPDU,
+                                   BluetoothGattResultHandler* aRes);
+
+  void ScannerScanRsp(const DaemonSocketPDUHeader& aHeader,
+                      DaemonSocketPDU& aPDU, BluetoothGattResultHandler* aRes);
 
   void ClientConnectRsp(const DaemonSocketPDUHeader& aHeader,
                         DaemonSocketPDU& aPDU,
@@ -543,10 +553,15 @@ class BluetoothDaemonGattModule {
       ClientRegisterForNotification;
 
   typedef mozilla::ipc::DaemonNotificationRunnable3<
+      NotificationHandlerWrapper, void, BluetoothGattStatus, uint8_t,
+      BluetoothUuid, BluetoothGattStatus, uint8_t, const BluetoothUuid&>
+      ScannerRegisterNotification;
+
+  typedef mozilla::ipc::DaemonNotificationRunnable3<
       NotificationHandlerWrapper, void, BluetoothAddress, int,
       BluetoothGattAdvData, const BluetoothAddress&, int,
       const BluetoothGattAdvData&>
-      ClientScanResultNotification;
+      ScannerScanResultNotification;
 
   typedef mozilla::ipc::DaemonNotificationRunnable4<
       NotificationHandlerWrapper, void, int, BluetoothGattStatus, int,
@@ -713,7 +728,7 @@ class BluetoothDaemonGattModule {
       ServerResponseConfirmationNotification;
 
   class ClientGetDeviceTypeInitOp;
-  class ClientScanResultInitOp;
+  class ScannerScanResultInitOp;
   class ServerConnectionInitOp;
   class ServerRequestWriteInitOp;
   class ServerCharacteristicAddedInitOp;
@@ -722,8 +737,11 @@ class BluetoothDaemonGattModule {
   void ClientRegisterClientNtf(const DaemonSocketPDUHeader& aHeader,
                                DaemonSocketPDU& aPDU);
 
-  void ClientScanResultNtf(const DaemonSocketPDUHeader& aHeader,
-                           DaemonSocketPDU& aPDU);
+  void ScannerRegisterScannerNtf(const DaemonSocketPDUHeader& aHeader,
+                                 DaemonSocketPDU& aPDU);
+
+  void ScannerScanResultNtf(const DaemonSocketPDUHeader& aHeader,
+                            DaemonSocketPDU& aPDU);
 
   void ClientConnectNtf(const DaemonSocketPDUHeader& aHeader,
                         DaemonSocketPDU& aPDU);
@@ -837,8 +855,13 @@ class BluetoothDaemonGattInterface final : public BluetoothGattInterface {
   void UnregisterClient(int aClientIf,
                         BluetoothGattResultHandler* aRes) override;
 
+  void RegisterScanner(const BluetoothUuid& aUuid,
+                       BluetoothGattResultHandler* aRes) override;
+  void UnregisterScanner(int aScannerId,
+                         BluetoothGattResultHandler* aRes) override;
+
   /* Start / Stop LE Scan */
-  void Scan(int aClientIf, bool aStart,
+  void Scan(int aScannerId, bool aStart,
             BluetoothGattResultHandler* aRes) override;
 
   /* Connect / Disconnect */

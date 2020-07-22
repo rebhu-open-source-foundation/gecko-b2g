@@ -484,6 +484,10 @@ void BluetoothGattNotificationHandler::RegisterClientNotification(
     BluetoothGattStatus aStatus, int aClientIf, const BluetoothUuid& aAppUuid) {
 }
 
+void BluetoothGattNotificationHandler::RegisterScannerNotification(
+    BluetoothGattStatus aStatus, uint8_t aScannerId,
+    const BluetoothUuid& aScanUuid) {}
+
 void BluetoothGattNotificationHandler::ScanResultNotification(
     const BluetoothAddress& aBdAddr, int aRssi,
     const BluetoothGattAdvData& aAdvData) {}
@@ -627,6 +631,10 @@ void BluetoothGattResultHandler::OnError(BluetoothStatus aStatus) {
 void BluetoothGattResultHandler::RegisterClient() {}
 
 void BluetoothGattResultHandler::UnregisterClient() {}
+
+void BluetoothGattResultHandler::RegisterScanner() {}
+
+void BluetoothGattResultHandler::UnregisterScanner() {}
 
 void BluetoothGattResultHandler::Scan() {}
 

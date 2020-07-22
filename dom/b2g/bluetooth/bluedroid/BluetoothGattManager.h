@@ -15,6 +15,7 @@ BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothGattClient;
 class BluetoothReplyRunnable;
+class BluetoothGattScanner;
 
 class BluetoothGattManager final : public nsIObserver,
                                    public BluetoothGattNotificationHandler {
@@ -53,6 +54,8 @@ class BluetoothGattManager final : public nsIObserver,
                 BluetoothReplyRunnable* aRunnable);
 
   void UnregisterClient(int aClientIf, BluetoothReplyRunnable* aRunnable);
+
+  void UnregisterScanner(int aScannerId, BluetoothReplyRunnable* aRunnable);
 
   void ReadRemoteRssi(int aClientIf, const BluetoothAddress& aDeviceAddr,
                       BluetoothReplyRunnable* aRunnable);
@@ -162,6 +165,8 @@ class BluetoothGattManager final : public nsIObserver,
 
   class RegisterClientResultHandler;
   class UnregisterClientResultHandler;
+  class RegisterScannerResultHandler;
+  class UnregisterScannerResultHandler;
   class StartLeScanResultHandler;
   class StopLeScanResultHandler;
   class StartAdvertisingResultHandler;
@@ -201,6 +206,10 @@ class BluetoothGattManager final : public nsIObserver,
 
   void RegisterClientNotification(BluetoothGattStatus aStatus, int aClientIf,
                                   const BluetoothUuid& aAppUuid) override;
+
+  void RegisterScannerNotification(BluetoothGattStatus aStatus,
+                                   uint8_t aScannerId,
+                                   const BluetoothUuid& aScanUuid) override;
 
   void ScanResultNotification(const BluetoothAddress& aBdAddr, int aRssi,
                               const BluetoothGattAdvData& aAdvData) override;

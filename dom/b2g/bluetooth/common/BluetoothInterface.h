@@ -721,6 +721,10 @@ class BluetoothGattNotificationHandler {
                                           int aClientIf,
                                           const BluetoothUuid& aAppUuid);
 
+  virtual void RegisterScannerNotification(BluetoothGattStatus aStatus,
+                                           uint8_t aScannerId,
+                                           const BluetoothUuid& aScanUuid);
+
   virtual void ScanResultNotification(const BluetoothAddress& aBdAddr,
                                       int aRssi,
                                       const BluetoothGattAdvData& aAdvData);
@@ -866,6 +870,8 @@ class BluetoothGattResultHandler
   virtual void RegisterClient();
   virtual void UnregisterClient();
 
+  virtual void RegisterScanner();
+  virtual void UnregisterScanner();
   virtual void Scan();
 
   virtual void Connect();
@@ -928,8 +934,13 @@ class BluetoothGattInterface {
   virtual void UnregisterClient(int aClientIf,
                                 BluetoothGattResultHandler* aRes) = 0;
 
+  virtual void RegisterScanner(const BluetoothUuid& aUuid,
+                               BluetoothGattResultHandler* aRes) = 0;
+  virtual void UnregisterScanner(int aScannerId,
+                                 BluetoothGattResultHandler* aRes) = 0;
+
   /* Start / Stop LE Scan */
-  virtual void Scan(int aClientIf, bool aStart,
+  virtual void Scan(int aScannerId, bool aStart,
                     BluetoothGattResultHandler* aRes) = 0;
 
   /* Connect / Disconnect */

@@ -52,6 +52,7 @@ bool BluetoothGattManager::mInShutdown = false;
 
 static StaticAutoPtr<nsTArray<RefPtr<BluetoothGattClient> > > sClients;
 static StaticAutoPtr<nsTArray<RefPtr<BluetoothGattServer> > > sServers;
+static StaticAutoPtr<nsTArray<RefPtr<BluetoothGattScanner> > > sScanners;
 
 struct BluetoothGattClientReadCharState {
   bool mAuthRetry;
@@ -167,7 +168,6 @@ class mozilla::dom::bluetooth::BluetoothGattClient final : public nsISupports {
   BluetoothAddress mDeviceAddr;
   int mClientIf;
   int mConnId;
-  RefPtr<BluetoothReplyRunnable> mStartLeScanRunnable;
   RefPtr<BluetoothReplyRunnable> mStartAdvertisingRunnable;
   RefPtr<BluetoothReplyRunnable> mStopAdvertisingRunnable;
   RefPtr<BluetoothReplyRunnable> mConnectRunnable;
@@ -199,6 +199,24 @@ class mozilla::dom::bluetooth::BluetoothGattClient final : public nsISupports {
 };
 
 NS_IMPL_ISUPPORTS0(BluetoothGattClient)
+
+class mozilla::dom::bluetooth::BluetoothGattScanner final : public nsISupports {
+ public:
+  NS_DECL_ISUPPORTS
+
+  BluetoothGattScanner(const BluetoothUuid& aScanUuid)
+      : mScanUuid(aScanUuid), mScannerId(0) {}
+
+  BluetoothUuid mScanUuid;
+  int mScannerId;
+  RefPtr<BluetoothReplyRunnable> mStartLeScanRunnable;
+  RefPtr<BluetoothReplyRunnable> mUnregisterScannerRunnable;
+
+ private:
+  ~BluetoothGattScanner() {}
+};
+
+NS_IMPL_ISUPPORTS0(BluetoothGattScanner)
 
 struct BluetoothGattServerAddServiceState {
   BluetoothGattServiceId mServiceId;
@@ -298,6 +316,11 @@ class UuidComparator {
               const BluetoothUuid& aAppUuid) const {
     return aServer->mAppUuid == aAppUuid;
   }
+
+  bool Equals(const RefPtr<BluetoothGattScanner>& aScanner,
+              const BluetoothUuid& aScanUuid) const {
+    return aScanner->mScanUuid == aScanUuid;
+  }
 };
 
 class InterfaceIdComparator {
@@ -308,6 +331,11 @@ class InterfaceIdComparator {
 
   bool Equals(const RefPtr<BluetoothGattServer>& aServer, int aServerIf) const {
     return aServer->mServerIf == aServerIf;
+  }
+
+  bool Equals(const RefPtr<BluetoothGattScanner>& aScanner,
+              int aScannerId) const {
+    return aScanner->mScannerId == aScannerId;
   }
 };
 
@@ -492,6 +520,10 @@ void BluetoothGattManager::InitGattInterface(
     sServers = new nsTArray<RefPtr<BluetoothGattServer> >;
   }
 
+  if (!sScanners) {
+    sScanners = new nsTArray<RefPtr<BluetoothGattScanner> >;
+  }
+
   // Set notification handler _before_ registering the module. It could
   // happen that we receive notifications, before the result handler runs.
   gattInterface->SetNotificationHandler(BluetoothGattManager::Get());
@@ -517,6 +549,7 @@ class BluetoothGattManager::UnregisterModuleResultHandler final
     sBluetoothGattInterface = nullptr;
     sClients = nullptr;
     sServers = nullptr;
+    sScanners = nullptr;
 
     sBluetoothGattManager->Uninit();
     sBluetoothGattManager = nullptr;
@@ -533,6 +566,7 @@ class BluetoothGattManager::UnregisterModuleResultHandler final
     sBluetoothGattInterface = nullptr;
     sClients = nullptr;
     sServers = nullptr;
+    sScanners = nullptr;
 
     sBluetoothGattManager->Uninit();
     sBluetoothGattManager = nullptr;
@@ -648,6 +682,28 @@ class BluetoothGattManager::RegisterClientResultHandler final
   RefPtr<BluetoothGattClient> mClient;
 };
 
+class BluetoothGattManager::RegisterScannerResultHandler final
+    : public BluetoothGattResultHandler {
+ public:
+  explicit RegisterScannerResultHandler(BluetoothGattScanner* aScanner)
+      : mScanner(aScanner) {
+    MOZ_ASSERT(mScanner);
+  }
+
+  void OnError(BluetoothStatus aStatus) override {
+    BT_WARNING("BluetoothGattInterface::RegisterScanner failed: %d",
+               (int)aStatus);
+
+    BluetoothService* bs = BluetoothService::Get();
+    NS_ENSURE_TRUE_VOID(bs);
+
+    sScanners->RemoveElement(mScanner);
+  }
+
+ private:
+  RefPtr<BluetoothGattScanner> mScanner;
+};
+
 class BluetoothGattManager::UnregisterClientResultHandler final
     : public BluetoothGattResultHandler {
  public:
@@ -686,6 +742,41 @@ class BluetoothGattManager::UnregisterClientResultHandler final
   RefPtr<BluetoothGattClient> mClient;
 };
 
+class BluetoothGattManager::UnregisterScannerResultHandler final
+    : public BluetoothGattResultHandler {
+ public:
+  explicit UnregisterScannerResultHandler(BluetoothGattScanner* aScanner)
+      : mScanner(aScanner) {
+    MOZ_ASSERT(mScanner);
+  }
+
+  void UnregisterScanner() override {
+    MOZ_ASSERT(mScanner->mUnregisterScannerRunnable);
+    BluetoothService* bs = BluetoothService::Get();
+    NS_ENSURE_TRUE_VOID(bs);
+
+    // Resolve the unregister request
+    DispatchReplySuccess(mScanner->mUnregisterScannerRunnable);
+    mScanner->mUnregisterScannerRunnable = nullptr;
+
+    sScanners->RemoveElement(mScanner);
+  }
+
+  void OnError(BluetoothStatus aStatus) override {
+    BT_WARNING("BluetoothGattInterface::UnregisterScanner failed: %d",
+               (int)aStatus);
+    MOZ_ASSERT(mScanner->mUnregisterScannerRunnable);
+
+    // Reject the unregister request
+    DispatchReplyError(mScanner->mUnregisterScannerRunnable,
+                       u"Unregister GATT scanner failed"_ns);
+    mScanner->mUnregisterScannerRunnable = nullptr;
+  }
+
+ private:
+  RefPtr<BluetoothGattScanner> mScanner;
+};
+
 void BluetoothGattManager::UnregisterClient(int aClientIf,
                                             BluetoothReplyRunnable* aRunnable) {
   MOZ_ASSERT(NS_IsMainThread());
@@ -707,59 +798,80 @@ void BluetoothGattManager::UnregisterClient(int aClientIf,
       aClientIf, new UnregisterClientResultHandler(client));
 }
 
+void BluetoothGattManager::UnregisterScanner(
+    int aScannerId, BluetoothReplyRunnable* aRunnable) {
+  MOZ_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(aRunnable);
+
+  ENSURE_GATT_INTF_IS_READY_VOID(aRunnable);
+
+  size_t index =
+      sScanners->IndexOf(aScannerId, 0 /* Start */, InterfaceIdComparator());
+  if (NS_WARN_IF(index == sScanners->NoIndex)) {
+    DispatchReplyError(aRunnable, STATUS_PARM_INVALID);
+    return;
+  }
+
+  RefPtr<BluetoothGattScanner> scanner = sScanners->ElementAt(index);
+  scanner->mUnregisterScannerRunnable = aRunnable;
+
+  sBluetoothGattInterface->UnregisterScanner(
+      aScannerId, new UnregisterScannerResultHandler(scanner));
+}
+
 class BluetoothGattManager::StartLeScanResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  explicit StartLeScanResultHandler(BluetoothGattClient* aClient)
-      : mClient(aClient) {}
+  explicit StartLeScanResultHandler(BluetoothGattScanner* aScanner)
+      : mScanner(aScanner) {}
 
   void Scan() override {
-    MOZ_ASSERT(mClient);
+    MOZ_ASSERT(mScanner);
 
-    DispatchReplySuccess(mClient->mStartLeScanRunnable,
-                         BluetoothValue(mClient->mAppUuid));
-    mClient->mStartLeScanRunnable = nullptr;
+    DispatchReplySuccess(mScanner->mStartLeScanRunnable,
+                         BluetoothValue(mScanner->mScanUuid));
+    mScanner->mStartLeScanRunnable = nullptr;
   }
 
   void OnError(BluetoothStatus aStatus) override {
     BT_WARNING("BluetoothGattInterface::StartLeScan failed: %d", (int)aStatus);
-    MOZ_ASSERT(mClient->mStartLeScanRunnable);
+    MOZ_ASSERT(mScanner->mStartLeScanRunnable);
 
-    // Unregister client if startLeScan failed
-    if (mClient->mClientIf > 0) {
+    // Unregister scanner if startLeScan failed
+    if (mScanner->mScannerId > 0) {
       BluetoothGattManager* gattManager = BluetoothGattManager::Get();
       NS_ENSURE_TRUE_VOID(gattManager);
 
       RefPtr<BluetoothVoidReplyRunnable> result =
           new BluetoothVoidReplyRunnable(nullptr);
-      gattManager->UnregisterClient(mClient->mClientIf, result);
+      gattManager->UnregisterScanner(mScanner->mScannerId, result);
     }
 
-    DispatchReplyError(mClient->mStartLeScanRunnable, aStatus);
-    mClient->mStartLeScanRunnable = nullptr;
+    DispatchReplyError(mScanner->mStartLeScanRunnable, aStatus);
+    mScanner->mStartLeScanRunnable = nullptr;
   }
 
  private:
-  RefPtr<BluetoothGattClient> mClient;
+  RefPtr<BluetoothGattScanner> mScanner;
 };
 
 class BluetoothGattManager::StopLeScanResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  StopLeScanResultHandler(BluetoothReplyRunnable* aRunnable, int aClientIf)
-      : mRunnable(aRunnable), mClientIf(aClientIf) {}
+  StopLeScanResultHandler(BluetoothReplyRunnable* aRunnable, uint8_t aScannerId)
+      : mRunnable(aRunnable), mScannerId(aScannerId) {}
 
   void Scan() override {
     DispatchReplySuccess(mRunnable);
 
-    // Unregister client when stopLeScan succeeded
-    if (mClientIf > 0) {
+    // Unregister scanner when stopLeScan succeeded
+    if (mScannerId > 0) {
       BluetoothGattManager* gattManager = BluetoothGattManager::Get();
       NS_ENSURE_TRUE_VOID(gattManager);
 
       RefPtr<BluetoothVoidReplyRunnable> result =
           new BluetoothVoidReplyRunnable(nullptr);
-      gattManager->UnregisterClient(mClientIf, result);
+      gattManager->UnregisterScanner(mScannerId, result);
     }
   }
 
@@ -770,7 +882,7 @@ class BluetoothGattManager::StopLeScanResultHandler final
 
  private:
   RefPtr<BluetoothReplyRunnable> mRunnable;
-  int mClientIf;
+  uint8_t mScannerId;
 };
 
 void BluetoothGattManager::StartLeScan(
@@ -781,29 +893,28 @@ void BluetoothGattManager::StartLeScan(
 
   ENSURE_GATT_INTF_IS_READY_VOID(aRunnable);
 
-  BluetoothUuid appUuid;
-  if (NS_WARN_IF(NS_FAILED(GenerateUuid(appUuid)))) {
+  BluetoothUuid scanUuid;
+  if (NS_WARN_IF(NS_FAILED(GenerateUuid(scanUuid)))) {
     DispatchReplyError(aRunnable, u"start LE scan failed"_ns);
     return;
   }
 
-  size_t index = sClients->IndexOf(appUuid, 0 /* Start */, UuidComparator());
+  size_t index = sScanners->IndexOf(scanUuid, 0 /* Start */, UuidComparator());
 
-  // Reject the startLeScan request if the clientIf is being used.
-  if (NS_WARN_IF(index != sClients->NoIndex)) {
+  // Reject the startLeScan request if the scanner id is being used.
+  if (NS_WARN_IF(index != sScanners->NoIndex)) {
     DispatchReplyError(aRunnable, u"start LE scan failed"_ns);
     return;
   }
 
-  index = sClients->Length();
-  sClients->AppendElement(
-      new BluetoothGattClient(appUuid, BluetoothAddress::ANY()));
-  RefPtr<BluetoothGattClient> client = sClients->ElementAt(index);
-  client->mStartLeScanRunnable = aRunnable;
+  index = sScanners->Length();
+  sScanners->AppendElement(new BluetoothGattScanner(scanUuid));
+  RefPtr<BluetoothGattScanner> scanner = sScanners->ElementAt(index);
+  scanner->mStartLeScanRunnable = aRunnable;
 
-  // 'startLeScan' will be proceeded after client registered
-  sBluetoothGattInterface->RegisterClient(
-      appUuid, new RegisterClientResultHandler(client));
+  // 'startLeScan' will be proceeded after scanner registered
+  sBluetoothGattInterface->RegisterScanner(
+      scanUuid, new RegisterScannerResultHandler(scanner));
 }
 
 void BluetoothGattManager::StopLeScan(const BluetoothUuid& aScanUuid,
@@ -813,17 +924,17 @@ void BluetoothGattManager::StopLeScan(const BluetoothUuid& aScanUuid,
 
   ENSURE_GATT_INTF_IS_READY_VOID(aRunnable);
 
-  size_t index = sClients->IndexOf(aScanUuid, 0 /* Start */, UuidComparator());
-  if (NS_WARN_IF(index == sClients->NoIndex)) {
+  size_t index = sScanners->IndexOf(aScanUuid, 0 /* Start */, UuidComparator());
+  if (NS_WARN_IF(index == sScanners->NoIndex)) {
     // Reject the stop LE scan request
     DispatchReplyError(aRunnable, u"StopLeScan failed"_ns);
     return;
   }
 
-  RefPtr<BluetoothGattClient> client = sClients->ElementAt(index);
+  RefPtr<BluetoothGattScanner> scanner = sScanners->ElementAt(index);
   sBluetoothGattInterface->Scan(
-      client->mClientIf, false /* Stop */,
-      new StopLeScanResultHandler(aRunnable, client->mClientIf));
+      scanner->mScannerId, false /* Stop */,
+      new StopLeScanResultHandler(aRunnable, scanner->mScannerId));
 }
 
 class BluetoothGattManager::StartAdvertisingResultHandler final
@@ -2490,13 +2601,6 @@ void BluetoothGattManager::RegisterClientNotification(
     bs->DistributeSignal(GATT_CONNECTION_STATE_CHANGED_ID, aAppUuid,
                          BluetoothValue(false));  // Disconnected
 
-    if (client->mStartLeScanRunnable) {
-      // Reject the LE scan request
-      DispatchReplyError(client->mStartLeScanRunnable,
-                         u"StartLeScan failed due to registration failed"_ns);
-      client->mStartLeScanRunnable = nullptr;
-    }
-
     if (client->mConnectRunnable) {
       // Reject the connect request
       DispatchReplyError(client->mConnectRunnable,
@@ -2522,13 +2626,6 @@ void BluetoothGattManager::RegisterClientNotification(
   bs->DistributeSignal(u"ClientRegistered"_ns, aAppUuid,
                        BluetoothValue(uint32_t(aClientIf)));
 
-  if (client->mStartLeScanRunnable) {
-    // Client just registered, proceed remaining startLeScan request.
-    ENSURE_GATT_INTF_IS_READY_VOID(client->mStartLeScanRunnable);
-    sBluetoothGattInterface->Scan(aClientIf, true /* start */,
-                                  new StartLeScanResultHandler(client));
-  }
-
   if (client->mConnectRunnable) {
     // Client just registered, proceed remaining connect request.
     ENSURE_GATT_INTF_IS_READY_VOID(client->mConnectRunnable);
@@ -2546,6 +2643,51 @@ void BluetoothGattManager::RegisterClientNotification(
         data->mIncludeTxPower, 0 /* min interval */, 0 /* max interval */,
         data->mAppearance, data->mManufacturerData, data->mServiceData,
         data->mServiceUuids, new SetAdvDataResultHandler(client));
+  }
+}
+
+void BluetoothGattManager::RegisterScannerNotification(
+    BluetoothGattStatus aStatus, uint8_t aScannerId,
+    const BluetoothUuid& aScanUuid) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  size_t index = sScanners->IndexOf(aScanUuid, 0 /* Start */, UuidComparator());
+  NS_ENSURE_TRUE_VOID(index != sScanners->NoIndex);
+
+  RefPtr<BluetoothGattScanner> scanner = sScanners->ElementAt(index);
+
+  BluetoothService* bs = BluetoothService::Get();
+  NS_ENSURE_TRUE_VOID(bs);
+
+  if (aStatus != GATT_STATUS_SUCCESS) {
+    nsAutoString scanUuidStr;
+    UuidToString(aScanUuid, scanUuidStr);
+
+    BT_LOGD("RegisterScanner failed: scannerId = %d, status = %d, appUuid = %s",
+            aScannerId, aStatus, NS_ConvertUTF16toUTF8(scanUuidStr).get());
+
+    if (scanner->mStartLeScanRunnable) {
+      // Reject the LE scan request
+      DispatchReplyError(scanner->mStartLeScanRunnable,
+                         u"StartLeScan failed due to registration failed"_ns);
+      scanner->mStartLeScanRunnable = nullptr;
+    }
+
+    sScanners->RemoveElement(scanner);
+    return;
+  }
+
+  scanner->mScannerId = aScannerId;
+
+  // Notify BluetoothGatt to update the scannerId
+  bs->DistributeSignal(u"ScannerRegistered"_ns, aScanUuid,
+                       BluetoothValue(aScannerId));
+
+  if (scanner->mStartLeScanRunnable) {
+    // Client just registered, proceed remaining startLeScan request.
+    ENSURE_GATT_INTF_IS_READY_VOID(scanner->mStartLeScanRunnable);
+    sBluetoothGattInterface->Scan(aScannerId, true /* start */,
+                                  new StartLeScanResultHandler(scanner));
   }
 }
 
@@ -3610,6 +3752,7 @@ void BluetoothGattManager::HandleShutdown() {
   sBluetoothGattManager = nullptr;
   sClients = nullptr;
   sServers = nullptr;
+  sScanners = nullptr;
 }
 
 void BluetoothGattManager::ProceedDiscoverProcess(

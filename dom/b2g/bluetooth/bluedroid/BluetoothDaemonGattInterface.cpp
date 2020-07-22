@@ -85,17 +85,56 @@ nsresult BluetoothDaemonGattModule::ClientUnregisterClientCmd(
   return NS_OK;
 }
 
-nsresult BluetoothDaemonGattModule::ClientScanCmd(
-    int aClientIf, bool aStart, BluetoothGattResultHandler* aRes) {
+nsresult BluetoothDaemonGattModule::ScannerRegisterScannerCmd(
+    const BluetoothUuid& aUuid, BluetoothGattResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
   UniquePtr<DaemonSocketPDU> pdu =
-      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_CLIENT_SCAN,
-                                  4 +      // Client Interface
-                                      1);  // Start
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_SCANNER_REGISTER_SCANNER,
+                                  16);  // scan UUID
 
-  nsresult rv = PackPDU(PackConversion<int, int32_t>(aClientIf),
-                        PackConversion<bool, uint8_t>(aStart), *pdu);
+  nsresult rv = PackPDU(aUuid, *pdu);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+
+  rv = Send(pdu.get(), aRes);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  Unused << pdu.release();
+  return NS_OK;
+}
+
+nsresult BluetoothDaemonGattModule::ScannerUnregisterScannerCmd(
+    int aScannerId, BluetoothGattResultHandler* aRes) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  UniquePtr<DaemonSocketPDU> pdu =
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_SCANNER_UNREGISTER,
+                                  4);  // Scanner Interface
+
+  nsresult rv = PackPDU(aScannerId, *pdu);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  rv = Send(pdu.get(), aRes);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  Unused << pdu.release();
+  return NS_OK;
+}
+
+nsresult BluetoothDaemonGattModule::ScannerScanCmd(
+    bool aStart, BluetoothGattResultHandler* aRes) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  UniquePtr<DaemonSocketPDU> pdu =
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_SCANNER_SCAN,
+                                  1);  // Start
+
+  nsresult rv = PackPDU(PackConversion<bool, uint8_t>(aStart), *pdu);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -957,7 +996,21 @@ void BluetoothDaemonGattModule::ClientUnregisterClientRsp(
                            UnpackPDUInitOp(aPDU));
 }
 
-void BluetoothDaemonGattModule::ClientScanRsp(
+void BluetoothDaemonGattModule::ScannerRegisterScannerRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothGattResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes, &BluetoothGattResultHandler::RegisterScanner,
+                           UnpackPDUInitOp(aPDU));
+}
+
+void BluetoothDaemonGattModule::ScannerUnregisterScannerRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothGattResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes, &BluetoothGattResultHandler::UnregisterScanner,
+                           UnpackPDUInitOp(aPDU));
+}
+
+void BluetoothDaemonGattModule::ScannerScanRsp(
     const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
     BluetoothGattResultHandler* aRes) {
   ResultRunnable::Dispatch(aRes, &BluetoothGattResultHandler::Scan,
@@ -1295,7 +1348,13 @@ void BluetoothDaemonGattModule::HandleRsp(const DaemonSocketPDUHeader& aHeader,
       [OPCODE_SERVER_SEND_INDICATION] =
           &BluetoothDaemonGattModule::ServerSendIndicationRsp,
       [OPCODE_SERVER_SEND_RESPONSE] =
-          &BluetoothDaemonGattModule::ServerSendResponseRsp};
+          &BluetoothDaemonGattModule::ServerSendResponseRsp,
+      [OPCODE_SCANNER_REGISTER_SCANNER] =
+          &BluetoothDaemonGattModule::ScannerRegisterScannerRsp,
+      [OPCODE_SCANNER_UNREGISTER] =
+          &BluetoothDaemonGattModule::ScannerUnregisterScannerRsp,
+      [OPCODE_SCANNER_SCAN] = &BluetoothDaemonGattModule::ScannerScanRsp,
+  };
 
   MOZ_ASSERT(!NS_IsMainThread());  // I/O thread
 
@@ -1336,11 +1395,18 @@ void BluetoothDaemonGattModule::ClientRegisterClientNtf(
       UnpackPDUInitOp(aPDU));
 }
 
-// Init operator class for ClientScanResultNotification
-class BluetoothDaemonGattModule::ClientScanResultInitOp final
+void BluetoothDaemonGattModule::ScannerRegisterScannerNtf(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
+  ScannerRegisterNotification::Dispatch(
+      &BluetoothGattNotificationHandler::RegisterScannerNotification,
+      UnpackPDUInitOp(aPDU));
+}
+
+// Init operator class for ScannerScanResultNotification
+class BluetoothDaemonGattModule::ScannerScanResultInitOp final
     : private PDUInitOp {
  public:
-  explicit ClientScanResultInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+  explicit ScannerScanResultInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
 
   nsresult operator()(BluetoothAddress& aArg1, int& aArg2,
                       BluetoothGattAdvData& aArg3) const {
@@ -1373,11 +1439,11 @@ class BluetoothDaemonGattModule::ClientScanResultInitOp final
   }
 };
 
-void BluetoothDaemonGattModule::ClientScanResultNtf(
+void BluetoothDaemonGattModule::ScannerScanResultNtf(
     const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
-  ClientScanResultNotification::Dispatch(
+  ScannerScanResultNotification::Dispatch(
       &BluetoothGattNotificationHandler::ScanResultNotification,
-      ClientScanResultInitOp(aPDU));
+      ScannerScanResultInitOp(aPDU));
 }
 
 void BluetoothDaemonGattModule::ClientConnectNtf(
@@ -1844,6 +1910,7 @@ void BluetoothDaemonGattModule::HandleNtf(const DaemonSocketPDUHeader& aHeader,
       // ----- LE scanner, [64] - [95] -----
       // TODO: Support the following NTF as new feature
       //   [64] OPCODE_SCANNER_REGISTER_SCANNER_NTF         (0xc1)
+      [64] = &BluetoothDaemonGattModule::ScannerRegisterScannerNtf,
       //   [65] OPCODE_SCANNER_SCAN_FILTER_PARAM_SETUP_NTF  (0xc2)
       //   [66] OPCODE_SCANNER_SCAN_FILTER_ADD_NTF          (0xc3)
       //   [67] OPCODE_SCANNER_SCAN_FILTER_CLEAR_NTF        (0xc4)
@@ -1856,6 +1923,7 @@ void BluetoothDaemonGattModule::HandleNtf(const DaemonSocketPDUHeader& aHeader,
       //   [74] OPCODE_SCANNER_START_SYNC_REPORT_NTF        (0xcb)
       //   [75] OPCODE_SCANNER_START_SYNC_LOST_NTF          (0xcc)
       //   [76] OPCODE_SCANNER_SCAN_RESULT_NTF              (0xcd)
+      [76] = &BluetoothDaemonGattModule::ScannerScanResultNtf,
       //   [77] OPCODE_SCANNER_BATCHSCAN_REPORTS_NTF        (0xce)
       //   [78] OPCODE_SCANNER_BATCHSCAN_THRESHOLD_NTF      (0xcf)
       //   [79] OPCODE_SCANNER_TRACK_ADV_EVENT_NTF          (0xd0)
@@ -1928,12 +1996,33 @@ void BluetoothDaemonGattInterface::UnregisterClient(
   }
 }
 
+void BluetoothDaemonGattInterface::RegisterScanner(
+    const BluetoothUuid& aUuid, BluetoothGattResultHandler* aRes) {
+  MOZ_ASSERT(mModule);
+
+  nsresult rv = mModule->ScannerRegisterScannerCmd(aUuid, aRes);
+  if (NS_FAILED(rv)) {
+    DispatchError(aRes, rv);
+  }
+}
+
+void BluetoothDaemonGattInterface::UnregisterScanner(
+    int aScannerId, BluetoothGattResultHandler* aRes) {
+  MOZ_ASSERT(mModule);
+
+  nsresult rv = mModule->ScannerUnregisterScannerCmd(aScannerId, aRes);
+  if (NS_FAILED(rv)) {
+    DispatchError(aRes, rv);
+  }
+}
+
 /* Start / Stop LE Scan */
-void BluetoothDaemonGattInterface::Scan(int aClientIf, bool aStart,
+void BluetoothDaemonGattInterface::Scan([[maybe_unused]] int aScannerId,
+                                        bool aStart,
                                         BluetoothGattResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
-  nsresult rv = mModule->ClientScanCmd(aClientIf, aStart, aRes);
+  nsresult rv = mModule->ScannerScanCmd(aStart, aRes);
   if (NS_FAILED(rv)) {
     DispatchError(aRes, rv);
   }
