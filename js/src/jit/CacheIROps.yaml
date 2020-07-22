@@ -136,7 +136,7 @@
 
 - name: GuardToBigInt
   shared: true
-  transpile: false
+  transpile: true
   cost_estimate: 1
   custom_writer: true
   args:
@@ -184,7 +184,7 @@
 
 - name: GuardToUint8Clamped
   shared: true
-  transpile: false
+  transpile: true
   cost_estimate: 2
   args:
     input: ValId
@@ -1125,7 +1125,6 @@
 
 - name: CallNativeFunction
   shared: false
-  transpile: false
   transpile: true
   cost_estimate: 4
   custom_writer: true
@@ -1276,6 +1275,17 @@
     index: Int32Id
     layout: TypedThingLayoutImm
     elementType: ScalarTypeImm
+
+- name: LoadDataViewValueResult
+  shared: true
+  transpile: false
+  cost_estimate: 4
+  args:
+    obj: ObjId
+    offset: Int32Id
+    littleEndian: Int32Id
+    elementType: ScalarTypeImm
+    allowDoubleForUint32: BoolImm
 
 - name: LoadInt32ArrayLengthResult
   shared: true
@@ -1816,14 +1826,14 @@
 
 - name: DoubleIncResult
   shared: true
-  transpile: false
+  transpile: true
   cost_estimate: 1
   args:
     input: NumberId
 
 - name: DoubleDecResult
   shared: true
-  transpile: false
+  transpile: true
   cost_estimate: 1
   args:
     input: NumberId
@@ -1936,7 +1946,7 @@
 
 - name: CompareSymbolResult
   shared: true
-  transpile: false
+  transpile: true
   cost_estimate: 2
   args:
     op: JSOpImm

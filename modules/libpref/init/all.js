@@ -350,6 +350,9 @@ pref("print.shrink-to-fit.scale-limit-percent", 20);
 // Whether we should display simplify page checkbox on print preview UI
 pref("print.use_simplify_page", false);
 
+// The tab modal print dialog is currently only for testing/experiments.
+pref("print.tab_modal.enabled", false);
+
 // Disable support for MathML
 pref("mathml.disabled",    false);
 
@@ -515,7 +518,6 @@ pref("media.videocontrols.picture-in-picture.video-toggle.min-video-secs", 45);
   pref("media.getusermedia.agc", 1); // kAdaptiveDigital
   pref("media.getusermedia.hpf_enabled", true);
   pref("media.getusermedia.aecm_output_routing", 3); // kSpeakerphone
-  pref("media.getusermedia.experimental_input_processing", false);
 #endif // MOZ_WEBRTC
 
 #if !defined(ANDROID)
@@ -2427,7 +2429,7 @@ pref("editor.resizing.preserve_ratio",       true);
 pref("editor.positioning.offset",            0);
 
 pref("dom.use_watchdog", true);
-pref("dom.max_chrome_script_run_time", 20);
+pref("dom.max_chrome_script_run_time", 0);
 pref("dom.max_script_run_time", 10);
 pref("dom.max_ext_content_script_run_time", 5);
 
@@ -3717,12 +3719,15 @@ pref("signon.autofillForms",                true);
 pref("signon.autofillForms.autocompleteOff", true);
 pref("signon.autofillForms.http",           false);
 pref("signon.autologin.proxy",              false);
-pref("signon.capture.inputChanges.enabled", true);
+#ifdef NIGHTLY_BUILD
+  pref("signon.capture.inputChanges.enabled", true);
+#else
+  pref("signon.capture.inputChanges.enabled", false);
+#endif
 pref("signon.formlessCapture.enabled",      true);
 pref("signon.generation.available",               true);
 pref("signon.backup.enabled",               false);
-// A value of "-1" disables new-password heuristics. Can be updated once Bug 1618058 is resolved.
-pref("signon.generation.confidenceThreshold",     "-1");
+pref("signon.generation.confidenceThreshold",     "0.75");
 pref("signon.generation.enabled",                 true);
 pref("signon.passwordEditCapture.enabled",        false);
 pref("signon.privateBrowsingCapture.enabled",     true);
@@ -3860,10 +3865,7 @@ pref("browser.region.network.url", "https://location.services.mozilla.com/v1/cou
 pref("browser.region.network.scan", false);
 // Timeout for whole region request.
 pref("browser.region.timeout", 5000);
-
-#ifdef EARLY_BETA_OR_EARLIER
-  pref("browser.region.update.enabled", true);
-#endif
+pref("browser.region.update.enabled", true);
 
 // Enable/Disable the device storage API for content
 pref("device.storage.enabled", false);

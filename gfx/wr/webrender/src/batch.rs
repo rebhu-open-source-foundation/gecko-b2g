@@ -27,7 +27,7 @@ use crate::render_task_graph::{RenderTaskId, RenderTaskGraph};
 use crate::render_task::RenderTaskAddress;
 use crate::renderer::{BlendMode, ImageBufferKind, ShaderColorMode};
 use crate::renderer::{BLOCKS_PER_UV_RECT, MAX_VERTEX_TEXTURE_WIDTH};
-use crate::resource_cache::{CacheItem, GlyphFetchResult, ImageRequest, ResourceCache};
+use crate::resource_cache::{CacheItem, GlyphFetchResult, ImageProperties, ImageRequest, ResourceCache};
 use crate::space::SpaceMapper;
 use crate::visibility::{PrimitiveVisibilityIndex, PrimitiveVisibilityMask, PrimitiveVisibility, PrimitiveVisibilityFlags};
 use smallvec::SmallVec;
@@ -879,6 +879,9 @@ impl BatchBuilder {
         #[cfg(debug_assertions)] //TODO: why is this needed?
         debug_assert_eq!(prim_instance.prepared_frame_id, render_tasks.frame_id());
 
+        assert_ne!(prim_instance.visibility_info, PrimitiveVisibilityIndex::INVALID,
+            "Invisible primitive {:?} shouldn't be added to the batch", prim_instance);
+
         let is_chased = prim_instance.is_chased();
 
         let transform_id = transforms
@@ -1216,9 +1219,7 @@ impl BatchBuilder {
                                     ctx.spatial_tree,
                                 );
 
-                                let pic_bounding_rect = map_device_to_surface.map(&device_bounding_rect).unwrap();
-
-                                pic_bounding_rect
+                                map_device_to_surface.map(&device_bounding_rect)
                             } else {
                                 let mut local_bounding_rect = LayoutRect::default();
 
@@ -1242,14 +1243,19 @@ impl BatchBuilder {
                                     *bounding_rect,
                                     ctx.spatial_tree,
                                 );
-                                let pic_bounding_rect = map_prim_to_surface.map(&local_bounding_rect).unwrap();
-
-                                pic_bounding_rect
+                                map_prim_to_surface.map(&local_bounding_rect)
                             };
 
-                            // The text run may have been clipped, for example if part of it is offscreen.
-                            // So intersect our result with the original bounding rect.
-                            let intersected = pic_bounding_rect.intersection(bounding_rect).unwrap_or_else(|| PictureRect::zero());
+                            let intersected = match pic_bounding_rect {
+                                // The text run may have been clipped, for example if part of it is offscreen.
+                                // So intersect our result with the original bounding rect.
+                                Some(rect) => rect
+                                    .intersection(bounding_rect)
+                                    .unwrap_or_else(PictureRect::zero),
+                                // If space mapping went off the rails, fall back to the old behavior.
+                                //TODO: consider skipping the glyph run completely in this case.
+                                None => *bounding_rect,
+                            };
 
                             intersected
                         };
@@ -2289,6 +2295,13 @@ impl BatchBuilder {
                 }.encode();
 
                 if image_instance.visible_tiles.is_empty() {
+                    if cfg!(debug_assertions) {
+                        match ctx.resource_cache.get_image_properties(request.key) {
+                            Some(ImageProperties { tiling: None, .. }) => (),
+                            other => panic!("Non-tiled image with no visible images detected! Properties {:?}", other),
+                        }
+                    }
+
                     let cache_item = match image_data.source {
                         ImageSource::Default => {
                             resolve_image(

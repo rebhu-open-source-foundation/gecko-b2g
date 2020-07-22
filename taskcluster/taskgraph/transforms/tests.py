@@ -227,6 +227,19 @@ TEST_VARIANTS = {
         'merge': {
             'webrender': True,
         }
+    },
+    'webgl-ipc': {
+        # TODO: After November 1st 2020, verify this variant is still needed.
+        'description': "{description} with WebGL IPC process enabled",
+        'suffix': 'gli',
+        'merge': {
+            'mozharness': {
+                'extra-options': [
+                    '--setpref=webgl.out-of-process=true',
+                ],
+            },
+            'tier': 2
+        }
     }
 }
 
@@ -1807,11 +1820,7 @@ def make_job_description(config, tasks):
         elif set(schedules) & set(INCLUSIVE_COMPONENTS):
             jobdesc['optimization'] = {'test-inclusive': schedules}
         else:
-            # First arg goes to 'skip-unless-schedules', second goes to the
-            # main test strategy. Using an empty dict allows earlier
-            # substrategies (of a CompositeStrategy) to pass values by reference
-            # to later substrategies.
-            jobdesc['optimization'] = {'test': (schedules, {})}
+            jobdesc['optimization'] = {'test': schedules}
 
         run = jobdesc['run'] = {}
         run['using'] = 'mozharness-test'

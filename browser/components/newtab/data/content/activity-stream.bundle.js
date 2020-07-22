@@ -742,9 +742,9 @@ class BaseContent extends react__WEBPACK_IMPORTED_MODULE_7___default.a.PureCompo
     } = App;
     const prefs = props.Prefs.values;
     const isDiscoveryStream = props.DiscoveryStream.config && props.DiscoveryStream.config.enabled;
-    let filteredSections = props.Sections;
+    let filteredSections = props.Sections.filter(section => section.id !== "topstories");
     const pocketEnabled = prefs["feeds.section.topstories"] && prefs["feeds.system.topstories"];
-    const noSectionsEnabled = !prefs["feeds.topsites"] && filteredSections.filter(section => section.enabled).length === 0;
+    const noSectionsEnabled = !prefs["feeds.topsites"] && !pocketEnabled && filteredSections.filter(section => section.enabled).length === 0;
     const searchHandoffEnabled = prefs["improvesearch.handoffToAwesomebar"];
     const outerClassName = ["outer-wrapper", isDiscoveryStream && pocketEnabled && "ds-outer-wrapper-search-alignment", isDiscoveryStream && "ds-outer-wrapper-breakpoint-override", prefs.showSearch && this.state.fixedSearch && !noSectionsEnabled && "fixed-search", prefs.showSearch && noSectionsEnabled && "only-search"].filter(v => v).join(" ");
     return react__WEBPACK_IMPORTED_MODULE_7___default.a.createElement("div", null, react__WEBPACK_IMPORTED_MODULE_7___default.a.createElement("div", {
@@ -4658,7 +4658,8 @@ class CardGrid extends react__WEBPACK_IMPORTED_MODULE_3___default.a.PureComponen
         display_engagement_labels: this.props.display_engagement_labels,
         cta: rec.cta,
         cta_variant: this.props.cta_variant,
-        is_video: this.props.enable_video_playheads && rec.is_video
+        is_video: this.props.enable_video_playheads && rec.is_video,
+        is_collection: this.props.is_collection
       }));
     } // Used for CSS overrides to default styling (eg: "hero")
 
@@ -4997,7 +4998,8 @@ class _DSCard extends react__WEBPACK_IMPORTED_MODULE_4___default.a.PureComponent
       pocket_id: this.props.pocket_id,
       shim: this.props.shim,
       bookmarkGuid: this.props.bookmarkGuid,
-      flightId: this.props.flightId
+      flightId: !this.props.is_collection ? this.props.flightId : undefined,
+      showPrivacyInfo: !!this.props.flightId
     }));
   }
 
@@ -5218,7 +5220,7 @@ class DSLinkMenu extends react__WEBPACK_IMPORTED_MODULE_2___default.a.PureCompon
       index,
       dispatch
     } = this.props;
-    const TOP_STORIES_CONTEXT_MENU_OPTIONS = ["CheckBookmarkOrArchive", "CheckSavedToPocket", "Separator", "OpenInNewWindow", "OpenInPrivateWindow", "Separator", "BlockUrl", ...(this.props.flightId ? ["ShowPrivacyInfo"] : [])];
+    const TOP_STORIES_CONTEXT_MENU_OPTIONS = ["CheckBookmarkOrArchive", "CheckSavedToPocket", "Separator", "OpenInNewWindow", "OpenInPrivateWindow", "Separator", "BlockUrl", ...(this.props.showPrivacyInfo ? ["ShowPrivacyInfo"] : [])];
     const type = this.props.type || "DISCOVERY_STREAM";
     const title = this.props.title || this.props.source;
     return react__WEBPACK_IMPORTED_MODULE_2___default.a.createElement("div", null, react__WEBPACK_IMPORTED_MODULE_2___default.a.createElement(content_src_components_ContextMenu_ContextMenuButton__WEBPACK_IMPORTED_MODULE_1__["ContextMenuButton"], {
@@ -6607,7 +6609,8 @@ class CollectionCardGrid extends react__WEBPACK_IMPORTED_MODULE_4___default.a.Pu
       const spocsData = data.spocs.map(item => ({
         url: item.url,
         guid: item.id,
-        shim: item.shim
+        shim: item.shim,
+        flight_id: item.flightId
       }));
       const blockUrlOption = content_src_lib_link_menu_options__WEBPACK_IMPORTED_MODULE_3__["LinkMenuOptions"].BlockUrls(spocsData, pos, source);
       const {
@@ -6700,6 +6703,7 @@ class CollectionCardGrid extends react__WEBPACK_IMPORTED_MODULE_4___default.a.Pu
       feed: feed,
       border: this.props.border,
       type: type,
+      is_collection: true,
       dispatch: this.props.dispatch,
       items: this.props.items
     }));
@@ -10323,7 +10327,6 @@ class TopSite extends react__WEBPACK_IMPORTED_MODULE_4___default.a.PureComponent
           type: common_Actions_jsm__WEBPACK_IMPORTED_MODULE_0__["actionTypes"].TOP_SITES_ATTRIBUTION,
           data: {
             searchProvider: this.props.link.hostname,
-            siteURL: this.props.link.url,
             source: "newtab"
           }
         }));
@@ -14991,7 +14994,6 @@ const INITIAL_STATE = {
     },
     spocs: {
       spocs_endpoint: "",
-      spocs_per_domain: 1,
       lastUpdated: null,
       data: {// "spocs": {title: "", context: "", items: []},
         // "placement1": {title: "", context: "", items: []},
@@ -15690,8 +15692,7 @@ function DiscoveryStream(prevState = INITIAL_STATE.DiscoveryStream, action) {
     case Actions["actionTypes"].DISCOVERY_STREAM_SPOCS_ENDPOINT:
       return { ...prevState,
         spocs: { ...INITIAL_STATE.DiscoveryStream.spocs,
-          spocs_endpoint: action.data.url || INITIAL_STATE.DiscoveryStream.spocs.spocs_endpoint,
-          spocs_per_domain: action.data.spocs_per_domain || INITIAL_STATE.DiscoveryStream.spocs.spocs_per_domain
+          spocs_endpoint: action.data.url || INITIAL_STATE.DiscoveryStream.spocs.spocs_endpoint
         }
       };
 

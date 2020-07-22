@@ -1430,8 +1430,6 @@ STATIC_ATOMS = [
     Atom("G", "G"),
     Atom("g", "g"),
     Atom("gamma", "gamma"),
-    # 'generic' conflicts with msvc11 winrt compiler extensions
-    Atom("generic_", "generic"),
     Atom("glyphRef", "glyphRef"),
     Atom("grad", "grad"),
     Atom("gradientTransform", "gradientTransform"),
@@ -2579,7 +2577,6 @@ STATIC_ATOMS = [
     PseudoElementAtom("PseudoElement_selection", ":selection"),
     PseudoElementAtom("PseudoElement_mozFocusInner", ":-moz-focus-inner"),
     PseudoElementAtom("PseudoElement_mozFocusOuter", ":-moz-focus-outer"),
-    PseudoElementAtom("PseudoElement_mozMathAnonymous", ":-moz-math-anonymous"),
     PseudoElementAtom("PseudoElement_mozNumberWrapper", ":-moz-number-wrapper"),
     PseudoElementAtom("PseudoElement_mozNumberSpinBox", ":-moz-number-spin-box"),
     PseudoElementAtom("PseudoElement_mozNumberSpinUp", ":-moz-number-spin-up"),

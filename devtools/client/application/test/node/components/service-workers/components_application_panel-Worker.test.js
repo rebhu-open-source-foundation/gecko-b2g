@@ -56,10 +56,31 @@ describe("Worker", () => {
     expect(wrapper.find(".js-worker-status").text()).toBe(
       "serviceworker-worker-status-stopped"
     );
-    // check that Start button is not available
+    // check that Start button is available
     expect(wrapper.find(".js-start-button")).toHaveLength(1);
+    // check that Debug button is disabled
+    expect(wrapper.find(".js-debug-button[disabled=true]")).toHaveLength(1);
 
     expect(wrapper).toMatchSnapshot();
+  });
+
+  it("Renders the start button even if debugging workers is disabled", () => {
+    const store = setupStore({});
+
+    const wrapper = shallow(
+      Worker({
+        isDebugEnabled: false,
+        worker: WORKER_STOPPED,
+        store,
+      })
+    ).dive();
+
+    // ensure proper status
+    expect(wrapper.find(".js-worker-status").text()).toBe(
+      "serviceworker-worker-status-stopped"
+    );
+    // check that Start button is available
+    expect(wrapper.find(".js-start-button")).toHaveLength(1);
   });
 
   it("Renders the expected snapshot for a non-active worker", () => {
@@ -79,11 +100,13 @@ describe("Worker", () => {
     expect(wrapper.find(".js-worker-status").text()).toBe("installed");
     // check that Start button is not available
     expect(wrapper.find(".js-start-button")).toHaveLength(0);
+    // check that Debug button is disabled
+    expect(wrapper.find(".js-debug-button[disabled=true]")).toHaveLength(1);
 
     expect(wrapper).toMatchSnapshot();
   });
 
-  it("Enables/disabled the debug button depending of debugging being available", () => {
+  it("Shows/hides the debug button depending of debugging being available", () => {
     const store = setupStore({});
 
     // check disabled debugging
@@ -94,8 +117,7 @@ describe("Worker", () => {
         store,
       })
     ).dive();
-
-    expect(wrapper.find(".js-debug-button[disabled=true]")).toHaveLength(1);
+    expect(wrapper.find(".js-debug-button")).toHaveLength(0);
 
     // check enabled debugging
     wrapper = shallow(
@@ -105,7 +127,6 @@ describe("Worker", () => {
         store,
       })
     ).dive();
-
-    expect(wrapper.find(".js-debug-button[disabled=false]")).toHaveLength(1);
+    expect(wrapper.find(".js-debug-button")).toHaveLength(1);
   });
 });

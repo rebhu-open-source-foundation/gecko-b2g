@@ -1863,6 +1863,31 @@ pub(crate) fn define(
         .can_load(true),
     );
 
+    let Sarg = &TypeVar::new(
+        "Sarg",
+        "Any scalar or vector type with at most 128 lanes",
+        TypeSetBuilder::new()
+            .specials(vec![crate::cdsl::types::SpecialType::StructArgument])
+            .build(),
+    );
+    let sarg_t = &Operand::new("sarg_t", Sarg);
+
+    // FIXME remove once the old style codegen backends are removed.
+    ig.push(
+        Inst::new(
+            "dummy_sarg_t",
+            r#"
+        This creates a sarg_t
+
+        This instruction is internal and should not be created by
+        Cranelift users.
+        "#,
+            &formats.nullary,
+        )
+        .operands_in(vec![])
+        .operands_out(vec![sarg_t]),
+    );
+
     let src = &Operand::new("src", &imm.regunit);
     let dst = &Operand::new("dst", &imm.regunit);
 
@@ -3881,6 +3906,126 @@ pub(crate) fn define(
         .operands_in(vec![x])
         .operands_out(vec![a])
         .constraints(vec![WiderOrEq(Int.clone(), IntTo.clone())]),
+    );
+
+    let I16or32xN = &TypeVar::new(
+        "I16or32xN",
+        "A SIMD vector type containing integer lanes 16 or 32 bits wide",
+        TypeSetBuilder::new()
+            .ints(16..32)
+            .simd_lanes(4..8)
+            .includes_scalars(false)
+            .build(),
+    );
+
+    let x = &Operand::new("x", I16or32xN);
+    let y = &Operand::new("y", I16or32xN);
+    let a = &Operand::new("a", &I16or32xN.split_lanes());
+
+    ig.push(
+        Inst::new(
+            "snarrow",
+            r#"
+        Combine `x` and `y` into a vector with twice the lanes but half the integer width while 
+        saturating overflowing values to the signed maximum and minimum.
+        
+        The lanes will be concatenated after narrowing. For example, when `x` and `y` are `i32x4`
+        and `x = [x3, x2, x1, x0]` and `y = [y3, y2, y1, y0]`, then after narrowing the value
+        returned is an `i16x8`: `a = [y3', y2', y1', y0', x3', x2', x1', x0']`.
+            "#,
+            &formats.binary,
+        )
+        .operands_in(vec![x, y])
+        .operands_out(vec![a]),
+    );
+
+    ig.push(
+        Inst::new(
+            "unarrow",
+            r#"
+        Combine `x` and `y` into a vector with twice the lanes but half the integer width while 
+        saturating overflowing values to the unsigned maximum and minimum.
+        
+        Note that all input lanes are considered signed: any negative lanes will overflow and be
+        replaced with the unsigned minimum, `0x00`.
+        
+        The lanes will be concatenated after narrowing. For example, when `x` and `y` are `i32x4`
+        and `x = [x3, x2, x1, x0]` and `y = [y3, y2, y1, y0]`, then after narrowing the value
+        returned is an `i16x8`: `a = [y3', y2', y1', y0', x3', x2', x1', x0']`.
+            "#,
+            &formats.binary,
+        )
+        .operands_in(vec![x, y])
+        .operands_out(vec![a]),
+    );
+
+    let I8or16xN = &TypeVar::new(
+        "I8or16xN",
+        "A SIMD vector type containing integer lanes 8 or 16 bits wide.",
+        TypeSetBuilder::new()
+            .ints(8..16)
+            .simd_lanes(8..16)
+            .includes_scalars(false)
+            .build(),
+    );
+
+    let x = &Operand::new("x", I8or16xN);
+    let a = &Operand::new("a", &I8or16xN.merge_lanes());
+
+    ig.push(
+        Inst::new(
+            "swiden_low",
+            r#"
+        Widen the low lanes of `x` using signed extension.
+        
+        This will double the lane width and halve the number of lanes.
+            "#,
+            &formats.unary,
+        )
+        .operands_in(vec![x])
+        .operands_out(vec![a]),
+    );
+
+    ig.push(
+        Inst::new(
+            "swiden_high",
+            r#"
+        Widen the high lanes of `x` using signed extension.
+        
+        This will double the lane width and halve the number of lanes.
+            "#,
+            &formats.unary,
+        )
+        .operands_in(vec![x])
+        .operands_out(vec![a]),
+    );
+
+    ig.push(
+        Inst::new(
+            "uwiden_low",
+            r#"
+        Widen the low lanes of `x` using unsigned extension.
+        
+        This will double the lane width and halve the number of lanes.
+            "#,
+            &formats.unary,
+        )
+        .operands_in(vec![x])
+        .operands_out(vec![a]),
+    );
+
+    ig.push(
+        Inst::new(
+            "uwiden_high",
+            r#"
+        Widen the high lanes of `x` using unsigned extension.
+        
+        This will double the lane width and halve the number of lanes.
+            "#,
+            &formats.unary,
+        )
+        .operands_in(vec![x])
+        .operands_out(vec![a]),
     );
 
     let IntTo = &TypeVar::new(

@@ -87,7 +87,7 @@ class nsDisplayButtonBoxShadowOuter : public nsPaintedDisplayItem {
 nsRect nsDisplayButtonBoxShadowOuter::GetBounds(nsDisplayListBuilder* aBuilder,
                                                 bool* aSnap) const {
   *aSnap = false;
-  return mFrame->GetVisualOverflowRectRelativeToSelf() + ToReferenceFrame();
+  return mFrame->InkOverflowRectRelativeToSelf() + ToReferenceFrame();
 }
 
 void nsDisplayButtonBoxShadowOuter::Paint(nsDisplayListBuilder* aBuilder,
@@ -292,8 +292,7 @@ nsRect nsDisplayButtonBorder::GetBounds(nsDisplayListBuilder* aBuilder,
   *aSnap = false;
   return aBuilder->IsForEventDelivery()
              ? nsRect(ToReferenceFrame(), mFrame->GetSize())
-             : mFrame->GetVisualOverflowRectRelativeToSelf() +
-                   ToReferenceFrame();
+             : mFrame->InkOverflowRectRelativeToSelf() + ToReferenceFrame();
 }
 
 class nsDisplayButtonForeground final : public nsPaintedDisplayItem {
@@ -400,7 +399,8 @@ nsresult nsButtonFrameRenderer::DisplayButton(nsDisplayListBuilder* aBuilder,
   nsPresContext* pc = mFrame->PresContext();
   if (mInnerFocusStyle && mInnerFocusStyle->StyleBorder()->HasBorder() &&
       mFrame->IsThemed(disp) &&
-      pc->Theme()->ThemeWantsButtonInnerFocusRing(disp->mAppearance)) {
+      pc->Theme()->ThemeWantsButtonInnerFocusRing(
+          disp->EffectiveAppearance())) {
     aForeground->AppendNewToTop<nsDisplayButtonForeground>(aBuilder, GetFrame(),
                                                            this);
   }

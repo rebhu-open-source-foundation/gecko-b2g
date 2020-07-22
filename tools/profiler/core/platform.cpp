@@ -34,6 +34,7 @@
 #include "ProfileBuffer.h"
 #include "ProfiledThreadData.h"
 #include "ProfilerBacktrace.h"
+#include "ProfilerChild.h"
 #include "ProfilerCodeAddressService.h"
 #include "ProfilerIOInterposeObserver.h"
 #include "ProfilerMarkerPayload.h"
@@ -3572,6 +3573,8 @@ void SamplerThread::Run() {
     InvokePostSamplingCallbacks(std::move(postSamplingCallbacks),
                                 samplingState);
 
+    ProfilerChild::ProcessPendingUpdate();
+
     // Calculate how long a sleep to request.  After the sleep, measure how
     // long we actually slept and take the difference into account when
     // calculating the sleep interval for the next iteration.  This is an
@@ -4002,7 +4005,6 @@ void profiler_init(void* aStackTop) {
       LOG("- MOZ_PROFILER_STARTUP_FILTERS = %s", startupFilters);
     }
 
-    StartAudioCallbackTracing();
     locked_profiler_start(lock, capacity, interval, features, filters.begin(),
                           filters.length(), 0, duration);
   }
@@ -4056,7 +4058,6 @@ void profiler_shutdown(IsFastShutdown aIsFastShutdown) {
         return;
       }
 
-      StopAudioCallbackTracing();
       samplerThread = locked_profiler_stop(lock);
     } else if (aIsFastShutdown == IsFastShutdown::Yes) {
       return;
@@ -4542,6 +4543,10 @@ static void locked_profiler_start(PSLockRef aLock, PowerOfTwo32 aCapacity,
   }
 #endif
 
+  if (ProfilerFeature::HasAudioCallbackTracing(aFeatures)) {
+    StartAudioCallbackTracing();
+  }
+
   // At the very end, set up RacyFeatures.
   RacyFeatures::SetActive(ActivePS::Features(aLock));
 }
@@ -4565,11 +4570,9 @@ void profiler_start(PowerOfTwo32 aCapacity, double aInterval,
 
     // Reset the current state if the profiler is running.
     if (ActivePS::Exists(lock)) {
-      StopAudioCallbackTracing();
       samplerThread = locked_profiler_stop(lock);
     }
 
-    StartAudioCallbackTracing();
     locked_profiler_start(lock, aCapacity, aInterval, aFeatures, aFilters,
                           aFilterCount, aActiveBrowsingContextID, aDuration);
   }
@@ -4615,9 +4618,7 @@ void profiler_ensure_started(PowerOfTwo32 aCapacity, double aInterval,
       if (!ActivePS::Equals(lock, aCapacity, aDuration, aInterval, aFeatures,
                             aFilters, aFilterCount, aActiveBrowsingContextID)) {
         // Stop and restart with different settings.
-        StopAudioCallbackTracing();
         samplerThread = locked_profiler_stop(lock);
-        StartAudioCallbackTracing();
         locked_profiler_start(lock, aCapacity, aInterval, aFeatures, aFilters,
                               aFilterCount, aActiveBrowsingContextID,
                               aDuration);
@@ -4625,7 +4626,6 @@ void profiler_ensure_started(PowerOfTwo32 aCapacity, double aInterval,
       }
     } else {
       // The profiler is stopped.
-      StartAudioCallbackTracing();
       locked_profiler_start(lock, aCapacity, aInterval, aFeatures, aFilters,
                             aFilterCount, aActiveBrowsingContextID, aDuration);
       startedProfiler = true;
@@ -4653,6 +4653,10 @@ void profiler_ensure_started(PowerOfTwo32 aCapacity, double aInterval,
 
   // At the very start, clear RacyFeatures.
   RacyFeatures::SetInactive();
+
+  if (ActivePS::FeatureAudioCallbackTracing(aLock)) {
+    StopAudioCallbackTracing();
+  }
 
 #if defined(GP_OS_android) && !defined(MOZ_WIDGET_GONK)
   if (ActivePS::FeatureJava(aLock)) {
@@ -4727,7 +4731,6 @@ void profiler_stop() {
     if (!ActivePS::Exists(lock)) {
       return;
     }
-    StopAudioCallbackTracing();
 
     samplerThread = locked_profiler_stop(lock);
   }

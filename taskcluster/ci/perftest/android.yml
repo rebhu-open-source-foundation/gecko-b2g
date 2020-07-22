@@ -48,11 +48,10 @@ hw-g5-applink-fenix:
             python3 python/mozperftest/mozperftest/runner.py
             --flavor mobile-browser
             --android
-            --android-app-name org.mozilla.fennec_aurora
+            --android-app-name org.mozilla.fenix
             --android-activity org.mozilla.fenix.IntentReceiverActivity
             --android-clear-logcat
             --android-capture-logcat logcat
-            --android-perf-tuning
             --perfherder-metrics processLaunchToNavStart
             --android-install-apk fenix_nightlysim_multicommit_armeabi_v7a
             --hooks testing/performance/hooks_applink.py
@@ -60,6 +59,9 @@ hw-g5-applink-fenix:
             --perfherder-app fenix
             --browsertime-geckodriver ${MOZ_FETCHES_DIR}/geckodriver
             --browsertime-iterations 14
+            --profile-conditioned
+            --profile-conditioned-scenario settled
+            --profile-conditioned-platform g5-fenix.nightly
             --output $MOZ_FETCHES_DIR/../artifacts
             testing/performance/perftest_applink.js
 
@@ -79,7 +81,7 @@ hw-p2-applink-fenix:
             python3 python/mozperftest/mozperftest/runner.py
             --flavor mobile-browser
             --android
-            --android-app-name org.mozilla.fennec_aurora
+            --android-app-name org.mozilla.fenix
             --perfherder-metrics processLaunchToNavStart
             --android-install-apk fenix_nightlysim_multicommit_arm64_v8a
             --android-activity org.mozilla.fenix.IntentReceiverActivity
@@ -91,6 +93,9 @@ hw-p2-applink-fenix:
             --perfherder-app fenix
             --browsertime-geckodriver ${MOZ_FETCHES_DIR}/geckodriver
             --browsertime-iterations 14
+            --profile-conditioned
+            --profile-conditioned-scenario settled
+            --profile-conditioned-platform p2_aarch64-fenix.nightly
             --output $MOZ_FETCHES_DIR/../artifacts
             testing/performance/perftest_applink.js
 
@@ -113,7 +118,6 @@ hw-g5-applink-gv:
             --android-activity org.mozilla.geckoview_example.GeckoViewActivity
             --android-clear-logcat
             --android-capture-logcat logcat
-            --android-perf-tuning
             --perfherder-metrics processLaunchToNavStart
             --android-install-apk gve_nightly_api16
             --hooks testing/performance/hooks_applink.py
@@ -121,6 +125,9 @@ hw-g5-applink-gv:
             --perfherder-app geckoview
             --browsertime-geckodriver ${MOZ_FETCHES_DIR}/geckodriver
             --browsertime-iterations 14
+            --profile-conditioned
+            --profile-conditioned-scenario settled
+            --profile-conditioned-platform g5-geckoview_example
             --output $MOZ_FETCHES_DIR/../artifacts
             testing/performance/perftest_applink.js
 
@@ -151,6 +158,9 @@ hw-p2-applink-gv:
             --perfherder-app geckoview
             --browsertime-geckodriver ${MOZ_FETCHES_DIR}/geckodriver
             --browsertime-iterations 14
+            --profile-conditioned
+            --profile-conditioned-scenario settled
+            --profile-conditioned-platform p2_aarch64-geckoview_example
             --output $MOZ_FETCHES_DIR/../artifacts
             testing/performance/perftest_applink.js
 
@@ -169,7 +179,7 @@ hw-g5-main-fenix:
             python3 python/mozperftest/mozperftest/runner.py
             --flavor mobile-browser
             --android
-            --android-app-name org.mozilla.fennec_aurora
+            --android-app-name org.mozilla.fenix
             --android-activity .App
             --android-clear-logcat
             --android-capture-logcat logcat
@@ -177,13 +187,16 @@ hw-g5-main-fenix:
             --androidlog-first-timestamp ".*Start proc.*org\.mozilla\..*\..*App.*"
             --androidlog-second-timestamp ".*Fully drawn.*org\.mozilla\..*"
             --androidlog-subtest-name "MAIN"
-            --android-install-apk fenix_fennec_nightly_armeabi_v7a
+            --android-install-apk fenix_nightly_armeabi_v7a
             --hooks testing/performance/hooks_home_activity.py
             --perfherder
             --perfherder-app fenix
             --browsertime-geckodriver ${MOZ_FETCHES_DIR}/geckodriver
             --output $MOZ_FETCHES_DIR/../artifacts
             --browsertime-iterations 14
+            --profile-conditioned
+            --profile-conditioned-scenario settled
+            --profile-conditioned-platform g5-fenix.nightly
             testing/performance/perftest_home_activity.js
 
 hw-p2-main-fenix:
@@ -201,19 +214,23 @@ hw-p2-main-fenix:
             python3 python/mozperftest/mozperftest/runner.py
             --flavor mobile-browser
             --android
-            --android-app-name org.mozilla.fennec_aurora
+            --android-app-name org.mozilla.fenix
             --android-activity .App
             --android-clear-logcat
             --android-capture-logcat logcat
+            --android-perf-tuning
             --androidlog
             --androidlog-first-timestamp ".*Start proc.*org\.mozilla\..*\..*App.*"
             --androidlog-second-timestamp ".*Fully drawn.*org\.mozilla\..*"
             --androidlog-subtest-name "MAIN"
-            --android-install-apk fenix_fennec_nightly_arm64_v8a
+            --android-install-apk fenix_nightly_arm64_v8a
             --hooks testing/performance/hooks_home_activity.py
             --perfherder
             --perfherder-app fenix
             --browsertime-geckodriver ${MOZ_FETCHES_DIR}/geckodriver
             --output $MOZ_FETCHES_DIR/../artifacts
             --browsertime-iterations 14
+            --profile-conditioned
+            --profile-conditioned-scenario settled
+            --profile-conditioned-platform p2_aarch64-fenix.nightly
             testing/performance/perftest_home_activity.js

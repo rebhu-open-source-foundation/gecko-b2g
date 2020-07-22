@@ -1146,10 +1146,17 @@ child:
      */
     async AbortOrientationPendingPromises(MaybeDiscardedBrowsingContext aContext);
 
-    async HistoryCommitLength(MaybeDiscardedBrowsingContext aContext,
-                              uint32_t aLength);
-
+    async HistoryCommitIndexAndLength(MaybeDiscardedBrowsingContext aContext,
+                                      uint32_t aIndex, uint32_t aLength,
+                                      nsID aChangeID);
 parent:
+    /**
+     * This is a temporary way to pass index and length through parent process.
+     * Used for testing.
+     */
+    async SessionHistoryUpdate(MaybeDiscardedBrowsingContext aTopContext,
+                               int32_t aIndex, int32_t aLength, nsID aChangeID);
+
     async InitBackground(Endpoint<PBackgroundParent> aEndpoint);
 
     async CreateGMPService();
@@ -1931,7 +1938,8 @@ parent:
                      bool? reloadActiveEntry);
 
     async HistoryCommit(MaybeDiscardedBrowsingContext aContext,
-                        uint64_t aSessionHistoryEntryID);
+                        uint64_t aSessionHistoryEntryID,
+                        nsID aChangeID);
 
     async HistoryGo(MaybeDiscardedBrowsingContext aContext,
                     int32_t aOffset) returns(int32_t requestedIndex);

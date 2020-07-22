@@ -471,8 +471,13 @@ AbortReasonOr<WarpScriptSnapshot*> WarpScriptOracle::createScriptSnapshot() {
       case JSOp::Rest: {
         const ICEntry& entry = getICEntry(loc);
         ICRest_Fallback* stub = entry.fallbackStub()->toRest_Fallback();
-        if (!AddOpSnapshot<WarpRest>(alloc_, opSnapshots, offset,
-                                     stub->templateObject())) {
+        ArrayObject* templateObj = stub->templateObject();
+        // Only inline elements supported without a VM call.
+        size_t numInlineElements =
+            gc::GetGCKindSlots(templateObj->asTenured().getAllocKind()) -
+            ObjectElements::VALUES_PER_HEADER;
+        if (!AddOpSnapshot<WarpRest>(alloc_, opSnapshots, offset, templateObj,
+                                     numInlineElements)) {
           return abort(AbortReason::Alloc);
         }
         break;
@@ -903,6 +908,7 @@ AbortReasonOr<Ok> WarpScriptOracle::maybeInlineIC(WarpOpSnapshotList& snapshots,
     RootedScript targetScript(cx_, targetFunction->nonLazyScript());
     ICScript* icScript = callData->icScript;
     MOZ_ASSERT(targetScript->jitScript() == icScript->jitScript());
+    MOZ_ASSERT(TrialInliner::canInline(targetFunction));
 
     // Add the inlined script to the inline script tree.
     LifoAlloc* lifoAlloc = alloc_.lifoAlloc();

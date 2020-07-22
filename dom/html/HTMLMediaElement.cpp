@@ -2474,7 +2474,24 @@ void HTMLMediaElement::NoSupportedMediaSourceError(
   if (mDecoder) {
     ShutdownDecoder();
   }
-  mErrorSink->SetError(MEDIA_ERR_SRC_NOT_SUPPORTED, aErrorDetails);
+
+  bool isThirdPartyLoad = false;
+  nsresult rv = NS_ERROR_NOT_AVAILABLE;
+  if (mSrcAttrTriggeringPrincipal) {
+    rv = mSrcAttrTriggeringPrincipal->IsThirdPartyURI(mLoadingSrc,
+                                                      &isThirdPartyLoad);
+  }
+
+  if (NS_SUCCEEDED(rv) && isThirdPartyLoad) {
+    // aErrorDetails can include sensitive details like MimeType or HTTP Status
+    // Code. In case we're loading a 3rd party resource we should not leak this
+    // and pass a Generic Error Message
+    mErrorSink->SetError(MEDIA_ERR_SRC_NOT_SUPPORTED,
+                         "Failed to open media"_ns);
+  } else {
+    mErrorSink->SetError(MEDIA_ERR_SRC_NOT_SUPPORTED, aErrorDetails);
+  }
+
   RemoveMediaTracks();
   ChangeDelayLoadStatus(false);
   UpdateAudioChannelPlayingState();
@@ -3538,7 +3555,6 @@ void HTMLMediaElement::PauseIfShouldNotBePlaying() {
     AUTOPLAY_LOG("pause because not allowed to play, element=%p", this);
     ErrorResult rv;
     Pause(rv);
-    OwnerDoc()->SetDocTreeHadPlayRevoked();
   }
 }
 

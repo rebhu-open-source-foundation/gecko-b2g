@@ -48,6 +48,8 @@ class CanonicalBrowsingContext final : public BrowsingContext {
   static already_AddRefed<CanonicalBrowsingContext> Get(uint64_t aId);
   static CanonicalBrowsingContext* Cast(BrowsingContext* aContext);
   static const CanonicalBrowsingContext* Cast(const BrowsingContext* aContext);
+  static already_AddRefed<CanonicalBrowsingContext> Cast(
+      already_AddRefed<BrowsingContext>&& aContext);
 
   bool IsOwnedByProcess(uint64_t aProcessId) const {
     return mProcessId == aProcessId;
@@ -94,7 +96,8 @@ class CanonicalBrowsingContext final : public BrowsingContext {
   nsISHistory* GetSessionHistory();
   UniquePtr<SessionHistoryInfo> CreateSessionHistoryEntryForLoad(
       nsDocShellLoadState* aLoadState, nsIChannel* aChannel);
-  void SessionHistoryCommit(uint64_t aSessionHistoryEntryId);
+  void SessionHistoryCommit(uint64_t aSessionHistoryEntryId,
+                            const nsID& aChangeID);
 
   // Calls the session history listeners' OnHistoryReload, storing the result in
   // aCanReload. If aCanReload is set to true and we have an active or a loading

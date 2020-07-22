@@ -2042,6 +2042,32 @@ void BrowsingContext::DidSet(FieldIndex<IDX_UserActivationState>) {
   }
 }
 
+void BrowsingContext::DidSet(FieldIndex<IDX_IsActive>, bool aOldValue) {
+  if (!IsTop() || aOldValue == GetIsActive() ||
+      !StaticPrefs::dom_suspend_inactive_enabled()) {
+    return;
+  }
+
+  if (!GetIsActive() && !Group()->GetToplevelsSuspended()) {
+    // If all toplevels in our group are inactive, suspend the group.
+    bool allInactive = true;
+    nsTArray<RefPtr<BrowsingContext>>& toplevels = Group()->Toplevels();
+    for (const auto& context : toplevels) {
+      if (context->GetIsActive()) {
+        allInactive = false;
+        break;
+      }
+    }
+
+    if (allInactive) {
+      Group()->SetToplevelsSuspended(true);
+    }
+  } else if (GetIsActive() && Group()->GetToplevelsSuspended()) {
+    // Unsuspend the group since we now have an active toplevel
+    Group()->SetToplevelsSuspended(false);
+  }
+}
+
 void BrowsingContext::DidSet(FieldIndex<IDX_Muted>) {
   MOZ_ASSERT(!GetParent(), "Set muted flag on non top-level context!");
   USER_ACTIVATION_LOG("Set audio muted %d for %s browsing context 0x%08" PRIx64,
@@ -2448,12 +2474,6 @@ void BrowsingContext::InitSessionHistory() {
 
   if (!GetHasSessionHistory()) {
     SetHasSessionHistory(true);
-
-    // If the top browsing context (this one) is loaded in this process then we
-    // also create the session history implementation for the child process.
-    // This can be removed once session history is stored exclusively in the
-    // parent process.
-    mChildSessionHistory->SetIsInProcess(IsInProcess());
   }
 }
 
@@ -2482,6 +2502,11 @@ void BrowsingContext::CreateChildSHistory() {
   // history. That is why we create the ChildSHistory object in every process
   // where we have access to this browsing context (which is the top one).
   mChildSessionHistory = new ChildSHistory(this);
+
+  // If the top browsing context (this one) is loaded in this process then we
+  // also create the session history implementation for the child process.
+  // This can be removed once session history is stored exclusively in the
+  // parent process.
   mChildSessionHistory->SetIsInProcess(IsInProcess());
 }
 
@@ -2500,6 +2525,35 @@ bool BrowsingContext::CanSet(FieldIndex<IDX_BrowserId>, const uint32_t& aValue,
   // We should only be able to set this for toplevel contexts which don't have
   // an ID yet.
   return GetBrowserId() == 0 && IsTop() && Children().IsEmpty();
+}
+
+void BrowsingContext::SessionHistoryChanged(int32_t aIndexDelta,
+                                            int32_t aLengthDelta) {
+  if (XRE_IsParentProcess() || StaticPrefs::fission_sessionHistoryInParent()) {
+    // This method is used to test index and length for the session history
+    // in child process only.
+    return;
+  }
+
+  if (!IsTop()) {
+    // Some tests have unexpected setup while Fission shistory is being
+    // implemented.
+    return;
+  }
+
+  RefPtr<ChildSHistory> shistory = GetChildSessionHistory();
+  if (!shistory || !shistory->AsyncHistoryLength()) {
+    return;
+  }
+
+  nsID changeID = shistory->AddPendingHistoryChange(aIndexDelta, aLengthDelta);
+  uint32_t index = shistory->Index();
+  uint32_t length = shistory->Count();
+
+  // Do artificial history update through parent process to test asynchronous
+  // history.length handling.
+  ContentChild::GetSingleton()->SendSessionHistoryUpdate(this, index, length,
+                                                         changeID);
 }
 
 }  // namespace dom

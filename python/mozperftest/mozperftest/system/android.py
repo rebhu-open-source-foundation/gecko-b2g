@@ -13,18 +13,17 @@ from mozperftest.utils import download_file
 
 
 _ROOT_URL = "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/"
-_FENIX_FENNEC_BUILDS = (
-    "project.mobile.fenix.v2.fennec-nightly.latest/artifacts/public/build/"
+_FENIX_NIGHTLY_BUILDS = (
+    "mobile.v2.fenix.nightly.latest.{architecture}"
+    "/artifacts/public/build/{architecture}/geckoNightly/target.apk"
 )
 _GV_BUILDS = "gecko.v2.mozilla-central.nightly.latest.mobile.android-"
 
 _PERMALINKS = {
-    "fenix_fennec_nightly_armeabi_v7a": _ROOT_URL
-    + _FENIX_FENNEC_BUILDS
-    + "armeabi-v7a/geckoNightly/target.apk",
-    "fenix_fennec_nightly_arm64_v8a": _ROOT_URL
-    + _FENIX_FENNEC_BUILDS
-    + "arm64-v8a/geckoNightly/target.apk",
+    "fenix_nightly_armeabi_v7a": _ROOT_URL
+    + _FENIX_NIGHTLY_BUILDS.format(architecture="armeabi-v7a"),
+    "fenix_nightly_arm64_v8a": _ROOT_URL
+    + _FENIX_NIGHTLY_BUILDS.format(architecture="arm64-v8a"),
     # The two following aliases are used for Fenix multi-commit testing in CI
     "fenix_nightlysim_multicommit_arm64_v8a": None,
     "fenix_nightlysim_multicommit_armeabi_v7a": None,
@@ -46,7 +45,7 @@ class ADBLoggedDevice(ADBDevice):
         self._provided_logger = kw.pop("logger")
         super(ADBLoggedDevice, self).__init__(*args, **kw)
 
-    def _get_logger(self, logger_name):
+    def _get_logger(self, logger_name, verbose):
         return self._provided_logger
 
 

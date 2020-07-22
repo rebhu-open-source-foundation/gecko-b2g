@@ -657,6 +657,8 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   bool CrossOriginIsolated();
 
+  void SessionHistoryChanged(int32_t aIndexDelta, int32_t aLengthDelta);
+
  protected:
   virtual ~BrowsingContext();
   BrowsingContext(WindowContext* aParentWindow, BrowsingContextGroup* aGroup,
@@ -741,6 +743,7 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   }
 
   void DidSet(FieldIndex<IDX_UserActivationState>);
+  void DidSet(FieldIndex<IDX_IsActive>, bool aOldValue);
 
   // Ensure that we only set the flag on the top level browsingContext.
   // And then, we do a pre-order walk in the tree to refresh the

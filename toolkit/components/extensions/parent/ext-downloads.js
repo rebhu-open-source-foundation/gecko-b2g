@@ -96,6 +96,77 @@ const FORBIDDEN_PREFIXES = /^PROXY-|^SEC-/i;
 
 const PROMPTLESS_DOWNLOAD_PREF = "browser.download.useDownloadDir";
 
+// Lists of file extensions for each file picker filter taken from filepicker.properties
+const FILTER_HTML_EXTENSIONS = ["html", "htm", "shtml", "xhtml"];
+
+const FILTER_TEXT_EXTENSIONS = ["txt", "text"];
+
+const FILTER_IMAGES_EXTENSIONS = [
+  "jpe",
+  "jpg",
+  "jpeg",
+  "gif",
+  "png",
+  "bmp",
+  "ico",
+  "svg",
+  "svgz",
+  "tif",
+  "tiff",
+  "ai",
+  "drw",
+  "pct",
+  "psp",
+  "xcf",
+  "psd",
+  "raw",
+  "webp",
+];
+
+const FILTER_XML_EXTENSIONS = ["xml"];
+
+const FILTER_AUDIO_EXTENSIONS = [
+  "aac",
+  "aif",
+  "flac",
+  "iff",
+  "m4a",
+  "m4b",
+  "mid",
+  "midi",
+  "mp3",
+  "mpa",
+  "mpc",
+  "oga",
+  "ogg",
+  "ra",
+  "ram",
+  "snd",
+  "wav",
+  "wma",
+];
+
+const FILTER_VIDEO_EXTENSIONS = [
+  "avi",
+  "divx",
+  "flv",
+  "m4v",
+  "mkv",
+  "mov",
+  "mp4",
+  "mpeg",
+  "mpg",
+  "ogm",
+  "ogv",
+  "ogx",
+  "rm",
+  "rmvb",
+  "smil",
+  "webm",
+  "wmv",
+  "xvid",
+];
+
 class DownloadItem {
   constructor(id, download, extension) {
     this.id = id;
@@ -767,6 +838,22 @@ this.downloads = class extends ExtensionAPI {
               });
             }
 
+            function appendFilterForFileExtension(picker, ext) {
+              if (FILTER_HTML_EXTENSIONS.includes(ext)) {
+                picker.appendFilters(Ci.nsIFilePicker.filterHTML);
+              } else if (FILTER_TEXT_EXTENSIONS.includes(ext)) {
+                picker.appendFilters(Ci.nsIFilePicker.filterText);
+              } else if (FILTER_IMAGES_EXTENSIONS.includes(ext)) {
+                picker.appendFilters(Ci.nsIFilePicker.filterImages);
+              } else if (FILTER_XML_EXTENSIONS.includes(ext)) {
+                picker.appendFilters(Ci.nsIFilePicker.filterXML);
+              } else if (FILTER_AUDIO_EXTENSIONS.includes(ext)) {
+                picker.appendFilters(Ci.nsIFilePicker.filterAudio);
+              } else if (FILTER_VIDEO_EXTENSIONS.includes(ext)) {
+                picker.appendFilters(Ci.nsIFilePicker.filterVideo);
+              }
+            }
+
             function saveLastDirectory(lastDir) {
               downloadLastDir.setFile(extension.baseURI, lastDir);
             }
@@ -776,7 +863,7 @@ this.downloads = class extends ExtensionAPI {
             // main window (e.g. Thunderbird).
             const window = global.windowTracker.getTopWindow().window;
             const basename = OS.Path.basename(target);
-            const ext = basename.match(/\.([^.]+)$/);
+            const ext = basename.match(/\.([^.]+)$/)?.[1];
 
             // If the filename passed in by the extension is a simple name
             // and not a path, we open the file picker so it displays the
@@ -797,11 +884,13 @@ this.downloads = class extends ExtensionAPI {
             } else {
               picker.displayDirectory = new FileUtils.File(dir);
             }
-            picker.appendFilters(Ci.nsIFilePicker.filterAll);
             picker.defaultString = basename;
-
-            // Configure a default file extension, used as fallback on Windows.
-            picker.defaultExtension = ext && ext[1];
+            if (ext) {
+              // Configure a default file extension, used as fallback on Windows.
+              picker.defaultExtension = ext;
+              appendFilterForFileExtension(picker, ext);
+            }
+            picker.appendFilters(Ci.nsIFilePicker.filterAll);
 
             // Open the dialog and resolve/reject with the result.
             return new Promise((resolve, reject) => {
@@ -823,8 +912,23 @@ this.downloads = class extends ExtensionAPI {
               const source = {
                 url: options.url,
                 isPrivate: options.incognito,
+                // Use the extension's principal to allow extensions to observe
+                // their own downloads via the webRequest API.
                 loadingPrincipal: context.principal,
               };
+
+              // blob:-URLs can only be loaded by the principal with which they
+              // are associated. This principal may have origin attributes.
+              // `context.principal` does sometimes not have these attributes
+              // due to bug 1653681. If `context.principal` were to be passed,
+              // the download request would be rejected because of mismatching
+              // principals (origin attributes).
+              // TODO bug 1653681: fix context.principal and remove this.
+              if (options.url.startsWith("blob:")) {
+                // To make sure that the blob:-URL can be loaded, fall back to
+                // the default (system) principal instead.
+                delete source.loadingPrincipal;
+              }
 
               // Unless the API user explicitly wants errors ignored,
               // set the allowHttpStatus callback, which will instruct

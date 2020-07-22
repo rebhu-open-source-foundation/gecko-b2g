@@ -3503,6 +3503,10 @@ nsresult nsWindow::MakeFullScreen(bool aFullScreen, nsIScreen* aTargetScreen) {
   // taskbarInfo will be nullptr pre Windows 7 until Bug 680227 is resolved.
   nsCOMPtr<nsIWinTaskbar> taskbarInfo = do_GetService(NS_TASKBAR_CONTRACTID);
 
+  if (mWidgetListener) {
+    mWidgetListener->FullscreenWillChange(aFullScreen);
+  }
+
   mFullscreenMode = aFullScreen;
   if (aFullScreen) {
     if (mSizeMode == nsSizeMode_Fullscreen) return NS_OK;
@@ -4377,8 +4381,6 @@ bool nsWindow::DispatchMouseEvent(EventMessage aEventMessage, WPARAM wParam,
                                   LPARAM lParam, bool aIsContextMenuKey,
                                   int16_t aButton, uint16_t aInputSource,
                                   WinPointerInfo* aPointerInfo) {
-  enum { eUnset, ePrecise, eTouch };
-  static int sTouchInputActiveState = eUnset;
   bool result = false;
 
   UserActivity();
@@ -4408,15 +4410,6 @@ bool nsWindow::DispatchMouseEvent(EventMessage aEventMessage, WPARAM wParam,
                            1);
     }
 
-    // Fire an observer when the user initially touches a touch screen. Front
-    // end uses this to modify UX.
-    if (sTouchInputActiveState != eTouch) {
-      sTouchInputActiveState = eTouch;
-      nsCOMPtr<nsIObserverService> obsServ =
-          mozilla::services::GetObserverService();
-      obsServ->NotifyObservers(nullptr, "touch-input-detected", nullptr);
-    }
-
     if (mTouchWindow) {
       // If mTouchWindow is true, then we must have APZ enabled and be
       // feeding it raw touch events. In that case we only want to
@@ -4430,14 +4423,6 @@ bool nsWindow::DispatchMouseEvent(EventMessage aEventMessage, WPARAM wParam,
       } else {
         return result;
       }
-    }
-  } else {
-    // Fire an observer when the user initially uses a mouse or pen.
-    if (sTouchInputActiveState != ePrecise) {
-      sTouchInputActiveState = ePrecise;
-      nsCOMPtr<nsIObserverService> obsServ =
-          mozilla::services::GetObserverService();
-      obsServ->NotifyObservers(nullptr, "precise-input-detected", nullptr);
     }
   }
 
@@ -6937,7 +6922,7 @@ void nsWindow::OnWindowPosChanging(LPWINDOWPOS& info) {
 void nsWindow::UserActivity() {
   // Check if we have the idle service, if not we try to get it.
   if (!mIdleService) {
-    mIdleService = do_GetService("@mozilla.org/widget/idleservice;1");
+    mIdleService = do_GetService("@mozilla.org/widget/useridleservice;1");
   }
 
   // Check that we now have the idle service.

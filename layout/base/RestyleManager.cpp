@@ -506,14 +506,15 @@ static nsChangeHint ChangeForContentStateChange(const Element& aElement,
       return nsChangeHint_ReconstructFrame;
     }
 
-    auto* disp = primaryFrame->StyleDisplay();
-    if (disp->HasAppearance()) {
+    StyleAppearance appearance =
+        primaryFrame->StyleDisplay()->EffectiveAppearance();
+    if (appearance != StyleAppearance::None) {
       nsPresContext* pc = primaryFrame->PresContext();
       nsITheme* theme = pc->Theme();
-      if (theme->ThemeSupportsWidget(pc, primaryFrame, disp->mAppearance)) {
+      if (theme->ThemeSupportsWidget(pc, primaryFrame, appearance)) {
         bool repaint = false;
-        theme->WidgetStateChanged(primaryFrame, disp->mAppearance, nullptr,
-                                  &repaint, nullptr);
+        theme->WidgetStateChanged(primaryFrame, appearance, nullptr, &repaint,
+                                  nullptr);
         if (repaint) {
           changeHint |= nsChangeHint_RepaintFrame;
         }
@@ -3200,14 +3201,18 @@ void RestyleManager::ContentStateChanged(nsIContent* aContent,
 
 static inline bool AttributeInfluencesOtherPseudoClassState(
     const Element& aElement, const nsAtom* aAttribute) {
-  // We must record some state for :-moz-browser-frame and
-  // :-moz-table-border-nonzero.
+  // We must record some state for :-moz-browser-frame,
+  // :-moz-table-border-nonzero, and :-moz-select-list-box.
   if (aAttribute == nsGkAtoms::mozbrowser) {
     return aElement.IsAnyOfHTMLElements(nsGkAtoms::iframe, nsGkAtoms::frame);
   }
 
   if (aAttribute == nsGkAtoms::border) {
     return aElement.IsHTMLElement(nsGkAtoms::table);
+  }
+
+  if (aAttribute == nsGkAtoms::multiple || aAttribute == nsGkAtoms::size) {
+    return aElement.IsHTMLElement(nsGkAtoms::select);
   }
 
   return false;
@@ -3343,13 +3348,13 @@ void RestyleManager::AttributeChanged(Element* aElement, int32_t aNameSpaceID,
 
   if (nsIFrame* primaryFrame = aElement->GetPrimaryFrame()) {
     // See if we have appearance information for a theme.
-    const nsStyleDisplay* disp = primaryFrame->StyleDisplay();
-    if (disp->HasAppearance()) {
+    StyleAppearance appearance =
+        primaryFrame->StyleDisplay()->EffectiveAppearance();
+    if (appearance != StyleAppearance::None) {
       nsITheme* theme = PresContext()->Theme();
-      if (theme->ThemeSupportsWidget(PresContext(), primaryFrame,
-                                     disp->mAppearance)) {
+      if (theme->ThemeSupportsWidget(PresContext(), primaryFrame, appearance)) {
         bool repaint = false;
-        theme->WidgetStateChanged(primaryFrame, disp->mAppearance, aAttribute,
+        theme->WidgetStateChanged(primaryFrame, appearance, aAttribute,
                                   &repaint, aOldValue);
         if (repaint) {
           changeHint |= nsChangeHint_RepaintFrame;

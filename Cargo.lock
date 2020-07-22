@@ -111,9 +111,9 @@ dependencies = [
 
 [[package]]
 name = "audio_thread_priority"
-version = "0.22.1"
+version = "0.23.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8fba1500e466a39dd3faa5aed20a50dfe0aa1b905264a453bbe9f49508994cc"
+checksum = "cec7141c59547709f640219f15512026d416c0ca8ce7a5ac1524923ee65be2cb"
 dependencies = [
  "cfg-if",
  "dbus",
@@ -733,22 +733,22 @@ dependencies = [
 
 [[package]]
 name = "cranelift-bforest"
-version = "0.65.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=47a218f908e6bdeb7a0fb65ed74e58a0b608080d#47a218f908e6bdeb7a0fb65ed74e58a0b608080d"
+version = "0.66.0"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=1b3b2dbfd00492161032760992a8699d19b640ca#1b3b2dbfd00492161032760992a8699d19b640ca"
 dependencies = [
- "cranelift-entity 0.65.0",
+ "cranelift-entity 0.66.0",
 ]
 
 [[package]]
 name = "cranelift-codegen"
-version = "0.65.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=47a218f908e6bdeb7a0fb65ed74e58a0b608080d#47a218f908e6bdeb7a0fb65ed74e58a0b608080d"
+version = "0.66.0"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=1b3b2dbfd00492161032760992a8699d19b640ca#1b3b2dbfd00492161032760992a8699d19b640ca"
 dependencies = [
  "byteorder",
  "cranelift-bforest",
  "cranelift-codegen-meta",
  "cranelift-codegen-shared",
- "cranelift-entity 0.65.0",
+ "cranelift-entity 0.66.0",
  "log",
  "regalloc",
  "smallvec",
@@ -758,17 +758,17 @@ dependencies = [
 
 [[package]]
 name = "cranelift-codegen-meta"
-version = "0.65.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=47a218f908e6bdeb7a0fb65ed74e58a0b608080d#47a218f908e6bdeb7a0fb65ed74e58a0b608080d"
+version = "0.66.0"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=1b3b2dbfd00492161032760992a8699d19b640ca#1b3b2dbfd00492161032760992a8699d19b640ca"
 dependencies = [
  "cranelift-codegen-shared",
- "cranelift-entity 0.65.0",
+ "cranelift-entity 0.66.0",
 ]
 
 [[package]]
 name = "cranelift-codegen-shared"
-version = "0.65.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=47a218f908e6bdeb7a0fb65ed74e58a0b608080d#47a218f908e6bdeb7a0fb65ed74e58a0b608080d"
+version = "0.66.0"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=1b3b2dbfd00492161032760992a8699d19b640ca#1b3b2dbfd00492161032760992a8699d19b640ca"
 
 [[package]]
 name = "cranelift-entity"
@@ -777,13 +777,13 @@ source = "git+https://github.com/PLSysSec/lucet_sandbox_compiler?rev=5e870faf6f9
 
 [[package]]
 name = "cranelift-entity"
-version = "0.65.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=47a218f908e6bdeb7a0fb65ed74e58a0b608080d#47a218f908e6bdeb7a0fb65ed74e58a0b608080d"
+version = "0.66.0"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=1b3b2dbfd00492161032760992a8699d19b640ca#1b3b2dbfd00492161032760992a8699d19b640ca"
 
 [[package]]
 name = "cranelift-frontend"
-version = "0.65.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=47a218f908e6bdeb7a0fb65ed74e58a0b608080d#47a218f908e6bdeb7a0fb65ed74e58a0b608080d"
+version = "0.66.0"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=1b3b2dbfd00492161032760992a8699d19b640ca#1b3b2dbfd00492161032760992a8699d19b640ca"
 dependencies = [
  "cranelift-codegen",
  "log",
@@ -793,15 +793,15 @@ dependencies = [
 
 [[package]]
 name = "cranelift-wasm"
-version = "0.65.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=47a218f908e6bdeb7a0fb65ed74e58a0b608080d#47a218f908e6bdeb7a0fb65ed74e58a0b608080d"
+version = "0.66.0"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=1b3b2dbfd00492161032760992a8699d19b640ca#1b3b2dbfd00492161032760992a8699d19b640ca"
 dependencies = [
  "cranelift-codegen",
- "cranelift-entity 0.65.0",
+ "cranelift-entity 0.66.0",
  "cranelift-frontend",
  "log",
  "thiserror",
- "wasmparser 0.58.0",
+ "wasmparser 0.59.0",
 ]
 
 [[package]]
@@ -1037,6 +1037,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "defaultagent-static"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "url",
+ "viaduct",
+ "winapi 0.3.7",
+ "wineventlog",
+ "wio",
+]
+
+[[package]]
 name = "deflate"
 version = "0.7.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1251,9 +1266,9 @@ dependencies = [
 
 [[package]]
 name = "euclid"
-version = "0.20.8"
+version = "0.20.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57d9ae79e19d69ffb5b47b0a744c4215c115dfed4039314c9ca1b8ddc6c333be"
+checksum = "2bb7ef65b3777a325d1eeefefab5b6d4959da54747e33bd6258e789640f307ad"
 dependencies = [
  "num-traits",
  "serde",
@@ -3971,9 +3986,9 @@ dependencies = [
 
 [[package]]
 name = "regalloc"
-version = "0.0.26"
+version = "0.0.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c03092d79e0fd610932d89ed53895a38c0dd3bcd317a0046e69940de32f1d95"
+checksum = "3598bed0895fe0f72a9e0b00ef9e3a3c8af978a8401b2f2046dec5927de6364a"
 dependencies = [
  "log",
  "rustc-hash",
@@ -5402,9 +5417,9 @@ checksum = "073da89bf1c84db000dd68ce660c1b4a08e3a2d28fd1e3394ab9e7abdde4a0f8"
 
 [[package]]
 name = "wasmparser"
-version = "0.58.0"
+version = "0.59.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "721a8d79483738d7aef6397edcf8f04cd862640b1ad5973adf5bb50fc10e86db"
+checksum = "a950e6a618f62147fd514ff445b2a0b53120d382751960797f85f058c7eda9b9"
 
 [[package]]
 name = "wast"

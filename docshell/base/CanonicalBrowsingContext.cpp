@@ -85,6 +85,12 @@ const CanonicalBrowsingContext* CanonicalBrowsingContext::Cast(
   return static_cast<const CanonicalBrowsingContext*>(aContext);
 }
 
+already_AddRefed<CanonicalBrowsingContext> CanonicalBrowsingContext::Cast(
+    already_AddRefed<BrowsingContext>&& aContext) {
+  MOZ_RELEASE_ASSERT(XRE_IsParentProcess());
+  return aContext.downcast<CanonicalBrowsingContext>();
+}
+
 ContentParent* CanonicalBrowsingContext::GetContentParent() const {
   if (mProcessId == 0) {
     return nullptr;
@@ -276,7 +282,7 @@ CanonicalBrowsingContext::CreateSessionHistoryEntryForLoad(
 }
 
 void CanonicalBrowsingContext::SessionHistoryCommit(
-    uint64_t aSessionHistoryEntryId) {
+    uint64_t aSessionHistoryEntryId, const nsID& aChangeID) {
   for (size_t i = 0; i < mLoadingEntries.Length(); ++i) {
     if (mLoadingEntries[i]->Info().Id() == aSessionHistoryEntryId) {
       nsISHistory* shistory = GetSessionHistory();
@@ -313,9 +319,13 @@ void CanonicalBrowsingContext::SessionHistoryCommit(
         }
       }
       Group()->EachParent([&](ContentParent* aParent) {
-        // FIXME Should we return the length to the one process that committed
-        //       as an async return value? Or should this use synced fields?
-        Unused << aParent->SendHistoryCommitLength(Top(), shistory->GetCount());
+        nsISHistory* shistory = GetSessionHistory();
+        int32_t index = 0;
+        int32_t length = 0;
+        shistory->GetIndex(&index);
+        shistory->GetCount(&length);
+        Unused << aParent->SendHistoryCommitIndexAndLength(Top(), index, length,
+                                                           aChangeID);
       });
       return;
     }
@@ -1024,7 +1034,7 @@ bool CanonicalBrowsingContext::LoadInParent(nsDocShellLoadState* aLoadState,
   // Ideally in the future we will only start loads from here, and we can
   // just set this directly instead.
   return net::DocumentLoadListener::LoadInParent(this, aLoadState,
-                                                 outerWindowId, aSetNavigating);
+                                                 aSetNavigating);
 }
 
 bool CanonicalBrowsingContext::AttemptSpeculativeLoadInParent(
@@ -1048,8 +1058,7 @@ bool CanonicalBrowsingContext::AttemptSpeculativeLoadInParent(
   // If we successfully open the DocumentChannel, then it'll register
   // itself using aLoadIdentifier and be kept alive until it completes
   // loading.
-  return net::DocumentLoadListener::SpeculativeLoadInParent(this, aLoadState,
-                                                            outerWindowId);
+  return net::DocumentLoadListener::SpeculativeLoadInParent(this, aLoadState);
 }
 
 bool CanonicalBrowsingContext::StartDocumentLoad(

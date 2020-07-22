@@ -46,15 +46,6 @@ using namespace mozilla::dom;
 namespace mozilla {
 namespace net {
 
-static uint64_t FindTopOuterWindowID(nsPIDOMWindowOuter* aOuter) {
-  nsCOMPtr<nsPIDOMWindowOuter> outer = aOuter;
-  while (nsCOMPtr<nsPIDOMWindowOuter> parent =
-             outer->GetInProcessScriptableParentOrNull()) {
-    outer = parent;
-  }
-  return outer->WindowID();
-}
-
 static nsContentPolicyType InternalContentPolicyTypeForFrame(
     CanonicalBrowsingContext* aBrowsingContext) {
   const auto& maybeEmbedderElementType =
@@ -69,6 +60,33 @@ static nsContentPolicyType InternalContentPolicyTypeForFrame(
              : nsIContentPolicy::TYPE_INTERNAL_FRAME;
 }
 
+/* static */ already_AddRefed<LoadInfo> LoadInfo::CreateForDocument(
+    dom::CanonicalBrowsingContext* aBrowsingContext,
+    nsIPrincipal* aTriggeringPrincipal,
+    const OriginAttributes& aOriginAttributes, nsSecurityFlags aSecurityFlags,
+    uint32_t aSandboxFlags) {
+  return MakeAndAddRef<LoadInfo>(aBrowsingContext, aTriggeringPrincipal,
+                                 aOriginAttributes, aSecurityFlags,
+                                 aSandboxFlags);
+}
+
+/* static */ already_AddRefed<LoadInfo> LoadInfo::CreateForFrame(
+    dom::CanonicalBrowsingContext* aBrowsingContext,
+    nsIPrincipal* aTriggeringPrincipal, nsSecurityFlags aSecurityFlags,
+    uint32_t aSandboxFlags) {
+  return MakeAndAddRef<LoadInfo>(aBrowsingContext, aTriggeringPrincipal,
+                                 aSecurityFlags, aSandboxFlags);
+}
+
+/* static */ already_AddRefed<LoadInfo> LoadInfo::CreateForNonDocument(
+    dom::WindowGlobalParent* aParentWGP, nsIPrincipal* aTriggeringPrincipal,
+    nsContentPolicyType aContentPolicyType, nsSecurityFlags aSecurityFlags,
+    uint32_t aSandboxFlags) {
+  return MakeAndAddRef<LoadInfo>(aParentWGP, aTriggeringPrincipal,
+                                 aContentPolicyType, aSecurityFlags,
+                                 aSandboxFlags);
+}
+
 LoadInfo::LoadInfo(
     nsIPrincipal* aLoadingPrincipal, nsIPrincipal* aTriggeringPrincipal,
     nsINode* aLoadingContext, nsSecurityFlags aSecurityFlags,
@@ -80,54 +98,12 @@ LoadInfo::LoadInfo(
                                         : aLoadingPrincipal),
       mTriggeringPrincipal(aTriggeringPrincipal ? aTriggeringPrincipal
                                                 : mLoadingPrincipal.get()),
-      mPrincipalToInherit(nullptr),
       mClientInfo(aLoadingClientInfo),
       mController(aController),
       mLoadingContext(do_GetWeakReference(aLoadingContext)),
-      mContextForTopLevelLoad(nullptr),
       mSecurityFlags(aSecurityFlags),
       mSandboxFlags(aSandboxFlags),
-      mInternalContentPolicyType(aContentPolicyType),
-      mTainting(LoadTainting::Basic),
-      mBlockAllMixedContent(false),
-      mUpgradeInsecureRequests(false),
-      mBrowserUpgradeInsecureRequests(false),
-      mBrowserWouldUpgradeInsecureRequests(false),
-      mForceAllowDataURI(false),
-      mAllowInsecureRedirectToDataURI(false),
-      mBypassCORSChecks(false),
-      mSkipContentPolicyCheckForWebRequest(false),
-      mOriginalFrameSrcLoad(false),
-      mForceInheritPrincipalDropped(false),
-      mInnerWindowID(0),
-      mOuterWindowID(0),
-      mParentOuterWindowID(0),
-      mTopOuterWindowID(0),
-      mFrameOuterWindowID(0),
-      mBrowsingContextID(0),
-      mFrameBrowsingContextID(0),
-      mInitialSecurityCheckDone(false),
-      mIsThirdPartyContext(false),
-      mIsThirdPartyContextToTopWindow(true),
-      mIsFormSubmission(false),
-      mSendCSPViolationEvents(true),
-      mRequestBlockingReason(BLOCKING_REASON_NONE),
-      mForcePreflight(false),
-      mIsPreflight(false),
-      mLoadTriggeredFromExternal(false),
-      mServiceWorkerTaintingSynthesized(false),
-      mDocumentHasUserInteracted(false),
-      mDocumentHasLoaded(false),
-      mAllowListFutureDocumentsCreatedFromThisRedirectChain(false),
-      mSkipContentSniffing(false),
-      mHttpsOnlyStatus(nsILoadInfo::HTTPS_ONLY_UNINITIALIZED),
-      mHasValidUserGestureActivation(false),
-      mAllowDeprecatedSystemRequests(false),
-      mIsInDevToolsContext(false),
-      mParserCreatedScript(false),
-      mHasStoragePermission(false),
-      mIsFromProcessingFrameAttributes(false),
-      mLoadingEmbedderPolicy(nsILoadInfo::EMBEDDER_POLICY_NULL) {
+      mInternalContentPolicyType(aContentPolicyType) {
   MOZ_ASSERT(mLoadingPrincipal);
   MOZ_ASSERT(mTriggeringPrincipal);
 
@@ -194,11 +170,6 @@ LoadInfo::LoadInfo(
         aLoadingContext->OwnerDoc()->GetWindow();
     if (contextOuter) {
       ComputeIsThirdPartyContext(contextOuter);
-      mOuterWindowID = contextOuter->WindowID();
-      nsCOMPtr<nsPIDOMWindowOuter> parent =
-          contextOuter->GetInProcessScriptableParent();
-      mParentOuterWindowID = parent ? parent->WindowID() : mOuterWindowID;
-      mTopOuterWindowID = FindTopOuterWindowID(contextOuter);
       RefPtr<dom::BrowsingContext> bc = contextOuter->GetBrowsingContext();
       MOZ_ASSERT(bc);
       mBrowsingContextID = bc->Id();
@@ -282,8 +253,6 @@ LoadInfo::LoadInfo(
       if (docShell) {
         nsCOMPtr<nsPIDOMWindowOuter> outerWindow = do_GetInterface(docShell);
         if (outerWindow) {
-          mFrameOuterWindowID = outerWindow->WindowID();
-
           RefPtr<dom::BrowsingContext> bc = outerWindow->GetBrowsingContext();
           mFrameBrowsingContextID = bc ? bc->Id() : 0;
         }
@@ -365,53 +334,11 @@ LoadInfo::LoadInfo(nsPIDOMWindowOuter* aOuterWindow,
                    nsIPrincipal* aTriggeringPrincipal,
                    nsISupports* aContextForTopLevelLoad,
                    nsSecurityFlags aSecurityFlags, uint32_t aSandboxFlags)
-    : mLoadingPrincipal(nullptr),
-      mTriggeringPrincipal(aTriggeringPrincipal),
-      mPrincipalToInherit(nullptr),
+    : mTriggeringPrincipal(aTriggeringPrincipal),
       mContextForTopLevelLoad(do_GetWeakReference(aContextForTopLevelLoad)),
       mSecurityFlags(aSecurityFlags),
       mSandboxFlags(aSandboxFlags),
-      mInternalContentPolicyType(nsIContentPolicy::TYPE_DOCUMENT),
-      mTainting(LoadTainting::Basic),
-      mBlockAllMixedContent(false),
-      mUpgradeInsecureRequests(false),
-      mBrowserUpgradeInsecureRequests(false),
-      mBrowserWouldUpgradeInsecureRequests(false),
-      mForceAllowDataURI(false),
-      mAllowInsecureRedirectToDataURI(false),
-      mBypassCORSChecks(false),
-      mSkipContentPolicyCheckForWebRequest(false),
-      mOriginalFrameSrcLoad(false),
-      mForceInheritPrincipalDropped(false),
-      mInnerWindowID(0),
-      mOuterWindowID(0),
-      mParentOuterWindowID(0),
-      mTopOuterWindowID(0),
-      mFrameOuterWindowID(0),
-      mBrowsingContextID(0),
-      mFrameBrowsingContextID(0),
-      mInitialSecurityCheckDone(false),
-      mIsThirdPartyContext(false),  // NB: TYPE_DOCUMENT implies !third-party.
-      mIsThirdPartyContextToTopWindow(true),
-      mIsFormSubmission(false),
-      mSendCSPViolationEvents(true),
-      mRequestBlockingReason(BLOCKING_REASON_NONE),
-      mForcePreflight(false),
-      mIsPreflight(false),
-      mLoadTriggeredFromExternal(false),
-      mServiceWorkerTaintingSynthesized(false),
-      mDocumentHasUserInteracted(false),
-      mDocumentHasLoaded(false),
-      mAllowListFutureDocumentsCreatedFromThisRedirectChain(false),
-      mSkipContentSniffing(false),
-      mHttpsOnlyStatus(nsILoadInfo::HTTPS_ONLY_UNINITIALIZED),
-      mHasValidUserGestureActivation(false),
-      mAllowDeprecatedSystemRequests(false),
-      mIsInDevToolsContext(false),
-      mParserCreatedScript(false),
-      mHasStoragePermission(false),
-      mIsFromProcessingFrameAttributes(false),
-      mLoadingEmbedderPolicy(nsILoadInfo::EMBEDDER_POLICY_NULL) {
+      mInternalContentPolicyType(nsIContentPolicy::TYPE_DOCUMENT) {
   // Top-level loads are never third-party
   // Grab the information we can out of the window.
   MOZ_ASSERT(aOuterWindow);
@@ -424,9 +351,6 @@ LoadInfo::LoadInfo(nsPIDOMWindowOuter* aOuterWindow,
     mSecurityFlags &= ~nsILoadInfo::SEC_FORCE_INHERIT_PRINCIPAL;
   }
 
-  // NB: Ignore the current inner window since we're navigating away from it.
-  mOuterWindowID = mParentOuterWindowID = mTopOuterWindowID =
-      aOuterWindow->WindowID();
   RefPtr<BrowsingContext> bc = aOuterWindow->GetBrowsingContext();
   mBrowsingContextID = bc ? bc->Id() : 0;
 
@@ -448,7 +372,6 @@ LoadInfo::LoadInfo(nsPIDOMWindowOuter* aOuterWindow,
   // that aren't top level.
   if (aSecurityFlags != nsILoadInfo::SEC_ONLY_FOR_EXPLICIT_CONTENTSEC_CHECK) {
     MOZ_ASSERT(aOuterWindow->GetBrowsingContext()->IsTop());
-    MOZ_ASSERT(mTopOuterWindowID == FindTopOuterWindowID(aOuterWindow));
   }
 
 #ifdef DEBUG
@@ -467,55 +390,11 @@ LoadInfo::LoadInfo(nsPIDOMWindowOuter* aOuterWindow,
 LoadInfo::LoadInfo(dom::CanonicalBrowsingContext* aBrowsingContext,
                    nsIPrincipal* aTriggeringPrincipal,
                    const OriginAttributes& aOriginAttributes,
-                   uint64_t aOuterWindowID, nsSecurityFlags aSecurityFlags,
-                   uint32_t aSandboxFlags)
-    : mLoadingPrincipal(nullptr),
-      mTriggeringPrincipal(aTriggeringPrincipal),
-      mPrincipalToInherit(nullptr),
-      mContextForTopLevelLoad(nullptr),
+                   nsSecurityFlags aSecurityFlags, uint32_t aSandboxFlags)
+    : mTriggeringPrincipal(aTriggeringPrincipal),
       mSecurityFlags(aSecurityFlags),
       mSandboxFlags(aSandboxFlags),
-      mInternalContentPolicyType(nsIContentPolicy::TYPE_DOCUMENT),
-      mTainting(LoadTainting::Basic),
-      mBlockAllMixedContent(false),
-      mUpgradeInsecureRequests(false),
-      mBrowserUpgradeInsecureRequests(false),
-      mBrowserWouldUpgradeInsecureRequests(false),
-      mForceAllowDataURI(false),
-      mAllowInsecureRedirectToDataURI(false),
-      mBypassCORSChecks(false),
-      mSkipContentPolicyCheckForWebRequest(false),
-      mOriginalFrameSrcLoad(false),
-      mForceInheritPrincipalDropped(false),
-      mInnerWindowID(0),
-      mOuterWindowID(0),
-      mParentOuterWindowID(0),
-      mTopOuterWindowID(0),
-      mFrameOuterWindowID(0),
-      mBrowsingContextID(0),
-      mFrameBrowsingContextID(0),
-      mInitialSecurityCheckDone(false),
-      mIsThirdPartyContext(false),  // NB: TYPE_DOCUMENT implies !third-party.
-      mIsThirdPartyContextToTopWindow(true),
-      mIsFormSubmission(false),
-      mSendCSPViolationEvents(true),
-      mRequestBlockingReason(BLOCKING_REASON_NONE),
-      mForcePreflight(false),
-      mIsPreflight(false),
-      mLoadTriggeredFromExternal(false),
-      mServiceWorkerTaintingSynthesized(false),
-      mDocumentHasUserInteracted(false),
-      mDocumentHasLoaded(false),
-      mAllowListFutureDocumentsCreatedFromThisRedirectChain(false),
-      mSkipContentSniffing(false),
-      mHttpsOnlyStatus(nsILoadInfo::HTTPS_ONLY_UNINITIALIZED),
-      mHasValidUserGestureActivation(false),
-      mAllowDeprecatedSystemRequests(false),
-      mIsInDevToolsContext(false),
-      mParserCreatedScript(false),
-      mHasStoragePermission(false),
-      mIsFromProcessingFrameAttributes(false),
-      mLoadingEmbedderPolicy(nsILoadInfo::EMBEDDER_POLICY_NULL) {
+      mInternalContentPolicyType(nsIContentPolicy::TYPE_DOCUMENT) {
   // Top-level loads are never third-party
   // Grab the information we can out of the window.
   MOZ_ASSERT(aBrowsingContext);
@@ -530,10 +409,6 @@ LoadInfo::LoadInfo(dom::CanonicalBrowsingContext* aBrowsingContext,
     mSecurityFlags &= ~nsILoadInfo::SEC_FORCE_INHERIT_PRINCIPAL;
   }
 
-  // NB: Ignore the current inner window since we're navigating away from it.
-  // Since this is a TYPE_DOCUMENT load, we should be the top window, and all
-  // the outer window IDs are the same.
-  mOuterWindowID = mParentOuterWindowID = mTopOuterWindowID = aOuterWindowID;
   mBrowsingContextID = aBrowsingContext->Id();
   mOriginAttributes = aOriginAttributes;
 
@@ -552,69 +427,17 @@ LoadInfo::LoadInfo(dom::CanonicalBrowsingContext* aBrowsingContext,
 
 LoadInfo::LoadInfo(dom::WindowGlobalParent* aParentWGP,
                    nsIPrincipal* aTriggeringPrincipal,
-                   uint64_t aFrameOuterWindowID,
                    nsContentPolicyType aContentPolicyType,
                    nsSecurityFlags aSecurityFlags, uint32_t aSandboxFlags)
-    : mLoadingPrincipal(nullptr),
-      mTriggeringPrincipal(aTriggeringPrincipal),
-      mPrincipalToInherit(nullptr),
-      mClientInfo(Maybe<mozilla::dom::ClientInfo>()),
-      mController(Maybe<mozilla::dom::ServiceWorkerDescriptor>()),
-      mLoadingContext(nullptr),
-      mContextForTopLevelLoad(nullptr),
+    : mTriggeringPrincipal(aTriggeringPrincipal),
       mSecurityFlags(aSecurityFlags),
       mSandboxFlags(aSandboxFlags),
-      mInternalContentPolicyType(aContentPolicyType),
-      mTainting(LoadTainting::Basic),
-      mBlockAllMixedContent(false),
-      mUpgradeInsecureRequests(false),
-      mBrowserUpgradeInsecureRequests(false),
-      mBrowserWouldUpgradeInsecureRequests(false),
-      mForceAllowDataURI(false),
-      mAllowInsecureRedirectToDataURI(false),
-      mBypassCORSChecks(false),
-      mSkipContentPolicyCheckForWebRequest(false),
-      mOriginalFrameSrcLoad(false),
-      mForceInheritPrincipalDropped(false),
-      mInnerWindowID(0),
-      mOuterWindowID(0),
-      mParentOuterWindowID(0),
-      mTopOuterWindowID(0),
-      mFrameOuterWindowID(aFrameOuterWindowID),
-      mBrowsingContextID(0),
-      mFrameBrowsingContextID(0),
-      mInitialSecurityCheckDone(false),
-      mIsThirdPartyContext(false),
-      mIsThirdPartyContextToTopWindow(true),
-      mIsFormSubmission(false),
-      mSendCSPViolationEvents(true),
-      mRequestBlockingReason(BLOCKING_REASON_NONE),
-      mForcePreflight(false),
-      mIsPreflight(false),
-      mLoadTriggeredFromExternal(false),
-      mServiceWorkerTaintingSynthesized(false),
-      mDocumentHasUserInteracted(false),
-      mDocumentHasLoaded(false),
-      mAllowListFutureDocumentsCreatedFromThisRedirectChain(false),
-      mSkipContentSniffing(false),
-      mHttpsOnlyStatus(nsILoadInfo::HTTPS_ONLY_UNINITIALIZED),
-      mAllowDeprecatedSystemRequests(false),
-      mIsInDevToolsContext(false),
-      mParserCreatedScript(false),
-      mHasStoragePermission(false),
-      mIsFromProcessingFrameAttributes(false),
-      mLoadingEmbedderPolicy(nsILoadInfo::EMBEDDER_POLICY_NULL) {
+      mInternalContentPolicyType(aContentPolicyType) {
   CanonicalBrowsingContext* parentBC = aParentWGP->BrowsingContext();
   MOZ_ASSERT(parentBC);
   ComputeAncestors(parentBC, mAncestorPrincipals, mAncestorBrowsingContextIDs);
 
   RefPtr<WindowGlobalParent> topLevelWGP = aParentWGP->TopWindowContext();
-
-  if (WindowGlobalParent* ancestorWGP = aParentWGP->GetParentWindowContext()) {
-    mParentOuterWindowID = ancestorWGP->OuterWindowId();
-  } else {
-    mParentOuterWindowID = aParentWGP->OuterWindowId();
-  }
 
   // if the load is sandboxed, we can not also inherit the principal
   if (mSandboxFlags & SANDBOXED_ORIGIN) {
@@ -629,12 +452,6 @@ LoadInfo::LoadInfo(dom::WindowGlobalParent* aParentWGP,
   mLoadingPrincipal = aParentWGP->DocumentPrincipal();
   ComputeIsThirdPartyContext(aParentWGP);
 
-  // When the element being loaded is a frame, we choose the frame's window
-  // for the window ID (see mInnerWindowID being set below) and the frame
-  // element's window as the parent window. This is the behavior that Chrome
-  // exposes to add-ons.
-  mOuterWindowID = aParentWGP->OuterWindowId();
-  mTopOuterWindowID = topLevelWGP->OuterWindowId();
   mBrowsingContextID = parentBC->Id();
 
   // Let's inherit the cookie behavior and permission from the embedder
@@ -715,12 +532,11 @@ LoadInfo::LoadInfo(dom::WindowGlobalParent* aParentWGP,
   }
 }
 
+// Used for TYPE_FRAME or TYPE_IFRAME load.
 LoadInfo::LoadInfo(dom::CanonicalBrowsingContext* aBrowsingContext,
                    nsIPrincipal* aTriggeringPrincipal,
-                   uint64_t aFrameOuterWindowID, nsSecurityFlags aSecurityFlags,
-                   uint32_t aSandboxFlags)
+                   nsSecurityFlags aSecurityFlags, uint32_t aSandboxFlags)
     : LoadInfo(aBrowsingContext->GetParentWindowContext(), aTriggeringPrincipal,
-               aFrameOuterWindowID,
                InternalContentPolicyTypeForFrame(aBrowsingContext),
                aSecurityFlags, aSandboxFlags) {
   mFrameBrowsingContextID = aBrowsingContext->Id();
@@ -761,10 +577,6 @@ LoadInfo::LoadInfo(const LoadInfo& rhs)
       mOriginalFrameSrcLoad(rhs.mOriginalFrameSrcLoad),
       mForceInheritPrincipalDropped(rhs.mForceInheritPrincipalDropped),
       mInnerWindowID(rhs.mInnerWindowID),
-      mOuterWindowID(rhs.mOuterWindowID),
-      mParentOuterWindowID(rhs.mParentOuterWindowID),
-      mTopOuterWindowID(rhs.mTopOuterWindowID),
-      mFrameOuterWindowID(rhs.mFrameOuterWindowID),
       mBrowsingContextID(rhs.mBrowsingContextID),
       mFrameBrowsingContextID(rhs.mFrameBrowsingContextID),
       mInitialSecurityCheckDone(rhs.mInitialSecurityCheckDone),
@@ -820,8 +632,6 @@ LoadInfo::LoadInfo(
     bool aAllowInsecureRedirectToDataURI, bool aBypassCORSChecks,
     bool aSkipContentPolicyCheckForWebRequest,
     bool aForceInheritPrincipalDropped, uint64_t aInnerWindowID,
-    uint64_t aOuterWindowID, uint64_t aParentOuterWindowID,
-    uint64_t aTopOuterWindowID, uint64_t aFrameOuterWindowID,
     uint64_t aBrowsingContextID, uint64_t aFrameBrowsingContextID,
     bool aInitialSecurityCheckDone, bool aIsThirdPartyContext,
     bool aIsThirdPartyContextToTopWindow, bool aIsFormSubmission,
@@ -871,10 +681,6 @@ LoadInfo::LoadInfo(
       mOriginalFrameSrcLoad(false),
       mForceInheritPrincipalDropped(aForceInheritPrincipalDropped),
       mInnerWindowID(aInnerWindowID),
-      mOuterWindowID(aOuterWindowID),
-      mParentOuterWindowID(aParentOuterWindowID),
-      mTopOuterWindowID(aTopOuterWindowID),
-      mFrameOuterWindowID(aFrameOuterWindowID),
       mBrowsingContextID(aBrowsingContextID),
       mFrameBrowsingContextID(aFrameBrowsingContextID),
       mInitialSecurityCheckDone(aInitialSecurityCheckDone),
@@ -1417,30 +1223,6 @@ LoadInfo::GetInnerWindowID(uint64_t* aResult) {
 }
 
 NS_IMETHODIMP
-LoadInfo::GetOuterWindowID(uint64_t* aResult) {
-  *aResult = mOuterWindowID;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-LoadInfo::GetParentOuterWindowID(uint64_t* aResult) {
-  *aResult = mParentOuterWindowID;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-LoadInfo::GetTopOuterWindowID(uint64_t* aResult) {
-  *aResult = mTopOuterWindowID;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-LoadInfo::GetFrameOuterWindowID(uint64_t* aResult) {
-  *aResult = mFrameOuterWindowID;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
 LoadInfo::GetBrowsingContextID(uint64_t* aResult) {
   *aResult = mBrowsingContextID;
   return NS_OK;
@@ -1848,8 +1630,9 @@ LoadInfo::SetParserCreatedScript(bool aParserCreatedScript) {
 
 NS_IMETHODIMP
 LoadInfo::GetIsTopLevelLoad(bool* aResult) {
-  *aResult = mFrameOuterWindowID ? mFrameOuterWindowID == mOuterWindowID
-                                 : mParentOuterWindowID == mOuterWindowID;
+  RefPtr<dom::BrowsingContext> bc;
+  GetTargetBrowsingContext(getter_AddRefs(bc));
+  *aResult = !bc || bc->IsTop();
   return NS_OK;
 }
 
@@ -1969,13 +1752,12 @@ PerformanceStorage* LoadInfo::GetPerformanceStorage() {
     return mPerformanceStorage;
   }
 
-  RefPtr<dom::Document> loadingDocument;
-  GetLoadingDocument(getter_AddRefs(loadingDocument));
-  if (!loadingDocument) {
+  auto* innerWindow = nsGlobalWindowInner::GetInnerWindowWithId(mInnerWindowID);
+  if (!innerWindow) {
     return nullptr;
   }
 
-  if (!TriggeringPrincipal()->Equals(loadingDocument->NodePrincipal())) {
+  if (!TriggeringPrincipal()->Equals(innerWindow->GetPrincipal())) {
     return nullptr;
   }
 
@@ -1984,11 +1766,6 @@ PerformanceStorage* LoadInfo::GetPerformanceStorage() {
       !GetIsFromProcessingFrameAttributes()) {
     // We only report loads caused by processing the attributes of the
     // browsing context container.
-    return nullptr;
-  }
-
-  nsCOMPtr<nsPIDOMWindowInner> innerWindow = loadingDocument->GetInnerWindow();
-  if (!innerWindow) {
     return nullptr;
   }
 

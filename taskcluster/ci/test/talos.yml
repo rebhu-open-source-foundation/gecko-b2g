@@ -37,6 +37,7 @@ job-defaults:
             talos-.*-profiling:
                 by-test-platform:
                     (linux|windows|macos)(?!.*shippable).*: []
+                    .*(?:shippable-qr).*: []
                     default: ['mozilla-central']
             default:
                 by-test-platform:
@@ -332,10 +333,6 @@ talos-motionmark-profiling:
     description: "Talos motionmark with gecko profiling"
     try-name: motionmark-prof
     treeherder-symbol: T-Prof(mm)
-    run-on-projects:
-        by-test-platform:
-            (linux|windows|macos)(?!.*shippable).*: []
-            default: ['mozilla-central']
     max-run-time: 3600
     tier:
         by-test-platform:
@@ -495,6 +492,10 @@ talos-webgl:
     description: "Talos WebGL"
     try-name: webgl
     treeherder-symbol: T(webgl)
+    variants:
+        by-test-platform:
+            android.*: []
+            default: ['webgl-ipc']
     run-on-projects:
         by-test-platform:
             windows10-64-ref-hw-2017/opt: ['mozilla-central']
@@ -511,6 +512,10 @@ talos-webgl-profiling:
     treeherder-symbol: T-Prof(webgl)
     tier: 2
     run-on-projects: []
+    variants:
+        by-test-platform:
+            android.*: []
+            default: ['webgl-ipc']
     max-run-time: 1800
     mozharness:
         extra-options:

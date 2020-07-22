@@ -1486,7 +1486,7 @@ already_AddRefed<LegacyMozTCPSocket> Navigator::MozTCPSocket() {
 
 void Navigator::GetGamepads(nsTArray<RefPtr<Gamepad>>& aGamepads,
                             ErrorResult& aRv) {
-  if (!mWindow) {
+  if (!mWindow || !mWindow->GetExtantDoc()) {
     aRv.Throw(NS_ERROR_UNEXPECTED);
     return;
   }
@@ -1508,6 +1508,14 @@ void Navigator::GetGamepads(nsTArray<RefPtr<Gamepad>>& aGamepads,
 
 #ifdef NIGHTLY_BUILD
   if (!win->IsSecureContext()) {
+    return;
+  }
+
+  if (!FeaturePolicyUtils::IsFeatureAllowed(win->GetExtantDoc(),
+                                            u"gamepad"_ns)) {
+    aRv.ThrowSecurityError(
+        "Document's Permission Policy does not allow calling "
+        "getGamepads() from this context.");
     return;
   }
 #endif

@@ -340,63 +340,63 @@ class MOZ_STACK_CLASS WSRunScanner final {
    * for the detail.
    */
   nsIContent* GetStartReasonContent() const {
-    return TextFragmentDataAtStart().GetStartReasonContent();
+    return TextFragmentDataAtStartRef().GetStartReasonContent();
   }
   nsIContent* GetEndReasonContent() const {
-    return TextFragmentDataAtStart().GetEndReasonContent();
+    return TextFragmentDataAtStartRef().GetEndReasonContent();
   }
 
   bool StartsFromNormalText() const {
-    return TextFragmentDataAtStart().StartsFromNormalText();
+    return TextFragmentDataAtStartRef().StartsFromNormalText();
   }
   bool StartsFromSpecialContent() const {
-    return TextFragmentDataAtStart().StartsFromSpecialContent();
+    return TextFragmentDataAtStartRef().StartsFromSpecialContent();
   }
   bool StartsFromBRElement() const {
-    return TextFragmentDataAtStart().StartsFromBRElement();
+    return TextFragmentDataAtStartRef().StartsFromBRElement();
   }
   bool StartsFromCurrentBlockBoundary() const {
-    return TextFragmentDataAtStart().StartsFromCurrentBlockBoundary();
+    return TextFragmentDataAtStartRef().StartsFromCurrentBlockBoundary();
   }
   bool StartsFromOtherBlockElement() const {
-    return TextFragmentDataAtStart().StartsFromOtherBlockElement();
+    return TextFragmentDataAtStartRef().StartsFromOtherBlockElement();
   }
   bool StartsFromBlockBoundary() const {
-    return TextFragmentDataAtStart().StartsFromBlockBoundary();
+    return TextFragmentDataAtStartRef().StartsFromBlockBoundary();
   }
   bool StartsFromHardLineBreak() const {
-    return TextFragmentDataAtStart().StartsFromHardLineBreak();
+    return TextFragmentDataAtStartRef().StartsFromHardLineBreak();
   }
   bool EndsByNormalText() const {
-    return TextFragmentDataAtStart().EndsByNormalText();
+    return TextFragmentDataAtStartRef().EndsByNormalText();
   }
   bool EndsBySpecialContent() const {
-    return TextFragmentDataAtStart().EndsBySpecialContent();
+    return TextFragmentDataAtStartRef().EndsBySpecialContent();
   }
   bool EndsByBRElement() const {
-    return TextFragmentDataAtStart().EndsByBRElement();
+    return TextFragmentDataAtStartRef().EndsByBRElement();
   }
   bool EndsByCurrentBlockBoundary() const {
-    return TextFragmentDataAtStart().EndsByCurrentBlockBoundary();
+    return TextFragmentDataAtStartRef().EndsByCurrentBlockBoundary();
   }
   bool EndsByOtherBlockElement() const {
-    return TextFragmentDataAtStart().EndsByOtherBlockElement();
+    return TextFragmentDataAtStartRef().EndsByOtherBlockElement();
   }
   bool EndsByBlockBoundary() const {
-    return TextFragmentDataAtStart().EndsByBlockBoundary();
+    return TextFragmentDataAtStartRef().EndsByBlockBoundary();
   }
 
   MOZ_NEVER_INLINE_DEBUG dom::Element* StartReasonOtherBlockElementPtr() const {
-    return TextFragmentDataAtStart().StartReasonOtherBlockElementPtr();
+    return TextFragmentDataAtStartRef().StartReasonOtherBlockElementPtr();
   }
   MOZ_NEVER_INLINE_DEBUG dom::HTMLBRElement* StartReasonBRElementPtr() const {
-    return TextFragmentDataAtStart().StartReasonBRElementPtr();
+    return TextFragmentDataAtStartRef().StartReasonBRElementPtr();
   }
   MOZ_NEVER_INLINE_DEBUG dom::Element* EndReasonOtherBlockElementPtr() const {
-    return TextFragmentDataAtStart().EndReasonOtherBlockElementPtr();
+    return TextFragmentDataAtStartRef().EndReasonOtherBlockElementPtr();
   }
   MOZ_NEVER_INLINE_DEBUG dom::HTMLBRElement* EndReasonBRElementPtr() const {
-    return TextFragmentDataAtStart().EndReasonBRElementPtr();
+    return TextFragmentDataAtStartRef().EndReasonBRElementPtr();
   }
 
   /**
@@ -528,7 +528,8 @@ class MOZ_STACK_CLASS WSRunScanner final {
   template <typename PT, typename CT>
   EditorDOMPointInText GetInclusiveNextEditableCharPoint(
       const EditorDOMPointBase<PT, CT>& aPoint) const {
-    return TextFragmentDataAtStart().GetInclusiveNextEditableCharPoint(aPoint);
+    return TextFragmentDataAtStartRef().GetInclusiveNextEditableCharPoint(
+        aPoint);
   }
 
   /**
@@ -541,7 +542,7 @@ class MOZ_STACK_CLASS WSRunScanner final {
   template <typename PT, typename CT>
   EditorDOMPointInText GetPreviousEditableCharPoint(
       const EditorDOMPointBase<PT, CT>& aPoint) const {
-    return TextFragmentDataAtStart().GetPreviousEditableCharPoint(aPoint);
+    return TextFragmentDataAtStartRef().GetPreviousEditableCharPoint(aPoint);
   }
 
   /**
@@ -553,7 +554,7 @@ class MOZ_STACK_CLASS WSRunScanner final {
    */
   EditorDOMPointInText GetEndOfCollapsibleASCIIWhiteSpaces(
       const EditorDOMPointInText& aPointAtASCIIWhiteSpace) const {
-    return TextFragmentDataAtStart().GetEndOfCollapsibleASCIIWhiteSpaces(
+    return TextFragmentDataAtStartRef().GetEndOfCollapsibleASCIIWhiteSpaces(
         aPointAtASCIIWhiteSpace);
   }
 
@@ -567,7 +568,7 @@ class MOZ_STACK_CLASS WSRunScanner final {
    */
   EditorDOMPointInText GetFirstASCIIWhiteSpacePointCollapsedTo(
       const EditorDOMPointInText& aPointAtASCIIWhiteSpace) const {
-    return TextFragmentDataAtStart().GetFirstASCIIWhiteSpacePointCollapsedTo(
+    return TextFragmentDataAtStartRef().GetFirstASCIIWhiteSpacePointCollapsedTo(
         aPointAtASCIIWhiteSpace);
   }
 
@@ -790,24 +791,24 @@ class MOZ_STACK_CLASS WSRunScanner final {
         const EditorDOMPointInText& aPointAtASCIIWhiteSpace) const;
 
     /**
-     * GetInvisibleLeadingWhiteSpaceRange() retruns two DOM points, start
-     * of the line and first visible point or end of the hard line.  When
+     * InvisibleLeadingWhiteSpaceRangeRef() retruns reference to two DOM points,
+     * start of the line and first visible point or end of the hard line.  When
      * this returns non-positioned range or positioned but collapsed range,
      * there is no invisible leading white-spaces.
      * Note that if there are only invisible white-spaces in a hard line,
      * this returns all of the white-spaces.
      */
-    EditorDOMRange GetInvisibleLeadingWhiteSpaceRange() const;
+    const EditorDOMRange& InvisibleLeadingWhiteSpaceRangeRef() const;
 
     /**
-     * GetInvisibleTrailingWhiteSpaceRange() returns two DOM points,
-     * first invisible white-space and end of the hard line.  When this
+     * InvisibleTrailingWhiteSpaceRangeRef() returns reference to two DOM
+     * points, first invisible white-space and end of the hard line.  When this
      * returns non-positioned range or positioned but collapsed range,
      * there is no invisible trailing white-spaces.
      * Note that if there are only invisible white-spaces in a hard line,
      * this returns all of the white-spaces.
      */
-    EditorDOMRange GetInvisibleTrailingWhiteSpaceRange() const;
+    const EditorDOMRange& InvisibleTrailingWhiteSpaceRangeRef() const;
 
     /**
      * GetNewInvisibleLeadingWhiteSpaceRangeIfSplittingAt() returns new
@@ -824,8 +825,8 @@ class MOZ_STACK_CLASS WSRunScanner final {
       // become invisible leading white-spaces in the new line, although we
       // don't need to delete them, but for aesthetically and backward
       // compatibility, we should remove them.
-      EditorDOMRange trailingWhiteSpaceRange =
-          GetInvisibleTrailingWhiteSpaceRange();
+      const EditorDOMRange& trailingWhiteSpaceRange =
+          InvisibleTrailingWhiteSpaceRangeRef();
       // XXX Why don't we check leading white-spaces too?
       if (!trailingWhiteSpaceRange.IsPositioned()) {
         return trailingWhiteSpaceRange;
@@ -833,7 +834,7 @@ class MOZ_STACK_CLASS WSRunScanner final {
       // XXX Why don't we need to treat new trailing white-spaces are invisible
       //     when the trailing white-spaces are only the content in current
       //     line?
-      if (trailingWhiteSpaceRange != GetInvisibleLeadingWhiteSpaceRange()) {
+      if (trailingWhiteSpaceRange != InvisibleLeadingWhiteSpaceRangeRef()) {
         return EditorDOMRange();
       }
       // If the point is before the trailing white-spaces, the new line won't
@@ -874,15 +875,15 @@ class MOZ_STACK_CLASS WSRunScanner final {
       // become end of current line, they will become visible.  Therefore, we
       // need to delete the invisible leading white-spaces before insertion
       // point.
-      EditorDOMRange leadingWhiteSpaceRange =
-          GetInvisibleLeadingWhiteSpaceRange();
+      const EditorDOMRange& leadingWhiteSpaceRange =
+          InvisibleLeadingWhiteSpaceRangeRef();
       if (!leadingWhiteSpaceRange.IsPositioned()) {
         return leadingWhiteSpaceRange;
       }
       // XXX Why don't we need to treat new leading white-spaces are invisible
       //     when the leading white-spaces are only the content in current
       //     line?
-      if (leadingWhiteSpaceRange != GetInvisibleTrailingWhiteSpaceRange()) {
+      if (leadingWhiteSpaceRange != InvisibleTrailingWhiteSpaceRangeRef()) {
         return EditorDOMRange();
       }
       // If the point equals or is after the leading white-spaces, the line
@@ -927,8 +928,8 @@ class MOZ_STACK_CLASS WSRunScanner final {
       }
       // VisibleWhiteSpacesData is marked as start of line only when it
       // represents leading white-spaces.
-      EditorDOMRange leadingWhiteSpaceRange =
-          GetInvisibleLeadingWhiteSpaceRange();
+      const EditorDOMRange& leadingWhiteSpaceRange =
+          InvisibleLeadingWhiteSpaceRangeRef();
       if (!leadingWhiteSpaceRange.StartRef().IsSet()) {
         return false;
       }
@@ -1009,6 +1010,20 @@ class MOZ_STACK_CLASS WSRunScanner final {
         const EditorDOMPoint& aPointToInsert) const;
 
     /**
+     * GetReplaceRangeDataAtEndOfDeletionRange() and
+     * GetReplaceRangeDataAtStartOfDeletionRange() return delete range if
+     * end or start of deleting range splits invisible trailing/leading
+     * white-spaces and it may become visible, or return replace range if
+     * end or start of deleting range splits visible white-spaces and it
+     * causes some ASCII white-spaces become invisible unless replacing
+     * with an NBSP.
+     */
+    ReplaceRangeData GetReplaceRangeDataAtEndOfDeletionRange(
+        const TextFragmentData& aTextFragmentDataAtStartToDelete);
+    ReplaceRangeData GetReplaceRangeDataAtStartOfDeletionRange(
+        const TextFragmentData& aTextFragmentDataAtEndToDelete);
+
+    /**
      * VisibleWhiteSpacesDataRef() returns reference to visible white-spaces
      * data. That is zero or more white-spaces which are visible.
      * Note that when there is no visible content, it's not initialized.
@@ -1045,7 +1060,7 @@ class MOZ_STACK_CLASS WSRunScanner final {
     bool mIsPreformatted;
   };
 
-  const TextFragmentData& TextFragmentDataAtStart() const {
+  const TextFragmentData& TextFragmentDataAtStartRef() const {
     return mTextFragmentDataAtStart;
   }
 
@@ -1239,24 +1254,17 @@ class WhiteSpaceVisibilityKeeper final {
       HTMLEditor& aHTMLEditor, const EditorDOMPoint& aPointToSplit);
 
   /**
-   * ReplaceASCIIWhiteSpacesWithOneNBSP() replaces the range between
-   * aAtFirstASCIIWhiteSpace and aEndOfCollapsibleASCIIWhiteSpace with
-   * one NBSP char.  If they span multiple text nodes, this puts an NBSP
-   * into the text node at aAtFirstASCIIWhiteSpace.  Then, removes other
-   * ASCII white-spaces in the following text nodes.
-   * Note that this assumes that all characters in the range is ASCII
-   * white-spaces.
+   * ReplaceTextAndRemoveEmptyTextNodes() replaces the range between
+   * aRangeToReplace with aReplaceString simply.  Additionally, removes
+   * empty text nodes in the range.
    *
-   * @param aAtFirstASCIIWhiteSpace             First ASCII white-space
-   *                                            position.
-   * @param aEndOfCollapsibleASCIIWhiteSpaces   The position after last ASCII
-   *                                            white-space.
+   * @param aRangeToReplace     Range to replace text.
+   * @param aReplaceString      The new string.  Empty string is allowed.
    */
   [[nodiscard]] MOZ_CAN_RUN_SCRIPT static nsresult
-  ReplaceASCIIWhiteSpacesWithOneNBSP(
-      HTMLEditor& aHTMLEditor,
-      const EditorDOMPointInText& aAtFirstASCIIWhiteSpace,
-      const EditorDOMPointInText& aEndOfCollapsibleASCIIWhiteSpaces);
+  ReplaceTextAndRemoveEmptyTextNodes(
+      HTMLEditor& aHTMLEditor, const EditorDOMRangeInTexts& aRangeToReplace,
+      const nsAString& aReplaceString);
 };
 
 }  // namespace mozilla

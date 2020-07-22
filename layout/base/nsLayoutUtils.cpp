@@ -2391,7 +2391,7 @@ nsIFrame* nsLayoutUtils::GetPopupFrameForEventCoordinates(
   for (i = 0; i < popups.Length(); i++) {
     nsIFrame* popup = popups[i];
     if (popup->PresContext()->GetRootPresContext() == aPresContext &&
-        popup->GetScrollableOverflowRect().Contains(
+        popup->ScrollableOverflowRect().Contains(
             GetEventCoordinatesRelativeTo(aEvent, RelativeTo{popup}))) {
       return popup;
     }
@@ -3971,7 +3971,7 @@ nsresult nsLayoutUtils::PaintFrame(gfxContext* aRenderingContext,
     builder->SetInActiveDocShell(isActive);
   }
 
-  nsRect rootVisualOverflow = aFrame->GetVisualOverflowRectRelativeToSelf();
+  nsRect rootInkOverflow = aFrame->InkOverflowRectRelativeToSelf();
 
   // If we are in a remote browser, then apply clipping from ancestor browsers
   if (BrowserChild* browserChild = BrowserChild::GetFrom(presShell)) {
@@ -3980,8 +3980,8 @@ nsresult nsLayoutUtils::PaintFrame(gfxContext* aRenderingContext,
     if (unscaledVisibleRect) {
       CSSRect visibleRect =
           *unscaledVisibleRect / presContext->CSSToDevPixelScale();
-      rootVisualOverflow.IntersectRect(rootVisualOverflow,
-                                       CSSPixel::ToAppUnits(visibleRect));
+      rootInkOverflow.IntersectRect(rootInkOverflow,
+                                    CSSPixel::ToAppUnits(visibleRect));
     }
   }
 
@@ -3990,7 +3990,7 @@ nsresult nsLayoutUtils::PaintFrame(gfxContext* aRenderingContext,
     nsIScrollableFrame* rootScrollableFrame =
         presShell->GetRootScrollFrameAsScrollable();
     MOZ_ASSERT(rootScrollableFrame);
-    nsRect displayPortBase = rootVisualOverflow;
+    nsRect displayPortBase = rootInkOverflow;
     nsRect temp = displayPortBase;
     Unused << rootScrollableFrame->DecideScrollableLayer(
         builder, &displayPortBase, &temp,
@@ -4005,7 +4005,7 @@ nsresult nsLayoutUtils::PaintFrame(gfxContext* aRenderingContext,
     // |ignoreViewportScrolling| and |usingDisplayPort| are persistent
     // document-rendering state.  We rely on PresShell to flush
     // retained layers as needed when that persistent state changes.
-    visibleRegion = rootVisualOverflow;
+    visibleRegion = rootInkOverflow;
   } else {
     visibleRegion = aDirtyRegion;
   }
@@ -5524,8 +5524,8 @@ static nscoord AddIntrinsicSizeOffset(
     LayoutDeviceIntSize devSize;
     bool canOverride = true;
     nsPresContext* pc = aFrame->PresContext();
-    pc->Theme()->GetMinimumWidgetSize(pc, aFrame, disp->mAppearance, &devSize,
-                                      &canOverride);
+    pc->Theme()->GetMinimumWidgetSize(pc, aFrame, disp->EffectiveAppearance(),
+                                      &devSize, &canOverride);
     nscoord themeSize = pc->DevPixelsToAppUnits(
         aAxis == eAxisVertical ? devSize.height : devSize.width);
     // GetMinimumWidgetSize() returns a border-box width.
@@ -6646,7 +6646,7 @@ nscoord nsLayoutUtils::CalculateContentBEnd(WritingMode aWM, nsIFrame* aFrame) {
 
   // We want scrollable overflow rather than visual because this
   // calculation is intended to affect layout.
-  LogicalSize overflowSize(aWM, aFrame->GetScrollableOverflowRect().Size());
+  LogicalSize overflowSize(aWM, aFrame->ScrollableOverflowRect().Size());
   if (overflowSize.BSize(aWM) > contentBEnd) {
     nsIFrame::ChildListIDs skip = {nsIFrame::kOverflowList,
                                    nsIFrame::kExcessOverflowContainersList,
@@ -7451,12 +7451,12 @@ nsTransparencyMode nsLayoutUtils::GetFrameTransparency(
   if (HasNonZeroCorner(aCSSRootFrame->StyleBorder()->mBorderRadius))
     return eTransparencyTransparent;
 
-  if (aCSSRootFrame->StyleDisplay()->mAppearance ==
-      StyleAppearance::MozWinGlass)
-    return eTransparencyGlass;
+  StyleAppearance appearance =
+      aCSSRootFrame->StyleDisplay()->EffectiveAppearance();
 
-  if (aCSSRootFrame->StyleDisplay()->mAppearance ==
-      StyleAppearance::MozWinBorderlessGlass)
+  if (appearance == StyleAppearance::MozWinGlass) return eTransparencyGlass;
+
+  if (appearance == StyleAppearance::MozWinBorderlessGlass)
     return eTransparencyBorderlessGlass;
 
   nsITheme::Transparency transparency;
@@ -8642,9 +8642,9 @@ nsRect nsLayoutUtils::GetBoxShadowRectForFrame(nsIFrame* aFrame,
     // border-box path with border-radius disabled.
     if (transparency != nsITheme::eOpaque) {
       nsPresContext* presContext = aFrame->PresContext();
-      presContext->Theme()->GetWidgetOverflow(presContext->DeviceContext(),
-                                              aFrame, styleDisplay->mAppearance,
-                                              &inputRect);
+      presContext->Theme()->GetWidgetOverflow(
+          presContext->DeviceContext(), aFrame,
+          styleDisplay->EffectiveAppearance(), &inputRect);
     }
   }
 
@@ -8686,7 +8686,8 @@ bool nsLayoutUtils::GetContentViewerSize(
   nsIntRect bounds;
   cv->GetBounds(bounds);
 
-  if (aSubtractDynamicToolbar == SubtractDynamicToolbar::Yes &&
+  if (aPresContext->IsRootContentDocumentCrossProcess() &&
+      aSubtractDynamicToolbar == SubtractDynamicToolbar::Yes &&
       aPresContext->HasDynamicToolbar() && !bounds.IsEmpty()) {
     MOZ_ASSERT(aPresContext->IsRootContentDocumentCrossProcess());
     bounds.height -= aPresContext->GetDynamicToolbarMaxHeight();
@@ -8704,9 +8705,31 @@ bool nsLayoutUtils::GetContentViewerSize(
 
 bool nsLayoutUtils::UpdateCompositionBoundsForRCDRSF(
     ParentLayerRect& aCompBounds, nsPresContext* aPresContext) {
+  SubtractDynamicToolbar shouldSubtractDynamicToolbar =
+      SubtractDynamicToolbar::Yes;
+
+  if (RefPtr<MobileViewportManager> MVM =
+          aPresContext->PresShell()->GetMobileViewportManager()) {
+    CSSSize intrinsicCompositionSize = MVM->GetIntrinsicCompositionSize();
+
+    if (nsIScrollableFrame* rootScrollableFrame =
+            aPresContext->PresShell()->GetRootScrollFrameAsScrollable()) {
+      // Expand the composition size to include the area initially covered by
+      // the dynamic toolbar only if the content is taller than the intrinsic
+      // composition size (i.e. the dynamic toolbar should be able to move only
+      // if the content is vertically scrollable).
+      if (intrinsicCompositionSize.height <
+          CSSPixel::FromAppUnits(
+              CalculateScrollableRectForFrame(rootScrollableFrame, nullptr)
+                  .Height())) {
+        shouldSubtractDynamicToolbar = SubtractDynamicToolbar::No;
+      }
+    }
+  }
+
   LayoutDeviceIntSize contentSize;
   if (!GetContentViewerSize(aPresContext, contentSize,
-                            SubtractDynamicToolbar::No)) {
+                            shouldSubtractDynamicToolbar)) {
     return false;
   }
   aCompBounds = ParentLayerRect(ViewAs<ParentLayerPixel>(

@@ -93,30 +93,6 @@ from mozrunner.utils import get_stack_fixer_function
 _cleanup_encoding_re = re.compile(u'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\\\\]')
 
 
-def dict_keys_str(dictionary):
-    """
-      Dictionary is a dict type object which might contain keys
-      of type bytes. This function decodes those keys to str
-      using UTF-8 decoding and updates the dictionary by deleting
-      the bytes type keys and replacing them with str type keys.
-    """
-    deleteKeys = []
-    for key in dictionary:
-        if isinstance(dictionary[key], dict):
-            dictionary[key] = dict_keys_str(dictionary[key])
-        elif isinstance(dictionary[key], bytes):
-            dictionary[key] = six.ensure_str(dictionary[key])
-
-        if isinstance(key, bytes):
-            deleteKeys.append(key)
-
-    for delete in deleteKeys:
-        dictionary[delete.decode('utf-8')] = dictionary[delete]
-        del dictionary[delete]
-
-    return dictionary
-
-
 def _cleanup_encoding_repl(m):
     c = m.group(0)
     return '\\\\' if c == '\\' else '\\x{0:02X}'.format(ord(c))
@@ -128,20 +104,43 @@ def cleanup_encoding(s):
        points, etc.  If it is a byte string, it is assumed to be
        UTF-8, but it may not be *correct* UTF-8.  Return a
        sanitized unicode object."""
-    if six.PY2:
-        ensure = unicode
-    else:
-        ensure = str
-
     if not isinstance(s, six.string_types):
         if isinstance(s, six.binary_type):
             return six.ensure_str(s)
         else:
-            return ensure(s)
+            return six.text_type(s)
     if isinstance(s, six.binary_type):
         s = s.decode('utf-8', 'replace')
     # Replace all C0 and C1 control characters with \xNN escapes.
     return _cleanup_encoding_re.sub(_cleanup_encoding_repl, s)
+
+
+def ensure_bytes(value, encoding='utf-8'):
+    if isinstance(value, six.text_type):
+        return value.encode(encoding)
+    return value
+
+
+def ensure_unicode(value, encoding='utf-8'):
+    if isinstance(value, six.binary_type):
+        return value.decode(encoding)
+    return value
+
+
+def ensure_subprocess_env(env, encoding='utf-8'):
+    """Ensure the environment is in the correct format for the `subprocess`
+    module.
+
+    This will convert all keys and values to bytes on Python 2, and text on
+    Python 3.
+
+    Args:
+        env (dict): Environment to ensure.
+        encoding (str): Encoding to use when converting to/from bytes/text
+                        (default: utf-8).
+    """
+    ensure = ensure_bytes if sys.version_info[0] < 3 else ensure_unicode
+    return {ensure(k, encoding): ensure(v, encoding) for k, v in six.iteritems(env)}
 
 
 """ Control-C handling """
@@ -301,11 +300,11 @@ class XPCShellTestThread(Thread):
         # timeout is needed by remote xpcshell to extend the
         # remote device timeout. It is not used in this function.
         if six.PY3:
-            env = dict_keys_str(env)
             cwd = six.ensure_str(cwd)
             for i in range(len(cmd)):
                 cmd[i] = six.ensure_str(cmd[i])
 
+        env = ensure_subprocess_env(env)
         if HAVE_PSUTIL:
             popen_func = psutil.Popen
         else:
@@ -1236,8 +1235,7 @@ class XPCShellTests(object):
             try:
                 # We pipe stdin to node because the server will exit when its
                 # stdin reaches EOF
-                if six.PY3:
-                    self.env = dict_keys_str(self.env)
+                self.env = ensure_subprocess_env(self.env)
                 process = Popen([nodeBin, serverJs], stdin=PIPE, stdout=PIPE,
                                 stderr=PIPE, env=self.env, cwd=os.getcwd(),
                                 universal_newlines=True)
@@ -1289,11 +1287,13 @@ class XPCShellTests(object):
         if sys.platform == 'win32':
             binSuffix = ".exe"
 
-        http3ServerPath = os.path.join(SCRIPT_DIR, "http3server",
-                                       "http3server" + binSuffix)
-        if build:
-            http3ServerPath = os.path.join(build.topobjdir, "dist", "bin",
+        http3ServerPath = self.http3server
+        if not http3ServerPath:
+            http3ServerPath = os.path.join(SCRIPT_DIR, "http3server",
                                            "http3server" + binSuffix)
+            if build:
+                http3ServerPath = os.path.join(build.topobjdir, "dist", "bin",
+                                               "http3server" + binSuffix)
 
         if not os.path.exists(http3ServerPath):
             self.log.warning("Http3 server not found at " + http3ServerPath +
@@ -1310,8 +1310,7 @@ class XPCShellTests(object):
             self.log.info('Using %s' % (dbPath))
             # We pipe stdin to the server because it will exit when its stdin
             # reaches EOF
-            if six.PY3:
-                self.env = dict_keys_str(self.env)
+            self.env = ensure_subprocess_env(self.env)
             process = Popen([http3ServerPath, dbPath], stdin=PIPE, stdout=PIPE,
                             stderr=PIPE, env=self.env, cwd=os.getcwd(),
                             universal_newlines=True)
@@ -1477,6 +1476,7 @@ class XPCShellTests(object):
             self.jsDebuggerInfo = JSDebuggerInfo(port=options['jsDebuggerPort'])
 
         self.xpcshell = options.get('xpcshell')
+        self.http3server = options.get('http3server')
         self.xrePath = options.get('xrePath')
         self.utility_path = options.get('utility_path')
         self.appPath = options.get('appPath')
@@ -1884,12 +1884,13 @@ def main():
     log = commandline.setup_logging("XPCShell", options, {"tbpl": sys.stdout})
 
     if options.xpcshell is None:
-        print >> sys.stderr, """Must provide path to xpcshell using --xpcshell"""
+        log.error("Must provide path to xpcshell using --xpcshell")
+        sys.exit(1)
 
     xpcsh = XPCShellTests(log)
 
     if options.interactive and not options.testPath:
-        print >>sys.stderr, "Error: You must specify a test filename in interactive mode!"
+        log.error("Error: You must specify a test filename in interactive mode!")
         sys.exit(1)
 
     if not xpcsh.runTests(options):

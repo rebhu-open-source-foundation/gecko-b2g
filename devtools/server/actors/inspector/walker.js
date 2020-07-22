@@ -446,8 +446,6 @@ var WalkerActor = protocol.ActorClassWithSpec(walkerSpec, {
       traits: {
         // Walker implements node picker starting with Firefox 80
         supportsNodePicker: true,
-        // watch/unwatchRootNode are available starting with Fx77
-        watchRootNode: true,
       },
     };
   },
@@ -2667,6 +2665,12 @@ var WalkerActor = protocol.ActorClassWithSpec(walkerSpec, {
         this.emit("root-destroyed", this.rootNode);
       }
       this.rootNode = null;
+      this.releaseNode(documentActor, { force: true });
+      // XXX: Only top-level "roots" trigger root-available/root-destroyed
+      // events. When a frame living in the same process as the parent frame
+      // navigates, we rely on legacy mutations to communicate the update to the
+      // markup view.
+      return;
     }
 
     this.queueMutation({

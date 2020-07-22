@@ -472,7 +472,7 @@ def dav1d_asm(target, nasm_version):
     if target.cpu == 'aarch64':
         return True
     elif target.cpu in ('x86', 'x86_64'):
-        if nasm_version < '2.14':
+        if (not nasm_version) or nasm_version < '2.14':
             die('nasm 2.14 or greater is required for AV1 support. '
                 'Either install nasm or add --disable-av1 to your configure options.')
         return True
@@ -1969,7 +1969,7 @@ set_define('MOZ_RUST_FXA_CLIENT', True, when=rust_fxa_client)
 # ==============================================================
 
 check_prog('DUMP_SYMS', ['dump_syms'], allow_missing=True, paths=toolchain_search_path,
-           when=compile_environment & target_is_windows)
+           when=compile_environment & (target_is_windows | target_is_android | target_is_linux))
 
 
 check_prog('PDBSTR', ['pdbstr.exe'], allow_missing=True, paths=toolchain_search_path,

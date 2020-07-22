@@ -286,6 +286,7 @@ function generateDocumentation() {
   // map specific policies to a different string ID, to allow updates to
   // existing descriptions
   let string_mapping = {
+    DisableMasterPasswordCreation: "DisablePrimaryPasswordCreation",
     DisableSetDesktopBackground: "DisableSetAsDesktopBackground",
     Certificates: "CertificatesDescription",
     SanitizeOnShutdown: "SanitizeOnShutdown2",

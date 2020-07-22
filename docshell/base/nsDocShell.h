@@ -194,10 +194,12 @@ class nsDocShell final : public nsDocLoader,
   NS_DECL_NSINETWORKINTERCEPTCONTROLLER
   NS_DECL_NSIDEPRECATIONWARNER
 
-  // Create a new nsDocShell object, initializing it.
+  // Create a new nsDocShell object.
   static already_AddRefed<nsDocShell> Create(
       mozilla::dom::BrowsingContext* aBrowsingContext,
       uint64_t aContentWindowID = 0);
+
+  bool Initialize();
 
   NS_IMETHOD Stop() override {
     // Need this here because otherwise nsIWebNavigation::Stop
@@ -441,6 +443,9 @@ class nsDocShell final : public nsDocLoader,
       bool aIsTopFrame, bool aAllowKeywordFixup, bool aUsePrivateBrowsing,
       bool aNotifyKeywordSearchLoading = false,
       nsIInputStream** aNewPostData = nullptr);
+
+  static already_AddRefed<nsIURI> MaybeFixBadCertDomainErrorURI(
+      nsIChannel* aChannel, nsIURI* aUrl);
 
   // Takes aStatus and filters out results that should not display
   // an error page.
@@ -1186,7 +1191,7 @@ class nsDocShell final : public nsDocLoader,
   bool mInEnsureScriptEnv;
 #endif
 
-  bool mCreated : 1;
+  bool mInitialized : 1;
   bool mAllowSubframes : 1;
   bool mAllowJavascript : 1;
   bool mAllowMetaRedirects : 1;

@@ -64,6 +64,9 @@ const { legacyaction } = ChromeUtils.import(
 );
 const { Log } = ChromeUtils.import("chrome://marionette/content/log.js");
 const { modal } = ChromeUtils.import("chrome://marionette/content/modal.js");
+const { navigate } = ChromeUtils.import(
+  "chrome://marionette/content/navigate.js"
+);
 const { MarionettePrefs } = ChromeUtils.import(
   "chrome://marionette/content/prefs.js",
   null
@@ -146,6 +149,8 @@ this.GeckoDriver = function(server) {
   this.mainFrame = null;
   // chrome iframe that currently has focus
   this.curFrame = null;
+  // browsing context of current content frame
+  this.currentFrameBrowsingContext = null;
   this.currentFrameElement = null;
   this.observing = null;
   this._browserIds = new WeakMap();
@@ -379,6 +384,19 @@ GeckoDriver.prototype.sendAsync = function(name, data, commandID) {
 };
 
 /**
+ * Get the current "MarionetteFrame" parent actor.
+ *
+ * @returns {MarionetteFrameParent}
+ *     The parent actor.
+ */
+GeckoDriver.prototype.getActor = async function() {
+  // TODO: Make it an `actor` property after removing async from
+  // getBrowsingContext()
+  const browsingContext = await this.getBrowsingContext();
+  return browsingContext.currentWindowGlobal.getActor("MarionetteFrame");
+};
+
+/**
  * Get the browsing context.
  *
  * @param {boolean=} topContext
@@ -393,7 +411,7 @@ GeckoDriver.prototype.getBrowsingContext = async function(topContext = false) {
 
   switch (this.context) {
     case Context.Chrome:
-      browsingContext = this.getCurrentWindow().docShell.browsingContext;
+      browsingContext = this.getCurrentWindow().browsingContext;
       break;
 
     case Context.Content:
@@ -603,8 +621,8 @@ GeckoDriver.prototype.registerBrowser = function(id, be) {
     this.curBrowser.register(id, be);
   }
 
-  const context = BrowsingContext.get(id);
-  this.wins.set(id, context.currentWindowGlobal);
+  this.currentFrameBrowsingContext = BrowsingContext.get(id);
+  this.wins.set(id, this.currentFrameBrowsingContext.currentWindowGlobal);
 
   return id;
 };
@@ -852,6 +870,26 @@ GeckoDriver.prototype.newSession = async function(cmd) {
 
   await registerBrowsers;
   await browserListening;
+
+  // Register the JSWindowActor pair as used by Marionette
+  ChromeUtils.registerWindowActor("MarionetteFrame", {
+    kind: "JSWindowActor",
+    parent: {
+      moduleURI: "chrome://marionette/content/actors/MarionetteFrameParent.jsm",
+    },
+    child: {
+      moduleURI: "chrome://marionette/content/actors/MarionetteFrameChild.jsm",
+      events: {
+        beforeunload: { capture: true },
+        DOMContentLoaded: { mozSystemGroup: true },
+        pagehide: { mozSystemGroup: true },
+        pageshow: { mozSystemGroup: true },
+      },
+    },
+
+    allFrames: true,
+    includeChrome: true,
+  });
 
   if (this.mainFrame) {
     this.mainFrame.focus();
@@ -1146,14 +1184,31 @@ GeckoDriver.prototype.execute_ = async function(
  * @throws {UnexpectedAlertOpenError}
  *     A modal dialog is open, blocking this operation.
  */
-GeckoDriver.prototype.get = async function(cmd) {
+GeckoDriver.prototype.navigateTo = async function(cmd) {
   assert.content(this.context);
   assert.open(this.getCurrentWindow());
   await this._handleUserPrompts();
 
-  let url = cmd.parameters.url;
+  let validURL;
+  try {
+    validURL = new URL(cmd.parameters.url);
+  } catch (e) {
+    throw new InvalidArgumentError(`Malformed URL: ${e.message}`);
+  }
 
-  let get = this.listener.get({ url, pageTimeout: this.timeouts.pageLoad });
+  // We need to move to the top frame before navigating
+  await this.listener.switchToFrame();
+
+  const loadEventExpected = navigate.isLoadEventExpected(
+    this.currentURL,
+    validURL
+  );
+
+  const navigated = this.listener.navigateTo({
+    url: validURL,
+    loadEventExpected,
+    pageTimeout: this.timeouts.pageLoad,
+  });
 
   // If a process change of the frame script interrupts our page load, this
   // will never return. We need to re-issue this request to correctly poll for
@@ -1171,7 +1226,7 @@ GeckoDriver.prototype.get = async function(cmd) {
     );
   });
 
-  await get;
+  await navigated;
 
   this.curBrowser.contentBrowser.focus();
 };
@@ -2908,6 +2963,8 @@ GeckoDriver.prototype.deleteSession = function() {
     }
   }
 
+  ChromeUtils.unregisterWindowActor("MarionetteFrame");
+
   // reset frame to the top-most frame, and clear reference to chrome window
   this.curFrame = null;
   this.mainFrame = null;
@@ -3501,6 +3558,11 @@ GeckoDriver.prototype.receiveMessage = function(message) {
         } else {
           this.currentFrameElement = null;
         }
+        if (message.json.browsingContextId) {
+          this.currentFrameBrowsingContext = BrowsingContext.get(
+            message.json.browsingContextId
+          );
+        }
       }
       break;
 
@@ -3851,7 +3913,7 @@ GeckoDriver.prototype.commands = {
   "WebDriver:IsElementSelected": GeckoDriver.prototype.isElementSelected,
   "WebDriver:MinimizeWindow": GeckoDriver.prototype.minimizeWindow,
   "WebDriver:MaximizeWindow": GeckoDriver.prototype.maximizeWindow,
-  "WebDriver:Navigate": GeckoDriver.prototype.get,
+  "WebDriver:Navigate": GeckoDriver.prototype.navigateTo,
   "WebDriver:NewSession": GeckoDriver.prototype.newSession,
   "WebDriver:NewWindow": GeckoDriver.prototype.newWindow,
   "WebDriver:PerformActions": GeckoDriver.prototype.performActions,

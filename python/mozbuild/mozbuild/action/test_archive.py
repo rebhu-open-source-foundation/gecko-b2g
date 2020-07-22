@@ -42,6 +42,7 @@ TEST_HARNESS_BINS = [
     'crashinject',
     'fileid',
     'geckodriver',
+    'http3server',
     'minidumpwriter',
     'pk12util',
     'screenshot',
@@ -470,6 +471,10 @@ ARCHIVE_FILES = {
         {
             'source': buildconfig.topsrcdir,
             'pattern': 'testing/mozbase/**',
+        },
+        {
+            'source': buildconfig.topsrcdir,
+            'pattern': 'testing/condprofile/**',
         },
         {
             'source': buildconfig.topsrcdir,

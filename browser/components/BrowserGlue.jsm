@@ -840,9 +840,9 @@ const OBSERVE_LASTWINDOW_CLOSE_TOPICS = AppConstants.platform != "macosx";
 function BrowserGlue() {
   XPCOMUtils.defineLazyServiceGetter(
     this,
-    "_idleService",
-    "@mozilla.org/widget/idleservice;1",
-    "nsIIdleService"
+    "_userIdleService",
+    "@mozilla.org/widget/useridleservice;1",
+    "nsIUserIdleService"
   );
 
   XPCOMUtils.defineLazyGetter(this, "_distributionCustomizer", function() {
@@ -1191,11 +1191,14 @@ BrowserGlue.prototype = {
     os.removeObserver(this, "weave:engine:clients:display-uris");
     os.removeObserver(this, "session-save");
     if (this._bookmarksBackupIdleTime) {
-      this._idleService.removeIdleObserver(this, this._bookmarksBackupIdleTime);
+      this._userIdleService.removeIdleObserver(
+        this,
+        this._bookmarksBackupIdleTime
+      );
       delete this._bookmarksBackupIdleTime;
     }
     if (this._lateTasksIdleObserver) {
-      this._idleService.removeIdleObserver(
+      this._userIdleService.removeIdleObserver(
         this._lateTasksIdleObserver,
         LATE_TASKS_IDLE_TIME_SEC
       );
@@ -1989,7 +1992,10 @@ BrowserGlue.prototype = {
     }
 
     if (this._bookmarksBackupIdleTime) {
-      this._idleService.removeIdleObserver(this, this._bookmarksBackupIdleTime);
+      this._userIdleService.removeIdleObserver(
+        this,
+        this._bookmarksBackupIdleTime
+      );
       delete this._bookmarksBackupIdleTime;
     }
 
@@ -2243,10 +2249,10 @@ BrowserGlue.prototype = {
           LATE_TASKS_IDLE_TIME_SEC
         );
         delete this._lateTasksIdleObserver;
-        this._scheduleArbitrarilyLateIdleTasks();
+        this._scheduleBestEffortUserIdleTasks();
       }
     };
-    this._idleService.addIdleObserver(
+    this._userIdleService.addIdleObserver(
       this._lateTasksIdleObserver,
       LATE_TASKS_IDLE_TIME_SEC
     );
@@ -2280,8 +2286,9 @@ BrowserGlue.prototype = {
    * (from _schedulePerWindowIdleTasks in browser.js).
    *
    * If you have something that can wait even further than the
-   * per-window initialization, please schedule them using
-   * _scheduleArbitrarilyLateIdleTasks.
+   * per-window initialization, and is okay with not being run in some
+   * sessions, please schedule them using
+   * _scheduleBestEffortUserIdleTasks.
    * Don't be fooled by thinking that the use of the timeout parameter
    * will delay your function: it will just ensure that it potentially
    * happens _earlier_ than expected (when the timeout limit has been reached),
@@ -2539,17 +2546,19 @@ BrowserGlue.prototype = {
   },
 
   /**
-   * Use this function as an entry point to schedule tasks that need
-   * to run once per session, at any arbitrary point in time.
+   * Use this function as an entry point to schedule tasks that we hope
+   * to run once per session, at any arbitrary point in time, and which we
+   * are okay with sometimes not running at all.
+   *
    * This function will be called from an idle observer. Check the value of
    * LATE_TASKS_IDLE_TIME_SEC to see the current value for this idle
    * observer.
    *
    * Note: this function may never be called if the user is never idle for the
-   * full length of the period of time specified. But given a reasonably low
-   * value, this is unlikely.
+   * requisite time (LATE_TASKS_IDLE_TIME_SEC). Be certain before adding
+   * something here that it's okay that it never be run.
    */
-  _scheduleArbitrarilyLateIdleTasks() {
+  _scheduleBestEffortUserIdleTasks() {
     const idleTasks = [
       () => {
         this._sendMediaTelemetry();
@@ -2988,7 +2997,10 @@ BrowserGlue.prototype = {
             }
           }
         }
-        this._idleService.addIdleObserver(this, this._bookmarksBackupIdleTime);
+        this._userIdleService.addIdleObserver(
+          this,
+          this._bookmarksBackupIdleTime
+        );
       }
 
       if (this._isNewProfile) {

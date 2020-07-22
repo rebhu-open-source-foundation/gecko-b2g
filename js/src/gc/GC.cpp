@@ -1591,11 +1591,11 @@ void GCRuntime::setHostCleanupFinalizationRegistryCallback(
 }
 
 void GCRuntime::callHostCleanupFinalizationRegistryCallback(
-    FinalizationRegistryObject* registry) {
+    JSFunction* doCleanup, GlobalObject* incumbentGlobal) {
   JS::AutoSuppressGCAnalysis nogc;
   const auto& callback = hostCleanupFinalizationRegistryCallback.ref();
   if (callback.op) {
-    callback.op(registry, callback.data);
+    callback.op(doCleanup, incumbentGlobal, callback.data);
   }
 }
 
@@ -2160,7 +2160,7 @@ void GCRuntime::sweepZoneAfterCompacting(MovingTracer* trc, Zone* zone) {
   MOZ_ASSERT(zone->isCollecting());
   sweepTypesAfterCompacting(zone);
   sweepFinalizationRegistries(zone);
-  zone->weakRefMap().sweep();
+  zone->weakRefMap().sweep(&storeBuffer());
 
   {
     zone->sweepWeakMaps();
@@ -3254,7 +3254,7 @@ void GCRuntime::decommitFreeArenas(const bool& cancel, AutoLockGC& lock) {
        chunk.next()) {
     if (chunk->info.numArenasFreeCommitted != 0 &&
         !chunksToDecommit.append(chunk)) {
-      decommitFreeArenasWithoutUnlocking(lock);
+      onOutOfMallocMemory(lock);
       return;
     }
   }
@@ -5055,7 +5055,7 @@ void GCRuntime::sweepUniqueIds() {
 void GCRuntime::sweepWeakRefs() {
   for (SweepGroupZonesIter zone(this); !zone.done(); zone.next()) {
     AutoSetThreadIsSweeping threadIsSweeping(zone);
-    zone->weakRefMap().sweep();
+    zone->weakRefMap().sweep(&storeBuffer());
   }
 }
 
@@ -6128,7 +6128,6 @@ bool GCRuntime::initSweepActions() {
           Call(&GCRuntime::endMarkingSweepGroup),
           Call(&GCRuntime::beginSweepingSweepGroup),
           MaybeYield(ZealMode::IncrementalMultipleSlices),
-          Call(&GCRuntime::markDuringSweeping),
           MaybeYield(ZealMode::YieldBeforeSweepingAtoms),
           Call(&GCRuntime::sweepAtomsTable),
           MaybeYield(ZealMode::YieldBeforeSweepingCaches),
@@ -8318,22 +8317,6 @@ JS::dbg::GarbageCollectionEvent::Ptr JS::GCDescription::toGCEvent(
       cx->runtime()->gc.majorGCCount());
 }
 
-char16_t* JS::GCDescription::formatJSONTelemetry(JSContext* cx,
-                                                 uint64_t timestamp) const {
-  UniqueChars cstr = cx->runtime()->gc.stats().renderJsonMessage(
-      timestamp, gcstats::Statistics::JSONUse::TELEMETRY);
-
-  size_t nchars = strlen(cstr.get());
-  UniqueTwoByteChars out(js_pod_malloc<char16_t>(nchars + 1));
-  if (!out) {
-    return nullptr;
-  }
-  out.get()[nchars] = 0;
-
-  CopyAndInflateChars(out.get(), cstr.get(), nchars);
-  return out.release();
-}
-
 TimeStamp JS::GCDescription::startTime(JSContext* cx) const {
   return cx->runtime()->gc.stats().start();
 }
@@ -8357,8 +8340,7 @@ JS::UniqueChars JS::GCDescription::sliceToJSONProfiler(JSContext* cx) const {
 }
 
 JS::UniqueChars JS::GCDescription::formatJSONProfiler(JSContext* cx) const {
-  return cx->runtime()->gc.stats().renderJsonMessage(
-      0, js::gcstats::Statistics::JSONUse::PROFILER);
+  return cx->runtime()->gc.stats().renderJsonMessage();
 }
 
 JS_PUBLIC_API JS::UniqueChars JS::MinorGcToJSON(JSContext* cx) {

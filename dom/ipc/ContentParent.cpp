@@ -211,7 +211,7 @@
 #include "nsIDragService.h"
 #include "nsIExternalProtocolService.h"
 #include "nsIGfxInfo.h"
-#include "nsIIdleService.h"
+#include "nsIUserIdleService.h"
 #include "nsIInterfaceRequestorUtils.h"
 #include "nsILocalStorageManager.h"
 #include "nsIMemoryInfoDumper.h"
@@ -1966,8 +1966,8 @@ void ContentParent::ActorDestroy(ActorDestroyReason why) {
   }
 
   // Remove any and all idle listeners.
-  nsCOMPtr<nsIIdleService> idleService =
-      do_GetService("@mozilla.org/widget/idleservice;1");
+  nsCOMPtr<nsIUserIdleService> idleService =
+      do_GetService("@mozilla.org/widget/useridleservice;1");
   MOZ_ASSERT(idleService);
   RefPtr<ParentIdleListener> listener;
   for (int32_t i = mIdleListeners.Length() - 1; i >= 0; --i) {
@@ -5066,8 +5066,8 @@ mozilla::ipc::IPCResult ContentParent::RecvRecordingDeviceEvents(
 mozilla::ipc::IPCResult ContentParent::RecvAddIdleObserver(
     const uint64_t& aObserver, const uint32_t& aIdleTimeInS) {
   nsresult rv;
-  nsCOMPtr<nsIIdleService> idleService =
-      do_GetService("@mozilla.org/widget/idleservice;1", &rv);
+  nsCOMPtr<nsIUserIdleService> idleService =
+      do_GetService("@mozilla.org/widget/useridleservice;1", &rv);
   NS_ENSURE_SUCCESS(rv, IPC_FAIL_NO_REASON(this));
 
   RefPtr<ParentIdleListener> listener =
@@ -5085,8 +5085,8 @@ mozilla::ipc::IPCResult ContentParent::RecvRemoveIdleObserver(
     listener = static_cast<ParentIdleListener*>(mIdleListeners[i].get());
     if (listener->mObserver == aObserver && listener->mTime == aIdleTimeInS) {
       nsresult rv;
-      nsCOMPtr<nsIIdleService> idleService =
-          do_GetService("@mozilla.org/widget/idleservice;1", &rv);
+      nsCOMPtr<nsIUserIdleService> idleService =
+          do_GetService("@mozilla.org/widget/useridleservice;1", &rv);
       NS_ENSURE_SUCCESS(rv, IPC_FAIL_NO_REASON(this));
       idleService->RemoveIdleObserver(listener, aIdleTimeInS);
       mIdleListeners.RemoveElementAt(i);
@@ -7313,9 +7313,10 @@ mozilla::ipc::IPCResult ContentParent::RecvNotifyOnHistoryReload(
 
 mozilla::ipc::IPCResult ContentParent::RecvHistoryCommit(
     const MaybeDiscarded<BrowsingContext>& aContext,
-    uint64_t aSessionHistoryEntryID) {
+    const uint64_t& aSessionHistoryEntryID, const nsID& aChangeID) {
   if (!aContext.IsDiscarded()) {
-    aContext.get_canonical()->SessionHistoryCommit(aSessionHistoryEntryID);
+    aContext.get_canonical()->SessionHistoryCommit(aSessionHistoryEntryID,
+                                                   aChangeID);
   }
 
   return IPC_OK();
@@ -7335,6 +7336,24 @@ mozilla::ipc::IPCResult ContentParent::RecvHistoryGo(
     aResolveRequestedIndex(shistory->GetRequestedIndex());
     shistory->LoadURIs(loadResults);
   }
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentParent::RecvSessionHistoryUpdate(
+    const MaybeDiscarded<BrowsingContext>& aContext, const int32_t& aIndex,
+    const int32_t& aLength, const nsID& aChangeID) {
+  if (aContext.IsNullOrDiscarded()) {
+    MOZ_LOG(
+        BrowsingContext::GetLog(), LogLevel::Debug,
+        ("ParentIPC: Trying to send a message to dead or detached context"));
+    return IPC_OK();
+  }
+
+  CanonicalBrowsingContext* context = aContext.get_canonical();
+  context->Group()->EachParent([&](ContentParent* aParent) {
+    Unused << aParent->SendHistoryCommitIndexAndLength(aContext, aIndex,
+                                                       aLength, aChangeID);
+  });
   return IPC_OK();
 }
 

@@ -1592,20 +1592,27 @@ var gCSSProperties = {
       "steps(0, step-end, 1)",
     ],
   },
-  "-moz-appearance": {
-    domProp: "MozAppearance",
+  appearance: {
+    domProp: "appearance",
     inherited: false,
     type: CSS_TYPE_LONGHAND,
     initial_values: ["none"],
-    other_values: ["radio", "menulist"],
+    other_values: ["auto", "radio", "menulist"],
     invalid_values: [],
+  },
+  "-moz-appearance": {
+    domProp: "MozAppearance",
+    inherited: false,
+    type: CSS_TYPE_SHORTHAND_AND_LONGHAND,
+    alias_for: "appearance",
+    subproperties: ["appearance"],
   },
   "-webkit-appearance": {
     domProp: "webkitAppearance",
     inherited: false,
     type: CSS_TYPE_SHORTHAND_AND_LONGHAND,
-    alias_for: "-moz-appearance",
-    subproperties: ["-moz-appearance"],
+    alias_for: "appearance",
+    subproperties: ["appearance"],
   },
   "border-inline": {
     domProp: "borderInline",
@@ -12121,8 +12128,6 @@ gCSSProperties["grid-template-areas"] = {
   type: CSS_TYPE_LONGHAND,
   initial_values: ["none"],
   other_values: [
-    "''",
-    "'' ''",
     "'1a-é_ .' \"b .\"",
     "' Z\t\\aZ' 'Z Z'",
     " '. . a b'  '. .a b' ",
@@ -12133,6 +12138,9 @@ gCSSProperties["grid-template-areas"] = {
     "'.. ..' '.. ...'",
   ],
   invalid_values: [
+    "''",
+    "' '",
+    "'' ''",
     "'a b' 'a/b'",
     "'a . a'",
     "'. a a' 'a a a'",

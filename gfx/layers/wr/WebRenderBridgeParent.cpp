@@ -1111,8 +1111,6 @@ mozilla::ipc::IPCResult WebRenderBridgeParent::RecvSetDisplayList(
 
   wr::Epoch wrEpoch = GetNextWrEpoch();
 
-  mAsyncImageManager->SetCompositionTime(TimeStamp::Now());
-
   mReceivedDisplayList = true;
 
   if (aDisplayList.mScrollData && aDisplayList.mScrollData->IsFirstPaint()) {
@@ -1181,7 +1179,6 @@ bool WebRenderBridgeParent::ProcessEmptyTransactionUpdates(
   }
 
   if (!aData.mCommands.IsEmpty()) {
-    mAsyncImageManager->SetCompositionTime(TimeStamp::Now());
     if (!ProcessWebRenderParentCommands(aData.mCommands, txn)) {
       return false;
     }
@@ -1963,6 +1960,7 @@ void WebRenderBridgeParent::CompositeToTarget(VsyncId aId,
   AUTO_PROFILER_TRACING_MARKER("Paint", "CompositeToTarget", GRAPHICS);
   if (mPaused || !mReceivedDisplayList) {
     ResetPreviousSampleTime();
+    mCompositionOpportunityId = mCompositionOpportunityId.Next();
     TimeStamp now = TimeStamp::Now();
     PROFILER_ADD_TEXT_MARKER("SkippedComposite",
                              mPaused ? "Paused"_ns : "No display list"_ns,
@@ -1990,6 +1988,8 @@ void WebRenderBridgeParent::CompositeToTarget(VsyncId aId,
                              JS::ProfilingCategoryPair::GRAPHICS, now, now);
     return;
   }
+
+  mCompositionOpportunityId = mCompositionOpportunityId.Next();
   MaybeGenerateFrame(aId, /* aForceGenerateFrame */ false);
 }
 
@@ -2021,7 +2021,6 @@ void WebRenderBridgeParent::MaybeGenerateFrame(VsyncId aId,
   }
 
   TimeStamp start = TimeStamp::Now();
-  mAsyncImageManager->SetCompositionTime(start);
 
   // Ensure GenerateFrame is handled on the render backend thread rather
   // than going through the scene builder thread. That way we continue
@@ -2031,10 +2030,10 @@ void WebRenderBridgeParent::MaybeGenerateFrame(VsyncId aId,
   wr::TransactionBuilder sceneBuilderTxn;
   wr::AutoTransactionSender sender(mApi, &sceneBuilderTxn);
 
-  // Adding and updating wr::ImageKeys of ImageHosts that uses ImageBridge are
-  // done without using transaction of scene builder thread. With it, updating
-  // of video frame becomes faster.
+  mAsyncImageManager->SetCompositionInfo(start, mCompositionOpportunityId);
   mAsyncImageManager->ApplyAsyncImagesOfImageBridge(sceneBuilderTxn, fastTxn);
+  mAsyncImageManager->SetCompositionInfo(TimeStamp(),
+                                         CompositionOpportunityId{});
 
   if (!mAsyncImageManager->GetCompositeUntilTime().IsNull()) {
     // Trigger another CompositeToTarget() call because there might be another

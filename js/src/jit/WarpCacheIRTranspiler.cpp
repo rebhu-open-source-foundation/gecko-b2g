@@ -8,6 +8,7 @@
 
 #include "jsmath.h"
 
+#include "builtin/DataViewObject.h"
 #include "jit/CacheIR.h"
 #include "jit/CacheIRCompiler.h"
 #include "jit/CacheIROpsGenerated.h"
@@ -208,6 +209,9 @@ bool WarpCacheIRTranspiler::emitGuardClass(ObjOperandId objId,
     case GuardClassKind::Array:
       classp = &ArrayObject::class_;
       break;
+    case GuardClassKind::DataView:
+      classp = &DataViewObject::class_;
+      break;
     default:
       MOZ_CRASH("not yet supported");
   }
@@ -398,6 +402,10 @@ bool WarpCacheIRTranspiler::emitGuardToSymbol(ValOperandId inputId) {
   return emitGuardTo(inputId, MIRType::Symbol);
 }
 
+bool WarpCacheIRTranspiler::emitGuardToBigInt(ValOperandId inputId) {
+  return emitGuardTo(inputId, MIRType::BigInt);
+}
+
 bool WarpCacheIRTranspiler::emitGuardToBoolean(ValOperandId inputId,
                                                Int32OperandId resultId) {
   MDefinition* input = getOperand(inputId);
@@ -517,6 +525,15 @@ bool WarpCacheIRTranspiler::emitGuardToInt32ModUint32(ValOperandId valId,
                                                       Int32OperandId resultId) {
   MDefinition* input = getOperand(valId);
   auto* ins = MTruncateToInt32::New(alloc(), input);
+  add(ins);
+
+  return defineOperand(resultId, ins);
+}
+
+bool WarpCacheIRTranspiler::emitGuardToUint8Clamped(ValOperandId valId,
+                                                    Int32OperandId resultId) {
+  MDefinition* input = getOperand(valId);
+  auto* ins = MClampToUint8::New(alloc(), input);
   add(ins);
 
   return defineOperand(resultId, ins);
@@ -1030,6 +1047,19 @@ bool WarpCacheIRTranspiler::emitInt32IncResult(Int32OperandId inputId) {
   return true;
 }
 
+bool WarpCacheIRTranspiler::emitDoubleIncResult(NumberOperandId inputId) {
+  MDefinition* input = getOperand(inputId);
+
+  auto* constOne = MConstant::New(alloc(), DoubleValue(1.0));
+  add(constOne);
+
+  auto* ins = MAdd::New(alloc(), input, constOne, MIRType::Double);
+  add(ins);
+
+  pushResult(ins);
+  return true;
+}
+
 bool WarpCacheIRTranspiler::emitInt32DecResult(Int32OperandId inputId) {
   MDefinition* input = getOperand(inputId);
 
@@ -1037,6 +1067,19 @@ bool WarpCacheIRTranspiler::emitInt32DecResult(Int32OperandId inputId) {
   add(constOne);
 
   auto* ins = MSub::New(alloc(), input, constOne, MIRType::Int32);
+  add(ins);
+
+  pushResult(ins);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitDoubleDecResult(NumberOperandId inputId) {
+  MDefinition* input = getOperand(inputId);
+
+  auto* constOne = MConstant::New(alloc(), DoubleValue(1.0));
+  add(constOne);
+
+  auto* ins = MSub::New(alloc(), input, constOne, MIRType::Double);
   add(ins);
 
   pushResult(ins);
@@ -1252,6 +1295,13 @@ bool WarpCacheIRTranspiler::emitCompareStringResult(JSOp op,
                                                     StringOperandId lhsId,
                                                     StringOperandId rhsId) {
   return emitCompareResult(op, lhsId, rhsId, MCompare::Compare_String);
+}
+
+bool WarpCacheIRTranspiler::emitCompareSymbolResult(JSOp op,
+                                                    SymbolOperandId lhsId,
+                                                    SymbolOperandId rhsId) {
+  MOZ_ASSERT(IsEqualityOp(op));
+  return emitCompareResult(op, lhsId, rhsId, MCompare::Compare_Symbol);
 }
 
 bool WarpCacheIRTranspiler::emitMathHypot2NumberResult(
@@ -1811,7 +1861,9 @@ bool WarpCacheIRTranspiler::emitCallInlinedFunction(ObjOperandId calleeId,
                                                     Int32OperandId argcId,
                                                     uint32_t icScriptOffset,
                                                     CallFlags flags) {
-  return emitCallFunction(calleeId, argcId, flags, CallKind::Scripted);
+  // We are transpiling to generate the correct guards. Code for the inlined
+  // function itself will be generated in WarpBuilder::buildInlinedCall.
+  return true;
 }
 
 // TODO: rename the MetaTwoByte op when IonBuilder is gone.

@@ -58,6 +58,13 @@
  *
  */
 
+XPCOMUtils.defineLazyPreferenceGetter(
+  this,
+  "PRINT_TAB_MODAL",
+  "print.tab_modal.enabled",
+  false
+);
+
 var gFocusedElement = null;
 
 var PrintUtils = {
@@ -107,12 +114,47 @@ var PrintUtils = {
   },
 
   /**
-   * Starts the process of printing the contents of a window.
+   * Opens the tab modal version of the print UI for the current tab.
    *
    * @param aBrowsingContext
    *        The BrowsingContext of the window to print.
    */
-  printWindow(aBrowsingContext) {
+  _openTabModalPrint(aBrowsingContext) {
+    let printPath = "chrome://global/content/print.html";
+    gBrowser.loadOneTab(
+      `${printPath}?browsingContextId=${aBrowsingContext.id}`,
+      {
+        inBackground: false,
+        relatedToCurrent: true,
+        triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+      }
+    );
+  },
+
+  /**
+   * Initialize a print, this will open the tab modal UI if it is enabled or
+   * defer to the native dialog/silent print.
+   *
+   * @param aBrowsingContext
+   *        The BrowsingContext of the window to print.
+   */
+  startPrintWindow(aBrowsingContext) {
+    if (PRINT_TAB_MODAL) {
+      this._openTabModalPrint(aBrowsingContext);
+    } else {
+      this.printWindow(aBrowsingContext);
+    }
+  },
+
+  /**
+   * Starts the process of printing the contents of a window.
+   *
+   * @param aBrowsingContext
+   *        The BrowsingContext of the window to print.
+   * @param {Object?} aPrintSettings
+   *        Optional print settings for the print operation
+   */
+  printWindow(aBrowsingContext, aPrintSettings) {
     let windowID = aBrowsingContext.currentWindowGlobal.outerWindowId;
     let topBrowser = aBrowsingContext.top.embedderElement;
 
@@ -126,7 +168,8 @@ var PrintUtils = {
       this._logKeyedTelemetry("PRINT_DIALOG_OPENED_COUNT", "FROM_PAGE");
     }
 
-    let printSettings = this.getPrintSettings();
+    // Use the passed in settings if provided, otherwise pull the saved ones.
+    let printSettings = aPrintSettings || this.getPrintSettings();
 
     // Set the title so that the print dialog can pick it up and
     // use it to generate the filename for save-to-PDF.
@@ -192,6 +235,11 @@ var PrintUtils = {
    *        to it will be used).
    */
   printPreview(aListenerObj) {
+    if (PRINT_TAB_MODAL) {
+      this._openTabModalPrint(aListenerObj.getSourceBrowser().browsingContext);
+      return;
+    }
+
     // If we already have a toolbar someone is calling printPreview() to get us
     // to refresh the display and aListenerObj won't be passed.
     let printPreviewTB = document.getElementById("print-preview-toolbar");

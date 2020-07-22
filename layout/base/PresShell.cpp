@@ -4733,7 +4733,7 @@ static bool gDumpRangePaintList = false;
 
 UniquePtr<RangePaintInfo> PresShell::CreateRangePaintInfo(
     nsRange* aRange, nsRect& aSurfaceRect, bool aForPrimarySelection) {
-  nsIFrame* ancestorFrame;
+  nsIFrame* ancestorFrame = nullptr;
   nsIFrame* rootFrame = GetRootFrame();
 
   // If the start or end of the range is the document, just use the root
@@ -4792,8 +4792,8 @@ UniquePtr<RangePaintInfo> PresShell::CreateRangePaintInfo(
     // XXX deal with frame being null due to display:contents
     for (; frame;
          frame = nsLayoutUtils::GetNextContinuationOrIBSplitSibling(frame)) {
-      info->mBuilder.SetVisibleRect(frame->GetVisualOverflowRect());
-      info->mBuilder.SetDirtyRect(frame->GetVisualOverflowRect());
+      info->mBuilder.SetVisibleRect(frame->InkOverflowRect());
+      info->mBuilder.SetDirtyRect(frame->InkOverflowRect());
       frame->BuildDisplayListForStackingContext(&info->mBuilder, &info->mList);
     }
   };
@@ -5289,9 +5289,10 @@ void PresShell::UpdateCanvasBackground() {
     bool drawBackgroundImage = false;
     bool drawBackgroundColor = false;
     const nsStyleDisplay* disp = rootStyleFrame->StyleDisplay();
+    StyleAppearance appearance = disp->EffectiveAppearance();
     if (rootStyleFrame->IsThemed(disp) &&
-        disp->mAppearance != StyleAppearance::MozWinGlass &&
-        disp->mAppearance != StyleAppearance::MozWinBorderlessGlass) {
+        appearance != StyleAppearance::MozWinGlass &&
+        appearance != StyleAppearance::MozWinBorderlessGlass) {
       // Ignore the CSS background-color if -moz-appearance is used and it is
       // not one of the glass values. (Windows 7 Glass has traditionally not
       // overridden background colors, so we preserve that behavior for now.)
@@ -5935,7 +5936,7 @@ void PresShell::MarkFramesInSubtreeApproximatelyVisible(
 
     for (nsIFrame* child : list) {
       nsRect r = rect - child->GetPosition();
-      if (!r.IntersectRect(r, child->GetVisualOverflowRect())) {
+      if (!r.IntersectRect(r, child->InkOverflowRect())) {
         continue;
       }
       if (child->IsTransformed()) {
@@ -5943,7 +5944,7 @@ void PresShell::MarkFramesInSubtreeApproximatelyVisible(
         // rect
         if (!preserves3DChildren ||
             !child->Combines3DTransformWithAncestors()) {
-          const nsRect overflow = child->GetVisualOverflowRectRelativeToSelf();
+          const nsRect overflow = child->InkOverflowRectRelativeToSelf();
           nsRect out;
           if (nsDisplayTransform::UntransformRect(r, overflow, child, &out)) {
             r = out;
@@ -9616,7 +9617,7 @@ bool PresShell::DoReflow(nsIFrame* target, bool aInterruptible,
   target->SetSize(boundsRelativeToTarget.Size());
 
   // Always use boundsRelativeToTarget here, not
-  // desiredSize.GetVisualOverflowArea(), because for root frames (where they
+  // desiredSize.InkOverflowRect(), because for root frames (where they
   // could be different, since root frames are allowed to have overflow) the
   // root view bounds need to match the viewport bounds; the view manager
   // "window dimensions" code depends on it.
@@ -11247,7 +11248,10 @@ nsSize PresShell::GetVisualViewportSizeUpdatedByDynamicToolbar() const {
   MOZ_ASSERT(GetDynamicToolbarState() == DynamicToolbarState::InTransition ||
              GetDynamicToolbarState() == DynamicToolbarState::Collapsed);
 
-  return mMobileViewportManager->GetVisualViewportSizeUpdatedByDynamicToolbar();
+  nsSize sizeUpdatedByDynamicToolbar =
+      mMobileViewportManager->GetVisualViewportSizeUpdatedByDynamicToolbar();
+  return sizeUpdatedByDynamicToolbar == nsSize() ? mVisualViewportSize
+                                                 : sizeUpdatedByDynamicToolbar;
 }
 
 void PresShell::RecomputeFontSizeInflationEnabled() {

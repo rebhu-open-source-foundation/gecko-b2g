@@ -244,10 +244,11 @@ HttpChannelChild::~HttpChannelChild() {
         (mEverHadBgChildAtConnectParent ? 1 << 18 : 0) |
         (mCreateBackgroundChannelFailed ? 1 << 19 : 0) |
         (mBgInitFailCallbackTriggered ? 1 << 20 : 0) |
-        (mCanSendAtCancel ? 1 << 21 : 0);
+        (mCanSendAtCancel ? 1 << 21 : 0) | (!!mSuspendCount ? 1 << 22 : 0) |
+        (!!mCallOnResume ? 1 << 23 : 0);
     MOZ_CRASH_UNSAFE_PRINTF(
         "~HttpChannelChild, mOnStopRequestCalled=false, mStatus=0x%08x, "
-        "mActorDestroyReason=%d, 20200709 flags=%u",
+        "mActorDestroyReason=%d, 20200717 flags=%u",
         static_cast<uint32_t>(nsresult(mStatus)),
         static_cast<int32_t>(mActorDestroyReason ? *mActorDestroyReason : -1),
         flags);
@@ -1464,6 +1465,23 @@ mozilla::ipc::IPCResult HttpChannelChild::RecvFinishInterceptedRedirect() {
 
 void HttpChannelChild::DeleteSelf() { Send__delete__(this); }
 
+void HttpChannelChild::NotifyOrReleaseListeners(nsresult rv) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  if (NS_SUCCEEDED(rv) || (mOnStartRequestCalled && mOnStopRequestCalled)) {
+    ReleaseListeners();
+    return;
+  }
+
+  if (NS_SUCCEEDED(mStatus)) {
+    mStatus = rv;
+  }
+
+  // This is enough what we need.  Undelivered notifications will be pushed.
+  // DoNotifyListener ensures the call to ReleaseListeners when done.
+  DoNotifyListener();
+}
+
 void HttpChannelChild::DoNotifyListener() {
   LOG(("HttpChannelChild::DoNotifyListener this=%p", this));
   MOZ_ASSERT(NS_IsMainThread());
@@ -1930,7 +1948,11 @@ void HttpChannelChild::ProcessDivertMessages() {
 bool HttpChannelChild::Redirect3Complete(OverrideRunnable* aRunnable) {
   LOG(("HttpChannelChild::Redirect3Complete [this=%p]\n", this));
   MOZ_ASSERT(NS_IsMainThread());
-  nsresult rv = NS_OK;
+
+  // Using an error as the default so that when we fail to forward this redirect
+  // to the target channel, we make sure to notify the current listener from
+  // CleanupRedirectingChannel.
+  nsresult rv = NS_BINDING_ABORTED;
 
   nsCOMPtr<nsIRedirectResultListener> vetoHook;
   GetCallback(vetoHook);
@@ -1993,7 +2015,8 @@ void HttpChannelChild::CleanupRedirectingChannel(nsresult rv) {
     mInterceptListener->Cleanup();
     mInterceptListener = nullptr;
   }
-  ReleaseListeners();
+
+  NotifyOrReleaseListeners(rv);
   CleanupBackgroundChannel();
 }
 

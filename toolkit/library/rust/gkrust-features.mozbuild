@@ -85,3 +85,6 @@ if CONFIG['MOZ_USING_WASM_SANDBOXING']:
 
 if CONFIG['MOZ_APP_NAME'] == 'b2g':
     gkrust_features += ['sidl']
+
+if CONFIG['MOZ_ENABLE_DBUS']:
+    gkrust_features += ['with_dbus']

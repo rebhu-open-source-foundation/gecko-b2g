@@ -49,7 +49,7 @@ using mozilla::dom::ContentParent;
 
 #include "nsAppShell.h"
 #include "nsFocusManager.h"
-#include "nsIdleService.h"
+#include "nsUserIdleService.h"
 #include "nsLayoutUtils.h"
 #include "nsViewManager.h"
 
@@ -1957,11 +1957,15 @@ nsresult nsWindow::MakeFullScreen(bool aFullScreen, nsIScreen*) {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
+  nsIWidgetListener* listener = GetWidgetListener();
+  if (listener) {
+    listener->FullscreenWillChange(aFullScreen);
+  }
+
   mIsFullScreen = aFullScreen;
   mAndroidView->mEventDispatcher->Dispatch(
       aFullScreen ? u"GeckoView:FullScreenEnter" : u"GeckoView:FullScreenExit");
 
-  nsIWidgetListener* listener = GetWidgetListener();
   if (listener) {
     mSizeMode = mIsFullScreen ? nsSizeMode_Fullscreen : nsSizeMode_Normal;
     listener->SizeModeChanged(mSizeMode);
@@ -2161,7 +2165,7 @@ void nsWindow::GeckoViewSupport::OnReady(jni::Object::Param aQueue) {
 
 void nsWindow::UserActivity() {
   if (!mIdleService) {
-    mIdleService = do_GetService("@mozilla.org/widget/idleservice;1");
+    mIdleService = do_GetService("@mozilla.org/widget/useridleservice;1");
   }
 
   if (mIdleService) {

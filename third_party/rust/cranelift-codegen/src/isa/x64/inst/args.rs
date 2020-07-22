@@ -5,7 +5,7 @@ use std::string::{String, ToString};
 
 use regalloc::{RealRegUniverse, Reg, RegClass, RegUsageCollector, RegUsageMapper};
 
-use crate::ir::condcodes::IntCC;
+use crate::ir::condcodes::{FloatCC, IntCC};
 use crate::machinst::*;
 
 use super::{
@@ -27,6 +27,10 @@ pub enum Amode {
         index: Reg,
         shift: u8, /* 0 .. 3 only */
     },
+
+    /// sign-extend-32-to-64(Immediate) + RIP (instruction pointer).
+    /// To wit: not supported in 32-bits mode.
+    RipRelative { target: BranchTarget },
 }
 
 impl Amode {
@@ -47,6 +51,10 @@ impl Amode {
         }
     }
 
+    pub(crate) fn rip_relative(target: BranchTarget) -> Self {
+        Self::RipRelative { target }
+    }
+
     /// Add the regs mentioned by `self` to `collector`.
     pub(crate) fn get_regs_as_uses(&self, collector: &mut RegUsageCollector) {
         match self {
@@ -56,6 +64,9 @@ impl Amode {
             Amode::ImmRegRegShift { base, index, .. } => {
                 collector.add_use(*base);
                 collector.add_use(*index);
+            }
+            Amode::RipRelative { .. } => {
+                // RIP isn't involved in regalloc.
             }
         }
     }
@@ -78,6 +89,13 @@ impl ShowWithRRU for Amode {
                 base.show_rru(mb_rru),
                 index.show_rru(mb_rru),
                 1 << shift
+            ),
+            Amode::RipRelative { ref target } => format!(
+                "{}(%rip)",
+                match target {
+                    BranchTarget::Label(label) => format!("label{}", label.get()),
+                    BranchTarget::ResolvedOffset(offset) => offset.to_string(),
+                }
             ),
         }
     }
@@ -176,12 +194,19 @@ impl RegMemImm {
         Self::Imm { simm32 }
     }
 
+    /// Asserts that in register mode, the reg class is the one that's expected.
+    pub(crate) fn assert_regclass_is(&self, expected_reg_class: RegClass) {
+        if let Self::Reg { reg } = self {
+            debug_assert_eq!(reg.get_class(), expected_reg_class);
+        }
+    }
+
     /// Add the regs mentioned by `self` to `collector`.
     pub(crate) fn get_regs_as_uses(&self, collector: &mut RegUsageCollector) {
         match self {
             Self::Reg { reg } => collector.add_use(*reg),
             Self::Mem { addr } => addr.get_regs_as_uses(collector),
-            Self::Imm { simm32: _ } => {}
+            Self::Imm { .. } => {}
         }
     }
 }
@@ -216,12 +241,17 @@ impl RegMem {
     pub(crate) fn mem(addr: impl Into<SyntheticAmode>) -> Self {
         Self::Mem { addr: addr.into() }
     }
-
+    /// Asserts that in register mode, the reg class is the one that's expected.
+    pub(crate) fn assert_regclass_is(&self, expected_reg_class: RegClass) {
+        if let Self::Reg { reg } = self {
+            debug_assert_eq!(reg.get_class(), expected_reg_class);
+        }
+    }
     /// Add the regs mentioned by `self` to `collector`.
     pub(crate) fn get_regs_as_uses(&self, collector: &mut RegUsageCollector) {
         match self {
             RegMem::Reg { reg } => collector.add_use(*reg),
-            RegMem::Mem { addr } => addr.get_regs_as_uses(collector),
+            RegMem::Mem { addr, .. } => addr.get_regs_as_uses(collector),
         }
     }
 }
@@ -234,7 +264,7 @@ impl ShowWithRRU for RegMem {
     fn show_rru_sized(&self, mb_rru: Option<&RealRegUniverse>, size: u8) -> String {
         match self {
             RegMem::Reg { reg } => show_ireg_sized(*reg, mb_rru, size),
-            RegMem::Mem { addr } => addr.show_rru(mb_rru),
+            RegMem::Mem { addr, .. } => addr.show_rru(mb_rru),
         }
     }
 }
@@ -265,9 +295,32 @@ impl fmt::Debug for AluRmiROpcode {
     }
 }
 
-impl ToString for AluRmiROpcode {
-    fn to_string(&self) -> String {
-        format!("{:?}", self)
+impl fmt::Display for AluRmiROpcode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
+    }
+}
+
+#[derive(Clone, PartialEq)]
+pub enum UnaryRmROpcode {
+    /// Bit-scan reverse.
+    Bsr,
+    /// Bit-scan forward.
+    Bsf,
+}
+
+impl fmt::Debug for UnaryRmROpcode {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            UnaryRmROpcode::Bsr => write!(fmt, "bsr"),
+            UnaryRmROpcode::Bsf => write!(fmt, "bsf"),
+        }
+    }
+}
+
+impl fmt::Display for UnaryRmROpcode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
     }
 }
 
@@ -306,6 +359,7 @@ pub enum SseOpcode {
     Minsd,
     Movaps,
     Movd,
+    Movq,
     Movss,
     Movsd,
     Mulss,
@@ -359,6 +413,7 @@ impl SseOpcode {
             | SseOpcode::Maxsd
             | SseOpcode::Minsd
             | SseOpcode::Movd
+            | SseOpcode::Movq
             | SseOpcode::Movsd
             | SseOpcode::Mulsd
             | SseOpcode::Sqrtsd
@@ -371,7 +426,7 @@ impl SseOpcode {
         }
     }
 
-    /// Returns the src operand size for an instruction
+    /// Returns the src operand size for an instruction.
     pub(crate) fn src_size(&self) -> u8 {
         match self {
             SseOpcode::Movd => 4,
@@ -405,6 +460,7 @@ impl fmt::Debug for SseOpcode {
             SseOpcode::Minsd => "minsd",
             SseOpcode::Movaps => "movaps",
             SseOpcode::Movd => "movd",
+            SseOpcode::Movq => "movq",
             SseOpcode::Movss => "movss",
             SseOpcode::Movsd => "movsd",
             SseOpcode::Mulss => "mulss",
@@ -428,9 +484,9 @@ impl fmt::Debug for SseOpcode {
     }
 }
 
-impl ToString for SseOpcode {
-    fn to_string(&self) -> String {
-        format!("{:?}", self)
+impl fmt::Display for SseOpcode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
     }
 }
 
@@ -479,34 +535,65 @@ impl fmt::Debug for ExtMode {
     }
 }
 
-impl ToString for ExtMode {
-    fn to_string(&self) -> String {
-        format!("{:?}", self)
+impl fmt::Display for ExtMode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
     }
 }
 
-/// These indicate the form of a scalar shift: left, signed right, unsigned right.
+/// These indicate the form of a scalar shift/rotate: left, signed right, unsigned right.
 #[derive(Clone)]
 pub enum ShiftKind {
-    Left,
-    RightZ,
-    RightS,
+    ShiftLeft,
+    /// Inserts zeros in the most significant bits.
+    ShiftRightLogical,
+    /// Replicates the sign bit in the most significant bits.
+    ShiftRightArithmetic,
+    RotateLeft,
+    RotateRight,
 }
 
 impl fmt::Debug for ShiftKind {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         let name = match self {
-            ShiftKind::Left => "shl",
-            ShiftKind::RightZ => "shr",
-            ShiftKind::RightS => "sar",
+            ShiftKind::ShiftLeft => "shl",
+            ShiftKind::ShiftRightLogical => "shr",
+            ShiftKind::ShiftRightArithmetic => "sar",
+            ShiftKind::RotateLeft => "rol",
+            ShiftKind::RotateRight => "ror",
         };
         write!(fmt, "{}", name)
     }
 }
 
-impl ToString for ShiftKind {
-    fn to_string(&self) -> String {
-        format!("{:?}", self)
+impl fmt::Display for ShiftKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
+    }
+}
+
+/// What kind of division or remainer instruction this is?
+#[derive(Clone)]
+pub enum DivOrRemKind {
+    SignedDiv,
+    UnsignedDiv,
+    SignedRem,
+    UnsignedRem,
+}
+
+impl DivOrRemKind {
+    pub(crate) fn is_signed(&self) -> bool {
+        match self {
+            DivOrRemKind::SignedDiv | DivOrRemKind::SignedRem => true,
+            _ => false,
+        }
+    }
+
+    pub(crate) fn is_div(&self) -> bool {
+        match self {
+            DivOrRemKind::SignedDiv | DivOrRemKind::UnsignedDiv => true,
+            _ => false,
+        }
     }
 }
 
@@ -532,7 +619,7 @@ pub enum CC {
 
     /// <= unsigned
     BE = 6,
-    /// > unsigend
+    /// > unsigned
     NBE = 7,
 
     /// negative
@@ -549,6 +636,12 @@ pub enum CC {
     LE = 14,
     /// > signed
     NLE = 15,
+
+    /// parity
+    P = 10,
+
+    /// not parity
+    NP = 11,
 }
 
 impl CC {
@@ -591,6 +684,33 @@ impl CC {
 
             CC::LE => CC::NLE,
             CC::NLE => CC::LE,
+
+            CC::P => CC::NP,
+            CC::NP => CC::P,
+        }
+    }
+
+    pub(crate) fn from_floatcc(floatcc: FloatCC) -> Self {
+        match floatcc {
+            FloatCC::Ordered => CC::NP,
+            FloatCC::Unordered => CC::P,
+            // Alias for NE
+            FloatCC::NotEqual | FloatCC::OrderedNotEqual => CC::NZ,
+            // Alias for E
+            FloatCC::UnorderedOrEqual => CC::Z,
+            // Alias for A
+            FloatCC::GreaterThan => CC::NBE,
+            // Alias for AE
+            FloatCC::GreaterThanOrEqual => CC::NB,
+            FloatCC::UnorderedOrLessThan => CC::B,
+            FloatCC::UnorderedOrLessThanOrEqual => CC::BE,
+            FloatCC::Equal
+            | FloatCC::LessThan
+            | FloatCC::LessThanOrEqual
+            | FloatCC::UnorderedOrGreaterThan
+            | FloatCC::UnorderedOrGreaterThanOrEqual => unimplemented!(
+                "No single condition code to guarantee ordered. Treat as special case."
+            ),
         }
     }
 
@@ -616,14 +736,16 @@ impl fmt::Debug for CC {
             CC::NL => "nl",
             CC::LE => "le",
             CC::NLE => "nle",
+            CC::P => "p",
+            CC::NP => "np",
         };
         write!(fmt, "{}", name)
     }
 }
 
-impl ToString for CC {
-    fn to_string(&self) -> String {
-        format!("{:?}", self)
+impl fmt::Display for CC {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
     }
 }
 

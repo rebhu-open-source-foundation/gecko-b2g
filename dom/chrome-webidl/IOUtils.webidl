@@ -39,6 +39,19 @@ namespace IOUtils {
    *                   directory and/or file name.
    */
   Promise<void> move(DOMString sourcePath, DOMString destPath, optional MoveOptions options = {});
+  /**
+   * Removes a file or directory at |path| according to |options|.
+   *
+   * @param path An absolute file path identifying the file or directory to
+   *             remove.
+   */
+  Promise<void> remove(DOMString path, optional RemoveOptions options = {});
+  /**
+   * Creates a new directory at |path| according to |options|.
+   *
+   * @param path An absolute file path identifying the directory to create.
+   */
+  Promise<void> makeDirectory(DOMString path, optional MakeDirectoryOptions options = {});
 };
 
 /**
@@ -77,4 +90,32 @@ dictionary MoveOptions {
    * If true, fail if the destination already exists.
    */
   boolean noOverwrite = false;
+};
+
+/**
+ * Options to be passed to the |IOUtils.remove| method.
+ */
+dictionary RemoveOptions {
+  /**
+   * If true, no error will be reported if the target file is missing.
+   */
+  boolean ignoreAbsent = true;
+  /**
+   * If true, and the target is a directory, recursively remove files.
+   */
+  boolean recursive = false;
+};
+
+dictionary MakeDirectoryOptions {
+  /**
+   * If true, create the directory and all necessary ancestors if they do not
+   * already exist. If false and any ancestor directories do not exist,
+   * |makeDirectory| will reject with an error.
+   */
+  boolean createAncestors = true;
+  /**
+   * If true, succeed even if the directory already exists (default behavior).
+   * Otherwise, fail if the directory already exists.
+   */
+  boolean ignoreExisting = true;
 };

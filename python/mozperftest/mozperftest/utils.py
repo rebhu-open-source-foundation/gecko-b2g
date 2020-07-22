@@ -13,10 +13,14 @@ import requests
 from collections import defaultdict
 from pathlib import Path
 import tempfile
+import shutil
+import importlib
 
 
 RETRY_SLEEP = 10
-MULTI_TASK_ROOT = "https://firefox-ci-tc.services.mozilla.com/api/index/v1/tasks/"
+API_ROOT = "https://firefox-ci-tc.services.mozilla.com/api/index/v1"
+MULTI_REVISION_ROOT = f"{API_ROOT}/namespaces"
+MULTI_TASK_ROOT = f"{API_ROOT}/tasks"
 
 
 @contextlib.contextmanager
@@ -29,8 +33,11 @@ def silence(layer=None):
     meths = ("info", "debug", "warning", "error", "log")
     patched = defaultdict(dict)
 
+    oldout, olderr = sys.stdout, sys.stderr
+    sys.stdout, sys.stderr = StringIO(), StringIO()
+
     def _vacuum(*args, **kw):
-        pass
+        sys.stdout.write(str(args))
 
     for obj in to_patch:
         for meth in meths:
@@ -39,13 +46,19 @@ def silence(layer=None):
             patched[obj][meth] = getattr(obj, meth)
             setattr(obj, meth, _vacuum)
 
-    oldout, olderr = sys.stdout, sys.stderr
+    stdout = stderr = None
     try:
-        sys.stdout, sys.stderr = StringIO(), StringIO()
         sys.stdout.buffer = sys.stdout
         sys.stderr.buffer = sys.stderr
         sys.stdout.fileno = sys.stderr.fileno = lambda: -1
-        yield sys.stdout, sys.stderr
+        try:
+            yield sys.stdout, sys.stderr
+        except Exception:
+            sys.stdout.seek(0)
+            stdout = sys.stdout.read()
+            sys.stderr.seek(0)
+            stderr = sys.stderr.read()
+            raise
     finally:
         sys.stdout, sys.stderr = oldout, olderr
         for obj, meths in patched.items():
@@ -54,6 +67,10 @@ def silence(layer=None):
                     setattr(obj, name, old_func)
                 except Exception:
                     pass
+        if stdout is not None:
+            print(stdout)
+        if stderr is not None:
+            print(stderr)
 
 
 def host_platform():
@@ -223,14 +240,21 @@ def convert_day(day):
     return day
 
 
-def get_multi_tasks_url(route, day="yesterday"):
+def get_revision_namespace_url(route, day="yesterday"):
+    """Builds a URL to obtain all the namespaces of a given build route for a single day.
+    """
+    day = convert_day(day)
+    return f"""{MULTI_REVISION_ROOT}/{route}.{day}.revision"""
+
+
+def get_multi_tasks_url(route, revision, day="yesterday"):
     """Builds a URL to obtain all the tasks of a given build route for a single day.
 
     If previous is true, then we get builds from the previous day,
     otherwise, we look at the current day.
     """
     day = convert_day(day)
-    return f"""{MULTI_TASK_ROOT}{route}.{day}.revision"""
+    return f"""{MULTI_TASK_ROOT}/{route}.{day}.revision.{revision}"""
 
 
 def strtobool(val):
@@ -245,3 +269,38 @@ def strtobool(val):
         return 0
     else:
         raise ValueError("invalid truth value %r" % (val,))
+
+
+@contextlib.contextmanager
+def temp_dir():
+    tempdir = tempfile.mkdtemp()
+    try:
+        yield tempdir
+    finally:
+        shutil.rmtree(tempdir)
+
+
+def load_class(path):
+    """Loads a class given its path and returns it.
+
+    The path is a string of the form `package.module:class` that points
+    to the class to be imported.
+
+    If if can't find it, or if the path is malformed,
+    an ImportError is raised.
+    """
+    if ":" not in path:
+        raise ImportError(f"Malformed path '{path}'")
+    elmts = path.split(":")
+    if len(elmts) != 2:
+        raise ImportError(f"Malformed path '{path}'")
+    mod_name, klass_name = elmts
+    try:
+        mod = importlib.import_module(mod_name)
+    except ModuleNotFoundError:
+        raise ImportError(f"Can't find '{mod_name}'")
+    try:
+        klass = getattr(mod, klass_name)
+    except AttributeError:
+        raise ImportError(f"Can't find '{klass_name}' in '{mod_name}'")
+    return klass

@@ -22,6 +22,7 @@ self.onmessage = async function(msg) {
   await test_api_is_available_on_worker();
   await test_full_read_and_write();
   await test_move_file();
+  await test_make_directory();
 
   finish();
   info("test_ioutils_worker.xhtml: Test finished");
@@ -57,7 +58,7 @@ self.onmessage = async function(msg) {
       "IOUtils::read can read entire file when requested maxBytes is too large"
     );
 
-    cleanup(tmpFileName);
+    await cleanup(tmpFileName);
   }
 
   async function test_move_file() {
@@ -72,13 +73,25 @@ self.onmessage = async function(msg) {
       "IOUtils::move can move files from a worker"
     );
 
-    cleanup(dest);
+    await cleanup(dest);
+  }
+
+  async function test_make_directory() {
+    const dir = OS.Path.join(tmpDir, "test_make_dir.tmp.d");
+    await self.IOUtils.makeDirectory(dir);
+    ok(
+      OS.File.stat(dir).isDir,
+      "IOUtils::makeDirectory can make a new directory from a worker"
+    );
+
+    await cleanup(dir);
+  }
+
+  async function cleanup(...files) {
+    for (const file of files) {
+      await self.IOUtils.remove(file, { ignoreAbsent: true, recursive: true });
+      const exists = OS.File.exists(file);
+      ok(!exists, `Removed temporary file: ${file}`);
+    }
   }
 };
-
-function cleanup(...files) {
-  files.forEach(file => {
-    OS.File.remove(file);
-    ok(!OS.File.exists(file), `Removed temporary file: ${file}`);
-  });
-}
