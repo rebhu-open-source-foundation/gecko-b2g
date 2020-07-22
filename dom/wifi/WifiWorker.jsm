@@ -260,18 +260,6 @@ XPCOMUtils.defineLazyServiceGetter(
 //   "resource://gre/modules/PhoneNumberUtils.jsm"
 // );
 
-ChromeUtils.defineModuleGetter(
-  this,
-  "WifiP2pManager",
-  "resource://gre/modules/WifiP2pManager.jsm"
-);
-
-ChromeUtils.defineModuleGetter(
-  this,
-  "WifiP2pWorkerObserver",
-  "resource://gre/modules/WifiP2pWorkerObserver.jsm"
-);
-
 var wifiInfo = new WifiInfo();
 var lastNetwork = null;
 
@@ -296,7 +284,6 @@ var WifiManager = (function() {
       sdkVersion: parseInt(libcutils.property_get("ro.build.version.sdk"), 10),
       schedScanRecovery:
         libcutils.property_get("ro.moz.wifi.sched_scan_recover") !== "false",
-      p2pSupported: libcutils.property_get("ro.moz.wifi.p2p_supported") === "1",
       eapSimSupported:
         libcutils.property_get("ro.moz.wifi.eapsim_supported", "true") ===
         "true",
@@ -323,7 +310,6 @@ var WifiManager = (function() {
   let {
     sdkVersion,
     schedScanRecovery,
-    p2pSupported,
     eapSimSupported,
     ibssSupported,
     ifname,
@@ -387,24 +373,10 @@ var WifiManager = (function() {
   var netUtil = WifiNetUtil(controlMessage);
   var wifiCommand = WifiCommand(controlMessage, manager.ifname, sdkVersion);
 
-  // Wifi P2P stuff
-  var p2pManager;
-  if (p2pSupported) {
-    let p2pCommand = WifiCommand(
-      controlMessage,
-      WifiP2pManager.INTERFACE_NAME,
-      sdkVersion
-    );
-    p2pManager = WifiP2pManager(p2pCommand, netUtil);
-  }
-
   let wifiService = Cc["@mozilla.org/wifi/service;1"];
   if (wifiService) {
     wifiService = wifiService.getService(Ci.nsIWifiProxyService);
     let interfaces = [manager.ifname];
-    if (p2pSupported) {
-      interfaces.push(WifiP2pManager.INTERFACE_NAME);
-    }
     wifiService.start(wifiListener, interfaces, interfaces.length);
   } else {
     debug("No wifi service component available!");
@@ -560,7 +532,7 @@ var WifiManager = (function() {
       if (scanSettings.channels.length == 0) {
         callback(false);
       }
-      manager.handlePreWifiScan();
+
       wifiCommand.startScan(scanSettings, function(result) {
         if (callback) {
           callback(result.status == SUCCESS);
@@ -646,9 +618,6 @@ var WifiManager = (function() {
 
   function syncDebug() {
     let enable = gDebug;
-    if (p2pSupported && p2pManager) {
-      p2pManager.setDebug(enable);
-    }
     if (WifiNetworkSelector) {
       WifiNetworkSelector.setDebug(enable);
     }
@@ -1332,7 +1301,7 @@ var WifiManager = (function() {
 
   function scanResultReady() {
     debug("Notifying of scan results available");
-    manager.handlePostWifiScan();
+
     if (!screenOn && manager.state === "SCANNING") {
       enableBackgroundScan(true);
     }
@@ -1850,12 +1819,7 @@ var WifiManager = (function() {
         manager.connectionDropped(function() {});
       });
     };
-
-    if (p2pSupported) {
-      p2pManager.setEnabled(false, { onDisabled: doDisableWifi });
-    } else {
-      doDisableWifi();
-    }
+    doDisableWifi();
   };
 
   // Get wifi interface and load wifi driver when enable Ap mode.
@@ -1959,9 +1923,6 @@ var WifiManager = (function() {
     //   setSuspendOptimizationsMode(POWER_MODE_SCREEN_STATE,
     //     !window.navigator.mozPower.screenEnabled, function() {});
     // }
-    if (p2pSupported) {
-      manager.enableP2p(function(success) {});
-    }
   };
 
   manager.setAutoRoam = function(candidate, callback) {
@@ -2037,11 +1998,6 @@ var WifiManager = (function() {
   };
 
   manager.enableNetwork = function(netId, callback) {
-    if (p2pSupported) {
-      // We have to stop wifi direct scan before associating to an AP.
-      // Otherwise we will get a "REJECT" wpa supplicant event.
-      p2pManager.setScanEnabled(false, function(success) {});
-    }
     wifiCommand.enableNetwork(netId, callback);
   };
 
@@ -2147,45 +2103,6 @@ var WifiManager = (function() {
         manager.loopDetectionCount = 0;
       }
     }
-  };
-
-  manager.handlePreWifiScan = function() {
-    if (p2pSupported) {
-      // Before doing regular wifi scan, we have to disable wifi direct
-      // scan first. Otherwise we will never get the scan result.
-      p2pManager.blockScan();
-    }
-  };
-
-  manager.handlePostWifiScan = function() {
-    if (p2pSupported) {
-      // After regular wifi scanning, we should restore the restricted
-      // wifi direct scan.
-      p2pManager.unblockScan();
-    }
-  };
-
-  //
-  // Public APIs for P2P.
-  //
-  manager.p2pSupported = function() {
-    return p2pSupported;
-  };
-
-  manager.getP2pManager = function() {
-    return p2pManager;
-  };
-
-  manager.enableP2p = function(callback) {
-    p2pManager.setEnabled(true, {
-      onSupplicantConnected() {
-        // waitForEvent(WifiP2pManager.INTERFACE_NAME);
-      },
-
-      onEnabled(success) {
-        callback(success);
-      },
-    });
   };
 
   manager.getCapabilities = function() {
@@ -2469,19 +2386,6 @@ function WifiWorker() {
   this.isDriverRoaming = false;
 
   WifiManager.telephonyServiceId = this._getDefaultServiceId();
-
-  // Create p2pObserver and assign to p2pManager.
-  if (WifiManager.p2pSupported()) {
-    this._p2pObserver = WifiP2pWorkerObserver(WifiManager.getP2pManager());
-    WifiManager.getP2pManager().setObserver(this._p2pObserver);
-
-    // Add DOM message observerd by p2pObserver to the message listener as well.
-    this._p2pObserver.getObservedDOMMessages().forEach(
-      function(msgName) {
-        ppmm.addMessageListener(msgName, this);
-      }.bind(this)
-    );
-  }
 
   // Users of instances of nsITimer should keep a reference to the timer until
   // it is no longer needed in order to assure the timer is fired.
@@ -3584,15 +3488,6 @@ WifiWorker.prototype = {
   receiveMessage: function MessageManager_receiveMessage(aMessage) {
     let msg = aMessage.data || {};
     msg.manager = aMessage.target;
-
-    if (WifiManager.p2pSupported()) {
-      // If p2pObserver returns something truthy, return it!
-      // Otherwise, continue to do the rest of tasks.
-      var p2pRet = this._p2pObserver.onDOMMessage(aMessage);
-      if (p2pRet) {
-        return p2pRet;
-      }
-    }
 
     // Note: By the time we receive child-process-shutdown, the child process
     // has already forgotten its permissions so we do this before the

@@ -19,11 +19,6 @@ if not CONFIG["DISABLE_WIFI"]:
         "interfaces/nsIWifiService.idl",
     ]
 
-    EXTRA_COMPONENTS += [
-        "DOMWifiP2pManager.js",
-        "DOMWifiP2pManager.manifest",
-    ]
-
     EXTRA_JS_MODULES += [
         "DOMWifiManager.jsm",
         "hotspot2/AnqpUtils.jsm",
@@ -41,8 +36,6 @@ if not CONFIG["DISABLE_WIFI"]:
         "WifiInfo.jsm",
         "WifiNetUtil.jsm",
         "WifiNetworkSelector.jsm",
-        "WifiP2pManager.jsm",
-        "WifiP2pWorkerObserver.jsm",
         "WifiScanSettings.jsm",
         "WifiWorker.jsm",
     ]
