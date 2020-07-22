@@ -1,6 +1,14 @@
 #include "nsISupports.idl"
 #include "nsISidl.idl"
 
+[scriptable, uuid(40c07250-b984-4ba7-8420-85d27a02ebf6)]
+interface nsIAppsServiceDelegate : nsISupports {
+    void onBoot(in AString aManifestUrl, in AString value);
+    void onInstall(in AString aManifestUrl, in AString value);
+    void onUpdate(in AString aManifestUrl, in AString value);
+    void onUninstall(in AString aManifestUrl);
+};
+
 [scriptable, uuid(4919c96a-29f3-4922-a2f2-cbaff743b3f7)]
 interface nsIPowerManagerDelegate : nsISupports {
     void setScreenEnabled(in bool enabled);
@@ -21,8 +29,11 @@ interface nsINetworkManagerDelegate : nsISupports {
     void getNetworkInfo(out long state, out long type);
 };
 
-[scriptable, uuid(cacfb50a-31eb-45b2-b5d1-a79cd493b3e1)]
+[scriptable, uuid(d8dccf0f-de80-4216-9bee-7403e4ac0373)]
 interface nsIGeckoBridge : nsISupports {
+    // Register a apps service delegate that will be called by the apps service.
+    void setAppsServiceDelegate(in nsIAppsServiceDelegate delegate, in nsISidlDefaultResponse callback);
+
     // Register a power manager delegate that will be called by the power manager service.
     void setPowerManagerDelegate(in nsIPowerManagerDelegate delegate, in nsISidlDefaultResponse callback);
     // Register a card info manager delegate that will be called by the fota service.

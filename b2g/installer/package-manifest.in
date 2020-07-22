@@ -438,6 +438,7 @@ bin/libfreebl_32int64_3.so
 #ifdef MOZ_UPDATER
 @RESPATH@/components/UpdatePrompt.js
 #endif
+@RESPATH@/components/AppsServiceDelegate.js
 @RESPATH@/components/DirectoryProvider.js
 @RESPATH@/components/ProcessGlobal.js
 @RESPATH@/components/OMAContentHandler.js

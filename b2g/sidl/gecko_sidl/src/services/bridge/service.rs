@@ -4,6 +4,7 @@
 
 // Client for the Gecko Bridge service.
 
+use super::apps_service_delegate::*;
 use super::card_info_manager_delegate::*;
 use super::messages::*;
 use super::network_manager_delegate::*;
@@ -23,11 +24,16 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use xpcom::{
     interfaces::{
-        nsICardInfoManagerDelegate, nsIGeckoBridge, nsINetworkManagerDelegate,
-        nsIPowerManagerDelegate, nsISidlDefaultResponse,
+        nsIAppsServiceDelegate, nsICardInfoManagerDelegate, nsIGeckoBridge,
+        nsINetworkManagerDelegate, nsIPowerManagerDelegate, nsISidlDefaultResponse,
     },
     RefPtr,
 };
+
+type SetAppsServiceDelegateTask = (
+    SidlCallTask<(), (), nsISidlDefaultResponse>,
+    ThreadPtrHandle<nsIAppsServiceDelegate>,
+);
 
 type SetCardInfoManagerDelegateTask = (
     SidlCallTask<(), (), nsISidlDefaultResponse>,
@@ -55,6 +61,7 @@ type OnBoolPrefChangedTask = (SidlCallTask<(), (), nsISidlDefaultResponse>, (Str
 
 // The tasks that can be dispatched to the calling thread.
 enum GeckoBridgeTask {
+    SetAppsServiceDelegate(SetAppsServiceDelegateTask),
     SetCardInfoManagerDelegate(SetCardInfoManagerDelegateTask),
     SetNetworkManagerDelegate(SetNetworkManagerDelegateTask),
     SetPowerManagerDelegate(SetPowerManagerDelegateTask),
@@ -72,6 +79,8 @@ struct GeckoBridgeImpl {
     sender: TaskSender,
     // The next usable object_id when we create delegates.
     current_object_id: TrackerId,
+    // The apps_service delegate.
+    apps_service_delegate: Option<ClientObject>,
     // The power manager delegate.
     power_manager_delegate: Option<ClientObject>,
     // The card info manager delegate.
@@ -105,6 +114,7 @@ impl ServiceClientImpl<GeckoBridgeTask> for GeckoBridgeImpl {
             // current_object_id starts at 1 since 0 is reserved for the service object itself.
             current_object_id: 1,
             power_manager_delegate: None,
+            apps_service_delegate: None,
             card_info_manager_delegate: None,
             network_manager_delegate: None,
         }
@@ -121,6 +131,9 @@ impl ServiceClientImpl<GeckoBridgeTask> for GeckoBridgeImpl {
         // drain the queue.
         for task in queue.drain(..) {
             match task {
+                GeckoBridgeTask::SetAppsServiceDelegate(task) => {
+                    let _ = self.set_apps_service_delegate(task);
+                }
                 GeckoBridgeTask::SetCardInfoManagerDelegate(task) => {
                     let _ = self.set_card_info_manager_delegate(task);
                 }
@@ -145,6 +158,25 @@ impl ServiceClientImpl<GeckoBridgeTask> for GeckoBridgeImpl {
 }
 
 impl GeckoBridgeImpl {
+    fn set_apps_service_delegate(
+        &mut self,
+        task: SetAppsServiceDelegateTask,
+    ) -> Result<(), nsresult> {
+        debug!("GeckoBridge::set_apps_service_delegate");
+        let object_id = self.next_object_id();
+        let (task, delegate) = task;
+
+        // Create a lightweight xpcom wrapper + session proxy that manages object release for us.
+        let wrapper =
+            AppsServiceDelegate::new(delegate, self.service_id, object_id, &self.transport);
+        self.apps_service_delegate = Some(ClientObject::new(wrapper, &mut self.transport));
+
+        let request = GeckoBridgeFromClient::GeckoFeaturesSetAppsServiceDelegate(object_id.into());
+        self.sender
+            .send_task(&request, SetAppsServiceDelegateTaskReceiver { task });
+        Ok(())
+    }
+
     fn set_card_info_manager_delegate(
         &mut self,
         task: SetCardInfoManagerDelegateTask,
@@ -248,6 +280,14 @@ impl GeckoBridgeImpl {
 }
 
 task_receiver!(
+    SetAppsServiceDelegateTaskReceiver,
+    nsISidlDefaultResponse,
+    GeckoBridgeToClient,
+    GeckoFeaturesSetAppsServiceDelegateSuccess,
+    GeckoFeaturesSetAppsServiceDelegateError
+);
+
+task_receiver!(
     SetCardInfoManagerDelegateTaskReceiver,
     nsISidlDefaultResponse,
     GeckoBridgeToClient,
@@ -332,6 +372,35 @@ impl GeckoBridgeXpcom {
             error!("Failed to connect to api-daemon socket");
             None
         }
+    }
+
+    xpcom_method!(set_apps_service_delegate => SetAppsServiceDelegate(delegate: *const nsIAppsServiceDelegate, callback: *const nsISidlDefaultResponse));
+    fn set_apps_service_delegate(
+        &self,
+        delegate: &nsIAppsServiceDelegate,
+        callback: &nsISidlDefaultResponse,
+    ) -> Result<(), nsresult> {
+        debug!("GeckoBridgeXpcom::set_apps_service_delegate");
+
+        let delegate =
+            ThreadPtrHolder::new(cstr!("nsIAppsServiceDelegate"), RefPtr::new(delegate)).unwrap();
+
+        let callback =
+            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback)).unwrap();
+        let task = (SidlCallTask::new(callback), delegate);
+
+        if !self.ensure_service() {
+            self.queue_task(GeckoBridgeTask::SetAppsServiceDelegate(task));
+            return Ok(());
+        }
+
+        if let Some(inner) = self.inner.lock().as_ref() {
+            return inner.lock().set_apps_service_delegate(task);
+        } else {
+            error!("Unable to get GeckoBridgeImpl");
+        }
+
+        Ok(())
     }
 
     xpcom_method!(set_card_info_manager_delegate => SetCardInfoManagerDelegate(delegate: *const nsICardInfoManagerDelegate, callback: *const nsISidlDefaultResponse));

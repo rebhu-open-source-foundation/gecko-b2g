@@ -57,6 +57,10 @@ this.GeckoBridge = {
         Ci.nsIGeckoBridge
       );
 
+      this._appsServiceDelegate = Cc[
+        "@mozilla.org/sidl-native/appsservice;1"
+      ].getService(Ci.nsIAppsServiceDelegate);
+
       this._powerManagerDelegate = Cc[
         "@mozilla.org/sidl-native/powermanager;1"
       ].getService(Ci.nsIPowerManagerDelegate);
@@ -83,6 +87,7 @@ this.GeckoBridge = {
       this.setPref(pref);
     });
 
+    this.setAppsServiceDelegate();
     this.setPowerManagerDelegate();
     this.setCardInfoManagerDelegate();
     this.setNetworkManagerDelegate();
@@ -100,6 +105,21 @@ this.GeckoBridge = {
       reject() {
         log(`Failure setting ${delegate}`);
       },
+    }
+  },
+
+  setAppsServiceDelegate() {
+    if (!this._bridge || !this._appsServiceDelegate) {
+      log(`Invalid appsservice delegate`);
+      return;
+    }
+
+    if (this._bridge) {
+      log(`Setting AppsServiceDelegate`);
+      this._bridge.setAppsServiceDelegate(
+        this._appsServiceDelegate,
+        this.generateLoggingCallback("AppsServiceDelegate")
+      );
     }
   },
 

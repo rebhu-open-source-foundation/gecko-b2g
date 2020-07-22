@@ -5,6 +5,11 @@ category agent-style-sheets browser-content-stylesheet chrome://b2g/content/cont
 component {fe33c107-82a4-41d6-8c64-5353267e04c9} AlertsService.js
 contract @mozilla.org/system-alerts-service;1 {fe33c107-82a4-41d6-8c64-5353267e04c9}
 
+# AppsServiceDelegate.js
+component {a4a8d542-c877-11ea-81c6-87c0ade42646} AppsServiceDelegate.js
+contract @mozilla.org/sidl-native/appsservice;1 {a4a8d542-c877-11ea-81c6-87c0ade42646}
+category app-startup AppsServiceDelegate @mozilla.org/sidl-native/appsservice;1
+
 #ifdef MOZ_UPDATER
 # UpdatePrompt.js
 component {88b3eb21-d072-4e3b-886d-f89d8c49fe59} UpdatePrompt.js

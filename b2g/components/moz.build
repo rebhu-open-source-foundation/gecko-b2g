@@ -37,6 +37,7 @@ EXTRA_PP_COMPONENTS += [
 ]
 
 EXTRA_COMPONENTS += [
+    'AppsServiceDelegate.js',
     'DirectoryProvider.js',
     'RecoveryService.js',
 ]
