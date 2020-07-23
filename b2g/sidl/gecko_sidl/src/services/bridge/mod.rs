@@ -2,8 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-pub mod card_info_manager_delegate;
 pub mod messages;
-pub mod network_manager_delegate;
-pub mod power_manager_delegate;
 pub mod service;
+pub mod power_manager_delegate;
+pub mod card_info_manager_delegate;

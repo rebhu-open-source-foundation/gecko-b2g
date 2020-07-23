@@ -4,10 +4,9 @@
 
 // Client for the Gecko Bridge service.
 
-use super::card_info_manager_delegate::*;
 use super::messages::*;
-use super::network_manager_delegate::*;
 use super::power_manager_delegate::*;
+use super::card_info_manager_delegate::*;
 use crate::common::client_object::*;
 use crate::common::core::BaseMessage;
 use crate::common::sidl_task::*;
@@ -22,10 +21,7 @@ use parking_lot::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use xpcom::{
-    interfaces::{
-        nsICardInfoManagerDelegate, nsIGeckoBridge, nsINetworkManagerDelegate,
-        nsIPowerManagerDelegate, nsISidlDefaultResponse,
-    },
+    interfaces::{nsIGeckoBridge, nsIPowerManagerDelegate, nsISidlDefaultResponse, nsICardInfoManagerDelegate},
     RefPtr,
 };
 
@@ -37,11 +33,6 @@ type SetCardInfoManagerDelegateTask = (
 type SetPowerManagerDelegateTask = (
     SidlCallTask<(), (), nsISidlDefaultResponse>,
     ThreadPtrHandle<nsIPowerManagerDelegate>,
-);
-
-type SetNetworkManagerDelegateTask = (
-    SidlCallTask<(), (), nsISidlDefaultResponse>,
-    ThreadPtrHandle<nsINetworkManagerDelegate>,
 );
 
 type OnCharPrefChangedTask = (
@@ -56,7 +47,6 @@ type OnBoolPrefChangedTask = (SidlCallTask<(), (), nsISidlDefaultResponse>, (Str
 // The tasks that can be dispatched to the calling thread.
 enum GeckoBridgeTask {
     SetCardInfoManagerDelegate(SetCardInfoManagerDelegateTask),
-    SetNetworkManagerDelegate(SetNetworkManagerDelegateTask),
     SetPowerManagerDelegate(SetPowerManagerDelegateTask),
     CharPrefChanged(OnCharPrefChangedTask),
     IntPrefChanged(OnIntPrefChangedTask),
@@ -76,8 +66,6 @@ struct GeckoBridgeImpl {
     power_manager_delegate: Option<ClientObject>,
     // The card info manager delegate.
     card_info_manager_delegate: Option<ClientObject>,
-    // The network manager delegate.
-    network_manager_delegate: Option<ClientObject>,
 }
 
 impl SessionObject for GeckoBridgeImpl {
@@ -106,7 +94,6 @@ impl ServiceClientImpl<GeckoBridgeTask> for GeckoBridgeImpl {
             current_object_id: 1,
             power_manager_delegate: None,
             card_info_manager_delegate: None,
-            network_manager_delegate: None,
         }
     }
 
@@ -123,9 +110,6 @@ impl ServiceClientImpl<GeckoBridgeTask> for GeckoBridgeImpl {
             match task {
                 GeckoBridgeTask::SetCardInfoManagerDelegate(task) => {
                     let _ = self.set_card_info_manager_delegate(task);
-                }
-                GeckoBridgeTask::SetNetworkManagerDelegate(task) => {
-                    let _ = self.set_network_manager_delegate(task);
                 }
                 GeckoBridgeTask::SetPowerManagerDelegate(task) => {
                     let _ = self.set_power_manager_delegate(task);
@@ -159,32 +143,9 @@ impl GeckoBridgeImpl {
             CardInfoManagerDelegate::new(delegate, self.service_id, object_id, &self.transport);
         self.card_info_manager_delegate = Some(ClientObject::new(wrapper, &mut self.transport));
 
-        let request =
-            GeckoBridgeFromClient::GeckoFeaturesSetCardInfoManagerDelegate(object_id.into());
+        let request = GeckoBridgeFromClient::GeckoFeaturesSetCardInfoManagerDelegate(object_id.into());
         self.sender
             .send_task(&request, SetCardInfoManagerDelegateTaskReceiver { task });
-
-        Ok(())
-    }
-
-    fn set_network_manager_delegate(
-        &mut self,
-        task: SetNetworkManagerDelegateTask,
-    ) -> Result<(), nsresult> {
-        debug!("GeckoBridge::set_network_manager_delegate");
-        let object_id = self.next_object_id();
-
-        let (task, delegate) = task;
-
-        // Create a lightweight xpcom wrapper + session proxy that manages object release for us.
-        let wrapper =
-            NetworkManagerDelegate::new(delegate, self.service_id, object_id, &self.transport);
-        self.network_manager_delegate = Some(ClientObject::new(wrapper, &mut self.transport));
-
-        let request =
-            GeckoBridgeFromClient::GeckoFeaturesSetNetworkManagerDelegate(object_id.into());
-        self.sender
-            .send_task(&request, SetNetworkManagerDelegateTaskReceiver { task });
 
         Ok(())
     }
@@ -253,14 +214,6 @@ task_receiver!(
     GeckoBridgeToClient,
     GeckoFeaturesSetCardInfoManagerDelegateSuccess,
     GeckoFeaturesSetCardInfoManagerDelegateError
-);
-
-task_receiver!(
-    SetNetworkManagerDelegateTaskReceiver,
-    nsISidlDefaultResponse,
-    GeckoBridgeToClient,
-    GeckoFeaturesSetNetworkManagerDelegateSuccess,
-    GeckoFeaturesSetNetworkManagerDelegateError
 );
 
 task_receiver!(
@@ -343,8 +296,7 @@ impl GeckoBridgeXpcom {
         debug!("GeckoBridgeXpcom::set_card_info_manager_delegate");
 
         let delegate =
-            ThreadPtrHolder::new(cstr!("nsICardInfoManagerDelegate"), RefPtr::new(delegate))
-                .unwrap();
+            ThreadPtrHolder::new(cstr!("nsICardInfoManagerDelegate"), RefPtr::new(delegate)).unwrap();
 
         let callback =
             ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback)).unwrap();
@@ -357,36 +309,6 @@ impl GeckoBridgeXpcom {
 
         if let Some(inner) = self.inner.lock().as_ref() {
             return inner.lock().set_card_info_manager_delegate(task);
-        } else {
-            error!("Unable to get GeckoBridgeImpl");
-        }
-
-        Ok(())
-    }
-
-    xpcom_method!(set_network_manager_delegate => SetNetworkManagerDelegate(delegate: *const nsINetworkManagerDelegate, callback: *const nsISidlDefaultResponse));
-    fn set_network_manager_delegate(
-        &self,
-        delegate: &nsINetworkManagerDelegate,
-        callback: &nsISidlDefaultResponse,
-    ) -> Result<(), nsresult> {
-        debug!("GeckoBridgeXpcom::set_network_manager_delegate");
-
-        let delegate =
-            ThreadPtrHolder::new(cstr!("nsINetworkManagerDelegate"), RefPtr::new(delegate))
-                .unwrap();
-
-        let callback =
-            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback)).unwrap();
-        let task = (SidlCallTask::new(callback), delegate);
-
-        if !self.ensure_service() {
-            self.queue_task(GeckoBridgeTask::SetNetworkManagerDelegate(task));
-            return Ok(());
-        }
-
-        if let Some(inner) = self.inner.lock().as_ref() {
-            return inner.lock().set_network_manager_delegate(task);
         } else {
             error!("Unable to get GeckoBridgeImpl");
         }
