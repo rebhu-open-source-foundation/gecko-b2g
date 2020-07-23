@@ -161,8 +161,8 @@ AlertsService.prototype = {
       tag: aDetails.tag || undefined,
       timestamp: aDetails.timestamp || undefined,
       dataObj: aDetails.data || undefined,
+      requireInteraction: aDetails.requireInteraction,
       mozbehavior: aDetails.mozbehavior,
-      // TODO: Interactive Notification feature
       serviceWorkerRegistrationScope: aDetails.serviceWorkerRegistrationScope,
     };
 
@@ -220,6 +220,7 @@ AlertsService.prototype = {
             listener.tag,
             listener.imageURL,
             listener.dataObj || undefined,
+            listener.requireInteraction,
             listener.mozbehavior
           );
         } else if (eventName == "notificationclose") {
@@ -234,6 +235,7 @@ AlertsService.prototype = {
             listener.tag,
             listener.imageURL,
             listener.dataObj || undefined,
+            listener.requireInteraction,
             listener.mozbehavior
           );
         }

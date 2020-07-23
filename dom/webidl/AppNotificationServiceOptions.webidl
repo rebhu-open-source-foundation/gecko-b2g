@@ -16,6 +16,7 @@ dictionary AppNotificationServiceOptions {
   DOMString lang = "";
   DOMString tag = "";
   DOMString data = "";
+  boolean requireInteraction = false;
   NotificationBehavior mozbehavior = {};
   DOMString serviceWorkerRegistrationScope = "";
 };

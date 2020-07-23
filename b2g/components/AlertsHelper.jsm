@@ -162,6 +162,7 @@ var AlertsHelper = {
               listener.tag,
               listener.imageURL,
               listener.dataObj || undefined,
+              listener.requireInteraction,
               listener.mozbehavior
             );
           } else if (eventName == "notificationclose") {
@@ -176,6 +177,7 @@ var AlertsHelper = {
               listener.tag,
               listener.imageURL,
               listener.dataObj || undefined,
+              listener.requireInteraction,
               listener.mozbehavior
             );
           }
@@ -239,6 +241,7 @@ var AlertsHelper = {
     dataObj,
     origin,
     timestamp,
+    requireInteraction,
     behavior,
     serviceWorkerRegistrationScope
   ) {
@@ -261,6 +264,7 @@ var AlertsHelper = {
       origin: origin,
       timestamp,
       data: dataObj,
+      requireInteraction,
       mozbehavior: behavior,
       serviceWorkerRegistrationScope,
     });
@@ -310,6 +314,7 @@ var AlertsHelper = {
       tag: details.tag || undefined,
       timestamp: details.timestamp || undefined,
       dataObj: details.data || undefined,
+      requireInteraction: details.requireInteraction,
       serviceWorkerRegistrationScope: details.serviceWorkerRegistrationScope,
     };
     this.registerAppListener(data.uid, listener);
@@ -325,6 +330,7 @@ var AlertsHelper = {
       details.data,
       details.origin,
       details.timestamp,
+      details.requireInteraction,
       details.mozbehavior,
       details.serviceWorkerRegistrationScope
     );

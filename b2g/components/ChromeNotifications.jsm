@@ -65,6 +65,7 @@ var ChromeNotifications = {
           dbId: notification.id,
           timestamp: notification.timestamp,
           data: notification.data,
+          requireInteraction: notification.requireInteraction || false,
           mozbehavior: behavior,
           serviceWorkerRegistrationScope:
             notification.serviceWorkerRegistrationScope,
