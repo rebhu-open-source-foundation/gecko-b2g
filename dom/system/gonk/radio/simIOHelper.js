@@ -3099,8 +3099,9 @@ GsmPDUHelperObject.prototype = {
     switch (textEncoding) {
     case 0:
       // GSM Default alphabet.
+      this.pdu = nameValue;
+      this.pduReadIndex = 0;
       resultString = this.readSeptetsToString(
-        nameValue,
         Math.floor(((len - 1) * 8 - spareBits) / 7), 0,
         PDU_NL_IDENTIFIER_DEFAULT,
         PDU_NL_IDENTIFIER_DEFAULT);
@@ -3965,7 +3966,9 @@ SimRecordHelperObject.prototype = {
   readAD: function() {
     function callback(options) {
       let value = options.simResponse;
-      let ad = this.context.GsmPDUHelper.readHexOctetArray(value);
+      this.context.GsmPDUHelper.pdu = value;
+      this.context.GsmPDUHelper.pduReadIndex = 0;
+      let ad = this.context.GsmPDUHelper.readHexOctetArray(value.length / 2);
 
       if (DEBUG) {
         let str = "";
@@ -5050,9 +5053,9 @@ SimRecordHelperObject.prototype = {
     function callback(options) {
       try {
         let RIL = this.context.RIL;
-        let value = options.simResponse;
-        let strLen = options.simResponse.length;
-        let cphsInfo = this.context.GsmPDUHelper.readHexOctetArray(value);
+        this.context.GsmPDUHelper.pdu = options.simResponse;
+        this.context.GsmPDUHelper.pduReadIndex = 0;
+        let cphsInfo = this.context.GsmPDUHelper.readHexOctetArray(options.simResponse.length / 2);
         if (DEBUG) {
           let str = "";
           for (let i = 0; i < cphsInfo.length; i++) {
