@@ -1315,3 +1315,8 @@ if CONFIG['MOZ_B2G_FM']:
     WEBIDL_FILES += [
         'FMRadio.webidl',
     ]
+
+if CONFIG['ENABLE_TOUCHPAL']:
+    WEBIDL_FILES += [
+        'IMEConnect.webidl'
+    ]

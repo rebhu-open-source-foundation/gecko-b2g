@@ -2314,6 +2314,29 @@ if test -n "$DISABLE_WIFI"; then
 fi
 AC_SUBST(DISABLE_WIFI)
 
+
+dnl ========================================================
+dnl = Enable TouchPal Library Support
+dnl ========================================================
+MOZ_ARG_ENABLE_BOOL(touchpal,
+[  --enable-touchpal        Enable TouchPal's Library Support for IME],
+    ENABLE_TOUCHPAL=1 && NUM_IME_ENABLED=$((NUM_IME_ENABLED+1)),
+    ENABLE_TOUCHPAL= )
+if test -n "$ENABLE_TOUCHPAL"; then
+   if test -d "$gonkdir/external/libtouchpal" ; then
+     CPPFLAGS="$CPPFLAGS -I$gonkdir/external/libtouchpal"
+   fi
+   AC_DEFINE(ENABLE_TOUCHPAL)
+fi
+AC_SUBST(ENABLE_TOUCHPAL)
+
+if test "$NUM_IME_ENABLED" -gt 1 ; then
+  if test -n "$ENABLE_TOUCHPAL" ; then
+    AC_MSG_CHECKING([touchpal IME engine is enabled])
+  fi
+  AC_MSG_ERROR([It's invalid to enable more than one ($NUM_IME_ENABLED) IME engine])
+fi
+
 dnl ========================================================
 dnl =
 dnl = Misc. Options
