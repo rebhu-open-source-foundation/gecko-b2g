@@ -27,7 +27,7 @@ pub static SERVICE_FINGERPRINT: &str =
 
 #[derive(Clone, PartialEq, Deserialize, Serialize, Debug)]
 pub enum GetErrorReason {
-    UnknownError, // #0
+    UnknownError,       // #0
     NonExistingSetting, // #1
 }
 impl Copy for GetErrorReason {}

@@ -4,26 +4,26 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef CardInfoManagerDelegateService_h
-#define CardInfoManagerDelegateService_h
+#ifndef MobileManagerDelegateService_h
+#define MobileManagerDelegateService_h
 
 #include "nsIGeckoBridge.h"
 #include "nsCOMPtr.h"
 
 namespace mozilla {
 
-class CardInfoManagerDelegateService final : public nsICardInfoManagerDelegate {
+class MobileManagerDelegateService final : public nsIMobileManagerDelegate {
  public:
   NS_DECL_ISUPPORTS
-  NS_DECL_NSICARDINFOMANAGERDELEGATE
+  NS_DECL_NSIMOBILEMANAGERDELEGATE
 
-  static already_AddRefed<CardInfoManagerDelegateService> ConstructCardInfoManagerDelegate();
+  static already_AddRefed<MobileManagerDelegateService> ConstructMobileManagerDelegate();
 
  private:
-  CardInfoManagerDelegateService();
-  ~CardInfoManagerDelegateService();
+  MobileManagerDelegateService();
+  ~MobileManagerDelegateService();
 };
 
 }  // namespace mozilla
 
-#endif  // CardInfoManagerDelegateService_h
+#endif  // MobileManagerDelegateService_h

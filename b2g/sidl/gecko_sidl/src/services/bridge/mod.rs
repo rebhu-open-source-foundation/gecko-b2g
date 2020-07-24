@@ -3,8 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 pub mod apps_service_delegate;
-pub mod card_info_manager_delegate;
 pub mod messages;
+pub mod mobile_manager_delegate;
 pub mod network_manager_delegate;
 pub mod power_manager_delegate;
 pub mod service;

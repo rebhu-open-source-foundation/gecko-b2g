@@ -97,8 +97,7 @@ impl SessionObject for SettingsManagerImpl {
     fn on_event(&mut self, event_data: Vec<u8>) {
         debug!("SettingsManagerImpl::on_event");
         // TODO: Extract that to some helper.
-        match crate::common::deserialize_bincode::<SettingsManagerToClient>(&event_data)
-        {
+        match crate::common::deserialize_bincode::<SettingsManagerToClient>(&event_data) {
             Ok(SettingsManagerToClient::SettingsFactoryChangeEvent(event_info)) => {
                 let event_manager = self.event_manager.lock();
                 let listeners = event_manager

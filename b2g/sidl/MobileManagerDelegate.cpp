@@ -4,7 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "CardInfoManagerDelegate.h"
+#include "MobileManagerDelegate.h"
 #include "nsServiceManagerUtils.h"
 #include "mozilla/ModuleUtils.h"
 #include "mozilla/ClearOnShutdown.h"
@@ -33,34 +33,34 @@ using namespace mozilla;
 
 namespace mozilla {
 
-// The singleton CardInfoManagerDelegate service, to be used on the main thread.
-static StaticRefPtr<CardInfoManagerDelegateService> gCardInfoManagerDelegateService;
+// The singleton MobileManagerDelegate service, to be used on the main thread.
+static StaticRefPtr<MobileManagerDelegateService> gMobileManagerDelegateService;
 
-NS_IMPL_ISUPPORTS(CardInfoManagerDelegateService, nsICardInfoManagerDelegate)
+NS_IMPL_ISUPPORTS(MobileManagerDelegateService, nsIMobileManagerDelegate)
 
-CardInfoManagerDelegateService::CardInfoManagerDelegateService() { }
+MobileManagerDelegateService::MobileManagerDelegateService() { }
 
-CardInfoManagerDelegateService::~CardInfoManagerDelegateService() { }
+MobileManagerDelegateService::~MobileManagerDelegateService() { }
 
 /* static */
-already_AddRefed<CardInfoManagerDelegateService>
-CardInfoManagerDelegateService::ConstructCardInfoManagerDelegate() {
+already_AddRefed<MobileManagerDelegateService>
+MobileManagerDelegateService::ConstructMobileManagerDelegate() {
   if (!XRE_IsParentProcess()) {
     return nullptr;
   }
 
   MOZ_ASSERT(NS_IsMainThread());
 
-  if (!gCardInfoManagerDelegateService) {
-    gCardInfoManagerDelegateService = new CardInfoManagerDelegateService();
+  if (!gMobileManagerDelegateService) {
+    gMobileManagerDelegateService = new MobileManagerDelegateService();
   }
 
-  RefPtr<CardInfoManagerDelegateService> service = gCardInfoManagerDelegateService.get();
+  RefPtr<MobileManagerDelegateService> service = gMobileManagerDelegateService.get();
   return service.forget();
 }
 
 NS_IMETHODIMP
-CardInfoManagerDelegateService::GetCardInfo(int cardId, int type, nsAString& result) {
+MobileManagerDelegateService::GetCardInfo(int cardId, int type, nsAString& result) {
   if (CIT_IMEI == type) { //IMEI
     nsCOMPtr<nsIMobileConnectionService> service = do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
     RETURN_IF_NULL_MSG(service, "Invalid nsIMobileConnectionService")
@@ -102,7 +102,7 @@ CardInfoManagerDelegateService::GetCardInfo(int cardId, int type, nsAString& res
 }
 
 NS_IMETHODIMP
-CardInfoManagerDelegateService::GetMncMcc(int cardId, bool isSim, nsAString& mnc, nsAString& mcc) {
+MobileManagerDelegateService::GetMncMcc(int cardId, bool isSim, nsAString& mnc, nsAString& mcc) {
   if (isSim) {
     // Get simcard mnc/mcc.
     nsCOMPtr<nsIIccService> iccService = do_GetService(ICC_SERVICE_CONTRACTID);

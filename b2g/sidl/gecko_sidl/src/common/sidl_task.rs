@@ -285,11 +285,7 @@ pub type PendingListeners = Shared<Vec<(i32, ThreadPtrHandle<nsISidlEventListene
 
 pub trait ServiceClientImpl<T> {
     fn new(transport: UdsTransport, service_id: TrackerId) -> Self;
-    fn dispatch_queue(
-        &mut self,
-        queue: &Shared<Vec<T>>,
-        pending_listeners: &PendingListeners,
-    );
+    fn dispatch_queue(&mut self, queue: &Shared<Vec<T>>, pending_listeners: &PendingListeners);
 }
 
 pub struct GetServiceDelegate<I, T> {

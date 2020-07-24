@@ -22,11 +22,11 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
 
     if CONFIG['MOZ_B2G_RIL']:
         EXPORTS.sidl += [
-            "CardInfoManagerDelegate.h",
+            "MobileManagerDelegate.h",
         ]
 
         SOURCES += [
-            "CardInfoManagerDelegate.cpp",
+            "MobileManagerDelegate.cpp",
         ]
 
 XPCOM_MANIFESTS += [

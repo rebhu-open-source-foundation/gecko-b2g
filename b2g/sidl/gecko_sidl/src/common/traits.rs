@@ -34,7 +34,9 @@ impl EventMapKey {
     pub fn from_ids<T: EventIds>(source: &T) -> Self {
         let (service, object, event) = source.ids();
         Self {
-            service, object, event,
+            service,
+            object,
+            event,
         }
     }
 }

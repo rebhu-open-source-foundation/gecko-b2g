@@ -69,9 +69,9 @@ this.GeckoBridge = {
         "@mozilla.org/sidl-native/networkmanager;1"
       ].getService(Ci.nsINetworkManagerDelegate);
 
-      this._cardInfoManagerDelegate = Cc[
-        "@mozilla.org/sidl-native/cardinfomanager;1"
-      ].getService(Ci.nsICardInfoManagerDelegate);
+      this._mobileManagerDelegate = Cc[
+        "@mozilla.org/sidl-native/mobilemanager;1"
+      ].getService(Ci.nsIMobileManagerDelegate);
 
       this.setup();
     } catch (e) {
@@ -89,7 +89,7 @@ this.GeckoBridge = {
 
     this.setAppsServiceDelegate();
     this.setPowerManagerDelegate();
-    this.setCardInfoManagerDelegate();
+    this.setMobileManagerDelegate();
     this.setNetworkManagerDelegate();
   },
 
@@ -123,17 +123,17 @@ this.GeckoBridge = {
     }
   },
 
-  setCardInfoManagerDelegate() {
-    if (!this._bridge || !this._cardInfoManagerDelegate) {
-      log(`Invalid cardinfomanager delegate`);
+  setMobileManagerDelegate() {
+    if (!this._bridge || !this._mobileManagerDelegate) {
+      log(`Invalid mobilemanager delegate`);
       return;
     }
 
     if (this._bridge) {
-      log(`Setting CardInfoManagerDelegate`);
-      this._bridge.setCardInfoManagerDelegate(
-        this._cardInfoManagerDelegate,
-        this.generateLoggingCallback("CardInfoManagerDelegate")
+      log(`Setting MobileManagerDelegate`);
+      this._bridge.setMobileManagerDelegate(
+        this._mobileManagerDelegate,
+        this.generateLoggingCallback("MobileManagerDelegate")
       );
     }
   },

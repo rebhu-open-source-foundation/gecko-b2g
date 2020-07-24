@@ -5,8 +5,8 @@
 // Client for the Gecko Bridge service.
 
 use super::apps_service_delegate::*;
-use super::card_info_manager_delegate::*;
 use super::messages::*;
+use super::mobile_manager_delegate::*;
 use super::network_manager_delegate::*;
 use super::power_manager_delegate::*;
 use crate::common::client_object::*;
@@ -24,7 +24,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use xpcom::{
     interfaces::{
-        nsIAppsServiceDelegate, nsICardInfoManagerDelegate, nsIGeckoBridge,
+        nsIAppsServiceDelegate, nsIGeckoBridge, nsIMobileManagerDelegate,
         nsINetworkManagerDelegate, nsIPowerManagerDelegate, nsISidlDefaultResponse,
     },
     RefPtr,
@@ -35,9 +35,9 @@ type SetAppsServiceDelegateTask = (
     ThreadPtrHandle<nsIAppsServiceDelegate>,
 );
 
-type SetCardInfoManagerDelegateTask = (
+type SetMobileManagerDelegateTask = (
     SidlCallTask<(), (), nsISidlDefaultResponse>,
-    ThreadPtrHandle<nsICardInfoManagerDelegate>,
+    ThreadPtrHandle<nsIMobileManagerDelegate>,
 );
 
 type SetPowerManagerDelegateTask = (
@@ -62,7 +62,7 @@ type OnBoolPrefChangedTask = (SidlCallTask<(), (), nsISidlDefaultResponse>, (Str
 // The tasks that can be dispatched to the calling thread.
 enum GeckoBridgeTask {
     SetAppsServiceDelegate(SetAppsServiceDelegateTask),
-    SetCardInfoManagerDelegate(SetCardInfoManagerDelegateTask),
+    SetMobileManagerDelegate(SetMobileManagerDelegateTask),
     SetNetworkManagerDelegate(SetNetworkManagerDelegateTask),
     SetPowerManagerDelegate(SetPowerManagerDelegateTask),
     CharPrefChanged(OnCharPrefChangedTask),
@@ -84,7 +84,7 @@ struct GeckoBridgeImpl {
     // The power manager delegate.
     power_manager_delegate: Option<ClientObject>,
     // The card info manager delegate.
-    card_info_manager_delegate: Option<ClientObject>,
+    mobile_manager_delegate: Option<ClientObject>,
     // The network manager delegate.
     network_manager_delegate: Option<ClientObject>,
 }
@@ -115,7 +115,7 @@ impl ServiceClientImpl<GeckoBridgeTask> for GeckoBridgeImpl {
             current_object_id: 1,
             power_manager_delegate: None,
             apps_service_delegate: None,
-            card_info_manager_delegate: None,
+            mobile_manager_delegate: None,
             network_manager_delegate: None,
         }
     }
@@ -134,8 +134,8 @@ impl ServiceClientImpl<GeckoBridgeTask> for GeckoBridgeImpl {
                 GeckoBridgeTask::SetAppsServiceDelegate(task) => {
                     let _ = self.set_apps_service_delegate(task);
                 }
-                GeckoBridgeTask::SetCardInfoManagerDelegate(task) => {
-                    let _ = self.set_card_info_manager_delegate(task);
+                GeckoBridgeTask::SetMobileManagerDelegate(task) => {
+                    let _ = self.set_mobile_manager_delegate(task);
                 }
                 GeckoBridgeTask::SetNetworkManagerDelegate(task) => {
                     let _ = self.set_network_manager_delegate(task);
@@ -177,24 +177,24 @@ impl GeckoBridgeImpl {
         Ok(())
     }
 
-    fn set_card_info_manager_delegate(
+    fn set_mobile_manager_delegate(
         &mut self,
-        task: SetCardInfoManagerDelegateTask,
+        task: SetMobileManagerDelegateTask,
     ) -> Result<(), nsresult> {
-        debug!("GeckoBridge::set_card_info_manager_delegate");
+        debug!("GeckoBridge::set_mobile_manager_delegate");
         let object_id = self.next_object_id();
 
         let (task, delegate) = task;
 
         // Create a lightweight xpcom wrapper + session proxy that manages object release for us.
         let wrapper =
-            CardInfoManagerDelegate::new(delegate, self.service_id, object_id, &self.transport);
-        self.card_info_manager_delegate = Some(ClientObject::new(wrapper, &mut self.transport));
+            MobileManagerDelegate::new(delegate, self.service_id, object_id, &self.transport);
+        self.mobile_manager_delegate = Some(ClientObject::new(wrapper, &mut self.transport));
 
         let request =
-            GeckoBridgeFromClient::GeckoFeaturesSetCardInfoManagerDelegate(object_id.into());
+            GeckoBridgeFromClient::GeckoFeaturesSetMobileManagerDelegate(object_id.into());
         self.sender
-            .send_task(&request, SetCardInfoManagerDelegateTaskReceiver { task });
+            .send_task(&request, SetMobileManagerDelegateTaskReceiver { task });
 
         Ok(())
     }
@@ -288,11 +288,11 @@ task_receiver!(
 );
 
 task_receiver!(
-    SetCardInfoManagerDelegateTaskReceiver,
+    SetMobileManagerDelegateTaskReceiver,
     nsISidlDefaultResponse,
     GeckoBridgeToClient,
-    GeckoFeaturesSetCardInfoManagerDelegateSuccess,
-    GeckoFeaturesSetCardInfoManagerDelegateError
+    GeckoFeaturesSetMobileManagerDelegateSuccess,
+    GeckoFeaturesSetMobileManagerDelegateError
 );
 
 task_receiver!(
@@ -403,29 +403,28 @@ impl GeckoBridgeXpcom {
         Ok(())
     }
 
-    xpcom_method!(set_card_info_manager_delegate => SetCardInfoManagerDelegate(delegate: *const nsICardInfoManagerDelegate, callback: *const nsISidlDefaultResponse));
-    fn set_card_info_manager_delegate(
+    xpcom_method!(set_mobile_manager_delegate => SetMobileManagerDelegate(delegate: *const nsIMobileManagerDelegate, callback: *const nsISidlDefaultResponse));
+    fn set_mobile_manager_delegate(
         &self,
-        delegate: &nsICardInfoManagerDelegate,
+        delegate: &nsIMobileManagerDelegate,
         callback: &nsISidlDefaultResponse,
     ) -> Result<(), nsresult> {
-        debug!("GeckoBridgeXpcom::set_card_info_manager_delegate");
+        debug!("GeckoBridgeXpcom::set_mobile_manager_delegate");
 
         let delegate =
-            ThreadPtrHolder::new(cstr!("nsICardInfoManagerDelegate"), RefPtr::new(delegate))
-                .unwrap();
+            ThreadPtrHolder::new(cstr!("nsIMobileManagerDelegate"), RefPtr::new(delegate)).unwrap();
 
         let callback =
             ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback)).unwrap();
         let task = (SidlCallTask::new(callback), delegate);
 
         if !self.ensure_service() {
-            self.queue_task(GeckoBridgeTask::SetCardInfoManagerDelegate(task));
+            self.queue_task(GeckoBridgeTask::SetMobileManagerDelegate(task));
             return Ok(());
         }
 
         if let Some(inner) = self.inner.lock().as_ref() {
-            return inner.lock().set_card_info_manager_delegate(task);
+            return inner.lock().set_mobile_manager_delegate(task);
         } else {
             error!("Unable to get GeckoBridgeImpl");
         }

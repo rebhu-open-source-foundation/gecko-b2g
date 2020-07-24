@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Wrapper for the nsICardInfoManagerDelegate interface.
+// Wrapper for the nsIMobileManagerDelegate interface.
 
 use super::messages::*;
 use crate::common::core::{BaseMessage, BaseMessageKind};
@@ -14,18 +14,18 @@ use log::{debug, error};
 use moz_task::{Task, TaskRunnable, ThreadPtrHandle};
 use nserror::{nsresult, NS_OK};
 use nsstring::*;
-use xpcom::interfaces::nsICardInfoManagerDelegate;
+use xpcom::interfaces::nsIMobileManagerDelegate;
 
-pub struct CardInfoManagerDelegate {
-    xpcom: ThreadPtrHandle<nsICardInfoManagerDelegate>,
+pub struct MobileManagerDelegate {
+    xpcom: ThreadPtrHandle<nsIMobileManagerDelegate>,
     service_id: TrackerId,
     object_id: TrackerId,
     transport: UdsTransport,
 }
 
-impl CardInfoManagerDelegate {
+impl MobileManagerDelegate {
     pub fn new(
-        xpcom: ThreadPtrHandle<nsICardInfoManagerDelegate>,
+        xpcom: ThreadPtrHandle<nsIMobileManagerDelegate>,
         service_id: TrackerId,
         object_id: TrackerId,
         transport: &UdsTransport,
@@ -38,8 +38,8 @@ impl CardInfoManagerDelegate {
         }
     }
 
-    fn post_task(&mut self, command: CardInfoManagerCommand, request_id: u64) {
-        let task = CardInfoManagerDelegateTask {
+    fn post_task(&mut self, command: MobileManagerCommand, request_id: u64) {
+        let task = MobileManagerDelegateTask {
             xpcom: self.xpcom.clone(),
             command,
             transport: self.transport.clone(),
@@ -47,26 +47,23 @@ impl CardInfoManagerDelegate {
             object_id: self.object_id,
             request_id,
         };
-        let _ = TaskRunnable::new("CardInfoManagerDelegate", Box::new(task))
+        let _ = TaskRunnable::new("MobileManagerDelegate", Box::new(task))
             .and_then(|r| TaskRunnable::dispatch(r, self.xpcom.owning_thread()));
     }
 }
 
-impl SessionObject for CardInfoManagerDelegate {
+impl SessionObject for MobileManagerDelegate {
     fn on_request(&mut self, request: BaseMessage, request_id: u64) {
         // Unpack the request.
         match from_base_message(&request) {
-            Ok(GeckoBridgeToClient::CardInfoManagerDelegateGetCardInfo(id, info_type)) => {
-                self.post_task(
-                    CardInfoManagerCommand::GetCardInfo(id, info_type),
-                    request_id,
-                );
+            Ok(GeckoBridgeToClient::MobileManagerDelegateGetCardInfo(id, info_type)) => {
+                self.post_task(MobileManagerCommand::GetCardInfo(id, info_type), request_id);
             }
-            Ok(GeckoBridgeToClient::CardInfoManagerDelegateGetMncMcc(id, is_sim)) => {
-                self.post_task(CardInfoManagerCommand::GetMncMcc(id, is_sim), request_id);
+            Ok(GeckoBridgeToClient::MobileManagerDelegateGetMncMcc(id, is_sim)) => {
+                self.post_task(MobileManagerCommand::GetMncMcc(id, is_sim), request_id);
             }
             _ => error!(
-                "CardInfoManagerDelegate::on_request unexpected message: {:?}",
+                "MobileManagerDelegate::on_request unexpected message: {:?}",
                 request.content
             ),
         }
@@ -81,23 +78,23 @@ impl SessionObject for CardInfoManagerDelegate {
 
 // Commands supported by the card info manager delegate.
 #[derive(Clone)]
-enum CardInfoManagerCommand {
+enum MobileManagerCommand {
     GetCardInfo(i64, CardInfoType), // Get imsi/imei/msisdn by service id.
     GetMncMcc(i64, bool),           // Get mnc mcc from simcard or network by service id.
 }
 
 // A Task to dispatch commands to the delegate.
 #[derive(Clone)]
-struct CardInfoManagerDelegateTask {
-    xpcom: ThreadPtrHandle<nsICardInfoManagerDelegate>,
-    command: CardInfoManagerCommand,
+struct MobileManagerDelegateTask {
+    xpcom: ThreadPtrHandle<nsIMobileManagerDelegate>,
+    command: MobileManagerCommand,
     service_id: TrackerId,
     object_id: TrackerId,
     transport: UdsTransport,
     request_id: u64,
 }
 
-impl CardInfoManagerDelegateTask {
+impl MobileManagerDelegateTask {
     fn reply(&self, payload: GeckoBridgeFromClient) {
         let message = BaseMessage {
             service: self.service_id,
@@ -110,13 +107,13 @@ impl CardInfoManagerDelegateTask {
     }
 }
 
-impl Task for CardInfoManagerDelegateTask {
+impl Task for MobileManagerDelegateTask {
     fn run(&self) {
         // Call the method on the initial thread.
-        debug!("CardInfoManagerDelegateTask::run");
+        debug!("MobileManagerDelegateTask::run");
         if let Some(object) = self.xpcom.get() {
             match self.command {
-                CardInfoManagerCommand::GetCardInfo(id, info_type) => {
+                MobileManagerCommand::GetCardInfo(id, info_type) => {
                     let mut card_info = nsString::new();
                     let status;
                     unsafe {
@@ -124,27 +121,27 @@ impl Task for CardInfoManagerDelegateTask {
                     };
 
                     let payload = match status {
-                        NS_OK => GeckoBridgeFromClient::CardInfoManagerDelegateGetCardInfoSuccess(
+                        NS_OK => GeckoBridgeFromClient::MobileManagerDelegateGetCardInfoSuccess(
                             card_info.to_string(),
                         ),
-                        _ => GeckoBridgeFromClient::CardInfoManagerDelegateGetCardInfoError,
+                        _ => GeckoBridgeFromClient::MobileManagerDelegateGetCardInfoError,
                     };
                     self.reply(payload);
                 }
-                CardInfoManagerCommand::GetMncMcc(id, is_sim) => {
+                MobileManagerCommand::GetMncMcc(id, is_sim) => {
                     let mut _mnc = nsString::new();
                     let mut _mcc = nsString::new();
                     let status;
                     unsafe { status = object.GetMncMcc(id as i32, is_sim, &mut *_mnc, &mut *_mcc) };
 
                     let payload = match status {
-                        NS_OK => GeckoBridgeFromClient::CardInfoManagerDelegateGetMncMccSuccess(
+                        NS_OK => GeckoBridgeFromClient::MobileManagerDelegateGetMncMccSuccess(
                             NetworkOperator {
                                 mnc: _mnc.to_string(),
                                 mcc: _mcc.to_string(),
                             },
                         ),
-                        _ => GeckoBridgeFromClient::CardInfoManagerDelegateGetMncMccError,
+                        _ => GeckoBridgeFromClient::MobileManagerDelegateGetMncMccError,
                     };
                     self.reply(payload);
                 }
