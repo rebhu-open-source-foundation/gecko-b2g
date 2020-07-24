@@ -7,6 +7,12 @@
 this.EXPORTED_SYMBOLS = ["WifiConstants"];
 
 const WifiConstants = {
+  // wifi state from IWifi.aidl
+  WIFI_STATE_ENABLING: 1,
+  WIFI_STATE_ENABLED: 2,
+  WIFI_STATE_DISABLING: 3,
+  WIFI_STATE_DISABLED: 4,
+
   INVALID_NETWORK_ID: -1,
   INVALID_TIME_STAMP: -1,
   INVALID_RSSI: -127,

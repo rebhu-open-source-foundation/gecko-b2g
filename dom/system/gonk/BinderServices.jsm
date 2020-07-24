@@ -24,4 +24,17 @@ XPCOMUtils.defineLazyGetter(BinderServices, "connectivity", function() {
   };
 });
 
+XPCOMUtils.defineLazyGetter(BinderServices, "wifi", function() {
+#ifdef HAS_KOOST_MODULES
+  try {
+    return Cc["@mozilla.org/b2g/wifibinderservice;1"].getService(
+      Ci.nsIWifiBinderService);
+  } catch (e) {}
+#endif
+  // Sync from nsIWifiBinderService.idl.
+  return {
+    onWifiStateChanged(state) {},
+  };
+});
+
 XPCOMUtils.defineLazyServiceGetters(BinderServices, {});

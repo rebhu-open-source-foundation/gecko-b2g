@@ -48,6 +48,9 @@ const { ScanResult, WifiNetwork, WifiConfigUtils } = ChromeUtils.import(
 const { TetheringConfigStore } = ChromeUtils.import(
   "resource://gre/modules/TetheringConfigStore.jsm"
 );
+const { BinderServices } = ChromeUtils.import(
+  "resource://gre/modules/BinderServices.jsm"
+);
 
 var DEBUG = true; // set to true to show debug messages.
 
@@ -1656,6 +1659,12 @@ var WifiManager = (function() {
       return;
     }
 
+    BinderServices.wifi.onWifiStateChanged(
+      enabled
+        ? WifiConstants.WIFI_STATE_ENABLING
+        : WifiConstants.WIFI_STATE_DISABLING
+    );
+
     if (enabled) {
       manager.state = "INITIALIZING";
       prepareForStartup(function() {
@@ -1694,6 +1703,9 @@ var WifiManager = (function() {
           gNetworkService.enableInterface(manager.ifname, function(ok) {
             callback(ok);
           });
+          BinderServices.wifi.onWifiStateChanged(
+            WifiConstants.WIFI_STATE_ENABLED
+          );
         });
       });
     } else {
@@ -1732,6 +1744,9 @@ var WifiManager = (function() {
         wifiCommand.stopWifi(function(result) {
           notify("supplicantlost", { success: true });
           callback(result.status == SUCCESS);
+          BinderServices.wifi.onWifiStateChanged(
+            WifiConstants.WIFI_STATE_DISABLED
+          );
         });
       });
 
