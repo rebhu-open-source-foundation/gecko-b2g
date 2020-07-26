@@ -89,12 +89,17 @@ IPDL_SOURCES += [
 
 if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk' and CONFIG['MOZ_B2G_RIL']:
     XPIDL_SOURCES += [
-        'gonk/nsIGonkImsRegService.idl',
-        'gonk/nsIGonkMobileConnectionService.idl',
-        'gonk/nsIMobileConnectionMessenger.idl',
+        'gonk/interfaces/nsIGonkImsRegService.idl',
+        'gonk/interfaces/nsIGonkMobileConnectionService.idl',
+        'gonk/interfaces/nsIImsConfig.idl',
+        'gonk/interfaces/nsIImsMMTelFeature.idl',
+        'gonk/interfaces/nsIImsRegistration.idl',
+        'gonk/interfaces/nsIImsServiceManager.idl',
+        'gonk/interfaces/nsIImsUt.idl',
+        'gonk/interfaces/nsIMobileConnectionMessenger.idl',
     ]
 
-    EXTRA_JS_MODULES += [
+    EXTRA_PP_JS_MODULES += [
         'gonk/MobileConnectionService.jsm',
     ]
 

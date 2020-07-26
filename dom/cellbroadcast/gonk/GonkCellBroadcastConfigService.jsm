@@ -49,10 +49,6 @@ XPCOMUtils.defineLazyServiceGetter(this, "gCellBroadcastService",
                                    "@mozilla.org/cellbroadcast/cellbroadcastservice;1",
                                    "nsICellBroadcastService");
 
-/*XPCOMUtils.defineLazyServiceGetter(this, "gCustomizationInfo",
-                                   "@kaiostech.com/customizationinfo;1",
-                                   "nsICustomizationInfo");*/
-
 XPCOMUtils.defineLazyServiceGetter(this, "gIccService",
                                    "@mozilla.org/icc/iccservice;1",
                                    "nsIIccService");
@@ -60,6 +56,14 @@ XPCOMUtils.defineLazyServiceGetter(this, "gIccService",
 XPCOMUtils.defineLazyServiceGetter(this, "gMobileConnectionService",
                                    "@mozilla.org/mobileconnection/mobileconnectionservice;1",
                                    "nsIMobileConnectionService");
+
+var KOOST_ENABLED = false;
+#ifdef HAS_KOOST_MODULES
+XPCOMUtils.defineLazyServiceGetter(this, "gCustomizationInfo",
+                                   "@kaiostech.com/customizationinfo;1",
+                                   "nsICustomizationInfo");
+KOOST_ENABLED = true;
+#endif
 
 var DEBUG = false;
 function debug(s) {

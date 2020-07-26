@@ -105,14 +105,6 @@ XPCOMUtils.defineLazyServiceGetter(this, "gDataCallManager",
                                    "@mozilla.org/datacall/manager;1",
                                    "nsIDataCallManager");
 
-XPCOMUtils.defineLazyServiceGetter(this, "gImsRegService",
-                                  "@mozilla.org/mobileconnection/imsregservice;1",
-                                  "nsIImsRegService");
-
-// XPCOMUtils.defineLazyServiceGetter(this, "gCustomizationInfo",
-//                                    "@kaiostech.com/customizationinfo;1",
-//                                    "nsICustomizationInfo");
-
 XPCOMUtils.defineLazyModuleGetter(this, "gTelephonyUtils",
                                   "resource://gre/modules/TelephonyUtils.jsm",
                                   "TelephonyUtils");
@@ -125,10 +117,21 @@ XPCOMUtils.defineLazyGetter(this, "gRadioInterfaceLayer", function() {
   return ril;
 });
 
+var KOOST_ENABLED = false;
+#ifdef HAS_KOOST_MODULES
+XPCOMUtils.defineLazyServiceGetter(this, "gImsRegService",
+                                   "@mozilla.org/mobileconnection/imsregservice;1",
+                                   "nsIImsRegService");
+
+XPCOMUtils.defineLazyServiceGetter(this, "gCustomizationInfo",
+                                   "@kaiostech.com/customizationinfo;1",
+                                   "nsICustomizationInfo");
+KOOST_ENABLED = true;
+#endif
+
 var DEBUG = RIL.DEBUG_RIL;
 function debug(s) {
-  //dump("MobileConnectionService: " + s + "\n");
-  console.log("MobileConnectionService: " + s + "\n");
+  dump("MobileConnectionService: " + s + "\n");
 }
 
 function MobileNetworkInfo() {
@@ -154,8 +157,7 @@ MobileSignalStrength.prototype = {
    * A utility function to dump debug message.
    */
   _debug: function(aMessage) {
-    //dump("MobileSignalStrength[" + this._clientId + "]: " + aMessage + "\n");
-    console.log("MobileSignalStrength[" + this._clientId + "]: " + aMessage + "\n");
+    dump("MobileSignalStrength[" + this._clientId + "]: " + aMessage + "\n");
   },
 
   // nsIMobileSignalStrength
@@ -1527,7 +1529,7 @@ MobileConnectionProvider.prototype = {
 
   setCallForwarding: function(aAction, aReason, aNumber, aTimeSeconds,
                               aServiceClass, aCallback) {
-    if (this._imsRegHandler.isImsRegistered) {
+    if (this._imsRegHandler && this._imsRegHandler.isImsRegistered) {
       if (!this._imsUt) {
         this.initUt();
       }
@@ -1582,7 +1584,7 @@ MobileConnectionProvider.prototype = {
   },
 
   getCallForwarding: function(aReason, aServiceClass, aCallback) {
-    if (this._imsRegHandler.isImsRegistered) {
+    if (this._imsRegHandler && this._imsRegHandler.isImsRegistered) {
       if (!this._imsUt) {
         this.initUt();
       }
@@ -1625,7 +1627,7 @@ MobileConnectionProvider.prototype = {
 
   setCallBarring: function(aProgram, aEnabled, aPassword, aServiceClass,
                            aCallback) {
-    if (this._imsRegHandler.isImsRegistered) {
+    if (this._imsRegHandler && this._imsRegHandler.isImsRegistered) {
       if (!this._imsUt) {
         this.initUt();
       }
@@ -1670,7 +1672,7 @@ MobileConnectionProvider.prototype = {
   },
 
   getCallBarring: function(aProgram, aPassword, aServiceClass, aCallback) {
-    if (this._imsRegHandler.isImsRegistered) {
+    if (this._imsRegHandler && this._imsRegHandler.isImsRegistered) {
       if (!this._imsUt) {
         this.initUt();
       }
@@ -1737,7 +1739,7 @@ MobileConnectionProvider.prototype = {
   },
 
   setCallWaiting: function(aEnabled, aServiceClass, aCallback) {
-    if (this._imsRegHandler.isImsRegistered) {
+    if (this._imsRegHandler && this._imsRegHandler.isImsRegistered) {
       if (!this._imsUt) {
         this.initUt();
       }
@@ -1779,7 +1781,7 @@ MobileConnectionProvider.prototype = {
   },
 
   getCallWaiting: function(aCallback) {
-    if (this._imsRegHandler.isImsRegistered) {
+    if (this._imsRegHandler && this._imsRegHandler.isImsRegistered) {
       if (!this._imsUt) {
         this.initUt();
       }
@@ -1821,7 +1823,7 @@ MobileConnectionProvider.prototype = {
       return;
     }
 
-    if (this._imsRegHandler.isImsRegistered) {
+    if (this._imsRegHandler && this._imsRegHandler.isImsRegistered) {
       if (!this._imsUt) {
         this.initUt();
       }
@@ -1864,7 +1866,7 @@ MobileConnectionProvider.prototype = {
   },
 
   getCallingLineIdRestriction: function(aCallback) {
-    if (this._imsRegHandler.isImsRegistered) {
+    if (this._imsRegHandler && this._imsRegHandler.isImsRegistered) {
       if (!this._imsUt) {
         this.initUt();
       }
@@ -2017,7 +2019,7 @@ MobileConnectionProvider.prototype = {
 
   initUt: function() {
     if (!this._imsUt) {
-      if (this._imsRegHandler) {
+      if (this._imsRegHandler && this._imsRegHandler) {
         let imsMMTel = this._imsRegHandler.imsMMTelFeature;
         if (imsMMTel) {
           this._imsUt = imsMMTel.getUtInterface();
@@ -2158,7 +2160,12 @@ function MobileConnectionService() {
   }
   for (let i = 0; i < numClients; i++) {
     let radioInterface = gRadioInterfaceLayer.getRadioInterface(i);
-    let imsRegHandler = gImsRegService.getHandlerByServiceId(i);
+
+    let imsRegHandler = null;
+    if (KOOST_ENABLED && gImsRegService) {
+      imsRegHandler = gImsRegService.getHandlerByServiceId(i);
+    }
+
     let provider = new MobileConnectionProvider(i, radioInterface, imsRegHandler);
     this._providers.push(provider);
   }
@@ -2406,7 +2413,10 @@ MobileConnectionService.prototype = {
     let operatorNumeric = provider._operatorInfo.mcc + provider._operatorInfo.mnc;
     let numericArray = [];
 
-    numericArray = gCustomizationInfo.getCustomizedValue(aClientId, "roamingOperatorStringArray", []);
+    if (KOOST_ENABLED && gCustomizationInfo) {
+      numericArray = gCustomizationInfo.getCustomizedValue(aClientId, "roamingOperatorStringArray", []);
+    }
+
 
     if (numericArray.length == 0 || operatorNumeric == 0) {
       return false;
@@ -2443,7 +2453,9 @@ MobileConnectionService.prototype = {
     let operatorNumeric = provider._operatorInfo.mcc + provider._operatorInfo.mnc;
     let numericArray = [];
 
-    numericArray = gCustomizationInfo.getCustomizedValue(aClientId, "nonRoamingOperatorStringArray", []);
+    if (KOOST_ENABLED && gCustomizationInfo) {
+      numericArray = gCustomizationInfo.getCustomizedValue(aClientId, "nonRoamingOperatorStringArray", []);
+    }
 
     if (numericArray.length == 0 || operatorNumeric == 0) {
       return false;

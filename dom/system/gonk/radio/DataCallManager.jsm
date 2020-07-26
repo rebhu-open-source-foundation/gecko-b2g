@@ -23,9 +23,14 @@ XPCOMUtils.defineLazyServiceGetter(this, "gSettingsManager",
                                    "@mozilla.org/sidl-native/settings;1",
                                    "nsISettingsManager");
 
+
+var KOOST_ENABLED = false;
+#ifdef HAS_KOOST_MODULES
 XPCOMUtils.defineLazyServiceGetter(this, "gCustomizationInfo",
                                    "@kaiostech.com/customizationinfo;1",
                                    "nsICustomizationInfo");
+KOOST_ENABLED = true;
+#endif
 
 /*XPCOMUtils.defineLazyServiceGetter(this, "gSystemMessenger",
                                    "@mozilla.org/system-message-internal;1",
@@ -390,7 +395,11 @@ DataCallManager.prototype = {
 
             // Once got the apn, loading the white list config if any.
             if (apnSetting && apnSetting.length > 0) {
-              let whiteList = gCustomizationInfo.getCustomizedValue(clientId, "mobileSettingWhiteList", []);
+
+              let whiteList = null;
+              if (KOOST_ENABLED && gCustomizationInfo) {
+                whiteList = gCustomizationInfo.getCustomizedValue(clientId, "mobileSettingWhiteList", []);
+              }
               if (whiteList.length > 0) {
                 handler.mobileWhiteList = whiteList;
                 if (DEBUG) {

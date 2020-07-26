@@ -21,8 +21,11 @@ UNIFIED_SOURCES += [
 if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk' and CONFIG['MOZ_B2G_RIL']:
     EXTRA_JS_MODULES += [
         'gonk/CellBroadcastService.jsm',
-        'gonk/GonkCellBroadcastConfigService.jsm',
         'gonk/sms_cb_consts.js',
+    ]
+
+    EXTRA_PP_JS_MODULES += [
+        'gonk/GonkCellBroadcastConfigService.jsm',
     ]
 
     XPCOM_MANIFESTS += [

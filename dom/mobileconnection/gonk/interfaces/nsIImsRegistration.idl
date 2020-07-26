@@ -1,0 +1,59 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+interface nsIImsRegistrationListener;
+interface nsIImsReasonInfo;
+
+[scriptable, uuid(80b37c21-b423-4abe-9715-b435911e134a)]
+interface nsIImsReasonInfo : nsISupports
+{
+
+  /**
+     * For the main reason code.
+     * Possible values: TBD.
+     */
+  readonly attribute long code;
+
+
+  /**
+     * For the extra information code.
+     * Possible values: TBD.
+     */
+  readonly attribute long extraCode;
+
+  /**
+     * For the extra message of the reason.
+     */
+  readonly attribute AString extraMessage;
+};
+
+[scriptable, uuid(ce59f329-56e0-4b4a-a348-91d256d9aac8)]
+interface nsIImsRegistrationListener : nsISupports
+{
+
+  void onRegistered(in long imsRadioTech);
+
+  void onRegistering(in long imsRadioTech);
+
+  void onDeregistered(in long reasonInfo);
+
+  void onTechnologyChangeFailed(in long imsRadioTech, in nsIImsReasonInfo reason);
+};
+
+[scriptable, uuid(f801e190-12e1-47f0-970b-8b8985f0f381)]
+interface nsIImsRegistration : nsISupports
+{
+  const long RADIO_TECH_NONE = 0;
+  const long RADIO_TECH_LTE= 1;
+  const long RADIO_TECH_IWLAN = 2;
+
+  long getRegistrationTechnology();
+
+  void addListener(in nsIImsRegistrationListener listener);
+
+  void removeListener(in nsIImsRegistrationListener listener);
+};
+

@@ -1,0 +1,151 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+#include "nsIImsUt.idl"
+
+interface nsIImsCapabilityListener;
+interface nsIImsCapabilityCallback;
+interface nsICapabilityChangeRequest;
+interface nsICapabilityPair;
+interface nsIImsUt;
+
+[scriptable, uuid(508d25ce-cd53-4a02-bc1f-926fc322d9d6)]
+interface nsICapabilityPair : nsISupports
+{
+    /**
+    * The capabilieis.
+    * Possible values are b2g.telephony.ims.IImsMMTelService.CAPABILITY_*.
+    */
+    readonly attribute long capability;
+
+    /**
+    * The radio techonoligies.
+    * Possible values b2g.telephony.ims.IImsRegistration.RADIO_TECH_*.
+    */
+    readonly attribute long radioTech;
+};
+
+[scriptable, uuid(cb6574e7-86b6-485d-841d-25efbe33727d)]
+interface nsICapabilityChangeRequest : nsISupports
+{
+    /**
+     * The capabilities to enable.
+     */
+    readonly attribute Array<nsICapabilityPair> capabilitiesToEnable;
+
+    /**
+     * The capabilities to disable.
+     */
+    readonly attribute Array<nsICapabilityPair> capabilitiesToDisable;
+};
+
+[scriptable, uuid(c794da92-a077-4348-a563-df21e5ba7728)]
+interface nsIImsCapabilityCallback : nsISupports
+{
+
+  /**
+   * To notify caller the result of IImsMMTelFeature.changeCapability().
+   * @param capability
+   *        Possible values: b2g.telephony.ims.IImsMMTelFeature.CAPABILITY_TYPE_*.
+   * @param radioTech
+   *        Possible values: b2g.telephony.ims.IImsRegistration.RADIO_TECH_*.
+   * @param status
+   *        Possible values: b2g.telephony.ims.IImsConfig.OPERATION_STATUS_*.
+   */
+  void onChangeCapabilityResponse(in long capability, in long radioTech, in long status);
+};
+
+[scriptable, uuid(5195c827-69d0-4167-ae7d-9772bd491c8b)]
+interface nsIImsCapabilityListener : nsISupports
+{
+
+  /**
+   * Notified when network capabilities changed.
+   * The attached radio tech could be retrieved via IImsRegistration.getRegistrationTechnology().
+   * @param capabilities A bitmask of current capabilities.
+   *        Possible values: IImsMMTelFeature.CAPABILITY_TYPE_*.
+   */
+  void onCapabilitiesChanged(in long capabilities);
+};
+
+[scriptable, uuid(6345655f-4077-4837-a478-26967c27068a)]
+interface nsIImsMMTelFeature : nsISupports
+{
+  const long STATE_UNAVAILABLE = 0;
+  const long STATE_INITIALIZING = 1;
+  const long STATE_READY = 2;
+
+  /**
+   * Voice calling (IR.92).
+   * 1 << 0.
+   */
+  const long CAPABILITY_TYPE_VOICE = 1;
+
+  /**
+   * Video (IR.94).
+   * 1 << 1.
+   */
+  const long CAPABILITY_TYPE_VIDEO = 2;
+
+  /**
+   * XCAP over Ut for supplementary services. (IR.92).
+   * 1 << 2.
+   */
+  const long CAPABILITY_TYPE_UT = 4;
+
+  /**
+   * SMS (IR.92)
+   * 1 << 3.
+   */
+  const long CAPABILITY_TYPE_SMS = 8;
+
+  /**
+   * @return The latest feature status
+   *         Possible values: STATE_*.
+   */
+  long getFeatureStatus();
+
+  /**
+   * To change capabilities with given capability and radio tech pairs.
+   * If any subset of request succeed, the succeed signal will be notified via
+   *   IImsCapabilityCall.onChangeCapabilityConfigurationSuccess.
+   * If any subset of request failed, the failed detail will be notified via
+   *  IImsCapabilityCallback.onChangeCapabilityConfigurationError.
+   *
+   * @param request The request pairs
+   * @param callback The callback to receive change error..
+   */
+   void changeCapabilities(in nsICapabilityChangeRequest request,
+                           in nsIImsCapabilityCallback callback);
+
+  /**
+   * To the enable status with given capability and radio tech.
+   * @param capability
+   *        Possible values: CAPABILITY_TYPE_*.
+   * @param radioTech
+   *        Possible values: b2g.telephony.ims.RADIO_TECH_*.
+   * @return enable state.
+   */
+  boolean getCapability(in long capability, in long radioTech);
+
+  /**
+   * The modem/network capabilties change events will be notified via listener.
+   * @param listener
+   */
+  void addCapabilityListener(in nsIImsCapabilityListener listener);
+
+  /**
+   * To remove modem/network capabilities event listener.
+   * @param listener
+   */
+  void removeCapabilityListener(in nsIImsCapabilityListener listener);
+
+  /**
+   * It would be called by MobileConnectionService.jsm MobileConnectionProvider module.
+   * @return The IMS UT interface object to set/query supplementary service configuration.
+   */
+  nsIImsUt getUtInterface();
+};
+
