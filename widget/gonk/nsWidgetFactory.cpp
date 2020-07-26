@@ -87,7 +87,7 @@ static const mozilla::Module::ContractIDEntry kWidgetContracts[] = {
     {"@mozilla.org/widget/appshell/gonk;1", &kNS_APPSHELL_CID},
     {"@mozilla.org/gfx/screenmanager;1", &kNS_SCREENMANAGER_CID},
     {"@mozilla.org/widget/htmlformatconverter;1", &kNS_HTMLFORMATCONVERTER_CID},
-    {"@mozilla.org/widget/idleservice;1", &kNS_IDLE_SERVICE_CID},
+    {"@mozilla.org/widget/useridleservice;1", &kNS_IDLE_SERVICE_CID},
     {"@mozilla.org/widget/transferable;1", &kNS_TRANSFERABLE_CID},
     {"@mozilla.org/gfx/info;1", &kNS_GFXINFO_CID},
     {"@mozilla.org/widget/clipboard;1", &kNS_CLIPBOARD_CID},
