@@ -1104,7 +1104,10 @@ class MacroAssembler : public MacroAssemblerSpecific {
   inline void rshift32Arithmetic(Register shift,
                                  Register srcDest) PER_SHARED_ARCH;
 
-  // These variants may use the stack, but do not have the above constraint.
+  // These variants do not have the above constraint, but may emit some extra
+  // instructions on x86_shared. They also handle shift >= 32 consistently by
+  // masking with 0x1F (either explicitly or relying on the hardware to do
+  // that).
   inline void flexibleLshift32(Register shift,
                                Register srcDest) PER_SHARED_ARCH;
   inline void flexibleRshift32(Register shift,
@@ -3549,6 +3552,8 @@ class MacroAssembler : public MacroAssemblerSpecific {
 
   void debugAssertIsObject(const ValueOperand& val);
   void debugAssertObjHasFixedSlots(Register obj, Register scratch);
+
+  void setIsPackedArray(Register obj, Register output, Register temp);
 
   void branchIfNativeIteratorNotReusable(Register ni, Label* notReusable);
 

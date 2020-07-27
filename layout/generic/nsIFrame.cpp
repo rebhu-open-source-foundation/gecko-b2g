@@ -3850,7 +3850,20 @@ static bool DescendIntoChild(nsDisplayListBuilder* aBuilder,
     return true;
   }
 
-  const nsRect overflow = aChild->InkOverflowRect();
+  nsRect overflow = aChild->InkOverflowRect();
+
+  // On mobile, there may be a dynamic toolbar. The root content document's
+  // root scroll frame's ink overflow rect does not include the toolbar
+  // height, but if the toolbar is hidden, we still want to be able to target
+  // content underneath the toolbar, so expand the overflow rect here to
+  // allow display list building to descend into the scroll frame.
+  if (aBuilder->IsForEventDelivery() &&
+      aChild == aChild->PresShell()->GetRootScrollFrame() &&
+      aChild->PresContext()->IsRootContentDocumentCrossProcess() &&
+      aChild->PresContext()->HasDynamicToolbar()) {
+    overflow.SizeTo(nsLayoutUtils::ExpandHeightForDynamicToolbar(
+        aChild->PresContext(), overflow.Size()));
+  }
 
   if (aDirty.Intersects(overflow)) {
     return true;
@@ -6284,7 +6297,7 @@ nscoord nsIFrame::ComputeISizeValue(gfxContext* aRenderingContext,
       "have unconstrained inline-size; this should only result from "
       "very large sizes, not attempts at intrinsic inline-size "
       "calculation");
-  MOZ_ASSERT(aContainingBlockISize >= 0, "inline-size less than zero");
+  NS_ASSERTION(aContainingBlockISize >= 0, "inline-size less than zero");
 
   nscoord result = aCoord.Resolve(aContainingBlockISize);
   // The result of a calc() expression might be less than 0; we
@@ -8516,7 +8529,12 @@ nsresult nsIFrame::PeekOffsetForLineEdge(nsPeekOffsetStruct* aPos) {
 }
 
 nsresult nsIFrame::PeekOffset(nsPeekOffsetStruct* aPos) {
-  MOZ_ASSERT(aPos && !HasAnyStateBits(NS_FRAME_IS_DIRTY));
+  MOZ_ASSERT(aPos);
+
+  if (NS_WARN_IF(HasAnyStateBits(NS_FRAME_IS_DIRTY))) {
+    // FIXME(Bug 1654362): <caption> currently can remain dirty.
+    return NS_ERROR_UNEXPECTED;
+  }
 
   // Translate content offset to be relative to frame
   int32_t offset = aPos->mStartOffset - GetRangeForFrame(this).start;
@@ -9743,7 +9761,8 @@ bool nsIFrame::IsFocusable(int32_t* aTabIndex, bool aWithMouse) {
 
   if (mContent && mContent->IsElement() && IsVisibleConsideringAncestors() &&
       Style()->GetPseudoType() != PseudoStyleType::anonymousFlexItem &&
-      Style()->GetPseudoType() != PseudoStyleType::anonymousGridItem) {
+      Style()->GetPseudoType() != PseudoStyleType::anonymousGridItem &&
+      StyleUI()->mInert != StyleInert::Inert) {
     const nsStyleUI* ui = StyleUI();
     if (ui->mUserFocus != StyleUserFocus::Ignore &&
         ui->mUserFocus != StyleUserFocus::None) {

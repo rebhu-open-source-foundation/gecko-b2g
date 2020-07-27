@@ -269,6 +269,31 @@ void ICScript::trace(JSTracer* trc) {
   }
 }
 
+bool ICScript::isInlined() const { return jitScript()->icScript() != this; }
+
+bool ICScript::addInlinedChild(JSContext* cx, UniquePtr<ICScript> child,
+                               uint32_t pcOffset) {
+  if (!inlinedChildren_) {
+    inlinedChildren_ = js::MakeUnique<Vector<CallSite>>(cx);
+    if (!inlinedChildren_) {
+      return false;
+    }
+  }
+  if (!inlinedChildren_->emplaceBack(child.get(), pcOffset)) {
+    return false;
+  }
+  return inliningRoot()->addInlinedScript(std::move(child));
+}
+
+ICScript* ICScript::findInlinedChild(uint32_t pcOffset) {
+  for (auto& callsite : *inlinedChildren_) {
+    if (callsite.pcOffset_ == pcOffset) {
+      return callsite.callee_;
+    }
+  }
+  MOZ_CRASH("Inlined child expected at pcOffset");
+}
+
 void JitScript::ensureProfileString(JSContext* cx, JSScript* script) {
   MOZ_ASSERT(cx->runtime()->geckoProfiler().enabled());
 
@@ -826,9 +851,15 @@ void JitScript::initBytecodeTypeMap(JSScript* script) {
   MOZ_ASSERT(typeMapIndex == script->numBytecodeTypeSets());
 }
 
-InliningRoot* JitScript::getOrCreateInliningRoot(JSContext* cx) {
+InliningRoot* JitScript::getOrCreateInliningRoot(JSContext* cx,
+                                                 JSScript* script) {
   if (!inliningRoot_) {
-    inliningRoot_ = js::MakeUnique<InliningRoot>(cx);
+    inliningRoot_ = js::MakeUnique<InliningRoot>(cx, script);
+    if (!inliningRoot_) {
+      ReportOutOfMemory(cx);
+      return nullptr;
+    }
+    icScript_.inliningRoot_ = inliningRoot_.get();
   }
   return inliningRoot_.get();
 }

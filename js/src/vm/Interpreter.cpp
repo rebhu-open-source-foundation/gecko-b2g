@@ -54,6 +54,7 @@
 #include "vm/Printer.h"
 #include "vm/Scope.h"
 #include "vm/Shape.h"
+#include "vm/SharedStencil.h"  // GCThingIndex
 #include "vm/StringType.h"
 #include "vm/ThrowMsgKind.h"  // ThrowMsgKind
 #include "vm/TraceLogging.h"
@@ -278,7 +279,7 @@ JSFunction* js::MakeDefaultConstructor(JSContext* cx, HandleScript script,
   MOZ_ASSERT(derived == !!proto);
 
   // Get class name and source offsets from bytecode.
-  uint32_t atomIndex = 0;
+  GCThingIndex atomIndex;
   uint32_t classStartOffset = 0, classEndOffset = 0;
   GetClassConstructorOperands(pc, &atomIndex, &classStartOffset,
                               &classEndOffset);
@@ -1084,7 +1085,7 @@ void js::UnwindEnvironment(JSContext* cx, EnvironmentIter& ei, jsbytecode* pc) {
   // bug; that section of code has no try-catch blocks.
   JSScript* script = ei.initialFrame().script();
   for (uint32_t i = 0; i < script->bodyScopeIndex(); i++) {
-    MOZ_ASSERT(scope != script->getScope(i));
+    MOZ_ASSERT(scope != script->getScope(GCThingIndex(i)));
   }
 #endif
 
@@ -3818,8 +3819,8 @@ static MOZ_NEVER_INLINE JS_HAZ_JSNATIVE_CALLER bool Interpret(JSContext* cx,
 
     CASE(Lambda) {
       /* Load the specified function object literal. */
-      ReservedRooted<JSFunction*> fun(
-          &rootFunction0, script->getFunction(GET_UINT32_INDEX(REGS.pc)));
+      ReservedRooted<JSFunction*> fun(&rootFunction0,
+                                      script->getFunction(REGS.pc));
       JSObject* obj = Lambda(cx, fun, REGS.fp()->environmentChain());
       if (!obj) {
         goto error;
@@ -3832,8 +3833,8 @@ static MOZ_NEVER_INLINE JS_HAZ_JSNATIVE_CALLER bool Interpret(JSContext* cx,
 
     CASE(LambdaArrow) {
       /* Load the specified function object literal. */
-      ReservedRooted<JSFunction*> fun(
-          &rootFunction0, script->getFunction(GET_UINT32_INDEX(REGS.pc)));
+      ReservedRooted<JSFunction*> fun(&rootFunction0,
+                                      script->getFunction(REGS.pc));
       ReservedRooted<Value> newTarget(&rootValue1, REGS.sp[-1]);
       JSObject* obj =
           LambdaArrow(cx, fun, REGS.fp()->environmentChain(), newTarget);
@@ -4088,7 +4089,8 @@ static MOZ_NEVER_INLINE JS_HAZ_JSNATIVE_CALLER bool Interpret(JSContext* cx,
       ReservedRooted<JSObject*> obj(&rootObject0, &REGS.sp[-2].toObject());
 
       uint32_t index = GET_UINT32(REGS.pc);
-      if (!InitArrayElemOperation(cx, REGS.pc, obj, index, val)) {
+      if (!InitArrayElemOperation(cx, REGS.pc, obj.as<ArrayObject>(), index,
+                                  val)) {
         goto error;
       }
 
@@ -4103,7 +4105,8 @@ static MOZ_NEVER_INLINE JS_HAZ_JSNATIVE_CALLER bool Interpret(JSContext* cx,
       ReservedRooted<JSObject*> obj(&rootObject0, &REGS.sp[-3].toObject());
 
       uint32_t index = REGS.sp[-2].toInt32();
-      if (!InitArrayElemOperation(cx, REGS.pc, obj, index, val)) {
+      if (!InitArrayElemOperation(cx, REGS.pc, obj.as<ArrayObject>(), index,
+                                  val)) {
         goto error;
       }
 
@@ -4400,8 +4403,8 @@ static MOZ_NEVER_INLINE JS_HAZ_JSNATIVE_CALLER bool Interpret(JSContext* cx,
       ReservedRooted<JSObject*> proto(&rootObject1, &REGS.sp[-1].toObject());
 
       /* Load the specified function object literal. */
-      ReservedRooted<JSFunction*> fun(
-          &rootFunction0, script->getFunction(GET_UINT32_INDEX(REGS.pc)));
+      ReservedRooted<JSFunction*> fun(&rootFunction0,
+                                      script->getFunction(REGS.pc));
 
       JSObject* obj =
           FunWithProtoOperation(cx, fun, REGS.fp()->environmentChain(), proto);
@@ -5096,9 +5099,9 @@ bool js::SetObjectElement(JSContext* cx, HandleObject obj, HandleValue index,
                                    pc);
 }
 
-bool js::InitElementArray(JSContext* cx, jsbytecode* pc, HandleObject obj,
+bool js::InitElementArray(JSContext* cx, jsbytecode* pc, HandleArrayObject arr,
                           uint32_t index, HandleValue value) {
-  return InitArrayElemOperation(cx, pc, obj, index, value);
+  return InitArrayElemOperation(cx, pc, arr, index, value);
 }
 
 bool js::AddValues(JSContext* cx, MutableHandleValue lhs,

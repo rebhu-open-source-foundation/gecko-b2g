@@ -16,28 +16,21 @@ const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
-ChromeUtils.defineModuleGetter(
-  this,
-  "AsyncShutdown",
-  "resource://gre/modules/AsyncShutdown.jsm"
-);
+XPCOMUtils.defineLazyModuleGetters(this, {
+  AsyncShutdown: "resource://gre/modules/AsyncShutdown.jsm",
+  ClientID: "resource://gre/modules/ClientID.jsm",
+  ExtensionStorageIDB: "resource://gre/modules/ExtensionStorageIDB.jsm",
+  Heuristics: "resource:///modules/DoHHeuristics.jsm",
+  Preferences: "resource://gre/modules/Preferences.jsm",
+  setTimeout: "resource://gre/modules/Timer.jsm",
+  clearTimeout: "resource://gre/modules/Timer.jsm",
+});
 
-ChromeUtils.defineModuleGetter(
+XPCOMUtils.defineLazyPreferenceGetter(
   this,
-  "ExtensionStorageIDB",
-  "resource://gre/modules/ExtensionStorageIDB.jsm"
-);
-
-ChromeUtils.defineModuleGetter(
-  this,
-  "Heuristics",
-  "resource:///modules/DoHHeuristics.jsm"
-);
-
-ChromeUtils.defineModuleGetter(
-  this,
-  "Preferences",
-  "resource://gre/modules/Preferences.jsm"
+  "kDebounceTimeout",
+  "doh-rollout.network-debounce-timeout",
+  1000
 );
 
 XPCOMUtils.defineLazyServiceGetter(
@@ -100,6 +93,28 @@ const TRRSELECT_TELEMETRY_CATEGORY = "security.doh.trrPerformance";
 const kLinkStatusChangedTopic = "network:link-status-changed";
 const kConnectivityTopic = "network:captive-portal-connectivity";
 const kPrefChangedTopic = "nsPref:changed";
+
+// Helper function to hash the network ID concatenated with telemetry client ID.
+// This prevents us from being able to tell if 2 clients are on the same network.
+function getHashedNetworkID() {
+  let currentNetworkID = gNetworkLinkService.networkID;
+  if (!currentNetworkID) {
+    return "";
+  }
+
+  let hasher = Cc["@mozilla.org/security/hash;1"].createInstance(
+    Ci.nsICryptoHash
+  );
+
+  hasher.init(Ci.nsICryptoHash.SHA256);
+  // Concat the client ID with the network ID before hashing.
+  let clientNetworkID = ClientID.getClientID() + currentNetworkID;
+  hasher.update(
+    clientNetworkID.split("").map(c => c.charCodeAt(0)),
+    clientNetworkID.length
+  );
+  return hasher.finish(true);
+}
 
 const DoHController = {
   _heuristicsAreEnabled: false,
@@ -277,18 +292,60 @@ const DoHController = {
     this._heuristicsAreEnabled = true;
   },
 
+  _lastHeuristicsRunTimestamp: 0,
   async runHeuristics(evaluateReason) {
+    let start = Date.now();
+    // If this function is called in quick succession, _lastHeuristicsRunTimestamp
+    // might be refreshed while we are still awaiting Heuristics.run() below.
+    this._lastHeuristicsRunTimestamp = start;
+
     let results = await Heuristics.run();
+
+    if (
+      !gNetworkLinkService.isLinkUp ||
+      this._lastDebounceTimestamp > start ||
+      this._lastHeuristicsRunTimestamp > start ||
+      gCaptivePortalService.state == gCaptivePortalService.LOCKED_PORTAL
+    ) {
+      // If the network is currently down or there was a debounce triggered
+      // while we were running heuristics, it means the network fluctuated
+      // during this heuristics run. We simply discard the results in this case.
+      // Same thing if there was another heuristics run triggered or if we have
+      // detected a locked captive portal while this one was ongoing.
+      return;
+    }
 
     let decision = Object.values(results).includes(Heuristics.DISABLE_DOH)
       ? Heuristics.DISABLE_DOH
       : Heuristics.ENABLE_DOH;
 
-    results.evaluateReason = evaluateReason;
+    let getCaptiveStateString = () => {
+      switch (gCaptivePortalService.state) {
+        case gCaptivePortalService.NOT_CAPTIVE:
+          return "not_captive";
+        case gCaptivePortalService.UNLOCKED_PORTAL:
+          return "unlocked";
+        case gCaptivePortalService.LOCKED_PORTAL:
+          return "locked";
+        default:
+          return "unknown";
+      }
+    };
+
+    let resultsForTelemetry = {
+      evaluateReason,
+      steeredProvider: "",
+      captiveState: getCaptiveStateString(),
+      // NOTE: This might not yet be available after a network change. We mainly
+      // care about the startup case though - we want to look at whether the
+      // heuristics result is consistent for networkIDs often seen at startup.
+      // TODO: Use this data to implement cached results to use early at startup.
+      networkID: getHashedNetworkID(),
+    };
 
     if (results.steeredProvider) {
       gDNSService.setDetectedTrrURI(results.steeredProvider.uri);
-      results.steeredProvider = results.steeredProvider.name;
+      resultsForTelemetry.steeredProvider = results.steeredProvider.name;
     }
 
     if (decision === Heuristics.DISABLE_DOH) {
@@ -297,12 +354,41 @@ const DoHController = {
       await this.setState("enabled");
     }
 
+    // For telemetry, we group the heuristics results into three categories.
+    // Only heuristics with a DISABLE_DOH result are included.
+    // Each category is finally included in the event as a comma-separated list.
+    let canaries = [];
+    let filtering = [];
+    let enterprise = [];
+
+    for (let [heuristicName, result] of Object.entries(results)) {
+      if (result !== Heuristics.DISABLE_DOH) {
+        continue;
+      }
+
+      if (["canary", "zscalerCanary"].includes(heuristicName)) {
+        canaries.push(heuristicName);
+      } else if (
+        ["browserParent", "google", "youtube"].includes(heuristicName)
+      ) {
+        filtering.push(heuristicName);
+      } else if (
+        ["policy", "modifiedRoots", "thirdPartyRoots"].includes(heuristicName)
+      ) {
+        enterprise.push(heuristicName);
+      }
+    }
+
+    resultsForTelemetry.canaries = canaries.join(",");
+    resultsForTelemetry.filtering = filtering.join(",");
+    resultsForTelemetry.enterprise = enterprise.join(",");
+
     Services.telemetry.recordEvent(
       HEURISTICS_TELEMETRY_CATEGORY,
-      "evaluate",
+      "evaluate_v2",
       "heuristics",
       decision,
-      results
+      resultsForTelemetry
     );
   },
 
@@ -460,7 +546,41 @@ const DoHController = {
     }
   },
 
-  async onConnectionChanged() {
+  // Connection change events are debounced to allow the network to settle.
+  // We wait for the network to be up for a period of kDebounceTimeout before
+  // handling the change. The timer is canceled when the network goes down and
+  // restarted the first time we learn that it went back up.
+  _debounceTimer: null,
+  _cancelDebounce() {
+    if (!this._debounceTimer) {
+      return;
+    }
+
+    clearTimeout(this._debounceTimer);
+    this._debounceTimer = null;
+  },
+
+  _lastDebounceTimestamp: 0,
+  onConnectionChanged() {
+    if (!gNetworkLinkService.isLinkUp) {
+      // Network is down - reset debounce timer.
+      this._cancelDebounce();
+      return;
+    }
+
+    if (this._debounceTimer) {
+      // Already debouncing - nothing to do.
+      return;
+    }
+
+    this._lastDebounceTimestamp = Date.now();
+    this._debounceTimer = setTimeout(() => {
+      this._cancelDebounce();
+      this.onConnectionChangedDebounced();
+    }, kDebounceTimeout);
+  },
+
+  async onConnectionChangedDebounced() {
     if (!gNetworkLinkService.isLinkUp) {
       return;
     }
@@ -476,6 +596,11 @@ const DoHController = {
   },
 
   async onConnectivityAvailable() {
+    if (this._debounceTimer) {
+      // Already debouncing - nothing to do.
+      return;
+    }
+
     await this.runHeuristics("connectivity");
   },
 };

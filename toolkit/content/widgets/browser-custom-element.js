@@ -497,11 +497,7 @@
     }
 
     get remoteType() {
-      if (!this.isRemoteBrowser || !this.messageManager) {
-        return null;
-      }
-
-      return this.messageManager.remoteType;
+      return this.browsingContext?.currentRemoteType;
     }
 
     get isCrashed() {
@@ -1910,16 +1906,12 @@
       };
     }
 
-    print(aOuterWindowID, aPrintSettings, aPrintProgressListener) {
+    print(aOuterWindowID, aPrintSettings) {
       if (!this.frameLoader) {
         throw Components.Exception("No frame loader.", Cr.NS_ERROR_FAILURE);
       }
 
-      this.frameLoader.print(
-        aOuterWindowID,
-        aPrintSettings,
-        aPrintProgressListener
-      );
+      return this.frameLoader.print(aOuterWindowID, aPrintSettings);
     }
 
     async drawSnapshot(x, y, w, h, scale, backgroundColor) {

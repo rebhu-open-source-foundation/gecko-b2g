@@ -29,8 +29,10 @@ namespace IPC {
 // socketpairs.  See the .cc file for an overview of the implementation.
 class Channel::ChannelImpl : public MessageLoopForIO::Watcher {
  public:
+  using ChannelId = Channel::ChannelId;
+
   // Mirror methods of Channel, see ipc_channel.h for description.
-  ChannelImpl(const std::wstring& channel_id, Mode mode, Listener* listener);
+  ChannelImpl(const ChannelId& channel_id, Mode mode, Listener* listener);
   ChannelImpl(int fd, Mode mode, Listener* listener);
   ~ChannelImpl() { Close(); }
   bool Connect();
@@ -55,7 +57,7 @@ class Channel::ChannelImpl : public MessageLoopForIO::Watcher {
 
  private:
   void Init(Mode mode, Listener* listener);
-  bool CreatePipe(const std::wstring& channel_id, Mode mode);
+  bool CreatePipe(Mode mode);
   bool EnqueueHelloMessage();
 
   bool ProcessIncomingMessages();
@@ -91,10 +93,6 @@ class Channel::ChannelImpl : public MessageLoopForIO::Watcher {
   int server_listen_pipe_;
   int pipe_;
   int client_pipe_;  // The client end of our socketpair().
-
-  // The "name" of our pipe.  On Windows this is the global identifier for
-  // the pipe.  On POSIX it's used as a key in a local map of file descriptors.
-  std::string pipe_name_;
 
   Listener* listener_;
 

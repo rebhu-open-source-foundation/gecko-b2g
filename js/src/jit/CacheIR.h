@@ -126,6 +126,12 @@ class BigIntOperandId : public OperandId {
   explicit BigIntOperandId(uint16_t id) : OperandId(id) {}
 };
 
+class BooleanOperandId : public OperandId {
+ public:
+  BooleanOperandId() = default;
+  explicit BooleanOperandId(uint16_t id) : OperandId(id) {}
+};
+
 class Int32OperandId : public OperandId {
  public:
   Int32OperandId() = default;
@@ -144,6 +150,8 @@ class TypedOperandId : public OperandId {
       : OperandId(id.id()), type_(JSVAL_TYPE_SYMBOL) {}
   MOZ_IMPLICIT TypedOperandId(BigIntOperandId id)
       : OperandId(id.id()), type_(JSVAL_TYPE_BIGINT) {}
+  MOZ_IMPLICIT TypedOperandId(BooleanOperandId id)
+      : OperandId(id.id()), type_(JSVAL_TYPE_BOOLEAN) {}
   MOZ_IMPLICIT TypedOperandId(Int32OperandId id)
       : OperandId(id.id()), type_(JSVAL_TYPE_INT32) {}
   MOZ_IMPLICIT TypedOperandId(ValueTagOperandId val)
@@ -730,6 +738,16 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter {
     return BigIntOperandId(input.id());
   }
 
+  BooleanOperandId guardToBoolean(ValOperandId input) {
+    guardToBoolean_(input);
+    return BooleanOperandId(input.id());
+  }
+
+  Int32OperandId guardToInt32(ValOperandId input) {
+    guardToInt32_(input);
+    return Int32OperandId(input.id());
+  }
+
   NumberOperandId guardIsNumber(ValOperandId input) {
     guardIsNumber_(input);
     return NumberOperandId(input.id());
@@ -941,6 +959,10 @@ class MOZ_RAII CacheIRReader {
     return BigIntOperandId(buffer_.readByte());
   }
 
+  BooleanOperandId booleanOperandId() {
+    return BooleanOperandId(buffer_.readByte());
+  }
+
   Int32OperandId int32OperandId() { return Int32OperandId(buffer_.readByte()); }
 
   uint32_t rawOperandId() { return buffer_.readByte(); }
@@ -1084,6 +1106,8 @@ class MOZ_RAII IRGenerator {
                                                   JSObject* expandoObj);
 
   void emitIdGuard(ValOperandId valId, jsid id);
+
+  OperandId emitNumericGuard(ValOperandId valId, Scalar::Type type);
 
   friend class CacheIRSpewer;
 
@@ -1370,8 +1394,6 @@ class MOZ_RAII SetPropIRGenerator : public IRGenerator {
   // matches |id|.
   void maybeEmitIdGuard(jsid id);
 
-  OperandId emitNumericGuard(ValOperandId valId, Scalar::Type type);
-
   AttachDecision tryAttachNativeSetSlot(HandleObject obj, ObjOperandId objId,
                                         HandleId id, ValOperandId rhsId);
   AttachDecision tryAttachUnboxedExpandoSetSlot(HandleObject obj,
@@ -1573,6 +1595,7 @@ class MOZ_RAII CallIRGenerator : public IRGenerator {
   AttachDecision tryAttachArrayJoin(HandleFunction callee);
   AttachDecision tryAttachArrayIsArray(HandleFunction callee);
   AttachDecision tryAttachDataViewGet(HandleFunction callee, Scalar::Type type);
+  AttachDecision tryAttachDataViewSet(HandleFunction callee, Scalar::Type type);
   AttachDecision tryAttachUnsafeGetReservedSlot(HandleFunction callee,
                                                 InlinableNative native);
   AttachDecision tryAttachIsSuspendedGenerator(HandleFunction callee);
@@ -1581,6 +1604,7 @@ class MOZ_RAII CallIRGenerator : public IRGenerator {
   AttachDecision tryAttachToInteger(HandleFunction callee);
   AttachDecision tryAttachToLength(HandleFunction callee);
   AttachDecision tryAttachIsObject(HandleFunction callee);
+  AttachDecision tryAttachIsPackedArray(HandleFunction callee);
   AttachDecision tryAttachIsCallable(HandleFunction callee);
   AttachDecision tryAttachIsConstructor(HandleFunction callee);
   AttachDecision tryAttachGuardToClass(HandleFunction callee,

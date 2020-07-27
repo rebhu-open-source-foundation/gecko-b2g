@@ -13,11 +13,13 @@
 #include "mozilla/dom/InternalResponse.h"
 #include "mozilla/dom/RequestBinding.h"
 #include "mozilla/dom/ResponseBinding.h"
+#include "mozilla/dom/cache/CacheCommon.h"
 #include "mozilla/dom/cache/CacheTypes.h"
 #include "mozilla/dom/cache/SavedTypes.h"
 #include "mozilla/dom/cache/Types.h"
 #include "mozilla/dom/cache/TypeUtils.h"
 #include "mozilla/net/MozURL.h"
+#include "mozilla/ResultExtensions.h"
 #include "mozilla/StaticPrefs_extensions.h"
 #include "mozIStorageConnection.h"
 #include "mozIStorageStatement.h"
@@ -337,7 +339,9 @@ static_assert(nsIContentPolicy::TYPE_INVALID == 0 &&
                   nsIContentPolicy::TYPE_INTERNAL_FORCE_ALLOWED_DTD == 48 &&
                   nsIContentPolicy::TYPE_INTERNAL_AUDIOWORKLET == 49 &&
                   nsIContentPolicy::TYPE_INTERNAL_PAINTWORKLET == 50 &&
-                  nsIContentPolicy::TYPE_INTERNAL_FONT_PRELOAD == 51,
+                  nsIContentPolicy::TYPE_INTERNAL_FONT_PRELOAD == 51 &&
+                  nsIContentPolicy::TYPE_INTERNAL_CHROMEUTILS_COMPILED_SCRIPT ==
+                      52,
               "nsContentPolicyType values are as expected");
 
 namespace {
@@ -2758,8 +2762,7 @@ nsresult BindListParamsToQuery(mozIStorageStatement* aState,
   MOZ_ASSERT(!NS_IsMainThread());
   MOZ_DIAGNOSTIC_ASSERT((aPos + aLen) <= aEntryIdList.Length());
   for (int32_t i = aPos; i < aLen; ++i) {
-    nsresult rv = aState->BindInt32ByIndex(i, aEntryIdList[i]);
-    NS_ENSURE_SUCCESS(rv, rv);
+    CACHE_TRY(aState->BindInt32ByIndex(i, aEntryIdList[i]));
   }
   return NS_OK;
 }

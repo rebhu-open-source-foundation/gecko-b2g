@@ -871,25 +871,29 @@ GeckoDriver.prototype.newSession = async function(cmd) {
   await registerBrowsers;
   await browserListening;
 
-  // Register the JSWindowActor pair as used by Marionette
-  ChromeUtils.registerWindowActor("MarionetteFrame", {
-    kind: "JSWindowActor",
-    parent: {
-      moduleURI: "chrome://marionette/content/actors/MarionetteFrameParent.jsm",
-    },
-    child: {
-      moduleURI: "chrome://marionette/content/actors/MarionetteFrameChild.jsm",
-      events: {
-        beforeunload: { capture: true },
-        DOMContentLoaded: { mozSystemGroup: true },
-        pagehide: { mozSystemGroup: true },
-        pageshow: { mozSystemGroup: true },
+  if (MarionettePrefs.useActors) {
+    // Register the JSWindowActor pair as used by Marionette
+    ChromeUtils.registerWindowActor("MarionetteFrame", {
+      kind: "JSWindowActor",
+      parent: {
+        moduleURI:
+          "chrome://marionette/content/actors/MarionetteFrameParent.jsm",
       },
-    },
+      child: {
+        moduleURI:
+          "chrome://marionette/content/actors/MarionetteFrameChild.jsm",
+        events: {
+          beforeunload: { capture: true },
+          DOMContentLoaded: { mozSystemGroup: true },
+          pagehide: { mozSystemGroup: true },
+          pageshow: { mozSystemGroup: true },
+        },
+      },
 
-    allFrames: true,
-    includeChrome: true,
-  });
+      allFrames: true,
+      includeChrome: true,
+    });
+  }
 
   if (this.mainFrame) {
     this.mainFrame.focus();
@@ -2061,16 +2065,18 @@ GeckoDriver.prototype.multiAction = async function(cmd) {
  *     A modal dialog is open, blocking this operation.
  */
 GeckoDriver.prototype.findElement = async function(cmd) {
-  const win = assert.open(this.getCurrentWindow());
-  await this._handleUserPrompts();
+  const { element: el, using, value } = cmd.parameters;
 
-  let { using, value } = cmd.parameters;
   if (!SUPPORTED_STRATEGIES.has(using)) {
     throw new InvalidSelectorError(`Strategy not supported: ${using}`);
   }
+
+  const win = assert.open(this.getCurrentWindow());
+  await this._handleUserPrompts();
+
   let startNode;
-  if (typeof cmd.parameters.element != "undefined") {
-    startNode = WebElement.fromUUID(cmd.parameters.element, this.context);
+  if (typeof el != "undefined") {
+    startNode = WebElement.fromUUID(el, this.context);
   }
 
   let opts = {
@@ -2078,6 +2084,11 @@ GeckoDriver.prototype.findElement = async function(cmd) {
     timeout: this.timeouts.implicit,
     all: false,
   };
+
+  if (MarionettePrefs.useActors) {
+    const actor = await this.getActor();
+    return actor.findElement(using, value, opts);
+  }
 
   switch (this.context) {
     case Context.Chrome:
@@ -2105,16 +2116,18 @@ GeckoDriver.prototype.findElement = async function(cmd) {
  *     Value the client is looking for.
  */
 GeckoDriver.prototype.findElements = async function(cmd) {
-  const win = assert.open(this.getCurrentWindow());
-  await this._handleUserPrompts();
+  const { element: el, using, value } = cmd.parameters;
 
-  let { using, value } = cmd.parameters;
   if (!SUPPORTED_STRATEGIES.has(using)) {
     throw new InvalidSelectorError(`Strategy not supported: ${using}`);
   }
+
+  const win = assert.open(this.getCurrentWindow());
+  await this._handleUserPrompts();
+
   let startNode;
-  if (typeof cmd.parameters.element != "undefined") {
-    startNode = WebElement.fromUUID(cmd.parameters.element, this.context);
+  if (typeof el != "undefined") {
+    startNode = WebElement.fromUUID(el, this.context);
   }
 
   let opts = {
@@ -2122,6 +2135,11 @@ GeckoDriver.prototype.findElements = async function(cmd) {
     timeout: this.timeouts.implicit,
     all: true,
   };
+
+  if (MarionettePrefs.useActors) {
+    const actor = await this.getActor();
+    return actor.findElements(using, value, opts);
+  }
 
   switch (this.context) {
     case Context.Chrome:
@@ -2247,9 +2265,14 @@ GeckoDriver.prototype.getElementAttribute = async function(cmd) {
   assert.open(this.getCurrentWindow());
   await this._handleUserPrompts();
 
-  let id = assert.string(cmd.parameters.id);
-  let name = assert.string(cmd.parameters.name);
-  let webEl = WebElement.fromUUID(id, this.context);
+  const id = assert.string(cmd.parameters.id);
+  const name = assert.string(cmd.parameters.name);
+  const webEl = WebElement.fromUUID(id, this.context);
+
+  if (MarionettePrefs.useActors) {
+    const actor = await this.getActor();
+    return actor.getElementAttribute(webEl, name);
+  }
 
   switch (this.context) {
     case Context.Chrome:
@@ -2288,9 +2311,14 @@ GeckoDriver.prototype.getElementProperty = async function(cmd) {
   assert.open(this.getCurrentWindow());
   await this._handleUserPrompts();
 
-  let id = assert.string(cmd.parameters.id);
-  let name = assert.string(cmd.parameters.name);
-  let webEl = WebElement.fromUUID(id, this.context);
+  const id = assert.string(cmd.parameters.id);
+  const name = assert.string(cmd.parameters.name);
+  const webEl = WebElement.fromUUID(id, this.context);
+
+  if (MarionettePrefs.useActors) {
+    const actor = await this.getActor();
+    return actor.getElementProperty(webEl, name);
+  }
 
   switch (this.context) {
     case Context.Chrome:
@@ -2963,7 +2991,9 @@ GeckoDriver.prototype.deleteSession = function() {
     }
   }
 
-  ChromeUtils.unregisterWindowActor("MarionetteFrame");
+  if (MarionettePrefs.useActors) {
+    ChromeUtils.unregisterWindowActor("MarionetteFrame");
+  }
 
   // reset frame to the top-most frame, and clear reference to chrome window
   this.curFrame = null;

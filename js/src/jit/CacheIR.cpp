@@ -3589,8 +3589,7 @@ AttachDecision SetPropIRGenerator::tryAttachNativeSetSlot(HandleObject obj,
   return AttachDecision::Attach;
 }
 
-OperandId SetPropIRGenerator::emitNumericGuard(ValOperandId valId,
-                                               Scalar::Type type) {
+OperandId IRGenerator::emitNumericGuard(ValOperandId valId, Scalar::Type type) {
   switch (type) {
     case Scalar::Int8:
     case Scalar::Uint8:
@@ -5176,14 +5175,13 @@ AttachDecision CallIRGenerator::tryAttachDataViewGet(HandleFunction callee,
       writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
   Int32OperandId int32OffsetId = writer.guardToInt32Index(offsetId);
 
-  // TODO(Warp): add BooleanOperandId (bug 1647602).
-  Int32OperandId boolLittleEndianId;
+  BooleanOperandId boolLittleEndianId;
   if (argc_ > 1) {
     ValOperandId littleEndianId =
         writer.loadArgumentFixedSlot(ArgumentKind::Arg1, argc_);
     boolLittleEndianId = writer.guardToBoolean(littleEndianId);
   } else {
-    boolLittleEndianId = writer.loadInt32Constant(0);
+    boolLittleEndianId = writer.loadBooleanConstant(false);
   }
 
   writer.loadDataViewValueResult(objId, int32OffsetId, boolLittleEndianId, type,
@@ -5195,6 +5193,87 @@ AttachDecision CallIRGenerator::tryAttachDataViewGet(HandleFunction callee,
   cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
 
   trackAttached("DataViewGet");
+  return AttachDecision::Attach;
+}
+
+AttachDecision CallIRGenerator::tryAttachDataViewSet(HandleFunction callee,
+                                                     Scalar::Type type) {
+  // Ensure |this| is a DataViewObject.
+  if (!thisval_.isObject() || !thisval_.toObject().is<DataViewObject>()) {
+    return AttachDecision::NoAction;
+  }
+
+  // Expected arguments: offset (number), value, optional littleEndian (boolean)
+  if (argc_ < 2 || argc_ > 3) {
+    return AttachDecision::NoAction;
+  }
+  if (!args_[0].isNumber()) {
+    return AttachDecision::NoAction;
+  }
+  if (Scalar::isBigIntType(type)) {
+    if (!args_[1].isBigInt()) {
+      return AttachDecision::NoAction;
+    }
+  } else {
+    if (!args_[1].isNumber()) {
+      return AttachDecision::NoAction;
+    }
+  }
+  if (argc_ > 2 && !args_[2].isBoolean()) {
+    return AttachDecision::NoAction;
+  }
+
+  DataViewObject* dv = &thisval_.toObject().as<DataViewObject>();
+
+  // Bounds check the offset.
+  int32_t offsetInt32;
+  if (!mozilla::NumberEqualsInt32(args_[0].toNumber(), &offsetInt32)) {
+    return AttachDecision::NoAction;
+  }
+  if (offsetInt32 < 0 ||
+      !dv->offsetIsInBounds(Scalar::byteSize(type), offsetInt32)) {
+    return AttachDecision::NoAction;
+  }
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Guard callee is this DataView native function.
+  emitNativeCalleeGuard(callee);
+
+  // Guard |this| is a DataViewObject.
+  ValOperandId thisValId =
+      writer.loadArgumentFixedSlot(ArgumentKind::This, argc_);
+  ObjOperandId objId = writer.guardToObject(thisValId);
+  writer.guardClass(objId, GuardClassKind::DataView);
+
+  // Convert offset to int32.
+  ValOperandId offsetId =
+      writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
+  Int32OperandId int32OffsetId = writer.guardToInt32Index(offsetId);
+
+  // Convert value to number or BigInt.
+  ValOperandId valueId =
+      writer.loadArgumentFixedSlot(ArgumentKind::Arg1, argc_);
+  OperandId numericValueId = emitNumericGuard(valueId, type);
+
+  BooleanOperandId boolLittleEndianId;
+  if (argc_ > 2) {
+    ValOperandId littleEndianId =
+        writer.loadArgumentFixedSlot(ArgumentKind::Arg2, argc_);
+    boolLittleEndianId = writer.guardToBoolean(littleEndianId);
+  } else {
+    boolLittleEndianId = writer.loadBooleanConstant(false);
+  }
+
+  writer.storeDataViewValueResult(objId, int32OffsetId, numericValueId,
+                                  boolLittleEndianId, type);
+
+  // This stub doesn't need type monitoring, it always returns |undefined|.
+  writer.returnFromIC();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
+
+  trackAttached("DataViewSet");
   return AttachDecision::Attach;
 }
 
@@ -5401,6 +5480,30 @@ AttachDecision CallIRGenerator::tryAttachIsObject(HandleFunction callee) {
   cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
 
   trackAttached("IsObject");
+  return AttachDecision::Attach;
+}
+
+AttachDecision CallIRGenerator::tryAttachIsPackedArray(HandleFunction callee) {
+  // Self-hosted code calls this with a single object argument.
+  MOZ_ASSERT(argc_ == 1);
+  MOZ_ASSERT(args_[0].isObject());
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Note: we don't need to call emitNativeCalleeGuard for intrinsics.
+
+  // Check if the argument is packed and return result.
+  ValOperandId argId = writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
+  ObjOperandId objArgId = writer.guardToObject(argId);
+  writer.isPackedArrayResult(objArgId);
+
+  // This stub does not need to be monitored, because it always
+  // returns a boolean.
+  writer.returnFromIC();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
+
+  trackAttached("IsPackedArray");
   return AttachDecision::Attach;
 }
 
@@ -6447,6 +6550,26 @@ AttachDecision CallIRGenerator::tryAttachInlinableNative(
       return tryAttachDataViewGet(callee, Scalar::BigInt64);
     case InlinableNative::DataViewGetBigUint64:
       return tryAttachDataViewGet(callee, Scalar::BigUint64);
+    case InlinableNative::DataViewSetInt8:
+      return tryAttachDataViewSet(callee, Scalar::Int8);
+    case InlinableNative::DataViewSetUint8:
+      return tryAttachDataViewSet(callee, Scalar::Uint8);
+    case InlinableNative::DataViewSetInt16:
+      return tryAttachDataViewSet(callee, Scalar::Int16);
+    case InlinableNative::DataViewSetUint16:
+      return tryAttachDataViewSet(callee, Scalar::Uint16);
+    case InlinableNative::DataViewSetInt32:
+      return tryAttachDataViewSet(callee, Scalar::Int32);
+    case InlinableNative::DataViewSetUint32:
+      return tryAttachDataViewSet(callee, Scalar::Uint32);
+    case InlinableNative::DataViewSetFloat32:
+      return tryAttachDataViewSet(callee, Scalar::Float32);
+    case InlinableNative::DataViewSetFloat64:
+      return tryAttachDataViewSet(callee, Scalar::Float64);
+    case InlinableNative::DataViewSetBigInt64:
+      return tryAttachDataViewSet(callee, Scalar::BigInt64);
+    case InlinableNative::DataViewSetBigUint64:
+      return tryAttachDataViewSet(callee, Scalar::BigUint64);
 
     // Intl natives.
     case InlinableNative::IntlGuardToCollator:
@@ -6477,6 +6600,8 @@ AttachDecision CallIRGenerator::tryAttachInlinableNative(
       return tryAttachToLength(callee);
     case InlinableNative::IntrinsicIsObject:
       return tryAttachIsObject(callee);
+    case InlinableNative::IntrinsicIsPackedArray:
+      return tryAttachIsPackedArray(callee);
     case InlinableNative::IntrinsicIsCallable:
       return tryAttachIsCallable(callee);
     case InlinableNative::IntrinsicIsConstructor:
@@ -7209,10 +7334,12 @@ AttachDecision CompareIRGenerator::tryAttachInt32(ValOperandId lhsId,
     return AttachDecision::NoAction;
   }
 
-  Int32OperandId lhsIntId = lhsVal_.isBoolean() ? writer.guardToBoolean(lhsId)
-                                                : writer.guardToInt32(lhsId);
-  Int32OperandId rhsIntId = rhsVal_.isBoolean() ? writer.guardToBoolean(rhsId)
-                                                : writer.guardToInt32(rhsId);
+  Int32OperandId lhsIntId = lhsVal_.isBoolean()
+                                ? writer.guardBooleanToInt32(lhsId)
+                                : writer.guardToInt32(lhsId);
+  Int32OperandId rhsIntId = rhsVal_.isBoolean()
+                                ? writer.guardBooleanToInt32(rhsId)
+                                : writer.guardToInt32(rhsId);
 
   // Strictly different types should have been handed by
   // tryAttachStrictDifferentTypes
@@ -7494,7 +7621,7 @@ AttachDecision CompareIRGenerator::tryAttachBoolStringOrNumber(
 
   auto createGuards = [&](HandleValue v, ValOperandId vId) {
     if (v.isBoolean()) {
-      Int32OperandId boolId = writer.guardToBoolean(vId);
+      BooleanOperandId boolId = writer.guardToBoolean(vId);
       return writer.guardAndGetNumberFromBoolean(boolId);
     }
     if (v.isString()) {
@@ -7527,7 +7654,7 @@ AttachDecision CompareIRGenerator::tryAttachBigIntInt32(ValOperandId lhsId,
 
   auto createGuards = [&](HandleValue v, ValOperandId vId) {
     if (v.isBoolean()) {
-      return writer.guardToBoolean(vId);
+      return writer.guardBooleanToInt32(vId);
     }
     MOZ_ASSERT(v.isInt32());
     return writer.guardToInt32(vId);
@@ -8240,7 +8367,7 @@ AttachDecision BinaryArithIRGenerator::tryAttachBitwise() {
       return writer.guardToInt32(id);
     }
     if (val.isBoolean()) {
-      return writer.guardToBoolean(id);
+      return writer.guardBooleanToInt32(id);
     }
     MOZ_ASSERT(val.isDouble());
     NumberOperandId numId = writer.guardIsNumber(id);
@@ -8363,7 +8490,7 @@ AttachDecision BinaryArithIRGenerator::tryAttachInt32() {
       return writer.guardToInt32(id);
     }
     MOZ_ASSERT(v.isBoolean());
-    return writer.guardToBoolean(id);
+    return writer.guardBooleanToInt32(id);
   };
 
   Int32OperandId lhsIntId = guardToInt32(lhsId, lhs_);
@@ -8460,8 +8587,8 @@ AttachDecision BinaryArithIRGenerator::tryAttachStringBooleanConcat() {
       return writer.guardToString(id);
     }
     MOZ_ASSERT(v.isBoolean());
-    Int32OperandId intId = writer.guardToBoolean(id);
-    return writer.booleanToString(intId);
+    BooleanOperandId boolId = writer.guardToBoolean(id);
+    return writer.booleanToString(boolId);
   };
 
   StringOperandId lhsStrId = guardToString(lhsId, lhs_);

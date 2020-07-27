@@ -12,23 +12,16 @@
 namespace mozilla {
 namespace scache {
 
-void StartupCacheChild::Init(bool wantCacheData) {
-  mWantCacheData = wantCacheData;
-
+void StartupCacheChild::Init() {
   auto* cache = StartupCache::GetSingleton();
   if (cache) {
-    Unused << cache->InitChild(wantCacheData ? this : nullptr);
-  }
-
-  if (!wantCacheData) {
-    // If the parent process isn't expecting any cache data from us, we're
-    // done.
+    Unused << cache->InitChild(this);
+  } else {
     Send__delete__(this, AutoTArray<EntryData, 0>());
   }
 }
 
 void StartupCacheChild::SendEntriesAndFinalize(StartupCache::Table& entries) {
-  MOZ_RELEASE_ASSERT(mWantCacheData);
   nsTArray<EntryData> dataArray;
   for (auto iter = entries.iter(); !iter.done(); iter.next()) {
     const auto& key = iter.get().key();
@@ -41,7 +34,10 @@ void StartupCacheChild::SendEntriesAndFinalize(StartupCache::Table& entries) {
 
     auto data = dataArray.AppendElement();
 
-    data->key() = key;
+    MOZ_ASSERT(strnlen(key.get(), kStartupCacheKeyLengthCap) <
+                   kStartupCacheKeyLengthCap,
+               "StartupCache key over the size limit.");
+    data->key() = nsCString(key.get());
     if (value.mFlags.contains(StartupCacheEntryFlags::AddedThisSession)) {
       data->data().AppendElements(
           reinterpret_cast<const uint8_t*>(value.mData.get()),
@@ -49,8 +45,14 @@ void StartupCacheChild::SendEntriesAndFinalize(StartupCache::Table& entries) {
     }
   }
 
-  mWantCacheData = false;
   Send__delete__(this, dataArray);
+
+  for (auto iter = entries.iter(); !iter.done(); iter.next()) {
+    auto& value = iter.get().value();
+    if (!value.mFlags.contains(StartupCacheEntryFlags::DoNotFree)) {
+      value.mData = nullptr;
+    }
+  }
 }
 
 void StartupCacheChild::ActorDestroy(ActorDestroyReason aWhy) {

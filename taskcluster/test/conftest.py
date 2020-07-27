@@ -12,6 +12,7 @@ from responses import RequestsMock
 
 from taskgraph.generator import TaskGraphGenerator
 from taskgraph.parameters import parameters_loader
+from taskgraph.util.backstop import PUSH_ENDPOINT
 from taskgraph.util.bugbug import BUGBUG_BASE_URL
 
 here = os.path.abspath(os.path.dirname(__file__))
@@ -19,7 +20,7 @@ here = os.path.abspath(os.path.dirname(__file__))
 
 @pytest.fixture(scope="session")
 def responses():
-    with RequestsMock() as rsps:
+    with RequestsMock(assert_all_requests_are_fired=False) as rsps:
         yield rsps
 
 
@@ -44,20 +45,28 @@ def create_tgg(responses, datadir):
         mock_requests = {}
 
         # bugbug /push/schedules
-        url = BUGBUG_BASE_URL + "/push/{project}/{head_rev}/schedules".format(**tgg.parameters)
+        url = BUGBUG_BASE_URL + "/push/{project}/{head_rev}/schedules".format(
+            **tgg.parameters
+        )
         mock_requests[url] = "bugbug-push-schedules.json"
 
         # files changed
-        url = "{head_repository}/json-automationrelevance/{head_rev}".format(**tgg.parameters)
+        url = "{head_repository}/json-automationrelevance/{head_rev}".format(
+            **tgg.parameters
+        )
         mock_requests[url] = "automationrelevance.json"
+
+        url = PUSH_ENDPOINT.format(
+            head_repository=tgg.parameters["head_repository"],
+            push_id_start=int(tgg.parameters["pushlog_id"]) - 2,
+            push_id_end=int(tgg.parameters["pushlog_id"]) - 1,
+        )
+        mock_requests[url] = "pushes.json"
 
         for url, filename in mock_requests.items():
             with open(os.path.join(datadir, filename)) as fh:
                 responses.add(
-                    responses.GET,
-                    url,
-                    json=json.load(fh),
-                    status=200,
+                    responses.GET, url, json=json.load(fh), status=200,
                 )
 
         # Still allow other real requests.
@@ -70,7 +79,6 @@ def create_tgg(responses, datadir):
 
 @pytest.fixture(scope="session")
 def filter_tasks():
-
     def inner(graph, func):
         return filter(func, graph.tasks.values())
 

@@ -549,6 +549,28 @@ nsIntPoint nsWindow::GetWindowOrigin() {
   return mWindowOrigin.value();
 }
 
+void nsWindow::InvalidateWindowOrigin() {
+  if (!mGdkWindow) {
+    return;
+  }
+
+  mWindowOrigin = Nothing();
+
+  // The window origin is in a coordinate space relative to the root window.
+  // In addition GDK_CONFIGURE events are not issued for windows which type
+  // is GDK_WINDOW_CHILD.
+  // We have to invalidate the cached window origin of child windows when
+  // the parent moves.
+  GList* children = gdk_window_get_children(mGdkWindow);
+  for (GList* list = children; list; list = list->next) {
+    RefPtr<nsWindow> childWindow = get_window_for_gdk_window(GDK_WINDOW(list->data));
+    if (childWindow) {
+      childWindow->InvalidateWindowOrigin();
+    }
+  }
+  g_list_free(children);
+}
+
 nsIWidgetListener* nsWindow::GetListener() {
   return mAttachedWidgetListener ? mAttachedWidgetListener : mWidgetListener;
 }
@@ -1867,35 +1889,42 @@ static bool GetWindowManagerName(GdkWindow* gdk_window, nsACString& wmName) {
 #define kDesktopMutterSchema "org.gnome.mutter"
 #define kDesktopDynamicWorkspacesKey "dynamic-workspaces"
 
-static bool DesktopUsesDynamicWorkspaces(GdkWindow* gdk_window) {
-  nsAutoCString wmName;
-  if (GetWindowManagerName(gdk_window, wmName)) {
-    if (wmName.EqualsLiteral("bspwm")) {
-      return true;
-    }
-
-    if (wmName.EqualsLiteral("i3")) {
-      return true;
-    }
+static bool WorkspaceManagementDisabled(GdkWindow* gdk_window) {
+  if (Preferences::GetBool("widget.disable-workspace-management", false)) {
+    return true;
   }
 
   static const char* currentDesktop = getenv("XDG_CURRENT_DESKTOP");
-  if (!currentDesktop || !strstr(currentDesktop, "GNOME")) {
-    return false;
+  if (currentDesktop && strstr(currentDesktop, "GNOME")) {
+    // Gnome uses dynamic workspaces by default so disable workspace management
+    // in that case.
+    bool usesDynamicWorkspaces = true;
+    nsCOMPtr<nsIGSettingsService> gsettings =
+        do_GetService(NS_GSETTINGSSERVICE_CONTRACTID);
+    if (gsettings) {
+      nsCOMPtr<nsIGSettingsCollection> mutterSettings;
+      gsettings->GetCollectionForSchema(nsLiteralCString(kDesktopMutterSchema),
+                                        getter_AddRefs(mutterSettings));
+      if (mutterSettings) {
+        bool usesDynamicWorkspaces;
+        if (NS_SUCCEEDED(mutterSettings->GetBoolean(
+                nsLiteralCString(kDesktopDynamicWorkspacesKey),
+                &usesDynamicWorkspaces))) {
+        }
+      }
+    }
+    return usesDynamicWorkspaces;
   }
 
-  nsCOMPtr<nsIGSettingsService> gsettings =
-      do_GetService(NS_GSETTINGSSERVICE_CONTRACTID);
-  if (gsettings) {
-    nsCOMPtr<nsIGSettingsCollection> mutterSettings;
-    gsettings->GetCollectionForSchema(nsLiteralCString(kDesktopMutterSchema),
-                                      getter_AddRefs(mutterSettings));
-    if (mutterSettings) {
-      bool usesDynamicWorkspaces;
-      if (NS_SUCCEEDED(mutterSettings->GetBoolean(
-              nsLiteralCString(kDesktopDynamicWorkspacesKey),
-              &usesDynamicWorkspaces))) {
-        return usesDynamicWorkspaces;
+  // When XDG_CURRENT_DESKTOP is missing, try to get window manager name.
+  if (!currentDesktop) {
+    nsAutoCString wmName;
+    if (GetWindowManagerName(gdk_window, wmName)) {
+      if (wmName.EqualsLiteral("bspwm")) {
+        return true;
+      }
+      if (wmName.EqualsLiteral("i3")) {
+        return true;
       }
     }
   }
@@ -1915,7 +1944,7 @@ void nsWindow::GetWorkspaceID(nsAString& workspaceID) {
     return;
   }
 
-  if (DesktopUsesDynamicWorkspaces(gdk_window)) {
+  if (WorkspaceManagementDisabled(gdk_window)) {
     return;
   }
 
@@ -2975,7 +3004,7 @@ gboolean nsWindow::OnConfigureEvent(GtkWidget* aWidget,
   //   Override-redirect windows are children of the root window so parent
   //   coordinates are root coordinates.
 
-  mWindowOrigin = Nothing();
+  InvalidateWindowOrigin();
 
   LOG(("configure event [%p] %d %d %d %d\n", (void*)this, aEvent->x, aEvent->y,
        aEvent->width, aEvent->height));
@@ -7465,20 +7494,14 @@ void nsWindow::SetDrawsInTitlebar(bool aState) {
     gtk_widget_reparent(GTK_WIDGET(mContainer), tmpWindow);
     gtk_widget_unrealize(GTK_WIDGET(mShell));
 
-    // Available as of GTK 3.10+
-    static auto sGtkWindowSetTitlebar = (void (*)(GtkWindow*, GtkWidget*))dlsym(
-        RTLD_DEFAULT, "gtk_window_set_titlebar");
-    MOZ_ASSERT(sGtkWindowSetTitlebar,
-               "Missing gtk_window_set_titlebar(), old Gtk+ library?");
-
     if (aState) {
       // Add a hidden titlebar widget to trigger CSD, but disable the default
       // titlebar.  GtkFixed is a somewhat random choice for a simple unused
       // widget. gtk_window_set_titlebar() takes ownership of the titlebar
       // widget.
-      sGtkWindowSetTitlebar(GTK_WINDOW(mShell), gtk_fixed_new());
+      gtk_window_set_titlebar(GTK_WINDOW(mShell), gtk_fixed_new());
     } else {
-      sGtkWindowSetTitlebar(GTK_WINDOW(mShell), nullptr);
+      gtk_window_set_titlebar(GTK_WINDOW(mShell), nullptr);
     }
 
     /* A workaround for https://bugzilla.gnome.org/show_bug.cgi?id=791081

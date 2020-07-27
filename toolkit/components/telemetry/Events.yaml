@@ -375,9 +375,9 @@ extensions.data:
       the value of this event is the addon id.
   storageLocalError:
     objects: ["get", "set", "remove", "clear"]
-    bug_numbers: [1606903]
+    bug_numbers: [1606903, 1649948]
     notification_emails: ["addons-dev-internal@mozilla.com"]
-    expiry_version: "81"
+    expiry_version: "88"
     products:
       - "firefox"
     record_in_processes: ["main", "content"]
@@ -922,6 +922,26 @@ messaging_experiments:
       branches: >
         A semicolon separated string for all the qualified branch ID(s).
         e.g. "control;variant_01;treatment_02".
+  targeting:
+    objects:
+      - attribute_error
+      - attribute_timeout
+    methods:
+      - targeting
+    release_channel_collection: opt-out
+    products:
+      - firefox
+    record_in_processes:
+      - main
+    description: >
+      Record generic JEXL errors that result from issues with experiment or
+      message targeting expressions. The value field contains the namespace and
+      attribute name that caused the error.
+    bug_numbers:
+      - 1644743
+    notification_emails:
+      - ujet@mozilla.com
+    expiry_version: never
 
 # This category contains event entries used for Telemetry tests.
 # They will not be sent out with any pings.
@@ -2108,6 +2128,35 @@ pictureinpicture:
     release_channel_collection: opt-out
 
 doh:
+  evaluate_v2:
+    methods: ["evaluate_v2"]
+    objects: ["heuristics"]
+    bug_numbers:
+      - 1573840
+      - 1631609
+      - 1603779
+      - 1654714
+    description: >
+      Results of DoH heuristics at startup and after network changes.
+    expiry_version: never
+    record_in_processes:
+      - main
+    release_channel_collection: opt-out
+    notification_emails:
+      - nhnt11@mozilla.com
+      - ddamjanovic@mozilla.com
+      - seceng-telemetry@mozilla.com
+      - necko@mozilla.com
+    products:
+      - firefox
+    extra_keys:
+      canaries: Comma-separated list of canaries that were detected (canary,zscalerCanary)
+      filtering: Comma-separated list of detected parental controls/content filtering (browserParent,google,youtube)
+      enterprise: Comma-separated list of detected enterprise config (policy,modifiedRoots,thirdPartyRoots)
+      steeredProvider: Whether we detected a steering provider
+      evaluateReason: The reason for running heuristics - startup or netchange
+      networkID: An ID representing the network on which heuristics were run, unique to this client
+      captiveState: The Captive Portal Service state - unknown, not_captive, locked, or unlocked
   evaluate:
     methods: ["evaluate"]
     objects: ["heuristics"]
@@ -2116,7 +2165,7 @@ doh:
       - 1631609
       - 1603779
     description: >
-      Results of DoH heuristics at startup and after network changes.
+      Results of DoH heuristics at startup and after network changes. OLD FORMAT: here for documentation
     expiry_version: never
     record_in_processes:
       - main
@@ -2270,6 +2319,33 @@ security.ui.certerror:
       is_frame: If the error page is loaded in an iframe.
       has_sts: If the error page is for a site with HSTS headers or with a pinned key.
       panel_open: If the advanced panel was open at the time of the interaction.
+
+slow_script_warning:
+  shown:
+    bug_numbers:
+      - 1652613
+    description: >
+      Recorded when a slow script hang is resolved.
+    products:
+      - "firefox"
+    record_in_processes: ["main"]
+    release_channel_collection: opt-out
+    expiry_version: "85"
+    notification_emails:
+      - esmyth@mozilla.com
+      - gkruitbosch@mozilla.com
+    # Whether the hung script was for a content or browser process.
+    objects: [
+      "browser",
+      "content",
+    ]
+    extra_keys:
+      end_reason: Why the warning was hidden (user action, the process becoming responsive again, the browser quitting, etc.)
+      wait_count: How many times the user elected to wait.
+      hang_duration: How long we believe the hang continued (ms).
+      n_tab_deselect: How many times the user switched away from a tab affected by this hang.
+      uri_type: The kind of script URL that hung.
+      uptime: How long the notification was up (ms).
 
 webrtc.ui:
   share_display:

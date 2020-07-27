@@ -81,7 +81,6 @@
 #include "mozilla/net/DocumentChannel.h"
 #include "mozilla/net/ParentChannelWrapper.h"
 #include "mozilla/net/UrlClassifierFeatureFactory.h"
-#include "mozilla/dom/RTCCertificate.h"
 #include "ReferrerInfo.h"
 
 #include "nsIApplicationCacheChannel.h"
@@ -227,6 +226,7 @@
 #include "URIUtils.h"
 #include "sslerr.h"
 #include "mozpkix/pkix.h"
+#include "NSSErrorsService.h"
 
 #include "timeline/JavascriptTimelineMarker.h"
 #include "nsDocShellTelemetryUtils.h"
@@ -2659,7 +2659,7 @@ nsDocShell::SetTreeOwner(nsIDocShellTreeOwner* aTreeOwner) {
           do_QueryReferent(mBrowserChild);
       MOZ_RELEASE_ASSERT(
           oldBrowserChild == newBrowserChild,
-          "Cannot cahnge BrowserChild during nsDocShell lifetime!");
+          "Cannot change BrowserChild during nsDocShell lifetime!");
     } else {
       mBrowserChild = do_GetWeakReference(newBrowserChild);
     }
@@ -2950,9 +2950,19 @@ nsDocShell::GetCurrentSHEntry(nsISHEntry** aEntry, bool* aOSHE) {
 }
 
 NS_IMETHODIMP nsDocShell::SynchronizeLayoutHistoryState() {
-  if (mOSHE) {
-    mOSHE->SynchronizeLayoutHistoryState();
+  if (mActiveEntry && mActiveEntry->GetLayoutHistoryState()) {
+    if (XRE_IsContentProcess()) {
+      dom::ContentChild* contentChild = dom::ContentChild::GetSingleton();
+      if (contentChild) {
+        contentChild->SendSynchronizeLayoutHistoryState(
+            mActiveEntry->Id(), mActiveEntry->GetLayoutHistoryState());
+      }
+    } else {
+      SessionHistoryEntry::UpdateLayoutHistoryState(
+          mActiveEntry->Id(), mActiveEntry->GetLayoutHistoryState());
+    }
   }
+
   return NS_OK;
 }
 
@@ -11696,6 +11706,9 @@ NS_IMETHODIMP
 nsDocShell::SetLayoutHistoryState(nsILayoutHistoryState* aLayoutHistoryState) {
   if (mOSHE) {
     mOSHE->SetLayoutHistoryState(aLayoutHistoryState);
+  }
+  if (mActiveEntry) {
+    mActiveEntry->SetLayoutHistoryState(aLayoutHistoryState);
   }
   return NS_OK;
 }

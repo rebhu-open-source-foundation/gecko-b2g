@@ -369,6 +369,8 @@ mozbuild:
             - 'build/moz.configure/**'
             - 'config/tests/**'
             - 'dom/bindings/mozwebidlcodegen/**'
+            - 'modules/libpref/init/**'
+            - 'modules/libpref/test/**'
             - 'python/mach/**'
             - 'python/mozboot/**'
             - 'python/mozbuild/**'
@@ -528,5 +530,7 @@ xpcom:
         subsuite: xpcom
     when:
         files-changed:
+            - 'third_party/python/ply/**'
             - 'xpcom/ds/tools/**'
             - 'xpcom/ds/test/**'
+            - 'xpcom/idl-parser/**'

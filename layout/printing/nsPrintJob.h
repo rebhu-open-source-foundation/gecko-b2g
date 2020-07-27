@@ -11,19 +11,22 @@
 
 #include "nsCOMPtr.h"
 
-#include "nsPrintObject.h"
-#include "nsPrintData.h"
-#include "nsFrameList.h"
-#include "nsIWebProgress.h"
-#include "mozilla/dom/HTMLCanvasElement.h"
-#include "nsIFrame.h"  // for WeakFrame only
-#include "nsIWebProgressListener.h"
+#include "nsHashKeys.h"
+#include "nsIFrame.h" // For WeakFrame
+#include "nsSize.h"
+#include "nsTHashtable.h"
 #include "nsWeakReference.h"
 
 // Interfaces
 #include "nsIObserver.h"
+#include "nsIWebProgress.h"
+#include "nsIWebProgressListener.h"
 
 // Classes
+class nsIFrame;
+class nsIPrintProgressParams;
+class nsIPrintSettings;
+class nsPrintData;
 class nsPagePrintTimer;
 class nsIDocShell;
 class nsIDocumentViewerPrint;
@@ -31,6 +34,8 @@ class nsIFrame;
 class nsPrintObject;
 class nsIDocShell;
 class nsPageSequenceFrame;
+class nsPIDOMWindowOuter;
+class nsView;
 
 namespace mozilla {
 class PresShell;
@@ -49,7 +54,7 @@ class nsPrintJob final : public nsIObserver,
  public:
   static void CloseProgressDialog(nsIWebProgressListener* aWebProgressListener);
 
-  nsPrintJob() = default;
+  nsPrintJob();
 
   // nsISupports interface...
   NS_DECL_ISUPPORTS
@@ -140,12 +145,9 @@ class nsPrintJob final : public nsIObserver,
   // object, for example by calling CleanupOnFailure().
   MOZ_CAN_RUN_SCRIPT_BOUNDARY nsresult FinishPrintPreview();
   void FirePrintingErrorEvent(nsresult aPrintError);
-  bool CheckBeforeDestroy() const { return mPrt && mPrt->mPreparingForPrint; }
 
-  mozilla::PresShell* GetPrintPreviewPresShell() {
-    return mPrtPreview->mPrintObject->mPresShell;
-  }
-
+  bool CheckBeforeDestroy() const;
+  mozilla::PresShell* GetPrintPreviewPresShell();
   nsresult Cancel();
   void Destroy();
   void DestroyPrintingData();
@@ -241,7 +243,9 @@ class nsPrintJob final : public nsIObserver,
    * (if it has a 'print' style sheet, for example).
    */
   MOZ_CAN_RUN_SCRIPT nsresult
-  ResumePrintAfterResourcesLoaded(bool aCleanupOnError);
+  MaybeResumePrintAfterResourcesLoaded(bool aCleanupOnError);
+
+  bool ShouldResumePrint() const;
 
   nsresult SetRootView(nsPrintObject* aPO, bool& aDoReturn,
                        bool& aDocumentIsTopLevel, nsSize& aAdjSize);
@@ -285,7 +289,6 @@ class nsPrintJob final : public nsIObserver,
   nsPagePrintTimer* mPagePrintTimer = nullptr;
 
   float mScreenDPI = 115.0f;
-  int32_t mLoadCounter = 0;
 
   bool mIsCreatingPrintPreview = false;
   bool mIsDoingPrinting = false;

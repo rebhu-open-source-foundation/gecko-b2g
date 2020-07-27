@@ -786,6 +786,8 @@ class gfxPlatform : public mozilla::layers::MemoryPressureListener {
 
   static uint32_t TargetFrameRate();
 
+  static bool UseDesktopZoomingScrollbars();
+
  protected:
   gfxPlatform();
   virtual ~gfxPlatform();

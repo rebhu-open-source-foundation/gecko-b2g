@@ -1604,6 +1604,7 @@ nsresult EnsureMIMEOfScript(nsHttpChannel* aChannel, nsIURI* aURI,
     case nsIContentPolicy::TYPE_INTERNAL_SCRIPT_PRELOAD:
     case nsIContentPolicy::TYPE_INTERNAL_MODULE:
     case nsIContentPolicy::TYPE_INTERNAL_MODULE_PRELOAD:
+    case nsIContentPolicy::TYPE_INTERNAL_CHROMEUTILS_COMPILED_SCRIPT:
       AccumulateCategorical(
           Telemetry::LABELS_SCRIPT_BLOCK_INCORRECT_MIME_3::script_load);
       break;
@@ -2703,7 +2704,6 @@ nsresult nsHttpChannel::ContinueProcessResponse3(nsresult rv) {
   rv = NS_OK;
 
   uint32_t httpStatus = mResponseHead->Status();
-  bool trrRequestRedirected = false;
 
   // handle different server response categories.  Note that we handle
   // caching or not caching of error pages in
@@ -2752,11 +2752,6 @@ nsresult nsHttpChannel::ContinueProcessResponse3(nsresult rv) {
 #if 0
     case 305: // disabled as a security measure (see bug 187996).
 #endif
-      if (mIsTRRServiceChannel) {
-        trrRequestRedirected = true;
-        Telemetry::AccumulateCategorical(
-            Telemetry::LABELS_DNS_TRR_REDIRECTED::Redirected);
-      }
       // don't store the response body for redirects
       MaybeInvalidateCacheEntryForSubsequentGet();
       PushRedirectAsyncFunc(&nsHttpChannel::ContinueProcessResponse4);
@@ -2856,11 +2851,6 @@ nsresult nsHttpChannel::ContinueProcessResponse3(nsresult rv) {
       rv = ProcessNormal();
       MaybeInvalidateCacheEntryForSubsequentGet();
       break;
-  }
-
-  if (mIsTRRServiceChannel && !trrRequestRedirected) {
-    Telemetry::AccumulateCategorical(
-        Telemetry::LABELS_DNS_TRR_REDIRECTED::None);
   }
 
   UpdateCacheDisposition(false, false);
@@ -7942,13 +7932,6 @@ nsresult nsHttpChannel::ContinueOnStopRequestAfterAuthRetry(
                         mResponseHead->Status() == 200;
 
   if (upgradeWebsocket || upgradeConnect) {
-    // TODO: Support connection upgrade for socket process in bug 1632809.
-    if (nsIOService::UseSocketProcess() && upgradeConnect) {
-      Unused << mUpgradeProtocolCallback->OnUpgradeFailed(
-          NS_ERROR_NOT_IMPLEMENTED);
-      return ContinueOnStopRequest(aStatus, aIsFromNet, aContentComplete);
-    }
-
     nsresult rv = gHttpHandler->CompleteUpgrade(aTransWithStickyConn,
                                                 mUpgradeProtocolCallback);
     if (NS_FAILED(rv)) {

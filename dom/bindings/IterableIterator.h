@@ -298,9 +298,8 @@ class IterableIterator final : public IterableIteratorBase {
 template <typename T>
 class AsyncIterableIterator final
     : public IterableIteratorBase,
-      public SupportsWeakPtr<AsyncIterableIterator<T>> {
+      public SupportsWeakPtr {
  public:
-  MOZ_DECLARE_WEAKREFERENCE_TYPENAME(AsyncIterableIterator<T>)
 
   typedef bool (*WrapFunc)(JSContext* aCx, AsyncIterableIterator<T>* aObject,
                            JS::Handle<JSObject*> aGivenProto,

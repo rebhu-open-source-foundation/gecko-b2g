@@ -130,6 +130,8 @@
 #include "mozilla/dom/ServiceWorkerManager.h"
 #include "mozilla/dom/ServiceWorkerRegistrar.h"
 #include "mozilla/dom/ServiceWorkerUtils.h"
+#include "mozilla/dom/SessionHistoryEntry.h"
+#include "mozilla/dom/SessionStorageManager.h"
 #include "mozilla/dom/StorageIPC.h"
 #include "mozilla/dom/URLClassifierParent.h"
 #include "mozilla/dom/WakeLock.h"
@@ -2384,7 +2386,8 @@ bool ContentParent::BeginSubprocessLaunch(ProcessPriority aPriority) {
 
   auto startupCache = mozilla::scache::StartupCache::GetSingleton();
   if (startupCache) {
-    startupCache->AddStartupCacheCmdLineArgs(*mSubprocess, extraArgs);
+    startupCache->AddStartupCacheCmdLineArgs(*mSubprocess, GetRemoteType(),
+                                             extraArgs);
   }
 
   // Register ContentParent as an observer for changes to any pref
@@ -4183,9 +4186,8 @@ bool ContentParent::DeallocPScriptCacheParent(PScriptCacheParent* cache) {
   return true;
 }
 
-PStartupCacheParent* ContentParent::AllocPStartupCacheParent(
-    const bool& wantCacheData) {
-  return new scache::StartupCacheParent(wantCacheData);
+PStartupCacheParent* ContentParent::AllocPStartupCacheParent() {
+  return new scache::StartupCacheParent();
 }
 
 bool ContentParent::DeallocPStartupCacheParent(PStartupCacheParent* cache) {
@@ -6174,8 +6176,12 @@ void ContentParent::UpdateCookieStatus(nsIChannel* aChannel) {
 }
 
 nsresult ContentParent::AboutToLoadHttpFtpDocumentForChild(
-    nsIChannel* aChannel) {
+    nsIChannel* aChannel, bool* aShouldWaitForPermissionCookieUpdate) {
   MOZ_ASSERT(aChannel);
+
+  if (aShouldWaitForPermissionCookieUpdate) {
+    *aShouldWaitForPermissionCookieUpdate = false;
+  }
 
   nsresult rv;
   bool isDocument = aChannel->IsDocument();
@@ -6202,6 +6208,12 @@ nsresult ContentParent::AboutToLoadHttpFtpDocumentForChild(
   nsCOMPtr<nsIPrincipal> principal;
   rv = ssm->GetChannelResultPrincipal(aChannel, getter_AddRefs(principal));
   NS_ENSURE_SUCCESS(rv, rv);
+
+  // Let the caller know we're going to send main thread IPC for updating
+  // permisssions/cookies.
+  if (aShouldWaitForPermissionCookieUpdate) {
+    *aShouldWaitForPermissionCookieUpdate = true;
+  }
 
   TransmitBlobURLsForPrincipal(principal);
 
@@ -7354,6 +7366,12 @@ mozilla::ipc::IPCResult ContentParent::RecvSessionHistoryUpdate(
     Unused << aParent->SendHistoryCommitIndexAndLength(aContext, aIndex,
                                                        aLength, aChangeID);
   });
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentParent::RecvSynchronizeLayoutHistoryState(
+    uint64_t aSessionHistoryEntryID, nsILayoutHistoryState* aState) {
+  SessionHistoryEntry::UpdateLayoutHistoryState(aSessionHistoryEntryID, aState);
   return IPC_OK();
 }
 

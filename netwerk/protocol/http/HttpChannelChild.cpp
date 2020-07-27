@@ -312,9 +312,35 @@ NS_IMETHODIMP_(MozExternalRefCountType) HttpChannelChild::Release() {
 
   if (count == 0) {
     mRefCnt = 1; /* stabilize */
-    delete this;
+
+    // We don't have a listener when AsyncOpen has failed or when this channel
+    // has been sucessfully redirected.
+    if (MOZ_LIKELY(mOnStartRequestCalled && mOnStopRequestCalled) ||
+        !mListener) {
+      delete this;
+      return 0;
+    }
+
+    // This makes sure we fulfill the stream listener contract all the time.
+    if (NS_SUCCEEDED(mStatus)) {
+      mStatus = NS_ERROR_ABORT;
+    }
+    nsresult rv = NS_DispatchToMainThread(
+        NewRunnableMethod("~HttpChannelChild>DoNotifyListener", this,
+                          &HttpChannelChild::DoNotifyListener));
+    if (NS_FAILED(rv)) {
+      // Prevent loops.
+      mOnStartRequestCalled = true;
+      mOnStopRequestCalled = true;
+      // This reverts the stabilization we have made above.  Instead of
+      // doing `delete this` it's safer to call Release() again in case the
+      // dispatch somehow leaks and there has been a reference added.
+      return Release();
+    }
+
     return 0;
   }
+
   return count;
 }
 
@@ -2109,6 +2135,13 @@ HttpChannelChild::CompleteRedirectSetup(nsIStreamListener* aListener) {
   NS_ENSURE_TRUE(!mIsPending, NS_ERROR_IN_PROGRESS);
   NS_ENSURE_TRUE(!mWasOpened, NS_ERROR_ALREADY_OPENED);
 
+  // Resume the suspension in ConnectParent.
+  auto eventQueueResumeGuard = MakeScopeExit([&] {
+    MOZ_ASSERT(mSuspendForWaitCompleteRedirectSetup);
+    mEventQ->Resume();
+    mSuspendForWaitCompleteRedirectSetup = false;
+  });
+
   if (mShouldParentIntercept) {
     // This is a redirected channel, and the corresponding parent channel has
     // started AsyncOpen but was intercepted and suspended. We must tear it down
@@ -2152,11 +2185,6 @@ HttpChannelChild::CompleteRedirectSetup(nsIStreamListener* aListener) {
 
   // add ourselves to the load group.
   if (mLoadGroup) mLoadGroup->AddRequest(this, nullptr);
-
-  // Resume the suspension in ConnectParent.
-  MOZ_ASSERT(mSuspendForWaitCompleteRedirectSetup);
-  mEventQ->Resume();
-  mSuspendForWaitCompleteRedirectSetup = false;
 
   // We already have an open IPDL connection to the parent. If on-modify-request
   // listeners or load group observers canceled us, let the parent handle it

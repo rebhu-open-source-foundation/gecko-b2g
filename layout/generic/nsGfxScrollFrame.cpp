@@ -2947,6 +2947,11 @@ void ScrollFrameHelper::ScrollToImpl(nsPoint aPt, const nsRect& aRange,
     mAllowScrollOriginDowngrade = false;
   }
   mLastSmoothScrollOrigin = ScrollOrigin::None;
+  // Check if this scroll clobbers a pure relative scroll.
+  if (aOrigin == ScrollOrigin::Restore || aOrigin == ScrollOrigin::Other ||
+      aOrigin == ScrollOrigin::Scrollbars) {
+    mRelativeOffset.reset();
+  }
   mScrollGeneration = ++sScrollGenerationCounter;
   if (mLastScrollOrigin == ScrollOrigin::Apz) {
     mApzScrollPos = GetScrollPosition();
@@ -4492,6 +4497,43 @@ void ScrollFrameHelper::ScrollBy(nsIntPoint aDelta, ScrollUnit aUnit,
       return;
   }
 
+  // xxx need to handle scroll snapping
+  if (gfxPlatform::UseDesktopZoomingScrollbars() &&
+      nsLayoutUtils::AsyncPanZoomEnabled(mOuter) &&
+      !nsLayoutUtils::ShouldDisableApzForElement(mOuter->GetContent()) &&
+      (WantAsyncScroll() || mZoomableByAPZ)) {
+    if (mRelativeOffset.isNothing()) {
+      mRelativeOffset = Some(nsPoint(0, 0));
+    }
+    mRelativeOffset->x = NSCoordSaturatingAdd(
+        mRelativeOffset->x,
+        NSCoordSaturatingNonnegativeMultiply(aDelta.x, deltaMultiplier.width));
+    mRelativeOffset->y = NSCoordSaturatingAdd(
+        mRelativeOffset->y,
+        NSCoordSaturatingNonnegativeMultiply(aDelta.y, deltaMultiplier.height));
+
+    mScrollGeneration = ++sScrollGenerationCounter;
+
+    if (!nsLayoutUtils::HasDisplayPort(mOuter->GetContent())) {
+      if (MOZ_LOG_TEST(sDisplayportLog, LogLevel::Debug)) {
+        mozilla::layers::ScrollableLayerGuid::ViewID viewID =
+            mozilla::layers::ScrollableLayerGuid::NULL_SCROLL_ID;
+        nsLayoutUtils::FindIDFor(mOuter->GetContent(), &viewID);
+        MOZ_LOG(
+            sDisplayportLog, LogLevel::Debug,
+            ("ScrollBy setting displayport on scrollId=%" PRIu64 "\n", viewID));
+      }
+
+      nsLayoutUtils::CalculateAndSetDisplayPortMargins(
+          mOuter->GetScrollTargetFrame(), nsLayoutUtils::RepaintMode::Repaint);
+      nsIFrame* frame = do_QueryFrame(mOuter->GetScrollTargetFrame());
+      nsLayoutUtils::SetZeroMarginDisplayPortOnAsyncScrollableAncestors(frame);
+    }
+
+    mOuter->SchedulePaint();
+    return;
+  }
+
   nsPoint newPos(NSCoordSaturatingAdd(mDestination.x,
                                       NSCoordSaturatingNonnegativeMultiply(
                                           aDelta.x, deltaMultiplier.width)),
@@ -5302,16 +5344,22 @@ void ScrollFrameHelper::UpdateScrollbarPosition() {
   mFrameIsUpdatingScrollbar = true;
 
   nsPoint pt = GetScrollPosition();
+  nsRect scrolledRect = GetScrolledRect();
+
+  if (gfxPlatform::UseDesktopZoomingScrollbars()) {
+    pt = GetVisualViewportOffset();
+  }
+
   if (mVScrollbarBox) {
     SetCoordAttribute(mVScrollbarBox->GetContent()->AsElement(),
-                      nsGkAtoms::curpos, pt.y - GetScrolledRect().y);
+                      nsGkAtoms::curpos, pt.y - scrolledRect.y);
     if (!weakFrame.IsAlive()) {
       return;
     }
   }
   if (mHScrollbarBox) {
     SetCoordAttribute(mHScrollbarBox->GetContent()->AsElement(),
-                      nsGkAtoms::curpos, pt.x - GetScrolledRect().x);
+                      nsGkAtoms::curpos, pt.x - scrolledRect.x);
     if (!weakFrame.IsAlive()) {
       return;
     }
@@ -5342,6 +5390,11 @@ void ScrollFrameHelper::CurPosAttributeChanged(nsIContent* aContent,
   nsRect scrolledRect = GetScrolledRect();
 
   nsPoint current = GetScrollPosition() - scrolledRect.TopLeft();
+
+  if (gfxPlatform::UseDesktopZoomingScrollbars()) {
+    current = GetVisualViewportOffset() - scrolledRect.TopLeft();
+  }
+
   nsPoint dest;
   nsRect allowedRange;
   dest.x = GetCoordAttribute(mHScrollbarBox, nsGkAtoms::curpos, current.x,
@@ -6175,10 +6228,15 @@ bool ScrollFrameHelper::ReflowFinished() {
   if (vScroll || hScroll) {
     nsSize visualViewportSize = GetVisualViewportSize();
     nsRect scrollRange = GetVisualScrollRange();
-
-    AutoWeakFrame weakFrame(mOuter);
     nsPoint scrollPos = GetScrollPosition();
     nsSize lineScrollAmount = GetLineScrollAmount();
+
+    if (gfxPlatform::UseDesktopZoomingScrollbars()) {
+      scrollRange = GetScrollRangeForUserInputEvents();
+      scrollPos = GetVisualViewportOffset();
+    }
+
+    AutoWeakFrame weakFrame(mOuter);
     if (vScroll) {
       const double kScrollMultiplier =
           Preferences::GetInt("toolkit.scrollbox.verticalScrollDistance",
@@ -6778,7 +6836,8 @@ UniquePtr<PresState> ScrollFrameHelper::SaveState() const {
   // Don't store a scroll state if we never have been scrolled or restored
   // a previous scroll state, and we're not in the middle of a smooth scroll.
   bool isInSmoothScroll = IsProcessingAsyncScroll() ||
-                          mLastSmoothScrollOrigin != ScrollOrigin::None;
+                          mLastSmoothScrollOrigin != ScrollOrigin::None ||
+                          mRelativeOffset.isSome();
   if (!mHasBeenScrolled && !mDidHistoryRestore && !isInSmoothScroll) {
     return nullptr;
   }

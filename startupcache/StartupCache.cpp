@@ -7,6 +7,7 @@
 #include "prio.h"
 #include "PLDHashTable.h"
 #include "mozilla/IOInterposer.h"
+#include "mozilla/AppShutdown.h"
 #include "mozilla/AutoMemMap.h"
 #include "mozilla/IOBuffers.h"
 #include "mozilla/ipc/FileDescriptor.h"
@@ -357,19 +358,22 @@ void StartupCache::InitContentChild(dom::ContentParent& parent) {
     return;
   }
 
-  auto processType = GetChildProcessType(parent.GetRemoteType());
-  bool wantScriptData = !cache->mInitializedProcesses.contains(processType);
-  cache->mInitializedProcesses += processType;
-  Unused << parent.SendPStartupCacheConstructor(wantScriptData);
+  Unused << parent.SendPStartupCacheConstructor();
 }
 
 void StartupCache::AddStartupCacheCmdLineArgs(
     mozilla::ipc::GeckoChildProcessHost& procHost,
-    std::vector<std::string>& aExtraOpts) {
+    const nsACString& aRemoteType, std::vector<std::string>& aExtraOpts) {
 #ifndef ANDROID
   // Don't send original cache data to new processes if the cache has been
   // invalidated.
   if (!mSharedData.initialized() || gIgnoreDiskCache) {
+    auto processType = GetChildProcessType(aRemoteType);
+    bool wantScriptData = !mInitializedProcesses.contains(processType);
+    mInitializedProcesses += processType;
+    if (!wantScriptData) {
+      aExtraOpts.push_back("-noScache");
+    }
     return;
   }
 
@@ -528,12 +532,26 @@ Result<Ok, nsresult> StartupCache::LoadEntriesOffDisk() {
       uint32_t compressedSize = 0;
       uint32_t uncompressedSize = 0;
       uint8_t sharedToChild = 0;
-      nsCString key;
+      uint16_t keyLenWithNullTerm;
       buf.codeUint32(offset);
       buf.codeUint32(compressedSize);
       buf.codeUint32(uncompressedSize);
       buf.codeUint8(sharedToChild);
-      buf.codeString(key);
+      buf.codeUint16(keyLenWithNullTerm);
+      if (!buf.checkCapacity(keyLenWithNullTerm)) {
+        MOZ_ASSERT(false, "StartupCache file is corrupt.");
+        return Err(NS_ERROR_UNEXPECTED);
+      }
+
+      const char* keyBuf =
+          reinterpret_cast<const char*>(buf.read(keyLenWithNullTerm));
+      if (keyBuf[keyLenWithNullTerm - 1] != 0) {
+        MOZ_ASSERT(false, "StartupCache file is corrupt.");
+        return Err(NS_ERROR_UNEXPECTED);
+      }
+
+      MaybeOwnedCharPtr key(MakeUnique<char[]>(keyLenWithNullTerm));
+      memcpy(key.get(), keyBuf, keyLenWithNullTerm);
 
       if (offset + compressedSize > end - data) {
         if (XRE_IsParentProcess()) {
@@ -550,9 +568,10 @@ Result<Ok, nsresult> StartupCache::LoadEntriesOffDisk() {
       EnumSet<StartupCacheEntryFlags> entryFlags;
       if (sharedToChild) {
         // We encode the key as a u16 indicating the length, followed by the
-        // contents of the string. We encode the uncompressed data similarly,
-        // but with a u32 indicating the length rather than a u16.
-        size_t sharedEntrySize = sizeof(uint16_t) + key.Length() +
+        // contents of the string, plus a null terminator (to simplify things
+        // by using existing c-string hashers). We encode the uncompressed data
+        // as simply a u32 length, followed by the contents of the string.
+        size_t sharedEntrySize = sizeof(uint16_t) + keyLenWithNullTerm +
                                  sizeof(uint32_t) + uncompressedSize;
         numSharedEntries++;
         mSharedDataSize += sharedEntrySize;
@@ -570,13 +589,13 @@ Result<Ok, nsresult> StartupCache::LoadEntriesOffDisk() {
       // We could use mTable.putNew if we knew the file we're loading weren't
       // corrupt. However, we don't know that, so check if the key already
       // exists. If it does, we know the file must be corrupt.
-      decltype(mTable)::AddPtr p = mTable.lookupForAdd(key);
+      decltype(mTable)::AddPtr p = mTable.lookupForAdd(key.get());
       if (p) {
         MOZ_ASSERT(false, "StartupCache file is corrupt.");
         return Err(NS_ERROR_UNEXPECTED);
       }
 
-      if (!mTable.add(p, key,
+      if (!mTable.add(p, std::move(key),
                       StartupCacheEntry(offset, compressedSize,
                                         uncompressedSize, entryFlags))) {
         MOZ_ASSERT(false, "StartupCache file is corrupt.");
@@ -619,7 +638,21 @@ Result<Ok, nsresult> StartupCache::LoadEntriesOffDisk() {
           continue;
         }
 
-        sharedBuf.codeString(key);
+        uint16_t keyLenWithNullTerm =
+            strnlen(key.get(), kStartupCacheKeyLengthCap) + 1;
+        if (keyLenWithNullTerm >= kStartupCacheKeyLengthCap) {
+          MOZ_ASSERT(false, "StartupCache key too large or not terminated.");
+          return Err(NS_ERROR_UNEXPECTED);
+        }
+        sharedBuf.codeUint16(keyLenWithNullTerm);
+
+        if (!sharedBuf.checkCapacity(keyLenWithNullTerm)) {
+          MOZ_ASSERT(false, "Exceeded shared StartupCache buffer size.");
+          return Err(NS_ERROR_UNEXPECTED);
+        }
+        uint8_t* keyBuffer = sharedBuf.write(keyLenWithNullTerm);
+        memcpy(keyBuffer, key.get(), keyLenWithNullTerm);
+
         sharedBuf.codeUint32(value.mUncompressedSize);
 
         if (value.mUncompressedSize > sharedBuf.remainingCapacity()) {
@@ -692,12 +725,24 @@ Result<Ok, nsresult> StartupCache::LoadEntriesFromSharedMemory() {
       return Err(NS_ERROR_UNEXPECTED);
     }
 
-    nsCString key;
+    uint16_t keyLenWithNullTerm = 0;
+    buf.codeUint16(keyLenWithNullTerm);
+    // NOTE: this will fail if the above codeUint16 call failed.
+    if (!buf.checkCapacity(keyLenWithNullTerm)) {
+      MOZ_ASSERT(false, "Corrupt StartupCache shared buffer.");
+      return Err(NS_ERROR_UNEXPECTED);
+    }
+    MaybeOwnedCharPtr key(const_cast<char*>(
+        reinterpret_cast<const char*>(buf.read(keyLenWithNullTerm))));
+    if (key.get()[keyLenWithNullTerm - 1] != 0) {
+      MOZ_ASSERT(false, "StartupCache key was not null-terminated");
+      return Err(NS_ERROR_UNEXPECTED);
+    }
+
     uint32_t uncompressedSize = 0;
-    buf.codeString(key);
     buf.codeUint32(uncompressedSize);
 
-    if (uncompressedSize > buf.remainingCapacity()) {
+    if (!buf.checkCapacity(uncompressedSize)) {
       MOZ_ASSERT(false,
                  "StartupCache entry larger than remaining buffer size.");
       return Err(NS_ERROR_UNEXPECTED);
@@ -712,7 +757,7 @@ Result<Ok, nsresult> StartupCache::LoadEntriesFromSharedMemory() {
     // time guarantees.
     entry.mData = MaybeOwnedCharPtr(const_cast<char*>(data));
 
-    if (!mTable.putNew(key, std::move(entry))) {
+    if (!mTable.putNew(std::move(key), std::move(entry))) {
       return Err(NS_ERROR_UNEXPECTED);
     }
   }
@@ -778,7 +823,11 @@ bool StartupCache::HasEntry(const char* id) {
   AUTO_PROFILER_LABEL("StartupCache::HasEntry", OTHER);
 
   MutexAutoLock lock(mLock);
-  return mTable.has(nsDependentCString(id));
+
+  MOZ_ASSERT(
+      strnlen(id, kStartupCacheKeyLengthCap) + 1 < kStartupCacheKeyLengthCap,
+      "StartupCache key too large or not terminated.");
+  return mTable.has(id);
 }
 
 nsresult StartupCache::GetBuffer(const char* id, const char** outbuf,
@@ -793,7 +842,10 @@ nsresult StartupCache::GetBuffer(const char* id, const char** outbuf,
     return NS_ERROR_NOT_AVAILABLE;
   }
 
-  decltype(mTable)::Ptr p = mTable.lookup(nsDependentCString(id));
+  MOZ_ASSERT(
+      strnlen(id, kStartupCacheKeyLengthCap) + 1 < kStartupCacheKeyLengthCap,
+      "StartupCache key too large or not terminated.");
+  decltype(mTable)::Ptr p = mTable.lookup(id);
   if (!p) {
     return NS_ERROR_NOT_AVAILABLE;
   }
@@ -841,6 +893,12 @@ nsresult StartupCache::GetBuffer(const char* id, const char** outbuf,
   *outbuf = value.mData.get();
   *length = value.mUncompressedSize;
 
+  if (value.mData.IsOwned()) {
+    // We're returning a raw reference to this entry's owned buffer, so we can
+    // no longer free that buffer.
+    value.mFlags += StartupCacheEntryFlags::DoNotFree;
+  }
+
   return NS_OK;
 }
 
@@ -865,11 +923,15 @@ nsresult StartupCache::PutBuffer(const char* id, UniquePtr<char[]>&& inbuf,
     return NS_ERROR_NOT_AVAILABLE;
   }
 
-  bool exists = mTable.has(nsDependentCString(id));
+  uint32_t keyLenWithNullTerm = strnlen(id, kStartupCacheKeyLengthCap) + 1;
+  if (keyLenWithNullTerm >= kStartupCacheKeyLengthCap) {
+    MOZ_ASSERT(false, "StartupCache key too large or not terminated.");
+    return NS_ERROR_UNEXPECTED;
+  }
+  decltype(mTable)::AddPtr p = mTable.lookupForAdd(id);
 
-  if (exists) {
+  if (p) {
     if (isFromChildProcess) {
-      decltype(mTable)::Ptr p = mTable.lookup(nsDependentCString(id));
       auto& value = p->value();
       value.mFlags += StartupCacheEntryFlags::RequestedByChild;
       if (value.mRequestedOrder == kStartupCacheEntryNotRequested) {
@@ -898,11 +960,13 @@ nsresult StartupCache::PutBuffer(const char* id, UniquePtr<char[]>&& inbuf,
     flags += StartupCacheEntryFlags::RequestedByChild;
   }
 
-  // putNew returns false on alloc failure - in the very unlikely event we hit
+  UniquePtr<char[]> key = MakeUnique<char[]>(keyLenWithNullTerm);
+  memcpy(key.get(), id, keyLenWithNullTerm);
+  // add returns false on alloc failure - in the very unlikely event we hit
   // that and aren't going to crash elsewhere, there's no reason we need to
   // crash here.
-  if (mTable.putNew(
-          nsCString(id),
+  if (mTable.add(
+          p, MaybeOwnedCharPtr(std::move(key)),
           StartupCacheEntry(std::move(inbuf), len, ++mRequestedCount, flags))) {
     return ResetStartupWriteTimerImpl();
   }
@@ -923,7 +987,7 @@ size_t StartupCache::HeapSizeOfIncludingThis(
     if (iter.get().value().mData) {
       n += aMallocSizeOf(iter.get().value().mData.get());
     }
-    n += iter.get().key().SizeOfExcludingThisIfUnshared(aMallocSizeOf);
+    n += iter.get().key().SizeOfExcludingThis(aMallocSizeOf);
   }
 
   return n;
@@ -961,7 +1025,7 @@ Result<Ok, nsresult> StartupCache::WriteToDisk() {
     MOZ_TRY(tmpFile->OpenNSPRFileDesc(PR_WRONLY | PR_CREATE_FILE | PR_TRUNCATE,
                                       0644, &fd.rwget()));
 
-    nsTArray<std::pair<const nsCString*, StartupCacheEntry*>> entries;
+    nsTArray<std::pair<const MaybeOwnedCharPtr*, StartupCacheEntry*>> entries;
 
     for (auto iter = mTable.iter(); !iter.done(); iter.next()) {
       entries.AppendElement(
@@ -975,7 +1039,7 @@ Result<Ok, nsresult> StartupCache::WriteToDisk() {
     entries.Sort(StartupCacheEntry::Comparator());
     loader::OutputBuffer buf;
     for (auto& e : entries) {
-      const auto& key = e.first;
+      const auto* key = e.first;
       auto* value = e.second;
       auto uncompressedSize = value->mUncompressedSize;
       uint8_t sharedToChild =
@@ -988,7 +1052,16 @@ Result<Ok, nsresult> StartupCache::WriteToDisk() {
       buf.codeUint32(0);
       buf.codeUint32(uncompressedSize);
       buf.codeUint8(sharedToChild);
-      buf.codeString(*key);
+      uint32_t keyLenWithNullTerm =
+          strnlen(key->get(), kStartupCacheKeyLengthCap) + 1;
+      if (keyLenWithNullTerm >= kStartupCacheKeyLengthCap) {
+        MOZ_ASSERT(false, "StartupCache key too large or not terminated.");
+        return Err(NS_ERROR_UNEXPECTED);
+      }
+
+      buf.codeUint16(keyLenWithNullTerm);
+      char* keyBuf = reinterpret_cast<char*>(buf.write(keyLenWithNullTerm));
+      memcpy(keyBuf, key->get(), keyLenWithNullTerm);
     }
 
     uint8_t headerSize[4];
@@ -1082,6 +1155,21 @@ Result<Ok, nsresult> StartupCache::WriteToDisk() {
   mWrittenOnce = true;
   mCacheData.reset();
   tmpFile->MoveToNative(nullptr, leafName);
+
+  // If we're shutting down, we do not care about freeing up memory right now.
+  if (AppShutdown::IsShuttingDown()) {
+    return Ok();
+  }
+
+  // We've just written our buffers to disk, and we're 60 seconds out from
+  // startup, so they're unlikely to be needed again any time soon; let's
+  // clean up what we can.
+  for (auto iter = mTable.iter(); !iter.done(); iter.next()) {
+    auto& value = iter.get().value();
+    if (!value.mFlags.contains(StartupCacheEntryFlags::DoNotFree)) {
+      value.mData = nullptr;
+    }
+  }
 
   return Ok();
 }

@@ -76,7 +76,23 @@ const PREF_PDFJS_ISDEFAULT_CACHE_STATE = "pdfjs.enabledCache.state";
  * Detailed documentation of these options is in dom/docs/Fission.rst,
  * available at https://firefox-source-docs.mozilla.org/dom/Fission.html#jsprocessactor
  */
-let JSPROCESSACTORS = {};
+let JSPROCESSACTORS = {
+  // Miscellaneous stuff that needs to be initialized per process.
+  BrowserProcess: {
+    child: {
+      moduleURI: "resource:///actors/BrowserProcessChild.jsm",
+      observers: [
+        // WebRTC related notifications. They are here to avoid loading WebRTC
+        // components when not needed.
+        "getUserMedia:request",
+        "recording-device-stopped",
+        "PeerConnection:request",
+        "recording-device-events",
+        "recording-window-ended",
+      ],
+    },
+  },
+};
 
 /**
  * Fission-compatible JSWindowActor implementations.
@@ -1403,6 +1419,14 @@ BrowserGlue.prototype = {
     averageTime = totalTime / samples;
 
     Services.telemetry.scalarSet("browser.startup.average_time", averageTime);
+    Services.telemetry.scalarSet(
+      "browser.startup.slow_startup_notified",
+      false
+    );
+    Services.telemetry.scalarSet(
+      "browser.startup.too_new_for_notification",
+      false
+    );
 
     if (
       samples >= Services.prefs.getIntPref("browser.slowStartup.maxSamples")
@@ -5428,8 +5452,10 @@ var AboutHomeStartupCache = {
    * @param aProcManager (ContentProcessMessageManager)
    *   The message manager for the newly created "privileged about
    *   content process".
+   * @param aProcessParent
+   *   The nsIDOMProcessParent for the tab.
    */
-  sendCacheInputStreams(aProcManager) {
+  sendCacheInputStreams(aProcManager, aProcessParent) {
     if (aProcManager.remoteType != E10SUtils.PRIVILEGEDABOUT_REMOTE_TYPE) {
       throw new Error(
         "Cannot send about:home cache to a non-privileged content process."
@@ -5439,7 +5465,8 @@ var AboutHomeStartupCache = {
     // can occur if the nsICacheEntry hasn't been retrieved yet.
     this.makePipes();
     this.log.info("Sending input streams down to content process.");
-    aProcManager.sendAsyncMessage(this.SEND_STREAMS_MESSAGE, {
+    let actor = aProcessParent.getActor("BrowserProcess");
+    actor.sendAsyncMessage(this.SEND_STREAMS_MESSAGE, {
       pageInputStream: this.pagePipe.inputStream,
       scriptInputStream: this.scriptPipe.inputStream,
     });
@@ -5592,14 +5619,16 @@ var AboutHomeStartupCache = {
    *   ipc:content-created.
    * @param procManager (ProcessMessageManager)
    *   The ProcessMessageManager for the created content process.
+   * @param processParent
+   *   The nsIDOMProcessParent for the tab.
    */
-  onContentProcessCreated(childID, procManager) {
+  onContentProcessCreated(childID, procManager, processParent) {
     if (procManager.remoteType == E10SUtils.PRIVILEGEDABOUT_REMOTE_TYPE) {
       this.log.trace(
         `A privileged about content process is launching with ID ${childID}.` +
           "Sending it the cache input streams."
       );
-      this.sendCacheInputStreams(procManager);
+      this.sendCacheInputStreams(procManager, processParent);
       procManager.addMessageListener(this.CACHE_RESPONSE_MESSAGE, this);
       procManager.addMessageListener(this.CACHE_USAGE_RESULT_MESSAGE, this);
       this._procManager = procManager;
@@ -5783,7 +5812,8 @@ var AboutHomeStartupCache = {
         let procManager = aSubject
           .QueryInterface(Ci.nsIInterfaceRequestor)
           .getInterface(Ci.nsIMessageSender);
-        this.onContentProcessCreated(childID, procManager);
+        let pp = aSubject.QueryInterface(Ci.nsIDOMProcessParent);
+        this.onContentProcessCreated(childID, procManager, pp);
         break;
       }
 

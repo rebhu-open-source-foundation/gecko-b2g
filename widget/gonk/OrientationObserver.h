@@ -50,7 +50,7 @@ class OrientationObserver : public ISensorObserver {
   void DisableAutoOrientation();
 
   // Methods called by methods in hal_impl namespace.
-  bool LockScreenOrientation(ScreenOrientation aOrientation);
+  bool LockScreenOrientation(mozilla::hal::ScreenOrientation aOrientation);
   void UnlockScreenOrientation();
 
   static OrientationObserver* GetInstance();

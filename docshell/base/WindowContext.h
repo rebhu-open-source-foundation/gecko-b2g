@@ -11,8 +11,14 @@
 #include "mozilla/Span.h"
 #include "mozilla/dom/MaybeDiscarded.h"
 #include "mozilla/dom/SyncedContext.h"
+#include "nsILoadInfo.h"
+#include "nsWrapperCache.h"
+
+class nsIGlobalObject;
 
 namespace mozilla {
+class LogModule;
+
 namespace dom {
 
 class WindowGlobalParent;
@@ -98,14 +104,7 @@ class WindowContext : public nsISupports, public nsWrapperCache {
     uint64_t mOuterWindowId;
     uint64_t mBrowsingContextId;
 
-    FieldTuple mFields;
-
-    bool operator==(const IPCInitializer& aOther) const {
-      return mInnerWindowId == aOther.mInnerWindowId &&
-             mOuterWindowId == aOther.mOuterWindowId &&
-             mBrowsingContextId == aOther.mBrowsingContextId &&
-             mFields == aOther.mFields;
-    }
+    FieldValues mFields;
   };
   IPCInitializer GetIPCInitializer();
 
@@ -119,7 +118,8 @@ class WindowContext : public nsISupports, public nsWrapperCache {
 
  protected:
   WindowContext(BrowsingContext* aBrowsingContext, uint64_t aInnerWindowId,
-                uint64_t aOuterWindowId, bool aInProcess, FieldTuple&& aFields);
+                uint64_t aOuterWindowId, bool aInProcess,
+                FieldValues&& aFields);
   virtual ~WindowContext();
 
   virtual void Init();

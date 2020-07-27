@@ -67,6 +67,7 @@
 #include "mozilla/dom/ServiceWorkerManager.h"
 #include "mozilla/dom/SystemMessageServiceChild.h"
 #include "mozilla/dom/SystemMessageService.h"
+#include "mozilla/dom/SessionStorageManager.h"
 #include "mozilla/dom/URLClassifierChild.h"
 #include "mozilla/dom/WindowGlobalChild.h"
 #include "mozilla/dom/WorkerDebugger.h"
@@ -1398,8 +1399,13 @@ mozilla::ipc::IPCResult ContentChild::RecvRequestMemoryReport(
     const bool& aMinimizeMemoryUsage,
     const Maybe<mozilla::ipc::FileDescriptor>& aDMDFile) {
   nsCString process;
-  GetProcessName(process);
+  if (aAnonymize || mRemoteType.IsEmpty()) {
+    GetProcessName(process);
+  } else {
+    process = mRemoteType;
+  }
   AppendProcessId(process);
+  MOZ_ASSERT(!process.IsEmpty());
 
   MemoryReportRequestClient::Start(
       aGeneration, aAnonymize, aMinimizeMemoryUsage, aDMDFile, process,
@@ -2177,8 +2183,7 @@ bool ContentChild::DeallocPIccChild(PIccChild* aActor) {
 }
 #endif  // MOZ_B2G_RIL_END
 
-scache::PStartupCacheChild* ContentChild::AllocPStartupCacheChild(
-    const bool& wantCacheData) {
+scache::PStartupCacheChild* ContentChild::AllocPStartupCacheChild() {
   return new scache::StartupCacheChild();
 }
 
@@ -2189,8 +2194,8 @@ bool ContentChild::DeallocPStartupCacheChild(
 }
 
 mozilla::ipc::IPCResult ContentChild::RecvPStartupCacheConstructor(
-    scache::PStartupCacheChild* actor, const bool& wantCacheData) {
-  static_cast<scache::StartupCacheChild*>(actor)->Init(wantCacheData);
+    scache::PStartupCacheChild* actor) {
+  static_cast<scache::StartupCacheChild*>(actor)->Init();
   return IPC_OK();
 }
 

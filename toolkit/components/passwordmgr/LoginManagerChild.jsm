@@ -255,7 +255,18 @@ const observer = {
           break;
         }
 
+        // _storeUserInput mutates docstate
         this._storeUserInput(docState, aEvent.composedTarget);
+        let detail = {
+          possibleValues: {
+            usernames: docState.possibleUsernames,
+            passwords: docState.possiblePasswords,
+          },
+        };
+        LoginManagerChild.forWindow(window).sendAsyncMessage(
+          "PasswordManager:updateDoorhangerSuggestions",
+          detail
+        );
 
         if (aEvent.composedTarget.hasBeenTypePassword) {
           let triggeredByFillingGenerated = docState.generatedPasswordFields.has(
@@ -876,9 +887,11 @@ this.LoginManagerChild = class LoginManagerChild extends JSWindowActorChild {
       // We update the LoginForm so it (most important .elements) is fresh when the task eventually
       // runs since changes to the elements could affect our field heuristics.
       LoginFormFactory.setForRootElement(formLike.rootElement, formLike);
-    } else if (window.document.readyState == "complete") {
+    } else if (
+      ["interactive", "complete"].includes(window.document.readyState)
+    ) {
       log(
-        "Arming the DeferredTask we just created since document.readyState == 'complete'"
+        "Arming the DeferredTask we just created since document.readyState == 'interactive' or 'complete'"
       );
       deferredTask.arm();
     } else {

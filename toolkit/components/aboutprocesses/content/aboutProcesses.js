@@ -160,6 +160,7 @@ var State = {
       type: cur.type,
       origin: cur.origin || "",
       threads: null,
+      displayRank: Control._getDisplayGroupRank(cur.type),
     };
     if (!prev) {
       result.threads = cur.threads.map(data =>
@@ -169,9 +170,6 @@ var State = {
     }
     if (prev.pid != cur.pid) {
       throw new Error("Assertion failed: A process cannot change pid.");
-    }
-    if (prev.type != cur.type) {
-      throw new Error("Assertion failed: A process cannot change type.");
     }
     let prevThreads = new Map();
     for (let thread of prev.threads) {
@@ -647,14 +645,27 @@ var Control = {
     this._openItems = new Set();
 
     counters = this._sortProcesses(counters);
+    let previousRow = null;
+    let previousProcess = null;
     for (let process of counters) {
       let isOpen = openItems.has(process.pid);
-      let row = View.appendProcessRow(process, isOpen);
-      row.process = process;
+      let processRow = View.appendProcessRow(process, isOpen);
+      processRow.process = process;
+      let latestRow = processRow;
       if (isOpen) {
         this._openItems.add(process.pid);
-        this._showChildren(row);
+        latestRow = this._showChildren(processRow);
       }
+      if (
+        this._sortColumn == null &&
+        previousProcess &&
+        previousProcess.displayRank != process.displayRank
+      ) {
+        // Add a separation between successive categories of processes.
+        previousRow.classList.add("separate-from-next-process-group");
+      }
+      previousProcess = process;
+      previousRow = latestRow;
     }
 
     await View.commit();
@@ -662,11 +673,13 @@ var Control = {
   _showChildren(row) {
     let process = row.process;
     this._sortThreads(process.threads);
+    let elt = row;
     for (let thread of process.threads) {
       // Enrich `elt` with a property `thread`, used for testing.
-      let elt = View.appendThreadRow(thread);
+      elt = View.appendThreadRow(thread);
       elt.thread = thread;
     }
+    return elt;
   },
   _sortThreads(threads) {
     return threads.sort((a, b) => {
@@ -738,14 +751,17 @@ var Control = {
           order = b.totalResidentSize - a.totalResidentSize;
           break;
         case null:
-          // Default order: browser goes first.
-          if (a.type == "browser") {
-            order = -1;
-          } else if (b.type == "browser") {
-            order = 1;
+          // Default order: classify processes by group.
+          order = a.displayRank - b.displayRank;
+          if (order == 0) {
+            // Other processes are ordered by origin.
+            order = String(a.name).localeCompare(b.name);
+            if (order == 0) {
+              // If we're running without Fission, many processes will have
+              // the same origin, so differenciate with CPU use.
+              order = b.slopeCpuUser - a.slopeCpuUser;
+            }
           }
-          // Other processes by increasing pid, arbitrarily.
-          order = b.pid - a.pid;
           break;
         default:
           throw new Error("Unsupported order: " + this._sortColumn);
@@ -755,6 +771,32 @@ var Control = {
       }
       return order;
     });
+  },
+
+  // Assign a display rank to a process.
+  //
+  // The `browser` process comes first (rank 0).
+  // Then comes web content (rank 1).
+  // Then come special processes (minus preallocated) (rank 2).
+  // Then come preallocated processes (rank 3).
+  _getDisplayGroupRank(type) {
+    switch (type) {
+      // Browser comes first.
+      case "browser":
+        return 0;
+      // Web content comes next.
+      case "web":
+      case "webIsolated":
+      case "webLargeAllocation":
+      case "withCoopCoep":
+        return 1;
+      // Preallocated processes come last.
+      case "preallocated":
+        return 3;
+      // Other special processes before preallocated.
+      default:
+        return 2;
+    }
   },
 };
 

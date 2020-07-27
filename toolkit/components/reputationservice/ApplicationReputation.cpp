@@ -159,6 +159,10 @@ const char* const ApplicationReputationService::kBinaryFileExtensions[] = {
     //".001",
     //".7z",
     //".ace",
+    //".accda", exec       // MS Access database
+    //".accdb", exec       // MS Access database
+    //".accde", exec       // MS Access database
+    //".accdr", exec       // MS Access database
     ".action",  // Mac script
     //".ad", exec // Windows
     //".ade", exec  // MS Access
@@ -192,6 +196,7 @@ const char* const ApplicationReputationService::kBinaryFileExtensions[] = {
     ".cab",        // Windows archive
     ".caction",    // Automator action
     ".cdr",        // Mac disk image
+    //".cer", exec // Signed certificate file
     ".cfg",        // Windows
     ".chi",        // Windows Help
     //".chm", exec // Windows Help
@@ -238,6 +243,7 @@ const char* const ApplicationReputationService::kBinaryFileExtensions[] = {
     ".eml",         // MS Outlook
     //".exe", exec // Windows executable
     //".fat",
+    //".fileloc", exec  // Apple finder internet location data file
     ".fon",  // Windows font
     //".fxp", exec // MS FoxPro
     ".gadget",  // Windows
@@ -478,6 +484,7 @@ const char* const ApplicationReputationService::kBinaryFileExtensions[] = {
     //".vsx",  exec  // MS Visio
     //".vtx",  exec  // MS Visio
     //".wav",
+    //".webloc",  // MacOS website location file
     //".webp",
     ".website",   // Windows
     ".wflow",     // Automator action
@@ -508,6 +515,7 @@ const char* const ApplicationReputationService::kBinaryFileExtensions[] = {
     ".xml",     // MS Excel
     ".xnk",     // MS Exchange
     ".xrm-ms",  // Windows
+    ".xsd",     // XML schema definition
     ".xsl",     // XML Stylesheet
     //".xxe",
     ".xz",     // Linux archive (xz)

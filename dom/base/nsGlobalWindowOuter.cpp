@@ -3921,15 +3921,6 @@ uint64_t nsGlobalWindowOuter::GetMozPaintCountOuter() {
   return presShell ? presShell->GetPaintCount() : 0;
 }
 
-already_AddRefed<MediaQueryList> nsGlobalWindowOuter::MatchMediaOuter(
-    const nsAString& aMediaQueryList, CallerType aCallerType) {
-  if (!mDoc) {
-    return nullptr;
-  }
-
-  return mDoc->MatchMedia(aMediaQueryList, aCallerType);
-}
-
 void nsGlobalWindowOuter::SetScreenXOuter(int32_t aScreenX,
                                           CallerType aCallerType,
                                           ErrorResult& aError) {
@@ -6469,11 +6460,6 @@ bool nsGlobalWindowOuter::FindOuter(const nsAString& aString,
                                     bool aSearchInFrames, bool aShowDialog,
                                     ErrorResult& aError) {
   Unused << aShowDialog;
-
-  if (Preferences::GetBool("dom.disable_window_find", false)) {
-    aError.Throw(NS_ERROR_NOT_AVAILABLE);
-    return false;
-  }
 
   nsCOMPtr<nsIWebBrowserFind> finder(do_GetInterface(mDocShell));
   if (!finder) {

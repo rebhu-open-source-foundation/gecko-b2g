@@ -16,27 +16,24 @@
 #include "mozilla/Tuple.h"
 #include "mozilla/WeakPtr.h"
 #include "mozilla/dom/BindingDeclarations.h"
-#include "mozilla/dom/LoadURIOptionsBinding.h"
+#include "mozilla/dom/FeaturePolicy.h"
 #include "mozilla/dom/LocationBase.h"
 #include "mozilla/dom/MaybeDiscarded.h"
-#include "mozilla/dom/FeaturePolicyUtils.h"
-#include "mozilla/dom/SessionStorageManager.h"
 #include "mozilla/dom/UserActivation.h"
+#include "mozilla/dom/ScreenOrientationBinding.h"
 #include "mozilla/dom/SyncedContext.h"
 #include "nsCOMPtr.h"
 #include "nsCycleCollectionParticipant.h"
-#include "nsID.h"
 #include "nsIDocShell.h"
-#include "nsString.h"
 #include "nsTArray.h"
 #include "nsWrapperCache.h"
 #include "nsILoadInfo.h"
 #include "nsILoadContext.h"
+#include "nsThreadUtils.h"
 
 class nsDocShellLoadState;
 class nsGlobalWindowInner;
 class nsGlobalWindowOuter;
-class nsILoadInfo;
 class nsIPrincipal;
 class nsOuterWindowProxy;
 class PickleIterator;
@@ -66,8 +63,7 @@ class ContentParent;
 class Element;
 template <typename>
 struct Nullable;
-template <typename T>
-class Sequence;
+class SessionStorageManager;
 class StructuredCloneHolder;
 class WindowContext;
 struct WindowPostMessageOptions;
@@ -517,8 +513,6 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   Nullable<WindowProxyHolder> GetWindow();
 
-  MOZ_DECLARE_WEAKREFERENCE_TYPENAME(BrowsingContext)
-
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(BrowsingContext)
   NS_DECL_NSILOADCONTEXT
@@ -600,7 +594,7 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
     already_AddRefed<WindowContext> GetParent();
     already_AddRefed<BrowsingContext> GetOpener();
 
-    uint64_t GetOpenerId() const { return mozilla::Get<IDX_OpenerId>(mFields); }
+    uint64_t GetOpenerId() const { return mFields.mOpenerId; }
 
     bool mWindowless = false;
     bool mUseRemoteTabs = false;
@@ -609,17 +603,7 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
     OriginAttributes mOriginAttributes;
     uint64_t mRequestContextId = 0;
 
-    FieldTuple mFields;
-
-    bool operator==(const IPCInitializer& aOther) const {
-      return mId == aOther.mId && mParentId == aOther.mParentId &&
-             mWindowless == aOther.mWindowless &&
-             mUseRemoteTabs == aOther.mUseRemoteTabs &&
-             mUseRemoteSubframes == aOther.mUseRemoteSubframes &&
-             mOriginAttributes == aOther.mOriginAttributes &&
-             mRequestContextId == aOther.mRequestContextId &&
-             mFields == aOther.mFields;
-    }
+    FieldValues mFields;
   };
 
   // Create an IPCInitializer object for this BrowsingContext.
@@ -662,8 +646,7 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
  protected:
   virtual ~BrowsingContext();
   BrowsingContext(WindowContext* aParentWindow, BrowsingContextGroup* aGroup,
-                  uint64_t aBrowsingContextId, Type aType,
-                  FieldTuple&& aFields);
+                  uint64_t aBrowsingContextId, Type aType, FieldValues&& aInit);
 
  private:
   void Attach(bool aFromIPC, ContentParent* aOriginProcess);

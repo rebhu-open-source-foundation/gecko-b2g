@@ -10416,10 +10416,12 @@ void CodeGenerator::emitArrayPush(LInstruction* lir, Register obj,
   masm.loadPtr(Address(obj, NativeObject::offsetOfElements()), elementsTemp);
   masm.load32(Address(elementsTemp, ObjectElements::offsetOfLength()), length);
 
-  // TODO(Warp) Adjust jit::ArrayPushDense to instead bailout for non-int32.
+  // TODO(Warp): reuse/share the CacheIR implementation when IonBuilder and TI
+  // are gone (bug 1654180).
   if (!IsTypeInferenceEnabled()) {
-    // Bailout if incrementing the length would overflow INT32_MAX.
-    bailoutCmp32(Assembler::Equal, length, Imm32(INT32_MAX), lir->snapshot());
+    // Bailout if the incremented length does not fit in int32.
+    bailoutCmp32(Assembler::AboveOrEqual, length, Imm32(INT32_MAX),
+                 lir->snapshot());
   }
 
 #ifdef DEBUG
@@ -11471,8 +11473,8 @@ void CodeGenerator::visitCallInitElementArray(LCallInitElementArray* lir) {
   pushArg(ToRegister(lir->object()));
   pushArg(ImmPtr(lir->mir()->resumePoint()->pc()));
 
-  using Fn =
-      bool (*)(JSContext*, jsbytecode*, HandleObject, uint32_t, HandleValue);
+  using Fn = bool (*)(JSContext*, jsbytecode*, HandleArrayObject, uint32_t,
+                      HandleValue);
   callVM<Fn, js::InitElementArray>(lir);
 }
 
@@ -14430,17 +14432,11 @@ void CodeGenerator::visitFinishBoundFunctionInit(
 }
 
 void CodeGenerator::visitIsPackedArray(LIsPackedArray* lir) {
-  Register array = ToRegister(lir->array());
+  Register obj = ToRegister(lir->object());
   Register output = ToRegister(lir->output());
-  Register elementsTemp = ToRegister(lir->temp());
+  Register temp = ToRegister(lir->temp());
 
-  // Load elements and length.
-  masm.loadPtr(Address(array, NativeObject::offsetOfElements()), elementsTemp);
-  masm.load32(Address(elementsTemp, ObjectElements::offsetOfLength()), output);
-
-  // Test length == initializedLength.
-  Address initLength(elementsTemp, ObjectElements::offsetOfInitializedLength());
-  masm.cmp32Set(Assembler::Equal, initLength, output, output);
+  masm.setIsPackedArray(obj, output, temp);
 }
 
 void CodeGenerator::visitGetPrototypeOf(LGetPrototypeOf* lir) {

@@ -469,7 +469,7 @@ class Document : public nsINode,
                  public nsIApplicationCacheContainer,
                  public nsStubMutationObserver,
                  public DispatcherTrait,
-                 public SupportsWeakPtr<Document> {
+                 public SupportsWeakPtr {
   friend class DocumentOrShadowRoot;
 
  protected:
@@ -493,8 +493,6 @@ class Document : public nsINode,
    * Called when XPCOM shutdown.
    */
   static void Shutdown();
-
-  MOZ_DECLARE_WEAKREFERENCE_TYPENAME(Document)
 
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_IDOCUMENT_IID)
 
@@ -2627,7 +2625,8 @@ class Document : public nsINode,
   bool ShouldLoadImages() const {
     // We check IsBeingUsedAsImage() so that SVG documents loaded as
     // images can themselves have data: URL image references.
-    return IsCurrentActiveDocument() || IsBeingUsedAsImage();
+    return IsCurrentActiveDocument() || IsBeingUsedAsImage() ||
+           IsStaticDocument();
   }
 
   /**
@@ -2808,7 +2807,7 @@ class Document : public nsINode,
    * If this document is a static clone, this returns the original
    * document.
    */
-  Document* GetOriginalDocument() {
+  Document* GetOriginalDocument() const {
     MOZ_ASSERT(!mOriginalDocument || !mOriginalDocument->GetOriginalDocument());
     return mOriginalDocument;
   }
@@ -3734,8 +3733,7 @@ class Document : public nsINode,
   // mUseCounters.
   void SetCssUseCounterBits();
 
-  // Returns true if there is any valid value in the viewport meta tag.
-  bool ParseWidthAndHeightInMetaViewport(const nsAString& aWidthString,
+  void ParseWidthAndHeightInMetaViewport(const nsAString& aWidthString,
                                          const nsAString& aHeightString,
                                          bool aIsAutoScale);
 
@@ -3745,8 +3743,7 @@ class Document : public nsINode,
 
   // Parse scale values in |aViewportMetaData| and set the values in
   // mScaleMinFloat, mScaleMaxFloat and mScaleFloat respectively.
-  // Returns true if there is any valid scale value in the |aViewportMetaData|.
-  bool ParseScalesInViewportMetaData(const ViewportMetaData& aViewportMetaData);
+  void ParseScalesInViewportMetaData(const ViewportMetaData& aViewportMetaData);
 
   // Get parent FeaturePolicy from container. The parent FeaturePolicy is
   // stored in parent iframe or container's browsingContext (cross process)
@@ -4853,7 +4850,6 @@ class Document : public nsINode,
     DisplayWidthHeight,
     Specified,
     Unknown,
-    NoValidContent,
   };
 
   ViewportType mViewportType;

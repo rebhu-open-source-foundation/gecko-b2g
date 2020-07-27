@@ -188,11 +188,17 @@ class MOZ_STACK_CLASS ContentIteratorBase::Initializer final {
       : mIterator{aIterator},
         mStart{aStart},
         mEnd{aEnd},
-        mStartIsCharacterData{mStart.Container()->IsCharacterData()} {}
+        mStartIsCharacterData{mStart.Container()->IsCharacterData()} {
+    MOZ_ASSERT(mStart.IsSetAndValid());
+    MOZ_ASSERT(mEnd.IsSetAndValid());
+  }
 
   nsresult Run();
 
  private:
+  void DetermineFirstNode();
+  [[nodiscard]] nsresult DetermineLastNode();
+
   bool IsCollapsedNonCharacterRange() const;
   bool IsSingleNodeCharacterRange() const;
 
@@ -244,8 +250,25 @@ nsresult ContentIteratorBase::Initializer::Run() {
     return NS_OK;
   }
 
-  // Find first node in range.
+  DetermineFirstNode();
+  const nsresult rv = DetermineLastNode();
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  };
 
+  // If either first or last is null, they both have to be null!
+  if (!mIterator.mFirst || !mIterator.mLast) {
+    mIterator.mFirst = nullptr;
+    mIterator.mLast = nullptr;
+  }
+
+  mIterator.mCurNode = mIterator.mFirst;
+  mIterator.mIsDone = !mIterator.mCurNode;
+
+  return NS_OK;
+}
+
+void ContentIteratorBase::Initializer::DetermineFirstNode() {
   nsIContent* cChild = nullptr;
 
   // Try to get the child at our starting point. This might return null if
@@ -314,9 +337,9 @@ nsresult ContentIteratorBase::Initializer::Run() {
       }
     }
   }
+}
 
-  // Find last node in range.
-
+nsresult ContentIteratorBase::Initializer::DetermineLastNode() {
   const bool endIsCharacterData = mEnd.Container()->IsCharacterData();
 
   if (endIsCharacterData || !mEnd.Container()->HasChildren() ||
@@ -368,7 +391,7 @@ nsresult ContentIteratorBase::Initializer::Run() {
       }
     }
   } else {
-    cChild = mEnd.Ref();
+    nsIContent* cChild = mEnd.Ref();
 
     if (NS_WARN_IF(!cChild)) {
       // No child at offset!
@@ -389,16 +412,6 @@ nsresult ContentIteratorBase::Initializer::Run() {
       mIterator.mLast = cChild;
     }
   }
-
-  // If either first or last is null, they both have to be null!
-
-  if (!mIterator.mFirst || !mIterator.mLast) {
-    mIterator.mFirst = nullptr;
-    mIterator.mLast = nullptr;
-  }
-
-  mIterator.mCurNode = mIterator.mFirst;
-  mIterator.mIsDone = !mIterator.mCurNode;
 
   return NS_OK;
 }

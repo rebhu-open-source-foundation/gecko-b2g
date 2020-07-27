@@ -25,9 +25,13 @@ bool DoTrialInlining(JSContext* cx, BaselineFrame* frame) {
   ICScript* icScript = frame->icScript();
   bool isRecursive = !!icScript->inliningRoot();
 
-  InliningRoot* root = isRecursive
-                           ? icScript->inliningRoot()
-                           : script->jitScript()->getOrCreateInliningRoot(cx);
+  InliningRoot* root =
+      isRecursive ? icScript->inliningRoot()
+                  : script->jitScript()->getOrCreateInliningRoot(cx, script);
+  if (!root) {
+    return false;
+  }
+
   JitSpew(JitSpew_WarpTrialInlining,
           "Trial inlining for %s script %s:%u:%u (%p) (inliningRoot=%p)",
           (isRecursive ? "inner" : "outer"), script->filename(),
@@ -50,7 +54,7 @@ void TrialInliner::cloneSharedPrefix(ICStub* stub, const uint8_t* endOfPrefix,
 void TrialInliner::replaceICStub(const ICEntry& entry, CacheIRWriter& writer,
                                  CacheKind kind) {
   ICFallbackStub* fallbackStub = entry.fallbackStub();
-  fallbackStub->discardStubs(cx(), script_);
+  fallbackStub->discardStubs(cx(), root_->owningScript());
 
   // Note: AttachBaselineCacheIRStub never throws an exception.
   bool attached = false;
@@ -174,7 +178,8 @@ bool TrialInliner::shouldInline(JSFunction* target, BytecodeLocation loc) {
   return true;
 }
 
-ICScript* TrialInliner::createInlinedICScript(JSFunction* target) {
+ICScript* TrialInliner::createInlinedICScript(JSFunction* target,
+                                              BytecodeLocation loc) {
   MOZ_ASSERT(target->hasJitEntry());
   MOZ_ASSERT(target->hasJitScript());
 
@@ -213,11 +218,16 @@ ICScript* TrialInliner::createInlinedICScript(JSFunction* target) {
     }
   }
 
+  uint32_t pcOffset = loc.bytecodeToOffset(script_);
   ICScript* result = inlinedICScript.get();
-  if (!root_->addInlinedScript(std::move(inlinedICScript))) {
+  if (!icScript_->addInlinedChild(cx(), std::move(inlinedICScript), pcOffset)) {
     return nullptr;
   }
   MOZ_ASSERT(result->numICEntries() == targetScript->numICEntries());
+
+  JitSpew(JitSpew_WarpTrialInlining,
+          "Outer ICScript: %p Inner ICScript: %p pcOffset: %u\n", icScript_,
+          result, pcOffset);
 
   return result;
 }
@@ -248,7 +258,7 @@ bool TrialInliner::maybeInlineCall(const ICEntry& entry, BytecodeLocation loc) {
     return true;
   }
 
-  ICScript* newICScript = createInlinedICScript(data->target);
+  ICScript* newICScript = createInlinedICScript(data->target, loc);
   if (!newICScript) {
     return false;
   }
@@ -292,6 +302,7 @@ bool InliningRoot::addInlinedScript(UniquePtr<ICScript> icScript) {
 }
 
 void InliningRoot::trace(JSTracer* trc) {
+  TraceEdge(trc, &owningScript_, "inlining-root-owning-script");
   for (auto& inlinedScript : inlinedScripts_) {
     inlinedScript->trace(trc);
   }

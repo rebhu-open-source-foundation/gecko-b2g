@@ -6,6 +6,7 @@
 
 #include "nsPageSequenceFrame.h"
 
+#include "mozilla/Logging.h"
 #include "mozilla/PresShell.h"
 #include "mozilla/dom/HTMLCanvasElement.h"
 #include "mozilla/StaticPresData.h"
@@ -30,12 +31,9 @@
 #include "nsServiceManagerUtils.h"
 #include <algorithm>
 
-#define OFFSET_NOT_SET -1
-
 using namespace mozilla;
 using namespace mozilla::dom;
 
-#include "mozilla/Logging.h"
 mozilla::LazyLogModule gLayoutPrintingLog("printing-layout");
 
 #define PR_PL(_p1) MOZ_LOG(gLayoutPrintingLog, mozilla::LogLevel::Debug, _p1)
@@ -57,7 +55,7 @@ nsPageSequenceFrame::nsPageSequenceFrame(ComputedStyle* aStyle,
   nscoord halfInch = PresContext()->CSSTwipsToAppUnits(NS_INCHES_TO_TWIPS(0.5));
   mMargin.SizeTo(halfInch, halfInch, halfInch, halfInch);
 
-  mPageData = new nsSharedPageData();
+  mPageData = MakeUnique<nsSharedPageData>();
   mPageData->mHeadFootFont =
       *PresContext()
            ->Document()
@@ -71,10 +69,7 @@ nsPageSequenceFrame::nsPageSequenceFrame(ComputedStyle* aStyle,
   SetPageNumberFormat("pageofpages", "%1$d of %2$d", false);
 }
 
-nsPageSequenceFrame::~nsPageSequenceFrame() {
-  delete mPageData;
-  ResetPrintCanvasList();
-}
+nsPageSequenceFrame::~nsPageSequenceFrame() { ResetPrintCanvasList(); }
 
 NS_QUERYFRAME_HEAD(nsPageSequenceFrame)
   NS_QUERYFRAME_ENTRY(nsPageSequenceFrame)
@@ -251,11 +246,10 @@ void nsPageSequenceFrame::Reflow(nsPresContext* aPresContext,
 
   // Tile the pages vertically
   ReflowOutput kidSize(aReflowInput);
-  for (nsFrameList::Enumerator e(mFrames); !e.AtEnd(); e.Next()) {
-    nsIFrame* kidFrame = e.get();
+  for (nsIFrame* kidFrame : mFrames) {
     // Set the shared data into the page frame before reflow
-    nsPageFrame* pf = static_cast<nsPageFrame*>(kidFrame);
-    pf->SetSharedPageData(mPageData);
+    auto* pf = static_cast<nsPageFrame*>(kidFrame);
+    pf->SetSharedPageData(mPageData.get());
 
     // Reflow the page
     ReflowInput kidReflowInput(
@@ -308,11 +302,11 @@ void nsPageSequenceFrame::Reflow(nsPresContext* aPresContext,
 
   // Set Page Number Info
   int32_t pageNum = 1;
-  for (nsFrameList::Enumerator e(mFrames); !e.AtEnd(); e.Next()) {
-    MOZ_ASSERT(e.get()->IsPageFrame(),
+  for (nsIFrame* child : mFrames) {
+    MOZ_ASSERT(child->IsPageFrame(),
                "only expecting nsPageFrame children. Other children will make "
                "this static_cast bogus & probably violate other assumptions");
-    nsPageFrame* pf = static_cast<nsPageFrame*>(e.get());
+    auto* pf = static_cast<nsPageFrame*>(child);
     pf->SetPageNumInfo(pageNum, pageTot);
     pageNum++;
   }
@@ -411,11 +405,8 @@ nsresult nsPageSequenceFrame::StartPrint(nsPresContext* aPresContext,
   }
 
   // Begin printing of the document
-  nsresult rv = NS_OK;
-
   mPageNum = 1;
-
-  return rv;
+  return NS_OK;
 }
 
 static void GetPrintCanvasElementsInFrame(
@@ -504,10 +495,9 @@ void nsPageSequenceFrame::DetermineWhetherToPrintPage() {
 
 nsIFrame* nsPageSequenceFrame::GetCurrentPageFrame() {
   int32_t i = 1;
-  for (nsFrameList::Enumerator childFrames(mFrames); !childFrames.AtEnd();
-       childFrames.Next()) {
+  for (nsIFrame* child : mFrames) {
     if (i == mPageNum) {
-      return childFrames.get();
+      return child;
     }
     ++i;
   }

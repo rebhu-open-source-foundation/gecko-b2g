@@ -14,14 +14,12 @@ py2commands="
     android
     awsy-test
     check-spidermonkey
-    clang-format
     cramtest
     crashtest
     devtools-css-db
     firefox-ui-functional
     geckodriver
     geckodriver-test
-    geckoview-junit
     hazards
     jsapi-tests
     jsshell-bench
@@ -37,7 +35,6 @@ py2commands="
     reftest
     talos-test
     taskcluster-load-image
-    taskgraph
     telemetry-tests-client
     test
     tps-build

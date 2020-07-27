@@ -99,7 +99,9 @@ class alignas(uintptr_t) ICScript final : public TrailingArray {
         warmUpCount_(warmUpCount),
         endOffset_(endOffset) {}
 
-  JitScript* jitScript() { return jitScript_; }
+  JitScript* jitScript() const { return jitScript_; }
+
+  bool isInlined() const;
 
   MOZ_MUST_USE bool initICEntries(JSContext* cx, JSScript* script);
 
@@ -133,20 +135,37 @@ class alignas(uintptr_t) ICScript final : public TrailingArray {
   ICEntry& icEntryFromPCOffset(uint32_t pcOffset);
   ICEntry& icEntryFromPCOffset(uint32_t pcOffset, ICEntry* prevLookedUpEntry);
 
+  MOZ_MUST_USE bool addInlinedChild(JSContext* cx,
+                                    js::UniquePtr<ICScript> child,
+                                    uint32_t pcOffset);
+  ICScript* findInlinedChild(uint32_t pcOffset);
+
   FallbackICStubSpace* fallbackStubSpace();
   void purgeOptimizedStubs(Zone* zone);
 
   void trace(JSTracer* trc);
 
  private:
+  class CallSite {
+   public:
+    CallSite(ICScript* callee, uint32_t pcOffset)
+        : callee_(callee), pcOffset_(pcOffset) {}
+    ICScript* callee_;
+    uint32_t pcOffset_;
+  };
+
   // Pointer to the owning JitScript. If this ICScript is not
   // a clone for inlining, `this->jitScript_ + JitScript::offsetOfICScript()`
   // should equal `this`.
   JitScript* jitScript_;
 
-  // If this ICScript was created for trial inlining, a pointer to the
-  // root of the inlining tree. Otherwise, nullptr.
+  // If this ICScript was created for trial inlining or has another
+  // ICScript inlined into it, a pointer to the root of the inlining
+  // tree. Otherwise, nullptr.
   InliningRoot* inliningRoot_ = nullptr;
+
+  // ICScripts that have been inlined into this ICScript.
+  js::UniquePtr<Vector<CallSite>> inlinedChildren_;
 
   // Number of times this copy of the script has been called or has had
   // backedges taken.  Reset if the script's JIT code is forcibly discarded.
@@ -706,7 +725,7 @@ class alignas(uintptr_t) JitScript final : public TrailingArray {
 
   bool hasInliningRoot() const { return !!inliningRoot_; }
   InliningRoot* inliningRoot() const { return inliningRoot_.get(); }
-  InliningRoot* getOrCreateInliningRoot(JSContext* cx);
+  InliningRoot* getOrCreateInliningRoot(JSContext* cx, JSScript* script);
   void clearInliningRoot() { inliningRoot_.reset(); }
 };
 

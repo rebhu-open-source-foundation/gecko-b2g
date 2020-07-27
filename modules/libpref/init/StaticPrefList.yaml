@@ -465,6 +465,12 @@
   value: 1.0f
   mirror: always
 
+# new scrollbar code for desktop zooming
+- name: apz.force_disable_desktop_zooming_scrollbars
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 #ifdef MOZ_WIDGET_GTK
 -   name: apz.gtk.kinetic_scroll.enabled
     type: RelaxedAtomicBool
@@ -5380,7 +5386,7 @@
 
 - name: layers.gpu-process.enabled
   type: bool
-#if defined(XP_WIN) || defined(MOZ_WIDGET_GTK)
+#if defined(XP_WIN)
   value: true
 #else
   value: false

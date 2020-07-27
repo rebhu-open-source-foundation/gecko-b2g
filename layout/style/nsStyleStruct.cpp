@@ -1286,8 +1286,8 @@ nsChangeHint nsStylePosition::CalcDifference(
   // It doesn't matter whether we're looking at the old or new visibility
   // struct, since a change between vertical and horizontal writing-mode will
   // cause a reframe.
-  bool isVertical =
-      aOldStyleVisibility.mWritingMode != NS_STYLE_WRITING_MODE_HORIZONTAL_TB;
+  bool isVertical = aOldStyleVisibility.mWritingMode !=
+                    StyleWritingModeProperty::HorizontalTb;
   if (isVertical ? widthChanged : heightChanged) {
     hint |= nsChangeHint_ReflowHintsForBSizeChange;
   }
@@ -2736,7 +2736,7 @@ nsStyleVisibility::nsStyleVisibility(const Document& aDocument)
                      : StyleDirection::Ltr),
       mVisible(StyleVisibility::Visible),
       mImageRendering(StyleImageRendering::Auto),
-      mWritingMode(NS_STYLE_WRITING_MODE_HORIZONTAL_TB),
+      mWritingMode(StyleWritingModeProperty::HorizontalTb),
       mTextOrientation(StyleTextOrientation::Mixed),
       mColorAdjust(StyleColorAdjust::Economy) {
   MOZ_COUNT_CTOR(nsStyleVisibility);
@@ -3107,7 +3107,8 @@ LogicalSide nsStyleText::TextEmphasisSide(WritingMode aWM) const {
 //
 
 nsStyleUI::nsStyleUI(const Document& aDocument)
-    : mUserInput(StyleUserInput::Auto),
+    : mInert(StyleInert::None),
+      mUserInput(StyleUserInput::Auto),
       mUserModify(StyleUserModify::ReadOnly),
       mUserFocus(StyleUserFocus::None),
       mPointerEvents(StylePointerEvents::Auto),
@@ -3118,7 +3119,8 @@ nsStyleUI::nsStyleUI(const Document& aDocument)
 }
 
 nsStyleUI::nsStyleUI(const nsStyleUI& aSource)
-    : mUserInput(aSource.mUserInput),
+    : mInert(aSource.mInert),
+      mUserInput(aSource.mUserInput),
       mUserModify(aSource.mUserModify),
       mUserFocus(aSource.mUserFocus),
       mPointerEvents(aSource.mPointerEvents),
@@ -3179,7 +3181,7 @@ nsChangeHint nsStyleUI::CalcDifference(const nsStyleUI& aNewData) const {
     }
   }
 
-  if (mUserFocus != aNewData.mUserFocus) {
+  if (mUserFocus != aNewData.mUserFocus || mInert != aNewData.mInert) {
     hint |= nsChangeHint_NeutralChange;
   }
 

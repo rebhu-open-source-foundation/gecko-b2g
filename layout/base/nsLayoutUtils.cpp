@@ -893,6 +893,19 @@ static nsRect GetDisplayPortFromMarginsData(
       float sx = fmin(1.0, (xMargin + w) / w * 0.25);
       posAlignment.width =
           fmax(defaultAlignment, multiple * round(sx * w / multiple));
+      // Margins are usually large (multiple times screenRect's size, see the
+      // apz.x_skate_size_multiplier pref), however it can be be small on
+      // occasions. If the alignment is larger than the margin on the right, we
+      // could end up snapping the displayport to the left too much and miss
+      // some content on the right. Since the size is aligned independently we
+      // can't be sure it will compensate so we ensure that the alignment is
+      // never larger than the margin. The snapping always rounds down so we
+      // don't need to check the left margin.
+      float rightMargin = fabs(aMarginsData->mMargins.right);
+      if (posAlignment.width > rightMargin) {
+        posAlignment.width -=
+            multiple * ceil((posAlignment.width - rightMargin) / multiple);
+      }
     } else {
       posAlignment.width = defaultAlignment;
     }
@@ -902,6 +915,12 @@ static nsRect GetDisplayPortFromMarginsData(
       float sy = fmin(1.0, (yMargin + h) / h * 0.25);
       posAlignment.height =
           fmax(defaultAlignment, multiple * round(sy * h / multiple));
+
+      float bottomMargin = fabs(aMarginsData->mMargins.bottom);
+      if (posAlignment.height > bottomMargin) {
+        posAlignment.height -=
+            multiple * ceil((posAlignment.height - bottomMargin) / multiple);
+      }
     } else {
       posAlignment.height = defaultAlignment;
     }
@@ -988,7 +1007,10 @@ static nsRect GetDisplayPortFromMarginsData(
   ScreenPoint scrollPosScreen =
       LayoutDevicePoint::FromAppUnits(scrollPos, auPerDevPixel) * res;
 
-  // Round-out the display port to the nearest alignment (tiles)
+  // Align the display port.
+  // TODO(bug 1654836): we currently align the origin and independently align
+  // the size. a better approach would be to round out the endpoints of the
+  // unaligned display port.
   screenRect += scrollPosScreen;
   float x = posAlignment.width * floor(screenRect.x / posAlignment.width);
   float y = posAlignment.height * floor(screenRect.y / posAlignment.height);
@@ -2812,14 +2834,28 @@ const nsIFrame* nsLayoutUtils::FindNearestCommonAncestorFrameWithinBlock(
   int n1 = 1;
   int n2 = 1;
 
-  for (auto f = f1->GetParent(); !f->IsBlockFrameOrSubclass();
-       f = f->GetParent()) {
+  for (auto f = f1->GetParent();;) {
+    NS_ASSERTION(f, "All text frames should have a block ancestor");
+    if (!f) {
+      return nullptr;
+    }
+    if (f->IsBlockFrameOrSubclass()) {
+      break;
+    }
     ++n1;
+    f = f->GetParent();
   }
 
-  for (auto f = f2->GetParent(); !f->IsBlockFrameOrSubclass();
-       f = f->GetParent()) {
+  for (auto f = f2->GetParent();;) {
+    NS_ASSERTION(f, "All text frames should have a block ancestor");
+    if (!f) {
+      return nullptr;
+    }
+    if (f->IsBlockFrameOrSubclass()) {
+      break;
+    }
     ++n2;
+    f = f->GetParent();
   }
 
   if (n1 > n2) {
@@ -7574,13 +7610,13 @@ nsIFrame* nsLayoutUtils::GetReferenceFrame(nsIFrame* aFrame) {
 
 /* static */ gfx::ShapedTextFlags nsLayoutUtils::GetTextRunOrientFlagsForStyle(
     ComputedStyle* aComputedStyle) {
-  uint8_t writingMode = aComputedStyle->StyleVisibility()->mWritingMode;
+  auto writingMode = aComputedStyle->StyleVisibility()->mWritingMode;
   switch (writingMode) {
-    case NS_STYLE_WRITING_MODE_HORIZONTAL_TB:
+    case StyleWritingModeProperty::HorizontalTb:
       return gfx::ShapedTextFlags::TEXT_ORIENT_HORIZONTAL;
 
-    case NS_STYLE_WRITING_MODE_VERTICAL_LR:
-    case NS_STYLE_WRITING_MODE_VERTICAL_RL:
+    case StyleWritingModeProperty::VerticalLr:
+    case StyleWritingModeProperty::VerticalRl:
       switch (aComputedStyle->StyleVisibility()->mTextOrientation) {
         case StyleTextOrientation::Mixed:
           return gfx::ShapedTextFlags::TEXT_ORIENT_VERTICAL_MIXED;
@@ -7593,10 +7629,10 @@ nsIFrame* nsLayoutUtils::GetReferenceFrame(nsIFrame* aFrame) {
           return gfx::ShapedTextFlags();
       }
 
-    case NS_STYLE_WRITING_MODE_SIDEWAYS_LR:
+    case StyleWritingModeProperty::SidewaysLr:
       return gfx::ShapedTextFlags::TEXT_ORIENT_VERTICAL_SIDEWAYS_LEFT;
 
-    case NS_STYLE_WRITING_MODE_SIDEWAYS_RL:
+    case StyleWritingModeProperty::SidewaysRl:
       return gfx::ShapedTextFlags::TEXT_ORIENT_VERTICAL_SIDEWAYS_RIGHT;
 
     default:
@@ -8732,8 +8768,8 @@ bool nsLayoutUtils::UpdateCompositionBoundsForRCDRSF(
                             shouldSubtractDynamicToolbar)) {
     return false;
   }
-  aCompBounds = ParentLayerRect(ViewAs<ParentLayerPixel>(
-      LayoutDeviceIntRect(LayoutDeviceIntPoint(), contentSize),
+  aCompBounds.SizeTo(ViewAs<ParentLayerPixel>(
+      LayoutDeviceSize(contentSize),
       PixelCastJustification::LayoutDeviceIsParentLayerForRCDRSF));
   return true;
 }
@@ -9255,6 +9291,13 @@ ScrollMetadata nsLayoutUtils::ComputeScrollMetadata(
                            0));
         }
       }
+    }
+
+    Maybe<nsPoint> relativeOffset = scrollableFrame->GetRelativeOffset();
+    if (relativeOffset.isSome()) {
+      metrics.SetScrollGeneration(scrollableFrame->CurrentScrollGeneration());
+      metrics.SetPureRelativeOffset(
+          Some(CSSPoint::FromAppUnits(*relativeOffset)));
     }
 
     CSSRect viewport = metrics.GetLayoutViewport();

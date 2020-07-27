@@ -6,16 +6,19 @@
 
 #include "nsPrintJob.h"
 
+#include "nsDebug.h"
 #include "nsDocShell.h"
 #include "nsReadableUtils.h"
 #include "nsCRT.h"
 #include "nsQueryObject.h"
 
 #include "mozilla/AsyncEventDispatcher.h"
+#include "mozilla/ResultExtensions.h"
 #include "mozilla/ComputedStyleInlines.h"
 #include "mozilla/dom/BrowsingContext.h"
 #include "mozilla/dom/Selection.h"
 #include "mozilla/dom/CustomEvent.h"
+#include "mozilla/dom/HTMLCanvasElement.h"
 #include "mozilla/dom/ScriptSettings.h"
 #include "mozilla/StaticPrefs_print.h"
 #include "mozilla/Telemetry.h"
@@ -24,6 +27,8 @@
 #include "nsIScriptGlobalObject.h"
 #include "nsIStringBundle.h"
 #include "nsPIDOMWindow.h"
+#include "nsPrintData.h"
+#include "nsPrintObject.h"
 #include "nsIDocShell.h"
 #include "nsIURI.h"
 #include "nsITextToSubURI.h"
@@ -451,9 +456,19 @@ NS_IMPL_ISUPPORTS(nsPrintJob, nsIWebProgressListener, nsISupportsWeakReference,
                   nsIObserver)
 
 //-------------------------------------------------------
+nsPrintJob::nsPrintJob() = default;
+
 nsPrintJob::~nsPrintJob() {
   Destroy();  // for insurance
   DisconnectPagePrintTimer();
+}
+
+bool nsPrintJob::CheckBeforeDestroy() const {
+  return mPrt && mPrt->mPreparingForPrint;
+}
+
+PresShell* nsPrintJob::GetPrintPreviewPresShell() {
+  return mPrtPreview->mPrintObject->mPresShell;
 }
 
 //-------------------------------------------------------
@@ -647,7 +662,7 @@ nsresult nsPrintJob::DoCommonPrint(bool aIsPrintPreview,
     mPrtPreview = nullptr;
   }
 
-  if (aWebProgressListener != nullptr) {
+  if (aWebProgressListener) {
     printData->mPrintProgressListeners.AppendObject(aWebProgressListener);
   }
 
@@ -693,7 +708,7 @@ nsresult nsPrintJob::DoCommonPrint(bool aIsPrintPreview,
   // cause our print/print-preview operation to finish. In this case, we
   // should immediately return an error code so that the root caller knows
   // it shouldn't continue to do anything with this instance.
-  if (mIsDestroying || (mIsCreatingPrintPreview && !mIsCreatingPrintPreview)) {
+  if (mIsDestroying) {
     return NS_ERROR_FAILURE;
   }
 
@@ -705,12 +720,10 @@ nsresult nsPrintJob::DoCommonPrint(bool aIsPrintPreview,
   // if they don't pass in a PrintSettings, then get the Global PS
   printData->mPrintSettings = aPrintSettings;
   if (!printData->mPrintSettings) {
-    rv = GetGlobalPrintSettings(getter_AddRefs(printData->mPrintSettings));
-    NS_ENSURE_SUCCESS(rv, rv);
+    MOZ_TRY(GetGlobalPrintSettings(getter_AddRefs(printData->mPrintSettings)));
   }
 
-  rv = EnsureSettingsHasPrinterNameSet(printData->mPrintSettings);
-  NS_ENSURE_SUCCESS(rv, rv);
+  MOZ_TRY(EnsureSettingsHasPrinterNameSet(printData->mPrintSettings));
 
   printData->mPrintSettings->SetIsCancelled(false);
   printData->mPrintSettings->GetShrinkToFit(&printData->mShrinkToFit);
@@ -875,13 +888,11 @@ nsresult nsPrintJob::DoCommonPrint(bool aIsPrintPreview,
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
-  rv = devspec->Init(nullptr, printData->mPrintSettings,
-                     mIsCreatingPrintPreview);
-  NS_ENSURE_SUCCESS(rv, rv);
+  MOZ_TRY(devspec->Init(nullptr, printData->mPrintSettings,
+                        mIsCreatingPrintPreview));
 
   printData->mPrintDC = new nsDeviceContext();
-  rv = printData->mPrintDC->InitForPrinting(devspec);
-  NS_ENSURE_SUCCESS(rv, rv);
+  MOZ_TRY(printData->mPrintDC->InitForPrinting(devspec));
 
   if (XRE_IsParentProcess() && !printData->mPrintDC->IsSyncPagePrinting()) {
     RefPtr<nsPrintJob> self(this);
@@ -895,18 +906,7 @@ nsresult nsPrintJob::DoCommonPrint(bool aIsPrintPreview,
     printData->mPrintSettings->SetPrintRange(nsIPrintSettings::kRangeAllPages);
   }
 
-  if (NS_FAILED(EnablePOsForPrinting())) {
-    return NS_ERROR_FAILURE;
-  }
-
-  // Attach progressListener to catch network requests.
-  nsCOMPtr<nsIWebProgress> webProgress =
-      do_QueryInterface(printData->mPrintObject->mDocShell);
-  webProgress->AddProgressListener(static_cast<nsIWebProgressListener*>(this),
-                                   nsIWebProgress::NOTIFY_STATE_REQUEST);
-
-  mLoadCounter = 0;
-  mDidLoadDataForPrinting = false;
+  MOZ_TRY(EnablePOsForPrinting());
 
   if (mIsCreatingPrintPreview) {
     bool notifyOnInit = false;
@@ -1643,14 +1643,11 @@ nsresult nsPrintJob::ReflowDocList(const UniquePtr<nsPrintObject>& aPO,
 
   UpdateZoomRatio(aPO.get(), aSetPixelScale);
 
-  nsresult rv;
   // Reflow the PO
-  rv = ReflowPrintObject(aPO);
-  NS_ENSURE_SUCCESS(rv, rv);
+  MOZ_TRY(ReflowPrintObject(aPO));
 
   for (const UniquePtr<nsPrintObject>& kid : aPO->mKids) {
-    rv = ReflowDocList(kid, aSetPixelScale);
-    NS_ENSURE_SUCCESS(rv, rv);
+    MOZ_TRY(ReflowDocList(kid, aSetPixelScale));
   }
   return NS_OK;
 }
@@ -1667,22 +1664,43 @@ void nsPrintJob::FirePrintPreviewUpdateEvent() {
 }
 
 nsresult nsPrintJob::InitPrintDocConstruction(bool aHandleError) {
-  nsresult rv;
   // Guarantee that mPrt->mPrintObject won't be deleted.  It's owned by mPrt.
   // So, we should grab it with local variable.
   RefPtr<nsPrintData> printData = mPrt;
-  rv = ReflowDocList(printData->mPrintObject, DoSetPixelScale());
-  NS_ENSURE_SUCCESS(rv, rv);
+
+  // Attach progressListener to catch network requests.
+  mDidLoadDataForPrinting = false;
+
+  nsCOMPtr<nsIWebProgress> webProgress =
+      do_QueryInterface(printData->mPrintObject->mDocShell);
+  webProgress->AddProgressListener(static_cast<nsIWebProgressListener*>(this),
+                                   nsIWebProgress::NOTIFY_STATE_REQUEST);
+
+  MOZ_TRY(ReflowDocList(printData->mPrintObject, DoSetPixelScale()));
 
   FirePrintPreviewUpdateEvent();
 
-  if (mLoadCounter == 0) {
-    ResumePrintAfterResourcesLoaded(aHandleError);
-  }
-  return rv;
+  MaybeResumePrintAfterResourcesLoaded(aHandleError);
+  return NS_OK;
 }
 
-nsresult nsPrintJob::ResumePrintAfterResourcesLoaded(bool aCleanupOnError) {
+bool nsPrintJob::ShouldResumePrint() const {
+  Document* doc = mPrt->mPrintObject->mDocument;
+  MOZ_ASSERT(doc);
+  NS_ENSURE_TRUE(doc, true);
+  nsCOMPtr<nsILoadGroup> lg = doc->GetDocumentLoadGroup();
+  NS_ENSURE_TRUE(lg, true);
+  bool pending = false;
+  nsresult rv = lg->IsPending(&pending);
+  NS_ENSURE_SUCCESS(rv, true);
+  return !pending;
+}
+
+nsresult nsPrintJob::MaybeResumePrintAfterResourcesLoaded(bool aCleanupOnError) {
+  if (!ShouldResumePrint()) {
+    mDidLoadDataForPrinting = true;
+    return NS_OK;
+  }
   // If Destroy() has already been called, mPtr is nullptr.  Then, the instance
   // needs to do nothing anymore in this method.
   // Note: it shouldn't be possible for mPrt->mPrintObject to be null; we
@@ -1723,22 +1741,9 @@ nsresult nsPrintJob::ResumePrintAfterResourcesLoaded(bool aCleanupOnError) {
 MOZ_CAN_RUN_SCRIPT_BOUNDARY NS_IMETHODIMP
 nsPrintJob::OnStateChange(nsIWebProgress* aWebProgress, nsIRequest* aRequest,
                           uint32_t aStateFlags, nsresult aStatus) {
-  nsAutoCString name;
-  aRequest->GetName(name);
-  if (name.EqualsLiteral("about:document-onload-blocker")) {
-    return NS_OK;
-  }
-  if (aStateFlags & STATE_START) {
-    ++mLoadCounter;
-  } else if (aStateFlags & STATE_STOP) {
-    mDidLoadDataForPrinting = true;
-    --mLoadCounter;
-
-    // If all resources are loaded, then do a small timeout and if there
-    // are still no new requests, then another reflow.
-    if (mLoadCounter == 0) {
-      ResumePrintAfterResourcesLoaded(/* aCleanupOnError */ true);
-    }
+  if (aStateFlags & STATE_STOP) {
+    // If all resources are loaded, then finish and reflow.
+    MaybeResumePrintAfterResourcesLoaded(/* aCleanupOnError */ true);
   }
   return NS_OK;
 }
@@ -1981,13 +1986,11 @@ nsresult nsPrintJob::ReflowPrintObject(const UniquePtr<nsPrintObject>& aPO) {
   aPO->mPresContext->SetBackgroundImageDraw(printBGColors);
 
   // init it with the DC
-  nsresult rv = aPO->mPresContext->Init(printData->mPrintDC);
-  NS_ENSURE_SUCCESS(rv, rv);
+  MOZ_TRY(aPO->mPresContext->Init(printData->mPrintDC));
 
   aPO->mViewManager = new nsViewManager();
 
-  rv = aPO->mViewManager->Init(printData->mPrintDC);
-  NS_ENSURE_SUCCESS(rv, rv);
+  MOZ_TRY(aPO->mViewManager->Init(printData->mPrintDC));
 
   aPO->mPresShell =
       aPO->mDocument->CreatePresShell(aPO->mPresContext, aPO->mViewManager);
@@ -1995,7 +1998,7 @@ nsresult nsPrintJob::ReflowPrintObject(const UniquePtr<nsPrintObject>& aPO) {
     return NS_ERROR_FAILURE;
   }
 
-  // If we're printing selection then remove the unselected nodes from our
+  // If we're printing selection then remove the nonselected nodes from our
   // cloned document.
   int16_t printRangeType = nsIPrintSettings::kRangeAllPages;
   printData->mPrintSettings->GetPrintRange(&printRangeType);
@@ -2007,7 +2010,7 @@ nsresult nsPrintJob::ReflowPrintObject(const UniquePtr<nsPrintObject>& aPO) {
   bool documentIsTopLevel = false;
   nsSize adjSize;
 
-  rv = SetRootView(aPO.get(), doReturn, documentIsTopLevel, adjSize);
+  nsresult rv = SetRootView(aPO.get(), doReturn, documentIsTopLevel, adjSize);
 
   if (NS_FAILED(rv) || doReturn) {
     return rv;
@@ -2042,17 +2045,14 @@ nsresult nsPrintJob::ReflowPrintObject(const UniquePtr<nsPrintObject>& aPO) {
         aPO->mViewManager, aPO->mPresContext, aPO->mPresShell.get());
   }
 
-  rv = aPO->mPresShell->Initialize();
-
-  NS_ENSURE_SUCCESS(rv, rv);
+  MOZ_TRY(aPO->mPresShell->Initialize());
   NS_ASSERTION(aPO->mPresShell, "Presshell should still be here");
 
   // Process the reflow event Initialize posted
   RefPtr<PresShell> presShell = aPO->mPresShell;
   presShell->FlushPendingNotifications(FlushType::Layout);
 
-  rv = UpdateSelectionAndShrinkPrintObject(aPO.get(), documentIsTopLevel);
-  NS_ENSURE_SUCCESS(rv, rv);
+  MOZ_TRY(UpdateSelectionAndShrinkPrintObject(aPO.get(), documentIsTopLevel));
 
 #ifdef EXTENDED_DEBUG_PRINTING
   if (MOZ_LOG_TEST(gPrintingLog, DUMP_LAYOUT_LEVEL)) {
@@ -2178,51 +2178,39 @@ MOZ_CAN_RUN_SCRIPT_BOUNDARY static nsresult DeleteNonSelectedNodes(
   nsINode* bodyNode = aDoc.GetBodyElement();
   nsINode* startNode = bodyNode;
   uint32_t startOffset = 0;
-  uint32_t ellipsisOffset = 0;
 
   for (nsRange* origRange : *printRanges) {
     // New end is start of original range.
     nsINode* endNode = origRange->GetStartContainer();
-
-    // If we're no longer in the same text node reset the ellipsis offset.
-    if (endNode != startNode) {
-      ellipsisOffset = 0;
-    }
-    uint32_t endOffset = origRange->StartOffset() + ellipsisOffset;
+    uint32_t endOffset = origRange->StartOffset();
 
     // Create the range that we want to remove. Note that if startNode or
     // endNode are null nsRange::Create() will fail and we won't remove
     // that section.
-    RefPtr<nsRange> unselectedRange = nsRange::Create(
+    RefPtr<nsRange> nonselectedRange = nsRange::Create(
         startNode, startOffset, endNode, endOffset, IgnoreErrors());
 
-    if (unselectedRange && !unselectedRange->Collapsed()) {
-      selection->AddRangeAndSelectFramesAndNotifyListeners(*unselectedRange,
+    if (nonselectedRange && !nonselectedRange->Collapsed()) {
+      selection->AddRangeAndSelectFramesAndNotifyListeners(*nonselectedRange,
                                                            IgnoreErrors());
       // Unless we've already added an ellipsis at the start, if we ended mid
       // text node then add ellipsis.
       Text* text = endNode->GetAsText();
-      if (!ellipsisOffset && text && endOffset && endOffset < text->Length()) {
+      if (startNode != endNode && text && endOffset &&
+          endOffset < text->Length()) {
         text->InsertData(endOffset, kEllipsis, IgnoreErrors());
-        ellipsisOffset += kEllipsis.Length();
       }
     }
 
     // Next new start is end of original range.
     startNode = origRange->GetEndContainer();
-
-    // If we're no longer in the same text node reset the ellipsis offset.
-    if (startNode != endNode) {
-      ellipsisOffset = 0;
-    }
-    startOffset = origRange->EndOffset() + ellipsisOffset;
+    startOffset = origRange->EndOffset();
 
     // If the next node will start mid text node then add ellipsis.
     Text* text = startNode ? startNode->GetAsText() : nullptr;
     if (text && startOffset && startOffset < text->Length()) {
       text->InsertData(startOffset, kEllipsis, IgnoreErrors());
       startOffset += kEllipsis.Length();
-      ellipsisOffset += kEllipsis.Length();
     }
   }
 

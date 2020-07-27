@@ -41,7 +41,8 @@ namespace jit {
  */
 class InliningRoot {
  public:
-  explicit InliningRoot(JSContext* cx) : inlinedScripts_(cx) {}
+  explicit InliningRoot(JSContext* cx, JSScript* owningScript)
+      : owningScript_(owningScript), inlinedScripts_(cx) {}
 
   FallbackICStubSpace* fallbackStubSpace() { return &fallbackStubSpace_; }
 
@@ -53,8 +54,11 @@ class InliningRoot {
 
   void purgeOptimizedStubs(Zone* zone);
 
+  JSScript* owningScript() const { return owningScript_; }
+
  private:
   FallbackICStubSpace fallbackStubSpace_ = {};
+  HeapPtr<JSScript*> owningScript_;
   js::Vector<js::UniquePtr<ICScript>> inlinedScripts_;
 };
 
@@ -86,7 +90,7 @@ class MOZ_RAII TrialInliner {
   ICStub* maybeSingleStub(const ICEntry& entry);
   void cloneSharedPrefix(ICStub* stub, const uint8_t* endOfPrefix,
                          CacheIRWriter& writer);
-  ICScript* createInlinedICScript(JSFunction* target);
+  ICScript* createInlinedICScript(JSFunction* target, BytecodeLocation loc);
   void replaceICStub(const ICEntry& entry, CacheIRWriter& writer,
                      CacheKind kind);
 

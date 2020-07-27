@@ -26,7 +26,7 @@ class GlobalObject;
 namespace dom {
 
 class AudioNode;
-class Blob;
+class BlobImpl;
 class Document;
 class DOMException;
 

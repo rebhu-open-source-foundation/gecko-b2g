@@ -53,21 +53,14 @@ onboarding-multistage-welcome-secondary-button-text = Have an account?
 
 # The <span data-l10n-name="zap"></span> in this string allows a "zap" underline style to be
 # automatically added to the text inside it. "more" should stay inside the span.
-onboarding-multistage-import-header = Import your passwords, bookmarks, and <span data-l10n-name="zap">more</span>
+onboarding-multistage-import-header = Import your passwords, <br/>bookmarks, and <span data-l10n-name="zap">more</span>
 onboarding-multistage-import-subtitle = Coming from another browser? It’s easy to bring everything to { -brand-short-name }.
 onboarding-multistage-import-primary-button-label = Start Import
 onboarding-multistage-import-secondary-button-label = Not now
 
-# Tooltip displayed on hover of top sites in import settings screen during onboarding flow.
-# This support welcome screen showing top sites imported from the user's default browser.
-# Title text is kept multiline to ensure tooltip container width is not more than 40 characters.
-onboarding-import-sites-info =
-  .title =
-    These sites were found on this device.
-    { -brand-short-name } does not save or sync data from
-    another browser unless you choose to
-    import it.
-  .aria-label = { onboarding-import-sites-info.title }
+# Info displayed in the footer of import settings screen during onboarding flow.
+# This supports welcome screen showing top sites imported from the user's default browser.
+onboarding-import-sites-disclaimer = The sites listed here were found on this device. { -brand-short-name } does not save or sync data from another browser unless you choose to import it.
 
 # Aria-label to make the "steps" of multistage onboarding visible to screen readers.
 # Variables:
@@ -90,7 +83,8 @@ onboarding-multistage-theme-label-automatic = Automatic
 onboarding-multistage-theme-description-automatic = Use system theme
 onboarding-multistage-theme-label-light = Light
 onboarding-multistage-theme-label-dark = Dark
-onboarding-multistage-theme-label-colorful = Colorful
+# "Firefox Alpenglow" here is the name of the theme, and should be kept in English.
+onboarding-multistage-theme-label-alpenglow = Firefox Alpenglow
 
 ## Please make sure to split the content of the title attribute into lines whose
 ## width corresponds to about 40 Latin characters, to ensure that the tooltip
@@ -118,12 +112,12 @@ onboarding-multistage-theme-tooltip-dark =
     menus, and windows.
   .aria-label = { onboarding-multistage-theme-tooltip-dark.title }
 
-# Tooltip displayed on hover of colorful theme
-onboarding-multistage-theme-tooltip-colorful =
+# Tooltip displayed on hover of Alpenglow theme
+onboarding-multistage-theme-tooltip-alpenglow =
   .title =
     Use a colorful appearance for buttons,
     menus, and windows.
-  .aria-label = { onboarding-multistage-theme-tooltip-colorful.title }
+  .aria-label = { onboarding-multistage-theme-tooltip-alpenglow.title }
 
 ## Welcome full page string
 
