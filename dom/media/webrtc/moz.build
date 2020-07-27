@@ -45,8 +45,8 @@ if CONFIG['MOZ_WEBRTC']:
     ]
     LOCAL_INCLUDES += [
         '..',
+        '/dom/b2g/camera',
         '/dom/base',
-        '/dom/camera',
         '/dom/media',
         '/media/libyuv/libyuv/include',
         '/media/webrtc/signaling/src/common',

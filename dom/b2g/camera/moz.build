@@ -9,7 +9,6 @@ if CONFIG['MOZ_B2G_CAMERA']:
 
 EXPORTS += [
     'CameraCommon.h',
-
     'CameraPreferences.h',
     'DOMCameraDetectedFace.h',
     'DOMCameraManager.h',
@@ -110,8 +109,8 @@ else:
     ]
 
 LOCAL_INCLUDES += [
-    '../b2g',
-    '../file',
+    '..',
+    '../../file',
     '/media/libyuv/libyuv/include',
 ]
 

@@ -72,9 +72,9 @@ LOCAL_INCLUDES += [
 LOCAL_INCLUDES += [
     '/dom/b2g',
     '/dom/b2g/bluetooth/common/webapi',
+    '/dom/b2g/camera',
     '/dom/base',
     '/dom/battery',
-    '/dom/camera',
     '/dom/canvas',
     '/dom/geolocation',
     '/dom/html',

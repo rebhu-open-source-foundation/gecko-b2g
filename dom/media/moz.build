@@ -367,8 +367,8 @@ EXTRA_JS_MODULES.media += [
 LOCAL_INCLUDES += [
     '/caps',
     '/docshell/base',
+    '/dom/b2g/camera',
     '/dom/base',
-    '/dom/camera',
     '/layout/generic',
     '/layout/xul',
     '/media/libyuv/libyuv/include',
