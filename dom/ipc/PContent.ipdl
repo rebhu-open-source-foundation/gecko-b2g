@@ -543,6 +543,7 @@ struct NotificationEventData
     nsString tag;
     nsString icon;
     nsString data;
+    bool requireInteraction;
     nsString behavior;
 };
 

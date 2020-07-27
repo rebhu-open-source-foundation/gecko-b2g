@@ -1164,19 +1164,18 @@ class SendNotificationEventRunnable final
   const nsString mTag;
   const nsString mIcon;
   const nsString mData;
+  const bool mRequireInteraction;
   const nsString mBehavior;
   const nsString mScope;
 
  public:
-  SendNotificationEventRunnable(WorkerPrivate* aWorkerPrivate,
-                                KeepAliveToken* aKeepAliveToken,
-                                const nsAString& aEventName,
-                                const nsAString& aID, const nsAString& aTitle,
-                                const nsAString& aDir, const nsAString& aLang,
-                                const nsAString& aBody, const nsAString& aTag,
-                                const nsAString& aIcon, const nsAString& aData,
-                                const nsAString& aBehavior,
-                                const nsAString& aScope)
+  SendNotificationEventRunnable(
+      WorkerPrivate* aWorkerPrivate, KeepAliveToken* aKeepAliveToken,
+      const nsAString& aEventName, const nsAString& aID,
+      const nsAString& aTitle, const nsAString& aDir, const nsAString& aLang,
+      const nsAString& aBody, const nsAString& aTag, const nsAString& aIcon,
+      const nsAString& aData, bool aRequireInteraction,
+      const nsAString& aBehavior, const nsAString& aScope)
       : ExtendableEventWorkerRunnable(aWorkerPrivate, aKeepAliveToken),
         mEventName(aEventName),
         mID(aID),
@@ -1187,6 +1186,7 @@ class SendNotificationEventRunnable final
         mTag(aTag),
         mIcon(aIcon),
         mData(aData),
+        mRequireInteraction(aRequireInteraction),
         mBehavior(aBehavior),
         mScope(aScope) {
     MOZ_ASSERT(NS_IsMainThread());
@@ -1202,7 +1202,7 @@ class SendNotificationEventRunnable final
     ErrorResult result;
     RefPtr<Notification> notification = Notification::ConstructFromFields(
         aWorkerPrivate->GlobalScope(), mID, mTitle, mDir, mLang, mBody, mTag,
-        mIcon, mData, mScope, result);
+        mIcon, mData, mRequireInteraction, mScope, result);
     if (NS_WARN_IF(result.Failed())) {
       return false;
     }
@@ -1241,7 +1241,8 @@ nsresult ServiceWorkerPrivate::SendNotificationEvent(
     const nsAString& aEventName, const nsAString& aID, const nsAString& aTitle,
     const nsAString& aDir, const nsAString& aLang, const nsAString& aBody,
     const nsAString& aTag, const nsAString& aIcon, const nsAString& aData,
-    const nsAString& aBehavior, const nsAString& aScope) {
+    bool aRequireInteraction, const nsAString& aBehavior,
+    const nsAString& aScope) {
   MOZ_ASSERT(NS_IsMainThread());
 
   WakeUpReason why;
@@ -1257,9 +1258,9 @@ nsresult ServiceWorkerPrivate::SendNotificationEvent(
   }
 
   if (mInner) {
-    return mInner->SendNotificationEvent(aEventName, aID, aTitle, aDir, aLang,
-                                         aBody, aTag, aIcon, aData, aBehavior,
-                                         aScope, gDOMDisableOpenClickDelay);
+    return mInner->SendNotificationEvent(
+        aEventName, aID, aTitle, aDir, aLang, aBody, aTag, aIcon, aData,
+        aRequireInteraction, aBehavior, aScope, gDOMDisableOpenClickDelay);
   }
 
   nsresult rv = SpawnWorkerIfNeeded(why);
@@ -1269,7 +1270,7 @@ nsresult ServiceWorkerPrivate::SendNotificationEvent(
 
   RefPtr<WorkerRunnable> r = new SendNotificationEventRunnable(
       mWorkerPrivate, token, aEventName, aID, aTitle, aDir, aLang, aBody, aTag,
-      aIcon, aData, aBehavior, aScope);
+      aIcon, aData, aRequireInteraction, aBehavior, aScope);
   if (NS_WARN_IF(!r->Dispatch())) {
     return NS_ERROR_FAILURE;
   }

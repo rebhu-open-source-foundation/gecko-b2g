@@ -66,7 +66,7 @@
 namespace mozilla {
 namespace dom {
 
-struct NotificationStrings {
+struct NotificationFields {
   const nsString mID;
   const nsString mTitle;
   const nsString mDir;
@@ -75,6 +75,7 @@ struct NotificationStrings {
   const nsString mTag;
   const nsString mIcon;
   const nsString mData;
+  const bool mRequireInteraction;
   const nsString mBehavior;
   const nsString mServiceWorkerRegistrationScope;
 };
@@ -89,7 +90,7 @@ class ScopeCheckingGetCallback : public nsINotificationStorageCallback {
                     const nsAString& aDir, const nsAString& aLang,
                     const nsAString& aBody, const nsAString& aTag,
                     const nsAString& aIcon, const nsAString& aData,
-                    const nsAString& aBehavior,
+                    bool aRequireInteraction, const nsAString& aBehavior,
                     const nsAString& aServiceWorkerRegistrationScope) final {
     AssertIsOnMainThread();
     MOZ_ASSERT(!aID.IsEmpty());
@@ -99,15 +100,21 @@ class ScopeCheckingGetCallback : public nsINotificationStorageCallback {
       return NS_OK;
     }
 
-    NotificationStrings strings = {
-        nsString(aID),       nsString(aTitle),
-        nsString(aDir),      nsString(aLang),
-        nsString(aBody),     nsString(aTag),
-        nsString(aIcon),     nsString(aData),
-        nsString(aBehavior), nsString(aServiceWorkerRegistrationScope),
+    NotificationFields fields = {
+        nsString(aID),
+        nsString(aTitle),
+        nsString(aDir),
+        nsString(aLang),
+        nsString(aBody),
+        nsString(aTag),
+        nsString(aIcon),
+        nsString(aData),
+        aRequireInteraction,
+        nsString(aBehavior),
+        nsString(aServiceWorkerRegistrationScope),
     };
 
-    mStrings.AppendElement(std::move(strings));
+    mFields.AppendElement(std::move(fields));
     return NS_OK;
   }
 
@@ -116,7 +123,7 @@ class ScopeCheckingGetCallback : public nsINotificationStorageCallback {
  protected:
   virtual ~ScopeCheckingGetCallback() = default;
 
-  nsTArray<NotificationStrings> mStrings;
+  nsTArray<NotificationFields> mFields;
 };
 
 class NotificationStorageCallback final : public ScopeCheckingGetCallback {
@@ -136,14 +143,14 @@ class NotificationStorageCallback final : public ScopeCheckingGetCallback {
     ErrorResult result;
     AutoTArray<RefPtr<Notification>, 5> notifications;
 
-    for (uint32_t i = 0; i < mStrings.Length(); ++i) {
+    for (uint32_t i = 0; i < mFields.Length(); ++i) {
       RefPtr<Notification> n = Notification::ConstructFromFields(
-          mWindow, mStrings[i].mID, mStrings[i].mTitle, mStrings[i].mDir,
-          mStrings[i].mLang, mStrings[i].mBody, mStrings[i].mTag,
-          mStrings[i].mIcon, mStrings[i].mData,
-          /* mStrings[i].mBehavior, not
+          mWindow, mFields[i].mID, mFields[i].mTitle, mFields[i].mDir,
+          mFields[i].mLang, mFields[i].mBody, mFields[i].mTag, mFields[i].mIcon,
+          mFields[i].mData, mFields[i].mRequireInteraction,
+          /* mFields[i].mBehavior, not
            * supported */
-          mStrings[i].mServiceWorkerRegistrationScope, result);
+          mFields[i].mServiceWorkerRegistrationScope, result);
 
       n->SetStoredState(true);
       Unused << NS_WARN_IF(result.Failed());
@@ -792,7 +799,8 @@ already_AddRefed<Notification> Notification::ConstructFromFields(
     nsIGlobalObject* aGlobal, const nsAString& aID, const nsAString& aTitle,
     const nsAString& aDir, const nsAString& aLang, const nsAString& aBody,
     const nsAString& aTag, const nsAString& aIcon, const nsAString& aData,
-    const nsAString& aServiceWorkerRegistrationScope, ErrorResult& aRv) {
+    bool aRequireInteraction, const nsAString& aServiceWorkerRegistrationScope,
+    ErrorResult& aRv) {
   MOZ_ASSERT(aGlobal);
 
   RootedDictionary<NotificationOptions> options(RootingCx());
@@ -801,6 +809,7 @@ already_AddRefed<Notification> Notification::ConstructFromFields(
   options.mBody = aBody;
   options.mTag = aTag;
   options.mIcon = aIcon;
+  options.mRequireInteraction = aRequireInteraction;
   RefPtr<Notification> notification =
       CreateInternal(aGlobal, aID, aTitle, options);
 
@@ -840,9 +849,9 @@ nsresult Notification::PersistNotification() {
     return NS_ERROR_FAILURE;
   }
 
-  rv = notificationStorage->Put(origin, id, mTitle, DirectionToString(mDir),
-                                mLang, mBody, mTag, mIconUrl, alertName,
-                                mDataAsBase64, behavior, mScope);
+  rv = notificationStorage->Put(
+      origin, id, mTitle, DirectionToString(mDir), mLang, mBody, mTag, mIconUrl,
+      alertName, mDataAsBase64, mRequireInteraction, behavior, mScope);
 
   if (NS_FAILED(rv)) {
     return rv;
@@ -979,7 +988,8 @@ class ServiceWorkerNotificationObserver final : public nsIObserver {
       const nsAString& aScope, nsIPrincipal* aPrincipal, const nsAString& aID,
       const nsAString& aTitle, const nsAString& aDir, const nsAString& aLang,
       const nsAString& aBody, const nsAString& aTag, const nsAString& aIcon,
-      const nsAString& aData, const nsAString& aBehavior)
+      const nsAString& aData, const bool& aRequireInteraction,
+      const nsAString& aBehavior)
       : mScope(aScope),
         mID(aID),
         mPrincipal(aPrincipal),
@@ -990,6 +1000,7 @@ class ServiceWorkerNotificationObserver final : public nsIObserver {
         mTag(aTag),
         mIcon(aIcon),
         mData(aData),
+        mRequireInteraction(aRequireInteraction),
         mBehavior(aBehavior) {
     AssertIsOnMainThread();
     MOZ_ASSERT(aPrincipal);
@@ -1008,6 +1019,7 @@ class ServiceWorkerNotificationObserver final : public nsIObserver {
   const nsString mTag;
   const nsString mIcon;
   const nsString mData;
+  const bool mRequireInteraction;
   const nsString mBehavior;
 };
 
@@ -1205,13 +1217,13 @@ ServiceWorkerNotificationObserver::Observe(nsISupports* aSubject,
 
       rv = swm->SendNotificationClickEvent(
           originSuffix, NS_ConvertUTF16toUTF8(mScope), mID, mTitle, mDir, mLang,
-          mBody, mTag, mIcon, mData, mBehavior);
+          mBody, mTag, mIcon, mData, mRequireInteraction, mBehavior);
       Unused << NS_WARN_IF(NS_FAILED(rv));
     } else {
       auto* cc = ContentChild::GetSingleton();
       NotificationEventData data(originSuffix, NS_ConvertUTF16toUTF8(mScope),
                                  mID, mTitle, mDir, mLang, mBody, mTag, mIcon,
-                                 mData, mBehavior);
+                                 mData, mRequireInteraction, mBehavior);
       Unused << cc->SendNotificationEvent(u"click"_ns, data);
     }
     return NS_OK;
@@ -1240,13 +1252,13 @@ ServiceWorkerNotificationObserver::Observe(nsISupports* aSubject,
 
       rv = swm->SendNotificationCloseEvent(
           originSuffix, NS_ConvertUTF16toUTF8(mScope), mID, mTitle, mDir, mLang,
-          mBody, mTag, mIcon, mData, mBehavior);
+          mBody, mTag, mIcon, mData, mRequireInteraction, mBehavior);
       Unused << NS_WARN_IF(NS_FAILED(rv));
     } else {
       auto* cc = ContentChild::GetSingleton();
       NotificationEventData data(originSuffix, NS_ConvertUTF16toUTF8(mScope),
                                  mID, mTitle, mDir, mLang, mBody, mTag, mIcon,
-                                 mData, mBehavior);
+                                 mData, mRequireInteraction, mBehavior);
       Unused << cc->SendNotificationEvent(u"close"_ns, data);
     }
     return NS_OK;
@@ -1376,7 +1388,7 @@ void Notification::ShowInternal() {
     }
     observer = new ServiceWorkerNotificationObserver(
         mScope, GetPrincipal(), mID, mTitle, DirectionToString(mDir), mLang,
-        mBody, mTag, iconUrl, mDataAsBase64, behavior);
+        mBody, mTag, iconUrl, mDataAsBase64, mRequireInteraction, behavior);
   }
   MOZ_ASSERT(observer);
   nsCOMPtr<nsIObserver> alertObserver =
@@ -1706,29 +1718,29 @@ already_AddRefed<Promise> Notification::Get(
 
 class WorkerGetResultRunnable final : public NotificationWorkerRunnable {
   RefPtr<PromiseWorkerProxy> mPromiseProxy;
-  const nsTArray<NotificationStrings> mStrings;
+  const nsTArray<NotificationFields> mFields;
 
  public:
   WorkerGetResultRunnable(WorkerPrivate* aWorkerPrivate,
                           PromiseWorkerProxy* aPromiseProxy,
-                          nsTArray<NotificationStrings>&& aStrings)
+                          nsTArray<NotificationFields>&& aFields)
       : NotificationWorkerRunnable(aWorkerPrivate),
         mPromiseProxy(aPromiseProxy),
-        mStrings(std::move(aStrings)) {}
+        mFields(std::move(aFields)) {}
 
   void WorkerRunInternal(WorkerPrivate* aWorkerPrivate) override {
     RefPtr<Promise> workerPromise = mPromiseProxy->WorkerPromise();
 
     ErrorResult result;
     AutoTArray<RefPtr<Notification>, 5> notifications;
-    for (uint32_t i = 0; i < mStrings.Length(); ++i) {
+    for (uint32_t i = 0; i < mFields.Length(); ++i) {
       RefPtr<Notification> n = Notification::ConstructFromFields(
-          aWorkerPrivate->GlobalScope(), mStrings[i].mID, mStrings[i].mTitle,
-          mStrings[i].mDir, mStrings[i].mLang, mStrings[i].mBody,
-          mStrings[i].mTag, mStrings[i].mIcon, mStrings[i].mData,
-          /* mStrings[i].mBehavior, not
+          aWorkerPrivate->GlobalScope(), mFields[i].mID, mFields[i].mTitle,
+          mFields[i].mDir, mFields[i].mLang, mFields[i].mBody, mFields[i].mTag,
+          mFields[i].mIcon, mFields[i].mData, mFields[i].mRequireInteraction,
+          /* mFields[i].mBehavior, not
            * supported */
-          mStrings[i].mServiceWorkerRegistrationScope, result);
+          mFields[i].mServiceWorkerRegistrationScope, result);
 
       n->SetStoredState(true);
       Unused << NS_WARN_IF(result.Failed());
@@ -1765,7 +1777,7 @@ class WorkerGetCallback final : public ScopeCheckingGetCallback {
     }
 
     RefPtr<WorkerGetResultRunnable> r = new WorkerGetResultRunnable(
-        proxy->GetWorkerPrivate(), proxy, std::move(mStrings));
+        proxy->GetWorkerPrivate(), proxy, std::move(mFields));
 
     r->Dispatch();
     return NS_OK;

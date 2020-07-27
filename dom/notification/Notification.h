@@ -128,6 +128,7 @@ class Notification : public DOMEventTargetHelper,
       nsIGlobalObject* aGlobal, const nsAString& aID, const nsAString& aTitle,
       const nsAString& aDir, const nsAString& aLang, const nsAString& aBody,
       const nsAString& aTag, const nsAString& aIcon, const nsAString& aData,
+      bool aRequireInteraction,
       const nsAString& aServiceWorkerRegistrationScope, ErrorResult& aRv);
 
   void GetID(nsAString& aRetval) { aRetval = mID; }

@@ -926,7 +926,7 @@ class NotificationEventOp : public ExtendableEventOp,
     RefPtr<Notification> notification = Notification::ConstructFromFields(
         aWorkerPrivate->GlobalScope(), args.id(), args.title(), args.dir(),
         args.lang(), args.body(), args.tag(), args.icon(), args.data(),
-        args.scope(), result);
+        args.requireInteraction(), args.scope(), result);
 
     if (NS_WARN_IF(result.Failed())) {
       return false;

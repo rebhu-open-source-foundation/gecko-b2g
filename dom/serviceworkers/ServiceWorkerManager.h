@@ -397,14 +397,12 @@ class ServiceWorkerManager final : public nsIServiceWorkerManager,
 
   void MaybeSendUnregister(nsIPrincipal* aPrincipal, const nsACString& aScope);
 
-  nsresult SendNotificationEvent(const nsAString& aEventName,
-                                 const nsACString& aOriginSuffix,
-                                 const nsACString& aScope, const nsAString& aID,
-                                 const nsAString& aTitle, const nsAString& aDir,
-                                 const nsAString& aLang, const nsAString& aBody,
-                                 const nsAString& aTag, const nsAString& aIcon,
-                                 const nsAString& aData,
-                                 const nsAString& aBehavior);
+  nsresult SendNotificationEvent(
+      const nsAString& aEventName, const nsACString& aOriginSuffix,
+      const nsACString& aScope, const nsAString& aID, const nsAString& aTitle,
+      const nsAString& aDir, const nsAString& aLang, const nsAString& aBody,
+      const nsAString& aTag, const nsAString& aIcon, const nsAString& aData,
+      bool aRequireInteraction, const nsAString& aBehavior);
 
   // Used by remove() and removeAll() when clearing history.
   // MUST ONLY BE CALLED FROM UnregisterIfMatchesHost!

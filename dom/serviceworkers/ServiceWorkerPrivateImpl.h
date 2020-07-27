@@ -82,6 +82,7 @@ class ServiceWorkerPrivateImpl final : public ServiceWorkerPrivate::Inner,
                                  const nsAString& aDir, const nsAString& aLang,
                                  const nsAString& aBody, const nsAString& aTag,
                                  const nsAString& aIcon, const nsAString& aData,
+                                 bool aRequireInteraction,
                                  const nsAString& aBehavior,
                                  const nsAString& aScope,
                                  uint32_t aDisableOpenClickDelay) override;

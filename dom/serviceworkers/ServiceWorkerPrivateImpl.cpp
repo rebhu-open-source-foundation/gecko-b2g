@@ -574,8 +574,8 @@ nsresult ServiceWorkerPrivateImpl::SendNotificationEvent(
     const nsAString& aEventName, const nsAString& aID, const nsAString& aTitle,
     const nsAString& aDir, const nsAString& aLang, const nsAString& aBody,
     const nsAString& aTag, const nsAString& aIcon, const nsAString& aData,
-    const nsAString& aBehavior, const nsAString& aScope,
-    uint32_t aDisableOpenClickDelay) {
+    bool aRequireInteraction, const nsAString& aBehavior,
+    const nsAString& aScope, uint32_t aDisableOpenClickDelay) {
   AssertIsOnMainThread();
   MOZ_ASSERT(mOuter);
 
@@ -589,6 +589,7 @@ nsresult ServiceWorkerPrivateImpl::SendNotificationEvent(
   args.tag() = nsString(aTag);
   args.icon() = nsString(aIcon);
   args.data() = nsString(aData);
+  args.requireInteraction() = aRequireInteraction;
   args.behavior() = nsString(aBehavior);
   args.scope() = nsString(aScope);
   args.disableOpenClickDelay() = aDisableOpenClickDelay;
