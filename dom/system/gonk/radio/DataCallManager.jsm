@@ -52,11 +52,12 @@ XPCOMUtils.defineLazyServiceGetter(this, "gNetworkManager",
                                    "@mozilla.org/network/manager;1",
                                    "nsINetworkManager");
 
-XPCOMUtils.defineLazyGetter(this, "RIL", function() {
-  let obj = {};
-  Cu.import("resource://gre/modules/ril_consts.js", obj);
+XPCOMUtils.defineLazyGetter(this, "RIL", function () {
+  let obj = Cu.import("resource://gre/modules/ril_consts.js", null);
   return obj;
 });
+
+var RIL_DEBUG = Cu.import("resource://gre/modules/ril_consts_debug.js", null);
 
 // Ril quirk to attach data registration on demand.
 var RILQUIRKS_DATA_REGISTRATION_ON_DEMAND =
@@ -82,7 +83,6 @@ const RILNETWORKINFO_CID =
 const TOPIC_XPCOM_SHUTDOWN      = "xpcom-shutdown";
 const TOPIC_PREF_CHANGED        = "nsPref:changed";
 const TOPIC_DATA_CALL_ERROR     = "data-call-error";
-const PREF_RIL_DEBUG_ENABLED    = "ril.debugging.enabled";
 
 const NETWORK_TYPE_UNKNOWN      = Ci.nsINetworkInfo.NETWORK_TYPE_UNKNOWN;
 const NETWORK_TYPE_WIFI         = Ci.nsINetworkInfo.NETWORK_TYPE_WIFI;
@@ -132,18 +132,18 @@ const TCP_BUFFER_SIZES = [
 ];
 
 // set to true in ril_consts.js to see debug messages
-//var DEBUG = RIL.DEBUG_RIL;
+//var DEBUG = RIL_DEBUG.DEBUG_RIL;
 var DEBUG = true;
 
 function updateDebugFlag() {
   // Read debug setting from pref
   let debugPref;
   try {
-    debugPref = Services.prefs.getBoolPref(PREF_RIL_DEBUG_ENABLED);
+    debugPref = Services.prefs.getBoolPref(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED);
   } catch (e) {
     debugPref = false;
   }
-  //DEBUG = debugPref || RIL.DEBUG_RIL;
+  //DEBUG = debugPref || RIL_DEBUG.DEBUG_RIL;
   DEBUG = true;
 }
 updateDebugFlag();
@@ -173,7 +173,7 @@ function DataCallManager() {
   this.addSettingObserver("operatorvariant.iccId");
 
   Services.obs.addObserver(this, TOPIC_XPCOM_SHUTDOWN, false);
-  Services.prefs.addObserver(PREF_RIL_DEBUG_ENABLED, this, false);
+  Services.prefs.addObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this, false);
 }
 DataCallManager.prototype = {
   classID:   DATACALLMANAGER_CID,
@@ -322,7 +322,7 @@ DataCallManager.prototype = {
     this.removeSettingObserver("ril.data.roaming_enabled");
     this.removeSettingObserver("ril.data.defaultServiceId");
     this.removeSettingObserver("operatorvariant.iccId");
-    Services.prefs.removeObserver(PREF_RIL_DEBUG_ENABLED, this);
+    Services.prefs.removeObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this);
     Services.obs.removeObserver(this, TOPIC_XPCOM_SHUTDOWN);
   },
 
@@ -521,7 +521,7 @@ DataCallManager.prototype = {
   observe: function(aSubject, aTopic, aData) {
     switch (aTopic) {
       case TOPIC_PREF_CHANGED:
-        if (aData === PREF_RIL_DEBUG_ENABLED) {
+        if (aData === RIL_DEBUG.PREF_RIL_DEBUG_ENABLED) {
           updateDebugFlag();
         }
         break;

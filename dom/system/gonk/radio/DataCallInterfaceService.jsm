@@ -27,29 +27,30 @@ const DATACALLINTERFACESERVICE_CID =
 
 const TOPIC_XPCOM_SHUTDOWN      = "xpcom-shutdown";
 const TOPIC_PREF_CHANGED        = "nsPref:changed";
-const PREF_RIL_DEBUG_ENABLED    = "ril.debugging.enabled";
 
 XPCOMUtils.defineLazyGetter(this, "RIL", function () {
-  let obj = {};
-  Cu.import("resource://gre/modules/ril_consts.js", obj);
+  let obj = Cu.import("resource://gre/modules/ril_consts.js", null);
   return obj;
 });
+
+var RIL_DEBUG = Cu.import("resource://gre/modules/ril_consts_debug.js", null);
+
 
 XPCOMUtils.defineLazyServiceGetter(this, "gRil",
                                    "@mozilla.org/ril;1",
                                    "nsIRadioInterfaceLayer");
 
-//var DEBUG = RIL.DEBUG_RIL;
+//var DEBUG = RIL_DEBUG.DEBUG_RIL;
 var DEBUG = true;
 function updateDebugFlag() {
   // Read debug setting from pref
   let debugPref;
   try {
-    debugPref = Services.prefs.getBoolPref(PREF_RIL_DEBUG_ENABLED);
+    debugPref = Services.prefs.getBoolPref(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED);
   } catch (e) {
     debugPref = false;
   }
-  //DEBUG = debugPref || RIL.DEBUG_RIL;
+  //DEBUG = debugPref || RIL_DEBUG.DEBUG_RIL;
   DEBUG = true;
 }
 updateDebugFlag();
@@ -90,7 +91,7 @@ function DataCallInterfaceService() {
   }
 
   Services.obs.addObserver(this, TOPIC_XPCOM_SHUTDOWN, false);
-  Services.prefs.addObserver(PREF_RIL_DEBUG_ENABLED, this, false);
+  Services.prefs.addObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this, false);
 }
 DataCallInterfaceService.prototype = {
   classID:   DATACALLINTERFACESERVICE_CID,
@@ -128,12 +129,12 @@ DataCallInterfaceService.prototype = {
   observe: function(aSubject, aTopic, aData) {
     switch (aTopic) {
       case TOPIC_PREF_CHANGED:
-        if (aData === PREF_RIL_DEBUG_ENABLED) {
+        if (aData === RIL_DEBUG.PREF_RIL_DEBUG_ENABLED) {
           updateDebugFlag();
         }
         break;
       case TOPIC_XPCOM_SHUTDOWN:
-        Services.prefs.removeObserver(PREF_RIL_DEBUG_ENABLED, this);
+        Services.prefs.removeObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this);
         Services.obs.removeObserver(this, TOPIC_XPCOM_SHUTDOWN);
         break;
     }

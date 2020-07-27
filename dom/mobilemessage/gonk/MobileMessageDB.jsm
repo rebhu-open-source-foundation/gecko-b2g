@@ -42,8 +42,7 @@ const { Services } = ChromeUtils.import(
 //Cu.importGlobalProperties(["indexedDB"]);
 
 XPCOMUtils.defineLazyGetter(this, "RIL", function () {
-  let obj = {};
-  Cu.import("resource://gre/modules/ril_consts.js", obj);
+  let obj = Cu.import("resource://gre/modules/ril_consts.js", null);
   return obj;
 });
 

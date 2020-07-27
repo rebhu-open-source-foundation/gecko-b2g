@@ -6,8 +6,10 @@ MARIONETTE_HEAD_JS = 'mmdb_head.js';
 
 Cu.import("resource://gre/modules/PhoneNumberUtils.jsm");
 
-var RIL = {};
-Cu.import("resource://gre/modules/ril_consts.js", RIL);
+XPCOMUtils.defineLazyGetter(this, "RIL", function () {
+  let obj = Cu.import("resource://gre/modules/ril_consts.js", null);
+  return obj;
+});
 
 var MMS = {};
 Cu.import("resource://gre/modules/MmsPduHelper.jsm", MMS);

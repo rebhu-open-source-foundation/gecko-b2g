@@ -20,10 +20,11 @@ const { PromiseUtils } = ChromeUtils.import(
 
 /* global RIL */
 XPCOMUtils.defineLazyGetter(this, "RIL", function () {
-  let obj = {};
-  Cu.import("resource://gre/modules/ril_consts.js", obj);
+  let obj = Cu.import("resource://gre/modules/ril_consts.js", null);
   return obj;
 });
+
+var RIL_DEBUG = Cu.import("resource://gre/modules/ril_consts_debug.js", null);
 
 XPCOMUtils.defineLazyGetter(this, "console", () => {
   let { ConsoleAPI } = ChromeUtils.import("resource://gre/modules/Console.jsm");
@@ -46,7 +47,6 @@ const NS_XPCOM_SHUTDOWN_OBSERVER_ID = "xpcom-shutdown";
 const NS_PREFBRANCH_PREFCHANGE_TOPIC_ID = "nsPref:changed";
 
 const kPrefRilNumRadioInterfaces = "ril.numRadioInterfaces";
-const kPrefRilDebuggingEnabled = "ril.debugging.enabled";
 const kPrefDefaultServiceId = "dom.telephony.defaultServiceId";
 
 const nsITelephonyAudioService = Ci.nsITelephonyAudioService;
@@ -480,7 +480,7 @@ function TelephonyService() {
   // this.defaultServiceId = this._getDefaultServiceId();
   this.defaultServiceId = 0;
 
-  Services.prefs.addObserver(kPrefRilDebuggingEnabled, this, false);
+  Services.prefs.addObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this, false);
   Services.prefs.addObserver(kPrefDefaultServiceId, this, false);
 
   Services.obs.addObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID, false);
@@ -677,8 +677,8 @@ TelephonyService.prototype = {
 
   _updateDebugFlag: function() {
     try {
-      DEBUG = RIL.DEBUG_RIL ||
-              Services.prefs.getBoolPref(kPrefRilDebuggingEnabled);
+      DEBUG = RIL_DEBUG.DEBUG_RIL ||
+              Services.prefs.getBoolPref(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED);
     } catch (e) {}
   },
 
@@ -2784,7 +2784,7 @@ TelephonyService.prototype = {
   observe: function(aSubject, aTopic, aData) {
     switch (aTopic) {
       case NS_PREFBRANCH_PREFCHANGE_TOPIC_ID:
-        if (aData === kPrefRilDebuggingEnabled) {
+        if (aData === RIL_DEBUG.PREF_RIL_DEBUG_ENABLED) {
           this._updateDebugFlag();
         } else if (aData === kPrefDefaultServiceId) {
           this.defaultServiceId = this._getDefaultServiceId();

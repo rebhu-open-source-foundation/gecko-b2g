@@ -19,11 +19,7 @@ const { PromiseUtils } = ChromeUtils.import(
   "resource://gre/modules/PromiseUtils.jsm"
 );
 
-XPCOMUtils.defineLazyGetter(this, "RIL", function () {
-  let obj = {};
-  Cu.import("resource://gre/modules/ril_consts.js", obj);
-  return obj;
-});
+var RIL_DEBUG = Cu.import("resource://gre/modules/ril_consts_debug.js", null);
 
 const GONK_VOICEMAIL_SERVICE_CONTRACTID =
   "@mozilla.org/voicemail/gonkvoicemailservice;1";
@@ -37,7 +33,6 @@ const NS_XPCOM_SHUTDOWN_OBSERVER_ID = "xpcom-shutdown";
 
 const NS_PREFBRANCH_PREFCHANGE_TOPIC_ID = "nsPref:changed";
 
-const kPrefRilDebuggingEnabled = "ril.debugging.enabled";
 const kPrefDefaultServiceId = "dom.voicemail.defaultServiceId";
 
 var DEBUG;
@@ -80,7 +75,7 @@ function VoicemailService() {
   this._defaultServiceId = this._getDefaultServiceId();
   this._updateDebugFlag();
 
-  Services.prefs.addObserver(kPrefRilDebuggingEnabled, this, false);
+  Services.prefs.addObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this, false);
   Services.prefs.addObserver(kPrefDefaultServiceId, this, false);
 
   Services.obs.addObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID, false);
@@ -99,8 +94,8 @@ VoicemailService.prototype = {
 
   _updateDebugFlag: function() {
     try {
-      DEBUG = RIL.DEBUG_RIL ||
-              Services.prefs.getBoolPref(kPrefRilDebuggingEnabled);
+      DEBUG = RIL_DEBUG.DEBUG_RIL ||
+              Services.prefs.getBoolPref(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED);
     } catch (e) {}
   },
 
@@ -236,7 +231,7 @@ VoicemailService.prototype = {
   observe: function(aSubject, aTopic, aData) {
     switch (aTopic) {
       case NS_PREFBRANCH_PREFCHANGE_TOPIC_ID:
-        if (aData === kPrefRilDebuggingEnabled) {
+        if (aData === RIL_DEBUG.PREF_RIL_DEBUG_ENABLED) {
           this._updateDebugFlag();
         } else if (aData === kPrefDefaultServiceId) {
           this._defaultServiceId = this._getDefaultServiceId();
@@ -244,7 +239,7 @@ VoicemailService.prototype = {
         break;
 
       case NS_XPCOM_SHUTDOWN_OBSERVER_ID:
-        Services.prefs.removeObserver(kPrefRilDebuggingEnabled, this);
+        Services.prefs.removeObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this);
         Services.prefs.removeObserver(kPrefDefaultServiceId, this);
 
         Services.obs.removeObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID);

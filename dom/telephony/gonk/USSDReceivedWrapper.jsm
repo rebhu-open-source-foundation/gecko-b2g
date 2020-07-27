@@ -11,18 +11,13 @@ Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 
 const NS_PREFBRANCH_PREFCHANGE_TOPIC_ID = "nsPref:changed";
-const kPrefRilDebuggingEnabled = "ril.debugging.enabled";
 
 var DEBUG;
 function debug(s) {
   dump("USSDReceivedWrapper: " + s + "\n");
 }
 
-XPCOMUtils.defineLazyGetter(this, "RIL", function () {
-  let obj = {};
-  Cu.import("resource://gre/modules/ril_consts.js", obj);
-  return obj;
-});
+var RIL_DEBUG = Cu.import("resource://gre/modules/ril_consts_debug.js", null);
 
 /**
  * This implements nsISystemMessagesWrapper.wrapMessage(), which provides a
@@ -32,14 +27,14 @@ XPCOMUtils.defineLazyGetter(this, "RIL", function () {
  */
 function USSDReceivedWrapper() {
   this._updateDebugFlag();
-  Services.prefs.addObserver(kPrefRilDebuggingEnabled, this, false);
+  Services.prefs.addObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this, false);
   if (DEBUG) debug("USSDReceivedWrapper()");
 }
 USSDReceivedWrapper.prototype = {
   _updateDebugFlag: function() {
     try {
-      DEBUG = RIL.DEBUG_RIL ||
-              Services.prefs.getBoolPref(kPrefRilDebuggingEnabled);
+      DEBUG = RIL_DEBUG.DEBUG_RIL ||
+              Services.prefs.getBoolPref(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED);
     } catch (e) {}
   },
 
@@ -49,7 +44,7 @@ USSDReceivedWrapper.prototype = {
   observe: function(aSubject, aTopic, aData) {
     switch (aTopic) {
       case NS_PREFBRANCH_PREFCHANGE_TOPIC_ID:
-        if (aData === kPrefRilDebuggingEnabled) {
+        if (aData === RIL_DEBUG.PREF_RIL_DEBUG_ENABLED) {
           this._updateDebugFlag();
         }
         break;

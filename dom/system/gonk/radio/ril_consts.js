@@ -13,14 +13,6 @@
  * limitations under the License.
  */
 
-// Set to true to debug all RIL layers
-this.DEBUG_ALL = false;
-
-// Set individually to debug specific layers
-this.DEBUG_WORKER = false || DEBUG_ALL;
-this.DEBUG_CONTENT_HELPER = false || DEBUG_ALL;
-this.DEBUG_RIL = false || DEBUG_ALL;
-
 this.REQUEST_GET_SIM_STATUS = 1;
 this.REQUEST_ENTER_SIM_PIN = 2;
 this.REQUEST_ENTER_SIM_PUK = 3;

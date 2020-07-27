@@ -20,7 +20,6 @@ const DATACALL_CONTRACTID        = "@mozilla.org/datacall;1";
 const DATACALL_CID               = Components.ID("{b5ff4d17-1fa0-44a0-bc72-0047b5bb13c6}");
 
 const TOPIC_PREF_CHANGED         = "nsPref:changed";
-const PREF_RIL_DEBUG_ENABLED     = "ril.debugging.enabled";
 
 const DATACALLMANAGER_IPC_MSG_ENTRIES = [
   "DataCall:RequestDataCall:Resolved",
@@ -43,12 +42,8 @@ XPCOMUtils.defineLazyGetter(this, "cpmm", () => {
   return Cc["@mozilla.org/childprocessmessagemanager;1"].getService();
 });
 
-/* global RIL */
-XPCOMUtils.defineLazyGetter(this, "RIL", function () {
-  let obj = {};
-  Cu.import("resource://gre/modules/ril_consts.js", obj);
-  return obj;
-});
+/* global RIL_DEBUG */
+var RIL_DEBUG = Cu.import("resource://gre/modules/ril_consts_debug.js", obj);
 
 XPCOMUtils.defineLazyGetter(this, "gDataCallHelper", function() {
   return {
@@ -121,23 +116,23 @@ XPCOMUtils.defineLazyGetter(this, "gDataCallHelper", function() {
 });
 
 // set to true in ril_consts.js to see debug messages
-let DEBUG = RIL.DEBUG_RIL;
+let DEBUG = RIL_DEBUG.DEBUG_RIL;
 
 function updateDebugFlag() {
   // Read debug setting from pref
   let debugPref;
   try {
-    debugPref = Services.prefs.getBoolPref(PREF_RIL_DEBUG_ENABLED);
+    debugPref = Services.prefs.getBoolPref(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED);
   } catch (e) {
     debugPref = false;
   }
-  DEBUG = debugPref || RIL.DEBUG_RIL;
+  DEBUG = debugPref || RIL_DEBUG.DEBUG_RIL;
 }
 updateDebugFlag();
 
 
 function DOMDataCallManager() {
-  Services.prefs.addObserver(PREF_RIL_DEBUG_ENABLED, this, false);
+  Services.prefs.addObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this, false);
 }
 DOMDataCallManager.prototype = {
   __proto__: DOMRequestIpcHelper.prototype,
@@ -280,7 +275,7 @@ DOMDataCallManager.prototype = {
   observe: function(aSubject, aTopic, aData) {
     switch (aTopic) {
       case TOPIC_PREF_CHANGED:
-        if (aData === PREF_RIL_DEBUG_ENABLED) {
+        if (aData === RIL_DEBUG.PREF_RIL_DEBUG_ENABLED) {
           updateDebugFlag();
         }
         break;

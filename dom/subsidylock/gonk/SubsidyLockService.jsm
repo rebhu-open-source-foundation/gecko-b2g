@@ -13,10 +13,11 @@ const { Services } = ChromeUtils.import(
 
 /* global RIL */
 XPCOMUtils.defineLazyGetter(this, "RIL", function () {
-  let obj = {};
-  Cu.import("resource://gre/modules/ril_consts.js", obj);
+  let obj = Cu.import("resource://gre/modules/ril_consts.js", null);
   return obj;
 });
+
+var RIL_DEBUG = Cu.import("resource://gre/modules/ril_consts_debug.js", null);
 
 XPCOMUtils.defineLazyGetter(this, "gRadioInterfaceLayer", function() {
   let ril = { numRadioInterfaces: 0 };
@@ -29,7 +30,7 @@ XPCOMUtils.defineLazyGetter(this, "gRadioInterfaceLayer", function() {
 const GONK_SUBSIDY_LOCK_SERVICE_CID = Components.ID("{bcac78c1-38d5-46fa-a8a4-2feae85db443}");
 const GONK_SUBSIDY_LOCK_SERVICE_CONTRACTID = "@mozilla.org/subsidylock/gonksubsidylockservice;1";
 
-var DEBUG = RIL.DEBUG_RIL;
+var DEBUG = RIL_DEBUG.DEBUG_RIL;
 function debug(s) {
   dump("SubsidyLockService: " + s);
 }

@@ -21,7 +21,6 @@ const nsITelephonyAudioService = Ci.nsITelephonyAudioService;
 const NS_XPCOM_SHUTDOWN_OBSERVER_ID      = "xpcom-shutdown";
 const NS_PREFBRANCH_PREFCHANGE_TOPIC_ID = "nsPref:changed";
 const HEADSET_STATUS_CHANGED_TOPIC = "headphones-status-changed";
-const kPrefRilDebuggingEnabled = "ril.debugging.enabled";
 const kPrefRilTelephonyTtyMode = "ril.telephony.ttyMode";
 
 const AUDIO_STATE_NAME = [
@@ -36,10 +35,11 @@ function debug(s) {
 }
 
 XPCOMUtils.defineLazyGetter(this, "RIL", function () {
-  let obj = {};
-  Cu.import("resource://gre/modules/ril_consts.js", obj);
+  let obj = Cu.import("resource://gre/modules/ril_consts.js", null);
   return obj;
 });
+
+var RIL_DEBUG = Cu.import("resource://gre/modules/ril_consts_debug.js", null);
 
 XPCOMUtils.defineLazyGetter(this, "gAudioManager", function getAudioManager() {
   try {
@@ -77,7 +77,7 @@ XPCOMUtils.defineLazyServiceGetter(this, "gTelephonyMessenger",
 function TelephonyAudioService() {
   this._listeners = [];
   this._updateDebugFlag();
-  Services.prefs.addObserver(kPrefRilDebuggingEnabled, this, false);
+  Services.prefs.addObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this, false);
   Services.obs.addObserver(this, HEADSET_STATUS_CHANGED_TOPIC, false);
   Services.obs.addObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID, false);
 }
@@ -95,8 +95,8 @@ TelephonyAudioService.prototype = {
 
   _updateDebugFlag: function() {
     try {
-      DEBUG = RIL.DEBUG_RIL ||
-              Services.prefs.getBoolPref(kPrefRilDebuggingEnabled);
+      DEBUG = RIL_DEBUG.DEBUG_RIL ||
+              Services.prefs.getBoolPref(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED);
     } catch (e) {}
   },
 
@@ -239,7 +239,7 @@ TelephonyAudioService.prototype = {
   observe: function(aSubject, aTopic, aData) {
     switch (aTopic) {
       case NS_PREFBRANCH_PREFCHANGE_TOPIC_ID:
-        if (aData === kPrefRilDebuggingEnabled) {
+        if (aData === RIL_DEBUG.PREF_RIL_DEBUG_ENABLED) {
           this._updateDebugFlag();
         }
         break;

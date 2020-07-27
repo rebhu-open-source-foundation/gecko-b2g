@@ -49,7 +49,6 @@ const TOPIC_INNER_WINDOW_DESTROYED     = "inner-window-destroyed";
 const TOPIC_CONNECTION_STATE_CHANGED   = "network-connection-state-changed";
 const MESSAGE_CHILD_PROCESS_SHUTDOWN   = "child-process-shutdown";
 const SETTINGS_DATA_DEFAULT_SERVICE_ID = "ril.data.defaultServiceId";
-const PREF_RIL_DEBUG_ENABLED           = "ril.debugging.enabled";
 
 XPCOMUtils.defineLazyGetter(this, "ppmm", () => {
   return Cc["@mozilla.org/parentprocessmessagemanager;1"].getService();
@@ -73,23 +72,24 @@ XPCOMUtils.defineLazyServiceGetter(this, "gMobileConnectionService",
 
 /* global RIL */
 XPCOMUtils.defineLazyGetter(this, "RIL", function () {
-  let obj = {};
-  Cu.import("resource://gre/modules/ril_consts.js", obj);
+  let obj = Cu.import("resource://gre/modules/ril_consts.js", null);
   return obj;
 });
 
+var RIL_DEBUG = Cu.import("resource://gre/modules/ril_consts_debug.js", null);
+
 // set to true in ril_consts.js to see debug messages
-let DEBUG = RIL.DEBUG_RIL;
+let DEBUG = RIL_DEBUG.DEBUG_RIL;
 
 function updateDebugFlag() {
   // Read debug setting from pref
   let debugPref;
   try {
-    debugPref = Services.prefs.getBoolPref(PREF_RIL_DEBUG_ENABLED);
+    debugPref = Services.prefs.getBoolPref(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED);
   } catch (e) {
     debugPref = false;
   }
-  DEBUG = debugPref || RIL.DEBUG_RIL;
+  DEBUG = debugPref || RIL_DEBUG.DEBUG_RIL;
 }
 updateDebugFlag();
 

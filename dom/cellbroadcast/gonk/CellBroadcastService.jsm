@@ -15,8 +15,12 @@ const { Services } = ChromeUtils.import(
 );
 
 XPCOMUtils.defineLazyGetter(this, "RIL", function () {
-  let obj = {};
-  Cu.import("resource://gre/modules/ril_consts.js", obj);
+  let obj = Cu.import("resource://gre/modules/ril_consts.js", null);
+  return obj;
+});
+
+XPCOMUtils.defineLazyGetter(this, "RIL_DEBUG", function () {
+  let obj = Cu.import("resource://gre/modules/ril_consts_debug.js", null);
   return obj;
 });
 
@@ -128,8 +132,8 @@ CellBroadcastService.prototype = {
 
   _updateDebugFlag: function() {
     try {
-      DEBUG = RIL.DEBUG_RIL ||
-              Services.prefs.getBoolPref(kPrefRilDebuggingEnabled);
+      DEBUG = RIL_DEBUG.DEBUG_RIL ||
+              Services.prefs.getBoolPref(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED);
     } catch (e) {}
   },
 

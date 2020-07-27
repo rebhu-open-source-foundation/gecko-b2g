@@ -14,15 +14,13 @@ const { Services } = ChromeUtils.import(
   "resource://gre/modules/Services.jsm"
 );
 
-XPCOMUtils.defineLazyGetter(this, "RIL", function () {
-  let obj = {};
-  Cu.import("resource://gre/modules/ril_consts.js", obj);
+XPCOMUtils.defineLazyGetter(this, "RIL_DEBUG", function () {
+  let obj = Cu.import("resource://gre/modules/ril_consts_debug.js", null);
   return obj;
 });
 
 XPCOMUtils.defineLazyGetter(this, "SMSCB", function () {
-  let obj = {};
-  Cu.import("resource://gre/modules/sms_cb_consts.js", obj);
+  Cu.import("resource://gre/modules/sms_cb_consts.js", null);
   return obj;
 });
 
@@ -78,6 +76,8 @@ function GonkCellBroadcastConfigService() {
   }
 
   Services.obs.addObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID, false);
+
+  this._updateDebugFlag();
 }
 GonkCellBroadcastConfigService.prototype = {
   classID:   GONK_CELLBROADCASTCONFIGSERVICE_CID,
@@ -89,8 +89,8 @@ GonkCellBroadcastConfigService.prototype = {
 
   _updateDebugFlag: function() {
     try {
-      DEBUG = DEBUG || RIL.DEBUG_RIL ||
-              Services.prefs.getBoolPref(kPrefRilDebuggingEnabled);
+      DEBUG = DEBUG || RIL_DEBUG.DEBUG_RIL ||
+              Services.prefs.getBoolPref(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED);
     } catch (e) {}
   },
 

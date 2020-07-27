@@ -14,8 +14,12 @@ const { Services } = ChromeUtils.import(
   "resource://gre/modules/Services.jsm"
 );
 
-var RIL = {};
-Cu.import("resource://gre/modules/ril_consts.js", RIL);
+XPCOMUtils.defineLazyGetter(this, "RIL", function () {
+  let obj = Cu.import("resource://gre/modules/ril_consts.js", null);
+  return obj;
+});
+
+var RIL_DEBUG = Cu.import("resource://gre/modules/ril_consts_debug.js", null);
 
 const GONK_ICCSERVICE_CONTRACTID = "@mozilla.org/icc/gonkiccservice;1";
 const GONK_ICCSERVICE_CID = Components.ID("{df854256-9554-11e4-a16c-c39e8d106c26}");
@@ -23,7 +27,6 @@ const GONK_ICCSERVICE_CID = Components.ID("{df854256-9554-11e4-a16c-c39e8d106c26
 const NS_XPCOM_SHUTDOWN_OBSERVER_ID      = "xpcom-shutdown";
 const NS_PREFBRANCH_PREFCHANGE_TOPIC_ID  = "nsPref:changed";
 
-const kPrefRilDebuggingEnabled = "ril.debugging.enabled";
 const kPrefRilNumRadioInterfaces = "ril.numRadioInterfaces";
 
 XPCOMUtils.defineLazyServiceGetter(this, "gRadioInterfaceLayer",
@@ -42,7 +45,7 @@ XPCOMUtils.defineLazyServiceGetter(this, "gStkCmdFactory",
                                    "@mozilla.org/icc/stkcmdfactory;1",
                                    "nsIStkCmdFactory");
 
-var DEBUG = RIL.DEBUG_RIL;
+var DEBUG = RIL_DEBUG.DEBUG_RIL;
 function debug(s) {
   console.log("IccService: " + s + "\n");
 }
@@ -161,7 +164,7 @@ function IccService() {
 
   this._updateDebugFlag();
 
-  Services.prefs.addObserver(kPrefRilDebuggingEnabled, this, false);
+  Services.prefs.addObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this, false);
   Services.obs.addObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID, false);
 }
 IccService.prototype = {
@@ -184,7 +187,7 @@ IccService.prototype = {
   _updateDebugFlag: function() {
     try {
       DEBUG = DEBUG ||
-              Services.prefs.getBoolPref(kPrefRilDebuggingEnabled);
+              Services.prefs.getBoolPref(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED);
     } catch (e) {}
   },
 
@@ -276,12 +279,12 @@ IccService.prototype = {
   observe: function(aSubject, aTopic, aData) {
     switch (aTopic) {
       case NS_PREFBRANCH_PREFCHANGE_TOPIC_ID:
-        if (aData === kPrefRilDebuggingEnabled) {
+        if (aData === RIL_DEBUG.PREF_RIL_DEBUG_ENABLED) {
           this._updateDebugFlag();
         }
         break;
       case NS_XPCOM_SHUTDOWN_OBSERVER_ID:
-        Services.prefs.removeObserver(kPrefRilDebuggingEnabled, this);
+        Services.prefs.removeObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this);
         Services.obs.removeObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID);
         break;
     }

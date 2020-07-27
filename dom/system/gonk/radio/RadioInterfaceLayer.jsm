@@ -40,10 +40,11 @@ XPCOMUtils.defineLazyGetter(this, "SIM", function () {
 });
 
 XPCOMUtils.defineLazyGetter(this, "RIL", function () {
-  let obj = {};
-  Cu.import("resource://gre/modules/ril_consts.js", obj);
+  let obj = Cu.import("resource://gre/modules/ril_consts.js", null);
   return obj;
 });
+
+var RIL_DEBUG = Cu.import("resource://gre/modules/ril_consts_debug.js", null);
 
 // Ril quirk to always turn the radio off for the client without SIM card
 // except hw default client.
@@ -70,7 +71,6 @@ const kSettingsTimezoneAutoUpdateAvailable = "time.timezone.automatic-update.ava
 const NS_PREFBRANCH_PREFCHANGE_TOPIC_ID = "nsPref:changed";
 
 const kPrefRilNumRadioInterfaces = "ril.numRadioInterfaces";
-const kPrefRilDebuggingEnabled = "ril.debugging.enabled";
 const kPrefAppCBConfigurationEnabled = "dom.app_cb_configuration";
 
 const RADIO_POWER_OFF_TIMEOUT = 30000;
@@ -84,18 +84,18 @@ const INVALID_UPTIME = undefined;
 const ICC_MAX_LINEAR_FIXED_RECORDS = 0xfe;
 
 // set to true in ril_consts.js to see debug messages
-//var DEBUG = RIL.DEBUG_RIL;
+//var DEBUG = RIL_DEBUG.DEBUG_RIL;
 var DEBUG = true;
 
 function updateDebugFlag() {
   // Read debug setting from pref
   /*let debugPref;
   try {
-    debugPref = Services.prefs.getBoolPref(kPrefRilDebuggingEnabled);
+    debugPref = Services.prefs.getBoolPref(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED);
   } catch (e) {
     debugPref = false;
   }*/
-  //DEBUG = RIL.DEBUG_RIL || debugPref;
+  //DEBUG = RIL_DEBUG.DEBUG_RIL || debugPref;
   DEBUG = true;
 }
 updateDebugFlag();
@@ -466,7 +466,7 @@ function RadioInterfaceLayer() {
   }
 
   Services.obs.addObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID, false);
-  Services.prefs.addObserver(kPrefRilDebuggingEnabled, this, false);
+  Services.prefs.addObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this, false);
 
   gRadioEnabledController.init(this);
 }
@@ -491,7 +491,7 @@ RadioInterfaceLayer.prototype = {
         break;
 
       case NS_PREFBRANCH_PREFCHANGE_TOPIC_ID:
-        if (data === kPrefRilDebuggingEnabled) {
+        if (data === RIL_DEBUG.PREF_RIL_DEBUG_ENABLED) {
           updateDebugFlag();
           this.setWorkerDebugFlag(DEBUG);
         }

@@ -18,8 +18,12 @@ const { PromiseUtils } = ChromeUtils.import(
   "resource://gre/modules/PromiseUtils.jsm"
 );
 
-var RIL = {};
-Cu.import("resource://gre/modules/ril_consts.js", RIL);
+XPCOMUtils.defineLazyGetter(this, "RIL", function () {
+  let obj = Cu.import("resource://gre/modules/ril_consts.js", null);
+  return obj;
+});
+
+var RIL_DEBUG = Cu.import("resource://gre/modules/ril_consts_debug.js", null);
 
 const GONK_MOBILECONNECTIONSERVICE_CONTRACTID =
   "@mozilla.org/mobileconnection/gonkmobileconnectionservice;1";
@@ -58,8 +62,6 @@ const NS_DATA_CALL_ERROR_TOPIC_ID        = "data-call-error";
 const TOPIC_MOZSETTINGS_CHANGED = "mozsettings-changed";
 const kPrefRilDataServiceId = "ril.data.defaultServiceId";
 const kPrefSupportPrimarySimSwitch = "ril.support.primarysim.switch";
-
-const kPrefRilDebuggingEnabled = "ril.debugging.enabled";
 
 const UNKNOWN_VALUE = Ci.nsICellInfo.UNKNOWN_VALUE;
 const SIGNAL_UNKNOWN_VALUE = Ci.nsIMobileSignalStrength.SIGNAL_UNKNOWN_VALUE;
@@ -129,7 +131,7 @@ XPCOMUtils.defineLazyServiceGetter(this, "gCustomizationInfo",
 KOOST_ENABLED = true;
 #endif
 
-var DEBUG = RIL.DEBUG_RIL;
+var DEBUG = RIL_DEBUG.DEBUG_RIL;
 function debug(s) {
   dump("MobileConnectionService: " + s + "\n");
 }
@@ -2176,7 +2178,7 @@ function MobileConnectionService() {
 
   this._updateSupportedNetworkTypes();
 
-  Services.prefs.addObserver(kPrefRilDebuggingEnabled, this, false);
+  Services.prefs.addObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this, false);
   Services.obs.addObserver(this, NS_NETWORK_ACTIVE_CHANGED_TOPIC_ID, false);
   Services.obs.addObserver(this, NS_DATA_CALL_ERROR_TOPIC_ID, false);
   Services.obs.addObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID, false);
@@ -2199,7 +2201,7 @@ MobileConnectionService.prototype = {
   _supportPrimarySimSwitch: false,
 
   _shutdown: function() {
-    Services.prefs.removeObserver(kPrefRilDebuggingEnabled, this);
+    Services.prefs.removeObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this);
     Services.obs.removeObserver(this, NS_NETWORK_ACTIVE_CHANGED_TOPIC_ID);
     Services.obs.removeObserver(this, NS_DATA_CALL_ERROR_TOPIC_ID);
     Services.obs.removeObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID);
@@ -2210,8 +2212,8 @@ MobileConnectionService.prototype = {
 
   _updateDebugFlag: function() {
     try {
-      DEBUG = RIL.DEBUG_RIL ||
-              Services.prefs.getBoolPref(kPrefRilDebuggingEnabled);
+      DEBUG = RIL_DEBUG.DEBUG_RIL ||
+              Services.prefs.getBoolPref(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED);
     } catch (e) {}
   },
 
@@ -2634,7 +2636,7 @@ MobileConnectionService.prototype = {
         } catch (e) {}
         break;
       case NS_PREFBRANCH_PREFCHANGE_TOPIC_ID:
-        if (aData === kPrefRilDebuggingEnabled) {
+        if (aData === RIL_DEBUG.PREF_RIL_DEBUG_ENABLED) {
           this._updateDebugFlag();
         }
         break;

@@ -17,9 +17,8 @@ XPCOMUtils.defineLazyModuleGetter(this, "TelephonyUtils",
                                  "resource://gre/modules/TelephonyUtils.jsm");
 
 XPCOMUtils.defineLazyGetter(this, "RIL", function () {
-  let ns = {};
-  Cu.import("resource://gre/modules/ril_consts.js", ns);
-  return ns;
+  let obj = Cu.import("resource://gre/modules/ril_consts.js", null);
+  return obj;
 });
 
 const number = "0912345678";
