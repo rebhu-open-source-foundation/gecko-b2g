@@ -385,7 +385,12 @@ nsresult nsWindow::SynthesizeNativeTouchPoint(uint32_t aPointerId,
   return NS_OK;
 }
 
-void ThemePrefChanged(const char* aPref, void* aModule) {
+static const char* sThemePrefList[] = {
+  "ui.systemUsesDarkTheme",
+  "ui.prefersReducedMotion",
+};
+
+static void ThemePrefChanged(const char* aPref, void* aModule) {
   auto window = static_cast<nsWindow*>(aModule);
   window->NotifyThemeChanged();
 }
@@ -420,14 +425,18 @@ nsWindow::Create(nsIWidget* aParent, void* aNativeParent,
 
   Resize(0, 0, mBounds.width, mBounds.height, false);
 
-  Preferences::RegisterCallback(ThemePrefChanged, "ui.systemUsesDarkTheme", this);
+  for (auto& pref: sThemePrefList) {
+    Preferences::RegisterCallback(ThemePrefChanged, nsCString(pref), this);
+  }
 
   return NS_OK;
 }
 
 void nsWindow::Destroy(void) {
-
-  Preferences::UnregisterCallback(ThemePrefChanged, "ui.systemUsesDarkTheme", this);
+  
+  for (auto& pref: sThemePrefList) {
+    Preferences::UnregisterCallback(ThemePrefChanged, nsCString(pref), this);
+  }
 
   mOnDestroyCalled = true;
   mScreen->UnregisterWindow(this);
