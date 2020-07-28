@@ -590,9 +590,10 @@ class MOZ_STACK_CLASS WSRunScanner final {
           WSRunScanner::TextFragmentData::NoBreakingSpaceData;
 
       /**
-       * ScanWhiteSpaceStartFrom() returns start boundary data of white-spaces
-       * containing aPoint.  When aPoint is in a text node and points a
-       * non-white-space character, this returns the data at aPoint.
+       * ScanCollapsibleWhiteSpaceStartFrom() returns start boundary data of
+       * white-spaces containing aPoint.  When aPoint is in a text node and
+       * points a non-white-space character or the text node is preformatted,
+       * this returns the data at aPoint.
        *
        * @param aPoint            Scan start point.
        * @param aEditableBlockParentOrTopmostEditableInlineContent
@@ -603,15 +604,16 @@ class MOZ_STACK_CLASS WSRunScanner final {
        *                          NBSP positions.
        */
       template <typename EditorDOMPointType>
-      static BoundaryData ScanWhiteSpaceStartFrom(
+      static BoundaryData ScanCollapsibleWhiteSpaceStartFrom(
           const EditorDOMPointType& aPoint,
           const nsIContent& aEditableBlockParentOrTopmostEditableInlineContent,
           const Element* aEditingHost, NoBreakingSpaceData* aNBSPData);
 
       /**
-       * ScanWhiteSpaceEndFrom() returns end boundary data of white-spaces
-       * containing aPoint.  When aPoint is in a text node and points a
-       * non-white-space character, this returns the data at aPoint.
+       * ScanCollapsibleWhiteSpaceEndFrom() returns end boundary data of
+       * white-spaces containing aPoint.  When aPoint is in a text node and
+       * points a non-white-space character or the text node is preformatted,
+       * this returns the data at aPoint.
        *
        * @param aPoint            Scan start point.
        * @param aEditableBlockParentOrTopmostEditableInlineContent
@@ -622,21 +624,30 @@ class MOZ_STACK_CLASS WSRunScanner final {
        *                          NBSP positions.
        */
       template <typename EditorDOMPointType>
-      static BoundaryData ScanWhiteSpaceEndFrom(
+      static BoundaryData ScanCollapsibleWhiteSpaceEndFrom(
           const EditorDOMPointType& aPoint,
           const nsIContent& aEditableBlockParentOrTopmostEditableInlineContent,
           const Element* aEditingHost, NoBreakingSpaceData* aNBSPData);
 
-      BoundaryData() : mReason(WSType::NotInitialized) {}
+      enum class Preformatted : bool { Yes, No };
+      BoundaryData()
+          : mReason(WSType::NotInitialized),
+            mAcrossPreformattedCharacter(Preformatted::No) {}
       template <typename EditorDOMPointType>
       BoundaryData(const EditorDOMPointType& aPoint, nsIContent& aReasonContent,
-                   WSType aReason)
-          : mReasonContent(&aReasonContent), mPoint(aPoint), mReason(aReason) {}
+                   WSType aReason, Preformatted aDidCrossPreformattedCharacter)
+          : mReasonContent(&aReasonContent),
+            mPoint(aPoint),
+            mReason(aReason),
+            mAcrossPreformattedCharacter(aDidCrossPreformattedCharacter) {}
       bool Initialized() const { return mReasonContent && mPoint.IsSet(); }
 
       nsIContent* GetReasonContent() const { return mReasonContent; }
       const EditorDOMPoint& PointRef() const { return mPoint; }
       WSType RawReason() const { return mReason; }
+      bool AcrossPreformattedCharacter() const {
+        return mAcrossPreformattedCharacter == Preformatted::Yes;
+      }
 
       bool IsNormalText() const { return mReason == WSType::NormalText; }
       bool IsSpecialContent() const {
@@ -669,14 +680,15 @@ class MOZ_STACK_CLASS WSRunScanner final {
 
      private:
       /**
-       * Helper methods of ScanWhiteSpaceStartFrom() and
-       * ScanWhiteSpaceEndFrom() when they need to scan in a text node.
+       * Helper methods of ScanCollapsibleWhiteSpaceStartFrom() and
+       * ScanCollapsibleWhiteSpaceEndFrom() when they need to scan in a text
+       * node.
        */
       template <typename EditorDOMPointType>
-      static Maybe<BoundaryData> ScanWhiteSpaceStartInTextNode(
+      static Maybe<BoundaryData> ScanCollapsibleWhiteSpaceStartInTextNode(
           const EditorDOMPointType& aPoint, NoBreakingSpaceData* aNBSPData);
       template <typename EditorDOMPointType>
-      static Maybe<BoundaryData> ScanWhiteSpaceEndInTextNode(
+      static Maybe<BoundaryData> ScanCollapsibleWhiteSpaceEndInTextNode(
           const EditorDOMPointType& aPoint, NoBreakingSpaceData* aNBSPData);
 
       nsCOMPtr<nsIContent> mReasonContent;
@@ -685,6 +697,10 @@ class MOZ_STACK_CLASS WSRunScanner final {
       // WSType::SpecialContent, WSType::BRElement, WSType::CurrentBlockBoundary
       // or WSType::OtherBlockBoundary.
       WSType mReason;
+      // If the point crosses a preformatted character from scanning start
+      // point, set to "Yes".  So, this may NOT equal to the style at mPoint
+      // nor mReasonContent.
+      Preformatted mAcrossPreformattedCharacter;
     };
 
     class MOZ_STACK_CLASS NoBreakingSpaceData final {

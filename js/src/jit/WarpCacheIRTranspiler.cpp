@@ -131,6 +131,9 @@ class MOZ_RAII WarpCacheIRTranspiler : public WarpBuilderShared {
 
   MInstruction* addBoundsCheck(MDefinition* index, MDefinition* length);
 
+  void addDataViewData(MDefinition* obj, Scalar::Type type,
+                       MDefinition** offset, MInstruction** elements);
+
   MOZ_MUST_USE bool emitLoadArgumentSlot(ValOperandId resultId,
                                          uint32_t slotIndex);
 
@@ -1023,6 +1026,100 @@ bool WarpCacheIRTranspiler::emitStoreTypedArrayElement(ObjOperandId objId,
   return resumeAfter(store);
 }
 
+void WarpCacheIRTranspiler::addDataViewData(MDefinition* obj, Scalar::Type type,
+                                            MDefinition** offset,
+                                            MInstruction** elements) {
+  MInstruction* length = MArrayBufferViewLength::New(alloc(), obj);
+  current->add(length);
+
+  // Adjust the length to account for accesses near the end of the dataview.
+  if (size_t byteSize = Scalar::byteSize(type); byteSize > 1) {
+    // To ensure |0 <= offset && offset + byteSize <= length|, we can either
+    // emit |BoundsCheck(offset, length)| followed by
+    // |BoundsCheck(offset + (byteSize - 1), length)|, or alternatively emit
+    // |BoundsCheck(offset, Max(length - (byteSize - 1), 0))|. The latter should
+    // result in faster code when LICM moves the length adjustment and also
+    // ensures Spectre index masking occurs after all bounds checks.
+
+    auto* byteSizeMinusOne = MConstant::New(alloc(), Int32Value(byteSize - 1));
+    add(byteSizeMinusOne);
+
+    length = MSub::New(alloc(), length, byteSizeMinusOne, MIRType::Int32);
+    length->toSub()->setTruncateKind(MDefinition::Truncate);
+    add(length);
+
+    // |length| mustn't be negative for MBoundsCheck.
+    auto* zero = MConstant::New(alloc(), Int32Value(0));
+    add(zero);
+
+    length = MMinMax::New(alloc(), length, zero, MIRType::Int32, true);
+    add(length);
+  }
+
+  *offset = addBoundsCheck(*offset, length);
+
+  *elements = MArrayBufferViewElements::New(alloc(), obj);
+  add(*elements);
+}
+
+bool WarpCacheIRTranspiler::emitLoadDataViewValueResult(
+    ObjOperandId objId, Int32OperandId offsetId,
+    BooleanOperandId littleEndianId, Scalar::Type elementType,
+    bool allowDoubleForUint32) {
+  MDefinition* obj = getOperand(objId);
+  MDefinition* offset = getOperand(offsetId);
+  MDefinition* littleEndian = getOperand(littleEndianId);
+
+  // Add bounds check and get the DataViewObject's elements.
+  MInstruction* elements;
+  addDataViewData(obj, elementType, &offset, &elements);
+
+  // Load the element.
+  MInstruction* load;
+  if (Scalar::byteSize(elementType) == 1) {
+    load = MLoadUnboxedScalar::New(alloc(), elements, offset, elementType);
+  } else {
+    load = MLoadDataViewElement::New(alloc(), elements, offset, littleEndian,
+                                     elementType);
+  }
+  add(load);
+
+  MIRType knownType =
+      MIRTypeForArrayBufferViewRead(elementType, allowDoubleForUint32);
+  load->setResultType(knownType);
+
+  pushResult(load);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitStoreDataViewValueResult(
+    ObjOperandId objId, Int32OperandId offsetId, uint32_t valueId,
+    BooleanOperandId littleEndianId, Scalar::Type elementType) {
+  MDefinition* obj = getOperand(objId);
+  MDefinition* offset = getOperand(offsetId);
+  MDefinition* value = getOperand(ValOperandId(valueId));
+  MDefinition* littleEndian = getOperand(littleEndianId);
+
+  // Add bounds check and get the DataViewObject's elements.
+  MInstruction* elements;
+  addDataViewData(obj, elementType, &offset, &elements);
+
+  // Store the element.
+  MInstruction* store;
+  if (Scalar::byteSize(elementType) == 1) {
+    store =
+        MStoreUnboxedScalar::New(alloc(), elements, offset, value, elementType);
+  } else {
+    store = MStoreDataViewElement::New(alloc(), elements, offset, value,
+                                       littleEndian, elementType);
+  }
+  addEffectful(store);
+
+  pushResult(constant(UndefinedValue()));
+
+  return resumeAfter(store);
+}
+
 bool WarpCacheIRTranspiler::emitInt32IncResult(Int32OperandId inputId) {
   MDefinition* input = getOperand(inputId);
 
@@ -1409,6 +1506,59 @@ bool WarpCacheIRTranspiler::emitMathAbsNumberResult(NumberOperandId inputId) {
   return true;
 }
 
+bool WarpCacheIRTranspiler::emitMathClz32Result(Int32OperandId inputId) {
+  MDefinition* input = getOperand(inputId);
+
+  auto* ins = MClz::New(alloc(), input, MIRType::Int32);
+  add(ins);
+
+  pushResult(ins);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitMathSignInt32Result(Int32OperandId inputId) {
+  MDefinition* input = getOperand(inputId);
+
+  auto* ins = MSign::New(alloc(), input, MIRType::Int32);
+  add(ins);
+
+  pushResult(ins);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitMathSignNumberResult(NumberOperandId inputId) {
+  MDefinition* input = getOperand(inputId);
+
+  auto* ins = MSign::New(alloc(), input, MIRType::Double);
+  add(ins);
+
+  pushResult(ins);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitMathSignNumberToInt32Result(
+    NumberOperandId inputId) {
+  MDefinition* input = getOperand(inputId);
+
+  auto* ins = MSign::New(alloc(), input, MIRType::Int32);
+  add(ins);
+
+  pushResult(ins);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitMathImulResult(Int32OperandId lhsId,
+                                               Int32OperandId rhsId) {
+  MDefinition* lhs = getOperand(lhsId);
+  MDefinition* rhs = getOperand(rhsId);
+
+  auto* ins = MMul::New(alloc(), lhs, rhs, MIRType::Int32, MMul::Integer);
+  add(ins);
+
+  pushResult(ins);
+  return true;
+}
+
 bool WarpCacheIRTranspiler::emitMathFloorToInt32Result(
     NumberOperandId inputId) {
   MDefinition* input = getOperand(inputId);
@@ -1659,6 +1809,49 @@ bool WarpCacheIRTranspiler::emitIsConstructorResult(ObjOperandId objId) {
   add(isConstructor);
 
   pushResult(isConstructor);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitIsTypedArrayResult(ObjOperandId objId,
+                                                   bool isPossiblyWrapped) {
+  MDefinition* obj = getOperand(objId);
+
+  auto* ins = MIsTypedArray::New(alloc(), obj, isPossiblyWrapped);
+  if (isPossiblyWrapped) {
+    addEffectful(ins);
+  } else {
+    add(ins);
+  }
+
+  pushResult(ins);
+
+  if (isPossiblyWrapped) {
+    if (!resumeAfter(ins)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitTypedArrayByteOffsetResult(ObjOperandId objId) {
+  MDefinition* obj = getOperand(objId);
+
+  auto* ins = MArrayBufferViewByteOffset::New(alloc(), obj);
+  add(ins);
+
+  pushResult(ins);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitTypedArrayElementShiftResult(
+    ObjOperandId objId) {
+  MDefinition* obj = getOperand(objId);
+
+  auto* ins = MTypedArrayElementShift::New(alloc(), obj);
+  add(ins);
+
+  pushResult(ins);
   return true;
 }
 

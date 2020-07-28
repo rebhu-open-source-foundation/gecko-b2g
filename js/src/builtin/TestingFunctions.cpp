@@ -159,8 +159,7 @@ static bool GetRealmConfiguration(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
-  bool privateFields =
-      cx->realm()->creationOptions().getPrivateClassFieldsEnabled();
+  bool privateFields = cx->options().privateClassFields();
   if (!JS_SetProperty(cx, info, "privateFields",
                       privateFields ? TrueHandleValue : FalseHandleValue)) {
     return false;
@@ -790,18 +789,6 @@ static bool WasmHugeMemoryIsSupported(JSContext* cx, unsigned argc, Value* vp) {
 static bool WasmThreadsSupported(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
   args.rval().setBoolean(wasm::ThreadsAvailable(cx));
-  return true;
-}
-
-static bool WasmBulkMemSupported(JSContext* cx, unsigned argc, Value* vp) {
-  CallArgs args = CallArgsFromVp(argc, vp);
-#ifdef ENABLE_WASM_BULKMEM_OPS
-  bool isSupported = true;
-#else
-  bool isSupported =
-      cx->realm()->creationOptions().getSharedMemoryAndAtomicsEnabled();
-#endif
-  args.rval().setBoolean(isSupported);
   return true;
 }
 
@@ -6452,11 +6439,6 @@ gc::ZealModeHelpText),
     JS_FN_HELP("wasmThreadsSupported", WasmThreadsSupported, 0, 0,
 "wasmThreadsSupported()",
 "  Returns a boolean indicating whether the WebAssembly threads proposal is\n"
-"  supported on the current device."),
-
-    JS_FN_HELP("wasmBulkMemSupported", WasmBulkMemSupported, 0, 0,
-"wasmBulkMemSupported()",
-"  Returns a boolean indicating whether the WebAssembly bulk memory proposal is\n"
 "  supported on the current device."),
 
     JS_FN_HELP("wasmSimdSupported", WasmSimdSupported, 0, 0,

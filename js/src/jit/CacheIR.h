@@ -497,8 +497,7 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter {
   void assertSameCompartment(JSObject*);
 
   void writeOp(CacheOp op) {
-    MOZ_ASSERT(uint32_t(op) <= UINT8_MAX);
-    buffer_.writeByte(uint32_t(op));
+    buffer_.writeUnsigned15Bit(uint32_t(op));
     nextInstructionId_++;
 #ifdef DEBUG
     MOZ_ASSERT(currentOp_.isNothing(), "Missing call to assertLengthMatches?");
@@ -928,7 +927,7 @@ class MOZ_RAII CacheIRReader {
 
   bool more() const { return buffer_.more(); }
 
-  CacheOp readOp() { return CacheOp(buffer_.readByte()); }
+  CacheOp readOp() { return CacheOp(buffer_.readUnsigned15Bit()); }
 
   // Skip data not currently used.
   void skip() { buffer_.readByte(); }
@@ -1622,6 +1621,9 @@ class MOZ_RAII CallIRGenerator : public IRGenerator {
   AttachDecision tryAttachStringFromCharCode(HandleFunction callee);
   AttachDecision tryAttachMathRandom(HandleFunction callee);
   AttachDecision tryAttachMathAbs(HandleFunction callee);
+  AttachDecision tryAttachMathClz32(HandleFunction callee);
+  AttachDecision tryAttachMathSign(HandleFunction callee);
+  AttachDecision tryAttachMathImul(HandleFunction callee);
   AttachDecision tryAttachMathFloor(HandleFunction callee);
   AttachDecision tryAttachMathCeil(HandleFunction callee);
   AttachDecision tryAttachMathTrunc(HandleFunction callee);
@@ -1634,6 +1636,11 @@ class MOZ_RAII CallIRGenerator : public IRGenerator {
                                        UnaryMathFunction fun);
   AttachDecision tryAttachMathPow(HandleFunction callee);
   AttachDecision tryAttachMathMinMax(HandleFunction callee, bool isMax);
+  AttachDecision tryAttachIsTypedArray(HandleFunction callee,
+                                       bool isPossiblyWrapped);
+  AttachDecision tryAttachTypedArrayByteOffset(HandleFunction callee);
+  AttachDecision tryAttachTypedArrayElementShift(HandleFunction callee);
+  AttachDecision tryAttachTypedArrayLength(HandleFunction callee);
 
   AttachDecision tryAttachFunCall(HandleFunction calleeFunc);
   AttachDecision tryAttachFunApply(HandleFunction calleeFunc);

@@ -349,6 +349,70 @@ form_autocomplete:
     record_in_processes: ["main"]
     release_channel_collection: opt-out
 
+creditcard:
+  doorhanger:
+    description: >-
+      User interactions for the browser credit card autofill doorhanger.
+    objects:
+      - "capture_doorhanger"
+      - "update_doorhanger"
+    methods:
+      - "show"
+      - "save"
+      - "update"
+      - "cancel"
+      - "disable"
+    bug_numbers: [1653073, 1653083]
+    notification_emails: ["jmathies@mozilla.com", "chsiang@mozilla.com"]
+    expiry_version: "93"
+    products:
+      - "firefox"
+    record_in_processes: ["main"]
+    release_channel_collection: opt-out
+  manage:
+    description: >-
+      User interactions for credit card autofill preferences management UI.
+    objects:
+      - "manage"
+    methods:
+      - "show"
+      - "add"
+      - "delete"
+      - "show_entry"
+      - "edit"
+    bug_numbers: [1653073, 1654167]
+    notification_emails: ["jmathies@mozilla.com", "chsiang@mozilla.com"]
+    expiry_version: "93"
+    products:
+      - "firefox"
+    record_in_processes: ["main"]
+    release_channel_collection: opt-out
+  cc_form:
+    description: >-
+      User interactions for credit card autofill forms
+    objects:
+      - "cc_form"
+    methods:
+      - "detected"
+      - "popup_shown"
+      - "filled"
+      - "filled_modified"
+      - "submitted"
+    bug_numbers: [1653073, 1653162]
+    notification_emails: ["jmathies@mozilla.com", "chsiang@mozilla.com"]
+    expiry_version: "93"
+    products:
+      - "firefox"
+    record_in_processes: ["content"]
+    release_channel_collection: opt-out
+    extra_keys:
+      cc_name_found: Whether the cardholder name field was identified
+      cc_number_found: Whether the credit card number field was identified
+      cc_exp_found: Whether the expiration date was identified
+      cc_name: Whether the name was autofilled (autofilled / not_filled / user_filled / unavailable)
+      cc_number: Whether the credit card number field was autofilled (autofilled / not_filled / user_filled / unavailable)
+      cc_exp: Whether the expiration date was autofilled (autofilled / not_filled / user_filled / unavailable)
+
 extensions.data:
   migrateResult:
     objects: ["storageLocal"]

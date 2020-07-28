@@ -113,7 +113,6 @@
 #include "mozilla/WebBrowserPersistDocumentChild.h"
 #include "mozilla/HangDetails.h"
 #include "mozilla/LoadInfo.h"
-#include "mozilla/UnderrunHandler.h"
 #include "mozilla/net/HttpChannelChild.h"
 #include "nsDocShellLoadTypes.h"
 #include "nsFocusManager.h"
@@ -122,9 +121,7 @@
 #include "GMPServiceChild.h"
 #include "nsIStringBundle.h"
 #include "Geolocation.h"
-#include "audio_thread_priority.h"
 #include "nsIConsoleService.h"
-#include "audio_thread_priority.h"
 #include "nsIURIMutator.h"
 #include "nsIInputStreamChannel.h"
 #include "nsFocusManager.h"
@@ -1721,13 +1718,7 @@ mozilla::ipc::IPCResult ContentChild::RecvSetProcessSandbox(
   // On Linux, we have to support systems that can't use any sandboxing.
   sandboxEnabled = SandboxInfo::Get().CanSandboxContent();
 
-  if (StaticPrefs::media_cubeb_sandbox()) {
-    // This needs to happen regardless of whether sandboxing is enabled.
-    if (atp_set_real_time_limit(0, 48000)) {
-      NS_WARNING("could not set real-time limit at process startup");
-    }
-    InstallSoftRealTimeLimitHandler();
-  } else if (sandboxEnabled) {
+  if (sandboxEnabled && !StaticPrefs::media_cubeb_sandbox()) {
     // Pre-start audio before sandboxing; see bug 1443612.
     Unused << CubebUtils::GetCubebContext();
   }

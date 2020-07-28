@@ -183,17 +183,11 @@ void gfxAndroidPlatform::GetCommonFallbackFonts(
     static const char kFirefoxEmoji[] = "Firefox Emoji";
 #endif
 
-  EmojiPresentation emoji = GetEmojiPresentation(aCh);
-  if (emoji != EmojiPresentation::TextOnly) {
-    if (aNextCh == kVariationSelector16 ||
-        (aNextCh != kVariationSelector15 &&
-         emoji == EmojiPresentation::EmojiDefault)) {
-      // if char is followed by VS16, try for a color emoji glyph
+  if (ShouldPreferEmojiFont(aCh, aNextCh)) {
 #ifdef MOZ_WIDGET_GONK
-      aFontList.AppendElement(kFirefoxEmoji);
+    aFontList.AppendElement(kFirefoxEmoji);
 #endif
-      aFontList.AppendElement(kNotoColorEmoji);
-    }
+    aFontList.AppendElement(kNotoColorEmoji);
   }
 
   if (IS_IN_BMP(aCh)) {

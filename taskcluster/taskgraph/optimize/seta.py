@@ -4,7 +4,6 @@
 
 from __future__ import absolute_import, print_function, unicode_literals
 
-import json
 import logging
 
 import attr
@@ -64,7 +63,7 @@ class SETA(object):
             response = retry(requests.get, attempts=2, sleeptime=10,
                              args=(url_low, ),
                              kwargs={'timeout': 60, 'headers': ''})
-            task_list = json.loads(response.content).get('jobtypes', '')
+            task_list = response.json().get('jobtypes', '')
 
             if type(task_list) == dict and len(task_list) > 0:
                 task_list = list(task_list.values())[0]
@@ -76,7 +75,7 @@ class SETA(object):
             response = retry(requests.get, attempts=2, sleeptime=10,
                              args=(url_high, ),
                              kwargs={'timeout': 60, 'headers': ''})
-            task_list = json.loads(response.content).get('jobtypes', '')
+            task_list = response.json().get('jobtypes', '')
 
             high_value_tasks = set()
             if type(task_list) == dict and len(task_list) > 0:
@@ -92,13 +91,7 @@ class SETA(object):
             low_value_tasks.update(high_value_android_tasks)
 
             seta_conversions = {
-                # old: new
-                'test-linux64/opt': 'test-linux64-shippable/opt',
-                'test-linux64-qr/opt': 'test-linux64-shippable-qr/opt',
-                'test-windows7-32/opt': 'test-windows7-32-shippable/opt',
-                'test-windows10-64/opt': 'test-windows10-64-shippable/opt',
-                'test-windows10-64-qr/opt': 'test-windows10-64-shippable-qr/opt',
-                }
+            }
             # Now add new variants to the low-value set
             for old, new in six.iteritems(seta_conversions):
                 if any(t.startswith(old) for t in low_value_tasks):

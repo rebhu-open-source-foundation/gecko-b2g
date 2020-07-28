@@ -8073,7 +8073,6 @@ class BaseCompiler final : public BaseCompilerInterface {
   MOZ_MUST_USE bool emitFence();
   MOZ_MUST_USE bool emitAtomicXchg(ValType type, Scalar::Type viewType);
   void emitAtomicXchg64(MemoryAccessDesc* access, WantResult wantResult);
-  MOZ_MUST_USE bool bulkmemOpsEnabled();
   MOZ_MUST_USE bool emitMemCopy();
   MOZ_MUST_USE bool emitMemCopyCall(uint32_t lineOrBytecode);
   MOZ_MUST_USE bool emitMemCopyInline();
@@ -10599,6 +10598,11 @@ bool BaseCompiler::emitGetGlobal() {
       case ValType::Ref:
         pushRef(intptr_t(value.ref().forCompiledCode()));
         break;
+#ifdef ENABLE_WASM_SIMD
+      case ValType::V128:
+        pushV128(value.v128());
+        break;
+#endif
       default:
         MOZ_CRASH("Global constant type");
     }
@@ -11741,21 +11745,7 @@ bool BaseCompiler::emitFence() {
   return true;
 }
 
-// Bulk memory must be available if shared memory is enabled.
-bool BaseCompiler::bulkmemOpsEnabled() {
-#ifndef ENABLE_WASM_BULKMEM_OPS
-  if (env_.sharedMemoryEnabled == Shareable::False) {
-    return iter_.fail("bulk memory ops disabled");
-  }
-#endif
-  return true;
-}
-
 bool BaseCompiler::emitMemCopy() {
-  if (!bulkmemOpsEnabled()) {
-    return false;
-  }
-
   uint32_t lineOrBytecode = readCallSiteLineOrBytecode();
 
   uint32_t dstMemOrTableIndex = 0;
@@ -11972,10 +11962,6 @@ bool BaseCompiler::emitMemCopyInline() {
 }
 
 bool BaseCompiler::emitTableCopy() {
-  if (!bulkmemOpsEnabled()) {
-    return false;
-  }
-
   uint32_t lineOrBytecode = readCallSiteLineOrBytecode();
 
   uint32_t dstMemOrTableIndex = 0;
@@ -12001,10 +11987,6 @@ bool BaseCompiler::emitTableCopy() {
 }
 
 bool BaseCompiler::emitDataOrElemDrop(bool isData) {
-  if (!bulkmemOpsEnabled()) {
-    return false;
-  }
-
   uint32_t lineOrBytecode = readCallSiteLineOrBytecode();
 
   uint32_t segIndex = 0;
@@ -12025,10 +12007,6 @@ bool BaseCompiler::emitDataOrElemDrop(bool isData) {
 }
 
 bool BaseCompiler::emitMemFill() {
-  if (!bulkmemOpsEnabled()) {
-    return false;
-  }
-
   uint32_t lineOrBytecode = readCallSiteLineOrBytecode();
 
   Nothing nothing;
@@ -12176,10 +12154,6 @@ bool BaseCompiler::emitMemFillInline() {
 }
 
 bool BaseCompiler::emitMemOrTableInit(bool isMem) {
-  if (!bulkmemOpsEnabled()) {
-    return false;
-  }
-
   uint32_t lineOrBytecode = readCallSiteLineOrBytecode();
 
   uint32_t segIndex = 0;

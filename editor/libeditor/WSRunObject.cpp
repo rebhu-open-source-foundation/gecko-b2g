@@ -207,7 +207,9 @@ Result<RefPtr<Element>, nsresult> WhiteSpaceVisibilityKeeper::InsertBRElement(
               pointToInsert);
       if (atNextCharOfInsertionPoint.IsSet() &&
           !atNextCharOfInsertionPoint.IsEndOfContainer() &&
-          atNextCharOfInsertionPoint.IsCharASCIISpace()) {
+          atNextCharOfInsertionPoint.IsCharASCIISpace() &&
+          !EditorUtils::IsContentPreformatted(
+              *atNextCharOfInsertionPoint.ContainerAsText())) {
         EditorRawDOMPointInText atPreviousCharOfNextCharOfInsertionPoint =
             textFragmentDataAtInsertionPoint.GetPreviousEditableCharPoint(
                 atNextCharOfInsertionPoint);
@@ -578,7 +580,8 @@ nsresult WhiteSpaceVisibilityKeeper::DeletePreviousWhiteSpace(
   }
 
   // Easy case, preformatted ws.
-  if (textFragmentDataAtDeletion.IsPreformatted()) {
+  if (EditorUtils::IsContentPreformatted(
+          *atPreviousCharOfStart.ContainerAsText())) {
     if (!atPreviousCharOfStart.IsCharASCIISpace() &&
         !atPreviousCharOfStart.IsCharNBSP()) {
       return NS_OK;
@@ -650,7 +653,8 @@ nsresult WhiteSpaceVisibilityKeeper::DeleteInclusiveNextWhiteSpace(
   }
 
   // Easy case, preformatted ws.
-  if (textFragmentDataAtDeletion.IsPreformatted()) {
+  if (EditorUtils::IsContentPreformatted(
+          *atNextCharOfStart.ContainerAsText())) {
     if (!atNextCharOfStart.IsCharASCIISpace() &&
         !atNextCharOfStart.IsCharNBSP()) {
       return NS_OK;
@@ -781,10 +785,7 @@ WSScanResult WSRunScanner::ScanNextVisibleNodeOrBlockBoundaryFrom(
 template <typename EditorDOMPointType>
 WSRunScanner::TextFragmentData::TextFragmentData(
     const EditorDOMPointType& aPoint, const Element* aEditingHost)
-    : mEditingHost(aEditingHost),
-      mIsPreformatted(
-          aPoint.IsInContentNode() &&
-          EditorUtils::IsContentPreformatted(*aPoint.ContainerAsContent())) {
+    : mEditingHost(aEditingHost), mIsPreformatted(false) {
   if (!aPoint.IsSetAndValid()) {
     NS_WARNING("aPoint was invalid");
     return;
@@ -817,21 +818,34 @@ WSRunScanner::TextFragmentData::TextFragmentData(
         mScanStartPoint.ContainerAsContent();
   }
 
-  mStart = BoundaryData::ScanWhiteSpaceStartFrom(
+  mStart = BoundaryData::ScanCollapsibleWhiteSpaceStartFrom(
       mScanStartPoint, *editableBlockParentOrTopmotEditableInlineContent,
       mEditingHost, &mNBSPData);
-  mEnd = BoundaryData::ScanWhiteSpaceEndFrom(
+  mEnd = BoundaryData::ScanCollapsibleWhiteSpaceEndFrom(
       mScanStartPoint, *editableBlockParentOrTopmotEditableInlineContent,
       mEditingHost, &mNBSPData);
+  // If scan start point is start/end of preformatted text node, only
+  // mEnd/mStart crosses a preformatted character so that when one of
+  // them crosses a preformatted character, this fragment's range is
+  // preformatted.
+  // Additionally, if the scan start point is preformatted, and there is
+  // no text node around it, the range is also preformatted.
+  mIsPreformatted = mStart.AcrossPreformattedCharacter() ||
+                    mEnd.AcrossPreformattedCharacter() ||
+                    (EditorUtils::IsContentPreformatted(
+                         *mScanStartPoint.ContainerAsContent()) &&
+                     !mStart.IsNormalText() && !mEnd.IsNormalText());
 }
 
 // static
 template <typename EditorDOMPointType>
-Maybe<WSRunScanner::TextFragmentData::BoundaryData>
-WSRunScanner::TextFragmentData::BoundaryData::ScanWhiteSpaceStartInTextNode(
-    const EditorDOMPointType& aPoint, NoBreakingSpaceData* aNBSPData) {
+Maybe<WSRunScanner::TextFragmentData::BoundaryData> WSRunScanner::
+    TextFragmentData::BoundaryData::ScanCollapsibleWhiteSpaceStartInTextNode(
+        const EditorDOMPointType& aPoint, NoBreakingSpaceData* aNBSPData) {
   MOZ_ASSERT(aPoint.IsSetAndValid());
   MOZ_DIAGNOSTIC_ASSERT(aPoint.IsInTextNode());
+  MOZ_DIAGNOSTIC_ASSERT(
+      !EditorUtils::IsContentPreformatted(*aPoint.ContainerAsText()));
 
   const nsTextFragment& textFragment = aPoint.ContainerAsText()->TextFragment();
   for (uint32_t i = std::min(aPoint.Offset(), textFragment.GetLength()); i;
@@ -851,7 +865,8 @@ WSRunScanner::TextFragmentData::BoundaryData::ScanWhiteSpaceStartInTextNode(
     }
 
     return Some(BoundaryData(EditorDOMPoint(aPoint.ContainerAsText(), i),
-                             *aPoint.ContainerAsText(), WSType::NormalText));
+                             *aPoint.ContainerAsText(), WSType::NormalText,
+                             Preformatted::No));
   }
 
   return Nothing();
@@ -859,29 +874,37 @@ WSRunScanner::TextFragmentData::BoundaryData::ScanWhiteSpaceStartInTextNode(
 
 // static
 template <typename EditorDOMPointType>
-WSRunScanner::TextFragmentData::BoundaryData
-WSRunScanner::TextFragmentData::BoundaryData::ScanWhiteSpaceStartFrom(
-    const EditorDOMPointType& aPoint,
-    const nsIContent& aEditableBlockParentOrTopmostEditableInlineContent,
-    const Element* aEditingHost, NoBreakingSpaceData* aNBSPData) {
+WSRunScanner::TextFragmentData::BoundaryData WSRunScanner::TextFragmentData::
+    BoundaryData::ScanCollapsibleWhiteSpaceStartFrom(
+        const EditorDOMPointType& aPoint,
+        const nsIContent& aEditableBlockParentOrTopmostEditableInlineContent,
+        const Element* aEditingHost, NoBreakingSpaceData* aNBSPData) {
   MOZ_ASSERT(aPoint.IsSetAndValid());
 
-  // first look backwards to find preceding ws nodes
   if (aPoint.IsInTextNode() && !aPoint.IsStartOfContainer()) {
+    // If the point is in a text node which is preformatted, we should return
+    // the point as a visible character point.
+    if (EditorUtils::IsContentPreformatted(*aPoint.ContainerAsText())) {
+      return BoundaryData(aPoint, *aPoint.ContainerAsText(), WSType::NormalText,
+                          Preformatted::Yes);
+    }
+    // If the text node is not preformatted, we should look for its preceding
+    // characters.
     Maybe<BoundaryData> startInTextNode =
-        BoundaryData::ScanWhiteSpaceStartInTextNode(aPoint, aNBSPData);
+        BoundaryData::ScanCollapsibleWhiteSpaceStartInTextNode(aPoint,
+                                                               aNBSPData);
     if (startInTextNode.isSome()) {
       return startInTextNode.ref();
     }
     // The text node does not have visible character, let's keep scanning
     // preceding nodes.
-    return BoundaryData::ScanWhiteSpaceStartFrom(
+    return BoundaryData::ScanCollapsibleWhiteSpaceStartFrom(
         EditorDOMPoint(aPoint.ContainerAsText(), 0),
         aEditableBlockParentOrTopmostEditableInlineContent, aEditingHost,
         aNBSPData);
   }
 
-  // we haven't found the start of ws yet.  Keep looking
+  // Then, we need to check previous leaf node.
   nsIContent* previousLeafContentOrBlock =
       HTMLEditUtils::GetPreviousLeafContentOrPreviousBlockElement(
           aPoint, aEditableBlockParentOrTopmostEditableInlineContent,
@@ -894,12 +917,12 @@ WSRunScanner::TextFragmentData::BoundaryData::ScanWhiteSpaceStartFrom(
     return BoundaryData(aPoint,
                         const_cast<nsIContent&>(
                             aEditableBlockParentOrTopmostEditableInlineContent),
-                        WSType::CurrentBlockBoundary);
+                        WSType::CurrentBlockBoundary, Preformatted::No);
   }
 
   if (HTMLEditUtils::IsBlockElement(*previousLeafContentOrBlock)) {
     return BoundaryData(aPoint, *previousLeafContentOrBlock,
-                        WSType::OtherBlockBoundary);
+                        WSType::OtherBlockBoundary, Preformatted::No);
   }
 
   if (!previousLeafContentOrBlock->IsText() ||
@@ -909,20 +932,32 @@ WSRunScanner::TextFragmentData::BoundaryData::ScanWhiteSpaceStartFrom(
     return BoundaryData(aPoint, *previousLeafContentOrBlock,
                         previousLeafContentOrBlock->IsHTMLElement(nsGkAtoms::br)
                             ? WSType::BRElement
-                            : WSType::SpecialContent);
+                            : WSType::SpecialContent,
+                        Preformatted::No);
   }
 
-  if (!previousLeafContentOrBlock->AsText()->TextFragment().GetLength()) {
-    // Zero length text node. Set start point to it
-    // so we can get past it!
-    return BoundaryData::ScanWhiteSpaceStartFrom(
+  if (!previousLeafContentOrBlock->AsText()->TextLength()) {
+    // If it's an empty text node, keep looking for its previous leaf content.
+    // Note that even if the empty text node is preformatted, we should keep
+    // looking for the previous one.
+    return BoundaryData::ScanCollapsibleWhiteSpaceStartFrom(
         EditorDOMPointInText(previousLeafContentOrBlock->AsText(), 0),
         aEditableBlockParentOrTopmostEditableInlineContent, aEditingHost,
         aNBSPData);
   }
 
+  if (EditorUtils::IsContentPreformatted(*previousLeafContentOrBlock)) {
+    // If the previous text node is preformatted and not empty, we should return
+    // its end as found a visible character.  Note that we stop scanning
+    // collapsible white-spaces due to reaching preformatted non-empty text
+    // node.  I.e., the following text node might be not preformatted.
+    return BoundaryData(EditorDOMPoint::AtEndOf(*previousLeafContentOrBlock),
+                        *previousLeafContentOrBlock, WSType::NormalText,
+                        Preformatted::No);
+  }
+
   Maybe<BoundaryData> startInTextNode =
-      BoundaryData::ScanWhiteSpaceStartInTextNode(
+      BoundaryData::ScanCollapsibleWhiteSpaceStartInTextNode(
           EditorDOMPointInText::AtEndOf(*previousLeafContentOrBlock->AsText()),
           aNBSPData);
   if (startInTextNode.isSome()) {
@@ -931,7 +966,7 @@ WSRunScanner::TextFragmentData::BoundaryData::ScanWhiteSpaceStartFrom(
 
   // The text node does not have visible character, let's keep scanning
   // preceding nodes.
-  return BoundaryData::ScanWhiteSpaceStartFrom(
+  return BoundaryData::ScanCollapsibleWhiteSpaceStartFrom(
       EditorDOMPointInText(previousLeafContentOrBlock->AsText(), 0),
       aEditableBlockParentOrTopmostEditableInlineContent, aEditingHost,
       aNBSPData);
@@ -939,11 +974,13 @@ WSRunScanner::TextFragmentData::BoundaryData::ScanWhiteSpaceStartFrom(
 
 // static
 template <typename EditorDOMPointType>
-Maybe<WSRunScanner::TextFragmentData::BoundaryData>
-WSRunScanner::TextFragmentData::BoundaryData::ScanWhiteSpaceEndInTextNode(
-    const EditorDOMPointType& aPoint, NoBreakingSpaceData* aNBSPData) {
+Maybe<WSRunScanner::TextFragmentData::BoundaryData> WSRunScanner::
+    TextFragmentData::BoundaryData::ScanCollapsibleWhiteSpaceEndInTextNode(
+        const EditorDOMPointType& aPoint, NoBreakingSpaceData* aNBSPData) {
   MOZ_ASSERT(aPoint.IsSetAndValid());
   MOZ_DIAGNOSTIC_ASSERT(aPoint.IsInTextNode());
+  MOZ_DIAGNOSTIC_ASSERT(
+      !EditorUtils::IsContentPreformatted(*aPoint.ContainerAsText()));
 
   const nsTextFragment& textFragment = aPoint.ContainerAsText()->TextFragment();
   for (uint32_t i = aPoint.Offset(); i < textFragment.GetLength(); i++) {
@@ -961,7 +998,8 @@ WSRunScanner::TextFragmentData::BoundaryData::ScanWhiteSpaceEndInTextNode(
     }
 
     return Some(BoundaryData(EditorDOMPoint(aPoint.ContainerAsText(), i),
-                             *aPoint.ContainerAsText(), WSType::NormalText));
+                             *aPoint.ContainerAsText(), WSType::NormalText,
+                             Preformatted::No));
   }
 
   return Nothing();
@@ -970,27 +1008,35 @@ WSRunScanner::TextFragmentData::BoundaryData::ScanWhiteSpaceEndInTextNode(
 // static
 template <typename EditorDOMPointType>
 WSRunScanner::TextFragmentData::BoundaryData
-WSRunScanner::TextFragmentData::BoundaryData::ScanWhiteSpaceEndFrom(
+WSRunScanner::TextFragmentData::BoundaryData::ScanCollapsibleWhiteSpaceEndFrom(
     const EditorDOMPointType& aPoint,
     const nsIContent& aEditableBlockParentOrTopmostEditableInlineContent,
     const Element* aEditingHost, NoBreakingSpaceData* aNBSPData) {
   MOZ_ASSERT(aPoint.IsSetAndValid());
 
   if (aPoint.IsInTextNode() && !aPoint.IsEndOfContainer()) {
+    // If the point is in a text node which is preformatted, we should return
+    // the point as a visible character point.
+    if (EditorUtils::IsContentPreformatted(*aPoint.ContainerAsText())) {
+      return BoundaryData(aPoint, *aPoint.ContainerAsText(), WSType::NormalText,
+                          Preformatted::Yes);
+    }
+    // If the text node is not preformatted, we should look for inclusive
+    // next characters.
     Maybe<BoundaryData> endInTextNode =
-        BoundaryData::ScanWhiteSpaceEndInTextNode(aPoint, aNBSPData);
+        BoundaryData::ScanCollapsibleWhiteSpaceEndInTextNode(aPoint, aNBSPData);
     if (endInTextNode.isSome()) {
       return endInTextNode.ref();
     }
     // The text node does not have visible character, let's keep scanning
     // following nodes.
-    return BoundaryData::ScanWhiteSpaceEndFrom(
+    return BoundaryData::ScanCollapsibleWhiteSpaceEndFrom(
         EditorDOMPointInText::AtEndOf(*aPoint.ContainerAsText()),
         aEditableBlockParentOrTopmostEditableInlineContent, aEditingHost,
         aNBSPData);
   }
 
-  // we haven't found the end of ws yet.  Keep looking
+  // Then, we need to check next leaf node.
   nsIContent* nextLeafContentOrBlock =
       HTMLEditUtils::GetNextLeafContentOrNextBlockElement(
           aPoint, aEditableBlockParentOrTopmostEditableInlineContent,
@@ -1003,13 +1049,13 @@ WSRunScanner::TextFragmentData::BoundaryData::ScanWhiteSpaceEndFrom(
     return BoundaryData(aPoint,
                         const_cast<nsIContent&>(
                             aEditableBlockParentOrTopmostEditableInlineContent),
-                        WSType::CurrentBlockBoundary);
+                        WSType::CurrentBlockBoundary, Preformatted::No);
   }
 
   if (HTMLEditUtils::IsBlockElement(*nextLeafContentOrBlock)) {
     // we encountered a new block.  therefore no more ws.
     return BoundaryData(aPoint, *nextLeafContentOrBlock,
-                        WSType::OtherBlockBoundary);
+                        WSType::OtherBlockBoundary, Preformatted::No);
   }
 
   if (!nextLeafContentOrBlock->IsText() ||
@@ -1020,27 +1066,40 @@ WSRunScanner::TextFragmentData::BoundaryData::ScanWhiteSpaceEndFrom(
     return BoundaryData(aPoint, *nextLeafContentOrBlock,
                         nextLeafContentOrBlock->IsHTMLElement(nsGkAtoms::br)
                             ? WSType::BRElement
-                            : WSType::SpecialContent);
+                            : WSType::SpecialContent,
+                        Preformatted::No);
   }
 
   if (!nextLeafContentOrBlock->AsText()->TextFragment().GetLength()) {
-    // Zero length text node. Set end point to it
-    // so we can get past it!
-    return BoundaryData::ScanWhiteSpaceEndFrom(
+    // If it's an empty text node, keep looking for its next leaf content.
+    // Note that even if the empty text node is preformatted, we should keep
+    // looking for the next one.
+    return BoundaryData::ScanCollapsibleWhiteSpaceEndFrom(
         EditorDOMPointInText(nextLeafContentOrBlock->AsText(), 0),
         aEditableBlockParentOrTopmostEditableInlineContent, aEditingHost,
         aNBSPData);
   }
 
-  Maybe<BoundaryData> endInTextNode = BoundaryData::ScanWhiteSpaceEndInTextNode(
-      EditorDOMPointInText(nextLeafContentOrBlock->AsText(), 0), aNBSPData);
+  if (EditorUtils::IsContentPreformatted(*nextLeafContentOrBlock)) {
+    // If the next text node is preformatted and not empty, we should return
+    // its start as found a visible character.  Note that we stop scanning
+    // collapsible white-spaces due to reaching preformatted non-empty text
+    // node.  I.e., the following text node might be not preformatted.
+    return BoundaryData(EditorDOMPoint(nextLeafContentOrBlock, 0),
+                        *nextLeafContentOrBlock, WSType::NormalText,
+                        Preformatted::No);
+  }
+
+  Maybe<BoundaryData> endInTextNode =
+      BoundaryData::ScanCollapsibleWhiteSpaceEndInTextNode(
+          EditorDOMPointInText(nextLeafContentOrBlock->AsText(), 0), aNBSPData);
   if (endInTextNode.isSome()) {
     return endInTextNode.ref();
   }
 
   // The text node does not have visible character, let's keep scanning
   // following nodes.
-  return BoundaryData::ScanWhiteSpaceEndFrom(
+  return BoundaryData::ScanCollapsibleWhiteSpaceEndFrom(
       EditorDOMPointInText::AtEndOf(*nextLeafContentOrBlock->AsText()),
       aEditableBlockParentOrTopmostEditableInlineContent, aEditingHost,
       aNBSPData);
@@ -1054,9 +1113,7 @@ WSRunScanner::TextFragmentData::InvisibleLeadingWhiteSpaceRangeRef() const {
 
   // If it's preformatted or not start of line, the range is not invisible
   // leading white-spaces.
-  // TODO: We should check each text node style rather than WSRunScanner's
-  //       scan start position's style.
-  if (mIsPreformatted || !StartsFromHardLineBreak()) {
+  if (!StartsFromHardLineBreak()) {
     mLeadingWhiteSpaceRange.emplace();
     return mLeadingWhiteSpaceRange.ref();
   }
@@ -1086,9 +1143,7 @@ WSRunScanner::TextFragmentData::InvisibleTrailingWhiteSpaceRangeRef() const {
   // If it's preformatted or not immediately before block boundary, the range is
   // not invisible trailing white-spaces.  Note that collapsible white-spaces
   // before a `<br>` element is visible.
-  // TODO: We should check each text node style rather than WSRunScanner's
-  //       scan start position's style.
-  if (mIsPreformatted || !EndsByBlockBoundary()) {
+  if (!EndsByBlockBoundary()) {
     mTrailingWhiteSpaceRange.emplace();
     return mTrailingWhiteSpaceRange.ref();
   }
@@ -1248,8 +1303,9 @@ nsresult WhiteSpaceVisibilityKeeper::
   if (replaceRangeDataAtEnd.IsSet() && !replaceRangeDataAtEnd.Collapsed()) {
     MOZ_ASSERT(rangeToDelete.EndRef().EqualsOrIsBefore(
         replaceRangeDataAtEnd.EndRef()));
-    MOZ_ASSERT(replaceRangeDataAtEnd.StartRef().EqualsOrIsBefore(
-        rangeToDelete.EndRef()));
+    MOZ_ASSERT_IF(rangeToDelete.EndRef().IsInTextNode(),
+                  replaceRangeDataAtEnd.StartRef().EqualsOrIsBefore(
+                      rangeToDelete.EndRef()));
     MOZ_ASSERT(rangeToDelete.StartRef().EqualsOrIsBefore(
         replaceRangeDataAtEnd.StartRef()));
     if (!replaceRangeDataAtEnd.HasReplaceString()) {
@@ -1418,7 +1474,9 @@ WSRunScanner::TextFragmentData::GetReplaceRangeDataAtEndOfDeletionRange(
       GetInclusiveNextEditableCharPoint(endToDelete);
   if (!nextCharOfStartOfEnd.IsSet() ||
       nextCharOfStartOfEnd.IsEndOfContainer() ||
-      !nextCharOfStartOfEnd.IsCharASCIISpace()) {
+      !nextCharOfStartOfEnd.IsCharASCIISpace() ||
+      EditorUtils::IsContentPreformatted(
+          *nextCharOfStartOfEnd.ContainerAsText())) {
     return ReplaceRangeData();
   }
   if (nextCharOfStartOfEnd.IsStartOfContainer() ||
@@ -1498,7 +1556,9 @@ WSRunScanner::TextFragmentData::GetReplaceRangeDataAtStartOfDeletionRange(
       GetPreviousEditableCharPoint(startToDelete);
   if (!atPreviousCharOfStart.IsSet() ||
       atPreviousCharOfStart.IsEndOfContainer() ||
-      !atPreviousCharOfStart.IsCharASCIISpace()) {
+      !atPreviousCharOfStart.IsCharASCIISpace() ||
+      EditorUtils::IsContentPreformatted(
+          *atPreviousCharOfStart.ContainerAsText())) {
     return ReplaceRangeData();
   }
   if (atPreviousCharOfStart.IsStartOfContainer() ||
@@ -1546,7 +1606,9 @@ WhiteSpaceVisibilityKeeper::MakeSureToKeepVisibleWhiteSpacesVisibleAfterSplit(
         textFragmentDataAtSplitPoint.GetInclusiveNextEditableCharPoint(
             pointToSplit);
     if (atNextCharOfStart.IsSet() && !atNextCharOfStart.IsEndOfContainer() &&
-        atNextCharOfStart.IsCharASCIISpace()) {
+        atNextCharOfStart.IsCharASCIISpace() &&
+        !EditorUtils::IsContentPreformatted(
+            *atNextCharOfStart.ContainerAsText())) {
       // pointToSplit will be referred bellow so that we need to keep
       // it a valid point.
       AutoEditorDOMPointChildInvalidator forgetChild(pointToSplit);
@@ -1583,7 +1645,9 @@ WhiteSpaceVisibilityKeeper::MakeSureToKeepVisibleWhiteSpacesVisibleAfterSplit(
         textFragmentDataAtSplitPoint.GetPreviousEditableCharPoint(pointToSplit);
     if (atPreviousCharOfStart.IsSet() &&
         !atPreviousCharOfStart.IsEndOfContainer() &&
-        atPreviousCharOfStart.IsCharASCIISpace()) {
+        atPreviousCharOfStart.IsCharASCIISpace() &&
+        !EditorUtils::IsContentPreformatted(
+            *atPreviousCharOfStart.ContainerAsText())) {
       if (atPreviousCharOfStart.IsStartOfContainer() ||
           atPreviousCharOfStart.IsPreviousCharASCIISpace()) {
         atPreviousCharOfStart =
@@ -1779,6 +1843,9 @@ WSRunScanner::TextFragmentData::GetEndOfCollapsibleASCIIWhiteSpaces(
   MOZ_ASSERT(aPointAtASCIIWhiteSpace.IsSet());
   MOZ_ASSERT(!aPointAtASCIIWhiteSpace.IsEndOfContainer());
   MOZ_ASSERT(aPointAtASCIIWhiteSpace.IsCharASCIISpace());
+  NS_ASSERTION(!EditorUtils::IsContentPreformatted(
+                   *aPointAtASCIIWhiteSpace.ContainerAsText()),
+               "aPointAtASCIIWhiteSpace should be in a formatted text node");
 
   // If it's not the last character in the text node, let's scan following
   // characters in it.
@@ -1807,15 +1874,17 @@ WSRunScanner::TextFragmentData::GetEndOfCollapsibleASCIIWhiteSpaces(
       return afterLastWhiteSpace;
     }
 
-    // We can ignore empty text nodes.
+    // We can ignore empty text nodes (even if it's preformatted).
     if (atStartOfNextTextNode.IsContainerEmpty()) {
       atEndOfPreviousTextNode = atStartOfNextTextNode;
       continue;
     }
 
-    // If next node starts with non-white-space character, return end of
-    // previous text node.
-    if (!atStartOfNextTextNode.IsCharASCIISpace()) {
+    // If next node starts with non-white-space character or next node is
+    // preformatted, return end of previous text node.
+    if (!atStartOfNextTextNode.IsCharASCIISpace() ||
+        EditorUtils::IsContentPreformatted(
+            *atStartOfNextTextNode.ContainerAsText())) {
       return afterLastWhiteSpace;
     }
 
@@ -1840,6 +1909,9 @@ WSRunScanner::TextFragmentData::GetFirstASCIIWhiteSpacePointCollapsedTo(
   MOZ_ASSERT(aPointAtASCIIWhiteSpace.IsSet());
   MOZ_ASSERT(!aPointAtASCIIWhiteSpace.IsEndOfContainer());
   MOZ_ASSERT(aPointAtASCIIWhiteSpace.IsCharASCIISpace());
+  NS_ASSERTION(!EditorUtils::IsContentPreformatted(
+                   *aPointAtASCIIWhiteSpace.ContainerAsText()),
+               "aPointAtASCIIWhiteSpace should be in a formatted text node");
 
   // If there is some characters before it, scan it in the text node first.
   if (!aPointAtASCIIWhiteSpace.IsStartOfContainer()) {
@@ -1867,15 +1939,17 @@ WSRunScanner::TextFragmentData::GetFirstASCIIWhiteSpacePointCollapsedTo(
       return atLastWhiteSpace;
     }
 
-    // We can ignore empty text nodes.
+    // We can ignore empty text nodes (even if it's preformatted).
     if (atLastCharOfNextTextNode.IsContainerEmpty()) {
       atStartOfPreviousTextNode = atLastCharOfNextTextNode;
       continue;
     }
 
-    // If next node ends with non-white-space character, return start of
-    // previous text node.
-    if (!atLastCharOfNextTextNode.IsCharASCIISpace()) {
+    // If next node ends with non-white-space character or next node is
+    // preformatted, return start of previous text node.
+    if (!atLastCharOfNextTextNode.IsCharASCIISpace() ||
+        EditorUtils::IsContentPreformatted(
+            *atLastCharOfNextTextNode.ContainerAsText())) {
       return atLastWhiteSpace;
     }
 
@@ -2098,9 +2172,11 @@ nsresult WhiteSpaceVisibilityKeeper::NormalizeVisibleWhiteSpacesAt(
     // XXX This is different behavior from Blink.  Blink generates pairs of
     //     an NBSP and an ASCII white-space, but put NBSP at the end of the
     //     sequence.  We should follow the behavior for web-compat.
-    if (textFragmentData.IsPreformatted() || maybeNBSPFollowingVisibleContent ||
-        !isPreviousCharASCIIWhiteSpace ||
-        !followedByVisibleContentOrBRElement) {
+    if (maybeNBSPFollowingVisibleContent || !isPreviousCharASCIIWhiteSpace ||
+        !followedByVisibleContentOrBRElement ||
+        EditorUtils::IsContentPreformatted(
+            *atPreviousCharOfPreviousCharOfEndOfVisibleWhiteSpaces
+                 .GetContainerAsText())) {
       return NS_OK;
     }
 
@@ -2225,13 +2301,22 @@ EditorDOMPointInText WSRunScanner::TextFragmentData::
   EditorDOMPointInText atPreviousChar =
       GetPreviousEditableCharPoint(aPointToInsert);
   if (!atPreviousChar.IsSet() || atPreviousChar.IsEndOfContainer() ||
-      !atPreviousChar.IsCharNBSP()) {
+      !atPreviousChar.IsCharNBSP() ||
+      EditorUtils::IsContentPreformatted(*atPreviousChar.ContainerAsText())) {
     return EditorDOMPointInText();
   }
 
   EditorDOMPointInText atPreviousCharOfPreviousChar =
       GetPreviousEditableCharPoint(atPreviousChar);
   if (atPreviousCharOfPreviousChar.IsSet()) {
+    // If the previous char is in different text node and it's preformatted,
+    // we shouldn't touch it.
+    if (atPreviousChar.ContainerAsText() !=
+            atPreviousCharOfPreviousChar.ContainerAsText() &&
+        EditorUtils::IsContentPreformatted(
+            *atPreviousCharOfPreviousChar.ContainerAsText())) {
+      return EditorDOMPointInText();
+    }
     // If the previous char of the NBSP at previous position of aPointToInsert
     // is an ASCII white-space, we don't need to replace it with same character.
     if (!atPreviousCharOfPreviousChar.IsEndOfContainer() &&
@@ -2271,13 +2356,22 @@ EditorDOMPointInText WSRunScanner::TextFragmentData::
   EditorDOMPointInText atNextChar =
       GetInclusiveNextEditableCharPoint(aPointToInsert);
   if (!atNextChar.IsSet() || NS_WARN_IF(atNextChar.IsEndOfContainer()) ||
-      !atNextChar.IsCharNBSP()) {
+      !atNextChar.IsCharNBSP() ||
+      EditorUtils::IsContentPreformatted(*atNextChar.ContainerAsText())) {
     return EditorDOMPointInText();
   }
 
   EditorDOMPointInText atNextCharOfNextCharOfNBSP =
       GetInclusiveNextEditableCharPoint(atNextChar.NextPoint());
   if (atNextCharOfNextCharOfNBSP.IsSet()) {
+    // If the next char is in different text node and it's preformatted,
+    // we shouldn't touch it.
+    if (atNextChar.ContainerAsText() !=
+            atNextCharOfNextCharOfNBSP.ContainerAsText() &&
+        EditorUtils::IsContentPreformatted(
+            *atNextCharOfNextCharOfNBSP.ContainerAsText())) {
+      return EditorDOMPointInText();
+    }
     // If following character of an NBSP is an ASCII white-space, we don't
     // need to replace it with same character.
     if (!atNextCharOfNextCharOfNBSP.IsEndOfContainer() &&

@@ -7342,6 +7342,11 @@ class MTypedArrayElementShift : public MUnaryInstruction,
     return congruentIfOperandsEqual(ins);
   }
 
+  AliasSet getAliasSet() const override {
+    // Class is immutable. See also MHasClass.
+    return AliasSet::None();
+  }
+
   void computeRange(TempAllocator& alloc) override;
 };
 
@@ -11050,7 +11055,12 @@ class MIsTypedArray : public MUnaryInstruction,
   NAMED_OPERANDS((0, value))
 
   bool isPossiblyWrapped() const { return possiblyWrapped_; }
-  AliasSet getAliasSet() const override { return AliasSet::None(); }
+  AliasSet getAliasSet() const override {
+    if (isPossiblyWrapped()) {
+      return AliasSet::Store(AliasSet::Any);
+    }
+    return AliasSet::None();
+  }
 };
 
 class MObjectClassToString : public MUnaryInstruction,

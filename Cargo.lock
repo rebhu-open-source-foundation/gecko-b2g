@@ -827,6 +827,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "crossbeam-channel"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09ee0cc8804d5393478d743b035099520087a5186f3b93fa58cec08fa62407b6"
+dependencies = [
+ "cfg-if",
+ "crossbeam-utils 0.7.0",
+]
+
+[[package]]
 name = "crossbeam-deque"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1680,7 +1690,7 @@ dependencies = [
 
 [[package]]
 name = "geckodriver"
-version = "0.26.0"
+version = "0.27.0"
 dependencies = [
  "base64 0.12.0",
  "chrono",
@@ -2403,7 +2413,7 @@ dependencies = [
 [[package]]
 name = "jsparagus"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=961aa6f7ad016f8a7f114a421ff11a95e1af0cb3#961aa6f7ad016f8a7f114a421ff11a95e1af0cb3"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b427056af05f0d30192a5b3acccb83306912e22b#b427056af05f0d30192a5b3acccb83306912e22b"
 dependencies = [
  "jsparagus-ast",
  "jsparagus-emitter",
@@ -2417,7 +2427,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-ast"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=961aa6f7ad016f8a7f114a421ff11a95e1af0cb3#961aa6f7ad016f8a7f114a421ff11a95e1af0cb3"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b427056af05f0d30192a5b3acccb83306912e22b#b427056af05f0d30192a5b3acccb83306912e22b"
 dependencies = [
  "bumpalo",
  "indexmap",
@@ -2426,7 +2436,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-emitter"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=961aa6f7ad016f8a7f114a421ff11a95e1af0cb3#961aa6f7ad016f8a7f114a421ff11a95e1af0cb3"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b427056af05f0d30192a5b3acccb83306912e22b#b427056af05f0d30192a5b3acccb83306912e22b"
 dependencies = [
  "bumpalo",
  "byteorder",
@@ -2439,7 +2449,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-generated-parser"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=961aa6f7ad016f8a7f114a421ff11a95e1af0cb3#961aa6f7ad016f8a7f114a421ff11a95e1af0cb3"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b427056af05f0d30192a5b3acccb83306912e22b#b427056af05f0d30192a5b3acccb83306912e22b"
 dependencies = [
  "bumpalo",
  "jsparagus-ast",
@@ -2449,12 +2459,12 @@ dependencies = [
 [[package]]
 name = "jsparagus-json-log"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=961aa6f7ad016f8a7f114a421ff11a95e1af0cb3#961aa6f7ad016f8a7f114a421ff11a95e1af0cb3"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b427056af05f0d30192a5b3acccb83306912e22b#b427056af05f0d30192a5b3acccb83306912e22b"
 
 [[package]]
 name = "jsparagus-parser"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=961aa6f7ad016f8a7f114a421ff11a95e1af0cb3#961aa6f7ad016f8a7f114a421ff11a95e1af0cb3"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b427056af05f0d30192a5b3acccb83306912e22b#b427056af05f0d30192a5b3acccb83306912e22b"
 dependencies = [
  "arrayvec",
  "bumpalo",
@@ -2466,7 +2476,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-scope"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=961aa6f7ad016f8a7f114a421ff11a95e1af0cb3#961aa6f7ad016f8a7f114a421ff11a95e1af0cb3"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b427056af05f0d30192a5b3acccb83306912e22b#b427056af05f0d30192a5b3acccb83306912e22b"
 dependencies = [
  "indexmap",
  "jsparagus-ast",
@@ -2476,7 +2486,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-stencil"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=961aa6f7ad016f8a7f114a421ff11a95e1af0cb3#961aa6f7ad016f8a7f114a421ff11a95e1af0cb3"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b427056af05f0d30192a5b3acccb83306912e22b#b427056af05f0d30192a5b3acccb83306912e22b"
 dependencies = [
  "jsparagus-ast",
 ]
@@ -3004,7 +3014,7 @@ dependencies = [
 
 [[package]]
 name = "mozdevice"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "log",
  "regex",
@@ -3046,14 +3056,14 @@ dependencies = [
 
 [[package]]
 name = "mozprofile"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "tempfile",
 ]
 
 [[package]]
 name = "mozrunner"
-version = "0.10.0"
+version = "0.11.0"
 dependencies = [
  "dirs",
  "log",
@@ -3075,7 +3085,7 @@ dependencies = [
 
 [[package]]
 name = "mozversion"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "regex",
  "rust-ini",
@@ -5461,7 +5471,7 @@ dependencies = [
 
 [[package]]
 name = "webdriver"
-version = "0.40.2"
+version = "0.41.0"
 dependencies = [
  "base64 0.12.0",
  "bytes 0.5.3",
@@ -5570,6 +5580,7 @@ dependencies = [
  "byteorder",
  "core-foundation",
  "core-graphics",
+ "crossbeam-channel",
  "derive_more",
  "euclid",
  "malloc_size_of_derive",
