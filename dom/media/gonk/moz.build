@@ -5,14 +5,22 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 EXPORTS += [
+    "MediaDecoderStateMachineProxy.h",
+    "MediaFormatReaderProxy.h",
     "OMXCodecWrapper.h",
 ]
 
 LOCAL_INCLUDES += [
     "/dom/base",
     "/dom/html",
+    "/dom/media",
     "/ipc/chromium/src",
     "/media/libyuv/libyuv/include",
+]
+
+UNIFIED_SOURCES += [
+    "MediaDecoderStateMachineProxy.cpp",
+    "MediaFormatReaderProxy.cpp",
 ]
 
 SOURCES += [

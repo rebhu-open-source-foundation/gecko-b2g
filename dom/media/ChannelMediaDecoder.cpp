@@ -14,6 +14,11 @@
 #include "mozilla/StaticPrefs_media.h"
 #include "VideoUtils.h"
 
+#ifdef MOZ_WIDGET_GONK
+#  include "MediaDecoderStateMachineProxy.h"
+#  include "MediaFormatReaderProxy.h"
+#endif
+
 namespace mozilla {
 
 extern LazyLogModule gMediaDecoderLog;
@@ -203,6 +208,24 @@ already_AddRefed<ChannelMediaDecoder> ChannelMediaDecoder::Clone(
   return decoder.forget();
 }
 
+#ifdef MOZ_WIDGET_GONK
+MediaDecoderStateMachineProxy* ChannelMediaDecoder::CreateStateMachine() {
+  MOZ_ASSERT(NS_IsMainThread());
+  MediaFormatReaderInit init;
+  init.mVideoFrameContainer = GetVideoFrameContainer();
+  init.mKnowsCompositor = GetCompositor();
+  init.mCrashHelper = GetOwner()->CreateGMPCrashHelper();
+  init.mFrameStats = mFrameStats;
+  init.mResource = mResource;
+  init.mMediaDecoderOwnerID = mOwner;
+  RefPtr<MediaFormatReader> reader =
+      DecoderTraits::CreateReader(ContainerType(), init);
+  mReader = new MediaFormatReaderProxy(reader);
+  return new MediaDecoderStateMachineProxy(
+      new MediaDecoderStateMachine(this, reader));
+}
+
+#else
 MediaDecoderStateMachine* ChannelMediaDecoder::CreateStateMachine() {
   MOZ_ASSERT(NS_IsMainThread());
   MediaFormatReaderInit init;
@@ -215,6 +238,7 @@ MediaDecoderStateMachine* ChannelMediaDecoder::CreateStateMachine() {
   mReader = DecoderTraits::CreateReader(ContainerType(), init);
   return new MediaDecoderStateMachine(this, mReader);
 }
+#endif
 
 void ChannelMediaDecoder::Shutdown() {
   mResourceCallback->Disconnect();

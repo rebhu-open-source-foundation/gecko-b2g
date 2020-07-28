@@ -38,6 +38,11 @@
 #include <algorithm>
 #include <limits>
 
+#ifdef MOZ_WIDGET_GONK
+#  include "MediaDecoderStateMachineProxy.h"
+#  include "MediaFormatReaderProxy.h"
+#endif
+
 using namespace mozilla::dom;
 using namespace mozilla::layers;
 using namespace mozilla::media;
@@ -948,10 +953,18 @@ already_AddRefed<KnowsCompositor> MediaDecoder::GetCompositor() {
 void MediaDecoder::NotifyCompositor() {
   RefPtr<KnowsCompositor> knowsCompositor = GetCompositor();
   if (knowsCompositor) {
+#ifdef MOZ_WIDGET_GONK
+    nsCOMPtr<nsIRunnable> r =
+        NewRunnableMethod<already_AddRefed<KnowsCompositor>&&>(
+            "MediaFormatReaderProxy::UpdateCompositor", mReader,
+            &MediaFormatReaderProxy::UpdateCompositor,
+            knowsCompositor.forget());
+#else
     nsCOMPtr<nsIRunnable> r =
         NewRunnableMethod<already_AddRefed<KnowsCompositor>&&>(
             "MediaFormatReader::UpdateCompositor", mReader,
             &MediaFormatReader::UpdateCompositor, knowsCompositor.forget());
+#endif
     Unused << mReader->OwnerThread()->Dispatch(r.forget());
   }
 }
@@ -1148,7 +1161,11 @@ void MediaDecoder::SetLooping(bool aLooping) {
   mLooping = aLooping;
 }
 
+#ifdef MOZ_WIDGET_GONK
+void MediaDecoder::ConnectMirrors(MediaDecoderStateMachineProxy* aObject) {
+#else
 void MediaDecoder::ConnectMirrors(MediaDecoderStateMachine* aObject) {
+#endif
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aObject);
   mStateMachineDuration.Connect(aObject->CanonicalDuration());
@@ -1165,7 +1182,12 @@ void MediaDecoder::DisconnectMirrors() {
   mIsAudioDataAudible.DisconnectIfConnected();
 }
 
+#ifdef MOZ_WIDGET_GONK
+void MediaDecoder::SetStateMachine(
+    MediaDecoderStateMachineProxy* aStateMachine) {
+#else
 void MediaDecoder::SetStateMachine(MediaDecoderStateMachine* aStateMachine) {
+#endif
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT_IF(aStateMachine, !mDecoderStateMachine);
   if (aStateMachine) {
@@ -1234,15 +1256,25 @@ void MediaDecoder::NotifyReaderDataArrived() {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_DIAGNOSTIC_ASSERT(!IsShutdown());
 
+#ifdef MOZ_WIDGET_GONK
+  nsresult rv = mReader->OwnerThread()->Dispatch(NewRunnableMethod(
+      "MediaFormatReaderProxy::NotifyDataArrived", mReader.get(),
+      &MediaFormatReaderProxy::NotifyDataArrived));
+#else
   nsresult rv = mReader->OwnerThread()->Dispatch(
       NewRunnableMethod("MediaFormatReader::NotifyDataArrived", mReader.get(),
                         &MediaFormatReader::NotifyDataArrived));
+#endif
   MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
   Unused << rv;
 }
 
 // Provide access to the state machine object
+#ifdef MOZ_WIDGET_GONK
+MediaDecoderStateMachineProxy* MediaDecoder::GetStateMachine() const {
+#else
 MediaDecoderStateMachine* MediaDecoder::GetStateMachine() const {
+#endif
   MOZ_ASSERT(NS_IsMainThread());
   return mDecoderStateMachine;
 }
@@ -1261,9 +1293,15 @@ bool MediaDecoder::CanPlayThrough() {
 
 RefPtr<SetCDMPromise> MediaDecoder::SetCDMProxy(CDMProxy* aProxy) {
   MOZ_ASSERT(NS_IsMainThread());
+#ifdef MOZ_WIDGET_GONK
+  return InvokeAsync<RefPtr<CDMProxy>>(
+      mReader->OwnerThread(), mReader.get(), __func__,
+      &MediaFormatReaderProxy::SetCDMProxy, aProxy);
+#else
   return InvokeAsync<RefPtr<CDMProxy>>(mReader->OwnerThread(), mReader.get(),
                                        __func__,
                                        &MediaFormatReader::SetCDMProxy, aProxy);
+#endif
 }
 
 bool MediaDecoder::IsOpusEnabled() { return StaticPrefs::media_opus_enabled(); }

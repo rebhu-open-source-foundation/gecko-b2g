@@ -102,7 +102,11 @@ class ChannelMediaDecoder
   void DownloadProgressed();
 
   // Create a new state machine to run this decoder.
+#ifdef MOZ_WIDGET_GONK
+  MediaDecoderStateMachineProxy* CreateStateMachine();
+#else
   MediaDecoderStateMachine* CreateStateMachine();
+#endif
 
   nsresult Load(BaseMediaResource* aOriginal);
 

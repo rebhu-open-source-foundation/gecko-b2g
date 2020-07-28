@@ -16,6 +16,11 @@
 #include "VideoUtils.h"
 #include <algorithm>
 
+#ifdef MOZ_WIDGET_GONK
+#  include "MediaDecoderStateMachineProxy.h"
+#  include "MediaFormatReaderProxy.h"
+#endif
+
 extern mozilla::LogModule* GetMediaSourceLog();
 
 #define MSE_DEBUG(arg, ...)                                              \
@@ -34,6 +39,23 @@ MediaSourceDecoder::MediaSourceDecoder(MediaDecoderInit& aInit)
   mExplicitDuration.emplace(UnspecifiedNaN<double>());
 }
 
+#ifdef MOZ_WIDGET_GONK
+MediaDecoderStateMachineProxy* MediaSourceDecoder::CreateStateMachine() {
+  MOZ_ASSERT(NS_IsMainThread());
+  mDemuxer = new MediaSourceDemuxer(AbstractMainThread());
+  MediaFormatReaderInit init;
+  init.mVideoFrameContainer = GetVideoFrameContainer();
+  init.mKnowsCompositor = GetCompositor();
+  init.mCrashHelper = GetOwner()->CreateGMPCrashHelper();
+  init.mFrameStats = mFrameStats;
+  init.mMediaDecoderOwnerID = mOwner;
+  RefPtr<MediaFormatReader> reader = new MediaFormatReader(init, mDemuxer);
+  mReader = new MediaFormatReaderProxy(reader);
+  return new MediaDecoderStateMachineProxy(
+      new MediaDecoderStateMachine(this, reader));
+}
+
+#else
 MediaDecoderStateMachine* MediaSourceDecoder::CreateStateMachine() {
   MOZ_ASSERT(NS_IsMainThread());
   mDemuxer = new MediaSourceDemuxer(AbstractMainThread());
@@ -46,6 +68,7 @@ MediaDecoderStateMachine* MediaSourceDecoder::CreateStateMachine() {
   mReader = new MediaFormatReader(init, mDemuxer);
   return new MediaDecoderStateMachine(this, mReader);
 }
+#endif
 
 nsresult MediaSourceDecoder::Load(nsIPrincipal* aPrincipal) {
   MOZ_ASSERT(NS_IsMainThread());

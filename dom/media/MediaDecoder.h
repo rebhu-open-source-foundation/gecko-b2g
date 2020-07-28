@@ -50,6 +50,11 @@ class MediaFormatReader;
 class MediaDecoderStateMachine;
 struct MediaPlaybackEvent;
 
+#  ifdef MOZ_WIDGET_GONK
+class MediaDecoderStateMachineProxy;
+class MediaFormatReaderProxy;
+#  endif
+
 enum class Visibility : uint8_t;
 
 struct MOZ_STACK_CLASS MediaDecoderInit {
@@ -253,8 +258,13 @@ class MediaDecoder : public DecoderDoctorLifeLogger<MediaDecoder> {
   // SetLoadInBackground() on mResource.
   virtual void SetLoadInBackground(bool aLoadInBackground) {}
 
+#  ifdef MOZ_WIDGET_GONK
+  MediaDecoderStateMachineProxy* GetStateMachine() const;
+  void SetStateMachine(MediaDecoderStateMachineProxy* aStateMachine);
+#  else
   MediaDecoderStateMachine* GetStateMachine() const;
   void SetStateMachine(MediaDecoderStateMachine* aStateMachine);
+#  endif
 
   // Constructs the time ranges representing what segments of the media
   // are buffered and playable.
@@ -476,7 +486,11 @@ class MediaDecoder : public DecoderDoctorLifeLogger<MediaDecoder> {
    * The following member variables can be accessed from any thread.
    ******/
 
+#  ifdef MOZ_WIDGET_GONK
+  RefPtr<MediaFormatReaderProxy> mReader;
+#  else
   RefPtr<MediaFormatReader> mReader;
+#  endif
 
   // Amount of buffered data ahead of current time required to consider that
   // the next frame is available.
@@ -503,7 +517,11 @@ class MediaDecoder : public DecoderDoctorLifeLogger<MediaDecoder> {
 
   void FinishShutdown();
 
+#  ifdef MOZ_WIDGET_GONK
+  void ConnectMirrors(MediaDecoderStateMachineProxy* aObject);
+#  else
   void ConnectMirrors(MediaDecoderStateMachine* aObject);
+#  endif
   void DisconnectMirrors();
 
   virtual bool CanPlayThroughImpl() = 0;
@@ -515,7 +533,11 @@ class MediaDecoder : public DecoderDoctorLifeLogger<MediaDecoder> {
   // is safe to access it during this period.
   //
   // Explicitly prievate to force access via accessors.
+#  ifdef MOZ_WIDGET_GONK
+  RefPtr<MediaDecoderStateMachineProxy> mDecoderStateMachine;
+#  else
   RefPtr<MediaDecoderStateMachine> mDecoderStateMachine;
+#  endif
 
  protected:
   void NotifyReaderDataArrived();

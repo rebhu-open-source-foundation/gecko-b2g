@@ -71,7 +71,11 @@ class MediaSourceDecoder : public MediaDecoder,
   void NotifyDataArrived();
 
  private:
+#ifdef MOZ_WIDGET_GONK
+  MediaDecoderStateMachineProxy* CreateStateMachine();
+#else
   MediaDecoderStateMachine* CreateStateMachine();
+#endif
   void DoSetMediaSourceDuration(double aDuration);
   media::TimeInterval ClampIntervalToEnd(const media::TimeInterval& aInterval);
   bool CanPlayThroughImpl() override;
