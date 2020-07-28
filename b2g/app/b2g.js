@@ -591,6 +591,11 @@ pref("layout.scrollbar.side", 1);
 // CSS Scroll Snapping
 pref("layout.css.scroll-snap.enabled", true);
 
+// CSS: @media (prefers-contrast)
+// true: prefers-contrast will toggle based on OS and browser settings.
+// false: prefers-contrast will only parse and toggle in the chrome and ua.
+pref("layout.css.prefers-contrast.enabled", true);
+
 // Enable the ProcessPriorityManager, and give processes with no visible
 // documents a 1s grace period before they're eligible to be marked as
 // background. Background processes that are perceivable due to playing

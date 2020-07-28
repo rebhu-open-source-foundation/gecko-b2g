@@ -386,6 +386,7 @@ nsresult nsWindow::SynthesizeNativeTouchPoint(uint32_t aPointerId,
 }
 
 static const char* sThemePrefList[] = {
+  "ui.useAccessibilityTheme",
   "ui.systemUsesDarkTheme",
   "ui.prefersReducedMotion",
 };
