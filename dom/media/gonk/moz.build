@@ -23,6 +23,7 @@ UNIFIED_SOURCES += [
     "MediaDecoderStateMachineProxy.cpp",
     "MediaFormatReaderProxy.cpp",
     "MediaOffloadPlayer.cpp",
+    "MediaResourceDataSource.cpp",
 ]
 
 SOURCES += [
