@@ -6,6 +6,10 @@
 
 const {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
 
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+
 XPCOMUtils.defineLazyGetter(this, "RIL", function () {
   let obj = Cu.import("resource://gre/modules/ril_consts.js", null);
   return obj;

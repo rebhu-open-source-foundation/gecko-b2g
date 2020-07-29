@@ -93,9 +93,17 @@ Return<void> nsRilIndication::newSmsStatusReport(
   return Void();
 }
 
-Return<void> nsRilIndication::newSmsOnSim(RadioIndicationType /*type*/,
-                                          int32_t /*recordNumber*/) {
-  INFO("Not implement newSmsOnSim");
+Return<void> nsRilIndication::newSmsOnSim(RadioIndicationType type,
+                                          int32_t recordNumber) {
+  mRIL->processIndication(type);
+
+  nsString rilmessageType(u"smsOnSim"_ns);
+
+  RefPtr<nsRilIndicationResult> result =
+      new nsRilIndicationResult(rilmessageType);
+  result->updateNewSmsOnSim(recordNumber);
+
+  mRIL->sendRilIndicationResult(result);
   return Void();
 }
 

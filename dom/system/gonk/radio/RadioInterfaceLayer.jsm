@@ -161,11 +161,9 @@ XPCOMUtils.defineLazyServiceGetter(this, "gDataCallInterfaceService",
                                    "@mozilla.org/datacall/interfaceservice;1",
                                    "nsIGonkDataCallInterfaceService");
 
-XPCOMUtils.defineLazyServiceGetter(
-  this,
-  "gRilWorkerService",
-  "@mozilla.org/rilworkerservice;1",
-  "nsIRilWorkerService"
+XPCOMUtils.defineLazyServiceGetter(this, "gRilWorkerService",
+                                   "@mozilla.org/rilworkerservice;1",
+                                   "nsIRilWorkerService"
 );
 
 XPCOMUtils.defineLazyGetter(this, "gRadioEnabledController", function() {
@@ -907,6 +905,10 @@ RadioInterface.prototype = {
         if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_RESPONSE_NEW_SMS");
         this.handleSmsReceived(message);
         break;
+      case "smsOnSim":
+        if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_RESPONSE_NEW_SMS_ON_SIM");
+        this.handleSmsOnSim(message);
+        break;
       case "smsstatusreport":
         if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_RESPONSE_SMS_STATUS_REPORT");
         this.handleSmsStatusReport(message);
@@ -1551,18 +1553,35 @@ RadioInterface.prototype = {
     let pdu = {};
     let pduLength = aMessage.getPdu(pdu);
     let GsmPDUHelper = this.simIOcontext.GsmPDUHelper
-    GsmPDUHelper.pdu = "";
-    GsmPDUHelper.pduReadIndex = 0;
-    GsmPDUHelper.pduWriteIndex = 0;
-    for(let i=0; i<pduLength; i++) {
-      GsmPDUHelper.writeHexOctet(pdu.value[i]);
-    }
+    GsmPDUHelper.initWith(pdu.value);
 
     let [message, result] = GsmPDUHelper.processReceivedSms(pduLength);
 
     if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_RESPONSE_NEW_SMS :" + JSON.stringify(message));
+    this._notifyNewSmsMessage(message);
+  },
 
-    let header = message.header;
+  /**
+   * handle received SMS on sim.
+   */
+  handleSmsOnSim: function(aMessage) {
+    this.context.SimRecordHelper.readSMS(
+      aMessage.recordNumber,
+      function onsuccess(message) {
+        if (message && message.simStatus === 3) { //New Unread SMS
+          this._notifyNewSmsMessage(message);
+        }
+      }.bind(this),
+      function onerror(errorMsg) {
+        if (DEBUG) {
+          this.debug("Failed to Read NEW SMS on SIM #" + recordNumber +
+                             ", errorMsg: " + errorMsg);
+        }
+      });
+  },
+
+  _notifyNewSmsMessage: function(aMessage) {
+    let header = aMessage.header;
     // Concatenation Info:
     // - segmentRef: a modulo 256 counter indicating the reference number for a
     //               particular concatenated short message. '0' is a valid number.
@@ -1583,25 +1602,25 @@ RadioInterface.prototype = {
       ? header.destinationPort
       : Ci.nsIGonkSmsService.SMS_APPLICATION_PORT_INVALID;
     // MWI info:
-    let mwiPresent = (message.mwi)? true : false;
-    let mwiDiscard = (mwiPresent)? message.mwi.discard: false;
-    let mwiMsgCount = (mwiPresent)? message.mwi.msgCount: 0;
-    let mwiActive = (mwiPresent)? message.mwi.active: false;
+    let mwiPresent = (aMessage.mwi)? true : false;
+    let mwiDiscard = (mwiPresent)? aMessage.mwi.discard: false;
+    let mwiMsgCount = (mwiPresent)? aMessage.mwi.msgCount: 0;
+    let mwiActive = (mwiPresent)? aMessage.mwi.active: false;
     // CDMA related attributes:
-    let cdmaMessageType = message.messageType || 0;
-    let cdmaTeleservice = message.teleservice || 0;
-    let cdmaServiceCategory = message.serviceCategory || 0;
+    let cdmaMessageType = aMessage.messageType || 0;
+    let cdmaTeleservice = aMessage.teleservice || 0;
+    let cdmaServiceCategory = aMessage.serviceCategory || 0;
 
     gSmsService
       .notifyMessageReceived(this.clientId,
-                             message.SMSC || null,
-                             message.sentTimestamp,
-                             message.sender,
-                             message.pid,
-                             message.encoding,
+                             aMessage.SMSC || null,
+                             aMessage.sentTimestamp,
+                             aMessage.sender,
+                             aMessage.pid,
+                             aMessage.encoding,
                              RIL.GECKO_SMS_MESSAGE_CLASSES
-                               .indexOf(message.messageClass),
-                             message.language || null,
+                               .indexOf(aMessage.messageClass),
+                             aMessage.language || null,
                              segmentRef,
                              segmentSeq,
                              segmentMaxSeq,
@@ -1614,10 +1633,9 @@ RadioInterface.prototype = {
                              cdmaMessageType,
                              cdmaTeleservice,
                              cdmaServiceCategory,
-                             message.body || null,
-                             message.data || [],
-                             (message.data) ? message.data.length : 0);
-
+                             aMessage.body || null,
+                             aMessage.data || [],
+                             (aMessage.data) ? aMessage.data.length : 0);
   },
 
   /**
@@ -1628,12 +1646,7 @@ RadioInterface.prototype = {
     let pdu = {};
     let pduLength = aMessage.getPdu(pdu);
     let GsmPDUHelper = this.simIOcontext.GsmPDUHelper
-    GsmPDUHelper.pdu = "";
-    GsmPDUHelper.pduReadIndex = 0;
-    GsmPDUHelper.pduWriteIndex = 0;
-    for(let i=0; i<pduLength; i++) {
-      GsmPDUHelper.writeHexOctet(pdu.value[i]);
-    }
+    GsmPDUHelper.initWith(pdu.value);
 
     let [message, result] = GsmPDUHelper.processReceivedSms(pduLength);
     if (!message) {
@@ -1926,12 +1939,7 @@ RadioInterface.prototype = {
     let data = {};
     let dataLength = aMessage.GetNewBroadcastSms(data);
     let GsmPDUHelper = this.simIOcontext.GsmPDUHelper
-    GsmPDUHelper.pdu = "";
-    GsmPDUHelper.pduReadIndex = 0;
-    GsmPDUHelper.pduWriteIndex = 0;
-    for(let i=0; i<dataLength; i++) {
-      GsmPDUHelper.writeHexOctet(data.value[i]);
-    }
+    GsmPDUHelper.initWith(data.value);
 
     let [message, result] = GsmPDUHelper.readCbMessage(dataLength);
 
@@ -4285,8 +4293,7 @@ RadioInterface.prototype = {
         } else {
           if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > REQUEST_SEND_SMS");
           let GsmPDUHelper = this.simIOcontext.GsmPDUHelper;
-          GsmPDUHelper.pduWriteIndex = 0;
-          GsmPDUHelper.pdu = "";
+          GsmPDUHelper.initWith();
           GsmPDUHelper.writeMessage(message);
           this.rilworker.sendSMS(message.rilMessageToken, message.SMSC, GsmPDUHelper.pdu);
         }
@@ -4297,8 +4304,8 @@ RadioInterface.prototype = {
         this.rilworker.setupDataCall(message.rilMessageToken, message.radioTechnology,  new DataProfile(message.profile), message.isRoaming, message.allowRoaming);
         break;
       case "iccIO":
-        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SIM_IO command = " + message.command + " , fileId = "
-                    + message.fileId + " , path = " + message.pathId + " , p1 = " + message.p1 + " , p2 = " + message.p2 + " , p3 = " + message.p3
+        if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_SIM_IO command = " + message.command + " , fileId = 0x"
+                    + message.fileId.toString(16) + " , path = " + message.pathId + " , p1 = " + message.p1 + " , p2 = " + message.p2 + " , p3 = " + message.p3
                     + " , data = " + message.dataWriter + " , pin2 = " + message.pin2 + " , aid = " + message.aid);
         // Store the command options(message).
         this.tokenOptionsMap[message.rilMessageToken] = message;

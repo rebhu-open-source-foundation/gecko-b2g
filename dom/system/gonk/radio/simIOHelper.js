@@ -57,7 +57,7 @@ var RILQUIRKS_APP_CB_LIST;
 if (!this.debug) {
   // Debugging stub that goes nowhere.
   this.debug = function debug(message) {
-    console.log("SimIOHelper: " + message + "\n");
+    dump("SimIOHelper: " + message + "\n");
   };
 }
 
@@ -1108,10 +1108,35 @@ function GsmPDUHelperObject(aContext) {
 }
 GsmPDUHelperObject.prototype = {
   context: null,
-
   pdu: null,
   pduWriteIndex: null,
   pduReadIndex: null,
+
+  initWith: function(data = '') {
+    this.pduReadIndex = 0;
+    this.pduWriteIndex = 0;
+    this.pdu = '';
+    if (typeof data === "string") {
+      this.pdu = data;
+      this.pduWriteIndex = data.length;
+    } else {
+      for(let i = 0; i < data.length; i++) {
+        this.writeHexOctet(data[i]);
+      }
+    }
+  },
+
+  getReadAvailable: function() {
+    return this.pduWriteIndex - this.pduReadIndex;
+  },
+
+  seekIncoming: function(len) {
+    if(this.getReadAvailable() >= len) {
+      this.pduReadIndex = this.pduReadIndex + len;
+    } else {
+      throw "Seek PDU out of bounds";
+    }
+  },
 
   /**
    * Helper function for HEX to INT.
@@ -1128,6 +1153,10 @@ GsmPDUHelperObject.prototype = {
    * @return the nibble as a number.
    */
   readHexNibble: function() {
+    if(this.getReadAvailable() <= 0) {
+        throw "Read PDU out of bounds";
+    }
+
     let nibble = this.pdu.charCodeAt(this.pduReadIndex);
     if (nibble >= 48 && nibble <= 57) {
       nibble -= 48; // ASCII '0'..'9'
@@ -2168,7 +2197,7 @@ GsmPDUHelperObject.prototype = {
     // get even messageStringLength in this#_processReceivedSms(). So, we'll
     // always need two delimitors at the end.
 
-    if (this.pduWriteIndex - this.pduReadIndex<= 4) {
+    if (this.getReadAvailable() <= 4) {
       return;
     }
 
@@ -2845,14 +2874,14 @@ GsmPDUHelperObject.prototype = {
 
     let totalLength = 0, length, pageLengths = [];
     for (let i = 0; i < numOfPages; i++) {
-      this.pduReadIndex += CB_MSG_PAGE_INFO_SIZE;
+      this.seekIncoming(CB_MSG_PAGE_INFO_SIZE);
       length = this.readHexOctet();
       totalLength += length;
       pageLengths.push(length);
     }
 
     // Seek back to beginning of CB Data.
-    this.pduReadIndex += (-numOfPages * (CB_MSG_PAGE_INFO_SIZE + 1));
+    this.seekIncoming(-numOfPages * (CB_MSG_PAGE_INFO_SIZE + 1));
 
     switch (msg.encoding) {
       case PDU_DCS_MSG_CODING_7BITS_ALPHABET: {
@@ -2874,7 +2903,7 @@ GsmPDUHelperObject.prototype = {
           msg.body += removePaddingCharactors(body);
 
           // Skip padding octets
-          this.pduReadIndex += (CB_MSG_PAGE_INFO_SIZE - pageLengths[i]);
+          this.seekIncoming(CB_MSG_PAGE_INFO_SIZE - pageLengths[i]);
           // Read the octet of CBS-Message-Information-Length
           this.readHexOctet();
         }
@@ -2890,7 +2919,7 @@ GsmPDUHelperObject.prototype = {
           }
 
           // Skip padding octets
-          this.pduReadIndex += (CB_MSG_PAGE_INFO_SIZE - pageLengths[i]);
+          this.seekIncoming(CB_MSG_PAGE_INFO_SIZE - pageLengths[i]);
           // Read the octet of CBS-Message-Information-Length
           this.readHexOctet();
         }
@@ -2921,7 +2950,7 @@ GsmPDUHelperObject.prototype = {
                         this.readUCS2String.call(bufAdapter, pageLength));
 
           // Skip padding octets
-          this.pduReadIndex += (CB_MSG_PAGE_INFO_SIZE - pageLengths[i]);
+          this.seekIncoming(CB_MSG_PAGE_INFO_SIZE - pageLengths[i]);
           // Read the octet of CBS-Message-Information-Length
           this.readHexOctet();
         }
@@ -3098,8 +3127,7 @@ GsmPDUHelperObject.prototype = {
     switch (textEncoding) {
     case 0:
       // GSM Default alphabet.
-      this.pdu = nameValue;
-      this.pduReadIndex = 0;
+      this.initWith(nameValue);
       resultString = this.readSeptetsToString(
         Math.floor(((len - 1) * 8 - spareBits) / 7), 0,
         PDU_NL_IDENTIFIER_DEFAULT,
@@ -3107,8 +3135,7 @@ GsmPDUHelperObject.prototype = {
       break;
     case 1:
       // UCS2 encoded.
-      // Cameron mark first.
-      //resultString = this.context.ICCPDUHelper.readAlphaIdentifier(len - 1);
+      resultString = this.context.ICCPDUHelper.readAlphaIdentifier(nameValue, len - 1);
       break;
     default:
       // Not an available text coding.
@@ -3158,10 +3185,8 @@ ICCRecordHelperObject.prototype = {
     function callback(options) {
       let RIL = this.context.RIL;
       let GsmPDUHelper = this.context.GsmPDUHelper;
-      let strLen = options.simResponse.length;
-      let octetLen = strLen / 2;
-      GsmPDUHelper.pduReadIndex = 0;
-      GsmPDUHelper.pdu = options.simResponse;
+      let octetLen = options.simResponse.length / PDU_HEX_OCTET_SIZE;
+      GsmPDUHelper.initWith(options.simResponse);
 
       RIL.iccInfo.iccid = GsmPDUHelper.readSwappedNibbleBcdString(octetLen, true);
       if (DEBUG) this.context.debug("ICCID: " + RIL.iccInfo.iccid);
@@ -3307,17 +3332,15 @@ ICCRecordHelperObject.prototype = {
 
     function callback(options) {
       let value = options.simResponse;
-      let strLen = value.length;
-      let octetLen = strLen / 2, readLen = 0;
-      GsmPDUHelper.pduReadIndex = 0;
-      GsmPDUHelper.pdu = value;
+      let octetLen = value.length / PDU_HEX_OCTET_SIZE, readLen = 0;
+      GsmPDUHelper.initWith(value);
 
       let pbrTlvs = [];
       while (readLen < octetLen) {
         let tag = GsmPDUHelper.readHexOctet();
         if (tag == 0xff) {
           readLen++;
-          GsmPDUHelper.pduReadIndex += ((octetLen - readLen) * PDU_HEX_OCTET_SIZE);
+          GsmPDUHelper.seekIncoming((octetLen - readLen) * PDU_HEX_OCTET_SIZE);
           break;
         }
 
@@ -3379,10 +3402,8 @@ ICCRecordHelperObject.prototype = {
   readIAP: function(fileId, recordNumber, onsuccess, onerror) {
     function callback(options) {
       let value = options.simResponse;
-      let strLen = value.length;
-      let octetLen = strLen / 2;
-      GsmPDUHelper.pduReadIndex = 0;
-      GsmPDUHelper.pdu = value;
+      let octetLen = value.length / PDU_HEX_OCTET_SIZE;
+      GsmPDUHelper.initWith(value);
       this._iapRecordSize = options.recordSize;
 
       let iap = this.context.GsmPDUHelper.readHexOctetArray(octetLen);
@@ -3414,13 +3435,7 @@ ICCRecordHelperObject.prototype = {
   updateIAP: function(fileId, recordNumber, iap, onsuccess, onerror) {
     let dataWriter = function dataWriter(recordSize) {
       let GsmPDUHelper = this.context.GsmPDUHelper;
-      GsmPDUHelper.pduWriteIndex = 0;
-      GsmPDUHelper.pdu = "";
-
-      for (let i = 0; i < iap.length; i++) {
-        GsmPDUHelper.writeHexOctet(iap[i]);
-      }
-
+      GsmPDUHelper.initWith(iap);
     }.bind(this);
 
     this.context.ICCIOHelper.updateLinearFixedEF({
@@ -3451,10 +3466,7 @@ ICCRecordHelperObject.prototype = {
   readEmail: function(fileId, fileType, recordNumber, onsuccess, onerror) {
     function callback(options) {
       let value = options.simResponse;
-      let strLen = value.length;
-      let octetLen = strLen / 2;
-      GsmPDUHelper.pduReadIndex = 0;
-      GsmPDUHelper.pdu = value;
+      let octetLen = value.length / PDU_HEX_OCTET_SIZE;
       let ICCPDUHelper = this.context.ICCPDUHelper;
       let email = null;
       this._emailRecordSize = options.recordSize;
@@ -3505,8 +3517,7 @@ ICCRecordHelperObject.prototype = {
     let writtenEmail;
     let dataWriter = function dataWriter(recordSize) {
       let GsmPDUHelper = this.context.GsmPDUHelper;
-      GsmPDUHelper.pduWriteIndex = 0;
-      GsmPDUHelper.pdu = "";
+      GsmPDUHelper.initWith();
       let ICCPDUHelper = this.context.ICCPDUHelper;
 
       if (fileType == ICC_USIM_TYPE1_TAG) {
@@ -3553,12 +3564,14 @@ ICCRecordHelperObject.prototype = {
   readANR: function(fileId, fileType, recordNumber, onsuccess, onerror) {
     function callback(options) {
       let value = options.simResponse;
-      let number = null;
+      let GsmPDUHelper = this.context.GsmPDUHelper;
       this._anrRecordSize = options.recordSize;
+      GsmPDUHelper.initWith(value);
 
       // Skip EF_AAS Record ID.
-      number = this.context.ICCPDUHelper.readNumberWithLength(value.slice(PDU_HEX_OCTET_SIZE));
-
+      GsmPDUHelper.seekIncoming(1 * PDU_HEX_OCTET_SIZE);
+      let number = null;
+      number = this.context.ICCPDUHelper.readNumberWithLength();
       if (onsuccess) {
         onsuccess(number);
       }
@@ -3591,8 +3604,7 @@ ICCRecordHelperObject.prototype = {
     let writtenNumber;
     let dataWriter = function dataWriter(recordSize) {
       let GsmPDUHelper = this.context.GsmPDUHelper;
-      GsmPDUHelper.pduWriteIndex = 0;
-      GsmPDUHelper.pdu = "";
+      GsmPDUHelper.initWith();
 
       // EF_AAS record Id. Unused for now.
       GsmPDUHelper.writeHexOctet(0xff);
@@ -3642,14 +3654,11 @@ ICCRecordHelperObject.prototype = {
     let ICCIOHelper = this.context.ICCIOHelper;
     function callback(options) {
       let value = options.simResponse;
-      let strLen = value.length;
-      let octetLen = strLen / 2;
-      let readLen = 0;
-
+      let octetLen = value.length / PDU_HEX_OCTET_SIZE;
       let GsmPDUHelper = this.context.GsmPDUHelper;
-      GsmPDUHelper.pduReadIndex = 0;
-      GsmPDUHelper.pdu = value;
+      GsmPDUHelper.initWith(value);
 
+      let readLen = 0;
       while (readLen < octetLen) {
         let octet = GsmPDUHelper.readHexOctet();
         readLen++;
@@ -3671,7 +3680,7 @@ ICCRecordHelperObject.prototype = {
         }
         return;
       } else {
-        GsmPDUHelper.pduReadIndex += ((octetLen - readLen) * PDU_HEX_OCTET_SIZE);
+        GsmPDUHelper.seekIncoming((octetLen - readLen) * PDU_HEX_OCTET_SIZE);
       }
 
       if (nextRecord !== recordNumber) {
@@ -3706,10 +3715,8 @@ ICCRecordHelperObject.prototype = {
   readExtension: function(fileId, recordNumber, onsuccess, onerror) {
     let callback = (options) => {
       let value = options.simResponse;
-      let strLen = value.length;
       let GsmPDUHelper = this.context.GsmPDUHelper;
-      GsmPDUHelper.pduReadIndex = 0;
-      GsmPDUHelper.pdu = value;
+      GsmPDUHelper.initWith(value);
 
       let recordType = this.context.GsmPDUHelper.readHexOctet();
       let number = "";
@@ -3730,9 +3737,9 @@ ICCRecordHelperObject.prototype = {
 
           number = this.context.GsmPDUHelper.readSwappedNibbleExtendedBcdString(numLen);
           if (DEBUG) this.context.debug("Contact Extension Number: "+ number);
-          GsmPDUHelper.pduReadIndex += ((EXT_MAX_BCD_NUMBER_BYTES - numLen) * PDU_HEX_OCTET_SIZE);
+          GsmPDUHelper.seekIncoming((EXT_MAX_BCD_NUMBER_BYTES - numLen) * PDU_HEX_OCTET_SIZE);
         } else {
-          GsmPDUHelper.pduReadIndex += (EXT_MAX_BCD_NUMBER_BYTES * PDU_HEX_OCTET_SIZE);
+          GsmPDUHelper.seekIncoming(EXT_MAX_BCD_NUMBER_BYTES * PDU_HEX_OCTET_SIZE);
         }
       } else {
         // Don't support Case 2, Extension1 record is Called Party Subaddress.
@@ -3763,9 +3770,7 @@ ICCRecordHelperObject.prototype = {
   updateExtension: function(fileId, recordNumber, number, onsuccess, onerror) {
     let dataWriter = (recordSize) => {
       let GsmPDUHelper = this.context.GsmPDUHelper;
-      // Write String length
-      GsmPDUHelper.pduWriteIndex = 0;
-      GsmPDUHelper.pdu = "";
+      GsmPDUHelper.initWith();
 
       // We don't support extension chain.
       if (number.length > EXT_MAX_NUMBER_DIGITS) {
@@ -3805,14 +3810,12 @@ ICCRecordHelperObject.prototype = {
   cleanEFRecord: function(fileId, recordNumber, onsuccess, onerror) {
     let dataWriter = (recordSize) => {
       let GsmPDUHelper = this.context.GsmPDUHelper;
-      GsmPDUHelper.pduWriteIndex = 0;
-      GsmPDUHelper.pdu = "";
+      GsmPDUHelper.initWith();
 
       // Write record to 0xff
       for (let i = 0; i < recordSize; i++) {
         GsmPDUHelper.writeHexOctet(0xff);
       }
-      //Buf.writeStringDelimiter(strLen);
     }
 
     this.context.ICCIOHelper.updateLinearFixedEF({
@@ -3835,11 +3838,10 @@ ICCRecordHelperObject.prototype = {
   getADNLikeExtensionRecordNumber: function(fileId, recordNumber, onsuccess, onerror) {
     let callback = (options) => {
       let GsmPDUHelper = this.context.GsmPDUHelper;
-      GsmPDUHelper.pduReadIndex = 0;
-      GsmPDUHelper.pdu = options.simResponse;
+      GsmPDUHelper.initWith(options.simResponse);
 
       // Skip alphaLen, numLen, BCD Number, CCP octets.
-      GsmPDUHelper.pduReadIndex += ((options.recordSize -1) * PDU_HEX_OCTET_SIZE);
+      GsmPDUHelper.seekIncoming((options.recordSize -1) * PDU_HEX_OCTET_SIZE);
 
       let extRecordNumber = this.context.GsmPDUHelper.readHexOctet();
       onsuccess(extRecordNumber);
@@ -3915,7 +3917,6 @@ SimRecordHelperObject.prototype = {
   readSimPhase: function() {
     function callback(options) {
       let value = options.simResponse;
-      let strLen = value.length;
 
       let GsmPDUHelper = this.context.GsmPDUHelper;
       let phase = GsmPDUHelper.processHexToInt(value.slice(0,2), 16);
@@ -3965,9 +3966,9 @@ SimRecordHelperObject.prototype = {
   readAD: function() {
     function callback(options) {
       let value = options.simResponse;
-      this.context.GsmPDUHelper.pdu = value;
-      this.context.GsmPDUHelper.pduReadIndex = 0;
-      let ad = this.context.GsmPDUHelper.readHexOctetArray(value.length / 2);
+      let octetLen = value.length / PDU_HEX_OCTET_SIZE;
+      this.context.GsmPDUHelper.initWith(value);
+      let ad = this.context.GsmPDUHelper.readHexOctetArray(octetLen);
 
       if (DEBUG) {
         let str = "";
@@ -4009,10 +4010,9 @@ SimRecordHelperObject.prototype = {
    */
   readSPN: function() {
     function callback(options) {
-      let value = options.simResponse
-      let strLen = value.length;
+      let value = options.simResponse;;
       // Each octet is encoded into two chars.
-      let octetLen = strLen / 2;
+      let octetLen = value.length / PDU_HEX_OCTET_SIZE;
       let spnDisplayCondition = this.context.GsmPDUHelper.processHexToInt(value.slice(0,2), 16);
       // Minus 1 because the first octet is used to store display condition.
       let spn_value = value.slice(2);
@@ -4041,11 +4041,11 @@ SimRecordHelperObject.prototype = {
   readIMG: function(recordNumber, onsuccess, onerror) {
     function callback(options) {
       let RIL = this.context.RIL;
-      let Buf = this.context.Buf;
+      let value = options.simResponse;
       let GsmPDUHelper = this.context.GsmPDUHelper;
-      let strLen = Buf.readInt32();
+      GsmPDUHelper.initWith(value);
       // Each octet is encoded into two chars.
-      let octetLen = strLen / 2;
+      let octetLen = value.length / PDU_HEX_OCTET_SIZE;
 
       let numInstances = GsmPDUHelper.readHexOctet();
 
@@ -4053,8 +4053,7 @@ SimRecordHelperObject.prototype = {
       // 4.6.1.1. However, it's likely to have padding appended so we have a
       // rather loose check.
       if (octetLen < (9 * numInstances + 1)) {
-        Buf.seekIncoming((octetLen - 1) * Buf.PDU_HEX_OCTET_SIZE);
-        Buf.readStringDelimiter(strLen);
+        GsmPDUHelper.seekIncoming((octetLen - 1) * PDU_HEX_OCTET_SIZE);
         if (onerror) {
           onerror();
         }
@@ -4075,8 +4074,7 @@ SimRecordHelperObject.prototype = {
                    GsmPDUHelper.readHexOctet()
         };
       }
-      Buf.seekIncoming((octetLen - 9 * numInstances - 1) * Buf.PDU_HEX_OCTET_SIZE);
-      Buf.readStringDelimiter(strLen);
+      GsmPDUHelper.seekIncoming((octetLen - 9 * numInstances - 1) * PDU_HEX_OCTET_SIZE);
 
       let instances = [];
       let currentInstance = 0;
@@ -4125,26 +4123,25 @@ SimRecordHelperObject.prototype = {
       return;
     }
 
-    function callback() {
-      let Buf = this.context.Buf;
+    function callback(options) {
+      let value = options.simResponse;
       let RIL = this.context.RIL;
       let GsmPDUHelper = this.context.GsmPDUHelper;
-      let strLen = Buf.readInt32();
+      GsmPDUHelper.initWith(value);
       // Each octet is encoded into two chars.
-      let octetLen = strLen / 2;
+      let octetLen = value.length / PDU_HEX_OCTET_SIZE;
 
       if (octetLen < offset + dataLen) {
         // Data length is not enough. See TS 31.102, clause 4.6.1.1, the
         // paragraph "Bytes 8 and 9: Length of Image Instance Data."
-        Buf.seekIncoming(octetLen * Buf.PDU_HEX_OCTET_SIZE);
-        Buf.readStringDelimiter(strLen);
+        GsmPDUHelperseekIncoming(octetLen * PDU_HEX_OCTET_SIZE);
         if (onerror) {
           onerror();
         }
         return;
       }
 
-      Buf.seekIncoming(offset * Buf.PDU_HEX_OCTET_SIZE);
+      GsmPDUHelper.seekIncoming(offset * PDU_HEX_OCTET_SIZE);
 
       let rawData = {
         width: GsmPDUHelper.readHexOctet(),
@@ -4154,10 +4151,9 @@ SimRecordHelperObject.prototype = {
 
       switch (codingScheme) {
         case ICC_IMG_CODING_SCHEME_BASIC:
-          // Cameron mark first.
-          /*rawData.body = GsmPDUHelper.readHexOctetArray(
-            dataLen - ICC_IMG_HEADER_SIZE_BASIC);*/
-          Buf.seekIncoming((octetLen - offset - dataLen) * Buf.PDU_HEX_OCTET_SIZE);
+          rawData.body = GsmPDUHelper.readHexOctetArray(
+            dataLen - ICC_IMG_HEADER_SIZE_BASIC);
+          GsmPDUHelper.seekIncoming((octetLen - offset - dataLen) * PDU_HEX_OCTET_SIZE);
           break;
 
         case ICC_IMG_CODING_SCHEME_COLOR:
@@ -4168,20 +4164,16 @@ SimRecordHelperObject.prototype = {
           rawData.numOfClutEntries = (num === 0) ? 0x100 : num;
           rawData.clutOffset = (GsmPDUHelper.readHexOctet() << 8) |
                                GsmPDUHelper.readHexOctet();
-          // Cameron mark first.
-          /*rawData.body = GsmPDUHelper.readHexOctetArray(
-              dataLen - ICC_IMG_HEADER_SIZE_COLOR);*/
+          rawData.body = GsmPDUHelper.readHexOctetArray(
+              dataLen - ICC_IMG_HEADER_SIZE_COLOR);
 
-          Buf.seekIncoming((rawData.clutOffset - offset - dataLen) *
-                           Buf.PDU_HEX_OCTET_SIZE);
-          // Cameron mark first.
-          /*let clut = GsmPDUHelper.readHexOctetArray(rawData.numOfClutEntries *
-                                                    ICC_CLUT_ENTRY_SIZE);*/
+          GsmPDUHelper.seekIncoming((rawData.clutOffset - offset - dataLen) *
+                           PDU_HEX_OCTET_SIZE);
+          let clut = GsmPDUHelper.readHexOctetArray(rawData.numOfClutEntries *
+                                                    ICC_CLUT_ENTRY_SIZE);
 
           rawData.clut = clut;
       }
-
-      Buf.readStringDelimiter(strLen);
 
       if (onsuccess) {
         onsuccess(rawData);
@@ -4205,11 +4197,9 @@ SimRecordHelperObject.prototype = {
       let RIL = this.context.RIL;
       let value = options.simResponse;
 
-      let strLen = value.length;
       // Each octet is encoded into two chars.
-      let octetLen = strLen / 2;
-      this.context.GsmPDUHelper.pdu = options.simResponse;
-      this.context.GsmPDUHelper.pduReadIndex = 0;
+      let octetLen = value.length / PDU_HEX_OCTET_SIZE;
+      this.context.GsmPDUHelper.initWith(options.simResponse);
       let sst = this.context.GsmPDUHelper.readHexOctetArray(octetLen);
       RIL.iccInfoPrivate.sst = sst;
       if (DEBUG) {
@@ -4377,11 +4367,9 @@ SimRecordHelperObject.prototype = {
       let RIL = this.context.RIL;
       let value = options.simResponse;
 
-      let strLen = value.length;
       // Each octet is encoded into two chars.
-      let octetLen = strLen / 2;
-      this.context.GsmPDUHelper.pdu = options.simResponse;
-      this.context.GsmPDUHelper.pduReadIndex = 0;
+      let octetLen = value.length / PDU_HEX_OCTET_SIZE;
+      this.context.GsmPDUHelper.initWith(options.simResponse);
       let mwis = this.context.GsmPDUHelper.readHexOctetArray(octetLen);
       if (!mwis) {
         return;
@@ -4449,16 +4437,12 @@ SimRecordHelperObject.prototype = {
       [mwis[0], mwis[1]] = (mwi.active) ? [(mwis[0] | 0x01), msgCount]
                                         : [(mwis[0] & 0xFE), 0];
 
-      let strLen = recordSize * 2;
-      let Buf = this.context.Buf;
-      Buf.writeInt32(strLen);
-
       let GsmPDUHelper = this.context.GsmPDUHelper;
+      GsmPDUHelper.initWith();
       for (let i = 0; i < mwis.length; i++) {
         GsmPDUHelper.writeHexOctet(mwis[i]);
       }
 
-      Buf.writeStringDelimiter(strLen);
     }
 
     this.context.ICCIOHelper.updateLinearFixedEF({
@@ -4478,8 +4462,7 @@ SimRecordHelperObject.prototype = {
   readSPDI: function() {
     function callback(options) {
       let value = options.simResponse;
-      let strLen = value.length;
-      let octetLen = strLen / 2;
+      let octetLen = value.length / PDU_HEX_OCTET_SIZE;
       let readLen = 0;
       let endLoop = false;
 
@@ -4530,9 +4513,9 @@ SimRecordHelperObject.prototype = {
   _readCbmiHelper: function(which) {
     let RIL = this.context.RIL;
 
-    function callback() {
-      let Buf = this.context.Buf;
-      let strLength = Buf.readInt32();
+    function callback(options) {
+      let value = options.simResponse;
+      let strLength = value.length;
 
       // Each Message Identifier takes two octets and each octet is encoded
       // into two chars.
@@ -4540,6 +4523,7 @@ SimRecordHelperObject.prototype = {
       if (numIds) {
         list = [];
         let GsmPDUHelper = this.context.GsmPDUHelper;
+        GsmPDUHelper.initWith(value);
         for (let i = 0, id; i < numIds; i++) {
           id = GsmPDUHelper.readHexOctet() << 8 | GsmPDUHelper.readHexOctet();
           // `Unused entries shall be set to 'FF FF'.`
@@ -4552,8 +4536,6 @@ SimRecordHelperObject.prototype = {
       if (DEBUG) {
         this.context.debug(which + ": " + JSON.stringify(list));
       }
-
-      Buf.readStringDelimiter(strLength);
 
       RIL.cellBroadcastConfigs[which] = list;
       RIL._mergeAllCellBroadcastConfigs();
@@ -4602,9 +4584,9 @@ SimRecordHelperObject.prototype = {
   readCBMIR: function() {
     let RIL = this.context.RIL;
 
-    function callback() {
-      let Buf = this.context.Buf;
-      let strLength = Buf.readInt32();
+    function callback(options) {
+      let value = options.simResponse;
+      let strLength = value.length;
 
       // Each Message Identifier range takes four octets and each octet is
       // encoded into two chars.
@@ -4612,6 +4594,7 @@ SimRecordHelperObject.prototype = {
       if (numIds) {
         list = [];
         let GsmPDUHelper = this.context.GsmPDUHelper;
+        GsmPDUHelper.initWith(value);
         for (let i = 0, from, to; i < numIds; i++) {
           // `Bytes one and two of each range identifier equal the lower value
           // of a cell broadcast range, bytes three and four equal the upper
@@ -4628,8 +4611,6 @@ SimRecordHelperObject.prototype = {
       if (DEBUG) {
         this.context.debug("CBMIR: " + JSON.stringify(list));
       }
-
-      Buf.readStringDelimiter(strLength);
 
       RIL.cellBroadcastConfigs.CBMIR = list;
       RIL._mergeAllCellBroadcastConfigs();
@@ -4660,7 +4641,6 @@ SimRecordHelperObject.prototype = {
     function callback(options) {
       let GsmPDUHelper = this.context.GsmPDUHelper;
       let value = options.simResponse;
-      let strLen = value.length;
       // The first 7 bytes are LAI (for UMTS) and the format of LAI is defined
       // in 3GPP TS 23.003, Sec 4.1
       //    +-------------+---------+
@@ -4738,7 +4718,7 @@ SimRecordHelperObject.prototype = {
       let pnnElement;
       let value = options.simResponse;
       let strLen = value.length;
-      let octetLen = strLen / 2;
+      let octetLen = strLen / PDU_HEX_OCTET_SIZE;
       let readLen = 0;
 
       let GsmPDUHelper = this.context.GsmPDUHelper;
@@ -4882,8 +4862,7 @@ SimRecordHelperObject.prototype = {
    */
   readSMS: function(recordNumber, onsuccess, onerror) {
     function callback(options) {
-      let Buf = this.context.Buf;
-      let strLen = Buf.readInt32();
+      let value = options.simResponse;
 
       // TS 51.011, 10.5.3 EF_SMS
       // b3 b2 b1
@@ -4892,15 +4871,11 @@ SimRecordHelperObject.prototype = {
       //  1  1  1 MS originating message; message to be sent
       //  1  0  1 MS originating message; message sent to the network:
       let GsmPDUHelper = this.context.GsmPDUHelper;
+      GsmPDUHelper.initWith(value);
       let status = GsmPDUHelper.readHexOctet();
 
       let message = GsmPDUHelper.readMessage();
       message.simStatus = status;
-
-      // Consumes the remaining buffer
-      Buf.seekIncoming(Buf.getReadAvailable() - Buf.PDU_HEX_OCTET_SIZE);
-
-      Buf.readStringDelimiter(strLen);
 
       if (message) {
         onsuccess(message);
@@ -4922,8 +4897,14 @@ SimRecordHelperObject.prototype = {
     function callback(options) {
       let RIL = this.context.RIL;
       let value = options.simResponse;
+      string_len = value.length;
 
-      RIL.iccInfoPrivate.gid1 = value;
+      let gid = "";
+      for (let i = 0; i < string_len; i++) {
+        gid += String.fromCharCode(value.charCodeAt(i));
+      }
+
+      RIL.iccInfoPrivate.gid1 = gid;
       if (DEBUG) {
         this.context.debug("GID1: " + RIL.iccInfoPrivate.gid1);
       }
@@ -4938,11 +4919,10 @@ SimRecordHelperObject.prototype = {
 
   readCFIS: function() {
     function callback(options) {
-      let Buf = this.context.Buf;
       let RIL = this.context.RIL;
+      let value = options.simResponse;
       let PDUHelper = this.context.GsmPDUHelper;
-
-      let length = Buf.readInt32();
+      PDUHelper.initWith(value);
       let cfis = {};
 
       cfis.msp = PDUHelper.readHexOctet();
@@ -4950,8 +4930,6 @@ SimRecordHelperObject.prototype = {
       cfis.number = this.context.ICCPDUHelper.readNumberWithLength();
       cfis.ccpRecordNumber = PDUHelper.readHexOctet();
       cfis.extRecordNumber = PDUHelper.readHexOctet();
-
-      Buf.readStringDelimiter(length);
 
       if (cfis.msp < 1 || cfis.msp > 4) {
         if (DEBUG) this.context.debug("CFIS content error: invalid msp");
@@ -4989,13 +4967,11 @@ SimRecordHelperObject.prototype = {
 
   updateCFIS: function(options) {
     let dataWriter = function dataWriter(recordSize) {
-      let Buf = this.context.Buf;
       let GsmPDUHelper = this.context.GsmPDUHelper;
+      GsmPDUHelper.initWith();
       let cfis = this.context.RIL.iccInfoPrivate.cfis;
 
       // Write String length
-      let strLen = recordSize * 2;
-      Buf.writeInt32(strLen);
 
       GsmPDUHelper.writeHexOctet(cfis.msp);
 
@@ -5014,7 +4990,6 @@ SimRecordHelperObject.prototype = {
       GsmPDUHelper.writeHexOctet(cfis.ccpRecordNumber);
       GsmPDUHelper.writeHexOctet(cfis.extRecordNumber);
 
-      Buf.writeStringDelimiter(strLen);
 
     }.bind(this);
 
@@ -5052,9 +5027,9 @@ SimRecordHelperObject.prototype = {
     function callback(options) {
       try {
         let RIL = this.context.RIL;
-        this.context.GsmPDUHelper.pdu = options.simResponse;
-        this.context.GsmPDUHelper.pduReadIndex = 0;
-        let cphsInfo = this.context.GsmPDUHelper.readHexOctetArray(options.simResponse.length / 2);
+        this.context.GsmPDUHelper.initWith(options.simResponse);
+        let octetLen = options.simResponse.length / PDU_HEX_OCTET_SIZE;
+        let cphsInfo = this.context.GsmPDUHelper.readHexOctetArray(octetLen);
         if (DEBUG) {
           let str = "";
           for (let i = 0; i < cphsInfo.length; i++) {
@@ -5155,9 +5130,8 @@ SimRecordHelperObject.prototype = {
     * @return A string corresponding to the CPHS ONS.
     */
   _processCphsOnsResponse: function(value) {
-    let strLen = value.length;
     // Each octet is encoded into two chars.
-    let octetLen = strLen / 2;
+    let octetLen = value.length / PDU_HEX_OCTET_SIZE;
     let ons = this.context.ICCPDUHelper.readAlphaIdentifier(value, octetLen);
     return ons;
   },
@@ -5187,9 +5161,10 @@ SimRecordHelperObject.prototype = {
    * Read CPHS Operator Name Shortform from the SIM.
    */
   readCphsONSF: function() {
-    function callback() {
+    function callback(options) {
       let RIL = this.context.RIL;
-      RIL.iccInfoPrivate.ons_short_form = this._processCphsOnsResponse();
+      let value = options.simResponse;
+      RIL.iccInfoPrivate.ons_short_form = this._processCphsOnsResponse(value);
       if (DEBUG) {
         this.context.debug("CPHS Operator Name Shortform = " +
                            RIL.iccInfoPrivate.ons_short_form);
@@ -5211,8 +5186,8 @@ SimRecordHelperObject.prototype = {
     function callback(options) {
       let RIL = this.context.RIL;
       let value = options.simResponse;
-      let strLen = value.length;
-      let octetLen = strLen/2;
+      let octetLen = value.length / PDU_HEX_OCTET_SIZE;
+      this.context.GsmPDUHelper.initWith(value);
 
       if (octetLen != 0) {
         // CPHS 4.2 B4.5
@@ -5235,7 +5210,6 @@ SimRecordHelperObject.prototype = {
           });
         }
       }
-      Buf.readStringDelimiter(strLen);
     }
     this.context.ICCIOHelper.loadTransparentEF({
       fileId: ICC_EF_CPHS_CFF,
@@ -5258,14 +5232,11 @@ SimRecordHelperObject.prototype = {
         cff[0] = cff[0] & 0x0F | 0x50;
       }
       this.context.RIL.iccInfoPrivate.cff = cff;
-
-      let strLen = fileSize * 2;
-      Buf.writeInt32(strLen);
+      this.context.GsmPDUHelpe.initWith();
 
       for (let i = 0; i < fileSize; i++) {
         this.context.GsmPDUHelper.writeHexOctet(cff[i]);
       }
-      Buf.writeStringDelimiter(strLen);
     }
 
     function callback() {
@@ -5287,6 +5258,7 @@ SimRecordHelperObject.prototype = {
   }
 };
 
+//FIXME
 function ISimRecordHelperObject(aContext) {
   this.context = aContext;
 }
@@ -5324,7 +5296,7 @@ ISimRecordHelperObject.prototype = {
     function callback() {
       let Buf = this.context.Buf;
       let strLen = Buf.readInt32();
-      let octetLen = strLen / 2;
+      let octetLen = strLen / PDU_HEX_OCTET_SIZE;
       let readLen = 0;
 
       let GsmPDUHelper = this.context.GsmPDUHelper;
@@ -5369,7 +5341,7 @@ ISimRecordHelperObject.prototype = {
       let GsmPDUHelper = this.context.GsmPDUHelper;
       let ICCIOHelper = this.context.ICCIOHelper;
       let strLen = Buf.readInt32();
-      let octetLen = strLen / 2;
+      let octetLen = strLen / PDU_HEX_OCTET_SIZE;
       let readLen = 0;
 
       let tlvTag = GsmPDUHelper.readHexOctet();
@@ -5785,7 +5757,8 @@ ICCPDUHelperObject.prototype = {
 
     // value = value - alphaLen's value
     let number_value = value.slice(alphaLen*2);
-    let number = this.readNumberWithLength(number_value);
+    this.context.GsmPDUHelper.initWith(number_value);
+    let number = this.readNumberWithLength();
 
     // the last recordSize byte is the extRecordNumber
     let extRecordNumber = this.context.GsmPDUHelper.processHexToInt(value.slice((recordSize-1)*2), 16);
@@ -5908,8 +5881,8 @@ ICCPDUHelperObject.prototype = {
    * TS 23.040 9.1.2.5, which the length means
    * "number of useful semi-octets within the Address-Value field".
    */
-  readDiallingNumber: function(value, len) {
-    if (DEBUG) this.context.debug("PDU: Going to read Dialling number: value=" + value + " , len=" + len);
+  readDiallingNumber: function(len) {
+    if (DEBUG) this.context.debug("PDU: Going to read Dialling number: " + len);
     if (len === 0) {
       return "";
     }
@@ -5917,9 +5890,7 @@ ICCPDUHelperObject.prototype = {
     let GsmPDUHelper = this.context.GsmPDUHelper;
 
     // TOA = TON + NPI. 1 byte.
-    let toa = GsmPDUHelper.processHexToInt(value.slice(0, 2), 16);
-    GsmPDUHelper.pdu = value.slice(2);
-    GsmPDUHelper.pduReadIndex = 0
+    let toa = GsmPDUHelper.readHexOctet();
     let number = GsmPDUHelper.readSwappedNibbleExtendedBcdString(len - 1);
     if (number.length <= 0) {
       if (DEBUG) this.context.debug("No number provided");
@@ -5948,11 +5919,11 @@ ICCPDUHelperObject.prototype = {
     GsmPDUHelper.writeSwappedNibbleBCD(number);
   },
 
-  readNumberWithLength: function(value) {
+  readNumberWithLength: function() {
     let number = "";
-    // 1 bytes number lenth.
-    let numLen = this.context.GsmPDUHelper.processHexToInt(value.slice(0, 2), 16);
     let GsmPDUHelper = this.context.GsmPDUHelper;
+    // 1 bytes number lenth.
+    let numLen = GsmPDUHelper.readHexOctet();
     if (numLen != 0xff) {
       if (numLen > ADN_MAX_BCD_NUMBER_BYTES) {
         if (DEBUG) {
@@ -5961,8 +5932,7 @@ ICCPDUHelperObject.prototype = {
         }
         return number;
       }
-      let number_value = value.slice(2);
-      number = this.readDiallingNumber(number_value, numLen);
+      number = this.readDiallingNumber(numLen);
     }
 
     return number;
@@ -7538,6 +7508,7 @@ StkProactiveCmdHelperObject.prototype = {
    */
   retrieveDuration: function(value, length) {
     let GsmPDUHelper = this.context.GsmPDUHelper;
+    GsmPDUHelper.initWith(value);
     let duration = {
       timeUnit: GsmPDUHelper.readHexOctet(),
       timeInterval: GsmPDUHelper.readHexOctet(),
@@ -7556,8 +7527,9 @@ StkProactiveCmdHelperObject.prototype = {
    * | (Y-1)+X+2    |                        |        |
    */
   retrieveAddress: function(value, length) {
+    this.context.GsmPDUHelper.initWith(value);
     let address = {
-      number : this.context.ICCPDUHelper.readDiallingNumber(value, length)
+      number : this.context.ICCPDUHelper.readDiallingNumber(length)
     };
     return address;
   },
