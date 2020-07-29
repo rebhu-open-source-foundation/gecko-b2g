@@ -154,7 +154,8 @@ class MediaCodecProxy : public RefBase,
   // The caller takes the ownership of the result MediaBuffer.
   MediaBuffer* CreateMediaBuffer(const sp<MediaCodecBuffer>& aMediaCodecBuffer);
   // Callfer should take care the life of aGraphicBuffer.
-  MediaBuffer* CreateMediaBuffer(const GraphicBuffer* aGraphicBuffer);
+  MediaBuffer* CreateMediaBuffer(const GraphicBuffer* aGraphicBuffer,
+                                 size_t aSize);
 
   // MediaCodec Parameter
   sp<ALooper> mCodecLooper;
@@ -176,6 +177,11 @@ class MediaCodecProxy : public RefBase,
   // MediaCodec buffers to hold input/output data.
   Vector<sp<MediaCodecBuffer>> mInputBuffers;
   Vector<sp<MediaCodecBuffer>> mOutputBuffers;
+
+  // GraphicBuffer buffers pointer to hold output GraphicBuffer data.
+  // Use this since there is no sp<GraphicBuffer> mGraphicBuffer in
+  // android::MediaBuffer.
+  Vector<sp<GraphicBuffer>> mOutputGraphicBuffers;
 
 #ifdef DEBUG_BUFFER_USAGE
   void PrintBufferStats(const char* aFunc = NULL, const int aIndex = -1);

@@ -475,6 +475,14 @@ class VideoData : public MediaData {
       bool aKeyframe, const media::TimeUnit& aTimecode,
       const IntRect& aPicture);
 
+#  ifdef MOZ_WIDGET_GONK
+  static already_AddRefed<VideoData> CreateAndCopyData(
+      const VideoInfo& aInfo, ImageContainer* aContainer, int64_t aOffset,
+      const media::TimeUnit& aTime, const media::TimeUnit& aDuration,
+      layers::TextureClient* aBuffer, bool aKeyframe,
+      const media::TimeUnit& aTimecode, const IntRect& aPicture);
+#  endif
+
   static already_AddRefed<VideoData> CreateFromImage(
       const IntSize& aDisplay, int64_t aOffset, const media::TimeUnit& aTime,
       const media::TimeUnit& aDuration, const RefPtr<Image>& aImage,

@@ -12,7 +12,7 @@
 
 namespace android {
 struct ALooper;
-class MediaBuffer;
+class MOZ_EXPORT MediaBuffer;
 class MediaCodecProxy;
 }  // namespace android
 
@@ -49,7 +49,7 @@ class GonkDecoderManager : public android::AHandler {
 
   virtual ~GonkDecoderManager() {}
 
-  virtual nsresult Init() = 0;
+  virtual RefPtr<InitPromise> Init() = 0;
   virtual const char* GetDescriptionName() const = 0;
   virtual TrackType GetTrackType() const = 0;
 
@@ -75,8 +75,7 @@ class GonkDecoderManager : public android::AHandler {
 
  protected:
   GonkDecoderManager()
-      : mInited(false),
-        mMutex("GonkDecoderManager"),
+      : mMutex("GonkDecoderManager"),
         mLastTime(INT64_MIN),
         mFlushMonitor("GonkDecoderManager::Flush"),
         mIsFlushing(false),
@@ -128,7 +127,7 @@ class GonkDecoderManager : public android::AHandler {
 #  endif
   };
 
-  bool mInited;
+  MozPromiseHolder<InitPromise> mInitPromise;
 
   Mutex mMutex;  // Protects mQueuedSamples.
   // A queue that stores the samples waiting to be sent to mDecoder.
@@ -175,21 +174,9 @@ class GonkDecoderManager : public android::AHandler {
 class AutoReleaseMediaBuffer {
  public:
   AutoReleaseMediaBuffer(android::MediaBuffer* aBuffer,
-                         android::MediaCodecProxy* aCodec)
-      : mBuffer(aBuffer), mCodec(aCodec) {}
-
-  ~AutoReleaseMediaBuffer() {
-    MOZ_ASSERT(mCodec.get());
-    if (mBuffer) {
-      mCodec->ReleaseMediaBuffer(mBuffer);
-    }
-  }
-
-  android::MediaBuffer* forget() {
-    android::MediaBuffer* tmp = mBuffer;
-    mBuffer = nullptr;
-    return tmp;
-  }
+                         android::MediaCodecProxy* aCodec);
+  ~AutoReleaseMediaBuffer();
+  android::MediaBuffer* forget();
 
  private:
   android::MediaBuffer* mBuffer;
@@ -216,9 +203,7 @@ class GonkMediaDataDecoder : public MediaDataDecoder {
   RefPtr<DecodePromise> Drain() override;
   RefPtr<ShutdownPromise> Shutdown() override;
 
-  nsCString GetDescriptionName() const override {
-    return "gonk decoder"_ns;
-  }
+  nsCString GetDescriptionName() const override { return "gonk decoder"_ns; }
 
   ConversionRequired NeedsConversion() const override {
     return ConversionRequired::kNeedAnnexB;

@@ -4,7 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 #include "GonkDecoderModule.h"
-//#include "GonkVideoDecoderManager.h"
+#include "GonkVideoDecoderManager.h"
 #include "GonkAudioDecoderManager.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/DebugOnly.h"
@@ -31,12 +31,10 @@ bool GonkDecoderModule::Init() {
 
 already_AddRefed<MediaDataDecoder> GonkDecoderModule::CreateVideoDecoder(
     const CreateDecoderParams& aParams) {
-  // TODO: Add GonkVideoDecoderManager
-  RefPtr<MediaDataDecoder>
-      decoder;  // =
-                // new GonkMediaDataDecoder(new
-                // GonkVideoDecoderManager(aParams.mImageContainer,
-                // aParams.mConfig));
+  RefPtr<MediaDataDecoder> decoder = new GonkMediaDataDecoder(
+      new GonkVideoDecoderManager(aParams.VideoConfig(),
+                                  aParams.mImageContainer),
+      aParams.mTaskQueue);
   return decoder.forget();
 }
 

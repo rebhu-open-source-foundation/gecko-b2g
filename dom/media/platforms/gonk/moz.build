@@ -11,19 +11,24 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
       'GonkAudioDecoderManager.h',
       'GonkDecoderModule.h',
       'GonkMediaDataDecoder.h',
-    #TODO: 'GonkVideoDecoderManager.h',
+      'GonkVideoDecoderManager.h',
       'I420ColorConverterHelper.h',
       'MediaCodecProxy.h',
   ]
 
   UNIFIED_SOURCES += [
-      'GonkAudioDecoderManager.cpp',
       'GonkDecoderModule.cpp',
       'GonkMediaDataDecoder.cpp',
-      #TODO: 'GonkVideoDecoderManager.cpp',
       'I420ColorConverterHelper.cpp',
       'MediaCodecProxy.cpp',
   ]
+
+  SOURCES += [
+      'GonkAudioDecoderManager.cpp',
+      'GonkVideoDecoderManager.cpp',
+  ]
+
+  include('/ipc/chromium/chromium-config.mozbuild')
 
   LOCAL_INCLUDES += [
     '%' + '%s/%s' % (CONFIG['GONK_PATH'], d) for d in [
@@ -43,8 +48,6 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
   OS_LIBS += [
       'media_omx',
   ]
-
-  include('/ipc/chromium/chromium-config.mozbuild')
 
   #Suppress some GCC / clang warnings being treated as errors:
   #- about attributes on forward declarations for types that are already

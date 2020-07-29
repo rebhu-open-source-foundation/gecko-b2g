@@ -54,11 +54,11 @@ GonkAudioDecoderManager::~GonkAudioDecoderManager() {
   MOZ_COUNT_DTOR(GonkAudioDecoderManager);
 }
 
-nsresult GonkAudioDecoderManager::Init() {
+RefPtr<MediaDataDecoder::InitPromise> GonkAudioDecoderManager::Init() {
   if (InitMediaCodecProxy()) {
-    return NS_OK;
+    return InitPromise::CreateAndResolve(GetTrackType(), __func__);
   } else {
-    return NS_ERROR_UNEXPECTED;
+    return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR, __func__);
   }
 }
 

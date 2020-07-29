@@ -13,7 +13,9 @@
 #include "mozilla/layers/ImageBridgeChild.h"
 #include "mozilla/layers/KnowsCompositor.h"
 #include "mozilla/layers/SharedRGBImage.h"
-
+#ifdef MOZ_WIDGET_GONK
+#  include "GrallocImages.h"
+#endif
 #include <stdint.h>
 
 #ifdef XP_WIN
@@ -434,6 +436,49 @@ already_AddRefed<VideoData> VideoData::CreateAndCopyData(
 
   return v.forget();
 }
+
+#ifdef MOZ_WIDGET_GONK
+/* static */
+already_AddRefed<VideoData> VideoData::CreateAndCopyData(
+    const VideoInfo& aInfo, ImageContainer* aContainer, int64_t aOffset,
+    const TimeUnit& aTime, const TimeUnit& aDuration,
+    layers::TextureClient* aBuffer, bool aKeyframe,
+    const TimeUnit& aTimecode, const IntRect& aPicture) {
+  if (!aContainer) {
+    // Create a dummy VideoData with no image. This gives us something to
+    // send to media streams if necessary.
+    RefPtr<VideoData> v(new VideoData(aOffset, aTime, aDuration, aKeyframe,
+                                      aTimecode, aInfo.mDisplay, 0));
+    return v.forget();
+  }
+
+  // The following situations could be triggered by invalid input
+  if (aPicture.width <= 0 || aPicture.height <= 0) {
+    NS_WARNING("Empty picture rect");
+    return nullptr;
+  }
+
+  // Ensure the picture size specified in the headers can be extracted out of
+  // the frame we've been supplied without indexing out of bounds.
+  CheckedUint32 xLimit = aPicture.x + CheckedUint32(aPicture.width);
+  CheckedUint32 yLimit = aPicture.y + CheckedUint32(aPicture.height);
+  if (!xLimit.isValid() || !yLimit.isValid()) {
+    // The specified picture dimensions can't be contained inside the video
+    // frame, we'll stomp memory if we try to copy it. Fail.
+    NS_WARNING("Overflowing picture rect");
+    return nullptr;
+  }
+
+  RefPtr<VideoData> v(new VideoData(aOffset, aTime, aDuration, aKeyframe,
+                                    aTimecode, aInfo.mDisplay, 0));
+
+  RefPtr<layers::GrallocImage> image = new layers::GrallocImage();
+  image->AdoptData(aBuffer, aPicture.Size());
+  v->mImage = image;
+
+  return v.forget();
+}
+#endif  // MOZ_WIDGET_GONK
 
 /* static */
 already_AddRefed<VideoData> VideoData::CreateFromImage(

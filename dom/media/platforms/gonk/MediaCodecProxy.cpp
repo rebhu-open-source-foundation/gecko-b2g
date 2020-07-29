@@ -44,10 +44,8 @@ struct OutputGraphicBufferStub<T, true> {
     if (aMediaCodec == nullptr || aGraphicBuffer == nullptr) {
       return BAD_VALUE;
     }
-    // TODO: Fix below.
-    //*aGraphicBuffer = aMediaCodec->getOutputGraphicBufferFromIndex(aIndex);
-    // return OK;
-    return ERROR_UNSUPPORTED;
+    *aGraphicBuffer = aMediaCodec->getOutputGraphicBufferFromIndex(aIndex);
+    return OK;
   }
 };
 
@@ -138,7 +136,7 @@ MediaCodecProxy::AsyncAllocateVideoMediaCodec() {
 
   mResourceClient->Acquire();
 
-  return p.forget();
+  return p;
 }
 
 void MediaCodecProxy::ReleaseMediaCodec() {
@@ -333,6 +331,7 @@ status_t MediaCodecProxy::dequeueOutputBuffer(size_t* aIndex, size_t* aOffset,
   RWLock::AutoRLock arl(mCodecLock);
 
   if (mCodec == nullptr) {
+    LOGE("Cannot dequeueOutputBuffer without MediaCodec.");
     return NO_INIT;
   }
 
@@ -468,6 +467,7 @@ void MediaCodecProxy::ResourceReserved() {
 
 // Called on ImageBridge thread
 void MediaCodecProxy::ResourceReserveFailed() {
+  LOGE("Resource Reserve Failed");
   mozilla::MonitorAutoLock lock(mPromiseMonitor);
   mCodecPromise.RejectIfExists(true, __func__);
 }
@@ -484,6 +484,10 @@ bool MediaCodecProxy::Prepare() {
   if (getOutputBuffers(&mOutputBuffers) != OK) {
     LOGE("Couldn't get output buffers from MediaCodec");
     return false;
+  }
+
+  if (mOutputBuffers.size() > mOutputGraphicBuffers.capacity()) {
+    mOutputGraphicBuffers.setCapacity(mOutputBuffers.size());
   }
 
 #ifdef DEBUG_BUFFER_USAGE
@@ -549,6 +553,7 @@ status_t MediaCodecProxy::Input(const uint8_t* aData, uint32_t aDataSize,
     err =
         queueInputBuffer(index, 0, dstBuffer->size(), aTimestampUsecs, aflags);
   } else {
+    LOG("queueInputBuffer MediaCodec::BUFFER_FLAG_EOS");
     err = queueInputBuffer(index, 0, 0, 0ll, MediaCodec::BUFFER_FLAG_EOS);
   }
 
@@ -568,8 +573,8 @@ MediaBuffer* MediaCodecProxy::CreateMediaBuffer(
 }
 
 MediaBuffer* MediaCodecProxy::CreateMediaBuffer(
-    const GraphicBuffer* aGraphicBuffer) {
-  MediaBuffer* buffer = new MediaBuffer(NULL, 0);
+    const GraphicBuffer* aGraphicBuffer, size_t aSize) {
+  MediaBuffer* buffer = new MediaBuffer(NULL, aSize);
   buffer->meta_data().setPointer(kKeyGraphicBuffer, (void*)aGraphicBuffer);
   return buffer;
 }
@@ -595,6 +600,7 @@ status_t MediaCodecProxy::Output(MediaBuffer** aBuffer, int64_t aTimeoutUs) {
   status_t err =
       dequeueOutputBuffer(&index, &offset, &size, &timeUs, &flags, aTimeoutUs);
   if (err != OK) {
+    LOGE("dequeueOutputBuffer error:%d", err);
     return err;
   }
 
@@ -603,7 +609,8 @@ status_t MediaCodecProxy::Output(MediaBuffer** aBuffer, int64_t aTimeoutUs) {
 
   if (getOutputGraphicBufferFromIndex(index, &graphicBuffer) == OK &&
       graphicBuffer != nullptr) {
-    buffer = CreateMediaBuffer(graphicBuffer.get());
+    buffer = CreateMediaBuffer(graphicBuffer.get(), size);
+    mOutputGraphicBuffers.insertAt(graphicBuffer, index);
   } else {
     buffer = CreateMediaBuffer(mOutputBuffers.itemAt(index));
   }
@@ -611,7 +618,11 @@ status_t MediaCodecProxy::Output(MediaBuffer** aBuffer, int64_t aTimeoutUs) {
   metaData.setInt32(kKeyBufferIndex, index);
   metaData.setInt64(kKeyTime, timeUs);
   *aBuffer = buffer;
+#ifdef DEBUG_BUFFER_USAGE
+  LOG("Output time:%lld, index:%d", timeUs, index);
+#endif
   if (flags & MediaCodec::BUFFER_FLAG_EOS) {
+    LOG("Got EOS from MediaCodec.");
     return ERROR_END_OF_STREAM;
   }
   return err;
@@ -624,6 +635,16 @@ void MediaCodecProxy::ReleaseMediaBuffer(MediaBuffer* aBuffer) {
     MetaDataBase& metaData = aBuffer->meta_data();
     int32_t index;
     metaData.findInt32(kKeyBufferIndex, &index);
+#ifdef DEBUG_BUFFER_USAGE
+    int64_t timeUs;
+    metaData.findInt64(kKeyTime, &timeUs);
+    LOG("ReleaseMediaBuffer time:%lld, index:%d", timeUs, index);
+#endif
+    GraphicBuffer* srcBuffer = nullptr;
+    if (aBuffer->meta_data().findPointer(MediaCodecProxy::kKeyGraphicBuffer,
+                                         (void**)&srcBuffer)) {
+      mOutputGraphicBuffers.removeAt(index);
+    }
     aBuffer->release();
     releaseOutputBuffer(index);
   }

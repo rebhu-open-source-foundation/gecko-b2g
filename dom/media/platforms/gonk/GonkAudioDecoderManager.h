@@ -27,7 +27,7 @@ class GonkAudioDecoderManager : public GonkDecoderManager {
 
   virtual ~GonkAudioDecoderManager();
 
-  nsresult Init() override;
+  RefPtr<InitPromise> Init() override;
 
   nsresult GetOutput(int64_t aStreamOffset,
                      MediaDataDecoder::DecodedData& aOutput) override;

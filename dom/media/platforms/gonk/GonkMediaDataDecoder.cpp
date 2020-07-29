@@ -125,7 +125,7 @@ nsresult GonkDecoderManager::Flush() {
     return NS_ERROR_UNEXPECTED;
   }
 
-  if (!mInited) {
+  if (!mInitPromise.IsEmpty()) {
     return NS_OK;
   }
 
@@ -151,7 +151,7 @@ nsresult GonkDecoderManager::Shutdown() {
     mDecoder = nullptr;
   }
 
-  mInited = false;
+  mInitPromise.RejectIfExists(NS_ERROR_DOM_MEDIA_CANCELED, __func__);
 
   return NS_OK;
 }
@@ -322,6 +322,23 @@ bool GonkDecoderManager::OnTaskLooper() {
 }
 #endif
 
+AutoReleaseMediaBuffer::AutoReleaseMediaBuffer(android::MediaBuffer* aBuffer,
+                                               android::MediaCodecProxy* aCodec)
+    : mBuffer(aBuffer), mCodec(aCodec) {}
+
+AutoReleaseMediaBuffer::~AutoReleaseMediaBuffer() {
+  MOZ_ASSERT(mCodec.get());
+  if (mBuffer) {
+    mCodec->ReleaseMediaBuffer(mBuffer);
+  }
+}
+
+android::MediaBuffer* AutoReleaseMediaBuffer::forget() {
+  android::MediaBuffer* tmp = mBuffer;
+  mBuffer = nullptr;
+  return tmp;
+}
+
 GonkMediaDataDecoder::GonkMediaDataDecoder(GonkDecoderManager* aManager,
                                            TaskQueue* aTaskQueue)
     : mManager(aManager), mTaskQueue(aTaskQueue) {
@@ -335,16 +352,7 @@ GonkMediaDataDecoder::~GonkMediaDataDecoder() {
 }
 
 RefPtr<MediaDataDecoder::InitPromise> GonkMediaDataDecoder::Init() {
-  RefPtr<MediaDataDecoder> self = this;
-  return InvokeAsync(mTaskQueue, __func__, [self, this]() {
-    RefPtr<InitPromise> p = mInitPromise.Ensure(__func__);
-    if (mManager->Init() == NS_OK) {
-      mInitPromise.ResolveIfExists(mManager->GetTrackType(), __func__);
-    } else {
-      mInitPromise.RejectIfExists(NS_ERROR_DOM_MEDIA_FATAL_ERR, __func__);
-    }
-    return p;
-  });
+  return mManager->Init();
 }
 
 RefPtr<ShutdownPromise> GonkMediaDataDecoder::Shutdown() {
