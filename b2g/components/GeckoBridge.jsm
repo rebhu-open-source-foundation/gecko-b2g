@@ -56,30 +56,53 @@ this.GeckoBridge = {
       this._bridge = Cc["@mozilla.org/sidl-native/bridge;1"].getService(
         Ci.nsIGeckoBridge
       );
-
-      this._appsServiceDelegate = Cc[
-        "@mozilla.org/sidl-native/appsservice;1"
-      ].getService(Ci.nsIAppsServiceDelegate);
-
-      this._powerManagerDelegate = Cc[
-        "@mozilla.org/sidl-native/powermanager;1"
-      ].getService(Ci.nsIPowerManagerDelegate);
-
-      this._networkManagerDelegate = Cc[
-        "@mozilla.org/sidl-native/networkmanager;1"
-      ].getService(Ci.nsINetworkManagerDelegate);
-
-      this._mobileManagerDelegate = Cc[
-        "@mozilla.org/sidl-native/mobilemanager;1"
-      ].getService(Ci.nsIMobileManagerDelegate);
-
-      this.setup();
     } catch (e) {
-      log(`Failed to create GeckoBridge component: ${e}`);
+      log(
+        `Failed to instanciate "@mozilla.org/sidl-native/bridge;1" service: ${e}`
+      );
+      return;
     }
+
+    // Any of these could fail, but we don't want to stop at the first failure.
+    [
+      {
+        prop: "_appsServiceDelegate",
+        xpcom: "appsservice",
+        interface: Ci.nsIAppsServiceDelegate,
+      },
+      {
+        prop: "_powerManagerDelegate",
+        xpcom: "powermanager",
+        interface: Ci.nsIPowerManagerDelegate,
+      },
+      {
+        prop: "_networkManagerDelegate",
+        xpcom: "networkmanager",
+        interface: Ci.nsINetworkManagerDelegate,
+      },
+      {
+        prop: "_mobileManagerDelegate",
+        xpcom: "mobilemanager",
+        interface: Ci.nsIMobileManagerDelegate,
+      },
+    ].forEach(delegate => {
+      let contract_id = `@mozilla.org/sidl-native/${delegate.xpcom};1`;
+      try {
+        this[delegate.prop] = Cc[contract_id].getService(delegate.interface);
+      } catch (e) {
+        log(`Failed to create '${contract_id}' delegate: ${e}`);
+      }
+    });
+
+    this.setup();
   },
 
   setup() {
+    if (!this._bridge) {
+      log(`Can't do any setup without a nsIGeckoBridge instance!`);
+      return;
+    }
+
     // Add a pref change listener for each of the watched prefs and sync the
     // initial value.
     kWatchedPrefs.forEach(pref => {
@@ -105,67 +128,59 @@ this.GeckoBridge = {
       reject() {
         log(`Failure setting ${delegate}`);
       },
-    }
+    };
   },
 
   setAppsServiceDelegate() {
-    if (!this._bridge || !this._appsServiceDelegate) {
+    if (!this._appsServiceDelegate) {
       log(`Invalid appsservice delegate`);
       return;
     }
 
-    if (this._bridge) {
-      log(`Setting AppsServiceDelegate`);
-      this._bridge.setAppsServiceDelegate(
-        this._appsServiceDelegate,
-        this.generateLoggingCallback("AppsServiceDelegate")
-      );
-    }
+    log(`Setting AppsServiceDelegate`);
+    this._bridge.setAppsServiceDelegate(
+      this._appsServiceDelegate,
+      this.generateLoggingCallback("AppsServiceDelegate")
+    );
   },
 
   setMobileManagerDelegate() {
-    if (!this._bridge || !this._mobileManagerDelegate) {
+    if (!this._mobileManagerDelegate) {
       log(`Invalid mobilemanager delegate`);
       return;
     }
 
-    if (this._bridge) {
-      log(`Setting MobileManagerDelegate`);
-      this._bridge.setMobileManagerDelegate(
-        this._mobileManagerDelegate,
-        this.generateLoggingCallback("MobileManagerDelegate")
-      );
-    }
+    log(`Setting MobileManagerDelegate`);
+    this._bridge.setMobileManagerDelegate(
+      this._mobileManagerDelegate,
+      this.generateLoggingCallback("MobileManagerDelegate")
+    );
   },
 
   setNetworkManagerDelegate() {
-    if (!this._bridge || !this._networkManagerDelegate) {
+    if (!this._networkManagerDelegate) {
       log(`Invalid networkmanager delegate`);
       return;
     }
 
-    if (this._bridge) {
-      log(`Setting NetworkManagerDelegate`);
-      this._bridge.setNetworkManagerDelegate(
-        this._networkManagerDelegate,
-        this.generateLoggingCallback("NetworkManagerDelegate")
-      );
-    }
+    log(`Setting NetworkManagerDelegate`);
+    this._bridge.setNetworkManagerDelegate(
+      this._networkManagerDelegate,
+      this.generateLoggingCallback("NetworkManagerDelegate")
+    );
   },
 
   setPowerManagerDelegate() {
-    if (!this._bridge || !this._powerManagerDelegate) {
+    if (!this._powerManagerDelegate) {
       log(`Invalid powermanager delegate`);
       return;
     }
 
-    if (this._bridge) {
-      log(`Setting PowerManagerDelegate`);
-      this._bridge.setPowerManagerDelegate(
-        this._powerManagerDelegate,
-        this.generateLoggingCallback("PowerManagerDelegate")
-      );
-    }
+    log(`Setting PowerManagerDelegate`);
+    this._bridge.setPowerManagerDelegate(
+      this._powerManagerDelegate,
+      this.generateLoggingCallback("PowerManagerDelegate")
+    );
   },
 
   setPref(pref) {
