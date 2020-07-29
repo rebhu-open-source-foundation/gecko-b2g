@@ -15,7 +15,7 @@
 
   const windowProvider = {
     openURI(aURI, aOpener, aWhere, aFlags, aTriggeringPrincipal, aCsp) {
-      log(`browserWindow::openURI ${aURI.spec}`);
+      log(`browserWindow::openURI ${aURI}`);
       throw Error("NOT IMPLEMENTED");
     },
 
@@ -27,7 +27,7 @@
       aTriggeringPrincipal,
       aCsp
     ) {
-      log(`browserWindow::createContentWindow ${aURI.spec}`);
+      log(`browserWindow::createContentWindow ${aURI}`);
       throw Error("NOT IMPLEMENTED");
     },
 
@@ -39,7 +39,7 @@
       // We also ignore aName if it is set, as it is currently only used on the
       // e10s codepath.
       log(
-        `browserWindow::openURIInFrame ${aURI.spec} ${aParams} ${aWhere} ${aFlags} ${aName}`
+        `browserWindow::openURIInFrame ${aURI} ${aParams} ${aWhere} ${aFlags} ${aName}`
       );
 
       // Need to return the new WebView here.
@@ -62,13 +62,12 @@
       aNextRemoteTabId,
       aName
     ) {
-      let url = aURI.spec;
       log(
-        `browserWindow::createContentWindowInFrame ${url} ${aParams.features} ${aNextRemoteTabId}`
+        `browserWindow::createContentWindowInFrame ${aURI} ${aParams.features} ${aNextRemoteTabId}`
       );
 
       let wm = exports.wm;
-      let web_view = wm.open_frame(url, { activate: true });
+      let web_view = wm.open_frame(aURI, { activate: true });
       return web_view;
     },
 

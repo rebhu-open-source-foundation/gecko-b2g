@@ -40,6 +40,7 @@ The `WebEmbedder` object exposes the following methods:
     - `id`: the unique id for this notification
   - `close(id)`: this will perform close action with a parameter id which is the unique id for this notification.
 - `isDaemonReady`: returns a boolean that is true if the api-daemon is running and is usable.
+- `isGonk`: returns true if this is a device build.
 
 ### Events
 
@@ -50,7 +51,7 @@ Since the `WebEmbedder` object extends `EventTarget` you can attach event listen
 
 ## WindowProvider delegate
 
-This delegate is used when the plaform needs to create a new top level window. It's a reflection of the `nsIBrowserDOMWindow` interface, hence the documentation at `https://searchfox.org/mozilla-central/source/dom/interfaces/base/nsIBrowserDOMWindow.idl` can be used.
+This delegate is used when the plaform needs to create a new top level window. It's mostly a reflection of the `nsIBrowserDOMWindow` interface, hence the documentation at `https://searchfox.org/mozilla-central/source/dom/interfaces/base/nsIBrowserDOMWindow.idl` can be used. One key difference is that `openXXX()` and `createXXX()` methods need to return a `<web-view>` element.
 
 ### Methods
 

@@ -77,45 +77,58 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   BrowserDOMWindow.prototype = {
     QueryInterface: ChromeUtils.generateQI([Ci.nsIBrowserDOMWindow]),
 
-    openURI(aURI, aOpener, aWhere, aFlags, aTriggeringPrincipal, aCsp) {
-      _webembed_log(`BrowserDOMWindow::openURI ${aURI.spec}`);
+    // Returns a BrowsingContext
+    openURI(aURI, aOpenWindowInfo, aWhere, aFlags, aTriggeringPrincipal, aCsp) {
+      _webembed_log(
+        `BrowserDOMWindow::openURI ${aURI ? aURI.spec : "<no uri>"}`
+      );
       if (this.embedder && this.embedder.browserDomWindow) {
-        return this.embedder.browserDomWindow.openURI(
-          aURI,
-          aOpener,
+        let res = this.embedder.browserDomWindow.openURI(
+          aURI ? aURI.spec : null,
+          aOpenWindowInfo,
           aWhere,
           aFlags,
           aTriggeringPrincipal,
           aCsp
         );
+        if (res) {
+          return res.frame.browsingContext;
+        }
       }
       _webembed_error("openURI NOT IMPLEMENTED");
       throw new Error("NOT IMPLEMENTED");
     },
 
+    // Returns a BrowsingContext
     createContentWindow(
       aURI,
-      aOpener,
+      aOpenWindowInfo,
       aWhere,
       aFlags,
       aTriggeringPrincipal,
       aCsp
     ) {
-      _webembed_log(`BrowserDOMWindow::createContentWindow ${aURI.spec}`);
+      _webembed_log(
+        `BrowserDOMWindow::createContentWindow ${aURI ? aURI.spec : "<no uri>"}`
+      );
       if (this.embedder && this.embedder.browserDomWindow) {
-        return this.embedder.browserDomWindow.createContentWindow(
-          aURI,
-          aOpener,
+        let res = this.embedder.browserDomWindow.createContentWindow(
+          aURI ? aURI.spec : null,
+          aOpenWindowInfo,
           aWhere,
           aFlags,
           aTriggeringPrincipal,
           aCsp
         );
+        if (res) {
+          return res.frame.browsingContext;
+        }
       }
       _webembed_error("createContentWindow NOT IMPLEMENTED");
       throw new Error("NOT IMPLEMENTED");
     },
 
+    // Returns an Element
     openURIInFrame(aURI, aParams, aWhere, aFlags, aNextRemoteTabId, aName) {
       // We currently ignore aNextRemoteTabId on mobile.  This needs to change
       // when Fennec starts to support e10s.  Assertions will fire if this code
@@ -123,10 +136,12 @@ XPCOMUtils.defineLazyModuleGetters(this, {
       //
       // We also ignore aName if it is set, as it is currently only used on the
       // e10s codepath.
-      _webembed_log(`BrowserDOMWindow::openURIInFrame ${aURI.spec}`);
+      _webembed_log(
+        `BrowserDOMWindow::openURIInFrame ${aURI ? aURI.spec : "<no uri>"}`
+      );
       if (this.embedder && this.embedder.browserDomWindow) {
         let res = this.embedder.browserDomWindow.openURIInFrame(
-          aURI,
+          aURI ? aURI.spec : null,
           aParams,
           aWhere,
           aFlags,
@@ -141,6 +156,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
       throw new Error("NOT IMPLEMENTED");
     },
 
+    // Returns an Element
     createContentWindowInFrame(
       aURI,
       aParams,
@@ -150,11 +166,13 @@ XPCOMUtils.defineLazyModuleGetters(this, {
       aName
     ) {
       _webembed_log(
-        `BrowserDOMWindow::createContentWindowInFrame ${aURI.spec}`
+        `BrowserDOMWindow::createContentWindowInFrame ${
+          aURI ? aURI.spec : "<no uri>"
+        }`
       );
       if (this.embedder && this.embedder.browserDomWindow) {
         let res = this.embedder.browserDomWindow.createContentWindowInFrame(
-          aURI,
+          aURI ? aURI.spec : null,
           aParams,
           aWhere,
           aFlags,
