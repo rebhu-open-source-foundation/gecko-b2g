@@ -88,6 +88,17 @@ CFReasonMap[Ci.nsIImsUt.CDIV_CF_NOT_REACHABLE] = Ci.nsIMobileConnection.CALL_FOR
 CFReasonMap[Ci.nsIImsUt.CDIV_CF_ALL] = Ci.nsIMobileConnection.CALL_FORWARD_REASON_ALL_CALL_FORWARDING;
 CFReasonMap[Ci.nsIImsUt.CDIV_CF_ALL_CONDITIONAL] = Ci.nsIMobileConnection.CALL_FORWARD_REASON_ALL_CONDITIONAL_CALL_FORWARDING;
 
+var CBProgramMap= [];
+CBProgramMap[Ci.nsIMobileConnection.CALL_BARRING_PROGRAM_ALL_OUTGOING] = Ci.nsIImsUt.CB_BAOC;
+CBProgramMap[Ci.nsIMobileConnection.CALL_BARRING_PROGRAM_OUTGOING_INTERNATIONAL] = Ci.nsIImsUt.CB_BOIC;
+CBProgramMap[Ci.nsIMobileConnection.CALL_BARRING_PROGRAM_OUTGOING_INTERNATIONAL_EXCEPT_HOME] = Ci.nsIImsUt.CB_BOIC_EXHC;
+CBProgramMap[Ci.nsIMobileConnection.CALL_BARRING_PROGRAM_ALL_INCOMING] = Ci.nsIImsUt.CB_BAIC;
+CBProgramMap[Ci.nsIMobileConnection.CALL_BARRING_PROGRAM_INCOMING_ROAMING] = Ci.nsIImsUt.CB_BIC_WR;
+CBProgramMap[Ci.nsIMobileConnection.CALL_BARRING_PROGRAM_ALL_SERVICE] = Ci.nsIImsUt.CB_BA_ALL;
+CBProgramMap[Ci.nsIMobileConnection.CALL_BARRING_PROGRAM_OUTGOING_SERVICE] = Ci.nsIImsUt.CB_BA_MO;
+CBProgramMap[Ci.nsIMobileConnection.CALL_BARRING_PROGRAM_INCOMING_SERVICE] = Ci.nsIImsUt.CB_BA_MT;
+CBProgramMap[Ci.nsIMobileConnection.CALL_BARRING_ANONYMOUS_INCOMING] = Ci.nsIImsUt.CB_BIC_ACR;
+
 // TODO: Customization for rsrp/rssnr range.
 const rsrp_thresh = [-140, -128, -118, -108, -98, -44];
 
@@ -1594,7 +1605,7 @@ MobileConnectionProvider.prototype = {
       if (this._imsUt) {
         // Send the request.
         let condition = CFConditionMap[aReason];
-        let requestId = this._imsUt.queryCallForward(condition, null);
+        let requestId = this._imsUt.queryCallForward(condition, "");
 
         if (requestId >= 0) {
           // Store the token for the callback notify.
@@ -1635,8 +1646,8 @@ MobileConnectionProvider.prototype = {
       }
 
       if (this._imsUt) {
-        let cbType = RIL.CALL_BARRING_PROGRAM_TO_FACILITY[aProgram];
-        let requestId = this._imsUt.updateCallBarring(cbType, aEnabled, null, aServiceClass, aPassword);
+        let cbType = CBProgramMap[aProgram];
+        let requestId = this._imsUt.updateCallBarring(cbType, aEnabled, [], aServiceClass, aPassword);
 
         if (requestId >= 0) {
           let token = {
@@ -1680,8 +1691,11 @@ MobileConnectionProvider.prototype = {
       }
 
       if (this._imsUt) {
-        let cbType = RIL.CALL_BARRING_PROGRAM_TO_FACILITY[aProgram];
+        let cbType = CBProgramMap[aProgram];
         let requestId = this._imsUt.queryCallBarring(cbType, aServiceClass);
+        if (DEBUG) {
+          this._debug("queryCallBarring with id: " + requestId);
+        }
 
         if (requestId >= 0) {
           // Store the token for the callback notify.
@@ -1823,6 +1837,10 @@ MobileConnectionProvider.prototype = {
     if (!this._isValidClirMode(aMode)) {
       this._dispatchNotifyError(aCallback, RIL.GECKO_ERROR_INVALID_PARAMETER);
       return;
+    }
+
+    if (DEBUG) {
+      this._debug("setCallingLineIdRestriction: " + aMode);
     }
 
     if (this._imsRegHandler && this._imsRegHandler.isImsRegistered) {
@@ -2015,7 +2033,6 @@ MobileConnectionProvider.prototype = {
     deviceId.imeisv = this.deviceIdentities.imeisv;
     deviceId.esn = this.deviceIdentities.esn;
     deviceId.meid = this.deviceIdentities.emid;
-
     aCallback.notifyGetDeviceIdentitiesRequestSuccess(deviceId);
   },
 
@@ -2026,15 +2043,24 @@ MobileConnectionProvider.prototype = {
         if (imsMMTel) {
           this._imsUt = imsMMTel.getUtInterface();
           if (this._imsUt) {
+            if (DEBUG) {
+              this._debug("set imsut callback this");
+            }
             this._imsUt.setCallback(this);
           } else {
-            this.debug("_imsUt not ready.");
+            if (DEBUG) {
+              this._debug("_imsUt not ready.");
+            }
           }
         } else {
-          this.debug("imsMMTel not ready.");
+          if (DEBUG) {
+            this._debug("imsMMTel not ready.");
+          }
         }
       } else {
-        this.debug("_imsRegHandler not ready.");
+        if (DEBUG) {
+          this._debug("_imsRegHandler not ready.");
+        }
       }
     }
   },
@@ -2043,11 +2069,13 @@ MobileConnectionProvider.prototype = {
   onUtConfigurationUpdated: function(aId) {
     let token = this._tokenUtMap[aId];
     if (!token) {
-      if (DEBUG) this.debug("Ignore orphan ut aId: " + aId);
+      if (DEBUG) this._debug("Ignore orphan ut aId: " + aId);
       return;
     }
 
-    this.debug("onUtConfigurationUpdated. aId= " + aId + ", aReqeust = " + token.request);
+    if (DEBUG) {
+      this._debug("onUtConfigurationUpdated. aId= " + aId + ", aReqeust = " + token.request);
+    }
 
     if (token.request === "setCallForwarding") {
       this.notifyCFStateChanged(token.action, token.reason, token.number, token.timeseconds, token.serviceclass);
@@ -2061,20 +2089,24 @@ MobileConnectionProvider.prototype = {
   onUtConfigurationUpdateFailed: function(aId, aError) {
     let token = this._tokenUtMap[aId];
     if (!token) {
-      if (DEBUG) this.debug("Ignore orphan ut aId: " + aId);
+      if (DEBUG) this._debug("Ignore orphan ut aId: " + aId);
       return;
     }
 
-    this.debug("onUtConfigurationUpdateFailed. aId=" + aId + " , aReqeust="+ token.reqeust + " , aError=" + aError);
+    if (DEBUG) {
+      this._debug("onUtConfigurationUpdateFailed. aId=" + aId + " , aReqeust="+ token.reqeust + " , aError=" + aError);
+    }
     this._dispatchNotifyError(token.callback, aError);
     delete this._tokenUtMap[aId];
   },
 
   onCallForwardQueried: function(aId, aCfInfos) {
-    this.debug("onCallForwardQueried. aId=" + aId + " , aCfInfos=" + JSON.stringify(aCfInfos));
+    if (DEBUG) {
+      this._debug("onCallForwardQueried. aId=" + aId + " , aCfInfos=" + JSON.stringify(aCfInfos));
+    }
     let token = this._tokenUtMap[aId];
     if (!token) {
-      if (DEBUG) this.debug("Ignore orphan ut aId: " + aId);
+      if (DEBUG) this._debug("Ignore orphan ut aId: " + aId);
       return;
     }
 
@@ -2091,16 +2123,18 @@ MobileConnectionProvider.prototype = {
       cfInfos.push(cfInfo);
     }
 
-    let infos = this._rulesToCallForwardingOptions(cfInfo);
+    let infos = this._rulesToCallForwardingOptions(cfInfos);
     token.callback.notifyGetCallForwardingSuccess(infos.length, infos);
     delete this._tokenUtMap[aId];
   },
 
   onCallBarringQueried: function(aId, aCbInfo) {
-    this.debug("onCallBarringQueried. aId=" + aId + " , aCbInfo=" + JSON.stringify(aCbInfo));
+    if (DEBUG) {
+      this._debug("onCallBarringQueried. aId=" + aId + " , aCbInfo=" + JSON.stringify(aCbInfo));
+    }
     let token = this._tokenUtMap[aId];
     if (!token) {
-      if (DEBUG) this.debug("Ignore orphan ut aId: " + aId);
+      if (DEBUG) this._debug("Ignore orphan ut aId: " + aId);
       return;
     }
 
@@ -2111,24 +2145,28 @@ MobileConnectionProvider.prototype = {
   },
 
   onCallWaitingQueried: function(aId, aCwInfo) {
-    this.debug("onCallBarringQueried. aId=" + aId + " , aCwInfo=" + JSON.stringify(aCwInfo));
+    if (DEBUG) {
+      this._debug("onCallWaitingQueried. aId=" + aId + " , aCwInfo=" + JSON.stringify(aCwInfo));
+    }
     let token = this._tokenUtMap[aId];
     if (!token) {
-      if (DEBUG) this.debug("Ignore orphan ut aId: " + aId);
+      if (DEBUG) this._debug("Ignore orphan ut aId: " + aId);
       return;
     }
 
-    let serviceClass =  (aCbInfo.status == Ci.nsIImsUt.STATUS_ENABLED) ? Ci.nsIMobileConnection.ICC_SERVICE_CLASS_VOICE
+    let serviceClass =  (aCwInfo.status == Ci.nsIImsUt.STATUS_ENABLED) ? Ci.nsIMobileConnection.ICC_SERVICE_CLASS_VOICE
                                                                        : Ci.nsIMobileConnection.ICC_SERVICE_CLASS_NONE;
     token.callback.notifyGetCallWaitingSuccess(serviceClass);
     delete this._tokenUtMap[aId];
   },
 
   onClirQueried: function(aId, aClirStatus) {
-    this.debug("onClirQueried. aId=" + aId + " , aClirStatus=" + JSON.stringify(aClirStatus));
+    if (DEBUG) {
+      this._debug("onClirQueried. aId=" + aId + " , aClirStatus=" + JSON.stringify(aClirStatus));
+    }
     let token = this._tokenUtMap[aId];
     if (!token) {
-      if (DEBUG) this.debug("Ignore orphan ut aId: " + aId);
+      if (DEBUG) this._debug("Ignore orphan ut aId: " + aId);
       return;
     }
 
@@ -2139,11 +2177,13 @@ MobileConnectionProvider.prototype = {
   utConfigurationQueryFailed: function(aId, aError) {
     let token = this._tokenUtMap[aId];
     if (!token) {
-      if (DEBUG) this.debug("Ignore orphan ut aId: " + aId);
+      if (DEBUG) this._debug("Ignore orphan ut aId: " + aId);
       return;
     }
 
-    this.debug("onCallBarringQueried. aId=" + aId +  " , aRequest= " + token.request + " , aError=" + aError);
+    if (DEBUG) {
+      this._debug("onCallBarringQueried. aId=" + aId +  " , aRequest= " + token.request + " , aError=" + aError);
+    }
     this._dispatchNotifyError(token.callback, aError);
   },
 

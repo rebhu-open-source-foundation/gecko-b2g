@@ -239,6 +239,8 @@ interface nsIMobileConnection : nsISupports
   const long CALL_BARRING_PROGRAM_ALL_SERVICE                        = 5;
   const long CALL_BARRING_PROGRAM_OUTGOING_SERVICE                   = 6;
   const long CALL_BARRING_PROGRAM_INCOMING_SERVICE                   = 7;
+  // IMS call barring feature.
+  const long CALL_BARRING_ANONYMOUS_INCOMING                         = 8;
 
   /**
    * Calling line identification restriction constants.

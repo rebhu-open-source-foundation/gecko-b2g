@@ -754,6 +754,8 @@ dictionary ClirStatus
    * (1) CLIR provisioned in permanent mode.
    * (2) unknown (e.g. no network, etc.).
    * (3) CLIR temporary mode presentation restricted.
+   * (4) CLIR temporary mode presentation allowed.
+   * m = 1, 3, 4 are treated as enabled.
    *
    * @see 3GPP TS 27.007 7.7 defined values.
    */

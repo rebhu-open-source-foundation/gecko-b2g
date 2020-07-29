@@ -1,0 +1,107 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+%{C++
+#define IMSPHONE_SERVICE_ID \
+  { 0xacb11ddb, 0x151e, 0x4881, \
+    { 0xb4, 0xac, 0xf5, 0x28, 0x52, 0x25, 0x5d, 0x9e } }
+#define IMSPHONE_SERVICE_CONTRACTID \
+  "@b2g/telephony/ims/imsphoneservice;1"
+%}
+
+[scriptable, uuid(2224134d-596a-4e74-b5c6-5b48a2621f45)]
+interface nsIImsGetFailCauseCallback : nsISupports {
+  void notifyFailCause(in AString cause);
+};
+
+[scriptable, uuid(3655a752-69f9-44e3-a4c8-74b5c159085e)]
+interface nsIImsPhoneCallback : nsISupports {
+  /**
+   * Invokes when request success.
+   */
+  void notifySuccess();
+
+  /**
+   * Invokes when request get an error.
+   *
+   * @param error the error message
+   */
+  void notifyError(in AString error);
+};
+
+[scriptable, uuid(5e208dfd-e5cc-4b56-9e8d-549ae6cbf718)]
+interface nsIImsPhoneDialRequest : nsISupports {
+  readonly attribute unsigned short serviceId;
+  readonly attribute AString number;
+  readonly attribute boolean isEmergency;
+  readonly attribute unsigned short type;
+  readonly attribute unsigned short rttMode;
+};
+
+[scriptable, uuid(1202dd60-3701-4f30-8c0b-a770d25fa913)]
+interface nsIImsPhone : nsISupports {
+  /**
+   * To make a MO call.
+   * @param dialRequest the destination you are going to make call to.
+   * @param callback request result will be notified via callback.
+   */
+  void dial(in nsIImsPhoneDialRequest dialRequest,
+            in nsIImsPhoneCallback callback);
+
+  /**
+   * To answer a incoming call.
+   *
+   * @param callIndex The incoming call index you are going to answer.
+   * @param type The call type you are going to answer with.
+   * @param rttMode the rtt mode you are going to answer with.
+   * @param calblack request result will be notified via callback.
+   */
+  void answerCall(in unsigned long callIndex,
+                  in unsigned long type,
+                  in unsigned short rttMode,
+                  in nsIImsPhoneCallback callback);
+
+  /**
+   * To reject an incoming call.
+   *
+   * @param callIndex The incoming call index you are going to reject
+   * @param callback The reject result will be notified via this callback.
+   */
+  void rejectCall(in unsigned long callIndex,
+                  in nsIImsPhoneCallback callback);
+
+  /**
+   * To hangup specific call.
+   *
+   * @param callIndex To call index you are going to hangup.
+   * @param callback request resut will be notified via callback.
+   */
+  void hangupCall(in unsigned long callIndex,
+                  in nsIImsPhoneCallback callback);
+
+  void getFailCause(in nsIImsGetFailCauseCallback callback);
+
+  void switchActiveCall(in unsigned long type,
+                        in unsigned short rttMode,
+                        in nsIImsPhoneCallback callback);
+
+  void sendDtmf(in AString dtmfChar, in nsIImsPhoneCallback callback);
+
+  void startDtmf(in AString c);
+
+  void stopDtmf();
+};
+
+[scriptable, uuid(cd47df53-ac11-40f2-8c7f-f4ea47499721)]
+interface nsIImsPhoneService : nsISupports {
+  /**
+   * To get Ims Phone instance.
+   *
+   * @param aServiceId The ims phone service id.
+   * @return the ImsPhone instance
+   */
+  nsIImsPhone getPhoneByServiceId(in unsigned long aServiceId);
+};

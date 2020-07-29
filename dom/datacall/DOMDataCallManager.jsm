@@ -43,7 +43,7 @@ XPCOMUtils.defineLazyGetter(this, "cpmm", () => {
 });
 
 /* global RIL_DEBUG */
-var RIL_DEBUG = Cu.import("resource://gre/modules/ril_consts_debug.js", obj);
+var RIL_DEBUG = Cu.import("resource://gre/modules/ril_consts_debug.js", null);
 
 XPCOMUtils.defineLazyGetter(this, "gDataCallHelper", function() {
   return {

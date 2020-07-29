@@ -287,6 +287,16 @@ XPCOMUtils.defineLazyServiceGetter(this, "gIccService",
                                    "@mozilla.org/icc/iccservice;1",
                                    "nsIIccService");
 
+/* global gImsRegService */
+XPCOMUtils.defineLazyServiceGetter(this, "gImsRegService",
+                                   "@mozilla.org/mobileconnection/imsregservice;1",
+                                   "nsIImsRegService");
+
+
+/* global gImsPhoneService */
+XPCOMUtils.defineLazyServiceGetter(this, "gImsPhoneService",
+                                   "@b2g/telephony/ims/imsphoneservice;1",
+                                   "nsIImsPhoneService");
 
 /* global PhoneNumberUtils */
 // FIXME
@@ -398,6 +408,10 @@ Call.prototype = {
     }
 
     return this.videoCallProvider;
+  },
+
+  isImsCall: function() {
+    return this.radioTech !== Ci.nsITelephonyCallInfo.RADIO_TECH_CS;
   }
 };
 
@@ -469,6 +483,7 @@ function TelephonyService() {
   this._currentCalls = {};
   this._audioStates = [];
   this._ussdSessions = [];
+  this._initImsPhones();
 
   this._cdmaCallWaitingNumber = null;
 
@@ -514,6 +529,7 @@ TelephonyService.prototype = {
    *    b) Receiving a session end unsolicited event.
    */
   _ussdSessions: null,
+  _imsPhones: null,
 
   _acquireCallRingWakeLock: function() {
     if (!this._callRingWakeLock) {
@@ -959,7 +975,7 @@ TelephonyService.prototype = {
       this.hangUpCall(aClientId, parseInt(aNumber[1]), mmiCallback);
     } else if (aNumber === "2") {
       aCallback.notifyDialMMI(MMI_KS_SC_CALL);
-      this._switchActiveCall(aClientId, 0, mmiCallback);
+      this._switchActiveCall(aClientId, mmiCallback);
     } else if (aNumber[0] === "2" && aNumber.length === 2) {
       aCallback.notifyDialMMI(MMI_KS_SC_CALL);
       this._separateCallGsm(aClientId, parseInt(aNumber[1]), mmiCallback);
@@ -1069,7 +1085,7 @@ TelephonyService.prototype = {
       return;
     }
 
-    this._switchActiveCall(aClientId, aRttMode, {
+    this._switchActiveCall(aClientId, {
       QueryInterface: ChromeUtils.generateQI([Ci.nsITelephonyCallback]),
 
       notifySuccess: () => {
@@ -1132,7 +1148,19 @@ TelephonyService.prototype = {
   },
 
   _sendDialCallRequest: function(aClientId, aOptions, aCallback) {
+    if (DEBUG) {
+      debug("_sendDialCallRequest: " + aOptions);
+    }
     this._isDialing = true;
+
+    if (this._isIms(aClientId)) {
+      this._dialImsCall(aClientId, aOptions, aCallback);
+      return;
+    }
+
+    if (DEBUG) {
+      debug("dial cs call");
+    }
 
     this._sendToRilWorker(aClientId, "dial", aOptions, response => {
       this._isDialing = false;
@@ -1963,17 +1991,18 @@ TelephonyService.prototype = {
                       aCallback) {
     let timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
     let tones = aDtmfChars;
-    let playTone = (tone) => {
-      this._sendToRilWorker(aClientId, "startTone", { dtmfChar: tone }, response => {
-        if (response.errorMsg) {
-          aCallback.notifyError(response.errorMsg);
-          return;
-        }
+    let isIms = this._isIms(aClientId);
+    let self = this;
 
+    let playTone = (tone) => {
+      if (DEBUG) debug("sendTones playTone: " + tone);
+      let run = function() {
+        if (DEBUG) debug("sendTones run: " + tone);
         timer.initWithCallback(() => {
-          this.stopTone(aClientId);
+          self.stopTone(aClientId);
           timer.initWithCallback(() => {
             if (tones.length === 1) {
+              if (DEBUG) debug("sendTones success");
               aCallback.notifySuccess();
             } else {
               tones = tones.substr(1);
@@ -1981,7 +2010,31 @@ TelephonyService.prototype = {
             }
           }, TONES_GAP_DURATION, Ci.nsITimer.TYPE_ONE_SHOT);
         }, aToneDuration, Ci.nsITimer.TYPE_ONE_SHOT);
-      });
+      };
+
+      if (isIms) {
+        let callback = {
+          notifySuccess: function() {
+            if (DEBUG) debug("sendTones notifySuccess");
+            run();
+          },
+
+          notifyError: function(aError) {
+            if (DEBUG) debug("sendTones notifyError: " + aError);
+            aCallback.notifyError(aError);
+            return;
+          }
+        };
+        this._sendImsTone(aClientId, tone, callback);
+      } else {
+        this._sendToRilWorker(aClientId, "startTone", { dtmfChar: tone }, response => {
+          if (response.errorMsg) {
+            aCallback.notifyError(response.errorMsg);
+            return;
+          }
+          run();
+        });
+      }
     };
 
     timer.initWithCallback(() => {
@@ -1990,15 +2043,24 @@ TelephonyService.prototype = {
   },
 
   startTone: function(aClientId, aDtmfChar) {
+    if (this._isIms(aClientId)) {
+      this._startImsTone(aClientId, aDtmfChar);
+      return;
+    }
     this._sendToRilWorker(aClientId, "startTone", { dtmfChar: aDtmfChar });
   },
 
   stopTone: function(aClientId) {
+    if (this._isIms(aClientId)) {
+      this._stopImsTone(aClientId);
+      return;
+    }
     this._sendToRilWorker(aClientId, "stopTone");
   },
 
   answerCall: function(aClientId, aCallIndex, aType, aRttMode, aCallback) {
     let call = this._currentCalls[aClientId][aCallIndex];
+    if (DEBUG) {console.log("answerCall state: " + call.state);}
     if (!call || call.state != nsITelephonyService.CALL_STATE_INCOMING) {
       aCallback.notifyError(RIL.GECKO_ERROR_GENERIC_FAILURE);
       return;
@@ -2006,10 +2068,18 @@ TelephonyService.prototype = {
 
     let callNum = Object.keys(this._currentCalls[aClientId]).length;
     if (callNum !== 1) {
-      this._switchActiveCall(aClientId, aRttMode, aCallback);
+      this._switchActiveCall(aClientId, aCallback);
     } else {
-      this._sendToRilWorker(aClientId, "answerCall", {rttMode: aRttMode},
-                            this._defaultCallbackHandler.bind(this, aCallback));
+      if (DEBUG) {
+        debug("answerCall isImsCall: " + call.isImsCall());
+      }
+      if (call.isImsCall()) {
+        this._answerImsPhone(aClientId, aCallIndex, aType, aRttMode, aCallback);
+      } else {
+        if (DEBUG) {console.log("answerCall sendToRil");}
+        this._sendToRilWorker(aClientId, "answerCall", null,
+          this._defaultCallbackHandler.bind(this, aCallback));
+      }
     }
   },
 
@@ -2031,8 +2101,12 @@ TelephonyService.prototype = {
       this._hangUpBackground(aClientId, aCallback);
     } else {
       call.hangUpLocal = true;
-      this._sendToRilWorker(aClientId, "udub", null,
-                            this._defaultCallbackHandler.bind(this, aCallback));
+      if (call.isImsCall()) {
+        this._rejectImsCall(aClientId, aCallIndex, aCallback);
+      } else {
+        this._sendToRilWorker(aClientId, "udub", null,
+          this._defaultCallbackHandler.bind(this, aCallback));
+      }
     }
   },
 
@@ -2102,8 +2176,12 @@ TelephonyService.prototype = {
     let call = this._currentCalls[aClientId][aCallIndex];
 
     call.hangUpLocal = true;
-    this._sendToRilWorker(aClientId, "hangUpCall", { callIndex: aCallIndex },
-                          this._defaultCallbackHandler.bind(this, aCallback));
+    if (call.isImsCall()) {
+      this._hangupImsCall(aClientId, aCallIndex, aCallback);
+    } else{
+      this._sendToRilWorker(aClientId, "hangUpCall", { callIndex: aCallIndex },
+                            this._defaultCallbackHandler.bind(this, aCallback));
+    }
   },
 
   _switchCall: function(aClientId, aCallIndex, aCallback, aRequiredState) {
@@ -2127,12 +2205,24 @@ TelephonyService.prototype = {
       return;
     }
 
-    this._switchActiveCall(aClientId, 0, aCallback);
+    if (call.isImsCall()) {
+      this._switchImsActiveCall(aClientId, Ci.nsITelephonyService.CALL_TYPE_VOICE,
+          Ci.nsITelephonyService.RTT_MODE_OFF, aCallback);
+    } else {
+      this._switchActiveCall(aClientId, aCallback);
+    }
   },
 
-  _switchActiveCall: function(aClientId, aRttMode, aCallback) {
-    this._sendToRilWorker(aClientId, "switchActiveCall", {rttMode: aRttMode},
+  _switchActiveCall: function(aClientId, aCallback) {
+    this._sendToRilWorker(aClientId, "switchActiveCall", null,
                           this._defaultCallbackHandler.bind(this, aCallback));
+  },
+
+  _switchImsActiveCall: function(aClientId, aCallType, aRttMode, aCallback) {
+    if (DEBUG) {debug("_switchImsActiveCall");}
+    let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+    let imsCallback = this._createSimpleImsCallback(aCallback);
+    imsPhone.switchActiveCall(aCallType, aRttMode, imsCallback);
   },
 
   _switchCallCdma: function(aClientId, aCallIndex, aCallback) {
@@ -2315,7 +2405,7 @@ TelephonyService.prototype = {
       return;
     }
 
-    this._switchActiveCall(aClientId, 0, aCallback);
+    this._switchActiveCall(aClientId, aCallback);
   },
 
   holdConference: function(aClientId, aCallback) {
@@ -2545,6 +2635,13 @@ TelephonyService.prototype = {
     if (!hasRemovedCalls()) {
       this._handleCurrentCalls(aClientId, aCalls);
     } else {
+      // TODO need a better way for this.
+      if (this._isIms(aClientId)) {
+        this._getImsLastFailCause(aClientId, (cause) => {
+          this._handleCurrentCalls(aClientId, aCalls, cause);
+        });
+        return;
+      }
       this._sendToRilWorker(aClientId, "getFailCause", null, response => {
         this._handleCurrentCalls(aClientId, aCalls, response.failCause);
       });
@@ -2798,7 +2895,172 @@ TelephonyService.prototype = {
         Services.obs.removeObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID);
         break;
     }
-  }
+  },
+
+  // IMS part
+  _isIms: function (aClientId) {
+    if (DEBUG) {debug("_isIms: " + aClientId);}
+    let imsHandler = gImsRegService.getHandlerByServiceId(aClientId);
+    if (!imsHandler) {
+      if (DEBUG) {debug("_isIms no imsHandler ");}
+      return false;
+    }
+
+    if (DEBUG) {
+      debug("_isIms enabled: " + imsHandler.enabled);
+      debug("_isIms capability: " + imsHandler.capability);
+    }
+
+    let isIms = imsHandler.enabled &&
+        imsHandler.capability > Ci.nsIImsRegHandler.IMS_CAPABILITY_UNKNOWN;
+
+    if (DEBUG) {debug("_isIms call ims: " + isIms);}
+    return isIms;
+  },
+
+  _dialImsCall: function (aClientId, aOptions, aCallback) {
+    let imsPhone = this._imsPhones[aClientId];
+    let dialRequest = {
+      QueryInterface: ChromeUtils.generateQI([Ci.nsIImsPhoneDialRequest]),
+      serviceId: aClientId,
+      number: aOptions.number,
+      isEmergency: aOptions.isEmergency,
+      type: aOptions.type,
+      rttMode: aOptions.rttMode
+    };
+
+    let self = this;
+    let ismCallback = this._createImsCallback(
+      () => {
+        self._isDialing = false;
+        if (DEBUG) {console.log("_dialImsCall success");}
+        self._ongoingDial = {
+          clientId: aClientId,
+          isEmergency: aOptions.isEmergency,
+          rttMode: aOptions.rttMode,
+          callback: aCallback
+        };
+      },
+      (aError) => {
+        self._isDialing = false;
+        if (DEBUG) {console.log("_dialImsCall error: " + aError);}
+        aCallback.notifyError(aError);
+    });
+
+    imsPhone.dial(dialRequest, ismCallback);
+  },
+
+  _initImsPhones: function () {
+    this._imsPhones = [];
+    for (let index = 0; index < this._numClients; index++) {
+      let imsPhone = gImsPhoneService.getPhoneByServiceId(index);
+      this._imsPhones.push(imsPhone);
+    }
+  },
+
+  _answerImsPhone: function(aClientId, aCallIndex, aType, aRttMode, aCallback) {
+    if (DEBUG) {
+      console.log("_answerImsPhone: " + aCallIndex);
+    }
+    let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+    imsPhone.answerCall(aCallIndex, aType, aRttMode, this._createSimpleImsCallback(aCallback));
+  },
+
+  _rejectImsCall: function(aClientId, aCallIndex, aCallback) {
+    if (DEBUG) {
+      console.log("_rejectImsCall: " + aCallIndex);
+    }
+    let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+    if (DEBUG) {
+      console.log("_rejectImsCall with phone: " + imsPhone);
+    }
+    imsPhone.rejectCall(aCallIndex, this._createSimpleImsCallback(aCallback));
+  },
+
+  _hangupImsCall: function(aClientId, aCallIndex, aCallback) {
+    if (DEBUG) {
+      console.log("_hangupImsCall: " + aCallIndex);
+    }
+    let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+    imsPhone.hangupCall(aCallIndex, this._createSimpleImsCallback(aCallback));
+  },
+
+  _createSimpleImsCallback: function(aCallback) {
+    return {
+      QueryInterface: ChromeUtils.generateQI([Ci.nsIImsPhoneCallback]),
+      notifySuccess: function() {
+        aCallback.notifySuccess();
+      },
+
+      notifyError: function(aError) {
+        aCallback.notifyError(aError);
+      }
+    };
+  },
+
+  _getImsLastFailCause: function(aClientId, aCallback) {
+    let callback = {
+      QueryInterface: ChromeUtils.generateQI([Ci.nsIImsGetFailCauseCallback]),
+      notifyFailCause: function(aCause) {
+        aCallback(aCause);
+      }
+    };
+    let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+    imsPhone.getFailCause(callback);
+  },
+
+  _sendImsTone: function(aClientId, aDtmfChar, aCallback) {
+    if (DEBUG) {
+      debug("_sendImsTone");
+    }
+
+    let callback = {
+      QueryInterface: ChromeUtils.generateQI([Ci.nsIImsPhoneCallback]),
+      notifySuccess: function() {
+        if (DEBUG) {
+          debug("sendImsTone notifySuccess");
+        }
+        aCallback.notifySuccess();
+      },
+
+      notifyError: function(aError) {
+        debug("sendImsTone notifyError: " + aError);
+        aCallback.notifyError(aError);
+      }
+    }
+    let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+    imsPhone.sendDtmf(aDtmfChar, callback);
+  },
+
+  _startImsTone: function(aClientId, aDtmfChar) {
+    if (DEBUG) {
+      debug("_startTone");
+    }
+
+    let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+    imsPhone.startDtmf(aDtmfChar);
+  },
+
+  _stopImsTone: function(aClientId) {
+    if (DEBUG) {
+      debug("_stopImsTone");
+    }
+    let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+    imsPhone.stopDtmf();
+  },
+
+  _createImsCallback: function(aSuccessCb, aErrorCb) {
+    return {
+      QueryInterface: ChromeUtils.generateQI([Ci.nsIImsPhoneCallback]),
+      notifySuccess: function() {
+        aSuccessCb();
+      },
+
+      notifyError: function(aError) {
+        aErrorCb(aError);
+      }
+    }
+  },
 };
 
 var EXPORTED_SYMBOLS = ["TelephonyService"];
