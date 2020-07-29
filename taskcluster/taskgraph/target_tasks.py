@@ -607,6 +607,11 @@ def target_tasks_kaios(full_task_graph, parameters, graph_config):
         # Toolchains used for local development should always be built.
         if task.attributes.get('local-toolchain'):
             return True
+        # Run anything that is supposed to run on kaios. We don't use
+        # `filter_for_project`, since we don't want to run things that are
+        # marked `all`.
+        if 'kaios' in task.attributes.get('run_on_projects'):
+            return True
         # We disable everything in central, and adjust downstream.
         return False
     return [l for l, t in six.iteritems(full_task_graph.tasks) if filter(t)]
