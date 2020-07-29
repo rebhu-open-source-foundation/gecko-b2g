@@ -83,11 +83,12 @@ This delegate is responsible for displaying desktop notifications UI.
   - `text`: the notification text.
   - `dir`: whether this notification should be displayed in ltr or rtl direction.
   - `lang`: the language code for this notification.
-  - `manifestURL`: ???.
+  - `origin`: the origin the notification is sent from.
   - `timestamp`: when the notification was triggered.
-  - `data`: ???.
-  - `mozbehavior`: ???.
-  - `requireInteraction`: ???.
+  - `data`: Arbitrary data that you want associated with the notification.
+  - `requireInteraction`: Indicates that a notification should remain active until the user clicks or dismisses it, rather than closing automatically.
+  - `mozbehavior`: a dictionary indicates custom notification behavior.
+  - `serviceWorkerRegistrationScope`: the unique identifier for the service worker registration the notification is sent from.
 
 ## ActivityChooser delegate
 
