@@ -244,7 +244,7 @@ class StaticAnalysis(MachCommandBase):
         )
 
         self._set_log_level(verbose)
-        self._activate_virtualenv()
+        self.activate_virtualenv()
         self.log_manager.enable_unstructured()
 
         rc = self._get_clang_tools(verbose=verbose)
@@ -354,7 +354,7 @@ class StaticAnalysis(MachCommandBase):
     def check_coverity(self, source=[], output=None, coverity_output_path=None,
                        outgoing=False, full_build=False, verbose=False):
         self._set_log_level(verbose)
-        self._activate_virtualenv()
+        self.activate_virtualenv()
         self.log_manager.enable_unstructured()
 
         if 'MOZ_AUTOMATION' not in os.environ:
@@ -537,7 +537,7 @@ class StaticAnalysis(MachCommandBase):
 
         self.log(logging.INFO, 'static-analysis', {}, 'Running '+' '.join(cmd))
 
-        rc = self.run_process(args=cmd, cwd=path, pass_thru=True)
+        rc = self.run_process(args=cmd, cwd=path, pass_thru=True, ensure_exit_code=False)
 
         if rc != 0:
             self.log(logging.ERROR, 'static-analysis', {},
@@ -817,7 +817,7 @@ class StaticAnalysis(MachCommandBase):
                    task='compileWithGeckoBinariesDebugSources',
                    skip_export=False, outgoing=False, output=None):
         self._set_log_level(verbose)
-        self._activate_virtualenv()
+        self.activate_virtualenv()
         self.log_manager.enable_unstructured()
 
         if self.substs['MOZ_BUILD_APP'] != 'mobile/android':
@@ -1027,7 +1027,7 @@ class StaticAnalysis(MachCommandBase):
 
     def _check_for_java(self):
         '''Check if javac can be found.'''
-        import distutils
+        import distutils.spawn
         java = self.substs.get('JAVA')
         java = java or os.getenv('JAVA_HOME')
         java = java or distutils.spawn.find_executable('javac')
@@ -1082,7 +1082,7 @@ class StaticAnalysis(MachCommandBase):
         # checker in particulat and thus 'force_download' becomes 'False' since we want to
         # do this on a local trusted clang-tidy package.
         self._set_log_level(verbose)
-        self._activate_virtualenv()
+        self.activate_virtualenv()
         self._dump_results = dump_results
 
         force_download = not self._dump_results

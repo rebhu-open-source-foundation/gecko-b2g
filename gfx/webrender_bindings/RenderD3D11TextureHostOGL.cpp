@@ -209,7 +209,14 @@ wr::WrExternalImage RenderDXGITextureHostOGL::Lock(
     // Release the texture handle in the previous gl context.
     DeleteTextureHandle();
     mGL = aGL;
-    mGL->MakeCurrent();
+  }
+
+  if (!mGL) {
+    // XXX Software WebRender is not handled yet.
+    // Software WebRender does not provide GLContext
+    gfxCriticalNoteOnce
+        << "Software WebRender is not suppored by RenderDXGITextureHostOGL.";
+    return InvalidToWrExternalImage();
   }
 
   if (!EnsureLockable(aRendering)) {
@@ -260,24 +267,24 @@ void RenderDXGITextureHostOGL::DeleteTextureHandle() {
 
   if (mGL->MakeCurrent()) {
     mGL->fDeleteTextures(2, mTextureHandle);
+    const auto& gle = gl::GLContextEGL::Cast(mGL);
+    const auto& egl = gle->mEgl;
+    if (mSurface) {
+      egl->fDestroySurface(egl->Display(), mSurface);
+    }
+    if (mStream) {
+      egl->fDestroyStreamKHR(egl->Display(), mStream);
+    }
   }
+
   for (int i = 0; i < 2; ++i) {
     mTextureHandle[i] = 0;
   }
 
-  const auto& gle = gl::GLContextEGL::Cast(mGL);
-  const auto& egl = gle->mEgl;
-  if (mSurface) {
-    egl->fDestroySurface(egl->Display(), mSurface);
-    mSurface = 0;
-  }
-  if (mStream) {
-    egl->fDestroyStreamKHR(egl->Display(), mStream);
-    mStream = 0;
-  }
-
   mTexture = nullptr;
   mKeyedMutex = nullptr;
+  mSurface = 0;
+  mStream = 0;
 }
 
 GLuint RenderDXGITextureHostOGL::GetGLHandle(uint8_t aChannelIndex) const {
@@ -437,7 +444,14 @@ wr::WrExternalImage RenderDXGIYCbCrTextureHostOGL::Lock(
     // Release the texture handle in the previous gl context.
     DeleteTextureHandle();
     mGL = aGL;
-    mGL->MakeCurrent();
+  }
+
+  if (!mGL) {
+    // XXX Software WebRender is not handled yet.
+    // Software WebRender does not provide GLContext
+    gfxCriticalNoteOnce << "Software WebRender is not suppored by "
+                           "RenderDXGIYCbCrTextureHostOGL.";
+    return InvalidToWrExternalImage();
   }
 
   if (!EnsureLockable(aRendering)) {

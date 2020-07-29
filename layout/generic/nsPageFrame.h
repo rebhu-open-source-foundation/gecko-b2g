@@ -26,7 +26,7 @@ class nsPageFrame final : public nsContainerFrame {
   friend nsPageFrame* NS_NewPageFrame(mozilla::PresShell* aPresShell,
                                       ComputedStyle* aStyle);
 
-  void Reflow(nsPresContext* aPresContext, ReflowOutput& aDesiredSize,
+  void Reflow(nsPresContext* aPresContext, ReflowOutput& aReflowOutput,
               const ReflowInput& aReflowInput,
               nsReflowStatus& aStatus) override;
 
@@ -84,11 +84,14 @@ class nsPageFrame final : public nsContainerFrame {
 
   void ProcessSpecialCodes(const nsString& aStr, nsString& aNewStr);
 
-  int32_t mPageNum;
-  int32_t mTotNumPages;
+  static constexpr int32_t kPageNumUnset = -1;
 
-  // Note: this is strongly owned by our nsPageSequenceFrame, which outlives us.
-  nsSharedPageData* mPD;
+  int32_t mPageNum = kPageNumUnset;
+  int32_t mTotNumPages = kPageNumUnset;
+
+  // Note: this will be set before reflow, and it's strongly owned by our
+  // nsPageSequenceFrame, which outlives us.
+  nsSharedPageData* mPD = nullptr;
 
   nsMargin mPageContentMargin;
 };
@@ -99,7 +102,7 @@ class nsPageBreakFrame final : public nsLeafFrame {
   explicit nsPageBreakFrame(ComputedStyle* aStyle, nsPresContext* aPresContext);
   ~nsPageBreakFrame();
 
-  void Reflow(nsPresContext* aPresContext, ReflowOutput& aDesiredSize,
+  void Reflow(nsPresContext* aPresContext, ReflowOutput& aReflowOutput,
               const ReflowInput& aReflowInput,
               nsReflowStatus& aStatus) override;
 
