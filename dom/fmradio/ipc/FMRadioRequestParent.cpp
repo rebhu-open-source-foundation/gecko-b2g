@@ -11,11 +11,9 @@
 BEGIN_FMRADIO_NAMESPACE
 
 FMRadioRequestParent::FMRadioRequestParent() : mActorDestroyed(false) {
-  MOZ_COUNT_CTOR(FMRadioRequestParent);
 }
 
 FMRadioRequestParent::~FMRadioRequestParent() {
-  MOZ_COUNT_DTOR(FMRadioRequestParent);
 }
 
 void FMRadioRequestParent::ActorDestroy(ActorDestroyReason aWhy) {

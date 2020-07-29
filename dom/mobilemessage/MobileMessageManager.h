@@ -34,9 +34,6 @@ class MobileMessageManager final : public DOMEventTargetHelper,
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSIOBSERVER
 
-  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(MobileMessageManager,
-                                           DOMEventTargetHelper)
-
   explicit MobileMessageManager(nsPIDOMWindowInner* aWindow);
 
   void Init();

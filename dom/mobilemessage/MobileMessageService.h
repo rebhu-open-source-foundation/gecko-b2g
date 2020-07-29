@@ -19,11 +19,11 @@ class MobileMessageService final : public nsIMobileMessageService {
   NS_DECL_ISUPPORTS
   NS_DECL_NSIMOBILEMESSAGESERVICE
 
-  MobileMessageService() { MOZ_COUNT_CTOR(MobileMessageService); }
+  MobileMessageService() {}
 
  private:
   // final suppresses -Werror,-Wdelete-non-virtual-dtor
-  ~MobileMessageService() { MOZ_COUNT_DTOR(MobileMessageService); }
+  ~MobileMessageService() {}
 };
 
 }  // namespace mobilemessage

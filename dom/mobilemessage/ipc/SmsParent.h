@@ -37,7 +37,7 @@ class SmsParent : public PSmsParent, public nsIObserver {
   bool RecvRemoveSilentNumber(const nsString& aNumber);
 
   SmsParent();
-  virtual ~SmsParent() { MOZ_COUNT_DTOR(SmsParent); }
+  virtual ~SmsParent() {}
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
@@ -73,11 +73,9 @@ class SmsRequestParent : public PSmsRequestParent,
   NS_DECL_NSIMOBILEMESSAGECALLBACK
 
  protected:
-  SmsRequestParent() : mActorDestroyed(false) {
-    MOZ_COUNT_CTOR(SmsRequestParent);
-  }
+  SmsRequestParent() : mActorDestroyed(false) {}
 
-  virtual ~SmsRequestParent() { MOZ_COUNT_DTOR(SmsRequestParent); }
+  virtual ~SmsRequestParent() {}
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 

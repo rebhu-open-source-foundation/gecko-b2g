@@ -237,7 +237,6 @@ void GonkDecoderManager::ProcessToDo(bool aEndOfStream) {
     WaitOutputInfo wait = mWaitOutput.ElementAt(0);
     nsresult rv = GetOutput(wait.mOffset, output);
     if (rv == NS_OK) {
-      MOZ_ASSERT(output);
       UpdateWaitingList(output[output.Length() - 1]->mTime.ToMicroseconds());
       mToGonkMediaDataDecoderCallback->Output(output);
     } else if (rv == NS_ERROR_ABORT) {

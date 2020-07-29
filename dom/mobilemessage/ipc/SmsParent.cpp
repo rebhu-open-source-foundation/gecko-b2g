@@ -176,7 +176,6 @@ static bool GetMobileMessageDataFromMessage(ContentParent* aParent,
 NS_IMPL_ISUPPORTS(SmsParent, nsIObserver)
 
 SmsParent::SmsParent() {
-  MOZ_COUNT_CTOR(SmsParent);
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   if (!obs) {
     return;
