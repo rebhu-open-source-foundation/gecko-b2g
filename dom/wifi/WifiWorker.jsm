@@ -1761,15 +1761,19 @@ var WifiManager = (function() {
           enabled,
           WifiNetworkInterface.info.name,
           configuration,
-          function(result) {
-            manager.tetheringState = result ? "UNINITIALIZED" : "COMPLETED";
+          function(errorMsg) {
+            manager.tetheringState = errorMsg ? "UNINITIALIZED" : "COMPLETED";
             // Pop out current request.
-            callback(!result);
+            callback(!errorMsg);
             // Should we fire a dom event if we fail to set wifi tethering  ?
             debug(
               "Enable Wifi tethering result: " +
-                (result ? result : "successfully")
+                (errorMsg ? errorMsg : "successfully")
             );
+            // Unload wifi driver status.
+            if (errorMsg) {
+              wifiCommand.stopSoftap(function(){});
+	    }
           }
         );
       });
@@ -1778,11 +1782,11 @@ var WifiManager = (function() {
         enabled,
         WifiNetworkInterface.info.name,
         configuration,
-        function(result) {
+        function(errorMsg) {
           // Should we fire a dom event if we fail to set wifi tethering  ?
           debug(
             "Disable Wifi tethering result: " +
-              (result ? result : "successfully")
+              (errorMsg ? errorMsg : "successfully")
           );
           // Unload wifi driver even if we fail to control wifi tethering.
           wifiCommand.stopSoftap(function(result) {
@@ -3883,6 +3887,14 @@ WifiWorker.prototype = {
     let check = function(field, _default) {
       config[field] = field in aConfig ? aConfig[field] : _default;
     };
+
+    // Replace IPs since webidl provide simple naming without wifi prefix.
+    if (aConfig.startIp) {
+      aConfig.wifiStartIp = aConfig.startIp;
+    }
+    if (aConfig.endIp) {
+      aConfig.wifiEndIp = aConfig.endIp;
+    }
 
     // TODO: need more conditions if we support 5GHz hotspot.
     // Random choose 1, 6, 11 if there's no specify channel.

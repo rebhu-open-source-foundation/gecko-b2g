@@ -587,6 +587,14 @@ TetheringService.prototype = {
       config[field] = field in aConfig ? aConfig[field] : _default;
     };
 
+    // Replace IPs cause webidl provide simple naming without usb prefix.
+    if (aConfig.startIp) {
+      aConfig.usbStartIp = aConfig.startIp;
+    }
+    if (aConfig.endIp) {
+      aConfig.usbEndIp = aConfig.endIp;
+    }
+
     check("ip", DEFAULT_USB_IP);
     check("prefix", DEFAULT_USB_PREFIX);
     check("wifiStartIp", DEFAULT_WIFI_DHCPSERVER_STARTIP);
@@ -634,22 +642,13 @@ TetheringService.prototype = {
     return config;
   },
 
-  notifyError(aResetSettings, aCallback, aMsg) {
-    if (aResetSettings) {
-      //TODO: need to request WifiWorker disable softap.
-      /*
-      let settingsLock = gSettingsService.createLock();
-      // Disable wifi tethering with a useful error message for the user.
-      settingsLock.set("tethering.wifi.enabled", false, null, aMsg);
-      */
-    }
-
-    debug("setWifiTethering: " + (aMsg ? aMsg : "success"));
+  notifyError(aCallback, aErrorMsg) {
+    debug("setWifiTethering: " + (aErrorMsg ? aErrorMsg : "success"));
 
     if (aCallback) {
       // Callback asynchronously to avoid netsted toggling.
       Services.tm.currentThread.dispatch(() => {
-        aCallback.wifiTetheringEnabledChange(aMsg);
+        aCallback.wifiTetheringEnabledChange(aErrorMsg);
       }, Ci.nsIThread.DISPATCH_NORMAL);
     }
   },
@@ -658,12 +657,12 @@ TetheringService.prototype = {
   setWifiTethering(aEnable, aInterfaceName, aConfig, aCallback) {
     debug("setWifiTethering: " + aEnable);
     if (!aInterfaceName) {
-      this.notifyError(true, aCallback, "invalid network interface name");
+      this.notifyError(aCallback, "invalid network interface name");
       return;
     }
 
     if (!aConfig) {
-      this.notifyError(true, aCallback, "invalid configuration");
+      this.notifyError(aCallback, "invalid configuration");
       return;
     }
 
@@ -764,7 +763,7 @@ TetheringService.prototype = {
 
     let resetSettings = aError;
     debug("gNetworkService.setWifiTethering finished");
-    this.notifyError(resetSettings, aCallback, aError);
+    this.notifyError(aCallback, aError);
     this.requestDone();
   },
 
