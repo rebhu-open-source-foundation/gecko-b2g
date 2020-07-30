@@ -267,8 +267,9 @@ void DeviceStorageStatics::DumpDirs() {
 #ifdef DS_LOGGING
   sMutex.AssertCurrentThreadOwns();
 
-  static const char* storageTypes[] = {"app",   "crashes", "pictures", "videos",
-                                       "music", "sdcard",  "override", nullptr};
+  static const char* storageTypes[] = {"app",      "crashes",      "pictures",
+                                       "videos",   "music",        "sdcard",
+                                       "override", "apps-storage", nullptr};
 
   const char* ptStr;
   if (XRE_IsParentProcess()) {

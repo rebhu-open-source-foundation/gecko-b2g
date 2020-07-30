@@ -39,7 +39,7 @@ class DeviceStorageParams;
 class nsDOMDeviceStorage;
 class DeviceStorageCursorRequest;
 
-#define DS_LOGGING 0
+// #define DS_LOGGING 1
 
 #ifdef DS_LOGGING
 // FIXME -- use MOZ_LOG and set to warn by default
