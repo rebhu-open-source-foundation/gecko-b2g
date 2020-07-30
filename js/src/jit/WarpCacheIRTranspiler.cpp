@@ -16,6 +16,7 @@
 #include "jit/MIRBuilderShared.h"
 #include "jit/MIRGenerator.h"
 #include "jit/MIRGraph.h"
+#include "jit/WarpBuilder.h"
 #include "jit/WarpBuilderShared.h"
 #include "jit/WarpSnapshot.h"
 
@@ -24,6 +25,7 @@ using namespace js::jit;
 
 // The CacheIR transpiler generates MIR from Baseline CacheIR.
 class MOZ_RAII WarpCacheIRTranspiler : public WarpBuilderShared {
+  WarpBuilder* builder_;
   BytecodeLocation loc_;
   const CacheIRStubInfo* stubInfo_;
   const uint8_t* stubData_;
@@ -148,10 +150,11 @@ class MOZ_RAII WarpCacheIRTranspiler : public WarpBuilderShared {
   CACHE_IR_TRANSPILER_GENERATED
 
  public:
-  WarpCacheIRTranspiler(WarpSnapshot& snapshot, MIRGenerator& mirGen,
-                        BytecodeLocation loc, MBasicBlock* current,
+  WarpCacheIRTranspiler(WarpBuilder* builder, BytecodeLocation loc,
                         CallInfo* callInfo, const WarpCacheIR* cacheIRSnapshot)
-      : WarpBuilderShared(snapshot, mirGen, current),
+      : WarpBuilderShared(builder->snapshot(), builder->mirGen(),
+                          builder->currentBlock()),
+        builder_(builder),
         loc_(loc),
         stubInfo_(cacheIRSnapshot->stubInfo()),
         stubData_(cacheIRSnapshot->stubData()),
@@ -254,6 +257,16 @@ bool WarpCacheIRTranspiler::emitGuardNullProto(ObjOperandId objId) {
   MDefinition* def = getOperand(objId);
 
   auto* ins = MGuardNullProto::New(alloc(), def);
+  add(ins);
+
+  setOperand(objId, ins);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitGuardIsNotProxy(ObjOperandId objId) {
+  MDefinition* obj = getOperand(objId);
+
+  auto* ins = MGuardIsNotProxy::New(alloc(), obj);
   add(ins);
 
   setOperand(objId, ins);
@@ -928,6 +941,39 @@ bool WarpCacheIRTranspiler::emitStringFromCharCodeResult(
   add(fromCharCode);
 
   pushResult(fromCharCode);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitStringFromCodePointResult(
+    Int32OperandId codeId) {
+  MDefinition* code = getOperand(codeId);
+
+  auto* fromCodePoint = MFromCodePoint::New(alloc(), code);
+  add(fromCodePoint);
+
+  pushResult(fromCodePoint);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitStringToLowerCaseResult(StringOperandId strId) {
+  MDefinition* str = getOperand(strId);
+
+  auto* convert =
+      MStringConvertCase::New(alloc(), str, MStringConvertCase::LowerCase);
+  add(convert);
+
+  pushResult(convert);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitStringToUpperCaseResult(StringOperandId strId) {
+  MDefinition* str = getOperand(strId);
+
+  auto* convert =
+      MStringConvertCase::New(alloc(), str, MStringConvertCase::UpperCase);
+  add(convert);
+
+  pushResult(convert);
   return true;
 }
 
@@ -1758,6 +1804,17 @@ bool WarpCacheIRTranspiler::emitRegExpInstanceOptimizableResult(
   return true;
 }
 
+bool WarpCacheIRTranspiler::emitGetFirstDollarIndexResult(
+    StringOperandId strId) {
+  MDefinition* str = getOperand(strId);
+
+  auto* firstDollarIndex = MGetFirstDollarIndex::New(alloc(), str);
+  add(firstDollarIndex);
+
+  pushResult(firstDollarIndex);
+  return true;
+}
+
 bool WarpCacheIRTranspiler::emitIsArrayResult(ValOperandId inputId) {
   MDefinition* value = getOperand(inputId);
 
@@ -1812,6 +1869,17 @@ bool WarpCacheIRTranspiler::emitIsConstructorResult(ObjOperandId objId) {
   return true;
 }
 
+bool WarpCacheIRTranspiler::emitIsCrossRealmArrayConstructorResult(
+    ObjOperandId objId) {
+  MDefinition* obj = getOperand(objId);
+
+  auto* ins = MIsCrossRealmArrayConstructor::New(alloc(), obj);
+  add(ins);
+
+  pushResult(ins);
+  return true;
+}
+
 bool WarpCacheIRTranspiler::emitIsTypedArrayResult(ObjOperandId objId,
                                                    bool isPossiblyWrapped) {
   MDefinition* obj = getOperand(objId);
@@ -1853,6 +1921,46 @@ bool WarpCacheIRTranspiler::emitTypedArrayElementShiftResult(
 
   pushResult(ins);
   return true;
+}
+
+bool WarpCacheIRTranspiler::emitGetNextMapSetEntryForIteratorResult(
+    ObjOperandId iterId, ObjOperandId resultArrId, bool isMap) {
+  MDefinition* iter = getOperand(iterId);
+  MDefinition* resultArr = getOperand(resultArrId);
+
+  MGetNextEntryForIterator::Mode mode =
+      isMap ? MGetNextEntryForIterator::Map : MGetNextEntryForIterator::Set;
+  auto* ins = MGetNextEntryForIterator::New(alloc(), iter, resultArr, mode);
+  addEffectful(ins);
+  pushResult(ins);
+
+  return resumeAfter(ins);
+}
+
+bool WarpCacheIRTranspiler::emitFrameIsConstructingResult() {
+  if (const CallInfo* callInfo = builder_->inlineCallInfo()) {
+    auto* ins = constant(BooleanValue(callInfo->constructing()));
+    pushResult(ins);
+    return true;
+  }
+
+  auto* ins = MIsConstructing::New(alloc());
+  add(ins);
+  pushResult(ins);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitFinishBoundFunctionInitResult(
+    ObjOperandId boundId, ObjOperandId targetId, Int32OperandId argCountId) {
+  MDefinition* bound = getOperand(boundId);
+  MDefinition* target = getOperand(targetId);
+  MDefinition* argCount = getOperand(argCountId);
+
+  auto* ins = MFinishBoundFunctionInit::New(alloc(), bound, target, argCount);
+  addEffectful(ins);
+
+  pushResult(constant(UndefinedValue()));
+  return resumeAfter(ins);
 }
 
 bool WarpCacheIRTranspiler::emitLoadArgumentSlot(ValOperandId resultId,
@@ -2120,14 +2228,13 @@ static void MaybeSetImplicitlyUsed(uint32_t numInstructionIdsBefore,
   input->setImplicitlyUsed();
 }
 
-bool jit::TranspileCacheIRToMIR(WarpSnapshot& snapshot, MIRGenerator& mirGen,
-                                BytecodeLocation loc, MBasicBlock* current,
+bool jit::TranspileCacheIRToMIR(WarpBuilder* builder, BytecodeLocation loc,
                                 const WarpCacheIR* cacheIRSnapshot,
                                 const MDefinitionStackVector& inputs) {
-  uint32_t numInstructionIdsBefore = mirGen.graph().getNumInstructionIds();
+  uint32_t numInstructionIdsBefore =
+      builder->mirGen().graph().getNumInstructionIds();
 
-  WarpCacheIRTranspiler transpiler(snapshot, mirGen, loc, current, nullptr,
-                                   cacheIRSnapshot);
+  WarpCacheIRTranspiler transpiler(builder, loc, nullptr, cacheIRSnapshot);
   if (!transpiler.transpile(inputs)) {
     return false;
   }
@@ -2139,23 +2246,22 @@ bool jit::TranspileCacheIRToMIR(WarpSnapshot& snapshot, MIRGenerator& mirGen,
   return true;
 }
 
-bool jit::TranspileCacheIRToMIR(WarpSnapshot& snapshot, MIRGenerator& mirGen,
-                                BytecodeLocation loc, MBasicBlock* current,
+bool jit::TranspileCacheIRToMIR(WarpBuilder* builder, BytecodeLocation loc,
                                 const WarpCacheIR* cacheIRSnapshot,
                                 CallInfo& callInfo) {
-  uint32_t numInstructionIdsBefore = mirGen.graph().getNumInstructionIds();
+  uint32_t numInstructionIdsBefore =
+      builder->mirGen().graph().getNumInstructionIds();
 
   // Synthesize the constant number of arguments for this call op.
-  auto* argc = MConstant::New(mirGen.alloc(), Int32Value(callInfo.argc()));
-  current->add(argc);
+  auto* argc = MConstant::New(builder->alloc(), Int32Value(callInfo.argc()));
+  builder->currentBlock()->add(argc);
 
   MDefinitionStackVector inputs;
   if (!inputs.append(argc)) {
     return false;
   }
 
-  WarpCacheIRTranspiler transpiler(snapshot, mirGen, loc, current, &callInfo,
-                                   cacheIRSnapshot);
+  WarpCacheIRTranspiler transpiler(builder, loc, &callInfo, cacheIRSnapshot);
   if (!transpiler.transpile(inputs)) {
     return false;
   }

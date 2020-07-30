@@ -23,6 +23,7 @@
 #include "mozilla/OwningNonNull.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/RangeUtils.h"
+#include "mozilla/StaticPrefs_editor.h"  // for StaticPrefs::editor_*
 #include "mozilla/TextComposition.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/Unused.h"
@@ -197,16 +198,12 @@ template nsIContent* HTMLEditor::FindNearEditableContent(
 template nsIContent* HTMLEditor::FindNearEditableContent(
     const EditorRawDOMPoint& aPoint, nsIEditor::EDirection aDirection);
 template nsresult HTMLEditor::DeleteTextAndTextNodesWithTransaction(
-    const EditorDOMPoint& aStartPoint, const EditorDOMPoint& aEndPoint);
+    const EditorDOMPoint& aStartPoint, const EditorDOMPoint& aEndPoint,
+    TreatEmptyTextNodes aTreatEmptyTextNodes);
 template nsresult HTMLEditor::DeleteTextAndTextNodesWithTransaction(
     const EditorDOMPointInText& aStartPoint,
-    const EditorDOMPointInText& aEndPoint);
-template nsresult
-HTMLEditor::InsertBRElementIfHardLineIsEmptyAndEndsWithBlockBoundary(
-    const EditorDOMPoint& aPointToInsert);
-template nsresult
-HTMLEditor::InsertBRElementIfHardLineIsEmptyAndEndsWithBlockBoundary(
-    const EditorDOMPointInText& aPointToInsert);
+    const EditorDOMPointInText& aEndPoint,
+    TreatEmptyTextNodes aTreatEmptyTextNodes);
 
 nsresult HTMLEditor::InitEditorContentAndSelection() {
   MOZ_ASSERT(IsEditActionDataAvailable());
@@ -523,9 +520,13 @@ nsresult HTMLEditor::OnEndHandlingTopLevelEditSubActionInternal() {
     // attempt to transform any unneeded nbsp's into spaces after doing various
     // operations
     switch (GetTopLevelEditSubAction()) {
+      case EditSubAction::eDeleteSelectedContent:
+        if (TopLevelEditSubActionDataRef().mDidNormalizeWhitespaces) {
+          break;
+        }
+        [[fallthrough]];
       case EditSubAction::eInsertText:
       case EditSubAction::eInsertTextComingFromIME:
-      case EditSubAction::eDeleteSelectedContent:
       case EditSubAction::eInsertLineBreak:
       case EditSubAction::eInsertParagraphSeparator:
       case EditSubAction::ePasteHTMLContent:
@@ -2534,8 +2535,13 @@ EditActionResult HTMLEditor::HandleDeleteAroundCollapsedSelection(
   MOZ_ASSERT(aDirectionAndAmount != nsIEditor::eNone);
 
   EditorDOMPoint startPoint(EditorBase::GetStartPoint(*SelectionRefPtr()));
-  if (NS_WARN_IF(!startPoint.IsSet())) {
+  if (NS_WARN_IF(!startPoint.IsInContentNode())) {
     return EditActionResult(NS_ERROR_FAILURE);
+  }
+
+  if (!EditorUtils::IsEditableContent(*startPoint.ContainerAsContent(),
+                                      EditorType::HTML)) {
+    return EditActionCanceled();
   }
 
   // What's in the direction we are deleting?
@@ -2546,6 +2552,18 @@ EditActionResult HTMLEditor::HandleDeleteAroundCollapsedSelection(
           : wsRunScanner.ScanPreviousVisibleNodeOrBlockBoundaryFrom(startPoint);
   if (!scanFromStartPointResult.GetContent()) {
     return EditActionCanceled();
+  }
+
+  if (StaticPrefs::editor_white_space_normalization_blink_compatible()) {
+    if (scanFromStartPointResult.InNormalWhiteSpaces() ||
+        scanFromStartPointResult.InNormalText()) {
+      EditActionResult result = HandleDeleteTextAroundCollapsedSelection(
+          aDirectionAndAmount, scanFromStartPointResult.Point());
+      NS_WARNING_ASSERTION(
+          result.Succeeded(),
+          "HTMLEditor::HandleDeleteCollapsedSelectionInTextNode() failed");
+      return result;
+    }
   }
 
   if (scanFromStartPointResult.InNormalWhiteSpaces()) {
@@ -2561,11 +2579,11 @@ EditActionResult HTMLEditor::HandleDeleteAroundCollapsedSelection(
     if (NS_WARN_IF(!scanFromStartPointResult.GetContent()->IsText())) {
       return EditActionResult(NS_ERROR_FAILURE);
     }
-    EditActionResult result = HandleDeleteCollapsedSelectionAtTextNode(
+    EditActionResult result = HandleDeleteCollapsedSelectionAtVisibleChar(
         aDirectionAndAmount, scanFromStartPointResult.Point());
     NS_WARNING_ASSERTION(
         result.Succeeded(),
-        "HTMLEditor::HandleDeleteCollapsedSelectionAtTextNode() failed");
+        "HTMLEditor::HandleDeleteCollapsedSelectionAtVisibleChar() failed");
     return result;
   }
 
@@ -2617,10 +2635,74 @@ EditActionResult HTMLEditor::HandleDeleteAroundCollapsedSelection(
   return EditActionIgnored();
 }
 
+EditActionResult HTMLEditor::HandleDeleteTextAroundCollapsedSelection(
+    nsIEditor::EDirection aDirectionAndAmount,
+    const EditorDOMPoint& aCaretPosition) {
+  MOZ_ASSERT(IsEditActionDataAvailable());
+  MOZ_ASSERT(aDirectionAndAmount == nsIEditor::eNext ||
+             aDirectionAndAmount == nsIEditor::ePrevious);
+
+  EditorDOMRangeInTexts rangeToDelete;
+  if (aDirectionAndAmount == nsIEditor::eNext) {
+    Result<EditorDOMRangeInTexts, nsresult> result =
+        WSRunScanner::GetRangeInTextNodesToForwardDeleteFrom(*this,
+                                                             aCaretPosition);
+    if (result.isErr()) {
+      NS_WARNING(
+          "WSRunScanner::GetRangeInTextNodesToForwardDeleteFrom() failed");
+      return EditActionHandled(result.unwrapErr());
+    }
+    rangeToDelete = result.unwrap();
+    if (!rangeToDelete.IsPositioned()) {
+      return EditActionHandled();  // no range to delete
+    }
+  } else {
+    Result<EditorDOMRangeInTexts, nsresult> result =
+        WSRunScanner::GetRangeInTextNodesToBackspaceFrom(*this, aCaretPosition);
+    if (result.isErr()) {
+      NS_WARNING("WSRunScanner::GetRangeInTextNodesToBackspaceFrom() failed");
+      return EditActionHandled(result.unwrapErr());
+    }
+    rangeToDelete = result.unwrap();
+    if (!rangeToDelete.IsPositioned()) {
+      return EditActionHandled();  // no range to delete
+    }
+  }
+
+  // FYI: rangeToDelete does not contain newly empty inline ancestors which
+  //      are removed by DeleteTextAndNormalizeSurroundingWhiteSpaces().
+  //      So, when computing `getTargetRanges()`, we need to extend the range
+  //      with
+  //      HTMLEditUtils::GetMostDistantAnscestorEditableEmptyInlineElement().
+
+  AutoTransactionsConserveSelection dontChangeMySelection(*this);
+  Result<EditorDOMPoint, nsresult> result =
+      DeleteTextAndNormalizeSurroundingWhiteSpaces(
+          rangeToDelete.StartRef(), rangeToDelete.EndRef(),
+          TreatEmptyTextNodes::RemoveAllEmptyInlineAncestors,
+          aDirectionAndAmount == nsIEditor::eNext ? DeleteDirection::Forward
+                                                  : DeleteDirection::Backward);
+  TopLevelEditSubActionDataRef().mDidNormalizeWhitespaces = true;
+  if (result.isErr()) {
+    NS_WARNING(
+        "HTMLEditor::DeleteTextAndNormalizeSurroundingWhiteSpaces() failed");
+    return EditActionHandled(result.unwrapErr());
+  }
+  const EditorDOMPoint& newCaretPosition = result.inspect();
+  MOZ_ASSERT(newCaretPosition.IsSetAndValid());
+
+  DebugOnly<nsresult> rvIgnored =
+      SelectionRefPtr()->Collapse(newCaretPosition.ToRawRangeBoundary());
+  NS_WARNING_ASSERTION(NS_SUCCEEDED(rvIgnored),
+                       "Selection::Collapse() failed, but ignored");
+  return EditActionHandled();
+}
+
 EditActionResult HTMLEditor::HandleDeleteCollapsedSelectionAtWhiteSpaces(
     nsIEditor::EDirection aDirectionAndAmount,
     const EditorDOMPoint& aPointToDelete) {
   MOZ_ASSERT(IsEditActionDataAvailable());
+  MOZ_ASSERT(!StaticPrefs::editor_white_space_normalization_blink_compatible());
 
   if (aDirectionAndAmount == nsIEditor::eNext) {
     nsresult rv = WhiteSpaceVisibilityKeeper::DeleteInclusiveNextWhiteSpace(
@@ -2648,10 +2730,11 @@ EditActionResult HTMLEditor::HandleDeleteCollapsedSelectionAtWhiteSpaces(
   return EditActionHandled(rv);
 }
 
-EditActionResult HTMLEditor::HandleDeleteCollapsedSelectionAtTextNode(
+EditActionResult HTMLEditor::HandleDeleteCollapsedSelectionAtVisibleChar(
     nsIEditor::EDirection aDirectionAndAmount,
     const EditorDOMPoint& aPointToDelete) {
   MOZ_ASSERT(IsTopLevelEditSubActionDataAvailable());
+  MOZ_ASSERT(!StaticPrefs::editor_white_space_normalization_blink_compatible());
   MOZ_ASSERT(aPointToDelete.IsSet());
   MOZ_ASSERT(aPointToDelete.IsInTextNode());
 
@@ -3569,8 +3652,8 @@ nsresult HTMLEditor::DeleteNodeIfInvisibleAndEditableTextNode(
 
 template <typename EditorDOMPointType>
 nsresult HTMLEditor::DeleteTextAndTextNodesWithTransaction(
-    const EditorDOMPointType& aStartPoint,
-    const EditorDOMPointType& aEndPoint) {
+    const EditorDOMPointType& aStartPoint, const EditorDOMPointType& aEndPoint,
+    TreatEmptyTextNodes aTreatEmptyTextNodes) {
   if (NS_WARN_IF(!aStartPoint.IsSet()) || NS_WARN_IF(!aEndPoint.IsSet())) {
     return NS_ERROR_INVALID_ARG;
   }
@@ -3583,8 +3666,40 @@ nsresult HTMLEditor::DeleteTextAndTextNodesWithTransaction(
     return NS_OK;
   }
 
+  RefPtr<Element> editingHost = GetActiveEditingHost();
+  auto deleteEmptyContentNodeWithTransaction =
+      [this, &aTreatEmptyTextNodes, &editingHost](nsIContent& aContent)
+          MOZ_CAN_RUN_SCRIPT_FOR_DEFINITION -> nsresult {
+    OwningNonNull<nsIContent> nodeToRemove = aContent;
+    if (aTreatEmptyTextNodes ==
+        TreatEmptyTextNodes::RemoveAllEmptyInlineAncestors) {
+      Element* emptyParentElementToRemove =
+          HTMLEditUtils::GetMostDistantAnscestorEditableEmptyInlineElement(
+              nodeToRemove, editingHost);
+      if (emptyParentElementToRemove) {
+        nodeToRemove = *emptyParentElementToRemove;
+      }
+    }
+    nsresult rv = DeleteNodeWithTransaction(nodeToRemove);
+    if (NS_WARN_IF(Destroyed())) {
+      return NS_ERROR_EDITOR_DESTROYED;
+    }
+    NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
+                         "HTMLEditor::DeleteNodeWithTransaction() failed");
+    return rv;
+  };
+
   if (aStartPoint.GetContainer() == aEndPoint.GetContainer() &&
       aStartPoint.IsInTextNode()) {
+    if (aTreatEmptyTextNodes !=
+            TreatEmptyTextNodes::KeepIfContainerOfRangeBoundaries &&
+        aStartPoint.IsStartOfContainer() && aEndPoint.IsEndOfContainer()) {
+      nsresult rv = deleteEmptyContentNodeWithTransaction(
+          MOZ_KnownLive(*aStartPoint.ContainerAsText()));
+      NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
+                           "deleteEmptyContentNodeWithTransaction() failed");
+      return rv;
+    }
     RefPtr<Text> textNode = aStartPoint.ContainerAsText();
     nsresult rv =
         DeleteTextWithTransaction(*textNode, aStartPoint.Offset(),
@@ -3619,6 +3734,17 @@ nsresult HTMLEditor::DeleteTextAndTextNodesWithTransaction(
       if (aStartPoint.IsEndOfContainer()) {
         continue;
       }
+      if (aStartPoint.IsStartOfContainer() &&
+          aTreatEmptyTextNodes !=
+              TreatEmptyTextNodes::KeepIfContainerOfRangeBoundaries) {
+        nsresult rv = deleteEmptyContentNodeWithTransaction(
+            MOZ_KnownLive(*aStartPoint.ContainerAsText()));
+        if (NS_FAILED(rv)) {
+          NS_WARNING("deleteEmptyContentNodeWithTransaction() failed");
+          return rv;
+        }
+        continue;
+      }
       nsresult rv = DeleteTextWithTransaction(
           MOZ_KnownLive(textNode), aStartPoint.Offset(),
           textNode->Length() - aStartPoint.Offset());
@@ -3636,24 +3762,29 @@ nsresult HTMLEditor::DeleteTextAndTextNodesWithTransaction(
       if (aEndPoint.IsStartOfContainer()) {
         break;
       }
+      if (aEndPoint.IsEndOfContainer() &&
+          aTreatEmptyTextNodes !=
+              TreatEmptyTextNodes::KeepIfContainerOfRangeBoundaries) {
+        nsresult rv = deleteEmptyContentNodeWithTransaction(
+            MOZ_KnownLive(*aEndPoint.ContainerAsText()));
+        NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
+                             "deleteEmptyContentNodeWithTransaction() failed");
+        return rv;
+      }
       nsresult rv = DeleteTextWithTransaction(MOZ_KnownLive(textNode), 0,
                                               aEndPoint.Offset());
       if (NS_WARN_IF(Destroyed())) {
         return NS_ERROR_EDITOR_DESTROYED;
       }
-      if (NS_FAILED(rv)) {
-        NS_WARNING("HTMLEditor::DeleteTextWithTransaction() failed");
-        return rv;
-      }
-      return NS_OK;
+      NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
+                           "HTMLEditor::DeleteTextWithTransaction() failed");
+      return rv;
     }
 
-    nsresult rv = DeleteNodeWithTransaction(MOZ_KnownLive(textNode));
-    if (NS_WARN_IF(Destroyed())) {
-      return NS_ERROR_EDITOR_DESTROYED;
-    }
+    nsresult rv =
+        deleteEmptyContentNodeWithTransaction(MOZ_KnownLive(textNode));
     if (NS_FAILED(rv)) {
-      NS_WARNING("HTMLEditor::DeleteNodeWithTransaction() failed");
+      NS_WARNING("deleteEmptyContentNodeWithTransaction() failed");
       return rv;
     }
   }
@@ -3779,18 +3910,28 @@ void HTMLEditor::ExtendRangeToDeleteWithNormalizingWhiteSpaces(
   // adjacent text node's first or last character information in some cases.
   EditorDOMPointInText precedingCharPoint =
       WSRunScanner::GetPreviousEditableCharPoint(*this, aStartToDelete);
-  bool maybeNormalizePrecedingWhiteSpaces =
-      precedingCharPoint.IsSet() && !precedingCharPoint.IsEndOfContainer() &&
+  EditorDOMPointInText followingCharPoint =
+      WSRunScanner::GetInclusiveNextEditableCharPoint(*this, aEndToDelete);
+  // Blink-compat: Normalize white-spaces in first node only when not removing
+  //               its last character or no text nodes follow the first node.
+  //               If removing last character of first node and there are
+  //               following text nodes, white-spaces in following text node are
+  //               normalized instead.
+  const bool removingLastCharOfStartNode =
+      aStartToDelete.ContainerAsText() != aEndToDelete.ContainerAsText() ||
+      (aEndToDelete.IsEndOfContainer() && followingCharPoint.IsSet());
+  const bool maybeNormalizePrecedingWhiteSpaces =
+      !removingLastCharOfStartNode && precedingCharPoint.IsSet() &&
+      !precedingCharPoint.IsEndOfContainer() &&
       precedingCharPoint.ContainerAsText() ==
           aStartToDelete.ContainerAsText() &&
       precedingCharPoint.IsCharASCIISpaceOrNBSP() &&
       !EditorUtils::IsContentPreformatted(
           *precedingCharPoint.ContainerAsText());
-  EditorDOMPointInText followingCharPoint =
-      WSRunScanner::GetInclusiveNextEditableCharPoint(*this, aEndToDelete);
   const bool maybeNormalizeFollowingWhiteSpaces =
       followingCharPoint.IsSet() && !followingCharPoint.IsEndOfContainer() &&
-      followingCharPoint.ContainerAsText() == aEndToDelete.ContainerAsText() &&
+      (followingCharPoint.ContainerAsText() == aEndToDelete.ContainerAsText() ||
+       removingLastCharOfStartNode) &&
       followingCharPoint.IsCharASCIISpaceOrNBSP() &&
       !EditorUtils::IsContentPreformatted(
           *followingCharPoint.ContainerAsText());
@@ -3826,9 +3967,14 @@ void HTMLEditor::ExtendRangeToDeleteWithNormalizingWhiteSpaces(
   }
 
   // Next, retrieve surrounding information of white-space sequence.
+  // If we're removing first text node's last character, we need to
+  // normalize white-spaces starts from another text node.  In this case,
+  // we need to lie for avoiding assertion in GenerateWhiteSpaceSequence().
   CharPointData previousCharPointData =
-      GetPreviousCharPointDataForNormalizingWhiteSpaces(
-          startToNormalize.IsSet() ? startToNormalize : aStartToDelete);
+      removingLastCharOfStartNode
+          ? CharPointData::InDifferentTextNode(CharPointType::TextEnd)
+          : GetPreviousCharPointDataForNormalizingWhiteSpaces(
+                startToNormalize.IsSet() ? startToNormalize : aStartToDelete);
   CharPointData nextCharPointData =
       GetInclusiveNextCharPointDataForNormalizingWhiteSpaces(
           endToNormalize.IsSet() ? endToNormalize : aEndToDelete);
@@ -3842,9 +3988,10 @@ void HTMLEditor::ExtendRangeToDeleteWithNormalizingWhiteSpaces(
     MOZ_ASSERT(lengthInStartNode);
   }
   if (endToNormalize.IsSet()) {
-    MOZ_ASSERT(endToNormalize.ContainerAsText() ==
-               aEndToDelete.ContainerAsText());
-    lengthInEndNode = endToNormalize.Offset() - aEndToDelete.Offset();
+    lengthInEndNode =
+        endToNormalize.ContainerAsText() == aEndToDelete.ContainerAsText()
+            ? endToNormalize.Offset() - aEndToDelete.Offset()
+            : endToNormalize.Offset();
     MOZ_ASSERT(lengthInEndNode);
     // If we normalize white-spaces in a text node, we can replace all of them
     // with one ReplaceTextTransaction.
@@ -3894,9 +4041,12 @@ void HTMLEditor::ExtendRangeToDeleteWithNormalizingWhiteSpaces(
   }
 }
 
-nsresult HTMLEditor::DeleteTextAndNormalizeSurroundingWhiteSpaces(
+Result<EditorDOMPoint, nsresult>
+HTMLEditor::DeleteTextAndNormalizeSurroundingWhiteSpaces(
     const EditorDOMPointInText& aStartToDelete,
-    const EditorDOMPointInText& aEndToDelete) {
+    const EditorDOMPointInText& aEndToDelete,
+    TreatEmptyTextNodes aTreatEmptyTextNodes,
+    DeleteDirection aDeleteDirection) {
   MOZ_ASSERT(aStartToDelete.IsSetAndValid());
   MOZ_ASSERT(aEndToDelete.IsSetAndValid());
   MOZ_ASSERT(aStartToDelete.EqualsOrIsBefore(aEndToDelete));
@@ -3913,15 +4063,28 @@ nsresult HTMLEditor::DeleteTextAndNormalizeSurroundingWhiteSpaces(
       startToDelete, endToDelete, normalizedWhiteSpacesInFirstNode,
       normalizedWhiteSpacesInLastNode);
 
-  // If given range is collapsed, i.e., the caller just wants to normalize
-  // white-space sequence, but there is no white-spaces which need to be
-  // replaced, we need to do nothing here.
+  // If extended range is still collapsed, i.e., the caller just wants to
+  // normalize white-space sequence, but there is no white-spaces which need to
+  // be replaced, we need to do nothing here.
   if (startToDelete == endToDelete) {
-    return NS_OK;
+    return EditorDOMPoint(aStartToDelete);
+  }
+
+  // Note that the container text node of startToDelete may be removed from
+  // the tree if it becomes empty.  Therefore, we need to track the point.
+  EditorDOMPoint newCaretPosition;
+  if (aStartToDelete.ContainerAsText() == aEndToDelete.ContainerAsText()) {
+    newCaretPosition = aEndToDelete;
+  } else if (aDeleteDirection == DeleteDirection::Forward) {
+    newCaretPosition.SetToEndOf(aStartToDelete.ContainerAsText());
+  } else {
+    newCaretPosition.Set(aEndToDelete.ContainerAsText(), 0);
   }
 
   // Then, modify the text nodes in the range.
   while (true) {
+    AutoTrackDOMPoint trackingNewCaretPosition(RangeUpdaterRef(),
+                                               &newCaretPosition);
     // Use ReplaceTextTransaction if we need to normalize white-spaces in
     // the first text node.
     if (!normalizedWhiteSpacesInFirstNode.IsEmpty()) {
@@ -3942,7 +4105,7 @@ nsresult HTMLEditor::DeleteTextAndNormalizeSurroundingWhiteSpaces(
             normalizedWhiteSpacesInFirstNode);
         if (NS_FAILED(rv)) {
           NS_WARNING("HTMLEditor::ReplaceTextWithTransaction() failed");
-          return rv;
+          return Err(rv);
         }
         if (startToDelete.ContainerAsText() ==
             trackingEndToDelete.ContainerAsText()) {
@@ -3952,10 +4115,11 @@ nsresult HTMLEditor::DeleteTextAndNormalizeSurroundingWhiteSpaces(
       }
       if (MaybeHasMutationEventListeners(
               NS_EVENT_BITS_MUTATION_CHARACTERDATAMODIFIED) &&
-          (NS_WARN_IF(!endToDelete.IsSetAndValid()) ||
-           NS_WARN_IF(!endToDelete.IsInTextNode()))) {
-        return NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE;
+          (NS_WARN_IF(!trackingEndToDelete.IsSetAndValid()) ||
+           NS_WARN_IF(!trackingEndToDelete.IsInTextNode()))) {
+        return Err(NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE);
       }
+      MOZ_ASSERT(trackingEndToDelete.IsInTextNode());
       endToDelete.Set(trackingEndToDelete.ContainerAsText(),
                       trackingEndToDelete.Offset());
       // If the remaining range was modified by mutation event listener,
@@ -3965,7 +4129,7 @@ nsresult HTMLEditor::DeleteTextAndNormalizeSurroundingWhiteSpaces(
       if (MaybeHasMutationEventListeners(
               NS_EVENT_BITS_MUTATION_CHARACTERDATAMODIFIED) &&
           NS_WARN_IF(!startToDelete.IsBefore(endToDelete))) {
-        return NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE;
+        return Err(NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE);
       }
     }
     // Delete ASCII whiteSpaces in the range simpley if there are some text
@@ -3980,11 +4144,11 @@ nsresult HTMLEditor::DeleteTextAndNormalizeSurroundingWhiteSpaces(
               : EditorDOMPointInText(endToDelete.ContainerAsText(), 0);
       if (startToDelete != endToDeleteExceptReplaceRange) {
         nsresult rv = DeleteTextAndTextNodesWithTransaction(
-            startToDelete, endToDeleteExceptReplaceRange);
+            startToDelete, endToDeleteExceptReplaceRange, aTreatEmptyTextNodes);
         if (NS_FAILED(rv)) {
           NS_WARNING(
               "HTMLEditor::DeleteTextAndTextNodesWithTransaction() failed");
-          return rv;
+          return Err(rv);
         }
         if (normalizedWhiteSpacesInLastNode.IsEmpty()) {
           break;  // There is no more text which we need to delete.
@@ -3997,7 +4161,7 @@ nsresult HTMLEditor::DeleteTextAndNormalizeSurroundingWhiteSpaces(
             (NS_WARN_IF(!endToDeleteExceptReplaceRange.IsSetAndValid()) ||
              NS_WARN_IF(!endToDelete.IsSetAndValid()) ||
              NS_WARN_IF(endToDelete.IsStartOfContainer()))) {
-          return NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE;
+          return Err(NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE);
         }
         // Then, replace the text in the last text node.
         startToDelete = endToDeleteExceptReplaceRange;
@@ -4015,30 +4179,82 @@ nsresult HTMLEditor::DeleteTextAndNormalizeSurroundingWhiteSpaces(
         normalizedWhiteSpacesInLastNode);
     if (NS_FAILED(rv)) {
       NS_WARNING("HTMLEditor::ReplaceTextWithTransaction() failed");
-      return rv;
+      return Err(rv);
     }
     break;
   }
 
-  if (!startToDelete.IsSetAndValid() ||
-      !startToDelete.ContainerAsText()->IsInComposedDoc()) {
+  if (!newCaretPosition.IsSetAndValid() ||
+      !newCaretPosition.GetContainer()->IsInComposedDoc()) {
     NS_WARNING(
-        "Mutation event listener modified the first text node unexpectedly");
-    return NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE;
+        "HTMLEditor::DeleteTextAndNormalizeSurroundingWhiteSpaces() got lost "
+        "the modifying line");
+    return Err(NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE);
   }
 
-  nsresult rv =
-      InsertBRElementIfHardLineIsEmptyAndEndsWithBlockBoundary(startToDelete);
-  NS_WARNING_ASSERTION(
-      NS_SUCCEEDED(rv),
-      "HTMLEditor::InsertBRElementIfHardLineIsEmptyAndEndsWithBlockBoundary() "
-      "failed");
-  return rv;
+  // Look for leaf node to put caret if we remove some empty inline ancestors
+  // at new caret position.
+  if (!newCaretPosition.IsInTextNode()) {
+    if (nsIContent* currentBlock = HTMLEditUtils::
+            GetInclusiveAncestorEditableBlockElementOrInlineEditingHost(
+                *newCaretPosition.ContainerAsContent())) {
+      Element* editingHost = GetActiveEditingHost();
+      // Try to put caret next to immediately after previous editable leaf.
+      nsIContent* previousContent =
+          HTMLEditUtils::GetPreviousLeafContentOrPreviousBlockElement(
+              newCaretPosition, *currentBlock, editingHost);
+      if (previousContent && !HTMLEditUtils::IsBlockElement(*previousContent)) {
+        newCaretPosition =
+            previousContent->IsText() ||
+                    HTMLEditUtils::IsContainerNode(*previousContent)
+                ? EditorDOMPoint::AtEndOf(*previousContent)
+                : EditorDOMPoint::After(*previousContent);
+      }
+      // But if the point is very first of a block element or immediately after
+      // a child block, look for next editable leaf instead.
+      else if (nsIContent* nextContent =
+                   HTMLEditUtils::GetNextLeafContentOrNextBlockElement(
+                       newCaretPosition, *currentBlock, editingHost)) {
+        newCaretPosition = nextContent->IsText() ||
+                                   HTMLEditUtils::IsContainerNode(*nextContent)
+                               ? EditorDOMPoint(nextContent, 0)
+                               : EditorDOMPoint(nextContent);
+      }
+    }
+  }
+
+  // For compatibility with Blink, we should move caret to end of previous
+  // text node if it's direct previous sibling of the first text node in the
+  // range.
+  if (newCaretPosition.IsStartOfContainer() &&
+      newCaretPosition.IsInTextNode() &&
+      newCaretPosition.GetContainer()->GetPreviousSibling() &&
+      newCaretPosition.GetContainer()->GetPreviousSibling()->IsText()) {
+    newCaretPosition.SetToEndOf(
+        newCaretPosition.GetContainer()->GetPreviousSibling()->AsText());
+  }
+
+  {
+    AutoTrackDOMPoint trackingNewCaretPosition(RangeUpdaterRef(),
+                                               &newCaretPosition);
+    nsresult rv = InsertBRElementIfHardLineIsEmptyAndEndsWithBlockBoundary(
+        newCaretPosition);
+    if (NS_FAILED(rv)) {
+      NS_WARNING(
+          "HTMLEditor::"
+          "InsertBRElementIfHardLineIsEmptyAndEndsWithBlockBoundary() failed");
+      return Err(rv);
+    }
+  }
+  if (!newCaretPosition.IsSetAndValid()) {
+    NS_WARNING("Inserting <br> element caused unexpected DOM tree");
+    return Err(NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE);
+  }
+  return newCaretPosition;
 }
 
-template <typename EditorDOMPointType>
 nsresult HTMLEditor::InsertBRElementIfHardLineIsEmptyAndEndsWithBlockBoundary(
-    const EditorDOMPointType& aPointToInsert) {
+    const EditorDOMPoint& aPointToInsert) {
   MOZ_ASSERT(IsEditActionDataAvailable());
   MOZ_ASSERT(aPointToInsert.IsSet());
 

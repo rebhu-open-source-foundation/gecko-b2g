@@ -7616,6 +7616,20 @@ void nsIFrame::List(FILE* out, const char* aPrefix, ListFlags aFlags) const {
   fprintf_stderr(out, "%s\n", str.get());
 }
 
+void nsIFrame::ListTextRuns(FILE* out) const {
+  nsTHashtable<nsVoidPtrHashKey> seen;
+  ListTextRuns(out, seen);
+}
+
+void nsIFrame::ListTextRuns(FILE* out,
+                            nsTHashtable<nsVoidPtrHashKey>& aSeen) const {
+  for (const auto& childList : ChildLists()) {
+    for (const nsIFrame* kid : childList.mList) {
+      kid->ListTextRuns(out, aSeen);
+    }
+  }
+}
+
 void nsIFrame::ListMatchedRules(FILE* out, const char* aPrefix) const {
   nsTArray<const RawServoStyleRule*> rawRuleList;
   Servo_ComputedValues_GetStyleRuleList(mComputedStyle, &rawRuleList);
@@ -8334,9 +8348,11 @@ nsresult nsIFrame::PeekOffsetForWord(nsPeekOffsetStruct* aPos, int32_t offset) {
         done = true;
         // If we've crossed the line boundary, check to make sure that we
         // have not consumed a trailing newline as whitespace if it's
-        // significant.
+        // significant. (It's not needed for `pre-line` since in that case
+        // the newline is treated as trimmed space.)
         if (jumpedLine && wordSelectEatSpace &&
-            current->HasSignificantTerminalNewline()) {
+            current->HasSignificantTerminalNewline() &&
+            current->StyleText()->mWhiteSpace != StyleWhiteSpace::PreLine) {
           offset -= 1;
         }
       } else {

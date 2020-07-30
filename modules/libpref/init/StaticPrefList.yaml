@@ -1544,6 +1544,12 @@
   value: @IS_NIGHTLY_BUILD@
   mirror: always
 
+# Block all downloads in iframes with the sandboxed attribute
+- name: dom.block_download_in_sandboxed_iframes
+  type: bool 
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 # Block multiple window.open() per single event.
 - name: dom.block_multiple_popups
   type: bool
@@ -4694,6 +4700,12 @@
 #---------------------------------------------------------------------------
 # Prefs starting with "html5."
 #---------------------------------------------------------------------------
+
+# Turn HTML:inert on or off.
+- name: html5.inert.enabled
+  type: bool
+  value: false
+  mirror: always
 
 # Toggle which thread the HTML5 parser uses for stream parsing.
 - name: html5.offmainthread
@@ -9153,7 +9165,7 @@
 # Block Worker/SharedWorker scripts with wrong MIME type.
 - name: security.block_Worker_with_wrong_mime
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: always
 
 # Cancel outgoing requests from SystemPrincipal

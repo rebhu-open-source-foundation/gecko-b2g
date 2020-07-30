@@ -11,11 +11,13 @@
 #include "mozilla/Unused.h"
 
 #include "builtin/DataViewObject.h"
+#include "builtin/MapObject.h"
 #include "jit/BaselineCacheIRCompiler.h"
 #include "jit/BaselineIC.h"
 #include "jit/CacheIRSpewer.h"
 #include "jit/InlinableNatives.h"
-#include "jit/Ion.h"         // IsIonEnabled
+#include "jit/Ion.h"  // IsIonEnabled
+#include "util/Unicode.h"
 #include "vm/PlainObject.h"  // js::PlainObject
 #include "vm/SelfHosting.h"
 
@@ -3606,6 +3608,13 @@ OperandId IRGenerator::emitNumericGuard(ValOperandId valId, Scalar::Type type) {
   MOZ_CRASH("Unsupported TypedArray type");
 }
 
+static bool ValueIsNumeric(Scalar::Type type, const Value& val) {
+  if (Scalar::isBigIntType(type)) {
+    return val.isBigInt();
+  }
+  return val.isNumber();
+}
+
 AttachDecision SetPropIRGenerator::tryAttachTypedObjectProperty(
     HandleObject obj, ObjOperandId objId, HandleId id, ValOperandId rhsId) {
   if (!obj->is<TypedObject>()) {
@@ -3635,6 +3644,13 @@ AttachDecision SetPropIRGenerator::tryAttachTypedObjectProperty(
     // that stores object pointers and null in an anyref slot should be able
     // to get a fast path.
     return AttachDecision::NoAction;
+  }
+
+  if (fieldDescr->is<ScalarTypeDescr>()) {
+    Scalar::Type type = fieldDescr->as<ScalarTypeDescr>().type();
+    if (!ValueIsNumeric(type, rhsVal_)) {
+      return AttachDecision::NoAction;
+    }
   }
 
   uint32_t fieldOffset = structDescr->fieldOffset(fieldIndex);
@@ -4120,14 +4136,8 @@ AttachDecision SetPropIRGenerator::tryAttachSetTypedElement(
   TypedThingLayout layout = GetTypedThingLayout(obj->getClass());
 
   // Don't attach if the input type doesn't match the guard added below.
-  if (Scalar::isBigIntType(elementType)) {
-    if (!rhsVal_.isBigInt()) {
-      return AttachDecision::NoAction;
-    }
-  } else {
-    if (!rhsVal_.isNumber()) {
-      return AttachDecision::NoAction;
-    }
+  if (!ValueIsNumeric(elementType, rhsVal_)) {
+    return AttachDecision::NoAction;
   }
 
   if (IsPrimitiveArrayTypedObject(obj)) {
@@ -4169,14 +4179,8 @@ AttachDecision SetPropIRGenerator::tryAttachSetTypedArrayElementNonInt32Index(
   Scalar::Type elementType = TypedThingElementType(obj);
 
   // Don't attach if the input type doesn't match the guard added below.
-  if (Scalar::isBigIntType(elementType)) {
-    if (!rhsVal_.isBigInt()) {
-      return AttachDecision::NoAction;
-    }
-  } else {
-    if (!rhsVal_.isNumber()) {
-      return AttachDecision::NoAction;
-    }
+  if (!ValueIsNumeric(elementType, rhsVal_)) {
+    return AttachDecision::NoAction;
   }
 
   ValOperandId keyId = setElemKeyValueId();
@@ -5198,14 +5202,8 @@ AttachDecision CallIRGenerator::tryAttachDataViewSet(HandleFunction callee,
   if (!args_[0].isNumber()) {
     return AttachDecision::NoAction;
   }
-  if (Scalar::isBigIntType(type)) {
-    if (!args_[1].isBigInt()) {
-      return AttachDecision::NoAction;
-    }
-  } else {
-    if (!args_[1].isNumber()) {
-      return AttachDecision::NoAction;
-    }
+  if (!ValueIsNumeric(type, args_[1])) {
+    return AttachDecision::NoAction;
   }
   if (argc_ > 2 && !args_[2].isBoolean()) {
     return AttachDecision::NoAction;
@@ -5548,6 +5546,34 @@ AttachDecision CallIRGenerator::tryAttachIsConstructor(HandleFunction callee) {
   return AttachDecision::Attach;
 }
 
+AttachDecision CallIRGenerator::tryAttachIsCrossRealmArrayConstructor(
+    HandleFunction callee) {
+  // Self-hosted code calls this with an object argument.
+  MOZ_ASSERT(argc_ == 1);
+  MOZ_ASSERT(args_[0].isObject());
+
+  if (args_[0].toObject().is<ProxyObject>()) {
+    return AttachDecision::NoAction;
+  }
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Note: we don't need to call emitNativeCalleeGuard for intrinsics.
+
+  ValOperandId argId = writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
+  ObjOperandId objId = writer.guardToObject(argId);
+  writer.guardIsNotProxy(objId);
+  writer.isCrossRealmArrayConstructorResult(objId);
+
+  // This stub does not need to be monitored, it always returns a boolean.
+  writer.returnFromIC();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
+
+  trackAttached("IsCrossRealmArrayConstructor");
+  return AttachDecision::Attach;
+}
+
 AttachDecision CallIRGenerator::tryAttachGuardToClass(HandleFunction callee,
                                                       InlinableNative native) {
   // Need a single object argument.
@@ -5719,6 +5745,30 @@ AttachDecision CallIRGenerator::tryAttachRegExpInstanceOptimizable(
   return AttachDecision::Attach;
 }
 
+AttachDecision CallIRGenerator::tryAttachGetFirstDollarIndex(
+    HandleFunction callee) {
+  // Self-hosted code calls this with a single string argument.
+  MOZ_ASSERT(argc_ == 1);
+  MOZ_ASSERT(args_[0].isString());
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Note: we don't need to call emitNativeCalleeGuard for intrinsics.
+
+  ValOperandId arg0Id = writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
+  StringOperandId strId = writer.guardToString(arg0Id);
+
+  writer.getFirstDollarIndexResult(strId);
+
+  // No type monitoring because this always returns an int32.
+  writer.returnFromIC();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
+
+  trackAttached("GetFirstDollarIndex");
+  return AttachDecision::Attach;
+}
+
 AttachDecision CallIRGenerator::tryAttachSubstringKernel(
     HandleFunction callee) {
   // Self-hosted code calls this with (string, int32, int32) arguments.
@@ -5865,6 +5915,108 @@ AttachDecision CallIRGenerator::tryAttachStringFromCharCode(
   cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
 
   trackAttached("StringFromCharCode");
+  return AttachDecision::Attach;
+}
+
+AttachDecision CallIRGenerator::tryAttachStringFromCodePoint(
+    HandleFunction callee) {
+  // Need one int32 argument.
+  if (argc_ != 1 || !args_[0].isInt32()) {
+    return AttachDecision::NoAction;
+  }
+
+  // String.fromCodePoint throws for invalid code points.
+  int32_t codePoint = args_[0].toInt32();
+  if (codePoint < 0 || codePoint > int32_t(unicode::NonBMPMax)) {
+    return AttachDecision::NoAction;
+  }
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Guard callee is the 'fromCodePoint' native function.
+  emitNativeCalleeGuard(callee);
+
+  // Guard int32 argument.
+  ValOperandId argId = writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
+  Int32OperandId codeId = writer.guardToInt32(argId);
+
+  // Return string created from code point.
+  writer.stringFromCodePointResult(codeId);
+
+  // This stub doesn't need to be monitored, because it always returns a string.
+  writer.returnFromIC();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
+
+  trackAttached("StringFromCodePoint");
+  return AttachDecision::Attach;
+}
+
+AttachDecision CallIRGenerator::tryAttachStringToLowerCase(
+    HandleFunction callee) {
+  // Expecting no arguments.
+  if (argc_ != 0) {
+    return AttachDecision::NoAction;
+  }
+
+  // Ensure |this| is a primitive string value.
+  if (!thisval_.isString()) {
+    return AttachDecision::NoAction;
+  }
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Guard callee is the 'toLowerCase' native function.
+  emitNativeCalleeGuard(callee);
+
+  // Guard this is a string.
+  ValOperandId thisValId =
+      writer.loadArgumentFixedSlot(ArgumentKind::This, argc_);
+  StringOperandId strId = writer.guardToString(thisValId);
+
+  // Return string converted to lower-case.
+  writer.stringToLowerCaseResult(strId);
+
+  // This stub doesn't need to be monitored, because it always returns a string.
+  writer.returnFromIC();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
+
+  trackAttached("StringToLowerCase");
+  return AttachDecision::Attach;
+}
+
+AttachDecision CallIRGenerator::tryAttachStringToUpperCase(
+    HandleFunction callee) {
+  // Expecting no arguments.
+  if (argc_ != 0) {
+    return AttachDecision::NoAction;
+  }
+
+  // Ensure |this| is a primitive string value.
+  if (!thisval_.isString()) {
+    return AttachDecision::NoAction;
+  }
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Guard callee is the 'toUpperCase' native function.
+  emitNativeCalleeGuard(callee);
+
+  // Guard this is a string.
+  ValOperandId thisValId =
+      writer.loadArgumentFixedSlot(ArgumentKind::This, argc_);
+  StringOperandId strId = writer.guardToString(thisValId);
+
+  // Return string converted to upper-case.
+  writer.stringToUpperCaseResult(strId);
+
+  // This stub doesn't need to be monitored, because it always returns a string.
+  writer.returnFromIC();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
+
+  trackAttached("StringToUpperCase");
   return AttachDecision::Attach;
 }
 
@@ -6618,6 +6770,96 @@ AttachDecision CallIRGenerator::tryAttachTypedArrayLength(
   return AttachDecision::Attach;
 }
 
+AttachDecision CallIRGenerator::tryAttachIsConstructing(HandleFunction callee) {
+  // Self-hosted code calls this with no arguments in function scripts.
+  MOZ_ASSERT(argc_ == 0);
+  MOZ_ASSERT(script_->isFunction());
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Note: we don't need to call emitNativeCalleeGuard for intrinsics.
+
+  writer.frameIsConstructingResult();
+
+  // This stub does not need to be monitored, it always returns a boolean.
+  writer.returnFromIC();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
+
+  trackAttached("IsConstructing");
+  return AttachDecision::Attach;
+}
+
+AttachDecision CallIRGenerator::tryAttachGetNextMapSetEntryForIterator(
+    HandleFunction callee, bool isMap) {
+  // Self-hosted code calls this with two objects.
+  MOZ_ASSERT(argc_ == 2);
+  if (isMap) {
+    MOZ_ASSERT(args_[0].toObject().is<MapIteratorObject>());
+  } else {
+    MOZ_ASSERT(args_[0].toObject().is<SetIteratorObject>());
+  }
+  MOZ_ASSERT(args_[1].toObject().is<ArrayObject>());
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Note: we don't need to call emitNativeCalleeGuard for intrinsics.
+
+  ValOperandId iterId = writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
+  ObjOperandId objIterId = writer.guardToObject(iterId);
+
+  ValOperandId resultArrId =
+      writer.loadArgumentFixedSlot(ArgumentKind::Arg1, argc_);
+  ObjOperandId objResultArrId = writer.guardToObject(resultArrId);
+
+  writer.getNextMapSetEntryForIteratorResult(objIterId, objResultArrId, isMap);
+
+  // This stub does not need to be monitored, it always returns a boolean.
+  writer.returnFromIC();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
+
+  trackAttached("GetNextMapSetEntryForIterator");
+  return AttachDecision::Attach;
+}
+
+AttachDecision CallIRGenerator::tryAttachFinishBoundFunctionInit(
+    HandleFunction callee) {
+  // Self-hosted code calls this with (boundFunction, targetObj, argCount)
+  // arguments.
+  MOZ_ASSERT(argc_ == 3);
+  MOZ_ASSERT(args_[0].toObject().is<JSFunction>());
+  MOZ_ASSERT(args_[1].isObject());
+  MOZ_ASSERT(args_[2].isInt32());
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Note: we don't need to call emitNativeCalleeGuard for intrinsics.
+
+  ValOperandId boundId =
+      writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
+  ObjOperandId objBoundId = writer.guardToObject(boundId);
+
+  ValOperandId targetId =
+      writer.loadArgumentFixedSlot(ArgumentKind::Arg1, argc_);
+  ObjOperandId objTargetId = writer.guardToObject(targetId);
+
+  ValOperandId argCountId =
+      writer.loadArgumentFixedSlot(ArgumentKind::Arg2, argc_);
+  Int32OperandId int32ArgCountId = writer.guardToInt32(argCountId);
+
+  writer.finishBoundFunctionInitResult(objBoundId, objTargetId,
+                                       int32ArgCountId);
+
+  // This stub does not need to be monitored, it always returns |undefined|.
+  writer.returnFromIC();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
+
+  trackAttached("FinishBoundFunctionInit");
+  return AttachDecision::Attach;
+}
+
 AttachDecision CallIRGenerator::tryAttachFunApply(HandleFunction calleeFunc) {
   MOZ_ASSERT(calleeFunc->isNativeWithoutJitEntry());
   if (calleeFunc->native() != fun_apply) {
@@ -6802,6 +7044,8 @@ AttachDecision CallIRGenerator::tryAttachInlinableNative(
       return tryAttachIsCallable(callee);
     case InlinableNative::IntrinsicIsConstructor:
       return tryAttachIsConstructor(callee);
+    case InlinableNative::IntrinsicIsCrossRealmArrayConstructor:
+      return tryAttachIsCrossRealmArrayConstructor(callee);
     case InlinableNative::IntrinsicGuardToArrayIterator:
     case InlinableNative::IntrinsicGuardToMapIterator:
     case InlinableNative::IntrinsicGuardToSetIterator:
@@ -6813,6 +7057,10 @@ AttachDecision CallIRGenerator::tryAttachInlinableNative(
       return tryAttachGuardToClass(callee, native);
     case InlinableNative::IntrinsicSubstringKernel:
       return tryAttachSubstringKernel(callee);
+    case InlinableNative::IntrinsicIsConstructing:
+      return tryAttachIsConstructing(callee);
+    case InlinableNative::IntrinsicFinishBoundFunctionInit:
+      return tryAttachFinishBoundFunctionInit(callee);
 
     // RegExp natives.
     case InlinableNative::IsRegExpObject:
@@ -6825,6 +7073,8 @@ AttachDecision CallIRGenerator::tryAttachInlinableNative(
       return tryAttachRegExpPrototypeOptimizable(callee);
     case InlinableNative::RegExpInstanceOptimizable:
       return tryAttachRegExpInstanceOptimizable(callee);
+    case InlinableNative::GetFirstDollarIndex:
+      return tryAttachGetFirstDollarIndex(callee);
 
     // String natives.
     case InlinableNative::String:
@@ -6835,6 +7085,12 @@ AttachDecision CallIRGenerator::tryAttachInlinableNative(
       return tryAttachStringCharAt(callee);
     case InlinableNative::StringFromCharCode:
       return tryAttachStringFromCharCode(callee);
+    case InlinableNative::StringFromCodePoint:
+      return tryAttachStringFromCodePoint(callee);
+    case InlinableNative::StringToLowerCase:
+      return tryAttachStringToLowerCase(callee);
+    case InlinableNative::StringToUpperCase:
+      return tryAttachStringToUpperCase(callee);
 
     // Math natives.
     case InlinableNative::MathRandom:
@@ -6911,6 +7167,8 @@ AttachDecision CallIRGenerator::tryAttachInlinableNative(
     // Map intrinsics.
     case InlinableNative::IntrinsicGuardToMapObject:
       return tryAttachGuardToClass(callee, native);
+    case InlinableNative::IntrinsicGetNextMapEntryForIterator:
+      return tryAttachGetNextMapSetEntryForIterator(callee, /* isMap = */ true);
 
     // Object natives.
     case InlinableNative::Object:
@@ -6919,6 +7177,9 @@ AttachDecision CallIRGenerator::tryAttachInlinableNative(
     // Set intrinsics.
     case InlinableNative::IntrinsicGuardToSetObject:
       return tryAttachGuardToClass(callee, native);
+    case InlinableNative::IntrinsicGetNextSetEntryForIterator:
+      return tryAttachGetNextMapSetEntryForIterator(callee,
+                                                    /* isMap = */ false);
 
     // ArrayBuffer intrinsics.
     case InlinableNative::IntrinsicGuardToArrayBuffer:

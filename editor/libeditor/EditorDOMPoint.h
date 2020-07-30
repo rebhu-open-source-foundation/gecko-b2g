@@ -343,6 +343,22 @@ class EditorDOMPointBase final {
     return nsCRT::IsAsciiSpace(ch) || ch == 0x00A0;
   }
 
+  MOZ_NEVER_INLINE_DEBUG bool IsCharHighSurrogateFollowedByLowSurrogate()
+      const {
+    MOZ_ASSERT(IsSetAndValid());
+    MOZ_ASSERT(!IsEndOfContainer());
+    return ContainerAsText()
+        ->TextFragment()
+        .IsHighSurrogateFollowedByLowSurrogateAt(mOffset.value());
+  }
+  MOZ_NEVER_INLINE_DEBUG bool IsCharLowSurrogateFollowingHighSurrogate() const {
+    MOZ_ASSERT(IsSetAndValid());
+    MOZ_ASSERT(!IsEndOfContainer());
+    return ContainerAsText()
+        ->TextFragment()
+        .IsLowSurrogateFollowingHighSurrogateAt(mOffset.value());
+  }
+
   MOZ_NEVER_INLINE_DEBUG char16_t PreviousChar() const {
     MOZ_ASSERT(IsSetAndValid());
     MOZ_ASSERT(!IsStartOfContainer());
@@ -1047,9 +1063,10 @@ class EditorDOMRangeBase final {
            mStart.EqualsOrIsBefore(mEnd);
   }
   template <typename OtherPointType>
-  bool Contains(const OtherPointType& aPoint) const {
-    return IsPositioned() && mStart.EqualsOrIsBefore(aPoint) &&
-           mEnd.IsBefore(aPoint);
+  MOZ_NEVER_INLINE_DEBUG bool Contains(const OtherPointType& aPoint) const {
+    MOZ_ASSERT(aPoint.IsSetAndValid());
+    return IsPositioned() && aPoint.IsSet() &&
+           mStart.EqualsOrIsBefore(aPoint) && aPoint.IsBefore(mEnd);
   }
   bool InSameContainer() const {
     MOZ_ASSERT(IsPositioned());
@@ -1065,7 +1082,8 @@ class EditorDOMRangeBase final {
   }
   template <typename OtherRangeType>
   bool operator==(const OtherRangeType& aOther) const {
-    return mStart == aOther.mStart && mEnd == aOther.mEnd;
+    return (!IsPositioned() && !aOther.IsPositioned()) ||
+           (mStart == aOther.mStart && mEnd == aOther.mEnd);
   }
   template <typename OtherRangeType>
   bool operator!=(const OtherRangeType& aOther) const {

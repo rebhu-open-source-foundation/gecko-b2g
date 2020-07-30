@@ -329,6 +329,13 @@
     regexp: ObjId
     proto: ObjId
 
+- name: GetFirstDollarIndexResult
+  shared: true
+  transpile: true
+  cost_estimate: 5
+  args:
+    str: StringId
+
 # Add a reference to a global in the compartment to keep it alive.
 - name: GuardCompartment
   shared: false
@@ -356,6 +363,13 @@
 - name: GuardIsProxy
   shared: true
   transpile: false
+  cost_estimate: 1
+  args:
+    obj: ObjId
+
+- name: GuardIsNotProxy
+  shared: true
+  transpile: true
   cost_estimate: 1
   args:
     obj: ObjId
@@ -904,6 +918,13 @@
   args:
     obj: ObjId
 
+- name: IsCrossRealmArrayConstructorResult
+  shared: true
+  transpile: true
+  cost_estimate: 2
+  args:
+    obj: ObjId
+
 - name: IsTypedArrayResult
   shared: false
   transpile: true
@@ -926,12 +947,42 @@
   args:
     obj: ObjId
 
+- name: FinishBoundFunctionInitResult
+  shared: true
+  transpile: true
+  cost_estimate: 5
+  args:
+    bound: ObjId
+    target: ObjId
+    argCount: Int32Id
+
 - name: StringFromCharCodeResult
   shared: false
   transpile: true
   cost_estimate: 5
   args:
     code: Int32Id
+
+- name: StringFromCodePointResult
+  shared: false
+  transpile: true
+  cost_estimate: 5
+  args:
+    code: Int32Id
+
+- name: StringToLowerCaseResult
+  shared: true
+  transpile: true
+  cost_estimate: 5
+  args:
+    str: StringId
+
+- name: StringToUpperCaseResult
+  shared: true
+  transpile: true
+  cost_estimate: 5
+  args:
+    str: StringId
 
 - name: MathAbsInt32Result
   shared: true
@@ -1463,6 +1514,12 @@
   args:
     index: Int32Id
 
+- name: FrameIsConstructingResult
+  shared: false
+  transpile: true
+  cost_estimate: 1
+  args:
+
 - name: LoadEnvironmentFixedSlotResult
   shared: false
   transpile: true
@@ -1595,6 +1652,15 @@
   args:
     obj: ObjId
     index: Int32Id
+
+- name: GetNextMapSetEntryForIteratorResult
+  shared: true
+  transpile: true
+  cost_estimate: 4
+  args:
+    iter: ObjId
+    resultArr: ObjId
+    isMap: BoolImm
 
 - name: LoadUndefinedResult
   shared: true

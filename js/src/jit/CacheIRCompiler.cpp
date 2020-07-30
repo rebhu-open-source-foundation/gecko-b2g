@@ -18,6 +18,7 @@
 #include "jsmath.h"
 
 #include "builtin/DataViewObject.h"
+#include "builtin/MapObject.h"
 #include "gc/Allocator.h"
 #include "jit/BaselineCacheIRCompiler.h"
 #include "jit/IonCacheIRCompiler.h"
@@ -2024,6 +2025,7 @@ bool CacheIRCompiler::emitGuardFunctionPrototype(ObjOperandId objId,
 
 bool CacheIRCompiler::emitGuardIsNativeObject(ObjOperandId objId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
   Register obj = allocator.useRegister(masm, objId);
   AutoScratchRegister scratch(allocator, masm);
 
@@ -2038,6 +2040,7 @@ bool CacheIRCompiler::emitGuardIsNativeObject(ObjOperandId objId) {
 
 bool CacheIRCompiler::emitGuardIsProxy(ObjOperandId objId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
   Register obj = allocator.useRegister(masm, objId);
   AutoScratchRegister scratch(allocator, masm);
 
@@ -2047,6 +2050,21 @@ bool CacheIRCompiler::emitGuardIsProxy(ObjOperandId objId) {
   }
 
   masm.branchTestObjectIsProxy(false, obj, scratch, failure->label());
+  return true;
+}
+
+bool CacheIRCompiler::emitGuardIsNotProxy(ObjOperandId objId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  Register obj = allocator.useRegister(masm, objId);
+  AutoScratchRegister scratch(allocator, masm);
+
+  FailurePath* failure;
+  if (!addFailurePath(&failure)) {
+    return false;
+  }
+
+  masm.branchTestObjectIsProxy(true, obj, scratch, failure->label());
   return true;
 }
 
@@ -3253,6 +3271,36 @@ bool CacheIRCompiler::emitLoadStringCharCodeResult(StringOperandId strId,
   return true;
 }
 
+bool CacheIRCompiler::emitStringToLowerCaseResult(StringOperandId strId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoCallVM callvm(masm, this, allocator);
+
+  Register str = allocator.useRegister(masm, strId);
+
+  callvm.prepare();
+  masm.Push(str);
+
+  using Fn = JSString* (*)(JSContext*, HandleString);
+  callvm.call<Fn, js::StringToLowerCase>();
+  return true;
+}
+
+bool CacheIRCompiler::emitStringToUpperCaseResult(StringOperandId strId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoCallVM callvm(masm, this, allocator);
+
+  Register str = allocator.useRegister(masm, strId);
+
+  callvm.prepare();
+  masm.Push(str);
+
+  using Fn = JSString* (*)(JSContext*, HandleString);
+  callvm.call<Fn, js::StringToUpperCase>();
+  return true;
+}
+
 bool CacheIRCompiler::emitLoadArgumentsObjectArgResult(ObjOperandId objId,
                                                        Int32OperandId indexId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
@@ -3889,6 +3937,19 @@ bool CacheIRCompiler::emitIsConstructorResult(ObjOperandId objId) {
   return true;
 }
 
+bool CacheIRCompiler::emitIsCrossRealmArrayConstructorResult(
+    ObjOperandId objId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoOutputRegister output(*this);
+  AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
+  Register obj = allocator.useRegister(masm, objId);
+
+  masm.setIsCrossRealmArrayConstructor(obj, scratch);
+  masm.tagValue(JSVAL_TYPE_BOOLEAN, scratch, output.valueReg());
+  return true;
+}
+
 bool CacheIRCompiler::emitTypedArrayByteOffsetResult(ObjOperandId objId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
 
@@ -3911,6 +3972,60 @@ bool CacheIRCompiler::emitTypedArrayElementShiftResult(ObjOperandId objId) {
 
   masm.typedArrayElementShift(obj, scratch);
   masm.tagValue(JSVAL_TYPE_INT32, scratch, output.valueReg());
+  return true;
+}
+
+bool CacheIRCompiler::emitGetNextMapSetEntryForIteratorResult(
+    ObjOperandId iterId, ObjOperandId resultArrId, bool isMap) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoOutputRegister output(*this);
+  AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
+  Register iter = allocator.useRegister(masm, iterId);
+  Register resultArr = allocator.useRegister(masm, resultArrId);
+
+  LiveRegisterSet save(GeneralRegisterSet::Volatile(), liveVolatileFloatRegs());
+  save.takeUnchecked(output.valueReg());
+  save.takeUnchecked(scratch);
+  masm.PushRegsInMask(save);
+
+  masm.setupUnalignedABICall(scratch);
+  masm.passABIArg(iter);
+  masm.passABIArg(resultArr);
+  if (isMap) {
+    masm.callWithABI(JS_FUNC_TO_DATA_PTR(void*, MapIteratorObject::next));
+  } else {
+    masm.callWithABI(JS_FUNC_TO_DATA_PTR(void*, SetIteratorObject::next));
+  }
+  masm.storeCallBoolResult(scratch);
+
+  masm.PopRegsInMask(save);
+
+  masm.tagValue(JSVAL_TYPE_BOOLEAN, scratch, output.valueReg());
+  return true;
+}
+
+bool CacheIRCompiler::emitFinishBoundFunctionInitResult(
+    ObjOperandId boundId, ObjOperandId targetId, Int32OperandId argCountId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoCallVM callvm(masm, this, allocator);
+
+  Register bound = allocator.useRegister(masm, boundId);
+  Register target = allocator.useRegister(masm, targetId);
+  Register argCount = allocator.useRegister(masm, argCountId);
+
+  callvm.prepare();
+
+  masm.Push(argCount);
+  masm.Push(target);
+  masm.Push(bound);
+
+  using Fn = bool (*)(JSContext * cx, HandleFunction bound, HandleObject target,
+                      int32_t argCount);
+  callvm.callNoResult<Fn, JSFunction::finishBoundFunctionInit>();
+
+  masm.moveValue(UndefinedValue(), callvm.outputValueReg());
   return true;
 }
 
@@ -7071,6 +7186,21 @@ bool CacheIRCompiler::emitRegExpInstanceOptimizableResult(
   return true;
 }
 
+bool CacheIRCompiler::emitGetFirstDollarIndexResult(StringOperandId strId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoCallVM callvm(masm, this, allocator);
+
+  Register str = allocator.useRegister(masm, strId);
+
+  callvm.prepare();
+  masm.Push(str);
+
+  using Fn = bool (*)(JSContext*, JSString*, int32_t*);
+  callvm.call<Fn, GetFirstDollarIndexRaw>();
+  return true;
+}
+
 template <typename Fn, Fn fn>
 void CacheIRCompiler::callVM(MacroAssembler& masm) {
   VMFunctionId id = VMFunctionToId<Fn, fn>::id;
@@ -7178,7 +7308,9 @@ void AutoCallVM::storeResult(JSValueType returnType) {
       }
     }
   }
+}
 
+void AutoCallVM::leaveBaselineStubFrame() {
   if (compiler_->mode_ == CacheIRCompiler::Mode::Baseline) {
     stubFrame_->leave(masm_);
   }

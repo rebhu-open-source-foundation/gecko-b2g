@@ -515,7 +515,7 @@ dependencies = [
  "nserror",
  "nsstring",
  "rental",
- "rkv 0.11.1",
+ "rkv 0.15.0",
  "rust_cascade",
  "sha2",
  "storage_variant",
@@ -2071,9 +2071,9 @@ dependencies = [
 
 [[package]]
 name = "glslopt"
-version = "0.1.2"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f22b383fcf6f85c4a268af39a0758ec40970e5f9f8fe9809e4415d48409b8379"
+checksum = "065c2e941ad25c18428724fd2ad0bc3967cb96242e8db92f3794eedb15c02e44"
 dependencies = [
  "cc",
 ]
@@ -2419,7 +2419,7 @@ dependencies = [
 [[package]]
 name = "jsparagus"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b427056af05f0d30192a5b3acccb83306912e22b#b427056af05f0d30192a5b3acccb83306912e22b"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=fb2a93267697c33d54e71be4bb5e8e768760c27c#fb2a93267697c33d54e71be4bb5e8e768760c27c"
 dependencies = [
  "jsparagus-ast",
  "jsparagus-emitter",
@@ -2433,7 +2433,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-ast"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b427056af05f0d30192a5b3acccb83306912e22b#b427056af05f0d30192a5b3acccb83306912e22b"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=fb2a93267697c33d54e71be4bb5e8e768760c27c#fb2a93267697c33d54e71be4bb5e8e768760c27c"
 dependencies = [
  "bumpalo",
  "indexmap",
@@ -2442,7 +2442,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-emitter"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b427056af05f0d30192a5b3acccb83306912e22b#b427056af05f0d30192a5b3acccb83306912e22b"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=fb2a93267697c33d54e71be4bb5e8e768760c27c#fb2a93267697c33d54e71be4bb5e8e768760c27c"
 dependencies = [
  "bumpalo",
  "byteorder",
@@ -2455,7 +2455,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-generated-parser"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b427056af05f0d30192a5b3acccb83306912e22b#b427056af05f0d30192a5b3acccb83306912e22b"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=fb2a93267697c33d54e71be4bb5e8e768760c27c#fb2a93267697c33d54e71be4bb5e8e768760c27c"
 dependencies = [
  "bumpalo",
  "jsparagus-ast",
@@ -2465,12 +2465,12 @@ dependencies = [
 [[package]]
 name = "jsparagus-json-log"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b427056af05f0d30192a5b3acccb83306912e22b#b427056af05f0d30192a5b3acccb83306912e22b"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=fb2a93267697c33d54e71be4bb5e8e768760c27c#fb2a93267697c33d54e71be4bb5e8e768760c27c"
 
 [[package]]
 name = "jsparagus-parser"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b427056af05f0d30192a5b3acccb83306912e22b#b427056af05f0d30192a5b3acccb83306912e22b"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=fb2a93267697c33d54e71be4bb5e8e768760c27c#fb2a93267697c33d54e71be4bb5e8e768760c27c"
 dependencies = [
  "arrayvec",
  "bumpalo",
@@ -2482,7 +2482,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-scope"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b427056af05f0d30192a5b3acccb83306912e22b#b427056af05f0d30192a5b3acccb83306912e22b"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=fb2a93267697c33d54e71be4bb5e8e768760c27c#fb2a93267697c33d54e71be4bb5e8e768760c27c"
 dependencies = [
  "indexmap",
  "jsparagus-ast",
@@ -2492,7 +2492,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-stencil"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=b427056af05f0d30192a5b3acccb83306912e22b#b427056af05f0d30192a5b3acccb83306912e22b"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=fb2a93267697c33d54e71be4bb5e8e768760c27c#fb2a93267697c33d54e71be4bb5e8e768760c27c"
 dependencies = [
  "jsparagus-ast",
 ]
@@ -2550,7 +2550,7 @@ dependencies = [
  "moz_task",
  "nserror",
  "nsstring",
- "rkv 0.10.4",
+ "rkv 0.15.0",
  "storage_variant",
  "tempfile",
  "thin-vec",
@@ -4120,8 +4120,9 @@ dependencies = [
 
 [[package]]
 name = "rkv"
-version = "0.11.1"
-source = "git+https://github.com/mozilla/rkv?rev=e3c3388e6632cf55e08d773b32e58b1cab9b2731#e3c3388e6632cf55e08d773b32e58b1cab9b2731"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e97d1b6321740ce36d77d67d22ff84ac8a996cf69dbd0727b8bcae52f1c98aaa"
 dependencies = [
  "arrayref",
  "bincode",
@@ -4133,6 +4134,7 @@ dependencies = [
  "lmdb-rkv",
  "log",
  "ordered-float",
+ "paste",
  "serde",
  "serde_derive",
  "url",

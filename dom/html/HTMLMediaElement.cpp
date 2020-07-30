@@ -426,6 +426,12 @@ class HTMLMediaElement::MediaControlKeyListener final
     if (!Owner()->Paused()) {
       NotifyMediaStartedPlaying();
     }
+    if (StaticPrefs::media_mediacontrol_testingevents_enabled()) {
+      auto dispatcher = MakeRefPtr<AsyncEventDispatcher>(
+          Owner(), u"MozStartMediaControl"_ns, CanBubble::eYes,
+          ChromeOnlyDispatch::eYes);
+      dispatcher->PostDOMEvent();
+    }
   }
 
   /**
@@ -448,6 +454,10 @@ class HTMLMediaElement::MediaControlKeyListener final
   }
 
   bool IsStarted() const { return mState != MediaPlaybackState::eStopped; }
+
+  bool IsPlaying() const override {
+    return Owner() ? !Owner()->Paused() : false;
+  }
 
   /**
    * Following methods should only be used after starting listener.
@@ -523,12 +533,15 @@ class HTMLMediaElement::MediaControlKeyListener final
     MOZ_ASSERT(NS_IsMainThread());
     MOZ_ASSERT(IsStarted());
     MEDIACONTROL_LOG("HandleEvent '%s'", ToMediaControlKeyStr(aKey));
-    if (aKey == MediaControlKey::Play && Owner()->Paused()) {
+    if (aKey == MediaControlKey::Play) {
       Owner()->Play();
-    } else if ((aKey == MediaControlKey::Pause ||
-                aKey == MediaControlKey::Stop) &&
-               !Owner()->Paused()) {
+    } else if (aKey == MediaControlKey::Pause) {
       Owner()->Pause();
+    } else {
+      MOZ_ASSERT(aKey == MediaControlKey::Stop,
+                 "Not supported key for media element!");
+      Owner()->Pause();
+      StopIfNeeded();
     }
   }
 
@@ -1851,6 +1864,8 @@ class HTMLMediaElement::ChannelLoader final {
     if (aElement->GetCORSMode() == CORS_USE_CREDENTIALS) {
       securityFlags |= nsILoadInfo::SEC_COOKIES_INCLUDE;
     }
+
+    securityFlags |= nsILoadInfo::SEC_ALLOW_CHROME;
 
     MOZ_ASSERT(
         aElement->IsAnyOfHTMLElements(nsGkAtoms::audio, nsGkAtoms::video));
@@ -4613,6 +4628,7 @@ void HTMLMediaElement::PlayInternal(bool aHandlingUserInput) {
   AddRemoveSelfReference();
   UpdatePreloadAction();
   UpdateSrcMediaStreamPlaying();
+  StartMediaControlKeyListenerIfNeeded();
 
   // Once play() has been called in a user generated event handler,
   // it is allowed to autoplay. Note: we can reach here when not in
@@ -6425,6 +6441,7 @@ void HTMLMediaElement::CheckAutoplayDataReady() {
   AddRemoveSelfReference();
   UpdateSrcMediaStreamPlaying();
   UpdateAudioChannelPlayingState();
+  StartMediaControlKeyListenerIfNeeded();
 
   if (mDecoder) {
     SetPlayedOrSeeked(true);

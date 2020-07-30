@@ -1606,6 +1606,7 @@ class MOZ_RAII CallIRGenerator : public IRGenerator {
   AttachDecision tryAttachIsPackedArray(HandleFunction callee);
   AttachDecision tryAttachIsCallable(HandleFunction callee);
   AttachDecision tryAttachIsConstructor(HandleFunction callee);
+  AttachDecision tryAttachIsCrossRealmArrayConstructor(HandleFunction callee);
   AttachDecision tryAttachGuardToClass(HandleFunction callee,
                                        InlinableNative native);
   AttachDecision tryAttachHasClass(HandleFunction callee, const JSClass* clasp);
@@ -1613,12 +1614,16 @@ class MOZ_RAII CallIRGenerator : public IRGenerator {
                                                       InlinableNative native);
   AttachDecision tryAttachRegExpPrototypeOptimizable(HandleFunction callee);
   AttachDecision tryAttachRegExpInstanceOptimizable(HandleFunction callee);
+  AttachDecision tryAttachGetFirstDollarIndex(HandleFunction callee);
   AttachDecision tryAttachSubstringKernel(HandleFunction callee);
   AttachDecision tryAttachString(HandleFunction callee);
   AttachDecision tryAttachStringChar(HandleFunction callee, StringChar kind);
   AttachDecision tryAttachStringCharCodeAt(HandleFunction callee);
   AttachDecision tryAttachStringCharAt(HandleFunction callee);
   AttachDecision tryAttachStringFromCharCode(HandleFunction callee);
+  AttachDecision tryAttachStringFromCodePoint(HandleFunction callee);
+  AttachDecision tryAttachStringToLowerCase(HandleFunction callee);
+  AttachDecision tryAttachStringToUpperCase(HandleFunction callee);
   AttachDecision tryAttachMathRandom(HandleFunction callee);
   AttachDecision tryAttachMathAbs(HandleFunction callee);
   AttachDecision tryAttachMathClz32(HandleFunction callee);
@@ -1641,6 +1646,10 @@ class MOZ_RAII CallIRGenerator : public IRGenerator {
   AttachDecision tryAttachTypedArrayByteOffset(HandleFunction callee);
   AttachDecision tryAttachTypedArrayElementShift(HandleFunction callee);
   AttachDecision tryAttachTypedArrayLength(HandleFunction callee);
+  AttachDecision tryAttachIsConstructing(HandleFunction callee);
+  AttachDecision tryAttachGetNextMapSetEntryForIterator(HandleFunction callee,
+                                                        bool isMap);
+  AttachDecision tryAttachFinishBoundFunctionInit(HandleFunction callee);
 
   AttachDecision tryAttachFunCall(HandleFunction calleeFunc);
   AttachDecision tryAttachFunApply(HandleFunction calleeFunc);

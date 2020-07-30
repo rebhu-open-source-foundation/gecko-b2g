@@ -150,8 +150,11 @@ static bool intrinsic_IsArray(JSContext* cx, unsigned argc, Value* vp) {
 static bool intrinsic_IsCrossRealmArrayConstructor(JSContext* cx, unsigned argc,
                                                    Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
+  MOZ_ASSERT(args.length() == 1);
+  MOZ_ASSERT(args[0].isObject());
+
   bool result = false;
-  if (!IsCrossRealmArrayConstructor(cx, args[0], &result)) {
+  if (!IsCrossRealmArrayConstructor(cx, &args[0].toObject(), &result)) {
     return false;
   }
   args.rval().setBoolean(result);
@@ -874,11 +877,10 @@ static bool intrinsic_GetNextMapEntryForIterator(JSContext* cx, unsigned argc,
   MOZ_ASSERT(args[0].toObject().is<MapIteratorObject>());
   MOZ_ASSERT(args[1].isObject());
 
-  Rooted<MapIteratorObject*> mapIterator(
-      cx, &args[0].toObject().as<MapIteratorObject>());
-  RootedArrayObject result(cx, &args[1].toObject().as<ArrayObject>());
+  MapIteratorObject* mapIterator = &args[0].toObject().as<MapIteratorObject>();
+  ArrayObject* result = &args[1].toObject().as<ArrayObject>();
 
-  args.rval().setBoolean(MapIteratorObject::next(mapIterator, result, cx));
+  args.rval().setBoolean(MapIteratorObject::next(mapIterator, result));
   return true;
 }
 
@@ -903,11 +905,10 @@ static bool intrinsic_GetNextSetEntryForIterator(JSContext* cx, unsigned argc,
   MOZ_ASSERT(args[0].toObject().is<SetIteratorObject>());
   MOZ_ASSERT(args[1].isObject());
 
-  Rooted<SetIteratorObject*> setIterator(
-      cx, &args[0].toObject().as<SetIteratorObject>());
-  RootedArrayObject result(cx, &args[1].toObject().as<ArrayObject>());
+  SetIteratorObject* setIterator = &args[0].toObject().as<SetIteratorObject>();
+  ArrayObject* result = &args[1].toObject().as<ArrayObject>();
 
-  args.rval().setBoolean(SetIteratorObject::next(setIterator, result, cx));
+  args.rval().setBoolean(SetIteratorObject::next(setIterator, result));
   return true;
 }
 
