@@ -27,6 +27,8 @@ UNIFIED_SOURCES += [
 ]
 
 SOURCES += [
+    "GonkMediaHTTPConnection.cpp",
+    "GonkMediaHTTPService.cpp",
     "OMXCodecDescriptorUtil.cpp",
     "OMXCodecWrapper.cpp",
 ]
