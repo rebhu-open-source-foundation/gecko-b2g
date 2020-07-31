@@ -4029,6 +4029,45 @@ bool CacheIRCompiler::emitFinishBoundFunctionInitResult(
   return true;
 }
 
+bool CacheIRCompiler::emitNewArrayIteratorResult(
+    uint32_t templateObjectOffset) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoCallVM callvm(masm, this, allocator);
+
+  callvm.prepare();
+
+  using Fn = ArrayIteratorObject* (*)(JSContext*);
+  callvm.call<Fn, NewArrayIterator>();
+  return true;
+}
+
+bool CacheIRCompiler::emitNewStringIteratorResult(
+    uint32_t templateObjectOffset) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoCallVM callvm(masm, this, allocator);
+
+  callvm.prepare();
+
+  using Fn = StringIteratorObject* (*)(JSContext*);
+  callvm.call<Fn, NewStringIterator>();
+  return true;
+}
+
+bool CacheIRCompiler::emitNewRegExpStringIteratorResult(
+    uint32_t templateObjectOffset) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoCallVM callvm(masm, this, allocator);
+
+  callvm.prepare();
+
+  using Fn = RegExpStringIteratorObject* (*)(JSContext*);
+  callvm.call<Fn, NewRegExpStringIterator>();
+  return true;
+}
+
 bool CacheIRCompiler::emitMathAbsInt32Result(Int32OperandId inputId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
 
@@ -5307,6 +5346,28 @@ bool CacheIRCompiler::emitLoadTypedObjectResult(ObjOperandId objId,
         MOZ_CRASH("Invalid ReferenceTypeDescr");
     }
   }
+  return true;
+}
+
+bool CacheIRCompiler::emitStoreFixedSlotUndefinedResult(ObjOperandId objId,
+                                                        uint32_t offsetOffset,
+                                                        ValOperandId rhsId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoOutputRegister output(*this);
+  AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
+  Register obj = allocator.useRegister(masm, objId);
+  ValueOperand val = allocator.useValueRegister(masm, rhsId);
+
+  StubFieldOffset offset(offsetOffset, StubField::Type::RawWord);
+  emitLoadStubField(offset, scratch);
+
+  BaseIndex slot(obj, scratch, TimesOne);
+  EmitPreBarrier(masm, slot, MIRType::Value);
+  masm.storeValue(val, slot);
+  emitPostBarrierSlot(obj, val, scratch);
+
+  masm.moveValue(UndefinedValue(), output.valueReg());
   return true;
 }
 
@@ -7351,6 +7412,18 @@ struct ReturnTypeToJSValueType<JSString*> {
 template <>
 struct ReturnTypeToJSValueType<BigInt*> {
   static constexpr JSValueType result = JSVAL_TYPE_BIGINT;
+};
+template <>
+struct ReturnTypeToJSValueType<ArrayIteratorObject*> {
+  static constexpr JSValueType result = JSVAL_TYPE_OBJECT;
+};
+template <>
+struct ReturnTypeToJSValueType<StringIteratorObject*> {
+  static constexpr JSValueType result = JSVAL_TYPE_OBJECT;
+};
+template <>
+struct ReturnTypeToJSValueType<RegExpStringIteratorObject*> {
+  static constexpr JSValueType result = JSVAL_TYPE_OBJECT;
 };
 
 template <typename Fn>

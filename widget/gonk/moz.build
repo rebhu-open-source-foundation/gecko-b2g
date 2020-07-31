@@ -74,6 +74,7 @@ SOURCES += [
     'nsClipboard.cpp',
     'nsIdleServiceGonk.cpp',
     'nsLookAndFeel.cpp',
+    'nsNativeBasicThemeGonk.cpp',
     'nsWidgetFactory.cpp',
     'nsWindow.cpp',
 # TODO: fixme
@@ -100,9 +101,12 @@ FINAL_LIBRARY = 'xul'
 LOCAL_INCLUDES += [
     '/dom/base',
     '/dom/system/android',
+    '/gfx/2d/',
     '/image',
     '/layout/base',
+    '/layout/forms',
     '/layout/generic',
+    '/layout/painting',
     '/layout/style',
     '/widget',
 ]

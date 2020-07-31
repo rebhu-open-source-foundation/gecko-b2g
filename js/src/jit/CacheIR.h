@@ -1597,6 +1597,7 @@ class MOZ_RAII CallIRGenerator : public IRGenerator {
   AttachDecision tryAttachDataViewSet(HandleFunction callee, Scalar::Type type);
   AttachDecision tryAttachUnsafeGetReservedSlot(HandleFunction callee,
                                                 InlinableNative native);
+  AttachDecision tryAttachUnsafeSetReservedSlot(HandleFunction callee);
   AttachDecision tryAttachIsSuspendedGenerator(HandleFunction callee);
   AttachDecision tryAttachToObject(HandleFunction callee,
                                    InlinableNative native);
@@ -1650,6 +1651,9 @@ class MOZ_RAII CallIRGenerator : public IRGenerator {
   AttachDecision tryAttachGetNextMapSetEntryForIterator(HandleFunction callee,
                                                         bool isMap);
   AttachDecision tryAttachFinishBoundFunctionInit(HandleFunction callee);
+  AttachDecision tryAttachNewArrayIterator(HandleFunction callee);
+  AttachDecision tryAttachNewStringIterator(HandleFunction callee);
+  AttachDecision tryAttachNewRegExpStringIterator(HandleFunction callee);
 
   AttachDecision tryAttachFunCall(HandleFunction calleeFunc);
   AttachDecision tryAttachFunApply(HandleFunction calleeFunc);

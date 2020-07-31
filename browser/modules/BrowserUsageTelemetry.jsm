@@ -9,8 +9,6 @@ var EXPORTED_SYMBOLS = [
   "BrowserUsageTelemetry",
   "getUniqueDomainsVisitedInPast24Hours",
   "URICountListener",
-  "URLBAR_SELECTED_RESULT_TYPES",
-  "URLBAR_SELECTED_RESULT_METHODS",
   "MINIMUM_TAB_COUNT_INTERVAL_MS",
 ];
 
@@ -79,46 +77,6 @@ const KNOWN_ONEOFF_SOURCES = [
   "oneoff-searchbar",
   "unknown", // Edge case: this is the searchbar (see bug 1195733 comment 7).
 ];
-
-/**
- * Buckets used for logging telemetry to the FX_URLBAR_SELECTED_RESULT_TYPE_2
- * histogram.
- */
-const URLBAR_SELECTED_RESULT_TYPES = {
-  autofill: 0,
-  bookmark: 1,
-  history: 2,
-  keyword: 3,
-  searchengine: 4,
-  searchsuggestion: 5,
-  switchtab: 6,
-  tag: 7,
-  visiturl: 8,
-  remotetab: 9,
-  extension: 10,
-  "preloaded-top-site": 11,
-  tip: 12,
-  topsite: 13,
-  formhistory: 14,
-  dynamic: 15,
-  // n_values = 32, so you'll need to create a new histogram if you need more.
-};
-
-/**
- * This maps the categories used by the FX_URLBAR_SELECTED_RESULT_METHOD and
- * FX_SEARCHBAR_SELECTED_RESULT_METHOD histograms to their indexes in the
- * `labels` array.  This only needs to be used by tests that need to map from
- * category names to indexes in histogram snapshots.  Actual app code can use
- * these category names directly when they add to a histogram.
- */
-const URLBAR_SELECTED_RESULT_METHODS = {
-  enter: 0,
-  enterSelection: 1,
-  click: 2,
-  arrowEnterSelection: 3,
-  tabEnterSelection: 4,
-  rightClickEnter: 5,
-};
 
 const MINIMUM_TAB_COUNT_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes, in ms
 
@@ -746,6 +704,9 @@ let BrowserUsageTelemetry = {
     histogramID,
     userSelectionBehavior
   ) {
+    // If the contents of the histogram are changed then
+    // `UrlbarTestUtils.SELECTED_RESULT_METHODS` should also be updated.
+
     let histogram = Services.telemetry.getHistogramById(histogramID);
     // command events are from the one-off context menu.  Treat them as clicks.
     // Note that we don't care about MouseEvent subclasses here, since

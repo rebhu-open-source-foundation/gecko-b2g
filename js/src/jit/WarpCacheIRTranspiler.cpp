@@ -131,6 +131,9 @@ class MOZ_RAII WarpCacheIRTranspiler : public WarpBuilderShared {
   MOZ_MUST_USE bool emitCompareResult(JSOp op, OperandId lhsId, OperandId rhsId,
                                       MCompare::CompareType compareType);
 
+  MOZ_MUST_USE bool emitNewIteratorResult(MNewIterator::Type type,
+                                          uint32_t templateObjectOffset);
+
   MInstruction* addBoundsCheck(MDefinition* index, MDefinition* length);
 
   void addDataViewData(MDefinition* obj, Scalar::Type type,
@@ -1011,6 +1014,26 @@ bool WarpCacheIRTranspiler::emitStoreFixedSlot(ObjOperandId objId,
 
   auto* store = MStoreFixedSlot::NewBarriered(alloc(), obj, slotIndex, rhs);
   addEffectful(store);
+  return resumeAfter(store);
+}
+
+bool WarpCacheIRTranspiler::emitStoreFixedSlotUndefinedResult(
+    ObjOperandId objId, uint32_t offsetOffset, ValOperandId rhsId) {
+  int32_t offset = int32StubField(offsetOffset);
+
+  MDefinition* obj = getOperand(objId);
+  size_t slotIndex = NativeObject::getFixedSlotIndexFromOffset(offset);
+  MDefinition* rhs = getOperand(rhsId);
+
+  auto* barrier = MPostWriteBarrier::New(alloc(), obj, rhs);
+  add(barrier);
+
+  auto* store = MStoreFixedSlot::NewBarriered(alloc(), obj, slotIndex, rhs);
+  addEffectful(store);
+
+  auto* undef = constant(UndefinedValue());
+  pushResult(undef);
+
   return resumeAfter(store);
 }
 
@@ -1961,6 +1984,37 @@ bool WarpCacheIRTranspiler::emitFinishBoundFunctionInitResult(
 
   pushResult(constant(UndefinedValue()));
   return resumeAfter(ins);
+}
+
+bool WarpCacheIRTranspiler::emitNewIteratorResult(
+    MNewIterator::Type type, uint32_t templateObjectOffset) {
+  JSObject* templateObj = tenuredObjectStubField(templateObjectOffset);
+
+  auto* templateConst = constant(ObjectValue(*templateObj));
+  auto* iter = MNewIterator::New(alloc(), /* constraints = */ nullptr,
+                                 templateConst, type);
+  add(iter);
+
+  pushResult(iter);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitNewArrayIteratorResult(
+    uint32_t templateObjectOffset) {
+  return emitNewIteratorResult(MNewIterator::ArrayIterator,
+                               templateObjectOffset);
+}
+
+bool WarpCacheIRTranspiler::emitNewStringIteratorResult(
+    uint32_t templateObjectOffset) {
+  return emitNewIteratorResult(MNewIterator::StringIterator,
+                               templateObjectOffset);
+}
+
+bool WarpCacheIRTranspiler::emitNewRegExpStringIteratorResult(
+    uint32_t templateObjectOffset) {
+  return emitNewIteratorResult(MNewIterator::RegExpStringIterator,
+                               templateObjectOffset);
 }
 
 bool WarpCacheIRTranspiler::emitLoadArgumentSlot(ValOperandId resultId,

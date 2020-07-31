@@ -10326,7 +10326,7 @@ class TopSite extends react__WEBPACK_IMPORTED_MODULE_4___default.a.PureComponent
         this.props.dispatch(common_Actions_jsm__WEBPACK_IMPORTED_MODULE_0__["actionCreators"].OnlyToMain({
           type: common_Actions_jsm__WEBPACK_IMPORTED_MODULE_0__["actionTypes"].TOP_SITES_ATTRIBUTION,
           data: {
-            searchProvider: this.props.link.hostname,
+            targetURL: this.props.link.url,
             source: "newtab"
           }
         }));
@@ -13180,15 +13180,17 @@ class SubmitFormSnippet_SubmitFormSnippet extends external_React_default.a.PureC
 
     if (this.state.signupSubmitted) {
       return this.renderSignupSubmitted();
-    }
-
-    if (this.state.expanded) {
-      return this.renderSignupView();
-    } // Render only scene 2 (signup view)
+    } // Render only scene 2 (signup view). Must check before `renderSignupView`
+    // to catch the Failure/Try again scenario where we want to return and render
+    // the scene again.
 
 
     if (this.props.expandedAlt) {
       return this.renderSignupViewAlt();
+    }
+
+    if (this.state.expanded) {
+      return this.renderSignupView();
     }
 
     return external_React_default.a.createElement(SimpleSnippet_SimpleSnippet, SubmitFormSnippet_extends({}, this.props, {

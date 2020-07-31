@@ -42,7 +42,6 @@
 #include "mozilla/CallState.h"
 #include "mozilla/ErrorResult.h"
 #include "mozilla/Attributes.h"
-#include "mozilla/GuardObjects.h"
 #include "mozilla/LinkedList.h"
 #include "mozilla/OwningNonNull.h"
 #include "mozilla/TimeStamp.h"
@@ -1200,6 +1199,7 @@ class nsGlobalWindowInner final : public mozilla::dom::EventTarget,
   void FireFrameLoadEvent();
 
   void UpdateAutoplayPermission();
+  void UpdateShortcutsPermission();
 
  public:
   // Dispatch a runnable related to the global.

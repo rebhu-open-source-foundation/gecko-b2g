@@ -769,6 +769,7 @@ Result<Ok, IOUtils::IOError> IOUtils::MoveSync(const nsAString& aSourcePath,
                 "destination already exists and overwrites are not allowed\n"
                 "Specify the `noOverwrite: false` option to mitigate this "
                 "error",
+                NS_ConvertUTF16toUTF8(aSourcePath).get(),
                 NS_ConvertUTF16toUTF8(aDestPath).get()));
   }
   if (destExists && !destIsDir) {

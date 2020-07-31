@@ -13,8 +13,10 @@
 #include "MPRISInterfaceDescription.h"
 #include "mozilla/dom/MediaControlUtils.h"
 #include "mozilla/Maybe.h"
+#include "mozilla/ScopeExit.h"
 #include "mozilla/Sprintf.h"
 #include "nsIXULAppInfo.h"
+#include "nsIOutputStream.h"
 #include "nsServiceManagerUtils.h"
 
 // avoid redefined macro in unified build
@@ -25,6 +27,10 @@
 
 namespace mozilla {
 namespace widget {
+
+// A global counter tracking the total images saved in the system and it will be
+// used to form a unique image file name.
+static uint32_t gImageNumber = 0;
 
 enum class Method : uint8_t {
   eQuit,
@@ -461,6 +467,16 @@ void MPRISServiceHandler::Close() {
 
   mInitialized = false;
   MediaControlKeySource::Close();
+
+  mImageFetchRequest.DisconnectIfExists();
+
+  RemoveAllLocalImages();
+  mMPRISMetadata.Clear();
+
+  mCurrentImageUrl = EmptyString();
+  mFetchingUrl = EmptyString();
+
+  mNextImageIndex = 0;
 }
 
 bool MPRISServiceHandler::IsOpened() const { return mInitialized; }
@@ -606,15 +622,43 @@ GVariant* MPRISServiceHandler::GetPlaybackStatus() const {
 
 void MPRISServiceHandler::SetMediaMetadata(
     const dom::MediaMetadataBase& aMetadata) {
-  mMetadata = Some(aMetadata);
-  LOG("Set MediaMetadata: title - %s, Artist - %s, Album - %s",
-      NS_ConvertUTF16toUTF8(mMetadata->mTitle).get(),
-      NS_ConvertUTF16toUTF8(mMetadata->mArtist).get(),
-      NS_ConvertUTF16toUTF8(mMetadata->mAlbum).get());
+  // Reset the index of the next available image to be fetched in the artwork,
+  // before checking the fetching process should be started or not. The image
+  // fetching process could be skipped if the image being fetching currently is
+  // in the artwork. If the current image fetching fails, the next availabe
+  // candidate should be the first image in the latest artwork
+  mNextImageIndex = 0;
 
+  // No need to fetch a MPRIS image if
+  // 1) MPRIS image is being fetched, and the one in fetching is in the artwork
+  // 2) MPRIS image is not being fetched, and the one in use is in the artwork
+  if (!mFetchingUrl.IsEmpty()) {
+    if (mozilla::dom::IsImageIn(aMetadata.mArtwork, mFetchingUrl)) {
+      LOG("No need to load MPRIS image. The one being processed is in the "
+          "artwork");
+      // Set MPRIS without the image first. The image will be loaded to MPRIS
+      // asynchronously once it's fetched and saved into a local file
+      SetMediaMetadataInternal(aMetadata);
+      return;
+    }
+  } else if (!mCurrentImageUrl.IsEmpty()) {
+    if (mozilla::dom::IsImageIn(aMetadata.mArtwork, mCurrentImageUrl)) {
+      LOG("No need to load MPRIS image. The one in use is in the artwork");
+      SetMediaMetadataInternal(aMetadata, false);
+      return;
+    }
+  }
+
+  // Set MPRIS without the image first then load the image to MPRIS
+  // asynchronously
+  SetMediaMetadataInternal(aMetadata);
+  LoadImageAtIndex(mNextImageIndex++);
+}
+
+bool MPRISServiceHandler::EmitMetadataChanged() const {
   if (!mConnection) {
     LOG("No D-Bus Connection. Drop the update.");
-    return;
+    return false;
   }
 
   GVariantBuilder builder;
@@ -633,7 +677,232 @@ void MPRISServiceHandler::SetMediaMetadata(
     if (error) {
       g_error_free(error);
     }
+    return false;
   }
+
+  return true;
+}
+
+void MPRISServiceHandler::SetMediaMetadataInternal(
+    const dom::MediaMetadataBase& aMetadata, bool aClearArtUrl) {
+  mMPRISMetadata.UpdateFromMetadataBase(aMetadata);
+  if (aClearArtUrl) {
+    mMPRISMetadata.mArtUrl = EmptyCString();
+  }
+  EmitMetadataChanged();
+}
+
+void MPRISServiceHandler::LoadImageAtIndex(const size_t aIndex) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  if (aIndex >= mMPRISMetadata.mArtwork.Length()) {
+    LOG("Stop loading image to MPRIS. No available image");
+    mImageFetchRequest.DisconnectIfExists();
+    return;
+  }
+
+  const mozilla::dom::MediaImage& image = mMPRISMetadata.mArtwork[aIndex];
+
+  if (!mozilla::dom::IsValidImageUrl(image.mSrc)) {
+    LOG("Skip the image with invalid URL. Try next image");
+    LoadImageAtIndex(mNextImageIndex++);
+    return;
+  }
+
+  mImageFetchRequest.DisconnectIfExists();
+  mFetchingUrl = image.mSrc;
+
+  mImageFetcher = mozilla::MakeUnique<mozilla::dom::FetchImageHelper>(image);
+  RefPtr<MPRISServiceHandler> self = this;
+  mImageFetcher->FetchImage()
+      ->Then(
+          AbstractThread::MainThread(), __func__,
+          [this, self](const nsCOMPtr<imgIContainer>& aImage) {
+            LOG("The image is fetched successfully");
+            mImageFetchRequest.Complete();
+
+            uint32_t size = 0;
+            char* data = nullptr;
+            // Only used to hold the image data
+            nsCOMPtr<nsIInputStream> inputStream;
+            nsresult rv = mozilla::dom::GetEncodedImageBuffer(
+                aImage, mMimeType, getter_AddRefs(inputStream), &size, &data);
+            if (NS_FAILED(rv) || !inputStream || size == 0 || !data) {
+              LOG("Failed to get the image buffer info. Try next image");
+              LoadImageAtIndex(mNextImageIndex++);
+              return;
+            }
+
+            if (SetImageToDisplay(data, size)) {
+              mCurrentImageUrl = mFetchingUrl;
+              LOG("The MPRIS image is updated to the image from: %s",
+                  NS_ConvertUTF16toUTF8(mCurrentImageUrl).get());
+            } else {
+              LOG("Failed to set image to MPRIS");
+              mCurrentImageUrl = EmptyString();
+            }
+
+            mFetchingUrl = EmptyString();
+          },
+          [this, self](bool) {
+            LOG("Failed to fetch image. Try next image");
+            mImageFetchRequest.Complete();
+            mFetchingUrl = EmptyString();
+            LoadImageAtIndex(mNextImageIndex++);
+          })
+      ->Track(mImageFetchRequest);
+}
+
+bool MPRISServiceHandler::SetImageToDisplay(const char* aImageData,
+                                            uint32_t aDataSize) {
+  if (!RenewLocalImageFile(aImageData, aDataSize)) {
+    return false;
+  }
+  MOZ_ASSERT(mLocalImageFile);
+
+  mMPRISMetadata.mArtUrl = nsCString("file://");
+  mMPRISMetadata.mArtUrl.Append(mLocalImageFile->NativePath());
+
+  LOG("The image file is created at %s", mMPRISMetadata.mArtUrl.get());
+  return EmitMetadataChanged();
+}
+
+bool MPRISServiceHandler::RenewLocalImageFile(const char* aImageData,
+                                              uint32_t aDataSize) {
+  MOZ_ASSERT(aImageData);
+  MOZ_ASSERT(aDataSize != 0);
+
+  if (!InitLocalImageFile()) {
+    LOG("Failed to create a new image");
+    return false;
+  }
+
+  MOZ_ASSERT(mLocalImageFile);
+  nsCOMPtr<nsIOutputStream> out;
+  NS_NewLocalFileOutputStream(getter_AddRefs(out), mLocalImageFile,
+                              PR_RDWR | PR_CREATE_FILE | PR_TRUNCATE);
+  uint32_t written;
+  nsresult rv = out->Write(aImageData, aDataSize, &written);
+  if (NS_FAILED(rv) || written != aDataSize) {
+    LOG("Failed to write an image file");
+    RemoveAllLocalImages();
+    return false;
+  }
+
+  return true;
+}
+
+static const char* GetImageFileExtension(const char* aMimeType) {
+  MOZ_ASSERT(strcmp(aMimeType, IMAGE_PNG) == 0);
+  return "png";
+}
+
+bool MPRISServiceHandler::InitLocalImageFile() {
+  RemoveAllLocalImages();
+
+  if (!InitLocalImageFolder()) {
+    return false;
+  }
+
+  MOZ_ASSERT(mLocalImageFolder);
+  MOZ_ASSERT(!mLocalImageFile);
+  nsresult rv = mLocalImageFolder->Clone(getter_AddRefs(mLocalImageFile));
+  if (NS_FAILED(rv)) {
+    LOG("Failed to get the image folder");
+    return false;
+  }
+
+  auto cleanup =
+      MakeScopeExit([this, self = RefPtr<MPRISServiceHandler>(this)] {
+        mLocalImageFile = nullptr;
+      });
+
+  // Create an unique file name to work around the file caching mechanism in the
+  // Ubuntu. Once the image X specified by the filename Y is used in Ubuntu's
+  // MPRIS, this pair will be cached. As long as the filename is same, even the
+  // file content specified by Y is changed to Z, the image will stay unchanged.
+  // The image shown in the Ubuntu's notification is still X instead of Z.
+  // Changing the filename constantly works around this problem
+  char filename[64];
+  SprintfLiteral(filename, "%d_%d.%s", getpid(), gImageNumber++,
+                 GetImageFileExtension(mMimeType.get()));
+
+  rv = mLocalImageFile->Append(NS_ConvertUTF8toUTF16(filename));
+  if (NS_FAILED(rv)) {
+    LOG("Failed to create an image filename");
+    return false;
+  }
+
+  rv = mLocalImageFile->Create(nsIFile::NORMAL_FILE_TYPE, 0600);
+  if (NS_FAILED(rv)) {
+    LOG("Failed to create an image file");
+    return false;
+  }
+
+  cleanup.release();
+  return true;
+}
+
+bool MPRISServiceHandler::InitLocalImageFolder() {
+  if (mLocalImageFolder && LocalImageFolderExists()) {
+    return true;
+  }
+
+  nsresult rv = NS_GetSpecialDirectory(XRE_USER_APP_DATA_DIR,
+                                       getter_AddRefs(mLocalImageFolder));
+  if (NS_FAILED(rv) || !mLocalImageFolder) {
+    LOG("Failed to get the image folder");
+    return false;
+  }
+
+  auto cleanup =
+      MakeScopeExit([this, self = RefPtr<MPRISServiceHandler>(this)] {
+        mLocalImageFolder = nullptr;
+      });
+
+  rv = mLocalImageFolder->Append(u"firefox-mpris"_ns);
+  if (NS_FAILED(rv)) {
+    LOG("Failed to name an image folder");
+    return false;
+  }
+
+  if (!LocalImageFolderExists()) {
+    rv = mLocalImageFolder->Create(nsIFile::DIRECTORY_TYPE, 0700);
+    if (NS_FAILED(rv)) {
+      LOG("Failed to create an image folder");
+      return false;
+    }
+  }
+
+  cleanup.release();
+  return true;
+}
+
+void MPRISServiceHandler::RemoveAllLocalImages() {
+  if (!mLocalImageFolder || !LocalImageFolderExists()) {
+    return;
+  }
+
+  nsresult rv = mLocalImageFolder->Remove(/* aRecursive */ true);
+  if (NS_FAILED(rv)) {
+    // It's ok to fail. The next removal is called when updating the
+    // media-session image, or closing the MPRIS.
+    LOG("Failed to remove images");
+  }
+
+  LOG("Abandon %s",
+      mLocalImageFile ? mLocalImageFile->NativePath().get() : "nothing");
+  mMPRISMetadata.mArtUrl = EmptyCString();
+  mLocalImageFile = nullptr;
+  mLocalImageFolder = nullptr;
+}
+
+bool MPRISServiceHandler::LocalImageFolderExists() {
+  MOZ_ASSERT(mLocalImageFolder);
+
+  bool exists;
+  nsresult rv = mLocalImageFolder->Exists(&exists);
+  return NS_SUCCEEDED(rv) && exists;
 }
 
 GVariant* MPRISServiceHandler::GetMetadataAsGVariant() const {
@@ -642,25 +911,31 @@ GVariant* MPRISServiceHandler::GetMetadataAsGVariant() const {
   g_variant_builder_add(&builder, "{sv}", "mpris:trackid",
                         g_variant_new("o", DBUS_MPRIS_TRACK_PATH));
 
-  if (mMetadata.isSome()) {
-    LOG("Get Metadata: title - %s, Artist - %s, Album - %s",
-        NS_ConvertUTF16toUTF8(mMetadata->mTitle).get(),
-        NS_ConvertUTF16toUTF8(mMetadata->mArtist).get(),
-        NS_ConvertUTF16toUTF8(mMetadata->mAlbum).get());
+  g_variant_builder_add(
+      &builder, "{sv}", "xesam:title",
+      g_variant_new_string(static_cast<const gchar*>(
+          NS_ConvertUTF16toUTF8(mMPRISMetadata.mTitle).get())));
 
-    g_variant_builder_add(
-        &builder, "{sv}", "xesam:title",
-        g_variant_new_string(NS_ConvertUTF16toUTF8(mMetadata->mTitle).get()));
-    g_variant_builder_add(
-        &builder, "{sv}", "xesam:album",
-        g_variant_new_string(NS_ConvertUTF16toUTF8(mMetadata->mAlbum).get()));
-    GVariantBuilder artistBuilder;  // Artists is a list.
-    g_variant_builder_init(&artistBuilder, G_VARIANT_TYPE("as"));
-    g_variant_builder_add(&artistBuilder, "s",
-                          NS_ConvertUTF16toUTF8(mMetadata->mArtist).get());
-    g_variant_builder_add(&builder, "{sv}", "xesam:artist",
-                          g_variant_builder_end(&artistBuilder));
+  g_variant_builder_add(
+      &builder, "{sv}", "xesam:album",
+      g_variant_new_string(static_cast<const gchar*>(
+          NS_ConvertUTF16toUTF8(mMPRISMetadata.mAlbum).get())));
+
+  GVariantBuilder artistBuilder;
+  g_variant_builder_init(&artistBuilder, G_VARIANT_TYPE("as"));
+  g_variant_builder_add(
+      &artistBuilder, "s",
+      static_cast<const gchar*>(
+          NS_ConvertUTF16toUTF8(mMPRISMetadata.mArtist).get()));
+  g_variant_builder_add(&builder, "{sv}", "xesam:artist",
+                        g_variant_builder_end(&artistBuilder));
+
+  if (!mMPRISMetadata.mArtUrl.IsEmpty()) {
+    g_variant_builder_add(&builder, "{sv}", "mpris:artUrl",
+                          g_variant_new_string(static_cast<const gchar*>(
+                              mMPRISMetadata.mArtUrl.get())));
   }
+
   return g_variant_builder_end(&builder);
 }
 

@@ -69,7 +69,6 @@
 #include "mozilla/BasePrincipal.h"
 #include "mozilla/ExpandedPrincipal.h"
 #include "mozilla/FlushType.h"
-#include "mozilla/GuardObjects.h"
 #include "mozilla/HTMLEditor.h"
 #include "mozilla/NullPrincipal.h"
 #include "mozilla/Preferences.h"
@@ -1374,19 +1373,17 @@ nsresult nsFrameLoader::SwapWithOtherRemoteLoader(
 
 class MOZ_RAII AutoResetInFrameSwap final {
  public:
-  AutoResetInFrameSwap(
-      nsFrameLoader* aThisFrameLoader, nsFrameLoader* aOtherFrameLoader,
-      nsDocShell* aThisDocShell, nsDocShell* aOtherDocShell,
-      EventTarget* aThisEventTarget,
-      EventTarget* aOtherEventTarget MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+  AutoResetInFrameSwap(nsFrameLoader* aThisFrameLoader,
+                       nsFrameLoader* aOtherFrameLoader,
+                       nsDocShell* aThisDocShell, nsDocShell* aOtherDocShell,
+                       EventTarget* aThisEventTarget,
+                       EventTarget* aOtherEventTarget)
       : mThisFrameLoader(aThisFrameLoader),
         mOtherFrameLoader(aOtherFrameLoader),
         mThisDocShell(aThisDocShell),
         mOtherDocShell(aOtherDocShell),
         mThisEventTarget(aThisEventTarget),
         mOtherEventTarget(aOtherEventTarget) {
-    MOZ_GUARD_OBJECT_NOTIFIER_INIT;
-
     mThisFrameLoader->mInSwap = true;
     mOtherFrameLoader->mInSwap = true;
     mThisDocShell->SetInFrameSwap(true);
@@ -1433,7 +1430,6 @@ class MOZ_RAII AutoResetInFrameSwap final {
   RefPtr<nsDocShell> mOtherDocShell;
   nsCOMPtr<EventTarget> mThisEventTarget;
   nsCOMPtr<EventTarget> mOtherEventTarget;
-  MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
 
 nsresult nsFrameLoader::SwapWithOtherLoader(nsFrameLoader* aOther,
@@ -2110,13 +2106,14 @@ nsresult nsFrameLoader::MaybeCreateDocShell() {
     return NS_ERROR_FAILURE;
   }
 
+  mPendingBrowsingContext->SetEmbedderElement(mOwnerContent);
+
   // nsDocShell::Create will attach itself to the passed browsing
   // context inside of nsDocShell::Create
   RefPtr<nsDocShell> docShell = nsDocShell::Create(mPendingBrowsingContext);
   NS_ENSURE_TRUE(docShell, NS_ERROR_FAILURE);
   mDocShell = docShell;
 
-  mPendingBrowsingContext->SetEmbedderElement(mOwnerContent);
   mPendingBrowsingContext->Embed();
 
   InvokeBrowsingContextReadyCallback();
@@ -3131,6 +3128,9 @@ class WebProgressListenerToPromise final : public nsIWebProgressListener {
                            uint32_t aStateFlags, nsresult aStatus) override {
     if (aStateFlags & nsIWebProgressListener::STATE_STOP &&
         aStateFlags & nsIWebProgressListener::STATE_IS_DOCUMENT) {
+      MOZ_RELEASE_ASSERT(mPromise,
+                         "Got duplicate load notification, "
+                         "or load after an error");
       mPromise->MaybeResolveWithUndefined();
       mPromise = nullptr;
     }
@@ -3139,7 +3139,7 @@ class WebProgressListenerToPromise final : public nsIWebProgressListener {
   NS_IMETHOD OnStatusChange(nsIWebProgress* aWebProgress, nsIRequest* aRequest,
                             nsresult aStatus,
                             const char16_t* aMessage) override {
-    if (aStatus != NS_OK) {
+    if (aStatus != NS_OK && mPromise) {
       mPromise->MaybeReject(ErrorResult(aStatus));
       mPromise = nullptr;
     }
