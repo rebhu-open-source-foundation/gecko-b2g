@@ -151,11 +151,13 @@ this.LocalDomains = {
       Ci.nsICertOverrideService
     );
 
+    let port = Services.prefs.getIntPref("b2g.vhost.port", 443);
+
     // Reuse the list of hosts that we force to resolve to 127.0.0.1 to add the overrides.
     this.list.forEach(host => {
       overrideService.rememberValidityOverride(
         host,
-        443,
+        port,
         this.cert,
         overrideService.ERROR_UNTRUSTED |
           overrideService.ERROR_MISMATCH |
