@@ -209,7 +209,7 @@
   mirror: always
 
 - name: accessibility.volume_balance
-  type: uint32_t
+  type: RelaxedAtomicUint32
   value: 50
   mirror: always
 
