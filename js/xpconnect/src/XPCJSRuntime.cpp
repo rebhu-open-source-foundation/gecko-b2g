@@ -53,6 +53,8 @@
 #include "js/MemoryMetrics.h"
 #include "js/UbiNode.h"
 #include "js/UbiNodeUtils.h"
+#include "js/friend/UsageStatistics.h"  // JS_TELEMETRY_*, JS_SetAccumulateTelemetryCallback
+#include "js/friend/WindowProxy.h"  // js::SetWindowProxyClass
 #include "mozilla/dom/GeneratedAtomList.h"
 #include "mozilla/dom/BindingUtils.h"
 #include "mozilla/dom/Element.h"

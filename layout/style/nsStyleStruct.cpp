@@ -1593,6 +1593,9 @@ bool StyleImage::IsComplete() const {
              (status & imgIRequest::STATUS_SIZE_AVAILABLE) &&
              (status & imgIRequest::STATUS_FRAME_COMPLETE);
     }
+    // Bug 546052 cross-fade not yet implemented.
+    case Tag::CrossFade:
+      return true;
     default:
       MOZ_ASSERT_UNREACHABLE("unexpected image type");
       return false;
@@ -2503,9 +2506,9 @@ nsChangeHint nsStyleDisplay::CalcDifference(
         hint |= nsChangeHint_ReflowHintsForScrollbarChange;
       }
     } else {
-      // Otherwise this is a change between visible and
-      // -moz-hidden-unscrollable. Here only whether we have a clip changes, so
-      // just repaint and update our overflow areas in that case.
+      // Otherwise this is a change between 'visible' and 'clip'.
+      // Here only whether we have a 'clip' changes, so just repaint and
+      // update our overflow areas in that case.
       hint |= nsChangeHint_UpdateOverflow | nsChangeHint_RepaintFrame;
     }
   }

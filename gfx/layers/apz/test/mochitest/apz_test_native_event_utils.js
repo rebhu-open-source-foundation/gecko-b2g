@@ -343,7 +343,9 @@ function synthesizeNativeWheelAndWaitForWheelEvent(
   targetWindow.addEventListener(
     "wheel",
     function(e) {
-      setTimeout(aCallback, 0);
+      if (aCallback) {
+        setTimeout(aCallback, 0);
+      }
     },
     { once: true }
   );
@@ -604,6 +606,13 @@ function synthesizeNativeClick(aElement, aX, aY, aObserver = null) {
     }
   );
   return true;
+}
+
+// Promise-returning variant of synthesizeNativeClick.
+function promiseNativeClick(aElement, aX, aY) {
+  return new Promise(resolve => {
+    synthesizeNativeClick(aElement, aX, aY, resolve);
+  });
 }
 
 function synthesizeNativeClickAndWaitForClickEvent(

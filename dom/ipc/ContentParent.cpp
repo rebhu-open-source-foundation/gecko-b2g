@@ -2739,7 +2739,8 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
   // at present.
   nsTArray<SystemFontListEntry> fontList;
   gfxPlatform::GetPlatform()->ReadSystemFontList(&fontList);
-  nsTArray<LookAndFeelInt> lnfCache = LookAndFeel::GetIntCache();
+
+  LookAndFeelCache lnfCache = LookAndFeel::GetCache();
 
   // If the shared fontlist is in use, collect its shmem block handles to pass
   // to the child.
@@ -5588,7 +5589,7 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
   // If we were passed a name for the window which would override the default,
   // we should send it down to the new tab.
   if (nsContentUtils::IsOverridingWindowName(aName)) {
-    newBrowserHost->GetBrowsingContext()->SetName(aName);
+    MOZ_ALWAYS_SUCCEEDS(newBrowserHost->GetBrowsingContext()->SetName(aName));
   }
 
   MOZ_ASSERT(newBrowserHost->GetBrowsingContext()->OriginAttributesRef() ==

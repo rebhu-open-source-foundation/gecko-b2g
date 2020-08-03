@@ -2621,7 +2621,7 @@ bool nsFrameLoader::TryRemoteBrowserInternal() {
     nsAutoString frameName;
     mOwnerContent->GetAttr(kNameSpaceID_None, nsGkAtoms::name, frameName);
     if (nsContentUtils::IsOverridingWindowName(frameName)) {
-      mPendingBrowsingContext->SetName(frameName);
+      MOZ_ALWAYS_SUCCEEDS(mPendingBrowsingContext->SetName(frameName));
     }
     // Allow scripts to close the window if the browser specified so:
     if (mOwnerContent->AttrValueIs(kNameSpaceID_None,
@@ -2988,7 +2988,7 @@ void nsFrameLoader::ApplySandboxFlags(uint32_t sandboxFlags) {
     }
   }
 
-  context->SetSandboxFlags(sandboxFlags);
+  MOZ_ALWAYS_SUCCEEDS(context->SetSandboxFlags(sandboxFlags));
 }
 
 /* virtual */
@@ -3128,11 +3128,11 @@ class WebProgressListenerToPromise final : public nsIWebProgressListener {
                            uint32_t aStateFlags, nsresult aStatus) override {
     if (aStateFlags & nsIWebProgressListener::STATE_STOP &&
         aStateFlags & nsIWebProgressListener::STATE_IS_DOCUMENT) {
-      MOZ_RELEASE_ASSERT(mPromise,
-                         "Got duplicate load notification, "
-                         "or load after an error");
-      mPromise->MaybeResolveWithUndefined();
-      mPromise = nullptr;
+      MOZ_ASSERT(mPromise);
+      if (mPromise) {
+        mPromise->MaybeResolveWithUndefined();
+        mPromise = nullptr;
+      }
     }
     return NS_OK;
   }

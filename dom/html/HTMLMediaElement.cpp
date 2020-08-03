@@ -5887,6 +5887,7 @@ void HTMLMediaElement::PlaybackEnded() {
     mAutoplaying = true;
   }
 
+  mMediaControlKeyListener->StopIfNeeded();
   DispatchAsyncEvent(u"ended"_ns);
 }
 

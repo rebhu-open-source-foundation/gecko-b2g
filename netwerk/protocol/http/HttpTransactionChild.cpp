@@ -14,8 +14,10 @@
 #include "mozilla/net/BackgroundDataBridgeParent.h"
 #include "mozilla/net/InputChannelThrottleQueueChild.h"
 #include "mozilla/net/SocketProcessChild.h"
+#include "mozilla/ScopeExit.h"
 #include "mozilla/StaticPrefs_network.h"
 #include "nsInputStreamPump.h"
+#include "nsITransportSecurityInfo.h"
 #include "nsHttpHandler.h"
 #include "nsNetUtil.h"
 #include "nsProxyInfo.h"
@@ -37,7 +39,11 @@ NS_IMPL_ISUPPORTS(HttpTransactionChild, nsIRequestObserver, nsIStreamListener,
 //-----------------------------------------------------------------------------
 
 HttpTransactionChild::HttpTransactionChild()
-    : mCanceled(false), mStatus(NS_OK), mChannelId(0), mIsDocumentLoad(false) {
+    : mCanceled(false),
+      mStatus(NS_OK),
+      mChannelId(0),
+      mIsDocumentLoad(false),
+      mLogicalOffset(0) {
   LOG(("Creating HttpTransactionChild @%p\n", this));
 }
 
@@ -175,7 +181,8 @@ mozilla::ipc::IPCResult HttpTransactionChild::RecvInit(
     const bool& aHasTransactionObserver,
     const Maybe<H2PushedStreamArg>& aPushedStreamArg,
     const mozilla::Maybe<PInputChannelThrottleQueueChild*>& aThrottleQueue,
-    const bool& aIsDocumentLoad) {
+    const bool& aIsDocumentLoad, const TimeStamp& aRedirectStart,
+    const TimeStamp& aRedirectEnd) {
   mRequestHead = aReqHeaders;
   if (aRequestBody) {
     mUploadStream = mozilla::ipc::DeserializeIPCStream(aRequestBody);
@@ -184,6 +191,8 @@ mozilla::ipc::IPCResult HttpTransactionChild::RecvInit(
   mTransaction = new nsHttpTransaction();
   mChannelId = aChannelId;
   mIsDocumentLoad = aIsDocumentLoad;
+  mRedirectStart = aRedirectStart;
+  mRedirectEnd = aRedirectEnd;
 
   if (aThrottleQueue.isSome()) {
     mThrottleQueue =
@@ -273,13 +282,15 @@ HttpTransactionChild::OnDataAvailable(nsIRequest* aRequest,
     return rv;
   }
 
+  mLogicalOffset += aCount;
+
   if (NS_IsMainThread()) {
     if (!CanSend()) {
       return NS_ERROR_FAILURE;
     }
 
     LOG(("  ODA to parent process"));
-    Unused << SendOnDataAvailable(data, aOffset, aCount, false);
+    Unused << SendOnDataAvailable(data, aOffset, aCount);
     return NS_OK;
   }
 
@@ -307,7 +318,7 @@ HttpTransactionChild::OnDataAvailable(nsIRequest* aRequest,
       NS_NewRunnableFunction(
           "HttpTransactionChild::OnDataAvailable",
           [self, offset(aOffset), count(aCount), data(data)]() {
-            if (!self->SendOnDataAvailable(data, offset, count, true)) {
+            if (!self->SendOnDataAvailable(data, offset, count)) {
               self->CancelInternal(NS_ERROR_FAILURE);
             }
           }),
@@ -390,9 +401,17 @@ HttpTransactionChild::OnStartRequest(nsIRequest* aRequest) {
   nsresult status;
   aRequest->GetStatus(&status);
 
+  mProtocolVersion.Truncate();
+
   nsCString serializedSecurityInfoOut;
   nsCOMPtr<nsISupports> secInfoSupp = mTransaction->SecurityInfo();
   if (secInfoSupp) {
+    nsCOMPtr<nsITransportSecurityInfo> info = do_QueryInterface(secInfoSupp);
+    nsAutoCString protocol;
+    if (info && NS_SUCCEEDED(info->GetNegotiatedNPN(protocol)) &&
+        !protocol.IsEmpty()) {
+      mProtocolVersion.Assign(protocol);
+    }
     nsCOMPtr<nsISerializable> secInfoSer = do_QueryInterface(secInfoSupp);
     if (secInfoSer) {
       NS_SerializeToString(secInfoSer, serializedSecurityInfoOut);
@@ -403,6 +422,10 @@ HttpTransactionChild::OnStartRequest(nsIRequest* aRequest) {
   Maybe<nsHttpResponseHead> optionalHead;
   nsTArray<uint8_t> dataForSniffer;
   if (head) {
+    if (mProtocolVersion.IsEmpty()) {
+      HttpVersion version = head->Version();
+      mProtocolVersion.Assign(nsHttp::GetProtocolVersion(version));
+    }
     optionalHead = Some(*head);
     if (mTransaction->Caps() & NS_HTTP_CALL_CONTENT_SNIFFER) {
       nsAutoCString contentTypeOptionsHeader;
@@ -454,20 +477,47 @@ HttpTransactionChild::OnStartRequest(nsIRequest* aRequest) {
                                mTransaction->ProxyConnectFailed(),
                                ToTimingStructArgs(mTransaction->Timings()),
                                proxyConnectResponseCode, dataForSniffer,
-                               optionalAltSvcUsed);
+                               optionalAltSvcUsed, !!mDataBridgeParent);
   return NS_OK;
+}
+
+ResourceTimingStructArgs HttpTransactionChild::GetTimingAttributes() {
+  // Note that not all fields in ResourceTimingStructArgs are filled, since
+  // we only need some in HttpChannelChild::OnStopRequest.
+  ResourceTimingStructArgs args;
+  args.domainLookupStart() = mTransaction->GetDomainLookupStart();
+  args.domainLookupEnd() = mTransaction->GetDomainLookupEnd();
+  args.connectStart() = mTransaction->GetConnectStart();
+  args.tcpConnectEnd() = mTransaction->GetTcpConnectEnd();
+  args.secureConnectionStart() = mTransaction->GetSecureConnectionStart();
+  args.connectEnd() = mTransaction->GetConnectEnd();
+  args.requestStart() = mTransaction->GetRequestStart();
+  args.responseStart() = mTransaction->GetResponseStart();
+  args.responseEnd() = mTransaction->GetResponseEnd();
+  args.transferSize() = mTransaction->GetTransferSize();
+  args.encodedBodySize() = mLogicalOffset;
+  args.redirectStart() = mRedirectStart;
+  args.redirectEnd() = mRedirectEnd;
+  args.protocolVersion() = mProtocolVersion;
+  return args;
 }
 
 NS_IMETHODIMP
 HttpTransactionChild::OnStopRequest(nsIRequest* aRequest, nsresult aStatus) {
   LOG(("HttpTransactionChild::OnStopRequest [this=%p]\n", this));
 
-  if (mDataBridgeParent) {
-    mDataBridgeParent->Destroy();
-    mDataBridgeParent = nullptr;
-  }
-
   mTransactionPump = nullptr;
+
+  auto onStopGuard = MakeScopeExit([&] {
+    LOG(("  calling mDataBridgeParent->OnStopRequest by ScopeExit [this=%p]\n",
+         this));
+    MOZ_ASSERT(NS_FAILED(mStatus), "This shoule be only called when failure");
+    if (mDataBridgeParent) {
+      mDataBridgeParent->OnStopRequest(mStatus, ResourceTimingStructArgs(),
+                                       TimeStamp(), nsHttpHeaderArray());
+      mDataBridgeParent = nullptr;
+    }
+  });
 
   // Don't bother sending IPC to parent process if already canceled.
   if (mCanceled) {
@@ -475,7 +525,8 @@ HttpTransactionChild::OnStopRequest(nsIRequest* aRequest, nsresult aStatus) {
   }
 
   if (!CanSend()) {
-    return NS_ERROR_FAILURE;
+    mStatus = NS_ERROR_UNEXPECTED;
+    return mStatus;
   }
 
   MOZ_ASSERT(mTransaction);
@@ -487,11 +538,23 @@ HttpTransactionChild::OnStopRequest(nsIRequest* aRequest, nsresult aStatus) {
     responseTrailers.emplace(*headerArray);
   }
 
-  Unused << SendOnStopRequest(
-      aStatus, mTransaction->ResponseIsComplete(),
-      mTransaction->GetTransferSize(),
-      ToTimingStructArgs(mTransaction->Timings()), responseTrailers,
-      mTransaction->HasStickyConnection(), mTransactionObserverResult);
+  onStopGuard.release();
+
+  TimeStamp lastActTabOpt = nsHttp::GetLastActiveTabLoadOptimizationHit();
+
+  if (mDataBridgeParent) {
+    mDataBridgeParent->OnStopRequest(
+        aStatus, GetTimingAttributes(), lastActTabOpt,
+        responseTrailers ? *responseTrailers : nsHttpHeaderArray());
+    mDataBridgeParent = nullptr;
+  }
+
+  Unused << SendOnStopRequest(aStatus, mTransaction->ResponseIsComplete(),
+                              mTransaction->GetTransferSize(),
+                              ToTimingStructArgs(mTransaction->Timings()),
+                              responseTrailers,
+                              mTransaction->HasStickyConnection(),
+                              mTransactionObserverResult, lastActTabOpt);
 
   return NS_OK;
 }

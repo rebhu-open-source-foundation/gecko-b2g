@@ -5772,9 +5772,14 @@
 
 # One of several prefs affecting the maximum area to pre-render when animating
 # a large element on the compositor.
+# This pref enables transform (and transform like properties) animations on a
+# large element run on the compositor with rendering partial area of the
+# element on the main thread instead of rendering the whole area.  Once the
+# animation tried to composite out of the partial rendered area, the animation
+# is rendered again with the latest visible partial area.
 - name: layout.animation.prerender.partial
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # One of several prefs affecting the maximum area to pre-render when animating
@@ -5945,6 +5950,12 @@
   value: @IS_NOT_RELEASE_OR_BETA@
   mirror: always
 
+- name: layout.css.cross-fade.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  rust: true
+
 # Is support for DOMMatrix enabled?
 - name: layout.css.DOMMatrix.enabled
   type: RelaxedAtomicBool
@@ -6084,7 +6095,7 @@
 # Whether the ::-moz-focus-outer pseudo-class is parsed.
 - name: layout.css.moz-focus-outer.enabled
   type: RelaxedAtomicBool
-  value: @IS_NOT_NIGHTLY_BUILD@
+  value: false
   mirror: always
   rust: true
 
@@ -8949,7 +8960,7 @@
 
 - name: security.bad_cert_domain_error.url_fix_enabled
   type: bool
-  value: true
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 - name: security.csp.enable

@@ -52,20 +52,22 @@ class HttpTransactionParent final : public PHttpTransactionParent,
       const nsCString& aSecurityInfoSerialization,
       const bool& aProxyConnectFailed, const TimingStructArgs& aTimings,
       const int32_t& aProxyConnectResponseCode,
-      nsTArray<uint8_t>&& aDataForSniffer, const Maybe<nsCString>& aAltSvcUsed);
+      nsTArray<uint8_t>&& aDataForSniffer, const Maybe<nsCString>& aAltSvcUsed,
+      const bool& aDataToChildProcess);
   mozilla::ipc::IPCResult RecvOnTransportStatus(
       const nsresult& aStatus, const int64_t& aProgress,
       const int64_t& aProgressMax,
       Maybe<NetworkAddressArg>&& aNetworkAddressArg);
-  mozilla::ipc::IPCResult RecvOnDataAvailable(
-      const nsCString& aData, const uint64_t& aOffset, const uint32_t& aCount,
-      const bool& aDataSentToChildProcess);
+  mozilla::ipc::IPCResult RecvOnDataAvailable(const nsCString& aData,
+                                              const uint64_t& aOffset,
+                                              const uint32_t& aCount);
   mozilla::ipc::IPCResult RecvOnStopRequest(
       const nsresult& aStatus, const bool& aResponseIsComplete,
       const int64_t& aTransferSize, const TimingStructArgs& aTimings,
       const Maybe<nsHttpHeaderArray>& responseTrailers,
       const bool& aHasStickyConn,
-      Maybe<TransactionObserverResult>&& aTransactionObserverResult);
+      Maybe<TransactionObserverResult>&& aTransactionObserverResult,
+      const TimeStamp& aLastActiveTabOptHit);
   mozilla::ipc::IPCResult RecvOnInitFailed(const nsresult& aStatus);
 
   mozilla::ipc::IPCResult RecvOnH2PushStream(const uint32_t& aPushedStreamId,
@@ -77,6 +79,11 @@ class HttpTransactionParent final : public PHttpTransactionParent,
   void SetSniffedTypeToChannel(
       nsInputStreamPump::PeekSegmentFun aCallTypeSniffers,
       nsIChannel* aChannel);
+
+  void SetRedirectTimestamp(TimeStamp aRedirectStart, TimeStamp aRedirectEnd) {
+    mRedirectStart = aRedirectStart;
+    mRedirectEnd = aRedirectEnd;
+  }
 
  private:
   virtual ~HttpTransactionParent();
@@ -90,10 +97,10 @@ class HttpTransactionParent final : public PHttpTransactionParent,
                         const TimingStructArgs& aTimings,
                         const int32_t& aProxyConnectResponseCode,
                         nsTArray<uint8_t>&& aDataForSniffer,
-                        const Maybe<nsCString>& aAltSvcUsed);
+                        const Maybe<nsCString>& aAltSvcUsed,
+                        const bool& aDataToChildProcess);
   void DoOnDataAvailable(const nsCString& aData, const uint64_t& aOffset,
-                         const uint32_t& aCount,
-                         const bool& aDataSentToChildProcess);
+                         const uint32_t& aCount);
   void DoOnStopRequest(
       const nsresult& aStatus, const bool& aResponseIsComplete,
       const int64_t& aTransferSize, const TimingStructArgs& aTimings,
@@ -132,8 +139,10 @@ class HttpTransactionParent final : public PHttpTransactionParent,
   bool mResolvedByTRR;
   int32_t mProxyConnectResponseCode;
   uint64_t mChannelId;
-  bool mDataAlreadySent;
+  bool mDataSentToChildProcess;
   bool mIsDocumentLoad;
+  TimeStamp mRedirectStart;
+  TimeStamp mRedirectEnd;
 
   NetAddr mSelfAddr;
   NetAddr mPeerAddr;

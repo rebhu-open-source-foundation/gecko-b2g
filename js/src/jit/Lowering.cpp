@@ -857,6 +857,24 @@ void LIRGenerator::visitTest(MTest* test) {
     }
   }
 
+#ifdef ENABLE_WASM_SIMD
+  // Check if the operand for this test is an any_true/all_true SIMD operation.
+  // If it is, we want to emit an LWasmReduceAndBranchSimd128 node to avoid
+  // generating an intermediate boolean result.
+  if (opd->isWasmReduceSimd128() && opd->isEmittedAtUses()) {
+    MWasmReduceSimd128* node = opd->toWasmReduceSimd128();
+    if (canFoldReduceSimd128AndBranch(node->simdOp())) {
+#  ifdef DEBUG
+      js::wasm::ReportSimdAnalysis("simd128-to-scalar-and-branch -> folded");
+#  endif
+      auto* lir = new (alloc()) LWasmReduceAndBranchSimd128(
+          useRegister(node->input()), node->simdOp(), ifTrue, ifFalse);
+      add(lir, test);
+      return;
+    }
+  }
+#endif
+
   if (opd->isIsObject() && opd->isEmittedAtUses()) {
     MDefinition* input = opd->toIsObject()->input();
     MOZ_ASSERT(input->type() == MIRType::Value);

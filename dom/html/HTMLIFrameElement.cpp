@@ -187,8 +187,8 @@ nsresult HTMLIFrameElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
                aName == nsGkAtoms::mozallowfullscreen) {
       if (mFrameLoader) {
         if (auto* bc = mFrameLoader->GetExtantBrowsingContext()) {
-          // This can go away once we remove the featurePolicy pref.
-          bc->SetFullscreenAllowedByOwner(AllowFullscreen());
+          MOZ_ALWAYS_SUCCEEDS(
+              bc->SetFullscreenAllowedByOwner(AllowFullscreen()));
         }
       }
     }
@@ -279,7 +279,8 @@ void HTMLIFrameElement::MaybeStoreCrossOriginFeaturePolicy() {
     return;
   }
 
-  browsingContext->SetFeaturePolicy(mFeaturePolicy);
+  // Return value of setting synced field should be checked. See bug 1656492.
+  Unused << browsingContext->SetFeaturePolicy(mFeaturePolicy);
 }
 
 already_AddRefed<nsIPrincipal>

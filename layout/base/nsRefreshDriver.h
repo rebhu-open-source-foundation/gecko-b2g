@@ -447,6 +447,16 @@ class nsRefreshDriver final : public mozilla::layers::TransactionIdAllocator,
     mNeedToUpdateIntersectionObservations = true;
   }
 
+  enum class TickReasons : uint32_t {
+    eNone = 0,
+    eHasObservers = 1 << 0,
+    eHasImageRequests = 1 << 1,
+    eNeedsToUpdateIntersectionObservations = 1 << 2,
+    eHasVisualViewportResizeEvents = 1 << 3,
+    eHasScrollEvents = 1 << 4,
+    eHasVisualVieportScrollEvents = 1 << 5,
+  };
+
  private:
   typedef nsTObserverArray<nsARefreshObserver*> ObserverArray;
   typedef nsTArray<RefPtr<VVPResizeEvent>> VisualViewportResizeEventArray;
@@ -482,9 +492,13 @@ class nsRefreshDriver final : public mozilla::layers::TransactionIdAllocator,
   // Note: This should only be called in the dtor of nsRefreshDriver.
   uint32_t ObserverCount() const;
   bool HasImageRequests() const;
+  bool ShouldKeepTimerRunningWhileWaitingForFirstContentfulPaint();
   ObserverArray& ArrayFor(mozilla::FlushType aFlushType);
   // Trigger a refresh immediately, if haven't been disconnected or frozen.
   void DoRefresh();
+
+  TickReasons GetReasonsToTick() const;
+  void AppendTickReasonsToString(TickReasons aReasons, nsACString& aStr) const;
 
   double GetRegularTimerInterval() const;
   static double GetThrottledTimerInterval();
@@ -500,6 +514,7 @@ class nsRefreshDriver final : public mozilla::layers::TransactionIdAllocator,
   mozilla::RefreshDriverTimer* ChooseTimer();
   mozilla::RefreshDriverTimer* mActiveTimer;
   RefPtr<mozilla::RefreshDriverTimer> mOwnTimer;
+  UniqueProfilerBacktrace mRefreshTimerStartedCause;
 
   // nsPresContext passed in constructor and unset in Disconnect.
   mozilla::WeakPtr<nsPresContext> mPresContext;
@@ -527,6 +542,8 @@ class nsRefreshDriver final : public mozilla::layers::TransactionIdAllocator,
   // interval, we only recompute visibility when we've seen a layout or style
   // flush since the last time we did it.
   const mozilla::TimeDuration mMinRecomputeVisibilityInterval;
+
+  UniqueProfilerBacktrace mViewManagerFlushCause;
 
   bool mThrottled : 1;
   bool mNeedToRecomputeVisibility : 1;
@@ -573,7 +590,7 @@ class nsRefreshDriver final : public mozilla::layers::TransactionIdAllocator,
   mozilla::TimeStamp mTickVsyncTime;
   mozilla::TimeStamp mNextThrottledFrameRequestTick;
   mozilla::TimeStamp mNextRecomputeVisibilityTick;
-  mozilla::TimeStamp mInitialTimerRunningLimit;
+  mozilla::TimeStamp mBeforeFirstContentfulPaintTimerRunningLimit;
 
   // separate arrays for each flush type we support
   ObserverArray mObservers[4];

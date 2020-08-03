@@ -40,9 +40,9 @@ UNCOMMON_TRY_TASK_LABELS = [
     r'web-platform-tests.*backlog',  # hide wpt jobs that are not implemented yet - bug 1572820
     r'-ccov/',
     r'-profiling-',  # talos/raptor profiling jobs are run too often
-    # Hide shippable versions of non perf tests. The non-shippable versions are faster
-    # to run.
-    r'-shippable(?!.*(awsy|browsertime|marionette-headless|raptor|talos|web-platform-tests-wdspec-headless))',  # noqa - too long
+    # Hide shippable versions of tests we have opt versions of because the non-shippable
+    # versions are faster to run. This is mostly perf tests.
+    r'-shippable(?!.*(awsy|browsertime|marionette-headless|mochitest-devtools-chrome-fis|raptor|talos|web-platform-tests-wdspec-headless))',  # noqa - too long
 ]
 
 
@@ -180,18 +180,27 @@ def filter_release_tasks(task, parameters):
         return True
 
     # code below here is intended to reduce beta/release debug tasks
-    platform = task.attributes.get('test_platform', '')
-    if 'debug' in platform:
-        if 'linux' not in platform:
-            # filter out mac/windows/android debug
+    build_type = task.attributes.get('build_type', '')
+    build_platform = task.attributes.get('build_platform', '')
+    test_platform = task.attributes.get('test_platform', '')
+    if task.kind == 'hazard' or 'toolchain' in build_platform:
+        # keep hazard and toolchain builds around
+        return True
+
+    if build_type == 'debug':
+        if 'linux' not in build_platform:
+            # filter out windows/mac/android
             return False
-        elif 'spidermonkey' not in platform and '-qr' in platform:
-            # filter out linux tests except -qr and spidermonkey
+        elif task.kind not in ['spidermonkey'] and '-qr' in test_platform:
+            # filter out linux-qr tests, leave spidermonkey
+            return False
+        elif '64' not in build_platform:
+            # filter out linux32 builds
             return False
 
-    if task.attributes.get('build_type', '') == 'debug':
-        if 'linux' not in task.attributes.get('build_platform', ''):
-            return False
+    # webrender-android-*-debug doesn't have attributes to find 'debug', using task.label.
+    if task.kind == 'webrender' and 'debug' in task.label:
+        return False
     return True
 
 
@@ -1115,6 +1124,32 @@ def target_tasks_raptor_tp6m(full_task_graph, parameters, graph_config):
                'amazon' in try_name and 'search' not in try_name and \
                'fenix' in try_name:
                 return True
+
+    return [l for l, t in six.iteritems(full_task_graph.tasks) if filter(t)]
+
+
+@_target_task('raptor_tp6_windows10_64_ref_hw_2017')
+def target_tasks_raptor_tp6_windows10_64_ref_hw_2017(full_task_graph, parameters, graph_config):
+    """
+    Select tasks required for running raptor cold tests on raptor_tp6_windows10_64_ref_hw_2017
+    """
+    def filter(task):
+        platform = task.attributes.get('test_platform')
+        attributes = task.attributes
+
+        if attributes.get('unittest_suite') != 'raptor':
+            return False
+
+        if 'windows10-64-ref-hw-2017/opt' not in platform:
+            return False
+
+        try_name = attributes.get('raptor_try_name')
+        if 'raptor' in try_name:
+            if '-tp6' in try_name:
+                if '-cold' in try_name:
+                    return True
+                return False
+            return True
 
     return [l for l, t in six.iteritems(full_task_graph.tasks) if filter(t)]
 

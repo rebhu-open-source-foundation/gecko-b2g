@@ -655,7 +655,7 @@ NS_INTERFACE_MAP_END
 
 mozilla::ipc::IPCResult ContentChild::RecvSetXPCOMProcessAttributes(
     XPCOMInitData&& aXPCOMInit, const StructuredCloneData& aInitialData,
-    nsTArray<LookAndFeelInt>&& aLookAndFeelIntCache,
+    LookAndFeelCache&& aLookAndFeelCache,
     nsTArray<SystemFontListEntry>&& aFontList,
     const Maybe<SharedMemoryHandle>& aSharedUASheetHandle,
     const uintptr_t& aSharedUASheetAddress,
@@ -664,7 +664,7 @@ mozilla::ipc::IPCResult ContentChild::RecvSetXPCOMProcessAttributes(
     return IPC_OK();
   }
 
-  mLookAndFeelCache = std::move(aLookAndFeelIntCache);
+  mLookAndFeelCache = std::move(aLookAndFeelCache);
   mFontList = std::move(aFontList);
   mSharedFontListBlocks = std::move(aSharedFontListBlocks);
 #ifdef XP_WIN
@@ -2588,8 +2588,8 @@ mozilla::ipc::IPCResult ContentChild::RecvNotifyVisited(
 }
 
 mozilla::ipc::IPCResult ContentChild::RecvThemeChanged(
-    nsTArray<LookAndFeelInt>&& aLookAndFeelIntCache) {
-  LookAndFeel::SetIntCache(aLookAndFeelIntCache);
+    LookAndFeelCache&& aLookAndFeelCache) {
+  LookAndFeel::SetCache(aLookAndFeelCache);
   LookAndFeel::NotifyChangedAllWindows();
   return IPC_OK();
 }

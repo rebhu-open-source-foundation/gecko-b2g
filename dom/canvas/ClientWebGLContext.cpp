@@ -7,6 +7,7 @@
 
 #include "ClientWebGLExtensions.h"
 #include "HostWebGLContext.h"
+#include "js/ScalarType.h"  // js::Scalar::Type
 #include "mozilla/dom/ToJSValue.h"
 #include "mozilla/dom/WebGLContextEvent.h"
 #include "mozilla/dom/WorkerCommon.h"
@@ -3727,7 +3728,7 @@ static std::string ToString(const js::Scalar::Type type) {
       break;
   }
   MOZ_ASSERT(false);
-  return std::string("#") + std::to_string(EnumValue(type));
+  return std::string("#") + std::to_string(UnderlyingValue(type));
 }
 
 /////////////////////////////////////////////////

@@ -41,7 +41,8 @@
 #include "jit/Ion.h"
 #include "jit/PcScriptCache.h"
 #include "js/CharacterEncoding.h"
-#include "js/ContextOptions.h"  // JS::ContextOptions
+#include "js/ContextOptions.h"      // JS::ContextOptions
+#include "js/friend/StackLimits.h"  // js::ReportOverRecursed
 #include "js/Printf.h"
 #ifdef JS_SIMULATOR_ARM
 #  include "jit/arm/Simulator-arm.h"

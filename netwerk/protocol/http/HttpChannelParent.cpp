@@ -83,7 +83,8 @@ HttpChannelParent::HttpChannelParent(dom::BrowserParent* iframeEmbedding,
       mCacheNeedFlowControlInitialized(false),
       mNeedFlowControl(true),
       mSuspendedForFlowControl(false),
-      mAfterOnStartRequestBegun(false) {
+      mAfterOnStartRequestBegun(false),
+      mDataSentToChildProcess(false) {
   LOG(("Creating HttpChannelParent [this=%p]\n", this));
 
   // Ensure gHttpHandler is initialized: we need the atom table up and running.
@@ -1436,6 +1437,16 @@ HttpChannelParent::OnStartRequest(nsIRequest* aRequest) {
     httpChannelImpl->GetCacheTokenExpirationTime(&args.cacheExpirationTime());
     httpChannelImpl->GetCacheTokenCachedCharset(args.cachedCharset());
 
+    mDataSentToChildProcess = httpChannelImpl->DataSentToChildProcess();
+
+    // If RCWN is enabled and cache wins, we can't use the ODA from socket
+    // process.
+    if (args.isRacing()) {
+      mDataSentToChildProcess =
+          httpChannelImpl->DataSentToChildProcess() && !args.isFromCache();
+    }
+    args.dataFromSocketProcess() = mDataSentToChildProcess;
+
     bool loadedFromApplicationCache = false;
     httpChannelImpl->GetLoadedFromApplicationCache(&loadedFromApplicationCache);
     if (loadedFromApplicationCache) {
@@ -1589,6 +1600,14 @@ HttpChannelParent::OnStopRequest(nsIRequest* aRequest, nsresult aStatusCode) {
   // is ready to send OnStopRequest.
   MOZ_ASSERT(mIPCClosed || mBgParent);
 
+  if (mDataSentToChildProcess) {
+    if (mIPCClosed || !mBgParent ||
+        !mBgParent->OnConsoleReport(consoleReports)) {
+      return NS_ERROR_UNEXPECTED;
+    }
+    return NS_OK;
+  }
+
   // If we're handling a multi-part stream, then send this directly
   // over PHttpChannel to make synchronization easier.
   if (mIPCClosed || !mBgParent ||
@@ -1682,6 +1701,11 @@ HttpChannelParent::OnDataAvailable(nsIRequest* aRequest,
   MOZ_RELEASE_ASSERT(!mDivertingFromChild,
                      "Cannot call OnDataAvailable if diverting is set!");
 
+  if (mDataSentToChildProcess) {
+    uint32_t n;
+    return aInputStream->ReadSegments(NS_DiscardSegment, nullptr, aCount, &n);
+  }
+
   nsresult channelStatus = NS_OK;
   mChannel->GetStatus(&channelStatus);
 
@@ -1690,12 +1714,6 @@ HttpChannelParent::OnDataAvailable(nsIRequest* aRequest,
   if (httpChannelImpl) {
     if (httpChannelImpl->IsReadingFromCache()) {
       transportStatus = NS_NET_STATUS_READING;
-    }
-
-    if (httpChannelImpl->OnDataAlreadySent()) {
-      LOG(("  OnDataAvailable already sent to the child.\n"));
-      uint32_t n;
-      return aInputStream->ReadSegments(NS_DiscardSegment, nullptr, aCount, &n);
     }
   }
 
@@ -1761,12 +1779,14 @@ bool HttpChannelParent::NeedFlowControl() {
   // a. pref-out
   // b. the resource is from cache or partial cache
   // c. the resource is small
+  // d. data will be sent from socket process to child process directly
   // Note that we served the cached resource first for partical cache, which is
   // ignored here since we only take the first ODA into consideration.
   if (gHttpHandler->SendWindowSize() == 0 || !httpChannelImpl ||
       httpChannelImpl->IsReadingFromCache() ||
       NS_FAILED(httpChannelImpl->GetContentLength(&contentLength)) ||
-      contentLength < gHttpHandler->SendWindowSize()) {
+      contentLength < gHttpHandler->SendWindowSize() ||
+      mDataSentToChildProcess) {
     mNeedFlowControl = false;
   }
   mCacheNeedFlowControlInitialized = true;

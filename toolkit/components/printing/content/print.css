@@ -3,7 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 html, body {
-  height: 100%;
+  width: 250px;
+  height: 600px;
 }
 
 body {
@@ -14,7 +15,7 @@ body {
 }
 
 .row {
-  padding-inline-start: 34px;
+  padding-inline-start: 18px;
   margin-block: 18px;
 }
 
@@ -31,15 +32,24 @@ body {
 .header-container {
   display: flex;
   flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
   flex: 0 1 auto;
   border-bottom: 1px solid var(--in-content-border-color);
-  margin-block: 18px 0;
+  padding: 8px 18px;
 }
 .header-container > h2 {
-  margin-top: 0;
+  margin: 0;
+  font-size: 17px;
+  line-height: 1;
 }
-.header-container > #sheets-count {
-  display: none;
+
+#sheet-count {
+  font-size: 11px;
+  border-radius: 5px;
+  border: solid 1px var(--in-content-border-color);
+  padding: 3px 8px;
+  margin: 0;
 }
 
 form#print {

@@ -3156,7 +3156,8 @@ nsresult Document::StartDocumentLoad(const char* aCommand, nsIChannel* aChannel,
   if (IsTopLevelContentDocument() && httpChan &&
       NS_SUCCEEDED(httpChan->GetCrossOriginOpenerPolicy(&policy)) && docShell &&
       docShell->GetBrowsingContext()) {
-    docShell->GetBrowsingContext()->SetOpenerPolicy(policy);
+    // Setting the opener policy on a discarded context has no effect.
+    Unused << docShell->GetBrowsingContext()->SetOpenerPolicy(policy);
   }
 
   // The CSP directives upgrade-insecure-requests as well as
@@ -11247,7 +11248,9 @@ void Document::NotifyLoading(bool aNewParentIsLoading,
       for (auto& child : context->Children()) {
         MOZ_LOG(gTimeoutDeferralLog, mozilla::LogLevel::Debug,
                 ("bc: %p SetAncestorLoading(%d)", (void*)child, is_loading));
-        child->SetAncestorLoading(is_loading);
+        // Setting ancestor loading on a discarded browsing context has no
+        // effect.
+        Unused << child->SetAncestorLoading(is_loading);
       }
     }
   }
@@ -13527,7 +13530,7 @@ Element* Document::TopLayerPop(FunctionRef<bool(Element*)> aPredicateFunc) {
   // Remove the topmost element that qualifies aPredicate; This
   // is required is because the top layer contains not only
   // fullscreen elements, but also dialog elements.
-  Element* removedElement;
+  Element* removedElement = nullptr;
   for (auto i : Reversed(IntegerRange(mTopLayer.Length()))) {
     nsCOMPtr<Element> element(do_QueryReferent(mTopLayer[i]));
     if (element && aPredicateFunc(element)) {
@@ -15168,7 +15171,9 @@ void Document::ReportHasScrollLinkedEffect() {
 
 void Document::SetSHEntryHasUserInteraction(bool aHasInteraction) {
   if (RefPtr<WindowContext> topWc = GetTopLevelWindowContext()) {
-    topWc->SetSHEntryHasUserInteraction(aHasInteraction);
+    // Setting has user interction on a discarded browsing context has
+    // no effect.
+    Unused << topWc->SetSHEntryHasUserInteraction(aHasInteraction);
   }
 }
 
@@ -15282,8 +15287,8 @@ bool Document::ConsumeTransientUserGestureActivation() {
 
 void Document::SetDocTreeHadAudibleMedia() {
   RefPtr<WindowContext> topWc = GetTopLevelWindowContext();
-  if (topWc && !topWc->GetDocTreeHadAudibleMedia()) {
-    topWc->SetDocTreeHadAudibleMedia(true);
+  if (topWc && !topWc->IsDiscarded() && !topWc->GetDocTreeHadAudibleMedia()) {
+    MOZ_ALWAYS_SUCCEEDS(topWc->SetDocTreeHadAudibleMedia(true));
   }
 }
 
@@ -16278,7 +16283,7 @@ void Document::ReportShadowDOMUsage() {
   }
 
   WindowContext* wc = inner->GetWindowContext();
-  if (NS_WARN_IF(!wc)) {
+  if (NS_WARN_IF(!wc || wc->IsDiscarded())) {
     return;
   }
 
@@ -16287,7 +16292,7 @@ void Document::ReportShadowDOMUsage() {
     return;
   }
 
-  topWc->SetHasReportedShadowDOMUsage(true);
+  MOZ_ALWAYS_SUCCEEDS(topWc->SetHasReportedShadowDOMUsage(true));
 }
 
 // static

@@ -27,9 +27,16 @@ enum MediaControlKey {
  */
 [Exposed=Window, ChromeOnly]
 interface MediaController : EventTarget {
+  readonly attribute unsigned long long id;
+  readonly attribute boolean isActive;
+  readonly attribute boolean isAudible;
+  readonly attribute boolean isPlaying;
+
   [Frozen, Cached, Pure]
   readonly attribute sequence<MediaControlKey> supportedKeys;
 
+  attribute EventHandler onactivated;
+  attribute EventHandler ondeactivated;
   attribute EventHandler onpositionstatechange;
   attribute EventHandler onsupportedkeyschange;
 
