@@ -243,13 +243,11 @@ class BluetoothServiceBluedroid : public BluetoothService,
       BluetoothReplyRunnable* aRunnable) override;
 
   virtual void GattClientStartNotificationsInternal(
-      const BluetoothUuid& aAppUuid, const BluetoothGattServiceId& aServId,
-      const BluetoothGattId& aCharId,
+      const BluetoothUuid& aAppUuid, const BluetoothAttributeHandle& aHandle,
       BluetoothReplyRunnable* aRunnable) override;
 
   virtual void GattClientStopNotificationsInternal(
-      const BluetoothUuid& aAppUuid, const BluetoothGattServiceId& aServId,
-      const BluetoothGattId& aCharId,
+      const BluetoothUuid& aAppUuid, const BluetoothAttributeHandle& aHandle,
       BluetoothReplyRunnable* aRunnable) override;
 
   virtual void UnregisterGattClientInternal(
@@ -260,26 +258,21 @@ class BluetoothServiceBluedroid : public BluetoothService,
       BluetoothReplyRunnable* aRunnable) override;
 
   virtual void GattClientReadCharacteristicValueInternal(
-      const BluetoothUuid& aAppUuid, const BluetoothGattServiceId& aServiceId,
-      const BluetoothGattId& aCharacteristicId,
+      const BluetoothUuid& aAppUuid, const BluetoothAttributeHandle& aHandle,
       BluetoothReplyRunnable* aRunnable) override;
 
   virtual void GattClientWriteCharacteristicValueInternal(
-      const BluetoothUuid& aAppUuid, const BluetoothGattServiceId& aServiceId,
-      const BluetoothGattId& aCharacteristicId,
+      const BluetoothUuid& aAppUuid, const BluetoothAttributeHandle& aHandle,
       const BluetoothGattWriteType& aWriteType, const nsTArray<uint8_t>& aValue,
       BluetoothReplyRunnable* aRunnable) override;
 
   virtual void GattClientReadDescriptorValueInternal(
-      const BluetoothUuid& aAppUuid, const BluetoothGattServiceId& aServiceId,
-      const BluetoothGattId& aCharacteristicId,
-      const BluetoothGattId& aDescriptorId,
+      const BluetoothUuid& aAppUuid, const BluetoothAttributeHandle& aHandle,
       BluetoothReplyRunnable* aRunnable) override;
 
   virtual void GattClientWriteDescriptorValueInternal(
-      const BluetoothUuid& aAppUuid, const BluetoothGattServiceId& aServiceId,
-      const BluetoothGattId& aCharacteristicId,
-      const BluetoothGattId& aDescriptorId, const nsTArray<uint8_t>& aValue,
+      const BluetoothUuid& aAppUuid, const BluetoothAttributeHandle& aHandle,
+      const nsTArray<uint8_t>& aValue,
       BluetoothReplyRunnable* aRunnable) override;
 
   virtual void GattServerRegisterInternal(

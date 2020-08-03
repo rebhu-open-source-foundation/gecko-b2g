@@ -61,10 +61,10 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(BluetoothAdapter,
    */
   UnregisterBluetoothSignalHandler(KEY_ADAPTER, tmp);
   // if (tmp->mHasListenedToPbapSignal) {
-  //   UnregisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_PBAP), tmp);
+  //   UnregisterBluetoothSignalHandler(KEY_PBAP, tmp);
   // }
   // if (tmp->mHasListenedToMapSignal) {
-  //   UnregisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_MAP), tmp);
+  //   UnregisterBluetoothSignalHandler(KEY_MAP, tmp);
   // }
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
@@ -324,10 +324,10 @@ void BluetoothAdapter::DisconnectFromOwner() {
 void BluetoothAdapter::Cleanup() {
   UnregisterBluetoothSignalHandler(KEY_ADAPTER, this);
   // if (mHasListenedToPbapSignal) {
-  //   UnregisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_PBAP), this);
+  //   UnregisterBluetoothSignalHandler(KEY_PBAP, this);
   // }
   // if (mHasListenedToMapSignal) {
-  //   UnregisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_MAP), this);
+  //   UnregisterBluetoothSignalHandler(KEY_MAP, this);
   // }
 
   // Stop ongoing LE scans and clear the LeScan handle array
@@ -2018,7 +2018,7 @@ void BluetoothAdapter::EventListenerAdded(nsAtom* aType) {
 //     BluetoothService
 //     // would be fired when adapter starts listening to bluetooth PBAP signal.
 //     if (HasListenersFor(nsGkAtoms::onpbapconnectionreq)) {
-//       RegisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_PBAP), this);
+//       RegisterBluetoothSignalHandler(KEY_PBAP, this);
 //       mHasListenedToPbapSignal = true;
 //     }
 //   }
@@ -2033,7 +2033,7 @@ void BluetoothAdapter::EventListenerAdded(nsAtom* aType) {
 //     // would be fired when adapter starts listening to bluetooth MAP signal.
 //     if (HasListenersFor(nsGkAtoms::onmapconnectionreq)) {
 
-//       RegisterBluetoothSignalHandler(NS_LITERAL_STRING(KEY_MAP), this);
+//       RegisterBluetoothSignalHandler(KEY_MAP, this);
 //       mHasListenedToMapSignal = true;
 //     }
 //   }

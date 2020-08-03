@@ -6,34 +6,34 @@
 
 include "mozilla/dom/bluetooth/ipc/BluetoothMessageUtils.h";
 
-using mozilla::dom::bluetooth::BluetoothAddress
-  from "mozilla/dom/bluetooth/BluetoothCommon.h";
-using mozilla::dom::bluetooth::BluetoothAttributeHandle
-  from "mozilla/dom/bluetooth/BluetoothCommon.h";
-using mozilla::dom::bluetooth::BluetoothGattAttrPerm
- from "mozilla/dom/bluetooth/BluetoothCommon.h";
-using mozilla::dom::bluetooth::BluetoothGattCharAttribute
- from "mozilla/dom/bluetooth/BluetoothCommon.h";
-using mozilla::dom::bluetooth::BluetoothGattCharProp
- from "mozilla/dom/bluetooth/BluetoothCommon.h";
-using mozilla::dom::bluetooth::BluetoothGattId
-  from "mozilla/dom/bluetooth/BluetoothCommon.h";
-using mozilla::dom::bluetooth::BluetoothGattResponse
- from "mozilla/dom/bluetooth/BluetoothCommon.h";
-using mozilla::dom::bluetooth::BluetoothGattServiceId
- from "mozilla/dom/bluetooth/BluetoothCommon.h";
-using mozilla::dom::bluetooth::BluetoothGattStatus
- from "mozilla/dom/bluetooth/BluetoothCommon.h";
-using mozilla::dom::bluetooth::BluetoothGattWriteType
- from "mozilla/dom/bluetooth/BluetoothCommon.h";
-using mozilla::dom::bluetooth::BluetoothRemoteName
-  from "mozilla/dom/bluetooth/BluetoothCommon.h";
-using mozilla::dom::bluetooth::BluetoothSspVariant
-  from "mozilla/dom/bluetooth/BluetoothCommon.h";
-using mozilla::dom::bluetooth::BluetoothStatus
-  from "mozilla/dom/bluetooth/BluetoothCommon.h";
-using mozilla::dom::bluetooth::BluetoothUuid
-  from "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::BluetoothAddress from
+    "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::BluetoothAttributeHandle from
+    "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::BluetoothGattAttrPerm from
+    "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::BluetoothGattCharAttribute from
+    "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::BluetoothGattCharProp from
+    "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::BluetoothGattResponse from
+    "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::BluetoothGattServiceId from
+    "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::BluetoothGattStatus from
+    "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::BluetoothGattWriteType from
+    "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::BluetoothRemoteName from
+    "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::BluetoothSspVariant from
+    "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::BluetoothStatus from
+    "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::BluetoothUuid from
+    "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::BluetoothGattDbElement from
+    "mozilla/dom/bluetooth/BluetoothCommon.h";
 
 namespace mozilla {
 namespace dom {
@@ -44,8 +44,7 @@ namespace bluetooth {
  * returns, which can be a 32-bit int, an UTF16 string, a bool, or an array of
  * UTF16 strings. Can also hold key-value pairs for dictionary-ish access.
  */
-union BluetoothValue
-{
+union BluetoothValue {
   int32_t;
   uint32_t;
   nsCString;
@@ -55,11 +54,9 @@ union BluetoothValue
   uint8_t[];
   uint32_t[];
   BluetoothNamedValue[];
-  BluetoothGattId;
-  BluetoothGattId[];
   BluetoothGattServiceId;
-  BluetoothGattServiceId[];
   BluetoothGattCharAttribute[];
+  BluetoothGattDbElement[];
   BluetoothAddress;
   BluetoothAddress[];
   BluetoothAttributeHandle;
@@ -72,42 +69,36 @@ union BluetoothValue
  * Key-value pair for dicts returned by the bluetooth backend. Used for things
  * like property updates, where the property will have a name and a type.
  */
-struct BluetoothNamedValue
-{
+struct BluetoothNamedValue {
   nsString name;
   BluetoothValue value;
 };
 
-struct BluetoothSignal
-{
+struct BluetoothSignal {
   nsString name;
   nsString path;
   BluetoothValue value;
 };
 
-struct BluetoothReplySuccess
-{
+struct BluetoothReplySuccess {
   BluetoothValue value;
 };
 
-union BluetoothErrorStatus
-{
+union BluetoothErrorStatus {
   BluetoothStatus;
   BluetoothGattStatus;
 };
 
-struct BluetoothReplyError
-{
+struct BluetoothReplyError {
   BluetoothErrorStatus errorStatus;
   nsString errorString;
 };
 
-union BluetoothReply
-{
+union BluetoothReply {
   BluetoothReplySuccess;
   BluetoothReplyError;
 };
 
-}
-}
-}
+}  // namespace bluetooth
+}  // namespace dom
+}  // namespace mozilla

@@ -137,7 +137,7 @@ nsresult Convert(uint8_t aIn, BluetoothSspVariant& aOut);
 
 nsresult Convert(uint8_t aIn, BluetoothStatus& aOut);
 
-nsresult Convert(int32_t aIn, BluetoothAttributeHandle& aOut);
+nsresult Convert(uint16_t aIn, BluetoothAttributeHandle& aOut);
 
 nsresult Convert(uint8_t aIn, BluetoothHidProtocolMode& aOut);
 
@@ -147,7 +147,7 @@ nsresult Convert(uint8_t aIn, BluetoothHidStatus& aOut);
 
 nsresult Convert(int32_t aIn, BluetoothGattStatus& aOut);
 
-nsresult Convert(const BluetoothAttributeHandle& aIn, int32_t& aOut);
+nsresult Convert(int32_t aIn, BluetoothGattDbType& aOut);
 
 nsresult Convert(const BluetoothAttributeHandle& aIn, uint16_t& aOut);
 
@@ -396,6 +396,8 @@ nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothStatus& aOut);
 
 nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothGattStatus& aOut);
 
+nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothGattDbType& aOut);
+
 inline nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothUuid& aOut) {
   return aPDU.Read(aOut.mUuid, sizeof(aOut.mUuid));
 }
@@ -406,9 +408,10 @@ nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothGattServiceId& aOut);
 
 nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothGattReadParam& aOut);
 
-nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothGattWriteParam& aOut);
-
 nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothGattNotifyParam& aOut);
+
+nsresult UnpackPDU(DaemonSocketPDU& aPDU,
+                   nsTArray<BluetoothGattDbElement>& aOut);
 
 nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothHidInfoParam& aOut);
 

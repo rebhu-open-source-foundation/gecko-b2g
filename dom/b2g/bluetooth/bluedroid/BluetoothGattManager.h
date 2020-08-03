@@ -61,37 +61,29 @@ class BluetoothGattManager final : public nsIObserver,
                       BluetoothReplyRunnable* aRunnable);
 
   void RegisterNotifications(const BluetoothUuid& aAppUuid,
-                             const BluetoothGattServiceId& aServId,
-                             const BluetoothGattId& aCharId,
+                             const BluetoothAttributeHandle& aHandle,
                              BluetoothReplyRunnable* aRunnable);
 
   void DeregisterNotifications(const BluetoothUuid& aAppUuid,
-                               const BluetoothGattServiceId& aServId,
-                               const BluetoothGattId& aCharId,
+                               const BluetoothAttributeHandle& aHandle,
                                BluetoothReplyRunnable* aRunnable);
 
   void ReadCharacteristicValue(const BluetoothUuid& aAppUuid,
-                               const BluetoothGattServiceId& aServiceId,
-                               const BluetoothGattId& aCharacteristicId,
+                               const BluetoothAttributeHandle& aHandle,
                                BluetoothReplyRunnable* aRunnable);
 
   void WriteCharacteristicValue(const BluetoothUuid& aAppUuid,
-                                const BluetoothGattServiceId& aServiceId,
-                                const BluetoothGattId& aCharacteristicId,
+                                const BluetoothAttributeHandle& aHandle,
                                 const BluetoothGattWriteType& aWriteType,
                                 const nsTArray<uint8_t>& aValue,
                                 BluetoothReplyRunnable* aRunnable);
 
   void ReadDescriptorValue(const BluetoothUuid& aAppUuid,
-                           const BluetoothGattServiceId& aServiceId,
-                           const BluetoothGattId& aCharacteristicId,
-                           const BluetoothGattId& aDescriptorId,
+                           const BluetoothAttributeHandle& aHandle,
                            BluetoothReplyRunnable* aRunnable);
 
   void WriteDescriptorValue(const BluetoothUuid& aAppUuid,
-                            const BluetoothGattServiceId& aServiceId,
-                            const BluetoothGattId& aCharacteristicId,
-                            const BluetoothGattId& aDescriptorId,
+                            const BluetoothAttributeHandle& aHandle,
                             const nsTArray<uint8_t>& aValue,
                             BluetoothReplyRunnable* aRunnable);
 
@@ -225,28 +217,9 @@ class BluetoothGattManager final : public nsIObserver,
   void SearchCompleteNotification(int aConnId,
                                   BluetoothGattStatus aStatus) override;
 
-  void SearchResultNotification(
-      int aConnId, const BluetoothGattServiceId& aServiceId) override;
-
-  void GetCharacteristicNotification(
-      int aConnId, BluetoothGattStatus aStatus,
-      const BluetoothGattServiceId& aServiceId, const BluetoothGattId& aCharId,
-      const BluetoothGattCharProp& aCharProperty) override;
-
-  void GetDescriptorNotification(int aConnId, BluetoothGattStatus aStatus,
-                                 const BluetoothGattServiceId& aServiceId,
-                                 const BluetoothGattId& aCharId,
-                                 const BluetoothGattId& aDescriptorId) override;
-
-  void GetIncludedServiceNotification(
-      int aConnId, BluetoothGattStatus aStatus,
-      const BluetoothGattServiceId& aServiceId,
-      const BluetoothGattServiceId& aIncludedServId) override;
-
   void RegisterNotificationNotification(
       int aConnId, int aIsRegister, BluetoothGattStatus aStatus,
-      const BluetoothGattServiceId& aServiceId,
-      const BluetoothGattId& aCharId) override;
+      const BluetoothAttributeHandle& aHandle) override;
 
   void NotifyNotification(
       int aConnId, const BluetoothGattNotifyParam& aNotifyParam) override;
@@ -255,17 +228,15 @@ class BluetoothGattManager final : public nsIObserver,
       int aConnId, BluetoothGattStatus aStatus,
       const BluetoothGattReadParam& aReadParam) override;
 
-  void WriteCharacteristicNotification(
-      int aConnId, BluetoothGattStatus aStatus,
-      const BluetoothGattWriteParam& aWriteParam) override;
+  void WriteCharacteristicNotification(int aConnId, BluetoothGattStatus aStatus,
+                                       uint16_t aHandle) override;
 
   void ReadDescriptorNotification(
       int aConnId, BluetoothGattStatus aStatus,
       const BluetoothGattReadParam& aReadParam) override;
 
-  void WriteDescriptorNotification(
-      int aConnId, BluetoothGattStatus aStatus,
-      const BluetoothGattWriteParam& aWriteParam) override;
+  void WriteDescriptorNotification(int aConnId, BluetoothGattStatus aStatus,
+                                   uint16_t aHandle) override;
 
   void ExecuteWriteNotification(int aConnId,
                                 BluetoothGattStatus aStatus) override;
@@ -276,8 +247,8 @@ class BluetoothGattManager final : public nsIObserver,
 
   void ListenNotification(BluetoothGattStatus aStatus, int aServerIf) override;
 
-  void ProceedDiscoverProcess(BluetoothGattClient* aClient,
-                              const BluetoothGattServiceId& aServiceId);
+  void GetGattDbNotification(
+      int aConnId, const nsTArray<BluetoothGattDbElement>& aDb) override;
 
   void RegisterServerNotification(BluetoothGattStatus aStatus, int aServerIf,
                                   const BluetoothUuid& aAppUuid) override;

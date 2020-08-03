@@ -35,7 +35,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(BluetoothGattDescriptor)
    * after unlinked. Please see Bug 1138267 for detail informations.
    */
   nsString path;
-  GeneratePathFromGattId(tmp->mDescriptorId, path);
+  GeneratePathFromHandle(tmp->mDescriptorHandle, path);
   UnregisterBluetoothSignalHandler(path, tmp);
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
@@ -58,21 +58,23 @@ const uint16_t BluetoothGattDescriptor::sHandleCount = 1;
 // Constructor of BluetoothGattDescriptor in ATT client role
 BluetoothGattDescriptor::BluetoothGattDescriptor(
     nsPIDOMWindowInner* aOwner, BluetoothGattCharacteristic* aCharacteristic,
-    const BluetoothGattId& aDescriptorId)
+    const BluetoothGattDbElement& aDbElement)
     : mOwner(aOwner),
       mCharacteristic(aCharacteristic),
-      mDescriptorId(aDescriptorId),
+      mUuid(aDbElement.mUuid),
+      mInstanceId(aDbElement.mId),
       mPermissions(BLUETOOTH_EMPTY_GATT_ATTR_PERM),
       mAttRole(ATT_CLIENT_ROLE),
-      mActive(true) {
+      mActive(true),
+      mDescriptorHandle(aDbElement.mHandle) {
   MOZ_ASSERT(aOwner);
   MOZ_ASSERT(aCharacteristic);
 
-  UuidToString(mDescriptorId.mUuid, mUuidStr);
+  UuidToString(aDbElement.mUuid, mUuidStr);
 
   // Generate bluetooth signal path of this descriptor to applications
   nsString path;
-  GeneratePathFromGattId(mDescriptorId, path);
+  GeneratePathFromHandle(mDescriptorHandle, path);
   RegisterBluetoothSignalHandler(path, this);
 }
 
@@ -91,8 +93,7 @@ BluetoothGattDescriptor::BluetoothGattDescriptor(
   MOZ_ASSERT(aCharacteristic);
 
   // UUID
-  memset(&mDescriptorId, 0, sizeof(mDescriptorId));
-  StringToUuid(aDescriptorUuid, mDescriptorId.mUuid);
+  StringToUuid(aDescriptorUuid, mUuid);
 
   // permissions
   GattPermissionsToBits(aPermissions, mPermissions);
@@ -104,7 +105,7 @@ BluetoothGattDescriptor::BluetoothGattDescriptor(
 
 BluetoothGattDescriptor::~BluetoothGattDescriptor() {
   nsString path;
-  GeneratePathFromGattId(mDescriptorId, path);
+  GeneratePathFromHandle(mDescriptorHandle, path);
   UnregisterBluetoothSignalHandler(path, this);
 }
 
@@ -139,7 +140,7 @@ void BluetoothGattDescriptor::Notify(const BluetoothSignal& aData) {
 }
 
 void BluetoothGattDescriptor::GetUuid(BluetoothUuid& aUuid) const {
-  aUuid = mDescriptorId.mUuid;
+  aUuid = mUuid;
 }
 
 JSObject* BluetoothGattDescriptor::WrapObject(
@@ -221,9 +222,7 @@ already_AddRefed<Promise> BluetoothGattDescriptor::ReadValue(ErrorResult& aRv) {
   BT_ENSURE_TRUE_REJECT(bs, promise, NS_ERROR_NOT_AVAILABLE);
 
   bs->GattClientReadDescriptorValueInternal(
-      appUuid, mCharacteristic->Service()->GetServiceId(),
-      mCharacteristic->GetCharacteristicId(), mDescriptorId,
-      new descriptor::ReadValueTask(this, promise));
+      appUuid, mDescriptorHandle, new descriptor::ReadValueTask(this, promise));
 
   return promise.forget();
 }
@@ -261,8 +260,7 @@ already_AddRefed<Promise> BluetoothGattDescriptor::WriteValue(
   BT_ENSURE_TRUE_REJECT(bs, promise, NS_ERROR_NOT_AVAILABLE);
 
   bs->GattClientWriteDescriptorValueInternal(
-      appUuid, mCharacteristic->Service()->GetServiceId(),
-      mCharacteristic->GetCharacteristicId(), mDescriptorId, value,
+      appUuid, mDescriptorHandle, value,
       new BluetoothVoidReplyRunnable(nullptr, promise));
 
   return promise.forget();

@@ -588,8 +588,7 @@ bool BluetoothRequestParent::DoRequest(
   MOZ_ASSERT(mRequestType == Request::TGattClientStartNotificationsRequest);
 
   mService->GattClientStartNotificationsInternal(
-      aRequest.appUuid(), aRequest.servId(), aRequest.charId(),
-      mReplyRunnable.get());
+      aRequest.appUuid(), aRequest.handle(), mReplyRunnable.get());
 
   return true;
 }
@@ -600,8 +599,7 @@ bool BluetoothRequestParent::DoRequest(
   MOZ_ASSERT(mRequestType == Request::TGattClientStopNotificationsRequest);
 
   mService->GattClientStopNotificationsInternal(
-      aRequest.appUuid(), aRequest.servId(), aRequest.charId(),
-      mReplyRunnable.get());
+      aRequest.appUuid(), aRequest.handle(), mReplyRunnable.get());
 
   return true;
 }
@@ -635,8 +633,7 @@ bool BluetoothRequestParent::DoRequest(
              Request::TGattClientReadCharacteristicValueRequest);
 
   mService->GattClientReadCharacteristicValueInternal(
-      aRequest.appUuid(), aRequest.serviceId(), aRequest.charId(),
-      mReplyRunnable.get());
+      aRequest.appUuid(), aRequest.handle(), mReplyRunnable.get());
 
   return true;
 }
@@ -648,8 +645,8 @@ bool BluetoothRequestParent::DoRequest(
              Request::TGattClientWriteCharacteristicValueRequest);
 
   mService->GattClientWriteCharacteristicValueInternal(
-      aRequest.appUuid(), aRequest.serviceId(), aRequest.charId(),
-      aRequest.writeType(), aRequest.value(), mReplyRunnable.get());
+      aRequest.appUuid(), aRequest.handle(), aRequest.writeType(),
+      aRequest.value(), mReplyRunnable.get());
 
   return true;
 }
@@ -660,8 +657,7 @@ bool BluetoothRequestParent::DoRequest(
   MOZ_ASSERT(mRequestType == Request::TGattClientReadDescriptorValueRequest);
 
   mService->GattClientReadDescriptorValueInternal(
-      aRequest.appUuid(), aRequest.serviceId(), aRequest.charId(),
-      aRequest.descId(), mReplyRunnable.get());
+      aRequest.appUuid(), aRequest.handle(), mReplyRunnable.get());
 
   return true;
 }
@@ -672,8 +668,8 @@ bool BluetoothRequestParent::DoRequest(
   MOZ_ASSERT(mRequestType == Request::TGattClientWriteDescriptorValueRequest);
 
   mService->GattClientWriteDescriptorValueInternal(
-      aRequest.appUuid(), aRequest.serviceId(), aRequest.charId(),
-      aRequest.descId(), aRequest.value(), mReplyRunnable.get());
+      aRequest.appUuid(), aRequest.handle(), aRequest.value(),
+      mReplyRunnable.get());
 
   return true;
 }

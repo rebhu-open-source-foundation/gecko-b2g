@@ -201,12 +201,13 @@ void GattPropertiesToBits(const GattCharacteristicProperties& aProperties,
 //
 
 /**
- * Generate bluetooth signal path from a GattId.
+ * Generate bluetooth signal path from a BluetoothAttributeHandle.
  *
- * @param aId   [in] GattId value to convert.
+ * @param aId   [in] BluetoothAttributeHandle value to convert.
  * @param aPath [out] Bluetooth signal path generated from aId.
  */
-void GeneratePathFromGattId(const BluetoothGattId& aId, nsAString& aPath);
+void GeneratePathFromHandle(const BluetoothAttributeHandle& aHandle,
+                            nsAString& aPath);
 
 /**
  * Convert BluetoothAdvertisingData object used by applications to

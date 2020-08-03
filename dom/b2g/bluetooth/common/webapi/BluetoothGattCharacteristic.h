@@ -50,7 +50,7 @@ class BluetoothGattCharacteristic final : public nsISupports,
 
   void GetUuid(nsString& aUuidStr) const { aUuidStr = mUuidStr; }
 
-  int InstanceId() const { return mCharId.mInstanceId; }
+  int InstanceId() const { return mInstanceId; }
 
   void GetValue(JSContext* cx, JS::MutableHandle<JSObject*> aValue) const;
 
@@ -74,8 +74,6 @@ class BluetoothGattCharacteristic final : public nsISupports,
   /****************************************************************************
    * Others
    ***************************************************************************/
-  const BluetoothGattId& GetCharacteristicId() const { return mCharId; }
-
   void Notify(
       const BluetoothSignal& aData) override;  // BluetoothSignalObserver
 
@@ -101,7 +99,7 @@ class BluetoothGattCharacteristic final : public nsISupports,
   // Constructor of BluetoothGattCharacteristic in ATT client role
   BluetoothGattCharacteristic(nsPIDOMWindowInner* aOwner,
                               BluetoothGattService* aService,
-                              const BluetoothGattCharAttribute& aChar);
+                              const BluetoothGattDbElement& aDbElement);
 
   // Constructor of BluetoothGattCharacteristic in ATT server role
   BluetoothGattCharacteristic(nsPIDOMWindowInner* aOwner,
@@ -111,17 +109,16 @@ class BluetoothGattCharacteristic final : public nsISupports,
                               const GattCharacteristicProperties& aProperties,
                               const ArrayBuffer& aValue);
 
+  /**
+   * Add GATT descriptors into mDescriptors and update the cache value of
+   * mDescriptors.
+   *
+   * @param aDescriptor [in] a pointer of descriptor of this characteristic
+   */
+  void AppendDescriptor(BluetoothGattDescriptor* aDescriptor);
+
  private:
   ~BluetoothGattCharacteristic();
-
-  /**
-   * Add newly discovered GATT descriptors into mDescriptors and update the
-   * cache value of mDescriptors.
-   *
-   * @param aDescriptorIds [in] An array of BluetoothGattId for each descriptor
-   *                            that belongs to this characteristic.
-   */
-  void AssignDescriptors(const nsTArray<BluetoothGattId>& aDescriptorIds);
 
   /**
    * Update the value of this characteristic.
@@ -180,11 +177,14 @@ class BluetoothGattCharacteristic final : public nsISupports,
   nsTArray<RefPtr<BluetoothGattDescriptor>> mDescriptors;
 
   /**
-   * GattId of this GATT characteristic which contains
-   * 1) mUuid: UUID of this characteristic in byte array format.
-   * 2) mInstanceId: Instance id of this characteristic.
+   * Bluetooth UUID of this characteristic
    */
-  BluetoothGattId mCharId;
+  BluetoothUuid mUuid;
+
+  /**
+   * Instance id of this characteristic.
+   */
+  uint16_t mInstanceId;
 
   /**
    * UUID string of this GATT characteristic.
@@ -244,26 +244,6 @@ class BluetoothGattCharacteristic final : public nsISupports,
 };
 
 END_BLUETOOTH_NAMESPACE
-
-/**
- * Explicit Specialization of Function Templates
- *
- * Allows customizing the template code for a given set of template arguments.
- * With this function template, nsTArray can handle comparison between
- * 'RefPtr<BluetoothGattCharacteristic>' and 'BluetoothGattId' properly,
- * including IndexOf() and Contains();
- */
-template <>
-class nsDefaultComparator<
-    RefPtr<mozilla::dom::bluetooth::BluetoothGattCharacteristic>,
-    mozilla::dom::bluetooth::BluetoothGattId> {
- public:
-  bool Equals(
-      const RefPtr<mozilla::dom::bluetooth::BluetoothGattCharacteristic>& aChar,
-      const mozilla::dom::bluetooth::BluetoothGattId& aCharId) const {
-    return aChar->GetCharacteristicId() == aCharId;
-  }
-};
 
 /**
  * Explicit Specialization of Function Templates

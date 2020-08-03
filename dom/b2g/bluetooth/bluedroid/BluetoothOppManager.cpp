@@ -384,9 +384,8 @@ bool BluetoothOppManager::Listen() {
   mServerSocket = new BluetoothSocket(this);
 
   nsresult rv = mServerSocket->Listen(
-      u"OBEX Object Push"_ns, kObexObjectPush,
-      BluetoothSocketType::RFCOMM, BluetoothReservedChannels::CHANNEL_OPUSH,
-      false, true);
+      u"OBEX Object Push"_ns, kObexObjectPush, BluetoothSocketType::RFCOMM,
+      BluetoothReservedChannels::CHANNEL_OPUSH, false, true);
   if (NS_FAILED(rv)) {
     BT_WARNING("[OPP] Can't listen on RFCOMM socket!");
     mServerSocket = nullptr;
@@ -1563,9 +1562,9 @@ bool BluetoothOppManager::AcquireSdcardMountLock() {
       do_GetService(NS_VOLUMESERVICE_CONTRACTID);
   NS_ENSURE_TRUE(volumeSrv, false);
 
-  NS_ENSURE_SUCCESS(volumeSrv->CreateMountLock(u"sdcard"_ns,
-                                               getter_AddRefs(mMountLock)),
-                    false);
+  NS_ENSURE_SUCCESS(
+      volumeSrv->CreateMountLock(u"sdcard"_ns, getter_AddRefs(mMountLock)),
+      false);
 
   return true;
 }

@@ -12,8 +12,7 @@ namespace mozilla {
 namespace dom {
 namespace bluetooth {
 
-protocol PBluetoothRequest
-{
+protocol PBluetoothRequest {
   manager PBluetooth;
 
 child:
@@ -23,6 +22,6 @@ child:
   async __delete__(BluetoothReply response);
 };
 
-} // namespace bluetooth
-} // namespace dom
-} // namespace mozilla
+}  // namespace bluetooth
+}  // namespace dom
+}  // namespace mozilla

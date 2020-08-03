@@ -84,7 +84,7 @@ class BluetoothGattDescriptor final : public nsISupports,
   // Constructor of BluetoothGattDescriptor in ATT client role
   BluetoothGattDescriptor(nsPIDOMWindowInner* aOwner,
                           BluetoothGattCharacteristic* aCharacteristic,
-                          const BluetoothGattId& aDescriptorId);
+                          const BluetoothGattDbElement& aDbElement);
 
   // Constructor of BluetoothGattDescriptor in ATT server role
   BluetoothGattDescriptor(nsPIDOMWindowInner* aOwner,
@@ -102,13 +102,6 @@ class BluetoothGattDescriptor final : public nsISupports,
    * @param aValue [in] BluetoothValue which contains an uint8_t array.
    */
   void HandleDescriptorValueUpdated(const BluetoothValue& aValue);
-
-  /**
-   * Assign AppUuid of this GATT descriptor.
-   *
-   * @param aAppUuid The value of AppUuid.
-   */
-  void AssignAppUuid(const nsAString& aAppUuid);
 
   /**
    * Assign the handle value for this GATT descriptor. This function would be
@@ -139,11 +132,14 @@ class BluetoothGattDescriptor final : public nsISupports,
   RefPtr<BluetoothGattCharacteristic> mCharacteristic;
 
   /**
-   * GattId of this GATT descriptor which contains
-   * 1) mUuid: UUID of this descriptor in byte array format.
-   * 2) mInstanceId: Instance id of this descriptor.
+   * Bluetooth UUID of this descriptor
    */
-  BluetoothGattId mDescriptorId;
+  BluetoothUuid mUuid;
+
+  /**
+   * Instance id of this descriptor.
+   */
+  uint16_t mInstanceId;
 
   /**
    * UUID string of this GATT descriptor.

@@ -503,27 +503,9 @@ void BluetoothGattNotificationHandler::DisconnectNotification(
 void BluetoothGattNotificationHandler::SearchCompleteNotification(
     int aConnId, BluetoothGattStatus aStatus) {}
 
-void BluetoothGattNotificationHandler::SearchResultNotification(
-    int aConnId, const BluetoothGattServiceId& aServiceId) {}
-
-void BluetoothGattNotificationHandler::GetCharacteristicNotification(
-    int aConnId, BluetoothGattStatus aStatus,
-    const BluetoothGattServiceId& aServiceId, const BluetoothGattId& aCharId,
-    const BluetoothGattCharProp& aCharProperty) {}
-
-void BluetoothGattNotificationHandler::GetDescriptorNotification(
-    int aConnId, BluetoothGattStatus aStatus,
-    const BluetoothGattServiceId& aServiceId, const BluetoothGattId& aCharId,
-    const BluetoothGattId& aDescriptorId) {}
-
-void BluetoothGattNotificationHandler::GetIncludedServiceNotification(
-    int aConnId, BluetoothGattStatus aStatus,
-    const BluetoothGattServiceId& aServiceId,
-    const BluetoothGattServiceId& aIncludedServId) {}
-
 void BluetoothGattNotificationHandler::RegisterNotificationNotification(
     int aConnId, int aIsRegister, BluetoothGattStatus aStatus,
-    const BluetoothGattServiceId& aServiceId, const BluetoothGattId& aCharId) {}
+    const BluetoothAttributeHandle& aHandle) {}
 
 void BluetoothGattNotificationHandler::NotifyNotification(
     int aConnId, const BluetoothGattNotifyParam& aNotifyParam) {}
@@ -533,16 +515,14 @@ void BluetoothGattNotificationHandler::ReadCharacteristicNotification(
     const BluetoothGattReadParam& aReadParam) {}
 
 void BluetoothGattNotificationHandler::WriteCharacteristicNotification(
-    int aConnId, BluetoothGattStatus aStatus,
-    const BluetoothGattWriteParam& aWriteParam) {}
+    int aConnId, BluetoothGattStatus aStatus, uint16_t aHandle) {}
 
 void BluetoothGattNotificationHandler::ReadDescriptorNotification(
     int aConnId, BluetoothGattStatus aStatus,
     const BluetoothGattReadParam& aReadParam) {}
 
 void BluetoothGattNotificationHandler::WriteDescriptorNotification(
-    int aConnId, BluetoothGattStatus aStatus,
-    const BluetoothGattWriteParam& aWriteParam) {}
+    int aConnId, BluetoothGattStatus aStatus, uint16_t aHandle) {}
 
 void BluetoothGattNotificationHandler::ExecuteWriteNotification(
     int aConnId, BluetoothGattStatus aStatus) {}
@@ -553,6 +533,9 @@ void BluetoothGattNotificationHandler::ReadRemoteRssiNotification(
 
 void BluetoothGattNotificationHandler::ListenNotification(
     BluetoothGattStatus aStatus, int aServerIf) {}
+
+void BluetoothGattNotificationHandler::GetGattDbNotification(
+    int aConnId, const nsTArray<BluetoothGattDbElement>& aDb) {}
 
 void BluetoothGattNotificationHandler::RegisterServerNotification(
     BluetoothGattStatus aStatus, int aServerIf, const BluetoothUuid& aAppUuid) {
@@ -648,12 +631,6 @@ void BluetoothGattResultHandler::Refresh() {}
 
 void BluetoothGattResultHandler::SearchService() {}
 
-void BluetoothGattResultHandler::GetIncludedService() {}
-
-void BluetoothGattResultHandler::GetCharacteristic() {}
-
-void BluetoothGattResultHandler::GetDescriptor() {}
-
 void BluetoothGattResultHandler::ReadCharacteristic() {}
 
 void BluetoothGattResultHandler::WriteCharacteristic() {}
@@ -675,6 +652,8 @@ void BluetoothGattResultHandler::GetDeviceType(BluetoothTypeOfDevice aType) {}
 void BluetoothGattResultHandler::SetAdvData() {}
 
 void BluetoothGattResultHandler::TestCommand() {}
+
+void BluetoothGattResultHandler::GetGattDb() {}
 
 void BluetoothGattResultHandler::RegisterServer() {}
 

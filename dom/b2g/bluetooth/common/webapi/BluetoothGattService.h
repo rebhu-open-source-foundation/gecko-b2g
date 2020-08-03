@@ -32,11 +32,11 @@ class BluetoothGattService final : public nsISupports, public nsWrapperCache {
   /****************************************************************************
    * Attribute Getters
    ***************************************************************************/
-  bool IsPrimary() const { return mServiceId.mIsPrimary; }
+  bool IsPrimary() const { return mIsPrimary; }
 
   void GetUuid(nsString& aUuidStr) const { aUuidStr = mUuidStr; }
 
-  int InstanceId() const { return mServiceId.mId.mInstanceId; }
+  int InstanceId() const { return mInstanceId; }
 
   void GetIncludedServices(
       nsTArray<RefPtr<BluetoothGattService>>& aIncludedServices) const {
@@ -67,7 +67,11 @@ class BluetoothGattService final : public nsISupports, public nsWrapperCache {
    ***************************************************************************/
   const nsAString& GetAppUuid() const { return mAppUuid; }
 
-  const BluetoothGattServiceId& GetServiceId() const { return mServiceId; }
+  // TODO: Remove this dummy function once GATT server has completed
+  const BluetoothGattServiceId& GetServiceId() const {
+    static BluetoothGattServiceId dummyId;
+    return dummyId;
+  }
 
   const BluetoothAttributeHandle& GetServiceHandle() const {
     return mServiceHandle;
@@ -82,7 +86,7 @@ class BluetoothGattService final : public nsISupports, public nsWrapperCache {
 
   // Constructor of BluetoothGattService in ATT client role
   BluetoothGattService(nsPIDOMWindowInner* aOwner, const nsAString& aAppUuid,
-                       const BluetoothGattServiceId& aServiceId);
+                       const BluetoothGattDbElement& aDb);
 
   // Constructor of BluetoothGattService in ATT server role
   BluetoothGattService(nsPIDOMWindowInner* aOwner,
@@ -95,35 +99,19 @@ class BluetoothGattService final : public nsISupports, public nsWrapperCache {
    * Add newly discovered GATT included services into mIncludedServices and
    * update the cache value of mIncludedServices.
    *
-   * @param aServiceIds [in] An array of BluetoothGattServiceId for each
-   *                         included service that belongs to this service.
+   * @param aService [in] a pointer of included GATT service that belongs to
+   *                      this service.
    */
-  void AssignIncludedServices(
-      const nsTArray<BluetoothGattServiceId>& aServiceIds);
+  void AppendIncludedService(BluetoothGattService* aService);
 
   /**
    * Add newly discovered GATT characteristics into mCharacteristics and
    * update the cache value of mCharacteristics.
    *
-   * @param aCharacteristics [in] An array of BluetoothGattCharAttribute for
-   *                              each characteristic that belongs to this
-   *                              service.
+   * @param aChar [in] a pointer of BluetoothGattCharacteristic that belongs to
+   *                   this service.
    */
-  void AssignCharacteristics(
-      const nsTArray<BluetoothGattCharAttribute>& aCharacteristics);
-
-  /**
-   * Add newly discovered GATT descriptors into mDescriptors of
-   * BluetoothGattCharacteristic and update the cache value of mDescriptors.
-   *
-   * @param aCharacteristicId [in] BluetoothGattId of a characteristic that
-   *                               belongs to this service.
-   * @param aDescriptorIds [in] An array of BluetoothGattId for each descriptor
-   *                            that belongs to the characteristic referred by
-   *                            aCharacteristicId.
-   */
-  void AssignDescriptors(const BluetoothGattId& aCharacteristicId,
-                         const nsTArray<BluetoothGattId>& aDescriptorIds);
+  void AppendCharacteristic(BluetoothGattCharacteristic* aChar);
 
   /**
    * Assign AppUuid of this GATT service.
@@ -188,12 +176,14 @@ class BluetoothGattService final : public nsISupports, public nsWrapperCache {
   nsString mAppUuid;
 
   /**
-   * ServiceId of this GATT service which contains
-   * 1) mId.mUuid: UUID of this service in byte array format.
-   * 2) mId.mInstanceId: Instance id of this service.
-   * 3) mIsPrimary: Indicate whether this is a primary service or not.
+   * Instance id of this service.
    */
-  BluetoothGattServiceId mServiceId;
+  uint16_t mInstanceId;
+
+  /**
+   * Indicate whether this is a primary service or not.
+   */
+  bool mIsPrimary;
 
   /**
    * UUID string of this GATT service.
@@ -242,25 +232,6 @@ class BluetoothGattService final : public nsISupports, public nsWrapperCache {
 };
 
 END_BLUETOOTH_NAMESPACE
-
-/**
- * Explicit Specialization of Function Templates
- *
- * Allows customizing the template code for a given set of template arguments.
- * With this function template, nsTArray can handle comparison between
- * 'RefPtr<BluetoothGattService>' and 'BluetoothGattServiceId' properly,
- * including IndexOf() and Contains();
- */
-template <>
-class nsDefaultComparator<RefPtr<mozilla::dom::bluetooth::BluetoothGattService>,
-                          mozilla::dom::bluetooth::BluetoothGattServiceId> {
- public:
-  bool Equals(
-      const RefPtr<mozilla::dom::bluetooth::BluetoothGattService>& aService,
-      const mozilla::dom::bluetooth::BluetoothGattServiceId& aServiceId) const {
-    return aService->GetServiceId() == aServiceId;
-  }
-};
 
 /**
  * Explicit Specialization of Function Templates

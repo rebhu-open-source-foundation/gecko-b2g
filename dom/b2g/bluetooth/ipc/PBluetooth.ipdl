@@ -12,16 +12,16 @@ include BluetoothTypes;
 
 include "mozilla/dom/bluetooth/ipc/BluetoothMessageUtils.h";
 
-using mozilla::dom::bluetooth::BluetoothAddress
-  from "mozilla/dom/bluetooth/BluetoothCommon.h";
-using mozilla::dom::bluetooth::BluetoothGattAdvertisingData
-  from "mozilla/dom/bluetooth/BluetoothCommon.h";
-using mozilla::dom::bluetooth::BluetoothObjectType
-  from "mozilla/dom/bluetooth/BluetoothCommon.h";
-using mozilla::dom::bluetooth::BluetoothPinCode
-  from "mozilla/dom/bluetooth/BluetoothCommon.h";
-using mozilla::dom::bluetooth::ControlPlayStatus
-  from "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::BluetoothAddress from
+    "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::BluetoothGattAdvertisingData from
+    "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::BluetoothObjectType from
+    "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::BluetoothPinCode from
+    "mozilla/dom/bluetooth/BluetoothCommon.h";
+using mozilla::dom::bluetooth::ControlPlayStatus from
+    "mozilla/dom/bluetooth/BluetoothCommon.h";
 
 namespace mozilla {
 namespace dom {
@@ -31,188 +31,144 @@ namespace bluetooth {
  * Bluetooth request types.
  */
 
-struct GetAdaptersRequest
-{ };
+struct GetAdaptersRequest {};
 
-struct StartBluetoothRequest
-{
-};
+struct StartBluetoothRequest {};
 
-struct StopBluetoothRequest
-{
-};
+struct StopBluetoothRequest {};
 
-struct SetPropertyRequest
-{
+struct SetPropertyRequest {
   BluetoothObjectType type;
   BluetoothNamedValue value;
 };
 
-struct GetPropertyRequest
-{
+struct GetPropertyRequest {
   BluetoothObjectType type;
   BluetoothAddress address;
 };
 
-struct StartDiscoveryRequest
-{
-};
+struct StartDiscoveryRequest {};
 
-struct StopDiscoveryRequest
-{
-};
+struct StopDiscoveryRequest {};
 
-struct StartLeScanRequest
-{
+struct StartLeScanRequest {
   BluetoothUuid[] serviceUuids;
 };
 
-struct StopLeScanRequest
-{
+struct StopLeScanRequest {
   BluetoothUuid scanUuid;
 };
 
-struct StartAdvertisingRequest
-{
+struct StartAdvertisingRequest {
   BluetoothUuid appUuid;
   BluetoothGattAdvertisingData data;
 };
 
-struct StopAdvertisingRequest
-{
+struct StopAdvertisingRequest {
   BluetoothUuid appUuid;
 };
 
-struct PairRequest
-{
+struct PairRequest {
   BluetoothAddress address;
   uint32_t timeoutMS;
 };
 
-struct UnpairRequest
-{
+struct UnpairRequest {
   BluetoothAddress address;
 };
 
-struct PinReplyRequest
-{
+struct PinReplyRequest {
   BluetoothAddress address;
   bool accept;
   BluetoothPinCode pinCode;
 };
 
-struct SspReplyRequest
-{
+struct SspReplyRequest {
   BluetoothAddress address;
   BluetoothSspVariant variant;
   bool accept;
 };
 
-struct PairedDevicePropertiesRequest
-{
+struct PairedDevicePropertiesRequest {
   BluetoothAddress[] addresses;
 };
 
-struct ConnectedDevicePropertiesRequest
-{
+struct ConnectedDevicePropertiesRequest {
   uint16_t serviceUuid;
 };
 
-struct FetchUuidsRequest
-{
+struct FetchUuidsRequest {
   BluetoothAddress address;
 };
 
-struct ConnectRequest
-{
+struct ConnectRequest {
   BluetoothAddress address;
   uint32_t cod;
   uint16_t serviceUuid;
 };
 
-struct DisconnectRequest
-{
+struct DisconnectRequest {
   BluetoothAddress address;
   uint16_t serviceUuid;
 };
 
-struct AcceptConnectionRequest
-{
+struct AcceptConnectionRequest {
   uint16_t serviceUuid;
 };
 
-struct RejectConnectionRequest
-{
+struct RejectConnectionRequest {
   uint16_t serviceUuid;
 };
 
-struct SendFileRequest
-{
+struct SendFileRequest {
   BluetoothAddress address;
   IPCBlob blob;
 };
 
-struct StopSendingFileRequest
-{
+struct StopSendingFileRequest {
   BluetoothAddress address;
 };
 
-struct ConfirmReceivingFileRequest
-{
+struct ConfirmReceivingFileRequest {
   BluetoothAddress address;
 };
 
-struct DenyReceivingFileRequest
-{
+struct DenyReceivingFileRequest {
   BluetoothAddress address;
 };
 
-struct ConnectScoRequest
-{
-};
+struct ConnectScoRequest {};
 
-struct DisconnectScoRequest
-{
-};
+struct DisconnectScoRequest {};
 
-struct IsScoConnectedRequest
-{
-};
+struct IsScoConnectedRequest {};
 
-struct SetObexPasswordRequest
-{
+struct SetObexPasswordRequest {
   nsString password;
 };
 
-struct RejectObexAuthRequest
-{
-};
+struct RejectObexAuthRequest {};
 
-struct ReplyTovCardPullingRequest
-{
+struct ReplyTovCardPullingRequest {
   IPCBlob blob;
 };
 
-struct ReplyToPhonebookPullingRequest
-{
+struct ReplyToPhonebookPullingRequest {
   IPCBlob blob;
   uint16_t phonebookSize;
 };
 
-struct ReplyTovCardListingRequest
-{
+struct ReplyTovCardListingRequest {
   IPCBlob blob;
   uint16_t phonebookSize;
 };
 
-struct ReplyToFolderListingRequest
-{
+struct ReplyToFolderListingRequest {
   uint8_t masId;
   nsString folderList;
 };
 
-struct ReplyToMessagesListingRequest
-{
+struct ReplyToMessagesListingRequest {
   uint8_t masId;
   IPCBlob blob;
   bool newMessage;
@@ -220,45 +176,34 @@ struct ReplyToMessagesListingRequest
   uint16_t size;
 };
 
-struct ReplyToGetMessageRequest
-{
+struct ReplyToGetMessageRequest {
   uint8_t masId;
   IPCBlob blob;
 };
 
-struct ReplyToSetMessageStatusRequest
-{
+struct ReplyToSetMessageStatusRequest {
   uint8_t masId;
   bool messageStatus;
 };
 
-struct ReplyToSendMessageRequest
-{
+struct ReplyToSendMessageRequest {
   uint8_t masId;
   nsString handleId;
   bool messageStatus;
 };
 
-struct ReplyToMessageUpdateRequest
-{
+struct ReplyToMessageUpdateRequest {
   uint8_t masId;
   bool messageStatus;
 };
 
-struct AnswerWaitingCallRequest
-{
-};
+struct AnswerWaitingCallRequest {};
 
-struct IgnoreWaitingCallRequest
-{
-};
+struct IgnoreWaitingCallRequest {};
 
-struct ToggleCallsRequest
-{
-};
+struct ToggleCallsRequest {};
 
-struct SendMetaDataRequest
-{
+struct SendMetaDataRequest {
   nsString title;
   nsString artist;
   nsString album;
@@ -267,132 +212,104 @@ struct SendMetaDataRequest
   int64_t duration;
 };
 
-struct SendPlayStatusRequest
-{
+struct SendPlayStatusRequest {
   int64_t duration;
   int64_t position;
   ControlPlayStatus playStatus;
 };
 
-struct SendMessageEventRequest
-{
+struct SendMessageEventRequest {
   uint8_t masId;
   IPCBlob blob;
 };
 
-struct ConnectGattClientRequest
-{
+struct ConnectGattClientRequest {
   BluetoothUuid appUuid;
   BluetoothAddress deviceAddress;
 };
 
-struct DisconnectGattClientRequest
-{
+struct DisconnectGattClientRequest {
   BluetoothUuid appUuid;
   BluetoothAddress deviceAddress;
 };
 
-struct DiscoverGattServicesRequest
-{
+struct DiscoverGattServicesRequest {
   BluetoothUuid appUuid;
 };
 
-struct GattClientStartNotificationsRequest
-{
+struct GattClientStartNotificationsRequest {
   BluetoothUuid appUuid;
-  BluetoothGattServiceId servId;
-  BluetoothGattId charId;
+  BluetoothAttributeHandle handle;
 };
 
-struct GattClientStopNotificationsRequest
-{
+struct GattClientStopNotificationsRequest {
   BluetoothUuid appUuid;
-  BluetoothGattServiceId servId;
-  BluetoothGattId charId;
+  BluetoothAttributeHandle handle;
 };
 
-struct UnregisterGattClientRequest
-{
+struct UnregisterGattClientRequest {
   int clientIf;
 };
 
-struct GattClientReadRemoteRssiRequest
-{
+struct GattClientReadRemoteRssiRequest {
   int clientIf;
   BluetoothAddress deviceAddress;
 };
 
-struct GattClientReadCharacteristicValueRequest
-{
+struct GattClientReadCharacteristicValueRequest {
   BluetoothUuid appUuid;
-  BluetoothGattServiceId serviceId;
-  BluetoothGattId charId;
+  BluetoothAttributeHandle handle;
 };
 
-struct GattClientWriteCharacteristicValueRequest
-{
+struct GattClientWriteCharacteristicValueRequest {
   BluetoothUuid appUuid;
-  BluetoothGattServiceId serviceId;
-  BluetoothGattId charId;
+  BluetoothAttributeHandle handle;
   BluetoothGattWriteType writeType;
   uint8_t[] value;
 };
 
-struct GattClientReadDescriptorValueRequest
-{
+struct GattClientReadDescriptorValueRequest {
   BluetoothUuid appUuid;
-  BluetoothGattServiceId serviceId;
-  BluetoothGattId charId;
-  BluetoothGattId descId;
+  BluetoothAttributeHandle handle;
 };
 
-struct GattClientWriteDescriptorValueRequest
-{
+struct GattClientWriteDescriptorValueRequest {
   BluetoothUuid appUuid;
-  BluetoothGattServiceId serviceId;
-  BluetoothGattId charId;
-  BluetoothGattId descId;
+  BluetoothAttributeHandle handle;
   uint8_t[] value;
 };
 
-struct GattServerRegisterRequest
-{
+struct GattServerRegisterRequest {
   BluetoothUuid appUuid;
 };
 
-struct GattServerConnectPeripheralRequest
-{
+struct GattServerConnectPeripheralRequest {
   BluetoothUuid appUuid;
   BluetoothAddress address;
 };
 
-struct GattServerDisconnectPeripheralRequest
-{
+struct GattServerDisconnectPeripheralRequest {
   BluetoothUuid appUuid;
   BluetoothAddress address;
 };
 
-struct UnregisterGattServerRequest
-{
+struct UnregisterGattServerRequest {
   int serverIf;
 };
 
-struct GattServerAddServiceRequest
-{
+struct GattServerAddServiceRequest {
   BluetoothUuid appUuid;
   BluetoothGattServiceId serviceId;
   uint16_t handleCount;
 };
 
-struct GattServerAddIncludedServiceRequest
-{
+struct GattServerAddIncludedServiceRequest {
   BluetoothUuid appUuid;
   BluetoothAttributeHandle serviceHandle;
   BluetoothAttributeHandle includedServiceHandle;
 };
 
-struct GattServerAddCharacteristicRequest
-{
+struct GattServerAddCharacteristicRequest {
   BluetoothUuid appUuid;
   BluetoothAttributeHandle serviceHandle;
   BluetoothUuid characteristicUuid;
@@ -400,8 +317,7 @@ struct GattServerAddCharacteristicRequest
   BluetoothGattCharProp properties;
 };
 
-struct GattServerAddDescriptorRequest
-{
+struct GattServerAddDescriptorRequest {
   BluetoothUuid appUuid;
   BluetoothAttributeHandle serviceHandle;
   BluetoothAttributeHandle characteristicHandle;
@@ -409,26 +325,22 @@ struct GattServerAddDescriptorRequest
   BluetoothGattAttrPerm permissions;
 };
 
-struct GattServerRemoveServiceRequest
-{
+struct GattServerRemoveServiceRequest {
   BluetoothUuid appUuid;
   BluetoothAttributeHandle serviceHandle;
 };
 
-struct GattServerStartServiceRequest
-{
+struct GattServerStartServiceRequest {
   BluetoothUuid appUuid;
   BluetoothAttributeHandle serviceHandle;
 };
 
-struct GattServerStopServiceRequest
-{
+struct GattServerStopServiceRequest {
   BluetoothUuid appUuid;
   BluetoothAttributeHandle serviceHandle;
 };
 
-struct GattServerSendResponseRequest
-{
+struct GattServerSendResponseRequest {
   BluetoothUuid appUuid;
   BluetoothAddress address;
   uint16_t status;
@@ -436,8 +348,7 @@ struct GattServerSendResponseRequest
   BluetoothGattResponse response;
 };
 
-struct GattServerSendIndicationRequest
-{
+struct GattServerSendIndicationRequest {
   BluetoothUuid appUuid;
   BluetoothAddress address;
   BluetoothAttributeHandle characteristicHandle;
@@ -445,8 +356,7 @@ struct GattServerSendIndicationRequest
   uint8_t[] value;
 };
 
-union Request
-{
+union Request {
   GetAdaptersRequest;
   StartBluetoothRequest;
   StopBluetoothRequest;
@@ -519,8 +429,7 @@ union Request
   GattServerSendIndicationRequest;
 };
 
-protocol PBluetooth
-{
+protocol PBluetooth {
   manager PContent;
   manages PBluetoothRequest;
 
@@ -615,6 +524,6 @@ parent:
    */
 };
 
-} // namespace bluetooth
-} // namespace dom
-} // namespace mozilla
+}  // namespace bluetooth
+}  // namespace dom
+}  // namespace mozilla

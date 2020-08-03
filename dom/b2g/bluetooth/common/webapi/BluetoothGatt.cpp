@@ -247,88 +247,41 @@ void BluetoothGatt::UpdateConnectionState(BluetoothConnectionState aState) {
 }
 
 void BluetoothGatt::HandleServicesDiscovered(const BluetoothValue& aValue) {
-  MOZ_ASSERT(aValue.type() == BluetoothValue::TArrayOfBluetoothGattServiceId);
-
-  const nsTArray<BluetoothGattServiceId>& serviceIds =
-      aValue.get_ArrayOfBluetoothGattServiceId();
+  const nsTArray<BluetoothGattDbElement>& dbElements =
+      aValue.get_ArrayOfBluetoothGattDbElement();
 
   mServices.Clear();
-  for (uint32_t i = 0; i < serviceIds.Length(); i++) {
-    mServices.AppendElement(
-        new BluetoothGattService(GetParentObject(), mAppUuid, serviceIds[i]));
+  BluetoothGattService* currService = nullptr;
+  BluetoothGattCharacteristic* currCharacteristic = nullptr;
+
+  for (uint32_t i = 0; i < dbElements.Length(); i++) {
+    switch (dbElements[i].mType) {
+      case GATT_DB_TYPE_PRIMARY_SERVICE:
+      case GATT_DB_TYPE_SECONDARY_SERVICE:
+        currService = new BluetoothGattService(GetParentObject(), mAppUuid,
+                                               dbElements[i]);
+        mServices.AppendElement(currService);
+        break;
+      case GATT_DB_TYPE_CHARACTERISTIC:
+        currCharacteristic = new BluetoothGattCharacteristic(
+            GetParentObject(), currService, dbElements[i]);
+        currService->AppendCharacteristic(currCharacteristic);
+        break;
+      case GATT_DB_TYPE_DESCRIPTOR:
+        currCharacteristic->AppendDescriptor(new BluetoothGattDescriptor(
+            GetParentObject(), currCharacteristic, dbElements[i]));
+        break;
+      case GATT_DB_TYPE_INCLUDED_SERVICE:
+        currService->AppendIncludedService(new BluetoothGattService(
+            GetParentObject(), mAppUuid, dbElements[i]));
+        break;
+      case GATT_DB_TYPE_END_GUARD:
+      default:
+        BT_WARNING("Unhandled GATT DB type: %d", dbElements[i].mType);
+    }
   }
 
   BluetoothGatt_Binding::ClearCachedServicesValue(this);
-}
-
-void BluetoothGatt::HandleIncludedServicesDiscovered(
-    const BluetoothValue& aValue) {
-  MOZ_ASSERT(aValue.type() == BluetoothValue::TArrayOfBluetoothNamedValue);
-
-  const nsTArray<BluetoothNamedValue>& values =
-      aValue.get_ArrayOfBluetoothNamedValue();
-  MOZ_ASSERT(values.Length() == 2);  // ServiceId, IncludedServices
-  MOZ_ASSERT(values[0].name().EqualsLiteral("serviceId"));
-  MOZ_ASSERT(values[0].value().type() ==
-             BluetoothValue::TBluetoothGattServiceId);
-  MOZ_ASSERT(values[1].name().EqualsLiteral("includedServices"));
-  MOZ_ASSERT(values[1].value().type() ==
-             BluetoothValue::TArrayOfBluetoothGattServiceId);
-
-  size_t index =
-      mServices.IndexOf(values[0].value().get_BluetoothGattServiceId());
-  NS_ENSURE_TRUE_VOID(index != mServices.NoIndex);
-
-  RefPtr<BluetoothGattService> service = mServices.ElementAt(index);
-  service->AssignIncludedServices(
-      values[1].value().get_ArrayOfBluetoothGattServiceId());
-}
-
-void BluetoothGatt::HandleCharacteristicsDiscovered(
-    const BluetoothValue& aValue) {
-  MOZ_ASSERT(aValue.type() == BluetoothValue::TArrayOfBluetoothNamedValue);
-
-  const nsTArray<BluetoothNamedValue>& values =
-      aValue.get_ArrayOfBluetoothNamedValue();
-  MOZ_ASSERT(values.Length() == 2);  // ServiceId, Characteristics
-  MOZ_ASSERT(values[0].name().EqualsLiteral("serviceId"));
-  MOZ_ASSERT(values[0].value().type() ==
-             BluetoothValue::TBluetoothGattServiceId);
-  MOZ_ASSERT(values[1].name().EqualsLiteral("characteristics"));
-  MOZ_ASSERT(values[1].value().type() ==
-             BluetoothValue::TArrayOfBluetoothGattCharAttribute);
-
-  size_t index =
-      mServices.IndexOf(values[0].value().get_BluetoothGattServiceId());
-  NS_ENSURE_TRUE_VOID(index != mServices.NoIndex);
-
-  RefPtr<BluetoothGattService> service = mServices.ElementAt(index);
-  service->AssignCharacteristics(
-      values[1].value().get_ArrayOfBluetoothGattCharAttribute());
-}
-
-void BluetoothGatt::HandleDescriptorsDiscovered(const BluetoothValue& aValue) {
-  MOZ_ASSERT(aValue.type() == BluetoothValue::TArrayOfBluetoothNamedValue);
-
-  const nsTArray<BluetoothNamedValue>& values =
-      aValue.get_ArrayOfBluetoothNamedValue();
-  MOZ_ASSERT(values.Length() == 3);  // ServiceId, CharacteristicId, Descriptors
-  MOZ_ASSERT(values[0].name().EqualsLiteral("serviceId"));
-  MOZ_ASSERT(values[0].value().type() ==
-             BluetoothValue::TBluetoothGattServiceId);
-  MOZ_ASSERT(values[1].name().EqualsLiteral("characteristicId"));
-  MOZ_ASSERT(values[1].value().type() == BluetoothValue::TBluetoothGattId);
-  MOZ_ASSERT(values[2].name().EqualsLiteral("descriptors"));
-  MOZ_ASSERT(values[2].value().type() ==
-             BluetoothValue::TArrayOfBluetoothGattId);
-
-  size_t index =
-      mServices.IndexOf(values[0].value().get_BluetoothGattServiceId());
-  NS_ENSURE_TRUE_VOID(index != mServices.NoIndex);
-
-  RefPtr<BluetoothGattService> service = mServices.ElementAt(index);
-  service->AssignDescriptors(values[1].value().get_BluetoothGattId(),
-                             values[2].value().get_ArrayOfBluetoothGattId());
 }
 
 void BluetoothGatt::HandleCharacteristicChanged(const BluetoothValue& aValue) {
@@ -336,30 +289,29 @@ void BluetoothGatt::HandleCharacteristicChanged(const BluetoothValue& aValue) {
 
   const nsTArray<BluetoothNamedValue>& ids =
       aValue.get_ArrayOfBluetoothNamedValue();
-  MOZ_ASSERT(ids.Length() == 2);  // ServiceId, CharId
-  MOZ_ASSERT(ids[0].name().EqualsLiteral("serviceId"));
-  MOZ_ASSERT(ids[0].value().type() == BluetoothValue::TBluetoothGattServiceId);
-  MOZ_ASSERT(ids[1].name().EqualsLiteral("charId"));
-  MOZ_ASSERT(ids[1].value().type() == BluetoothValue::TBluetoothGattId);
+  MOZ_ASSERT(ids.Length() == 1);  // Handle
+  MOZ_ASSERT(ids[0].name().EqualsLiteral("gattHandle"));
+  MOZ_ASSERT(ids[0].value().type() ==
+             BluetoothValue::TBluetoothAttributeHandle);
 
-  size_t index = mServices.IndexOf(ids[0].value().get_BluetoothGattServiceId());
-  NS_ENSURE_TRUE_VOID(index != mServices.NoIndex);
+  RefPtr<BluetoothGattCharacteristic> characteristic;
+  for (uint32_t i = 0; i < mServices.Length(); i++) {
+    nsTArray<RefPtr<BluetoothGattCharacteristic>> chars;
+    mServices[i]->GetCharacteristics(chars);
 
-  RefPtr<BluetoothGattService> service = mServices.ElementAt(index);
-  nsTArray<RefPtr<BluetoothGattCharacteristic>> chars;
-  service->GetCharacteristics(chars);
-
-  index = chars.IndexOf(ids[1].value().get_BluetoothGattId());
-  NS_ENSURE_TRUE_VOID(index != chars.NoIndex);
-  RefPtr<BluetoothGattCharacteristic> characteristic = chars.ElementAt(index);
+    size_t index = chars.IndexOf(ids[0].value().get_BluetoothAttributeHandle());
+    if (index != chars.NoIndex) {
+      characteristic = chars.ElementAt(index);
+    }
+  }
+  NS_ENSURE_TRUE_VOID(characteristic);
 
   // Dispatch characteristicchanged event to application
   BluetoothGattCharacteristicEventInit init;
   init.mCharacteristic = characteristic;
   RefPtr<BluetoothGattCharacteristicEvent> event =
       BluetoothGattCharacteristicEvent::Constructor(
-          this, NS_LITERAL_STRING_FROM_CSTRING(GATT_CHARACTERISTIC_CHANGED_ID),
-          init);
+          this, GATT_CHARACTERISTIC_CHANGED_ID, init);
 
   DispatchTrustedEvent(event);
 }
@@ -395,12 +347,6 @@ void BluetoothGatt::Notify(const BluetoothSignal& aData) {
     }
 
     mDiscoveringServices = false;
-  } else if (aData.name().EqualsLiteral("IncludedServicesDiscovered")) {
-    HandleIncludedServicesDiscovered(v);
-  } else if (aData.name().EqualsLiteral("CharacteristicsDiscovered")) {
-    HandleCharacteristicsDiscovered(v);
-  } else if (aData.name().EqualsLiteral("DescriptorsDiscovered")) {
-    HandleDescriptorsDiscovered(v);
   } else if (aData.name().Equals(GATT_CHARACTERISTIC_CHANGED_ID)) {
     HandleCharacteristicChanged(v);
   } else {

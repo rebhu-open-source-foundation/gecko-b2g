@@ -65,8 +65,8 @@ void BluetoothDiscoveryHandle::DispatchDeviceEvent(BluetoothDevice* aDevice) {
   BluetoothDeviceEventInit init;
   init.mDevice = aDevice;
 
-  RefPtr<BluetoothDeviceEvent> event = BluetoothDeviceEvent::Constructor(
-      this, u"devicefound"_ns, init);
+  RefPtr<BluetoothDeviceEvent> event =
+      BluetoothDeviceEvent::Constructor(this, u"devicefound"_ns, init);
   DispatchTrustedEvent(event);
 }
 

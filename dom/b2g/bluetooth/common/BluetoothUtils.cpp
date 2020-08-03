@@ -509,13 +509,10 @@ nsresult AdvertisingDataToGattAdvertisingData(
   return NS_OK;
 }
 
-void GeneratePathFromGattId(const BluetoothGattId& aId, nsAString& aPath) {
-  nsString uuidStr;
-  UuidToString(aId.mUuid, uuidStr);
-
-  aPath.Assign(uuidStr);
-  aPath.AppendLiteral("_");
-  aPath.AppendInt(aId.mInstanceId);
+void GeneratePathFromHandle(const BluetoothAttributeHandle& aHandle,
+                            nsAString& aPath) {
+  aPath.AppendLiteral("gatt_handle_");
+  aPath.AppendInt(aHandle.mHandle);
 }
 
 void RegisterBluetoothSignalHandler(const nsAString& aPath,

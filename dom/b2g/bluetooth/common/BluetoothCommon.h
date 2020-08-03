@@ -1125,6 +1125,15 @@ enum BluetoothGattWriteType {
   GATT_WRITE_TYPE_END_GUARD
 };
 
+enum BluetoothGattDbType {
+  GATT_DB_TYPE_PRIMARY_SERVICE,
+  GATT_DB_TYPE_SECONDARY_SERVICE,
+  GATT_DB_TYPE_INCLUDED_SERVICE,
+  GATT_DB_TYPE_CHARACTERISTIC,
+  GATT_DB_TYPE_DESCRIPTOR,
+  GATT_DB_TYPE_END_GUARD
+};
+
 /*
  * Bluetooth GATT Characteristic Properties bit field
  */
@@ -1164,7 +1173,7 @@ enum BluetoothGattAttrPermBit {
  * BluetoothGattAttrPerm is used to store a bit mask value which contains
  * each corresponding bit value of each BluetoothGattAttrPermBit.
  */
-typedef int32_t BluetoothGattAttrPerm;
+typedef uint16_t BluetoothGattAttrPerm;
 #define BLUETOOTH_EMPTY_GATT_ATTR_PERM static_cast<BluetoothGattAttrPerm>(0x00)
 
 struct BluetoothGattAdvData {
@@ -1200,27 +1209,27 @@ struct BluetoothGattCharAttribute {
   }
 };
 
+struct BluetoothAttributeHandle {
+  uint16_t mHandle;
+
+  BluetoothAttributeHandle() : mHandle(0x0000) {}
+
+  bool operator==(const BluetoothAttributeHandle& aOther) const {
+    return mHandle == aOther.mHandle;
+  }
+};
+
 struct BluetoothGattReadParam {
-  BluetoothGattServiceId mServiceId;
-  BluetoothGattId mCharId;
-  BluetoothGattId mDescriptorId;
+  BluetoothAttributeHandle mHandle;
   uint16_t mValueType;
   uint16_t mValueLength;
   uint8_t mValue[BLUETOOTH_GATT_MAX_ATTR_LEN];
   uint8_t mStatus;
 };
 
-struct BluetoothGattWriteParam {
-  BluetoothGattServiceId mServiceId;
-  BluetoothGattId mCharId;
-  BluetoothGattId mDescriptorId;
-  uint8_t mStatus;
-};
-
 struct BluetoothGattNotifyParam {
   BluetoothAddress mBdAddr;
-  BluetoothGattServiceId mServiceId;
-  BluetoothGattId mCharId;
+  BluetoothAttributeHandle mHandle;
   uint16_t mLength;
   uint8_t mValue[BLUETOOTH_GATT_MAX_ATTR_LEN];
   bool mIsNotify;
@@ -1236,13 +1245,23 @@ struct BluetoothGattTestParam {
   uint16_t mU5;
 };
 
-struct BluetoothAttributeHandle {
-  uint16_t mHandle;
+struct BluetoothGattDbElement {
+  uint16_t mId;
+  BluetoothUuid mUuid;
+  BluetoothGattDbType mType;
+  BluetoothAttributeHandle mHandle;
+  uint16_t mStartHandle;
+  uint16_t mEndHandle;
+  BluetoothGattCharProp mProperties;
+  BluetoothGattAttrPerm mPermissions;
 
-  BluetoothAttributeHandle() : mHandle(0x0000) {}
-
-  bool operator==(const BluetoothAttributeHandle& aOther) const {
-    return mHandle == aOther.mHandle;
+  bool operator==(const BluetoothGattDbElement& aOther) const {
+    return mId == aOther.mId && mUuid == aOther.mUuid &&
+           mType == aOther.mType && mHandle == aOther.mHandle &&
+           mStartHandle == aOther.mStartHandle &&
+           mEndHandle == aOther.mEndHandle &&
+           mProperties == aOther.mProperties &&
+           mPermissions == aOther.mPermissions;
   }
 };
 

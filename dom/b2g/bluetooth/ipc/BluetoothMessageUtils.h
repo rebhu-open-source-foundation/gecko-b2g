@@ -135,6 +135,13 @@ struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattAuthReq>
           mozilla::dom::bluetooth::GATT_AUTH_REQ_END_GUARD> {};
 
 template <>
+struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattDbType>
+    : public ContiguousEnumSerializer<
+          mozilla::dom::bluetooth::BluetoothGattDbType,
+          mozilla::dom::bluetooth::GATT_DB_TYPE_PRIMARY_SERVICE,
+          mozilla::dom::bluetooth::GATT_DB_TYPE_END_GUARD> {};
+
+template <>
 struct ParamTraits<mozilla::dom::bluetooth::BluetoothUuid> {
   typedef mozilla::dom::bluetooth::BluetoothUuid paramType;
 
@@ -229,6 +236,38 @@ struct ParamTraits<mozilla::dom::bluetooth::BluetoothAttributeHandle> {
   static bool Read(const Message* aMsg, PickleIterator* aIter,
                    paramType* aResult) {
     if (!ReadParam(aMsg, aIter, &(aResult->mHandle))) {
+      return false;
+    }
+
+    return true;
+  }
+};
+
+template <>
+struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattDbElement> {
+  typedef mozilla::dom::bluetooth::BluetoothGattDbElement paramType;
+
+  static void Write(Message* aMsg, const paramType& aParam) {
+    WriteParam(aMsg, aParam.mId);
+    WriteParam(aMsg, aParam.mUuid);
+    WriteParam(aMsg, aParam.mType);
+    WriteParam(aMsg, aParam.mHandle);
+    WriteParam(aMsg, aParam.mStartHandle);
+    WriteParam(aMsg, aParam.mEndHandle);
+    WriteParam(aMsg, aParam.mProperties);
+    WriteParam(aMsg, aParam.mPermissions);
+  }
+
+  static bool Read(const Message* aMsg, PickleIterator* aIter,
+                   paramType* aResult) {
+    if (!ReadParam(aMsg, aIter, &(aResult->mId)) ||
+        !ReadParam(aMsg, aIter, &(aResult->mUuid)) ||
+        !ReadParam(aMsg, aIter, &(aResult->mType)) ||
+        !ReadParam(aMsg, aIter, &(aResult->mHandle)) ||
+        !ReadParam(aMsg, aIter, &(aResult->mStartHandle)) ||
+        !ReadParam(aMsg, aIter, &(aResult->mEndHandle)) ||
+        !ReadParam(aMsg, aIter, &(aResult->mProperties)) ||
+        !ReadParam(aMsg, aIter, &(aResult->mPermissions))) {
       return false;
     }
 

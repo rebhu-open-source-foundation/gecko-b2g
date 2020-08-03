@@ -378,16 +378,16 @@ class BluetoothService : public nsIObserver {
    * (platform specific implementation)
    */
   virtual void GattClientStartNotificationsInternal(
-      const BluetoothUuid& aAppUuid, const BluetoothGattServiceId& aServId,
-      const BluetoothGattId& aCharId, BluetoothReplyRunnable* aRunnable) = 0;
+      const BluetoothUuid& aAppUuid, const BluetoothAttributeHandle& aHandle,
+      BluetoothReplyRunnable* aRunnable) = 0;
 
   /**
    * Disable notifications of a given GATT characteristic.
    * (platform specific implementation)
    */
   virtual void GattClientStopNotificationsInternal(
-      const BluetoothUuid& aAppUuid, const BluetoothGattServiceId& aServId,
-      const BluetoothGattId& aCharId, BluetoothReplyRunnable* aRunnable) = 0;
+      const BluetoothUuid& aAppUuid, const BluetoothAttributeHandle& aHandle,
+      BluetoothReplyRunnable* aRunnable) = 0;
 
   /**
    * Unregister a GATT client. (platform specific implementation)
@@ -407,8 +407,7 @@ class BluetoothService : public nsIObserver {
    * (platform specific implementation)
    */
   virtual void GattClientReadCharacteristicValueInternal(
-      const BluetoothUuid& aAppUuid, const BluetoothGattServiceId& aServiceId,
-      const BluetoothGattId& aCharacteristicId,
+      const BluetoothUuid& aAppUuid, const BluetoothAttributeHandle& aHandle,
       BluetoothReplyRunnable* aRunnable) = 0;
 
   /**
@@ -416,8 +415,7 @@ class BluetoothService : public nsIObserver {
    * (platform specific implementation)
    */
   virtual void GattClientWriteCharacteristicValueInternal(
-      const BluetoothUuid& aAppUuid, const BluetoothGattServiceId& aServiceId,
-      const BluetoothGattId& aCharacteristicId,
+      const BluetoothUuid& aAppUuid, const BluetoothAttributeHandle& aHandle,
       const BluetoothGattWriteType& aWriteType, const nsTArray<uint8_t>& aValue,
       BluetoothReplyRunnable* aRunnable) = 0;
 
@@ -426,9 +424,7 @@ class BluetoothService : public nsIObserver {
    * (platform specific implementation)
    */
   virtual void GattClientReadDescriptorValueInternal(
-      const BluetoothUuid& aAppUuid, const BluetoothGattServiceId& aServiceId,
-      const BluetoothGattId& aCharacteristicId,
-      const BluetoothGattId& aDescriptorId,
+      const BluetoothUuid& aAppUuid, const BluetoothAttributeHandle& aHandle,
       BluetoothReplyRunnable* aRunnable) = 0;
 
   /**
@@ -436,10 +432,8 @@ class BluetoothService : public nsIObserver {
    * (platform specific implementation)
    */
   virtual void GattClientWriteDescriptorValueInternal(
-      const BluetoothUuid& aAppUuid, const BluetoothGattServiceId& aServiceId,
-      const BluetoothGattId& aCharacteristicId,
-      const BluetoothGattId& aDescriptorId, const nsTArray<uint8_t>& aValue,
-      BluetoothReplyRunnable* aRunnable) = 0;
+      const BluetoothUuid& aAppUuid, const BluetoothAttributeHandle& aHandle,
+      const nsTArray<uint8_t>& aValue, BluetoothReplyRunnable* aRunnable) = 0;
 
   virtual void GattServerRegisterInternal(
       const BluetoothUuid& aAppUuid, BluetoothReplyRunnable* aRunnable) = 0;

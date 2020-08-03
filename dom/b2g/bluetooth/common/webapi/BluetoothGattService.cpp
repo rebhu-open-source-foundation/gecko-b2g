@@ -30,18 +30,20 @@ NS_INTERFACE_MAP_END
 const uint16_t BluetoothGattService::sHandleCount = 1;
 
 // Constructor of BluetoothGattService in ATT client role
-BluetoothGattService::BluetoothGattService(
-    nsPIDOMWindowInner* aOwner, const nsAString& aAppUuid,
-    const BluetoothGattServiceId& aServiceId)
+BluetoothGattService::BluetoothGattService(nsPIDOMWindowInner* aOwner,
+                                           const nsAString& aAppUuid,
+                                           const BluetoothGattDbElement& aDb)
     : mOwner(aOwner),
       mAppUuid(aAppUuid),
-      mServiceId(aServiceId),
+      mInstanceId(aDb.mId),
+      mIsPrimary(aDb.mType == GATT_DB_TYPE_PRIMARY_SERVICE),
       mAttRole(ATT_CLIENT_ROLE),
-      mActive(true) {
+      mActive(true),
+      mServiceHandle(aDb.mHandle) {
   MOZ_ASSERT(aOwner);
   MOZ_ASSERT(!mAppUuid.IsEmpty());
 
-  UuidToString(mServiceId.mId.mUuid, mUuidStr);
+  UuidToString(aDb.mUuid, mUuidStr);
 }
 
 // Constructor of BluetoothGattService in ATT server role
@@ -51,44 +53,22 @@ BluetoothGattService::BluetoothGattService(
       mUuidStr(aInit.mUuid),
       mAttRole(ATT_SERVER_ROLE),
       mActive(false) {
-  memset(&mServiceId, 0, sizeof(mServiceId));
-  StringToUuid(aInit.mUuid, mServiceId.mId.mUuid);
-  mServiceId.mIsPrimary = aInit.mIsPrimary;
+  mIsPrimary = aInit.mIsPrimary;
 }
 
 BluetoothGattService::~BluetoothGattService() {}
 
-void BluetoothGattService::AssignIncludedServices(
-    const nsTArray<BluetoothGattServiceId>& aServiceIds) {
-  mIncludedServices.Clear();
-  for (uint32_t i = 0; i < aServiceIds.Length(); i++) {
-    mIncludedServices.AppendElement(
-        new BluetoothGattService(GetParentObject(), mAppUuid, aServiceIds[i]));
-  }
+void BluetoothGattService::AppendIncludedService(
+    BluetoothGattService* aService) {
+  mIncludedServices.AppendElement(aService);
 
   BluetoothGattService_Binding::ClearCachedIncludedServicesValue(this);
 }
 
-void BluetoothGattService::AssignCharacteristics(
-    const nsTArray<BluetoothGattCharAttribute>& aCharacteristics) {
-  mCharacteristics.Clear();
-  for (uint32_t i = 0; i < aCharacteristics.Length(); i++) {
-    mCharacteristics.AppendElement(new BluetoothGattCharacteristic(
-        GetParentObject(), this, aCharacteristics[i]));
-  }
-
+void BluetoothGattService::AppendCharacteristic(
+    BluetoothGattCharacteristic* aChar) {
+  mCharacteristics.AppendElement(aChar);
   BluetoothGattService_Binding::ClearCachedCharacteristicsValue(this);
-}
-
-void BluetoothGattService::AssignDescriptors(
-    const BluetoothGattId& aCharacteristicId,
-    const nsTArray<BluetoothGattId>& aDescriptorIds) {
-  size_t index = mCharacteristics.IndexOf(aCharacteristicId);
-  NS_ENSURE_TRUE_VOID(index != mCharacteristics.NoIndex);
-
-  RefPtr<BluetoothGattCharacteristic> characteristic =
-      mCharacteristics.ElementAt(index);
-  characteristic->AssignDescriptors(aDescriptorIds);
 }
 
 void BluetoothGattService::AssignAppUuid(const nsAString& aAppUuid) {

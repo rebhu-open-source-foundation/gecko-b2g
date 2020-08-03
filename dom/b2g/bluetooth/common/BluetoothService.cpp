@@ -366,14 +366,14 @@ void BluetoothService::DistributeSignal(const BluetoothSignal& aSignal) {
   //   mPendingPairReqSignals.AppendElement(aSignal);
 
   //   BT_ENSURE_TRUE_VOID_BROADCAST_SYSMSG(
-  //       NS_LITERAL_STRING(SYS_MSG_BT_PAIRING_REQ),
+  //       SYS_MSG_BT_PAIRING_REQ,
   //       BluetoothValue(EmptyString()));
   // } else if (aSignal.path().EqualsLiteral(KEY_PBAP)) {
   //   // If there is no signal path for KEY_PBAP in observer table
   //   mPendingPbapReqSignals.AppendElement(aSignal);
 
   //   BT_ENSURE_TRUE_VOID_BROADCAST_SYSMSG(
-  //       NS_LITERAL_STRING(SYS_MSG_BT_PBAP_REQ),
+  //       SYS_MSG_BT_PBAP_REQ,
   //       BluetoothValue(EmptyString()));
   //   BT_LOGR("Queue the request and send system message to launch PBAP app");
   // } else if (aSignal.path().EqualsLiteral(KEY_MAP)) {
@@ -381,7 +381,7 @@ void BluetoothService::DistributeSignal(const BluetoothSignal& aSignal) {
   //   mPendingMapReqSignals.AppendElement(aSignal);
 
   //   BT_ENSURE_TRUE_VOID_BROADCAST_SYSMSG(
-  //       NS_LITERAL_STRING(SYS_MSG_BT_MAP_REQ),
+  //       SYS_MSG_BT_MAP_REQ,
   //       BluetoothValue(EmptyString()));
   //   BT_LOGR("Queue the request and send system message to launch MAP app");
   // }
