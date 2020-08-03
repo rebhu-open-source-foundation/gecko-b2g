@@ -336,6 +336,12 @@ WorkerRunnable::Run() {
   MOZ_ASSERT_IF(!targetIsWorkerThread && !isMainThread,
                 mWorkerPrivate->IsDedicatedWorker() && globalObject);
 
+  // Validate ParentEventTargetRef before dereference it.
+  if (!targetIsWorkerThread && mWorkerPrivate->IsDedicatedWorker() &&
+      !mWorkerPrivate->ParentEventTargetRef()) {
+    return NS_ERROR_FAILURE;
+  }
+
   // If we're on the parent thread we might be in a null realm in the
   // situation described above when globalObject is null.  Make sure to enter
   // the realm of the worker's reflector if there is one.  There might
