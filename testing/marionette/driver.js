@@ -1637,35 +1637,76 @@ GeckoDriver.prototype.setWindowRect = async function(cmd) {
 };
 
 /**
- * Switch current top-level browsing context by name or server-assigned
- * ID.  Searches for windows by name, then ID.  Content windows take
+ * Only for B2G, switch working browsing context to System app.
+ */
+GeckoDriver.prototype.switchToSystemWindow = async function() {
+  assert.b2g();
+  const found = this.findWindow(this.windows, {"origin": "chrome://system"});
+  if (found) {
+    const focus = false;
+    await this.setWindowHandle(found, focus);
+    return this.curBrowser.contentBrowser.browsingContext.id
+  } else {
+    throw new NoSuchWindowError(`Unable to locate system app window`);
+  }
+}
+
+/**
+ * Switch current top-level browsing context by server-assigned ID.
+ * If B2G, just switch working browsing context by ID or URL origin.
+ * Searches for windows by ID, then origin. Content windows take
  * precedence.
  *
  * @param {string} handle
  *     Handle of the window to switch to.
+ * @param {string} origin
+ *     Only for B2G, URL origin of the B2G app window to switch to.
  * @param {boolean=} focus
  *     A boolean value which determines whether to focus
- *     the window. Defaults to true.
+ *     the window. Defaults to true. B2G forces to be false to app window
+ *     controlled by system app or user behaviors.
  */
 GeckoDriver.prototype.switchToWindow = async function(cmd) {
-  if (this.appName == "b2g") {
-    // B2G shouldn't switch app window directly but should be controlled by system app or user behaviors.
-    cmd.parameters.focus = false;
+  let focus = true;
+  if (this.appName !== "b2g" && typeof cmd.parameters.focus != "undefined") {
+    focus = assert.boolean(
+      cmd.parameters.focus,
+      pprint`Expected "focus" to be a boolean, got ${cmd.parameters.focus}`
+    );
+  } else {
+    // B2G doesn't switch focus.
+    focus = false;
   }
-  const { focus = true, handle } = cmd.parameters;
 
-  assert.string(
-    handle,
-    pprint`Expected "handle" to be a string, got ${handle}`
-  );
-  assert.boolean(focus, pprint`Expected "focus" to be a boolean, got ${focus}`);
+  let handle = null;
+  if (typeof cmd.parameters.handle != "undefined") {
+    handle = assert.string(
+      cmd.parameters.handle,
+      pprint`Expected "handle" to be a string, got ${cmd.parameters.handle}`
+    );
+  }
 
-  const id = parseInt(handle);
-  const found = this.findWindow(this.windows, (win, winId) => id == winId);
+  let origin = null;
+  if (typeof cmd.parameters.origin != "undefined") {
+    origin = assert.string(
+      cmd.parameters.origin,
+      pprint`Expected "origin" to be a string, got ${cmd.parameters.origin}`
+    );
+
+    assert.boolean(
+      origin == (new URL(origin)).origin,
+      pprint`Expected "origin" to be a origin of an URL, got ${origin}`
+    );
+  }
+
+  let filter = handle ? {'id': parseInt(handle)} : {"origin": origin};
+
+  const found = this.findWindow(this.windows, filter);
   if (found) {
     await this.setWindowHandle(found, focus);
+    return this.curBrowser.contentBrowser.browsingContext.id;
   } else {
-    throw new NoSuchWindowError(`Unable to locate window: ${handle}`);
+    throw new NoSuchWindowError(`Unable to locate window: ${filter}`);
   }
 };
 
@@ -1674,22 +1715,31 @@ GeckoDriver.prototype.switchToWindow = async function(cmd) {
  *
  * @param {Iterable.<Window>} winIterable
  *     Iterable that emits Windows.
- * @param {function(Window, number): boolean} filter
- *     A callback function taking two arguments; the window and
- *     the outerId of the window, and returning a boolean indicating
- *     whether the window is the target.
+ * @param {Object} filter
+ *     A object with key-value is {'id': the outerId of the window} or
+ *     {'origin': the origin of the B2G app window}, and would be used for
+ *     filtering.
  *
  * @return {Object}
  *     A window handle object containing the window and some
  *     associated metadata.
  */
 GeckoDriver.prototype.findWindow = function(winIterable, filter) {
+  let id = null, origin = null;
+
+  if (typeof filter.id != "undefined") {
+    id = filter.id;
+  } else if (typeof filter.origin != "undefined") {
+    origin = filter.origin;
+  }
+
   for (const win of winIterable) {
     const bc = win.docShell.browsingContext;
     const tabBrowser = browser.getTabBrowser(win);
 
     // In case the wanted window is a chrome window, we are done.
-    if (filter(win, bc.id)) {
+    // Only do this when using outer window id.
+    if (id && id == bc.id) {
       return { win, id: bc.id, hasTabBrowser: !!tabBrowser };
 
       // Otherwise check if the chrome window has a tab browser, and that it
@@ -1697,9 +1747,10 @@ GeckoDriver.prototype.findWindow = function(winIterable, filter) {
     } else if (tabBrowser && tabBrowser.tabs) {
       for (let i = 0; i < tabBrowser.tabs.length; ++i) {
         let contentBrowser = browser.getBrowserForTab(tabBrowser.tabs[i]);
-        let contentWindowId = this.getIdForBrowser(contentBrowser);
+        let result = id ? (id == this.getIdForBrowser(contentBrowser))
+                        : (origin == (new URL(contentBrowser.src)).origin);
 
-        if (filter(win, contentWindowId)) {
+        if (result) {
           return {
             win,
             id: bc.id,
@@ -1710,7 +1761,6 @@ GeckoDriver.prototype.findWindow = function(winIterable, filter) {
       }
     }
   }
-
   return null;
 };
 
@@ -3958,6 +4008,7 @@ GeckoDriver.prototype.commands = {
   "WebDriver:SwitchToShadowRoot": GeckoDriver.prototype.switchToShadowRoot,
   "WebDriver:SwitchToWindow": GeckoDriver.prototype.switchToWindow,
   "WebDriver:TakeScreenshot": GeckoDriver.prototype.takeScreenshot,
+  "B2G:SwitchToSystemWindow": GeckoDriver.prototype.switchToSystemWindow,
 };
 
 function getWindowId(win) {

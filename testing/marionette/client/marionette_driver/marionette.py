@@ -1348,17 +1348,35 @@ class Marionette(object):
         """
         return Alert(self)
 
-    def switch_to_window(self, handle, focus=True):
+    def switch_to_window(self, handle=None, origin=None, focus=True):
         """Switch to the specified window; subsequent commands will be
-        directed at the new window.
+        directed at the new window. In B2G, we can use URL origin instead of window id.
 
         :param handle: The id of the window to switch to.
-
-        :param focus: A boolean value which determins whether to focus
+        :param origin: The URL origin of the B2G app window to switch to.
+        :param focus: A boolean value which determines whether to focus
             the window that we just switched to.
         """
-        self._send_message("WebDriver:SwitchToWindow", {"handle": handle, "focus": focus})
-        self.window = handle
+        if handle and origin:
+            raise ValueError("Only accept 'handle' or 'origin'!")
+
+        if handle:
+            self._send_message("WebDriver:SwitchToWindow", {"handle": handle, "focus": focus}, key="value")
+            self.window = handle
+        elif origin:
+            import re
+            regex = re.compile(
+                r'^(http|https)://((\w)+(\.)?(\w)*)'
+                r'$(?!\/).*', re.IGNORECASE)  #only match URL origin, no '/'
+            if not re.match(regex, origin):
+                raise ValueError("origin only accepts format like 'https://launcher.local' and without '/' in the end!")
+
+            self.window = self._send_message("WebDriver:SwitchToWindow", {"origin": origin, "focus": focus}, key="value")
+
+    def switch_to_system_window(self):
+        """Switch to B2G system app window; subsequent commands will be directed to system app.
+        """
+        self.window = self._send_message("B2G:SwitchToSystemWindow", key="value")
 
     def get_active_frame(self):
         """Returns an :class:`~marionette_driver.marionette.HTMLElement`
