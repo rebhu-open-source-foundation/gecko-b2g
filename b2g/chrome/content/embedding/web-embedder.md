@@ -90,6 +90,8 @@ This delegate is responsible for displaying desktop notifications UI.
   - `mozbehavior`: a dictionary indicates custom notification behavior.
   - `serviceWorkerRegistrationScope`: the unique identifier for the service worker registration the notification is sent from.
 
+- `closeNotification(id)`: Notifies the system UI that it should close the notification created with this id.
+
 ## ActivityChooser delegate
 
 This delegate let the system UI display the list of potential choices when an several app can fulfill an activity request.
