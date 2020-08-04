@@ -41,6 +41,7 @@ class NotificationEvent final : public ExtendableEvent {
     e->SetTrusted(trusted);
     e->SetComposed(aOptions.mComposed);
     e->mNotification = aOptions.mNotification;
+    e->mAction = aOptions.mAction;
     e->SetWantsPopupControlCheck(e->IsTrusted());
     return e.forget();
   }
@@ -57,8 +58,11 @@ class NotificationEvent final : public ExtendableEvent {
     return n.forget();
   }
 
+  void GetAction(nsString& aRetVal) const { aRetVal = mAction; }
+
  private:
   RefPtr<Notification> mNotification;
+  nsString mAction;
 };
 
 }  // namespace dom

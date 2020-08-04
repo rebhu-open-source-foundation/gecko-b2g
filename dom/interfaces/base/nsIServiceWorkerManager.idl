@@ -203,6 +203,8 @@ interface nsIServiceWorkerManager : nsISupports
                                   in AString aIcon,
                                   in AString aData,
                                   in boolean aRequireInteraction,
+                                  in AString aActions,
+                                  in AString aUserAction,
                                   in AString aBehavior);
 
   void sendNotificationCloseEvent(in ACString aOriginSuffix,
@@ -216,6 +218,7 @@ interface nsIServiceWorkerManager : nsISupports
                                   in AString aIcon,
                                   in AString aData,
                                   in boolean aRequireInteraction,
+                                  in AString aActions,
                                   in AString aBehavior);
 
   [optional_argc] void sendPushEvent(in ACString aOriginAttributes,

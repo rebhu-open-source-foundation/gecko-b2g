@@ -537,6 +537,8 @@ struct NotificationEventData
     nsString icon;
     nsString data;
     bool requireInteraction;
+    nsString actions;
+    nsString userAction;
     nsString behavior;
 };
 

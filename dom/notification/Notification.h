@@ -128,7 +128,7 @@ class Notification : public DOMEventTargetHelper,
       nsIGlobalObject* aGlobal, const nsAString& aID, const nsAString& aTitle,
       const nsAString& aDir, const nsAString& aLang, const nsAString& aBody,
       const nsAString& aTag, const nsAString& aIcon, const nsAString& aData,
-      bool aRequireInteraction,
+      bool aRequireInteraction, const nsAString& aActions,
       const nsAString& aServiceWorkerRegistrationScope, ErrorResult& aRv);
 
   void GetID(nsAString& aRetval) { aRetval = mID; }
@@ -148,6 +148,8 @@ class Notification : public DOMEventTargetHelper,
   void SetStoredState(bool val) { mIsStored = val; }
 
   bool IsStored() { return mIsStored; }
+
+  static uint32_t MaxActions(const GlobalObject& global);
 
   static bool RequestPermissionEnabledForScope(JSContext* aCx,
                                                JSObject* /* unused */);
@@ -194,6 +196,8 @@ class Notification : public DOMEventTargetHelper,
   bool RequireInteraction() const;
 
   void GetData(JSContext* aCx, JS::MutableHandle<JS::Value> aRetval);
+
+  void GetActions(nsTArray<NotificationAction>& aRetVal) const;
 
   void InitFromJSVal(JSContext* aCx, JS::Handle<JS::Value> aData,
                      ErrorResult& aRv);
@@ -243,6 +247,7 @@ class Notification : public DOMEventTargetHelper,
                NotificationDirection aDir, const nsAString& aLang,
                const nsAString& aTag, const nsAString& aIconUrl,
                bool aRequireNotification,
+               const nsTArray<NotificationAction>& aActions,
                const NotificationBehavior& aBehavior);
 
   static already_AddRefed<Notification> CreateInternal(
@@ -303,6 +308,8 @@ class Notification : public DOMEventTargetHelper,
   const nsString mTag;
   const nsString mIconUrl;
   const bool mRequireInteraction;
+  nsTArray<NotificationAction> mActions;
+  nsString mActionsString;
   nsString mDataAsBase64;
   const NotificationBehavior mBehavior;
 

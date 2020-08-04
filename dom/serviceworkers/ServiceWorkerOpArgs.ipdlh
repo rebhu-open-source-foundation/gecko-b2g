@@ -53,6 +53,8 @@ struct ServiceWorkerNotificationEventOpArgs {
   nsString icon;
   nsString data;
   bool requireInteraction;
+  nsString actions;
+  nsString userAction;
   nsString behavior;
   nsString scope;
   uint32_t disableOpenClickDelay;

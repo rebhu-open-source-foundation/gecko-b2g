@@ -1165,6 +1165,8 @@ class SendNotificationEventRunnable final
   const nsString mIcon;
   const nsString mData;
   const bool mRequireInteraction;
+  const nsString mActions;
+  const nsString mUserAction;
   const nsString mBehavior;
   const nsString mScope;
 
@@ -1175,6 +1177,7 @@ class SendNotificationEventRunnable final
       const nsAString& aTitle, const nsAString& aDir, const nsAString& aLang,
       const nsAString& aBody, const nsAString& aTag, const nsAString& aIcon,
       const nsAString& aData, bool aRequireInteraction,
+      const nsAString& aActions, const nsAString& aUserAction,
       const nsAString& aBehavior, const nsAString& aScope)
       : ExtendableEventWorkerRunnable(aWorkerPrivate, aKeepAliveToken),
         mEventName(aEventName),
@@ -1187,6 +1190,8 @@ class SendNotificationEventRunnable final
         mIcon(aIcon),
         mData(aData),
         mRequireInteraction(aRequireInteraction),
+        mActions(aActions),
+        mUserAction(aUserAction),
         mBehavior(aBehavior),
         mScope(aScope) {
     MOZ_ASSERT(NS_IsMainThread());
@@ -1202,13 +1207,14 @@ class SendNotificationEventRunnable final
     ErrorResult result;
     RefPtr<Notification> notification = Notification::ConstructFromFields(
         aWorkerPrivate->GlobalScope(), mID, mTitle, mDir, mLang, mBody, mTag,
-        mIcon, mData, mRequireInteraction, mScope, result);
+        mIcon, mData, mRequireInteraction, mActions, mScope, result);
     if (NS_WARN_IF(result.Failed())) {
       return false;
     }
 
     NotificationEventInit nei;
     nei.mNotification = notification;
+    nei.mAction = mUserAction;
     nei.mBubbles = false;
     nei.mCancelable = false;
 
@@ -1241,7 +1247,8 @@ nsresult ServiceWorkerPrivate::SendNotificationEvent(
     const nsAString& aEventName, const nsAString& aID, const nsAString& aTitle,
     const nsAString& aDir, const nsAString& aLang, const nsAString& aBody,
     const nsAString& aTag, const nsAString& aIcon, const nsAString& aData,
-    bool aRequireInteraction, const nsAString& aBehavior,
+    bool aRequireInteraction, const nsAString& aActions,
+    const nsAString& aUserAction, const nsAString& aBehavior,
     const nsAString& aScope) {
   MOZ_ASSERT(NS_IsMainThread());
 
@@ -1260,7 +1267,8 @@ nsresult ServiceWorkerPrivate::SendNotificationEvent(
   if (mInner) {
     return mInner->SendNotificationEvent(
         aEventName, aID, aTitle, aDir, aLang, aBody, aTag, aIcon, aData,
-        aRequireInteraction, aBehavior, aScope, gDOMDisableOpenClickDelay);
+        aRequireInteraction, aActions, aUserAction, aBehavior, aScope,
+        gDOMDisableOpenClickDelay);
   }
 
   nsresult rv = SpawnWorkerIfNeeded(why);
@@ -1270,7 +1278,8 @@ nsresult ServiceWorkerPrivate::SendNotificationEvent(
 
   RefPtr<WorkerRunnable> r = new SendNotificationEventRunnable(
       mWorkerPrivate, token, aEventName, aID, aTitle, aDir, aLang, aBody, aTag,
-      aIcon, aData, aRequireInteraction, aBehavior, aScope);
+      aIcon, aData, aRequireInteraction, aActions, aUserAction, aBehavior,
+      aScope);
   if (NS_WARN_IF(!r->Dispatch())) {
     return NS_ERROR_FAILURE;
   }

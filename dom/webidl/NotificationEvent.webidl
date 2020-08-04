@@ -17,8 +17,10 @@ interface NotificationEvent : ExtendableEvent {
 
   [BinaryName="notification_"]
   readonly attribute Notification notification;
+  readonly attribute DOMString action;
 };
 
 dictionary NotificationEventInit : ExtendableEventInit {
   required Notification notification;
+  DOMString action = "";
 };

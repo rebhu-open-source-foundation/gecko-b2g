@@ -26,6 +26,8 @@ interface Notification : EventTarget {
   [Throws, Func="mozilla::dom::Notification::IsGetEnabled"]
   static Promise<sequence<Notification>> get(optional GetNotificationOptions filter = {});
 
+  static readonly attribute unsigned long maxActions;
+
   attribute EventHandler onclick;
 
   attribute EventHandler onshow;
@@ -55,6 +57,10 @@ interface Notification : EventTarget {
   [Constant, Pref="dom.webnotifications.requireinteraction.enabled"]
   readonly attribute boolean requireInteraction;
 
+  // TODO: Use FrozenArray once available. (Bug 1236777)
+  [Frozen, Cached, Pure]
+  readonly attribute sequence<NotificationAction> actions;
+
   [Constant]
   readonly attribute any data;
 
@@ -68,6 +74,7 @@ dictionary NotificationOptions {
   DOMString tag = "";
   DOMString icon = "";
   boolean requireInteraction = false;
+  sequence<NotificationAction> actions = [];
   any data = null;
   NotificationBehavior mozbehavior = {};
 };
@@ -97,4 +104,10 @@ enum NotificationDirection {
   "auto",
   "ltr",
   "rtl"
+};
+
+[GenerateToJSON]
+dictionary NotificationAction {
+  required DOMString action;
+  required DOMString title;
 };

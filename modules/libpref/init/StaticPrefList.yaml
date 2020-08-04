@@ -3397,6 +3397,11 @@
   value: true
   mirror: always
 
+- name: dom.webnotifications.serviceworker.maxActions
+  type: RelaxedAtomicUint32
+  value: 0
+  mirror: always
+
 # Is support for Window.event enabled?
 - name: dom.window.event.enabled
   type: bool

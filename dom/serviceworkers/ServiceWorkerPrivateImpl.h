@@ -77,15 +77,14 @@ class ServiceWorkerPrivateImpl final : public ServiceWorkerPrivate::Inner,
       RefPtr<ServiceWorkerRegistrationInfo> aRegistration,
       const nsAString& aMessageName, const nsAString& aMessage) override;
 
-  nsresult SendNotificationEvent(const nsAString& aEventName,
-                                 const nsAString& aID, const nsAString& aTitle,
-                                 const nsAString& aDir, const nsAString& aLang,
-                                 const nsAString& aBody, const nsAString& aTag,
-                                 const nsAString& aIcon, const nsAString& aData,
-                                 bool aRequireInteraction,
-                                 const nsAString& aBehavior,
-                                 const nsAString& aScope,
-                                 uint32_t aDisableOpenClickDelay) override;
+  nsresult SendNotificationEvent(
+      const nsAString& aEventName, const nsAString& aID,
+      const nsAString& aTitle, const nsAString& aDir, const nsAString& aLang,
+      const nsAString& aBody, const nsAString& aTag, const nsAString& aIcon,
+      const nsAString& aData, bool aRequireInteraction,
+      const nsAString& aActions, const nsAString& aUserAction,
+      const nsAString& aBehavior, const nsAString& aScope,
+      uint32_t aDisableOpenClickDelay) override;
 
   nsresult SendFetchEvent(RefPtr<ServiceWorkerRegistrationInfo> aRegistration,
                           nsCOMPtr<nsIInterceptedChannel> aChannel,
