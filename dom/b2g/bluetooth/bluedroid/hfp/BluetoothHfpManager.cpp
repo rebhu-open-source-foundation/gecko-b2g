@@ -22,15 +22,13 @@
 #include "nsIMobileNetworkInfo.h"
 #include "nsIMobileSignalStrength.h"
 #include "nsIObserverService.h"
-// #include "nsISettingsService.h"
 #include "nsITelephonyService.h"
 #include "nsServiceManagerUtils.h"
 #include "nsThreadUtils.h"
 #include "mozilla/dom/BindingUtils.h"
-// #include "mozilla/dom/SettingChangeNotificationBinding.h"
+#include "mozilla/SVGContentUtils.h"  // for ParseInteger
 
-#define MOZSETTINGS_CHANGED_ID "mozsettings-changed"
-#define AUDIO_VOLUME_BT_SCO_ID "audio.volume.bt_sco"
+#define AUDIO_VOLUME_BT_SCO_ID u"audio.volume.bt_sco"_ns
 
 /**
  * Dispatch task with arguments to main thread.
@@ -67,42 +65,6 @@ static bool IsSupportedChld(const int aChld) {
   // We currently only support CHLD=0~3.
   return (aChld >= 0 && aChld <= 3);
 }
-
-// class BluetoothHfpManager::GetVolumeTask final
-//   : public nsISettingsServiceCallback
-// {
-// public:
-//   NS_DECL_ISUPPORTS
-
-//   NS_IMETHOD
-//   Handle(const nsAString& aName, JS::Handle<JS::Value> aResult)
-//   {
-//     MOZ_ASSERT(NS_IsMainThread());
-
-//     JSContext *cx = nsContentUtils::GetCurrentJSContext();
-//     NS_ENSURE_TRUE(cx, NS_OK);
-
-//     if (!aResult.isNumber()) {
-//       BT_WARNING("'" AUDIO_VOLUME_BT_SCO_ID "' is not a number!");
-//       return NS_OK;
-//     }
-
-//     BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
-//     hfp->mCurrentVgs = aResult.toNumber();
-
-//     return NS_OK;
-//   }
-
-//   NS_IMETHOD
-//   HandleError(const nsAString& aName)
-//   {
-//     BT_WARNING("Unable to get value for '" AUDIO_VOLUME_BT_SCO_ID "'");
-//     return NS_OK;
-//   }
-
-// protected:
-//   ~GetVolumeTask() { }
-// };
 
 class BluetoothHfpManager::CloseScoTask : public Runnable {
  public:
@@ -152,9 +114,6 @@ class BluetoothHfpManager::RespondToBLDNTask : public Runnable {
     return NS_OK;
   }
 };
-
-// NS_IMPL_ISUPPORTS(BluetoothHfpManager::GetVolumeTask,
-//                   nsISettingsServiceCallback);
 
 /**
  *  Call
@@ -236,8 +195,7 @@ bool BluetoothHfpManager::Init() {
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   NS_ENSURE_TRUE(obs, false);
 
-  if (NS_FAILED(obs->AddObserver(this, MOZSETTINGS_CHANGED_ID, false)) ||
-      NS_FAILED(obs->AddObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID, false))) {
+  if (NS_FAILED(obs->AddObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID, false))) {
     BT_WARNING("Failed to add observers!");
     return false;
   }
@@ -251,17 +209,12 @@ bool BluetoothHfpManager::Init() {
   mListener = MakeUnique<BluetoothRilListener>();
   NS_ENSURE_TRUE(mListener->Listen(true), false);
 
-  // nsCOMPtr<nsISettingsService> settings =
-  //   do_GetService("@mozilla.org/settingsService;1");
-  // NS_ENSURE_TRUE(settings, false);
-
-  // nsCOMPtr<nsISettingsServiceLock> settingsLock;
-  // nsresult rv = settings->CreateLock(nullptr, getter_AddRefs(settingsLock));
-  // NS_ENSURE_SUCCESS(rv, false);
-
-  // RefPtr<GetVolumeTask> callback = new GetVolumeTask();
-  // rv = settingsLock->Get(AUDIO_VOLUME_BT_SCO_ID, callback);
-  // NS_ENSURE_SUCCESS(rv, false);
+  nsCOMPtr<nsISettingsManager> settings =
+      do_GetService("@mozilla.org/sidl-native/settings;1");
+  if (settings) {
+    settings->Get(AUDIO_VOLUME_BT_SCO_ID, this);
+    settings->AddObserver(AUDIO_VOLUME_BT_SCO_ID, this, this);
+  }
 
   return true;
 }
@@ -399,8 +352,7 @@ BluetoothHfpManager::~BluetoothHfpManager() {
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   NS_ENSURE_TRUE_VOID(obs);
 
-  if (NS_FAILED(obs->RemoveObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID)) ||
-      NS_FAILED(obs->RemoveObserver(this, MOZSETTINGS_CHANGED_ID))) {
+  if (NS_FAILED(obs->RemoveObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID))) {
     BT_WARNING("Failed to remove observers!");
   }
 
@@ -536,9 +488,7 @@ BluetoothHfpManager* BluetoothHfpManager::Get() {
 NS_IMETHODIMP
 BluetoothHfpManager::Observe(nsISupports* aSubject, const char* aTopic,
                              const char16_t* aData) {
-  if (!strcmp(aTopic, MOZSETTINGS_CHANGED_ID)) {
-    HandleVolumeChanged(aSubject);
-  } else if (!strcmp(aTopic, NS_XPCOM_SHUTDOWN_OBSERVER_ID)) {
+  if (!strcmp(aTopic, NS_XPCOM_SHUTDOWN_OBSERVER_ID)) {
     HandleShutdown();
   } else {
     MOZ_ASSERT(false, "BluetoothHfpManager got unexpected topic!");
@@ -566,8 +516,9 @@ void BluetoothHfpManager::NotifyConnectionStateChanged(const nsAString& aType) {
   nsAutoString deviceAddressStr;
   AddressToString(mDeviceAddress, deviceAddressStr);
 
-  if (NS_FAILED(obs->NotifyObservers(this, NS_ConvertUTF16toUTF8(aType).get(),
-                                     deviceAddressStr.get()))) {
+  if (NS_FAILED(obs->NotifyObservers(
+          static_cast<BluetoothProfileManagerBase*>(this),
+          NS_ConvertUTF16toUTF8(aType).get(), deviceAddressStr.get()))) {
     BT_WARNING("Failed to notify observsers!");
   }
 
@@ -633,43 +584,25 @@ class BluetoothHfpManager::VolumeControlResultHandler final
   }
 };
 
-void BluetoothHfpManager::HandleVolumeChanged(nsISupports* aSubject) {
+void BluetoothHfpManager::HandleVolumeChanged(const nsAString& aVolume) {
   MOZ_ASSERT(NS_IsMainThread());
 
-  // TODO: handle volume change with setting service
+  int32_t volume = 0;
+  if (SVGContentUtils::ParseInteger(aVolume, volume) == false) {
+    BT_WARNING("'audio.volume.bt_sco' is not a number!");
+    return;
+  }
 
-  // The string that we're interested in will be a JSON string that looks like:
-  //  {"key":"volumeup", "value":10}
-  //  {"key":"volumedown", "value":2}
-  // RootedDictionary<dom::SettingChangeNotification>
-  // setting(nsContentUtils::RootingCx()); if (!WrappedJSToDictionary(aSubject,
-  // setting)) {
-  //   return;
-  // }
-  // if (!setting.mKey.EqualsASCII(AUDIO_VOLUME_BT_SCO_ID)) {
-  //   return;
-  // }
-  // if (!setting.mValue.isNumber()) {
-  //   BT_WARNING("value of 'audio.volume.bt_sco' is not a number. ");
-  //   return;
-  // }
-
-  // mCurrentVgs = setting.mValue.toNumber();
+  mCurrentVgs = volume;
 
   // Adjust volume by headset and we don't have to send volume back to headset
-  // if (mReceiveVgsFlag) {
-  //   mReceiveVgsFlag = false;
-  //   return;
-  // }
-
-  // Only send volume back when there's a connected headset
-  // if (IsConnected()) {
-  //   BT_LOGR("AT+VGS=%d", mCurrentVgs);
-  //   NS_ENSURE_TRUE_VOID(sBluetoothHfpInterface);
-  //   sBluetoothHfpInterface->VolumeControl(
-  //     HFP_VOLUME_TYPE_SPEAKER, mCurrentVgs, mDeviceAddress,
-  //     new VolumeControlResultHandler());
-  // }
+  if (IsConnected()) {
+    BT_LOGR("AT+VGS=%d", mCurrentVgs);
+    NS_ENSURE_TRUE_VOID(sBluetoothHfpInterface);
+    sBluetoothHfpInterface->VolumeControl(HFP_VOLUME_TYPE_SPEAKER, mCurrentVgs,
+                                          mDeviceAddress,
+                                          new VolumeControlResultHandler());
+  }
 }
 
 void BluetoothHfpManager::HandleVoiceConnectionChanged(uint32_t aClientId) {
@@ -764,6 +697,12 @@ void BluetoothHfpManager::HandleShutdown() {
   Disconnect(nullptr);
   DisconnectSco();
   sBluetoothHfpManager = nullptr;
+
+  nsCOMPtr<nsISettingsManager> settings =
+      do_GetService("@mozilla.org/sidl-native/settings;1");
+  if (settings) {
+    settings->RemoveObserver(AUDIO_VOLUME_BT_SCO_ID, this, this);
+  }
 }
 
 class BluetoothHfpManager::ClccResponseResultHandler final
@@ -1501,8 +1440,9 @@ void BluetoothHfpManager::NRECNotification(BluetoothHandsfreeNRECState aNrec,
   AddressToString(mDeviceAddress, deviceAddressStr);
 
   // Notify audio manager
-  if (NS_FAILED(obs->NotifyObservers(this, BLUETOOTH_HFP_NREC_STATUS_CHANGED_ID,
-                                     deviceAddressStr.get()))) {
+  if (NS_FAILED(obs->NotifyObservers(
+          static_cast<BluetoothProfileManagerBase*>(this),
+          BLUETOOTH_HFP_NREC_STATUS_CHANGED_ID, deviceAddressStr.get()))) {
     BT_WARNING(
         "Failed to notify bluetooth-hfp-nrec-status-changed observsers!");
   }
@@ -1522,8 +1462,9 @@ void BluetoothHfpManager::WbsNotification(BluetoothHandsfreeWbsConfig aWbs,
   AddressToString(mDeviceAddress, deviceAddressStr);
 
   // Notify audio manager
-  if (NS_FAILED(obs->NotifyObservers(this, BLUETOOTH_HFP_WBS_STATUS_CHANGED_ID,
-                                     deviceAddressStr.get()))) {
+  if (NS_FAILED(obs->NotifyObservers(
+          static_cast<BluetoothProfileManagerBase*>(this),
+          BLUETOOTH_HFP_WBS_STATUS_CHANGED_ID, deviceAddressStr.get()))) {
     BT_WARNING("Failed to notify bluetooth-hfp-wbs-status-changed observsers!");
   }
 }
@@ -1756,6 +1697,41 @@ void BluetoothHfpManager::KeyPressedNotification(
     MessageLoop::current()->PostDelayedTask(task.forget(),
                                             sWaitingForDialingInterval);
   }
+}
+
+// Implements nsISettingsGetResponse::Resolve
+NS_IMETHODIMP BluetoothHfpManager::Resolve(nsISettingInfo* info) {
+  if (info) {
+    nsString value;
+    info->GetValue(value);
+    HandleVolumeChanged(value);
+  }
+  return NS_OK;
+}
+
+// Implements nsISettingsGetResponse::Reject
+NS_IMETHODIMP BluetoothHfpManager::Reject([
+    [maybe_unused]] nsISettingError* error) {
+  BT_WARNING("Failed to get setting 'audio.volume.bt_sco'");
+  return NS_OK;
+}
+
+// Implements nsISettingsObserver::ObserveSetting
+NS_IMETHODIMP BluetoothHfpManager::ObserveSetting(nsISettingInfo* info) {
+  if (info) {
+    // Currently, AUDIO_VOLUME_BT_SCO_ID is the only setting we observe
+    nsString value;
+    info->GetValue(value);
+    HandleVolumeChanged(value);
+  }
+  return NS_OK;
+}
+
+// Implements nsISidlDefaultResponse
+NS_IMETHODIMP BluetoothHfpManager::Resolve() { return NS_OK; }
+NS_IMETHODIMP BluetoothHfpManager::Reject() {
+  BT_WARNING("Failed to observe setting 'audio.volume.bt_sco'");
+  return NS_OK;
 }
 
 NS_IMPL_ISUPPORTS(BluetoothHfpManager, nsIObserver)

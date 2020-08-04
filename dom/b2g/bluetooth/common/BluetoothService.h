@@ -12,6 +12,7 @@
 #include "BluetoothProfileManagerBase.h"
 #include "nsClassHashtable.h"
 #include "nsIObserver.h"
+#include "nsISettings.h"
 #include "nsTObserverArray.h"
 #include "nsThreadUtils.h"
 
@@ -24,7 +25,10 @@ class BluetoothSignal;
 
 typedef mozilla::ObserverList<BluetoothSignal> BluetoothSignalObserverList;
 
-class BluetoothService : public nsIObserver {
+class BluetoothService : public nsIObserver,
+                         public nsISettingsGetResponse,
+                         public nsISettingsObserver,
+                         public nsISidlDefaultResponse {
   class ToggleBtTask;
   friend class ToggleBtTask;
 
@@ -44,6 +48,9 @@ class BluetoothService : public nsIObserver {
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBSERVER
+  NS_DECL_NSISETTINGSGETRESPONSE
+  NS_DECL_NSISETTINGSOBSERVER
+  NS_DECL_NSISIDLDEFAULTRESPONSE
 
   /**
    * Add a message handler object from message distribution observer.
@@ -553,11 +560,6 @@ class BluetoothService : public nsIObserver {
    * Called when the startup settings check has completed.
    */
   nsresult HandleStartupSettingsCheck(bool aEnable);
-
-  /**
-   * Called when "mozsettings-changed" observer topic fires.
-   */
-  nsresult HandleSettingsChanged(nsISupports* aSubject);
 
   /**
    * Called when XPCOM is shutting down.

@@ -15,6 +15,7 @@
 #include "mozilla/ipc/SocketBase.h"
 #include "mozilla/Hal.h"
 #include "mozilla/HalBatteryInformation.h"
+#include "nsISettings.h"
 
 BEGIN_BLUETOOTH_NAMESPACE
 
@@ -72,7 +73,10 @@ class Call {
 
 class BluetoothHfpManager : public BluetoothHfpManagerBase,
                             public BluetoothHandsfreeNotificationHandler,
-                            public hal::BatteryObserver {
+                            public hal::BatteryObserver,
+                            public nsISettingsGetResponse,
+                            public nsISettingsObserver,
+                            public nsISidlDefaultResponse {
   enum {
     MODE_HEADSET = 0x00,
     MODE_NARROWBAND_SPEECH = 0x01,
@@ -81,6 +85,9 @@ class BluetoothHfpManager : public BluetoothHfpManagerBase,
 
  public:
   BT_DECL_HFP_MGR_BASE
+  NS_DECL_NSISETTINGSGETRESPONSE
+  NS_DECL_NSISETTINGSOBSERVER
+  NS_DECL_NSISIDLDEFAULTRESPONSE
 
   static const int MAX_NUM_CLIENTS;
 
@@ -186,7 +193,9 @@ class BluetoothHfpManager : public BluetoothHfpManagerBase,
   void Cleanup();
 
   void HandleShutdown();
-  void HandleVolumeChanged(nsISupports* aSubject);
+
+  void HandleVolumeChanged(const nsAString& aVolume);
+
   void Notify(const hal::BatteryInformation& aBatteryInfo) override;
 
   void NotifyConnectionStateChanged(const nsAString& aType);

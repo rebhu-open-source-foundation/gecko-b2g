@@ -24,25 +24,22 @@
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
 #include "nsContentUtils.h"
 #include "nsIObserverService.h"
-// #include "nsISettingsService.h"
 #include "nsITimer.h"
 #include "nsServiceManagerUtils.h"
 #include "nsXPCOM.h"
-// #include "mozilla/dom/SettingChangeNotificationBinding.h"
 
 #if defined(MOZ_WIDGET_GONK)
 #  include "cutils/properties.h"
 #endif
 
-#if defined(MOZ_B2G_BT) && defined(MOZ_B2G_BT_DAEMON)
+#if defined(MOZ_B2G_BT_DAEMON)
 #  include "BluetoothServiceBluedroid.h"
 #else
 #  error No backend
 #endif
 
-// #define MOZSETTINGS_CHANGED_ID      "mozsettings-changed"
-// #define BLUETOOTH_ENABLED_SETTING   "bluetooth.enabled"
-// #define BLUETOOTH_DEBUGGING_SETTING "bluetooth.debugging.enabled"
+#define BLUETOOTH_ENABLED_SETTING u"bluetooth.enabled"_ns
+#define BLUETOOTH_DEBUGGING_SETTING u"bluetooth.debugging.enabled"_ns
 
 #define PROP_BLUETOOTH_ENABLED "bluetooth.isEnabled"
 
@@ -101,45 +98,6 @@ BluetoothService::ToggleBtAck::Run() {
   return NS_OK;
 }
 
-// TODO: Use new Settings API on KaiNext instead.
-// class BluetoothService::StartupTask final : public nsISettingsServiceCallback
-// {
-// public:
-//   NS_DECL_ISUPPORTS
-
-//   NS_IMETHOD Handle(const nsAString& aName, JS::Handle<JS::Value> aResult)
-//   {
-//     MOZ_ASSERT(NS_IsMainThread());
-
-//     if (!aResult.isBoolean()) {
-//       BT_WARNING("Setting for '" BLUETOOTH_ENABLED_SETTING "' is not a
-//       boolean!"); return NS_OK;
-//     }
-
-//     // It is theoretically possible to shut down before the first settings
-//     check
-//     // has completed (though extremely unlikely).
-//     if (sBluetoothService) {
-//       return
-//       sBluetoothService->HandleStartupSettingsCheck(aResult.toBoolean());
-//     }
-
-//     return NS_OK;
-//   }
-
-//   NS_IMETHOD HandleError(const nsAString& aName)
-//   {
-//     BT_WARNING("Unable to get value for '" BLUETOOTH_ENABLED_SETTING "'");
-//     return NS_OK;
-//   }
-
-// private:
-//   ~StartupTask()
-//   { }
-// };
-
-// NS_IMPL_ISUPPORTS(BluetoothService::StartupTask, nsISettingsServiceCallback);
-
 NS_IMPL_ISUPPORTS(BluetoothService, nsIObserver)
 
 bool BluetoothService::IsToggling() const { return sToggleInProgress; }
@@ -148,7 +106,7 @@ BluetoothService::~BluetoothService() { Cleanup(); }
 
 // static
 BluetoothService* BluetoothService::Create() {
-#if defined(MOZ_B2G_BT) && defined(MOZ_B2G_BT_DAEMON)
+#if defined(MOZ_B2G_BT_DAEMON)
   if (!XRE_IsParentProcess()) {
     return BluetoothServiceChildProcess::Create();
   }
@@ -171,14 +129,6 @@ bool BluetoothService::Init() {
     return false;
   }
 
-  // TODO: Use new Settings API on KaiNext instead.
-  // Only the main process should observe bluetooth settings changes.
-  // if (XRE_IsParentProcess() &&
-  //     NS_FAILED(obs->AddObserver(this, MOZSETTINGS_CHANGED_ID, false))) {
-  //   BT_WARNING("Failed to add settings change observer!");
-  //   return false;
-  // }
-
   return true;
 }
 
@@ -186,16 +136,15 @@ void BluetoothService::Cleanup() {
   MOZ_ASSERT(NS_IsMainThread());
 
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
-  // TODO: Use new Settings API on KaiNext instead.
-  // if (obs &&
-  //     (NS_FAILED(obs->RemoveObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID)) ||
-  //      NS_FAILED(obs->RemoveObserver(this, MOZSETTINGS_CHANGED_ID)))) {
-  //   BT_WARNING("Can't unregister observers!");
-  // }
-
   if (obs &&
       (NS_FAILED(obs->RemoveObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID)))) {
     BT_WARNING("Can't unregister observers!");
+  }
+
+  nsCOMPtr<nsISettingsManager> settings =
+      do_GetService("@mozilla.org/sidl-native/settings;1");
+  if (settings) {
+    settings->RemoveObserver(BLUETOOTH_DEBUGGING_SETTING, this, this);
   }
 }
 
@@ -488,22 +437,13 @@ nsresult BluetoothService::HandleStartup() {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!sToggleInProgress);
 
-  // TODO: Use new Settings API on KaiNext instead.
-  // nsCOMPtr<nsISettingsService> settings =
-  //   do_GetService("@mozilla.org/settingsService;1");
-  // NS_ENSURE_TRUE(settings, NS_ERROR_UNEXPECTED);
-
-  // nsCOMPtr<nsISettingsServiceLock> settingsLock;
-  // nsresult rv = settings->CreateLock(nullptr, getter_AddRefs(settingsLock));
-  // NS_ENSURE_SUCCESS(rv, rv);
-
-  // RefPtr<StartupTask> callback = new StartupTask();
-  // rv = settingsLock->Get(BLUETOOTH_ENABLED_SETTING, callback);
-  // NS_ENSURE_SUCCESS(rv, rv);
-
-  // Disable Bluetooth during startup without reading setting.
-  // TODO: StartStopBluetooth() based on the setting 'bluetooth.enabled'
-  StartStopBluetooth(false, true, nullptr);
+  nsCOMPtr<nsISettingsManager> settings =
+      do_GetService("@mozilla.org/sidl-native/settings;1");
+  if (settings) {
+    settings->Get(BLUETOOTH_ENABLED_SETTING, this);
+    settings->Get(BLUETOOTH_DEBUGGING_SETTING, this);
+    settings->AddObserver(BLUETOOTH_DEBUGGING_SETTING, this, this);
+  }
 
   sToggleInProgress = true;
   return NS_OK;
@@ -514,33 +454,74 @@ nsresult BluetoothService::HandleStartupSettingsCheck(bool aEnable) {
   return StartStopBluetooth(aEnable, true, nullptr);
 }
 
-// TODO: Use new Settings API on KaiNext instead.
-// nsresult
-// BluetoothService::HandleSettingsChanged(nsISupports* aSubject)
-// {
-//   MOZ_ASSERT(NS_IsMainThread());
+// Implements nsISettingsGetResponse::Resolve
+NS_IMETHODIMP BluetoothService::Resolve(nsISettingInfo* info) {
+  MOZ_ASSERT(NS_IsMainThread());
 
-//   // The string that we're interested in will be a JSON string that looks
-//   like:
-//   //  {"key":"bluetooth.enabled","value":true}
+  if (info) {
+    nsString name;
+    info->GetName(name);
 
-//   RootedDictionary<SettingChangeNotification>
-//   setting(nsContentUtils::RootingCx()); if (!WrappedJSToDictionary(aSubject,
-//   setting)) {
-//     return NS_OK;
-//   }
-//   if (!setting.mKey.EqualsASCII(BLUETOOTH_DEBUGGING_SETTING)) {
-//     return NS_OK;
-//   }
-//   if (!setting.mValue.isBoolean()) {
-//     MOZ_ASSERT(false, "Expecting a boolean for
-//     'bluetooth.debugging.enabled'!"); return NS_ERROR_UNEXPECTED;
-//   }
+    nsString value;
+    info->GetValue(value);
+    bool enabled = !value.EqualsLiteral("false");
 
-//   SWITCH_BT_DEBUG(setting.mValue.toBoolean());
+    if (name.Equals(BLUETOOTH_ENABLED_SETTING)) {
+      // It is theoretically possible to shut down before the first settings
+      // check has completed (though extremely unlikely).
+      if (sBluetoothService) {
+        sBluetoothService->HandleStartupSettingsCheck(enabled);
+      }
+    } else if (name.Equals(BLUETOOTH_DEBUGGING_SETTING)) {
+      SWITCH_BT_DEBUG(enabled);
+    }
+  } else {
+    BT_WARNING("SettingInfo in BluetoothService is null");
+    sBluetoothService->HandleStartupSettingsCheck(false);
+  }
+  return NS_OK;
+}
 
-//   return NS_OK;
-// }
+// Implements nsISettingsGetResponse::Reject
+NS_IMETHODIMP BluetoothService::Reject([
+    [maybe_unused]] nsISettingError* error) {
+  if (error) {
+    nsString name;
+    error->GetName(name);
+    BT_WARNING("Failed to read settings '%s'",
+               NS_ConvertUTF16toUTF8(name).get());
+    if (sToggleInProgress && sBluetoothService &&
+        name.Equals(BLUETOOTH_ENABLED_SETTING)) {
+      sBluetoothService->HandleStartupSettingsCheck(false);
+    }
+  }
+
+  return NS_OK;
+}
+
+// Implements nsISettingsObserver::ObserveSetting
+NS_IMETHODIMP BluetoothService::ObserveSetting(nsISettingInfo* info) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  if (info) {
+    nsString name;
+    info->GetName(name);
+    if (name.Equals(BLUETOOTH_DEBUGGING_SETTING)) {
+      nsString value;
+      info->GetValue(value);
+      bool enabled = !value.EqualsLiteral("false");
+      SWITCH_BT_DEBUG(enabled);
+    }
+  }
+  return NS_OK;
+}
+
+// Implements nsISidlDefaultResponse
+NS_IMETHODIMP BluetoothService::Resolve() { return NS_OK; }
+NS_IMETHODIMP BluetoothService::Reject() {
+  BT_WARNING("Failed to observe setting 'bluetooth.debugging.enabled'");
+  return NS_OK;
+}
 
 nsresult BluetoothService::HandleShutdown() {
   MOZ_ASSERT(NS_IsMainThread());
@@ -636,11 +617,6 @@ nsresult BluetoothService::Observe(nsISupports* aSubject, const char* aTopic,
   if (!strcmp(aTopic, "profile-after-change")) {
     return HandleStartup();
   }
-
-  // TODO: Use new Settings API on KaiNext instead.
-  // if (!strcmp(aTopic, MOZSETTINGS_CHANGED_ID)) {
-  //   return HandleSettingsChanged(aSubject);
-  // }
 
   if (!strcmp(aTopic, NS_XPCOM_SHUTDOWN_OBSERVER_ID)) {
     /**
