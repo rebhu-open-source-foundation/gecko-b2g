@@ -74,6 +74,113 @@ already_AddRefed<MacIOSurface> MacIOSurface::CreateIOSurface(
   return ioSurface.forget();
 }
 
+void AddDictionaryInt(const CFTypeRefPtr<CFMutableDictionaryRef>& aDict,
+                      const void* aType, uint32_t aValue) {
+  auto cfValue = CFTypeRefPtr<CFNumberRef>::WrapUnderCreateRule(
+      ::CFNumberCreate(nullptr, kCFNumberSInt32Type, &aValue));
+  ::CFDictionaryAddValue(aDict.get(), aType, cfValue.get());
+}
+
+size_t CreatePlaneDictionary(CFTypeRefPtr<CFMutableDictionaryRef>& aDict,
+                             const gfx::IntSize& aSize, size_t aOffset,
+                             size_t aBytesPerPixel) {
+  size_t bytesPerRow = IOSurfaceAlignProperty(kIOSurfaceBytesPerRow,
+                                              aSize.width * aBytesPerPixel);
+  size_t totalBytes =
+      IOSurfaceAlignProperty(kIOSurfaceAllocSize, aSize.height * bytesPerRow);
+
+  aDict = CFTypeRefPtr<CFMutableDictionaryRef>::WrapUnderCreateRule(
+      ::CFDictionaryCreateMutable(kCFAllocatorDefault, 4,
+                                  &kCFTypeDictionaryKeyCallBacks,
+                                  &kCFTypeDictionaryValueCallBacks));
+
+  AddDictionaryInt(aDict, kIOSurfacePlaneWidth, aSize.width);
+  AddDictionaryInt(aDict, kIOSurfacePlaneHeight, aSize.height);
+  AddDictionaryInt(aDict, kIOSurfacePlaneBytesPerRow, bytesPerRow);
+  AddDictionaryInt(aDict, kIOSurfacePlaneOffset, aOffset);
+  AddDictionaryInt(aDict, kIOSurfacePlaneSize, totalBytes);
+  AddDictionaryInt(aDict, kIOSurfaceBytesPerElement, aBytesPerPixel);
+
+  return totalBytes;
+}
+
+/* static */
+already_AddRefed<MacIOSurface> MacIOSurface::CreateNV12Surface(
+    const IntSize& aYSize, const IntSize& aCbCrSize, YUVColorSpace aColorSpace,
+    ColorRange aColorRange) {
+  MOZ_ASSERT(aColorSpace == YUVColorSpace::BT601 ||
+             aColorSpace == YUVColorSpace::BT709);
+  MOZ_ASSERT(aColorRange == ColorRange::LIMITED ||
+             aColorRange == ColorRange::FULL);
+
+  auto props = CFTypeRefPtr<CFMutableDictionaryRef>::WrapUnderCreateRule(
+      ::CFDictionaryCreateMutable(kCFAllocatorDefault, 4,
+                                  &kCFTypeDictionaryKeyCallBacks,
+                                  &kCFTypeDictionaryValueCallBacks));
+  if (!props) return nullptr;
+
+  MOZ_ASSERT((size_t)aYSize.width <= GetMaxWidth());
+  MOZ_ASSERT((size_t)aYSize.height <= GetMaxHeight());
+
+  AddDictionaryInt(props, kIOSurfaceWidth, aYSize.width);
+  AddDictionaryInt(props, kIOSurfaceHeight, aYSize.height);
+  ::CFDictionaryAddValue(props.get(), kIOSurfaceIsGlobal, kCFBooleanTrue);
+
+  if (aColorRange == ColorRange::LIMITED) {
+    AddDictionaryInt(props, kIOSurfacePixelFormat,
+                     (uint32_t)kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange);
+  } else {
+    AddDictionaryInt(props, kIOSurfacePixelFormat,
+                     (uint32_t)kCVPixelFormatType_420YpCbCr8BiPlanarFullRange);
+  }
+
+  CFTypeRefPtr<CFMutableDictionaryRef> planeProps[2];
+  size_t planeTotalBytes = CreatePlaneDictionary(planeProps[0], aYSize, 0, 1);
+  planeTotalBytes +=
+      CreatePlaneDictionary(planeProps[1], aCbCrSize, planeTotalBytes, 2);
+
+  AddDictionaryInt(props, kIOSurfaceAllocSize, planeTotalBytes);
+
+  auto array = CFTypeRefPtr<CFArrayRef>::WrapUnderCreateRule(
+      CFArrayCreate(kCFAllocatorDefault, (const void**)planeProps, 2,
+                    &kCFTypeArrayCallBacks));
+  ::CFDictionaryAddValue(props.get(), kIOSurfacePlaneInfo, array.get());
+
+  CFTypeRefPtr<IOSurfaceRef> surfaceRef =
+      CFTypeRefPtr<IOSurfaceRef>::WrapUnderCreateRule(
+          ::IOSurfaceCreate(props.get()));
+
+  if (!surfaceRef) {
+    return nullptr;
+  }
+
+  // Setup the correct YCbCr conversion matrix on the IOSurface, in case we pass
+  // this directly to CoreAnimation.
+  if (aColorSpace == YUVColorSpace::BT601) {
+    IOSurfaceSetValue(surfaceRef.get(), CFSTR("IOSurfaceYCbCrMatrix"),
+                      CFSTR("ITU_R_601_4"));
+  } else {
+    IOSurfaceSetValue(surfaceRef.get(), CFSTR("IOSurfaceYCbCrMatrix"),
+                      CFSTR("ITU_R_709_2"));
+  }
+  // Override the color space to be the same as the main display, so that
+  // CoreAnimation won't try to do any color correction (from the IOSurface
+  // space, to the display). In the future we may want to try specifying this
+  // correctly, but probably only once we do the same for videos drawn through
+  // our gfx code.
+  auto colorSpace = CFTypeRefPtr<CGColorSpaceRef>::WrapUnderCreateRule(
+      CGDisplayCopyColorSpace(CGMainDisplayID()));
+  auto colorData = CFTypeRefPtr<CFDataRef>::WrapUnderCreateRule(
+      CGColorSpaceCopyICCProfile(colorSpace.get()));
+  IOSurfaceSetValue(surfaceRef.get(), CFSTR("IOSurfaceColorSpace"),
+                    colorData.get());
+
+  RefPtr<MacIOSurface> ioSurface =
+      new MacIOSurface(std::move(surfaceRef), 1.0, false, aColorSpace);
+
+  return ioSurface.forget();
+}
+
 /* static */
 already_AddRefed<MacIOSurface> MacIOSurface::LookupSurface(
     IOSurfaceID aIOSurfaceID, double aContentsScaleFactor, bool aHasAlpha,

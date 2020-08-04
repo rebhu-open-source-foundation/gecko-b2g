@@ -346,6 +346,36 @@ class MOZ_STACK_CLASS WSRunScanner final {
                                      const EditorDOMPoint& aPoint);
 
   /**
+   * GetPrecedingBRElementUnlessVisibleContentFound() scans a `<br>` element
+   * backward, but stops scanning it if the scanner finds visible character
+   * or something.  In other words, this method ignores only invisible
+   * white-spaces between `<br>` element and aPoint.
+   */
+  template <typename EditorDOMPointType>
+  MOZ_NEVER_INLINE_DEBUG static HTMLBRElement*
+  GetPrecedingBRElementUnlessVisibleContentFound(
+      const HTMLEditor& aHTMLEditor, const EditorDOMPointType& aPoint) {
+    MOZ_ASSERT(aPoint.IsSetAndValid());
+    // XXX This method behaves differently even in similar point.
+    //     If aPoint is in a text node following `<br>` element, reaches the
+    //     `<br>` element when all characters between the `<br>` and
+    //     aPoint are ASCII whitespaces.
+    //     But if aPoint is not in a text node, e.g., at start of an inline
+    //     element which is immediately after a `<br>` element, returns the
+    //     `<br>` element even if there is no invisible white-spaces.
+    if (aPoint.IsStartOfContainer()) {
+      return nullptr;
+    }
+    // TODO: Scan for end boundary is redundant in this case, we should optimize
+    //       it.
+    TextFragmentData textFragmentData(aPoint,
+                                      aHTMLEditor.GetActiveEditingHost());
+    return textFragmentData.StartsFromBRElement()
+               ? textFragmentData.StartReasonBRElementPtr()
+               : nullptr;
+  }
+
+  /**
    * GetStartReasonContent() and GetEndReasonContent() return a node which
    * was found by scanning from mScanStartPoint backward or  forward.  If there
    * was white-spaces or text from the point, returns the text node.  Otherwise,
@@ -1157,16 +1187,6 @@ class WhiteSpaceVisibilityKeeper final {
   DeleteInvisibleASCIIWhiteSpaces(HTMLEditor& aHTMLEditor,
                                   const EditorDOMPoint& aPoint);
 
-  /**
-   * PrepareToJoinBlocks() fixes up white-spaces at the end of aLeftBlockElement
-   * and the start of aRightBlockElement in preperation for them to be joined.
-   * For example, trailing white-spaces in aLeftBlockElement needs to be
-   * removed.
-   */
-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT static nsresult PrepareToJoinBlocks(
-      HTMLEditor& aHTMLEditor, dom::Element& aLeftBlockElement,
-      dom::Element& aRightBlockElement);
-
   // PrepareToDeleteRange fixes up ws before aStartPoint and after aEndPoint in
   // preperation for content in that range to be deleted.  Note that the nodes
   // and offsets are adjusted in response to any dom changes we make while
@@ -1190,6 +1210,74 @@ class WhiteSpaceVisibilityKeeper final {
   MOZ_CAN_RUN_SCRIPT static nsresult PrepareToSplitAcrossBlocks(
       HTMLEditor& aHTMLEditor, nsCOMPtr<nsINode>* aSplitNode,
       int32_t* aSplitOffset);
+
+  /**
+   * MergeFirstLineOfRightBlockElementIntoDescendantLeftBlockElement() merges
+   * first line in aRightBlockElement into end of aLeftBlockElement which
+   * is a descendant of aRightBlockElement.
+   *
+   * @param aHTMLEditor         The HTML editor.
+   * @param aLeftBlockElement   The content will be merged into end of
+   *                            this element.
+   * @param aRightBlockElement  The first line in this element will be
+   *                            moved to aLeftBlockElement.
+   * @param aAtRightBlockChild  At a child of aRightBlockElement and inclusive
+   *                            ancestor of aLeftBlockElement.
+   * @param aListElementTagName Set some if aRightBlockElement is a list
+   *                            element and it'll be merged with another
+   *                            list element.
+   */
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT static EditActionResult
+  MergeFirstLineOfRightBlockElementIntoDescendantLeftBlockElement(
+      HTMLEditor& aHTMLEditor, Element& aLeftBlockElement,
+      Element& aRightBlockElement, const EditorDOMPoint& aAtRightBlockChild,
+      const Maybe<nsAtom*>& aListElementTagName);
+
+  /**
+   * MergeFirstLineOfRightBlockElementIntoAncestorLeftBlockElement() merges
+   * first line in aRightBlockElement into end of aLeftBlockElement which
+   * is an ancestor of aRightBlockElement, then, removes aRightBlockElement
+   * if it becomes empty.
+   *
+   * @param aHTMLEditor         The HTML editor.
+   * @param aLeftBlockElement   The content will be merged into end of
+   *                            this element.
+   * @param aRightBlockElement  The first line in this element will be
+   *                            moved to aLeftBlockElement and maybe
+   *                            removed when this becomes empty.
+   * @param aAtLeftBlockChild   At a child of aLeftBlockElement and inclusive
+   *                            ancestor of aRightBlockElement.
+   * @param aLeftContentInBlock The content whose inclusive ancestor is
+   *                            aLeftBlockElement.
+   * @param aListElementTagName Set some if aRightBlockElement is a list
+   *                            element and it'll be merged with another
+   *                            list element.
+   */
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT static EditActionResult
+  MergeFirstLineOfRightBlockElementIntoAncestorLeftBlockElement(
+      HTMLEditor& aHTMLEditor, Element& aLeftBlockElement,
+      Element& aRightBlockElement, const EditorDOMPoint& aAtLeftBlockChild,
+      nsIContent& aLeftContentInBlock,
+      const Maybe<nsAtom*>& aListElementTagName);
+
+  /**
+   * MergeFirstLineOfRightBlockElementIntoLeftBlockElement() merges first
+   * line in aRightBlockElement into end of aLeftBlockElement and removes
+   * aRightBlockElement when it has only one line.
+   *
+   * @param aHTMLEditor         The HTML editor.
+   * @param aLeftBlockElement   The content will be merged into end of
+   *                            this element.
+   * @param aRightBlockElement  The first line in this element will be
+   *                            moved to aLeftBlockElement and maybe
+   *                            removed when this becomes empty.
+   * @param aListElementTagName Set some if aRightBlockElement is a list
+   *                            element and its type needs to be changed.
+   */
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT static EditActionResult
+  MergeFirstLineOfRightBlockElementIntoLeftBlockElement(
+      HTMLEditor& aHTMLEditor, Element& aLeftBlockElement,
+      Element& aRightBlockElement, const Maybe<nsAtom*>& aListElementTagName);
 
   /**
    * InsertBRElement() inserts a <br> node at (before) aPointToInsert and delete

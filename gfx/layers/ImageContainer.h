@@ -33,6 +33,7 @@
 #include "nsDataHashtable.h"
 #include "mozilla/EnumeratedArray.h"
 #include "mozilla/UniquePtr.h"
+#include "MediaInfo.h"
 
 #ifndef XPCOM_GLUE_AVOID_NSPR
 /**
@@ -152,6 +153,9 @@ class KnowsCompositor;
 class NVImage;
 #ifdef XP_WIN
 class D3D11YCbCrRecycleAllocator;
+#endif
+#ifdef XP_MACOSX
+class MacIOSurfaceRecycleAllocator;
 #endif
 class SurfaceDescriptorBuffer;
 
@@ -539,6 +543,10 @@ class ImageContainer final : public SupportsWeakPtr {
 
   const gfx::Matrix& GetTransformHint() const { return mTransformHint; }
 
+  void SetRotation(VideoInfo::Rotation aRotation) { mRotation = aRotation; }
+
+  VideoInfo::Rotation GetRotation() const { return mRotation; }
+
   void SetImageFactory(ImageFactory* aFactory) {
     RecursiveMutexAutoLock lock(mRecursiveMutex);
     mImageFactory = aFactory ? aFactory : new ImageFactory();
@@ -551,6 +559,10 @@ class ImageContainer final : public SupportsWeakPtr {
 #ifdef XP_WIN
   D3D11YCbCrRecycleAllocator* GetD3D11YCbCrRecycleAllocator(
       KnowsCompositor* aKnowsCompositor);
+#endif
+
+#ifdef XP_MACOSX
+  MacIOSurfaceRecycleAllocator* GetMacIOSurfaceRecycleAllocator();
 #endif
 
   /**
@@ -637,6 +649,9 @@ class ImageContainer final : public SupportsWeakPtr {
 #ifdef XP_WIN
   RefPtr<D3D11YCbCrRecycleAllocator> mD3D11YCbCrRecycleAllocator;
 #endif
+#ifdef XP_MACOSX
+  RefPtr<MacIOSurfaceRecycleAllocator> mMacIOSurfaceRecycleAllocator;
+#endif
 
   nsTArray<OwningImage> mCurrentImages;
 
@@ -662,6 +677,8 @@ class ImageContainer final : public SupportsWeakPtr {
   gfx::IntSize mScaleHint;
 
   gfx::Matrix mTransformHint;
+
+  VideoInfo::Rotation mRotation = VideoInfo::Rotation::kDegree_0;
 
   RefPtr<BufferRecycleBin> mRecycleBin;
 

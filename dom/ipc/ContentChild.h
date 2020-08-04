@@ -587,7 +587,8 @@ class ContentChild final : public PContentChild,
 
   mozilla::ipc::IPCResult RecvRequestMemoryReport(
       const uint32_t& generation, const bool& anonymize,
-      const bool& minimizeMemoryUsage, const Maybe<FileDescriptor>& DMDFile);
+      const bool& minimizeMemoryUsage, const Maybe<FileDescriptor>& DMDFile,
+      const RequestMemoryReportResolver& aResolver);
 
   mozilla::ipc::IPCResult RecvGetUntrustedModulesData(
       GetUntrustedModulesDataResolver&& aResolver);

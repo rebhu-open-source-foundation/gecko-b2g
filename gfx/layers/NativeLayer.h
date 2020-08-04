@@ -20,6 +20,10 @@ namespace gl {
 class GLContext;
 }  // namespace gl
 
+namespace wr {
+class RenderTextureHost;
+}
+
 namespace layers {
 
 class NativeLayer;
@@ -40,6 +44,9 @@ class NativeLayerRoot {
   virtual already_AddRefed<NativeLayer> CreateLayer(
       const gfx::IntSize& aSize, bool aIsOpaque,
       SurfacePoolHandle* aSurfacePoolHandle) = 0;
+  virtual already_AddRefed<NativeLayer> CreateLayerForExternalTexture(
+      bool aIsOpaque) = 0;
+
   virtual void AppendLayer(NativeLayer* aLayer) = 0;
   virtual void RemoveLayer(NativeLayer* aLayer) = 0;
   virtual void SetLayers(const nsTArray<RefPtr<NativeLayer>>& aLayers) = 0;
@@ -115,13 +122,20 @@ class NativeLayer {
   virtual bool IsOpaque() = 0;
 
   // The location of the layer, in integer device pixels.
+  // This is applied to the layer, before the transform is applied.
   virtual void SetPosition(const gfx::IntPoint& aPosition) = 0;
   virtual gfx::IntPoint GetPosition() = 0;
 
+  // Sets a transformation to apply to the Layer. This gets applied to
+  // coordinates with the position applied, but before clipping is
+  // applied.
+  virtual void SetTransform(const gfx::Matrix4x4& aTransform) = 0;
+  virtual gfx::Matrix4x4 GetTransform() = 0;
+
   virtual gfx::IntRect GetRect() = 0;
 
-  // Set an optional clip rect on the layer. The clip rect is in the same
-  // coordinate space as the layer rect.
+  // Set an optional clip rect on the layer. The clip rect is in post-transform
+  // coordinate space
   virtual void SetClipRect(const Maybe<gfx::IntRect>& aClipRect) = 0;
   virtual Maybe<gfx::IntRect> ClipRect() = 0;
 
@@ -200,6 +214,8 @@ class NativeLayer {
   // good to call DiscardBackbuffers in order to save memory and allow other
   // layer's to pick up the released surfaces from the pool.
   virtual void DiscardBackbuffers() = 0;
+
+  virtual void AttachExternalImage(wr::RenderTextureHost* aExternalImage) = 0;
 
  protected:
   virtual ~NativeLayer() = default;

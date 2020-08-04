@@ -198,6 +198,35 @@ void RenderCompositorNative::CreateSurface(wr::NativeSurfaceId aId,
   mSurfaces.insert({aId, Surface{aTileSize, aIsOpaque}});
 }
 
+void RenderCompositorNative::CreateExternalSurface(wr::NativeSurfaceId aId,
+                                                   bool aIsOpaque) {
+  MOZ_RELEASE_ASSERT(mSurfaces.find(aId) == mSurfaces.end());
+
+  RefPtr<layers::NativeLayer> layer =
+      mNativeLayerRoot->CreateLayerForExternalTexture(aIsOpaque);
+
+  Surface surface{DeviceIntSize{}, aIsOpaque};
+  surface.mIsExternal = true;
+  surface.mNativeLayers.insert({TileKey(0, 0), layer});
+
+  mSurfaces.insert({aId, std::move(surface)});
+}
+
+void RenderCompositorNative::AttachExternalImage(
+    wr::NativeSurfaceId aId, wr::ExternalImageId aExternalImage) {
+  RenderTextureHost* image =
+      RenderThread::Get()->GetRenderTexture(aExternalImage);
+  MOZ_RELEASE_ASSERT(image);
+
+  auto surfaceCursor = mSurfaces.find(aId);
+  MOZ_RELEASE_ASSERT(surfaceCursor != mSurfaces.end());
+
+  Surface& surface = surfaceCursor->second;
+  MOZ_RELEASE_ASSERT(surface.mNativeLayers.size() == 1);
+  MOZ_RELEASE_ASSERT(surface.mIsExternal);
+  surface.mNativeLayers.begin()->second->AttachExternalImage(image);
+}
+
 void RenderCompositorNative::DestroySurface(NativeSurfaceId aId) {
   auto surfaceCursor = mSurfaces.find(aId);
   MOZ_RELEASE_ASSERT(surfaceCursor != mSurfaces.end());
@@ -215,6 +244,7 @@ void RenderCompositorNative::CreateTile(wr::NativeSurfaceId aId, int aX,
   auto surfaceCursor = mSurfaces.find(aId);
   MOZ_RELEASE_ASSERT(surfaceCursor != mSurfaces.end());
   Surface& surface = surfaceCursor->second;
+  MOZ_RELEASE_ASSERT(!surface.mIsExternal);
 
   RefPtr<layers::NativeLayer> layer = mNativeLayerRoot->CreateLayer(
       surface.TileSize(), surface.mIsOpaque, mSurfacePoolHandle);
@@ -227,6 +257,7 @@ void RenderCompositorNative::DestroyTile(wr::NativeSurfaceId aId, int aX,
   auto surfaceCursor = mSurfaces.find(aId);
   MOZ_RELEASE_ASSERT(surfaceCursor != mSurfaces.end());
   Surface& surface = surfaceCursor->second;
+  MOZ_RELEASE_ASSERT(!surface.mIsExternal);
 
   auto layerCursor = surface.mNativeLayers.find(TileKey(aX, aY));
   MOZ_RELEASE_ASSERT(layerCursor != surface.mNativeLayers.end());
@@ -245,26 +276,32 @@ void RenderCompositorNative::DestroyTile(wr::NativeSurfaceId aId, int aX,
   layer->DiscardBackbuffers();
 }
 
-void RenderCompositorNative::AddSurface(wr::NativeSurfaceId aId,
-                                        wr::DeviceIntPoint aPosition,
-                                        wr::DeviceIntRect aClipRect) {
+void RenderCompositorNative::AddSurface(
+    wr::NativeSurfaceId aId, const wr::CompositorSurfaceTransform& aTransform,
+    wr::DeviceIntRect aClipRect) {
   MOZ_RELEASE_ASSERT(!mCurrentlyBoundNativeLayer);
 
   auto surfaceCursor = mSurfaces.find(aId);
   MOZ_RELEASE_ASSERT(surfaceCursor != mSurfaces.end());
   const Surface& surface = surfaceCursor->second;
 
+  Matrix4x4 transform(
+      aTransform.m11, aTransform.m12, aTransform.m13, aTransform.m14,
+      aTransform.m21, aTransform.m22, aTransform.m23, aTransform.m24,
+      aTransform.m31, aTransform.m32, aTransform.m33, aTransform.m34,
+      aTransform.m41, aTransform.m42, aTransform.m43, aTransform.m44);
+
   for (auto it = surface.mNativeLayers.begin();
        it != surface.mNativeLayers.end(); ++it) {
     RefPtr<layers::NativeLayer> layer = it->second;
     gfx::IntSize layerSize = layer->GetSize();
-    gfx::IntPoint layerPosition(
-        aPosition.x + surface.mTileSize.width * it->first.mX,
-        aPosition.y + surface.mTileSize.height * it->first.mY);
+    gfx::IntPoint layerPosition(surface.mTileSize.width * it->first.mX,
+                                surface.mTileSize.height * it->first.mY);
     layer->SetPosition(layerPosition);
     gfx::IntRect clipRect(aClipRect.origin.x, aClipRect.origin.y,
                           aClipRect.size.width, aClipRect.size.height);
     layer->SetClipRect(Some(clipRect));
+    layer->SetTransform(transform);
     mAddedLayers.AppendElement(layer);
 
     mAddedPixelCount += layerSize.width * layerSize.height;

@@ -58,19 +58,7 @@ loader.lazyRequireGetter(
 );
 loader.lazyRequireGetter(
   this,
-  "FrameActor",
-  "devtools/server/actors/frame",
-  true
-);
-loader.lazyRequireGetter(
-  this,
-  "getSavedFrameParent",
-  "devtools/server/actors/frame",
-  true
-);
-loader.lazyRequireGetter(
-  this,
-  "isValidSavedFrame",
+  ["FrameActor", "getSavedFrameParent", "isValidSavedFrame"],
   "devtools/server/actors/frame",
   true
 );
@@ -1746,10 +1734,6 @@ const ThreadActor = ActorClassWithSpec(threadSpec, {
    *        The object actor.
    */
   threadObjectGrip: function(actor) {
-    // Save the reference for when we need to demote the object
-    // back to its original registered pool
-    actor.originalRegisteredPool = actor.getParent();
-
     this.threadLifetimePool.manage(actor);
     this.threadLifetimePool.objectActors.set(actor.obj, actor);
   },

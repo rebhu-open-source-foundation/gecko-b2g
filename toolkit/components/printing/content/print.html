@@ -12,6 +12,7 @@
 
     <link rel="stylesheet" href="chrome://global/skin/in-content/common.css">
     <link rel="stylesheet" href="chrome://global/content/print.css">
+    <link rel="stylesheet" href="chrome://global/content/toggle-group.css">
     <script defer src="chrome://global/content/print.js"></script>
   </head>
 
@@ -25,19 +26,10 @@
     </template>
 
     <template id="orientation-template">
-      <span>
-        <input type="radio" name="orientation" id="portrait" value="0" checked>
-        <label for="portrait" data-l10n-id="printui-portrait"></label>
-      </span>
-      <span>
-        <input type="radio" name="orientation" id="landscape" value="1">
-        <label for="landscape" data-l10n-id="printui-landscape"></label>
-      </span>
-    </template>
-
-    <template id="copy-count-template">
-      <span class="input"></span>
-      <input id="copies-count" type="number" min="1">
+      <input type="radio" name="orientation" id="portrait" value="0" checked class="toggle-group-input">
+      <label for="portrait" data-l10n-id="printui-portrait" class="toggle-group-label toggle-group-label-iconic"></label>
+      <input type="radio" name="orientation" id="landscape" value="1" class="toggle-group-input">
+      <label for="landscape" data-l10n-id="printui-landscape" class="toggle-group-label toggle-group-label-iconic"></label>
     </template>
 
     <template id="twisty-summary-template">
@@ -64,7 +56,7 @@
       <p id="sheet-count" is="page-count" hidden></p>
     </header>
 
-    <form id="print" is="print-form">
+    <form id="print" is="print-form" aria-labelledby="page-header">
       <section class="body-container">
         <section id="destination" class="row">
           <label for="printer-picker" class="block-label" data-l10n-id="printui-destination-label"></label>
@@ -72,15 +64,13 @@
         </section>
         <section id="settings">
           <section id="copies" class="row">
-            <label for="copy-count-input" class="block-label" data-l10n-id="printui-copies-label"></label>
-            <span id="copy-count-input" is="copy-count-input" class="copy-count-input"></span>
+            <label for="copies-count" class="block-label" data-l10n-id="printui-copies-label"></label>
+            <input id="copies-count" is="copy-count-input" min="1" class="copy-count-input">
           </section>
 
           <section id="orientation" class="row">
-            <div role="radiogroup" aria-labelledby="orientation-label">
-              <label class="block-label" data-l10n-id="printui-orientation"></label>
-              <span id="orientation-input" is="orientation-input" class="orientation-input"></span>
-            </div>
+            <label class="block-label" for="orientation-input" data-l10n-id="printui-orientation"></label>
+            <div id="orientation-input" is="orientation-input" role="radiogroup" class="toggle-group"></div>
           </section>
 
           <section id="pages" class="row">
@@ -96,6 +86,19 @@
               <label for="scale-control" class="block-label" data-l10n-id="printui-scale"></label>
               <div is="scale-input" id="scale-control" role="radiogroup"></div>
             </section>
+
+            <section id="more-settings-options" class="row">
+              <label class="block-label" data-l10n-id="printui-options"></label>
+              <div>
+                <input type="checkbox" id="headers-footers-enabled" disabled="">
+                <label for="headers-footers-enabled" data-l10n-id="printui-headers-footers-checkbox"></label>
+              </div>
+              <div>
+                <input is="backgrounds-input" type="checkbox" id="backgrounds-enabled">
+                <label for="backgrounds-enabled" data-l10n-id="printui-backgrounds-checkbox"></label>
+              </div>
+            </section>
+
           </details>
         </section>
       </section>

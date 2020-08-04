@@ -31,6 +31,9 @@ namespace gl {
 class GLContextCGL;
 class MozFramebuffer;
 }  // namespace gl
+namespace wr {
+class RenderMacIOSurfaceTextureHostOGL;
+}  // namespace wr
 
 namespace layers {
 
@@ -106,6 +109,9 @@ class NativeLayerRootCA : public NativeLayerRoot {
 
   void SetBackingScale(float aBackingScale);
   float BackingScale();
+
+  already_AddRefed<NativeLayer> CreateLayerForExternalTexture(
+      bool aIsOpaque) override;
 
  protected:
   explicit NativeLayerRootCA(CALayer* aLayer);
@@ -185,6 +191,8 @@ class NativeLayerCA : public NativeLayer {
   gfx::IntSize GetSize() override;
   void SetPosition(const gfx::IntPoint& aPosition) override;
   gfx::IntPoint GetPosition() override;
+  void SetTransform(const gfx::Matrix4x4& aTransform) override;
+  gfx::Matrix4x4 GetTransform() override;
   gfx::IntRect GetRect() override;
   RefPtr<gfx::DrawTarget> NextSurfaceAsDrawTarget(
       const gfx::IntRect& aDisplayRect, const gfx::IntRegion& aUpdateRegion,
@@ -201,11 +209,14 @@ class NativeLayerCA : public NativeLayer {
   void SetSurfaceIsFlipped(bool aIsFlipped) override;
   bool SurfaceIsFlipped() override;
 
+  void AttachExternalImage(wr::RenderTextureHost* aExternalImage) override;
+
  protected:
   friend class NativeLayerRootCA;
 
   NativeLayerCA(const gfx::IntSize& aSize, bool aIsOpaque,
                 SurfacePoolHandleCA* aSurfacePoolHandle);
+  explicit NativeLayerCA(bool aIsOpaque);
   ~NativeLayerCA() override;
 
   // Gets the next surface for drawing from our swap chain and stores it in
@@ -269,6 +280,7 @@ class NativeLayerCA : public NativeLayer {
     // before the call.
     void ApplyChanges(const gfx::IntSize& aSize, bool aIsOpaque,
                       const gfx::IntPoint& aPosition,
+                      const gfx::Matrix4x4& aTransform,
                       const gfx::IntRect& aDisplayRect,
                       const Maybe<gfx::IntRect>& aClipRect, float aBackingScale,
                       bool aSurfaceIsFlipped,
@@ -284,9 +296,11 @@ class NativeLayerCA : public NativeLayer {
     CALayer* mOpaquenessTintLayer = nullptr;  // strong
 
     bool mMutatedPosition = true;
+    bool mMutatedTransform = true;
     bool mMutatedDisplayRect = true;
     bool mMutatedClipRect = true;
     bool mMutatedBackingScale = true;
+    bool mMutatedSize = true;
     bool mMutatedSurfaceIsFlipped = true;
     bool mMutatedFrontSurface = true;
   };
@@ -347,13 +361,15 @@ class NativeLayerCA : public NativeLayer {
   RefPtr<MacIOSurface> mInProgressLockedIOSurface;
 
   RefPtr<SurfacePoolHandleCA> mSurfacePoolHandle;
+  RefPtr<wr::RenderMacIOSurfaceTextureHostOGL> mTextureHost;
 
   Representation mOnscreenRepresentation;
   Representation mOffscreenRepresentation;
 
   gfx::IntPoint mPosition;
+  gfx::Matrix4x4 mTransform;
   gfx::IntRect mDisplayRect;
-  const gfx::IntSize mSize;
+  gfx::IntSize mSize;
   Maybe<gfx::IntRect> mClipRect;
   float mBackingScale = 1.0f;
   bool mSurfaceIsFlipped = false;

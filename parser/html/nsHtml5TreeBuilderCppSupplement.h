@@ -1573,9 +1573,9 @@ void nsHtml5TreeBuilder::errStartTagWithSelectOpen(nsAtom* aName) {
   }
 }
 
-void nsHtml5TreeBuilder::errBadStartTagInHead(nsAtom* aName) {
+void nsHtml5TreeBuilder::errBadStartTagInNoscriptInHead(nsAtom* aName) {
   if (MOZ_UNLIKELY(mViewSource)) {
-    mViewSource->AddErrorToCurrentRun("errBadStartTagInHead2", aName);
+    mViewSource->AddErrorToCurrentRun("errBadStartTagInNoscriptInHead", aName);
   }
 }
 
@@ -1593,7 +1593,7 @@ void nsHtml5TreeBuilder::errIsindex() {
 
 void nsHtml5TreeBuilder::errFooSeenWhenFooOpen(nsAtom* aName) {
   if (MOZ_UNLIKELY(mViewSource)) {
-    mViewSource->AddErrorToCurrentRun("errFooSeenWhenFooOpen", aName);
+    mViewSource->AddErrorToCurrentRun("errFooSeenWhenFooOpen2", aName);
   }
 }
 
@@ -1679,12 +1679,6 @@ void nsHtml5TreeBuilder::errNoElementToCloseButEndTagSeen(nsAtom* aName) {
 void nsHtml5TreeBuilder::errHtmlStartTagInForeignContext(nsAtom* aName) {
   if (MOZ_UNLIKELY(mViewSource)) {
     mViewSource->AddErrorToCurrentRun("errHtmlStartTagInForeignContext", aName);
-  }
-}
-
-void nsHtml5TreeBuilder::errTableClosedWhileCaptionOpen() {
-  if (MOZ_UNLIKELY(mViewSource)) {
-    mViewSource->AddErrorToCurrentRun("errTableClosedWhileCaptionOpen");
   }
 }
 

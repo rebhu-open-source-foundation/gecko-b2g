@@ -38,6 +38,7 @@ use webrender::{
     CompositorCapabilities, CompositorConfig, DebugFlags, Device, FastHashMap, NativeSurfaceId, NativeSurfaceInfo,
     NativeTileId, PipelineInfo, ProfilerHooks, RecordedFrameHandle, Renderer, RendererOptions, RendererStats,
     SceneBuilderHooks, ShaderPrecacheFlags, Shaders, ThreadListener, UploadMethod, WrShaders, ONE_TIME_USAGE_HINT,
+    CompositorSurfaceTransform,
 };
 use wr_malloc_size_of::MallocSizeOfOps;
 
@@ -490,6 +491,7 @@ pub struct WrWindowId(u64);
 pub struct WrComputedTransformData {
     pub scale_from: LayoutSize,
     pub vertical_flip: bool,
+    pub rotation: WrRotation,
 }
 
 fn get_proc_address(glcontext_ptr: *mut c_void, name: &str) -> *const c_void {
@@ -1194,9 +1196,19 @@ extern "C" {
         tile_size: DeviceIntSize,
         is_opaque: bool,
     );
+    fn wr_compositor_create_external_surface(
+        compositor: *mut c_void,
+        id: NativeSurfaceId,
+        is_opaque: bool,
+    );
     fn wr_compositor_destroy_surface(compositor: *mut c_void, id: NativeSurfaceId);
     fn wr_compositor_create_tile(compositor: *mut c_void, id: NativeSurfaceId, x: i32, y: i32);
     fn wr_compositor_destroy_tile(compositor: *mut c_void, id: NativeSurfaceId, x: i32, y: i32);
+    fn wr_compositor_attach_external_image(
+        compositor: *mut c_void,
+        id: NativeSurfaceId,
+        external_image: ExternalImageId,
+    );
     fn wr_compositor_bind(
         compositor: *mut c_void,
         id: NativeTileId,
@@ -1210,7 +1222,7 @@ extern "C" {
     fn wr_compositor_add_surface(
         compositor: *mut c_void,
         id: NativeSurfaceId,
-        position: DeviceIntPoint,
+        transform: &CompositorSurfaceTransform,
         clip_rect: DeviceIntRect,
     );
     fn wr_compositor_end_frame(compositor: *mut c_void);
@@ -1243,6 +1255,16 @@ impl Compositor for WrCompositor {
         }
     }
 
+    fn create_external_surface(
+        &mut self,
+        id: NativeSurfaceId,
+        is_opaque: bool,
+    ) {
+        unsafe {
+            wr_compositor_create_external_surface(self.0, id, is_opaque);
+        }
+    }
+
     fn destroy_surface(&mut self, id: NativeSurfaceId) {
         unsafe {
             wr_compositor_destroy_surface(self.0, id);
@@ -1260,6 +1282,17 @@ impl Compositor for WrCompositor {
             wr_compositor_destroy_tile(self.0, id.surface_id, id.x, id.y);
         }
     }
+
+    fn attach_external_image(
+        &mut self,
+        id: NativeSurfaceId,
+        external_image: ExternalImageId,
+    ) {
+        unsafe {
+            wr_compositor_attach_external_image(self.0, id, external_image);
+        }
+    }
+
 
     fn bind(&mut self, id: NativeTileId, dirty_rect: DeviceIntRect, valid_rect: DeviceIntRect) -> NativeSurfaceInfo {
         let mut surface_info = NativeSurfaceInfo {
@@ -1293,9 +1326,9 @@ impl Compositor for WrCompositor {
         }
     }
 
-    fn add_surface(&mut self, id: NativeSurfaceId, position: DeviceIntPoint, clip_rect: DeviceIntRect) {
+    fn add_surface(&mut self, id: NativeSurfaceId, transform: CompositorSurfaceTransform, clip_rect: DeviceIntRect) {
         unsafe {
-            wr_compositor_add_surface(self.0, id, position, clip_rect);
+            wr_compositor_add_surface(self.0, id, &transform, clip_rect);
         }
     }
 
@@ -1726,7 +1759,6 @@ pub extern "C" fn wr_transaction_set_display_list(
     background: ColorF,
     viewport_size: LayoutSize,
     pipeline_id: WrPipelineId,
-    content_size: LayoutSize,
     dl_descriptor: BuiltDisplayListDescriptor,
     dl_data: &mut WrVecU8,
 ) {
@@ -1744,7 +1776,7 @@ pub extern "C" fn wr_transaction_set_display_list(
         epoch,
         color,
         viewport_size,
-        (pipeline_id, content_size, dl),
+        (pipeline_id, dl),
         preserve_frame_state,
     );
 }
@@ -2031,7 +2063,7 @@ pub unsafe extern "C" fn wr_transaction_clear_display_list(
     pipeline_id: WrPipelineId,
 ) {
     let preserve_frame_state = true;
-    let frame_builder = WebRenderFrameBuilder::new(pipeline_id, LayoutSize::zero());
+    let frame_builder = WebRenderFrameBuilder::new(pipeline_id);
 
     txn.set_display_list(
         epoch,
@@ -2250,20 +2282,19 @@ pub struct WebRenderFrameBuilder {
 }
 
 impl WebRenderFrameBuilder {
-    pub fn new(root_pipeline_id: WrPipelineId, content_size: LayoutSize) -> WebRenderFrameBuilder {
+    pub fn new(root_pipeline_id: WrPipelineId) -> WebRenderFrameBuilder {
         WebRenderFrameBuilder {
             root_pipeline_id: root_pipeline_id,
-            dl_builder: DisplayListBuilder::new(root_pipeline_id, content_size),
+            dl_builder: DisplayListBuilder::new(root_pipeline_id),
         }
     }
     pub fn with_capacity(
         root_pipeline_id: WrPipelineId,
-        content_size: LayoutSize,
         capacity: usize,
     ) -> WebRenderFrameBuilder {
         WebRenderFrameBuilder {
             root_pipeline_id: root_pipeline_id,
-            dl_builder: DisplayListBuilder::with_capacity(root_pipeline_id, content_size, capacity),
+            dl_builder: DisplayListBuilder::with_capacity(root_pipeline_id, capacity),
         }
     }
 }
@@ -2275,12 +2306,12 @@ pub struct WrState {
 }
 
 #[no_mangle]
-pub extern "C" fn wr_state_new(pipeline_id: WrPipelineId, content_size: LayoutSize, capacity: usize) -> *mut WrState {
+pub extern "C" fn wr_state_new(pipeline_id: WrPipelineId, capacity: usize) -> *mut WrState {
     assert!(unsafe { !is_in_render_thread() });
 
     let state = Box::new(WrState {
         pipeline_id: pipeline_id,
-        frame_builder: WebRenderFrameBuilder::with_capacity(pipeline_id, content_size, capacity),
+        frame_builder: WebRenderFrameBuilder::with_capacity(pipeline_id, capacity),
         current_tag: None,
     });
 
@@ -2317,6 +2348,15 @@ pub enum WrReferenceFrameKind {
     Transform,
     Perspective,
     Zoom,
+}
+
+#[repr(u8)]
+#[derive(PartialEq, Eq, Debug)]
+pub enum WrRotation {
+    Degree0,
+    Degree90,
+    Degree180,
+    Degree270,
 }
 
 /// IMPORTANT: If you add fields to this struct, you need to also add initializers
@@ -2446,11 +2486,18 @@ pub extern "C" fn wr_dp_push_stacking_context(
         result.id = wr_spatial_id.0;
         assert_ne!(wr_spatial_id.0, 0);
     } else if let Some(data) = computed_ref {
+        let rotation = match data.rotation {
+            WrRotation::Degree0 => Rotation::Degree0,
+            WrRotation::Degree90 => Rotation::Degree90,
+            WrRotation::Degree180 => Rotation::Degree180,
+            WrRotation::Degree270 => Rotation::Degree270,
+        };
         wr_spatial_id = state.frame_builder.dl_builder.push_computed_frame(
             bounds.origin,
             wr_spatial_id,
             Some(data.scale_from),
             data.vertical_flip,
+            rotation,
         );
 
         bounds.origin = LayoutPoint::zero();
@@ -2686,6 +2733,20 @@ fn prim_flags(is_backface_visible: bool, prefer_compositor_surface: bool) -> Pri
     flags
 }
 
+fn prim_flags2(
+    is_backface_visible: bool,
+    prefer_compositor_surface: bool,
+    supports_external_compositing: bool
+) -> PrimitiveFlags {
+    let mut flags = PrimitiveFlags::empty();
+
+    if supports_external_compositing {
+        flags |= PrimitiveFlags::SUPPORTS_EXTERNAL_COMPOSITOR_SURFACE;
+    }
+
+    flags | prim_flags(is_backface_visible, prefer_compositor_surface)
+}
+
 fn common_item_properties_for_rect(
     state: &mut WrState,
     clip_rect: LayoutRect,
@@ -2911,6 +2972,7 @@ pub extern "C" fn wr_dp_push_image(
     premultiplied_alpha: bool,
     color: ColorF,
     prefer_compositor_surface: bool,
+    supports_external_compositing: bool,
 ) {
     debug_assert!(unsafe { is_in_main_thread() || is_in_compositor_thread() });
 
@@ -2920,7 +2982,7 @@ pub extern "C" fn wr_dp_push_image(
         clip_rect: clip,
         clip_id: space_and_clip.clip_id,
         spatial_id: space_and_clip.spatial_id,
-        flags: prim_flags(is_backface_visible, prefer_compositor_surface),
+        flags: prim_flags2(is_backface_visible, prefer_compositor_surface, supports_external_compositing),
         hit_info: state.current_tag,
     };
 
@@ -2996,6 +3058,7 @@ pub extern "C" fn wr_dp_push_yuv_planar_image(
     color_range: WrColorRange,
     image_rendering: ImageRendering,
     prefer_compositor_surface: bool,
+    supports_external_compositing: bool,
 ) {
     debug_assert!(unsafe { is_in_main_thread() || is_in_compositor_thread() });
 
@@ -3005,7 +3068,7 @@ pub extern "C" fn wr_dp_push_yuv_planar_image(
         clip_rect: clip,
         clip_id: space_and_clip.clip_id,
         spatial_id: space_and_clip.spatial_id,
-        flags: prim_flags(is_backface_visible, prefer_compositor_surface),
+        flags: prim_flags2(is_backface_visible, prefer_compositor_surface, supports_external_compositing),
         hit_info: state.current_tag,
     };
 
@@ -3035,6 +3098,7 @@ pub extern "C" fn wr_dp_push_yuv_NV12_image(
     color_range: WrColorRange,
     image_rendering: ImageRendering,
     prefer_compositor_surface: bool,
+    supports_external_compositing: bool,
 ) {
     debug_assert!(unsafe { is_in_main_thread() || is_in_compositor_thread() });
 
@@ -3044,7 +3108,7 @@ pub extern "C" fn wr_dp_push_yuv_NV12_image(
         clip_rect: clip,
         clip_id: space_and_clip.clip_id,
         spatial_id: space_and_clip.spatial_id,
-        flags: prim_flags(is_backface_visible, prefer_compositor_surface),
+        flags: prim_flags2(is_backface_visible, prefer_compositor_surface, supports_external_compositing),
         hit_info: state.current_tag,
     };
 
@@ -3073,6 +3137,7 @@ pub extern "C" fn wr_dp_push_yuv_interleaved_image(
     color_range: WrColorRange,
     image_rendering: ImageRendering,
     prefer_compositor_surface: bool,
+    supports_external_compositing: bool,
 ) {
     debug_assert!(unsafe { is_in_main_thread() || is_in_compositor_thread() });
 
@@ -3082,7 +3147,7 @@ pub extern "C" fn wr_dp_push_yuv_interleaved_image(
         clip_rect: clip,
         clip_id: space_and_clip.clip_id,
         spatial_id: space_and_clip.spatial_id,
-        flags: prim_flags(is_backface_visible, prefer_compositor_surface),
+        flags: prim_flags2(is_backface_visible, prefer_compositor_surface, supports_external_compositing),
         hit_info: state.current_tag,
     };
 
@@ -3693,16 +3758,14 @@ pub extern "C" fn wr_dump_serialized_display_list(state: &mut WrState) {
 #[no_mangle]
 pub unsafe extern "C" fn wr_api_finalize_builder(
     state: &mut WrState,
-    content_size: &mut LayoutSize,
     dl_descriptor: &mut BuiltDisplayListDescriptor,
     dl_data: &mut WrVecU8,
 ) {
     let frame_builder = mem::replace(
         &mut state.frame_builder,
-        WebRenderFrameBuilder::new(state.pipeline_id, LayoutSize::zero()),
+        WebRenderFrameBuilder::new(state.pipeline_id),
     );
-    let (_, size, dl) = frame_builder.dl_builder.finalize();
-    *content_size = LayoutSize::new(size.width, size.height);
+    let (_, dl) = frame_builder.dl_builder.finalize();
     let (data, descriptor) = dl.into_data();
     *dl_data = WrVecU8::from_vec(data);
     *dl_descriptor = descriptor;

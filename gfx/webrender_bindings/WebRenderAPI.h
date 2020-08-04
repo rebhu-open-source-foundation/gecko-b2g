@@ -103,7 +103,6 @@ class TransactionBuilder final {
   void SetDisplayList(const gfx::DeviceColor& aBgColor, Epoch aEpoch,
                       const wr::LayoutSize& aViewportSize,
                       wr::WrPipelineId pipeline_id,
-                      const wr::LayoutSize& content_size,
                       wr::BuiltDisplayListDescriptor dl_descriptor,
                       wr::Vec<uint8_t>& dl_data);
 
@@ -397,9 +396,8 @@ struct MOZ_STACK_CLASS StackingContextParams : public WrStackingContextParams {
 /// WebRenderFrameBuilder instead, so the interface may change a bit.
 class DisplayListBuilder final {
  public:
-  DisplayListBuilder(wr::PipelineId aId, const wr::LayoutSize& aContentSize,
-                     size_t aCapacity = 0,
-                     layers::DisplayItemCache* aCache = nullptr);
+  explicit DisplayListBuilder(wr::PipelineId aId, size_t aCapacity = 0,
+                              layers::DisplayItemCache* aCache = nullptr);
   DisplayListBuilder(DisplayListBuilder&&) = default;
 
   ~DisplayListBuilder();
@@ -412,8 +410,7 @@ class DisplayListBuilder final {
              const Maybe<usize>& aEnd);
   void DumpSerializedDisplayList();
 
-  void Finalize(wr::LayoutSize& aOutContentSizes,
-                wr::BuiltDisplayList& aOutDisplayList);
+  void Finalize(wr::BuiltDisplayList& aOutDisplayList);
   void Finalize(layers::DisplayListData& aOutTransaction);
 
   Maybe<wr::WrSpatialId> PushStackingContext(
@@ -500,7 +497,8 @@ class DisplayListBuilder final {
                  bool aIsBackfaceVisible, wr::ImageRendering aFilter,
                  wr::ImageKey aImage, bool aPremultipliedAlpha = true,
                  const wr::ColorF& aColor = wr::ColorF{1.0f, 1.0f, 1.0f, 1.0f},
-                 bool aPreferCompositorSurface = false);
+                 bool aPreferCompositorSurface = false,
+                 bool aSupportsExternalCompositing = false);
 
   void PushRepeatingImage(
       const wr::LayoutRect& aBounds, const wr::LayoutRect& aClip,
@@ -515,21 +513,24 @@ class DisplayListBuilder final {
       wr::ImageKey aImageChannel1, wr::ImageKey aImageChannel2,
       wr::WrColorDepth aColorDepth, wr::WrYuvColorSpace aColorSpace,
       wr::WrColorRange aColorRange, wr::ImageRendering aFilter,
-      bool aPreferCompositorSurface = false);
+      bool aPreferCompositorSurface = false,
+      bool aSupportsExternalCompositing = false);
 
   void PushNV12Image(const wr::LayoutRect& aBounds, const wr::LayoutRect& aClip,
                      bool aIsBackfaceVisible, wr::ImageKey aImageChannel0,
                      wr::ImageKey aImageChannel1, wr::WrColorDepth aColorDepth,
                      wr::WrYuvColorSpace aColorSpace,
                      wr::WrColorRange aColorRange, wr::ImageRendering aFilter,
-                     bool aPreferCompositorSurface = false);
+                     bool aPreferCompositorSurface = false,
+                     bool aSupportsExternalCompositing = false);
 
   void PushYCbCrInterleavedImage(
       const wr::LayoutRect& aBounds, const wr::LayoutRect& aClip,
       bool aIsBackfaceVisible, wr::ImageKey aImageChannel0,
       wr::WrColorDepth aColorDepth, wr::WrYuvColorSpace aColorSpace,
       wr::WrColorRange aColorRange, wr::ImageRendering aFilter,
-      bool aPreferCompositorSurface = false);
+      bool aPreferCompositorSurface = false,
+      bool aSupportsExternalCompositing = false);
 
   void PushIFrame(const wr::LayoutRect& aBounds, bool aIsBackfaceVisible,
                   wr::PipelineId aPipeline, bool aIgnoreMissingPipeline);
