@@ -771,6 +771,26 @@ static void* AnimationThread(void*) {
     return nullptr;
   }
 
+  if (display->IsExtFBDeviceEnabled()) {
+      animVec.push_back(Animation());
+      Animation &extAnimation = animVec.back();
+      extAnimation.dpy = DisplayType::DISPLAY_EXTERNAL;
+      extAnimation.format = extDispData.mSurfaceformat;
+      if (!extAnimation.LoadAnimations("/system/media/bootanimation_external.zip") ||
+          !animVec[0].CanPlaySimultaneously(extAnimation)) {
+          LOGW("Failed to load boot animation file for external screen");
+          ShowSolidColorFrame(display, extDispData.mSurfaceformat,
+                              DisplayType::DISPLAY_EXTERNAL);
+          animVec.pop_back();
+      } else {
+          // Turn on external screen backlight before playing animation and
+          // draw a solid frame to clear noise on panel.
+          ShowSolidColorFrame(display, extDispData.mSurfaceformat,
+                          DisplayType::DISPLAY_EXTERNAL);
+          usleep(20000);
+          setExtBacklight(1);
+      }
+  }
   // Turn on primary screen backlight before playing animation,
   setBacklight(1);
   bool animPlayed = false;
@@ -854,6 +874,10 @@ static void* AnimationThread(void*) {
   if (!animPlayed) {
     ShowSolidColorFrame(display, dispData.mSurfaceformat,
                         DisplayType::DISPLAY_PRIMARY);
+    if (display->IsExtFBDeviceEnabled()) {
+        ShowSolidColorFrame(display, extDispData.mSurfaceformat,
+                            DisplayType::DISPLAY_EXTERNAL);
+    }
   }
 
   return nullptr;
