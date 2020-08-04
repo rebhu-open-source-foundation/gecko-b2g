@@ -19,6 +19,7 @@
 
 #ifdef MOZ_WIDGET_GONK
 #  include <binder/IPCThreadState.h>
+#  include <cutils/properties.h>
 #  include <sys/system_properties.h>
 #  include "GonkNativeWindow.h"
 #endif
@@ -260,6 +261,8 @@ sp<GonkCameraHardware> GonkCameraHardware::Connect(
     sp<IServiceManager> sm = defaultServiceManager();
     sp<IBinder> binder;
     sp<hardware::ICameraService> gCameraService;
+    bool isCameraAPI2Supported;
+
     do {
       binder = sm->getService(String16("media.camera"));
       if (binder != 0) {
@@ -270,6 +273,15 @@ sp<GonkCameraHardware> GonkCameraHardware::Connect(
     } while (true);
 
     gCameraService = interface_cast<hardware::ICameraService>(binder);
+    gCameraService->supportsCameraApi(String16(String8::format("%d", aCameraId)),
+      hardware::ICameraService::API_VERSION_2, &isCameraAPI2Supported);
+
+    //tmp solution to force using connect_legacy for QCOM platform.
+    char value[PROPERTY_VALUE_MAX];
+    property_get("ro.product.manufacturer", value, "");
+    if (strncmp(value, "QUALCOMM", 9) == 0) {
+      isCameraAPI2Supported = false;
+    }
 
     int32_t event = EVENT_USER_SWITCHED;
     std::vector<int32_t> args;
@@ -278,17 +290,29 @@ sp<GonkCameraHardware> GonkCameraHardware::Connect(
     gCameraService->notifySystemEvent(event, args);
 
     ProcessState::self()->startThreadPool();
-    camera = Camera::connect(aCameraId,
-                             /* clientPackageName */ String16("gonk.camera"),
-                             Camera::USE_CALLING_UID, Camera::USE_CALLING_PID);
+    if (isCameraAPI2Supported) {
+      camera = Camera::connect(aCameraId,
+                               /* clientPackageName */ String16("gonk.camera"),
+                               Camera::USE_CALLING_UID, Camera::USE_CALLING_PID);
+    } else {
+      Camera::connectLegacy(aCameraId, 0x100,
+                            /* clientPackageName */ String16("gonk.camera"),
+                            Camera::USE_CALLING_UID, camera);
+    }
     /* bug-82626: Retry Camera::connect each 2 ms delay since there is a chance
      * that EVENT_USER_SWITCHED being handled after Camera::connect. */
     while (camera.get() == nullptr) {
       usleep(CAMERA_CONNECT_DELAY);
       DOM_CAMERA_LOGW("Camera::connect failed. Retrying...\n");
-      camera = Camera::connect(
-          aCameraId, /* clientPackageName */ String16("gonk.camera"),
-          Camera::USE_CALLING_UID, Camera::USE_CALLING_PID);
+      if (isCameraAPI2Supported) {
+        camera = Camera::connect(aCameraId,
+                                 /* clientPackageName */ String16("gonk.camera"),
+                                 Camera::USE_CALLING_UID, Camera::USE_CALLING_PID);
+      } else {
+        Camera::connectLegacy(aCameraId, 0x100,
+                              /* clientPackageName */ String16("gonk.camera"),
+                              Camera::USE_CALLING_UID, camera);
+      }
     }
 #endif
 
