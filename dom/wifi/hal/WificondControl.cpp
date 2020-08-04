@@ -35,13 +35,16 @@ static const char* WIFICOND_SERVICE_NAME = "wificond";
 static const int32_t WIFICOND_POLL_DELAY = 500000;
 static const int32_t WIFICOND_RETRY_COUNT = 20;
 
-WificondControl* WificondControl::sInstance = nullptr;
+static StaticAutoPtr<WificondControl> sWificondControl;
 
 WificondControl::WificondControl()
     : mWificond(nullptr),
       mClientInterface(nullptr),
       mApInterface(nullptr),
-      mScanner(nullptr) {
+      mScanner(nullptr),
+      mScanEventService(nullptr),
+      mPnoScanEventService(nullptr),
+      mSoftapEventService(nullptr) {
   // To make sure remote process is not in any unexpected state,
   // cleanup remote interfaces here.
   TearDownInterfaces();
@@ -50,15 +53,15 @@ WificondControl::WificondControl()
 WificondControl* WificondControl::Get() {
   MOZ_ASSERT(NS_IsMainThread());
 
-  if (sInstance) {
-    return sInstance;
+  if (sWificondControl) {
+    return sWificondControl;
   }
 
   // Create new instance
-  sInstance = new WificondControl();
+  sWificondControl = new WificondControl();
+  ClearOnShutdown(&sWificondControl);
 
-  ClearOnShutdown(&sInstance);
-  return sInstance;
+  return sWificondControl;
 }
 
 /**
@@ -125,10 +128,7 @@ Result_t WificondControl::TearDownClientInterface(
     return result;
   }
 
-  if (mScanner != nullptr) {
-    mScanner->unsubscribeScanEvents();
-    mScanner->unsubscribePnoScanEvents();
-  }
+  CleanupScanEvent();
 
   bool success = false;
   if (!mWificond->tearDownClientInterface(aIfaceName, &success).isOk()) {
@@ -155,6 +155,11 @@ Result_t WificondControl::TearDownSoftapInterface(
     return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
 
+  if (mSoftapEventService) {
+    mSoftapEventService->Cleanup();
+    mSoftapEventService = nullptr;
+  }
+
   bool success = false;
   if (!mWificond->tearDownApInterface(aIfaceName, &success).isOk()) {
     WIFI_LOGE(LOG_TAG,
@@ -179,10 +184,7 @@ Result_t WificondControl::TearDownInterfaces() {
     return result;
   }
 
-  if (mScanner != nullptr) {
-    mScanner->unsubscribeScanEvents();
-    mScanner->unsubscribePnoScanEvents();
-  }
+  CleanupScanEvent();
 
   if (!mWificond->tearDownInterfaces().isOk()) {
     WIFI_LOGE(LOG_TAG, "Failed to teardown interfaces due to remote exception");
@@ -193,6 +195,24 @@ Result_t WificondControl::TearDownInterfaces() {
   mClientInterface = nullptr;
   mApInterface = nullptr;
   mScanner = nullptr;
+  return nsIWifiResult::SUCCESS;
+}
+
+Result_t WificondControl::CleanupScanEvent() {
+  if (mScanner != nullptr) {
+    mScanner->unsubscribeScanEvents();
+    mScanner->unsubscribePnoScanEvents();
+  }
+
+  if (mScanEventService) {
+    mScanEventService->Cleanup();
+    mScanEventService = nullptr;
+  }
+
+  if (mPnoScanEventService) {
+    mPnoScanEventService->Cleanup();
+    mPnoScanEventService = nullptr;
+  }
   return nsIWifiResult::SUCCESS;
 }
 
@@ -217,9 +237,52 @@ Result_t WificondControl::StopSupplicant() {
   return CHECK_SUCCESS(supplicantStopped);
 }
 
+Result_t WificondControl::InitiateScanEvent(
+    const std::string& aIfaceName,
+    const android::sp<WifiEventCallback>& aCallback) {
+  if (mScanner == nullptr) {
+    return nsIWifiResult::ERROR_INVALID_INTERFACE;
+  }
+
+  // here create scan and pno scan event service,
+  // which implement scan callback from wificond
+  mScanEventService = ScanEventService::CreateService(aIfaceName, aCallback);
+  if (mScanEventService == nullptr) {
+    WIFI_LOGE(LOG_TAG, "Failed to create scan event service");
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  }
+
+  mPnoScanEventService =
+      PnoScanEventService::CreateService(aIfaceName, aCallback);
+  if (mPnoScanEventService == nullptr) {
+    WIFI_LOGE(LOG_TAG, "Failed to create pno scan event service");
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  }
+
+  if (!mScanner
+           ->subscribeScanEvents(
+               android::interface_cast<android::net::wifi::IScanEvent>(
+                   mScanEventService))
+           .isOk()) {
+    WIFI_LOGE(LOG_TAG, "subscribe scan event failed");
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  }
+
+  if (!mScanner
+           ->subscribePnoScanEvents(
+               android::interface_cast<android::net::wifi::IPnoScanEvent>(
+                   mPnoScanEventService))
+           .isOk()) {
+    WIFI_LOGE(LOG_TAG, "subscribe pno scan event failed");
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  }
+
+  return nsIWifiResult::SUCCESS;
+}
+
 Result_t WificondControl::SetupClientIface(
-    const std::string& aIfaceName, const android::sp<IScanEvent>& aScanCallback,
-    const android::sp<IPnoScanEvent>& aPnoScanCallback) {
+    const std::string& aIfaceName,
+    const android::sp<WifiEventCallback>& aCallback) {
   Result_t result = nsIWifiResult::ERROR_UNKNOWN;
 
   // retrieve wificond handle
@@ -238,19 +301,12 @@ Result_t WificondControl::SetupClientIface(
     return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
 
-  if (!mScanner->subscribeScanEvents(aScanCallback).isOk()) {
-    WIFI_LOGE(LOG_TAG, "subscribe scan event failed");
-  }
-
-  if (!mScanner->subscribePnoScanEvents(aPnoScanCallback).isOk()) {
-    WIFI_LOGE(LOG_TAG, "subscribe pno scan event failed");
-  }
-  return nsIWifiResult::SUCCESS;
+  return InitiateScanEvent(aIfaceName, aCallback);
 }
 
 Result_t WificondControl::SetupApIface(
     const std::string& aIfaceName,
-    const android::sp<IApInterfaceEventCallback>& aApCallback) {
+    const android::sp<WifiEventCallback>& aCallback) {
   Result_t result = nsIWifiResult::ERROR_UNKNOWN;
 
   result = InitWificondInterface();
@@ -263,8 +319,18 @@ Result_t WificondControl::SetupApIface(
     return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
 
+  mSoftapEventService =
+      SoftapEventService::CreateService(aIfaceName, aCallback);
+  if (mSoftapEventService == nullptr) {
+    WIFI_LOGE(LOG_TAG, "Failed to create softap event service");
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  }
+
   bool success = false;
-  mApInterface->registerCallback(aApCallback, &success);
+  mApInterface->registerCallback(
+      android::interface_cast<android::net::wifi::IApInterfaceEventCallback>(
+          mSoftapEventService),
+      &success);
   return CHECK_SUCCESS(success);
 }
 

@@ -14,7 +14,7 @@
 using namespace mozilla::dom::wifi;
 
 mozilla::Mutex SoftapManager::sLock("softap");
-SoftapManager* SoftapManager::sInstance = nullptr;
+static StaticAutoPtr<SoftapManager> sSoftapManager;
 
 void SoftapManager::ServiceManagerDeathRecipient::serviceDied(
     uint64_t, const android::wp<IBase>&) {
@@ -42,22 +42,19 @@ SoftapManager::SoftapManager()
       mServiceManagerDeathRecipient(nullptr),
       mHostapdDeathRecipient(nullptr) {}
 
-SoftapManager::~SoftapManager() {}
-
 SoftapManager* SoftapManager::Get() {
-  if (sInstance == nullptr) {
-    sInstance = new SoftapManager();
-    mozilla::ClearOnShutdown(&sInstance);
+  MOZ_ASSERT(NS_IsMainThread());
+
+  if (!sSoftapManager) {
+    sSoftapManager = new SoftapManager();
+    ClearOnShutdown(&sSoftapManager);
   }
-  return sInstance;
+  return sSoftapManager;
 }
 
 void SoftapManager::CleanUp() {
-  if (sInstance != nullptr) {
+  if (sSoftapManager != nullptr) {
     SoftapManager::Get()->DeinitInterface();
-
-    delete sInstance;
-    sInstance = nullptr;
   }
 }
 
@@ -104,7 +101,8 @@ Result_t SoftapManager::InitServiceManager() {
   }
 
   if (mServiceManagerDeathRecipient == nullptr) {
-    mServiceManagerDeathRecipient = new ServiceManagerDeathRecipient(sInstance);
+    mServiceManagerDeathRecipient =
+        new ServiceManagerDeathRecipient(sSoftapManager);
   }
   Return<bool> linked =
       mServiceManager->linkToDeath(mServiceManagerDeathRecipient, 0);
@@ -137,7 +135,7 @@ Result_t SoftapManager::InitHostapdInterface() {
   }
 
   if (mHostapdDeathRecipient == nullptr) {
-    mHostapdDeathRecipient = new HostapdDeathRecipient(sInstance);
+    mHostapdDeathRecipient = new HostapdDeathRecipient(sSoftapManager);
   }
 
   if (mHostapdDeathRecipient != nullptr) {

@@ -23,38 +23,38 @@ using namespace mozilla::dom::wifi;
 
 #define EVENT_HOTSPOT_CLIENT_CHANGED u"HOTSPOT_CLIENT_CHANGED"_ns
 
-SoftapEventService* SoftapEventService::sInstance = nullptr;
+android::sp<SoftapEventService> SoftapEventService::sSoftapEvent = nullptr;
 
-SoftapEventService* SoftapEventService::CreateService(
-    const std::string& aInterfaceName) {
-  if (sInstance) {
-    return sInstance;
+SoftapEventService::SoftapEventService(
+    const std::string& aInterfaceName,
+    const android::sp<WifiEventCallback>& aCallback)
+    : android::net::wifi::BnApInterfaceEventCallback(),
+      mSoftapInterfaceName(aInterfaceName),
+      mCallback(aCallback) {}
+
+android::sp<SoftapEventService> SoftapEventService::CreateService(
+    const std::string& aInterfaceName,
+    const android::sp<WifiEventCallback>& aCallback) {
+  if (sSoftapEvent) {
+    return sSoftapEvent;
   }
   // Create new instance
-  sInstance = new SoftapEventService(aInterfaceName);
-  ClearOnShutdown(&sInstance);
+  sSoftapEvent = new SoftapEventService(aInterfaceName, aCallback);
 
   android::sp<::android::ProcessState> ps(::android::ProcessState::self());
   if (android::defaultServiceManager()->addService(
-          android::String16(SoftapEventService::GetServiceName()), sInstance) !=
-      android::OK) {
+          android::String16(SoftapEventService::GetServiceName()),
+          sSoftapEvent) != android::OK) {
     WIFI_LOGE(LOG_TAG, "Failed to add service: %s",
               SoftapEventService::GetServiceName());
-    sInstance = nullptr;
+    sSoftapEvent = nullptr;
     return nullptr;
   }
 
   ps->startThreadPool();
   ps->giveThreadPoolName();
-  return sInstance;
+  return sSoftapEvent;
 }
-
-void SoftapEventService::RegisterEventCallback(
-    const android::sp<WifiEventCallback>& aCallback) {
-  mCallback = aCallback;
-}
-
-void SoftapEventService::UnregisterEventCallback() { mCallback = nullptr; }
 
 /**
  * Implement IApInterfaceEventCallback

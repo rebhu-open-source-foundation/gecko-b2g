@@ -19,7 +19,7 @@ using namespace mozilla::dom::wifi;
 
 static const char WIFI_INTERFACE_NAME[] = "android.hardware.wifi@1.0::IWifi";
 
-WifiHal* WifiHal::sInstance = nullptr;
+static StaticAutoPtr<WifiHal> sWifiHal;
 mozilla::Mutex WifiHal::sLock("wifi-hidl");
 
 WifiHal::WifiHal()
@@ -36,18 +36,13 @@ WifiHal::WifiHal()
 }
 
 WifiHal* WifiHal::Get() {
-  if (sInstance == nullptr) {
-    sInstance = new WifiHal();
-  }
-  mozilla::ClearOnShutdown(&sInstance);
-  return sInstance;
-}
+  MOZ_ASSERT(NS_IsMainThread());
 
-void WifiHal::CleanUp() {
-  if (sInstance != nullptr) {
-    delete sInstance;
-    sInstance = nullptr;
+  if (!sWifiHal) {
+    sWifiHal = new WifiHal();
+    ClearOnShutdown(&sWifiHal);
   }
+  return sWifiHal;
 }
 
 void WifiHal::ServiceManagerDeathRecipient::serviceDied(
@@ -161,7 +156,7 @@ Result_t WifiHal::InitServiceManager() {
   }
 
   if (mServiceManagerDeathRecipient == nullptr) {
-    mServiceManagerDeathRecipient = new ServiceManagerDeathRecipient(sInstance);
+    mServiceManagerDeathRecipient = new ServiceManagerDeathRecipient(sWifiHal);
   }
 
   Return<bool> linked =
@@ -190,7 +185,7 @@ Result_t WifiHal::InitWifiInterface() {
   mWifi = IWifi::getService();
   if (mWifi != nullptr) {
     if (mDeathRecipient == nullptr) {
-      mDeathRecipient = new WifiServiceDeathRecipient(sInstance);
+      mDeathRecipient = new WifiServiceDeathRecipient(sWifiHal);
     }
 
     if (mDeathRecipient != nullptr) {

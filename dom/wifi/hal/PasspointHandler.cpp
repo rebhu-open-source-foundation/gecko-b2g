@@ -17,25 +17,28 @@ using namespace mozilla::dom::wifi;
 static const uint32_t minAnqpEscapeTimeMs = 1000;
 static const uint32_t maxAnqpTimeIncrement = 6;
 
-static StaticRefPtr<PasspointHandler> sPasspointHandler;
+StaticRefPtr<PasspointHandler> PasspointHandler::sPasspointHandler;
+StaticMutex PasspointHandler::sMutex;
 
 already_AddRefed<PasspointHandler> PasspointHandler::Get() {
-  MOZ_ASSERT(XRE_IsParentProcess());
+  MOZ_ASSERT(NS_IsMainThread());
+  StaticMutexAutoLock lock(sMutex);
 
   if (!sPasspointHandler) {
     sPasspointHandler = new PasspointHandler();
     ClearOnShutdown(&sPasspointHandler);
   }
 
-  RefPtr<PasspointHandler> PasspointHandler = sPasspointHandler.get();
-  return PasspointHandler.forget();
+  RefPtr<PasspointHandler> handler = sPasspointHandler;
+  return handler.forget();
 }
 
 PasspointHandler::PasspointHandler() {}
 
-void PasspointHandler::CleanUp() {
+void PasspointHandler::Cleanup() {
   mAnqpRequestTime.Clear();
   mAnqpPendingRequest.Clear();
+  UnregisterEventCallback();
 }
 
 void PasspointHandler::SetSupplicantManager(

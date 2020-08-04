@@ -22,17 +22,15 @@ WifiHal* WifiNative::sWifiHal = nullptr;
 WificondControl* WifiNative::sWificondControl = nullptr;
 SoftapManager* WifiNative::sSoftapManager = nullptr;
 SupplicantStaManager* WifiNative::sSupplicantStaManager = nullptr;
+RefPtr<PasspointHandler> WifiNative::sPasspointHandler;
 android::sp<WifiEventCallback> WifiNative::sCallback;
 
-WifiNative::WifiNative()
-    : mScanEventService(nullptr),
-      mPnoScanEventService(nullptr),
-      mSoftapEventService(nullptr),
-      mSupportedFeatures(0) {
+WifiNative::WifiNative() : mSupportedFeatures(0) {
   sWifiHal = WifiHal::Get();
   sWificondControl = WificondControl::Get();
   sSoftapManager = SoftapManager::Get();
   sSupplicantStaManager = SupplicantStaManager::Get();
+  sPasspointHandler = PasspointHandler::Get();
 }
 
 bool WifiNative::ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
@@ -342,22 +340,6 @@ Result_t WifiNative::StartWifi(nsAString& aIfaceName) {
     sWifiHal->EnableLinkLayerStats();
   }
 
-  // here create scan and pno scan event service,
-  // which implement scan callback from wificond
-  mScanEventService = ScanEventService::CreateService(mStaInterfaceName);
-  if (mScanEventService == nullptr) {
-    WIFI_LOGE(LOG_TAG, "Failed to create scan event service");
-    return nsIWifiResult::ERROR_COMMAND_FAILED;
-  }
-  mScanEventService->RegisterEventCallback(sCallback);
-
-  mPnoScanEventService = PnoScanEventService::CreateService(mStaInterfaceName);
-  if (mPnoScanEventService == nullptr) {
-    WIFI_LOGE(LOG_TAG, "Failed to create pno scan event service");
-    return nsIWifiResult::ERROR_COMMAND_FAILED;
-  }
-  mPnoScanEventService->RegisterEventCallback(sCallback);
-
   result = StartSupplicant();
   if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to initialize supplicant");
@@ -368,12 +350,7 @@ Result_t WifiNative::StartWifi(nsAString& aIfaceName) {
   SupplicantDeathHandler* deathHandler = new SupplicantDeathHandler();
   sSupplicantStaManager->RegisterDeathHandler(deathHandler);
 
-  result = sWificondControl->SetupClientIface(
-      mStaInterfaceName,
-      android::interface_cast<android::net::wifi::IScanEvent>(
-          mScanEventService),
-      android::interface_cast<android::net::wifi::IPnoScanEvent>(
-          mPnoScanEventService));
+  result = sWificondControl->SetupClientIface(mStaInterfaceName, sCallback);
 
   if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to setup iface in wificond");
@@ -388,10 +365,9 @@ Result_t WifiNative::StartWifi(nsAString& aIfaceName) {
   }
 
   // Initiate passpoint handler
-  mPasspointHandler = PasspointHandler::Get();
-  if (mPasspointHandler) {
-    mPasspointHandler->SetSupplicantManager(sSupplicantStaManager);
-    mPasspointHandler->RegisterEventCallback(sCallback);
+  if (sPasspointHandler) {
+    sPasspointHandler->SetSupplicantManager(sSupplicantStaManager);
+    sPasspointHandler->RegisterEventCallback(sCallback);
   }
 
   nsString iface(NS_ConvertUTF8toUTF16(mStaInterfaceName.c_str()));
@@ -415,14 +391,8 @@ Result_t WifiNative::StopWifi() {
     return result;
   }
 
-  if (mPasspointHandler) {
-    mPasspointHandler->UnregisterEventCallback();
-  }
-  if (mScanEventService) {
-    mScanEventService->UnregisterEventCallback();
-  }
-  if (mPnoScanEventService) {
-    mPnoScanEventService->UnregisterEventCallback();
+  if (sPasspointHandler) {
+    sPasspointHandler->Cleanup();
   }
 
   // teardown wificond interfaces.
@@ -690,12 +660,12 @@ Result_t WifiNative::RequestAnqp(AnqpRequestSettingsOptions* aRequest) {
     return nsIWifiResult::ERROR_INVALID_ARGS;
   }
 
-  if (!mPasspointHandler) {
+  if (!sPasspointHandler) {
     WIFI_LOGE(LOG_TAG, "Passpoint handler is not ready yet");
     return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
 
-  return mPasspointHandler->RequestAnqp(aRequest->mAnqpKey, aRequest->mBssid,
+  return sPasspointHandler->RequestAnqp(aRequest->mAnqpKey, aRequest->mBssid,
                                         aRequest->mRoamingConsortiumOIs,
                                         aRequest->mSupportRelease2);
 }
@@ -734,17 +704,7 @@ Result_t WifiNative::StartSoftAp(SoftapConfigurationOptions* aSoftapConfig,
     return result;
   }
 
-  mSoftapEventService = SoftapEventService::CreateService(mApInterfaceName);
-  if (mSoftapEventService == nullptr) {
-    WIFI_LOGE(LOG_TAG, "Failed to create softap event service");
-    return nsIWifiResult::ERROR_COMMAND_FAILED;
-  }
-  mSoftapEventService->RegisterEventCallback(sCallback);
-
-  result = sWificondControl->SetupApIface(
-      mApInterfaceName,
-      android::interface_cast<android::net::wifi::IApInterfaceEventCallback>(
-          mSoftapEventService));
+  result = sWificondControl->SetupApIface(mApInterfaceName, sCallback);
   if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to setup softap iface in wificond");
     sWificondControl->TearDownSoftapInterface(mApInterfaceName);
@@ -787,10 +747,6 @@ Result_t WifiNative::StopSoftAp() {
   if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to stop softap");
     return result;
-  }
-
-  if (mSoftapEventService) {
-    mSoftapEventService->UnregisterEventCallback();
   }
 
   result = sWificondControl->TearDownSoftapInterface(mApInterfaceName);

@@ -129,6 +129,8 @@ class SupplicantStaManager
   void RegisterDeathHandler(SupplicantDeathEventHandler* aHandler);
   void UnregisterDeathHandler();
 
+  virtual ~SupplicantStaManager() {}
+
   // IServiceNotification::onRegistration
   virtual Return<void> onRegistration(const hidl_string& fqName,
                                       const hidl_string& name,
@@ -176,7 +178,6 @@ class SupplicantStaManager
   };
 
   SupplicantStaManager();
-  virtual ~SupplicantStaManager();
 
   Result_t InitServiceManager();
   Result_t InitSupplicantInterface();
@@ -204,7 +205,6 @@ class SupplicantStaManager
   void NotifyTerminating();
   void SupplicantServiceDiedHandler(int32_t aCookie);
 
-  static SupplicantStaManager* sInstance;
   static mozilla::Mutex sLock;
 
   android::sp<::android::hidl::manager::V1_0::IServiceManager> mServiceManager;

@@ -84,6 +84,8 @@ class WifiHal
 
   std::string GetInterfaceName(const wifiNameSpaceV1_0::IfaceType& aType);
 
+  virtual ~WifiHal() {}
+
   // IServiceNotification::onRegistration
   virtual Return<void> onRegistration(const hidl_string& fqName,
                                       const hidl_string& name,
@@ -265,7 +267,6 @@ class WifiHal
   };
 
   WifiHal();
-  virtual ~WifiHal() {}
   Result_t InitServiceManager();
   Result_t InitWifiInterface();
   Result_t GetVendorCapabilities();
@@ -274,7 +275,6 @@ class WifiHal
   Result_t RemoveInterfaceInternal(const wifiNameSpaceV1_0::IfaceType& aType);
   std::string QueryInterfaceName(const android::sp<IWifiIface>& aIface);
 
-  static WifiHal* sInstance;
   static mozilla::Mutex sLock;
 
   android::sp<::android::hidl::manager::V1_0::IServiceManager> mServiceManager;

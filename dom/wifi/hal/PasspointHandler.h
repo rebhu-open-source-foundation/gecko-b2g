@@ -21,17 +21,16 @@ class PasspointHandler final : public nsISupports,
 
   static already_AddRefed<PasspointHandler> Get();
 
-  void CleanUp();
+  void Cleanup();
   void SetSupplicantManager(const android::sp<SupplicantStaManager>& aManager);
   void RegisterEventCallback(const android::sp<WifiEventCallback>& aCallback);
   void UnregisterEventCallback();
-
   Result_t RequestAnqp(const nsAString& aAnqpKey, const nsAString& aBssid,
                        bool aRoamingConsortiumOIs, bool aSupportRelease2);
 
  private:
   explicit PasspointHandler();
-  virtual ~PasspointHandler() {}
+  ~PasspointHandler() {}
 
   // PasspointEventCallback
   virtual void NotifyAnqpResponse(const nsACString& aIface) override;
@@ -65,6 +64,9 @@ class PasspointHandler final : public nsISupports,
     nsString mAnqpKey;
     nsString mBssid;
   };
+
+  static StaticRefPtr<PasspointHandler> sPasspointHandler;
+  static StaticMutex sMutex;
 
   android::sp<SupplicantStaManager> mSupplicantManager;
   android::sp<WifiEventCallback> mCallback;

@@ -13,34 +13,21 @@
 
 BEGIN_WIFI_NAMESPACE
 
-class EventCallbackHandler {
- public:
-  EventCallbackHandler() {}
-  virtual ~EventCallbackHandler() = default;
-
-  virtual void RegisterEventCallback(
-      const android::sp<WifiEventCallback>& aCallback);
-
-  virtual void UnregisterEventCallback();
-
- protected:
-  android::sp<WifiEventCallback> mCallback;
-};
-
 class ScanEventService final
-    : public EventCallbackHandler,
-      virtual public android::BinderService<ScanEventService>,
+    : virtual public android::BinderService<ScanEventService>,
       virtual public android::net::wifi::BnScanEvent {
   friend android::BinderService<ScanEventService>;
 
  public:
-  ScanEventService() : android::net::wifi::BnScanEvent() {}
+  explicit ScanEventService() : android::net::wifi::BnScanEvent() {}
   virtual ~ScanEventService() = default;
 
   static android::sp<ScanEventService> CreateService(
-      const std::string& aInterfaceName);
-
+      const std::string& aInterfaceName,
+      const android::sp<WifiEventCallback>& aCallback);
   static char const* getServiceName() { return "wificond.scan.event"; }
+
+  void Cleanup() { sScanEvent = nullptr; }
 
   /* IScanEvent */
   android::binder::Status OnScanResultReady() override;
@@ -52,19 +39,20 @@ class ScanEventService final
 };
 
 class PnoScanEventService final
-    : public EventCallbackHandler,
-      virtual public android::BinderService<PnoScanEventService>,
+    : virtual public android::BinderService<PnoScanEventService>,
       virtual public android::net::wifi::BnPnoScanEvent {
   friend android::BinderService<PnoScanEventService>;
 
  public:
-  PnoScanEventService() : android::net::wifi::BnPnoScanEvent() {}
+  explicit PnoScanEventService() : android::net::wifi::BnPnoScanEvent() {}
   virtual ~PnoScanEventService() = default;
 
   static android::sp<PnoScanEventService> CreateService(
-      const std::string& aInterfaceName);
-
+      const std::string& aInterfaceName,
+      const android::sp<WifiEventCallback>& aCallback);
   static char const* getServiceName() { return "wificond.pno.event"; }
+
+  void Cleanup() { sPnoScanEvent = nullptr; }
 
   /* IPnoScanEvent */
   android::binder::Status OnPnoNetworkFound() override;

@@ -16,16 +16,16 @@ class SoftapEventService
     : virtual public android::BinderService<SoftapEventService>,
       virtual public android::net::wifi::BnApInterfaceEventCallback {
  public:
-  explicit SoftapEventService(const std::string& aInterfaceName)
-      : android::net::wifi::BnApInterfaceEventCallback(),
-        mSoftapInterfaceName(aInterfaceName) {}
+  explicit SoftapEventService(const std::string& aInterfaceName,
+                              const android::sp<WifiEventCallback>& aCallback);
   virtual ~SoftapEventService() = default;
 
   static char const* GetServiceName() { return "softap.event"; }
-  static SoftapEventService* CreateService(const std::string& aInterfaceName);
+  static android::sp<SoftapEventService> CreateService(
+      const std::string& aInterfaceName,
+      const android::sp<WifiEventCallback>& aCallback);
 
-  void RegisterEventCallback(const android::sp<WifiEventCallback>& aCallback);
-  void UnregisterEventCallback();
+  void Cleanup() { sSoftapEvent = nullptr; }
 
   // IApInterfaceEventCallback
   android::binder::Status onNumAssociatedStationsChanged(
@@ -34,7 +34,7 @@ class SoftapEventService
                                                   int32_t bandwidth) override;
 
  private:
-  static SoftapEventService* sInstance;
+  static android::sp<SoftapEventService> sSoftapEvent;
   std::string mSoftapInterfaceName;
 
   android::sp<WifiEventCallback> mCallback;

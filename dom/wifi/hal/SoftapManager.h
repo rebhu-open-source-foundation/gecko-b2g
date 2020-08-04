@@ -52,6 +52,8 @@ class SoftapManager
                        SoftapConfigurationOptions* aSoftapConfig);
   Result_t StopSoftap(const std::string& aInterfaceName);
 
+  virtual ~SoftapManager() {}
+
   // IServiceNotification::onRegistration
   virtual Return<void> onRegistration(const hidl_string& fqName,
                                       const hidl_string& name,
@@ -89,12 +91,10 @@ class SoftapManager
   };
 
   SoftapManager();
-  virtual ~SoftapManager();
   Result_t InitServiceManager();
   Result_t InitHostapdInterface();
   Result_t TearDownInterface();
 
-  static SoftapManager* sInstance;
   static mozilla::Mutex sLock;
 
   android::sp<android::hidl::manager::V1_0::IServiceManager> mServiceManager;

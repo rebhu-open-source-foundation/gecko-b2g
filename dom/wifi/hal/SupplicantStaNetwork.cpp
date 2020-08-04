@@ -7,7 +7,6 @@
 #define LOG_TAG "SupplicantStaNetwork"
 
 #include "SupplicantStaNetwork.h"
-#include <mozilla/ClearOnShutdown.h>
 #include <iomanip>
 
 constexpr uint32_t key_mgmt_none =

@@ -8,6 +8,8 @@
 #define WificondControl_H
 
 #include "mozilla/Mutex.h"
+#include "ScanEventService.h"
+#include "SoftapEventService.h"
 
 #include <android-base/macros.h>
 #include <android/net/wifi/IWificond.h>
@@ -37,14 +39,10 @@ class WificondControl : virtual public android::RefBase {
   Result_t StartSupplicant();
   Result_t StopSupplicant();
 
-  Result_t SetupClientIface(
-      const std::string& aIfaceName,
-      const android::sp<android::net::wifi::IScanEvent>& aScanCallback,
-      const android::sp<android::net::wifi::IPnoScanEvent>& aPnoScanCallback);
-  Result_t SetupApIface(
-      const std::string& aIfaceName,
-      const android::sp<android::net::wifi::IApInterfaceEventCallback>&
-          aApCallback);
+  Result_t SetupClientIface(const std::string& aIfaceName,
+                            const android::sp<WifiEventCallback>& aCallback);
+  Result_t SetupApIface(const std::string& aIfaceName,
+                        const android::sp<WifiEventCallback>& aCallback);
   Result_t StartSoftap(ConfigurationOptions* aConfig);
   Result_t StartSingleScan(ScanSettingsOptions* aScanSettings);
   Result_t StopSingleScan();
@@ -60,6 +58,8 @@ class WificondControl : virtual public android::RefBase {
   Result_t SignalPoll(std::vector<int32_t>& aPollResult);
   Result_t GetSoftapStations(uint32_t& aNumStations);
 
+  virtual ~WificondControl() {}
+
  private:
   class WificondDeathRecipient : public android::IBinder::DeathRecipient {
    public:
@@ -69,17 +69,21 @@ class WificondControl : virtual public android::RefBase {
     virtual void binderDied(const android::wp<android::IBinder>& who);
   };
 
-  virtual ~WificondControl() {}
-
   Result_t TearDownInterfaces();
-
-  static WificondControl* sInstance;
+  Result_t CleanupScanEvent();
+  Result_t InitiateScanEvent(const std::string& aIfaceName,
+                             const android::sp<WifiEventCallback>& aCallback);
 
   android::sp<IWificond> mWificond;
   android::sp<IClientInterface> mClientInterface;
   android::sp<IApInterface> mApInterface;
   android::sp<IWifiScannerImpl> mScanner;
   android::sp<WificondDeathRecipient> mWificondDeathRecipient;
+
+  // Services for event callback
+  android::sp<ScanEventService> mScanEventService;
+  android::sp<PnoScanEventService> mPnoScanEventService;
+  android::sp<SoftapEventService> mSoftapEventService;
 
   DISALLOW_COPY_AND_ASSIGN(WificondControl);
 };

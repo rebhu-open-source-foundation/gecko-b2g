@@ -28,7 +28,7 @@ static const char SUPPLICANT_INTERFACE_NAME_V1_2[] =
 static const char HAL_INSTANCE_NAME[] = "default";
 
 mozilla::Mutex SupplicantStaManager::sLock("supplicant-sta");
-SupplicantStaManager* SupplicantStaManager::sInstance = nullptr;
+static StaticAutoPtr<SupplicantStaManager> sSupplicantManager;
 
 SupplicantStaManager::SupplicantStaManager()
     : mServiceManager(nullptr),
@@ -39,22 +39,19 @@ SupplicantStaManager::SupplicantStaManager()
       mDeathEventHandler(nullptr),
       mDeathRecipientCookie(0) {}
 
-SupplicantStaManager::~SupplicantStaManager() {}
-
 SupplicantStaManager* SupplicantStaManager::Get() {
-  if (sInstance == nullptr) {
-    sInstance = new SupplicantStaManager();
-    mozilla::ClearOnShutdown(&sInstance);
+  MOZ_ASSERT(NS_IsMainThread());
+
+  if (!sSupplicantManager) {
+    sSupplicantManager = new SupplicantStaManager();
+    ClearOnShutdown(&sSupplicantManager);
   }
-  return sInstance;
+  return sSupplicantManager;
 }
 
 void SupplicantStaManager::CleanUp() {
-  if (sInstance != nullptr) {
+  if (sSupplicantManager != nullptr) {
     SupplicantStaManager::Get()->DeinitInterface();
-
-    delete sInstance;
-    sInstance = nullptr;
   }
 }
 
@@ -120,7 +117,8 @@ Result_t SupplicantStaManager::InitServiceManager() {
   }
 
   if (mServiceManagerDeathRecipient == nullptr) {
-    mServiceManagerDeathRecipient = new ServiceManagerDeathRecipient(sInstance);
+    mServiceManagerDeathRecipient =
+        new ServiceManagerDeathRecipient(sSupplicantManager);
   }
 
   Return<bool> linked =
@@ -147,7 +145,8 @@ Result_t SupplicantStaManager::InitSupplicantInterface() {
 
   if (mSupplicant != nullptr) {
     if (mSupplicantDeathRecipient == nullptr) {
-      mSupplicantDeathRecipient = new SupplicantDeathRecipient(sInstance);
+      mSupplicantDeathRecipient =
+          new SupplicantDeathRecipient(sSupplicantManager);
     }
 
     if (mSupplicantDeathRecipient != nullptr) {

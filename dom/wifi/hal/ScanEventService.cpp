@@ -22,7 +22,8 @@ using ::android::String16;
 
 using namespace mozilla::dom::wifi;
 
-static std::string g_InterfaceName;
+static std::string gInterfaceName;
+static android::sp<WifiEventCallback> gCallback;
 
 /* event name */
 #define EVENT_SCAN_RESULT_READY u"SCAN_RESULT_READY"_ns
@@ -31,31 +32,25 @@ static std::string g_InterfaceName;
 #define EVENT_PNO_SCAN_FAILED u"PNO_SCAN_FAILED"_ns
 
 /**
- * EventCallbackHandler
- */
-void EventCallbackHandler::RegisterEventCallback(
-    const android::sp<WifiEventCallback>& aCallback) {
-  mCallback = aCallback;
-}
-
-void EventCallbackHandler::UnregisterEventCallback() { mCallback = nullptr; }
-
-/**
  * ScanEventService
  */
 mozilla::Mutex ScanEventService::sLock("scan_lock");
 android::sp<ScanEventService> ScanEventService::sScanEvent = nullptr;
 
 android::sp<ScanEventService> ScanEventService::CreateService(
-    const std::string& aInterfaceName) {
+    const std::string& aInterfaceName,
+    const android::sp<WifiEventCallback>& aCallback) {
   if (sScanEvent) {
     return sScanEvent;
   }
-  g_InterfaceName = aInterfaceName;
+
+  gInterfaceName = aInterfaceName;
+  if (aCallback.get()) {
+    gCallback = aCallback;
+  }
 
   // Create new instance
   sScanEvent = new ScanEventService();
-  ClearOnShutdown(&sScanEvent);
 
   if (BinderService<ScanEventService>::publish() != android::OK) {
     WIFI_LOGE(LOG_TAG, "Failed to add IScanEvent service");
@@ -73,20 +68,20 @@ android::sp<ScanEventService> ScanEventService::CreateService(
 android::binder::Status ScanEventService::OnScanResultReady() {
   MutexAutoLock lock(sLock);
 
-  nsCString iface(g_InterfaceName);
+  nsCString iface(gInterfaceName);
   RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_SCAN_RESULT_READY);
 
-  INVOKE_CALLBACK(mCallback, event, iface);
+  INVOKE_CALLBACK(gCallback, event, iface);
   return android::binder::Status::ok();
 }
 
 android::binder::Status ScanEventService::OnScanFailed() {
   MutexAutoLock lock(sLock);
 
-  nsCString iface(g_InterfaceName);
+  nsCString iface(gInterfaceName);
   RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_SCAN_RESULT_FAILED);
 
-  INVOKE_CALLBACK(mCallback, event, iface);
+  INVOKE_CALLBACK(gCallback, event, iface);
   return android::binder::Status::ok();
 }
 
@@ -97,17 +92,22 @@ mozilla::Mutex PnoScanEventService::sLock("pno_lock");
 android::sp<PnoScanEventService> PnoScanEventService::sPnoScanEvent = nullptr;
 
 android::sp<PnoScanEventService> PnoScanEventService::CreateService(
-    const std::string& aInterfaceName) {
+    const std::string& aInterfaceName,
+    const android::sp<WifiEventCallback>& aCallback) {
   if (sPnoScanEvent) {
     return sPnoScanEvent;
   }
-  g_InterfaceName = aInterfaceName;
+
+  gInterfaceName = aInterfaceName;
+  if (aCallback.get()) {
+    gCallback = aCallback;
+  }
 
   // Create new instance
   sPnoScanEvent = new PnoScanEventService();
-  ClearOnShutdown(&sPnoScanEvent);
 
   if (BinderService<PnoScanEventService>::publish() != android::OK) {
+    WIFI_LOGE(LOG_TAG, "Failed to add IPnoScanEvent service");
     sPnoScanEvent = nullptr;
     return nullptr;
   }
@@ -122,20 +122,20 @@ android::sp<PnoScanEventService> PnoScanEventService::CreateService(
 android::binder::Status PnoScanEventService::OnPnoNetworkFound() {
   MutexAutoLock lock(sLock);
 
-  nsCString iface(g_InterfaceName);
+  nsCString iface(gInterfaceName);
   RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_PNO_SCAN_FOUND);
 
-  INVOKE_CALLBACK(mCallback, event, iface);
+  INVOKE_CALLBACK(gCallback, event, iface);
   return android::binder::Status::ok();
 }
 
 android::binder::Status PnoScanEventService::OnPnoScanFailed() {
   MutexAutoLock lock(sLock);
 
-  nsCString iface(g_InterfaceName);
+  nsCString iface(gInterfaceName);
   RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_PNO_SCAN_FAILED);
 
-  INVOKE_CALLBACK(mCallback, event, iface);
+  INVOKE_CALLBACK(gCallback, event, iface);
   return android::binder::Status::ok();
 }
 

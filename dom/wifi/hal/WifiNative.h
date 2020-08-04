@@ -11,8 +11,6 @@
 #include "WifiEventCallback.h"
 #include "WifiHalManager.h"
 #include "WificondControl.h"
-#include "ScanEventService.h"
-#include "SoftapEventService.h"
 #include "SoftapManager.h"
 #include "SupplicantStaManager.h"
 #include "nsString.h"
@@ -111,15 +109,12 @@ class WifiNative {
   static SupplicantStaManager* sSupplicantStaManager;
   static SoftapManager* sSoftapManager;
   static android::sp<WifiEventCallback> sCallback;
+  static RefPtr<PasspointHandler> sPasspointHandler;
 
   std::string mStaInterfaceName;
   std::string mApInterfaceName;
-  android::sp<ScanEventService> mScanEventService;
-  android::sp<PnoScanEventService> mPnoScanEventService;
-  android::sp<SoftapEventService> mSoftapEventService;
 
   uint32_t mSupportedFeatures;
-  RefPtr<PasspointHandler> mPasspointHandler;
 };
 
 END_WIFI_NAMESPACE
