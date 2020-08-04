@@ -151,16 +151,29 @@ bool PasspointHandler::AnqpIdentity::Compare(AnqpIdentity* aIdentity) {
   return true;
 }
 
-// PasspointEventCallback
-void PasspointHandler::NotifyAnqpResponse(const nsACString& aIface) {
+/**
+ * Implement PasspointEventCallback
+ */
+void PasspointHandler::NotifyAnqpResponse(const nsACString& aIface,
+                                          const nsAString& aBssid,
+                                          AnqpResponseMap& aAnqpData) {
   RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_ANQP_QUERY_DONE);
+  RefPtr<nsAnqpResponse> anqpResponse = new nsAnqpResponse(aBssid);
 
-  // TODO: parse anqp data
+  for (auto iter = aAnqpData.Iter(); !iter.Done(); iter.Next()) {
+    const uint32_t& key = iter.Key();
 
+    if (gAnqpParserTable.at(key)) {
+      (gAnqpParserTable.at(key))(iter.Data(), anqpResponse);
+    }
+  }
+
+  event->updateAnqpResponse(anqpResponse);
   INVOKE_CALLBACK(mCallback, event, aIface);
 }
 
-void PasspointHandler::NotifyIconResponse(const nsACString& aIface) {
+void PasspointHandler::NotifyIconResponse(const nsACString& aIface,
+                                          const nsAString& aBssid) {
   RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_HS20_ICON_QUERY_DONE);
 
   // TODO: parse icon data
@@ -168,7 +181,8 @@ void PasspointHandler::NotifyIconResponse(const nsACString& aIface) {
   INVOKE_CALLBACK(mCallback, event, aIface);
 }
 
-void PasspointHandler::NotifyWnmFrameReceived(const nsACString& aIface) {
+void PasspointHandler::NotifyWnmFrameReceived(const nsACString& aIface,
+                                              const nsAString& aBssid) {
   RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_WNM_FRAME_RECEIVED);
 
   // TODO: parse wireless network management frame

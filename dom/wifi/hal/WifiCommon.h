@@ -474,6 +474,12 @@ int32_t ConvertHexStringToByteArray(const std::string& in, T& out);
 
 void Dequote(std::string& s);
 
+int32_t ByteToInteger(std::vector<uint8_t>::const_iterator& iter,
+                      uint32_t length, bool endian);
+
+std::string ByteToString(std::vector<uint8_t>::const_iterator& iter,
+                         uint32_t length);
+
 #define HIDL_CALL(interface, method, responseType, response)       \
   do {                                                             \
     if (interface != nullptr) {                                    \

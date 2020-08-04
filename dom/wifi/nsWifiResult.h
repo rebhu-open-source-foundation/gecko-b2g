@@ -22,7 +22,7 @@ class nsWifiResult final : public nsIWifiResult {
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIWIFIRESULT
 
-  nsWifiResult();
+  explicit nsWifiResult();
 
   void updateScanResults(const nsTArray<RefPtr<nsScanResult>>& aScanResults);
   void updateChannels(const nsTArray<int32_t>& aChannels);
@@ -49,7 +49,7 @@ class nsWifiResult final : public nsIWifiResult {
   RefPtr<nsILinkLayerStats> mLinkLayerStats;
 
  private:
-  ~nsWifiResult(){};
+  ~nsWifiResult() {}
 };
 
 #endif  // nsWifiResult_H

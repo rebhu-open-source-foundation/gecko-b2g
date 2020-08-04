@@ -1326,8 +1326,18 @@ var WifiManager = (function() {
     notify("stationinfoupdate", { station: event.numStations });
   }
 
-  function anqpResponse() {
+  function anqpResponse(event) {
     // TODO: handle anqp response
+    // let response = event.anqpResponse;
+    // let bssid = response.bssid;
+    // let ipAvail = response.ipAvailability;
+    // let venueName = response.getVenueName();
+    // let roaming = response.getRoamingConsortiumOIs();
+    // let naiRealm = response.getNaiRealmList();
+    // let cellular = response.getCellularNetwork();
+    // let domain = response.getDomainName();
+    // let connectionCaps = response.getConnectionCapability();
+    // let wanMetrics = response.wanMetrics;
   }
 
   function iconResponse() {

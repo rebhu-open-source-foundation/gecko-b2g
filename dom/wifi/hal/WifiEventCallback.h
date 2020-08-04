@@ -22,17 +22,6 @@ struct WifiEventCallback : public virtual android::RefBase {
   virtual void Notify(nsWifiEvent* aEvent, const nsACString& aInterface) = 0;
 };
 
-struct PasspointEventCallback : public virtual android::RefBase {
-  // Callback to indicate the ANQP response received.
-  virtual void NotifyAnqpResponse(const nsACString& aIface) = 0;
-
-  // Callback to indicate the icon response received.
-  virtual void NotifyIconResponse(const nsACString& aIface) = 0;
-
-  // Callback to indicate the Wireless Network Management frame received.
-  virtual void NotifyWnmFrameReceived(const nsACString& aIface) = 0;
-};
-
 END_WIFI_NAMESPACE
 
 #endif  // WifiEventCallback_H

@@ -226,7 +226,7 @@ nsWifiConfiguration::GetSimIndex(int32_t* aSimIndex) {
   return NS_OK;
 }
 
-NS_IMPL_ISUPPORTS(nsWifiConfiguration, nsIWifiConfiguration);
+NS_IMPL_ISUPPORTS(nsWifiConfiguration, nsIWifiConfiguration)
 
 /**
  * nsScanResult
@@ -294,7 +294,7 @@ nsScanResult::GetInfoElement(nsTArray<uint8_t>& aInfoElement) {
   return NS_OK;
 }
 
-NS_IMPL_ISUPPORTS(nsScanResult, nsIScanResult);
+NS_IMPL_ISUPPORTS(nsScanResult, nsIScanResult)
 
 /**
  * nsStateChanged
@@ -332,7 +332,7 @@ nsStateChanged::GetBssid(nsAString& aBssid) {
   return NS_OK;
 }
 
-NS_IMPL_ISUPPORTS(nsStateChanged, nsIStateChanged);
+NS_IMPL_ISUPPORTS(nsStateChanged, nsIStateChanged)
 
 /**
  * nsLinkLayerPacketStats
@@ -371,7 +371,7 @@ nsLinkLayerPacketStats::GetRetries(uint64_t* aRetries) {
   return NS_OK;
 }
 
-NS_IMPL_ISUPPORTS(nsLinkLayerPacketStats, nsILinkLayerPacketStats);
+NS_IMPL_ISUPPORTS(nsLinkLayerPacketStats, nsILinkLayerPacketStats)
 
 /**
  * nsLinkLayerRadioStats
@@ -418,7 +418,7 @@ nsLinkLayerRadioStats::GetTxTimeInMsPerLevel(
   return NS_OK;
 }
 
-NS_IMPL_ISUPPORTS(nsLinkLayerRadioStats, nsILinkLayerRadioStats);
+NS_IMPL_ISUPPORTS(nsLinkLayerRadioStats, nsILinkLayerRadioStats)
 
 /**
  * nsLinkLayerStats
@@ -501,4 +501,4 @@ nsLinkLayerStats::GetLinkLayerRadioStats(
   return NS_OK;
 }
 
-NS_IMPL_ISUPPORTS(nsLinkLayerStats, nsILinkLayerStats);
+NS_IMPL_ISUPPORTS(nsLinkLayerStats, nsILinkLayerStats)

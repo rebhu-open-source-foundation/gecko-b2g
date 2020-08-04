@@ -7,7 +7,7 @@
 
 #include "AnqpElement.h"
 #include "WifiCommon.h"
-#include "WifiEventCallback.h"
+#include "PasspointEventCallback.h"
 #include "nsDataHashtable.h"
 
 BEGIN_WIFI_NAMESPACE
@@ -33,9 +33,13 @@ class PasspointHandler final : public nsISupports,
   ~PasspointHandler() {}
 
   // PasspointEventCallback
-  virtual void NotifyAnqpResponse(const nsACString& aIface) override;
-  virtual void NotifyIconResponse(const nsACString& aIface) override;
-  virtual void NotifyWnmFrameReceived(const nsACString& aIface) override;
+  virtual void NotifyAnqpResponse(const nsACString& aIface,
+                                  const nsAString& aBssid,
+                                  AnqpResponseMap& aAnqpData) override;
+  virtual void NotifyIconResponse(const nsACString& aIface,
+                                  const nsAString& aBssid) override;
+  virtual void NotifyWnmFrameReceived(const nsACString& aIface,
+                                      const nsAString& aBssid) override;
 
   bool ReadyToRequest(const nsAString& aBssid);
   bool UpdateTimeStame(const nsAString& aBssid);

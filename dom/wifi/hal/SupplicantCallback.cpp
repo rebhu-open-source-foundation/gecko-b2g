@@ -73,10 +73,8 @@ Return<void> SupplicantStaIfaceCallback::onAnqpQueryDone(
   MutexAutoLock lock(sLock);
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onAnqpQueryDone()");
 
-  nsCString iface(mInterfaceName);
-  if (mPasspointCallback) {
-    mPasspointCallback->NotifyAnqpResponse(iface);
-  }
+  std::string bssidStr = ConvertMacToString(bssid);
+  NotifyAnqpQueryDone(bssidStr, data, hs20Data);
   return android::hardware::Void();
 }
 
@@ -87,9 +85,10 @@ Return<void> SupplicantStaIfaceCallback::onHs20IconQueryDone(
   MutexAutoLock lock(sLock);
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onHs20IconQueryDone()");
 
+  nsString bssidStr(NS_ConvertUTF8toUTF16(ConvertMacToString(bssid).c_str()));
   nsCString iface(mInterfaceName);
   if (mPasspointCallback) {
-    mPasspointCallback->NotifyIconResponse(iface);
+    mPasspointCallback->NotifyIconResponse(iface, bssidStr);
   }
   return android::hardware::Void();
 }
@@ -102,9 +101,10 @@ Return<void> SupplicantStaIfaceCallback::onHs20SubscriptionRemediation(
   WIFI_LOGD(LOG_TAG,
             "ISupplicantStaIfaceCallback.onHs20SubscriptionRemediation()");
 
+  nsString bssidStr(NS_ConvertUTF8toUTF16(ConvertMacToString(bssid).c_str()));
   nsCString iface(mInterfaceName);
   if (mPasspointCallback) {
-    mPasspointCallback->NotifyWnmFrameReceived(iface);
+    mPasspointCallback->NotifyWnmFrameReceived(iface, bssidStr);
   }
   return android::hardware::Void();
 }
@@ -117,9 +117,10 @@ Return<void> SupplicantStaIfaceCallback::onHs20DeauthImminentNotice(
   WIFI_LOGD(LOG_TAG,
             "ISupplicantStaIfaceCallback.onHs20DeauthImminentNotice()");
 
+  nsString bssidStr(NS_ConvertUTF8toUTF16(ConvertMacToString(bssid).c_str()));
   nsCString iface(mInterfaceName);
   if (mPasspointCallback) {
-    mPasspointCallback->NotifyWnmFrameReceived(iface);
+    mPasspointCallback->NotifyWnmFrameReceived(iface, bssidStr);
   }
   return android::hardware::Void();
 }
@@ -305,6 +306,49 @@ void SupplicantStaIfaceCallback::NotifyAssociatedBssid(
   event->mBssid = NS_ConvertUTF8toUTF16(aBssid.c_str());
 
   INVOKE_CALLBACK(mCallback, event, iface);
+}
+
+void SupplicantStaIfaceCallback::NotifyAnqpQueryDone(
+    const std::string& aBssid,
+    const ISupplicantStaIfaceCallback::AnqpData& data,
+    const ISupplicantStaIfaceCallback::Hs20AnqpData& hs20Data) {
+  if (mPasspointCallback) {
+    nsCString iface(mInterfaceName);
+    nsString bssid(NS_ConvertUTF8toUTF16(aBssid.c_str()));
+
+#define ASSIGN_ANQP_IF_EXIST(map, type, payload) \
+  do {                                           \
+    if (payload.size() > 0) {                    \
+      map.Put((uint32_t)type, payload);          \
+    }                                            \
+  } while (0)
+    AnqpResponseMap anqpData;
+    ASSIGN_ANQP_IF_EXIST(anqpData, AnqpElementType::ANQPVenueName,
+                         data.venueName);
+    ASSIGN_ANQP_IF_EXIST(anqpData, AnqpElementType::ANQPRoamingConsortium,
+                         data.roamingConsortium);
+    ASSIGN_ANQP_IF_EXIST(anqpData, AnqpElementType::ANQPIPAddrAvailability,
+                         data.ipAddrTypeAvailability);
+    ASSIGN_ANQP_IF_EXIST(anqpData, AnqpElementType::ANQPNAIRealm,
+                         data.naiRealm);
+    ASSIGN_ANQP_IF_EXIST(anqpData, AnqpElementType::ANQP3GPPNetwork,
+                         data.anqp3gppCellularNetwork);
+    ASSIGN_ANQP_IF_EXIST(anqpData, AnqpElementType::ANQPDomainName,
+                         data.domainName);
+    ASSIGN_ANQP_IF_EXIST(anqpData, AnqpElementType::HSFriendlyName,
+                         hs20Data.operatorFriendlyName);
+    ASSIGN_ANQP_IF_EXIST(anqpData, AnqpElementType::HSWANMetrics,
+                         hs20Data.wanMetrics);
+    ASSIGN_ANQP_IF_EXIST(anqpData, AnqpElementType::HSConnCapability,
+                         hs20Data.connectionCapability);
+    ASSIGN_ANQP_IF_EXIST(anqpData, AnqpElementType::HSOSUProviders,
+                         hs20Data.osuProvidersList);
+#undef ASSIGN_ANQP_IF_EXIST
+
+    mPasspointCallback->NotifyAnqpResponse(iface, bssid, anqpData);
+  } else {
+    WIFI_LOGE(LOG_TAG, "mPasspointCallback is null");
+  }
 }
 
 /**

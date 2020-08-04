@@ -38,7 +38,7 @@ class nsWifiConfiguration final : public nsIWifiConfiguration {
                       bool aProactiveKeyCaching, int32_t aSimIndex);
 
  private:
-  ~nsWifiConfiguration(){};
+  ~nsWifiConfiguration() {}
 
   int32_t mNetId;
   nsString mSsid;
@@ -81,7 +81,7 @@ class nsScanResult final : public nsIScanResult {
                bool aAssociated);
 
  private:
-  ~nsScanResult(){};
+  ~nsScanResult() {}
 
   nsString mSsid;
   nsString mBssid;
@@ -117,7 +117,7 @@ class nsLinkLayerPacketStats final : public nsILinkLayerPacketStats {
                          uint64_t aRetries);
 
  private:
-  ~nsLinkLayerPacketStats(){};
+  ~nsLinkLayerPacketStats() {}
 
   uint64_t mRxMpdu;
   uint64_t mTxMpdu;
@@ -134,7 +134,7 @@ class nsLinkLayerRadioStats final : public nsILinkLayerRadioStats {
                         const nsTArray<uint32_t>& aTxTimeInMsPerLevel);
 
  private:
-  ~nsLinkLayerRadioStats(){};
+  ~nsLinkLayerRadioStats() {}
 
   uint32_t mOnTimeInMs;
   uint32_t mTxTimeInMs;
@@ -165,7 +165,7 @@ class nsLinkLayerStats final : public nsILinkLayerStats {
   nsTArray<RefPtr<nsLinkLayerRadioStats>> mLinkLayerRadioStats;
 
  private:
-  ~nsLinkLayerStats(){};
+  ~nsLinkLayerStats() {}
 
   uint32_t mBeaconRx;
   int32_t mAvgRssiMgmt;

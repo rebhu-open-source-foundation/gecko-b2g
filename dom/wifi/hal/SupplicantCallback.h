@@ -210,6 +210,10 @@ class SupplicantStaIfaceCallback : public ISupplicantStaIfaceCallbackV1_0 {
                                bool aTimeout);
   void NotifyTargetBssid(const std::string& aBssid);
   void NotifyAssociatedBssid(const std::string& aBssid);
+  void NotifyAnqpQueryDone(
+      const std::string& aBssid,
+      const ISupplicantStaIfaceCallback::AnqpData& data,
+      const ISupplicantStaIfaceCallback::Hs20AnqpData& hs20Data);
 
   bool mFourwayHandshake;
   std::string mInterfaceName;

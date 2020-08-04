@@ -8,6 +8,7 @@ if not CONFIG['DISABLE_WIFI']:
   XPIDL_MODULE = 'dom_wifi'
 
   XPIDL_SOURCES += [
+      'interfaces/nsIAnqpResponse.idl',
       'interfaces/nsIWifi.idl',
       'interfaces/nsIWifiCertService.idl',
       'interfaces/nsIWifiCommand.idl',
@@ -53,6 +54,7 @@ if not CONFIG['DISABLE_WIFI']:
   EXPORTS += [
       'hal/WifiCommon.h',
       'hal/WifiEventCallback.h',
+      'nsAnqpResponse.h',
       'nsWifiElement.h',
       'nsWifiEvent.h',
       'nsWifiResult.h',
@@ -62,6 +64,7 @@ if not CONFIG['DISABLE_WIFI']:
 
   if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
       UNIFIED_SOURCES = [
+          'hal/AnqpElement.cpp',
           'hal/PasspointHandler.cpp',
           'hal/ScanEventService.cpp',
           'hal/SoftapEventService.cpp',
@@ -73,6 +76,7 @@ if not CONFIG['DISABLE_WIFI']:
           'hal/WificondControl.cpp',
           'hal/WifiHalManager.cpp',
           'hal/WifiNative.cpp',
+          'nsAnqpResponse.cpp',
           'nsWifiElement.cpp',
           'nsWifiEvent.cpp',
           'nsWifiResult.cpp',

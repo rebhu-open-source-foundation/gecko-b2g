@@ -30,6 +30,10 @@ void nsWifiEvent::updateGsmRands(const nsTArray<nsString>& aGsmRands) {
   mGsmRands = aGsmRands.Clone();
 }
 
+void nsWifiEvent::updateAnqpResponse(nsAnqpResponse* aAnqpResponse) {
+  mAnqpResponse = aAnqpResponse;
+}
+
 NS_IMETHODIMP
 nsWifiEvent::GetName(nsAString& aName) {
   aName = mName;
@@ -100,6 +104,13 @@ nsWifiEvent::GetAutn(nsAString& aAutn) {
 NS_IMETHODIMP
 nsWifiEvent::GetGsmRands(nsTArray<nsString>& aGsmRands) {
   aGsmRands = mGsmRands.Clone();
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsWifiEvent::GetAnqpResponse(nsIAnqpResponse** aAnqpResponse) {
+  RefPtr<nsIAnqpResponse> response(mAnqpResponse);
+  response.forget(aAnqpResponse);
   return NS_OK;
 }
 

@@ -358,16 +358,16 @@ Result_t WifiNative::StartWifi(nsAString& aIfaceName) {
     return result;
   }
 
-  result = sSupplicantStaManager->SetupStaInterface(mStaInterfaceName);
-  if (result != nsIWifiResult::SUCCESS) {
-    WIFI_LOGE(LOG_TAG, "Failed to setup iface in supplicant");
-    return result;
-  }
-
   // Initiate passpoint handler
   if (sPasspointHandler) {
     sPasspointHandler->SetSupplicantManager(sSupplicantStaManager);
     sPasspointHandler->RegisterEventCallback(sCallback);
+  }
+
+  result = sSupplicantStaManager->SetupStaInterface(mStaInterfaceName);
+  if (result != nsIWifiResult::SUCCESS) {
+    WIFI_LOGE(LOG_TAG, "Failed to setup iface in supplicant");
+    return result;
   }
 
   nsString iface(NS_ConvertUTF8toUTF16(mStaInterfaceName.c_str()));

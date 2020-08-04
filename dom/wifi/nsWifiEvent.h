@@ -7,23 +7,25 @@
 #ifndef nsWifiEvent_H
 #define nsWifiEvent_H
 
-#include "nsISupports.h"
+#include "nsAnqpResponse.h"
 #include "nsCOMPtr.h"
-#include "nsTArray.h"
-#include "nsString.h"
+#include "nsISupports.h"
 #include "nsIWifiEvent.h"
-
-class nsStateChanged;
+#include "nsString.h"
+#include "nsTArray.h"
+#include "nsWifiElement.h"
 
 class nsWifiEvent final : public nsIWifiEvent {
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIWIFIEVENT
+
   nsWifiEvent();
   explicit nsWifiEvent(const nsAString& aName);
 
   void updateStateChanged(nsStateChanged* aStateChanged);
   void updateGsmRands(const nsTArray<nsString>& aGsmRands);
+  void updateAnqpResponse(nsAnqpResponse* aAnqpResponse);
 
   nsString mName;
   nsString mBssid;
@@ -33,10 +35,11 @@ class nsWifiEvent final : public nsIWifiEvent {
   uint32_t mNumStations;
   int32_t mErrorCode;
   bool mTimeout;
-  RefPtr<nsIStateChanged> mStateChanged;
+  RefPtr<nsStateChanged> mStateChanged;
   nsString mRand;
   nsString mAutn;
   nsTArray<nsString> mGsmRands;
+  RefPtr<nsAnqpResponse> mAnqpResponse;
 
  private:
   ~nsWifiEvent() {}

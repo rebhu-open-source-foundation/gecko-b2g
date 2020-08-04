@@ -88,3 +88,34 @@ void Dequote(std::string& s) {
   s.erase(0, 1);
   s.erase(s.length() - 1);
 }
+
+std::string Trim(std::string& s) {
+  if (s.empty()) {
+    return s;
+  }
+  s.erase(0, s.find_first_not_of(" "));
+  s.erase(s.find_last_not_of(" ") + 1);
+  return s;
+}
+
+int32_t ByteToInteger(std::vector<uint8_t>::const_iterator& iter,
+                      uint32_t length, bool endian) {
+  std::vector<uint8_t>::const_iterator& it = iter;
+  const std::vector<uint8_t>::const_iterator& end = iter + length;
+
+  int32_t out = 0;
+  int32_t count = 0;
+  for (; it != end; ++it, ++count) {
+    out += (endian == LITTLE_ENDIAN) ? (*it << (8 * count))
+                                     : (*it << (8 * (length - count - 1)));
+  }
+  return out;
+}
+
+std::string ByteToString(std::vector<uint8_t>::const_iterator& iter,
+                         uint32_t length) {
+  std::vector<uint8_t>::const_iterator& begin = iter;
+  std::string out(begin, begin + length);
+  begin += length;
+  return Trim(out);
+}
