@@ -138,79 +138,23 @@ class BigIntCreationData {
 
 using BigIntIndex = TypedIndex<BigIntCreationData>;
 
-class EnvironmentShapeCreationData {
-  // Data used to call CreateEnvShapeData
-  struct CreateEnvShapeData {
-    BindingIter freshBi;
-    const JSClass* cls;
-    uint32_t nextEnvironmentSlot;
-    uint32_t baseShapeFlags;
-
-    void trace(JSTracer* trc) { freshBi.trace(trc); }
-  };
-
-  // Data used to call EmptyEnvironmentShape
-  struct EmptyEnvShapeData {
-    const JSClass* cls;
-    uint32_t baseShapeFlags;
-    void trace(JSTracer* trc){
-        // Rather than having to expose this type as public to provide
-        // an IgnoreGCPolicy, just have an empty trace.
-    };
-  };
-
-  // Three different paths to creating an environment shape: Either we produce
-  // nullptr directly (represented by storing Nothing in the variant), or we
-  // call CreateEnvironmentShape, or we call EmptyEnvironmentShape.
-  mozilla::Variant<mozilla::Nothing, CreateEnvShapeData, EmptyEnvShapeData>
-      data_ = mozilla::AsVariant(mozilla::Nothing());
-
- public:
-  explicit operator bool() const { return !data_.is<mozilla::Nothing>(); }
-
-  // Setup for calling CreateEnvironmentShape
-  void set(const BindingIter& freshBi, const JSClass* cls,
-           uint32_t nextEnvironmentSlot, uint32_t baseShapeFlags) {
-    data_ = mozilla::AsVariant(
-        CreateEnvShapeData{freshBi, cls, nextEnvironmentSlot, baseShapeFlags});
-  }
-
-  // Setup for calling EmptyEnviornmentShape
-  void set(const JSClass* cls, uint32_t shapeFlags) {
-    data_ = mozilla::AsVariant(EmptyEnvShapeData{cls, shapeFlags});
-  }
-
-  // Reifiy this into an actual shape.
-  MOZ_MUST_USE bool createShape(JSContext* cx, MutableHandleShape shape);
-
-  void trace(JSTracer* trc) {
-    using DataGCPolicy = JS::GCPolicy<decltype(data_)>;
-    DataGCPolicy::trace(trc, &data_, "data_");
-  }
-};
-
-class ScopeCreationData {
+class ScopeStencil {
   friend class js::AbstractScopePtr;
   friend class js::GCMarker;
 
-  // The enclosing scope if it exists
-  AbstractScopePtr enclosing_;
+  // The enclosing scope. If Nothing, then the enclosing scope of the
+  // compilation applies.
+  mozilla::Maybe<ScopeIndex> enclosing_;
 
   // The kind determines data_.
   ScopeKind kind_;
 
-  // Data to reify an environment shape at creation time.
-  EnvironmentShapeCreationData environmentShape_;
+  // First frame slot to use, or LOCALNO_LIMIT if none are allowed.
+  uint32_t firstFrameSlot_;
 
-  // Once we've produced a scope from a scope creation data, there may still be
-  // AbstractScopePtrs refering to this ScopeCreationData, and if reification is
-  // requested multiple times, we should return the same scope rather than
-  // creating multiple sopes.
-  //
-  // As well, any queries that require data() to answer must be redirected to
-  // the scope once the scope has been reified, as the ScopeCreationData loses
-  // ownership of the data on reification.
-  HeapPtr<Scope*> scope_ = {};
+  // If Some, then an environment Shape must be created. The shape itself may
+  // have no slots if the environment may be extensible later.
+  mozilla::Maybe<uint32_t> numEnvironmentSlots_;
 
   // Canonical function if this is a FunctionScope.
   mozilla::Maybe<FunctionIndex> functionIndex_;
@@ -221,41 +165,42 @@ class ScopeCreationData {
   UniquePtr<BaseScopeData> data_;
 
  public:
-  ScopeCreationData(
-      JSContext* cx, ScopeKind kind, Handle<AbstractScopePtr> enclosing,
-      Handle<frontend::EnvironmentShapeCreationData> environmentShape,
-      UniquePtr<BaseScopeData> data = {},
-      mozilla::Maybe<FunctionIndex> functionIndex = mozilla::Nothing(),
-      bool isArrow = false)
+  ScopeStencil(JSContext* cx, ScopeKind kind,
+               mozilla::Maybe<ScopeIndex> enclosing, uint32_t firstFrameSlot,
+               mozilla::Maybe<uint32_t> numEnvironmentSlots,
+               UniquePtr<BaseScopeData> data = {},
+               mozilla::Maybe<FunctionIndex> functionIndex = mozilla::Nothing(),
+               bool isArrow = false)
       : enclosing_(enclosing),
         kind_(kind),
-        environmentShape_(environmentShape),  // Copied
+        firstFrameSlot_(firstFrameSlot),
+        numEnvironmentSlots_(numEnvironmentSlots),
         functionIndex_(functionIndex),
         isArrow_(isArrow),
         data_(std::move(data)) {}
 
   ScopeKind kind() const { return kind_; }
-  AbstractScopePtr enclosing() { return enclosing_; }
+  AbstractScopePtr enclosing(CompilationInfo& compilationInfo);
 
-  Scope* getEnclosingScope(JSContext* cx);
+  Scope* getEnclosingScope(frontend::CompilationInfo& compilationInfo);
 
   // FunctionScope
   static bool create(JSContext* cx, frontend::CompilationInfo& compilationInfo,
                      Handle<FunctionScope::Data*> dataArg,
                      bool hasParameterExprs, bool needsEnvironment,
                      FunctionIndex functionIndex, bool isArrow,
-                     Handle<AbstractScopePtr> enclosing, ScopeIndex* index);
+                     mozilla::Maybe<ScopeIndex> enclosing, ScopeIndex* index);
 
   // LexicalScope
   static bool create(JSContext* cx, frontend::CompilationInfo& compilationInfo,
                      ScopeKind kind, Handle<LexicalScope::Data*> dataArg,
                      uint32_t firstFrameSlot,
-                     Handle<AbstractScopePtr> enclosing, ScopeIndex* index);
+                     mozilla::Maybe<ScopeIndex> enclosing, ScopeIndex* index);
   // VarScope
   static bool create(JSContext* cx, frontend::CompilationInfo& compilationInfo,
                      ScopeKind kind, Handle<VarScope::Data*> dataArg,
                      uint32_t firstFrameSlot, bool needsEnvironment,
-                     Handle<AbstractScopePtr> enclosing, ScopeIndex* index);
+                     mozilla::Maybe<ScopeIndex> enclosing, ScopeIndex* index);
 
   // GlobalScope
   static bool create(JSContext* cx, frontend::CompilationInfo& compilationInfo,
@@ -265,34 +210,29 @@ class ScopeCreationData {
   // EvalScope
   static bool create(JSContext* cx, frontend::CompilationInfo& compilationInfo,
                      ScopeKind kind, Handle<EvalScope::Data*> dataArg,
-                     Handle<AbstractScopePtr> enclosing, ScopeIndex* index);
+                     mozilla::Maybe<ScopeIndex> enclosing, ScopeIndex* index);
 
   // ModuleScope
   static bool create(JSContext* cx, frontend::CompilationInfo& compilationInfo,
                      Handle<ModuleScope::Data*> dataArg,
-                     Handle<AbstractScopePtr> enclosing, ScopeIndex* index);
+                     mozilla::Maybe<ScopeIndex> enclosing, ScopeIndex* index);
 
   // WithScope
   static bool create(JSContext* cx, frontend::CompilationInfo& compilationInfo,
-                     Handle<AbstractScopePtr> enclosing, ScopeIndex* index);
+                     mozilla::Maybe<ScopeIndex> enclosing, ScopeIndex* index);
+
+  bool hasEnvironmentShape() const { return numEnvironmentSlots_.isSome(); }
 
   bool hasEnvironment() const {
     // Check if scope kind alone means we have an env shape, and
     // otherwise check if we have one created.
-    return Scope::hasEnvironment(kind(), !!environmentShape_);
+    return Scope::hasEnvironment(kind(), hasEnvironmentShape());
   }
 
   // Valid for functions;
   JSFunction* function(frontend::CompilationInfo& compilationInfo);
 
   bool isArrow() const { return isArrow_; }
-
-  bool hasScope() const { return scope_ != nullptr; }
-
-  Scope* getScope() const {
-    MOZ_ASSERT(hasScope());
-    return scope_;
-  }
 
   Scope* createScope(JSContext* cx, CompilationInfo& compilationInfo);
 
@@ -314,19 +254,25 @@ class ScopeCreationData {
       CompilationInfo& compilationInfo);
 
   template <typename SpecificScopeType>
-  Scope* createSpecificScope(JSContext* cx, CompilationInfo& compilationInfo);
-
-  template <typename SpecificScopeType>
   uint32_t nextFrameSlot() const {
-    // If a scope has been allocated for the ScopeCreationData we no longer own
-    // data, so defer to scope
-    if (hasScope()) {
-      return getScope()->template as<SpecificScopeType>().nextFrameSlot();
-    }
+    // If a scope has been allocated for the ScopeStencil we no longer own data,
+    // so defer to scope
     return data<SpecificScopeType>().nextFrameSlot;
   }
+
+  template <typename SpecificEnvironmentType>
+  MOZ_MUST_USE bool createSpecificShape(JSContext* cx, ScopeKind kind,
+                                        BaseScopeData* scopeData,
+                                        MutableHandleShape shape);
+
+  template <typename SpecificScopeType, typename SpecificEnvironmentType>
+  Scope* createSpecificScope(JSContext* cx, CompilationInfo& compilationInfo);
 };
 
+// As an alternative to a ScopeIndex (which references a ScopeStencil), we may
+// instead refer to an existing scope from GlobalObject::emptyGlobalScope().
+//
+// NOTE: This is only used for the self-hosting global.
 class EmptyGlobalScopeType {};
 
 // See JSOp::Lambda for interepretation of this index.
@@ -543,8 +489,8 @@ class ScriptStencil {
 
 namespace JS {
 template <>
-struct GCPolicy<js::frontend::ScopeCreationData*> {
-  static void trace(JSTracer* trc, js::frontend::ScopeCreationData** data,
+struct GCPolicy<js::frontend::ScopeStencil*> {
+  static void trace(JSTracer* trc, js::frontend::ScopeStencil** data,
                     const char* name) {
     (*data)->trace(trc);
   }

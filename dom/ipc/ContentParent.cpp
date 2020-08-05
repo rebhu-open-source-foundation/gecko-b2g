@@ -7433,6 +7433,11 @@ NS_IMETHODIMP ContentParent::GetOsPid(int32_t* aOut) {
   return NS_OK;
 }
 
+NS_IMETHODIMP ContentParent::GetRemoteType(nsACString& aRemoteType) {
+  aRemoteType = GetRemoteType();
+  return NS_OK;
+}
+
 IPCResult ContentParent::RecvRawMessage(const JSActorMessageMeta& aMeta,
                                         const ClonedMessageData& aData,
                                         const ClonedMessageData& aStack) {
@@ -7448,7 +7453,8 @@ NS_IMETHODIMP ContentParent::GetActor(const nsACString& aName, JSContext* aCx,
                                       JSProcessActorParent** retval) {
   ErrorResult error;
   RefPtr<JSProcessActorParent> actor =
-      JSActorManager::GetActor(aName, error).downcast<JSProcessActorParent>();
+      JSActorManager::GetActor(aCx, aName, error)
+          .downcast<JSProcessActorParent>();
   if (error.MaybeSetPendingException(aCx)) {
     return NS_ERROR_FAILURE;
   }
@@ -7487,6 +7493,8 @@ NS_IMETHODIMP ContentParent::GetCanSend(bool* aCanSend) {
 }
 
 ContentParent* ContentParent::AsContentParent() { return this; }
+
+JSActorManager* ContentParent::AsJSActorManager() { return this; }
 
 }  // namespace dom
 }  // namespace mozilla

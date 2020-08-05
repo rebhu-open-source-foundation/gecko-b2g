@@ -194,14 +194,15 @@ struct MOZ_RAII CompilationInfo : public JS::CustomAutoRooter {
 
   // A rooted list of scopes created during this parse.
   //
-  // To ensure that ScopeCreationData's destructors fire, and thus our HeapPtr
-  // barriers, we store the scopeCreationData at this level so that they
+  // To ensure that ScopeStencil's destructors fire, and thus our HeapPtr
+  // barriers, we store the scopeData at this level so that they
   // can be safely destroyed, rather than LifoAllocing them with the rest of
   // the parser data structures.
   //
   // References to scopes are controlled via AbstractScopePtr, which holds onto
   // an index (and CompilationInfo reference).
-  JS::RootedVector<ScopeCreationData> scopeCreationData;
+  JS::RootedVector<js::Scope*> scopes;
+  JS::RootedVector<ScopeStencil> scopeData;
 
   // Module metadata if this is a module compile.
   JS::Rooted<StencilModuleMetadata> moduleMetadata;
@@ -247,7 +248,8 @@ struct MOZ_RAII CompilationInfo : public JS::CustomAutoRooter {
         funcData(cx),
         enclosingScope(cx),
         topLevel(cx),
-        scopeCreationData(cx),
+        scopes(cx),
+        scopeData(cx),
         moduleMetadata(cx),
         asmJS(cx),
         source_(cx),

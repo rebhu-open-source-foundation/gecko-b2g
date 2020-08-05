@@ -175,6 +175,7 @@ class TypedOperandId : public OperandId {
   _(BindName)             \
   _(In)                   \
   _(HasOwn)               \
+  _(CheckPrivateField)    \
   _(TypeOf)               \
   _(ToPropertyKey)        \
   _(InstanceOf)           \
@@ -1531,6 +1532,23 @@ class MOZ_RAII HasPropIRGenerator : public IRGenerator {
   AttachDecision tryAttachStub();
 };
 
+class MOZ_RAII CheckPrivateFieldIRGenerator : public IRGenerator {
+  HandleValue val_;
+  HandleValue idVal_;
+
+  AttachDecision tryAttachNative(JSObject* obj, ObjOperandId objId, jsid key,
+                                 ValOperandId keyId, bool hasOwn);
+
+  void trackAttached(const char* name);
+
+ public:
+  CheckPrivateFieldIRGenerator(JSContext* cx, HandleScript script,
+                               jsbytecode* pc, ICState::Mode mode,
+                               CacheKind cacheKind, HandleValue idVal,
+                               HandleValue val);
+  AttachDecision tryAttachStub();
+};
+
 class MOZ_RAII InstanceOfIRGenerator : public IRGenerator {
   HandleValue lhsVal_;
   HandleObject rhsObj_;
@@ -1659,6 +1677,7 @@ class MOZ_RAII CallIRGenerator : public IRGenerator {
   AttachDecision tryAttachNewRegExpStringIterator(HandleFunction callee);
   AttachDecision tryAttachObjectCreate(HandleFunction callee);
   AttachDecision tryAttachTypedArrayConstructor(HandleFunction callee);
+  AttachDecision tryAttachReflectGetPrototypeOf(HandleFunction callee);
 
   AttachDecision tryAttachFunCall(HandleFunction calleeFunc);
   AttachDecision tryAttachFunApply(HandleFunction calleeFunc);

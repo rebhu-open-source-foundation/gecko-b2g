@@ -4670,7 +4670,8 @@ NS_IMETHODIMP ContentChild::GetActor(const nsACString& aName, JSContext* aCx,
                                      JSProcessActorChild** retval) {
   ErrorResult error;
   RefPtr<JSProcessActorChild> actor =
-      JSActorManager::GetActor(aName, error).downcast<JSProcessActorChild>();
+      JSActorManager::GetActor(aCx, aName, error)
+          .downcast<JSProcessActorChild>();
   if (error.MaybeSetPendingException(aCx)) {
     return NS_ERROR_FAILURE;
   }
@@ -4713,6 +4714,8 @@ NS_IMETHODIMP ContentChild::GetCanSend(bool* aCanSend) {
 }
 
 ContentChild* ContentChild::AsContentChild() { return this; }
+
+JSActorManager* ContentChild::AsJSActorManager() { return this; }
 
 IPCResult ContentChild::RecvFlushFOGData(FlushFOGDataResolver&& aResolver) {
 #ifdef MOZ_GLEAN
@@ -4977,3 +4980,11 @@ bool IsDevelopmentBuild() {
 #endif /* !XP_WIN */
 
 }  // namespace mozilla
+
+/* static */
+nsIDOMProcessChild* nsIDOMProcessChild::GetSingleton() {
+  if (XRE_IsContentProcess()) {
+    return mozilla::dom::ContentChild::GetSingleton();
+  }
+  return mozilla::dom::InProcessChild::Singleton();
+}

@@ -45,60 +45,37 @@ bool frontend::RegExpCreationData::init(JSContext* cx, JSAtom* pattern,
   return true;
 }
 
-bool frontend::EnvironmentShapeCreationData::createShape(
-    JSContext* cx, MutableHandleShape shape) {
-  struct Matcher {
-    JSContext* cx;
-    MutableHandleShape& shape;
-
-    bool operator()(CreateEnvShapeData& data) {
-      shape.set(CreateEnvironmentShape(cx, data.freshBi, data.cls,
-                                       data.nextEnvironmentSlot,
-                                       data.baseShapeFlags));
-      return shape;
-    }
-
-    bool operator()(EmptyEnvShapeData& data) {
-      shape.set(EmptyEnvironmentShape(cx, data.cls, JSSLOT_FREE(data.cls),
-                                      data.baseShapeFlags));
-      return shape;
-    }
-
-    bool operator()(mozilla::Nothing&) {
-      shape.set(nullptr);
-      return true;
-    }
-  };
-
-  Matcher m{cx, shape};
-  return data_.match(m);
-}
-
-Scope* ScopeCreationData::getEnclosingScope(JSContext* cx) {
-  if (enclosing_.isScopeCreationData()) {
-    ScopeCreationData& enclosingData = enclosing_.scopeCreationData().get();
-    return enclosingData.getScope();
+AbstractScopePtr ScopeStencil::enclosing(CompilationInfo& compilationInfo) {
+  if (enclosing_) {
+    return AbstractScopePtr(compilationInfo, *enclosing_);
   }
 
-  return enclosing_.scope();
+  // HACK: The self-hosting script uses the EmptyGlobalScopeType placeholder
+  // which does not correspond to a ScopeStencil. This means that the inner
+  // scopes may store Nothing as an enclosing ScopeIndex.
+  if (compilationInfo.options.selfHostingMode) {
+    MOZ_ASSERT(compilationInfo.enclosingScope == nullptr);
+    return AbstractScopePtr(&compilationInfo.cx->global()->emptyGlobalScope());
+  }
+
+  return AbstractScopePtr(compilationInfo.enclosingScope);
 }
 
-JSFunction* ScopeCreationData::function(
-    frontend::CompilationInfo& compilationInfo) {
+Scope* ScopeStencil::getEnclosingScope(CompilationInfo& compilationInfo) {
+  return enclosing(compilationInfo).existingScope();
+}
+
+JSFunction* ScopeStencil::function(frontend::CompilationInfo& compilationInfo) {
   return compilationInfo.functions[*functionIndex_];
 }
 
-Scope* ScopeCreationData::createScope(JSContext* cx,
-                                      CompilationInfo& compilationInfo) {
-  // If we've already created a scope, best just return it.
-  if (scope_) {
-    return scope_;
-  }
-
+Scope* ScopeStencil::createScope(JSContext* cx,
+                                 CompilationInfo& compilationInfo) {
   Scope* scope = nullptr;
   switch (kind()) {
     case ScopeKind::Function: {
-      scope = createSpecificScope<FunctionScope>(cx, compilationInfo);
+      scope =
+          createSpecificScope<FunctionScope, CallObject>(cx, compilationInfo);
       break;
     }
     case ScopeKind::Lexical:
@@ -108,29 +85,35 @@ Scope* ScopeCreationData::createScope(JSContext* cx,
     case ScopeKind::StrictNamedLambda:
     case ScopeKind::FunctionLexical:
     case ScopeKind::ClassBody: {
-      scope = createSpecificScope<LexicalScope>(cx, compilationInfo);
+      scope = createSpecificScope<LexicalScope, LexicalEnvironmentObject>(
+          cx, compilationInfo);
       break;
     }
     case ScopeKind::FunctionBodyVar: {
-      scope = createSpecificScope<VarScope>(cx, compilationInfo);
+      scope = createSpecificScope<VarScope, VarEnvironmentObject>(
+          cx, compilationInfo);
       break;
     }
     case ScopeKind::Global:
     case ScopeKind::NonSyntactic: {
-      scope = createSpecificScope<GlobalScope>(cx, compilationInfo);
+      scope =
+          createSpecificScope<GlobalScope, std::nullptr_t>(cx, compilationInfo);
       break;
     }
     case ScopeKind::Eval:
     case ScopeKind::StrictEval: {
-      scope = createSpecificScope<EvalScope>(cx, compilationInfo);
+      scope = createSpecificScope<EvalScope, VarEnvironmentObject>(
+          cx, compilationInfo);
       break;
     }
     case ScopeKind::Module: {
-      scope = createSpecificScope<ModuleScope>(cx, compilationInfo);
+      scope = createSpecificScope<ModuleScope, ModuleEnvironmentObject>(
+          cx, compilationInfo);
       break;
     }
     case ScopeKind::With: {
-      scope = createSpecificScope<WithScope>(cx, compilationInfo);
+      scope =
+          createSpecificScope<WithScope, std::nullptr_t>(cx, compilationInfo);
       break;
     }
     case ScopeKind::WasmFunction:
@@ -141,17 +124,7 @@ Scope* ScopeCreationData::createScope(JSContext* cx,
   return scope;
 }
 
-void ScopeCreationData::trace(JSTracer* trc) {
-  if (enclosing_) {
-    enclosing_.trace(trc);
-  }
-
-  environmentShape_.trace(trc);
-
-  if (scope_) {
-    TraceEdge(trc, &scope_, "ScopeCreationData Scope");
-  }
-
+void ScopeStencil::trace(JSTracer* trc) {
   // Trace Datas
   if (data_) {
     switch (kind()) {
@@ -194,7 +167,7 @@ void ScopeCreationData::trace(JSTracer* trc) {
   }
 }
 
-uint32_t ScopeCreationData::nextFrameSlot() const {
+uint32_t ScopeStencil::nextFrameSlot() const {
   switch (kind()) {
     case ScopeKind::Function:
       return nextFrameSlot<FunctionScope>();
@@ -407,26 +380,32 @@ static bool InstantiateFunctions(JSContext* cx,
   return true;
 }
 
-// Instantiate Scope for each ScopeCreationData.
+// Instantiate Scope for each ScopeStencil.
 //
 // This should be called after InstantiateFunctions, given FunctionScope needs
 // associated JSFunction pointer, and also should be called before
 // InstantiateScriptStencils, given JSScript needs Scope pointer in gc things.
 static bool InstantiateScopes(JSContext* cx, CompilationInfo& compilationInfo) {
-  // While allocating Scope object from ScopeCreationData, Scope object
-  // for the enclosing Scope should already be allocated.
+  // While allocating Scope object from ScopeStencil, Scope object for the
+  // enclosing Scope should already be allocated.
   //
-  // Enclosing scope of ScopeCreationData can be either ScopeCreationData or
-  // Scope* pointer, capsulated by AbstractScopePtr.
+  // Enclosing scope of ScopeStencil can be either ScopeStencil or Scope*
+  // pointer, capsulated by AbstractScopePtr.
   //
-  // If the enclosing scope is ScopeCreationData, it's guaranteed to be
-  // earlier element in compilationInfo.scopeCreationData, because
-  // AbstractScopePtr holds index into it, and newly created ScopeCreaationData
-  // is pushed back to the vector.
-  for (auto& scd : compilationInfo.scopeCreationData) {
-    if (!scd.createScope(cx, compilationInfo)) {
+  // If the enclosing scope is ScopeStencil, it's guaranteed to be earlier
+  // element in compilationInfo.scopeData, because AbstractScopePtr holds index
+  // into it, and newly created ScopeStencil is pushed back to the vector.
+
+  if (!compilationInfo.scopes.reserve(compilationInfo.scopeData.length())) {
+    return false;
+  }
+
+  for (auto& scd : compilationInfo.scopeData) {
+    Scope* scope = scd.createScope(cx, compilationInfo);
+    if (!scope) {
       return false;
     }
+    compilationInfo.scopes.infallibleAppend(scope);
   }
 
   return true;
@@ -558,7 +537,7 @@ static void UpdateEmittedInnerFunctions(CompilationInfo& compilationInfo) {
       BaseScript* script = fun->baseScript();
 
       ScopeIndex index = *stencil.lazyFunctionEnclosingScopeIndex_;
-      Scope* scope = compilationInfo.scopeCreationData[index].get().getScope();
+      Scope* scope = compilationInfo.scopes[index].get();
       script->setEnclosingScope(scope);
       script->initTreatAsRunOnce(stencil.immutableFlags.hasFlag(
           ImmutableScriptFlagsEnum::TreatAsRunOnce));

@@ -6262,7 +6262,7 @@ void Document::UpdateFrameRequestCallbackSchedulingState(
 
 void Document::TakeFrameRequestCallbacks(nsTArray<FrameRequest>& aCallbacks) {
   MOZ_ASSERT(aCallbacks.IsEmpty());
-  aCallbacks.SwapElements(mFrameRequestCallbacks);
+  aCallbacks = std::move(mFrameRequestCallbacks);
   mCanceledFrameRequestCallbacks.clear();
   // No need to manually remove ourselves from the refresh driver; it will
   // handle that part.  But we do have to update our state.
@@ -8573,8 +8573,8 @@ void Document::MaybeInitializeFinalizeFrameLoaders() {
 
   uint32_t length = mFrameLoaderFinalizers.Length();
   if (length > 0) {
-    nsTArray<nsCOMPtr<nsIRunnable>> finalizers;
-    mFrameLoaderFinalizers.SwapElements(finalizers);
+    nsTArray<nsCOMPtr<nsIRunnable>> finalizers =
+        std::move(mFrameLoaderFinalizers);
     for (uint32_t i = 0; i < length; ++i) {
       finalizers[i]->Run();
     }
@@ -11687,10 +11687,9 @@ bool Document::IsDocumentRightToLeft() {
 
 class nsDelayedEventDispatcher : public Runnable {
  public:
-  explicit nsDelayedEventDispatcher(nsTArray<nsCOMPtr<Document>>& aDocuments)
-      : mozilla::Runnable("nsDelayedEventDispatcher") {
-    mDocuments.SwapElements(aDocuments);
-  }
+  explicit nsDelayedEventDispatcher(nsTArray<nsCOMPtr<Document>>&& aDocuments)
+      : mozilla::Runnable("nsDelayedEventDispatcher"),
+        mDocuments(std::move(aDocuments)) {}
   virtual ~nsDelayedEventDispatcher() = default;
 
   NS_IMETHOD Run() override {
@@ -11722,7 +11721,8 @@ void Document::UnsuppressEventHandlingAndFireEvents(bool aFireEvents) {
 
   if (aFireEvents) {
     MOZ_RELEASE_ASSERT(NS_IsMainThread());
-    nsCOMPtr<nsIRunnable> ded = new nsDelayedEventDispatcher(documents);
+    nsCOMPtr<nsIRunnable> ded =
+        new nsDelayedEventDispatcher(std::move(documents));
     Dispatch(TaskCategory::Other, ded.forget());
   } else {
     FireOrClearDelayedEvents(documents, false);
@@ -11730,8 +11730,8 @@ void Document::UnsuppressEventHandlingAndFireEvents(bool aFireEvents) {
 
   if (!EventHandlingSuppressed()) {
     MOZ_ASSERT(NS_IsMainThread());
-    nsTArray<RefPtr<net::ChannelEventQueue>> queues;
-    mSuspendedQueues.SwapElements(queues);
+    nsTArray<RefPtr<net::ChannelEventQueue>> queues =
+        std::move(mSuspendedQueues);
     for (net::ChannelEventQueue* queue : queues) {
       queue->Resume();
     }
@@ -11767,8 +11767,8 @@ bool Document::SuspendPostMessageEvent(PostMessageEvent* aEvent) {
 }
 
 void Document::FireOrClearPostMessageEvents(bool aFireEvents) {
-  nsTArray<RefPtr<PostMessageEvent>> events;
-  events.SwapElements(mSuspendedPostMessageEvents);
+  nsTArray<RefPtr<PostMessageEvent>> events =
+      std::move(mSuspendedPostMessageEvents);
 
   if (aFireEvents) {
     for (PostMessageEvent* event : events) {
@@ -15391,14 +15391,14 @@ namespace {
 // privacy.userInteraction.document.interval pref.
 //  We also want to store the user-interaction before shutting down, and, for
 //  this reason, this class implements nsIAsyncShutdownBlocker interface.
-class UserIntractionTimer final : public Runnable,
-                                  public nsITimerCallback,
-                                  public nsIAsyncShutdownBlocker {
+class UserInteractionTimer final : public Runnable,
+                                   public nsITimerCallback,
+                                   public nsIAsyncShutdownBlocker {
  public:
   NS_DECL_ISUPPORTS_INHERITED
 
-  explicit UserIntractionTimer(Document* aDocument)
-      : Runnable("UserIntractionTimer"),
+  explicit UserInteractionTimer(Document* aDocument)
+      : Runnable("UserInteractionTimer"),
         mPrincipal(aDocument->NodePrincipal()),
         mDocument(do_GetWeakReference(aDocument)) {
     static int32_t userInteractionTimerId = 0;
@@ -15418,7 +15418,7 @@ class UserIntractionTimer final : public Runnable,
       return NS_OK;
     }
 
-    RefPtr<UserIntractionTimer> self = this;
+    RefPtr<UserInteractionTimer> self = this;
     auto raii =
         MakeScopeExit([self] { self->CancelTimerAndStoreUserInteraction(); });
 
@@ -15430,7 +15430,7 @@ class UserIntractionTimer final : public Runnable,
     NS_ENSURE_TRUE(!!phase, NS_OK);
 
     rv = phase->AddBlocker(this, NS_LITERAL_STRING_FROM_CSTRING(__FILE__),
-                           __LINE__, u"UserIntractionTimer shutdown"_ns);
+                           __LINE__, u"UserInteractionTimer shutdown"_ns);
     NS_ENSURE_SUCCESS(rv, NS_OK);
 
     raii.release();
@@ -15467,7 +15467,7 @@ class UserIntractionTimer final : public Runnable,
   GetState(nsIPropertyBag**) override { return NS_OK; }
 
  private:
-  ~UserIntractionTimer() = default;
+  ~UserInteractionTimer() = default;
 
   void StoreUserInteraction() {
     // Remove the shutting down blocker
@@ -15512,7 +15512,7 @@ class UserIntractionTimer final : public Runnable,
   nsString mBlockerName;
 };
 
-NS_IMPL_ISUPPORTS_INHERITED(UserIntractionTimer, Runnable, nsITimerCallback,
+NS_IMPL_ISUPPORTS_INHERITED(UserInteractionTimer, Runnable, nsITimerCallback,
                             nsIAsyncShutdownBlocker)
 
 }  // namespace
@@ -15533,7 +15533,7 @@ void Document::MaybeStoreUserInteractionAsPermission() {
     return;
   }
 
-  nsCOMPtr<nsIRunnable> task = new UserIntractionTimer(this);
+  nsCOMPtr<nsIRunnable> task = new UserInteractionTimer(this);
   nsresult rv = NS_DispatchToCurrentThreadQueue(task.forget(), 2500,
                                                 EventQueuePriority::Idle);
   if (NS_WARN_IF(NS_FAILED(rv))) {

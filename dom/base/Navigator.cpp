@@ -716,8 +716,7 @@ void VibrateWindowListener::RemoveListener() {
 void Navigator::SetVibrationPermission(bool aPermitted, bool aPersistent) {
   MOZ_ASSERT(NS_IsMainThread());
 
-  nsTArray<uint32_t> pattern;
-  pattern.SwapElements(mRequestedVibrationPattern);
+  nsTArray<uint32_t> pattern = std::move(mRequestedVibrationPattern);
 
   if (!mWindow) {
     return;
@@ -792,7 +791,7 @@ bool Navigator::Vibrate(const nsTArray<uint32_t>& aPattern) {
     return true;
   }
 
-  mRequestedVibrationPattern.SwapElements(pattern);
+  mRequestedVibrationPattern = std::move(pattern);
 
   PermissionDelegateHandler* permissionHandler =
       doc->GetPermissionDelegateHandler();
@@ -1385,6 +1384,14 @@ Promise* Navigator::Share(const ShareData& aData, ErrorResult& aRv) {
   if (NS_WARN_IF(!mWindow || !mWindow->GetDocShell() ||
                  !mWindow->GetExtantDoc())) {
     aRv.Throw(NS_ERROR_UNEXPECTED);
+    return nullptr;
+  }
+
+  if (!FeaturePolicyUtils::IsFeatureAllowed(mWindow->GetExtantDoc(),
+                                            u"web-share"_ns)) {
+    aRv.ThrowNotAllowedError(
+        "Document's Permission Policy does not allow calling "
+        "share() from this context.");
     return nullptr;
   }
 

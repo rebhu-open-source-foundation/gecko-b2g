@@ -262,7 +262,11 @@
 
 - name: apz.allow_zooming
   type: RelaxedAtomicBool
-  value: @IS_ANDROID@
+#if defined(ANDROID)
+  value: true
+#else
+  value: @NIGHTLY_BUILD@
+#endif
   mirror: always
 
 - name: apz.allow_zooming_out
@@ -1080,26 +1084,6 @@
 - name: browser.sessionstore.dom_storage_limit
   type: uint32_t
   value: 2048
-  mirror: always
-
-# If set, use DocumentChannel with nsDocShell in place of HttpChannel.
-- name: browser.tabs.documentchannel
-  type: bool
-  value: true
-  mirror: always
-
-# If set, use DocumentChannel with parent process' sDocShell
-- name: browser.tabs.documentchannel.ppdc
-  type: bool
-  value: true
-  mirror: always
-
-# If set, use DocumentChannel to initiate loads from
-# parent-process BrowsingContexts in parallel with the content
-# process.
-- name: browser.tabs.documentchannel.parent-initiated
-  type: bool
-  value: true
   mirror: always
 
 # If set, use DocumentChannel to directly initiate loads entirely
