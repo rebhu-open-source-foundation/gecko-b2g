@@ -50,9 +50,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(B2G)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDataCallManager)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMobileMessageManager)
 #endif
-#ifdef HAS_KOOST_MODULES
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mExternalAPI)
-#endif
 #ifdef MOZ_B2G_BT
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBluetooth)
 #endif
@@ -269,7 +267,6 @@ MobileMessageManager* B2G::GetMobileMessageManager(ErrorResult& aRv) {
 }
 #endif
 
-#ifdef HAS_KOOST_MODULES
 ExternalAPI* B2G::GetExternalapi(ErrorResult& aRv) {
   if (!mExternalAPI) {
     mExternalAPI = ExternalAPI::Create(mOwner);
@@ -277,7 +274,6 @@ ExternalAPI* B2G::GetExternalapi(ErrorResult& aRv) {
 
   return mExternalAPI;
 }
-#endif
 
 #ifdef MOZ_B2G_BT
 bluetooth::BluetoothManager* B2G::GetBluetooth(ErrorResult& aRv) {

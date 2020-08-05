@@ -11,6 +11,7 @@
 #include "nsPIDOMWindow.h"
 #include "nsWrapperCache.h"
 #include "mozilla/dom/AlarmManager.h"
+#include "mozilla/dom/ExternalAPI.h"
 #include "mozilla/dom/FlashlightManager.h"
 #include "mozilla/dom/TetheringManagerBinding.h"
 
@@ -25,9 +26,6 @@
 #  include "mozilla/dom/MobileMessageManager.h"
 #endif
 
-#ifdef HAS_KOOST_MODULES
-#  include "mozilla/dom/ExternalAPI.h"
-#endif
 #ifdef MOZ_B2G_BT
 #  include "mozilla/dom/bluetooth/BluetoothManager.h"
 #endif
@@ -88,9 +86,8 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
   MobileMessageManager* GetMobileMessageManager(ErrorResult& aRv);
 #endif  // MOZ_B2G_RIL
 
-#ifdef HAS_KOOST_MODULES
   ExternalAPI* GetExternalapi(ErrorResult& aRv);
-#endif
+
 #ifdef MOZ_B2G_BT
   bluetooth::BluetoothManager* GetBluetooth(ErrorResult& aRv);
 #endif
@@ -158,9 +155,8 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
   RefPtr<MobileMessageManager> mMobileMessageManager;
 #endif
 
-#ifdef HAS_KOOST_MODULES
   RefPtr<ExternalAPI> mExternalAPI;
-#endif
+
 #ifdef MOZ_B2G_BT
   RefPtr<bluetooth::BluetoothManager> mBluetooth;
 #endif

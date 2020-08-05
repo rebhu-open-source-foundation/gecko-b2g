@@ -17,6 +17,7 @@ DIRS += [
     'alarm',
     'camera',
     'devicestorage',
+    'externalapi',
     'downloads',
     'keyboardeventgenerator',
     'messages',
