@@ -6,6 +6,10 @@ const { ComponentUtils } = ChromeUtils.import(
   "resource://gre/modules/ComponentUtils.jsm"
 );
 
+const { PermissionsInstaller } = ChromeUtils.import(
+  "resource://gre/modules/PermissionsInstaller.jsm"
+);
+
 const DEBUG = 1;
 var log = DEBUG
   ? function log_dump(msg) {
@@ -20,22 +24,64 @@ AppsServiceDelegate.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsIAppsServiceDelegate]),
   _xpcom_factory: ComponentUtils.generateSingletonFactory(AppsServiceDelegate),
 
-  onBoot: function ad_onboot(aManifestUrl, aValue) {
+  onBoot(aManifestUrl, aFeatures) {
     // TODO: call to the related components to finish the registration
-    log("onBoot manifest url: " + aManifestUrl);
+    log(`onBoot: ${aManifestUrl}`);
+    log(aFeatures);
+    try {
+      let features = JSON.parse(aFeatures);
+
+      PermissionsInstaller.installPermissions(
+        features,
+        aManifestUrl,
+        false /* reinstall */,
+        null /* onerror */
+      );
+    } catch (e) {
+      log(`Error in onBoot: ${e}`);
+    }
   },
-  onInstall: function ad_oninstall(aManifestUrl, aValue) {
+
+  onInstall(aManifestUrl, aFeatures) {
     // TODO: call to the related components to finish the registration
-    log("onInstall: " + aManifestUrl);
+    log(`onInstall: ${aManifestUrl}`);
+    log(aFeatures);
+    try {
+      let features = JSON.parse(aFeatures);
+
+      PermissionsInstaller.installPermissions(
+        features,
+        aManifestUrl,
+        false /* reinstall */,
+        null /* onerror */
+      );
+    } catch (e) {
+      log(`Error in onInstall: ${e}`);
+    }
   },
-  onUpdate: function ad_onupdate(aManifestUrl, aValue) {
-    // TODO: call to the related components to finish the registration
-    log("onUpdate: " + aManifestUrl);
+
+  onUpdate(aManifestUrl, aFeatures) {
+    log(`onUpdate: ${aManifestUrl}`);
+    log(aFeatures);
+    try {
+      let features = JSON.parse(aFeatures);
+
+      PermissionsInstaller.installPermissions(
+        features,
+        aManifestUrl,
+        true /* reinstall */,
+        null /* onerror */
+      );
+    } catch (e) {
+      log(`Error in onUpdate: ${e}`);
+    }
   },
-  onUninstall: function ad_onuninstall(aManifestUrl) {
+
+  onUninstall(aManifestUrl) {
     // TODO: call to the related components to finish the registration
-    log("onUninstall: " + aManifestUrl);
-  }
+    log(`onUninstall: ${aManifestUrl}`);
+    PermissionsInstaller.uninstallPermissions(aManifestUrl);
+  },
 };
 
 this.NSGetFactory = ComponentUtils.generateNSGetFactory([AppsServiceDelegate]);

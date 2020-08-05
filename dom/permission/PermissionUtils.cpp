@@ -10,8 +10,13 @@ namespace mozilla {
 namespace dom {
 
 static const nsLiteralCString kPermissionTypes[] = {
+#ifdef MOZ_B2G
+    // clang-format off
+    "geolocation"_ns,
+#else
     // clang-format off
     "geo"_ns,
+#endif
     "desktop-notification"_ns,
     // Alias `push` to `desktop-notification`.
     "desktop-notification"_ns,

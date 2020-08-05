@@ -60,6 +60,8 @@ EXTRA_JS_MODULES += [
     'LocalDomains.jsm',
     'MultiscreenHandler.jsm',
     'OrientationChangeHandler.jsm',
+    'PermissionsInstaller.jsm',
+    'PermissionsTable.jsm',
     'PersistentDataBlock.jsm',
     'TelURIParser.jsm',
 ]

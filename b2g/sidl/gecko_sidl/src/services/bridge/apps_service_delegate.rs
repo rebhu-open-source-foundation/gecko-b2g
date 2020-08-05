@@ -9,7 +9,7 @@ use crate::common::core::{BaseMessage, BaseMessageKind};
 use crate::common::traits::TrackerId;
 use crate::common::uds_transport::{from_base_message, SessionObject};
 use bincode::Options;
-use log::{debug, error, info};
+use log::{debug, error};
 use moz_task::{Task, TaskRunnable, ThreadPtrHandle};
 use nserror::nsresult;
 use nsstring::*;
@@ -58,57 +58,24 @@ impl AppsServiceDelegate {
 
 impl SessionObject for AppsServiceDelegate {
     fn on_request(&mut self, request: BaseMessage, request_id: u64) -> Option<BaseMessage> {
-        info!("AppsServiceDelegate on_request id: {}", request_id);
+        debug!("AppsServiceDelegate on_request id: {}", request_id);
         // Unpack the request.
         match from_base_message(&request) {
             Ok(GeckoBridgeToClient::AppsServiceDelegateOnBoot(manifest_url, value)) => {
-                let value_string = match serde_json::to_string(&value) {
-                    Ok(value_string) => value_string,
-                    Err(err) => {
-                        error!("AppsServiceDelegateOnBoot to string error: {:?}", err);
-                        return None;
-                    }
-                };
-                debug!(
-                    "AppsServiceDelegate on_request OnBoot value string: {}",
-                    &value_string
-                );
                 Some(self.post_task(
-                    AppsServiceCommand::OnBoot(manifest_url, value_string),
+                    AppsServiceCommand::OnBoot(manifest_url, value.into()),
                     request_id,
                 ))
             }
             Ok(GeckoBridgeToClient::AppsServiceDelegateOnInstall(manifest_url, value)) => {
-                let value_string = match serde_json::to_string(&value) {
-                    Ok(value_string) => value_string,
-                    Err(err) => {
-                        error!("AppsServiceDelegateOnBoot to string error: {:?}", err);
-                        return None;
-                    }
-                };
-                debug!(
-                    "AppsServiceDelegate on_request OnBoot value string: {}",
-                    &value_string
-                );
                 Some(self.post_task(
-                    AppsServiceCommand::OnInstall(manifest_url, value_string),
+                    AppsServiceCommand::OnInstall(manifest_url, value.into()),
                     request_id,
                 ))
             }
             Ok(GeckoBridgeToClient::AppsServiceDelegateOnUpdate(manifest_url, value)) => {
-                let value_string = match serde_json::to_string(&value) {
-                    Ok(value_string) => value_string,
-                    Err(err) => {
-                        error!("AppsServiceDelegateOnBoot to string error: {:?}", err);
-                        return None;
-                    }
-                };
-                debug!(
-                    "AppsServiceDelegate on_request OnBoot value string: {}",
-                    &value_string
-                );
                 Some(self.post_task(
-                    AppsServiceCommand::OnUpdate(manifest_url, value_string),
+                    AppsServiceCommand::OnUpdate(manifest_url, value.into()),
                     request_id,
                 ))
             }
@@ -126,11 +93,11 @@ impl SessionObject for AppsServiceDelegate {
     }
 
     fn on_event(&mut self, _event: Vec<u8>) {
-        info!("AppsServiceDelegate on_request event");
+        debug!("AppsServiceDelegate on_request event");
     }
 
     fn get_ids(&self) -> (u32, u32) {
-        info!(
+        debug!(
             "AppsServiceDelegate get_ids, {}, {}",
             self.service_id, self.object_id
         );
@@ -168,17 +135,17 @@ struct AppsServiceDelegateTask {
 impl Task for AppsServiceDelegateTask {
     fn run(&self) {
         // Call the method on the initial thread.
-        info!("AppsServiceDelegateTask::run");
+        debug!("AppsServiceDelegateTask::run");
         if let Some(object) = self.xpcom.get() {
             match &self.command {
                 AppsServiceCommand::OnBoot(manifest_url, value) => {
                     let manifest_url = nsString::from(manifest_url);
                     let value = nsString::from(value);
-                    info!(
+                    debug!(
                         "AppsServiceDelegateTask OnBoot manifest_url: {}",
                         manifest_url
                     );
-                    info!("AppsServiceDelegateTask OnBoot value: {:?}", value);
+                    debug!("AppsServiceDelegateTask OnBoot value: {:?}", value);
                     unsafe {
                         object.OnBoot(&*manifest_url as &nsAString, &*value as &nsAString);
                     }
@@ -208,7 +175,7 @@ impl Task for AppsServiceDelegateTask {
     }
 
     fn done(&self) -> Result<(), nsresult> {
-        info!("AppsServiceDelegateTask::Done");
+        debug!("AppsServiceDelegateTask::Done");
         // We don't return a result to the calling thread, so nothing to do.
         Ok(())
     }
