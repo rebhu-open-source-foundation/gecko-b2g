@@ -83,17 +83,16 @@ CompositorVsyncScheduler::CompositorVsyncScheduler(
       , mSetNeedsCompositeMonitor("SetNeedsCompositeMonitor")
       , mSetNeedsCompositeTask(nullptr)
 #ifdef MOZ_WIDGET_GONK
-      , mDisplayEnabled(hal::GetScreenEnabled())
+      , mDisplayEnabled(false)
       , mSetDisplayMonitor("SetDisplayMonitor")
       , mSetDisplayTask(nullptr)
 #endif
 {
   mVsyncObserver = new Observer(this);
 #ifdef MOZ_WIDGET_GONK
-  GeckoTouchDispatcher::GetInstance()->SetCompositorVsyncScheduler(this);
-
-  widget::ScreenHelperGonk *screenHelper = widget::ScreenHelperGonk::GetSingleton();
-  screenHelper->SetCompositorVsyncScheduler(this);
+  NS_DispatchToMainThread(NewRunnableMethod(
+    "CompositorVsyncScheduler::SetUpDisplay", this,
+    &CompositorVsyncScheduler::SetUpDisplay));
 #endif
 
   // mAsapScheduling is set on the main thread during init,
@@ -112,6 +111,16 @@ CompositorVsyncScheduler::~CompositorVsyncScheduler() {
 }
 
 #ifdef MOZ_WIDGET_GONK
+
+void
+CompositorVsyncScheduler::SetUpDisplay() {
+  MOZ_ASSERT(NS_IsMainThread());
+  mDisplayEnabled = hal::GetScreenEnabled();
+  GeckoTouchDispatcher::GetInstance()->SetCompositorVsyncScheduler(this);
+  widget::ScreenHelperGonk *screenHelper = widget::ScreenHelperGonk::GetSingleton();
+  screenHelper->SetCompositorVsyncScheduler(this);
+}
+
 void
 CompositorVsyncScheduler::SetDisplay(bool aDisplayEnable)
 {

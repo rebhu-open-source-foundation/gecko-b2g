@@ -149,6 +149,7 @@ class CompositorVsyncScheduler {
   void CancelCurrentSetNeedsCompositeTask();
 #ifdef MOZ_WIDGET_GONK
   void CancelSetDisplayTask();
+  void SetUpDisplay();
 #endif
 
   class Observer final : public VsyncObserver {
