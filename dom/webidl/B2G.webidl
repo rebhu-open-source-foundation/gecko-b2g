@@ -23,11 +23,16 @@ partial interface B2G {
   Promise<FlashlightManager> getFlashlightManager();
 };
 
-
 [Exposed=Window]
 partial interface B2G {
   [Throws, Pref="dom.flip.enabled"]
   Promise<FlipManager> getFlipManager();
+};
+
+[Exposed=Window]
+partial interface B2G {
+  [Throws, Pref="dom.inputmethod.enabled"]
+  readonly attribute InputMethod inputMethod;
 };
 
 partial interface B2G {

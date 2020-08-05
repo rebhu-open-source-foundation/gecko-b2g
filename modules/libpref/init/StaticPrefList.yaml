@@ -1958,6 +1958,12 @@
   value: true
   mirror: always
 
+# Whether IME API is exposed to the web.
+- name: dom.inputmethod.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 - name: dom.IntersectionObserver.enabled
   type: bool
   value: true

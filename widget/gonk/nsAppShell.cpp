@@ -73,6 +73,7 @@
 
 // Replacement of AOSP Java ActivityManagerService
 #include "GonkActivityManagerService.h"
+#include "GeckoEditableSupport.h"
 
 #undef LOG
 #define LOG(args...) __android_log_print(ANDROID_LOG_INFO, "Gonk", ##args)
@@ -1104,6 +1105,9 @@ nsresult nsAppShell::Init() {
     obsServ->AddObserver(this, "browser-ui-startup-complete", false);
     obsServ->AddObserver(this, "network-active-changed", false);
   }
+  if (XRE_IsContentProcess()) {
+    obsServ->AddObserver(this, "content-document-global-created", false);
+  }
 
   // Delay initializing input devices until the screen has been
   // initialized (and we know the resolution).
@@ -1169,6 +1173,21 @@ nsAppShell::Observe(nsISupports* aSubject, const char* aTopic,
     mozilla::StopBootAnimation();
 
     NotifyEvent();
+    return NS_OK;
+  } else if (!strcmp(aTopic, "content-document-global-created")) {
+    // Associate the PuppetWidget of the newly-created BrowserChild with a
+    // B2GEditableChild instance.
+    MOZ_ASSERT(!XRE_IsParentProcess());
+
+    nsCOMPtr<mozIDOMWindowProxy> domWindow = do_QueryInterface(aSubject);
+    MOZ_ASSERT(domWindow);
+    nsCOMPtr<nsIWidget> domWidget = WidgetUtils::DOMWindowToWidget(
+        nsPIDOMWindowOuter::From(domWindow));
+    NS_ENSURE_TRUE(domWidget, NS_OK);
+    auto* outerWindow = nsPIDOMWindowOuter::From(domWindow);
+    nsCOMPtr<nsPIDOMWindowInner> win = outerWindow->GetCurrentInnerWindow();
+    GeckoEditableSupport::SetOnBrowserChild(domWidget->GetOwningBrowserChild(),
+                                            win->AsGlobal());
     return NS_OK;
   }
 

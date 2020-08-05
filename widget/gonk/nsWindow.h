@@ -22,7 +22,8 @@
 #include "nsRegion.h"
 #include "nsIUserIdleServiceInternal.h"
 #include "Units.h"
-
+#include "mozilla/TextEventDispatcherListener.h"
+#include "GeckoEditableSupport.h"
 class ANativeWindowBuffer;
 
 namespace mozilla {
@@ -145,6 +146,8 @@ class nsWindow : public nsBaseWidget {
   // Call this function after remote control use nsContentUtils::SendMouseEvent
   virtual void SetMouseCursorPosition(const ScreenIntPoint& aScreenIntPoint);
 
+  TextEventDispatcherListener* GetNativeTextEventDispatcherListener() override;
+
  protected:
   nsWindow* mParent;
   bool mVisible;
@@ -185,6 +188,7 @@ class nsWindow : public nsBaseWidget {
   // nsAutoPtr<GLCursorImageManager> mGLCursorImageManager;
 
   virtual bool IsBelongedToPrimaryScreen();
+  RefPtr<mozilla::widget::GeckoEditableSupport> mEditableSupport;
 };
 
 #endif /* nsWindow_h */

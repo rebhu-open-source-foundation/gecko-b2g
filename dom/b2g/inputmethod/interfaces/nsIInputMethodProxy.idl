@@ -1,0 +1,31 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+[scriptable, uuid(62858594-dbff-48ae-ba4b-8aecc71bedfe), function]
+interface nsIInputMethodSetCompositionCallback : nsISupports
+{
+  [implicit_jscontext]
+  void onSetComposition(in nsresult status, in jsval result);
+};
+
+[scriptable, uuid(a9e5bbf7-9097-4710-aac9-33f36378b1ec), function]
+interface nsIInputMethodEndCompositionCallback : nsISupports
+{
+  [implicit_jscontext]
+  void onEndComposition(in nsresult status, in jsval result);
+};
+
+[scriptable, uuid(320ac0c8-e397-11ea-a27b-e34c8e612c52)]
+interface nsIInputMethodProxy : nsISupports
+{
+  void init();
+  void attach(in nsISupports owner);
+  void detach(in int32_t id);
+  void setComposition(in nsISupports owner, in AString text,
+                      in nsIInputMethodSetCompositionCallback callback);
+  void endComposition(in nsISupports owner, in AString text,
+                      in nsIInputMethodEndCompositionCallback callback);
+};

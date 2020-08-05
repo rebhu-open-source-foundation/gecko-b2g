@@ -26,6 +26,7 @@ EXPORTS.mozilla += [
 ]
 
 EXPORTS.mozilla.widget += [
+    'GeckoEditableSupport.h',
     'GonkCompositorWidget.h',
 ]
 
@@ -60,6 +61,7 @@ SOURCES += [
 ]
 
 SOURCES += [
+    'GeckoEditableSupport.cpp',
     'GeckoTouchDispatcher.cpp',
     'GfxInfo.cpp',
 # TODO: fixme

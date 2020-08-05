@@ -1147,3 +1147,5 @@ pref("dom.ipc.processPrelaunch.enabled", false);
 pref("marionette.enabled", true);
 #endif
 
+// Enable IME API
+pref("dom.inputmethod.enabled", true);

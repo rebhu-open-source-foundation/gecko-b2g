@@ -179,6 +179,14 @@ void nsWindow::SetMouseCursorPosition(const ScreenIntPoint& aScreenIntPoint) {
 #endif
 }
 
+TextEventDispatcherListener* nsWindow::GetNativeTextEventDispatcherListener() {
+  if (IS_TOPLEVEL() && IsVisible()) {
+    return mEditableSupport;
+  } else {
+    return nullptr;
+  }
+}
+
 /*static*/ nsEventStatus nsWindow::DispatchKeyInput(
     WidgetKeyboardEvent& aEvent) {
   if (!gFocusedWindow) {

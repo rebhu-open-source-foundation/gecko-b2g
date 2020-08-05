@@ -42,6 +42,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(B2G)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDeviceStorageAreaListener)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFlashlightManager)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFlipManager)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mInputMethod)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTetheringManager)
 #ifdef MOZ_B2G_RIL
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mIccManager)
@@ -157,6 +158,17 @@ already_AddRefed<Promise> B2G::GetFlipManager(ErrorResult& aRv) {
 
   RefPtr<Promise> p = mFlipManager->GetPromise(aRv);
   return p.forget();
+}
+
+InputMethod* B2G::GetInputMethod(ErrorResult& aRv) {
+  if (!mInputMethod) {
+    if (!mOwner) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+    mInputMethod = new InputMethod(GetParentObject());
+  }
+  return mInputMethod;
 }
 
 TetheringManager* B2G::GetTetheringManager(ErrorResult& aRv) {
