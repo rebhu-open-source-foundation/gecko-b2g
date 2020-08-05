@@ -47,7 +47,7 @@ let MultiscreenHandler = {
     }
 
     let flags =
-      Services.prefs.getCharPref("toolkit.defaultChromeFeatures") +
+      Services.prefs.getCharPref("toolkit.multiscreen.defaultChromeFeatures") +
       ",mozDisplayId=" +
       aDisplay.id;
     let remoteShellURL =

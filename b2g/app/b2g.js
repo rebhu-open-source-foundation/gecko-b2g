@@ -8,7 +8,7 @@ pref("toolkit.defaultChromeURI", "chrome://b2g/content/shell.html");
 pref("browser.chromeURL", "chrome://b2g/content/");
 
 // Bug 945235: Prevent all bars to be considered visible:
-pref("toolkit.defaultChromeFeatures", "chrome,dialog=no,close,resizable,scrollbars,extrachrome");
+pref("toolkit.defaultChromeFeatures", "chrome,dialog=no,close,resizable,scrollbars,extrachrome,mozdisplayid=0");
 
 // Disable focus rings
 pref("browser.display.focus_ring_width", 0);
@@ -1005,6 +1005,7 @@ pref("dom.performance.enable_notify_performance_timing", true);
 pref("b2g.multiscreen.enabled", true);
 pref("b2g.multiscreen.chrome_remote_url", "chrome://b2g/content/shell_remote.html");
 pref("b2g.multiscreen.system_remote_url", "index_remote.html");
+pref("toolkit.multiscreen.defaultChromeFeatures", "chrome,dialog=no,close,resizable,scrollbars,extrachrome");
 
 // Blocklist service
 pref("extensions.blocklist.enabled", true);
