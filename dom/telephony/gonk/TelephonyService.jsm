@@ -411,7 +411,8 @@ Call.prototype = {
   },
 
   isImsCall: function() {
-    return this.radioTech !== Ci.nsITelephonyCallInfo.RADIO_TECH_CS;
+    return this.radioTech === Ci.nsITelephonyCallInfo.RADIO_TECH_PS ||
+           this.radioTech === Ci.nsITelephonyCallInfo.RADIO_TECH_WIFI;
   }
 };
 
@@ -1085,7 +1086,7 @@ TelephonyService.prototype = {
       return;
     }
 
-    this._switchActiveCall(aClientId, {
+    let callback = {
       QueryInterface: ChromeUtils.generateQI([Ci.nsITelephonyCallback]),
 
       notifySuccess: () => {
@@ -1100,7 +1101,14 @@ TelephonyService.prototype = {
         if (DEBUG) debug("Error: Fail to automatically hold the active call.");
         aCallback.notifyError(aErrorMsg);
       }
-    });
+    };
+
+    if (this._isImsClient(aClientId)) {
+      this._switchImsActiveCall(aClientId, Ci.nsITelephonyService.CALL_TYPE_VOICE,
+          Ci.nsITelephonyService.RTT_MODE_OFF, callback);
+    } else {
+      this._switchActiveCall(aClientId, callback.bind(this));
+    }
   },
 
   _dialCdmaThreeWayCall: function(aClientId, aOptions, aCallback) {
@@ -1153,7 +1161,7 @@ TelephonyService.prototype = {
     }
     this._isDialing = true;
 
-    if (this._isIms(aClientId)) {
+    if (this._isImsClient(aClientId)) {
       this._dialImsCall(aClientId, aOptions, aCallback);
       return;
     }
@@ -1991,7 +1999,7 @@ TelephonyService.prototype = {
                       aCallback) {
     let timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
     let tones = aDtmfChars;
-    let isIms = this._isIms(aClientId);
+    let isIms = this._isImsClient(aClientId);
     let self = this;
 
     let playTone = (tone) => {
@@ -2043,7 +2051,7 @@ TelephonyService.prototype = {
   },
 
   startTone: function(aClientId, aDtmfChar) {
-    if (this._isIms(aClientId)) {
+    if (this._isImsClient(aClientId)) {
       this._startImsTone(aClientId, aDtmfChar);
       return;
     }
@@ -2051,7 +2059,7 @@ TelephonyService.prototype = {
   },
 
   stopTone: function(aClientId) {
-    if (this._isIms(aClientId)) {
+    if (this._isImsClient(aClientId)) {
       this._stopImsTone(aClientId);
       return;
     }
@@ -2068,7 +2076,11 @@ TelephonyService.prototype = {
 
     let callNum = Object.keys(this._currentCalls[aClientId]).length;
     if (callNum !== 1) {
-      this._switchActiveCall(aClientId, aCallback);
+      if (this._isImsClient(aClientId)) {
+        this._switchImsActiveCall(aClientId, aType, aRttMode, aCallback);
+      } else {
+        this._switchActiveCall(aClientId, aCallback);
+      }
     } else {
       if (DEBUG) {
         debug("answerCall isImsCall: " + call.isImsCall());
@@ -2098,7 +2110,11 @@ TelephonyService.prototype = {
 
     let callNum = Object.keys(this._currentCalls[aClientId]).length;
     if (callNum !== 1) {
-      this._hangUpBackground(aClientId, aCallback);
+      if (call.isImsCall()) {
+        this._rejectImsCall(aClientId, aCallIndex, aCallback);
+      } else {
+        this._hangUpBackground(aClientId, aCallback);
+      }
     } else {
       call.hangUpLocal = true;
       if (call.isImsCall()) {
@@ -2134,11 +2150,15 @@ TelephonyService.prototype = {
     let disconnectCalls = [...new Set(calls)];
     disconnectCalls.forEach(call => {
       call.hangUpLocal = true;
-      // TODO: partner can change below code to their own specific API for
-      // preformance improvement, but move _sendToRilWorker out of forEach block.
-      // [Remember to disable test_hangup_all_calls.js if API changes.]
-      this._sendToRilWorker(aClientId, "hangUpCall", { callIndex: call.callIndex },
-                            this._defaultCallbackHandler.bind(this, aCallback));
+      if (this._isImsClient(aClientId)) {
+        this._hangupImsCall(aClientId, call.callIndex, aCallback);
+      } else {
+        // TODO: partner can change below code to their own specific API for
+        // preformance improvement, but move _sendToRilWorker out of forEach block.
+        // [Remember to disable test_hangup_all_calls.js if API changes.]
+        this._sendToRilWorker(aClientId, "hangUpCall", { callIndex: call.callIndex },
+                              this._defaultCallbackHandler.bind(this, aCallback));
+      }
     });
   },
 
@@ -2636,7 +2656,7 @@ TelephonyService.prototype = {
       this._handleCurrentCalls(aClientId, aCalls);
     } else {
       // TODO need a better way for this.
-      if (this._isIms(aClientId)) {
+      if (this._isImsClient(aClientId)) {
         this._getImsLastFailCause(aClientId, (cause) => {
           this._handleCurrentCalls(aClientId, aCalls, cause);
         });
@@ -2898,7 +2918,7 @@ TelephonyService.prototype = {
   },
 
   // IMS part
-  _isIms: function (aClientId) {
+  _isImsClient: function (aClientId) {
     if (DEBUG) {debug("_isIms: " + aClientId);}
     let imsHandler = gImsRegService.getHandlerByServiceId(aClientId);
     if (!imsHandler) {
