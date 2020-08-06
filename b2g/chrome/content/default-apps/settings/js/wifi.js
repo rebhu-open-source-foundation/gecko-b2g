@@ -55,6 +55,12 @@ class WifiManager {
   associate(network) {
     return this.manager.associate(network);
   }
+
+  observeScanResult(callback) {
+    this.manager.onscanresult = r => {
+      callback(r.scanResult);
+    };
+  }
 }
 
 function elem(name, content) {
@@ -125,6 +131,10 @@ document.addEventListener(
   "DOMContentLoaded",
   () => {
     let manager = startWifi();
+    manager.observeScanResult(networks => {
+      onNetworks(networks, manager);
+    });
+
     document.getElementById("scan-wifi").onclick = () => {
       manager.getNetworks().then(
         networks => {
