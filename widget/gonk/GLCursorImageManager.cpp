@@ -199,7 +199,7 @@ void GLCursorImageManager::PrepareCursorImage(nsCursor aCursor,
     // Insert new element to ensure restyle
     nsCOMPtr<dom::Element> image = doc->CreateHTMLElement(nsGkAtoms::div);
     ErrorResult rv;
-    image->ClassList()->Add(u"kaios-cursor"_ns, rv);
+    image->ClassList()->Add(u"b2g-cursor"_ns, rv);
     image->ClassList()->Add(GetCursorElementClassID(supportedCursor), rv);
     cursorElementHolder = doc->InsertAnonymousContent(*image, rv);
 

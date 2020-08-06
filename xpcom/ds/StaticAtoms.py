@@ -162,6 +162,12 @@ STATIC_ATOMS = [
     Atom("autoplay", "autoplay"),
     Atom("axis", "axis"),
     Atom("b", "b"),
+    Atom("b2gcursor", "b2g-cursor"),
+    Atom("std", "std"),
+    Atom("wait", "wait"),
+    Atom("spinning", "spinning"),
+    Atom("vertical_text", "vertical_text"),
+
     Atom("background", "background"),
     Atom("bar", "bar"),
     Atom("base", "base"),
