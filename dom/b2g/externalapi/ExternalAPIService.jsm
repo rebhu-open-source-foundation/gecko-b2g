@@ -9,6 +9,7 @@ this.EXPORTED_SYMBOLS = ["ExternalAPIService"];
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { libcutils } = ChromeUtils.import(
   "resource://gre/modules/systemlibs.js"
 );
