@@ -105,6 +105,7 @@ child:
     async NotifyScreenConfigurationChange(ScreenConfiguration aScreenOrientation);
     async NotifySwitchChange(SwitchEvent aEvent);
     async NotifyFlashlightState(FlashlightInformation aFlashlightInfo);
+    async NotifyFlipState(bool aFlipState);
 
 parent:
     async Vibrate(uint32_t[] pattern, uint64_t[] id, PBrowser browser);
@@ -114,6 +115,10 @@ parent:
     async DisableFlashlightNotifications();
     async GetFlashlightEnabled();
     async SetFlashlightEnabled(bool enabled);
+
+    async EnableFlipNotifications();
+    async DisableFlipNotifications();
+    async GetFlipState();
 
     async EnableBatteryNotifications();
     async DisableBatteryNotifications();

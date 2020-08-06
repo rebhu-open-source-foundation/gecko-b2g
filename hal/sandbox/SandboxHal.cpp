@@ -182,6 +182,25 @@ void SetFlashlightEnabled(bool aEnabled) {
   Hal()->SendSetFlashlightEnabled(aEnabled);
 }
 
+void NotifyFlipStateFromInputDevice(bool aFlipStatus)
+{
+}
+
+void EnableFlipNotifications()
+{
+  Hal()->SendEnableFlipNotifications();
+}
+
+void DisableFlipNotifications()
+{
+  Hal()->SendDisableFlipNotifications();
+}
+
+void RequestCurrentFlipState()
+{
+  Hal()->SendGetFlipState();
+}
+
 bool EnableAlarm() {
   MOZ_CRASH("Alarms can't be programmed from sandboxed contexts.  Yet.");
 }
@@ -289,7 +308,8 @@ class HalParent : public PHalParent,
                   public WakeLockObserver,
                   public ScreenConfigurationObserver,
                   public SwitchObserver,
-                  public FlashlightObserver {
+                  public FlashlightObserver,
+                  public FlipObserver {
  public:
   virtual void ActorDestroy(ActorDestroyReason aWhy) override {
     // NB: you *must* unconditionally unregister your observer here,
@@ -302,6 +322,7 @@ class HalParent : public PHalParent,
     }
     hal::UnregisterWakeLockObserver(this);
     hal::UnregisterFlashlightObserver(this);
+    hal::UnregisterFlipObserver(this);
   }
 
   virtual mozilla::ipc::IPCResult RecvVibrate(
@@ -355,6 +376,26 @@ class HalParent : public PHalParent,
 
   void Notify(const FlashlightInformation& aFlashlightInfo) override {
     Unused << SendNotifyFlashlightState(aFlashlightInfo);
+  }
+
+  virtual mozilla::ipc::IPCResult RecvEnableFlipNotifications() override {
+    hal::RegisterFlipObserver(this);
+    return IPC_OK();
+  }
+
+  virtual mozilla::ipc::IPCResult RecvDisableFlipNotifications() override {
+    hal::UnregisterFlipObserver(this);
+    return IPC_OK();
+  }
+
+  virtual mozilla::ipc::IPCResult RecvGetFlipState() override {
+    bool flipState = hal::IsFlipOpened();
+    Unused << SendNotifyFlipState(flipState);
+    return IPC_OK();
+  }
+
+  void Notify(const bool& aFlipState) {
+    Unused << SendNotifyFlipState(aFlipState);
   }
 
   virtual mozilla::ipc::IPCResult RecvEnableBatteryNotifications() override {
@@ -597,6 +638,12 @@ class HalChild : public PHalChild {
     hal::UpdateFlashlightState(aFlashlightState);
     return IPC_OK();
   }
+
+  virtual mozilla::ipc::IPCResult RecvNotifyFlipState(
+      const bool& aFlipState) override {
+    hal::UpdateFlipState(aFlipState);
+    return IPC_OK();
+  }
 };
 
 mozilla::ipc::IPCResult HalChild::RecvNotifySensorChange(
@@ -609,6 +656,12 @@ mozilla::ipc::IPCResult HalChild::RecvNotifySensorChange(
 PHalChild* CreateHalChild() { return new HalChild(); }
 
 PHalParent* CreateHalParent() { return new HalParent(); }
+
+bool
+IsFlipOpened() {
+  MOZ_CRASH("IsFlipOpened() can't be called from sandboxed contexts.");
+  return true;
+}
 
 }  // namespace hal_sandbox
 }  // namespace mozilla

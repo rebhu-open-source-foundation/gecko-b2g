@@ -44,6 +44,7 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'android':
         'android/AndroidSensor.cpp',
         'fallback/FallbackAlarm.cpp',
         'fallback/FallbackFlashlightManager.cpp',
+        'fallback/FallbackFlipManager.cpp',
     ]
     # AndroidHal.cpp cannot be built in unified mode because it relies on HalImpl.h.
     SOURCES += [
@@ -111,6 +112,7 @@ elif CONFIG['OS_TARGET'] == 'Linux':
     UNIFIED_SOURCES += [
         'fallback/FallbackAlarm.cpp',
         'fallback/FallbackFlashlightManager.cpp',
+        'fallback/FallbackFlipManager.cpp',
         'fallback/FallbackNetwork.cpp',
         'fallback/FallbackProcessPriority.cpp',
         'fallback/FallbackScreenConfiguration.cpp',
@@ -130,6 +132,7 @@ elif CONFIG['OS_TARGET'] == 'WINNT':
     UNIFIED_SOURCES += [
         'fallback/FallbackAlarm.cpp',
         'fallback/FallbackFlashlightManager.cpp',
+        'fallback/FallbackFlipManager.cpp',
         'fallback/FallbackMemory.cpp',
         'fallback/FallbackNetwork.cpp',
         'fallback/FallbackScreenConfiguration.cpp',
@@ -146,6 +149,7 @@ elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'cocoa':
         'cocoa/CocoaBattery.cpp',
         'fallback/FallbackAlarm.cpp',
         'fallback/FallbackFlashlightManager.cpp',
+        'fallback/FallbackFlipManager.cpp',
         'fallback/FallbackMemory.cpp',
         'fallback/FallbackNetwork.cpp',
         'fallback/FallbackProcessPriority.cpp',
@@ -156,6 +160,7 @@ elif CONFIG['OS_TARGET'] in ('OpenBSD', 'NetBSD', 'FreeBSD', 'DragonFly'):
     UNIFIED_SOURCES += [
         'fallback/FallbackAlarm.cpp',
         'fallback/FallbackFlashlightManager.cpp',
+        'fallback/FallbackFlipManager.cpp',
         'fallback/FallbackMemory.cpp',
         'fallback/FallbackNetwork.cpp',
         'fallback/FallbackProcessPriority.cpp',
@@ -176,6 +181,7 @@ else:
         'fallback/FallbackAlarm.cpp',
         'fallback/FallbackBattery.cpp',
         'fallback/FallbackFlashlightManager.cpp',
+        'fallback/FallbackFlipManager.cpp',
         'fallback/FallbackMemory.cpp',
         'fallback/FallbackNetwork.cpp',
         'fallback/FallbackProcessPriority.cpp',

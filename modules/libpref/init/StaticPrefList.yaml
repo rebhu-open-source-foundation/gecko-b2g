@@ -1801,6 +1801,12 @@
   value: true
   mirror: always
 
+# Enable flip event
+- name: dom.flip.enabled
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 # Enable formData event
 - name: dom.formdata.event.enabled
   type: bool

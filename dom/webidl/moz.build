@@ -552,6 +552,7 @@ WEBIDL_FILES = [
     'FileSystemFileEntry.webidl',
     'FinalizationRegistry.webidl',
     'FlashlightManager.webidl',
+    'FlipManager.webidl',
     'FocusEvent.webidl',
     'FontFace.webidl',
     'FontFaceSet.webidl',

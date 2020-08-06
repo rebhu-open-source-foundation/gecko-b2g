@@ -13,6 +13,7 @@
 #include "mozilla/dom/AlarmManager.h"
 #include "mozilla/dom/ExternalAPI.h"
 #include "mozilla/dom/FlashlightManager.h"
+#include "mozilla/dom/FlipManager.h"
 #include "mozilla/dom/TetheringManagerBinding.h"
 
 #ifdef MOZ_B2G_RIL
@@ -73,6 +74,7 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
 
   AlarmManager* GetAlarmManager(ErrorResult& aRv);
   already_AddRefed<Promise> GetFlashlightManager(ErrorResult& aRv);
+  already_AddRefed<Promise> GetFlipManager(ErrorResult& aRv);
   TetheringManager* GetTetheringManager(ErrorResult& aRv);
 
 #ifdef MOZ_B2G_RIL
@@ -143,6 +145,7 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
   RefPtr<AlarmManager> mAlarmManager;
   RefPtr<DeviceStorageAreaListener> mDeviceStorageAreaListener;
   RefPtr<FlashlightManager> mFlashlightManager;
+  RefPtr<FlipManager> mFlipManager;
   RefPtr<TetheringManager> mTetheringManager;
 #ifdef MOZ_B2G_RIL
   RefPtr<CellBroadcast> mCellBroadcast;

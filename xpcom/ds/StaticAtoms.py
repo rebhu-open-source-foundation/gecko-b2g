@@ -811,6 +811,7 @@ STATIC_ATOMS = [
     Atom("onfacesdetected", "onfacesdetected"),
     Atom("onfinish", "onfinish"),
     Atom("onflashlightchange", "onflashlightchange"),
+    Atom("onflipchange", "onflipchange"),
     Atom("onfocus", "onfocus"),
     Atom("onfocusin", "onfocusin"),
     Atom("onfocusout", "onfocusout"),

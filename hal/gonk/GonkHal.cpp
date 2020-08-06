@@ -1365,6 +1365,48 @@ void DisableFlashlightNotifications() {
   }
 }
 
+bool
+IsFlipOpened()
+{
+  bool status;
+  char propValue[PROPERTY_VALUE_MAX];
+
+  if (property_get("ro.kaios.flipstatus", propValue, NULL) <= 0) {
+    return true;
+  }
+
+  bool success = ReadSysFile(propValue, &status);
+  if (!success) {
+    return true;
+  }
+  return !status;
+}
+
+void
+NotifyFlipStateFromInputDevice(bool aFlipState)
+{
+  hal::UpdateFlipState(aFlipState);
+}
+
+void
+RequestCurrentFlipState()
+{
+  bool flipState = IsFlipOpened();
+  hal::UpdateFlipState(flipState);
+}
+
+// Main process receives notifications of flip state change from input device
+// directly.
+void
+EnableFlipNotifications()
+{
+}
+
+void
+DisableFlipNotifications()
+{
+}
+
 #if 0  // TODO: FIXME
 static int
 OomAdjOfOomScoreAdj(int aOomScoreAdj)

@@ -23,6 +23,13 @@ partial interface B2G {
   Promise<FlashlightManager> getFlashlightManager();
 };
 
+
+[Exposed=Window]
+partial interface B2G {
+  [Throws, Pref="dom.flip.enabled"]
+  Promise<FlipManager> getFlipManager();
+};
+
 partial interface B2G {
   [Throws, Exposed=Window]
   readonly attribute TetheringManager tetheringManager;

@@ -11,6 +11,7 @@
 #include "base/platform_thread.h"
 #include "nsTArray.h"
 #include "mozilla/dom/FlashlightManager.h"
+#include "mozilla/dom/FlipManager.h"
 #include "mozilla/hal_sandbox/PHal.h"
 #include "mozilla/HalBatteryInformation.h"
 #include "mozilla/HalNetworkInformation.h"
@@ -162,6 +163,41 @@ bool GetFlashlightEnabled();
  * Enable or disable flashlight.
  */
 void SetFlashlightEnabled(bool aEnabled);
+
+/**
+ * Determine the Flip is open or not
+ */
+bool IsFlipOpened();
+
+/**
+ * Inform the flipmanager backend there is a new flip observer.
+ * @param aFlipObserver The observer that should be added.
+ */
+void RegisterFlipObserver(mozilla::dom::FlipObserver* aFlipObserver);
+
+/**
+ * Inform the flipmanager backend a flip observer unregistered.
+ * @param aFlipObserver The observer that should be removed.
+ */
+void UnregisterFlipObserver(mozilla::dom::FlipObserver* aFlipObserver);
+
+/**
+ * Notify of a change in the flip state from input device.
+ * @param aFlipState The new flip state.
+ */
+void NotifyFlipStateFromInputDevice(bool aFlipState);
+
+/**
+ * Request the current flip state. If the request is made by content process,
+ * result will be returned asynchronously.
+ */
+void RequestCurrentFlipState();
+
+/**
+ * Update the flip state in each flip observers.
+ * @param aFlipState The new flip state.
+ */
+void UpdateFlipState(const bool& aFlipState);
 
 /**
  * Determine whether the device's screen is currently enabled.

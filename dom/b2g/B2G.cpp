@@ -41,6 +41,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(B2G)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAlarmManager)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDeviceStorageAreaListener)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFlashlightManager)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFlipManager)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTetheringManager)
 #ifdef MOZ_B2G_RIL
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mIccManager)
@@ -75,6 +76,11 @@ void B2G::Shutdown() {
   if (mFlashlightManager) {
     mFlashlightManager->Shutdown();
     mFlashlightManager = nullptr;
+  }
+
+  if (mFlipManager) {
+    mFlipManager->Shutdown();
+    mFlipManager = nullptr;
   }
 
 #ifdef MOZ_B2G_CAMERA
@@ -129,6 +135,27 @@ already_AddRefed<Promise> B2G::GetFlashlightManager(ErrorResult& aRv) {
   }
 
   RefPtr<Promise> p = mFlashlightManager->GetPromise(aRv);
+  return p.forget();
+}
+
+already_AddRefed<Promise> B2G::GetFlipManager(ErrorResult& aRv) {
+  if (!mFlipManager) {
+    if (!mOwner) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+
+    nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+    if (!innerWindow) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+
+    mFlipManager = new FlipManager(innerWindow);
+    mFlipManager->Init();
+  }
+
+  RefPtr<Promise> p = mFlipManager->GetPromise(aRv);
   return p.forget();
 }
 

@@ -379,6 +379,46 @@ void SetFlashlightEnabled(bool aEnabled) {
   PROXY_IF_SANDBOXED(SetFlashlightEnabled(aEnabled));
 }
 
+class FlipObserversManager final
+    : public ObserversManager<bool>
+{
+protected:
+  void EnableNotifications() override {
+    PROXY_IF_SANDBOXED(EnableFlipNotifications());
+  }
+
+  void DisableNotifications() override {
+    PROXY_IF_SANDBOXED(DisableFlipNotifications());
+  }
+};
+
+static FlipObserversManager sFlipObservers;
+
+void RegisterFlipObserver(FlipObserver* aObserver) {
+  AssertMainThread();
+  sFlipObservers.AddObserver(aObserver);
+}
+
+void UnregisterFlipObserver(FlipObserver* aObserver) {
+  AssertMainThread();
+  sFlipObservers.RemoveObserver(aObserver);
+}
+
+void UpdateFlipState(const bool& aFlipState) {
+  AssertMainThread();
+  sFlipObservers.BroadcastInformation(aFlipState);
+}
+
+void NotifyFlipStateFromInputDevice(bool aFlipState) {
+  AssertMainThread();
+  PROXY_IF_SANDBOXED(NotifyFlipStateFromInputDevice(aFlipState));
+}
+
+void RequestCurrentFlipState() {
+  AssertMainThread();
+  PROXY_IF_SANDBOXED(RequestCurrentFlipState());
+}
+
 bool GetScreenEnabled() {
   AssertMainThread();
   RETURN_PROXY_IF_SANDBOXED(GetScreenEnabled(), false);
@@ -917,6 +957,11 @@ FMRadioSettings GetFMBandSettings(FMRadioCountry aCountry) {
       break;
   }
   return settings;
+}
+
+bool IsFlipOpened() {
+  AssertMainThread();
+  RETURN_PROXY_IF_SANDBOXED(IsFlipOpened(), true);
 }
 
 }  // namespace mozilla::hal

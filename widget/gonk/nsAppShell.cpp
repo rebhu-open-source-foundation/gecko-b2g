@@ -315,13 +315,10 @@ void KeyEventDispatcher::Dispatch() {
     return;
   }
 
-// TODO: FIXME
-#if 0
-    if (mDOMKeyNameIndex == KEY_NAME_INDEX_Flip){
-        hal::NotifyFlipStateFromInputDevice(!IsKeyPress());
-        return;
-    }
-#endif
+  if (mDOMKeyNameIndex == KEY_NAME_INDEX_Flip){
+    hal::NotifyFlipStateFromInputDevice(!IsKeyPress());
+    return;
+  }
 
   if (IsKeyPress()) {
     DispatchKeyDownEvent();
