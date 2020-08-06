@@ -25,7 +25,7 @@ rev = "61dcc364ac0d6d0816ab88a494bbf20d824b009b"
 [source."https://github.com/mozilla-spidermonkey/jsparagus"]
 git = "https://github.com/mozilla-spidermonkey/jsparagus"
 replace-with = "vendored-sources"
-rev = "16bc2e48694c2a5b3cca854271f58cf8aae18a0e"
+rev = "ba8fe73bda8cc5dd2fa0dafaa3dbde68a901cf96"
 
 [source."https://github.com/kvark/spirv_cross"]
 branch = "wgpu3"
@@ -60,7 +60,7 @@ rev = "3224e2dee65c0726c448484d4c3c43956b9330ec"
 [source."https://github.com/bytecodealliance/wasmtime"]
 git = "https://github.com/bytecodealliance/wasmtime"
 replace-with = "vendored-sources"
-rev = "25e31739a63b7a33a4a34c961b88606c76670e46"
+rev = "fc88898e9ad7766feadfa0954c4594fcccd86b92"
 
 [source."https://github.com/badboy/failure"]
 git = "https://github.com/badboy/failure"

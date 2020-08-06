@@ -145,7 +145,7 @@ extern bool array_pop(JSContext* cx, unsigned argc, js::Value* vp);
 
 extern bool array_join(JSContext* cx, unsigned argc, js::Value* vp);
 
-extern void ArrayShiftMoveElements(NativeObject* obj);
+extern void ArrayShiftMoveElements(ArrayObject* arr);
 
 extern bool array_shift(JSContext* cx, unsigned argc, js::Value* vp);
 
@@ -164,7 +164,7 @@ extern JSObject* ArraySliceDense(JSContext* cx, HandleObject obj, int32_t begin,
 extern bool NewbornArrayPush(JSContext* cx, HandleObject obj, const Value& v);
 
 extern ArrayObject* ArrayConstructorOneArg(JSContext* cx,
-                                           HandleObjectGroup group,
+                                           HandleArrayObject templateObject,
                                            int32_t lengthInt);
 
 #ifdef DEBUG

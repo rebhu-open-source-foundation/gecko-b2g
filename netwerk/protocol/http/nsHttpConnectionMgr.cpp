@@ -839,13 +839,22 @@ void nsHttpConnectionMgr::UpdateCoalescingForNewConn(
   HttpConnectionBase* existingConn =
       FindCoalescableConnection(ent, true, false);
   if (existingConn) {
-    LOG(
-        ("UpdateCoalescingForNewConn() found existing active conn that could "
-         "have served newConn "
-         "graceful close of newConn=%p to migrate to existingConn %p\n",
-         newConn, existingConn));
-    newConn->DontReuse();
-    return;
+    // Prefer http3 connection.
+    if (newConn->UsingHttp3() && existingConn->UsingSpdy()) {
+      LOG(
+          ("UpdateCoalescingForNewConn() found existing active H2 conn that "
+           "could have served newConn, but new connection is H3, therefore "
+           "close the H2 conncetion"));
+      existingConn->DontReuse();
+    } else {
+      LOG(
+          ("UpdateCoalescingForNewConn() found existing active conn that could "
+           "have served newConn "
+           "graceful close of newConn=%p to migrate to existingConn %p\n",
+           newConn, existingConn));
+      newConn->DontReuse();
+      return;
+    }
   }
 
   // This connection might go into the mCoalescingHash for new transactions to
@@ -953,6 +962,35 @@ void nsHttpConnectionMgr::ReportSpdyConnection(nsHttpConnection* conn,
   if (NS_FAILED(rv)) {
     LOG(
         ("ReportSpdyConnection conn=%p ent=%p "
+         "failed to post event (%08x)\n",
+         conn, ent, static_cast<uint32_t>(rv)));
+  }
+}
+
+void nsHttpConnectionMgr::ReportHttp3Connection(HttpConnectionBase* conn) {
+  MOZ_ASSERT(OnSocketThread(), "not on socket thread");
+  if (!conn->ConnectionInfo()) {
+    return;
+  }
+  nsConnectionEntry* ent = mCT.GetWeak(conn->ConnectionInfo()->HashKey());
+  if (!ent) {
+    return;
+  }
+
+  mNumSpdyHttp3ActiveConns++;
+
+  UpdateCoalescingForNewConn(conn, ent);
+  nsresult rv = ProcessPendingQ(ent->mConnInfo);
+  if (NS_FAILED(rv)) {
+    LOG(
+        ("ReportHttp3Connection conn=%p ent=%p "
+         "failed to process pending queue (%08x)\n",
+         conn, ent, static_cast<uint32_t>(rv)));
+  }
+  rv = PostEvent(&nsHttpConnectionMgr::OnMsgProcessAllSpdyPendingQ);
+  if (NS_FAILED(rv)) {
+    LOG(
+        ("ReportHttp3Connection conn=%p ent=%p "
          "failed to post event (%08x)\n",
          conn, ent, static_cast<uint32_t>(rv)));
   }

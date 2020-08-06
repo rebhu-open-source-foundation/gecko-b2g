@@ -5099,6 +5099,59 @@ AttachDecision CallIRGenerator::tryAttachArrayPush(HandleFunction callee) {
   return AttachDecision::Attach;
 }
 
+AttachDecision CallIRGenerator::tryAttachArrayPopShift(HandleFunction callee,
+                                                       InlinableNative native) {
+  // Expecting no arguments.
+  if (argc_ != 0) {
+    return AttachDecision::NoAction;
+  }
+
+  // Only optimize if |this| is a packed array.
+  if (!thisval_.isObject() || !IsPackedArray(&thisval_.toObject())) {
+    return AttachDecision::NoAction;
+  }
+
+  // Other conditions:
+  //
+  // * The array length needs to be writable because we're changing it.
+  // * The elements must not be copy-on-write because we're deleting an element.
+  // * The array must be extensible. Non-extensible arrays require preserving
+  //   the |initializedLength == capacity| invariant on ObjectElements.
+  //   See NativeObject::shrinkCapacityToInitializedLength.
+  //   This also ensures the elements aren't sealed/frozen.
+  // * There must not be a for-in iterator for the elements because the IC stub
+  //   does not suppress deleted properties.
+  ArrayObject* arr = &thisval_.toObject().as<ArrayObject>();
+  if (!arr->lengthIsWritable() || arr->denseElementsAreCopyOnWrite() ||
+      !arr->isExtensible() || arr->denseElementsHaveMaybeInIterationFlag()) {
+    return AttachDecision::NoAction;
+  }
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Guard callee is the 'pop' or 'shift' native function.
+  emitNativeCalleeGuard(callee);
+
+  ValOperandId thisValId =
+      writer.loadArgumentFixedSlot(ArgumentKind::This, argc_);
+  ObjOperandId objId = writer.guardToObject(thisValId);
+  writer.guardClass(objId, GuardClassKind::Array);
+
+  if (native == InlinableNative::ArrayPop) {
+    writer.packedArrayPopResult(objId);
+  } else {
+    MOZ_ASSERT(native == InlinableNative::ArrayShift);
+    writer.packedArrayShiftResult(objId);
+  }
+
+  writer.typeMonitorResult();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Monitored;
+
+  trackAttached("ArrayPopShift");
+  return AttachDecision::Attach;
+}
+
 AttachDecision CallIRGenerator::tryAttachArrayJoin(HandleFunction callee) {
   // Only handle argc <= 1.
   if (argc_ > 1) {
@@ -7145,6 +7198,68 @@ AttachDecision CallIRGenerator::tryAttachObjectCreate(HandleFunction callee) {
   return AttachDecision::Attach;
 }
 
+AttachDecision CallIRGenerator::tryAttachArrayConstructor(
+    HandleFunction callee) {
+  // Only optimize the |Array()| and |Array(n)| cases (with or without |new|)
+  // for now. Note that self-hosted code calls this without |new| via std_Array.
+  if (argc_ > 1) {
+    return AttachDecision::NoAction;
+  }
+  if (argc_ == 1 && !args_[0].isInt32()) {
+    return AttachDecision::NoAction;
+  }
+
+  int32_t length = (argc_ == 1) ? args_[0].toInt32() : 0;
+  if (length < 0 || uint32_t(length) > ArrayObject::EagerAllocationMaxLength) {
+    return AttachDecision::NoAction;
+  }
+
+  // We allow inlining this function across realms so make sure the template
+  // object is allocated in that realm. See CanInlineNativeCrossRealm.
+  JSObject* templateObj;
+  {
+    AutoRealm ar(cx_, callee);
+    templateObj = NewFullyAllocatedArrayForCallingAllocationSite(cx_, length,
+                                                                 TenuredObject);
+    if (!templateObj) {
+      cx_->recoverFromOutOfMemory();
+      return AttachDecision::NoAction;
+    }
+  }
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Guard callee and newTarget (if constructing) are this Array constructor
+  // function.
+  emitNativeCalleeGuard(callee);
+
+  CallFlags flags(IsConstructPC(pc_), IsSpreadPC(pc_));
+
+  Int32OperandId lengthId;
+  if (argc_ == 1) {
+    ValOperandId arg0Id =
+        writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_, flags);
+    lengthId = writer.guardToInt32(arg0Id);
+  } else {
+    MOZ_ASSERT(argc_ == 0);
+    lengthId = writer.loadInt32Constant(0);
+  }
+
+  writer.newArrayFromLengthResult(templateObj, lengthId);
+
+  if (!JitOptions.warpBuilder) {
+    // Store the template object for BaselineInspector.
+    writer.metaNativeTemplateObject(callee, templateObj);
+  }
+
+  writer.typeMonitorResult();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Monitored;
+
+  trackAttached("ArrayConstructor");
+  return AttachDecision::Attach;
+}
+
 AttachDecision CallIRGenerator::tryAttachTypedArrayConstructor(
     HandleFunction callee) {
   MOZ_ASSERT(IsConstructPC(pc_));
@@ -7353,6 +7468,8 @@ AttachDecision CallIRGenerator::tryAttachInlinableNative(
       return AttachDecision::NoAction;
     }
     switch (native) {
+      case InlinableNative::Array:
+        return tryAttachArrayConstructor(callee);
       case InlinableNative::TypedArrayConstructor:
         return tryAttachTypedArrayConstructor(callee);
       default:
@@ -7364,8 +7481,13 @@ AttachDecision CallIRGenerator::tryAttachInlinableNative(
   // Check for special-cased native functions.
   switch (native) {
     // Array natives.
+    case InlinableNative::Array:
+      return tryAttachArrayConstructor(callee);
     case InlinableNative::ArrayPush:
       return tryAttachArrayPush(callee);
+    case InlinableNative::ArrayPop:
+    case InlinableNative::ArrayShift:
+      return tryAttachArrayPopShift(callee, native);
     case InlinableNative::ArrayJoin:
       return tryAttachArrayJoin(callee);
     case InlinableNative::ArrayIsArray:
@@ -7828,14 +7950,13 @@ bool CallIRGenerator::getTemplateObjectForNative(HandleFunction calleeFunc,
       // Note: the template array won't be used if its length is inaccurately
       // computed here.  (We allocate here because compilation may occur on a
       // separate thread where allocation is impossible.)
-      size_t count = 0;
-      if (args_.length() != 1) {
-        count = args_.length();
-      } else if (args_.length() == 1 && args_[0].isInt32() &&
-                 args_[0].toInt32() >= 0) {
-        count = args_[0].toInt32();
+
+      if (args_.length() <= 1) {
+        // This case is handled by tryAttachArrayConstructor.
+        return true;
       }
 
+      size_t count = args_.length();
       if (count > ArrayObject::EagerAllocationMaxLength) {
         return true;
       }

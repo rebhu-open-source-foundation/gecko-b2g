@@ -129,7 +129,8 @@ bool ObjectElements::MakeElementsCopyOnWrite(JSContext* cx, NativeObject* obj) {
 }
 
 /* static */
-bool ObjectElements::PreventExtensions(JSContext* cx, NativeObject* obj) {
+bool ObjectElements::PrepareForPreventExtensions(JSContext* cx,
+                                                 NativeObject* obj) {
   if (!obj->maybeCopyElementsForWrite(cx)) {
     return false;
   }
@@ -143,6 +144,18 @@ bool ObjectElements::PreventExtensions(JSContext* cx, NativeObject* obj) {
   MOZ_ASSERT(obj->getElementsHeader()->numShiftedElements() == 0);
 
   return true;
+}
+
+/* static */
+void ObjectElements::PreventExtensions(NativeObject* obj) {
+  MOZ_ASSERT(!obj->denseElementsAreCopyOnWrite());
+  MOZ_ASSERT(!obj->isExtensible());
+  MOZ_ASSERT(obj->getElementsHeader()->numShiftedElements() == 0);
+  MOZ_ASSERT(obj->getDenseInitializedLength() == obj->getDenseCapacity());
+
+  if (!obj->hasEmptyElements()) {
+    obj->getElementsHeader()->setNotExtensible();
+  }
 }
 
 /* static */
@@ -2303,7 +2316,8 @@ static MOZ_ALWAYS_INLINE bool GetExistingProperty(
     return true;
   }
 
-  {
+  if (!jit::JitOptions.warpBuilder) {
+    // Set the accessed-getter flag for IonBuilder.
     jsbytecode* pc;
     JSScript* script = cx->currentScript(&pc);
     if (script && script->hasJitScript()) {

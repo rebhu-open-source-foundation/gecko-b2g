@@ -2463,17 +2463,19 @@ bool js::array_pop(JSContext* cx, unsigned argc, Value* vp) {
   return SetLengthProperty(cx, obj, index);
 }
 
-void js::ArrayShiftMoveElements(NativeObject* obj) {
+void js::ArrayShiftMoveElements(ArrayObject* arr) {
   AutoUnsafeCallWithABI unsafe;
-  MOZ_ASSERT(obj->isExtensible());
-  MOZ_ASSERT_IF(obj->is<ArrayObject>(),
-                obj->as<ArrayObject>().lengthIsWritable());
+  MOZ_ASSERT(arr->isExtensible());
+  MOZ_ASSERT(arr->lengthIsWritable());
+  MOZ_ASSERT_IF(jit::JitOptions.warpBuilder, IsPackedArray(arr));
+  MOZ_ASSERT(!arr->denseElementsAreCopyOnWrite());
+  MOZ_ASSERT(!arr->denseElementsHaveMaybeInIterationFlag());
 
-  size_t initlen = obj->getDenseInitializedLength();
+  size_t initlen = arr->getDenseInitializedLength();
   MOZ_ASSERT(initlen > 0);
 
-  if (!obj->tryShiftDenseElements(1)) {
-    obj->moveDenseElementsNoPreBarrier(0, 1, initlen - 1);
+  if (!arr->tryShiftDenseElements(1)) {
+    arr->moveDenseElements(0, 1, initlen - 1);
   }
 }
 
@@ -3829,14 +3831,15 @@ bool js::array_construct(JSContext* cx, unsigned argc, Value* vp) {
   return ArrayConstructorImpl(cx, args, /* isConstructor = */ false);
 }
 
-ArrayObject* js::ArrayConstructorOneArg(JSContext* cx, HandleObjectGroup group,
+ArrayObject* js::ArrayConstructorOneArg(JSContext* cx,
+                                        HandleArrayObject templateObject,
                                         int32_t lengthInt) {
-  // Ion can call this with a group from a different realm when calling
-  // another realm's Array constructor.
+  // JIT code can call this with a template object from a different realm when
+  // calling another realm's Array constructor.
   Maybe<AutoRealm> ar;
-  if (cx->realm() != group->realm()) {
-    MOZ_ASSERT(cx->compartment() == group->compartment());
-    ar.emplace(cx, group);
+  if (cx->realm() != templateObject->realm()) {
+    MOZ_ASSERT(cx->compartment() == templateObject->compartment());
+    ar.emplace(cx, templateObject);
   }
 
   if (lengthInt < 0) {
@@ -3846,6 +3849,7 @@ ArrayObject* js::ArrayConstructorOneArg(JSContext* cx, HandleObjectGroup group,
   }
 
   uint32_t length = uint32_t(lengthInt);
+  RootedObjectGroup group(cx, templateObject->group());
   ArrayObject* res = NewPartlyAllocatedArrayTryUseGroup(cx, group, length);
   MOZ_ASSERT_IF(res, res->realm() == group->realm());
   return res;

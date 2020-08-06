@@ -3860,6 +3860,44 @@ bool CacheIRCompiler::emitArrayJoinResult(ObjOperandId objId) {
   return true;
 }
 
+bool CacheIRCompiler::emitPackedArrayPopResult(ObjOperandId arrayId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoOutputRegister output(*this);
+  Register array = allocator.useRegister(masm, arrayId);
+  AutoScratchRegister scratch1(allocator, masm);
+  AutoScratchRegister scratch2(allocator, masm);
+
+  FailurePath* failure;
+  if (!addFailurePath(&failure)) {
+    return false;
+  }
+
+  masm.packedArrayPop(array, output.valueReg(), scratch1, scratch2,
+                      failure->label());
+  return true;
+}
+
+bool CacheIRCompiler::emitPackedArrayShiftResult(ObjOperandId arrayId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoOutputRegister output(*this);
+  Register array = allocator.useRegister(masm, arrayId);
+  AutoScratchRegister scratch1(allocator, masm);
+  AutoScratchRegister scratch2(allocator, masm);
+
+  FailurePath* failure;
+  if (!addFailurePath(&failure)) {
+    return false;
+  }
+
+  LiveRegisterSet volatileRegs(GeneralRegisterSet::Volatile(),
+                               liveVolatileFloatRegs());
+  masm.packedArrayShift(array, output.valueReg(), scratch1, scratch2,
+                        volatileRegs, failure->label());
+  return true;
+}
+
 bool CacheIRCompiler::emitIsObjectResult(ValOperandId inputId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
 
@@ -4108,6 +4146,26 @@ bool CacheIRCompiler::emitObjectCreateResult(uint32_t templateObjectOffset) {
 
   using Fn = PlainObject* (*)(JSContext*, HandlePlainObject);
   callvm.call<Fn, ObjectCreateWithTemplate>();
+  return true;
+}
+
+bool CacheIRCompiler::emitNewArrayFromLengthResult(
+    uint32_t templateObjectOffset, Int32OperandId lengthId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoCallVM callvm(masm, this, allocator);
+  AutoScratchRegister scratch(allocator, masm);
+  Register length = allocator.useRegister(masm, lengthId);
+
+  StubFieldOffset objectField(templateObjectOffset, StubField::Type::JSObject);
+  emitLoadStubField(objectField, scratch);
+
+  callvm.prepare();
+  masm.Push(length);
+  masm.Push(scratch);
+
+  using Fn = ArrayObject* (*)(JSContext*, HandleArrayObject, int32_t length);
+  callvm.call<Fn, ArrayConstructorOneArg>();
   return true;
 }
 
@@ -7548,6 +7606,10 @@ struct ReturnTypeToJSValueType<RegExpStringIteratorObject*> {
 };
 template <>
 struct ReturnTypeToJSValueType<PlainObject*> {
+  static constexpr JSValueType result = JSVAL_TYPE_OBJECT;
+};
+template <>
+struct ReturnTypeToJSValueType<ArrayObject*> {
   static constexpr JSValueType result = JSVAL_TYPE_OBJECT;
 };
 template <>

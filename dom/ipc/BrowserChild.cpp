@@ -123,6 +123,7 @@
 #include "nsPrintfCString.h"
 #include "nsQueryActor.h"
 #include "nsQueryObject.h"
+#include "nsRefreshDriver.h"
 #include "nsSandboxFlags.h"
 #include "nsString.h"
 #include "nsTHashtable.h"

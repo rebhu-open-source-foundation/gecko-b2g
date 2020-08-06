@@ -110,6 +110,7 @@ XPIDL_SOURCES += [
     'nsIGfxInfo.idl',
     'nsIGfxInfoDebug.idl',
     'nsIPaper.idl',
+    'nsIPaperMargin.idl',
     'nsIPrinter.idl',
     'nsIPrinterList.idl',
     'nsIPrintSession.idl',
@@ -236,27 +237,18 @@ if CONFIG['MOZ_XUL'] and CONFIG['NS_PRINTING']:
     ]
     UNIFIED_SOURCES += [
         'nsDeviceContextSpecProxy.cpp',
+        'nsPaper.cpp',
+        'nsPaperMargin.cpp',
         'nsPrinterBase.cpp',
         'nsPrintSession.cpp',
         'nsPrintSettingsService.cpp',
     ]
 
-    # The Windows sub-directory has its own implemenation of these.
-    if toolkit != 'windows':
-        UNIFIED_SOURCES += [
-            'nsPaper.cpp',
-        ]
-    # These will be unified for all CUPS platforms by Bug 1654678
-    if toolkit == 'cocoa':
+    if toolkit in ('cocoa', 'gtk'):
         UNIFIED_SOURCES += [
             'CUPSPrinterList.cpp',
             'nsCUPSShim.cpp',
             'nsPrinterCUPS.cpp',
-        ]
-    if toolkit == 'gtk':
-        UNIFIED_SOURCES += [
-            'nsCUPSShim.cpp',
-            'nsPrinter.cpp',
         ]
 
 # nsBaseWidget.cpp needs to be built separately because of name clashes in the OS X headers

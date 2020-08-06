@@ -1206,8 +1206,28 @@ class UrlbarInput {
 
     if (this.searchMode) {
       this.toggleAttribute("searchmode", true);
+      // Search mode should only be active when pageproxystate is invalid.
+      if (this.getAttribute("pageproxystate") == "valid") {
+        this.value = "";
+        this.setPageProxyState("invalid", true);
+      }
     } else {
       this.removeAttribute("searchmode");
+    }
+  }
+
+  /**
+   * Enters search mode with the default engine.
+   * If update2 is not enabled, it searches with the SEARCH restriction token
+   * instead.
+   */
+  searchModeShortcut() {
+    if (this.view.oneOffsRefresh) {
+      let defaultEngine = Services.search.defaultEngine;
+      this.setSearchMode(defaultEngine);
+      this.search("");
+    } else {
+      this.search(UrlbarTokenizer.RESTRICT.SEARCH);
     }
   }
 

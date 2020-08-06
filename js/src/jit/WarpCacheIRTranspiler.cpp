@@ -21,6 +21,8 @@
 #include "jit/WarpSnapshot.h"
 #include "js/ScalarType.h"  // js::Scalar::Type
 
+#include "gc/ObjectKind-inl.h"
+
 using namespace js;
 using namespace js::jit;
 
@@ -1771,6 +1773,36 @@ bool WarpCacheIRTranspiler::emitArrayPush(ObjOperandId objId,
   return resumeAfter(ins);
 }
 
+bool WarpCacheIRTranspiler::emitPackedArrayPopResult(ObjOperandId arrayId) {
+  MDefinition* array = getOperand(arrayId);
+
+  // TODO(Warp): these flags only make sense for the Ion implementation. Remove
+  // them when IonBuilder is gone.
+  bool needsHoleCheck = true;
+  bool maybeUndefined = true;
+  auto* ins = MArrayPopShift::New(alloc(), array, MArrayPopShift::Pop,
+                                  needsHoleCheck, maybeUndefined);
+  addEffectful(ins);
+
+  pushResult(ins);
+  return resumeAfter(ins);
+}
+
+bool WarpCacheIRTranspiler::emitPackedArrayShiftResult(ObjOperandId arrayId) {
+  MDefinition* array = getOperand(arrayId);
+
+  // TODO(Warp): these flags only make sense for the Ion implementation. Remove
+  // them when IonBuilder is gone.
+  bool needsHoleCheck = true;
+  bool maybeUndefined = true;
+  auto* ins = MArrayPopShift::New(alloc(), array, MArrayPopShift::Shift,
+                                  needsHoleCheck, maybeUndefined);
+  addEffectful(ins);
+
+  pushResult(ins);
+  return resumeAfter(ins);
+}
+
 bool WarpCacheIRTranspiler::emitHasClassResult(ObjOperandId objId,
                                                uint32_t claspOffset) {
   MDefinition* obj = getOperand(objId);
@@ -2067,6 +2099,46 @@ bool WarpCacheIRTranspiler::emitObjectCreateResult(
   return resumeAfter(obj);
 }
 
+bool WarpCacheIRTranspiler::emitNewArrayFromLengthResult(
+    uint32_t templateObjectOffset, Int32OperandId lengthId) {
+  JSObject* templateObj = tenuredObjectStubField(templateObjectOffset);
+  MDefinition* length = getOperand(lengthId);
+
+  // TODO: support pre-tenuring.
+  gc::InitialHeap heap = gc::DefaultHeap;
+
+  if (length->isConstant()) {
+    int32_t lenInt32 = length->toConstant()->toInt32();
+    if (lenInt32 >= 0 &&
+        uint32_t(lenInt32) == templateObj->as<ArrayObject>().length()) {
+      uint32_t len = uint32_t(lenInt32);
+      auto* templateConst = constant(ObjectValue(*templateObj));
+
+      size_t inlineLength =
+          gc::GetGCKindSlots(templateObj->asTenured().getAllocKind()) -
+          ObjectElements::VALUES_PER_HEADER;
+
+      MNewArray* obj;
+      if (len > inlineLength) {
+        obj = MNewArray::NewVM(alloc(), /* constraints = */ nullptr, len,
+                               templateConst, heap, loc_.toRawBytecode());
+      } else {
+        obj = MNewArray::New(alloc(), /* constraints = */ nullptr, len,
+                             templateConst, heap, loc_.toRawBytecode());
+      }
+      add(obj);
+      pushResult(obj);
+      return true;
+    }
+  }
+
+  auto* obj = MNewArrayDynamicLength::New(alloc(), /* constraints = */ nullptr,
+                                          templateObj, heap, length);
+  addEffectful(obj);
+  pushResult(obj);
+  return resumeAfter(obj);
+}
+
 bool WarpCacheIRTranspiler::emitNewTypedArrayFromLengthResult(
     uint32_t templateObjectOffset, Int32OperandId lengthId) {
   JSObject* templateObj = tenuredObjectStubField(templateObjectOffset);
@@ -2090,9 +2162,9 @@ bool WarpCacheIRTranspiler::emitNewTypedArrayFromLengthResult(
 
   auto* obj = MNewTypedArrayDynamicLength::New(
       alloc(), /* constraints = */ nullptr, templateObj, heap, length);
-  add(obj);
+  addEffectful(obj);
   pushResult(obj);
-  return true;
+  return resumeAfter(obj);
 }
 
 bool WarpCacheIRTranspiler::emitNewTypedArrayFromArrayBufferResult(

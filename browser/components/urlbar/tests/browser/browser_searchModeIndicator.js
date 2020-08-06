@@ -80,6 +80,20 @@ async function exitSearchMode(
   window,
   { backspace, clickClose, waitForSearch = true }
 ) {
+  // If the Urlbar is not extended, ignore the clickClose parameter. The close
+  // button is not clickable in this state. This state might be encountered on
+  // Linux, where prefers-reduced-motion is enabled in automation.
+  if (!gURLBar.hasAttribute("breakout-extend") && clickClose) {
+    if (waitForSearch) {
+      let searchPromise = UrlbarTestUtils.promiseSearchComplete(window);
+      gURLBar.setSearchMode(null);
+      await searchPromise;
+    } else {
+      gURLBar.setSearchMode(null);
+    }
+    return;
+  }
+
   if (backspace) {
     let urlbarValue = gURLBar.value;
     gURLBar.selectionStart = gURLBar.selectionEnd = 0;
@@ -251,13 +265,53 @@ add_task(async function click_close() {
   });
   await enterSearchMode(window);
   UrlbarTestUtils.promisePopupClose(window);
-  if (gURLBar.hasAttribute("breakout-extend")) {
-    await exitSearchMode(window, { clickClose: true, waitForSearch: false });
-  } else {
-    // If the Urlbar is not extended when it is closed, do not finish this
-    // case. The close button is not clickable when the Urlbar is not
-    // extended. This scenario might be encountered on Linux, where
-    // prefers-reduced-motion is enabled in automation.
-    gURLBar.setSearchMode(null);
-  }
+  await exitSearchMode(window, { clickClose: true, waitForSearch: false });
+});
+
+// Tests that Accel+K enters search mode with the default engine.
+add_task(async function keyboard_shortcut() {
+  UrlbarTestUtils.assertSearchMode(window, null);
+  EventUtils.synthesizeKey("k", { accelKey: true });
+  UrlbarTestUtils.assertSearchMode(window, {
+    source: UrlbarUtils.RESULT_SOURCE.SEARCH,
+    engineName: defaultEngine.name,
+  });
+  await exitSearchMode(window, { clickClose: true, waitForSearch: false });
+});
+
+// Tests that the Tools:Search menu item enters search mode with the default
+// engine.
+add_task(async function menubar_item() {
+  UrlbarTestUtils.assertSearchMode(window, null);
+  let command = window.document.getElementById("Tools:Search");
+  command.doCommand();
+  UrlbarTestUtils.assertSearchMode(window, {
+    source: UrlbarUtils.RESULT_SOURCE.SEARCH,
+    engineName: defaultEngine.name,
+  });
+  await exitSearchMode(window, { clickClose: true, waitForSearch: false });
+});
+
+// Tests that entering search mode invalidates pageproxystate and exits search
+// mode.
+add_task(async function invalidate_pageproxystate() {
+  await BrowserTestUtils.withNewTab("about:robots", async function(browser) {
+    await UrlbarTestUtils.promisePopupOpen(window, () => {
+      EventUtils.synthesizeMouseAtCenter(gURLBar.inputField, {});
+    });
+    Assert.equal(gURLBar.getAttribute("pageproxystate"), "valid");
+    await enterSearchMode(window);
+    Assert.equal(
+      gURLBar.getAttribute("pageproxystate"),
+      "invalid",
+      "Entering search mode should clear pageproxystate."
+    );
+    Assert.equal(gURLBar.value, "", "Urlbar value should be cleared.");
+    await exitSearchMode(window, { clickClose: true });
+    Assert.equal(
+      gURLBar.getAttribute("pageproxystate"),
+      "invalid",
+      "Pageproxystate should still be invalid after exiting search mode."
+    );
+  });
 });

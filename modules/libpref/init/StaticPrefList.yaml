@@ -3350,8 +3350,8 @@
   value: false
   mirror: always
 
-# Is support for elementInternals enabled?
-- name: dom.webcomponents.elementInternals.enabled
+# Is support for form-associated custom element enabled?
+- name: dom.webcomponents.formAssociatedCustomElement.enabled
   type: bool
   value: @IS_NIGHTLY_BUILD@
   mirror: always
@@ -9759,6 +9759,11 @@
 - name: webgl.disabled
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+- name: webgl.enable-debug-renderer-info
+  type: RelaxedAtomicBool
+  value: true
   mirror: always
 
 - name: webgl.enable-draft-extensions
