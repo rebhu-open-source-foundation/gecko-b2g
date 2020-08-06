@@ -31,11 +31,8 @@
 #include "mozilla/FileUtils.h"
 #include "mozilla/Hal.h"
 #include "mozilla/StaticPtr.h"
-// TODO: temporarily comment out Mtp related code.
-#if 0
-#  include "MozMtpServer.h"
-#  include "MozMtpStorage.h"
-#endif
+#include "MozMtpServer.h"
+#include "MozMtpStorage.h"
 #include "nsCharSeparatedTokenizer.h"
 #include "nsMemory.h"
 #include "nsString.h"
@@ -49,12 +46,7 @@
 #include "Volume.h"
 #include "VolumeManager.h"
 #include "nsIStatusReporter.h"
-
-// TODO: temporarily comment out Mtp related code.
-#if 0
 USING_MTP_NAMESPACE
-#endif
-
 /**************************************************************************
  *
  * The following "switch" files are available for monitoring usb
@@ -83,17 +75,13 @@ USING_MTP_NAMESPACE
 
 #define USB_CONFIGURATION_SWITCH_NAME u"usb_configuration"_ns
 
-#define GB_SYS_UMS_ENABLE \
-  "/sys/devices/virtual/usb_composite/usb_mass_storage/enable"
-#define GB_SYS_USB_CONFIGURED \
-  "/sys/devices/virtual/switch/usb_configuration/state"
+#define SYS_USB_CONFIGURED "/sys/devices/virtual/switch/usb_configuration/state"
 
-#define ICS_SYS_USB_FUNCTIONS \
-  "/sys/devices/virtual/android_usb/android0/functions"
-#define ICS_SYS_UMS_DIRECTORY \
-  "/sys/devices/virtual/android_usb/android0/f_mass_storage"
-#define ICS_SYS_MTP_DIRECTORY "/sys/devices/virtual/android_usb/android0/f_mtp"
-#define ICS_SYS_USB_STATE "/sys/devices/virtual/android_usb/android0/state"
+#define SYS_USB_FUNCTIONS \
+  "/config/usb_gadget/g1/configs/b.1/strings/0x409/configuration"
+#define SYS_UMS_DIRECTORY "/config/usb_gadget/g1/functions/mass_storage.0"
+#define SYS_MTP_DIRECTORY "/config/usb_gadget/g1/functions/mtp.gs0"
+#define SYS_USB_STATE "/sys/class/android_usb/android0/state"
 
 #undef USE_DEBUG  // MozMtpDatabase.h also defines USE_DEBUG
 #define USE_DEBUG 0
@@ -135,56 +123,67 @@ static void SetAutoMounterStatus(int32_t aStatus);
 
 /***************************************************************************/
 
-// TODO: temporarily comment out hal/gonk/Gonk*
-#if 0
 inline const char* SwitchStateStr(const hal::SwitchEvent& aEvent) {
   return aEvent.status() == hal::SWITCH_STATE_ON ? "plugged" : "unplugged";
 }
-#endif
 
 /***************************************************************************/
+static void GetValueFromProp(char* aNode, const char* aProp,
+                             const char* aDefaultValue) {
+  if (property_get(aProp, aNode, NULL) <= 0) {
+    strcpy(aNode, aDefaultValue);
+    ERR("Failed to get property, %s, use default value.", aProp);
+  }
+}
 
 static bool IsUsbCablePluggedIn() {
-#if 0
-  // Use this code when bug 745078 gets fixed (or use whatever the
-  // appropriate method is)
-  return GetCurrentSwitchEvent(SWITCH_USB) == hal::SWITCH_STATE_ON;
-#else
   // Until then, just go read the file directly
-  if (access(ICS_SYS_USB_STATE, F_OK) == 0) {
+  char usbStateNode[PROP_VALUE_MAX];
+
+  // Get usb state node from system property,
+  // e.g. /sys/class/android_usb/android0/state
+  GetValueFromProp(usbStateNode, "ro.b2g.usb.state_node", SYS_USB_STATE);
+
+  if (access(usbStateNode, F_OK) == 0) {
     char usbState[20];
-    if (ReadSysFile(ICS_SYS_USB_STATE, usbState, sizeof(usbState))) {
+    if (ReadSysFile(usbStateNode, usbState, sizeof(usbState))) {
       DBG("IsUsbCablePluggedIn: state = '%s'", usbState);
       return strcmp(usbState, "CONFIGURED") == 0 ||
              strcmp(usbState, "CONNECTED") == 0;
     }
-    ERR("Error reading file '%s': %s", ICS_SYS_USB_STATE, strerror(errno));
+    ERR("Error reading file '%s': %s", usbStateNode, strerror(errno));
     return false;
   }
   bool configured;
-  if (ReadSysFile(GB_SYS_USB_CONFIGURED, &configured)) {
+  if (ReadSysFile(SYS_USB_CONFIGURED, &configured)) {
     return configured;
   }
-  ERR("Error reading file '%s': %s", GB_SYS_USB_CONFIGURED, strerror(errno));
+  ERR("Error reading file '%s': %s", SYS_USB_CONFIGURED, strerror(errno));
   return false;
-#endif
 }
 
 static bool IsUsbConfigured() {
-  if (access(ICS_SYS_USB_STATE, F_OK) == 0) {
+  // Until then, just go read the file directly
+  char usbStateNode[PROP_VALUE_MAX];
+
+  // Get usb state node from system property,
+  // e.g. /sys/class/android_usb/android0/state
+  GetValueFromProp(usbStateNode, "ro.b2g.usb.state_node", SYS_USB_STATE);
+
+  if (access(usbStateNode, F_OK) == 0) {
     char usbState[20];
-    if (ReadSysFile(ICS_SYS_USB_STATE, usbState, sizeof(usbState))) {
+    if (ReadSysFile(usbStateNode, usbState, sizeof(usbState))) {
       DBG("IsUsbConfigured: state = '%s'", usbState);
       return strcmp(usbState, "CONFIGURED") == 0;
     }
-    ERR("Error reading file '%s': %s", ICS_SYS_USB_STATE, strerror(errno));
+    ERR("Error reading file '%s': %s", usbStateNode, strerror(errno));
     return false;
   }
   bool configured;
-  if (ReadSysFile(GB_SYS_USB_CONFIGURED, &configured)) {
+  if (ReadSysFile(SYS_USB_CONFIGURED, &configured)) {
     return configured;
   }
-  ERR("Error reading file '%s': %s", GB_SYS_USB_CONFIGURED, strerror(errno));
+  ERR("Error reading file '%s': %s", SYS_USB_CONFIGURED, strerror(errno));
   return false;
 }
 
@@ -456,18 +455,10 @@ class AutoMounter {
   AutoVolumeEventObserver mVolumeEventObserver;
   AutoVolumeManagerStateObserver mVolumeManagerStateObserver;
   int32_t mMode;
-// TODO: temporarily comment out Mtp related code.
-#if 0
   MozMtpStorage::Array mMozMtpStorage;
-#endif
 };
 
 static StaticRefPtr<AutoMounter> sAutoMounter;
-// TODO: temporarily comment out Mtp related code.
-#if 0
-static StaticRefPtr<MozMtpServer> sMozMtpServer;
-#endif
-
 // The following is for status reporter
 enum STATE_REPORTER_STATE { REPORTER_UNREGISTERED, REPORTER_REGISTERED };
 
@@ -605,8 +596,6 @@ static void SetUsbFunction(const char* aUsbFunc) {
 }
 
 bool AutoMounter::StartMtpServer() {
-// TODO: temporarily comment out Mtp related code.
-#if 0
   if (sMozMtpServer) {
     // Mtp Server is already running - nothing to do
     return true;
@@ -633,27 +622,18 @@ bool AutoMounter::StartMtpServer() {
     return false;
   }
 
-  VolumeArray::index_type volIndex;
-  VolumeArray::size_type numVolumes = VolumeManager::NumVolumes();
-  for (volIndex = 0; volIndex < numVolumes; volIndex++) {
-    RefPtr<Volume> vol = VolumeManager::GetVolume(volIndex);
-    RefPtr<MozMtpStorage> storage = new MozMtpStorage(vol, sMozMtpServer);
-    mMozMtpStorage.AppendElement(storage);
-  }
-
   sMozMtpServer->Run();
-#endif
   return true;
 }
 
 void AutoMounter::StopMtpServer() {
-// TODO: temporarily comment out Mtp related code.
-#if 0
   LOG("Stopping MtpServer");
 
-  mMozMtpStorage.Clear();
+  RefPtr<MozMtpDatabase> mozMtpDatabase = sMozMtpServer->GetMozMtpDatabase();
+
+  mozMtpDatabase->SetMtpConnectedStatus(false);
+
   sMozMtpServer = nullptr;
-#endif
 }
 
 /***************************************************************************/
@@ -1122,13 +1102,22 @@ void AutoMounter::GetStatus(bool& umsAvail, bool& umsConfigured,
   mtpEnabled = false;
   rndisConfigured = false;
 
-  if (access(ICS_SYS_USB_FUNCTIONS, F_OK) != 0) {
+  char usbFunctionsNode[PROPERTY_VALUE_MAX];
+  char usbMtpMode[PROPERTY_VALUE_MAX];
+  int32_t tempMode;
+
+  // Get usb function node from system property,
+  // e.g. /config/usb_gadget/g1/configs/b.1/strings/0x409/configuration
+  GetValueFromProp(usbFunctionsNode, "ro.b2g.usb.functions_node",
+                   SYS_USB_FUNCTIONS);
+
+  if (access(usbFunctionsNode, F_OK) != 0) {
     return;
   }
 
   char functionsStr[60];
-  if (!ReadSysFile(ICS_SYS_USB_FUNCTIONS, functionsStr, sizeof(functionsStr))) {
-    ERR("Error reading file '%s': %s", ICS_SYS_USB_FUNCTIONS, strerror(errno));
+  if (!ReadSysFile(usbFunctionsNode, functionsStr, sizeof(functionsStr))) {
+    ERR("Error reading file '%s': %s", usbFunctionsNode, strerror(errno));
     functionsStr[0] = '\0';
   }
   DBG("GetStatus: USB functions: '%s'", functionsStr);
@@ -1140,8 +1129,16 @@ void AutoMounter::GetStatus(bool& umsAvail, bool& umsConfigured,
   // persist.sys.usb.config property.
   char persistSysUsbConfig[PROPERTY_VALUE_MAX];
   property_get(PERSIST_SYS_USB_CONFIG, persistSysUsbConfig, "");
+
+  char umsDirectoryNode[PROPERTY_VALUE_MAX];
+
+  // Get ums directory node from system property,
+  // e.g. /config/usb_gadget/g1/functions/mass_storage.gs6
+  GetValueFromProp(umsDirectoryNode, "ro.b2g.ums.directory_node",
+                   SYS_UMS_DIRECTORY);
+
   if (IsUsbFunctionEnabled(persistSysUsbConfig, USB_FUNC_UMS)) {
-    umsAvail = (access(ICS_SYS_UMS_DIRECTORY, F_OK) == 0);
+    umsAvail = (access(umsDirectoryNode, F_OK) == 0);
   }
   if (umsAvail) {
     umsConfigured =
@@ -1154,13 +1151,27 @@ void AutoMounter::GetStatus(bool& umsAvail, bool& umsConfigured,
     umsEnabled = false;
   }
 
-  mtpAvail = (access(ICS_SYS_MTP_DIRECTORY, F_OK) == 0);
+  char mtpDirectoryNode[PROPERTY_VALUE_MAX];
+
+  // Get mtp directory  node from system property,
+  // e.g. /config/usb_gadget/g1/functions/mtp.gs0
+  GetValueFromProp(mtpDirectoryNode, "ro.b2g.mtp.directory_node",
+                   SYS_MTP_DIRECTORY);
+
+  mtpAvail = (access(mtpDirectoryNode, F_OK) == 0);
   if (mtpAvail) {
     mtpConfigured =
         usbConfigured && strstr(functionsStr, USB_FUNC_MTP) != nullptr;
+    // add a system property to control MTP mode
+    GetValueFromProp(usbMtpMode, "ro.b2g.mtp.mode", "4");
+    tempMode = atoi(usbMtpMode);
+    if (tempMode <= AUTOMOUNTER_ENABLE_MTP && tempMode >= AUTOMOUNTER_DISABLE) {
+      mMode = tempMode;
+    }
     mtpEnabled =
         (mMode == AUTOMOUNTER_ENABLE_MTP) ||
         ((mMode == AUTOMOUNTER_DISABLE_WHEN_UNPLUGGED) && mtpConfigured);
+
   } else {
     mtpConfigured = false;
     mtpEnabled = false;
@@ -1325,8 +1336,6 @@ static void AutoMounterUnmountVolumeIOThread(const nsCString& aVolumeName) {
   sAutoMounter->UnmountVolume(aVolumeName);
 }
 
-// TODO: temporarily comment out hal/gonk/Gonk*
-#if 0
 static void UsbCableEventIOThread() {
   MOZ_ASSERT(MessageLoop::current() == XRE_GetIOMessageLoop());
 
@@ -1363,7 +1372,6 @@ class UsbCableObserver final : public hal::SwitchObserver {
 };
 
 static StaticRefPtr<UsbCableObserver> sUsbCableObserver;
-#endif
 
 // TODO: temporarily comment out Settings related code.
 #if 0
@@ -1381,13 +1389,10 @@ void InitAutoMounter() {
   XRE_GetIOMessageLoop()->PostTask(NewRunnableFunction(
       "InitAutoMounterIOThreadRunnable", InitAutoMounterIOThread));
 
-// TODO: temporarily comment out hal/gonk/Gonk*
-#if 0
   // Switch Observers need to run on the main thread, so we need to
   // start it here and have it send events to the AutoMounter running
   // on the IO Thread.
   sUsbCableObserver = new UsbCableObserver();
-#endif
 
   // Register status reporter into reporter manager
   if (status_reporter_progress == REPORTER_UNREGISTERED) {
@@ -1462,10 +1467,7 @@ void ShutdownAutoMounter() {
   sAutoMounterSetting = nullptr;
 #endif
 
-// TODO: temporarily comment out hal/gonk/Gonk*
-#if 0
   sUsbCableObserver = nullptr;
-#endif
 
   XRE_GetIOMessageLoop()->PostTask(NewRunnableFunction(
       "ShutdownAutoMounterIOThreadRunnable", ShutdownAutoMounterIOThread));

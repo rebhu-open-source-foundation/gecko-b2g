@@ -29,7 +29,6 @@ EXPORTS += [
 ]
 
 UNIFIED_SOURCES += [
-    'AutoMounter.cpp',
     'nsVolume.cpp',
     'nsVolumeMountLock.cpp',
     'nsVolumeService.cpp',
@@ -42,6 +41,10 @@ UNIFIED_SOURCES += [
 ]
 
 include('/ipc/chromium/chromium-config.mozbuild')
+
+LOCAL_INCLUDES += [
+    '/dom/system/gonk',
+]
 
 DEFINES['HAVE_ANDROID_OS'] = True
 

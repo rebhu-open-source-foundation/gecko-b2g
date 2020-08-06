@@ -161,6 +161,7 @@ export CPPFLAGS="-DANDROID -DTARGET_OS_GONK \
 -isystem $GONK_PATH/frameworks/av/media/libmedia/include \
 -isystem $GONK_PATH/frameworks/av/media/libstagefright/foundation/include \
 -isystem $GONK_PATH/frameworks/av/media/libstagefright/include \
+-isystem $GONK_PATH/frameworks/av/media/mtp \
 -isystem $GONK_PATH/frameworks/native/headers/media_plugin \
 -isystem $GONK_PATH/frameworks/native/include/gui \
 -isystem $GONK_PATH/frameworks/native/include/media/openmax \

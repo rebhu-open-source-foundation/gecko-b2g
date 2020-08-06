@@ -385,4 +385,16 @@ def binder_b2g_telephony_so(value):
 
 set_config('BINDER_B2G_TELEPHONY_SO', binder_b2g_telephony_so)
 
+# Mtp Support
+# ==============================================================
+option('--with-mtp-so', nargs=1,
+ help='Assign the path')
+
+@depends_if('--with-mtp-so')
+def mtp_so(value):
+ return value[0]
+
+set_config('ANDROID_MTP_SO', mtp_so)
+
+
 include('common.configure')

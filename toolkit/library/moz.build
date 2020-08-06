@@ -101,6 +101,7 @@ def Libxul(name, output_category=None):
         LDFLAGS += [
             CONFIG['ANDROID_GNSS_1_0_SO'],
             CONFIG['ANDROID_DNSRESOLVER_SO'],
+            CONFIG['ANDROID_MTP_SO'],
             CONFIG['ANDROID_NETD_AIDL_SO'],
             CONFIG['ANDROID_NETD_EVENT_SO'],
             CONFIG['ANDROID_RADIO_SO'],
