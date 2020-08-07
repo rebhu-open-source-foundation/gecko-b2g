@@ -73,6 +73,8 @@ const NS_PREFBRANCH_PREFCHANGE_TOPIC_ID = "nsPref:changed";
 const kPrefRilNumRadioInterfaces = "ril.numRadioInterfaces";
 const kPrefAppCBConfigurationEnabled = "dom.app_cb_configuration";
 
+// Timeout value for emergency callback mode.
+const EMERGENCY_CB_MODE_TIMEOUT_MS = 5 * 60 * 1000;
 const RADIO_POWER_OFF_TIMEOUT = 30000;
 const HW_DEFAULT_CLIENT_ID = 0;
 
@@ -590,6 +592,10 @@ function RadioInterface(aClientId) {
 
   this._pendingSentSmsMap = {};
 
+  this._isInEmergencyCbMode = false;
+
+  this._exitEmergencyCbModeTimeoutID = null;
+
   //Cameron mark first.
   /*
   let lock = gSettingsService.createLock();
@@ -765,6 +771,17 @@ RadioInterface.prototype = {
    */
   _pendingSentSmsMap: null,
 
+
+  /**
+   * True if we are in emergency callback mode.
+   */
+  _isInEmergencyCbMode: null,
+
+  /**
+   * ECM timeout id.
+   */
+  _exitEmergencyCbModeTimeoutID: null,
+
   debug: function(s) {
     dump("-*- RadioInterface[" + this.clientId + "]: " + s + "\n");
   },
@@ -856,12 +873,6 @@ RadioInterface.prototype = {
       case "ringbackTone":
         if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_RINGBACK_TONE : playRingbackTone = " + message.playRingbackTone);
         gTelephonyService.notifyRingbackTone(this.clientId, message.playRingbackTone);
-        break;
-      // We don't need this let enterEmCb/exitEmCb to do the job.
-      case "emergencyCbModeChange":
-        gMobileConnectionService.notifyEmergencyCallbackModeChanged(this.clientId,
-                                                                    message.active,
-                                                                    message.timeoutMs);
         break;
       //====== For networkinfochange not a unsol command=====
       case "networkinfochanged":
@@ -1004,12 +1015,12 @@ RadioInterface.prototype = {
         if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_RESTRICTED_STATE_CHANGED restrictedState = " + JSON.stringify(restrictedState));
         break;
       case "enterEmergencyCbMode":
-        //Cameron TODO complete the emgCBmode
         if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_ENTER_EMERGENCY_CALLBACK_MODE");
+        this.handleChangedEmergencyCbMode(true);
         break;
       case "exitEmergencyCbMode":
-        //Cameron TODO complete the emgCBmode
         if (DEBUG) this.debug("RILJ: [UNSL]< RIL_UNSOL_EXIT_EMERGENCY_CALLBACK_MODE");
+        this.handleChangedEmergencyCbMode(false);
         break;
       case "subscriptionStatusChanged":
         let activate = message.activate;
@@ -1054,6 +1065,8 @@ RadioInterface.prototype = {
   handleRilConnected: function (newState) {
     this.sendRilRequest("setRadioEnabled", {enabled: false});
     this.sendRilRequest("setCellInfoListRate", null);
+    // Always ensure that we are not in emergency callback mode when init.
+    this.exitEmergencyCbMode();
     //Cameron handle the CDMA later.
     //mRil->setCdmaSubscriptionSource(mRil.mCdmaSubscription, null);
   },
@@ -3289,6 +3302,35 @@ RadioInterface.prototype = {
     }
   },
 
+  handleChangedEmergencyCbMode: function(active) {
+    this._isInEmergencyCbMode = active;
+
+    // Clear the existed timeout event.
+    this.cancelEmergencyCbModeTimeout();
+
+    // Start a new timeout event when entering the mode.
+    if (active) {
+      this._exitEmergencyCbModeTimeoutID = setTimeout(
+          this.exitEmergencyCbMode.bind(this), EMERGENCY_CB_MODE_TIMEOUT_MS);
+    }
+
+    gMobileConnectionService.notifyEmergencyCallbackModeChanged(this.clientId,
+                                                                active,
+                                                                EMERGENCY_CB_MODE_TIMEOUT_MS);
+  },
+
+  cancelEmergencyCbModeTimeout: function() {
+    if (this._exitEmergencyCbModeTimeoutID) {
+      clearTimeout(this._exitEmergencyCbModeTimeoutID);
+      this._exitEmergencyCbModeTimeoutID = null;
+    }
+  },
+
+  exitEmergencyCbMode: function() {
+    this.cancelEmergencyCbModeTimeout();
+    this.sendRilRequest("sendExitEmergencyCbModeRequest", null);
+  },
+
   /**
    * The "numeric" portion of the operator info is a tuple
    * containing MCC (country code) and MNC (network code).
@@ -4599,6 +4641,12 @@ RadioInterface.prototype = {
 
   processRequestDial: function(message) {
     if (DEBUG) this.debug("RILJ: ["+ message.rilMessageToken +"] > RIL_REQUEST_DIAL address = " + message.number + " , clirMode = " + message.clirMode + " , uusInfo = " + message.uusInfo);
+
+    if (!message.isEmergency && this._isInEmergencyCbMode) {
+      // Exit emergency callback mode when user dial a non-emergency call.
+      this.exitEmergencyCbMode();
+    }
+
     this.rilworker.requestDial(message.rilMessageToken, message.number || "", message.clirMode
       , (message.uusInfo ? message.uusInfo.uusType || 0 : 0)
       , (message.uusInfo ? message.uusInfo.uusDcs || 0 : 0)
