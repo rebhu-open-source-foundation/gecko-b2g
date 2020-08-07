@@ -70,7 +70,7 @@ extern "C" {
 // the max letters number per key, whose value is estimated from layout files
 #define KEY_LAYOUT_MAX_LETTERS            60
 
-#define DICT_ROOT_PATH       "/system/vendor/dict/touchpal/"
+#define DICT_ROOT_PATH       "/system/etc/dict/touchpal/"
 
 
 using namespace std;
