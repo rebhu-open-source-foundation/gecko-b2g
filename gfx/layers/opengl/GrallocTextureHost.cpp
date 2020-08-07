@@ -429,10 +429,12 @@ GrallocTextureHostOGL::WaitAcquireFenceHandleSyncComplete()
               LOCAL_EGL_SYNC_NATIVE_FENCE_FD_ANDROID, fenceFd,
               LOCAL_EGL_NONE
           };
-  auto* egl = gl::GLLibraryEGL::Get();
 
-  EGLSync sync = egl->fCreateSync(egl->Display(),
-                                  LOCAL_EGL_SYNC_NATIVE_FENCE_ANDROID,
+  nsCString ignored;
+  const auto egl = gl::DefaultEglDisplay(&ignored);
+  // auto* egl = gl::GLLibraryEGL::Get();
+
+  EGLSync sync = egl->fCreateSync(LOCAL_EGL_SYNC_NATIVE_FENCE_ANDROID,
                                   attribs);
   if (!sync) {
     NS_WARNING("failed to create native fence sync");
@@ -442,14 +444,11 @@ GrallocTextureHostOGL::WaitAcquireFenceHandleSyncComplete()
   // Wait sync complete with timeout.
   // If a source of the fence becomes invalid because of error,
   // fene complete is not signaled. See Bug 1061435.
-  EGLint status = egl->fClientWaitSync(egl->Display(),
-                                              sync,
-                                              0,
-                                              400000000 /*400 msec*/);
+  EGLint status = egl->fClientWaitSync(sync, 0, 400000000 /*400 msec*/);
   if (status != LOCAL_EGL_CONDITION_SATISFIED) {
     NS_ERROR("failed to wait native fence sync");
   }
-  MOZ_ALWAYS_TRUE( egl->fDestroySync(egl->Display(), sync) );
+  MOZ_ALWAYS_TRUE(egl->fDestroySync(sync));
 }
 
 void

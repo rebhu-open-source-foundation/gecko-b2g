@@ -575,7 +575,7 @@ void nsWindow::SetNativeData(uint32_t aDataType, uintptr_t aVal) {
         mScreen->SetEGLInfo(EGL_NO_DISPLAY, EGL_NO_SURFACE, nullptr);
         return;
       }
-      mScreen->SetEGLInfo(GLContextEGL::Cast(context)->mEgl->Display(),
+      mScreen->SetEGLInfo(GLContextEGL::Cast(context)->mEgl->mDisplay,
                           GLContextEGL::Cast(context)->GetEGLSurface(),
                           context);
       return;

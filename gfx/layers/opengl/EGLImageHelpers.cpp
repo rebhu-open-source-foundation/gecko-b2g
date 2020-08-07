@@ -6,6 +6,7 @@
 
 #include "EGLImageHelpers.h"
 #include "GLContext.h"
+#include "GLContextEGL.h"
 #include "GLLibraryEGL.h"
 
 namespace mozilla {
@@ -37,21 +38,23 @@ EGLImage EGLImageCreateFromNativeBuffer(GLContext* aGL, void* aBuffer,
       LOCAL_EGL_NONE,
   };
 
-  auto* egl = gl::GLLibraryEGL::Get();
+  nsCString ignored;
+  const auto egl = gl::DefaultEglDisplay(&ignored);
   bool hasCropRect = (aCropSize.width != 0 && aCropSize.height != 0);
   EGLint* usedAttrs = attrs;
   if (hasCropRect &&
-      egl->IsExtensionSupported(GLLibraryEGL::EGL_ANDROID_image_crop)) {
+      egl->IsExtensionSupported(EGLExtension::EGL_ANDROID_image_crop)) {
     usedAttrs = cropAttrs;
   }
 
-  return egl->fCreateImage(egl->Display(), EGL_NO_CONTEXT,
-                           LOCAL_EGL_NATIVE_BUFFER_ANDROID, aBuffer, usedAttrs);
+  return egl->fCreateImage(EGL_NO_CONTEXT, LOCAL_EGL_NATIVE_BUFFER_ANDROID,
+                           aBuffer, usedAttrs);
 }
 
 void EGLImageDestroy(GLContext* aGL, EGLImage aImage) {
-  auto* egl = gl::GLLibraryEGL::Get();
-  egl->fDestroyImage(egl->Display(), aImage);
+  nsCString ignored;
+  const auto egl = gl::DefaultEglDisplay(&ignored);
+  egl->fDestroyImage(aImage);
 }
 
 }  // namespace layers
