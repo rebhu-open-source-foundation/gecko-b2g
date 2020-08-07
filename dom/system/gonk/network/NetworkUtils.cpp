@@ -259,23 +259,27 @@ class NetdInitRunnable : public mozilla::Runnable {
         binderNetd = sm->getService(android::String16("netd"));
         binderDnsResolver = sm->getService(android::String16("dnsresolver"));
 
-        if (binderNetd != nullptr && binderDnsResolver != nullptr) {
-          break;
+        if (binderNetd != nullptr && binderDnsResolver != nullptr && IsNetdRunning()) {
+          gNetd = android::interface_cast<INetd>(binderNetd);
+          gDnsResolver = android::interface_cast<IDnsResolver>(binderDnsResolver);
+
+          // Register netlink unsolicited event listener.
+          if (!gNetdUnsolService) {
+            gNetdUnsolService = new NetdUnsolService(NetworkUtils::NotifyNetdEvent);
+          }
+
+          Status status = gNetd->registerUnsolicitedEventListener(
+              android::interface_cast<android::net::INetdUnsolicitedEventListener>(
+                  gNetdUnsolService));
+          NU_DBG("Registered NetdUnsolService %s",
+                 status.isOk() ? "Successful" : "Failed");
+          if (status.isOk()) {
+            break;
+          }
+          NU_DBG("Trying to communicate with netd ...");
         }
         usleep(1000000);
-        NU_DBG("Trying to connect with Netd ...");
       } while (true);
-      NU_DBG("Assigned gNetd/gDnsResolver");
-      gNetd = android::interface_cast<INetd>(binderNetd);
-      gDnsResolver = android::interface_cast<IDnsResolver>(binderDnsResolver);
-
-      // Register netlink unsolicited event listener.
-      gNetdUnsolService = new NetdUnsolService(NetworkUtils::NotifyNetdEvent);
-      Status status = gNetd->registerUnsolicitedEventListener(
-          android::interface_cast<android::net::INetdUnsolicitedEventListener>(
-              gNetdUnsolService));
-      NU_DBG("Registered NetdUnsolService %s",
-             status.isOk() ? "Successful" : "Failed");
     } else {
       gNetd = nullptr;
       gDnsResolver = nullptr;
