@@ -162,6 +162,7 @@ AlertsService.prototype = {
       timestamp: aDetails.timestamp || undefined,
       dataObj: aDetails.data || undefined,
       requireInteraction: aDetails.requireInteraction,
+      actions: aDetails.actions || "[]",
       mozbehavior: aDetails.mozbehavior,
       serviceWorkerRegistrationScope: aDetails.serviceWorkerRegistrationScope,
     };
@@ -186,9 +187,13 @@ AlertsService.prototype = {
     }
 
     let topic = data.topic;
+    let userAction = "";
+    if (data.extra && typeof data.extra === "string") {
+      userAction = data.extra;
+    }
 
     try {
-      listener.observer.observe(null, topic, null);
+      listener.observer.observe(null, topic, userAction);
     } catch (e) {
       // The non-empty serviceWorkerRegistrationScope means the notification
       // is issued by service worker, so deal with this listener
@@ -221,6 +226,8 @@ AlertsService.prototype = {
             listener.imageURL,
             listener.dataObj || undefined,
             listener.requireInteraction,
+            listener.actions,
+            userAction,
             listener.mozbehavior
           );
         } else if (eventName == "notificationclose") {
@@ -236,6 +243,7 @@ AlertsService.prototype = {
             listener.imageURL,
             listener.dataObj || undefined,
             listener.requireInteraction,
+            listener.actions,
             listener.mozbehavior
           );
         }

@@ -128,6 +128,7 @@ var AlertsHelper = {
           uid,
           topic,
           target: listener.target,
+          extra: detail.action || "",
         });
       } catch (e) {
         // The non-empty serviceWorkerRegistrationScope means the notification
@@ -151,6 +152,10 @@ var AlertsHelper = {
           }
 
           if (eventName == "notificationclick") {
+            let userAction = "";
+            if (detail.action && typeof detail.action === "string") {
+              userAction = detail.action;
+            }
             serviceWorkerManager.sendNotificationClickEvent(
               originSuffix,
               scope,
@@ -163,6 +168,8 @@ var AlertsHelper = {
               listener.imageURL,
               listener.dataObj || undefined,
               listener.requireInteraction,
+              listener.actions,
+              userAction,
               listener.mozbehavior
             );
           } else if (eventName == "notificationclose") {
@@ -178,6 +185,7 @@ var AlertsHelper = {
               listener.imageURL,
               listener.dataObj || undefined,
               listener.requireInteraction,
+              listener.actions,
               listener.mozbehavior
             );
           }
@@ -242,6 +250,7 @@ var AlertsHelper = {
     origin,
     timestamp,
     requireInteraction,
+    actions,
     behavior,
     serviceWorkerRegistrationScope
   ) {
@@ -252,6 +261,10 @@ var AlertsHelper = {
       debug(`No embedder support for 'showNotification()'`);
       return;
     }
+    let actionsObj;
+    try {
+      actionsObj = JSON.parse(actions);
+    } catch (e) {}
 
     this._embedderNotifications.showNotification({
       type: kDesktopNotification,
@@ -265,6 +278,7 @@ var AlertsHelper = {
       timestamp,
       data: dataObj,
       requireInteraction,
+      actions: actionsObj || [],
       mozbehavior: behavior,
       serviceWorkerRegistrationScope,
     });
@@ -315,6 +329,7 @@ var AlertsHelper = {
       timestamp: details.timestamp || undefined,
       dataObj: details.data || undefined,
       requireInteraction: details.requireInteraction,
+      actions: details.actions || "[]",
       serviceWorkerRegistrationScope: details.serviceWorkerRegistrationScope,
     };
     this.registerAppListener(data.uid, listener);
@@ -331,6 +346,7 @@ var AlertsHelper = {
       details.origin,
       details.timestamp,
       details.requireInteraction,
+      details.actions,
       details.mozbehavior,
       details.serviceWorkerRegistrationScope
     );
@@ -376,6 +392,7 @@ var AlertsEventHandler = {
     event.detail = {
       type: "desktop-notification-click",
       id: data.id,
+      action: data.action || "",
     };
     AlertsHelper.handleEvent(event);
   },

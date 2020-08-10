@@ -1542,6 +1542,7 @@ void Notification::ShowInternal() {
     ops.mMozbehavior = mBehavior;
     ops.mMozbehavior.mSoundFile = soundUrl;
     ops.mRequireInteraction = requireInteraction;
+    ops.mActions = mActionsString;
 
     if (isPersistent) {
       ops.mServiceWorkerRegistrationScope = mScope;
