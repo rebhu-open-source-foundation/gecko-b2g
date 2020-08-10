@@ -113,7 +113,6 @@ DIRS += [
 
 if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
     DIRS += [
-        'speakermanager',
         'wifi',
     ]
 
@@ -136,9 +135,6 @@ if CONFIG['MOZ_B2G_RIL']:
         'voicemail',
     ]
 # MOZ_B2G_RIL_END
-
-if CONFIG['MOZ_B2G_FM']:
-    DIRS += ['fmradio']
 
 TEST_DIRS += [
     'tests',

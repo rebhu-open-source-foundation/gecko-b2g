@@ -32,6 +32,14 @@ if CONFIG['ENABLE_TOUCHPAL']:
         'imeconnect/touchpal'
     ]
 
+if CONFIG['MOZ_B2G_FM']:
+    DIRS += ['fmradio']
+
+if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
+    DIRS += [
+        'speakermanager',
+    ]
+
 include('/ipc/chromium/chromium-config.mozbuild')
 
 FINAL_LIBRARY = 'xul'
