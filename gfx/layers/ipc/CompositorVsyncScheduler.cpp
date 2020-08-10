@@ -382,8 +382,10 @@ void CompositorVsyncScheduler::Composite(const VsyncEvent& aVsyncEvent) {
       return;
     }
   }
+  NS_DispatchToMainThread(NewRunnableMethod<TimeStamp>(
+    "CompositorVsyncScheduler::DispatchTouchEvents", this,
+    &CompositorVsyncScheduler::DispatchTouchEvents, aVsyncEvent.mTime));
 
-  DispatchTouchEvents(aVsyncEvent.mTime);
   DispatchVREvents(aVsyncEvent.mTime);
 
   if (mCompositeRequestedAt || mAsapScheduling) {
