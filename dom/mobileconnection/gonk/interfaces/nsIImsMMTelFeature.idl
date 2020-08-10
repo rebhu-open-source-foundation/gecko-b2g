@@ -125,7 +125,14 @@ interface nsIImsMMTelListener : nsISupports
    * @param session the host session who request merge.
    * @param reasonInfo failure reason.
    */
-  void onCallSessionMergeFailed(in nsIImsCallSession session, in nsIImsReasonInfo reasonInfo);
+  void onCallSessionMergeFailed(in nsIImsCallSession hostSession, in nsIImsReasonInfo reasonInfo);
+
+  /**
+   * Notifies when call is rejected by lower level, ex: during consultative transfer session.
+   * @param profile Call profile associated with rejected call.
+   * @param reasonInfo The reason whey it been rejected.
+   */
+  void onRejectedCall(in nsIImsCallProfile profile, in nsIImsReasonInfo reasonInfo);
 };
 
 [scriptable, uuid(4a1a10c0-e5d1-4550-87a1-6fea2048d62a)]
@@ -525,4 +532,3 @@ interface nsIImsMMTelFeature : nsISupports
    */
   void merge(in nsIImsCallSession host, in nsIImsCallSession peer);
 };
-

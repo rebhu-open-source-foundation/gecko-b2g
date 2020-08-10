@@ -93,6 +93,22 @@ interface nsIImsPhone : nsISupports {
   void startDtmf(in AString c);
 
   void stopDtmf();
+
+  /**
+   * ECT, to transfer active call to held call.
+   * @callback the transfer result will be notified via callback.
+   */
+  void consultativeTransfer(in nsIImsPhoneCallback callback);
+
+  /**
+   * To hangup all held calls or waiting call.
+   */
+  void hangupBackground(in nsIImsPhoneCallback callback);
+
+  /**
+   * To hangup all active calls and accept other (held or waiting) call.
+   */
+  void hangupForeground(in nsIImsPhoneCallback callback);
 };
 
 [scriptable, uuid(cd47df53-ac11-40f2-8c7f-f4ea47499721)]

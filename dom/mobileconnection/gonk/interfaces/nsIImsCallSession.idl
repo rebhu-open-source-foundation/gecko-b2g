@@ -11,180 +11,7 @@
 #include "nsISupports.idl"
 #include "nsIImsRegistration.idl"
 
-interface nsIImsCallSessionListener;
-interface nsIImsDtmfCallback;
-interface nsIImsStreamMediaProfile;
-interface nsIImsCallProfile;
 interface nsIImsReasonInfo;
-interface nsIImsSuppServiceNotification;
-interface nsIImsConferenceParticipant;
-
-[scriptable, uuid(0a848ca7-4f7a-467b-855d-9a4f16162bee)]
-interface nsIImsCallSessionListener : nsISupports
-{
-  /**
-   * Notifies call session is progressing. (Alerting).
-   *
-   * @param profile the stream media profile this call session associated with.
-   */
-  void onCallSessionProgressing(in nsIImsStreamMediaProfile profile);
-
-  /**
-   * Notifies call session is started. (IN_CALL).
-   *
-   * @param profile call profile this call session associated with.
-   */
-  void onCallSessionStarted(in nsIImsCallProfile profile);
-
-  /**
-   * Notifies call session start failed. (ENDED)
-   *
-   * @param reasonInfo start failure reason info.
-   */
-  void onCallSessionStartFailed(in nsIImsReasonInfo reasonInfo);
-
-  /**
-   * Notifies call session is terminated. (ENDED)
-   *
-   * @param reasonInfo termination reason info.
-   */
-  void onCallSessionTerminated(in nsIImsReasonInfo reasonInfo);
-
-  /**
-   * Notifies call session hold request is succeed. (HELD).
-   *
-   * @param profile call profile this call session associated with.
-   */
-  void onCallSessionHeld(in nsIImsCallProfile profile);
-
-  /**
-   * Notifies call session hold request is failed.
-   *
-   * @param reasonInfo hold failure reason info.
-   */
-  void onCallSessionHoldFailed(in nsIImsReasonInfo reasonInfo);
-
-  /**
-   * Notifies call session resume request is succeed.
-   *
-   * @param profile call profile this call session associated with.
-   */
-  void onCallSessionResumed(in nsIImsCallProfile profile);
-
-  /**
-   * Notifies call session resume request is failed.
-   *
-   * @param reasonInfo resume failure reason info.
-   */
-  void onCallSessionResumeFailed(in nsIImsReasonInfo reasonInfo);
-
-  /**
-   * Notifies remote hold this call session.
-   *
-   * @param profile The profile associted with this session.
-   */
-  void onCallSessionHoldReceived(in nsIImsCallProfile profile);
-
-  /**
-   * Notifies remote resume a call which is previously held by remote.
-   *
-   * @param profile The profile associted with this session.
-   */
-  void onCallSessionResumeReceived(in nsIImsCallProfile profile);
-
-  /**
-   * Notifies the result of call upgrade / downgrade or other updates.
-   * @param profile the updated call profile.
-   */
-  void onCallSessionUpdated(in nsIImsCallProfile profile);
-
-  /**
-   * Device received RTT modify request from remote.
-   * @param toProfile call profile with updated attribute.
-   */
-  void onCallSessionRttModifyRequestReceived(in nsIImsCallProfile profile);
-
-  /**
-   * Device issued RTT modify request and received remote response.
-   * @param status remote response.
-   *        Possible values: IImsCallSession#SESSION_MODIFY_REQUEST_*.
-   */
-  void onCallSessionRttModifyResponseReceived(in long status);
-
-  /**
-   * Device received RTT message from remote.
-   * @param rttMessage rtt message.
-   */
-  void onCallSessionRttMessageReceived(in AString rttMessage);
-
-  /**
-   * RTT audio indicatin has been changed while in a call.
-   * @param profile media profile associated with this call session.
-   */
-  void onCallSessionRttAudioIndicatorChanged(in nsIImsStreamMediaProfile profile);
-
-  /**
-   * Notifies the supplementary service information for this session.
-   */
-  void onCallSessionSuppServiceReceived(in nsIImsSuppServiceNotification suppSrvNotification);
-
-  /**
-   * Notifies the TTY mode change by remote.
-   * @param mode new tty mode.
-   *        Possible values: IImsMMTelFeature#TTY_MODE_*.
-   */
-  void onCallSessionTtyModeReceived(in long mode);
-
-  /**
-   * Notifies the call session may handover from one network type to another.
-   *
-   * @param srcTech the source radio technology.
-   *        Possible values: IImsRegistration#RADIO_TECH_*.
-   * @param targetTech the target radio technology.
-   *        Possible values: IImsRegistration#RADIO_TECH_*.
-   */
-  void onCallSessionMayHandover(in long srcTech, in long targetTech);
-
-  /**
-   * Notifies call session's access techonology has changed.
-   *
-   * @param srcTech the source radio technology.
-   *        Possible values: IImsRegistration#RADIO_TECH_*.
-   * @param targetTech the target radio technology.
-   *        Possible values: IImsRegistration#RADIO_TECH_*.
-   */
-  void onCallSessionHandover(in long srcTech, in long targetTech);
-
-  /**
-   * Notifies call session's access techonology change has failed.
-   * @param srcTech the source radio technology.
-   *        Possible values: IImsRegistration#RADIO_TECH_*.
-   * @param targetTech the target radio technology.
-   *        Possible values: IImsRegistration#RADIO_TECH_*.
-   * @param reasonInfo the fail reason.
-   *        The reason code are mostly IImsRasonInfo#CODE_UNSPECIFIED and
-   *        IImsRasonInfo#CODE_CALL_DROP_IWLAN_TO_LTE_UNAVAILABLE.
-   */
-  void onCallSessionHandoverFailed(in long srcTech, in long targetTech, in nsIImsReasonInfo reasonInfo);
-
-  /**
-   * Notifies conference state change info in the conference call.
-   *
-   * @param participants the update conference state info.
-   */
-  void onCallSessionConferenceStateUpdated(in Array<nsIImsConferenceParticipant> participants);
-
-  /**
-   * Notifies remove participants from conference request has been delievered to conference server.
-   * onCallSessionConferenceStateUpdated is expected to refresh the participants list.
-   */
-  void onCallSessionRemoveParticipantsRequestDelivered();
-
-  /**
-   * Notifies remove participants from conerence request has been delivered to conference server and failed.
-   */
-  void onCallSessionRemoveParticipantsRequestFailed(in nsIImsReasonInfo reasonInfo);
-};
 
 [scriptable, uuid(e6f0df18-a74c-4068-99e9-3cef7e58372c)]
 interface nsIImsSuppServiceNotification : nsISupports
@@ -208,79 +35,9 @@ interface nsIImsSuppServiceNotification : nsISupports
   readonly attribute Array<AString> history;
 };
 
-[scriptable, uuid(2a1982ec-bdad-43b2-89e9-532ed6f27bd1)]
-interface nsIImsConferenceParticipant : nsISupports
-{
-
-  /**
-   * status-type
-   * STATUS_PENDING : Endpoint is not yet in the session, but it is anticipated that he/she will
-   *      join in the near future.
-   * STATUS_DIALING_OUT : Focus has dialed out to connect the endpoint to the conference,
-   *      but the endpoint is not yet in the roster (probably being authenticated).
-   * STATUS_DIALING_IN : Endpoint is dialing into the conference, not yet in the roster
-   *      (probably being authenticated).
-   * STATUS_ALERTING : PSTN alerting or SIP 180 Ringing was returned for the outbound call;
-   *      endpoint is being alerted.
-   * STATUS_ON_HOLD : Active signaling dialog exists between an endpoint and a focus,
-   *      but endpoint is "on-hold" for this conference, i.e., he/she is neither "hearing"
-   *      the conference mix nor is his/her media being mixed in the conference.
-   * STATUS_CONNECTED : Endpoint is a participant in the conference. Depending on the media policies,
-   *      he/she can send and receive media to and from other participants.
-   * STATUS_DISCONNECTING : Focus is in the process of disconnecting the endpoint
-   *      (e.g. in SIP a DISCONNECT or BYE was sent to the endpoint).
-   * STATUS_DISCONNECTED : Endpoint is not a participant in the conference, and no active dialog
-   *      exists between the endpoint and the focus.
-   * STATUS_MUTED_VIA_FOCUS : Active signaling dialog exists beween an endpoint and a focus and
-   *      the endpoint can "listen" to the conference, but the endpoint's media is not being
-   *      mixed into the conference.
-   * STATUS_CONNECT_FAIL : Endpoint fails to join the conference by rejecting the conference call.
-   */
-  const long STATUS_PENDING = 0;
-  const long STATUS_DIALING_OUT = 1;
-  const long STATUS_DIALING_IN = 2;
-  const long STATUS_ALERTING = 3;
-  const long STATUS_ON_HOLD = 4;
-  const long STATUS_CONNECTED = 5;
-  const long STATUS_DISCONNECTING = 6;
-  const long STATUS_DISCONNECTED = 7;
-  const long STATUS_MUTED_VIA_FOCUS = 8;
-  const long STATUS_CONNECT_FAIL = 9;
-  const long STATUS_SEND_ONLY = 10;
-  const long STATUS_SEND_RECV = 11;
-
-  /**
-   * The state of participant in conference.
-   * Possible values: IImsConferenceParticipant#STATUS_*.
-   */
-  readonly attribute long  status;
-
-  /**
-   * The conference participant's handle, ex: phone number.
-   */
-  readonly attribute AString handleUri;
-
-  /**
-   * The endpoint uri uniquely identifies this confernce participant.
-   */
-  readonly attribute AString endpointUri;
-
-  /**
-   * The display name of this confernce participant.
-   */
-  readonly attribute AString displayName;
-};
-
-[scriptable, uuid(ef74c969-59c7-40a6-a504-0b126cba8330)]
-interface nsIImsDtmfCallback : nsISupports
-{
-  void onDtmfDone();
-};
-
 [scriptable, uuid(9df2ad74-72bd-442b-afa0-3ad8274ce8e7)]
 interface nsIImsStreamMediaProfile : nsISupports
 {
-
   /**
    * Audio information
    */
@@ -308,7 +65,7 @@ interface nsIImsStreamMediaProfile : nsISupports
 
   /**
    * The audio quality.
-   * Possible values: IImsStreamMediaProfile#AUDIO_QUALITY_*.
+   * Possible values: nsIImsStreamMediaProfile#AUDIO_QUALITY_*.
    */
   readonly attribute long audioQuality;
 
@@ -320,7 +77,7 @@ interface nsIImsStreamMediaProfile : nsISupports
 
   /**
    * Current RTT mode.
-   * Possible values: IImsStreamMediaProfile#RTT_MODE_*.
+   * Possible values: nsIImsStreamMediaProfile#RTT_MODE_*.
    */
   readonly attribute long rttMode;
 
@@ -341,7 +98,7 @@ interface nsIImsStreamMediaProfile : nsISupports
   /**
    * Current audio direction.
    * Mostly used for MO call ringback tone indication.
-   * Possible values: IImsStreamMediaProfile#DIRECTION_INVALID.
+   * Possible values: nsIImsStreamMediaProfile#DIRECTION_*.
    */
   readonly attribute long audioDirection;
 
@@ -527,6 +284,252 @@ interface nsIImsCallProfile : nsISupports
   readonly attribute long dialString;
 };
 
+[scriptable, uuid(2a1982ec-bdad-43b2-89e9-532ed6f27bd1)]
+interface nsIImsConferenceParticipant : nsISupports
+{
+
+  /**
+   * status-type
+   * STATUS_PENDING : Endpoint is not yet in the session, but it is anticipated that he/she will
+   *      join in the near future.
+   * STATUS_DIALING_OUT : Focus has dialed out to connect the endpoint to the conference,
+   *      but the endpoint is not yet in the roster (probably being authenticated).
+   * STATUS_DIALING_IN : Endpoint is dialing into the conference, not yet in the roster
+   *      (probably being authenticated).
+   * STATUS_ALERTING : PSTN alerting or SIP 180 Ringing was returned for the outbound call;
+   *      endpoint is being alerted.
+   * STATUS_ON_HOLD : Active signaling dialog exists between an endpoint and a focus,
+   *      but endpoint is "on-hold" for this conference, i.e., he/she is neither "hearing"
+   *      the conference mix nor is his/her media being mixed in the conference.
+   * STATUS_CONNECTED : Endpoint is a participant in the conference. Depending on the media policies,
+   *      he/she can send and receive media to and from other participants.
+   * STATUS_DISCONNECTING : Focus is in the process of disconnecting the endpoint
+   *      (e.g. in SIP a DISCONNECT or BYE was sent to the endpoint).
+   * STATUS_DISCONNECTED : Endpoint is not a participant in the conference, and no active dialog
+   *      exists between the endpoint and the focus.
+   * STATUS_MUTED_VIA_FOCUS : Active signaling dialog exists beween an endpoint and a focus and
+   *      the endpoint can "listen" to the conference, but the endpoint's media is not being
+   *      mixed into the conference.
+   * STATUS_CONNECT_FAIL : Endpoint fails to join the conference by rejecting the conference call.
+   */
+  const long STATUS_PENDING = 0;
+  const long STATUS_DIALING_OUT = 1;
+  const long STATUS_DIALING_IN = 2;
+  const long STATUS_ALERTING = 3;
+  const long STATUS_ON_HOLD = 4;
+  const long STATUS_CONNECTED = 5;
+  const long STATUS_DISCONNECTING = 6;
+  const long STATUS_DISCONNECTED = 7;
+  const long STATUS_MUTED_VIA_FOCUS = 8;
+  const long STATUS_CONNECT_FAIL = 9;
+  const long STATUS_SEND_ONLY = 10;
+  const long STATUS_SEND_RECV = 11;
+
+  /**
+   * The state of participant in conference.
+   * Possible values: nsIImsConferenceParticipant#STATUS_*.
+   */
+  readonly attribute long  status;
+
+  /**
+   * The conference participant's handle, ex: phone number.
+   */
+  readonly attribute AString handleUri;
+
+  /**
+   * The endpoint uri uniquely identifies this confernce participant.
+   */
+  readonly attribute AString endpointUri;
+
+  /**
+   * The display name of this confernce participant.
+   */
+  readonly attribute AString displayName;
+};
+
+[scriptable, uuid(0a848ca7-4f7a-467b-855d-9a4f16162bee)]
+interface nsIImsCallSessionListener : nsISupports
+{
+  /**
+   * Notifies call session is progressing. (Alerting).
+   *
+   * @param profile the stream media profile this call session associated with.
+   */
+  void onCallSessionProgressing(in nsIImsStreamMediaProfile profile);
+
+  /**
+   * Notifies call session is started. (IN_CALL).
+   *
+   * @param profile call profile this call session associated with.
+   */
+  void onCallSessionStarted(in nsIImsCallProfile profile);
+
+  /**
+   * Notifies call session start failed. (ENDED)
+   *
+   * @param reasonInfo start failure reason info.
+   */
+  void onCallSessionStartFailed(in nsIImsReasonInfo reasonInfo);
+
+  /**
+   * Notifies call session is terminated. (ENDED)
+   *
+   * @param reasonInfo termination reason info.
+   */
+  void onCallSessionTerminated(in nsIImsReasonInfo reasonInfo);
+
+  /**
+   * Notifies call session hold request is succeed. (HELD).
+   *
+   * @param profile call profile this call session associated with.
+   */
+  void onCallSessionHeld(in nsIImsCallProfile profile);
+
+  /**
+   * Notifies call session hold request is failed.
+   *
+   * @param reasonInfo hold failure reason info.
+   */
+  void onCallSessionHoldFailed(in nsIImsReasonInfo reasonInfo);
+
+  /**
+   * Notifies call session resume request is succeed.
+   *
+   * @param profile call profile this call session associated with.
+   */
+  void onCallSessionResumed(in nsIImsCallProfile profile);
+
+  /**
+   * Notifies call session resume request is failed.
+   *
+   * @param reasonInfo resume failure reason info.
+   */
+  void onCallSessionResumeFailed(in nsIImsReasonInfo reasonInfo);
+
+  /**
+   * Notifies remote hold this call session.
+   *
+   * @param profile The profile associted with this session.
+   */
+  void onCallSessionHoldReceived(in nsIImsCallProfile profile);
+
+  /**
+   * Notifies remote resume a call which is previously held by remote.
+   *
+   * @param profile The profile associted with this session.
+   */
+  void onCallSessionResumeReceived(in nsIImsCallProfile profile);
+
+  /**
+   * Notifies the result of call upgrade / downgrade or other updates.
+   * @param profile the updated call profile.
+   */
+  void onCallSessionUpdated(in nsIImsCallProfile profile);
+
+  /**
+   * Device received RTT modify request from remote.
+   * @param toProfile call profile with updated attribute.
+   */
+  void onCallSessionRttModifyRequestReceived(in nsIImsCallProfile profile);
+
+  /**
+   * Device issued RTT modify request and received remote response.
+   * @param status remote response.
+   *        Possible values: nsIImsCallSession#SESSION_MODIFY_REQUEST_*.
+   */
+  void onCallSessionRttModifyResponseReceived(in long status);
+
+  /**
+   * Device received RTT message from remote.
+   * @param rttMessage rtt message.
+   */
+  void onCallSessionRttMessageReceived(in AString rttMessage);
+
+  /**
+   * RTT audio indicatin has been changed while in a call.
+   * @param profile media profile associated with this call session.
+   */
+  void onCallSessionRttAudioIndicatorChanged(in nsIImsStreamMediaProfile profile);
+
+  /**
+   * Notifies the supplementary service information for this session.
+   */
+  void onCallSessionSuppServiceReceived(in nsIImsSuppServiceNotification suppSrvNotification);
+
+  /**
+   * Notifies the TTY mode change by remote.
+   * @param mode new tty mode.
+   *        Possible values: nsIImsMMTelFeature#TTY_MODE_*.
+   */
+  void onCallSessionTtyModeReceived(in long mode);
+
+  /**
+   * Notifies the call session may handover from one network type to another.
+   *
+   * @param srcTech the source radio technology.
+   *        Possible values: nsIImsRegistration#RADIO_TECH_*.
+   * @param targetTech the target radio technology.
+   *        Possible values: nsIImsRegistration#RADIO_TECH_*.
+   */
+  void onCallSessionMayHandover(in long srcTech, in long targetTech);
+
+  /**
+   * Notifies call session's access techonology has changed.
+   *
+   * @param srcTech the source radio technology.
+   *        Possible values: nsIImsRegistration#RADIO_TECH_*.
+   * @param targetTech the target radio technology.
+   *        Possible values: nsIImsRegistration#RADIO_TECH_*.
+   */
+  void onCallSessionHandover(in long srcTech, in long targetTech);
+
+  /**
+   * Notifies call session's access techonology change has failed.
+   * @param srcTech the source radio technology.
+   *        Possible values: IImsRegistration#RADIO_TECH_*.
+   * @param targetTech the target radio technology.
+   *        Possible values: IImsRegistration#RADIO_TECH_*.
+   * @param reasonInfo the fail reason.
+   *        The reason code are mostly IImsRasonInfo#CODE_UNSPECIFIED and
+   *        IImsRasonInfo#CODE_CALL_DROP_IWLAN_TO_LTE_UNAVAILABLE.
+   */
+  void onCallSessionHandoverFailed(in long srcTech, in long targetTech, in nsIImsReasonInfo reasonInfo);
+
+  /**
+   * Notifies conference state change info in the conference call.
+   *
+   * @param participants the update conference state info.
+   */
+  void onCallSessionConferenceStateUpdated(in Array<nsIImsConferenceParticipant> participants);
+
+  /**
+   * Notifies remove participants from conference request has been delievered to conference server.
+   * onCallSessionConferenceStateUpdated is expected to refresh the participants list.
+   */
+  void onCallSessionRemoveParticipantsRequestDelivered();
+
+  /**
+   * Notifies remove participants from conerence request has been delivered to conference server and failed.
+   */
+  void onCallSessionRemoveParticipantsRequestFailed(in nsIImsReasonInfo reasonInfo);
+
+  /**
+   * Notifies call transfer request success.
+   */
+  void onCallSessionTransferred();
+
+  /**
+   * Notifies call transfer request failed.
+   * @param reasonInfo failure reason.
+   */
+  void onCallSessionTransferFailed(in nsIImsReasonInfo reasonInfo);
+};
+
+[scriptable, uuid(ef74c969-59c7-40a6-a504-0b126cba8330)]
+interface nsIImsDtmfCallback : nsISupports
+{
+  void onDtmfDone();
+};
 
 [scriptable, uuid(48a5bc25-8d3e-4b88-b1ec-16139ea3f545)]
 interface nsIImsCallSession : nsISupports
@@ -655,5 +658,48 @@ interface nsIImsCallSession : nsISupports
    */
   const long USSD_MODE_NOTIFY = 0;
   const long USSD_MODE_REQUEST = 1;
-};
 
+  /**
+   * Session modify request result codes.
+   */
+  const long SESSION_MODIFY_REQUEST = 1;
+  const long SESSION_MODIFY_REQUEST_FAIL = 2;
+  const long SESSION_MODIFY_REQUEST_INVALID = 3;
+  const long SESSION_MODIFY_REQUEST_TIMED_OUT = 4;
+  const long SESSION_MODIFY_REQUEST_REJECTED_BY_REMOTE = 5;
+
+  /**
+   * To issue RTT modify request.
+   * @param toProfile the profile with requested changes.
+   */
+  void sendRttModifyRequest(in nsIImsCallProfile toProfile);
+  /**
+   * To response to remote RTT modify request.
+   * @param status true: to accept request.
+   *               false: to decline request.
+   */
+  void sendRttModifyResponse(in bool status);
+  /**
+   * To send RTT message.
+   * @param rttMessaget rtt message to be sent.
+   */
+  void sendRttMessage(in AString rttMessage);
+
+  /**
+   * To determine whether current session is a multi-party call or not.
+   *  @return true if it is multi-party call.
+   */
+  bool isMultiparty();
+
+  /**
+   * To remove participants from conference call.
+   *  @param participants participants to be removed.
+   */
+  void removeParticipants(in Array<AString> participants);
+
+  /**
+   * To transfer this established call to another call session.
+   * @param to session the call session to be tranferred to.
+   */
+  void consultativeTransfer(in nsIImsCallSession toSession);
+};

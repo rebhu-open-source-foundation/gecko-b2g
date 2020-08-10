@@ -4,9 +4,6 @@
 
 #include "nsISupports.idl"
 
-interface nsIImsRegistrationListener;
-interface nsIImsReasonInfo;
-
 [scriptable, uuid(80b37c21-b423-4abe-9715-b435911e134a)]
 interface nsIImsReasonInfo : nsISupports
 {
@@ -56,4 +53,3 @@ interface nsIImsRegistration : nsISupports
 
   void removeListener(in nsIImsRegistrationListener listener);
 };
-
