@@ -102,6 +102,7 @@ class DeviceStorageFile final : public nsISupports {
   void Dump(const char* label);
 
   nsresult Remove();
+  nsresult Create();
   nsresult Write(nsIInputStream* aInputStream);
   nsresult Write(nsTArray<uint8_t>& bits);
   nsresult Append(nsIInputStream* aInputStream);
@@ -135,6 +136,7 @@ class DeviceStorageFile final : public nsISupports {
   void AccumDirectoryUsage(nsIFile* aFile, uint64_t* aPicturesSoFar,
                            uint64_t* aVideosSoFar, uint64_t* aMusicSoFar,
                            uint64_t* aTotalSoFar);
+  int64_t mRemainsSize;
 };
 
 #define NS_DOM_DEVICE_STORAGE_CID                    \

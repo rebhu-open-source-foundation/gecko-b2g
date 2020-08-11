@@ -14,6 +14,7 @@
 #include "nsProxyRelease.h"
 #include "mozilla/Preferences.h"
 #include "nsNetCID.h"
+#include "nsIAsyncInputStream.h"
 
 namespace mozilla {
 namespace dom {
@@ -305,6 +306,29 @@ nsresult DeviceStorageRequestParent::CreateFdEvent::CancelableRun() {
   return NS_DispatchToMainThread(r.forget());
 }
 
+
+class AsyncWriteFileHelper final : public nsIInputStreamCallback {
+ public:
+    NS_DECL_THREADSAFE_ISUPPORTS
+
+  explicit AsyncWriteFileHelper(Runnable* aRequest)
+    : mRequest(aRequest) {
+      MOZ_ASSERT(aRequest);
+    }
+
+  NS_IMETHOD OnInputStreamReady(nsIAsyncInputStream* aSource) override {
+    nsCOMPtr<nsIEventTarget> target = do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
+    MOZ_ASSERT(target);
+    return target->Dispatch(mRequest, NS_DISPATCH_NORMAL);
+  }
+
+ private:
+  virtual ~AsyncWriteFileHelper() = default;
+  RefPtr<Runnable> mRequest;
+};
+
+NS_IMPL_ISUPPORTS(AsyncWriteFileHelper, nsIInputStreamCallback)
+
 nsresult DeviceStorageRequestParent::WriteFileEvent::CancelableRun() {
   MOZ_ASSERT(!NS_IsMainThread());
 
@@ -313,25 +337,57 @@ nsresult DeviceStorageRequestParent::WriteFileEvent::CancelableRun() {
         new PostErrorEvent(mParent, POST_ERROR_EVENT_UNKNOWN));
   }
 
-  bool check = false;
-  nsresult rv;
-  mFile->mFile->Exists(&check);
-
-  if (mRequestType == DEVICE_STORAGE_REQUEST_CREATE) {
-    if (check) {
-      return NS_DispatchToMainThread(
-          new PostErrorEvent(mParent, POST_ERROR_EVENT_FILE_EXISTS));
-    }
-    rv = mFile->Write(mInputStream);
-  } else if (mRequestType == DEVICE_STORAGE_REQUEST_APPEND) {
-    if (!check) {
-      return NS_DispatchToMainThread(
-          new PostErrorEvent(mParent, POST_ERROR_EVENT_FILE_DOES_NOT_EXIST));
-    }
-    rv = mFile->Append(mInputStream);
-  } else {
+  if (mRequestType != DEVICE_STORAGE_REQUEST_CREATE &&
+      mRequestType != DEVICE_STORAGE_REQUEST_APPEND) {
     return NS_DispatchToMainThread(
+      new PostErrorEvent(mParent, POST_ERROR_EVENT_UNKNOWN));
+  }
+
+  nsresult rv = NS_OK;
+
+  if (!mOutputStream) {
+    // check if the file is existed at the first run
+    bool check = false;
+    mFile->mFile->Exists(&check);
+    if (check && mRequestType == DEVICE_STORAGE_REQUEST_CREATE) {
+      return NS_DispatchToMainThread(
+        new PostErrorEvent(mParent, POST_ERROR_EVENT_FILE_EXISTS));
+    } else if (!check && mRequestType == DEVICE_STORAGE_REQUEST_APPEND) {
+      return NS_DispatchToMainThread(
+        new PostErrorEvent(mParent, POST_ERROR_EVENT_FILE_DOES_NOT_EXIST));
+    }
+
+    if (mRequestType == DEVICE_STORAGE_REQUEST_CREATE) {
+      rv = mFile->Create();
+      if (NS_WARN_IF(NS_FAILED(rv))) {
+        return NS_DispatchToMainThread(
+          new PostErrorEvent(mParent, POST_ERROR_EVENT_UNKNOWN));
+      }
+    }
+    nsCOMPtr<nsIOutputStream> outputStream;
+    NS_NewLocalFileOutputStream(getter_AddRefs(outputStream), mFile->mFile);
+    if (!outputStream) {
+      return NS_DispatchToMainThread(
         new PostErrorEvent(mParent, POST_ERROR_EVENT_UNKNOWN));
+    }
+    mOutputStream = outputStream;
+
+    nsCOMPtr<nsIOutputStream> bufferedStream;
+    NS_NewBufferedOutputStream(getter_AddRefs(bufferedStream),
+                               outputStream.forget(), 4096 * 4);
+    if (!bufferedStream) {
+      return NS_DispatchToMainThread(
+        new PostErrorEvent(mParent, POST_ERROR_EVENT_UNKNOWN));
+    }
+    mBufferedOutputStream = bufferedStream;
+  }
+
+  rv = mFile->Append(mInputStream, mBufferedOutputStream);
+  if (rv == NS_BASE_STREAM_WOULD_BLOCK) {
+    nsCOMPtr<nsIAsyncInputStream> asyncInputStream = do_QueryInterface(mInputStream);
+    MOZ_ASSERT(asyncInputStream);
+    asyncInputStream->AsyncWait(new AsyncWriteFileHelper(this), 0, 0, nullptr);
+    return NS_OK;
   }
 
   nsCOMPtr<nsIRunnable> r;

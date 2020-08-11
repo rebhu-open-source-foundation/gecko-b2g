@@ -15,6 +15,7 @@
 #include "nsThreadUtils.h"
 #include "nsDeviceStorage.h"
 #include "nsTArray.h"
+#include "nsIOutputStream.h"
 
 namespace mozilla {
 namespace dom {
@@ -150,12 +151,16 @@ class DeviceStorageRequestParent : public PDeviceStorageRequestParent {
                    nsIInputStream* aInputStream, int32_t aRequestType)
         : CancelableFileEvent(aParent, std::move(aFile)),
           mInputStream(aInputStream),
+          mOutputStream(nullptr),
+          mBufferedOutputStream(nullptr),
           mRequestType(aRequestType) {}
     virtual ~WriteFileEvent() {}
     virtual nsresult CancelableRun();
 
    private:
     nsCOMPtr<nsIInputStream> mInputStream;
+    AutoCloseStream<nsIOutputStream> mOutputStream;
+    AutoCloseStream<nsIOutputStream> mBufferedOutputStream;
     int32_t mRequestType;
   };
 

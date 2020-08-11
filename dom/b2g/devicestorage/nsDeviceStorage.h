@@ -395,4 +395,41 @@ class DeviceStorageCursorRequest final : public DeviceStorageRequest {
   nsTArray<RefPtr<DeviceStorageFile>> mFiles;
 };
 
+template <typename T>
+class AutoCloseStream {
+public:
+  AutoCloseStream(T* aStream) : mStream(aStream) {}
+  ~AutoCloseStream() { if (mStream) mStream->Close(); }
+
+  explicit operator bool() {
+    return mStream;
+  }
+
+  already_AddRefed<T> forget() {
+    return mStream.forget();
+  }
+
+  AutoCloseStream<T>& operator=(T* aStream) {
+    mStream = aStream;
+    return *this;
+  }
+
+  AutoCloseStream<T>& operator=(const nsCOMPtr<T>& aStream) {
+    mStream = aStream;
+    return *this;
+  }
+
+  T* get() const {
+    return mStream;
+  }
+
+  operator T*() const { return get(); }
+
+private:
+  void operator=(const AutoCloseStream<T>&) = delete;
+  AutoCloseStream(const AutoCloseStream<T>&) = delete;
+
+  nsCOMPtr<T> mStream;
+};
+
 #endif

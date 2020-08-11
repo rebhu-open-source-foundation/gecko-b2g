@@ -37,6 +37,7 @@
 #include "nsIFile.h"
 #include "nsIDirectoryEnumerator.h"
 #include "nsIInputStream.h"
+#include "nsIInputStreamLength.h"
 #include "nsNetUtil.h"
 #include "nsIOutputStream.h"
 #include "nsCycleCollectionParticipant.h"
@@ -470,7 +471,8 @@ DeviceStorageFile::DeviceStorageFile(const nsAString& aStorageType,
       mPath(aPath),
       mEditable(false),
       mLength(UINT64_MAX),
-      mLastModifiedDate(UINT64_MAX) {
+      mLastModifiedDate(UINT64_MAX),
+      mRemainsSize(-1) {
   Init();
   AppendRelativePath(mRootDir);
   if (!mPath.EqualsLiteral("")) {
@@ -488,7 +490,8 @@ DeviceStorageFile::DeviceStorageFile(const nsAString& aStorageType,
       mPath(aPath),
       mEditable(false),
       mLength(UINT64_MAX),
-      mLastModifiedDate(UINT64_MAX) {
+      mLastModifiedDate(UINT64_MAX),
+      mRemainsSize(-1) {
   Init();
   AppendRelativePath(aPath);
   NormalizeFilePath(mPath);
@@ -500,7 +503,8 @@ DeviceStorageFile::DeviceStorageFile(const nsAString& aStorageType,
       mStorageName(aStorageName),
       mEditable(false),
       mLength(UINT64_MAX),
-      mLastModifiedDate(UINT64_MAX) {
+      mLastModifiedDate(UINT64_MAX),
+      mRemainsSize(-1) {
   Init();
 }
 
@@ -778,10 +782,8 @@ nsresult DeviceStorageFile::CreateFileDescriptor(
   return NS_OK;
 }
 
-nsresult DeviceStorageFile::Write(nsIInputStream* aInputStream) {
-  if (!aInputStream || !mFile) {
-    return NS_ERROR_FAILURE;
-  }
+nsresult DeviceStorageFile::Create() {
+  NS_ENSURE_TRUE(mFile, NS_ERROR_FAILURE);
 
   nsresult rv = mFile->Create(nsIFile::NORMAL_FILE_TYPE, 00600);
   if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -792,42 +794,41 @@ nsresult DeviceStorageFile::Write(nsIInputStream* aInputStream) {
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
+  return NS_OK;
+}
 
-  nsCOMPtr<nsIOutputStream> outputStream;
-  NS_NewLocalFileOutputStream(getter_AddRefs(outputStream), mFile);
+nsresult DeviceStorageFile::Write(nsIInputStream* aInputStream) {
+  NS_ENSURE_TRUE(aInputStream, NS_ERROR_FAILURE);
 
-  if (!outputStream) {
-    return NS_ERROR_FAILURE;
+  nsresult rv = Create();
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
   }
 
+  nsCOMPtr<nsIOutputStream> outputStream;
+  rv = NS_NewLocalFileOutputStream(getter_AddRefs(outputStream), mFile);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
+
+  AutoCloseStream<nsIOutputStream> acOutputStream(outputStream);
   return Append(aInputStream, outputStream);
 }
 
 nsresult DeviceStorageFile::Write(nsTArray<uint8_t>& aBits) {
-  if (!mFile) {
-    return NS_ERROR_FAILURE;
-  }
-
-  nsresult rv = mFile->Create(nsIFile::NORMAL_FILE_TYPE, 00600);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-
-  rv = NS_DispatchToMainThread(new IOEventComplete(this, "created"));
+  nsresult rv = Create();
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
 
   nsCOMPtr<nsIOutputStream> outputStream;
-  NS_NewLocalFileOutputStream(getter_AddRefs(outputStream), mFile);
-
-  if (!outputStream) {
-    return NS_ERROR_FAILURE;
-  }
-
+  rv = NS_NewLocalFileOutputStream(getter_AddRefs(outputStream), mFile);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  };
+  AutoCloseStream<nsIOutputStream> acOutputStream(outputStream);
   uint32_t wrote;
   outputStream->Write((char*)aBits.Elements(), aBits.Length(), &wrote);
-  outputStream->Close();
 
   rv = NS_DispatchToMainThread(new IOEventComplete(this, "modified"));
   if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -848,43 +849,60 @@ nsresult DeviceStorageFile::Append(nsIInputStream* aInputStream) {
   nsCOMPtr<nsIOutputStream> outputStream;
   NS_NewLocalFileOutputStream(getter_AddRefs(outputStream), mFile,
                               PR_WRONLY | PR_CREATE_FILE | PR_APPEND, -1, 0);
-
   if (!outputStream) {
     return NS_ERROR_FAILURE;
   }
 
+  AutoCloseStream<nsIOutputStream> acOutputStream(outputStream);
   return Append(aInputStream, outputStream);
 }
 
 nsresult DeviceStorageFile::Append(nsIInputStream* aInputStream,
                                    nsIOutputStream* aOutputStream) {
-  uint64_t bufSize = 0;
-  aInputStream->Available(&bufSize);
+  uint32_t wrote;
+  uint64_t avail = 0;
+  nsCOMPtr<nsIAsyncInputStream> asyncInputStream = do_QueryInterface(aInputStream);
+  nsCOMPtr<nsIInputStreamLength> lengthWrapper = do_QueryInterface(asyncInputStream);
 
-  nsCOMPtr<nsIOutputStream> bufferedOutputStream;
-  nsCOMPtr<nsIOutputStream> outputStream(aOutputStream);
-  nsresult rv = NS_NewBufferedOutputStream(getter_AddRefs(bufferedOutputStream),
-                                           outputStream.forget(), 4096 * 4);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  while (bufSize) {
-    uint32_t wrote;
-    rv = bufferedOutputStream->WriteFrom(
-        aInputStream,
-        static_cast<uint32_t>(std::min<uint64_t>(bufSize, UINT32_MAX)), &wrote);
-    if (NS_FAILED(rv)) {
-      break;
+  nsresult rv = NS_OK;
+  if (asyncInputStream && lengthWrapper) {
+    if (mRemainsSize == -1) {
+      rv = lengthWrapper->Length(&mRemainsSize);
+      if (NS_WARN_IF(NS_FAILED(rv))) {
+        return rv;
+      }
+      if (mRemainsSize == -1) {
+        // need to wait for more data, return error to inform caller to re-rey later.
+        return NS_BASE_STREAM_WOULD_BLOCK;
+      }
     }
-    bufSize -= wrote;
+    while (mRemainsSize > 0) {
+      rv = asyncInputStream->Available(&avail);
+      if (NS_FAILED(rv)) {
+        break;
+      }
+      if (avail == 0) {
+        // need to wait for more data, return error to inform caller to re-rey later.
+        return NS_BASE_STREAM_WOULD_BLOCK;
+      }
+      rv = aOutputStream->WriteFrom(asyncInputStream, static_cast<uint32_t>(std::min<uint64_t>(avail, UINT32_MAX)), &wrote);
+      if (NS_FAILED(rv)) {
+        break;
+      }
+      mRemainsSize -= wrote;
+    }
+  } else {
+    aInputStream->Available(&avail);;
+    while (avail) {
+      rv = aOutputStream->WriteFrom(aInputStream, static_cast<uint32_t>(std::min<uint64_t>(avail, UINT32_MAX)), &wrote);
+      if (NS_FAILED(rv)) {
+        break;
+      }
+      avail -= wrote;
+    }
   }
 
   rv = NS_DispatchToMainThread(new IOEventComplete(this, "modified"));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-
-  bufferedOutputStream->Close();
-  aOutputStream->Close();
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
