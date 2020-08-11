@@ -354,6 +354,25 @@ fn eval_prefers_contrast(device: &Device, query_value: Option<PrefersContrast>) 
     }
 }
 
+/// Possible values for prefers-text-size media query.
+#[derive(Clone, Copy, Debug, FromPrimitive, PartialEq, Parse, ToCss)]
+#[repr(u8)]
+#[allow(missing_docs)]
+pub enum PrefersTextSize {
+    Normal,
+    Small,
+    Large,
+}
+
+fn eval_prefers_text_size(device: &Device, query_value: Option<PrefersTextSize>) -> bool {
+    let prefers_text_size =
+        unsafe { bindings::Gecko_MediaFeatures_PrefersTextSize(device.document()) };
+    match query_value {
+        Some(v) => prefers_text_size == v,
+        None => prefers_text_size != PrefersTextSize::Normal,
+    }
+}
+
 #[derive(Clone, Copy, Debug, FromPrimitive, Parse, ToCss)]
 #[repr(u8)]
 enum OverflowBlock {
@@ -594,7 +613,7 @@ macro_rules! system_metric_feature {
 /// to support new types in these entries and (2) ensuring that either
 /// nsPresContext::MediaFeatureValuesChanged is called when the value that
 /// would be returned by the evaluator function could change.
-pub static MEDIA_FEATURES: [MediaFeatureDescription; 54] = [
+pub static MEDIA_FEATURES: [MediaFeatureDescription; 55] = [
     feature!(
         atom!("width"),
         AllowsRanges::Yes,
@@ -721,6 +740,12 @@ pub static MEDIA_FEATURES: [MediaFeatureDescription; 54] = [
         // layout.css.prefers-contrast.enabled preference. See
         // disabed_by_pref in media_feature_expression.rs for how that
         // is done.
+        ParsingRequirements::empty(),
+    ),
+    feature!(
+        atom!("prefers-text-size"),
+        AllowsRanges::No,
+        keyword_evaluator!(eval_prefers_text_size, PrefersTextSize),
         ParsingRequirements::empty(),
     ),
     feature!(

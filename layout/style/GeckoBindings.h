@@ -623,6 +623,8 @@ mozilla::StyleContrastPref Gecko_MediaFeatures_PrefersContrast(
     const mozilla::dom::Document*, const bool aForcedColors);
 mozilla::StylePrefersColorScheme Gecko_MediaFeatures_PrefersColorScheme(
     const mozilla::dom::Document*);
+mozilla::StylePrefersTextSize Gecko_MediaFeatures_PrefersTextSize(
+    const mozilla::dom::Document*);
 
 mozilla::PointerCapabilities Gecko_MediaFeatures_PrimaryPointerCapabilities(
     const mozilla::dom::Document*);

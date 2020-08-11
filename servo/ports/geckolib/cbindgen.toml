@@ -90,6 +90,7 @@ include = [
   "DisplayInside",
   "DisplayMode",
   "PrefersColorScheme",
+  "PrefersTextSize",
   "ExtremumLength",
   "FillRule",
   "FontDisplay",

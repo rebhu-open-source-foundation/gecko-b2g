@@ -1016,6 +1016,7 @@ STATIC_ATOMS = [
     Atom("prefersReducedMotion", "prefers-reduced-motion"),
     Atom("prefersColorScheme", "prefers-color-scheme"),
     Atom("prefersContrast", "prefers-contrast"),
+    Atom("prefersTextSize", "prefers-text-size"),
     Atom("prefix", "prefix"),
     Atom("preload", "preload"),
     Atom("mozpresentation", "mozpresentation"),

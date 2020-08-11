@@ -293,6 +293,15 @@ class LookAndFeel {
      */
 
     PrefersReducedMotion,
+
+    /*
+     * A value indicating whether or not the OS text size.
+     * 0: Normal
+     * 1: Small
+     * 2: Large
+     */
+    PrefersTextSize,
+
     /**
      * Corresponding to PointerCapabilities in ServoTypes.h
      * 0: None

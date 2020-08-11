@@ -94,6 +94,7 @@ nsLookAndFeelIntPref nsXPLookAndFeel::sIntPrefs[] = {
     {"ui.GtkCSDCloseButton", IntID::GTKCSDCloseButton, false, 0},
     {"ui.systemUsesDarkTheme", IntID::SystemUsesDarkTheme, false, 0},
     {"ui.prefersReducedMotion", IntID::PrefersReducedMotion, false, 0},
+    {"ui.prefersTextSizeId", IntID::PrefersTextSize, false, 0},
     {"ui.primaryPointerCapabilities", IntID::PrimaryPointerCapabilities, false,
      6 /* fine and hover-capable pointer, i.e. mouse-type */},
     {"ui.allPointerCapabilities", IntID::AllPointerCapabilities, false,

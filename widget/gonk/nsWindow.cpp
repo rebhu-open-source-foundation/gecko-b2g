@@ -389,6 +389,7 @@ static const char* sThemePrefList[] = {
   "ui.useAccessibilityTheme",
   "ui.systemUsesDarkTheme",
   "ui.prefersReducedMotion",
+  "ui.prefersTextSizeId",
 };
 
 static void ThemePrefChanged(const char* aPref, void* aModule) {

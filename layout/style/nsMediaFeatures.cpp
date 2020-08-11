@@ -286,6 +286,21 @@ StyleContrastPref Gecko_MediaFeatures_PrefersContrast(
   return StyleContrastPref::NoPreference;
 }
 
+StylePrefersTextSize Gecko_MediaFeatures_PrefersTextSize(
+    const Document* aDocument) {
+  int value = LookAndFeel::GetInt(LookAndFeel::IntID::PrefersTextSize, 0);
+
+  switch (value) {
+    case 1:
+      return StylePrefersTextSize::Small;
+    case 2:
+      return StylePrefersTextSize::Large;
+    case 0:
+    default:
+      return StylePrefersTextSize::Normal;
+  }
+}
+
 static PointerCapabilities GetPointerCapabilities(const Document* aDocument,
                                                   LookAndFeel::IntID aID) {
   MOZ_ASSERT(aID == LookAndFeel::IntID::PrimaryPointerCapabilities ||
