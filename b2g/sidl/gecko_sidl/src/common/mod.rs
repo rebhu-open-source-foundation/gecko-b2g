@@ -24,7 +24,7 @@ use std::fmt;
 use std::ops::Deref;
 
 pub fn get_bincode() -> impl Options {
-    bincode::options().with_big_endian().with_fixint_encoding()
+    bincode::options().with_big_endian().with_varint_encoding()
 }
 
 pub fn deserialize_bincode<'a, T>(input: &'a [u8]) -> Result<T, bincode::Error>
