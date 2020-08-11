@@ -22,7 +22,7 @@
 #include "frontend/CompilationInfo.h"   // CompilationInfo
 #include "frontend/JumpList.h"          // JumpTarget
 #include "frontend/NameCollections.h"   // AtomIndexMap, PooledMapPtr
-#include "frontend/ObjLiteral.h"        // ObjLiteralCreationData
+#include "frontend/ObjLiteral.h"        // ObjLiteralStencil
 #include "frontend/ParseNode.h"         // BigIntLiteral
 #include "frontend/SourceNotes.h"       // SrcNote
 #include "frontend/Stencil.h"           // Stencils
@@ -77,10 +77,9 @@ struct MOZ_STACK_CLASS GCThingList {
     *index = GCThingIndex(vector.length());
     return vector.append(mozilla::AsVariant(literal->index()));
   }
-  MOZ_MUST_USE bool append(ObjLiteralCreationData&& objlit,
-                           GCThingIndex* index) {
+  MOZ_MUST_USE bool append(ObjLiteralIndex objlit, GCThingIndex* index) {
     *index = GCThingIndex(vector.length());
-    return vector.append(mozilla::AsVariant(std::move(objlit)));
+    return vector.append(mozilla::AsVariant(objlit));
   }
   MOZ_MUST_USE bool append(FunctionBox* funbox, GCThingIndex* index);
 

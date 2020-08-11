@@ -2,7 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-const { gBrowser, PrintUtils } = window.docShell.chromeEventHandler.ownerGlobal;
+const {
+  gBrowser,
+  PrintUtils,
+  Services,
+} = window.docShell.chromeEventHandler.ownerGlobal;
+
+const INVALID_INPUT_DELAY_MS = 500;
 
 document.addEventListener(
   "DOMContentLoaded",
@@ -23,6 +29,7 @@ window.addEventListener(
 var PrintEventHandler = {
   init() {
     this.sourceBrowser = this.getSourceBrowser();
+    this.previewBrowser = this.getPreviewBrowser();
     this.settings = PrintUtils.getPrintSettings();
     this.updatePrintPreview();
 
@@ -34,51 +41,33 @@ var PrintEventHandler = {
     document.addEventListener("open-system-dialog", () =>
       this.print({ silent: false })
     );
-    document.dispatchEvent(
-      new CustomEvent("available-destinations", {
-        detail: this.getPrintDestinations(),
-      })
-    );
+    this.getPrintDestinations().then(destinations => {
+      document.dispatchEvent(
+        new CustomEvent("available-destinations", {
+          detail: destinations,
+        })
+      );
+    });
 
     // Some settings are only used by the UI
     // assigning new values should update the underlying settings
-    this.viewSettings = new Proxy(this.settings, {
-      get(target, name) {
-        switch (name) {
-          case "printBackgrounds":
-            return target.printBGImages || target.printBGColors;
-          case "printAllOrCustomRange":
-            return target.printRange == Ci.nsIPrintSettings.kRangeAllPages
-              ? "all"
-              : "custom";
-        }
-        return target[name];
-      },
-      set(target, name, value) {
-        switch (name) {
-          case "printBackgrounds":
-            target.printBGImages = value;
-            target.printBGColors = value;
-            break;
-          case "printAllOrCustomRange":
-            target.printRange =
-              value == "all"
-                ? Ci.nsIPrintSettings.kRangeAllPages
-                : Ci.nsIPrintSettings.kRangeSpecifiedPageRange;
-            // TODO: There's also kRangeSelection, which should come into play
-            // once we have a text box where the user can specify a range
-            break;
-          default:
-            target[name] = value;
-        }
-      },
-    });
+    this.viewSettings = new Proxy(this.settings, PrintSettingsViewProxy);
 
     this.settingFlags = {
       orientation: Ci.nsIPrintSettings.kInitSaveOrientation,
       printerName: Ci.nsIPrintSettings.kInitSaveAll,
       scaling: Ci.nsIPrintSettings.kInitSaveScaling,
       shrinkToFit: Ci.nsIPrintSettings.kInitSaveShrinkToFit,
+      printFootersHeaders:
+        Ci.nsIPrintSettings.kInitSaveHeaderLeft |
+        Ci.nsIPrintSettings.kInitSaveHeaderCenter |
+        Ci.nsIPrintSettings.kInitSaveHeaderRight |
+        Ci.nsIPrintSettings.kInitSaveFooterLeft |
+        Ci.nsIPrintSettings.kInitSaveFooterCenter |
+        Ci.nsIPrintSettings.kInitSaveFooterRight,
+      printBackgrounds:
+        Ci.nsIPrintSettings.kInitSaveBGColors |
+        Ci.nsIPrintSettings.kInitSaveBGImages,
     };
 
     document.dispatchEvent(
@@ -95,7 +84,7 @@ var PrintEventHandler = {
     if (printerName) {
       settings.printerName = printerName;
     }
-    PrintUtils.printWindow(this.sourceBrowser.browsingContext, settings);
+    PrintUtils.printWindow(this.previewBrowser.browsingContext, settings);
   },
 
   cancelPrint() {
@@ -113,6 +102,11 @@ var PrintEventHandler = {
           flags |= this.settingFlags[setting];
         }
         isChanged = true;
+        Services.telemetry.keyedScalarAdd(
+          "printing.settings_changed",
+          setting,
+          1
+        );
       }
     }
 
@@ -151,6 +145,7 @@ var PrintEventHandler = {
   async _updatePrintPreview() {
     let numPages = await PrintUtils.updatePrintPreview(
       this.sourceBrowser,
+      this.previewBrowser,
       this.settings
     );
     document.dispatchEvent(
@@ -180,19 +175,120 @@ var PrintEventHandler = {
     return browsingContext.embedderElement;
   },
 
-  getPrintDestinations() {
-    let printerList = Cc["@mozilla.org/gfx/printerlist;1"].createInstance(
+  getPreviewBrowser() {
+    let container = gBrowser.getBrowserContainer(this.sourceBrowser);
+    return container.querySelector(".printPreviewBrowser");
+  },
+
+  async getPrintDestinations() {
+    const printerList = Cc["@mozilla.org/gfx/printerlist;1"].createInstance(
       Ci.nsIPrinterList
     );
-    let currentPrinterName = PrintUtils._getLastUsedPrinterName();
-    let destinations = printerList.printers.map(printer => {
-      return {
-        name: printer.name,
-        value: printer.name,
-        selected: printer.name == currentPrinterName,
-      };
+
+    const lastUsedPrinterName = PrintUtils._getLastUsedPrinterName();
+    const defaultPrinterName = printerList.systemDefaultPrinterName;
+    const printers = await printerList.printers;
+
+    let defaultIndex = 0;
+    let foundSelected = false;
+    let i = 0;
+    let destinations = printers.map(printer => {
+      printer.QueryInterface(Ci.nsIPrinter);
+      const name = printer.name;
+      const value = name;
+      const selected = name == lastUsedPrinterName;
+      if (selected) {
+        foundSelected = true;
+      }
+      if (name == defaultPrinterName) {
+        defaultIndex = i;
+      }
+      ++i;
+      return { name, value, selected };
     });
+
+    // If there's no valid last selected printer, select the system default, or
+    // the first on the list otherwise.
+    if (destinations.length && !foundSelected) {
+      destinations[defaultIndex].selected = true;
+    }
+
     return destinations;
+  },
+};
+
+const PrintSettingsViewProxy = {
+  get defaultHeadersAndFooterValues() {
+    const defaultBranch = Services.prefs.getDefaultBranch("");
+    let settingValues = {};
+    for (let [name, pref] of Object.entries(this.headerFooterSettingsPrefs)) {
+      settingValues[name] = defaultBranch.getStringPref(pref);
+    }
+    // We only need to retrieve these defaults once and they will not change
+    Object.defineProperty(this, "defaultHeadersAndFooterValues", {
+      value: settingValues,
+    });
+    return settingValues;
+  },
+
+  headerFooterSettingsPrefs: {
+    footerStrCenter: "print.print_footercenter",
+    footerStrLeft: "print.print_footerleft",
+    footerStrRight: "print.print_footerright",
+    headerStrCenter: "print.print_headercenter",
+    headerStrLeft: "print.print_headerleft",
+    headerStrRight: "print.print_headerright",
+  },
+
+  get(target, name) {
+    switch (name) {
+      case "printBackgrounds":
+        return target.printBGImages || target.printBGColors;
+
+      case "printFootersHeaders":
+        // if any of the footer and headers settings have a non-empty string value
+        // we consider that "enabled"
+        return Object.keys(this.headerFooterSettingsPrefs).some(
+          name => !!target[name]
+        );
+
+      case "printAllOrCustomRange":
+        return target.printRange == Ci.nsIPrintSettings.kRangeAllPages
+          ? "all"
+          : "custom";
+    }
+    return target[name];
+  },
+
+  set(target, name, value) {
+    switch (name) {
+      case "printBackgrounds":
+        target.printBGImages = value;
+        target.printBGColors = value;
+        break;
+
+      case "printFootersHeaders":
+        // To disable header & footers, set them all to empty.
+        // To enable, restore default values for each of the header & footer settings.
+        for (let [settingName, defaultValue] of Object.entries(
+          this.defaultHeadersAndFooterValues
+        )) {
+          target[settingName] = value ? defaultValue : "";
+        }
+        break;
+
+      case "printAllOrCustomRange":
+        target.printRange =
+          value == "all"
+            ? Ci.nsIPrintSettings.kRangeAllPages
+            : Ci.nsIPrintSettings.kRangeSpecifiedPageRange;
+        // TODO: There's also kRangeSelection, which should come into play
+        // once we have a text box where the user can specify a range
+        break;
+
+      default:
+        target[name] = value;
+    }
   },
 };
 
@@ -355,28 +451,51 @@ class ScaleInput extends PrintUIControlMixin(HTMLElement) {
 
   initialize() {
     super.initialize();
+
     this._percentScale = this.querySelector("#percent-scale");
     this._percentScale.addEventListener("input", this);
-    this._shrinkToFit = this.querySelector("#fit-choice");
+    this._shrinkToFitChoice = this.querySelector("#fit-choice");
+    this._scaleChoice = this.querySelector("#percent-scale-choice");
+
+    this.addEventListener("input", this);
   }
 
   update(settings) {
-    // TODO: .scaling only goes from 0-1. Need validation mechanism
     let { scaling, shrinkToFit } = settings;
-    this._shrinkToFit.checked = shrinkToFit;
-    this.querySelector("#percent-scale-choice").checked = !shrinkToFit;
+    this._shrinkToFitChoice.checked = shrinkToFit;
+    this._scaleChoice.checked = !shrinkToFit;
     this._percentScale.disabled = shrinkToFit;
 
-    // Only allow whole numbers. 0.14 * 100 would have decimal places, etc.
-    this._percentScale.value = parseInt(scaling * 100, 10);
+    // If the user had an invalid input and switches back to "fit to page",
+    // we repopulate the scale field with the stored, valid scaling value.
+    if (!this._percentScale.value || this._shrinkToFitChoice.checked) {
+      // Only allow whole numbers. 0.14 * 100 would have decimal places, etc.
+      this._percentScale.value = parseInt(scaling * 100, 10);
+    }
   }
 
   handleEvent(e) {
     e.stopPropagation();
-    this.dispatchSettingsChange({
-      shrinkToFit: this._shrinkToFit.checked,
-      scaling: this._percentScale.value / 100,
-    });
+
+    if (e.target == this._shrinkToFitChoice || e.target == this._scaleChoice) {
+      this.dispatchSettingsChange({
+        shrinkToFit: this._shrinkToFitChoice.checked,
+      });
+      return;
+    }
+
+    window.clearTimeout(this.invalidTimeoutId);
+
+    if (this._percentScale.checkValidity() && e.type == "input") {
+      // TODO: set the customError element to hidden ( Bug 1656057 )
+
+      this.invalidTimeoutId = window.setTimeout(() => {
+        this.dispatchSettingsChange({
+          scaling: Number(this._percentScale.value / 100),
+        });
+      }, INVALID_INPUT_DELAY_MS);
+    }
+    // TODO: populate a customError element with erorMessage contents
   }
 }
 customElements.define("scale-input", ScaleInput);
@@ -399,23 +518,44 @@ class PageRangeInput extends PrintUIControlMixin(HTMLElement) {
 }
 customElements.define("page-range-input", PageRangeInput);
 
-class BackgroundsInput extends PrintUIControlMixin(HTMLInputElement) {
+class PrintSettingNumber extends PrintUIControlMixin(HTMLInputElement) {
   connectedCallback() {
-    this.type = "checkbox";
+    this.type = "number";
+    this.settingName = this.dataset.settingName;
     super.connectedCallback();
   }
-
   update(settings) {
-    this.checked = settings.printBackgrounds;
+    this.value = settings[this.settingName];
   }
 
   handleEvent(e) {
     this.dispatchSettingsChange({
-      printBackgrounds: this.checked,
+      [this.settingName]: this.value,
     });
   }
 }
-customElements.define("backgrounds-input", BackgroundsInput, {
+customElements.define("setting-number", PrintSettingNumber, {
+  extends: "input",
+});
+
+class PrintSettingCheckbox extends PrintUIControlMixin(HTMLInputElement) {
+  connectedCallback() {
+    this.type = "checkbox";
+    this.settingName = this.dataset.settingName;
+    super.connectedCallback();
+  }
+
+  update(settings) {
+    this.checked = settings[this.settingName];
+  }
+
+  handleEvent(e) {
+    this.dispatchSettingsChange({
+      [this.settingName]: this.checked,
+    });
+  }
+}
+customElements.define("setting-checkbox", PrintSettingCheckbox, {
   extends: "input",
 });
 

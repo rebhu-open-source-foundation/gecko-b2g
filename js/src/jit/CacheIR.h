@@ -1633,13 +1633,15 @@ class MOZ_RAII CallIRGenerator : public IRGenerator {
   AttachDecision tryAttachIsCrossRealmArrayConstructor(HandleFunction callee);
   AttachDecision tryAttachGuardToClass(HandleFunction callee,
                                        InlinableNative native);
-  AttachDecision tryAttachHasClass(HandleFunction callee, const JSClass* clasp);
+  AttachDecision tryAttachHasClass(HandleFunction callee, const JSClass* clasp,
+                                   bool isPossiblyWrapped);
   AttachDecision tryAttachRegExpMatcherSearcherTester(HandleFunction callee,
                                                       InlinableNative native);
   AttachDecision tryAttachRegExpPrototypeOptimizable(HandleFunction callee);
   AttachDecision tryAttachRegExpInstanceOptimizable(HandleFunction callee);
   AttachDecision tryAttachGetFirstDollarIndex(HandleFunction callee);
   AttachDecision tryAttachSubstringKernel(HandleFunction callee);
+  AttachDecision tryAttachObjectHasPrototype(HandleFunction callee);
   AttachDecision tryAttachString(HandleFunction callee);
   AttachDecision tryAttachStringChar(HandleFunction callee, StringChar kind);
   AttachDecision tryAttachStringCharCodeAt(HandleFunction callee);
@@ -1648,6 +1650,8 @@ class MOZ_RAII CallIRGenerator : public IRGenerator {
   AttachDecision tryAttachStringFromCodePoint(HandleFunction callee);
   AttachDecision tryAttachStringToLowerCase(HandleFunction callee);
   AttachDecision tryAttachStringToUpperCase(HandleFunction callee);
+  AttachDecision tryAttachStringReplaceString(HandleFunction callee);
+  AttachDecision tryAttachStringSplitString(HandleFunction callee);
   AttachDecision tryAttachMathRandom(HandleFunction callee);
   AttachDecision tryAttachMathAbs(HandleFunction callee);
   AttachDecision tryAttachMathClz32(HandleFunction callee);
@@ -1667,9 +1671,13 @@ class MOZ_RAII CallIRGenerator : public IRGenerator {
   AttachDecision tryAttachMathMinMax(HandleFunction callee, bool isMax);
   AttachDecision tryAttachIsTypedArray(HandleFunction callee,
                                        bool isPossiblyWrapped);
+  AttachDecision tryAttachIsTypedArrayConstructor(HandleFunction callee);
   AttachDecision tryAttachTypedArrayByteOffset(HandleFunction callee);
   AttachDecision tryAttachTypedArrayElementShift(HandleFunction callee);
-  AttachDecision tryAttachTypedArrayLength(HandleFunction callee);
+  AttachDecision tryAttachTypedArrayLength(HandleFunction callee,
+                                           bool isPossiblyWrapped);
+  AttachDecision tryAttachArrayBufferByteLength(HandleFunction callee,
+                                                bool isPossiblyWrapped);
   AttachDecision tryAttachIsConstructing(HandleFunction callee);
   AttachDecision tryAttachGetNextMapSetEntryForIterator(HandleFunction callee,
                                                         bool isMap);
@@ -1677,6 +1685,8 @@ class MOZ_RAII CallIRGenerator : public IRGenerator {
   AttachDecision tryAttachNewArrayIterator(HandleFunction callee);
   AttachDecision tryAttachNewStringIterator(HandleFunction callee);
   AttachDecision tryAttachNewRegExpStringIterator(HandleFunction callee);
+  AttachDecision tryAttachArrayIteratorPrototypeOptimizable(
+      HandleFunction callee);
   AttachDecision tryAttachObjectCreate(HandleFunction callee);
   AttachDecision tryAttachArrayConstructor(HandleFunction callee);
   AttachDecision tryAttachTypedArrayConstructor(HandleFunction callee);

@@ -3266,7 +3266,7 @@ nsDocumentViewer::PrintPreviewScrollToPage(int16_t aType, int32_t aPageNum) {
   }
 
   // Figure where we are currently scrolled to
-  nsPoint pt = sf->GetScrollPosition();
+  nsPoint currentScrollPosition = sf->GetScrollPosition();
 
   int32_t pageNum = 1;
   nsIFrame* fndPageFrame = nullptr;
@@ -3280,13 +3280,13 @@ nsDocumentViewer::PrintPreviewScrollToPage(int16_t aType, int32_t aPageNum) {
 
   // Now, locate the current page we are on and
   // and the page of the page number
-  for (nsIFrame* pageFrame : seqFrame->PrincipalChildList()) {
-    nsRect pageRect = pageFrame->GetRect();
-    if (pageRect.Contains(pageRect.x, pt.y)) {
-      currentPage = pageFrame;
+  for (nsIFrame* sheetFrame : seqFrame->PrincipalChildList()) {
+    nsRect sheetRect = sheetFrame->GetRect();
+    if (sheetRect.Contains(sheetRect.x, currentScrollPosition.y)) {
+      currentPage = sheetFrame;
     }
     if (pageNum == aPageNum) {
-      fndPageFrame = pageFrame;
+      fndPageFrame = sheetFrame;
       break;
     }
     pageNum++;
@@ -3319,8 +3319,50 @@ nsDocumentViewer::PrintPreviewScrollToPage(int16_t aType, int32_t aPageNum) {
   if (fndPageFrame) {
     nscoord newYPosn = nscoord(seqFrame->GetPrintPreviewScale() *
                                fndPageFrame->GetPosition().y);
-    sf->ScrollTo(nsPoint(pt.x, newYPosn), ScrollMode::Instant);
+    sf->ScrollTo(nsPoint(currentScrollPosition.x, newYPosn),
+                 ScrollMode::Instant);
   }
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsDocumentViewer::GetPrintPreviewCurrentPageNumber(int32_t* aNumber) {
+  NS_ENSURE_ARG_POINTER(aNumber);
+  NS_ENSURE_TRUE(mPrintJob, NS_ERROR_FAILURE);
+  if (!GetIsPrintPreview() || mPrintJob->GetIsCreatingPrintPreview()) {
+    return NS_ERROR_FAILURE;
+  }
+
+  nsIScrollableFrame* sf =
+      mPrintJob->GetPrintPreviewPresShell()->GetRootScrollFrameAsScrollable();
+  if (!sf) {
+    // No scrollable contents, returns 1 even if there are multiple pages.
+    *aNumber = 1;
+    return NS_OK;
+  }
+
+  // in PP mPrtPreview->mPrintObject->mSeqFrame is null
+  auto [seqFrame, pageCount] = mPrintJob->GetSeqFrameAndCountPages();
+  Unused << pageCount;
+  if (!seqFrame) {
+    return NS_ERROR_FAILURE;
+  }
+
+  nsPoint currentScrollPosition = sf->GetScrollPosition();
+  *aNumber = 0;
+  float previewScale = seqFrame->GetPrintPreviewScale();
+  for (const nsIFrame* sheetFrame : seqFrame->PrincipalChildList()) {
+    (*aNumber)++;
+    nsRect pageRect = sheetFrame->GetRect();
+    if (pageRect.YMost() * previewScale > currentScrollPosition.y) {
+      // This is the first visible page even if the visible rect is just 1px
+      // height.
+      // TODO: We should have a reasonable threshold.
+      break;
+    }
+  }
+
+  MOZ_ASSERT(*aNumber <= pageCount);
   return NS_OK;
 }
 
@@ -3492,7 +3534,7 @@ bool nsDocumentViewer::ShouldAttachToTopLevel() {
 
 //------------------------------------------------------------
 // XXX this always returns false for subdocuments
-bool nsDocumentViewer::GetIsPrinting() {
+bool nsDocumentViewer::GetIsPrinting() const {
 #ifdef NS_PRINTING
   if (mPrintJob) {
     return mPrintJob->GetIsPrinting();
@@ -3520,7 +3562,7 @@ void nsDocumentViewer::SetIsPrinting(bool aIsPrinting) {
 // The PrintJob holds the current value
 // this called from inside the DocViewer.
 // XXX it always returns false for subdocuments
-bool nsDocumentViewer::GetIsPrintPreview() {
+bool nsDocumentViewer::GetIsPrintPreview() const {
 #ifdef NS_PRINTING
   if (mPrintJob) {
     return mPrintJob->GetIsPrintPreview();

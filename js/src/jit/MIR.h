@@ -32,6 +32,7 @@
 #include "js/HeapAPI.h"
 #include "js/ScalarType.h"  // js::Scalar::Type
 #include "vm/ArrayObject.h"
+#include "vm/BuiltinObjectKind.h"
 #include "vm/EnvironmentObject.h"
 #include "vm/FunctionFlags.h"  // js::FunctionFlags
 #include "vm/RegExpObject.h"
@@ -1256,21 +1257,15 @@ class MBinaryInstruction : public MAryInstruction<2> {
 
     const MDefinition* left = getOperand(0);
     const MDefinition* right = getOperand(1);
-    const MDefinition* tmp;
-
     if (isCommutative() && left->id() > right->id()) {
-      tmp = right;
-      right = left;
-      left = tmp;
+      std::swap(left, right);
     }
 
     const MBinaryInstruction* bi = static_cast<const MBinaryInstruction*>(ins);
     const MDefinition* insLeft = bi->getOperand(0);
     const MDefinition* insRight = bi->getOperand(1);
-    if (isCommutative() && insLeft->id() > insRight->id()) {
-      tmp = insRight;
-      insRight = insLeft;
-      insLeft = tmp;
+    if (bi->isCommutative() && insLeft->id() > insRight->id()) {
+      std::swap(insLeft, insRight);
     }
 
     return left == insLeft && right == insRight;
@@ -5940,8 +5935,10 @@ class MStringSplit : public MBinaryInstruction,
                MDefinition* string, MDefinition* sep, ObjectGroup* group)
       : MBinaryInstruction(classOpcode, string, sep), group_(group) {
     setResultType(MIRType::Object);
-    TemporaryTypeSet* types = MakeSingletonTypeSet(alloc, constraints, group);
-    setResultTypeSet(types);
+    if (!JitOptions.warpBuilder) {
+      TemporaryTypeSet* types = MakeSingletonTypeSet(alloc, constraints, group);
+      setResultTypeSet(types);
+    }
   }
 
  public:
@@ -9508,6 +9505,27 @@ class MGuardNoDenseElements : public MUnaryInstruction,
   }
 };
 
+class MGuardTagNotEqual
+    : public MBinaryInstruction,
+      public MixPolicy<UnboxedInt32Policy<0>, UnboxedInt32Policy<1>>::Data {
+  MGuardTagNotEqual(MDefinition* left, MDefinition* right)
+      : MBinaryInstruction(classOpcode, left, right) {
+    setGuard();
+    setMovable();
+    setCommutative();
+  }
+
+ public:
+  INSTRUCTION_HEADER(GuardTagNotEqual)
+  TRIVIAL_NEW_WRAPPERS
+
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
+
+  bool congruentTo(const MDefinition* ins) const override {
+    return binaryCongruentTo(ins);
+  }
+};
+
 // Load from vp[slot] (slots that are not inline in an object).
 class MLoadDynamicSlot : public MUnaryInstruction, public NoTypePolicy::Data {
   uint32_t slot_;
@@ -10424,6 +10442,21 @@ class MInArray : public MQuaternaryInstruction, public ObjectPolicy<3>::Data {
   }
 };
 
+class MCheckPrivateFieldCache
+    : public MBinaryInstruction,
+      public MixPolicy<BoxExceptPolicy<0, MIRType::Object>,
+                       CacheIdPolicy<1>>::Data {
+  MCheckPrivateFieldCache(MDefinition* obj, MDefinition* id)
+      : MBinaryInstruction(classOpcode, obj, id) {
+    setResultType(MIRType::Boolean);
+  }
+
+ public:
+  INSTRUCTION_HEADER(CheckPrivateFieldCache)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, value), (1, idval))
+};
+
 class MHasOwnCache : public MBinaryInstruction,
                      public MixPolicy<BoxExceptPolicy<0, MIRType::Object>,
                                       CacheIdPolicy<1>>::Data {
@@ -11020,6 +11053,7 @@ class MIsObject : public MUnaryInstruction, public BoxInputsPolicy::Data {
   TRIVIAL_NEW_WRAPPERS
   NAMED_OPERANDS((0, object))
 
+  MDefinition* foldsTo(TempAllocator& alloc) override;
   bool congruentTo(const MDefinition* ins) const override {
     return congruentIfOperandsEqual(ins);
   }
@@ -11435,20 +11469,25 @@ class MDebugger : public MNullaryInstruction {
 class MCheckIsObj : public MUnaryInstruction, public BoxInputsPolicy::Data {
   uint8_t checkKind_;
 
-  MCheckIsObj(MDefinition* toCheck, uint8_t checkKind)
-      : MUnaryInstruction(classOpcode, toCheck), checkKind_(checkKind) {
-    setResultType(MIRType::Value);
-    setResultTypeSet(toCheck->resultTypeSet());
+  MCheckIsObj(TempAllocator& alloc, MDefinition* value, uint8_t checkKind)
+      : MUnaryInstruction(classOpcode, value), checkKind_(checkKind) {
+    TemporaryTypeSet* resultSet = value->resultTypeSet();
+    if (resultSet) {
+      resultSet = resultSet->cloneObjectsOnly(alloc.lifoAlloc());
+    }
+
+    setResultType(MIRType::Object);
+    setResultTypeSet(resultSet);
     setGuard();
   }
 
  public:
   INSTRUCTION_HEADER(CheckIsObj)
-  TRIVIAL_NEW_WRAPPERS
-  NAMED_OPERANDS((0, checkValue))
+  TRIVIAL_NEW_WRAPPERS_WITH_ALLOC
 
   uint8_t checkKind() const { return checkKind_; }
 
+  MDefinition* foldsTo(TempAllocator& alloc) override;
   AliasSet getAliasSet() const override { return AliasSet::None(); }
 };
 
@@ -11586,14 +11625,19 @@ class MObjectStaticProto : public MUnaryInstruction,
   }
 };
 
-class MFunctionProto : public MNullaryInstruction {
-  explicit MFunctionProto() : MNullaryInstruction(classOpcode) {
+class MBuiltinObject : public MNullaryInstruction {
+  BuiltinObjectKind builtinObjectKind_;
+
+  explicit MBuiltinObject(BuiltinObjectKind kind)
+      : MNullaryInstruction(classOpcode), builtinObjectKind_(kind) {
     setResultType(MIRType::Object);
   }
 
  public:
-  INSTRUCTION_HEADER(FunctionProto)
+  INSTRUCTION_HEADER(BuiltinObject)
   TRIVIAL_NEW_WRAPPERS
+
+  BuiltinObjectKind builtinObjectKind() const { return builtinObjectKind_; }
 
   bool possiblyCalls() const override { return true; }
 };
@@ -11630,6 +11674,47 @@ class MInitHomeObject : public MBinaryInstruction,
 
   AliasSet getAliasSet() const override {
     return AliasSet::Store(AliasSet::ObjectFields);
+  }
+};
+
+// Return true if the object is definitely a TypedArray constructor, but not
+// necessarily from the currently active realm. Return false if the object is
+// not a TypedArray constructor or if it's a wrapper.
+class MIsTypedArrayConstructor : public MUnaryInstruction,
+                                 public SingleObjectPolicy::Data {
+  explicit MIsTypedArrayConstructor(MDefinition* object)
+      : MUnaryInstruction(classOpcode, object) {
+    setResultType(MIRType::Boolean);
+  }
+
+ public:
+  INSTRUCTION_HEADER(IsTypedArrayConstructor)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, object))
+
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
+};
+
+// Load the JSValueTag on all platforms except ARM64. See the comments in
+// MacroAssembler-arm64.h for the |cmpTag(Register, ImmTag)| method for why
+// ARM64 doesn't use the raw JSValueTag, but instead a modified tag value. That
+// modified tag value can't be directly compared against JSValueTag constants.
+class MLoadValueTag : public MUnaryInstruction, public BoxInputsPolicy::Data {
+  explicit MLoadValueTag(MDefinition* value)
+      : MUnaryInstruction(classOpcode, value) {
+    setResultType(MIRType::Int32);
+    setMovable();
+  }
+
+ public:
+  INSTRUCTION_HEADER(LoadValueTag)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, value))
+
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
+
+  bool congruentTo(const MDefinition* ins) const override {
+    return congruentIfOperandsEqual(ins);
   }
 };
 

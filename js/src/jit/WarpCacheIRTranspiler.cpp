@@ -99,6 +99,9 @@ class MOZ_RAII WarpCacheIRTranspiler : public WarpBuilderShared {
   JS::Symbol* symbolStubField(uint32_t offset) {
     return reinterpret_cast<JS::Symbol*>(readStubWord(offset));
   }
+  ObjectGroup* groupStubField(uint32_t offset) {
+    return reinterpret_cast<ObjectGroup*>(readStubWord(offset));
+  }
   const void* rawPointerField(uint32_t offset) {
     return reinterpret_cast<const void*>(readStubWord(offset));
   }
@@ -308,12 +311,11 @@ bool WarpCacheIRTranspiler::emitGuardProto(ObjOperandId objId,
   return true;
 }
 
-bool WarpCacheIRTranspiler::emitGuardFunctionPrototype(ObjOperandId objId,
-                                                       ObjOperandId protoId,
-                                                       uint32_t slotOffset) {
+bool WarpCacheIRTranspiler::emitGuardDynamicSlotIsSpecificObject(
+    ObjOperandId objId, ObjOperandId expectedId, uint32_t slotOffset) {
   size_t slotIndex = int32StubField(slotOffset);
   MDefinition* obj = getOperand(objId);
-  MDefinition* proto = getOperand(protoId);
+  MDefinition* expected = getOperand(expectedId);
 
   auto* slots = MSlots::New(alloc(), obj);
   add(slots);
@@ -324,7 +326,7 @@ bool WarpCacheIRTranspiler::emitGuardFunctionPrototype(ObjOperandId objId,
   auto* unbox = MUnbox::New(alloc(), load, MIRType::Object, MUnbox::Fallible);
   add(unbox);
 
-  auto* guard = MGuardObjectIdentity::New(alloc(), unbox, proto,
+  auto* guard = MGuardObjectIdentity::New(alloc(), unbox, expected,
                                           /* bailOnEquality = */ false);
   add(guard);
   return true;
@@ -515,6 +517,17 @@ bool WarpCacheIRTranspiler::emitGuardIsUndefined(ValOperandId inputId) {
   return true;
 }
 
+bool WarpCacheIRTranspiler::emitGuardTagNotEqual(ValueTagOperandId lhsId,
+                                                 ValueTagOperandId rhsId) {
+  MDefinition* lhs = getOperand(lhsId);
+  MDefinition* rhs = getOperand(rhsId);
+
+  auto* ins = MGuardTagNotEqual::New(alloc(), lhs, rhs);
+  add(ins);
+
+  return true;
+}
+
 bool WarpCacheIRTranspiler::emitGuardToInt32Index(ValOperandId inputId,
                                                   Int32OperandId resultId) {
   MDefinition* input = getOperand(inputId);
@@ -688,6 +701,16 @@ bool WarpCacheIRTranspiler::emitLoadProto(ObjOperandId objId,
   MDefinition* obj = getOperand(objId);
 
   auto* ins = MObjectStaticProto::New(alloc(), obj);
+  add(ins);
+
+  return defineOperand(resultId, ins);
+}
+
+bool WarpCacheIRTranspiler::emitLoadValueTag(ValOperandId valId,
+                                             ValueTagOperandId resultId) {
+  MDefinition* val = getOperand(valId);
+
+  auto* ins = MLoadValueTag::New(alloc(), val);
   add(ins);
 
   return defineOperand(resultId, ins);
@@ -1870,6 +1893,34 @@ bool WarpCacheIRTranspiler::emitCallSubstringKernelResult(
   return true;
 }
 
+bool WarpCacheIRTranspiler::emitStringReplaceStringResult(
+    StringOperandId strId, StringOperandId patternId,
+    StringOperandId replacementId) {
+  MDefinition* str = getOperand(strId);
+  MDefinition* pattern = getOperand(patternId);
+  MDefinition* replacement = getOperand(replacementId);
+
+  auto* replace = MStringReplace::New(alloc(), str, pattern, replacement);
+  add(replace);
+
+  pushResult(replace);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitStringSplitStringResult(
+    StringOperandId strId, StringOperandId separatorId, uint32_t groupOffset) {
+  MDefinition* str = getOperand(strId);
+  MDefinition* separator = getOperand(separatorId);
+  ObjectGroup* group = groupStubField(groupOffset);
+
+  auto* split = MStringSplit::New(alloc(), /* constraints = */ nullptr, str,
+                                  separator, group);
+  add(split);
+
+  pushResult(split);
+  return true;
+}
+
 bool WarpCacheIRTranspiler::emitRegExpPrototypeOptimizableResult(
     ObjOperandId protoId) {
   MDefinition* proto = getOperand(protoId);
@@ -2006,6 +2057,17 @@ bool WarpCacheIRTranspiler::emitTypedArrayElementShiftResult(
   MDefinition* obj = getOperand(objId);
 
   auto* ins = MTypedArrayElementShift::New(alloc(), obj);
+  add(ins);
+
+  pushResult(ins);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitIsTypedArrayConstructorResult(
+    ObjOperandId objId) {
+  MDefinition* obj = getOperand(objId);
+
+  auto* ins = MIsTypedArrayConstructor::New(alloc(), obj);
   add(ins);
 
   pushResult(ins);
@@ -2401,9 +2463,12 @@ bool WarpCacheIRTranspiler::emitCallInlinedFunction(ObjOperandId calleeId,
                                                     Int32OperandId argcId,
                                                     uint32_t icScriptOffset,
                                                     CallFlags flags) {
-  // We are transpiling to generate the correct guards. Code for the inlined
-  // function itself will be generated in WarpBuilder::buildInlinedCall.
-  return true;
+  if (callInfo_->isInlined()) {
+    // We are transpiling to generate the correct guards. Code for the inlined
+    // function itself will be generated in WarpBuilder::buildInlinedCall.
+    return true;
+  }
+  return emitCallFunction(calleeId, argcId, flags, CallKind::Scripted);
 }
 
 // TODO: rename the MetaTwoByte op when IonBuilder is gone.

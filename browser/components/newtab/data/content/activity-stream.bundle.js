@@ -10322,7 +10322,7 @@ class TopSite extends react__WEBPACK_IMPORTED_MODULE_4___default.a.PureComponent
         }));
       }
 
-      if (this.props.link.overriddenSearchTopSite) {
+      if (this.props.link.sendTopSiteAttributionRequest) {
         this.props.dispatch(common_Actions_jsm__WEBPACK_IMPORTED_MODULE_0__["actionCreators"].OnlyToMain({
           type: common_Actions_jsm__WEBPACK_IMPORTED_MODULE_0__["actionTypes"].TOP_SITES_ATTRIBUTION,
           data: {
@@ -10678,9 +10678,10 @@ class Topic extends react__WEBPACK_IMPORTED_MODULE_1___default.a.PureComponent {
 
   onLinkClick(event) {
     if (this.props.dispatch) {
-      this.props.dispatch(common_Actions_jsm__WEBPACK_IMPORTED_MODULE_0__["actionCreators"].ImpressionStats({
+      this.props.dispatch(common_Actions_jsm__WEBPACK_IMPORTED_MODULE_0__["actionCreators"].UserEvent({
         event: "CLICK",
         source: "POPULAR_TOPICS",
+        action_position: 0,
         value: {
           topic: event.target.text.toLowerCase().replace(` `, `-`)
         }

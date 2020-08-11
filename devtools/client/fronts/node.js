@@ -317,6 +317,10 @@ class NodeFront extends FrontClassWithSpec(nodeSpec) {
     return !!this._form.isDocumentElement;
   }
 
+  get isTopLevelDocument() {
+    return this._form.isTopLevelDocument;
+  }
+
   get isShadowRoot() {
     return this._form.isShadowRoot;
   }
@@ -387,6 +391,10 @@ class NodeFront extends FrontClassWithSpec(nodeSpec) {
 
   get isScrollable() {
     return this._form.isScrollable;
+  }
+
+  get causesOverflow() {
+    return this._form.causesOverflow;
   }
 
   get isTreeDisplayed() {
@@ -534,17 +542,6 @@ class NodeFront extends FrontClassWithSpec(nodeSpec) {
       this._form.browsingContextID
     );
     return this._remoteFrameTarget;
-  }
-
-  async getAllSelectors() {
-    if (!this.traits.supportsGetAllSelectors) {
-      // Backward compatibility: if the server does not support getAllSelectors
-      // fallback on getUniqueSelector and wrap the response in an array.
-      // getAllSelectors was added in FF72.
-      const selector = await super.getUniqueSelector();
-      return [selector];
-    }
-    return super.getAllSelectors();
   }
 }
 

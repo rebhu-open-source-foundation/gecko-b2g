@@ -9,7 +9,7 @@
 #include "mozilla/Maybe.h"                  // mozilla::Maybe
 #include "mozilla/OperatorNewExtensions.h"  // mozilla::KnownNotNull
 #include "mozilla/Range.h"                  // mozilla::Range
-#include "mozilla/Span.h"                   // mozilla::{Span, MakeSpan}
+#include "mozilla/Span.h"                   // mozilla::{Span, Span}
 #include "mozilla/Variant.h"                // mozilla::AsVariant
 
 #include <stddef.h>  // size_t
@@ -246,7 +246,7 @@ bool ConvertScopeStencil(JSContext* cx, const SmooshResult& result,
 }
 
 // Given the result of SmooshMonkey's parser, convert a list of RegExp data
-// into a list of RegExpCreationData.
+// into a list of RegExpStencil.
 bool ConvertRegExpData(JSContext* cx, const SmooshResult& result,
                        CompilationInfo& compilationInfo) {
   for (size_t i = 0; i < result.regexps.len; i++) {
@@ -333,8 +333,8 @@ UniquePtr<ImmutableScriptData> ConvertImmutableScriptData(
       smooshScriptData.nslots, GCThingIndex(smooshScriptData.body_scope_index),
       smooshScriptData.num_ic_entries, smooshScriptData.num_bytecode_type_sets,
       isFunction, smooshScriptData.fun_length,
-      mozilla::MakeSpan(smooshScriptData.bytecode.data,
-                        smooshScriptData.bytecode.len),
+      mozilla::Span(smooshScriptData.bytecode.data,
+                    smooshScriptData.bytecode.len),
       mozilla::Span<const SrcNote>(), mozilla::Span<const uint32_t>(),
       scopeNotes, mozilla::Span<const TryNote>());
 }
@@ -502,9 +502,9 @@ void ReportSmooshCompileError(JSContext* cx, ErrorMetadata&& metadata,
 }
 
 /* static */
-JSScript* Smoosh::compileGlobalScript(CompilationInfo& compilationInfo,
-                                      JS::SourceText<Utf8Unit>& srcBuf,
-                                      bool* unimplemented) {
+bool Smoosh::compileGlobalScriptToStencil(CompilationInfo& compilationInfo,
+                                          JS::SourceText<Utf8Unit>& srcBuf,
+                                          bool* unimplemented) {
   // FIXME: check info members and return with *unimplemented = true
   //        if any field doesn't match to smoosh_run.
 
@@ -530,36 +530,36 @@ JSScript* Smoosh::compileGlobalScript(CompilationInfo& compilationInfo,
     ReportSmooshCompileError(cx, std::move(metadata),
                              JSMSG_SMOOSH_COMPILE_ERROR,
                              reinterpret_cast<const char*>(result.error.data));
-    return nullptr;
+    return false;
   }
 
   if (result.unimplemented) {
     *unimplemented = true;
-    return nullptr;
+    return false;
   }
 
   *unimplemented = false;
 
   JS::RootedVector<JSAtom*> allAtoms(cx);
   if (!ConvertAtoms(cx, result, compilationInfo, &allAtoms)) {
-    return nullptr;
+    return false;
   }
 
   if (!ConvertScopeStencil(cx, result, allAtoms, compilationInfo)) {
-    return nullptr;
+    return false;
   }
 
   if (!ConvertRegExpData(cx, result, compilationInfo)) {
-    return nullptr;
+    return false;
   }
 
   if (!ConvertScriptStencil(cx, result, result.top_level_script, allAtoms,
                             compilationInfo, &compilationInfo.topLevel)) {
-    return nullptr;
+    return false;
   }
 
   if (!compilationInfo.funcData.reserve(result.functions.len)) {
-    return nullptr;
+    return false;
   }
 
   for (size_t i = 0; i < result.functions.len; i++) {
@@ -567,8 +567,19 @@ JSScript* Smoosh::compileGlobalScript(CompilationInfo& compilationInfo,
 
     if (!ConvertScriptStencil(cx, result, result.functions.data[i], allAtoms,
                               compilationInfo, compilationInfo.funcData[i])) {
-      return nullptr;
+      return false;
     }
+  }
+
+  return true;
+}
+
+/* static */
+JSScript* Smoosh::compileGlobalScript(CompilationInfo& compilationInfo,
+                                      JS::SourceText<Utf8Unit>& srcBuf,
+                                      bool* unimplemented) {
+  if (!compileGlobalScriptToStencil(compilationInfo, srcBuf, unimplemented)) {
+    return nullptr;
   }
 
   if (!compilationInfo.instantiateStencils()) {
@@ -576,6 +587,7 @@ JSScript* Smoosh::compileGlobalScript(CompilationInfo& compilationInfo,
   }
 
 #if defined(DEBUG) || defined(JS_JITSPEW)
+  JSContext* cx = compilationInfo.cx;
   Sprinter sprinter(cx);
   if (!sprinter.init()) {
     return nullptr;

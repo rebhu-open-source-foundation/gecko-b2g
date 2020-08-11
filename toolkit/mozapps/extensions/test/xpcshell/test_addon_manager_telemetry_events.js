@@ -74,6 +74,13 @@ function assertNoTelemetryEvents() {
 add_task(async function setup() {
   createAppInfo("xpcshell@tests.mozilla.org", "XPCShell", "1", "1.9.2");
 
+  // Thunderbird doesn't have one or more of the probes used in this test.
+  // Ensure the data is collected anyway.
+  Services.prefs.setBoolPref(
+    "toolkit.telemetry.testing.overrideProductsCheck",
+    true
+  );
+
   // Telemetry test setup needed to ensure that the builtin events are defined
   // and they can be collected and verified.
   await TelemetryController.testSetup();
@@ -661,9 +668,10 @@ add_task(async function test_collect_attribution_data_for_amo() {
       expectNoEvent: true,
     },
   ]) {
-    const extension = ExtensionTestUtils.loadExtension({
+    const extDefinition = {
       useAddonManager: "permanent",
       manifest: {
+        version: "1.0",
         applications: { gecko: { id: addonId } },
       },
       amInstallTelemetryInfo: {
@@ -671,7 +679,8 @@ add_task(async function test_collect_attribution_data_for_amo() {
         sourceURL,
         source,
       },
-    });
+    };
+    let extension = ExtensionTestUtils.loadExtension(extDefinition);
 
     await extension.startup();
 
@@ -702,6 +711,20 @@ add_task(async function test_collect_attribution_data_for_amo() {
         },
       });
     }
+
+    await extension.upgrade({
+      ...extDefinition,
+      manifest: {
+        ...extDefinition.manifest,
+        version: "2.0",
+      },
+    });
+
+    Assert.deepEqual(
+      getTelemetryEvents(["install_stats"]),
+      [],
+      "no install_stats event should be recorded on addon updates"
+    );
 
     await extension.unload();
   }

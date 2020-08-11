@@ -55,7 +55,8 @@
 #include "js/CompileOptions.h"
 #include "js/Date.h"
 #include "js/Debug.h"
-#include "js/experimental/TypedData.h"  // JS_GetObjectAsUint8Array
+#include "js/experimental/CodeCoverage.h"  // js::GetCodeCoverageSummary
+#include "js/experimental/TypedData.h"     // JS_GetObjectAsUint8Array
 #include "js/friend/DumpFunctions.h"  // js::Dump{Backtrace,Heap,Object}, JS::FormatStackDump, js::IgnoreNurseryObjects
 #include "js/friend/WindowProxy.h"    // js::ToWindowProxyIfWindow
 #include "js/HashTable.h"
@@ -119,8 +120,8 @@ using namespace js;
 using mozilla::ArrayLength;
 using mozilla::AssertedCast;
 using mozilla::AsWritableChars;
-using mozilla::MakeSpan;
 using mozilla::Maybe;
+using mozilla::Span;
 using mozilla::Tie;
 using mozilla::Tuple;
 
@@ -5752,7 +5753,7 @@ static bool EncodeAsUtf8InBuffer(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   Maybe<Tuple<size_t, size_t>> amounts = JS_EncodeStringToUTF8BufferPartial(
-      cx, args[0].toString(), AsWritableChars(MakeSpan(data, length)));
+      cx, args[0].toString(), AsWritableChars(Span(data, length)));
   if (!amounts) {
     ReportOutOfMemory(cx);
     return false;

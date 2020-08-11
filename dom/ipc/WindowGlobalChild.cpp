@@ -114,7 +114,16 @@ already_AddRefed<WindowGlobalChild> WindowGlobalChild::Create(
         BrowserChild::GetFrom(static_cast<mozIDOMWindow*>(aWindow));
     MOZ_ASSERT(browserChild);
 
-    MOZ_DIAGNOSTIC_ASSERT(!aWindow->GetBrowsingContext()->IsDiscarded());
+    dom::BrowsingContext* bc = aWindow->GetBrowsingContext();
+
+    CrashReporter::AnnotateCrashReport(CrashReporter::Annotation::NewWindowBCId,
+                                       static_cast<unsigned int>(bc->Id()));
+    CrashReporter::AnnotateCrashReport(
+        CrashReporter::Annotation::NewWindowBCIsTop, bc->IsTop());
+
+    MOZ_DIAGNOSTIC_ASSERT(!bc->IsDiscarded());
+    MOZ_DIAGNOSTIC_ASSERT(bc->EverAttached());
+    MOZ_DIAGNOSTIC_ASSERT(bc->IsInProcess());
 
     ManagedEndpoint<PWindowGlobalParent> endpoint =
         browserChild->OpenPWindowGlobalEndpoint(wgc);

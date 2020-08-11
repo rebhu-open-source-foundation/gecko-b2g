@@ -506,12 +506,6 @@ struct nsExtraMimeTypeEntry {
   const char* mDescription;
 };
 
-#ifdef XP_MACOSX
-#  define MAC_TYPE(x) x
-#else
-#  define MAC_TYPE(x) 0
-#endif
-
 /**
  * This table lists all of the 'extra' content types that we can deduce from
  * particular file extensions.  These entries also ensure that we provide a good
@@ -580,11 +574,11 @@ static const nsExtraMimeTypeEntry extraMimeEntries[] = {
     {AUDIO_WAV, "wav", "Waveform Audio"},
     {VIDEO_3GPP, "3gpp,3gp", "3GPP Video"},
     {VIDEO_3GPP2, "3g2", "3GPP2 Video"},
+    {AUDIO_AAC, "aac", "AAC Audio"},
+    {AUDIO_FLAC, "flac", "FLAC Audio"},
     {AUDIO_MIDI, "mid", "Standard MIDI Audio"},
     {APPLICATION_WASM, "wasm", "WebAssembly Module"},
     {AUDIO_AAC, "aac", "AAC Audio"}};
-
-#undef MAC_TYPE
 
 /**
  * File extensions for which decoding should be disabled.
@@ -2708,7 +2702,11 @@ NS_IMETHODIMP nsExternalHelperAppService::GetFromTypeAndExtension(
     (*_retval)->ExtensionExists(aFileExt, &matches);
     LOG(("Extension '%s' matches mime info: %i\n",
          PromiseFlatCString(aFileExt).get(), matches));
-    if (matches) (*_retval)->SetPrimaryExtension(aFileExt);
+    if (matches) {
+      nsAutoCString fileExt;
+      ToLowerCase(aFileExt, fileExt);
+      (*_retval)->SetPrimaryExtension(fileExt);
+    }
   }
 
   if (LOG_ENABLED()) {

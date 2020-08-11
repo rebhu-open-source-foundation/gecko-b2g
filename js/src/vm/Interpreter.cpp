@@ -441,6 +441,15 @@ bool js::RunScript(JSContext* cx, RunState& state) {
 
   GeckoProfilerEntryMarker marker(cx, state.script());
 
+#ifdef ENABLE_SPIDERMONKEY_TELEMETRY
+  bool measuringTime = !cx->isMeasuringExecutionTime();
+  int64_t startTime = 0;
+  if (measuringTime) {
+    cx->setIsMeasuringExecutionTime(true);
+    startTime = PRMJ_Now();
+  }
+#endif
+
   jit::EnterJitStatus status = jit::MaybeEnterJit(cx, state);
   switch (status) {
     case jit::EnterJitStatus::Error:
@@ -456,7 +465,18 @@ bool js::RunScript(JSContext* cx, RunState& state) {
     TypeMonitorCall(cx, invoke.args(), invoke.constructing());
   }
 
-  return Interpret(cx, state);
+  bool ok = Interpret(cx, state);
+
+#ifdef ENABLE_SPIDERMONKEY_TELEMETRY
+  if (measuringTime) {
+    int64_t endTime = PRMJ_Now();
+    int64_t runtimeMicros = endTime - startTime;
+    cx->runtime()->addTelemetry(JS_TELEMETRY_RUN_TIME_US, runtimeMicros);
+    cx->setIsMeasuringExecutionTime(false);
+  }
+#endif
+
+  return ok;
 }
 #ifdef _MSC_VER
 #  pragma optimize("", on)
@@ -4358,14 +4378,15 @@ static MOZ_NEVER_INLINE JS_HAZ_JSNATIVE_CALLER bool Interpret(JSContext* cx,
     }
     END_CASE(CheckClassHeritage)
 
-    CASE(FunctionProto) {
-      JSObject* builtin = FunctionProtoOperation(cx);
+    CASE(BuiltinObject) {
+      auto kind = BuiltinObjectKind(GET_UINT8(REGS.pc));
+      JSObject* builtin = BuiltinObjectOperation(cx, kind);
       if (!builtin) {
         goto error;
       }
       PUSH_OBJECT(*builtin);
     }
-    END_CASE(FunctionProto)
+    END_CASE(BuiltinObject)
 
     CASE(FunWithProto) {
       ReservedRooted<JSObject*> proto(&rootObject1, &REGS.sp[-1].toObject());
@@ -4941,8 +4962,8 @@ JSObject* js::ImportMetaOperation(JSContext* cx, HandleScript script) {
   return GetOrCreateModuleMetaObject(cx, module);
 }
 
-JSObject* js::FunctionProtoOperation(JSContext* cx) {
-  return GlobalObject::getOrCreatePrototype(cx, JSProto_Function);
+JSObject* js::BuiltinObjectOperation(JSContext* cx, BuiltinObjectKind kind) {
+  return GetOrCreateBuiltinObject(cx, kind);
 }
 
 bool js::ThrowMsgOperation(JSContext* cx, const unsigned throwMsgKind) {

@@ -2024,7 +2024,7 @@ class Document : public nsINode,
 
   // Observation hooks for style data to propagate notifications
   // to document observers
-  void RuleChanged(StyleSheet&, css::Rule*);
+  void RuleChanged(StyleSheet&, css::Rule*, StyleRuleChangeKind);
   void RuleAdded(StyleSheet&, css::Rule&);
   void RuleRemoved(StyleSheet&, css::Rule&);
   void SheetCloned(StyleSheet&) {}
@@ -3085,6 +3085,9 @@ class Document : public nsINode,
   const ShadowRootSet& ComposedShadowRoots() const {
     return mComposedShadowRoots;
   }
+
+  // WebIDL method for chrome code.
+  void GetConnectedShadowRoots(nsTArray<RefPtr<ShadowRoot>>&) const;
 
   // Notifies any responsive content added by AddResponsiveContent upon media
   // features values changing.

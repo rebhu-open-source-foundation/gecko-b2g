@@ -621,6 +621,10 @@ class MOZ_RAII WarpPoppedValueUseChecker {
       if (loc_.is(JSOp::EndIter) && i == 0) {
         continue;
       }
+      // TODO: JSOp::ToString has a fast-path when the input is a string.
+      if (loc_.is(JSOp::ToString)) {
+        continue;
+      }
       MOZ_ASSERT(popped_[i]->isImplicitlyUsed() ||
                  popped_[i]->defUseCount() > poppedUses_[i]);
     }
@@ -1504,6 +1508,15 @@ bool WarpBuilder::build_Not(BytecodeLocation loc) {
 
 bool WarpBuilder::build_ToString(BytecodeLocation loc) {
   MDefinition* value = current->pop();
+
+  // TODO: Consider making MToString non-effectul similar to Ion. That way GVN
+  // will be able to fold away MToString(string) automatically. For now simply
+  // handle this case here.
+  if (value->type() == MIRType::String) {
+    current->push(value);
+    return true;
+  }
+
   MToString* ins =
       MToString::New(alloc(), value, MToString::SideEffectHandling::Supported);
   current->add(ins);
@@ -2200,14 +2213,15 @@ bool WarpBuilder::build_SuperFun(BytecodeLocation) {
   return true;
 }
 
-bool WarpBuilder::build_FunctionProto(BytecodeLocation loc) {
-  if (auto* snapshot = getOpSnapshot<WarpFunctionProto>(loc)) {
-    JSObject* proto = snapshot->proto();
-    pushConstant(ObjectValue(*proto));
+bool WarpBuilder::build_BuiltinObject(BytecodeLocation loc) {
+  if (auto* snapshot = getOpSnapshot<WarpBuiltinObject>(loc)) {
+    JSObject* builtin = snapshot->builtin();
+    pushConstant(ObjectValue(*builtin));
     return true;
   }
 
-  auto* ins = MFunctionProto::New(alloc());
+  auto kind = loc.getBuiltinObjectKind();
+  auto* ins = MBuiltinObject::New(alloc(), kind);
   current->add(ins);
   current->push(ins);
   return resumeAfter(ins, loc);
@@ -2400,6 +2414,12 @@ bool WarpBuilder::build_HasOwn(BytecodeLocation loc) {
   return buildIC(loc, CacheKind::HasOwn, {id, obj});
 }
 
+bool WarpBuilder::build_CheckPrivateField(BytecodeLocation loc) {
+  MDefinition* id = current->peek(-1);
+  MDefinition* obj = current->peek(-2);
+  return buildIC(loc, CacheKind::CheckPrivateField, {obj, id});
+}
+
 bool WarpBuilder::build_Instanceof(BytecodeLocation loc) {
   MDefinition* rhs = current->pop();
   MDefinition* obj = current->pop();
@@ -2435,8 +2455,14 @@ bool WarpBuilder::build_NewTarget(BytecodeLocation loc) {
 
 bool WarpBuilder::build_CheckIsObj(BytecodeLocation loc) {
   CheckIsObjectKind kind = loc.getCheckIsObjectKind();
-  MDefinition* val = current->pop();
 
+  MDefinition* toCheck = current->peek(-1);
+  if (toCheck->type() == MIRType::Object) {
+    toCheck->setImplicitlyUsedUnchecked();
+    return true;
+  }
+
+  MDefinition* val = current->pop();
   MCheckIsObj* ins = MCheckIsObj::New(alloc(), val, uint8_t(kind));
   current->add(ins);
   current->push(ins);
@@ -2977,6 +3003,14 @@ bool WarpBuilder::buildIC(BytecodeLocation loc, CacheKind kind,
       current->push(ins);
       return resumeAfter(ins, loc);
     }
+    case CacheKind::CheckPrivateField: {
+      MOZ_ASSERT(numInputs == 2);
+      auto* ins =
+          MCheckPrivateFieldCache::New(alloc(), getInput(0), getInput(1));
+      current->add(ins);
+      current->push(ins);
+      return resumeAfter(ins, loc);
+    }
     case CacheKind::InstanceOf: {
       MOZ_ASSERT(numInputs == 2);
       auto* ins = MInstanceOfCache::New(alloc(), getInput(0), getInput(1));
@@ -3079,7 +3113,6 @@ bool WarpBuilder::buildIC(BytecodeLocation loc, CacheKind kind,
     case CacheKind::TypeOf:
     case CacheKind::Call:
     case CacheKind::NewObject:
-    case CacheKind::CheckPrivateField:
       // We're currently not using an IC or transpiling CacheIR for these kinds.
       MOZ_CRASH("Unexpected kind");
   }
@@ -3141,8 +3174,9 @@ bool WarpBuilder::buildInlinedCall(BytecodeLocation loc,
                                    const WarpInlinedCall* inlineSnapshot,
                                    CallInfo& callInfo) {
   // We transpile the CacheIR to generate the correct guards before inlining.
-  // CacheOp::CallInlinedFunction generates no code. The body of the inlined
-  // function is generated below.
+  // In this case, CacheOp::CallInlinedFunction generates no code. The body of
+  // the inlined function is generated below.
+  callInfo.markAsInlined();
   if (!TranspileCacheIRToMIR(this, loc, inlineSnapshot->cacheIRSnapshot(),
                              callInfo)) {
     return false;

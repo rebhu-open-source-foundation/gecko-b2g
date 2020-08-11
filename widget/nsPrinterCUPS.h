@@ -28,21 +28,21 @@ class nsPrinterCUPS final : public nsPrinterBase {
 
   nsPrinterCUPS() = delete;
 
-  /**
-   * @p aPrinter must not be null.
-   */
-  static already_AddRefed<nsPrinterCUPS> Create(const nsCUPSShim& aShim,
-                                                cups_dest_t* aPrinter);
+  nsPrinterCUPS(const nsCUPSShim& aShim, nsString aDisplayName,
+                cups_dest_t* aPrinter, cups_dinfo_t* aPrinterInfo)
+      : mShim(aShim),
+        mDisplayName(std::move(aDisplayName)),
+        mPrinter(aPrinter),
+        mPrinterInfo(aPrinterInfo) {}
 
  private:
-  nsPrinterCUPS(const nsCUPSShim& aShim, cups_dest_t* aPrinter);
-
   ~nsPrinterCUPS();
 
   // Little util for getting support flags using the direct CUPS names.
   bool Supports(const char* option, const char* value) const;
 
   const nsCUPSShim& mShim;
+  nsString mDisplayName;
   cups_dest_t* mPrinter;
   cups_dinfo_t* mPrinterInfo;
 };

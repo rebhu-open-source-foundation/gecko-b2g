@@ -30,6 +30,9 @@
 #include "vm/Realm.h"
 
 namespace js {
+
+class JSONPrinter;
+
 namespace frontend {
 
 // ScopeContext hold information derivied from the scope and environment chains
@@ -173,10 +176,11 @@ struct MOZ_RAII CompilationInfo : public JS::CustomAutoRooter {
   UsedNameTracker usedNames;
   LifoAllocScope& allocScope;
 
-  // Hold onto the RegExpCreationData and BigIntCreationData that are allocated
-  // during parse to ensure correct destruction.
-  Vector<RegExpCreationData> regExpData;
-  Vector<BigIntCreationData> bigIntData;
+  // Hold onto the RegExpStencil, BigIntStencil, and ObjLiteralStencil that are
+  // allocated during parse to ensure correct destruction.
+  Vector<RegExpStencil> regExpData;
+  Vector<BigIntStencil> bigIntData;
+  Vector<ObjLiteralStencil> objLiteralData;
 
   // A Rooted vector to handle tracing of JSFunction*
   // and Atoms within.
@@ -244,6 +248,7 @@ struct MOZ_RAII CompilationInfo : public JS::CustomAutoRooter {
         allocScope(alloc),
         regExpData(cx),
         bigIntData(cx),
+        objLiteralData(cx),
         functions(cx),
         funcData(cx),
         enclosingScope(cx),
@@ -294,6 +299,11 @@ struct MOZ_RAII CompilationInfo : public JS::CustomAutoRooter {
   ScriptStencilIterable functionScriptStencils() {
     return ScriptStencilIterable(this);
   }
+
+#if defined(DEBUG) || defined(JS_JITSPEW)
+  void dumpStencil();
+  void dumpStencil(js::JSONPrinter& json);
+#endif
 };
 
 inline void ScriptStencilIterable::Iterator::next() {

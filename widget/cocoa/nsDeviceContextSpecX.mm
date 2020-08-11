@@ -19,14 +19,13 @@
 #include "mozilla/Telemetry.h"
 
 #include "AppleUtils.h"
-#include "CUPSPrinterList.h"
 #include "nsCocoaUtils.h"
 #include "nsCRT.h"
 #include "nsCUPSShim.h"
 #include "nsDirectoryServiceDefs.h"
 #include "nsILocalFileMac.h"
 #include "nsPaper.h"
-#include "nsPrinterCUPS.h"
+#include "nsPrinterListCUPS.h"
 #include "nsPrintSettingsX.h"
 #include "nsQueryObject.h"
 #include "prenv.h"
@@ -44,105 +43,6 @@ using mozilla::gfx::PrintTargetSkPDF;
 using mozilla::gfx::SurfaceFormat;
 
 static LazyLogModule sDeviceContextSpecXLog("DeviceContextSpecX");
-
-static nsCUPSShim sCupsShim;
-
-static nsresult CreatePrinter(mozilla::CUPSPrinterList& aCupsPrinterList, PMPrinter aPMPrinter,
-                              nsIPrinter** aPrinter) {
-  NS_ENSURE_ARG_POINTER(aPrinter);
-  *aPrinter = nullptr;
-
-  NSString* const printerID = static_cast<NSString*>(PMPrinterGetID(aPMPrinter));
-  if (cups_dest_t* const dest = aCupsPrinterList.FindPrinterByName([printerID UTF8String])) {
-    if (RefPtr<nsPrinterCUPS> printer = nsPrinterCUPS::Create(sCupsShim, dest)) {
-      printer.forget(aPrinter);
-      return NS_OK;
-    }
-  }
-  return NS_ERROR_FAILURE;
-}
-
-//----------------------------------------------------------------------
-// nsPrinterListX
-
-NS_IMPL_ISUPPORTS(nsPrinterListX, nsIPrinterList);
-
-NS_IMETHODIMP
-nsPrinterListX::GetSystemDefaultPrinterName(nsAString& aName) {
-  NS_OBJC_BEGIN_TRY_ABORT_BLOCK_NSRESULT;
-
-  aName.Truncate();
-  NSArray<NSString*>* printerNames = [NSPrinter printerNames];
-  if ([printerNames count] > 0) {
-    NSString* name = [printerNames objectAtIndex:0];
-    nsCocoaUtils::GetStringForNSString(name, aName);
-    return NS_OK;
-  }
-
-  return NS_ERROR_GFX_PRINTER_NO_PRINTER_AVAILABLE;
-
-  NS_OBJC_END_TRY_ABORT_BLOCK_NSRESULT;
-}
-
-NS_IMETHODIMP
-nsPrinterListX::GetPrinters(nsTArray<RefPtr<nsIPrinter>>& aPrinters) {
-  NS_OBJC_BEGIN_TRY_ABORT_BLOCK_NSRESULT;
-
-  aPrinters.Clear();
-  if (!sCupsShim.IsInitialized()) {
-    if (!sCupsShim.Init()) {
-      return NS_ERROR_GFX_PRINTER_NO_PRINTER_AVAILABLE;
-    }
-  }
-  AutoCFRelease<CFArrayRef> pmPrinterList(nullptr);
-  OSStatus status = PMServerCreatePrinterList(kPMServerLocal, pmPrinterList.receive());
-  NS_ENSURE_TRUE(status == noErr && pmPrinterList, NS_ERROR_GFX_PRINTER_NO_PRINTER_AVAILABLE);
-
-  const CFIndex printerCount = CFArrayGetCount(pmPrinterList);
-  mozilla::CUPSPrinterList cupsPrinterList{sCupsShim};
-  cupsPrinterList.Initialize();
-  for (auto i = 0; i < printerCount; ++i) {
-    PMPrinter pmPrinter =
-        static_cast<PMPrinter>(const_cast<void*>(CFArrayGetValueAtIndex(pmPrinterList, i)));
-    RefPtr<nsIPrinter> printer;
-    nsresult rv = CreatePrinter(cupsPrinterList, pmPrinter, getter_AddRefs(printer));
-    NS_ENSURE_SUCCESS(rv, rv);
-    aPrinters.AppendElement(std::move(printer));
-  }
-
-  return NS_OK;
-
-  NS_OBJC_END_TRY_ABORT_BLOCK_NSRESULT;
-}
-
-NS_IMETHODIMP
-nsPrinterListX::InitPrintSettingsFromPrinter(const nsAString& aPrinterName,
-                                             nsIPrintSettings* aPrintSettings) {
-  NS_ENSURE_ARG_POINTER(aPrintSettings);
-
-  // Set a default file name.
-  nsAutoString filename;
-  nsresult rv = aPrintSettings->GetToFileName(filename);
-  if (NS_FAILED(rv) || filename.IsEmpty()) {
-    const char* path = PR_GetEnv("PWD");
-    if (!path) {
-      path = PR_GetEnv("HOME");
-    }
-
-    if (path) {
-      CopyUTF8toUTF16(MakeStringSpan(path), filename);
-      filename.AppendLiteral("/mozilla.pdf");
-    } else {
-      filename.AssignLiteral("mozilla.pdf");
-    }
-
-    aPrintSettings->SetToFileName(filename);
-  }
-
-  aPrintSettings->SetIsInitializedFromPrinter(true);
-
-  return NS_OK;
-}
 
 //----------------------------------------------------------------------
 // nsDeviceContentSpecX
@@ -249,11 +149,6 @@ NS_IMETHODIMP nsDeviceContextSpecX::Init(nsIWidget* aWidget, nsIPrintSettings* a
     } else {
       Telemetry::ScalarAdd(Telemetry::ScalarID::PRINTING_TARGET_TYPE, u"unknown"_ns, 1);
     }
-  }
-
-  // Initialize the CUPS shim, if it wasn't already.
-  if (!sCupsShim.IsInitialized()) {
-    sCupsShim.Init();
   }
 
   return NS_OK;

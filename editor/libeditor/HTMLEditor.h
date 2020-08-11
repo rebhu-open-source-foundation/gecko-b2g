@@ -32,6 +32,7 @@
 #include "nsTArray.h"
 
 class nsDocumentFragment;
+class nsFrameSelection;
 class nsHTMLDocument;
 class nsITransferable;
 class nsIClipboard;
@@ -2449,16 +2450,18 @@ class HTMLEditor final : public TextEditor,
                                   nsIEditor::EDirection aDirectionAndAmount);
 
   /**
-   * GetRangeExtendedToIncludeInvisibleNodes() returns extended range.
-   * If there are some invisible nodes around aAbstractRange, they may
-   * be included.
+   * ExtendRangeToIncludeInvisibleNodes() extends aRange if there are some
+   * invisible nodes around it.
    *
-   * @param aAbstractRange      Original range.  This must not be collapsed
-   *                            and must be positioned.
-   * @return                    Extended range.
+   * @param aFrameSelection     If the caller wants range in selection limiter,
+   *                            set this to non-nullptr which knows the limiter.
+   * @param aRange              The range to be extended.  This must not be
+   *                            collapsed, must be positioned, and must not be
+   *                            in selection.
+   * @return                    true if succeeded to set the range.
    */
-  already_AddRefed<dom::StaticRange> GetRangeExtendedToIncludeInvisibleNodes(
-      const dom::AbstractRange& aAbstractRange);
+  bool ExtendRangeToIncludeInvisibleNodes(
+      const nsFrameSelection* aFrameSelection, nsRange& aRange);
 
   /**
    * DeleteTextAndNormalizeSurroundingWhiteSpaces() deletes text between
@@ -2848,17 +2851,19 @@ class HTMLEditor final : public TextEditor,
       const EditorDOMPoint& aSelectionEndPoint);
 
   /**
-   * HandleDeleteAroundCollapsedSelection() handles deletion with collapsed
-   * `Selection`.  Callers must guarantee that this is called only when
-   * `Selection` is collapsed.
+   * HandleDeleteAroundCollapsedRanges() handles deletion with collapsed
+   * ranges.  Callers must guarantee that this is called only when
+   * aRangesToDelete.IsCollapsed() returns true.
    *
    * @param aDirectionAndAmount Direction of the deletion.
    * @param aStripWrappers      Must be eStrip or eNoStrip.
+   * @param aRangesToDelete     Ranges to delete.  This `IsCollapsed()` must
+   *                            return true.
    */
   [[nodiscard]] MOZ_CAN_RUN_SCRIPT EditActionResult
-  HandleDeleteAroundCollapsedSelection(
-      nsIEditor::EDirection aDirectionAndAmount,
-      nsIEditor::EStripWrappers aStripWrappers);
+  HandleDeleteAroundCollapsedRanges(nsIEditor::EDirection aDirectionAndAmount,
+                                    nsIEditor::EStripWrappers aStripWrappers,
+                                    AutoRangeArray& aRangesToDelete);
 
   /**
    * HandleDeleteTextAroundCollapsedSelection() handles deletion of
@@ -2874,13 +2879,14 @@ class HTMLEditor final : public TextEditor,
       const EditorDOMPoint& aCaretPosition);
 
   /**
-   * HandleDeleteNonCollapsedSelection() handles deletion with non-collapsed
-   * `Selection`.  Callers must guarantee that this is called only when
-   * `Selection` is NOT collapsed.
+   * HandleDeleteNonCollapsedRanges() handles deletion with non-collapsed
+   * ranges.  Callers must guarantee that this is called only when
+   * aRangesToDelete.IsCollapsed() returns false.
    *
    * @param aDirectionAndAmount         Direction of the deletion.
    * @param aStripWrappers              Must be eStrip or eNoStrip.
-   * @param aSelectionWasCollpased      If the caller extended `Selection`
+   * @param aRangesToDelete             The ranges to delete.
+   * @param aSelectionWasCollapsed      If the caller extended `Selection`
    *                                    from collapsed, set this to `Yes`.
    *                                    Otherwise, i.e., `Selection` is not
    *                                    collapsed from the beginning, set
@@ -2888,10 +2894,10 @@ class HTMLEditor final : public TextEditor,
    */
   enum class SelectionWasCollapsed { Yes, No };
   [[nodiscard]] MOZ_CAN_RUN_SCRIPT EditActionResult
-  HandleDeleteNonCollapsedSelection(
-      nsIEditor::EDirection aDirectionAndAmount,
-      nsIEditor::EStripWrappers aStripWrappers,
-      SelectionWasCollapsed aSelectionWasCollapsed);
+  HandleDeleteNonCollapsedRanges(nsIEditor::EDirection aDirectionAndAmount,
+                                 nsIEditor::EStripWrappers aStripWrappers,
+                                 AutoRangeArray& aRangesToDelete,
+                                 SelectionWasCollapsed aSelectionWasCollapsed);
 
   /**
    * DeleteElementsExceptTableRelatedElements() removes elements except

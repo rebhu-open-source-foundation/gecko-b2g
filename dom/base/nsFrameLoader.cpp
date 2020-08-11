@@ -104,6 +104,7 @@
 #include "mozilla/dom/BrowserBridgeChild.h"
 #include "mozilla/dom/BrowserHost.h"
 #include "mozilla/dom/BrowserBridgeHost.h"
+#include "mozilla/dom/BrowsingContextGroup.h"
 
 #include "mozilla/dom/HTMLBodyElement.h"
 
@@ -267,7 +268,8 @@ static bool IsTopContent(BrowsingContext* aParent, Element* aOwner) {
 static already_AddRefed<BrowsingContext> CreateBrowsingContext(
     Element* aOwner, nsIOpenWindowInfo* aOpenWindowInfo,
     BrowsingContextGroup* aSpecificGroup) {
-  MOZ_ASSERT(!aOpenWindowInfo || !aSpecificGroup);
+  MOZ_ASSERT(!aOpenWindowInfo || !aSpecificGroup,
+             "Only one of SpecificGroup and OpenWindowInfo may be provided!");
 
   // If we've got a pending BrowserParent from the content process, use the
   // BrowsingContext which was created for it.
@@ -349,47 +351,25 @@ static bool InitialLoadIsRemote(Element* aOwner) {
                              nsGkAtoms::_true, eCaseMatters);
 }
 
-static void GetInitialRemoteTypeAndProcess(Element* aOwner,
-                                           nsACString& aRemoteType,
-                                           uint64_t* aChildID) {
-  MOZ_ASSERT(XRE_IsParentProcess());
-  *aChildID = 0;
-
-  // Check if there is an explicit `remoteType` attribute which we should use.
-  nsAutoString remoteType;
-  bool hasRemoteType =
-      aOwner->GetAttr(kNameSpaceID_None, nsGkAtoms::RemoteType, remoteType);
-  if (!hasRemoteType || remoteType.IsEmpty()) {
-    hasRemoteType = false;
-    aRemoteType = DEFAULT_REMOTE_TYPE;
-  } else {
-    aRemoteType = NS_ConvertUTF16toUTF8(remoteType);
+static already_AddRefed<BrowsingContextGroup> InitialBrowsingContextGroup(
+    Element* aOwner) {
+  nsAutoString attrString;
+  if (aOwner->GetNameSpaceID() != kNameSpaceID_XUL ||
+      !aOwner->GetAttr(nsGkAtoms::initialBrowsingContextGroupId, attrString)) {
+    return nullptr;
   }
 
-  // Check if `sameProcessAsFrameLoader` was used to override the process.
-  nsCOMPtr<nsIBrowser> browser = aOwner->AsBrowser();
-  if (!browser) {
-    return;
+  // It's OK to read the attribute using a signed 64-bit integer parse, as an ID
+  // generated using `nsContentUtils::GenerateProcessSpecificId` (like BCG IDs)
+  // will only ever use 53 bits of precision, so it can be round-tripped through
+  // a JS number.
+  nsresult rv = NS_OK;
+  int64_t signedGroupId{attrString.ToInteger(&rv, 10)};
+  if (NS_FAILED(rv) || signedGroupId <= 0) {
+    return nullptr;
   }
-  RefPtr<nsFrameLoader> otherLoader;
-  browser->GetSameProcessAsFrameLoader(getter_AddRefs(otherLoader));
-  if (!otherLoader) {
-    return;
-  }
-  BrowserParent* browserParent = BrowserParent::GetFrom(otherLoader);
-  if (!browserParent) {
-    return;
-  }
-  RefPtr<ContentParent> contentParent = browserParent->Manager();
 
-  // NOTE: This assertion is known to fail in the wild. It is being kept around
-  // only to ensure that we don't land and test new code which breaks this
-  // desired invariant. (bug 1646328)
-  MOZ_ASSERT(!hasRemoteType || contentParent->GetRemoteType() == aRemoteType,
-             "If specified, remoteType attribute should match "
-             "sameProcessAsFrameLoader");
-  aRemoteType = contentParent->GetRemoteType();
-  *aChildID = contentParent->ChildID();
+  return BrowsingContextGroup::GetOrCreate(uint64_t(signedGroupId));
 }
 
 already_AddRefed<nsFrameLoader> nsFrameLoader::Create(
@@ -422,16 +402,29 @@ already_AddRefed<nsFrameLoader> nsFrameLoader::Create(
                       doc->IsStaticDocument()),
                  nullptr);
 
-  RefPtr<BrowsingContext> context = CreateBrowsingContext(
-      aOwner, aOpenWindowInfo, /* specificGroup */ nullptr);
+  RefPtr<BrowsingContextGroup> group = InitialBrowsingContextGroup(aOwner);
+  RefPtr<BrowsingContext> context =
+      CreateBrowsingContext(aOwner, aOpenWindowInfo, group);
   NS_ENSURE_TRUE(context, nullptr);
 
   bool isRemoteFrame = InitialLoadIsRemote(aOwner);
   RefPtr<nsFrameLoader> fl =
       new nsFrameLoader(aOwner, context, isRemoteFrame, aNetworkCreated);
   fl->mOpenWindowInfo = aOpenWindowInfo;
+
+  // If this is a toplevel initial remote frame, we're looking at a browser
+  // loaded in the parent process. Pull the remote type attribute off of the
+  // <browser> element to determine which remote type it should be loaded in, or
+  // use `DEFAULT_REMOTE_TYPE` if we can't tell.
   if (isRemoteFrame) {
-    GetInitialRemoteTypeAndProcess(aOwner, fl->mRemoteType, &fl->mChildID);
+    MOZ_ASSERT(XRE_IsParentProcess());
+    nsAutoString remoteType;
+    if (aOwner->GetAttr(kNameSpaceID_None, nsGkAtoms::RemoteType, remoteType) &&
+        !remoteType.IsEmpty()) {
+      CopyUTF16toUTF8(remoteType, fl->mRemoteType);
+    } else {
+      fl->mRemoteType = DEFAULT_REMOTE_TYPE;
+    }
   }
   return fl.forget();
 }
@@ -1478,16 +1471,13 @@ nsresult nsFrameLoader::SwapWithOtherLoader(nsFrameLoader* aOther,
     return NS_ERROR_NOT_IMPLEMENTED;
   }
 
-  bool ourFullscreenAllowed =
-      ourContent->IsXULElement() ||
-      (OwnerIsMozBrowserFrame() &&
-       (ourContent->HasAttr(nsGkAtoms::allowfullscreen) ||
-        ourContent->HasAttr(nsGkAtoms::mozallowfullscreen)));
+  bool ourFullscreenAllowed = ourContent->IsXULElement() ||
+                              (OwnerIsMozBrowserFrame() &&
+                               ourContent->HasAttr(nsGkAtoms::allowfullscreen));
   bool otherFullscreenAllowed =
       otherContent->IsXULElement() ||
       (aOther->OwnerIsMozBrowserFrame() &&
-       (otherContent->HasAttr(nsGkAtoms::allowfullscreen) ||
-        otherContent->HasAttr(nsGkAtoms::mozallowfullscreen)));
+       otherContent->HasAttr(nsGkAtoms::allowfullscreen));
   if (ourFullscreenAllowed != otherFullscreenAllowed) {
     return NS_ERROR_NOT_IMPLEMENTED;
   }
@@ -2100,6 +2090,13 @@ nsresult nsFrameLoader::MaybeCreateDocShell() {
   RefPtr<nsDocShell> parentDocShell = nsDocShell::Cast(doc->GetDocShell());
   if (NS_WARN_IF(!parentDocShell)) {
     return NS_ERROR_UNEXPECTED;
+  }
+
+  if (doc->GetWindowContext()->IsDiscarded() ||
+      parentDocShell->GetBrowsingContext()->IsDiscarded()) {
+    // Don't allow subframe loads in discarded contexts.
+    // (see bug 1652085, bug 1656854)
+    return NS_ERROR_NOT_AVAILABLE;
   }
 
   if (!EnsureBrowsingContextAttached()) {

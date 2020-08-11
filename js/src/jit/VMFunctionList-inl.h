@@ -74,6 +74,7 @@ namespace jit {
   _(BindVarOperation, js::BindVarOperation)                                    \
   _(BoxBoxableValue, js::wasm::BoxBoxableValue)                                \
   _(BoxNonStrictThis, js::BoxNonStrictThis)                                    \
+  _(BuiltinObjectOperation, js::BuiltinObjectOperation)                        \
   _(CallNativeGetter, js::jit::CallNativeGetter)                               \
   _(CallNativeGetterByValue, js::jit::CallNativeGetterByValue)                 \
   _(CallNativeSetter, js::jit::CallNativeSetter)                               \
@@ -126,7 +127,6 @@ namespace jit {
   _(FinishBoundFunctionInit, JSFunction::finishBoundFunctionInit)              \
   _(FreshenLexicalEnv, js::jit::FreshenLexicalEnv)                             \
   _(FunWithProtoOperation, js::FunWithProtoOperation)                          \
-  _(FunctionProtoOperation, js::FunctionProtoOperation)                        \
   _(GeneratorThrowOrReturn, js::jit::GeneratorThrowOrReturn)                   \
   _(GetAndClearException, js::GetAndClearException)                            \
   _(GetElementOperation, js::GetElementOperation)                              \
@@ -159,6 +159,7 @@ namespace jit {
   _(InvokeFunction, js::jit::InvokeFunction)                                   \
   _(IonBinaryArithICUpdate, js::jit::IonBinaryArithIC::update)                 \
   _(IonBindNameICUpdate, js::jit::IonBindNameIC::update)                       \
+  _(IonCheckPrivateFieldICUpdate, js::jit::IonCheckPrivateFieldIC::update)     \
   _(IonCompareICUpdate, js::jit::IonCompareIC::update)                         \
   _(IonCompileScriptForBaselineAtEntry,                                        \
     js::jit::IonCompileScriptForBaselineAtEntry)                               \

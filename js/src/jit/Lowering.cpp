@@ -4458,6 +4458,21 @@ void LIRGenerator::visitHasOwnCache(MHasOwnCache* ins) {
   assignSafepoint(lir, ins);
 }
 
+void LIRGenerator::visitCheckPrivateFieldCache(MCheckPrivateFieldCache* ins) {
+  MDefinition* value = ins->value();
+  MOZ_ASSERT(value->type() == MIRType::Object ||
+             value->type() == MIRType::Value);
+
+  MDefinition* id = ins->idval();
+  MOZ_ASSERT(id->type() == MIRType::String || id->type() == MIRType::Symbol ||
+             id->type() == MIRType::Int32 || id->type() == MIRType::Value);
+
+  LCheckPrivateFieldCache* lir = new (alloc())
+      LCheckPrivateFieldCache(useBoxOrTyped(value), useBoxOrTyped(id));
+  define(lir, ins);
+  assignSafepoint(lir, ins);
+}
+
 void LIRGenerator::visitInstanceOf(MInstanceOf* ins) {
   MDefinition* lhs = ins->getOperand(0);
 
@@ -5079,12 +5094,11 @@ void LIRGenerator::visitCheckReturn(MCheckReturn* ins) {
 }
 
 void LIRGenerator::visitCheckIsObj(MCheckIsObj* ins) {
-  MDefinition* checkVal = ins->checkValue();
-  MOZ_ASSERT(checkVal->type() == MIRType::Value);
+  MDefinition* input = ins->input();
+  MOZ_ASSERT(input->type() == MIRType::Value);
 
-  LCheckIsObj* lir = new (alloc()) LCheckIsObj(useBoxAtStart(checkVal));
-  redefine(ins, checkVal);
-  add(lir, ins);
+  LCheckIsObj* lir = new (alloc()) LCheckIsObj(useBox(input));
+  define(lir, ins);
   assignSafepoint(lir, ins);
 }
 
@@ -5182,10 +5196,10 @@ void LIRGenerator::visitObjectStaticProto(MObjectStaticProto* ins) {
   define(lir, ins);
 };
 
-void LIRGenerator::visitFunctionProto(MFunctionProto* ins) {
+void LIRGenerator::visitBuiltinObject(MBuiltinObject* ins) {
   MOZ_ASSERT(ins->type() == MIRType::Object);
 
-  auto* lir = new (alloc()) LFunctionProto();
+  auto* lir = new (alloc()) LBuiltinObject();
   defineReturn(lir, ins);
   assignSafepoint(lir, ins);
 }
@@ -5211,6 +5225,34 @@ void LIRGenerator::visitInitHomeObject(MInitHomeObject* ins) {
       LInitHomeObject(useRegisterAtStart(function), useBoxAtStart(homeObject));
   redefine(ins, function);
   add(lir, ins);
+}
+
+void LIRGenerator::visitIsTypedArrayConstructor(MIsTypedArrayConstructor* ins) {
+  MDefinition* object = ins->object();
+  MOZ_ASSERT(object->type() == MIRType::Object);
+
+  auto* lir = new (alloc()) LIsTypedArrayConstructor(useRegister(object));
+  define(lir, ins);
+}
+
+void LIRGenerator::visitLoadValueTag(MLoadValueTag* ins) {
+  MDefinition* value = ins->value();
+  MOZ_ASSERT(value->type() == MIRType::Value);
+
+  define(new (alloc()) LLoadValueTag(useBoxAtStart(value)), ins);
+}
+
+void LIRGenerator::visitGuardTagNotEqual(MGuardTagNotEqual* ins) {
+  MDefinition* lhs = ins->lhs();
+  MOZ_ASSERT(lhs->type() == MIRType::Int32);
+
+  MDefinition* rhs = ins->rhs();
+  MOZ_ASSERT(rhs->type() == MIRType::Int32);
+
+  auto* guard =
+      new (alloc()) LGuardTagNotEqual(useRegister(lhs), useRegister(rhs));
+  assignSnapshot(guard, BailoutKind::TagNotEqualGuard);
+  add(guard, ins);
 }
 
 void LIRGenerator::visitConstant(MConstant* ins) {

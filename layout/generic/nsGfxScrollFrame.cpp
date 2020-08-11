@@ -273,6 +273,10 @@ namespace mozilla {
 enum class ShowScrollbar : uint8_t {
   Auto,
   Always,
+  // Never is a misnomer. We can still get a scrollbar if we need to scroll the
+  // visual viewport inside the layout viewport. Thus this enum is best thought
+  // of as value used by layout, which does not know about the visual viewport.
+  // The visual viewport does not affect any layout sizes, so this is sound.
   Never,
 };
 
@@ -292,7 +296,15 @@ struct MOZ_STACK_CLASS ScrollReflowInput {
   const ReflowInput& mReflowInput;
   nsBoxLayoutState mBoxState;
   ShowScrollbar mHScrollbar;
+  // If the horizontal scrollbar is allowed (even if mHScrollbar ==
+  // ShowScrollbar::Never) provided that it is for scrolling the visual viewport
+  // inside the layout viewport only.
+  bool mHScrollbarAllowedForScrollingVVInsideLV = true;
   ShowScrollbar mVScrollbar;
+  // If the vertical scrollbar is allowed (even if mVScrollbar ==
+  // ShowScrollbar::Never) provided that it is for scrolling the visual viewport
+  // inside the layout viewport only.
+  bool mVScrollbarAllowedForScrollingVVInsideLV = true;
   nsMargin mComputedBorder;
 
   // === Filled in by ReflowScrolledFrame ===
@@ -311,6 +323,13 @@ struct MOZ_STACK_CLASS ScrollReflowInput {
   // Whether we decided to show the vertical scrollbar
   MOZ_INIT_OUTSIDE_CTOR
   bool mShowVScrollbar;
+  // If mShow(H|V)Scrollbar is true then
+  // mOnlyNeed(V|H)ScrollbarToScrollVVInsideLV indicates if the only reason we
+  // need that scrollbar is to scroll the visual viewport inside the layout
+  // viewport. These scrollbars are special in that even if they are layout
+  // scrollbars they do not take up any layout space.
+  bool mOnlyNeedHScrollbarToScrollVVInsideLV = false;
+  bool mOnlyNeedVScrollbarToScrollVVInsideLV = false;
 
   ScrollReflowInput(nsIScrollableFrame* aFrame, const ReflowInput& aReflowInput)
       : mReflowInput(aReflowInput),
@@ -426,8 +445,7 @@ bool nsHTMLScrollFrame::TryLayout(ScrollReflowInput* aState,
   nsSize vScrollbarPrefSize(0, 0);
   if (mHelper.mVScrollbarBox) {
     GetScrollbarMetrics(aState->mBoxState, mHelper.mVScrollbarBox,
-                        &vScrollbarMinSize,
-                        aAssumeVScroll ? &vScrollbarPrefSize : nullptr);
+                        &vScrollbarMinSize, &vScrollbarPrefSize);
     nsScrollbarFrame* scrollbar = do_QueryFrame(mHelper.mVScrollbarBox);
     scrollbar->SetScrollbarMediatorContent(mContent);
   }
@@ -438,8 +456,7 @@ bool nsHTMLScrollFrame::TryLayout(ScrollReflowInput* aState,
   nsSize hScrollbarPrefSize(0, 0);
   if (mHelper.mHScrollbarBox) {
     GetScrollbarMetrics(aState->mBoxState, mHelper.mHScrollbarBox,
-                        &hScrollbarMinSize,
-                        aAssumeHScroll ? &hScrollbarPrefSize : nullptr);
+                        &hScrollbarMinSize, &hScrollbarPrefSize);
     nsScrollbarFrame* scrollbar = do_QueryFrame(mHelper.mHScrollbarBox);
     scrollbar->SetScrollbarMediatorContent(mContent);
   }
@@ -521,11 +538,16 @@ bool nsHTMLScrollFrame::TryLayout(ScrollReflowInput* aState,
   nscoord oneDevPixel = aState->mBoxState.PresContext()->DevPixelsToAppUnits(1);
 
   if (!aForce) {
+    nsSize sizeToCompare = visualViewportSize;
+    if (gfxPlatform::UseDesktopZoomingScrollbars()) {
+      sizeToCompare = scrollPortSize;
+    }
+
     // If the style is HIDDEN then we already know that aAssumeHScroll is false
     if (aState->mHScrollbar != ShowScrollbar::Never) {
       bool wantHScrollbar =
           aState->mHScrollbar == ShowScrollbar::Always ||
-          scrolledRect.XMost() >= visualViewportSize.width + oneDevPixel ||
+          scrolledRect.XMost() >= sizeToCompare.width + oneDevPixel ||
           scrolledRect.x <= -oneDevPixel;
       // TODO(emilio): This should probably check this scrollbar's minimum size
       // in both axes, for consistency?
@@ -544,7 +566,7 @@ bool nsHTMLScrollFrame::TryLayout(ScrollReflowInput* aState,
     if (aState->mVScrollbar != ShowScrollbar::Never) {
       bool wantVScrollbar =
           aState->mVScrollbar == ShowScrollbar::Always ||
-          scrolledRect.YMost() >= visualViewportSize.height + oneDevPixel ||
+          scrolledRect.YMost() >= sizeToCompare.height + oneDevPixel ||
           scrolledRect.y <= -oneDevPixel;
       // TODO(emilio): This should probably check this scrollbar's minimum size
       // in both axes, for consistency?
@@ -569,6 +591,46 @@ bool nsHTMLScrollFrame::TryLayout(ScrollReflowInput* aState,
     scrollPortOrigin.x += vScrollbarActualWidth;
   }
   mHelper.mScrollPort = nsRect(scrollPortOrigin, scrollPortSize);
+
+  if (mHelper.mIsRoot && gfxPlatform::UseDesktopZoomingScrollbars()) {
+    bool vvChanged = true;
+    // This loop can run at most twice since we can only add a scrollbar once.
+    // At this point we've already decided that this layout is consistent so we
+    // will return true. Scrollbars added here never take up layout space even
+    // if they are layout scrollbars so any changes made here will not make us
+    // return false.
+    while (vvChanged) {
+      vvChanged = false;
+      if (!aState->mShowHScrollbar &&
+          aState->mHScrollbarAllowedForScrollingVVInsideLV) {
+        if (mHelper.mScrollPort.width >=
+                visualViewportSize.width + oneDevPixel &&
+            visualViewportSize.width >= hScrollbarMinSize.width) {
+          vvChanged = true;
+          visualViewportSize.height -= hScrollbarPrefSize.height;
+          aState->mShowHScrollbar = true;
+          aState->mOnlyNeedHScrollbarToScrollVVInsideLV = true;
+          ROOT_SCROLLBAR_LOG("TryLayout added H scrollbar for VV, VV now %s\n",
+                             Stringify(visualViewportSize).c_str());
+        }
+      }
+
+      if (!aState->mShowVScrollbar &&
+          aState->mVScrollbarAllowedForScrollingVVInsideLV) {
+        if (mHelper.mScrollPort.height >=
+                visualViewportSize.height + oneDevPixel &&
+            visualViewportSize.height >= vScrollbarMinSize.height) {
+          vvChanged = true;
+          visualViewportSize.width -= vScrollbarPrefSize.width;
+          aState->mShowVScrollbar = true;
+          aState->mOnlyNeedVScrollbarToScrollVVInsideLV = true;
+          ROOT_SCROLLBAR_LOG("TryLayout added V scrollbar for VV, VV now %s\n",
+                             Stringify(visualViewportSize).c_str());
+        }
+      }
+    }
+  }
+
   return true;
 }
 
@@ -748,7 +810,12 @@ bool nsHTMLScrollFrame::GuessHScrollbarNeeded(const ScrollReflowInput& aState) {
     // no guessing required
     return aState.mHScrollbar == ShowScrollbar::Always;
   }
-  return mHelper.mHasHorizontalScrollbar;
+  // We only care about scrollbars that might take up space when trying to guess
+  // if we need a scrollbar, so we ignore scrollbars only created to scroll the
+  // visual viewport inside the layout viewport because they take up no layout
+  // space.
+  return mHelper.mHasHorizontalScrollbar &&
+         !mHelper.mOnlyNeedHScrollbarToScrollVVInsideLV;
 }
 
 bool nsHTMLScrollFrame::GuessVScrollbarNeeded(const ScrollReflowInput& aState) {
@@ -761,7 +828,12 @@ bool nsHTMLScrollFrame::GuessVScrollbarNeeded(const ScrollReflowInput& aState) {
   // the state of the vertical scrollbar will be what we determined
   // last time.
   if (mHelper.mHadNonInitialReflow) {
-    return mHelper.mHasVerticalScrollbar;
+    // We only care about scrollbars that might take up space when trying to
+    // guess if we need a scrollbar, so we ignore scrollbars only created to
+    // scroll the visual viewport inside the layout viewport because they take
+    // up no layout space.
+    return mHelper.mHasVerticalScrollbar &&
+           !mHelper.mOnlyNeedVScrollbarToScrollVVInsideLV;
   }
 
   // If this is the initial reflow, guess false because usually
@@ -1151,9 +1223,11 @@ void nsHTMLScrollFrame::Reflow(nsPresContext* aPresContext,
   // sanity check: ensure that if we have no scrollbar, we treat it
   // as hidden.
   if (!mHelper.mVScrollbarBox || mHelper.mNeverHasVerticalScrollbar) {
+    state.mVScrollbarAllowedForScrollingVVInsideLV = false;
     state.mVScrollbar = ShowScrollbar::Never;
   }
   if (!mHelper.mHScrollbarBox || mHelper.mNeverHasHorizontalScrollbar) {
+    state.mHScrollbarAllowedForScrollingVVInsideLV = false;
     state.mHScrollbar = ShowScrollbar::Never;
   }
 
@@ -1183,6 +1257,8 @@ void nsHTMLScrollFrame::Reflow(nsPresContext* aPresContext,
     ComputedStyle* scrollbarStyle = nsLayoutUtils::StyleForScrollbar(this);
     auto scrollbarWidth = scrollbarStyle->StyleUIReset()->mScrollbarWidth;
     if (scrollbarWidth == StyleScrollbarWidth::None) {
+      state.mVScrollbarAllowedForScrollingVVInsideLV = false;
+      state.mHScrollbarAllowedForScrollingVVInsideLV = false;
       state.mVScrollbar = ShowScrollbar::Never;
       state.mHScrollbar = ShowScrollbar::Never;
     }
@@ -1220,6 +1296,13 @@ void nsHTMLScrollFrame::Reflow(nsPresContext* aPresContext,
     mHelper.mPostedReflowCallback = true;
   }
 
+  bool didOnlyHScrollbar = mHelper.mOnlyNeedHScrollbarToScrollVVInsideLV;
+  bool didOnlyVScrollbar = mHelper.mOnlyNeedVScrollbarToScrollVVInsideLV;
+  mHelper.mOnlyNeedHScrollbarToScrollVVInsideLV =
+      state.mOnlyNeedHScrollbarToScrollVVInsideLV;
+  mHelper.mOnlyNeedVScrollbarToScrollVVInsideLV =
+      state.mOnlyNeedVScrollbarToScrollVVInsideLV;
+
   bool didHaveHScrollbar = mHelper.mHasHorizontalScrollbar;
   bool didHaveVScrollbar = mHelper.mHasVerticalScrollbar;
   mHelper.mHasHorizontalScrollbar = state.mShowHScrollbar;
@@ -1231,6 +1314,8 @@ void nsHTMLScrollFrame::Reflow(nsPresContext* aPresContext,
       reflowScrollCorner || HasAnyStateBits(NS_FRAME_IS_DIRTY) ||
       didHaveHScrollbar != state.mShowHScrollbar ||
       didHaveVScrollbar != state.mShowVScrollbar ||
+      didOnlyHScrollbar != mHelper.mOnlyNeedHScrollbarToScrollVVInsideLV ||
+      didOnlyVScrollbar != mHelper.mOnlyNeedVScrollbarToScrollVVInsideLV ||
       !oldScrollAreaBounds.IsEqualEdges(newScrollAreaBounds) ||
       !oldScrolledAreaBounds.IsEqualEdges(newScrolledAreaBounds)) {
     if (!mHelper.mSuppressScrollbarUpdate) {
@@ -2157,6 +2242,8 @@ ScrollFrameHelper::ScrollFrameHelper(nsContainerFrame* aOuter, bool aIsRoot)
       mNeverHasHorizontalScrollbar(false),
       mHasVerticalScrollbar(false),
       mHasHorizontalScrollbar(false),
+      mOnlyNeedVScrollbarToScrollVVInsideLV(false),
+      mOnlyNeedHScrollbarToScrollVVInsideLV(false),
       mFrameIsUpdatingScrollbar(false),
       mDidHistoryRestore(false),
       mIsRoot(aIsRoot),
@@ -2852,7 +2939,7 @@ void ScrollFrameHelper::ScrollToImpl(nsPoint aPt, const nsRect& aRange,
   // in the first place, because it causes various regressions (bug 1543485
   // tracks a proper fix).
   bool suppressScrollOriginChange = false;
-  if (presContext->PresShell()->GetIsViewportOverridden() && aPt == curPos) {
+  if (StaticPrefs::apz_allow_zooming() && aPt == curPos) {
     suppressScrollOriginChange = true;
   }
 
@@ -6432,6 +6519,85 @@ void ScrollFrameHelper::LayoutScrollbars(nsBoxLayoutState& aState,
         mOuter, false, &compositionSize);
   }
 
+  nsPresContext* presContext = mScrolledFrame->PresContext();
+  nsRect vRect;
+  if (mVScrollbarBox) {
+    MOZ_ASSERT(mVScrollbarBox->IsXULBoxFrame(), "Must be a box frame!");
+    vRect = mScrollPort;
+    if (overlayScrollBarsOnRoot) {
+      vRect.height = compositionSize.height;
+    }
+    vRect.width = aContentArea.width - mScrollPort.width;
+    vRect.x = scrollbarOnLeft ? aContentArea.x
+                              : mScrollPort.x + compositionSize.width;
+    if (mHasVerticalScrollbar) {
+      nsMargin margin;
+
+      // For overlay scrollbars the margin returned from this GetXULMargin call
+      // is a negative margin that moves the scrollbar from just outside the
+      // scrollport (and hence not visible) to just inside the scrollport (and
+      // hence visible). For non-overlay scrollbars it is a 0 margin.
+      mVScrollbarBox->GetXULMargin(margin);
+
+      if (!UsesOverlayScrollbars() && mOnlyNeedVScrollbarToScrollVVInsideLV) {
+        // There is no space reserved for the layout scrollbar, it is currently
+        // not visible because it is positioned just outside the scrollport. But
+        // we know that it needs to be made visible so we shift it back in.
+        nsSize vScrollbarPrefSize(0, 0);
+        GetScrollbarMetrics(aState, mVScrollbarBox, nullptr,
+                            &vScrollbarPrefSize);
+        if (scrollbarOnLeft) {
+          margin.right -= vScrollbarPrefSize.width;
+        } else {
+          margin.left -= vScrollbarPrefSize.width;
+        }
+      }
+
+      vRect.Deflate(margin);
+    }
+    AdjustScrollbarRectForResizer(mOuter, presContext, vRect, hasResizer,
+                                  ScrollDirection::eVertical);
+  }
+
+  bool hasVisualOnlyScrollbarsOnBothDirections =
+      !UsesOverlayScrollbars() && mHScrollbarBox && mHasHorizontalScrollbar &&
+      mOnlyNeedHScrollbarToScrollVVInsideLV && mVScrollbarBox &&
+      mHasVerticalScrollbar && mOnlyNeedVScrollbarToScrollVVInsideLV;
+
+  nsRect hRect;
+  if (mHScrollbarBox) {
+    MOZ_ASSERT(mHScrollbarBox->IsXULBoxFrame(), "Must be a box frame!");
+    hRect = mScrollPort;
+    if (overlayScrollBarsOnRoot) {
+      hRect.width = compositionSize.width;
+    }
+    hRect.height = aContentArea.height - mScrollPort.height;
+    hRect.y = mScrollPort.y + compositionSize.height;
+    if (mHasHorizontalScrollbar) {
+      nsMargin margin;
+
+      // For overlay scrollbars the margin returned from this GetXULMargin call
+      // is a negative margin that moves the scrollbar from just outside the
+      // scrollport (and hence not visible) to just inside the scrollport (and
+      // hence visible). For non-overlay scrollbars it is a 0 margin.
+      mHScrollbarBox->GetXULMargin(margin);
+
+      if (!UsesOverlayScrollbars() && mOnlyNeedHScrollbarToScrollVVInsideLV) {
+        // There is no space reserved for the layout scrollbar, it is currently
+        // not visible because it is positioned just outside the scrollport. But
+        // we know that it needs to be made visible so we shift it back in.
+        nsSize hScrollbarPrefSize(0, 0);
+        GetScrollbarMetrics(aState, mHScrollbarBox, nullptr,
+                            &hScrollbarPrefSize);
+        margin.top -= hScrollbarPrefSize.height;
+      }
+
+      hRect.Deflate(margin);
+    }
+    AdjustScrollbarRectForResizer(mOuter, presContext, hRect, hasResizer,
+                                  ScrollDirection::eHorizontal);
+  }
+
   // place the scrollcorner
   if (mScrollCornerBox || mResizerBox) {
     MOZ_ASSERT(!mScrollCornerBox || mScrollCornerBox->IsXULBoxFrame(),
@@ -6456,6 +6622,16 @@ void ScrollFrameHelper::LayoutScrollbars(nsBoxLayoutState& aState,
       r.height = aContentArea.YMost() - mScrollPort.YMost();
       r.y = aContentArea.YMost() - r.height;
       NS_ASSERTION(r.height >= 0, "Scroll area should be inside client rect");
+    }
+
+    // If we have layout scrollbars and both scrollbars are present and both are
+    // only needed to scroll the VV inside the LV then we need a scrollcorner
+    // but the above calculation will result in an empty rect, so adjust it.
+    if (r.IsEmpty() && hasVisualOnlyScrollbarsOnBothDirections) {
+      r.width = vRect.width;
+      r.height = hRect.height;
+      r.x = scrollbarOnLeft ? mScrollPort.x : mScrollPort.XMost() - r.width;
+      r.y = mScrollPort.YMost() - r.height;
     }
 
     if (mScrollCornerBox) {
@@ -6493,45 +6669,10 @@ void ScrollFrameHelper::LayoutScrollbars(nsBoxLayoutState& aState,
     }
   }
 
-  nsPresContext* presContext = mScrolledFrame->PresContext();
-  nsRect vRect;
-  if (mVScrollbarBox) {
-    MOZ_ASSERT(mVScrollbarBox->IsXULBoxFrame(), "Must be a box frame!");
-    vRect = mScrollPort;
-    if (overlayScrollBarsOnRoot) {
-      vRect.height = compositionSize.height;
-    }
-    vRect.width = aContentArea.width - mScrollPort.width;
-    vRect.x = scrollbarOnLeft ? aContentArea.x
-                              : mScrollPort.x + compositionSize.width;
-    if (mHasVerticalScrollbar) {
-      nsMargin margin;
-      mVScrollbarBox->GetXULMargin(margin);
-      vRect.Deflate(margin);
-    }
-    AdjustScrollbarRectForResizer(mOuter, presContext, vRect, hasResizer,
-                                  ScrollDirection::eVertical);
-  }
-
-  nsRect hRect;
-  if (mHScrollbarBox) {
-    MOZ_ASSERT(mHScrollbarBox->IsXULBoxFrame(), "Must be a box frame!");
-    hRect = mScrollPort;
-    if (overlayScrollBarsOnRoot) {
-      hRect.width = compositionSize.width;
-    }
-    hRect.height = aContentArea.height - mScrollPort.height;
-    hRect.y = mScrollPort.y + compositionSize.height;
-    if (mHasHorizontalScrollbar) {
-      nsMargin margin;
-      mHScrollbarBox->GetXULMargin(margin);
-      hRect.Deflate(margin);
-    }
-    AdjustScrollbarRectForResizer(mOuter, presContext, hRect, hasResizer,
-                                  ScrollDirection::eHorizontal);
-  }
-
-  if (!LookAndFeel::GetInt(LookAndFeel::IntID::AllowOverlayScrollbarsOverlap)) {
+  // Layout scrollbars can overlap at this point if they are both present and
+  // both only needed to scroll the VV inside the LV.
+  if (!LookAndFeel::GetInt(LookAndFeel::IntID::AllowOverlayScrollbarsOverlap) ||
+      hasVisualOnlyScrollbarsOnBothDirections) {
     AdjustOverlappingScrollbars(vRect, hRect);
   }
   if (mVScrollbarBox) {
@@ -6776,11 +6917,38 @@ nsRect ScrollFrameHelper::GetUnsnappedScrolledRectInternal(
                                         aScrollPortSize, GetScrolledFrameDir());
 }
 
-nsMargin ScrollFrameHelper::GetActualScrollbarSizes() const {
+nsMargin ScrollFrameHelper::GetActualScrollbarSizes(
+    nsIScrollableFrame::ScrollbarSizesOptions
+        aOptions /* = nsIScrollableFrame::ScrollbarSizesOptions::NONE */)
+    const {
   nsRect r = mOuter->GetPaddingRectRelativeToSelf();
 
-  return nsMargin(mScrollPort.y - r.y, r.XMost() - mScrollPort.XMost(),
-                  r.YMost() - mScrollPort.YMost(), mScrollPort.x - r.x);
+  nsMargin m(mScrollPort.y - r.y, r.XMost() - mScrollPort.XMost(),
+             r.YMost() - mScrollPort.YMost(), mScrollPort.x - r.x);
+
+  if (aOptions == nsIScrollableFrame::ScrollbarSizesOptions::
+                      INCLUDE_VISUAL_VIEWPORT_SCROLLBARS &&
+      !UsesOverlayScrollbars()) {
+    // If we are using layout scrollbars and they only exist to scroll the
+    // visual viewport then they do not take up any layout space (so the
+    // scrollport is the same as the padding rect) but they do cover everything
+    // below them so some callers may want to include this special type of
+    // scrollbars in the returned value.
+    if (mHScrollbarBox && mHasHorizontalScrollbar &&
+        mOnlyNeedHScrollbarToScrollVVInsideLV) {
+      m.bottom += mHScrollbarBox->GetRect().height;
+    }
+    if (mVScrollbarBox && mHasVerticalScrollbar &&
+        mOnlyNeedVScrollbarToScrollVVInsideLV) {
+      if (IsScrollbarOnRight()) {
+        m.right += mVScrollbarBox->GetRect().width;
+      } else {
+        m.left += mVScrollbarBox->GetRect().width;
+      }
+    }
+  }
+
+  return m;
 }
 
 void ScrollFrameHelper::SetScrollbarVisibility(nsIFrame* aScrollbar,

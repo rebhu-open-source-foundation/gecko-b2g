@@ -57,7 +57,7 @@ AudioData::AudioData(int64_t aOffset, const media::TimeUnit& aTime,
       mFrames(mAudioData.Length() / aChannels) {}
 
 Span<AudioDataValue> AudioData::Data() const {
-  return MakeSpan(GetAdjustedData(), mFrames * mChannels);
+  return Span{GetAdjustedData(), mFrames * mChannels};
 }
 
 bool AudioData::AdjustForStartTime(const media::TimeUnit& aStartTime) {
@@ -353,12 +353,15 @@ already_AddRefed<VideoData> VideoData::CreateAndCopyData(
     }
   }
 #elif XP_MACOSX
-  RefPtr<layers::MacIOSurfaceImage> ioImage =
-      new layers::MacIOSurfaceImage(nullptr);
-  PlanarYCbCrData data = ConstructPlanarYCbCrData(aInfo, aBuffer, aPicture);
-  if (ioImage->SetData(aContainer, data)) {
-    v->mImage = ioImage;
-    return v.forget();
+  if (aAllocator && aAllocator->GetCompositorBackendType() ==
+                        layers::LayersBackend::LAYERS_WR) {
+    RefPtr<layers::MacIOSurfaceImage> ioImage =
+        new layers::MacIOSurfaceImage(nullptr);
+    PlanarYCbCrData data = ConstructPlanarYCbCrData(aInfo, aBuffer, aPicture);
+    if (ioImage->SetData(aContainer, data)) {
+      v->mImage = ioImage;
+      return v.forget();
+    }
   }
 #endif
   if (!v->mImage) {

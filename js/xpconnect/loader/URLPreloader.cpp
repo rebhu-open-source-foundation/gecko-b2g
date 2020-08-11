@@ -76,9 +76,27 @@ nsresult URLPreloader::CollectReports(nsIHandleReportCallback* aHandleReport,
   return NS_OK;
 }
 
+// static
+already_AddRefed<URLPreloader> URLPreloader::Create(bool* aInitialized) {
+  // The static APIs like URLPreloader::Read work in the child process because
+  // they fall back to a synchronous read. The actual preloader must be
+  // explicitly initialized, and this should only be done in the parent.
+  MOZ_RELEASE_ASSERT(XRE_IsParentProcess());
+
+  RefPtr<URLPreloader> preloader = new URLPreloader();
+  if (preloader->InitInternal().isOk()) {
+    *aInitialized = true;
+    RegisterWeakMemoryReporter(preloader);
+  } else {
+    *aInitialized = false;
+  }
+
+  return preloader.forget();
+}
+
 URLPreloader& URLPreloader::GetSingleton() {
   if (!sSingleton) {
-    sSingleton = new URLPreloader();
+    sSingleton = Create(&sInitialized);
     ClearOnShutdown(&sSingleton);
   }
 
@@ -89,16 +107,10 @@ bool URLPreloader::sInitialized = false;
 
 StaticRefPtr<URLPreloader> URLPreloader::sSingleton;
 
-URLPreloader::URLPreloader() {
-  if (InitInternal().isOk()) {
-    sInitialized = true;
-    RegisterWeakMemoryReporter(this);
-  }
-}
-
 URLPreloader::~URLPreloader() {
   if (sInitialized) {
     UnregisterWeakMemoryReporter(this);
+    sInitialized = false;
   }
 }
 
@@ -127,23 +139,18 @@ Result<Ok, nsresult> URLPreloader::InitInternal() {
     return Err(NS_ERROR_UNEXPECTED);
   }
 
-  if (XRE_IsParentProcess()) {
-    nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
+  nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
 
-    obs->AddObserver(this, DELAYED_STARTUP_TOPIC, false);
+  MOZ_TRY(obs->AddObserver(this, DELAYED_STARTUP_TOPIC, false));
 
-    MOZ_TRY(NS_GetSpecialDirectory("ProfLDS", getter_AddRefs(mProfD)));
-  } else {
-    mStartupFinished = true;
-    mReaderInitialized = true;
-  }
+  MOZ_TRY(NS_GetSpecialDirectory("ProfLDS", getter_AddRefs(mProfD)));
 
   return Ok();
 }
 
 URLPreloader& URLPreloader::ReInitialize() {
-  sSingleton = new URLPreloader();
-
+  MOZ_ASSERT(sSingleton);
+  sSingleton = Create(&sInitialized);
   return *sSingleton;
 }
 

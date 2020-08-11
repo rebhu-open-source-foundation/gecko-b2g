@@ -24,6 +24,7 @@
 #include "js/UniquePtr.h"
 #include "vm/AsyncFunction.h"
 #include "vm/AsyncIteration.h"
+#include "vm/BuiltinObjectKind.h"
 #include "vm/EnvironmentObject.h"
 #include "vm/FunctionFlags.h"  // js::FunctionFlags
 #include "vm/Interpreter.h"
@@ -6129,8 +6130,7 @@ bool BaselineCodeGen<Handler>::emit_Resume() {
   // Store the arguments object if there is one.
   Label noArgsObj;
   Address argsObjSlot(genObj, AbstractGeneratorObject::offsetOfArgsObjSlot());
-  masm.branchTestUndefined(Assembler::Equal, argsObjSlot, &noArgsObj);
-  masm.unboxObject(argsObjSlot, scratch2);
+  masm.fallibleUnboxObject(argsObjSlot, scratch2, &noArgsObj);
   {
     masm.storePtr(scratch2, frame.addressOfArgsObj());
     masm.or32(Imm32(BaselineFrame::HAS_ARGS_OBJ), frame.addressOfFlags());
@@ -6141,10 +6141,8 @@ bool BaselineCodeGen<Handler>::emit_Resume() {
   Label noExprStack;
   Address exprStackSlot(genObj,
                         AbstractGeneratorObject::offsetOfExpressionStackSlot());
-  masm.branchTestNull(Assembler::Equal, exprStackSlot, &noExprStack);
+  masm.fallibleUnboxObject(exprStackSlot, scratch2, &noExprStack);
   {
-    masm.unboxObject(exprStackSlot, scratch2);
-
     Register initLength = regs.takeAny();
     masm.loadPtr(Address(scratch2, NativeObject::offsetOfElements()), scratch2);
     masm.load32(Address(scratch2, ObjectElements::offsetOfInitializedLength()),
@@ -6386,22 +6384,25 @@ bool BaselineCodeGen<Handler>::emit_InitHomeObject() {
 }
 
 template <>
-bool BaselineCompilerCodeGen::emit_FunctionProto() {
-  // The function prototype is a constant for a given global.
-  JSObject* funProto = FunctionProtoOperation(cx);
-  if (!funProto) {
+bool BaselineCompilerCodeGen::emit_BuiltinObject() {
+  // Built-in objects are constants for a given global.
+  auto kind = BuiltinObjectKind(GET_UINT8(handler.pc()));
+  JSObject* builtin = BuiltinObjectOperation(cx, kind);
+  if (!builtin) {
     return false;
   }
-  frame.push(ObjectValue(*funProto));
+  frame.push(ObjectValue(*builtin));
   return true;
 }
 
 template <>
-bool BaselineInterpreterCodeGen::emit_FunctionProto() {
+bool BaselineInterpreterCodeGen::emit_BuiltinObject() {
   prepareVMCall();
 
-  using Fn = JSObject* (*)(JSContext*);
-  if (!callVM<Fn, FunctionProtoOperation>()) {
+  pushUint8BytecodeOperandArg(R0.scratchReg());
+
+  using Fn = JSObject* (*)(JSContext*, BuiltinObjectKind);
+  if (!callVM<Fn, BuiltinObjectOperation>()) {
     return false;
   }
 

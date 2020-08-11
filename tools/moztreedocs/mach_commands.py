@@ -43,8 +43,8 @@ Bug 1556460 tracks supporting newer versions of jsdoc.
 class Documentation(MachCommandBase):
     """Helps manage in-tree documentation."""
 
-    def __init__(self, context):
-        super(Documentation, self).__init__(context)
+    def __init__(self, *args, **kwargs):
+        super(Documentation, self).__init__(*args, **kwargs)
 
         self._manager = None
         self._project = None
@@ -80,7 +80,9 @@ class Documentation(MachCommandBase):
         if self.check_jsdoc():
             return die(JSDOC_NOT_FOUND)
 
-        self.activate_pipenv(os.path.join(here, 'Pipfile'))
+        self.activate_pipenv(
+            os.path.dirname(self.virtualenv_manager.virtualenv_root),
+            pipfile=os.path.join(here, 'Pipfile'))
 
         import webbrowser
         from livereload import Server

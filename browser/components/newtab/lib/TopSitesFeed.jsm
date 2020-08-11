@@ -374,7 +374,12 @@ this.TopSitesFeed = class TopSitesFeed {
     let notBlockedDefaultSites = [];
     for (let link of DEFAULT_TOP_SITES) {
       if (this._useRemoteSetting) {
-        link = { ...link, url: link.url.replace("%YYYYMMDDHH%", yyyymmddhh) };
+        link = {
+          ...link,
+          // This should be optional (bug 1657083):
+          sendTopSiteAttributionRequest: link.isDefault,
+          url: link.url.replace("%YYYYMMDDHH%", yyyymmddhh),
+        };
       }
       // Remove any defaults that have been blocked.
       if (NewTabUtils.blockedLinks.isBlocked({ url: link.url })) {
@@ -508,7 +513,7 @@ this.TopSitesFeed = class TopSitesFeed {
             delete link.searchTopSite;
             delete link.label;
             link.url = url;
-            link.overriddenSearchTopSite = true;
+            link.sendTopSiteAttributionRequest = true;
           }
         }
       }
@@ -592,7 +597,7 @@ this.TopSitesFeed = class TopSitesFeed {
     const searchShortcuts = (await Services.search.getDefaultEngines()).reduce(
       (result, engine) => {
         const shortcut = CUSTOM_SEARCH_SHORTCUTS.find(s =>
-          engine.wrappedJSObject._internalAliases.includes(s.keyword)
+          engine.aliases.includes(s.keyword)
         );
         if (shortcut) {
           let clone = { ...shortcut };

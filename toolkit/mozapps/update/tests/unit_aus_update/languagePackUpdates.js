@@ -11,8 +11,9 @@ const { PromiseUtils } = ChromeUtils.import(
   "resource://gre/modules/PromiseUtils.jsm"
 );
 const { setTimeout } = ChromeUtils.import("resource://gre/modules/Timer.jsm");
-
-gDebugTest = true;
+const { TelemetryTestUtils } = ChromeUtils.import(
+  "resource://testing-common/TelemetryTestUtils.jsm"
+);
 
 AddonTestUtils.init(this);
 setupTestCommon();
@@ -62,10 +63,21 @@ function mockLangpackUpdate() {
 }
 
 add_task(async function init() {
+  // Thunderbird doesn't have one or more of the probes used in this test.
+  // Ensure the data is collected anyway.
+  Services.prefs.setBoolPref(
+    "toolkit.telemetry.testing.overrideProductsCheck",
+    true
+  );
+
   await AddonTestUtils.promiseStartupManager();
 });
 
 add_task(async function testLangpackUpdateSuccess() {
+  let histogram = TelemetryTestUtils.getAndClearHistogram(
+    "UPDATE_LANGPACK_OVERTIME"
+  );
+
   let updateDownloadNotified = false;
   let notified = waitForEvent("update-downloaded").then(
     () => (updateDownloadNotified = true)
@@ -99,6 +111,14 @@ add_task(async function testLangpackUpdateSuccess() {
   resolve();
 
   await notified;
+
+  // Because we resolved the lang pack call after the download completed a value
+  // should have been recorded in telemetry.
+  let snapshot = histogram.snapshot();
+  Assert.ok(
+    !Object.values(snapshot.values).every(val => val == 0),
+    "Should have recorded a time"
+  );
 });
 
 add_task(async function testLangpackUpdateFails() {
@@ -179,6 +199,77 @@ add_task(async function testLangpackStaged() {
   resolve();
 
   await notified;
+});
+
+add_task(async function testRedownload() {
+  // When the download of a partial mar fails the same downloader is re-used to
+  // download the complete mar. We should only call the add-ons manager to stage
+  // language packs once in this case.
+  Services.prefs.setBoolPref(PREF_APP_UPDATE_STAGING_ENABLED, false);
+  let histogram = TelemetryTestUtils.getAndClearHistogram(
+    "UPDATE_LANGPACK_OVERTIME"
+  );
+
+  let partialPatch = getRemotePatchString({
+    type: "partial",
+    url: gURLData + "missing.mar",
+    size: 28,
+  });
+  let completePatch = getRemotePatchString({});
+  let updateString = getRemoteUpdateString({}, partialPatch + completePatch);
+  gResponseBody = getRemoteUpdatesXMLString(updateString);
+
+  let { updates } = await waitForUpdateCheck(true);
+
+  initMockIncrementalDownload();
+  gIncrementalDownloadErrorType = 3;
+
+  let stageCount = 0;
+  XPIInstall.stageLangpacksForAppUpdate = () => {
+    stageCount++;
+    return Promise.resolve();
+  };
+
+  let downloadCount = 0;
+  let listener = {
+    onStartRequest: aRequest => {},
+    onProgress: (aRequest, aContext, aProgress, aMaxProgress) => {},
+    onStatus: (aRequest, aStatus, aStatusText) => {},
+    onStopRequest: (request, status) => {
+      Assert.equal(
+        status,
+        downloadCount ? 0 : Cr.NS_ERROR_CORRUPTED_CONTENT,
+        "Should have seen the right status."
+      );
+      downloadCount++;
+
+      // Keep the same status.
+      gIncrementalDownloadErrorType = 3;
+    },
+    QueryInterface: ChromeUtils.generateQI([
+      "nsIRequestObserver",
+      "nsIProgressEventSink",
+    ]),
+  };
+  gAUS.addDownloadListener(listener);
+
+  let bestUpdate = gAUS.selectUpdate(updates);
+  gAUS.downloadUpdate(bestUpdate, false);
+
+  await waitForEvent("update-downloaded");
+
+  gAUS.removeDownloadListener(listener);
+
+  Assert.equal(downloadCount, 2, "Should have seen two downloads");
+  Assert.equal(stageCount, 1, "Should have only tried to stage langpacks once");
+
+  // Because we resolved the lang pack call before the download completed a value
+  // should not have been recorded in telemetry.
+  let snapshot = histogram.snapshot();
+  Assert.ok(
+    Object.values(snapshot.values).every(val => val == 0),
+    "Should have recorded a time"
+  );
 });
 
 add_task(async function finish() {

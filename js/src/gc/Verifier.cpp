@@ -187,7 +187,7 @@ void gc::GCRuntime::startVerifyPreBarriers() {
 
   JSContext* cx = rt->mainContextFromOwnThread();
 
-  if (IsIncrementalGCUnsafe(rt) != AbortReason::None ||
+  if (IsIncrementalGCUnsafe(rt) != GCAbortReason::None ||
       rt->hasHelperThreadZones()) {
     return;
   }
@@ -365,7 +365,7 @@ void gc::GCRuntime::endVerifyPreBarriers() {
   MOZ_ASSERT(incrementalState == State::Mark);
   incrementalState = State::NotActive;
 
-  if (!compartmentCreated && IsIncrementalGCUnsafe(rt) == AbortReason::None &&
+  if (!compartmentCreated && IsIncrementalGCUnsafe(rt) == GCAbortReason::None &&
       !rt->hasHelperThreadZones()) {
     CheckEdgeTracer cetrc(rt);
 
@@ -703,7 +703,7 @@ void js::gc::MarkingValidator::validate() {
       uintptr_t thing = arena->thingsStart();
       uintptr_t end = arena->thingsEnd();
       while (thing < end) {
-        auto cell = reinterpret_cast<TenuredCell*>(thing);
+        auto* cell = reinterpret_cast<TenuredCell*>(thing);
 
         /*
          * If a non-incremental GC wouldn't have collected a cell, then

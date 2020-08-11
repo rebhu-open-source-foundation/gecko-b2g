@@ -305,7 +305,11 @@ nsresult nsNSSCertificateDB::handleCACertDownload(NotNull<nsIArray*> x509Certs,
     return NS_ERROR_FAILURE;
   }
 
-  if (tmpCert->isperm) {
+  PRBool isperm;
+  if (CERT_GetCertIsPerm(tmpCert.get(), &isperm) != SECSuccess) {
+    return NS_ERROR_FAILURE;
+  }
+  if (isperm) {
     DisplayCertificateAlert(ctx, "CaCertExists", certToShow);
     return NS_ERROR_FAILURE;
   }
@@ -843,13 +847,13 @@ nsNSSCertificateDB::ConstructX509FromBase64(const nsACString& base64,
     return rv;
   }
 
-  return ConstructX509FromSpan(AsBytes(MakeSpan(certDER)), _retval);
+  return ConstructX509FromSpan(AsBytes(Span(certDER)), _retval);
 }
 
 NS_IMETHODIMP
 nsNSSCertificateDB::ConstructX509(const nsTArray<uint8_t>& certDER,
                                   nsIX509Cert** _retval) {
-  return ConstructX509FromSpan(MakeSpan(certDER.Elements(), certDER.Length()),
+  return ConstructX509FromSpan(Span(certDER.Elements(), certDER.Length()),
                                _retval);
 }
 
@@ -1013,8 +1017,8 @@ nsNSSCertificateDB::AddCert(const nsACString& aCertDER,
   }
 
   nsCOMPtr<nsIX509Cert> newCert;
-  nsresult rv = ConstructX509FromSpan(AsBytes(MakeSpan(aCertDER)),
-                                      getter_AddRefs(newCert));
+  nsresult rv =
+      ConstructX509FromSpan(AsBytes(Span(aCertDER)), getter_AddRefs(newCert));
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -1026,7 +1030,11 @@ nsNSSCertificateDB::AddCert(const nsACString& aCertDER,
 
   // If there's already a certificate that matches this one in the database, we
   // still want to set its trust to the given value.
-  if (tmpCert->isperm) {
+  PRBool isperm;
+  if (CERT_GetCertIsPerm(tmpCert.get(), &isperm) != SECSuccess) {
+    return NS_ERROR_FAILURE;
+  }
+  if (isperm) {
     rv = SetCertTrustFromString(newCert, aTrust);
     if (NS_FAILED(rv)) {
       return rv;

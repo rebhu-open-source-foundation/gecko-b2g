@@ -85,8 +85,8 @@ class WorkletNodeEngine final : public AudioNodeEngine {
                     bool* aFinished) override {
     MOZ_ASSERT(InputCount() <= 1);
     MOZ_ASSERT(OutputCount() <= 1);
-    ProcessBlocksOnPorts(aTrack, aFrom, MakeSpan(&aInput, InputCount()),
-                         MakeSpan(aOutput, OutputCount()), aFinished);
+    ProcessBlocksOnPorts(aTrack, aFrom, Span(&aInput, InputCount()),
+                         Span(aOutput, OutputCount()), aFinished);
   }
 
   void ProcessBlocksOnPorts(AudioNodeTrack* aTrack, GraphTime aFrom,
@@ -247,7 +247,12 @@ void WorkletNodeEngine::ConstructProcessor(
     UniqueMessagePortId& aPortIdentifier, AudioNodeTrack* aTrack) {
   MOZ_ASSERT(mInputs.mPorts.empty() && mOutputs.mPorts.empty());
   RefPtr<AudioWorkletGlobalScope> global = aWorkletImpl->GetGlobalScope();
-  MOZ_ASSERT(global);  // global has already been used to register processor
+  if (!global) {
+    // A global was previously used to register this kind of processor.  If it
+    // no longer exists now, that is because the document is going away and so
+    // there is no need to send an error.
+    return;
+  }
   AutoJSAPI api;
   if (NS_WARN_IF(!api.Init(global))) {
     SendProcessorError(aTrack, nullptr);

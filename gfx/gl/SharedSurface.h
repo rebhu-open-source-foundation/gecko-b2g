@@ -140,10 +140,6 @@ class SharedSurface {
 
   virtual Maybe<layers::SurfaceDescriptor> ToSurfaceDescriptor() = 0;
 
-  virtual bool ReadbackBySharedHandle(gfx::DataSourceSurface* out_surface) {
-    return false;
-  }
-
   virtual SharedSurface_Gralloc* AsSharedSurface_Gralloc() { return nullptr; }
 };
 

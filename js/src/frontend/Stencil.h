@@ -7,35 +7,29 @@
 #ifndef frontend_Stencil_h
 #define frontend_Stencil_h
 
-#include "mozilla/Assertions.h"  // MOZ_ASSERT, MOZ_RELEASE_ASSERT
-#include "mozilla/CheckedInt.h"  // CheckedUint32
+#include "mozilla/Assertions.h"  // MOZ_ASSERT
 #include "mozilla/Maybe.h"       // mozilla::{Maybe, Nothing}
 #include "mozilla/Range.h"       // mozilla::Range
-#include "mozilla/Span.h"        // mozilla::Span
 
 #include <stdint.h>  // char16_t, uint8_t, uint32_t
 #include <stdlib.h>  // size_t
 
 #include "frontend/AbstractScopePtr.h"    // AbstractScopePtr, ScopeIndex
 #include "frontend/FunctionSyntaxKind.h"  // FunctionSyntaxKind
-#include "frontend/NameAnalysisTypes.h"   // AtomVector
-#include "frontend/ObjLiteral.h"          // ObjLiteralCreationData
+#include "frontend/ObjLiteral.h"          // ObjLiteralStencil
 #include "frontend/TypedIndex.h"          // TypedIndex
-#include "gc/Barrier.h"                   // HeapPtr, GCPtrAtom
-#include "gc/Rooting.h"  // HandleAtom, HandleModuleObject, HandleScriptSourceObject, MutableHandleScope
-#include "js/GCVariant.h"              // GC Support for mozilla::Variant
-#include "js/RegExpFlags.h"            // JS::RegExpFlags
-#include "js/RootingAPI.h"             // Handle
-#include "js/TypeDecls.h"              // JSContext,JSAtom,JSFunction
-#include "js/UniquePtr.h"              // js::UniquePtr
-#include "js/Utility.h"                // JS::FreePolicy, UniqueTwoByteChars
-#include "js/Vector.h"                 // js::Vector
-#include "util/Text.h"                 // DuplicateString
-#include "vm/BigIntType.h"             // ParseBigIntLiteral
-#include "vm/FunctionFlags.h"          // FunctionFlags
-#include "vm/GeneratorAndAsyncKind.h"  // GeneratorKind, FunctionAsyncKind
-#include "vm/JSScript.h"  // GeneratorKind, FunctionAsyncKind, FieldInitializers
-#include "vm/Runtime.h"   // ReportOutOfMemory
+#include "js/GCVariant.h"                 // GC Support for mozilla::Variant
+#include "js/RegExpFlags.h"               // JS::RegExpFlags
+#include "js/RootingAPI.h"                // Handle
+#include "js/TypeDecls.h"                 // JSContext,JSAtom,JSFunction
+#include "js/UniquePtr.h"                 // js::UniquePtr
+#include "js/Utility.h"                   // UniqueTwoByteChars
+#include "js/Vector.h"                    // js::Vector
+#include "util/Text.h"                    // DuplicateString
+#include "vm/BigIntType.h"                // ParseBigIntLiteral
+#include "vm/FunctionFlags.h"             // FunctionFlags
+#include "vm/GeneratorAndAsyncKind.h"     // GeneratorKind, FunctionAsyncKind
+#include "vm/JSScript.h"                  // FieldInitializers
 #include "vm/Scope.h"  // BaseScopeData, FunctionScope, LexicalScope, VarScope, GlobalScope, EvalScope, ModuleScope
 #include "vm/ScopeKind.h"      // ScopeKind
 #include "vm/SharedStencil.h"  // ImmutableScriptFlags, GCThingIndex
@@ -43,9 +37,16 @@
 
 class JS_PUBLIC_API JSTracer;
 
-namespace js::frontend {
+namespace js {
+
+class JSONPrinter;
+
+namespace frontend {
 
 struct CompilationInfo;
+class ScriptStencil;
+class RegExpStencil;
+class BigIntStencil;
 
 // [SMDOC] Script Stencil (Frontend Representation)
 //
@@ -56,16 +57,11 @@ struct CompilationInfo;
 //
 // Renaming to use the term stencil more broadly is still in progress.
 
-// Arbitrary typename to disambiguate TypedIndexes;
-class FunctionIndexType;
-
-// We need to be able to forward declare this type, so make a subclass
-// rather than just using.
-class FunctionIndex : public TypedIndex<FunctionIndexType> {
-  // Delegate constructors;
-  using Base = TypedIndex<FunctionIndexType>;
-  using Base::Base;
-};
+// Typed indices for the different stencil elements in the compilation result.
+using RegExpIndex = TypedIndex<RegExpStencil>;
+using BigIntIndex = TypedIndex<BigIntStencil>;
+using ObjLiteralIndex = TypedIndex<ObjLiteralStencil>;
+using FunctionIndex = TypedIndex<ScriptStencil>;
 
 FunctionFlags InitialFunctionFlags(FunctionSyntaxKind kind,
                                    GeneratorKind generatorKind,
@@ -75,13 +71,13 @@ FunctionFlags InitialFunctionFlags(FunctionSyntaxKind kind,
 
 // This owns a set of characters, previously syntax checked as a RegExp. Used
 // to avoid allocating the RegExp on the GC heap during parsing.
-class RegExpCreationData {
-  UniquePtr<char16_t[], JS::FreePolicy> buf_;
+class RegExpStencil {
+  UniqueTwoByteChars buf_;
   size_t length_ = 0;
   JS::RegExpFlags flags_;
 
  public:
-  RegExpCreationData() = default;
+  RegExpStencil() = default;
 
   MOZ_MUST_USE bool init(JSContext* cx, mozilla::Range<const char16_t> range,
                          JS::RegExpFlags flags) {
@@ -97,19 +93,22 @@ class RegExpCreationData {
   MOZ_MUST_USE bool init(JSContext* cx, JSAtom* pattern, JS::RegExpFlags flags);
 
   RegExpObject* createRegExp(JSContext* cx) const;
-};
 
-using RegExpIndex = TypedIndex<RegExpCreationData>;
+#if defined(DEBUG) || defined(JS_JITSPEW)
+  void dump();
+  void dump(JSONPrinter& json);
+#endif
+};
 
 // This owns a set of characters guaranteed to parse into a BigInt via
 // ParseBigIntLiteral. Used to avoid allocating the BigInt on the
 // GC heap during parsing.
-class BigIntCreationData {
+class BigIntStencil {
   UniqueTwoByteChars buf_;
   size_t length_ = 0;
 
  public:
-  BigIntCreationData() = default;
+  BigIntStencil() = default;
 
   MOZ_MUST_USE bool init(JSContext* cx, const Vector<char16_t, 32>& buf) {
 #ifdef DEBUG
@@ -134,9 +133,12 @@ class BigIntCreationData {
     mozilla::Range<const char16_t> source(buf_.get(), length_);
     return js::BigIntLiteralIsZero(source);
   }
-};
 
-using BigIntIndex = TypedIndex<BigIntCreationData>;
+#if defined(DEBUG) || defined(JS_JITSPEW)
+  void dump();
+  void dump(JSONPrinter& json);
+#endif
+};
 
 class ScopeStencil {
   friend class js::AbstractScopePtr;
@@ -243,6 +245,12 @@ class ScopeStencil {
   void trace(JSTracer* trc);
 
   uint32_t nextFrameSlot() const;
+
+#if defined(DEBUG) || defined(JS_JITSPEW)
+  void dump();
+  void dump(JSONPrinter& json);
+  void dumpFields(JSONPrinter& json);
+#endif
 
  private:
   // Non owning reference to data
@@ -385,6 +393,12 @@ class StencilModuleMetadata {
   bool initModule(JSContext* cx, JS::Handle<ModuleObject*> module);
 
   void trace(JSTracer* trc);
+
+#if defined(DEBUG) || defined(JS_JITSPEW)
+  void dump();
+  void dump(JSONPrinter& json);
+  void dumpFields(JSONPrinter& json);
+#endif
 };
 
 // The lazy closed-over-binding info is represented by these types that will
@@ -395,9 +409,9 @@ using ScriptAtom = JSAtom*;
 // These types all end up being baked into GC things as part of stencil
 // instantiation.
 using ScriptThingVariant =
-    mozilla::Variant<ScriptAtom, NullScriptThing, BigIntIndex,
-                     ObjLiteralCreationData, RegExpIndex, ScopeIndex,
-                     FunctionIndex, EmptyGlobalScopeType>;
+    mozilla::Variant<ScriptAtom, NullScriptThing, BigIntIndex, ObjLiteralIndex,
+                     RegExpIndex, ScopeIndex, FunctionIndex,
+                     EmptyGlobalScopeType>;
 
 // A vector of things destined to be converted to GC things.
 using ScriptThingsVector = Vector<ScriptThingVariant>;
@@ -487,9 +501,16 @@ class ScriptStencil {
     MOZ_ASSERT_IF(result, !isFunction());
     return result;
   }
+
+#if defined(DEBUG) || defined(JS_JITSPEW)
+  void dump();
+  void dump(JSONPrinter& json);
+  void dumpFields(JSONPrinter& json);
+#endif
 };
 
-} /* namespace js::frontend */
+} /* namespace frontend */
+} /* namespace js */
 
 namespace JS {
 template <>

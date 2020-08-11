@@ -131,6 +131,7 @@ EXPORTS.mozilla.layers += [
     'basic/TextureHostBasic.h',
     'BSPTree.h',
     'BufferTexture.h',
+    'BuildConstants.h',
     'CanvasDrawEventRecorder.h',
     'CanvasRenderer.h',
     'client/CanvasClient.h',
@@ -252,6 +253,7 @@ EXPORTS.mozilla.layers += [
     'RenderTrace.h',
     'RepaintRequest.h',
     'RotatedBuffer.h',
+    'SampleTime.h',
     'ScrollableLayerGuid.h',
     'ShareableCanvasRenderer.h',
     'SourceSurfaceSharedData.h',
@@ -561,6 +563,7 @@ UNIFIED_SOURCES += [
     'ReadbackProcessor.cpp',
     'RenderTrace.cpp',
     'RotatedBuffer.cpp',
+    'SampleTime.cpp',
     'ShareableCanvasRenderer.cpp',
     'SourceSurfaceSharedData.cpp',
     'SourceSurfaceVolatileData.cpp',
@@ -675,7 +678,6 @@ if CONFIG['ENABLE_TESTS']:
     DIRS += ['apz/test/gtest/mvm']
 
 MOCHITEST_MANIFESTS += ['apz/test/mochitest/mochitest.ini']
-MOCHITEST_CHROME_MANIFESTS += ['apz/test/mochitest/chrome.ini']
 BROWSER_CHROME_MANIFESTS += ['apz/test/mochitest/browser.ini']
 
 CXXFLAGS += CONFIG['MOZ_CAIRO_CFLAGS']

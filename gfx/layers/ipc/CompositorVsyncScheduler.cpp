@@ -70,7 +70,7 @@ CompositorVsyncScheduler::CompositorVsyncScheduler(
     CompositorVsyncSchedulerOwner* aVsyncSchedulerOwner,
     widget::CompositorWidget* aWidget)
     : mVsyncSchedulerOwner(aVsyncSchedulerOwner),
-      mLastComposeTime(TimeStamp::Now()),
+      mLastComposeTime(SampleTime::FromNow()),
       mLastVsyncTime(TimeStamp::Now()),
       mLastVsyncOutputTime(TimeStamp::Now()),
       mIsObservingVsync(false),
@@ -368,7 +368,7 @@ void CompositorVsyncScheduler::Composite(const VsyncEvent& aVsyncEvent) {
 
   if (!mAsapScheduling) {
     // Some early exit conditions if we're not in ASAP mode
-    if (aVsyncEvent.mTime < mLastComposeTime) {
+    if (aVsyncEvent.mTime < mLastComposeTime.Time()) {
       // We can sometimes get vsync timestamps that are in the past
       // compared to the last compose with force composites.
       // In those cases, wait until the next vsync;
@@ -388,7 +388,7 @@ void CompositorVsyncScheduler::Composite(const VsyncEvent& aVsyncEvent) {
 
   if (mCompositeRequestedAt || mAsapScheduling) {
     mCompositeRequestedAt = TimeStamp();
-    mLastComposeTime = aVsyncEvent.mTime;
+    mLastComposeTime = SampleTime::FromVsync(aVsyncEvent.mTime);
 
     // Tell the owner to do a composite
     mVsyncSchedulerOwner->CompositeToTarget(aVsyncEvent.mId, nullptr, nullptr);
@@ -425,7 +425,7 @@ void CompositorVsyncScheduler::ForceComposeToTarget(gfx::DrawTarget* aTarget,
    */
   mVsyncNotificationsSkipped = 0;
 
-  mLastComposeTime = TimeStamp::Now();
+  mLastComposeTime = SampleTime::FromNow();
   MOZ_ASSERT(mVsyncSchedulerOwner);
   mVsyncSchedulerOwner->CompositeToTarget(VsyncId(), aTarget, aRect);
 }
@@ -482,7 +482,7 @@ void CompositorVsyncScheduler::DispatchVREvents(TimeStamp aVsyncTimestamp) {
   vm->NotifyVsync(aVsyncTimestamp);
 }
 
-const TimeStamp& CompositorVsyncScheduler::GetLastComposeTime() const {
+const SampleTime& CompositorVsyncScheduler::GetLastComposeTime() const {
   MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
   return mLastComposeTime;
 }
@@ -504,7 +504,7 @@ const VsyncId& CompositorVsyncScheduler::GetLastVsyncId() const {
 
 void CompositorVsyncScheduler::UpdateLastComposeTime() {
   MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
-  mLastComposeTime = TimeStamp::Now();
+  mLastComposeTime = SampleTime::FromNow();
 }
 
 }  // namespace layers

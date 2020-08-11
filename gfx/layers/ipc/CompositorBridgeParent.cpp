@@ -142,7 +142,8 @@ void CompositorBridgeParentBase::NotifyNotUsed(PTextureParent* aTexture,
     return;
   }
 
-  if (!(texture->GetFlags() & TextureFlags::RECYCLE)) {
+  if (!(texture->GetFlags() & TextureFlags::RECYCLE) &&
+      !(texture->GetFlags() & TextureFlags::WAIT_HOST_USAGE_END)) {
     return;
   }
 
@@ -1006,8 +1007,8 @@ void CompositorBridgeParent::CompositeToTarget(VsyncId aId, DrawTarget* aTarget,
 
   mCompositionManager->ComputeRotation();
 
-  TimeStamp time =
-      mTestTime.valueOr(mCompositorScheduler->GetLastComposeTime());
+  SampleTime time = mTestTime ? SampleTime::FromTest(*mTestTime)
+                              : mCompositorScheduler->GetLastComposeTime();
   bool requestNextFrame =
       mCompositionManager->TransformShadowTree(time, mVsyncRate);
 
@@ -1018,7 +1019,7 @@ void CompositorBridgeParent::CompositeToTarget(VsyncId aId, DrawTarget* aTarget,
     // then the plugins) to have been updated by the active animation.
     if (!mPluginWindowsHidden && mCachedPluginData.Length()) {
       mWaitForPluginsUntil =
-          mCompositorScheduler->GetLastComposeTime() + (mVsyncRate * 2);
+          mCompositorScheduler->GetLastComposeTime().Time() + (mVsyncRate * 2);
     }
 #endif
   }
@@ -1030,7 +1031,7 @@ void CompositorBridgeParent::CompositeToTarget(VsyncId aId, DrawTarget* aTarget,
     mLayerManager->Dump(/* aSorted = */ true);
   }
   mLayerManager->SetDebugOverlayWantsNextFrame(false);
-  mLayerManager->EndTransaction(time);
+  mLayerManager->EndTransaction(time.Time());
 
   if (!aTarget) {
     TimeStamp end = TimeStamp::Now();
@@ -1051,7 +1052,7 @@ void CompositorBridgeParent::CompositeToTarget(VsyncId aId, DrawTarget* aTarget,
 
 #ifdef COMPOSITOR_PERFORMANCE_WARNING
   TimeDuration executionTime =
-      TimeStamp::Now() - mCompositorScheduler->GetLastComposeTime();
+      TimeStamp::Now() - mCompositorScheduler->GetLastComposeTime().Time();
   TimeDuration frameBudget = TimeDuration::FromMilliseconds(15);
   int32_t frameRate = CalculateCompositionFrameRate();
   if (frameRate > 0) {
@@ -1325,8 +1326,8 @@ bool CompositorBridgeParent::SetTestSampleTime(const LayersId& aId,
   // Update but only if we were already scheduled to animate
   if (testComposite) {
     AutoResolveRefLayers resolve(mCompositionManager);
-    bool requestNextFrame =
-        mCompositionManager->TransformShadowTree(aTime, mVsyncRate);
+    bool requestNextFrame = mCompositionManager->TransformShadowTree(
+        SampleTime::FromTest(aTime), mVsyncRate);
     if (!requestNextFrame) {
       CancelCurrentCompositeTask();
       // Pretend we composited in case someone is wating for this event.
@@ -1356,8 +1357,12 @@ void CompositorBridgeParent::ApplyAsyncProperties(
     AutoResolveRefLayers resolve(mCompositionManager);
     SetShadowProperties(mLayerManager->GetRoot());
 
-    TimeStamp time =
-        mTestTime.valueOr(mCompositorScheduler->GetLastComposeTime());
+    SampleTime time;
+    if (mTestTime) {
+      time = SampleTime::FromTest(*mTestTime);
+    } else {
+      time = mCompositorScheduler->GetLastComposeTime();
+    }
     bool requestNextFrame =
         mCompositionManager->TransformShadowTree(time, mVsyncRate, aSkip);
     if (!requestNextFrame) {
@@ -1403,12 +1408,6 @@ void CompositorBridgeParent::NotifyJankedAnimations(
   }
 }
 
-mozilla::ipc::IPCResult CompositorBridgeParent::RecvGetFrameUniformity(
-    FrameUniformityData* aOutData) {
-  mCompositionManager->GetFrameUniformity(aOutData);
-  return IPC_OK();
-}
-
 void CompositorBridgeParent::SetTestAsyncScrollOffset(
     const LayersId& aLayersId, const ScrollableLayerGuid::ViewID& aScrollId,
     const CSSPoint& aPoint) {
@@ -1441,6 +1440,13 @@ void CompositorBridgeParent::GetAPZTestData(const LayersId& aLayersId,
   if (mApzUpdater) {
     MOZ_ASSERT(aLayersId.IsValid());
     mApzUpdater->GetAPZTestData(aLayersId, aOutData);
+  }
+}
+
+void CompositorBridgeParent::GetFrameUniformity(const LayersId& aLayersId,
+                                                FrameUniformityData* aOutData) {
+  if (mCompositionManager) {
+    mCompositionManager->GetFrameUniformity(aOutData);
   }
 }
 
@@ -2775,7 +2781,7 @@ int32_t RecordContentFrameTime(
         static const DeserializerTag tag = TagForDeserializer(Deserialize);
         SerializeTagAndCommonProps(tag, aEntryWriter);
       }
-      void StreamPayload(SpliceableJSONWriter& aWriter,
+      void StreamPayload(mozilla::baseprofiler::SpliceableJSONWriter& aWriter,
                          const TimeStamp& aProcessStartTime,
                          UniqueStacks& aUniqueStacks) const override {
         StreamCommonProps("CONTENT_FRAME_TIME", aWriter, aProcessStartTime,

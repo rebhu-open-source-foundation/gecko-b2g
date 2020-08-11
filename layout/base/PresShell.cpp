@@ -51,6 +51,7 @@
 #include "nsIContent.h"
 #include "mozilla/dom/BrowserBridgeChild.h"
 #include "mozilla/dom/BrowsingContext.h"
+#include "mozilla/dom/CanonicalBrowsingContext.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/PointerEventHandler.h"
 #include "mozilla/dom/PopupBlocker.h"
@@ -1061,7 +1062,7 @@ void PresShell::Init(nsPresContext* aPresContext, nsViewManager* aViewManager) {
     mZoomConstraintsClient->Init(this, mDocument);
 
     // We call this to create mMobileViewportManager, if it is needed.
-    UpdateViewportOverridden(false);
+    MaybeRecreateMobileViewportManager(false);
   }
 
   if (nsCOMPtr<nsIDocShell> docShell = mPresContext->GetDocShell()) {
@@ -6551,21 +6552,38 @@ already_AddRefed<nsIContent> PresShell::GetFocusedContentInOurWindow() const {
 }
 
 already_AddRefed<PresShell> PresShell::GetParentPresShellForEventHandling() {
-  NS_ENSURE_TRUE(mPresContext, nullptr);
+  if (!mPresContext) {
+    return nullptr;
+  }
 
   // Now, find the parent pres shell and send the event there
-  nsCOMPtr<nsIDocShellTreeItem> treeItem = mPresContext->GetDocShell();
-  if (!treeItem) {
-    treeItem = mForwardingContainer.get();
+  RefPtr<nsDocShell> docShell = mPresContext->GetDocShell();
+  if (!docShell) {
+    docShell = mForwardingContainer.get();
   }
 
   // Might have gone away, or never been around to start with
-  NS_ENSURE_TRUE(treeItem, nullptr);
+  if (!docShell) {
+    return nullptr;
+  }
 
-  nsCOMPtr<nsIDocShellTreeItem> parentTreeItem;
-  treeItem->GetInProcessParent(getter_AddRefs(parentTreeItem));
-  nsCOMPtr<nsIDocShell> parentDocShell = do_QueryInterface(parentTreeItem);
-  NS_ENSURE_TRUE(parentDocShell && treeItem != parentTreeItem, nullptr);
+  BrowsingContext* bc = docShell->GetBrowsingContext();
+  if (!bc) {
+    return nullptr;
+  }
+
+  RefPtr<BrowsingContext> parentBC;
+  if (XRE_IsParentProcess()) {
+    parentBC = bc->Canonical()->GetParentCrossChromeBoundary();
+  } else {
+    parentBC = bc->GetParent();
+  }
+
+  RefPtr<nsIDocShell> parentDocShell =
+      parentBC ? parentBC->GetDocShell() : nullptr;
+  if (!parentDocShell) {
+    return nullptr;
+  }
 
   RefPtr<PresShell> parentPresShell = parentDocShell->GetPresShell();
   return parentPresShell.forget();
@@ -10926,7 +10944,7 @@ Maybe<MobileViewportManager::ManagerType> UseMobileViewportManager(
   return Nothing();
 }
 
-void PresShell::UpdateViewportOverridden(bool aAfterInitialization) {
+void PresShell::MaybeRecreateMobileViewportManager(bool aAfterInitialization) {
   // Determine if we require a MobileViewportManager, and what kind if so. We
   // need one any time we allow resolution zooming for a document, and any time
   // we want to obey <meta name="viewport"> tags for it.
@@ -10940,6 +10958,7 @@ void PresShell::UpdateViewportOverridden(bool aAfterInitialization) {
   if (mvmType && mMobileViewportManager &&
       *mvmType == mMobileViewportManager->GetManagerType()) {
     // We need one and we have one of the correct type, so we're done.
+    return;
   }
 
   if (mMobileViewportManager) {
@@ -10999,7 +11018,7 @@ void PresShell::UpdateViewportOverridden(bool aAfterInitialization) {
 }
 
 bool PresShell::UsesMobileViewportSizing() const {
-  return GetIsViewportOverridden() &&
+  return mMobileViewportManager != nullptr &&
          nsLayoutUtils::ShouldHandleMetaViewport(mDocument);
 }
 

@@ -244,6 +244,18 @@ TEST_VARIANTS = {
             'webrender': True,
         }
     },
+    'webrender-sw': {
+        'description': "{description} with software webrender enabled",
+        'suffix': 'swr',
+        'merge': {
+            'webrender': True,
+            'mozharness': {
+                'extra-options': [
+                    '--setpref=gfx.webrender.software=true',
+                ],
+            }
+        }
+    },
     'webgl-ipc': {
         # TODO: After November 1st 2020, verify this variant is still needed.
         'description': "{description} with WebGL IPC process enabled",
@@ -1097,32 +1109,33 @@ def setup_browsertime(config, tasks):
         cd_fetches = {
             'android.*': [
                 'linux64-chromedriver-80',
-                'linux64-chromedriver-81'
+                'linux64-chromedriver-81',
+                'linux64-chromedriver-84'
             ],
             'linux.*': [
-                'linux64-chromedriver-79',
                 'linux64-chromedriver-80',
-                'linux64-chromedriver-81'
+                'linux64-chromedriver-81',
+                'linux64-chromedriver-84'
             ],
             'macosx.*': [
-                'mac64-chromedriver-79',
                 'mac64-chromedriver-80',
-                'mac64-chromedriver-81'
+                'mac64-chromedriver-81',
+                'mac64-chromedriver-84'
             ],
             'windows.*aarch64.*': [
-                'win32-chromedriver-79',
                 'win32-chromedriver-80',
-                'win32-chromedriver-81'
+                'win32-chromedriver-81',
+                'win32-chromedriver-84'
             ],
             'windows.*-32.*': [
-                'win32-chromedriver-79',
                 'win32-chromedriver-80',
-                'win32-chromedriver-81'
+                'win32-chromedriver-81',
+                'win32-chromedriver-84'
             ],
             'windows.*-64.*': [
-                'win32-chromedriver-79',
                 'win32-chromedriver-80',
-                'win32-chromedriver-81'
+                'win32-chromedriver-81',
+                'win32-chromedriver-84'
             ],
         }
 

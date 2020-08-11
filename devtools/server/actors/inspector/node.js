@@ -107,6 +107,12 @@ const NodeActor = protocol.ActorClassWithSpec(nodeSpec, {
     this.currentDisplayType = this.displayType;
     this.wasDisplayed = this.isDisplayed;
     this.wasScrollable = this.isScrollable;
+
+    this.walker.updateOverflowCausingElements(
+      this.rawNode,
+      this,
+      this.walker.overflowCausingElementsSet
+    );
   },
 
   toString: function() {
@@ -176,6 +182,8 @@ const NodeActor = protocol.ActorClassWithSpec(nodeSpec, {
       inlineTextChild: inlineTextChild ? inlineTextChild.form() : undefined,
       displayType: this.displayType,
       isScrollable: this.isScrollable,
+      isTopLevelDocument: this.isTopLevelDocument,
+      causesOverflow: this.walker.overflowCausingElementsSet.has(this.rawNode),
 
       // doctype attributes
       name: this.rawNode.name,
@@ -202,10 +210,7 @@ const NodeActor = protocol.ActorClassWithSpec(nodeSpec, {
         this.rawNode.ownerDocument.contentType === "text/html",
       hasEventListeners: this._hasEventListeners,
       traits: {
-        // Added in FF72
-        supportsGetAllSelectors: true,
-        // Added in FF72
-        supportsWaitForFrameLoad: true,
+        supportsIsTopLevelDocument: true,
       },
     };
 
@@ -262,6 +267,10 @@ const NodeActor = protocol.ActorClassWithSpec(nodeSpec, {
    */
   get isRemoteFrame() {
     return isRemoteFrame(this.rawNode);
+  },
+
+  get isTopLevelDocument() {
+    return this.rawNode === this.walker.rootDoc;
   },
 
   // Estimate the number of children that the walker will return without making
@@ -746,7 +755,7 @@ const NodeListActor = protocol.ActorClassWithSpec(nodeListSpec, {
   items: function(start = 0, end = this.nodeList.length) {
     const items = Array.prototype.slice
       .call(this.nodeList, start, end)
-      .map(item => this.walker._ref(item));
+      .map(item => this.walker._getOrCreateNodeActor(item));
     return this.walker.attachElements(items);
   },
 

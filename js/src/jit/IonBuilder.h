@@ -653,6 +653,7 @@ class MOZ_STACK_CLASS IonBuilder {
   AbortReasonOr<Ok> jsop_iternext();
   AbortReasonOr<Ok> jsop_in();
   AbortReasonOr<Ok> jsop_hasown();
+  AbortReasonOr<Ok> jsop_checkprivatefield();
   AbortReasonOr<Ok> jsop_instanceof();
   AbortReasonOr<Ok> jsop_getaliasedvar(EnvironmentCoordinate ec);
   AbortReasonOr<Ok> jsop_setaliasedvar(EnvironmentCoordinate ec);
@@ -671,7 +672,7 @@ class MOZ_STACK_CLASS IonBuilder {
   AbortReasonOr<Ok> jsop_instrumentation_scriptid();
   AbortReasonOr<Ok> jsop_coalesce();
   AbortReasonOr<Ok> jsop_objwithproto();
-  AbortReasonOr<Ok> jsop_functionproto();
+  AbortReasonOr<Ok> jsop_builtinobject();
   AbortReasonOr<Ok> jsop_checkreturn();
   AbortReasonOr<Ok> jsop_checkthis();
   AbortReasonOr<Ok> jsop_checkthisreinit();

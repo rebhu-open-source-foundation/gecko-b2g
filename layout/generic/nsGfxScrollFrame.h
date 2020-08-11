@@ -344,7 +344,9 @@ class ScrollFrameHelper : public nsIReflowCallback {
     return (mHasVerticalScrollbar ? nsIScrollableFrame::VERTICAL : 0) |
            (mHasHorizontalScrollbar ? nsIScrollableFrame::HORIZONTAL : 0);
   }
-  nsMargin GetActualScrollbarSizes() const;
+  nsMargin GetActualScrollbarSizes(
+      nsIScrollableFrame::ScrollbarSizesOptions aOptions =
+          nsIScrollableFrame::ScrollbarSizesOptions::NONE) const;
   nsMargin GetDesiredScrollbarSizes(nsBoxLayoutState* aState);
   nscoord GetNondisappearingScrollbarWidth(nsBoxLayoutState* aState,
                                            mozilla::WritingMode aVerticalWM);
@@ -630,6 +632,13 @@ class ScrollFrameHelper : public nsIReflowCallback {
   bool mNeverHasHorizontalScrollbar : 1;
   bool mHasVerticalScrollbar : 1;
   bool mHasHorizontalScrollbar : 1;
+  // If mHas(Vertical|Horizontal)Scrollbar is true then
+  // mOnlyNeed(V|H)ScrollbarToScrollVVInsideLV indicates if the only reason we
+  // need that scrollbar is to scroll the visual viewport inside the layout
+  // viewport. These scrollbars are special in that even if they are layout
+  // scrollbars they do not take up any layout space.
+  bool mOnlyNeedVScrollbarToScrollVVInsideLV : 1;
+  bool mOnlyNeedHScrollbarToScrollVVInsideLV : 1;
   bool mFrameIsUpdatingScrollbar : 1;
   bool mDidHistoryRestore : 1;
   // Is this the scrollframe for the document's viewport?
@@ -898,8 +907,10 @@ class nsHTMLScrollFrame : public nsContainerFrame,
   uint32_t GetScrollbarVisibility() const final {
     return mHelper.GetScrollbarVisibility();
   }
-  nsMargin GetActualScrollbarSizes() const final {
-    return mHelper.GetActualScrollbarSizes();
+  nsMargin GetActualScrollbarSizes(
+      nsIScrollableFrame::ScrollbarSizesOptions aOptions =
+          nsIScrollableFrame::ScrollbarSizesOptions::NONE) const final {
+    return mHelper.GetActualScrollbarSizes(aOptions);
   }
   nsMargin GetDesiredScrollbarSizes(nsBoxLayoutState* aState) final {
     return mHelper.GetDesiredScrollbarSizes(aState);
@@ -1378,8 +1389,10 @@ class nsXULScrollFrame final : public nsBoxFrame,
   uint32_t GetScrollbarVisibility() const final {
     return mHelper.GetScrollbarVisibility();
   }
-  nsMargin GetActualScrollbarSizes() const final {
-    return mHelper.GetActualScrollbarSizes();
+  nsMargin GetActualScrollbarSizes(
+      nsIScrollableFrame::ScrollbarSizesOptions aOptions =
+          nsIScrollableFrame::ScrollbarSizesOptions::NONE) const final {
+    return mHelper.GetActualScrollbarSizes(aOptions);
   }
   nsMargin GetDesiredScrollbarSizes(nsBoxLayoutState* aState) final {
     return mHelper.GetDesiredScrollbarSizes(aState);

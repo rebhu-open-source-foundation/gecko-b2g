@@ -413,10 +413,9 @@ import_sibling_modules()
 
 # Register composite strategies.
 register_strategy('build', args=('skip-unless-schedules',))(Alias)
-register_strategy('build-fuzzing', args=('push-interval-10',))(Alias)
+register_strategy('build-fuzzing', args=('backstop-10-pushes-2-hours',))(Alias)
 register_strategy('test', args=('skip-unless-schedules',))(Alias)
 register_strategy('test-inclusive', args=('skip-unless-schedules',))(Alias)
-register_strategy('build-optimized', args=('test',))(Alias)
 
 
 # Strategy overrides used to tweak the default strategies. These are referenced
@@ -456,9 +455,13 @@ class project(object):
         'test': All(
             'full-backstop',
             'optimized-backstop',
+            Any('skip-unless-schedules', 'bugbug-reduced-fallback', split_args=split_bugbug_arg),
+        ),
+        'build': All(
+            'backstop-10-pushes-2-hours',
             Any(
                 'skip-unless-schedules',
-                Any('bugbug-reduced-manifests-fallback', 'platform-disperse'),
+                'bugbug-reduced-fallback',
                 split_args=split_bugbug_arg,
             ),
         ),
@@ -564,12 +567,6 @@ class experimental(object):
         'test': Any('skip-unless-schedules', 'skip-unless-has-relevant-tests'),
     }
     """Runs task containing tests in the same directories as modified files."""
-
-    seta = {
-        'test': Any('skip-unless-schedules', 'seta'),
-    }
-    """Provides a stable history of SETA's performance in the event we make it
-    non-default in the future. Only useful as a benchmark."""
 
 
 class ExperimentalOverride(object):

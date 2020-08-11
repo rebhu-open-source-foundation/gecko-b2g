@@ -172,7 +172,11 @@ class PictureInPictureToggleChild extends JSWindowActorChild {
         // this is false.
         isTrackingVideos: false,
         togglePolicy: TOGGLE_POLICIES.DEFAULT,
-        hasCheckedPolicy: false,
+        // The documentURI that has been checked with toggle policies for this
+        // document. Note that the documentURI might change for a document via
+        // the history API, so we remember the last checked documentURI to
+        // determine if we need to check again.
+        checkedPolicyDocumentURI: null,
       };
       this.weakDocStates.set(this.document, state);
     }
@@ -734,7 +738,8 @@ class PictureInPictureToggleChild extends JSWindowActorChild {
     let toggle = this.getToggleElement(shadowRoot);
     let controlsOverlay = shadowRoot.querySelector(".controlsOverlay");
 
-    if (!state.hasCheckedPolicy) {
+    if (state.checkedPolicyDocumentURI != this.document.documentURI) {
+      state.togglePolicy = TOGGLE_POLICIES.DEFAULT;
       // We cache the matchers process-wide. We'll skip this while running tests to make that
       // easier.
       let toggleOverrides = this.toggleTesting
@@ -749,7 +754,7 @@ class PictureInPictureToggleChild extends JSWindowActorChild {
         }
       }
 
-      state.hasCheckedPolicy = true;
+      state.checkedPolicyDocumentURI = this.document.documentURI;
     }
 
     // The built-in <video> controls are along the bottom, which would overlap the
@@ -760,6 +765,8 @@ class PictureInPictureToggleChild extends JSWindowActorChild {
       !(state.togglePolicy == TOGGLE_POLICIES.BOTTOM && video.controls)
     ) {
       toggle.setAttribute("policy", TOGGLE_POLICY_STRINGS[state.togglePolicy]);
+    } else {
+      toggle.removeAttribute("policy");
     }
 
     controlsOverlay.removeAttribute("hidetoggle");
@@ -792,6 +799,13 @@ class PictureInPictureToggleChild extends JSWindowActorChild {
 
     state.weakOverVideo = Cu.getWeakReference(video);
     controlsOverlay.classList.add("hovering");
+
+    if (
+      state.togglePolicy != TOGGLE_POLICIES.HIDDEN &&
+      !toggle.hasAttribute("hidden")
+    ) {
+      Services.telemetry.scalarAdd("pictureinpicture.saw_toggle", 1);
+    }
 
     // Now that we're hovering the video, we'll check to see if we're
     // hovering the toggle too.

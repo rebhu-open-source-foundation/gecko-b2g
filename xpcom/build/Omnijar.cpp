@@ -14,6 +14,7 @@
 #include "nsNetUtil.h"
 #include "mozilla/scache/StartupCache.h"
 #include "mozilla/MmapFaultHandler.h"
+#include "mozilla/UniquePtrExtensions.h"
 
 namespace mozilla {
 
@@ -123,7 +124,7 @@ void Omnijar::InitOne(nsIFile* aPath, Type aType) {
     }
   } else {
     if (NS_FAILED(zipReader->LazyOpenArchive(
-            file, MakeSpan(centralBuf, centralBufLength)))) {
+            file, Span(centralBuf, centralBufLength)))) {
       return;
     }
   }
@@ -398,7 +399,7 @@ nsresult CacheAwareZipReader::GetPersistentHandle(
     MOZ_ASSERT(aItem->RealSize() == aItem->Size());
     const uint8_t* data = mZip->GetData(aItem);
     if (data) {
-      aHandle->mDataToCache = MakeSpan(data, aItem->Size());
+      aHandle->mDataToCache = Span(data, aItem->Size());
     }
   }
 
@@ -438,12 +439,14 @@ void CacheAwareZipReader::PutBufferIntoCache(const nsCString& aCacheKey,
   }
 
   auto* cache = scache::StartupCache::GetSingleton();
-  auto dataCopy = MakeUnique<char[]>(aSize);
+  auto dataCopy = MakeUniqueFallible<char[]>(aSize);
 
-  MMAP_FAULT_HANDLER_BEGIN_BUFFER(aBuffer, aSize)
-  memcpy(dataCopy.get(), aBuffer, aSize);
-  MMAP_FAULT_HANDLER_CATCH()
-  Unused << cache->PutBuffer(aCacheKey.get(), std::move(dataCopy), aSize);
+  if (dataCopy) {
+    MMAP_FAULT_HANDLER_BEGIN_BUFFER(aBuffer, aSize)
+    memcpy(dataCopy.get(), aBuffer, aSize);
+    MMAP_FAULT_HANDLER_CATCH()
+    Unused << cache->PutBuffer(aCacheKey.get(), std::move(dataCopy), aSize);
+  }
 }
 
 void CacheAwareZipReader::PushSuspendStartupCacheWrites() {

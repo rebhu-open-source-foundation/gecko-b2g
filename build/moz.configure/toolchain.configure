@@ -2462,10 +2462,10 @@ def rc_names(c_compiler, toolchain_prefix):
     if c_compiler.type in ('gcc', 'clang'):
         return tuple('%s%s' % (p, 'windres')
                      for p in ('',) + (toolchain_prefix or ()))
-    return ('rc.exe',)
+    return ('llvm-rc',)
 
 
-check_prog('RC', rc_names, paths=sdk_bin_path, when=target_is_windows)
+check_prog('RC', rc_names, paths=toolchain_search_path, when=target_is_windows)
 
 
 @depends(link, toolchain_prefix, c_compiler)

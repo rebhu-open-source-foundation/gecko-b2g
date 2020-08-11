@@ -12,7 +12,6 @@ const { XPCOMUtils } = ChromeUtils.import(
 XPCOMUtils.defineLazyModuleGetters(this, {
   SearchOneOffs: "resource:///modules/SearchOneOffs.jsm",
   UrlbarPrefs: "resource:///modules/UrlbarPrefs.jsm",
-  UrlbarSearchUtils: "resource:///modules/UrlbarSearchUtils.jsm",
   UrlbarTokenizer: "resource:///modules/UrlbarTokenizer.jsm",
   UrlbarUtils: "resource:///modules/UrlbarUtils.jsm",
 });
@@ -108,6 +107,16 @@ class UrlbarSearchOneOffs extends SearchOneOffs {
 
   /**
    * @returns {boolean}
+   *   True if the one-offs are connected to a view.
+   */
+  get hasView() {
+    // Return true if the one-offs are enabled.  We set style.display = "none"
+    // when they're disabled, so use that to check.
+    return this.style.display != "none";
+  }
+
+  /**
+   * @returns {boolean}
    *   True if the view is open.
    */
   get isViewOpen() {
@@ -147,20 +156,20 @@ class UrlbarSearchOneOffs extends SearchOneOffs {
    *
    * @param {event} event
    *   The event that triggered the pick.
-   * @param {nsISearchEngine|SearchEngine|UrlbarUtils.RESULT_SOURCE} engineOrSource
-   *   The engine that was picked, or for local search mode sources, the source
-   *   that was picked as a UrlbarUtils.RESULT_SOURCE value.
+   * @param {object} searchMode
+   *   Used by UrlbarInput.setSearchMode to enter search mode. See setSearchMode
+   *   documentation for details.
    * @param {boolean} forceNewTab
    *   True if the search results page should be loaded in a new tab.
    */
-  handleSearchCommand(event, engineOrSource, forceNewTab = false) {
+  handleSearchCommand(event, searchMode, forceNewTab = false) {
     if (!this.view.oneOffsRefresh) {
       let { where, params } = this._whereToOpen(event, forceNewTab);
       this.input.handleCommand(event, where, params);
       return;
     }
 
-    this.input.setSearchMode(engineOrSource);
+    this.input.setSearchMode(searchMode);
     this.selectedButton = null;
     this.input.startQuery({
       allowAutofill: false,
@@ -176,7 +185,7 @@ class UrlbarSearchOneOffs extends SearchOneOffs {
    *   The one-off button.
    */
   setTooltipForEngineButton(button) {
-    let aliases = UrlbarSearchUtils.aliasesForEngine(button.engine);
+    let aliases = button.engine.aliases;
     if (!aliases.length) {
       super.setTooltipForEngineButton(button);
       return;
@@ -258,11 +267,13 @@ class UrlbarSearchOneOffs extends SearchOneOffs {
     }
 
     let button = event.originalTarget;
-    let engineOrSource = button.engine || button.source;
-    if (!engineOrSource) {
+    if (!button.engine && !button.source) {
       return;
     }
 
-    this.handleSearchCommand(event, engineOrSource);
+    this.handleSearchCommand(event, {
+      engineName: button.engine?.name,
+      source: button.source,
+    });
   }
 }

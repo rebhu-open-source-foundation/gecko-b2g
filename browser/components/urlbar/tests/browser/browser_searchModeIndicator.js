@@ -39,91 +39,11 @@ add_task(async function setup() {
     set: [
       ["browser.search.separatePrivateDefault.ui.enabled", false],
       ["browser.urlbar.update2", true],
+      ["browser.urlbar.update2.localOneOffs", true],
       ["browser.urlbar.update2.oneOffsRefresh", true],
     ],
   });
 });
-
-/**
- * Enters search mode by clicking the first one-off.
- * @param {object} window
- */
-async function enterSearchMode(window) {
-  let oneOffs = UrlbarTestUtils.getOneOffSearchButtons(
-    window
-  ).getSelectableButtons(true);
-  let searchPromise = UrlbarTestUtils.promiseSearchComplete(window);
-  EventUtils.synthesizeMouseAtCenter(oneOffs[0], {});
-  await searchPromise;
-  Assert.ok(UrlbarTestUtils.isPopupOpen(window), "Urlbar view is still open.");
-  UrlbarTestUtils.assertSearchMode(window, {
-    source: UrlbarUtils.RESULT_SOURCE.SEARCH,
-    engineName: oneOffs[0].engine.name,
-  });
-}
-
-/**
- * Exits search mode.
- * @param {object} window
- * @param {boolean} options.backspace
- *   Exits search mode by backspacing at the beginning of the search string.
- * @param {boolean} options.clickClose
- *   Exits search mode by clicking the close button on the search mode
- *   indicator.
- * @param {boolean} [waitForSearch]
- *   Whether the test should wait for a search after exiting search mode.
- *   Defaults to true.
- * @note One and only one of `backspace` and `clickClose` should be passed
- *       as true.
- */
-async function exitSearchMode(
-  window,
-  { backspace, clickClose, waitForSearch = true }
-) {
-  // If the Urlbar is not extended, ignore the clickClose parameter. The close
-  // button is not clickable in this state. This state might be encountered on
-  // Linux, where prefers-reduced-motion is enabled in automation.
-  if (!gURLBar.hasAttribute("breakout-extend") && clickClose) {
-    if (waitForSearch) {
-      let searchPromise = UrlbarTestUtils.promiseSearchComplete(window);
-      gURLBar.setSearchMode(null);
-      await searchPromise;
-    } else {
-      gURLBar.setSearchMode(null);
-    }
-    return;
-  }
-
-  if (backspace) {
-    let urlbarValue = gURLBar.value;
-    gURLBar.selectionStart = gURLBar.selectionEnd = 0;
-    if (waitForSearch) {
-      let searchPromise = UrlbarTestUtils.promiseSearchComplete(window);
-      EventUtils.synthesizeKey("KEY_Backspace");
-      await searchPromise;
-    } else {
-      EventUtils.synthesizeKey("KEY_Backspace");
-    }
-    Assert.equal(gURLBar.value, urlbarValue, "Urlbar value hasn't changed.");
-    UrlbarTestUtils.assertSearchMode(window, null);
-  } else if (clickClose) {
-    // We need to hover the indicator to make the close button clickable in the
-    // test.
-    let indicator = gURLBar.querySelector("#urlbar-search-mode-indicator");
-    EventUtils.synthesizeMouseAtCenter(indicator, { type: "mouseover" });
-    let closeButton = gURLBar.querySelector(
-      "#urlbar-search-mode-indicator-close"
-    );
-    if (waitForSearch) {
-      let searchPromise = UrlbarTestUtils.promiseSearchComplete(window);
-      EventUtils.synthesizeMouseAtCenter(closeButton, {});
-      await searchPromise;
-    } else {
-      EventUtils.synthesizeMouseAtCenter(closeButton, {});
-    }
-    UrlbarTestUtils.assertSearchMode(window, null);
-  }
-}
 
 async function verifySearchModeResultsAdded(window) {
   Assert.equal(
@@ -172,9 +92,9 @@ add_task(async function backspace() {
     window,
     value: TEST_QUERY,
   });
-  await enterSearchMode(window);
+  await UrlbarTestUtils.enterSearchMode(window);
   await verifySearchModeResultsAdded(window);
-  await exitSearchMode(window, { backspace: true });
+  await UrlbarTestUtils.exitSearchMode(window, { backspace: true });
   await verifySearchModeResultsRemoved(window);
   Assert.ok(UrlbarTestUtils.isPopupOpen(window), "Urlbar view is open.");
 
@@ -186,8 +106,11 @@ add_task(async function backspace() {
     }
     EventUtils.synthesizeMouseAtCenter(gURLBar.inputField, {});
   });
-  await enterSearchMode(window);
-  await exitSearchMode(window, { backspace: true, waitForSearch: false });
+  await UrlbarTestUtils.enterSearchMode(window);
+  await UrlbarTestUtils.exitSearchMode(window, {
+    backspace: true,
+    waitForSearch: false,
+  });
   Assert.ok(UrlbarTestUtils.isPopupOpen(window), "Urlbar view is open.");
 
   // View closed, with string.
@@ -196,10 +119,10 @@ add_task(async function backspace() {
     window,
     value: TEST_QUERY,
   });
-  await enterSearchMode(window);
+  await UrlbarTestUtils.enterSearchMode(window);
   await verifySearchModeResultsAdded(window);
   UrlbarTestUtils.promisePopupClose(window);
-  await exitSearchMode(window, { backspace: true });
+  await UrlbarTestUtils.exitSearchMode(window, { backspace: true });
   await verifySearchModeResultsRemoved(window);
   Assert.ok(UrlbarTestUtils.isPopupOpen(window), "Urlbar view is now open.");
 
@@ -210,9 +133,12 @@ add_task(async function backspace() {
     }
     EventUtils.synthesizeMouseAtCenter(gURLBar.inputField, {});
   });
-  await enterSearchMode(window);
+  await UrlbarTestUtils.enterSearchMode(window);
   UrlbarTestUtils.promisePopupClose(window);
-  await exitSearchMode(window, { backspace: true, waitForSearch: false });
+  await UrlbarTestUtils.exitSearchMode(window, {
+    backspace: true,
+    waitForSearch: false,
+  });
   Assert.ok(
     !UrlbarTestUtils.isPopupOpen(window),
     "Urlbar view is still closed."
@@ -225,7 +151,7 @@ add_task(async function escape() {
     window,
     value: TEST_QUERY,
   });
-  await enterSearchMode(window);
+  await UrlbarTestUtils.enterSearchMode(window);
   await verifySearchModeResultsAdded(window);
 
   EventUtils.synthesizeKey("KEY_Escape");
@@ -253,9 +179,9 @@ add_task(async function click_close() {
     window,
     value: TEST_QUERY,
   });
-  await enterSearchMode(window);
+  await UrlbarTestUtils.enterSearchMode(window);
   await verifySearchModeResultsAdded(window);
-  await exitSearchMode(window, { clickClose: true });
+  await UrlbarTestUtils.exitSearchMode(window, { clickClose: true });
   await verifySearchModeResultsRemoved(window);
 
   // Clicking close with the view closed.
@@ -263,9 +189,12 @@ add_task(async function click_close() {
     window,
     value: TEST_QUERY,
   });
-  await enterSearchMode(window);
+  await UrlbarTestUtils.enterSearchMode(window);
   UrlbarTestUtils.promisePopupClose(window);
-  await exitSearchMode(window, { clickClose: true, waitForSearch: false });
+  await UrlbarTestUtils.exitSearchMode(window, {
+    clickClose: true,
+    waitForSearch: false,
+  });
 });
 
 // Tests that Accel+K enters search mode with the default engine.
@@ -276,7 +205,10 @@ add_task(async function keyboard_shortcut() {
     source: UrlbarUtils.RESULT_SOURCE.SEARCH,
     engineName: defaultEngine.name,
   });
-  await exitSearchMode(window, { clickClose: true, waitForSearch: false });
+  await UrlbarTestUtils.exitSearchMode(window, {
+    clickClose: true,
+    waitForSearch: false,
+  });
 });
 
 // Tests that the Tools:Search menu item enters search mode with the default
@@ -289,29 +221,190 @@ add_task(async function menubar_item() {
     source: UrlbarUtils.RESULT_SOURCE.SEARCH,
     engineName: defaultEngine.name,
   });
-  await exitSearchMode(window, { clickClose: true, waitForSearch: false });
+  await UrlbarTestUtils.exitSearchMode(window, {
+    clickClose: true,
+    waitForSearch: false,
+  });
 });
 
-// Tests that entering search mode invalidates pageproxystate and exits search
-// mode.
+// Tests that entering search mode invalidates pageproxystate and that
+// pageproxystate remains invalid after exiting search mode.
 add_task(async function invalidate_pageproxystate() {
   await BrowserTestUtils.withNewTab("about:robots", async function(browser) {
     await UrlbarTestUtils.promisePopupOpen(window, () => {
       EventUtils.synthesizeMouseAtCenter(gURLBar.inputField, {});
     });
     Assert.equal(gURLBar.getAttribute("pageproxystate"), "valid");
-    await enterSearchMode(window);
+    await UrlbarTestUtils.enterSearchMode(window);
     Assert.equal(
       gURLBar.getAttribute("pageproxystate"),
       "invalid",
       "Entering search mode should clear pageproxystate."
     );
     Assert.equal(gURLBar.value, "", "Urlbar value should be cleared.");
-    await exitSearchMode(window, { clickClose: true });
+    await UrlbarTestUtils.exitSearchMode(window, { clickClose: true });
     Assert.equal(
       gURLBar.getAttribute("pageproxystate"),
       "invalid",
       "Pageproxystate should still be invalid after exiting search mode."
     );
   });
+});
+
+// Tests that the user doesn't get trapped in search mode if the update2 pref
+// is disabled after entering search mode.
+add_task(async function pref_flip_while_enabled() {
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    value: TEST_QUERY,
+  });
+  await UrlbarTestUtils.enterSearchMode(window);
+  await verifySearchModeResultsAdded(window);
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.urlbar.update2", false]],
+  });
+  UrlbarTestUtils.assertSearchMode(window, null);
+  await SpecialPowers.popPrefEnv();
+});
+
+// Tests that search mode is stored per tab and restored when switching tabs.
+add_task(async function tab_switch() {
+  // Open three tabs.  We'll enter search mode in tabs 0 and 2.
+  let tabs = [];
+  for (let i = 0; i < 3; i++) {
+    let tab = await BrowserTestUtils.openNewForegroundTab({
+      gBrowser,
+      url: "http://example.com/" + i,
+    });
+    tabs.push(tab);
+  }
+
+  // Switch to tab 0.
+  await BrowserTestUtils.switchTab(gBrowser, tabs[0]);
+
+  // Do a search and enter search mode.  Pass fireInputEvent so that
+  // userTypedValue is set and restored when we switch back to this tab.  This
+  // isn't really necessary but it simulates the user's typing, and it also
+  // means that we'll start a search when we switch back to this tab.
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    value: TEST_QUERY,
+    fireInputEvent: true,
+  });
+  await UrlbarTestUtils.enterSearchMode(window);
+
+  // Switch to tab 1.  Search mode should be exited.
+  await BrowserTestUtils.switchTab(gBrowser, tabs[1]);
+  UrlbarTestUtils.assertSearchMode(window, null);
+
+  // Switch back to tab 0.  We should do a search (for TEST_QUERY) and re-enter
+  // search mode.
+  let searchPromise = UrlbarTestUtils.promiseSearchComplete(window);
+  await BrowserTestUtils.switchTab(gBrowser, tabs[0]);
+  await searchPromise;
+  let oneOffs = UrlbarTestUtils.getOneOffSearchButtons(
+    window
+  ).getSelectableButtons(true);
+  UrlbarTestUtils.assertSearchMode(window, {
+    source: UrlbarUtils.RESULT_SOURCE.SEARCH,
+    engineName: oneOffs[0].engine.name,
+  });
+
+  // Switch to tab 2.  Search mode should be exited.
+  await BrowserTestUtils.switchTab(gBrowser, tabs[2]);
+  UrlbarTestUtils.assertSearchMode(window, null);
+
+  // Do another search (in tab 2) and enter search mode.  This time, click a
+  // local one-off just to test a different source.
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    value: TEST_QUERY + " tab 2",
+    fireInputEvent: true,
+  });
+  let localOneOff = UrlbarTestUtils.getOneOffSearchButtons(window)
+    .localButtons[0];
+  Assert.ok(
+    localOneOff,
+    "Sanity check: There should be at least one local one-off"
+  );
+  Assert.ok(
+    localOneOff.source,
+    "Sanity check: Local one-off should have a truthy source"
+  );
+  searchPromise = UrlbarTestUtils.promiseSearchComplete(window);
+  EventUtils.synthesizeMouseAtCenter(localOneOff, {});
+  await searchPromise;
+  Assert.ok(UrlbarTestUtils.isPopupOpen(window), "Urlbar view is still open.");
+  UrlbarTestUtils.assertSearchMode(window, {
+    source: localOneOff.source,
+  });
+
+  // Switch back to tab 0.  We should do a search and still be in search mode.
+  searchPromise = UrlbarTestUtils.promiseSearchComplete(window);
+  await BrowserTestUtils.switchTab(gBrowser, tabs[0]);
+  await searchPromise;
+  UrlbarTestUtils.assertSearchMode(window, {
+    source: UrlbarUtils.RESULT_SOURCE.SEARCH,
+    engineName: oneOffs[0].engine.name,
+  });
+
+  // Switch to tab 1.  Search mode should be exited.
+  await BrowserTestUtils.switchTab(gBrowser, tabs[1]);
+  UrlbarTestUtils.assertSearchMode(window, null);
+
+  // Switch back to tab 2.  We should do a search and re-enter search mode.
+  searchPromise = UrlbarTestUtils.promiseSearchComplete(window);
+  await BrowserTestUtils.switchTab(gBrowser, tabs[2]);
+  await searchPromise;
+  UrlbarTestUtils.assertSearchMode(window, {
+    source: localOneOff.source,
+  });
+
+  // Exit search mode.
+  await UrlbarTestUtils.exitSearchMode(window, { clickClose: true });
+
+  // Switch to tab 0.  We should do a search and re-enter search mode.
+  searchPromise = UrlbarTestUtils.promiseSearchComplete(window);
+  await BrowserTestUtils.switchTab(gBrowser, tabs[0]);
+  await searchPromise;
+  UrlbarTestUtils.assertSearchMode(window, {
+    source: UrlbarUtils.RESULT_SOURCE.SEARCH,
+    engineName: oneOffs[0].engine.name,
+  });
+
+  // Switch back to tab 2.  We should do a search but search mode should be
+  // exited.
+  searchPromise = UrlbarTestUtils.promiseSearchComplete(window);
+  await BrowserTestUtils.switchTab(gBrowser, tabs[2]);
+  await searchPromise;
+  UrlbarTestUtils.assertSearchMode(window, null);
+
+  // Switch back to tab 0.  We should do a search and re-enter search mode.
+  searchPromise = UrlbarTestUtils.promiseSearchComplete(window);
+  await BrowserTestUtils.switchTab(gBrowser, tabs[0]);
+  await searchPromise;
+  UrlbarTestUtils.assertSearchMode(window, {
+    source: UrlbarUtils.RESULT_SOURCE.SEARCH,
+    engineName: oneOffs[0].engine.name,
+  });
+
+  // Exit search mode.
+  await UrlbarTestUtils.exitSearchMode(window, { clickClose: true });
+
+  // Switch back to tab 2.  We should do a search but no search mode.
+  searchPromise = UrlbarTestUtils.promiseSearchComplete(window);
+  await BrowserTestUtils.switchTab(gBrowser, tabs[2]);
+  await searchPromise;
+  UrlbarTestUtils.assertSearchMode(window, null);
+
+  // Switch back to tab 0.  We should do a search but no search mode.
+  searchPromise = UrlbarTestUtils.promiseSearchComplete(window);
+  await BrowserTestUtils.switchTab(gBrowser, tabs[0]);
+  await searchPromise;
+  UrlbarTestUtils.assertSearchMode(window, null);
+
+  await UrlbarTestUtils.promisePopupClose(window);
+  for (let tab of tabs) {
+    BrowserTestUtils.removeTab(tab);
+  }
 });

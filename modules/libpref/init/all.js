@@ -353,8 +353,12 @@ pref("print.shrink-to-fit.scale-limit-percent", 20);
 // Whether we should display simplify page checkbox on print preview UI
 pref("print.use_simplify_page", false);
 
-// The tab modal print dialog is currently only for testing/experiments.
-pref("print.tab_modal.enabled", false);
+// The tab modal print dialog is currently only for early beta or nightly.
+#ifdef EARLY_BETA_OR_EARLIER
+  pref("print.tab_modal.enabled", true);
+#else
+  pref("print.tab_modal.enabled", false);
+#endif
 
 // Disable support for MathML
 pref("mathml.disabled",    false);
@@ -509,8 +513,16 @@ pref("media.videocontrols.picture-in-picture.video-toggle.has-used", false);
   pref("media.peerconnection.mute_on_bye_or_timeout", false);
 
   // 770 = DTLS 1.0, 771 = DTLS 1.2, 772 = DTLS 1.3
+#ifdef EARLY_BETA_OR_EARLIER
   pref("media.peerconnection.dtls.version.min", 771);
+#else
+  pref("media.peerconnection.dtls.version.min", 770);
+#endif
+#ifdef NIGHTLY_BUILD
   pref("media.peerconnection.dtls.version.max", 772);
+#else
+  pref("media.peerconnection.dtls.version.max", 771);
+#endif
 
   // These values (aec, agc, and noise) are from:
   // media/webrtc/trunk/webrtc/modules/audio_processing/include/audio_processing.h

@@ -212,7 +212,7 @@ browser.engagement:
       - 'main'
     record_into_store:
       - 'main'
-      - 'pre-account'
+      - 'account-ecosystem'
 
   unfiltered_uri_count:
     bug_numbers:
@@ -294,7 +294,7 @@ browser.engagement:
       - 'main'
     record_into_store:
       - 'main'
-      - 'pre-account'
+      - 'account-ecosystem'
 
 # The following section contains the browser engagement scalars.
 browser.engagement.navigation:
@@ -1708,6 +1708,41 @@ findbar:
     record_in_processes:
       - 'main'
 
+sidebar:
+  opened:
+    bug_numbers:
+      - 1648530
+    description: >
+      The number of times the sidebar was opened, per view (e.g.: bookmarks, history,
+      synced tabs).
+    expires: never
+    kind: uint
+    keyed: true
+    notification_emails:
+      - emalysz@mozilla.com
+      - rtestard@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
+  search:
+    bug_numbers:
+      - 1648524
+    description: >
+      The number of searches from the sidebar, per view (e.g.: bookmarks, history).
+    expires: never
+    kind: uint
+    keyed: true
+    notification_emails:
+      - emalysz@mozilla.com
+      - rtestard@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
+
 os.environment:
   is_admin_without_uac:
     bug_numbers:
@@ -1765,6 +1800,22 @@ pictureinpicture:
       - 'firefox'
     record_in_processes:
       - main
+  saw_toggle:
+    bug_numbers:
+      - 1657155
+    description: >
+      The number of times a Picture-in-Picture toggle was presented to the user when
+      they hovered the video with the mouse pointer.
+    expires: "87"
+    kind: uint
+    notification_emails:
+      - mconley@mozilla.com
+      - astevenson@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - content
 
 preferences:
   created_new_user_prefs_file:
@@ -3944,6 +3995,7 @@ printing:
     kind: uint
     notification_emails:
       - jwatt@jwatt.org
+      - emalysz@mozilla.com
     release_channel_collection: opt-out
     products:
       - 'firefox'
@@ -4009,6 +4061,7 @@ printing:
     kind: uint
     notification_emails:
       - jwatt@jwatt.org
+      - emalysz@mozilla.com
     release_channel_collection: opt-out
     products:
       - 'firefox'
@@ -4025,11 +4078,30 @@ printing:
     kind: uint
     notification_emails:
       - jwatt@jwatt.org
+      - emalysz@mozilla.com
     release_channel_collection: opt-out
     products:
       - 'firefox'
     record_in_processes:
       - 'content'
+
+  settings_changed:
+    bug_numbers:
+      - 1653386
+    description: >
+      A count of how many times the user changed a setting in print preview,
+      broken down per setting.
+    keyed: true
+    expires: never
+    kind: uint
+    notification_emails:
+      - emalysz@mozilla.com
+      - rtestard@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - "firefox"
+    record_in_processes:
+      - 'main'
 
   silent_print:
     bug_numbers:
@@ -4565,6 +4637,24 @@ startup:
     record_in_processes:
       - 'main'
 
+  seconds_since_last_os_restart:
+    bug_numbers:
+      - 1654063
+    description: >
+      The time in seconds between the first browser window loading, and the
+      time the OS started. This can give us an indication of whether starting
+      the browser may have been the first thing the user did after starting
+      their computer.
+    expires: never
+    kind: uint
+    notification_emails:
+      - dothayer@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
+
 script.preloader:
   mainthread_recompile:
     bug_numbers:
@@ -4582,6 +4672,84 @@ script.preloader:
     products:
       - 'firefox'
       - 'fennec'
+    record_in_processes:
+      - 'main'
+      - 'content'
+
+wasm:
+  compile_time_baseline_us:
+    bug_numbers:
+      - 1656638
+    description:
+      How many microseconds we spent in the baseline WebAssembly compiler.
+    expires: "88"
+    keyed: false
+    kind: uint
+    notification_emails:
+      - cfallin@mozilla.com
+      - bbouvier@mozilla.com
+      - jseward@mozilla.com
+    release_channel_collection: opt-in
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
+      - 'content'
+
+  compile_time_cranelift_us:
+    bug_numbers:
+      - 1656638
+    description:
+      How many microseconds we spent in the Cranelift WebAssembly compiler.
+    expires: "88"
+    keyed: false
+    kind: uint
+    notification_emails:
+      - cfallin@mozilla.com
+      - bbouvier@mozilla.com
+      - jseward@mozilla.com
+    release_channel_collection: opt-in
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
+
+  compile_time_ion_us:
+    bug_numbers:
+      - 1656638
+    description:
+      How many microseconds we spent in the IonMonkey WebAssembly compiler.
+    expires: "88"
+    keyed: false
+    kind: uint
+    notification_emails:
+      - cfallin@mozilla.com
+      - bbouvier@mozilla.com
+      - jseward@mozilla.com
+    release_channel_collection: opt-in
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
+      - 'content'
+
+js:
+  run_time_us:
+    bug_numbers:
+      - 1656638
+    description:
+      How many microseconds we spent in running user code in SpiderMonkey,
+      including JavaScript code and WebAssembly code.
+    expires: "88"
+    keyed: false
+    kind: uint
+    notification_emails:
+      - cfallin@mozilla.com
+      - bbouvier@mozilla.com
+      - jseward@mozilla.com
+    release_channel_collection: opt-in
+    products:
+      - 'firefox'
     record_in_processes:
       - 'main'
       - 'content'

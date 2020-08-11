@@ -191,15 +191,20 @@ static inline bool IsAutoOrEnumOnBSize(const StyleSize& aSize, bool aIsInline) {
       ? (bsize_)                                                       \
       : (isize_)
 
-// Encapsulates our flex container's main & cross axes.
+// Encapsulates our flex container's main & cross axes. This class is backed by
+// a FlexboxAxisInfo helper member variable, and it adds some convenience APIs
+// on top of what that struct offers.
 class MOZ_STACK_CLASS nsFlexContainerFrame::FlexboxAxisTracker {
  public:
-  FlexboxAxisTracker(const nsFlexContainerFrame* aFlexContainer,
-                     const WritingMode& aWM);
+  explicit FlexboxAxisTracker(const nsFlexContainerFrame* aFlexContainer);
 
   // Accessors:
-  LogicalAxis MainAxis() const { return mMainAxis; }
-  LogicalAxis CrossAxis() const { return GetOrthogonalAxis(mMainAxis); }
+  LogicalAxis MainAxis() const {
+    return IsRowOriented() ? eLogicalAxisInline : eLogicalAxisBlock;
+  }
+  LogicalAxis CrossAxis() const {
+    return IsRowOriented() ? eLogicalAxisBlock : eLogicalAxisInline;
+  }
 
   LogicalSide MainAxisStartSide() const;
   LogicalSide MainAxisEndSide() const {
@@ -230,13 +235,13 @@ class MOZ_STACK_CLASS nsFlexContainerFrame::FlexboxAxisTracker {
 
   // Returns true if our main axis is in the reverse direction of our
   // writing mode's corresponding axis. (From 'flex-direction: *-reverse')
-  bool IsMainAxisReversed() const { return mIsMainAxisReversed; }
+  bool IsMainAxisReversed() const { return mAxisInfo.mIsMainAxisReversed; }
   // Returns true if our cross axis is in the reverse direction of our
   // writing mode's corresponding axis. (From 'flex-wrap: *-reverse')
-  bool IsCrossAxisReversed() const { return mIsCrossAxisReversed; }
+  bool IsCrossAxisReversed() const { return mAxisInfo.mIsCrossAxisReversed; }
 
-  bool IsRowOriented() const { return mIsRowOriented; }
-  bool IsColumnOriented() const { return !mIsRowOriented; }
+  bool IsRowOriented() const { return mAxisInfo.mIsRowOriented; }
+  bool IsColumnOriented() const { return !IsRowOriented(); }
 
   // aSize is expected to match the flex container's WritingMode.
   nscoord MainComponent(const LogicalSize& aSize) const {
@@ -282,14 +287,14 @@ class MOZ_STACK_CLASS nsFlexContainerFrame::FlexboxAxisTracker {
       nscoord aMainCoord, nscoord aCrossCoord, nscoord aContainerMainSize,
       nscoord aContainerCrossSize) const {
     nscoord logicalCoordInMainAxis =
-        mIsMainAxisReversed ? aContainerMainSize - aMainCoord : aMainCoord;
+        IsMainAxisReversed() ? aContainerMainSize - aMainCoord : aMainCoord;
     nscoord logicalCoordInCrossAxis =
-        mIsCrossAxisReversed ? aContainerCrossSize - aCrossCoord : aCrossCoord;
+        IsCrossAxisReversed() ? aContainerCrossSize - aCrossCoord : aCrossCoord;
 
-    return mIsRowOriented ? LogicalPoint(mWM, logicalCoordInMainAxis,
-                                         logicalCoordInCrossAxis)
-                          : LogicalPoint(mWM, logicalCoordInCrossAxis,
-                                         logicalCoordInMainAxis);
+    return IsRowOriented() ? LogicalPoint(mWM, logicalCoordInMainAxis,
+                                          logicalCoordInCrossAxis)
+                           : LogicalPoint(mWM, logicalCoordInCrossAxis,
+                                          logicalCoordInMainAxis);
   }
 
   /**
@@ -303,15 +308,15 @@ class MOZ_STACK_CLASS nsFlexContainerFrame::FlexboxAxisTracker {
    */
   LogicalSize LogicalSizeFromFlexRelativeSizes(nscoord aMainSize,
                                                nscoord aCrossSize) const {
-    return mIsRowOriented ? LogicalSize(mWM, aMainSize, aCrossSize)
-                          : LogicalSize(mWM, aCrossSize, aMainSize);
+    return IsRowOriented() ? LogicalSize(mWM, aMainSize, aCrossSize)
+                           : LogicalSize(mWM, aCrossSize, aMainSize);
   }
 
   bool IsMainAxisHorizontal() const {
     // If we're row-oriented, and our writing mode is NOT vertical,
     // or we're column-oriented and our writing mode IS vertical,
     // then our main axis is horizontal. This handles all cases:
-    return mIsRowOriented != mWM.IsVertical();
+    return IsRowOriented() != mWM.IsVertical();
   }
 
   // Delete copy-constructor & reassignment operator, to prevent accidental
@@ -320,27 +325,8 @@ class MOZ_STACK_CLASS nsFlexContainerFrame::FlexboxAxisTracker {
   FlexboxAxisTracker& operator=(const FlexboxAxisTracker&) = delete;
 
  private:
-  // Helpers for constructor which determine the orientation of our axes, based
-  // on legacy box properties (-webkit-box-orient, -webkit-box-direction) or
-  // modern flexbox properties (flex-direction, flex-wrap) depending on whether
-  // the flex container is a "legacy box" (as determined by IsLegacyBox).
-  void InitAxesFromLegacyProps(const nsFlexContainerFrame* aFlexContainer);
-  void InitAxesFromModernProps(const nsFlexContainerFrame* aFlexContainer);
-
-  LogicalAxis mMainAxis = eLogicalAxisInline;
-
   const WritingMode mWM;  // The flex container's writing mode.
-
-  // Is our main axis the inline axis? (Are we 'flex-direction:row[-reverse]'?)
-  bool mIsRowOriented = true;
-
-  // Is our main axis in the opposite direction as mWM's corresponding axis?
-  // (e.g. RTL vs LTR)
-  bool mIsMainAxisReversed = false;
-
-  // Is our cross axis in the opposite direction as mWM's corresponding axis?
-  // (e.g. BTT vs TTB)
-  bool mIsCrossAxisReversed = false;
+  const FlexboxAxisInfo mAxisInfo;
 };
 
 /**
@@ -1203,8 +1189,7 @@ void nsFlexContainerFrame::RemoveFrame(ChildListID aListID,
 
 StyleAlignFlags nsFlexContainerFrame::CSSAlignmentForAbsPosChild(
     const ReflowInput& aChildRI, LogicalAxis aLogicalAxis) const {
-  WritingMode wm = GetWritingMode();
-  const FlexboxAxisTracker axisTracker(this, wm);
+  const FlexboxAxisTracker axisTracker(this);
 
   // If we're row-oriented and the caller is asking about our inline axis (or
   // alternately, if we're column-oriented and the caller is asking about our
@@ -1261,8 +1246,9 @@ StyleAlignFlags nsFlexContainerFrame::CSSAlignmentForAbsPosChild(
              alignment == StyleAlignFlags::RIGHT) {
     if (aLogicalAxis == eLogicalAxisInline) {
       const bool isLeft = (alignment == StyleAlignFlags::LEFT);
-      alignment = (isLeft == wm.IsBidiLTR()) ? StyleAlignFlags::START
-                                             : StyleAlignFlags::END;
+      alignment = (isLeft == GetWritingMode().IsBidiLTR())
+                      ? StyleAlignFlags::START
+                      : StyleAlignFlags::END;
     } else {
       alignment = StyleAlignFlags::START;
     }
@@ -1594,7 +1580,7 @@ void nsFlexContainerFrame::ResolveAutoFlexBasisAndMinSize(
   }
 
   // We may be about to do computations based on our item's cross-size
-  // (e.g. using it as a contstraint when measuring our content in the
+  // (e.g. using it as a constraint when measuring our content in the
   // main axis, or using it with the intrinsic ratio to obtain a main size).
   // BEFORE WE DO THAT, we need let the item "pre-stretch" its cross size (if
   // it's got 'align-self:stretch'), for a certain case where the spec says
@@ -1929,11 +1915,10 @@ nsFlexContainerFrame::MeasureAscentAndBSizeForFlexItem(
               flags, childReflowStatus);
   aItem.SetHadMeasuringReflow();
 
-  // XXXdholbert Once we do pagination / splitting, we'll need to actually
-  // handle incomplete childReflowStatuses. But for now, we give our kids
-  // unconstrained available height, which means they should always complete.
+  // We always use unconstrained available block-size to measure flex items,
+  // which means they should always complete.
   MOZ_ASSERT(childReflowStatus.IsComplete(),
-             "We gave flex item unconstrained available height, so it "
+             "We gave flex item unconstrained available block-size, so it "
              "should be complete");
 
   // Tell the child we're done with its initial reflow.
@@ -3780,9 +3765,9 @@ void SingleLineCrossAxisPositionTracker::EnterAlignPackingSpace(
   }
 }
 
-FlexboxAxisTracker::FlexboxAxisTracker(
-    const nsFlexContainerFrame* aFlexContainer, const WritingMode& aWM)
-    : mWM(aWM) {
+FlexboxAxisInfo::FlexboxAxisInfo(const nsIFrame* aFlexContainer) {
+  MOZ_ASSERT(aFlexContainer && aFlexContainer->IsFlexContainerFrame(),
+             "Only flex containers may be passed to this constructor!");
   if (IsLegacyBox(aFlexContainer)) {
     InitAxesFromLegacyProps(aFlexContainer);
   } else {
@@ -3790,20 +3775,18 @@ FlexboxAxisTracker::FlexboxAxisTracker(
   }
 }
 
-void FlexboxAxisTracker::InitAxesFromLegacyProps(
-    const nsFlexContainerFrame* aFlexContainer) {
+void FlexboxAxisInfo::InitAxesFromLegacyProps(const nsIFrame* aFlexContainer) {
   const nsStyleXUL* styleXUL = aFlexContainer->StyleXUL();
 
   const bool boxOrientIsVertical =
       (styleXUL->mBoxOrient == StyleBoxOrient::Vertical);
-  const bool wmIsVertical = mWM.IsVertical();
+  const bool wmIsVertical = aFlexContainer->GetWritingMode().IsVertical();
 
   // If box-orient agrees with our writing-mode, then we're "row-oriented"
   // (i.e. the flexbox main axis is the same as our writing mode's inline
   // direction).  Otherwise, we're column-oriented (i.e. the flexbox's main
   // axis is perpendicular to the writing-mode's inline direction).
   mIsRowOriented = (boxOrientIsVertical == wmIsVertical);
-  mMainAxis = mIsRowOriented ? eLogicalAxisInline : eLogicalAxisBlock;
 
   // Legacy flexbox can use "-webkit-box-direction: reverse" to reverse the
   // main axis (so it runs in the reverse direction of the inline axis):
@@ -3814,49 +3797,46 @@ void FlexboxAxisTracker::InitAxesFromLegacyProps(
   mIsCrossAxisReversed = false;
 }
 
-void FlexboxAxisTracker::InitAxesFromModernProps(
-    const nsFlexContainerFrame* aFlexContainer) {
+void FlexboxAxisInfo::InitAxesFromModernProps(const nsIFrame* aFlexContainer) {
   const nsStylePosition* stylePos = aFlexContainer->StylePosition();
   StyleFlexDirection flexDirection = stylePos->mFlexDirection;
 
   // Determine main axis:
   switch (flexDirection) {
     case StyleFlexDirection::Row:
-      mMainAxis = eLogicalAxisInline;
       mIsRowOriented = true;
       mIsMainAxisReversed = false;
       break;
     case StyleFlexDirection::RowReverse:
-      mMainAxis = eLogicalAxisInline;
       mIsRowOriented = true;
       mIsMainAxisReversed = true;
       break;
     case StyleFlexDirection::Column:
-      mMainAxis = eLogicalAxisBlock;
       mIsRowOriented = false;
       mIsMainAxisReversed = false;
       break;
     case StyleFlexDirection::ColumnReverse:
-      mMainAxis = eLogicalAxisBlock;
       mIsRowOriented = false;
       mIsMainAxisReversed = true;
       break;
-    default:
-      MOZ_ASSERT_UNREACHABLE("Unexpected flex-direction value");
   }
 
   // "flex-wrap: wrap-reverse" reverses our cross axis.
   mIsCrossAxisReversed = stylePos->mFlexWrap == StyleFlexWrap::WrapReverse;
 }
 
+FlexboxAxisTracker::FlexboxAxisTracker(
+    const nsFlexContainerFrame* aFlexContainer)
+    : mWM(aFlexContainer->GetWritingMode()), mAxisInfo(aFlexContainer) {}
+
 LogicalSide FlexboxAxisTracker::MainAxisStartSide() const {
   return MakeLogicalSide(
-      MainAxis(), mIsMainAxisReversed ? eLogicalEdgeEnd : eLogicalEdgeStart);
+      MainAxis(), IsMainAxisReversed() ? eLogicalEdgeEnd : eLogicalEdgeStart);
 }
 
 LogicalSide FlexboxAxisTracker::CrossAxisStartSide() const {
   return MakeLogicalSide(
-      CrossAxis(), mIsCrossAxisReversed ? eLogicalEdgeEnd : eLogicalEdgeStart);
+      CrossAxis(), IsCrossAxisReversed() ? eLogicalEdgeEnd : eLogicalEdgeStart);
 }
 
 bool nsFlexContainerFrame::ShouldUseMozBoxCollapseBehavior(
@@ -4397,7 +4377,7 @@ void nsFlexContainerFrame::Reflow(nsPresContext* aPresContext,
       HasAnyStateBits(NS_STATE_FLEX_HAS_LINE_CLAMP_ELLIPSIS);
   RemoveStateBits(NS_STATE_FLEX_HAS_LINE_CLAMP_ELLIPSIS);
 
-  const FlexboxAxisTracker axisTracker(this, aReflowInput.GetWritingMode());
+  const FlexboxAxisTracker axisTracker(this);
 
   // Check to see if we need to create a computed info structure, to
   // be filled out for use by devtools.
@@ -5577,7 +5557,7 @@ nscoord nsFlexContainerFrame::IntrinsicISize(
     gfxContext* aRenderingContext, nsLayoutUtils::IntrinsicISizeType aType) {
   nscoord containerISize = 0;
   const nsStylePosition* stylePos = StylePosition();
-  const FlexboxAxisTracker axisTracker(this, GetWritingMode());
+  const FlexboxAxisTracker axisTracker(this);
 
   nscoord mainGapSize;
   if (axisTracker.IsRowOriented()) {

@@ -76,8 +76,8 @@ using namespace mozilla::a11y;
   return [search performSearch];
 }
 
-- (NSUInteger)moxUIElementCountForSearchPredicate:(NSDictionary*)searchPredicate {
-  return [[self moxUIElementsForSearchPredicate:searchPredicate] count];
+- (NSNumber*)moxUIElementCountForSearchPredicate:(NSDictionary*)searchPredicate {
+  return [NSNumber numberWithDouble:[[self moxUIElementsForSearchPredicate:searchPredicate] count]];
 }
 
 - (void)handleAccessibleEvent:(uint32_t)eventType {
@@ -138,8 +138,14 @@ using namespace mozilla::a11y;
     // we use mResultLimit != 0 to capture the case where mResultLimit is -1
     // when it is set from the params dictionary. If that's true, we want
     // to return all matches (ie. have no limit)
-    [matches addObject:GetNativeFromGeckoAccessible(match)];
-    resultLimit -= 1;
+    mozAccessible* nativeMatch = GetNativeFromGeckoAccessible(match);
+    if (nativeMatch) {
+      // only add/count results for which there is a matching
+      // native accessible
+      [matches addObject:nativeMatch];
+      resultLimit -= 1;
+    }
+
     match = mSearchForward ? p.Next(match, rule) : p.Prev(match, rule);
   }
 

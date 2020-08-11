@@ -7442,7 +7442,8 @@ void Document::ContentStateChanged(nsIContent* aContent,
                                (this, aContent, aStateMask));
 }
 
-void Document::RuleChanged(StyleSheet& aSheet, css::Rule* aRule) {
+void Document::RuleChanged(StyleSheet& aSheet, css::Rule*,
+                           StyleRuleChangeKind) {
   if (aSheet.IsApplicable()) {
     ApplicableStylesChanged();
   }
@@ -16654,6 +16655,14 @@ bool Document::HasThirdPartyChannel() {
   }
 
   return false;
+}
+
+void Document::GetConnectedShadowRoots(
+    nsTArray<RefPtr<ShadowRoot>>& aOut) const {
+  aOut.SetCapacity(mComposedShadowRoots.Count());
+  for (const auto& entry : mComposedShadowRoots) {
+    aOut.AppendElement(entry.GetKey());
+  }
 }
 
 }  // namespace dom

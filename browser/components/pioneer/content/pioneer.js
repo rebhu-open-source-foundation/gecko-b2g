@@ -35,11 +35,21 @@ XPCOMUtils.defineLazyModuleGetters(this, {
 const PREF_PIONEER_ID = "toolkit.telemetry.pioneerId";
 const PREF_PIONEER_NEW_STUDIES_AVAILABLE =
   "toolkit.telemetry.pioneer-new-studies-available";
+const PREF_PIONEER_COMPLETED_STUDIES =
+  "toolkit.telemetry.pioneer-completed-studies";
 
 /**
  * This is the Remote Settings key that we use to get the list of available studies.
  */
-const STUDY_ADDON_COLLECTION_KEY = "pioneer-study-addons";
+const STUDY_ADDON_COLLECTION_KEY = "pioneer-study-addons-v1";
+
+const STUDY_LEAVE_REASONS = {
+  USER_ABANDONED: "user-abandoned",
+  STUDY_ENDED: "study-ended",
+};
+
+const PREF_TEST_CACHED_ADDONS = "toolkit.pioneer.testCachedAddons";
+const PREF_TEST_ADDONS = "toolkit.pioneer.testAddons";
 
 function showEnrollmentStatus() {
   const pioneerId = Services.prefs.getStringPref(PREF_PIONEER_ID, null);
@@ -63,7 +73,7 @@ async function showAvailableStudies(cachedAddons) {
     }
 
     if (cachedAddon.isDefault) {
-      return;
+      continue;
     }
 
     const studyAddonId = cachedAddon.addon_id;
@@ -88,10 +98,10 @@ async function showAvailableStudies(cachedAddons) {
     studyName.textContent = cachedAddon.name;
     studyBody.appendChild(studyName);
 
-    const studyCreator = document.createElement("span");
-    studyCreator.setAttribute("class", "card-creator");
-    studyCreator.textContent = cachedAddon.creator.name;
-    studyBody.appendChild(studyCreator);
+    const studyAuthor = document.createElement("span");
+    studyAuthor.setAttribute("class", "card-author");
+    studyAuthor.textContent = cachedAddon.authors.name;
+    studyBody.appendChild(studyAuthor);
 
     const actions = document.createElement("div");
     actions.classList.add("card-actions");
@@ -104,12 +114,6 @@ async function showAvailableStudies(cachedAddons) {
     document.l10n.setAttributes(joinBtn, "pioneer-join-study");
     actions.appendChild(joinBtn);
 
-    const enrollStudyBtn = document.createElement("input");
-    enrollStudyBtn.setAttribute("id", `${studyAddonId}-toggle-button`);
-    enrollStudyBtn.setAttribute("class", "toggle-button");
-    enrollStudyBtn.setAttribute("type", "checkbox");
-    actions.appendChild(enrollStudyBtn);
-
     const studyDesc = document.createElement("div");
     studyDesc.setAttribute("class", "card-description");
     study.appendChild(studyDesc);
@@ -118,25 +122,55 @@ async function showAvailableStudies(cachedAddons) {
     shortDesc.textContent = cachedAddon.description;
     studyDesc.appendChild(shortDesc);
 
-    const fullDesc = document.createElement("p");
-    fullDesc.textContent = cachedAddon.fullDescription;
-    studyDesc.appendChild(fullDesc);
+    const privacyPolicyLink = document.createElement("a");
+    privacyPolicyLink.href = cachedAddon.privacyPolicy.spec;
+    privacyPolicyLink.textContent = "privacy policy";
+
+    const privacyPolicy = document.createElement("p");
+    const privacyPolicyStart = document.createElement("span");
+    privacyPolicyStart.textContent = "You can always find the ";
+    privacyPolicy.append(privacyPolicyStart);
+    privacyPolicy.append(privacyPolicyLink);
+    const privacyPolicyEnd = document.createElement("span");
+    privacyPolicyEnd.textContent = " at our website.";
+    privacyPolicy.append(privacyPolicyEnd);
+    studyDesc.appendChild(privacyPolicy);
+
+    const studyDataCollected = document.createElement("div");
+    studyDataCollected.setAttribute("class", "card-data-collected");
+    study.appendChild(studyDataCollected);
+
+    const dataCollectionDetailsHeader = document.createElement("p");
+    dataCollectionDetailsHeader.textContent = "This study will collect:";
+    studyDataCollected.appendChild(dataCollectionDetailsHeader);
+
+    const dataCollectionDetails = document.createElement("ul");
+    for (const dataCollectionDetail of cachedAddon.dataCollectionDetails) {
+      const detailsBullet = document.createElement("li");
+      detailsBullet.textContent = dataCollectionDetail;
+      dataCollectionDetails.append(detailsBullet);
+    }
+    studyDataCollected.appendChild(dataCollectionDetails);
 
     async function toggleEnrolled() {
       let addon;
       let install;
 
       if (Cu.isInAutomation) {
-        if (
-          Services.prefs.getBoolPref(
-            "toolkit.pioneer.testAddonInstalled",
-            false
-          )
-        ) {
-          addon = { uninstall() {} };
+        let testAddons = Services.prefs.getStringPref(PREF_TEST_ADDONS, null);
+        testAddons = JSON.parse(testAddons);
+        install = {
+          install: () => {},
+        };
+        for (const testAddon of testAddons) {
+          if (testAddon.id == studyAddonId) {
+            addon = testAddon;
+            addon.install = () => {};
+            addon.uninstall = () => {
+              Services.prefs.setStringPref(PREF_TEST_ADDONS, "[]");
+            };
+          }
         }
-
-        install = { install() {} };
       } else {
         addon = await AddonManager.getAddonByID(studyAddonId);
         install = await AddonManager.getInstallForURL(
@@ -144,16 +178,48 @@ async function showAvailableStudies(cachedAddons) {
         );
       }
 
+      const completedStudies = Services.prefs.getStringPref(
+        PREF_PIONEER_COMPLETED_STUDIES,
+        "{}"
+      );
+
       if (addon) {
+        joinBtn.disabled = true;
         await addon.uninstall();
+        document.l10n.setAttributes(joinBtn, "pioneer-join-study");
+        joinBtn.disabled = false;
+
+        // Record that the user abandoned this study, since it may not be re-join-able.
+        if (completedStudies) {
+          const studies = JSON.parse(completedStudies);
+          studies[studyAddonId] = STUDY_LEAVE_REASONS.USER_ABANDONED;
+          Services.prefs.setStringPref(
+            PREF_PIONEER_COMPLETED_STUDIES,
+            JSON.stringify(studies)
+          );
+        }
       } else {
+        // Check if this study is re-join-able before enrollment.
+        const studies = JSON.parse(completedStudies);
+        if (studyAddonId in studies) {
+          if (
+            "canRejoin" in cachedAddons[studyAddonId] &&
+            cachedAddons[studyAddonId].canRejoin === false
+          ) {
+            console.error(
+              `Cannot rejoin ended study ${studyAddonId}, reason: ${studies[studyAddonId]}`
+            );
+            return;
+          }
+        }
         joinBtn.disabled = true;
         await install.install();
+        document.l10n.setAttributes(joinBtn, "pioneer-leave-study");
+        joinBtn.disabled = false;
       }
       await updateStudy(studyAddonId);
     }
 
-    enrollStudyBtn.addEventListener("input", toggleEnrolled);
     joinBtn.addEventListener("click", toggleEnrolled);
 
     const availableStudies = document.getElementById("available-studies");
@@ -169,9 +235,7 @@ async function showAvailableStudies(cachedAddons) {
 async function updateStudy(studyAddonId) {
   let addon;
   if (Cu.isInAutomation) {
-    if (
-      Services.prefs.getBoolPref("toolkit.pioneer.testAddonInstalled", false)
-    ) {
+    if (Services.prefs.getBoolPref(PREF_TEST_ADDONS, false)) {
       addon = { uninstall() {} };
     }
   } else {
@@ -180,27 +244,34 @@ async function updateStudy(studyAddonId) {
 
   const study = document.querySelector(`.card[id="${studyAddonId}"`);
 
-  const enrollStudyBtn = study.querySelector(".toggle-button");
   const joinBtn = study.querySelector(".join-button");
 
   const pioneerId = Services.prefs.getStringPref(PREF_PIONEER_ID, null);
 
   if (pioneerId) {
-    study.style.opacity = 1;
+    const completedStudies = Services.prefs.getStringPref(
+      PREF_PIONEER_COMPLETED_STUDIES,
+      "{}"
+    );
 
-    enrollStudyBtn.disabled = false;
-    enrollStudyBtn.checked = !!addon;
+    const studies = JSON.parse(completedStudies);
+    if (studyAddonId in studies) {
+      joinBtn.disabled = true;
+      document.l10n.setAttributes(joinBtn, "pioneer-ended-study");
+    } else {
+      study.style.opacity = 1;
+      joinBtn.disabled = false;
 
-    joinBtn.disabled = false;
-    joinBtn.hidden = !!addon;
+      if (addon) {
+        document.l10n.setAttributes(joinBtn, "pioneer-leave-study");
+      } else {
+        document.l10n.setAttributes(joinBtn, "pioneer-join-study");
+      }
+    }
   } else {
+    document.l10n.setAttributes(joinBtn, "pioneer-join-study");
     study.style.opacity = 0.5;
-
-    enrollStudyBtn.disabled = true;
-    enrollStudyBtn.checked = false;
-
     joinBtn.disabled = true;
-    joinBtn.hidden = false;
   }
 }
 
@@ -222,6 +293,7 @@ async function setup(cachedAddons) {
 
       if (pioneerId) {
         Services.prefs.clearUserPref(PREF_PIONEER_ID);
+        Services.prefs.clearUserPref(PREF_PIONEER_COMPLETED_STUDIES);
         for (const cachedAddon of cachedAddons) {
           const addon = await AddonManager.getAddonByID(cachedAddon.addon_id);
           if (addon) {
@@ -310,7 +382,7 @@ document.addEventListener("DOMContentLoaded", async domEvent => {
   let cachedAddons;
   if (Cu.isInAutomation) {
     let testCachedAddons = Services.prefs.getStringPref(
-      "toolkit.pioneer.testCachedAddons",
+      PREF_TEST_CACHED_ADDONS,
       null
     );
     if (testCachedAddons) {
@@ -318,6 +390,23 @@ document.addEventListener("DOMContentLoaded", async domEvent => {
     }
   } else {
     cachedAddons = await RemoteSettings(STUDY_ADDON_COLLECTION_KEY).get();
+  }
+
+  for (const cachedAddon of cachedAddons) {
+    // Record any studies that have been marked as concluded on the server.
+    if ("studyEnded" in cachedAddon && cachedAddon.studyEnded === true) {
+      const completedStudies = Services.prefs.getStringPref(
+        PREF_PIONEER_COMPLETED_STUDIES,
+        "{}"
+      );
+      const studies = JSON.parse(completedStudies);
+      studies[cachedAddon.addon_id] = STUDY_LEAVE_REASONS.STUDY_ENDED;
+
+      Services.prefs.setStringPref(
+        PREF_PIONEER_COMPLETED_STUDIES,
+        JSON.stringify(studies)
+      );
+    }
   }
 
   await setup(cachedAddons);

@@ -17,3 +17,4 @@ jobs-from:
     - kaios.yml
     - toolchains.yml
     - visual-metrics.yml
+    - resource-monitor.yml

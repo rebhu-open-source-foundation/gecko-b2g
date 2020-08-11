@@ -639,6 +639,14 @@ void BrowserParent::Destroy() {
 
   Manager()->NotifyTabDestroying();
 
+  // This `AddKeepAlive` will be cleared if `mMarkedDestroying` is set in
+  // `ActorDestroy`. Out of caution, we don't add the `KeepAlive` if our IPC
+  // actor has somehow already been destroyed, as that would mean `ActorDestroy`
+  // won't be called.
+  if (CanRecv()) {
+    mBrowsingContext->Group()->AddKeepAlive();
+  }
+
   mMarkedDestroying = true;
 }
 
@@ -710,6 +718,13 @@ void BrowserParent::ActorDestroy(ActorDestroyReason why) {
   if (XRE_IsContentProcess() && why == AbnormalShutdown && !mIsDestroyed) {
     DestroyInternal();
     mIsDestroyed = true;
+  }
+
+  // If we were shutting down normally, we held a reference to our
+  // BrowsingContextGroup in `BrowserParent::Destroy`. Clear that reference
+  // here.
+  if (mMarkedDestroying) {
+    mBrowsingContext->Group()->RemoveKeepAlive();
   }
 
   // Tell our embedder that the tab is now going away unless we're an
@@ -1327,9 +1342,15 @@ IPCResult BrowserParent::RecvIndexedDBPermissionRequest(
 IPCResult BrowserParent::RecvNewWindowGlobal(
     ManagedEndpoint<PWindowGlobalParent>&& aEndpoint,
     const WindowGlobalInit& aInit) {
+  MOZ_DIAGNOSTIC_ASSERT(mBrowsingContext,
+                        "Should not receive messages after being unlinked");
   RefPtr<CanonicalBrowsingContext> browsingContext =
       CanonicalBrowsingContext::Get(aInit.context().mBrowsingContextId);
   if (!browsingContext) {
+    CrashReporter::AutoAnnotateCrashReport autoMissingBCId(
+        CrashReporter::Annotation::NewWindowMissingBCId,
+        static_cast<unsigned int>(aInit.context().mBrowsingContextId));
+
     return IPC_FAIL(this, "Cannot create for missing BrowsingContext");
   }
   if (!aInit.principal()) {

@@ -510,6 +510,10 @@ bool BytecodeEmitter::emitCheckIsObj(CheckIsObjectKind kind) {
   return emit2(JSOp::CheckIsObj, uint8_t(kind));
 }
 
+bool BytecodeEmitter::emitBuiltinObject(BuiltinObjectKind kind) {
+  return emit2(JSOp::BuiltinObject, uint8_t(kind));
+}
+
 /* Updates line number notes, not column notes. */
 bool BytecodeEmitter::updateLineNumberNotes(uint32_t offset) {
   if (skipLocationSrcNotes()) {
@@ -1628,7 +1632,12 @@ bool BytecodeEmitter::iteratorResultShape(GCThingIndex* shape) {
   // with |NewObject|.
   ObjLiteralFlags flags{ObjLiteralFlag::NoValues};
 
-  ObjLiteralCreationData data(cx);
+  ObjLiteralIndex objIndex(compilationInfo.objLiteralData.length());
+  if (!compilationInfo.objLiteralData.emplaceBack(cx)) {
+    return false;
+  }
+  ObjLiteralStencil& data = compilationInfo.objLiteralData.back();
+
   data.writer().beginObject(flags);
 
   for (auto name : {&JSAtomState::value, &JSAtomState::done}) {
@@ -1645,7 +1654,7 @@ bool BytecodeEmitter::iteratorResultShape(GCThingIndex* shape) {
     }
   }
 
-  return perScriptData().gcThingList().append(std::move(data), shape);
+  return perScriptData().gcThingList().append(objIndex, shape);
 }
 
 bool BytecodeEmitter::emitPrepareIteratorResult() {
@@ -4585,7 +4594,12 @@ bool BytecodeEmitter::emitCallSiteObjectArray(ListNode* cookedOrRaw,
     MOZ_ASSERT(cookedOrRaw->isKind(ParseNodeKind::ArrayExpr));
   }
 
-  ObjLiteralCreationData data(cx);
+  ObjLiteralIndex objIndex(compilationInfo.objLiteralData.length());
+  if (!compilationInfo.objLiteralData.emplaceBack(cx)) {
+    return false;
+  }
+  ObjLiteralStencil& data = compilationInfo.objLiteralData.back();
+
   ObjLiteralFlags flags(ObjLiteralFlag::Array);
   data.writer().beginObject(flags);
   data.writer().beginDenseArrayElements();
@@ -4601,7 +4615,7 @@ bool BytecodeEmitter::emitCallSiteObjectArray(ListNode* cookedOrRaw,
   }
   MOZ_ASSERT(idx == count);
 
-  return perScriptData().gcThingList().append(std::move(data), arrayIndex);
+  return perScriptData().gcThingList().append(objIndex, arrayIndex);
 }
 
 bool BytecodeEmitter::emitCallSiteObject(CallSiteNode* callSiteObj) {
@@ -7294,6 +7308,54 @@ bool BytecodeEmitter::emitSelfHostedToString(BinaryNode* callNode) {
   return emit1(JSOp::ToString);
 }
 
+bool BytecodeEmitter::emitSelfHostedGetBuiltinConstructorOrPrototype(
+    BinaryNode* callNode, bool isConstructor) {
+  ListNode* argsList = &callNode->right()->as<ListNode>();
+
+  if (argsList->count() != 1) {
+    const char* name =
+        isConstructor ? "GetBuiltinConstructor" : "GetBuiltinPrototype";
+    reportNeedMoreArgsError(callNode, name, "1", "", argsList);
+    return false;
+  }
+
+  ParseNode* argNode = argsList->head();
+
+  if (!argNode->isKind(ParseNodeKind::StringExpr)) {
+    reportError(callNode, JSMSG_UNEXPECTED_TYPE, "built-in name",
+                "not a string constant");
+    return false;
+  }
+
+  JSAtom* name = argNode->as<NameNode>().atom();
+
+  BuiltinObjectKind kind;
+  if (isConstructor) {
+    kind = BuiltinConstructorForName(cx, name);
+  } else {
+    kind = BuiltinPrototypeForName(cx, name);
+  }
+
+  if (kind == BuiltinObjectKind::None) {
+    reportError(callNode, JSMSG_UNEXPECTED_TYPE, "built-in name",
+                "not a valid built-in");
+    return false;
+  }
+
+  return emitBuiltinObject(kind);
+}
+
+bool BytecodeEmitter::emitSelfHostedGetBuiltinConstructor(
+    BinaryNode* callNode) {
+  return emitSelfHostedGetBuiltinConstructorOrPrototype(
+      callNode, /* isConstructor = */ true);
+}
+
+bool BytecodeEmitter::emitSelfHostedGetBuiltinPrototype(BinaryNode* callNode) {
+  return emitSelfHostedGetBuiltinConstructorOrPrototype(
+      callNode, /* isConstructor = */ false);
+}
+
 #ifdef DEBUG
 bool BytecodeEmitter::checkSelfHostedUnsafeGetReservedSlot(
     BinaryNode* callNode) {
@@ -7814,6 +7876,12 @@ bool BytecodeEmitter::emitCallOrNew(
     }
     if (calleeName == cx->parserNames().ToString) {
       return emitSelfHostedToString(callNode);
+    }
+    if (calleeName == cx->parserNames().GetBuiltinConstructor) {
+      return emitSelfHostedGetBuiltinConstructor(callNode);
+    }
+    if (calleeName == cx->parserNames().GetBuiltinPrototype) {
+      return emitSelfHostedGetBuiltinPrototype(callNode);
     }
 #ifdef DEBUG
     if (calleeName == cx->parserNames().UnsafeGetReservedSlot ||
@@ -8760,7 +8828,12 @@ bool BytecodeEmitter::emitPropertyList(ListNode* obj, PropertyEmitter& pe,
 
 bool BytecodeEmitter::emitPropertyListObjLiteral(ListNode* obj,
                                                  ObjLiteralFlags flags) {
-  ObjLiteralCreationData data(cx);
+  ObjLiteralIndex objIndex(compilationInfo.objLiteralData.length());
+  if (!compilationInfo.objLiteralData.emplaceBack(cx)) {
+    return false;
+  }
+  ObjLiteralStencil& data = compilationInfo.objLiteralData.back();
+
   data.writer().beginObject(flags);
   bool noValues = flags.contains(ObjLiteralFlag::NoValues);
   bool singleton = flags.contains(ObjLiteralFlag::Singleton);
@@ -8799,7 +8872,7 @@ bool BytecodeEmitter::emitPropertyListObjLiteral(ListNode* obj,
   }
 
   GCThingIndex index;
-  if (!perScriptData().gcThingList().append(std::move(data), &index)) {
+  if (!perScriptData().gcThingList().append(objIndex, &index)) {
     return false;
   }
 
@@ -8823,7 +8896,12 @@ bool BytecodeEmitter::emitDestructuringRestExclusionSetObjLiteral(
   // with |NewObject|.
   ObjLiteralFlags flags{ObjLiteralFlag::NoValues};
 
-  ObjLiteralCreationData data(cx);
+  ObjLiteralIndex objIndex(compilationInfo.objLiteralData.length());
+  if (!compilationInfo.objLiteralData.emplaceBack(cx)) {
+    return false;
+  }
+  ObjLiteralStencil& data = compilationInfo.objLiteralData.back();
+
   data.writer().beginObject(flags);
 
   for (ParseNode* member : pattern->contents()) {
@@ -8852,7 +8930,7 @@ bool BytecodeEmitter::emitDestructuringRestExclusionSetObjLiteral(
   }
 
   GCThingIndex index;
-  if (!perScriptData().gcThingList().append(std::move(data), &index)) {
+  if (!perScriptData().gcThingList().append(objIndex, &index)) {
     return false;
   }
 
@@ -8870,7 +8948,12 @@ bool BytecodeEmitter::emitDestructuringRestExclusionSetObjLiteral(
 }
 
 bool BytecodeEmitter::emitObjLiteralArray(ParseNode* arrayHead, bool isCow) {
-  ObjLiteralCreationData data(cx);
+  ObjLiteralIndex objIndex(compilationInfo.objLiteralData.length());
+  if (!compilationInfo.objLiteralData.emplaceBack(cx)) {
+    return false;
+  }
+  ObjLiteralStencil& data = compilationInfo.objLiteralData.back();
+
   ObjLiteralFlags flags(ObjLiteralFlag::Array);
   if (isCow) {
     flags += ObjLiteralFlag::ArrayCOW;
@@ -8885,7 +8968,7 @@ bool BytecodeEmitter::emitObjLiteralArray(ParseNode* arrayHead, bool isCow) {
   }
 
   GCThingIndex index;
-  if (!perScriptData().gcThingList().append(std::move(data), &index)) {
+  if (!perScriptData().gcThingList().append(objIndex, &index)) {
     return false;
   }
 
@@ -8908,7 +8991,7 @@ bool BytecodeEmitter::isRHSObjLiteralCompatible(ParseNode* value) {
          value->isKind(ParseNodeKind::TemplateStringExpr);
 }
 
-bool BytecodeEmitter::emitObjLiteralValue(ObjLiteralCreationData* data,
+bool BytecodeEmitter::emitObjLiteralValue(ObjLiteralStencil* data,
                                           ParseNode* value) {
   MOZ_ASSERT(isRHSObjLiteralCompatible(value));
   if (value->isKind(ParseNodeKind::NumberExpr)) {
@@ -9303,12 +9386,12 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitObject(ListNode* objNode,
   bool isSingletonContext = !objNode->hasNonConstInitializer() &&
                             objNode->head() && checkSingletonContext();
 
-  // Note: this method uses the ObjLiteralWriter and emits
-  // ObjLiteralCreationData objects into the GCThingList, which will evaluate
-  // them into real GC objects during JSScript::fullyInitFromEmitter.
-  // Eventually we want OBJLITERAL to be a real opcode, but for now,
-  // performance constraints limit us to evaluating object literals at the end
-  // of parse, when we're allowed to allocate GC things.
+  // Note: this method uses the ObjLiteralWriter and emits ObjLiteralStencil
+  // objects into the GCThingList, which will evaluate them into real GC objects
+  // during JSScript::fullyInitFromEmitter. Eventually we want OBJLITERAL to be
+  // a real opcode, but for now, performance constraints limit us to evaluating
+  // object literals at the end of parse, when we're allowed to allocate GC
+  // things.
   //
   // There are three cases here, in descending order of preference:
   //

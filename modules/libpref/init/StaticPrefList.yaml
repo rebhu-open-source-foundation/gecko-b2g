@@ -1530,7 +1530,7 @@
 
 # Block all downloads in iframes with the sandboxed attribute
 - name: dom.block_download_in_sandboxed_iframes
-  type: bool 
+  type: bool
   value: @IS_NIGHTLY_BUILD@
   mirror: always
 
@@ -7130,7 +7130,7 @@
 # Use DRM display for VA-API ffmpeg video decoding on Linux
 - name: media.ffmpeg.vaapi-drm-display.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 #endif # MOZ_WAYLAND
 #endif  # MOZ_FFMPEG
@@ -7677,6 +7677,13 @@
   value: @IS_NIGHTLY_BUILD@
   mirror: always
 
+# If this pref is on, then `media.mediacontrol.stopcontrol.timer.ms` would take
+# effect and determine the timing to stop controlling media.
+- name: media.mediacontrol.stopcontrol.timer
+  type: bool
+  value: false
+  mirror: always
+
 # If media is being paused after a certain period, then we would think that
 # media doesn't need to be controlled anymore. Therefore, that media would stop
 # listening to the media control key events. The value of this pref is how long
@@ -7684,6 +7691,13 @@
 - name: media.mediacontrol.stopcontrol.timer.ms
   type: RelaxedAtomicUint32
   value: 60000
+  mirror: always
+
+# If this pref is on, we would stop controlling media after it reaches to the
+# end.
+- name: media.mediacontrol.stopcontrol.aftermediaends
+  type: bool
+  value: true
   mirror: always
 
 # We would only use media control to control media which duration is longer
@@ -8383,6 +8397,14 @@
 - name: network.trr.fetch_off_main_thread
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+# If this pref is false, a task will be dispatched to remove the file from the
+# disk and the pref will be set to true.
+# It can probably be removed after a few releases.
+- name: network.trr.blocklist_cleanup_done
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 # Allow the network changed event to get sent when a network topology or setup
@@ -9924,13 +9946,6 @@
 #ifdef NIGHTLY_BUILD
 # Keep those pref hidden on non-nightly builds to avoid people accidentally
 # turning it on.
-
-# Use DMABuf backend for Basic compositor.
-# For testing purposes only.
-- name: widget.wayland-dmabuf-basic-compositor.enabled
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
 
 # Use DMABuf for content textures.
 # For testing purposes only.

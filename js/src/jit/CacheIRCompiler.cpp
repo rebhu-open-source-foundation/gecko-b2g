@@ -1545,8 +1545,7 @@ bool CacheIRCompiler::emitGuardBooleanToInt32(ValOperandId inputId,
     return false;
   }
 
-  masm.branchTestBoolean(Assembler::NotEqual, input, failure->label());
-  masm.unboxBoolean(input, output);
+  masm.fallibleUnboxBoolean(input, output, failure->label());
   return true;
 }
 
@@ -2000,12 +1999,11 @@ bool CacheIRCompiler::emitGuardSpecificNativeFunction(ObjOperandId objId,
   return true;
 }
 
-bool CacheIRCompiler::emitGuardFunctionPrototype(ObjOperandId objId,
-                                                 ObjOperandId protoId,
-                                                 uint32_t slotOffset) {
+bool CacheIRCompiler::emitGuardDynamicSlotIsSpecificObject(
+    ObjOperandId objId, ObjOperandId expectedId, uint32_t slotOffset) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   Register obj = allocator.useRegister(masm, objId);
-  Register prototypeObject = allocator.useRegister(masm, protoId);
+  Register expectedObject = allocator.useRegister(masm, expectedId);
 
   // Allocate registers before the failure path to make sure they're registered
   // by addFailurePath.
@@ -2017,14 +2015,13 @@ bool CacheIRCompiler::emitGuardFunctionPrototype(ObjOperandId objId,
     return false;
   }
 
-  // Guard on the .prototype object.
+  // Guard on the expected object.
   StubFieldOffset slot(slotOffset, StubField::Type::RawWord);
   masm.loadPtr(Address(obj, NativeObject::offsetOfSlots()), scratch1);
   emitLoadStubField(slot, scratch2);
-  BaseObjectSlotIndex prototypeSlot(scratch1, scratch2);
-  masm.branchTestObject(Assembler::NotEqual, prototypeSlot, failure->label());
-  masm.unboxObject(prototypeSlot, scratch1);
-  masm.branchPtr(Assembler::NotEqual, prototypeObject, scratch1,
+  BaseObjectSlotIndex expectedSlot(scratch1, scratch2);
+  masm.fallibleUnboxObject(expectedSlot, scratch1, failure->label());
+  masm.branchPtr(Assembler::NotEqual, expectedObject, scratch1,
                  failure->label());
 
   return true;
@@ -3541,10 +3538,8 @@ bool CacheIRCompiler::emitGuardXrayExpandoShapeAndDefaultProto(
   Address expandoAddress(scratch, NativeObject::getFixedSlotOffset(
                                       GetXrayJitInfo()->holderExpandoSlot));
 
-  masm.branchTestObject(Assembler::NotEqual, holderAddress, failure->label());
-  masm.unboxObject(holderAddress, scratch);
-  masm.branchTestObject(Assembler::NotEqual, expandoAddress, failure->label());
-  masm.unboxObject(expandoAddress, scratch);
+  masm.fallibleUnboxObject(holderAddress, scratch, failure->label());
+  masm.fallibleUnboxObject(expandoAddress, scratch, failure->label());
 
   // Unwrap the expando before checking its shape.
   masm.loadPtr(Address(scratch, ProxyObject::offsetOfReservedSlots()), scratch);
@@ -3583,8 +3578,7 @@ bool CacheIRCompiler::emitGuardXrayNoExpando(ObjOperandId objId) {
                                       GetXrayJitInfo()->holderExpandoSlot));
 
   Label done;
-  masm.branchTestObject(Assembler::NotEqual, holderAddress, &done);
-  masm.unboxObject(holderAddress, scratch);
+  masm.fallibleUnboxObject(holderAddress, scratch, &done);
   masm.branchTestObject(Assembler::Equal, expandoAddress, failure->label());
   masm.bind(&done);
 
@@ -4036,6 +4030,18 @@ bool CacheIRCompiler::emitTypedArrayElementShiftResult(ObjOperandId objId) {
 
   masm.typedArrayElementShift(obj, scratch);
   masm.tagValue(JSVAL_TYPE_INT32, scratch, output.valueReg());
+  return true;
+}
+
+bool CacheIRCompiler::emitIsTypedArrayConstructorResult(ObjOperandId objId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoOutputRegister output(*this);
+  AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
+  Register obj = allocator.useRegister(masm, objId);
+
+  masm.setIsDefinitelyTypedArrayConstructor(obj, scratch);
+  masm.tagValue(JSVAL_TYPE_BOOLEAN, scratch, output.valueReg());
   return true;
 }
 
@@ -6432,8 +6438,7 @@ void CacheIRCompiler::emitStoreTypedObjectReferenceProp(ValueOperand val,
     case ReferenceType::TYPE_OBJECT: {
       EmitPreBarrier(masm, dest, MIRType::Object);
       Label isNull, done;
-      masm.branchTestObject(Assembler::NotEqual, val, &isNull);
-      masm.unboxObject(val, scratch);
+      masm.fallibleUnboxObject(val, scratch, &isNull);
       masm.storePtr(scratch, dest);
       masm.jump(&done);
       masm.bind(&isNull);
@@ -6803,10 +6808,9 @@ bool CacheIRCompiler::emitLoadInstanceOfObjectResult(ValOperandId lhsId,
   }
 
   Label returnFalse, returnTrue, done;
-  masm.branchTestObject(Assembler::NotEqual, lhs, &returnFalse);
+  masm.fallibleUnboxObject(lhs, scratch, &returnFalse);
 
   // LHS is an object. Load its proto.
-  masm.unboxObject(lhs, scratch);
   masm.loadObjProto(scratch, scratch);
   {
     // Walk the proto chain until we either reach the target object,
@@ -7148,10 +7152,9 @@ bool CacheIRCompiler::emitCallIsSuspendedGeneratorResult(ValOperandId valId) {
 
   // Test if it's an object.
   Label returnFalse, done;
-  masm.branchTestObject(Assembler::NotEqual, input, &returnFalse);
+  masm.fallibleUnboxObject(input, scratch, &returnFalse);
 
   // Test if it's a GeneratorObject.
-  masm.unboxObject(input, scratch);
   masm.branchTestObjClass(Assembler::NotEqual, scratch,
                           &GeneratorObject::class_, scratch2, scratch,
                           &returnFalse);
@@ -7159,8 +7162,7 @@ bool CacheIRCompiler::emitCallIsSuspendedGeneratorResult(ValOperandId valId) {
   // If the resumeIndex slot holds an int32 value < RESUME_INDEX_RUNNING,
   // the generator is suspended.
   Address addr(scratch, AbstractGeneratorObject::offsetOfResumeIndexSlot());
-  masm.branchTestInt32(Assembler::NotEqual, addr, &returnFalse);
-  masm.unboxInt32(addr, scratch);
+  masm.fallibleUnboxInt32(addr, scratch, &returnFalse);
   masm.branch32(Assembler::AboveOrEqual, scratch,
                 Imm32(AbstractGeneratorObject::RESUME_INDEX_RUNNING),
                 &returnFalse);
@@ -7349,6 +7351,54 @@ bool CacheIRCompiler::emitCallSubstringKernelResult(StringOperandId strId,
   using Fn = JSString* (*)(JSContext * cx, HandleString str, int32_t begin,
                            int32_t len);
   callvm.call<Fn, SubstringKernel>();
+  return true;
+}
+
+bool CacheIRCompiler::emitStringReplaceStringResult(
+    StringOperandId strId, StringOperandId patternId,
+    StringOperandId replacementId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoCallVM callvm(masm, this, allocator);
+
+  Register str = allocator.useRegister(masm, strId);
+  Register pattern = allocator.useRegister(masm, patternId);
+  Register replacement = allocator.useRegister(masm, replacementId);
+
+  callvm.prepare();
+  masm.Push(replacement);
+  masm.Push(pattern);
+  masm.Push(str);
+
+  using Fn =
+      JSString* (*)(JSContext*, HandleString, HandleString, HandleString);
+  callvm.call<Fn, jit::StringReplace>();
+  return true;
+}
+
+bool CacheIRCompiler::emitStringSplitStringResult(StringOperandId strId,
+                                                  StringOperandId separatorId,
+                                                  uint32_t groupOffset) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoCallVM callvm(masm, this, allocator);
+
+  Register str = allocator.useRegister(masm, strId);
+  Register separator = allocator.useRegister(masm, separatorId);
+  AutoScratchRegister scratch(allocator, masm);
+
+  StubFieldOffset group(groupOffset, StubField::Type::ObjectGroup);
+  emitLoadStubField(group, scratch);
+
+  callvm.prepare();
+  masm.Push(Imm32(INT32_MAX));
+  masm.Push(separator);
+  masm.Push(str);
+  masm.Push(scratch);
+
+  using Fn = ArrayObject* (*)(JSContext*, HandleObjectGroup, HandleString,
+                              HandleString, uint32_t);
+  callvm.call<Fn, js::StringSplitString>();
   return true;
 }
 

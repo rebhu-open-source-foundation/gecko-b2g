@@ -221,6 +221,8 @@ void GamepadPlatformService::AddChannelParent(
   }
 
   FlushPendingEvents();
+
+  StartGamepadMonitoring();
 }
 
 void GamepadPlatformService::FlushPendingEvents() {
@@ -250,18 +252,17 @@ void GamepadPlatformService::RemoveChannelParent(
   MOZ_ASSERT(mChannelParents.Contains(aParent));
 
   // We use mutex here to prevent race condition with monitor thread
-  MutexAutoLock autoLock(mMutex);
-  mChannelParents.RemoveElement(aParent);
-}
+  {
+    MutexAutoLock autoLock(mMutex);
+    mChannelParents.RemoveElement(aParent);
+    if (!mChannelParents.IsEmpty()) {
+      return;
+    }
+  }
 
-bool GamepadPlatformService::HasGamepadListeners() {
-  // mChannelParents may be accessed by background thread in the
-  // same time, we use mutex to prevent possible race condtion
-  AssertIsOnBackgroundThread();
-
-  // We use mutex here to prevent race condition with monitor thread
-  MutexAutoLock autoLock(mMutex);
-  return !mChannelParents.IsEmpty();
+  StopGamepadMonitoring();
+  ResetGamepadIndexes();
+  MaybeShutdown();
 }
 
 void GamepadPlatformService::MaybeShutdown() {

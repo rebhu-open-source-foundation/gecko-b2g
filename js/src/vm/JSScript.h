@@ -26,7 +26,6 @@
 
 #include "jstypes.h"
 
-#include "frontend/NameAnalysisTypes.h"
 #include "frontend/SourceNotes.h"  // SrcNote
 #include "gc/Barrier.h"
 #include "gc/Rooting.h"
@@ -69,23 +68,16 @@ struct IonScriptCounts;
 class JitScript;
 }  // namespace jit
 
-class AutoSweepJitScript;
 class ModuleObject;
 class RegExpObject;
 class ScriptSourceHolder;
 class SourceCompressionTask;
 class Shape;
-class DebugAPI;
 class DebugScript;
 
 namespace frontend {
 struct CompilationInfo;
-class FunctionIndex;
-class FunctionBox;
-class ModuleSharedContext;
 class ScriptStencil;
-
-class BinASTSourceMetadata {};
 }  // namespace frontend
 
 class ScriptCounts {
@@ -1378,7 +1370,7 @@ class alignas(uintptr_t) PrivateScriptData final : public TrailingArray {
   // Accessors for typed array spans.
   mozilla::Span<JS::GCCellPtr> gcthings() {
     Offset offset = offsetOfGCThings();
-    return mozilla::MakeSpan(offsetToPointer<JS::GCCellPtr>(offset), ngcthings);
+    return mozilla::Span{offsetToPointer<JS::GCCellPtr>(offset), ngcthings};
   }
 
   void setFieldInitializers(FieldInitializers fieldInitializers) {

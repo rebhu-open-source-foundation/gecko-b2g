@@ -23,6 +23,7 @@ const { XPCOMUtils } = ChromeUtils.import(
 XPCOMUtils.defineLazyModuleGetters(this, {
   BrowserUtils: "resource://gre/modules/BrowserUtils.jsm",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.jsm",
+  FormHistory: "resource://gre/modules/FormHistory.jsm",
   Log: "resource://gre/modules/Log.jsm",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.jsm",
   PlacesUIUtils: "resource:///modules/PlacesUIUtils.jsm",
@@ -788,6 +789,38 @@ var UrlbarUtils = {
     }
     return this._resultSourceNamesBySource.get(source);
   },
+
+  /**
+   * Add the search to form history.  This also updates any existing form
+   * history for the search.
+   * @param {UrlbarInput} input The UrlbarInput object requesting the addition.
+   * @param {string} value The value to add.
+   * @param {string} [source] The source of the addition, usually
+   *        the name of the engine the search was made with.
+   * @returns {Promise} resolved once the operation is complete
+   */
+  addToFormHistory(input, value, source) {
+    // If the user types a search engine alias without a search string,
+    // we have an empty search string and we can't bump it.
+    // We also don't want to add history in private browsing mode.
+    if (!value || input.isPrivate) {
+      return Promise.resolve();
+    }
+    return new Promise((resolve, reject) => {
+      FormHistory.update(
+        {
+          op: "bump",
+          fieldname: input.formHistoryName,
+          value,
+          source,
+        },
+        {
+          handleError: reject,
+          handleCompletion: resolve,
+        }
+      );
+    });
+  },
 };
 
 XPCOMUtils.defineLazyGetter(UrlbarUtils.ICON, "DEFAULT", () => {
@@ -895,7 +928,7 @@ UrlbarUtils.RESULT_PAYLOAD_SCHEMA = {
       isPinned: {
         type: "boolean",
       },
-      overriddenSearchTopSite: {
+      sendTopSiteAttributionRequest: {
         type: "boolean",
       },
       tags: {

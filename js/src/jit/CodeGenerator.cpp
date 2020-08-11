@@ -56,6 +56,7 @@
 #include "vm/ArrayBufferViewObject.h"
 #include "vm/AsyncFunction.h"
 #include "vm/AsyncIteration.h"
+#include "vm/BuiltinObjectKind.h"
 #include "vm/EqualityOperations.h"  // js::SameValue
 #include "vm/FunctionFlags.h"       // js::FunctionFlags
 #include "vm/MatchPairs.h"
@@ -774,6 +775,28 @@ void CodeGenerator::visitOutOfLineICFallback(OutOfLineICFallback* ool) {
       masm.jump(ool->rejoin());
       return;
     }
+    case CacheKind::CheckPrivateField: {
+      IonCheckPrivateFieldIC* checkPrivateFieldIC = ic->asCheckPrivateFieldIC();
+
+      saveLive(lir);
+
+      pushArg(checkPrivateFieldIC->id());
+      pushArg(checkPrivateFieldIC->value());
+
+      icInfo_[cacheInfoIndex].icOffsetForPush = pushArgWithPatch(ImmWord(-1));
+      pushArg(ImmGCPtr(gen->outerInfo().script()));
+
+      using Fn = bool (*)(JSContext*, HandleScript, IonCheckPrivateFieldIC*,
+                          HandleValue, HandleValue, bool*);
+      callVM<Fn, IonCheckPrivateFieldIC::update>(lir);
+
+      StoreRegisterTo(checkPrivateFieldIC->output()).generate(this);
+      restoreLiveIgnore(
+          lir, StoreRegisterTo(checkPrivateFieldIC->output()).clobbered());
+
+      masm.jump(ool->rejoin());
+      return;
+    }
     case CacheKind::InstanceOf: {
       IonInstanceOfIC* hasInstanceOfIC = ic->asInstanceOfIC();
 
@@ -883,7 +906,6 @@ void CodeGenerator::visitOutOfLineICFallback(OutOfLineICFallback* ool) {
     case CacheKind::ToBool:
     case CacheKind::GetIntrinsic:
     case CacheKind::NewObject:
-    case CacheKind::CheckPrivateField:
       MOZ_CRASH("Unsupported IC");
   }
   MOZ_CRASH();
@@ -1851,8 +1873,7 @@ void CodeGenerator::visitValueToObject(LValueToObject* lir) {
   OutOfLineCode* ool = oolCallVM<Fn, ToObjectSlow>(
       lir, ArgList(input, Imm32(0)), StoreRegisterTo(output));
 
-  masm.branchTestObject(Assembler::NotEqual, input, ool->entry());
-  masm.unboxObject(input, output);
+  masm.fallibleUnboxObject(input, output, ool->entry());
 
   masm.bind(ool->rejoin());
 }
@@ -11727,6 +11748,22 @@ void CodeGenerator::visitHasOwnCache(LHasOwnCache* ins) {
   addIC(ins, allocateIC(cache));
 }
 
+void CodeGenerator::visitCheckPrivateFieldCache(LCheckPrivateFieldCache* ins) {
+  LiveRegisterSet liveRegs = ins->safepoint()->liveRegs();
+  TypedOrValueRegister value =
+      toConstantOrRegister(ins, LCheckPrivateFieldCache::Value,
+                           ins->mir()->value()->type())
+          .reg();
+  TypedOrValueRegister id =
+      toConstantOrRegister(ins, LCheckPrivateFieldCache::Id,
+                           ins->mir()->idval()->type())
+          .reg();
+  Register output = ToRegister(ins->output());
+
+  IonCheckPrivateFieldIC cache(liveRegs, value, id, output);
+  addIC(ins, allocateIC(cache));
+}
+
 void CodeGenerator::visitCallSetProperty(LCallSetProperty* ins) {
   ConstantOrRegister value =
       TypedOrValueRegister(ToValue(ins, LCallSetProperty::Value));
@@ -13346,8 +13383,7 @@ void CodeGenerator::visitIsCallableV(LIsCallableV* ins) {
   Register temp = ToRegister(ins->temp());
 
   Label notObject;
-  masm.branchTestObject(Assembler::NotEqual, val, &notObject);
-  masm.unboxObject(val, temp);
+  masm.fallibleUnboxObject(val, temp, &notObject);
 
   OutOfLineIsCallable* ool = new (alloc()) OutOfLineIsCallable(temp, output);
   addOutOfLineCode(ool, ins->mir());
@@ -13460,8 +13496,7 @@ void CodeGenerator::visitIsArrayV(LIsArrayV* lir) {
   Register temp = ToRegister(lir->temp());
 
   Label notArray;
-  masm.branchTestObject(Assembler::NotEqual, val, &notArray);
-  masm.unboxObject(val, temp);
+  masm.fallibleUnboxObject(val, temp, &notArray);
 
   using Fn = bool (*)(JSContext*, HandleObject, bool*);
   OutOfLineCode* ool = oolCallVM<Fn, js::IsArrayFromJit>(
@@ -14077,12 +14112,14 @@ void CodeGenerator::visitCheckReturn(LCheckReturn* ins) {
 }
 
 void CodeGenerator::visitCheckIsObj(LCheckIsObj* ins) {
-  ValueOperand checkValue = ToValue(ins, LCheckIsObj::CheckValue);
+  ValueOperand value = ToValue(ins, LCheckIsObj::ValueIndex);
+  Register output = ToRegister(ins->output());
 
   using Fn = bool (*)(JSContext*, CheckIsObjectKind);
   OutOfLineCode* ool = oolCallVM<Fn, ThrowCheckIsObject>(
       ins, ArgList(Imm32(ins->mir()->checkKind())), StoreNothing());
-  masm.branchTestObject(Assembler::NotEqual, checkValue, ool->entry());
+
+  masm.fallibleUnboxObject(value, output, ool->entry());
   masm.bind(ool->rejoin());
 }
 
@@ -14415,9 +14452,11 @@ void CodeGenerator::visitObjectStaticProto(LObjectStaticProto* lir) {
 #endif
 }
 
-void CodeGenerator::visitFunctionProto(LFunctionProto* lir) {
-  using Fn = JSObject* (*)(JSContext*);
-  callVM<Fn, js::FunctionProtoOperation>(lir);
+void CodeGenerator::visitBuiltinObject(LBuiltinObject* lir) {
+  pushArg(Imm32(static_cast<int32_t>(lir->mir()->builtinObjectKind())));
+
+  using Fn = JSObject* (*)(JSContext*, BuiltinObjectKind);
+  callVM<Fn, js::BuiltinObjectOperation>(lir);
 }
 
 void CodeGenerator::visitSuperFunction(LSuperFunction* lir) {
@@ -14468,6 +14507,40 @@ void CodeGenerator::visitInitHomeObject(LInitHomeObject* lir) {
 
   emitPreBarrier(addr);
   masm.storeValue(homeObject, addr);
+}
+
+void CodeGenerator::visitIsTypedArrayConstructor(
+    LIsTypedArrayConstructor* lir) {
+  Register object = ToRegister(lir->object());
+  Register output = ToRegister(lir->output());
+
+  masm.setIsDefinitelyTypedArrayConstructor(object, output);
+}
+
+void CodeGenerator::visitLoadValueTag(LLoadValueTag* lir) {
+  ValueOperand value = ToValue(lir, LLoadValueTag::Value);
+  Register output = ToRegister(lir->output());
+
+  Register tag = masm.extractTag(value, output);
+  if (tag != output) {
+    masm.mov(tag, output);
+  }
+}
+
+void CodeGenerator::visitGuardTagNotEqual(LGuardTagNotEqual* lir) {
+  Register lhs = ToRegister(lir->lhs());
+  Register rhs = ToRegister(lir->rhs());
+
+  bailoutCmp32(Assembler::Equal, lhs, rhs, lir->snapshot());
+
+  // If both lhs and rhs are numbers, can't use tag comparison to do inequality
+  // comparison
+  Label done;
+  masm.branchTestNumber(Assembler::NotEqual, lhs, &done);
+  masm.branchTestNumber(Assembler::NotEqual, rhs, &done);
+  bailout(lir->snapshot());
+
+  masm.bind(&done);
 }
 
 template <size_t NumDefs>

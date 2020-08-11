@@ -6254,6 +6254,25 @@ class LHasOwnCache : public LInstructionHelper<1, 2 * BOX_PIECES, 0> {
   const MHasOwnCache* mir() const { return mir_->toHasOwnCache(); }
 };
 
+class LCheckPrivateFieldCache
+    : public LInstructionHelper<1, 2 * BOX_PIECES, 0> {
+ public:
+  LIR_HEADER(CheckPrivateFieldCache)
+
+  static const size_t Value = 0;
+  static const size_t Id = BOX_PIECES;
+
+  LCheckPrivateFieldCache(const LBoxAllocation& value, const LBoxAllocation& id)
+      : LInstructionHelper(classOpcode) {
+    setBoxOperand(Value, value);
+    setBoxOperand(Id, id);
+  }
+
+  const MCheckPrivateFieldCache* mir() const {
+    return mir_->toCheckPrivateFieldCache();
+  }
+};
+
 class LInstanceOfO : public LInstructionHelper<1, 1, 0> {
  public:
   LIR_HEADER(InstanceOfO)
@@ -7550,15 +7569,15 @@ class LCheckReturn : public LInstructionHelper<BOX_PIECES, 2 * BOX_PIECES, 0> {
   static const size_t ThisValue = BOX_PIECES;
 };
 
-class LCheckIsObj : public LInstructionHelper<0, BOX_PIECES, 0> {
+class LCheckIsObj : public LInstructionHelper<1, BOX_PIECES, 0> {
  public:
   LIR_HEADER(CheckIsObj)
 
-  static const size_t CheckValue = 0;
+  static const size_t ValueIndex = 0;
 
   explicit LCheckIsObj(const LBoxAllocation& value)
       : LInstructionHelper(classOpcode) {
-    setBoxOperand(CheckValue, value);
+    setBoxOperand(ValueIndex, value);
   }
 
   MCheckIsObj* mir() const { return mir_->toCheckIsObj(); }
@@ -7697,13 +7716,13 @@ class LObjectStaticProto : public LInstructionHelper<1, 1, 0> {
   }
 };
 
-class LFunctionProto : public LCallInstructionHelper<1, 0, 0> {
+class LBuiltinObject : public LCallInstructionHelper<1, 0, 0> {
  public:
-  LIR_HEADER(FunctionProto)
+  LIR_HEADER(BuiltinObject)
 
-  LFunctionProto() : LCallInstructionHelper(classOpcode) {}
+  LBuiltinObject() : LCallInstructionHelper(classOpcode) {}
 
-  MFunctionProto* mir() const { return mir_->toFunctionProto(); }
+  MBuiltinObject* mir() const { return mir_->toBuiltinObject(); }
 };
 
 class LSuperFunction : public LInstructionHelper<BOX_PIECES, 1, 1> {
@@ -7733,6 +7752,44 @@ class LInitHomeObject : public LInstructionHelper<0, 1 + BOX_PIECES, 0> {
   }
 
   const LAllocation* function() { return getOperand(0); }
+};
+
+class LIsTypedArrayConstructor : public LInstructionHelper<1, 1, 0> {
+ public:
+  LIR_HEADER(IsTypedArrayConstructor)
+
+  explicit LIsTypedArrayConstructor(const LAllocation& object)
+      : LInstructionHelper(classOpcode) {
+    setOperand(0, object);
+  }
+
+  const LAllocation* object() { return getOperand(0); }
+};
+
+class LLoadValueTag : public LInstructionHelper<1, BOX_PIECES, 0> {
+ public:
+  LIR_HEADER(LoadValueTag)
+
+  static const size_t Value = 0;
+
+  explicit LLoadValueTag(const LBoxAllocation& value)
+      : LInstructionHelper(classOpcode) {
+    setBoxOperand(Value, value);
+  }
+};
+
+class LGuardTagNotEqual : public LInstructionHelper<0, 2, 0> {
+ public:
+  LIR_HEADER(GuardTagNotEqual)
+
+  LGuardTagNotEqual(const LAllocation& lhs, const LAllocation& rhs)
+      : LInstructionHelper(classOpcode) {
+    setOperand(0, lhs);
+    setOperand(1, rhs);
+  }
+
+  const LAllocation* lhs() { return getOperand(0); }
+  const LAllocation* rhs() { return getOperand(1); }
 };
 
 template <size_t NumDefs>

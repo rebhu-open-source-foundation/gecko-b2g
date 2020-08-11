@@ -197,7 +197,6 @@ nsresult StartupCache::FullyInitSingleton() {
 
 StaticRefPtr<StartupCache> StartupCache::gStartupCache;
 ProcessType sProcessType;
-bool StartupCache::gShutdownInitiated;
 bool StartupCache::gIgnoreDiskCache;
 bool StartupCache::gFoundDiskCacheOnInit;
 
@@ -207,6 +206,7 @@ StartupCache::StartupCache()
     : mLock("StartupCache::mLock"),
       mDirty(false),
       mWrittenOnce(false),
+      mStartupFinished(false),
       mCurTableReferenced(false),
       mLoaded(false),
       mFullyInitialized(false),
@@ -796,11 +796,10 @@ Result<Ok, nsresult> StartupCache::DecompressEntry(StartupCacheEntry& aEntry) {
 
   size_t totalRead = 0;
   size_t totalWritten = 0;
-  Span<const char> compressed = MakeSpan(
+  Span<const char> compressed = Span(
       mCacheData.get<char>().get() + mCacheEntriesBaseOffset + aEntry.mOffset,
       aEntry.mCompressedSize);
-  Span<char> uncompressed =
-      MakeSpan(aEntry.mData.get(), aEntry.mUncompressedSize);
+  Span<char> uncompressed = Span(aEntry.mData.get(), aEntry.mUncompressedSize);
   bool finished = false;
   while (!finished) {
     auto result = mDecompressionContext->Decompress(
@@ -822,6 +821,10 @@ Result<Ok, nsresult> StartupCache::DecompressEntry(StartupCacheEntry& aEntry) {
 bool StartupCache::HasEntry(const char* id) {
   AUTO_PROFILER_LABEL("StartupCache::HasEntry", OTHER);
 
+  if (mStartupFinished) {
+    return false;
+  }
+
   MutexAutoLock lock(mLock);
 
   MOZ_ASSERT(
@@ -836,6 +839,12 @@ nsresult StartupCache::GetBuffer(const char* id, const char** outbuf,
       Telemetry::LABELS_STARTUP_CACHE_REQUESTS::Miss;
   auto telemetry =
       MakeScopeExit([&label] { Telemetry::AccumulateCategorical(label); });
+
+  // Exit here, ensuring we collect a cache miss for telemetry, but before we
+  // lock. No need to potentially hang waiting on the write thread.
+  if (mStartupFinished) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
 
   MutexAutoLock lock(mLock);
   if (!mLoaded) {
@@ -905,7 +914,7 @@ nsresult StartupCache::GetBuffer(const char* id, const char** outbuf,
 // Client gives ownership of inbuf.
 nsresult StartupCache::PutBuffer(const char* id, UniquePtr<char[]>&& inbuf,
                                  uint32_t len, bool isFromChildProcess) {
-  if (StartupCache::gShutdownInitiated) {
+  if (mStartupFinished) {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
@@ -1084,7 +1093,7 @@ Result<Ok, nsresult> StartupCache::WriteToDisk() {
                                    true);     /* aStableSrc */
     size_t writeBufLen = ctx.GetRequiredWriteBufferLength();
     auto writeBuffer = MaybeOwnedCharPtr(writeBufLen);
-    auto writeSpan = MakeSpan(writeBuffer.get(), writeBufLen);
+    auto writeSpan = Span(writeBuffer.get(), writeBufLen);
 
     for (auto& e : entries) {
       auto* value = e.second;
@@ -1100,9 +1109,9 @@ Result<Ok, nsresult> StartupCache::WriteToDisk() {
       // Reuse the existing compressed entry if possible
       if (mCacheData.initialized() && value->mCompressedSize) {
         Span<const char> compressed =
-            MakeSpan(mCacheData.get<char>().get() + mCacheEntriesBaseOffset +
-                         value->mOffset,
-                     value->mCompressedSize);
+            Span(mCacheData.get<char>().get() + mCacheEntriesBaseOffset +
+                     value->mOffset,
+                 value->mCompressedSize);
         MOZ_TRY(Write(fd, compressed.Elements(), compressed.Length()));
         value->mOffset = offset;
         offset += compressed.Length();
@@ -1117,9 +1126,8 @@ Result<Ok, nsresult> StartupCache::WriteToDisk() {
         for (size_t i = 0; i < value->mUncompressedSize; i += chunkSize) {
           size_t size = std::min(chunkSize, value->mUncompressedSize - i);
           char* uncompressed = value->mData.get() + i;
-          MOZ_TRY_VAR(result,
-                      ctx.ContinueCompressing(MakeSpan(uncompressed, size))
-                          .mapErr(MapLZ4ErrorToNsresult));
+          MOZ_TRY_VAR(result, ctx.ContinueCompressing(Span(uncompressed, size))
+                                  .mapErr(MapLZ4ErrorToNsresult));
           MOZ_TRY(Write(fd, result.Elements(), result.Length()));
           offset += result.Length();
         }
@@ -1239,7 +1247,6 @@ void StartupCache::MaybeInitShutdownWrite() {
   if (mWriteTimer) {
     mWriteTimer->Cancel();
   }
-  gShutdownInitiated = true;
 
   MaybeWriteOffMainThread();
 }
@@ -1348,6 +1355,11 @@ void StartupCache::MaybeWriteOffMainThread() {
     return;
   }
 
+  // If we're scheduling the cache to be written, then whether it's because
+  // we're shutting down, or because our write timer has finished, it's safe
+  // to say that we shouldn't think of ourselves as "starting up" anymore.
+  mStartupFinished = true;
+
   if (mWrittenOnce) {
     return;
   }
@@ -1382,7 +1394,6 @@ nsresult StartupCacheListener::Observe(nsISupports* subject, const char* topic,
   if (strcmp(topic, NS_XPCOM_SHUTDOWN_OBSERVER_ID) == 0) {
     // Do not leave the thread running past xpcom shutdown
     sc->WaitOnPrefetchThread();
-    StartupCache::gShutdownInitiated = true;
     // Note that we don't do anything special for the background write
     // task; we expect the threadpool to finish running any tasks already
     // posted to it prior to shutdown. FastShutdown will call

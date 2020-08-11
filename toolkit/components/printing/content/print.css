@@ -14,19 +14,49 @@ body {
   overflow: hidden;
 }
 
-.row {
-  padding-inline-start: 18px;
-  margin-block: 18px;
+*[hidden] {
+  display: none !important;
 }
 
-.row .block-label {
+.section-block {
+  padding-inline: 16px;
+  margin-block: 16px;
+}
+
+.section-block .block-label {
   display: block;
   margin-bottom: 4px;
 }
-.row .block-label + input,
-.row .block-label + select,
-.row .block-label + .page-range-input select {
-  margin-inline-start: 0;
+
+.row {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 1.8em;
+}
+
+.row > input,
+.row > select,
+.col > input {
+  margin-inline: 0 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  display: inline-block;
+}
+
+.row.cols-2 {
+  flex-direction: row;
+  align-items: center;
+}
+
+.cols-2 > .col:nth-child(1) {
+  flex: 0 0 2em;
+  text-align: center;
+}
+
+.cols-2 > .col:nth-child(2) {
+  flex: 1 1 auto;
 }
 
 .header-container {
@@ -65,21 +95,26 @@ form#print {
   overflow: auto;
 }
 
+#copies-count {
+  width: 6em;
+}
+
 #more-settings {
   border-top: 1px solid var(--in-content-border-color);
 }
 
-#more-settings.twisty > summary {
+.twisty > summary {
   list-style: none;
   display: flex;
   cursor: pointer;
-  padding-inline-end: 8px;
 }
 
 #more-settings > summary > .twisty {
   background-image: url("chrome://global/skin/icons/twisty-expanded.svg");
   background-repeat: no-repeat;
   background-position: center;
+  -moz-context-properties: fill;
+  fill: currentColor;
   width: 20px;
   scale: 1 1;
 }
@@ -102,8 +137,15 @@ form#print {
   flex: 0 1 auto;
 }
 
-#button-container > button:first-child {
-  margin-inline-start: 0;
+#button-container {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+#button-container > button {
+  flex: 1 1 auto;
+  margin: 0;
 }
 
 .page-range-input:not(.custom-input-selected) #custom-range {
@@ -116,4 +158,13 @@ form#print {
 }
 .toggle-group #portrait + .toggle-group-label::before {
   content: url("chrome://global/skin/icons/document.svg");
+}
+
+input[type="number"]:invalid {
+  border: 1px solid #D70022;
+  box-shadow: 0 0 0 1px #D70022, 0 0 0 4px rgba(215, 0, 34, 0.3);
+}
+
+#percent-scale {
+  appearance: textfield;
 }

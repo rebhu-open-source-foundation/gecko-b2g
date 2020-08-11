@@ -25,6 +25,7 @@
 #include "js/ScalarType.h"  // js::Scalar::Type
 #include "util/CheckedArithmetic.h"
 #include "vm/ArgumentsObject.h"
+#include "vm/BuiltinObjectKind.h"
 #include "vm/BytecodeIterator.h"
 #include "vm/BytecodeLocation.h"
 #include "vm/BytecodeUtil.h"
@@ -2306,6 +2307,9 @@ AbortReasonOr<Ok> IonBuilder::inspectOpcode(JSOp op, bool* restarted) {
     case JSOp::HasOwn:
       return jsop_hasown();
 
+    case JSOp::CheckPrivateField:
+      return jsop_checkprivatefield();
+
     case JSOp::SetRval:
       MOZ_ASSERT(!script()->noScriptRval());
       current->setSlot(info().returnValueSlot(), current->pop());
@@ -2383,8 +2387,8 @@ AbortReasonOr<Ok> IonBuilder::inspectOpcode(JSOp op, bool* restarted) {
     case JSOp::ObjWithProto:
       return jsop_objwithproto();
 
-    case JSOp::FunctionProto:
-      return jsop_functionproto();
+    case JSOp::BuiltinObject:
+      return jsop_builtinobject();
 
     case JSOp::CheckReturn:
       return jsop_checkreturn();
@@ -2451,10 +2455,6 @@ AbortReasonOr<Ok> IonBuilder::inspectOpcode(JSOp op, bool* restarted) {
       // === !! WARNING WARNING WARNING !! ===
       // Do you really want to sacrifice performance by not implementing this
       // operation in the optimizing compiler?
-      break;
-
-    // Private Fields
-    case JSOp::CheckPrivateField:
       break;
 
     case JSOp::ForceInterpreter:
@@ -12392,6 +12392,18 @@ AbortReasonOr<Ok> IonBuilder::jsop_hasown() {
   return Ok();
 }
 
+AbortReasonOr<Ok> IonBuilder::jsop_checkprivatefield() {
+  MDefinition* id = current->peek(-1);
+  MDefinition* obj = current->peek(-2);
+
+  MCheckPrivateFieldCache* ins = MCheckPrivateFieldCache::New(alloc(), obj, id);
+  current->add(ins);
+  current->push(ins);
+
+  MOZ_TRY(resumeAfter(ins));
+  return Ok();
+}
+
 AbortReasonOr<bool> IonBuilder::hasOnProtoChain(TypeSet::ObjectKey* key,
                                                 JSObject* protoObject,
                                                 bool* onProto) {
@@ -12689,17 +12701,17 @@ AbortReasonOr<Ok> IonBuilder::jsop_objwithproto() {
   return resumeAfter(ins);
 }
 
-AbortReasonOr<Ok> IonBuilder::jsop_functionproto() {
-  JSProtoKey key = JSProto_Function;
+AbortReasonOr<Ok> IonBuilder::jsop_builtinobject() {
+  auto kind = BuiltinObjectKind(GET_UINT8(pc));
 
-  // Bake in the prototype if it exists.
-  if (JSObject* proto = script()->global().maybeGetPrototype(key)) {
-    pushConstant(ObjectValue(*proto));
+  // Bake in the built-in if it exists.
+  if (JSObject* builtin = MaybeGetBuiltinObject(&script()->global(), kind)) {
+    pushConstant(ObjectValue(*builtin));
     return Ok();
   }
 
   // Otherwise emit code to generate it.
-  auto* ins = MFunctionProto::New(alloc());
+  auto* ins = MBuiltinObject::New(alloc(), kind);
   current->add(ins);
   current->push(ins);
   return resumeAfter(ins);

@@ -22,6 +22,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ansi_term"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee49baf6cb617b853aa8d93bf420db2383fab46d314482ca2803b40d5fde979b"
+dependencies = [
+ "winapi 0.3.7",
+]
+
+[[package]]
 name = "anyhow"
 version = "1.0.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -215,7 +224,7 @@ dependencies = [
  "bindgen",
  "cranelift-codegen",
  "cranelift-wasm",
- "env_logger",
+ "env_logger 0.6.2",
  "log",
  "smallvec",
 ]
@@ -275,14 +284,18 @@ dependencies = [
  "cexpr",
  "cfg-if",
  "clang-sys",
+ "clap",
+ "env_logger 0.7.1",
  "lazy_static",
  "lazycell",
+ "log",
  "peeking_take_while",
  "proc-macro2",
  "quote",
  "regex",
  "rustc-hash",
  "shlex",
+ "which",
 ]
 
 [[package]]
@@ -589,11 +602,14 @@ version = "2.31.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0f16b89cbb9ee36d87483dc939fe9f1e13c05898d56d7b230a0d4dff033a536"
 dependencies = [
+ "ansi_term",
+ "atty",
  "bitflags",
  "strsim",
  "term_size",
  "textwrap",
  "unicode-width",
+ "vec_map",
 ]
 
 [[package]]
@@ -753,7 +769,7 @@ dependencies = [
 [[package]]
 name = "cranelift-bforest"
 version = "0.66.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=fc88898e9ad7766feadfa0954c4594fcccd86b92#fc88898e9ad7766feadfa0954c4594fcccd86b92"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=e88d74903102266a18e97489557760b9be67f782#e88d74903102266a18e97489557760b9be67f782"
 dependencies = [
  "cranelift-entity 0.66.0",
 ]
@@ -761,7 +777,7 @@ dependencies = [
 [[package]]
 name = "cranelift-codegen"
 version = "0.66.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=fc88898e9ad7766feadfa0954c4594fcccd86b92#fc88898e9ad7766feadfa0954c4594fcccd86b92"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=e88d74903102266a18e97489557760b9be67f782#e88d74903102266a18e97489557760b9be67f782"
 dependencies = [
  "byteorder",
  "cranelift-bforest",
@@ -778,7 +794,7 @@ dependencies = [
 [[package]]
 name = "cranelift-codegen-meta"
 version = "0.66.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=fc88898e9ad7766feadfa0954c4594fcccd86b92#fc88898e9ad7766feadfa0954c4594fcccd86b92"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=e88d74903102266a18e97489557760b9be67f782#e88d74903102266a18e97489557760b9be67f782"
 dependencies = [
  "cranelift-codegen-shared",
  "cranelift-entity 0.66.0",
@@ -787,22 +803,22 @@ dependencies = [
 [[package]]
 name = "cranelift-codegen-shared"
 version = "0.66.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=fc88898e9ad7766feadfa0954c4594fcccd86b92#fc88898e9ad7766feadfa0954c4594fcccd86b92"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=e88d74903102266a18e97489557760b9be67f782#e88d74903102266a18e97489557760b9be67f782"
 
 [[package]]
 name = "cranelift-entity"
 version = "0.41.0"
-source = "git+https://github.com/PLSysSec/lucet_sandbox_compiler?rev=6594bb9dfab7e67eb6eb2fefbc66ab7c491ce730#6594bb9dfab7e67eb6eb2fefbc66ab7c491ce730"
+source = "git+https://github.com/PLSysSec/lucet_sandbox_compiler?rev=477d8fc53a64705a9d3fbcce9de92f4988558525#477d8fc53a64705a9d3fbcce9de92f4988558525"
 
 [[package]]
 name = "cranelift-entity"
 version = "0.66.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=fc88898e9ad7766feadfa0954c4594fcccd86b92#fc88898e9ad7766feadfa0954c4594fcccd86b92"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=e88d74903102266a18e97489557760b9be67f782#e88d74903102266a18e97489557760b9be67f782"
 
 [[package]]
 name = "cranelift-frontend"
 version = "0.66.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=fc88898e9ad7766feadfa0954c4594fcccd86b92#fc88898e9ad7766feadfa0954c4594fcccd86b92"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=e88d74903102266a18e97489557760b9be67f782#e88d74903102266a18e97489557760b9be67f782"
 dependencies = [
  "cranelift-codegen",
  "log",
@@ -813,7 +829,7 @@ dependencies = [
 [[package]]
 name = "cranelift-wasm"
 version = "0.66.0"
-source = "git+https://github.com/bytecodealliance/wasmtime?rev=fc88898e9ad7766feadfa0954c4594fcccd86b92#fc88898e9ad7766feadfa0954c4594fcccd86b92"
+source = "git+https://github.com/bytecodealliance/wasmtime?rev=e88d74903102266a18e97489557760b9be67f782#e88d74903102266a18e97489557760b9be67f782"
 dependencies = [
  "cranelift-codegen",
  "cranelift-entity 0.66.0",
@@ -1281,6 +1297,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "env_logger"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "44533bbbb3bb3c1fa17d9f2e4e38bbbaf8396ba82193c4cb1b6445d711445d36"
+dependencies = [
+ "atty",
+ "humantime",
+ "log",
+ "regex",
+ "termcolor",
+]
+
+[[package]]
 name = "error-chain"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1289,7 +1318,7 @@ checksum = "ff511d5dc435d703f4971bc399647c9bc38e20cb41452e3b9feb4765419ed3f3"
 [[package]]
 name = "error-support"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=61dcc364ac0d6d0816ab88a494bbf20d824b009b#61dcc364ac0d6d0816ab88a494bbf20d824b009b"
+source = "git+https://github.com/mozilla/application-services?rev=9ba519a5739b1976f1d333923d34b7f4916b9e26#9ba519a5739b1976f1d333923d34b7f4916b9e26"
 dependencies = [
  "failure",
 ]
@@ -1496,8 +1525,23 @@ checksum = "2fad85553e09a6f881f739c29f0b00b0f01357c743266d478b68951ce23285f3"
 name = "fog"
 version = "0.1.0"
 dependencies = [
+ "bincode",
+ "chrono",
+ "glean-core",
+ "log",
+ "once_cell",
+ "serde",
+ "tempfile",
+ "uuid",
+ "xpcom",
+]
+
+[[package]]
+name = "fog_control"
+version = "0.1.0"
+dependencies = [
  "cstr",
- "glean",
+ "fog",
  "glean-core",
  "log",
  "nserror",
@@ -1619,7 +1663,7 @@ dependencies = [
 [[package]]
 name = "fxa-client"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=61dcc364ac0d6d0816ab88a494bbf20d824b009b#61dcc364ac0d6d0816ab88a494bbf20d824b009b"
+source = "git+https://github.com/mozilla/application-services?rev=9ba519a5739b1976f1d333923d34b7f4916b9e26#9ba519a5739b1976f1d333923d34b7f4916b9e26"
 dependencies = [
  "base64 0.12.0",
  "byteorder",
@@ -1665,7 +1709,7 @@ name = "gecko_logger"
 version = "0.1.0"
 dependencies = [
  "app_services_logger",
- "env_logger",
+ "env_logger 0.6.2",
  "lazy_static",
  "log",
 ]
@@ -1943,7 +1987,7 @@ dependencies = [
  "fluent-ffi",
  "fluent-langneg",
  "fluent-langneg-ffi",
- "fog",
+ "fog_control",
  "gecko_logger",
  "gecko_sidl",
  "geckoservo",
@@ -2006,21 +2050,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3fdef5b9df6d3a261b80a5ac55e13bf93945725df2463c1b0a2e5a527dce0d37"
 dependencies = [
  "gl_generator",
-]
-
-[[package]]
-name = "glean"
-version = "0.1.0"
-dependencies = [
- "bincode",
- "chrono",
- "glean-core",
- "log",
- "once_cell",
- "serde",
- "tempfile",
- "uuid",
- "xpcom",
 ]
 
 [[package]]
@@ -2340,7 +2369,7 @@ dependencies = [
 [[package]]
 name = "interrupt-support"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=61dcc364ac0d6d0816ab88a494bbf20d824b009b#61dcc364ac0d6d0816ab88a494bbf20d824b009b"
+source = "git+https://github.com/mozilla/application-services?rev=9ba519a5739b1976f1d333923d34b7f4916b9e26#9ba519a5739b1976f1d333923d34b7f4916b9e26"
 
 [[package]]
 name = "intl-memoizer"
@@ -2401,7 +2430,7 @@ version = "0.1.4"
 dependencies = [
  "bindgen",
  "cmake",
- "env_logger",
+ "env_logger 0.6.2",
  "glob",
  "lazy_static",
  "libc",
@@ -2413,7 +2442,7 @@ dependencies = [
 [[package]]
 name = "jsparagus"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=ba8fe73bda8cc5dd2fa0dafaa3dbde68a901cf96#ba8fe73bda8cc5dd2fa0dafaa3dbde68a901cf96"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=239df3502e7e09a706b8d6fbe4c0db139d653e25#239df3502e7e09a706b8d6fbe4c0db139d653e25"
 dependencies = [
  "jsparagus-ast",
  "jsparagus-emitter",
@@ -2427,7 +2456,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-ast"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=ba8fe73bda8cc5dd2fa0dafaa3dbde68a901cf96#ba8fe73bda8cc5dd2fa0dafaa3dbde68a901cf96"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=239df3502e7e09a706b8d6fbe4c0db139d653e25#239df3502e7e09a706b8d6fbe4c0db139d653e25"
 dependencies = [
  "bumpalo",
  "indexmap",
@@ -2436,7 +2465,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-emitter"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=ba8fe73bda8cc5dd2fa0dafaa3dbde68a901cf96#ba8fe73bda8cc5dd2fa0dafaa3dbde68a901cf96"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=239df3502e7e09a706b8d6fbe4c0db139d653e25#239df3502e7e09a706b8d6fbe4c0db139d653e25"
 dependencies = [
  "bumpalo",
  "byteorder",
@@ -2449,7 +2478,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-generated-parser"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=ba8fe73bda8cc5dd2fa0dafaa3dbde68a901cf96#ba8fe73bda8cc5dd2fa0dafaa3dbde68a901cf96"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=239df3502e7e09a706b8d6fbe4c0db139d653e25#239df3502e7e09a706b8d6fbe4c0db139d653e25"
 dependencies = [
  "bumpalo",
  "jsparagus-ast",
@@ -2459,12 +2488,12 @@ dependencies = [
 [[package]]
 name = "jsparagus-json-log"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=ba8fe73bda8cc5dd2fa0dafaa3dbde68a901cf96#ba8fe73bda8cc5dd2fa0dafaa3dbde68a901cf96"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=239df3502e7e09a706b8d6fbe4c0db139d653e25#239df3502e7e09a706b8d6fbe4c0db139d653e25"
 
 [[package]]
 name = "jsparagus-parser"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=ba8fe73bda8cc5dd2fa0dafaa3dbde68a901cf96#ba8fe73bda8cc5dd2fa0dafaa3dbde68a901cf96"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=239df3502e7e09a706b8d6fbe4c0db139d653e25#239df3502e7e09a706b8d6fbe4c0db139d653e25"
 dependencies = [
  "arrayvec",
  "bumpalo",
@@ -2476,7 +2505,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-scope"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=ba8fe73bda8cc5dd2fa0dafaa3dbde68a901cf96#ba8fe73bda8cc5dd2fa0dafaa3dbde68a901cf96"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=239df3502e7e09a706b8d6fbe4c0db139d653e25#239df3502e7e09a706b8d6fbe4c0db139d653e25"
 dependencies = [
  "indexmap",
  "jsparagus-ast",
@@ -2486,7 +2515,7 @@ dependencies = [
 [[package]]
 name = "jsparagus-stencil"
 version = "0.1.0"
-source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=ba8fe73bda8cc5dd2fa0dafaa3dbde68a901cf96#ba8fe73bda8cc5dd2fa0dafaa3dbde68a901cf96"
+source = "git+https://github.com/mozilla-spidermonkey/jsparagus?rev=239df3502e7e09a706b8d6fbe4c0db139d653e25#239df3502e7e09a706b8d6fbe4c0db139d653e25"
 dependencies = [
  "jsparagus-ast",
 ]
@@ -2712,7 +2741,7 @@ dependencies = [
 [[package]]
 name = "lucet-module-wasmsbx"
 version = "0.1.1"
-source = "git+https://github.com/PLSysSec/lucet_sandbox_compiler?rev=6594bb9dfab7e67eb6eb2fefbc66ab7c491ce730#6594bb9dfab7e67eb6eb2fefbc66ab7c491ce730"
+source = "git+https://github.com/PLSysSec/lucet_sandbox_compiler?rev=477d8fc53a64705a9d3fbcce9de92f4988558525#477d8fc53a64705a9d3fbcce9de92f4988558525"
 dependencies = [
  "bincode",
  "byteorder",
@@ -2728,7 +2757,7 @@ dependencies = [
 [[package]]
 name = "lucet-runtime-internals-wasmsbx"
 version = "0.1.1"
-source = "git+https://github.com/PLSysSec/lucet_sandbox_compiler?rev=6594bb9dfab7e67eb6eb2fefbc66ab7c491ce730#6594bb9dfab7e67eb6eb2fefbc66ab7c491ce730"
+source = "git+https://github.com/PLSysSec/lucet_sandbox_compiler?rev=477d8fc53a64705a9d3fbcce9de92f4988558525#477d8fc53a64705a9d3fbcce9de92f4988558525"
 dependencies = [
  "bincode",
  "bitflags",
@@ -2750,7 +2779,7 @@ dependencies = [
 [[package]]
 name = "lucet-runtime-wasmsbx"
 version = "0.1.1"
-source = "git+https://github.com/PLSysSec/lucet_sandbox_compiler?rev=6594bb9dfab7e67eb6eb2fefbc66ab7c491ce730#6594bb9dfab7e67eb6eb2fefbc66ab7c491ce730"
+source = "git+https://github.com/PLSysSec/lucet_sandbox_compiler?rev=477d8fc53a64705a9d3fbcce9de92f4988558525#477d8fc53a64705a9d3fbcce9de92f4988558525"
 dependencies = [
  "cc",
  "libc",
@@ -2763,7 +2792,7 @@ dependencies = [
 [[package]]
 name = "lucet-wasi-wasmsbx"
 version = "0.1.1"
-source = "git+https://github.com/PLSysSec/lucet_sandbox_compiler?rev=6594bb9dfab7e67eb6eb2fefbc66ab7c491ce730#6594bb9dfab7e67eb6eb2fefbc66ab7c491ce730"
+source = "git+https://github.com/PLSysSec/lucet_sandbox_compiler?rev=477d8fc53a64705a9d3fbcce9de92f4988558525#477d8fc53a64705a9d3fbcce9de92f4988558525"
 dependencies = [
  "cast",
  "failure",
@@ -3149,11 +3178,11 @@ dependencies = [
 
 [[package]]
 name = "neqo-common"
-version = "0.4.8"
-source = "git+https://github.com/mozilla/neqo?tag=v0.4.8#a5abafdacb88e331913376943ad1768720caed9e"
+version = "0.4.9"
+source = "git+https://github.com/mozilla/neqo?tag=v0.4.9#422197c2bc2010647cd9c156deea18fb543079c6"
 dependencies = [
  "chrono",
- "env_logger",
+ "env_logger 0.6.2",
  "lazy_static",
  "log",
  "num-traits",
@@ -3162,8 +3191,8 @@ dependencies = [
 
 [[package]]
 name = "neqo-crypto"
-version = "0.4.8"
-source = "git+https://github.com/mozilla/neqo?tag=v0.4.8#a5abafdacb88e331913376943ad1768720caed9e"
+version = "0.4.9"
+source = "git+https://github.com/mozilla/neqo?tag=v0.4.9#422197c2bc2010647cd9c156deea18fb543079c6"
 dependencies = [
  "bindgen",
  "log",
@@ -3175,8 +3204,8 @@ dependencies = [
 
 [[package]]
 name = "neqo-http3"
-version = "0.4.8"
-source = "git+https://github.com/mozilla/neqo?tag=v0.4.8#a5abafdacb88e331913376943ad1768720caed9e"
+version = "0.4.9"
+source = "git+https://github.com/mozilla/neqo?tag=v0.4.9#422197c2bc2010647cd9c156deea18fb543079c6"
 dependencies = [
  "log",
  "neqo-common",
@@ -3190,8 +3219,8 @@ dependencies = [
 
 [[package]]
 name = "neqo-qpack"
-version = "0.4.8"
-source = "git+https://github.com/mozilla/neqo?tag=v0.4.8#a5abafdacb88e331913376943ad1768720caed9e"
+version = "0.4.9"
+source = "git+https://github.com/mozilla/neqo?tag=v0.4.9#422197c2bc2010647cd9c156deea18fb543079c6"
 dependencies = [
  "lazy_static",
  "log",
@@ -3205,9 +3234,10 @@ dependencies = [
 
 [[package]]
 name = "neqo-transport"
-version = "0.4.8"
-source = "git+https://github.com/mozilla/neqo?tag=v0.4.8#a5abafdacb88e331913376943ad1768720caed9e"
+version = "0.4.9"
+source = "git+https://github.com/mozilla/neqo?tag=v0.4.9#422197c2bc2010647cd9c156deea18fb543079c6"
 dependencies = [
+ "indexmap",
  "lazy_static",
  "log",
  "neqo-common",
@@ -3297,7 +3327,7 @@ dependencies = [
 [[package]]
 name = "nss"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=61dcc364ac0d6d0816ab88a494bbf20d824b009b#61dcc364ac0d6d0816ab88a494bbf20d824b009b"
+source = "git+https://github.com/mozilla/application-services?rev=9ba519a5739b1976f1d333923d34b7f4916b9e26#9ba519a5739b1976f1d333923d34b7f4916b9e26"
 dependencies = [
  "base64 0.12.0",
  "error-support",
@@ -3311,12 +3341,12 @@ dependencies = [
 [[package]]
 name = "nss_build_common"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=61dcc364ac0d6d0816ab88a494bbf20d824b009b#61dcc364ac0d6d0816ab88a494bbf20d824b009b"
+source = "git+https://github.com/mozilla/application-services?rev=9ba519a5739b1976f1d333923d34b7f4916b9e26#9ba519a5739b1976f1d333923d34b7f4916b9e26"
 
 [[package]]
 name = "nss_sys"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=61dcc364ac0d6d0816ab88a494bbf20d824b009b#61dcc364ac0d6d0816ab88a494bbf20d824b009b"
+source = "git+https://github.com/mozilla/application-services?rev=9ba519a5739b1976f1d333923d34b7f4916b9e26#9ba519a5739b1976f1d333923d34b7f4916b9e26"
 dependencies = [
  "nss_build_common",
 ]
@@ -3466,7 +3496,7 @@ version = "0.1.4"
 dependencies = [
  "byteorder",
  "core-foundation",
- "env_logger",
+ "env_logger 0.6.2",
  "lazy_static",
  "libloading 0.5.2",
  "log",
@@ -3975,7 +4005,7 @@ dependencies = [
 [[package]]
 name = "rc_crypto"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=61dcc364ac0d6d0816ab88a494bbf20d824b009b#61dcc364ac0d6d0816ab88a494bbf20d824b009b"
+source = "git+https://github.com/mozilla/application-services?rev=9ba519a5739b1976f1d333923d34b7f4916b9e26#9ba519a5739b1976f1d333923d34b7f4916b9e26"
 dependencies = [
  "base64 0.12.0",
  "ece",
@@ -4137,7 +4167,7 @@ dependencies = [
 [[package]]
 name = "rlbox_lucet_sandbox"
 version = "0.1.0"
-source = "git+https://github.com/PLSysSec/rlbox_lucet_sandbox/?rev=9bf4cdada11b2afd18efae5520bb8d3bb5bbc785#9bf4cdada11b2afd18efae5520bb8d3bb5bbc785"
+source = "git+https://github.com/PLSysSec/rlbox_lucet_sandbox/?rev=ed8bac8812e9f335d5fadd0f4ece96981aba88a3#ed8bac8812e9f335d5fadd0f4ece96981aba88a3"
 dependencies = [
  "failure",
  "goblin",
@@ -4522,7 +4552,7 @@ name = "smoosh"
 version = "0.1.0"
 dependencies = [
  "bumpalo",
- "env_logger",
+ "env_logger 0.6.2",
  "jsparagus",
  "log",
 ]
@@ -4568,7 +4598,7 @@ dependencies = [
 [[package]]
 name = "sql-support"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=61dcc364ac0d6d0816ab88a494bbf20d824b009b#61dcc364ac0d6d0816ab88a494bbf20d824b009b"
+source = "git+https://github.com/mozilla/application-services?rev=9ba519a5739b1976f1d333923d34b7f4916b9e26#9ba519a5739b1976f1d333923d34b7f4916b9e26"
 dependencies = [
  "ffi-support",
  "interrupt-support",
@@ -4722,7 +4752,7 @@ dependencies = [
  "atomic_refcell",
  "cssparser",
  "cstr",
- "env_logger",
+ "env_logger 0.6.2",
  "geckoservo",
  "libc",
  "log",
@@ -4766,7 +4796,7 @@ dependencies = [
 [[package]]
 name = "sync-guid"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=61dcc364ac0d6d0816ab88a494bbf20d824b009b#61dcc364ac0d6d0816ab88a494bbf20d824b009b"
+source = "git+https://github.com/mozilla/application-services?rev=9ba519a5739b1976f1d333923d34b7f4916b9e26#9ba519a5739b1976f1d333923d34b7f4916b9e26"
 dependencies = [
  "base64 0.12.0",
  "rand",
@@ -4777,7 +4807,7 @@ dependencies = [
 [[package]]
 name = "sync15"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=61dcc364ac0d6d0816ab88a494bbf20d824b009b#61dcc364ac0d6d0816ab88a494bbf20d824b009b"
+source = "git+https://github.com/mozilla/application-services?rev=9ba519a5739b1976f1d333923d34b7f4916b9e26#9ba519a5739b1976f1d333923d34b7f4916b9e26"
 dependencies = [
  "base16",
  "base64 0.12.0",
@@ -4800,7 +4830,7 @@ dependencies = [
 [[package]]
 name = "sync15-traits"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=61dcc364ac0d6d0816ab88a494bbf20d824b009b#61dcc364ac0d6d0816ab88a494bbf20d824b009b"
+source = "git+https://github.com/mozilla/application-services?rev=9ba519a5739b1976f1d333923d34b7f4916b9e26#9ba519a5739b1976f1d333923d34b7f4916b9e26"
 dependencies = [
  "failure",
  "ffi-support",
@@ -5385,7 +5415,7 @@ checksum = "078775d0255232fb988e6fccf26ddc9d1ac274299aaedcedce21c6f72cc533ce"
 [[package]]
 name = "viaduct"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=61dcc364ac0d6d0816ab88a494bbf20d824b009b#61dcc364ac0d6d0816ab88a494bbf20d824b009b"
+source = "git+https://github.com/mozilla/application-services?rev=9ba519a5739b1976f1d333923d34b7f4916b9e26#9ba519a5739b1976f1d333923d34b7f4916b9e26"
 dependencies = [
  "failure",
  "failure_derive",
@@ -5507,7 +5537,7 @@ dependencies = [
 [[package]]
 name = "webext-storage"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=61dcc364ac0d6d0816ab88a494bbf20d824b009b#61dcc364ac0d6d0816ab88a494bbf20d824b009b"
+source = "git+https://github.com/mozilla/application-services?rev=9ba519a5739b1976f1d333923d34b7f4916b9e26#9ba519a5739b1976f1d333923d34b7f4916b9e26"
 dependencies = [
  "error-support",
  "failure",
@@ -5699,6 +5729,15 @@ dependencies = [
  "parking_lot",
  "wgpu-core",
  "wgpu-types",
+]
+
+[[package]]
+name = "which"
+version = "3.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d011071ae14a2f6671d0b74080ae0cd8ebf3a6f8c9589a2cd45f23126fe29724"
+dependencies = [
+ "libc",
 ]
 
 [[package]]

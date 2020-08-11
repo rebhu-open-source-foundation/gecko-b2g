@@ -280,7 +280,6 @@ class MozbuildObject(ProcessExecutionMixin):
                 name += "_py3"
             self._virtualenv_manager = VirtualenvManager(
                 self.topsrcdir,
-                self.topobjdir,
                 os.path.join(self.topobjdir, '_virtualenvs', name),
                 sys.stdout,
                 os.path.join(self.topsrcdir, 'build', 'virtualenv_packages.txt')
@@ -853,11 +852,13 @@ class MozbuildObject(ProcessExecutionMixin):
                 self.virtualenv_manager.install_pip_package(path, vendored=True)
         return pipenv
 
-    def activate_pipenv(self, pipfile=None, populate=False, python=None):
+    def activate_pipenv(self, workon_home, pipfile=None, populate=False,
+                        python=None):
         if pipfile is not None and not os.path.exists(pipfile):
             raise Exception('Pipfile not found: %s.' % pipfile)
         self.ensure_pipenv()
-        self.virtualenv_manager.activate_pipenv(pipfile, populate, python)
+        self.virtualenv_manager.activate_pipenv(workon_home, pipfile, populate,
+                                                python)
 
     def _ensure_zstd(self):
         try:
@@ -937,7 +938,11 @@ class MachCommandBase(MozbuildObject):
         # Always keep a log of the last command, but don't do that for mach
         # invokations from scripts (especially not the ones done by the build
         # system itself).
-        if (os.isatty(sys.stdout.fileno()) and
+        try:
+            fileno = getattr(sys.stdout, 'fileno', lambda: None)()
+        except io.UnsupportedOperation:
+            fileno = None
+        if (fileno and os.isatty(fileno) and
                 not getattr(self, 'NO_AUTO_LOG', False)):
             self._ensure_state_subdir_exists('.')
             logfile = self._get_state_filename('last_log.json')
