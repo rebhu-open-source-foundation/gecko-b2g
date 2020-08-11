@@ -88,11 +88,20 @@ struct GnssCallback : public IGnssCallback {
 static const int kDefaultPeriod = 1000;  // ms
 
 static bool gDebug_isLoggingEnabled = false;
+static bool gDebug_isGPSLocationIgnored = false;
 
 // Clean up GPS HAL when Geolocation setting is turned off.
 static const char* kPrefOndemandCleanup = "geo.provider.ondemand_cleanup";
 
 static const char* kWakeLockName = "GeckoGPS";
+
+// The geolocation enabled setting
+static const auto kSettingGeolocationEnabled = u"geolocation.enabled"_ns;
+
+// Both of these settings can be toggled in the Gaia Developer settings screen.
+static const auto kSettingDebugEnabled = u"geolocation.debugging.enabled"_ns;
+static const auto kSettingDebugGpsIgnored =
+    u"geolocation.debugging.gps-locations-ignored"_ns;
 
 NS_IMPL_ISUPPORTS(GonkGPSGeolocationProvider::NetworkLocationUpdate,
                   nsIGeolocationUpdate)
@@ -208,6 +217,14 @@ GonkGPSGeolocationProvider::GonkGPSGeolocationProvider()
       mSupportsSingleShot(false),
       mSupportsTimeInjection(false) {
   MOZ_ASSERT(NS_IsMainThread());
+
+  // kSettingDebugEnabled should be handled before Init()
+  nsCOMPtr<nsISettingsManager> settings =
+      do_GetService("@mozilla.org/sidl-native/settings;1");
+  if (settings) {
+    settings->Get(kSettingDebugEnabled, this);
+    settings->AddObserver(kSettingDebugEnabled, this, this);
+  }
 }
 
 GonkGPSGeolocationProvider::~GonkGPSGeolocationProvider() {
@@ -219,6 +236,14 @@ GonkGPSGeolocationProvider::~GonkGPSGeolocationProvider() {
   }
 
   sSingleton = nullptr;
+
+  nsCOMPtr<nsISettingsManager> settings =
+      do_GetService("@mozilla.org/sidl-native/settings;1");
+  if (settings) {
+    settings->RemoveObserver(kSettingGeolocationEnabled, this, this);
+    settings->RemoveObserver(kSettingDebugEnabled, this, this);
+    settings->RemoveObserver(kSettingDebugGpsIgnored, this, this);
+  }
 }
 
 already_AddRefed<GonkGPSGeolocationProvider>
@@ -248,8 +273,7 @@ GonkGPSGeolocationProvider::Startup() {
         do_CreateInstance("@mozilla.org/toolkit/URLFormatterService;1", &rv);
     if (NS_SUCCEEDED(rv)) {
       nsString key;
-      rv = formatter->FormatURLPref(u"geo.fauthorization.key"_ns,
-                                    key);
+      rv = formatter->FormatURLPref(u"geo.authorization.key"_ns, key);
       if (NS_SUCCEEDED(rv) && !key.IsEmpty()) {
         mNetworkLocationProvider =
             do_CreateInstance("@mozilla.org/geolocation/mls-provider;1");
@@ -375,6 +399,16 @@ void GonkGPSGeolocationProvider::Init() {
         "GonkGPSGeolocationProvider::Init", [self]() { self->StartGPS(); });
     NS_DispatchToMainThread(r);
   }
+
+  nsCOMPtr<nsISettingsManager> settings =
+      do_GetService("@mozilla.org/sidl-native/settings;1");
+  if (settings) {
+    // If kSettingGeolocationEnabled was false, the Init() wouldn't be called,
+    // therefore, we don't have to get kSettingGeolocationEnabled.
+    settings->Get(kSettingDebugGpsIgnored, this);
+    settings->AddObserver(kSettingGeolocationEnabled, this, this);
+    settings->AddObserver(kSettingDebugGpsIgnored, this, this);
+  }
 }
 
 void GonkGPSGeolocationProvider::StartGPS() {
@@ -488,6 +522,11 @@ class GonkGPSGeolocationProvider::UpdateCapabilitiesEvent final
 };
 
 Return<void> GnssCallback::gnssLocationCb(const GnssLocation_V1_0& location) {
+  if (gDebug_isGPSLocationIgnored) {
+    LOG("gnssLocationCb is ignored due to the developer setting");
+    return Void();
+  }
+
   const float kImpossibleAccuracy_m = 0.001;
   if (location.horizontalAccuracyMeters < kImpossibleAccuracy_m) {
     return Void();
@@ -613,3 +652,60 @@ Return<void> GnssCallback::gnssSvStatusCb_2_0(
   DBG("%s: numSvs: %u", __FUNCTION__, svInfoList.size());
   return Void();
 }
+
+NS_IMETHODIMP GonkGPSGeolocationProvider::HandleSettings(
+    nsISettingInfo* const info, [[maybe_unused]] bool isObserved) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  if (!info) {
+    return NS_OK;
+  }
+  nsString name;
+  info->GetName(name);
+
+  nsString value;
+  info->GetValue(value);
+
+  if (name.Equals(kSettingDebugGpsIgnored)) {
+    gDebug_isGPSLocationIgnored = value.EqualsLiteral("true");
+    LOG("ObserveSetting: ignoring: %d", gDebug_isGPSLocationIgnored);
+  } else if (name.Equals(kSettingDebugEnabled)) {
+    gDebug_isLoggingEnabled = value.EqualsLiteral("true");
+    LOG("ObserveSetting: logging: %d", gDebug_isLoggingEnabled);
+  } else if (name.Equals(kSettingGeolocationEnabled)) {
+    bool isGeolocationEnabled = value.EqualsLiteral("true");
+    LOG("ObserveSetting: geolocation-enabled: %d", isGeolocationEnabled);
+    if (!isGeolocationEnabled && mInitialized && mGnssHal &&
+        Preferences::GetBool(kPrefOndemandCleanup)) {
+      // Cleanup GNSS HAL when Geolocation setting is turned off
+      mGnssHal->stop();
+      mGnssHal->cleanup();
+      mInitialized = false;
+    }
+  }
+  return NS_OK;
+}
+
+// Implements nsISettingsGetResponse::Resolve
+NS_IMETHODIMP GonkGPSGeolocationProvider::Resolve(nsISettingInfo* info) {
+  return HandleSettings(info, false);
+}
+
+// Implements nsISettingsGetResponse::Reject
+NS_IMETHODIMP GonkGPSGeolocationProvider::Reject(nsISettingError* error) {
+  if (error) {
+    nsString name;
+    error->GetName(name);
+    LOG("Failed to read %s", NS_ConvertUTF16toUTF8(name).get());
+  }
+  return NS_OK;
+}
+
+// Implements nsISettingsObserver::ObserveSetting
+NS_IMETHODIMP GonkGPSGeolocationProvider::ObserveSetting(nsISettingInfo* info) {
+  return HandleSettings(info, true);
+}
+
+// Implements nsISidlDefaultResponse
+NS_IMETHODIMP GonkGPSGeolocationProvider::Resolve() { return NS_OK; }
+NS_IMETHODIMP GonkGPSGeolocationProvider::Reject() { return NS_OK; }

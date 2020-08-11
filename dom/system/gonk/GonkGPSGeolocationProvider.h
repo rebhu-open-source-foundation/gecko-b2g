@@ -24,6 +24,7 @@
 #include "nsCOMPtr.h"
 #include "nsIDOMGeoPosition.h"
 #include "nsIGeolocationProvider.h"
+#include "nsISettings.h"
 
 class nsIThread;
 
@@ -37,10 +38,16 @@ class nsIThread;
 #define GONK_GPS_GEOLOCATION_PROVIDER_CONTRACTID \
   "@mozilla.org/gonk-gps-geolocation-provider;1"
 
-class GonkGPSGeolocationProvider : public nsIGeolocationProvider {
+class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
+                                   public nsISettingsGetResponse,
+                                   public nsISettingsObserver,
+                                   public nsISidlDefaultResponse {
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIGEOLOCATIONPROVIDER
+  NS_DECL_NSISETTINGSGETRESPONSE
+  NS_DECL_NSISETTINGSOBSERVER
+  NS_DECL_NSISIDLDEFAULTRESPONSE
 
   static already_AddRefed<GonkGPSGeolocationProvider> GetSingleton();
 
@@ -62,6 +69,8 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider {
   void ShutdownGPS();
 
   void InjectLocation(double latitude, double longitude, float accuracy);
+
+  NS_IMETHOD HandleSettings(nsISettingInfo* const info, bool isObserved);
 
   // Whether the GPS HAL has been initialized
   bool mInitialized;
