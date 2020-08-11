@@ -4204,10 +4204,16 @@ SimRecordHelperObject.prototype = {
       RIL.iccInfoPrivate.sst = sst;
       if (DEBUG) {
         let str = "";
+        let id = 0;
         for (let i = 0; i < sst.length; i++) {
-          str += sst[i] + ", ";
+          for(let j = 0; j < 8; j++){
+            if(sst[i] & (1 << j)){
+                id = i*8+j+1;
+                str = str + "[" +id + "], ";
+            }
+          }
         }
-        this.context.debug("SST: " + str);
+        this.context.debug("SST: Service available for " + str);
       }
 
       let ICCUtilsHelper = this.context.ICCUtilsHelper;
@@ -4797,9 +4803,9 @@ SimRecordHelperObject.prototype = {
       // Unused entries will be 0xFFFFFF, according to EF_SPDI
       // specs (TS 131 102, section 4.2.66)
       try {
-        let plmn = [GsmPDUHelper.processHexToInt(value.slice(index,index+2), 16),
-                    GsmPDUHelper.processHexToInt(value.slice(index+2,index+4), 16),
-                    GsmPDUHelper.processHexToInt(value.slice(index+4,index+6), 16)];
+        let plmn = [GsmPDUHelper.processHexToInt(value.slice(0,2), 16),
+                    GsmPDUHelper.processHexToInt(value.slice(2,4), 16),
+                    GsmPDUHelper.processHexToInt(value.slice(4,6), 16)];
         if (DEBUG) {
           this.context.debug("Reading PLMN entry: [" + index + "]: '" + plmn + "'");
         }
@@ -4897,14 +4903,8 @@ SimRecordHelperObject.prototype = {
     function callback(options) {
       let RIL = this.context.RIL;
       let value = options.simResponse;
-      string_len = value.length;
 
-      let gid = "";
-      for (let i = 0; i < string_len; i++) {
-        gid += String.fromCharCode(value.charCodeAt(i));
-      }
-
-      RIL.iccInfoPrivate.gid1 = gid;
+      RIL.iccInfoPrivate.gid1 = value;
       if (DEBUG) {
         this.context.debug("GID1: " + RIL.iccInfoPrivate.gid1);
       }
@@ -4970,8 +4970,6 @@ SimRecordHelperObject.prototype = {
       let GsmPDUHelper = this.context.GsmPDUHelper;
       GsmPDUHelper.initWith();
       let cfis = this.context.RIL.iccInfoPrivate.cfis;
-
-      // Write String length
 
       GsmPDUHelper.writeHexOctet(cfis.msp);
 
