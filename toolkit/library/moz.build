@@ -124,7 +124,7 @@ def Libxul(name, output_category=None):
             LDFLAGS += [
                 CONFIG['ANDROID_GNSS_1_1_SO'],
                 CONFIG['ANDROID_GNSS_2_0_SO'],
-
+                CONFIG['ANDROID_GNSS_VISIBILITY_CONTROL_1_0_SO'],
             ]
 
 # The real libxul definition is in ./build/moz.build, but we define a

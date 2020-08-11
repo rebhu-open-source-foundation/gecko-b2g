@@ -74,7 +74,11 @@ using IAGnssRil_V2_0 = android::hardware::gnss::V2_0::IAGnssRil;
 using IAGnss_V2_0 = android::hardware::gnss::V2_0::IAGnss;
 using IAGnssCallback_V2_0 = android::hardware::gnss::V2_0::IAGnssCallback;
 
-// GnssCallback class implements the callback methods for IGnss interface.
+using android::hardware::gnss::visibility_control::V1_0::IGnssVisibilityControl;
+using android::hardware::gnss::visibility_control::V1_0::
+    IGnssVisibilityControlCallback;
+
+// Implements the callback methods for IGnssCallback interface.
 struct GnssCallback : public IGnssCallback {
   Return<void> gnssLocationCb(const GnssLocation_V1_0& location) override;
   Return<void> gnssStatusCb(
@@ -104,8 +108,7 @@ struct GnssCallback : public IGnssCallback {
 };
 
 #ifdef MOZ_B2G_RIL
-// AGnssCallback_V2_0 class implements the callback methods for
-// IAGnssCallback_V2_0 interface.
+// Implements the callback methods for IAGnssCallback_V2_0 interface.
 struct AGnssCallback_V2_0 : public IAGnssCallback_V2_0 {
   // methonds from ::android::hardware::gps::V2_0::IAGnssCallback
   Return<void> agnssStatusCb(
@@ -113,6 +116,14 @@ struct AGnssCallback_V2_0 : public IAGnssCallback_V2_0 {
       IAGnssCallback_V2_0::AGnssStatusValue status) override;
 };
 #endif
+
+// Implements the callback methods for IGnssVisibilityControl interface.
+struct GnssVisibilityControlCallback : public IGnssVisibilityControlCallback {
+  Return<void> nfwNotifyCb(
+      const IGnssVisibilityControlCallback::NfwNotification& notification)
+      override;
+  Return<bool> isInEmergencySession() override;
+};
 
 static const int kDefaultPeriod = 1000;  // ms
 
@@ -162,6 +173,12 @@ void GonkGPSGeolocationProvider::InitGnssHal() {
       ERR("Unable to get a handle to IAGnssRil_V2_0");
     }
 #endif
+    auto gnssVisibilityControl = mGnssHal_V2_0->getExtensionVisibilityControl();
+    if (gnssVisibilityControl.isOk()) {
+      mGnssVisibilityControlHal = gnssVisibilityControl;
+    } else {
+      ERR("Unable to get a handle to IGnssVisibilityControl");
+    }
     return;
   }
 
@@ -420,7 +437,7 @@ void GonkGPSGeolocationProvider::Init() {
   } else if (!linked) {
     ERR("Unable to link to GnssHal death notifications");
   } else {
-    ERR("Link to death notification successful");
+    DBG("Link to death notification successful");
   }
 
   android::sp<IGnssCallback> gnssCbIface = new GnssCallback();
@@ -445,6 +462,16 @@ void GonkGPSGeolocationProvider::Init() {
     Return<void> agnssStatus = mAGnssHal_V2_0->setCallback(agnssCbIface);
   }
 #endif
+
+  if (mGnssVisibilityControlHal != nullptr) {
+    android::sp<IGnssVisibilityControlCallback> gnssVcCbIface =
+        new GnssVisibilityControlCallback();
+    Return<bool> gnssVcResult =
+        mGnssVisibilityControlHal->setCallback(gnssVcCbIface);
+    if (!gnssVcResult.isOk()) {
+      ERR("SetCallback for Gnss VC Interface fails");
+    }
+  }
 
   mInitialized = true;
 
@@ -715,6 +742,16 @@ Return<void> GnssCallback::gnssSvStatusCb_2_0(
   return Void();
 }
 
+Return<void> GnssVisibilityControlCallback::nfwNotifyCb(
+    const IGnssVisibilityControlCallback::NfwNotification& notification) {
+  return Void();
+}
+
+Return<bool> GnssVisibilityControlCallback::isInEmergencySession() {
+  // TODO: Implements isInEmergencySession
+  return Return<bool>(false);
+}
+
 NS_IMETHODIMP GonkGPSGeolocationProvider::HandleSettings(
     nsISettingInfo* const info, [[maybe_unused]] bool isObserved) {
   MOZ_ASSERT(NS_IsMainThread());
@@ -744,6 +781,19 @@ NS_IMETHODIMP GonkGPSGeolocationProvider::HandleSettings(
       mGnssHal->cleanup();
       mInitialized = false;
     }
+
+    if (mGnssVisibilityControlHal) {
+      hidl_vec<android::hardware::hidl_string> hidlProxyApps;
+      if (isGeolocationEnabled) {
+        hidlProxyApps = {"b2g_system"};
+      }
+
+      auto result =
+          mGnssVisibilityControlHal->enableNfwLocationAccess(hidlProxyApps);
+      if (!result.isOk()) {
+        ERR("Failed to enableNfwLocationAccess");
+      }
+    }
   }
 #ifdef MOZ_B2G_RIL
   else if (name.Equals(kSettingRilSuplApn)) {
@@ -754,12 +804,12 @@ NS_IMETHODIMP GonkGPSGeolocationProvider::HandleSettings(
   } else if (name.Equals(kSettingRilDefaultServiceId)) {
     int32_t serviceId = 0;
     if (SVGContentUtils::ParseInteger(value, serviceId) == false) {
-      BT_WARNING("'ril.data.defaultServiceId' is not a number!");
+      ERR("'ril.data.defaultServiceId' is not a number!");
       return NS_ERROR_UNEXPECTED;
     }
 
     if (!IsValidRilServiceId(serviceId)) {
-      BT_WARNING("serviceId is invalid");
+      ERR("serviceId is invalid");
       return NS_ERROR_UNEXPECTED;
     }
 

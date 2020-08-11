@@ -22,6 +22,7 @@
 #include "android/hardware/gnss/1.0/IGnss.h"
 #include "android/hardware/gnss/2.0/IAGnss.h"
 #include "android/hardware/gnss/2.0/IAGnssRil.h"
+#include "android/hardware/gnss/visibility_control/1.0/IGnssVisibilityControl.h"
 
 #include "nsCOMPtr.h"
 #include "nsIDOMGeoPosition.h"
@@ -136,6 +137,9 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
   android::sp<android::hardware::gnss::V2_0::IGnss> mGnssHal_V2_0;
   android::sp<android::hardware::gnss::V2_0::IAGnss> mAGnssHal_V2_0;
   android::sp<android::hardware::gnss::V2_0::IAGnssRil> mAGnssRilHal_V2_0;
+  android::sp<
+      android::hardware::gnss::visibility_control::V1_0::IGnssVisibilityControl>
+      mGnssVisibilityControlHal;
 
   class NetworkLocationUpdate : public nsIGeolocationUpdate {
    public:

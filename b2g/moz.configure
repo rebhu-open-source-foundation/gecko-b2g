@@ -168,6 +168,17 @@ def gnss_2_0_so(value):
 
 set_config('ANDROID_GNSS_2_0_SO', gnss_2_0_so)
 
+# Gnss visibility_control 1.0 Support
+# ==============================================================
+option('--with-gnss-visibility_control1.0-so', nargs=1,
+       help='Assign the path of android.hardware.gnss.visibility_control@1.0.so')
+
+@depends_if('--with-gnss-visibility_control1.0-so')
+def gnss_visibility_control_1_0_so(value):
+    return value[0]
+
+set_config('ANDROID_GNSS_VISIBILITY_CONTROL_1_0_SO', gnss_visibility_control_1_0_so)
+
 # Netd Support
 # ==============================================================
 option('--with-netd-aidl-so', nargs=1,
@@ -207,7 +218,7 @@ def radio_so(value):
     return value[0]
 
 set_config('ANDROID_RADIO_SO', radio_so)
- 
+
 # Volume Support
 # ==============================================================
 option('--with-vold-so', nargs=1,

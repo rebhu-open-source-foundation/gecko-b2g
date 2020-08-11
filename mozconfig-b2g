@@ -99,6 +99,7 @@ ac_add_options --with-gnss1.0-so="$SYS_LIB/android.hardware.gnss@1.0.so"
 if [ $PLATFORM_VERSION -ge 29 ]; then
   ac_add_options --with-gnss1.1-so="$SYS_LIB/android.hardware.gnss@1.1.so"
   ac_add_options --with-gnss2.0-so="$SYS_LIB/android.hardware.gnss@2.0.so"
+  ac_add_options --with-gnss-visibility_control1.0-so="$SYS_LIB/android.hardware.gnss.visibility_control@1.0.so"
 fi
 
 ac_add_options --with-dnsresolver-so="$SYS_LIB/dnsresolver_aidl_interface-V2-cpp.so"
