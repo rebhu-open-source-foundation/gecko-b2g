@@ -512,6 +512,8 @@ static_assert(sizeof(nsXPTMethodInfo) == 8, "wrong size");
 // passing purposes in PrepareAndDispatch implementations.
 #if defined(MOZ_THUNDERBIRD) || defined(MOZ_SUITE)
 #  define PARAM_BUFFER_COUNT 18
+#elif defined(MOZ_B2G_RIL)
+#  define PARAM_BUFFER_COUNT 23 // Needed for nsIGonkSmsService::notifyMessageReceived
 #else
 #  define PARAM_BUFFER_COUNT 14
 #endif
