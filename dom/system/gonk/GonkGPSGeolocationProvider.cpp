@@ -37,6 +37,7 @@
 #  include "nsIMobileNetworkInfo.h"
 #  include "nsINetworkInterface.h"  // for nsINetworkInfo
 #  include "nsIRadioInterfaceLayer.h"
+#  include "nsITelephonyCallInfo.h"
 #  include "nsPrintfCString.h"
 #endif
 
@@ -133,6 +134,7 @@ static const int kDefaultPeriod = 1000;  // ms
 static bool gGeolocationEnabled = false;
 static bool gDebug_isLoggingEnabled = false;
 static bool gDebug_isGPSLocationIgnored = false;
+static bool gIsInEmergencySession = false;
 
 // Clean up GPS HAL when Geolocation setting is turned off.
 static const char* kPrefOndemandCleanup = "geo.provider.ondemand_cleanup";
@@ -300,6 +302,9 @@ GonkGPSGeolocationProvider::GonkGPSGeolocationProvider()
     settings->AddObserver(kSettingDebugEnabled, this, this);
     settings->AddObserver(kSettingDebugGpsIgnored, this, this);
   }
+
+  // Listen TelephonyService for updating gIsInEmergencySession
+  ListenTelephonyService(true);
 }
 
 GonkGPSGeolocationProvider::~GonkGPSGeolocationProvider() {
@@ -319,6 +324,9 @@ GonkGPSGeolocationProvider::~GonkGPSGeolocationProvider() {
     settings->RemoveObserver(kSettingDebugEnabled, this, this);
     settings->RemoveObserver(kSettingDebugGpsIgnored, this, this);
   }
+
+  // Stop listen TelephonyService
+  ListenTelephonyService(false);
 }
 
 already_AddRefed<GonkGPSGeolocationProvider>
@@ -748,8 +756,7 @@ Return<void> GnssVisibilityControlCallback::nfwNotifyCb(
 }
 
 Return<bool> GnssVisibilityControlCallback::isInEmergencySession() {
-  // TODO: Implements isInEmergencySession
-  return Return<bool>(false);
+  return Return<bool>(gIsInEmergencySession);
 }
 
 NS_IMETHODIMP GonkGPSGeolocationProvider::HandleSettings(
@@ -1148,5 +1155,47 @@ void GonkGPSGeolocationProvider::ReleaseDataConnection() {
   LOG("nsIRadioInterface->DeactivateDataCallByType()");
   mRadioInterface->DeactivateDataCallByType(
       nsINetworkInfo::NETWORK_TYPE_MOBILE_SUPL);
+}
+
+NS_IMETHODIMP GonkGPSGeolocationProvider::CallStateChanged(
+    uint32_t aLength, nsITelephonyCallInfo** aAllInfo) {
+  bool isInEmergencySession = false;
+  for (uint32_t i = 0; i < aLength; ++i) {
+    nsITelephonyCallInfo* info = aAllInfo[i];
+    if (info) {
+      bool isEmergency = false;
+      info->GetIsEmergency(&isEmergency);
+      if (isEmergency) {
+        uint16_t callState;
+        info->GetCallState(&callState);
+
+        if (callState != nsITelephonyService::CALL_STATE_DISCONNECTED) {
+          isInEmergencySession = true;
+          break;
+        }
+      }
+    }
+  }
+  gIsInEmergencySession = isInEmergencySession;
+
+  return NS_OK;
+}
+
+// The caller must avoid double registering/unregistering listener.
+// Currenly, the ListenTelephonyService only called by constructor / destructor.
+void GonkGPSGeolocationProvider::ListenTelephonyService(bool aStart) {
+  nsCOMPtr<nsITelephonyService> service =
+      do_GetService(TELEPHONY_SERVICE_CONTRACTID);
+  NS_ENSURE_TRUE_VOID(service);
+
+  nsresult rv;
+  if (aStart) {
+    rv = service->RegisterListener(this);
+  } else {
+    rv = service->UnregisterListener(this);
+  }
+  if (NS_FAILED(rv)) {
+    ERR("Failed to register/unregister telephony service");
+  }
 }
 #endif  // MOZ_B2G_RIL

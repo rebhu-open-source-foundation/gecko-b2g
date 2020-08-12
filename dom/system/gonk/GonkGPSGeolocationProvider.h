@@ -31,6 +31,7 @@
 #ifdef MOZ_B2G_RIL
 #  include "nsIObserver.h"
 #  include "nsIRadioInterfaceLayer.h"
+#  include "nsITelephonyService.h"
 #endif
 
 class nsIThread;
@@ -48,6 +49,7 @@ class nsIThread;
 class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
 #ifdef MOZ_B2G_RIL
                                    public nsIObserver,
+                                   public nsITelephonyListener,
 #endif
                                    public nsISettingsGetResponse,
                                    public nsISettingsObserver,
@@ -95,6 +97,50 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
   void SetAGpsDataConn(const nsAString& aApn);
   void RequestDataConnection();
   void ReleaseDataConnection();
+  void ListenTelephonyService(bool aStart);
+  NS_IMETHOD CallStateChanged(uint32_t length,
+                              nsITelephonyCallInfo** allInfo) override;
+
+  NS_IMETHOD EnumerateCallStateComplete(void) override { return NS_OK; }
+  NS_IMETHOD EnumerateCallState(nsITelephonyCallInfo* info) override {
+    return NS_OK;
+  }
+  NS_IMETHOD SupplementaryServiceNotification(
+      uint32_t clientId, int32_t notification, int32_t code, int32_t index,
+      int32_t type, const nsAString& number) override {
+    return NS_OK;
+  }
+  NS_IMETHOD NotifyCdmaCallWaiting(uint32_t clientId, const nsAString& number,
+                                   uint16_t numberPresentation,
+                                   const nsAString& name,
+                                   uint16_t namePresentation) override {
+    return NS_OK;
+  }
+  NS_IMETHOD NotifyConferenceError(const nsAString& name,
+                                   const nsAString& message) override {
+    return NS_OK;
+  }
+  NS_IMETHOD NotifyRingbackTone(bool playRingbackTone) override {
+    return NS_OK;
+  }
+  NS_IMETHOD NotifyTtyModeReceived(uint16_t mode) override { return NS_OK; }
+  NS_IMETHOD NotifyTelephonyCoverageLosing(uint16_t type) override {
+    return NS_OK;
+  }
+  NS_IMETHOD NotifyRttModifyRequestReceived(uint32_t clientId,
+                                            int32_t callIndex,
+                                            uint16_t rttMode) override {
+    return NS_OK;
+  }
+  NS_IMETHOD NotifyRttModifyResponseReceived(uint32_t clientId,
+                                             int32_t callIndex,
+                                             uint16_t status) override {
+    return NS_OK;
+  }
+  NS_IMETHOD NotifyRttMessageReceived(uint32_t clientId, int32_t callIndex,
+                                      const nsAString& message) override {
+    return NS_OK;
+  }
 #endif  // MOZ_B2G_RIL
 
   // Whether the GPS HAL has been initialized
