@@ -87,7 +87,6 @@ extern crate remote;
 extern crate gecko_logger;
 
 // Gecko <-> SIDL integration
-#[cfg(feature = "sidl")]
 extern crate gecko_sidl;
 
 extern crate log;
