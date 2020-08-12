@@ -5,6 +5,7 @@
 
 #include "DirectManipulationOwner.h"
 #include "nsWindow.h"
+#include "WinModifierKeyState.h"
 #include "InputData.h"
 #include "mozilla/StaticPrefs_apz.h"
 #include "mozilla/TimeStamp.h"
@@ -391,8 +392,8 @@ void DManipEventHandler::SendPinch(Phase aPhase, float aScale) {
   PRIntervalTime eventIntervalTime = PR_IntervalNow();
   TimeStamp eventTimeStamp = TimeStamp::Now();
 
-  Modifiers mods =
-      MODIFIER_NONE;  // xxx should we get getting key state for this?
+  ModifierKeyState modifierKeyState;
+  Modifiers mods = modifierKeyState.GetModifiers();
 
   ExternalPoint screenOffset = ViewAs<ExternalPixel>(
       mWindow->WidgetToScreenOffset(),
@@ -413,6 +414,10 @@ void DManipEventHandler::SendPinch(Phase aPhase, float aScale) {
                           100.0 * ((aPhase == Phase::eEnd) ? 1.f : aScale),
                           100.0 * ((aPhase == Phase::eEnd) ? 1.f : mLastScale),
                           mods};
+
+  gfx::IntPoint lineOrPageDelta = PinchGestureInput::GetIntegerDeltaForEvent(
+      (aPhase == Phase::eStart), 0, event.ComputeDeltaY(mWindow));
+  event.mLineOrPageDeltaY = lineOrPageDelta.y;
 
   mWindow->SendAnAPZEvent(event);
 }
@@ -458,7 +463,8 @@ void DManipEventHandler::SendPan(Phase aPhase, float x, float y,
   PRIntervalTime eventIntervalTime = PR_IntervalNow();
   TimeStamp eventTimeStamp = TimeStamp::Now();
 
-  Modifiers mods = MODIFIER_NONE;
+  ModifierKeyState modifierKeyState;
+  Modifiers mods = modifierKeyState.GetModifiers();
 
   POINT cursor_pos;
   ::GetCursorPos(&cursor_pos);

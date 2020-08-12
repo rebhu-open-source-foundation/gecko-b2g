@@ -329,17 +329,21 @@ pref("browser.urlbar.openintab", false);
 // If true, we show tail suggestions when available.
 pref("browser.urlbar.richSuggestions.tail", true);
 
-// Whether aliases are styled as a "chiclet" separated from the Urlbar.
-// Also controls the other urlbar.update2 prefs.
-pref("browser.urlbar.update2", false);
-
+#ifdef NIGHTLY_BUILD
+// Whether the Urlbar can enter search mode. Also controls the other
+// urlbar.update2 prefs.
+pref("browser.urlbar.update2", true);
 // Whether the urlbar displays one-offs to filter searches to history,
 // bookmarks, or tabs.
-pref("browser.urlbar.update2.localOneOffs", false);
-
+pref("browser.urlbar.update2.localOneOffs", true);
 // Whether the urlbar one-offs act as search filters instead of executing a
 // search immediately.
+pref("browser.urlbar.update2.oneOffsRefresh", true);
+#else
+pref("browser.urlbar.update2", false);
+pref("browser.urlbar.update2.localOneOffs", false);
 pref("browser.urlbar.update2.oneOffsRefresh", false);
+#endif
 
 // Whether we display a tab-to-complete result when the user types an engine
 // name.
@@ -787,10 +791,6 @@ pref("browser.preferences.exposeHTTPSOnly", false);
 
 pref("browser.download.show_plugins_in_list", true);
 pref("browser.download.hide_plugins_without_extensions", true);
-
-// URL for "Learn More" for HttpsOnly
-pref("domsecurity.httpsonly.infoURL",
-     "https://developer.mozilla.org/en-US/docs/Glossary/https");
 
 // Backspace and Shift+Backspace behavior
 // 0 goes Back/Forward
@@ -1575,7 +1575,13 @@ pref("toolkit.telemetry.updatePing.enabled", true);
 // Enables sending 'bhr' pings when the browser hangs.
 pref("toolkit.telemetry.bhrPing.enabled", true);
 // Whether to enable Ecosystem Telemetry, requires a restart.
+// This is limited to nightly builds for initial verification and QA,
+// and will eventually default to `true` on all builds.
+#ifdef NIGHTLY_BUILD
+pref("toolkit.telemetry.ecosystemtelemetry.enabled", true);
+#else
 pref("toolkit.telemetry.ecosystemtelemetry.enabled", false);
+#endif
 
 // Ping Centre Telemetry settings.
 pref("browser.ping-centre.telemetry", true);

@@ -1181,11 +1181,8 @@ class UrlbarInput {
    *   The name of the search engine to restrict to.
    * @param {UrlbarUtils.RESULT_SOURCE} source
    *   A result source to restrict to.
-   * @param {string} [alternateLabel]
-   *   Optional. If provided, this string will be shown in the search mode
-   *   indicator instead of the engine. Does not override a source title.
    */
-  setSearchMode({ engineName, source, alternateLabel }) {
+  setSearchMode({ engineName, source }) {
     if (!UrlbarPrefs.get("update2")) {
       // Exit search mode.
       engineName = null;
@@ -1201,10 +1198,15 @@ class UrlbarInput {
       this.searchMode = {
         source: UrlbarUtils.RESULT_SOURCE.SEARCH,
         engineName,
-        alternateLabel,
       };
-      this._searchModeIndicatorTitle.textContent = alternateLabel || engineName;
-      this._searchModeLabel.textContent = alternateLabel || engineName;
+      this._searchModeIndicatorTitle.textContent = engineName;
+      this._searchModeLabel.textContent = engineName;
+      this.document.l10n.setAttributes(
+        this.inputField,
+        UrlbarUtils.WEB_ENGINE_NAMES.has(engineName)
+          ? "urlbar-placeholder-search-mode-web"
+          : "urlbar-placeholder-search-mode-other"
+      );
     } else if (source) {
       let sourceName = UrlbarUtils.getResultSourceName(source);
       if (!sourceName) {
@@ -1218,10 +1220,15 @@ class UrlbarInput {
           l10nID
         );
         this.document.l10n.setAttributes(this._searchModeLabel, l10nID);
+        this.document.l10n.setAttributes(
+          this.inputField,
+          "urlbar-placeholder-search-mode-other"
+        );
       }
     } else {
       // Exit search mode.
       this.searchMode = null;
+      this.window.BrowserSearch.initPlaceHolder(true);
     }
 
     if (this.searchMode) {
@@ -1526,12 +1533,15 @@ class UrlbarInput {
     switch (result.type) {
       case UrlbarUtils.RESULT_TYPE.KEYWORD:
         return result.payload.input;
-      case UrlbarUtils.RESULT_TYPE.SEARCH:
-        return (
-          (result.payload.keyword && !UrlbarPrefs.get("update2")
-            ? result.payload.keyword + " "
-            : "") + (result.payload.suggestion || result.payload.query)
-        );
+      case UrlbarUtils.RESULT_TYPE.SEARCH: {
+        let value = "";
+        if (result.payload.keyword) {
+          value +=
+            result.payload.keyword + (UrlbarPrefs.get("update2") ? "" : " ");
+        }
+        value += result.payload.suggestion || result.payload.query;
+        return value;
+      }
       case UrlbarUtils.RESULT_TYPE.OMNIBOX:
         return result.payload.content;
     }
@@ -2136,11 +2146,7 @@ class UrlbarInput {
       (!result.payload.originalEngine ||
         result.payload.engine == result.payload.originalEngine)
     ) {
-      let params = { engineName: result.payload.engine };
-      if (result.payload.keyword && !result.payload.keyword.startsWith("@")) {
-        params.alternateLabel = result.payload.keyword;
-      }
-      return params;
+      return { engineName: result.payload.engine };
     }
 
     return null;

@@ -3509,10 +3509,6 @@ nsresult Document::InitFeaturePolicy(nsIChannel* aChannel) {
 
   mFeaturePolicy->ResetDeclaredPolicy();
 
-  if (!StaticPrefs::dom_security_featurePolicy_enabled()) {
-    return NS_OK;
-  }
-
   mFeaturePolicy->SetDefaultOrigin(NodePrincipal());
 
   RefPtr<mozilla::dom::FeaturePolicy> parentPolicy = GetParentFeaturePolicy();
@@ -6237,11 +6233,13 @@ already_AddRefed<PresShell> Document::CreatePresShell(
 
 void Document::UpdateFrameRequestCallbackSchedulingState(
     PresShell* aOldPresShell) {
-  // If the condition for shouldBeScheduled changes to depend on some other
-  // variable, add UpdateFrameRequestCallbackSchedulingState() calls to the
-  // places where that variable can change.
-  bool shouldBeScheduled = mPresShell && IsEventHandlingEnabled() &&
-                           !mFrameRequestCallbacks.IsEmpty();
+  // If this condition changes to depend on some other variable, make sure to
+  // call UpdateFrameRequestCallbackSchedulingState() calls to the places where
+  // that variable can change. Also consider if you should change
+  // WouldScheduleFrameRequestCallbacks() instead of adding more stuff to this
+  // condition.
+  bool shouldBeScheduled =
+      WouldScheduleFrameRequestCallbacks() && !mFrameRequestCallbacks.IsEmpty();
   if (shouldBeScheduled == mFrameRequestCallbacksScheduled) {
     // nothing to do
     return;
@@ -6269,7 +6267,7 @@ void Document::TakeFrameRequestCallbacks(nsTArray<FrameRequest>& aCallbacks) {
   mFrameRequestCallbacksScheduled = false;
 }
 
-bool Document::ShouldThrottleFrameRequests() {
+bool Document::ShouldThrottleFrameRequests() const {
   if (mStaticCloneCount > 0) {
     // Even if we're not visible, a static clone may be, so run at full speed.
     return false;
