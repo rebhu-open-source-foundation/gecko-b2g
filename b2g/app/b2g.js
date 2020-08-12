@@ -189,7 +189,7 @@ pref("geo.authorization.key", "%GONK_GEO_API_KEY%");
 pref("geo.stumbler.url", "https://location.services.mozilla.com/v1/geosubmit?key=%MOZILLA_API_KEY%");
 
 // Whether to clean up location provider when Geolocation setting is turned off.
-pref("geo.provider.ondemand_cleanup", false);
+pref("geo.provider.ondemand_cleanup", true);
 
 // enable geo
 pref("geo.enabled", true);

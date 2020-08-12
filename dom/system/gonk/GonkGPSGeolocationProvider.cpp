@@ -106,6 +106,7 @@ struct GnssCallback : public IGnssCallback {
   Return<void> gnssSvStatusCb_2_0(
       const hidl_vec<IGnssCallback::GnssSvInfo>& svInfoList) override;
 };
+static android::sp<IGnssCallback> gnssCbIface = nullptr;
 
 #ifdef MOZ_B2G_RIL
 // Implements the callback methods for IAGnssCallback_V2_0 interface.
@@ -115,6 +116,7 @@ struct AGnssCallback_V2_0 : public IAGnssCallback_V2_0 {
       IAGnssCallback_V2_0::AGnssType type,
       IAGnssCallback_V2_0::AGnssStatusValue status) override;
 };
+static android::sp<IAGnssCallback_V2_0> agnssCbIface = nullptr;
 #endif
 
 // Implements the callback methods for IGnssVisibilityControl interface.
@@ -124,9 +126,11 @@ struct GnssVisibilityControlCallback : public IGnssVisibilityControlCallback {
       override;
   Return<bool> isInEmergencySession() override;
 };
+static android::sp<IGnssVisibilityControlCallback> gnssVcCbIface = nullptr;
 
 static const int kDefaultPeriod = 1000;  // ms
 
+static bool gGeolocationEnabled = false;
 static bool gDebug_isLoggingEnabled = false;
 static bool gDebug_isGPSLocationIgnored = false;
 
@@ -286,12 +290,15 @@ GonkGPSGeolocationProvider::GonkGPSGeolocationProvider()
       mSupportsTimeInjection(false) {
   MOZ_ASSERT(NS_IsMainThread());
 
-  // kSettingDebugEnabled should be handled before Init()
   nsCOMPtr<nsISettingsManager> settings =
       do_GetService("@mozilla.org/sidl-native/settings;1");
   if (settings) {
+    settings->Get(kSettingGeolocationEnabled, this);
     settings->Get(kSettingDebugEnabled, this);
+    settings->Get(kSettingDebugGpsIgnored, this);
+    settings->AddObserver(kSettingGeolocationEnabled, this, this);
     settings->AddObserver(kSettingDebugEnabled, this, this);
+    settings->AddObserver(kSettingDebugGpsIgnored, this, this);
   }
 }
 
@@ -361,17 +368,7 @@ GonkGPSGeolocationProvider::Startup() {
         "GonkGPSGeolocationProvider::Startup", [self]() { self->StartGPS(); });
     NS_DispatchToMainThread(r);
   } else {
-    // Initialize GPS HAL first and it would start GPS after then.
-    if (!mInitThread) {
-      nsresult rv = NS_NewNamedThread("GPS Init", getter_AddRefs(mInitThread));
-      NS_ENSURE_SUCCESS(rv, rv);
-    }
-
-    RefPtr<GonkGPSGeolocationProvider> self = this;
-    nsCOMPtr<nsIRunnable> r = NS_NewRunnableFunction(
-        "GonkGPSGeolocationProvider::Startup", [self]() { self->Init(); });
-
-    mInitThread->Dispatch(r, NS_DISPATCH_NORMAL);
+    ERR("Startup without initialization.");
   }
 
   mStarted = true;
@@ -440,7 +437,9 @@ void GonkGPSGeolocationProvider::Init() {
     DBG("Link to death notification successful");
   }
 
-  android::sp<IGnssCallback> gnssCbIface = new GnssCallback();
+  if (!gnssCbIface) {
+    gnssCbIface = new GnssCallback();
+  }
 
   Return<bool> result = false;
   if (mGnssHal_V2_0 != nullptr) {
@@ -458,14 +457,25 @@ void GonkGPSGeolocationProvider::Init() {
 
 #ifdef MOZ_B2G_RIL
   if (mAGnssHal_V2_0 != nullptr) {
-    android::sp<IAGnssCallback_V2_0> agnssCbIface = new AGnssCallback_V2_0();
+    if (!agnssCbIface) {
+      agnssCbIface = new AGnssCallback_V2_0();
+    }
     Return<void> agnssStatus = mAGnssHal_V2_0->setCallback(agnssCbIface);
   }
 #endif
 
   if (mGnssVisibilityControlHal != nullptr) {
-    android::sp<IGnssVisibilityControlCallback> gnssVcCbIface =
-        new GnssVisibilityControlCallback();
+    if (!gnssVcCbIface) {
+      gnssVcCbIface = new GnssVisibilityControlCallback();
+
+      // It's only needed when the Init() is called for the 1st time
+      hidl_vec<android::hardware::hidl_string> hidlProxyApps = {"b2g_system"};
+      auto result =
+          mGnssVisibilityControlHal->enableNfwLocationAccess(hidlProxyApps);
+      if (!result.isOk()) {
+        ERR("Failed to enableNfwLocationAccess");
+      }
+    }
     Return<bool> gnssVcResult =
         mGnssVisibilityControlHal->setCallback(gnssVcCbIface);
     if (!gnssVcResult.isOk()) {
@@ -483,16 +493,6 @@ void GonkGPSGeolocationProvider::Init() {
     nsCOMPtr<nsIRunnable> r = NS_NewRunnableFunction(
         "GonkGPSGeolocationProvider::Init", [self]() { self->StartGPS(); });
     NS_DispatchToMainThread(r);
-  }
-
-  nsCOMPtr<nsISettingsManager> settings =
-      do_GetService("@mozilla.org/sidl-native/settings;1");
-  if (settings) {
-    // If kSettingGeolocationEnabled was false, the Init() wouldn't be called,
-    // therefore, we don't have to get kSettingGeolocationEnabled.
-    settings->Get(kSettingDebugGpsIgnored, this);
-    settings->AddObserver(kSettingGeolocationEnabled, this, this);
-    settings->AddObserver(kSettingDebugGpsIgnored, this, this);
   }
 }
 
@@ -772,9 +772,29 @@ NS_IMETHODIMP GonkGPSGeolocationProvider::HandleSettings(
     gDebug_isLoggingEnabled = value.EqualsLiteral("true");
     LOG("ObserveSetting: logging: %d", gDebug_isLoggingEnabled);
   } else if (name.Equals(kSettingGeolocationEnabled)) {
-    bool isGeolocationEnabled = value.EqualsLiteral("true");
-    LOG("ObserveSetting: geolocation-enabled: %d", isGeolocationEnabled);
-    if (!isGeolocationEnabled && mInitialized && mGnssHal &&
+    gGeolocationEnabled = value.EqualsLiteral("true");
+    LOG("ObserveSetting: geolocation-enabled: %d", gGeolocationEnabled);
+
+    // Initialize GonkGPSGeolocationProvider
+    if (gGeolocationEnabled && !mInitialized) {
+      if (!mInitThread) {
+        nsresult rv =
+            NS_NewNamedThread("GPS Init", getter_AddRefs(mInitThread));
+        if (NS_FAILED(rv)) {
+          return NS_OK;
+        }
+      }
+
+      RefPtr<GonkGPSGeolocationProvider> self = this;
+      nsCOMPtr<nsIRunnable> r =
+          NS_NewRunnableFunction("GonkGPSGeolocationProvider::HandleSettings",
+                                 [self]() { self->Init(); });
+
+      mInitThread->Dispatch(r, NS_DISPATCH_NORMAL);
+    }
+
+    // On demand cleanup
+    if (!gGeolocationEnabled && mInitialized && mGnssHal &&
         Preferences::GetBool(kPrefOndemandCleanup)) {
       // Cleanup GNSS HAL when Geolocation setting is turned off
       mGnssHal->stop();
@@ -782,9 +802,10 @@ NS_IMETHODIMP GonkGPSGeolocationProvider::HandleSettings(
       mInitialized = false;
     }
 
+    // Handle NFW location access
     if (mGnssVisibilityControlHal) {
       hidl_vec<android::hardware::hidl_string> hidlProxyApps;
-      if (isGeolocationEnabled) {
+      if (gGeolocationEnabled) {
         hidlProxyApps = {"b2g_system"};
       }
 
