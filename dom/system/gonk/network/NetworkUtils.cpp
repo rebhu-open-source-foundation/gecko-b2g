@@ -254,32 +254,34 @@ class NetdInitRunnable : public mozilla::Runnable {
       sp<IServiceManager> sm = android::defaultServiceManager();
       sp<IBinder> binderNetd;
       sp<IBinder> binderDnsResolver;
+      bool isNetdAlive = false;
 
       do {
         binderNetd = sm->getService(android::String16("netd"));
         binderDnsResolver = sm->getService(android::String16("dnsresolver"));
 
-        if (binderNetd != nullptr && binderDnsResolver != nullptr && IsNetdRunning()) {
+        if (binderNetd != nullptr && binderDnsResolver != nullptr) {
           gNetd = android::interface_cast<INetd>(binderNetd);
-          gDnsResolver = android::interface_cast<IDnsResolver>(binderDnsResolver);
-
-          // Register netlink unsolicited event listener.
-          if (!gNetdUnsolService) {
-            gNetdUnsolService = new NetdUnsolService(NetworkUtils::NotifyNetdEvent);
-          }
-
-          Status status = gNetd->registerUnsolicitedEventListener(
-              android::interface_cast<android::net::INetdUnsolicitedEventListener>(
-                  gNetdUnsolService));
-          NU_DBG("Registered NetdUnsolService %s",
-                 status.isOk() ? "Successful" : "Failed");
-          if (status.isOk()) {
+          gDnsResolver =
+              android::interface_cast<IDnsResolver>(binderDnsResolver);
+          gNetd->isAlive(&isNetdAlive);
+          if (isNetdAlive) {
+            NU_DBG("Netd is alived, continue rest registration.");
             break;
           }
-          NU_DBG("Trying to communicate with netd ...");
         }
+
         usleep(1000000);
+        NU_DBG("Retrying connect with Netd...");
       } while (true);
+
+      // Register netlink unsolicited event listener.
+      gNetdUnsolService = new NetdUnsolService(NetworkUtils::NotifyNetdEvent);
+      Status status = gNetd->registerUnsolicitedEventListener(
+          android::interface_cast<android::net::INetdUnsolicitedEventListener>(
+              gNetdUnsolService));
+      NU_DBG("Registered NetdUnsolService %s",
+             status.isOk() ? "Successful" : "Failed");
     } else {
       gNetd = nullptr;
       gDnsResolver = nullptr;
