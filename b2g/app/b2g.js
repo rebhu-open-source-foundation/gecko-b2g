@@ -1136,8 +1136,10 @@ pref("dom.ipc.forkserver.enable", true);
 // the system app, until nsContentSecurityManager.cpp stabilizes (eg. bug 1544011)
 pref("dom.security.skip_remote_script_assertion_in_system_priv_context", true);
 
-// Enable WebRender by default
-pref("gfx.webrender.all", true);
+// Disable WebRender by default
+pref("gfx.webrender.all", false);
+pref("gfx.webrender.enabled", false);
+pref("gfx.webrender.force-disabled", true);
 
 // We control process prelaunch from the embedding api.
 pref("dom.ipc.processPrelaunch.enabled", false);
