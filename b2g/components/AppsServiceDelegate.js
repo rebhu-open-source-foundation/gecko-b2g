@@ -32,41 +32,33 @@ AppsServiceDelegate.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsIAppsServiceDelegate]),
   _xpcom_factory: ComponentUtils.generateSingletonFactory(AppsServiceDelegate),
 
-  onBoot(aManifestUrl, aFeatures) {
-    // TODO: call to the related components to finish the registration
-    log(`onBoot: ${aManifestUrl}`);
-    log(aFeatures);
+  _installPermissions(aFeatures, aManifestUrl, aReinstall, aState) {
     try {
       let features = JSON.parse(aFeatures);
 
       PermissionsInstaller.installPermissions(
         features,
         aManifestUrl,
-        false /* reinstall */,
+        aReinstall,
         null /* onerror */
       );
     } catch (e) {
-      log(`Error in onBoot: ${e}`);
+      log(`Error in ${aState}: ${e}`);
     }
+  },
+
+  onBoot(aManifestUrl, aFeatures) {
+    // TODO: call to the related components to finish the registration
+    log(`onBoot: ${aManifestUrl}`);
+    log(aFeatures);
+    this._installPermissions(aFeatures, aManifestUrl, false, "onBoot");
   },
 
   onInstall(aManifestUrl, aFeatures) {
     // TODO: call to the related components to finish the registration
     log(`onInstall: ${aManifestUrl}`);
     log(aFeatures);
-    try {
-      let features = JSON.parse(aFeatures);
-
-      PermissionsInstaller.installPermissions(
-        features,
-        aManifestUrl,
-        false /* reinstall */,
-        null /* onerror */
-      );
-    } catch (e) {
-      log(`Error in onInstall: ${e}`);
-    }
-
+    this._installPermissions(aFeatures, aManifestUrl, false, "onInstall");
     let uri = Services.io.newURI(aManifestUrl);
     LocalDomains.add(uri.host);
   },
@@ -74,18 +66,7 @@ AppsServiceDelegate.prototype = {
   onUpdate(aManifestUrl, aFeatures) {
     log(`onUpdate: ${aManifestUrl}`);
     log(aFeatures);
-    try {
-      let features = JSON.parse(aFeatures);
-
-      PermissionsInstaller.installPermissions(
-        features,
-        aManifestUrl,
-        true /* reinstall */,
-        null /* onerror */
-      );
-    } catch (e) {
-      log(`Error in onUpdate: ${e}`);
-    }
+    this._installPermissions(aFeatures, aManifestUrl, true, "onUpdate");
   },
 
   onUninstall(aManifestUrl) {

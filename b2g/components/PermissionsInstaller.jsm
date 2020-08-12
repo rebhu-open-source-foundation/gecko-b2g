@@ -132,15 +132,14 @@ this.PermissionsInstaller = {
       }
 
       let appType = "pwa";
+      let isCore = false;
 
       // Packaged apps are served from the ".local" domain.
       let uri = Services.io.newURI(aManifestURL);
       if (uri.host.endsWith(".local")) {
-        appType = "packaged";
-        // TODO: Use the old format temporarily, since new format is not settled and applied to all apps yet.
-        if (aFeatures.type == "certified") {
-          appType = "certified";
-        }
+        appType = "signed";
+        // Core apps get special treatment for some permissions.
+        isCore = aFeatures.core === true;
       }
 
       for (let permName in aFeatures.permissions) {
@@ -158,6 +157,9 @@ this.PermissionsInstaller = {
         );
         for (let idx in expandedPermNames) {
           let permValue = PermissionsTable[permName][appType];
+          if (isCore && PermissionsTable[permName].core !== undefined) {
+            permValue = PermissionsTable[permName].core;
+          }
 
           if (permValue == PROMPT_ACTION) {
             // If the permission is prompt, keep the current value. This will
