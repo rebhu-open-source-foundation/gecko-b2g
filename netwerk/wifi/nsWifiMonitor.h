@@ -42,6 +42,7 @@ class nsWifiListener {
   bool mHasSentData;
 };
 
+#ifndef MOZ_WIDGET_GONK
 class nsWifiMonitor final : nsIRunnable, nsIWifiMonitor, nsIObserver {
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
@@ -67,9 +68,39 @@ class nsWifiMonitor final : nsIRunnable, nsIWifiMonitor, nsIObserver {
 
   mozilla::ReentrantMonitor mReentrantMonitor;
 
-#ifdef XP_WIN
+#  ifdef XP_WIN
   mozilla::UniquePtr<WinWifiScanner> mWinWifiScanner;
-#endif
+#  endif
 };
+#else
+#  include "nsIWifi.h"
+
+class nsWifiMonitor final : nsIWifiMonitor,
+                            nsIWifiScanResultsReady,
+                            nsIObserver {
+ public:
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSIWIFIMONITOR
+  NS_DECL_NSIOBSERVER
+  NS_DECL_NSIWIFISCANRESULTSREADY
+
+  nsWifiMonitor();
+
+ private:
+  ~nsWifiMonitor() = default;
+
+  void ClearTimer() {
+    if (mTimer) {
+      mTimer->Cancel();
+      mTimer = nullptr;
+    }
+  }
+  void StartScan();
+
+  nsCOMArray<nsWifiAccessPoint> mLastAccessPoints;
+  nsTArray<nsWifiListener> mListeners;
+  nsCOMPtr<nsITimer> mTimer;
+};
+#endif  // MOZ_WIDGET_GONK
 
 #endif

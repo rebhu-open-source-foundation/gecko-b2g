@@ -2547,6 +2547,11 @@ dnl
 if test "$MOZ_WIDGET_TOOLKIT"; then
 
   case "$OS_TARGET" in
+    Android)
+      if test -n "$gonkdir"; then
+        NECKO_WIFI=1
+      fi
+      ;;
     Darwin)
       NECKO_WIFI=1
       ;;

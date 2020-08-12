@@ -27,7 +27,7 @@ class nsWifiAccessPoint final : public nsIWifiAccessPoint {
   char mMac[18];
   int mSignal;
   char mSsid[33];
-  int mSsidLen;
+  unsigned int mSsidLen;
 
   void setSignal(int signal) { mSignal = signal; }
 
@@ -55,6 +55,13 @@ class nsWifiAccessPoint final : public nsIWifiAccessPoint {
   void setSSIDRaw(const char* aSSID, size_t len) {
     mSsidLen = std::min(len, mozilla::ArrayLength(mSsid));
     memcpy(mSsid, aSSID, mSsidLen);
+
+    // Ideally, it should never go to 'false' case because the maximum length
+    // of a valid SSID is 32 and the array length of 'mSsid' is 33. But, in
+    // order to avoid any possible buffer over-read, a null character should be
+    // always appended to an SSID or filled in the last element in the 'mSsid'
+    // array.
+    (mSsidLen == len) ? mSsid[mSsidLen] = 0 : mSsid[mSsidLen - 1] = 0;
   }
 
   void setSSID(const char* aSSID, unsigned long len) {
