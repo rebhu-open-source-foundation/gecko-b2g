@@ -7,24 +7,21 @@
 #include "SmsParent.h"
 
 #include "nsISmsService.h"
-//#include "nsIMmsService.h"
+#include "nsIMmsService.h"
 #include "nsIObserverService.h"
 #include "mozilla/Services.h"
 #include "nsISmsMessage.h"
-//#include "nsIMmsMessage.h"
-//#include "mozilla/unused.h"
+#include "nsIMmsMessage.h"
 #include "SmsMessageInternal.h"
-//#include "MmsMessageInternal.h"
+#include "MmsMessageInternal.h"
 #include "nsIMobileMessageDatabaseService.h"
 //#include "MobileMessageThreadInternal.h"
-//#include "mozilla/dom/ipc/BlobParent.h"
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/File.h"
 #include "mozilla/dom/ToJSValue.h"
 #include "mozilla/dom/mobilemessage/Constants.h"  // For MessageType
 #include "mozilla/UniquePtr.h"
 #include "nsContentUtils.h"
-//#include "nsTArrayHelpers.h"
 #include "xpcpublic.h"
 #include "nsServiceManagerUtils.h"
 #include "DeletedMessageInfo.h"
@@ -32,7 +29,7 @@
 namespace mozilla {
 namespace dom {
 namespace mobilemessage {
-/*
+
 static JSObject* MmsAttachmentDataToJSObject(
     JSContext* aContext, const MmsAttachmentData& aAttachment) {
   JS::Rooted<JSObject*> obj(aContext, JS_NewPlainObject(aContext));
@@ -54,8 +51,7 @@ static JSObject* MmsAttachmentDataToJSObject(
     return nullptr;
   }
 
-  RefPtr<BlobImpl> blobImpl =
-      static_cast<BlobParent*>(aAttachment.contentParent())->GetBlobImpl();
+  RefPtr<BlobImpl> blobImpl = IPCBlobUtils::Deserialize(aAttachment.content());
 
   // RefPtr<File> needs to go out of scope before toObjectOrNull() is
   // called because the static analysis thinks dereferencing XPCOM objects
@@ -105,8 +101,8 @@ static bool GetParamsFromSendMmsMessageRequest(
   }
 
   // receivers
-  JS::Rooted<JSObject*> receiverArray(aCx);
-  if (NS_FAILED(nsTArrayToJSArray(aCx, aRequest.receivers(), &receiverArray))) {
+  JS::Rooted<JS::Value> receiverArray(aCx);
+  if (!ToJSValue(aCx, aRequest.receivers(), &receiverArray)) {
     return false;
   }
   if (!JS_DefineProperty(aCx, paramsObj, "receivers", receiverArray, 0)) {
@@ -139,7 +135,7 @@ static bool GetParamsFromSendMmsMessageRequest(
   aParam->setObject(*paramsObj);
   return true;
 }
-*/
+
 static bool GetMobileMessageDataFromMessage(ContentParent* aParent,
                                             nsISupports* aMsg,
                                             MobileMessageData& aData) {
@@ -147,22 +143,22 @@ static bool GetMobileMessageDataFromMessage(ContentParent* aParent,
     NS_WARNING("Invalid message to convert!");
     return false;
   }
-  /*
-    nsCOMPtr<nsIMmsMessage> mmsMsg = do_QueryInterface(aMsg);
-    if (mmsMsg) {
-      if (!aParent) {
-        NS_ERROR("Invalid ContentParent to convert MMS Message!");
-        return false;
-      }
-      MmsMessageData data;
-      if (!static_cast<MmsMessageInternal*>(mmsMsg.get())
-               ->GetData(aParent, data)) {
-        return false;
-      }
-      aData = data;
-      return true;
+
+  nsCOMPtr<nsIMmsMessage> mmsMsg = do_QueryInterface(aMsg);
+  if (mmsMsg) {
+    if (!aParent) {
+      NS_ERROR("Invalid ContentParent to convert MMS Message!");
+      return false;
     }
-  */
+    MmsMessageData data;
+    if (!static_cast<MmsMessageInternal*>(mmsMsg.get())
+             ->GetData(aParent, data)) {
+      return false;
+    }
+    aData = data;
+    return true;
+  }
+
   nsCOMPtr<nsISmsMessage> smsMsg = do_QueryInterface(aMsg);
   if (smsMsg) {
     aData = static_cast<SmsMessageInternal*>(smsMsg.get())->GetData();
@@ -498,31 +494,29 @@ bool SmsRequestParent::DoRequest(const SendMessageRequest& aRequest) {
       smsService->Send(req.serviceId(), req.number(), req.message(),
                        req.silent(), this);
     } break;
-      /*
-          case SendMessageRequest::TSendMmsMessageRequest: {
-            nsCOMPtr<nsIMmsService> mmsService =
-                do_GetService(MMS_SERVICE_CONTRACTID);
-            NS_ENSURE_TRUE(mmsService, true);
+    case SendMessageRequest::TSendMmsMessageRequest: {
+        nsCOMPtr<nsIMmsService> mmsService = do_GetService(MMS_SERVICE_CONTRACTID);
+        NS_ENSURE_TRUE(mmsService, true);
 
-            // There are cases (see bug 981202) where this is called with no JS
-         on the
-            // stack. And since mmsService might be JS-Implemented, we need to
-         pass a
-            // jsval to ::Send. Only system code should be looking at the result
-         here,
-            // so we just create it in the System-Principaled Junk Scope.
-            AutoJSContext cx;
-            JSAutoCompartment ac(cx, xpc::PrivilegedJunkScope());
-            JS::Rooted<JS::Value> params(cx);
-            const SendMmsMessageRequest& req =
-         aRequest.get_SendMmsMessageRequest(); if
-         (!GetParamsFromSendMmsMessageRequest(cx, req, params.address())) {
-              NS_WARNING("SmsRequestParent: Fail to build MMS params.");
-              return true;
-            }
-            mmsService->Send(req.serviceId(), params, this);
-          } break;
-      */
+        // There are cases (see bug 981202) where this is called with no JS on the
+        // stack. And since mmsService might be JS-Implemented, we need to pass a
+        // jsval to ::Send. Only system code should be looking at the result here,
+        // so we just create it in the System-Principaled Junk Scope.
+        AutoJSContext cx;
+        //JSAutoCompartment ac(cx, xpc::PrivilegedJunkScope());
+        JSAutoRealm ar(cx, xpc::PrivilegedJunkScope());
+        JS::Rooted<JS::Value> params(cx);
+        const SendMmsMessageRequest &req = aRequest.get_SendMmsMessageRequest();
+        if (!GetParamsFromSendMmsMessageRequest(cx,
+                                                req,
+                                                params.address())) {
+          NS_WARNING("SmsRequestParent: Fail to build MMS params.");
+          return true;
+        }
+
+        mmsService->Send(req.serviceId(), params, this);
+      }
+      break;
     default:
       MOZ_CRASH("Unknown type of SendMessageRequest!");
   }

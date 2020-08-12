@@ -24,12 +24,14 @@ dictionary SmsSegmentInfo {
   long charsAvailableInLastSegment = 0;
 };
 
+[GenerateInit]
 dictionary MmsAttachment {
   DOMString? id = null;
   DOMString? location = null;
   Blob? content = null;
 };
 
+[GenerateConversionToJS, GenerateInit]
 dictionary MmsParameters {
   sequence<DOMString> receivers = [];
   DOMString? subject = null;
@@ -155,9 +157,9 @@ interface MobileMessageManager : EventTarget
    * @return
    *        A DOMRequest object indicating the sending result.
    */
-  //[Throws]
-  //DOMRequest sendMMS(optional MmsParameters parameters={},
-  //                   optional MmsSendParameters sendParameters={});
+  [Throws]
+  DOMRequest sendMMS(optional MmsParameters parameters={},
+                       optional MmsSendParameters sendParameters={});
 
   [Throws]
   DOMRequest getMessage(long id);
@@ -168,10 +170,10 @@ interface MobileMessageManager : EventTarget
   DOMRequest delete(long id);
   [Throws]
   DOMRequest delete(SmsMessage message);
-  //[Throws]
-  //DOMRequest delete(MmsMessage message);
-  //[Throws]
-  //DOMRequest delete(sequence<(long or SmsMessage or MmsMessage)> params);
+  [Throws]
+  DOMRequest delete(MmsMessage message);
+  [Throws]
+  DOMRequest delete(sequence<(long or SmsMessage or MmsMessage)> params);
 
   // Iterates through {Mms,Sms}Message.
   //[Throws]
@@ -187,10 +189,10 @@ interface MobileMessageManager : EventTarget
   //[Throws]
   //DOMCursor getThreads();
 
-  //[Throws]
-  //DOMRequest retrieveMMS(long id);
-  //[Throws]
-  //DOMRequest retrieveMMS(MmsMessage message);
+  [Throws]
+  DOMRequest retrieveMMS(long id);
+  [Throws]
+  DOMRequest retrieveMMS(MmsMessage message);
 
   [Throws]
   Promise<SmscAddress> getSmscAddress(optional unsigned long serviceId);

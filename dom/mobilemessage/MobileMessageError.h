@@ -15,8 +15,8 @@
 namespace mozilla {
 namespace dom {
 
-// class MmsMessage;
-// class OwningSmsMessageOrMmsMessage;
+class MmsMessage;
+class OwningSmsMessageOrMmsMessage;
 class SmsMessage;
 
 class MobileMessageError final : public nsISupports, public nsWrapperCache {
@@ -27,16 +27,15 @@ class MobileMessageError final : public nsISupports, public nsWrapperCache {
   MobileMessageError(nsPIDOMWindowInner* aWindow, const nsAString& aName,
                      SmsMessage* aSms);
 
-  //  MobileMessageError(nsPIDOMWindowInner* aWindow, const nsAString& aName,
-  //                        MmsMessage* aMms);
+  MobileMessageError(nsPIDOMWindowInner* aWindow, const nsAString& aName,
+                        MmsMessage* aMms);
 
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
   nsPIDOMWindowInner* GetParentObject() const;
-  // FIXME:
-  // void GetData(OwningSmsMessageOrMmsMessage& aRetVal) const;
-  already_AddRefed<SmsMessage> Data() const;
+
+  void GetData(OwningSmsMessageOrMmsMessage& aRetVal) const;
 
  private:
   ~MobileMessageError() {}
@@ -44,7 +43,7 @@ class MobileMessageError final : public nsISupports, public nsWrapperCache {
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
   nsString mMessage;
   RefPtr<SmsMessage> mSms;
-  // RefPtr<MmsMessage> mMms;
+  RefPtr<MmsMessage> mMms;
 };
 
 }  // namespace dom

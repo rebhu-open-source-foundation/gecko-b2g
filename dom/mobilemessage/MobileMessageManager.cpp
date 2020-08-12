@@ -9,15 +9,15 @@
 #include "DeletedMessageInfo.h"
 //#include "DOMCursor.h"
 //#include "DOMRequest.h"
-//#include "MmsMessage.h"
-//#include "MmsMessageInternal.h"
+#include "MmsMessage.h"
+#include "MmsMessageInternal.h"
 #include "MobileMessageCallback.h"
 //#include "MobileMessageCursorCallback.h"
 #include "SmsMessage.h"
 #include "SmsMessageInternal.h"
 #include "mozilla/dom/mobilemessage/Constants.h"  // For kSms*ObserverTopic
 //#include "mozilla/dom/MozMessageDeletedEvent.h"
-//#include "mozilla/dom/MozMmsEvent.h"
+#include "mozilla/dom/MmsEvent.h"
 #include "mozilla/dom/MobileMessageManagerBinding.h"
 #include "mozilla/dom/SmsEvent.h"
 #include "mozilla/dom/Promise.h"
@@ -25,7 +25,7 @@
 #include "mozilla/Preferences.h"
 #include "mozilla/Services.h"
 #include "mozilla/UniquePtr.h"
-//#include "nsIMmsService.h"
+#include "nsIMmsService.h"
 #include "nsIMobileMessageCallback.h"
 #include "nsIMobileMessageDatabaseService.h"
 #include "nsIMobileMessageService.h"
@@ -36,13 +36,8 @@
 // Service instantiation
 #include "ipc/SmsIPCService.h"
 #include "MobileMessageService.h"
-#ifdef MOZ_WIDGET_ANDROID
-#  include "android/MobileMessageDatabaseService.h"
-#  include "android/SmsService.h"
-#elif defined(MOZ_WIDGET_GONK) && defined(MOZ_B2G_RIL)
-#  include "nsIGonkMobileMessageDatabaseService.h"
-#  include "nsIGonkSmsService.h"
-#endif
+#include "nsIGonkMobileMessageDatabaseService.h"
+#include "nsIGonkSmsService.h"
 
 #include "nsXULAppAPI.h"  // For XRE_GetProcessType()
 
@@ -222,7 +217,7 @@ void MobileMessageManager::Send(const Sequence<nsString>& aNumbers,
     aReturn.AppendElement(request);
   }
 }
-/*
+
 already_AddRefed<DOMRequest> MobileMessageManager::SendMMS(
     const MmsParameters& aParams, const MmsSendParameters& aSendParams,
     ErrorResult& aRv) {
@@ -235,8 +230,8 @@ already_AddRefed<DOMRequest> MobileMessageManager::SendMMS(
   // Use the default one unless |aSendParams.serviceId| is available.
   uint32_t serviceId;
   nsresult rv;
-  if (aSendParams.mServiceId.WasPassed()) {
-    serviceId = aSendParams.mServiceId.Value();
+  if (aSendParams.mServiceId) {
+    serviceId = aSendParams.mServiceId;
   } else {
     rv = mmsService->GetMmsDefaultServiceId(&serviceId);
     if (NS_FAILED(rv)) {
@@ -276,7 +271,7 @@ already_AddRefed<DOMRequest> MobileMessageManager::SendMMS(
 
   return request.forget();
 }
-*/
+
 already_AddRefed<DOMRequest> MobileMessageManager::GetMessage(
     int32_t aId, ErrorResult& aRv) {
   nsCOMPtr<nsIMobileMessageDatabaseService> dbService =
@@ -342,7 +337,7 @@ already_AddRefed<DOMRequest> MobileMessageManager::Delete(SmsMessage& aMessage,
                                                           ErrorResult& aRv) {
   return Delete(aMessage.Id(), aRv);
 }
-/*
+
 already_AddRefed<DOMRequest> MobileMessageManager::Delete(MmsMessage& aMessage,
                                                           ErrorResult& aRv) {
   return Delete(aMessage.Id(), aRv);
@@ -374,7 +369,7 @@ already_AddRefed<DOMRequest> MobileMessageManager::Delete(
 
   return Delete(idArray.Elements(), size, aRv);
 }
-
+/*
 already_AddRefed<DOMCursor> MobileMessageManager::GetMessages(
     const MobileMessageFilter& aFilter, bool aReverse, ErrorResult& aRv) {
   nsCOMPtr<nsIMobileMessageDatabaseService> dbService =
@@ -513,7 +508,7 @@ already_AddRefed<DOMCursor> MobileMessageManager::GetThreads(ErrorResult& aRv) {
   RefPtr<DOMCursor> cursor(cursorCallback->mDOMCursor);
   return cursor.forget();
 }
-
+*/
 already_AddRefed<DOMRequest> MobileMessageManager::RetrieveMMS(
     int32_t aId, ErrorResult& aRv) {
   nsCOMPtr<nsIMmsService> mmsService = do_GetService(MMS_SERVICE_CONTRACTID);
@@ -545,7 +540,7 @@ already_AddRefed<DOMRequest> MobileMessageManager::RetrieveMMS(
     MmsMessage& aMessage, ErrorResult& aRv) {
   return RetrieveMMS(aMessage.Id(), aRv);
 }
-*/
+
 nsresult MobileMessageManager::DispatchTrustedSmsEventToSelf(
     const char* aTopic, const nsAString& aEventName, nsISupports* aMsg) {
   nsCOMPtr<nsPIDOMWindowInner> window = GetOwner();
@@ -563,20 +558,18 @@ nsresult MobileMessageManager::DispatchTrustedSmsEventToSelf(
     return DispatchTrustedEvent(event);
   }
 
-  /*
-    nsCOMPtr<nsIMmsMessage> mms = do_QueryInterface(aMsg);
-    if (mms) {
-      MozMmsEventInit init;
-      init.mBubbles = false;
-      init.mCancelable = false;
-      init.mMessage =
-          new MmsMessage(window, static_cast<MmsMessageInternal*>(mms.get()));
+  nsCOMPtr<nsIMmsMessage> mms = do_QueryInterface(aMsg);
+  if (mms) {
+    MmsEventInit init;
+    init.mBubbles = false;
+    init.mCancelable = false;
+    init.mMessage =
+        new MmsMessage(window, static_cast<MmsMessageInternal*>(mms.get()));
 
-      RefPtr<MozMmsEvent> event =
-          MozMmsEvent::Constructor(this, aEventName, init);
-      return DispatchTrustedEvent(event);
-    }
-  */
+    RefPtr<MmsEvent> event = MmsEvent::Constructor(this, aEventName, init);
+    return DispatchTrustedEvent(event);
+  }
+
   nsAutoCString errorMsg;
   errorMsg.AssignLiteral("Got a '");
   errorMsg.Append(aTopic);
@@ -806,11 +799,7 @@ already_AddRefed<nsISmsService> NS_CreateSmsService() {
   if (XRE_IsContentProcess()) {
     smsService = SmsIPCService::GetSingleton();
   } else {
-#ifdef MOZ_WIDGET_ANDROID
-    smsService = new SmsService();
-#elif defined(MOZ_WIDGET_GONK) && defined(MOZ_B2G_RIL)
     smsService = do_GetService(GONK_SMSSERVICE_CONTRACTID);
-#endif
   }
 
   return smsService.forget();
@@ -822,31 +811,25 @@ NS_CreateMobileMessageDatabaseService() {
   if (XRE_IsContentProcess()) {
     mobileMessageDBService = SmsIPCService::GetSingleton();
   } else {
-#ifdef MOZ_WIDGET_ANDROID
-    mobileMessageDBService = new MobileMessageDatabaseService();
-#elif defined(MOZ_WIDGET_GONK) && defined(MOZ_B2G_RIL)
     mobileMessageDBService =
         do_CreateInstance(GONK_MOBILE_MESSAGE_DATABASE_SERVICE_CONTRACTID);
-#endif
   }
 
   return mobileMessageDBService.forget();
 }
-/*
+
 already_AddRefed<nsIMmsService> NS_CreateMmsService() {
   nsCOMPtr<nsIMmsService> mmsService;
 
   if (XRE_IsContentProcess()) {
     mmsService = SmsIPCService::GetSingleton();
   } else {
-#if defined(MOZ_WIDGET_GONK) && defined(MOZ_B2G_RIL)
-    mmsService = do_CreateInstance("@mozilla.org/mms/gonkmmsservice;1");
-#endif
+    mmsService = do_CreateInstance(GONK_MMSSERVICE_CONTRACTID);
   }
 
   return mmsService.forget();
 }
-*/
+
 already_AddRefed<nsIMobileMessageService> NS_CreateMobileMessageService() {
   nsCOMPtr<nsIMobileMessageService> service = new MobileMessageService();
   return service.forget();

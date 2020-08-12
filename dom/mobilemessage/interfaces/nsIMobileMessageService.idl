@@ -32,24 +32,24 @@ interface nsIMobileMessageService : nsISupports
                                  in unsigned long long deliveryTimestamp,
                                  in bool               read);
 
-  //FIXME
-  //[implicit_jscontext]
-  //nsIMmsMessage createMmsMessage(in long               id,
-  //                               in unsigned long long threadId,
-  //                               in AString          iccId,
-  //                               in AString          delivery,
-  //                               in jsval              deliveryInfo,
-  //                               in AString          sender,
-  //                               in jsval              receivers,
-  //                               in unsigned long long timestamp,
-  //                               in unsigned long long sentTimestamp,
-  //                               in boolean            read,
-  //                               in AString          subject,
-  //                               in AString          smil,
-  //                               in jsval              attachments,
-  //                               in unsigned long long expiryDate,
-  //                               in boolean            readReportRequested,
-  //                               in boolean            isGroup);
+
+  [implicit_jscontext]
+  nsIMmsMessage createMmsMessage(in long               id,
+                                 in unsigned long long threadId,
+                                 in AString          iccId,
+                                 in AString          delivery,
+                                 in jsval              deliveryInfo,
+                                 in AString          sender,
+                                 in jsval              receivers,
+                                 in unsigned long long timestamp,
+                                 in unsigned long long sentTimestamp,
+                                 in boolean            read,
+                                 in AString          subject,
+                                 in AString          smil,
+                                 in jsval              attachments,
+                                 in unsigned long long expiryDate,
+                                 in boolean            readReportRequested,
+                                 in boolean            isGroup);
 
   //[implicit_jscontext]
   //nsIMobileMessageThread createThread(in unsigned long long id,

@@ -19,11 +19,11 @@ namespace dom {
 class Promise;
 class DOMRequest;
 // class DOMCursor;
-// class MmsMessage;
-// struct MmsParameters;
-// struct MmsSendParameters;
+class MmsMessage;
+struct MmsParameters;
+struct MmsSendParameters;
 struct MobileMessageFilter;
-// class OwningLongOrSmsMessageOrMmsMessage;
+class OwningLongOrSmsMessageOrMmsMessage;
 class SmsMessage;
 struct SmsSendParameters;
 struct SmscAddress;
@@ -58,9 +58,9 @@ class MobileMessageManager final : public DOMEventTargetHelper,
             const SmsSendParameters& aSendParams,
             nsTArray<RefPtr<DOMRequest>>& aReturn, ErrorResult& aRv);
 
-  //  already_AddRefed<DOMRequest> SendMMS(const MmsParameters& aParameters,
-  //                                       const MmsSendParameters& aSendParams,
-  //                                       ErrorResult& aRv);
+  already_AddRefed<DOMRequest> SendMMS(const MmsParameters& aParameters,
+                                       const MmsSendParameters& aSendParams,
+                                       ErrorResult& aRv);
 
   already_AddRefed<DOMRequest> GetMessage(int32_t aId, ErrorResult& aRv);
 
@@ -68,12 +68,11 @@ class MobileMessageManager final : public DOMEventTargetHelper,
 
   already_AddRefed<DOMRequest> Delete(SmsMessage& aMessage, ErrorResult& aRv);
 
-  //  already_AddRefed<DOMRequest> Delete(MmsMessage& aMessage, ErrorResult&
-  //  aRv);
+  already_AddRefed<DOMRequest> Delete(MmsMessage& aMessage, ErrorResult& aRv);
 
-  //  already_AddRefed<DOMRequest> Delete(
-  //      const Sequence<OwningLongOrSmsMessageOrMmsMessage>& aParams,
-  //      ErrorResult& aRv);
+  already_AddRefed<DOMRequest> Delete(
+      const Sequence<OwningLongOrSmsMessageOrMmsMessage>& aParams,
+      ErrorResult& aRv);
 
   //  already_AddRefed<DOMCursor> GetMessages(const MobileMessageFilter&
   //  aFilter,
@@ -85,10 +84,10 @@ class MobileMessageManager final : public DOMEventTargetHelper,
 
   //  already_AddRefed<DOMCursor> GetThreads(ErrorResult& aRv);
 
-  //  already_AddRefed<DOMRequest> RetrieveMMS(int32_t aId, ErrorResult& aRv);
+  already_AddRefed<DOMRequest> RetrieveMMS(int32_t aId, ErrorResult& aRv);
 
-  //  already_AddRefed<DOMRequest> RetrieveMMS(MmsMessage& aMessage,
-  //                                           ErrorResult& aRv);
+  already_AddRefed<DOMRequest> RetrieveMMS(MmsMessage& aMessage,
+                                           ErrorResult& aRv);
 
   already_AddRefed<Promise> GetSmscAddress(const Optional<uint32_t>& aServiceId,
                                            ErrorResult& aRv);

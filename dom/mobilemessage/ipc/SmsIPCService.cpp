@@ -13,8 +13,7 @@
 #include "mozilla/dom/BindingUtils.h"
 #include "mozilla/Preferences.h"
 #include "nsString.h"
-//#include "mozilla/dom/ipc/BlobChild.h"
-//#include "mozilla/unused.h"
+#include "mozilla/dom/IPCBlobUtils.h"
 
 using namespace mozilla::dom;
 using namespace mozilla::dom::mobilemessage;
@@ -262,7 +261,7 @@ SmsIPCService::CreateThreadCursor(
   return SendCursorRequest(CreateThreadCursorRequest(), aCursorCallback,
                            aResult);
 }
-
+*/
 bool GetSendMmsMessageRequestFromParams(uint32_t aServiceId,
                                         const JS::Value& aParam,
                                         SendMmsMessageRequest& request) {
@@ -278,28 +277,30 @@ bool GetSendMmsMessageRequestFromParams(uint32_t aServiceId,
   }
 
   // SendMobileMessageRequest.receivers
-  if (!params.mReceivers.WasPassed()) {
+  if (!params.mReceivers.Length()) {
     return false;
   }
-  request.receivers().AppendElements(params.mReceivers.Value());
+  request.receivers().AppendElements(params.mReceivers);
 
   // SendMobileMessageRequest.attachments
   mozilla::dom::ContentChild* cc = mozilla::dom::ContentChild::GetSingleton();
 
-  if (!params.mAttachments.WasPassed()) {
+  if (!params.mAttachments.Length()) {
     return false;
   }
 
-  for (uint32_t i = 0; i < params.mAttachments.Value().Length(); i++) {
-    mozilla::dom::MmsAttachment& attachment = params.mAttachments.Value()[i];
+  IPCBlob ipcBlob;
+  for (uint32_t i = 0; i < params.mAttachments.Length(); i++) {
+    mozilla::dom::MmsAttachment& attachment = params.mAttachments[i];
     MmsAttachmentData mmsAttachment;
     mmsAttachment.id().Assign(attachment.mId);
     mmsAttachment.location().Assign(attachment.mLocation);
-    mmsAttachment.contentChild() =
-        cc->GetOrCreateActorForBlob(attachment.mContent);
-    if (!mmsAttachment.contentChild()) {
+    nsresult rv =
+      IPCBlobUtils::Serialize(attachment.mContent->Impl(), cc, ipcBlob);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
       return false;
     }
+    mmsAttachment.content() = ipcBlob;
     request.attachments().AppendElement(mmsAttachment);
   }
 
@@ -312,7 +313,7 @@ bool GetSendMmsMessageRequestFromParams(uint32_t aServiceId,
 
   return true;
 }
-*/
+
 /*
  * Implementation of nsIMmsService.
  */
@@ -326,20 +327,16 @@ SmsIPCService::GetMmsDefaultServiceId(uint32_t* aServiceId) {
 NS_IMETHODIMP
 SmsIPCService::Send(uint32_t aServiceId, JS::Handle<JS::Value> aParameters,
                     nsIMobileMessageCallback* aRequest) {
-  // SendMmsMessageRequest req;
-  // if (!GetSendMmsMessageRequestFromParams(aServiceId, aParameters, req)) {
-  //  return NS_ERROR_INVALID_ARG;
-  //}
-  // return SendRequest(SendMessageRequest(req), aRequest);
-  NS_ERROR("Not implemented yet");
-  return NS_OK;
+  SendMmsMessageRequest req;
+  if (!GetSendMmsMessageRequestFromParams(aServiceId, aParameters, req)) {
+    return NS_ERROR_INVALID_ARG;
+  }
+  return SendRequest(SendMessageRequest(req), aRequest);
 }
 
 NS_IMETHODIMP
 SmsIPCService::Retrieve(int32_t aId, nsIMobileMessageCallback* aRequest) {
-  // return SendRequest(RetrieveMessageRequest(aId), aRequest);
-  NS_ERROR("Not implemented yet");
-  return NS_OK;
+  return SendRequest(RetrieveMessageRequest(aId), aRequest);
 }
 
 NS_IMETHODIMP

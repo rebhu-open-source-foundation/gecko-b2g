@@ -30,7 +30,7 @@ MobileMessageThread::~MobileMessageThread() {}
 
 JSObject* MobileMessageThread::WrapObject(JSContext* aCx,
                                           JS::Handle<JSObject*> aGivenProto) {
-  return MobileMessageThreadBinding::Wrap(aCx, this, aGivenProto);
+  return MobileMessageThread_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 uint64_t MobileMessageThread::Id() const {
@@ -54,7 +54,7 @@ uint64_t MobileMessageThread::UnreadCount() const {
 }
 
 void MobileMessageThread::GetParticipants(nsTArray<nsString>& aRetVal) const {
-  aRetVal = mThread->mData.participants();
+  aRetVal = mThread->mData.participants().Clone();
 }
 
 DOMTimeStamp MobileMessageThread::Timestamp() const {

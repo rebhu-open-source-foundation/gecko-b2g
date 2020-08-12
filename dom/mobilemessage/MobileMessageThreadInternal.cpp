@@ -5,10 +5,8 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "MobileMessageThreadInternal.h"
-#include "nsIDOMClassInfo.h"
 #include "jsapi.h"            // For OBJECT_TO_JSVAL and JS_NewDateObjectMsec
 #include "nsJSUtils.h"        // For nsAutoJSString
-#include "nsTArrayHelpers.h"  // For nsTArrayToJSArray
 #include "mozilla/dom/mobilemessage/Constants.h"  // For MessageType
 
 namespace mozilla {
@@ -40,7 +38,7 @@ NS_IMPL_ISUPPORTS(MobileMessageThreadInternal, nsIMobileMessageThread)
 
     JS::Rooted<JSObject*> obj(aCx, &aParticipants.toObject());
     bool isArray;
-    if (!JS_IsArrayObject(aCx, obj, &isArray)) {
+    if (!JS::IsArrayObject(aCx, obj, &isArray)) {
       return NS_ERROR_FAILURE;
     }
     if (!isArray) {
@@ -48,7 +46,7 @@ NS_IMPL_ISUPPORTS(MobileMessageThreadInternal, nsIMobileMessageThread)
     }
 
     uint32_t length;
-    MOZ_ALWAYS_TRUE(JS_GetArrayLength(aCx, obj, &length));
+    MOZ_ALWAYS_TRUE(JS::GetArrayLength(aCx, obj, &length));
     NS_ENSURE_TRUE(length, NS_ERROR_INVALID_ARG);
 
     for (uint32_t i = 0; i < length; ++i) {
@@ -134,12 +132,9 @@ MobileMessageThreadInternal::GetUnreadCount(uint64_t* aUnreadCount) {
 NS_IMETHODIMP
 MobileMessageThreadInternal::GetParticipants(
     JSContext* aCx, JS::MutableHandle<JS::Value> aParticipants) {
-  JS::Rooted<JSObject*> obj(aCx);
-
-  nsresult rv = nsTArrayToJSArray(aCx, mData.participants(), &obj);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  aParticipants.setObject(*obj);
+  if(!ToJSValue(aCx, mData.participants(), aParticipants)) {
+    return NS_ERROR_FAILURE;
+  }
   return NS_OK;
 }
 

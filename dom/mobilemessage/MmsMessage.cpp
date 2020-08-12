@@ -30,7 +30,7 @@ MmsMessage::~MmsMessage() {}
 
 JSObject* MmsMessage::WrapObject(JSContext* aCx,
                                  JS::Handle<JSObject*> aGivenProto) {
-  return MmsMessageBinding::Wrap(aCx, this, aGivenProto);
+  return MmsMessage_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 void MmsMessage::GetType(nsString& aRetVal) const {
@@ -58,7 +58,7 @@ void MmsMessage::GetDelivery(nsString& aRetVal) const {
 }
 
 void MmsMessage::GetDeliveryInfo(nsTArray<MmsDeliveryInfo>& aRetVal) const {
-  aRetVal = mMessage->mDeliveryInfo;
+  aRetVal = mMessage->mDeliveryInfo.Clone();
 }
 
 void MmsMessage::GetSender(nsString& aRetVal) const {
@@ -66,7 +66,7 @@ void MmsMessage::GetSender(nsString& aRetVal) const {
 }
 
 void MmsMessage::GetReceivers(nsTArray<nsString>& aRetVal) const {
-  aRetVal = mMessage->mReceivers;
+  aRetVal = mMessage->mReceivers.Clone();
 }
 
 uint64_t MmsMessage::Timestamp() const {
@@ -104,7 +104,7 @@ void MmsMessage::GetAttachments(nsTArray<MmsAttachment>& aRetVal) const {
     const MmsAttachment& element = mMessage->mAttachments[i];
     attachment.mId = element.mId;
     attachment.mLocation = element.mLocation;
-    attachment.mContent = Blob::Create(mWindow, element.mContent->Impl());
+    attachment.mContent = Blob::Create(GetParentObject()->AsGlobal(), element.mContent->Impl());
     aRetVal.AppendElement(attachment);
   }
 }

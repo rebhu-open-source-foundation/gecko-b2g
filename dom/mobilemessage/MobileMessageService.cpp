@@ -5,8 +5,8 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "SmsMessageInternal.h"
-//#include "MmsMessageInternal.h"
-//#include "MobileMessageThreadInternal.h"
+#include "MmsMessageInternal.h"
+#include "MobileMessageThreadInternal.h"
 #include "MobileMessageService.h"
 #include "DeletedMessageInfo.h"
 
@@ -29,8 +29,7 @@ MobileMessageService::CreateSmsMessage(
                                     aMessageClass, aTimestamp, aSentTimestamp,
                                     aDeliveryTimestamp, aRead, aCx, aMessage);
 }
-// FIXME
-/*
+
 NS_IMETHODIMP
 MobileMessageService::CreateMmsMessage(
     int32_t aId, uint64_t aThreadId, const nsAString& aIccId,
@@ -46,7 +45,8 @@ MobileMessageService::CreateMmsMessage(
       aTimestamp, aSentTimestamp, aRead, aSubject, aSmil, aAttachments,
       aExpiryDate, aReadReportRequested, aIsGroup, aCx, aMessage);
 }
-
+// FIXME
+/*
 NS_IMETHODIMP
 MobileMessageService::CreateThread(
     uint64_t aId, JS::Handle<JS::Value> aParticipants, uint64_t aTimestamp,

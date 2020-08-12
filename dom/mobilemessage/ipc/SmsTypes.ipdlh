@@ -4,7 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//include IPCBlob;
+include IPCBlob;
 
 using DeliveryState from "mozilla/dom/mobilemessage/Types.h";
 using DeliveryStatus from "mozilla/dom/mobilemessage/Types.h";
@@ -38,7 +38,7 @@ struct MmsAttachmentData
 {
   nsString id;
   nsString location;
-//  PBlob content;
+  IPCBlob content;
 };
 
 struct MmsDeliveryInfoData

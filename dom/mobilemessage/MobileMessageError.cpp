@@ -6,7 +6,7 @@
 
 #include "MobileMessageError.h"
 #include "mozilla/dom/MobileMessageErrorBinding.h"
-//#include "MmsMessage.h"
+#include "MmsMessage.h"
 #include "SmsMessage.h"
 
 namespace mozilla {
@@ -23,31 +23,25 @@ NS_INTERFACE_MAP_END
 
 MobileMessageError::MobileMessageError(nsPIDOMWindowInner* aWindow,
                                        const nsAString& aName, SmsMessage* aSms)
-    : mWindow(aWindow), mMessage(aName), mSms(aSms) {}
+    : mWindow(aWindow), mMessage(aName), mSms(aSms), mMms(nullptr) {}
 
-// DOMMobileMessageError::DOMMobileMessageError(nsPIDOMWindowInner* aWindow,
-//                                             const nsAString& aName,
-//                                             MmsMessage* aMms)
-//    : mWindow(aWindow), mMessage(aName), mSms(nullptr), mMms(aMms) {}
+MobileMessageError::MobileMessageError(nsPIDOMWindowInner* aWindow,
+                                       const nsAString& aName, MmsMessage* aMms)
+    : mWindow(aWindow), mMessage(aName), mSms(nullptr), mMms(aMms) {}
 
-// void MobileMessageError::GetData(SmsMessage& aRetVal) const {
-//  if (mSms) {
-//    aRetVal.SetAsSmsMessage() = mSms;
-//    return;
-//  }
-//
-//  if (mMms) {
-//    aRetVal.SetAsMmsMessage() = mMms;
-//    return;
-//  }
-//  MOZ_CRASH("Bad object with invalid mSms and mMms.");
-//}
-
-already_AddRefed<SmsMessage> MobileMessageError::Data() const {
+void
+MobileMessageError::GetData(OwningSmsMessageOrMmsMessage& aRetVal) const
+{
   if (mSms) {
-    RefPtr<SmsMessage> data = mSms;
-    return data.forget();
+    aRetVal.SetAsSmsMessage() = mSms;
+    return;
   }
+
+  if (mMms) {
+    aRetVal.SetAsMmsMessage() = mMms;
+    return;
+  }
+
   MOZ_CRASH("Bad object with invalid mSms and mMms.");
 }
 

@@ -17,7 +17,7 @@ const { Services } = ChromeUtils.import(
   "resource://gre/modules/Services.jsm"
 );
 
-Cu.import("resource://gre/modules/PhoneNumberUtils.jsm");
+//Cu.import("resource://gre/modules/PhoneNumberUtils.jsm");
 
 const { PromiseUtils } = ChromeUtils.import(
   "resource://gre/modules/PromiseUtils.jsm"
@@ -26,7 +26,7 @@ const { PromiseUtils } = ChromeUtils.import(
 const GONK_MMSSERVICE_CONTRACTID = "@mozilla.org/mms/gonkmmsservice;1";
 const GONK_MMSSERVICE_CID = Components.ID("{9b069b8c-8697-11e4-a406-474f5190272b}");
 
-var DEBUG = false;
+var DEBUG = true;
 function debug(s) {
   dump("-@- MmsService: " + s + "\n");
 };
@@ -108,7 +108,7 @@ const PREF_SEND_RETRY_COUNT =
 
 const PREF_SEND_RETRY_INTERVAL = (function () {
   let intervals =
-    Services.prefs.getCharPref("dom.mms.sendRetryInterval").split(",");
+    Services.prefs.getCharPref("dom.mms.sendRetryInterval", "").split(",");
   for (let i = 0; i < PREF_SEND_RETRY_COUNT; ++i) {
     intervals[i] = parseInt(intervals[i], 10);
     // If one of the intervals isn't valid (e.g., 0 or NaN),
@@ -208,7 +208,7 @@ XPCOMUtils.defineLazyGetter(this, "MMS", function() {
  * Return default service Id for MMS.
  */
 function getDefaultServiceId() {
-  let id = Services.prefs.getIntPref(kPrefDefaultServiceId);
+  let id = Services.prefs.getIntPref(kPrefDefaultServiceId, 0);
   let numRil = Services.prefs.getIntPref(kPrefRilNumRadioInterfaces);
 
   if (id >= numRil || id < 0) {
@@ -276,7 +276,7 @@ MmsConnection.prototype = {
     }
 
     let proxyInfo =
-      gpps.newProxyInfo("http", this.mmsProxy, port,
+      gpps.newProxyInfo("http", this.mmsProxy, port, "", "",
                         Ci.nsIProxyInfo.TRANSPARENT_PROXY_RESOLVES_HOST,
                         -1, null);
     if (DEBUG) debug("getProxyInfo: " + JSON.stringify(proxyInfo));
@@ -662,23 +662,22 @@ MmsProxyFilter.prototype = {
 
   // nsIProtocolProxyFilter
 
-  applyFilter: function(proxyService, uri, proxyInfo) {
+  applyFilter: function(uri, proxyInfo, callback) {
     if (!this.uri.equals(uri)) {
       if (DEBUG) debug("applyFilter: content uri = " + JSON.stringify(this.uri) +
                        " is not matched with uri = " + JSON.stringify(uri) + " .");
-      return proxyInfo;
+      callback.onProxyFilterResult(proxyInfo);
     }
 
     // Fall-through, reutrn the MMS proxy info.
-    let mmsProxyInfo = this.mmsConnection.proxyInfo;
+    let mmsProxyInfo = this.mmsConnection.proxyInfo ? this.mmsConnection.proxyInfo : proxyInfo;
 
     if (DEBUG) {
       debug("applyFilter: MMSC/Content Location is matched with: " +
             JSON.stringify({ uri: JSON.stringify(this.uri),
                              mmsProxyInfo: mmsProxyInfo }));
     }
-
-    return mmsProxyInfo ? mmsProxyInfo : proxyInfo;
+    callback.onProxyFilterResult(mmsProxyInfo);
   }
 };
 
@@ -798,8 +797,8 @@ XPCOMUtils.defineLazyGetter(this, "gMmsTransactionHelper", function() {
       };
 
       try {
-        let xhr = Cc["@mozilla.org/xmlextras/xmlhttprequest;1"]
-                  .createInstance(Ci.nsIXMLHttpRequest);
+        if (DEBUG) debug("sendHttpRequest method: " + method + " to url: " + url + " via interface " + netId);
+        let xhr = new XMLHttpRequest();
 
         // Basic setups
         xhr.networkInterfaceId = netId;
@@ -824,16 +823,17 @@ XPCOMUtils.defineLazyGetter(this, "gMmsTransactionHelper", function() {
 
         // Setup event listeners
         xhr.onreadystatechange = () => {
-          if (xhr.readyState != Ci.nsIXMLHttpRequest.DONE) {
+          if (xhr.readyState != XMLHttpRequest.DONE) {
             return;
           }
+
           let data = null;
           switch (xhr.status) {
             case HTTP_STATUS_OK: {
               if (DEBUG) debug("xhr success, response headers: "
                                + xhr.getAllResponseHeaders());
               let array = new Uint8Array(xhr.response);
-              if (false) {
+              if (DEBUG) {
                 for (let begin = 0; begin < array.length; begin += 20) {
                   let partial = array.subarray(begin, begin + 20);
                   if (DEBUG) debug("res: " + JSON.stringify(partial));
@@ -853,7 +853,7 @@ XPCOMUtils.defineLazyGetter(this, "gMmsTransactionHelper", function() {
           releaseMmsConnectionAndCallback(xhr.status, data);
         };
         // Send request
-        xhr.send(istream);
+        xhr.sendInputStream(istream);
         return xhr;
       } catch (e) {
         if (DEBUG) debug("xhr error, can't send: " + e.message);
@@ -1811,6 +1811,7 @@ MmsService.prototype = {
     // Sadly we cannot directly broadcast the aDomMessage object
     // because the system message mechamism will rewrap the object
     // based on the content window, which needs to know the properties.
+/* FIXME
     try {
       gSystemMessenger.broadcastMessage(aName, {
         iccId:               aDomMessage.iccId,
@@ -1836,6 +1837,7 @@ MmsService.prototype = {
         debug("Failed to _broadcastSmsSystemMessage: " + e);
       }
     }
+*/
   },
 
   /**
@@ -2276,10 +2278,13 @@ MmsService.prototype = {
         let type = MMS.Address.resolveType(receiver);
         let address;
         if (type == "PLMN") {
-          address = PhoneNumberUtils.normalize(receiver, false);
-          if (!PhoneNumberUtils.isPlainPhoneNumber(address)) {
-            isAddrValid = false;
-          }
+          //FIXME
+          //address = PhoneNumberUtils.normalize(receiver, false);
+          //if (!PhoneNumberUtils.isPlainPhoneNumber(address)) {
+          //  isAddrValid = false;
+          //}
+          address = receiver;
+
           if (DEBUG) debug("createSavableFromParams: normalize phone number " +
                            "from " + receiver + " to " + address);
         } else {

@@ -6,19 +6,16 @@
 
 #include "MmsMessageInternal.h"
 
-#include "nsIDOMClassInfo.h"
 #include "jsapi.h"  // For JS_IsArrayObject, JS_GetElement, etc.
 #include "nsJSUtils.h"
 #include "nsContentUtils.h"
-#include "nsTArrayHelpers.h"
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/File.h"
 #include "mozilla/dom/mobilemessage/Constants.h"  // For MessageType
 #include "mozilla/dom/mobilemessage/SmsTypes.h"
 #include "mozilla/dom/ScriptSettings.h"
 #include "mozilla/dom/ToJSValue.h"
-#include "mozilla/dom/ipc/BlobChild.h"
-#include "mozilla/dom/ipc/BlobParent.h"
+#include "mozilla/dom/IPCBlobUtils.h"
 
 namespace mozilla {
 namespace dom {
@@ -58,15 +55,15 @@ MmsMessageInternal::MmsMessageInternal(
       mThreadId(aThreadId),
       mIccId(aIccId),
       mDelivery(aDelivery),
-      mDeliveryInfo(aDeliveryInfo),
+      mDeliveryInfo(aDeliveryInfo.Clone()),
       mSender(aSender),
-      mReceivers(aReceivers),
+      mReceivers(aReceivers.Clone()),
       mTimestamp(aTimestamp),
       mSentTimestamp(aSentTimestamp),
       mRead(aRead),
       mSubject(aSubject),
       mSmil(aSmil),
-      mAttachments(aAttachments),
+      mAttachments(aAttachments.Clone()),
       mExpiryDate(aExpiryDate),
       mReadReportRequested(aReadReportRequested),
       mIsGroup(aIsGroup) {}
@@ -77,7 +74,7 @@ MmsMessageInternal::MmsMessageInternal(const MmsMessageData& aData)
       mIccId(aData.iccId()),
       mDelivery(aData.delivery()),
       mSender(aData.sender()),
-      mReceivers(aData.receivers()),
+      mReceivers(aData.receivers().Clone()),
       mTimestamp(aData.timestamp()),
       mSentTimestamp(aData.sentTimestamp()),
       mRead(aData.read()),
@@ -96,17 +93,8 @@ MmsMessageInternal::MmsMessageInternal(const MmsMessageData& aData)
 
     // mContent is not going to be exposed to JS directly so we can use
     // nullptr as parent.
-    if (element.contentParent()) {
-      RefPtr<BlobImpl> impl =
-          static_cast<BlobParent*>(element.contentParent())->GetBlobImpl();
-      att.mContent = Blob::Create(nullptr, impl);
-    } else if (element.contentChild()) {
-      RefPtr<BlobImpl> impl =
-          static_cast<BlobChild*>(element.contentChild())->GetBlobImpl();
-      att.mContent = Blob::Create(nullptr, impl);
-    } else {
-      NS_WARNING("MmsMessage: Unable to get attachment content.");
-    }
+    RefPtr<BlobImpl> blobImpl = IPCBlobUtils::Deserialize(element.content());
+    att.mContent = Blob::Create(nullptr, blobImpl);
     mAttachments.AppendElement(att);
   }
 
@@ -209,7 +197,7 @@ MmsMessageInternal::MmsMessageInternal(const MmsMessageData& aData)
   }
   JS::Rooted<JSObject*> deliveryInfoObj(aCx, &aDeliveryInfo.toObject());
   bool isArray;
-  if (!JS_IsArrayObject(aCx, deliveryInfoObj, &isArray)) {
+  if (!JS::IsArrayObject(aCx, deliveryInfoObj, &isArray)) {
     return NS_ERROR_FAILURE;
   }
   if (!isArray) {
@@ -217,7 +205,7 @@ MmsMessageInternal::MmsMessageInternal(const MmsMessageData& aData)
   }
 
   uint32_t length;
-  MOZ_ALWAYS_TRUE(JS_GetArrayLength(aCx, deliveryInfoObj, &length));
+  MOZ_ALWAYS_TRUE(JS::GetArrayLength(aCx, deliveryInfoObj, &length));
 
   nsTArray<MmsDeliveryInfo> deliveryInfo;
   JS::Rooted<JS::Value> infoJsVal(aCx);
@@ -229,7 +217,7 @@ MmsMessageInternal::MmsMessageInternal(const MmsMessageData& aData)
 
     MmsDeliveryInfo info;
     if (!info.Init(aCx, infoJsVal)) {
-      return NS_ERROR_TYPE_ERR;
+      return NS_ERROR_UNEXPECTED;
     }
 
     deliveryInfo.AppendElement(info);
@@ -240,14 +228,14 @@ MmsMessageInternal::MmsMessageInternal(const MmsMessageData& aData)
     return NS_ERROR_INVALID_ARG;
   }
   JS::Rooted<JSObject*> receiversObj(aCx, &aReceivers.toObject());
-  if (!JS_IsArrayObject(aCx, receiversObj, &isArray)) {
+  if (!JS::IsArrayObject(aCx, receiversObj, &isArray)) {
     return NS_ERROR_FAILURE;
   }
   if (!isArray) {
     return NS_ERROR_INVALID_ARG;
   }
 
-  MOZ_ALWAYS_TRUE(JS_GetArrayLength(aCx, receiversObj, &length));
+  MOZ_ALWAYS_TRUE(JS::GetArrayLength(aCx, receiversObj, &length));
 
   nsTArray<nsString> receivers;
   JS::Rooted<JS::Value> receiverJsVal(aCx);
@@ -270,7 +258,7 @@ MmsMessageInternal::MmsMessageInternal(const MmsMessageData& aData)
     return NS_ERROR_INVALID_ARG;
   }
   JS::Rooted<JSObject*> attachmentsObj(aCx, &aAttachments.toObject());
-  if (!JS_IsArrayObject(aCx, attachmentsObj, &isArray)) {
+  if (!JS::IsArrayObject(aCx, attachmentsObj, &isArray)) {
     return NS_ERROR_FAILURE;
   }
   if (!isArray) {
@@ -278,7 +266,7 @@ MmsMessageInternal::MmsMessageInternal(const MmsMessageData& aData)
   }
 
   nsTArray<MmsAttachment> attachments;
-  MOZ_ALWAYS_TRUE(JS_GetArrayLength(aCx, attachmentsObj, &length));
+  MOZ_ALWAYS_TRUE(JS::GetArrayLength(aCx, attachmentsObj, &length));
 
   JS::Rooted<JS::Value> attachmentJsVal(aCx);
   for (uint32_t i = 0; i < length; ++i) {
@@ -288,10 +276,10 @@ MmsMessageInternal::MmsMessageInternal(const MmsMessageData& aData)
 
     MmsAttachment attachment;
     if (!attachment.Init(aCx, attachmentJsVal)) {
-      return NS_ERROR_TYPE_ERR;
+      return NS_ERROR_UNEXPECTED;
     }
 
-    NS_ENSURE_TRUE(attachment.mContent, NS_ERROR_TYPE_ERR);
+    NS_ENSURE_TRUE(attachment.mContent, NS_ERROR_UNEXPECTED);
 
     attachments.AppendElement(attachment);
   }
@@ -313,7 +301,7 @@ bool MmsMessageInternal::GetData(ContentParent* aParent,
   aData.iccId() = mIccId;
   aData.delivery() = mDelivery;
   aData.sender().Assign(mSender);
-  aData.receivers() = mReceivers;
+  aData.receivers() = mReceivers.Clone();
   aData.timestamp() = mTimestamp;
   aData.sentTimestamp() = mSentTimestamp;
   aData.read() = mRead;
@@ -385,20 +373,25 @@ bool MmsMessageInternal::GetData(ContentParent* aParent,
     // doesn't have a valid last modified date, making the ContentParent
     // send a "Mystery Blob" to the ContentChild. Attempting to get the
     // last modified date of blob can force that value to be initialized.
-    RefPtr<BlobImpl> impl = element.mContent->Impl();
-    if (impl && impl->IsDateUnknown()) {
-      ErrorResult rv;
-      impl->GetLastModified(rv);
-      if (rv.Failed()) {
-        NS_WARNING("Failed to get last modified date!");
-        rv.SuppressException();
-      }
-    }
 
-    mma.contentParent() = aParent->GetOrCreateActorForBlob(element.mContent);
-    if (!mma.contentParent()) {
+    //TODO: make sure if we still need this workaround.
+    //RefPtr<BlobImpl> impl = element.mContent->Impl();
+    //if (impl && impl->IsDateUnknown()) {
+    //  ErrorResult rv;
+    //  impl->GetLastModified(rv);
+    //  if (rv.Failed()) {
+    //    NS_WARNING("Failed to get last modified date!");
+    //    rv.SuppressException();
+    //  }
+    //}
+    IPCBlob ipcBlob;
+    nsresult rv =
+        IPCBlobUtils::Serialize(element.mContent->Impl(), aParent, ipcBlob);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
       return false;
     }
+
+    mma.content() = ipcBlob;
     aData.attachments().AppendElement(mma);
   }
 
@@ -484,11 +477,9 @@ MmsMessageInternal::GetSender(nsAString& aSender) {
 NS_IMETHODIMP
 MmsMessageInternal::GetReceivers(JSContext* aCx,
                                  JS::MutableHandle<JS::Value> aReceivers) {
-  JS::Rooted<JSObject*> receiversObj(aCx);
-  nsresult rv = nsTArrayToJSArray(aCx, mReceivers, &receiversObj);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  aReceivers.setObject(*receiversObj);
+  if(!ToJSValue(aCx, mReceivers, aReceivers)) {
+    return NS_ERROR_FAILURE;
+  }
   return NS_OK;
 }
 
@@ -547,7 +538,7 @@ MmsMessageInternal::GetAttachments(JSContext* aCx,
 
   if (!ToJSValue(aCx, result, aAttachments)) {
     JS_ClearPendingException(aCx);
-    return NS_ERROR_TYPE_ERR;
+    return NS_ERROR_UNEXPECTED;
   }
 
   return NS_OK;

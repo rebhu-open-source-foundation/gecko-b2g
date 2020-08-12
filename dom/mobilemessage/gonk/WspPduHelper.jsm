@@ -10,7 +10,7 @@ Cu.importGlobalProperties(['Blob']);
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 Cu.import("resource://gre/modules/wap_consts.js", this);
 
-var DEBUG; // set to true to see debug messages
+var DEBUG = false; // set to true to see debug messages
 
 // Special ASCII characters
 const NUL = 0;
@@ -370,10 +370,12 @@ this.Text = {
       if ((extra != SP) && (extra != HT)) {
         throw new CodeError("Text: doesn't match LWS sequence");
       }
-    } catch (e if e instanceof CodeError) {
-      throw e;
     } catch (e) {
-      throw new CodeError("Text: doesn't match LWS sequence");
+      if (e instanceof CodeError) {
+        throw e;
+      } else {
+        throw new CodeError("Text: doesn't match LWS sequence");
+      }
     }
 
     // Let's eat as many SP|HT as possible.
@@ -431,8 +433,10 @@ this.NullTerminatedTexts = {
       while (true) {
         str += Text.decode(data);
       }
-    } catch (e if e instanceof NullCharError) {
-      return str;
+    } catch (e) {
+      if(e instanceof NullCharError) {
+        return str;
+      }
     }
   },
 
@@ -594,10 +598,12 @@ this.TextString = {
           }
           throw new CodeError("Text-string: illegal quote found.");
         }
-      } catch (e if e instanceof CodeError) {
-        throw e;
       } catch (e) {
-        throw new CodeError("Text-string: unexpected error.");
+        if(e instanceof CodeError) {
+          throw e;
+        } else {
+          throw new CodeError("Text-string: unexpected error.");
+        }
       }
     } else if (firstCode >= 128) {
       throw new CodeError("Text-string: invalid char code " + firstCode);
@@ -653,8 +659,10 @@ this.TokenText = {
       while (true) {
         str += Token.decode(data);
       }
-    } catch (e if e instanceof NullCharError) {
-      return str;
+    } catch (e) {
+      if(e instanceof NullCharError) {
+        return str;
+      }
     }
   },
 
@@ -1275,8 +1283,10 @@ this.UriValue = {
       while (true) {
         str += URIC.decode(data);
       }
-    } catch (e if e instanceof NullCharError) {
-      return str;
+    } catch (e) {
+      if(e instanceof NullCharError) {
+        return str;
+      }
     }
   },
 };

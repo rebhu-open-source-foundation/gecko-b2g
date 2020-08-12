@@ -7,7 +7,7 @@
 #include "SmsChild.h"
 
 #include "SmsMessageInternal.h"
-//#include "MmsMessageInternal.h"
+#include "MmsMessageInternal.h"
 #include "DeletedMessageInfo.h"
 #include "nsIObserverService.h"
 #include "mozilla/Services.h"
@@ -27,10 +27,9 @@ already_AddRefed<nsISupports> CreateMessageFromMessageData(
   nsCOMPtr<nsISupports> message;
 
   switch (aData.type()) {
-      // FIXME
-      //    case MobileMessageData::TMmsMessageData:
-      //      message = new MmsMessageInternal(aData.get_MmsMessageData());
-      //      break;
+    case MobileMessageData::TMmsMessageData:
+      message = new MmsMessageInternal(aData.get_MmsMessageData());
+      break;
     case MobileMessageData::TSmsMessageData:
       message = new SmsMessageInternal(aData.get_SmsMessageData());
       break;

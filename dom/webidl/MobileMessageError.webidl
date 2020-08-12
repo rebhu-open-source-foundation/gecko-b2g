@@ -7,5 +7,5 @@
 [Pref="dom.sms.enabled",
  Exposed=Window]
 interface MobileMessageError {
-  readonly attribute SmsMessage data;
+  readonly attribute (SmsMessage or MmsMessage) data;
 };

@@ -11,9 +11,9 @@ Cu.import("resource://gre/modules/WspPduHelper.jsm", WSP);
 
 Cu.import("resource://gre/modules/mms_consts.js");
 
-Cu.import("resource://gre/modules/PhoneNumberUtils.jsm");
+//Cu.import("resource://gre/modules/PhoneNumberUtils.jsm");//FIXME
 
-var DEBUG; // set to true to see debug messages
+var DEBUG = false; // set to true to see debug messages
 
 this.MMS_VERSION = (function() {
   Cu.import("resource://gre/modules/Services.jsm");
@@ -245,12 +245,13 @@ this.Address = {
       return "IPv6";
     }
 
-    let normalizedAddress = PhoneNumberUtils.normalize(address, false);
-    if (PhoneNumberUtils.isPlainPhoneNumber(normalizedAddress)) {
-      return "PLMN";
-    }
-
-    return "Others";
+//FIXME
+    //let normalizedAddress = PhoneNumberUtils.normalize(address, false);
+    //if (PhoneNumberUtils.isPlainPhoneNumber(normalizedAddress)) {
+    //  return "PLMN";
+    //}
+    return "PLMN";
+    //return "Others";
   },
 };
 

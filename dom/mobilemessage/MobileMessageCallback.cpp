@@ -17,7 +17,6 @@
 #include "jsapi.h"
 #include "xpcpublic.h"
 #include "nsServiceManagerUtils.h"
-//#include "nsTArrayHelpers.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/MobileMessageManagerBinding.h"
 
@@ -133,16 +132,16 @@ nsresult MobileMessageCallback::NotifySuccess(nsISupports* aMessage,
         static_cast<SmsMessageInternal*>(internalSms.get());
     result = new SmsMessage(window, smsMsg);
   }
-  /*
-    if (!result) {
-      nsCOMPtr<nsIMmsMessage> internalMms = do_QueryInterface(aMessage);
-      if (internalMms) {
-        MmsMessageInternal* mmsMsg =
-            static_cast<MmsMessageInternal*>(internalMms.get());
-        result = new MmsMessage(window, mmsMsg);
-      }
+
+  if (!result) {
+    nsCOMPtr<nsIMmsMessage> internalMms = do_QueryInterface(aMessage);
+    if (internalMms) {
+      MmsMessageInternal* mmsMsg =
+          static_cast<MmsMessageInternal*>(internalMms.get());
+      result = new MmsMessage(window, mmsMsg);
     }
-  */
+  }
+
   AutoJSAPI jsapi;
   if (NS_WARN_IF(!jsapi.Init(window))) {
     return NS_ERROR_FAILURE;
@@ -209,16 +208,13 @@ MobileMessageCallback::NotifySendMessageFailed(int32_t aError,
           window, errorStr,
           new SmsMessage(window,
                          static_cast<SmsMessageInternal*>(internalSms.get())));
+    } else {
+      nsCOMPtr<nsIMmsMessage> internalMms = do_QueryInterface(aMessage);
+      mobileMessageError = new MobileMessageError(
+          window, errorStr,
+          new MmsMessage(window,
+                         static_cast<MmsMessageInternal*>(internalMms.get())));
     }
-    /*
-        else {
-          nsCOMPtr<nsIMmsMessage> internalMms = do_QueryInterface(aMessage);
-          mobileMessageError = new MobileMessageError(
-              window, errorStr,
-              new MmsMessage(window,
-                             static_cast<MmsMessageInternal*>(internalMms.get())));
-        }
-    */
     NS_ASSERTION(mobileMessageError, "Invalid MobileMessageError!");
   }
 
