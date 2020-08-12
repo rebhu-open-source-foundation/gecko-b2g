@@ -10,6 +10,14 @@ const { PermissionsInstaller } = ChromeUtils.import(
   "resource://gre/modules/PermissionsInstaller.jsm"
 );
 
+const { LocalDomains } = ChromeUtils.import(
+  "resource://gre/modules/LocalDomains.jsm"
+);
+
+const { Services } = ChromeUtils.import(
+  "resource://gre/modules/Services.jsm"
+);
+
 const DEBUG = 1;
 var log = DEBUG
   ? function log_dump(msg) {
@@ -58,6 +66,9 @@ AppsServiceDelegate.prototype = {
     } catch (e) {
       log(`Error in onInstall: ${e}`);
     }
+
+    let uri = Services.io.newURI(aManifestUrl);
+    LocalDomains.add(uri.host);
   },
 
   onUpdate(aManifestUrl, aFeatures) {
@@ -81,6 +92,8 @@ AppsServiceDelegate.prototype = {
     // TODO: call to the related components to finish the registration
     log(`onUninstall: ${aManifestUrl}`);
     PermissionsInstaller.uninstallPermissions(aManifestUrl);
+    let uri = Services.io.newURI(aManifestUrl);
+    LocalDomains.remove(uri.host);
   },
 };
 

@@ -20,6 +20,10 @@ function log(msg) {
 this.LocalDomains = {
   list: [],
   cert: null,
+  port: Services.prefs.getIntPref("b2g.vhost.port", 443),
+  overrideService: Cc["@mozilla.org/security/certoverride;1"].getService(
+    Ci.nsICertOverrideService
+  ),
 
   // Initialize the list of local domains from the current value of the preference used
   // by Necko.
@@ -97,9 +101,7 @@ this.LocalDomains = {
   },
 
   // Makes sure the certificate is available to other methods.
-  ensure_cert() {
-    log("ensure_cert");
-
+  ensureCert() {
     if (this.cert !== null) {
       return;
     }
@@ -140,30 +142,74 @@ this.LocalDomains = {
     log(`Certificate added for ${this.cert.subjectAltNames}`);
   },
 
+  // registers the certificate overrides for a host.
+  // @param in:
+  //    host - host to be added
+  addInternal(host) {
+    this.ensureCert();
+    let overrideService = this.overrideService;
+
+    // Reuse the list of hosts that we force to resolve to 127.0.0.1 to add the overrides.
+    overrideService.rememberValidityOverride(
+      host,
+      this.port,
+      this.cert,
+      overrideService.ERROR_UNTRUSTED |
+      overrideService.ERROR_MISMATCH |
+      overrideService.ERROR_TIME,
+      false /* temporary */
+    );
+  },
+
+  // registers the certificate overrides for a host and add it to the pref.
+  // @param in:
+  //    host - host to be added
+  add(host) {
+    log("add " + host);
+    if (this.list.length == 0) {
+      this.init();
+    }
+
+    // 1. Add the overrides and update list.
+    this.addInternal(host);
+    this.list.push(host);
+
+    // 2. Update the preference.
+    Services.prefs.setCharPref("network.dns.localDomains", this.list.join(","));
+  },
+
+  // Clear the certificate overrides for a host and remove it from prefs.
+  // @param in:
+  //    host - host to be removed
+  remove(host) {
+    log("remove " + host);
+    if (this.list.length == 0) {
+      this.init();
+    }
+
+    // 1. Remove a override for host:port and update list.
+    this.overrideService.clearValidityOverride(
+      host,
+      this.port
+    );
+    let index = this.list.findIndex(item => item == host);
+    if (index != -1) {
+      this.list.splice(index, 1);
+    }
+
+    // 2. Update the preference.
+    Services.prefs.setCharPref("network.dns.localDomains", this.list.join(","));
+  },
+
   // Update the prefs to match the current set of local domains, and
   // registers the certificate overrides.
   update() {
     log("update");
-    this.ensure_cert();
 
     // 1. Add the overrides.
-    let overrideService = Cc["@mozilla.org/security/certoverride;1"].getService(
-      Ci.nsICertOverrideService
-    );
-
-    let port = Services.prefs.getIntPref("b2g.vhost.port", 443);
-
     // Reuse the list of hosts that we force to resolve to 127.0.0.1 to add the overrides.
     this.list.forEach(host => {
-      overrideService.rememberValidityOverride(
-        host,
-        port,
-        this.cert,
-        overrideService.ERROR_UNTRUSTED |
-          overrideService.ERROR_MISMATCH |
-          overrideService.ERROR_TIME,
-        false /* temporary */
-      );
+      this.addInternal(host);
     });
 
     // 2. Update the preference.
