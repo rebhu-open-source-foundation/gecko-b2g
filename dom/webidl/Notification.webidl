@@ -83,6 +83,13 @@ dictionary GetNotificationOptions {
   DOMString tag = "";
 };
 
+dictionary NotificationLoopControl {
+  boolean sound;
+  unsigned long soundMaxDuration;
+  boolean vibration;
+  unsigned long vibrationMaxDuration;
+};
+
 [GenerateToJSON]
 dictionary NotificationBehavior {
   boolean noscreen = false;
@@ -90,6 +97,7 @@ dictionary NotificationBehavior {
   boolean showOnlyOnce = false;
   DOMString soundFile = "";
   sequence<unsigned long> vibrationPattern;
+  NotificationLoopControl loopControl;
 };
 
 enum NotificationPermission {
