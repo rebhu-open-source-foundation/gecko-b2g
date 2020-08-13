@@ -1,4 +1,5 @@
 ac_add_options --enable-application=b2g
+ac_add_options --with-app-basename=b2g
 
 ac_add_options --enable-debug
 ac_add_options --enable-debug-symbols
