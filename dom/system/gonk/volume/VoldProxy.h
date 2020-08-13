@@ -26,6 +26,7 @@ class VoldListener : public android::BinderService<VoldListener>,
   virtual ~VoldListener() = default;
 
   static VoldListener* CreateInstance();
+  static void CleanUp();
 
   // IVoldListener.aidl
   android::binder::Status onDiskCreated(const ::std::string& diskId,
@@ -65,7 +66,7 @@ class VoldProxy final {
   friend class VolumeManager;  // Calls Init, Reset, OnUserAdded, OnUserStarted
                                // and OnSecureKeyguardStateChanged.
 
-  ~VoldProxy(){};
+  ~VoldProxy();
 
   static bool Init();
   static bool Reset();

@@ -51,9 +51,15 @@ VoldListener* VoldListener::CreateInstance() {
   DBG("Create new instance\n", __func__);
   // Create new instance
   sInstance = new VoldListener();
-  ClearOnShutdown(&sInstance);
 
   return sInstance;
+}
+
+void VoldListener::CleanUp() {
+  if (sInstance) {
+    delete sInstance;
+    sInstance = nullptr;
+  }
 }
 
 android::binder::Status VoldListener::onDiskCreated(const ::std::string& diskId,
@@ -215,6 +221,11 @@ android::binder::Status VoldListener::onVolumeDestroyed(
     }
   }
   return android::binder::Status::ok();
+}
+
+VoldProxy::~VoldProxy() {
+  VoldListener::CleanUp();
+  gVold = nullptr;
 }
 
 bool VoldProxy::Init() {
