@@ -1143,3 +1143,9 @@ pref("gfx.webrender.force-disabled", true);
 
 // We control process prelaunch from the embedding api.
 pref("dom.ipc.processPrelaunch.enabled", false);
+
+#ifdef TARGET_VARIANT_USERDEBUG
+// Enable Marionette
+pref("marionette.enabled", true);
+#endif
+
