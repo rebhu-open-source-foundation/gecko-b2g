@@ -9,6 +9,7 @@
 
 #include "mozilla/PermissionDelegateHandler.h"
 #include "mozilla/Span.h"
+#include "mozilla/dom/BrowsingContext.h"
 #include "mozilla/dom/MaybeDiscarded.h"
 #include "mozilla/dom/SyncedContext.h"
 #include "nsILoadInfo.h"
@@ -59,6 +60,9 @@ class BrowsingContextGroup;
   FIELD(DocTreeHadAudibleMedia, bool)                                  \
   FIELD(AutoplayPermission, uint32_t)                                  \
   FIELD(ShortcutsPermission, uint32_t)                                 \
+  /* ALLOW_ACTION if it is allowed to open popups for the sub-tree     \
+   * starting and including the current WindowContext */               \
+  FIELD(PopupPermission, uint32_t)                                     \
   FIELD(DelegatedPermissions,                                          \
         PermissionDelegateHandler::DelegatedPermissionList)            \
   FIELD(DelegatedExactHostMatchPermissions,                            \
@@ -94,6 +98,8 @@ class WindowContext : public nsISupports, public nsWrapperCache {
   WindowContext* GetParentWindowContext();
   WindowContext* TopWindowContext();
 
+  bool IsTop() const;
+
   Span<RefPtr<BrowsingContext>> Children() { return mChildren; }
 
   // Cast this object to it's parent-process canonical form.
@@ -121,6 +127,8 @@ class WindowContext : public nsISupports, public nsWrapperCache {
   // 'MIXED' state flags, and should only be called on the
   // top window context.
   void AddMixedContentSecurityState(uint32_t aStateFlags);
+
+  bool CanShowPopup();
 
  protected:
   WindowContext(BrowsingContext* aBrowsingContext, uint64_t aInnerWindowId,
@@ -176,6 +184,8 @@ class WindowContext : public nsISupports, public nsWrapperCache {
               ContentParent* aSource);
   bool CanSet(FieldIndex<IDX_ShortcutsPermission>, const uint32_t& aValue,
               ContentParent* aSource);
+  bool CanSet(FieldIndex<IDX_PopupPermission>, const uint32_t&,
+              ContentParent* aSource);
   bool CanSet(FieldIndex<IDX_SHEntryHasUserInteraction>,
               const bool& aSHEntryHasUserInteraction, ContentParent* aSource) {
     return true;
@@ -186,11 +196,11 @@ class WindowContext : public nsISupports, public nsWrapperCache {
   bool CanSet(FieldIndex<IDX_DelegatedExactHostMatchPermissions>,
               const PermissionDelegateHandler::DelegatedPermissionList& aValue,
               ContentParent* aSource);
-
   bool CanSet(FieldIndex<IDX_HasReportedShadowDOMUsage>, const bool& aValue,
               ContentParent* aSource) {
     return true;
   }
+
   void DidSet(FieldIndex<IDX_HasReportedShadowDOMUsage>, bool aOldValue);
 
   // Overload `DidSet` to get notifications for a particular field being set.

@@ -33,6 +33,7 @@ var { assert } = DevToolsUtils;
 var { TabSources } = require("devtools/server/actors/utils/TabSources");
 var makeDebugger = require("devtools/server/actors/utils/make-debugger");
 const InspectorUtils = require("InspectorUtils");
+const Targets = require("devtools/server/actors/targets/index");
 const { TargetActorRegistry } = ChromeUtils.import(
   "resource://devtools/server/actors/targets/target-actor-registry.jsm"
 );
@@ -314,11 +315,11 @@ const browsingContextTargetPrototype = {
    * which is a JSM and doesn't have a reference to a DevTools Loader.
    */
   watchTargetResources(resourceTypes) {
-    return Resources.watchTargetResources(this, resourceTypes);
+    return Resources.watchResources(this, resourceTypes);
   },
 
   unwatchTargetResources(resourceTypes) {
-    return Resources.unwatchTargetResources(this, resourceTypes);
+    return Resources.unwatchResources(this, resourceTypes);
   },
 
   /**
@@ -344,11 +345,11 @@ const browsingContextTargetPrototype = {
    * Wrapper around emit for resource forms to bail early after destroy.
    */
   _emitResourcesForm(name, resources) {
-    if (!this.actorID) {
+    if (this.isDestroyed()) {
       // Don't try to emit if the actor was destroyed.
       return;
     }
-    this.emit("resource-available-form", resources);
+    this.emit(name, resources);
   },
 
   traits: null,
@@ -385,7 +386,7 @@ const browsingContextTargetPrototype = {
    * Try to locate the console actor if it exists.
    */
   get _consoleActor() {
-    if (this.exited || !this.actorID) {
+    if (this.exited || this.isDestroyed()) {
       return null;
     }
     const form = this.form();
@@ -394,10 +395,7 @@ const browsingContextTargetPrototype = {
 
   _targetScopedActorPool: null,
 
-  /**
-   * A constant prefix that will be used to form the actor ID by the server.
-   */
-  typeName: "browsingContextTarget",
+  targetType: Targets.TYPES.FRAME,
 
   /**
    * An object on which listen for DOMWindowCreated and pageshow events.

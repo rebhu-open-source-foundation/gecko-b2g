@@ -5498,17 +5498,8 @@ bool nsGlobalWindowOuter::CanSetProperty(const char* aPrefName) {
   return !Preferences::GetBool(aPrefName, true);
 }
 
-bool nsGlobalWindowOuter::PopupWhitelisted() {
-  if (mDoc && PopupBlocker::CanShowPopupByPermission(mDoc->NodePrincipal())) {
-    return true;
-  }
-
-  nsCOMPtr<nsPIDOMWindowOuter> parent = GetInProcessParent();
-  if (parent == this) {
-    return false;
-  }
-
-  return nsGlobalWindowOuter::Cast(parent)->PopupWhitelisted();
+bool nsGlobalWindowOuter::IsPopupAllowed() {
+  return mBrowsingContext->IsPopupAllowed();
 }
 
 /*
@@ -5530,13 +5521,15 @@ PopupBlocker::PopupControlState nsGlobalWindowOuter::RevisePopupAbuseLevel(
     case PopupBlocker::openControlled:
     case PopupBlocker::openBlocked:
     case PopupBlocker::openOverridden:
-      if (PopupWhitelisted())
+      if (IsPopupAllowed()) {
         abuse = PopupBlocker::PopupControlState(abuse - 1);
+      }
       break;
     case PopupBlocker::openAbused:
-      if (PopupWhitelisted())
+      if (IsPopupAllowed()) {
         // Skip PopupBlocker::openBlocked
         abuse = PopupBlocker::openControlled;
+      }
       break;
     case PopupBlocker::openAllowed:
       break;
@@ -5558,7 +5551,7 @@ PopupBlocker::PopupControlState nsGlobalWindowOuter::RevisePopupAbuseLevel(
   // PopupBlocker::openBlocked state.
   if ((abuse == PopupBlocker::openAllowed ||
        abuse == PopupBlocker::openControlled) &&
-      StaticPrefs::dom_block_multiple_popups() && !PopupWhitelisted() &&
+      StaticPrefs::dom_block_multiple_popups() && !IsPopupAllowed() &&
       !PopupBlocker::TryUsePopupOpeningToken(mDoc->NodePrincipal())) {
     abuse = PopupBlocker::openBlocked;
   }

@@ -80,6 +80,8 @@ WindowContext* WindowContext::TopWindowContext() {
   return current;
 }
 
+bool WindowContext::IsTop() const { return mBrowsingContext->IsTop(); }
+
 nsIGlobalObject* WindowContext::GetParentObject() const {
   return xpc::NativeGlobal(xpc::PrivilegedJunkScope());
 }
@@ -179,7 +181,7 @@ bool WindowContext::CanSet(FieldIndex<IDX_IsSecureContext>,
 
 bool WindowContext::CanSet(FieldIndex<IDX_DocTreeHadAudibleMedia>,
                            const bool& aValue, ContentParent* aSource) {
-  return GetBrowsingContext()->IsTop();
+  return IsTop();
 }
 
 bool WindowContext::CanSet(FieldIndex<IDX_AutoplayPermission>,
@@ -189,7 +191,12 @@ bool WindowContext::CanSet(FieldIndex<IDX_AutoplayPermission>,
 
 bool WindowContext::CanSet(FieldIndex<IDX_ShortcutsPermission>,
                            const uint32_t& aValue, ContentParent* aSource) {
-  return GetBrowsingContext()->IsTop() && CheckOnlyOwningProcessCanSet(aSource);
+  return IsTop() && CheckOnlyOwningProcessCanSet(aSource);
+}
+
+bool WindowContext::CanSet(FieldIndex<IDX_PopupPermission>, const uint32_t&,
+                           ContentParent* aSource) {
+  return CheckOnlyOwningProcessCanSet(aSource);
 }
 
 bool WindowContext::CanSet(
@@ -295,6 +302,18 @@ void WindowContext::AddMixedContentSecurityState(uint32_t aStateFlags) {
     ContentChild* child = ContentChild::GetSingleton();
     child->SendAddMixedContentSecurityState(this, aStateFlags);
   }
+}
+
+bool WindowContext::CanShowPopup() {
+  uint32_t permit = GetPopupPermission();
+  if (permit == nsIPermissionManager::ALLOW_ACTION) {
+    return true;
+  }
+  if (permit == nsIPermissionManager::DENY_ACTION) {
+    return false;
+  }
+
+  return !StaticPrefs::dom_disable_open_during_load();
 }
 
 WindowContext::IPCInitializer WindowContext::GetIPCInitializer() {
