@@ -26,6 +26,20 @@
 #include "nsIURLFormatter.h"
 #include "prtime.h"  // for PR_Now()
 
+#ifdef MOZ_B2G_RIL
+#  include "mozilla/SVGContentUtils.h"  // for ParseInteger
+#  include "nsIDataCallManager.h"
+#  include "nsIIccInfo.h"
+#  include "nsIIccService.h"
+#  include "nsIMobileCellInfo.h"
+#  include "nsIMobileConnectionInfo.h"
+#  include "nsIMobileConnectionService.h"
+#  include "nsIMobileNetworkInfo.h"
+#  include "nsINetworkInterface.h"  // for nsINetworkInfo
+#  include "nsIRadioInterfaceLayer.h"
+#  include "nsPrintfCString.h"
+#endif
+
 #undef LOG
 #undef ERR
 #undef DBG
@@ -56,6 +70,10 @@ using IGnss_V1_1 = android::hardware::gnss::V1_1::IGnss;
 using IGnss_V2_0 = android::hardware::gnss::V2_0::IGnss;
 using GnssLocation_V2_0 = android::hardware::gnss::V2_0::GnssLocation;
 
+using IAGnssRil_V2_0 = android::hardware::gnss::V2_0::IAGnssRil;
+using IAGnss_V2_0 = android::hardware::gnss::V2_0::IAGnss;
+using IAGnssCallback_V2_0 = android::hardware::gnss::V2_0::IAGnssCallback;
+
 // GnssCallback class implements the callback methods for IGnss interface.
 struct GnssCallback : public IGnssCallback {
   Return<void> gnssLocationCb(const GnssLocation_V1_0& location) override;
@@ -85,6 +103,17 @@ struct GnssCallback : public IGnssCallback {
       const hidl_vec<IGnssCallback::GnssSvInfo>& svInfoList) override;
 };
 
+#ifdef MOZ_B2G_RIL
+// AGnssCallback_V2_0 class implements the callback methods for
+// IAGnssCallback_V2_0 interface.
+struct AGnssCallback_V2_0 : public IAGnssCallback_V2_0 {
+  // methonds from ::android::hardware::gps::V2_0::IAGnssCallback
+  Return<void> agnssStatusCb(
+      IAGnssCallback_V2_0::AGnssType type,
+      IAGnssCallback_V2_0::AGnssStatusValue status) override;
+};
+#endif
+
 static const int kDefaultPeriod = 1000;  // ms
 
 static bool gDebug_isLoggingEnabled = false;
@@ -103,6 +132,14 @@ static const auto kSettingDebugEnabled = u"geolocation.debugging.enabled"_ns;
 static const auto kSettingDebugGpsIgnored =
     u"geolocation.debugging.gps-locations-ignored"_ns;
 
+#ifdef MOZ_B2G_RIL
+static const char* kNetworkConnStateChangedTopic =
+    "network-connection-state-changed";
+static const char* kPrefRilNumRadioInterfaces = "ril.numRadioInterfaces";
+static const auto kSettingRilDefaultServiceId = u"ril.data.defaultServiceId"_ns;
+static const auto kSettingRilSuplApn = u"ril.supl.apn"_ns;
+#endif
+
 NS_IMPL_ISUPPORTS(GonkGPSGeolocationProvider::NetworkLocationUpdate,
                   nsIGeolocationUpdate)
 
@@ -111,6 +148,20 @@ void GonkGPSGeolocationProvider::InitGnssHal() {
   if (mGnssHal_V2_0 != nullptr) {
     mGnssHal = mGnssHal_V2_0;
     mGnssHal_V1_1 = mGnssHal_V2_0;
+#ifdef MOZ_B2G_RIL
+    auto agnss_V2_0 = mGnssHal_V2_0->getExtensionAGnss_2_0();
+    if (agnss_V2_0.isOk()) {
+      mAGnssHal_V2_0 = agnss_V2_0;
+    } else {
+      ERR("Unable to get a handle to IAGnss_V2_0");
+    }
+    auto agnssRil_V2_0 = mGnssHal_V2_0->getExtensionAGnssRil_2_0();
+    if (agnssRil_V2_0.isOk()) {
+      mAGnssRilHal_V2_0 = agnssRil_V2_0;
+    } else {
+      ERR("Unable to get a handle to IAGnssRil_V2_0");
+    }
+#endif
     return;
   }
 
@@ -388,6 +439,13 @@ void GonkGPSGeolocationProvider::Init() {
     return;
   }
 
+#ifdef MOZ_B2G_RIL
+  if (mAGnssHal_V2_0 != nullptr) {
+    android::sp<IAGnssCallback_V2_0> agnssCbIface = new AGnssCallback_V2_0();
+    Return<void> agnssStatus = mAGnssHal_V2_0->setCallback(agnssCbIface);
+  }
+#endif
+
   mInitialized = true;
 
   LOG("GPS HAL has been initialized");
@@ -414,6 +472,10 @@ void GonkGPSGeolocationProvider::Init() {
 void GonkGPSGeolocationProvider::StartGPS() {
   MOZ_ASSERT(NS_IsMainThread());
   LOG("Starts GPS");
+
+#ifdef MOZ_B2G_RIL
+  SetupAGPS();
+#endif
 
   int32_t update = Preferences::GetInt("geo.default.update", kDefaultPeriod);
   if (!mSupportsScheduling) {
@@ -683,6 +745,46 @@ NS_IMETHODIMP GonkGPSGeolocationProvider::HandleSettings(
       mInitialized = false;
     }
   }
+#ifdef MOZ_B2G_RIL
+  else if (name.Equals(kSettingRilSuplApn)) {
+    // When we get the APN, we attempt to call data_call_open of AGPS.
+    if (!value.IsEmpty()) {
+      SetAGpsDataConn(value);
+    }
+  } else if (name.Equals(kSettingRilDefaultServiceId)) {
+    int32_t serviceId = 0;
+    if (SVGContentUtils::ParseInteger(value, serviceId) == false) {
+      BT_WARNING("'ril.data.defaultServiceId' is not a number!");
+      return NS_ERROR_UNEXPECTED;
+    }
+
+    if (!IsValidRilServiceId(serviceId)) {
+      BT_WARNING("serviceId is invalid");
+      return NS_ERROR_UNEXPECTED;
+    }
+
+    mRilDataServiceId = serviceId;
+    UpdateRadioInterface();
+
+    if (!isObserved) {
+      // Observer may have been addded if RequestDataConnection() called first
+      if (mObservingNetworkConnStateChange) {
+        return NS_OK;
+      }
+
+      // Now we know which service ID to deal with, observe necessary topic then
+      nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
+      NS_ENSURE_TRUE(obs, NS_OK);
+
+      if (NS_FAILED(
+              obs->AddObserver(this, kNetworkConnStateChangedTopic, false))) {
+        ERR("Failed to add network state changed observer!");
+      } else {
+        mObservingNetworkConnStateChange = true;
+      }
+    }
+  }
+#endif  // MOZ_B2G_RIL
   return NS_OK;
 }
 
@@ -709,3 +811,271 @@ NS_IMETHODIMP GonkGPSGeolocationProvider::ObserveSetting(nsISettingInfo* info) {
 // Implements nsISidlDefaultResponse
 NS_IMETHODIMP GonkGPSGeolocationProvider::Resolve() { return NS_OK; }
 NS_IMETHODIMP GonkGPSGeolocationProvider::Reject() { return NS_OK; }
+
+#ifdef MOZ_B2G_RIL
+Return<void> AGnssCallback_V2_0::agnssStatusCb(
+    IAGnssCallback_V2_0::AGnssType type,
+    IAGnssCallback_V2_0::AGnssStatusValue status) {
+  class AGPSStatusEvent : public Runnable {
+   public:
+    AGPSStatusEvent(IAGnssCallback_V2_0::AGnssStatusValue aStatus)
+        : Runnable("AGPSStatusEvent"), mStatus(aStatus) {}
+    NS_IMETHOD Run() override {
+      RefPtr<GonkGPSGeolocationProvider> provider =
+          GonkGPSGeolocationProvider::GetSingleton();
+
+      switch (mStatus) {
+        case IAGnssCallback_V2_0::AGnssStatusValue::REQUEST_AGNSS_DATA_CONN:
+          DBG("agnssStatusCb, REQUEST_AGNSS_DATA_CONN");
+          provider->RequestDataConnection();
+          break;
+        case IAGnssCallback_V2_0::AGnssStatusValue::RELEASE_AGNSS_DATA_CONN:
+          DBG("agnssStatusCb, RELEASE_AGNSS_DATA_CONN");
+          provider->ReleaseDataConnection();
+          break;
+        case IAGnssCallback_V2_0::AGnssStatusValue::AGNSS_DATA_CONNECTED:
+          DBG("agnssStatusCb, AGNSS_DATA_CONNECTED");
+          break;
+        case IAGnssCallback_V2_0::AGnssStatusValue::AGNSS_DATA_CONN_DONE:
+          DBG("agnssStatusCb, AGNSS_DATA_CONN_DONE");
+          break;
+        case IAGnssCallback_V2_0::AGnssStatusValue::AGNSS_DATA_CONN_FAILED:
+          DBG("agnssStatusCb, AGNSS_DATA_CONN_FAILED");
+          break;
+      }
+      return NS_OK;
+    }
+
+   private:
+    IAGnssCallback_V2_0::AGnssStatusValue mStatus;
+  };
+
+  NS_DispatchToMainThread(new AGPSStatusEvent(status));
+
+  return Void();
+}
+
+bool IsMetered(int aNetworkInterfaceType) {
+  switch (aNetworkInterfaceType) {
+    case nsINetworkInfo::NETWORK_TYPE_WIFI:
+      return false;
+    case nsINetworkInfo::NETWORK_TYPE_MOBILE:
+    case nsINetworkInfo::NETWORK_TYPE_MOBILE_MMS:
+    case nsINetworkInfo::NETWORK_TYPE_MOBILE_SUPL:
+    case nsINetworkInfo::NETWORK_TYPE_MOBILE_DUN:
+      return true;
+    default:
+      ERR(nsPrintfCString("Unknown network type mapping %d",
+                          aNetworkInterfaceType)
+              .get());
+      return true;
+  }
+}
+
+NS_IMETHODIMP
+GonkGPSGeolocationProvider::Observe(nsISupports* aSubject, const char* aTopic,
+                                    const char16_t* aData) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  if (!strcmp(aTopic, kNetworkConnStateChangedTopic)) {
+    nsCOMPtr<nsINetworkInfo> info = do_QueryInterface(aSubject);
+    if (!info) {
+      return NS_OK;
+    }
+    nsCOMPtr<nsIRilNetworkInfo> rilInfo = do_QueryInterface(aSubject);
+    if (mAGnssRilHal_V2_0) {
+      int32_t state;
+      int32_t type;
+      info->GetState(&state);
+      info->GetType(&type);
+      int32_t netId;
+      info->GetNetId(&netId);
+      bool connected = (state == nsINetworkInfo::NETWORK_STATE_CONNECTED);
+      bool metered = IsMetered(type);
+      bool roaming = false;
+      if (rilInfo) {
+        do {
+          nsCOMPtr<nsIMobileConnectionService> service =
+              do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
+          if (!service) {
+            break;
+          }
+
+          nsCOMPtr<nsIMobileConnection> connection;
+          service->GetItemByServiceId(mRilDataServiceId,
+                                      getter_AddRefs(connection));
+          if (!connection) {
+            break;
+          }
+
+          nsCOMPtr<nsIMobileConnectionInfo> voice;
+          connection->GetVoice(getter_AddRefs(voice));
+          if (voice) {
+            voice->GetRoaming(&roaming);
+          }
+        } while (0);
+      }
+
+      uint16_t capabilities = 0;
+      if (metered) {
+        capabilities += static_cast<uint16_t>(
+            IAGnssRil_V2_0::NetworkCapability::NOT_METERED);
+      }
+      if (roaming) {
+        capabilities += static_cast<uint16_t>(
+            IAGnssRil_V2_0::NetworkCapability::NOT_ROAMING);
+      }
+      IAGnssRil_V2_0::NetworkAttributes networkAttributes = {
+          .networkHandle = static_cast<uint64_t>(netId),
+          .isConnected = static_cast<bool>(connected),
+          .capabilities = capabilities,
+          // .apn is optional, remain it as empty
+      };
+      DBG("updateNetworkState_2_0, netId: %d, connected: %d, capabilities: %u)",
+          netId, connected, capabilities);
+      mAGnssRilHal_V2_0->updateNetworkState_2_0(networkAttributes);
+    }
+    // No data connection
+    if (!rilInfo) {
+      return NS_OK;
+    }
+
+    // RequestSettingValue("ril.supl.apn");
+    nsCOMPtr<nsISettingsManager> settings =
+        do_GetService("@mozilla.org/sidl-native/settings;1");
+    if (settings) {
+      settings->Get(kSettingRilSuplApn, this);
+    }
+  }
+
+  return NS_OK;
+}
+
+void GonkGPSGeolocationProvider::UpdateRadioInterface() {
+  DBG("Get mRadioInterface with service id: %u", mRilDataServiceId);
+  nsCOMPtr<nsIRadioInterfaceLayer> ril = do_GetService("@mozilla.org/ril;1");
+  NS_ENSURE_TRUE_VOID(ril);
+  ril->GetRadioInterface(mRilDataServiceId, getter_AddRefs(mRadioInterface));
+}
+
+bool GonkGPSGeolocationProvider::IsValidRilServiceId(uint32_t aServiceId) {
+  return aServiceId < mNumberOfRilServices;
+}
+
+void GonkGPSGeolocationProvider::SetupAGPS() {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  if (!mSupportsMSA && !mSupportsMSB) {
+    LOG("GPS HAL supports neither MSA nor MSB");
+    return;
+  }
+
+  // Request RIL date service ID for correct RadioInterface object first due to
+  // multi-SIM case needs it to handle AGPS related stuffs. For single SIM, 0
+  // will be returned as default RIL data service ID.
+  nsCOMPtr<nsISettingsManager> settings =
+      do_GetService("@mozilla.org/sidl-native/settings;1");
+  if (settings) {
+    settings->Get(kSettingRilDefaultServiceId, this);
+  }
+
+  nsAutoCString suplServer;
+  Preferences::GetCString("geo.gps.supl_server", suplServer);
+  int32_t suplPort = Preferences::GetInt("geo.gps.supl_port", -1);
+  if (!suplServer.IsEmpty() && suplPort > 0) {
+    DBG("mAGnssHal_V2_0->set_server(%s, %d)", suplServer.get(), suplPort);
+    mAGnssHal_V2_0->setServer(
+        IAGnssCallback_V2_0::AGnssType::SUPL,
+        std::string(suplServer.get(), suplServer.Length()), suplPort);
+
+  } else {
+    ERR("Cannot get SUPL server settings");
+    return;
+  }
+}
+
+int32_t GonkGPSGeolocationProvider::GetDataConnectionState() {
+  if (!mRadioInterface) {
+    return nsINetworkInfo::NETWORK_STATE_UNKNOWN;
+  }
+
+  int32_t state;
+  mRadioInterface->GetDataCallStateByType(
+      nsINetworkInfo::NETWORK_TYPE_MOBILE_SUPL, &state);
+  return state;
+}
+
+void GonkGPSGeolocationProvider::SetAGpsDataConn(const nsAString& aApn) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  int32_t connectionState = GetDataConnectionState();
+  NS_ConvertUTF16toUTF8 apn(aApn);
+  if (connectionState == nsINetworkInfo::NETWORK_STATE_CONNECTED) {
+    nsCOMPtr<nsINetworkInfo> info =
+        do_GetService("@mozilla.org/network-info-service;1");
+    if (!info) {
+      return;
+    }
+    int32_t netId;
+    info->GetNetId(&netId);
+
+    LOG("mAGnssHal_V2_0->data_conn_open_with_apn_ip_type(%s, APN_IP_IPV4V6)",
+        apn.get());
+    mAGnssHal_V2_0->dataConnOpen(netId, std::string(apn.get(), apn.Length()),
+                                 IAGnss_V2_0::ApnIpType::IPV4V6);
+  } else if (connectionState == nsINetworkInfo::NETWORK_STATE_DISCONNECTED) {
+    LOG("mAGnssHal_V2_0->data_conn_closed()");
+    mAGnssHal_V2_0->dataConnClosed();
+  }
+}
+
+void GonkGPSGeolocationProvider::RequestDataConnection() {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  if (!mRadioInterface) {
+    ERR("mRadioInterface is null in RequestDataConnection.");
+    return;
+  }
+
+  if (GetDataConnectionState() == nsINetworkInfo::NETWORK_STATE_CONNECTED) {
+    // Connection is already established, we don't need to setup again.
+    // We just get supl APN and make AGPS data connection state updated.
+    DBG("Request setting 'ril.supl.apn' since SUPL is already connected.");
+    nsCOMPtr<nsISettingsManager> settings =
+        do_GetService("@mozilla.org/sidl-native/settings;1");
+    if (settings) {
+      settings->Get(kSettingRilSuplApn, this);
+    }
+  } else {
+    if (!mObservingNetworkConnStateChange) {
+      LOG("Add network state changed observer before updating "
+          "mRilDataServiceId");
+
+      nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
+      if (!obs || NS_FAILED(obs->AddObserver(
+                      this, kNetworkConnStateChangedTopic, false))) {
+        ERR("Failed to add network state changed observer!");
+      } else {
+        mObservingNetworkConnStateChange = true;
+      }
+    }
+
+    DBG("nsIRadioInterface->SetupDataCallByType()");
+    mRadioInterface->SetupDataCallByType(
+        nsINetworkInfo::NETWORK_TYPE_MOBILE_SUPL);
+  }
+}
+
+void GonkGPSGeolocationProvider::ReleaseDataConnection() {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  if (!mRadioInterface) {
+    ERR("mRadioInterface is null in ReleaseDataConnection.");
+    return;
+  }
+
+  LOG("nsIRadioInterface->DeactivateDataCallByType()");
+  mRadioInterface->DeactivateDataCallByType(
+      nsINetworkInfo::NETWORK_TYPE_MOBILE_SUPL);
+}
+#endif  // MOZ_B2G_RIL

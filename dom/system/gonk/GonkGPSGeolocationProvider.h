@@ -20,11 +20,17 @@
 #include "android/hardware/gnss/1.1/IGnss.h"
 #include "android/hardware/gnss/2.0/IGnss.h"
 #include "android/hardware/gnss/1.0/IGnss.h"
+#include "android/hardware/gnss/2.0/IAGnss.h"
+#include "android/hardware/gnss/2.0/IAGnssRil.h"
 
 #include "nsCOMPtr.h"
 #include "nsIDOMGeoPosition.h"
 #include "nsIGeolocationProvider.h"
 #include "nsISettings.h"
+#ifdef MOZ_B2G_RIL
+#  include "nsIObserver.h"
+#  include "nsIRadioInterfaceLayer.h"
+#endif
 
 class nsIThread;
 
@@ -39,12 +45,18 @@ class nsIThread;
   "@mozilla.org/gonk-gps-geolocation-provider;1"
 
 class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
+#ifdef MOZ_B2G_RIL
+                                   public nsIObserver,
+#endif
                                    public nsISettingsGetResponse,
                                    public nsISettingsObserver,
                                    public nsISidlDefaultResponse {
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIGEOLOCATIONPROVIDER
+#ifdef MOZ_B2G_RIL
+  NS_DECL_NSIOBSERVER
+#endif
   NS_DECL_NSISETTINGSGETRESPONSE
   NS_DECL_NSISETTINGSOBSERVER
   NS_DECL_NSISIDLDEFAULTRESPONSE
@@ -56,6 +68,8 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
   class UpdateCapabilitiesEvent;
   friend class UpdateLocationEvent;
   friend class UpdateCapabilitiesEvent;
+  friend struct GnssCallback;
+  friend struct AGnssCallback_V2_0;
 
   /* Client should use GetSingleton() to get the provider instance. */
   GonkGPSGeolocationProvider();
@@ -72,6 +86,16 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
 
   NS_IMETHOD HandleSettings(nsISettingInfo* const info, bool isObserved);
 
+#ifdef MOZ_B2G_RIL
+  void UpdateRadioInterface();
+  bool IsValidRilServiceId(uint32_t aServiceId);
+  void SetupAGPS();
+  int32_t GetDataConnectionState();
+  void SetAGpsDataConn(const nsAString& aApn);
+  void RequestDataConnection();
+  void ReleaseDataConnection();
+#endif  // MOZ_B2G_RIL
+
   // Whether the GPS HAL has been initialized
   bool mInitialized;
   bool mStarted;
@@ -84,7 +108,17 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
   nsCOMPtr<nsIDOMGeoPosition> mLastGPSPosition;
   nsCOMPtr<nsIGeolocationProvider> mNetworkLocationProvider;
 
-  friend struct GnssCallback;
+#ifdef MOZ_B2G_RIL
+  bool mSupportsMSB;
+  bool mSupportsMSA;
+  uint32_t mRilDataServiceId;
+  // mNumberOfRilServices indicates how many SIM slots supported on device, and
+  // RadioInterfaceLayer.js takes responsibility to set up the corresponding
+  // preference value.
+  uint32_t mNumberOfRilServices;
+  bool mObservingNetworkConnStateChange;
+  nsCOMPtr<nsIRadioInterface> mRadioInterface;
+#endif
 
   struct GnssDeathRecipient
       : virtual public android::hardware::hidl_death_recipient {
@@ -100,6 +134,8 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
   android::sp<android::hardware::gnss::V1_0::IGnss> mGnssHal;
   android::sp<android::hardware::gnss::V1_1::IGnss> mGnssHal_V1_1;
   android::sp<android::hardware::gnss::V2_0::IGnss> mGnssHal_V2_0;
+  android::sp<android::hardware::gnss::V2_0::IAGnss> mAGnssHal_V2_0;
+  android::sp<android::hardware::gnss::V2_0::IAGnssRil> mAGnssRilHal_V2_0;
 
   class NetworkLocationUpdate : public nsIGeolocationUpdate {
    public:
