@@ -89,8 +89,7 @@ bool nsDOMCameraManager::CheckPermission(nsPIDOMWindowInner* aWindow) {
   }
 
   uint32_t permission = nsIPermissionManager::UNKNOWN_ACTION;
-  permissionHandler->GetPermission("camera"_ns, &permission,
-                                   false);
+  permissionHandler->GetPermission("camera"_ns, &permission, false);
 
   if (permission == nsIPermissionManager::DENY_ACTION) {
     return false;
@@ -249,8 +248,8 @@ void CameraPermissionRequest::CallCancel() {
 NS_IMETHODIMP
 CameraPermissionRequest::GetTypes(nsIArray** aTypes) {
   nsTArray<nsString> emptyOptions;
-  return nsContentPermissionUtils::CreatePermissionArray(
-      "camera"_ns, emptyOptions, aTypes);
+  return nsContentPermissionUtils::CreatePermissionArray("camera"_ns,
+                                                         emptyOptions, aTypes);
 }
 
 NS_IMETHODIMP

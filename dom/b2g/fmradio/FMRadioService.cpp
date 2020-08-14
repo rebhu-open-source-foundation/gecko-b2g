@@ -174,8 +174,7 @@ void FMRadioService::EnableFMRadio() {
   if (!mTuneThread) {
     // hal::FMRadioSeek and hal::SetFMRadioFrequency run on this thread. These
     // call ioctls that can stall the main thread, so we run them here.
-    mTuneThread = new LazyIdleThread(TUNE_THREAD_TIMEOUT_MS,
-                                     "FM Tuning"_ns);
+    mTuneThread = new LazyIdleThread(TUNE_THREAD_TIMEOUT_MS, "FM Tuning"_ns);
   }
 }
 
@@ -418,8 +417,7 @@ void FMRadioService::Enable(double aFrequencyInMHz,
   switch (mState) {
     case Seeking:
     case Enabled:
-      aReplyRunnable->SetReply(
-          ErrorResponse(u"FM radio currently enabled"_ns));
+      aReplyRunnable->SetReply(ErrorResponse(u"FM radio currently enabled"_ns));
       NS_DispatchToMainThread(aReplyRunnable);
       return;
     case Disabling:
@@ -439,8 +437,7 @@ void FMRadioService::Enable(double aFrequencyInMHz,
   int32_t roundedFrequency = RoundFrequency(aFrequencyInMHz);
 
   if (!roundedFrequency) {
-    aReplyRunnable->SetReply(
-        ErrorResponse(u"Frequency is out of range"_ns));
+    aReplyRunnable->SetReply(ErrorResponse(u"Frequency is out of range"_ns));
     NS_DispatchToMainThread(aReplyRunnable);
     return;
   }
@@ -525,9 +522,7 @@ void FMRadioService::Disable(FMRadioReplyRunnable* aReplyRunnable) {
   // If the FM Radio is currently seeking, no fail-to-seek or similar
   // event will be fired, execute the seek callback manually.
   if (mState == Seeking) {
-    TransitionState(
-        ErrorResponse(u"Seek action is cancelled"_ns),
-        Disabling);
+    TransitionState(ErrorResponse(u"Seek action is cancelled"_ns), Disabling);
   }
 
   FMRadioState preState = mState;
@@ -538,8 +533,7 @@ void FMRadioService::Disable(FMRadioReplyRunnable* aReplyRunnable) {
     // If the radio is currently enabling, we fire the error callback on the
     // enable request immediately. When the radio finishes enabling, we'll call
     // DoDisable and fire the success callback on the disable request.
-    enablingRequest->SetReply(
-        ErrorResponse(u"Enable action is cancelled"_ns));
+    enablingRequest->SetReply(ErrorResponse(u"Enable action is cancelled"_ns));
     NS_DispatchToMainThread(enablingRequest);
 
     // If we haven't read the airplane mode settings yet we won't enable the
@@ -596,9 +590,7 @@ void FMRadioService::SetFrequency(double aFrequencyInMHz,
       return;
     case Seeking:
       hal::CancelFMRadioSeek();
-      TransitionState(
-          ErrorResponse(u"Seek action is cancelled"_ns),
-          Enabled);
+      TransitionState(ErrorResponse(u"Seek action is cancelled"_ns), Enabled);
       break;
     case Enabled:
       break;
@@ -607,8 +599,7 @@ void FMRadioService::SetFrequency(double aFrequencyInMHz,
   int32_t roundedFrequency = RoundFrequency(aFrequencyInMHz);
 
   if (!roundedFrequency) {
-    aReplyRunnable->SetReply(
-        ErrorResponse(u"Frequency is out of range"_ns));
+    aReplyRunnable->SetReply(ErrorResponse(u"Frequency is out of range"_ns));
     NS_DispatchToMainThread(aReplyRunnable);
     return;
   }
@@ -641,8 +632,7 @@ void FMRadioService::Seek(hal::FMRadioSeekDirection aDirection,
       NS_DispatchToMainThread(aReplyRunnable);
       return;
     case Seeking:
-      aReplyRunnable->SetReply(
-          ErrorResponse(u"FM radio currently seeking"_ns));
+      aReplyRunnable->SetReply(ErrorResponse(u"FM radio currently seeking"_ns));
       NS_DispatchToMainThread(aReplyRunnable);
       return;
     case Disabling:
@@ -687,8 +677,7 @@ void FMRadioService::CancelSeek(FMRadioReplyRunnable* aReplyRunnable) {
   // Cancel the seek immediately to prevent it from completing.
   hal::CancelFMRadioSeek();
 
-  TransitionState(ErrorResponse(u"Seek action is cancelled"_ns),
-                  Enabled);
+  TransitionState(ErrorResponse(u"Seek action is cancelled"_ns), Enabled);
 
   aReplyRunnable->SetReply(SuccessResponse());
   NS_DispatchToMainThread(aReplyRunnable);
@@ -709,8 +698,7 @@ void FMRadioService::EnableRDS(FMRadioReplyRunnable* aReplyRunnable) {
 
   if (hal::IsFMRadioOn()) {
     if (!hal::EnableRDS(mRDSGroupMask | DOM_PARSED_RDS_GROUPS)) {
-      aReplyRunnable->SetReply(
-          ErrorResponse(u"Could not enable RDS"_ns));
+      aReplyRunnable->SetReply(ErrorResponse(u"Could not enable RDS"_ns));
       NS_DispatchToMainThread(aReplyRunnable);
       return;
     }

@@ -44,7 +44,8 @@ void FileIterable::InitAsyncIterator(itrType* aIterator) {
   // iterators, and each iterator restarts the iteration from begining.
   // However, FileIterable as a replacement of DOMCursor, can only initialize
   // an iterator once, and iterate results once. This behavior is to match the
-  // behavior of DOMCursor, and the original design of DeviceStorage.enumerate().
+  // behavior of DOMCursor, and the original design of
+  // DeviceStorage.enumerate().
   if (mIterator) {
     DS_LOG_WARN("This FileIterable has already initialized an iterator.");
     return;

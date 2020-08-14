@@ -26,9 +26,8 @@ class CreateSubscriptionRunnable final : public WorkerMainThreadRunnable {
                                       SystemMessageManager* aManager,
                                       PromiseWorkerProxy* aProxy,
                                       const nsAString& aMessageName)
-      : WorkerMainThreadRunnable(
-            aWorkerPrivate,
-            "SystemMessage :: CreateSubscription"_ns),
+      : WorkerMainThreadRunnable(aWorkerPrivate,
+                                 "SystemMessage :: CreateSubscription"_ns),
         mManager(aManager),
         mProxy(aProxy),
         mMessageName(aMessageName) {}

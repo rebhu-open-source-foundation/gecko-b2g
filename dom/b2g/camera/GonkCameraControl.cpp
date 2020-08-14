@@ -2262,8 +2262,7 @@ void nsGonkCameraControl::CreatePoster(Image* aImage, uint32_t aWidth,
 void nsGonkCameraControl::OnPoster(void* aData, uint32_t aLength) {
   RefPtr<BlobImpl> blobImpl;
   if (aData) {
-    blobImpl =
-        new MemoryBlobImpl(aData, aLength, u"image/jpeg"_ns);
+    blobImpl = new MemoryBlobImpl(aData, aLength, u"image/jpeg"_ns);
   }
   CameraControlImpl::OnPoster(blobImpl);
 }

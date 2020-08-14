@@ -77,6 +77,7 @@ function expectEvent(expected, eventHelper) {
 
 function expectStream(params, callback) {
   return new Promise(function(resolve, reject) {
+    // eslint-disable-next-line no-unused-vars
     var req = navigator.mozGetUserMedia(
       params,
       function(stream) {

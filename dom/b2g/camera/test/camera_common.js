@@ -1,9 +1,9 @@
 function isDefinedObj(obj) {
-  return typeof(obj) !== 'undefined' && obj != null;
+  return typeof obj !== "undefined" && obj != null;
 }
 
 function isDefined(obj) {
-  return typeof(obj) !== 'undefined';
+  return typeof obj !== "undefined";
 }
 
 /* This is a simple test suite class removing the need to
@@ -42,9 +42,9 @@ function CameraTestSuite() {
 
   this._window = window;
   this._document = document;
-  this.viewfinder = document.getElementById('viewfinder');
+  this.viewfinder = document.getElementById("viewfinder");
   this._tests = [];
-  this.hwType = '';
+  this.hwType = "";
 
   /* Ensure that the this pointer is bound to all functions so that
      they may be used as promise resolve/reject handlers without any
@@ -71,8 +71,12 @@ function CameraTestSuite() {
   this.expectedRejectConfigure = this._expectedRejectConfigure.bind(this);
   this.expectedRejectAutoFocus = this._expectedRejectAutoFocus.bind(this);
   this.expectedRejectTakePicture = this._expectedRejectTakePicture.bind(this);
-  this.expectedRejectStartRecording = this._expectedRejectStartRecording.bind(this);
-  this.expectedRejectStopRecording = this._expectedRejectStopRecording.bind(this);
+  this.expectedRejectStartRecording = this._expectedRejectStartRecording.bind(
+    this
+  );
+  this.expectedRejectStopRecording = this._expectedRejectStopRecording.bind(
+    this
+  );
   this.rejectGetCamera = this._rejectGetCamera.bind(this);
   this.rejectConfigure = this._rejectConfigure.bind(this);
   this.rejectRelease = this._rejectRelease.bind(this);
@@ -85,14 +89,17 @@ function CameraTestSuite() {
   this.rejectPreviewStarted = this._rejectPreviewStarted.bind(this);
 
   var self = this;
-  this._window.addEventListener('beforeunload', function() {
+  this._window.addEventListener("beforeunload", function() {
     if (isDefinedObj(self.viewfinder)) {
       self.viewfinder.srcObject = null;
     }
 
     self.hw = null;
     if (isDefinedObj(self.camera)) {
-      ok(false, 'window unload triggered camera release instead of test completion');
+      ok(
+        false,
+        "window unload triggered camera release instead of test completion"
+      );
       self.camera.release();
       self.camera = null;
     }
@@ -105,7 +112,7 @@ CameraTestSuite.prototype = {
   _lowMemSet: false,
   _reloading: false,
 
-  _setupPermission: function(permission) {
+  _setupPermission(permission) {
     if (!SpecialPowers.hasPermission(permission, document)) {
       info("requesting " + permission + " permission");
       SpecialPowers.addPermission(permission, true, document);
@@ -117,7 +124,7 @@ CameraTestSuite.prototype = {
      to be executing individual test cases. One may provide the expected
      hardware type here if desired; the default is to use the JS test
      hardware. Use '' for the native emulated camera hardware. */
-  _setup: function(hwType) {
+  _setup(hwType) {
     /* Depending on how we run the mochitest, we may not have the necessary
        permissions yet. If we do need to request them, then we have to reload
        the window to ensure the reconfiguration propogated properly. */
@@ -133,25 +140,34 @@ CameraTestSuite.prototype = {
 
     info("has necessary permissions");
     if (!isDefined(hwType)) {
-      hwType = 'hardware';
+      hwType = "hardware";
     }
 
     this._hwType = hwType;
     return new Promise(function(resolve, reject) {
-      SpecialPowers.pushPrefEnv({'set': [['device.storage.prompt.testing', true]]}, function() {
-        SpecialPowers.pushPrefEnv({'set': [['camera.control.test.permission', true]]}, function() {
-          SpecialPowers.pushPrefEnv({'set': [['camera.control.test.enabled', hwType]]}, function() {
-            resolve();
-          });
-        });
-      });
+      SpecialPowers.pushPrefEnv(
+        { set: [["device.storage.prompt.testing", true]] },
+        function() {
+          SpecialPowers.pushPrefEnv(
+            { set: [["camera.control.test.permission", true]] },
+            function() {
+              SpecialPowers.pushPrefEnv(
+                { set: [["camera.control.test.enabled", hwType]] },
+                function() {
+                  resolve();
+                }
+              );
+            }
+          );
+        }
+      );
     });
   },
 
   /* Returns a promise which is resolved when all of the SpecialPowers
      parameters that were set while testing are flushed. This includes
      camera.control.test.enabled and camera.control.test.is_low_memory. */
-  _teardown: function() {
+  _teardown() {
     return new Promise(function(resolve, reject) {
       SpecialPowers.flushPrefEnv(function() {
         resolve();
@@ -163,8 +179,8 @@ CameraTestSuite.prototype = {
      parameter is set. If no value is given, it defaults to true.
      This is intended to be used inside a test case at the beginning
      of its promise chain to configure the platform as desired. */
-  _setLowMemoryPlatform: function(val) {
-    if (typeof(val) === 'undefined') {
+  _setLowMemoryPlatform(val) {
+    if (typeof val === "undefined") {
       val = true;
     }
 
@@ -174,25 +190,28 @@ CameraTestSuite.prototype = {
 
     var self = this;
     return new Promise(function(resolve, reject) {
-      SpecialPowers.pushPrefEnv({'set': [['camera.control.test.is_low_memory', val]]}, function() {
-        self._lowMemSet = val;
-        resolve();
-      });
+      SpecialPowers.pushPrefEnv(
+        { set: [["camera.control.test.is_low_memory", val]] },
+        function() {
+          self._lowMemSet = val;
+          resolve();
+        }
+      );
     }).catch(function(e) {
-      return self.logError('set low memory ' + val + ' failed', e);
+      return self.logError("set low memory " + val + " failed", e);
     });
   },
 
   /* Add a test case to the test suite to be executed later. */
-  _test: function(aName, aCb) {
+  _test(aName, aCb) {
     this._tests.push({
       name: aName,
-      cb: aCb
+      cb: aCb,
     });
   },
 
   /* Execute all test cases (after setup is called). */
-  _run: function() {
+  _run() {
     if (this._reloading) {
       return;
     }
@@ -200,7 +219,7 @@ CameraTestSuite.prototype = {
     var test = this._tests.shift();
     var self = this;
     if (test) {
-      info(test.name + ' started');
+      info(test.name + " started");
 
       function runNextTest() {
         self.run();
@@ -211,7 +230,7 @@ CameraTestSuite.prototype = {
       }
 
       function postTest(pass) {
-        ok(pass, test.name + ' finished');
+        ok(pass, test.name + " finished");
         var camera = self.camera;
         self.viewfinder.srcObject = null;
         self.camera = null;
@@ -221,11 +240,14 @@ CameraTestSuite.prototype = {
         }
 
         function handler(e) {
-          ok(typeof(e) === 'undefined', 'camera released');
+          ok(typeof e === "undefined", "camera released");
           return Promise.resolve();
         }
 
-        return camera.release().then(handler).catch(handler);
+        return camera
+          .release()
+          .then(handler)
+          .catch(handler);
       }
 
       this.initJsHw();
@@ -236,22 +258,25 @@ CameraTestSuite.prototype = {
         if (!isDefinedObj(testPromise)) {
           testPromise = Promise.resolve();
         }
-      } catch(e) {
-        ok(false, 'caught exception while running test: ' + e);
+      } catch (e) {
+        ok(false, "caught exception while running test: " + e);
         testPromise = Promise.reject(e);
       }
 
       testPromise
-        .then(function(p) {
-          return postTest(true);
-        }, function(e) {
-          self.logError('unhandled error', e);
-          return postTest(false);
-        })
+        .then(
+          function(p) {
+            return postTest(true);
+          },
+          function(e) {
+            self.logError("unhandled error", e);
+            return postTest(false);
+          }
+        )
         .then(resetLowMem, resetLowMem)
         .then(runNextTest, runNextTest);
     } else {
-      ok(true, 'all tests completed');
+      ok(true, "all tests completed");
       var finish = SimpleTest.finish.bind(SimpleTest);
       this.teardown().then(finish, finish);
     }
@@ -265,16 +290,17 @@ CameraTestSuite.prototype = {
      that the camera is able to be brought up without issue.
 
      This function has no effect if the JS hardware is not used. */
-  _initJsHw: function() {
-    if (this._hwType === 'hardware') {
-      this.hw = SpecialPowers.Cc['@mozilla.org/cameratesthardware;1']
-                .getService(SpecialPowers.Ci.nsICameraTestHardware);
+  _initJsHw() {
+    if (this._hwType === "hardware") {
+      this.hw = SpecialPowers.Cc[
+        "@mozilla.org/cameratesthardware;1"
+      ].getService(SpecialPowers.Ci.nsICameraTestHardware);
       this.hw.reset(this._window);
 
       /* Minimum parameters required to get camera started */
-      this.hw.params['preview-size'] = '320x240';
-      this.hw.params['preview-size-values'] = '320x240';
-      this.hw.params['picture-size-values'] = '320x240';
+      this.hw.params["preview-size"] = "320x240";
+      this.hw.params["preview-size-values"] = "320x240";
+      this.hw.params["picture-size-values"] = "320x240";
     } else {
       this.hw = null;
     }
@@ -284,52 +310,53 @@ CameraTestSuite.prototype = {
      been successfully opened with the given name and
      configuration. If no name is given, it uses the first
      camera in the list from the camera manager. */
-  _getCamera: function(name, config) {
+  _getCamera(name, config) {
     var cameraManager = navigator.mozCameras;
     if (!isDefined(name)) {
       name = cameraManager.getListOfCameras()[0];
     }
 
     var self = this;
-    return cameraManager.getCamera(name, config).then(
-      function(p) {
-        ok(isDefinedObj(p) && isDefinedObj(p.camera), 'got camera');
-        self.camera = p.camera;
-        /* Ensure a followup promise can verify config by
+    return cameraManager.getCamera(name, config).then(function(p) {
+      ok(isDefinedObj(p) && isDefinedObj(p.camera), "got camera");
+      self.camera = p.camera;
+      /* Ensure a followup promise can verify config by
            returning the same parameter again. */
-        return Promise.resolve(p);
-      }
-    );
+      return Promise.resolve(p);
+    });
   },
 
   /* Returns a promise which resolves when the camera has
      successfully started the preview and is bound to the
      given viewfinder object. Note that this requires that
      a video element be present with the ID 'viewfinder'. */
-  _waitPreviewStarted: function() {
+  _waitPreviewStarted() {
     var self = this;
 
     return new Promise(function(resolve, reject) {
       function onPreviewStateChange(e) {
         try {
-          if (e.newState === 'started') {
-            ok(true, 'viewfinder is ready and playing');
-            self.camera.removeEventListener('previewstatechange', onPreviewStateChange);
+          if (e.newState === "started") {
+            ok(true, "viewfinder is ready and playing");
+            self.camera.removeEventListener(
+              "previewstatechange",
+              onPreviewStateChange
+            );
             resolve();
           }
-        } catch(e) {
+        } catch (e) {
           reject(e);
         }
       }
 
       if (!isDefinedObj(self.viewfinder)) {
-        reject(new Error('no viewfinder object'));
+        reject(new Error("no viewfinder object"));
         return;
       }
 
       self.viewfinder.srcObject = self.camera;
       self.viewfinder.play();
-      self.camera.addEventListener('previewstatechange', onPreviewStateChange);
+      self.camera.addEventListener("previewstatechange", onPreviewStateChange);
     });
   },
 
@@ -338,14 +365,14 @@ CameraTestSuite.prototype = {
      when setting camera parameters from the application and
      you want confirmation when the operation is complete if
      there is no asynchronous notification provided. */
-  _waitParameterPush: function() {
+  _waitParameterPush() {
     var self = this;
 
     return new Promise(function(resolve, reject) {
       self.hw.attach({
-        'pushParameters': function() {
+        pushParameters() {
           self._window.setTimeout(resolve);
-        }
+        },
       });
     });
   },
@@ -370,9 +397,9 @@ CameraTestSuite.prototype = {
 
      If the getCamera promise is rejected, suite.rejectGetCamera reports an
      error, but rejectSomething remains silent. */
-  _logError: function(msg, e) {
+  _logError(msg, e) {
     if (isDefined(e)) {
-      ok(false, msg + ': ' + e);
+      ok(false, msg + ": " + e);
     }
     // Make sure the error is undefined for later handlers
     return Promise.reject();
@@ -383,44 +410,44 @@ CameraTestSuite.prototype = {
      to fail but otherwise does not require any special
      handling of that situation beyond failing the test
      case and logging why.*/
-  _rejectGetCamera: function(e) {
-    return this.logError('get camera failed', e);
+  _rejectGetCamera(e) {
+    return this.logError("get camera failed", e);
   },
 
-  _rejectConfigure: function(e) {
-    return this.logError('set configuration failed', e);
+  _rejectConfigure(e) {
+    return this.logError("set configuration failed", e);
   },
 
-  _rejectRelease: function(e) {
-    return this.logError('release camera failed', e);
+  _rejectRelease(e) {
+    return this.logError("release camera failed", e);
   },
 
-  _rejectAutoFocus: function(e) {
-    return this.logError('auto focus failed', e);
+  _rejectAutoFocus(e) {
+    return this.logError("auto focus failed", e);
   },
 
-  _rejectTakePicture: function(e) {
-    return this.logError('take picture failed', e);
+  _rejectTakePicture(e) {
+    return this.logError("take picture failed", e);
   },
 
-  _rejectStartRecording: function(e) {
-    return this.logError('start recording failed', e);
+  _rejectStartRecording(e) {
+    return this.logError("start recording failed", e);
   },
 
-  _rejectStopRecording: function(e) {
-    return this.logError('stop recording failed', e);
+  _rejectStopRecording(e) {
+    return this.logError("stop recording failed", e);
   },
 
-  _rejectPauseRecording: function(e) {
-    return this.logError('pause recording failed', e);
+  _rejectPauseRecording(e) {
+    return this.logError("pause recording failed", e);
   },
 
-  _rejectResumeRecording: function(e) {
-    return this.logError('resume recording failed', e);
+  _rejectResumeRecording(e) {
+    return this.logError("resume recording failed", e);
   },
 
-  _rejectPreviewStarted: function(e) {
-    return this.logError('preview start failed', e);
+  _rejectPreviewStarted(e) {
+    return this.logError("preview start failed", e);
   },
 
   /* The success handlers below are intended to be used
@@ -428,7 +455,7 @@ CameraTestSuite.prototype = {
      to succed but otherwise does not require any special
      handling of that situation beyond failing the test
      case and logging why.*/
-  _expectedError: function(msg) {
+  _expectedError(msg) {
     ok(false, msg);
     /* Since the original promise was technically resolved
        we actually want to pass up a rejection to try and
@@ -436,31 +463,31 @@ CameraTestSuite.prototype = {
     return Promise.reject();
   },
 
-  _expectedRejectGetCamera: function(p) {
+  _expectedRejectGetCamera(p) {
     /* Copy handle to ensure it gets released at the end
        of the test case */
     self.camera = p.camera;
-    return this.expectedError('expected get camera to fail');
+    return this.expectedError("expected get camera to fail");
   },
 
-  _expectedRejectConfigure: function(p) {
-    return this.expectedError('expected set configuration to fail');
+  _expectedRejectConfigure(p) {
+    return this.expectedError("expected set configuration to fail");
   },
 
-  _expectedRejectAutoFocus: function(p) {
-    return this.expectedError('expected auto focus to fail');
+  _expectedRejectAutoFocus(p) {
+    return this.expectedError("expected auto focus to fail");
   },
 
-  _expectedRejectTakePicture: function(p) {
-    return this.expectedError('expected take picture to fail');
+  _expectedRejectTakePicture(p) {
+    return this.expectedError("expected take picture to fail");
   },
 
-  _expectedRejectStartRecording: function(p) {
-    return this.expectedError('expected start recording to fail');
+  _expectedRejectStartRecording(p) {
+    return this.expectedError("expected start recording to fail");
   },
 
-  _expectedRejectStopRecording: function(p) {
-    return this.expectedError('expected stop recording to fail');
+  _expectedRejectStopRecording(p) {
+    return this.expectedError("expected stop recording to fail");
   },
 };
 

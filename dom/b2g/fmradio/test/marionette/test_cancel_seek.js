@@ -66,4 +66,3 @@ function cleanUp() {
 }
 
 verifyInitialState();
-

@@ -155,8 +155,8 @@ this.LocalDomains = {
       this.port,
       this.cert,
       overrideService.ERROR_UNTRUSTED |
-      overrideService.ERROR_MISMATCH |
-      overrideService.ERROR_TIME,
+        overrideService.ERROR_MISMATCH |
+        overrideService.ERROR_TIME,
       false /* temporary */
     );
   },
@@ -166,7 +166,7 @@ this.LocalDomains = {
   //    host - host to be added
   add(host) {
     log("add " + host);
-    if (this.list.length == 0) {
+    if (!this.list.length) {
       this.init();
     }
 
@@ -183,15 +183,12 @@ this.LocalDomains = {
   //    host - host to be removed
   remove(host) {
     log("remove " + host);
-    if (this.list.length == 0) {
+    if (!this.list.length) {
       this.init();
     }
 
     // 1. Remove a override for host:port and update list.
-    this.overrideService.clearValidityOverride(
-      host,
-      this.port
-    );
+    this.overrideService.clearValidityOverride(host, this.port);
     let index = this.list.findIndex(item => item == host);
     if (index != -1) {
       this.list.splice(index, 1);

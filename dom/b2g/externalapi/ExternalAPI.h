@@ -52,7 +52,8 @@ class ExternalAPI final : public nsIDOMEventListener,
 
   static void GenerateToken(nsACString& aToken);
   static void GetOrigin(nsIPrincipal* aPrincipal, nsACString& aOrigin);
-  static void GetPermissions(nsIPrincipal* aPrincipal, Sequence<nsString>& aPermissions);
+  static void GetPermissions(nsIPrincipal* aPrincipal,
+                             Sequence<nsString>& aPermissions);
   static void GetWebSocketServerInfo(nsAString& aURL, nsAString& aProtocols);
   nsresult SendMessage(WebSocket* aWebSocket);
   nsresult ReceiveMessage(MessageEvent* aEvent);

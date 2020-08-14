@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -8,7 +9,7 @@ function setupSettings(target) {
   ok(!!Object.keys(initialSettingsValues).length, "Has at least one setting");
 
   Object.keys(initialSettingsValues).forEach(k => {
-    ok(Object.keys(target).indexOf(k) !== -1, "Same settings set");
+    ok(Object.keys(target).includes(k), "Same settings set");
   });
 
   var lock = navigator.mozSettings.createLock();
@@ -99,7 +100,7 @@ function setupPrefs(target) {
   ok(!!Object.keys(initialPrefsValues).length, "Has at least one pref");
 
   Object.keys(initialPrefsValues).forEach(k => {
-    ok(Object.keys(target).indexOf(k) !== -1, "Same pref set");
+    ok(Object.keys(target).includes(k), "Same pref set");
   });
 
   Object.keys(initialPrefsValues).forEach(key => {
@@ -147,6 +148,7 @@ function addPermissions() {
 
 function loadSettings() {
   var url = SimpleTest.getTestFileURL("file_loadserver.js");
+  // eslint-disable-next-line no-unused-vars
   var script = SpecialPowers.loadChromeScript(url);
 }
 

@@ -36,5 +36,4 @@ already_AddRefed<nsIDaemonManager> ConstructDaemonManager() {
   return manager.forget();
 }
 
-
 }  // namespace sidl

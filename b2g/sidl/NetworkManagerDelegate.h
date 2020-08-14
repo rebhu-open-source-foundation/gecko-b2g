@@ -17,7 +17,8 @@ class NetworkManagerDelegateService final : public nsINetworkManagerDelegate {
   NS_DECL_ISUPPORTS
   NS_DECL_NSINETWORKMANAGERDELEGATE
 
-  static already_AddRefed<NetworkManagerDelegateService> ConstructNetworkManagerDelegate();
+  static already_AddRefed<NetworkManagerDelegateService>
+  ConstructNetworkManagerDelegate();
 
  private:
   NetworkManagerDelegateService();

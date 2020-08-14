@@ -273,10 +273,11 @@ sp<GonkCameraHardware> GonkCameraHardware::Connect(
     } while (true);
 
     gCameraService = interface_cast<hardware::ICameraService>(binder);
-    gCameraService->supportsCameraApi(String16(String8::format("%d", aCameraId)),
-      hardware::ICameraService::API_VERSION_2, &isCameraAPI2Supported);
+    gCameraService->supportsCameraApi(
+        String16(String8::format("%d", aCameraId)),
+        hardware::ICameraService::API_VERSION_2, &isCameraAPI2Supported);
 
-    //tmp solution to force using connect_legacy for QCOM platform.
+    // tmp solution to force using connect_legacy for QCOM platform.
     char value[PROPERTY_VALUE_MAX];
     property_get("ro.product.manufacturer", value, "");
     if (strncmp(value, "QUALCOMM", 9) == 0) {
@@ -291,9 +292,10 @@ sp<GonkCameraHardware> GonkCameraHardware::Connect(
 
     ProcessState::self()->startThreadPool();
     if (isCameraAPI2Supported) {
-      camera = Camera::connect(aCameraId,
-                               /* clientPackageName */ String16("gonk.camera"),
-                               Camera::USE_CALLING_UID, Camera::USE_CALLING_PID);
+      camera =
+          Camera::connect(aCameraId,
+                          /* clientPackageName */ String16("gonk.camera"),
+                          Camera::USE_CALLING_UID, Camera::USE_CALLING_PID);
     } else {
       Camera::connectLegacy(aCameraId, 0x100,
                             /* clientPackageName */ String16("gonk.camera"),
@@ -305,9 +307,10 @@ sp<GonkCameraHardware> GonkCameraHardware::Connect(
       usleep(CAMERA_CONNECT_DELAY);
       DOM_CAMERA_LOGW("Camera::connect failed. Retrying...\n");
       if (isCameraAPI2Supported) {
-        camera = Camera::connect(aCameraId,
-                                 /* clientPackageName */ String16("gonk.camera"),
-                                 Camera::USE_CALLING_UID, Camera::USE_CALLING_PID);
+        camera =
+            Camera::connect(aCameraId,
+                            /* clientPackageName */ String16("gonk.camera"),
+                            Camera::USE_CALLING_UID, Camera::USE_CALLING_PID);
       } else {
         Camera::connectLegacy(aCameraId, 0x100,
                               /* clientPackageName */ String16("gonk.camera"),
@@ -534,12 +537,10 @@ int GonkCameraHardware::SetVideoBufferMode(int32_t videoBufferMode) {
   return mCamera->setVideoBufferMode(videoBufferMode);
 }
 
-int
-GonkCameraHardware::SetVideoTarget(const sp<IGraphicBufferProducer>& bufferProducer)
-{
+int GonkCameraHardware::SetVideoTarget(
+    const sp<IGraphicBufferProducer>& bufferProducer) {
   if (NS_WARN_IF(mClosing)) {
     return DEAD_OBJECT;
   }
   return mCamera->setVideoTarget(bufferProducer);
 }
-

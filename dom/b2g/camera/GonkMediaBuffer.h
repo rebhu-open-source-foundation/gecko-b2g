@@ -36,195 +36,196 @@ class MediaBufferObserver;
 class MetaDataBase;
 
 class GonkMediaBuffer : public MediaBufferBase {
-public:
-    // allocations larger than or equal to this will use shared memory.
-    static const size_t kSharedMemThreshold = 64 * 1024;
+ public:
+  // allocations larger than or equal to this will use shared memory.
+  static const size_t kSharedMemThreshold = 64 * 1024;
 
-    // The underlying data remains the responsibility of the caller!
-    GonkMediaBuffer(void *data, size_t size);
+  // The underlying data remains the responsibility of the caller!
+  GonkMediaBuffer(void* data, size_t size);
 
-    explicit GonkMediaBuffer(size_t size);
+  explicit GonkMediaBuffer(size_t size);
 
-    explicit GonkMediaBuffer(const sp<ABuffer> &buffer);
+  explicit GonkMediaBuffer(const sp<ABuffer>& buffer);
 #ifndef NO_IMEMORY
-    GonkMediaBuffer(const sp<IMemory> &mem) :
-        GonkMediaBuffer((uint8_t *)mem->pointer() + sizeof(SharedControl), mem->size()) {
-        // delegate and override mMemory
-        mMemory = mem;
-    }
+  GonkMediaBuffer(const sp<IMemory>& mem)
+      : GonkMediaBuffer((uint8_t*)mem->pointer() + sizeof(SharedControl),
+                        mem->size()) {
+    // delegate and override mMemory
+    mMemory = mem;
+  }
 #endif
 
-    // If MediaBufferGroup is set, decrement the local reference count;
-    // if the local reference count drops to 0, return the buffer to the
-    // associated MediaBufferGroup.
-    //
-    // If no MediaBufferGroup is set, the local reference count must be zero
-    // when called, whereupon the GonkMediaBuffer is deleted.
-    virtual void release();
+  // If MediaBufferGroup is set, decrement the local reference count;
+  // if the local reference count drops to 0, return the buffer to the
+  // associated MediaBufferGroup.
+  //
+  // If no MediaBufferGroup is set, the local reference count must be zero
+  // when called, whereupon the GonkMediaBuffer is deleted.
+  virtual void release();
 
-    // Increments the local reference count.
-    // Use only when MediaBufferGroup is set.
-    virtual void add_ref();
+  // Increments the local reference count.
+  // Use only when MediaBufferGroup is set.
+  virtual void add_ref();
 
-    virtual void *data() const;
-    virtual size_t size() const;
+  virtual void* data() const;
+  virtual size_t size() const;
 
-    virtual size_t range_offset() const;
-    virtual size_t range_length() const;
+  virtual size_t range_offset() const;
+  virtual size_t range_length() const;
 
-    virtual void set_range(size_t offset, size_t length);
+  virtual void set_range(size_t offset, size_t length);
 
-    MetaDataBase& meta_data();
+  MetaDataBase& meta_data();
 
-    // Clears meta data and resets the range to the full extent.
-    virtual void reset();
+  // Clears meta data and resets the range to the full extent.
+  virtual void reset();
 
-    virtual void setObserver(MediaBufferObserver *group);
+  virtual void setObserver(MediaBufferObserver* group);
 
-    // sum of localRefcount() and remoteRefcount()
-    // Result should be treated as approximate unless the result precludes concurrent accesses.
-    virtual int refcount() const {
-        return localRefcount() + remoteRefcount();
-    }
+  // sum of localRefcount() and remoteRefcount()
+  // Result should be treated as approximate unless the result precludes
+  // concurrent accesses.
+  virtual int refcount() const { return localRefcount() + remoteRefcount(); }
 
-    // Result should be treated as approximate unless the result precludes concurrent accesses.
-    virtual int localRefcount() const {
-        return mRefCount.load(std::memory_order_relaxed);
-    }
+  // Result should be treated as approximate unless the result precludes
+  // concurrent accesses.
+  virtual int localRefcount() const {
+    return mRefCount.load(std::memory_order_relaxed);
+  }
 
-    virtual int remoteRefcount() const {
+  virtual int remoteRefcount() const {
 #ifndef NO_IMEMORY
-        if (mMemory.get() == nullptr || mMemory->pointer() == nullptr) return 0;
-        int32_t remoteRefcount =
-                reinterpret_cast<SharedControl *>(mMemory->pointer())->getRemoteRefcount();
-        // Sanity check so that remoteRefCount() is non-negative.
-        return remoteRefcount >= 0 ? remoteRefcount : 0; // do not allow corrupted data.
+    if (mMemory.get() == nullptr || mMemory->pointer() == nullptr) return 0;
+    int32_t remoteRefcount =
+        reinterpret_cast<SharedControl*>(mMemory->pointer())
+            ->getRemoteRefcount();
+    // Sanity check so that remoteRefCount() is non-negative.
+    return remoteRefcount >= 0 ? remoteRefcount
+                               : 0;  // do not allow corrupted data.
 #else
-        return 0;
+    return 0;
 #endif
-    }
+  }
 
-    // returns old value
-    int addRemoteRefcount(int32_t value) {
+  // returns old value
+  int addRemoteRefcount(int32_t value) {
 #ifndef NO_IMEMORY
-        if (mMemory.get() == nullptr || mMemory->pointer() == nullptr) return 0;
-        return reinterpret_cast<SharedControl *>(mMemory->pointer())->addRemoteRefcount(value);
+    if (mMemory.get() == nullptr || mMemory->pointer() == nullptr) return 0;
+    return reinterpret_cast<SharedControl*>(mMemory->pointer())
+        ->addRemoteRefcount(value);
 #else
-        (void) value;
-        return 0;
+    (void)value;
+    return 0;
 #endif
-    }
+  }
 
-    bool isDeadObject() const {
-        return isDeadObject(mMemory);
-    }
+  bool isDeadObject() const { return isDeadObject(mMemory); }
 
-    static bool isDeadObject(const sp<IMemory> &memory) {
+  static bool isDeadObject(const sp<IMemory>& memory) {
 #ifndef NO_IMEMORY
-        if (memory.get() == nullptr || memory->pointer() == nullptr) return false;
-        return reinterpret_cast<SharedControl *>(memory->pointer())->isDeadObject();
+    if (memory.get() == nullptr || memory->pointer() == nullptr) return false;
+    return reinterpret_cast<SharedControl*>(memory->pointer())->isDeadObject();
 #else
-        (void) memory;
-        return false;
+    (void)memory;
+    return false;
 #endif
-    }
+  }
 
-    // Sticky on enabling of shared memory MediaBuffers. By default we don't use
-    // shared memory for MediaBuffers, but we enable this for those processes
-    // that export MediaBuffers.
-    static void useSharedMemory() {
-        std::atomic_store_explicit(
-                &mUseSharedMemory, (int_least32_t)1, std::memory_order_seq_cst);
-    }
+  // Sticky on enabling of shared memory MediaBuffers. By default we don't use
+  // shared memory for MediaBuffers, but we enable this for those processes
+  // that export MediaBuffers.
+  static void useSharedMemory() {
+    std::atomic_store_explicit(&mUseSharedMemory, (int_least32_t)1,
+                               std::memory_order_seq_cst);
+  }
 
-protected:
-    // true if MediaBuffer is observed (part of a MediaBufferGroup).
-    inline bool isObserved() const {
-        return mObserver != nullptr;
-    }
+ protected:
+  // true if MediaBuffer is observed (part of a MediaBufferGroup).
+  inline bool isObserved() const { return mObserver != nullptr; }
 
-    virtual ~GonkMediaBuffer();
+  virtual ~GonkMediaBuffer();
 
-    sp<IMemory> mMemory;
+  sp<IMemory> mMemory;
 
-private:
-    friend class MediaBufferGroup;
-    friend class OMXDecoder;
-    friend class BnMediaSource;
-    friend class BpMediaSource;
+ private:
+  friend class MediaBufferGroup;
+  friend class OMXDecoder;
+  friend class BnMediaSource;
+  friend class BpMediaSource;
 
-    // For use by OMXDecoder, reference count must be 1, drop reference
-    // count to 0 without signalling the observer.
-    void claim();
+  // For use by OMXDecoder, reference count must be 1, drop reference
+  // count to 0 without signalling the observer.
+  void claim();
 
-    MediaBufferObserver *mObserver;
-    std::atomic<int> mRefCount;
+  MediaBufferObserver* mObserver;
+  std::atomic<int> mRefCount;
 
-    void *mData;
-    size_t mSize, mRangeOffset, mRangeLength;
-    sp<ABuffer> mBuffer;
+  void* mData;
+  size_t mSize, mRangeOffset, mRangeLength;
+  sp<ABuffer> mBuffer;
 
-    bool mOwnsData;
+  bool mOwnsData;
 
-    MetaDataBase* mMetaData;
+  MetaDataBase* mMetaData;
 
-    static std::atomic_int_least32_t mUseSharedMemory;
+  static std::atomic_int_least32_t mUseSharedMemory;
 
-    GonkMediaBuffer(const GonkMediaBuffer &);
-    GonkMediaBuffer &operator=(const GonkMediaBuffer &);
+  GonkMediaBuffer(const GonkMediaBuffer&);
+  GonkMediaBuffer& operator=(const GonkMediaBuffer&);
 
-    // SharedControl block at the start of IMemory.
-    struct SharedControl {
-        enum {
-            FLAG_DEAD_OBJECT = (1 << 0),
-        };
-
-        // returns old value
-        inline int32_t addRemoteRefcount(int32_t value) {
-            return std::atomic_fetch_add_explicit(
-                    &mRemoteRefcount, (int_least32_t)value, std::memory_order_seq_cst);
-        }
-
-        inline int32_t getRemoteRefcount() const {
-            return std::atomic_load_explicit(&mRemoteRefcount, std::memory_order_seq_cst);
-        }
-
-        inline void setRemoteRefcount(int32_t value) {
-            std::atomic_store_explicit(
-                    &mRemoteRefcount, (int_least32_t)value, std::memory_order_seq_cst);
-        }
-
-        inline bool isDeadObject() const {
-            return (std::atomic_load_explicit(
-                    &mFlags, std::memory_order_seq_cst) & FLAG_DEAD_OBJECT) != 0;
-        }
-
-        inline void setDeadObject() {
-            (void)std::atomic_fetch_or_explicit(
-                    &mFlags, (int_least32_t)FLAG_DEAD_OBJECT, std::memory_order_seq_cst);
-        }
-
-        inline void clear() {
-            std::atomic_store_explicit(
-                    &mFlags, (int_least32_t)0, std::memory_order_seq_cst);
-            std::atomic_store_explicit(
-                    &mRemoteRefcount, (int_least32_t)0, std::memory_order_seq_cst);
-        }
-
-    private:
-        // Caution: atomic_int_fast32_t is 64 bits on LP64.
-        std::atomic_int_least32_t mFlags;
-        std::atomic_int_least32_t mRemoteRefcount;
-        int32_t unused[6] __attribute__((__unused__)); // additional buffer space
+  // SharedControl block at the start of IMemory.
+  struct SharedControl {
+    enum {
+      FLAG_DEAD_OBJECT = (1 << 0),
     };
 
-    inline SharedControl *getSharedControl() const {
+    // returns old value
+    inline int32_t addRemoteRefcount(int32_t value) {
+      return std::atomic_fetch_add_explicit(
+          &mRemoteRefcount, (int_least32_t)value, std::memory_order_seq_cst);
+    }
+
+    inline int32_t getRemoteRefcount() const {
+      return std::atomic_load_explicit(&mRemoteRefcount,
+                                       std::memory_order_seq_cst);
+    }
+
+    inline void setRemoteRefcount(int32_t value) {
+      std::atomic_store_explicit(&mRemoteRefcount, (int_least32_t)value,
+                                 std::memory_order_seq_cst);
+    }
+
+    inline bool isDeadObject() const {
+      return (std::atomic_load_explicit(&mFlags, std::memory_order_seq_cst) &
+              FLAG_DEAD_OBJECT) != 0;
+    }
+
+    inline void setDeadObject() {
+      (void)std::atomic_fetch_or_explicit(
+          &mFlags, (int_least32_t)FLAG_DEAD_OBJECT, std::memory_order_seq_cst);
+    }
+
+    inline void clear() {
+      std::atomic_store_explicit(&mFlags, (int_least32_t)0,
+                                 std::memory_order_seq_cst);
+      std::atomic_store_explicit(&mRemoteRefcount, (int_least32_t)0,
+                                 std::memory_order_seq_cst);
+    }
+
+   private:
+    // Caution: atomic_int_fast32_t is 64 bits on LP64.
+    std::atomic_int_least32_t mFlags;
+    std::atomic_int_least32_t mRemoteRefcount;
+    int32_t unused[6] __attribute__((__unused__));  // additional buffer space
+  };
+
+  inline SharedControl* getSharedControl() const {
 #ifndef NO_IMEMORY
-         return reinterpret_cast<SharedControl *>(mMemory->pointer());
+    return reinterpret_cast<SharedControl*>(mMemory->pointer());
 #else
-         return nullptr;
+    return nullptr;
 #endif
-     }
+  }
 };
 
 }  // namespace android

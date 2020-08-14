@@ -397,17 +397,15 @@ class DeviceStorageCursorRequest final : public DeviceStorageRequest {
 
 template <typename T>
 class AutoCloseStream {
-public:
+ public:
   AutoCloseStream(T* aStream) : mStream(aStream) {}
-  ~AutoCloseStream() { if (mStream) mStream->Close(); }
-
-  explicit operator bool() {
-    return mStream;
+  ~AutoCloseStream() {
+    if (mStream) mStream->Close();
   }
 
-  already_AddRefed<T> forget() {
-    return mStream.forget();
-  }
+  explicit operator bool() { return mStream; }
+
+  already_AddRefed<T> forget() { return mStream.forget(); }
 
   AutoCloseStream<T>& operator=(T* aStream) {
     mStream = aStream;
@@ -419,13 +417,11 @@ public:
     return *this;
   }
 
-  T* get() const {
-    return mStream;
-  }
+  T* get() const { return mStream; }
 
   operator T*() const { return get(); }
 
-private:
+ private:
   void operator=(const AutoCloseStream<T>&) = delete;
   AutoCloseStream(const AutoCloseStream<T>&) = delete;
 

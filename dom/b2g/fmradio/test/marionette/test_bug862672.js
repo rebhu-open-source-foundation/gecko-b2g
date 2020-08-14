@@ -50,4 +50,3 @@ function enableThenDisable() {
 }
 
 verifyInitialState();
-

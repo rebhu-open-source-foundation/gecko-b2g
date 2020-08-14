@@ -17,7 +17,8 @@ class MobileManagerDelegateService final : public nsIMobileManagerDelegate {
   NS_DECL_ISUPPORTS
   NS_DECL_NSIMOBILEMANAGERDELEGATE
 
-  static already_AddRefed<MobileManagerDelegateService> ConstructMobileManagerDelegate();
+  static already_AddRefed<MobileManagerDelegateService>
+  ConstructMobileManagerDelegate();
 
  private:
   MobileManagerDelegateService();

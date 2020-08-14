@@ -10,11 +10,9 @@
 
 BEGIN_FMRADIO_NAMESPACE
 
-FMRadioRequestParent::FMRadioRequestParent() : mActorDestroyed(false) {
-}
+FMRadioRequestParent::FMRadioRequestParent() : mActorDestroyed(false) {}
 
-FMRadioRequestParent::~FMRadioRequestParent() {
-}
+FMRadioRequestParent::~FMRadioRequestParent() {}
 
 void FMRadioRequestParent::ActorDestroy(ActorDestroyReason aWhy) {
   mActorDestroyed = true;

@@ -1468,7 +1468,8 @@ status_t GonkRecorder::setupVideoEncoder(sp<MediaSource> cameraSource,
   }
 
   if (mMetaDataStoredInVideoBuffers != kMetadataBufferTypeInvalid) {
-    format->setInt32("android._input-metadata-buffer-type", mMetaDataStoredInVideoBuffers);
+    format->setInt32("android._input-metadata-buffer-type",
+                     mMetaDataStoredInVideoBuffers);
   }
 
   uint32_t flags = 0;
@@ -1548,7 +1549,8 @@ status_t GonkRecorder::setupVideoEncoder(sp<MediaSource> cameraSource,
   }
 
   if (mMetaDataStoredInVideoBuffers != kMetadataBufferTypeInvalid) {
-    enc_meta->setInt32("android._input-metadata-buffer-type", mMetaDataStoredInVideoBuffers);
+    enc_meta->setInt32("android._input-metadata-buffer-type",
+                       mMetaDataStoredInVideoBuffers);
   }
 
   // OMXClient::connect() always returns OK and abort's fatally if

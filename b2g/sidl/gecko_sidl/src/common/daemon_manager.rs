@@ -37,7 +37,8 @@ impl DaemonManagerXpcom {
     xpcom_method!(set_observer => SetObserver(observer: *const nsISidlConnectionObserver));
     fn set_observer(&self, observer: &nsISidlConnectionObserver) -> Result<(), nsresult> {
         let mut transport = self.transport.clone();
-        self.observer.set(Some(transport.next_connection_observer_id()));
+        self.observer
+            .set(Some(transport.next_connection_observer_id()));
 
         transport.add_connection_observer(
             ThreadPtrHolder::new(cstr!("nsISidlConnectionObserver"), RefPtr::new(observer))

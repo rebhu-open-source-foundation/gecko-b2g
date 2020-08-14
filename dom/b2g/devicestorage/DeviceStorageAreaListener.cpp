@@ -127,8 +127,8 @@ void DeviceStorageAreaListener::DispatchStorageAreaChangedEvent(
   init.mStorageName = aStorageName;
 
   RefPtr<DeviceStorageAreaChangedEvent> event =
-      DeviceStorageAreaChangedEvent::Constructor(
-          this, u"storageareachanged"_ns, init);
+      DeviceStorageAreaChangedEvent::Constructor(this, u"storageareachanged"_ns,
+                                                 init);
   event->SetTrusted(true);
 
   mStorageAreaStateMap[aStorageName] = aOperation;

@@ -1,10 +1,9 @@
+/* eslint-disable no-undef */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 "use strict";
-
-var { classes: Cc, interfaces: Ci, utils: Cu } = Components;
 
 ChromeUtils.import("resource://gre/modules/Services.jsm");
 ChromeUtils.import("resource://gre/modules/NetUtil.jsm");
@@ -399,6 +398,7 @@ function _installTests() {
         let magicRead = new Uint32Array(header.magic.buffer);
         let magicSupposed = new Uint32Array([PARTITION_MAGIC]);
         strictEqual(magicRead[0], magicSupposed[0]);
+        // eslint-disable-next-line no-unused-vars
         let dataLength = new Uint32Array([header.dataLength]);
         strictEqual(header.dataLength[0], 6);
         run_next_test();
@@ -473,6 +473,7 @@ function _installTests() {
         let magicSupposed = new Uint32Array([PARTITION_MAGIC]);
         strictEqual(magicRead[0], magicSupposed[0]);
         // In a formatted partition, the digest field is always 32 bytes of zeros.
+        // eslint-disable-next-line no-unused-vars
         let digestSupposed = new Uint8Array(DIGEST_SIZE_BYTES);
         strictEqual(
           header.digest.join(""),
@@ -595,12 +596,12 @@ function _installTests() {
         log("test_write: bytesWrittenLength = " + bytesWrittenLength);
         return utils_getData();
       })
-      .then(data => {
-        strictEqual(data[0], 1);
-        strictEqual(data[1], 2);
-        strictEqual(data[2], 3);
-        strictEqual(data[3], 4);
-        strictEqual(data[4], 5);
+      .then(udata => {
+        strictEqual(udata[0], 1);
+        strictEqual(udata[1], 2);
+        strictEqual(udata[2], 3);
+        strictEqual(udata[3], 4);
+        strictEqual(udata[4], 5);
         run_next_test();
       })
       .catch(ex => {

@@ -261,7 +261,7 @@ var AlertsHelper = {
       text,
       dir,
       lang,
-      origin: origin,
+      origin,
       timestamp,
       data: dataObj,
       requireInteraction,
@@ -337,7 +337,10 @@ var AlertsHelper = {
   },
 
   closeAlert(name) {
-    if (!this._embedderNotifications || !this._embedderNotifications.closeNotification) {
+    if (
+      !this._embedderNotifications ||
+      !this._embedderNotifications.closeNotification
+    ) {
       debug(`No embedder support for 'closeNotification()'`);
       return;
     }

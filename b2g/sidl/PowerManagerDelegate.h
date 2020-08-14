@@ -17,7 +17,8 @@ class PowerManagerDelegateService final : public nsIPowerManagerDelegate {
   NS_DECL_ISUPPORTS
   NS_DECL_NSIPOWERMANAGERDELEGATE
 
-  static already_AddRefed<PowerManagerDelegateService> ConstructPowerManagerDelegate();
+  static already_AddRefed<PowerManagerDelegateService>
+  ConstructPowerManagerDelegate();
 
  private:
   PowerManagerDelegateService();

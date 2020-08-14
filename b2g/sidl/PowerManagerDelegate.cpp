@@ -21,9 +21,9 @@ static StaticRefPtr<PowerManagerDelegateService> gPowerManagerDelegateService;
 
 NS_IMPL_ISUPPORTS(PowerManagerDelegateService, nsIPowerManagerDelegate)
 
-PowerManagerDelegateService::PowerManagerDelegateService() { }
+PowerManagerDelegateService::PowerManagerDelegateService() {}
 
-PowerManagerDelegateService::~PowerManagerDelegateService() { }
+PowerManagerDelegateService::~PowerManagerDelegateService() {}
 
 /* static */
 already_AddRefed<PowerManagerDelegateService>
@@ -38,7 +38,8 @@ PowerManagerDelegateService::ConstructPowerManagerDelegate() {
     gPowerManagerDelegateService = new PowerManagerDelegateService();
   }
 
-  RefPtr<PowerManagerDelegateService> service = gPowerManagerDelegateService.get();
+  RefPtr<PowerManagerDelegateService> service =
+      gPowerManagerDelegateService.get();
   return service.forget();
 }
 

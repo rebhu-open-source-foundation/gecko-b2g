@@ -48,4 +48,6 @@ MailtoProtocolHandler.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsIProtocolHandler]),
 };
 
-this.NSGetFactory = ComponentUtils.generateNSGetFactory([MailtoProtocolHandler]);
+this.NSGetFactory = ComponentUtils.generateNSGetFactory([
+  MailtoProtocolHandler,
+]);

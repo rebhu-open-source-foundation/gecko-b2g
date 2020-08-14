@@ -48,4 +48,6 @@ oopCommandlineHandler.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsICommandLineHandler]),
 };
 
-this.NSGetFactory = ComponentUtils.generateNSGetFactory([oopCommandlineHandler]);
+this.NSGetFactory = ComponentUtils.generateNSGetFactory([
+  oopCommandlineHandler,
+]);

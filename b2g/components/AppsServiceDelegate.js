@@ -14,9 +14,7 @@ const { LocalDomains } = ChromeUtils.import(
   "resource://gre/modules/LocalDomains.jsm"
 );
 
-const { Services } = ChromeUtils.import(
-  "resource://gre/modules/Services.jsm"
-);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 const DEBUG = 1;
 var log = DEBUG

@@ -1,14 +1,13 @@
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
-var Ci = Components.interfaces;
-var Cu = Components.utils;
-
 // The following boilerplate makes sure that XPCOM calls
 // that use the profile directory work.
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 XPCOMUtils.defineLazyModuleGetter(
   this,
@@ -102,8 +101,7 @@ function mockReceivingPipe() {
           aMessageCallback({ json: { method: "logout" } });
           break;
         default:
-          throw "what the what?? " + aGaiaOptions.message;
-          break;
+          throw Error("what the what?? " + aGaiaOptions.message);
       }
     },
   };

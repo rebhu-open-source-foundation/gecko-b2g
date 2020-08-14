@@ -41,10 +41,10 @@ try {
   // frame. Load the handler asap in order to ensure our system observe that
   // event, and yes this is unfortunately a hack. So try not to delay loading
   // this module.
-  if (isGonk && Services.prefs.getBoolPref('b2g.multiscreen.enabled')) {
-    Cu.import('resource://gre/modules/MultiscreenHandler.jsm');
+  if (isGonk && Services.prefs.getBoolPref("b2g.multiscreen.enabled")) {
+    ChromeUtils.import("resource://gre/modules/MultiscreenHandler.jsm");
   }
-} catch(e) {}
+} catch (e) {}
 
 function debug(str) {
   console.log(`-*- Shell.js: ${str}`);

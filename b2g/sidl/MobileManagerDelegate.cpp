@@ -20,14 +20,15 @@
 #include "nsINetworkInterface.h"
 #include "nsINetworkManager.h"
 
+#define RETURN_IF_NULL_MSG(varname, msg) \
+  if (NULL == varname) {                 \
+    return NS_ERROR_FAILURE;             \
+  }
 
-#define RETURN_IF_NULL_MSG(varname, msg) if (NULL == varname) {   \
-          return NS_ERROR_FAILURE;                                \
-        }
-
-#define RETURN_IF_ERROR_MSG(varname, msg) if (NS_OK != varname) { \
-          return NS_ERROR_FAILURE;                                \
-        }
+#define RETURN_IF_ERROR_MSG(varname, msg) \
+  if (NS_OK != varname) {                 \
+    return NS_ERROR_FAILURE;              \
+  }
 
 using namespace mozilla;
 
@@ -38,9 +39,9 @@ static StaticRefPtr<MobileManagerDelegateService> gMobileManagerDelegateService;
 
 NS_IMPL_ISUPPORTS(MobileManagerDelegateService, nsIMobileManagerDelegate)
 
-MobileManagerDelegateService::MobileManagerDelegateService() { }
+MobileManagerDelegateService::MobileManagerDelegateService() {}
 
-MobileManagerDelegateService::~MobileManagerDelegateService() { }
+MobileManagerDelegateService::~MobileManagerDelegateService() {}
 
 /* static */
 already_AddRefed<MobileManagerDelegateService>
@@ -55,14 +56,17 @@ MobileManagerDelegateService::ConstructMobileManagerDelegate() {
     gMobileManagerDelegateService = new MobileManagerDelegateService();
   }
 
-  RefPtr<MobileManagerDelegateService> service = gMobileManagerDelegateService.get();
+  RefPtr<MobileManagerDelegateService> service =
+      gMobileManagerDelegateService.get();
   return service.forget();
 }
 
 NS_IMETHODIMP
-MobileManagerDelegateService::GetCardInfo(int cardId, int type, nsAString& result) {
-  if (CIT_IMEI == type) { //IMEI
-    nsCOMPtr<nsIMobileConnectionService> service = do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
+MobileManagerDelegateService::GetCardInfo(int cardId, int type,
+                                          nsAString& result) {
+  if (CIT_IMEI == type) {  // IMEI
+    nsCOMPtr<nsIMobileConnectionService> service =
+        do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
     RETURN_IF_NULL_MSG(service, "Invalid nsIMobileConnectionService")
 
     nsCOMPtr<nsIMobileConnection> connection;
@@ -74,35 +78,38 @@ MobileManagerDelegateService::GetCardInfo(int cardId, int type, nsAString& resul
     RETURN_IF_NULL_MSG(deviceIdentities, "Invalid nsIMobileDeviceIdentities")
 
     RETURN_IF_ERROR_MSG(deviceIdentities->GetImei(result), "Failed to get IMEI")
-  } else { //IMSI and MSISDN both used icc
+  } else {  // IMSI and MSISDN both used icc
     nsCOMPtr<nsIIccService> iccService = do_GetService(ICC_SERVICE_CONTRACTID);
 
     nsCOMPtr<nsIIcc> icc;
     iccService->GetIccByServiceId(cardId, getter_AddRefs(icc));
     RETURN_IF_NULL_MSG(icc, "Invalid nsIIcc")
 
-    if (CIT_IMSI == type) { //IMSI ends here
+    if (CIT_IMSI == type) {  // IMSI ends here
       RETURN_IF_ERROR_MSG(icc->GetImsi(result), "Failed to get IMSI")
-    } else { //MSISDN should do something more
+    } else {  // MSISDN should do something more
       nsCOMPtr<nsIIccInfo> iccInfo;
-      RETURN_IF_ERROR_MSG(icc->GetIccInfo(getter_AddRefs(iccInfo)), "Invalid nsIIccInfo")
+      RETURN_IF_ERROR_MSG(icc->GetIccInfo(getter_AddRefs(iccInfo)),
+                          "Invalid nsIIccInfo")
 
       nsCOMPtr<nsIGsmIccInfo> gsmIccInfo = do_QueryInterface(iccInfo);
       if (gsmIccInfo) {
-        RETURN_IF_ERROR_MSG(gsmIccInfo->GetMsisdn(result), "Failed to get MSISDN")
+        RETURN_IF_ERROR_MSG(gsmIccInfo->GetMsisdn(result),
+                            "Failed to get MSISDN")
       } else {
         nsCOMPtr<nsICdmaIccInfo> cdmaIccInfo = do_QueryInterface(iccInfo);
         RETURN_IF_NULL_MSG(cdmaIccInfo, "Invalid nsICdmaIccInfo")
         RETURN_IF_ERROR_MSG(cdmaIccInfo->GetMdn(result), "Failed to get MDN")
       }
-    } //end of IMSI and MSISDN
-  } // end of IMEI and IMSI and MSISDN
+    }  // end of IMSI and MSISDN
+  }    // end of IMEI and IMSI and MSISDN
 
   return NS_OK;
 }
 
 NS_IMETHODIMP
-MobileManagerDelegateService::GetMncMcc(int cardId, bool isSim, nsAString& mnc, nsAString& mcc) {
+MobileManagerDelegateService::GetMncMcc(int cardId, bool isSim, nsAString& mnc,
+                                        nsAString& mcc) {
   if (isSim) {
     // Get simcard mnc/mcc.
     nsCOMPtr<nsIIccService> iccService = do_GetService(ICC_SERVICE_CONTRACTID);
@@ -120,7 +127,8 @@ MobileManagerDelegateService::GetMncMcc(int cardId, bool isSim, nsAString& mnc, 
     RETURN_IF_ERROR_MSG(iccInfo->GetMcc(mcc), "Failed to get MCC")
   } else {
     // Get network mnc/mcc.
-    nsCOMPtr<nsIMobileConnectionService> service = do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
+    nsCOMPtr<nsIMobileConnectionService> service =
+        do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
     RETURN_IF_NULL_MSG(service, "Invalid nsIMobileConnectionService");
 
     nsCOMPtr<nsIMobileConnection> connection;

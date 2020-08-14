@@ -14,27 +14,29 @@
 #include "nsINetworkInterface.h"
 #include "nsINetworkManager.h"
 
+#define RETURN_IF_NULL_MSG(varname, msg) \
+  if (NULL == varname) {                 \
+    return NS_ERROR_FAILURE;             \
+  }
 
-#define RETURN_IF_NULL_MSG(varname, msg) if (NULL == varname) {   \
-          return NS_ERROR_FAILURE;                                \
-        }
-
-#define RETURN_IF_ERROR_MSG(varname, msg) if (NS_OK != varname) { \
-          return NS_ERROR_FAILURE;                                \
-        }
+#define RETURN_IF_ERROR_MSG(varname, msg) \
+  if (NS_OK != varname) {                 \
+    return NS_ERROR_FAILURE;              \
+  }
 
 using namespace mozilla;
 
 namespace mozilla {
 
 // The singleton NetworkManagerDelegate service, to be used on the main thread.
-static StaticRefPtr<NetworkManagerDelegateService> gNetworkManagerDelegateService;
+static StaticRefPtr<NetworkManagerDelegateService>
+    gNetworkManagerDelegateService;
 
 NS_IMPL_ISUPPORTS(NetworkManagerDelegateService, nsINetworkManagerDelegate)
 
-NetworkManagerDelegateService::NetworkManagerDelegateService() { }
+NetworkManagerDelegateService::NetworkManagerDelegateService() {}
 
-NetworkManagerDelegateService::~NetworkManagerDelegateService() { }
+NetworkManagerDelegateService::~NetworkManagerDelegateService() {}
 
 /* static */
 already_AddRefed<NetworkManagerDelegateService>
@@ -49,13 +51,15 @@ NetworkManagerDelegateService::ConstructNetworkManagerDelegate() {
     gNetworkManagerDelegateService = new NetworkManagerDelegateService();
   }
 
-  RefPtr<NetworkManagerDelegateService> service = gNetworkManagerDelegateService.get();
+  RefPtr<NetworkManagerDelegateService> service =
+      gNetworkManagerDelegateService.get();
   return service.forget();
 }
 
 NS_IMETHODIMP
-NetworkManagerDelegateService::GetNetworkInfo(int32_t *state, int32_t *type) {
-  nsCOMPtr<nsINetworkManager> networkManager = do_GetService("@mozilla.org/network/manager;1");
+NetworkManagerDelegateService::GetNetworkInfo(int32_t* state, int32_t* type) {
+  nsCOMPtr<nsINetworkManager> networkManager =
+      do_GetService("@mozilla.org/network/manager;1");
   RETURN_IF_NULL_MSG(networkManager, "Can't get nsINetworkManager.")
 
   nsCOMPtr<nsINetworkInfo> activeNetworkInfo;
@@ -64,7 +68,7 @@ NetworkManagerDelegateService::GetNetworkInfo(int32_t *state, int32_t *type) {
 
   nsresult res = activeNetworkInfo->GetState(state);
   if (NS_OK != res) {
-     return NS_ERROR_FAILURE;
+    return NS_ERROR_FAILURE;
   }
 
   res = activeNetworkInfo->GetType(type);

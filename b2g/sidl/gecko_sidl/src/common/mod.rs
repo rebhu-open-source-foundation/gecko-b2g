@@ -6,8 +6,8 @@ pub mod client_object;
 #[macro_use]
 pub mod connection_observer;
 pub mod core;
-pub mod default_response;
 pub mod daemon_manager;
+pub mod default_response;
 #[macro_use]
 pub mod event_manager;
 pub mod frame;

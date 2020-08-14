@@ -1,10 +1,9 @@
+/* eslint-disable no-undef */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 "use strict";
-
-var { results: Cr } = Components;
 
 // Trivial test just to make sure we have no syntax error
 add_test(function test_ksm_ok() {
@@ -81,7 +80,7 @@ var fakeLibcUtils = {
   },
   property_get(name, defaultValue) {
     dump("property_get('" + name + "', '" + defaultValue + "');\n");
-    if (Object.keys(this._props_).indexOf(name) !== -1) {
+    if (Object.keys(this._props_).includes(name)) {
       return this._props_[name];
     }
     return defaultValue;

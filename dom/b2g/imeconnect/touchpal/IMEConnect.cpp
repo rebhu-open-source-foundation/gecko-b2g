@@ -9,22 +9,19 @@
 #include "MainThreadUtils.h"
 #include "nsIInputStream.h"
 
-
-#define U16STR_TO_U8CSTR(u16str)    NS_ConvertUTF16toUTF8(u16str.data()).get()
-
+#define U16STR_TO_U8CSTR(u16str) NS_ConvertUTF16toUTF8(u16str.data()).get()
 
 namespace mozilla {
 namespace dom {
 
-
-uint8_t  IMEConnect::mInitStatus;
-uint8_t  IMEConnect::mImeId;
-uint8_t  IMEConnect::mKeyboardId;
+uint8_t IMEConnect::mInitStatus;
+uint8_t IMEConnect::mImeId;
+uint8_t IMEConnect::mKeyboardId;
 uint16_t IMEConnect::mTotalWord;
 uint16_t IMEConnect::mTotalGroup;
 uint16_t IMEConnect::mActiveWordIndex;
 uint16_t IMEConnect::mActiveGroupIndex;
-uint8_t  IMEConnect::mActiveSelectionBar;
+uint8_t IMEConnect::mActiveSelectionBar;
 
 nsString IMEConnect::mCandidateWord;
 list<u16string> IMEConnect::mCandWord;
@@ -36,26 +33,24 @@ bool IMEConnect::mHasPreciseCandidate;
 map<ctunicode_t, vector<ctunicode_t>> IMEConnect::mKeyLetters;
 struct DictFile IMEConnect::mDictFile;
 
-
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(IMEConnect, mWindow)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(IMEConnect)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(IMEConnect)
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(IMEConnect)
-NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
-NS_INTERFACE_MAP_ENTRY(nsISupports)
+  NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
+  NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-IMEConnect::IMEConnect(nsPIDOMWindowInner* aWindow): mWindow(aWindow)
-{
+IMEConnect::IMEConnect(nsPIDOMWindowInner* aWindow) : mWindow(aWindow) {
   MOZ_ASSERT(mWindow);
 }
 
-already_AddRefed<IMEConnect>
-IMEConnect::Constructor(const GlobalObject& aGlobal, ErrorResult& aRv)
-{
+already_AddRefed<IMEConnect> IMEConnect::Constructor(
+    const GlobalObject& aGlobal, ErrorResult& aRv) {
   MOZ_ASSERT(NS_IsMainThread());
-  nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(aGlobal.GetAsSupports());
+  nsCOMPtr<nsPIDOMWindowInner> window =
+      do_QueryInterface(aGlobal.GetAsSupports());
   if (!window) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -66,11 +61,11 @@ IMEConnect::Constructor(const GlobalObject& aGlobal, ErrorResult& aRv)
   return xt_object.forget();
 }
 
-already_AddRefed<IMEConnect>
-IMEConnect::Constructor(const GlobalObject& aGlobal, uint32_t aLid, ErrorResult& aRv)
-{
+already_AddRefed<IMEConnect> IMEConnect::Constructor(
+    const GlobalObject& aGlobal, uint32_t aLid, ErrorResult& aRv) {
   MOZ_ASSERT(NS_IsMainThread());
-  nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(aGlobal.GetAsSupports());
+  nsCOMPtr<nsPIDOMWindowInner> window =
+      do_QueryInterface(aGlobal.GetAsSupports());
   if (!window) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -82,20 +77,17 @@ IMEConnect::Constructor(const GlobalObject& aGlobal, uint32_t aLid, ErrorResult&
   return xt_object.forget();
 }
 
-nsresult
-IMEConnect::Init(uint32_t aLid)
-{
+nsresult IMEConnect::Init(uint32_t aLid) {
   CT_LOGI("Init::++");
   SetLanguage(aLid);
   return NS_OK;
 }
 
-void
-IMEConnect::SetLetter(const unsigned long aHexPrefix, const unsigned long aHexLetter,
-  ErrorResult& aRv)
-{
-  bool isGroupSupported = (mImeId == eImeChinesePinyin || mImeId == eImeChineseZhuyin)
-    && mKeyboardId == eKeyboardT9;
+void IMEConnect::SetLetter(const unsigned long aHexPrefix,
+                           const unsigned long aHexLetter, ErrorResult& aRv) {
+  bool isGroupSupported =
+      (mImeId == eImeChinesePinyin || mImeId == eImeChineseZhuyin) &&
+      mKeyboardId == eKeyboardT9;
   bool shouldRefetch = false;
 
   if (mInitStatus != eInitStatusSuccess) {
@@ -103,44 +95,50 @@ IMEConnect::SetLetter(const unsigned long aHexPrefix, const unsigned long aHexLe
     return;
   }
 
-  CT_LOGD("SetLetter::aHexPrefix=0x%x, aHexLetter=0x%x", (int)aHexPrefix, (int)aHexLetter);
+  CT_LOGD("SetLetter::aHexPrefix=0x%x, aHexLetter=0x%x", (int)aHexPrefix,
+          (int)aHexLetter);
 
   switch (aHexLetter) {
-    case 0x26: // up arrow
-    case 0x28: // down arrow
+    case 0x26:  // up arrow
+    case 0x28:  // down arrow
       if (isGroupSupported) {
         mActiveSelectionBar =
-          ((mActiveSelectionBar == eSelectionBarWord) ? eSelectionBarGroup : eSelectionBarWord);
+            ((mActiveSelectionBar == eSelectionBarWord) ? eSelectionBarGroup
+                                                        : eSelectionBarWord);
         // TODO: remove unnecessary fetching operations and enhance performance
         FetchCandidates();
       }
       break;
-    case 0x25: // left arrow
+    case 0x25:  // left arrow
       if (isGroupSupported && (mActiveSelectionBar == eSelectionBarGroup)) {
-        mActiveGroupIndex = (mActiveGroupIndex > 0 ? mActiveGroupIndex - 1 : mTotalGroup - 1);
+        mActiveGroupIndex =
+            (mActiveGroupIndex > 0 ? mActiveGroupIndex - 1 : mTotalGroup - 1);
         mActiveWordIndex = 0;
         shouldRefetch = true;
       } else {
-        mActiveWordIndex = (mActiveWordIndex > 0 ? mActiveWordIndex - 1 : mTotalWord - 1);
+        mActiveWordIndex =
+            (mActiveWordIndex > 0 ? mActiveWordIndex - 1 : mTotalWord - 1);
         PackCandidates();
       }
       break;
-    case 0x27: // right arrow
+    case 0x27:  // right arrow
       if (isGroupSupported && (mActiveSelectionBar == eSelectionBarGroup)) {
-        mActiveGroupIndex = (mActiveGroupIndex < mTotalGroup - 1 ? mActiveGroupIndex + 1 : 0);
+        mActiveGroupIndex =
+            (mActiveGroupIndex < mTotalGroup - 1 ? mActiveGroupIndex + 1 : 0);
         mActiveWordIndex = 0;
         shouldRefetch = true;
       } else {
-        mActiveWordIndex = (mActiveWordIndex < mTotalWord - 1 ? mActiveWordIndex + 1 : 0);
+        mActiveWordIndex =
+            (mActiveWordIndex < mTotalWord - 1 ? mActiveWordIndex + 1 : 0);
         PackCandidates();
       }
       break;
-    case 0x0D: // enter
-    case 0x20: // space
+    case 0x0D:  // enter
+    case 0x20:  // space
       mTypedKeycodes.clear();
       mCandidateWord.AssignLiteral("");
       break;
-    case 0x08: // backspace
+    case 0x08:  // backspace
       if (mTypedKeycodes.size() > 0) {
         mTypedKeycodes.pop_back();
         mActiveWordIndex = 0;
@@ -157,8 +155,10 @@ IMEConnect::SetLetter(const unsigned long aHexPrefix, const unsigned long aHexLe
       }
       break;
     default:
-      if ((mKeyboardId == eKeyboardT9 && ((aHexLetter >= 0x30 && aHexLetter <= 0x39) || aHexLetter == 0x2A)) // 0~9, *
-        || mKeyboardId == eKeyboardQwerty) {
+      if ((mKeyboardId == eKeyboardT9 &&
+           ((aHexLetter >= 0x30 && aHexLetter <= 0x39) ||
+            aHexLetter == 0x2A))  // 0~9, *
+          || mKeyboardId == eKeyboardQwerty) {
         mTypedKeycodes.push_back(aHexLetter);
         mActiveWordIndex = 0;
         shouldRefetch = true;
@@ -175,10 +175,9 @@ IMEConnect::SetLetter(const unsigned long aHexPrefix, const unsigned long aHexLe
   }
 }
 
-void
-IMEConnect::SetLetterMultiTap(const unsigned long aKeyCode, const unsigned long aTapCount,
-  unsigned short aPrevUnichar)
-{
+void IMEConnect::SetLetterMultiTap(const unsigned long aKeyCode,
+                                   const unsigned long aTapCount,
+                                   unsigned short aPrevUnichar) {
   if (mInitStatus == eInitStatusError) {
     CT_LOGE("SetLetterMultiTap::init failed mInitStatus=%d", mInitStatus);
     return;
@@ -196,7 +195,7 @@ IMEConnect::SetLetterMultiTap(const unsigned long aKeyCode, const unsigned long 
 
   u16string str;
   unsigned int len = mKeyLetters[aKeyCode].size();
-  for (unsigned int i=0; i<len; i++) {
+  for (unsigned int i = 0; i < len; i++) {
     if (i == ((aTapCount - 1) % len)) {
       str.append((char16_t*)">", 1);
     }
@@ -209,9 +208,9 @@ IMEConnect::SetLetterMultiTap(const unsigned long aKeyCode, const unsigned long 
   mCandidateWord = nsString(str.c_str(), str.length());
 }
 
-void
-IMEConnect::GetWordCandidates(const nsAString& aLetters, const Sequence<nsString>& aContext, nsAString& aRetval)
-{
+void IMEConnect::GetWordCandidates(const nsAString& aLetters,
+                                   const Sequence<nsString>& aContext,
+                                   nsAString& aRetval) {
   if (mInitStatus != eInitStatusSuccess) {
     CT_LOGE("GetWordCandidates::init failed mInitStatus=%d", mInitStatus);
     return;
@@ -221,11 +220,12 @@ IMEConnect::GetWordCandidates(const nsAString& aLetters, const Sequence<nsString
   mHistoryWords.clear();
 
   u16string letters = u16string(((nsString)aLetters).get());
-  for (unsigned int i=0; i<letters.length(); i++) {
+  for (unsigned int i = 0; i < letters.length(); i++) {
     mTypedKeycodes.push_back((wchar_t)tolower(letters[i]));
   }
 
-  for (unsigned int i=0; i<aContext.Length() && i<CUSTOM_HISTORY_SIZE; i++) {
+  for (unsigned int i = 0; i < aContext.Length() && i < CUSTOM_HISTORY_SIZE;
+       i++) {
     u16string context = u16string(((nsString)aContext[i]).get());
     mHistoryWords.push_back(context);
   }
@@ -234,9 +234,8 @@ IMEConnect::GetWordCandidates(const nsAString& aLetters, const Sequence<nsString
   aRetval = mCandidateWord;
 }
 
-void
-IMEConnect::GetNextWordCandidates(const nsAString& aWord, nsAString& aRetval)
-{
+void IMEConnect::GetNextWordCandidates(const nsAString& aWord,
+                                       nsAString& aRetval) {
   struct CT_InputContext input = {0};
   struct CT_SearchResult result = {0};
   struct CT_FilterList filterList = {0};
@@ -250,7 +249,8 @@ IMEConnect::GetNextWordCandidates(const nsAString& aWord, nsAString& aRetval)
 
   // setup current word
   u16string curWord = u16string(((nsString)aWord).get());
-  for (unsigned int i=0; i<curWord.length() && i<CT_MAX_WORD_ARRAY_SIZE; i++) {
+  for (unsigned int i = 0; i < curWord.length() && i < CT_MAX_WORD_ARRAY_SIZE;
+       i++) {
     input.history.history_items[0].word[i] = curWord[i];
   }
   input.history.history_size++;
@@ -263,15 +263,18 @@ IMEConnect::GetNextWordCandidates(const nsAString& aWord, nsAString& aRetval)
   result.candidate_items = candItems;
 
   // search nextword
-  ret = CT_RetrieveNextWordCandidates(mDictFile.dic, &input.history, input.request_size, &result);
+  ret = CT_RetrieveNextWordCandidates(mDictFile.dic, &input.history,
+                                      input.request_size, &result);
   if (ret) {
-    CT_LOGW("GetNextWordCandidates::CT_RetrieveNextWordCandidates failed ret=%d", ret);
+    CT_LOGW(
+        "GetNextWordCandidates::CT_RetrieveNextWordCandidates failed ret=%d",
+        ret);
     return;
   }
 
   // pack nextword result
   u16string str;
-  for (unsigned int i=0; i<result.candidate_items_size; i++) {
+  for (unsigned int i = 0; i < result.candidate_items_size; i++) {
     str.append((char16_t*)result.candidate_items[i].word_item.word);
     str.append((char16_t*)"|", 1);
   }
@@ -280,12 +283,10 @@ IMEConnect::GetNextWordCandidates(const nsAString& aWord, nsAString& aRetval)
   aRetval = nsString(str.c_str(), str.length());
 }
 
-void
-IMEConnect::ImportDictionary(Blob& aBlob, ErrorResult& aRv)
-{
+void IMEConnect::ImportDictionary(Blob& aBlob, ErrorResult& aRv) {
   uint64_t blobSize;
   uint32_t numRead;
-  char *readBuf;
+  char* readBuf;
   int ret;
 
   if (mInitStatus != eInitStatusSuccess) {
@@ -295,7 +296,8 @@ IMEConnect::ImportDictionary(Blob& aBlob, ErrorResult& aRv)
 
   CT_LOGI("ImportDictionary::mImeId=0x%x", mImeId);
 
-  if (mImeId == eImeChinesePinyin || mImeId == eImeChineseBihua || mImeId == eImeChineseZhuyin) {
+  if (mImeId == eImeChinesePinyin || mImeId == eImeChineseBihua ||
+      mImeId == eImeChineseZhuyin) {
     CT_LOGE("ImportDictionary::invalid mImeId=0x%x", mImeId);
     aRv.Throw(NS_ERROR_FAILURE);
     return;
@@ -340,7 +342,7 @@ IMEConnect::ImportDictionary(Blob& aBlob, ErrorResult& aRv)
   }
 
   string word;
-  for (unsigned int i=0; i<blobSize; i++) {
+  for (unsigned int i = 0; i < blobSize; i++) {
     if (readBuf[i] == '|') {
       struct CT_WordItem word_item = {0};
       ctunicode_t evidence[CT_DISPLAY_EVIDENCE_ARRAY_SIZE] = {0};
@@ -364,9 +366,7 @@ IMEConnect::ImportDictionary(Blob& aBlob, ErrorResult& aRv)
   free(readBuf);
 }
 
-uint32_t
-IMEConnect::SetLanguage(const uint32_t aLid)
-{
+uint32_t IMEConnect::SetLanguage(const uint32_t aLid) {
   int ret;
   uint8_t imeId = aLid & IME_ID_MASK;
   uint8_t keyboardId = (aLid & KEYBOARD_ID_MASK) >> KEYBOARD_ID_SHIFT;
@@ -423,15 +423,14 @@ IMEConnect::SetLanguage(const uint32_t aLid)
   mImeId = imeId;
   mKeyboardId = keyboardId;
 
-  CT_LOGI("SetLanguage::mImeId=0x%x, mKeyboardId=0x%x, mInitStatus=%d", mImeId, mKeyboardId, mInitStatus);
+  CT_LOGI("SetLanguage::mImeId=0x%x, mKeyboardId=0x%x, mInitStatus=%d", mImeId,
+          mKeyboardId, mInitStatus);
 
   return mInitStatus;
 }
 
-int
-IMEConnect::InitKeyLayout(uint32_t aImeId, uint32_t aKeyboardId)
-{
-  FILE *fd;
+int IMEConnect::InitKeyLayout(uint32_t aImeId, uint32_t aKeyboardId) {
+  FILE* fd;
   int layoutsNum, keysNum;
   char layoutName[7];
   char buf[KEY_LAYOUT_MAX_BUF_SIZE];
@@ -477,14 +476,14 @@ IMEConnect::InitKeyLayout(uint32_t aImeId, uint32_t aKeyboardId)
   }
 
   fgets(buf, sizeof(buf), fd);
-  for (int i=0; i<keysNum; i++) {
+  for (int i = 0; i < keysNum; i++) {
     fgets(buf, sizeof(buf), fd);
     if (buf[0]) {
       buf[strlen(buf) - 1] = 0;
       ctunicode_t letters[KEY_LAYOUT_MAX_LETTERS] = {0};
       str_to_wstr(letters, buf);
       vector<ctunicode_t> letterVec;
-      for (int j=0; j<KEY_LAYOUT_MAX_LETTERS && letters[j]; j++) {
+      for (int j = 0; j < KEY_LAYOUT_MAX_LETTERS && letters[j]; j++) {
         letterVec.push_back(letters[j]);
       }
 
@@ -492,12 +491,11 @@ IMEConnect::InitKeyLayout(uint32_t aImeId, uint32_t aKeyboardId)
         if (i == 10) {
           mKeyLetters['*'] = letterVec;
         } else {
-          mKeyLetters['0'+i] = letterVec;
+          mKeyLetters['0' + i] = letterVec;
         }
       } else if (aKeyboardId == eKeyboardQwerty) {
         mKeyLetters[letters[0]] = letterVec;
       }
-
     }
   }
   fclose(fd);
@@ -506,8 +504,7 @@ IMEConnect::InitKeyLayout(uint32_t aImeId, uint32_t aKeyboardId)
   return 0;
 }
 
-int
-IMEConnect::InitSysDictionary(uint32_t aImeId) {
+int IMEConnect::InitSysDictionary(uint32_t aImeId) {
   string romPath;
   string usrPath;
   string extPath;
@@ -534,26 +531,32 @@ IMEConnect::InitSysDictionary(uint32_t aImeId) {
 
   // init system dictionary
   mDictFile.file_handles_base[mDictFile.file_size] =
-    (struct CT_BaseImageDescriptor *)ct_image_file_descriptor_init(romPath.c_str(), CTO_RDONLY);
+      (struct CT_BaseImageDescriptor*)ct_image_file_descriptor_init(
+          romPath.c_str(), CTO_RDONLY);
   if (mDictFile.file_handles_base[mDictFile.file_size] == NULL) {
-    CT_LOGE("InitSysDictionary::init rom dict failed, romPath=%s", romPath.c_str());
+    CT_LOGE("InitSysDictionary::init rom dict failed, romPath=%s",
+            romPath.c_str());
     return ERROR;
   }
   mDictFile.file_handles_base[mDictFile.file_size]->image_type = CT_RomFile;
-  mDictFile.images_list.sys_images[0].images[0] = mDictFile.file_handles_base[mDictFile.file_size];
+  mDictFile.images_list.sys_images[0].images[0] =
+      mDictFile.file_handles_base[mDictFile.file_size];
   mDictFile.images_list.sys_images[0].n_images++;
   mDictFile.file_size++;
 
   // init extra system dictionay for special case
   if (!extPath.empty()) {
     mDictFile.file_handles_base[mDictFile.file_size] =
-      (struct CT_BaseImageDescriptor *)ct_image_file_descriptor_init(extPath.c_str(), CTO_RDONLY);
+        (struct CT_BaseImageDescriptor*)ct_image_file_descriptor_init(
+            extPath.c_str(), CTO_RDONLY);
     if (mDictFile.file_handles_base[mDictFile.file_size] == NULL) {
-      CT_LOGE("InitSysDictionary::init ext dict failed, extPath=%s", extPath.c_str());
+      CT_LOGE("InitSysDictionary::init ext dict failed, extPath=%s",
+              extPath.c_str());
       return ERROR;
     }
     mDictFile.file_handles_base[mDictFile.file_size]->image_type = CT_RomFile;
-    mDictFile.images_list.sys_images[0].images[1] = mDictFile.file_handles_base[mDictFile.file_size];
+    mDictFile.images_list.sys_images[0].images[1] =
+        mDictFile.file_handles_base[mDictFile.file_size];
     mDictFile.images_list.sys_images[0].n_images++;
     mDictFile.file_size++;
   }
@@ -561,13 +564,16 @@ IMEConnect::InitSysDictionary(uint32_t aImeId) {
   // init user dictionary
   if (!usrPath.empty()) {
     mDictFile.file_handles_base[mDictFile.file_size] =
-      (struct CT_BaseImageDescriptor *)ct_image_file_descriptor_init(usrPath.c_str(), CTO_RDONLY);
+        (struct CT_BaseImageDescriptor*)ct_image_file_descriptor_init(
+            usrPath.c_str(), CTO_RDONLY);
     if (mDictFile.file_handles_base[mDictFile.file_size] == NULL) {
-      CT_LOGE("InitSysDictionary::init usr dict failed, usrPath=%s", usrPath.c_str());
+      CT_LOGE("InitSysDictionary::init usr dict failed, usrPath=%s",
+              usrPath.c_str());
       return ERROR;
     }
     mDictFile.file_handles_base[mDictFile.file_size]->image_type = CT_UsrFile;
-    mDictFile.images_list.usr_image.images[0] = mDictFile.file_handles_base[mDictFile.file_size];
+    mDictFile.images_list.usr_image.images[0] =
+        mDictFile.file_handles_base[mDictFile.file_size];
     mDictFile.images_list.usr_image.n_images++;
     mDictFile.file_size++;
   }
@@ -593,17 +599,17 @@ IMEConnect::InitSysDictionary(uint32_t aImeId) {
   return 0;
 }
 
-int
-IMEConnect::DeinitSysDictionary()
-{
+int IMEConnect::DeinitSysDictionary() {
   ctint32 ret = CT_DeinitializeDictionary(mDictFile.dic);
   if (ret) {
-    CT_LOGW("DeinitSysDictionary::CT_DeinitializeDictionary failed ret=%d", ret);
+    CT_LOGW("DeinitSysDictionary::CT_DeinitializeDictionary failed ret=%d",
+            ret);
     return ERROR;
   }
 
-  for (int i=0; i<mDictFile.file_size; i++) {
-    ct_deinit_image_file_descriptor((struct CT_ImageFileDescriptor *)mDictFile.file_handles_base[i]);
+  for (int i = 0; i < mDictFile.file_size; i++) {
+    ct_deinit_image_file_descriptor(
+        (struct CT_ImageFileDescriptor*)mDictFile.file_handles_base[i]);
   }
 
   memset(&mDictFile, 0, sizeof(mDictFile));
@@ -611,14 +617,14 @@ IMEConnect::DeinitSysDictionary()
   return 0;
 }
 
-void
-IMEConnect::FetchCandidates()
-{
-  bool isGroupSupported = (mImeId == eImeChinesePinyin || mImeId == eImeChineseZhuyin)
-    && mKeyboardId == eKeyboardT9;
-  bool isChinese = (mImeId == eImeChinesePinyin || mImeId == eImeChineseBihua
-    || mImeId == eImeChineseZhuyin);
-  bool isSingleKeyInT9 = (mKeyboardId == eKeyboardT9 && mTypedKeycodes.size() == 1 && !isChinese);
+void IMEConnect::FetchCandidates() {
+  bool isGroupSupported =
+      (mImeId == eImeChinesePinyin || mImeId == eImeChineseZhuyin) &&
+      mKeyboardId == eKeyboardT9;
+  bool isChinese = (mImeId == eImeChinesePinyin || mImeId == eImeChineseBihua ||
+                    mImeId == eImeChineseZhuyin);
+  bool isSingleKeyInT9 =
+      (mKeyboardId == eKeyboardT9 && mTypedKeycodes.size() == 1 && !isChinese);
 
   mCandWord.clear();
   mCandGroup.clear();
@@ -626,11 +632,12 @@ IMEConnect::FetchCandidates()
   mTotalGroup = 0;
   mHasPreciseCandidate = false;
 
-  // if only one key is inputed, it fetches candidates from layout instead of from dictionary
+  // if only one key is inputed, it fetches candidates from layout instead of
+  // from dictionary
   if (isSingleKeyInT9) {
     // fetch candidate letters from layout
     wchar_t keycode = mTypedKeycodes.at(0);
-    for (unsigned int i=0; i<mKeyLetters[keycode].size(); i++) {
+    for (unsigned int i = 0; i < mKeyLetters[keycode].size(); i++) {
       if (mKeyLetters[keycode][i] >= '0' && mKeyLetters[keycode][i] <= '9') {
         continue;
       }
@@ -651,7 +658,7 @@ IMEConnect::FetchCandidates()
   ctint32 ret;
 
   // setup input code expand callback function
-  for (unsigned int i=0; i<mTypedKeycodes.size(); i++) {
+  for (unsigned int i = 0; i < mTypedKeycodes.size(); i++) {
     if (mImeId == eImeChineseBihua) {
       wchar_t keycode = mTypedKeycodes.at(i);
       input.input_codes[i] = mKeyLetters[keycode][0];
@@ -664,8 +671,10 @@ IMEConnect::FetchCandidates()
   input.callback_function = &GetInputCodeExpandResult;
 
   // setup history words
-  for (unsigned int i=0; i<mHistoryWords.size() && i<CT_MAX_HISTORY_SIZE; i++) {
-    for (unsigned int j=0; j<mHistoryWords[i].length() && j<CT_MAX_WORD_ARRAY_SIZE; j++) {
+  for (unsigned int i = 0; i < mHistoryWords.size() && i < CT_MAX_HISTORY_SIZE;
+       i++) {
+    for (unsigned int j = 0;
+         j < mHistoryWords[i].length() && j < CT_MAX_WORD_ARRAY_SIZE; j++) {
       input.history.history_items[i].word[j] = mHistoryWords[i][j];
     }
     input.history.history_size++;
@@ -696,16 +705,20 @@ IMEConnect::FetchCandidates()
 
   if (isGroupSupported) {
     // take filter_list as group candidates
-    for (unsigned int i=0; i<result.filter_list->list_size; i++) {
-      u16string str = u16string((char16_t*)result.filter_list->list[i].filter_str);
+    for (unsigned int i = 0; i < result.filter_list->list_size; i++) {
+      u16string str =
+          u16string((char16_t*)result.filter_list->list[i].filter_str);
       mCandGroup.push_back(str);
     }
 
     // setup chosen filter
     unsigned int idx = mActiveGroupIndex;
-    u16string chosen = u16string((char16_t*)result.filter_list->list[idx].filter_str);
-    CT_LOGD("FetchCandidates::chosen=%s, length=%d", U16STR_TO_U8CSTR(chosen), chosen.length());
-    for (unsigned int i=0; i<chosen.length() && i<CT_PINYIN_INDEX_PINYIN_LETTER_SIZE; i++) {
+    u16string chosen =
+        u16string((char16_t*)result.filter_list->list[idx].filter_str);
+    CT_LOGD("FetchCandidates::chosen=%s, length=%d", U16STR_TO_U8CSTR(chosen),
+            chosen.length());
+    for (unsigned int i = 0;
+         i < chosen.length() && i < CT_PINYIN_INDEX_PINYIN_LETTER_SIZE; i++) {
       input.chinese_info->filter[0][i] = chosen[i];
     }
     input.chinese_info->filters_size++;
@@ -721,11 +734,14 @@ IMEConnect::FetchCandidates()
     }
   }
 
-  // take candidate_items as prioritized candidates and precise_itmes as secondary candidates
+  // take candidate_items as prioritized candidates and precise_itmes as
+  // secondary candidates
   if (result.candidate_items_size > 0) {
-    for (unsigned int i=0; i<result.candidate_items_size; i++) {
-      u16string str = u16string((char16_t*)result.candidate_items[i].word_item.word);
-      CT_LOGD("FetchCandidates::candidate_items[%d]=%s", i, U16STR_TO_U8CSTR(str));
+    for (unsigned int i = 0; i < result.candidate_items_size; i++) {
+      u16string str =
+          u16string((char16_t*)result.candidate_items[i].word_item.word);
+      CT_LOGD("FetchCandidates::candidate_items[%d]=%s", i,
+              U16STR_TO_U8CSTR(str));
 
       if (isGroupSupported) {
         if (result.candidate_items[i].word_item.tag == CT_TAG_DEFAULT) {
@@ -741,9 +757,11 @@ IMEConnect::FetchCandidates()
       mHasPreciseCandidate = true;
     }
   } else if (result.precise_items_size > 0) {
-    for (unsigned int i=0; i<result.precise_items_size; i++) {
-      u16string str = u16string((char16_t*)result.precise_items[i].word_item.word);
-      CT_LOGD("FetchCandidates::precise_items[%d]=%s", i, U16STR_TO_U8CSTR(str));
+    for (unsigned int i = 0; i < result.precise_items_size; i++) {
+      u16string str =
+          u16string((char16_t*)result.precise_items[i].word_item.word);
+      CT_LOGD("FetchCandidates::precise_items[%d]=%s", i,
+              U16STR_TO_U8CSTR(str));
 
       mCandWord.push_back(str);
     }
@@ -755,18 +773,17 @@ IMEConnect::FetchCandidates()
   PackCandidates();
 }
 
-void
-IMEConnect::PackCandidates()
-{
-  bool isGroupSupported = (mImeId == eImeChinesePinyin || mImeId == eImeChineseZhuyin)
-    && mKeyboardId == eKeyboardT9;
+void IMEConnect::PackCandidates() {
+  bool isGroupSupported =
+      (mImeId == eImeChinesePinyin || mImeId == eImeChineseZhuyin) &&
+      mKeyboardId == eKeyboardT9;
 
   u16string str;
 
   // groups packing
   if (isGroupSupported) {
     mTotalGroup = mCandGroup.size();
-    for (unsigned int i=0; i<mTotalGroup; i++) {
+    for (unsigned int i = 0; i < mTotalGroup; i++) {
       u16string group = mCandGroup.front();
       mCandGroup.pop_front();
       CT_LOGD("PackCandidates::group[%d]=%s", i, U16STR_TO_U8CSTR(group));
@@ -782,7 +799,7 @@ IMEConnect::PackCandidates()
 
   // words packing
   mTotalWord = mCandWord.size();
-  for (unsigned int i=0; i<mTotalWord; i++) {
+  for (unsigned int i = 0; i < mTotalWord; i++) {
     u16string word = mCandWord.front();
     mCandWord.pop_front();
     CT_LOGD("PackCandidates::word[%d]=%s", i, U16STR_TO_U8CSTR(word));
@@ -817,15 +834,15 @@ IMEConnect::PackCandidates()
   mCandidateWord.Assign(nsString(str.c_str(), str.length()));
 }
 
-ctint32
-IMEConnect::GetInputCodeExpandResult(ctint32 code, void* callbackToken,
-  struct CT_InputCodeExpand* InputCodeExpand)
-{
+ctint32 IMEConnect::GetInputCodeExpandResult(
+    ctint32 code, void* callbackToken,
+    struct CT_InputCodeExpand* InputCodeExpand) {
   memset(InputCodeExpand, 0, sizeof(struct CT_InputCodeExpand));
 
   unsigned int len = mKeyLetters[code].size();
   unsigned int count = 0, keyType = 0;
-  for (unsigned int i=0; i<len && count<CT_MAX_INPUT_CODE_EXPAND_LENGTH; i++) {
+  for (unsigned int i = 0; i < len && count < CT_MAX_INPUT_CODE_EXPAND_LENGTH;
+       i++) {
     if (mKeyLetters[code][i] == '|') {
       count = 0;
       keyType++;
@@ -838,17 +855,22 @@ IMEConnect::GetInputCodeExpandResult(ctint32 code, void* callbackToken,
     }
 
     switch (keyType) {
-      case 0: // precise letters
+      case 0:  // precise letters
         InputCodeExpand->precise_result.result[count++] = mKeyLetters[code][i];
         InputCodeExpand->precise_result.result_length++;
         break;
-      case 1: // correction letters
-        InputCodeExpand->correction_result[count].prob = CT_INPUT_CORRECTION_DEFAULT_PROB;
-        InputCodeExpand->correction_result[count].result[0] = mKeyLetters[code][i];
+      case 1:  // correction letters
+        InputCodeExpand->correction_result[count].prob =
+            CT_INPUT_CORRECTION_DEFAULT_PROB;
+        InputCodeExpand->correction_result[count].result[0] =
+            mKeyLetters[code][i];
         InputCodeExpand->correction_result[count++].result_length++;
-        InputCodeExpand->correction_result_length = count <= CT_MAX_INPUT_CODE_CORRECTION_NUM ? count : CT_MAX_INPUT_CODE_CORRECTION_NUM;
+        InputCodeExpand->correction_result_length =
+            count <= CT_MAX_INPUT_CODE_CORRECTION_NUM
+                ? count
+                : CT_MAX_INPUT_CODE_CORRECTION_NUM;
         break;
-      case 2: // vertical correction letters
+      case 2:  // vertical correction letters
         InputCodeExpand->vertical_correction[i] = mKeyLetters[code][i];
         InputCodeExpand->vertical_correction_length++;
         break;
@@ -862,16 +884,12 @@ IMEConnect::GetInputCodeExpandResult(ctint32 code, void* callbackToken,
   return 0;
 }
 
-JSObject*
-IMEConnect::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* IMEConnect::WrapObject(JSContext* aCx,
+                                 JS::Handle<JSObject*> aGivenProto) {
   return mozilla::dom::IMEConnect_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-IMEConnect::~IMEConnect()
-{
-  DeinitSysDictionary();
-}
+IMEConnect::~IMEConnect() { DeinitSysDictionary(); }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

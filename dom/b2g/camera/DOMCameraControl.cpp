@@ -1167,8 +1167,8 @@ void nsDOMCameraControl::OnHardwareStateChange(
             break;
         }
 
-        RefPtr<CameraClosedEvent> event = CameraClosedEvent::Constructor(
-            this, u"close"_ns, eventInit);
+        RefPtr<CameraClosedEvent> event =
+            CameraClosedEvent::Constructor(this, u"close"_ns, eventInit);
         DispatchTrustedEvent(event);
       } else {
         // The configuration failed and we forced the camera to shutdown.
@@ -1378,8 +1378,8 @@ void nsDOMCameraControl::OnConfigurationChange(
                   mCurrentConfiguration->mPictureSize.mHeight);
 
   RefPtr<CameraConfigurationEvent> event =
-      CameraConfigurationEvent::Constructor(
-          this, u"configurationchanged"_ns, eventInit);
+      CameraConfigurationEvent::Constructor(this, u"configurationchanged"_ns,
+                                            eventInit);
 
   DispatchTrustedEvent(event);
 }
@@ -1394,11 +1394,9 @@ void nsDOMCameraControl::OnAutoFocusComplete(bool aAutoFocusSucceeded) {
   }
 
   if (aAutoFocusSucceeded) {
-    DispatchStateEvent(u"focus"_ns,
-                       u"focused"_ns);
+    DispatchStateEvent(u"focus"_ns, u"focused"_ns);
   } else {
-    DispatchStateEvent(u"focus"_ns,
-                       u"unfocused"_ns);
+    DispatchStateEvent(u"focus"_ns, u"unfocused"_ns);
   }
 }
 
@@ -1407,8 +1405,7 @@ void nsDOMCameraControl::OnAutoFocusMoving(bool aIsMoving) {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (aIsMoving) {
-    DispatchStateEvent(u"focus"_ns,
-                       u"focusing"_ns);
+    DispatchStateEvent(u"focus"_ns, u"focusing"_ns);
   }
 }
 
@@ -1502,8 +1499,7 @@ void nsDOMCameraControl::OnUserError(
 
     case CameraControlListener::kInAutoFocus:
       promise = mAutoFocusPromise.forget();
-      DispatchStateEvent(u"focus"_ns,
-                         u"unfocused"_ns);
+      DispatchStateEvent(u"focus"_ns, u"unfocused"_ns);
       break;
 
     case CameraControlListener::kInTakePicture:

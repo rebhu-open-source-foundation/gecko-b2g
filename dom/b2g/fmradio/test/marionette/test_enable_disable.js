@@ -45,7 +45,9 @@ function enableFMRadio() {
   };
 
   FMRadio.onfrequencychange = function() {
-    log("Check if 'onfrequencychange' event is fired after the 'enabled' event");
+    log(
+      "Check if 'onfrequencychange' event is fired after the 'enabled' event"
+    );
     FMRadio.onfrequencychange = null;
     ok(enabled, "FMRadio is enabled when handling `onfrequencychange`");
     disableFMRadio();
@@ -82,4 +84,3 @@ function disableFMRadio() {
 }
 
 verifyInitialState();
-

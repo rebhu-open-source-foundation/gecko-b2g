@@ -231,8 +231,7 @@ SpeakerManagerService::Observe(nsISupports* aSubject, const char* aTopic,
     }
 
     uint64_t childID = 0;
-    nsresult rv =
-        props->GetPropertyAsUint64(u"childID"_ns, &childID);
+    nsresult rv = props->GetPropertyAsUint64(u"childID"_ns, &childID);
     if (NS_SUCCEEDED(rv)) {
       MOZ_LOG(GetSpeakerManagerLog(), LogLevel::Debug,
               ("SpeakerManagerService, Observe, remove child %llu", childID));

@@ -861,8 +861,10 @@ nsresult DeviceStorageFile::Append(nsIInputStream* aInputStream,
                                    nsIOutputStream* aOutputStream) {
   uint32_t wrote;
   uint64_t avail = 0;
-  nsCOMPtr<nsIAsyncInputStream> asyncInputStream = do_QueryInterface(aInputStream);
-  nsCOMPtr<nsIInputStreamLength> lengthWrapper = do_QueryInterface(asyncInputStream);
+  nsCOMPtr<nsIAsyncInputStream> asyncInputStream =
+      do_QueryInterface(aInputStream);
+  nsCOMPtr<nsIInputStreamLength> lengthWrapper =
+      do_QueryInterface(asyncInputStream);
 
   nsresult rv = NS_OK;
   if (asyncInputStream && lengthWrapper) {
@@ -872,7 +874,8 @@ nsresult DeviceStorageFile::Append(nsIInputStream* aInputStream,
         return rv;
       }
       if (mRemainsSize == -1) {
-        // need to wait for more data, return error to inform caller to re-rey later.
+        // need to wait for more data, return error to inform caller to re-rey
+        // later.
         return NS_BASE_STREAM_WOULD_BLOCK;
       }
     }
@@ -882,19 +885,25 @@ nsresult DeviceStorageFile::Append(nsIInputStream* aInputStream,
         break;
       }
       if (avail == 0) {
-        // need to wait for more data, return error to inform caller to re-rey later.
+        // need to wait for more data, return error to inform caller to re-rey
+        // later.
         return NS_BASE_STREAM_WOULD_BLOCK;
       }
-      rv = aOutputStream->WriteFrom(asyncInputStream, static_cast<uint32_t>(std::min<uint64_t>(avail, UINT32_MAX)), &wrote);
+      rv = aOutputStream->WriteFrom(
+          asyncInputStream,
+          static_cast<uint32_t>(std::min<uint64_t>(avail, UINT32_MAX)), &wrote);
       if (NS_FAILED(rv)) {
         break;
       }
       mRemainsSize -= wrote;
     }
   } else {
-    aInputStream->Available(&avail);;
+    aInputStream->Available(&avail);
+    ;
     while (avail) {
-      rv = aOutputStream->WriteFrom(aInputStream, static_cast<uint32_t>(std::min<uint64_t>(avail, UINT32_MAX)), &wrote);
+      rv = aOutputStream->WriteFrom(
+          aInputStream,
+          static_cast<uint32_t>(std::min<uint64_t>(avail, UINT32_MAX)), &wrote);
       if (NS_FAILED(rv)) {
         break;
       }
@@ -3095,10 +3104,8 @@ already_AddRefed<FileIterable> nsDOMDeviceStorage::EnumerateInternal(
     since = PRTime(aOptions.mSince.Value());
   }
 
-  RefPtr<DeviceStorageFile> dsf = new DeviceStorageFile(mStorageType,
-                                                          mStorageName,
-                                                          aPath,
-                                                          EmptyString());
+  RefPtr<DeviceStorageFile> dsf =
+      new DeviceStorageFile(mStorageType, mStorageName, aPath, EmptyString());
   dsf->SetEditable(aEditable);
 
   RefPtr<DeviceStorageCursorRequest> request = new DeviceStorageCursorRequest();

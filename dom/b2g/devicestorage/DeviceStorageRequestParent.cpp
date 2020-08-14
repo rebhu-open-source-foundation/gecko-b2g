@@ -306,18 +306,17 @@ nsresult DeviceStorageRequestParent::CreateFdEvent::CancelableRun() {
   return NS_DispatchToMainThread(r.forget());
 }
 
-
 class AsyncWriteFileHelper final : public nsIInputStreamCallback {
  public:
-    NS_DECL_THREADSAFE_ISUPPORTS
+  NS_DECL_THREADSAFE_ISUPPORTS
 
-  explicit AsyncWriteFileHelper(Runnable* aRequest)
-    : mRequest(aRequest) {
-      MOZ_ASSERT(aRequest);
-    }
+  explicit AsyncWriteFileHelper(Runnable* aRequest) : mRequest(aRequest) {
+    MOZ_ASSERT(aRequest);
+  }
 
   NS_IMETHOD OnInputStreamReady(nsIAsyncInputStream* aSource) override {
-    nsCOMPtr<nsIEventTarget> target = do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
+    nsCOMPtr<nsIEventTarget> target =
+        do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
     MOZ_ASSERT(target);
     return target->Dispatch(mRequest, NS_DISPATCH_NORMAL);
   }
@@ -340,7 +339,7 @@ nsresult DeviceStorageRequestParent::WriteFileEvent::CancelableRun() {
   if (mRequestType != DEVICE_STORAGE_REQUEST_CREATE &&
       mRequestType != DEVICE_STORAGE_REQUEST_APPEND) {
     return NS_DispatchToMainThread(
-      new PostErrorEvent(mParent, POST_ERROR_EVENT_UNKNOWN));
+        new PostErrorEvent(mParent, POST_ERROR_EVENT_UNKNOWN));
   }
 
   nsresult rv = NS_OK;
@@ -351,24 +350,24 @@ nsresult DeviceStorageRequestParent::WriteFileEvent::CancelableRun() {
     mFile->mFile->Exists(&check);
     if (check && mRequestType == DEVICE_STORAGE_REQUEST_CREATE) {
       return NS_DispatchToMainThread(
-        new PostErrorEvent(mParent, POST_ERROR_EVENT_FILE_EXISTS));
+          new PostErrorEvent(mParent, POST_ERROR_EVENT_FILE_EXISTS));
     } else if (!check && mRequestType == DEVICE_STORAGE_REQUEST_APPEND) {
       return NS_DispatchToMainThread(
-        new PostErrorEvent(mParent, POST_ERROR_EVENT_FILE_DOES_NOT_EXIST));
+          new PostErrorEvent(mParent, POST_ERROR_EVENT_FILE_DOES_NOT_EXIST));
     }
 
     if (mRequestType == DEVICE_STORAGE_REQUEST_CREATE) {
       rv = mFile->Create();
       if (NS_WARN_IF(NS_FAILED(rv))) {
         return NS_DispatchToMainThread(
-          new PostErrorEvent(mParent, POST_ERROR_EVENT_UNKNOWN));
+            new PostErrorEvent(mParent, POST_ERROR_EVENT_UNKNOWN));
       }
     }
     nsCOMPtr<nsIOutputStream> outputStream;
     NS_NewLocalFileOutputStream(getter_AddRefs(outputStream), mFile->mFile);
     if (!outputStream) {
       return NS_DispatchToMainThread(
-        new PostErrorEvent(mParent, POST_ERROR_EVENT_UNKNOWN));
+          new PostErrorEvent(mParent, POST_ERROR_EVENT_UNKNOWN));
     }
     mOutputStream = outputStream;
 
@@ -377,14 +376,15 @@ nsresult DeviceStorageRequestParent::WriteFileEvent::CancelableRun() {
                                outputStream.forget(), 4096 * 4);
     if (!bufferedStream) {
       return NS_DispatchToMainThread(
-        new PostErrorEvent(mParent, POST_ERROR_EVENT_UNKNOWN));
+          new PostErrorEvent(mParent, POST_ERROR_EVENT_UNKNOWN));
     }
     mBufferedOutputStream = bufferedStream;
   }
 
   rv = mFile->Append(mInputStream, mBufferedOutputStream);
   if (rv == NS_BASE_STREAM_WOULD_BLOCK) {
-    nsCOMPtr<nsIAsyncInputStream> asyncInputStream = do_QueryInterface(mInputStream);
+    nsCOMPtr<nsIAsyncInputStream> asyncInputStream =
+        do_QueryInterface(mInputStream);
     MOZ_ASSERT(asyncInputStream);
     asyncInputStream->AsyncWait(new AsyncWriteFileHelper(this), 0, 0, nullptr);
     return NS_OK;

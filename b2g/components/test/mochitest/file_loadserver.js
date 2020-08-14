@@ -1,11 +1,9 @@
-var Ci = Components.interfaces;
-var Cc = Components.classes;
-var Cu = Components.utils;
-
+/* eslint-disable no-undef */
 // Stolen from SpecialPowers, since at this point we don't know we're in a test.
 var isMainProcess = function() {
   try {
     return (
+      // eslint-disable-next-line mozilla/use-services
       Cc["@mozilla.org/xre/app-info;1"].getService(Ci.nsIXULRuntime)
         .processType == Ci.nsIXULRuntime.PROCESS_TYPE_DEFAULT
     );
@@ -23,7 +21,7 @@ var fakeLibcUtils = {
   },
   property_get(name, defaultValue) {
     dump("property_get('" + name + "', '" + defaultValue + "');\n");
-    if (Object.keys(this._props_).indexOf(name) !== -1) {
+    if (Object.keys(this._props_).indcludes(name)) {
       return this._props_[name];
     }
     return defaultValue;
