@@ -2305,44 +2305,6 @@ GLuint CompositorOGL::GetTemporaryTexture(GLenum aTarget, GLenum aUnit) {
   return mTexturePool->GetTexture(aTarget, aUnit);
 }
 
-void CompositorOGL::DrawGLCursor(
-    LayoutDeviceIntRect aRect,
-    LayoutDeviceIntPoint aCursorPos,
-    RefPtr<DataSourceSurface> aSurface,
-    nsIntSize aImgSize,
-    nsIntPoint aHotspot)
-{
-  if (!StaticPrefs::gfx_glcursor_enabled() ||
-      !aRect.Contains(aCursorPos) ||
-      !aSurface) {
-    return;
-  }
-
-  if (aSurface != mCursorSurfaceCache) {
-    mCursorSurfaceCache = aSurface;
-
-    if (!mCursorTextureCache) {
-      mCursorTextureCache = CreateDataTextureSource();
-    }
-    mCursorTextureCache->Update(aSurface);
-  }
-
-  EffectChain effects;
-  float alpha = 1;
-  effects.mPrimaryEffect =
-    CreateTexturedEffect(SurfaceFormat::B8G8R8A8,
-        mCursorTextureCache,
-        SamplingFilter::POINT,
-        true);
-  Compositor::DrawQuad(
-      gfx::Rect(aCursorPos.x - aHotspot.x, aCursorPos.y - aHotspot.y, aImgSize.width, aImgSize.height),
-      gfx::IntRect(aRect.x, aRect.y, aRect.width, aRect.height),
-      effects,
-      alpha,
-      gfx::Matrix4x4()
-      );
-}
-
 bool CompositorOGL::SupportsTextureDirectMapping() {
   if (!StaticPrefs::gfx_allow_texture_direct_mapping_AtStartup()) {
     return false;

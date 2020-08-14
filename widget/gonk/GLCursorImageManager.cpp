@@ -181,7 +181,6 @@ void GLCursorImageManager::NotifyCursorImageLoadDone(
 void GLCursorImageManager::PrepareCursorImage(nsCursor aCursor,
                                               nsWindow* aWindow) {
   nsCursor supportedCursor = MapCursorState(aCursor);
-
   ReentrantMonitorAutoEnter lock(mGLCursorImageManagerMonitor);
 
   if (!aWindow || IsCursorImageReady(supportedCursor) ||
@@ -199,7 +198,7 @@ void GLCursorImageManager::PrepareCursorImage(nsCursor aCursor,
     // Insert new element to ensure restyle
     nsCOMPtr<dom::Element> image = doc->CreateHTMLElement(nsGkAtoms::div);
     ErrorResult rv;
-    image->ClassList()->Add(u"kaios-cursor"_ns, rv);
+    image->ClassList()->Add(u"gonk-cursor"_ns, rv);
     image->ClassList()->Add(GetCursorElementClassID(supportedCursor), rv);
     cursorElementHolder = doc->InsertAnonymousContent(*image, rv);
 
@@ -221,12 +220,11 @@ void GLCursorImageManager::PrepareCursorImage(nsCursor aCursor,
 
       // Retrieve first cursor property from css.
       MOZ_ASSERT(ui->mCursor.images.Length() > 0);
-      Span<const StyleCursorImage> item = ui->mCursor.images.AsSpan();
-
-      nsIntPoint hotspot= nsIntPoint((int)item[0].hotspot_x, (int)item[0].hotspot_y);
+      StyleCursorImage *item = ui->mCursor.images.ptr;
+      nsIntPoint hotspot((int)item->hotspot_x, (int)item->hotspot_y);
       loadRequest.mTask = new LoadCursorTask(supportedCursor, hotspot, this);
 
-      item[0].url.GetImage()->Clone(loadRequest.mTask.get(),
+      item->url.GetImage()->Clone(loadRequest.mTask.get(),
                               getter_AddRefs(loadRequest.mRequest));
 
       loadRequest.mRequest->StartDecoding(imgIContainer::FLAG_NONE);
