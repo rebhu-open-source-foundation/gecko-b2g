@@ -5,16 +5,25 @@
 use crate::common::traits::EventIds;
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PermissionError {
+    request: u64,       // The id of the request that failed.
+    permission: String, // the name of the permission
+    message: String,    // Some additional message to add context.
+}
+
 /// The different kind of messages that a service/object can
 /// process:
 /// - requests
 /// - responses
 /// - events
+/// - permission errors
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum BaseMessageKind {
     Request(u64),
     Response(u64),
     Event,
+    PermissionError(PermissionError),
 }
 
 /// The high-level message, encapsulating the metadata

@@ -374,6 +374,9 @@ impl UdsTransport {
                     );
                 }
             }
+            BaseMessageKind::PermissionError(error) => {
+                error!("Unexpected Permission Error: {:?}", error);
+            }
         }
     }
 
