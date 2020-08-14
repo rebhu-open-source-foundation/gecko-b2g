@@ -72,6 +72,12 @@ this.PermissionsTable = {
     pwa: PROMPT_ACTION,
     signed: PROMPT_ACTION,
   },
+  settings: {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+    access: ["read", "write"],
+  },
 };
 
 /**
