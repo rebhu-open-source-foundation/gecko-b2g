@@ -4,7 +4,7 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["WifiConstants"];
+this.EXPORTED_SYMBOLS = ["WifiConstants", "EAPConstants"];
 
 const WifiConstants = {
   // wifi state from IWifi.aidl
@@ -83,4 +83,46 @@ const WifiConstants = {
     TestOrExperimental: 14,
     Wildcard: 15,
   },
+};
+
+const EAPConstants = {
+  INVALID_EAP: -1,
+  EAP_MD5: 4,
+  EAP_OTP: 5,
+  EAP_RSA: 9,
+  EAP_KEA: 11,
+  EAP_KEA_VALIDATE: 12,
+  EAP_TLS: 13,
+  EAP_LEAP: 17,
+  EAP_SIM: 18,
+  EAP_TTLS: 21,
+  EAP_AKA: 23,
+  EAP_3Com: 24,
+  EAP_MSCHAPv2: 26,
+  EAP_PEAP: 29,
+  EAP_POTP: 32,
+  EAP_ActiontecWireless: 35,
+  EAP_HTTPDigest: 38,
+  EAP_SPEKE: 41,
+  EAP_MOBAC: 42,
+  EAP_FAST: 43,
+  EAP_ZLXEAP: 44,
+  EAP_Link: 45,
+  EAP_PAX: 46,
+  EAP_PSK: 47,
+  EAP_SAKE: 48,
+  EAP_IKEv2: 49,
+  EAP_AKA_PRIME: 50,
+  EAP_GPSK: 51,
+  EAP_PWD: 52,
+  EAP_EKE: 53,
+  EAP_TEAP: 55,
+};
+
+const PasspointMatch = {
+  None: 0,
+  Decliened: 1,
+  Incomplete: 2,
+  RoamingProvider: 3,
+  HomeProvider: 4,
 };

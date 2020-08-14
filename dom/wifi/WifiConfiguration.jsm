@@ -6,7 +6,7 @@
 
 "use strict";
 
-const { WifiConstants } = ChromeUtils.import(
+const { WifiConstants, EAPConstants } = ChromeUtils.import(
   "resource://gre/modules/WifiConstants.jsm"
 );
 
@@ -114,6 +114,7 @@ this.WifiConfigUtils = (function() {
   wifiConfigUtils.getKeyMgmt = getKeyMgmt;
   wifiConfigUtils.calculateSignal = calculateSignal;
   wifiConfigUtils.getNetworkKey = getNetworkKey;
+  wifiConfigUtils.getAnqpNetworkKey = getAnqpNetworkKey;
   wifiConfigUtils.parseInformationElements = parseInformationElements;
   wifiConfigUtils.parseCapabilities = parseCapabilities;
   wifiConfigUtils.parsePasspointElements = parsePasspointElements;
@@ -680,6 +681,42 @@ this.WifiConfigUtils = (function() {
     // "OPEN"/"WEP"/"WPA-PSK"/"WPA-EAP"/"WAPI-PSK"/"WAPI-CERT".
     // So for a invalid network object, the returned key will be "OPEN".
     return escape(ssid) + encryption;
+  }
+
+  // Get unique key for anqp key, anqp key is created by
+  // escape(SSID)+Security+bssid+hessid+anqpDomainID.
+  // So we may distinguish these passpoint AP.
+  function getAnqpNetworkKey(network) {
+    var ssid = network.ssid,
+      bssid = network.bssid,
+      hessid = network.hessid,
+      anqpDomainID = network.anqpDomainID;
+
+    if (anqpDomainID == 0) {
+      return escape(ssid) + bssid + "0" + "0";
+    } else if (hessid != 0) {
+      return "0" + hessid + anqpDomainID;
+    }
+
+    return escape(ssid) + "0" + "0" + andpDomainID;
+  }
+
+  function getRealmForMccMnc(mcc, mnc) {
+    if (mcc == null || mnc == null) {
+      return null;
+    }
+    if (mnc.length === 2) {
+      mnc = "0" + mnc;
+    }
+    return "wlan.mnc" + mnc + ".mcc" + mcc + ".3gppnetwork.org";
+  }
+
+  function isCarrierEapMethod(eapMethod) {
+    return (
+      eapMethod == EAPConstants.EAP_SIM ||
+      eapMethod == EAPConstants.EAP_AKA ||
+      eapMethod == EAPConstants.EAP_AKA_PRIME
+    );
   }
 
   return wifiConfigUtils;

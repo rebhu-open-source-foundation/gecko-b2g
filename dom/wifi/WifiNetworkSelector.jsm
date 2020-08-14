@@ -15,6 +15,9 @@ const { WifiConstants } = ChromeUtils.import(
 const { SavedNetworkSelector } = ChromeUtils.import(
   "resource://gre/modules/SavedNetworkSelector.jsm"
 );
+const { PasspointNetworkSelector } = ChromeUtils.import(
+  "resource://gre/modules/PasspointNetworkSelector.jsm"
+);
 
 this.EXPORTED_SYMBOLS = ["WifiNetworkSelector"];
 
@@ -48,9 +51,11 @@ this.WifiNetworkSelector = (function() {
   var bssidBlacklist = new Map();
 
   var savedNetworkSelector = new SavedNetworkSelector();
+  var passpointNetworkSelector = new PasspointNetworkSelector();
 
   // Network selector would go through each of the selectors.
   // Once a candidate is found, the iterator will stop.
+  // TODO: Include passpointNetworkSelector once passpoint ready.
   var networkSelectors = [savedNetworkSelector];
 
   // WifiNetworkSelector functions
@@ -65,6 +70,9 @@ this.WifiNetworkSelector = (function() {
 
     if (savedNetworkSelector) {
       savedNetworkSelector.setDebug(aDebug);
+    }
+    if (passpointNetworkSelector) {
+      passpointNetworkSelector.setDebug(aDebug);
     }
   }
 
