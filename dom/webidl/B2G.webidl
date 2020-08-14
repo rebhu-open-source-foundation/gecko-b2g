@@ -78,13 +78,11 @@ partial interface B2G {
 };
 #endif //MOZ_B2G_RIL
 
-#ifdef HAS_KOOST_MODULES
 [Exposed=(Window,Worker)]
 partial interface B2G {
   [Throws]
   readonly attribute ExternalAPI externalapi;
 };
-#endif
 
 #ifdef MOZ_B2G_BT
 [Exposed=Window]
