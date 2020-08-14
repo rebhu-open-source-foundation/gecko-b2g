@@ -75,7 +75,7 @@ using namespace mozilla::layers;
 using namespace mozilla::widget;
 
 typedef android::GonkDisplay GonkDisplay;
-extern GonkDisplay * GetGonkDisplay();
+extern GonkDisplay* GetGonkDisplay();
 
 static nsWindow* gFocusedWindow = nullptr;
 
@@ -119,7 +119,7 @@ void nsWindow::DoDraw(void) {
     }
 
     const nsTArray<nsWindow*>& windows =
-      static_cast<nsScreenGonk*>(screen.get())->GetTopWindows();
+        static_cast<nsScreenGonk*>(screen.get())->GetTopWindows();
     if (windows.IsEmpty()) {
       continue;
     }
@@ -127,10 +127,12 @@ void nsWindow::DoDraw(void) {
     /* Add external screen when the external fb is available. The AddScreen
        should be called after shell.js is loaded to receive the
        display-changed event. */
-    if (!screenHelper->IsScreenConnected((uint32_t)DisplayType::DISPLAY_EXTERNAL) &&
+    if (!screenHelper->IsScreenConnected(
+            (uint32_t)DisplayType::DISPLAY_EXTERNAL) &&
         screenNums == 0 && GetGonkDisplay()->IsExtFBDeviceEnabled()) {
-      screenHelper->AddScreen(ScreenHelperGonk::GetIdFromType(DisplayType::DISPLAY_EXTERNAL),
-                              DisplayType::DISPLAY_EXTERNAL);
+      screenHelper->AddScreen(
+          ScreenHelperGonk::GetIdFromType(DisplayType::DISPLAY_EXTERNAL),
+          DisplayType::DISPLAY_EXTERNAL);
     }
 
     RefPtr<nsWindow> targetWindow = (nsWindow*)windows[0];
@@ -138,23 +140,23 @@ void nsWindow::DoDraw(void) {
       targetWindow = (nsWindow*)targetWindow->GetLastChild();
     }
 
-  nsIWidgetListener* listener = targetWindow->GetWidgetListener();
-  if (listener) {
-    listener->WillPaintWindow(targetWindow);
-  }
-
-  listener = targetWindow->GetWidgetListener();
-  if (listener) {
-    mozilla::layers::LayersBackend backendType =
-        targetWindow->GetLayerManager()->GetBackendType();
-    if (mozilla::layers::LayersBackend::LAYERS_CLIENT == backendType ||
-        mozilla::layers::LayersBackend::LAYERS_WR == backendType) {
-      // No need to do anything, the compositor will handle drawing
-    } else {
-      MOZ_CRASH("Unexpected layer manager type");
+    nsIWidgetListener* listener = targetWindow->GetWidgetListener();
+    if (listener) {
+      listener->WillPaintWindow(targetWindow);
     }
-    listener->DidPaintWindow();
-   }
+
+    listener = targetWindow->GetWidgetListener();
+    if (listener) {
+      mozilla::layers::LayersBackend backendType =
+          targetWindow->GetLayerManager()->GetBackendType();
+      if (mozilla::layers::LayersBackend::LAYERS_CLIENT == backendType ||
+          mozilla::layers::LayersBackend::LAYERS_WR == backendType) {
+        // No need to do anything, the compositor will handle drawing
+      } else {
+        MOZ_CRASH("Unexpected layer manager type");
+      }
+      listener->DidPaintWindow();
+    }
   }
 }
 
@@ -386,10 +388,10 @@ nsresult nsWindow::SynthesizeNativeTouchPoint(uint32_t aPointerId,
 }
 
 static const char* sThemePrefList[] = {
-  "ui.useAccessibilityTheme",
-  "ui.systemUsesDarkTheme",
-  "ui.prefersReducedMotion",
-  "ui.prefersTextSizeId",
+    "ui.useAccessibilityTheme",
+    "ui.systemUsesDarkTheme",
+    "ui.prefersReducedMotion",
+    "ui.prefersTextSizeId",
 };
 
 static void ThemePrefChanged(const char* aPref, void* aModule) {
@@ -404,7 +406,7 @@ nsWindow::Create(nsIWidget* aParent, void* aNativeParent,
   BaseCreate(aParent, aInitData);
 
   uint32_t screenId =
-    aParent ? ((nsWindow*)aParent)->mScreen->GetId() : aInitData->mScreenId;
+      aParent ? ((nsWindow*)aParent)->mScreen->GetId() : aInitData->mScreenId;
   ScreenHelperGonk* screenHelper = ScreenHelperGonk::GetSingleton();
   mScreen = screenHelper->ScreenGonkForId(screenId);
 
@@ -427,7 +429,7 @@ nsWindow::Create(nsIWidget* aParent, void* aNativeParent,
 
   Resize(0, 0, mBounds.width, mBounds.height, false);
 
-  for (auto& pref: sThemePrefList) {
+  for (auto& pref : sThemePrefList) {
     Preferences::RegisterCallback(ThemePrefChanged, nsCString(pref), this);
   }
 
@@ -435,8 +437,7 @@ nsWindow::Create(nsIWidget* aParent, void* aNativeParent,
 }
 
 void nsWindow::Destroy(void) {
-  
-  for (auto& pref: sThemePrefList) {
+  for (auto& pref : sThemePrefList) {
     Preferences::UnregisterCallback(ThemePrefChanged, nsCString(pref), this);
   }
 

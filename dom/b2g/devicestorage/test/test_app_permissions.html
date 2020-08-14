@@ -16,7 +16,7 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=805322
     href="https://bugzilla.mozilla.org/show_bug.cgi?id=805322">Mozilla Bug 805322</a>
 <p id="display"></p>
 <div id="content">
-  
+
 </div>
 <pre id="test">
 <script type="application/javascript">
@@ -274,7 +274,7 @@ var gData = [
   },
 
 
-// Delete 
+// Delete
 
   // Web applications with no permissions
   {
@@ -340,7 +340,7 @@ var gData = [
     test: TestDelete
   },
 
-// Enumeration 
+// Enumeration
 
   // Web applications with no permissions
   {
@@ -422,7 +422,7 @@ function testComplete(iframe, data) {
       SpecialPowers.removePermission(data.permissions[j], iframe.contentDocument);
     }
   }
-  
+
   document.getElementById('content').removeChild(iframe);
 
   if (gData.length == 0) {

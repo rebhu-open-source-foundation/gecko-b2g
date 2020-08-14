@@ -36,16 +36,16 @@
 
 #define DOM_CAMERA_LOG_LEVEL 3
 #ifndef DEBUG
-#define CS_LOGD(...) DOM_CAMERA_LOGA(__VA_ARGS__)
-#define CS_LOGV(...) DOM_CAMERA_LOGI(__VA_ARGS__)
-#define CS_LOGI(...) DOM_CAMERA_LOGI(__VA_ARGS__)
+#  define CS_LOGD(...) DOM_CAMERA_LOGA(__VA_ARGS__)
+#  define CS_LOGV(...) DOM_CAMERA_LOGI(__VA_ARGS__)
+#  define CS_LOGI(...) DOM_CAMERA_LOGI(__VA_ARGS__)
 #else
-#define CS_LOGD(fmt, ...) \
-  DOM_CAMERA_LOGA("[%s:%d]" fmt, __FILE__, __LINE__, ##__VA_ARGS__)
-#define CS_LOGV(fmt, ...) \
-  DOM_CAMERA_LOGI("[%s:%d]" fmt, __FILE__, __LINE__, ##__VA_ARGS__)
-#define CS_LOGI(fmt, ...) \
-  DOM_CAMERA_LOGI("[%s:%d]" fmt, __FILE__, __LINE__, ##__VA_ARGS__)
+#  define CS_LOGD(fmt, ...) \
+    DOM_CAMERA_LOGA("[%s:%d]" fmt, __FILE__, __LINE__, ##__VA_ARGS__)
+#  define CS_LOGV(fmt, ...) \
+    DOM_CAMERA_LOGI("[%s:%d]" fmt, __FILE__, __LINE__, ##__VA_ARGS__)
+#  define CS_LOGI(fmt, ...) \
+    DOM_CAMERA_LOGI("[%s:%d]" fmt, __FILE__, __LINE__, ##__VA_ARGS__)
 #endif
 #define CS_LOGW(fmt, ...) \
   DOM_CAMERA_LOGW("[%s:%d]" fmt, __FILE__, __LINE__, ##__VA_ARGS__)
@@ -115,7 +115,6 @@ bool GonkCameraSourceListener::postDataTimestamp(nsecs_t timestamp,
 }
 
 static int32_t getColorFormat(const char* colorFormat) {
-
   if (!strcmp(colorFormat, CameraParameters::PIXEL_FORMAT_YUV420P)) {
     return OMX_COLOR_FormatYUV420Planar;
   }
@@ -428,17 +427,18 @@ status_t GonkCameraSource::checkFrameRate(const CameraParameters& params,
   return OK;
 }
 
-void GonkCameraSource::createVideoBufferMemoryHeap(size_t size, 
+void GonkCameraSource::createVideoBufferMemoryHeap(size_t size,
                                                    uint32_t bufferCount) {
-  mMemoryHeapBase = new MemoryHeapBase(size * bufferCount, 0,
-    "GonkCameraSource-BufferHeap");
+  mMemoryHeapBase =
+      new MemoryHeapBase(size * bufferCount, 0, "GonkCameraSource-BufferHeap");
   for (uint32_t i = 0; i < bufferCount; i++) {
     mMemoryBases.push_back(new MemoryBase(mMemoryHeapBase, i * size, size));
   }
 }
 
 status_t GonkCameraSource::initBufferQueue(uint32_t width, uint32_t height,
-                                           uint32_t format, android_dataspace dataSpace,
+                                           uint32_t format,
+                                           android_dataspace dataSpace,
                                            uint32_t bufferCount) {
   CS_LOGV("initBufferQueue");
 
@@ -465,8 +465,8 @@ status_t GonkCameraSource::initBufferQueue(uint32_t width, uint32_t height,
 
   status_t res = mVideoBufferConsumer->setDefaultBufferSize(width, height);
   if (res != OK) {
-    CS_LOGE("%s: Could not set buffer dimensions %dx%d: %s (%d)", __FUNCTION__, width,
-            height, strerror(-res), res);
+    CS_LOGE("%s: Could not set buffer dimensions %dx%d: %s (%d)", __FUNCTION__,
+            width, height, strerror(-res), res);
     return res;
   }
 
@@ -486,7 +486,8 @@ status_t GonkCameraSource::initBufferQueue(uint32_t width, uint32_t height,
 
   res = mCameraHw->SetVideoTarget(mVideoBufferProducer);
   if (res != OK) {
-    CS_LOGE("%s: Failed to set video target: %s (%d)", __FUNCTION__, strerror(-res), res);
+    CS_LOGE("%s: Failed to set video target: %s (%d)", __FUNCTION__,
+            strerror(-res), res);
     return res;
   }
 
@@ -496,8 +497,8 @@ status_t GonkCameraSource::initBufferQueue(uint32_t width, uint32_t height,
   mBufferQueueListener = new BufferQueueListener(mVideoBufferConsumer, this);
   res = mBufferQueueListener->run("CameraSource-BufferQueueListener");
   if (res != OK) {
-    CS_LOGE("%s: Could not run buffer queue listener thread: %s (%d)", __FUNCTION__,
-            strerror(-res), res);
+    CS_LOGE("%s: Could not run buffer queue listener thread: %s (%d)",
+            __FUNCTION__, strerror(-res), res);
     return res;
   }
 
@@ -617,11 +618,11 @@ int GonkCameraSource::startCameraRecording() {
   if (mVideoBufferMode == hardware::ICamera::VIDEO_BUFFER_MODE_BUFFER_QUEUE) {
     // Initialize buffer queue.
     err = initBufferQueue(mVideoSize.width, mVideoSize.height, mEncoderFormat,
-        (android_dataspace_t)mEncoderDataSpace,
-        mNumInputBuffers > 0 ? mNumInputBuffers : 1);
+                          (android_dataspace_t)mEncoderDataSpace,
+                          mNumInputBuffers > 0 ? mNumInputBuffers : 1);
     if (err != OK) {
-      CS_LOGE("%s: Failed to initialize buffer queue: %s (err=%d)", __FUNCTION__,
-              strerror(-err), err);
+      CS_LOGE("%s: Failed to initialize buffer queue: %s (err=%d)",
+              __FUNCTION__, strerror(-err), err);
       return err;
     }
   } else {
@@ -757,18 +758,19 @@ void GonkCameraSource::releaseRecordingFrame(const sp<IMemory>& frame) {
     size_t size;
     sp<IMemoryHeap> heap = frame->getMemory(&offset, &size);
     if (heap->getHeapID() != mMemoryHeapBase->getHeapID()) {
-      CS_LOGE("%s: Mismatched heap ID, ignoring release (got %x, expected %x)", __FUNCTION__,
-              heap->getHeapID(), mMemoryHeapBase->getHeapID());
+      CS_LOGE("%s: Mismatched heap ID, ignoring release (got %x, expected %x)",
+              __FUNCTION__, heap->getHeapID(), mMemoryHeapBase->getHeapID());
       return;
     }
 
-    VideoNativeMetadata *payload = reinterpret_cast<VideoNativeMetadata*>(
+    VideoNativeMetadata* payload = reinterpret_cast<VideoNativeMetadata*>(
         (uint8_t*)heap->getBase() + offset);
 
     // Find the corresponding buffer item for the native window buffer.
     ssize_t index = mReceivedBufferItemMap.indexOfKey(payload->pBuffer);
     if (index == NAME_NOT_FOUND) {
-      CS_LOGE("%s: Couldn't find buffer item for %p", __FUNCTION__, payload->pBuffer);
+      CS_LOGE("%s: Couldn't find buffer item for %p", __FUNCTION__,
+              payload->pBuffer);
       return;
     }
 
@@ -843,13 +845,13 @@ status_t GonkCameraSource::read(MediaBufferBase** buffer,
   {
     Mutex::Autolock autoLock(mLock);
     while (mStarted && !mEos && mFramesReceived.empty()) {
-      if (NO_ERROR !=
-        mFrameAvailableCondition.waitRelative(mLock,
-            mTimeBetweenFrameCaptureUs * 1000LL + CAMERA_SOURCE_TIMEOUT_NS)) {
-            //TODO: check sanity of camera?
-            CS_LOGW("Timed out waiting for incoming camera video frames: %lld us",
+      if (NO_ERROR != mFrameAvailableCondition.waitRelative(
+                          mLock, mTimeBetweenFrameCaptureUs * 1000LL +
+                                     CAMERA_SOURCE_TIMEOUT_NS)) {
+        // TODO: check sanity of camera?
+        CS_LOGW("Timed out waiting for incoming camera video frames: %lld us",
                 mLastFrameTimestampUs);
-            }
+      }
     }
     if (!mStarted) {
       return OK;
@@ -885,13 +887,14 @@ status_t GonkCameraSource::setStopTimeUs(int64_t stopTimeUs) {
 
 bool GonkCameraSource::shouldSkipFrameLocked(int64_t timestampUs) {
   if (!mStarted || (mNumFramesReceived == 0 && timestampUs < mStartTimeUs)) {
-    CS_LOGV("Drop frame at %lld/%lld us", (long long)timestampUs, (long long)mStartTimeUs);
+    CS_LOGV("Drop frame at %lld/%lld us", (long long)timestampUs,
+            (long long)mStartTimeUs);
     return true;
   }
 
   if (mStopSystemTimeUs != -1 && timestampUs >= mStopSystemTimeUs) {
     CS_LOGV("Drop Camera frame at %lld  stop time: %lld us",
-        (long long)timestampUs, (long long)mStopSystemTimeUs);
+            (long long)timestampUs, (long long)mStopSystemTimeUs);
     mEos = true;
     mFrameAvailableCondition.signal();
     return true;
@@ -906,7 +909,7 @@ bool GonkCameraSource::shouldSkipFrameLocked(int64_t timestampUs) {
   if (mNumFramesReceived > 0) {
     if (timestampUs <= mLastFrameTimestampUs) {
       CS_LOGW("Dropping frame with backward timestamp %lld (last %lld)",
-          (long long)timestampUs, (long long)mLastFrameTimestampUs);
+              (long long)timestampUs, (long long)mLastFrameTimestampUs);
       return true;
     }
     if (timestampUs - mLastFrameTimestampUs > mGlitchDurationThresholdUs) {
@@ -975,14 +978,16 @@ void GonkCameraSource::dataCallbackTimestamp(int64_t timestampUs,
   }
 }
 
-GonkCameraSource::BufferQueueListener::BufferQueueListener(const sp<BufferItemConsumer>& consumer,
-                                                           const sp<GonkCameraSource>& cameraSource) {
+GonkCameraSource::BufferQueueListener::BufferQueueListener(
+    const sp<BufferItemConsumer>& consumer,
+    const sp<GonkCameraSource>& cameraSource) {
   mConsumer = consumer;
   mConsumer->setFrameAvailableListener(this);
   mCameraSource = cameraSource;
 }
 
-void GonkCameraSource::BufferQueueListener::onFrameAvailable(const BufferItem& /*item*/) {
+void GonkCameraSource::BufferQueueListener::onFrameAvailable(
+    const BufferItem& /*item*/) {
   CS_LOGV("%s: onFrameAvailable", __FUNCTION__);
 
   Mutex::Autolock l(mLock);
@@ -1001,8 +1006,8 @@ bool GonkCameraSource::BufferQueueListener::threadLoop() {
   {
     Mutex::Autolock l(mLock);
     while (!mFrameAvailable) {
-      if (mFrameAvailableSignal.waitRelative(mLock, 
-          kFrameAvailableTimeout) == TIMED_OUT) {
+      if (mFrameAvailableSignal.waitRelative(mLock, kFrameAvailableTimeout) ==
+          TIMED_OUT) {
         return true;
       }
     }
@@ -1027,9 +1032,11 @@ void GonkCameraSource::processBufferQueueFrame(BufferItem& buffer) {
   }
 
   while (mMemoryBases.empty()) {
-    if (mMemoryBaseAvailableCond.waitRelative(mLock, kMemoryBaseAvailableTimeoutNs) ==
-        TIMED_OUT) {
-      CS_LOGW("Waiting on an available memory base timed out. Dropping a recording frame.");
+    if (mMemoryBaseAvailableCond.waitRelative(
+            mLock, kMemoryBaseAvailableTimeoutNs) == TIMED_OUT) {
+      CS_LOGW(
+          "Waiting on an available memory base timed out. Dropping a recording "
+          "frame.");
       mVideoBufferConsumer->releaseBuffer(buffer);
       return;
     }
@@ -1044,7 +1051,7 @@ void GonkCameraSource::processBufferQueueFrame(BufferItem& buffer) {
   ssize_t offset;
   size_t size;
   sp<IMemoryHeap> heap = data->getMemory(&offset, &size);
-  VideoNativeMetadata *payload = reinterpret_cast<VideoNativeMetadata*>(
+  VideoNativeMetadata* payload = reinterpret_cast<VideoNativeMetadata*>(
       (uint8_t*)heap->getBase() + offset);
   memset(payload, 0, sizeof(VideoNativeMetadata));
   payload->eType = kMetadataBufferTypeANWBuffer;
@@ -1059,15 +1066,15 @@ void GonkCameraSource::processBufferQueueFrame(BufferItem& buffer) {
   int64_t timeUs = mStartTimeUs + (timestampUs - mFirstFrameTimeUs);
   mFrameTimes.push_back(timeUs);
   CS_LOGV("initial delay: %" PRId64 ", current time stamp: %" PRId64,
-      mStartTimeUs, timeUs);
+          mStartTimeUs, timeUs);
   mFrameAvailableCondition.signal();
 }
 
 MetadataBufferType GonkCameraSource::metaDataStoredInVideoBuffers() const {
   CS_LOGV("metaDataStoredInVideoBuffers");
 
-  // Output buffers will contain metadata if camera sends us buffer in metadata mode or via
-  // buffer queue.
+  // Output buffers will contain metadata if camera sends us buffer in metadata
+  // mode or via buffer queue.
   switch (mVideoBufferMode) {
     case hardware::ICamera::VIDEO_BUFFER_MODE_DATA_CALLBACK_METADATA:
       return kMetadataBufferTypeNativeHandleSource;

@@ -44,7 +44,7 @@ class nsSpeechTask : public nsISpeechTask,
   virtual void Cancel();
 
   virtual void ForceEnd();
-  
+
   float GetCurrentTime();
 
   uint32_t GetCurrentCharOffset();
@@ -114,7 +114,8 @@ class nsSpeechTask : public nsISpeechTask,
 
   void DestroyAudioChannelAgent();
 
-  void SendAudioImpl(RefPtr<mozilla::SharedBuffer>& aSamples, uint32_t aDataLen);
+  void SendAudioImpl(RefPtr<mozilla::SharedBuffer>& aSamples,
+                     uint32_t aDataLen);
 
   nsCOMPtr<nsISpeechTaskCallback> mCallback;
 

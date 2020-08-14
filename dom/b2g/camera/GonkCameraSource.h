@@ -91,7 +91,7 @@ class GonkCameraSource : public MediaSource, public MediaBufferObserver {
    */
   class DirectBufferListener : public RefBase {
    public:
-    DirectBufferListener() {};
+    DirectBufferListener(){};
 
     virtual status_t BufferAvailable(MediaBufferBase* aBuffer) = 0;
 
@@ -107,16 +107,17 @@ class GonkCameraSource : public MediaSource, public MediaBufferObserver {
    * receive video buffers in VIDEO_BUFFER_MODE_BUFFER_QUEUE mode. When a frame
    * is available, CameraSource::processBufferQueueFrame() will be called.
    */
-  class BufferQueueListener : public Thread,  
-                              public BufferItemConsumer::FrameAvailableListener {
+  class BufferQueueListener
+      : public Thread,
+        public BufferItemConsumer::FrameAvailableListener {
    public:
-    BufferQueueListener(const sp<BufferItemConsumer> &consumer,
-                        const sp<GonkCameraSource> &cameraSource);
+    BufferQueueListener(const sp<BufferItemConsumer>& consumer,
+                        const sp<GonkCameraSource>& cameraSource);
     virtual void onFrameAvailable(const BufferItem& item);
     virtual bool threadLoop();
 
    private:
-    static const nsecs_t kFrameAvailableTimeout = 50000000; // 50ms
+    static const nsecs_t kFrameAvailableTimeout = 50000000;  // 50ms
 
     sp<BufferItemConsumer> mConsumer;
     sp<GonkCameraSource> mCameraSource;
@@ -174,8 +175,8 @@ class GonkCameraSource : public MediaSource, public MediaBufferObserver {
   Mutex mLock;
   Condition mFrameAvailableCondition;
   Condition mFrameCompleteCondition;
-  List<sp<IMemory> > mFramesReceived;
-  List<sp<IMemory> > mFramesBeingEncoded;
+  List<sp<IMemory>> mFramesReceived;
+  List<sp<IMemory>> mFramesBeingEncoded;
   List<int64_t> mFrameTimes;
   bool mRateLimit;
 
@@ -196,17 +197,19 @@ class GonkCameraSource : public MediaSource, public MediaBufferObserver {
    * The following variables are used in VIDEO_BUFFER_MODE_BUFFER_QUEUE mode.
    */
   static const size_t kConsumerBufferCount = 8;
-  static const nsecs_t kMemoryBaseAvailableTimeoutNs = 200000000; // 200ms
+  static const nsecs_t kMemoryBaseAvailableTimeoutNs = 200000000;  // 200ms
   // Consumer and producer of the buffer queue between this class and camera.
   sp<BufferItemConsumer> mVideoBufferConsumer;
   sp<IGraphicBufferProducer> mVideoBufferProducer;
-  // Memory used to send the buffers to encoder, where sp<IMemory> stores VideoNativeMetadata.
+  // Memory used to send the buffers to encoder, where sp<IMemory> stores
+  // VideoNativeMetadata.
   sp<IMemoryHeap> mMemoryHeapBase;
   List<sp<IMemory>> mMemoryBases;
-  // The condition that will be signaled when there is an entry available in mMemoryBases.
+  // The condition that will be signaled when there is an entry available in
+  // mMemoryBases.
   Condition mMemoryBaseAvailableCond;
-  // A mapping from ANativeWindowBuffer sent to encoder to BufferItem received from camera.
-  // This is protected by mLock.
+  // A mapping from ANativeWindowBuffer sent to encoder to BufferItem received
+  // from camera. This is protected by mLock.
   KeyedVector<ANativeWindowBuffer*, BufferItem> mReceivedBufferItemMap;
   sp<BufferQueueListener> mBufferQueueListener;
 
@@ -231,8 +234,8 @@ class GonkCameraSource : public MediaSource, public MediaBufferObserver {
 
   status_t checkFrameRate(const CameraParameters& params, int32_t frameRate);
 
-  // Check if this frame should be skipped based on the frame's timestamp in microsecond.
-  // mLock must be locked before calling this function.
+  // Check if this frame should be skipped based on the frame's timestamp in
+  // microsecond. mLock must be locked before calling this function.
   bool shouldSkipFrameLocked(int64_t timestampUs);
 
   // Process a buffer item received in BufferQueueListener.
