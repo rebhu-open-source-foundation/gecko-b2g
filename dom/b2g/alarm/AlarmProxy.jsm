@@ -251,7 +251,7 @@ AlarmProxy.prototype = {
       return;
     }
 
-    if (!this.this._destroyed) {
+    if (!this._destroyed) {
       return;
     }
 
