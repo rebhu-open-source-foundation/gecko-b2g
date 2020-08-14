@@ -1,3 +1,5 @@
+#!/bin/bash
+
 GECKO_OBJDIR=${GECKO_OBJDIR:-objdir-gecko}
 SYSROOT=$GECKO_OBJDIR/dist/sysroot/
 GONK_PATH=${GONK_PATH:-.}

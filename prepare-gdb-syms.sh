@@ -1,3 +1,5 @@
+#!/bin/bash
+
 DIR=$(pwd)
 GECKO_OBJDIR=${GECKO_OBJDIR:-objdir-gecko}
 GONK_PATH=${GONK_PATH:-$DIR}
