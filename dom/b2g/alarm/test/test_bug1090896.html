@@ -1,17 +1,20 @@
-<!DOCTYPE HTML>
+/* eslint-disable no-undef */
+<!DOCTYPE html>
 <html>
-<head>
-  <meta charset="utf-8">
-  <title>Test time alert is fired for Bug 1090896</title>
-  <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
-</head>
-<body>
-<p id="display"></p>
-<div id="content" style="display: none"></div>
-<pre id="test">
+  <head>
+    <meta charset="utf-8" />
+    <title>Test time alert is fired for Bug 1090896</title>
+    <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
+    <script
+      type="application/javascript"
+      src="/tests/SimpleTest/SimpleTest.js"
+    ></script>
+  </head>
+  <body>
+    <p id="display"></p>
+    <div id="content" style="display: none"></div>
+    <pre id="test">
   <script type="application/javascript">
-
   "use strict";
 
   function registerPage() {
@@ -35,7 +38,7 @@
     var domRequest;
     try {
       // Set system message handler.
-      navigator.mozSetMessageHandler('alarm', function(message){
+      navigator.mozSetMessageHandler("alarm", function(message) {
         ok(true, "Time alert has been fired.");
         SimpleTest.finish();
       });
@@ -44,7 +47,7 @@
     } catch (e) {
       ok(false, "Unexpected exception trying to set time alert. " + e);
 
-      return SimpleTest.finish();
+      SimpleTest.finish();
     }
     domRequest.onsuccess = function(e) {
       ok(true, "Set time alert. Waiting to be fired.");
@@ -62,7 +65,7 @@
     }, function() {
       var isAllowedToTest = true;
 
-      if (navigator.appVersion.indexOf("Android") !== -1) {
+      if (navigator.appVersion.includes("Android")) {
         ok(true, "mozAlarms is not allowed on Android for now. " +
                  "TODO Bug 863557.");
         isAllowedToTest = false;
@@ -78,8 +81,8 @@
         registerPage();
       } else {
         // A sanity check to make sure we must run tests on Firefox OS (B2G).
-        if (navigator.userAgent.indexOf("Mobile") != -1 &&
-            navigator.appVersion.indexOf("Android") == -1) {
+        if (navigator.userAgent.includes("Mobile") &&
+            !navigator.appVersion.includes("Android")) {
           ok(false, "Should run the test on Firefox OS (B2G)!");
         }
 
@@ -93,5 +96,5 @@
 
   </script>
 </pre>
-</body>
+  </body>
 </html>

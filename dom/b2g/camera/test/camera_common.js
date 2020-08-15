@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 function isDefinedObj(obj) {
   return typeof obj !== "undefined" && obj != null;
 }

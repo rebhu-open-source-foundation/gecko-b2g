@@ -6,10 +6,12 @@
 
 "use strict";
 
-const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr } = Components;
-
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-ChromeUtils.import("resource://gre/modules/DOMRequestHelper.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { DOMRequestHelper } = ChromeUtils.import(
+  "resource://gre/modules/DOMRequestHelper.jsm"
+);
 
 const MOZ_CAMERATESTHW_CONTRACTID = "@mozilla.org/cameratesthardware;1";
 const MOZ_CAMERATESTHW_CID = Components.ID(
@@ -48,7 +50,7 @@ MozCameraTestHardware.prototype = {
   attach(mock) {
     /* Waive xrays permits us to call functions provided to us
        in the mock */
-    this._mock = Components.utils.waiveXrays(mock);
+    this._mock = Cu.waiveXrays(mock);
   },
 
   detach() {

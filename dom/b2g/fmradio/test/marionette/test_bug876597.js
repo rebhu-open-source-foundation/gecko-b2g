@@ -1,7 +1,8 @@
+/* eslint-disable no-undef */
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
-MARIONETTE_TIMEOUT = 10000;
+var MARIONETTE_TIMEOUT = 10000;
 
 SpecialPowers.addPermission("fmradio", true, document);
 SpecialPowers.addPermission("settings-read", true, document);

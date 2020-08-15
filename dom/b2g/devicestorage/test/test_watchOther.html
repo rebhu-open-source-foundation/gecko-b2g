@@ -2,25 +2,32 @@
   Any copyright is dedicated to the Public Domain.
   http://creativecommons.org/publicdomain/zero/1.0/
 -->
-<!DOCTYPE HTML>
-<html> <!--
+<!DOCTYPE html>
+<html>
+  <!--
 https://bugzilla.mozilla.org/show_bug.cgi?id=717103
 -->
-<head>
-  <title>Test for the device storage API </title>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
-  <script type="text/javascript" src="devicestorage_common.js"></script>
+  <head>
+    <title>Test for the device storage API</title>
+    <script
+      type="text/javascript"
+      src="/tests/SimpleTest/SimpleTest.js"
+    ></script>
+    <script type="text/javascript" src="devicestorage_common.js"></script>
 
-<link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
-</head>
-<body>
-<a target="_blank" href="https://bugzilla.mozilla.org/show_bug.cgi?id=717103">Mozilla Bug 717103</a>
-<p id="display"></p>
-<div id="content" style="display: none">
-
-</div>
-<pre id="test">
+    <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
+  </head>
+  <body>
+    <a
+      target="_blank"
+      href="https://bugzilla.mozilla.org/show_bug.cgi?id=717103"
+      >Mozilla Bug 717103</a
+    >
+    <p id="display"></p>
+    <div id="content" style="display: none"></div>
+    <pre id="test">
 <script class="testbody" type="text/javascript">
+// eslint-disable-next-line prettier/prettier
 
 devicestorage_setup(function () {
 
@@ -72,7 +79,7 @@ var storageOther = navigator.b2g.getDeviceStorage("music");
 ok(storageOther, "Should have storage");
 storageOther.addEventListener("change", onChangeFail);
 
-request = storage.addNamed(createRandomBlob('image/png'), gFileName);
+var request = storage.addNamed(createRandomBlob('image/png'), gFileName);
 ok(request, "Should have a non-null request");
 
 request.onsuccess = addSuccess;
@@ -82,5 +89,5 @@ request.onerror = addError;
 
 </script>
 </pre>
-</body>
+  </body>
 </html>

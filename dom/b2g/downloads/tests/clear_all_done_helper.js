@@ -44,6 +44,7 @@ function clearAllDoneHelper(getDownloads) {
       }
       downloads.forEach(function(download) {
         if (download.state === "downloading") {
+          // eslint-disable-next-line no-undef
           ok(false, "A download is still active: " + download.path);
           reject("Active download");
         }
@@ -53,6 +54,7 @@ function clearAllDoneHelper(getDownloads) {
       navigator.mozDownloadManager.clearAllDone();
     }
     function gotBadNews(err) {
+      // eslint-disable-next-line no-undef
       ok(false, "Problem clearing all downloads: " + err);
       reject(err);
     }

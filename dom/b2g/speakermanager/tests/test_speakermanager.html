@@ -1,29 +1,33 @@
-<!DOCTYPE HTML>
+<!DOCTYPE html>
 <html>
-<head>
-  <meta charset="utf-8">
-  <title>Test MozSpeakerManager API</title>
-  <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
-</head>
-<body>
-<p id="display"></p>
-<div id="content" style="display: none"></div>
-<pre id="test">
+  <head>
+    <meta charset="utf-8" />
+    <title>Test MozSpeakerManager API</title>
+    <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
+    <script
+      type="application/javascript"
+      src="/tests/SimpleTest/SimpleTest.js"
+    ></script>
+  </head>
+  <body>
+    <p id="display"></p>
+    <div id="content" style="display: none"></div>
+    <pre id="test">
   <script type="application/javascript">
 
   "use strict";
 
   function testObject() {
+    // eslint-disable-next-line no-undef
     var mgr = new MozSpeakerManager();
     var spkforced = false;
     mgr.onspeakerforcedchange = function() {
       if (spkforced) {
-        is(mgr.speakerforced, true, 'speaker should be true');
+        is(mgr.speakerforced, true, "speaker should be true");
         spkforced = false;
         mgr.forcespeaker = false;
       } else {
-        is(mgr.speakerforced, false, 'speaker should be false');
+        is(mgr.speakerforced, false, "speaker should be false");
         SimpleTest.finish();
       }
     }
@@ -33,8 +37,9 @@
 
   function startTests() {
     // Currently applicable only on FxOS
-    if (navigator.userAgent.indexOf("Mobile") != -1 &&
-        navigator.appVersion.indexOf("Android") == -1) {
+    if (
+    navigator.userAgent.includes("Mobile") &&
+        !navigator.appVersion.includes("Android")) {
       testObject();
     } else {
       ok(true, "mozAlarms on Firefox OS only.");
@@ -43,11 +48,12 @@
   }
 
   SimpleTest.waitForExplicitFinish();
+  // eslint-disable-next-line no-undef
   SpecialPowers.pushPermissions(
     [{ "type": "speaker-control", "allow": 1, "context": document }],
     startTests);
 
   </script>
 </pre>
-</body>
+  </body>
 </html>

@@ -1,7 +1,10 @@
+/* eslint-disable no-undef */
 /**
  * Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/
  */
+
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 var oldVal = false;
 
@@ -20,12 +23,7 @@ Object.defineProperty(Array.prototype, "remove", {
 function devicestorage_setup(callback) {
   SimpleTest.waitForExplicitFinish();
 
-  const Cc = SpecialPowers.Cc;
-  const Ci = SpecialPowers.Ci;
-  var directoryService = Cc["@mozilla.org/file/directory_service;1"].getService(
-    Ci.nsIProperties
-  );
-  var f = directoryService.get("TmpD", Ci.nsIFile);
+  var f = Services.dirsvc.get("TmpD", Ci.nsIFile);
   f.appendRelativePath("device-storage-testing");
 
   let script = SpecialPowers.loadChromeScript(

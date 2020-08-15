@@ -92,6 +92,9 @@ devtools/client/webconsole/test/browser/test-syntaxerror-worklet.js
 # devtools specific format test file
 devtools/server/tests/xpcshell/xpcshell_debugging_script.js
 
+# b2g tests that need fixing anyway.
+dom/b2g/**/*.html
+
 # Generated
 dom/canvas/test/webgl-conf/generated/
 
