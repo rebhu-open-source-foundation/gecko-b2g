@@ -426,6 +426,7 @@ struct BlobURLRegistrationData
   nsCString url;
   IPCBlob blob;
   nsIPrincipal principal;
+  nsID? agentClusterId;
   bool revoked;
 };
 
@@ -989,7 +990,8 @@ child:
     async GetFilesResponse(nsID aID, GetFilesResponseResult aResult);
 
     async BlobURLRegistration(nsCString aURI, IPCBlob aBlob,
-                              Principal aPrincipal);
+                              Principal aPrincipal,
+                              nsID? aAgentClusterId);
 
     async BlobURLUnregistration(nsCString aURI);
 
@@ -1162,9 +1164,17 @@ parent:
     async SessionHistoryUpdate(MaybeDiscardedBrowsingContext aTopContext,
                                int32_t aIndex, int32_t aLength, nsID aChangeID);
 
-    async SynchronizeLayoutHistoryState(uint64_t aSessionHistoryEntryID,
+    async SynchronizeLayoutHistoryState(MaybeDiscardedBrowsingContext aContext,
                                         nsILayoutHistoryState aState);
 
+    async SessionHistoryEntryTitle(MaybeDiscardedBrowsingContext aContext,
+                                   nsString aTitle);
+
+    async SessionHistoryEntryScrollRestorationIsManual(MaybeDiscardedBrowsingContext aContext,
+                                                       bool aIsManual);
+
+    async SessionHistoryEntryCacheKey(MaybeDiscardedBrowsingContext aContext,
+                                      uint32_t aCacheKey);
 
     async InitBackground(Endpoint<PBackgroundParent> aEndpoint);
 
@@ -1788,7 +1798,8 @@ parent:
      async DeleteGetFilesRequest(nsID aID);
 
      async StoreAndBroadcastBlobURLRegistration(nsCString url, IPCBlob blob,
-                                                Principal principal);
+                                                Principal principal,
+                                                nsID? aAgentClusterId);
 
      async UnstoreAndBroadcastBlobURLUnregistration(nsCString url, Principal principal);
 
@@ -1956,7 +1967,12 @@ parent:
     async HistoryGo(MaybeDiscardedBrowsingContext aContext,
                     int32_t aOffset) returns(int32_t requestedIndex);
 
-    async BlobURLDataRequest(nsCString aBlobURL, nsIPrincipal aTriggeringPrincipal, nsIPrincipal aLoadingPrincipal, OriginAttributes aOriginAttributes) returns (BlobURLDataRequestResult aResult);
+    async BlobURLDataRequest(nsCString aBlobURL,
+                             nsIPrincipal aTriggeringPrincipal,
+                             nsIPrincipal aLoadingPrincipal,
+                             OriginAttributes aOriginAttributes,
+                             nsID? aAgentClusterId)
+      returns (BlobURLDataRequestResult aResult);
 
 both:
     async ScriptError(nsString message, nsString sourceName, nsString sourceLine,

@@ -29,6 +29,12 @@
         "UrlbarProviderOpenTabs",
         "resource:///modules/UrlbarProviderOpenTabs.jsm"
       );
+      XPCOMUtils.defineLazyPreferenceGetter(
+        this,
+        "sessionHistoryInParent",
+        "fission.sessionHistoryInParent",
+        false
+      );
 
       Services.obs.addObserver(this, "contextual-identity-updated");
 
@@ -793,6 +799,14 @@
         browser.tabModalPromptBox = new TabModalPromptBox(browser);
       }
       return browser.tabModalPromptBox;
+    },
+
+    getTabDialogBox(aBrowser) {
+      let browser = aBrowser || this.selectedBrowser;
+      if (!browser.tabDialogBox) {
+        browser.tabDialogBox = new TabDialogBox(browser);
+      }
+      return browser.tabDialogBox;
     },
 
     getTabFromAudioEvent(aEvent) {
@@ -1971,8 +1985,10 @@
 
       // Ensure that SessionStore has flushed any session history state from the
       // content process before we this browser's remoteness.
-      b.prepareToChangeRemoteness = () =>
-        SessionStore.prepareToChangeRemoteness(b);
+      if (!this.sessionHistoryInParent) {
+        b.prepareToChangeRemoteness = () =>
+          SessionStore.prepareToChangeRemoteness(b);
+      }
 
       const defaultBrowserAttributes = {
         contextmenu: "contentAreaContextMenu",

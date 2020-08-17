@@ -169,7 +169,7 @@ pref("app.update.staging.enabled", true);
   pref("app.update.BITS.enabled", true);
 #endif
 
-pref("app.update.langpack.enabled", false);
+pref("app.update.langpack.enabled", true);
 
 // Symmetric (can be overridden by individual extensions) update preferences.
 // e.g.
@@ -1307,6 +1307,15 @@ pref("prompts.defaultModalType", 3);
 pref("browser.topsites.useRemoteSetting", false);
 pref("browser.topsites.attributionURL", "");
 
+// Whether to show tab level system prompts opened via nsIPrompt(Service) as
+// SubDialogs in the TabDialogBox (true) or as TabModalPrompt in the
+// TabModalPromptBox (false).
+#ifdef NIGHTLY_BUILD
+  pref("prompts.tabChromePromptSubDialog", true);
+#else
+  pref("prompts.tabChromePromptSubDialog", false);
+#endif
+
 // Activates preloading of the new tab url.
 pref("browser.newtab.preload", true);
 
@@ -1804,6 +1813,12 @@ pref("dom.ipc.processPrelaunch.enabled", true);
 // See comments in bug 1340115 on how we got to these numbers.
 pref("browser.migrate.chrome.history.limit", 2000);
 pref("browser.migrate.chrome.history.maxAgeInDays", 180);
+
+#ifdef EARLY_BETA_OR_EARLIER
+pref("browser.migrate.showBookmarksToolbarAfterMigration", true);
+#else
+pref("browser.migrate.showBookmarksToolbarAfterMigration", false);
+#endif
 
 pref("extensions.pocket.api", "api.getpocket.com");
 pref("extensions.pocket.enabled", true);

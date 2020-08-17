@@ -23,6 +23,7 @@
 #include "nsIURI.h"
 #include "nsNetUtil.h"
 #include "nsSHEntry.h"
+#include "SessionHistoryEntry.h"
 #include "nsTArray.h"
 #include "prsystem.h"
 
@@ -1725,7 +1726,10 @@ void nsSHistory::InitiateLoad(nsISHEntry* aFrameEntry,
   aFrameEntry->SetLoadType(aLoadType);
 
   loadState->SetLoadType(aLoadType);
+
+  SessionHistoryEntry::MaybeSynchronizeSharedStateToInfo(aFrameEntry);
   loadState->SetSHEntry(aFrameEntry);
+  loadState->SetLoadIsFromSessionHistory(mRequestedIndex, Length());
 
   nsCOMPtr<nsIURI> originalURI = aFrameEntry->GetOriginalURI();
   loadState->SetOriginalURI(originalURI);
@@ -1745,7 +1749,12 @@ void nsSHistory::InitiateLoad(nsISHEntry* aFrameEntry,
 
 NS_IMETHODIMP
 nsSHistory::CreateEntry(nsISHEntry** aEntry) {
-  nsCOMPtr<nsISHEntry> entry = new nsSHEntry();
+  nsCOMPtr<nsISHEntry> entry;
+  if (XRE_IsParentProcess() && StaticPrefs::fission_sessionHistoryInParent()) {
+    entry = new SessionHistoryEntry();
+  } else {
+    entry = new nsSHEntry();
+  }
   entry.forget(aEntry);
   return NS_OK;
 }

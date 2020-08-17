@@ -133,25 +133,24 @@ class DocumentLoadListener : public nsIInterfaceRequestor,
                            const Maybe<uint64_t>& aChannelId,
                            const TimeStamp& aAsyncOpenTime,
                            nsDOMNavigationTiming* aTiming,
-                           Maybe<dom::ClientInfo>&& aInfo, bool aHasGesture,
-                           bool aUrgentStart, base::ProcessId aPid,
-                           nsresult* aRv);
+                           Maybe<dom::ClientInfo>&& aInfo, bool aUrgentStart,
+                           base::ProcessId aPid, nsresult* aRv);
 
  public:
   RefPtr<OpenPromise> OpenDocument(
       nsDocShellLoadState* aLoadState, uint32_t aCacheKey,
       const Maybe<uint64_t>& aChannelId, const TimeStamp& aAsyncOpenTime,
       nsDOMNavigationTiming* aTiming, Maybe<dom::ClientInfo>&& aInfo,
-      bool aHasGesture, Maybe<bool> aUriModified, Maybe<bool> aIsXFOError,
-      base::ProcessId aPid, nsresult* aRv);
+      Maybe<bool> aUriModified, Maybe<bool> aIsXFOError, base::ProcessId aPid,
+      nsresult* aRv);
 
   RefPtr<OpenPromise> OpenObject(
       nsDocShellLoadState* aLoadState, uint32_t aCacheKey,
       const Maybe<uint64_t>& aChannelId, const TimeStamp& aAsyncOpenTime,
       nsDOMNavigationTiming* aTiming, Maybe<dom::ClientInfo>&& aInfo,
       uint64_t aInnerWindowId, nsLoadFlags aLoadFlags,
-      nsContentPolicyType aContentPolicyType, bool aHasGesture,
-      bool aUrgentStart, base::ProcessId aPid, nsresult* aRv);
+      nsContentPolicyType aContentPolicyType, bool aUrgentStart,
+      base::ProcessId aPid, nsresult* aRv);
 
   // Creates a DocumentLoadListener entirely in the parent process and opens it,
   // and never needs a DocumentChannel to connect to an existing docshell.
@@ -462,7 +461,8 @@ class DocumentLoadListener : public nsIInterfaceRequestor,
   nsString mSrcdocData;
   nsCOMPtr<nsIURI> mBaseURI;
 
-  mozilla::UniquePtr<mozilla::dom::SessionHistoryInfo> mSessionHistoryInfo;
+  mozilla::UniquePtr<mozilla::dom::LoadingSessionHistoryInfo>
+      mLoadingSessionHistoryInfo;
 
   // Flags from nsDocShellLoadState::LoadFlags/Type that we want to make
   // available to the new docshell if we switch processes.

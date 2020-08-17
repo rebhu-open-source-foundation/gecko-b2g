@@ -12,6 +12,7 @@
 #include "mozilla/dom/BrowsingContext.h"
 #include "mozilla/dom/MaybeDiscarded.h"
 #include "mozilla/dom/SyncedContext.h"
+#include "mozilla/dom/UserActivation.h"
 #include "nsILoadInfo.h"
 #include "nsWrapperCache.h"
 
@@ -54,6 +55,9 @@ class BrowsingContextGroup;
   /* Whether the user has overriden the mixed content blocker to allow \
    * mixed content loads to happen */                                  \
   FIELD(AllowMixedContent, bool)                                       \
+  /* Controls whether the WindowContext is currently considered to be  \
+   * activated by a gesture */                                         \
+  FIELD(UserActivationState, UserActivation::State)                    \
   FIELD(EmbedderPolicy, nsILoadInfo::CrossOriginEmbedderPolicy)        \
   /* True if this document tree contained an HTMLMediaElement that     \
    * played audibly. This should only be set on top level context. */  \
@@ -115,6 +119,9 @@ class WindowContext : public nsISupports, public nsWrapperCache {
     uint64_t mInnerWindowId;
     uint64_t mOuterWindowId;
     uint64_t mBrowsingContextId;
+    // Note: This field is only used to add crash annotations for bug 1650257,
+    // and should be removed along with the annotation.
+    bool mBrowsingContextIsTop;
 
     FieldValues mFields;
   };
@@ -127,6 +134,28 @@ class WindowContext : public nsISupports, public nsWrapperCache {
   // 'MIXED' state flags, and should only be called on the
   // top window context.
   void AddMixedContentSecurityState(uint32_t aStateFlags);
+
+  // This function would be called when its corresponding window is activated
+  // by user gesture.
+  void NotifyUserGestureActivation();
+
+  // This function would be called when we want to reset the user gesture
+  // activation flag.
+  void NotifyResetUserGestureActivation();
+
+  // Return true if its corresponding window has been activated by user
+  // gesture.
+  bool HasBeenUserGestureActivated();
+
+  // Return true if its corresponding window has transient user gesture
+  // activation and the transient user gesture activation haven't yet timed
+  // out.
+  bool HasValidTransientUserGestureActivation();
+
+  // Return true if the corresponding window has valid transient user gesture
+  // activation and the transient user gesture activation had been consumed
+  // successfully.
+  bool ConsumeTransientUserGestureActivation();
 
   bool CanShowPopup();
 
@@ -196,6 +225,12 @@ class WindowContext : public nsISupports, public nsWrapperCache {
   bool CanSet(FieldIndex<IDX_DelegatedExactHostMatchPermissions>,
               const PermissionDelegateHandler::DelegatedPermissionList& aValue,
               ContentParent* aSource);
+  bool CanSet(FieldIndex<IDX_UserActivationState>,
+              const UserActivation::State& aUserActivationState,
+              ContentParent* aSource) {
+    return true;
+  }
+
   bool CanSet(FieldIndex<IDX_HasReportedShadowDOMUsage>, const bool& aValue,
               ContentParent* aSource) {
     return true;
@@ -210,6 +245,7 @@ class WindowContext : public nsISupports, public nsWrapperCache {
   void DidSet(FieldIndex<I>) {}
   template <size_t I, typename T>
   void DidSet(FieldIndex<I>, T&& aOldValue) {}
+  void DidSet(FieldIndex<IDX_UserActivationState>);
 
   uint64_t mInnerWindowId;
   uint64_t mOuterWindowId;
@@ -223,6 +259,10 @@ class WindowContext : public nsISupports, public nsWrapperCache {
 
   bool mIsDiscarded = false;
   bool mInProcess = false;
+
+  // The start time of user gesture, this is only available if the window
+  // context is in process.
+  TimeStamp mUserGestureStart;
 };
 
 using WindowContextTransaction = WindowContext::BaseTransaction;

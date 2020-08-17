@@ -2933,8 +2933,9 @@ mozilla::ipc::IPCResult ContentChild::RecvInitBlobURLs(
     RefPtr<BlobImpl> blobImpl = IPCBlobUtils::Deserialize(registration.blob());
     MOZ_ASSERT(blobImpl);
 
-    BlobURLProtocolHandler::AddDataEntry(registration.url(),
-                                         registration.principal(), blobImpl);
+    BlobURLProtocolHandler::AddDataEntry(
+        registration.url(), registration.principal(),
+        registration.agentClusterId(), blobImpl);
     // If we have received an already-revoked blobURL, we have to keep it alive
     // for a while (see BlobURLProtocolHandler) in order to support pending
     // operations such as navigation, download and so on.
@@ -3520,11 +3521,12 @@ mozilla::ipc::IPCResult ContentChild::RecvSystemMessage(
 
 mozilla::ipc::IPCResult ContentChild::RecvBlobURLRegistration(
     const nsCString& aURI, const IPCBlob& aBlob,
-    const IPC::Principal& aPrincipal) {
+    const IPC::Principal& aPrincipal, const Maybe<nsID>& aAgentClusterId) {
   RefPtr<BlobImpl> blobImpl = IPCBlobUtils::Deserialize(aBlob);
   MOZ_ASSERT(blobImpl);
 
-  BlobURLProtocolHandler::AddDataEntry(aURI, aPrincipal, blobImpl);
+  BlobURLProtocolHandler::AddDataEntry(aURI, aPrincipal, aAgentClusterId,
+                                       blobImpl);
   return IPC_OK();
 }
 
@@ -3862,8 +3864,9 @@ mozilla::ipc::IPCResult ContentChild::RecvCrossProcessRedirect(
     loadState->SetLoadType(aArgs.loadStateLoadType());
   }
 
-  if (aArgs.sessionHistoryInfo().isSome()) {
-    loadState->SetSessionHistoryInfo(aArgs.sessionHistoryInfo().ref());
+  if (aArgs.loadingSessionHistoryInfo().isSome()) {
+    loadState->SetLoadingSessionHistoryInfo(
+        aArgs.loadingSessionHistoryInfo().ref());
   }
   if (aArgs.originalUriString().isSome()) {
     loadState->SetOriginalURIString(aArgs.originalUriString().ref());

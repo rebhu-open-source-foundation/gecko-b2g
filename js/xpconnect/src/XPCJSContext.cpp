@@ -962,11 +962,14 @@ static void ReloadPrefsCallback(const char* pref, void* aXpccx) {
 
   // Require private fields disabled outside of nightly.
   bool privateFieldsEnabled = false;
+  bool privateMethodsEnabled = false;
 #ifdef NIGHTLY_BUILD
   sIteratorHelpersEnabled =
       Preferences::GetBool(JS_OPTIONS_DOT_STR "experimental.iterator_helpers");
   privateFieldsEnabled =
       Preferences::GetBool(JS_OPTIONS_DOT_STR "experimental.private_fields");
+  privateMethodsEnabled =
+      Preferences::GetBool(JS_OPTIONS_DOT_STR "experimental.private_methods");
 #endif
 
 #ifdef JS_GC_ZEAL
@@ -1011,10 +1014,8 @@ static void ReloadPrefsCallback(const char* pref, void* aXpccx) {
       .setAsyncStackCaptureDebuggeeOnly(useAsyncStackCaptureDebuggeeOnly)
       .setThrowOnDebuggeeWouldRun(throwOnDebuggeeWouldRun)
       .setDumpStackOnDebuggeeWouldRun(dumpStackOnDebuggeeWouldRun)
-#ifdef NIGHTLY_BUILD
       .setPrivateClassFields(privateFieldsEnabled)
-#endif
-      ;
+      .setPrivateClassMethods(privateMethodsEnabled);
 
   nsCOMPtr<nsIXULRuntime> xr = do_GetService("@mozilla.org/xre/runtime;1");
   if (xr) {

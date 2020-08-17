@@ -162,6 +162,12 @@ impl<'a, 'b: 'a> StyleAdjuster<'a, 'b> {
     ///        user-select: none;
     ///        pointer-events: none;
     ///        cursor: default;
+    ///
+    /// NOTE: dialog:-moz-topmost-modal-dialog is used to override above
+    /// rules to remove the inertness for the topmost modal dialog.
+    ///
+    /// NOTE: If this or the pointer-events tweak is removed, then
+    /// minimal-xul.css and the scrollbar style caching need to be tweaked.
     fn adjust_for_inert(&mut self) {
         use properties::longhands::_moz_inert::computed_value::T as Inert;
         use properties::longhands::_moz_user_focus::computed_value::T as UserFocus;

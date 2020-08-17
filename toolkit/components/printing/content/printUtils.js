@@ -68,6 +68,8 @@ XPCOMUtils.defineLazyPreferenceGetter(
 var gFocusedElement = null;
 
 var PrintUtils = {
+  SAVE_TO_PDF_PRINTER: "Mozilla Save to PDF",
+
   init() {
     window.messageManager.addMessageListener("Printing:Error", this);
   },
@@ -148,7 +150,6 @@ var PrintUtils = {
       parentElement: container,
       dialogOptions: {
         consumeOutsideClicks: false,
-        reuseDialog: false,
       },
     });
 
@@ -165,15 +166,16 @@ var PrintUtils = {
       skipLoad: false,
     });
     printPreviewBrowser.classList.add("printPreviewBrowser");
-    printPreviewBrowser.setAttribute("isRendering", "true");
-    container.querySelector(".previewStack").append(printPreviewBrowser);
+    let stack = container.querySelector(".previewStack");
+    stack.setAttribute("isRendering", "true");
+    stack.append(printPreviewBrowser);
     printPreviewBrowser.loadURI("about:printpreview", {
       triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
     });
 
     await dialog.open(
       `chrome://global/content/print.html?browsingContextId=${aBrowsingContext.id}`,
-      null,
+      "resizable=no",
       null,
       () => {
         printPreviewBrowser.messageManager.sendAsyncMessage(
@@ -198,8 +200,8 @@ var PrintUtils = {
    * @return {Promise<Integer>} The number of pages that were rendered in the preview.
    */
   updatePrintPreview(sourceBrowser, printPreviewBrowser, printSettings) {
-    let previewContainer = printPreviewBrowser.parentElement;
-    previewContainer.classList.add("previewRendering");
+    let stack = printPreviewBrowser.parentElement;
+    stack.setAttribute("isRendering", true);
 
     return new Promise(resolve => {
       printPreviewBrowser.messageManager.addMessageListener(
@@ -210,8 +212,7 @@ var PrintUtils = {
             done
           );
 
-          previewContainer.classList.remove("previewRendering");
-          printPreviewBrowser.removeAttribute("isRendering");
+          stack.removeAttribute("isRendering");
 
           resolve(message.data.numPages);
         }
@@ -224,6 +225,7 @@ var PrintUtils = {
           lastUsedPrinterName: printSettings.printerName,
           simplifiedMode: false,
           windowID: sourceBrowser.outerWindowID,
+          outputFormat: printSettings.outputFormat,
         }
       );
     });
@@ -550,11 +552,15 @@ var PrintUtils = {
       aPrintSettings.printerName = aPSSVC.lastUsedPrinterName;
     }
 
-    // First get any defaults from the printer
-    aPSSVC.initPrintSettingsFromPrinter(
-      aPrintSettings.printerName,
-      aPrintSettings
-    );
+    // First get any defaults from the printer. We want to skip this for Save to
+    // PDF since it isn't a real printer and will throw.
+    if (aPrintSettings.printerName != this.SAVE_TO_PDF_PRINTER) {
+      aPSSVC.initPrintSettingsFromPrinter(
+        aPrintSettings.printerName,
+        aPrintSettings
+      );
+    }
+
     // now augment them with any values from last time
     aPSSVC.initPrintSettingsFromPrefs(
       aPrintSettings,
@@ -563,13 +569,16 @@ var PrintUtils = {
     );
   },
 
-  getPrintSettings() {
+  getPrintSettings(aPrinterName) {
     var printSettings;
     try {
       var PSSVC = Cc["@mozilla.org/gfx/printsettings-service;1"].getService(
         Ci.nsIPrintSettingsService
       );
       printSettings = PSSVC.globalPrintSettings;
+      if (aPrinterName) {
+        printSettings.printerName = aPrinterName;
+      }
       this._setPrinterDefaultsForSelectedPrinter(PSSVC, printSettings);
     } catch (e) {
       dump("getPrintSettings: " + e + "\n");

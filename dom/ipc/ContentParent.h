@@ -549,6 +549,7 @@ class ContentParent final
 
   static void BroadcastBlobURLRegistration(
       const nsACString& aURI, BlobImpl* aBlobImpl, nsIPrincipal* aPrincipal,
+      const Maybe<nsID>& aAgentClusterId,
       ContentParent* aIgnoreThisCP = nullptr);
 
   static void BroadcastBlobURLUnregistration(
@@ -556,7 +557,8 @@ class ContentParent final
       ContentParent* aIgnoreThisCP = nullptr);
 
   mozilla::ipc::IPCResult RecvStoreAndBroadcastBlobURLRegistration(
-      const nsCString& aURI, const IPCBlob& aBlob, const Principal& aPrincipal);
+      const nsCString& aURI, const IPCBlob& aBlob, const Principal& aPrincipal,
+      const Maybe<nsID>& aAgentCluster);
 
   mozilla::ipc::IPCResult RecvUnstoreAndBroadcastBlobURLUnregistration(
       const nsCString& aURI, const Principal& aPrincipal);
@@ -702,6 +704,7 @@ class ContentParent final
       const nsCString& aBlobURL, nsIPrincipal* pTriggeringPrincipal,
       nsIPrincipal* pLoadingPrincipal,
       const OriginAttributes& aOriginAttributes,
+      const Maybe<nsID>& aAgentClusterId,
       BlobURLDataRequestResolver&& aResolver);
 
  protected:
@@ -1446,7 +1449,18 @@ class ContentParent final
       const int32_t& aLength, const nsID& aChangeID);
 
   mozilla::ipc::IPCResult RecvSynchronizeLayoutHistoryState(
-      uint64_t aSessionHistoryEntryID, nsILayoutHistoryState* aState);
+      const MaybeDiscarded<BrowsingContext>& aContext,
+      nsILayoutHistoryState* aState);
+
+  mozilla::ipc::IPCResult RecvSessionHistoryEntryTitle(
+      const MaybeDiscarded<BrowsingContext>& aContext, const nsString& aTitle);
+
+  mozilla::ipc::IPCResult RecvSessionHistoryEntryScrollRestorationIsManual(
+      const MaybeDiscarded<BrowsingContext>& aContext, const bool& aIsManual);
+
+  mozilla::ipc::IPCResult RecvSessionHistoryEntryCacheKey(
+      const MaybeDiscarded<BrowsingContext>& aContext,
+      const uint32_t& aCacheKey);
 
   // Notify the ContentChild to enable the input event prioritization when
   // initializing.

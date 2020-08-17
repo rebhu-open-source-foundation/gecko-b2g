@@ -675,10 +675,35 @@ static inline void init_sampler(S* s, Texture& t) {
 }
 
 template <typename S>
+static inline void null_sampler(S* s) {
+  // For null texture data, just make the sampler provide a 1x1 buffer that is
+  // transparent black. Ensure buffer holds at least a SIMD vector of zero data
+  // for SIMD padding of unaligned loads.
+  static const uint32_t zeroBuf[sizeof(Float) / sizeof(uint32_t)] = {0};
+  s->width = 1;
+  s->height = 1;
+  s->stride = s->width;
+  s->buf = (uint32_t*)zeroBuf;
+  s->format = TextureFormat::RGBA8;
+}
+
+template <typename S>
+static inline void null_filter(S* s) {
+  s->filter = TextureFilter::NEAREST;
+}
+
+template <typename S>
+static inline void null_depth(S* s) {
+  s->depth = 1;
+  s->height_stride = s->stride;
+}
+
+template <typename S>
 S* lookup_sampler(S* s, int texture) {
   Texture& t = ctx->get_texture(s, texture);
   if (!t.buf) {
-    *s = S();
+    null_sampler(s);
+    null_filter(s);
   } else {
     init_sampler(s, t);
     init_filter(s, t);
@@ -690,7 +715,7 @@ template <typename S>
 S* lookup_isampler(S* s, int texture) {
   Texture& t = ctx->get_texture(s, texture);
   if (!t.buf) {
-    *s = S();
+    null_sampler(s);
   } else {
     init_sampler(s, t);
   }
@@ -701,7 +726,9 @@ template <typename S>
 S* lookup_sampler_array(S* s, int texture) {
   Texture& t = ctx->get_texture(s, texture);
   if (!t.buf) {
-    *s = S();
+    null_sampler(s);
+    null_depth(s);
+    null_filter(s);
   } else {
     init_sampler(s, t);
     init_depth(s, t);
@@ -4011,8 +4038,8 @@ static void linear_row_composite(uint32_t* dest, int span,
 static void linear_composite(Texture& srctex, const IntRect& srcReq, int srcZ,
                              Texture& dsttex, const IntRect& dstReq, int dstZ,
                              bool invertY) {
-  assert(srctex.internal_format == GL_RGBA8 ||
-         srctex.internal_format == GL_R8 || srctex.internal_format == GL_RG8);
+  assert(srctex.bpp() == 4);
+  assert(dsttex.bpp() == 4);
   // Compute valid dest bounds
   IntRect dstBounds = dsttex.sample_bounds(dstReq, invertY);
   // Check if sampling bounds are empty
@@ -4035,8 +4062,6 @@ static void linear_composite(Texture& srctex, const IntRect& srcReq, int srcZ,
   srcUV = linearQuantize(srcUV + 0.5f, 128);
   srcDUV *= 128.0f;
   // Calculate dest pointer from clamped offsets
-  int bpp = dsttex.bpp();
-  assert(bpp == 4);
   int destStride = dsttex.stride();
   char* dest = dsttex.sample_ptr(dstReq, dstBounds, dstZ, invertY);
   // Inverted Y must step downward along dest rows
@@ -4190,13 +4215,14 @@ void UnlockResource(LockedTexture* resource) {
 void Composite(LockedTexture* lockedDst, LockedTexture* lockedSrc, GLint srcX,
                GLint srcY, GLsizei srcWidth, GLsizei srcHeight, GLint dstX,
                GLint dstY, GLsizei dstWidth, GLsizei dstHeight,
-               GLboolean opaque, GLboolean flip) {
+               GLboolean opaque, GLboolean flip, GLenum filter) {
   if (!lockedDst || !lockedSrc) {
     return;
   }
   Texture& srctex = *lockedSrc;
   Texture& dsttex = *lockedDst;
   assert(srctex.bpp() == 4);
+  assert(dsttex.bpp() == 4);
   const int bpp = 4;
   size_t src_stride = srctex.stride();
   size_t dest_stride = dsttex.stride();
@@ -4224,7 +4250,6 @@ void Composite(LockedTexture* lockedDst, LockedTexture* lockedSrc, GLint srcX,
 
   IntRect srcReq = {srcX, srcY, srcX + srcWidth, srcY + srcHeight};
   IntRect dstReq = {dstX, dstY, dstX + dstWidth, dstY + dstHeight};
-  GLenum filter = GL_LINEAR;  // TODO
 
   if (opaque) {
     if (!srcReq.same_size(dstReq) && filter == GL_LINEAR) {

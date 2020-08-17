@@ -524,7 +524,7 @@
 
 - name: apz.one_touch_pinch.enabled
   type: RelaxedAtomicBool
-  value: true
+  value: @IS_ANDROID@
   mirror: always
 
 - name: apz.overscroll.enabled
@@ -2612,7 +2612,7 @@
 # soon as they are fetched.
 - name: dom.script_loader.external_scripts.speculative_omt_parse.enabled
   type: bool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Speculatively compile non parser inserted scripts
@@ -5044,6 +5044,12 @@
   type: RelaxedAtomicBool
   value: false
   mirror: always
+
+  # Experimental support for Private Methods in JavaScript.
+- name: javascript.options.experimental.private_methods
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
 #endif
 
 # The amount of time we wait between a request to GC (due to leaving a page) and doing the actual GC, in ms.
@@ -6085,12 +6091,6 @@
   value: false
   mirror: always
   rust: true
-
-# Whether the offset-* logical property aliases are enabled.
-- name: layout.css.offset-logical-properties.enabled
-  type: bool
-  value: false
-  mirror: always
 
 # Is -moz-osx-font-smoothing enabled? (Only supported in OSX builds)
 - name: layout.css.osx-font-smoothing.enabled
@@ -8889,6 +8889,11 @@
   mirror: always
 
 - name: privacy.partition.network_state
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
+- name: privacy.partition.bloburl_per_agent_cluster
   type: RelaxedAtomicBool
   value: @IS_NIGHTLY_BUILD@
   mirror: always
