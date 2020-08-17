@@ -2,7 +2,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-MOZ_APP_BASENAME=B2G
 MOZ_APP_VENDOR=B2GOS
 
 MOZ_APP_VERSION=3.0
