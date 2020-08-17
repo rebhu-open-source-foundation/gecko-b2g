@@ -31,6 +31,7 @@ dictionary WifiCommandOptions
   PnoScanSettings      pnoScanSettings = {};
   RoamingConfiguration roamingConfig = {};
   AnqpRequestSettings  requestSettings = {};
+  WpsConfiguration     wpsConfig = {};
 };
 
 /**
@@ -222,4 +223,14 @@ dictionary AnqpRequestSettings
   DOMString bssid;
   boolean   roamingConsortiumOIs;
   boolean   supportRelease2;
+};
+
+/**
+ * The dictionary holds the parameters for WPS connection.
+ */
+[GenerateInit]
+dictionary WpsConfiguration
+{
+  DOMString bssid;
+  DOMString pinCode;
 };

@@ -221,6 +221,18 @@ interface nsIWifiResult : nsISupports
   readonly attribute boolean duplicated;
 
   /**
+   * Contains the pin code generated from supplicant for WPS pin display.
+   */
+  readonly attribute AString generatedPin;
+
+  /**
+   * Contains the network configuration in supplicant.
+   * Since network selection is handled in Gecko, supplicant should only have
+   * one saved network.
+   */
+  readonly attribute nsIWifiConfiguration wifiConfig;
+
+  /**
    * Query supported channel list
    *
    * Invoke the function to get the return value for GET_CHANNELS_FOR_BAND.

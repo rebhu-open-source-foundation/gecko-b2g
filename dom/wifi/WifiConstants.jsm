@@ -7,6 +7,9 @@
 this.EXPORTED_SYMBOLS = ["WifiConstants", "EAPConstants"];
 
 const WifiConstants = {
+  // Set in wpa_supplicant "bssid" field if no specific AP restricted
+  SUPPLICANT_BSSID_ANY: "00:00:00:00:00:00",
+
   // wifi state from IWifi.aidl
   WIFI_STATE_ENABLING: 1,
   WIFI_STATE_ENABLED: 2,

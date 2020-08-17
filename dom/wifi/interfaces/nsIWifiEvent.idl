@@ -93,6 +93,16 @@ interface nsIWifiEvent : nsISupports
   readonly attribute nsIAnqpResponse anqpResponse;
 
   /**
+   * WPS Configuration Error.
+   */
+  readonly attribute uint16_t wpsConfigError;
+
+  /**
+   * Vendor specific Error Indication for WPS event messages.
+   */
+  readonly attribute uint16_t wpsErrorIndication;
+
+  /**
    * Use for onNetworkEapSimGsmAuthRequest event to get GSM authentication
    * parameters. (Refer RFC 4186)
    */

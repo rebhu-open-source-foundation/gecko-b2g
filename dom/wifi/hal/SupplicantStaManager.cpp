@@ -8,12 +8,19 @@
 
 #include "SupplicantStaManager.h"
 #include "SupplicantCallback.h"
+#include <cutils/properties.h>
 #include <utils/Log.h>
 #include <string.h>
 #include <mozilla/ClearOnShutdown.h>
 
+#define ANY_MAC_STR "any"
+#define WPS_DEV_TYPE_LEN 8
+#define WPS_DEV_TYPE_DUAL_SMARTPHONE "10-0050F204-5"
+
 #define EVENT_SUPPLICANT_TERMINATING u"SUPPLICANT_TERMINATING"_ns
 
+using WpsConfigMethods =
+    android::hardware::wifi::supplicant::V1_0::WpsConfigMethods;
 using namespace mozilla::dom::wifi;
 
 static const char SUPPLICANT_INTERFACE_NAME_V1_0[] =
@@ -660,6 +667,48 @@ Result_t SupplicantStaManager::DisableNetwork() {
   return network->DisableNetwork();
 }
 
+Result_t SupplicantStaManager::GetNetwork(nsWifiResult* aResult) {
+  SupplicantStatus response;
+  std::vector<uint32_t> netIds;
+  mSupplicantStaIface->listNetworks(
+      [&](const SupplicantStatus& status,
+          const ::android::hardware::hidl_vec<uint32_t>& networkIds) {
+        response = status;
+        if (response.code == SupplicantStatusCode::SUCCESS) {
+          netIds = networkIds;
+        }
+      });
+
+  if (response.code != SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGE(LOG_TAG, "Failed to query saved networks in supplicant");
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  }
+
+  // By current design, network selection logic is processed in framework,
+  // so there should only be at most one network in supplicant.
+  if (netIds.size() != 1) {
+    WIFI_LOGE(LOG_TAG, "Should only keep one network in supplicant");
+    return nsIWifiResult::ERROR_UNKNOWN;
+  }
+
+  android::sp<SupplicantStaNetwork> network = GetStaNetwork(netIds.at(0));
+  if (!network) {
+    WIFI_LOGE(LOG_TAG, "Failed to get network %d", netIds.at(0));
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  }
+
+  // Load network configuration from supplicant
+  NetworkConfiguration config;
+  network->LoadConfiguration(config);
+
+  // Assign to nsWifiConfiguration
+  RefPtr<nsWifiConfiguration> configuration = new nsWifiConfiguration();
+  config.ConvertConfigurations(configuration);
+  aResult->updateWifiConfiguration(configuration);
+
+  return nsIWifiResult::SUCCESS;
+}
+
 Result_t SupplicantStaManager::RemoveNetworks() {
   SupplicantStatus response;
   // first, get network id list from supplicant
@@ -787,6 +836,246 @@ Result_t SupplicantStaManager::SendAnqpRequest(
            aBssid, (std::vector<AnqpInfoId>&)aInfoElements,
            (std::vector<Hs20AnqpSubtypes>&)aHs20SubTypes);
   return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
+}
+
+/**
+ * Methods to handle WPS connection
+ */
+Result_t SupplicantStaManager::InitWpsDetail() {
+  char value[PROPERTY_VALUE_MAX];
+
+  property_get("ro.product.name", value, "");
+  std::string deviceName(value);
+  if (SetWpsDeviceName(deviceName) != nsIWifiResult::SUCCESS) {
+    WIFI_LOGE(LOG_TAG, "Failed to set device name: %s", value);
+  }
+
+  property_get("ro.product.manufacturer", value, "");
+  std::string manufacturer(value);
+  if (SetWpsManufacturer(manufacturer) != nsIWifiResult::SUCCESS) {
+    WIFI_LOGE(LOG_TAG, "Failed to set manufacturer: %s", value);
+  }
+
+  property_get("ro.product.model", value, "");
+  std::string modelName(value);
+  if (SetWpsModelName(modelName) != nsIWifiResult::SUCCESS) {
+    WIFI_LOGE(LOG_TAG, "Failed to set model name: %s", value);
+  }
+
+  property_get("ro.product.model", value, "");
+  std::string modelNumber(value);
+  if (SetWpsModelNumber(modelNumber) != nsIWifiResult::SUCCESS) {
+    WIFI_LOGE(LOG_TAG, "Failed to set model number: %s", value);
+  }
+
+  property_get("ro.serialno", value, "");
+  std::string serialNumber(value);
+  if (SetWpsSerialNumber(serialNumber) != nsIWifiResult::SUCCESS) {
+    WIFI_LOGE(LOG_TAG, "Failed to set serial number: %s", value);
+  }
+
+  if (SetWpsDeviceType(WPS_DEV_TYPE_DUAL_SMARTPHONE) !=
+      nsIWifiResult::SUCCESS) {
+    WIFI_LOGE(LOG_TAG, "Failed to set device type");
+  }
+
+  std::string configMethods("keypad physical_display virtual_push_button");
+  if (SetWpsConfigMethods(configMethods) != nsIWifiResult::SUCCESS) {
+    WIFI_LOGE(LOG_TAG, "Failed to set WPS config methods");
+  }
+
+  return nsIWifiResult::SUCCESS;
+}
+
+Result_t SupplicantStaManager::StartWpsRegistrar(const std::string& aBssid,
+                                                 const std::string& aPinCode) {
+  SupplicantStatus response;
+  std::array<uint8_t, 6> bssid;
+
+  if (aBssid.empty() || aBssid.compare(ANY_MAC_STR) == 0) {
+    bssid.fill(0);
+  } else {
+    ConvertMacToByteArray(aBssid, bssid);
+  }
+
+  HIDL_SET(mSupplicantStaIface, startWpsRegistrar, SupplicantStatus, response,
+           bssid, aPinCode);
+  return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
+}
+
+Result_t SupplicantStaManager::StartWpsPbc(const std::string& aBssid) {
+  SupplicantStatus response;
+  std::array<uint8_t, 6> bssid;
+
+  if (aBssid.empty() || aBssid.compare(ANY_MAC_STR) == 0) {
+    bssid.fill(0);
+  } else {
+    ConvertMacToByteArray(aBssid, bssid);
+  }
+
+  HIDL_SET(mSupplicantStaIface, startWpsPbc, SupplicantStatus, response, bssid);
+  return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
+}
+
+Result_t SupplicantStaManager::StartWpsPinKeypad(const std::string& aPinCode) {
+  SupplicantStatus response;
+  HIDL_SET(mSupplicantStaIface, startWpsPinKeypad, SupplicantStatus, response,
+           aPinCode);
+  return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
+}
+
+Result_t SupplicantStaManager::StartWpsPinDisplay(const std::string& aBssid,
+                                                  nsAString& aGeneratedPin) {
+  SupplicantStatus response;
+  std::array<uint8_t, 6> bssid;
+
+  if (aBssid.empty() || aBssid.compare(ANY_MAC_STR) == 0) {
+    bssid.fill(0);
+  } else {
+    ConvertMacToByteArray(aBssid, bssid);
+  }
+
+  mSupplicantStaIface->startWpsPinDisplay(
+      bssid,
+      [&](const SupplicantStatus& status, const hidl_string& generatedPin) {
+        response = status;
+        if (response.code == SupplicantStatusCode::SUCCESS) {
+          nsString pin(NS_ConvertUTF8toUTF16(generatedPin.c_str()));
+          aGeneratedPin.Assign(pin);
+        }
+      });
+
+  return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
+}
+
+Result_t SupplicantStaManager::CancelWps() {
+  SupplicantStatus response;
+  HIDL_CALL(mSupplicantStaIface, cancelWps, SupplicantStatus, response);
+  return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
+}
+
+Result_t SupplicantStaManager::SetWpsDeviceName(
+    const std::string& aDeviceName) {
+  SupplicantStatus response;
+  HIDL_SET(mSupplicantStaIface, setWpsDeviceName, SupplicantStatus, response,
+           aDeviceName);
+  return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
+}
+
+Result_t SupplicantStaManager::SetWpsDeviceType(
+    const std::string& aDeviceType) {
+  std::vector<std::string> tokens;
+  std::string token;
+  std::stringstream stream(aDeviceType);
+  while (std::getline(stream, token, '-')) {
+    tokens.push_back(token);
+  }
+
+  std::array<uint8_t, 2> category;
+  std::array<uint8_t, 4> oui;
+  std::array<uint8_t, 2> subCategory;
+
+  uint16_t cat = std::stoi(tokens.at(0));
+  category.at(0) = (cat >> 8) & 0xFF;
+  category.at(1) = (cat >> 0) & 0xFF;
+
+  ConvertHexStringToByteArray(tokens.at(1), oui);
+
+  uint16_t subCat = std::stoi(tokens.at(2));
+  subCategory.at(0) = (subCat >> 8) & 0xFF;
+  subCategory.at(1) = (subCat >> 0) & 0xFF;
+
+  std::array<uint8_t, 8> type;
+  std::copy(category.cbegin(), category.cend(), type.begin());
+  std::copy(oui.cbegin(), oui.cend(), type.begin() + 2);
+  std::copy(subCategory.cbegin(), subCategory.cend(), type.begin() + 6);
+
+  SupplicantStatus response;
+  HIDL_SET(mSupplicantStaIface, setWpsDeviceType, SupplicantStatus, response,
+           type);
+  return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
+}
+
+Result_t SupplicantStaManager::SetWpsManufacturer(
+    const std::string& aManufacturer) {
+  SupplicantStatus response;
+  HIDL_SET(mSupplicantStaIface, setWpsManufacturer, SupplicantStatus, response,
+           aManufacturer);
+  return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
+}
+
+Result_t SupplicantStaManager::SetWpsModelName(const std::string& aModelName) {
+  SupplicantStatus response;
+  HIDL_SET(mSupplicantStaIface, setWpsModelName, SupplicantStatus, response,
+           aModelName);
+  return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
+}
+
+Result_t SupplicantStaManager::SetWpsModelNumber(
+    const std::string& aModelNumber) {
+  SupplicantStatus response;
+  HIDL_SET(mSupplicantStaIface, setWpsModelNumber, SupplicantStatus, response,
+           aModelNumber);
+  return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
+}
+
+Result_t SupplicantStaManager::SetWpsSerialNumber(
+    const std::string& aSerialNumber) {
+  SupplicantStatus response;
+  HIDL_SET(mSupplicantStaIface, setWpsSerialNumber, SupplicantStatus, response,
+           aSerialNumber);
+  return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
+}
+
+Result_t SupplicantStaManager::SetWpsConfigMethods(
+    const std::string& aConfigMethods) {
+  int16_t configMethodMask = ConvertToWpsConfigMethod(aConfigMethods);
+
+  SupplicantStatus response;
+  HIDL_SET(mSupplicantStaIface, setWpsConfigMethods, SupplicantStatus, response,
+           configMethodMask);
+  return CHECK_SUCCESS(response.code == SupplicantStatusCode::SUCCESS);
+}
+
+int16_t SupplicantStaManager::ConvertToWpsConfigMethod(
+    const std::string& aConfigMethod) {
+  int16_t mask = 0;
+  std::string method;
+  std::stringstream stream(aConfigMethod);
+  while (std::getline(stream, method, ' ')) {
+    if (method.compare("usba") == 0) {
+      mask |= (int16_t)WpsConfigMethods::USBA;
+    } else if (method.compare("ethernet") == 0) {
+      mask |= (int16_t)WpsConfigMethods::ETHERNET;
+    } else if (method.compare("label") == 0) {
+      mask |= (int16_t)WpsConfigMethods::LABEL;
+    } else if (method.compare("display") == 0) {
+      mask |= (int16_t)WpsConfigMethods::DISPLAY;
+    } else if (method.compare("int_nfc_token") == 0) {
+      mask |= (int16_t)WpsConfigMethods::INT_NFC_TOKEN;
+    } else if (method.compare("ext_nfc_token") == 0) {
+      mask |= (int16_t)WpsConfigMethods::EXT_NFC_TOKEN;
+    } else if (method.compare("nfc_interface") == 0) {
+      mask |= (int16_t)WpsConfigMethods::NFC_INTERFACE;
+    } else if (method.compare("push_button") == 0) {
+      mask |= (int16_t)WpsConfigMethods::PUSHBUTTON;
+    } else if (method.compare("keypad") == 0) {
+      mask |= (int16_t)WpsConfigMethods::KEYPAD;
+    } else if (method.compare("virtual_push_button") == 0) {
+      mask |= (int16_t)WpsConfigMethods::VIRT_PUSHBUTTON;
+    } else if (method.compare("physical_push_button") == 0) {
+      mask |= (int16_t)WpsConfigMethods::PHY_PUSHBUTTON;
+    } else if (method.compare("p2ps") == 0) {
+      mask |= (int16_t)WpsConfigMethods::P2PS;
+    } else if (method.compare("virtual_display") == 0) {
+      mask |= (int16_t)WpsConfigMethods::VIRT_DISPLAY;
+    } else if (method.compare("physical_display") == 0) {
+      mask |= (int16_t)WpsConfigMethods::PHY_DISPLAY;
+    } else {
+      WIFI_LOGE(LOG_TAG, "Unknown wps config method: %s", method.c_str());
+    }
+  }
+  return mask;
 }
 
 /**

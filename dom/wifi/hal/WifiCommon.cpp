@@ -9,6 +9,13 @@
 #include "WifiCommon.h"
 #include <iomanip>
 
+static int32_t HexToNum(char c) {
+  if (c >= '0' && c <= '9') return c - '0';
+  if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+  if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+  return -1;
+}
+
 template <typename T>
 std::string ConvertMacToString(const T& mac) {
   size_t len = mac.size();
@@ -24,11 +31,18 @@ std::string ConvertMacToString(const T& mac) {
   return stream.str();
 }
 
-static int32_t HexToNum(char c) {
-  if (c >= '0' && c <= '9') return c - '0';
-  if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-  if (c >= 'A' && c <= 'F') return c - 'A' + 10;
-  return -1;
+template <typename T>
+std::string ConvertByteArrayToHexString(const T& in) {
+  std::string out;
+  uint32_t index;
+  const char hexChar[] = "0123456789ABCDEF";
+
+  for (int32_t i = 0; i < in.size(); i++) {
+    uint8_t byte = in[i];
+    out.push_back(hexChar[(byte >> 4) & 0x0F]);
+    out.push_back(hexChar[byte & 0x0F]);
+  }
+  return out;
 }
 
 template <typename T>
@@ -81,23 +95,6 @@ int32_t ConvertHexStringToByteArray(const std::string& in, T& out) {
   return out.size();
 }
 
-void Dequote(std::string& s) {
-  if (s.front() != '"' || s.back() != '"') {
-    return;
-  }
-  s.erase(0, 1);
-  s.erase(s.length() - 1);
-}
-
-std::string Trim(std::string& s) {
-  if (s.empty()) {
-    return s;
-  }
-  s.erase(0, s.find_first_not_of(" "));
-  s.erase(s.find_last_not_of(" ") + 1);
-  return s;
-}
-
 int32_t ByteToInteger(std::vector<uint8_t>::const_iterator& iter,
                       uint32_t length, bool endian) {
   std::vector<uint8_t>::const_iterator& it = iter;
@@ -118,4 +115,27 @@ std::string ByteToString(std::vector<uint8_t>::const_iterator& iter,
   std::string out(begin, begin + length);
   begin += length;
   return Trim(out);
+}
+
+std::string Quote(std::string& s) {
+  s = "\"" + s + "\"";
+  return s;
+}
+
+std::string Dequote(std::string& s) {
+  if (s.front() != '"' || s.back() != '"') {
+    return s;
+  }
+  s.erase(0, 1);
+  s.erase(s.length() - 1);
+  return s;
+}
+
+std::string Trim(std::string& s) {
+  if (s.empty()) {
+    return s;
+  }
+  s.erase(0, s.find_first_not_of(" "));
+  s.erase(s.find_last_not_of(" ") + 1);
+  return s;
 }

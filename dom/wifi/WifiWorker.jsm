@@ -992,6 +992,10 @@ var WifiManager = (function() {
     ["ANQP_QUERY_DONE", anqpResponse],
     ["HS20_ICON_QUERY_DONE", iconResponse],
     ["WNM_FRAME_RECEIVED", wnmFrameReceived],
+    ["WPS_CONNECTION_SUCCESS", wps_connection_success],
+    ["WPS_CONNECTION_FAIL", wps_connection_fail],
+    ["WPS_CONNECTION_TIMEOUT", wps_connection_timeout],
+    ["WPS_CONNECTION_PBC_OVERLAP", wps_pbc_overlap],
   ]);
 
   var linkDebouncingId = null;
@@ -1111,6 +1115,21 @@ var WifiManager = (function() {
       manager.setFirmwareRoamingConfiguration();
     }
     if (manager.wpsStarted) {
+      // Save WPS network configurations into config store.
+      manager.getSupplicantNetwork(result => {
+        if (result.status == SUCCESS) {
+          let config = Object.create(null);
+
+          for (let field in result.wifiConfig) {
+            config[field] = result.wifiConfig[field];
+          }
+          config.bssid = WifiConstants.SUPPLICANT_BSSID_ANY;
+
+          manager.saveNetwork(config, function() {});
+        } else {
+          debug("Failed to get supplicant configurations");
+        }
+      });
       manager.wpsStarted = false;
     }
   }
@@ -1129,10 +1148,10 @@ var WifiManager = (function() {
 
     if (manager.isWifiEnabled(manager.state)) {
       // Clear the bssid in the current config's network block
-      WifiConfigManager.clearCurrentConfigBssid(
-        lastNetwork.netId,
-        function() {}
-      );
+      let id = lastNetwork
+        ? lastNetwork.netId
+        : WifiConstants.INVALID_NETWORK_ID;
+      WifiConfigManager.clearCurrentConfigBssid(id, function() {});
 
       let networkKey = escape(wifiInfo.wifiSsid) + wifiInfo.security;
       var configuredNetworks = WifiConfigManager.configuredNetworks;
@@ -1346,6 +1365,33 @@ var WifiManager = (function() {
 
   function wnmFrameReceived() {
     // TODO: handle management frame received
+  }
+
+  function wps_connection_success() {
+    debug("WPS success, wait for full connection");
+  }
+
+  function wps_connection_fail(event) {
+    manager.wpsStarted = false;
+    debug(
+      "WPS failed with error code " +
+        event.wpsConfigError +
+        ":" +
+        event.wpsErrorIndication
+    );
+    notifyStateChange({ state: "WPS_FAIL", BSSID: null, id: -1 });
+  }
+
+  function wps_connection_timeout() {
+    manager.wpsStarted = false;
+    debug("WPS timeout");
+    notifyStateChange({ state: "WPS_TIMEOUT", BSSID: null, id: -1 });
+  }
+
+  function wps_pbc_overlap() {
+    manager.wpsStarted = false;
+    debug("WPS pbc overlap");
+    notifyStateChange({ state: "WPS_OVERLAP_DETECTED", BSSID: null, id: -1 });
   }
 
   var requestOptimizationMode = 0;
@@ -1641,8 +1687,10 @@ var WifiManager = (function() {
   manager.getMacAddress = wifiCommand.getMacAddress;
   manager.getScanResults = wifiCommand.getScanResults;
   manager.handleScanRequest = handleScanRequest;
+  manager.setWpsDetail = wifiCommand.setWpsDetail;
   manager.wpsPbc = wifiCommand.wpsPbc;
   manager.wpsPin = wifiCommand.wpsPin;
+  manager.wpsDisplay = wifiCommand.wpsDisplay;
   manager.wpsCancel = wifiCommand.wpsCancel;
   manager.setPowerSave = wifiCommand.setPowerSave;
   manager.setExternalSim = wifiCommand.setExternalSim;
@@ -1671,6 +1719,7 @@ var WifiManager = (function() {
   manager.reconnect = wifiCommand.reconnect;
   manager.reassociate = wifiCommand.reassociate;
   manager.disableNetwork = wifiCommand.disableNetwork;
+  manager.getSupplicantNetwork = wifiCommand.getSupplicantNetwork;
   manager.syncDebug = syncDebug;
 
   // Public interface of the wifi service.
@@ -1893,6 +1942,8 @@ var WifiManager = (function() {
     // WPA supplicant already connected.
     manager.enableAutoReconnect(true, function() {});
     manager.setPowerSave(true, function() {});
+    manager.setWpsDetail(function() {});
+
     // FIXME: window.navigator.mozPower is undefined
     // let window = Services.wm.getMostRecentWindow("navigator:browser");
     // if (window !== null) {
@@ -2771,6 +2822,10 @@ function WifiWorker() {
             self._fireEvent("onassociate", { network: netToDOM(lastNetwork) });
           }
         };
+
+        if (!lastNetwork) {
+          lastNetwork = {};
+        }
         lastNetwork.bssid = wifiInfo.bssid;
         lastNetwork.ssid = quote(wifiInfo.wifiSsid);
         lastNetwork.netId = wifiInfo.networkId;
@@ -2834,6 +2889,9 @@ function WifiWorker() {
         self._fireEvent("onwpsoverlap", {});
         break;
       case "AUTHENTICATING":
+        if (!lastNetwork) {
+          lastNetwork = {};
+        }
         lastNetwork.bssid = wifiInfo.bssid;
         lastNetwork.ssid = quote(wifiInfo.wifiSsid);
         lastNetwork.netId = wifiInfo.networkId;
@@ -4265,43 +4323,60 @@ WifiWorker.prototype = {
       return;
     }
 
-    if (detail.method === "pbc") {
-      WifiManager.wpsPbc(function(ok) {
-        if (ok) {
-          WifiManager.wpsStarted = true;
-          self._sendMessage(message, true, true, msg);
-        } else {
-          WifiManager.wpsStarted = false;
-          self._sendMessage(message, false, "WPS PBC failed", msg);
-        }
-      });
-    } else if (detail.method === "pin") {
-      WifiManager.wpsPin(detail, function(pin) {
-        if (pin) {
-          WifiManager.wpsStarted = true;
-          self._sendMessage(message, true, pin, msg);
-        } else {
-          WifiManager.wpsStarted = false;
-          self._sendMessage(message, false, "WPS PIN failed", msg);
-        }
-      });
-    } else if (detail.method === "cancel") {
-      WifiManager.wpsCancel(function(ok) {
-        if (ok) {
-          WifiManager.wpsStarted = false;
-          self._sendMessage(message, true, true, msg);
-        } else {
-          self._sendMessage(message, false, "WPS Cancel failed", msg);
-        }
-      });
-    } else {
-      self._sendMessage(
-        message,
-        false,
-        "Invalid WPS method=" + detail.method,
-        msg
-      );
-    }
+    WifiManager.removeNetworks(function(ok) {
+      if (!ok) {
+        self._sendMessage(message, false, "Failed to remove networks", msg);
+        return;
+      }
+
+      if (detail.method === "pbc") {
+        WifiManager.wpsPbc(detail.bssid, function(result) {
+          if (result.status == SUCCESS) {
+            WifiManager.wpsStarted = true;
+            self._sendMessage(message, true, true, msg);
+          } else {
+            WifiManager.wpsStarted = false;
+            self._sendMessage(message, false, "WPS PBC failed", msg);
+          }
+        });
+      } else if (detail.method === "pin") {
+        WifiManager.wpsPin(detail.bssid, detail.pin, function(result) {
+          if (result.status == SUCCESS) {
+            WifiManager.wpsStarted = true;
+            self._sendMessage(message, true, true, msg);
+          } else {
+            WifiManager.wpsStarted = false;
+            self._sendMessage(message, false, "WPS PIN failed", msg);
+          }
+        });
+      } else if (detail.method === "display") {
+        WifiManager.wpsDisplay(detail.bssid, function(result) {
+          if (result.status == SUCCESS && result.generatedPin) {
+            WifiManager.wpsStarted = true;
+            self._sendMessage(message, true, result.generatedPin, msg);
+          } else {
+            WifiManager.wpsStarted = false;
+            self._sendMessage(message, false, "WPS Display failed", msg);
+          }
+        });
+      } else if (detail.method === "cancel") {
+        WifiManager.wpsCancel(function(result) {
+          if (result.status == SUCCESS) {
+            WifiManager.wpsStarted = false;
+            self._sendMessage(message, true, true, msg);
+          } else {
+            self._sendMessage(message, false, "WPS Cancel failed", msg);
+          }
+        });
+      } else {
+        self._sendMessage(
+          message,
+          false,
+          "Invalid WPS method = " + detail.method,
+          msg
+        );
+      }
+    });
   },
 
   setPowerSavingMode(msg) {

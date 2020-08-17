@@ -72,9 +72,6 @@ this.WifiConfigManager = (function() {
   // The network ID to be assigned on a new added network
   var useNetworkId = 0;
 
-  // Set in wpa_supplicant "bssid" field if no specific AP restricted
-  const SUPPLICANT_BSSID_ANY = "00:00:00:00:00:00";
-
   // WifiConfigManager parameters
   configManager.configuredNetworks = configuredNetworks;
   configManager.QUALITY_NETWORK_SELECTION_DISABLE_REASON = QUALITY_NETWORK_SELECTION_DISABLE_REASON;
@@ -413,7 +410,8 @@ this.WifiConfigManager = (function() {
       let networkKey = WifiConfigUtils.getNetworkKey(network);
 
       if (networkKey in configuredNetworks) {
-        configuredNetworks[networkKey].bssid = SUPPLICANT_BSSID_ANY;
+        configuredNetworks[networkKey].bssid =
+          WifiConstants.SUPPLICANT_BSSID_ANY;
         saveToStore(configuredNetworks, success => {
           callback(success);
         });

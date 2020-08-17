@@ -9,11 +9,15 @@
 /**
  * nsWifiConfiguration
  */
+nsWifiConfiguration::nsWifiConfiguration()
+    : mNetId(-1), mWepTxKeyIndex(0), mSimIndex(0) {}
+
 nsWifiConfiguration::nsWifiConfiguration(
     int32_t aNetId, const nsAString& aSsid, const nsAString& aBssid,
-    const nsAString& aKeyManagement, const nsAString& aPsk,
-    const nsAString& aWepKey, int32_t aWepTxKeyIndex, bool aScanSsid, bool aPmf,
-    const nsAString& aProto, const nsAString& aAuthAlg,
+    const nsAString& aKeyMgmt, const nsAString& aPsk, const nsAString& aWepKey0,
+    const nsAString& aWepKey1, const nsAString& aWepKey2,
+    const nsAString& aWepKey3, int32_t aWepTxKeyIndex, bool aScanSsid,
+    bool aPmf, const nsAString& aProto, const nsAString& aAuthAlg,
     const nsAString& aGroupCipher, const nsAString& aPairwiseCipher,
     const nsAString& aEap, const nsAString& aPhase2, const nsAString& aIdentity,
     const nsAString& aAnonymousId, const nsAString& aPassword,
@@ -25,9 +29,12 @@ nsWifiConfiguration::nsWifiConfiguration(
   mNetId = aNetId;
   mSsid = aSsid;
   mBssid = aBssid;
-  mKeyManagement = aKeyManagement;
+  mKeyMgmt = aKeyMgmt;
   mPsk = aPsk;
-  mWepKey = aWepKey;
+  mWepKey0 = aWepKey0;
+  mWepKey1 = aWepKey1;
+  mWepKey2 = aWepKey2;
+  mWepKey3 = aWepKey3;
   mWepTxKeyIndex = aWepTxKeyIndex;
   mScanSsid = aScanSsid;
   mPmf = aPmf;
@@ -77,8 +84,26 @@ nsWifiConfiguration::GetPsk(nsAString& aPsk) {
 }
 
 NS_IMETHODIMP
-nsWifiConfiguration::GetWepKey(nsAString& aWepKey) {
-  aWepKey = mWepKey;
+nsWifiConfiguration::GetWepKey0(nsAString& aWepKey0) {
+  aWepKey0 = mWepKey0;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsWifiConfiguration::GetWepKey1(nsAString& aWepKey1) {
+  aWepKey1 = mWepKey1;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsWifiConfiguration::GetWepKey2(nsAString& aWepKey2) {
+  aWepKey2 = mWepKey2;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsWifiConfiguration::GetWepKey3(nsAString& aWepKey3) {
+  aWepKey3 = mWepKey3;
   return NS_OK;
 }
 
@@ -101,8 +126,8 @@ nsWifiConfiguration::GetPmf(bool* aPmf) {
 }
 
 NS_IMETHODIMP
-nsWifiConfiguration::GetKeyManagement(nsAString& aKeyManagement) {
-  aKeyManagement = mKeyManagement;
+nsWifiConfiguration::GetKeyMgmt(nsAString& aKeyMgmt) {
+  aKeyMgmt = mKeyMgmt;
   return NS_OK;
 }
 

@@ -36,13 +36,6 @@ using RequestUmtsAuthParams =
 constexpr uint32_t max_wep_key_num =
     (ISupplicantStaNetwork::ParamSizeLimits::WEP_KEYS_MAX_NUM | 0x0);
 
-#define COPY_FIELD_STRING(configure, field)                \
-  if (!configure->field.IsEmpty()) {                       \
-    field = NS_ConvertUTF16toUTF8(configure->field).get(); \
-  } else {                                                 \
-    field = std::string();                                 \
-  }
-
 BEGIN_WIFI_NAMESPACE
 
 /**
@@ -84,9 +77,16 @@ class NetworkConfiguration {
     mAltSubjectMatch = aConfig.mAltSubjectMatch;
     mDomainSuffixMatch = aConfig.mDomainSuffixMatch;
     mProactiveKeyCaching = aConfig.mProactiveKeyCaching;
+    mSimIndex = mSimIndex;
   }
 
   NetworkConfiguration(const ConfigurationOptions* aConfig) {
+#define COPY_FIELD_STRING(configure, field)                \
+  if (!configure->field.IsEmpty()) {                       \
+    field = NS_ConvertUTF16toUTF8(configure->field).get(); \
+  } else {                                                 \
+    field = std::string();                                 \
+  }
     COPY_FIELD_STRING(aConfig, mSsid)
     COPY_FIELD_STRING(aConfig, mBssid)
     COPY_FIELD_STRING(aConfig, mKeyMgmt)
@@ -112,6 +112,7 @@ class NetworkConfiguration {
     COPY_FIELD_STRING(aConfig, mPrivateKeyId)
     COPY_FIELD_STRING(aConfig, mAltSubjectMatch)
     COPY_FIELD_STRING(aConfig, mDomainSuffixMatch)
+#undef COPY_FIELD_STRING
 
     mNetworkId = aConfig->mNetId;
     mWepTxKeyIndex = aConfig->mWepTxKeyIndex;
@@ -119,6 +120,48 @@ class NetworkConfiguration {
     mPmf = aConfig->mPmf;
     mEngine = aConfig->mEngine;
     mProactiveKeyCaching = aConfig->mProactiveKeyCaching;
+    mSimIndex = aConfig->mSimIndex;
+  }
+
+  void ConvertConfigurations(nsWifiConfiguration* aConfig) {
+#define COPY_FIELD_TO_NSSTRING(configure, field)             \
+  if (!field.empty()) {                                      \
+    configure->field = NS_ConvertUTF8toUTF16(field.c_str()); \
+  }
+    COPY_FIELD_TO_NSSTRING(aConfig, mSsid)
+    COPY_FIELD_TO_NSSTRING(aConfig, mBssid)
+    COPY_FIELD_TO_NSSTRING(aConfig, mKeyMgmt)
+    COPY_FIELD_TO_NSSTRING(aConfig, mPsk)
+    COPY_FIELD_TO_NSSTRING(aConfig, mWepKey0)
+    COPY_FIELD_TO_NSSTRING(aConfig, mWepKey1)
+    COPY_FIELD_TO_NSSTRING(aConfig, mWepKey2)
+    COPY_FIELD_TO_NSSTRING(aConfig, mWepKey3)
+    COPY_FIELD_TO_NSSTRING(aConfig, mProto)
+    COPY_FIELD_TO_NSSTRING(aConfig, mAuthAlg)
+    COPY_FIELD_TO_NSSTRING(aConfig, mGroupCipher)
+    COPY_FIELD_TO_NSSTRING(aConfig, mPairwiseCipher)
+    COPY_FIELD_TO_NSSTRING(aConfig, mEap)
+    COPY_FIELD_TO_NSSTRING(aConfig, mPhase2)
+    COPY_FIELD_TO_NSSTRING(aConfig, mIdentity)
+    COPY_FIELD_TO_NSSTRING(aConfig, mAnonymousId)
+    COPY_FIELD_TO_NSSTRING(aConfig, mPassword)
+    COPY_FIELD_TO_NSSTRING(aConfig, mClientCert)
+    COPY_FIELD_TO_NSSTRING(aConfig, mCaCert)
+    COPY_FIELD_TO_NSSTRING(aConfig, mCaPath)
+    COPY_FIELD_TO_NSSTRING(aConfig, mSubjectMatch)
+    COPY_FIELD_TO_NSSTRING(aConfig, mEngineId)
+    COPY_FIELD_TO_NSSTRING(aConfig, mPrivateKeyId)
+    COPY_FIELD_TO_NSSTRING(aConfig, mAltSubjectMatch)
+    COPY_FIELD_TO_NSSTRING(aConfig, mDomainSuffixMatch)
+#undef COPY_FIELD_TO_NSSTRING
+
+    aConfig->mNetId = mNetworkId;
+    aConfig->mWepTxKeyIndex = mWepTxKeyIndex;
+    aConfig->mScanSsid = mScanSsid;
+    aConfig->mPmf = mPmf;
+    aConfig->mEngine = mEngine;
+    aConfig->mProactiveKeyCaching = mProactiveKeyCaching;
+    aConfig->mSimIndex = mSimIndex;
   }
 
   std::string GetNetworkKey() { return mSsid + mKeyMgmt; }
@@ -159,6 +202,7 @@ class NetworkConfiguration {
   std::string mAltSubjectMatch;
   std::string mDomainSuffixMatch;
   bool mProactiveKeyCaching;
+  int32_t mSimIndex;
 };
 
 /**
@@ -176,6 +220,7 @@ class SupplicantStaNetwork
       const android::sp<ISupplicantStaNetwork>& aNetwork);
 
   Result_t SetConfiguration(const NetworkConfiguration& aConfig);
+  Result_t LoadConfiguration(NetworkConfiguration& aConfig);
   Result_t EnableNetwork();
   Result_t DisableNetwork();
   Result_t SelectNetwork();
@@ -193,8 +238,8 @@ class SupplicantStaNetwork
  private:
   virtual ~SupplicantStaNetwork();
 
-  android::sp<ISupplicantStaNetworkV1_1> GetSupplicantStaNetworkV1_1();
-  android::sp<ISupplicantStaNetworkV1_2> GetSupplicantStaNetworkV1_2();
+  android::sp<ISupplicantStaNetworkV1_1> GetSupplicantStaNetworkV1_1() const;
+  android::sp<ISupplicantStaNetworkV1_2> GetSupplicantStaNetworkV1_2() const;
 
   //..................... ISupplicantStaNetworkCallback ......................./
   /**
@@ -231,7 +276,7 @@ class SupplicantStaNetwork
   SupplicantStatusCode SetBssid(const std::string& aBssid);
   SupplicantStatusCode SetKeyMgmt(uint32_t aKeyMgmtMask);
   SupplicantStatusCode SetSaePassword(const std::string& aSaePassword);
-  SupplicantStatusCode SetPassphrase(const std::string& aPassphrase);
+  SupplicantStatusCode SetPskPassphrase(const std::string& aPassphrase);
   SupplicantStatusCode SetPsk(const std::string& aPsk);
   SupplicantStatusCode SetWepKey(
       const std::array<std::string, max_wep_key_num>& aWepKeys,
@@ -241,10 +286,11 @@ class SupplicantStaNetwork
   SupplicantStatusCode SetGroupCipher(const std::string& aGroupCipher);
   SupplicantStatusCode SetPairwiseCipher(const std::string& aPairwiseCipher);
   SupplicantStatusCode SetRequirePmf(bool aEnable);
+  SupplicantStatusCode SetIdStr(const std::string& aIdStr);
 
   SupplicantStatusCode SetEapConfiguration(const NetworkConfiguration& aConfig);
   SupplicantStatusCode SetEapMethod(const std::string& aEapMethod);
-  SupplicantStatusCode SetEapPhase2(const std::string& aPhase2);
+  SupplicantStatusCode SetEapPhase2Method(const std::string& aPhase2);
   SupplicantStatusCode SetEapIdentity(const std::string& aIdentity);
   SupplicantStatusCode SetEapAnonymousId(const std::string& aAnonymousId);
   SupplicantStatusCode SetEapPassword(const std::string& aPassword);
@@ -263,8 +309,37 @@ class SupplicantStaNetwork
 
   SupplicantStatusCode GetSsid(std::string& aSsid) const;
   SupplicantStatusCode GetBssid(std::string& aBssid) const;
-  SupplicantStatusCode GetKeyMgmt(uint32_t& aKeyMgmtMask) const;
+  SupplicantStatusCode GetKeyMgmt(std::string& aKeyMgmtMask) const;
+  SupplicantStatusCode GetPsk(std::string& aPsk) const;
+  SupplicantStatusCode GetPskPassphrase(std::string& aPassphrase) const;
+  SupplicantStatusCode GetSaePassword(std::string& aSaePassword) const;
+  SupplicantStatusCode GetWepKey(uint32_t aKeyIdx, std::string& aWepKey) const;
+  SupplicantStatusCode GetWepTxKeyIndex(int32_t& aWepTxKeyIndex) const;
+  SupplicantStatusCode GetScanSsid(bool& aScanSsid) const;
+  SupplicantStatusCode GetRequirePmf(bool& aPmf) const;
+  SupplicantStatusCode GetProto(std::string& aProto) const;
+  SupplicantStatusCode GetAuthAlg(std::string& aAuthAlg) const;
+  SupplicantStatusCode GetGroupCipher(std::string& aGroupCipher) const;
+  SupplicantStatusCode GetPairwiseCipher(std::string& aPairwiseCipher) const;
+  SupplicantStatusCode GetIdStr(std::string& aIdStr) const;
 
+  SupplicantStatusCode GetEapConfiguration(NetworkConfiguration& aConfig) const;
+  SupplicantStatusCode GetEapMethod(std::string& aEap) const;
+  SupplicantStatusCode GetEapPhase2Method(std::string& aPhase2) const;
+  SupplicantStatusCode GetEapIdentity(std::string& aIdentity) const;
+  SupplicantStatusCode GetEapAnonymousId(std::string& aAnonymousId) const;
+  SupplicantStatusCode GetEapPassword(std::string& aPassword) const;
+  SupplicantStatusCode GetEapClientCert(std::string& aClientCert) const;
+  SupplicantStatusCode GetEapCaCert(std::string& aCaCert) const;
+  SupplicantStatusCode GetEapCaPath(std::string& aCaPath) const;
+  SupplicantStatusCode GetEapSubjectMatch(std::string& aSubjectMatch) const;
+  SupplicantStatusCode GetEapEngineId(std::string& aEngineId) const;
+  SupplicantStatusCode GetEapEngine(bool& aEngine) const;
+  SupplicantStatusCode GetEapPrivateKeyId(std::string& aPrivateKeyId) const;
+  SupplicantStatusCode GetEapAltSubjectMatch(
+      std::string& aAltSubjectMatch) const;
+  SupplicantStatusCode GetEapDomainSuffixMatch(
+      std::string& aDomainSuffixMatch) const;
   SupplicantStatusCode RegisterNetworkCallback();
 
   void NotifyEapSimGsmAuthRequest(const RequestGsmAuthParams& aParams);
@@ -272,6 +347,16 @@ class SupplicantStaNetwork
   void NotifyEapIdentityRequest();
 
   static uint32_t ConvertKeyMgmtToMask(const std::string& aKeyMgmt);
+  static uint32_t ConvertProtoToMask(const std::string& aProto);
+  static uint32_t ConvertAuthAlgToMask(const std::string& aAuthAlg);
+  static uint32_t ConvertGroupCipherToMask(const std::string& aGroupCipher);
+  static uint32_t ConvertPairwiseCipherToMask(
+      const std::string& aPairwiseCipher);
+  static std::string ConvertMaskToKeyMgmt(const uint32_t aMask);
+  static std::string ConvertMaskToProto(const uint32_t aMask);
+  static std::string ConvertMaskToAuthAlg(const uint32_t aMask);
+  static std::string ConvertMaskToGroupCipher(const uint32_t aMask);
+  static std::string ConvertMaskToPairwiseCipher(const uint32_t aMask);
   static std::string ConvertStatusToString(const SupplicantStatusCode& aCode);
   static Result_t ConvertStatusToResult(const SupplicantStatusCode& aCode);
 

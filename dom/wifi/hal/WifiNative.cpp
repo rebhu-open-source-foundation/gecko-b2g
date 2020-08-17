@@ -200,6 +200,8 @@ bool WifiNative::ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
     aResult->mStatus = EnableNetwork();
   } else if (aOptions.mCmd == nsIWifiCommand::DISABLE_NETWORK) {
     aResult->mStatus = DisableNetwork();
+  } else if (aOptions.mCmd == nsIWifiCommand::GET_NETWORK) {
+    aResult->mStatus = GetNetwork(aResult);
   } else if (aOptions.mCmd == nsIWifiCommand::REMOVE_NETWORKS) {
     aResult->mStatus = RemoveNetworks();
   } else if (aOptions.mCmd == nsIWifiCommand::START_ROAMING) {
@@ -218,6 +220,19 @@ bool WifiNative::ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
     aResult->mStatus = SendEapSimUmtsAuthFailure();
   } else if (aOptions.mCmd == nsIWifiCommand::REQUEST_ANQP) {
     aResult->mStatus = RequestAnqp(&aOptions.mRequestSettings);
+  } else if (aOptions.mCmd == nsIWifiCommand::SET_WPS_DETAIL) {
+    aResult->mStatus = InitWpsDetail();
+  } else if (aOptions.mCmd == nsIWifiCommand::WPS_REGISTRAR) {
+    aResult->mStatus = StartWpsRegistrar(&aOptions.mWpsConfig);
+  } else if (aOptions.mCmd == nsIWifiCommand::WPS_PBC) {
+    aResult->mStatus = StartWpsPbc(&aOptions.mWpsConfig);
+  } else if (aOptions.mCmd == nsIWifiCommand::WPS_PIN_KEYPAD) {
+    aResult->mStatus = StartWpsPinKeypad(&aOptions.mWpsConfig);
+  } else if (aOptions.mCmd == nsIWifiCommand::WPS_PIN_DISPLAY) {
+    aResult->mStatus =
+        StartWpsPinDisplay(&aOptions.mWpsConfig, aResult->mGeneratedPin);
+  } else if (aOptions.mCmd == nsIWifiCommand::WPS_CANCEL) {
+    aResult->mStatus = CancelWps();
   } else if (aOptions.mCmd == nsIWifiCommand::START_SOFTAP) {
     aResult->mStatus =
         StartSoftAp(&aOptions.mSoftapConfig, aResult->mApInterface);
@@ -608,6 +623,10 @@ Result_t WifiNative::DisableNetwork() {
   return sSupplicantStaManager->DisableNetwork();
 }
 
+Result_t WifiNative::GetNetwork(nsWifiResult* aResult) {
+  return sSupplicantStaManager->GetNetwork(aResult);
+}
+
 /**
  * To remove all configured networks in supplicant
  */
@@ -669,6 +688,34 @@ Result_t WifiNative::RequestAnqp(AnqpRequestSettingsOptions* aRequest) {
                                         aRequest->mRoamingConsortiumOIs,
                                         aRequest->mSupportRelease2);
 }
+
+Result_t WifiNative::InitWpsDetail() {
+  return sSupplicantStaManager->InitWpsDetail();
+}
+
+Result_t WifiNative::StartWpsRegistrar(WpsConfigurationOptions* aConfig) {
+  return sSupplicantStaManager->StartWpsRegistrar(
+      NS_ConvertUTF16toUTF8(aConfig->mBssid).get(),
+      NS_ConvertUTF16toUTF8(aConfig->mPinCode).get());
+}
+
+Result_t WifiNative::StartWpsPbc(WpsConfigurationOptions* aConfig) {
+  return sSupplicantStaManager->StartWpsPbc(
+      NS_ConvertUTF16toUTF8(aConfig->mBssid).get());
+}
+
+Result_t WifiNative::StartWpsPinKeypad(WpsConfigurationOptions* aConfig) {
+  return sSupplicantStaManager->StartWpsPinKeypad(
+      NS_ConvertUTF16toUTF8(aConfig->mPinCode).get());
+}
+
+Result_t WifiNative::StartWpsPinDisplay(WpsConfigurationOptions* aConfig,
+                                        nsAString& aGeneratedPin) {
+  return sSupplicantStaManager->StartWpsPinDisplay(
+      NS_ConvertUTF16toUTF8(aConfig->mBssid).get(), aGeneratedPin);
+}
+
+Result_t WifiNative::CancelWps() { return sSupplicantStaManager->CancelWps(); }
 
 /**
  * To enable wifi hotspot

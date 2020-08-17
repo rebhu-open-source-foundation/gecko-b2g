@@ -3,15 +3,12 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsISupports.idl"
-#include "nsIWifiElement.idl"
-
-interface nsIWifiConfiguration;
 
 /**
  * The interface define all possible actions to control wifi hal.
  */
 [scriptable, uuid(10725208-151e-4c4c-a055-a067b8462f2a)]
-interface nsIWifiCommand: nsISupports
+interface nsIWifiCommand : nsISupports
 {
   /** Module configuration */
   const uint32_t INITIALIZE                  = 0x0;
@@ -55,18 +52,24 @@ interface nsIWifiCommand: nsISupports
   const uint32_t DISCONNECT                  = 0x3003;
   const uint32_t ENABLE_NETWORK              = 0x3004;
   const uint32_t DISABLE_NETWORK             = 0x3005;
-  const uint32_t REMOVE_NETWORKS             = 0x3006;
-  const uint32_t START_ROAMING               = 0x3007;
-  const uint32_t START_RSSI_MONITORING       = 0x3008;
-  const uint32_t STOP_RSSI_MONITORING        = 0x3009;
-  const uint32_t SEND_IDENTITY_RESPONSE      = 0x300A;
-  const uint32_t SEND_GSM_AUTH_RESPONSE      = 0x300B;
-  const uint32_t SEND_GSM_AUTH_FAILURE       = 0x300C;
-  const uint32_t SEND_UMTS_AUTH_RESPONSE     = 0x300D;
-  const uint32_t SEND_UMTS_AUTS_RESPONSE     = 0x300E;
-  const uint32_t SEND_UMTS_AUTH_FAILURE      = 0x300F;
-  const uint32_t REQUEST_ANQP                = 0x3010;
-
+  const uint32_t GET_NETWORK                 = 0x3006;
+  const uint32_t REMOVE_NETWORKS             = 0x3007;
+  const uint32_t START_ROAMING               = 0x3008;
+  const uint32_t START_RSSI_MONITORING       = 0x3009;
+  const uint32_t STOP_RSSI_MONITORING        = 0x300A;
+  const uint32_t SEND_IDENTITY_RESPONSE      = 0x300B;
+  const uint32_t SEND_GSM_AUTH_RESPONSE      = 0x300C;
+  const uint32_t SEND_GSM_AUTH_FAILURE       = 0x300D;
+  const uint32_t SEND_UMTS_AUTH_RESPONSE     = 0x300E;
+  const uint32_t SEND_UMTS_AUTS_RESPONSE     = 0x300F;
+  const uint32_t SEND_UMTS_AUTH_FAILURE      = 0x3010;
+  const uint32_t REQUEST_ANQP                = 0x3011;
+  const uint32_t SET_WPS_DETAIL              = 0x3012;
+  const uint32_t WPS_REGISTRAR               = 0x3013;
+  const uint32_t WPS_PBC                     = 0x3014;
+  const uint32_t WPS_PIN_KEYPAD              = 0x3015;
+  const uint32_t WPS_PIN_DISPLAY             = 0x3016;
+  const uint32_t WPS_CANCEL                  = 0x3017;
 
   /** Softap mode */
   const uint32_t START_SOFTAP                = 0x4000;

@@ -105,6 +105,7 @@ class SupplicantStaManager
   Result_t Disconnect();
   Result_t EnableNetwork();
   Result_t DisableNetwork();
+  Result_t GetNetwork(nsWifiResult* aResult);
   Result_t RemoveNetworks();
   Result_t RoamToNetwork(ConfigurationOptions* aConfig);
 
@@ -120,6 +121,15 @@ class SupplicantStaManager
   Result_t SendAnqpRequest(const std::array<uint8_t, 6>& aBssid,
                            const std::vector<uint32_t>& aInfoElements,
                            const std::vector<uint32_t>& aHs20SubTypes);
+
+  Result_t InitWpsDetail();
+  Result_t StartWpsRegistrar(const std::string& aBssid,
+                             const std::string& aPinCode);
+  Result_t StartWpsPbc(const std::string& aBssid);
+  Result_t StartWpsPinKeypad(const std::string& aPinCode);
+  Result_t StartWpsPinDisplay(const std::string& aBssid,
+                              nsAString& aGeneratedPin);
+  Result_t CancelWps();
 
   android::sp<SupplicantStaNetwork> CreateStaNetwork();
   android::sp<SupplicantStaNetwork> GetStaNetwork(uint32_t aNetId);
@@ -183,6 +193,14 @@ class SupplicantStaManager
   Result_t InitSupplicantInterface();
   Result_t TearDownInterface();
 
+  Result_t SetWpsDeviceName(const std::string& aDeviceName);
+  Result_t SetWpsDeviceType(const std::string& aDeviceType);
+  Result_t SetWpsManufacturer(const std::string& aManufacturer);
+  Result_t SetWpsModelName(const std::string& aModelName);
+  Result_t SetWpsModelNumber(const std::string& aModelNumber);
+  Result_t SetWpsSerialNumber(const std::string& aSerialNumber);
+  Result_t SetWpsConfigMethods(const std::string& aConfigMethods);
+
   android::sp<IServiceManager> GetServiceManager();
   android::sp<ISupplicant> GetSupplicant();
   android::sp<ISupplicantV1_1> GetSupplicantV1_1();
@@ -204,6 +222,8 @@ class SupplicantStaManager
                             const NetworkConfiguration& aNew);
   void NotifyTerminating();
   void SupplicantServiceDiedHandler(int32_t aCookie);
+
+  static int16_t ConvertToWpsConfigMethod(const std::string& aConfigMethod);
 
   static mozilla::Mutex sLock;
 

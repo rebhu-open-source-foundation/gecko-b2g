@@ -373,6 +373,20 @@ struct AnqpRequestSettingsOptions {
   bool mSupportRelease2;
 };
 
+struct WpsConfigurationOptions {
+ public:
+  WpsConfigurationOptions() = default;
+
+  explicit WpsConfigurationOptions(
+      const mozilla::dom::WpsConfiguration& aOther) {
+    COPY_OPT_FIELD(mBssid, EmptyString())
+    COPY_OPT_FIELD(mPinCode, EmptyString()) {}
+  }
+
+  nsString mBssid;
+  nsString mPinCode;
+};
+
 // Needed to add a copy constructor to WifiCommandOptions.
 struct CommandOptions {
  public:
@@ -405,6 +419,7 @@ struct CommandOptions {
     mPnoScanSettings = PnoScanSettingsOptions(aOther.mPnoScanSettings);
     mRoamingConfig = RoamingConfigurationOptions(aOther.mRoamingConfig);
     mRequestSettings = AnqpRequestSettingsOptions(aOther.mRequestSettings);
+    mWpsConfig = WpsConfigurationOptions(aOther.mWpsConfig);
   }
 
   CommandOptions(const CommandOptions& aOther) {
@@ -429,6 +444,7 @@ struct CommandOptions {
     mPnoScanSettings = aOther.mPnoScanSettings.Clone();
     mRoamingConfig = aOther.mRoamingConfig.Clone();
     mRequestSettings = AnqpRequestSettingsOptions(aOther.mRequestSettings);
+    mWpsConfig = WpsConfigurationOptions(aOther.mWpsConfig);
   }
 
   // All the fields, not Optional<> anymore to get copy constructors.
@@ -454,6 +470,7 @@ struct CommandOptions {
   PnoScanSettingsOptions mPnoScanSettings;
   RoamingConfigurationOptions mRoamingConfig;
   AnqpRequestSettingsOptions mRequestSettings;
+  WpsConfigurationOptions mWpsConfig;
 };
 
 #undef COPY_SEQUENCE_FIELD
@@ -464,6 +481,9 @@ template <typename T>
 std::string ConvertMacToString(const T& mac);
 
 template <typename T>
+std::string ConvertByteArrayToHexString(const T& in);
+
+template <typename T>
 int32_t ConvertMacToByteArray(const std::string& mac, T& out);
 
 template <typename T>
@@ -472,13 +492,15 @@ int32_t ConvertHexStringToBytes(const std::string& in, T& out);
 template <typename T>
 int32_t ConvertHexStringToByteArray(const std::string& in, T& out);
 
-void Dequote(std::string& s);
-
 int32_t ByteToInteger(std::vector<uint8_t>::const_iterator& iter,
                       uint32_t length, bool endian);
-
 std::string ByteToString(std::vector<uint8_t>::const_iterator& iter,
                          uint32_t length);
+std::string Quote(std::string& s);
+
+std::string Dequote(std::string& s);
+
+std::string Trim(std::string& s);
 
 #define HIDL_CALL(interface, method, responseType, response)       \
   do {                                                             \

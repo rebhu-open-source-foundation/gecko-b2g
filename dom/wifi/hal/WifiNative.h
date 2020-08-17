@@ -80,6 +80,7 @@ class WifiNative {
   Result_t Disconnect();
   Result_t EnableNetwork();
   Result_t DisableNetwork();
+  Result_t GetNetwork(nsWifiResult* aResult);
   Result_t RemoveNetworks();
   Result_t StartRoaming(ConfigurationOptions* aConfig);
   Result_t SendEapSimIdentityResponse(SimIdentityRespDataOptions* aIdentity);
@@ -92,6 +93,14 @@ class WifiNative {
       SimUmtsAutsRespDataOptions* aUmtsAutsResp);
   Result_t SendEapSimUmtsAuthFailure();
   Result_t RequestAnqp(AnqpRequestSettingsOptions* aRequest);
+
+  Result_t InitWpsDetail();
+  Result_t StartWpsRegistrar(WpsConfigurationOptions* aConfig);
+  Result_t StartWpsPbc(WpsConfigurationOptions* aConfig);
+  Result_t StartWpsPinKeypad(WpsConfigurationOptions* aConfig);
+  Result_t StartWpsPinDisplay(WpsConfigurationOptions* aConfig,
+                              nsAString& aGeneratedPin);
+  Result_t CancelWps();
 
   Result_t StartSoftAp(SoftapConfigurationOptions* aSoftapConfig,
                        nsAString& aIfaceName);

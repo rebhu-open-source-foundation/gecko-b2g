@@ -20,6 +20,10 @@ NS_IMPL_ISUPPORTS(nsWifiResult, nsIWifiResult)
 
 nsWifiResult::nsWifiResult() : mId(0), mStatus(false) {}
 
+void nsWifiResult::updateWifiConfiguration(nsWifiConfiguration* aWifiConfig) {
+  mWifiConfig = aWifiConfig;
+}
+
 void nsWifiResult::updateScanResults(
     const nsTArray<RefPtr<nsScanResult>>& aScanResults) {
   mScanResults = aScanResults.Clone();
@@ -112,6 +116,19 @@ nsWifiResult::GetNickname(nsAString& aNickname) {
 NS_IMETHODIMP
 nsWifiResult::GetDuplicated(bool* aDuplicated) {
   *aDuplicated = mDuplicated;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsWifiResult::GetGeneratedPin(nsAString& aGeneratedPin) {
+  aGeneratedPin = mGeneratedPin;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsWifiResult::GetWifiConfig(nsIWifiConfiguration** aWifiConfig) {
+  RefPtr<nsIWifiConfiguration> configuration(mWifiConfig);
+  configuration.forget(aWifiConfig);
   return NS_OK;
 }
 

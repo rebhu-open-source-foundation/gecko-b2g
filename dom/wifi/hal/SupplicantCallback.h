@@ -214,6 +214,11 @@ class SupplicantStaIfaceCallback : public ISupplicantStaIfaceCallbackV1_0 {
       const std::string& aBssid,
       const ISupplicantStaIfaceCallback::AnqpData& data,
       const ISupplicantStaIfaceCallback::Hs20AnqpData& hs20Data);
+  void NotifyWpsSuccess();
+  void NotifyWpsFailure(const std::string& aBssid, uint16_t aConfigError,
+                        uint16_t aErrorIndication);
+  void NotifyWpsTimeout();
+  void NotifyWpsOverlap();
 
   bool mFourwayHandshake;
   std::string mInterfaceName;

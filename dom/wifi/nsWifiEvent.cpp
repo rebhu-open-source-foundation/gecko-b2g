@@ -102,6 +102,18 @@ nsWifiEvent::GetAutn(nsAString& aAutn) {
 }
 
 NS_IMETHODIMP
+nsWifiEvent::GetWpsConfigError(uint16_t* aWpsConfigError) {
+  *aWpsConfigError = mWpsConfigError;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsWifiEvent::GetWpsErrorIndication(uint16_t* aWpsErrorIndication) {
+  *aWpsErrorIndication = mWpsErrorIndication;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 nsWifiEvent::GetGsmRands(nsTArray<nsString>& aGsmRands) {
   aGsmRands = mGsmRands.Clone();
   return NS_OK;

@@ -5,6 +5,7 @@
 enum WifiWPSMethod {
   "pbc",
   "pin",
+  "display",
   "cancel"
 };
 

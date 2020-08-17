@@ -20,12 +20,14 @@ class nsWifiConfiguration final : public nsIWifiConfiguration {
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIWIFICONFIGURATION
+  nsWifiConfiguration();
   nsWifiConfiguration(int32_t aNetId, const nsAString& aSsid,
-                      const nsAString& aBssid, const nsAString& aKeyManagement,
-                      const nsAString& aPsk, const nsAString& aWepKey,
-                      int32_t aWepTxKeyIndex, bool aScanSsid, bool aPmf,
-                      const nsAString& aProto, const nsAString& aAuthAlg,
-                      const nsAString& aGroupCipher,
+                      const nsAString& aBssid, const nsAString& aKeyMgmt,
+                      const nsAString& aPsk, const nsAString& aWepKey0,
+                      const nsAString& aWepKey1, const nsAString& aWepKey2,
+                      const nsAString& aWepKey3, int32_t aWepTxKeyIndex,
+                      bool aScanSsid, bool aPmf, const nsAString& aProto,
+                      const nsAString& aAuthAlg, const nsAString& aGroupCipher,
                       const nsAString& aPairwiseCipher, const nsAString& aEap,
                       const nsAString& aPhase2, const nsAString& aIdentity,
                       const nsAString& aAnonymousId, const nsAString& aPassword,
@@ -36,16 +38,15 @@ class nsWifiConfiguration final : public nsIWifiConfiguration {
                       const nsAString& aAltSubjectMatch,
                       const nsAString& aDomainSuffixMatch,
                       bool aProactiveKeyCaching, int32_t aSimIndex);
-
- private:
-  ~nsWifiConfiguration() {}
-
   int32_t mNetId;
   nsString mSsid;
   nsString mBssid;
-  nsString mKeyManagement;
+  nsString mKeyMgmt;
   nsString mPsk;
-  nsString mWepKey;
+  nsString mWepKey0;
+  nsString mWepKey1;
+  nsString mWepKey2;
+  nsString mWepKey3;
   int32_t mWepTxKeyIndex;
   bool mScanSsid;
   bool mPmf;
@@ -69,6 +70,9 @@ class nsWifiConfiguration final : public nsIWifiConfiguration {
   nsString mDomainSuffixMatch;
   bool mProactiveKeyCaching;
   int32_t mSimIndex;
+
+ private:
+  ~nsWifiConfiguration(){};
 };
 
 class nsScanResult final : public nsIScanResult {

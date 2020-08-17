@@ -90,12 +90,12 @@ SupplicantStaNetwork::~SupplicantStaNetwork() {}
  * Hal wrapper functions
  */
 android::sp<ISupplicantStaNetworkV1_1>
-SupplicantStaNetwork::GetSupplicantStaNetworkV1_1() {
+SupplicantStaNetwork::GetSupplicantStaNetworkV1_1() const {
   return ISupplicantStaNetworkV1_1::castFrom(mNetwork);
 }
 
 android::sp<ISupplicantStaNetworkV1_2>
-SupplicantStaNetwork::GetSupplicantStaNetworkV1_2() {
+SupplicantStaNetwork::GetSupplicantStaNetworkV1_2() const {
   return ISupplicantStaNetworkV1_2::castFrom(mNetwork);
 }
 
@@ -145,7 +145,7 @@ Result_t SupplicantStaNetwork::SetConfiguration(
       if (keyMgmtMask & key_mgmt_sae) {
         stateCode = SetSaePassword(config.mPsk);
       } else {
-        stateCode = SetPassphrase(config.mPsk);
+        stateCode = SetPskPassphrase(config.mPsk);
       }
     } else {
       stateCode = SetPsk(config.mPsk);
@@ -218,6 +218,87 @@ Result_t SupplicantStaNetwork::SetConfiguration(
   stateCode = RegisterNetworkCallback();
   if (stateCode != SupplicantStatusCode::SUCCESS) {
     return ConvertStatusToResult(stateCode);
+  }
+
+  return nsIWifiResult::SUCCESS;
+}
+
+/**
+ * Load network configurations from supplicant.
+ */
+Result_t SupplicantStaNetwork::LoadConfiguration(
+    NetworkConfiguration& aConfig) {
+  SupplicantStatusCode stateCode = SupplicantStatusCode::FAILURE_UNKNOWN;
+
+  if (GetSsid(aConfig.mSsid) != SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGW(LOG_TAG, "Failed to get network ssid");
+    return nsIWifiResult::ERROR_COMMAND_FAILED;
+  }
+
+  if (GetBssid(aConfig.mBssid) != SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGW(LOG_TAG, "Failed to get network bssid");
+  }
+
+  if (GetKeyMgmt(aConfig.mKeyMgmt) != SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGW(LOG_TAG, "Failed to get network key management");
+  }
+
+  if (GetPsk(aConfig.mPsk) != SupplicantStatusCode::SUCCESS &&
+      aConfig.mPsk.empty()) {
+    WIFI_LOGW(LOG_TAG, "Failed to get network psk");
+  } else {
+    if (aConfig.mKeyMgmt.compare("SAE") == 0) {
+      if (GetSaePassword(aConfig.mPsk) != SupplicantStatusCode::SUCCESS &&
+          aConfig.mPsk.empty()) {
+        WIFI_LOGW(LOG_TAG, "Failed to get network SAE password");
+      }
+    } else {
+      if (GetPskPassphrase(aConfig.mPsk) != SupplicantStatusCode::SUCCESS &&
+          aConfig.mPsk.empty()) {
+        WIFI_LOGW(LOG_TAG, "Failed to get network passphrase");
+      }
+    }
+  }
+
+  if (GetWepKey(0, aConfig.mWepKey0) != SupplicantStatusCode::SUCCESS &&
+      GetWepKey(1, aConfig.mWepKey1) != SupplicantStatusCode::SUCCESS &&
+      GetWepKey(2, aConfig.mWepKey2) != SupplicantStatusCode::SUCCESS &&
+      GetWepKey(3, aConfig.mWepKey3) != SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGW(LOG_TAG, "Failed to get network WEP key");
+  }
+
+  if (GetWepTxKeyIndex(aConfig.mWepTxKeyIndex) !=
+      SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGW(LOG_TAG, "Failed to get network WEP key index");
+  }
+
+  if (GetScanSsid(aConfig.mScanSsid) != SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGW(LOG_TAG, "Failed to get network scan ssid");
+  }
+
+  if (GetRequirePmf(aConfig.mPmf) != SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGW(LOG_TAG, "Failed to get network PMF");
+  }
+
+  if (GetProto(aConfig.mProto) != SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGW(LOG_TAG, "Failed to get network protocol");
+  }
+
+  if (GetAuthAlg(aConfig.mAuthAlg) != SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGW(LOG_TAG, "Failed to get network authentication algorithm");
+  }
+
+  if (GetGroupCipher(aConfig.mGroupCipher) != SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGW(LOG_TAG, "Failed to get network group cipher");
+  }
+
+  if (GetPairwiseCipher(aConfig.mPairwiseCipher) !=
+      SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGW(LOG_TAG, "Failed to get network pairwise cipher");
+  }
+
+  if (GetEapConfiguration(aConfig) != SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGW(LOG_TAG, "Failed to get network EAP configuration");
   }
 
   return nsIWifiResult::SUCCESS;
@@ -391,7 +472,6 @@ SupplicantStatusCode SupplicantStaNetwork::SetKeyMgmt(uint32_t aKeyMgmtMask) {
       GetSupplicantStaNetworkV1_2();
 
   SupplicantStatus response;
-  HIDL_SET(mNetwork, setKeyMgmt, SupplicantStatus, response, aKeyMgmtMask);
   if (networkV1_2.get()) {
     // Use HAL V1.2 if supported.
     HIDL_SET(networkV1_2, setKeyMgmt_1_2, SupplicantStatus, response,
@@ -425,7 +505,7 @@ SupplicantStatusCode SupplicantStaNetwork::SetSaePassword(
   return response.code;
 }
 
-SupplicantStatusCode SupplicantStaNetwork::SetPassphrase(
+SupplicantStatusCode SupplicantStaNetwork::SetPskPassphrase(
     const std::string& aPassphrase) {
   MOZ_ASSERT(mNetwork);
   WIFI_LOGD(LOG_TAG, "passphrase => %s", aPassphrase.c_str());
@@ -515,18 +595,7 @@ SupplicantStatusCode SupplicantStaNetwork::SetProto(const std::string& aProto) {
   MOZ_ASSERT(mNetwork);
   WIFI_LOGD(LOG_TAG, "proto => %s", aProto.c_str());
 
-  uint32_t proto = 0;
-  if (aProto.find("WPA") != std::string::npos) {
-    proto |= protocol_wpa;
-  }
-
-  if (aProto.find("RSN") != std::string::npos) {
-    proto |= protocol_rsn;
-  }
-
-  if (aProto.find("OSEN") != std::string::npos) {
-    proto |= protocol_osen;
-  }
+  uint32_t proto = ConvertProtoToMask(aProto);
 
   SupplicantStatus response;
   HIDL_SET(mNetwork, setProto, SupplicantStatus, response, proto);
@@ -540,18 +609,7 @@ SupplicantStatusCode SupplicantStaNetwork::SetAuthAlg(
   MOZ_ASSERT(mNetwork);
   WIFI_LOGD(LOG_TAG, "authAlg => %s", aAuthAlg.c_str());
 
-  uint32_t authAlg = 0;
-  if (aAuthAlg.find("OPEN") != std::string::npos) {
-    authAlg |= auth_alg_open;
-  }
-
-  if (aAuthAlg.find("SHARED") != std::string::npos) {
-    authAlg |= auth_alg_shared;
-  }
-
-  if (aAuthAlg.find("LEAP") != std::string::npos) {
-    authAlg |= auth_alg_leap;
-  }
+  uint32_t authAlg = ConvertAuthAlgToMask(aAuthAlg);
 
   SupplicantStatus response;
   HIDL_SET(mNetwork, setAuthAlg, SupplicantStatus, response, authAlg);
@@ -565,26 +623,7 @@ SupplicantStatusCode SupplicantStaNetwork::SetGroupCipher(
   MOZ_ASSERT(mNetwork);
   WIFI_LOGD(LOG_TAG, "groupCipher => %s", aGroupCipher.c_str());
 
-  uint32_t groupCipher = 0;
-  if (aGroupCipher.find("WEP40") != std::string::npos) {
-    groupCipher |= group_cipher_wep40;
-  }
-
-  if (aGroupCipher.find("WEP104") != std::string::npos) {
-    groupCipher |= group_cipher_wep104;
-  }
-
-  if (aGroupCipher.find("TKIP") != std::string::npos) {
-    groupCipher |= group_cipher_tkip;
-  }
-
-  if (aGroupCipher.find("CCMP") != std::string::npos) {
-    groupCipher |= group_cipher_ccmp;
-  }
-
-  if (aGroupCipher.find("GTK_NOT_USED") != std::string::npos) {
-    groupCipher |= group_cipher_gtk_not_used;
-  }
+  uint32_t groupCipher = ConvertGroupCipherToMask(aGroupCipher);
 
   SupplicantStatus response;
   HIDL_SET(mNetwork, setGroupCipher, SupplicantStatus, response, groupCipher);
@@ -598,18 +637,7 @@ SupplicantStatusCode SupplicantStaNetwork::SetPairwiseCipher(
   MOZ_ASSERT(mNetwork);
   WIFI_LOGD(LOG_TAG, "pairwiseCipher => %s", aPairwiseCipher.c_str());
 
-  uint32_t pairwiseCipher = 0;
-  if (aPairwiseCipher.find("NONE") != std::string::npos) {
-    pairwiseCipher |= pairwise_cipher_none;
-  }
-
-  if (aPairwiseCipher.find("TKIP") != std::string::npos) {
-    pairwiseCipher |= pairwise_cipher_tkip;
-  }
-
-  if (aPairwiseCipher.find("CCMP") != std::string::npos) {
-    pairwiseCipher |= pairwise_cipher_ccmp;
-  }
+  uint32_t pairwiseCipher = ConvertPairwiseCipherToMask(aPairwiseCipher);
 
   SupplicantStatus response;
   HIDL_SET(mNetwork, setPairwiseCipher, SupplicantStatus, response,
@@ -630,6 +658,17 @@ SupplicantStatusCode SupplicantStaNetwork::SetRequirePmf(bool aEnable) {
   return response.code;
 }
 
+SupplicantStatusCode SupplicantStaNetwork::SetIdStr(const std::string& aIdStr) {
+  MOZ_ASSERT(mNetwork);
+  WIFI_LOGD(LOG_TAG, "enable idStr => %d", aIdStr.c_str());
+
+  SupplicantStatus response;
+  HIDL_SET(mNetwork, setIdStr, SupplicantStatus, response, aIdStr);
+  WIFI_LOGD(LOG_TAG, "set idStr return: %s",
+            ConvertStatusToString(response.code).c_str());
+  return response.code;
+}
+
 SupplicantStatusCode SupplicantStaNetwork::SetEapConfiguration(
     const NetworkConfiguration& aConfig) {
   SupplicantStatusCode stateCode = SupplicantStatusCode::FAILURE_UNKNOWN;
@@ -644,7 +683,7 @@ SupplicantStatusCode SupplicantStaNetwork::SetEapConfiguration(
 
   // eap phase2
   if (!aConfig.mPhase2.empty()) {
-    stateCode = SetEapPhase2(aConfig.mPhase2);
+    stateCode = SetEapPhase2Method(aConfig.mPhase2);
     if (stateCode != SupplicantStatusCode::SUCCESS) {
       return stateCode;
     }
@@ -786,7 +825,7 @@ SupplicantStatusCode SupplicantStaNetwork::SetEapMethod(
   return response.code;
 }
 
-SupplicantStatusCode SupplicantStaNetwork::SetEapPhase2(
+SupplicantStatusCode SupplicantStaNetwork::SetEapPhase2Method(
     const std::string& aPhase2) {
   MOZ_ASSERT(mNetwork);
   WIFI_LOGD(LOG_TAG, "eap phase2 => %s", aPhase2.c_str());
@@ -991,6 +1030,9 @@ SupplicantStatusCode SupplicantStaNetwork::SetEapProactiveKeyCaching(
   return response.code;
 }
 
+/**
+ * Internal functions to get wifi configuration.
+ */
 SupplicantStatusCode SupplicantStaNetwork::GetSsid(std::string& aSsid) const {
   MOZ_ASSERT(mNetwork);
 
@@ -1001,6 +1043,7 @@ SupplicantStatusCode SupplicantStaNetwork::GetSsid(std::string& aSsid) const {
     if (response.code == SupplicantStatusCode::SUCCESS) {
       std::string ssidStr(ssid.begin(), ssid.end());
       aSsid = ssidStr.empty() ? "" : ssidStr;
+      Quote(aSsid);
     }
   });
   return response.code;
@@ -1023,7 +1066,7 @@ SupplicantStatusCode SupplicantStaNetwork::GetBssid(std::string& aBssid) const {
 }
 
 SupplicantStatusCode SupplicantStaNetwork::GetKeyMgmt(
-    uint32_t& aKeyMgmtMask) const {
+    std::string& aKeyMgmtMask) const {
   MOZ_ASSERT(mNetwork);
 
   SupplicantStatus response;
@@ -1031,7 +1074,431 @@ SupplicantStatusCode SupplicantStaNetwork::GetKeyMgmt(
       [&](const SupplicantStatus& status,
           hidl_bitfield<ISupplicantStaNetwork::KeyMgmtMask> keyMgmtMask) {
         response = status;
-        aKeyMgmtMask = (uint32_t)keyMgmtMask;
+        aKeyMgmtMask = ConvertMaskToKeyMgmt((uint32_t)keyMgmtMask);
+      });
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::GetPsk(std::string& aPsk) const {
+  MOZ_ASSERT(mNetwork);
+
+  SupplicantStatus response;
+  mNetwork->getPsk(
+      [&](const SupplicantStatus& status,
+          const ::android::hardware::hidl_array<uint8_t, 32>& psk) {
+        response = status;
+        std::string pskStr = ConvertByteArrayToHexString(psk);
+        aPsk = pskStr;
+      });
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::GetPskPassphrase(
+    std::string& aPassphrase) const {
+  MOZ_ASSERT(mNetwork);
+
+  SupplicantStatus response;
+  mNetwork->getPskPassphrase(
+      [&](const SupplicantStatus& status,
+          const ::android::hardware::hidl_string& passphrase) {
+        response = status;
+        aPassphrase = passphrase;
+        Quote(aPassphrase);
+      });
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::GetSaePassword(
+    std::string& aSaePassword) const {
+  MOZ_ASSERT(mNetwork);
+
+  android::sp<ISupplicantStaNetworkV1_2> networkV1_2 =
+      GetSupplicantStaNetworkV1_2();
+
+  if (!networkV1_2.get()) {
+    return SupplicantStatusCode::FAILURE_NETWORK_INVALID;
+  }
+
+  SupplicantStatus response;
+  networkV1_2->getSaePassword(
+      [&](const SupplicantStatus& status,
+          const ::android::hardware::hidl_string& saePassword) {
+        response = status;
+        aSaePassword = saePassword;
+      });
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::GetWepKey(
+    uint32_t aKeyIdx, std::string& aWepKey) const {
+  MOZ_ASSERT(mNetwork);
+
+  SupplicantStatus response;
+  mNetwork->getWepKey(
+      aKeyIdx, [&](const SupplicantStatus& status,
+                   const ::android::hardware::hidl_vec<uint8_t>& wepKey) {
+        response = status;
+        std::string key(wepKey.begin(), wepKey.end());
+        aWepKey = key;
+      });
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::GetWepTxKeyIndex(
+    int32_t& aWepTxKeyIndex) const {
+  MOZ_ASSERT(mNetwork);
+
+  SupplicantStatus response;
+  mNetwork->getWepTxKeyIdx(
+      [&](const SupplicantStatus& status, uint32_t keyIdx) {
+        response = status;
+        aWepTxKeyIndex = keyIdx;
+      });
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::GetScanSsid(bool& aScanSsid) const {
+  MOZ_ASSERT(mNetwork);
+
+  SupplicantStatus response;
+  mNetwork->getScanSsid([&](const SupplicantStatus& status, bool enabled) {
+    response = status;
+    aScanSsid = enabled;
+  });
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::GetRequirePmf(bool& aPmf) const {
+  MOZ_ASSERT(mNetwork);
+
+  SupplicantStatus response;
+  mNetwork->getRequirePmf([&](const SupplicantStatus& status, bool enabled) {
+    response = status;
+    aPmf = enabled;
+  });
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::GetProto(std::string& aProto) const {
+  MOZ_ASSERT(mNetwork);
+
+  SupplicantStatus response;
+  mNetwork->getProto(
+      [&](const SupplicantStatus& status,
+          hidl_bitfield<ISupplicantStaNetwork::ProtoMask> protoMask) {
+        response = status;
+        aProto = ConvertMaskToProto(protoMask);
+      });
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::GetAuthAlg(
+    std::string& aAuthAlg) const {
+  MOZ_ASSERT(mNetwork);
+
+  SupplicantStatus response;
+  mNetwork->getAuthAlg(
+      [&](const SupplicantStatus& status,
+          hidl_bitfield<ISupplicantStaNetwork::AuthAlgMask> authAlgMask) {
+        response = status;
+        aAuthAlg = ConvertMaskToAuthAlg(authAlgMask);
+      });
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::GetGroupCipher(
+    std::string& aGroupCipher) const {
+  MOZ_ASSERT(mNetwork);
+
+  SupplicantStatus response;
+  mNetwork->getGroupCipher(
+      [&](const SupplicantStatus& status,
+          hidl_bitfield<ISupplicantStaNetwork::GroupCipherMask>
+              groupCipherMask) {
+        response = status;
+        aGroupCipher = ConvertMaskToGroupCipher(groupCipherMask);
+      });
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::GetPairwiseCipher(
+    std::string& aPairwiseCipher) const {
+  MOZ_ASSERT(mNetwork);
+
+  SupplicantStatus response;
+  mNetwork->getPairwiseCipher(
+      [&](const SupplicantStatus& status,
+          hidl_bitfield<ISupplicantStaNetwork::PairwiseCipherMask>
+              pairwiseCipherMask) {
+        response = status;
+        aPairwiseCipher = ConvertMaskToPairwiseCipher(pairwiseCipherMask);
+      });
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::GetIdStr(std::string& aIdStr) const {
+  MOZ_ASSERT(mNetwork);
+
+  SupplicantStatus response;
+  mNetwork->getIdStr([&](const SupplicantStatus& status,
+                         const ::android::hardware::hidl_string& idStr) {
+    response = status;
+    aIdStr = idStr;
+  });
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::GetEapConfiguration(
+    NetworkConfiguration& aConfig) const {
+  SupplicantStatusCode stateCode = SupplicantStatusCode::FAILURE_UNKNOWN;
+
+  if (GetEapMethod(aConfig.mEap) != SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGW(LOG_TAG, "Failed to get network EAP method");
+  }
+
+  if (GetEapPhase2Method(aConfig.mPhase2) != SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGW(LOG_TAG, "Failed to get network EAP phrase2 method");
+  }
+
+  if (GetEapIdentity(aConfig.mIdentity) != SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGW(LOG_TAG, "Failed to get network EAP identity");
+  }
+
+  if (GetEapAnonymousId(aConfig.mAnonymousId) !=
+      SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGW(LOG_TAG, "Failed to get network anonymous id");
+  }
+
+  if (GetEapPassword(aConfig.mPassword) != SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGW(LOG_TAG, "Failed to get network password");
+  }
+
+  if (GetEapClientCert(aConfig.mClientCert) != SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGW(LOG_TAG, "Failed to get network client private key file path");
+  }
+
+  if (GetEapCaCert(aConfig.mCaCert) != SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGW(LOG_TAG, "Failed to get network CA certificate file path");
+  }
+
+  if (GetEapCaPath(aConfig.mCaPath) != SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGW(LOG_TAG, "Failed to get network CA certificate directory path ");
+  }
+
+  if (GetEapSubjectMatch(aConfig.mSubjectMatch) !=
+      SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGW(LOG_TAG, "Failed to get network subject match");
+  }
+
+  if (GetEapEngineId(aConfig.mEngineId) != SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGW(LOG_TAG, "Failed to get network open ssl engine id");
+  }
+
+  if (GetEapEngine(aConfig.mEngine) != SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGW(LOG_TAG, "Failed to get network open ssl engine state");
+  }
+
+  if (GetEapPrivateKeyId(aConfig.mPrivateKeyId) !=
+      SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGW(LOG_TAG, "Failed to get network private key id");
+  }
+
+  if (GetEapAltSubjectMatch(aConfig.mAltSubjectMatch) !=
+      SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGW(LOG_TAG, "Failed to get network Alt subject match");
+  }
+
+  if (GetEapDomainSuffixMatch(aConfig.mDomainSuffixMatch) !=
+      SupplicantStatusCode::SUCCESS) {
+    WIFI_LOGW(LOG_TAG, "Failed to get network domain suffix match");
+  }
+
+  return SupplicantStatusCode::SUCCESS;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::GetEapMethod(
+    std::string& aEap) const {
+  MOZ_ASSERT(mNetwork);
+
+  SupplicantStatus response;
+  mNetwork->getEapMethod(
+      [&](const SupplicantStatus& status,
+          ISupplicantStaNetwork::EapMethod method) { response = status; });
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::GetEapPhase2Method(
+    std::string& aPhase2) const {
+  MOZ_ASSERT(mNetwork);
+
+  SupplicantStatus response;
+  mNetwork->getEapPhase2Method(
+      [&](const SupplicantStatus& status,
+          ISupplicantStaNetwork::EapPhase2Method method) {
+        response = status;
+      });
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::GetEapIdentity(
+    std::string& aIdentity) const {
+  MOZ_ASSERT(mNetwork);
+
+  SupplicantStatus response;
+  mNetwork->getEapIdentity(
+      [&](const SupplicantStatus& status,
+          const ::android::hardware::hidl_vec<uint8_t>& identity) {
+        response = status;
+        std::string id(identity.begin(), identity.end());
+        aIdentity = id;
+      });
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::GetEapAnonymousId(
+    std::string& aAnonymousId) const {
+  MOZ_ASSERT(mNetwork);
+
+  SupplicantStatus response;
+  mNetwork->getEapAnonymousIdentity(
+      [&](const SupplicantStatus& status,
+          const ::android::hardware::hidl_vec<uint8_t>& identity) {
+        response = status;
+        std::string id(identity.begin(), identity.end());
+        aAnonymousId = id;
+      });
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::GetEapPassword(
+    std::string& aPassword) const {
+  MOZ_ASSERT(mNetwork);
+
+  SupplicantStatus response;
+  mNetwork->getEapPassword(
+      [&](const SupplicantStatus& status,
+          const ::android::hardware::hidl_vec<uint8_t>& password) {
+        response = status;
+        std::string passwordStr(password.begin(), password.end());
+        aPassword = passwordStr;
+      });
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::GetEapClientCert(
+    std::string& aClientCert) const {
+  MOZ_ASSERT(mNetwork);
+
+  SupplicantStatus response;
+  mNetwork->getEapClientCert([&](const SupplicantStatus& status,
+                                 const ::android::hardware::hidl_string& path) {
+    response = status;
+    aClientCert = path;
+  });
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::GetEapCaCert(
+    std::string& aCaCert) const {
+  MOZ_ASSERT(mNetwork);
+
+  SupplicantStatus response;
+  mNetwork->getEapCACert([&](const SupplicantStatus& status,
+                             const ::android::hardware::hidl_string& path) {
+    response = status;
+    aCaCert = path;
+  });
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::GetEapCaPath(
+    std::string& aCaPath) const {
+  MOZ_ASSERT(mNetwork);
+
+  SupplicantStatus response;
+  mNetwork->getEapCAPath([&](const SupplicantStatus& status,
+                             const ::android::hardware::hidl_string& path) {
+    response = status;
+    aCaPath = path;
+  });
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::GetEapSubjectMatch(
+    std::string& aSubjectMatch) const {
+  MOZ_ASSERT(mNetwork);
+
+  SupplicantStatus response;
+  mNetwork->getEapSubjectMatch(
+      [&](const SupplicantStatus& status,
+          const ::android::hardware::hidl_string& match) {
+        response = status;
+        aSubjectMatch = match;
+      });
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::GetEapEngineId(
+    std::string& aEngineId) const {
+  MOZ_ASSERT(mNetwork);
+
+  SupplicantStatus response;
+  mNetwork->getEapEngineID([&](const SupplicantStatus& status,
+                               const ::android::hardware::hidl_string& id) {
+    response = status;
+    aEngineId = id;
+  });
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::GetEapEngine(bool& aEngine) const {
+  MOZ_ASSERT(mNetwork);
+
+  SupplicantStatus response;
+  mNetwork->getEapEngine([&](const SupplicantStatus& status, bool enabled) {
+    response = status;
+    aEngine = enabled;
+  });
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::GetEapPrivateKeyId(
+    std::string& aPrivateKeyId) const {
+  MOZ_ASSERT(mNetwork);
+
+  SupplicantStatus response;
+  mNetwork->getEapPrivateKeyId([&](const SupplicantStatus& status,
+                                   const ::android::hardware::hidl_string& id) {
+    response = status;
+    aPrivateKeyId = id;
+  });
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::GetEapAltSubjectMatch(
+    std::string& aAltSubjectMatch) const {
+  MOZ_ASSERT(mNetwork);
+
+  SupplicantStatus response;
+  mNetwork->getEapAltSubjectMatch(
+      [&](const SupplicantStatus& status,
+          const ::android::hardware::hidl_string& match) {
+        response = status;
+        aAltSubjectMatch = match;
+      });
+  return response.code;
+}
+
+SupplicantStatusCode SupplicantStaNetwork::GetEapDomainSuffixMatch(
+    std::string& aDomainSuffixMatch) const {
+  MOZ_ASSERT(mNetwork);
+
+  SupplicantStatus response;
+  mNetwork->getEapDomainSuffixMatch(
+      [&](const SupplicantStatus& status,
+          const ::android::hardware::hidl_string& match) {
+        response = status;
+        aDomainSuffixMatch = match;
       });
   return response.code;
 }
@@ -1050,43 +1517,130 @@ SupplicantStatusCode SupplicantStaNetwork::RegisterNetworkCallback() {
 uint32_t SupplicantStaNetwork::ConvertKeyMgmtToMask(
     const std::string& aKeyMgmt) {
   uint32_t mask = 0;
-  if (aKeyMgmt.compare("NONE") == 0) {
-    mask |= key_mgmt_none;
-  }
-  if (aKeyMgmt.compare("WPA-PSK") == 0 || aKeyMgmt.compare("WPA2-PSK") == 0) {
-    mask |= key_mgmt_wpa_psk;
-  }
-  if (aKeyMgmt.find("WPA-EAP") != std::string::npos) {
-    mask |= key_mgmt_wpa_eap;
-  }
-  if (aKeyMgmt.compare("FT-PSK") == 0) {
-    mask |= key_mgmt_ft_psk;
-  }
-  if (aKeyMgmt.compare("FT-EAP") == 0) {
-    mask |= key_mgmt_ft_eap;
-  }
-  if (aKeyMgmt.compare("OSEN") == 0) {
-    mask |= key_mgmt_osen;
-  }
-  if (aKeyMgmt.compare("WPA-EAP-SHA256") == 0) {
-    mask |= key_mgmt_wpa_eap_sha256;
-  }
-  if (aKeyMgmt.compare("WPA-PSK-SHA256") == 0) {
-    mask |= key_mgmt_wpa_psk_sha256;
-  }
-  if (aKeyMgmt.compare("SAE") == 0) {
-    mask |= key_mgmt_sae;
-  }
-  if (aKeyMgmt.compare("SUITE-B-192") == 0) {
-    mask |= key_mgmt_suite_b_192;
-  }
-  if (aKeyMgmt.compare("OWE") == 0) {
-    mask |= key_mgmt_owe;
-  }
-  if (aKeyMgmt.compare("DPP") == 0) {
-    mask |= key_mgmt_dpp;
-  }
+  mask |= (aKeyMgmt.compare("NONE") == 0) ? key_mgmt_none : 0x0;
+  mask |= (aKeyMgmt.compare("WPA-PSK") == 0) ? key_mgmt_wpa_psk : 0x0;
+  mask |= (aKeyMgmt.compare("WPA2-PSK") == 0) ? key_mgmt_wpa_psk : 0x0;
+  mask |=
+      (aKeyMgmt.find("WPA-EAP") != std::string::npos) ? key_mgmt_wpa_eap : 0x0;
+  mask |= (aKeyMgmt.find("IEEE8021X") != std::string::npos) ? key_mgmt_ieee8021x
+                                                            : 0x0;
+  mask |= (aKeyMgmt.compare("FT-PSK") == 0) ? key_mgmt_ft_psk : 0x0;
+  mask |= (aKeyMgmt.compare("FT-EAP") == 0) ? key_mgmt_ft_eap : 0x0;
+  mask |= (aKeyMgmt.compare("OSEN") == 0) ? key_mgmt_osen : 0x0;
+  mask |=
+      (aKeyMgmt.compare("WPA-EAP-SHA256") == 0) ? key_mgmt_wpa_eap_sha256 : 0x0;
+  mask |=
+      (aKeyMgmt.compare("WPA-PSK-SHA256") == 0) ? key_mgmt_wpa_psk_sha256 : 0x0;
+  mask |= (aKeyMgmt.compare("SAE") == 0) ? key_mgmt_sae : 0x0;
+  mask |= (aKeyMgmt.compare("SUITE-B-192") == 0) ? key_mgmt_suite_b_192 : 0x0;
+  mask |= (aKeyMgmt.compare("OWE") == 0) ? key_mgmt_owe : 0x0;
+  mask |= (aKeyMgmt.compare("DPP") == 0) ? key_mgmt_dpp : 0x0;
   return mask;
+}
+
+uint32_t SupplicantStaNetwork::ConvertProtoToMask(const std::string& aProto) {
+  uint32_t mask = 0;
+  mask |= (aProto.find("WPA") != std::string::npos) ? protocol_wpa : 0x0;
+  mask |= (aProto.find("RSN") != std::string::npos) ? protocol_rsn : 0x0;
+  mask |= (aProto.find("OSEN") != std::string::npos) ? protocol_osen : 0x0;
+  return mask;
+}
+
+uint32_t SupplicantStaNetwork::ConvertAuthAlgToMask(
+    const std::string& aAuthAlg) {
+  uint32_t mask = 0;
+  mask |= (aAuthAlg.find("OPEN") != std::string::npos) ? auth_alg_open : 0x0;
+  mask |=
+      (aAuthAlg.find("SHARED") != std::string::npos) ? auth_alg_shared : 0x0;
+  mask |= (aAuthAlg.find("LEAP") != std::string::npos) ? auth_alg_leap : 0x0;
+  return mask;
+}
+
+uint32_t SupplicantStaNetwork::ConvertGroupCipherToMask(
+    const std::string& aGroupCipher) {
+  uint32_t mask = 0;
+  mask |= (aGroupCipher.find("WEP40") != std::string::npos) ? group_cipher_wep40
+                                                            : 0x0;
+  mask |= (aGroupCipher.find("WEP104") != std::string::npos)
+              ? group_cipher_wep104
+              : 0x0;
+  mask |= (aGroupCipher.find("TKIP") != std::string::npos) ? group_cipher_tkip
+                                                           : 0x0;
+  mask |= (aGroupCipher.find("CCMP") != std::string::npos) ? group_cipher_ccmp
+                                                           : 0x0;
+  mask |= (aGroupCipher.find("GTK_NOT_USED") != std::string::npos)
+              ? group_cipher_gtk_not_used
+              : 0x0;
+  return mask;
+}
+
+uint32_t SupplicantStaNetwork::ConvertPairwiseCipherToMask(
+    const std::string& aPairwiseCipher) {
+  uint32_t mask = 0;
+  mask |= (aPairwiseCipher.find("NONE") != std::string::npos)
+              ? pairwise_cipher_none
+              : 0x0;
+  mask |= (aPairwiseCipher.find("TKIP") != std::string::npos)
+              ? pairwise_cipher_tkip
+              : 0x0;
+  mask |= (aPairwiseCipher.find("CCMP") != std::string::npos)
+              ? pairwise_cipher_ccmp
+              : 0x0;
+  return mask;
+}
+
+std::string SupplicantStaNetwork::ConvertMaskToKeyMgmt(const uint32_t aMask) {
+  std::string keyMgmt;
+  keyMgmt += (aMask & key_mgmt_none) ? "NONE " : "";
+  keyMgmt += (aMask & key_mgmt_wpa_psk) ? "WPA-PSK " : "";
+  keyMgmt += (aMask & key_mgmt_wpa_eap) ? "WPA-EAP " : "";
+  keyMgmt += (aMask & key_mgmt_ieee8021x) ? "IEEE8021X " : "";
+  keyMgmt += (aMask & key_mgmt_ft_psk) ? "FT-PSK " : "";
+  keyMgmt += (aMask & key_mgmt_ft_eap) ? "FT-EAP " : "";
+  keyMgmt += (aMask & key_mgmt_osen) ? "OSEN " : "";
+  keyMgmt += (aMask & key_mgmt_wpa_eap_sha256) ? "WPA-EAP-SHA256 " : "";
+  keyMgmt += (aMask & key_mgmt_wpa_psk_sha256) ? "WPA-PSK-SHA256 " : "";
+  keyMgmt += (aMask & key_mgmt_sae) ? "SAE " : "";
+  keyMgmt += (aMask & key_mgmt_suite_b_192) ? "SUITE-B-192 " : "";
+  keyMgmt += (aMask & key_mgmt_owe) ? "OWE " : "";
+  keyMgmt += (aMask & key_mgmt_dpp) ? "DPP " : "";
+  return Trim(keyMgmt);
+}
+
+std::string SupplicantStaNetwork::ConvertMaskToProto(const uint32_t aMask) {
+  std::string proto;
+  proto += (aMask & protocol_wpa) ? "WPA " : "";
+  proto += (aMask & protocol_rsn) ? "RSN " : "";
+  proto += (aMask & protocol_osen) ? "OSEN " : "";
+  return Trim(proto);
+}
+
+std::string SupplicantStaNetwork::ConvertMaskToAuthAlg(const uint32_t aMask) {
+  std::string authAlg;
+  authAlg += (aMask & auth_alg_open) ? "OPEN " : "";
+  authAlg += (aMask & auth_alg_shared) ? "SHARED " : "";
+  authAlg += (aMask & auth_alg_leap) ? "LEAP " : "";
+  return Trim(authAlg);
+}
+
+std::string SupplicantStaNetwork::ConvertMaskToGroupCipher(
+    const uint32_t aMask) {
+  std::string groupCipher;
+  groupCipher += (aMask & group_cipher_wep40) ? "WEP40 " : "";
+  groupCipher += (aMask & group_cipher_wep104) ? "WEP104 " : "";
+  groupCipher += (aMask & group_cipher_tkip) ? "TKIP " : "";
+  groupCipher += (aMask & group_cipher_ccmp) ? "CCMP " : "";
+  groupCipher += (aMask & group_cipher_gtk_not_used) ? "GTK_NOT_USED " : "";
+  return Trim(groupCipher);
+}
+
+std::string SupplicantStaNetwork::ConvertMaskToPairwiseCipher(
+    const uint32_t aMask) {
+  std::string pairwiseCipher;
+  pairwiseCipher += (aMask & pairwise_cipher_none) ? "NONE " : "";
+  pairwiseCipher += (aMask & pairwise_cipher_tkip) ? "TKIP " : "";
+  pairwiseCipher += (aMask & pairwise_cipher_ccmp) ? "CCMP " : "";
+  return Trim(pairwiseCipher);
 }
 
 std::string SupplicantStaNetwork::ConvertStatusToString(

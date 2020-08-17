@@ -45,6 +45,7 @@ const WIFI_CMD_RECONNECT = Ci.nsIWifiCommand.RECONNECT;
 const WIFI_CMD_REASSOCIATE = Ci.nsIWifiCommand.REASSOCIATE;
 const WIFI_CMD_DISCONNECT = Ci.nsIWifiCommand.DISCONNECT;
 const WIFI_CMD_DISABLE_NETWORK = Ci.nsIWifiCommand.DISABLE_NETWORK;
+const WIFI_CMD_GET_NETWORK = Ci.nsIWifiCommand.GET_NETWORK;
 const WIFI_CMD_REMOVE_NETWORKS = Ci.nsIWifiCommand.REMOVE_NETWORKS;
 const WIFI_CMD_START_ROAMING = Ci.nsIWifiCommand.START_ROAMING;
 const WIFI_CMD_START_RSSI_MONITORING = Ci.nsIWifiCommand.START_RSSI_MONITORING;
@@ -56,6 +57,11 @@ const WIFI_CMD_UMTS_AUTH_RESPONSE = Ci.nsIWifiCommand.SEND_UMTS_AUTH_RESPONSE;
 const WIFI_CMD_UMTS_AUTS_RESPONSE = Ci.nsIWifiCommand.SEND_UMTS_AUTS_RESPONSE;
 const WIFI_CMD_UMTS_AUTH_FAILURE = Ci.nsIWifiCommand.SEND_UMTS_AUTH_FAILURE;
 const WIFI_CMD_REQUEST_ANQP = Ci.nsIWifiCommand.REQUEST_ANQP;
+const WIFI_CMD_SET_WPS_DETAIL = Ci.nsIWifiCommand.SET_WPS_DETAIL;
+const WIFI_CMD_WPS_REGISTRAR = Ci.nsIWifiCommand.WPS_REGISTRAR;
+const WIFI_CMD_WPS_PBC = Ci.nsIWifiCommand.WPS_PBC;
+const WIFI_CMD_WPS_PIN_DISPLAY = Ci.nsIWifiCommand.WPS_PIN_DISPLAY;
+const WIFI_CMD_WPS_CANCEL = Ci.nsIWifiCommand.WPS_CANCEL;
 const WIFI_CMD_START_SOFTAP = Ci.nsIWifiCommand.START_SOFTAP;
 const WIFI_CMD_STOP_SOFTAP = Ci.nsIWifiCommand.STOP_SOFTAP;
 const WIFI_CMD_GET_AP_IFACE = Ci.nsIWifiCommand.GET_AP_IFACE;
@@ -267,6 +273,10 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
     doCommand(WIFI_CMD_DISABLE_NETWORK, callback);
   };
 
+  command.getSupplicantNetwork = function(callback) {
+    doCommand(WIFI_CMD_GET_NETWORK, callback);
+  };
+
   command.removeNetworks = function(callback) {
     doCommand(WIFI_CMD_REMOVE_NETWORKS, callback);
   };
@@ -329,6 +339,41 @@ this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
 
   command.requestAnqp = function(data, callback) {
     doCommandWithParams(WIFI_CMD_REQUEST_ANQP, "anqpSettings", data, callback);
+  };
+
+  command.setWpsDetail = function(callback) {
+    doCommand(WIFI_CMD_SET_WPS_DETAIL, callback);
+  };
+
+  command.wpsPbc = function(bssid, callback) {
+    doCommandWithParams(
+      WIFI_CMD_WPS_PBC,
+      "wpsConfig",
+      { bssid, pinCode: "" },
+      callback
+    );
+  };
+
+  command.wpsPin = function(bssid, pin, callback) {
+    doCommandWithParams(
+      WIFI_CMD_WPS_REGISTRAR,
+      "wpsConfig",
+      { bssid, pinCode: pin },
+      callback
+    );
+  };
+
+  command.wpsDisplay = function(bssid, callback) {
+    doCommandWithParams(
+      WIFI_CMD_WPS_PIN_DISPLAY,
+      "wpsConfig",
+      { bssid, pinCode: "" },
+      callback
+    );
+  };
+
+  command.wpsCancel = function(callback) {
+    doCommand(WIFI_CMD_WPS_CANCEL, callback);
   };
 
   command.startSoftap = function(config, callback) {

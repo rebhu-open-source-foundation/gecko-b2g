@@ -5,14 +5,17 @@
 #include "nsISupports.idl"
 
 [scriptable, uuid(391e476b-8620-4abf-8701-7b058dc78fc2)]
-interface nsIWifiConfiguration: nsISupports
+interface nsIWifiConfiguration : nsISupports
 {
   readonly attribute int32_t netId;
   readonly attribute AString ssid;
   readonly attribute AString bssid;
-  readonly attribute AString keyManagement;
+  readonly attribute AString keyMgmt;
   readonly attribute AString psk;
-  readonly attribute AString wepKey;
+  readonly attribute AString wepKey0;
+  readonly attribute AString wepKey1;
+  readonly attribute AString wepKey2;
+  readonly attribute AString wepKey3;
   readonly attribute int32_t wepTxKeyIndex;
   readonly attribute boolean scanSsid;
   readonly attribute boolean pmf;
@@ -40,7 +43,7 @@ interface nsIWifiConfiguration: nsISupports
 };
 
 [scriptable, uuid(2677465d-1061-483d-9d59-107339bb9b2b)]
-interface nsISoftapConfiguration: nsISupports
+interface nsISoftapConfiguration : nsISupports
 {
   /** AP band */
   const int32_t AP_BAND_24GHZ = 0;

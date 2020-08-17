@@ -16,6 +16,10 @@
 #define EVENT_SUPPLICANT_ASSOC_REJECT u"SUPPLICANT_ASSOC_REJECT"_ns
 #define EVENT_SUPPLICANT_TARGET_BSSID u"SUPPLICANT_TARGET_BSSID"_ns
 #define EVENT_SUPPLICANT_ASSOCIATED_BSSID u"SUPPLICANT_ASSOCIATED_BSSID"_ns
+#define EVENT_WPS_CONNECTION_SUCCESS u"WPS_CONNECTION_SUCCESS"_ns
+#define EVENT_WPS_CONNECTION_FAIL u"WPS_CONNECTION_FAIL"_ns
+#define EVENT_WPS_CONNECTION_TIMEOUT u"WPS_CONNECTION_TIMEOUT"_ns
+#define EVENT_WPS_CONNECTION_PBC_OVERLAP u"WPS_CONNECTION_PBC_OVERLAP"_ns
 
 using namespace mozilla::dom::wifi;
 
@@ -202,7 +206,9 @@ Return<void> SupplicantStaIfaceCallback::onBssidChanged(
 }
 
 Return<void> SupplicantStaIfaceCallback::onWpsEventSuccess() {
+  MutexAutoLock lock(sLock);
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onWpsEventSuccess()");
+  NotifyWpsSuccess();
   return android::hardware::Void();
 }
 
@@ -210,12 +216,23 @@ Return<void> SupplicantStaIfaceCallback::onWpsEventFail(
     const ::android::hardware::hidl_array<uint8_t, 6>& bssid,
     ISupplicantStaIfaceCallback::WpsConfigError configError,
     ISupplicantStaIfaceCallback::WpsErrorIndication errorInd) {
+  MutexAutoLock lock(sLock);
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onWpsEventFail()");
+
+  if (configError == ISupplicantStaIfaceCallback::WpsConfigError::MSG_TIMEOUT &&
+      errorInd == ISupplicantStaIfaceCallback::WpsErrorIndication::NO_ERROR) {
+    NotifyWpsTimeout();
+  } else {
+    std::string bssidStr = ConvertMacToString(bssid);
+    NotifyWpsFailure(bssidStr, (uint16_t)configError, (uint16_t)errorInd);
+  }
   return android::hardware::Void();
 }
 
 Return<void> SupplicantStaIfaceCallback::onWpsEventPbcOverlap() {
+  MutexAutoLock lock(sLock);
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onWpsEventPbcOverlap()");
+  NotifyWpsOverlap();
   return android::hardware::Void();
 }
 
@@ -322,6 +339,7 @@ void SupplicantStaIfaceCallback::NotifyAnqpQueryDone(
       map.Put((uint32_t)type, payload);          \
     }                                            \
   } while (0)
+
     AnqpResponseMap anqpData;
     ASSIGN_ANQP_IF_EXIST(anqpData, AnqpElementType::ANQPVenueName,
                          data.venueName);
@@ -343,12 +361,46 @@ void SupplicantStaIfaceCallback::NotifyAnqpQueryDone(
                          hs20Data.connectionCapability);
     ASSIGN_ANQP_IF_EXIST(anqpData, AnqpElementType::HSOSUProviders,
                          hs20Data.osuProvidersList);
+
 #undef ASSIGN_ANQP_IF_EXIST
 
     mPasspointCallback->NotifyAnqpResponse(iface, bssid, anqpData);
   } else {
     WIFI_LOGE(LOG_TAG, "mPasspointCallback is null");
   }
+}
+
+void SupplicantStaIfaceCallback::NotifyWpsSuccess() {
+  nsCString iface(mInterfaceName);
+  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_WPS_CONNECTION_SUCCESS);
+
+  INVOKE_CALLBACK(mCallback, event, iface);
+}
+
+void SupplicantStaIfaceCallback::NotifyWpsFailure(const std::string& aBssid,
+                                                  uint16_t aConfigError,
+                                                  uint16_t aErrorIndication) {
+  nsCString iface(mInterfaceName);
+  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_WPS_CONNECTION_FAIL);
+  event->mBssid = NS_ConvertUTF8toUTF16(aBssid.c_str());
+  event->mWpsConfigError = aConfigError;
+  event->mWpsErrorIndication = aErrorIndication;
+
+  INVOKE_CALLBACK(mCallback, event, iface);
+}
+
+void SupplicantStaIfaceCallback::NotifyWpsTimeout() {
+  nsCString iface(mInterfaceName);
+  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_WPS_CONNECTION_TIMEOUT);
+
+  INVOKE_CALLBACK(mCallback, event, iface);
+}
+
+void SupplicantStaIfaceCallback::NotifyWpsOverlap() {
+  nsCString iface(mInterfaceName);
+  RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_WPS_CONNECTION_PBC_OVERLAP);
+
+  INVOKE_CALLBACK(mCallback, event, iface);
 }
 
 /**

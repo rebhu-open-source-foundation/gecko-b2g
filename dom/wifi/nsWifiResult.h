@@ -24,6 +24,7 @@ class nsWifiResult final : public nsIWifiResult {
 
   explicit nsWifiResult();
 
+  void updateWifiConfiguration(nsWifiConfiguration* aWifiConfig);
   void updateScanResults(const nsTArray<RefPtr<nsScanResult>>& aScanResults);
   void updateChannels(const nsTArray<int32_t>& aChannels);
   void updateSignalPoll(const nsTArray<int32_t>& aSignalPoll);
@@ -43,6 +44,8 @@ class nsWifiResult final : public nsIWifiResult {
   uint16_t mUsageFlag;
   nsString mNickname;
   bool mDuplicated;
+  nsString mGeneratedPin;
+  RefPtr<nsWifiConfiguration> mWifiConfig;
   nsTArray<int32_t> mChannels;
   nsTArray<int32_t> mSignalPoll;
   nsTArray<RefPtr<nsScanResult>> mScanResults;

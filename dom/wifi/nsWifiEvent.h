@@ -40,6 +40,8 @@ class nsWifiEvent final : public nsIWifiEvent {
   nsString mAutn;
   nsTArray<nsString> mGsmRands;
   RefPtr<nsAnqpResponse> mAnqpResponse;
+  uint16_t mWpsConfigError;
+  uint16_t mWpsErrorIndication;
 
  private:
   ~nsWifiEvent() {}
