@@ -89,20 +89,15 @@ bool nsDOMCameraManager::CheckPermission(nsPIDOMWindowInner* aWindow) {
   }
 
   uint32_t permission = nsIPermissionManager::UNKNOWN_ACTION;
-  permissionHandler->GetPermission("camera"_ns, &permission, false);
+  permissionHandler->GetPermission("camera"_ns, &permission,
+                                   false);
 
-  if (permission == nsIPermissionManager::DENY_ACTION) {
-    return false;
-  }
-
-  if (permission == nsIPermissionManager::ALLOW_ACTION) {
-    return true;
-  } else {
-    // TODO: FIXME - Temporarily grant permission for integration, currently
-    //       the permission table has not been installed yet.
+  if (permission == nsIPermissionManager::ALLOW_ACTION ||
+      permission == nsIPermissionManager::PROMPT_ACTION) {
     return true;
   }
-  return true;
+
+  return false;
 }
 
 /* static */
@@ -317,11 +312,9 @@ already_AddRefed<Promise> nsDOMCameraManager::GetCamera(
   nsCOMPtr<nsIPrincipal> principal = sop->GetPrincipal();
   // Unprivileged mochitests always fail the dispatched permission check,
   // even if permission to the camera has been granted.
-  bool immediateCheck = false;
-  CameraPreferences::GetPref("camera.control.test.permission", immediateCheck);
-  // TODO FIXME: Temporarily force calling CheckPermission here since
-  //             prompt permission check is not ready now
-  if (/* immediateCheck && */ CheckPermission(mWindow)) {
+  bool isMochitest = false;
+  CameraPreferences::GetPref("camera.control.test.permission", isMochitest);
+  if (isMochitest || CheckPermission(mWindow)) {
     PermissionAllowed(cameraId, aInitialConfig, promise);
     return promise.forget();
   }

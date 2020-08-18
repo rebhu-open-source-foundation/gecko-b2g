@@ -68,6 +68,11 @@ this.PermissionsTable = {
     core: ALLOW_ACTION,
     access: ["read", "write", "create"],
   },
+  camera: {
+    pwa: PROMPT_ACTION,
+    signed: PROMPT_ACTION,
+    core: ALLOW_ACTION,
+  },
   geolocation: {
     pwa: PROMPT_ACTION,
     signed: PROMPT_ACTION,

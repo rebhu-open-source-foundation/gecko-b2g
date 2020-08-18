@@ -362,8 +362,10 @@ WifiManager* B2G::GetWifiManager(ErrorResult& aRv) {
 bool B2G::HasCameraSupport(JSContext* /* unused */, JSObject* aGlobal) {
 #ifndef MOZ_B2G_CAMERA
   return false;
+#else
+  nsCOMPtr<nsPIDOMWindowInner> win = xpc::WindowOrNull(aGlobal);
+  return win? nsDOMCameraManager::CheckPermission(win) : false;
 #endif
-  return true;
 }
 
 /* static */
