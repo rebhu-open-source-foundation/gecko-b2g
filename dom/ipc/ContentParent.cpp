@@ -4644,7 +4644,7 @@ mozilla::ipc::IPCResult ContentParent::RecvNotificationEvent(
         aData.originSuffix(), aData.scope(), aData.ID(), aData.title(),
         aData.dir(), aData.lang(), aData.body(), aData.tag(), aData.icon(),
         aData.data(), aData.requireInteraction(), aData.actions(),
-        aData.userAction(), aData.behavior());
+        aData.userAction(), aData.silent(), aData.behavior());
     Unused << NS_WARN_IF(NS_FAILED(rv));
   } else {
     MOZ_ASSERT(aType.EqualsLiteral("close"));
@@ -4652,7 +4652,7 @@ mozilla::ipc::IPCResult ContentParent::RecvNotificationEvent(
         aData.originSuffix(), aData.scope(), aData.ID(), aData.title(),
         aData.dir(), aData.lang(), aData.body(), aData.tag(), aData.icon(),
         aData.data(), aData.requireInteraction(), aData.actions(),
-        aData.behavior());
+        aData.silent(), aData.behavior());
     Unused << NS_WARN_IF(NS_FAILED(rv));
   }
 

@@ -55,6 +55,7 @@ struct ServiceWorkerNotificationEventOpArgs {
   bool requireInteraction;
   nsString actions;
   nsString userAction;
+  bool silent;
   nsString behavior;
   nsString scope;
   uint32_t disableOpenClickDelay;

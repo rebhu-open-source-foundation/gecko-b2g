@@ -542,6 +542,7 @@ struct NotificationEventData
     bool requireInteraction;
     nsString actions;
     nsString userAction;
+    bool silent;
     nsString behavior;
 };
 

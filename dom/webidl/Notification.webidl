@@ -61,6 +61,9 @@ interface Notification : EventTarget {
   [Frozen, Cached, Pure]
   readonly attribute sequence<NotificationAction> actions;
 
+  [Constant, Pref="dom.webnotifications.silent.enabled"]
+  readonly attribute boolean silent;
+
   [Constant]
   readonly attribute any data;
 
@@ -75,6 +78,7 @@ dictionary NotificationOptions {
   DOMString icon = "";
   boolean requireInteraction = false;
   sequence<NotificationAction> actions = [];
+  boolean silent = false;
   any data = null;
   NotificationBehavior mozbehavior = {};
 };

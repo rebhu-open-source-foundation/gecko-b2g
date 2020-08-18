@@ -128,7 +128,7 @@ class Notification : public DOMEventTargetHelper,
       nsIGlobalObject* aGlobal, const nsAString& aID, const nsAString& aTitle,
       const nsAString& aDir, const nsAString& aLang, const nsAString& aBody,
       const nsAString& aTag, const nsAString& aIcon, const nsAString& aData,
-      bool aRequireInteraction, const nsAString& aActions,
+      bool aRequireInteraction, const nsAString& aActions, bool aSilent,
       const nsAString& aServiceWorkerRegistrationScope, ErrorResult& aRv);
 
   void GetID(nsAString& aRetval) { aRetval = mID; }
@@ -195,6 +195,8 @@ class Notification : public DOMEventTargetHelper,
 
   bool RequireInteraction() const;
 
+  bool Silent() const;
+
   void GetData(JSContext* aCx, JS::MutableHandle<JS::Value> aRetval);
 
   void GetActions(nsTArray<NotificationAction>& aRetVal) const;
@@ -247,7 +249,7 @@ class Notification : public DOMEventTargetHelper,
                NotificationDirection aDir, const nsAString& aLang,
                const nsAString& aTag, const nsAString& aIconUrl,
                bool aRequireNotification,
-               const nsTArray<NotificationAction>& aActions,
+               const nsTArray<NotificationAction>& aActions, bool aSilent,
                const NotificationBehavior& aBehavior);
 
   static already_AddRefed<Notification> CreateInternal(
@@ -310,6 +312,7 @@ class Notification : public DOMEventTargetHelper,
   const bool mRequireInteraction;
   nsTArray<NotificationAction> mActions;
   nsString mActionsString;
+  const bool mSilent;
   nsString mDataAsBase64;
   const NotificationBehavior mBehavior;
 

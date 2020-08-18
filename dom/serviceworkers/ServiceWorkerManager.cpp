@@ -1319,7 +1319,7 @@ nsresult ServiceWorkerManager::SendNotificationEvent(
     const nsAString& aDir, const nsAString& aLang, const nsAString& aBody,
     const nsAString& aTag, const nsAString& aIcon, const nsAString& aData,
     bool aRequireInteraction, const nsAString& aActions,
-    const nsAString& aUserAction, const nsAString& aBehavior) {
+    const nsAString& aUserAction, bool aSilent, const nsAString& aBehavior) {
   OriginAttributes attrs;
   if (!attrs.PopulateFromSuffix(aOriginSuffix)) {
     return NS_ERROR_INVALID_ARG;
@@ -1333,7 +1333,7 @@ nsresult ServiceWorkerManager::SendNotificationEvent(
   ServiceWorkerPrivate* workerPrivate = info->WorkerPrivate();
   return workerPrivate->SendNotificationEvent(
       aEventName, aID, aTitle, aDir, aLang, aBody, aTag, aIcon, aData,
-      aRequireInteraction, aActions, aUserAction, aBehavior,
+      aRequireInteraction, aActions, aUserAction, aSilent, aBehavior,
       NS_ConvertUTF8toUTF16(aScope));
 }
 
@@ -1343,12 +1343,12 @@ ServiceWorkerManager::SendNotificationClickEvent(
     const nsAString& aID, const nsAString& aTitle, const nsAString& aDir,
     const nsAString& aLang, const nsAString& aBody, const nsAString& aTag,
     const nsAString& aIcon, const nsAString& aData, bool aRequireInteraction,
-    const nsAString& aActions, const nsAString& aUserAction,
+    const nsAString& aActions, const nsAString& aUserAction, bool aSilent,
     const nsAString& aBehavior) {
   return SendNotificationEvent(nsLiteralString(NOTIFICATION_CLICK_EVENT_NAME),
                                aOriginSuffix, aScope, aID, aTitle, aDir, aLang,
                                aBody, aTag, aIcon, aData, aRequireInteraction,
-                               aActions, aUserAction, aBehavior);
+                               aActions, aUserAction, aSilent, aBehavior);
 }
 
 NS_IMETHODIMP
@@ -1357,11 +1357,11 @@ ServiceWorkerManager::SendNotificationCloseEvent(
     const nsAString& aID, const nsAString& aTitle, const nsAString& aDir,
     const nsAString& aLang, const nsAString& aBody, const nsAString& aTag,
     const nsAString& aIcon, const nsAString& aData, bool aRequireInteraction,
-    const nsAString& aActions, const nsAString& aBehavior) {
-  return SendNotificationEvent(nsLiteralString(NOTIFICATION_CLOSE_EVENT_NAME),
-                               aOriginSuffix, aScope, aID, aTitle, aDir, aLang,
-                               aBody, aTag, aIcon, aData, aRequireInteraction,
-                               aActions, nsDependentString(u""), aBehavior);
+    const nsAString& aActions, bool aSilent, const nsAString& aBehavior) {
+  return SendNotificationEvent(
+      nsLiteralString(NOTIFICATION_CLOSE_EVENT_NAME), aOriginSuffix, aScope,
+      aID, aTitle, aDir, aLang, aBody, aTag, aIcon, aData, aRequireInteraction,
+      aActions, nsDependentString(u""), aSilent, aBehavior);
 }
 
 RefPtr<ServiceWorkerRegistrationPromise> ServiceWorkerManager::WhenReady(

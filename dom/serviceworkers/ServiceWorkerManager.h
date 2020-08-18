@@ -376,7 +376,7 @@ class ServiceWorkerManager final : public nsIServiceWorkerManager,
       const nsAString& aDir, const nsAString& aLang, const nsAString& aBody,
       const nsAString& aTag, const nsAString& aIcon, const nsAString& aData,
       bool aRequireInteraction, const nsAString& aActions,
-      const nsAString& aUserAction, const nsAString& aBehavior);
+      const nsAString& aUserAction, bool aSilent, const nsAString& aBehavior);
 
   // Used by remove() and removeAll() when clearing history.
   // MUST ONLY BE CALLED FROM UnregisterIfMatchesHost!

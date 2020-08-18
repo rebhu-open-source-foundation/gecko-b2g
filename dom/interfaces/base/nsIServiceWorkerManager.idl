@@ -122,7 +122,7 @@ interface nsIServiceWorkerRegistrationInfo : nsISupports
   //
   // TODO - Bug 1638099: This method should also allow the WebExtension framework
   // to mark the registration as disabled (e.g. through an additional parameter),
-  // to avoid it to be started again until the WebExtensions framework does explicitly 
+  // to avoid it to be started again until the WebExtensions framework does explicitly
   // mark it back to enabled.
   void forceShutdown();
 };
@@ -147,7 +147,7 @@ interface nsIServiceWorkerManager : nsISupports
    */
   [implicit_jscontext]
   Promise registerForTest(in nsIPrincipal aPrincipal,
-                          in AString aScope, 
+                          in AString aScope,
                           in AString aScriptURL);
 
   /**
@@ -205,6 +205,7 @@ interface nsIServiceWorkerManager : nsISupports
                                   in boolean aRequireInteraction,
                                   in AString aActions,
                                   in AString aUserAction,
+                                  in boolean aSilent,
                                   in AString aBehavior);
 
   void sendNotificationCloseEvent(in ACString aOriginSuffix,
@@ -219,6 +220,7 @@ interface nsIServiceWorkerManager : nsISupports
                                   in AString aData,
                                   in boolean aRequireInteraction,
                                   in AString aActions,
+                                  in boolean aSilent,
                                   in AString aBehavior);
 
   [optional_argc] void sendPushEvent(in ACString aOriginAttributes,

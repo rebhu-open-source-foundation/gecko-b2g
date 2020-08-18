@@ -73,6 +73,7 @@ NotificationStorage.prototype = {
     data,
     requireInteraction,
     actions,
+    silent,
     behavior,
     serviceWorkerRegistrationScope
   ) {
@@ -93,6 +94,7 @@ NotificationStorage.prototype = {
       data,
       requireInteraction,
       actions,
+      silent,
       mozbehavior: behavior,
       serviceWorkerRegistrationScope,
     };
@@ -129,6 +131,7 @@ NotificationStorage.prototype = {
         data,
         requireInteraction,
         actions,
+        silent,
         behavior,
         serviceWorkerRegistrationScope
       ) {
@@ -144,6 +147,7 @@ NotificationStorage.prototype = {
             data,
             requireInteraction,
             actions,
+            silent,
             behavior,
             serviceWorkerRegistrationScope
           );
@@ -243,6 +247,7 @@ NotificationStorage.prototype = {
             notification.data,
             notification.requireInteraction,
             notification.actions,
+            notification.silent,
             notification.mozbehavior,
             notification.serviceWorkerRegistrationScope
           )

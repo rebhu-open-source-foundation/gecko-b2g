@@ -84,6 +84,7 @@ struct NotificationFields {
   const nsString mData;
   const bool mRequireInteraction;
   const nsString mActions;
+  const bool mSilent;
   const nsString mBehavior;
   const nsString mServiceWorkerRegistrationScope;
 };
@@ -99,7 +100,7 @@ class ScopeCheckingGetCallback : public nsINotificationStorageCallback {
                     const nsAString& aBody, const nsAString& aTag,
                     const nsAString& aIcon, const nsAString& aData,
                     bool aRequireInteraction, const nsAString& aActions,
-                    const nsAString& aBehavior,
+                    bool aSilent, const nsAString& aBehavior,
                     const nsAString& aServiceWorkerRegistrationScope) final {
     AssertIsOnMainThread();
     MOZ_ASSERT(!aID.IsEmpty());
@@ -110,12 +111,19 @@ class ScopeCheckingGetCallback : public nsINotificationStorageCallback {
     }
 
     NotificationFields fields = {
-        nsString(aID),       nsString(aTitle),
-        nsString(aDir),      nsString(aLang),
-        nsString(aBody),     nsString(aTag),
-        nsString(aIcon),     nsString(aData),
-        aRequireInteraction, nsString(aActions),
-        nsString(aBehavior), nsString(aServiceWorkerRegistrationScope),
+        nsString(aID),
+        nsString(aTitle),
+        nsString(aDir),
+        nsString(aLang),
+        nsString(aBody),
+        nsString(aTag),
+        nsString(aIcon),
+        nsString(aData),
+        aRequireInteraction,
+        nsString(aActions),
+        aSilent,
+        nsString(aBehavior),
+        nsString(aServiceWorkerRegistrationScope),
     };
 
     mFields.AppendElement(std::move(fields));
@@ -152,6 +160,7 @@ class NotificationStorageCallback final : public ScopeCheckingGetCallback {
           mWindow, mFields[i].mID, mFields[i].mTitle, mFields[i].mDir,
           mFields[i].mLang, mFields[i].mBody, mFields[i].mTag, mFields[i].mIcon,
           mFields[i].mData, mFields[i].mRequireInteraction, mFields[i].mActions,
+          mFields[i].mSilent,
           /* mFields[i].mBehavior, not
            * supported */
           mFields[i].mServiceWorkerRegistrationScope, result);
@@ -708,7 +717,7 @@ Notification::Notification(nsIGlobalObject* aGlobal, const nsAString& aID,
                            const nsAString& aTag, const nsAString& aIconUrl,
                            bool aRequireInteraction,
                            const nsTArray<NotificationAction>& aActions,
-                           const NotificationBehavior& aBehavior)
+                           bool aSilent, const NotificationBehavior& aBehavior)
     : DOMEventTargetHelper(aGlobal),
       mWorkerPrivate(nullptr),
       mObserver(nullptr),
@@ -720,6 +729,7 @@ Notification::Notification(nsIGlobalObject* aGlobal, const nsAString& aID,
       mTag(aTag),
       mIconUrl(aIconUrl),
       mRequireInteraction(aRequireInteraction),
+      mSilent(aSilent),
       mBehavior(aBehavior),
       mData(JS::NullValue()),
       mIsClosed(false),
@@ -851,7 +861,7 @@ already_AddRefed<Notification> Notification::ConstructFromFields(
     nsIGlobalObject* aGlobal, const nsAString& aID, const nsAString& aTitle,
     const nsAString& aDir, const nsAString& aLang, const nsAString& aBody,
     const nsAString& aTag, const nsAString& aIcon, const nsAString& aData,
-    bool aRequireInteraction, const nsAString& aActions,
+    bool aRequireInteraction, const nsAString& aActions, bool aSilent,
     const nsAString& aServiceWorkerRegistrationScope, ErrorResult& aRv) {
   MOZ_ASSERT(aGlobal);
 
@@ -862,6 +872,7 @@ already_AddRefed<Notification> Notification::ConstructFromFields(
   options.mTag = aTag;
   options.mIcon = aIcon;
   options.mRequireInteraction = aRequireInteraction;
+  options.mSilent = aSilent;
 
   JSContext* cx = nsContentUtils::GetCurrentJSContext();
   nsresult rv =
@@ -949,7 +960,7 @@ nsresult Notification::PersistNotification() {
   rv = notificationStorage->Put(origin, id, mTitle, DirectionToString(mDir),
                                 mLang, mBody, mTag, mIconUrl, alertName,
                                 mDataAsBase64, mRequireInteraction,
-                                mActionsString, behavior, mScope);
+                                mActionsString, mSilent, behavior, mScope);
 
   if (NS_FAILED(rv)) {
     return rv;
@@ -999,7 +1010,7 @@ already_AddRefed<Notification> Notification::CreateInternal(
   RefPtr<Notification> notification = new Notification(
       aGlobal, id, aTitle, aOptions.mBody, aOptions.mDir, aOptions.mLang,
       aOptions.mTag, aOptions.mIcon, aOptions.mRequireInteraction,
-      aOptions.mActions, aOptions.mMozbehavior);
+      aOptions.mActions, aOptions.mSilent, aOptions.mMozbehavior);
   rv = notification->Init();
   NS_ENSURE_SUCCESS(rv, nullptr);
   return notification.forget();
@@ -1087,7 +1098,8 @@ class ServiceWorkerNotificationObserver final : public nsIObserver {
       const nsAString& aTitle, const nsAString& aDir, const nsAString& aLang,
       const nsAString& aBody, const nsAString& aTag, const nsAString& aIcon,
       const nsAString& aData, const bool& aRequireInteraction,
-      const nsAString& aActions, const nsAString& aBehavior)
+      const nsAString& aActions, const bool& aSilent,
+      const nsAString& aBehavior)
       : mScope(aScope),
         mID(aID),
         mPrincipal(aPrincipal),
@@ -1100,6 +1112,7 @@ class ServiceWorkerNotificationObserver final : public nsIObserver {
         mData(aData),
         mRequireInteraction(aRequireInteraction),
         mActions(aActions),
+        mSilent(aSilent),
         mBehavior(aBehavior) {
     AssertIsOnMainThread();
     MOZ_ASSERT(aPrincipal);
@@ -1120,6 +1133,7 @@ class ServiceWorkerNotificationObserver final : public nsIObserver {
   const nsString mData;
   const bool mRequireInteraction;
   const nsString mActions;
+  const bool mSilent;
   const nsString mBehavior;
 };
 
@@ -1319,14 +1333,14 @@ ServiceWorkerNotificationObserver::Observe(nsISupports* aSubject,
       rv = swm->SendNotificationClickEvent(
           originSuffix, NS_ConvertUTF16toUTF8(mScope), mID, mTitle, mDir, mLang,
           mBody, mTag, mIcon, mData, mRequireInteraction, mActions, userAction,
-          mBehavior);
+          mSilent, mBehavior);
       Unused << NS_WARN_IF(NS_FAILED(rv));
     } else {
       auto* cc = ContentChild::GetSingleton();
       NotificationEventData data(originSuffix, NS_ConvertUTF16toUTF8(mScope),
                                  mID, mTitle, mDir, mLang, mBody, mTag, mIcon,
                                  mData, mRequireInteraction, mActions,
-                                 userAction, mBehavior);
+                                 userAction, mSilent, mBehavior);
       Unused << cc->SendNotificationEvent(u"click"_ns, data);
     }
     return NS_OK;
@@ -1355,14 +1369,15 @@ ServiceWorkerNotificationObserver::Observe(nsISupports* aSubject,
 
       rv = swm->SendNotificationCloseEvent(
           originSuffix, NS_ConvertUTF16toUTF8(mScope), mID, mTitle, mDir, mLang,
-          mBody, mTag, mIcon, mData, mRequireInteraction, mActions, mBehavior);
+          mBody, mTag, mIcon, mData, mRequireInteraction, mActions, mSilent,
+          mBehavior);
       Unused << NS_WARN_IF(NS_FAILED(rv));
     } else {
       auto* cc = ContentChild::GetSingleton();
       NotificationEventData data(originSuffix, NS_ConvertUTF16toUTF8(mScope),
                                  mID, mTitle, mDir, mLang, mBody, mTag, mIcon,
                                  mData, mRequireInteraction, mActions,
-                                 nsDependentString(u""), mBehavior);
+                                 nsDependentString(u""), mSilent, mBehavior);
       Unused << cc->SendNotificationEvent(u"close"_ns, data);
     }
     return NS_OK;
@@ -1493,7 +1508,7 @@ void Notification::ShowInternal() {
     observer = new ServiceWorkerNotificationObserver(
         mScope, GetPrincipal(), mID, mTitle, DirectionToString(mDir), mLang,
         mBody, mTag, iconUrl, mDataAsBase64, mRequireInteraction,
-        mActionsString, behavior);
+        mActionsString, mSilent, behavior);
   }
   MOZ_ASSERT(observer);
   nsCOMPtr<nsIObserver> alertObserver =
@@ -1508,6 +1523,11 @@ void Notification::ShowInternal() {
   bool requireInteraction = mRequireInteraction;
   if (!StaticPrefs::dom_webnotifications_requireinteraction_enabled()) {
     requireInteraction = false;
+  }
+
+  bool silent = mSilent;
+  if (!StaticPrefs::dom_webnotifications_silent_enabled()) {
+    silent = false;
   }
 
   nsAutoString alertName;
@@ -1845,7 +1865,7 @@ class WorkerGetResultRunnable final : public NotificationWorkerRunnable {
           aWorkerPrivate->GlobalScope(), mFields[i].mID, mFields[i].mTitle,
           mFields[i].mDir, mFields[i].mLang, mFields[i].mBody, mFields[i].mTag,
           mFields[i].mIcon, mFields[i].mData, mFields[i].mRequireInteraction,
-          mFields[i].mActions,
+          mFields[i].mActions, mFields[i].mSilent,
           /* mFields[i].mBehavior, not
            * supported */
           mFields[i].mServiceWorkerRegistrationScope, result);
@@ -2081,6 +2101,8 @@ void Notification::GetActions(nsTArray<NotificationAction>& aRetVal) const {
     aRetVal.AppendElement(mActions[i]);
   }
 }
+
+bool Notification::Silent() const { return mSilent; }
 
 void Notification::InitFromJSVal(JSContext* aCx, JS::Handle<JS::Value> aData,
                                  ErrorResult& aRv) {

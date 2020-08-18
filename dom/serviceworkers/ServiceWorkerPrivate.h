@@ -137,7 +137,7 @@ class ServiceWorkerPrivate final {
         const nsAString& aTitle, const nsAString& aDir, const nsAString& aLang,
         const nsAString& aBody, const nsAString& aTag, const nsAString& aIcon,
         const nsAString& aData, bool aRequireInteraction,
-        const nsAString& aActions, const nsAString& aUserAction,
+        const nsAString& aActions, const nsAString& aUserAction, bool aSilent,
         const nsAString& aBehavior, const nsAString& aScope,
         uint32_t aDisableOpenClickDelay) = 0;
 
@@ -184,7 +184,7 @@ class ServiceWorkerPrivate final {
       const nsAString& aTitle, const nsAString& aDir, const nsAString& aLang,
       const nsAString& aBody, const nsAString& aTag, const nsAString& aIcon,
       const nsAString& aData, bool aRequireInteraction,
-      const nsAString& aActions, const nsAString& aUserAction,
+      const nsAString& aActions, const nsAString& aUserAction, bool aSilent,
       const nsAString& aBehavior, const nsAString& aScope);
 
   nsresult SendFetchEvent(nsIInterceptedChannel* aChannel,
