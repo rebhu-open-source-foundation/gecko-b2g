@@ -330,8 +330,22 @@ let observer = {
     console.log("observeSetting " + v.name + " " + v.value);
   }
 };
-settingsManager.addObserver("testing.setting1", observer);
-settingsManager.removeObserver("testing.setting1", observer);
+settingsManager.addObserver(
+  "testing.setting1",
+  observer,
+  {
+    "resolve": () => console.log("addObserver resolve"),
+    "reject": () => console.log("addObserver reject")
+  }
+);
+settingsManager.removeObserver(
+  "testing.setting1",
+  observer,
+  {
+    "resolve": () => console.log("removeObserver resolve"),
+    "reject": () => console.log("removeObserver reject")
+  }
+);
 ```
 ## Sample Codes of Settings API Callers from Apps
 Please refer to `services/settings/client/test` in `git.kaiostech.com/KaiOS/sidl`
