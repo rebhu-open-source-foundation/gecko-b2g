@@ -18,6 +18,7 @@ dictionary AppNotificationServiceOptions {
   DOMString data = "";
   boolean requireInteraction = false;
   DOMString actions = "[]";
+  boolean silent = false;
   NotificationBehavior mozbehavior = {};
   DOMString serviceWorkerRegistrationScope = "";
 };

@@ -88,6 +88,7 @@ This delegate is responsible for displaying desktop notifications UI.
   - `timestamp`: when the notification was triggered.
   - `data`: Arbitrary data that you want associated with the notification.
   - `requireInteraction`: Indicates that a notification should remain active until the user clicks or dismisses it, rather than closing automatically.
+  - `silent`: whether this notification should be silent.
   - `mozbehavior`: a dictionary indicates custom notification behavior.
   - `serviceWorkerRegistrationScope`: the unique identifier for the service worker registration the notification is sent from.
 

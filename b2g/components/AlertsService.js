@@ -163,6 +163,7 @@ AlertsService.prototype = {
       dataObj: aDetails.data || undefined,
       requireInteraction: aDetails.requireInteraction,
       actions: aDetails.actions || "[]",
+      silent: aDetails.silent,
       mozbehavior: aDetails.mozbehavior,
       serviceWorkerRegistrationScope: aDetails.serviceWorkerRegistrationScope,
     };
@@ -228,6 +229,7 @@ AlertsService.prototype = {
             listener.requireInteraction,
             listener.actions,
             userAction,
+            listener.silent,
             listener.mozbehavior
           );
         } else if (eventName == "notificationclose") {
@@ -244,6 +246,7 @@ AlertsService.prototype = {
             listener.dataObj || undefined,
             listener.requireInteraction,
             listener.actions,
+            listener.silent,
             listener.mozbehavior
           );
         }

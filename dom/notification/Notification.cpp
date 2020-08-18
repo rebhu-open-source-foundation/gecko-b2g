@@ -1563,6 +1563,7 @@ void Notification::ShowInternal() {
     ops.mMozbehavior.mSoundFile = soundUrl;
     ops.mRequireInteraction = requireInteraction;
     ops.mActions = mActionsString;
+    ops.mSilent = silent;
 
     if (isPersistent) {
       ops.mServiceWorkerRegistrationScope = mScope;
