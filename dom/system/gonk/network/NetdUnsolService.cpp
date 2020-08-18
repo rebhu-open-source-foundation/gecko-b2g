@@ -11,6 +11,8 @@
 #include <android-base/strings.h>
 #include <android/log.h>
 
+#define BUF_SIZE 1024
+
 using android::binder::Status;
 
 static bool ENABLE_NUS_DEBUG = false;

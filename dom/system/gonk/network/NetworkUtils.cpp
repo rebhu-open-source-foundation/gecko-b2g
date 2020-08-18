@@ -43,6 +43,7 @@
 #include <binder/IBinder.h>
 #include <android/net/IDnsResolver.h>
 #include "NetdUnsolService.h"
+#include "NetdEventListener.h"
 
 #define WARN(args...) \
   __android_log_print(ANDROID_LOG_WARN, "NetworkUtils", ##args)
@@ -119,6 +120,7 @@ sp<IDnsResolver> gDnsResolver = nullptr;
 nsCOMPtr<nsIThread> gNetworkUtilsThread;
 static NetworkUtils* gNetworkUtils;
 static NetdUnsolService* gNetdUnsolService;
+static NetdEventListener* gNetdEventListener;
 static bool gIpv6TetheringIfaceEnabled = false;
 static nsTArray<nsCString> gIpv6TetheringInterfaces;
 
@@ -277,15 +279,24 @@ class NetdInitRunnable : public mozilla::Runnable {
 
       // Register netlink unsolicited event listener.
       gNetdUnsolService = new NetdUnsolService(NetworkUtils::NotifyNetdEvent);
-      Status status = gNetd->registerUnsolicitedEventListener(
+      Status netdStatus = gNetd->registerUnsolicitedEventListener(
           android::interface_cast<android::net::INetdUnsolicitedEventListener>(
               gNetdUnsolService));
       NU_DBG("Registered NetdUnsolService %s",
-             status.isOk() ? "Successful" : "Failed");
+             netdStatus.isOk() ? "Successful" : "Failed");
+
+      // Register netd event listener.
+      gNetdEventListener = new NetdEventListener(NetworkUtils::NotifyNetdEvent);
+      Status dnsStatus = gDnsResolver->registerEventListener(
+          android::interface_cast<android::net::metrics::INetdEventListener>(
+              gNetdEventListener));
+      NU_DBG("Registered NetdEventListener %s",
+             dnsStatus.isOk() ? "Successful" : "Failed");
     } else {
       gNetd = nullptr;
       gDnsResolver = nullptr;
       gNetdUnsolService = nullptr;
+      gNetdEventListener = nullptr;
       if (IsNetdRunning()) {
         Property::Set("ctl.stop", "netd");
       }

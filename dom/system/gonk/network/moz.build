@@ -32,6 +32,7 @@ XPIDL_SOURCES += [
 
 ]
 UNIFIED_SOURCES += [
+    'NetdEventListener.cpp',
     'NetdUnsolService.cpp',
     'NetIdManager.cpp',
     'NetworkUtils.cpp',

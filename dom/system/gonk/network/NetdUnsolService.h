@@ -11,8 +11,6 @@
 #include "mozilla/dom/NetworkOptionsBinding.h"
 #include <android/net/BnNetdUnsolicitedEventListener.h>
 
-static const uint32_t BUF_SIZE = 1024;
-
 enum UnsolEvent : uint32_t {
   InterfaceClassActivity = 1 << 0,
   QuotaLimitReached = 1 << 1,
