@@ -323,11 +323,36 @@ ExternalAPI::HandleEvent(Event* aEvent) {
     return;
   }
 
-  // Add the permissions for the calling principal.
+  // The permission set for the calling principal.
   nsTArray<RefPtr<nsIPermission>> permissions;
-  nsresult rv = permManager->GetAllForPrincipal(aPrincipal, permissions);
-  if (NS_FAILED(rv)) {
-    return;
+
+  if (aPrincipal->IsSystemPrincipal()) {
+    // If this is the system principal the call was initiated by the system app.
+    // In that situation we use a content principal for the system app url instead
+    // to match with the PermissionInstaller code.
+    nsAutoCString systemAppUrl;
+    if (NS_FAILED(
+            Preferences::GetCString("b2g.system_startup_url", systemAppUrl))) {
+      // Should never happen...
+      printf_stderr("Failed to retrieve value of b2g.system_startup_url !!\n");
+      return;
+    };
+
+    nsCOMPtr<nsIPrincipal> contentPrincipal =
+        BasePrincipal::CreateContentPrincipal(systemAppUrl);
+    if (!contentPrincipal) {
+      printf_stderr(
+          "Failed to create content principal for the system app !!\n");
+      return;
+    }
+
+    if (NS_FAILED(permManager->GetAllForPrincipal(contentPrincipal, permissions))) {
+      return;
+    }
+  } else {
+    if (NS_FAILED(permManager->GetAllForPrincipal(aPrincipal, permissions))) {
+      return;
+    }
   }
 
   // Add all the permissions granted to this principal.
