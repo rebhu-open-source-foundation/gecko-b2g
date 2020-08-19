@@ -515,7 +515,7 @@ static_assert(sizeof(nsXPTMethodInfo) == 8, "wrong size");
 #elif defined(MOZ_B2G_RIL)
 #  define PARAM_BUFFER_COUNT 23 // Needed for nsIGonkSmsService::notifyMessageReceived
 #else
-#  define PARAM_BUFFER_COUNT 14
+#  define PARAM_BUFFER_COUNT 15  // Extended for nsINotificationStorage::put
 #endif
 
 /**
