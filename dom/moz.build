@@ -133,6 +133,7 @@ if CONFIG['MOZ_B2G_RIL']:
         'subsidylock',
         'videocallprovider',
         'voicemail',
+        'wappush',
     ]
 # MOZ_B2G_RIL_END
 
