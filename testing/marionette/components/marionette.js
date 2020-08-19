@@ -231,10 +231,6 @@ const RECOMMENDED_PREFS = new Map([
   // Disable useragent updates
   ["general.useragent.updates.enabled", false],
 
-  // Always use network provider for geolocation tests so we bypass the
-  // macOS dialog raised by the corelocation provider
-  ["geo.provider.testing", true],
-
   // Do not scan Wifi
   ["geo.wifi.scan", false],
 
