@@ -33,15 +33,14 @@ already_AddRefed<MediaDataDecoder> GonkDecoderModule::CreateVideoDecoder(
     const CreateDecoderParams& aParams) {
   RefPtr<MediaDataDecoder> decoder = new GonkMediaDataDecoder(
       new GonkVideoDecoderManager(aParams.VideoConfig(),
-                                  aParams.mImageContainer),
-      aParams.mTaskQueue);
+                                  aParams.mImageContainer));
   return decoder.forget();
 }
 
 already_AddRefed<MediaDataDecoder> GonkDecoderModule::CreateAudioDecoder(
     const CreateDecoderParams& aParams) {
   RefPtr<MediaDataDecoder> decoder = new GonkMediaDataDecoder(
-      new GonkAudioDecoderManager(aParams.AudioConfig()), aParams.mTaskQueue);
+      new GonkAudioDecoderManager(aParams.AudioConfig()));
   return decoder.forget();
 }
 

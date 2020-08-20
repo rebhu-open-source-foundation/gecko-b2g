@@ -36,15 +36,9 @@ var PrintEventHandler = {
   async init() {
     this.sourceBrowser = this.getSourceBrowser();
     this.previewBrowser = this.getPreviewBrowser();
-
-    document.addEventListener("print", e => this.print({ silent: true }));
-    document.addEventListener("update-print-settings", e =>
-      this.updateSettings(e.detail)
-    );
-    document.addEventListener("cancel-print", () => this.cancelPrint());
-    document.addEventListener("open-system-dialog", () =>
-      this.print({ silent: false })
-    );
+    this.settings = null;
+    this._printerSettingsChangedFlags = 0;
+    this._nonFlaggedChangedSettings = {};
 
     this.settingFlags = {
       orientation: Ci.nsIPrintSettings.kInitSaveOrientation,
@@ -67,14 +61,16 @@ var PrintEventHandler = {
     // accessible printer.
     let { destinations, selectedPrinter } = await this.getPrintDestinations();
 
-    // Find the settings for the printer we'll select initially.
-    this.settings = PrintUtils.getPrintSettings(selectedPrinter.value);
-    // Wrap the settings with our view model to simplify the UI.
-    this.viewSettings = new Proxy(this.settings, PrintSettingsViewProxy);
-    // Set the printer name through the view model to ensure the PDF flags are
-    // set correctly.
-    this.viewSettings.printerName = this.settings.printerName;
+    document.addEventListener("print", e => this.print({ silent: true }));
+    document.addEventListener("update-print-settings", e =>
+      this.updateSettings(e.detail)
+    );
+    document.addEventListener("cancel-print", () => this.cancelPrint());
+    document.addEventListener("open-system-dialog", () =>
+      this.print({ silent: false })
+    );
 
+    this.refreshSettings(selectedPrinter.value);
     this.updatePrintPreview();
 
     document.dispatchEvent(
@@ -88,8 +84,20 @@ var PrintEventHandler = {
         detail: this.viewSettings,
       })
     );
-
     document.body.removeAttribute("loading");
+  },
+
+  refreshSettings(printerName) {
+    this.settings = PrintUtils.getPrintSettings(printerName);
+    // restore settings which do not have a corresponding flag
+    Object.assign(this.settings, this._nonFlaggedChangedSettings);
+
+    // Some settings are only used by the UI
+    // assigning new values should update the underlying settings
+    this.viewSettings = new Proxy(this.settings, PrintSettingsViewProxy);
+
+    // Ensure the output format is set properly
+    this.viewSettings.printerName = this.settings.printerName;
   },
 
   async print({ silent } = {}) {
@@ -118,7 +126,7 @@ var PrintEventHandler = {
   },
 
   updateSettings(changedSettings = {}) {
-    let isChanged = false;
+    let didSettingsChange = false;
     let flags = 0;
     for (let [setting, value] of Object.entries(changedSettings)) {
       if (this.viewSettings[setting] != value) {
@@ -126,8 +134,12 @@ var PrintEventHandler = {
 
         if (setting in this.settingFlags) {
           flags |= this.settingFlags[setting];
+        } else {
+          // some settings have no corresponding flag,
+          // but we may want to restore them if the current printer changes
+          this._nonFlaggedChangedSettings[setting] = value;
         }
-        isChanged = true;
+        didSettingsChange = true;
         Services.telemetry.keyedScalarAdd(
           "printing.settings_changed",
           setting,
@@ -136,13 +148,27 @@ var PrintEventHandler = {
       }
     }
 
-    if (isChanged) {
+    let printerChanged = flags & this.settingFlags.printerName;
+    if (didSettingsChange) {
       let PSSVC = Cc["@mozilla.org/gfx/printsettings-service;1"].getService(
         Ci.nsIPrintSettingsService
       );
+      this._printerSettingsChangedFlags |= flags;
+
+      if (printerChanged) {
+        // If the user has changed settings with the old printer, stash them all
+        // so they can be restored on top of the new printer's settings
+        flags |= this._printerSettingsChangedFlags;
+      }
 
       if (flags) {
         PSSVC.savePrintSettingsToPrefs(this.settings, true, flags);
+      }
+      if (printerChanged) {
+        this.refreshSettings(this.settings.printerName);
+      }
+
+      if (flags || printerChanged) {
         this.updatePrintPreview();
       }
 
@@ -169,7 +195,7 @@ var PrintEventHandler = {
 
   async _updatePrintPreview() {
     let numPages = await PrintUtils.updatePrintPreview(
-      this.sourceBrowser,
+      this.getSourceBrowsingContext(),
       this.previewBrowser,
       this.settings
     );
@@ -187,17 +213,21 @@ var PrintEventHandler = {
     }
   },
 
-  getSourceBrowser() {
+  getSourceBrowsingContext() {
     let params = new URLSearchParams(location.search);
     let browsingContextId = params.get("browsingContextId");
     if (!browsingContextId) {
       return null;
     }
-    let browsingContext = BrowsingContext.get(browsingContextId);
+    return BrowsingContext.get(browsingContextId);
+  },
+
+  getSourceBrowser() {
+    let browsingContext = this.getSourceBrowsingContext();
     if (!browsingContext) {
       return null;
     }
-    return browsingContext.embedderElement;
+    return browsingContext.top.embedderElement;
   },
 
   getPreviewBrowser() {
@@ -386,9 +416,8 @@ class DestinationPicker extends PrintUIControlMixin(HTMLSelectElement) {
   }
 
   setOptions(optionValues = []) {
-    this._options = optionValues;
     this.textContent = "";
-    for (let optionData of this._options) {
+    for (let optionData of optionValues) {
       let opt = new Option(
         optionData.name,
         "value" in optionData ? optionData.value : optionData.name
@@ -396,6 +425,7 @@ class DestinationPicker extends PrintUIControlMixin(HTMLSelectElement) {
       if (optionData.nameId) {
         document.l10n.setAttributes(opt, optionData.nameId);
       }
+      // option selectedness is set via update() and assignment to this.value
       this.options.add(opt);
     }
   }
@@ -411,10 +441,9 @@ class DestinationPicker extends PrintUIControlMixin(HTMLSelectElement) {
       this.dispatchSettingsChange({
         printerName: e.target.value,
       });
-    }
-
-    if (e.type == "available-destinations") {
+    } else if (e.type == "available-destinations") {
       this.setOptions(e.detail);
+      this.required = true;
     }
   }
 }
@@ -441,59 +470,6 @@ class OrientationInput extends PrintUIControlMixin(HTMLElement) {
 }
 customElements.define("orientation-input", OrientationInput);
 
-class PhotonNumber extends HTMLElement {
-  connectedCallback() {
-    this.attachShadow({ mode: "open" });
-    let slot = document.createElement("slot");
-    this.upButton = this.makeButton("up");
-    this.downButton = this.makeButton("down");
-    let styles = document.createElement("link");
-    styles.rel = "stylesheet";
-    styles.href = "chrome://global/content/photon-number.css";
-    let buttons = document.createElement("div");
-    buttons.append(this.upButton, this.downButton);
-    let wrapper = document.createElement("span");
-    wrapper.classList.add("wrapper");
-    wrapper.append(slot, buttons);
-    this.shadowRoot.append(wrapper, styles);
-  }
-
-  makeButton(direction) {
-    let button = document.createElement("button");
-    button.setAttribute("step", direction);
-    button.tabIndex = "-1";
-    button.addEventListener("click", this);
-    button.addEventListener("mousedown", this);
-    return button;
-  }
-
-  get input() {
-    return this.querySelector("input[type=number]");
-  }
-
-  handleEvent(e) {
-    if (e.type == "mousedown") {
-      // Prevent mousedown pulling focus from the input when the spinner is
-      // clicked, this was causing a focus style flicker on macOS.
-      e.preventDefault();
-    } else if (e.type == "click") {
-      // TODO: You can hold down on a regular spinner to make it count up/down.
-      let step = e.originalTarget.getAttribute("step");
-      switch (step) {
-        case "up":
-          this.input.stepUp();
-          this.input.focus();
-          break;
-        case "down":
-          this.input.stepDown();
-          this.input.focus();
-          break;
-      }
-    }
-  }
-}
-customElements.define("photon-number", PhotonNumber);
-
 class CopiesInput extends PrintUIControlMixin(HTMLInputElement) {
   update(settings) {
     this.value = settings.numCopies;
@@ -509,33 +485,52 @@ customElements.define("copy-count-input", CopiesInput, {
   extends: "input",
 });
 
-class PrintUIForm extends PrintUIControlMixin(HTMLElement) {
+class PrintUIForm extends PrintUIControlMixin(HTMLFormElement) {
   initialize() {
     super.initialize();
 
     this.addEventListener("submit", this);
     this.addEventListener("click", this);
+    this.addEventListener("input", this);
   }
 
   handleEvent(e) {
     if (e.target.id == "open-dialog-link") {
       this.dispatchEvent(new Event("open-system-dialog", { bubbles: true }));
+      return;
     }
 
     if (e.type == "submit") {
       e.preventDefault();
       switch (e.submitter.name) {
         case "print":
+          if (!this.checkValidity()) {
+            return;
+          }
           this.dispatchEvent(new Event("print", { bubbles: true }));
           break;
         case "cancel":
           this.dispatchEvent(new Event("cancel-print", { bubbles: true }));
           break;
       }
+    } else if (e.type == "input") {
+      let isValid = this.checkValidity();
+      let section = e.target.closest(".section-block");
+      for (let element of this.elements) {
+        // If we're valid, enable all inputs.
+        // Otherwise, disable the valid inputs other than the cancel button and the elements
+        // in the invalid section.
+        element.disabled =
+          element.hasAttribute("disallowed") ||
+          (!isValid &&
+            element.validity.valid &&
+            element.name != "cancel" &&
+            element.closest(".section-block") != section);
+      }
     }
   }
 }
-customElements.define("print-form", PrintUIForm);
+customElements.define("print-form", PrintUIForm, { extends: "form" });
 
 class ScaleInput extends PrintUIControlMixin(HTMLElement) {
   get templateId() {
@@ -546,10 +541,11 @@ class ScaleInput extends PrintUIControlMixin(HTMLElement) {
     super.initialize();
 
     this._percentScale = this.querySelector("#percent-scale");
-    this._percentScale.addEventListener("input", this);
     this._shrinkToFitChoice = this.querySelector("#fit-choice");
     this._scaleChoice = this.querySelector("#percent-scale-choice");
+    this._scaleError = this.querySelector("#error-invalid-scale");
 
+    this._percentScale.addEventListener("input", this);
     this.addEventListener("input", this);
   }
 
@@ -558,37 +554,45 @@ class ScaleInput extends PrintUIControlMixin(HTMLElement) {
     this._shrinkToFitChoice.checked = shrinkToFit;
     this._scaleChoice.checked = !shrinkToFit;
     this._percentScale.disabled = shrinkToFit;
+    this._percentScale.toggleAttribute("disallowed", shrinkToFit);
 
     // If the user had an invalid input and switches back to "fit to page",
     // we repopulate the scale field with the stored, valid scaling value.
-    if (!this._percentScale.value || this._shrinkToFitChoice.checked) {
+    if (
+      !this._percentScale.value ||
+      (this._shrinkToFitChoice.checked && !this._percentScale.checkValidity())
+    ) {
       // Only allow whole numbers. 0.14 * 100 would have decimal places, etc.
       this._percentScale.value = parseInt(scaling * 100, 10);
     }
   }
 
   handleEvent(e) {
-    e.stopPropagation();
-
     if (e.target == this._shrinkToFitChoice || e.target == this._scaleChoice) {
+      let scale =
+        e.target == this._shrinkToFitChoice
+          ? 1
+          : Number(this._percentScale.value / 100);
       this.dispatchSettingsChange({
         shrinkToFit: this._shrinkToFitChoice.checked,
+        scaling: scale,
       });
+      this._scaleError.hidden = true;
       return;
     }
 
-    window.clearTimeout(this.invalidTimeoutId);
+    if (e.type == "input") {
+      window.clearTimeout(this.invalidTimeoutId);
 
-    if (this._percentScale.checkValidity() && e.type == "input") {
-      // TODO: set the customError element to hidden ( Bug 1656057 )
-
-      this.invalidTimeoutId = window.setTimeout(() => {
-        this.dispatchSettingsChange({
-          scaling: Number(this._percentScale.value / 100),
-        });
-      }, INVALID_INPUT_DELAY_MS);
+      if (this._percentScale.checkValidity()) {
+        this.invalidTimeoutId = window.setTimeout(() => {
+          this.dispatchSettingsChange({
+            scaling: Number(this._percentScale.value / 100),
+          });
+        }, INVALID_INPUT_DELAY_MS);
+      }
     }
-    // TODO: populate a customError element with erorMessage contents
+    this._scaleError.hidden = this._percentScale.validity.valid;
   }
 }
 customElements.define("scale-input", ScaleInput);
@@ -756,7 +760,9 @@ async function pickFileName(sourceBrowser, pageSettings) {
   );
   picker.appendFilter("PDF", "*.pdf");
   picker.defaultExtension = "pdf";
-  picker.defaultString = filename;
+  // macOS and linux don't set the extension based on the default. Windows will
+  // only include the filename once, so we can add it there too.
+  picker.defaultString = filename + ".pdf";
 
   let retval = await new Promise(resolve => picker.open(resolve));
 

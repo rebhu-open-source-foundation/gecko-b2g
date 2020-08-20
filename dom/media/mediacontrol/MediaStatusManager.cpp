@@ -297,6 +297,7 @@ void MediaStatusManager::UpdateActualPlaybackState() {
   LOG("UpdateActualPlaybackState : '%s'",
       ToMediaSessionPlaybackStateStr(mActualPlaybackState));
   HandleActualPlaybackStateChanged();
+  mPlaybackStateChangedEvent.Notify(mActualPlaybackState);
 }
 
 void MediaStatusManager::EnableAction(uint64_t aBrowsingContextId,
@@ -418,7 +419,7 @@ bool MediaStatusManager::IsInPrivateBrowsing() const {
   return nsContentUtils::IsInPrivateBrowsing(element->OwnerDoc());
 }
 
-MediaSessionPlaybackState MediaStatusManager::GetState() const {
+MediaSessionPlaybackState MediaStatusManager::PlaybackState() const {
   return mActualPlaybackState;
 }
 

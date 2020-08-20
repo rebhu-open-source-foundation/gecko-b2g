@@ -337,6 +337,15 @@ class ModuleInfo {
     this._manager = manager;
     this._name = name;
 
+    // We don't support having more than one main process script, so let's
+    // check that we're not accidentally defining two. We could support this if
+    // needed by making _impl an array for each phase impl.
+    if (onInit?.resource !== undefined && onEnable?.resource !== undefined) {
+      throw new Error(
+        "Only one main process script is allowed for each module."
+      );
+    }
+
     this._impl = null;
     this._contentModuleLoaded = false;
     this._enabled = false;
@@ -562,6 +571,7 @@ function startup() {
                 "MozDOMFullscreen:Exited": {},
                 "MozDOMFullscreen:Request": {},
                 MozFirstContentfulPaint: {},
+                MozPaintStatusReset: {},
                 contextmenu: { capture: true },
               },
               allFrames: true,
@@ -638,6 +648,13 @@ function startup() {
       name: "GeckoViewAutofill",
       onInit: {
         frameScript: "chrome://geckoview/content/GeckoViewAutofillChild.js",
+      },
+    },
+    {
+      name: "GeckoViewMediaControl",
+      onEnable: {
+        resource: "resource://gre/modules/GeckoViewMediaControl.jsm",
+        frameScript: "chrome://geckoview/content/GeckoViewMediaControlChild.js",
       },
     },
   ]);

@@ -750,6 +750,21 @@ var DownloadIntegration = {
   },
 
   /**
+   * Decide whether a download of this type, opened from the downloads
+   * list, should open internally.
+   *
+   * @param aMimeType
+   *        The MIME type of the file, as a string
+   * @param [optional] aExtension
+   *        The file extension, which can match instead of the MIME type.
+   */
+  shouldViewDownloadInternally(aMimeType, aExtension) {
+    // Refuse all files by default, this is meant to be replaced with a check
+    // for specific types via Integration.downloads.register().
+    return false;
+  },
+
+  /**
    * Launches a file represented by the target of a download. This can
    * open the file with the default application for the target MIME type
    * or file extension, or with a custom application if
@@ -845,8 +860,6 @@ var DownloadIntegration = {
       return;
     }
 
-    const PDF_CONTENT_TYPE = "application/pdf";
-
     if (!useSystemDefault && mimeInfo) {
       useSystemDefault = mimeInfo.preferredAction == mimeInfo.useSystemDefault;
     }
@@ -855,8 +868,7 @@ var DownloadIntegration = {
       if (
         aDownload.handleInternally ||
         (mimeInfo &&
-          (mimeInfo.type == PDF_CONTENT_TYPE ||
-            fileExtension?.toLowerCase() == "pdf") &&
+          this.shouldViewDownloadInternally(mimeInfo.type, fileExtension) &&
           !mimeInfo.alwaysAskBeforeHandling &&
           mimeInfo.preferredAction === Ci.nsIHandlerInfo.handleInternally &&
           !aDownload.launchWhenSucceeded)

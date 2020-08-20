@@ -192,8 +192,7 @@ class DecoderManagerCallback;
 // type are handled by GonkDecoderManager and the GonkDecoder it creates.
 class GonkMediaDataDecoder : public MediaDataDecoder {
  public:
-  GonkMediaDataDecoder(GonkDecoderManager* aDecoderManager,
-                       TaskQueue* aTaskQueue);
+  GonkMediaDataDecoder(GonkDecoderManager* aDecoderManager);
 
   ~GonkMediaDataDecoder();
 

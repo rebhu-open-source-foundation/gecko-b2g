@@ -386,6 +386,11 @@ pref("browser.download.openInSystemViewerContextMenuItem", true);
 // This records whether or not to show the 'Always open...' context menu item when appropriate
 pref("browser.download.alwaysOpenInSystemViewerContextMenuItem", true);
 
+// Open downloaded file types internally for the given types.
+// This is a comma-separated list, the empty string ("") means no types are
+// viewable internally.
+pref("browser.download.viewableInternally.enabledTypes", "xml,svg,webp,avif");
+
 
 // This controls whether the button is automatically shown/hidden depending
 // on whether there are downloads to show.
@@ -397,8 +402,11 @@ pref("browser.download.autohideButton", true);
 
 // This controls the visibility of the radio button in the
 // Unknown Content Type (Helper App) dialog that will open
-// the content in the browser.
+// the content in the browser for PDF and for other
+// Viewable Internally types
+// (see browser.download.viewableInternally.enabledTypes)
 pref("browser.helperApps.showOpenOptionForPdfJS", true);
+pref("browser.helperApps.showOpenOptionForViewableInternally", true);
 
 // search engines URL
 pref("browser.search.searchEnginesURL",      "https://addons.mozilla.org/%LOCALE%/firefox/search-engines/");

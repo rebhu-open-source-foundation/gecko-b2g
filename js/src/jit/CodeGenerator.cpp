@@ -4563,6 +4563,151 @@ void CodeGenerator::visitProxySetByValue(LProxySetByValue* lir) {
   callVM<Fn, ProxySetPropertyByValue>(lir);
 }
 
+void CodeGenerator::visitMegamorphicLoadSlot(LMegamorphicLoadSlot* lir) {
+  Register obj = ToRegister(lir->object());
+  Register temp1 = ToRegister(lir->temp1());
+  Register temp2 = ToRegister(lir->temp2());
+  Register temp3 = ToRegister(lir->temp3());
+  ValueOperand output = ToOutValue(lir);
+
+  Label bail;
+  masm.branchIfNonNativeObj(obj, temp1, &bail);
+
+  masm.pushValue(UndefinedValue());
+  masm.moveStackPtrTo(temp3);
+
+  masm.setupUnalignedABICall(temp1);
+  masm.loadJSContext(temp1);
+  masm.passABIArg(temp1);
+  masm.passABIArg(obj);
+  masm.movePtr(ImmGCPtr(lir->mir()->name()), temp2);
+  masm.passABIArg(temp2);
+  masm.passABIArg(temp3);
+
+  masm.callWithABI(
+      JS_FUNC_TO_DATA_PTR(void*, (GetNativeDataPropertyPure<true>)));
+
+  MOZ_ASSERT(!output.aliases(ReturnReg));
+  masm.popValue(output);
+
+  masm.branchIfFalseBool(ReturnReg, &bail);
+
+  if (JitOptions.spectreJitToCxxCalls) {
+    masm.speculationBarrier();
+  }
+
+  bailoutFrom(&bail, lir->snapshot());
+}
+
+void CodeGenerator::visitMegamorphicLoadSlotByValue(
+    LMegamorphicLoadSlotByValue* lir) {
+  Register obj = ToRegister(lir->object());
+  ValueOperand idVal = ToValue(lir, LMegamorphicLoadSlotByValue::IdIndex);
+  Register temp = ToRegister(lir->temp());
+  ValueOperand output = ToOutValue(lir);
+
+  Label bail;
+  masm.branchIfNonNativeObj(obj, temp, &bail);
+
+  // idVal will be in vp[0], result will be stored in vp[1].
+  masm.subFromStackPtr(Imm32(sizeof(Value)));
+  masm.pushValue(idVal);
+  masm.moveStackPtrTo(idVal.scratchReg());
+
+  masm.setupUnalignedABICall(temp);
+  masm.loadJSContext(temp);
+  masm.passABIArg(temp);
+  masm.passABIArg(obj);
+  masm.passABIArg(idVal.scratchReg());
+  masm.callWithABI(
+      JS_FUNC_TO_DATA_PTR(void*, (GetNativeDataPropertyByValuePure<true>)));
+
+  MOZ_ASSERT(!idVal.aliases(temp));
+  masm.mov(ReturnReg, temp);
+  masm.popValue(idVal);
+
+  Label ok;
+  masm.branchIfTrueBool(temp, &ok);
+  masm.addToStackPtr(Imm32(sizeof(Value)));  // Discard result Value.
+  masm.jump(&bail);
+
+  masm.bind(&ok);
+  if (JitOptions.spectreJitToCxxCalls) {
+    masm.speculationBarrier();
+  }
+  masm.popValue(output);
+
+  bailoutFrom(&bail, lir->snapshot());
+}
+
+void CodeGenerator::visitMegamorphicStoreSlot(LMegamorphicStoreSlot* lir) {
+  Register obj = ToRegister(lir->object());
+  ValueOperand rhs = ToValue(lir, LMegamorphicStoreSlot::RhsIndex);
+  Register temp1 = ToRegister(lir->temp1());
+  Register temp2 = ToRegister(lir->temp2());
+
+  masm.pushValue(rhs);
+  masm.moveStackPtrTo(rhs.scratchReg());
+
+  masm.setupUnalignedABICall(temp1);
+  masm.loadJSContext(temp1);
+  masm.passABIArg(temp1);
+  masm.passABIArg(obj);
+  masm.movePtr(ImmGCPtr(lir->mir()->name()), temp2);
+  masm.passABIArg(temp2);
+  masm.passABIArg(rhs.scratchReg());
+  masm.callWithABI(
+      JS_FUNC_TO_DATA_PTR(void*, (SetNativeDataPropertyPure<false>)));
+
+  MOZ_ASSERT(!rhs.aliases(temp1));
+  masm.mov(ReturnReg, temp1);
+  masm.popValue(rhs);
+
+  Label bail;
+  masm.branchIfFalseBool(temp1, &bail);
+  bailoutFrom(&bail, lir->snapshot());
+}
+
+void CodeGenerator::visitMegamorphicHasProp(LMegamorphicHasProp* lir) {
+  Register obj = ToRegister(lir->object());
+  ValueOperand idVal = ToValue(lir, LMegamorphicHasProp::IdIndex);
+  Register temp = ToRegister(lir->temp());
+  Register output = ToRegister(lir->output());
+
+  // idVal will be in vp[0], result will be stored in vp[1].
+  masm.subFromStackPtr(Imm32(sizeof(Value)));
+  masm.pushValue(idVal);
+  masm.moveStackPtrTo(idVal.scratchReg());
+
+  masm.setupUnalignedABICall(temp);
+  masm.loadJSContext(temp);
+  masm.passABIArg(temp);
+  masm.passABIArg(obj);
+  masm.passABIArg(idVal.scratchReg());
+  if (lir->mir()->hasOwn()) {
+    masm.callWithABI(
+        JS_FUNC_TO_DATA_PTR(void*, HasNativeDataPropertyPure<true>));
+  } else {
+    masm.callWithABI(
+        JS_FUNC_TO_DATA_PTR(void*, HasNativeDataPropertyPure<false>));
+  }
+
+  MOZ_ASSERT(!idVal.aliases(temp));
+  masm.mov(ReturnReg, temp);
+  masm.popValue(idVal);
+
+  Label bail, ok;
+  masm.branchIfTrueBool(temp, &ok);
+  masm.addToStackPtr(Imm32(sizeof(Value)));  // Discard result Value.
+  masm.jump(&bail);
+
+  masm.bind(&ok);
+  masm.unboxBoolean(Address(masm.getStackPointer(), 0), output);
+  masm.addToStackPtr(Imm32(sizeof(Value)));
+
+  bailoutFrom(&bail, lir->snapshot());
+}
+
 void CodeGenerator::visitGuardIsNotArrayBufferMaybeShared(
     LGuardIsNotArrayBufferMaybeShared* guard) {
   Register obj = ToRegister(guard->input());
@@ -11612,6 +11757,43 @@ void CodeGenerator::visitAddAndStoreSlot(LAddAndStoreSlot* ins) {
   }
 }
 
+void CodeGenerator::visitAllocateAndStoreSlot(LAllocateAndStoreSlot* ins) {
+  const Register obj = ToRegister(ins->getOperand(0));
+  const ValueOperand value = ToValue(ins, LAllocateAndStoreSlot::Value);
+  const Register temp1 = ToRegister(ins->getTemp(0));
+  const Register temp2 = ToRegister(ins->getTemp(1));
+
+  masm.push(obj);
+  masm.pushValue(value);
+
+  masm.setupUnalignedABICall(temp1);
+  masm.loadJSContext(temp1);
+  masm.passABIArg(temp1);
+  masm.passABIArg(obj);
+  masm.move32(Imm32(ins->mir()->numNewSlots()), temp2);
+  masm.passABIArg(temp2);
+  masm.callWithABI(JS_FUNC_TO_DATA_PTR(void*, NativeObject::growSlotsPure));
+  masm.storeCallBoolResult(temp1);
+
+  masm.popValue(value);
+  masm.pop(obj);
+
+  Label bail;
+  masm.branchIfFalseBool(temp1, &bail);
+  bailoutFrom(&bail, ins->snapshot());
+
+  masm.storeObjShape(ins->mir()->shape(), obj,
+                     [](MacroAssembler& masm, const Address& addr) {
+                       EmitPreBarrier(masm, addr, MIRType::Shape);
+                     });
+
+  // Perform the store. No pre-barrier required since this is a new
+  // initialization.
+  masm.loadPtr(Address(obj, NativeObject::offsetOfSlots()), temp1);
+  Address slot(temp1, ins->mir()->slotOffset());
+  masm.storeValue(value, slot);
+}
+
 void CodeGenerator::visitStoreFixedSlotV(LStoreFixedSlotV* ins) {
   const Register obj = ToRegister(ins->getOperand(0));
   size_t slot = ins->mir()->slot();
@@ -14630,7 +14812,7 @@ void CodeGenerator::emitIonToWasmCallBase(LIonToWasmCallBase<NumDefs>* lir) {
         MOZ_CRASH("unexpected argument type when calling from ion to wasm");
       case wasm::ValType::Ref:
         switch (sig.args()[i].refTypeKind()) {
-          case wasm::RefType::Any:
+          case wasm::RefType::Extern:
             // AnyRef is boxed on the JS side, so passed as a pointer here.
             argMir = ToMIRType(sig.args()[i]);
             break;
@@ -14700,7 +14882,7 @@ void CodeGenerator::emitIonToWasmCallBase(LIonToWasmCallBase<NumDefs>* lir) {
         MOZ_CRASH("unexpected return type when calling from ion to wasm");
       case wasm::ValType::Ref:
         switch (results[0].refTypeKind()) {
-          case wasm::RefType::Any:
+          case wasm::RefType::Extern:
           case wasm::RefType::Func:
             // The wasm stubs layer unboxes anything that needs to be unboxed
             // and leaves it in a Value.  A FuncRef we could in principle leave

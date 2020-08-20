@@ -39,8 +39,6 @@ class nsSharedPageData {
   nsString mDocURL;
   nsFont mHeadFootFont;
 
-  nsSize mReflowSize;
-  nsMargin mReflowMargin;
   // Margin for headers and footers; it defaults to 4/100 of an inch on UNIX
   // and 0 elsewhere; I think it has to do with some inconsistency in page size
   // computations
@@ -132,9 +130,21 @@ class nsPageSequenceFrame final : public nsContainerFrame {
   void DetermineWhetherToPrintPage();
   nsIFrame* GetCurrentPageFrame();
 
-  nsMargin mMargin;
-
   nsSize mSize;
+
+  // These next two LogicalSize members are used when we're in print-preview to
+  // ensure that each previewed sheet will fit in the print-preview scrollport:
+  // -------
+
+  // Each component of this LogicalSize represents the maximum length of all
+  // our print-previewed sheets in that axis, plus a little extra for the
+  // print-preview margin.  Note that this LogicalSize doesn't necessarily
+  // correspond to any one particular sheet's size (especially if our sheets
+  // have different sizes), since the components are tracked independently such
+  // that we end up storing the maximum in each dimension.
+  LogicalSize mMaxSheetSize;
+  // The size of the scrollport where we're print-previewing sheets.
+  LogicalSize mScrollportSize;
 
   // Data shared by all the nsPageFrames:
   mozilla::UniquePtr<nsSharedPageData> mPageData;
@@ -142,11 +152,9 @@ class nsPageSequenceFrame final : public nsContainerFrame {
   // Async Printing
   int32_t mPageNum;
   int32_t mTotalPages;
-  int32_t mPrintRangeType;
   int32_t mFromPageNum;
   int32_t mToPageNum;
-  // The size we need to shrink-to-fit our previewed sheets of paper against.
-  nscoord mAvailableISize = -1;
+
   nsTArray<int32_t> mPageRanges;
   nsTArray<RefPtr<mozilla::dom::HTMLCanvasElement> > mCurrentCanvasList;
 

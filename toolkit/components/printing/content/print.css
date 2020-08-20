@@ -37,7 +37,6 @@ body[loading] {
   display: flex;
   flex-direction: column;
   width: 100%;
-  box-sizing: border-box;
   min-height: 1.8em;
   margin-block: 2px;
 }
@@ -47,7 +46,6 @@ body[loading] {
 .col > input {
   margin-inline: 0 0;
   max-width: 100%;
-  box-sizing: border-box;
   display: inline-block;
 }
 
@@ -165,6 +163,10 @@ input[type="radio"]:not(:disabled):focus {
   box-shadow: 0 0 0 4px var(--in-content-border-active-shadow);
 }
 
+input[type="radio"]:disabled {
+  opacity: 0.5;
+}
+
 input[type="number"],
 input[type="text"] {
   padding: 2px;
@@ -179,10 +181,6 @@ input[type="text"] {
 .body-container {
   flex: 1 1 auto;
   overflow: auto;
-}
-
-#copies-count {
-  width: 3em;
 }
 
 #more-settings {
@@ -262,12 +260,58 @@ input[type="text"] {
   content: url("chrome://global/content/portrait.svg");
 }
 
+select:invalid,
 input[type="number"]:invalid {
   border: 1px solid #D70022;
   box-shadow: 0 0 0 1px #D70022, 0 0 0 4px rgba(215, 0, 34, 0.3);
 }
 
+.error-message {
+  font-size: 12px;
+  color: #D70022;
+  margin-top: 4px;
+}
+
 #percent-scale {
-  appearance: textfield;
   margin-inline-start: 4px;
+}
+
+input[type="number"].photon-number {
+  padding: 0;
+  padding-inline-start: 4px;
+  margin: 0;
+  height: 20px;
+  width: 4em;
+}
+
+input[type="number"].photon-number::-moz-number-spin-box {
+  height: 100%;
+  max-height: 100%;
+  border-inline-start: 1px solid var(--in-content-box-border-color);
+  width: 1em;
+}
+
+input[type="number"].photon-number:hover::-moz-number-spin-box {
+  border-color: var(--in-content-border-hover);
+}
+
+input[type="number"].photon-number::-moz-number-spin-up,
+input[type="number"].photon-number::-moz-number-spin-down {
+  border: 0;
+  border-radius: 0;
+  background-color: var(--in-content-button-background);
+  background-image: url("chrome://global/skin/icons/arrow-dropdown-16.svg");
+  background-size: 8px;
+  background-position: center;
+  -moz-context-properties: fill;
+  fill: currentColor;
+}
+
+input[type="number"].photon-number::-moz-number-spin-up {
+  scale: 1 -1;
+}
+
+input[type="number"].photon-number::-moz-number-spin-up:hover,
+input[type="number"].photon-number::-moz-number-spin-down:hover {
+  background-color: var(--in-content-button-background-hover);
 }

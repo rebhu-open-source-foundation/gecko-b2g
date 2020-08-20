@@ -576,6 +576,8 @@ class GCRuntime {
   void joinTask(GCParallelTask& task, gcstats::PhaseKind phase,
                 AutoLockHelperThreadState& locked);
   void joinTask(GCParallelTask& task, gcstats::PhaseKind phase);
+  void updateHelperThreadCount();
+  size_t parallelWorkerCount() const;
 
   void mergeRealms(JS::Realm* source, JS::Realm* target);
 
@@ -849,6 +851,11 @@ class GCRuntime {
   GCSchedulingTunables tunables;
   GCSchedulingState schedulingState;
 
+  // Helper thread configuration.
+  MainThreadData<double> helperThreadRatio;
+  MainThreadData<size_t> maxHelperThreads;
+  MainThreadData<size_t> helperThreadCount;
+
   // State used for managing atom mark bitmaps in each zone.
   AtomMarkingRuntime atomMarking;
 
@@ -1028,7 +1035,6 @@ class GCRuntime {
       weakCachesToSweep;
   MainThreadData<bool> hasMarkedGrayRoots;
   MainThreadData<bool> abortSweepAfterCurrentGroup;
-  MainThreadData<bool> sweepMarkTaskStarted;
   MainThreadOrGCTaskData<IncrementalProgress> sweepMarkResult;
 
 #ifdef DEBUG
