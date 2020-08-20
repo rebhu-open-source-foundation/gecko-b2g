@@ -527,6 +527,7 @@ void SandboxBrokerPolicyFactory::InitContentPolicy() {
 #if defined(MOZ_WIDGET_GONK)
   policy->AddPrefix(rdonly, "/system/fonts");
   policy->AddPrefix(rdonly, "/vendor/lib");
+  policy->AddDir(rdonly, "/system/etc/dict");
   policy->AddPath(rdwr, "/proc/sys/crypto/fips_enabled");
   policy->AddPath(rdwr, "/dev/pmsg0");
   policy->AddPrefix(rdonly, "/system/lib");
