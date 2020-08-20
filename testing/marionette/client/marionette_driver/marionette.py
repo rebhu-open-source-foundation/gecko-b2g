@@ -1378,12 +1378,6 @@ class Marionette(object):
         """
         self.window = self._send_message("B2G:SwitchToSystemWindow", key="value")
 
-    def get_active_frame(self):
-        """Returns an :class:`~marionette_driver.marionette.HTMLElement`
-        representing the frame Marionette is currently acting on."""
-        return self._send_message("WebDriver:GetActiveFrame",
-                                  key="value")
-
     def switch_to_default_content(self):
         """Switch the current context to page's default content."""
         return self.switch_to_frame()

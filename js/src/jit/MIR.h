@@ -3293,10 +3293,12 @@ class MCompare : public MBinaryInstruction, public ComparePolicy::Data {
 
   ALLOW_CLONE(MCompare)
 
- protected:
+ private:
   MOZ_MUST_USE bool tryFoldEqualOperands(bool* result);
   MOZ_MUST_USE bool tryFoldTypeOf(bool* result);
+  MOZ_MUST_USE MDefinition* tryFoldCharCompare(TempAllocator& alloc);
 
+ public:
   bool congruentTo(const MDefinition* ins) const override {
     if (!binaryCongruentTo(ins)) {
       return false;
@@ -5846,6 +5848,7 @@ class MCharCodeAt
  public:
   INSTRUCTION_HEADER(CharCodeAt)
   TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, string), (1, index))
 
   bool congruentTo(const MDefinition* ins) const override {
     return congruentIfOperandsEqual(ins);
@@ -5855,6 +5858,8 @@ class MCharCodeAt
     // Strings are immutable, so there is no implicit dependency.
     return AliasSet::None();
   }
+
+  MDefinition* foldsTo(TempAllocator& alloc) override;
 
   void computeRange(TempAllocator& alloc) override;
 
@@ -9082,6 +9087,7 @@ class MGuardShape : public MUnaryInstruction, public SingleObjectPolicy::Data {
     }
     return congruentIfOperandsEqual(ins);
   }
+  MDefinition* foldsTo(TempAllocator& alloc) override;
   AliasSet getAliasSet() const override {
     return AliasSet::Load(AliasSet::ObjectFields);
   }
@@ -9299,6 +9305,137 @@ class MProxySetByValue
   NAMED_OPERANDS((0, proxy), (1, idVal), (2, rhs))
 
   bool strict() const { return strict_; }
+
+  bool possiblyCalls() const override { return true; }
+};
+
+class MMegamorphicLoadSlot : public MUnaryInstruction,
+                             public SingleObjectPolicy::Data {
+  CompilerPropertyName name_;
+
+  MMegamorphicLoadSlot(MDefinition* obj, PropertyName* name)
+      : MUnaryInstruction(classOpcode, obj), name_(name) {
+    setResultType(MIRType::Value);
+  }
+
+ public:
+  INSTRUCTION_HEADER(MegamorphicLoadSlot)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, object))
+
+  PropertyName* name() const { return name_; }
+
+  bool congruentTo(const MDefinition* ins) const override {
+    if (!ins->isMegamorphicLoadSlot()) {
+      return false;
+    }
+    if (ins->toMegamorphicLoadSlot()->name() != name()) {
+      return false;
+    }
+    return congruentIfOperandsEqual(ins);
+  }
+  AliasSet getAliasSet() const override {
+    return AliasSet::Load(AliasSet::ObjectFields | AliasSet::FixedSlot |
+                          AliasSet::DynamicSlot);
+  }
+
+  bool possiblyCalls() const override { return true; }
+
+  bool appendRoots(MRootList& roots) const override {
+    return roots.append(name_);
+  }
+};
+
+class MMegamorphicLoadSlotByValue
+    : public MBinaryInstruction,
+      public MixPolicy<ObjectPolicy<0>, BoxPolicy<1>>::Data {
+  MMegamorphicLoadSlotByValue(MDefinition* obj, MDefinition* idVal)
+      : MBinaryInstruction(classOpcode, obj, idVal) {
+    setResultType(MIRType::Value);
+  }
+
+ public:
+  INSTRUCTION_HEADER(MegamorphicLoadSlotByValue)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, object), (1, idVal))
+
+  bool congruentTo(const MDefinition* ins) const override {
+    return congruentIfOperandsEqual(ins);
+  }
+  AliasSet getAliasSet() const override {
+    return AliasSet::Load(AliasSet::ObjectFields | AliasSet::FixedSlot |
+                          AliasSet::DynamicSlot);
+  }
+
+  bool possiblyCalls() const override { return true; }
+};
+
+class MMegamorphicStoreSlot
+    : public MBinaryInstruction,
+      public MixPolicy<ObjectPolicy<0>, BoxPolicy<1>>::Data {
+  CompilerPropertyName name_;
+
+  MMegamorphicStoreSlot(MDefinition* obj, PropertyName* name, MDefinition* rhs)
+      : MBinaryInstruction(classOpcode, obj, rhs), name_(name) {}
+
+ public:
+  INSTRUCTION_HEADER(MegamorphicStoreSlot)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, object), (1, rhs))
+
+  PropertyName* name() const { return name_; }
+
+  bool congruentTo(const MDefinition* ins) const override {
+    if (!ins->isMegamorphicStoreSlot()) {
+      return false;
+    }
+    if (ins->toMegamorphicStoreSlot()->name() != name()) {
+      return false;
+    }
+    return congruentIfOperandsEqual(ins);
+  }
+  AliasSet getAliasSet() const override {
+    return AliasSet::Store(AliasSet::ObjectFields | AliasSet::FixedSlot |
+                           AliasSet::DynamicSlot);
+  }
+
+  bool possiblyCalls() const override { return true; }
+
+  bool appendRoots(MRootList& roots) const override {
+    return roots.append(name_);
+  }
+};
+
+class MMegamorphicHasProp
+    : public MBinaryInstruction,
+      public MixPolicy<ObjectPolicy<0>, BoxPolicy<1>>::Data {
+  bool hasOwn_;
+
+  MMegamorphicHasProp(MDefinition* obj, MDefinition* idVal, bool hasOwn)
+      : MBinaryInstruction(classOpcode, obj, idVal), hasOwn_(hasOwn) {
+    setResultType(MIRType::Boolean);
+  }
+
+ public:
+  INSTRUCTION_HEADER(MegamorphicHasProp)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, object), (1, idVal))
+
+  bool hasOwn() const { return hasOwn_; }
+
+  bool congruentTo(const MDefinition* ins) const override {
+    if (!ins->isMegamorphicHasProp()) {
+      return false;
+    }
+    if (ins->toMegamorphicHasProp()->hasOwn() != hasOwn()) {
+      return false;
+    }
+    return congruentIfOperandsEqual(ins);
+  }
+  AliasSet getAliasSet() const override {
+    return AliasSet::Load(AliasSet::ObjectFields | AliasSet::FixedSlot |
+                          AliasSet::DynamicSlot);
+  }
 
   bool possiblyCalls() const override { return true; }
 };
@@ -9867,6 +10004,39 @@ class MAddAndStoreSlot
                                                       : AliasSet::DynamicSlot));
   }
 
+  bool appendRoots(MRootList& roots) const override {
+    return roots.append(shape_);
+  }
+};
+
+class MAllocateAndStoreSlot
+    : public MBinaryInstruction,
+      public MixPolicy<SingleObjectPolicy, BoxPolicy<1>>::Data {
+ private:
+  CompilerShape shape_;
+  uint32_t slotOffset_;
+  uint32_t numNewSlots_;
+
+  MAllocateAndStoreSlot(MDefinition* obj, MDefinition* value,
+                        uint32_t slotOffset, Shape* shape, uint32_t numNewSlots)
+      : MBinaryInstruction(classOpcode, obj, value),
+        shape_(shape),
+        slotOffset_(slotOffset),
+        numNewSlots_(numNewSlots) {}
+
+ public:
+  INSTRUCTION_HEADER(AllocateAndStoreSlot)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, object), (1, value))
+
+  Shape* shape() const { return shape_; }
+  uint32_t slotOffset() const { return slotOffset_; }
+  uint32_t numNewSlots() const { return numNewSlots_; }
+
+  AliasSet getAliasSet() const override {
+    return AliasSet::Store(AliasSet::ObjectFields | AliasSet::DynamicSlot);
+  }
+  bool possiblyCalls() const override { return true; }
   bool appendRoots(MRootList& roots) const override {
     return roots.append(shape_);
   }

@@ -449,6 +449,7 @@ STATIC_ATOMS = [
     Atom("footer", "footer"),
     Atom("_for", "for"),
     Atom("forEach", "for-each"),
+    Atom("forcedColors", "forced-colors"),
     Atom("forceOwnRefreshDriver", "forceOwnRefreshDriver"),
     Atom("form", "form"),
     Atom("formaction", "formaction"),
@@ -2417,6 +2418,8 @@ STATIC_ATOMS = [
     # Media Controller
     Atom("onactivated", "onactivated"),
     Atom("ondeactivated", "ondeactivated"),
+    Atom("onmetadatachange", "onmetadatachange"),
+    Atom("onplaybackstatechange", "onplaybackstatechange"),
     Atom("onpositionstatechange", "onpositionstatechange"),
     Atom("onsupportedkeyschange", "onsupportedkeyschange"),
 

@@ -869,6 +869,9 @@ GCRuntime::GCRuntime(JSRuntime* rt)
       stats_(this),
       marker(rt),
       heapSize(nullptr),
+      helperThreadRatio(TuningDefaults::HelperThreadRatio),
+      maxHelperThreads(TuningDefaults::MaxHelperThreads),
+      helperThreadCount(1),
       rootsHash(256),
       nextCellUniqueId_(LargestTaggedNullCellPointer +
                         1),  // Ensure disjoint from null tagged pointers.
@@ -907,7 +910,6 @@ GCRuntime::GCRuntime(JSRuntime* rt)
       sweepZone(nullptr),
       hasMarkedGrayRoots(false),
       abortSweepAfterCurrentGroup(false),
-      sweepMarkTaskStarted(false),
       sweepMarkResult(IncrementalProgress::NotFinished),
       startedCompacting(false),
       relocatedArenasToRelease(nullptr),
@@ -1268,6 +1270,8 @@ bool GCRuntime::init(uint32_t maxbytes) {
 
   gcprobes::Init(this);
 
+  updateHelperThreadCount();
+
   return true;
 }
 
@@ -1367,6 +1371,28 @@ bool GCRuntime::setParameter(JSGCParamKey key, uint32_t value,
     case JSGC_INCREMENTAL_WEAKMAP_ENABLED:
       marker.incrementalWeakMapMarkingEnabled = value != 0;
       break;
+    case JSGC_HELPER_THREAD_RATIO:
+      if (rt->parentRuntime) {
+        // Don't allow this to be set for worker runtimes.
+        return false;
+      }
+      if (value == 0) {
+        return false;
+      }
+      helperThreadRatio = double(value) / 100.0;
+      updateHelperThreadCount();
+      break;
+    case JSGC_MAX_HELPER_THREADS:
+      if (rt->parentRuntime) {
+        // Don't allow this to be set for worker runtimes.
+        return false;
+      }
+      if (value == 0) {
+        return false;
+      }
+      maxHelperThreads = value;
+      updateHelperThreadCount();
+      break;
     default:
       if (!tunables.setParameter(key, value, lock)) {
         return false;
@@ -1403,6 +1429,20 @@ void GCRuntime::resetParameter(JSGCParamKey key, AutoLockGC& lock) {
     case JSGC_INCREMENTAL_WEAKMAP_ENABLED:
       marker.incrementalWeakMapMarkingEnabled =
           TuningDefaults::IncrementalWeakMapMarkingEnabled;
+      break;
+    case JSGC_HELPER_THREAD_RATIO:
+      if (rt->parentRuntime) {
+        return;
+      }
+      helperThreadRatio = TuningDefaults::HelperThreadRatio;
+      updateHelperThreadCount();
+      break;
+    case JSGC_MAX_HELPER_THREADS:
+      if (rt->parentRuntime) {
+        return;
+      }
+      maxHelperThreads = TuningDefaults::MaxHelperThreads;
+      updateHelperThreadCount();
       break;
     default:
       tunables.resetParameter(key, lock);
@@ -1496,6 +1536,14 @@ uint32_t GCRuntime::getParameter(JSGCParamKey key, const AutoLockGC& lock) {
       return uint32_t(tunables.mallocGrowthFactor() * 100);
     case JSGC_CHUNK_BYTES:
       return ChunkSize;
+    case JSGC_HELPER_THREAD_RATIO:
+      MOZ_ASSERT(helperThreadRatio > 0.0);
+      return uint32_t(helperThreadRatio * 100.0);
+    case JSGC_MAX_HELPER_THREADS:
+      MOZ_ASSERT(maxHelperThreads <= UINT32_MAX);
+      return maxHelperThreads;
+    case JSGC_HELPER_THREAD_COUNT:
+      return helperThreadCount;
     default:
       MOZ_CRASH("Unknown parameter key");
   }
@@ -1506,6 +1554,30 @@ void GCRuntime::setMarkStackLimit(size_t limit, AutoLockGC& lock) {
   AutoUnlockGC unlock(lock);
   AutoStopVerifyingBarriers pauseVerification(rt, false);
   marker.setMaxCapacity(limit);
+}
+
+void GCRuntime::updateHelperThreadCount() {
+  if (!CanUseExtraThreads()) {
+    // startTask will run the work on the main thread if the count is 1.
+    MOZ_ASSERT(helperThreadCount == 1);
+    return;
+  }
+
+  // The count of helper threads used for GC tasks is process wide. Don't set it
+  // for worker JS runtimes.
+  if (rt->parentRuntime) {
+    helperThreadCount = rt->parentRuntime->gc.helperThreadCount;
+    return;
+  }
+
+  double cpuCount = HelperThreadState().cpuCount;
+  size_t target = size_t(cpuCount * helperThreadRatio.ref());
+  helperThreadCount = mozilla::Clamp(target, size_t(1), maxHelperThreads.ref());
+
+  HelperThreadState().ensureThreadCount(helperThreadCount);
+
+  AutoLockHelperThreadState lock;
+  HelperThreadState().setGCParallelThreadCount(helperThreadCount, lock);
 }
 
 bool GCRuntime::addBlackRootsTracer(JSTraceDataOp traceOp, void* data) {
@@ -5470,7 +5542,9 @@ IncrementalProgress GCRuntime::endSweepingSweepGroup(JSFreeOp* fop,
 
 IncrementalProgress GCRuntime::markDuringSweeping(JSFreeOp* fop,
                                                   SliceBudget& budget) {
-  if (sweepMarkTaskStarted || marker.isDrained()) {
+  MOZ_ASSERT(sweepMarkTask.isIdle());
+
+  if (marker.isDrained()) {
     return Finished;
   }
 
@@ -5479,7 +5553,6 @@ IncrementalProgress GCRuntime::markDuringSweeping(JSFreeOp* fop,
     MOZ_ASSERT(sweepMarkTask.isIdle(lock));
     sweepMarkTask.setBudget(budget);
     sweepMarkTask.startOrRunIfIdle(lock);
-    sweepMarkTaskStarted = true;
     return Finished;  // This means don't yield to the mutator here.
   }
 
@@ -5560,12 +5633,15 @@ void js::gc::SweepMarkTask::run() {
 }
 
 IncrementalProgress GCRuntime::joinSweepMarkTask() {
-  MOZ_ASSERT_IF(!sweepMarkTaskStarted, sweepMarkTask.isIdle());
-  joinTask(sweepMarkTask, gcstats::PhaseKind::SWEEP_MARK);
+  AutoLockHelperThreadState lock;
+  if (sweepMarkTask.isIdle(lock)) {
+    return Finished;
+  }
 
-  IncrementalProgress result =
-      sweepMarkTaskStarted ? sweepMarkResult : Finished;
-  sweepMarkTaskStarted = false;
+  joinTask(sweepMarkTask, gcstats::PhaseKind::SWEEP_MARK, lock);
+
+  IncrementalProgress result = sweepMarkResult;
+  sweepMarkResult = Finished;
   return result;
 }
 
@@ -6181,14 +6257,15 @@ IncrementalProgress GCRuntime::performSweepActions(SliceBudget& budget) {
   // Then continue running sweep actions.
 
   SweepAction::Args args{this, &fop, budget};
-  IncrementalProgress progress = sweepActions->run(args);
+  IncrementalProgress sweepProgress = sweepActions->run(args);
+  IncrementalProgress markProgress = joinSweepMarkTask();
 
-  if (sweepMarkTaskStarted && joinSweepMarkTask() == NotFinished) {
-    progress = NotFinished;
+  if (sweepProgress == Finished && markProgress == Finished) {
+    return Finished;
   }
 
-  MOZ_ASSERT_IF(progress == NotFinished, isIncremental);
-  return progress;
+  MOZ_ASSERT(isIncremental);
+  return NotFinished;
 }
 
 bool GCRuntime::allCCVisibleZonesWereCollected() {

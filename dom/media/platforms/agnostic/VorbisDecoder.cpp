@@ -5,14 +5,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "VorbisDecoder.h"
+
+#include "VideoUtils.h"
 #include "VorbisUtils.h"
 #include "XiphExtradata.h"
-
 #include "mozilla/Logging.h"
 #include "mozilla/PodOperations.h"
 #include "mozilla/SyncRunnable.h"
-#include "VideoUtils.h"
 #include "mozilla/StaticPrefs_accessibility.h"
+
 
 #undef LOG
 #define LOG(type, msg) MOZ_LOG(sPDMLog, type, msg)
@@ -33,10 +34,7 @@ ogg_packet InitVorbisPacket(const unsigned char* aData, size_t aLength,
 }
 
 VorbisDataDecoder::VorbisDataDecoder(const CreateDecoderParams& aParams)
-    : mInfo(aParams.AudioConfig()),
-      mTaskQueue(aParams.mTaskQueue),
-      mPacketCount(0),
-      mFrames(0) {
+    : mInfo(aParams.AudioConfig()), mPacketCount(0), mFrames(0) {
   // Zero these member vars to avoid crashes in Vorbis clear functions when
   // destructor is called before |Init|.
   PodZero(&mVorbisBlock);
@@ -46,6 +44,7 @@ VorbisDataDecoder::VorbisDataDecoder(const CreateDecoderParams& aParams)
 }
 
 VorbisDataDecoder::~VorbisDataDecoder() {
+  MOZ_ASSERT(mThread->IsOnCurrentThread());
   vorbis_block_clear(&mVorbisBlock);
   vorbis_dsp_clear(&mVorbisDsp);
   vorbis_info_clear(&mVorbisInfo);
@@ -53,13 +52,12 @@ VorbisDataDecoder::~VorbisDataDecoder() {
 }
 
 RefPtr<ShutdownPromise> VorbisDataDecoder::Shutdown() {
-  RefPtr<VorbisDataDecoder> self = this;
-  return InvokeAsync(mTaskQueue, __func__, [self]() {
-    return ShutdownPromise::CreateAndResolve(true, __func__);
-  });
+  MOZ_ASSERT(mThread->IsOnCurrentThread());
+  return ShutdownPromise::CreateAndResolve(true, __func__);
 }
 
 RefPtr<MediaDataDecoder::InitPromise> VorbisDataDecoder::Init() {
+  mThread = GetCurrentSerialEventTarget();
   vorbis_info_init(&mVorbisInfo);
   vorbis_comment_init(&mVorbisComment);
   PodZero(&mVorbisDsp);
@@ -142,13 +140,7 @@ nsresult VorbisDataDecoder::DecodeHeader(const unsigned char* aData,
 
 RefPtr<MediaDataDecoder::DecodePromise> VorbisDataDecoder::Decode(
     MediaRawData* aSample) {
-  return InvokeAsync<MediaRawData*>(mTaskQueue, this, __func__,
-                                    &VorbisDataDecoder::ProcessDecode, aSample);
-}
-
-RefPtr<MediaDataDecoder::DecodePromise> VorbisDataDecoder::ProcessDecode(
-    MediaRawData* aSample) {
-  MOZ_ASSERT(mTaskQueue->IsCurrentThreadIn());
+  MOZ_ASSERT(mThread->IsOnCurrentThread());
 
   const unsigned char* aData = aSample->Data();
   size_t aLength = aSample->Size();
@@ -269,21 +261,18 @@ RefPtr<MediaDataDecoder::DecodePromise> VorbisDataDecoder::ProcessDecode(
 }
 
 RefPtr<MediaDataDecoder::DecodePromise> VorbisDataDecoder::Drain() {
-  return InvokeAsync(mTaskQueue, __func__, [] {
-    return DecodePromise::CreateAndResolve(DecodedData(), __func__);
-  });
+  MOZ_ASSERT(mThread->IsOnCurrentThread());
+  return DecodePromise::CreateAndResolve(DecodedData(), __func__);
 }
 
 RefPtr<MediaDataDecoder::FlushPromise> VorbisDataDecoder::Flush() {
-  RefPtr<VorbisDataDecoder> self = this;
-  return InvokeAsync(mTaskQueue, __func__, [self]() {
-    // Ignore failed results from vorbis_synthesis_restart. They
-    // aren't fatal and it fails when ResetDecode is called at a
-    // time when no vorbis data has been read.
-    vorbis_synthesis_restart(&self->mVorbisDsp);
-    self->mLastFrameTime.reset();
-    return FlushPromise::CreateAndResolve(true, __func__);
-  });
+  MOZ_ASSERT(mThread->IsOnCurrentThread());
+  // Ignore failed results from vorbis_synthesis_restart. They
+  // aren't fatal and it fails when ResetDecode is called at a
+  // time when no vorbis data has been read.
+  vorbis_synthesis_restart(&mVorbisDsp);
+  mLastFrameTime.reset();
+  return FlushPromise::CreateAndResolve(true, __func__);
 }
 
 /* static */

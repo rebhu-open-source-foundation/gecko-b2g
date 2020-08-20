@@ -17,18 +17,6 @@ use crate::Atom;
 use app_units::Au;
 use euclid::default::Size2D;
 
-fn viewport_size(device: &Device) -> Size2D<Au> {
-    if let Some(pc) = device.pres_context() {
-        if pc.mIsRootPaginatedDocument() != 0 {
-            // We want the page size, including unprintable areas and margins.
-            // FIXME(emilio, bug 1414600): Not quite!
-            let area = &pc.mPageSize;
-            return Size2D::new(Au(area.width), Au(area.height));
-        }
-    }
-    device.au_viewport_size()
-}
-
 fn device_size(device: &Device) -> Size2D<Au> {
     let mut width = 0;
     let mut height = 0;
@@ -47,7 +35,7 @@ fn eval_width(
     RangeOrOperator::evaluate(
         range_or_operator,
         value.map(Au::from),
-        viewport_size(device).width,
+        device.au_viewport_size().width,
     )
 }
 
@@ -73,7 +61,7 @@ fn eval_height(
     RangeOrOperator::evaluate(
         range_or_operator,
         value.map(Au::from),
-        viewport_size(device).height,
+        device.au_viewport_size().height,
     )
 }
 
@@ -115,7 +103,7 @@ fn eval_aspect_ratio(
     query_value: Option<Ratio>,
     range_or_operator: Option<RangeOrOperator>,
 ) -> bool {
-    eval_aspect_ratio_for(device, query_value, range_or_operator, viewport_size)
+    eval_aspect_ratio_for(device, query_value, range_or_operator, Device::au_viewport_size)
 }
 
 /// https://drafts.csswg.org/mediaqueries-4/#device-aspect-ratio
@@ -168,7 +156,7 @@ where
 
 /// https://drafts.csswg.org/mediaqueries-4/#orientation
 fn eval_orientation(device: &Device, value: Option<Orientation>) -> bool {
-    eval_orientation_for(device, value, viewport_size)
+    eval_orientation_for(device, value, Device::au_viewport_size)
 }
 
 /// FIXME: There's no spec for `-moz-device-orientation`.
@@ -369,6 +357,26 @@ fn eval_prefers_text_size(device: &Device, query_value: Option<PrefersTextSize>)
     match query_value {
         Some(v) => prefers_text_size == v,
         None => prefers_text_size != PrefersTextSize::Normal,
+    }
+}
+
+/// Possible values for the forced-colors media query.
+/// https://drafts.csswg.org/mediaqueries-5/#forced-colors
+#[derive(Clone, Copy, Debug, FromPrimitive, PartialEq, Parse, ToCss)]
+#[repr(u8)]
+pub enum ForcedColors {
+    /// Page colors are not being forced.
+    None,
+    /// Page colors are being forced.
+    Active,
+}
+
+/// https://drafts.csswg.org/mediaqueries-5/#forced-colors
+fn eval_forced_colors(device: &Device, query_value: Option<ForcedColors>) -> bool {
+    let forced = !device.use_document_colors();
+    match query_value {
+        Some(query_value) => forced == (query_value == ForcedColors::Active),
+        None => forced,
     }
 }
 
@@ -612,7 +620,7 @@ macro_rules! system_metric_feature {
 /// to support new types in these entries and (2) ensuring that either
 /// nsPresContext::MediaFeatureValuesChanged is called when the value that
 /// would be returned by the evaluator function could change.
-pub static MEDIA_FEATURES: [MediaFeatureDescription; 55] = [
+pub static MEDIA_FEATURES: [MediaFeatureDescription; 56] = [
     feature!(
         atom!("width"),
         AllowsRanges::Yes,
@@ -747,6 +755,13 @@ pub static MEDIA_FEATURES: [MediaFeatureDescription; 55] = [
         keyword_evaluator!(eval_prefers_text_size, PrefersTextSize),
         ParsingRequirements::empty(),
     ),
+    feature!(
+        atom!("forced-colors"),
+        AllowsRanges::No,
+        keyword_evaluator!(eval_forced_colors, ForcedColors),
+        ParsingRequirements::empty(),
+    ),
+
     feature!(
         atom!("overflow-block"),
         AllowsRanges::No,

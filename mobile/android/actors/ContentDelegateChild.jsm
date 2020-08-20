@@ -42,6 +42,10 @@ class ContentDelegateChild extends GeckoViewActorChild {
   // eslint-disable-next-line complexity
   handleEvent(aEvent) {
     debug`handleEvent: ${aEvent.type}`;
+    if (!this.isContentWindow) {
+      // This not a GeckoView-controlled window
+      return;
+    }
 
     switch (aEvent.type) {
       case "contextmenu": {
@@ -159,11 +163,16 @@ class ContentDelegateChild extends GeckoViewActorChild {
         });
         break;
       }
+      case "MozPaintStatusReset": {
+        this.eventDispatcher.sendRequest({
+          type: "GeckoView:PaintStatusReset",
+        });
+        break;
+      }
     }
   }
 }
 
-// eslint-disable-next-line no-unused-vars
 const { debug, warn } = ContentDelegateChild.initLogging(
   "ContentDelegateChild"
 );

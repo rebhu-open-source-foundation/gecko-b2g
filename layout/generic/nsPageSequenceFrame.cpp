@@ -50,12 +50,11 @@ NS_IMPL_FRAMEARENA_HELPERS(nsPageSequenceFrame)
 nsPageSequenceFrame::nsPageSequenceFrame(ComputedStyle* aStyle,
                                          nsPresContext* aPresContext)
     : nsContainerFrame(aStyle, aPresContext, kClassID),
+      mMaxSheetSize(mWritingMode),
+      mScrollportSize(mWritingMode),
       mTotalPages(-1),
       mCalledBeginPage(false),
       mCurrentCanvasListSetup(false) {
-  nscoord halfInch = PresContext()->CSSTwipsToAppUnits(NS_INCHES_TO_TWIPS(0.5));
-  mMargin.SizeTo(halfInch, halfInch, halfInch, halfInch);
-
   mPageData = MakeUnique<nsSharedPageData>();
   mPageData->mHeadFootFont =
       *PresContext()
@@ -79,16 +78,34 @@ NS_QUERYFRAME_TAIL_INHERITING(nsContainerFrame)
 //----------------------------------------------------------------------
 
 float nsPageSequenceFrame::GetPrintPreviewScale() const {
-  MOZ_DIAGNOSTIC_ASSERT(mAvailableISize >= 0, "Unset available width?");
-
   nsPresContext* pc = PresContext();
   float scale = pc->GetPrintPreviewScaleForSequenceFrame();
-  if (pc->IsScreen()) {
-    // For print preview, scale to the available size if needed.
-    nscoord iSize = GetWritingMode().IsVertical() ? mSize.height : mSize.width;
-    nscoord scaledISize = NSToCoordCeil(iSize * scale);
-    if (scaledISize > mAvailableISize) {
-      scale *= float(mAvailableISize) / float(scaledISize);
+
+  WritingMode wm = GetWritingMode();
+  if (pc->IsScreen() && MOZ_LIKELY(mScrollportSize.ISize(wm) > 0 &&
+                                   mScrollportSize.BSize(wm) > 0)) {
+    // For print preview, scale down as-needed to ensure that each of our
+    // sheets will fit in the the scrollport.
+
+    // Check if the current scale is sufficient for our sheets to fit in inline
+    // axis (and if not, reduce the scale so that it will fit).
+    nscoord scaledISize = NSToCoordCeil(mMaxSheetSize.ISize(wm) * scale);
+    if (scaledISize > mScrollportSize.ISize(wm)) {
+      scale *= float(mScrollportSize.ISize(wm)) / float(scaledISize);
+    }
+
+    // Further reduce the scale (if needed) to be sure each sheet will fit in
+    // block axis, too.
+    // NOTE: in general, a scrollport's BSize *could* be unconstrained,
+    // i.e. sized to its contents. If that happens, then shrinking the contents
+    // to fit the scrollport is not a meaningful operation in this axis, so we
+    // skip over this.  But we can be pretty sure that the print-preview UI
+    // will have given the scrollport a fixed size; hence the MOZ_LIKELY here.
+    if (MOZ_LIKELY(mScrollportSize.BSize(wm) != NS_UNCONSTRAINEDSIZE)) {
+      nscoord scaledBSize = NSToCoordCeil(mMaxSheetSize.BSize(wm) * scale);
+      if (scaledBSize > mScrollportSize.BSize(wm)) {
+        scale *= float(mScrollportSize.BSize(wm)) / float(scaledBSize);
+      }
     }
   }
   return scale;
@@ -177,7 +194,12 @@ void nsPageSequenceFrame::Reflow(nsPresContext* aPresContext,
     }
   };
 
-  mAvailableISize = aReflowInput.AvailableISize();
+  if (aPresContext->IsScreen()) {
+    // When we're displayed on-screen, the computed size that we're given is
+    // the size of our scrollport. We need to save this for use in
+    // GetPrintPreviewScale.
+    mScrollportSize = aReflowInput.ComputedSize();
+  }
 
   // Don't do incremental reflow until we've taught tables how to do
   // it right in paginated mode.
@@ -193,27 +215,15 @@ void nsPageSequenceFrame::Reflow(nsPresContext* aPresContext,
   }
 
   // See if we can get a Print Settings from the Context
-  if (!mPageData->mPrintSettings &&
-      aPresContext->Medium() == nsGkAtoms::print) {
+  if (!mPageData->mPrintSettings) {
     mPageData->mPrintSettings = aPresContext->GetPrintSettings();
   }
 
-  // now get out margins & edges
+  // FIXME: This should probably be an assert of sorts, can we really get here
+  // without any print settings?
   if (mPageData->mPrintSettings) {
     nsIntMargin unwriteableTwips;
     mPageData->mPrintSettings->GetUnwriteableMarginInTwips(unwriteableTwips);
-    NS_ASSERTION(unwriteableTwips.left >= 0 && unwriteableTwips.top >= 0 &&
-                     unwriteableTwips.right >= 0 &&
-                     unwriteableTwips.bottom >= 0,
-                 "Unwriteable twips should be non-negative");
-
-    nsIntMargin marginTwips;
-    mPageData->mPrintSettings->GetMarginInTwips(marginTwips);
-    mMargin = nsPresContext::CSSTwipsToAppUnits(marginTwips + unwriteableTwips);
-
-    int16_t printType;
-    mPageData->mPrintSettings->GetPrintRange(&printType);
-    mPrintRangeType = printType;
 
     nsIntMargin edgeTwips;
     mPageData->mPrintSettings->GetEdgeInTwips(edgeTwips);
@@ -229,21 +239,15 @@ void nsPageSequenceFrame::Reflow(nsPresContext* aPresContext,
         nsPresContext::CSSTwipsToAppUnits(edgeTwips + unwriteableTwips);
   }
 
-  // *** Special Override ***
-  // If this is a sub-sdoc (meaning it doesn't take the whole page)
-  // and if this Document is in the upper left hand corner
-  // we need to suppress the top margin or it will reflow too small
-
-  nsSize pageSize = aPresContext->GetPageSize();
-
-  mPageData->mReflowSize = pageSize;
-  mPageData->mReflowMargin = mMargin;
-
   // We use the CSS "margin" property on the -moz-printed-sheet pseudoelement
   // to determine the space between each printed sheet in print preview.
   // Keep a running y-offset for each printed sheet.
   nscoord y = 0;
-  nscoord maxXMost = 0;
+
+  // These represent the maximum sheet size across all our sheets (in each
+  // axis), inflated a bit to account for the -moz-printed-sheet 'margin'.
+  nscoord maxInflatedSheetWidth = 0;
+  nscoord maxInflatedSheetHeight = 0;
 
   // Tile the sheets vertically
   for (nsIFrame* kidFrame : mFrames) {
@@ -256,7 +260,7 @@ void nsPageSequenceFrame::Reflow(nsPresContext* aPresContext,
     // Reflow the sheet
     ReflowInput kidReflowInput(
         aPresContext, aReflowInput, kidFrame,
-        LogicalSize(kidFrame->GetWritingMode(), pageSize));
+        LogicalSize(kidFrame->GetWritingMode(), aPresContext->GetPageSize()));
     ReflowOutput kidReflowOutput(kidReflowInput);
     nsReflowStatus status;
 
@@ -279,8 +283,12 @@ void nsPageSequenceFrame::Reflow(nsPresContext* aPresContext,
     y += kidReflowOutput.Height();
     y += pageCSSMargin.bottom;
 
-    maxXMost =
-        std::max(maxXMost, x + kidReflowOutput.Width() + pageCSSMargin.right);
+    maxInflatedSheetWidth =
+        std::max(maxInflatedSheetWidth,
+                 kidReflowOutput.Width() + pageCSSMargin.LeftRight());
+    maxInflatedSheetHeight =
+        std::max(maxInflatedSheetHeight,
+                 kidReflowOutput.Height() + pageCSSMargin.TopBottom());
 
     // Is the sheet complete?
     nsIFrame* kidNextInFlow = kidFrame->GetNextInFlow();
@@ -331,9 +339,22 @@ void nsPageSequenceFrame::Reflow(nsPresContext* aPresContext,
     SetDateTimeStr(formattedDateString);
   }
 
-  // cache the size so we can set the desired size
-  // for the other reflows that happen
-  mSize = nsSize(maxXMost, y);
+  // cache the size so we can set the desired size for the other reflows that
+  // happen.  Since we're tiling our sheets vertically: in the x axis, we are
+  // as wide as our widest sheet (inflated via "margin"); and in the y axis,
+  // we're as tall as the sum of our sheets' inflated heights, which the 'y'
+  // variable is conveniently storing at this point.
+  mSize = nsSize(maxInflatedSheetWidth, y);
+
+  if (aPresContext->IsScreen()) {
+    // Also cache the maximum size of all our sheets, to use together with the
+    // scrollport size (available as our computed size, and captured higher up
+    // in this function), so that we can scale to ensure that every sheet will
+    // fit in the scrollport.
+    WritingMode wm = aReflowInput.GetWritingMode();
+    mMaxSheetSize =
+        LogicalSize(wm, nsSize(maxInflatedSheetWidth, maxInflatedSheetHeight));
+  }
 
   // Return our desired size
   // Adjust the reflow size by PrintPreviewScale so the scrollbars end up the
@@ -404,8 +425,9 @@ nsresult nsPageSequenceFrame::StartPrint(nsPresContext* aPresContext,
   aPrintSettings->GetEndPageRange(&mToPageNum);
   aPrintSettings->GetPageRanges(mPageRanges);
 
-  mDoingPageRange =
-      nsIPrintSettings::kRangeSpecifiedPageRange == mPrintRangeType;
+  int16_t printType;
+  aPrintSettings->GetPrintRange(&printType);
+  mDoingPageRange = nsIPrintSettings::kRangeSpecifiedPageRange == printType;
 
   // If printing a range of pages make sure at least the starting page
   // number is valid

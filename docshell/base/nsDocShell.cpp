@@ -9537,6 +9537,10 @@ nsresult nsDocShell::DoURILoad(nsDocShellLoadState* aLoadState,
         // page is allowed to open them without abuse regardless of allowed
         // events
         if (PopupBlocker::GetPopupControlState() <= PopupBlocker::openBlocked) {
+          // This use-case of GetFrameElementInternal is fission safe,
+          // because PopupBlocker::TryUsePopupOpeningToken only uses
+          // the principal if it is the system principal, otherwise it
+          // only considers the popup token.
           nsCOMPtr<nsINode> loadingNode =
               mScriptGlobal->GetFrameElementInternal();
           popupBlocked = !PopupBlocker::TryUsePopupOpeningToken(
@@ -9545,12 +9549,11 @@ nsresult nsDocShell::DoURILoad(nsDocShellLoadState* aLoadState,
                    PopupBlocker::ConsumeTimerTokenForExternalProtocolIframe()) {
           popupBlocked = false;
         } else {
-          nsCOMPtr<nsINode> loadingNode =
-              mScriptGlobal->GetFrameElementInternal();
-          if (loadingNode) {
-            popupBlocked = !PopupBlocker::CanShowPopupByPermission(
-                loadingNode->NodePrincipal());
-          }
+          // Check if the parent context of the frame allows popups.
+          WindowContext* parentContext =
+              mBrowsingContext->GetParentWindowContext();
+          MOZ_ASSERT(parentContext);
+          popupBlocked = !parentContext->CanShowPopup();
         }
 
         // No error must be returned when iframes are blocked.
