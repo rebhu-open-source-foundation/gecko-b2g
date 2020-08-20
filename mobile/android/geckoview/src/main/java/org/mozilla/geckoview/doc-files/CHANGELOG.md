@@ -16,18 +16,24 @@ exclude: true
 ## v81
 - Added `cookiePurging` to [`ContentBlocking.Settings.Builder`][81.1] and `getCookiePurging` and `setCookiePurging`
   to [`ContentBlocking.Settings`][81.2].
+- Added [`GeckoSession.ContentDelegate.onPaintStatusReset()`][81.3] callback which notifies when valid content is no longer being rendered.
+- Made [`GeckoSession.ContentDelegate.onFirstContentfulPaint()`][81.4] additionally be called for the first contentful paint following a `onPaintStatusReset()` event, rather than just the first contentful paint of the session.
 
 [81.1]: {{javadoc_uri}}/ContentBlocking.Settings.Builder.html
 [81.2]: {{javadoc_uri}}/ContentBlocking.Settings.html
+[81.3]: {{javadoc_uri}}/GeckoSession.ContentDelegate.html#onPaintStatusReset-org.mozilla.geckoview.GeckoSession-
+[81.4]: {{javadoc_uri}}/GeckoSession.ContentDelegate.html#onFirstContentfulPaint-org.mozilla.geckoview.GeckoSession-
 
 ## v80
 - Removed `GeckoSession.hashCode` and `GeckoSession.equals` overrides in favor
   of the default implementations. ([bug 1647883]({{bugzilla}}1647883))
 - Added `strictSocialTrackingProtection` to [`ContentBlocking.Settings.Builder`][80.1] and `getStrictSocialTrackingProtection`
   to [`ContentBlocking.Settings`][80.2].
+- Added [`MediaSession`][80.3] API for session-based media events and control.
 
 [80.1]: {{javadoc_uri}}/ContentBlocking.Settings.Builder.html
 [80.2]: {{javadoc_uri}}/ContentBlocking.Settings.html
+[80.3]: {{javadoc_uri}}/MediaSession.html
 
 ## v79
 - Added `runtime.openOptionsPage` support. For `options_ui.open_in_new_tab` ==
@@ -759,4 +765,4 @@ to allow adding gecko profiler markers.
 [65.24]: {{javadoc_uri}}/CrashReporter.html#sendCrashReport-android.content.Context-android.os.Bundle-java.lang.String-
 [65.25]: {{javadoc_uri}}/GeckoResult.html
 
-[api-version]: b7c6af9e586923fd7c9be735ea7244365a663c2e
+[api-version]: 9f4bf24e0795c8da7caf58487e659918ea1a56cc

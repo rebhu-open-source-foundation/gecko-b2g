@@ -332,6 +332,10 @@ class GeckoViewContentChild extends GeckoViewActorChild {
   // eslint-disable-next-line complexity
   handleEvent(aEvent) {
     debug`handleEvent: ${aEvent.type}`;
+    if (!this.isContentWindow) {
+      // This is not a GeckoView-controlled window
+      return;
+    }
 
     switch (aEvent.type) {
       case "mozcaretstatechanged":
@@ -349,4 +353,4 @@ class GeckoViewContentChild extends GeckoViewActorChild {
   }
 }
 
-const { debug, warn } = GeckoViewContentChild.initLogging("GeckoViewContent"); // eslint-disable-line no-unused-vars
+const { debug, warn } = GeckoViewContentChild.initLogging("GeckoViewContent");

@@ -65,6 +65,13 @@ XPCOMUtils.defineLazyPreferenceGetter(
   false
 );
 
+XPCOMUtils.defineLazyPreferenceGetter(
+  this,
+  "PRINT_ALWAYS_SILENT",
+  "print.always_print_silent",
+  false
+);
+
 var gFocusedElement = null;
 
 var PrintUtils = {
@@ -141,6 +148,7 @@ var PrintUtils = {
     );
     if (container.querySelector(".printDialogContainer")) {
       // Don't open another dialog if we're already printing.
+      aBrowsingContext.isAwaitingPrint = false;
       return;
     }
 
@@ -159,7 +167,7 @@ var PrintUtils = {
 
     // Store the dialog on the overlay for access in the tests.
     dialog._overlay._dialog = dialog;
-    let sourceBrowser = aBrowsingContext.embedderElement;
+    let sourceBrowser = aBrowsingContext.top.embedderElement;
     let printPreviewBrowser = gBrowser.createBrowser({
       remoteType: sourceBrowser.remoteType,
       initialBrowsingContextGroupId: aBrowsingContext.group.id,
@@ -189,8 +197,9 @@ var PrintUtils = {
    * Update a print preview for the provided source Browser, print preview Browser
    * and nsIPrintSettings.
    *
-   * @param sourceBrowser
-   *        The source Browser (the one associated with a tab) that should be updated.
+   * @param sourceBrowsingContext
+   *        The source BrowsingContext (the one associated with a tab or
+   *        subdocument) that should be updated.
    * @param printPreviewBrowser
    *        The Browser that contains the print preview.
    * @param printSettings
@@ -199,7 +208,11 @@ var PrintUtils = {
    *
    * @return {Promise<Integer>} The number of pages that were rendered in the preview.
    */
-  updatePrintPreview(sourceBrowser, printPreviewBrowser, printSettings) {
+  updatePrintPreview(
+    sourceBrowsingContext,
+    printPreviewBrowser,
+    printSettings
+  ) {
     let stack = printPreviewBrowser.parentElement;
     stack.setAttribute("isRendering", true);
 
@@ -224,7 +237,7 @@ var PrintUtils = {
           changingBrowsers: false,
           lastUsedPrinterName: printSettings.printerName,
           simplifiedMode: false,
-          windowID: sourceBrowser.outerWindowID,
+          browsingContextId: sourceBrowsingContext.id,
           outputFormat: printSettings.outputFormat,
         }
       );
@@ -237,9 +250,11 @@ var PrintUtils = {
    *
    * @param aBrowsingContext
    *        The BrowsingContext of the window to print.
+   *        Note that the browsing context could belong to a subframe of the
+   *        tab that called window.print, or similar shenanigans.
    */
   startPrintWindow(aBrowsingContext) {
-    if (PRINT_TAB_MODAL) {
+    if (PRINT_TAB_MODAL && !PRINT_ALWAYS_SILENT) {
       this._openTabModalPrint(aBrowsingContext);
     } else {
       this.printWindow(aBrowsingContext);
@@ -654,7 +669,7 @@ var PrintUtils = {
 
     let sendEnterPreviewMessage = function(browser, simplified) {
       mm.sendAsyncMessage("Printing:Preview:Enter", {
-        windowID: browser.outerWindowID,
+        browsingContextId: browser.browsingContext.id,
         simplifiedMode: simplified,
         changingBrowsers: changingPrintPreviewBrowsers,
         lastUsedPrinterName,

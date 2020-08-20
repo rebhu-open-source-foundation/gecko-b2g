@@ -339,9 +339,8 @@ android::MediaBuffer* AutoReleaseMediaBuffer::forget() {
   return tmp;
 }
 
-GonkMediaDataDecoder::GonkMediaDataDecoder(GonkDecoderManager* aManager,
-                                           TaskQueue* aTaskQueue)
-    : mManager(aManager), mTaskQueue(aTaskQueue) {
+GonkMediaDataDecoder::GonkMediaDataDecoder(GonkDecoderManager* aManager)
+    : mManager(aManager), mTaskQueue(CreateMediaDecodeTaskQueue("GonkMediaDataDecoder::mTaskQueue")) {
   MOZ_COUNT_CTOR(GonkMediaDataDecoder);
   mCallback = new DecoderManagerCallback(this);
   mManager->SetDecodeCallback(mCallback);

@@ -3680,6 +3680,15 @@
   value: false
   mirror: always
 
+# If true, allow process-switching documents loaded by <object> and <embed>
+# elements into a remote process.
+# NOTE: This pref has no impact outside of windows with the
+# `useRemoteSubframes` flag set.
+- name: fission.remoteObjectEmbed
+  type: bool
+  value: false
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "font."
 #---------------------------------------------------------------------------
@@ -3912,12 +3921,12 @@
 
 - name: general.smoothScroll.mouseWheel.durationMaxMS
   type: RelaxedAtomicInt32
-  value: 400
+  value: 200
   mirror: always
 
 - name: general.smoothScroll.mouseWheel.durationMinMS
   type: RelaxedAtomicInt32
-  value: 200
+  value: 50
   mirror: always
 
 - name: general.smoothScroll.other.durationMaxMS
@@ -6131,6 +6140,13 @@
 #   false: prefers-contrast will only parse and toggle in the browser
 #   chrome and ua.
 - name: layout.css.prefers-contrast.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  rust: true
+
+# Dictates whether or not the forced-colors media query is enabled.
+- name: layout.css.forced-colors.enabled
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -8585,6 +8601,14 @@
 - name: print.always_print_silent
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+# Whether tab_modal print UI is enabled.
+#
+# The tab modal print dialog is currently only for early beta or nightly.
+- name: print.tab_modal.enabled
+  type: RelaxedAtomicBool
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 #---------------------------------------------------------------------------

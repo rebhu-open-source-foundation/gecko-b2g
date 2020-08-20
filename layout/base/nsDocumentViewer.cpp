@@ -1748,7 +1748,7 @@ nsDocumentViewer::Destroy() {
   if (mPrintJob) {
     RefPtr<nsPrintJob> printJob = std::move(mPrintJob);
 #  ifdef NS_PRINT_PREVIEW
-    if (printJob->IsDoingPrintPreview()) {
+    if (printJob->CreatedForPrintPreview()) {
       printJob->FinishPrintPreview();
     }
 #  endif
@@ -3132,39 +3132,33 @@ nsDocumentViewer::Print(nsIPrintSettings* aPrintSettings,
 
   // If we are hosting a full-page plugin, tell it to print
   // first. It shows its own native print UI.
-  nsCOMPtr<nsIPluginDocument> pDoc(do_QueryInterface(mDocument));
-  if (pDoc) {
+  if (nsCOMPtr<nsIPluginDocument> pDoc = do_QueryInterface(mDocument)) {
     return pDoc->Print();
   }
 
-  nsresult rv;
-
-  // Our call to nsPrintJob::Print() may cause mPrintJob to be
-  // Release()'d in Destroy().  Therefore, we need to grab the instance with
-  // a local variable, so that it won't be deleted during its own method.
-  RefPtr<nsPrintJob> printJob = mPrintJob;
-  if (!printJob) {
-    printJob = new nsPrintJob();
-
-    rv = printJob->Initialize(this, mContainer, mDocument,
-                              float(AppUnitsPerCSSInch()) /
-                                  float(mDeviceContext->AppUnitsPerDevPixel()));
-    if (NS_FAILED(rv)) {
-      printJob->Destroy();
-      return rv;
-    }
-    mPrintJob = printJob;
-  } else if (printJob->GetIsPrinting()) {
-    // if we are printing another URL, then exit
-    // the reason we check here is because this method can be called while
-    // another is still in here (the printing dialog is a good example).
-    // the only time we can print more than one job at a time is the regression
-    // tests
-    rv = NS_ERROR_NOT_AVAILABLE;
-    printJob->FirePrintingErrorEvent(rv);
+  if (mPrintJob && mPrintJob->GetIsPrinting()) {
+    // If we are printing another URL, then exit.
+    // The reason we check here is because this method can be called while
+    // another is still in here (the printing dialog is a good example).  the
+    // only time we can print more than one job at a time is the regression
+    // tests.
+    nsresult rv = NS_ERROR_NOT_AVAILABLE;
+    RefPtr<nsPrintJob>(mPrintJob)->FirePrintingErrorEvent(rv);
     return rv;
   }
 
+  OnDonePrinting();
+  RefPtr<nsPrintJob> printJob = new nsPrintJob();
+  nsresult rv =
+      printJob->Initialize(this, mContainer, mDocument,
+                           float(AppUnitsPerCSSInch()) /
+                               float(mDeviceContext->AppUnitsPerDevPixel()));
+  if (NS_FAILED(rv)) {
+    printJob->Destroy();
+    return rv;
+  }
+
+  mPrintJob = printJob;
   rv = printJob->Print(mDocument, aPrintSettings, aWebProgressListener);
   if (NS_FAILED(rv)) {
     OnDonePrinting();
@@ -3182,8 +3176,6 @@ nsDocumentViewer::PrintPreview(nsIPrintSettings* aPrintSettings,
              "docshell.initOrReusePrintPreviewViewer!");
 
   NS_ENSURE_ARG_POINTER(aChildDOMWin);
-  nsresult rv = NS_OK;
-
   if (GetIsPrinting()) {
     nsPrintJob::CloseProgressDialog(aWebProgressListener);
     return NS_ERROR_FAILURE;
@@ -3208,19 +3200,22 @@ nsDocumentViewer::PrintPreview(nsIPrintSettings* aPrintSettings,
   // Our call to nsPrintJob::PrintPreview() may cause mPrintJob to be
   // Release()'d in Destroy().  Therefore, we need to grab the instance with
   // a local variable, so that it won't be deleted during its own method.
-  RefPtr<nsPrintJob> printJob = mPrintJob;
-  if (!printJob) {
-    printJob = new nsPrintJob();
+  const bool hadPrintJob = !!mPrintJob;
+  OnDonePrinting();
 
-    rv = printJob->Initialize(this, mContainer, doc,
-                              float(AppUnitsPerCSSInch()) /
-                                  float(mDeviceContext->AppUnitsPerDevPixel()));
-    if (NS_FAILED(rv)) {
-      printJob->Destroy();
-      return rv;
-    }
-    mPrintJob = printJob;
+  RefPtr<nsPrintJob> printJob = new nsPrintJob();
 
+  nsresult rv =
+      printJob->Initialize(this, mContainer, doc,
+                           float(AppUnitsPerCSSInch()) /
+                               float(mDeviceContext->AppUnitsPerDevPixel()));
+  if (NS_FAILED(rv)) {
+    printJob->Destroy();
+    return rv;
+  }
+  mPrintJob = printJob;
+
+  if (!hadPrintJob) {
     Telemetry::ScalarAdd(Telemetry::ScalarID::PRINTING_PREVIEW_OPENED, 1);
   }
   rv = printJob->PrintPreview(doc, aPrintSettings, aWebProgressListener);
@@ -3341,17 +3336,40 @@ nsDocumentViewer::GetPrintPreviewCurrentPageNumber(int32_t* aNumber) {
   }
 
   nsPoint currentScrollPosition = sf->GetScrollPosition();
+  float halfwayPoint =
+      currentScrollPosition.y + float(sf->GetScrollPortRect().height) / 2.0f;
+  float lastDistanceFromHalfwayPoint = std::numeric_limits<float>::max();
   *aNumber = 0;
   float previewScale = seqFrame->GetPrintPreviewScale();
   for (const nsIFrame* sheetFrame : seqFrame->PrincipalChildList()) {
+    nsRect sheetRect = sheetFrame->GetRect();
     (*aNumber)++;
-    nsRect pageRect = sheetFrame->GetRect();
-    if (pageRect.YMost() * previewScale > currentScrollPosition.y) {
-      // This is the first visible page even if the visible rect is just 1px
-      // height.
-      // TODO: We should have a reasonable threshold.
+
+    float bottomOfSheet = sheetRect.YMost() * previewScale;
+    if (bottomOfSheet < halfwayPoint) {
+      // If the bottom of the page is not yet over the halfway point, iterate
+      // the next frame to see if the next frame is over the halfway point and
+      // compare the distance from the halfway point.
+      lastDistanceFromHalfwayPoint = halfwayPoint - bottomOfSheet;
+      continue;
+    }
+
+    float topOfSheet = sheetRect.Y() * previewScale;
+    if (topOfSheet <= halfwayPoint) {
+      // If the top of the page is not yet over the halfway point or on the
+      // point, it's the current page.
       break;
     }
+
+    // Now the page rect is completely over the halfway point, compare the
+    // distances from the halfway point.
+    if ((topOfSheet - halfwayPoint) >= lastDistanceFromHalfwayPoint) {
+      // If the previous page distance is less than or equal to the current page
+      // distance, choose the previous one as the current.
+      (*aNumber)--;
+      MOZ_ASSERT(*aNumber > 0);
+    }
+    break;
   }
 
   MOZ_ASSERT(*aNumber <= pageCount);
@@ -3364,7 +3382,7 @@ nsDocumentViewer::GetDoingPrint(bool* aDoingPrint) {
   NS_ENSURE_ARG_POINTER(aDoingPrint);
 
   // XXX shouldn't this be GetDoingPrint() ?
-  *aDoingPrint = mPrintJob ? mPrintJob->IsDoingPrintPreview() : false;
+  *aDoingPrint = mPrintJob ? mPrintJob->CreatedForPrintPreview() : false;
   return NS_OK;
 }
 
@@ -3373,7 +3391,7 @@ NS_IMETHODIMP
 nsDocumentViewer::GetDoingPrintPreview(bool* aDoingPrintPreview) {
   NS_ENSURE_ARG_POINTER(aDoingPrintPreview);
 
-  *aDoingPrintPreview = mPrintJob ? mPrintJob->IsDoingPrintPreview() : false;
+  *aDoingPrintPreview = mPrintJob ? mPrintJob->CreatedForPrintPreview() : false;
   return NS_OK;
 }
 
@@ -3556,7 +3574,7 @@ void nsDocumentViewer::SetIsPrinting(bool aIsPrinting) {
 bool nsDocumentViewer::GetIsPrintPreview() const {
 #ifdef NS_PRINTING
   if (mPrintJob) {
-    return mPrintJob->GetIsPrintPreview();
+    return mPrintJob->CreatedForPrintPreview();
   }
 #endif
   return false;
@@ -3621,11 +3639,10 @@ void nsDocumentViewer::OnDonePrinting() {
   // So, the following clean up does nothing in such case.
   // (Do we need some of this for that case?)
   if (mPrintJob) {
-    RefPtr<nsPrintJob> printJob = mPrintJob;
+    RefPtr<nsPrintJob> printJob = std::move(mPrintJob);
     if (GetIsPrintPreview()) {
       printJob->DestroyPrintingData();
     } else {
-      mPrintJob = nullptr;
       printJob->Destroy();
     }
 

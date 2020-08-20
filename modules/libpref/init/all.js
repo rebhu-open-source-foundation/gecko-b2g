@@ -353,11 +353,11 @@ pref("print.shrink-to-fit.scale-limit-percent", 20);
 // Whether we should display simplify page checkbox on print preview UI
 pref("print.use_simplify_page", false);
 
-// The tab modal print dialog is currently only for early beta or nightly.
+// Enable fillable forms in the PDF viewer.
 #ifdef EARLY_BETA_OR_EARLIER
-  pref("print.tab_modal.enabled", true);
+  pref("pdfjs.renderInteractiveForms", true);
 #else
-  pref("print.tab_modal.enabled", false);
+  pref("pdfjs.renderInteractiveForms", false);
 #endif
 
 // Disable support for MathML
@@ -1196,6 +1196,12 @@ pref("javascript.options.mem.gc_min_empty_chunk_count", 1);
 
 // JSGC_MAX_EMPTY_CHUNK_COUNT
 pref("javascript.options.mem.gc_max_empty_chunk_count", 30);
+
+// JSGC_HELPER_THREAD_RATIO
+pref("javascript.options.mem.gc_helper_thread_ratio", 50);
+
+// JSGC_MAX_HELPER_THREADS
+pref("javascript.options.mem.gc_max_helper_threads", 8);
 
 pref("javascript.options.showInConsole", false);
 

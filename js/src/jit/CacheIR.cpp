@@ -1099,7 +1099,11 @@ void GetPropIRGenerator::attachMegamorphicNativeSlot(ObjOperandId objId,
   MOZ_ASSERT(mode_ == ICState::Mode::Megamorphic);
 
   // The stub handles the missing-properties case only if we're seeing one
-  // now, to make sure Ion ICs correctly monitor the undefined type.
+  // now, to make sure Ion ICs correctly monitor the undefined type. Without
+  // TI we don't use type monitoring so always allow |undefined|.
+  if (!IsTypeInferenceEnabled()) {
+    handleMissing = true;
+  }
 
   if (cacheKind_ == CacheKind::GetProp ||
       cacheKind_ == CacheKind::GetPropSuper) {
@@ -2082,8 +2086,7 @@ AttachDecision GetPropIRGenerator::tryAttachStringLength(ValOperandId valId,
   return AttachDecision::Attach;
 }
 
-static bool CanAttachStringChar(HandleValue val, HandleValue idVal,
-                                StringChar kind) {
+static bool CanAttachStringChar(HandleValue val, HandleValue idVal) {
   if (!val.isString() || !idVal.isInt32()) {
     return false;
   }
@@ -2115,20 +2118,14 @@ static bool CanAttachStringChar(HandleValue val, HandleValue idVal,
     return false;
   }
 
-  if (kind == StringChar::CodeAt) {
-    return true;
-  }
-
-  // For charAt we need to have StaticString for that code-point.
-  return str->asLinear().latin1OrTwoByteChar(index) <
-         StaticStrings::UNIT_STATIC_LIMIT;
+  return true;
 }
 
 AttachDecision GetPropIRGenerator::tryAttachStringChar(ValOperandId valId,
                                                        ValOperandId indexId) {
   MOZ_ASSERT(idVal_.isInt32());
 
-  if (!CanAttachStringChar(val_, idVal_, StringChar::At)) {
+  if (!CanAttachStringChar(val_, idVal_)) {
     return AttachDecision::NoAction;
   }
 
@@ -4682,6 +4679,7 @@ AttachDecision SetPropIRGenerator::tryAttachAddSlotStub(
   // shape guard below) to ensure class is unchanged. This group guard may also
   // imply maybeInterpretedFunction() for the special-case of function
   // prototype property set.
+  // TODO(Warp): Figure out if this can be removed without TI.
   writer.guardGroup(objId, oldGroup);
 
   // If we are adding a property to an object for which the new script
@@ -6212,7 +6210,7 @@ AttachDecision CallIRGenerator::tryAttachStringChar(HandleFunction callee,
     return AttachDecision::NoAction;
   }
 
-  if (!CanAttachStringChar(thisval_, args_[0], kind)) {
+  if (!CanAttachStringChar(thisval_, args_[0])) {
     return AttachDecision::NoAction;
   }
 
