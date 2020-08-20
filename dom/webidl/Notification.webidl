@@ -54,6 +54,9 @@ interface Notification : EventTarget {
   [Pure]
   readonly attribute DOMString? icon;
 
+  [Pure]
+  readonly attribute DOMString? image;
+
   [Constant, Pref="dom.webnotifications.requireinteraction.enabled"]
   readonly attribute boolean requireInteraction;
 
@@ -76,6 +79,7 @@ dictionary NotificationOptions {
   DOMString body = "";
   DOMString tag = "";
   DOMString icon = "";
+  DOMString image = "";
   boolean requireInteraction = false;
   sequence<NotificationAction> actions = [];
   boolean silent = false;

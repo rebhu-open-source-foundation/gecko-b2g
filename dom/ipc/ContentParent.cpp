@@ -4678,16 +4678,16 @@ mozilla::ipc::IPCResult ContentParent::RecvNotificationEvent(
     nsresult rv = swm->SendNotificationClickEvent(
         aData.originSuffix(), aData.scope(), aData.ID(), aData.title(),
         aData.dir(), aData.lang(), aData.body(), aData.tag(), aData.icon(),
-        aData.data(), aData.requireInteraction(), aData.actions(),
-        aData.userAction(), aData.silent(), aData.behavior());
+        aData.image(), aData.data(), aData.requireInteraction(),
+        aData.actions(), aData.userAction(), aData.silent(), aData.behavior());
     Unused << NS_WARN_IF(NS_FAILED(rv));
   } else {
     MOZ_ASSERT(aType.EqualsLiteral("close"));
     nsresult rv = swm->SendNotificationCloseEvent(
         aData.originSuffix(), aData.scope(), aData.ID(), aData.title(),
         aData.dir(), aData.lang(), aData.body(), aData.tag(), aData.icon(),
-        aData.data(), aData.requireInteraction(), aData.actions(),
-        aData.silent(), aData.behavior());
+        aData.image(), aData.data(), aData.requireInteraction(),
+        aData.actions(), aData.silent(), aData.behavior());
     Unused << NS_WARN_IF(NS_FAILED(rv));
   }
 

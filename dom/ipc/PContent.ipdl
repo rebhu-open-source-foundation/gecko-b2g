@@ -538,6 +538,7 @@ struct NotificationEventData
     nsString body;
     nsString tag;
     nsString icon;
+    nsString image;
     nsString data;
     bool requireInteraction;
     nsString actions;

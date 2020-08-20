@@ -573,8 +573,8 @@ nsresult ServiceWorkerPrivateImpl::SendSystemMessageEventInternal(
 nsresult ServiceWorkerPrivateImpl::SendNotificationEvent(
     const nsAString& aEventName, const nsAString& aID, const nsAString& aTitle,
     const nsAString& aDir, const nsAString& aLang, const nsAString& aBody,
-    const nsAString& aTag, const nsAString& aIcon, const nsAString& aData,
-    bool aRequireInteraction, const nsAString& aActions,
+    const nsAString& aTag, const nsAString& aIcon, const nsAString& aImage,
+    const nsAString& aData, bool aRequireInteraction, const nsAString& aActions,
     const nsAString& aUserAction, bool aSilent, const nsAString& aBehavior,
     const nsAString& aScope, uint32_t aDisableOpenClickDelay) {
   AssertIsOnMainThread();
@@ -589,6 +589,7 @@ nsresult ServiceWorkerPrivateImpl::SendNotificationEvent(
   args.body() = nsString(aBody);
   args.tag() = nsString(aTag);
   args.icon() = nsString(aIcon);
+  args.image() = nsString(aImage);
   args.data() = nsString(aData);
   args.requireInteraction() = aRequireInteraction;
   args.actions() = nsString(aActions);

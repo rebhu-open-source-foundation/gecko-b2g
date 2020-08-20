@@ -127,8 +127,9 @@ class Notification : public DOMEventTargetHelper,
   static already_AddRefed<Notification> ConstructFromFields(
       nsIGlobalObject* aGlobal, const nsAString& aID, const nsAString& aTitle,
       const nsAString& aDir, const nsAString& aLang, const nsAString& aBody,
-      const nsAString& aTag, const nsAString& aIcon, const nsAString& aData,
-      bool aRequireInteraction, const nsAString& aActions, bool aSilent,
+      const nsAString& aTag, const nsAString& aIcon, const nsAString& aImage,
+      const nsAString& aData, bool aRequireInteraction,
+      const nsAString& aActions, bool aSilent,
       const nsAString& aServiceWorkerRegistrationScope, ErrorResult& aRv);
 
   void GetID(nsAString& aRetval) { aRetval = mID; }
@@ -144,6 +145,8 @@ class Notification : public DOMEventTargetHelper,
   void GetTag(nsAString& aRetval) { aRetval = mTag; }
 
   void GetIcon(nsAString& aRetval) { aRetval = mIconUrl; }
+
+  void GetImage(nsAString& aRetval) { aRetval = mImageUrl; }
 
   void SetStoredState(bool val) { mIsStored = val; }
 
@@ -248,7 +251,7 @@ class Notification : public DOMEventTargetHelper,
                const nsAString& aTitle, const nsAString& aBody,
                NotificationDirection aDir, const nsAString& aLang,
                const nsAString& aTag, const nsAString& aIconUrl,
-               bool aRequireNotification,
+               const nsAString& aImageUrl, bool aRequireNotification,
                const nsTArray<NotificationAction>& aActions, bool aSilent,
                const NotificationBehavior& aBehavior);
 
@@ -309,6 +312,7 @@ class Notification : public DOMEventTargetHelper,
   const nsString mLang;
   const nsString mTag;
   const nsString mIconUrl;
+  const nsString mImageUrl;
   const bool mRequireInteraction;
   nsTArray<NotificationAction> mActions;
   nsString mActionsString;
@@ -359,7 +363,7 @@ class Notification : public DOMEventTargetHelper,
 
   bool CreateWorkerRef();
 
-  nsresult ResolveIconAndSoundURL(nsString&, nsString&);
+  nsresult ResolveIconImageAndSoundURL(nsString&, nsString&, nsString&);
 
   // Only used for Notifications on Workers, worker thread only.
   RefPtr<StrongWorkerRef> mWorkerRef;

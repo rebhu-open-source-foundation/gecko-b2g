@@ -81,6 +81,7 @@ struct NotificationFields {
   const nsString mBody;
   const nsString mTag;
   const nsString mIcon;
+  const nsString mImage;
   const nsString mData;
   const bool mRequireInteraction;
   const nsString mActions;
@@ -98,9 +99,10 @@ class ScopeCheckingGetCallback : public nsINotificationStorageCallback {
   NS_IMETHOD Handle(const nsAString& aID, const nsAString& aTitle,
                     const nsAString& aDir, const nsAString& aLang,
                     const nsAString& aBody, const nsAString& aTag,
-                    const nsAString& aIcon, const nsAString& aData,
-                    bool aRequireInteraction, const nsAString& aActions,
-                    bool aSilent, const nsAString& aBehavior,
+                    const nsAString& aIcon, const nsAString& aImage,
+                    const nsAString& aData, bool aRequireInteraction,
+                    const nsAString& aActions, bool aSilent,
+                    const nsAString& aBehavior,
                     const nsAString& aServiceWorkerRegistrationScope) final {
     AssertIsOnMainThread();
     MOZ_ASSERT(!aID.IsEmpty());
@@ -111,19 +113,13 @@ class ScopeCheckingGetCallback : public nsINotificationStorageCallback {
     }
 
     NotificationFields fields = {
-        nsString(aID),
-        nsString(aTitle),
-        nsString(aDir),
-        nsString(aLang),
-        nsString(aBody),
-        nsString(aTag),
-        nsString(aIcon),
-        nsString(aData),
-        aRequireInteraction,
-        nsString(aActions),
-        aSilent,
-        nsString(aBehavior),
-        nsString(aServiceWorkerRegistrationScope),
+        nsString(aID),       nsString(aTitle),
+        nsString(aDir),      nsString(aLang),
+        nsString(aBody),     nsString(aTag),
+        nsString(aIcon),     nsString(aImage),
+        nsString(aData),     aRequireInteraction,
+        nsString(aActions),  aSilent,
+        nsString(aBehavior), nsString(aServiceWorkerRegistrationScope),
     };
 
     mFields.AppendElement(std::move(fields));
@@ -159,8 +155,8 @@ class NotificationStorageCallback final : public ScopeCheckingGetCallback {
       RefPtr<Notification> n = Notification::ConstructFromFields(
           mWindow, mFields[i].mID, mFields[i].mTitle, mFields[i].mDir,
           mFields[i].mLang, mFields[i].mBody, mFields[i].mTag, mFields[i].mIcon,
-          mFields[i].mData, mFields[i].mRequireInteraction, mFields[i].mActions,
-          mFields[i].mSilent,
+          mFields[i].mImage, mFields[i].mData, mFields[i].mRequireInteraction,
+          mFields[i].mActions, mFields[i].mSilent,
           /* mFields[i].mBehavior, not
            * supported */
           mFields[i].mServiceWorkerRegistrationScope, result);
@@ -715,7 +711,7 @@ Notification::Notification(nsIGlobalObject* aGlobal, const nsAString& aID,
                            const nsAString& aTitle, const nsAString& aBody,
                            NotificationDirection aDir, const nsAString& aLang,
                            const nsAString& aTag, const nsAString& aIconUrl,
-                           bool aRequireInteraction,
+                           const nsAString& aImageUrl, bool aRequireInteraction,
                            const nsTArray<NotificationAction>& aActions,
                            bool aSilent, const NotificationBehavior& aBehavior)
     : DOMEventTargetHelper(aGlobal),
@@ -728,6 +724,7 @@ Notification::Notification(nsIGlobalObject* aGlobal, const nsAString& aID,
       mLang(aLang),
       mTag(aTag),
       mIconUrl(aIconUrl),
+      mImageUrl(aImageUrl),
       mRequireInteraction(aRequireInteraction),
       mSilent(aSilent),
       mBehavior(aBehavior),
@@ -860,9 +857,10 @@ nsresult NotificationActionsStringToArray(
 already_AddRefed<Notification> Notification::ConstructFromFields(
     nsIGlobalObject* aGlobal, const nsAString& aID, const nsAString& aTitle,
     const nsAString& aDir, const nsAString& aLang, const nsAString& aBody,
-    const nsAString& aTag, const nsAString& aIcon, const nsAString& aData,
-    bool aRequireInteraction, const nsAString& aActions, bool aSilent,
-    const nsAString& aServiceWorkerRegistrationScope, ErrorResult& aRv) {
+    const nsAString& aTag, const nsAString& aIcon, const nsAString& aImage,
+    const nsAString& aData, bool aRequireInteraction, const nsAString& aActions,
+    bool aSilent, const nsAString& aServiceWorkerRegistrationScope,
+    ErrorResult& aRv) {
   MOZ_ASSERT(aGlobal);
 
   RootedDictionary<NotificationOptions> options(RootingCx());
@@ -871,6 +869,7 @@ already_AddRefed<Notification> Notification::ConstructFromFields(
   options.mBody = aBody;
   options.mTag = aTag;
   options.mIcon = aIcon;
+  options.mImage = aImage;
   options.mRequireInteraction = aRequireInteraction;
   options.mSilent = aSilent;
 
@@ -958,8 +957,8 @@ nsresult Notification::PersistNotification() {
   }
 
   rv = notificationStorage->Put(origin, id, mTitle, DirectionToString(mDir),
-                                mLang, mBody, mTag, mIconUrl, alertName,
-                                mDataAsBase64, mRequireInteraction,
+                                mLang, mBody, mTag, mIconUrl, mImageUrl,
+                                alertName, mDataAsBase64, mRequireInteraction,
                                 mActionsString, mSilent, behavior, mScope);
 
   if (NS_FAILED(rv)) {
@@ -1009,8 +1008,9 @@ already_AddRefed<Notification> Notification::CreateInternal(
 
   RefPtr<Notification> notification = new Notification(
       aGlobal, id, aTitle, aOptions.mBody, aOptions.mDir, aOptions.mLang,
-      aOptions.mTag, aOptions.mIcon, aOptions.mRequireInteraction,
-      aOptions.mActions, aOptions.mSilent, aOptions.mMozbehavior);
+      aOptions.mTag, aOptions.mIcon, aOptions.mImage,
+      aOptions.mRequireInteraction, aOptions.mActions, aOptions.mSilent,
+      aOptions.mMozbehavior);
   rv = notification->Init();
   NS_ENSURE_SUCCESS(rv, nullptr);
   return notification.forget();
@@ -1097,9 +1097,9 @@ class ServiceWorkerNotificationObserver final : public nsIObserver {
       const nsAString& aScope, nsIPrincipal* aPrincipal, const nsAString& aID,
       const nsAString& aTitle, const nsAString& aDir, const nsAString& aLang,
       const nsAString& aBody, const nsAString& aTag, const nsAString& aIcon,
-      const nsAString& aData, const bool& aRequireInteraction,
-      const nsAString& aActions, const bool& aSilent,
-      const nsAString& aBehavior)
+      const nsAString& aImage, const nsAString& aData,
+      const bool& aRequireInteraction, const nsAString& aActions,
+      const bool& aSilent, const nsAString& aBehavior)
       : mScope(aScope),
         mID(aID),
         mPrincipal(aPrincipal),
@@ -1109,6 +1109,7 @@ class ServiceWorkerNotificationObserver final : public nsIObserver {
         mBody(aBody),
         mTag(aTag),
         mIcon(aIcon),
+        mImage(aImage),
         mData(aData),
         mRequireInteraction(aRequireInteraction),
         mActions(aActions),
@@ -1130,6 +1131,7 @@ class ServiceWorkerNotificationObserver final : public nsIObserver {
   const nsString mBody;
   const nsString mTag;
   const nsString mIcon;
+  const nsString mImage;
   const nsString mData;
   const bool mRequireInteraction;
   const nsString mActions;
@@ -1332,14 +1334,14 @@ ServiceWorkerNotificationObserver::Observe(nsISupports* aSubject,
 
       rv = swm->SendNotificationClickEvent(
           originSuffix, NS_ConvertUTF16toUTF8(mScope), mID, mTitle, mDir, mLang,
-          mBody, mTag, mIcon, mData, mRequireInteraction, mActions, userAction,
-          mSilent, mBehavior);
+          mBody, mTag, mIcon, mImage, mData, mRequireInteraction, mActions,
+          userAction, mSilent, mBehavior);
       Unused << NS_WARN_IF(NS_FAILED(rv));
     } else {
       auto* cc = ContentChild::GetSingleton();
       NotificationEventData data(originSuffix, NS_ConvertUTF16toUTF8(mScope),
                                  mID, mTitle, mDir, mLang, mBody, mTag, mIcon,
-                                 mData, mRequireInteraction, mActions,
+                                 mImage, mData, mRequireInteraction, mActions,
                                  userAction, mSilent, mBehavior);
       Unused << cc->SendNotificationEvent(u"click"_ns, data);
     }
@@ -1369,14 +1371,14 @@ ServiceWorkerNotificationObserver::Observe(nsISupports* aSubject,
 
       rv = swm->SendNotificationCloseEvent(
           originSuffix, NS_ConvertUTF16toUTF8(mScope), mID, mTitle, mDir, mLang,
-          mBody, mTag, mIcon, mData, mRequireInteraction, mActions, mSilent,
-          mBehavior);
+          mBody, mTag, mIcon, mImage, mData, mRequireInteraction, mActions,
+          mSilent, mBehavior);
       Unused << NS_WARN_IF(NS_FAILED(rv));
     } else {
       auto* cc = ContentChild::GetSingleton();
       NotificationEventData data(originSuffix, NS_ConvertUTF16toUTF8(mScope),
                                  mID, mTitle, mDir, mLang, mBody, mTag, mIcon,
-                                 mData, mRequireInteraction, mActions,
+                                 mImage, mData, mRequireInteraction, mActions,
                                  nsDependentString(u""), mSilent, mBehavior);
       Unused << cc->SendNotificationEvent(u"close"_ns, data);
     }
@@ -1477,8 +1479,9 @@ void Notification::ShowInternal() {
   }
 
   nsAutoString iconUrl;
+  nsAutoString imageUrl;
   nsAutoString soundUrl;
-  ResolveIconAndSoundURL(iconUrl, soundUrl);
+  ResolveIconImageAndSoundURL(iconUrl, imageUrl, soundUrl);
 
   bool isPersistent = false;
   nsCOMPtr<nsIObserver> observer;
@@ -1507,7 +1510,7 @@ void Notification::ShowInternal() {
     }
     observer = new ServiceWorkerNotificationObserver(
         mScope, GetPrincipal(), mID, mTitle, DirectionToString(mDir), mLang,
-        mBody, mTag, iconUrl, mDataAsBase64, mRequireInteraction,
+        mBody, mTag, iconUrl, imageUrl, mDataAsBase64, mRequireInteraction,
         mActionsString, mSilent, behavior);
   }
   MOZ_ASSERT(observer);
@@ -1741,8 +1744,9 @@ NotificationPermission Notification::TestPermission(nsIPrincipal* aPrincipal) {
   }
 }
 
-nsresult Notification::ResolveIconAndSoundURL(nsString& iconUrl,
-                                              nsString& soundUrl) {
+nsresult Notification::ResolveIconImageAndSoundURL(nsString& iconUrl,
+                                                   nsString& imageUrl,
+                                                   nsString& soundUrl) {
   AssertIsOnMainThread();
   nsresult rv = NS_OK;
 
@@ -1751,11 +1755,11 @@ nsresult Notification::ResolveIconAndSoundURL(nsString& iconUrl,
   // XXXnsm If I understand correctly, the character encoding for resolving
   // URIs in new specs is dictated by the URL spec, which states that unless
   // the URL parser is passed an override encoding, the charset to be used is
-  // UTF-8. The new Notification icon/sound specification just says to use the
-  // Fetch API, where the Request constructor defers to URL parsing specifying
-  // the API base URL and no override encoding. So we've to use UTF-8 on
-  // workers, but for backwards compat keeping it document charset on main
-  // thread.
+  // UTF-8. The new Notification icon/image/sound specification just says to use
+  // the Fetch API, where the Request constructor defers to URL parsing
+  // specifying the API base URL and no override encoding. So we've to use
+  // UTF-8 on workers, but for backwards compat keeping it document charset on
+  // main thread.
   auto encoding = UTF_8_ENCODING;
 
   if (mWorkerPrivate) {
@@ -1779,6 +1783,15 @@ nsresult Notification::ResolveIconAndSoundURL(nsString& iconUrl,
         nsAutoCString src;
         srcUri->GetSpec(src);
         iconUrl = NS_ConvertUTF8toUTF16(src);
+      }
+    }
+    if (mImageUrl.Length() > 0) {
+      nsCOMPtr<nsIURI> srcUri;
+      rv = NS_NewURI(getter_AddRefs(srcUri), mImageUrl, encoding, baseUri);
+      if (NS_SUCCEEDED(rv)) {
+        nsAutoCString src;
+        srcUri->GetSpec(src);
+        imageUrl = NS_ConvertUTF8toUTF16(src);
       }
     }
     if (mBehavior.mSoundFile.Length() > 0) {
@@ -1865,8 +1878,9 @@ class WorkerGetResultRunnable final : public NotificationWorkerRunnable {
       RefPtr<Notification> n = Notification::ConstructFromFields(
           aWorkerPrivate->GlobalScope(), mFields[i].mID, mFields[i].mTitle,
           mFields[i].mDir, mFields[i].mLang, mFields[i].mBody, mFields[i].mTag,
-          mFields[i].mIcon, mFields[i].mData, mFields[i].mRequireInteraction,
-          mFields[i].mActions, mFields[i].mSilent,
+          mFields[i].mIcon, mFields[i].mImage, mFields[i].mData,
+          mFields[i].mRequireInteraction, mFields[i].mActions,
+          mFields[i].mSilent,
           /* mFields[i].mBehavior, not
            * supported */
           mFields[i].mServiceWorkerRegistrationScope, result);

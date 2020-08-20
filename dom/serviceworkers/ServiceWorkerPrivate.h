@@ -136,10 +136,10 @@ class ServiceWorkerPrivate final {
         const nsAString& aEventName, const nsAString& aID,
         const nsAString& aTitle, const nsAString& aDir, const nsAString& aLang,
         const nsAString& aBody, const nsAString& aTag, const nsAString& aIcon,
-        const nsAString& aData, bool aRequireInteraction,
-        const nsAString& aActions, const nsAString& aUserAction, bool aSilent,
-        const nsAString& aBehavior, const nsAString& aScope,
-        uint32_t aDisableOpenClickDelay) = 0;
+        const nsAString& aImage, const nsAString& aData,
+        bool aRequireInteraction, const nsAString& aActions,
+        const nsAString& aUserAction, bool aSilent, const nsAString& aBehavior,
+        const nsAString& aScope, uint32_t aDisableOpenClickDelay) = 0;
 
     virtual nsresult SendFetchEvent(
         RefPtr<ServiceWorkerRegistrationInfo> aRegistration,
@@ -183,7 +183,7 @@ class ServiceWorkerPrivate final {
       const nsAString& aEventName, const nsAString& aID,
       const nsAString& aTitle, const nsAString& aDir, const nsAString& aLang,
       const nsAString& aBody, const nsAString& aTag, const nsAString& aIcon,
-      const nsAString& aData, bool aRequireInteraction,
+      const nsAString& aImage, const nsAString& aData, bool aRequireInteraction,
       const nsAString& aActions, const nsAString& aUserAction, bool aSilent,
       const nsAString& aBehavior, const nsAString& aScope);
 
