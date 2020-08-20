@@ -1537,7 +1537,7 @@ uint32_t AudioManager::SelectDeviceFromDevices(uint32_t aOutDevices) {
 
   // See android AudioService.getDeviceForStream().
   // AudioPolicyManager expects it.
-  // See also android AudioPolicyManager::getDeviceForVolume().
+  // See also android AudioPolicy Volume::getDeviceForVolume().
   if ((device & (device - 1)) != 0) {
     // Multiple device selection.
     if ((device & AUDIO_DEVICE_OUT_SPEAKER) != 0) {
@@ -1552,6 +1552,14 @@ uint32_t AudioManager::SelectDeviceFromDevices(uint32_t aOutDevices) {
       device &= AUDIO_DEVICE_OUT_ALL_A2DP;
     }
   }
+
+  // From android AudioPolicy Volume::getDeviceForVolume().
+  if (device == AUDIO_DEVICE_NONE) {
+    // this happens when forcing a route update and no track is active on an
+    // output. In this case the returned category is not important.
+    device = AUDIO_DEVICE_OUT_SPEAKER;
+  }
+
   MOZ_ASSERT(audio_is_output_device(device));
   return device;
 }
