@@ -3170,10 +3170,10 @@ void gfxPlatform::GetCMSSupportInfo(mozilla::widget::InfoObject& aObj) {
     return;
   }
 
-  char* encodedProfile = nullptr;
+  nsString encodedProfile;
   nsresult rv =
-      Base64Encode(reinterpret_cast<char*>(outputProfileData.Elements()),
-                   outputProfileData.Length(), &encodedProfile);
+      Base64Encode(reinterpret_cast<const char*>(outputProfileData.Elements()),
+                   outputProfileData.Length(), encodedProfile);
   if (!NS_SUCCEEDED(rv)) {
     nsPrintfCString msg("base64 encode failed 0x%08x",
                         static_cast<uint32_t>(rv));
@@ -3182,7 +3182,6 @@ void gfxPlatform::GetCMSSupportInfo(mozilla::widget::InfoObject& aObj) {
   }
 
   aObj.DefineProperty("CMSOutputProfile", encodedProfile);
-  free(encodedProfile);
 }
 
 void gfxPlatform::GetDisplayInfo(mozilla::widget::InfoObject& aObj) {

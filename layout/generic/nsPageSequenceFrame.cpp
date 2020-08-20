@@ -52,7 +52,6 @@ nsPageSequenceFrame::nsPageSequenceFrame(ComputedStyle* aStyle,
     : nsContainerFrame(aStyle, aPresContext, kClassID),
       mMaxSheetSize(mWritingMode),
       mScrollportSize(mWritingMode),
-      mTotalPages(-1),
       mCalledBeginPage(false),
       mCurrentCanvasListSetup(false) {
   mPageData = MakeUnique<nsSharedPageData>();
@@ -307,31 +306,6 @@ void nsPageSequenceFrame::Reflow(nsPresContext* aPresContext,
     }
   }
 
-  // Get Total Page Count
-  // XXXdholbert When we support multiple pages-per-sheet in bug 1631452,
-  // we'll need to be sure to update this computation to account for the
-  // sheet-vs-page distinction.
-  // XXXdholbert technically we could calculate this in the loop above,
-  // instead of needing a separate walk.
-  int32_t pageTot = mFrames.GetLength();
-
-  // Set Page Number Info
-  int32_t pageNum = 1;
-  for (nsIFrame* sheetFrame : mFrames) {
-    MOZ_ASSERT(sheetFrame->IsPrintedSheetFrame(),
-               "only expecting PrintedSheetFrame children");
-    for (nsIFrame* pageFrame : sheetFrame->PrincipalChildList()) {
-      MOZ_ASSERT(
-          pageFrame->IsPageFrame(),
-          "only expecting nsPageFrame grandchildren. Other types will make "
-          "this static_cast bogus & probably violate other assumptions");
-      static_cast<nsPageFrame*>(pageFrame)->SetPageNumInfo(pageNum, pageTot);
-      // XXXdholbert Perhaps we'll need to keep track of the page count *and*
-      // the printed sheet count?
-      pageNum++;
-    }
-  }
-
   nsAutoString formattedDateString;
   PRTime now = PR_Now();
   if (NS_SUCCEEDED(DateTimeFormat::FormatPRTime(
@@ -431,10 +405,8 @@ nsresult nsPageSequenceFrame::StartPrint(nsPresContext* aPresContext,
 
   // If printing a range of pages make sure at least the starting page
   // number is valid
-  mTotalPages = mFrames.GetLength();
-
   if (mDoingPageRange) {
-    if (mFromPageNum > mTotalPages) {
+    if (mFromPageNum > mPageData->mTotNumPages) {
       return NS_ERROR_INVALID_ARG;
     }
   }
