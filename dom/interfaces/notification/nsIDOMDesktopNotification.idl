@@ -10,7 +10,8 @@ interface nsIObserver;
 [scriptable, uuid(50cb17d2-dc8a-4aa6-bcd3-94d76af14e20)]
 interface nsIAppNotificationService : nsISupports
 {
-    void showAppNotification(in AString  imageUrl,
+    void showAppNotification(in AString  iconUrl,
+                             in AString  imageUrl,
                              in AString  title,
                              in AString  text,
                              in nsIObserver alertListener,

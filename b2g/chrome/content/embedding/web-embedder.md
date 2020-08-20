@@ -79,7 +79,8 @@ This delegate is responsible for displaying desktop notifications UI.
 - `showNotification(notification)`. The `notification` parameter is an object with the following properties:
   - `type`: a string equals to "desktop-notification".
   - `id`: a unique id for this notification.
-  - `icon`: the url of the image for this notification.
+  - `icon`: the url of the icon for this notification.
+  - `image`: the url of the image for this notification.
   - `title`: the notification title.
   - `text`: the notification text.
   - `dir`: whether this notification should be displayed in ltr or rtl direction.

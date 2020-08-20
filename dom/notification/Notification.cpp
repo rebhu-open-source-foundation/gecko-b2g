@@ -1545,9 +1545,6 @@ void Notification::ShowInternal() {
   NS_ENSURE_SUCCESS_VOID(rv);
 
 #ifdef MOZ_B2G
-  // TODO: We need to pass mManifestURL when appService is ready for gecko-dev.
-  // We also need to pass ServiceWorkerRegistrationID, RequireInteraction,
-  // Actions and Silent for enhanced notifications feature.
   nsCOMPtr<nsIAppNotificationService> appNotifier =
       do_GetService("@mozilla.org/system-alerts-service;1");
   if (appNotifier) {
@@ -1577,8 +1574,8 @@ void Notification::ShowInternal() {
       return;
     }
 
-    appNotifier->ShowAppNotification(iconUrl, mTitle, mBody, alertObserver,
-                                     val);
+    appNotifier->ShowAppNotification(iconUrl, imageUrl, mTitle, mBody,
+                                     alertObserver, val);
     return;
   }
 #endif

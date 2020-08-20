@@ -165,6 +165,7 @@ var AlertsHelper = {
               listener.lang,
               listener.text,
               listener.tag,
+              listener.iconURL,
               listener.imageURL,
               listener.dataObj || undefined,
               listener.requireInteraction,
@@ -183,6 +184,7 @@ var AlertsHelper = {
               listener.lang,
               listener.text,
               listener.tag,
+              listener.iconURL,
               listener.imageURL,
               listener.dataObj || undefined,
               listener.requireInteraction,
@@ -240,6 +242,7 @@ var AlertsHelper = {
   },
 
   showNotification(
+    iconURL,
     imageURL,
     title,
     text,
@@ -272,7 +275,8 @@ var AlertsHelper = {
     this._embedderNotifications.showNotification({
       type: kDesktopNotification,
       id: uid,
-      icon: imageURL,
+      icon: iconURL,
+      image: imageURL,
       title,
       text,
       dir,
@@ -324,6 +328,7 @@ var AlertsHelper = {
       title: data.title,
       text: data.text,
       origin: details.origin,
+      iconURL: data.iconURL,
       imageURL: data.imageURL,
       lang: details.lang || undefined,
       id: details.id || undefined,
@@ -339,6 +344,7 @@ var AlertsHelper = {
     };
     this.registerAppListener(data.uid, listener);
     this.showNotification(
+      data.iconURL,
       data.imageURL,
       data.title,
       data.text,

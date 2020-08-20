@@ -53,6 +53,7 @@ var ChromeNotifications = {
 
       appNotifier.showAppNotification(
         notification.icon,
+        notification.image || "",
         notification.title,
         notification.body,
         null,

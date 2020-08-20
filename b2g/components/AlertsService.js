@@ -142,7 +142,14 @@ AlertsService.prototype = {
   },
 
   // nsIAppNotificationService
-  showAppNotification(aImageURL, aTitle, aText, aAlertListener, aDetails) {
+  showAppNotification(
+    aIconURL,
+    aImageURL,
+    aTitle,
+    aText,
+    aAlertListener,
+    aDetails
+  ) {
     let uid =
       aDetails.id == ""
         ? "app-notif-" + uuidGenerator.generateUUID()
@@ -153,6 +160,7 @@ AlertsService.prototype = {
       title: aTitle,
       text: aText,
       origin: aDetails.origin,
+      iconURL: aIconURL,
       imageURL: aImageURL,
       lang: aDetails.lang || undefined,
       id: aDetails.id || undefined,
@@ -169,6 +177,7 @@ AlertsService.prototype = {
     };
 
     Services.cpmm.sendAsyncMessage(kMessageAppNotificationSend, {
+      iconURL: aIconURL,
       imageURL: aImageURL,
       title: aTitle,
       text: aText,
@@ -224,6 +233,7 @@ AlertsService.prototype = {
             listener.lang,
             listener.text,
             listener.tag,
+            listener.iconURL,
             listener.imageURL,
             listener.dataObj || undefined,
             listener.requireInteraction,
@@ -242,6 +252,7 @@ AlertsService.prototype = {
             listener.lang,
             listener.text,
             listener.tag,
+            listener.iconURL,
             listener.imageURL,
             listener.dataObj || undefined,
             listener.requireInteraction,
