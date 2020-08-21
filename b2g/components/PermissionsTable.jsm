@@ -78,6 +78,10 @@ this.PermissionsTable = {
     core: ALLOW_ACTION,
     access: ["read", "write"],
   },
+  systemXHR: {
+    pwa: DENY_ACTION,
+    signed: ALLOW_ACTION,
+  },
 };
 
 /**
