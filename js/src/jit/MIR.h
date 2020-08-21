@@ -9119,6 +9119,13 @@ class MGuardProto : public MBinaryInstruction, public SingleObjectPolicy::Data {
   AliasSet getAliasSet() const override {
     return AliasSet::Load(AliasSet::ObjectFields);
   }
+  AliasType mightAlias(const MDefinition* def) const override {
+    // These instructions never modify the [[Prototype]].
+    if (def->isAddAndStoreSlot() || def->isAllocateAndStoreSlot()) {
+      return AliasType::NoAlias;
+    }
+    return AliasType::MayAlias;
+  }
 };
 
 // Guard the object has no proto.
@@ -9142,6 +9149,13 @@ class MGuardNullProto : public MUnaryInstruction,
   }
   AliasSet getAliasSet() const override {
     return AliasSet::Load(AliasSet::ObjectFields);
+  }
+  AliasType mightAlias(const MDefinition* def) const override {
+    // These instructions never modify the [[Prototype]].
+    if (def->isAddAndStoreSlot() || def->isAllocateAndStoreSlot()) {
+      return AliasType::NoAlias;
+    }
+    return AliasType::MayAlias;
   }
 };
 
@@ -9570,6 +9584,87 @@ class MGuardNullOrUndefined : public MUnaryInstruction,
   AliasSet getAliasSet() const override { return AliasSet::None(); }
 };
 
+// Guard on function flags
+class MGuardFunctionFlags : public MUnaryInstruction,
+                            public SingleObjectPolicy::Data {
+  uint16_t flags_;
+  bool bailWhenSet_;
+
+  explicit MGuardFunctionFlags(MDefinition* fun, uint16_t flags,
+                               bool bailWhenSet)
+      : MUnaryInstruction(classOpcode, fun),
+        flags_(flags),
+        bailWhenSet_(bailWhenSet) {
+    setGuard();
+    setMovable();
+    setResultType(MIRType::Object);
+    setResultTypeSet(fun->resultTypeSet());
+  }
+
+ public:
+  INSTRUCTION_HEADER(GuardFunctionFlags)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, function))
+
+  uint16_t flags() const { return flags_; };
+  bool bailWhenSet() const { return bailWhenSet_; }
+
+  bool congruentTo(const MDefinition* ins) const override {
+    if (!ins->isGuardFunctionFlags()) {
+      return false;
+    }
+    if (flags() != ins->toGuardFunctionFlags()->flags()) {
+      return false;
+    }
+    if (bailWhenSet() != ins->toGuardFunctionFlags()->bailWhenSet()) {
+      return false;
+    }
+    return congruentIfOperandsEqual(ins);
+  }
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
+};
+
+// Guard on function kind
+class MGuardFunctionKind : public MUnaryInstruction,
+                           public SingleObjectPolicy::Data {
+  FunctionFlags::FunctionKind expected_;
+  bool bailOnEquality_;
+
+  explicit MGuardFunctionKind(MDefinition* fun,
+                              FunctionFlags::FunctionKind expected,
+                              bool bailOnEquality)
+      : MUnaryInstruction(classOpcode, fun),
+        expected_(expected),
+        bailOnEquality_(bailOnEquality) {
+    setGuard();
+    setMovable();
+    setResultType(MIRType::Object);
+    setResultTypeSet(fun->resultTypeSet());
+  }
+
+ public:
+  INSTRUCTION_HEADER(GuardFunctionKind)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, function))
+
+  FunctionFlags::FunctionKind expected() const { return expected_; };
+  bool bailOnEquality() const { return bailOnEquality_; }
+
+  bool congruentTo(const MDefinition* ins) const override {
+    if (!ins->isGuardFunctionKind()) {
+      return false;
+    }
+    if (expected() != ins->toGuardFunctionKind()->expected()) {
+      return false;
+    }
+    if (bailOnEquality() != ins->toGuardFunctionKind()->bailOnEquality()) {
+      return false;
+    }
+    return congruentIfOperandsEqual(ins);
+  }
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
+};
+
 // Bail if the object's shape or unboxed group is not in the input list.
 class MGuardReceiverPolymorphic : public MUnaryInstruction,
                                   public SingleObjectPolicy::Data {
@@ -9651,6 +9746,13 @@ class MGuardObjectGroup : public MUnaryInstruction,
   AliasSet getAliasSet() const override {
     return AliasSet::Load(AliasSet::ObjectFields);
   }
+  AliasType mightAlias(const MDefinition* def) const override {
+    // These instructions don't modify the group only the shape.
+    if (def->isAddAndStoreSlot() || def->isAllocateAndStoreSlot()) {
+      return AliasType::NoAlias;
+    }
+    return AliasType::MayAlias;
+  };
   bool appendRoots(MRootList& roots) const override {
     return roots.append(group_);
   }
@@ -12010,8 +12112,19 @@ class MObjectStaticProto : public MUnaryInstruction,
   TRIVIAL_NEW_WRAPPERS
   NAMED_OPERANDS((0, object))
 
+  bool congruentTo(const MDefinition* ins) const override {
+    return congruentIfOperandsEqual(ins);
+  }
+
   AliasSet getAliasSet() const override {
     return AliasSet::Load(AliasSet::ObjectFields);
+  }
+  AliasType mightAlias(const MDefinition* def) const override {
+    // These instructions never modify the [[Prototype]].
+    if (def->isAddAndStoreSlot() || def->isAllocateAndStoreSlot()) {
+      return AliasType::NoAlias;
+    }
+    return AliasType::MayAlias;
   }
 };
 
