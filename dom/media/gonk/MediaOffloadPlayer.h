@@ -110,20 +110,36 @@ class MediaOffloadPlayer : public DecoderDoctorLifeLogger<MediaOffloadPlayer> {
   }
 
  private:
+  // Extend SeekJob struct by adding mVisible flag.
+  struct SeekObject : public SeekJob {
+    SeekObject() = default;
+    SeekObject(SeekObject&& aOther) = default;
+    SeekObject& operator=(SeekObject&& aOther) = default;
+    bool mVisible = true;
+  };
+
   void InitializationTask(MediaDecoder* aDecoder);
   RefPtr<ShutdownPromise> Shutdown();
+  void StartDormantTimer();
+  void EnterDormant();
+  void ExitDormant();
 
   RefPtr<TaskQueue> mTaskQueue;
   WatchManager<MediaOffloadPlayer> mWatchManager;
   DelayedScheduler mCurrentPositionTimer;
-  SeekJob mCurrentSeek;
-  SeekJob mPendingSeek;
+  DelayedScheduler mDormantTimer;
+  SeekObject mCurrentSeek;
+  SeekObject mPendingSeek;
+  bool mInDormant = false;
 
  protected:
   MediaOffloadPlayer(MediaFormatReaderInit& aInit);
   virtual ~MediaOffloadPlayer();
   bool OnTaskQueue() const { return OwnerThread()->IsCurrentThreadIn(); }
-  RefPtr<MediaDecoder::SeekPromise> HandleSeek(const SeekTarget& aTarget);
+  RefPtr<MediaDecoder::SeekPromise> HandleSeek(const SeekTarget& aTarget,
+                                               bool aVisible);
+  void FirePendingSeekIfExists();
+  bool Seeking() { return mCurrentSeek.Exists(); }
   void NotifySeeked(bool aSuccess);
   void UpdateCurrentPositionPeriodically();
 
@@ -140,9 +156,10 @@ class MediaOffloadPlayer : public DecoderDoctorLifeLogger<MediaOffloadPlayer> {
    */
   virtual void InitInternal() = 0;
   virtual void ResetInternal() = 0;
-  virtual void SeekInternal(const SeekTarget& aTarget) = 0;
+  virtual void SeekInternal(const SeekTarget& aTarget, bool aVisible) = 0;
   // Return true to schedule next update.
   virtual bool UpdateCurrentPosition() = 0;
+  virtual bool NeedToDeferSeek() = 0;
 
   /*
    * Event notifier.
@@ -180,7 +197,7 @@ class MediaOffloadPlayer : public DecoderDoctorLifeLogger<MediaOffloadPlayer> {
    * State change callbacks.
    * Most of them are watch callbacks for the mirrors above.
    */
-  virtual void PlayStateChanged() = 0;
+  virtual void PlayStateChanged();
   virtual void VolumeChanged() {}
   virtual void PreservesPitchChanged() {}
   virtual void LoopingChanged() {}

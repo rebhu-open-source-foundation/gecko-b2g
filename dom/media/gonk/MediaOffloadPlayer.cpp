@@ -31,6 +31,7 @@ MediaOffloadPlayer::MediaOffloadPlayer(MediaFormatReaderInit& aInit)
                                /* aSupportsTailDispatch = */ true)),
       mWatchManager(this, mTaskQueue),
       mCurrentPositionTimer(mTaskQueue, true /*aFuzzy*/),
+      mDormantTimer(mTaskQueue, true /*aFuzzy*/),
       mVideoFrameContainer(aInit.mVideoFrameContainer),
       mResource(aInit.mResource),
       INIT_CANONICAL(mBuffered, TimeIntervals()),
@@ -103,6 +104,7 @@ RefPtr<ShutdownPromise> MediaOffloadPlayer::Shutdown() {
   MOZ_ASSERT(OnTaskQueue());
 
   mCurrentPositionTimer.Reset();
+  mDormantTimer.Reset();
   ResetInternal();
 
   // Disconnect canonicals and mirrors before shutting down our task queue.
@@ -166,42 +168,66 @@ void MediaOffloadPlayer::NotifySeeked(bool aSuccess) {
   // If there is a pending seek job, dispatch it to another runnable.
   if (mPendingSeek.Exists()) {
     mCurrentSeek = std::move(mPendingSeek);
-    mPendingSeek = SeekJob();
+    mPendingSeek = SeekObject();
     nsresult rv = OwnerThread()->Dispatch(NS_NewRunnableFunction(
         "MediaOffloadPlayer::SeekPendingJob",
         [this, self = RefPtr<MediaOffloadPlayer>(this)]() {
-          SeekInternal(mCurrentSeek.mTarget.ref());
+          SeekInternal(mCurrentSeek.mTarget.ref(), mCurrentSeek.mVisible);
         }));
     MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
     Unused << rv;
   } else {
-    mCurrentSeek = SeekJob();
+    mCurrentSeek = SeekObject();
+    // We may just exit from dormant state, so manually call PlayStateChanged()
+    // to enter playing/paused state correctly.
+    PlayStateChanged();
   }
 }
 
 RefPtr<MediaDecoder::SeekPromise> MediaOffloadPlayer::HandleSeek(
-    const SeekTarget& aTarget) {
+    const SeekTarget& aTarget, bool aVisible) {
   MOZ_ASSERT(OnTaskQueue());
 
-  // If we are currently seeking, save the job in mPendingSeek. If there is
-  // already a pending seek job, reject it and replace it by the new one.
-  if (mCurrentSeek.Exists()) {
+  // If user seeks to a new position, need to exit dormant and fire seek so the
+  // displayed image will be updated.
+  if (aVisible && mVideoFrameContainer) {
+    ExitDormant();
+  }
+
+  // If we are currently seeking or we need to defer seeking, save the job in
+  // mPendingSeek. If there is already a pending seek job, reject it and replace
+  // it by the new one.
+  if (mCurrentSeek.Exists() || NeedToDeferSeek()) {
     mPendingSeek.RejectIfExists(__func__);
     mPendingSeek.mTarget.emplace(aTarget);
+    mPendingSeek.mVisible = aVisible;
     return mPendingSeek.mPromise.Ensure(__func__);
   }
 
   MOZ_ASSERT(!mPendingSeek.Exists());
+  mPendingSeek = SeekObject();
   mCurrentSeek.mTarget.emplace(aTarget);
+  mCurrentSeek.mVisible = aVisible;
   RefPtr<MediaDecoder::SeekPromise> p = mCurrentSeek.mPromise.Ensure(__func__);
-  SeekInternal(aTarget);
+  SeekInternal(aTarget, aVisible);
   return p;
 }
 
 RefPtr<MediaDecoder::SeekPromise> MediaOffloadPlayer::InvokeSeek(
     const SeekTarget& aTarget) {
   return InvokeAsync(OwnerThread(), this, __func__,
-                     &MediaOffloadPlayer::HandleSeek, aTarget);
+                     &MediaOffloadPlayer::HandleSeek, aTarget, true);
+}
+
+void MediaOffloadPlayer::FirePendingSeekIfExists() {
+  MOZ_ASSERT(OnTaskQueue());
+  MOZ_ASSERT(!mCurrentSeek.Exists());
+
+  if (mPendingSeek.Exists()) {
+    mCurrentSeek = std::move(mPendingSeek);
+    mPendingSeek = SeekObject();
+    SeekInternal(mCurrentSeek.mTarget.ref(), mCurrentSeek.mVisible);
+  }
 }
 
 void MediaOffloadPlayer::DispatchSetPlaybackRate(double aPlaybackRate) {
@@ -226,6 +252,59 @@ RefPtr<SetCDMPromise> MediaOffloadPlayer::SetCDMProxy(CDMProxy* aProxy) {
 void MediaOffloadPlayer::UpdateCompositor(
     already_AddRefed<layers::KnowsCompositor> aCompositor) {
   RefPtr<layers::KnowsCompositor> compositor = aCompositor;
+}
+
+void MediaOffloadPlayer::StartDormantTimer() {
+  if (mInDormant) {
+    return;
+  }
+
+  if (!mTransportSeekable || !mInfo.mMediaSeekable) {
+    return;
+  }
+
+  auto timeout = StaticPrefs::media_dormant_on_pause_timeout_ms();
+  if (timeout < 0) {
+    return;
+  } else if (timeout == 0) {
+    EnterDormant();
+    return;
+  }
+
+  TimeStamp target = TimeStamp::Now() + TimeDuration::FromMilliseconds(timeout);
+  mDormantTimer.Ensure(
+      target,
+      [this, self = RefPtr<MediaOffloadPlayer>(this)]() {
+        mDormantTimer.CompleteRequest();
+        EnterDormant();
+      },
+      []() { MOZ_DIAGNOSTIC_ASSERT(false); });
+}
+
+void MediaOffloadPlayer::EnterDormant() {
+  mInDormant = true;
+  UpdateCurrentPosition();
+  ResetInternal();
+  // This queues a seek job of the current position, and it will be fired when
+  // leaving dormant state.
+  HandleSeek(SeekTarget(mCurrentPosition, SeekTarget::Accurate), false);
+}
+
+void MediaOffloadPlayer::ExitDormant() {
+  mDormantTimer.Reset();
+  if (mInDormant) {
+    mInDormant = false;
+    InitInternal();
+  }
+}
+
+void MediaOffloadPlayer::PlayStateChanged() {
+  MOZ_ASSERT(OnTaskQueue());
+  if (mPlayState == MediaDecoder::PLAY_STATE_PAUSED) {
+    StartDormantTimer();
+  } else if (mPlayState == MediaDecoder::PLAY_STATE_PLAYING) {
+    ExitDormant();
+  }
 }
 
 void MediaOffloadPlayer::NotifyMediaNotSeekable() {

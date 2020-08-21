@@ -137,12 +137,18 @@ void GonkOffloadPlayer::ResetInternal() {
     mMediaPlayer = nullptr;
   }
   mMediaPlayerListener = nullptr;
+  mPrepared = false;
+
+  // Don't reset mSentFirstFrameLoadedEvent because next time when we are
+  // re-intializing, we are leaving dormant state, and we don't want to sent
+  // first frame loaded event again.
 }
 
-void GonkOffloadPlayer::SeekInternal(const SeekTarget& aTarget) {
+void GonkOffloadPlayer::SeekInternal(const SeekTarget& aTarget, bool aVisible) {
   MOZ_ASSERT(OnTaskQueue());
   MOZ_ASSERT(mMediaPlayer);
 
+  mVisibleSeek = aVisible;
   int msec = aTarget.GetTime().ToMicroseconds() / 1000;
   MediaPlayerSeekMode mode;
   switch (aTarget.GetType()) {
@@ -161,8 +167,10 @@ void GonkOffloadPlayer::SeekInternal(const SeekTarget& aTarget) {
     return;
   }
 
-  NotifyNextFrameStatus(MediaDecoderOwner::NEXT_FRAME_UNAVAILABLE_SEEKING);
-  NotifyPlaybackEvent(MediaPlaybackEvent::SeekStarted);
+  if (mVisibleSeek) {
+    NotifyNextFrameStatus(MediaDecoderOwner::NEXT_FRAME_UNAVAILABLE_SEEKING);
+    NotifyPlaybackEvent(MediaPlaybackEvent::SeekStarted);
+  }
 }
 
 bool GonkOffloadPlayer::UpdateCurrentPosition() {
@@ -196,8 +204,10 @@ void GonkOffloadPlayer::Notify(int msg, int ext1, int ext2) {
       mBuffered = TimeIntervals(TimeInterval(current, bufferd));
     } break;
     case MEDIA_SEEK_COMPLETE:
-      UpdateCurrentPosition();
-      NotifyNextFrameStatus(MediaDecoderOwner::NEXT_FRAME_AVAILABLE);
+      if (mVisibleSeek) {
+        UpdateCurrentPosition();
+        NotifyNextFrameStatus(MediaDecoderOwner::NEXT_FRAME_AVAILABLE);
+      }
       NotifySeeked(true);
       break;
     case MEDIA_SET_VIDEO_SIZE:
@@ -276,14 +286,21 @@ void GonkOffloadPlayer::NotifyPrepared() {
     }
   }
 
+  mPrepared = true;
   NotifyMetadataLoaded(MakeUnique<MediaInfo>(mInfo),
                        MakeUnique<MetadataTags>());
 
+  // There may be a pending seek job when we are initializing. Fire it now.
+  FirePendingSeekIfExists();
+
   // NuPlayer won't render any frame before started, so call seekTo() to force
-  // it to output the first frame.
-  if (VideoEnabled()) {
-    HandleSeek(SeekTarget(TimeUnit::Zero(), SeekTarget::Accurate));
-  } else {
+  // it to output the first frame. If we just fired a pending seek, no need to
+  // seek again.
+  if (!Seeking() && VideoEnabled()) {
+    HandleSeek(SeekTarget(TimeUnit::Zero(), SeekTarget::Accurate), false);
+  }
+
+  if (!mSentFirstFrameLoadedEvent && !VideoEnabled()) {
     mSentFirstFrameLoadedEvent = true;
     NotifyFirstFrameLoaded(MakeUnique<MediaInfo>(mInfo));
   }
@@ -299,6 +316,7 @@ void GonkOffloadPlayer::PlayStateChanged() {
       mMediaPlayer->pause();
     }
   }
+  MediaOffloadPlayer::PlayStateChanged();
 }
 
 void GonkOffloadPlayer::VolumeChanged() {
