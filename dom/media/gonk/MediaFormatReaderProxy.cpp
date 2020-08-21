@@ -9,10 +9,14 @@
 namespace mozilla {
 
 MediaFormatReaderProxy::MediaFormatReaderProxy(MediaFormatReader* aReader)
-    : mTarget(RefPtr<MediaFormatReader>(aReader)) {}
+    : mTarget(RefPtr<MediaFormatReader>(aReader)) {
+  DDLINKCHILD("media format reader", aReader);
+}
 
 MediaFormatReaderProxy::MediaFormatReaderProxy(MediaOffloadPlayer* aPlayer)
-    : mTarget(RefPtr<MediaOffloadPlayer>(aPlayer)) {}
+    : mTarget(RefPtr<MediaOffloadPlayer>(aPlayer)) {
+  DDLINKCHILD("offload player", aPlayer);
+}
 
 MediaFormatReaderProxy::~MediaFormatReaderProxy() {}
 

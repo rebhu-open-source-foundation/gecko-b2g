@@ -20,6 +20,11 @@ using namespace mozilla::dom;
 using namespace mozilla::media;
 using namespace mozilla::layers;
 
+#define LOG(fmt, ...) \
+  MOZ_LOG(gMediaDecoderLog, LogLevel::Debug, (fmt, ##__VA_ARGS__))
+#define LOGV(fmt, ...) \
+  MOZ_LOG(gMediaDecoderLog, LogLevel::Verbose, (fmt, ##__VA_ARGS__))
+
 class AndroidMediaPlayerListener : public android::MediaPlayerListener {
  public:
   explicit AndroidMediaPlayerListener(GonkOffloadPlayer* aOwner)
@@ -27,6 +32,8 @@ class AndroidMediaPlayerListener : public android::MediaPlayerListener {
 
   virtual void notify(int msg, int ext1, int ext2,
                       const android::Parcel* obj) override {
+    LOGV("AndroidMediaPlayerListener::notify, %s, %d, %d",
+         MediaEventTypeToStr(msg), ext1, ext2);
     nsresult rv = mOwner->OwnerThread()->Dispatch(NS_NewRunnableFunction(
         "AndroidMediaPlayerListener::DispatchNotify",
         [owner = RefPtr<GonkOffloadPlayer>(mOwner), msg, ext1, ext2]() {
@@ -37,6 +44,49 @@ class AndroidMediaPlayerListener : public android::MediaPlayerListener {
   }
 
  private:
+  static const char* MediaEventTypeToStr(int aEventType) {
+    switch (aEventType) {
+      case MEDIA_NOP:
+        return "MEDIA_NOP";
+      case MEDIA_PREPARED:
+        return "MEDIA_PREPARED";
+      case MEDIA_PLAYBACK_COMPLETE:
+        return "MEDIA_PLAYBACK_COMPLETE";
+      case MEDIA_BUFFERING_UPDATE:
+        return "MEDIA_BUFFERING_UPDATE";
+      case MEDIA_SEEK_COMPLETE:
+        return "MEDIA_SEEK_COMPLETE";
+      case MEDIA_SET_VIDEO_SIZE:
+        return "MEDIA_SET_VIDEO_SIZE";
+      case MEDIA_STARTED:
+        return "MEDIA_STARTED";
+      case MEDIA_PAUSED:
+        return "MEDIA_PAUSED";
+      case MEDIA_STOPPED:
+        return "MEDIA_STOPPED";
+      case MEDIA_SKIPPED:
+        return "MEDIA_SKIPPED";
+      case MEDIA_TIMED_TEXT:
+        return "MEDIA_TIMED_TEXT";
+      case MEDIA_ERROR:
+        return "MEDIA_ERROR";
+      case MEDIA_INFO:
+        return "MEDIA_INFO";
+      case MEDIA_SUBTITLE_DATA:
+        return "MEDIA_SUBTITLE_DATA";
+      case MEDIA_META_DATA:
+        return "MEDIA_META_DATA";
+      case MEDIA_DRM_INFO:
+        return "MEDIA_DRM_INFO";
+      case MEDIA_TIME_DISCONTINUITY:
+        return "MEDIA_TIME_DISCONTINUITY";
+      case MEDIA_AUDIO_ROUTING_CHANGED:
+        return "MEDIA_AUDIO_ROUTING_CHANGED";
+      default:
+        return "unknown media event";
+    }
+  }
+
   GonkOffloadPlayer* mOwner;
 };
 
@@ -99,11 +149,15 @@ void GonkOffloadPlayer::InitInternal() {
   mMediaPlayer->setListener(mMediaPlayerListener);
 
   if (mURI && (mURI->SchemeIs("http") || mURI->SchemeIs("https"))) {
+    LOG("GonkOffloadPlayer::InitInternal, set URI source %s",
+        mURI->GetSpecOrDefault().get());
     nsCString uri(mURI->GetSpecOrDefault());
     sp<IMediaHTTPService> httpService =
         new GonkMediaHTTPService(mResource, uri.get(), mContainerType.get());
     mMediaPlayer->setDataSource(httpService, uri.get(), nullptr);
   } else {
+    LOG("GonkOffloadPlayer::InitInternal, set DataSource %s",
+        mURI ? mURI->GetSpecOrDefault().get() : "");
     sp<DataSource> source = new MediaResourceDataSource(mResource);
     mMediaPlayer->setDataSource(CreateIDataSourceFromDataSource(source));
   }

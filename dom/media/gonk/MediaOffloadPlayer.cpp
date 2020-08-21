@@ -14,6 +14,11 @@ namespace mozilla {
 using namespace mozilla::media;
 using namespace mozilla::layers;
 
+#define LOG(fmt, ...) \
+  MOZ_LOG(gMediaDecoderLog, LogLevel::Debug, (fmt, ##__VA_ARGS__))
+#define LOGV(fmt, ...) \
+  MOZ_LOG(gMediaDecoderLog, LogLevel::Verbose, (fmt, ##__VA_ARGS__))
+
 /* static */
 RefPtr<MediaOffloadPlayer> MediaOffloadPlayer::Create(
     MediaFormatReaderInit& aInit, nsIURI* aURI) {
@@ -46,16 +51,22 @@ MediaOffloadPlayer::MediaOffloadPlayer(MediaFormatReaderInit& aInit)
       INIT_MIRROR(mSecondaryVideoContainer, nullptr),
       INIT_MIRROR(mOutputCaptured, false),
       INIT_MIRROR(mOutputTracks, nsTArray<RefPtr<ProcessedMediaTrack>>()),
-      INIT_MIRROR(mOutputPrincipal, PRINCIPAL_HANDLE_NONE) {}
+      INIT_MIRROR(mOutputPrincipal, PRINCIPAL_HANDLE_NONE) {
+  LOG("MediaOffloadPlayer::MediaOffloadPlayer");
+  DDLINKCHILD("source", mResource.get());
+}
 
 #undef INIT_MIRROR
 #undef INIT_CANONICAL
 
-MediaOffloadPlayer::~MediaOffloadPlayer() {}
+MediaOffloadPlayer::~MediaOffloadPlayer() {
+  LOG("MediaOffloadPlayer::~MediaOffloadPlayer");
+}
 
 void MediaOffloadPlayer::InitializationTask(MediaDecoder* aDecoder) {
   AUTO_PROFILER_LABEL("MediaOffloadPlayer::InitializationTask", MEDIA_PLAYBACK);
   MOZ_ASSERT(OnTaskQueue());
+  LOG("MediaOffloadPlayer::InitializationTask");
 
   // Connect mirrors.
   mPlayState.Connect(aDecoder->CanonicalPlayState());
@@ -102,6 +113,7 @@ nsresult MediaOffloadPlayer::Init(MediaDecoder* aDecoder) {
 
 RefPtr<ShutdownPromise> MediaOffloadPlayer::Shutdown() {
   MOZ_ASSERT(OnTaskQueue());
+  LOG("MediaOffloadPlayer::Shutdown");
 
   mCurrentPositionTimer.Reset();
   mDormantTimer.Reset();
@@ -159,6 +171,11 @@ void MediaOffloadPlayer::NotifySeeked(bool aSuccess) {
   MOZ_ASSERT(OnTaskQueue());
   MOZ_ASSERT(mCurrentSeek.Exists());
 
+  LOG("MediaOffloadPlayer::NotifySeeked, %s seek to %.03lf sec %s",
+      mCurrentSeek.mVisible ? "user" : "internal",
+      mCurrentSeek.mTarget->GetTime().ToSeconds(),
+      aSuccess ? "succeeded" : "failed");
+
   if (aSuccess) {
     mCurrentSeek.mPromise.ResolveIfExists(true, __func__);
   } else {
@@ -188,6 +205,10 @@ RefPtr<MediaDecoder::SeekPromise> MediaOffloadPlayer::HandleSeek(
     const SeekTarget& aTarget, bool aVisible) {
   MOZ_ASSERT(OnTaskQueue());
 
+  LOG("MediaOffloadPlayer::HandleSeek, %s seek to %.03lf sec, type %d",
+      aVisible ? "user" : "internal", aTarget.GetTime().ToSeconds(),
+      aTarget.GetType());
+
   // If user seeks to a new position, need to exit dormant and fire seek so the
   // displayed image will be updated.
   if (aVisible && mVideoFrameContainer) {
@@ -198,6 +219,10 @@ RefPtr<MediaDecoder::SeekPromise> MediaOffloadPlayer::HandleSeek(
   // mPendingSeek. If there is already a pending seek job, reject it and replace
   // it by the new one.
   if (mCurrentSeek.Exists() || NeedToDeferSeek()) {
+    LOG("MediaOffloadPlayer::HandleSeek, cannot seek now, replacing previous "
+        "pending target %.03lf sec",
+        mPendingSeek.Exists() ? mPendingSeek.mTarget->GetTime().ToSeconds()
+                              : UnspecifiedNaN<double>());
     mPendingSeek.RejectIfExists(__func__);
     mPendingSeek.mTarget.emplace(aTarget);
     mPendingSeek.mVisible = aVisible;
@@ -224,6 +249,9 @@ void MediaOffloadPlayer::FirePendingSeekIfExists() {
   MOZ_ASSERT(!mCurrentSeek.Exists());
 
   if (mPendingSeek.Exists()) {
+    LOG("MediaOffloadPlayer::FirePendingSeekIfExists, %s seek, %.03lf sec",
+        mPendingSeek.mVisible ? "user" : "internal",
+        mPendingSeek.mTarget->GetTime().ToSeconds());
     mCurrentSeek = std::move(mPendingSeek);
     mPendingSeek = SeekObject();
     SeekInternal(mCurrentSeek.mTarget.ref(), mCurrentSeek.mVisible);
@@ -271,6 +299,7 @@ void MediaOffloadPlayer::StartDormantTimer() {
     return;
   }
 
+  LOG("MediaOffloadPlayer::StartDormantTimer, start in %d ms", timeout);
   TimeStamp target = TimeStamp::Now() + TimeDuration::FromMilliseconds(timeout);
   mDormantTimer.Ensure(
       target,
@@ -282,6 +311,7 @@ void MediaOffloadPlayer::StartDormantTimer() {
 }
 
 void MediaOffloadPlayer::EnterDormant() {
+  LOG("MediaOffloadPlayer::EnterDormant, resetting internal player");
   mInDormant = true;
   UpdateCurrentPosition();
   ResetInternal();
@@ -293,6 +323,7 @@ void MediaOffloadPlayer::EnterDormant() {
 void MediaOffloadPlayer::ExitDormant() {
   mDormantTimer.Reset();
   if (mInDormant) {
+    LOG("MediaOffloadPlayer::ExitDormant, initializing internal player");
     mInDormant = false;
     InitInternal();
   }
@@ -300,6 +331,7 @@ void MediaOffloadPlayer::ExitDormant() {
 
 void MediaOffloadPlayer::PlayStateChanged() {
   MOZ_ASSERT(OnTaskQueue());
+  LOG("MediaOffloadPlayer::PlayStateChanged, %d", mPlayState.Ref());
   if (mPlayState == MediaDecoder::PLAY_STATE_PAUSED) {
     StartDormantTimer();
   } else if (mPlayState == MediaDecoder::PLAY_STATE_PLAYING) {
@@ -308,29 +340,41 @@ void MediaOffloadPlayer::PlayStateChanged() {
 }
 
 void MediaOffloadPlayer::NotifyMediaNotSeekable() {
+  LOG("MediaOffloadPlayer::NotifyMediaNotSeekable");
   mOnMediaNotSeekable.Notify();
 }
 
 void MediaOffloadPlayer::NotifyMetadataLoaded(UniquePtr<MediaInfo> aInfo,
                                               UniquePtr<MetadataTags> aTags) {
+  LOG("MediaOffloadPlayer::NotifyMetadataLoaded, duration %.03lf sec, "
+      "audio: %s, video: %s",
+      aInfo->mMetadataDuration ? aInfo->mMetadataDuration->ToSeconds()
+                               : UnspecifiedNaN<double>(),
+      aInfo->HasAudio() ? aInfo->mAudio.mMimeType.get() : "none",
+      aInfo->HasVideo() ? aInfo->mVideo.mMimeType.get() : "none");
   mMetadataLoadedEvent.Notify(std::move(aInfo), std::move(aTags),
                               MediaDecoderEventVisibility::Observable);
 }
 
 void MediaOffloadPlayer::NotifyFirstFrameLoaded(UniquePtr<MediaInfo> aInfo) {
+  LOG("MediaOffloadPlayer::NotifyFirstFrameLoaded");
   mFirstFrameLoadedEvent.Notify(std::move(aInfo),
                                 MediaDecoderEventVisibility::Observable);
 }
 
 void MediaOffloadPlayer::NotifyPlaybackEvent(MediaPlaybackEvent aEvent) {
+  LOG("MediaOffloadPlayer::NotifyPlaybackEvent, type %d", aEvent.mType);
   mOnPlaybackEvent.Notify(aEvent);
 }
 
 void MediaOffloadPlayer::NotifyPlaybackError(MediaResult aError) {
+  LOG("MediaOffloadPlayer::NotifyPlaybackError, %s",
+      aError.Description().get());
   mOnPlaybackErrorEvent.Notify(aError);
 }
 
 void MediaOffloadPlayer::NotifyNextFrameStatus(NextFrameStatus aStatus) {
+  LOG("MediaOffloadPlayer::NotifyNextFrameStatus, status %d", aStatus);
   mOnNextFrameStatus.Notify(aStatus);
 }
 
