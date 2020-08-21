@@ -11,6 +11,7 @@
 #include "mozilla/Range.h"
 #include "mozilla/UniquePtr.h"
 
+#include <fcntl.h>
 #include <vector>
 #include <string>
 
@@ -35,12 +36,13 @@ class SandboxOpenedFile final {
   // dup() of the descriptor every time it's called; otherwise, the
   // first call will return the descriptor and any further calls will
   // log an error message and return -1.
-  explicit SandboxOpenedFile(const char* aPath, bool aDup = false);
+  explicit SandboxOpenedFile(const char* aPath, bool aDup = false,
+                             int aFlags = O_RDONLY);
 
   // Simulates opening the pre-opened file; see the constructor's
   // comment for details.  Does not set errno on error, but may modify
   // it as a side-effect.  Thread-safe and intended to be async signal safe.
-  int GetDesc() const;
+  int GetDesc(int aFlags) const;
 
   const char* Path() const { return mPath.c_str(); }
 
@@ -55,6 +57,7 @@ class SandboxOpenedFile final {
   mutable Atomic<int> mMaybeFd;
   bool mDup;
   bool mExpectError;
+  int mFlags;
 
   int TakeDesc() const { return mMaybeFd.exchange(-1); }
 };
@@ -72,7 +75,7 @@ class SandboxOpenedFiles {
     mFiles.emplace_back(std::forward<Args>(aArgs)...);
   }
 
-  int GetDesc(const char* aPath) const;
+  int GetDesc(const char* aPath, int aFlags = O_RDONLY) const;
 
  private:
   std::vector<SandboxOpenedFile> mFiles;

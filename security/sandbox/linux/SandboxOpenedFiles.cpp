@@ -7,7 +7,6 @@
 #include "SandboxOpenedFiles.h"
 
 #include <errno.h>
-#include <fcntl.h>
 #include <unistd.h>
 
 #include <utility>
@@ -22,20 +21,31 @@ SandboxOpenedFile::SandboxOpenedFile(SandboxOpenedFile&& aMoved)
     : mPath(std::move(aMoved.mPath)),
       mMaybeFd(aMoved.TakeDesc()),
       mDup(aMoved.mDup),
-      mExpectError(aMoved.mExpectError) {}
+      mExpectError(aMoved.mExpectError),
+      mFlags(aMoved.mFlags) {}
 
-SandboxOpenedFile::SandboxOpenedFile(const char* aPath, bool aDup)
-    : mPath(aPath), mDup(aDup), mExpectError(false) {
+SandboxOpenedFile::SandboxOpenedFile(const char* aPath, bool aDup, int aFlags)
+    : mPath(aPath),
+      mDup(aDup),
+      mExpectError(false),
+      mFlags(aFlags & O_ACCMODE) {
   MOZ_ASSERT(aPath[0] == '/', "path should be absolute");
 
-  int fd = open(aPath, O_RDONLY | O_CLOEXEC);
+  int fd = open(aPath, mFlags | O_CLOEXEC);
   if (fd < 0) {
     mExpectError = true;
   }
   mMaybeFd = fd;
 }
 
-int SandboxOpenedFile::GetDesc() const {
+int SandboxOpenedFile::GetDesc(int aFlags) const {
+  int accessMode = aFlags & O_ACCMODE;
+  if ((accessMode & mFlags) != accessMode) {
+    SANDBOX_LOG_ERROR("non-read-only open of file %s attempted (flags=0%o)",
+                      Path(), aFlags);
+    return -1;
+  }
+
   int fd;
   if (mDup) {
     fd = mMaybeFd;
@@ -61,10 +71,10 @@ SandboxOpenedFile::~SandboxOpenedFile() {
   }
 }
 
-int SandboxOpenedFiles::GetDesc(const char* aPath) const {
+int SandboxOpenedFiles::GetDesc(const char* aPath, int aFlags) const {
   for (const auto& file : mFiles) {
     if (strcmp(file.Path(), aPath) == 0) {
-      return file.GetDesc();
+      return file.GetDesc(aFlags);
     }
   }
   SANDBOX_LOG_ERROR("attempt to open unexpected file %s", aPath);

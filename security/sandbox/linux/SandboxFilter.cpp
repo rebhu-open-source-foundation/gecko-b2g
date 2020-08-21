@@ -156,26 +156,6 @@ class SandboxPolicyCommon : public SandboxPolicyBase {
     return ConvertError(syscall(nr, args...));
   }
 
- private:
-  // Bug 1093893: Translate tkill to tgkill for pthread_kill; fixed in
-  // bionic commit 10c8ce59a (in JB and up; API level 16 = Android 4.1).
-  // Bug 1376653: musl also needs this, and security-wise it's harmless.
-  static intptr_t TKillCompatTrap(ArgsRef aArgs, void* aux) {
-    auto tid = static_cast<pid_t>(aArgs.args[0]);
-    auto sig = static_cast<int>(aArgs.args[1]);
-    return DoSyscall(__NR_tgkill, getpid(), tid, sig);
-  }
-
-  static intptr_t SetNoNewPrivsTrap(ArgsRef& aArgs, void* aux) {
-    if (gSetSandboxFilter == nullptr) {
-      // Called after BroadcastSetThreadSandbox finished, therefore
-      // not our doing and not expected.
-      return BlockedSyscallTrap(aArgs, nullptr);
-    }
-    // Signal that the filter is already in place.
-    return -ETXTBSY;
-  }
-
   // Trap handlers for filesystem brokering.
   // (The amount of code duplication here could be improved....)
 #ifdef __NR_open
@@ -198,6 +178,26 @@ class SandboxPolicyCommon : public SandboxPolicyBase {
       return BlockedSyscallTrap(aArgs, nullptr);
     }
     return broker->Open(path, flags);
+  }
+
+ private:
+  // Bug 1093893: Translate tkill to tgkill for pthread_kill; fixed in
+  // bionic commit 10c8ce59a (in JB and up; API level 16 = Android 4.1).
+  // Bug 1376653: musl also needs this, and security-wise it's harmless.
+  static intptr_t TKillCompatTrap(ArgsRef aArgs, void* aux) {
+    auto tid = static_cast<pid_t>(aArgs.args[0]);
+    auto sig = static_cast<int>(aArgs.args[1]);
+    return DoSyscall(__NR_tgkill, getpid(), tid, sig);
+  }
+
+  static intptr_t SetNoNewPrivsTrap(ArgsRef& aArgs, void* aux) {
+    if (gSetSandboxFilter == nullptr) {
+      // Called after BroadcastSetThreadSandbox finished, therefore
+      // not our doing and not expected.
+      return BlockedSyscallTrap(aArgs, nullptr);
+    }
+    // Signal that the filter is already in place.
+    return -ETXTBSY;
   }
 
 #ifdef __NR_access
@@ -766,6 +766,16 @@ class SandboxPolicyCommon : public SandboxPolicyBase {
 // namespaces and chroot() will be used.
 class ContentSandboxPolicy : public SandboxPolicyCommon {
  private:
+  struct AuxData {
+    AuxData(SandboxBrokerClient* aBroker, const SandboxOpenedFiles* aFiles)
+        : mBroker(aBroker), mFiles(aFiles) {}
+    ~AuxData() = default;
+
+    SandboxBrokerClient* mBroker = nullptr;
+    const SandboxOpenedFiles* mFiles = nullptr;
+  };
+
+  AuxData* mAuxData;
   ContentProcessSandboxParams mParams;
   bool mAllowSysV;
   bool mUsingRenderDoc;
@@ -776,6 +786,45 @@ class ContentSandboxPolicy : public SandboxPolicyCommon {
   }
   ResultExpr AllowBelowLevel(int aLevel) const {
     return AllowBelowLevel(aLevel, InvalidSyscall());
+  }
+
+  static intptr_t OpenTrap(ArgsRef aArgs, void* aux) {
+    AuxData* auxData = static_cast<AuxData*>(aux);
+    const char* path;
+    int flags;
+
+    switch (aArgs.nr) {
+#ifdef __NR_open
+      case __NR_open:
+        path = reinterpret_cast<const char*>(aArgs.args[0]);
+        flags = static_cast<int>(aArgs.args[1]);
+        break;
+#endif
+      case __NR_openat:
+        // The path has to be absolute to match the pre-opened file (see
+        // assertion in ctor) so the dirfd argument is ignored.
+        path = reinterpret_cast<const char*>(aArgs.args[1]);
+        flags = static_cast<int>(aArgs.args[2]);
+        break;
+      default:
+        MOZ_CRASH("unexpected syscall number");
+    }
+
+    int fd = auxData->mFiles->GetDesc(path, flags);
+    if (fd >= 0) {
+      return fd;
+    }
+
+    // No matched pre-opened FD, call base class's trap function.
+#ifdef __NR_open
+    if (aArgs.nr == __NR_open) {
+      return SandboxPolicyCommon::OpenTrap(aArgs, auxData->mBroker);
+    }
+#endif
+    if (aArgs.nr == __NR_openat) {
+      return SandboxPolicyCommon::OpenAtTrap(aArgs, auxData->mBroker);
+    }
+    return -ENOENT;
   }
 
   static intptr_t GetPPidTrap(ArgsRef aArgs, void* aux) {
@@ -938,6 +987,7 @@ class ContentSandboxPolicy : public SandboxPolicyCommon {
                        ContentProcessSandboxParams&& aParams)
       : SandboxPolicyCommon(aBroker, ShmemUsage::MAY_CREATE,
                             AllowUnsafeSocketPair::YES),
+        mAuxData(new AuxData(aBroker, aParams.mFiles)),
         mParams(std::move(aParams)),
         mAllowSysV(PR_GetEnv("MOZ_SANDBOX_ALLOW_SYSV") != nullptr),
         mUsingRenderDoc(PR_GetEnv("RENDERDOC_CAPTUREOPTS") != nullptr) {}
@@ -1059,6 +1109,18 @@ class ContentSandboxPolicy : public SandboxPolicyCommon {
           return Allow();
       }
     }
+
+#ifdef MOZ_WIDGET_GONK
+    if (mAuxData->mFiles) {
+      switch (sysno) {
+#  ifdef __NR_open
+        case __NR_open:
+#  endif
+        case __NR_openat:
+          return Trap(OpenTrap, mAuxData);
+      }
+    }
+#endif
 
     switch (sysno) {
 #ifdef MOZ_WIDGET_GONK

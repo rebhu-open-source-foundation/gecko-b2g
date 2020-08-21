@@ -622,6 +622,12 @@ bool SetContentProcessSandbox(ContentProcessSandboxParams&& aParams) {
     sBroker = new SandboxBrokerClient(brokerFd);
   }
 
+#ifdef MOZ_WIDGET_GONK
+  // Live as long as this process.
+  aParams.mFiles = new SandboxOpenedFiles();
+  aParams.mFiles->Add("/dev/binder", true, O_RDWR);
+#endif
+
   SetCurrentProcessSandbox(
       GetContentSandboxPolicy(sBroker, std::move(aParams)));
   return true;

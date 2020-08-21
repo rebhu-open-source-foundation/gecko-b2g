@@ -17,6 +17,8 @@
 
 namespace mozilla {
 
+class SandboxOpenedFiles;
+
 namespace ipc {
 class FileDescriptor;
 }  // namespace ipc
@@ -43,6 +45,8 @@ struct ContentProcessSandboxParams {
   // Syscall numbers to allow even if the seccomp-bpf policy otherwise
   // wouldn't.
   std::vector<int> mSyscallWhitelist;
+  // Pre-opened file descriptors.
+  SandboxOpenedFiles* mFiles = nullptr;
 
   static ContentProcessSandboxParams ForThisProcess(
       const Maybe<ipc::FileDescriptor>& aBroker);
