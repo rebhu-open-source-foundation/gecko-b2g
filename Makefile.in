@@ -188,9 +188,15 @@ include $(topsrcdir)/toolkit/mozapps/installer/package-name.mk
 
 endif
 
+ifdef DUMP_SYMS
+DUMP_SYMS_BIN = $(DUMP_SYMS)
+else
+DUMP_SYMS_BIN = $(topobjdir)/dist/host/bin/dump_syms
+endif
+
 define dump_syms_out
 $(PYTHON3) $(topsrcdir)/toolkit/crashreporter/tools/symbolstore.py \
-  $(topobjdir)/dist/host/bin/dump_syms \
+  $(DUMP_SYMS_BIN) \
   $(topobjdir)/dist/crashreporter-symbols \
   $(1)
 
