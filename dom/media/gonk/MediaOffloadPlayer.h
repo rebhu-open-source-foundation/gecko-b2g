@@ -116,11 +116,15 @@ class MediaOffloadPlayer : public DecoderDoctorLifeLogger<MediaOffloadPlayer> {
   RefPtr<TaskQueue> mTaskQueue;
   WatchManager<MediaOffloadPlayer> mWatchManager;
   DelayedScheduler mCurrentPositionTimer;
+  SeekJob mCurrentSeek;
+  SeekJob mPendingSeek;
 
  protected:
   MediaOffloadPlayer(MediaFormatReaderInit& aInit);
   virtual ~MediaOffloadPlayer();
   bool OnTaskQueue() const { return OwnerThread()->IsCurrentThreadIn(); }
+  RefPtr<MediaDecoder::SeekPromise> HandleSeek(const SeekTarget& aTarget);
+  void NotifySeeked(bool aSuccess);
   void UpdateCurrentPositionPeriodically();
 
   const RefPtr<VideoFrameContainer> mVideoFrameContainer;
@@ -136,6 +140,7 @@ class MediaOffloadPlayer : public DecoderDoctorLifeLogger<MediaOffloadPlayer> {
    */
   virtual void InitInternal() = 0;
   virtual void ResetInternal() = 0;
+  virtual void SeekInternal(const SeekTarget& aTarget) = 0;
   // Return true to schedule next update.
   virtual bool UpdateCurrentPosition() = 0;
 

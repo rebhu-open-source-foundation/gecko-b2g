@@ -139,6 +139,32 @@ void GonkOffloadPlayer::ResetInternal() {
   mMediaPlayerListener = nullptr;
 }
 
+void GonkOffloadPlayer::SeekInternal(const SeekTarget& aTarget) {
+  MOZ_ASSERT(OnTaskQueue());
+  MOZ_ASSERT(mMediaPlayer);
+
+  int msec = aTarget.GetTime().ToMicroseconds() / 1000;
+  MediaPlayerSeekMode mode;
+  switch (aTarget.GetType()) {
+    default:
+    case SeekTarget::PrevSyncPoint:
+      mode = MediaPlayerSeekMode::SEEK_PREVIOUS_SYNC;
+      break;
+    case SeekTarget::Accurate:
+    case SeekTarget::NextFrame:
+      mode = MediaPlayerSeekMode::SEEK_CLOSEST;
+      break;
+  }
+
+  if (mMediaPlayer->seekTo(msec, mode) != OK) {
+    NotifySeeked(false);
+    return;
+  }
+
+  NotifyNextFrameStatus(MediaDecoderOwner::NEXT_FRAME_UNAVAILABLE_SEEKING);
+  NotifyPlaybackEvent(MediaPlaybackEvent::SeekStarted);
+}
+
 bool GonkOffloadPlayer::UpdateCurrentPosition() {
   MOZ_ASSERT(OnTaskQueue());
   if (mMediaPlayer) {
@@ -169,6 +195,11 @@ void GonkOffloadPlayer::Notify(int msg, int ext1, int ext2) {
       TimeUnit bufferd = std::max(duration * ext1 / 100, current);
       mBuffered = TimeIntervals(TimeInterval(current, bufferd));
     } break;
+    case MEDIA_SEEK_COMPLETE:
+      UpdateCurrentPosition();
+      NotifyNextFrameStatus(MediaDecoderOwner::NEXT_FRAME_AVAILABLE);
+      NotifySeeked(true);
+      break;
     case MEDIA_SET_VIDEO_SIZE:
       mInfo.mVideo.mDisplay = gfx::IntSize(ext1, ext2);
       mPackedDisplaySize = (((int64_t)ext1) << 32) | ext2;
@@ -251,7 +282,7 @@ void GonkOffloadPlayer::NotifyPrepared() {
   // NuPlayer won't render any frame before started, so call seekTo() to force
   // it to output the first frame.
   if (VideoEnabled()) {
-    mMediaPlayer->seekTo(0, MediaPlayerSeekMode::SEEK_CLOSEST);
+    HandleSeek(SeekTarget(TimeUnit::Zero(), SeekTarget::Accurate));
   } else {
     mSentFirstFrameLoadedEvent = true;
     NotifyFirstFrameLoaded(MakeUnique<MediaInfo>(mInfo));

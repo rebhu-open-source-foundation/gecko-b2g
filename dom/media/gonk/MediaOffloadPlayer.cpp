@@ -153,9 +153,55 @@ RefPtr<GenericPromise> MediaOffloadPlayer::RequestDebugInfo(
   return GenericPromise::CreateAndReject(NS_ERROR_ABORT, __func__);
 }
 
+void MediaOffloadPlayer::NotifySeeked(bool aSuccess) {
+  MOZ_ASSERT(OnTaskQueue());
+  MOZ_ASSERT(mCurrentSeek.Exists());
+
+  if (aSuccess) {
+    mCurrentSeek.mPromise.ResolveIfExists(true, __func__);
+  } else {
+    mCurrentSeek.mPromise.RejectIfExists(true, __func__);
+  }
+
+  // If there is a pending seek job, dispatch it to another runnable.
+  if (mPendingSeek.Exists()) {
+    mCurrentSeek = std::move(mPendingSeek);
+    mPendingSeek = SeekJob();
+    nsresult rv = OwnerThread()->Dispatch(NS_NewRunnableFunction(
+        "MediaOffloadPlayer::SeekPendingJob",
+        [this, self = RefPtr<MediaOffloadPlayer>(this)]() {
+          SeekInternal(mCurrentSeek.mTarget.ref());
+        }));
+    MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
+    Unused << rv;
+  } else {
+    mCurrentSeek = SeekJob();
+  }
+}
+
+RefPtr<MediaDecoder::SeekPromise> MediaOffloadPlayer::HandleSeek(
+    const SeekTarget& aTarget) {
+  MOZ_ASSERT(OnTaskQueue());
+
+  // If we are currently seeking, save the job in mPendingSeek. If there is
+  // already a pending seek job, reject it and replace it by the new one.
+  if (mCurrentSeek.Exists()) {
+    mPendingSeek.RejectIfExists(__func__);
+    mPendingSeek.mTarget.emplace(aTarget);
+    return mPendingSeek.mPromise.Ensure(__func__);
+  }
+
+  MOZ_ASSERT(!mPendingSeek.Exists());
+  mCurrentSeek.mTarget.emplace(aTarget);
+  RefPtr<MediaDecoder::SeekPromise> p = mCurrentSeek.mPromise.Ensure(__func__);
+  SeekInternal(aTarget);
+  return p;
+}
+
 RefPtr<MediaDecoder::SeekPromise> MediaOffloadPlayer::InvokeSeek(
     const SeekTarget& aTarget) {
-  return MediaDecoder::SeekPromise::CreateAndReject(true, __func__);
+  return InvokeAsync(OwnerThread(), this, __func__,
+                     &MediaOffloadPlayer::HandleSeek, aTarget);
 }
 
 void MediaOffloadPlayer::DispatchSetPlaybackRate(double aPlaybackRate) {
