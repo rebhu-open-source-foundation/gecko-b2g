@@ -63,6 +63,7 @@ EXTRA_JS_MODULES += [
     'PermissionsInstaller.jsm',
     'PermissionsTable.jsm',
     'PersistentDataBlock.jsm',
+    'SettingsPrefsSync.jsm',
     'TelURIParser.jsm',
 ]
 

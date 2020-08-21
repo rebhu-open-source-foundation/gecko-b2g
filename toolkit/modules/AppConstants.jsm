@@ -421,4 +421,7 @@ this.AppConstants = Object.freeze({
 #else
     false,
 #endif
+
+  MOZ_B2G_OS_NAME: "@MOZ_B2G_OS_NAME@",
+  MOZ_B2G_VERSION: "@MOZ_B2G_VERSION@",
 });

@@ -9,7 +9,6 @@ chrome.jar:
 % content b2g %content/
 
   content/arrow.svg                     (content/arrow.svg)
-  content/settings.js                   (content/settings.js)
 * content/shell.html                    (content/shell.html)
   content/shell_remote.html             (content/shell_remote.html)
   content/shell_remote.js               (content/shell_remote.js)

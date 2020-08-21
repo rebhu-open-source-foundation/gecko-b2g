@@ -248,7 +248,19 @@ document.addEventListener(
     );
     GeckoBridge.start();
 
-    shell.start();
+    // Start the Settings <-> Preferences synchronizer.
+    const { SettingsPrefsSync } = ChromeUtils.import(
+      "resource://gre/modules/SettingsPrefsSync.jsm"
+    );
+    SettingsPrefsSync.start().then(() => {
+      // TODO: check if there is a better time to run delayedInit()
+      // for the overall OS startup, like when the homescreen is ready.
+      window.setTimeout(() => {
+        SettingsPrefsSync.delayedInit();
+      }, 10000);
+
+      shell.start();
+    });
   },
   { once: true }
 );
