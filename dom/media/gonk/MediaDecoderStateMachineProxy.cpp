@@ -12,6 +12,10 @@ MediaDecoderStateMachineProxy::MediaDecoderStateMachineProxy(
     MediaDecoderStateMachine* aStateMachine)
     : mTarget(RefPtr<MediaDecoderStateMachine>(aStateMachine)) {}
 
+MediaDecoderStateMachineProxy::MediaDecoderStateMachineProxy(
+    MediaOffloadPlayer* aPlayer)
+    : mTarget(RefPtr<MediaOffloadPlayer>(aPlayer)) {}
+
 MediaDecoderStateMachineProxy::~MediaDecoderStateMachineProxy() {}
 
 }  // namespace mozilla

@@ -11,6 +11,9 @@ namespace mozilla {
 MediaFormatReaderProxy::MediaFormatReaderProxy(MediaFormatReader* aReader)
     : mTarget(RefPtr<MediaFormatReader>(aReader)) {}
 
+MediaFormatReaderProxy::MediaFormatReaderProxy(MediaOffloadPlayer* aPlayer)
+    : mTarget(RefPtr<MediaOffloadPlayer>(aPlayer)) {}
+
 MediaFormatReaderProxy::~MediaFormatReaderProxy() {}
 
 void MediaFormatReaderProxy::NotifyDataArrived() {

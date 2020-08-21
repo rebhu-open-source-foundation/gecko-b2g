@@ -8,6 +8,7 @@
 #define MediaFormatReaderProxy_h_
 
 #include "MediaFormatReader.h"
+#include "MediaOffloadPlayer.h"
 #include "mozilla/Variant.h"
 
 #define PROXY_MEMBER_FUNCTION(aMemberFunc)                      \
@@ -28,6 +29,7 @@ class MediaFormatReaderProxy
 
  public:
   MediaFormatReaderProxy(MediaFormatReader* aReader);
+  MediaFormatReaderProxy(MediaOffloadPlayer* aPlayer);
 
   PROXY_MEMBER_FUNCTION(GetDebugInfo)
   PROXY_MEMBER_FUNCTION(OwnerThread)
@@ -44,7 +46,7 @@ class MediaFormatReaderProxy
 
  private:
   ~MediaFormatReaderProxy();
-  Variant<RefPtr<MediaFormatReader>> mTarget;
+  Variant<RefPtr<MediaFormatReader>, RefPtr<MediaOffloadPlayer>> mTarget;
 };
 
 }  // namespace mozilla

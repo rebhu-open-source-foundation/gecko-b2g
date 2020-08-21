@@ -8,6 +8,7 @@
 #define MediaDecoderStateMachineProxy_h__
 
 #include "MediaDecoderStateMachine.h"
+#include "MediaOffloadPlayer.h"
 #include "mozilla/Variant.h"
 
 #define PROXY_MEMBER_FUNCTION(aMemberFunc)                      \
@@ -28,6 +29,7 @@ class MediaDecoderStateMachineProxy
 
  public:
   MediaDecoderStateMachineProxy(MediaDecoderStateMachine* aStateMachine);
+  MediaDecoderStateMachineProxy(MediaOffloadPlayer* aPlayer);
 
   PROXY_MEMBER_FUNCTION(Init)
   PROXY_MEMBER_FUNCTION(OwnerThread)
@@ -60,7 +62,7 @@ class MediaDecoderStateMachineProxy
 
  private:
   ~MediaDecoderStateMachineProxy();
-  Variant<RefPtr<MediaDecoderStateMachine>> mTarget;
+  Variant<RefPtr<MediaDecoderStateMachine>, RefPtr<MediaOffloadPlayer>> mTarget;
 };
 
 }  // namespace mozilla
