@@ -23,6 +23,7 @@
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/BrowserParent.h"
 #include "mozilla/PermissionDelegateHandler.h"
+#include "mozilla/StaticPrefs_media.h"
 #include "mozilla/SyncRunnable.h"
 #include "nsIPermissionManager.h"
 #include "nsThreadUtils.h"
@@ -143,6 +144,12 @@ bool GonkPermissionService::checkPermission(const String16& permission,
   // camera, as in b2g the permission is sent from the process of camera app
   // instead of system server
   if (perm8 == "android.permission.CAMERA_SEND_SYSTEM_EVENTS") {
+    return true;
+  }
+
+  // Offloading http/https media sources requires android.permission.INTERNET.
+  if (perm8 == "android.permission.INTERNET" &&
+      StaticPrefs::media_offloadplayer_http_enabled()) {
     return true;
   }
 

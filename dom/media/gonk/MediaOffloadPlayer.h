@@ -9,6 +9,7 @@
 
 #include "MediaDecoderStateMachine.h"
 #include "MediaFormatReader.h"
+#include "nsIURI.h"
 
 namespace mozilla {
 
@@ -19,6 +20,9 @@ class MediaOffloadPlayer : public DecoderDoctorLifeLogger<MediaOffloadPlayer> {
 
  public:
   typedef MediaDecoderOwner::NextFrameStatus NextFrameStatus;
+
+  static RefPtr<MediaOffloadPlayer> Create(MediaFormatReaderInit& aInit,
+                                           nsIURI* aURI);
 
   /*
    * APIs from both MediaDecoderStateMachine and MediaFormatReader.

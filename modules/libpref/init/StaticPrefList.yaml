@@ -8193,6 +8193,23 @@
   mirror: always
 #endif
 
+#if defined(MOZ_WIDGET_GONK)
+- name: media.offloadplayer.audio.enabled
+  type: bool
+  value: true
+  mirror: always
+
+- name: media.offloadplayer.video.enabled
+  type: bool
+  value: false
+  mirror: always
+
+- name: media.offloadplayer.http.enabled
+  type: bool
+  value: false
+  mirror: always
+#endif
+
 #---------------------------------------------------------------------------
 # Prefs starting with "mousewheel."
 #---------------------------------------------------------------------------

@@ -17,6 +17,7 @@
 #ifdef MOZ_WIDGET_GONK
 #  include "MediaDecoderStateMachineProxy.h"
 #  include "MediaFormatReaderProxy.h"
+#  include "MediaOffloadPlayer.h"
 #endif
 
 namespace mozilla {
@@ -209,6 +210,27 @@ already_AddRefed<ChannelMediaDecoder> ChannelMediaDecoder::Clone(
 }
 
 #ifdef MOZ_WIDGET_GONK
+static bool CanOffloadMedia(nsIURI* aURI, bool aIsVideo) {
+  if (!aIsVideo && !StaticPrefs::media_offloadplayer_audio_enabled()) {
+    return false;
+  }
+
+  if (aIsVideo && !StaticPrefs::media_offloadplayer_video_enabled()) {
+    return false;
+  }
+
+  if ((aURI->SchemeIs("http") || aURI->SchemeIs("https")) &&
+      StaticPrefs::media_offloadplayer_http_enabled()) {
+    return true;
+  }
+
+  if (aURI->SchemeIs("file") || aURI->SchemeIs("blob")) {
+    return true;
+  }
+
+  return false;
+}
+
 MediaDecoderStateMachineProxy* ChannelMediaDecoder::CreateStateMachine() {
   MOZ_ASSERT(NS_IsMainThread());
   MediaFormatReaderInit init;
@@ -218,6 +240,18 @@ MediaDecoderStateMachineProxy* ChannelMediaDecoder::CreateStateMachine() {
   init.mFrameStats = mFrameStats;
   init.mResource = mResource;
   init.mMediaDecoderOwnerID = mOwner;
+
+  nsCOMPtr<nsIURI> uri = mResource->GetURI();
+  MOZ_ASSERT(uri);
+
+  // Offload path uses MediaOffloadPlayer.
+  if (CanOffloadMedia(uri, /* aIsVideo = */ GetVideoFrameContainer())) {
+    RefPtr<MediaOffloadPlayer> player = MediaOffloadPlayer::Create(init, uri);
+    mReader = new MediaFormatReaderProxy(player);
+    return new MediaDecoderStateMachineProxy(player);
+  }
+
+  // Default path uses MediaDecoderStateMachine/MediaFormatReader.
   RefPtr<MediaFormatReader> reader =
       DecoderTraits::CreateReader(ContainerType(), init);
   mReader = new MediaFormatReaderProxy(reader);

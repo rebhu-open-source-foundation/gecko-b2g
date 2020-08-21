@@ -6,12 +6,19 @@
 
 #include "MediaOffloadPlayer.h"
 
+#include "GonkOffloadPlayer.h"
 #include "MediaTrackGraph.h"
 
 namespace mozilla {
 
 using namespace mozilla::media;
 using namespace mozilla::layers;
+
+/* static */
+RefPtr<MediaOffloadPlayer> MediaOffloadPlayer::Create(
+    MediaFormatReaderInit& aInit, nsIURI* aURI) {
+  return new GonkOffloadPlayer(aInit, aURI);
+}
 
 #define INIT_MIRROR(name, val) \
   name(mTaskQueue, val, "MediaOffloadPlayer::" #name " (Mirror)")

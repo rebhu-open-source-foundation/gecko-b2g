@@ -115,6 +115,10 @@ class BaseMediaResource : public MediaResource,
 
   virtual void GetDebugInfo(dom::MediaResourceDebugInfo& aInfo) {}
 
+#ifdef MOZ_WIDGET_GONK
+  nsCOMPtr<nsIURI> GetURI() { return mURI; }
+#endif
+
  protected:
   BaseMediaResource(MediaResourceCallback* aCallback, nsIChannel* aChannel,
                     nsIURI* aURI)
