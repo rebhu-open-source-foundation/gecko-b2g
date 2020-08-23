@@ -39,6 +39,12 @@ InputMethodProxy.prototype = {
     "InputMethod:SetComposition:Return:KO",
     "InputMethod:EndComposition:Return:OK",
     "InputMethod:EndComposition:Return:KO",
+    "InputMethod:SendKey:Return:OK",
+    "InputMethod:SendKey:Return:KO",
+    "InputMethod:Keydown:Return:OK",
+    "InputMethod:Keydown:Return:KO",
+    "InputMethod:Keyup:Return:OK",
+    "InputMethod:Keyup:Return:KO",
     ];
     this._messageNames.forEach(aName => {
       Services.cpmm.addMessageListener(aName, this);
@@ -113,6 +119,78 @@ InputMethodProxy.prototype = {
     });
   },
 
+  sendKey(aOwner, aKey, aCallback) {
+    debug("SendKey: [" + aKey + "]");
+    debug("SendKey: aCallback[" + aCallback + "]");
+    this._counter++;
+    let requestId = this._counter;
+    let util;
+    let innerWindowID;
+    if(aOwner) {
+      util = aOwner.windowUtils;
+      innerWindowID = util.currentInnerWindowID;
+    }
+
+    this._requests.set(requestId, {
+      windowId: innerWindowID ? innerWindowID : {},
+      callback: aCallback,
+    });
+    debug("SendKey: requestId:[" + requestId + "]");
+    debug("SendKey: windowId:[" + innerWindowID + "]");
+    Services.cpmm.sendAsyncMessage("InputMethod:SendKey", {
+      requestId,
+      key: aKey,
+    });
+  },
+
+  keydown(aOwner, aKey, aCallback) {
+    debug("Keydown: [" + aKey + "]");
+    debug("Keydown: aCallback[" + aCallback + "]");
+    this._counter++;
+    let requestId = this._counter;
+    let util;
+    let innerWindowID;
+    if(aOwner) {
+      util = aOwner.windowUtils;
+      innerWindowID = util.currentInnerWindowID;
+    }
+
+    this._requests.set(requestId, {
+      windowId: innerWindowID ? innerWindowID : {},
+      callback: aCallback,
+    });
+    debug("Keydown: requestId:[" + requestId + "]");
+    debug("Keydown: windowId:[" + innerWindowID + "]");
+    Services.cpmm.sendAsyncMessage("InputMethod:Keydown", {
+      requestId,
+      key: aKey,
+    });
+  },
+
+  keyup(aOwner, aKey, aCallback) {
+    debug("Keyup: [" + aKey + "]");
+    debug("Keyup: aCallback[" + aCallback + "]");
+    this._counter++;
+    let requestId = this._counter;
+    let util;
+    let innerWindowID;
+    if(aOwner) {
+      util = aOwner.windowUtils;
+      innerWindowID = util.currentInnerWindowID;
+    }
+
+    this._requests.set(requestId, {
+      windowId: innerWindowID ? innerWindowID : {},
+      callback: aCallback,
+    });
+    debug("Keyup: requestId:[" + requestId + "]");
+    debug("Keyup: windowId:[" + innerWindowID + "]");
+    Services.cpmm.sendAsyncMessage("InputMethod:Keyup", {
+      requestId,
+      key: aKey,
+    });
+  },
+
   receiveMessage: function receiveMessage(aMessage) {
     debug("receiveMessage: " + aMessage.name);
     let json = aMessage.json ? aMessage.json : {};
@@ -153,6 +231,42 @@ InputMethodProxy.prototype = {
           Cu.cloneInto(json.error, win)
         );
         break;
+      case "InputMethod:SendKey:Return:OK":
+        request.callback.onSendKey(
+          Cr.NS_OK,
+          Cu.cloneInto(json.result, win)
+        );
+        break;
+      case "InputMethod:SendKey:Return:KO":
+        request.callback.onSendKey(
+          Cr.NS_ERROR_FAILURE,
+          Cu.cloneInto(json.error, win)
+        );
+        break;
+      case "InputMethod:Keydown:Return:OK":
+        request.callback.onKeydown(
+          Cr.NS_OK,
+          Cu.cloneInto(json.result, win)
+        );
+        break;
+      case "InputMethod:Keydown:Return:KO":
+        request.callback.onKeydown(
+          Cr.NS_ERROR_FAILURE,
+          Cu.cloneInto(json.error, win)
+        );
+        break;
+      case "InputMethod:Keyup:Return:OK":
+        request.callback.onKeyup(
+          Cr.NS_OK,
+          Cu.cloneInto(json.result, win)
+        );
+        break;
+      case "InputMethod:Keyup:Return:KO":
+        request.callback.onKeyup(
+          Cr.NS_ERROR_FAILURE,
+          Cu.cloneInto(json.error, win)
+        );
+        break;
       default:
         debug("No matching message: " + aMessage.name);
         break;
@@ -183,7 +297,7 @@ InputMethodProxy.prototype = {
 
   contractID: "@mozilla.org/dom/inputmethod/proxy;1",
 
-  classID: Components.ID("{320ac0c8-e397-11ea-a27b-e34c8e612c52}"),
+  classID: Components.ID("{960e39b0-e4ff-11ea-8c0e-b7c5f54cec64}"),
 
   QueryInterface: ChromeUtils.generateQI([
     Ci.nsIInputMethodProxy,

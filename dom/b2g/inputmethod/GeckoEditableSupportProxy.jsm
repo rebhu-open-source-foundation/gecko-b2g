@@ -35,6 +35,9 @@ GeckoEditableSupportProxy.prototype = {
     this._messageNames = [
     "Forms:SetComposition",
     "Forms:EndComposition",
+    "Forms:SendKey",
+    "Forms:Keydown",
+    "Forms:Keyup",
     ];
     this._messageNames.forEach(aName => {
       Services.cpmm.addMessageListener(aName, this);
@@ -87,6 +90,45 @@ GeckoEditableSupportProxy.prototype = {
     }
   },
 
+  sendKey(aOwner, aCallback) {
+    debug("sendKey()");
+    if (aOwner) {
+      let util = aOwner.windowUtils;
+      let innerWindowID = util.currentInnerWindowID;
+      this._windows.set(innerWindowID, aOwner);
+      this._requests.set("Forms:SendKey", {
+        windowId: innerWindowID ? innerWindowID : {},
+        callback: aCallback,
+      });
+    }
+  },
+
+  keydown(aOwner, aCallback) {
+    debug("keydown()");
+    if (aOwner) {
+      let util = aOwner.windowUtils;
+      let innerWindowID = util.currentInnerWindowID;
+      this._windows.set(innerWindowID, aOwner);
+      this._requests.set("Forms:Keydown", {
+        windowId: innerWindowID ? innerWindowID : {},
+        callback: aCallback,
+      });
+    }
+  },
+
+  keyup(aOwner, aCallback) {
+    debug("keyup()");
+    if (aOwner) {
+      let util = aOwner.windowUtils;
+      let innerWindowID = util.currentInnerWindowID;
+      this._windows.set(innerWindowID, aOwner);
+      this._requests.set("Forms:Keyup", {
+        windowId: innerWindowID ? innerWindowID : {},
+        callback: aCallback,
+      });
+    }
+  },
+
   handleFocus() {
     debug("handleFocus");
     Services.cpmm.sendAsyncMessage("Forms:Focus",{
@@ -132,6 +174,30 @@ GeckoEditableSupportProxy.prototype = {
           result: json.result,
         });
         break;
+      case "Forms:SendKey":
+        debug("Forms:SendKey with: " + JSON.stringify(json));
+        request.callback.onSendKey(json.key);
+        Services.cpmm.sendAsyncMessage("Forms:SendKey:Return:OK",{
+          requestId: json.requestId,
+          result: json.result,
+        });
+        break;
+      case "Forms:Keydown":
+        debug("Forms:Keydown with: " + JSON.stringify(json));
+        request.callback.onKeydown(json.key);
+        Services.cpmm.sendAsyncMessage("Forms:Keydown:Return:OK",{
+          requestId: json.requestId,
+          result: json.result,
+        });
+        break;
+      case "Forms:Keyup":
+        debug("Forms:Keyup with: " + JSON.stringify(json));
+        request.callback.onKeyup(json.key);
+        Services.cpmm.sendAsyncMessage("Forms:Keyup:Return:OK",{
+          requestId: json.requestId,
+          result: json.result,
+        });
+        break;
       default:
         debug("No matching message: " + aMessage.name);
         break;
@@ -160,7 +226,7 @@ GeckoEditableSupportProxy.prototype = {
 
   contractID: "@mozilla.org/dom/inputmethod/supportproxy;1",
 
-  classID: Components.ID("{ef8d32a2-e34c-11ea-bbc6-171ffb5b97bf}"),
+  classID: Components.ID("{821361d8-e4ff-11ea-89db-9f28f78da76a}"),
 
   QueryInterface: ChromeUtils.generateQI([
     Ci.nsIGeckoEditableSupportProxy,

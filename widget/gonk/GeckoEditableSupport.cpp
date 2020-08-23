@@ -150,6 +150,157 @@ EditableSupportEndCompositionCallback::OnEndComposition(const nsAString& aText) 
   return NS_OK;
 }
 
+class EditableSupportKeydownCallback final
+    : public nsIEditableSupportKeydownCallback {
+ public:
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSIEDITABLESUPPORTKEYDOWNCALLBACK
+  explicit EditableSupportKeydownCallback(TextEventDispatcher* aDispatcher);
+
+ protected:
+  ~EditableSupportKeydownCallback();
+
+ private:
+  RefPtr<TextEventDispatcher> mDispatcher;
+};
+
+NS_IMPL_ISUPPORTS(EditableSupportKeydownCallback,
+                  nsIEditableSupportKeydownCallback)
+
+EditableSupportKeydownCallback::EditableSupportKeydownCallback(
+    TextEventDispatcher* aDispatcher)
+        : mDispatcher(aDispatcher) {
+  LOG("EditableSupportKeydownCallback: mDispatcher:[%p]", mDispatcher.get());
+}
+
+EditableSupportKeydownCallback::~EditableSupportKeydownCallback() {}
+
+NS_IMETHODIMP
+EditableSupportKeydownCallback::OnKeydown(const nsAString& aKey) {
+  LOG("-- EditableSupport OnKeydown: OK");
+  LOG("-- EditableSupport aKey:[%s]", NS_ConvertUTF16toUTF8(aKey).get());
+  LOG("-- EditableSupport mDispatcher:[%p]", mDispatcher.get());
+  // Handle value
+  nsresult rv = mDispatcher->GetState();
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
+  uint32_t flags = nsITextInputProcessor::KEY_NON_PRINTABLE_KEY |
+                   nsITextInputProcessor::KEY_DONT_DISPATCH_MODIFIER_KEY_EVENT;
+  // EventMessage msg = eKeyDown;
+  nsCOMPtr<nsIWidget> widget = mDispatcher->GetWidget();
+  WidgetKeyboardEvent event(true, eKeyDown, widget);
+  event.mKeyNameIndex = WidgetKeyboardEvent::GetKeyNameIndex(aKey);
+  if (event.mKeyNameIndex == KEY_NAME_INDEX_USE_STRING) {
+    event.mKeyValue = aKey;
+  }
+  nsEventStatus status = nsEventStatus_eIgnore;
+  if (mDispatcher->DispatchKeyboardEvent(eKeyDown, event, status)) {
+    mDispatcher->MaybeDispatchKeypressEvents(event, status);
+  }
+  return NS_OK;
+}
+
+class EditableSupportKeyupCallback final
+    : public nsIEditableSupportKeyupCallback {
+ public:
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSIEDITABLESUPPORTKEYUPCALLBACK
+  explicit EditableSupportKeyupCallback(TextEventDispatcher* aDispatcher);
+
+ protected:
+  ~EditableSupportKeyupCallback();
+
+ private:
+  RefPtr<TextEventDispatcher> mDispatcher;
+};
+
+NS_IMPL_ISUPPORTS(EditableSupportKeyupCallback,
+                  nsIEditableSupportKeyupCallback)
+
+EditableSupportKeyupCallback::EditableSupportKeyupCallback(
+    TextEventDispatcher* aDispatcher)
+        : mDispatcher(aDispatcher) {
+  LOG("EditableSupportKeyupCallback: mDispatcher:[%p]", mDispatcher.get());
+}
+
+EditableSupportKeyupCallback::~EditableSupportKeyupCallback() {}
+
+NS_IMETHODIMP
+EditableSupportKeyupCallback::OnKeyup(const nsAString& aKey) {
+  LOG("-- EditableSupport OnKeyup: OK");
+  LOG("-- EditableSupport aKey:[%s]", NS_ConvertUTF16toUTF8(aKey).get());
+  LOG("-- EditableSupport mDispatcher:[%p]", mDispatcher.get());
+  // Handle value
+  nsresult rv = mDispatcher->GetState();
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
+  uint32_t flags = nsITextInputProcessor::KEY_NON_PRINTABLE_KEY |
+                   nsITextInputProcessor::KEY_DONT_DISPATCH_MODIFIER_KEY_EVENT;
+  // EventMessage msg = eKeyDown;
+  nsCOMPtr<nsIWidget> widget = mDispatcher->GetWidget();
+  WidgetKeyboardEvent event(true, eKeyUp, widget);
+  event.mKeyNameIndex = WidgetKeyboardEvent::GetKeyNameIndex(aKey);
+  if (event.mKeyNameIndex == KEY_NAME_INDEX_USE_STRING) {
+    event.mKeyValue = aKey;
+  }
+  nsEventStatus status = nsEventStatus_eIgnore;
+  mDispatcher->DispatchKeyboardEvent(eKeyUp, event, status);
+  return NS_OK;
+}
+
+class EditableSupportSendKeyCallback final
+    : public nsIEditableSupportSendKeyCallback {
+ public:
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSIEDITABLESUPPORTSENDKEYCALLBACK
+  explicit EditableSupportSendKeyCallback(TextEventDispatcher* aDispatcher);
+
+ protected:
+  ~EditableSupportSendKeyCallback();
+
+ private:
+  RefPtr<TextEventDispatcher> mDispatcher;
+};
+
+NS_IMPL_ISUPPORTS(EditableSupportSendKeyCallback,
+                  nsIEditableSupportSendKeyCallback)
+
+EditableSupportSendKeyCallback::EditableSupportSendKeyCallback(
+    TextEventDispatcher* aDispatcher)
+        : mDispatcher(aDispatcher) {
+  LOG("EditableSupportSendKeyCallback: mDispatcher:[%p]", mDispatcher.get());
+}
+
+EditableSupportSendKeyCallback::~EditableSupportSendKeyCallback() {}
+
+NS_IMETHODIMP
+EditableSupportSendKeyCallback::OnSendKey(const nsAString& aKey) {
+  LOG("-- EditableSupport OnSendKey: OK");
+  LOG("-- EditableSupport aKey:[%s]", NS_ConvertUTF16toUTF8(aKey).get());
+  LOG("-- EditableSupport mDispatcher:[%p]", mDispatcher.get());
+  // Handle value
+  nsresult rv = mDispatcher->GetState();
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
+  uint32_t flags = nsITextInputProcessor::KEY_NON_PRINTABLE_KEY |
+                   nsITextInputProcessor::KEY_DONT_DISPATCH_MODIFIER_KEY_EVENT;
+  // EventMessage msg = eKeyDown;
+  nsCOMPtr<nsIWidget> widget = mDispatcher->GetWidget();
+  WidgetKeyboardEvent event(true, eKeyUp, widget);
+  event.mKeyNameIndex = WidgetKeyboardEvent::GetKeyNameIndex(aKey);
+  if (event.mKeyNameIndex == KEY_NAME_INDEX_USE_STRING) {
+    event.mKeyValue = aKey;
+  }
+  nsEventStatus status = nsEventStatus_eIgnore;
+  if (mDispatcher->DispatchKeyboardEvent(eKeyDown, event, status)) {
+    mDispatcher->MaybeDispatchKeypressEvents(event, status);
+  }
+  mDispatcher->DispatchKeyboardEvent(eKeyUp, event, status);
+  return NS_OK;
+}
 
 NS_IMPL_ISUPPORTS(GeckoEditableSupport, TextEventDispatcherListener,
                   nsISupportsWeakReference)
@@ -159,7 +310,6 @@ GeckoEditableSupport::GeckoEditableSupport(nsIGlobalObject* aGlobal,
       : mGlobal(aGlobal),
         mIsRemote(!aWindow),
         mWindow(aWindow) {
-
 }
 
 nsresult GeckoEditableSupport::NotifyIME(
@@ -191,8 +341,17 @@ nsresult GeckoEditableSupport::NotifyIME(
         LOG("mSetCompositionCallback:[%p]", mSetCompositionCallback.get());
         mEndCompositionCallback = new EditableSupportEndCompositionCallback(mDispatcher);
         LOG("mEndCompositionCallback:[%p]", mEndCompositionCallback.get());
+        mSendKeyCallback = new EditableSupportSendKeyCallback(mDispatcher);
+        LOG("mSendKeyCallback:[%p]", mSendKeyCallback.get());
+        mKeydownCallback = new EditableSupportKeydownCallback(mDispatcher);
+        LOG("mKeydownCallback:[%p]", mKeydownCallback.get());
+        mKeyupCallback = new EditableSupportKeyupCallback(mDispatcher);
+        LOG("mKeyupCallback:[%p]", mKeyupCallback.get());
         proxy->SetComposition(mGlobal, mSetCompositionCallback);
         proxy->EndComposition(mGlobal, mEndCompositionCallback);
+        proxy->SendKey(mGlobal, mSendKeyCallback);
+        proxy->Keydown(mGlobal, mKeydownCallback);
+        proxy->Keyup(mGlobal, mKeyupCallback);
         result = BeginInputTransaction(mDispatcher);
         NS_ENSURE_SUCCESS(result, result);
       }

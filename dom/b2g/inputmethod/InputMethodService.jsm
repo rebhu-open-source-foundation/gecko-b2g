@@ -29,12 +29,21 @@ this.InputMethodService = {
     // InputMethodProxy.jsm
     "InputMethod:SetComposition",
     "InputMethod:EndComposition",
+    "InputMethod:SendKey",
+    "InputMethod:Keydown",
+    "InputMethod:Keyup",
     // From geckosupporteditable proxy
     "Forms:Focus",
     "Forms:SetComposition:Return:OK",
     "Forms:SetComposition:Return:KO",
     "Forms:EndComposition:Return:OK",
     "Forms:EndComposition:Return:KO",
+    "Forms:SendKey:Return:OK",
+    "Forms:SendKey:Return:KO",
+    "Forms:Keydown:Return:OK",
+    "Forms:Keydown:Return:KO",
+    "Forms:Keyup:Return:OK",
+    "Forms:Keyup:Return:KO",
   ],
 
   get formMM() {
@@ -120,14 +129,25 @@ this.InputMethodService = {
       case "InputMethod:EndComposition":
         this.endComposition(mm, msg);
         break;
+      case "InputMethod:SendKey":
+        this.sendKey(mm, msg);
+        break;
+      case "InputMethod:Keydown":
+        this.keydown(mm, msg);
+        break;
+      case "InputMethod:Keyup":
+        this.keyup(mm, msg);
+        break;
       case 'Forms:SetComposition:Return:OK':
       case 'Forms:EndComposition:Return:OK':
       case 'Forms:SetComposition:Return:KO':
       case 'Forms:EndComposition:Return:KO':
-        // let caller = this.callers[msg.requestId];
-        // if (!caller) {
-        //   debug("!! caller is null for msg.id=" + msg.requestId);
-        // }
+      case 'Forms:SendKey:Return:KO':
+      case 'Forms:SendKey:Return:KO':
+      case 'Forms:Keydown:Return:KO':
+      case 'Forms:Keydown:Return:KO':
+      case 'Forms:Keyup:Return:KO':
+      case 'Forms:Keyup:Return:KO':
         let name = aMessage.name.replace(/^Forms/, 'InputMethod');
         this.sendToInputMethod(name, {
           requestId: msg.requestId,
@@ -186,6 +206,30 @@ this.InputMethodService = {
       this.inputMethodMM = aMessageManager;
     }
     this.sendToForm('Forms:EndComposition', msg);
+  },
+
+  sendKey: function inputmethod_sendKey(aMessageManager, msg) {
+    debug("sendKey()");
+    if (aMessageManager != this.inputMethodMM) {
+      this.inputMethodMM = aMessageManager;
+    }
+    this.sendToForm('Forms:SendKey', msg);
+  },
+
+  keydown: function inputmethod_keydown(aMessageManager, msg) {
+    debug("keydown()");
+    if (aMessageManager != this.inputMethodMM) {
+      this.inputMethodMM = aMessageManager;
+    }
+    this.sendToForm('Forms:Keydown', msg);
+  },
+
+  keyup: function inputmethod_keyup(aMessageManager, msg) {
+    debug("keyup()");
+    if (aMessageManager != this.inputMethodMM) {
+      this.inputMethodMM = aMessageManager;
+    }
+    this.sendToForm('Forms:Keyup', msg);
   },
 
   uninit: function inputmethod_uninit() {

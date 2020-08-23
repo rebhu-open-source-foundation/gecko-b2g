@@ -11,4 +11,8 @@ interface InputMethod {
 
   Promise<boolean> endComposition(optional DOMString text);
 
+  Promise<boolean> sendKey(DOMString key);
+  Promise<boolean> keydown(DOMString key);
+  Promise<boolean> keyup(DOMString key);
+
   };

@@ -74,6 +74,9 @@ class GeckoEditableSupport final
   nsCOMPtr<nsIGlobalObject> mGlobal;
   RefPtr<nsIEditableSupportSetCompositionCallback> mSetCompositionCallback;
   RefPtr<nsIEditableSupportEndCompositionCallback> mEndCompositionCallback;
+  RefPtr<nsIEditableSupportSendKeyCallback> mSendKeyCallback;
+  RefPtr<nsIEditableSupportKeydownCallback> mKeydownCallback;
+  RefPtr<nsIEditableSupportKeyupCallback> mKeyupCallback;
 
 };
 

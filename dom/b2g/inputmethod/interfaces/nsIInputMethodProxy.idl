@@ -18,7 +18,28 @@ interface nsIInputMethodEndCompositionCallback : nsISupports
   void onEndComposition(in nsresult status, in jsval result);
 };
 
-[scriptable, uuid(320ac0c8-e397-11ea-a27b-e34c8e612c52)]
+[scriptable, uuid(ff963d00-e500-11ea-9bbc-e7e090b18d30), function]
+interface nsIInputMethodSendKeyCallback : nsISupports
+{
+  [implicit_jscontext]
+  void onSendKey(in nsresult status, in jsval result);
+};
+
+[scriptable, uuid(054ca34c-e501-11ea-93b7-8b01d748a84c), function]
+interface nsIInputMethodKeydownCallback : nsISupports
+{
+  [implicit_jscontext]
+  void onKeydown(in nsresult status, in jsval result);
+};
+
+[scriptable, uuid(0aefbadc-e501-11ea-8411-b73fef287066), function]
+interface nsIInputMethodKeyupCallback : nsISupports
+{
+  [implicit_jscontext]
+  void onKeyup(in nsresult status, in jsval result);
+};
+
+[scriptable, uuid(960e39b0-e4ff-11ea-8c0e-b7c5f54cec64)]
 interface nsIInputMethodProxy : nsISupports
 {
   void init();
@@ -28,4 +49,10 @@ interface nsIInputMethodProxy : nsISupports
                       in nsIInputMethodSetCompositionCallback callback);
   void endComposition(in nsISupports owner, in AString text,
                       in nsIInputMethodEndCompositionCallback callback);
+  void sendKey(in nsISupports owner, in AString key,
+                      in nsIInputMethodSendKeyCallback callback);
+  void keydown(in nsISupports owner, in AString key,
+                      in nsIInputMethodKeydownCallback callback);
+  void keyup(in nsISupports owner, in AString key,
+                      in nsIInputMethodKeyupCallback callback);
 };

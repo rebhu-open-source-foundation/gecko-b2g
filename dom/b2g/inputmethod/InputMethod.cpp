@@ -88,6 +88,72 @@ InputMethodEndCompositionCallback::OnEndComposition(nsresult aStatus,
   return NS_OK;
 }
 
+NS_IMPL_ISUPPORTS(InputMethodSendKeyCallback, nsIInputMethodSendKeyCallback)
+
+InputMethodSendKeyCallback::InputMethodSendKeyCallback(Promise* aPromise)
+    : mPromise(aPromise) {}
+
+InputMethodSendKeyCallback::~InputMethodSendKeyCallback() {}
+
+NS_IMETHODIMP
+InputMethodSendKeyCallback::OnSendKey(nsresult aStatus,
+    JS::HandleValue aResult, JSContext* aCx) {
+  if (mPromise) {
+    if (NS_SUCCEEDED(aStatus)) {
+      LOG("-- InputMethod OnSendKey: Resolve");
+      mPromise->MaybeResolve(aResult);
+    } else {
+      LOG("-- InputMethod OnSendKey: Reject");
+      mPromise->MaybeReject(aResult);
+    }
+  }
+  return NS_OK;
+}
+
+NS_IMPL_ISUPPORTS(InputMethodKeydownCallback, nsIInputMethodKeydownCallback)
+
+InputMethodKeydownCallback::InputMethodKeydownCallback(Promise* aPromise)
+    : mPromise(aPromise) {}
+
+InputMethodKeydownCallback::~InputMethodKeydownCallback() {}
+
+NS_IMETHODIMP
+InputMethodKeydownCallback::OnKeydown(nsresult aStatus,
+    JS::HandleValue aResult, JSContext* aCx) {
+  if (mPromise) {
+    if (NS_SUCCEEDED(aStatus)) {
+      LOG("-- InputMethod OnKeydown: Resolve");
+      mPromise->MaybeResolve(aResult);
+    } else {
+      LOG("-- InputMethod OnKeydown: Reject");
+      mPromise->MaybeReject(aResult);
+    }
+  }
+  return NS_OK;
+}
+
+NS_IMPL_ISUPPORTS(InputMethodKeyupCallback, nsIInputMethodKeyupCallback)
+
+InputMethodKeyupCallback::InputMethodKeyupCallback(Promise* aPromise)
+    : mPromise(aPromise) {}
+
+InputMethodKeyupCallback::~InputMethodKeyupCallback() {}
+
+NS_IMETHODIMP
+InputMethodKeyupCallback::OnKeyup(nsresult aStatus,
+    JS::HandleValue aResult, JSContext* aCx) {
+  if (mPromise) {
+    if (NS_SUCCEEDED(aStatus)) {
+      LOG("-- InputMethod OnKeyup: Resolve");
+      mPromise->MaybeResolve(aResult);
+    } else {
+      LOG("-- InputMethod OnKeyup: Reject");
+      mPromise->MaybeReject(aResult);
+    }
+  }
+  return NS_OK;
+}
+
 InputMethod::InputMethod(nsIGlobalObject* aGlobal)
  : mGlobal(aGlobal){
   MOZ_ASSERT(aGlobal);
@@ -135,6 +201,53 @@ already_AddRefed<Promise> InputMethod::EndComposition(
                         aText.WasPassed() ? aText.Value() : VoidString(),
                         callback);
 
+  return promise.forget();
+}
+
+already_AddRefed<Promise> InputMethod::Keydown(const nsAString& aKey) {
+
+  RefPtr<Promise> promise;
+  ErrorResult rv;
+  promise = Promise::Create(mGlobal, rv);
+  ENSURE_SUCCESS(rv, nullptr);
+
+  LOG("-- InputMethod::Keydown");
+  RefPtr<nsIInputMethodKeydownCallback> callback = 
+      new InputMethodKeydownCallback(promise);
+  nsCOMPtr<nsIInputMethodProxy> proxy = GetOrCreateInputMethodProxy(mGlobal);
+  proxy->Keydown(mGlobal, aKey, callback);
+
+  return promise.forget();
+}
+
+already_AddRefed<Promise> InputMethod::Keyup(const nsAString& aKey) {
+
+  RefPtr<Promise> promise;
+  ErrorResult rv;
+  promise = Promise::Create(mGlobal, rv);
+  ENSURE_SUCCESS(rv, nullptr);
+
+  LOG("-- InputMethod::Keyup");
+  RefPtr<nsIInputMethodKeyupCallback> callback = 
+      new InputMethodKeyupCallback(promise);
+  nsCOMPtr<nsIInputMethodProxy> proxy = GetOrCreateInputMethodProxy(mGlobal);
+  proxy->Keyup(mGlobal, aKey, callback);
+
+  return promise.forget();
+}
+
+already_AddRefed<Promise> InputMethod::SendKey(const nsAString& aKey) {
+
+  RefPtr<Promise> promise;
+  ErrorResult rv;
+  promise = Promise::Create(mGlobal, rv);
+  ENSURE_SUCCESS(rv, nullptr);
+
+  LOG("-- InputMethod::SendKey");
+  RefPtr<nsIInputMethodSendKeyCallback> callback = 
+      new InputMethodSendKeyCallback(promise);
+  nsCOMPtr<nsIInputMethodProxy> proxy = GetOrCreateInputMethodProxy(mGlobal);
+  proxy->SendKey(mGlobal, aKey, callback);
   return promise.forget();
 }
 
