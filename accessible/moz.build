@@ -26,6 +26,8 @@ DIRS += [ 'aom',
           'xpcom'
 ]
 
+DIRS += ['jsat']
+
 if CONFIG['MOZ_XUL']:
     DIRS += ['xul']
 
