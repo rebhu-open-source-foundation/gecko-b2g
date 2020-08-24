@@ -286,6 +286,16 @@ XPCOMUtils.defineLazyModuleGetters(this, {
           "web-embedder-notifications"
         );
       }
+
+      if (delegates.screenReaderProvider) {
+        Services.obs.addObserver(() => {
+          _webembed_log(`Get the AccessFu:Enabled`);
+          Services.obs.notifyObservers(
+            { wrappedJSObject: delegates.screenReaderProvider },
+            "web-embedder-set-screenReader"
+          );
+        }, "AccessFu:Enabled");
+      }
     }
 
     isDaemonReady() {

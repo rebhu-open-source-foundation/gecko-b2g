@@ -103,3 +103,13 @@ This delegate let the system UI display the list of potential choices when an se
   - `id`: an opaque id representing this activity, to be used in the resolved object.
   - `name`: the activity name.
   - `choices`: an array of `{ manifest: <url>, icon: <url>}` representing the apps that can provide the activity.
+
+## ScreenReaderProvider delegate
+
+This delegate is responsible for screen reader.
+
+## Methods
+
+- `showScreenReader(data))`. The `data` parameter is an object with the following properties:
+ - `type`: the event type. Valid value: `accessibility-output`.
+ - `details`: the PresentationData of accessible.
