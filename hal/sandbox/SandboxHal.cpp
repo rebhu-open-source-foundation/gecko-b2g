@@ -305,6 +305,14 @@ void DisableRDS() {
   MOZ_CRASH("FM radio cannot be called from sandboxed contexts.");
 }
 
+void StartDiskSpaceWatcher() {
+  MOZ_CRASH("StartDiskSpaceWatcher() can't be called from sandboxed contexts.");
+}
+
+void StopDiskSpaceWatcher() {
+  MOZ_CRASH("StopDiskSpaceWatcher() can't be called from sandboxed contexts.");
+}
+
 class HalParent : public PHalParent,
                   public BatteryObserver,
                   public NetworkObserver,

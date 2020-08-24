@@ -83,6 +83,12 @@ function finishTest() {
   if (SpecialPowers.isMainProcess()) {
     resetExperimental();
     resetTesting();
+
+    SpecialPowers.notifyObserversInParentProcess(
+      null,
+      "disk-space-watcher",
+      "free"
+    );
   }
 
   SpecialPowers.removeFiles();

@@ -66,6 +66,10 @@ void AssertMainThread() { MOZ_ASSERT(NS_IsMainThread()); }
 
 bool InSandbox() { return GeckoProcessType_Content == XRE_GetProcessType(); }
 
+void AssertMainProcess() {
+  MOZ_ASSERT(GeckoProcessType_Default == XRE_GetProcessType());
+}
+
 bool WindowIsActive(nsPIDOMWindowInner* aWindow) {
   dom::Document* document = aWindow->GetDoc();
   NS_ENSURE_TRUE(document, false);
@@ -681,6 +685,18 @@ const char* ProcessPriorityToString(ProcessPriority aPriority) {
       MOZ_ASSERT(false);
       return "???";
   }
+}
+
+void StartDiskSpaceWatcher() {
+  AssertMainProcess();
+  AssertMainThread();
+  PROXY_IF_SANDBOXED(StartDiskSpaceWatcher());
+}
+
+void StopDiskSpaceWatcher() {
+  AssertMainProcess();
+  AssertMainThread();
+  PROXY_IF_SANDBOXED(StopDiskSpaceWatcher());
 }
 
 void Init() {

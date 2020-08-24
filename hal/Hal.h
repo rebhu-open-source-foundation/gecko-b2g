@@ -571,6 +571,20 @@ bool EnableRDS(uint32_t aMask);
  */
 void DisableRDS();
 
+/**
+ * Start monitoring disk space for low space situations.
+ *
+ * This API is currently only allowed to be used from the main process.
+ */
+void StartDiskSpaceWatcher();
+
+/**
+ * Stop monitoring disk space for low space situations.
+ *
+ * This API is currently only allowed to be used from the main process.
+ */
+void StopDiskSpaceWatcher();
+
 }  // namespace MOZ_HAL_NAMESPACE
 }  // namespace mozilla
 

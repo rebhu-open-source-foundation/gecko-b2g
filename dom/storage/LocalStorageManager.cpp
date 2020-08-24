@@ -36,7 +36,7 @@ uint32_t LocalStorageManager::GetQuota() {
 NS_IMPL_ISUPPORTS(LocalStorageManager, nsIDOMStorageManager,
                   nsILocalStorageManager)
 
-LocalStorageManager::LocalStorageManager() : mCaches(8) {
+LocalStorageManager::LocalStorageManager() : mCaches(8), mLowDiskSpace(false) {
   MOZ_ASSERT(!NextGenLocalStorageEnabled());
 
   StorageObserver* observer = StorageObserver::Self();
@@ -376,6 +376,16 @@ nsresult LocalStorageManager::Observe(const char* aTopic,
     // For case caches are still referenced - clear them completely
     ClearCaches(LocalStorageCache::kUnloadComplete, pattern, EmptyCString());
     mCaches.Clear();
+    return NS_OK;
+  }
+
+  if (!strcmp(aTopic, "low-disk-space")) {
+    mLowDiskSpace = true;
+    return NS_OK;
+  }
+
+  if (!strcmp(aTopic, "no-low-disk-space")) {
+    mLowDiskSpace = false;
     return NS_OK;
   }
 

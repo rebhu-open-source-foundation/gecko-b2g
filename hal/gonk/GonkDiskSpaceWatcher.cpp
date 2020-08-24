@@ -115,7 +115,9 @@ static const char kWatchedPath[] = "/data";
 class DiskSpaceNotifier : public Runnable {
  public:
   DiskSpaceNotifier(const bool aIsDiskFull, const uint64_t aFreeSpace)
-      : mIsDiskFull(aIsDiskFull), mFreeSpace(aFreeSpace) {}
+      : mozilla::Runnable("DiskSpaceNotifier"),
+        mIsDiskFull(aIsDiskFull),
+        mFreeSpace(aFreeSpace) {}
 
   NS_IMETHOD Run() override {
     MOZ_ASSERT(NS_IsMainThread());
@@ -131,6 +133,8 @@ class DiskSpaceNotifier : public Runnable {
 // Helper runnable to delete the watcher on the main thread.
 class DiskSpaceCleaner : public Runnable {
  public:
+  DiskSpaceCleaner() : mozilla::Runnable("DiskSpaceCleaner") {}
+
   NS_IMETHOD Run() override {
     MOZ_ASSERT(NS_IsMainThread());
     if (gHalDiskSpaceWatcher) {
@@ -149,10 +153,10 @@ GonkDiskSpaceWatcher::GonkDiskSpaceWatcher()
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(gHalDiskSpaceWatcher == nullptr);
 
-  // Default values: 5MB for low threshold, 10MB for high threshold, and
+  // Default values: 30MB for low threshold, 32MB for high threshold, and
   // a timeout of 5 seconds.
-  mLowThreshold = Preferences::GetInt(WATCHER_PREF_LOW, 5) * 1024 * 1024;
-  mHighThreshold = Preferences::GetInt(WATCHER_PREF_HIGH, 10) * 1024 * 1024;
+  mLowThreshold = Preferences::GetInt(WATCHER_PREF_LOW, 30) * 1024 * 1024;
+  mHighThreshold = Preferences::GetInt(WATCHER_PREF_HIGH, 32) * 1024 * 1024;
   mTimeout =
       TimeDuration::FromSeconds(Preferences::GetInt(WATCHER_PREF_TIMEOUT, 5));
   mSizeDelta = Preferences::GetInt(WATCHER_PREF_SIZE_DELTA, 1) * 1024 * 1024;
@@ -168,9 +172,7 @@ void GonkDiskSpaceWatcher::DoStart() {
       // Don't change these printf_stderr since we need these logs even
       // in opt builds.
       printf_stderr("Warning: No fanotify support in this device's kernel.\n");
-#if ANDROID_VERSION >= 19
-      MOZ_CRASH("Fanotify support must be enabled in the kernel.");
-#endif
+      printf_stderr("Please check fanotify for GonkDiskSpaceWatcher\n");
     } else {
       printf_stderr("Error calling fanotify_init()");
     }
@@ -288,9 +290,9 @@ void StartDiskSpaceWatcher() {
   gHalDiskSpaceWatcher = new GonkDiskSpaceWatcher();
 
   XRE_GetIOMessageLoop()->PostTask(NewNonOwningRunnableMethod(
-      gHalDiskSpaceWatcher, &GonkDiskSpaceWatcher::DoStart));
+      "GonkDiskSpaceWatcher::DoStart", gHalDiskSpaceWatcher,
+      &GonkDiskSpaceWatcher::DoStart));
 }
-
 void StopDiskSpaceWatcher() {
   MOZ_ASSERT(NS_IsMainThread());
   if (!gHalDiskSpaceWatcher) {
@@ -298,7 +300,8 @@ void StopDiskSpaceWatcher() {
   }
 
   XRE_GetIOMessageLoop()->PostTask(NewNonOwningRunnableMethod(
-      gHalDiskSpaceWatcher, &GonkDiskSpaceWatcher::DoStop));
+      "GonkDiskSpaceWatcher::DoStop", gHalDiskSpaceWatcher,
+      &GonkDiskSpaceWatcher::DoStop));
 }
 
 }  // namespace hal_impl

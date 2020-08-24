@@ -68,6 +68,9 @@ nsresult StorageObserver::Init() {
     obs->AddObserver(sSelf, "profile-before-change", true);
   }
 
+  // Observe low device storage notifications.
+  obs->AddObserver(sSelf, "disk-space-watcher", true);
+
   // Testing
 #ifdef DOM_STORAGE_TESTS
   Preferences::RegisterCallbackAndCall(TestingPrefChanged, kTestingPref);
@@ -399,6 +402,16 @@ StorageObserver::Observe(nsISupports* aSubject, const char* aTopic,
       MOZ_ALWAYS_TRUE(SpinEventLoopUntil([&]() { return done; }));
 
       mBackgroundThread = nullptr;
+    }
+
+    return NS_OK;
+  }
+
+  if (!strcmp(aTopic, "disk-space-watcher")) {
+    if (u"full"_ns.Equals(aData)) {
+      Notify("low-disk-space");
+    } else if (u"free"_ns.Equals(aData)) {
+      Notify("no-low-disk-space");
     }
 
     return NS_OK;

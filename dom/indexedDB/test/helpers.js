@@ -163,6 +163,11 @@ if (!window.runTest) {
 }
 
 function finishTest() {
+  SpecialPowers.notifyObserversInParentProcess(
+    null,
+    "disk-space-watcher",
+    "free"
+  );
   ok(
     testSteps.constructor.name === "GeneratorFunction",
     "Async/await tests shouldn't call finishTest()"

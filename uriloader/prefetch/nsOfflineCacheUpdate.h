@@ -364,6 +364,7 @@ class nsOfflineCacheUpdateService final : public nsIOfflineCacheUpdateService,
 
   bool mDisabled;
   bool mUpdateRunning;
+  bool mLowFreeSpace;
 };
 
 #endif

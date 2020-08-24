@@ -7,6 +7,8 @@
 #ifndef mozilla_dom_indexeddatabasemanager_h__
 #define mozilla_dom_indexeddatabasemanager_h__
 
+#include "nsIObserver.h"
+
 #include "js/TypeDecls.h"
 #include "mozilla/Atomics.h"
 #include "mozilla/dom/quota/PersistenceType.h"
@@ -31,7 +33,7 @@ class FileManagerInfo;
 
 }  // namespace indexedDB
 
-class IndexedDatabaseManager final {
+class IndexedDatabaseManager final : public nsIObserver {
   typedef mozilla::dom::quota::PersistenceType PersistenceType;
   typedef mozilla::dom::indexedDB::FileManager FileManager;
   typedef mozilla::dom::indexedDB::FileManagerInfo FileManagerInfo;
@@ -45,7 +47,8 @@ class IndexedDatabaseManager final {
     Logging_DetailedProfilerMarks
   };
 
-  NS_INLINE_DECL_REFCOUNTING_WITH_DESTROY(IndexedDatabaseManager, Destroy())
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSIOBSERVER
 
   // Returns a non-owning reference.
   static IndexedDatabaseManager* GetOrCreate();
@@ -61,6 +64,15 @@ class IndexedDatabaseManager final {
 #else
   {
     return sIsMainProcess;
+  }
+#endif
+
+  static bool InLowDiskSpaceMode()
+#ifdef DEBUG
+      ;
+#else
+  {
+    return !!sLowDiskSpaceMode;
   }
 #endif
 
@@ -165,6 +177,7 @@ class IndexedDatabaseManager final {
   static bool sFullSynchronousMode;
   static LazyLogModule sLoggingModule;
   static Atomic<LoggingMode> sLoggingMode;
+  static mozilla::Atomic<bool> sLowDiskSpaceMode;
 };
 
 }  // namespace dom

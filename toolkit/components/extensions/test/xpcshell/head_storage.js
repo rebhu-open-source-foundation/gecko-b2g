@@ -1225,3 +1225,21 @@ async function test_contentscript_storage(storageType) {
   await extension.unload();
   await contentPage.close();
 }
+
+/* exported setLowDiskMode */
+
+// Small test helper to trigger the QuotaExceededError (it is basically the same
+// test helper defined in "dom/indexedDB/test/unit/test_lowDiskSpace.js", but it doesn't
+// use SpecialPowers).
+let lowDiskMode = false;
+function setLowDiskMode(val) {
+  let data = val ? "full" : "free";
+
+  if (val == lowDiskMode) {
+    info("Low disk mode is: " + data);
+  } else {
+    info("Changing low disk mode to: " + data);
+    Services.obs.notifyObservers(null, "disk-space-watcher", data);
+    lowDiskMode = val;
+  }
+}

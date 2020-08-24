@@ -193,6 +193,12 @@ bool LocalStorageCache::ProcessUsageDelta(const LocalStorage* aStorage,
 bool LocalStorageCache::ProcessUsageDelta(uint32_t aGetDataSetIndex,
                                           const int64_t aDelta,
                                           const MutationSource aSource) {
+  // Check if we are in a low disk space situation
+  if (aSource == ContentMutation && aDelta > 0 && mManager &&
+      mManager->IsLowDiskSpace()) {
+    return false;
+  }
+
   // Check limit per this origin
   Data& data = mData[aGetDataSetIndex];
   uint64_t newOriginUsage = data.mOriginQuotaUsage + aDelta;

@@ -32,6 +32,7 @@ DIRS += [
     'contextualidentity',
     'crashes',
     'crashmonitor',
+    'diskspacewatcher',
     'downloads',
     'enterprisepolicies',
     'extensions',
