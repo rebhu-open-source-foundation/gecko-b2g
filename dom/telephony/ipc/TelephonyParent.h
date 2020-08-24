@@ -95,12 +95,12 @@ class TelephonyRequestParent : public PTelephonyRequestParent,
     NS_DECL_NSITELEPHONYCALLBACK
 
    protected:
-    explicit Callback(TelephonyRequestParent& aParent) : mParent(aParent) {}
+    explicit Callback(TelephonyRequestParent* aParent) : mParent(aParent) {}
     virtual ~Callback() {}
 
    private:
     nsresult SendResponse(const IPCTelephonyResponse& aResponse);
-    TelephonyRequestParent& mParent;
+    RefPtr<TelephonyRequestParent> mParent;
   };
 
   class DialCallback final : public Callback, public nsITelephonyDialCallback {
@@ -112,7 +112,7 @@ class TelephonyRequestParent : public PTelephonyRequestParent,
     NS_FORWARD_NSITELEPHONYCALLBACK(Callback::)
 
    private:
-    explicit DialCallback(TelephonyRequestParent& aParent)
+    explicit DialCallback(TelephonyRequestParent* aParent)
         : Callback(aParent) {}
     ~DialCallback() {}
   };

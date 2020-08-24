@@ -476,8 +476,8 @@ NS_IMPL_ISUPPORTS(TelephonyRequestParent, nsITelephonyListener)
 
 TelephonyRequestParent::TelephonyRequestParent()
     : mActorDestroyed(false),
-      mCallback(new Callback(*this)),
-      mDialCallback(new DialCallback(*this)) {}
+      mCallback(new Callback(this)),
+      mDialCallback(new DialCallback(this)) {}
 
 void TelephonyRequestParent::ActorDestroy(ActorDestroyReason why) {
   // The child process could die before this asynchronous notification, in which
@@ -582,7 +582,14 @@ NS_IMPL_ISUPPORTS(TelephonyRequestParent::Callback, nsITelephonyCallback)
 
 nsresult TelephonyRequestParent::Callback::SendResponse(
     const IPCTelephonyResponse& aResponse) {
-  return mParent.SendResponse(aResponse);
+  if (mParent &&
+      !mParent->mActorDestroyed) {  // ASYNC operation feedback from ril message
+    return mParent->SendResponse(aResponse);
+  } else {
+    LOG("TelephonyRequestParent::Callback::SendResponse return with child "
+        "process already exit");
+    return NS_ERROR_FAILURE;
+  }
 }
 
 NS_IMETHODIMP
@@ -606,11 +613,15 @@ NS_IMPL_ISUPPORTS_INHERITED(TelephonyRequestParent::DialCallback,
 NS_IMETHODIMP
 TelephonyRequestParent::DialCallback::NotifyDialMMI(
     const nsAString& aServiceCode) {
-  NS_ENSURE_TRUE(!mParent.mActorDestroyed, NS_ERROR_FAILURE);
-
-  return mParent.SendNotifyDialMMI(nsAutoString(aServiceCode))
-             ? NS_OK
-             : NS_ERROR_FAILURE;
+  if (mParent && !mParent->mActorDestroyed) {
+    return mParent->SendNotifyDialMMI(nsAutoString(aServiceCode))
+               ? NS_OK
+               : NS_ERROR_FAILURE;
+  } else {
+    // ASYNC operation feedback from ril message
+    LOG("DialCallback::NotifyDialMMI return with child process already exit");
+    return NS_ERROR_FAILURE;
+  }
 }
 
 NS_IMETHODIMP
