@@ -6,6 +6,7 @@
 // @generated
 
 use crate::common::traits::TrackerId;
+#[allow(unused_imports)]
 use crate::common::JsonValue;
 use serde::{Deserialize, Serialize};
 
@@ -23,7 +24,7 @@ impl From<ObjectRef> for TrackerId {
 }
 
 pub static SERVICE_FINGERPRINT: &str =
-    "1d5dd53a8be53a95bc5e96321050d0aa5864d1ee6bd6d4587327c84630525";
+    "992c7e99c7c7f1de8cec23a4fe5910ef1650733b4bde69b0a31d7c68231bb3";
 
 #[derive(Clone, PartialEq, Deserialize, Serialize, Debug)]
 pub enum CardInfoType {
@@ -128,5 +129,5 @@ pub enum GeckoBridgeToClient {
     MobileManagerDelegateGetCardInfo(i64, CardInfoType), // 18
     MobileManagerDelegateGetMncMcc(i64, bool),           // 19
     NetworkManagerDelegateGetNetworkInfo,                // 20
-    PowerManagerDelegateSetScreenEnabled(bool),          // 21
+    PowerManagerDelegateSetScreenEnabled(bool, bool),    // 21
 }

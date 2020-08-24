@@ -39,14 +39,16 @@ impl SessionObject for PowerManagerDelegate {
     fn on_request(&mut self, request: BaseMessage, request_id: u64) -> Option<BaseMessage> {
         debug!("PowerManagerDelegate on_request {}", request_id);
         // Unpack the request.
-        if let Ok(GeckoBridgeToClient::PowerManagerDelegateSetScreenEnabled(value)) =
-            from_base_message(&request)
+        if let Ok(GeckoBridgeToClient::PowerManagerDelegateSetScreenEnabled(
+            value,
+            is_external_screen,
+        )) = from_base_message(&request)
         {
             debug!("PowerManagerDelegate set_screen_enabled {}", value);
             // Dispatch the setting change to the xpcom observer.
             let task = PowerManagerDelegateTask {
                 xpcom: self.xpcom.clone(),
-                command: PowerManagerCommand::SetScreenEnabled(value),
+                command: PowerManagerCommand::SetScreenEnabled(value, is_external_screen),
             };
             let _ = TaskRunnable::new("PowerManagerDelegate", Box::new(task))
                 .and_then(|r| TaskRunnable::dispatch(r, self.xpcom.owning_thread()));
@@ -85,7 +87,7 @@ impl SessionObject for PowerManagerDelegate {
 // Commands supported by the power manager delegate.
 #[derive(Clone)]
 enum PowerManagerCommand {
-    SetScreenEnabled(bool),
+    SetScreenEnabled(bool, bool),
 }
 
 // A Task to dispatch commands to the delegate.
@@ -101,8 +103,8 @@ impl Task for PowerManagerDelegateTask {
         debug!("PowerManagerDelegateTask::run");
         if let Some(object) = self.xpcom.get() {
             match self.command {
-                PowerManagerCommand::SetScreenEnabled(value) => unsafe {
-                    object.SetScreenEnabled(value);
+                PowerManagerCommand::SetScreenEnabled(value, is_external_screen) => unsafe {
+                    object.SetScreenEnabled(value, is_external_screen);
                 },
             }
         }

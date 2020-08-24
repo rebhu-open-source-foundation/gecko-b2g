@@ -44,8 +44,12 @@ PowerManagerDelegateService::ConstructPowerManagerDelegate() {
 }
 
 NS_IMETHODIMP
-PowerManagerDelegateService::SetScreenEnabled(bool enabled) {
-  hal::SetScreenEnabled(enabled);
+PowerManagerDelegateService::SetScreenEnabled(bool enabled, bool isExternalScreen) {
+  if (isExternalScreen) {
+    hal::SetExtScreenEnabled(enabled);
+  } else {
+    hal::SetScreenEnabled(enabled);
+  }
   return NS_OK;
 }
 

@@ -137,6 +137,9 @@ parent:
     sync GetScreenEnabled() returns (bool enabled);
     async SetScreenEnabled(bool aEnabled);
 
+    sync GetExtScreenEnabled() returns (bool enabled);
+    async SetExtScreenEnabled(bool aEnabled);
+
     async SetScreenBrightness(double aBrightness);
 
     async ModifyWakeLock(nsString aTopic,

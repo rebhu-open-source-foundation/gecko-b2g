@@ -429,6 +429,16 @@ void SetScreenEnabled(bool aEnabled) {
   PROXY_IF_SANDBOXED(SetScreenEnabled(aEnabled));
 }
 
+bool GetExtScreenEnabled() {
+  AssertMainThread();
+  RETURN_PROXY_IF_SANDBOXED(GetExtScreenEnabled(), false);
+}
+
+void SetExtScreenEnabled(bool aEnabled) {
+  AssertMainThread();
+  PROXY_IF_SANDBOXED(SetExtScreenEnabled(aEnabled));
+}
+
 void EnableSensorNotifications(SensorType aSensor) {
   AssertMainThread();
   PROXY_IF_SANDBOXED(EnableSensorNotifications(aSensor));

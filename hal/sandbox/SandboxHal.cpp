@@ -112,6 +112,14 @@ bool GetScreenEnabled() {
 
 void SetScreenEnabled(bool aEnabled) { Hal()->SendSetScreenEnabled(aEnabled); }
 
+bool GetExtScreenEnabled() {
+  bool enabled = false;
+  Hal()->SendGetExtScreenEnabled(&enabled);
+  return enabled;
+}
+
+void SetExtScreenEnabled(bool aEnabled) { Hal()->SendSetExtScreenEnabled(aEnabled); }
+
 void SetScreenBrightness(double aBrightness) {
   Hal()->SendSetScreenBrightness(aBrightness);
 }
@@ -505,6 +513,18 @@ class HalParent : public PHalParent,
     }
 #endif
     hal::SetScreenEnabled(aEnabled);
+    return IPC_OK();
+  }
+
+  virtual mozilla::ipc::IPCResult RecvGetExtScreenEnabled(
+      bool* aEnabled) override {
+    *aEnabled = hal::GetExtScreenEnabled();
+    return IPC_OK();
+  }
+
+  virtual mozilla::ipc::IPCResult RecvSetExtScreenEnabled(
+      const bool& aEnabled) override {
+    hal::SetExtScreenEnabled(aEnabled);
     return IPC_OK();
   }
 

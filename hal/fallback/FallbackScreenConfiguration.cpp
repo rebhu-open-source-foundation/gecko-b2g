@@ -34,6 +34,18 @@ SetScreenEnabled(bool)
 {
 
 }
+
+bool
+GetExtScreenEnabled()
+{
+  return true;
+}
+
+void
+SetExtScreenEnabled(bool aEnabled)
+{
+
+}
 #endif
 
 }  // namespace hal_impl

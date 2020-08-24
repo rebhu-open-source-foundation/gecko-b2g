@@ -797,6 +797,7 @@ namespace {
 // we read, we always get "mem"!  So we have to keep track ourselves whether
 // the screen is on or not.
 bool sScreenEnabled = true;
+bool sExtScreenEnabled = true;
 
 // We can read wakeLockFilename to find out whether the cpu wake lock
 // is already acquired, but reading and parsing it is a lot more work
@@ -816,6 +817,19 @@ bool GetScreenEnabled() { return sScreenEnabled; }
 void SetScreenEnabled(bool aEnabled) {
   GetGonkDisplay()->SetEnabled(aEnabled);
   sScreenEnabled = aEnabled;
+}
+
+bool
+GetExtScreenEnabled()
+{
+  return sExtScreenEnabled;
+}
+
+void
+SetExtScreenEnabled(bool aEnabled)
+{
+  GetGonkDisplay()->SetExtEnabled(aEnabled);
+  sExtScreenEnabled = aEnabled;
 }
 
 bool GetKeyLightEnabled() {

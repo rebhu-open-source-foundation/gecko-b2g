@@ -212,6 +212,16 @@ bool GetScreenEnabled();
 void SetScreenEnabled(bool aEnabled);
 
 /**
+ * Determine whether the device's external screen is currently enabled.
+ */
+bool GetExtScreenEnabled();
+
+/**
+ * Enable or disable the device's external screen.
+ */
+void SetExtScreenEnabled(bool aEnabled);
+
+/**
  * Set the brightness of the device's screen's backlight, on a scale from 0
  * (very dimm) to 1 (full blast).  Values larger than 1 are treated like 1, and
  * values smaller than 0 are treated like 0.
