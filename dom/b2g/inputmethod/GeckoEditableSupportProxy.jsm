@@ -5,9 +5,6 @@
 "use strict";
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
 
 const DEBUG = true;
 
@@ -18,7 +15,7 @@ function debug(aMsg) {
 }
 
 /*
- * GeckoEditableSupportProxy is a helper of passing requests from 
+ * GeckoEditableSupportProxy is a helper of passing requests from
  * GeckoEditableSupport.cpp to InputMethodService.jsm, receiving results from
  * InputMethodService.jsm and send it back to GeckoEditableSupport.cpp.
  */
@@ -33,19 +30,21 @@ GeckoEditableSupportProxy.prototype = {
     // A <messageName, {windowId, callback}> map.
     this._requests = new Map();
     this._messageNames = [
-    "Forms:SetComposition",
-    "Forms:EndComposition",
-    "Forms:SendKey",
-    "Forms:Keydown",
-    "Forms:Keyup",
+      "Forms:SetComposition",
+      "Forms:EndComposition",
+      "Forms:SendKey",
+      "Forms:Keydown",
+      "Forms:Keyup",
     ];
     this._messageNames.forEach(aName => {
       Services.cpmm.addMessageListener(aName, this);
     });
-    Services.obs.addObserver(this, "inner-window-destroyed", 
-                             /* weak-ref */ true);
-    Services.obs.addObserver(this, "xpcom-shutdown", 
-                             /* weak-ref */ true);
+    Services.obs.addObserver(
+      this,
+      "inner-window-destroyed",
+      /* weak-ref */ true
+    );
+    Services.obs.addObserver(this, "xpcom-shutdown", /* weak-ref */ true);
   },
 
   attach: function attach(aOwner) {
@@ -131,21 +130,20 @@ GeckoEditableSupportProxy.prototype = {
 
   handleFocus() {
     debug("handleFocus");
-    Services.cpmm.sendAsyncMessage("Forms:Focus",{
+    Services.cpmm.sendAsyncMessage("Forms:Focus", {
       isFocus: true,
     });
   },
 
   handleBlur() {
     debug("handleBlur");
-    Services.cpmm.sendAsyncMessage("Forms:Blur",{
+    Services.cpmm.sendAsyncMessage("Forms:Blur", {
       isFocus: false,
     });
   },
 
   receiveMessage: function receiveMessage(aMessage) {
     debug("receiveMessage: " + aMessage.name);
-    let mm = aMessage.target;
     let json = aMessage.json ? aMessage.json : {};
     let request = this._requests.get(aMessage.name);
     if (!request) {
@@ -161,7 +159,7 @@ GeckoEditableSupportProxy.prototype = {
       case "Forms:SetComposition":
         debug("Forms:SetComposition with: " + JSON.stringify(json));
         request.callback.onSetComposition(json.text);
-        Services.cpmm.sendAsyncMessage("Forms:SetComposition:Return:OK",{
+        Services.cpmm.sendAsyncMessage("Forms:SetComposition:Return:OK", {
           requestId: json.requestId,
           result: json.result,
         });
@@ -169,7 +167,7 @@ GeckoEditableSupportProxy.prototype = {
       case "Forms:EndComposition":
         debug("Forms:EndComposition with: " + JSON.stringify(json));
         request.callback.onEndComposition(json.text);
-        Services.cpmm.sendAsyncMessage("Forms:EndComposition:Return:OK",{
+        Services.cpmm.sendAsyncMessage("Forms:EndComposition:Return:OK", {
           requestId: json.requestId,
           result: json.result,
         });
@@ -177,7 +175,7 @@ GeckoEditableSupportProxy.prototype = {
       case "Forms:SendKey":
         debug("Forms:SendKey with: " + JSON.stringify(json));
         request.callback.onSendKey(json.key);
-        Services.cpmm.sendAsyncMessage("Forms:SendKey:Return:OK",{
+        Services.cpmm.sendAsyncMessage("Forms:SendKey:Return:OK", {
           requestId: json.requestId,
           result: json.result,
         });
@@ -185,7 +183,7 @@ GeckoEditableSupportProxy.prototype = {
       case "Forms:Keydown":
         debug("Forms:Keydown with: " + JSON.stringify(json));
         request.callback.onKeydown(json.key);
-        Services.cpmm.sendAsyncMessage("Forms:Keydown:Return:OK",{
+        Services.cpmm.sendAsyncMessage("Forms:Keydown:Return:OK", {
           requestId: json.requestId,
           result: json.result,
         });
@@ -193,7 +191,7 @@ GeckoEditableSupportProxy.prototype = {
       case "Forms:Keyup":
         debug("Forms:Keyup with: " + JSON.stringify(json));
         request.callback.onKeyup(json.key);
-        Services.cpmm.sendAsyncMessage("Forms:Keyup:Return:OK",{
+        Services.cpmm.sendAsyncMessage("Forms:Keyup:Return:OK", {
           requestId: json.requestId,
           result: json.result,
         });

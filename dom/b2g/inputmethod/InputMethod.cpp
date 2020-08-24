@@ -11,12 +11,10 @@
 #include "nsIGlobalObject.h"
 
 #ifdef MOZ_WIDGET_GONK
-#undef LOG
-#include <android/log.h>
-#define LOG(msg, ...)  __android_log_print(ANDROID_LOG_WARN,     \
-                                               "IME",  \
-                                               msg,                  \
-                                               ##__VA_ARGS__)
+#  undef LOG
+#  include <android/log.h>
+#  define LOG(msg, ...) \
+    __android_log_print(ANDROID_LOG_WARN, "IME", msg, ##__VA_ARGS__)
 #else
 #  define LOG(...)
 #endif
@@ -28,12 +26,13 @@ namespace dom {
 
 static nsCOMPtr<nsIInputMethodProxy> sInputMethodProxy;
 
-already_AddRefed<nsIInputMethodProxy>
-GetOrCreateInputMethodProxy(nsISupports* aSupports) {
+already_AddRefed<nsIInputMethodProxy> GetOrCreateInputMethodProxy(
+    nsISupports* aSupports) {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (!sInputMethodProxy) {
-    sInputMethodProxy = do_CreateInstance("@mozilla.org/dom/inputmethod/proxy;1");
+    sInputMethodProxy =
+        do_CreateInstance("@mozilla.org/dom/inputmethod/proxy;1");
     LOG("sInputMethodProxy created:[%p]", sInputMethodProxy.get());
     MOZ_ASSERT(sInputMethodProxy);
     sInputMethodProxy->Init();
@@ -44,16 +43,19 @@ GetOrCreateInputMethodProxy(nsISupports* aSupports) {
   return proxy.forget();
 }
 
-NS_IMPL_ISUPPORTS(InputMethodSetCompositionCallback, nsIInputMethodSetCompositionCallback)
+NS_IMPL_ISUPPORTS(InputMethodSetCompositionCallback,
+                  nsIInputMethodSetCompositionCallback)
 
-InputMethodSetCompositionCallback::InputMethodSetCompositionCallback(Promise* aPromise)
+InputMethodSetCompositionCallback::InputMethodSetCompositionCallback(
+    Promise* aPromise)
     : mPromise(aPromise) {}
 
 InputMethodSetCompositionCallback::~InputMethodSetCompositionCallback() {}
 
 NS_IMETHODIMP
 InputMethodSetCompositionCallback::OnSetComposition(nsresult aStatus,
-    JS::HandleValue aResult, JSContext* aCx) {
+                                                    JS::HandleValue aResult,
+                                                    JSContext* aCx) {
   if (mPromise) {
     if (NS_SUCCEEDED(aStatus)) {
       LOG("-- InputMethod OnSetComposition: Resolve");
@@ -66,16 +68,19 @@ InputMethodSetCompositionCallback::OnSetComposition(nsresult aStatus,
   return NS_OK;
 }
 
-NS_IMPL_ISUPPORTS(InputMethodEndCompositionCallback, nsIInputMethodEndCompositionCallback)
+NS_IMPL_ISUPPORTS(InputMethodEndCompositionCallback,
+                  nsIInputMethodEndCompositionCallback)
 
-InputMethodEndCompositionCallback::InputMethodEndCompositionCallback(Promise* aPromise)
+InputMethodEndCompositionCallback::InputMethodEndCompositionCallback(
+    Promise* aPromise)
     : mPromise(aPromise) {}
 
 InputMethodEndCompositionCallback::~InputMethodEndCompositionCallback() {}
 
 NS_IMETHODIMP
 InputMethodEndCompositionCallback::OnEndComposition(nsresult aStatus,
-    JS::HandleValue aResult, JSContext* aCx) {
+                                                    JS::HandleValue aResult,
+                                                    JSContext* aCx) {
   if (mPromise) {
     if (NS_SUCCEEDED(aStatus)) {
       LOG("-- InputMethod OnEndComposition: Resolve");
@@ -96,8 +101,8 @@ InputMethodSendKeyCallback::InputMethodSendKeyCallback(Promise* aPromise)
 InputMethodSendKeyCallback::~InputMethodSendKeyCallback() {}
 
 NS_IMETHODIMP
-InputMethodSendKeyCallback::OnSendKey(nsresult aStatus,
-    JS::HandleValue aResult, JSContext* aCx) {
+InputMethodSendKeyCallback::OnSendKey(nsresult aStatus, JS::HandleValue aResult,
+                                      JSContext* aCx) {
   if (mPromise) {
     if (NS_SUCCEEDED(aStatus)) {
       LOG("-- InputMethod OnSendKey: Resolve");
@@ -118,8 +123,8 @@ InputMethodKeydownCallback::InputMethodKeydownCallback(Promise* aPromise)
 InputMethodKeydownCallback::~InputMethodKeydownCallback() {}
 
 NS_IMETHODIMP
-InputMethodKeydownCallback::OnKeydown(nsresult aStatus,
-    JS::HandleValue aResult, JSContext* aCx) {
+InputMethodKeydownCallback::OnKeydown(nsresult aStatus, JS::HandleValue aResult,
+                                      JSContext* aCx) {
   if (mPromise) {
     if (NS_SUCCEEDED(aStatus)) {
       LOG("-- InputMethod OnKeydown: Resolve");
@@ -140,8 +145,8 @@ InputMethodKeyupCallback::InputMethodKeyupCallback(Promise* aPromise)
 InputMethodKeyupCallback::~InputMethodKeyupCallback() {}
 
 NS_IMETHODIMP
-InputMethodKeyupCallback::OnKeyup(nsresult aStatus,
-    JS::HandleValue aResult, JSContext* aCx) {
+InputMethodKeyupCallback::OnKeyup(nsresult aStatus, JS::HandleValue aResult,
+                                  JSContext* aCx) {
   if (mPromise) {
     if (NS_SUCCEEDED(aStatus)) {
       LOG("-- InputMethod OnKeyup: Resolve");
@@ -154,29 +159,25 @@ InputMethodKeyupCallback::OnKeyup(nsresult aStatus,
   return NS_OK;
 }
 
-InputMethod::InputMethod(nsIGlobalObject* aGlobal)
- : mGlobal(aGlobal){
+InputMethod::InputMethod(nsIGlobalObject* aGlobal) : mGlobal(aGlobal) {
   MOZ_ASSERT(aGlobal);
 }
 
 InputMethod::~InputMethod() {}
 
-nsresult InputMethod::PermissionCheck()
-{
+nsresult InputMethod::PermissionCheck() {
   // TODO file bug 103458 to track
-  return NS_OK; 
+  return NS_OK;
 }
 
-already_AddRefed<Promise> InputMethod::SetComposition(
-    const nsAString& aText) {
-
+already_AddRefed<Promise> InputMethod::SetComposition(const nsAString& aText) {
   RefPtr<Promise> promise;
   ErrorResult rv;
   promise = Promise::Create(mGlobal, rv);
   ENSURE_SUCCESS(rv, nullptr);
 
   LOG("-- InputMethod::SetComposition");
-  RefPtr<nsIInputMethodSetCompositionCallback> callback = 
+  RefPtr<nsIInputMethodSetCompositionCallback> callback =
       new InputMethodSetCompositionCallback(promise);
   nsCOMPtr<nsIInputMethodProxy> proxy = GetOrCreateInputMethodProxy(mGlobal);
   proxy->SetComposition(mGlobal, aText, callback);
@@ -186,33 +187,30 @@ already_AddRefed<Promise> InputMethod::SetComposition(
 
 already_AddRefed<Promise> InputMethod::EndComposition(
     const Optional<nsAString>& aText) {
-
   RefPtr<Promise> promise;
   ErrorResult rv;
   promise = Promise::Create(mGlobal, rv);
   ENSURE_SUCCESS(rv, nullptr);
 
   LOG("-- InputMethod::EndComposition");
-  RefPtr<nsIInputMethodEndCompositionCallback> callback = 
+  RefPtr<nsIInputMethodEndCompositionCallback> callback =
       new InputMethodEndCompositionCallback(promise);
 
   nsCOMPtr<nsIInputMethodProxy> proxy = GetOrCreateInputMethodProxy(mGlobal);
-  proxy->EndComposition(mGlobal,
-                        aText.WasPassed() ? aText.Value() : VoidString(),
-                        callback);
+  proxy->EndComposition(
+      mGlobal, aText.WasPassed() ? aText.Value() : VoidString(), callback);
 
   return promise.forget();
 }
 
 already_AddRefed<Promise> InputMethod::Keydown(const nsAString& aKey) {
-
   RefPtr<Promise> promise;
   ErrorResult rv;
   promise = Promise::Create(mGlobal, rv);
   ENSURE_SUCCESS(rv, nullptr);
 
   LOG("-- InputMethod::Keydown");
-  RefPtr<nsIInputMethodKeydownCallback> callback = 
+  RefPtr<nsIInputMethodKeydownCallback> callback =
       new InputMethodKeydownCallback(promise);
   nsCOMPtr<nsIInputMethodProxy> proxy = GetOrCreateInputMethodProxy(mGlobal);
   proxy->Keydown(mGlobal, aKey, callback);
@@ -221,14 +219,13 @@ already_AddRefed<Promise> InputMethod::Keydown(const nsAString& aKey) {
 }
 
 already_AddRefed<Promise> InputMethod::Keyup(const nsAString& aKey) {
-
   RefPtr<Promise> promise;
   ErrorResult rv;
   promise = Promise::Create(mGlobal, rv);
   ENSURE_SUCCESS(rv, nullptr);
 
   LOG("-- InputMethod::Keyup");
-  RefPtr<nsIInputMethodKeyupCallback> callback = 
+  RefPtr<nsIInputMethodKeyupCallback> callback =
       new InputMethodKeyupCallback(promise);
   nsCOMPtr<nsIInputMethodProxy> proxy = GetOrCreateInputMethodProxy(mGlobal);
   proxy->Keyup(mGlobal, aKey, callback);
@@ -237,14 +234,13 @@ already_AddRefed<Promise> InputMethod::Keyup(const nsAString& aKey) {
 }
 
 already_AddRefed<Promise> InputMethod::SendKey(const nsAString& aKey) {
-
   RefPtr<Promise> promise;
   ErrorResult rv;
   promise = Promise::Create(mGlobal, rv);
   ENSURE_SUCCESS(rv, nullptr);
 
   LOG("-- InputMethod::SendKey");
-  RefPtr<nsIInputMethodSendKeyCallback> callback = 
+  RefPtr<nsIInputMethodSendKeyCallback> callback =
       new InputMethodSendKeyCallback(promise);
   nsCOMPtr<nsIInputMethodProxy> proxy = GetOrCreateInputMethodProxy(mGlobal);
   proxy->SendKey(mGlobal, aKey, callback);
@@ -260,10 +256,9 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(InputMethod)
 NS_INTERFACE_MAP_END
 
 JSObject* InputMethod::WrapObject(JSContext* aCx,
-                                   JS::Handle<JSObject*> aGivenProto) {
+                                  JS::Handle<JSObject*> aGivenProto) {
   return InputMethod_Binding::Wrap(aCx, this, aGivenProto);
 }
-
 
 }  // namespace dom
 }  // namespace mozilla

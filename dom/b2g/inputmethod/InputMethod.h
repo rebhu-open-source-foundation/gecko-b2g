@@ -13,7 +13,6 @@
 #include "nsWrapperCache.h"
 #include "nsIInputMethodProxy.h"
 
-
 class nsIGlobalObject;
 
 namespace mozilla {
@@ -21,7 +20,8 @@ namespace dom {
 
 class Promise;
 
-class InputMethodSetCompositionCallback final : public nsIInputMethodSetCompositionCallback {
+class InputMethodSetCompositionCallback final
+    : public nsIInputMethodSetCompositionCallback {
  public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIINPUTMETHODSETCOMPOSITIONCALLBACK
@@ -34,7 +34,8 @@ class InputMethodSetCompositionCallback final : public nsIInputMethodSetComposit
   RefPtr<Promise> mPromise;
 };
 
-class InputMethodEndCompositionCallback final : public nsIInputMethodEndCompositionCallback {
+class InputMethodEndCompositionCallback final
+    : public nsIInputMethodEndCompositionCallback {
  public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIINPUTMETHODENDCOMPOSITIONCALLBACK
@@ -86,9 +87,7 @@ class InputMethodKeyupCallback final : public nsIInputMethodKeyupCallback {
   RefPtr<Promise> mPromise;
 };
 
-class InputMethod final : public nsISupports,
-                          public nsWrapperCache
-{
+class InputMethod final : public nsISupports, public nsWrapperCache {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(InputMethod)

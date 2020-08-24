@@ -4,13 +4,7 @@
 
 "use strict";
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-const { AppConstants } = ChromeUtils.import(
-  "resource://gre/modules/AppConstants.jsm"
-);
 
 const DEBUG = true;
 
@@ -23,8 +17,8 @@ function debug(aMsg) {
 this.EXPORTED_SYMBOLS = ["InputMethodService"];
 
 this.InputMethodService = {
-  _formMM: null,      // The current web page message manager.
-  _keyboardMM: null,  // The keyboard app message manager.
+  _formMM: null, // The current web page message manager.
+  _keyboardMM: null, // The keyboard app message manager.
   _messageNames: [
     // InputMethodProxy.jsm
     "InputMethod:SetComposition",
@@ -34,6 +28,7 @@ this.InputMethodService = {
     "InputMethod:Keyup",
     // From geckosupporteditable proxy
     "Forms:Focus",
+    "Forms:Blur",
     "Forms:SetComposition:Return:OK",
     "Forms:SetComposition:Return:KO",
     "Forms:EndComposition:Return:OK",
@@ -47,8 +42,9 @@ this.InputMethodService = {
   ],
 
   get formMM() {
-    if (this._formMM)
+    if (this._formMM) {
       return this._formMM;
+    }
 
     return null;
   },
@@ -57,21 +53,22 @@ this.InputMethodService = {
     this._formMM = mm;
   },
 
-  sendToForm: function(name, data) {
+  sendToForm(name, data) {
     if (!this.formMM) {
       debug("No form message manager for: " + name);
       return;
     }
     try {
       this.formMM.sendAsyncMessage(name, data);
-    } catch(e) {
+    } catch (e) {
       debug("Error while sendToForm");
     }
   },
 
   get inputMethodMM() {
-    if (this._inputMethodMM)
+    if (this._inputMethodMM) {
       return this._inputMethodMM;
+    }
 
     return null;
   },
@@ -80,14 +77,14 @@ this.InputMethodService = {
     this._inputMethodMM = mm;
   },
 
-  sendToInputMethod: function(name, data) {
+  sendToInputMethod(name, data) {
     if (!this.inputMethodMM) {
       debug("No inputMethod message manager for: " + name);
       return;
     }
     try {
       this.inputMethodMM.sendAsyncMessage(name, data);
-    } catch(e) {
+    } catch (e) {
       debug("Error while sendToInputMethod");
     }
   },
@@ -117,10 +114,10 @@ this.InputMethodService = {
     let msg = aMessage.json;
 
     switch (aMessage.name) {
-      case 'Forms:Focus':
+      case "Forms:Focus":
         this.handleFocus(mm, msg);
         break;
-      case 'Forms:Blur':
+      case "Forms:Blur":
         this.handleBlur(mm, msg);
         break;
       case "InputMethod:SetComposition":
@@ -138,17 +135,17 @@ this.InputMethodService = {
       case "InputMethod:Keyup":
         this.keyup(mm, msg);
         break;
-      case 'Forms:SetComposition:Return:OK':
-      case 'Forms:EndComposition:Return:OK':
-      case 'Forms:SetComposition:Return:KO':
-      case 'Forms:EndComposition:Return:KO':
-      case 'Forms:SendKey:Return:KO':
-      case 'Forms:SendKey:Return:KO':
-      case 'Forms:Keydown:Return:KO':
-      case 'Forms:Keydown:Return:KO':
-      case 'Forms:Keyup:Return:KO':
-      case 'Forms:Keyup:Return:KO':
-        let name = aMessage.name.replace(/^Forms/, 'InputMethod');
+      case "Forms:SetComposition:Return:OK":
+      case "Forms:EndComposition:Return:OK":
+      case "Forms:SetComposition:Return:KO":
+      case "Forms:EndComposition:Return:KO":
+      case "Forms:SendKey:Return:OK":
+      case "Forms:SendKey:Return:KO":
+      case "Forms:Keydown:Return:OK":
+      case "Forms:Keydown:Return:KO":
+      case "Forms:Keyup:Return:OK":
+      case "Forms:Keyup:Return:KO":
+        let name = aMessage.name.replace(/^Forms/, "InputMethod");
         this.sendToInputMethod(name, {
           requestId: msg.requestId,
           result: msg.result,
@@ -169,8 +166,8 @@ this.InputMethodService = {
 
     // Notify system to show keyboard when focus
     Services.obs.notifyObservers(
-        { wrappedJSObject: msg },
-        "inputmethod-contextchange"
+      { wrappedJSObject: msg },
+      "inputmethod-contextchange"
     );
     debug("Notify system to show keyboard when focus");
   },
@@ -186,8 +183,8 @@ this.InputMethodService = {
 
     // Notify system to hide keyboard when blur
     Services.obs.notifyObservers(
-        { wrappedJSObject: msg },
-        "inputmethod-contextchange"
+      { wrappedJSObject: msg },
+      "inputmethod-contextchange"
     );
     debug("Notify system to show keyboard when blur");
   },
@@ -197,7 +194,7 @@ this.InputMethodService = {
     if (aMessageManager != this.inputMethodMM) {
       this.inputMethodMM = aMessageManager;
     }
-    this.sendToForm('Forms:SetComposition', aMsg);
+    this.sendToForm("Forms:SetComposition", aMsg);
   },
 
   endComposition: function inputmethod_endComposition(aMessageManager, msg) {
@@ -205,7 +202,7 @@ this.InputMethodService = {
     if (aMessageManager != this.inputMethodMM) {
       this.inputMethodMM = aMessageManager;
     }
-    this.sendToForm('Forms:EndComposition', msg);
+    this.sendToForm("Forms:EndComposition", msg);
   },
 
   sendKey: function inputmethod_sendKey(aMessageManager, msg) {
@@ -213,7 +210,7 @@ this.InputMethodService = {
     if (aMessageManager != this.inputMethodMM) {
       this.inputMethodMM = aMessageManager;
     }
-    this.sendToForm('Forms:SendKey', msg);
+    this.sendToForm("Forms:SendKey", msg);
   },
 
   keydown: function inputmethod_keydown(aMessageManager, msg) {
@@ -221,7 +218,7 @@ this.InputMethodService = {
     if (aMessageManager != this.inputMethodMM) {
       this.inputMethodMM = aMessageManager;
     }
-    this.sendToForm('Forms:Keydown', msg);
+    this.sendToForm("Forms:Keydown", msg);
   },
 
   keyup: function inputmethod_keyup(aMessageManager, msg) {
@@ -229,7 +226,7 @@ this.InputMethodService = {
     if (aMessageManager != this.inputMethodMM) {
       this.inputMethodMM = aMessageManager;
     }
-    this.sendToForm('Forms:Keyup', msg);
+    this.sendToForm("Forms:Keyup", msg);
   },
 
   uninit: function inputmethod_uninit() {
@@ -240,8 +237,6 @@ this.InputMethodService = {
 
     Services.obs.removeObserver(this, "xpcom-shutdown");
   },
-
-
 };
 
 InputMethodService.init();

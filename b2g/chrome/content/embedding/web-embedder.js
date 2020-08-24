@@ -277,7 +277,9 @@ XPCOMUtils.defineLazyModuleGetters(this, {
       Services.obs.addObserver(wrappedDetail => {
         _webembed_log("receive inputmethod-contextchange");
         let detail = wrappedDetail.wrappedJSObject;
-        this.dispatchEvent(new CustomEvent("inputmethod-contextchange", { detail: detail }));
+        this.dispatchEvent(
+          new CustomEvent("inputmethod-contextchange", { detail })
+        );
       }, "inputmethod-contextchange");
 
       if (delegates.notifications) {

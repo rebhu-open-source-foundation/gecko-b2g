@@ -5,9 +5,6 @@
 "use strict";
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
 
 const DEBUG = true;
 
@@ -35,24 +32,26 @@ InputMethodProxy.prototype = {
     this._windows = new Map();
     this._counter = 0;
     this._messageNames = [
-    "InputMethod:SetComposition:Return:OK",
-    "InputMethod:SetComposition:Return:KO",
-    "InputMethod:EndComposition:Return:OK",
-    "InputMethod:EndComposition:Return:KO",
-    "InputMethod:SendKey:Return:OK",
-    "InputMethod:SendKey:Return:KO",
-    "InputMethod:Keydown:Return:OK",
-    "InputMethod:Keydown:Return:KO",
-    "InputMethod:Keyup:Return:OK",
-    "InputMethod:Keyup:Return:KO",
+      "InputMethod:SetComposition:Return:OK",
+      "InputMethod:SetComposition:Return:KO",
+      "InputMethod:EndComposition:Return:OK",
+      "InputMethod:EndComposition:Return:KO",
+      "InputMethod:SendKey:Return:OK",
+      "InputMethod:SendKey:Return:KO",
+      "InputMethod:Keydown:Return:OK",
+      "InputMethod:Keydown:Return:KO",
+      "InputMethod:Keyup:Return:OK",
+      "InputMethod:Keyup:Return:KO",
     ];
     this._messageNames.forEach(aName => {
       Services.cpmm.addMessageListener(aName, this);
     });
-    Services.obs.addObserver(this, "inner-window-destroyed", 
-                             /* weak-ref */ true);
-    Services.obs.addObserver(this, "xpcom-shutdown", 
-                             /* weak-ref */ true);
+    Services.obs.addObserver(
+      this,
+      "inner-window-destroyed",
+      /* weak-ref */ true
+    );
+    Services.obs.addObserver(this, "xpcom-shutdown", /* weak-ref */ true);
   },
 
   attach: function attach(aOwner) {
@@ -78,7 +77,7 @@ InputMethodProxy.prototype = {
     let requestId = this._counter;
     let util;
     let innerWindowID;
-    if(aOwner) {
+    if (aOwner) {
       util = aOwner.windowUtils;
       innerWindowID = util.currentInnerWindowID;
     }
@@ -102,7 +101,7 @@ InputMethodProxy.prototype = {
     let requestId = this._counter;
     let util;
     let innerWindowID;
-    if(aOwner) {
+    if (aOwner) {
       util = aOwner.windowUtils;
       innerWindowID = util.currentInnerWindowID;
     }
@@ -115,7 +114,7 @@ InputMethodProxy.prototype = {
     debug("endComposition: windowId:[" + innerWindowID + "]");
     Services.cpmm.sendAsyncMessage("InputMethod:EndComposition", {
       requestId,
-      text: aText || '',
+      text: aText || "",
     });
   },
 
@@ -126,7 +125,7 @@ InputMethodProxy.prototype = {
     let requestId = this._counter;
     let util;
     let innerWindowID;
-    if(aOwner) {
+    if (aOwner) {
       util = aOwner.windowUtils;
       innerWindowID = util.currentInnerWindowID;
     }
@@ -150,7 +149,7 @@ InputMethodProxy.prototype = {
     let requestId = this._counter;
     let util;
     let innerWindowID;
-    if(aOwner) {
+    if (aOwner) {
       util = aOwner.windowUtils;
       innerWindowID = util.currentInnerWindowID;
     }
@@ -174,7 +173,7 @@ InputMethodProxy.prototype = {
     let requestId = this._counter;
     let util;
     let innerWindowID;
-    if(aOwner) {
+    if (aOwner) {
       util = aOwner.windowUtils;
       innerWindowID = util.currentInnerWindowID;
     }
@@ -204,8 +203,9 @@ InputMethodProxy.prototype = {
       debug("no window found for windowId: " + request.windowId);
       return;
     }
-    debug("Request: [" + aMessage.name + "] with requestId:["
-          + json.requestId + "]");
+    debug(
+      "Request: [" + aMessage.name + "] with requestId:[" + json.requestId + "]"
+    );
     switch (aMessage.name) {
       case "InputMethod:SetComposition:Return:OK":
         request.callback.onSetComposition(
@@ -232,10 +232,7 @@ InputMethodProxy.prototype = {
         );
         break;
       case "InputMethod:SendKey:Return:OK":
-        request.callback.onSendKey(
-          Cr.NS_OK,
-          Cu.cloneInto(json.result, win)
-        );
+        request.callback.onSendKey(Cr.NS_OK, Cu.cloneInto(json.result, win));
         break;
       case "InputMethod:SendKey:Return:KO":
         request.callback.onSendKey(
@@ -244,10 +241,7 @@ InputMethodProxy.prototype = {
         );
         break;
       case "InputMethod:Keydown:Return:OK":
-        request.callback.onKeydown(
-          Cr.NS_OK,
-          Cu.cloneInto(json.result, win)
-        );
+        request.callback.onKeydown(Cr.NS_OK, Cu.cloneInto(json.result, win));
         break;
       case "InputMethod:Keydown:Return:KO":
         request.callback.onKeydown(
@@ -256,10 +250,7 @@ InputMethodProxy.prototype = {
         );
         break;
       case "InputMethod:Keyup:Return:OK":
-        request.callback.onKeyup(
-          Cr.NS_OK,
-          Cu.cloneInto(json.result, win)
-        );
+        request.callback.onKeyup(Cr.NS_OK, Cu.cloneInto(json.result, win));
         break;
       case "InputMethod:Keyup:Return:KO":
         request.callback.onKeyup(
