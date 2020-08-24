@@ -158,6 +158,11 @@ XPCOMUtils.defineLazyScriptGetter(
 );
 XPCOMUtils.defineLazyScriptGetter(
   this,
+  "DefaultBrowserNotificationOnNewTabPage",
+  "chrome://browser/content/browser-defaultBrowserNotificationOnNewTabPage.js"
+);
+XPCOMUtils.defineLazyScriptGetter(
+  this,
   ["PointerLock", "FullScreen"],
   "chrome://browser/content/browser-fullScreenAndPointerLock.js"
 );
@@ -2701,7 +2706,7 @@ function HandleAppCommandEvent(evt) {
       BrowserOpenFileWindow();
       break;
     case "Print":
-      PrintUtils.printWindow(gBrowser.selectedBrowser.browsingContext);
+      PrintUtils.startPrintWindow(gBrowser.selectedBrowser.browsingContext);
       break;
     case "Save":
       saveBrowser(gBrowser.selectedBrowser);
@@ -2795,6 +2800,15 @@ function BrowserStop() {
 
 function BrowserReloadOrDuplicate(aEvent) {
   aEvent = getRootEvent(aEvent);
+  let accelKeyPressed =
+    AppConstants.platform == "macosx" ? aEvent.metaKey : aEvent.ctrlKey;
+  var backgroundTabModifier = aEvent.button == 1 || accelKeyPressed;
+
+  if (aEvent.shiftKey && !backgroundTabModifier) {
+    BrowserReloadSkipCache();
+    return;
+  }
+
   let where = whereToOpenLink(aEvent, false, true);
   if (where == "current") {
     BrowserReload();

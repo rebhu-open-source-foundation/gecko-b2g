@@ -13239,7 +13239,7 @@ void CodeGenerator::visitInArray(LInArray* lir) {
 
     MOZ_ASSERT_IF(index < 0, mir->needsNegativeIntCheck());
     if (mir->needsNegativeIntCheck()) {
-      using Fn = bool (*)(JSContext*, uint32_t, HandleObject, bool*);
+      using Fn = bool (*)(JSContext*, int32_t, HandleObject, bool*);
       ool = oolCallVM<Fn, OperatorInI>(
           lir, ArgList(Imm32(index), ToRegister(lir->object())),
           StoreRegisterTo(output));
@@ -13270,7 +13270,7 @@ void CodeGenerator::visitInArray(LInArray* lir) {
 
     if (mir->needsNegativeIntCheck()) {
       masm.bind(&negativeIntCheck);
-      using Fn = bool (*)(JSContext*, uint32_t, HandleObject, bool*);
+      using Fn = bool (*)(JSContext*, int32_t, HandleObject, bool*);
       ool = oolCallVM<Fn, OperatorInI>(
           lir, ArgList(index, ToRegister(lir->object())),
           StoreRegisterTo(output));
@@ -13291,6 +13291,21 @@ void CodeGenerator::visitInArray(LInArray* lir) {
   if (ool) {
     masm.bind(ool->rejoin());
   }
+}
+
+void CodeGenerator::visitGuardElementNotHole(LGuardElementNotHole* lir) {
+  Register elements = ToRegister(lir->elements());
+  const LAllocation* index = lir->index();
+
+  Label testMagic;
+  if (index->isConstant()) {
+    Address address(elements, ToInt32(index) * sizeof(js::Value));
+    masm.branchTestMagic(Assembler::Equal, address, &testMagic);
+  } else {
+    BaseObjectElementIndex address(elements, ToRegister(index));
+    masm.branchTestMagic(Assembler::Equal, address, &testMagic);
+  }
+  bailoutFrom(&testMagic, lir->snapshot());
 }
 
 void CodeGenerator::visitInstanceOfO(LInstanceOfO* ins) {

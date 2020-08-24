@@ -1234,6 +1234,29 @@ bool WarpCacheIRTranspiler::emitLoadDenseElementHoleResult(
   return true;
 }
 
+bool WarpCacheIRTranspiler::emitLoadDenseElementExistsResult(
+    ObjOperandId objId, Int32OperandId indexId) {
+  MDefinition* obj = getOperand(objId);
+  MDefinition* index = getOperand(indexId);
+
+  // Get the elements vector.
+  auto* elements = MElements::New(alloc(), obj);
+  add(elements);
+
+  auto* length = MInitializedLength::New(alloc(), elements);
+  add(length);
+
+  // Check if id < initLength.
+  index = addBoundsCheck(index, length);
+
+  // And check elem[id] is not a hole.
+  auto* guard = MGuardElementNotHole::New(alloc(), elements, index);
+  add(guard);
+
+  pushResult(constant(BooleanValue(true)));
+  return true;
+}
+
 bool WarpCacheIRTranspiler::emitLoadTypedArrayElementResult(
     ObjOperandId objId, Int32OperandId indexId, Scalar::Type elementType,
     bool handleOOB, bool allowDoubleForUint32) {
@@ -1479,7 +1502,7 @@ bool WarpCacheIRTranspiler::emitStoreDenseElement(ObjOperandId objId,
 
   index = addBoundsCheck(index, length);
 
-  auto* barrier = MPostWriteBarrier::New(alloc(), obj, rhs);
+  auto* barrier = MPostWriteElementBarrier::New(alloc(), obj, rhs, index);
   add(barrier);
 
   bool needsHoleCheck = true;
@@ -1487,6 +1510,45 @@ bool WarpCacheIRTranspiler::emitStoreDenseElement(ObjOperandId objId,
       MStoreElement::New(alloc(), elements, index, rhs, needsHoleCheck);
   store->setNeedsBarrier();
   addEffectful(store);
+  return resumeAfter(store);
+}
+
+bool WarpCacheIRTranspiler::emitStoreDenseElementHole(ObjOperandId objId,
+                                                      Int32OperandId indexId,
+                                                      ValOperandId rhsId,
+                                                      bool handleAdd) {
+  MDefinition* obj = getOperand(objId);
+  MDefinition* index = getOperand(indexId);
+  MDefinition* rhs = getOperand(rhsId);
+
+  auto* elements = MElements::New(alloc(), obj);
+  add(elements);
+
+  auto* barrier = MPostWriteElementBarrier::New(alloc(), obj, rhs, index);
+  add(barrier);
+
+  MInstruction* store;
+  MStoreElementCommon* common;
+  if (handleAdd) {
+    // TODO: Consider changing MStoreElementHole to match IC code after Ion.
+    auto* ins = MStoreElementHole::New(alloc(), obj, elements, index, rhs);
+    store = ins;
+    common = ins;
+  } else {
+    auto* length = MInitializedLength::New(alloc(), elements);
+    add(length);
+
+    index = addBoundsCheck(index, length);
+
+    bool needsHoleCheck = false;
+    auto* ins =
+        MStoreElement::New(alloc(), elements, index, rhs, needsHoleCheck);
+    store = ins;
+    common = ins;
+  }
+  common->setNeedsBarrier();
+  addEffectful(store);
+
   return resumeAfter(store);
 }
 

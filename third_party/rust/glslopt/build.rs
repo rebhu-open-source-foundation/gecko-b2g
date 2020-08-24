@@ -1,7 +1,5 @@
 use cc;
 
-use std::env;
-
 /// Adds the required definitions to build mesa/glsl-optimizer for the
 /// target platform.
 fn configure(build: &mut cc::Build) -> &mut cc::Build {
@@ -20,29 +18,15 @@ fn configure(build: &mut cc::Build) -> &mut cc::Build {
         build.define("HAVE_TIMESPEC_GET", None);
     }
 
+    // Avoid using e.g. moz_malloc in Gecko builds.
+    build.define("MOZ_INCLUDE_MOZALLOC_H", None);
+    // Avoid using e.g. mozalloc_abort in Gecko builds.
+    build.define("mozilla_throw_gcc_h", None);
+
     build
 }
 
 fn main() {
-    // Unset CFLAGS which are probably intended for a target build,
-    // but might break building this as a build dependency if we are
-    // not cross-compiling.
-    let target = env::var("TARGET").unwrap();
-    env::remove_var(format!("CFLAGS_{}", &target));
-    env::remove_var(format!("CXXFLAGS_{}", &target));
-    env::remove_var(format!("CFLAGS_{}", target.replace("-", "_")));
-    env::remove_var(format!("CXXFLAGS_{}", target.replace("-", "_")));
-
-    // On Gonk we set these flags and they end up being used here for
-    // host compilation, which doesn't work.
-    env::remove_var("CFLAGS");
-    env::remove_var("CPPFLAGS");
-    env::remove_var("CXXFLAGS");
-
-    // Gecko has set this to override --target= to help windows cross builds,
-    // but causes errors building this as a build dependency.
-    env::remove_var("BINDGEN_EXTRA_CLANG_ARGS");
-
     configure(&mut cc::Build::new())
         .warnings(false)
         .include("glsl-optimizer/include")
