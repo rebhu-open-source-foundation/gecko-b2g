@@ -424,7 +424,7 @@ TextureData* TextureData::Create(TextureForwarder* aAllocator,
     case TextureType::GrallocBuffer:
       {
         TextureAllocationFlags allocFlags = aAllocFlags;
-        if (aFormat == SurfaceFormat::R8G8B8X8) {
+        if (aFormat == SurfaceFormat::R8G8B8X8 || aFormat == SurfaceFormat::B8G8R8X8) {
           // Skia doesn't support BGRX | RGBX, so ensure we clear the buffer for the proper
           // alpha values.
           allocFlags = TextureAllocationFlags(aAllocFlags | ALLOC_CLEAR_BUFFER);
