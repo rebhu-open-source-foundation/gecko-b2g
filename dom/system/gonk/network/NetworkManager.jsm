@@ -2278,7 +2278,7 @@ NetworkManager.prototype = {
     // Wrap gDNSService.asyncResolveExtended to a promise, which
     // resolves with an array of ip addresses or rejects with
     // the reason otherwise.
-    let hostResolveWrapper = aNetId => {
+    let hostResolveWrapper = () => {
       return new Promise((aResolve, aReject) => {
         // Callback for gDNSService.asyncResolveExtended.
         let onLookupComplete = (aRequest, aRecord, aStatus) => {
@@ -2307,27 +2307,20 @@ NetworkManager.prototype = {
           aResolve(retval);
         };
 
-        debug(
-          "Calling gDNSService.asyncResolveExtended: " +
-            aNetId +
-            ", " +
-            aHostname
-        );
-        gDNSService.asyncResolveExtended(
+        debug("Calling gDNSService.asyncResolveExtended: " + aHostname);
+        gDNSService.asyncResolve(
           aHostname,
+          Ci.nsIDNSService.RESOLVE_TYPE_DEFAULT,
           0,
-          aNetId,
+          null,
           onLookupComplete,
-          Services.tm.mainThread
+          Services.tm.mainThread,
+          {}
         );
       });
     };
 
-    // TODO: |getNetId| will be implemented as a sync call in nsINetworkManager
-    //       once Bug 1141903 is landed.
-    return gNetworkService
-      .getNetId(aNetworkInfo.name)
-      .then(aNetId => hostResolveWrapper(aNetId));
+    return hostResolveWrapper();
   },
 
   _activeConnectionType: null,
