@@ -495,28 +495,26 @@ bool SmsRequestParent::DoRequest(const SendMessageRequest& aRequest) {
                        req.silent(), this);
     } break;
     case SendMessageRequest::TSendMmsMessageRequest: {
-        nsCOMPtr<nsIMmsService> mmsService = do_GetService(MMS_SERVICE_CONTRACTID);
-        NS_ENSURE_TRUE(mmsService, true);
+      nsCOMPtr<nsIMmsService> mmsService =
+          do_GetService(MMS_SERVICE_CONTRACTID);
+      NS_ENSURE_TRUE(mmsService, true);
 
-        // There are cases (see bug 981202) where this is called with no JS on the
-        // stack. And since mmsService might be JS-Implemented, we need to pass a
-        // jsval to ::Send. Only system code should be looking at the result here,
-        // so we just create it in the System-Principaled Junk Scope.
-        AutoJSContext cx;
-        //JSAutoCompartment ac(cx, xpc::PrivilegedJunkScope());
-        JSAutoRealm ar(cx, xpc::PrivilegedJunkScope());
-        JS::Rooted<JS::Value> params(cx);
-        const SendMmsMessageRequest &req = aRequest.get_SendMmsMessageRequest();
-        if (!GetParamsFromSendMmsMessageRequest(cx,
-                                                req,
-                                                params.address())) {
-          NS_WARNING("SmsRequestParent: Fail to build MMS params.");
-          return true;
-        }
-
-        mmsService->Send(req.serviceId(), params, this);
+      // There are cases (see bug 981202) where this is called with no JS on the
+      // stack. And since mmsService might be JS-Implemented, we need to pass a
+      // jsval to ::Send. Only system code should be looking at the result here,
+      // so we just create it in the System-Principaled Junk Scope.
+      AutoJSContext cx;
+      // JSAutoCompartment ac(cx, xpc::PrivilegedJunkScope());
+      JSAutoRealm ar(cx, xpc::PrivilegedJunkScope());
+      JS::Rooted<JS::Value> params(cx);
+      const SendMmsMessageRequest& req = aRequest.get_SendMmsMessageRequest();
+      if (!GetParamsFromSendMmsMessageRequest(cx, req, params.address())) {
+        NS_WARNING("SmsRequestParent: Fail to build MMS params.");
+        return true;
       }
-      break;
+
+      mmsService->Send(req.serviceId(), params, this);
+    } break;
     default:
       MOZ_CRASH("Unknown type of SendMessageRequest!");
   }

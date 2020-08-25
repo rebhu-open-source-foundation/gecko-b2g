@@ -27,12 +27,14 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(MmsMessageInternal)
   for (uint32_t i = 0; i < tmp->mAttachments.Length(); i++) {
     NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAttachments[i].mContent)
   }
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBlobImpls)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(MmsMessageInternal)
   for (uint32_t i = 0; i < tmp->mAttachments.Length(); i++) {
     NS_IMPL_CYCLE_COLLECTION_UNLINK(mAttachments[i].mContent)
   }
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mBlobImpls)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(MmsMessageInternal)
@@ -66,7 +68,14 @@ MmsMessageInternal::MmsMessageInternal(
       mAttachments(aAttachments.Clone()),
       mExpiryDate(aExpiryDate),
       mReadReportRequested(aReadReportRequested),
-      mIsGroup(aIsGroup) {}
+      mIsGroup(aIsGroup) {
+  uint32_t len = aAttachments.Length();
+  mBlobImpls.SetCapacity(len);
+  for (uint32_t i = 0; i < len; i++) {
+    const MmsAttachment& element = aAttachments[i];
+    mBlobImpls.AppendElement(element.mContent->Impl());
+  }
+}
 
 MmsMessageInternal::MmsMessageInternal(const MmsMessageData& aData)
     : mId(aData.id()),
@@ -85,16 +94,16 @@ MmsMessageInternal::MmsMessageInternal(const MmsMessageData& aData)
       mIsGroup(aData.isGroup()) {
   uint32_t len = aData.attachments().Length();
   mAttachments.SetCapacity(len);
+  mBlobImpls.SetCapacity(len);
   for (uint32_t i = 0; i < len; i++) {
     MmsAttachment att;
     const MmsAttachmentData& element = aData.attachments()[i];
     att.mId = element.id();
     att.mLocation = element.location();
 
-    // mContent is not going to be exposed to JS directly so we can use
-    // nullptr as parent.
     RefPtr<BlobImpl> blobImpl = IPCBlobUtils::Deserialize(element.content());
-    att.mContent = Blob::Create(nullptr, blobImpl);
+    MOZ_ASSERT(blobImpl);
+    mBlobImpls.AppendElement(blobImpl);
     mAttachments.AppendElement(att);
   }
 
@@ -374,9 +383,9 @@ bool MmsMessageInternal::GetData(ContentParent* aParent,
     // send a "Mystery Blob" to the ContentChild. Attempting to get the
     // last modified date of blob can force that value to be initialized.
 
-    //TODO: make sure if we still need this workaround.
-    //RefPtr<BlobImpl> impl = element.mContent->Impl();
-    //if (impl && impl->IsDateUnknown()) {
+    // TODO: make sure if we still need this workaround.
+    // RefPtr<BlobImpl> impl = element.mContent->Impl();
+    // if (impl && impl->IsDateUnknown()) {
     //  ErrorResult rv;
     //  impl->GetLastModified(rv);
     //  if (rv.Failed()) {
@@ -532,7 +541,7 @@ MmsMessageInternal::GetAttachments(JSContext* aCx,
     const MmsAttachment& element = mAttachments[i];
     attachment.mId = element.mId;
     attachment.mLocation = element.mLocation;
-    attachment.mContent = Blob::Create(global, element.mContent->Impl());
+    attachment.mContent = Blob::Create(global, mBlobImpls[i]);
     result.AppendElement(attachment);
   }
 

@@ -296,7 +296,7 @@ bool GetSendMmsMessageRequestFromParams(uint32_t aServiceId,
     mmsAttachment.id().Assign(attachment.mId);
     mmsAttachment.location().Assign(attachment.mLocation);
     nsresult rv =
-      IPCBlobUtils::Serialize(attachment.mContent->Impl(), cc, ipcBlob);
+        IPCBlobUtils::Serialize(attachment.mContent->Impl(), cc, ipcBlob);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return false;
     }

@@ -20,6 +20,7 @@ const SP = 32;
 const HT = 9;
 const DQUOTE = 34;
 const DEL = 127;
+const QUOTE = 127;
 
 XPCOMUtils.defineConstant(this, "NUL", NUL);
 XPCOMUtils.defineConstant(this, "CR", CR);
@@ -587,7 +588,7 @@ this.TextString = {
   decode: function(data) {
     let begin = data.offset;
     let firstCode = Octet.decode(data);
-    if (firstCode == 127) {
+    if (firstCode == QUOTE) {
       // Quote found, check if first char code is larger-equal than 128.
       begin = data.offset;
       try {
@@ -605,7 +606,7 @@ this.TextString = {
           throw new CodeError("Text-string: unexpected error.");
         }
       }
-    } else if (firstCode >= 128) {
+    } else if (firstCode >= ASCIIS || firstCode < CTLS) {
       throw new CodeError("Text-string: invalid char code " + firstCode);
     }
 

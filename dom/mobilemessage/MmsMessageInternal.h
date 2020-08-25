@@ -81,6 +81,7 @@ class MmsMessageInternal final : public nsIMmsMessage {
   uint64_t mExpiryDate;
   bool mReadReportRequested;
   bool mIsGroup;
+  nsTArray<RefPtr<BlobImpl>> mBlobImpls;
 };
 
 }  // namespace mobilemessage

@@ -104,7 +104,8 @@ void MmsMessage::GetAttachments(nsTArray<MmsAttachment>& aRetVal) const {
     const MmsAttachment& element = mMessage->mAttachments[i];
     attachment.mId = element.mId;
     attachment.mLocation = element.mLocation;
-    attachment.mContent = Blob::Create(GetParentObject()->AsGlobal(), element.mContent->Impl());
+    attachment.mContent =
+        Blob::Create(GetParentObject()->AsGlobal(), mMessage->mBlobImpls[i]);
     aRetVal.AppendElement(attachment);
   }
 }

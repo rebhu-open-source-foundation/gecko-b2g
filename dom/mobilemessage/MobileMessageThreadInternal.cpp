@@ -132,7 +132,7 @@ MobileMessageThreadInternal::GetUnreadCount(uint64_t* aUnreadCount) {
 NS_IMETHODIMP
 MobileMessageThreadInternal::GetParticipants(
     JSContext* aCx, JS::MutableHandle<JS::Value> aParticipants) {
-  if(!ToJSValue(aCx, mData.participants(), aParticipants)) {
+  if (!ToJSValue(aCx, mData.participants(), aParticipants)) {
     return NS_ERROR_FAILURE;
   }
   return NS_OK;

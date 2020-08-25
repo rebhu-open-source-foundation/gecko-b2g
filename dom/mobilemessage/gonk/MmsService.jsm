@@ -192,9 +192,10 @@ XPCOMUtils.defineLazyServiceGetter(this, "gImsRegService",
                                    "@mozilla.org/mobileconnection/imsregservice;1",
                                    "nsIImsRegService");
 
-XPCOMUtils.defineLazyServiceGetter(this, "gDiskWatcher",
-                                   "@mozilla.org/toolkit/disk-space-watcher;1",
-                                   "nsIDiskSpaceWatcher");
+//FIXME
+//XPCOMUtils.defineLazyServiceGetter(this, "gDiskWatcher",
+//                                   "@mozilla.org/toolkit/disk-space-watcher;1",
+//                                   "nsIDiskSpaceWatcher");
 
 XPCOMUtils.defineLazyGetter(this, "MMS", function() {
   let MMS = {};
@@ -853,7 +854,11 @@ XPCOMUtils.defineLazyGetter(this, "gMmsTransactionHelper", function() {
           releaseMmsConnectionAndCallback(xhr.status, data);
         };
         // Send request
-        xhr.sendInputStream(istream);
+        if(istream) {
+          xhr.sendInputStream(istream);
+        } else {
+          xhr.send();
+        }
         return xhr;
       } catch (e) {
         if (DEBUG) debug("xhr error, can't send: " + e.message);
@@ -1594,7 +1599,7 @@ function MmsService() {
   if (DEBUG) {
     let macro = (MMS.MMS_VERSION >> 4) & 0x0f;
     let minor = MMS.MMS_VERSION & 0x0f;
-    debug("Running protocol version: " + macro + "." + minor);
+    debug("Running protocol version: " + macro + "." + minor + "(" + MMS.MMS_VERSION +")");
   }
 
   Services.prefs.addObserver(kPrefDefaultServiceId, this, false);
@@ -2062,9 +2067,10 @@ MmsService.prototype = {
 
       // Calculate the free space to see whether the data space is low.
       let lowDataSpace = false;
-      if (gDiskWatcher) {
-        lowDataSpace = gDiskWatcher.isDiskFull;
-      }
+      //FIXME
+      //if (gDiskWatcher) {
+      //  lowDataSpace = gDiskWatcher.isDiskFull;
+      //}
 
       // Under the "automatic"/"automatic-home" retrieval mode, we switch to
       // the "manual" retrieval mode to download MMS for non-active SIM or

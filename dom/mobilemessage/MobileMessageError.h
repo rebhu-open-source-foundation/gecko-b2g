@@ -28,7 +28,7 @@ class MobileMessageError final : public nsISupports, public nsWrapperCache {
                      SmsMessage* aSms);
 
   MobileMessageError(nsPIDOMWindowInner* aWindow, const nsAString& aName,
-                        MmsMessage* aMms);
+                     MmsMessage* aMms);
 
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;

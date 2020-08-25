@@ -82,7 +82,7 @@ XPCOMUtils.defineLazyGetter(this, "gPhoneNumberUtils", function() {
 
 XPCOMUtils.defineLazyGetter(this, "gWAP", function() {
   let ns = {};
-  Cu.import("resource://gre/modules/WapPushManager.js", ns);
+  Cu.import("resource://gre/modules/WapPushManager.jsm", ns);
   return ns;
 });
 
@@ -143,9 +143,9 @@ function SmsService() {
   this.smsDefaultServiceId = this._getDefaultServiceId();
 
   this._portAddressedSmsApps = {};
-  //FIXME
-  //this._portAddressedSmsApps[gWAP.WDP_PORT_PUSH] =
-  //  (aMessage, aServiceId) => this._handleSmsWdpPortPush(aMessage, aServiceId);
+
+  this._portAddressedSmsApps[gWAP.WDP_PORT_PUSH] =
+    (aMessage, aServiceId) => this._handleSmsWdpPortPush(aMessage, aServiceId);
   this._portAddressedSmsApps[SMS_SUPL_INIT_PORT] =
     (aMessage, aServiceId) => this._handleSmsSuplInitMessage(aMessage, aServiceId);
 

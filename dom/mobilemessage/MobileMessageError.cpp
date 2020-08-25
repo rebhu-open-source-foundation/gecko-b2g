@@ -29,9 +29,7 @@ MobileMessageError::MobileMessageError(nsPIDOMWindowInner* aWindow,
                                        const nsAString& aName, MmsMessage* aMms)
     : mWindow(aWindow), mMessage(aName), mSms(nullptr), mMms(aMms) {}
 
-void
-MobileMessageError::GetData(OwningSmsMessageOrMmsMessage& aRetVal) const
-{
+void MobileMessageError::GetData(OwningSmsMessageOrMmsMessage& aRetVal) const {
   if (mSms) {
     aRetVal.SetAsSmsMessage() = mSms;
     return;
