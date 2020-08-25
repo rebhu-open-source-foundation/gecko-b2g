@@ -24,12 +24,11 @@ class TextComposition;
 namespace dom {
 class BrowserChild;
 class Promise;
-}
+}  // namespace dom
 
 namespace widget {
 
-class GeckoEditableSupport final
-    : public TextEventDispatcherListener {
+class GeckoEditableSupport final : public TextEventDispatcherListener {
  public:
   NS_DECL_ISUPPORTS
 
@@ -67,7 +66,8 @@ class GeckoEditableSupport final
 
  protected:
   virtual ~GeckoEditableSupport() {}
- private: 
+
+ private:
   nsWindow* mWindow;
   const bool mIsRemote;
   RefPtr<TextEventDispatcher> mDispatcher;
@@ -77,7 +77,6 @@ class GeckoEditableSupport final
   RefPtr<nsIEditableSupportSendKeyCallback> mSendKeyCallback;
   RefPtr<nsIEditableSupportKeydownCallback> mKeydownCallback;
   RefPtr<nsIEditableSupportKeyupCallback> mKeyupCallback;
-
 };
 
 }  // namespace widget

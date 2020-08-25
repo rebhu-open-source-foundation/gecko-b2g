@@ -1181,8 +1181,8 @@ nsAppShell::Observe(nsISupports* aSubject, const char* aTopic,
 
     nsCOMPtr<mozIDOMWindowProxy> domWindow = do_QueryInterface(aSubject);
     MOZ_ASSERT(domWindow);
-    nsCOMPtr<nsIWidget> domWidget = WidgetUtils::DOMWindowToWidget(
-        nsPIDOMWindowOuter::From(domWindow));
+    nsCOMPtr<nsIWidget> domWidget =
+        WidgetUtils::DOMWindowToWidget(nsPIDOMWindowOuter::From(domWindow));
     NS_ENSURE_TRUE(domWidget, NS_OK);
     auto* outerWindow = nsPIDOMWindowOuter::From(domWindow);
     nsCOMPtr<nsPIDOMWindowInner> win = outerWindow->GetCurrentInnerWindow();

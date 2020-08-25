@@ -23,12 +23,10 @@
 #include "nsIGlobalObject.h"
 #include "mozilla/dom/Promise.h"
 #ifdef MOZ_WIDGET_GONK
-#undef LOG
-#include <android/log.h>
-#define LOG(msg, ...)  __android_log_print(ANDROID_LOG_INFO,     \
-                                               "IME",  \
-                                               msg,                  \
-                                               ##__VA_ARGS__)
+#  undef LOG
+#  include <android/log.h>
+#  define LOG(msg, ...) \
+    __android_log_print(ANDROID_LOG_INFO, "IME", msg, ##__VA_ARGS__)
 #else
 #  define LOG(...)
 #endif
@@ -43,8 +41,8 @@ GetOrCreateGeckoEditableSupportProxy(nsISupports* aSupports) {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (!sGeckoEditableSupportProxy) {
-    sGeckoEditableSupportProxy = do_CreateInstance(
-      "@mozilla.org/dom/inputmethod/supportproxy;1");
+    sGeckoEditableSupportProxy =
+        do_CreateInstance("@mozilla.org/dom/inputmethod/supportproxy;1");
     LOG("sGeckoEditableSupportProxy:[%p]", sGeckoEditableSupportProxy.get());
     MOZ_ASSERT(sGeckoEditableSupportProxy);
     sGeckoEditableSupportProxy->Init();
@@ -60,7 +58,8 @@ class EditableSupportSetCompositionCallback final
  public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIEDITABLESUPPORTSETCOMPOSITIONCALLBACK
-  explicit EditableSupportSetCompositionCallback(TextEventDispatcher* aDispatcher);
+  explicit EditableSupportSetCompositionCallback(
+      TextEventDispatcher* aDispatcher);
 
  protected:
   ~EditableSupportSetCompositionCallback();
@@ -74,14 +73,17 @@ NS_IMPL_ISUPPORTS(EditableSupportSetCompositionCallback,
 
 EditableSupportSetCompositionCallback::EditableSupportSetCompositionCallback(
     TextEventDispatcher* aDispatcher)
-        : mDispatcher(aDispatcher) {
-  LOG("EditableSupportSetCompositionCallback: mDispatcher:[%p]", mDispatcher.get());
+    : mDispatcher(aDispatcher) {
+  LOG("EditableSupportSetCompositionCallback: mDispatcher:[%p]",
+      mDispatcher.get());
 }
 
-EditableSupportSetCompositionCallback::~EditableSupportSetCompositionCallback() {}
+EditableSupportSetCompositionCallback::
+    ~EditableSupportSetCompositionCallback() {}
 
 NS_IMETHODIMP
-EditableSupportSetCompositionCallback::OnSetComposition(const nsAString& aText) {
+EditableSupportSetCompositionCallback::OnSetComposition(
+    const nsAString& aText) {
   LOG("-- EditableSupport OnSetComposition: OK");
   LOG("-- EditableSupport aText:[%s]", NS_ConvertUTF16toUTF8(aText).get());
   LOG("-- EditableSupport mDispatcher:[%p]", mDispatcher.get());
@@ -95,7 +97,7 @@ EditableSupportSetCompositionCallback::OnSetComposition(const nsAString& aText) 
   } else {
     mDispatcher->SetPendingCompositionString(aText);
   }
-      
+
   nsEventStatus status = nsEventStatus_eIgnore;
   rv = mDispatcher->FlushPendingComposition(status);
   if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -109,7 +111,8 @@ class EditableSupportEndCompositionCallback final
  public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIEDITABLESUPPORTENDCOMPOSITIONCALLBACK
-  explicit EditableSupportEndCompositionCallback(TextEventDispatcher* aDispatcher);
+  explicit EditableSupportEndCompositionCallback(
+      TextEventDispatcher* aDispatcher);
 
  protected:
   ~EditableSupportEndCompositionCallback();
@@ -123,14 +126,17 @@ NS_IMPL_ISUPPORTS(EditableSupportEndCompositionCallback,
 
 EditableSupportEndCompositionCallback::EditableSupportEndCompositionCallback(
     TextEventDispatcher* aDispatcher)
-        : mDispatcher(aDispatcher) {
-  LOG("EditableSupportEndCompositionCallback: mDispatcher:[%p]", mDispatcher.get());
+    : mDispatcher(aDispatcher) {
+  LOG("EditableSupportEndCompositionCallback: mDispatcher:[%p]",
+      mDispatcher.get());
 }
 
-EditableSupportEndCompositionCallback::~EditableSupportEndCompositionCallback() {}
+EditableSupportEndCompositionCallback::
+    ~EditableSupportEndCompositionCallback() {}
 
 NS_IMETHODIMP
-EditableSupportEndCompositionCallback::OnEndComposition(const nsAString& aText) {
+EditableSupportEndCompositionCallback::OnEndComposition(
+    const nsAString& aText) {
   LOG("-- EditableSupport OnEndComposition: OK");
   LOG("-- EditableSupport aText:[%s]", NS_ConvertUTF16toUTF8(aText).get());
   LOG("-- EditableSupport mDispatcher:[%p]", mDispatcher.get());
@@ -169,7 +175,7 @@ NS_IMPL_ISUPPORTS(EditableSupportKeydownCallback,
 
 EditableSupportKeydownCallback::EditableSupportKeydownCallback(
     TextEventDispatcher* aDispatcher)
-        : mDispatcher(aDispatcher) {
+    : mDispatcher(aDispatcher) {
   LOG("EditableSupportKeydownCallback: mDispatcher:[%p]", mDispatcher.get());
 }
 
@@ -215,12 +221,11 @@ class EditableSupportKeyupCallback final
   RefPtr<TextEventDispatcher> mDispatcher;
 };
 
-NS_IMPL_ISUPPORTS(EditableSupportKeyupCallback,
-                  nsIEditableSupportKeyupCallback)
+NS_IMPL_ISUPPORTS(EditableSupportKeyupCallback, nsIEditableSupportKeyupCallback)
 
 EditableSupportKeyupCallback::EditableSupportKeyupCallback(
     TextEventDispatcher* aDispatcher)
-        : mDispatcher(aDispatcher) {
+    : mDispatcher(aDispatcher) {
   LOG("EditableSupportKeyupCallback: mDispatcher:[%p]", mDispatcher.get());
 }
 
@@ -269,7 +274,7 @@ NS_IMPL_ISUPPORTS(EditableSupportSendKeyCallback,
 
 EditableSupportSendKeyCallback::EditableSupportSendKeyCallback(
     TextEventDispatcher* aDispatcher)
-        : mDispatcher(aDispatcher) {
+    : mDispatcher(aDispatcher) {
   LOG("EditableSupportSendKeyCallback: mDispatcher:[%p]", mDispatcher.get());
 }
 
@@ -337,9 +342,11 @@ nsresult GeckoEditableSupport::NotifyIME(
       proxy->HandleFocus(/* maybe input context */);
       {
         // Set callback
-        mSetCompositionCallback = new EditableSupportSetCompositionCallback(mDispatcher);
+        mSetCompositionCallback =
+            new EditableSupportSetCompositionCallback(mDispatcher);
         LOG("mSetCompositionCallback:[%p]", mSetCompositionCallback.get());
-        mEndCompositionCallback = new EditableSupportEndCompositionCallback(mDispatcher);
+        mEndCompositionCallback =
+            new EditableSupportEndCompositionCallback(mDispatcher);
         LOG("mEndCompositionCallback:[%p]", mEndCompositionCallback.get());
         mSendKeyCallback = new EditableSupportSendKeyCallback(mDispatcher);
         LOG("mSendKeyCallback:[%p]", mSendKeyCallback.get());
