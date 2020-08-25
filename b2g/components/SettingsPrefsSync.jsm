@@ -317,9 +317,7 @@ this.SettingsPrefsSync = {
     this.addSettingsObserver(
       "privacy.donottrackheader.value",
       observer,
-      settingCallback(
-        "Failed to add a setting observer for privacy.donottrackheader.value"
-      )
+      "Failed to add a setting observer for privacy.donottrackheader.value"
     );
   },
 
@@ -387,7 +385,7 @@ this.SettingsPrefsSync = {
             setPref(prefName, value);
           },
         },
-        settingCallback(`Failed to add observer for ${key}`)
+        `Failed to add observer for ${key}`
       );
     }
   },
