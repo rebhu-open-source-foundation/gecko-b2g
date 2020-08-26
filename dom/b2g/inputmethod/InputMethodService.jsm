@@ -186,7 +186,7 @@ this.InputMethodService = {
       { wrappedJSObject: msg },
       "inputmethod-contextchange"
     );
-    debug("Notify system to show keyboard when blur");
+    debug("Notify system to hide keyboard when blur");
   },
 
   setComposition: function inputmethod_setcomposition(aMessageManager, aMsg) {

@@ -21,6 +21,7 @@
     <script src="js/statusbar.js" type="module"></script>
     <script src="js/window_manager.js" type="module"></script>
     <script src="js/navigation.js" type="module"></script>
+    <script src="js/keyboard.js" type="module"></script>
   </head>
   <body>
     <gaia-statusbar id="statusbar"></gaia-statusbar>
@@ -31,5 +32,6 @@
       <button id="action-close">Close</button>
       <button id="action-home">Home</button>
     </div>
+    <web-view class="offscreen" id="keyboard" src="chrome://b2g/content/keyboard/index.html" remote="true"></web-view>
   </body>
 </html>

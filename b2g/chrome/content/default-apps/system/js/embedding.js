@@ -119,6 +119,8 @@
     embedder.launchPreallocatedProcess();
   });
 
+  exports.embedder = embedder;
+
   // Hacks.
   const { Services } = ChromeUtils.import(
     "resource://gre/modules/Services.jsm"

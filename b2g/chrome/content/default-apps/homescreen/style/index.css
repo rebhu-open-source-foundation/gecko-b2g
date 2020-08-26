@@ -40,3 +40,12 @@ body {
   padding: 0.25em;
   background-color: lightblue;
 }
+
+#search {
+  position: absolute;
+  top: 0;
+  font-size: large;
+  width: calc(100% - 2em);
+  margin: 1em;
+  font-family: sans-serif;
+}

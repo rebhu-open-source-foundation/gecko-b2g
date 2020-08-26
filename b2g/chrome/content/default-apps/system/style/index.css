@@ -33,3 +33,16 @@ button {
   margin: 0.5em;
   padding: 0.25em;
 }
+
+/* Virtual keyboard */
+
+#keyboard {
+  position: absolute;
+  bottom: 0;
+  height: 10em;
+  width: 100%;
+}
+
+#keyboard.offscreen {
+  transform: translateY(100%);
+}

@@ -80,3 +80,5 @@ chrome.jar:
 
   content/homescreen/index.html               (content/default-apps/homescreen/index.html)
   content/homescreen/style                    (content/default-apps/homescreen/style/*)
+
+  content/keyboard/index.html                 (content/default-apps/keyboard/index.html)
