@@ -1438,6 +1438,29 @@ already_AddRefed<RemoteBrowser> ContentParent::CreateBrowser(
     if (!constructorSender) {
       return nullptr;
     }
+
+    // Dispatch a |processready| event when the content process is ready.
+    constructorSender->WaitForLaunchAsync()->Then(
+        GetMainThreadSerialEventTarget(), __func__,
+        [constructorSender, aFrameElement](const LaunchPromise::ResolveOrRejectValue& aValue) {
+          if (!aValue.IsResolve()) {
+            return;
+          }
+
+          // Set processid of the frame
+          nsString pid;
+          pid.AppendInt(constructorSender->Pid());
+          ErrorResult rv;
+          aFrameElement->SetAttribute(u"processid"_ns, pid, rv);
+          MOZ_ASSERT(!rv.Failed(),
+                     "Fail to set the |processid| attribute of the frame element");
+
+          // Dispatch a processready event
+          RefPtr<Event> event = NS_NewDOMEvent(aFrameElement, nullptr, nullptr);
+          event->InitEvent(u"processready"_ns, true, true);
+          event->SetTrusted(true);
+          aFrameElement->DispatchEvent(*event);
+        });
   }
 
   aBrowsingContext->SetEmbedderElement(aFrameElement);
