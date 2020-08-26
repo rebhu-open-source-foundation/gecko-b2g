@@ -42,7 +42,6 @@ WifiNetwork.prototype = {
   classID: Components.ID("{c01fd751-43c0-460a-8b64-abf652ec7220}"),
   contractID: "@mozilla.org/wifinetwork;1",
   QueryInterface: ChromeUtils.generateQI([
-    Ci.nsISupports,
     Ci.nsIDOMGlobalPropertyInitializer,
   ]),
 };
@@ -55,7 +54,6 @@ function WifiConnection(obj) {
 WifiConnection.prototype = {
   classID: Components.ID("{23579da4-201b-4319-bd42-9b7f337343ac}"),
   contractID: "@mozilla.org/wificonnection;1",
-  QueryInterface: ChromeUtils.generateQI([Ci.nsISupports]),
 };
 
 function WifiConnectionInfo(obj) {
@@ -68,7 +66,6 @@ function WifiConnectionInfo(obj) {
 WifiConnectionInfo.prototype = {
   classID: Components.ID("{83670352-6ed4-4c35-8de9-402296a1959c}"),
   contractID: "@mozilla.org/wificonnectioninfo;1",
-  QueryInterface: ChromeUtils.generateQI([Ci.nsISupports]),
 };
 
 function WifiCapabilities(obj) {
@@ -81,7 +78,6 @@ function WifiCapabilities(obj) {
 WifiCapabilities.prototype = {
   classID: Components.ID("08c88ece-8092-481b-863b-5515a52e411a"),
   contractID: "@mozilla.org/wificapabilities;1",
-  QueryInterface: ChromeUtils.generateQI([Ci.nsISupports]),
 };
 
 function DOMWifiManager() {
