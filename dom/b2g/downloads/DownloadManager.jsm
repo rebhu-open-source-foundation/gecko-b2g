@@ -220,7 +220,6 @@ DownloadManager.prototype = {
   classID: Components.ID("{6599ff0b-dfcc-4bf6-a2ea-434410cedcb5}"),
   contractID: "@mozilla.org/download/manager;1",
   QueryInterface: ChromeUtils.generateQI([
-    Ci.nsISupports,
     Ci.nsISupportsWeakReference,
     Ci.nsIObserver,
     Ci.nsIDOMGlobalPropertyInitializer,
@@ -525,7 +524,6 @@ DownloadObject.prototype = {
   classID: Components.ID("{ee82e19f-8ead-406f-ad91-194e77a61549}"),
   contractID: "@mozilla.org/download/object;1",
   QueryInterface: ChromeUtils.generateQI([
-    Ci.nsISupports,
     Ci.nsIObserver,
     Ci.nsISupportsWeakReference,
   ]),
