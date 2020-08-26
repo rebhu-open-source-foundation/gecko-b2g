@@ -22,6 +22,9 @@
 # Exclude expected objdirs.
 obj*/
 
+# Exclude some files for b2g.
+b2g/app/b2g.js
+
 # build/ third-party code
 build/pgo/js-input/
 

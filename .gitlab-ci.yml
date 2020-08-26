@@ -6,7 +6,7 @@
 # All other trademarks are the property of their respective owners.
 
 variables: &global_variables
-  GIT_DEPTH: 1
+  GIT_DEPTH: 2
 
 .global_setup: &global_setup
   - echo -e "machine ${CI_SERVER_HOST}\nlogin gitlab-ci-token\npassword ${CI_JOB_TOKEN}" > ~/.netrc
@@ -14,7 +14,24 @@ variables: &global_variables
   - '[ "$(cat ${HOME}/.mozbuild/ver)" = "2" ] || curl https://packages.preprod.kaiostech.com/ndk/v2/mozbuild.tar.bz2 | tar -C ${HOME}/ -xj'
 
 stages:
+  - lint
   - build
+
+lint:all:
+  before_script:
+    - *global_setup
+  variables:
+    <<: *global_variables
+    DEFAULT_DESKTOP_DOCKER_IMAGE: "${CI_REGISTRY}/re/kaios-build/next/desktop:latest"
+  image: $DEFAULT_DESKTOP_DOCKER_IMAGE
+  stage: lint
+  tags:
+    - gecko-dev
+  script:
+    - ./check-format.sh
+  except:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /skip-lint/
 
 build:desktop:
   before_script:
