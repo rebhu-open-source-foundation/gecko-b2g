@@ -222,6 +222,11 @@ EXTRA_JS_MODULES += [
     'WebViewChild.jsm',
 ]
 
+if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
+    EXTRA_JS_MODULES += [
+        'DeviceUtils.jsm',
+    ]
+
 if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'cocoa':
     EXTRA_JS_MODULES += [
         'PropertyListUtils.jsm',
