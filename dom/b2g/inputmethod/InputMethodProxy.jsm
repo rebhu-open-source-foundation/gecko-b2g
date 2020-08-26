@@ -10,7 +10,7 @@ const DEBUG = true;
 
 function debug(aMsg) {
   if (DEBUG) {
-    dump("-- InputMethodProxy: " + aMsg + "\n");
+    dump(`-- IME InputMethodProxy: ${aMsg}\n`);
   }
 }
 
@@ -57,8 +57,7 @@ InputMethodProxy.prototype = {
   attach: function attach(aOwner) {
     debug("attatch");
     if (aOwner) {
-      let util = aOwner.windowUtils;
-      let innerWindowID = util.currentInnerWindowID;
+      let innerWindowID = aOwner.windowGlobalChild.innerWindowId;
       this._windows.set(innerWindowID, aOwner);
     }
   },
@@ -75,11 +74,9 @@ InputMethodProxy.prototype = {
     debug("setComposition: aCallback[" + aCallback + "]");
     this._counter++;
     let requestId = this._counter;
-    let util;
     let innerWindowID;
     if (aOwner) {
-      util = aOwner.windowUtils;
-      innerWindowID = util.currentInnerWindowID;
+      innerWindowID = aOwner.windowGlobalChild.innerWindowId;
     }
 
     this._requests.set(requestId, {
@@ -99,11 +96,9 @@ InputMethodProxy.prototype = {
     debug("endComposition: aCallback[" + aCallback + "]");
     this._counter++;
     let requestId = this._counter;
-    let util;
     let innerWindowID;
     if (aOwner) {
-      util = aOwner.windowUtils;
-      innerWindowID = util.currentInnerWindowID;
+      innerWindowID = aOwner.windowGlobalChild.innerWindowId;
     }
 
     this._requests.set(requestId, {
@@ -123,11 +118,9 @@ InputMethodProxy.prototype = {
     debug("SendKey: aCallback[" + aCallback + "]");
     this._counter++;
     let requestId = this._counter;
-    let util;
     let innerWindowID;
     if (aOwner) {
-      util = aOwner.windowUtils;
-      innerWindowID = util.currentInnerWindowID;
+      innerWindowID = aOwner.windowGlobalChild.innerWindowId;
     }
 
     this._requests.set(requestId, {
@@ -147,11 +140,9 @@ InputMethodProxy.prototype = {
     debug("Keydown: aCallback[" + aCallback + "]");
     this._counter++;
     let requestId = this._counter;
-    let util;
     let innerWindowID;
     if (aOwner) {
-      util = aOwner.windowUtils;
-      innerWindowID = util.currentInnerWindowID;
+      innerWindowID = aOwner.windowGlobalChild.innerWindowId;
     }
 
     this._requests.set(requestId, {
@@ -171,11 +162,9 @@ InputMethodProxy.prototype = {
     debug("Keyup: aCallback[" + aCallback + "]");
     this._counter++;
     let requestId = this._counter;
-    let util;
     let innerWindowID;
     if (aOwner) {
-      util = aOwner.windowUtils;
-      innerWindowID = util.currentInnerWindowID;
+      innerWindowID = aOwner.windowGlobalChild.innerWindowId;
     }
 
     this._requests.set(requestId, {

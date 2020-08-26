@@ -46,8 +46,7 @@ AlarmProxy.prototype = {
 
     if (this._window) {
       // We don't use this.innerWindowID, but other classes rely on it.
-      let util = this._window.windowUtils;
-      this.innerWindowID = util.currentInnerWindowID;
+      this.innerWindowID = this._window.windowGlobalChild.innerWindowId;
 
       // TODO:
       // We need innerWindowID to distiguish which window is destroyed,

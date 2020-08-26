@@ -32,6 +32,12 @@
       <button id="action-close">Close</button>
       <button id="action-home">Home</button>
     </div>
-    <web-view class="offscreen" id="keyboard" src="chrome://b2g/content/keyboard/index.html" remote="true"></web-view>
+    <web-view
+      class="offscreen"
+      id="keyboard"
+      ignoreuserfocus="true"
+      remote="true"
+      src="chrome://b2g/content/keyboard/index.html"
+    ></web-view>
   </body>
 </html>

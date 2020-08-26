@@ -10,7 +10,7 @@ const DEBUG = true;
 
 function debug(aMsg) {
   if (DEBUG) {
-    dump("-- GeckoEditableSupportProxy: " + aMsg + "\n");
+    dump(`-- IME GeckoEditableSupportProxy: ${aMsg}\n`);
   }
 }
 
@@ -50,8 +50,7 @@ GeckoEditableSupportProxy.prototype = {
   attach: function attach(aOwner) {
     debug("attatch");
     if (aOwner) {
-      let util = aOwner.windowUtils;
-      let innerWindowID = util.currentInnerWindowID;
+      let innerWindowID = aOwner.windowGlobalChild.innerWindowId;
       this._windows.set(innerWindowID, aOwner);
     }
   },
@@ -66,8 +65,7 @@ GeckoEditableSupportProxy.prototype = {
   setComposition(aOwner, aCallback) {
     debug("setComposition()");
     if (aOwner) {
-      let util = aOwner.windowUtils;
-      let innerWindowID = util.currentInnerWindowID;
+      let innerWindowID = aOwner.windowGlobalChild.innerWindowId;
       this._windows.set(innerWindowID, aOwner);
       this._requests.set("Forms:SetComposition", {
         windowId: innerWindowID ? innerWindowID : {},
@@ -79,8 +77,7 @@ GeckoEditableSupportProxy.prototype = {
   endComposition(aOwner, aCallback) {
     debug("endComposition()");
     if (aOwner) {
-      let util = aOwner.windowUtils;
-      let innerWindowID = util.currentInnerWindowID;
+      let innerWindowID = aOwner.windowGlobalChild.innerWindowId;
       this._windows.set(innerWindowID, aOwner);
       this._requests.set("Forms:EndComposition", {
         windowId: innerWindowID ? innerWindowID : {},
@@ -92,8 +89,7 @@ GeckoEditableSupportProxy.prototype = {
   sendKey(aOwner, aCallback) {
     debug("sendKey()");
     if (aOwner) {
-      let util = aOwner.windowUtils;
-      let innerWindowID = util.currentInnerWindowID;
+      let innerWindowID = aOwner.windowGlobalChild.innerWindowId;
       this._windows.set(innerWindowID, aOwner);
       this._requests.set("Forms:SendKey", {
         windowId: innerWindowID ? innerWindowID : {},
@@ -105,8 +101,7 @@ GeckoEditableSupportProxy.prototype = {
   keydown(aOwner, aCallback) {
     debug("keydown()");
     if (aOwner) {
-      let util = aOwner.windowUtils;
-      let innerWindowID = util.currentInnerWindowID;
+      let innerWindowID = aOwner.windowGlobalChild.innerWindowId;
       this._windows.set(innerWindowID, aOwner);
       this._requests.set("Forms:Keydown", {
         windowId: innerWindowID ? innerWindowID : {},
@@ -118,8 +113,7 @@ GeckoEditableSupportProxy.prototype = {
   keyup(aOwner, aCallback) {
     debug("keyup()");
     if (aOwner) {
-      let util = aOwner.windowUtils;
-      let innerWindowID = util.currentInnerWindowID;
+      let innerWindowID = aOwner.windowGlobalChild.innerWindowId;
       this._windows.set(innerWindowID, aOwner);
       this._requests.set("Forms:Keyup", {
         windowId: innerWindowID ? innerWindowID : {},

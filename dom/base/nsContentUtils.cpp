@@ -6142,6 +6142,24 @@ bool nsContentUtils::IsSubDocumentTabbable(nsIContent* aContent) {
   return true;
 }
 
+bool nsContentUtils::IsUserFocusIgnored(nsINode* aNode) {
+  while (aNode) {
+    if (aNode->IsElement()) {
+      // Check if this is a <xul:browser ignoreuserfocus> element.
+      auto element = aNode->AsElement();
+      auto info = element->NodeInfo();
+      if (info->Equals(nsGkAtoms::browser, kNameSpaceID_XUL) &&
+          element->HasAttr(kNameSpaceID_None, nsGkAtoms::ignoreuserfocus)) {
+        return true;
+      }
+    }
+    nsPIDOMWindowOuter* win = aNode->OwnerDoc()->GetWindow();
+    aNode = win ? win->GetFrameElementInternal() : nullptr;
+  }
+
+  return false;
+}
+
 bool nsContentUtils::HasScrollgrab(nsIContent* aContent) {
   // If we ever standardize this feature we'll want to hook this up properly
   // again. For now we're removing all the DOM-side code related to it but

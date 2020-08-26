@@ -111,9 +111,7 @@ SimulatorScreen.prototype = {
 
         hookScreen(window);
 
-        let innerId = window
-          .QueryInterface(Ci.nsIInterfaceRequestor)
-          .getInterface(Ci.nsIDOMWindowUtils).currentInnerWindowID;
+        let innerId = window.windowGlobalChild.innerWindowId;
         windows.set(innerId, window);
         break;
 

@@ -28,7 +28,7 @@
         justify-content: center;
       }
 
-      #vkb span:hover {
+      #vkb span:active {
         background-color: gray;
       }
     </style>
@@ -56,6 +56,18 @@
           vkb.addEventListener("click", event => {
             let key = event.target.textContent;
             console.log(`Event 'click' on ${key}`);
+            let ime = navigator.b2g.inputMethod;
+            ime
+              .setComposition(key)
+              .then(ime.endComposition(key))
+              .then(
+                () => {
+                  console.log(`IME adding ${key} ok`);
+                },
+                () => {
+                  console.log(`IME error adding ${key}`);
+                }
+              );
           });
         },
         { once: true }

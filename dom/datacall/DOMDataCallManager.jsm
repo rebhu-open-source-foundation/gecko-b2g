@@ -4,8 +4,6 @@
 
 "use strict";
 
-const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr } = Components;
-
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
@@ -15,17 +13,19 @@ const { DOMRequestIpcHelper } = ChromeUtils.import(
 );
 
 const DATACALLMANAGER_CONTRACTID = "@mozilla.org/datacallmanager;1";
-const DATACALLMANAGER_CID        = Components.ID("{73e0d4e0-bd62-489c-b67a-0140f95a1b24}");
-const DATACALL_CONTRACTID        = "@mozilla.org/datacall;1";
-const DATACALL_CID               = Components.ID("{b5ff4d17-1fa0-44a0-bc72-0047b5bb13c6}");
+const DATACALLMANAGER_CID = Components.ID(
+  "{73e0d4e0-bd62-489c-b67a-0140f95a1b24}"
+);
+const DATACALL_CONTRACTID = "@mozilla.org/datacall;1";
+const DATACALL_CID = Components.ID("{b5ff4d17-1fa0-44a0-bc72-0047b5bb13c6}");
 
-const TOPIC_PREF_CHANGED         = "nsPref:changed";
+const TOPIC_PREF_CHANGED = "nsPref:changed";
 
 const DATACALLMANAGER_IPC_MSG_ENTRIES = [
   "DataCall:RequestDataCall:Resolved",
   "DataCall:RequestDataCall:Rejected",
   "DataCall:GetDataCallState:Resolved",
-  "DataCall:GetDataCallState:Rejected"
+  "DataCall:GetDataCallState:Rejected",
 ];
 
 const DATACALL_IPC_MSG_ENTRIES = [
@@ -35,20 +35,23 @@ const DATACALL_IPC_MSG_ENTRIES = [
   "DataCall:ReleaseDataCall:Rejected",
   "DataCall:RemoveHostRoute:Resolved",
   "DataCall:RemoveHostRoute:Rejected",
-  "DataCall:OnStateChanged"
+  "DataCall:OnStateChanged",
 ];
 
 XPCOMUtils.defineLazyGetter(this, "cpmm", () => {
   return Cc["@mozilla.org/childprocessmessagemanager;1"].getService();
 });
 
-/* global RIL_DEBUG */
-var RIL_DEBUG = Cu.import("resource://gre/modules/ril_consts_debug.js", null);
+// eslint-disable-next-line mozilla/reject-chromeutils-import-null
+var RIL_DEBUG = ChromeUtils.import(
+  "resource://gre/modules/ril_consts_debug.js",
+  null
+);
 
 XPCOMUtils.defineLazyGetter(this, "gDataCallHelper", function() {
   return {
     // Should match with enum DataCallState in DataCallManager webidl.
-    convertToDataCallState: function(aState, aReason) {
+    convertToDataCallState(aState, aReason) {
       switch (aState) {
         case Ci.nsINetworkInfo.NETWORK_STATE_CONNECTING:
           return "connecting";
@@ -60,8 +63,10 @@ XPCOMUtils.defineLazyGetter(this, "gDataCallHelper", function() {
           // If state is DISCONNECTED and reason is other than REASON_NONE,
           // implies the mobile network is no longer available. We'll set state
           // as 'unavailable' and block all subsequent requests to the DataCall.
-          if (aReason !== undefined &&
-              aReason !== Ci.nsINetworkInfo.REASON_NONE) {
+          if (
+            aReason !== undefined &&
+            aReason !== Ci.nsINetworkInfo.REASON_NONE
+          ) {
             return "unavailable";
           }
           return "disconnected";
@@ -71,7 +76,7 @@ XPCOMUtils.defineLazyGetter(this, "gDataCallHelper", function() {
     },
 
     // Should match with enum DataCallType in DataCallManager webidl.
-    convertToDataCallType: function(aNetworkType) {
+    convertToDataCallType(aNetworkType) {
       switch (aNetworkType) {
         case Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE:
           return "default";
@@ -92,7 +97,7 @@ XPCOMUtils.defineLazyGetter(this, "gDataCallHelper", function() {
       }
     },
 
-    convertToNetworkType: function(aType) {
+    convertToNetworkType(aType) {
       switch (aType) {
         case "default":
           return Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE;
@@ -120,19 +125,16 @@ let DEBUG = RIL_DEBUG.DEBUG_RIL;
 
 function updateDebugFlag() {
   // Read debug setting from pref
-  let debugPref;
-  try {
-    debugPref = Services.prefs.getBoolPref(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED);
-  } catch (e) {
-    debugPref = false;
-  }
+  let debugPref = Services.prefs.getBoolPref(
+    RIL_DEBUG.PREF_RIL_DEBUG_ENABLED,
+    false
+  );
   DEBUG = debugPref || RIL_DEBUG.DEBUG_RIL;
 }
 updateDebugFlag();
 
-
 function DOMDataCallManager() {
-  Services.prefs.addObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this, false);
+  Services.prefs.addObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this);
 }
 DOMDataCallManager.prototype = {
   __proto__: DOMRequestIpcHelper.prototype,
@@ -145,11 +147,13 @@ DOMDataCallManager.prototype = {
   classID: DATACALLMANAGER_CID,
   contractID: DATACALLMANAGER_CONTRACTID,
 
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIDOMGlobalPropertyInitializer,
-                                         Ci.nsISupportsWeakReference,
-                                         Ci.nsIObserver]),
+  QueryInterface: ChromeUtils.generateQI([
+    Ci.nsIDOMGlobalPropertyInitializer,
+    Ci.nsISupportsWeakReference,
+    Ci.nsIObserver,
+  ]),
 
-  debug: function(aMsg) {
+  debug(aMsg) {
     dump("-*- DOMDataCallManager: " + aMsg + "\n");
   },
 
@@ -158,7 +162,7 @@ DOMDataCallManager.prototype = {
    */
   init(aWindow) {
     this._window = aWindow;
-    this._innerWindowId = aWindow.windowUtils.currentInnerWindowID;
+    this._innerWindowId = aWindow.windowGlobalChild.innerWindowId;
 
     this.initDOMRequestHelper(aWindow, DATACALLMANAGER_IPC_MSG_ENTRIES);
   },
@@ -166,7 +170,7 @@ DOMDataCallManager.prototype = {
   /*
    * Called from DOMRequestIpcHelper.
    */
-  uninit: function() {
+  uninit() {
     // All requests that are still pending need to be invalidated
     // because the context is no longer valid.
     this.forEachPromiseResolver(aKey => {
@@ -177,10 +181,14 @@ DOMDataCallManager.prototype = {
   /*
    * Message manager handler
    */
-  receiveMessage: function(aMessage) {
+  receiveMessage(aMessage) {
     if (DEBUG) {
-      this.debug("Received message '" + aMessage.name + "': " +
-                 JSON.stringify(aMessage.json));
+      this.debug(
+        "Received message '" +
+          aMessage.name +
+          "': " +
+          JSON.stringify(aMessage.json)
+      );
     }
 
     let data = aMessage.data;
@@ -192,15 +200,21 @@ DOMDataCallManager.prototype = {
     switch (aMessage.name) {
       case "DataCall:RequestDataCall:Resolved": {
         let dataCall = data.result;
-        let domDataCall = new DOMDataCall(this._window, this._innerWindowId,
-                                          dataCall.serviceId,
-                                          gDataCallHelper.convertToDataCallType(
-                                            dataCall.type),
-                                          gDataCallHelper.convertToDataCallState(
-                                            dataCall.state),
-                                          dataCall.name, dataCall.addresses,
-                                          dataCall.gateways, dataCall.dnses);
-        let webidlObj = this._window.DataCall._create(this._window, domDataCall);
+        let domDataCall = new DOMDataCall(
+          this._window,
+          this._innerWindowId,
+          dataCall.serviceId,
+          gDataCallHelper.convertToDataCallType(dataCall.type),
+          gDataCallHelper.convertToDataCallState(dataCall.state),
+          dataCall.name,
+          dataCall.addresses,
+          dataCall.gateways,
+          dataCall.dnses
+        );
+        let webidlObj = this._window.DataCall._create(
+          this._window,
+          domDataCall
+        );
         resolver.resolve(webidlObj);
         break;
       }
@@ -214,7 +228,9 @@ DOMDataCallManager.prototype = {
         resolver.reject(data.reason);
         break;
       default:
-        if (DEBUG) this.debug("Unexpected message: " + aMessage.name);
+        if (DEBUG) {
+          this.debug("Unexpected message: " + aMessage.name);
+        }
         break;
     }
   },
@@ -222,7 +238,7 @@ DOMDataCallManager.prototype = {
   /*
    * DataCallManager implementation.
    */
-  requestDataCall: function(aType, aServiceId) {
+  requestDataCall(aType, aServiceId) {
     if (DEBUG) {
       this.debug("requestDataCall: " + aType + " - " + aServiceId);
     }
@@ -236,17 +252,19 @@ DOMDataCallManager.prototype = {
 
       let resolverId = this.getPromiseResolverId({
         resolve: aResolve,
-        reject: aReject
+        reject: aReject,
       });
-      let data = { resolverId: resolverId,
-                   type: networkType,
-                   serviceId: aServiceId,
-                   windowId: this._innerWindowId };
+      let data = {
+        resolverId,
+        type: networkType,
+        serviceId: aServiceId,
+        windowId: this._innerWindowId,
+      };
       cpmm.sendAsyncMessage("DataCall:RequestDataCall", data);
     });
   },
 
-  getDataCallState: function(aType, aServiceId) {
+  getDataCallState(aType, aServiceId) {
     if (DEBUG) {
       this.debug("getDataCallState: " + aType + " - " + aServiceId);
     }
@@ -260,11 +278,13 @@ DOMDataCallManager.prototype = {
 
       let resolverId = this.getPromiseResolverId({
         resolve: aResolve,
-        reject: aReject
+        reject: aReject,
       });
-      let data = { resolverId: resolverId,
-                   type: networkType,
-                   serviceId: aServiceId };
+      let data = {
+        resolverId,
+        type: networkType,
+        serviceId: aServiceId,
+      };
       cpmm.sendAsyncMessage("DataCall:GetDataCallState", data);
     });
   },
@@ -272,7 +292,7 @@ DOMDataCallManager.prototype = {
   /**
    * nsIObserver implementation.
    */
-  observe: function(aSubject, aTopic, aData) {
+  observe(aSubject, aTopic, aData) {
     switch (aTopic) {
       case TOPIC_PREF_CHANGED:
         if (aData === RIL_DEBUG.PREF_RIL_DEBUG_ENABLED) {
@@ -283,13 +303,28 @@ DOMDataCallManager.prototype = {
   },
 };
 
-function DOMDataCall(aWindow, aWindowId, aServiceId, aType, aState, aName,
-                      aAddresses, aGateways, aDnses) {
+function DOMDataCall(
+  aWindow,
+  aWindowId,
+  aServiceId,
+  aType,
+  aState,
+  aName,
+  aAddresses,
+  aGateways,
+  aDnses
+) {
   this._id = this._generateID();
 
   if (DEBUG) {
-    this.debug("Initializing data call - " + aType + " [" + aServiceId +
-      "], name: " + aName);
+    this.debug(
+      "Initializing data call - " +
+        aType +
+        " [" +
+        aServiceId +
+        "], name: " +
+        aName
+    );
   }
 
   this._window = aWindow;
@@ -313,9 +348,11 @@ DOMDataCall.prototype = {
   classID: DATACALL_CID,
   contractID: DATACALL_CONTRACTID,
 
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIDOMGlobalPropertyInitializer,
-                                         Ci.nsISupportsWeakReference,
-                                         Ci.nsIObserver]),
+  QueryInterface: ChromeUtils.generateQI([
+    Ci.nsIDOMGlobalPropertyInitializer,
+    Ci.nsISupportsWeakReference,
+    Ci.nsIObserver,
+  ]),
 
   _id: null,
 
@@ -337,19 +374,30 @@ DOMDataCall.prototype = {
 
   dnses: null,
 
-  debug: function(aMsg) {
-    dump("-*- DOMDataCall : [" + this._serviceId + "-" + this.type + "] " +
-         aMsg + "\n");
+  debug(aMsg) {
+    dump(
+      "-*- DOMDataCall : [" +
+        this._serviceId +
+        "-" +
+        this.type +
+        "] " +
+        aMsg +
+        "\n"
+    );
   },
 
-  _generateID: function() {
-    let uuidGenerator = Cc["@mozilla.org/uuid-generator;1"]
-                          .getService(Ci.nsIUUIDGenerator);
+  _generateID() {
+    let uuidGenerator = Cc["@mozilla.org/uuid-generator;1"].getService(
+      Ci.nsIUUIDGenerator
+    );
     // generateUUID() gives a UUID surrounded by {...}, slice them off.
-    return uuidGenerator.generateUUID().toString().slice(1, -1);
+    return uuidGenerator
+      .generateUUID()
+      .toString()
+      .slice(1, -1);
   },
 
-  _sendMessage: function(aMessageName, aData) {
+  _sendMessage(aMessageName, aData) {
     if (!aData) {
       aData = {};
     }
@@ -362,28 +410,30 @@ DOMDataCall.prototype = {
     cpmm.sendAsyncMessage(aMessageName, aData);
   },
 
-  _isStateDisconnected: function() {
+  _isStateDisconnected() {
     return this.state === "disconnected";
   },
 
-  _isStateUnavailable: function() {
+  _isStateUnavailable() {
     return this.state === "unavailable";
   },
 
-  _isStateConnected: function() {
+  _isStateConnected() {
     return this.state === "connected";
   },
 
-  _clearDataCallAttributes: function() {
+  _clearDataCallAttributes() {
     this.name = "";
     this.addresses = [];
     this.dnses = [];
     this.gateways = [];
   },
 
-  _handleStateChanged: function(aData) {
-    this.state = gDataCallHelper.convertToDataCallState(aData.state,
-                                                        aData.reason);
+  _handleStateChanged(aData) {
+    this.state = gDataCallHelper.convertToDataCallState(
+      aData.state,
+      aData.reason
+    );
 
     if (this._isStateConnected()) {
       let details = aData.details;
@@ -397,7 +447,9 @@ DOMDataCall.prototype = {
       // State is unavailable, help release data call. All subsequent
       // requests to this data call are rejected.
       if (this._isStateUnavailable()) {
-        if (DEBUG) this.debug("State is now unavailable.");
+        if (DEBUG) {
+          this.debug("State is now unavailable.");
+        }
         this._sendMessage("DataCall:ReleaseDataCall", {});
       }
     }
@@ -409,7 +461,7 @@ DOMDataCall.prototype = {
   /*
    * Called from DOMRequestIpcHelper.
    */
-  uninit: function() {
+  uninit() {
     // All requests that are still pending need to be invalidated
     // because the context is no longer valid.
     this.forEachPromiseResolver(aKey => {
@@ -420,19 +472,25 @@ DOMDataCall.prototype = {
   /*
    * Message manager handler.
    */
-  receiveMessage: function(aMessage) {
+  receiveMessage(aMessage) {
     let data = aMessage.data;
 
     // Since DataCalls of the same manager share the same target, filter out
     // messages that are not for me.
-    if ((data.dataCallId && data.dataCallId != this._id) ||
-        (data.dataCallIds && data.dataCallIds.indexOf(this._id) == -1)) {
+    if (
+      (data.dataCallId && data.dataCallId != this._id) ||
+      (data.dataCallIds && !data.dataCallIds.includes(this._id))
+    ) {
       return;
     }
 
     if (DEBUG) {
-      this.debug("Received message '" + aMessage.name + "': " +
-                 JSON.stringify(aMessage.json));
+      this.debug(
+        "Received message '" +
+          aMessage.name +
+          "': " +
+          JSON.stringify(aMessage.json)
+      );
     }
 
     let resolver;
@@ -462,13 +520,17 @@ DOMDataCall.prototype = {
         break;
       case "DataCall:OnStateChanged":
         if (this._isStateUnavailable()) {
-          if (DEBUG) this.debug("Ignoring state change event on unavailable.");
+          if (DEBUG) {
+            this.debug("Ignoring state change event on unavailable.");
+          }
           return;
         }
         this._handleStateChanged(data);
         break;
       default:
-        if (DEBUG) this.debug("Unexpected message: " + aMessage.name);
+        if (DEBUG) {
+          this.debug("Unexpected message: " + aMessage.name);
+        }
         break;
     }
   },
@@ -476,32 +538,31 @@ DOMDataCall.prototype = {
   /*
    * DataCall implementation.
    */
-  getAddresses: function() {
+  getAddresses() {
     if (this.addresses) {
       return this.addresses;
-    } else {
-      return {};
     }
+    return {};
   },
 
-  getGateways: function() {
+  getGateways() {
     if (this.gateways) {
       return this.gateways;
-    } else {
-      return {};
     }
+    return {};
   },
 
-  getDnses: function() {
+  getDnses() {
     if (this.dnses) {
       return this.dnses;
-    } else {
-      return {};
     }
+    return {};
   },
 
-  addHostRoute: function(aHost) {
-    if (DEBUG) this.debug("addHostRoute: " + aHost);
+  addHostRoute(aHost) {
+    if (DEBUG) {
+      this.debug("addHostRoute: " + aHost);
+    }
 
     return this.createPromise((aResolve, aReject) => {
       if (this._isStateUnavailable() || this._isStateDisconnected()) {
@@ -511,16 +572,17 @@ DOMDataCall.prototype = {
 
       let resolverId = this.getPromiseResolverId({
         resolve: aResolve,
-        reject: aReject
+        reject: aReject,
       });
-      let data = { resolverId: resolverId,
-                   host: aHost };
+      let data = { resolverId, host: aHost };
       this._sendMessage("DataCall:AddHostRoute", data);
     });
   },
 
-  removeHostRoute: function(aHost) {
-    if (DEBUG) this.debug("removeHostRoute: " + aHost);
+  removeHostRoute(aHost) {
+    if (DEBUG) {
+      this.debug("removeHostRoute: " + aHost);
+    }
 
     return this.createPromise((aResolve, aReject) => {
       if (this._isStateUnavailable() || this._isStateDisconnected()) {
@@ -530,16 +592,17 @@ DOMDataCall.prototype = {
 
       let resolverId = this.getPromiseResolverId({
         resolve: aResolve,
-        reject: aReject
+        reject: aReject,
       });
-      let data = { resolverId: resolverId,
-                   host: aHost };
+      let data = { resolverId, host: aHost };
       this._sendMessage("DataCall:RemoveHostRoute", data);
     });
   },
 
-  releaseDataCall: function() {
-    if (DEBUG) this.debug("releaseDataCall");
+  releaseDataCall() {
+    if (DEBUG) {
+      this.debug("releaseDataCall");
+    }
 
     return this.createPromise((aResolve, aReject) => {
       if (this._isStateUnavailable()) {
@@ -548,8 +611,15 @@ DOMDataCall.prototype = {
         return;
       }
 
-      if (this.type === gDataCallHelper.convertToDataCallType(Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE)) {
-        if (DEBUG) this.debug("Not allow APPS releaseDataCall for default type.");
+      if (
+        this.type ===
+        gDataCallHelper.convertToDataCallType(
+          Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE
+        )
+      ) {
+        if (DEBUG) {
+          this.debug("Not allow APPS releaseDataCall for default type.");
+        }
         aReject();
         return;
       }
@@ -559,9 +629,9 @@ DOMDataCall.prototype = {
 
       let resolverId = this.getPromiseResolverId({
         resolve: aResolve,
-        reject: aReject
+        reject: aReject,
       });
-      this._sendMessage("DataCall:ReleaseDataCall", { resolverId: resolverId });
+      this._sendMessage("DataCall:ReleaseDataCall", { resolverId });
     });
   },
 
@@ -569,10 +639,9 @@ DOMDataCall.prototype = {
     return this.__DOM_IMPL__.getEventHandler("onstatechanged");
   },
 
-
   set onstatechanged(aHandler) {
     this.__DOM_IMPL__.setEventHandler("onstatechanged", aHandler);
   },
 };
 
-var EXPORTED_SYMBOLS = ["DOMDataCallManager" , "DOMDataCall"];
+var EXPORTED_SYMBOLS = ["DOMDataCallManager", "DOMDataCall"];
