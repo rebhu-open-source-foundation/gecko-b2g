@@ -88,7 +88,6 @@ public:
 #endif
   }
 
-  FenceHandle GetCompositorReleaseFence();
 
   virtual GrallocTextureHostOGL* AsGrallocTextureHostOGL() override { return this; }
 

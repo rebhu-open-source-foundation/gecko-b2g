@@ -145,6 +145,8 @@ class nsDocShellLoadState final {
   void SetLoadingSessionHistoryInfo(
       const mozilla::dom::LoadingSessionHistoryInfo& aLoadingInfo);
 
+  bool LoadIsFromSessionHistory() const;
+
   const nsString& Target() const;
 
   void SetTarget(const nsAString& aTarget);
@@ -280,7 +282,9 @@ class nsDocShellLoadState final {
   mozilla::dom::DocShellLoadStateInit Serialize();
 
   void SetLoadIsFromSessionHistory(int32_t aRequestedIndex,
-                                   int32_t aSessionHistoryLength);
+                                   int32_t aSessionHistoryLength,
+                                   bool aLoadingFromActiveEntry);
+  void ClearLoadIsFromSessionHistory();
 
  protected:
   // Destructor can't be defaulted or inlined, as header doesn't have all type

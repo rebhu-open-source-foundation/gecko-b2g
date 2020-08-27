@@ -72,6 +72,12 @@ XPCOMUtils.defineLazyPreferenceGetter(
   false
 );
 
+ChromeUtils.defineModuleGetter(
+  this,
+  "PromptUtils",
+  "resource://gre/modules/SharedPromptUtils.jsm"
+);
+
 var gFocusedElement = null;
 
 var PrintUtils = {
@@ -138,76 +144,35 @@ var PrintUtils = {
    *
    * @param aBrowsingContext
    *        The BrowsingContext of the window to print.
+   * @param aExistingPreviewBrowser
+   *        An existing browser created for printing from window.print().
    */
-  async _openTabModalPrint(aBrowsingContext) {
-    let sourceBrowser = aBrowsingContext.embedderElement;
+  _openTabModalPrint(aBrowsingContext, aExistingPreviewBrowser) {
+    let sourceBrowser = aBrowsingContext.top.embedderElement;
     let previewBrowser = this.getPreviewBrowser(sourceBrowser);
-
     if (previewBrowser) {
       // Don't open another dialog if we're already printing.
-      aBrowsingContext.isAwaitingPrint = false;
+      //
+      // XXX This can be racy can't it? getPreviewBrowser looks at browser that
+      // we set up after opening the dialog. But I guess worst case we just
+      // open two dialogs so...
+      if (aExistingPreviewBrowser) {
+        aExistingPreviewBrowser.remove();
+      }
       return;
     }
 
+    // Create a preview browser.
+    let args = PromptUtils.objectToPropBag({
+      previewBrowser: aExistingPreviewBrowser,
+    });
     let dialogBox = gBrowser.getTabDialogBox(sourceBrowser);
     dialogBox.open(
       `chrome://global/content/print.html?browsingContextId=${aBrowsingContext.id}`,
-      "resizable=no"
+      "resizable=no",
+      args,
+      { sizeTo: "available" }
     );
-  },
-
-  /**
-   * Update a print preview for the provided source Browser, print preview Browser
-   * and nsIPrintSettings.
-   *
-   * @param sourceBrowsingContext
-   *        The source BrowsingContext (the one associated with a tab or
-   *        subdocument) that should be updated.
-   * @param printPreviewBrowser
-   *        The Browser that contains the print preview.
-   * @param printSettings
-   *        The nsIPrintSettings object to be used to render the preview.
-   *        Note: Only printerName is currently used.
-   *
-   * @return {Promise<Integer>} The number of pages that were rendered in the preview.
-   */
-  updatePrintPreview(
-    sourceBrowsingContext,
-    printPreviewBrowser,
-    printSettings
-  ) {
-    let stack = printPreviewBrowser.parentElement;
-    stack.setAttribute("rendering", true);
-
-    return new Promise(resolve => {
-      printPreviewBrowser.messageManager.addMessageListener(
-        "Printing:Preview:UpdatePageCount",
-        function done(message) {
-          printPreviewBrowser.messageManager.removeMessageListener(
-            "Printing:Preview:UpdatePageCount",
-            done
-          );
-
-          stack.removeAttribute("rendering");
-
-          resolve(message.data.numPages);
-        }
-      );
-
-      printPreviewBrowser.messageManager.sendAsyncMessage(
-        "Printing:Preview:Enter",
-        {
-          changingBrowsers: false,
-          lastUsedPrinterName: printSettings.printerName,
-          simplifiedMode: false,
-          browsingContextId: sourceBrowsingContext.id,
-          outputFormat: printSettings.outputFormat,
-          startPageRange: printSettings.startPageRange,
-          endPageRange: printSettings.endPageRange,
-          printRange: printSettings.printRange,
-        }
-      );
-    });
   },
 
   /**
@@ -218,13 +183,51 @@ var PrintUtils = {
    *        The BrowsingContext of the window to print.
    *        Note that the browsing context could belong to a subframe of the
    *        tab that called window.print, or similar shenanigans.
+   * @param aOpenWindowInfo
+   *        Non-null if this call comes from window.print(). This is the
+   *        nsIOpenWindowInfo object that has to be passed down to
+   *        createBrowser in order for the child process to clone into it.
    */
-  startPrintWindow(aBrowsingContext) {
-    if (PRINT_TAB_MODAL && !PRINT_ALWAYS_SILENT) {
-      this._openTabModalPrint(aBrowsingContext);
-    } else {
-      this.printWindow(aBrowsingContext);
+  startPrintWindow(aBrowsingContext, aOpenWindowInfo) {
+    let browser = null;
+    if (aOpenWindowInfo) {
+      browser = gBrowser.createBrowser({
+        remoteType: aBrowsingContext.currentRemoteType,
+        openWindowInfo: aOpenWindowInfo,
+        skipLoad: false,
+      });
+      // When the print process finishes, we get closed by
+      // nsDocumentViewer::OnDonePrinting, or by the print preview code.
+      //
+      // When that happens, we should remove us from the DOM if connected.
+      browser.addEventListener("DOMWindowClose", function(e) {
+        if (browser.isConnected) {
+          browser.remove();
+        }
+        e.stopPropagation();
+        e.preventDefault();
+      });
+      browser.style.visibility = "collapse";
+      document.documentElement.appendChild(browser);
     }
+
+    if (
+      PRINT_TAB_MODAL &&
+      !PRINT_ALWAYS_SILENT &&
+      (!aOpenWindowInfo || aOpenWindowInfo.isForPrintPreview)
+    ) {
+      this._openTabModalPrint(aBrowsingContext, browser);
+      return browser;
+    }
+
+    if (browser) {
+      // Legacy print dialog or silent printing, the content process will print
+      // in this <browser>.
+      return browser;
+    }
+
+    this.printWindow(aBrowsingContext, null);
+    return null;
   },
 
   /**

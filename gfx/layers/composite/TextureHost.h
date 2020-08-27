@@ -11,13 +11,14 @@
 #include <stddef.h>  // for size_t
 #include <stdint.h>  // for uint64_t, uint32_t, uint8_t
 #include "gfxTypes.h"
-#include "mozilla/Assertions.h"         // for MOZ_ASSERT, etc
-#include "mozilla/Attributes.h"         // for override
-#include "mozilla/RefPtr.h"             // for RefPtr, already_AddRefed, etc
-#include "mozilla/gfx/2D.h"             // for DataSourceSurface
-#include "mozilla/gfx/Point.h"          // for IntSize, IntPoint
-#include "mozilla/gfx/Types.h"          // for SurfaceFormat, etc
-#include "mozilla/layers/Compositor.h"  // for Compositor
+#include "mozilla/Assertions.h"  // for MOZ_ASSERT, etc
+#include "mozilla/Attributes.h"  // for override
+#include "mozilla/RefPtr.h"      // for RefPtr, already_AddRefed, etc
+#include "mozilla/gfx/2D.h"      // for DataSourceSurface
+#include "mozilla/gfx/Point.h"   // for IntSize, IntPoint
+#include "mozilla/gfx/Types.h"   // for SurfaceFormat, etc
+#include "mozilla/ipc/FileDescriptor.h"
+#include "mozilla/layers/Compositor.h"       // for Compositor
 #include "mozilla/layers/CompositorTypes.h"  // for TextureFlags, etc
 #include "mozilla/layers/LayersTypes.h"      // for LayerRenderState, etc
 #include "mozilla/layers/LayersSurfaces.h"
@@ -52,6 +53,8 @@ class TransactionBuilder;
 
 namespace layers {
 
+class AndroidHardwareBuffer;
+class AndroidHardwareBufferTextureHost;
 class BufferDescriptor;
 class BufferTextureHost;
 class Compositor;
@@ -658,6 +661,10 @@ class TextureHost : public AtomicRefCountedWithFinalize<TextureHost> {
 #ifdef MOZ_WIDGET_GONK
   virtual GrallocTextureHostOGL* AsGrallocTextureHostOGL() { return nullptr; }
 #endif
+  virtual AndroidHardwareBufferTextureHost*
+  AsAndroidHardwareBufferTextureHost() {
+    return nullptr;
+  }
 
   // Create the corresponding RenderTextureHost type of this texture, and
   // register the RenderTextureHost into render thread.
@@ -728,6 +735,20 @@ class TextureHost : public AtomicRefCountedWithFinalize<TextureHost> {
     return LayerRenderState();
   }
 #endif
+
+  TextureSourceProvider* GetProvider() const { return mProvider; }
+
+  virtual void SetAcquireFence(mozilla::ipc::FileDescriptor&& aFenceFd) {}
+
+  virtual void SetReleaseFence(mozilla::ipc::FileDescriptor&& aFenceFd) {}
+
+  virtual mozilla::ipc::FileDescriptor GetAndResetReleaseFence() {
+    return mozilla::ipc::FileDescriptor();
+  }
+
+  virtual AndroidHardwareBuffer* GetAndroidHardwareBuffer() const {
+    return nullptr;
+  }
 
  protected:
   virtual void ReadUnlock();

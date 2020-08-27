@@ -118,6 +118,10 @@ gfxAndroidPlatform::gfxAndroidPlatform() {
 gfxAndroidPlatform::~gfxAndroidPlatform() {
   FT_Done_Library(gPlatformFTLibrary);
   gPlatformFTLibrary = nullptr;
+#if defined(MOZ_WIDGET_ANDROID)
+  layers::AndroidHardwareBufferManager::Shutdown();
+  layers::AndroidHardwareBufferApi::Shutdown();
+#endif
 }
 
 void gfxAndroidPlatform::InitAcceleration() {
@@ -130,6 +134,7 @@ void gfxAndroidPlatform::InitAcceleration() {
   }
   if (gfx::gfxVars::UseAHardwareBufferContent()) {
     layers::AndroidHardwareBufferApi::Init();
+    layers::AndroidHardwareBufferManager::Init();
   }
 #endif
 }

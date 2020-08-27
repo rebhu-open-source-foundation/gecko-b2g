@@ -36,6 +36,7 @@ class nsGlobalWindowInner;
 class nsGlobalWindowOuter;
 class nsIPrincipal;
 class nsOuterWindowProxy;
+struct nsPoint;
 class PickleIterator;
 
 namespace IPC {
@@ -63,6 +64,9 @@ class ContentParent;
 class Element;
 template <typename>
 struct Nullable;
+template <typename T>
+class Sequence;
+class SessionHistoryInfo;
 class SessionStorageManager;
 class StructuredCloneHolder;
 class WindowContext;
@@ -94,9 +98,6 @@ class WindowProxyHolder;
   FIELD(CurrentInnerWindowId, uint64_t)                                      \
   FIELD(HadOriginalOpener, bool)                                             \
   FIELD(IsPopupSpam, bool)                                                   \
-  /* Whether the window is currently blocked spinning the event loop in the  \
-   * middle of a window.print() operation */                                 \
-  FIELD(IsAwaitingPrint, bool)                                               \
   /* Controls whether the BrowsingContext is currently considered to be      \
    * activated by a gesture */                                               \
   FIELD(UserActivationState, UserActivation::State)                          \
@@ -418,8 +419,6 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   bool FullscreenAllowed() const;
 
-  bool IsAwaitingPrint() const { return GetIsAwaitingPrint(); }
-
   float FullZoom() const { return GetFullZoom(); }
   float TextZoom() const { return GetTextZoom(); }
 
@@ -631,6 +630,30 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   // context or any of its ancestors.
   bool IsPopupAllowed();
 
+  // Set a new active entry on this browsing context. Should only be called if
+  // IsTop() returns true. This is used for implementing
+  // history.pushState/replaceState.
+  void SetActiveSessionHistoryEntryForTop(
+      const Maybe<nsPoint>& aPreviousScrollPos, SessionHistoryInfo* aInfo,
+      uint32_t aLoadType);
+
+  // Set a new active entry on this browsing context. Should only be called if
+  // IsTop() returns false. This is used for implementing
+  // history.pushState/replaceState.
+  void SetActiveSessionHistoryEntryForFrame(
+      const Maybe<nsPoint>& aPreviousScrollPos, SessionHistoryInfo* aInfo,
+      int32_t aChildOffset);
+
+  // Replace the active entry for this browsing context. This is used for
+  // implementing history.replaceState.
+  void ReplaceActiveSessionHistoryEntry(SessionHistoryInfo* aInfo);
+
+  // Removes dynamic child entries of the active entry.
+  void RemoveDynEntriesFromActiveSessionHistoryEntry();
+
+  // Removes entries corresponding to this BrowsingContext from session history.
+  void RemoveFromSessionHistory();
+
  protected:
   virtual ~BrowsingContext();
   BrowsingContext(WindowContext* aParentWindow, BrowsingContextGroup* aGroup,
@@ -714,8 +737,6 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   }
 
   void DidSet(FieldIndex<IDX_IsActive>, bool aOldValue);
-
-  void DidSet(FieldIndex<IDX_IsAwaitingPrint>, bool aOldValue);
 
   // Ensure that we only set the flag on the top level browsingContext.
   // And then, we do a pre-order walk in the tree to refresh the

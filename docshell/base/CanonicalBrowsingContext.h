@@ -112,6 +112,20 @@ class CanonicalBrowsingContext final : public BrowsingContext {
                              Maybe<RefPtr<nsDocShellLoadState>>& aLoadState,
                              Maybe<bool>& aReloadActiveEntry);
 
+  void SetActiveSessionHistoryEntryForTop(
+      const Maybe<nsPoint>& aPreviousScrollPos, SessionHistoryInfo* aInfo,
+      uint32_t aLoadType, const nsID& aChangeID);
+
+  void SetActiveSessionHistoryEntryForFrame(
+      const Maybe<nsPoint>& aPreviousScrollPos, SessionHistoryInfo* aInfo,
+      int32_t aChildOffset, const nsID& aChangeID);
+
+  void ReplaceActiveSessionHistoryEntry(SessionHistoryInfo* aInfo);
+
+  void RemoveDynEntriesFromActiveSessionHistoryEntry();
+
+  void RemoveFromSessionHistory();
+
   JSObject* WrapObject(JSContext* aCx,
                        JS::Handle<JSObject*> aGivenProto) override;
 

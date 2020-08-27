@@ -21,6 +21,13 @@
 #define MOZ_REMOVE_PAREN_HELPER3(...) MOZ_REMOVE_PAREN_HELPER4_##__VA_ARGS__
 #define MOZ_REMOVE_PAREN_HELPER4_MOZ_REMOVE_PAREN_HELPER
 
+// See https://florianjw.de/en/passing_overloaded_functions.html
+// TODO: Add a test for this macro.
+#define MOZ_SELECT_OVERLOAD(func)                         \
+  [](auto&&... aArgs) -> decltype(auto) {                 \
+    return func(std::forward<decltype(aArgs)>(aArgs)...); \
+  }
+
 #define BEGIN_QUOTA_NAMESPACE \
   namespace mozilla {         \
   namespace dom {             \
@@ -432,53 +439,30 @@ inline Result<Ok, NotOk> OkIf(bool aValue) {
   return Err(NotOk());
 }
 
-/**
- * Allow MOZ_TRY/QM_TRY to handle `nsresult` values and optionally enforce
- * success for some special values.
- * This is useful in cases when a specific error shouldn't abort execution of a
- * function and we need to distinguish between a normal success and a forced
- * success.
- *
- * Typical use case:
- *
- * nsresult MyFunc(nsIFile& aDirectory) {
- *   bool exists;
- *   QM_TRY_VAR(exists,
- *              ToResult(aDirectory.Create(nsIFile::DIRECTORY_TYPE, 0755),
- *                       [](auto aValue) {
- *                         return aValue == NS_ERROR_FILE_ALREADY_EXISTS;
- *                       }));
- *
- *   if (exists) {
- *     QM_TRY(aDirectory.IsDirectory(&isDirectory));
- *     QM_TRY(isDirectory, NS_ERROR_UNEXPECTED);
- *   }
- *
- *   return NS_OK;
- * }
- *
- * TODO: Maybe move this to mfbt/ResultExtensions.h
- */
+// TODO: Maybe move this to mfbt/ResultExtensions.h
+template <auto SuccessValue>
+auto OkToOk(Ok) -> Result<decltype(SuccessValue), nsresult> {
+  return SuccessValue;
+}
 
-class Okish {
-  const bool mEnforced;
-
- public:
-  explicit Okish(bool aEnforced) : mEnforced(aEnforced) {}
-
-  MOZ_IMPLICIT operator bool() const { return mEnforced; }
-};
-
-template <typename SuccessEnforcer>
-Result<Okish, nsresult> ToResult(nsresult aValue,
-                                 const SuccessEnforcer& aSuccessEnforcer) {
-  if (NS_SUCCEEDED(aValue)) {
-    return Okish(/* aEnforced */ false);
-  }
-  if (aSuccessEnforcer(aValue)) {
-    return Okish(/* aEnforced */ true);
+template <nsresult ErrorValue, auto SuccessValue,
+          typename V = decltype(SuccessValue)>
+auto ErrToOkOrErr(nsresult aValue) -> Result<V, nsresult> {
+  if (aValue == ErrorValue) {
+    return V{SuccessValue};
   }
   return Err(aValue);
+}
+
+// TODO: Maybe move this to mfbt/ResultExtensions.h
+template <typename R, typename Func, typename... Args>
+Result<R, nsresult> ToResultGet(const Func& aFunc, Args&&... aArgs) {
+  nsresult rv;
+  R res = aFunc(std::forward<Args>(aArgs)..., &rv);
+  if (NS_FAILED(rv)) {
+    return Err(rv);
+  }
+  return res;
 }
 
 namespace dom {

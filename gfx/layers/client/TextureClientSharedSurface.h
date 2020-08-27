@@ -56,6 +56,11 @@ class SharedSurfaceTextureData : public TextureData {
   virtual GrallocTextureData* AsGrallocTextureData() override;
 #endif
 
+  TextureFlags GetTextureFlags() const override;
+
+  Maybe<uint64_t> GetBufferId() const override;
+
+  mozilla::ipc::FileDescriptor GetAcquireFence() override;
 };
 /*
 class SharedSurfaceTextureClient : public TextureClient {

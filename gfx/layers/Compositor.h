@@ -609,12 +609,6 @@ class Compositor : public TextureSourceProvider {
    */
   already_AddRefed<RecordedFrame> RecordFrame(const TimeStamp& aTimeStamp);
 
-#ifdef MOZ_WIDGET_GONK
-  // TODO FIXME
-  void SetDispAcquireFence(Layer* aLayer, nsIWidget* aWidget) {}
-  FenceHandle GetReleaseFence() { return FenceHandle(); }
-#endif
-
  protected:
   void DrawDiagnosticsInternal(DiagnosticFlags aFlags,
                                const gfx::Rect& aVisibleRect,

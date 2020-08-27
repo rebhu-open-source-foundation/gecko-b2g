@@ -2400,20 +2400,14 @@ int64_t GetLastModifiedTime(nsIFile* aFile, bool aPersistent) {
   return timestamp;
 }
 
-bool FileAlreadyExists(nsresult aValue) {
-  return aValue == NS_ERROR_FILE_ALREADY_EXISTS;
-}
-
-bool FileCorrupted(nsresult aValue) {
-  return aValue == NS_ERROR_FILE_CORRUPTED;
-}
-
 nsresult EnsureDirectory(nsIFile* aDirectory, bool* aCreated) {
   AssertIsOnIOThread();
 
-  QM_TRY_VAR(const bool exists,
-             ToResult(aDirectory->Create(nsIFile::DIRECTORY_TYPE, 0755),
-                      FileAlreadyExists));
+  // TODO: Convert to mapOrElse once mozilla::Result supports it.
+  QM_TRY_VAR(const auto exists,
+             ToResult(aDirectory->Create(nsIFile::DIRECTORY_TYPE, 0755))
+                 .andThen(OkToOk<false>)
+                 .orElse(ErrToOkOrErr<NS_ERROR_FILE_ALREADY_EXISTS, true>));
 
   if (exists) {
     bool isDirectory;
@@ -6432,27 +6426,18 @@ nsresult QuotaManager::EnsureStorageIsInitialized() {
     }
   }
 
-  // TODO: Convert to QM_TRY_VAR once we have an adapter for it.
-  nsCOMPtr<mozIStorageService> ss;
-  {
-    nsresult rv;
-    ss = do_GetService(MOZ_STORAGE_SERVICE_CONTRACTID, &rv);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
-    }
-  }
+  QM_TRY_VAR(auto ss, ToResultGet<nsCOMPtr<mozIStorageService>>(
+                          MOZ_SELECT_OVERLOAD(do_GetService),
+                          MOZ_STORAGE_SERVICE_CONTRACTID));
 
-  nsCOMPtr<mozIStorageConnection> connection;
+  QM_TRY_VAR(auto connection,
+             ToResultInvoke<nsCOMPtr<mozIStorageConnection>>(
+                 std::mem_fn(&mozIStorageService::OpenUnsharedDatabase), ss,
+                 storageFile)
+                 .orElse(ErrToOkOrErr<NS_ERROR_FILE_CORRUPTED, nullptr,
+                                      nsCOMPtr<mozIStorageConnection>>));
 
-  // TODO: Result<V, E> could have own mapping function for filtering out
-  //       NS_ERROR_FILE_CORRUPTED.
-  // TODO: We can then use ToResultInvoke here (like below).
-  QM_TRY_VAR(const auto corrupted,
-             ToResult(ss->OpenUnsharedDatabase(storageFile,
-                                               getter_AddRefs(connection)),
-                      FileCorrupted));
-
-  if (corrupted) {
+  if (!connection) {
     // Nuke the database file.
     QM_TRY(storageFile->Remove(false));
 
@@ -6475,20 +6460,14 @@ nsresult QuotaManager::EnsureStorageIsInitialized() {
   // If we see major.minor of 3.0, downgrade it to be 2.1.
   if (storageVersion == kHackyPreDowngradeStorageVersion) {
     storageVersion = kHackyPostDowngradeStorageVersion;
-    // TODO: Convert to QM_TRY once we have support for additional cleanup
-    //       function.
-    nsresult rv = connection->SetSchemaVersion(storageVersion);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      MOZ_ASSERT(false, "Downgrade didn't take.");
-      return rv;
-    }
+    QM_TRY(connection->SetSchemaVersion(storageVersion), QM_PROPAGATE,
+           []() { MOZ_ASSERT(false, "Downgrade didn't take."); });
   }
 
-  if (GetMajorStorageVersion(storageVersion) > kMajorStorageVersion) {
-    // TODO: This should use QM_TRY too.
-    NS_WARNING("Unable to initialize storage, version is too high!");
-    return NS_ERROR_FAILURE;
-  }
+  QM_TRY(OkIf(GetMajorStorageVersion(storageVersion) <= kMajorStorageVersion),
+         NS_ERROR_FAILURE, []() {
+           NS_WARNING("Unable to initialize storage, version is too high!");
+         });
 
   if (storageVersion < kStorageVersion) {
     const bool newDatabase = !storageVersion;

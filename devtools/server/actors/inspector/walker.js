@@ -41,6 +41,7 @@ loader.lazyRequireGetter(
   [
     "allAnonymousContentTreeWalkerFilter",
     "findGridParentContainerForNode",
+    "isDocumentReady",
     "isNodeDead",
     "noAnonymousContentTreeWalkerFilter",
     "nodeDocument",
@@ -207,6 +208,10 @@ var WalkerActor = protocol.ActorClassWithSpec(walkerSpec, {
       targetActor.chromeEventHandler
     );
 
+    this.isOverflowDebuggingEnabled = Services.prefs.getBoolPref(
+      "devtools.overflow.debugging.enabled"
+    );
+
     // In this map, the key-value pairs are the overflow causing elements and their
     // respective ancestor scrollable node actor.
     this.overflowCausingElementsMap = new Map();
@@ -298,7 +303,7 @@ var WalkerActor = protocol.ActorClassWithSpec(walkerSpec, {
     }
 
     this._isWatchingRootNode = true;
-    if (this.rootNode && this._isRootDocumentReady()) {
+    if (this.rootNode && isDocumentReady(this.rootDoc)) {
       this._emitNewRoot(this.rootNode, { isTopLevelDocument: true });
     }
   },
@@ -319,23 +324,6 @@ var WalkerActor = protocol.ActorClassWithSpec(walkerSpec, {
     }
 
     this.emit("root-available", rootNode);
-  },
-
-  _isRootDocumentReady() {
-    if (this.rootDoc) {
-      const { readyState } = this.rootDoc;
-      if (readyState == "interactive" || readyState == "complete") {
-        return true;
-      }
-    }
-
-    // A document might stay forever in unitialized state.
-    // If the target actor is not currently loading a document,
-    // assume the document is ready.
-    const webProgress = this.rootDoc.defaultView.docShell.QueryInterface(
-      Ci.nsIWebProgress
-    );
-    return !webProgress.isLoadingDocument;
   },
 
   /**
@@ -606,7 +594,7 @@ var WalkerActor = protocol.ActorClassWithSpec(walkerSpec, {
         actor.wasScrollable = isScrollable;
       }
 
-      if (isScrollable) {
+      if (this.isOverflowDebuggingEnabled && isScrollable) {
         this.updateOverflowCausingElements(
           actor,
           currentOverflowCausingElementsMap
@@ -614,19 +602,25 @@ var WalkerActor = protocol.ActorClassWithSpec(walkerSpec, {
       }
     }
 
-    // Get the NodeActor for each node in the symmetric difference of
-    // currentOverflowCausingElementsMap and this.overflowCausingElementsMap
-    const overflowStateChanges = [...currentOverflowCausingElementsMap.keys()]
-      .filter(node => !this.overflowCausingElementsMap.has(node))
-      .concat(
-        [...this.overflowCausingElementsMap.keys()].filter(
-          node => !currentOverflowCausingElementsMap.has(node)
+    if (this.isOverflowDebuggingEnabled) {
+      // Get the NodeActor for each node in the symmetric difference of
+      // currentOverflowCausingElementsMap and this.overflowCausingElementsMap
+      const overflowStateChanges = [...currentOverflowCausingElementsMap.keys()]
+        .filter(node => !this.overflowCausingElementsMap.has(node))
+        .concat(
+          [...this.overflowCausingElementsMap.keys()].filter(
+            node => !currentOverflowCausingElementsMap.has(node)
+          )
         )
-      )
-      .filter(node => this.hasNode(node))
-      .map(node => this.getNode(node));
+        .filter(node => this.hasNode(node))
+        .map(node => this.getNode(node));
 
-    this.overflowCausingElementsMap = currentOverflowCausingElementsMap;
+      this.overflowCausingElementsMap = currentOverflowCausingElementsMap;
+
+      if (overflowStateChanges.length) {
+        this.emit("overflow-change", overflowStateChanges);
+      }
+    }
 
     if (displayTypeChanges.length) {
       this.emit("display-change", displayTypeChanges);
@@ -634,10 +628,6 @@ var WalkerActor = protocol.ActorClassWithSpec(walkerSpec, {
 
     if (scrollableStateChanges.length) {
       this.emit("scrollable-change", scrollableStateChanges);
-    }
-
-    if (overflowStateChanges.length) {
-      this.emit("overflow-change", overflowStateChanges);
     }
   },
 

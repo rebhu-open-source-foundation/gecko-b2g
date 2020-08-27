@@ -51,6 +51,7 @@
 #include "nsFocusManager.h"
 #include "nsGlobalWindowOuter.h"
 #include "nsIObserverService.h"
+#include "nsISHistory.h"
 #include "nsContentUtils.h"
 #include "nsQueryObject.h"
 #include "nsSandboxFlags.h"
@@ -2032,60 +2033,6 @@ void BrowsingContext::DidSet(FieldIndex<IDX_IsActive>, bool aOldValue) {
   }
 }
 
-// We only care about whether we transition from not-awaiting to waiting. In
-// that case, we actually want to trigger the print process in the parent
-// process (which eventually will toggle this back to false, stopping the
-// event-loop-spinning going on in nsGlobalWindowOuter::PrintOuter).
-void BrowsingContext::DidSet(FieldIndex<IDX_IsAwaitingPrint>, bool aOldValue) {
-  if (!GetIsAwaitingPrint() || aOldValue == GetIsAwaitingPrint()) {
-    return;
-  }
-
-  if (!XRE_IsParentProcess()) {
-    return;
-  }
-
-  auto unsetFlagOnFailure = MakeScopeExit([&] {
-    // If we hit this, the print process failed, but let's not leave the event
-    // loop spinning on the child.
-    //
-    // If it fails because of the browsing context being discarded, then that's
-    // fine as well, the child event loop will also stop spinning.
-    Unused << SetIsAwaitingPrint(false);
-  });
-
-  RefPtr<Element> el = Top()->GetEmbedderElement();
-  if (NS_WARN_IF(!el)) {
-    return;
-  }
-
-  nsCOMPtr<nsPIDOMWindowOuter> outerWin = el->OwnerDoc()->GetWindow();
-  if (NS_WARN_IF(!outerWin)) {
-    return;
-  }
-
-  nsCOMPtr<nsIDOMChromeWindow> chromeWin = do_QueryInterface(outerWin);
-  if (NS_WARN_IF(!chromeWin)) {
-    return;
-  }
-
-  nsCOMPtr<nsIBrowserDOMWindow> browserDOMWin;
-  chromeWin->GetBrowserDOMWindow(getter_AddRefs(browserDOMWin));
-  if (NS_WARN_IF(!browserDOMWin)) {
-    return;
-  }
-
-  // TODO(emilio): This may be simpler by importing a JSM via do_ImportModule
-  // rather than nsIBrowserDOMWindow. Also, maybe we should make this return a
-  // promise that unsets the flag when resolved / rejected instead, once the
-  // print codepaths are unified.
-  if (NS_FAILED(browserDOMWin->Print(this))) {
-    return;
-  }
-  // The flag will be unset by the printing code.
-  unsetFlagOnFailure.release();
-}
-
 void BrowsingContext::DidSet(FieldIndex<IDX_Muted>) {
   MOZ_ASSERT(!GetParent(), "Set muted flag on non top-level context!");
   USER_ACTIVATION_LOG("Set audio muted %d for %s browsing context 0x%08" PRIx64,
@@ -2593,6 +2540,67 @@ bool BrowsingContext::IsPopupAllowed() {
   }
 
   return false;
+}
+
+void BrowsingContext::SetActiveSessionHistoryEntryForTop(
+    const Maybe<nsPoint>& aPreviousScrollPos, SessionHistoryInfo* aInfo,
+    uint32_t aLoadType) {
+  if (XRE_IsContentProcess()) {
+    nsID changeID = {};
+    RefPtr<ChildSHistory> shistory = GetChildSessionHistory();
+    if (shistory) {
+      changeID = shistory->AddPendingHistoryChange(1, 1);
+    }
+    ContentChild::GetSingleton()->SendSetActiveSessionHistoryEntryForTop(
+        this, aPreviousScrollPos, *aInfo, aLoadType, changeID);
+  } else {
+    Canonical()->SetActiveSessionHistoryEntryForTop(aPreviousScrollPos, aInfo,
+                                                    aLoadType, nsID());
+  }
+}
+
+void BrowsingContext::SetActiveSessionHistoryEntryForFrame(
+    const Maybe<nsPoint>& aPreviousScrollPos, SessionHistoryInfo* aInfo,
+    int32_t aChildOffset) {
+  if (XRE_IsContentProcess()) {
+    nsID changeID = {};
+    RefPtr<ChildSHistory> shistory = GetChildSessionHistory();
+    if (shistory) {
+      changeID = shistory->AddPendingHistoryChange(1, 1);
+    }
+    ContentChild::GetSingleton()->SendSetActiveSessionHistoryEntryForFrame(
+        this, aPreviousScrollPos, *aInfo, aChildOffset, changeID);
+  } else {
+    Canonical()->SetActiveSessionHistoryEntryForFrame(aPreviousScrollPos, aInfo,
+                                                      aChildOffset, nsID());
+  }
+}
+
+void BrowsingContext::ReplaceActiveSessionHistoryEntry(
+    SessionHistoryInfo* aInfo) {
+  if (XRE_IsContentProcess()) {
+    ContentChild::GetSingleton()->SendReplaceActiveSessionHistoryEntry(this,
+                                                                       *aInfo);
+  } else {
+    Canonical()->ReplaceActiveSessionHistoryEntry(aInfo);
+  }
+}
+
+void BrowsingContext::RemoveDynEntriesFromActiveSessionHistoryEntry() {
+  if (XRE_IsContentProcess()) {
+    ContentChild::GetSingleton()
+        ->SendRemoveDynEntriesFromActiveSessionHistoryEntry(this);
+  } else {
+    Canonical()->RemoveDynEntriesFromActiveSessionHistoryEntry();
+  }
+}
+
+void BrowsingContext::RemoveFromSessionHistory() {
+  if (XRE_IsContentProcess()) {
+    ContentChild::GetSingleton()->SendRemoveFromSessionHistory(this);
+  } else {
+    Canonical()->RemoveFromSessionHistory();
+  }
 }
 
 }  // namespace dom

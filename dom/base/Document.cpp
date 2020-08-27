@@ -8981,6 +8981,8 @@ Document* Document::Open(const Optional<nsAString>& /* unused */,
   // we do anything else, so we can then proceed to later ready state levels.
   SetReadyStateInternal(READYSTATE_UNINITIALIZED,
                         /* updateTimingInformation = */ false);
+  // Reset a flag that affects readyState behavior.
+  mSetCompleteAfterDOMContentLoaded = false;
 
   // Step 13 -- set our compat mode to standards.
   SetCompatibilityMode(eCompatibility_FullStandards);
@@ -16783,14 +16785,7 @@ void Document::AddPendingFrameStaticClone(nsFrameLoaderOwner* aElement,
 }
 
 bool Document::ShouldAvoidNativeTheme() const {
-  bool nativeThemeIsPrefDisabled = false;
-
-#ifndef ANDROID
-  nativeThemeIsPrefDisabled =
-      StaticPrefs::widget_disable_native_theme_for_content();
-#endif
-
-  return nativeThemeIsPrefDisabled &&
+  return StaticPrefs::widget_disable_native_theme_for_content() &&
          (!IsInChromeDocShell() || XRE_IsContentProcess());
 }
 

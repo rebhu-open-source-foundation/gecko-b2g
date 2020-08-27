@@ -4124,6 +4124,26 @@
     "n_buckets": 20,
     "description": "The number of unusable addresses reported for each record"
   },
+  "DNS_HTTPSSVC_RECORD_RECEIVING_STAGE": {
+    "record_in_processes": ["main"],
+    "products": ["firefox", "fennec"],
+    "expires_in_version": "never",
+    "n_values": 50,
+    "bug_numbers": [1652667],
+    "alert_emails": ["necko@mozilla.com", "kershaw@mozilla.com"],
+    "kind": "enumerated",
+    "description": "Record at which stage an HTTPSSVC record is received"
+  },
+  "DNS_HTTPSSVC_CONNECTION_FAILED_REASON": {
+    "record_in_processes": ["main"],
+    "products": ["firefox", "fennec"],
+    "expires_in_version": "never",
+    "n_values": 50,
+    "bug_numbers": [1652667],
+    "alert_emails": ["necko@mozilla.com", "kershaw@mozilla.com"],
+    "kind": "enumerated",
+    "description": "The reason why we failed to connect with an HTTPSSVC record"
+  },
   "REFRESH_DRIVER_TICK" : {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec"],
@@ -15606,5 +15626,27 @@
       "misuse",
       "diskspace"
     ]
+  },
+  "REL_PRELOAD_MISS_RATIO": {
+    "record_in_processes": ["content"],
+    "products": ["firefox"],
+    "alert_emails": ["necko@mozilla.com", "kershaw@mozilla.com"],
+    "bug_numbers": [1658532, 1583604],
+    "expires_in_version": "84",
+    "kind": "categorical",
+    "labels": [
+      "TYPE_SCRIPT_USED",
+      "TYPE_SCRIPT_UNUSED",
+      "TYPE_STYLE_USED",
+      "TYPE_STYLE_UNUSED",
+      "TYPE_IMAGE_USED",
+      "TYPE_IMAGE_UNUSED",
+      "TYPE_FONT_USED",
+      "TYPE_FONT_UNUSED",
+      "TYPE_FETCH_USED",
+      "TYPE_FETCH_UNUSED"
+    ],
+    "releaseChannelCollection": "opt-out",
+    "description": "Ratio of used and unused resources preloaded with link rel=preload tag or response header, broken down by supported resource type."
   }
 }

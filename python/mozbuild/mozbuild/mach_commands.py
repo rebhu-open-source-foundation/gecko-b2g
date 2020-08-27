@@ -1426,6 +1426,14 @@ class L10NCommands(MachCommandBase):
     @CommandArgument('--verbose', action='store_true',
                      help='Log informative status messages.')
     def package_l10n(self, verbose=False, locales=[]):
+        if 'RecursiveMake' not in self.substs['BUILD_BACKENDS']:
+            print('Artifact builds do not support localization. '
+                  'If you know what you are doing, you can use:\n'
+                  'ac_add_options --disable-compile-environment\n'
+                  'export BUILD_BACKENDS=FasterMake,RecursiveMake\n'
+                  'in your mozconfig.')
+            return 1
+
         if 'en-US' not in locales:
             self.log(logging.WARN, 'package-multi-locale', {'locales': locales},
                      'List of locales does not include default locale "en-US": '
@@ -1434,6 +1442,9 @@ class L10NCommands(MachCommandBase):
         locales = list(sorted(locales))
 
         append_env = {
+            # We are only (re-)packaging, we don't want to (re-)build
+            # anything inside Gradle.
+            'GRADLE_INVOKED_WITHIN_MACH_BUILD': '1',
             'MOZ_CHROME_MULTILOCALE': ' '.join(locales),
         }
 
@@ -1495,7 +1506,11 @@ class CreateMachEnvironment(MachCommandBase):
                  'default when entering from `mach`), create both a python3 '
                  'and python2.7 virtualenv. If executed with python2, only '
                  'create the python2.7 virtualenv.'))
-    def create_mach_environment(self):
+    @CommandArgument(
+        '-f', '--force', action='store_true',
+        help=('Force re-creating the virtualenv even if it is already '
+              'up-to-date.'))
+    def create_mach_environment(self, force=False):
         from mozboot.util import get_state_dir
         from mozbuild.pythonutil import find_python2_executable
         from mozbuild.virtualenv import VirtualenvManager
@@ -1515,7 +1530,11 @@ class CreateMachEnvironment(MachCommandBase):
             os.path.join(self.topsrcdir, 'build',
                          'mach_virtualenv_packages.txt'),
             populate_local_paths=False)
-        manager.build(sys.executable)
+
+        if manager.up_to_date(sys.executable) and not force:
+            print('virtualenv at %s is already up to date.' % virtualenv_path)
+        else:
+            manager.build(sys.executable)
 
         manager.install_pip_package('zstandard>=0.9.0,<=0.13.0')
 
@@ -1533,9 +1552,13 @@ class CreateMachEnvironment(MachCommandBase):
                 print('WARNING! Could not find a Python 2 executable to create '
                       'a Python 2 virtualenv', file=sys.stderr)
                 return 0
-            ret = subprocess.call([
+            args = [
                 python2, os.path.join(self.topsrcdir, 'mach'),
-                'create-mach-environment'])
+                'create-mach-environment'
+            ]
+            if force:
+                args.append('-f')
+            ret = subprocess.call(args)
             if ret:
                 print('WARNING! Failed to create a Python 2 mach environment.',
                       file=sys.stderr)

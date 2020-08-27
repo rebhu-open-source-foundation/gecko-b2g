@@ -153,6 +153,8 @@ using JSActorMessageKind from "mozilla/dom/JSActor.h";
 using JSActorMessageMeta from "mozilla/dom/PWindowGlobal.h";
 using mozilla::PermissionDelegateHandler::DelegatedPermissionList from "mozilla/PermissionDelegateIPCUtils.h";
 using refcounted class nsILayoutHistoryState from "nsILayoutHistoryState.h";
+using class mozilla::dom::SessionHistoryInfo from "mozilla/dom/SessionHistoryEntry.h";
+using nsPoint from "mozilla/GfxMessageUtils.h";
 
 union ChromeRegistryItem
 {
@@ -1158,6 +1160,9 @@ child:
     async HistoryCommitIndexAndLength(MaybeDiscardedBrowsingContext aContext,
                                       uint32_t aIndex, uint32_t aLength,
                                       nsID aChangeID);
+
+   async DispatchLocationChangeEvent(MaybeDiscardedBrowsingContext aContext);
+
 parent:
     /**
      * This is a temporary way to pass index and length through parent process.
@@ -1732,6 +1737,8 @@ parent:
                        uint32_t aChromeFlags,
                        bool aCalledFromJS,
                        bool aWidthSpecified,
+                       bool aForPrinting,
+                       bool aForPrintPreview,
                        nsIURI aURIToLoad,
                        nsCString aFeatures,
                        float aFullZoom,
@@ -1974,6 +1981,22 @@ parent:
                              OriginAttributes aOriginAttributes,
                              nsID? aAgentClusterId)
       returns (BlobURLDataRequestResult aResult);
+
+    async SetActiveSessionHistoryEntryForTop(MaybeDiscardedBrowsingContext aContext,
+                                       nsPoint? previousScrollPosition,
+                                       SessionHistoryInfo info, uint32_t loadType,
+                                       nsID changeID);
+    async SetActiveSessionHistoryEntryForFrame(
+        MaybeDiscardedBrowsingContext aContext, nsPoint? previousScrollPosition,
+        SessionHistoryInfo info, int32_t childOffset, nsID changeID);
+    async ReplaceActiveSessionHistoryEntry(
+        MaybeDiscardedBrowsingContext aContext, SessionHistoryInfo info);
+
+    async RemoveDynEntriesFromActiveSessionHistoryEntry(
+        MaybeDiscardedBrowsingContext aContext);
+
+    async RemoveFromSessionHistory(
+        MaybeDiscardedBrowsingContext aContext);
 
 both:
     async ScriptError(nsString message, nsString sourceName, nsString sourceLine,
