@@ -289,7 +289,9 @@ GonkGPSGeolocationProvider::GonkGPSGeolocationProvider()
       mStarted(false),
       mSupportsScheduling(false),
       mSupportsSingleShot(false),
-      mSupportsTimeInjection(false) {
+      mSupportsTimeInjection(false),
+      mSupportsMSB(false),
+      mSupportsMSA(false) {
   MOZ_ASSERT(NS_IsMainThread());
 
   nsCOMPtr<nsISettingsManager> settings =
@@ -521,16 +523,20 @@ void GonkGPSGeolocationProvider::StartGPS() {
 
   Return<bool> result = false;
   if (mGnssHal_V1_1 != nullptr) {
+    auto positionMode = mSupportsMSB ? IGnss_V1_1::GnssPositionMode::MS_BASED
+                                     : IGnss_V1_1::GnssPositionMode::STANDALONE;
     result = mGnssHal_V1_1->setPositionMode_1_1(
-        IGnss_V1_1::GnssPositionMode::STANDALONE,
-        IGnss_V1_1::GnssPositionRecurrence::RECURRENCE_PERIODIC, update,
+        positionMode, IGnss_V1_1::GnssPositionRecurrence::RECURRENCE_PERIODIC,
+        update,
         0,       // preferred accuracy
         0,       // preferred time
         false);  // low power mode
   } else if (mGnssHal != nullptr) {
+    auto positionMode = mSupportsMSB ? IGnss_V1_1::GnssPositionMode::MS_BASED
+                                     : IGnss_V1_1::GnssPositionMode::STANDALONE;
     result = mGnssHal->setPositionMode(
-        IGnss_V1_0::GnssPositionMode::STANDALONE,
-        IGnss_V1_0::GnssPositionRecurrence::RECURRENCE_PERIODIC, update,
+        positionMode, IGnss_V1_0::GnssPositionRecurrence::RECURRENCE_PERIODIC,
+        update,
         0,   // preferred accuracy
         0);  // preferred time
   }
@@ -606,6 +612,8 @@ class GonkGPSGeolocationProvider::UpdateCapabilitiesEvent final
 
     provider->mSupportsScheduling =
         mCapabilities & IGnssCallback::Capabilities::SCHEDULING;
+    provider->mSupportsMSB = mCapabilities & IGnssCallback::Capabilities::MSB;
+    provider->mSupportsMSA = mCapabilities & IGnssCallback::Capabilities::MSA;
     provider->mSupportsSingleShot =
         mCapabilities & IGnssCallback::Capabilities::SINGLE_SHOT;
     provider->mSupportsTimeInjection =

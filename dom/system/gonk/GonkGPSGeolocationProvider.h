@@ -149,6 +149,8 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
   bool mSupportsScheduling;
   bool mSupportsSingleShot;
   bool mSupportsTimeInjection;
+  bool mSupportsMSB;
+  bool mSupportsMSA;
 
   nsCOMPtr<nsIGeolocationUpdate> mLocationCallback;
   nsCOMPtr<nsIThread> mInitThread;
@@ -156,8 +158,6 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
   nsCOMPtr<nsIGeolocationProvider> mNetworkLocationProvider;
 
 #ifdef MOZ_B2G_RIL
-  bool mSupportsMSB;
-  bool mSupportsMSA;
   uint32_t mRilDataServiceId;
   // mNumberOfRilServices indicates how many SIM slots supported on device, and
   // RadioInterfaceLayer.js takes responsibility to set up the corresponding
