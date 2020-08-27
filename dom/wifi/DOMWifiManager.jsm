@@ -15,8 +15,6 @@ const { DOMRequestIpcHelper } = ChromeUtils.import(
   "resource://gre/modules/DOMRequestHelper.jsm"
 );
 
-const DEBUG = false; // set to false to suppress debug messages
-
 const DOMWIFIMANAGER_CONTRACTID = "@mozilla.org/wifimanager;1";
 const DOMWIFIMANAGER_CID = Components.ID(
   "{c9b5f09e-25d2-40ca-aef4-c4d13d93c706}"
@@ -41,9 +39,7 @@ WifiNetwork.prototype = {
 
   classID: Components.ID("{c01fd751-43c0-460a-8b64-abf652ec7220}"),
   contractID: "@mozilla.org/wifinetwork;1",
-  QueryInterface: ChromeUtils.generateQI([
-    Ci.nsIDOMGlobalPropertyInitializer,
-  ]),
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIDOMGlobalPropertyInitializer]),
 };
 
 function WifiConnection(obj) {
@@ -234,6 +230,7 @@ DOMWifiManager.prototype = {
     cpmm.sendAsyncMessage(name, { data, rid: id, mid: this._id });
   },
 
+  /* eslint-disable complexity */
   receiveMessage(aMessage) {
     let msg = aMessage.json;
     if (msg.mid && msg.mid != this._id) {
@@ -476,6 +473,7 @@ DOMWifiManager.prototype = {
         break;
     }
   },
+  /* eslint-enable complexity */
 
   _fireStatusChangeEvent: function StatusChangeEvent(aNetwork) {
     var event = new this._window.WifiStatusChangeEvent("statuschange", {
@@ -703,12 +701,3 @@ this.EXPORTED_SYMBOLS = [
   "WifiCapabilities",
   "WifiConnectionInfo",
 ];
-
-var debug;
-if (DEBUG) {
-  debug = function(s) {
-    dump("-*- DOMWifiManager component: " + s + "\n");
-  };
-} else {
-  debug = function(s) {};
-}
