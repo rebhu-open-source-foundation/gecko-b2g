@@ -21,7 +21,6 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <vector>
-#include "mozilla/FileUtils.h"
 #include "mozilla/Sprintf.h"
 #include "png.h"
 
@@ -37,6 +36,11 @@
 #define LOG(args...) __android_log_print(ANDROID_LOG_INFO, "Gonk", ##args)
 #define LOGW(args...) __android_log_print(ANDROID_LOG_WARN, "Gonk", ##args)
 #define LOGE(args...) __android_log_print(ANDROID_LOG_ERROR, "Gonk", ##args)
+
+#define PRIMARY_SCREEN_BRIGHTNESS "/sys/class/leds/lcd-backlight/brightness"
+#define SECONDARY_SCREEN_BRIGHTNESS "/sys/class/leds/sublcd-backlight/brightness"
+// Constants defined in system_properties.h from AOSP
+#define VALUE_MAX_LENGTH 92
 
 using namespace mozilla;
 using namespace std;
@@ -100,15 +104,6 @@ int native_gralloc_unlock(buffer_handle_t handle) {
   result = func(handle);
   return result;
 }
-
-namespace mozilla {
-namespace hal_impl {
-__attribute__((visibility("default"))) void SetScreenBrightness(
-    double aBrightness);
-__attribute__((visibility("default"))) void SetExtScreenBrightness(
-    double aBrightness);
-}  // namespace hal_impl
-}  // namespace mozilla
 
 namespace mozilla {
 __attribute__((visibility("default"))) void HookSetVsyncAlwaysEnabled(
@@ -343,16 +338,48 @@ struct RawReadState {
   uint32_t length;
 };
 
-static void setBacklight(double aBrightness) {
-#if 0  // TODO: FIXME
-  hal_impl::SetScreenBrightness(aBrightness);
-#endif
+bool
+WriteToSysFile(const char* aFilename, const char* aBuf)
+{
+  size_t aBufSize = strlen(aBuf);
+  int fd = open(aFilename, O_WRONLY);
+  if (fd < 0) {
+    return false;
+  }
+
+  ssize_t bytesWritten;
+  size_t offset = 0;
+  do {
+    bytesWritten = write(fd, aBuf + offset, aBufSize - offset);
+    if (bytesWritten == -1) {
+      return false;
+    }
+    offset += bytesWritten;
+  } while (bytesWritten > 0 && offset < aBufSize);
+
+  return true;
 }
 
-static void setExtBacklight(double aBrightness) {
-#if 0  // TODO: FIXME
-  hal_impl::SetExtScreenBrightness(aBrightness);
-#endif
+void setBacklight(uint32_t aBrightness, bool aIsExternal) {
+  if (aBrightness > 100) {
+    return;
+  }
+
+  // Convert the value in [0, 100] to an int between 0 and 255.
+  uint32_t val = aBrightness * 255/100;
+
+  #define BUFFER_SIZE 100
+  char buf[BUFFER_SIZE];
+  SprintfLiteral(buf, "%d", val);
+
+  char path[VALUE_MAX_LENGTH];
+
+  if (aIsExternal) {
+    property_get("screen.secondary.brightness", path, SECONDARY_SCREEN_BRIGHTNESS);
+  } else {
+    property_get("screen.primary.brightness", path, PRIMARY_SCREEN_BRIGHTNESS);
+  }
+  WriteToSysFile(path, buf);
 }
 
 static void RawReader(png_structp png_ptr, png_bytep data, png_size_t length) {
@@ -788,11 +815,11 @@ static void* AnimationThread(void*) {
           ShowSolidColorFrame(display, extDispData.mSurfaceformat,
                           DisplayType::DISPLAY_EXTERNAL);
           usleep(20000);
-          setExtBacklight(1);
+          setBacklight(100, true);
       }
   }
   // Turn on primary screen backlight before playing animation,
-  setBacklight(1);
+  setBacklight(100, false);
   bool animPlayed = false;
 
   /* We assume boot animation for external screen would have the same

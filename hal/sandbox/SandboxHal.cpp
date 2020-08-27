@@ -120,10 +120,6 @@ bool GetExtScreenEnabled() {
 
 void SetExtScreenEnabled(bool aEnabled) { Hal()->SendSetExtScreenEnabled(aEnabled); }
 
-void SetScreenBrightness(double aBrightness) {
-  Hal()->SendSetScreenBrightness(aBrightness);
-}
-
 void EnableSensorNotifications(SensorType aSensor) {
   Hal()->SendEnableSensorNotifications(aSensor);
 }
@@ -525,17 +521,6 @@ class HalParent : public PHalParent,
   virtual mozilla::ipc::IPCResult RecvSetExtScreenEnabled(
       const bool& aEnabled) override {
     hal::SetExtScreenEnabled(aEnabled);
-    return IPC_OK();
-  }
-
-  virtual mozilla::ipc::IPCResult RecvSetScreenBrightness(
-      const double& aBrightness) override {
-#if 0  // TODO: FIXME
-    if (!AssertAppProcessPermission(this, "power")) {
-      return false;
-    }
-#endif
-    hal::SetScreenBrightness(aBrightness);
     return IPC_OK();
   }
 

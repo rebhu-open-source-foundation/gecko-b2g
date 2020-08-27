@@ -140,8 +140,6 @@ parent:
     sync GetExtScreenEnabled() returns (bool enabled);
     async SetExtScreenEnabled(bool aEnabled);
 
-    async SetScreenBrightness(double aBrightness);
-
     async ModifyWakeLock(nsString aTopic,
                          WakeLockControl aLockAdjust,
                          WakeLockControl aHiddenAdjust,
