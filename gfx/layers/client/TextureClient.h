@@ -316,25 +316,11 @@ class TextureData {
 
   virtual BufferTextureData* AsBufferTextureData() { return nullptr; }
 
-  virtual GPUVideoTextureData* AsGPUVideoTextureData() { return nullptr; }
-
 #ifdef MOZ_WIDGET_GONK
   virtual GrallocTextureData* AsGrallocTextureData() { return nullptr; }
 #endif
 
-  virtual void SetReleaseFenceHandle(const FenceHandle& aReleaseFenceHandle) {}
-
-  virtual FenceHandle GetAndResetReleaseFenceHandle() { return FenceHandle(); }
-
-  virtual void SetAcquireFenceHandle(const FenceHandle& aAcquireFenceHandle)
-  {
-    mAcquireFenceHandle = aAcquireFenceHandle;
-  }
-
-  virtual const FenceHandle& GetAcquireFenceHandle() const
-  {
-    return mAcquireFenceHandle;
-  }
+  virtual GPUVideoTextureData* AsGPUVideoTextureData() { return nullptr; }
 
   virtual AndroidHardwareBufferTextureData*
   AsAndroidHardwareBufferTextureData() {
@@ -355,8 +341,6 @@ class TextureData {
 
  protected:
   MOZ_COUNTED_DEFAULT_CTOR(TextureData)
-
-  FenceHandle mAcquireFenceHandle;
 };
 
 /**

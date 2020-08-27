@@ -88,7 +88,6 @@ public:
 #endif
   }
 
-
   virtual GrallocTextureHostOGL* AsGrallocTextureHostOGL() override { return this; }
 
 private:

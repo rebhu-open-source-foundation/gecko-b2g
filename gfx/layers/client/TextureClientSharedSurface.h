@@ -52,10 +52,6 @@ class SharedSurfaceTextureData : public TextureData {
 
   void Deallocate(LayersIPCChannel*) override;
 
-#ifdef MOZ_WIDGET_GONK
-  virtual GrallocTextureData* AsGrallocTextureData() override;
-#endif
-
   TextureFlags GetTextureFlags() const override;
 
   Maybe<uint64_t> GetBufferId() const override;

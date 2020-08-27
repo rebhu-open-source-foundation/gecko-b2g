@@ -497,7 +497,6 @@ GrallocTextureHostOGL::BindTextureSource(CompositableTextureSourceRef& aTextureS
   return true;
 }
 
-
 bool
 GrallocTextureHostOGL::AcquireTextureSource(CompositableTextureSourceRef& aTexture)
 {

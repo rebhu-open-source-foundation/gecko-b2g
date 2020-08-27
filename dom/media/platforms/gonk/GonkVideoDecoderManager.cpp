@@ -765,7 +765,7 @@ void GonkVideoDecoderManager::RecycleCallback(TextureClient* aClient,
       static_cast<GrallocTextureData*>(aClient->GetInternalData());
   aClient->ClearRecycleCallback();
   FenceHandle handle =
-      aClient->GetInternalData()->GetAndResetReleaseFenceHandle();
+      client->GetAndResetReleaseFenceHandle();
   videoManager->PostReleaseVideoBuffer(client->GetMediaBuffer(), handle);
 }
 

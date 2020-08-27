@@ -653,14 +653,14 @@ class TextureHost : public AtomicRefCountedWithFinalize<TextureHost> {
   TextureReadLock* GetReadLock() { return mReadLock; }
 
   virtual BufferTextureHost* AsBufferTextureHost() { return nullptr; }
+#ifdef MOZ_WIDGET_GONK
+  virtual GrallocTextureHostOGL* AsGrallocTextureHostOGL() { return nullptr; }
+#endif
   virtual MacIOSurfaceTextureHostOGL* AsMacIOSurfaceTextureHost() {
     return nullptr;
   }
   virtual WebRenderTextureHost* AsWebRenderTextureHost() { return nullptr; }
   virtual SurfaceTextureHost* AsSurfaceTextureHost() { return nullptr; }
-#ifdef MOZ_WIDGET_GONK
-  virtual GrallocTextureHostOGL* AsGrallocTextureHostOGL() { return nullptr; }
-#endif
   virtual AndroidHardwareBufferTextureHost*
   AsAndroidHardwareBufferTextureHost() {
     return nullptr;

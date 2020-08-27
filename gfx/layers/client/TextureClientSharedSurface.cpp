@@ -42,17 +42,6 @@ bool SharedSurfaceTextureData::Serialize(SurfaceDescriptor& aOutDescriptor) {
   return true;
 }
 
-#ifdef MOZ_WIDGET_GONK
-GrallocTextureData* SharedSurfaceTextureData::AsGrallocTextureData() {
-  // auto* surf = mSurf->AsSharedSurface_Gralloc();
-  // if (!surf) {
-  //   return nullptr;
-  // }
-  // return surf->GetGrallocTextureData();
-  return nullptr;
-}
-#endif
-
 TextureFlags SharedSurfaceTextureData::GetTextureFlags() const {
   TextureFlags flags = TextureFlags::NO_FLAGS;
 
