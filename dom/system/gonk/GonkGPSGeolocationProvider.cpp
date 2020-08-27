@@ -291,7 +291,8 @@ GonkGPSGeolocationProvider::GonkGPSGeolocationProvider()
       mSupportsSingleShot(false),
       mSupportsTimeInjection(false),
       mSupportsMSB(false),
-      mSupportsMSA(false) {
+      mSupportsMSA(false),
+      mEnableHighAccuracy(false) {
   MOZ_ASSERT(NS_IsMainThread());
 
   nsCOMPtr<nsISettingsManager> settings =
@@ -418,7 +419,10 @@ GonkGPSGeolocationProvider::Watch(nsIGeolocationUpdate* aCallback) {
 }
 
 NS_IMETHODIMP
-GonkGPSGeolocationProvider::SetHighAccuracy(bool) { return NS_OK; }
+GonkGPSGeolocationProvider::SetHighAccuracy(bool enableHighAccuracy) {
+  mEnableHighAccuracy = enableHighAccuracy;
+  return NS_OK;
+}
 
 void GonkGPSGeolocationProvider::GnssDeathRecipient::serviceDied(
     uint64_t cookie, const android::wp<android::hidl::base::V1_0::IBase>& who) {
@@ -521,14 +525,14 @@ void GonkGPSGeolocationProvider::StartGPS() {
 
   MOZ_ASSERT(mGnssHal != nullptr);
 
+  int preferredAccuracy = mEnableHighAccuracy ? 0 : 10000;  // 10km
   Return<bool> result = false;
   if (mGnssHal_V1_1 != nullptr) {
     auto positionMode = mSupportsMSB ? IGnss_V1_1::GnssPositionMode::MS_BASED
                                      : IGnss_V1_1::GnssPositionMode::STANDALONE;
     result = mGnssHal_V1_1->setPositionMode_1_1(
         positionMode, IGnss_V1_1::GnssPositionRecurrence::RECURRENCE_PERIODIC,
-        update,
-        0,       // preferred accuracy
+        update, preferredAccuracy,
         0,       // preferred time
         false);  // low power mode
   } else if (mGnssHal != nullptr) {
@@ -536,8 +540,7 @@ void GonkGPSGeolocationProvider::StartGPS() {
                                      : IGnss_V1_1::GnssPositionMode::STANDALONE;
     result = mGnssHal->setPositionMode(
         positionMode, IGnss_V1_0::GnssPositionRecurrence::RECURRENCE_PERIODIC,
-        update,
-        0,   // preferred accuracy
+        update, preferredAccuracy,
         0);  // preferred time
   }
 

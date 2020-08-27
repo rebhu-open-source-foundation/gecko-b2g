@@ -151,6 +151,7 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
   bool mSupportsTimeInjection;
   bool mSupportsMSB;
   bool mSupportsMSA;
+  bool mEnableHighAccuracy;
 
   nsCOMPtr<nsIGeolocationUpdate> mLocationCallback;
   nsCOMPtr<nsIThread> mInitThread;
