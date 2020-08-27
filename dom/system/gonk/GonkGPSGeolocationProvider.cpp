@@ -48,9 +48,11 @@
   __android_log_print(ANDROID_LOG_INFO, "GonkGPS_GEO", ##args)
 #define ERR(args...) \
   __android_log_print(ANDROID_LOG_ERROR, "GonkGPS_GEO", ##args)
+
+// TODO: Don't prrint DBG message when 'gDebug_isLoggingEnabled' is false
 #define DBG(args...)                                                 \
   do {                                                               \
-    if (gDebug_isLoggingEnabled) {                                   \
+    if (true) {                                                      \
       __android_log_print(ANDROID_LOG_DEBUG, "GonkGPS_GEO", ##args); \
     }                                                                \
   } while (0)
@@ -315,6 +317,7 @@ GonkGPSGeolocationProvider::~GonkGPSGeolocationProvider() {
   MOZ_ASSERT(!mStarted, "Must call Shutdown before destruction");
 
   if (mGnssHal != nullptr) {
+    DBG("mGnssHal->cleanup()");
     mGnssHal->cleanup();
   }
 
@@ -457,10 +460,13 @@ void GonkGPSGeolocationProvider::Init() {
 
   Return<bool> result = false;
   if (mGnssHal_V2_0 != nullptr) {
+    DBG("mGnssHal_V2_0->setCallback_2_0");
     result = mGnssHal_V2_0->setCallback_2_0(gnssCbIface);
   } else if (mGnssHal_V1_1 != nullptr) {
+    DBG("mGnssHal_V1_1->setCallback_1_1");
     result = mGnssHal_V1_1->setCallback_1_1(gnssCbIface);
   } else {
+    DBG("mGnssHal->setCallback");
     result = mGnssHal->setCallback(gnssCbIface);
   }
 
@@ -474,6 +480,7 @@ void GonkGPSGeolocationProvider::Init() {
     if (!agnssCbIface) {
       agnssCbIface = new AGnssCallback_V2_0();
     }
+    DBG("mAGnssHal_V2_0->setCallback");
     Return<void> agnssStatus = mAGnssHal_V2_0->setCallback(agnssCbIface);
   }
 #endif
@@ -548,6 +555,7 @@ void GonkGPSGeolocationProvider::StartGPS() {
     ERR("failed to set IGnss position mode");
     return;
   }
+  DBG("mGnssHal->start");
   result = mGnssHal->start();
   if (!result.isOk()) {
     ERR("failed to start IGnss HAL");
@@ -560,6 +568,7 @@ void GonkGPSGeolocationProvider::ShutdownGPS() {
   LOG("Stops GPS");
 
   if (mGnssHal != nullptr) {
+    DBG("mGnssHal->stop");
     auto result = mGnssHal->stop();
     if (!result.isOk()) {
       ERR("failed to stop IGnss HAL");
@@ -576,6 +585,7 @@ void GonkGPSGeolocationProvider::InjectLocation(double latitude,
       accuracy);
 
   if (mGnssHal != nullptr) {
+    DBG("mGnssHal->injectLocation");
     auto result = mGnssHal->injectLocation(latitude, longitude, accuracy);
     if (!result.isOk() || !result) {
       ERR("%s: Gnss injectLocation() failed");
@@ -637,6 +647,7 @@ Return<void> GnssCallback::gnssLocationCb(const GnssLocation_V1_0& location) {
 
   const float kImpossibleAccuracy_m = 0.001;
   if (location.horizontalAccuracyMeters < kImpossibleAccuracy_m) {
+    ERR("%s: horizontalAccuracyMeters < kImpossibleAccuracy_m", __FUNCTION__);
     return Void();
   }
 
@@ -708,11 +719,13 @@ Return<void> GnssCallback::gnssSetCapabilitesCb(uint32_t capabilities) {
 }
 
 Return<void> GnssCallback::gnssAcquireWakelockCb() {
+  DBG("%s", __FUNCTION__);
   acquire_wake_lock(PARTIAL_WAKE_LOCK, kWakeLockName);
   return Void();
 }
 
 Return<void> GnssCallback::gnssReleaseWakelockCb() {
+  DBG("%s", __FUNCTION__);
   release_wake_lock(kWakeLockName);
   return Void();
 }
@@ -763,10 +776,12 @@ Return<void> GnssCallback::gnssSvStatusCb_2_0(
 
 Return<void> GnssVisibilityControlCallback::nfwNotifyCb(
     const IGnssVisibilityControlCallback::NfwNotification& notification) {
+  DBG("%s: Gonk doesn't handle NfwNotification.", __FUNCTION__);
   return Void();
 }
 
 Return<bool> GnssVisibilityControlCallback::isInEmergencySession() {
+  DBG("%s: gIsInEmergencySession is %d", __FUNCTION__, gIsInEmergencySession);
   return Return<bool>(gIsInEmergencySession);
 }
 
@@ -814,6 +829,7 @@ NS_IMETHODIMP GonkGPSGeolocationProvider::HandleSettings(
     // On demand cleanup
     if (!gGeolocationEnabled && mInitialized && mGnssHal &&
         Preferences::GetBool(kPrefOndemandCleanup)) {
+      DBG("mGnssHal->stop and cleanup");
       // Cleanup GNSS HAL when Geolocation setting is turned off
       mGnssHal->stop();
       mGnssHal->cleanup();
