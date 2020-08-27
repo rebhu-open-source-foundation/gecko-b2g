@@ -345,6 +345,19 @@ interface nsIImsStreamMediaProfile : nsISupports
    */
   readonly attribute long audioDirection;
 
+  /**
+   * VoWiFi qualities.
+   */
+  const long VOWIFI_QUALITY_NONE = 0;
+  const long VOWIFI_QUALITY_EXCELLENT = 1;
+  const long VOWIFI_QUALITY_FAIR = 2;
+  const long VOWIFI_QUALITY_BAD = 4;
+
+  /**
+   * VoWiFi quality.
+   * Possible values: VOWIFI_QUALITY_*.
+   */
+  readonly attribute long vowifiQuality;
 };
 
 [scriptable, uuid(e765244a-8509-4437-93b3-d10ad4ef47a0)]
