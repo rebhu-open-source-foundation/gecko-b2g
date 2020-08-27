@@ -12,14 +12,7 @@ const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
-const {
-  InvalidArgumentError,
-  InvalidSessionIDError,
-  JavaScriptError,
-  NoSuchWindowError,
-  UnexpectedAlertOpenError,
-  UnsupportedOperationError,
-} = ChromeUtils.import("chrome://marionette/content/error.js");
+const { error } = ChromeUtils.import("chrome://marionette/content/error.js");
 const { pprint } = ChromeUtils.import("chrome://marionette/content/format.js");
 
 XPCOMUtils.defineLazyModuleGetters(this, {
@@ -57,9 +50,9 @@ this.assert = {};
  * @throws {JavaScriptError}
  *     If the object is cyclic.
  */
-assert.acyclic = function(obj, msg = "", error = JavaScriptError) {
+assert.acyclic = function(obj, msg = "", err = error.JavaScriptError) {
   if (evaluate.isCyclic(obj)) {
-    throw new error(msg || "Cyclic object value");
+    throw new err(msg || "Cyclic object value");
   }
 };
 
@@ -81,7 +74,7 @@ assert.session = function(driver, msg = "") {
   assert.that(
     sessionID => sessionID,
     msg,
-    InvalidSessionIDError
+    error.InvalidSessionIDError
   )(driver.sessionID);
   return driver.sessionID;
 };
@@ -97,7 +90,7 @@ assert.session = function(driver, msg = "") {
  */
 assert.firefox = function(msg = "") {
   msg = msg || "Only supported in Firefox";
-  assert.that(isFirefox, msg, UnsupportedOperationError)();
+  assert.that(isFirefox, msg, error.UnsupportedOperationError)();
 };
 
 /**
@@ -114,7 +107,7 @@ assert.desktop = function(msg = "") {
   assert.that(
     obj => isFirefox(obj) || isThunderbird(obj),
     msg,
-    UnsupportedOperationError
+    error.UnsupportedOperationError
   )();
 };
 
@@ -129,7 +122,7 @@ assert.desktop = function(msg = "") {
  */
 assert.fennec = function(msg = "") {
   msg = msg || "Only supported in Fennec";
-  assert.that(isFennec, msg, UnsupportedOperationError)();
+  assert.that(isFennec, msg, error.UnsupportedOperationError)();
 };
 
 assert.b2g = function(msg = "") {
@@ -156,7 +149,7 @@ assert.content = function(context, msg = "") {
   assert.that(
     c => c.toString() == "content",
     msg,
-    UnsupportedOperationError
+    error.UnsupportedOperationError
   )(context);
 };
 
@@ -193,7 +186,7 @@ assert.open = function(context, msg = "") {
   return assert.that(
     ctx => ctx && !ctx.closed,
     msg,
-    NoSuchWindowError
+    error.NoSuchWindowError
   )(context);
 };
 
@@ -212,7 +205,7 @@ assert.noUserPrompt = function(dialog, msg = "") {
   assert.that(
     d => d === null || typeof d == "undefined",
     msg,
-    UnexpectedAlertOpenError
+    error.UnexpectedAlertOpenError
   )(dialog);
 };
 
@@ -479,10 +472,14 @@ assert.array = function(obj, msg = "") {
  *     and which may throw <var>error</var> with <var>message</var>
  *     if <var>predicate</var> evaluates to false.
  */
-assert.that = function(predicate, message = "", error = InvalidArgumentError) {
+assert.that = function(
+  predicate,
+  message = "",
+  err = error.InvalidArgumentError
+) {
   return obj => {
     if (!predicate(obj)) {
-      throw new error(message);
+      throw new err(message);
     }
     return obj;
   };

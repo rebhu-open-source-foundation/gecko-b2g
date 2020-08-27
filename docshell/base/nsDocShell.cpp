@@ -743,6 +743,8 @@ nsDocShell::LoadURI(nsDocShellLoadState* aLoadState, bool aSetNavigating) {
   MOZ_ASSERT(
       (aLoadState->LoadFlags() & INTERNAL_LOAD_FLAGS_LOADURI_SETUP_FLAGS) == 0,
       "Should not have these flags set");
+  MOZ_ASSERT(aLoadState->TargetBrowsingContext().IsNull(),
+             "Targeting doesn't occur until InternalLoad");
 
   if (!aLoadState->TriggeringPrincipal()) {
     MOZ_ASSERT(false, "LoadURI must have a triggering principal");
@@ -1773,7 +1775,10 @@ nsDocShell::GetAllowContentRetargeting(bool* aAllowContentRetargeting) {
 
 NS_IMETHODIMP
 nsDocShell::SetAllowContentRetargeting(bool aAllowContentRetargeting) {
-  return mBrowsingContext->SetAllowContentRetargeting(aAllowContentRetargeting);
+  BrowsingContext::Transaction txn;
+  txn.SetAllowContentRetargeting(aAllowContentRetargeting);
+  txn.SetAllowContentRetargetingOnChildren(aAllowContentRetargeting);
+  return txn.Commit(mBrowsingContext);
 }
 
 NS_IMETHODIMP
@@ -8111,6 +8116,8 @@ uint32_t nsDocShell::DetermineContentType() {
 nsresult nsDocShell::PerformRetargeting(nsDocShellLoadState* aLoadState) {
   MOZ_ASSERT(aLoadState, "need a load state!");
   MOZ_ASSERT(!aLoadState->Target().IsEmpty(), "should have a target here!");
+  MOZ_ASSERT(aLoadState->TargetBrowsingContext().IsNull(),
+             "should not have picked target yet");
 
   nsresult rv = NS_OK;
   RefPtr<BrowsingContext> targetContext;
@@ -8303,8 +8310,8 @@ nsresult nsDocShell::PerformRetargeting(nsDocShellLoadState* aLoadState) {
 
   aLoadState->SetTargetBrowsingContext(targetContext);
   //
-  // Transfer the load to the target BrowsingContext... Pass empty string as the
-  // window target name from to prevent recursive retargeting!
+  // Transfer the load to the target BrowsingContext... Clear the window target
+  // name to the empty string to prevent recursive retargeting!
   //
   // No window target
   aLoadState->SetTarget(EmptyString());
@@ -8691,7 +8698,13 @@ nsresult nsDocShell::InternalLoad(nsDocShellLoadState* aLoadState) {
   // If we have a target to move to, do that now.
   if (!aLoadState->Target().IsEmpty()) {
     return PerformRetargeting(aLoadState);
+  } else if (aLoadState->TargetBrowsingContext().IsNull()) {
+    aLoadState->SetTargetBrowsingContext(GetBrowsingContext());
   }
+
+  MOZ_DIAGNOSTIC_ASSERT(
+      aLoadState->TargetBrowsingContext() == GetBrowsingContext(),
+      "Load must be targeting this BrowsingContext");
 
   // If we don't have a target, we're loading into ourselves, and our load
   // delegate may want to intercept that load.
