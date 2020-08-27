@@ -118,6 +118,12 @@ interface nsIImsCallSessionListener : nsISupports
   void onCallSessionRttMessageReceived(in AString rttMessage);
 
   /**
+   * RTT audio indicatin has been changed while in a call.
+   * @param profile media profile associated with this call session.
+   */
+  void onCallSessionRttAudioIndicatorChanged(in nsIImsStreamMediaProfile profile);
+
+  /**
    * Notifies the supplementary service information for this session.
    */
   void onCallSessionSuppServiceReceived(in nsIImsSuppServiceNotification suppSrvNotification);
@@ -318,8 +324,10 @@ interface nsIImsStreamMediaProfile : nsISupports
    */
   readonly attribute long rttMode;
 
-  // Currently, Kai does not expose video quality info to user.
-  // readonly attribute long videoQuality;
+  /**
+   * RTT audio speech indication.
+   */
+  readonly attribute boolean isReceivingRttAudio;
 
   /**
    * Media directions.

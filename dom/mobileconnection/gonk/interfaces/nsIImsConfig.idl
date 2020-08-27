@@ -29,23 +29,34 @@ interface nsIImsConfig : nsISupports
 
 
   /**
-   * Items for queryConfigInt/setConfigInt api.
+   * Item for queryConfigInt/setConfigInt api.
   */
+  /**
+   * Voice over wifi roaming setting
+   * Possible values: VOICE_OVER_WIFI_ROAMING_*
+   */
   const long VOICE_OVER_WIFI_ROAMING = 26;
 
   /**
-   * Possible value with item VOICE_OVER_WIFI_ROAMING = 26.
+   * Voice over wifi mode setting.
+   * Possible values: VOICE_OVER_WIFI_MODE_WIFI_*.
+   */
+  const long VOICE_OVER_WIFI_MODE = 27;
+
+  /**
+   * RTT setting.
+   * Possible values: 0: diabled, 1: enabled.
+   */
+  const long RTT_SETTING_ENABLED = 66;
+
+  /**
+   * Possible values of item VOICE_OVER_WIFI_ROAMING = 26.
    */
   const long VOICE_OVER_WIFI_ROAMING_DISASBLED = 0;
   const long VOICE_OVER_WIFI_ROAMING_ENABLED= 1;
 
   /**
-   * Items for queryConfigInt/setConfigInt api.
-   */
-  const long VOICE_OVER_WIFI_MODE = 27;
-
-  /**
-   * Possible value with item VOICE_OVER_WIFI_MODE = 27.
+   * Possible values of item VOICE_OVER_WIFI_MODE = 27.
    */
   const long VOICE_OVER_WIFI_MODE_WIFI_ONLY = 0;
   const long VOICE_OVER_WIFI_MODE_CELLULAR_PREFERRED = 1;
