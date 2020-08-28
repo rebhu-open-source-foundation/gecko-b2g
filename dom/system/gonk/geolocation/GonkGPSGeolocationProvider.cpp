@@ -36,6 +36,7 @@
 #  include "nsIMobileConnectionService.h"
 #  include "nsIMobileNetworkInfo.h"
 #  include "nsINetworkInterface.h"  // for nsINetworkInfo
+#  include "nsIObserverService.h"
 #  include "nsIRadioInterfaceLayer.h"
 #  include "nsITelephonyCallInfo.h"
 #  include "nsPrintfCString.h"
