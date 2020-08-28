@@ -282,6 +282,20 @@ XPCOMUtils.defineLazyModuleGetters(this, {
         );
       }, "inputmethod-contextchange");
 
+      Services.obs.addObserver((subject, topic, data) => {
+        _webembed_log(`receive headphones-status-changed: ${data}`);
+        this.dispatchEvent(
+          new CustomEvent("headphones-status-changed", { detail: data })
+        );
+      }, "headphones-status-changed");
+
+      Services.obs.addObserver((subject, topic, data) => {
+        _webembed_log(`receive default-volume-channel-changed: ${data}`);
+        this.dispatchEvent(
+          new CustomEvent("default-volume-channel-changed", { detail: data })
+        );
+      }, "default-volume-channel-changed");
+
       if (delegates.notifications) {
         Services.obs.notifyObservers(
           { wrappedJSObject: delegates.notifications },
