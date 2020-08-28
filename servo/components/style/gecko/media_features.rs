@@ -540,6 +540,18 @@ fn eval_moz_is_glyph(
     query_value.map_or(is_glyph, |v| v == is_glyph)
 }
 
+fn eval_moz_print_preview(
+    device: &Device,
+    query_value: Option<bool>,
+    _: Option<RangeOrOperator>,
+) -> bool {
+    let is_print_preview = device.is_print_preview();
+    if is_print_preview {
+        debug_assert_eq!(device.media_type(), MediaType::print());
+    }
+    query_value.map_or(is_print_preview, |v| v == is_print_preview)
+}
+
 fn eval_moz_is_resource_document(
     device: &Device,
     query_value: Option<bool>,
@@ -823,6 +835,12 @@ pub static MEDIA_FEATURES: [MediaFeatureDescription; 56] = [
         atom!("-moz-os-version"),
         AllowsRanges::No,
         Evaluator::Ident(eval_moz_os_version),
+        ParsingRequirements::CHROME_AND_UA_ONLY,
+    ),
+    feature!(
+        atom!("-moz-print-preview"),
+        AllowsRanges::No,
+        Evaluator::BoolInteger(eval_moz_print_preview),
         ParsingRequirements::CHROME_AND_UA_ONLY,
     ),
     system_metric_feature!(atom!("-moz-scrollbar-start-backward")),

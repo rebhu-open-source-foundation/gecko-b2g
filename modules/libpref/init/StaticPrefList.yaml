@@ -2228,6 +2228,12 @@
   value: 1000
   mirror: always
 
+# Timeout clamp in ms for background windows before throttling has started.
+- name: dom.min_background_timeout_value_before_throttling
+  type: int32_t
+  value: 1000
+  mirror: always
+
 # Are missing-property use counters for certain DOM attributes enabled?
 - name: dom.missing_prop_counters.enabled
   type: bool
@@ -5830,6 +5836,12 @@
   value: false
   mirror: always
 
+# Should we look for counter ancestor scopes first?
+- name: layout.css.counter-ancestor-scope.enabled
+  type: bool
+  value: true
+  mirror: always
+
 # Whether we get notified of history queries for visited even if unvisited.
 - name: layout.css.notify-of-unvisited
   type: RelaxedAtomicBool
@@ -7403,6 +7415,8 @@
   value: true
 #elif defined(XP_MACOSX)
   value: true
+#elif defined(MOZ_WIDGET_ANDROID)
+  value: @IS_EARLY_BETA_OR_EARLIER@
 #elif defined(XP_UNIX)
   value: true
 #else
@@ -8630,6 +8644,12 @@
 - name: print.tab_modal.enabled
   type: RelaxedAtomicBool
   value: @IS_EARLY_BETA_OR_EARLIER@
+  mirror: always
+
+# Whether we allow the print progress dialog to show up.
+- name: print.show_print_progress
+  type: RelaxedAtomicBool
+  value: true
   mirror: always
 
 #---------------------------------------------------------------------------

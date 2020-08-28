@@ -373,6 +373,9 @@ GeckoDriver.prototype.getActor = function() {
  * Get the selected BrowsingContext for the current context.
  *
  * @param {Object} options
+ * @param {Context=} options.context
+ *     Context (content or chrome) for which to retrieve the browsing context.
+ *     Defaults to the current one.
  * @param {boolean=} options.top
  *     If set to true use the window's top-level browsing context,
  *     otherwise the one from the currently selected frame. Defaults to false.
@@ -381,16 +384,20 @@ GeckoDriver.prototype.getActor = function() {
  *     The browsing context.
  */
 GeckoDriver.prototype.getBrowsingContext = function(options = {}) {
-  const { top = false } = options;
+  const { context = this.context, top = false } = options;
 
   let browsingContext = null;
-  if (this.context === Context.Chrome) {
+  if (context === Context.Chrome) {
     browsingContext = this.chromeBrowsingContext;
   } else {
     browsingContext = this.contentBrowsingContext;
   }
 
-  return top ? browsingContext.top : browsingContext;
+  if (browsingContext && top) {
+    browsingContext = browsingContext.top;
+  }
+
+  return browsingContext;
 };
 
 /**
@@ -491,6 +498,8 @@ GeckoDriver.prototype.addBrowser = function(win) {
 GeckoDriver.prototype.startBrowser = function(window, isNewSession = false) {
   this.mainFrame = window;
   this.chromeBrowsingContext = this.mainFrame.browsingContext;
+  this.contentBrowsingContext = null;
+
   this.addBrowser(window);
   this.whenBrowserStarted(window, isNewSession);
 };
@@ -508,7 +517,7 @@ GeckoDriver.prototype.whenBrowserStarted = function(window, isNewSession) {
   let mm = window.messageManager;
 
   // On B2G, use global message manager instead.
-  if (this.appName == 'b2g') {
+  if (this.appName == "b2g") {
     mm = this.mm;
   }
 
@@ -625,7 +634,7 @@ GeckoDriver.prototype.listeningPromise = function() {
     let cb = msg => {
       if (msg.json.frameId === this.curBrowser.curFrameId) {
         this.mm.removeMessageListener(li, cb);
-        resolve();
+        resolve(msg.json.frameId);
       }
     };
     this.mm.addMessageListener(li, cb);
@@ -1609,15 +1618,14 @@ GeckoDriver.prototype.setWindowRect = async function(cmd) {
  */
 GeckoDriver.prototype.switchToSystemWindow = async function() {
   assert.b2g();
-  const found = this.findWindow(this.windows, {"origin": "chrome://system"});
+  const found = this.findWindow(this.windows, { origin: "chrome://system" });
   if (found) {
     const focus = false;
     await this.setWindowHandle(found, focus);
-    return this.curBrowser.contentBrowser.browsingContext.id
-  } else {
-    throw new NoSuchWindowError(`Unable to locate system app window`);
+    return this.curBrowser.contentBrowser.browsingContext.id;
   }
-}
+  throw new error.NoSuchWindowError(`Unable to locate system app window`);
+};
 
 /**
  * Switch current top-level browsing context by server-assigned ID.
@@ -1662,20 +1670,19 @@ GeckoDriver.prototype.switchToWindow = async function(cmd) {
     );
 
     assert.boolean(
-      origin == (new URL(origin)).origin,
+      origin == new URL(origin).origin,
       pprint`Expected "origin" to be a origin of an URL, got ${origin}`
     );
   }
 
-  let filter = handle ? {'id': parseInt(handle)} : {"origin": origin};
+  let filter = handle ? { id: parseInt(handle) } : { origin };
 
   const found = this.findWindow(this.windows, filter);
   if (found) {
     await this.setWindowHandle(found, focus);
     return this.curBrowser.contentBrowser.browsingContext.id;
-  } else {
-    throw new error.NoSuchWindowError(`Unable to locate window: ${handle}`);
   }
+  throw new error.NoSuchWindowError(`Unable to locate window: ${handle}`);
 };
 
 /**
@@ -1693,7 +1700,8 @@ GeckoDriver.prototype.switchToWindow = async function(cmd) {
  *     associated metadata.
  */
 GeckoDriver.prototype.findWindow = function(winIterable, filter) {
-  let id = null, origin = null;
+  let id = null,
+    origin = null;
 
   if (typeof filter.id != "undefined") {
     id = filter.id;
@@ -1702,26 +1710,26 @@ GeckoDriver.prototype.findWindow = function(winIterable, filter) {
   }
 
   for (const win of winIterable) {
-    const bc = win.docShell.browsingContext;
+    const browsingContext = win.docShell.browsingContext;
     const tabBrowser = browser.getTabBrowser(win);
 
     // In case the wanted window is a chrome window, we are done.
-    // Only do this when using outer window id.
-    if (id && id == bc.id) {
-      return { win, id: bc.id, hasTabBrowser: !!tabBrowser };
+    if (filter(win, browsingContext.id)) {
+      return { win, id: browsingContext.id, hasTabBrowser: !!tabBrowser };
 
       // Otherwise check if the chrome window has a tab browser, and that it
       // contains a tab with the wanted window handle.
     } else if (tabBrowser && tabBrowser.tabs) {
       for (let i = 0; i < tabBrowser.tabs.length; ++i) {
         let contentBrowser = browser.getBrowserForTab(tabBrowser.tabs[i]);
-        let result = id ? (id == this.getIdForBrowser(contentBrowser))
-                        : (origin == (new URL(contentBrowser.src)).origin);
+        let result = id
+          ? id == this.getIdForBrowser(contentBrowser)
+          : origin == new URL(contentBrowser.src).origin;
 
         if (result) {
           return {
             win,
-            id: bc.id,
+            id: browsingContext.id,
             hasTabBrowser: true,
             tabIndex: i,
           };
@@ -1753,7 +1761,6 @@ GeckoDriver.prototype.setWindowHandle = async function(
     // Initialise Marionette if the current chrome window has not been seen
     // before. Also register the initial tab, if one exists.
     let registerBrowsers, browserListening;
-
     if (winProperties.hasTabBrowser) {
       registerBrowsers = this.registerPromise();
       browserListening = this.listeningPromise();
@@ -1763,22 +1770,27 @@ GeckoDriver.prototype.setWindowHandle = async function(
 
     if (registerBrowsers && browserListening) {
       await registerBrowsers;
-      await browserListening;
+      const id = await browserListening;
+      this.contentBrowsingContext = BrowsingContext.get(id);
     }
   } else {
     // Otherwise switch to the known chrome window
     this.curBrowser = this.browsers[winProperties.id];
     this.mainFrame = this.curBrowser.window;
+
     this.chromeBrowsingContext = this.mainFrame.browsingContext;
 
-    // .. and activate the tab if it's a content browser.
-    if ("tabIndex" in winProperties) {
-      await this.curBrowser.switchToTab(
+    // Activate the tab if it's a content window.
+    let tab = null;
+    if (winProperties.hasTabBrowser) {
+      tab = await this.curBrowser.switchToTab(
         winProperties.tabIndex,
         winProperties.win,
         focus
       );
     }
+
+    this.contentBrowsingContext = tab?.linkedBrowser.browsingContext;
   }
 
   if (focus) {
@@ -1801,12 +1813,7 @@ GeckoDriver.prototype.switchToParentFrame = async function() {
 
   if (MarionettePrefs.useActors) {
     const { browsingContext } = await this.getActor().switchToParentFrame();
-
-    if (this.context == Context.Chrome) {
-      this.chromeBrowsingContext = browsingContext;
-    } else {
-      this.contentBrowsingContext = browsingContext;
-    }
+    this.contentBrowsingContext = browsingContext;
 
     return;
   }
@@ -1853,12 +1860,7 @@ GeckoDriver.prototype.switchToFrame = async function(cmd) {
       byFrame || id
     );
 
-    if (this.context == Context.Chrome) {
-      this.chromeBrowsingContext = browsingContext;
-    } else {
-      this.contentBrowsingContext = browsingContext;
-    }
-
+    this.contentBrowsingContext = browsingContext;
     return;
   }
 
@@ -1905,7 +1907,7 @@ GeckoDriver.prototype.switchToFrame = async function(cmd) {
       browsingContext = context;
     }
 
-    this.chromeBrowsingContext = browsingContext;
+    this.contentBrowsingContext = browsingContext;
 
     const frameWindow = browsingContext.window;
     await checkLoad(frameWindow);
@@ -2948,6 +2950,8 @@ GeckoDriver.prototype.close = async function() {
   }
 
   await this.curBrowser.closeTab();
+  this.contentBrowsingContext = null;
+
   return this.windowHandles.map(String);
 };
 
@@ -3682,12 +3686,6 @@ GeckoDriver.prototype.setupReftest = async function(cmd) {
   if (this._reftest) {
     throw new error.UnsupportedOperationError(
       "Called reftest:setup with a reftest session already active"
-    );
-  }
-
-  if (this.context !== Context.Chrome) {
-    throw new error.UnsupportedOperationError(
-      "Must set chrome context before running reftests"
     );
   }
 

@@ -1994,15 +1994,15 @@ static bool NewString(JSContext* cx, unsigned argc, Value* vp) {
       return false;
     }
 
+    bool isExternal = true;
     if (forceExternal) {
       dest = JSExternalString::new_(cx, buf.get(), len,
                                     &TestExternalStringCallbacks);
     } else {
-      bool isExternal;
       dest = NewMaybeExternalString(
           cx, buf.get(), len, &TestExternalStringCallbacks, &isExternal, heap);
     }
-    if (dest) {
+    if (dest && isExternal) {
       mozilla::Unused << buf.release();  // Ownership was transferred.
     }
   } else {
@@ -3222,12 +3222,6 @@ static bool GetJitCompilerOptions(JSContext* cx, unsigned argc, Value* vp) {
 #undef JIT_COMPILER_MATCH
 
   args.rval().setObject(*info);
-  return true;
-}
-
-static bool IsWarpEnabled(JSContext* cx, unsigned argc, Value* vp) {
-  CallArgs args = CallArgsFromVp(argc, vp);
-  args.rval().setBoolean(jit::JitOptions.warpBuilder);
   return true;
 }
 
@@ -6462,10 +6456,6 @@ gc::ZealModeHelpText),
     JS_FN_HELP("getJitCompilerOptions", GetJitCompilerOptions, 0, 0,
 "getJitCompilerOptions()",
 "  Return an object describing some of the JIT compiler options.\n"),
-
-JS_FN_HELP("isWarpEnabled", IsWarpEnabled, 0, 0,
-"isWarpEnabled()",
-"  Return true if the Warp compiler is enabled.\n"),
 
     JS_FN_HELP("isAsmJSModule", IsAsmJSModule, 1, 0,
 "isAsmJSModule(fn)",
