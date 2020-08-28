@@ -199,6 +199,10 @@ EditableSupportKeydownCallback::OnKeydown(const nsAString& aKey) {
   event.mKeyNameIndex = WidgetKeyboardEvent::GetKeyNameIndex(aKey);
   if (event.mKeyNameIndex == KEY_NAME_INDEX_USE_STRING) {
     event.mKeyValue = aKey;
+  } else if (event.mCodeNameIndex == CODE_NAME_INDEX_UNKNOWN) {
+    event.mKeyCode = WidgetKeyboardEvent::ComputeKeyCodeFromKeyNameIndex(
+        event.mKeyNameIndex);
+    LOG("-- EditableSupport OnKeydown: mKeyCode:[%d]", event.mKeyCode);
   }
   nsEventStatus status = nsEventStatus_eIgnore;
   if (mDispatcher->DispatchKeyboardEvent(eKeyDown, event, status)) {
@@ -249,6 +253,10 @@ EditableSupportKeyupCallback::OnKeyup(const nsAString& aKey) {
   event.mKeyNameIndex = WidgetKeyboardEvent::GetKeyNameIndex(aKey);
   if (event.mKeyNameIndex == KEY_NAME_INDEX_USE_STRING) {
     event.mKeyValue = aKey;
+  } else if (event.mCodeNameIndex == CODE_NAME_INDEX_UNKNOWN) {
+    event.mKeyCode = WidgetKeyboardEvent::ComputeKeyCodeFromKeyNameIndex(
+        event.mKeyNameIndex);
+    LOG("-- EditableSupport OnKeyup: mKeyCode:[%d]", event.mKeyCode);
   }
   nsEventStatus status = nsEventStatus_eIgnore;
   mDispatcher->DispatchKeyboardEvent(eKeyUp, event, status);
@@ -294,10 +302,14 @@ EditableSupportSendKeyCallback::OnSendKey(const nsAString& aKey) {
                    nsITextInputProcessor::KEY_DONT_DISPATCH_MODIFIER_KEY_EVENT;
   // EventMessage msg = eKeyDown;
   nsCOMPtr<nsIWidget> widget = mDispatcher->GetWidget();
-  WidgetKeyboardEvent event(true, eKeyUp, widget);
+  WidgetKeyboardEvent event(true, eVoidEvent, widget);
   event.mKeyNameIndex = WidgetKeyboardEvent::GetKeyNameIndex(aKey);
   if (event.mKeyNameIndex == KEY_NAME_INDEX_USE_STRING) {
     event.mKeyValue = aKey;
+  } else if (event.mCodeNameIndex == CODE_NAME_INDEX_UNKNOWN) {
+    event.mKeyCode = WidgetKeyboardEvent::ComputeKeyCodeFromKeyNameIndex(
+        event.mKeyNameIndex);
+    LOG("-- EditableSupport OnSendKey: mKeyCode:[%d]", event.mKeyCode);
   }
   nsEventStatus status = nsEventStatus_eIgnore;
   if (mDispatcher->DispatchKeyboardEvent(eKeyDown, event, status)) {
@@ -312,10 +324,7 @@ NS_IMPL_ISUPPORTS(GeckoEditableSupport, TextEventDispatcherListener,
 
 GeckoEditableSupport::GeckoEditableSupport(nsIGlobalObject* aGlobal,
                                            nsWindow* aWindow)
-      : mGlobal(aGlobal),
-        mIsRemote(!aWindow),
-        mWindow(aWindow) {
-}
+    : mGlobal(aGlobal), mIsRemote(!aWindow), mWindow(aWindow) {}
 
 nsresult GeckoEditableSupport::NotifyIME(
     TextEventDispatcher* aTextEventDispatcher,
@@ -337,8 +346,8 @@ nsresult GeckoEditableSupport::NotifyIME(
       LOG("IME: NOTIFY_IME_OF_FOCUS");
       mDispatcher = aTextEventDispatcher;
       LOG("NotifyIME, mDispatcher:[%p]", mDispatcher.get());
-      nsCOMPtr<nsIGeckoEditableSupportProxy> proxy = 
-        GetOrCreateGeckoEditableSupportProxy(mGlobal);
+      nsCOMPtr<nsIGeckoEditableSupportProxy> proxy =
+          GetOrCreateGeckoEditableSupportProxy(mGlobal);
       proxy->HandleFocus(/* maybe input context */);
       {
         // Set callback
@@ -369,22 +378,22 @@ nsresult GeckoEditableSupport::NotifyIME(
       LOG("IME: NOTIFY_IME_OF_BLUR");
       mDispatcher->EndInputTransaction(this);
       OnRemovedFrom(mDispatcher);
-      nsCOMPtr<nsIGeckoEditableSupportProxy> proxy = 
-        GetOrCreateGeckoEditableSupportProxy(mGlobal);
+      nsCOMPtr<nsIGeckoEditableSupportProxy> proxy =
+          GetOrCreateGeckoEditableSupportProxy(mGlobal);
       proxy->HandleBlur();
       break;
     }
 
     case NOTIFY_IME_OF_SELECTION_CHANGE: {
       LOG("IME: NOTIFY_IME_OF_SELECTION_CHANGE: SelectionChangeData=%s",
-             ToString(aNotification.mSelectionChangeData).c_str());
+          ToString(aNotification.mSelectionChangeData).c_str());
       break;
     }
 
     case NOTIFY_IME_OF_TEXT_CHANGE: {
       // TODO
       LOG("IME: NOTIFY_IME_OF_TEXT_CHANGE: TextChangeData=%s",
-            ToString(aNotification.mTextChangeData).c_str());
+          ToString(aNotification.mTextChangeData).c_str());
       break;
     }
 
