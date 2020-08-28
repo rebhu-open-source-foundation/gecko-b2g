@@ -5246,6 +5246,7 @@ void nsGlobalWindowOuter::PrintOuter(ErrorResult& aError) {
     }
   }
 
+#if defined(NS_PRINTING)
   nsCOMPtr<nsIPrintSettingsService> printSettingsService =
       do_GetService("@mozilla.org/gfx/printsettings-service;1");
   if (!printSettingsService) {
@@ -5270,6 +5271,7 @@ void nsGlobalWindowOuter::PrintOuter(ErrorResult& aError) {
   }
 
   Print(settings, nullptr, nullptr, isPreview, aError);
+#endif
 }
 
 Nullable<WindowProxyHolder> nsGlobalWindowOuter::Print(
