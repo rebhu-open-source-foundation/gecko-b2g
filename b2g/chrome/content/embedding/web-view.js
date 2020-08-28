@@ -304,6 +304,8 @@
           this.log(`Unimplemented: ${name}`);
         };
       });
+
+      this._pid = -1;
     }
 
     log(msg) {
@@ -381,6 +383,12 @@
       this.browser.delayConnectedCallback = () => {
         return false;
       };
+
+      this.browser.addEventListener("processready", evt => {
+        evt.stopPropagation();
+        this._pid = parseInt(evt.target.getAttribute("processid")) || -1;
+        this.dispatchCustomEvent("processready", { processid: this._pid });
+      });
 
       this.appendChild(this.browser);
       this.progressListener = new ProgressListener(this);
@@ -610,6 +618,10 @@
 
     get allowedAudioChannels() {
       return this.browser.allowedAudioChannels;
+    }
+
+    get processid() {
+      return this._pid;
     }
   }
 

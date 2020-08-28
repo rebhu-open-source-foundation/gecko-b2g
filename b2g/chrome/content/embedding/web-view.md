@@ -27,6 +27,7 @@ The <web-view> element supports the following attributes:
 - ` (readonly) canGoForward : boolean` : return `true` if calling `goForward()` would be effective.
 - ` (readonly) canGoBack : boolean` : return `true` if calling `goBack()` would be effective.
 - `active : boolean` : control the active state of the browser's docShell.
+- `processid : int` : returns the process ID of its content process if there is, or -1 if there is not.
 - `visible : boolean`: currently similar to `active`.
 
 ## Events
@@ -43,6 +44,7 @@ Each event type is prefixed with `mozbrowser` for historical compatibility reaso
 - `locationchange` : `{ url: string, canGoBack: boolean, cangoForward: boolean}`
 - `manifestchange` : `{ href: string}`
 - `opensearch` : `{ title: string, href: string}`
+- `processready`: `{ processid: int}`
 - `resize` : `{ width: int, height: int}`
 - `scroll` : `{ top: int, left: int}`
 - `securitychange` : `{ state: string, mixedState: string, extendedValidation: boolean, mixedContent: boolean }`
