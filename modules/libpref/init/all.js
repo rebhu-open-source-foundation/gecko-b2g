@@ -4128,8 +4128,8 @@ pref("network.trr.builtin-excluded-domains", "localhost,local");
 // changes. (uri, bootstrapAddress, excluded-domains)
 pref("network.trr.clear-cache-on-pref-change", true);
 
-pref("captivedetect.canonicalURL", "http://detectportal.firefox.com/success.txt");
-pref("captivedetect.canonicalContent", "success\n");
+pref("captivedetect.canonicalURL", "http://detectportal.kaiostech.com/success.txt");
+pref("captivedetect.canonicalContent", "success");
 pref("captivedetect.maxWaitingTime", 5000);
 pref("captivedetect.pollingTime", 3000);
 pref("captivedetect.maxRetryCount", 5);

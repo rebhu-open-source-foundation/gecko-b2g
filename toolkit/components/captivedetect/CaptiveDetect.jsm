@@ -452,7 +452,7 @@ CaptivePortalDetector.prototype = {
 
   validateContent: function validateContent(content) {
     debug("received content: " + content);
-    let valid = content === this._canonicalSiteExpectedContent;
+    let valid = content.trim() === this._canonicalSiteExpectedContent;
     // We need a way to indicate that a check has been performed, and if we are
     // still in a captive portal.
     this._sendEvent(kCaptivePortalCheckComplete, !valid);
