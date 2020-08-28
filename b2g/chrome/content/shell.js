@@ -252,7 +252,7 @@ document.addEventListener(
     const { SettingsPrefsSync } = ChromeUtils.import(
       "resource://gre/modules/SettingsPrefsSync.jsm"
     );
-    SettingsPrefsSync.start().then(() => {
+    SettingsPrefsSync.start(window).then(() => {
       // TODO: check if there is a better time to run delayedInit()
       // for the overall OS startup, like when the homescreen is ready.
       window.setTimeout(() => {

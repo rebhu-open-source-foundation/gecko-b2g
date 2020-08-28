@@ -61,9 +61,10 @@ const kSettingsToObserve = {
 this.SettingsPrefsSync = {
   // Initialize the synchronization and returns a promise that
   // resolves once we have done the early stage sync.
-  start() {
+  start(aWindow) {
     // The full set of settings observers that were added, and will be
     // removed in the xpcom-shutdown phase.
+    this.window = aWindow;
     this.settingsObservers = [];
 
     Services.obs.addObserver(this, "xpcom-shutdown");
@@ -149,6 +150,7 @@ this.SettingsPrefsSync = {
     this.deviceInfoToSettings();
     this.setUpdateTrackingId();
     this.managePrivacy();
+    this.setupAccessibility();
     this.synchronizePrefs();
   },
 
@@ -318,6 +320,34 @@ this.SettingsPrefsSync = {
       "privacy.donottrackheader.value",
       observer,
       "Failed to add a setting observer for privacy.donottrackheader.value"
+    );
+  },
+
+  // Observes the accessibility.screenreader setting and attach AccessFu.
+  setupAccessibility() {
+    let accessibilityScope = {};
+    this.addSettingsObserver(
+      "accessibility.screenreader",
+      {
+        observeSetting: info => {
+          if (info) {
+            let value = JSON.parse(info.value);
+            if (!("AccessFu" in accessibilityScope)) {
+              ChromeUtils.import(
+                "resource://gre/modules/accessibility/AccessFu.jsm",
+                accessibilityScope
+              );
+            }
+
+            if (value == 1) {
+              accessibilityScope.AccessFu.attach(this.window);
+            } else {
+              accessibilityScope.AccessFu.detach();
+            }
+          }
+        },
+      },
+      "Failed to add a setting observer for accessibility.screenreader"
     );
   },
 
