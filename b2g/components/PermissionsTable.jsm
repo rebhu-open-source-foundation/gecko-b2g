@@ -77,6 +77,11 @@ this.PermissionsTable = {
     pwa: PROMPT_ACTION,
     signed: PROMPT_ACTION,
   },
+  "process-manager": {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
   settings: {
     pwa: DENY_ACTION,
     signed: DENY_ACTION,
