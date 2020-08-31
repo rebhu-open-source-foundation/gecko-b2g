@@ -37,7 +37,6 @@
 #include "android/hardware/ICameraServiceListener.h"
 #include "binder/IServiceManager.h"
 #include "android/log.h"
-#include "cutils/properties.h"
 #include "hardware/hardware.h"
 #include "hardware/lights.h"
 #include "hardware_legacy/uevent.h"
@@ -76,6 +75,7 @@
 // TODO: FIXME #include "nsIRecoveryService.h"
 #include "nsIRunnable.h"
 #include "ScreenHelperGonk.h"
+#include "SystemProperty.h"
 #include "nsThreadUtils.h"
 #include "nsThreadUtils.h"
 #include "nsIThread.h"
@@ -112,12 +112,10 @@
 #  define OOM_SCORE_ADJ_MAX 1000
 #endif
 
-#ifndef BATTERY_CHARGING_ARGB
-#  define BATTERY_CHARGING_ARGB 0x00FF0000
-#endif
-#ifndef BATTERY_FULL_ARGB
-#  define BATTERY_FULL_ARGB 0x0000FF00
-#endif
+#define LED_GREEN_BRIGHTNESS "/sys/class/leds/green/brightness"
+#define LED_RED_BRIGHTNESS "/sys/class/leds/red/brightness"
+#define MAXIMUM_BRIGHTNESS "255"
+#define MINIMUM_BRIGHTNESS "0"
 
 using namespace mozilla;
 using namespace mozilla::hal;
@@ -336,9 +334,28 @@ class BatteryUpdater : public Runnable {
     hal::BatteryInformation info;
     hal_impl::GetCurrentBatteryInformation(&info);
 
-    // TODO, Bug 104131
     // Control the battery indicator (led light) here using BatteryInformation
     // we just retrieved.
+    char red_path[system::Property::VALUE_MAX_LENGTH];
+    char green_path[system::Property::VALUE_MAX_LENGTH];
+
+    system::Property::Get("leds.red.brightness", red_path, LED_RED_BRIGHTNESS);
+    system::Property::Get("leds.red.brightness", green_path, LED_GREEN_BRIGHTNESS);
+
+    if (info.charging() && (info.level() == 1)) {
+      // Charging and battery full, it's green.
+      WriteSysFile(green_path, MAXIMUM_BRIGHTNESS);
+      WriteSysFile(red_path, MINIMUM_BRIGHTNESS);
+    } else if (info.charging() && (info.level() < 1)) {
+      // Charging but not full, it's red.
+      WriteSysFile(green_path, MINIMUM_BRIGHTNESS);
+      WriteSysFile(red_path, MAXIMUM_BRIGHTNESS);
+    } else {
+      // else turn off battery indicator.
+      WriteSysFile(green_path, MINIMUM_BRIGHTNESS);
+      WriteSysFile(red_path, MINIMUM_BRIGHTNESS);
+    }
+
 
     hal::NotifyBatteryChange(info);
 
