@@ -296,6 +296,13 @@ XPCOMUtils.defineLazyModuleGetters(this, {
         );
       }, "default-volume-channel-changed");
 
+      Services.obs.addObserver((subject, topic, data) => {
+        _webembed_log(`receive bluetooth-volume-change: ${data}`);
+        this.dispatchEvent(
+          new CustomEvent("bluetooth-volumeset", { detail: data })
+        );
+      }, "bluetooth-volume-change");
+
       if (delegates.notifications) {
         Services.obs.notifyObservers(
           { wrappedJSObject: delegates.notifications },

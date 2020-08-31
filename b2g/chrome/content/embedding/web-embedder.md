@@ -48,6 +48,7 @@ Since the `WebEmbedder` object extends `EventTarget` you can attach event listen
 - `runtime-ready`: this event is dispatched once the the embedder is setup. At this point you can safely call methods on the object itself.
 - `daemon-disconnected`: this event is dispatched when the api-daemon connectivity is lost.
 - `daemon-reconnected`: this event is dispatched when the api-daemon connectivity is available again.
+- `bluetooth-volumeset`: this event is dispatched when Bluetooth handsfree repots its volume. Its `detail` is a integer from 0 to 15 representing speaker gain level.
 
 ## WindowProvider delegate
 
