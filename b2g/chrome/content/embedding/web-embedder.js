@@ -303,6 +303,45 @@ XPCOMUtils.defineLazyModuleGetters(this, {
         );
       }, "bluetooth-volume-change");
 
+      // whether geolocation service is active
+      this.geolocationActive = false;
+
+      // whether gps chip is on
+      this.gpsChipOn = false;
+
+      Services.obs.addObserver((subject, topic, data) => {
+        _webembed_log(`receive geolocation-device-events: ${data}`);
+        let oldState = this.geolocationActive;
+        switch (data) {
+          case "GPSStarting":
+            if (!this.geolocationActive) {
+              this.geolocationActive = true;
+              this.gpsChipOn = true;
+            }
+            break;
+          case "GPSShutdown":
+            if (this.gpsChipOn) {
+              this.geolocationActive = false;
+              this.gpsChipOn = false;
+            }
+            break;
+          case "starting":
+            this.geolocationActive = true;
+            this.gpsChipOn = false;
+            break;
+          case "shutdown":
+            this.geolocationActive = false;
+            break;
+        }
+        if (this.geolocationActive != oldState) {
+          this.dispatchEvent(
+            new CustomEvent("geolocation-status", {
+              detail: this.geolocationActive,
+            })
+          );
+        }
+      }, "geolocation-device-events");
+
       if (delegates.notifications) {
         Services.obs.notifyObservers(
           { wrappedJSObject: delegates.notifications },
