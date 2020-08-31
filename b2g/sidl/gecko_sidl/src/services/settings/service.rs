@@ -17,7 +17,7 @@ use crate::geterror_as_isettingerror;
 use crate::services::core::service::*;
 use crate::services::settings::messages::*;
 use crate::services::settings::observer::*;
-use crate::settinginfo_as_isettingsinfo;
+use crate::settinginfo_as_isettinginfo;
 use log::{debug, error};
 use moz_task::{TaskRunnable, ThreadPtrHandle, ThreadPtrHolder};
 use nserror::{nsresult, NS_ERROR_INVALID_ARG, NS_OK};
@@ -28,21 +28,58 @@ use std::sync::Arc;
 use thin_vec::ThinVec;
 use xpcom::{
     interfaces::{
-        nsISettingError, nsISettingInfo, nsISettingsGetResponse, nsISettingsManager,
-        nsISettingsObserver, nsISidlConnectionObserver, nsISidlDefaultResponse,
+        nsISettingError, nsISettingInfo, nsISettingsGetBatchResponse, nsISettingsGetResponse,
+        nsISettingsManager, nsISettingsObserver, nsISidlConnectionObserver, nsISidlDefaultResponse,
         nsISidlEventListener,
     },
     RefPtr,
 };
 
 type GetSuccessType = SettingInfo;
+type GetBatchSuccessType = Vec<SettingInfo>;
 
+macro_rules! sidl_callback_for_resolve_settings_array {
+    ($interface:ty, $success:ty, $error: ty, $errtrans:tt) => {
+        impl SidlCallback for $interface {
+            type Success = $success;
+            type Error = $error;
+
+            fn resolve(&self, value: &Self::Success) {
+                let mut list: thin_vec::ThinVec<xpcom::RefPtr<xpcom::interfaces::nsISettingInfo>> =
+                    ThinVec::new();
+                for settinginfo in value {
+                    let settinginfo_xpcom = SettingInfoXpcom::new(&settinginfo);
+                    unsafe {
+                        settinginfo_xpcom.AddRef();
+                        let xpcom_coerce = settinginfo_xpcom.coerce::<nsISettingInfo>();
+                        list.push(RefPtr::new(xpcom_coerce));
+                    }
+                }
+                unsafe {
+                    self.Resolve(&list);
+                }
+            }
+
+            fn reject(&self, value: &Self::Error) {
+                unsafe {
+                    self.Reject($errtrans!(value));
+                }
+            }
+        }
+    };
+}
 sidl_callback_for!(nsISidlDefaultResponse);
 sidl_callback_for!(
     nsISettingsGetResponse,
     GetSuccessType,
     GetError,
-    settinginfo_as_isettingsinfo,
+    settinginfo_as_isettinginfo,
+    geterror_as_isettingerror
+);
+sidl_callback_for_resolve_settings_array!(
+    nsISettingsGetBatchResponse,
+    GetBatchSuccessType,
+    GetError,
     geterror_as_isettingerror
 );
 
@@ -55,6 +92,10 @@ type SetTask = (
 type GetTask = (
     SidlCallTask<GetSuccessType, GetError, nsISettingsGetResponse>,
     String, /* name */
+);
+type GetBatchTask = (
+    SidlCallTask<GetBatchSuccessType, GetError, nsISettingsGetBatchResponse>,
+    Vec<String>, /* names */
 );
 type AddObserverTask = (
     SidlCallTask<(), (), nsISidlDefaultResponse>,
@@ -70,6 +111,7 @@ enum SettingsTask {
     Clear(ClearTask),
     Set(SetTask),
     Get(GetTask),
+    GetBatch(GetBatchTask),
     AddObserver(AddObserverTask),
     RemoveObserver(RemoveObserverTask),
 }
@@ -189,6 +231,9 @@ impl ServiceClientImpl<SettingsTask> for SettingsManagerImpl {
                 SettingsTask::Get(task) => {
                     let _ = self.get(task);
                 }
+                SettingsTask::GetBatch(task) => {
+                    let _ = self.get_batch(task);
+                }
                 SettingsTask::AddObserver(task) => {
                     let _ = self.add_observer(task);
                 }
@@ -243,6 +288,16 @@ impl SettingsManagerImpl {
         let (task, name) = task;
         let request = SettingsManagerFromClient::SettingsFactoryGet(name);
         self.sender.send_task(&request, GetTaskReceiver { task });
+        Ok(())
+    }
+
+    fn get_batch(&mut self, task: GetBatchTask) -> Result<(), nsresult> {
+        debug!("SettingsManager::get_batch");
+
+        let (task, names) = task;
+        let request = SettingsManagerFromClient::SettingsFactoryGetBatch(names);
+        self.sender
+            .send_task(&request, GetBatchTaskReceiver { task });
         Ok(())
     }
 
@@ -335,6 +390,16 @@ task_receiver_success_error!(
     SettingsFactoryGetSuccess,
     SettingsFactoryGetError,
     GetSuccessType,
+    GetError
+);
+
+task_receiver_success_error!(
+    GetBatchTaskReceiver,
+    nsISettingsGetBatchResponse,
+    SettingsManagerToClient,
+    SettingsFactoryGetBatchSuccess,
+    SettingsFactoryGetError,
+    GetBatchSuccessType,
     GetError
 );
 
@@ -506,6 +571,40 @@ impl SettingsManagerXpcom {
         debug!("SettingsManager::get direct call");
         if let Some(inner) = self.inner.lock().as_ref() {
             return inner.lock().get(task);
+        } else {
+            error!("Unable to get SettingsManagerImpl");
+        }
+
+        Ok(())
+    }
+
+    xpcom_method!(get_batch => GetBatch(names: *const ThinVec<nsString>, callback: *const nsISettingsGetBatchResponse));
+    fn get_batch(
+        &self,
+        names: &ThinVec<nsString>,
+        callback: &nsISettingsGetBatchResponse,
+    ) -> Result<(), nsresult> {
+        debug!("SettingsManagerXpcom::get_batch");
+
+        let names: Vec<String> = names
+            .iter()
+            .filter_map(|item| Some(item.to_string()))
+            .collect();
+
+        let callback =
+            ThreadPtrHolder::new(cstr!("nsISettingsGetBatchResponse"), RefPtr::new(callback))
+                .unwrap();
+        let task = (SidlCallTask::new(callback), names);
+
+        if !self.ensure_service() {
+            self.queue_task(SettingsTask::GetBatch(task));
+            return Ok(());
+        }
+
+        // The service is ready, send the request right away.
+        debug!("SettingsManager::get_batch direct call");
+        if let Some(inner) = self.inner.lock().as_ref() {
+            return inner.lock().get_batch(task);
         } else {
             error!("Unable to get SettingsManagerImpl");
         }

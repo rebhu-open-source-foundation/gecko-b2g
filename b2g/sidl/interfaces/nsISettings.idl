@@ -28,6 +28,14 @@ interface nsISettingsGetResponse : nsISupports
   void reject(in nsISettingError error);
 };
 
+// A callback returning an array of setting.
+[scriptable, uuid(e2fe92af-5aff-4926-94ef-dc44994a6558)]
+interface nsISettingsGetBatchResponse : nsISupports
+{
+  void resolve(in Array<nsISettingInfo> settings);
+  void reject(in nsISettingError error);
+};
+
 // The Observer callback.
 [scriptable, uuid(f930c8f4-fc7d-4da2-a193-80a96b00786f)]
 interface nsISettingsObserver : nsISupports {
@@ -47,6 +55,9 @@ interface nsISettingsManager : nsISidlEventTarget
 
   // Get the value of a setting.
   void get(in AString name, in nsISettingsGetResponse callback);
+
+  // Get a batch of the values of a name list.
+  void getBatch(in Array<AString> names, in nsISettingsGetBatchResponse callback);
 
   // Adds an observer that will be notified when this setting changes.
   void addObserver(in AString name, in nsISettingsObserver observer, in nsISidlDefaultResponse callback);

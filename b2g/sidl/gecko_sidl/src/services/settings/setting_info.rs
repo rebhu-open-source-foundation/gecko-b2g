@@ -73,7 +73,7 @@ macro_rules! settinginfo_as_isupports {
 
 // Turns a SettingInfo into an xpcom nsISettingsInfo.
 #[macro_export]
-macro_rules! settinginfo_as_isettingsinfo {
+macro_rules! settinginfo_as_isettinginfo {
     ($obj:ident) => {
         {
             let xpcom = SettingInfoXpcom::new(&$obj);

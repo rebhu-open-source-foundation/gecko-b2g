@@ -14,6 +14,8 @@ Gecko communicates with api daemon by **Unix Domain Socket**, so every call is *
 
 Settings **get** function **rejects** on **non-existing** settings, see sample codes for error code usage.
 
+Settings **getBatch** function **do not rejects** on **non-existing** settings, the non-existing settings just do not appear in the returned list.
+
 :warning: The sample codes are for reference only, please note that the actual usage should still be subject to **nsISettings.idl**.
 
 :warning: The following codes omit null check for simplicity and readability, please remember to **add null check** before **every use**.
@@ -167,6 +169,55 @@ nsCOMPtr<nsISettingsManager> settingsManager = do_GetService("@mozilla.org/sidl-
 nsCOMPtr<nsISettingsGetResponse> getCallback = new TestGetCallback(aName);
 settingsManager->Get(aName, getCallback);
 ```
+### Get Batch Function
+#### header declaration
+```c++
+class TestGetBatchCallback final : public nsISettingsGetBatchResponse {
+  public:
+    NS_DECL_ISUPPORTS
+    NS_DECL_NSISETTINGSGETBATCHRESPONSE
+    explicit TestGetBatchCallback(const nsTArray<nsString >& aNames);
+
+  protected:
+    ~TestGetBatchCallback() = default;
+  private:
+    nsTArray<nsString> mNames;
+};
+```
+#### cpp definition
+```c++
+NS_IMPL_ISUPPORTS(TestGetBatchCallback, nsISettingsGetBatchResponse)
+TestGetBatchCallback::TestGetBatchCallback(const nsTArray<nsString >& aNames) : mNames(aNames.Clone()) {}
+
+NS_IMETHODIMP
+TestGetBatchCallback::Resolve(const nsTArray<RefPtr<nsISettingInfo> >& aSettings) {
+  for (size_t i = 0; i < aSettings.Length(); i++) {
+    nsString name;
+    nsString value;
+
+    RefPtr<nsISettingInfo> settingInfo = aSettings.ElementAt(i);
+    if (settingInfo) {
+      aSettings[i]->GetName(name);
+      aSettings[i]->GetValue(value);
+    }
+  }
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+TestGetBatchCallback::Reject(nsISettingError* aError) {
+  return NS_OK;
+}
+```
+#### cpp caller
+```c++
+nsTArray<nsString> names;
+names.AppendElement(u"testing.setting1"_ns);
+names.AppendElement(u"testing.setting2"_ns);
+nsCOMPtr<nsISettingsGetBatchResponse> getBatchCallback = new TestGetBatchCallback(names);
+aSettingsManager->GetBatch(names, getBatchCallback);
+```
 ### AddEventListener and RemoveEventListener Functions
 #### header declaration
 ```c++
@@ -307,6 +358,17 @@ settingsManager.get(
         // Something bad actually happened!
       }
     }
+  }
+);
+```
+### Get Batch Function
+```js
+let settingsManager = Cc["@mozilla.org/sidl-native/settings;1"].getService(Ci.nsISettingsManager);
+settingsManager.getBatch(
+  ["testing.setting1", "testing.setting2"]
+  {
+    "resolve": v => v.forEach(s => console.log(s.name + " " + s.value)),
+    "reject": v => console.log("reject " + v)
   }
 );
 ```

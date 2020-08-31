@@ -23,7 +23,7 @@ impl From<ObjectRef> for TrackerId {
 }
 
 pub static SERVICE_FINGERPRINT: &str =
-    "5d48958d28487986f180bb35534c8345ef72e0d593552c7c9b121e7f6ee3c";
+    "124e735f5ce56164d944ded9f7248e6e75de4ec9946bd68aafffe15d5f38c67";
 
 #[derive(Clone, PartialEq, Deserialize, Serialize, Debug)]
 pub enum GetErrorReason {
@@ -49,24 +49,27 @@ pub enum SettingsManagerFromClient {
     SettingsFactoryAddObserver(String, ObjectRef),    // 0
     SettingsFactoryClear,                             // 1
     SettingsFactoryGet(String),                       // 2
-    SettingsFactoryRemoveObserver(String, ObjectRef), // 3
-    SettingsFactorySet(Vec<SettingInfo>),             // 4
-    SettingObserverCallbackSuccess,                   // 5
-    SettingObserverCallbackError,                     // 6
+    SettingsFactoryGetBatch(Vec<String>),             // 3
+    SettingsFactoryRemoveObserver(String, ObjectRef), // 4
+    SettingsFactorySet(Vec<SettingInfo>),             // 5
+    SettingObserverCallbackSuccess,                   // 6
+    SettingObserverCallbackError,                     // 7
 }
 
 #[derive(Debug, Deserialize)]
 pub enum SettingsManagerToClient {
-    SettingsFactoryAddObserverSuccess,       // 0
-    SettingsFactoryAddObserverError,         // 1
-    SettingsFactoryClearSuccess,             // 2
-    SettingsFactoryClearError,               // 3
-    SettingsFactoryGetSuccess(SettingInfo),  // 4
-    SettingsFactoryGetError(GetError),       // 5
-    SettingsFactoryRemoveObserverSuccess,    // 6
-    SettingsFactoryRemoveObserverError,      // 7
-    SettingsFactorySetSuccess,               // 8
-    SettingsFactorySetError,                 // 9
-    SettingsFactoryChangeEvent(SettingInfo), // 10
-    SettingObserverCallback(SettingInfo),    // 11
+    SettingsFactoryAddObserverSuccess,                // 0
+    SettingsFactoryAddObserverError,                  // 1
+    SettingsFactoryClearSuccess,                      // 2
+    SettingsFactoryClearError,                        // 3
+    SettingsFactoryGetSuccess(SettingInfo),           // 4
+    SettingsFactoryGetError(GetError),                // 5
+    SettingsFactoryGetBatchSuccess(Vec<SettingInfo>), // 6
+    SettingsFactoryGetBatchError,                     // 7
+    SettingsFactoryRemoveObserverSuccess,             // 8
+    SettingsFactoryRemoveObserverError,               // 9
+    SettingsFactorySetSuccess,                        // 10
+    SettingsFactorySetError,                          // 11
+    SettingsFactoryChangeEvent(SettingInfo),          // 12
+    SettingObserverCallback(SettingInfo),             // 13
 }
