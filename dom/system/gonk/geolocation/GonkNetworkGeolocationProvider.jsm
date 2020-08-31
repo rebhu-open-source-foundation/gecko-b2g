@@ -17,6 +17,13 @@ XPCOMUtils.defineLazyModuleGetters(this, {
 
 XPCOMUtils.defineLazyGlobalGetters(this, ["fetch"]);
 
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gMobileConnectionService",
+  "@mozilla.org/mobileconnection/mobileconnectionservice;1",
+  "nsIMobileConnectionService"
+);
+
 // GeolocationPositionError has no interface object, so we can't use that here.
 const POSITION_UNAVAILABLE = 2;
 const TELEMETRY_KEY = "REGION_LOCATION_SERVICES_DIFFERENCE";
@@ -32,6 +39,10 @@ function LOG(aMsg) {
   if (gLoggingEnabled) {
     dump("*** WIFI GEO: " + aMsg + "\n");
   }
+}
+
+function ERR(aMsg) {
+  dump("*** WIFI GEO ERR: " + aMsg + "\n");
 }
 
 function CachedRequest(loc, cellInfo, wifiList) {
@@ -378,6 +389,76 @@ GonkNetworkGeolocationProvider.prototype = {
     this.sendLocationRequest(null);
   },
 
+  getMobileInfo() {
+    LOG("getMobileInfo called");
+    try {
+      let service = gMobileConnectionService;
+
+      let result = [];
+      for (let i = 0; i < service.numItems; i++) {
+        LOG("Looking for SIM in slot:" + i + " of " + service.numItems);
+        let connection = service.getItemByServiceId(i);
+        let voice = connection && connection.voice;
+        let cell = voice && voice.cell;
+        let type = voice && voice.type;
+        let network = voice && voice.network;
+        let signalStrength = connection && connection.signalStrength;
+
+        if (network && cell && type && signalStrength) {
+          let radioTechFamily;
+          let mobileSignal;
+          switch (type) {
+            case "gsm":
+            case "gprs":
+            case "edge":
+              radioTechFamily = "gsm";
+              mobileSignal = 2 * signalStrength.gsmSignalStrength - 113; // ASU to dBm
+              break;
+            case "umts":
+            case "hsdpa":
+            case "hsupa":
+            case "hspa":
+            case "hspa+":
+              radioTechFamily = "wcdma";
+              mobileSignal = 2 * signalStrength.gsmSignalStrength - 113; // ASU to dBm
+              break;
+            case "lte":
+              radioTechFamily = "lte";
+              // lteSignalStrength, ASU format, value range (0-31, 99)
+              mobileSignal = signalStrength.lteSignalStrength;
+              if (mobileSignal >= 0 && mobileSignal <= 31) {
+                mobileSignal = 2 * signalStrength.lteSignalStrength - 113; // ASU to dBm
+              } else {
+                // lteSignalStrength is invalid value, try lteRsrp.
+                // Reference Signal Receive Power in dBm, range: -140 to -44 dBm.
+                var rsrp = signalStrength.lteRsrp;
+
+                if (rsrp >= -140 && rsrp <= -44) {
+                  mobileSignal = rsrp;
+                } else {
+                  ERR("Can't find valid LTE signal strength");
+                  mobileSignal = undefined;
+                }
+              }
+              break;
+            // CDMA cases to be handled in bug 1010282
+          }
+          result.push({
+            radioType: radioTechFamily,
+            mobileCountryCode: parseInt(voice.network.mcc, 10),
+            mobileNetworkCode: parseInt(voice.network.mnc, 10),
+            locationAreaCode: cell.gsmLocationAreaCode,
+            cellId: cell.gsmCellId,
+            signalStrength: mobileSignal,
+          });
+        }
+      }
+      return result;
+    } catch (e) {
+      return null;
+    }
+  },
+
   onStatus(err, statusMessage) {
     if (!this.listener) {
       return;
@@ -425,6 +506,11 @@ GonkNetworkGeolocationProvider.prototype = {
     let data = { cellTowers: undefined, wifiAccessPoints: undefined };
     if (wifiData && wifiData.length >= 2) {
       data.wifiAccessPoints = wifiData;
+    }
+
+    let cellData = this.getMobileInfo();
+    if (cellData && cellData.length > 0) {
+      data.cellTowers = cellData;
     }
 
     let useCached = isCachedRequestMoreAccurateThanServerRequest(
