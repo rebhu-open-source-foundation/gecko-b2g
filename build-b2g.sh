@@ -172,8 +172,9 @@ export CPPFLAGS="-DANDROID -DTARGET_OS_GONK \
 -isystem $GONK_PATH/frameworks/native/libs/nativewindow/include \
 -isystem $GONK_PATH/frameworks/native/libs/ui/include \
 -isystem $GONK_PATH/frameworks/native/opengl/include \
--isystem $GONK_PATH/gonk-misc/libcarthage/HWC \
--isystem $GONK_PATH/gonk-misc/libcarthage/include \
+-isystem $GONK_PATH/hardware/interfaces/graphics/composer/2.1/utils/command-buffer/include \
+-isystem $GONK_PATH/hardware/interfaces/graphics/composer/2.2/utils/command-buffer/include \
+-isystem $GONK_PATH/hardware/interfaces/graphics/composer/2.3/utils/command-buffer/include \
 -isystem $GONK_PATH/hardware/libhardware/include \
 -isystem $GONK_PATH/hardware/libhardware_legacy/include \
 -isystem $GONK_PATH/system/connectivity \
@@ -187,7 +188,9 @@ export CPPFLAGS="-DANDROID -DTARGET_OS_GONK \
 -isystem $GONK_PATH/system/core/libsystem/include \
 -isystem $GONK_PATH/system/core/libsysutils/include \
 -isystem $GONK_PATH/system/core/libutils/include \
+-isystem $GONK_PATH/system/libfmq/include \
 -isystem $GONK_PATH/system/libhidl/base/include \
+-isystem $GONK_PATH/system/libhidl/transport/include \
 -isystem $GONK_PATH/system/libhidl/transport/token/1.0/utils/include \
 -isystem $GONK_PATH/system/media/audio/include \
 -isystem $GONK_PATH/system/media/camera/include \
@@ -201,8 +204,12 @@ export CPPFLAGS="-DANDROID -DTARGET_OS_GONK \
 -isystem $HIDL_HW/graphics/common/1.0/android.hardware.graphics.common@1.0_genc++_headers/gen \
 -isystem $HIDL_HW/graphics/common/1.1/android.hardware.graphics.common@1.1_genc++_headers/gen \
 -isystem $HIDL_HW/graphics/common/1.2/android.hardware.graphics.common@1.2_genc++_headers/gen \
+-isystem $HIDL_HW/graphics/composer/2.1/android.hardware.graphics.composer@2.1_genc++_headers/gen \
+-isystem $HIDL_HW/graphics/composer/2.2/android.hardware.graphics.composer@2.2_genc++_headers/gen \
+-isystem $HIDL_HW/graphics/composer/2.3/android.hardware.graphics.composer@2.3_genc++_headers/gen \
 -isystem $HIDL_HW/media/1.0/android.hardware.media@1.0_genc++_headers/gen \
 -isystem $HIDL_HW/media/omx/1.0/android.hardware.media.omx@1.0_genc++_headers/gen \
+-isystem $HIDL_HW/power/1.0/android.hardware.power@1.0_genc++_headers/gen \
 -isystem $HIDL_HW/radio/1.0/android.hardware.radio@1.0_genc++_headers/gen \
 -isystem $HIDL_HW/sensors/1.0/android.hardware.sensors@1.0_genc++_headers/gen \
 -isystem $HIDL_HW/vibrator/1.0/android.hardware.vibrator@1.0_genc++_headers/gen \

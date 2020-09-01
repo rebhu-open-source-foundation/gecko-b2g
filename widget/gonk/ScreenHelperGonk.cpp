@@ -66,9 +66,6 @@ using namespace mozilla::widget;
 
 #include "NativeGralloc.h"
 
-typedef android::GonkDisplay GonkDisplay;
-extern GonkDisplay* GetGonkDisplay();
-
 class ScreenOnOffEvent : public mozilla::Runnable {
  public:
   explicit ScreenOnOffEvent(bool on)

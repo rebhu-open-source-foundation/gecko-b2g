@@ -121,6 +121,12 @@ def Libxul(name, output_category=None):
             CONFIG['ANDROID_WIFICOND_SO'],
             CONFIG['BINDER_B2G_CONNECTIVITY_SO'],
             CONFIG['BINDER_B2G_TELEPHONY_SO'],
+            CONFIG['ANDROID_GRAPHICS_COMPOSER_2_1_SO'],
+            CONFIG['ANDROID_GRAPHICS_COMPOSER_2_2_SO'],
+            CONFIG['ANDROID_GRAPHICS_COMPOSER_2_3_SO'],
+            CONFIG['ANDROID_FMQ_SO'],
+            CONFIG['ANDROID_SYNC_SO'],
+            CONFIG['ANDROID_POWER_1_0_SO'],
         ]
         if CONFIG['ANDROID_VERSION'] >= '29':
             LDFLAGS += [

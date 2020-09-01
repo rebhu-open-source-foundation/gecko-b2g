@@ -421,4 +421,70 @@ set_define('GPU_NODE_imagination', 2)
 set_define('GPU_NODE_mali', 3)
 set_define('MOZ_SANDBOX_GPU_NODE', sandboxgpunode)
 
+# HWC2:Composer 2.1 Support
+# ==============================================================
+option('--with-graphics-composer-2.1-so', nargs=1,
+       help='Assign the path of android.hardware.graphics.composer@2.1.so')
+
+@depends_if('--with-graphics-composer-2.1-so')
+def graphics_composer_2_1_so(value):
+    return value[0]
+
+set_config('ANDROID_GRAPHICS_COMPOSER_2_1_SO', graphics_composer_2_1_so)
+
+# HWC2:Composer 2.2 Support
+# ==============================================================
+option('--with-graphics-composer-2.2-so', nargs=1,
+       help='Assign the path of android.hardware.graphics.composer@2.2.so')
+
+@depends_if('--with-graphics-composer-2.2-so')
+def graphics_composer_2_2_so(value):
+    return value[0]
+
+set_config('ANDROID_GRAPHICS_COMPOSER_2_2_SO', graphics_composer_2_2_so)
+
+# HWC2:Composer 2.3 Support
+# ==============================================================
+option('--with-graphics-composer-2.3-so', nargs=1,
+       help='Assign the path of android.hardware.graphics.composer@2.3.so')
+
+@depends_if('--with-graphics-composer-2.3-so')
+def graphics_composer_2_3_so(value):
+    return value[0]
+
+set_config('ANDROID_GRAPHICS_COMPOSER_2_3_SO', graphics_composer_2_3_so)
+
+# Android Library libfmq Support
+# ==============================================================
+option('--with-android_fmq-so', nargs=1,
+       help='Assign the path of libfmq.so')
+
+@depends_if('--with-android_fmq-so')
+def android_fmq_so(value):
+    return value[0]
+
+set_config('ANDROID_FMQ_SO', android_fmq_so)
+
+# Android Library libsync Support
+# ==============================================================
+option('--with-android_sync-so', nargs=1,
+       help='Assign the path of libsync.so')
+
+@depends_if('--with-android_sync-so')
+def android_sync_so(value):
+    return value[0]
+
+set_config('ANDROID_SYNC_SO', android_sync_so)
+
+# Android Hardware POWER Support
+# ==============================================================
+option('--with-android-power-1.0-so', nargs=1,
+       help='Assign the path of android.hardware.power@1.0.so')
+
+@depends_if('--with-android-power-1.0-so')
+def android_power_1_0_so(value):
+    return value[0]
+
+set_config('ANDROID_POWER_1_0_SO', android_power_1_0_so)
+
 include('common.configure')

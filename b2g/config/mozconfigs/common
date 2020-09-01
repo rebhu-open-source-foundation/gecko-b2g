@@ -98,6 +98,12 @@ ac_add_options --with-wifi-1.3-so="$MOZ_FETCHES_DIR/b2g-sysroot/out/target/produ
 ac_add_options --with-wifi-keystore-1.0-so="$MOZ_FETCHES_DIR/b2g-sysroot/out/target/product/generic_x86_64/system/lib64/android.system.wifi.keystore@1.0.so"
 ac_add_options --with-wificond-so="$MOZ_FETCHES_DIR/b2g-sysroot/out/target/product/generic_x86_64/system/lib64/libwificond_ipc_shared.so"
 ac_add_options --with-mtp-so="$MOZ_FETCHES_DIR/b2g-sysroot/out/target/product/generic_x86_64/system/lib64/libmtp.so"
+ac_add_options --with-graphics-composer-2.1-so="$MOZ_FETCHES_DIR/b2g-sysroot/out/target/product/generic_x86_64/system/lib64/android.hardware.graphics.composer@2.1.so"
+ac_add_options --with-graphics-composer-2.2-so="$MOZ_FETCHES_DIR/b2g-sysroot/out/target/product/generic_x86_64/system/lib64/android.hardware.graphics.composer@2.2.so"
+ac_add_options --with-graphics-composer-2.3-so="$MOZ_FETCHES_DIR/b2g-sysroot/out/target/product/generic_x86_64/system/lib64/android.hardware.graphics.composer@2.3.so"
+ac_add_options --with-android-power-1.0-so="$MOZ_FETCHES_DIR/b2g-sysroot/out/target/product/generic_x86_64/system/lib64/android.hardware.power@1.0.so"
+ac_add_options --with-android_fmq-so="$MOZ_FETCHES_DIR/b2g-sysroot/out/target/product/generic_x86_64/system/lib64/libfmq.so"
+ac_add_options --with-android_sync-so="$MOZ_FETCHES_DIR/b2g-sysroot/out/target/product/generic_x86_64/system/lib64/libsync.so"
 
 export CFLAGS="-Wno-nullability-completeness"
 

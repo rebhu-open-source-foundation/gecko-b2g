@@ -18,14 +18,37 @@ SOURCES += [
     'BootAnimation.cpp',
 ]
 
-Library('display')
+if CONFIG['CPU_ARCH'] == 'arm' and CONFIG['BUILD_ARM_NEON']:
+    SOURCES += ['rgb8888_to_rgb565_neon.cpp']
+    SOURCES['rgb8888_to_rgb565_neon.cpp'].flags += ['-mfpu=neon']
+
+if CONFIG['CPU_ARCH'] in ('x86', 'x86_64') :
+    CFLAGS += ['-DANDROID_EMULATOR']
+    CXXFLAGS += ['-DANDROID_EMULATOR']
+
+UNIFIED_SOURCES += [
+    'FramebufferSurface.cpp',
+    'GonkDisplay.cpp',
+    'GrallocUsageConversion.cpp',
+    'NativeFramebufferDevice.cpp',
+    'NativeGralloc.cpp',
+    'WorkThread.cpp',
+]
+
+#Library('display')
 
 include('/ipc/chromium/chromium-config.mozbuild')
 
-FORCE_STATIC_LIB = True
+LOCAL_INCLUDES += [
+    '../hwchal',
+]
+
+#FORCE_STATIC_LIB = True
 
 DEFINES['XPCOM_GLUE'] = True
 DEFINES['HAVE_SYS_UIO_H'] = True
+
+FINAL_LIBRARY = 'xul'
 
 AllowCompilerWarnings()
 

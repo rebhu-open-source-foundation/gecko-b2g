@@ -68,9 +68,6 @@ using namespace android;
 using namespace mozilla::gfx;
 using namespace mozilla::layers;
 
-typedef android::GonkDisplay GonkDisplay;
-extern GonkDisplay* GetGonkDisplay();
-
 namespace mozilla {
 
 static void HookInvalidate() { HwcComposer2D::GetInstance()->Invalidate(); }
@@ -179,9 +176,8 @@ void HwcComposer2D::Vsync(int aDisplay, nsecs_t aVsyncTimestamp) {
     return;
   }
 
-  VsyncSource::Display& display = gfxPlatform::GetPlatform()
-                     ->GetHardwareVsync()
-                     ->GetGlobalDisplay();
+  VsyncSource::Display& display =
+      gfxPlatform::GetPlatform()->GetHardwareVsync()->GetGlobalDisplay();
   TimeStamp vsyncTime = mozilla::TimeStamp::FromSystemTime(aVsyncTimestamp);
   TimeStamp outputTime = vsyncTime + display.GetVsyncRate();
   display.NotifyVsync(vsyncTime, outputTime);

@@ -23,7 +23,7 @@
 #include "nsRect.h"
 
 #include <hardware/hwcomposer.h>
-#include "android_10/HWC2.h"
+
 
 #ifndef HWC_BLIT
 #  define HWC_BLIT 0xFF
@@ -31,7 +31,6 @@
 
 namespace mozilla {
 
-using HwcDevice = HWC2::Device;
 using HwcList = hwc_display_contents_1_t;
 using HwcLayer = hwc_layer_1_t;
 

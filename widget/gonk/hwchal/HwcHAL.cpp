@@ -22,48 +22,6 @@
 #include "nsIScreen.h"
 #include <dlfcn.h>
 
-typedef android::GonkDisplay GonkDisplay;
-extern GonkDisplay* GetGonkDisplay();
-
-typedef HWC2::Display* (*fnGetDisplayById)(HWC2::Device*, hwc2_display_t);
-HWC2::Display* hwc2_getDisplayById(HWC2::Device* p, hwc2_display_t id) {
-  HWC2::Display* display = nullptr;
-  void* lib = dlopen("libcarthage.so", RTLD_NOW);
-  if (lib == nullptr) {
-    ALOGE("Could not dlopen(\"libcarthage.so\"):");
-    return display;
-  }
-
-  fnGetDisplayById func = (fnGetDisplayById)dlsym(lib, "hwc2_getDisplayById");
-  if (func == nullptr) {
-    ALOGE("Symbol 'hwc2_getDisplayById' is missing from shared library!!\n");
-    return display;
-  }
-
-  display = func(p, id);
-  return display;
-}
-
-typedef HWC2::Error (*fnSetVsyncEnabled)(HWC2::Display*, HWC2::Vsync);
-HWC2::Error hwc2_setVsyncEnabled(HWC2::Display* p, HWC2::Vsync enabled) {
-  HWC2::Error err = HWC2::Error::None;
-  void* lib = dlopen("libcarthage.so", RTLD_NOW);
-  if (lib == nullptr) {
-    ALOGE("Could not dlopen(\"libcarthage.so\"):");
-    return HWC2::Error::BadDisplay;
-  }
-
-  fnSetVsyncEnabled func =
-      (fnSetVsyncEnabled)dlsym(lib, "hwc2_setVsyncEnabled");
-  if (func == nullptr) {
-    ALOGE("Symbol 'hwc2_setVsyncEnabled' is missing from shared library!!\n");
-    return HWC2::Error::BadDisplay;
-  }
-
-  err = func(p, enabled);
-  return err;
-}
-
 namespace mozilla {
 
 HwcHAL::HwcHAL() : HwcHALBase() {

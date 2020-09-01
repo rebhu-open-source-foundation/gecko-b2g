@@ -57,7 +57,7 @@ enum class NotifyDisplayChangedEvent : int8_t { Observable, Suppressed };
 
 class nsScreenGonk : public nsBaseScreen {
   typedef mozilla::hal::ScreenConfiguration ScreenConfiguration;
-  typedef android::GonkDisplay GonkDisplay;
+  typedef mozilla::GonkDisplay GonkDisplay;
   typedef mozilla::LayoutDeviceIntRect LayoutDeviceIntRect;
   typedef mozilla::layers::CompositorBridgeParent CompositorBridgeParent;
   typedef mozilla::gfx::DrawTarget DrawTarget;

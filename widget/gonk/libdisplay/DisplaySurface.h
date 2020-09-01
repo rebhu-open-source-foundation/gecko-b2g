@@ -38,9 +38,9 @@ namespace android {
 // ---------------------------------------------------------------------------
 
 class IGraphicBufferProducer;
+class IGraphicBufferConsumer;
 class String8;
 
-typedef IGraphicBufferConsumer StreamConsumer;
 
 class DisplaySurface : public ConsumerBase {
  public:
@@ -62,12 +62,6 @@ class DisplaySurface : public ConsumerBase {
     COMPOSITION_MIXED = COMPOSITION_GLES | COMPOSITION_HWC
   };
   virtual status_t prepareFrame(CompositionType compositionType) = 0;
-
-  // Should be called when composition rendering is complete for a frame (but
-  // eglSwapBuffers hasn't necessarily been called). Required by certain
-  // older drivers for synchronization.
-  // TODO: Remove this when we drop support for HWC 1.0.
-  virtual status_t compositionComplete() = 0;
 
   // Inform the surface that GLES composition is complete for this frame, and
   // the surface should make sure that HWComposer has the correct buffer for
@@ -99,8 +93,10 @@ class DisplaySurface : public ConsumerBase {
   buffer_handle_t lastHandle;
 
  protected:
-  DisplaySurface(const sp<StreamConsumer>& sc)
-      : ConsumerBase(sc, true), lastHandle(0) {}
+    DisplaySurface(const sp<IGraphicBufferConsumer>& sc)
+        : ConsumerBase(sc, true)
+        , lastHandle(0)
+    { }
   virtual ~DisplaySurface() {}
 };
 

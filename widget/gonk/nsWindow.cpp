@@ -75,9 +75,6 @@ using namespace mozilla::gl;
 using namespace mozilla::layers;
 using namespace mozilla::widget;
 
-typedef android::GonkDisplay GonkDisplay;
-extern GonkDisplay* GetGonkDisplay();
-
 static nsWindow* gFocusedWindow = nullptr;
 
 NS_IMPL_ISUPPORTS_INHERITED0(nsWindow, nsBaseWidget)

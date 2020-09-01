@@ -19,7 +19,7 @@
 #ifndef mozilla_HwcComposer2D
 #define mozilla_HwcComposer2D
 
-#include "hwchal/HwcHALBase.h"  // for HwcHAL
+#include "hwchal/HwcHAL.h"  // for HwcHAL
 #include "HwcUtils.h"           // for RectVector
 #include "Layers.h"
 #include "mozilla/layers/Composer2D.h"

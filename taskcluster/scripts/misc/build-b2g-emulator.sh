@@ -161,9 +161,13 @@ copy_to_sysroot_full_path "${PREBUILTS}"
 
 # Copy the system libraries to the sysroot
 LIBRARIES="out/target/product/generic_x86_64/system/lib64/android.hardware.gnss@1.0.so
+out/target/product/generic_x86_64/system/lib64/android.hardware.graphics.composer@2.1.so
+out/target/product/generic_x86_64/system/lib64/android.hardware.graphics.composer@2.2.so
+out/target/product/generic_x86_64/system/lib64/android.hardware.graphics.composer@2.3.so
 out/target/product/generic_x86_64/system/lib64/android.hardware.gnss@1.1.so
 out/target/product/generic_x86_64/system/lib64/android.hardware.gnss@2.0.so
 out/target/product/generic_x86_64/system/lib64/android.hardware.gnss.visibility_control@1.0.so
+out/target/product/generic_x86_64/system/lib64/android.hardware.power@1.0.so
 out/target/product/generic_x86_64/system/lib64/android.hardware.radio@1.0.so
 out/target/product/generic_x86_64/system/lib64/android.hardware.sensors@1.0.so
 out/target/product/generic_x86_64/system/lib64/android.hardware.vibrator@1.0.so
@@ -186,6 +190,7 @@ out/target/product/generic_x86_64/system/lib64/libbinder.so
 out/target/product/generic_x86_64/system/lib64/libcamera_client.so
 out/target/product/generic_x86_64/system/lib64/libc++.so
 out/target/product/generic_x86_64/system/lib64/libcutils.so
+out/target/product/generic_x86_64/system/lib64/libfmq.so
 out/target/product/generic_x86_64/system/lib64/libgui.so
 out/target/product/generic_x86_64/system/lib64/libhardware_legacy.so
 out/target/product/generic_x86_64/system/lib64/libhardware.so
@@ -199,6 +204,7 @@ out/target/product/generic_x86_64/system/lib64/libstagefright_foundation.so
 out/target/product/generic_x86_64/system/lib64/libstagefright_omx.so
 out/target/product/generic_x86_64/system/lib64/libstagefright.so
 out/target/product/generic_x86_64/system/lib64/libsuspend.so
+out/target/product/generic_x86_64/system/lib64/libsync.so
 out/target/product/generic_x86_64/system/lib64/libsysutils.so
 out/target/product/generic_x86_64/system/lib64/libui.so
 out/target/product/generic_x86_64/system/lib64/libutils.so
@@ -229,8 +235,9 @@ frameworks/native/libs/nativebase/include
 frameworks/native/libs/nativewindow/include
 frameworks/native/libs/ui/include
 frameworks/native/opengl/include
-gonk-misc/libcarthage/HWC
-gonk-misc/libcarthage/include
+hardware/interfaces/graphics/composer/2.1/utils/command-buffer/include
+hardware/interfaces/graphics/composer/2.2/utils/command-buffer/include
+hardware/interfaces/graphics/composer/2.3/utils/command-buffer/include
 hardware/libhardware/include
 hardware/libhardware_legacy/include
 system/connectivity
@@ -244,7 +251,9 @@ system/core/libsync/include
 system/core/libsystem/include
 system/core/libsysutils/include
 system/core/libutils/include
+system/libfmq/include
 system/libhidl/base/include
+system/libhidl/transport/include
 system/libhidl/transport/token/1.0/utils/include
 system/media/audio/include
 system/media/camera/include"
@@ -278,8 +287,12 @@ out/soong/.intermediates/hardware/interfaces/graphics/bufferqueue/2.0/android.ha
 out/soong/.intermediates/hardware/interfaces/graphics/common/1.0/android.hardware.graphics.common@1.0_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/graphics/common/1.1/android.hardware.graphics.common@1.1_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/graphics/common/1.2/android.hardware.graphics.common@1.2_genc++_headers/gen
+out/soong/.intermediates/hardware/interfaces/graphics/composer/2.1/android.hardware.graphics.composer@2.1_genc++_headers/gen
+out/soong/.intermediates/hardware/interfaces/graphics/composer/2.2/android.hardware.graphics.composer@2.2_genc++_headers/gen
+out/soong/.intermediates/hardware/interfaces/graphics/composer/2.3/android.hardware.graphics.composer@2.3_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/media/1.0/android.hardware.media@1.0_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/media/omx/1.0/android.hardware.media.omx@1.0_genc++_headers/gen
+out/soong/.intermediates/hardware/interfaces/power/1.0/android.hardware.power@1.0_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/radio/1.0/android.hardware.radio@1.0_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/sensors/1.0/android.hardware.sensors@1.0_genc++_headers/gen
 out/soong/.intermediates/hardware/interfaces/vibrator/1.0/android.hardware.vibrator@1.0_genc++_headers/gen

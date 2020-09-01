@@ -20,8 +20,12 @@
 #define mozilla_HwcHAL
 
 #include "HwcHALBase.h"
+#include "android_10/HWC2.h"
+#include "android_10/ComposerHal.h"
 
 namespace mozilla {
+
+using HwcDevice = HWC2::Device;
 
 class HwcHAL final : public HwcHALBase {
  public:

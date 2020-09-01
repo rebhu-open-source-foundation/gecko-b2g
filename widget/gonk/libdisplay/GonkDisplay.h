@@ -1,4 +1,5 @@
-/* Copyright 2013 Mozilla Foundation and Mozilla contributors
+/* Copyright (C) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED. All rights reserved.
+ * Copyright 2013 Mozilla Foundation and Mozilla contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +23,11 @@
 #include "nsIScreen.h"
 
 namespace android {
+class DisplaySurface;
+class IGraphicBufferProducer;
+}
+
+namespace mozilla {
 
 typedef void* EGLDisplay;
 typedef void* EGLSurface;
@@ -40,7 +46,12 @@ class MOZ_EXPORT GonkDisplay {
   };
 
   struct DisplayNativeData {
-    DisplayNativeData() : mXdpi(0), mSurfaceformat(0), mWidth(0), mHeight(0){};
+    DisplayNativeData()
+        : mXdpi(0)
+         ,mSurfaceformat(0)
+         ,mWidth(0)
+         , mHeight(0)
+     {};
 
     float mXdpi;
     int32_t mSurfaceformat;
@@ -117,7 +128,8 @@ class MOZ_EXPORT GonkDisplay {
   GonkDisplayInvalidateCBFun pInvalidateCBFun = nullptr;
 };
 
-extern "C" MOZ_EXPORT __attribute__((weak)) GonkDisplay* GetGonkDisplayP();
+MOZ_EXPORT __attribute__((weak))
+GonkDisplay* GetGonkDisplay();
 
 }  // namespace android
 

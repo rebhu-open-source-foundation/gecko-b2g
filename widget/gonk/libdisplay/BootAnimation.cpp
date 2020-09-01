@@ -45,66 +45,6 @@
 using namespace mozilla;
 using namespace std;
 
-typedef android::GonkDisplay GonkDisplay;
-extern GonkDisplay* GetGonkDisplay();
-typedef android::GonkDisplay* (*fnGetGonkDisplay)();
-GonkDisplay* GetGonkDisplay() {
-  GonkDisplay* display = NULL;
-  void* lib = dlopen("libcarthage.so", RTLD_NOW);
-  MOZ_ASSERT(lib != NULL, "libcarthage.so is not found!");
-  {
-    fnGetGonkDisplay func = (fnGetGonkDisplay)dlsym(lib, "GetGonkDisplayP");
-    if (func == NULL) {
-      LOGE("Symbol 'GetGonkDisplayP' is missing from shared library!!\n");
-    } else {
-      display = func();
-    }
-  }
-  return display;
-}
-
-typedef int (*fnNative_Gralloc_Lock)(buffer_handle_t handle, int usage, int l,
-                                     int t, int w, int h, void** vaddr);
-int native_gralloc_lock(buffer_handle_t handle, int usage, int l, int t, int w,
-                        int h, void** vaddr) {
-  int result = 0;
-  void* lib = dlopen("libcarthage.so", RTLD_NOW);
-  if (lib == nullptr) {
-    ALOGE("Could not dlopen(\"libcarthage.so\"):");
-    return result;
-  }
-
-  fnNative_Gralloc_Lock func =
-      (fnNative_Gralloc_Lock)dlsym(lib, "native_gralloc_lock");
-  if (func == nullptr) {
-    ALOGE("Symbol 'native_gralloc_lock' is missing from shared library!!\n");
-    return result;
-  }
-
-  result = func(handle, usage, l, t, w, h, vaddr);
-  return result;
-}
-
-typedef int (*fnNative_Gralloc_Unlock)(buffer_handle_t handle);
-int native_gralloc_unlock(buffer_handle_t handle) {
-  int result = 0;
-  void* lib = dlopen("libcarthage.so", RTLD_NOW);
-  if (lib == nullptr) {
-    ALOGE("Could not dlopen(\"libcarthage.so\"):");
-    return result;
-  }
-
-  fnNative_Gralloc_Unlock func =
-      (fnNative_Gralloc_Unlock)dlsym(lib, "native_gralloc_unlock");
-  if (func == nullptr) {
-    ALOGE("Symbol 'native_gralloc_unlock' is missing from shared library!!\n");
-    return result;
-  }
-
-  result = func(handle);
-  return result;
-}
-
 namespace mozilla {
 __attribute__((visibility("default"))) void HookSetVsyncAlwaysEnabled(
     bool aAlways);
@@ -366,9 +306,9 @@ void setBacklight(uint32_t aBrightness, bool aIsExternal) {
   }
 
   // Convert the value in [0, 100] to an int between 0 and 255.
-  uint32_t val = aBrightness * 255/100;
+  uint32_t val = aBrightness * 255 / 100;
 
-  #define BUFFER_SIZE 100
+#define BUFFER_SIZE 100
   char buf[BUFFER_SIZE];
   SprintfLiteral(buf, "%d", val);
 
@@ -799,24 +739,24 @@ static void* AnimationThread(void*) {
   }
 
   if (display->IsExtFBDeviceEnabled()) {
-      animVec.push_back(Animation());
-      Animation &extAnimation = animVec.back();
-      extAnimation.dpy = DisplayType::DISPLAY_EXTERNAL;
-      extAnimation.format = extDispData.mSurfaceformat;
+    animVec.push_back(Animation());
+    Animation& extAnimation = animVec.back();
+    extAnimation.dpy = DisplayType::DISPLAY_EXTERNAL;
+    extAnimation.format = extDispData.mSurfaceformat;
       if (!extAnimation.LoadAnimations("/system/media/bootanimation_external.zip") ||
-          !animVec[0].CanPlaySimultaneously(extAnimation)) {
-          LOGW("Failed to load boot animation file for external screen");
-          ShowSolidColorFrame(display, extDispData.mSurfaceformat,
-                              DisplayType::DISPLAY_EXTERNAL);
-          animVec.pop_back();
-      } else {
-          // Turn on external screen backlight before playing animation and
-          // draw a solid frame to clear noise on panel.
-          ShowSolidColorFrame(display, extDispData.mSurfaceformat,
+        !animVec[0].CanPlaySimultaneously(extAnimation)) {
+      LOGW("Failed to load boot animation file for external screen");
+      ShowSolidColorFrame(display, extDispData.mSurfaceformat,
                           DisplayType::DISPLAY_EXTERNAL);
-          usleep(20000);
-          setBacklight(100, true);
-      }
+      animVec.pop_back();
+    } else {
+      // Turn on external screen backlight before playing animation and
+      // draw a solid frame to clear noise on panel.
+      ShowSolidColorFrame(display, extDispData.mSurfaceformat,
+                          DisplayType::DISPLAY_EXTERNAL);
+      usleep(20000);
+      setBacklight(100, true);
+    }
   }
   // Turn on primary screen backlight before playing animation,
   setBacklight(100, false);
@@ -902,8 +842,8 @@ static void* AnimationThread(void*) {
     ShowSolidColorFrame(display, dispData.mSurfaceformat,
                         DisplayType::DISPLAY_PRIMARY);
     if (display->IsExtFBDeviceEnabled()) {
-        ShowSolidColorFrame(display, extDispData.mSurfaceformat,
-                            DisplayType::DISPLAY_EXTERNAL);
+      ShowSolidColorFrame(display, extDispData.mSurfaceformat,
+                          DisplayType::DISPLAY_EXTERNAL);
     }
   }
 
