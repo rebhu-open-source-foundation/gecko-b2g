@@ -716,6 +716,7 @@ id_and_secret_keyfile('Leanplum SDK')
 simple_keyfile('Pocket API')
 
 simple_keyfile('KaiOS Push API')
+simple_keyfile('KaiOS Service API')
 
 # WebRender Debugger integration
 # ==============================================================

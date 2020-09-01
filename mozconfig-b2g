@@ -143,3 +143,7 @@ fi;
 if [ "$TARGET_ARCH" = "arm64" ]; then
   ac_add_options --disable-sandbox
 fi;
+
+if [ -f "$KAI_SERVICE_KEY_FILE" ]; then
+ac_add_options --with-kaios-service-api-keyfile="$KAI_SERVICE_KEY_FILE"
+fi
