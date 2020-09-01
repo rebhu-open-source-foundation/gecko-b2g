@@ -5,28 +5,29 @@
 # LIMITED or its affiliate company and may be registered in some jurisdictions.
 # All other trademarks are the property of their respective owners.
 
-variables: &global_variables
+variables:
   GIT_DEPTH: 2
+  DEFAULT_DOCKER_IMAGE: "${CI_REGISTRY}/re/kaios-build/next/desktop:latest"
 
 .global_setup: &global_setup
   - echo -e "machine ${CI_SERVER_HOST}\nlogin gitlab-ci-token\npassword ${CI_JOB_TOKEN}" > ~/.netrc
   - git config --global url."${CI_SERVER_URL}/".insteadOf "git@${CI_SERVER_HOST}:"
   - '[ "$(cat ${HOME}/.mozbuild/ver)" = "2" ] || curl https://packages.preprod.kaiostech.com/ndk/v2/mozbuild.tar.bz2 | tar -C ${HOME}/ -xj'
+  - python3 --version
+
+default:
+  image: $DEFAULT_DOCKER_IMAGE
+  tags:
+    - gecko-dev
+  before_script:
+    - *global_setup
 
 stages:
   - lint
   - build
 
 lint:all:
-  before_script:
-    - *global_setup
-  variables:
-    <<: *global_variables
-    DEFAULT_DESKTOP_DOCKER_IMAGE: "${CI_REGISTRY}/re/kaios-build/next/desktop:latest"
-  image: $DEFAULT_DESKTOP_DOCKER_IMAGE
   stage: lint
-  tags:
-    - gecko-dev
   script:
     - ./check-format.sh
   except:
@@ -34,17 +35,10 @@ lint:all:
       - $CI_COMMIT_MESSAGE =~ /skip-lint/
 
 build:desktop:
-  before_script:
-    - *global_setup
   variables:
-    <<: *global_variables
-    DEFAULT_DESKTOP_DOCKER_IMAGE: "${CI_REGISTRY}/re/kaios-build/next/desktop:latest"
     MOZ_OBJDIR: 'objdir-desktop-gecko'
     MOZCONFIG: 'mozconfig-b2g-desktop'
-  image: $DEFAULT_DESKTOP_DOCKER_IMAGE
   stage: build
-  tags:
-    - gecko-dev
   script:
     - ./mach build
     - ./mach package
@@ -58,8 +52,7 @@ build:emulator:
     - *global_setup
     - git clone --depth 1 git@git.kaiostech.com:KaiOS/dummy/emulator-10.git > /dev/null 2>&1
   variables:
-    <<: *global_variables
-    DEFAULT_DESKTOP_DOCKER_IMAGE: "${CI_REGISTRY}/re/kaios-build/next/daily:latest"
+    DEFAULT_DOCKER_IMAGE: "${CI_REGISTRY}/re/kaios-build/next/daily:latest"
     GONK_PATH: "${CI_PROJECT_DIR}/emulator-10"
     GECKO_OBJDIR: "${CI_PROJECT_DIR}/objdir-emulator-gecko"
     GONK_PRODUCT_NAME: generic_x86_64
@@ -69,10 +62,7 @@ build:emulator:
     TARGET_CPU_VARIANT: generic
     BINSUFFIX: 64
     B2G_DEBUG: 1
-  image: $DEFAULT_DESKTOP_DOCKER_IMAGE
   stage: build
-  tags:
-    - gecko-dev
   script:
     - ./build-b2g.sh
     - ./build-b2g.sh package
@@ -83,8 +73,7 @@ build:arm:
     - git clone --depth 1 git@git.kaiostech.com:KaiOS/koost.git -b next > /dev/null 2>&1
     - git clone --depth 1 git@git.kaiostech.com:KaiOS/dummy/gonk-q.git > /dev/null 2>&1
   variables:
-    <<: *global_variables
-    DEFAULT_ARM_DOCKER_IMAGE: "${CI_REGISTRY}/re/kaios-build/next/daily:latest"
+    DEFAULT_DOCKER_IMAGE: "${CI_REGISTRY}/re/kaios-build/next/daily:latest"
     GONK_PATH: "${CI_PROJECT_DIR}/gonk-q"
     GECKO_OBJDIR: "${CI_PROJECT_DIR}/objdir-arm-gecko"
     GONK_PRODUCT_NAME: msm8937_32go
@@ -95,10 +84,7 @@ build:arm:
     TARGET_CPU_VARIANT: cortex-a53
     ANDROID_NDK: '~/.mozbuild/android-ndk-r20b-canary'
     PRODUCT_MANUFACTURER: QUALCOMM
-  image: $DEFAULT_ARM_DOCKER_IMAGE
   stage: build
-  tags:
-    - gecko-dev
   script:
     - ./build-b2g.sh
     - ./build-b2g.sh package
