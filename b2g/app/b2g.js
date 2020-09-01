@@ -1176,3 +1176,6 @@ pref("dom.mms.retrievalRetryIntervals", "60000,300000,600000,1800000");
 
 // KaiOS emoji font
 pref("font.name-list.emoji", "KaiOS Emoji");
+
+// Disable the path check in file system.
+pref("dom.filesystem.pathcheck.disabled", true);
