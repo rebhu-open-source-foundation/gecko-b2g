@@ -4092,8 +4092,8 @@ pref("network.trr.blacklist-duration", 60);
 pref("network.trr.excluded-domains", "");
 pref("network.trr.builtin-excluded-domains", "localhost,local");
 
-pref("captivedetect.canonicalURL", "http://detectportal.kaiostech.com/success.txt");
-pref("captivedetect.canonicalContent", "success");
+pref("captivedetect.canonicalURL", "http://detectportal.firefox.com/success.txt");
+pref("captivedetect.canonicalContent", "success\n");
 pref("captivedetect.maxWaitingTime", 5000);
 pref("captivedetect.pollingTime", 3000);
 pref("captivedetect.maxRetryCount", 5);

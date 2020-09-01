@@ -1180,3 +1180,7 @@ pref("font.name-list.emoji", "KaiOS Emoji");
 
 // Disable the path check in file system.
 pref("dom.filesystem.pathcheck.disabled", true);
+
+// KaiOS Captive Portal URL
+pref("captivedetect.canonicalURL", "http://detectportal.kaiostech.com/success.txt");
+pref("captivedetect.canonicalContent", "success");
