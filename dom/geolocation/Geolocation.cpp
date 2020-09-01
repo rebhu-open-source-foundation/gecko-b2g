@@ -535,9 +535,7 @@ nsresult nsGeolocationService::Init() {
   if (settings) {
     nsString key = GEO_SETTINGS_ENABLED;
     settings->Get(key, this);
-
-    // Skip the 3rd arguments since nsISidlDefaultResponse isn't necessary
-    settings->AddObserver(key, this, nullptr);
+    settings->AddObserver(key, this, this);
   }
 #endif
 
@@ -622,6 +620,10 @@ nsGeolocationService::ObserveSetting(nsISettingInfo* info) {
   return NS_OK;
 }
 
+// Implements nsISidlDefaultResponse
+NS_IMETHODIMP nsGeolocationService::Resolve() { return NS_OK; }
+NS_IMETHODIMP nsGeolocationService::Reject() { return NS_OK; }
+
 void nsGeolocationService::HandleSettingValue(const nsAString& aValue) {
   bool enabled = !aValue.EqualsLiteral("false");
   if (sGeoSettingEnabled == enabled) {
@@ -653,8 +655,7 @@ nsGeolocationService::Observe(nsISupports* aSubject, const char* aTopic,
     nsCOMPtr<nsISettingsManager> settings =
         do_GetService("@mozilla.org/sidl-native/settings;1");
     if (settings) {
-      // Skip the 3rd arguments since nsISidlDefaultResponse isn't necessary
-      settings->RemoveObserver(GEO_SETTINGS_ENABLED, this, nullptr);
+      settings->RemoveObserver(GEO_SETTINGS_ENABLED, this, this);
     }
 #endif
 

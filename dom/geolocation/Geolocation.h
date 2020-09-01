@@ -62,6 +62,7 @@ class nsGeolocationService final : public nsIGeolocationUpdate,
 #ifdef MOZ_B2G
                                    public nsISettingsGetResponse,
                                    public nsISettingsObserver,
+                                   public nsISidlDefaultResponse,
 #endif
                                    public nsIObserver {
  public:
@@ -73,6 +74,7 @@ class nsGeolocationService final : public nsIGeolocationUpdate,
 #ifdef MOZ_B2G
   NS_DECL_NSISETTINGSGETRESPONSE
   NS_DECL_NSISETTINGSOBSERVER
+  NS_DECL_NSISIDLDEFAULTRESPONSE
 #endif
   NS_DECL_NSIOBSERVER
 
