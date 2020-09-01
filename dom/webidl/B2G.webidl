@@ -140,6 +140,14 @@ partial interface B2G {
 };
 #endif // MOZ_B2G_FM
 
+#ifdef HAS_KOOST_MODULES
+[Exposed=Window]
+partial interface B2G {
+  [Throws]
+  readonly attribute AuthorizationManager authorizationManager;
+};
+#endif
+
 partial interface B2G {
   /**
    * Request a wake lock for a resource.

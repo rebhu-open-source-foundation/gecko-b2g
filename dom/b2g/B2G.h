@@ -44,6 +44,9 @@
 #ifdef MOZ_B2G_FM
 #  include "mozilla/dom/FMRadio.h"
 #endif
+#ifdef HAS_KOOST_MODULES
+#  include "mozilla/dom/AuthorizationManagerBinding.h"
+#endif
 
 #include "DeviceStorage.h"
 #include "mozilla/dom/DeviceStorageAreaListener.h"
@@ -113,6 +116,9 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
 #ifdef MOZ_B2G_FM
   FMRadio* GetFmRadio(ErrorResult& aRv);
 #endif
+#ifdef HAS_KOOST_MODULES
+  AuthorizationManager* GetAuthorizationManager(ErrorResult& aRv);
+#endif
 
   static bool HasWakeLockSupport(JSContext* /* unused*/, JSObject* /*unused */);
 
@@ -180,6 +186,9 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
 #endif
 #ifdef MOZ_B2G_FM
   RefPtr<FMRadio> mFMRadio;
+#endif
+#ifdef HAS_KOOST_MODULES
+  RefPtr<AuthorizationManager> mAuthorizationManager;
 #endif
   nsTArray<nsCOMPtr<nsIDOMMozWakeLockListener>> mListeners;
 };

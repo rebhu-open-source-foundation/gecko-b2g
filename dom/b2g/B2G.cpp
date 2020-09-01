@@ -68,6 +68,9 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(B2G)
 #ifdef MOZ_B2G_FM
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFMRadio)
 #endif
+#ifdef HAS_KOOST_MODULES
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAuthorizationManager)
+#endif
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mListeners)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
@@ -443,6 +446,24 @@ FMRadio* B2G::GetFmRadio(ErrorResult& aRv) {
     mFMRadio->Init(mOwner);
   }
   return mFMRadio;
+}
+#endif
+
+#ifdef HAS_KOOST_MODULES
+AuthorizationManager* B2G::GetAuthorizationManager(ErrorResult& aRv) {
+  if (!mAuthorizationManager) {
+    if (!mOwner) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+
+    mAuthorizationManager = ConstructJSImplementation<AuthorizationManager>(
+        "@mozilla.org/kaiauth/authorization-manager;1", GetParentObject(), aRv);
+    if (aRv.Failed()) {
+      return nullptr;
+    }
+  }
+  return mAuthorizationManager;
 }
 #endif
 
