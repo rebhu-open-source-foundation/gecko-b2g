@@ -4,14 +4,12 @@
 
 "use strict";
 
-const {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
-
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
-XPCOMUtils.defineLazyGetter(this, "RIL", function () {
-  let obj = Cu.import("resource://gre/modules/ril_consts.js", null);
+XPCOMUtils.defineLazyGetter(this, "RIL", function() {
+  let obj = ChromeUtils.import("resource://gre/modules/ril_consts.js");
   return obj;
 });
 
@@ -20,7 +18,6 @@ XPCOMUtils.defineLazyGetter(this, "RIL", function () {
  */
 this.RILSystemMessenger = function() {};
 RILSystemMessenger.prototype = {
-
   /**
    * Hook of Broadcast function
    *
@@ -29,7 +26,7 @@ RILSystemMessenger.prototype = {
    * @param aMessage
    *        The message object to be broadcasted.
    */
-  broadcastMessage: function(aType, aMessage) {
+  broadcastMessage(aType, aMessage, aOrigin = null) {
     // Function stub to be replaced by the owner of this messenger.
   },
 
@@ -41,35 +38,45 @@ RILSystemMessenger.prototype = {
    * @return a JS object which complies the dictionary of MozStkCommand defined
    *         in MozStkCommandEvent.webidl
    */
-  createCommandMessage: function(aStkProactiveCmd) {
+  createCommandMessage(aStkProactiveCmd) {
     // Function stub to be replaced by the owner of this messenger.
   },
 
   /**
    * Wrapper to send "telephony-new-call" system message.
    */
-  notifyNewCall: function() {
+  notifyNewCall() {
     this.broadcastMessage("telephony-new-call", {});
   },
 
   /**
    * Wrapper to send "telephony-call-ended" system message.
    */
-  notifyCallEnded: function(aServiceId, aNumber, aCdmaWaitingNumber, aEmergency,
-                            aDuration, aOutgoing, aHangUpLocal, aIsVt, aRadioTech, aIsRtt) {
-    let radioTech = 'cs';
+  notifyCallEnded(
+    aServiceId,
+    aNumber,
+    aCdmaWaitingNumber,
+    aEmergency,
+    aDuration,
+    aOutgoing,
+    aHangUpLocal,
+    aIsVt,
+    aRadioTech,
+    aIsRtt
+  ) {
+    let radioTech = "cs";
     switch (aRadioTech) {
       case Ci.nsITelephonyCallInfo.RADIO_TECH_PS:
-        radioTech = 'ps';
-      break;
+        radioTech = "ps";
+        break;
       case Ci.nsITelephonyCallInfo.RADIO_TECH_WIFI:
-        radioTech = 'wifi';
-      break;
+        radioTech = "wifi";
+        break;
       case Ci.nsITelephonyCallInfo.RADIO_TECH_CS:
       /* falls through */
       default:
-        radioTech = 'cs';
-      break;
+        radioTech = "cs";
+        break;
     }
 
     let data = {
@@ -80,113 +87,145 @@ RILSystemMessenger.prototype = {
       direction: aOutgoing ? "outgoing" : "incoming",
       hangUpLocal: aHangUpLocal,
       isVt: aIsVt,
-      radioTech: radioTech,
-      isRtt: aIsRtt
+      radioTech,
+      isRtt: aIsRtt,
     };
 
     if (aCdmaWaitingNumber != null) {
       data.secondNumber = aCdmaWaitingNumber;
     }
 
-    this.broadcastMessage("telephony-call-ended", data);
+    this.broadcastMessage(
+      "telephony-call-ended",
+      data,
+      "https://communications.local"
+    );
   },
 
   /**
    * Wrapper to send "telephony-hac-mode-changed" system message.
    */
-  notifyHacModeChanged: function(aEnable) {
+  notifyHacModeChanged(aEnable) {
     this.broadcastMessage("telephony-hac-mode-changed", { hacMode: aEnable });
   },
 
   /**
    * Wrapper to send "telephony-tty-mode-changed" system message.
    */
-  notifyTtyModeChanged: function(aMode) {
+  notifyTtyModeChanged(aMode) {
     let ttyMode = ["off", "full", "hco", "vco"][aMode];
     if (!ttyMode) {
       throw new Error("Invalid TTY Mode: " + aMode);
     }
 
-    this.broadcastMessage("telephony-tty-mode-changed", { ttyMode: ttyMode });
+    this.broadcastMessage("telephony-tty-mode-changed", { ttyMode });
   },
 
-  _convertSmsMessageClass: function(aMessageClass) {
+  _convertSmsMessageClass(aMessageClass) {
     return RIL.GECKO_SMS_MESSAGE_CLASSES[aMessageClass] || null;
   },
 
-  _convertSmsDelivery: function(aDelivery) {
+  _convertSmsDelivery(aDelivery) {
     return ["received", "sending", "sent", "error"][aDelivery] || null;
   },
 
-  _convertSmsDeliveryStatus: function(aDeliveryStatus) {
-    return [
-      RIL.GECKO_SMS_DELIVERY_STATUS_NOT_APPLICABLE,
-      RIL.GECKO_SMS_DELIVERY_STATUS_SUCCESS,
-      RIL.GECKO_SMS_DELIVERY_STATUS_PENDING,
-      RIL.GECKO_SMS_DELIVERY_STATUS_ERROR
-    ][aDeliveryStatus] || null;
+  _convertSmsDeliveryStatus(aDeliveryStatus) {
+    return (
+      [
+        RIL.GECKO_SMS_DELIVERY_STATUS_NOT_APPLICABLE,
+        RIL.GECKO_SMS_DELIVERY_STATUS_SUCCESS,
+        RIL.GECKO_SMS_DELIVERY_STATUS_PENDING,
+        RIL.GECKO_SMS_DELIVERY_STATUS_ERROR,
+      ][aDeliveryStatus] || null
+    );
   },
 
   /**
    * Wrapper to send 'sms-received', 'sms-delivery-success', 'sms-sent',
    * 'sms-failed', 'sms-delivery-error' system message.
    */
-  notifySms: function(aNotificationType, aId, aThreadId, aIccId, aDelivery,
-                      aDeliveryStatus, aSender, aReceiver, aBody, aMessageClass,
-                      aTimestamp, aSentTimestamp, aDeliveryTimestamp, aRead) {
+  notifySms(
+    aNotificationType,
+    aId,
+    aThreadId,
+    aIccId,
+    aDelivery,
+    aDeliveryStatus,
+    aSender,
+    aReceiver,
+    aBody,
+    aMessageClass,
+    aTimestamp,
+    aSentTimestamp,
+    aDeliveryTimestamp,
+    aRead
+  ) {
     let msgType = [
-        "sms-received",
-        "sms-sent",
-        "sms-delivery-success",
-        "sms-failed",
-        "sms-delivery-error"
-      ][aNotificationType];
+      "sms-received",
+      "sms-sent",
+      "sms-delivery-success",
+      "sms-failed",
+      "sms-delivery-error",
+    ][aNotificationType];
 
     if (!msgType) {
       throw new Error("Invalid Notification Type: " + aNotificationType);
     }
 
     this.broadcastMessage(msgType, {
-      iccId:             aIccId,
-      type:              "sms",
-      id:                aId,
-      threadId:          aThreadId,
-      delivery:          this._convertSmsDelivery(aDelivery),
-      deliveryStatus:    this._convertSmsDeliveryStatus(aDeliveryStatus),
-      sender:            aSender,
-      receiver:          aReceiver,
-      body:              aBody,
-      messageClass:      this._convertSmsMessageClass(aMessageClass),
-      timestamp:         aTimestamp,
-      sentTimestamp:     aSentTimestamp,
+      iccId: aIccId,
+      type: "sms",
+      id: aId,
+      threadId: aThreadId,
+      delivery: this._convertSmsDelivery(aDelivery),
+      deliveryStatus: this._convertSmsDeliveryStatus(aDeliveryStatus),
+      sender: aSender,
+      receiver: aReceiver,
+      body: aBody,
+      messageClass: this._convertSmsMessageClass(aMessageClass),
+      timestamp: aTimestamp,
+      sentTimestamp: aSentTimestamp,
       deliveryTimestamp: aDeliveryTimestamp,
-      read:              aRead
+      read: aRead,
     });
   },
 
-  _convertCbGsmGeographicalScope: function(aGeographicalScope) {
+  _convertCbGsmGeographicalScope(aGeographicalScope) {
     return RIL.CB_GSM_GEOGRAPHICAL_SCOPE_NAMES[aGeographicalScope] || null;
   },
 
-  _convertCbMessageClass: function(aMessageClass) {
+  _convertCbMessageClass(aMessageClass) {
     return RIL.GECKO_SMS_MESSAGE_CLASSES[aMessageClass] || null;
   },
 
-  _convertCbEtwsWarningType: function(aWarningType) {
+  _convertCbEtwsWarningType(aWarningType) {
     return RIL.CB_ETWS_WARNING_TYPE_NAMES[aWarningType] || null;
   },
 
   /**
    * Wrapper to send 'cellbroadcast-received' system message.
    */
-  notifyCbMessageReceived: function(aServiceId, aGsmGeographicalScope, aMessageCode,
-                                    aMessageId, aLanguage, aBody, aMessageClass,
-                                    aTimestamp, aCdmaServiceCategory, aHasEtwsInfo,
-                                    aEtwsWarningType, aEtwsEmergencyUserAlert, aEtwsPopup) {
+  notifyCbMessageReceived(
+    aServiceId,
+    aGsmGeographicalScope,
+    aMessageCode,
+    aMessageId,
+    aLanguage,
+    aBody,
+    aMessageClass,
+    aTimestamp,
+    aCdmaServiceCategory,
+    aHasEtwsInfo,
+    aEtwsWarningType,
+    aEtwsEmergencyUserAlert,
+    aEtwsPopup
+  ) {
     // Align the same layout to MozCellBroadcastMessage
     let data = {
       serviceId: aServiceId,
-      gsmGeographicalScope: this._convertCbGsmGeographicalScope(aGsmGeographicalScope),
+      gsmGeographicalScope: this._convertCbGsmGeographicalScope(
+        aGsmGeographicalScope
+      ),
       messageCode: aMessageCode,
       messageId: aMessageId,
       language: aLanguage,
@@ -194,19 +233,21 @@ RILSystemMessenger.prototype = {
       messageClass: this._convertCbMessageClass(aMessageClass),
       timestamp: aTimestamp,
       cdmaServiceCategory: null,
-      etws: null
+      etws: null,
     };
 
     if (aHasEtwsInfo) {
       data.etws = {
         warningType: this._convertCbEtwsWarningType(aEtwsWarningType),
         emergencyUserAlert: aEtwsEmergencyUserAlert,
-        popup: aEtwsPopup
+        popup: aEtwsPopup,
       };
     }
 
-    if (aCdmaServiceCategory !=
-        Ci.nsICellBroadcastService.CDMA_SERVICE_CATEGORY_INVALID) {
+    if (
+      aCdmaServiceCategory !=
+      Ci.nsICellBroadcastService.CDMA_SERVICE_CATEGORY_INVALID
+    ) {
       data.cdmaServiceCategory = aCdmaServiceCategory;
     }
 
@@ -216,21 +257,21 @@ RILSystemMessenger.prototype = {
   /**
    * Wrapper to send 'ussd-received' system message.
    */
-  notifyUssdReceived: function(aServiceId, aMessage, aSessionEnded) {
+  notifyUssdReceived(aServiceId, aMessage, aSessionEnded) {
     this.broadcastMessage("ussd-received", {
       serviceId: aServiceId,
       message: aMessage,
-      sessionEnded: aSessionEnded
+      sessionEnded: aSessionEnded,
     });
   },
 
   /**
    * Wrapper to send 'cdma-info-rec-received' system message with Display Info.
    */
-  notifyCdmaInfoRecDisplay: function(aServiceId, aDisplay) {
+  notifyCdmaInfoRecDisplay(aServiceId, aDisplay) {
     this.broadcastMessage("cdma-info-rec-received", {
       clientId: aServiceId,
-      display: aDisplay
+      display: aDisplay,
     });
   },
 
@@ -238,8 +279,14 @@ RILSystemMessenger.prototype = {
    * Wrapper to send 'cdma-info-rec-received' system message with Called Party
    * Number Info.
    */
-  notifyCdmaInfoRecCalledPartyNumber: function(aServiceId, aType, aPlan,
-                                               aNumber, aPi, aSi) {
+  notifyCdmaInfoRecCalledPartyNumber(
+    aServiceId,
+    aType,
+    aPlan,
+    aNumber,
+    aPi,
+    aSi
+  ) {
     this.broadcastMessage("cdma-info-rec-received", {
       clientId: aServiceId,
       calledNumber: {
@@ -247,8 +294,8 @@ RILSystemMessenger.prototype = {
         plan: aPlan,
         number: aNumber,
         pi: aPi,
-        si: aSi
-      }
+        si: aSi,
+      },
     });
   },
 
@@ -256,8 +303,14 @@ RILSystemMessenger.prototype = {
    * Wrapper to send 'cdma-info-rec-received' system message with Calling Party
    * Number Info.
    */
-  notifyCdmaInfoRecCallingPartyNumber: function(aServiceId, aType, aPlan,
-                                                aNumber, aPi, aSi) {
+  notifyCdmaInfoRecCallingPartyNumber(
+    aServiceId,
+    aType,
+    aPlan,
+    aNumber,
+    aPi,
+    aSi
+  ) {
     this.broadcastMessage("cdma-info-rec-received", {
       clientId: aServiceId,
       callingNumber: {
@@ -265,8 +318,8 @@ RILSystemMessenger.prototype = {
         plan: aPlan,
         number: aNumber,
         pi: aPi,
-        si: aSi
-      }
+        si: aSi,
+      },
     });
   },
 
@@ -274,8 +327,14 @@ RILSystemMessenger.prototype = {
    * Wrapper to send 'cdma-info-rec-received' system message with Connected Party
    * Number Info.
    */
-  notifyCdmaInfoRecConnectedPartyNumber: function(aServiceId, aType, aPlan,
-                                                  aNumber, aPi, aSi) {
+  notifyCdmaInfoRecConnectedPartyNumber(
+    aServiceId,
+    aType,
+    aPlan,
+    aNumber,
+    aPi,
+    aSi
+  ) {
     this.broadcastMessage("cdma-info-rec-received", {
       clientId: aServiceId,
       connectedNumber: {
@@ -283,22 +342,22 @@ RILSystemMessenger.prototype = {
         plan: aPlan,
         number: aNumber,
         pi: aPi,
-        si: aSi
-      }
+        si: aSi,
+      },
     });
   },
 
   /**
    * Wrapper to send 'cdma-info-rec-received' system message with Signal Info.
    */
-  notifyCdmaInfoRecSignal: function(aServiceId, aType, aAlertPitch, aSignal) {
+  notifyCdmaInfoRecSignal(aServiceId, aType, aAlertPitch, aSignal) {
     this.broadcastMessage("cdma-info-rec-received", {
       clientId: aServiceId,
       signal: {
         type: aType,
         alertPitch: aAlertPitch,
-        signal: aSignal
-      }
+        signal: aSignal,
+      },
     });
   },
 
@@ -306,8 +365,15 @@ RILSystemMessenger.prototype = {
    * Wrapper to send 'cdma-info-rec-received' system message with Redirecting
    * Number Info.
    */
-  notifyCdmaInfoRecRedirectingNumber: function(aServiceId, aType, aPlan,
-                                               aNumber, aPi, aSi, aReason) {
+  notifyCdmaInfoRecRedirectingNumber(
+    aServiceId,
+    aType,
+    aPlan,
+    aNumber,
+    aPi,
+    aSi,
+    aReason
+  ) {
     this.broadcastMessage("cdma-info-rec-received", {
       clientId: aServiceId,
       redirect: {
@@ -316,61 +382,64 @@ RILSystemMessenger.prototype = {
         number: aNumber,
         pi: aPi,
         si: aSi,
-        reason: aReason
-      }
+        reason: aReason,
+      },
     });
   },
 
   /**
    * Wrapper to send 'cdma-info-rec-received' system message with Line Control Info.
    */
-  notifyCdmaInfoRecLineControl: function(aServiceId, aPolarityIncluded,
-                                         aToggle, aReverse, aPowerDenial) {
+  notifyCdmaInfoRecLineControl(
+    aServiceId,
+    aPolarityIncluded,
+    aToggle,
+    aReverse,
+    aPowerDenial
+  ) {
     this.broadcastMessage("cdma-info-rec-received", {
       clientId: aServiceId,
       lineControl: {
         polarityIncluded: aPolarityIncluded,
         toggle: aToggle,
         reverse: aReverse,
-        powerDenial: aPowerDenial
-      }
+        powerDenial: aPowerDenial,
+      },
     });
   },
 
   /**
    * Wrapper to send 'cdma-info-rec-received' system message with CLIR Info.
    */
-  notifyCdmaInfoRecClir: function(aServiceId, aCause) {
+  notifyCdmaInfoRecClir(aServiceId, aCause) {
     this.broadcastMessage("cdma-info-rec-received", {
       clientId: aServiceId,
-      clirCause: aCause
+      clirCause: aCause,
     });
   },
 
   /**
    * Wrapper to send 'cdma-info-rec-received' system message with Audio Control Info.
    */
-  notifyCdmaInfoRecAudioControl: function(aServiceId, aUpLink, aDownLink) {
+  notifyCdmaInfoRecAudioControl(aServiceId, aUpLink, aDownLink) {
     this.broadcastMessage("cdma-info-rec-received", {
       clientId: aServiceId,
       audioControl: {
         upLink: aUpLink,
-        downLink: aDownLink
-      }
+        downLink: aDownLink,
+      },
     });
   },
 
   /**
    * Wrapper to send 'icc-stkcommand' system message with Audio Control Info.
    */
-  notifyStkProactiveCommand: function(aIccId, aCommand) {
+  notifyStkProactiveCommand(aIccId, aCommand) {
     this.broadcastMessage("icc-stkcommand", {
       iccId: aIccId,
-      command: this.createCommandMessage(aCommand)
+      command: this.createCommandMessage(aCommand),
     });
-  }
+  },
 };
 
-this.EXPORTED_SYMBOLS = [
-  'RILSystemMessenger'
-];
+this.EXPORTED_SYMBOLS = ["RILSystemMessenger"];

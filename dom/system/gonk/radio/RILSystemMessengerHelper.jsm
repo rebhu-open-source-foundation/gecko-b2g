@@ -4,43 +4,40 @@
 
 "use strict";
 
-const {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
-
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
-const { Services } = ChromeUtils.import(
-  "resource://gre/modules/Services.jsm"
-);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-XPCOMUtils.defineLazyGetter(this, "RSM", function () {
+XPCOMUtils.defineLazyGetter(this, "RSM", function() {
   let obj = {};
-  Cu.import("resource://gre/modules/RILSystemMessenger.jsm", obj);
+  ChromeUtils.import("resource://gre/modules/RILSystemMessenger.jsm", obj);
   return obj;
 });
 
-const RILSYSTEMMESSENGERHELPER_CONTRACTID =
-  "@mozilla.org/ril/system-messenger-helper;1";
-const RILSYSTEMMESSENGERHELPER_CID =
-  Components.ID("{19d9a4ea-580d-11e4-8f6c-37ababfaaea9}");
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gStkCmdFactory",
+  "@mozilla.org/icc/stkcmdfactory;1",
+  "nsIStkCmdFactory"
+);
 
-// XPCOMUtils.defineLazyServiceGetter(this, "gSystemMessenger",
-//                                    "@mozilla.org/system-message-internal;1",
-//                                    "nsISystemMessagesInternal");
+const RILSYSTEMMESSENGERHELPER_CID = Components.ID(
+  "{19d9a4ea-580d-11e4-8f6c-37ababfaaea9}"
+);
 
-XPCOMUtils.defineLazyServiceGetter(this, "gSystemMessenger",
-                                   "@mozilla.org/systemmessage-service;1",
-                                   "nsISystemMessageService");
-
-XPCOMUtils.defineLazyServiceGetter(this, "gStkCmdFactory",
-                                   "@mozilla.org/icc/stkcmdfactory;1",
-                                   "nsIStkCmdFactory");
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gSystemMessenger",
+  "@mozilla.org/systemmessage-service;1",
+  "nsISystemMessageService"
+);
 
 var DEBUG = true;
 function debug(s) {
   // dump("-@- RILSystemMessenger: " + s + "\n");
   console.log("-@- RILSystemMessengerHelper: " + s + "\n");
-};
+}
 
 // Read debug setting from pref.
 try {
@@ -58,27 +55,36 @@ function RILSystemMessengerHelper() {
   debug("RSM: " + JSON.stringify(RSM));
 
   this.messenger = new RSM.RILSystemMessenger();
-  this.messenger.broadcastMessage = (aType, aMessage) => {
+  this.messenger.broadcastMessage = (aType, aMessage, aOrigin = null) => {
     if (DEBUG) {
-      debug("broadcastMessage: aType: " + aType +
-            ", aMessage: "+ JSON.stringify(aMessage));
+      debug(
+        "broadcastMessage: aType: " +
+          aType +
+          ", aMessage: " +
+          JSON.stringify(aMessage)
+      );
     }
 
-    // gSystemMessenger.broadcastMessage(aType, aMessage);
+    if (aOrigin) {
+      gSystemMessenger.sendMessage(aType, aMessage, aOrigin);
+    } else {
+      // gSystemMessenger.broadcastMessage(aType, aMessage);
+    }
   };
 
-  this.messenger.createCommandMessage = (aStkProactiveCmd) => {
+  this.messenger.createCommandMessage = aStkProactiveCmd => {
     return gStkCmdFactory.createCommandMessage(aStkProactiveCmd);
   };
 }
 RILSystemMessengerHelper.prototype = {
-
   classID: RILSYSTEMMESSENGERHELPER_CID,
-  QueryInterface: ChromeUtils.generateQI([Ci.nsITelephonyMessenger,
-                                         Ci.nsISmsMessenger,
-                                         Ci.nsICellbroadcastMessenger,
-                                         Ci.nsIMobileConnectionMessenger,
-                                         Ci.nsIIccMessenger]),
+  QueryInterface: ChromeUtils.generateQI([
+    Ci.nsITelephonyMessenger,
+    Ci.nsISmsMessenger,
+    Ci.nsICellbroadcastMessenger,
+    Ci.nsIMobileConnectionMessenger,
+    Ci.nsIIccMessenger,
+  ]),
 
   /**
    * RILSystemMessenger instance.
@@ -88,107 +94,244 @@ RILSystemMessengerHelper.prototype = {
   /**
    * nsITelephonyMessenger API
    */
-  notifyNewCall: function() {
+  notifyNewCall() {
     this.messenger.notifyNewCall();
   },
 
-  notifyCallEnded: function(aServiceId, aNumber, aCdmaWaitingNumber, aEmergency,
-                            aDuration, aOutgoing, aHangUpLocal, aIsVt, aRadioTech, aIsRtt) {
-    this.messenger.notifyCallEnded(aServiceId, aNumber, aCdmaWaitingNumber, aEmergency,
-                                   aDuration, aOutgoing, aHangUpLocal, aIsVt, aRadioTech, aIsRtt);
+  notifyCallEnded(
+    aServiceId,
+    aNumber,
+    aCdmaWaitingNumber,
+    aEmergency,
+    aDuration,
+    aOutgoing,
+    aHangUpLocal,
+    aIsVt,
+    aRadioTech,
+    aIsRtt
+  ) {
+    this.messenger.notifyCallEnded(
+      aServiceId,
+      aNumber,
+      aCdmaWaitingNumber,
+      aEmergency,
+      aDuration,
+      aOutgoing,
+      aHangUpLocal,
+      aIsVt,
+      aRadioTech,
+      aIsRtt
+    );
   },
 
-  notifyHacModeChanged: function(aEnable) {
+  notifyHacModeChanged(aEnable) {
     this.messenger.notifyHacModeChanged(aEnable);
   },
 
-  notifyTtyModeChanged: function(aMode) {
+  notifyTtyModeChanged(aMode) {
     this.messenger.notifyTtyModeChanged(aMode);
   },
 
-  notifyUssdReceived: function(aServiceId, aMessage, aSessionEnded) {
+  notifyUssdReceived(aServiceId, aMessage, aSessionEnded) {
     this.messenger.notifyUssdReceived(aServiceId, aMessage, aSessionEnded);
   },
 
   /**
    * nsISmsMessenger API
    */
-  notifySms: function(aNotificationType, aId, aThreadId, aIccId, aDelivery,
-                      aDeliveryStatus, aSender, aReceiver, aBody, aMessageClass,
-                      aTimestamp, aSentTimestamp, aDeliveryTimestamp, aRead) {
-    this.messenger.notifySms(aNotificationType, aId, aThreadId, aIccId, aDelivery,
-                             aDeliveryStatus, aSender, aReceiver, aBody, aMessageClass,
-                             aTimestamp, aSentTimestamp, aDeliveryTimestamp, aRead);
+  notifySms(
+    aNotificationType,
+    aId,
+    aThreadId,
+    aIccId,
+    aDelivery,
+    aDeliveryStatus,
+    aSender,
+    aReceiver,
+    aBody,
+    aMessageClass,
+    aTimestamp,
+    aSentTimestamp,
+    aDeliveryTimestamp,
+    aRead
+  ) {
+    this.messenger.notifySms(
+      aNotificationType,
+      aId,
+      aThreadId,
+      aIccId,
+      aDelivery,
+      aDeliveryStatus,
+      aSender,
+      aReceiver,
+      aBody,
+      aMessageClass,
+      aTimestamp,
+      aSentTimestamp,
+      aDeliveryTimestamp,
+      aRead
+    );
   },
 
   /**
    * nsICellbroadcastMessenger API
    */
-  notifyCbMessageReceived: function(aServiceId, aGsmGeographicalScope, aMessageCode,
-                                    aMessageId, aLanguage, aBody, aMessageClass,
-                                    aTimestamp, aCdmaServiceCategory, aHasEtwsInfo,
-                                    aEtwsWarningType, aEtwsEmergencyUserAlert, aEtwsPopup) {
-    this.messenger.notifyCbMessageReceived(aServiceId, aGsmGeographicalScope, aMessageCode,
-                                           aMessageId, aLanguage, aBody, aMessageClass,
-                                           aTimestamp, aCdmaServiceCategory, aHasEtwsInfo,
-                                           aEtwsWarningType, aEtwsEmergencyUserAlert, aEtwsPopup);
+  notifyCbMessageReceived(
+    aServiceId,
+    aGsmGeographicalScope,
+    aMessageCode,
+    aMessageId,
+    aLanguage,
+    aBody,
+    aMessageClass,
+    aTimestamp,
+    aCdmaServiceCategory,
+    aHasEtwsInfo,
+    aEtwsWarningType,
+    aEtwsEmergencyUserAlert,
+    aEtwsPopup
+  ) {
+    this.messenger.notifyCbMessageReceived(
+      aServiceId,
+      aGsmGeographicalScope,
+      aMessageCode,
+      aMessageId,
+      aLanguage,
+      aBody,
+      aMessageClass,
+      aTimestamp,
+      aCdmaServiceCategory,
+      aHasEtwsInfo,
+      aEtwsWarningType,
+      aEtwsEmergencyUserAlert,
+      aEtwsPopup
+    );
   },
 
   /**
    * nsIMobileConnectionMessenger API
    */
-  notifyCdmaInfoRecDisplay: function(aServiceId, aDisplay) {
+  notifyCdmaInfoRecDisplay(aServiceId, aDisplay) {
     this.messenger.notifyCdmaInfoRecDisplay(aServiceId, aDisplay);
   },
 
-  notifyCdmaInfoRecCalledPartyNumber: function(aServiceId, aType, aPlan,
-                                               aNumber, aPi, aSi) {
-    this.messenger.notifyCdmaInfoRecCalledPartyNumber(aServiceId, aType, aPlan,
-                                                      aNumber, aPi, aSi);
+  notifyCdmaInfoRecCalledPartyNumber(
+    aServiceId,
+    aType,
+    aPlan,
+    aNumber,
+    aPi,
+    aSi
+  ) {
+    this.messenger.notifyCdmaInfoRecCalledPartyNumber(
+      aServiceId,
+      aType,
+      aPlan,
+      aNumber,
+      aPi,
+      aSi
+    );
   },
 
-  notifyCdmaInfoRecCallingPartyNumber: function(aServiceId, aType, aPlan,
-                                                aNumber, aPi, aSi) {
-    this.messenger.notifyCdmaInfoRecCallingPartyNumber(aServiceId, aType, aPlan,
-                                                       aNumber, aPi, aSi);
+  notifyCdmaInfoRecCallingPartyNumber(
+    aServiceId,
+    aType,
+    aPlan,
+    aNumber,
+    aPi,
+    aSi
+  ) {
+    this.messenger.notifyCdmaInfoRecCallingPartyNumber(
+      aServiceId,
+      aType,
+      aPlan,
+      aNumber,
+      aPi,
+      aSi
+    );
   },
 
-  notifyCdmaInfoRecConnectedPartyNumber: function(aServiceId, aType, aPlan,
-                                                  aNumber, aPi, aSi) {
-    this.messenger.notifyCdmaInfoRecConnectedPartyNumber(aServiceId, aType, aPlan,
-                                                         aNumber, aPi, aSi);
+  notifyCdmaInfoRecConnectedPartyNumber(
+    aServiceId,
+    aType,
+    aPlan,
+    aNumber,
+    aPi,
+    aSi
+  ) {
+    this.messenger.notifyCdmaInfoRecConnectedPartyNumber(
+      aServiceId,
+      aType,
+      aPlan,
+      aNumber,
+      aPi,
+      aSi
+    );
   },
 
-  notifyCdmaInfoRecSignal: function(aServiceId, aType, aAlertPitch, aSignal) {
-    this.messenger.notifyCdmaInfoRecSignal(aServiceId, aType, aAlertPitch, aSignal);
+  notifyCdmaInfoRecSignal(aServiceId, aType, aAlertPitch, aSignal) {
+    this.messenger.notifyCdmaInfoRecSignal(
+      aServiceId,
+      aType,
+      aAlertPitch,
+      aSignal
+    );
   },
 
-  notifyCdmaInfoRecRedirectingNumber: function(aServiceId, aType, aPlan,
-                                               aNumber, aPi, aSi, aReason) {
-    this.messenger.notifyCdmaInfoRecRedirectingNumber(aServiceId, aType, aPlan,
-                                                      aNumber, aPi, aSi, aReason);
+  notifyCdmaInfoRecRedirectingNumber(
+    aServiceId,
+    aType,
+    aPlan,
+    aNumber,
+    aPi,
+    aSi,
+    aReason
+  ) {
+    this.messenger.notifyCdmaInfoRecRedirectingNumber(
+      aServiceId,
+      aType,
+      aPlan,
+      aNumber,
+      aPi,
+      aSi,
+      aReason
+    );
   },
 
-  notifyCdmaInfoRecLineControl: function(aServiceId, aPolarityIncluded,
-                                         aToggle, aReverse, aPowerDenial) {
-    this.messenger.notifyCdmaInfoRecLineControl(aServiceId, aPolarityIncluded,
-                                                aToggle, aReverse, aPowerDenial);
+  notifyCdmaInfoRecLineControl(
+    aServiceId,
+    aPolarityIncluded,
+    aToggle,
+    aReverse,
+    aPowerDenial
+  ) {
+    this.messenger.notifyCdmaInfoRecLineControl(
+      aServiceId,
+      aPolarityIncluded,
+      aToggle,
+      aReverse,
+      aPowerDenial
+    );
   },
 
-  notifyCdmaInfoRecClir: function(aServiceId, aCause) {
+  notifyCdmaInfoRecClir(aServiceId, aCause) {
     this.messenger.notifyCdmaInfoRecClir(aServiceId, aCause);
   },
 
-  notifyCdmaInfoRecAudioControl: function(aServiceId, aUpLink, aDownLink) {
-    this.messenger.notifyCdmaInfoRecAudioControl(aServiceId, aUpLink, aDownLink);
+  notifyCdmaInfoRecAudioControl(aServiceId, aUpLink, aDownLink) {
+    this.messenger.notifyCdmaInfoRecAudioControl(
+      aServiceId,
+      aUpLink,
+      aDownLink
+    );
   },
 
   /**
    * nsIIccMessenger API
    */
-  notifyStkProactiveCommand: function(aIccId, aCommand) {
+  notifyStkProactiveCommand(aIccId, aCommand) {
     this.messenger.notifyStkProactiveCommand(aIccId, aCommand);
-  }
+  },
 };
 
 var EXPORTED_SYMBOLS = ["RILSystemMessengerHelper"];
