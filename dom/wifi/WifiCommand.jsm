@@ -8,8 +8,6 @@
 
 this.EXPORTED_SYMBOLS = ["WifiCommand"];
 
-const DEBUG = false;
-
 const WIFI_CMD_INITIALIZE = Ci.nsIWifiCommand.INITIALIZE;
 const WIFI_CMD_GET_SUPPORTED_FEATURES =
   Ci.nsIWifiCommand.GET_SUPPORTED_FEATURES;
@@ -61,15 +59,10 @@ const WIFI_CMD_REQUEST_ANQP = Ci.nsIWifiCommand.REQUEST_ANQP;
 const WIFI_CMD_START_SOFTAP = Ci.nsIWifiCommand.START_SOFTAP;
 const WIFI_CMD_STOP_SOFTAP = Ci.nsIWifiCommand.STOP_SOFTAP;
 const WIFI_CMD_GET_AP_IFACE = Ci.nsIWifiCommand.GET_AP_IFACE;
-const WIFI_CMD_GET_SOFTAP_STATION_NUMBER = Ci.nsIWifiCommand.GET_SOFTAP_STATION_NUMBER;
+const WIFI_CMD_GET_SOFTAP_STATION_NUMBER =
+  Ci.nsIWifiCommand.GET_SOFTAP_STATION_NUMBER;
 
 this.WifiCommand = function(aControlMessage, aInterface, aSdkVersion) {
-  function debug(msg) {
-    if (DEBUG) {
-      dump("-*- WifiCommand: " + msg);
-    }
-  }
-
   var command = {};
 
   //-------------------------------------------------

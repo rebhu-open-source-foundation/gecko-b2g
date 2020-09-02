@@ -349,16 +349,5 @@ this.WifiNetworkSelector = (function() {
     WifiConfigManager.tryEnableQualifiedNetwork(configuredNetworks);
   }
 
-  function notify(eventName, eventObject) {
-    var handler = wifiNetworkSelector["on" + eventName];
-    if (!handler) {
-      return;
-    }
-    if (!eventObject) {
-      eventObject = {};
-    }
-    handler.call(eventObject);
-  }
-
   return wifiNetworkSelector;
 })();

@@ -119,6 +119,7 @@ const EAPConstants = {
   EAP_TEAP: 55,
 };
 
+/* eslint-disable no-unused-vars */
 const PasspointMatch = {
   None: 0,
   Decliened: 1,
@@ -126,3 +127,4 @@ const PasspointMatch = {
   RoamingProvider: 3,
   HomeProvider: 4,
 };
+/* eslint-enable no-unused-vars */

@@ -75,7 +75,10 @@ this.WifiConfigStore = (function() {
 
     // Asynchronously copy the data to the file.
     let istream = converter.convertToInputStream(JSON.stringify(aNetworks));
-    NetUtil.asyncCopy(istream, ostream, function(rc) {
+    NetUtil.asyncCopy(istream, ostream, rc => {
+      if (!Components.isSuccessCode(rc)) {
+        debug("Failed to write wifi configurations");
+      }
       FileUtils.closeSafeFileOutputStream(ostream);
       if (aCallback) {
         aCallback();

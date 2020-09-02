@@ -47,7 +47,8 @@ this.OpenNetworkNotifier = (function() {
     }
 
     if (
-      ++numScansSinceNetworkStateChange <= MIN_NUMBER_SCANS_BEFORE_SHOW_NOTIFICATION
+      ++numScansSinceNetworkStateChange <=
+      MIN_NUMBER_SCANS_BEFORE_SHOW_NOTIFICATION
     ) {
       setNotificationVisible(false);
       return;

@@ -36,7 +36,7 @@ const { WifiConfigManager } = ChromeUtils.import(
 const { WifiScanSettings, WifiPnoSettings } = ChromeUtils.import(
   "resource://gre/modules/WifiScanSettings.jsm"
 );
-const { Timer, clearTimeout, setTimeout } = ChromeUtils.import(
+const { clearTimeout, setTimeout } = ChromeUtils.import(
   "resource://gre/modules/Timer.jsm"
 );
 const { WifiConstants } = ChromeUtils.import(
@@ -54,6 +54,7 @@ const { BinderServices } = ChromeUtils.import(
 
 var DEBUG = true; // set to true to show debug messages.
 
+/* eslint-disable no-unused-vars */
 const FEATURE_APF = Ci.nsIWifiResult.FEATURE_APF;
 const FEATURE_BACKGROUND_SCAN = Ci.nsIWifiResult.FEATURE_BACKGROUND_SCAN;
 const FEATURE_LINK_LAYER_STATS = Ci.nsIWifiResult.FEATURE_LINK_LAYER_STATS;
@@ -186,6 +187,7 @@ const DHCP_PROP = "init.svc.dhcpcd";
 const POWER_MODE_DHCP = 1;
 const POWER_MODE_SCREEN_STATE = 1 << 1;
 const POWER_MODE_SETTING_CHANGED = 1 << 2;
+/* eslint-enable no-unused-vars */
 
 XPCOMUtils.defineLazyGetter(this, "ppmm", () => {
   return Cc["@mozilla.org/parentprocessmessagemanager;1"].getService();
@@ -483,8 +485,17 @@ var WifiManager = (function() {
         //       should confirm where to update the frequencies
         // network.frequencies = [config.frequency];
         network.frequencies = [
-          2412, 2417, 2422, 2427, 2432, 2437,
-          2442, 2447, 2452, 2457, 2462
+          2412,
+          2417,
+          2422,
+          2427,
+          2432,
+          2437,
+          2442,
+          2447,
+          2452,
+          2457,
+          2462,
         ];
 
         WifiPnoSettings.pnoNetworks.push(network);
@@ -1802,8 +1813,8 @@ var WifiManager = (function() {
             );
             // Unload wifi driver status.
             if (errorMsg) {
-              wifiCommand.stopSoftap(function(){});
-	    }
+              wifiCommand.stopSoftap(function() {});
+            }
           }
         );
       });
@@ -2098,7 +2109,7 @@ var WifiManager = (function() {
   manager.enableP2p = function(callback) {
     p2pManager.setEnabled(true, {
       onSupplicantConnected() {
-        waitForEvent(WifiP2pManager.INTERFACE_NAME);
+        // waitForEvent(WifiP2pManager.INTERFACE_NAME);
       },
 
       onEnabled(success) {
@@ -3027,7 +3038,10 @@ function WifiWorker() {
       }
 
       // Notify to user whenever there is any open network.
-      if (WifiNetworkInterface.info.state == Ci.nsINetworkInfo.NETWORK_STATE_DISCONNECTED) {
+      if (
+        WifiNetworkInterface.info.state ==
+        Ci.nsINetworkInfo.NETWORK_STATE_DISCONNECTED
+      ) {
         if (numOpenNetworks > 0) {
           OpenNetworkNotifier.handleOpenNetworkFound();
         }
@@ -3105,13 +3119,19 @@ function WifiWorker() {
 
   // Read wifi tethering configuration.
   this._wifiTetheringConfig = TetheringConfigStore.read(
-    TetheringConfigStore.TETHERING_TYPE_WIFI);
+    TetheringConfigStore.TETHERING_TYPE_WIFI
+  );
   if (!this._wifiTetheringConfig) {
     this._wifiTetheringConfig = this.fillWifiTetheringConfiguration({});
     TetheringConfigStore.write(
-      TetheringConfigStore.TETHERING_TYPE_WIFI, this._wifiTetheringConfig, null);
+      TetheringConfigStore.TETHERING_TYPE_WIFI,
+      this._wifiTetheringConfig,
+      null
+    );
   }
-  this._fireEvent("tetheringconfigchange", { wifiTetheringConfig: this._wifiTetheringConfig });
+  this._fireEvent("tetheringconfigchange", {
+    wifiTetheringConfig: this._wifiTetheringConfig,
+  });
 }
 
 function translateState(state) {
@@ -3362,11 +3382,10 @@ WifiWorker.prototype = {
           self._lastConnectionInfo = null;
           return;
         }
-        let [rssi, linkSpeed, frequency, rxLinkSpeed] = [
+        let [rssi, linkSpeed, frequency] = [
           connInfo[0],
           connInfo[1],
           connInfo[2],
-          connInfo[3],
         ];
 
         if (rssi > 0) {
@@ -4048,14 +4067,23 @@ WifiWorker.prototype = {
     const message = "WifiManager:setWifiTethering:Return";
     let enabled = msg.data.enabled;
 
-    if (!WifiManager.isWifiTetheringEnabled(WifiManager.tetheringState) &&
-      Object.entries(msg.data.config).length != 0) {
+    if (
+      !WifiManager.isWifiTetheringEnabled(WifiManager.tetheringState) &&
+      Object.entries(msg.data.config).length != 0
+    ) {
       let newConfig = this.fillWifiTetheringConfiguration(msg.data.config);
-      if (JSON.stringify(this._wifiTetheringConfig) != JSON.stringify(newConfig)) {
+      if (
+        JSON.stringify(this._wifiTetheringConfig) != JSON.stringify(newConfig)
+      ) {
         this._wifiTetheringConfig = newConfig;
         TetheringConfigStore.write(
-          TetheringConfigStore.TETHERING_TYPE_WIFI, this._wifiTetheringConfig, null);
-        this._fireEvent("tetheringconfigchange", { wifiTetheringConfig: this._wifiTetheringConfig });
+          TetheringConfigStore.TETHERING_TYPE_WIFI,
+          this._wifiTetheringConfig,
+          null
+        );
+        this._fireEvent("tetheringconfigchange", {
+          wifiTetheringConfig: this._wifiTetheringConfig,
+        });
       }
     }
 
@@ -4465,7 +4493,12 @@ WifiWorker.prototype = {
     }
 
     WifiManager.deleteCert(msg.data, function(result) {
-      self._sendMessage(message, result.status == SUCCESS, "Delete Cert failed", msg);
+      self._sendMessage(
+        message,
+        result.status == SUCCESS,
+        "Delete Cert failed",
+        msg
+      );
     });
   },
 
@@ -4533,6 +4566,7 @@ WifiWorker.prototype = {
     return id;
   },
 
+  /* eslint-disable complexity */
   // nsIObserver implementation
   observe(subject, topic, data) {
     switch (topic) {
@@ -4554,7 +4588,8 @@ WifiWorker.prototype = {
 
         if (this.mobileConnectionRegistered) {
           gMobileConnectionService
-            .getItemByServiceId(WifiManager.telephonyServiceId).unregisterListener(this);
+            .getItemByServiceId(WifiManager.telephonyServiceId)
+            .unregisterListener(this);
           this.mobileConnectionRegistered = false;
         }
 
@@ -4571,12 +4606,14 @@ WifiWorker.prototype = {
           }
           if (this.mobileConnectionRegistered) {
             gMobileConnectionService
-              .getItemByServiceId(WifiManager.telephonyServiceId).unregisterListener(this);
+              .getItemByServiceId(WifiManager.telephonyServiceId)
+              .unregisterListener(this);
             this.mobileConnectionRegistered = false;
           }
           WifiManager.telephonyServiceId = defaultServiceId;
           gMobileConnectionService
-            .getItemByServiceId(WifiManager.telephonyServiceId).registerListener(this);
+            .getItemByServiceId(WifiManager.telephonyServiceId)
+            .registerListener(this);
           this.mobileConnectionRegistered = true;
         }
         break;
@@ -4614,11 +4651,11 @@ WifiWorker.prototype = {
 
       case kInterfaceDnsInfoTopic:
         // Format: "DnsInfo servers <interface> <lifetime> <servers>"
-        var token = data.split(" ");
+        token = data.split(" ");
         if (token.length !== 5) {
           return;
         }
-        var iface = token[2];
+        iface = token[2];
         if (!iface.includes("wlan")) {
           return;
         }
@@ -4628,13 +4665,13 @@ WifiWorker.prototype = {
 
       case kRouteChangedTopic:
         // Format: "Route <updated|removed> <dst> [via <gateway] [dev <iface>]"
-        var token = data.split(" ");
+        token = data.split(" ");
         if (token.length < 7) {
           return;
         }
-        var iface = null;
+        iface = null;
+        action = token[1];
         var gateway = null;
-        var action = token[1];
         var valid = true;
         for (let i = 3; i + 1 < token.length; i += 2) {
           if (token[i] == "dev") {
@@ -4742,6 +4779,7 @@ WifiWorker.prototype = {
         break;
     }
   },
+  /* eslint-enable complexity */
 
   // nsISettingsObserver
   observeSettings(aInfo) {
@@ -4839,15 +4877,13 @@ WifiWorker.prototype = {
   },
 };
 
-var debug;
-function updateDebug() {
+function debug(s) {
   if (DEBUG) {
-    debug = function(s) {
-      dump("-*- WifiWorker component: " + s + "\n");
-    };
-  } else {
-    debug = function(s) {};
+    dump("-*- WifiWorker component: " + s + "\n");
   }
+}
+
+function updateDebug() {
   //WifiManager.syncDebug();
 }
 updateDebug();

@@ -15,6 +15,7 @@ this.EXPORTED_SYMBOLS = ["ScanResult", "WifiNetwork", "WifiConfigUtils"];
 this.WifiConfigUtils = (function() {
   var wifiConfigUtils = {};
 
+  /* eslint-disable no-unused-vars */
   const EID_SSID = 0;
   const EID_SUPPORTED_RATES = 1;
   const EID_TIM = 5;
@@ -100,6 +101,7 @@ this.WifiConfigUtils = (function() {
 
   const LITTLE_ENDIAN = 0;
   const BIG_ENDIAN = 1;
+  /* eslint-enable no-unused-vars */
 
   const hsReleaseMap = [
     WifiConstants.PasspointVersion.R1,
@@ -118,14 +120,6 @@ this.WifiConfigUtils = (function() {
   wifiConfigUtils.parseInformationElements = parseInformationElements;
   wifiConfigUtils.parseCapabilities = parseCapabilities;
   wifiConfigUtils.parsePasspointElements = parsePasspointElements;
-
-  function byte2String(buf) {
-    var result = "";
-    for (let i = 0; i < buf.length; i++) {
-      result += String.fromCharCode(buf[i]);
-    }
-    return result;
-  }
 
   function byte2Int(buf, pos, len, endian) {
     let result = 0;
@@ -369,9 +363,9 @@ this.WifiConfigUtils = (function() {
       return;
     }
 
-    let venueInfo;
+    // venueInfo
     if (buf.length == 3 || buf.length == 9) {
-      venueInfo = byte2Int(buf, pos, 2, BIG_ENDIAN);
+      byte2Int(buf, pos, 2, BIG_ENDIAN);
     }
     if (buf.length == 7 || buf.length == 9) {
       element.hessid = byte2Int(buf, pos, 6, BIG_ENDIAN);
@@ -418,7 +412,7 @@ this.WifiConfigUtils = (function() {
         element.hsRelease = WifiConstants.PasspointVersion.Unknown;
       }
 
-      if ((hsConf & ANQP_DOMID_BIT) != 0) {
+      if ((hsConf & WifiConstants.ANQP_DOMID_BIT) != 0) {
         if (buf.length < 7) {
           debug("Not enough element for domain ID");
           return;
@@ -683,6 +677,7 @@ this.WifiConfigUtils = (function() {
     return escape(ssid) + encryption;
   }
 
+  /* eslint-disable no-unused-vars */
   // Get unique key for anqp key, anqp key is created by
   // escape(SSID)+Security+bssid+hessid+anqpDomainID.
   // So we may distinguish these passpoint AP.
@@ -693,12 +688,12 @@ this.WifiConfigUtils = (function() {
       anqpDomainID = network.anqpDomainID;
 
     if (anqpDomainID == 0) {
-      return escape(ssid) + bssid + "0" + "0";
+      return `${escape(ssid)}${bssid}00`;
     } else if (hessid != 0) {
-      return "0" + hessid + anqpDomainID;
+      return `0${hessid}${anqpDomainID}`;
     }
 
-    return escape(ssid) + "0" + "0" + andpDomainID;
+    return `${escape(ssid)}00${anqpDomainID}`;
   }
 
   function getRealmForMccMnc(mcc, mnc) {
@@ -706,9 +701,9 @@ this.WifiConfigUtils = (function() {
       return null;
     }
     if (mnc.length === 2) {
-      mnc = "0" + mnc;
+      mnc = `0${mnc}`;
     }
-    return "wlan.mnc" + mnc + ".mcc" + mcc + ".3gppnetwork.org";
+    return `wlan.mnc${mnc}.mcc${mcc}.3gppnetwork.org`;
   }
 
   function isCarrierEapMethod(eapMethod) {
@@ -718,6 +713,7 @@ this.WifiConfigUtils = (function() {
       eapMethod == EAPConstants.EAP_AKA_PRIME
     );
   }
+  /* eslint-enable no-unused-vars */
 
   return wifiConfigUtils;
 })();
