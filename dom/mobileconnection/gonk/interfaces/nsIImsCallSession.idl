@@ -282,6 +282,33 @@ interface nsIImsCallProfile : nsISupports
    * Possible values: IImsCallProfile#DIALSTRING_*.
    */
   readonly attribute long dialString;
+
+  /**
+   * Call is not restricted on peer side and High Definition media is supported
+   */
+  const long CALL_RESTRICT_CAUSE_NONE = 0;
+
+  /**
+   * High Definition media is not supported on the peer side due to the Radio Access Technology
+   * (RAT) it is are connected to.
+   */
+  const long CALL_RESTRICT_CAUSE_RAT = 1;
+
+  /**
+   * The service has been disabled on the peer side.
+   */
+  const long CALL_RESTRICT_CAUSE_DISABLED = 2;
+
+  /**
+   * High definition media is not currently supported.
+   */
+  const long CALL_RESTRICT_CAUSE_HD = 3;
+
+  /**
+   * The remote restrict cause.
+   * Possible value: IImsCallProfile#CALL_RESTRICT_CAUSE_*.
+   */
+  readonly attribute long restrictCause;
 };
 
 [scriptable, uuid(2a1982ec-bdad-43b2-89e9-532ed6f27bd1)]
@@ -546,9 +573,17 @@ interface nsIImsCallSession : nsISupports
    */
   nsIImsCallProfile getCallProfile();
 
-  // Kai doesn't support loca/remote call profile for now.
-  // nsIImsCallProfile getLocalCallProfile();
-  // nsIImsCallProfile getRemoteCallProfile();
+  /**
+   * Gets the local profile that this session is associated with.
+   * @return the local call profile.
+   */
+  nsIImsCallProfile getLocalCallProfile();
+
+  /**
+   * Gets the remote profile that this session is associated with.
+   * @return the remote call profile.
+   */
+  nsIImsCallProfile getRemoteCallProfile();
 
   /**
    * Call session states.

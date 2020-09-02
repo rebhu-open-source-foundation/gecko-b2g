@@ -5524,7 +5524,7 @@ RadioInterface.prototype = {
 
       call.uusinfo = uusInfos;
 
-      //Add fake rttMode for upper layer
+      //Add dummy values for upper layer
       call.rttMode = RIL.RTT_MODE_OFF;
 
       if (call.isVoice) {

@@ -456,7 +456,6 @@ TelephonyCallInfo.prototype = {
   isConference: false,
   isSwitchable: true,
   isMergeable: true,
-
   isVt: false,
   capabilities: Ci.nsITelephonyCallInfo.CAPABILITY_SUPPORTS_NONE,
   videoCallState: Ci.nsITelephonyCallInfo.STATE_AUDIO_ONLY,
@@ -493,6 +492,7 @@ Call.prototype = {
   vowifiCallQuality: nsITelephonyCallInfo.VOWIFI_QUALITY_NONE,
 
   videoCallProvider: null,
+  isRtt: false,
 
   getVideoCallProvider() {
     if (!this.videoCallProvider) {
@@ -812,20 +812,6 @@ TelephonyService.prototype = {
         return nsITelephonyService.CALL_STATE_INCOMING;
       default:
         throw new Error("Unknown rilCallState: " + aState);
-    }
-  },
-
-  _convertRttMode(aRttMode) {
-    switch (aRttMode) {
-      case RIL.RTT_MODE_OFF:
-        return nsITelephonyService.RTT_MODE_OFF;
-      case RIL.RTT_MODE_FULL:
-        return nsITelephonyService.RTT_MODE_FULL;
-      default:
-        if (DEBUG) {
-          debug("Unknown RttMode: " + aRttMode);
-        }
-        return nsITelephonyService.RTT_MODE_OFF;
     }
   },
 
@@ -2198,7 +2184,6 @@ TelephonyService.prototype = {
       aRilCall.number,
       aRilCall.toa
     );
-    aRilCall.rttMode = this._convertRttMode(aRilCall.rttMode);
 
     let change = false;
     const key = [
@@ -2212,6 +2197,8 @@ TelephonyService.prototype = {
       "isConferenceParent",
       "voiceQuality",
       "radioTech",
+      "capabilities",
+      "vowifiCallQuality",
     ];
 
     for (let k of key) {
@@ -2915,50 +2902,48 @@ TelephonyService.prototype = {
   },
 
   sendRttModify(aClientId, aCallIndex, aRttMode, aCallback) {
-    let options = {
-      callIndex: aCallIndex,
-      rttMode: aRttMode,
-    };
-    this._sendToRilWorker(aClientId, "sendRttModify", options, aResponse => {
-      if (aResponse.errorMsg) {
-        aCallback.notifyError(RIL.GECKO_ERROR_GENERIC_FAILURE);
-        return;
-      }
-      aCallback.notifySuccess();
-    });
+    let call = this._currentCalls[aClientId][aCallIndex];
+    if (!call.isImsCall()) {
+      aCallback.notifyError(RIL.GECKO_ERROR_GENERIC_FAILURE);
+      return;
+    }
+
+    let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+    imsPhone.sendRttModifyRequest(
+      aCallIndex,
+      aRttMode,
+      this._createSimpleImsCallback(aCallback)
+    );
   },
 
   sendRttModifyResponse(aClientId, aCallIndex, aStatus, aCallback) {
-    let options = {
-      callIndex: aCallIndex,
-      rttstatus: aStatus,
-    };
-    this._sendToRilWorker(
-      aClientId,
-      "sendRttModifyResponse",
-      options,
-      aResponse => {
-        if (aResponse.errorMsg) {
-          aCallback.notifyError(RIL.GECKO_ERROR_GENERIC_FAILURE);
-          return;
-        }
-        aCallback.notifySuccess();
-      }
+    let call = this._currentCalls[aClientId][aCallIndex];
+    if (!call.isImsCall()) {
+      aCallback.notifyError(RIL.GECKO_ERROR_GENERIC_FAILURE);
+      return;
+    }
+
+    let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+    imsPhone.sendRttModifyResponse(
+      aCallIndex,
+      aStatus,
+      this._createSimpleImsCallback(aCallback)
     );
   },
 
   sendRttMessage(aClientId, aCallIndex, aMessage, aCallback) {
-    let options = {
-      callIndex: aCallIndex,
-      message: aMessage,
-    };
-    this._sendToRilWorker(aClientId, "sendRttMessage", options, aResponse => {
-      if (aResponse.errorMsg) {
-        aCallback.notifyError(RIL.GECKO_ERROR_GENERIC_FAILURE);
-        return;
-      }
-      aCallback.notifySuccess();
-    });
+    let call = this._currentCalls[aClientId][aCallIndex];
+    if (!call.isImsCall() || !call.isRtt) {
+      aCallback.notifyError(RIL.GECKO_ERROR_GENERIC_FAILURE);
+      return;
+    }
+
+    let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+    imsPhone.sendRttMessage(
+      aCallIndex,
+      aMessage,
+      this._createSimpleImsCallback(aCallback)
+    );
   },
 
   get hacMode() {

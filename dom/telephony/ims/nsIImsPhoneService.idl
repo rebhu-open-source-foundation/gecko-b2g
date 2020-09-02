@@ -109,6 +109,24 @@ interface nsIImsPhone : nsISupports {
    * To hangup all active calls and accept other (held or waiting) call.
    */
   void hangupForeground(in nsIImsPhoneCallback callback);
+
+  /**
+   * send RTT mode modify request to remote.
+   * @param callindex
+   * @param rttMode
+   * @param callback
+   */
+  void sendRttModifyRequest(in unsigned long callIndex,
+                            in unsigned short rttMode,
+                            in nsIImsPhoneCallback callback);
+
+  void sendRttModifyResponse(in unsigned long callIndex,
+                             in boolean status,
+                             in nsIImsPhoneCallback callback);
+
+  void sendRttMessage(in unsigned long callIndex,
+                      in AString message,
+                      in nsIImsPhoneCallback callback);
 };
 
 [scriptable, uuid(cd47df53-ac11-40f2-8c7f-f4ea47499721)]
