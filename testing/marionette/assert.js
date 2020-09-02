@@ -27,7 +27,7 @@ const isFirefox = () =>
   Services.appinfo.ID == "{ec8030f7-c20a-464f-9b0e-13a3a9e97384}";
 const isThunderbird = () =>
   Services.appinfo.ID == "{3550f703-e582-4d05-9a08-453d09bdfdc6}";
-const isB2G = () => Services.appinfo.name.toLowerCase() == 'b2g';
+const isB2G = () => Services.appinfo.name.toLowerCase() == "b2g";
 
 /**
  * Shorthands for common assertions made in Marionette.
@@ -127,8 +127,8 @@ assert.fennec = function(msg = "") {
 
 assert.b2g = function(msg = "") {
   msg = msg || "Only supported in B2G";
-  assert.that(isB2G, msg, UnsupportedOperationError)();
-}
+  assert.that(isB2G, msg, error.UnsupportedOperationError)();
+};
 
 /**
  * Asserts that the current <var>context</var> is content.

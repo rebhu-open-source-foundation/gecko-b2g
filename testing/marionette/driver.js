@@ -1714,7 +1714,7 @@ GeckoDriver.prototype.findWindow = function(winIterable, filter) {
     const tabBrowser = browser.getTabBrowser(win);
 
     // In case the wanted window is a chrome window, we are done.
-    if (filter(win, browsingContext.id)) {
+    if (id && id == browsingContext.id) {
       return { win, id: browsingContext.id, hasTabBrowser: !!tabBrowser };
 
       // Otherwise check if the chrome window has a tab browser, and that it
