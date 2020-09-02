@@ -34,10 +34,11 @@ The `WebEmbedder` object exposes the following methods:
 - `launchPreallocatedProcess()`: this will create a new content process with no content.
 - `addSystemEventListener(type, listener, useCapture)`: proxies the `Services.els` method of the same name, using the shell document as a target.
 - `removeSystemEventListener(type, listener, useCapture)`: proxies the `Services.els` method of the same name, using the shell document as a target.
-- `systemAlerts`: this object exposes methods for invoking notification features of the system
+- `systemAlerts`: this object exposes methods for invoking notification features of the system.
   - `resendAll()`: this will resend all stored notifications from the Notifications DB.
   - `click(data)`: this will perform click action. The data parameter is an object with the following properties:
-    - `id`: the unique id for this notification
+    - `id`: the unique id for this notification.
+    - `action`: the string ID of the notification button the user clicked.
   - `close(id)`: this will perform close action with a parameter id which is the unique id for this notification.
 - `isDaemonReady`: returns a boolean that is true if the api-daemon is running and is usable.
 - `isGonk`: returns true if this is a device build.
@@ -92,6 +93,7 @@ This delegate is responsible for displaying desktop notifications UI.
   - `timestamp`: when the notification was triggered.
   - `data`: Arbitrary data that you want associated with the notification.
   - `requireInteraction`: Indicates that a notification should remain active until the user clicks or dismisses it, rather than closing automatically.
+  - `actions`: A array of NotificationAction objects, each describing a single action the user can choose within a notification.
   - `silent`: whether this notification should be silent.
   - `mozbehavior`: a dictionary indicates custom notification behavior.
   - `serviceWorkerRegistrationScope`: the unique identifier for the service worker registration the notification is sent from.
