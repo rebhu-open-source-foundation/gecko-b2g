@@ -394,6 +394,31 @@ XPCOMUtils.defineLazyGetter(this, "Screenshot", function() {
         }
       }, "geolocation-device-events");
 
+      Services.obs.addObserver((subject, topic, data) => {
+        _webembed_log(`receive captive-portal-login: ${data}`);
+        this.dispatchEvent(
+          new CustomEvent("captive-portal-login", { detail: data })
+        );
+      }, "captive-portal-login");
+
+      Services.obs.addObserver((subject, topic, data) => {
+        _webembed_log(`receive captive-portal-login-abort: ${data}`);
+        this.dispatchEvent(
+          new CustomEvent("captive-portal-login-result", {
+            detail: { result: 0, id: data.id },
+          })
+        );
+      }, "captive-portal-login-abort");
+
+      Services.obs.addObserver((subject, topic, data) => {
+        _webembed_log(`receive captive-portal-login-success: ${data}`);
+        this.dispatchEvent(
+          new CustomEvent("captive-portal-login-result", {
+            detail: { result: 1, id: data.id },
+          })
+        );
+      }, "captive-portal-login-success");
+
       if (delegates.notifications) {
         Services.obs.notifyObservers(
           { wrappedJSObject: delegates.notifications },

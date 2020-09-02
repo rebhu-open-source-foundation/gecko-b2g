@@ -66,6 +66,8 @@ Since the `WebEmbedder` object extends `EventTarget` you can attach event listen
 - `bluetooth-volumeset`: this event is dispatched when Bluetooth handsfree repots its volume. Its `detail` is a integer from 0 to 15 representing speaker gain level.
 - `mtp-state-changed`: this event is dispatched when MTP server is started or disabled. There are two status, `started` and `finished`. `started` means MTP is enabled and `finished` means MTP is disabled.
 - `geolocation-status`: this event is dispatched when geolocation status changes. Its `detail` is a bool representing active/inactive.
+- `captive-portal-login`: this event is dispatched when captive portal detection redirect to a login page. Its `detail` is a string to represent login url.
+- `captive-portal-login-result`: this event is dispatched when captive portal login process is finished. Its result contained in 'detail' is 1 if login successfully, otherwise 0.
 
 ## WindowProvider delegate
 
