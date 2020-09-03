@@ -1,6 +1,6 @@
 #!/bin/bash
 
-GECKO_OBJDIR=${GECKO_OBJDIR:-objdir-gecko}
+GECKO_OBJDIR=${GECKO_OBJDIR:-objdir-arm-gecko}
 
 # Copy file/dir to device via ADB
 #
