@@ -58,6 +58,7 @@ Since the `WebEmbedder` object extends `EventTarget` you can attach event listen
   - `unknown`
 - `default-volume-channel-changed`: this event is dispatched when the audio channel that can be adjusted by hardware volume keys is changed. `CustomEvent.detail` is a string representing its audio channel type.
 - `bluetooth-volumeset`: this event is dispatched when Bluetooth handsfree repots its volume. Its `detail` is a integer from 0 to 15 representing speaker gain level.
+- `mtp-state-changed`: this event is dispatched when MTP server is started or disabled. There are two status, `started` and `finished`. `started` means MTP is enabled and `finished` means MTP is disabled.
 - `geolocation-status`: this event is dispatched when geolocation status changes. Its `detail` is a bool representing active/inactive.
 
 ## WindowProvider delegate

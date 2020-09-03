@@ -316,6 +316,13 @@ XPCOMUtils.defineLazyGetter(this, "Screenshot", function() {
         );
       }, "bluetooth-volume-change");
 
+      Services.obs.addObserver((subject, topic, data) => {
+        _webembed_log(`receive mtp-state-changed: ${data}`);
+        this.dispatchEvent(
+          new CustomEvent("mtp-state-changed", { detail: data })
+        );
+      }, "mtp-state-changed");
+
       // whether geolocation service is active
       this.geolocationActive = false;
 
