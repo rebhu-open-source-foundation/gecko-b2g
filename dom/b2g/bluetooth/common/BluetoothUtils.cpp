@@ -13,7 +13,7 @@
 #include "mozilla/dom/ScriptSettings.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
 #include "nsContentUtils.h"
-// #include "nsISystemMessagesInternal.h"
+#include "nsISystemMessageService.h"
 #include "nsIUUIDGenerator.h"
 #include "nsServiceManagerUtils.h"
 #include "nsXULAppAPI.h"
@@ -574,106 +574,98 @@ void UnregisterBluetoothSignalHandler(const BluetoothUuid& aUuid,
 /**
  * |SetJsObject| is an internal function used by |BroadcastSystemMessage| only
  */
-// static bool
-// SetJsObject(JSContext* aContext,
-//             const BluetoothValue& aValue,
-//             JS::Handle<JSObject*> aObj)
-// {
-//   MOZ_ASSERT(aContext && aObj);
+static bool SetJsObject(JSContext* aContext, const BluetoothValue& aValue,
+                        JS::Handle<JSObject*> aObj) {
+  MOZ_ASSERT(aContext && aObj);
 
-//   if (aValue.type() != BluetoothValue::TArrayOfBluetoothNamedValue) {
-//     BT_WARNING("SetJsObject: Invalid parameter type");
-//     return false;
-//   }
+  if (aValue.type() != BluetoothValue::TArrayOfBluetoothNamedValue) {
+    BT_WARNING("SetJsObject: Invalid parameter type");
+    return false;
+  }
 
-//   const nsTArray<BluetoothNamedValue>& arr =
-//     aValue.get_ArrayOfBluetoothNamedValue();
+  const nsTArray<BluetoothNamedValue>& arr =
+      aValue.get_ArrayOfBluetoothNamedValue();
 
-//   for (uint32_t i = 0; i < arr.Length(); i++) {
-//     JS::Rooted<JS::Value> val(aContext);
-//     const BluetoothValue& v = arr[i].value();
+  for (uint32_t i = 0; i < arr.Length(); i++) {
+    JS::Rooted<JS::Value> val(aContext);
+    const BluetoothValue& v = arr[i].value();
 
-//     switch(v.type()) {
-//        case BluetoothValue::TBluetoothAddress: {
-//         nsAutoString addressStr;
-//         AddressToString(v.get_BluetoothAddress(), addressStr);
+    switch (v.type()) {
+      case BluetoothValue::TBluetoothAddress: {
+        nsAutoString addressStr;
+        AddressToString(v.get_BluetoothAddress(), addressStr);
 
-//         JSString* jsData = JS_NewUCStringCopyN(aContext,
-//                                                addressStr.BeginReading(),
-//                                                addressStr.Length());
-//         NS_ENSURE_TRUE(jsData, false);
-//         val.setString(jsData);
-//         break;
-//       }
-//       case BluetoothValue::TnsString: {
-//         JSString* jsData = JS_NewUCStringCopyN(aContext,
-//                                      v.get_nsString().BeginReading(),
-//                                      v.get_nsString().Length());
-//         NS_ENSURE_TRUE(jsData, false);
-//         val.setString(jsData);
-//         break;
-//       }
-//       case BluetoothValue::Tuint32_t:
-//         val.setNumber(v.get_uint32_t());
-//         break;
-//       case BluetoothValue::Tbool:
-//         val.setBoolean(v.get_bool());
-//         break;
-//       default:
-//         BT_WARNING("SetJsObject: Parameter is not handled");
-//         break;
-//     }
+        JSString* jsData = JS_NewUCStringCopyN(
+            aContext, addressStr.BeginReading(), addressStr.Length());
+        NS_ENSURE_TRUE(jsData, false);
+        val.setString(jsData);
+        break;
+      }
+      case BluetoothValue::TnsString: {
+        JSString* jsData =
+            JS_NewUCStringCopyN(aContext, v.get_nsString().BeginReading(),
+                                v.get_nsString().Length());
+        NS_ENSURE_TRUE(jsData, false);
+        val.setString(jsData);
+        break;
+      }
+      case BluetoothValue::Tuint32_t:
+        val.setNumber(v.get_uint32_t());
+        break;
+      case BluetoothValue::Tbool:
+        val.setBoolean(v.get_bool());
+        break;
+      default:
+        BT_WARNING("SetJsObject: Parameter is not handled");
+        break;
+    }
 
-//     if (!JS_SetProperty(aContext, aObj,
-//                         NS_ConvertUTF16toUTF8(arr[i].name()).get(),
-//                         val)) {
-//       BT_WARNING("Failed to set property");
-//       return false;
-//     }
-//   }
+    if (!JS_SetProperty(aContext, aObj,
+                        NS_ConvertUTF16toUTF8(arr[i].name()).get(), val)) {
+      BT_WARNING("Failed to set property");
+      return false;
+    }
+  }
 
-//   return true;
-// }
+  return true;
+}
 
 bool BroadcastSystemMessage(const nsAString& aType,
                             const BluetoothValue& aData) {
-  // TODO: replace system message on KaiNext
+  mozilla::AutoSafeJSContext cx;
+  MOZ_ASSERT(!::JS_IsExceptionPending(cx),
+             "Shouldn't get here when an exception is pending!");
 
-  // mozilla::AutoSafeJSContext cx;
-  // MOZ_ASSERT(!::JS_IsExceptionPending(cx),
-  //     "Shouldn't get here when an exception is pending!");
+  nsCOMPtr<nsISystemMessageService> systemMessenger =
+      do_GetService("@mozilla.org/systemmessage-service;1");
+  NS_ENSURE_TRUE(systemMessenger, false);
 
-  // nsCOMPtr<nsISystemMessagesInternal> systemMessenger =
-  //   do_GetService("@mozilla.org/system-message-internal;1");
-  // NS_ENSURE_TRUE(systemMessenger, false);
+  JS::Rooted<JS::Value> value(cx);
+  if (aData.type() == BluetoothValue::TnsString) {
+    JSString* jsData = JS_NewUCStringCopyN(
+        cx, aData.get_nsString().BeginReading(), aData.get_nsString().Length());
+    value.setString(jsData);
+  } else if (aData.type() == BluetoothValue::TArrayOfBluetoothNamedValue) {
+    JS::Rooted<JSObject*> obj(cx, JS_NewPlainObject(cx));
+    if (!obj) {
+      BT_WARNING("Failed to new JSObject for system message!");
+      return false;
+    }
 
-  // JS::Rooted<JS::Value> value(cx);
-  // if (aData.type() == BluetoothValue::TnsString) {
-  //   JSString* jsData = JS_NewUCStringCopyN(cx,
-  //                                          aData.get_nsString().BeginReading(),
-  //                                          aData.get_nsString().Length());
-  //   value.setString(jsData);
-  // } else if (aData.type() == BluetoothValue::TArrayOfBluetoothNamedValue) {
-  //   JS::Rooted<JSObject*> obj(cx, JS_NewPlainObject(cx));
-  //   if (!obj) {
-  //     BT_WARNING("Failed to new JSObject for system message!");
-  //     return false;
-  //   }
+    if (!SetJsObject(cx, aData, obj)) {
+      BT_WARNING("Failed to set properties of system message!");
+      return false;
+    }
+    value = JS::ObjectValue(*obj);
+  } else {
+    BT_WARNING("Not support the unknown BluetoothValue type");
+    return false;
+  }
 
-  //   if (!SetJsObject(cx, aData, obj)) {
-  //     BT_WARNING("Failed to set properties of system message!");
-  //     return false;
-  //   }
-  //   value = JS::ObjectValue(*obj);
-  // } else {
-  //   BT_WARNING("Not support the unknown BluetoothValue type");
-  //   return false;
-  // }
-
-  // nsCOMPtr<nsISupports> promise;
-  // systemMessenger->BroadcastMessage(aType, value,
-  //                                   JS::UndefinedHandleValue,
-  //                                   getter_AddRefs(promise));
+  // TODO: use broadcastMessage() instead when it's ready
+  systemMessenger->SendMessage(aType, value, "https://system.local"_ns, cx);
+  systemMessenger->SendMessage(aType, value, "https://bluetooth.local"_ns, cx);
+  systemMessenger->SendMessage(aType, value, "https://settings.local"_ns, cx);
 
   return true;
 }

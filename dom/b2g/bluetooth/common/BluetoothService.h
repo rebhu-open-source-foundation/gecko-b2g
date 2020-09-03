@@ -577,7 +577,7 @@ class BluetoothService : public nsIObserver,
 
   BluetoothSignalObserverTable mBluetoothSignalObserverTable;
 
-  // nsTArray<BluetoothSignal> mPendingPairReqSignals;
+  nsTArray<BluetoothSignal> mPendingPairReqSignals;
 
   // nsTArray<BluetoothSignal> mPendingPbapReqSignals;
 
