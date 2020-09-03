@@ -1,15 +1,44 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -e
 
 info() {
-  printf "[${0%.*}][INFO]\033[1;33m${1}\033[0m\n"
+  printf "[check-format][INFO]\033[1;33m${1}\033[0m\n"
 }
 
 warn() {
-  printf "[${0%.*}][WARN]\033[0;31m${1}\033[0m\n"
+  printf "[check-format][WARN]\033[0;31m${1}\033[0m\n"
 }
 
+help() {
+  echo "Usage: $0 [--against <any ref>] [-u|--untracked] [--koost] [-v] [--fix]"
+  echo
+  echo "Available options:"
+  echo "--against <any ref>"
+  echo "  any ref you want git to compare with, in order for the set of added, renamed and the modified files."
+  echo "  the value passed along with this options can be any acceptable refspec such as commit, branch and tag."
+  echo "  by default HEAD if not provided."
+  echo
+  echo "-u | --untracked"
+  echo "  lint the untracked files too."
+  echo
+  echo "--koost"
+  echo "  Lint the changed files in koost."
+  echo "  Note that the ref passed along with --against is necessarily reachable in koost when this option is specified."
+  echo "   Otherwise \"fatal: bad object\" would be reported by git."
+  echo
+  echo "-v, --fix"
+  echo "  orginal options for \"mach lint\", see \"mach lint --help\" for more details."
+  echo
+  echo "-h | --help"
+  echo "  Show this message."
+  echo
+}
+
+trap 'warn "$(basename $0) caught error on line : $LINENO command was: $BASH_COMMAND"; exit 1' ERR
+GIT=git
 lint_opts=()
 untracked=false
+is_koost=false
 unset against_ref
 while [ $# -ge 1 ]; do
   case $1 in
@@ -22,10 +51,20 @@ while [ $# -ge 1 ]; do
       untracked=true
       shift
       ;;
+    --koost)
+      shift
+      [ -d "${PWD}/koost/.git" ] || { warn "koost not found."; exit -1; }
+      GIT="${GIT} --work-tree=${PWD}/koost --git-dir=${PWD}/koost/.git"
+      is_koost=true
+      ;;
     -v|--fix)
     # known options for `mach lint`
       lint_opts+=("$1")
       shift
+      ;;
+    -h|--help)
+      help
+      exit 0
       ;;
     -*)
       warn "Unknown options: $1"
@@ -39,22 +78,23 @@ all_files=()
 js_files=()
 other_files=()
 
+info "${against_ref}"
 if [[ ${against_ref} == HEAD ]]; then
   # assume that all changed files are unstaged
-  IFS=$'\n' read -r -d '' -a all_files < <( git diff ${against_ref} --diff-filter=ARM --name-only && printf '\0' )
+  IFS=$'\n' read -r -d '' -a all_files < <( ${GIT} diff ${against_ref} --diff-filter=ARM --name-only && printf '\0' )
   if [ ${#all_files[@]} -eq 0 ]; then
   # try the staged files
     warn "No changed files compared to ${against_ref} found, I assume you already executed 'git add'. Retry with --cached"
-    IFS=$'\n' read -r -d '' -a all_files < <( git diff ${against_ref} --diff-filter=ARM --cached --name-only && printf '\0' )
+    IFS=$'\n' read -r -d '' -a all_files < <( ${GIT} diff ${against_ref} --diff-filter=ARM --cached --name-only && printf '\0' )
   fi
 else
   # get the ADDED, RENAMED and MODIFIED files compared to ${against_ref}
-  info "Get files added / renamed / modified since ${against_ref}($(git rev-parse ${against_ref}))"
-  IFS=$'\n' read -r -d '' -a all_files < <( git diff ${against_ref} --diff-filter=ARM --name-only && printf '\0' )
+  info "Get files added / renamed / modified since ${against_ref} (real ID: `${GIT} rev-parse ${against_ref}`)"
+  IFS=$'\n' read -r -d '' -a all_files < <( ${GIT} diff ${against_ref} --diff-filter=ARM --name-only && printf '\0' )
 fi
 if ${untracked}; then
   info "Get untracked files (that are not recorded in .gitignore)"
-  for u in `git ls-files . --exclude-standard --others`; do
+  for u in `${GIT} ls-files . --exclude-standard --others`; do
     all_files+=(${u})
   done
 fi
@@ -64,6 +104,9 @@ if [ ${#all_files[@]} -eq 0 ]; then
 fi
 
 for f in "${all_files[@]}"; do
+  if ${is_koost}; then
+    f=${f/#/koost\/}
+  fi
   echo $f
   ext=${f##*.}
   if [[ $ext =~ ^js[m]? ]]; then
@@ -72,10 +115,11 @@ for f in "${all_files[@]}"; do
     other_files+=(${f})
   fi
 done
+trap - ERR
 
 if [ ${#js_files[@]} -gt 0 ]; then
   info "Lint js/jsm files with eslint..."
-  ./mach lint -f unix -l eslint "${lint_opts[@]}" "${js_files[@]}" || {
+  ./mach lint -f unix "${lint_opts[@]}" -l eslint "${js_files[@]}" || {
     warn "============================================================"
     warn "Please fix linting errors:"
     warn "Run './mach lint --fix -v ${js_files[@]}' "

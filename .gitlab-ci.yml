@@ -8,6 +8,7 @@
 variables:
   GIT_DEPTH: 1
   DEFAULT_DOCKER_IMAGE: "${CI_REGISTRY}/re/kaios-build/next/desktop:latest"
+  # GIT_CLONE_PATH would be overidden with "koost" if pipeline gets triggered from within koost
   GIT_CLONE_PATH: ${CI_BUILDS_DIR}/${CI_PROJECT_NAMESPACE}/gecko
 
 .global_setup: &global_setup
@@ -15,12 +16,32 @@ variables:
   - git config --global url."${CI_SERVER_URL}/".insteadOf "git@${CI_SERVER_HOST}:"
   - '[ "$(cat ${HOME}/.mozbuild/ver)" = "2" ] || curl https://packages.preprod.kaiostech.com/ndk/v2/mozbuild.tar.bz2 | tar -C ${HOME}/ -xj'
 
+.koost_setup: &koost_setup
+  - |
+    if [[ ${GIT_CLONE_PATH##*/} == koost ]]; then
+      printf "\033[0;31mYou're using GECKO_PATH defined from ${CI_PROJECT_PATH} !\033[0m\n"
+      cd ${GECKO_PATH}
+      git init
+      git fetch ${CI_SERVER_URL}/KaiOS/gecko-dev.git gonk --no-tags --depth 1
+      git checkout FETCH_HEAD
+      check_format_opt="${check_format_opt} --koost"
+    else
+      cd ${GIT_CLONE_PATH}
+      git clone ${CI_SERVER_URL}/KaiOS/koost.git -b next --depth 1
+    fi
+  - |
+    rm -rf gonk-q
+    if [ "${CI_JOB_NAME}" == "build:arm" ]; then
+      git clone ${CI_SERVER_URL}/KaiOS/dummy/gonk-q.git --depth 1
+    fi
+
 default:
   image: $DEFAULT_DOCKER_IMAGE
   tags:
     - gecko-dev
   before_script:
     - *global_setup
+    - *koost_setup
 
 stages:
   - lint
@@ -34,24 +55,26 @@ lint:all:
     DEFAULT_DOCKER_IMAGE: "${CI_REGISTRY}/re/kaios-build/next/daily:latest"
     # force the runner not to initialize the repository
     GIT_STRATEGY: none
+  before_script:
+    - *global_setup
   script:
     - apt-get install jq -yy
     - |
+      cd ${CI_BUILDS_DIR}
       depth=$(curl -s \
         -H "Private-Token: ${GITLAB_API_KEY}" \
         "${CI_API_V4_URL}/projects/${CI_MERGE_REQUEST_PROJECT_ID}/merge_requests/${CI_MERGE_REQUEST_IID}/commits" \
         | jq length)
     - |
+      rm -rf ${GIT_CLONE_PATH}
       git clone ${CI_MERGE_REQUEST_SOURCE_PROJECT_URL}.git \
         -b ${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME} \
         --depth $((depth+1)) \
       ${GIT_CLONE_PATH}
-    - |
-      pushd ${GIT_CLONE_PATH}
-      ./mach create-mach-environment
-    - |
-      ./check-format.sh --against "HEAD~${depth}" -v
-      popd
+    - 'check_format_opt="--against HEAD~${depth} -v"'
+    - *koost_setup
+    - ./mach create-mach-environment
+    - ./check-format.sh ${check_format_opt}
   only:
     - merge_requests
   except:
@@ -94,16 +117,15 @@ build:emulator:
     - ./build-b2g.sh package
   only:
     - merge_requests
+  except:
+    variables:
+      - $GIT_CLONE_PATH =~ /koost$/
 
 build:arm:
-  before_script:
-    - *global_setup
-    - git clone --depth 1 git@git.kaiostech.com:KaiOS/koost.git -b next > /dev/null 2>&1
-    - git clone --depth 1 git@git.kaiostech.com:KaiOS/dummy/gonk-q.git > /dev/null 2>&1
   variables:
     DEFAULT_DOCKER_IMAGE: "${CI_REGISTRY}/re/kaios-build/next/daily:latest"
-    GONK_PATH: "${CI_PROJECT_DIR}/gonk-q"
-    GECKO_OBJDIR: "${CI_PROJECT_DIR}/objdir-arm-gecko"
+    GONK_PATH: "${CI_BUILDS_DIR}/${CI_PROJECT_NAMESPACE}/gecko/gonk-q"
+    GECKO_OBJDIR: "${CI_BUILDS_DIR}/${CI_PROJECT_NAMESPACE}/gecko/objdir-arm-gecko"
     GONK_PRODUCT_NAME: msm8937_32go
     GET_FRAMEBUFFER_FORMAT_FROM_HWC: 1
     PLATFORM_VERSION: 29
