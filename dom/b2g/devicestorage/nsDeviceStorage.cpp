@@ -2479,9 +2479,10 @@ void nsDOMDeviceStorage::GetOrderedVolumeNames(
 #endif
   if (aVolumeNames.IsEmpty()) {
     aVolumeNames.AppendElement(EmptyString());
+  } else {
+    sVolumeNameCache = new nsTArray<nsString>;
+    sVolumeNameCache->AppendElements(aVolumeNames);
   }
-  sVolumeNameCache = new nsTArray<nsString>;
-  sVolumeNameCache->AppendElements(aVolumeNames);
 }
 
 // static
