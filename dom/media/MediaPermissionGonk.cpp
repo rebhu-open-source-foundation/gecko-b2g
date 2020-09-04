@@ -16,6 +16,7 @@
 #include "nsPIDOMWindow.h"
 #include "nsTArray.h"
 #include "GetUserMediaRequest.h"
+#include "mozilla/dom/CreateOfferRequestBinding.h"
 #include "mozilla/dom/PBrowserChild.h"
 #include "mozilla/dom/MediaStreamTrackBinding.h"
 #include "mozilla/dom/MediaStreamError.h"
@@ -350,6 +351,7 @@ MediaPermissionManager::MediaPermissionManager() {
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   if (obs) {
     obs->AddObserver(this, "getUserMedia:request", false);
+    obs->AddObserver(this, "PeerConnection:request", false);
     obs->AddObserver(this, "xpcom-shutdown", false);
   }
 }
@@ -360,6 +362,7 @@ nsresult MediaPermissionManager::Deinit() {
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   if (obs) {
     obs->RemoveObserver(this, "getUserMedia:request");
+    obs->RemoveObserver(this, "PeerConnection:request");
     obs->RemoveObserver(this, "xpcom-shutdown");
   }
   return NS_OK;
@@ -380,6 +383,15 @@ MediaPermissionManager::Observe(nsISupports* aSubject, const char* aTopic,
       req->GetCallID(callID);
       DenyGetUserMediaRequest(callID, u"unable to enumerate media device"_ns);
     }
+  } else if (!strcmp(aTopic, "PeerConnection:request")) {
+    RefPtr<dom::CreateOfferRequest> req =
+        static_cast<dom::CreateOfferRequest*>(aSubject);
+    nsString callID;
+    ErrorResult err;
+    req->GetCallID(callID, err);
+    nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
+    rv = obs->NotifyObservers(nullptr, "PeerConnection:response:allow",
+                              callID.BeginReading());
   } else if (!strcmp(aTopic, "xpcom-shutdown")) {
     rv = Deinit();
   } else {

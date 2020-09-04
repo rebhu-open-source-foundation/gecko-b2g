@@ -97,6 +97,10 @@
 #include "mozilla/net/DataChannelProtocol.h"
 #include "MediaManager.h"
 
+#ifdef MOZ_B2G
+#  include "MediaPermissionGonk.h"
+#endif
+
 #ifdef XP_WIN
 // We need to undef the MS macro again in case the windows include file
 // got imported after we included mozilla/dom/Document.h
@@ -513,6 +517,12 @@ nsresult PeerConnectionImpl::Initialize(PeerConnectionObserver& aObserver,
   }
 
   PeerConnectionCtx::GetInstance()->mPeerConnections[mHandle] = this;
+
+#ifdef MOZ_B2G
+  // Init MediaPermissionManager before JS RTCPeerConnection sends out
+  // "PeerConnection:request".
+  MediaPermissionManager::EnsureSingleton();
+#endif
 
   return NS_OK;
 }
