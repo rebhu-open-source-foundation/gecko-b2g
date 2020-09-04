@@ -122,7 +122,7 @@ if [ ${#js_files[@]} -gt 0 ]; then
   ./mach lint -f unix "${lint_opts[@]}" -l eslint "${js_files[@]}" || {
     warn "============================================================"
     warn "Please fix linting errors:"
-    warn "Run './mach lint --fix -v ${js_files[@]}' "
+    warn "Run './mach lint --fix -v ${js_files[*]}' "
     warn "for more details."
     warn "============================================================"
     exit 1
@@ -133,7 +133,7 @@ if [ ${#other_files[@]} -gt 0 ]; then
   ./mach lint -f unix "${lint_opts[@]}" "${other_files[@]}" || {
     warn "============================================================"
     warn "Please fix linting errors:"
-    warn "Run './mach lint --fix -v ${other_files[@]}'"
+    warn "Run './mach lint --fix -v ${other_files[*]}'"
     warn "for more details."
     warn "============================================================"
     exit 1
