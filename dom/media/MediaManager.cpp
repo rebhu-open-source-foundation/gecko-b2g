@@ -2109,8 +2109,8 @@ MediaManager* MediaManager::Get() {
     MOZ_RELEASE_ASSERT(NS_SUCCEEDED(rv));
 #ifdef MOZ_B2G
     // Init MediaPermissionManager before sending out any permission requests.
-    (void)MediaPermissionManager::GetInstance();
-#endif  // MOZ_B2G
+    MediaPermissionManager::EnsureSingleton();
+#endif
   }
   return sSingleton;
 }

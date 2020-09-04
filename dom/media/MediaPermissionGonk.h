@@ -21,7 +21,7 @@ class MediaPermissionManager : public nsIObserver {
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBSERVER
 
-  static MediaPermissionManager* GetInstance();
+  static void EnsureSingleton();
 
  protected:
   virtual ~MediaPermissionManager();
@@ -30,6 +30,8 @@ class MediaPermissionManager : public nsIObserver {
   MediaPermissionManager();
   nsresult Deinit();
   nsresult HandleRequest(RefPtr<dom::GetUserMediaRequest>& req);
+
+  static StaticRefPtr<MediaPermissionManager> sSingleton;
 };
 
 }  // namespace mozilla

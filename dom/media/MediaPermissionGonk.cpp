@@ -35,7 +35,8 @@ using namespace mozilla::dom;
 
 namespace mozilla {
 
-static MediaPermissionManager* gMediaPermMgr = nullptr;
+/* static */
+StaticRefPtr<MediaPermissionManager> MediaPermissionManager::sSingleton;
 
 static void CreateDeviceNameList(nsTArray<nsCOMPtr<nsIMediaDevice>>& aDevices,
                                  nsTArray<nsString>& aDeviceNameList) {
@@ -63,7 +64,7 @@ static already_AddRefed<nsIMediaDevice> FindDeviceByName(
 }
 
 // Helper function for notifying permission granted
-static nsresult NotifyPermissionAllow(
+static nsresult AllowGetUserMediaRequest(
     const nsAString& aCallID, nsTArray<nsCOMPtr<nsIMediaDevice>>& aDevices) {
   nsresult rv;
   nsCOMPtr<nsIMutableArray> array = nsArray::Create();
@@ -81,8 +82,8 @@ static nsresult NotifyPermissionAllow(
 }
 
 // Helper function for notifying permision denial or error
-static nsresult NotifyPermissionDeny(const nsAString& aCallID,
-                                     const nsAString& aErrorMsg) {
+static nsresult DenyGetUserMediaRequest(const nsAString& aCallID,
+                                        const nsAString& aErrorMsg) {
   nsresult rv;
   nsCOMPtr<nsISupportsString> supportsString =
       do_CreateInstance(NS_SUPPORTS_STRING_CONTRACTID, &rv);
@@ -243,7 +244,7 @@ NS_IMETHODIMP
 MediaPermissionRequest::Cancel() {
   nsString callID;
   mRequest->GetCallID(callID);
-  NotifyPermissionDeny(callID, u"SecurityError"_ns);
+  DenyGetUserMediaRequest(callID, u"SecurityError"_ns);
   return NS_OK;
 }
 
@@ -325,7 +326,7 @@ nsresult MediaPermissionRequest::DoAllow(const nsString& audioDevice,
 
   nsString callID;
   mRequest->GetCallID(callID);
-  return NotifyPermissionAllow(callID, selectedDevices);
+  return AllowGetUserMediaRequest(callID, selectedDevices);
 }
 
 already_AddRefed<nsPIDOMWindowInner> MediaPermissionRequest::GetOwner() {
@@ -339,12 +340,10 @@ already_AddRefed<nsPIDOMWindowInner> MediaPermissionRequest::GetOwner() {
 // MediaPermissionManager
 NS_IMPL_ISUPPORTS(MediaPermissionManager, nsIObserver)
 
-MediaPermissionManager* MediaPermissionManager::GetInstance() {
-  if (!gMediaPermMgr) {
-    gMediaPermMgr = new MediaPermissionManager();
+void MediaPermissionManager::EnsureSingleton() {
+  if (!sSingleton) {
+    sSingleton = new MediaPermissionManager();
   }
-
-  return gMediaPermMgr;
 }
 
 MediaPermissionManager::MediaPermissionManager() {
@@ -355,7 +354,7 @@ MediaPermissionManager::MediaPermissionManager() {
   }
 }
 
-MediaPermissionManager::~MediaPermissionManager() { this->Deinit(); }
+MediaPermissionManager::~MediaPermissionManager() { Deinit(); }
 
 nsresult MediaPermissionManager::Deinit() {
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
@@ -379,10 +378,10 @@ MediaPermissionManager::Observe(nsISupports* aSubject, const char* aTopic,
     if (NS_FAILED(rv)) {
       nsString callID;
       req->GetCallID(callID);
-      NotifyPermissionDeny(callID, u"unable to enumerate media device"_ns);
+      DenyGetUserMediaRequest(callID, u"unable to enumerate media device"_ns);
     }
   } else if (!strcmp(aTopic, "xpcom-shutdown")) {
-    rv = this->Deinit();
+    rv = Deinit();
   } else {
     // not reachable
     rv = NS_ERROR_FAILURE;
@@ -416,7 +415,7 @@ nsresult MediaPermissionManager::HandleRequest(
 
 #if 1
   // FIXME: always allow for now
-  return NotifyPermissionAllow(callID, devices);
+  return AllowGetUserMediaRequest(callID, devices);
 #else
   // Trigger permission prompt UI
   RefPtr<MediaPermissionRequest> req =
