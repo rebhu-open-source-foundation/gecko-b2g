@@ -78,6 +78,8 @@ lint:all:
   only:
     - merge_requests
   except:
+    refs:
+      - pipelines
     variables:
       - $CI_MERGE_REQUEST_TITLE =~ /skip-lint/
 
@@ -95,6 +97,8 @@ build:desktop:
       - "objdir-desktop-gecko/dist/b2g-*"
   only:
     - merge_requests
+  except:
+    - pipelines
 
 build:emulator:
   before_script:
@@ -117,6 +121,7 @@ build:emulator:
     - ./build-b2g.sh package
   only:
     - merge_requests
+    - pipelines
   except:
     variables:
       - $GIT_CLONE_PATH =~ /koost$/
@@ -140,6 +145,7 @@ build:arm:
     - ./build-b2g.sh package
   only:
     - merge_requests
+    - pipelines
   artifacts:
     expire_in: 2 week
     paths:
