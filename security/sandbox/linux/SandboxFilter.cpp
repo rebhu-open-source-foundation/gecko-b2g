@@ -1304,6 +1304,9 @@ class ContentSandboxPolicy : public SandboxPolicyCommon {
 #ifdef MOZ_WIDGET_GONK
       CASES_FOR_getrlimit:
         return Allow();
+
+      case __NR_pipe2:
+        return Allow();
 #endif
 
 #ifdef DESKTOP
