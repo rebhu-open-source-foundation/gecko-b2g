@@ -17,7 +17,7 @@
 #include "GonkGPSGeolocationProvider.h"
 
 #include "GeolocationUtil.h"
-#include "hardware_legacy/power.h"
+#include <hardware_legacy/power.h>
 #include "mozilla/dom/GeolocationPosition.h"
 #include "mozilla/Preferences.h"
 #include "nsComponentManagerUtils.h"
