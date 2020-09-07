@@ -99,7 +99,8 @@ partial interface B2G {
 #ifdef MOZ_B2G_BT
 [Exposed=Window]
 partial interface B2G {
-  [Throws]
+  // This interface requires 'bluetooth' permission
+  [Throws, Func="bluetooth::BluetoothManager::HasPermission"]
   readonly attribute BluetoothManager bluetooth;
 };
 #endif // MOZ_B2G_BT

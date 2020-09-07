@@ -68,6 +68,10 @@ this.PermissionsTable = {
     core: ALLOW_ACTION,
     access: ["read", "write", "create"],
   },
+  bluetooth: {
+    pwa: DENY_ACTION,
+    signed: ALLOW_ACTION,
+  },
   camera: {
     pwa: PROMPT_ACTION,
     signed: PROMPT_ACTION,

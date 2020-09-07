@@ -56,7 +56,7 @@ class BluetoothManager final : public DOMEventTargetHelper,
    ***************************************************************************/
   // Never returns null
   static already_AddRefed<BluetoothManager> Create(nsPIDOMWindowInner* aWindow);
-  static bool CheckPermission(nsPIDOMWindowInner* aWindow);
+  static bool HasPermission(JSContext* /* unused */, JSObject* aGlobal);
 
   void Notify(
       const BluetoothSignal& aData) override;  // BluetoothSignalObserver

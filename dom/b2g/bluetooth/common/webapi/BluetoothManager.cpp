@@ -163,6 +163,28 @@ already_AddRefed<BluetoothManager> BluetoothManager::Create(
   return manager.forget();
 }
 
+// static
+bool BluetoothManager::HasPermission(JSContext* /* unused */,
+                                     JSObject* aGlobal) {
+  nsIPrincipal* principal = nsContentUtils::ObjectPrincipal(aGlobal);
+  NS_ENSURE_TRUE(principal, false);
+
+  nsCOMPtr<nsIPermissionManager> permissionManager =
+      services::GetPermissionManager();
+  NS_ENSURE_TRUE(permissionManager, false);
+
+  uint32_t permission = nsIPermissionManager::UNKNOWN_ACTION;
+  permissionManager->TestExactPermissionFromPrincipal(principal, "bluetooth"_ns,
+                                                      &permission);
+
+  if (permission == nsIPermissionManager::ALLOW_ACTION ||
+      permission == nsIPermissionManager::PROMPT_ACTION) {
+    return true;
+  }
+
+  return false;
+}
+
 void BluetoothManager::HandleAdapterAdded(const BluetoothValue& aValue) {
   MOZ_ASSERT(aValue.type() == BluetoothValue::TArrayOfBluetoothNamedValue);
 
