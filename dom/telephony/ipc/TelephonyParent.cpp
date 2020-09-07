@@ -125,14 +125,14 @@ mozilla::ipc::IPCResult TelephonyParent::RecvPTelephonyRequestConstructor(
     case IPCTelephonyRequest::THangUpCallRequest: {
       const HangUpCallRequest& request = aRequest.get_HangUpCallRequest();
       service->HangUpCall(request.clientId(), request.callIndex(),
-                          actor->GetCallback());
+                          request.reason(), actor->GetCallback());
       return IPC_OK();
     }
 
     case IPCTelephonyRequest::TRejectCallRequest: {
       const RejectCallRequest& request = aRequest.get_RejectCallRequest();
       service->RejectCall(request.clientId(), request.callIndex(),
-                          actor->GetCallback());
+                          request.reason(), actor->GetCallback());
       return IPC_OK();
     }
 

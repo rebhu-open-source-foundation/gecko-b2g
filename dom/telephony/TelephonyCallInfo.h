@@ -24,13 +24,13 @@ class TelephonyCallInfo final : public nsITelephonyCallInfo {
                     uint16_t aCallState, uint16_t aVoiceQuality,
                     uint32_t aCapabilities, uint16_t aVideoCallState,
                     const nsAString& aDisconnectedReason,
-
                     const nsAString& aNumber, uint16_t aNumberPresentation,
                     const nsAString& aName, uint16_t aNamePresentation,
                     uint32_t aRadioTech, bool aIsOutgoing, bool aIsEmergency,
                     bool aIsConference, bool aIsSwitchable, bool aIsMergeable,
-                    bool aIsConferenceParent, uint16_t aRttMode,
-                    uint32_t aVowifiQuality);
+                    bool aIsConferenceParent, bool aIsMarkable,
+                    uint16_t aRttMode, uint32_t aVowifiQuality,
+                    uint32_t aVerStatus);
 
  private:
   // Don't try to use the default constructor.
@@ -58,9 +58,11 @@ class TelephonyCallInfo final : public nsITelephonyCallInfo {
   bool mIsSwitchable;
   bool mIsMergeable;
   bool mIsConferenceParent;
+  bool mIsMarkable;
 
   uint16_t mRttMode;
   uint32_t mVowifiQuality;
+  uint32_t mVerStatus;
 };
 
 }  // namespace telephony

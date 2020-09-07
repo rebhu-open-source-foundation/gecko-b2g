@@ -214,4 +214,30 @@ interface nsITelephonyCallInfo : nsISupports
    * One of nsITelephonyService::RTT_MODE_* values.
    */
   readonly attribute unsigned short rttMode;
+
+  /**
+   * To indicate whether this call support mark as robot call.
+   */
+  readonly attribute boolean isMarkable;
+
+  /**
+   * There's no verification info.
+   */
+  const unsigned long VER_NONE = 0;
+
+  /**
+   * Verification fail, this is a robot call.
+   */
+  const unsigned long VER_FAIL = 1;
+
+  /**
+   * Verification pass, this is a safe call.
+   */
+  const unsigned long VER_PASS = 2;
+
+  /**
+   * To indicate verification status.
+   * One of VER_* values.
+   */
+  readonly attribute unsigned long verStatus;
 };

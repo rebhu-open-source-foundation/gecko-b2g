@@ -41,9 +41,11 @@ class TelephonyCall final : public DOMEventTargetHelper {
 
   bool mSwitchable;
   bool mMergeable;
+  bool mMarkable;
 
   bool mSupportRtt;
   TelephonyRttMode mRttMode;
+  TelephonyVerStatus mVerStatus;
 
   uint32_t mCallIndex;
   bool mLive;
@@ -84,6 +86,8 @@ class TelephonyCall final : public DOMEventTargetHelper {
 
   bool Mergeable() const { return mMergeable; }
 
+  bool Markable() const { return mMarkable; }
+
   TelephonyCallVoiceQuality VoiceQuality() const { return mVoiceQuality; }
 
   TelephonyVideoCallState VideoCallState() const { return mVideoCallState; }
@@ -97,6 +101,8 @@ class TelephonyCall final : public DOMEventTargetHelper {
   TelephonyVowifiQuality VowifiQuality() const { return mVowifiQuality; }
 
   bool SupportRtt() const { return mSupportRtt; }
+
+  TelephonyVerStatus VerStatus() const { return mVerStatus; }
 
   bool IsActive() const {
     return mState == TelephonyCallState::Dialing ||
@@ -115,7 +121,8 @@ class TelephonyCall final : public DOMEventTargetHelper {
   already_AddRefed<Promise> Answer(uint16_t aType, const Optional<bool>& aIsRtt,
                                    ErrorResult& aRv);
 
-  already_AddRefed<Promise> HangUp(ErrorResult& aRv);
+  already_AddRefed<Promise> HangUp(const Optional<bool>& aUnwanted,
+                                   ErrorResult& aRv);
 
   already_AddRefed<Promise> Hold(ErrorResult& aRv);
 
@@ -163,17 +170,20 @@ class TelephonyCall final : public DOMEventTargetHelper {
   static TelephonyVowifiQuality ConvertToTelephonyVowifiQuality(
       uint32_t aVowifiQuality);
 
+  static TelephonyVerStatus ConvertToTelephonyVerStatus(uint32_t aVerStatus);
+
   static already_AddRefed<TelephonyCall> Create(
       Telephony* aTelephony, TelephonyCallId* aId, uint32_t aServiceId,
       uint32_t aCallIndex, TelephonyCallState aState,
       TelephonyCallVoiceQuality aVoiceQuality, bool aEmergency = false,
       bool aConference = false, bool aSwitchable = true, bool aMergeable = true,
-      bool aConferenceParent = false,
+      bool aConferenceParent = false, bool aMarkable = false,
       TelephonyRttMode aRttMode = TelephonyRttMode::Off,
       uint32_t aCapabilities = 0,
       TelephonyVideoCallState aVideoCallState = TelephonyVideoCallState::Voice,
       TelephonyCallRadioTech aRadioTech = TelephonyCallRadioTech::Cs,
-      TelephonyVowifiQuality aVowifiQuality = TelephonyVowifiQuality::None);
+      TelephonyVowifiQuality aVowifiQuality = TelephonyVowifiQuality::None,
+      TelephonyVerStatus aVerStatus = TelephonyVerStatus::None);
 
   void ChangeState(TelephonyCallState aState) {
     ChangeStateInternal(aState, true);
@@ -192,6 +202,8 @@ class TelephonyCall final : public DOMEventTargetHelper {
   void UpdateSwitchable(bool aSwitchable) { mSwitchable = aSwitchable; }
 
   void UpdateMergeable(bool aMergeable) { mMergeable = aMergeable; }
+
+  void UpdateMarkable(bool aMarkable) { mMarkable = aMarkable; }
 
   void UpdateSecondId(TelephonyCallId* aId) { mSecondId = aId; }
 
@@ -219,6 +231,10 @@ class TelephonyCall final : public DOMEventTargetHelper {
   }
 
   void UpdateRttMode(TelephonyRttMode aRttMode) { mRttMode = aRttMode; }
+
+  void UpdateVerStatus(TelephonyVerStatus aVerStatus) {
+    mVerStatus = aVerStatus;
+  }
 
   void NotifyError(const nsAString& aError);
 

@@ -60,7 +60,7 @@ TelephonyDialCallback::NotifyDialCallSuccess(
       TelephonyCall::ConvertToTelephonyCallVoiceQuality(aVoiceQuality),
       TelephonyCall::ConvertToTelephonyVideoCallState(aVideoCallState),
       aCapabilities, TelephonyCall::ConvertToTelephonyCallRadioTech(aRadioTech),
-      aIsEmergency, false, true, true, false,
+      aIsEmergency, false, true, true, false, false,
       TelephonyCall::ConvertToTelephonyRttMode(aRttMode));
 
   mPromise->MaybeResolve(call);

@@ -80,6 +80,17 @@ interface TelephonyCall : EventTarget {
   readonly attribute TelephonyRttMode rttMode;
 
   /**
+   * Indicate whether the call support mark as robocall.
+   */
+  readonly attribute boolean markable;
+
+  /**
+   * To indicate current call verification status.
+   */
+  readonly attribute TelephonyVerStatus verStatus;
+
+
+  /**
    * To answer call with given type.
    * @param type
    *        The call type you are going to answer.
@@ -91,8 +102,13 @@ interface TelephonyCall : EventTarget {
   [NewObject]
   Promise<void> answer(unsigned short type, optional boolean isRtt);
 
+  /**
+   * @param unwanted
+   *        To reject/hangup current call and mark it as unwanted.
+   *        Only applicable when markable is true
+   */
   [NewObject]
-  Promise<void> hangUp();
+  Promise<void> hangUp(optional boolean unwanted);
   [NewObject]
   Promise<void> hold();
   [NewObject]
@@ -267,4 +283,13 @@ enum TelephonyVowifiQuality {
 enum TelephonyRttMode {
   "off",
   "full"
+};
+
+/**
+ * Verification status of incoming call
+ */
+enum TelephonyVerStatus {
+  "none", //There's no verification info
+  "fail", //Verification fail, this is a robocall
+  "pass"  //Verification pass, this is a safe call
 };

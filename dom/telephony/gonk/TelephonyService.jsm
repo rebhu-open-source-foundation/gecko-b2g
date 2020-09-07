@@ -423,6 +423,7 @@ function TelephonyCallInfo(aCall) {
   this.isSwitchable = aCall.isSwitchable;
   this.isMergeable = aCall.isMergeable;
   this.isConferenceParent = aCall.isConferenceParent || false;
+  this.isMarkable = aCall.isMarkable || false;
 
   this.isVt = aCall.isVt || false;
   this.capabilities =
@@ -433,6 +434,7 @@ function TelephonyCallInfo(aCall) {
   this.rttMode = aCall.rttMode || Ci.nsITelephonyService.RTT_MODE_OFF;
   this.vowifiCallQuality =
     aCall.vowifiCallQuality || nsITelephonyCallInfo.VOWIFI_QUALITY_NONE;
+  this.verStatus = aCall.verStatus || nsITelephonyCallInfo.VER_NONE;
 }
 TelephonyCallInfo.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsITelephonyCallInfo]),
@@ -483,6 +485,7 @@ Call.prototype = {
   isMergeable: true,
   started: null,
   isConferenceParent: false,
+  isMarkable: false,
 
   isVt: false,
   voiceQuality: nsITelephonyService.CALL_VOICE_QUALITY_NORMAL,
@@ -490,6 +493,7 @@ Call.prototype = {
   videoCallState: Ci.nsITelephonyCallInfo.STATE_AUDIO_ONLY,
   radioTech: Ci.nsITelephonyCallInfo.RADIO_TECH_CS,
   vowifiCallQuality: nsITelephonyCallInfo.VOWIFI_QUALITY_NONE,
+  verStatus: nsITelephonyCallInfo.VER_NONE,
 
   videoCallProvider: null,
   isRtt: false,
@@ -2199,6 +2203,8 @@ TelephonyService.prototype = {
       "radioTech",
       "capabilities",
       "vowifiCallQuality",
+      "isMarkable",
+      "verStatus",
     ];
 
     for (let k of key) {
@@ -2419,7 +2425,7 @@ TelephonyService.prototype = {
     }
   },
 
-  rejectCall(aClientId, aCallIndex, aCallback) {
+  rejectCall(aClientId, aCallIndex, aReason, aCallback) {
     if (DEBUG) {
       debug("rejectCall aCallIndex : " + aCallIndex);
     }
@@ -2440,7 +2446,7 @@ TelephonyService.prototype = {
     } else {
       call.hangUpLocal = true;
       if (call.isImsCall()) {
-        this._rejectImsCall(aClientId, aCallIndex, aCallback);
+        this._rejectImsCall(aClientId, aCallIndex, aReason, aCallback);
       } else {
         this._sendToRilWorker(
           aClientId,
@@ -2543,7 +2549,7 @@ TelephonyService.prototype = {
     }
   },
 
-  hangUpCall(aClientId, aCallIndex, aCallback) {
+  hangUpCall(aClientId, aCallIndex, aReason, aCallback) {
     // Should release both, child and parent, together. Since RIL holds only
     // the parent call, we send 'parentId' to RIL.
     aCallIndex =
@@ -2557,7 +2563,7 @@ TelephonyService.prototype = {
 
     call.hangUpLocal = true;
     if (call.isImsCall()) {
-      this._hangupImsCall(aClientId, aCallIndex, aCallback);
+      this._hangupImsCall(aClientId, aCallIndex, aReason, aCallback);
     } else {
       this._sendToRilWorker(
         aClientId,
@@ -3532,7 +3538,7 @@ TelephonyService.prototype = {
     );
   },
 
-  _rejectImsCall(aClientId, aCallIndex, aCallback) {
+  _rejectImsCall(aClientId, aCallIndex, aReason, aCallback) {
     if (DEBUG) {
       console.log("_rejectImsCall: " + aCallIndex);
     }
@@ -3540,15 +3546,23 @@ TelephonyService.prototype = {
     if (DEBUG) {
       console.log("_rejectImsCall with phone: " + imsPhone);
     }
-    imsPhone.rejectCall(aCallIndex, this._createSimpleImsCallback(aCallback));
+    imsPhone.rejectCall(
+      aCallIndex,
+      aReason,
+      this._createSimpleImsCallback(aCallback)
+    );
   },
 
-  _hangupImsCall(aClientId, aCallIndex, aCallback) {
+  _hangupImsCall(aClientId, aCallIndex, aReason, aCallback) {
     if (DEBUG) {
       console.log("_hangupImsCall: " + aCallIndex);
     }
     let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
-    imsPhone.hangupCall(aCallIndex, this._createSimpleImsCallback(aCallback));
+    imsPhone.hangupCall(
+      aCallIndex,
+      aReason,
+      this._createSimpleImsCallback(aCallback)
+    );
   },
 
   _getImsLastFailCause(aClientId, aCallback) {

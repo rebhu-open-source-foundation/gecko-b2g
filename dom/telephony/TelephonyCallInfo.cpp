@@ -19,8 +19,8 @@ TelephonyCallInfo::TelephonyCallInfo(
     uint16_t aNumberPresentation, const nsAString& aName,
     uint16_t aNamePresentation, uint32_t aRadioTech, bool aIsOutgoing,
     bool aIsEmergency, bool aIsConference, bool aIsSwitchable,
-    bool aIsMergeable, bool aIsConferenceParent, uint16_t aRttMode,
-    uint32_t aVowifiQuality)
+    bool aIsMergeable, bool aIsConferenceParent, bool aIsMarkable,
+    uint16_t aRttMode, uint32_t aVowifiQuality, uint32_t aVerStatus)
     : mClientId(aClientId),
       mCallIndex(aCallIndex),
       mCallState(aCallState),
@@ -40,8 +40,10 @@ TelephonyCallInfo::TelephonyCallInfo(
       mIsSwitchable(aIsSwitchable),
       mIsMergeable(aIsMergeable),
       mIsConferenceParent(aIsConferenceParent),
+      mIsMarkable(aIsMarkable),
       mRttMode(aRttMode),
-      mVowifiQuality(aVowifiQuality) {}
+      mVowifiQuality(aVowifiQuality),
+      mVerStatus(aVerStatus) {}
 
 NS_IMETHODIMP
 TelephonyCallInfo::GetClientId(uint32_t* aClientId) {
@@ -134,6 +136,12 @@ TelephonyCallInfo::GetIsConferenceParent(bool* aIsConferenceParent) {
 }
 
 NS_IMETHODIMP
+TelephonyCallInfo::GetIsMarkable(bool* aIsMarkable) {
+  *aIsMarkable = mIsMarkable;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 TelephonyCallInfo::GetCapabilities(uint32_t* aCapabilities) {
   *aCapabilities = mCapabilities;
   return NS_OK;
@@ -160,6 +168,12 @@ TelephonyCallInfo::GetVowifiCallQuality(uint32_t* aVowifiQuality) {
 NS_IMETHODIMP
 TelephonyCallInfo::GetRttMode(uint16_t* aRttMode) {
   *aRttMode = mRttMode;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+TelephonyCallInfo::GetVerStatus(uint32_t* aVerStatus) {
+  *aVerStatus = mVerStatus;
   return NS_OK;
 }
 

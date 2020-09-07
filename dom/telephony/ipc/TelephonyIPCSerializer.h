@@ -48,6 +48,7 @@ struct ParamTraits<nsITelephonyCallInfo*> {
     uint32_t radioTech;
     uint32_t vowifiQuality;
     uint16_t rttMode;
+    uint32_t verStatus;
 
     bool isOutgoing;
     bool isEmergency;
@@ -55,6 +56,7 @@ struct ParamTraits<nsITelephonyCallInfo*> {
     bool isSwitchable;
     bool isMergeable;
     bool isConferenceParent;
+    bool isMarkable;
 
     aParam->GetClientId(&clientId);
     aParam->GetCallIndex(&callIndex);
@@ -69,6 +71,7 @@ struct ParamTraits<nsITelephonyCallInfo*> {
     aParam->GetName(name);
     aParam->GetNamePresentation(&namePresentation);
     aParam->GetRadioTech(&radioTech);
+    aParam->GetVerStatus(&verStatus);
 
     aParam->GetIsOutgoing(&isOutgoing);
     aParam->GetIsEmergency(&isEmergency);
@@ -76,6 +79,7 @@ struct ParamTraits<nsITelephonyCallInfo*> {
     aParam->GetIsSwitchable(&isSwitchable);
     aParam->GetIsMergeable(&isMergeable);
     aParam->GetIsConferenceParent(&isConferenceParent);
+    aParam->GetIsMarkable(&isMarkable);
 
     aParam->GetRttMode(&rttMode);
     aParam->GetVowifiCallQuality(&vowifiQuality);
@@ -93,6 +97,7 @@ struct ParamTraits<nsITelephonyCallInfo*> {
     WriteParam(aMsg, name);
     WriteParam(aMsg, namePresentation);
     WriteParam(aMsg, radioTech);
+    WriteParam(aMsg, verStatus);
 
     WriteParam(aMsg, isOutgoing);
     WriteParam(aMsg, isEmergency);
@@ -100,6 +105,7 @@ struct ParamTraits<nsITelephonyCallInfo*> {
     WriteParam(aMsg, isSwitchable);
     WriteParam(aMsg, isMergeable);
     WriteParam(aMsg, isConferenceParent);
+    WriteParam(aMsg, isMarkable);
 
     WriteParam(aMsg, rttMode);
     WriteParam(aMsg, vowifiQuality);
@@ -131,6 +137,7 @@ struct ParamTraits<nsITelephonyCallInfo*> {
     nsString name;
     uint16_t namePresentation;
     uint32_t radioTech;
+    uint32_t verStatus;
 
     bool isOutgoing;
     bool isEmergency;
@@ -138,6 +145,7 @@ struct ParamTraits<nsITelephonyCallInfo*> {
     bool isSwitchable;
     bool isMergeable;
     bool isConferenceParent;
+    bool isMarkable;
 
     uint16_t rttMode;
     uint32_t vowifiQuality;
@@ -156,6 +164,7 @@ struct ParamTraits<nsITelephonyCallInfo*> {
           ReadParam(aMsg, aIter, &name) &&
           ReadParam(aMsg, aIter, &namePresentation) &&
           ReadParam(aMsg, aIter, &radioTech) &&
+          ReadParam(aMsg, aIter, &verStatus) &&
 
           ReadParam(aMsg, aIter, &isOutgoing) &&
           ReadParam(aMsg, aIter, &isEmergency) &&
@@ -163,6 +172,7 @@ struct ParamTraits<nsITelephonyCallInfo*> {
           ReadParam(aMsg, aIter, &isSwitchable) &&
           ReadParam(aMsg, aIter, &isMergeable) &&
           ReadParam(aMsg, aIter, &isConferenceParent) &&
+          ReadParam(aMsg, aIter, &isMarkable) &&
           ReadParam(aMsg, aIter, &rttMode) &&
           ReadParam(aMsg, aIter, &vowifiQuality))) {
       return false;
@@ -172,7 +182,8 @@ struct ParamTraits<nsITelephonyCallInfo*> {
         clientId, callIndex, callState, voiceQuality, capabilities,
         videoCallState, disconnectedReason, number, numberPresentation, name,
         namePresentation, radioTech, isOutgoing, isEmergency, isConference,
-        isSwitchable, isMergeable, isConferenceParent, rttMode, vowifiQuality);
+        isSwitchable, isMergeable, isConferenceParent, rttMode, vowifiQuality,
+        isMarkable, verStatus);
 
     info.forget(aResult);
 

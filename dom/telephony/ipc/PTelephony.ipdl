@@ -83,12 +83,14 @@ struct HangUpCallRequest
 {
   uint32_t clientId;
   uint32_t callIndex;
+  uint16_t reason;
 };
 
 struct RejectCallRequest
 {
   uint32_t clientId;
   uint32_t callIndex;
+  uint16_t reason;
 };
 
 struct HoldCallRequest

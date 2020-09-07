@@ -7,13 +7,29 @@
 [scriptable, uuid(80b37c21-b423-4abe-9715-b435911e134a)]
 interface nsIImsReasonInfo : nsISupports
 {
+  /**
+   * Call failure code during hangup/reject if user marked the call as unwanted.
+   *
+   * Android Telephony will receive information whether ROBO call feature is supported by the
+   * network from modem and propagate the same to AOSP as new ImsCallProfile members. OEMs can
+   * check this information and provide an option to the user to mark the call as unwanted.
+   */
+  const long CODE_SIP_USER_MARKED_UNWANTED = 365;
+
+  /**
+   * User triggers the call to be terminated.
+   */
+  const long CODE_USER_TERMINATED = 501;
+  /**
+   * User declined an incoming call.
+   */
+  const long CODE_USER_DECLINE = 504;
 
   /**
      * For the main reason code.
      * Possible values: TBD.
      */
   readonly attribute long code;
-
 
   /**
      * For the extra information code.

@@ -68,18 +68,24 @@ interface nsIImsPhone : nsISupports {
    * To reject an incoming call.
    *
    * @param callIndex The incoming call index you are going to reject
+   * @param reason The hangup reason.
+   *               Possible values: nsITelephonyService#CALL_FAIL_*.
    * @param callback The reject result will be notified via this callback.
    */
   void rejectCall(in unsigned long callIndex,
+                  in unsigned long reason,
                   in nsIImsPhoneCallback callback);
 
   /**
    * To hangup specific call.
    *
    * @param callIndex To call index you are going to hangup.
+   * @param reason The hangup reason.
+   *               Possible values: nsITelephonyService#CALL_FAIL_*.
    * @param callback request resut will be notified via callback.
    */
   void hangupCall(in unsigned long callIndex,
+                  in unsigned long reason,
                   in nsIImsPhoneCallback callback);
 
   void getFailCause(in nsIImsGetFailCauseCallback callback);

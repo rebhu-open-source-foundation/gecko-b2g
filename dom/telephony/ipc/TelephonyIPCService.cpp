@@ -225,6 +225,7 @@ TelephonyIPCService::HangUpAllCalls(uint32_t aClientId,
 
 NS_IMETHODIMP
 TelephonyIPCService::HangUpCall(uint32_t aClientId, uint32_t aCallIndex,
+                                uint16_t aReason,
                                 nsITelephonyCallback* aCallback) {
   if (!mPTelephonyChild) {
     NS_WARNING("TelephonyService used after shutdown has begun!");
@@ -232,11 +233,12 @@ TelephonyIPCService::HangUpCall(uint32_t aClientId, uint32_t aCallIndex,
   }
 
   return SendRequest(nullptr, aCallback,
-                     HangUpCallRequest(aClientId, aCallIndex));
+                     HangUpCallRequest(aClientId, aCallIndex, aReason));
 }
 
 NS_IMETHODIMP
 TelephonyIPCService::RejectCall(uint32_t aClientId, uint32_t aCallIndex,
+                                uint16_t aReason,
                                 nsITelephonyCallback* aCallback) {
   if (!mPTelephonyChild) {
     NS_WARNING("TelephonyService used after shutdown has begun!");
@@ -244,7 +246,7 @@ TelephonyIPCService::RejectCall(uint32_t aClientId, uint32_t aCallIndex,
   }
 
   return SendRequest(nullptr, aCallback,
-                     RejectCallRequest(aClientId, aCallIndex));
+                     RejectCallRequest(aClientId, aCallIndex, aReason));
 }
 
 NS_IMETHODIMP

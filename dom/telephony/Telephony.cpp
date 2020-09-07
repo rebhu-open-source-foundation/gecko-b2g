@@ -260,8 +260,9 @@ already_AddRefed<TelephonyCall> Telephony::CreateCall(
     TelephonyCallState aState, TelephonyCallVoiceQuality aVoiceQuality,
     TelephonyVideoCallState aVideoCallState, uint32_t aCapabilities,
     TelephonyCallRadioTech aRadioTech, bool aEmergency, bool aConference,
-    bool aSwitchable, bool aMergeable, bool aConferenceParent,
-    TelephonyRttMode aRttMode, TelephonyVowifiQuality aVowifiCallQuality) {
+    bool aSwitchable, bool aMergeable, bool aConferenceParent, bool aMarkable,
+    TelephonyRttMode aRttMode, TelephonyVowifiQuality aVowifiCallQuality,
+    TelephonyVerStatus aVerStatus) {
   // We don't have to create an already ended call.
   if (aState == TelephonyCallState::Disconnected) {
     return nullptr;
@@ -269,8 +270,9 @@ already_AddRefed<TelephonyCall> Telephony::CreateCall(
 
   RefPtr<TelephonyCall> call = TelephonyCall::Create(
       this, aId, aServiceId, aCallIndex, aState, aVoiceQuality, aEmergency,
-      aConference, aSwitchable, aMergeable, aConferenceParent, aRttMode,
-      aCapabilities, aVideoCallState, aRadioTech, aVowifiCallQuality);
+      aConference, aSwitchable, aMergeable, aConferenceParent, aMarkable,
+      aRttMode, aCapabilities, aVideoCallState, aRadioTech, aVowifiCallQuality,
+      aVerStatus);
 
   NS_ASSERTION(call, "This should never fail!");
   NS_ASSERTION(
@@ -329,12 +331,14 @@ nsresult Telephony::HandleCallInfo(nsITelephonyCallInfo* aInfo) {
   uint32_t callRadioTech;
   uint32_t callVowifiCallQuality;
   uint16_t rttMode;
+  uint32_t callVerStatus;
 
   bool isEmergency;
   bool isConference;
   bool isSwitchable;
   bool isMergeable;
   bool isConferenceParent;
+  bool isMarkable;
 
   aInfo->GetClientId(&serviceId);
   aInfo->GetCallIndex(&callIndex);
@@ -345,12 +349,14 @@ nsresult Telephony::HandleCallInfo(nsITelephonyCallInfo* aInfo) {
   aInfo->GetRadioTech(&callRadioTech);
   aInfo->GetVowifiCallQuality(&callVowifiCallQuality);
   aInfo->GetRttMode(&rttMode);
+  aInfo->GetVerStatus(&callVerStatus);
 
   aInfo->GetIsEmergency(&isEmergency);
   aInfo->GetIsConference(&isConference);
   aInfo->GetIsSwitchable(&isSwitchable);
   aInfo->GetIsMergeable(&isMergeable);
   aInfo->GetIsConferenceParent(&isConferenceParent);
+  aInfo->GetIsMarkable(&isMarkable);
 
   TelephonyCallState state =
       TelephonyCall::ConvertToTelephonyCallState(callState);
@@ -364,6 +370,8 @@ nsresult Telephony::HandleCallInfo(nsITelephonyCallInfo* aInfo) {
   TelephonyRttMode rtt = TelephonyCall::ConvertToTelephonyRttMode(rttMode);
   TelephonyVowifiQuality vowifiCallQuality =
       TelephonyCall::ConvertToTelephonyVowifiQuality(callVowifiCallQuality);
+  TelephonyVerStatus verStatus =
+      TelephonyCall::ConvertToTelephonyVerStatus(callVerStatus);
 
   RefPtr<TelephonyCall> call = GetCallFromEverywhere(serviceId, callIndex);
   // Handle a newly created call.
@@ -371,8 +379,8 @@ nsresult Telephony::HandleCallInfo(nsITelephonyCallInfo* aInfo) {
     RefPtr<TelephonyCallId> id = CreateCallId(aInfo);
     call = CreateCall(id, serviceId, callIndex, state, quality, videoState,
                       capabilities, radioTech, isEmergency, isConference,
-                      isSwitchable, isMergeable, isConferenceParent, rtt,
-                      vowifiCallQuality);
+                      isSwitchable, isMergeable, isConferenceParent, isMarkable,
+                      rtt, vowifiCallQuality, verStatus);
     // The newly created call is an incoming call.
     if (call && state == TelephonyCallState::Incoming) {
       nsresult rv = DispatchCallEvent(u"incoming"_ns, call);
@@ -410,8 +418,14 @@ nsresult Telephony::HandleCallInfo(nsITelephonyCallInfo* aInfo) {
   changed |= vowifiCallQuality != call->VowifiQuality();
   call->UpdateVowifiQuality(vowifiCallQuality);
 
+  changed |= isMarkable != call->Markable();
+  call->UpdateMarkable(isMarkable);
+
   changed |= rtt != call->RttMode();
   call->UpdateRttMode(rtt);
+
+  changed |= verStatus != call->VerStatus();
+  call->UpdateVerStatus(verStatus);
 
   nsAutoString number;
   aInfo->GetNumber(number);

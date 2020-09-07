@@ -163,14 +163,29 @@ TelephonyVowifiQuality TelephonyCall::ConvertToTelephonyVowifiQuality(
 }
 
 // static
+TelephonyVerStatus TelephonyCall::ConvertToTelephonyVerStatus(
+    uint32_t aVerStatus) {
+  switch (aVerStatus) {
+    case nsITelephonyCallInfo::VER_NONE:
+      return TelephonyVerStatus::None;
+    case nsITelephonyCallInfo::VER_FAIL:
+      return TelephonyVerStatus::Fail;
+    case nsITelephonyCallInfo::VER_PASS:
+      return TelephonyVerStatus::Pass;
+  }
+
+  return TelephonyVerStatus::None;
+}
+
+// static
 already_AddRefed<TelephonyCall> TelephonyCall::Create(
     Telephony* aTelephony, TelephonyCallId* aId, uint32_t aServiceId,
     uint32_t aCallIndex, TelephonyCallState aState,
     TelephonyCallVoiceQuality aVoiceQuality, bool aEmergency, bool aConference,
-    bool aSwitchable, bool aMergeable, bool aConferenceParent,
+    bool aSwitchable, bool aMergeable, bool aConferenceParent, bool aMarkable,
     TelephonyRttMode aRttMode, uint32_t aCapabilities,
     TelephonyVideoCallState aVideoCallState, TelephonyCallRadioTech aRadioTech,
-    TelephonyVowifiQuality aVowifiQuality) {
+    TelephonyVowifiQuality aVowifiQuality, TelephonyVerStatus aVerStatus) {
   NS_ASSERTION(aTelephony, "Null aTelephony pointer!");
   NS_ASSERTION(aId, "Null aId pointer!");
   NS_ASSERTION(aCallIndex >= 1, "Invalid call index!");
@@ -188,6 +203,7 @@ already_AddRefed<TelephonyCall> TelephonyCall::Create(
   call->mMergeable = aMergeable;
   call->mError = nullptr;
   call->mIsConferenceParent = aConferenceParent;
+  call->mMarkable = aMarkable;
   call->mVideoCallState = aVideoCallState;
   call->mRttMode = aRttMode;
   call->mSupportRtt =
@@ -196,6 +212,7 @@ already_AddRefed<TelephonyCall> TelephonyCall::Create(
       new TelephonyCallCapabilities(aTelephony->GetOwner(), aCapabilities);
   call->mRadioTech = aRadioTech;
   call->mVowifiQuality = aVowifiQuality;
+  call->mVerStatus = aVerStatus;
 
   call->ChangeStateInternal(aState, false);
   return call.forget();
@@ -493,7 +510,8 @@ already_AddRefed<Promise> TelephonyCall::Answer(uint16_t aType,
   return promise.forget();
 }
 
-already_AddRefed<Promise> TelephonyCall::HangUp(ErrorResult& aRv) {
+already_AddRefed<Promise> TelephonyCall::HangUp(const Optional<bool>& aUnwanted,
+                                                ErrorResult& aRv) {
   RefPtr<Promise> promise = CreatePromise(aRv);
   if (!promise) {
     return nullptr;
@@ -508,11 +526,20 @@ already_AddRefed<Promise> TelephonyCall::HangUp(ErrorResult& aRv) {
     return promise.forget();
   }
 
+  uint16_t reason = nsITelephonyService::CALL_FAIL_NONE;
+  if (aUnwanted.WasPassed()) {
+    if (aUnwanted.Value()) {
+      reason = nsITelephonyService::CALL_FAIL_USER_MARKED_UNWANTED;
+      ;
+    }
+  }
+
   nsCOMPtr<nsITelephonyCallback> callback = new TelephonyCallback(promise);
-  aRv =
-      mState == TelephonyCallState::Incoming
-          ? mTelephony->Service()->RejectCall(mServiceId, mCallIndex, callback)
-          : mTelephony->Service()->HangUpCall(mServiceId, mCallIndex, callback);
+  aRv = mState == TelephonyCallState::Incoming
+            ? mTelephony->Service()->RejectCall(mServiceId, mCallIndex, reason,
+                                                callback)
+            : mTelephony->Service()->HangUpCall(mServiceId, mCallIndex, reason,
+                                                callback);
   NS_ENSURE_TRUE(!aRv.Failed(), nullptr);
 
   return promise.forget();

@@ -215,9 +215,10 @@ class Telephony final : public DOMEventTargetHelper,
       TelephonyCallRadioTech aRadioTech = TelephonyCallRadioTech::Cs,
       bool aEmergency = false, bool aConference = false,
       bool aSwitchable = true, bool aMergeable = true,
-      bool aConferenceParent = false,
+      bool aConferenceParent = false, bool aMarkable = false,
       TelephonyRttMode aRtt = TelephonyRttMode::Off,
-      TelephonyVowifiQuality aVowifiCallQuality = TelephonyVowifiQuality::None);
+      TelephonyVowifiQuality aVowifiCallQuality = TelephonyVowifiQuality::None,
+      TelephonyVerStatus aVerStatus = TelephonyVerStatus::None);
 
   nsresult NotifyEvent(const nsAString& aType);
 

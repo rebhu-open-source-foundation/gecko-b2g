@@ -302,6 +302,15 @@ interface nsITelephonyService : nsISupports
   const unsigned short CALL_TYPE_VS_RX = 10;
 
   /**
+   * Hangup this call without reason
+   */
+  const unsigned long CALL_FAIL_NONE = 0;
+  /**
+   * Hangup this call with reason unwanted
+   */
+  const unsigned long CALL_FAIL_USER_MARKED_UNWANTED = 1;
+
+  /**
    * TelephonyRttMode: Off
    */
   const unsigned short RTT_MODE_OFF = 0;
@@ -379,11 +388,13 @@ interface nsITelephonyService : nsISupports
                   in nsITelephonyCallback callback);
   void rejectCall(in unsigned long clientId,
                   in unsigned long callIndex,
+                  in unsigned short reason,
                   in nsITelephonyCallback callback);
   void hangUpAllCalls(in unsigned long clientId,
                       in nsITelephonyCallback callback);
   void hangUpCall(in unsigned long clientId,
                   in unsigned long callIndex,
+                  in unsigned short reason,
                   in nsITelephonyCallback callback);
   void holdCall(in unsigned long clientId,
                 in unsigned long callIndex,
