@@ -84,6 +84,11 @@
       // Remove password from uri.
       location = Services.io.createExposableURI(location);
 
+      // Make sure that webview.src reflects the new location properly.
+      if (this.webview.src !== location.spec) {
+        this.webview.src = location.spec;
+      }
+
       this.dispatchEvent(`locationchange`, {
         url: location.spec,
         canGoBack: this.webview.canGoBack,
