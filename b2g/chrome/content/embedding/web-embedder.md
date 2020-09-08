@@ -41,6 +41,7 @@ The `WebEmbedder` object exposes the following methods:
   - `close(id)`: this will perform close action with a parameter id which is the unique id for this notification.
 - `isDaemonReady`: returns a boolean that is true if the api-daemon is running and is usable.
 - `isGonk`: returns true if this is a device build.
+- `takeScreenshot`: take a screenshot and return a `File` object with png file, if something failed it will return `null`.
 
 ### Events
 
@@ -114,6 +115,7 @@ This delegate is responsible for screen reader.
 
 ## Methods
 
-- `showScreenReader(data))`. The `data` parameter is an object with the following properties:
+- `showScreenReader(data)`. The `data` parameter is an object with the following properties:
  - `type`: the event type. Valid value: `accessibility-output`.
  - `details`: the PresentationData of accessible.
+ 

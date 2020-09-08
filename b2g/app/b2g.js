@@ -38,6 +38,7 @@ pref("image.cache.size", 524288); //bytes
 pref("image.cache.size", 1048576); // bytes
 #endif
 pref("canvas.image.cache.limit", 20971520); // 20 MB
+pref("canvas.mozgetasfile.enabled", true);
 
 /* protocol warning prefs */
 pref("network.protocol-handler.warn-external.tel", false);

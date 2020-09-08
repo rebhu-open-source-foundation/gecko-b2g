@@ -16,6 +16,13 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   ChromeNotifications: "resource://gre/modules/ChromeNotifications.jsm",
 });
 
+XPCOMUtils.defineLazyGetter(this, "Screenshot", function() {
+  const { Screenshot } = ChromeUtils.import(
+    "resource://gre/modules/Screenshot.jsm"
+  );
+  return Screenshot;
+});
+
 (function() {
   const { Services } = ChromeUtils.import(
     "resource://gre/modules/Services.jsm"
@@ -233,6 +240,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
       this.systemAlerts = systemAlerts;
 
       Services.obs.addObserver(shell_window => {
+        this.shellWindow = shell_window;
         this.eventDocument = shell_window.document;
         this.dispatchEvent(new CustomEvent("runtime-ready"));
       }, "shell-ready");
@@ -374,6 +382,18 @@ XPCOMUtils.defineLazyModuleGetters(this, {
         "resource://gre/modules/AppConstants.jsm"
       );
       return AppConstants.platform === "gonk";
+    }
+
+    takeScreenshot() {
+      _webembed_log(`takeScreenshot`);
+      try {
+        let file = Screenshot.get(this.shellWindow);
+        _webembed_log(`takeScreenshot success and the file size: ${file.size}`);
+        return file;
+      } catch (e) {
+        _webembed_log(`takeScreenshot error: ${e}`);
+        return null;
+      }
     }
 
     // Proxies a subset of nsIEventListenerService, useful eg. to listen
