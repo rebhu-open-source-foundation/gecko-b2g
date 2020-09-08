@@ -150,6 +150,12 @@ partial interface B2G {
 };
 #endif
 
+[Exposed=Window]
+partial interface B2G {
+  [Throws, Pref="dom.usb.enabled"]
+  readonly attribute UsbManager usbManager;
+};
+
 partial interface B2G {
   /**
    * Request a wake lock for a resource.

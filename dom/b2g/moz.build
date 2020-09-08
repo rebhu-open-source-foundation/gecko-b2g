@@ -25,6 +25,7 @@ DIRS += [
     'messages',
     'permissions',
     'tethering',
+    'usb',
     'virtualcursor',
 ]
 

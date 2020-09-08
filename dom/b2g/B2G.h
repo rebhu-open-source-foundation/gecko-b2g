@@ -49,6 +49,7 @@
 #  include "mozilla/dom/AuthorizationManager.h"
 #endif
 
+#include "mozilla/dom/usb/UsbManager.h"
 #include "DeviceStorage.h"
 #include "mozilla/dom/DeviceStorageAreaListener.h"
 #include "mozilla/dom/DownloadManagerBinding.h"
@@ -143,6 +144,8 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
   AuthorizationManager* GetAuthorizationManager(ErrorResult& aRv);
 #endif
 
+  UsbManager* GetUsbManager(ErrorResult& aRv);
+
   static bool HasWakeLockSupport(JSContext* /* unused*/, JSObject* /*unused */);
 
   already_AddRefed<WakeLock> RequestWakeLock(const nsAString& aTopic,
@@ -216,6 +219,8 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
 #ifdef HAS_KOOST_MODULES
   RefPtr<AuthorizationManager> mAuthorizationManager;
 #endif
+  RefPtr<UsbManager> mUsbManager;
+
   nsTArray<nsCOMPtr<nsIDOMMozWakeLockListener>> mListeners;
 };
 

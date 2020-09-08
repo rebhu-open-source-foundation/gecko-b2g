@@ -74,6 +74,14 @@ bool IsBatteryPresent() {
   return present;
 }
 
+void EnableUsbNotifications() { Hal()->SendEnableUsbNotifications(); }
+
+void DisableUsbNotifications() { Hal()->SendDisableUsbNotifications(); }
+
+void GetCurrentUsbStatus(UsbStatus* aUsbStatus) {
+  Hal()->SendGetCurrentUsbStatus(aUsbStatus);
+}
+
 void EnableNetworkNotifications() { Hal()->SendEnableNetworkNotifications(); }
 
 void DisableNetworkNotifications() { Hal()->SendDisableNetworkNotifications(); }
@@ -315,6 +323,7 @@ void StopDiskSpaceWatcher() {
 
 class HalParent : public PHalParent,
                   public BatteryObserver,
+                  public UsbObserver,
                   public NetworkObserver,
                   public ISensorObserver,
                   public WakeLockObserver,
@@ -329,6 +338,7 @@ class HalParent : public PHalParent,
     hal::UnregisterBatteryObserver(this);
     hal::UnregisterNetworkObserver(this);
     hal::UnregisterScreenConfigurationObserver(this);
+    hal::UnregisterUsbObserver(this);
     for (auto sensor : MakeEnumeratedRange(NUM_SENSOR_TYPE)) {
       hal::UnregisterSensorObserver(sensor, this);
     }
@@ -442,6 +452,28 @@ class HalParent : public PHalParent,
 
   void Notify(const BatteryInformation& aBatteryInfo) override {
     Unused << SendNotifyBatteryChange(aBatteryInfo);
+  }
+
+  virtual mozilla::ipc::IPCResult RecvEnableUsbNotifications() override {
+    // We give all content usb-status permission.
+    hal::RegisterUsbObserver(this);
+    return IPC_OK();
+  }
+
+  virtual mozilla::ipc::IPCResult RecvDisableUsbNotifications() override {
+    hal::UnregisterUsbObserver(this);
+    return IPC_OK();
+  }
+
+  virtual mozilla::ipc::IPCResult RecvGetCurrentUsbStatus(
+      UsbStatus* aUsbStatus) override {
+    // We give all content usb-status permission.
+    hal::GetCurrentUsbStatus(aUsbStatus);
+    return IPC_OK();
+  }
+
+  void Notify(const UsbStatus& aUsbStatus) override {
+    Unused << SendNotifyUsbStatus(aUsbStatus);
   }
 
   virtual mozilla::ipc::IPCResult RecvEnableNetworkNotifications() override {
@@ -616,6 +648,12 @@ class HalChild : public PHalChild {
   virtual mozilla::ipc::IPCResult RecvNotifyBatteryChange(
       const BatteryInformation& aBatteryInfo) override {
     hal::NotifyBatteryChange(aBatteryInfo);
+    return IPC_OK();
+  }
+
+  virtual mozilla::ipc::IPCResult RecvNotifyUsbStatus(
+      const UsbStatus& aUsbStatus) override {
+    hal::NotifyUsbStatus(aUsbStatus);
     return IPC_OK();
   }
 

@@ -34,6 +34,11 @@ struct BatteryInformation {
   bool   present;
 };
 
+struct UsbStatus {
+  bool deviceAttached;
+  bool deviceConfigured;
+};
+
 struct SensorData {
   SensorType sensor;
   PRTime timestamp;
@@ -100,6 +105,7 @@ nested(upto inside_cpow) sync protocol PHal {
 
 child:
     async NotifyBatteryChange(BatteryInformation aBatteryInfo);
+    async NotifyUsbStatus(UsbStatus aUsbStatus);
     async NotifyNetworkChange(NetworkInformation aNetworkInfo);
     async NotifyWakeLockChange(WakeLockInformation aWakeLockInfo);
     async NotifyScreenConfigurationChange(ScreenConfiguration aScreenOrientation);
@@ -128,6 +134,11 @@ parent:
       returns (double temperature);
     sync IsBatteryPresent()
       returns (bool present);
+
+    async EnableUsbNotifications();
+    async DisableUsbNotifications();
+    sync GetCurrentUsbStatus()
+      returns (UsbStatus aUsbStatus);
 
     async EnableNetworkNotifications();
     async DisableNetworkNotifications();

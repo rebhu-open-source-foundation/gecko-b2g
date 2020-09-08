@@ -75,6 +75,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(B2G)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAuthorizationManager)
 #endif
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mListeners)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mUsbManager)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_TRACE_WRAPPERCACHE(B2G)
@@ -96,6 +97,12 @@ void B2G::Shutdown() {
     mMobileMessageManager = nullptr;
   }
 #endif
+
+  if (mUsbManager) {
+    mUsbManager->Shutdown();
+    mUsbManager = nullptr;
+  }
+
 #ifdef MOZ_B2G_CAMERA
   mCameraManager = nullptr;
 #endif
@@ -825,6 +832,21 @@ already_AddRefed<nsDOMDeviceStorage> B2G::GetDeviceStorageByNameAndType(
   mDeviceStorageStores.AppendElement(
       do_GetWeakReference(static_cast<DOMEventTargetHelper*>(storage)));
   return storage.forget();
+}
+
+UsbManager* B2G::GetUsbManager(ErrorResult& aRv) {
+  if (!mUsbManager) {
+    if (!mOwner) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+
+    nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+    mUsbManager = new UsbManager(innerWindow);
+    mUsbManager->Init();
+  }
+
+  return mUsbManager;
 }
 
 }  // namespace dom

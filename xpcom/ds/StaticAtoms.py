@@ -951,6 +951,7 @@ STATIC_ATOMS = [
     Atom("onupdatefound", "onupdatefound"),
     Atom("onupdateready", "onupdateready"),
     Atom("onupgradeneeded", "onupgradeneeded"),
+    Atom("onusbstatuschange", "onusbstatuschange"),
     Atom("onversionchange", "onversionchange"),
     Atom("onvisibilitychange", "onvisibilitychange"),
     Atom("onvoiceschanged", "onvoiceschanged"),

@@ -334,6 +334,12 @@ with Files("UIEvent.webidl"):
 with Files("URL.webidl"):
     BUG_COMPONENT = ("Core", "Audio/Video")
 
+with Files("UsbEvent.webidl"):
+    BUG_COMPONENT = ("Core", "DOM: Device Interfaces")
+
+with Files("UsbManager.webidl"):
+    BUG_COMPONENT = ("Core", "DOM: Device Interfaces")
+
 with Files("UserProximityEvent.webidl"):
     BUG_COMPONENT = ("Core", "DOM: UI Events & Focus Handling")
 
@@ -975,6 +981,7 @@ WEBIDL_FILES = [
     'UIEvent.webidl',
     'URL.webidl',
     'URLSearchParams.webidl',
+    'UsbManager.webidl',
     'ValidityState.webidl',
     'VideoPlaybackQuality.webidl',
     'VideoTrack.webidl',
@@ -1158,6 +1165,7 @@ GENERATED_EVENTS_WEBIDL_FILES = [
     'TetheringStatusChangeEvent.webidl',
     'TrackEvent.webidl',
     'UDPMessageEvent.webidl',
+    'UsbEvent.webidl',
     'UserProximityEvent.webidl',
     'WebGLContextEvent.webidl',
     'XRInputSourceEvent.webidl',

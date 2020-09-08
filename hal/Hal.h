@@ -12,6 +12,7 @@
 #include "nsTArray.h"
 #include "mozilla/dom/FlashlightManager.h"
 #include "mozilla/dom/FlipManager.h"
+#include "mozilla/dom/usb/Types.h"
 #include "mozilla/hal_sandbox/PHal.h"
 #include "mozilla/HalBatteryInformation.h"
 #include "mozilla/HalNetworkInformation.h"
@@ -127,6 +128,29 @@ double GetBatteryTemperature();
  * Determine the battery is present or not
  */
 bool IsBatteryPresent();
+
+/**
+ * Inform the usb backend there is a new usb observer.
+ * @param aUsbObserver The observer that should be added.
+ */
+void RegisterUsbObserver(UsbObserver* aUsbObserver);
+
+/**
+ * Inform the usb backend a usb observer unregistered.
+ * @param aUsbObserver The observer that should be removed.
+ */
+void UnregisterUsbObserver(UsbObserver* aUsbObserver);
+
+/**
+ * Returns the current usb status.
+ */
+void GetCurrentUsbStatus(hal::UsbStatus* aUsbStatus);
+
+/**
+ * Notify of a change in the usb status.
+ * @param aUsbStatus The new usb status.
+ */
+void NotifyUsbStatus(const hal::UsbStatus& aUsbStatus);
 
 /**
  * Inform the flashlightmanager backend there is a new flashlight observer.

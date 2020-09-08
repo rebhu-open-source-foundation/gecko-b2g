@@ -45,6 +45,7 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'android':
         'fallback/FallbackAlarm.cpp',
         'fallback/FallbackFlashlightManager.cpp',
         'fallback/FallbackFlipManager.cpp',
+        'fallback/FallbackUsbManager.cpp',
     ]
     # AndroidHal.cpp cannot be built in unified mode because it relies on HalImpl.h.
     SOURCES += [
@@ -101,6 +102,7 @@ elif CONFIG['OS_TARGET'] == 'Linux':
         'fallback/FallbackProcessPriority.cpp',
         'fallback/FallbackScreenConfiguration.cpp',
         'fallback/FallbackSensor.cpp',
+        'fallback/FallbackUsbManager.cpp',
         'fallback/FallbackVibration.cpp',
         'linux/LinuxMemory.cpp',
     ]
@@ -120,6 +122,7 @@ elif CONFIG['OS_TARGET'] == 'WINNT':
         'fallback/FallbackMemory.cpp',
         'fallback/FallbackNetwork.cpp',
         'fallback/FallbackScreenConfiguration.cpp',
+        'fallback/FallbackUsbManager.cpp',
         'fallback/FallbackVibration.cpp',
         'windows/WindowsProcessPriority.cpp',
         'windows/WindowsSensor.cpp',
@@ -138,6 +141,7 @@ elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'cocoa':
         'fallback/FallbackNetwork.cpp',
         'fallback/FallbackProcessPriority.cpp',
         'fallback/FallbackScreenConfiguration.cpp',
+        'fallback/FallbackUsbManager.cpp',
         'fallback/FallbackVibration.cpp',
     ]
 elif CONFIG['OS_TARGET'] in ('OpenBSD', 'NetBSD', 'FreeBSD', 'DragonFly'):
@@ -150,6 +154,7 @@ elif CONFIG['OS_TARGET'] in ('OpenBSD', 'NetBSD', 'FreeBSD', 'DragonFly'):
         'fallback/FallbackProcessPriority.cpp',
         'fallback/FallbackScreenConfiguration.cpp',
         'fallback/FallbackSensor.cpp',
+        'fallback/FallbackUsbManager.cpp',
         'fallback/FallbackVibration.cpp',
     ]
     if CONFIG['MOZ_ENABLE_DBUS']:
@@ -171,6 +176,7 @@ else:
         'fallback/FallbackProcessPriority.cpp',
         'fallback/FallbackScreenConfiguration.cpp',
         'fallback/FallbackSensor.cpp',
+        'fallback/FallbackUsbManager.cpp',
         'fallback/FallbackVibration.cpp',
     ]
 
@@ -196,6 +202,7 @@ include('/ipc/chromium/chromium-config.mozbuild')
 FINAL_LIBRARY = 'xul'
 
 LOCAL_INCLUDES += [
+    '/dom/b2g/usb',
     '/dom/base',
 ]
 

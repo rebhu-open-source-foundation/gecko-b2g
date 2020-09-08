@@ -3064,6 +3064,12 @@
   value: false
   mirror: always
 
+# Enable USB Manager event
+- name: dom.usb.enabled
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 # Time limit, in milliseconds, for user gesture transient activation.
 - name: dom.user_activation.transient.timeout
   type: uint32_t
