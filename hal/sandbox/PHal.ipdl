@@ -39,6 +39,11 @@ struct UsbStatus {
   bool deviceConfigured;
 };
 
+struct PowerSupplyStatus {
+  bool powerSupplyOnline;
+  nsCString powerSupplyType;
+};
+
 struct SensorData {
   SensorType sensor;
   PRTime timestamp;
@@ -106,6 +111,7 @@ nested(upto inside_cpow) sync protocol PHal {
 child:
     async NotifyBatteryChange(BatteryInformation aBatteryInfo);
     async NotifyUsbStatus(UsbStatus aUsbStatus);
+    async NotifyPowerSupplyStatus(PowerSupplyStatus aPowerSupplyStatus);
     async NotifyNetworkChange(NetworkInformation aNetworkInfo);
     async NotifyWakeLockChange(WakeLockInformation aWakeLockInfo);
     async NotifyScreenConfigurationChange(ScreenConfiguration aScreenOrientation);
@@ -139,6 +145,11 @@ parent:
     async DisableUsbNotifications();
     sync GetCurrentUsbStatus()
       returns (UsbStatus aUsbStatus);
+
+    async EnablePowerSupplyNotifications();
+    async DisablePowerSupplyNotifications();
+    sync GetCurrentPowerSupplyStatus()
+      returns (PowerSupplyStatus aPowerSupplyStatus);
 
     async EnableNetworkNotifications();
     async DisableNetworkNotifications();

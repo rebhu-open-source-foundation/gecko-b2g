@@ -57,6 +57,7 @@
 
 #include "mozilla/dom/WakeLock.h"
 #include "mozilla/dom/power/PowerManagerService.h"
+#include "mozilla/dom/powersupply/PowerSupplyManager.h"
 #include "nsIDOMWakeLockListener.h"
 
 class nsDOMDeviceStorage;
@@ -127,6 +128,8 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
   static bool HasWifiManagerSupport(JSContext* /* unused */, JSObject* aGlobal);
   static bool HasTetheringManagerSupport(JSContext* /* unused */, JSObject* aGlobal);
   static bool HasUsbManagerSupport(JSContext* /* unused */, JSObject* aGlobal);
+  static bool HasPowerSupplyManagerSupport(JSContext* /* unused */,
+                                           JSObject* aGlobal);
 
   DownloadManager* GetDownloadManager(ErrorResult& aRv);
 
@@ -146,6 +149,8 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
 #endif
 
   UsbManager* GetUsbManager(ErrorResult& aRv);
+
+  PowerSupplyManager* GetPowerSupplyManager(ErrorResult& aRv);
 
   static bool HasWakeLockSupport(JSContext* /* unused*/, JSObject* /*unused */);
 
@@ -221,6 +226,7 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
   RefPtr<AuthorizationManager> mAuthorizationManager;
 #endif
   RefPtr<UsbManager> mUsbManager;
+  RefPtr<PowerSupplyManager> mPowerSupplyManager;
 
   nsTArray<nsCOMPtr<nsIDOMMozWakeLockListener>> mListeners;
 };

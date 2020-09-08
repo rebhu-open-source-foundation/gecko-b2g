@@ -156,6 +156,12 @@ partial interface B2G {
   readonly attribute UsbManager usbManager;
 };
 
+[Exposed=Window]
+partial interface B2G {
+  [Throws, Pref="dom.powersupply.enabled", Func="B2G::HasPowerSupplyManagerSupport"]
+  readonly attribute PowerSupplyManager powerSupplyManager;
+};
+
 partial interface B2G {
   /**
    * Request a wake lock for a resource.

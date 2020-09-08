@@ -262,6 +262,12 @@ with Files("PointerEvent.webidl"):
 with Files("PopStateEvent.webidl*"):
     BUG_COMPONENT = ("Core", "DOM: Navigation")
 
+with Files("PowerSupplyEvent.webidl"):
+    BUG_COMPONENT = ("Core", "DOM: Device Interfaces")
+
+with Files("PowerSupplyManager.webidl"):
+    BUG_COMPONENT = ("Core", "DOM: Device Interfaces")
+
 with Files("GeolocationPosition*"):
     BUG_COMPONENT = ("Core", "DOM: Geolocation")
 
@@ -790,6 +796,7 @@ WEBIDL_FILES = [
     'Plugin.webidl',
     'PluginArray.webidl',
     'PointerEvent.webidl',
+    'PowerSupplyManager.webidl',
     'Presentation.webidl',
     'PresentationAvailability.webidl',
     'PresentationConnection.webidl',
@@ -1150,6 +1157,7 @@ GENERATED_EVENTS_WEBIDL_FILES = [
     'PopupBlockedEvent.webidl',
     'PopupPositionedEvent.webidl',
     'PositionStateEvent.webidl',
+    'PowerSupplyEvent.webidl',
     'PresentationConnectionAvailableEvent.webidl',
     'PresentationConnectionCloseEvent.webidl',
     'ProgressEvent.webidl',

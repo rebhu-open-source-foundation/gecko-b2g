@@ -76,6 +76,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(B2G)
 #endif
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mListeners)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mUsbManager)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPowerSupplyManager)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_TRACE_WRAPPERCACHE(B2G)
@@ -97,6 +98,11 @@ void B2G::Shutdown() {
     mMobileMessageManager = nullptr;
   }
 #endif
+
+  if (mPowerSupplyManager) {
+    mPowerSupplyManager->Shutdown();
+    mPowerSupplyManager = nullptr;
+  }
 
   if (mUsbManager) {
     mUsbManager->Shutdown();
@@ -832,6 +838,28 @@ already_AddRefed<nsDOMDeviceStorage> B2G::GetDeviceStorageByNameAndType(
   mDeviceStorageStores.AppendElement(
       do_GetWeakReference(static_cast<DOMEventTargetHelper*>(storage)));
   return storage.forget();
+}
+
+/* static */
+bool B2G::HasPowerSupplyManagerSupport(JSContext* /* unused */,
+                                       JSObject* aGlobal) {
+  nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);
+  return innerWindow ? CheckPermission("powersupply"_ns, innerWindow) : false;
+}
+
+PowerSupplyManager* B2G::GetPowerSupplyManager(ErrorResult& aRv) {
+  if (!mPowerSupplyManager) {
+    if (!mOwner) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+
+    nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+    mPowerSupplyManager = new PowerSupplyManager(innerWindow);
+    mPowerSupplyManager->Init();
+  }
+
+  return mPowerSupplyManager;
 }
 
 /* static */

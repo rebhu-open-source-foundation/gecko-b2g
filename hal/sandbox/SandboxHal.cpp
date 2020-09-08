@@ -82,6 +82,18 @@ void GetCurrentUsbStatus(UsbStatus* aUsbStatus) {
   Hal()->SendGetCurrentUsbStatus(aUsbStatus);
 }
 
+void EnablePowerSupplyNotifications() {
+  Hal()->SendEnablePowerSupplyNotifications();
+}
+
+void DisablePowerSupplyNotifications() {
+  Hal()->SendDisablePowerSupplyNotifications();
+}
+
+void GetCurrentPowerSupplyStatus(PowerSupplyStatus* aPowerSupplyStatus) {
+  Hal()->SendGetCurrentPowerSupplyStatus(aPowerSupplyStatus);
+}
+
 void EnableNetworkNotifications() { Hal()->SendEnableNetworkNotifications(); }
 
 void DisableNetworkNotifications() { Hal()->SendDisableNetworkNotifications(); }
@@ -324,6 +336,7 @@ void StopDiskSpaceWatcher() {
 class HalParent : public PHalParent,
                   public BatteryObserver,
                   public UsbObserver,
+                  public PowerSupplyObserver,
                   public NetworkObserver,
                   public ISensorObserver,
                   public WakeLockObserver,
@@ -339,6 +352,7 @@ class HalParent : public PHalParent,
     hal::UnregisterNetworkObserver(this);
     hal::UnregisterScreenConfigurationObserver(this);
     hal::UnregisterUsbObserver(this);
+    hal::UnregisterPowerSupplyObserver(this);
     for (auto sensor : MakeEnumeratedRange(NUM_SENSOR_TYPE)) {
       hal::UnregisterSensorObserver(sensor, this);
     }
@@ -474,6 +488,30 @@ class HalParent : public PHalParent,
 
   void Notify(const UsbStatus& aUsbStatus) override {
     Unused << SendNotifyUsbStatus(aUsbStatus);
+  }
+
+  virtual mozilla::ipc::IPCResult RecvEnablePowerSupplyNotifications()
+      override {
+    // We give all content powersupply-status permission.
+    hal::RegisterPowerSupplyObserver(this);
+    return IPC_OK();
+  }
+
+  virtual mozilla::ipc::IPCResult RecvDisablePowerSupplyNotifications()
+      override {
+    hal::UnregisterPowerSupplyObserver(this);
+    return IPC_OK();
+  }
+
+  virtual mozilla::ipc::IPCResult RecvGetCurrentPowerSupplyStatus(
+      PowerSupplyStatus* aPowerSupplyStatus) override {
+    // We give all content powersupply-status permission.
+    hal::GetCurrentPowerSupplyStatus(aPowerSupplyStatus);
+    return IPC_OK();
+  }
+
+  void Notify(const PowerSupplyStatus& aPowerSupplyStatus) override {
+    Unused << SendNotifyPowerSupplyStatus(aPowerSupplyStatus);
   }
 
   virtual mozilla::ipc::IPCResult RecvEnableNetworkNotifications() override {
@@ -654,6 +692,12 @@ class HalChild : public PHalChild {
   virtual mozilla::ipc::IPCResult RecvNotifyUsbStatus(
       const UsbStatus& aUsbStatus) override {
     hal::NotifyUsbStatus(aUsbStatus);
+    return IPC_OK();
+  }
+
+  virtual mozilla::ipc::IPCResult RecvNotifyPowerSupplyStatus(
+      const PowerSupplyStatus& aPowerSupplyStatus) override {
+    hal::NotifyPowerSupplyStatus(aPowerSupplyStatus);
     return IPC_OK();
   }
 

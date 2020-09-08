@@ -345,6 +345,24 @@ class UsbObserversManager : public CachingObserversManager<UsbStatus> {
 
 static UsbObserversManager sUsbObservers;
 
+class PowerSupplyObserversManager
+    : public CachingObserversManager<PowerSupplyStatus> {
+ protected:
+  void EnableNotifications() {
+    PROXY_IF_SANDBOXED(EnablePowerSupplyNotifications());
+  }
+
+  void DisableNotifications() {
+    PROXY_IF_SANDBOXED(DisablePowerSupplyNotifications());
+  }
+
+  void GetCurrentInformationInternal(PowerSupplyStatus* aStatus) {
+    PROXY_IF_SANDBOXED(GetCurrentPowerSupplyStatus(aStatus));
+  }
+};
+
+static PowerSupplyObserversManager sPowerSupplyObservers;
+
 class FlashlightObserversManager
     : public ObserversManager<FlashlightInformation> {
  protected:
@@ -408,6 +426,27 @@ void NotifyUsbStatus(const UsbStatus& aUsbStatus) {
   AssertMainThread();
   sUsbObservers.CacheInformation(aUsbStatus);
   sUsbObservers.BroadcastCachedInformation();
+}
+
+void RegisterPowerSupplyObserver(PowerSupplyObserver* aPowerSupplyObserver) {
+  AssertMainThread();
+  sPowerSupplyObservers.AddObserver(aPowerSupplyObserver);
+}
+
+void UnregisterPowerSupplyObserver(PowerSupplyObserver* aPowerSupplyObserver) {
+  AssertMainThread();
+  sPowerSupplyObservers.RemoveObserver(aPowerSupplyObserver);
+}
+
+void GetCurrentPowerSupplyStatus(PowerSupplyStatus* aPowerSupplyStatus) {
+  AssertMainThread();
+  *aPowerSupplyStatus = sPowerSupplyObservers.GetCurrentInformation();
+}
+
+void NotifyPowerSupplyStatus(const PowerSupplyStatus& aPowerSupplyStatus) {
+  AssertMainThread();
+  sPowerSupplyObservers.CacheInformation(aPowerSupplyStatus);
+  sPowerSupplyObservers.BroadcastCachedInformation();
 }
 
 class FlipObserversManager final

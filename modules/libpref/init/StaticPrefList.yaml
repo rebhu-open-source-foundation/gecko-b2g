@@ -1803,6 +1803,12 @@
   value: true
   mirror: always
 
+# Enable Power Supply Manager event
+- name: dom.powersupply.enabled
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 # Enable formData event
 - name: dom.formdata.event.enabled
   type: bool

@@ -12,6 +12,7 @@
 #include "nsTArray.h"
 #include "mozilla/dom/FlashlightManager.h"
 #include "mozilla/dom/FlipManager.h"
+#include "mozilla/dom/powersupply/Types.h"
 #include "mozilla/dom/usb/Types.h"
 #include "mozilla/hal_sandbox/PHal.h"
 #include "mozilla/HalBatteryInformation.h"
@@ -151,6 +152,29 @@ void GetCurrentUsbStatus(hal::UsbStatus* aUsbStatus);
  * @param aUsbStatus The new usb status.
  */
 void NotifyUsbStatus(const hal::UsbStatus& aUsbStatus);
+
+/**
+ * Inform the powersupply backend there is a new powersupply observer.
+ * @param aPowerSupplyObserver The observer that should be added.
+ */
+void RegisterPowerSupplyObserver(PowerSupplyObserver* aPowerSupplyObserver);
+
+/**
+ * Inform the powersupply backend a powersupply observer unregistered.
+ * @param aPowerSupplyObserver The observer that should be removed.
+ */
+void UnregisterPowerSupplyObserver(PowerSupplyObserver* aPowerSupplyObserver);
+
+/**
+ * Returns the current power supply status.
+ */
+void GetCurrentPowerSupplyStatus(hal::PowerSupplyStatus* aPowerSupplyStatus);
+
+/**
+ * Notify of a change in the power supply status.
+ * @param aPowerSupplyStatus The new power supply status.
+ */
+void NotifyPowerSupplyStatus(const hal::PowerSupplyStatus& aPowerSupplyStatus);
 
 /**
  * Inform the flashlightmanager backend there is a new flashlight observer.
