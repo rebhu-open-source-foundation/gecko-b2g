@@ -364,7 +364,8 @@ nsresult DeviceStorageRequestParent::WriteFileEvent::CancelableRun() {
       }
     }
     nsCOMPtr<nsIOutputStream> outputStream;
-    NS_NewLocalFileOutputStream(getter_AddRefs(outputStream), mFile->mFile);
+    NS_NewLocalFileOutputStream(getter_AddRefs(outputStream), mFile->mFile,
+                                PR_WRONLY | PR_CREATE_FILE | PR_APPEND, -1, 0);
     if (!outputStream) {
       return NS_DispatchToMainThread(
           new PostErrorEvent(mParent, POST_ERROR_EVENT_UNKNOWN));

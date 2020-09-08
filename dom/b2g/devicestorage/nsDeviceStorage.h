@@ -9,6 +9,7 @@
 
 #include "mozilla/Atomics.h"
 #include "mozilla/Attributes.h"
+#include "mozilla/Logging.h"
 #include "mozilla/dom/devicestorage/DeviceStorageRequestChild.h"
 
 #include "mozilla/dom/DOMRequest.h"
@@ -39,21 +40,19 @@ class DeviceStorageParams;
 class nsDOMDeviceStorage;
 class DeviceStorageCursorRequest;
 
-// #define DS_LOGGING 1
-
-#ifdef DS_LOGGING
-// FIXME -- use MOZ_LOG and set to warn by default
-#  define DS_LOG_DEBUG(msg, ...) \
-    printf_stderr("[%s:%d] " msg "\n", __func__, __LINE__, ##__VA_ARGS__)
-#  define DS_LOG_INFO DS_LOG_DEBUG
-#  define DS_LOG_WARN DS_LOG_DEBUG
-#  define DS_LOG_ERROR DS_LOG_DEBUG
-#else
-#  define DS_LOG_DEBUG(msg, ...)
-#  define DS_LOG_INFO(msg, ...)
-#  define DS_LOG_WARN(msg, ...)
-#  define DS_LOG_ERROR(msg, ...)
-#endif
+static mozilla::LazyLogModule sDSLogger("DeviceStorage");
+#define DS_LOG_DEBUG(msg, ...)                 \
+  MOZ_LOG(sDSLogger, mozilla::LogLevel::Debug, \
+          ("[%s:%d] " msg, __func__, __LINE__, ##__VA_ARGS__))
+#define DS_LOG_INFO(msg, ...)                 \
+  MOZ_LOG(sDSLogger, mozilla::LogLevel::Info, \
+          ("[%s:%d] " msg, __func__, __LINE__, ##__VA_ARGS__))
+#define DS_LOG_WARN(msg, ...)                    \
+  MOZ_LOG(sDSLogger, mozilla::LogLevel::Warning, \
+          ("[%s:%d] " msg, __func__, __LINE__, ##__VA_ARGS__))
+#define DS_LOG_ERROR(msg, ...)                 \
+  MOZ_LOG(sDSLogger, mozilla::LogLevel::Error, \
+          ("[%s:%d] " msg, __func__, __LINE__, ##__VA_ARGS__))
 
 #define POST_ERROR_EVENT_FILE_EXISTS "NoModificationAllowedError"
 #define POST_ERROR_EVENT_FILE_DOES_NOT_EXIST "NotFoundError"

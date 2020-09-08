@@ -787,11 +787,15 @@ nsresult DeviceStorageFile::Create() {
 
   nsresult rv = mFile->Create(nsIFile::NORMAL_FILE_TYPE, 00600);
   if (NS_WARN_IF(NS_FAILED(rv))) {
+    DS_LOG_ERROR("mFile->Create failed. rv[%x]", uint(rv));
     return rv;
   }
 
   rv = NS_DispatchToMainThread(new IOEventComplete(this, "created"));
   if (NS_WARN_IF(NS_FAILED(rv))) {
+    DS_LOG_ERROR(
+        "NS_DispatchToMainThread of IOEventComplete created failed. rv[%x]",
+        uint(rv));
     return rv;
   }
   return NS_OK;
@@ -802,28 +806,41 @@ nsresult DeviceStorageFile::Write(nsIInputStream* aInputStream) {
 
   nsresult rv = Create();
   if (NS_WARN_IF(NS_FAILED(rv))) {
+    DS_LOG_ERROR("Create failed. rv[%x]", uint(rv));
     return rv;
   }
 
   nsCOMPtr<nsIOutputStream> outputStream;
   rv = NS_NewLocalFileOutputStream(getter_AddRefs(outputStream), mFile);
   if (NS_WARN_IF(NS_FAILED(rv))) {
+    DS_LOG_ERROR("NS_NewLocalFileOutputStream failed. rv[%x]", uint(rv));
+    return rv;
+  }
+
+  nsCOMPtr<nsIOutputStream> bufferedStream;
+  NS_NewBufferedOutputStream(getter_AddRefs(bufferedStream),
+                             outputStream.forget(), 4096 * 4);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    DS_LOG_ERROR("NS_NewBufferedOutputStream failed. rv[%x]", uint(rv));
     return rv;
   }
 
   AutoCloseStream<nsIOutputStream> acOutputStream(outputStream);
-  return Append(aInputStream, outputStream);
+  AutoCloseStream<nsIOutputStream> acBufferedOutputStream(bufferedStream);
+  return Append(aInputStream, acBufferedOutputStream);
 }
 
 nsresult DeviceStorageFile::Write(nsTArray<uint8_t>& aBits) {
   nsresult rv = Create();
   if (NS_WARN_IF(NS_FAILED(rv))) {
+    DS_LOG_ERROR("Create failed. rv[%x]", uint(rv));
     return rv;
   }
 
   nsCOMPtr<nsIOutputStream> outputStream;
   rv = NS_NewLocalFileOutputStream(getter_AddRefs(outputStream), mFile);
   if (NS_WARN_IF(NS_FAILED(rv))) {
+    DS_LOG_ERROR("NS_NewLocalFileOutputStream failed. rv[%x]", uint(rv));
     return rv;
   };
   AutoCloseStream<nsIOutputStream> acOutputStream(outputStream);
@@ -832,10 +849,14 @@ nsresult DeviceStorageFile::Write(nsTArray<uint8_t>& aBits) {
 
   rv = NS_DispatchToMainThread(new IOEventComplete(this, "modified"));
   if (NS_WARN_IF(NS_FAILED(rv))) {
+    DS_LOG_ERROR(
+        "NS_DispatchToMainThread of IOEventComplete modified failed. rv[%x]",
+        uint(rv));
     return rv;
   }
 
   if (aBits.Length() != wrote) {
+    DS_LOG_ERROR("aBits.Length mismatch. [%u] [%u]", aBits.Length(), wrote);
     return NS_ERROR_FAILURE;
   }
   return NS_OK;
@@ -847,14 +868,25 @@ nsresult DeviceStorageFile::Append(nsIInputStream* aInputStream) {
   }
 
   nsCOMPtr<nsIOutputStream> outputStream;
-  NS_NewLocalFileOutputStream(getter_AddRefs(outputStream), mFile,
-                              PR_WRONLY | PR_CREATE_FILE | PR_APPEND, -1, 0);
-  if (!outputStream) {
+  nsresult rv = NS_NewLocalFileOutputStream(
+      getter_AddRefs(outputStream), mFile,
+      PR_WRONLY | PR_CREATE_FILE | PR_APPEND, -1, 0);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    DS_LOG_ERROR("NS_NewLocalFileOutputStream failed. rv[%x]", uint(rv));
     return NS_ERROR_FAILURE;
   }
 
+  nsCOMPtr<nsIOutputStream> bufferedStream;
+  rv = NS_NewBufferedOutputStream(getter_AddRefs(bufferedStream),
+                                  outputStream.forget(), 4096 * 4);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    DS_LOG_ERROR("NS_NewBufferedOutputStream failed. rv[%x]", uint(rv));
+    return rv;
+  }
+
   AutoCloseStream<nsIOutputStream> acOutputStream(outputStream);
-  return Append(aInputStream, outputStream);
+  AutoCloseStream<nsIOutputStream> acBufferedOutputStream(bufferedStream);
+  return Append(aInputStream, acBufferedOutputStream);
 }
 
 nsresult DeviceStorageFile::Append(nsIInputStream* aInputStream,
@@ -871,6 +903,7 @@ nsresult DeviceStorageFile::Append(nsIInputStream* aInputStream,
     if (mRemainsSize == -1) {
       rv = lengthWrapper->Length(&mRemainsSize);
       if (NS_WARN_IF(NS_FAILED(rv))) {
+        DS_LOG_ERROR("lengthWrapper->Length() failed. rv[%x]", uint(rv));
         return rv;
       }
       if (mRemainsSize == -1) {
@@ -882,6 +915,7 @@ nsresult DeviceStorageFile::Append(nsIInputStream* aInputStream,
     while (mRemainsSize > 0) {
       rv = asyncInputStream->Available(&avail);
       if (NS_FAILED(rv)) {
+        DS_LOG_ERROR("asyncInputStream->Available() failed. rv[%x]", uint(rv));
         break;
       }
       if (avail == 0) {
@@ -893,18 +927,26 @@ nsresult DeviceStorageFile::Append(nsIInputStream* aInputStream,
           asyncInputStream,
           static_cast<uint32_t>(std::min<uint64_t>(avail, UINT32_MAX)), &wrote);
       if (NS_FAILED(rv)) {
+        DS_LOG_ERROR(
+            "aOutputStream->WriteFrom(asyncInputStream) failed. rv[%x]",
+            uint(rv));
         break;
       }
       mRemainsSize -= wrote;
     }
   } else {
-    aInputStream->Available(&avail);
-    ;
+    rv = aInputStream->Available(&avail);
+    if (NS_FAILED(rv)) {
+      DS_LOG_ERROR("aInputStream->Available() failed. rv[%x]", uint(rv));
+      return rv;
+    }
     while (avail) {
       rv = aOutputStream->WriteFrom(
           aInputStream,
           static_cast<uint32_t>(std::min<uint64_t>(avail, UINT32_MAX)), &wrote);
       if (NS_FAILED(rv)) {
+        DS_LOG_ERROR("aOutputStream->WriteFrom(aInputStream) failed. rv[%x]",
+                     uint(rv));
         break;
       }
       avail -= wrote;
@@ -913,6 +955,9 @@ nsresult DeviceStorageFile::Append(nsIInputStream* aInputStream,
 
   rv = NS_DispatchToMainThread(new IOEventComplete(this, "modified"));
   if (NS_WARN_IF(NS_FAILED(rv))) {
+    DS_LOG_ERROR(
+        "NS_DispatchToMainThread of IOEventComplete modified failed. rv[%x]",
+        uint(rv));
     return rv;
   }
   return NS_OK;
@@ -940,7 +985,15 @@ nsresult DeviceStorageFile::Remove() {
     return rv;
   }
 
-  return NS_DispatchToMainThread(new IOEventComplete(this, "deleted"));
+  rv = NS_DispatchToMainThread(new IOEventComplete(this, "deleted"));
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    DS_LOG_ERROR(
+        "NS_DispatchToMainThread of IOEventComplete deleted failed. rv[%x]",
+        uint(rv));
+    return rv;
+  }
+
+  return NS_OK;
 }
 
 nsresult DeviceStorageFile::CalculateMimeType() {
