@@ -274,6 +274,11 @@ class RasterImage final : public ImageResource,
    */
   nsresult SetSourceSizeHint(uint32_t aSizeHint);
 
+  /* Provide a hint for the requested dimension of the resulting image. */
+  void SetRequestedSampleSize(int requestedSampleSize) {
+    mRequestedSampleSize = requestedSampleSize;
+  }
+
   nsCString GetURIString() {
     nsCString spec;
     if (GetURI()) {
@@ -460,6 +465,9 @@ class RasterImage final : public ImageResource,
 
   // The source data for this image.
   NotNull<RefPtr<SourceBuffer>> mSourceBuffer;
+
+  // A hint for image decoder that directly scale the image to smaller buffer.
+  int mRequestedSampleSize;
 
   // Boolean flags (clustered together to conserve space):
   bool mHasSize : 1;         // Has SetSize() been called?

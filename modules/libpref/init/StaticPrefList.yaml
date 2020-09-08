@@ -4976,6 +4976,12 @@
   value: true
   mirror: always
 
+# Whether we enable mozsamplesize or not
+- name: image.mozsamplesize.enabled
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "intl."
 #---------------------------------------------------------------------------

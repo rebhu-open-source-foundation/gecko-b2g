@@ -74,6 +74,7 @@ RasterImage::RasterImage(nsIURI* aURI /* = nullptr */)
       mLockCount(0),
       mDecoderType(DecoderType::UNKNOWN),
       mDecodeCount(0),
+      mRequestedSampleSize(0),
 #ifdef DEBUG
       mFramesNotified(0),
 #endif
@@ -1255,7 +1256,7 @@ void RasterImage::Decode(const UnorientedIntSize& aSize, uint32_t aFlags,
     rv = DecoderFactory::CreateDecoder(
         mDecoderType, WrapNotNull(this), mSourceBuffer,
         ToUnoriented(mSize).ToUnknownSize(), aSize.ToUnknownSize(),
-        decoderFlags, surfaceFlags, getter_AddRefs(task));
+        decoderFlags, surfaceFlags, mRequestedSampleSize, getter_AddRefs(task));
   }
 
   if (rv == NS_ERROR_ALREADY_INITIALIZED) {
@@ -1303,7 +1304,7 @@ RasterImage::DecodeMetadata(uint32_t aFlags) {
 
   // Create a decoder.
   RefPtr<IDecodingTask> task = DecoderFactory::CreateMetadataDecoder(
-      mDecoderType, WrapNotNull(this), mSourceBuffer);
+      mDecoderType, WrapNotNull(this), mSourceBuffer, mRequestedSampleSize);
 
   // Make sure DecoderFactory was able to create a decoder successfully.
   if (!task) {

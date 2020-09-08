@@ -51,6 +51,10 @@ class nsJPEGDecoder : public Decoder {
 
   DecoderType GetType() const override { return DecoderType::JPEG; }
 
+  virtual void SetSampleSize(int aSampleSize) override {
+    mSampleSize = aSampleSize;
+  }
+
   void NotifyDone();
 
  protected:
@@ -105,6 +109,8 @@ class nsJPEGDecoder : public Decoder {
   const Decoder::DecodeStyle mDecodeStyle;
 
   SurfacePipe mPipe;
+
+  int mSampleSize;
 };
 
 }  // namespace image

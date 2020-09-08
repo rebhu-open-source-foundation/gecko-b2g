@@ -220,6 +220,15 @@ already_AddRefed<Image> ImageFactory::CreateRasterImage(
   aProgressTracker->SetImage(newImage);
   newImage->SetProgressTracker(aProgressTracker);
 
+  nsAutoCString ref;
+  aURI->GetRef(ref);
+  net::nsMediaFragmentURIParser parser(ref);
+  if (parser.HasSampleSize()) {
+      if (StaticPrefs::image_mozsamplesize_enabled()) {
+        newImage->SetRequestedSampleSize(parser.GetSampleSize());
+      }
+  }
+
   rv = newImage->Init(aMimeType.get(), aImageFlags);
   if (NS_FAILED(rv)) {
     return BadImage("RasterImage::Init failed", newImage);

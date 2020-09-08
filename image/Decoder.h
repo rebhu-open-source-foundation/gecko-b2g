@@ -244,6 +244,12 @@ class Decoder {
   }
 
   /**
+   * Set the requested sample size for this decoder. Used to implement the
+   * -moz-sample-size media fragment.
+   */
+  virtual void SetSampleSize(int aSampleSize) { }
+
+  /**
    * Set an iterator to the SourceBuffer which will feed data to this decoder.
    * This must always be called before calling Init(). (And only before Init().)
    *

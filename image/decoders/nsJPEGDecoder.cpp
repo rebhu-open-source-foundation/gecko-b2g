@@ -80,7 +80,8 @@ nsJPEGDecoder::nsJPEGDecoder(RasterImage* aImage,
       mProfile(nullptr),
       mProfileLength(0),
       mCMSLine(nullptr),
-      mDecodeStyle(aDecodeStyle) {
+      mDecodeStyle(aDecodeStyle),
+      mSampleSize(0) {
   this->mErr.pub.error_exit = nullptr;
   this->mErr.pub.emit_message = nullptr;
   this->mErr.pub.output_message = nullptr;
@@ -235,8 +236,17 @@ LexerTransition<nsJPEGDecoder::State> nsJPEGDecoder::ReadJPEGData(
             State::JPEG_DATA);  // I/O suspension
       }
 
+      // If we have a sample size specified for -moz-sample-size, use it.
+      if (mSampleSize > 0) {
+        mInfo.scale_num = 1;
+        mInfo.scale_denom = mSampleSize;
+      }
+
+      // Used to set up image size so arrays can be allocated
+      jpeg_calc_output_dimensions(&mInfo);
+
       // Post our size to the superclass
-      PostSize(mInfo.image_width, mInfo.image_height,
+      PostSize(mInfo.output_width, mInfo.output_height,
                ReadOrientationFromEXIF());
       if (HasError()) {
         // Setting the size led to an error.

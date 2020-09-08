@@ -65,6 +65,8 @@ class DecoderFactory {
    * @param aDecoderFlags Flags specifying the behavior of this decoder.
    * @param aSurfaceFlags Flags specifying the type of output this decoder
    *                      should produce.
+   * @param aSampleSize The sample size requested using #-moz-samplesize (or 0
+   *                    if none).
    * @param aOutTask Task representing the decoder.
    * @return NS_OK if the decoder has been created/initialized successfully;
    *         NS_ERROR_ALREADY_INITIALIZED if there is already an active decoder
@@ -77,6 +79,7 @@ class DecoderFactory {
                                 const gfx::IntSize& aOutputSize,
                                 DecoderFlags aDecoderFlags,
                                 SurfaceFlags aSurfaceFlags,
+                                int aSampleSize,
                                 IDecodingTask** aOutTask);
 
   /**
@@ -125,10 +128,13 @@ class DecoderFactory {
    *               notifications as decoding progresses.
    * @param aSourceBuffer The SourceBuffer which the decoder will read its data
    *                      from.
+   * @param aSampleSize The sample size requested using #-moz-samplesize (or 0
+   *                    if none).
    */
   static already_AddRefed<IDecodingTask> CreateMetadataDecoder(
       DecoderType aType, NotNull<RasterImage*> aImage,
-      NotNull<SourceBuffer*> aSourceBuffer);
+      NotNull<SourceBuffer*> aSourceBuffer,
+      int aSampleSize = 0);
 
   /**
    * Creates and initializes a decoder for an ICO resource, which may be either
