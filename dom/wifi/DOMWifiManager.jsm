@@ -74,6 +74,22 @@ function WifiCapabilities(obj) {
 WifiCapabilities.prototype = {
   classID: Components.ID("08c88ece-8092-481b-863b-5515a52e411a"),
   contractID: "@mozilla.org/wificapabilities;1",
+
+  getSecurity() {
+    return this.security || [];
+  },
+
+  getEapMethod() {
+    return this.eapMethod || [];
+  },
+
+  getEapPhase2() {
+    return this.eapPhase2 || [];
+  },
+
+  getCertificate() {
+    return this.certificate || [];
+  },
 };
 
 function DOMWifiManager() {

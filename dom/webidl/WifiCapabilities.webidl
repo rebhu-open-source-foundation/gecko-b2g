@@ -19,7 +19,7 @@ enum WifiSecurityMethod {
   "WAPI-CERT"
 };
 
-enum WifiWpaMethod {
+enum WifiEapMethod {
   "SIM",
   "AKA",
   "AKA'",
@@ -28,14 +28,14 @@ enum WifiWpaMethod {
   "TLS"
 };
 
-enum WifiWpaPhase2Method {
+enum WifiEapPhase2Method {
   "PAP",
   "MSCHAP",
   "MSCHAPV2",
   "GTC"
 };
 
-enum WifiWpaCertificate {
+enum WifiEapCertificate {
   "SERVER",
   "USER"
 };
@@ -44,11 +44,8 @@ enum WifiWpaCertificate {
  Func="B2G::HasWifiManagerSupport",
  Exposed=Window]
 interface WifiCapabilities {
-  //[Constant, Cached] readonly attribute sequence<WifiSecurityMethod> security;
-  //[Constant, Cached] readonly attribute sequence<WifiWpaMethod> eapMethod;
-  //[Constant, Cached] readonly attribute sequence<WifiWpaPhase2Method> eapPhase2;
-  //[Constant, Cached] readonly attribute sequence<WifiWpaCertificate> certificate;
-
-  //jsonifier;
+  sequence<WifiSecurityMethod> getSecurity();
+  sequence<WifiEapMethod> getEapMethod();
+  sequence<WifiEapPhase2Method> getEapPhase2();
+  sequence<WifiEapCertificate> getCertificate();
 };
-
