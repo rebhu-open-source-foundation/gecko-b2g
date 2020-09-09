@@ -67,19 +67,7 @@ var shell = {
     return this._started;
   },
 
-  start() {
-    this._started = true;
-
-    // This forces the initialization of the cookie service before we hit the
-    // network.
-    // See bug 810209
-    let cookies = Cc["@mozilla.org/cookieService;1"].getService();
-    if (!cookies) {
-      debug("No cookies service!");
-    }
-
-    let startURL = this.startURL;
-
+  createSystemAppFrame() {
     let systemAppFrame = document.createXULElement("browser");
     systemAppFrame.setAttribute("type", "chrome");
     systemAppFrame.setAttribute("primary", "true");
@@ -97,12 +85,30 @@ var shell = {
     window.dispatchEvent(new CustomEvent("systemappframeprepended"));
 
     this.contentBrowser = systemAppFrame;
+  },
+
+  start() {
+    if (this._started) {
+      return;
+    }
+
+    this._started = true;
+
+    // This forces the initialization of the cookie service before we hit the
+    // network.
+    // See bug 810209
+    let cookies = Cc["@mozilla.org/cookieService;1"].getService();
+    if (!cookies) {
+      debug("No cookies service!");
+    }
+
+    let startURL = this.startURL;
 
     window.addEventListener("MozAfterPaint", this);
     window.addEventListener("sizemodechange", this);
     window.addEventListener("unload", this);
 
-    let stop_url = null;
+    let stopUrl = null;
 
     // Listen for loading events on the system app xul:browser
     let listener = {
@@ -121,14 +127,14 @@ var shell = {
       onStateChange: (webProgress, request, stateFlags, status) => {
         // debug(`StateChange ${stateFlags}`);
         if (stateFlags & Ci.nsIWebProgressListener.STATE_START) {
-          if (!stop_url) {
-            stop_url = request.name;
+          if (!stopUrl) {
+            stopUrl = request.name;
           }
         }
 
         if (stateFlags & Ci.nsIWebProgressListener.STATE_STOP) {
           // debug(`Done loading ${request.name}`);
-          if (stop_url && request.name == stop_url) {
+          if (stopUrl && request.name == stopUrl) {
             this.contentBrowser.removeProgressListener(listener);
             this.notifyContentWindowLoaded();
           }
@@ -248,6 +254,8 @@ document.addEventListener(
     );
     GeckoBridge.start();
 
+    shell.createSystemAppFrame();
+
     // Start the Settings <-> Preferences synchronizer.
     const { SettingsPrefsSync } = ChromeUtils.import(
       "resource://gre/modules/SettingsPrefsSync.jsm"
@@ -261,6 +269,12 @@ document.addEventListener(
 
       shell.start();
     });
+
+    // Force startup if we didn't get the settings ready under 3s.
+    // That can happen in configurations without the api-daemon.
+    window.setTimeout(() => {
+      shell.start();
+    }, 3000);
   },
   { once: true }
 );
