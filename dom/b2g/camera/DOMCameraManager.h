@@ -47,7 +47,6 @@ class nsDOMCameraManager final : public nsIObserver,
   // Great Renaming proposed in bug 983177.
   static bool HasSupport(JSContext* aCx, JSObject* aGlobal);
 
-  static bool CheckPermission(nsPIDOMWindowInner* aWindow);
   static already_AddRefed<nsDOMCameraManager> CreateInstance(
       nsPIDOMWindowInner* aWindow);
   static bool IsWindowStillActive(uint64_t aWindowId);

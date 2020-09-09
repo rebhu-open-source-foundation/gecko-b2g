@@ -76,6 +76,7 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
   nsIGlobalObject* GetParentObject() const { return mOwner; }
   virtual JSObject* WrapObject(JSContext* aCtx,
                                JS::Handle<JSObject*> aGivenProto) override;
+  static bool CheckPermission(const nsACString& aType, nsPIDOMWindowInner* aWindow);
 
   AlarmManager* GetAlarmManager(ErrorResult& aRv);
   already_AddRefed<Promise> GetFlashlightManager(ErrorResult& aRv);

@@ -77,6 +77,11 @@ this.PermissionsTable = {
     signed: PROMPT_ACTION,
     core: ALLOW_ACTION,
   },
+  "flip-manager": {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
   geolocation: {
     pwa: PROMPT_ACTION,
     signed: PROMPT_ACTION,

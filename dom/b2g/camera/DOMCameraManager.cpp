@@ -75,32 +75,6 @@ bool nsDOMCameraManager::HasSupport(JSContext* aCx, JSObject* aGlobal) {
 }
 
 /* static */
-bool nsDOMCameraManager::CheckPermission(nsPIDOMWindowInner* aWindow) {
-  nsCOMPtr<nsPIDOMWindowInner> window = nsPIDOMWindowInner::From(aWindow);
-
-  // Get the document for security check
-  RefPtr<Document> document = window->GetExtantDoc();
-  NS_ENSURE_TRUE(document, false);
-
-  PermissionDelegateHandler* permissionHandler =
-      document->GetPermissionDelegateHandler();
-  if (NS_WARN_IF(!permissionHandler)) {
-    return false;
-  }
-
-  uint32_t permission = nsIPermissionManager::UNKNOWN_ACTION;
-  permissionHandler->GetPermission("camera"_ns, &permission,
-                                   false);
-
-  if (permission == nsIPermissionManager::ALLOW_ACTION ||
-      permission == nsIPermissionManager::PROMPT_ACTION) {
-    return true;
-  }
-
-  return false;
-}
-
-/* static */
 already_AddRefed<nsDOMCameraManager> nsDOMCameraManager::CreateInstance(
     nsPIDOMWindowInner* aWindow) {
   // Initialize the shared active window tracker
@@ -314,7 +288,7 @@ already_AddRefed<Promise> nsDOMCameraManager::GetCamera(
   // even if permission to the camera has been granted.
   bool isMochitest = false;
   CameraPreferences::GetPref("camera.control.test.permission", isMochitest);
-  if (isMochitest || CheckPermission(mWindow)) {
+  if (isMochitest || B2G::CheckPermission("camera"_ns, mWindow)) {
     PermissionAllowed(cameraId, aInitialConfig, promise);
     return promise.forget();
   }

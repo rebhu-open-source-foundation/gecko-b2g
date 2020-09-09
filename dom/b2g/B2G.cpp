@@ -6,6 +6,7 @@
 
 #include "mozilla/dom/B2G.h"
 #include "mozilla/dom/B2GBinding.h"
+#include "nsIPermissionManager.h"
 
 namespace mozilla {
 namespace dom {
@@ -109,6 +110,28 @@ JSObject* B2G::WrapObject(JSContext* cx, JS::Handle<JSObject*> aGivenProto) {
   return B2G_Binding::Wrap(cx, this, aGivenProto);
 }
 
+bool B2G::CheckPermission(const nsACString& aType, nsPIDOMWindowInner* aWindow) {
+  // Grab the principal of the document
+  RefPtr<Document> doc = aWindow->GetDoc();
+  if (!doc) {
+    return false;
+  }
+  nsCOMPtr<nsIPrincipal> principal = doc->NodePrincipal();
+
+  nsCOMPtr<nsIPermissionManager> permMgr =
+    services::GetPermissionManager();
+  NS_ENSURE_TRUE(permMgr, false);
+
+  uint32_t permission = nsIPermissionManager::DENY_ACTION;
+  nsresult rv = permMgr->TestPermissionFromPrincipal(
+    principal, aType, &permission);
+  if (NS_FAILED(rv) || permission != nsIPermissionManager::ALLOW_ACTION) {
+    return false;
+  }
+
+  return true;
+}
+
 AlarmManager* B2G::GetAlarmManager(ErrorResult& aRv) {
   if (!mAlarmManager) {
     if (!mOwner) {
@@ -152,6 +175,10 @@ already_AddRefed<Promise> B2G::GetFlipManager(ErrorResult& aRv) {
     nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
     if (!innerWindow) {
       aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+
+    if (!CheckPermission("flip-manager"_ns, innerWindow)) {
       return nullptr;
     }
 
@@ -378,8 +405,8 @@ bool B2G::HasCameraSupport(JSContext* /* unused */, JSObject* aGlobal) {
 #ifndef MOZ_B2G_CAMERA
   return false;
 #else
-  nsCOMPtr<nsPIDOMWindowInner> win = xpc::WindowOrNull(aGlobal);
-  return win? nsDOMCameraManager::CheckPermission(win) : false;
+  nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);
+  return innerWindow ? CheckPermission("camera"_ns, innerWindow) : false;
 #endif
 }
 

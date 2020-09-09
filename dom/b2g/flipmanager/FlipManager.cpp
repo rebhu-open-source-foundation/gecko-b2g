@@ -9,7 +9,6 @@
 #include "mozilla/Hal.h"
 #include "mozilla/dom/FlipManagerBinding.h"
 #include "mozilla/dom/Promise.h"
-//#include "nsIDOMClassInfo.h"
 
 namespace mozilla {
 namespace dom {
