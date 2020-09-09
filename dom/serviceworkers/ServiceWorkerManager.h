@@ -392,6 +392,12 @@ class ServiceWorkerManager final : public nsIServiceWorkerManager,
 
   void RemoveOrphanedRegistration(ServiceWorkerRegistrationInfo* aRegistration);
 
+  nsresult RegisterInternal(nsIPrincipal* aPrincipal,
+                            const nsAString& aScopeURL,
+                            const nsAString& aScriptURL,
+                            ServiceWorkerUpdateViaCache aUpdateViaCache,
+                            JSContext* aCx, mozilla::dom::Promise** aPromise);
+
   HashSet<RefPtr<ServiceWorkerRegistrationInfo>,
           PointerHasher<ServiceWorkerRegistrationInfo*>>
       mOrphanedRegistrations;

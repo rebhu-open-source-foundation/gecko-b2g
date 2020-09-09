@@ -135,7 +135,7 @@ interface nsIServiceWorkerManagerListener : nsISupports
   void onUnregister(in nsIServiceWorkerRegistrationInfo aInfo);
 };
 
-[scriptable, builtinclass, uuid(7404c8e8-4d47-4449-8ed1-47d1261d4e33)]
+[scriptable, builtinclass, uuid(45e8384c-f70a-11ea-9ac1-23c15c7f1486)]
 interface nsIServiceWorkerManager : nsISupports
 {
   /**
@@ -158,6 +158,16 @@ interface nsIServiceWorkerManager : nsISupports
    */
   [implicit_jscontext]
   Promise registerForAddonPrincipal(in nsIPrincipal aPrincipal);
+
+  /**
+   * A helper that registers a service worker from given script url, scope,
+   * and value of updateViaCache.
+   */
+  [implicit_jscontext]
+  Promise register(in nsIPrincipal aPrincipal,
+                   in AString aScope,
+                   in AString aScriptURL,
+                   in uint16_t aUpdateViaCache);
 
   /**
    * Unregister an existing ServiceWorker registration for `aScope`.

@@ -940,6 +940,56 @@ ServiceWorkerManager::RegisterForTest(nsIPrincipal* aPrincipal,
     return NS_OK;
   }
 
+  return RegisterInternal(aPrincipal, aScopeURL, aScriptURL,
+                          dom::ServiceWorkerUpdateViaCache::Imports, aCx,
+                          aPromise);
+}
+
+NS_IMETHODIMP
+ServiceWorkerManager::Register(nsIPrincipal* aPrincipal,
+                               const nsAString& aScopeURL,
+                               const nsAString& aScriptURL,
+                               uint16_t aUpdateViaCache, JSContext* aCx,
+                               mozilla::dom::Promise** aPromise) {
+  nsIGlobalObject* global = xpc::CurrentNativeGlobal(aCx);
+  if (NS_WARN_IF(!global)) {
+    return NS_ERROR_FAILURE;
+  }
+
+  ErrorResult erv;
+  RefPtr<Promise> outer = Promise::Create(global, erv);
+  if (NS_WARN_IF(erv.Failed())) {
+    return erv.StealNSResult();
+  }
+
+  if (aUpdateViaCache >= ServiceWorkerUpdateViaCacheValues::Count) {
+    outer->MaybeRejectWithAbortError(
+        "Invalid value of ServiceWorkerUpdateViaCache");
+    return NS_OK;
+  }
+
+  ServiceWorkerUpdateViaCache updateViaCache =
+      static_cast<ServiceWorkerUpdateViaCache>(aUpdateViaCache);
+
+  return RegisterInternal(aPrincipal, aScopeURL, aScriptURL, updateViaCache,
+                          aCx, aPromise);
+}
+
+nsresult ServiceWorkerManager::RegisterInternal(
+    nsIPrincipal* aPrincipal, const nsAString& aScopeURL,
+    const nsAString& aScriptURL, ServiceWorkerUpdateViaCache aUpdateViaCache,
+    JSContext* aCx, mozilla::dom::Promise** aPromise) {
+  nsIGlobalObject* global = xpc::CurrentNativeGlobal(aCx);
+  if (NS_WARN_IF(!global)) {
+    return NS_ERROR_FAILURE;
+  }
+
+  ErrorResult erv;
+  RefPtr<Promise> outer = Promise::Create(global, erv);
+  if (NS_WARN_IF(erv.Failed())) {
+    return erv.StealNSResult();
+  }
+
   if (aPrincipal == nullptr) {
     outer->MaybeRejectWithAbortError("Missing principal");
     return NS_OK;
@@ -968,8 +1018,8 @@ ServiceWorkerManager::RegisterForTest(nsIPrincipal* aPrincipal,
   auto scope = NS_ConvertUTF16toUTF8(aScopeURL);
   auto scriptURL = NS_ConvertUTF16toUTF8(aScriptURL);
 
-  auto regPromise = Register(clientInfo.ref(), scope, scriptURL,
-                             dom::ServiceWorkerUpdateViaCache::Imports);
+  auto regPromise =
+      Register(clientInfo.ref(), scope, scriptURL, aUpdateViaCache);
   const RefPtr<ServiceWorkerManager> self(this);
   const nsCOMPtr<nsIPrincipal> principal(aPrincipal);
   regPromise->Then(
