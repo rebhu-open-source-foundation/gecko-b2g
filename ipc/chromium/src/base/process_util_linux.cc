@@ -29,6 +29,11 @@
 #  include "ProcessUtils.h"
 
 using namespace mozilla::ipc;
+
+#  ifdef MOZ_WIDGET_GONK
+#    include "GLContextEGL.h"
+std::shared_ptr<mozilla::gl::EglDisplay> gEglDpy;
+#  endif
 #endif
 
 #include "base/eintr_wrapper.h"
@@ -235,6 +240,14 @@ void AppProcessBuilder::InitAppProcess(int* argcp, char*** argvp) {
   shuffle_.Forget();
 
   ReplaceArguments(argcp, argvp);
+
+#ifdef MOZ_WIDGET_GONK
+  {
+    nsCString ignore;
+    // To preload graphic libraries for WebGL under the sandbox.
+    gEglDpy = mozilla::gl::DefaultEglDisplay(&ignore);
+  }
+#endif
 
   SetCurrentProcessPrivileges();
 }

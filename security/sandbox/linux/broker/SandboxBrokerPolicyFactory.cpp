@@ -532,13 +532,23 @@ void SandboxBrokerPolicyFactory::InitContentPolicy() {
   policy->AddPath(rdwr, "/dev/pmsg0");
   policy->AddPrefix(rdonly, "/system/lib");
   policy->AddPrefix(rdonly, "/system/b2g");
+
   // For GPU
   policy->AddPath(rdwr, "/dev/ashmem");
+  policy->AddPath(rdwr, "/dev/ion");
+
+#  if MOZ_SANDBOX_GPU_NODE == GPU_NODE_adreno
   policy->AddPath(rdwr, "/dev/kgsl-3d0");
   policy->AddPath(rdwr, "/dev/kgsl-2d0");
   policy->AddPath(rdwr, "/dev/kgsl-2d1");
-  policy->AddPath(rdwr, "/dev/ion");
   policy->AddPrefix(rdwr, "/sys/class/kgsl");
+#  elif MOZ_SANDBOX_GPU_NODE == GPU_NODE_imagination
+  policy->AddPath(rdwr, "/dev/pvr_sync");
+  policy->AddPath(rdwr, "/proc/ged");
+#  elif MOZ_SANDBOX_GPU_NODE == GPU_NODE_mali
+  policy->AddPath(rdwr, "/proc/ged");
+#  endif
+
 #endif // MOZ_WIDGET_GONK
 
   // Read any extra paths that will get write permissions,
@@ -697,6 +707,11 @@ UniquePtr<SandboxBroker::Policy> SandboxBrokerPolicyFactory::GetContentPolicy(
 #ifdef MOZ_WIDGET_GONK
   policy->AddPath(rdonly, nsPrintfCString("/proc/%d/cmdline", aPid).get());
   policy->AddPath(rdonly, nsPrintfCString("/proc/%d/comm", aPid).get());
+
+#  if MOZ_SANDBOX_GPU_NODE == GPU_NODE_imagination
+  policy->AddPath(rdonly,
+                  nsPrintfCString("/proc/%d/task/%d/comm", aPid, aPid).get());
+#  endif
 #endif
 
   // Finalize the policy.

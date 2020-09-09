@@ -396,5 +396,18 @@ def mtp_so(value):
 
 set_config('ANDROID_MTP_SO', mtp_so)
 
+# GPU Node Support
+# ==============================================================
+option('--with-sandbox-gpu-node', nargs=1,
+ help='Enable GPU nodes under the sandbox, value = [adreno, imagination, mali]')
+
+@depends_if('--with-sandbox-gpu-node')
+def sandboxgpunode(value):
+ return "GPU_NODE_%s" % value[0]
+
+set_define('GPU_NODE_adreno', 1)
+set_define('GPU_NODE_imagination', 2)
+set_define('GPU_NODE_mali', 3)
+set_define('MOZ_SANDBOX_GPU_NODE', sandboxgpunode)
 
 include('common.configure')
