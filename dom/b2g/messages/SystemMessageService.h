@@ -29,8 +29,6 @@ class SystemMessageService final : public nsISystemMessageService {
                    const nsACString& aOriginSuffix,
                    nsISystemMessageListener* aListener);
 
-  void Unsubscribe(const nsACString& aOrigin);
-
  private:
   SystemMessageService();
   ~SystemMessageService();
@@ -44,6 +42,10 @@ class SystemMessageService final : public nsISystemMessageService {
     nsCString mOriginSuffix;
   };
   typedef nsClassHashtable<nsCStringHashKey, SubscriberInfo> SubscriberTable;
+
+  // For printing debug information.
+  void DebugPrintSubscribersTable();
+
   nsClassHashtable<nsStringHashKey, SubscriberTable> mSubscribers;
 };
 

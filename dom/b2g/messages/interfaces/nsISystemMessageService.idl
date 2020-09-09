@@ -4,19 +4,24 @@
 
 #include "nsISupports.idl"
 
-interface nsIURI;
+interface nsIPrincipal;
 
-[scriptable, uuid(0d01b886-a0ab-439f-9974-ba1f15833d63)]
+[scriptable, uuid(67ffbe2e-f1aa-11ea-9b8d-57eb9585bbdb)]
 interface nsISystemMessageService : nsISupports
 {
-  /*
-   * TODO: Internal use for apps to subscribe a particular kind of system
-   * messages through app's manifest.
+  /**
+   * Internal use for apps to subscribe a particular kind of system messages.
+   * @parm principal   App's principal.
    * @parm messageName The name of message.
-   * @parm workerURI   The URI of service worker which subscribes and receives
-   *                   messages.
+   * @parm scope       The scope of app's service worker.
    */
-  void subscribe(in AString messageName, in ACString origin);
+  void subscribe(in nsIPrincipal principal, in AString messageName, in ACString scope);
+
+  /**
+   * Internal use for apps to unsubscribe all system messages.
+   * @parm principal   App's principal.
+   */
+  void unsubscribe(in nsIPrincipal principal);
 
   [implicit_jscontext]
   void sendMessage(in AString messageName, in jsval message, in ACString origin);

@@ -12,10 +12,17 @@
 #include "js/JSON.h"
 #include "nsISystemMessageListener.h"
 
+#undef LOG
+mozilla::LazyLogModule gSystemMessageServiceLog("SystemMessageService");
+#define LOG(...) \
+  MOZ_LOG(gSystemMessageServiceLog, mozilla::LogLevel::Debug, (__VA_ARGS__))
+
 namespace mozilla {
 namespace dom {
 
 static StaticRefPtr<SystemMessageService> sSystemMessageService;
+
+static const uint64_t sDummyChildID = UINT64_MAX;
 
 namespace {
 
@@ -65,9 +72,53 @@ already_AddRefed<SystemMessageService> SystemMessageService::GetInstance() {
 
 // nsISystemMessageService methods
 NS_IMETHODIMP
-SystemMessageService::Subscribe(const nsAString& aMessageName,
-                                const nsACString& aOrigin) {
-  // Provide for subscribing from app's manifest during install.
+SystemMessageService::Subscribe(nsIPrincipal* aPrincipal,
+                                const nsAString& aMessageName,
+                                const nsACString& aScope) {
+  if (!aPrincipal) {
+    return NS_ERROR_FAILURE;
+  }
+
+  nsresult rv;
+  nsAutoCString origin;
+  rv = aPrincipal->GetOrigin(origin);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
+
+  nsAutoCString originSuffix;
+  rv = aPrincipal->GetOriginSuffix(originSuffix);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
+
+  DoSubscribe(origin.Compare("https://system.local") >= 1 ? 0 : sDummyChildID,
+              aMessageName, origin, aScope, originSuffix, nullptr);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+SystemMessageService::Unsubscribe(nsIPrincipal* aPrincipal) {
+  if (!aPrincipal) {
+    return NS_ERROR_FAILURE;
+  }
+
+  nsresult rv;
+  nsAutoCString origin;
+  rv = aPrincipal->GetOrigin(origin);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
+
+  for (auto iter = mSubscribers.Iter(); !iter.Done(); iter.Next()) {
+    auto& table = iter.Data();
+    table->Remove(origin);
+  }
+
+  LOG("Unsubscribe: subscriber origin=%s", origin.get());
+  DebugPrintSubscribersTable();
+
   return NS_OK;
 }
 
@@ -75,12 +126,21 @@ NS_IMETHODIMP
 SystemMessageService::SendMessage(const nsAString& aMessageName,
                                   JS::HandleValue aMessage,
                                   const nsACString& aOrigin, JSContext* aCx) {
+  LOG("SendMessage: name=%s", NS_LossyConvertUTF16toASCII(aMessageName).get());
+  LOG("             to=%s", nsCString(aOrigin).get());
+
   SubscriberTable* table = mSubscribers.Get(aMessageName);
   if (!table) {
+    LOG(" %s has no subscribers.",
+        NS_LossyConvertUTF16toASCII(aMessageName).get());
+    DebugPrintSubscribersTable();
     return NS_OK;
   }
   SubscriberInfo* info = table->Get(aOrigin);
   if (!info) {
+    LOG(" %s did not subscribe %s.", (nsCString(aOrigin)).get(),
+        NS_LossyConvertUTF16toASCII(aMessageName).get());
+    DebugPrintSubscribersTable();
     return NS_OK;
   }
 
@@ -135,16 +195,31 @@ void SystemMessageService::DoSubscribe(uint64_t aID,
   UniquePtr<SubscriberInfo> info(
       new SubscriberInfo(aID, aScope, aOriginSuffix));
   table->Put(aOrigin, std::move(info));
-  aListener->OnSubscribe(NS_OK);
+
+  if (aListener) {
+    aListener->OnSubscribe(NS_OK);
+  }
+
+  LOG("DoSubscribe: message name=%s",
+      NS_LossyConvertUTF16toASCII(aMessageName).get());
+  LOG("             subscriber origin=%s", nsCString(aOrigin).get());
 
   return;
 }
 
-void SystemMessageService::Unsubscribe(const nsACString& aOrigin) {
-  // This will be call when an app is uninstalled.
+void SystemMessageService::DebugPrintSubscribersTable() {
+  LOG("Subscribed system messages count: %d\n", mSubscribers.Count());
   for (auto iter = mSubscribers.Iter(); !iter.Done(); iter.Next()) {
+    nsString key = nsString(iter.Key());
+    LOG("key(message name): %s\n", NS_LossyConvertUTF16toASCII(key).get());
     auto& table = iter.Data();
-    table->Remove(aOrigin);
+    for (auto iter2 = table->Iter(); !iter2.Done(); iter2.Next()) {
+      nsCString key = nsCString(iter2.Key());
+      LOG(" subscriber table key(origin): %s\n", key.get());
+      auto& entry = iter2.Data();
+      LOG("                  scope: %s\n", (entry->mScope).get());
+      LOG("                  originSuffix: %s\n", (entry->mOriginSuffix).get());
+    }
   }
 }
 
@@ -164,6 +239,8 @@ nsresult SystemMessageDispatcher::NotifyWorkers() {
     return NS_ERROR_FAILURE;
   }
 
+  LOG("NotifyWorkers: send message %s to %s",
+      NS_LossyConvertUTF16toASCII(mMessageName).get(), mScope.get());
   return swm->SendSystemMessageEvent(mOriginSuffix, mScope, mMessageName,
                                      mMessageData);
 }
