@@ -311,7 +311,6 @@ var Activities = {
 
         let result = aResults.options[aResult];
         let caller = {
-          manifestURL: self.callers[aMsg.id].manifestURL,
           pageURL: self.callers[aMsg.id].pageURL,
         };
         let handler = {
@@ -434,7 +433,6 @@ var Activities = {
         Services.obs.notifyObservers(null, "activity-opened", msg.childID);
         this.callers[msg.id] = {
           mm,
-          manifestURL: msg.manifestURL,
           childID: msg.childID,
           pageURL: msg.pageURL,
         };

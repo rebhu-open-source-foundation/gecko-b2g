@@ -10,6 +10,10 @@ const { PermissionsInstaller } = ChromeUtils.import(
   "resource://gre/modules/PermissionsInstaller.jsm"
 );
 
+const { ServiceWorkerAssistant } = ChromeUtils.import(
+  "resource://gre/modules/ServiceWorkerAssistant.jsm"
+);
+
 const { LocalDomains } = ChromeUtils.import(
   "resource://gre/modules/LocalDomains.jsm"
 );
@@ -32,16 +36,33 @@ AppsServiceDelegate.prototype = {
 
   _installPermissions(aFeatures, aManifestUrl, aReinstall, aState) {
     try {
-      let features = JSON.parse(aFeatures);
-
       PermissionsInstaller.installPermissions(
-        features,
+        aFeatures,
         aManifestUrl,
         aReinstall,
         null /* onerror */
       );
     } catch (e) {
-      log(`Error in ${aState}: ${e}`);
+      log(`Error with PermissionsInstaller in ${aState}: ${e}`);
+    }
+  },
+
+  _processServiceWorker(aManifestUrl, aFeatures, aState) {
+    try {
+      switch (aState) {
+        case "onBoot":
+        case "onInstall":
+          ServiceWorkerAssistant.register(aManifestUrl, aFeatures);
+          break;
+        case "onUpdate":
+          ServiceWorkerAssistant.update(aManifestUrl, aFeatures);
+          break;
+        case "onUninstall":
+          ServiceWorkerAssistant.unregister(aManifestUrl);
+          break;
+      }
+    } catch (e) {
+      log(`Error with ServiceWorkerAssistant in ${aState}: ${e}`);
     }
   },
 
@@ -49,14 +70,26 @@ AppsServiceDelegate.prototype = {
     // TODO: call to the related components to finish the registration
     log(`onBoot: ${aManifestUrl}`);
     log(aFeatures);
-    this._installPermissions(aFeatures, aManifestUrl, false, "onBoot");
+    try {
+      let features = JSON.parse(aFeatures);
+      this._installPermissions(features, aManifestUrl, false, "onBoot");
+      this._processServiceWorker(aManifestUrl, features, "onBoot");
+    } catch (e) {
+      log(`Error in onBoot: ${e}`);
+    }
   },
 
   onInstall(aManifestUrl, aFeatures) {
     // TODO: call to the related components to finish the registration
     log(`onInstall: ${aManifestUrl}`);
     log(aFeatures);
-    this._installPermissions(aFeatures, aManifestUrl, false, "onInstall");
+    try {
+      let features = JSON.parse(aFeatures);
+      this._installPermissions(features, aManifestUrl, false, "onInstall");
+      this._processServiceWorker(aManifestUrl, features, "onInstall");
+    } catch (e) {
+      log(`Error in onInstall: ${e}`);
+    }
     let uri = Services.io.newURI(aManifestUrl);
     LocalDomains.add(uri.host);
   },
@@ -64,13 +97,20 @@ AppsServiceDelegate.prototype = {
   onUpdate(aManifestUrl, aFeatures) {
     log(`onUpdate: ${aManifestUrl}`);
     log(aFeatures);
-    this._installPermissions(aFeatures, aManifestUrl, true, "onUpdate");
+    try {
+      let features = JSON.parse(aFeatures);
+      this._installPermissions(features, aManifestUrl, true, "onUpdate");
+      this._processServiceWorker(aManifestUrl, features, "onUpdate");
+    } catch (e) {
+      log(`Error in onUpdate: ${e}`);
+    }
   },
 
   onUninstall(aManifestUrl) {
     // TODO: call to the related components to finish the registration
     log(`onUninstall: ${aManifestUrl}`);
     PermissionsInstaller.uninstallPermissions(aManifestUrl);
+    this._processServiceWorker(aManifestUrl, undefined, "onUninstall");
     let uri = Services.io.newURI(aManifestUrl);
     LocalDomains.remove(uri.host);
   },

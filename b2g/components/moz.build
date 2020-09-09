@@ -67,6 +67,7 @@ EXTRA_JS_MODULES += [
     'PermissionsTable.jsm',
     'PersistentDataBlock.jsm',
     'Screenshot.jsm',
+    'ServiceWorkerAssistant.jsm',
     'SettingsPrefsSync.jsm',
     'TelURIParser.jsm',
 ]

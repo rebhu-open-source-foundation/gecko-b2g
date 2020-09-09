@@ -61,7 +61,6 @@ ActivityProxy.prototype = {
     Services.cpmm.sendAsyncMessage("Activity:Start", {
       id,
       options: activity.options,
-      manifestURL: "", //TODO: Retrieve app's manifestURL.
       pageURL: activity.pageURL,
       childID: activity.childID,
     });
