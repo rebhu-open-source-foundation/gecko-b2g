@@ -22,13 +22,13 @@ interface nsIAlarmGetAllCallback : nsISupports
   void onGetAll(in nsresult status, in jsval result);
 };
 
-[scriptable, uuid(fea1e884-9b05-11e1-9b64-87a7016c3860)]
+[scriptable, uuid(736b46dc-9bea-4f75-a567-0bec41980f0c)]
 interface nsIAlarmProxy : nsISupports
 {
-  void init(in nsISupports owner);
-  void getAll(in nsISupports owner, in nsIAlarmGetAllCallback callback);
-  void add(in nsISupports owner,
+  void init();
+  void getAll(in ACString url, in nsIAlarmGetAllCallback callback);
+  void add(in ACString url,
            in jsval options,
            in nsIAlarmAddCallback callback);
-  void remove(in int32_t id);
+  void remove(in ACString url, in int32_t id);
 };

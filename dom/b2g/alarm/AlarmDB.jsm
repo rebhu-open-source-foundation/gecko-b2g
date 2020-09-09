@@ -4,15 +4,24 @@
 
 "use strict";
 
+const { AppConstants } = ChromeUtils.import(
+  "resource://gre/modules/AppConstants.jsm"
+);
+const { Log } = ChromeUtils.import("resource://gre/modules/Log.jsm");
+
 this.EXPORTED_SYMBOLS = ["AlarmDB"];
 
-/* static functions */
-const DEBUG = false;
+function getLogger() {
+  var logger = Log.repository.getLogger("AlarmDB");
+  logger.addAppender(new Log.DumpAppender(new Log.BasicFormatter()));
+  logger.level = Log.Level.Debug;
+  return logger;
+}
+
+const logger = getLogger();
 
 function debug(aStr) {
-  if (DEBUG) {
-    dump("AlarmDB: " + aStr + "\n");
-  }
+  AppConstants.DEBUG_ALARM && logger.debug(aStr);
 }
 
 const { IndexedDBHelper } = ChromeUtils.import(

@@ -10,27 +10,15 @@
 #include "mozilla/dom/PromiseWorkerProxy.h"
 #include "mozilla/dom/WorkerPrivate.h"
 #include "mozilla/dom/WorkerRunnable.h"
-#include "nsIAlarmProxy.h"
 #include "nsIDocShell.h"
 #include "nsIGlobalObject.h"
 
-static nsCOMPtr<nsIAlarmProxy> sAlarmProxy;
+static mozilla::LazyLogModule sAlarmManagerLog("AlarmManager");
+#define LOG(...) \
+  MOZ_LOG(sAlarmManagerLog, mozilla::LogLevel::Debug, (__VA_ARGS__))
 
 namespace mozilla {
 namespace dom {
-
-already_AddRefed<nsIAlarmProxy> GetOrCreateAlarmProxy(nsISupports* aSupports) {
-  MOZ_ASSERT(NS_IsMainThread());
-
-  if (!sAlarmProxy) {
-    sAlarmProxy = do_CreateInstance("@mozilla.org/dom/alarm/proxy;1");
-    MOZ_ASSERT(sAlarmProxy);
-    sAlarmProxy->Init(aSupports);
-  }
-
-  nsCOMPtr<nsIAlarmProxy> proxy = sAlarmProxy;
-  return proxy.forget();
-}
 
 class OnGetAllWorkerRunnable final : public WorkerRunnable,
                                      public StructuredCloneHolder {
@@ -42,18 +30,23 @@ class OnGetAllWorkerRunnable final : public WorkerRunnable,
         StructuredCloneHolder(CloningSupported, TransferringSupported,
                               StructuredCloneScope::SameProcess),
         mProxy(std::move(aProxy)),
-        mStatus(aStatus) {}
+        mStatus(aStatus) {
+    LOG("OnGetAllWorkerRunnable constructor.");
+  }
 
   bool WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override {
+    LOG("OnGetAllWorkerRunnable::WorkerRun");
     RefPtr<Promise> promise = mProxy->WorkerPromise();
 
     JS::RootedObject globalObject(aCx, JS::CurrentGlobalOrNull(aCx));
     if (NS_WARN_IF(!globalObject)) {
+      LOG("!globalObject");
       promise->MaybeReject(NS_ERROR_UNEXPECTED);
       return false;
     }
     nsCOMPtr<nsIGlobalObject> global = xpc::NativeGlobal(globalObject);
     if (NS_WARN_IF(!global)) {
+      LOG("!global");
       promise->MaybeReject(NS_ERROR_UNEXPECTED);
       return false;
     }
@@ -61,6 +54,7 @@ class OnGetAllWorkerRunnable final : public WorkerRunnable,
     ErrorResult rv;
     Read(global, aCx, &result, rv);
     if (NS_WARN_IF(rv.Failed())) {
+      LOG("Read failed. rv[%u]", rv.ErrorCodeAsInt());
       promise->MaybeReject(NS_ERROR_UNEXPECTED);
       return false;
     }
@@ -103,11 +97,15 @@ class AlarmGetAllCallback final : public nsIAlarmGetAllCallback {
 NS_IMPL_ISUPPORTS(AlarmGetAllCallback, nsIAlarmGetAllCallback)
 
 AlarmGetAllCallback::AlarmGetAllCallback(Promise* aPromise)
-    : mPromise(aPromise) {}
+    : mPromise(aPromise) {
+  LOG("AlarmGetAllCallback constructor. Promise*");
+}
 
 AlarmGetAllCallback::AlarmGetAllCallback(
     PromiseWorkerProxy* aPromiseWorkerProxy)
-    : mPromiseWorkerProxy(aPromiseWorkerProxy) {}
+    : mPromiseWorkerProxy(aPromiseWorkerProxy) {
+  LOG("AlarmGetAllCallback constructor. PromiseWorkerProxy*");
+}
 
 AlarmGetAllCallback::~AlarmGetAllCallback() {}
 
@@ -115,14 +113,18 @@ NS_IMETHODIMP
 AlarmGetAllCallback::OnGetAll(nsresult aStatus, JS::HandleValue aResult,
                               JSContext* aCx) {
   if (mPromise) {
+    LOG("OnGetAll mPromise. aCx[%p]", aCx);
+
     if (NS_SUCCEEDED(aStatus)) {
-      mPromise->MaybeResolve(aResult);
+      mPromise->MaybeResolveWithClone(aCx, aResult);
     } else {
-      mPromise->MaybeReject(aResult);
+      mPromise->MaybeRejectWithClone(aCx, aResult);
     }
   } else if (mPromiseWorkerProxy) {
+    LOG("OnGetAll mPromiseWorkerProxy. aCx[%p]", aCx);
     MutexAutoLock lock(mPromiseWorkerProxy->Lock());
     if (mPromiseWorkerProxy->CleanedUp()) {
+      LOG("mPromiseWorkerProxy->CleanedUp(), return NS_OK.");
       return NS_OK;
     }
     WorkerPrivate* worker = mPromiseWorkerProxy->GetWorkerPrivate();
@@ -130,6 +132,10 @@ AlarmGetAllCallback::OnGetAll(nsresult aStatus, JS::HandleValue aResult,
         worker, mPromiseWorkerProxy.forget(), aStatus);
     ErrorResult rv;
     r->Write(aCx, aResult, rv);
+    if (NS_WARN_IF(rv.Failed())) {
+      LOG("Write failed. rv[%u]", rv.ErrorCodeAsInt());
+    }
+
     MOZ_ALWAYS_TRUE(r->Dispatch());
   }
 
@@ -138,22 +144,31 @@ AlarmGetAllCallback::OnGetAll(nsresult aStatus, JS::HandleValue aResult,
 
 class AlarmGetAllRunnable : public Runnable {
  public:
-  explicit AlarmGetAllRunnable(PromiseWorkerProxy* aPromiseWorkerProxy)
+  explicit AlarmGetAllRunnable(PromiseWorkerProxy* aPromiseWorkerProxy,
+                               const nsACString& aUrl)
       : Runnable("dom::AlarmGetAllRunnable"),
-        mPromiseWorkerProxy(aPromiseWorkerProxy) {}
+        mPromiseWorkerProxy(aPromiseWorkerProxy),
+        mUrl(aUrl) {
+    LOG("AlarmGetAllRunnable constructor. %s", mUrl.get());
+  }
 
   NS_IMETHOD
   Run() override {
+    LOG("AlarmGetAllRunnable::Run");
     RefPtr<nsIAlarmGetAllCallback> callback =
         new AlarmGetAllCallback(mPromiseWorkerProxy);
-    nsCOMPtr<nsIAlarmProxy> proxy = GetOrCreateAlarmProxy(nullptr);
-    proxy->GetAll(nullptr, callback);
+    nsCOMPtr<nsIAlarmProxy> alarmProxy =
+        do_CreateInstance("@mozilla.org/dom/alarm/proxy;1");
+    MOZ_ASSERT(alarmProxy);
+    alarmProxy->Init();
+    alarmProxy->GetAll(mUrl, callback);
     return NS_OK;
   }
 
  private:
   ~AlarmGetAllRunnable() = default;
   RefPtr<PromiseWorkerProxy> mPromiseWorkerProxy;
+  nsAutoCString mUrl;
 };
 
 class OnAddWorkerRunnable final : public WorkerRunnable,
@@ -166,18 +181,23 @@ class OnAddWorkerRunnable final : public WorkerRunnable,
         StructuredCloneHolder(CloningSupported, TransferringSupported,
                               StructuredCloneScope::SameProcess),
         mProxy(std::move(aProxy)),
-        mStatus(aStatus) {}
+        mStatus(aStatus) {
+    LOG("OnAddWorkerRunnable constructor.");
+  }
 
   bool WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override {
+    LOG("OnAddWorkerRunnable::WorkerRun");
     RefPtr<Promise> promise = mProxy->WorkerPromise();
 
     JS::RootedObject globalObject(aCx, JS::CurrentGlobalOrNull(aCx));
     if (NS_WARN_IF(!globalObject)) {
+      LOG("!globalObject");
       promise->MaybeReject(NS_ERROR_UNEXPECTED);
       return false;
     }
     nsCOMPtr<nsIGlobalObject> global = xpc::NativeGlobal(globalObject);
     if (NS_WARN_IF(!global)) {
+      LOG("!global");
       promise->MaybeReject(NS_ERROR_UNEXPECTED);
       return false;
     }
@@ -185,6 +205,7 @@ class OnAddWorkerRunnable final : public WorkerRunnable,
     ErrorResult rv;
     Read(global, aCx, &result, rv);
     if (NS_WARN_IF(rv.Failed())) {
+      LOG("Read failed. rv[%u]", rv.ErrorCodeAsInt());
       promise->MaybeReject(NS_ERROR_UNEXPECTED);
       return false;
     }
@@ -226,10 +247,14 @@ class AlarmAddCallback final : public nsIAlarmAddCallback {
 
 NS_IMPL_ISUPPORTS(AlarmAddCallback, nsIAlarmAddCallback)
 
-AlarmAddCallback::AlarmAddCallback(Promise* aPromise) : mPromise(aPromise) {}
+AlarmAddCallback::AlarmAddCallback(Promise* aPromise) : mPromise(aPromise) {
+  LOG("AlarmAddCallback constructor. Promise*");
+}
 
 AlarmAddCallback::AlarmAddCallback(PromiseWorkerProxy* aPromiseWorkerProxy)
-    : mPromiseWorkerProxy(aPromiseWorkerProxy) {}
+    : mPromiseWorkerProxy(aPromiseWorkerProxy) {
+  LOG("AlarmAddCallback constructor. PromiseWorkerProxy*");
+}
 
 AlarmAddCallback::~AlarmAddCallback() {}
 
@@ -237,14 +262,17 @@ NS_IMETHODIMP
 AlarmAddCallback::OnAdd(nsresult aStatus, JS::HandleValue aResult,
                         JSContext* aCx) {
   if (mPromise) {
+    LOG("OnAdd mPromise aCx[%p]", aCx);
     if (NS_SUCCEEDED(aStatus)) {
       mPromise->MaybeResolve(aResult);
     } else {
       mPromise->MaybeReject(aResult);
     }
   } else if (mPromiseWorkerProxy) {
+    LOG("OnAdd mPromiseWorkerProxy aCx[%p]", aCx);
     MutexAutoLock lock(mPromiseWorkerProxy->Lock());
     if (mPromiseWorkerProxy->CleanedUp()) {
+      LOG("mPromiseWorkerProxy->CleanedUp(), return NS_OK.");
       return NS_OK;
     }
     WorkerPrivate* worker = mPromiseWorkerProxy->GetWorkerPrivate();
@@ -252,6 +280,9 @@ AlarmAddCallback::OnAdd(nsresult aStatus, JS::HandleValue aResult,
         new OnAddWorkerRunnable(worker, mPromiseWorkerProxy.forget(), aStatus);
     ErrorResult rv;
     r->Write(aCx, aResult, rv);
+    if (NS_WARN_IF(rv.Failed())) {
+      LOG("Write failed. rv[%u]", rv.ErrorCodeAsInt());
+    }
     MOZ_ALWAYS_TRUE(r->Dispatch());
   }
 
@@ -261,28 +292,37 @@ AlarmAddCallback::OnAdd(nsresult aStatus, JS::HandleValue aResult,
 class AlarmAddRunnable : public Runnable, public StructuredCloneHolder {
  public:
   AlarmAddRunnable(AlarmManager* aAlarmManager,
-                   PromiseWorkerProxy* aPromiseWorkerProxy)
+                   PromiseWorkerProxy* aPromiseWorkerProxy,
+                   const nsACString& aUrl)
       : Runnable("dom::AlarmAddRunnable"),
         StructuredCloneHolder(CloningSupported, TransferringSupported,
                               StructuredCloneScope::SameProcess),
         mAlarmManager(aAlarmManager),
-        mPromiseWorkerProxy(aPromiseWorkerProxy) {}
+        mPromiseWorkerProxy(aPromiseWorkerProxy),
+        mUrl(aUrl) {
+    LOG("AlarmAddRunnable constructor. %s", mUrl.get());
+  }
   NS_IMETHOD
   Run() override {
+    LOG("AlarmAddRunnable::Run");
     MOZ_ASSERT(mAlarmManager);
     AutoSafeJSContext cx;
     ErrorResult rv;
     JS::RootedValue options(cx);
     Read(mAlarmManager->GetParentObject(), cx, &options, rv);
     if (NS_WARN_IF(rv.Failed())) {
+      LOG("Read failed. rv[%u]", rv.ErrorCodeAsInt());
       return rv.StealNSResult();
     }
     JS_WrapValue(cx, &options);
 
     RefPtr<nsIAlarmAddCallback> callback =
         new AlarmAddCallback(mPromiseWorkerProxy);
-    nsCOMPtr<nsIAlarmProxy> proxy = GetOrCreateAlarmProxy(nullptr);
-    proxy->Add(nullptr, options, callback);
+    nsCOMPtr<nsIAlarmProxy> alarmProxy =
+        do_CreateInstance("@mozilla.org/dom/alarm/proxy;1");
+    MOZ_ASSERT(alarmProxy);
+    alarmProxy->Init();
+    alarmProxy->Add(mUrl, options, callback);
     return NS_OK;
   }
 
@@ -290,27 +330,56 @@ class AlarmAddRunnable : public Runnable, public StructuredCloneHolder {
   ~AlarmAddRunnable() = default;
   RefPtr<AlarmManager> mAlarmManager;
   RefPtr<PromiseWorkerProxy> mPromiseWorkerProxy;
+  nsAutoCString mUrl;
 };
 
 class AlarmRemoveRunnable : public Runnable {
  public:
-  explicit AlarmRemoveRunnable(long aId)
-      : Runnable("dom::AlarmRemoveRunnable"), mId(aId) {}
+  explicit AlarmRemoveRunnable(long aId, const nsACString& aUrl)
+      : Runnable("dom::AlarmRemoveRunnable"), mId(aId), mUrl(aUrl) {
+    LOG("AlarmRemoveRunnable constructor. %s %d", mUrl.get(), mId);
+  }
 
   NS_IMETHOD
   Run() override {
-    nsCOMPtr<nsIAlarmProxy> proxy = GetOrCreateAlarmProxy(nullptr);
-    proxy->Remove(mId);
+    LOG("AlarmRemoveRunnable::Run");
+    nsCOMPtr<nsIAlarmProxy> alarmProxy =
+        do_CreateInstance("@mozilla.org/dom/alarm/proxy;1");
+    MOZ_ASSERT(alarmProxy);
+    alarmProxy->Init();
+    alarmProxy->Remove(mUrl, mId);
     return NS_OK;
   }
 
  private:
   ~AlarmRemoveRunnable() = default;
   long mId;
+  nsAutoCString mUrl;
 };
 
 AlarmManager::AlarmManager(nsIGlobalObject* aGlobal) : mGlobal(aGlobal) {
+  LOG("AlarmManager constructor. aGlobal[%p]", aGlobal);
   MOZ_ASSERT(aGlobal);
+
+  Maybe<ClientInfo> clientInfo = mGlobal->GetClientInfo();
+  if (clientInfo.isSome()) {
+    LOG("clientInfo->URL() %s", clientInfo->URL().get());
+    nsCOMPtr<nsIIOService> ios(do_GetIOService());
+    nsCOMPtr<nsIURI> uri;
+    nsresult rv =
+        ios->NewURI(clientInfo->URL(), nullptr, nullptr, getter_AddRefs(uri));
+    NS_ENSURE_SUCCESS_VOID(rv);
+    uri->GetPrePath(mUrl);
+  } else {
+    LOG("Error! !clientInfo.isSome()");
+  }
+
+  LOG("mUrl %s", mUrl.get());
+  if (NS_IsMainThread()) {
+    mAlarmProxy = do_CreateInstance("@mozilla.org/dom/alarm/proxy;1");
+    MOZ_ASSERT(mAlarmProxy);
+    mAlarmProxy->Init();
+  }
 }
 
 AlarmManager::~AlarmManager() {}
@@ -322,11 +391,12 @@ already_AddRefed<Promise> AlarmManager::GetAll() {
   ENSURE_SUCCESS(rv, nullptr);
 
   if (NS_IsMainThread()) {
+    LOG("AlarmManager::GetAll NS_IsMainThread() %s", mUrl.get());
     RefPtr<nsIAlarmGetAllCallback> callback = new AlarmGetAllCallback(promise);
-
-    nsCOMPtr<nsIAlarmProxy> proxy = GetOrCreateAlarmProxy(mGlobal);
-    proxy->GetAll(mGlobal, callback);
+    MOZ_ASSERT(mAlarmProxy);
+    mAlarmProxy->GetAll(mUrl, callback);
   } else {
+    LOG("AlarmManager::GetAll !NS_IsMainThread() %s", mUrl.get());
     WorkerPrivate* worker = GetCurrentThreadWorkerPrivate();
     MOZ_ASSERT(worker);
     worker->AssertIsOnWorkerThread();
@@ -334,11 +404,12 @@ already_AddRefed<Promise> AlarmManager::GetAll() {
     RefPtr<PromiseWorkerProxy> proxy =
         PromiseWorkerProxy::Create(worker, promise);
     if (!proxy) {
+      LOG("!proxy");
       promise->MaybeReject(NS_ERROR_DOM_ABORT_ERR);
       return promise.forget();
     }
 
-    RefPtr<AlarmGetAllRunnable> r = new AlarmGetAllRunnable(proxy);
+    RefPtr<AlarmGetAllRunnable> r = new AlarmGetAllRunnable(proxy, mUrl);
     NS_DispatchToMainThread(r);
   }
 
@@ -353,6 +424,7 @@ already_AddRefed<Promise> AlarmManager::Add(JSContext* aCx,
   ENSURE_SUCCESS(rv, nullptr);
 
   if (NS_IsMainThread()) {
+    LOG("AlarmManager::Add NS_IsMainThread() %s", mUrl.get());
     // We're about to pass the dictionary to a JS-implemented component, so
     // rehydrate it in a system scode so that security wrappers don't get in the
     // way. See bug 1161748 comment 16.
@@ -373,9 +445,10 @@ already_AddRefed<Promise> AlarmManager::Add(JSContext* aCx,
     }
 
     RefPtr<nsIAlarmAddCallback> callback = new AlarmAddCallback(promise);
-    nsCOMPtr<nsIAlarmProxy> proxy = GetOrCreateAlarmProxy(mGlobal);
-    proxy->Add(mGlobal, optionsValue, callback);
+    MOZ_ASSERT(mAlarmProxy);
+    mAlarmProxy->Add(mUrl, optionsValue, callback);
   } else {
+    LOG("AlarmManager::Add !NS_IsMainThread() %s", mUrl.get());
     WorkerPrivate* worker = GetCurrentThreadWorkerPrivate();
     MOZ_ASSERT(worker);
     worker->AssertIsOnWorkerThread();
@@ -383,19 +456,24 @@ already_AddRefed<Promise> AlarmManager::Add(JSContext* aCx,
     RefPtr<PromiseWorkerProxy> proxy =
         PromiseWorkerProxy::Create(worker, promise);
     if (!proxy) {
+      LOG("!proxy");
       promise->MaybeReject(NS_ERROR_DOM_ABORT_ERR);
       return promise.forget();
     }
 
     JS::RootedValue optionsValue(aCx);
     if (NS_WARN_IF(!ToJSValue(aCx, aOptions, &optionsValue))) {
+      LOG("!ToJSValue");
       promise->MaybeReject(NS_ERROR_DOM_OPERATION_ERR);
       return promise.forget();
     }
 
     ErrorResult rv;
-    RefPtr<AlarmAddRunnable> r = new AlarmAddRunnable(this, proxy);
+    RefPtr<AlarmAddRunnable> r = new AlarmAddRunnable(this, proxy, mUrl);
     r->Write(aCx, optionsValue, rv);
+    if (NS_WARN_IF(rv.Failed())) {
+      LOG("Write failed. rv[%u]", rv.ErrorCodeAsInt());
+    }
     NS_DispatchToMainThread(r);
     if (NS_WARN_IF(rv.Failed())) {
       promise->MaybeReject(NS_ERROR_DOM_OPERATION_ERR);
@@ -408,10 +486,12 @@ already_AddRefed<Promise> AlarmManager::Add(JSContext* aCx,
 
 void AlarmManager::Remove(long aId) {
   if (NS_IsMainThread()) {
-    nsCOMPtr<nsIAlarmProxy> proxy = GetOrCreateAlarmProxy(mGlobal);
-    proxy->Remove(aId);
+    LOG("AlarmManager::Remove NS_IsMainThread() %s %d", mUrl.get(), aId);
+    MOZ_ASSERT(mAlarmProxy);
+    mAlarmProxy->Remove(mUrl, aId);
   } else {
-    RefPtr<AlarmRemoveRunnable> r = new AlarmRemoveRunnable(aId);
+    LOG("AlarmManager::Remove NS_IsMainThread() %s %d", mUrl.get(), aId);
+    RefPtr<AlarmRemoveRunnable> r = new AlarmRemoveRunnable(aId, mUrl);
     NS_DispatchToMainThread(r);
   }
 }

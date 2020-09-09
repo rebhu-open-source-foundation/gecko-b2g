@@ -61,7 +61,6 @@ self.onsystemmessage = (e) => {
 ```
 
 ## TODO
-### Manage alarms according to manifest
 ### Handle system time and timezone change
 ### Test on CPU wake lock
 ### Test listener cleanup on inner-window-destroyed

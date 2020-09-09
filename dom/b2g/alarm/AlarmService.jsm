@@ -4,18 +4,18 @@
 
 "use strict";
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { AlarmDB } = ChromeUtils.import("resource://gre/modules/AlarmDB.jsm");
-const { Log } = ChromeUtils.import("resource://gre/modules/Log.jsm");
 const { AppConstants } = ChromeUtils.import(
   "resource://gre/modules/AppConstants.jsm"
 );
+const { Log } = ChromeUtils.import("resource://gre/modules/Log.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
 function getLogger() {
-  var logger = Log.repository.getLogger("AlarmsService");
+  var logger = Log.repository.getLogger("AlarmService");
   logger.addAppender(new Log.DumpAppender(new Log.BasicFormatter()));
   logger.level = Log.Level.Debug;
   return logger;
@@ -23,9 +23,8 @@ function getLogger() {
 
 const logger = getLogger();
 
-/* Only log in B2G */
 function debug(aStr) {
-  AppConstants.MOZ_B2G && logger.debug(aStr);
+  AppConstants.DEBUG_ALARM && logger.debug(aStr);
 }
 
 this.EXPORTED_SYMBOLS = ["AlarmService"];
@@ -118,26 +117,6 @@ this.AlarmService = {
   receiveMessage: function receiveMessage(aMessage) {
     debug("receiveMessage(): " + aMessage.name);
     let json = aMessage.json;
-
-    // To prevent the hacked child process from sending commands to parent
-    // to schedule alarms, we need to check its permission and manifest URL.
-    if (this._messages.includes(aMessage.name)) {
-      /* TODO: App Permission
-      if (!aMessage.target.assertPermission("alarms")) {
-        debug("Got message from a child process with no 'alarms' permission.");
-        return;
-      }
-      */
-      /* TODO: App Manifest
-      if (!aMessage.target.assertContainApp(json.manifestURL)) {
-        debug(
-          "Got message from a child process containing illegal manifest URL."
-        );
-        return;
-      }
-      */
-    }
-
     let mm = aMessage.target;
 
     switch (aMessage.name) {
@@ -284,12 +263,6 @@ this.AlarmService = {
 
   _fireSystemMessage: function _fireSystemMessage(aAlarm) {
     debug("Fire system message: " + JSON.stringify(aAlarm));
-
-    /* TODO: App Manifest
-    let manifestURI = Services.io.newURI(aAlarm.manifestURL, null, null);
-    let pageURI = Services.io.newURI(aAlarm.pageURL, null, null);
-    */
-
     let origin = Services.io.newURI(aAlarm.manifestURL).prePath;
 
     debug(

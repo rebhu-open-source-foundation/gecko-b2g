@@ -4,19 +4,29 @@
 
 "use strict";
 
-const DEBUG = false;
-const REQUEST_CPU_LOCK_TIMEOUT = 10 * 1000; // 10 seconds.
-
-function debug(aStr) {
-  if (DEBUG) {
-    dump("AlarmProxy: " + aStr + "\n");
-  }
-}
-
+const { AppConstants } = ChromeUtils.import(
+  "resource://gre/modules/AppConstants.jsm"
+);
+const { Log } = ChromeUtils.import("resource://gre/modules/Log.jsm");
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
+
+const REQUEST_CPU_LOCK_TIMEOUT = 10 * 1000; // 10 seconds.
+
+function getLogger() {
+  var logger = Log.repository.getLogger("AlarmProxy");
+  logger.addAppender(new Log.DumpAppender(new Log.BasicFormatter()));
+  logger.level = Log.Level.Debug;
+  return logger;
+}
+
+const logger = getLogger();
+
+function debug(aStr) {
+  AppConstants.DEBUG_ALARM && logger.debug(aStr);
+}
 
 XPCOMUtils.defineLazyServiceGetter(
   this,
@@ -34,41 +44,19 @@ XPCOMUtils.defineLazyServiceGetter(
 function AlarmProxy() {}
 
 AlarmProxy.prototype = {
-  init: function init(aOwner) {
+  init: function init() {
     debug("init");
 
-    // A <requestId, {messageName, owner, callback}> map.
+    // A <requestId, {messageName, url, callback}> map.
     this._alarmRequests = new Map();
     // A <requestId, {cpuLock, timer}> map.
     this._cpuLockDict = new Map();
 
-    this._window = aOwner;
-
-    if (this._window) {
-      // We don't use this.innerWindowID, but other classes rely on it.
-      this.innerWindowID = this._window.windowGlobalChild.innerWindowId;
-
-      // TODO:
-      // We need innerWindowID to distiguish which window is destroyed,
-      // Worker cannot pass its own owner here.
-      Services.obs.addObserver(
-        this,
-        "inner-window-destroyed",
-        /* weak-ref */ true
-      );
-    }
-
-    // TODO: Obtain _manifestURL and _pageURL after app service is ready.
-    if (this._window) {
-      // document.nodePrincipal.origin somehow is "[System Principal]" on homescreen currently.
-      // Use URL instead
-      this._pageURL = this._window.document.URL;
-      this._manifestURL = this._pageURL;
-    } else {
-      // TODO: identify worker.
-      this._pageURL = "worker-pageURL";
-      this._manifestURL = "worker-manifestURL";
-    }
+    Services.obs.addObserver(
+      this,
+      "inner-window-destroyed",
+      /* weak-ref */ true
+    );
 
     this._destroyed = false;
 
@@ -84,14 +72,11 @@ AlarmProxy.prototype = {
     });
   },
 
-  add: function add(aOwner, aOptions, aCallback) {
+  add: function add(aUrl, aOptions, aCallback) {
     debug("add " + JSON.stringify(aOptions));
     let date = aOptions.date;
     let ignoreTimezone = !!aOptions.ignoreTimezone;
     let data = aOptions.data;
-
-    // TODO: We used to use this._manifestURL to validate app, but there's
-    // no way to retrieve app's manifestURL currently.
 
     if (!date) {
       throw Components.Exception("", Cr.NS_ERROR_INVALID_ARG);
@@ -102,7 +87,7 @@ AlarmProxy.prototype = {
       .generateUUID()
       .toString();
 
-    if (data && aOwner) {
+    if (data && aUrl) {
       // Run eval() in the sand box with the principal of the calling
       // web page to ensure no cross-origin object is involved. A "Permission
       // Denied" error will be thrown in case of privilege violation.
@@ -110,17 +95,15 @@ AlarmProxy.prototype = {
       // TODO: We used Cu.getWebIDLCallerPrincipal() to get principal, but there's
       // no way to retrieve app's principal currently.
       // let sandbox = new Cu.Sandbox(Cu.getWebIDLCallerPrincipal());
-      // TODO:
-      // document.nodePrincipal.origin somehow is "[System Principal]" on homescreen currently.
-      // Use URL instead
-      let sandbox = new Cu.Sandbox(aOwner.document.URL);
+      let sandbox = new Cu.Sandbox(aUrl);
       sandbox.data = data;
       data = Cu.evalInSandbox("eval(data)", sandbox);
     }
 
+    debug("_alarmRequests.set Alarm:Add " + requestId + " " + aUrl);
     this._alarmRequests.set(requestId, {
       messageName: "Alarm:Add",
-      owner: aOwner ? aOwner : {},
+      url: aUrl,
       callback: aCallback,
     });
     this._lockCpuForRequest(requestId);
@@ -129,21 +112,21 @@ AlarmProxy.prototype = {
       date,
       ignoreTimezone,
       data,
-      pageURL: this._pageURL,
-      manifestURL: this._manifestURL,
+      pageURL: aUrl,
+      manifestURL: aUrl,
     });
   },
 
-  remove: function remove(aId) {
+  remove: function remove(aUrl, aId) {
     debug("remove " + aId);
 
     Services.cpmm.sendAsyncMessage("Alarm:Remove", {
       id: aId,
-      manifestURL: this._manifestURL,
+      manifestURL: aUrl,
     });
   },
 
-  getAll: function getAll(aOwner, aCallback) {
+  getAll: function getAll(aUrl, aCallback) {
     debug("getAll");
 
     let requestId = Cc["@mozilla.org/uuid-generator;1"]
@@ -151,15 +134,16 @@ AlarmProxy.prototype = {
       .generateUUID()
       .toString();
 
+    debug("_alarmRequests.set Alarm:GetAll " + requestId + " " + aUrl);
     this._alarmRequests.set(requestId, {
       messageName: "Alarm:GetAll",
-      owner: aOwner ? aOwner : {},
+      url: aUrl,
       callback: aCallback,
     });
 
     Services.cpmm.sendAsyncMessage("Alarm:GetAll", {
       requestId,
-      manifestURL: this._manifestURL,
+      manifestURL: aUrl,
     });
   },
 
@@ -170,10 +154,10 @@ AlarmProxy.prototype = {
 
     if (!alarmRequest) {
       debug(
-        "Request with given requestId not found. " +
+        "Request with given requestId not found, skip." +
           aMessage.name +
           " " +
-          json.requestId
+          JSON.stringify(json)
       );
       return;
     }
@@ -190,13 +174,11 @@ AlarmProxy.prototype = {
       return;
     }
 
+    debug("Handle " + aMessage.name + " json: " + JSON.stringify(json));
     switch (aMessage.name) {
       case "Alarm:Add:Return:OK":
         this._unlockCpuForRequest(json.requestId);
-        alarmRequest.callback.onAdd(
-          Cr.NS_OK,
-          Cu.cloneInto(json.id, alarmRequest.owner)
-        );
+        alarmRequest.callback.onAdd(Cr.NS_OK, Cu.cloneInto(json.id, {}));
         break;
 
       case "Alarm:GetAll:Return:OK":
@@ -212,24 +194,21 @@ AlarmProxy.prototype = {
           alarms.push(alarm);
         });
 
-        alarmRequest.callback.onGetAll(
-          Cr.NS_OK,
-          Cu.cloneInto(alarms, alarmRequest.owner)
-        );
+        alarmRequest.callback.onGetAll(Cr.NS_OK, Cu.cloneInto(alarms, {}));
         break;
 
       case "Alarm:Add:Return:KO":
         this._unlockCpuForRequest(json.requestId);
         alarmRequest.callback.onAdd(
           Cr.NS_ERROR_FAILURE,
-          Cu.cloneInto(json.error, alarmRequest.owner)
+          Cu.cloneInto(json.error, {})
         );
         break;
 
       case "Alarm:GetAll:Return:KO":
         alarmRequest.callback.onGetAll(
           Cr.NS_ERROR_FAILURE,
-          Cu.cloneInto(json.error, alarmRequest.owner)
+          Cu.cloneInto(json.error, {})
         );
         break;
 
@@ -242,11 +221,6 @@ AlarmProxy.prototype = {
   observe(aSubject, aTopic, aData) {
     debug("observe " + aTopic);
     if (aTopic !== "inner-window-destroyed") {
-      return;
-    }
-
-    let wId = aSubject.QueryInterface(Ci.nsISupportsPRUint64).data;
-    if (wId != this.innerWindowID) {
       return;
     }
 
@@ -313,7 +287,7 @@ AlarmProxy.prototype = {
 
   contractID: "@mozilla.org/alarm/proxy;1",
 
-  classID: Components.ID("{fea1e884-9b05-11e1-9b64-87a7016c3860}"),
+  classID: Components.ID("{736b46dc-9bea-4f75-a567-0bec41980f0c}"),
 
   QueryInterface: ChromeUtils.generateQI([
     Ci.nsIAlarmProxy,

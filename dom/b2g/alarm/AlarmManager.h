@@ -9,6 +9,7 @@
 #include "mozilla/AlreadyAddRefed.h"
 #include "mozilla/ErrorResult.h"
 #include "mozilla/dom/AlarmManagerBinding.h"
+#include "nsIAlarmProxy.h"
 #include "nsPIDOMWindow.h"
 #include "nsWrapperCache.h"
 
@@ -45,6 +46,10 @@ class AlarmManager final : public nsISupports,
   nsresult PermissionCheck();
 
   nsCOMPtr<nsIGlobalObject> mGlobal;
+
+  nsAutoCString mUrl;
+
+  nsCOMPtr<nsIAlarmProxy> mAlarmProxy;
 };
 
 }  // namespace dom
