@@ -1929,6 +1929,55 @@ void MacroAssembler::guardSpecificAtom(Register str, JSAtom* atom,
   bind(&done);
 }
 
+void MacroAssembler::guardStringToInt32(Register str, Register output,
+                                        Register scratch,
+                                        LiveRegisterSet volatileRegs,
+                                        Label* fail) {
+  Label vmCall, done;
+  // Use indexed value as fast path if possible.
+  loadStringIndexValue(str, output, &vmCall);
+  jump(&done);
+  {
+    bind(&vmCall);
+
+    // Reserve stack for holding the result value of the call.
+    reserveStack(sizeof(int32_t));
+    moveStackPtrTo(output);
+
+    volatileRegs.takeUnchecked(scratch);
+    if (output.volatile_()) {
+      volatileRegs.addUnchecked(output);
+    }
+    PushRegsInMask(volatileRegs);
+
+    setupUnalignedABICall(scratch);
+    loadJSContext(scratch);
+    passABIArg(scratch);
+    passABIArg(str);
+    passABIArg(output);
+    callWithABI(JS_FUNC_TO_DATA_PTR(void*, GetInt32FromStringPure));
+    mov(ReturnReg, scratch);
+
+    PopRegsInMask(volatileRegs);
+
+    Label ok;
+    branchIfTrueBool(scratch, &ok);
+    {
+      // OOM path, recovered by GetInt32FromStringPure.
+      //
+      // Use addToStackPtr instead of freeStack as freeStack tracks stack height
+      // flow-insensitively, and using it twice would confuse the stack height
+      // tracking.
+      addToStackPtr(Imm32(sizeof(int32_t)));
+      jump(fail);
+    }
+    bind(&ok);
+    load32(Address(output, 0), output);
+    freeStack(sizeof(int32_t));
+  }
+  bind(&done);
+}
+
 void MacroAssembler::generateBailoutTail(Register scratch,
                                          Register bailoutInfo) {
   loadJSContext(scratch);
@@ -2062,6 +2111,28 @@ void MacroAssembler::loadJitCodeNoArgCheck(Register func, Register dest) {
   }
 #endif
   loadPtr(Address(dest, JitScript::offsetOfJitCodeSkipArgCheck()), dest);
+}
+
+void MacroAssembler::loadBaselineJitCodeRaw(Register func, Register dest,
+                                            Label* failure) {
+  // Load JitScript
+  loadPtr(Address(func, JSFunction::offsetOfScript()), dest);
+  if (failure) {
+    branchIfScriptHasNoJitScript(dest, failure);
+  }
+  loadJitScript(dest, dest);
+
+  // Load BaselineScript
+  loadPtr(Address(dest, JitScript::offsetOfBaselineScript()), dest);
+  if (failure) {
+    static_assert(BaselineDisabledScript == 0x1);
+    branchPtr(Assembler::BelowOrEqual, dest, ImmWord(BaselineDisabledScript),
+              failure);
+  }
+
+  // Load Baseline jitcode
+  loadPtr(Address(dest, BaselineScript::offsetOfMethod()), dest);
+  loadPtr(Address(dest, JitCode::offsetOfCode()), dest);
 }
 
 void MacroAssembler::loadBaselineFramePtr(Register framePtr, Register dest) {
@@ -2387,7 +2458,7 @@ void MacroAssembler::outOfLineTruncateSlow(FloatRegister src, Register dest,
   if (compilingWasm) {
     setupWasmABICall();
     passABIArg(src, MoveOp::DOUBLE);
-    callWithABI(callOffset, wasm::SymbolicAddress::ToInt32);
+    callWithABI(callOffset, wasm::SymbolicAddress::ToInt32, mozilla::Nothing());
   } else {
     setupUnalignedABICall(dest);
     passABIArg(src, MoveOp::DOUBLE);
@@ -3050,6 +3121,7 @@ void MacroAssembler::callWithABINoProfiler(void* fun, MoveOp::Type result,
 
 CodeOffset MacroAssembler::callWithABI(wasm::BytecodeOffset bytecode,
                                        wasm::SymbolicAddress imm,
+                                       mozilla::Maybe<int32_t> tlsOffset,
                                        MoveOp::Type result) {
   MOZ_ASSERT(wasm::NeedsBuiltinThunk(imm));
 
@@ -3063,8 +3135,14 @@ CodeOffset MacroAssembler::callWithABI(wasm::BytecodeOffset bytecode,
   // The TLS register is used in builtin thunks and must be set, by ABI:
   // reload it after passing arguments, which might have used it at spill
   // points when placing arguments.
-  loadWasmTlsRegFromFrame();
 
+  if (tlsOffset) {
+    // Account for stackAdjust and Push(WasmTlsReg).
+    *tlsOffset += stackAdjust + sizeof(void*);
+    loadPtr(Address(getStackPointer(), *tlsOffset), WasmTlsReg);
+  } else {
+    loadWasmTlsRegFromFrame();
+  }
   CodeOffset raOffset = call(
       wasm::CallSiteDesc(bytecode.offset(), wasm::CallSite::Symbolic), imm);
 

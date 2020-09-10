@@ -18,16 +18,21 @@
 
 // everything in here is also safe to include unconditionally, and only defines
 // empty macros if MOZ_GECKO_PROFILER is unset
+#include "BaseProfiler.h"
 #include "mozilla/ProfilerCounts.h"
+
+// ProfilerMarkers.h is #included in the middle of this header!
+// #include "mozilla/ProfilerMarkers.h"
 
 #ifndef MOZ_GECKO_PROFILER
 
+#  include "mozilla/ProfilerMarkers.h"
 #  include "mozilla/UniquePtr.h"
 
 // This file can be #included unconditionally. However, everything within this
 // file must be guarded by a #ifdef MOZ_GECKO_PROFILER, *except* for the
-// following macros, which encapsulate the most common operations and thus
-// avoid the need for many #ifdefs.
+// following macros and functions, which encapsulate the most common operations
+// and thus avoid the need for many #ifdefs.
 
 #  define AUTO_PROFILER_INIT
 #  define AUTO_PROFILER_INIT2
@@ -57,7 +62,6 @@
 #  define AUTO_PROFILER_LABEL_DYNAMIC_FAST(label, dynamicString, categoryPair, \
                                            ctx, flags)
 
-#  define PROFILER_ADD_MARKER(markerName, categoryPair)
 #  define PROFILER_ADD_MARKER_WITH_PAYLOAD(markerName, categoryPair, \
                                            PayloadType, payloadArgs)
 #  define PROFILER_ADD_TEXT_MARKER(markerName, text, categoryPair, startTime, \
@@ -77,23 +81,31 @@
 #  define AUTO_PROFILER_TEXT_MARKER_DOCSHELL_CAUSE( \
       markerName, text, categoryPair, docShell, cause)
 
+// Function stubs for when MOZ_GECKO_PROFILER is not defined.
+
+// This won't be used, it's just there to allow the empty definition of
+// `profiler_get_backtrace`.
 struct ProfilerBacktrace {};
 using UniqueProfilerBacktrace = mozilla::UniquePtr<int>;
+
+// Get/Capture-backtrace functions can return nullptr or false, the result
+// should be fed to another empty macro or stub anyway.
+
 static inline UniqueProfilerBacktrace profiler_get_backtrace() {
   return nullptr;
 }
 
-namespace mozilla {
-class ProfileChunkedBuffer;
-}  // namespace mozilla
-static inline bool profiler_capture_backtrace(
+static inline bool profiler_capture_backtrace_into(
     mozilla::ProfileChunkedBuffer& aChunkedBuffer) {
   return false;
+}
+static inline mozilla::UniquePtr<mozilla::ProfileChunkedBuffer>
+profiler_capture_backtrace() {
+  return nullptr;
 }
 
 #else  // !MOZ_GECKO_PROFILER
 
-#  include "BaseProfiler.h"
 #  include "js/AllocationRecording.h"
 #  include "js/ProfilingFrameIterator.h"
 #  include "js/ProfilingStack.h"
@@ -684,10 +696,22 @@ struct ProfilerBacktraceDestructor {
 using UniqueProfilerBacktrace =
     mozilla::UniquePtr<ProfilerBacktrace, ProfilerBacktraceDestructor>;
 
-// Immediately capture the current thread's call stack and return it. A no-op
-// if the profiler is inactive.
+// Immediately capture the current thread's call stack, store it in the provided
+// buffer (usually to avoid allocations if you can construct the buffer on the
+// stack). Returns false if unsuccessful, or if the profiler is inactive.
+bool profiler_capture_backtrace_into(
+    mozilla::ProfileChunkedBuffer& aChunkedBuffer);
+
+// Immediately capture the current thread's call stack, and return it in a
+// ProfileChunkedBuffer (usually for later use in MarkerStack::TakeBacktrace()).
+// May be null if unsuccessful, or if the profiler is inactive.
+mozilla::UniquePtr<mozilla::ProfileChunkedBuffer> profiler_capture_backtrace();
+
+// Immediately capture the current thread's call stack, and return it in a
+// ProfilerBacktrace (usually for later use in marker function that take a
+// ProfilerBacktrace). May be null if unsuccessful, or if the profiler is
+// inactive.
 UniqueProfilerBacktrace profiler_get_backtrace();
-bool profiler_capture_backtrace(mozilla::ProfileChunkedBuffer& aChunkedBuffer);
 
 struct ProfilerStats {
   unsigned n = 0;
@@ -734,6 +758,10 @@ struct ProfilerBufferInfo {
 // status of the profiler, allowing the user to get a sense for how fast the
 // buffer is being written to, and how much data is visible.
 mozilla::Maybe<ProfilerBufferInfo> profiler_get_buffer_info();
+
+// ProfilerMarkers.h requires some stuff from this header.
+// TODO: Move common stuff to shared header, and move this #include to the top.
+#  include "mozilla/ProfilerMarkers.h"
 
 //---------------------------------------------------------------------------
 // Put profiling data into the profiler (labels and markers)
@@ -859,23 +887,6 @@ mozilla::Maybe<ProfilerBufferInfo> profiler_get_buffer_info();
     mozilla::AutoProfilerLabel PROFILER_RAII(                                  \
         ctx, label, dynamicString, JS::ProfilingCategoryPair::categoryPair,    \
         flags)
-
-// Insert a marker in the profile timeline. This is useful to delimit something
-// important happening such as the first paint. Unlike labels, which are only
-// recorded in the profile buffer if a sample is collected while the label is
-// on the label stack, markers will always be recorded in the profile buffer.
-// aMarkerName is copied, so the caller does not need to ensure it lives for a
-// certain length of time. A no-op if the profiler is inactive.
-
-#  define PROFILER_ADD_MARKER(markerName, categoryPair)                 \
-    do {                                                                \
-      AUTO_PROFILER_STATS(add_marker);                                  \
-      ::profiler_add_marker(markerName,                                 \
-                            ::JS::ProfilingCategoryPair::categoryPair); \
-    } while (false)
-
-void profiler_add_marker(const char* aMarkerName,
-                         JS::ProfilingCategoryPair aCategoryPair);
 
 // `PayloadType` is a sub-class of MarkerPayload, `parenthesizedPayloadArgs` is
 // the argument list used to construct that `PayloadType`. E.g.:
@@ -1080,6 +1091,8 @@ void profiler_save_profile_to_file(const char* aFilename);
 // RAII classes
 //---------------------------------------------------------------------------
 
+class TLSRegisteredThread;  // Needed for friendship in ProfilingStackOwnerTLS.
+
 namespace mozilla {
 
 class MOZ_RAII AutoProfilerInit {
@@ -1232,29 +1245,33 @@ class MOZ_RAII AutoProfilerLabel {
   // See the comment on the definition in platform.cpp for details about this.
   class ProfilingStackOwnerTLS {
    public:
-    static bool Init() {
-      // Only one call to MOZ_THREAD_LOCAL::init() is needed, we cache the
-      // result for later calls to Init(), in particular before using get() and
-      // set().
-      static const bool ok = sProfilingStackOwnerTLS.init();
-      return ok;
-    }
-
     static ProfilingStackOwner* Get() {
-      if (!Init()) {
+      MOZ_ASSERT(
+          sState != State::Uninitialized,
+          "ProfilingStackOwnerTLS::Get() should only be called after Init()");
+      if (sState != State::Initialized) {
         return nullptr;
       }
       return sProfilingStackOwnerTLS.get();
     }
 
     static void Set(ProfilingStackOwner* aProfilingStackOwner) {
-      MOZ_RELEASE_ASSERT(Init(),
-                         "ProfilingStackOwnerTLS::Set() should only be called "
-                         "after a successful Init()");
+      MOZ_ASSERT(
+          sState != State::Uninitialized,
+          "ProfilingStackOwnerTLS::Set() should only be called after Init()");
+      MOZ_DIAGNOSTIC_ASSERT(sState == State::Initialized,
+                            "ProfilingStackOwnerTLS::Set() should only be "
+                            "called after a successful Init()");
       sProfilingStackOwnerTLS.set(aProfilingStackOwner);
     }
 
    private:
+    friend TLSRegisteredThread;
+    static void Init();
+
+    enum class State { Uninitialized = 0, Initialized, Unavailable };
+    static State sState;
+
     static MOZ_THREAD_LOCAL(ProfilingStackOwner*) sProfilingStackOwnerTLS;
   };
 };

@@ -176,7 +176,6 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   static void Init();
   static LogModule* GetLog();
-  static void CleanupContexts(uint64_t aProcessId);
 
   // Look up a BrowsingContext in the current process by ID.
   static already_AddRefed<BrowsingContext> Get(uint64_t aId);
@@ -193,6 +192,8 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
       GlobalObject&, WindowProxyHolder& aProxy) {
     return GetFromWindow(aProxy);
   }
+
+  static void DiscardFromContentParent(ContentParent* aCP);
 
   // Create a brand-new toplevel BrowsingContext with no relationships to other
   // BrowsingContexts, and which is not embedded within any <browser> or frame
@@ -227,6 +228,8 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   // closed.
   bool IsInProcess() const { return mIsInProcess; }
 
+  bool IsOwnedByProcess() const;
+
   bool CanHaveRemoteOuterProxies() const {
     return !mIsInProcess || mDanglingRemoteOuterProxies;
   }
@@ -235,6 +238,10 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   // been destroyed, and may not be available on the other side of an IPC
   // message.
   bool IsDiscarded() const { return mIsDiscarded; }
+
+  // Returns true if none of the BrowsingContext's ancestor BrowsingContexts or
+  // WindowContexts are discarded or cached.
+  bool AncestorsAreCurrent() const;
 
   bool Windowless() const { return mWindowless; }
 
@@ -289,6 +296,10 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
                    bool aSetNavigating = false);
 
   nsresult InternalLoad(nsDocShellLoadState* aLoadState);
+
+  // Removes the root document for this BrowsingContext tree from the BFCache,
+  // if it is cached, and returns true if it was.
+  bool RemoveRootFromBFCacheSync();
 
   // If the load state includes a source BrowsingContext has been passed, check
   // to see if we are sandboxed from it as the result of an iframe or CSP
@@ -580,7 +591,8 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
     bool mWindowless = false;
     bool mUseRemoteTabs = false;
     bool mUseRemoteSubframes = false;
-    bool mHasSessionHistory = false;
+    int32_t mSessionHistoryIndex = -1;
+    int32_t mSessionHistoryCount = 0;
     OriginAttributes mOriginAttributes;
     uint64_t mRequestContextId = 0;
 
@@ -652,10 +664,27 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   // Removes entries corresponding to this BrowsingContext from session history.
   void RemoveFromSessionHistory();
 
+  void SetTriggeringAndInheritPrincipals(nsIPrincipal* aTriggeringPrincipal,
+                                         nsIPrincipal* aPrincipalToInherit,
+                                         uint64_t aLoadIdentifier);
+
+  // Return mTriggeringPrincipal and mPrincipalToInherit if the load id
+  // saved with the principal matches the current load identifier of this BC.
+  Tuple<nsCOMPtr<nsIPrincipal>, nsCOMPtr<nsIPrincipal>>
+  GetTriggeringAndInheritPrincipalsForCurrentLoad();
+
+  void HistoryGo(int32_t aIndex, std::function<void(int32_t&&)>&& aResolver);
+
  protected:
   virtual ~BrowsingContext();
   BrowsingContext(WindowContext* aParentWindow, BrowsingContextGroup* aGroup,
                   uint64_t aBrowsingContextId, Type aType, FieldValues&& aInit);
+
+  void SetChildSHistory(ChildSHistory* aChildSHistory);
+  already_AddRefed<ChildSHistory> ForgetChildSHistory() {
+    // FIXME Do we need to unset mHasSessionHistory?
+    return mChildSessionHistory.forget();
+  }
 
  private:
   void Attach(bool aFromIPC, ContentParent* aOriginProcess);
@@ -831,6 +860,12 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   void CreateChildSHistory();
 
+  using PrincipalWithLoadIdentifierTuple =
+      Tuple<nsCOMPtr<nsIPrincipal>, uint64_t>;
+
+  nsIPrincipal* GetSavedPrincipal(
+      Maybe<PrincipalWithLoadIdentifierTuple> aPrincipalTuple);
+
   // Type of BrowsingContent
   const Type mType;
 
@@ -906,6 +941,13 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   // The start time of user gesture, this is only available if the browsing
   // context is in process.
   TimeStamp mUserGestureStart;
+
+  // Triggering principal and principal to inherit need to point to original
+  // principal instances if the document is loaded in the same process as the
+  // process that initiated the load. When the load starts we save the
+  // principals along with the current load id.
+  Maybe<PrincipalWithLoadIdentifierTuple> mTriggeringPrincipal;
+  Maybe<PrincipalWithLoadIdentifierTuple> mPrincipalToInherit;
 
   class DeprioritizedLoadRunner
       : public mozilla::Runnable,

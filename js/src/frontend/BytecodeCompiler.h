@@ -13,8 +13,9 @@
 #include "NamespaceImports.h"
 
 #include "frontend/FunctionSyntaxKind.h"
-#include "js/CompileOptions.h"
+#include "js/CompileOptions.h"  // JS::ReadOnlyCompileOptions
 #include "js/SourceText.h"
+#include "js/UniquePtr.h"  // js::UniquePtr
 #include "vm/Scope.h"
 #include "vm/TraceLogging.h"
 
@@ -104,6 +105,7 @@ class ScriptSourceObject;
 
 namespace frontend {
 
+struct CompilationInfo;
 struct CompilationGCOutput;
 class ErrorReporter;
 class FunctionBox;
@@ -120,12 +122,17 @@ ModuleObject* CompileModule(JSContext* cx,
 
 // Parse a module of the given source.  This is an internal API; if you want to
 // compile a module as a user, use CompileModule above.
-bool ParseModule(JSContext* cx, const JS::ReadOnlyCompileOptions& options,
-                 JS::SourceText<char16_t>& srcBuf,
-                 CompilationGCOutput& gcOutput);
-bool ParseModule(JSContext* cx, const JS::ReadOnlyCompileOptions& options,
-                 JS::SourceText<mozilla::Utf8Unit>& srcBuf,
-                 CompilationGCOutput& gcOutput);
+bool ParseModuleToStencil(JSContext* cx, CompilationInfo& compilationInfo,
+                          JS::SourceText<char16_t>& srcBuf);
+bool ParseModuleToStencil(JSContext* cx, CompilationInfo& compilationInfo,
+                          JS::SourceText<mozilla::Utf8Unit>& srcBuf);
+
+UniquePtr<CompilationInfo> ParseModuleToStencil(
+    JSContext* cx, const JS::ReadOnlyCompileOptions& options,
+    JS::SourceText<char16_t>& srcBuf);
+UniquePtr<CompilationInfo> ParseModuleToStencil(
+    JSContext* cx, const JS::ReadOnlyCompileOptions& options,
+    JS::SourceText<mozilla::Utf8Unit>& srcBuf);
 
 //
 // Compile a single function. The source in srcBuf must match the ECMA-262

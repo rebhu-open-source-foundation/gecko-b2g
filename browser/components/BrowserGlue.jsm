@@ -275,6 +275,7 @@ let JSWINDOWACTORS = {
       },
     },
     matches: ["about:welcome"],
+    remoteTypes: ["privilegedabout"],
 
     // See Bug 1618306
     // Remove this preference check when we turn on separate about:welcome for all users.
@@ -377,6 +378,20 @@ let JSWINDOWACTORS = {
     allFrames: true,
   },
 
+  DecoderDoctor: {
+    parent: {
+      moduleURI: "resource:///actors/DecoderDoctorParent.jsm",
+    },
+
+    child: {
+      moduleURI: "resource:///actors/DecoderDoctorChild.jsm",
+      observers: ["decoder-doctor-notification"],
+    },
+
+    messageManagerGroups: ["browsers"],
+    allFrames: true,
+  },
+
   DOMFullscreen: {
     parent: {
       moduleURI: "resource:///actors/DOMFullscreenParent.jsm",
@@ -407,6 +422,7 @@ let JSWINDOWACTORS = {
       observers: ["mediakeys-request"],
     },
 
+    messageManagerGroups: ["browsers"],
     allFrames: true,
   },
 

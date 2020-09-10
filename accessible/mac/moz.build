@@ -20,6 +20,7 @@ UNIFIED_SOURCES += [
     'HyperTextAccessibleWrap.mm',
     'MacUtils.mm',
     'MOXAccessibleBase.mm',
+    'MOXLandmarkAccessibles.mm',
     'MOXMathAccessibles.mm',
     'MOXTextMarkerDelegate.mm',
     'MOXWebAreaAccessible.mm',
@@ -32,6 +33,7 @@ UNIFIED_SOURCES += [
     'mozTextAccessible.mm',
     'Platform.mm',
     'RootAccessibleWrap.mm',
+    'RotorRules.mm',
 ]
 
 SOURCES += [

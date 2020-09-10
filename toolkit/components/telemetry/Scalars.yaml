@@ -336,6 +336,23 @@ browser.engagement.navigation:
     record_in_processes:
       - 'main'
 
+  urlbar_searchmode:
+    bug_numbers:
+      - 1654680
+    description: >
+      The count URI loads triggered in a subsession from the urlbar's search
+      mode, broken down by the originating action.
+    expires: never
+    kind: uint
+    keyed: True
+    notification_emails:
+      - htwyford@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
+
   searchbar:
     bug_numbers:
       - 1271313
@@ -2906,6 +2923,23 @@ devtools.changesview:
     record_in_processes:
       - 'main'
 
+devtools.markup.scrollable.badge:
+  clicked:
+    bug_numbers:
+      - 1660818
+    description: >
+      Number of times the scrollable inspector badge has been clicked.
+    expires: never
+    kind: uint
+    notification_emails:
+      - dev-developer-tools@lists.mozilla.org
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+      - 'fennec'
+    record_in_processes:
+      - 'main'
+
 dom.event:
   confluence_load_count:
     bug_numbers:
@@ -3604,6 +3638,22 @@ gfx:
     record_in_processes:
       - 'main'
     release_channel_collection: opt-out
+  linux_window_protocol:
+    bug_numbers:
+      - 1645732
+    description: >
+      Windowing protocol on Linux. Can be Wayland, WaylandDRM, XWayland, or X11
+    expires: never
+    kind: string
+    notification_emails:
+      - gfx-telemetry-alerts@mozilla.com
+      - aosmond@mozilla.com
+      - mkaply@mozilla.com
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
+    release_channel_collection: opt-out
 
 # The following section contains the form autofill related scalars.
 formautofill:
@@ -3975,8 +4025,8 @@ printing:
     bug_numbers:
       - 1600623
     description: >
-      A counter incremented every time the print dialog is opened from print
-      preview.
+      A counter incremented every time the print dialog is opened from the old
+      print preview.
     expires: never
     kind: uint
     notification_emails:
@@ -3988,12 +4038,29 @@ printing:
     record_in_processes:
       - 'content'
 
+  dialog_opened_via_preview_tm:
+    bug_numbers:
+      - 1657220
+    description: >
+      A counter incremented every time a user opens the system print dialog
+      from the print preview interface.
+    expires: never
+    kind: uint
+    notification_emails:
+      - jwatt@jwatt.org
+      - emalysz@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
+
   dialog_via_preview_cancelled:
     bug_numbers:
       - 1600623
     description: >
-      A counter incremented every time a print dialog opened from print preview
-      is cancelled.
+      A counter incremented every time a print dialog opened from the old print
+      preview is cancelled.
     expires: never
     kind: uint
     notification_emails:
@@ -4003,6 +4070,22 @@ printing:
       - 'firefox'
     record_in_processes:
       - 'content'
+
+  dialog_via_preview_cancelled_tm:
+    bug_numbers:
+      - 1657220
+    description: >
+      A counter incremented every time a user cancels a system print dialog
+      that they opened from the print preview interface.
+    expires: never
+    kind: uint
+    notification_emails:
+      - jwatt@jwatt.org
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
 
   error:
     bug_numbers:
@@ -4042,7 +4125,7 @@ printing:
     bug_numbers:
       - 1600623
     description: >
-      A counter incremented every time the user initiates print preview.
+      A counter incremented every time the user initiates the old print preview.
     expires: never
     kind: uint
     notification_emails:
@@ -4054,12 +4137,28 @@ printing:
     record_in_processes:
       - 'content'
 
+  preview_opened_tm:
+    bug_numbers:
+      - 1657220
+    description: >
+      A counter incremented every time a user opens print preview.
+    expires: never
+    kind: uint
+    notification_emails:
+      - jwatt@jwatt.org
+      - emalysz@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
+
   preview_cancelled:
     bug_numbers:
       - 1600623
     description: >
-      A counter incremented every time a print preview session exits without
-      printing.
+      A counter incremented every time an old print preview session exits
+      without printing.
     expires: never
     kind: uint
     notification_emails:
@@ -4070,6 +4169,23 @@ printing:
       - 'firefox'
     record_in_processes:
       - 'content'
+
+  preview_cancelled_tm:
+    bug_numbers:
+      - 1657220
+    description: >
+      A counter incremented every time a user exits print preview without
+      printing.
+    expires: never
+    kind: uint
+    notification_emails:
+      - jwatt@jwatt.org
+      - emalysz@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
 
   settings_changed:
     bug_numbers:
@@ -5254,6 +5370,129 @@ urlbar:
     record_in_processes:
       - main
 
+urlbar.searchmode:
+  keywordoffer:
+    bug_numbers:
+      - 1654680
+    description: >
+      A keyed uint recording how many times the user entered a particular search
+      mode after selecting a keyword offer result.
+    expires: never
+    kind: uint
+    keyed: true
+    notification_emails:
+      - fx-search@mozilla.com
+      - tbrooks@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+  oneoff:
+    bug_numbers:
+      - 1654680
+    description: >
+      A keyed uint recording how many times the user entered a particular search
+      mode after selecting a one-off.
+    expires: never
+    kind: uint
+    keyed: true
+    notification_emails:
+      - fx-search@mozilla.com
+      - tbrooks@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+  shortcut:
+    bug_numbers:
+      - 1654680
+    description: >
+      A keyed uint recording how many times the user entered a particular search
+      mode after pressing a keyboard shortcut.
+    expires: never
+    kind: uint
+    keyed: true
+    notification_emails:
+      - fx-search@mozilla.com
+      - tbrooks@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+  topsites_newtab:
+    bug_numbers:
+      - 1654680
+    description: >
+      A keyed uint recording how many times the user entered a particular search
+      mode after selecting a search shortcut Top Site on the New Tab Page.
+    expires: never
+    kind: uint
+    keyed: true
+    notification_emails:
+      - fx-search@mozilla.com
+      - tbrooks@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+  topsites_urlbar:
+    bug_numbers:
+      - 1654680
+    description: >
+      A keyed uint recording how many times the user entered a particular search
+      mode after selecting a search shortcut Top Site in the Urlbar..
+    expires: never
+    kind: uint
+    keyed: true
+    notification_emails:
+      - fx-search@mozilla.com
+      - tbrooks@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+  typed:
+    bug_numbers:
+      - 1654680
+    description: >
+      A keyed uint recording how many times the user entered a particular search
+      mode after typing an alias.
+    expires: never
+    kind: uint
+    keyed: true
+    notification_emails:
+      - fx-search@mozilla.com
+      - tbrooks@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+  other:
+    bug_numbers:
+      - 1654680
+    description: >
+      A keyed uint recording how many times the user entered a particular search
+      mode from an unknown entry point. If values appear for this probe in
+      Telemetry, we should review the entry points to search mode.
+    expires: never
+    kind: uint
+    keyed: true
+    notification_emails:
+      - fx-search@mozilla.com
+      - tbrooks@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+
+
 migration:
   uninstaller_profile_refresh:
     bug_numbers:
@@ -5310,6 +5549,24 @@ fog.eval:
       - 1647876
     description: >
       How many Telemetry stopwatch errors did we have while trying to measure user activity?
+      These could be attempts to start a started timer or finish an unstarted timer or so forth.
+      See Stopwatch::Start and Stopwatch::Finish for details.
+      For use in evaluating baseline engagement for Project FOG.
+    expires: '85'
+    kind: 'uint'
+    notification_emails:
+      - 'chutten@mozilla.com'
+    release_channel_collection: 'opt-out'
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
+
+  user_inactive_error:
+    bug_numbers:
+      - 1660887
+    description: >
+      How many Telemetry stopwatch errors did we have while trying to measure user inactivity?
       These could be attempts to start a started timer or finish an unstarted timer or so forth.
       See Stopwatch::Start and Stopwatch::Finish for details.
       For use in evaluating baseline engagement for Project FOG.

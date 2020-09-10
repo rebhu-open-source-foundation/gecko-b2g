@@ -32,6 +32,7 @@ Services.scriptloader.loadSubScript(
 var {
   BrowserConsoleManager,
 } = require("devtools/client/webconsole/browser-console-manager");
+
 var WCUL10n = require("devtools/client/webconsole/utils/l10n");
 const DOCS_GA_PARAMS = `?${new URLSearchParams({
   utm_source: "mozilla",
@@ -55,13 +56,6 @@ registerCleanupFunction(async function() {
   Services.prefs.getChildList("devtools.webconsole.filter").forEach(pref => {
     Services.prefs.clearUserPref(pref);
   });
-  const browserConsole = BrowserConsoleManager.getBrowserConsole();
-  if (browserConsole) {
-    browserConsole.targetList.stopListening();
-    await clearOutput(browserConsole);
-    await waitForAllTargetsToBeAttached(browserConsole);
-    await BrowserConsoleManager.closeBrowserConsole();
-  }
 });
 
 /**
@@ -140,19 +134,6 @@ async function openNewWindowAndConsole(url) {
   win.gBrowser.selectedTab = tab;
   const hud = await openConsole(tab);
   return { win, hud, tab };
-}
-
-/**
- * Returns a Promise that resolves when all the targets are fully attached.
- *
- * @param {WebConsole} hud
- */
-function waitForAllTargetsToBeAttached(hud) {
-  return Promise.all(
-    hud.targetList
-      .getAllTargets(hud.targetList.ALL_TYPES)
-      .map(target => target.attachAndInitThread())
-  );
 }
 
 /**
@@ -333,35 +314,6 @@ function keyboardExecuteAndWaitForMessage(
     EventUtils.synthesizeKey("VK_RETURN");
   }
   return onMessage;
-}
-
-/**
- * Wait for a predicate to return a result.
- *
- * @param function condition
- *        Invoked once in a while until it returns a truthy value. This should be an
- *        idempotent function, since we have to run it a second time after it returns
- *        true in order to return the value.
- * @param string message [optional]
- *        A message to output if the condition fails.
- * @param number interval [optional]
- *        How often the predicate is invoked, in milliseconds.
- * @return object
- *         A promise that is resolved with the result of the condition.
- */
-async function waitFor(
-  condition,
-  message = "waitFor",
-  interval = 10,
-  maxTries = 500
-) {
-  await BrowserTestUtils.waitForCondition(
-    condition,
-    message,
-    interval,
-    maxTries
-  );
-  return condition();
 }
 
 /**
@@ -897,14 +849,6 @@ async function openNetMonitor(tab) {
 async function openConsole(tab) {
   const target = await TargetFactory.forTab(tab || gBrowser.selectedTab);
   const toolbox = await gDevTools.showToolbox(target, "webconsole");
-
-  // Approximately half of webconsole tests call source-map-url-service and load the source
-  // codes and stylesheets. However, the processing of the request may have not been
-  // finished when closing the windows and related toolboxes, it may cause test failure.
-  // Hence, we call it explicitly, then wait for finishing the pending requests.
-  toolbox.sourceMapURLService._ensureAllSourcesPopulated();
-  await toolbox.sourceMapURLService.waitForPendingSources();
-
   return toolbox.getCurrentPanel().hud;
 }
 
@@ -1054,7 +998,7 @@ async function openMessageInNetmonitor(toolbox, hud, url, urlInConsole) {
   await waitFor(() => {
     const selected = getSelectedRequest(store.getState());
     return selected && selected.url === url;
-  }, "network entry for the URL wasn't found");
+  }, `network entry for the URL "${url}" wasn't found`);
 
   ok(true, "The attached url is correct.");
 

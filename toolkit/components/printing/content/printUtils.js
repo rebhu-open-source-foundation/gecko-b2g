@@ -187,9 +187,8 @@ var PrintUtils = {
     let dialogBox = gBrowser.getTabDialogBox(sourceBrowser);
     return dialogBox.open(
       `chrome://global/content/print.html?browsingContextId=${aBrowsingContext.id}`,
-      "resizable=no",
-      args,
-      { sizeTo: "available" }
+      { features: "resizable=no", sizeTo: "available" },
+      args
     );
   },
 
@@ -209,11 +208,14 @@ var PrintUtils = {
   startPrintWindow(aBrowsingContext, aOpenWindowInfo) {
     let browser = null;
     if (aOpenWindowInfo) {
-      browser = gBrowser.createBrowser({
-        remoteType: aBrowsingContext.currentRemoteType,
-        openWindowInfo: aOpenWindowInfo,
-        skipLoad: false,
-      });
+      browser = document.createXULElement("browser");
+      browser.openWindowInfo = aOpenWindowInfo;
+      browser.setAttribute("type", "content");
+      let remoteType = aBrowsingContext.currentRemoteType;
+      if (remoteType) {
+        browser.setAttribute("remoteType", remoteType);
+        browser.setAttribute("remote", "true");
+      }
       // When the print process finishes, we get closed by
       // nsDocumentViewer::OnDonePrinting, or by the print preview code.
       //
@@ -286,7 +288,7 @@ var PrintUtils = {
 
     // At some point we should handle the Promise that this returns (report
     // rejection to telemetry?)
-    topBrowser.print(windowID, printSettings);
+    let promise = topBrowser.print(windowID, printSettings);
 
     if (printPreviewIsOpen) {
       if (this._shouldSimplify) {
@@ -297,6 +299,8 @@ var PrintUtils = {
     } else {
       this._logKeyedTelemetry("PRINT_COUNT", "WITHOUT_PREVIEW");
     }
+
+    return promise;
   },
 
   /**

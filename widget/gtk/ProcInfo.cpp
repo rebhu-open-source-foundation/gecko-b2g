@@ -95,11 +95,6 @@ class StatReader {
         aInfo.cpuKernel = GetCPUTime(aToken, &rv);
         NS_ENSURE_SUCCESS(rv, rv);
         break;
-      case 22:
-        // Virtual memory size in bytes.
-        aInfo.virtualMemorySize = Get64Value(aToken, &rv);
-        NS_ENSURE_SUCCESS(rv, rv);
-        break;
       case 23:
         // Resident Set Size: number of pages the process has
         // in real memory.
@@ -253,6 +248,7 @@ RefPtr<ProcInfoPromise> GetProcInfo(nsTArray<ProcInfoRequest>&& aRequests) {
           info.childId = request.childId;
           info.type = request.processType;
           info.origin = request.origin;
+          info.windows = std::move(request.windowInfo);
 
           // Let's look at the threads
           nsCString taskPath;

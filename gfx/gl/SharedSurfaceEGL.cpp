@@ -134,13 +134,21 @@ UniquePtr<SharedSurface_SurfaceTexture> SharedSurface_SurfaceTexture::Create(
     const SharedSurfaceDesc& desc) {
   const auto& size = desc.size;
 
-  jni::Object::LocalRef surfaceObj =
-      java::SurfaceAllocator::AcquireSurface(size.width, size.height, true);
+  jni::Object::LocalRef surfaceObj;
+  const bool useSingleBuffer =
+      desc.gl->Renderer() != GLRenderer::AndroidEmulator;
+
+  if (useSingleBuffer) {
+    surfaceObj =
+        java::SurfaceAllocator::AcquireSurface(size.width, size.height, true);
+  }
+
   if (!surfaceObj) {
     // Try multi-buffer mode
     surfaceObj =
         java::SurfaceAllocator::AcquireSurface(size.width, size.height, false);
   }
+
   if (!surfaceObj) {
     // Give up
     NS_WARNING("Failed to allocate SurfaceTexture!");
@@ -162,7 +170,8 @@ SharedSurface_SurfaceTexture::SharedSurface_SurfaceTexture(
     const EGLSurface eglSurface)
     : SharedSurface(desc, nullptr),
       mSurface(surface),
-      mEglSurface(eglSurface) {}
+      mEglSurface(eglSurface),
+      mEglDisplay(GLContextEGL::Cast(desc.gl)->mEgl) {}
 
 SharedSurface_SurfaceTexture::~SharedSurface_SurfaceTexture() {
   if (mOrigEglSurface) {
@@ -171,9 +180,11 @@ SharedSurface_SurfaceTexture::~SharedSurface_SurfaceTexture() {
     // to the surface.
     UnlockProd();
   }
-  const auto& gle = GLContextEGL::Cast(mDesc.gl);
-  const auto& egl = gle->mEgl;
-  egl->fDestroySurface(mEglSurface);
+
+  std::shared_ptr<EglDisplay> display = mEglDisplay.lock();
+  if (display) {
+    display->fDestroySurface(mEglSurface);
+  }
   java::SurfaceAllocator::DisposeSurface(mSurface);
 }
 

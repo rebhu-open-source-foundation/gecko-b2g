@@ -126,6 +126,8 @@ class CanonicalBrowsingContext final : public BrowsingContext {
 
   void RemoveFromSessionHistory();
 
+  void HistoryGo(int32_t aIndex, std::function<void(int32_t&&)>&& aResolver);
+
   JSObject* WrapObject(JSContext* aCx,
                        JS::Handle<JSObject*> aGivenProto) override;
 
@@ -215,6 +217,10 @@ class CanonicalBrowsingContext final : public BrowsingContext {
   // us.
   void ReplacedBy(CanonicalBrowsingContext* aNewContext);
 
+  bool HasHistoryEntry(nsISHEntry* aEntry);
+
+  void SwapHistoryEntries(nsISHEntry* aOldEntry, nsISHEntry* aNewEntry);
+
  protected:
   // Called when the browsing context is being discarded.
   void CanonicalDiscard();
@@ -273,6 +279,8 @@ class CanonicalBrowsingContext final : public BrowsingContext {
 
   bool SupportsLoadingInParent(nsDocShellLoadState* aLoadState,
                                uint64_t* aOuterWindowId);
+
+  void HistoryCommitIndexAndLength(const nsID& aChangeID);
 
   // XXX(farre): Store a ContentParent pointer here rather than mProcessId?
   // Indicates which process owns the docshell.

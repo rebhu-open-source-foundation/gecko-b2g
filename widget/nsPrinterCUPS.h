@@ -11,6 +11,9 @@
 #include "nsCUPSShim.h"
 #include "nsString.h"
 
+#include "mozilla/DataMutex.h"
+#include "mozilla/RecursiveMutex.h"
+
 /**
  * @brief Interface to help implementing nsIPrinter using a CUPS printer.
  */
@@ -20,6 +23,7 @@ class nsPrinterCUPS final : public nsPrinterBase {
   PrintSettingsInitializer DefaultSettings() const final;
   bool SupportsDuplex() const final;
   bool SupportsColor() const final;
+  bool SupportsMonochrome() const final;
   bool SupportsCollation() const final;
   nsTArray<mozilla::PaperInfo> PaperList() const final;
   MarginDouble GetMarginsForPaper(uint64_t) const final {
@@ -32,13 +36,26 @@ class nsPrinterCUPS final : public nsPrinterBase {
   nsPrinterCUPS() = delete;
 
   nsPrinterCUPS(const nsCUPSShim& aShim, nsString aDisplayName,
-                cups_dest_t* aPrinter, cups_dinfo_t* aPrinterInfo)
+                cups_dest_t* aPrinter)
       : mShim(aShim),
         mDisplayName(std::move(aDisplayName)),
         mPrinter(aPrinter),
-        mPrinterInfo(aPrinterInfo) {}
+        mPrinterInfoMutex("nsPrinterCUPS::mPrinterInfoMutex") {}
 
  private:
+  struct CUPSPrinterInfo {
+    cups_dinfo_t* mPrinterInfo = nullptr;
+    uint64_t mCUPSMajor = 0;
+    uint64_t mCUPSMinor = 0;
+    uint64_t mCUPSPatch = 0;
+    CUPSPrinterInfo() = default;
+    CUPSPrinterInfo(const CUPSPrinterInfo&) = delete;
+    CUPSPrinterInfo(CUPSPrinterInfo&&) = delete;
+  };
+
+  using PrinterInfoMutex =
+      mozilla::DataMutexBase<CUPSPrinterInfo, mozilla::RecursiveMutex>;
+
   ~nsPrinterCUPS();
 
   /**
@@ -50,12 +67,19 @@ class nsPrinterCUPS final : public nsPrinterBase {
   void GetPrinterName(nsAString& aName) const;
 
   // Little util for getting support flags using the direct CUPS names.
-  bool Supports(const char* option, const char* value) const;
+  bool Supports(const char* aOption, const char* aValue) const;
+
+  // Returns support value if CUPS meets the minimum version, otherwise returns
+  // |aDefault|
+  bool IsCUPSVersionAtLeast(uint64_t aCUPSMajor, uint64_t aCUPSMinor,
+                            uint64_t aCUPSPatch) const;
+
+  void EnsurePrinterInfo(CUPSPrinterInfo& aInOutPrinterInfo) const;
 
   const nsCUPSShim& mShim;
   nsString mDisplayName;
   cups_dest_t* mPrinter;
-  cups_dinfo_t* mPrinterInfo;
+  mutable PrinterInfoMutex mPrinterInfoMutex;
 };
 
 #endif /* nsPrinterCUPS_h___ */

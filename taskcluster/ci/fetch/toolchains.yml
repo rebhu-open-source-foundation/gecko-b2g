@@ -365,7 +365,7 @@ mingw-w64:
     description: mingw-w64 source code
     fetch:
         type: git
-        repo: git://git.code.sf.net/p/mingw-w64/mingw-w64
+        repo: https://git.code.sf.net/p/mingw-w64/mingw-w64
         revision: 1b373beec6d07478ffba33726bb3bb21f32e4411
 
 libunwind:
@@ -487,7 +487,7 @@ fix-stacks:
     fetch:
         type: git
         repo: https://github.com/mozilla/fix-stacks/
-        revision: b8b127d27cdcd64a5e66a7fb0a06c6c818445a61
+        revision: 03a325aa0c5fc479dce135415cb8e16371495290
 
 winchecksec:
     description: winchecksec source code

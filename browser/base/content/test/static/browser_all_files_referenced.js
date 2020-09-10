@@ -22,7 +22,6 @@ var isDevtools = SimpleTest.harnessParameters.subsuite == "devtools";
 // If you need to whitelist specific files, please use the 'whitelist' object.
 var gExceptionPaths = [
   "chrome://browser/content/defaultthemes/",
-  "resource://app/modules/themes/alpenglow/",
   "resource://app/defaults/settings/blocklists/",
   "resource://app/defaults/settings/security-state/",
   "resource://app/defaults/settings/main/",
@@ -35,10 +34,10 @@ var gExceptionPaths = [
   "resource://payments/",
 
   // https://github.com/mozilla/activity-stream/issues/3053
-  "resource://activity-stream/data/content/tippytop/images/",
-  "resource://activity-stream/data/content/tippytop/favicons/",
+  "chrome://activity-stream/content/data/content/tippytop/images/",
+  "chrome://activity-stream/content/data/content/tippytop/favicons/",
   // These resources are referenced by messages delivered through Remote Settings
-  "resource://activity-stream/data/content/assets/remote/",
+  "chrome://activity-stream/content/data/content/assets/remote/",
 
   // browser/extensions/pdfjs/content/build/pdf.js#1999
   "resource://pdf.js/web/images/",
@@ -431,6 +430,14 @@ async function parseJsonManifest(uri) {
   if (data.theme_experiment && data.theme_experiment.stylesheet) {
     let stylesheet = uri.resolve(data.theme_experiment.stylesheet);
     gReferencesFromCode.set(stylesheet, null);
+  }
+
+  for (let themeKey of ["theme", "dark_theme"]) {
+    if (data?.[themeKey]?.images?.additional_backgrounds) {
+      for (let background of data[themeKey].images.additional_backgrounds) {
+        gReferencesFromCode.set(uri.resolve(background), null);
+      }
+    }
   }
 
   return null;

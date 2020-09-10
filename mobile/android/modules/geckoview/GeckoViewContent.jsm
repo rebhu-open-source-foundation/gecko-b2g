@@ -54,6 +54,9 @@ class GeckoViewContent extends GeckoViewModule {
       /* untrusted */ false
     );
 
+    this.window.addEventListener("DOMWindowClose", this);
+    this.window.addEventListener("pagetitlechanged", this);
+
     Services.obs.addObserver(this, "oop-frameloader-crashed");
     Services.obs.addObserver(this, "ipc:content-shutdown");
   }
@@ -74,6 +77,9 @@ class GeckoViewContent extends GeckoViewModule {
       this,
       /* capture */ true
     );
+
+    this.window.removeEventListener("DOMWindowClose", this);
+    this.window.removeEventListener("pagetitlechanged", this);
 
     Services.obs.removeObserver(this, "oop-frameloader-crashed");
     Services.obs.removeObserver(this, "ipc:content-shutdown");
@@ -155,8 +161,7 @@ class GeckoViewContent extends GeckoViewModule {
         }
         break;
       case "GeckoView:RestoreState":
-        // TODO: this needs parent process history to work properly
-        this.actor.sendAsyncMessage("GeckoView:RestoreState", aData);
+        this.actor.restoreState(aData);
         break;
     }
   }
@@ -186,6 +191,22 @@ class GeckoViewContent extends GeckoViewModule {
         break;
       case "MozDOMFullscreen:Exited":
         this.sendToAllChildren("GeckoView:DOMFullscreenExited");
+        break;
+      case "pagetitlechanged":
+        this.eventDispatcher.sendRequest({
+          type: "GeckoView:PageTitleChanged",
+          title: this.browser.contentTitle,
+        });
+        break;
+      case "DOMWindowClose":
+        // We need this because we want to allow the app
+        // to close the window itself. If we don't preventDefault()
+        // here Gecko will close it immediately.
+        aEvent.preventDefault();
+
+        this.eventDispatcher.sendRequest({
+          type: "GeckoView:DOMWindowClose",
+        });
         break;
     }
   }

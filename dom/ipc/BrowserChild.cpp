@@ -1042,8 +1042,7 @@ mozilla::ipc::IPCResult BrowserChild::RecvWillChangeProcess(
 }
 
 mozilla::ipc::IPCResult BrowserChild::RecvLoadURL(
-    const nsCString& aURI, nsIPrincipal* aTriggeringPrincipal,
-    const ParentShowInfo& aInfo) {
+    nsDocShellLoadState* aLoadState, const ParentShowInfo& aInfo) {
   if (!mDidLoadURLInit) {
     mDidLoadURLInit = true;
     if (!InitBrowserChildMessageManager()) {
@@ -1052,28 +1051,19 @@ mozilla::ipc::IPCResult BrowserChild::RecvLoadURL(
 
     ApplyParentShowInfo(aInfo);
   }
-
-  LoadURIOptions loadURIOptions;
-  loadURIOptions.mTriggeringPrincipal = aTriggeringPrincipal;
-  loadURIOptions.mLoadFlags =
-      nsIWebNavigation::LOAD_FLAGS_ALLOW_THIRD_PARTY_FIXUP |
-      nsIWebNavigation::LOAD_FLAGS_DISALLOW_INHERIT_PRINCIPAL;
-
-  nsIWebNavigation* webNav = WebNavigation();
-  nsresult rv = webNav->LoadURI(NS_ConvertUTF8toUTF16(aURI), loadURIOptions);
-  if (NS_FAILED(rv)) {
-    NS_WARNING(
-        "WebNavigation()->LoadURI failed. Eating exception, what else can I "
-        "do?");
-  }
+  nsAutoCString spec;
+  aLoadState->URI()->GetSpec(spec);
 
   nsCOMPtr<nsIDocShell> docShell = do_GetInterface(WebNavigation());
-  if (docShell) {
-    nsDocShell::Cast(docShell)->MaybeClearStorageAccessFlag();
+  MOZ_ASSERT(docShell);
+  if (!docShell) {
+    NS_WARNING("WebNavigation does not have a docshell");
   }
+  docShell->LoadURI(aLoadState, true);
 
-  CrashReporter::AnnotateCrashReport(CrashReporter::Annotation::URL, aURI);
+  nsDocShell::Cast(docShell)->MaybeClearStorageAccessFlag();
 
+  CrashReporter::AnnotateCrashReport(CrashReporter::Annotation::URL, spec);
   return IPC_OK();
 }
 
@@ -1842,12 +1832,14 @@ mozilla::ipc::IPCResult BrowserChild::RecvRealTouchEvent(
   // The other values don't really matter.
   InputAPZContext context(aGuid, aInputBlockId, aApzResponse);
 
+  nsTArray<TouchBehaviorFlags> allowedTouchBehaviors;
   if (localEvent.mMessage == eTouchStart && AsyncPanZoomEnabled()) {
     nsCOMPtr<Document> document = GetTopLevelDocument();
     if (StaticPrefs::layout_css_touch_action_enabled()) {
-      APZCCallbackHelper::SendSetAllowedTouchBehaviorNotification(
-          mPuppetWidget, document, localEvent, aInputBlockId,
-          mSetAllowedTouchBehaviorCallback);
+      allowedTouchBehaviors =
+          APZCCallbackHelper::SendSetAllowedTouchBehaviorNotification(
+              mPuppetWidget, document, localEvent, aInputBlockId,
+              mSetAllowedTouchBehaviorCallback);
     }
     UniquePtr<DisplayportSetListener> postLayerization =
         APZCCallbackHelper::SendSetTargetAPZCNotification(
@@ -1869,7 +1861,8 @@ mozilla::ipc::IPCResult BrowserChild::RecvRealTouchEvent(
   }
 
   mAPZEventState->ProcessTouchEvent(localEvent, aGuid, aInputBlockId,
-                                    aApzResponse, status);
+                                    aApzResponse, status,
+                                    std::move(allowedTouchBehaviors));
   return IPC_OK();
 }
 
@@ -2403,6 +2396,75 @@ mozilla::ipc::IPCResult BrowserChild::RecvGetAudioChannelActivity(
   return IPC_OK();
 }
 
+mozilla::ipc::IPCResult BrowserChild::RecvPrintPreview(
+    const PrintData& aPrintData,
+    const mozilla::Maybe<uint64_t>& aSourceOuterWindowID,
+    PrintPreviewResolver&& aCallback) {
+#ifdef NS_PRINTING
+  // If we didn't succeed in passing off ownership of aCallback, then something
+  // went wrong.
+  auto sendCallbackError = MakeScopeExit([&] {
+    if (aCallback) {
+      aCallback(PrintPreviewResultInfo(0, 0, false));  // signal error
+    }
+  });
+
+  RefPtr<nsGlobalWindowOuter> sourceWindow;
+  if (aSourceOuterWindowID) {
+    sourceWindow =
+        nsGlobalWindowOuter::GetOuterWindowWithId(aSourceOuterWindowID.value());
+    if (NS_WARN_IF(!sourceWindow)) {
+      return IPC_OK();
+    }
+  } else {
+    nsCOMPtr<nsPIDOMWindowOuter> ourWindow = do_GetInterface(WebNavigation());
+    if (NS_WARN_IF(!ourWindow)) {
+      return IPC_OK();
+    }
+    sourceWindow = nsGlobalWindowOuter::Cast(ourWindow);
+  }
+
+  RefPtr<nsIPrintSettings> printSettings;
+  nsCOMPtr<nsIPrintSettingsService> printSettingsSvc =
+      do_GetService("@mozilla.org/gfx/printsettings-service;1");
+  if (NS_WARN_IF(!printSettingsSvc)) {
+    return IPC_OK();
+  }
+  printSettingsSvc->GetNewPrintSettings(getter_AddRefs(printSettings));
+  if (NS_WARN_IF(!printSettings)) {
+    return IPC_OK();
+  }
+  printSettingsSvc->DeserializeToPrintSettings(aPrintData, printSettings);
+
+  nsCOMPtr<nsIDocShell> docShellToCloneInto;
+  if (aSourceOuterWindowID) {
+    docShellToCloneInto = do_GetInterface(WebNavigation());
+    if (NS_WARN_IF(!docShellToCloneInto)) {
+      return IPC_OK();
+    }
+  }
+
+  sourceWindow->Print(printSettings,
+                      /* aListener = */ nullptr, docShellToCloneInto,
+                      nsGlobalWindowOuter::IsPreview::Yes,
+                      nsGlobalWindowOuter::BlockUntilDone::No,
+                      std::move(aCallback), IgnoreErrors());
+#endif
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult BrowserChild::RecvExitPrintPreview() {
+#ifdef NS_PRINTING
+  nsCOMPtr<nsIWebBrowserPrint> webBrowserPrint =
+      do_GetInterface(ToSupports(WebNavigation()));
+  if (NS_WARN_IF(!webBrowserPrint)) {
+    return IPC_OK();
+  }
+  webBrowserPrint->ExitPrintPreview();
+#endif
+  return IPC_OK();
+}
+
 mozilla::ipc::IPCResult BrowserChild::RecvPrint(const uint64_t& aOuterWindowID,
                                                 const PrintData& aPrintData) {
 #ifdef NS_PRINTING
@@ -2438,7 +2500,9 @@ mozilla::ipc::IPCResult BrowserChild::RecvPrint(const uint64_t& aOuterWindowID,
     outerWindow->Print(printSettings,
                        /* aListener = */ nullptr,
                        /* aWindowToCloneInto = */ nullptr,
-                       /* aIsPreview = */ false, rv);
+                       nsGlobalWindowOuter::IsPreview::No,
+                       nsGlobalWindowOuter::BlockUntilDone::No,
+                       /* aPrintPreviewCallback = */ nullptr, rv);
     if (NS_WARN_IF(rv.Failed())) {
       return IPC_OK();
     }
@@ -2808,9 +2872,10 @@ bool BrowserChild::CreateRemoteLayerManager(
     success = mPuppetWidget->CreateRemoteLayerManager(
         [&](LayerManager* aLayerManager) -> bool {
           MOZ_ASSERT(aLayerManager->AsWebRenderLayerManager());
+          nsCString error;
           return aLayerManager->AsWebRenderLayerManager()->Initialize(
               aCompositorChild, wr::AsPipelineId(mLayersId),
-              &mTextureFactoryIdentifier);
+              &mTextureFactoryIdentifier, error);
         });
   } else {
     nsTArray<LayersBackend> ignored;

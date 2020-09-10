@@ -319,6 +319,8 @@ class ContentChild final : public PContentChild,
   mozilla::ipc::IPCResult RecvRegisterChromeItem(
       const ChromeRegistryItem& item);
 
+  mozilla::ipc::IPCResult RecvClearStyleSheetCache(
+      const Maybe<RefPtr<nsIPrincipal>>& aForPrincipal);
   mozilla::ipc::IPCResult RecvClearImageCache(const bool& privateLoader,
                                               const bool& chrome);
 
@@ -881,8 +883,8 @@ class ContentChild final : public PContentChild,
       nsDocShellLoadState* aLoadState, bool aSetNavigating,
       LoadURIResolver&& aResolve);
 
-  mozilla::ipc::IPCResult RecvInternalLoad(
-      nsDocShellLoadState* aLoadState, bool aTakeFocus);
+  mozilla::ipc::IPCResult RecvInternalLoad(nsDocShellLoadState* aLoadState,
+                                           bool aTakeFocus);
 
   mozilla::ipc::IPCResult RecvDisplayLoadError(
       const MaybeDiscarded<BrowsingContext>& aContext, const nsAString& aURI);

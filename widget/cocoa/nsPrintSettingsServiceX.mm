@@ -53,10 +53,10 @@ nsresult nsPrintSettingsServiceX::SerializeToPrintDataParent(nsIPrintSettings* a
     return NS_ERROR_FAILURE;
   }
 
-  NSString* printerName = [dict objectForKey:NSPrintPrinterName];
-  if (printerName) {
-    nsCocoaUtils::GetStringForNSString(printerName, data->printerName());
-  }
+  // We do NOT get the printer name from the printInfo dictionary, because it
+  // would not correctly represent the Save to PDF pseudo-destination. The base
+  // implementation will have set it directly from our internally-stored name
+  // already.
 
   NSString* faxNumber = [dict objectForKey:NSPrintFaxNumber];
   if (faxNumber) {
@@ -66,7 +66,7 @@ nsresult nsPrintSettingsServiceX::SerializeToPrintDataParent(nsIPrintSettings* a
   NSURL* printToFileURL = [dict objectForKey:NSPrintJobSavingURL];
   if (printToFileURL) {
     if ([printToFileURL isFileURL]) {
-      nsCocoaUtils::GetStringForNSString([printToFileURL path], data->toFileName());
+      nsCocoaUtils::GetStringForNSString([printToFileURL path], data -> toFileName());
     } else {
       MOZ_ASSERT_UNREACHABLE("expected a file URL");
     }

@@ -142,7 +142,11 @@ use crate::scene_builder_thread::InternerUpdates;
 #[cfg(any(feature = "capture", feature = "replay"))]
 use crate::intern::{Internable, UpdateList};
 #[cfg(any(feature = "capture", feature = "replay"))]
-use api::{ClipIntern, FilterDataIntern, PrimitiveKeyKind};
+use crate::clip::ClipIntern;
+#[cfg(any(feature = "capture", feature = "replay"))]
+use crate::filterdata::FilterDataIntern;
+#[cfg(any(feature = "capture", feature = "replay"))]
+use api::PrimitiveKeyKind;
 #[cfg(any(feature = "capture", feature = "replay"))]
 use crate::prim_store::backdrop::Backdrop;
 #[cfg(any(feature = "capture", feature = "replay"))]
@@ -2012,7 +2016,7 @@ macro_rules! declare_tile_cache_logger_updatelists {
 }
 
 #[cfg(any(feature = "capture", feature = "replay"))]
-enumerate_interners!(declare_tile_cache_logger_updatelists);
+crate::enumerate_interners!(declare_tile_cache_logger_updatelists);
 
 #[cfg(not(any(feature = "capture", feature = "replay")))]
 pub struct TileCacheLoggerUpdateLists {
@@ -3895,7 +3899,6 @@ pub struct PictureUpdateState<'a> {
     surfaces: &'a mut Vec<SurfaceInfo>,
     surface_stack: Vec<SurfaceIndex>,
     picture_stack: Vec<PictureInfo>,
-    are_raster_roots_assigned: bool,
     composite_state: &'a CompositeState,
 }
 
@@ -3918,7 +3921,6 @@ impl<'a> PictureUpdateState<'a> {
             surfaces,
             surface_stack: buffers.surface_stack.take().cleared(),
             picture_stack: buffers.picture_stack.take().cleared(),
-            are_raster_roots_assigned: true,
             composite_state,
         };
 
@@ -3932,14 +3934,6 @@ impl<'a> PictureUpdateState<'a> {
             clip_store,
             data_stores,
         );
-
-        if !state.are_raster_roots_assigned {
-            state.assign_raster_roots(
-                pic_index,
-                picture_primitives,
-                ROOT_SPATIAL_NODE_INDEX,
-            );
-        }
 
         buffers.surface_stack = state.surface_stack.take();
         buffers.picture_stack = state.picture_stack.take();
@@ -4029,49 +4023,6 @@ impl<'a> PictureUpdateState<'a> {
                 frame_context,
                 data_stores,
             );
-        }
-    }
-
-    /// Process the picture tree again in a depth-first order,
-    /// and adjust the raster roots of the pictures that want to establish
-    /// their own roots but are not able to due to the size constraints.
-    fn assign_raster_roots(
-        &mut self,
-        pic_index: PictureIndex,
-        picture_primitives: &[PicturePrimitive],
-        fallback_raster_spatial_node: SpatialNodeIndex,
-    ) {
-        let picture = &picture_primitives[pic_index.0];
-        if !picture.is_visible() {
-            return
-        }
-
-        let new_fallback = match picture.raster_config {
-            Some(ref config) => {
-                let surface = &mut self.surfaces[config.surface_index.0];
-                if !config.establishes_raster_root {
-                    surface.raster_spatial_node_index = fallback_raster_spatial_node;
-                }
-                surface.raster_spatial_node_index
-            }
-            None => fallback_raster_spatial_node,
-        };
-
-        for cluster in &picture.prim_list.clusters {
-            if !cluster.flags.contains(ClusterFlags::IS_PICTURE) {
-                continue;
-            }
-            for instance in &picture.prim_list.prim_instances[cluster.prim_range()] {
-                let child_pic_index = match instance.kind {
-                    PrimitiveInstanceKind::Picture { pic_index, .. } => pic_index,
-                    _ => unreachable!(),
-                };
-                self.assign_raster_roots(
-                    child_pic_index,
-                    picture_primitives,
-                    new_fallback,
-                );
-            }
         }
     }
 }
@@ -4330,18 +4281,6 @@ bitflags! {
         const IS_VISIBLE = 4;
         /// Is a backdrop-filter cluster that requires special handling during post_update.
         const IS_BACKDROP_FILTER = 8;
-        /// Force creation of a picture caching slice before this cluster.
-        const CREATE_PICTURE_CACHE_PRE = 16;
-        /// Force creation of a picture caching slice after this cluster.
-        const CREATE_PICTURE_CACHE_POST = 32;
-        /// If set, this cluster represents a scroll bar container.
-        const SCROLLBAR_CONTAINER = 64;
-        /// If set, this cluster contains clear rectangle primitives.
-        const IS_CLEAR_PRIMITIVE = 128;
-        /// This is used as a performance hint - this primitive may be promoted to a native
-        /// compositor surface under certain (implementation specific) conditions. This
-        /// is typically used for large videos, and canvas elements.
-        const PREFER_COMPOSITOR_SURFACE = 256;
     }
 }
 
@@ -4360,8 +4299,6 @@ pub struct PrimitiveCluster {
     pub prim_range: Range<usize>,
     /// Various flags / state for this cluster.
     pub flags: ClusterFlags,
-    /// An optional scroll root to use if this cluster establishes a picture cache slice.
-    pub cache_scroll_root: Option<SpatialNodeIndex>,
 }
 
 impl PrimitiveCluster {
@@ -4375,7 +4312,6 @@ impl PrimitiveCluster {
             bounding_rect: LayoutRect::zero(),
             spatial_node_index,
             flags,
-            cache_scroll_root: None,
             prim_range: first_instance_index..first_instance_index
         }
     }
@@ -4386,13 +4322,6 @@ impl PrimitiveCluster {
         spatial_node_index: SpatialNodeIndex,
         flags: ClusterFlags,
     ) -> bool {
-        // If this cluster is a scrollbar, ensure that a matching scrollbar
-        // container that follows is split up, so we don't combine the
-        // scrollbars into a single slice.
-        if self.flags.contains(ClusterFlags::SCROLLBAR_CONTAINER) {
-            return false;
-        }
-
         self.flags == flags && self.spatial_node_index == spatial_node_index
     }
 
@@ -4454,22 +4383,11 @@ impl PrimitiveList {
             PrimitiveInstanceKind::Backdrop { .. } => {
                 flags.insert(ClusterFlags::IS_BACKDROP_FILTER);
             }
-            PrimitiveInstanceKind::Clear { .. } => {
-                flags.insert(ClusterFlags::IS_CLEAR_PRIMITIVE);
-            }
             _ => {}
         }
 
         if prim_flags.contains(PrimitiveFlags::IS_BACKFACE_VISIBLE) {
             flags.insert(ClusterFlags::IS_BACKFACE_VISIBLE);
-        }
-
-        if prim_flags.contains(PrimitiveFlags::IS_SCROLLBAR_CONTAINER) {
-            flags.insert(ClusterFlags::SCROLLBAR_CONTAINER);
-        }
-
-        if prim_flags.contains(PrimitiveFlags::PREFER_COMPOSITOR_SURFACE) {
-            flags.insert(ClusterFlags::PREFER_COMPOSITOR_SURFACE);
         }
 
         let culling_rect = prim_instance.clip_set.local_clip_rect
@@ -4534,18 +4452,6 @@ impl PrimitiveList {
     /// Returns true if there are no clusters (and thus primitives)
     pub fn is_empty(&self) -> bool {
         self.clusters.is_empty()
-    }
-
-    /// Merge another primitive list into this one
-    pub fn extend(&mut self, mut prim_list: PrimitiveList) {
-        let offset = self.prim_instances.len();
-        for cluster in &mut prim_list.clusters {
-            cluster.prim_range.start += offset;
-            cluster.prim_range.end += offset;
-        }
-
-        self.prim_instances.extend(prim_list.prim_instances);
-        self.clusters.extend(prim_list.clusters);
     }
 }
 
@@ -6213,16 +6119,6 @@ impl PicturePrimitive {
             // Pop this surface from the stack
             let surface_index = state.pop_surface();
             debug_assert_eq!(surface_index, raster_config.surface_index);
-
-            // Check if any of the surfaces can't be rasterized in local space but want to.
-            if raster_config.establishes_raster_root
-                && (surface_rect.size.width > MAX_SURFACE_SIZE
-                    || surface_rect.size.height > MAX_SURFACE_SIZE)
-                && frame_context.debug_flags.contains(DebugFlags::DISABLE_RASTER_ROOT_SCALING)
-            {
-                raster_config.establishes_raster_root = false;
-                state.are_raster_roots_assigned = false;
-            }
 
             // Set the estimated and precise local rects. The precise local rect
             // may be changed again during frame visibility.

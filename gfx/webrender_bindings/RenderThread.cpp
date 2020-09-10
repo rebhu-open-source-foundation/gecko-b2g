@@ -503,7 +503,11 @@ void RenderThread::UpdateAndRender(
     }
   }
 
+  ipc::FileDescriptor fenceFd;
+
   if (latestFrameId.IsValid()) {
+    fenceFd = renderer->GetAndResetReleaseFence();
+
     // Wait for GPU after posting NotifyDidRender, since the wait is not
     // necessary for the NotifyDidRender.
     // The wait is necessary for Textures recycling of AsyncImagePipelineManager
@@ -528,8 +532,8 @@ void RenderThread::UpdateAndRender(
   // removed the relevant renderer. And after that happens we should never reach
   // this code at all; it would bail out at the mRenderers.find check above.
   MOZ_ASSERT(pipelineMgr);
-  pipelineMgr->NotifyPipelinesUpdated(info, latestFrameId,
-                                      lastCompletedFrameId);
+  pipelineMgr->NotifyPipelinesUpdated(info, latestFrameId, lastCompletedFrameId,
+                                      std::move(fenceFd));
 }
 
 void RenderThread::Pause(wr::WindowId aWindowId) {
@@ -831,13 +835,20 @@ static void DoNotifyWebRenderError(WebRenderError aError) {
   layers::CompositorManagerParent::NotifyWebRenderError(aError);
 }
 
+void RenderThread::NotifyWebRenderError(WebRenderError aError) {
+  MOZ_ASSERT(IsInRenderThread());
+
+  layers::CompositorThread()->Dispatch(NewRunnableFunction(
+      "DoNotifyWebRenderErrorRunnable", &DoNotifyWebRenderError, aError));
+}
+
 void RenderThread::HandleWebRenderError(WebRenderError aError) {
   if (mHandlingWebRenderError) {
     return;
   }
 
-  layers::CompositorThread()->Dispatch(NewRunnableFunction(
-      "DoNotifyWebRenderErrorRunnable", &DoNotifyWebRenderError, aError));
+  NotifyWebRenderError(aError);
+
   {
     MutexAutoLock lock(mRenderTextureMapLock);
     mRenderTexturesDeferred.clear();

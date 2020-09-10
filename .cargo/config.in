@@ -15,7 +15,7 @@ tag = "v0.4.10"
 [source."https://github.com/mozilla/mp4parse-rust"]
 git = "https://github.com/mozilla/mp4parse-rust"
 replace-with = "vendored-sources"
-rev = "d5a37fd0bd51e06a53274c68213b00136aba83a6"
+rev = "fe9028570e44f3a725dd78bbb58428909c4618bf"
 
 [source."https://github.com/mozilla/application-services"]
 git = "https://github.com/mozilla/application-services"
@@ -60,7 +60,7 @@ rev = "3224e2dee65c0726c448484d4c3c43956b9330ec"
 [source."https://github.com/bytecodealliance/wasmtime"]
 git = "https://github.com/bytecodealliance/wasmtime"
 replace-with = "vendored-sources"
-rev = "7c856542854bc8c5da9d5fb1a0b41f3c660d8484"
+rev = "a7f7c23bf9c37c642da962d575b7c99007918872"
 
 [source."https://github.com/badboy/failure"]
 git = "https://github.com/badboy/failure"

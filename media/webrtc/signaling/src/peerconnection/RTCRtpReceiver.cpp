@@ -93,13 +93,15 @@ RTCRtpReceiver::RTCRtpReceiver(nsPIDOMWindowInner* aWindow, bool aPrivacyNeeded,
                                JsepTransceiver* aJsepTransceiver,
                                nsISerialEventTarget* aMainThread,
                                nsISerialEventTarget* aStsThread,
-                               MediaSessionConduit* aConduit)
+                               MediaSessionConduit* aConduit,
+                               TransceiverImpl* aTransceiverImpl)
     : mWindow(aWindow),
       mPCHandle(aPCHandle),
       mJsepTransceiver(aJsepTransceiver),
       mMainThread(aMainThread),
       mStsThread(aStsThread),
-      mTransportHandler(aTransportHandler) {
+      mTransportHandler(aTransportHandler),
+      mTransceiverImpl(aTransceiverImpl) {
   PrincipalHandle principalHandle = GetPrincipalHandle(aWindow, aPrivacyNeeded);
   mTrack = CreateTrack(aWindow, aConduit->type() == MediaSessionConduit::AUDIO,
                        principalHandle.get());
@@ -125,6 +127,10 @@ RTCRtpReceiver::~RTCRtpReceiver() { MOZ_ASSERT(!mPipeline); }
 JSObject* RTCRtpReceiver::WrapObject(JSContext* aCx,
                                      JS::Handle<JSObject*> aGivenProto) {
   return RTCRtpReceiver_Binding::Wrap(aCx, this, aGivenProto);
+}
+
+RTCDtlsTransport* RTCRtpReceiver::GetTransport() const {
+  return mTransceiverImpl->GetDtlsTransport();
 }
 
 already_AddRefed<Promise> RTCRtpReceiver::GetStats() {
@@ -335,6 +341,7 @@ void RTCRtpReceiver::Shutdown() {
     mPipeline->Conduit()->SetRtcpEventObserver(nullptr);
     mPipeline = nullptr;
   }
+  mTransceiverImpl = nullptr;
 }
 
 void RTCRtpReceiver::UpdateTransport() {

@@ -263,7 +263,8 @@ FunctionBox* PerHandlerParser<ParseHandler>::newFunctionBox(
   MOZ_ASSERT_IF(isTopLevel == TopLevelFunction::Yes,
                 index == CompilationInfo::TopLevelIndex);
 
-  if (!compilationInfo_.stencil.scriptData.emplaceBack(cx_)) {
+  if (!compilationInfo_.stencil.scriptData.emplaceBack()) {
+    js::ReportOutOfMemory(cx_);
     return nullptr;
   }
 
@@ -1951,6 +1952,7 @@ bool PerHandlerParser<SyntaxParseHandler>::finishFunction(
 
   ScriptThingsVector& gcthings = script.gcThings;
   if (!gcthings.reserve(ngcthings.value())) {
+    js::ReportOutOfMemory(cx_);
     return false;
   }
 
@@ -2691,7 +2693,7 @@ bool Parser<FullParseHandler, Unit>::skipLazyInnerFunction(
   const ParserAtom* displayAtom = nullptr;
   if (fun->displayAtom()) {
     displayAtom =
-        this->compilationInfo_.lowerJSAtomToParserAtom(fun->displayAtom());
+        this->compilationInfo_.lowerJSAtomToParserAtom(cx_, fun->displayAtom());
     if (!displayAtom) {
       return false;
     }
@@ -2869,7 +2871,7 @@ GeneralParser<ParseHandler, Unit>::functionDefinition(
   Directives directives(pc_);
   Directives newDirectives = directives;
 
-  Position start(this->compilationState_.keepAtoms, tokenStream);
+  Position start(tokenStream);
   CompilationInfo::RewindToken startObj =
       this->compilationInfo_.getRewindToken();
 
@@ -2909,12 +2911,11 @@ GeneralParser<ParseHandler, Unit>::functionDefinition(
 
 template <typename Unit>
 bool Parser<FullParseHandler, Unit>::advancePastSyntaxParsedFunction(
-    AutoKeepAtoms& keepAtoms, SyntaxParser* syntaxParser) {
+    SyntaxParser* syntaxParser) {
   MOZ_ASSERT(getSyntaxParser() == syntaxParser);
 
   // Advance this parser over tokens processed by the syntax parser.
-  Position currentSyntaxPosition(this->compilationState_.keepAtoms,
-                                 syntaxParser->tokenStream);
+  Position currentSyntaxPosition(syntaxParser->tokenStream);
   if (!tokenStream.fastForward(currentSyntaxPosition, syntaxParser->anyChars)) {
     return false;
   }
@@ -2961,7 +2962,7 @@ bool Parser<FullParseHandler, Unit>::trySyntaxParseInnerFunction(
     //   var x = (y = z => 2) => q;
     //   //           ^ we first seek to here to syntax-parse this function
     //   //      ^ then we seek back to here to syntax-parse the outer function
-    Position currentPosition(this->compilationState_.keepAtoms, tokenStream);
+    Position currentPosition(tokenStream);
     if (!syntaxParser->tokenStream.seekTo(currentPosition, anyChars)) {
       return false;
     }
@@ -2996,8 +2997,7 @@ bool Parser<FullParseHandler, Unit>::trySyntaxParseInnerFunction(
       return false;
     }
 
-    if (!advancePastSyntaxParsedFunction(this->compilationState_.keepAtoms,
-                                         syntaxParser)) {
+    if (!advancePastSyntaxParsedFunction(syntaxParser)) {
       return false;
     }
 
@@ -3184,7 +3184,7 @@ FunctionNode* Parser<FullParseHandler, Unit>::standaloneLazyFunction(
   const ParserAtom* displayAtom = nullptr;
   if (fun->displayAtom()) {
     displayAtom =
-        this->compilationInfo_.lowerJSAtomToParserAtom(fun->displayAtom());
+        this->compilationInfo_.lowerJSAtomToParserAtom(cx_, fun->displayAtom());
     if (!displayAtom) {
       return null();
     }
@@ -7204,14 +7204,17 @@ bool GeneralParser<ParseHandler, Unit>::classMember(
   const ParserAtom* funName = nullptr;
   switch (propType) {
     case PropertyType::Getter:
-    case PropertyType::Setter:
-      if (!anyChars.isCurrentTokenType(TokenKind::RightBracket)) {
+    case PropertyType::Setter: {
+      bool hasStaticName =
+          !anyChars.isCurrentTokenType(TokenKind::RightBracket) && propAtom;
+      if (hasStaticName) {
         funName = prefixAccessorName(propType, propAtom);
         if (!funName) {
           return false;
         }
       }
       break;
+    }
     case PropertyType::Constructor:
     case PropertyType::DerivedConstructor:
       funName = className;
@@ -7322,6 +7325,9 @@ bool GeneralParser<ParseHandler, Unit>::classMember(
       }
       const ParserAtom* storedMethodAtom =
           storedMethodName.finishParserAtom(this->compilationInfo_);
+      if (!storedMethodAtom) {
+        return false;
+      }
       const ParserName* storedMethodProp = storedMethodAtom->asName();
       if (!noteDeclaredName(storedMethodProp, DeclarationKind::Const, pos())) {
         return false;
@@ -8993,7 +8999,7 @@ typename ParseHandler::Node GeneralParser<ParseHandler, Unit>::assignExpr(
 
   // Save the tokenizer state in case we find an arrow function and have to
   // rewind.
-  Position start(this->compilationState_.keepAtoms, tokenStream);
+  Position start(tokenStream);
 
   PossibleError possibleErrorInner(*this);
   Node lhs;
@@ -10247,6 +10253,7 @@ RegExpLiteral* Parser<FullParseHandler, Unit>::newRegExp() {
 
   RegExpIndex index(this->getCompilationInfo().stencil.regExpData.length());
   if (!this->getCompilationInfo().stencil.regExpData.emplaceBack()) {
+    js::ReportOutOfMemory(cx_);
     return nullptr;
   }
 
@@ -10299,6 +10306,7 @@ BigIntLiteral* Parser<FullParseHandler, Unit>::newBigInt() {
 
   BigIntIndex index(this->getCompilationInfo().stencil.bigIntData.length());
   if (!this->getCompilationInfo().stencil.bigIntData.emplaceBack()) {
+    js::ReportOutOfMemory(cx_);
     return null();
   }
 
@@ -10324,31 +10332,6 @@ template <class ParseHandler, typename Unit>
 typename ParseHandler::BigIntLiteralType
 GeneralParser<ParseHandler, Unit>::newBigInt() {
   return asFinalParser()->newBigInt();
-}
-
-template <class ParseHandler, typename Unit>
-const ParserAtom* GeneralParser<ParseHandler, Unit>::bigIntAtom() {
-  // TODO-Stencil: In progress on Bug 1659595.
-  //
-  // This implementation needs to be changed to do either a direct translation
-  // of the atom, or the parser in general fixed to not require normalized
-  // bigint atoms, and this code changed to return the raw character data as
-  // an atom (or more appropriately: this method removed and its user
-  // changed to just create a regular string atom).
-
-  // See newBigInt() for a description about |chars'| contents.
-  const auto& chars = tokenStream.getCharBuffer();
-  mozilla::Range<const char16_t> source(chars.begin(), chars.length());
-
-  RootedBigInt bi(cx_, js::ParseBigIntLiteral(cx_, source));
-  if (!bi) {
-    return nullptr;
-  }
-  RootedAtom atom(cx_, BigIntToAtom<CanGC>(cx_, bi));
-  if (!atom) {
-    return nullptr;
-  }
-  return this->compilationInfo_.lowerJSAtomToParserAtom(atom.get());
 }
 
 // |exprPossibleError| is the PossibleError state within |expr|,
@@ -10614,7 +10597,7 @@ typename ParseHandler::Node GeneralParser<ParseHandler, Unit>::propertyName(
   switch (ltok) {
     case TokenKind::Number: {
       const ParserAtom* numAtom = NumberToParserAtom(
-          this->compilationInfo_, anyChars.currentToken().number());
+          cx_, this->compilationInfo_, anyChars.currentToken().number());
       if (!numAtom) {
         return null();
       }
@@ -10622,13 +10605,13 @@ typename ParseHandler::Node GeneralParser<ParseHandler, Unit>::propertyName(
       return newNumber(anyChars.currentToken());
     }
 
-    case TokenKind::BigInt:
-      *propAtomOut = bigIntAtom();
-      if (!*propAtomOut) {
+    case TokenKind::BigInt: {
+      Node biNode = newBigInt();
+      if (!biNode) {
         return null();
       }
-      return newBigInt();
-
+      return handler_.newSyntheticComputedName(biNode, pos().begin, pos().end);
+    }
     case TokenKind::String: {
       *propAtomOut = anyChars.currentToken().atom();
       uint32_t index;
@@ -11060,7 +11043,9 @@ GeneralParser<ParseHandler, Unit>::objectLiteral(YieldHandling yieldHandling,
         }
       } else {
         const ParserAtom* funName = nullptr;
-        if (!anyChars.isCurrentTokenType(TokenKind::RightBracket)) {
+        bool hasStaticName =
+            !anyChars.isCurrentTokenType(TokenKind::RightBracket) && propAtom;
+        if (hasStaticName) {
           funName = propAtom;
 
           if (propType == PropertyType::Getter ||

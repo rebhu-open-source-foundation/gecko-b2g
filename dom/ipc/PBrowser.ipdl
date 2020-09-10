@@ -98,6 +98,7 @@ using struct CollectedInputDataValue from "mozilla/dom/SessionStoreMessageUtils.
 using mozilla::ContentBlockingNotifier::StorageAccessPermissionGrantedReason from "mozilla/ContentBlockingNotifier.h";
 using CallerType from "mozilla/dom/BindingDeclarations.h";
 using mozilla::dom::EmbedderElementEventType from "mozilla/dom/TabMessageTypes.h";
+using refcounted class nsDocShellLoadState from "nsDocShellLoadState.h";
 
 namespace mozilla {
 namespace dom {
@@ -144,6 +145,17 @@ struct WebProgressLocationChangeData
   nsIContentSecurityPolicy csp;
   nsIReferrerInfo referrerInfo;
   uint64_t? requestContextID;
+};
+
+/**
+ * If creating the print preview document or updating it with new print
+ * settings fails, sheetCount will be zero.
+ */
+struct PrintPreviewResultInfo
+{
+  uint32_t sheetCount;
+  uint32_t totalPageCount;
+  bool hasSelection;
 };
 
 /**
@@ -701,9 +713,7 @@ child:
 
     async CompositorOptionsChanged(CompositorOptions newOptions);
 
-    async LoadURL(nsCString uri,
-                  nsIPrincipal triggeringPrincipal,
-                  ParentShowInfo info);
+    async LoadURL(nsDocShellLoadState loadState, ParentShowInfo info);
 
     async ResumeLoad(uint64_t pendingSwitchID, ParentShowInfo info);
 
@@ -992,6 +1002,26 @@ child:
      */
     async HandledWindowedPluginKeyEvent(NativeEventData aKeyEventData,
                                         bool aIsConsumed);
+
+    /**
+     * Tell the child to create a print preview document in this browser, or
+     * to update the existing print preview document with new print settings.
+     *
+     * @param aPrintData The serialized print settings to use to layout the
+     *   print preview document.
+     * @param aSourceOuterWindowID Optionally, the ID of the nsGlobalWindowOuter
+     *   that contains the document from which the print preview is to be
+     *   generated.  This should only be passed on the first call.  It should
+     *   not be passed for any subsequent calls that are made to update the
+     *   existing print preview document with a new print settings object.
+     */
+    async PrintPreview(PrintData aPrintData,
+                       uint64_t? aSourceOuterWindowID) returns (PrintPreviewResultInfo aInfo);
+
+    /**
+     * Inform the print preview document that we're done with it.
+     */
+    async ExitPrintPreview();
 
     /**
      * Tell the child to print the current page with the given settings.

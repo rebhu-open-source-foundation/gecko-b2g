@@ -1779,7 +1779,7 @@ nsresult Notification::ResolveIconImageAndSoundURL(nsString& iconUrl,
       if (NS_SUCCEEDED(rv)) {
         nsAutoCString src;
         srcUri->GetSpec(src);
-        iconUrl = NS_ConvertUTF8toUTF16(src);
+        CopyUTF8toUTF16(src, iconUrl);
       }
     }
     if (mImageUrl.Length() > 0) {
@@ -1798,7 +1798,7 @@ nsresult Notification::ResolveIconImageAndSoundURL(nsString& iconUrl,
       if (NS_SUCCEEDED(rv)) {
         nsAutoCString src;
         srcUri->GetSpec(src);
-        soundUrl = NS_ConvertUTF8toUTF16(src);
+        CopyUTF8toUTF16(src, soundUrl);
       }
     }
   }

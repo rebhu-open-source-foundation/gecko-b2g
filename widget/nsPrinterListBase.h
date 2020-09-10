@@ -32,8 +32,8 @@ class nsPrinterListBase : public nsIPrinterList {
   struct PrinterInfo {
     // Both windows and CUPS: The name of the printer.
     nsString mName;
-    // CUPS only: Two handles to owned cups_dest_t / cups_dinfo_t objects.
-    void* mCupsHandles[2]{nullptr, nullptr};
+    // CUPS only: Handle to owned cups_dest_t.
+    void* mCupsHandle = nullptr;
   };
 
   // Called off the main thread, collect information to create an appropriate

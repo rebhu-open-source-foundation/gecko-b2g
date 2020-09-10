@@ -44,6 +44,7 @@
 #include "gc/ZoneAllocator.h"          // for AddCellMemory
 #include "jit/JSJitFrameIter.h"        // for InlineFrameIterator
 #include "jit/RematerializedFrame.h"  // for RematerializedFrame
+#include "js/Object.h"                // for SetReservedSlot
 #include "js/Proxy.h"                 // for PrivateValue
 #include "js/SourceText.h"            // for SourceText, SourceOwnership
 #include "js/StableStringChars.h"     // for AutoStableStringChars
@@ -952,17 +953,10 @@ static bool EvaluateInEnv(JSContext* cx, Handle<Env*> env,
       return false;
     }
 
-    frontend::CompilationInfo compilationInfo(cx, options);
-    if (!compilationInfo.input.initForEval(cx, scope)) {
+    script = frontend::CompileEvalScript(cx, options, srcBuf, scope, env);
+    if (!script) {
       return false;
     }
-
-    frontend::CompilationGCOutput gcOutput(cx);
-    if (!frontend::CompileEvalScript(compilationInfo, srcBuf, scope, env,
-                                     gcOutput)) {
-      return false;
-    }
-    script = gcOutput.script;
   } else {
     // Do not consider executeInGlobal{WithBindings} as an eval, but instead
     // as executing a series of statements at the global level. This is to
@@ -970,20 +964,13 @@ static bool EvaluateInEnv(JSContext* cx, Handle<Env*> env,
     // users of executeInGlobal, like the web console, may add new bindings to
     // the global scope.
 
-    frontend::CompilationInfo compilationInfo(cx, options);
-    if (!compilationInfo.input.initForGlobal(cx)) {
-      return false;
-    }
-
     MOZ_ASSERT(scopeKind == ScopeKind::Global ||
                scopeKind == ScopeKind::NonSyntactic);
 
-    frontend::CompilationGCOutput gcOutput(cx);
-    if (!frontend::CompileGlobalScript(compilationInfo, srcBuf, scopeKind,
-                                       gcOutput)) {
+    script = frontend::CompileGlobalScript(cx, options, srcBuf, scopeKind);
+    if (!script) {
       return false;
     }
-    script = gcOutput.script;
   }
 
   // Note: pass NullHandleValue for newTarget because the parser doesn't accept
@@ -1655,7 +1642,7 @@ DebuggerArguments* DebuggerArguments::create(JSContext* cx, HandleObject proto,
     return nullptr;
   }
 
-  SetReservedSlot(obj, FRAME_SLOT, ObjectValue(*frame));
+  JS::SetReservedSlot(obj, FRAME_SLOT, ObjectValue(*frame));
 
   MOZ_ASSERT(referent.numActualArgs() <= 0x7fffffff);
   unsigned fargc = referent.numActualArgs();

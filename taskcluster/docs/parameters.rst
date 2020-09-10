@@ -22,6 +22,11 @@ topic.
 Push Information
 ----------------
 
+``backstop``
+   Whether or not this push is a "backstop" push. That is a push where all
+   builds and tests should run to ensure regressions aren't accidentally
+   missed.
+
 ``base_repository``
    The repository from which to do an initial clone, utilizing any available
    caching.
@@ -168,7 +173,7 @@ Release Promotion
    Specify the next version for version bump tasks.
 
 ``release_type``
-   The type of release being promoted. One of "nightly", "beta", "esr68", "esr78", "release-rc", or "release".
+   The type of release being promoted. One of "nightly", "beta", "esr78", "release-rc", or "release".
 
 ``release_eta``
    The time and date when a release is scheduled to live. This value is passed to Balrog.

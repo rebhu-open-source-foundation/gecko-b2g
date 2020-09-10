@@ -22,6 +22,8 @@
 #include "jit/JitSpewer.h"
 #include "jit/Lowering.h"
 #include "jit/MIRGraph.h"
+#include "js/experimental/JitInfo.h"  // JSJitInfo
+#include "js/Object.h"                // JS::GetReservedSlot
 #include "js/ScalarType.h"  // js::Scalar::Type
 #include "util/CheckedArithmetic.h"
 #include "vm/ArgumentsObject.h"
@@ -10776,7 +10778,7 @@ AbortReasonOr<Ok> IonBuilder::getPropTryCommonGetter(bool* emitted,
         if (singleton && jitinfo->aliasSet() == JSJitInfo::AliasNone) {
           size_t slot = jitinfo->slotIndex;
           *emitted = true;
-          pushConstant(GetReservedSlot(singleton, slot));
+          pushConstant(JS::GetReservedSlot(singleton, slot));
           return Ok();
         }
 
@@ -11956,18 +11958,20 @@ AbortReasonOr<Ok> IonBuilder::jsop_functionthis() {
                  "JSOp::FunctionThis would need non-syntactic global");
   }
 
+  LexicalEnvironmentObject* globalLexical =
+      &script()->global().lexicalEnvironment();
+  JSObject* globalThis = globalLexical->thisObject();
+
   if (IsNullOrUndefined(def->type())) {
-    LexicalEnvironmentObject* globalLexical =
-        &script()->global().lexicalEnvironment();
-    pushConstant(ObjectValue(*globalLexical->thisObject()));
+    pushConstant(ObjectValue(*globalThis));
     return Ok();
   }
 
-  MBoxNonStrictThis* thisObj = MBoxNonStrictThis::New(alloc(), def);
+  MBoxNonStrictThis* thisObj = MBoxNonStrictThis::New(alloc(), def, globalThis);
   current->add(thisObj);
   current->push(thisObj);
 
-  return resumeAfter(thisObj);
+  return Ok();
 }
 
 AbortReasonOr<Ok> IonBuilder::jsop_globalthis() {
@@ -12490,7 +12494,8 @@ AbortReasonOr<Ok> IonBuilder::jsop_instanceof() {
       return Ok();
     }
 
-    MInstanceOf* ins = MInstanceOf::New(alloc(), obj, protoObject);
+    MConstant* protoConst = constant(ObjectValue(*protoObject));
+    MInstanceOf* ins = MInstanceOf::New(alloc(), obj, protoConst);
 
     current->add(ins);
     current->push(ins);
@@ -12529,7 +12534,7 @@ AbortReasonOr<Ok> IonBuilder::jsop_instanceof() {
       return Ok();
     }
 
-    MInstanceOf* ins = MInstanceOf::New(alloc(), obj, protoObject);
+    MInstanceOf* ins = MInstanceOf::New(alloc(), obj, protoConst);
     current->add(ins);
     current->push(ins);
     return resumeAfter(ins);

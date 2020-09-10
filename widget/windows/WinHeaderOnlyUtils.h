@@ -51,6 +51,23 @@ typedef struct _FILE_ID_INFO {
 #  define STATUS_SUCCESS ((NTSTATUS)0x00000000L)
 #endif  // !defined(STATUS_SUCCESS)
 
+// Our data indicates a few users of Win7 x86 hit failure to load urlmon.dll
+// for unknown reasons.  Since we don't always require urlmon.dll on Win7,
+// we delay-load it, which causes a crash if loading urlmon.dll fails.  This
+// macro is to safely load and call urlmon's API graciously without crash.
+#if defined(_X86_)
+#  define SAFECALL_URLMON_FUNC(FuncName, ...)                                  \
+    do {                                                                       \
+      static const mozilla::StaticDynamicallyLinkedFunctionPtr<decltype(       \
+          &::FuncName)>                                                        \
+          func(L"urlmon.dll", #FuncName);                                      \
+      hr =                                                                     \
+          func ? func(__VA_ARGS__) : HRESULT_FROM_WIN32(ERROR_PROC_NOT_FOUND); \
+    } while (0)
+#else
+#  define SAFECALL_URLMON_FUNC(FuncName, ...) hr = ::FuncName(__VA_ARGS__)
+#endif
+
 namespace mozilla {
 
 class WindowsError final {
@@ -397,18 +414,11 @@ class FileUniqueId final {
     GetId(aFile);
   }
 
-  FileUniqueId(const FileUniqueId& aOther) : mId(aOther.mId) {}
-
   ~FileUniqueId() = default;
 
   bool IsError() const { return mId.isErr(); }
 
   const WindowsErrorType& GetError() const { return mId.inspectErr(); }
-
-  FileUniqueId& operator=(const FileUniqueId& aOther) {
-    mId = aOther.mId;
-    return *this;
-  }
 
   FileUniqueId(FileUniqueId&& aOther) = default;
   FileUniqueId& operator=(FileUniqueId&& aOther) = delete;

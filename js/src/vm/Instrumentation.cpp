@@ -10,6 +10,7 @@
 
 #include "debugger/DebugAPI.h"
 #include "frontend/CompilationInfo.h"
+#include "js/Object.h"  // JS::GetReservedSlot
 #include "proxy/DeadObjectProxy.h"
 
 #include "vm/JSObject-inl.h"
@@ -31,7 +32,7 @@ enum InstrumentationHolderSlots {
 };
 
 static RealmInstrumentation* GetInstrumentation(JSObject* obj) {
-  Value v = JS_GetReservedSlot(obj, RealmInstrumentationSlot);
+  Value v = JS::GetReservedSlot(obj, RealmInstrumentationSlot);
   return static_cast<RealmInstrumentation*>(v.isUndefined() ? nullptr
                                                             : v.toPrivate());
 }
@@ -94,11 +95,12 @@ static bool StringToInstrumentationKind(JSContext* cx, HandleString str,
 
 /* static */
 const frontend::ParserAtom* RealmInstrumentation::getInstrumentationKindName(
-    frontend::CompilationInfo& compilationInfo, InstrumentationKind kind) {
+    JSContext* cx, frontend::CompilationInfo& compilationInfo,
+    InstrumentationKind kind) {
   for (size_t i = 0; i < mozilla::ArrayLength(instrumentationNames); i++) {
     if (kind == (InstrumentationKind)(1 << i)) {
       return compilationInfo.stencil.parserAtoms
-          .internAscii(compilationInfo.cx, instrumentationNames[i],
+          .internAscii(cx, instrumentationNames[i],
                        strlen(instrumentationNames[i]))
           .unwrapOr(nullptr);
     }

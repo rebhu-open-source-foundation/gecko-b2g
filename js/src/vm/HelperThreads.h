@@ -22,6 +22,7 @@
 #include "jsapi.h"
 
 #include "ds/Fifo.h"
+#include "frontend/CompilationInfo.h"  // frontend::CompilationInfo
 #include "jit/JitContext.h"
 #include "js/CompileOptions.h"
 #include "js/shadow/Zone.h"  // JS::shadow::Zone::GCState
@@ -329,6 +330,7 @@ class GlobalHelperThreadState {
 
   JSScript* finishSingleParseTask(JSContext* cx, ParseTaskKind kind,
                                   JS::OffThreadToken* token);
+  bool generateLCovSources(JSContext* cx, ParseTask* parseTask);
   bool finishMultiParseTask(JSContext* cx, ParseTaskKind kind,
                             JS::OffThreadToken* token,
                             MutableHandle<ScriptVector> scripts);
@@ -535,13 +537,6 @@ bool SetFakeCPUCount(size_t count);
 // Enqueues a wasm compilation task.
 bool StartOffThreadWasmCompile(wasm::CompileTask* task, wasm::CompileMode mode);
 
-namespace wasm {
-
-// Called on a helper thread after StartOffThreadWasmCompile.
-void ExecuteCompileTaskFromHelperThread(CompileTask* task);
-
-}  // namespace wasm
-
 // Enqueues a wasm compilation task.
 void StartOffThreadWasmTier2Generator(wasm::UniqueTier2GeneratorTask task);
 
@@ -743,6 +738,10 @@ struct ParseTask : public mozilla::LinkedListElement<ParseTask>,
   ParseTaskKind kind;
   JS::OwningCompileOptions options;
 
+  // HelperThreads are shared between all runtimes in the process so explicitly
+  // track which one we are associated with.
+  JSRuntime* runtime = nullptr;
+
   // The global object to use while parsing.
   JSObject* parseGlobal;
 
@@ -757,6 +756,9 @@ struct ParseTask : public mozilla::LinkedListElement<ParseTask>,
 
   // Holds the ScriptSourceObjects generated for the script compilation.
   GCVector<ScriptSourceObject*, 1, SystemAllocPolicy> sourceObjects;
+
+  // Holds the CompilationInfo generated for the script compilation.
+  UniquePtr<frontend::CompilationInfo> compilationInfo_;
 
   // Any errors or warnings produced during compilation. These are reported
   // when finishing the script.
@@ -773,10 +775,9 @@ struct ParseTask : public mozilla::LinkedListElement<ParseTask>,
 
   void activate(JSRuntime* rt);
   virtual void parse(JSContext* cx) = 0;
+  bool instantiateStencils(JSContext* cx);
 
-  bool runtimeMatches(JSRuntime* rt) {
-    return parseGlobal->runtimeFromAnyThread() == rt;
-  }
+  bool runtimeMatches(JSRuntime* rt) { return runtime == rt; }
 
   void trace(JSTracer* trc);
 
@@ -888,7 +889,7 @@ class SourceCompressionTask : public RunnableTask {
 // The helper thread will call execute() to do the main work. Then, the thread
 // of the JSContext used to create the PromiseHelperTask will call resolve() to
 // resolve promise according to those results.
-struct PromiseHelperTask : OffThreadPromiseTask, public RunnableTask {
+struct PromiseHelperTask : OffThreadPromiseTask, public HelperThreadTask {
   PromiseHelperTask(JSContext* cx, Handle<PromiseObject*> promise)
       : OffThreadPromiseTask(cx, promise) {}
 
@@ -901,7 +902,8 @@ struct PromiseHelperTask : OffThreadPromiseTask, public RunnableTask {
   // Warning: After this function returns, 'this' can be deleted at any time, so
   // the caller must immediately return from the stream callback.
   void executeAndResolveAndDestroy(JSContext* cx);
-  void runTask() override;
+
+  void runTaskLocked(AutoLockHelperThreadState& lock) override;
   ThreadType threadType() override { return THREAD_TYPE_PROMISE_TASK; }
 };
 

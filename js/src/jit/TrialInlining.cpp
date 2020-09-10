@@ -226,7 +226,6 @@ ICScript* TrialInliner::createInlinedICScript(JSFunction* target,
   MOZ_ASSERT(target->hasJitScript());
 
   JSScript* targetScript = target->baseScript()->asJSScript();
-  JitScript* targetJitScript = targetScript->jitScript();
 
   // We don't have to check for overflow here because we have already
   // successfully allocated an ICScript with this number of entries
@@ -247,8 +246,8 @@ ICScript* TrialInliner::createInlinedICScript(JSFunction* target,
   const uint32_t InitialWarmUpCount = 0;
 
   uint32_t depth = icScript_->depth() + 1;
-  UniquePtr<ICScript> inlinedICScript(new (raw) ICScript(
-      targetJitScript, InitialWarmUpCount, allocSize, depth, root_));
+  UniquePtr<ICScript> inlinedICScript(
+      new (raw) ICScript(InitialWarmUpCount, allocSize, depth, root_));
 
   {
     // Suppress GC. This matches the AutoEnterAnalysis in
@@ -299,13 +298,6 @@ bool TrialInliner::maybeInlineCall(const ICEntry& entry, BytecodeLocation loc) {
   // We only inline FunCall if we are calling the js::fun_call builtin.
   MOZ_ASSERT_IF(loc.getOp() == JSOp::FunCall,
                 data->callFlags.getArgFormat() == CallFlags::FunCall);
-
-  // TODO: The arguments rectifier is not yet supported.
-  uint32_t argc =
-      loc.getOp() == JSOp::FunCall ? loc.getCallArgc() - 1 : loc.getCallArgc();
-  if (argc < data->target->nargs()) {
-    return true;
-  }
 
   ICScript* newICScript = createInlinedICScript(data->target, loc);
   if (!newICScript) {

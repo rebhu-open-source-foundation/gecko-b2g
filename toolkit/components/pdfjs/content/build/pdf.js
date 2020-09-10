@@ -335,8 +335,8 @@ var _text_layer = __w_pdfjs_require__(20);
 
 var _svg = __w_pdfjs_require__(21);
 
-const pdfjsVersion = '2.6.318';
-const pdfjsBuild = 'a6f66891';
+const pdfjsVersion = '2.7.26';
+const pdfjsBuild = 'e51e9d1f3';
 ;
 
 /***/ }),
@@ -853,6 +853,7 @@ exports.assert = assert;
 exports.bytesToString = bytesToString;
 exports.createPromiseCapability = createPromiseCapability;
 exports.escapeString = escapeString;
+exports.encodeToXmlString = encodeToXmlString;
 exports.getModificationDate = getModificationDate;
 exports.getVerbosityLevel = getVerbosityLevel;
 exports.info = info;
@@ -863,6 +864,7 @@ exports.isNum = isNum;
 exports.isString = isString;
 exports.isSameOrigin = isSameOrigin;
 exports.createValidAbsoluteUrl = createValidAbsoluteUrl;
+exports.parseXFAPath = parseXFAPath;
 exports.removeNullCharacters = removeNullCharacters;
 exports.setVerbosityLevel = setVerbosityLevel;
 exports.shadow = shadow;
@@ -1668,6 +1670,77 @@ const createObjectURL = function createObjectURLClosure() {
 
 exports.createObjectURL = createObjectURL;
 
+function parseXFAPath(path) {
+  const positionPattern = /(.+)\[([0-9]+)\]$/;
+  return path.split(".").map(component => {
+    const m = component.match(positionPattern);
+
+    if (m) {
+      return {
+        name: m[1],
+        pos: parseInt(m[2], 10)
+      };
+    }
+
+    return {
+      name: component,
+      pos: 0
+    };
+  });
+}
+
+const XMLEntities = {
+  0x3c: "&lt;",
+  0x3e: "&gt;",
+  0x26: "&amp;",
+  0x22: "&quot;",
+  0x27: "&apos;"
+};
+
+function encodeToXmlString(str) {
+  const buffer = [];
+  let start = 0;
+
+  for (let i = 0, ii = str.length; i < ii; i++) {
+    const char = str.codePointAt(i);
+
+    if (0x20 <= char && char <= 0x7e) {
+      const entity = XMLEntities[char];
+
+      if (entity) {
+        if (start < i) {
+          buffer.push(str.substring(start, i));
+        }
+
+        buffer.push(entity);
+        start = i + 1;
+      }
+    } else {
+      if (start < i) {
+        buffer.push(str.substring(start, i));
+      }
+
+      buffer.push(`&#x${char.toString(16).toUpperCase()};`);
+
+      if (char > 0xd7ff && (char < 0xe000 || char > 0xfffd)) {
+        i++;
+      }
+
+      start = i + 1;
+    }
+  }
+
+  if (buffer.length === 0) {
+    return str;
+  }
+
+  if (start < str.length) {
+    buffer.push(str.substring(start, str.length));
+  }
+
+  return buffer.join("");
+}
+
 /***/ }),
 /* 3 */
 /***/ (function(module, exports, __w_pdfjs_require__) {
@@ -1912,7 +1985,7 @@ function _fetchDocument(worker, source, pdfDataRangeTransport, docId) {
 
   return worker.messageHandler.sendWithPromise("GetDocRequest", {
     docId,
-    apiVersion: '2.6.318',
+    apiVersion: '2.7.26',
     source: {
       data: source.data,
       url: source.url,
@@ -3837,9 +3910,9 @@ const InternalRenderTask = function InternalRenderTaskClosure() {
   return InternalRenderTask;
 }();
 
-const version = '2.6.318';
+const version = '2.7.26';
 exports.version = version;
-const build = 'a6f66891';
+const build = 'e51e9d1f3';
 exports.build = build;
 
 /***/ }),
@@ -7568,7 +7641,10 @@ exports.Metadata = Metadata;
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.SimpleXMLParser = void 0;
+exports.SimpleXMLParser = exports.SimpleDOMNode = void 0;
+
+var _util = __w_pdfjs_require__(2);
+
 const XMLParserErrorCode = {
   NoError: 0,
   EndOfDocument: -1,
@@ -7602,9 +7678,9 @@ class XMLParserBase {
   _resolveEntities(s) {
     return s.replace(/&([^;]+);/g, (all, entity) => {
       if (entity.substring(0, 2) === "#x") {
-        return String.fromCharCode(parseInt(entity.substring(2), 16));
+        return String.fromCodePoint(parseInt(entity.substring(2), 16));
       } else if (entity.substring(0, 1) === "#") {
-        return String.fromCharCode(parseInt(entity.substring(1), 10));
+        return String.fromCodePoint(parseInt(entity.substring(1), 10));
       }
 
       switch (entity) {
@@ -7909,14 +7985,107 @@ class SimpleDOMNode {
     return this.childNodes && this.childNodes.length > 0;
   }
 
+  searchNode(paths, pos) {
+    if (pos >= paths.length) {
+      return this;
+    }
+
+    const component = paths[pos];
+    const stack = [];
+    let node = this;
+
+    while (true) {
+      if (component.name === node.nodeName) {
+        if (component.pos === 0) {
+          const res = node.searchNode(paths, pos + 1);
+
+          if (res !== null) {
+            return res;
+          }
+        } else if (stack.length === 0) {
+          return null;
+        } else {
+          const [parent] = stack.pop();
+          let siblingPos = 0;
+
+          for (const child of parent.childNodes) {
+            if (component.name === child.nodeName) {
+              if (siblingPos === component.pos) {
+                return child.searchNode(paths, pos + 1);
+              }
+
+              siblingPos++;
+            }
+          }
+
+          return node.searchNode(paths, pos + 1);
+        }
+      }
+
+      if (node.childNodes && node.childNodes.length !== 0) {
+        stack.push([node, 0]);
+        node = node.childNodes[0];
+      } else if (stack.length === 0) {
+        return null;
+      } else {
+        while (stack.length !== 0) {
+          const [parent, currentPos] = stack.pop();
+          const newPos = currentPos + 1;
+
+          if (newPos < parent.childNodes.length) {
+            stack.push([parent, newPos]);
+            node = parent.childNodes[newPos];
+            break;
+          }
+        }
+
+        if (stack.length === 0) {
+          return null;
+        }
+      }
+    }
+  }
+
+  dump(buffer) {
+    if (this.nodeName === "#text") {
+      buffer.push((0, _util.encodeToXmlString)(this.nodeValue));
+      return;
+    }
+
+    buffer.push(`<${this.nodeName}`);
+
+    if (this.attributes) {
+      for (const attribute of this.attributes) {
+        buffer.push(` ${attribute.name}=\"${(0, _util.encodeToXmlString)(attribute.value)}\"`);
+      }
+    }
+
+    if (this.hasChildNodes()) {
+      buffer.push(">");
+
+      for (const child of this.childNodes) {
+        child.dump(buffer);
+      }
+
+      buffer.push(`</${this.nodeName}>`);
+    } else if (this.nodeValue) {
+      buffer.push(`>${(0, _util.encodeToXmlString)(this.nodeValue)}</${this.nodeName}>`);
+    } else {
+      buffer.push("/>");
+    }
+  }
+
 }
 
+exports.SimpleDOMNode = SimpleDOMNode;
+
 class SimpleXMLParser extends XMLParserBase {
-  constructor() {
+  constructor(hasAttributes = false) {
     super();
     this._currentFragment = null;
     this._stack = null;
     this._errorCode = XMLParserErrorCode.NoError;
+    this._hasAttributes = hasAttributes;
   }
 
   parseFromString(data) {
@@ -7968,6 +8137,10 @@ class SimpleXMLParser extends XMLParserBase {
   onBeginElement(name, attributes, isEmpty) {
     const node = new SimpleDOMNode(name);
     node.childNodes = [];
+
+    if (this._hasAttributes) {
+      node.attributes = attributes;
+    }
 
     this._currentFragment.push(node);
 
@@ -8028,7 +8201,8 @@ class OptionalContentConfig {
   constructor(data) {
     this.name = null;
     this.creator = null;
-    this.groups = new Map();
+    this._order = null;
+    this._groups = new Map();
 
     if (data === null) {
       return;
@@ -8036,34 +8210,35 @@ class OptionalContentConfig {
 
     this.name = data.name;
     this.creator = data.creator;
+    this._order = data.order;
 
     for (const group of data.groups) {
-      this.groups.set(group.id, new OptionalContentGroup(group.name, group.intent));
+      this._groups.set(group.id, new OptionalContentGroup(group.name, group.intent));
     }
 
     if (data.baseState === "OFF") {
-      for (const group of this.groups) {
+      for (const group of this._groups) {
         group.visible = false;
       }
     }
 
     for (const on of data.on) {
-      this.groups.get(on).visible = true;
+      this._groups.get(on).visible = true;
     }
 
     for (const off of data.off) {
-      this.groups.get(off).visible = false;
+      this._groups.get(off).visible = false;
     }
   }
 
   isVisible(group) {
     if (group.type === "OCG") {
-      if (!this.groups.has(group.id)) {
+      if (!this._groups.has(group.id)) {
         (0, _util.warn)(`Optional content group not found: ${group.id}`);
         return true;
       }
 
-      return this.groups.get(group.id).visible;
+      return this._groups.get(group.id).visible;
     } else if (group.type === "OCMD") {
       if (group.expression) {
         (0, _util.warn)("Visibility expression not supported yet.");
@@ -8071,12 +8246,12 @@ class OptionalContentConfig {
 
       if (!group.policy || group.policy === "AnyOn") {
         for (const id of group.ids) {
-          if (!this.groups.has(id)) {
+          if (!this._groups.has(id)) {
             (0, _util.warn)(`Optional content group not found: ${id}`);
             return true;
           }
 
-          if (this.groups.get(id).visible) {
+          if (this._groups.get(id).visible) {
             return true;
           }
         }
@@ -8084,12 +8259,12 @@ class OptionalContentConfig {
         return false;
       } else if (group.policy === "AllOn") {
         for (const id of group.ids) {
-          if (!this.groups.has(id)) {
+          if (!this._groups.has(id)) {
             (0, _util.warn)(`Optional content group not found: ${id}`);
             return true;
           }
 
-          if (!this.groups.get(id).visible) {
+          if (!this._groups.get(id).visible) {
             return false;
           }
         }
@@ -8097,12 +8272,12 @@ class OptionalContentConfig {
         return true;
       } else if (group.policy === "AnyOff") {
         for (const id of group.ids) {
-          if (!this.groups.has(id)) {
+          if (!this._groups.has(id)) {
             (0, _util.warn)(`Optional content group not found: ${id}`);
             return true;
           }
 
-          if (!this.groups.get(id).visible) {
+          if (!this._groups.get(id).visible) {
             return true;
           }
         }
@@ -8110,12 +8285,12 @@ class OptionalContentConfig {
         return false;
       } else if (group.policy === "AllOff") {
         for (const id of group.ids) {
-          if (!this.groups.has(id)) {
+          if (!this._groups.has(id)) {
             (0, _util.warn)(`Optional content group not found: ${id}`);
             return true;
           }
 
-          if (this.groups.get(id).visible) {
+          if (this._groups.get(id).visible) {
             return false;
           }
         }
@@ -8129,6 +8304,39 @@ class OptionalContentConfig {
 
     (0, _util.warn)(`Unknown group type ${group.type}.`);
     return true;
+  }
+
+  setVisibility(id, visible = true) {
+    if (!this._groups.has(id)) {
+      (0, _util.warn)(`Optional content group not found: ${id}`);
+      return;
+    }
+
+    this._groups.get(id).visible = !!visible;
+  }
+
+  getOrder() {
+    if (!this._groups.size) {
+      return null;
+    }
+
+    if (this._order) {
+      return this._order.slice();
+    }
+
+    return Array.from(this._groups.keys());
+  }
+
+  getGroups() {
+    if (!this._groups.size) {
+      return null;
+    }
+
+    return Object.fromEntries(this._groups);
+  }
+
+  getGroup(id) {
+    return this._groups.get(id) || null;
   }
 
 }

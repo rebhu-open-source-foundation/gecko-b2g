@@ -2537,6 +2537,23 @@ class HTMLEditor final : public TextEditor,
       const CharPointData& aNextCharPointData);
 
   /**
+   * ComputeTargetRanges() computes actual delete ranges which will be deleted
+   * unless the following `beforeinput` event is canceled.
+   *
+   * @param aDirectionAndAmount         The direction and amount of deletion.
+   * @param aStripWrappers              Whether the empty parent elements
+   *                                    should be removed or not.
+   * @param aRangesToDelete             [In/Out] The ranges to be deleted,
+   *                                    typically, initialized with the
+   *                                    selection ranges.  This may be modified
+   *                                    if selection ranges should be extened.
+   */
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
+  ComputeTargetRanges(nsIEditor::EDirection aDirectionAndAmount,
+                      nsIEditor::EStripWrappers aStripWrappers,
+                      AutoRangeArray& aRangesToDelete);
+
+  /**
    * This method handles "delete selection" commands.
    *
    * @param aDirectionAndAmount Direction of the deletion.
@@ -3000,7 +3017,7 @@ class HTMLEditor final : public TextEditor,
 
   template <typename PT, typename CT>
   [[nodiscard]] MOZ_CAN_RUN_SCRIPT MOZ_NEVER_INLINE_DEBUG nsresult
-  CollapseSelectionTo(const EditorDOMPointBase<PT, CT>& aPoint) {
+  CollapseSelectionTo(const EditorDOMPointBase<PT, CT>& aPoint) const {
     ErrorResult error;
     CollapseSelectionTo(aPoint, error);
     return error.StealNSResult();
@@ -3008,16 +3025,17 @@ class HTMLEditor final : public TextEditor,
 
   template <typename PT, typename CT>
   MOZ_CAN_RUN_SCRIPT MOZ_NEVER_INLINE_DEBUG void CollapseSelectionTo(
-      const EditorDOMPointBase<PT, CT>& aPoint, ErrorResult& aRv) {
+      const EditorDOMPointBase<PT, CT>& aPoint, ErrorResult& aRv) const {
     MOZ_ASSERT(IsEditActionDataAvailable());
     MOZ_ASSERT(!aRv.Failed());
 
-    SelectionRefPtr()->Collapse(aPoint, aRv);
+    SelectionRefPtr()->CollapseInLimiter(aPoint, aRv);
     if (NS_WARN_IF(Destroyed())) {
       aRv = NS_ERROR_EDITOR_DESTROYED;
       return;
     }
-    NS_WARNING_ASSERTION(!aRv.Failed(), "Selection::Collapse() failed");
+    NS_WARNING_ASSERTION(!aRv.Failed(),
+                         "Selection::CollapseInLimiter() failed");
   }
 
   [[nodiscard]] MOZ_CAN_RUN_SCRIPT MOZ_NEVER_INLINE_DEBUG nsresult
@@ -3026,7 +3044,7 @@ class HTMLEditor final : public TextEditor,
   }
 
   MOZ_CAN_RUN_SCRIPT MOZ_NEVER_INLINE_DEBUG void CollapseSelectionToStartOf(
-      nsINode& aNode, ErrorResult& aRv) {
+      nsINode& aNode, ErrorResult& aRv) const {
     CollapseSelectionTo(EditorRawDOMPoint(&aNode, 0), aRv);
   }
 
@@ -3719,7 +3737,7 @@ class HTMLEditor final : public TextEditor,
   SetHTMLBackgroundColorWithTransaction(const nsAString& aColor);
 
   MOZ_CAN_RUN_SCRIPT_BOUNDARY virtual void InitializeSelectionAncestorLimit(
-      nsIContent& aAncestorLimit) override;
+      nsIContent& aAncestorLimit) const override;
 
   /**
    * Make the given selection span the entire document.
@@ -3760,7 +3778,7 @@ class HTMLEditor final : public TextEditor,
    */
   [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
   MaybeCollapseSelectionAtFirstEditableNode(
-      bool aIgnoreIfSelectionInEditingHost);
+      bool aIgnoreIfSelectionInEditingHost) const;
 
   class BlobReader final {
     typedef EditorBase::AutoEditActionDataSetter AutoEditActionDataSetter;

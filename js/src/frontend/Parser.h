@@ -271,10 +271,10 @@ class MOZ_STACK_CLASS ParserSharedBase : public JS::CustomAutoRooter {
   CompilationInfo& getCompilationInfo() { return compilationInfo_; }
 
   JSAtom* liftParserAtomToJSAtom(const ParserAtom* parserAtom) {
-    return compilationInfo_.liftParserAtomToJSAtom(parserAtom);
+    return compilationInfo_.liftParserAtomToJSAtom(cx_, parserAtom);
   }
   const ParserAtom* lowerJSAtomToParserAtom(JSAtom* atom) {
-    return compilationInfo_.lowerJSAtomToParserAtom(atom);
+    return compilationInfo_.lowerJSAtomToParserAtom(cx_, atom);
   }
 };
 
@@ -1385,8 +1385,6 @@ class MOZ_STACK_CLASS GeneralParser : public PerHandlerParser<ParseHandler> {
 
   inline BigIntLiteralType newBigInt();
 
-  const ParserAtom* bigIntAtom();
-
   enum class OptionalKind {
     NonOptional = 0,
     Optional,
@@ -1721,8 +1719,7 @@ class MOZ_STACK_CLASS Parser<FullParseHandler, Unit> final
       GeneratorKind generatorKind, FunctionAsyncKind asyncKind, bool tryAnnexB,
       Directives inheritedDirectives, Directives* newDirectives);
 
-  MOZ_MUST_USE bool advancePastSyntaxParsedFunction(AutoKeepAtoms& keepAtoms,
-                                                    SyntaxParser* syntaxParser);
+  MOZ_MUST_USE bool advancePastSyntaxParsedFunction(SyntaxParser* syntaxParser);
 
   bool skipLazyInnerFunction(FunctionNodeType funNode, uint32_t toStringStart,
                              FunctionSyntaxKind kind, bool tryAnnexB);

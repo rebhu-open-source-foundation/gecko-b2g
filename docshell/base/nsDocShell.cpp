@@ -4134,6 +4134,36 @@ nsDocShell::GetCurrentDescriptor(nsISupports** aPageDescriptor) {
   return NS_ERROR_NOT_AVAILABLE;
 }
 
+already_AddRefed<nsIInputStream> nsDocShell::GetPostDataFromCurrentEntry()
+    const {
+  nsCOMPtr<nsIInputStream> postData;
+  if (StaticPrefs::fission_sessionHistoryInParent()) {
+    if (mActiveEntry) {
+      postData = mActiveEntry->GetPostData();
+    }
+  } else {
+    if (mOSHE) {
+      postData = mOSHE->GetPostData();
+    }
+  }
+
+  return postData.forget();
+}
+
+Maybe<uint32_t> nsDocShell::GetCacheKeyFromCurrentEntry() const {
+  if (StaticPrefs::fission_sessionHistoryInParent()) {
+    if (mActiveEntry) {
+      return Some(mActiveEntry->GetCacheKey());
+    }
+  } else {
+    if (mOSHE) {
+      return Some(mOSHE->GetCacheKey());
+    }
+  }
+
+  return Nothing();
+}
+
 //*****************************************************************************
 // nsDocShell::nsIBaseWindow
 //*****************************************************************************
@@ -5014,6 +5044,10 @@ nsresult nsDocShell::SetupRefreshURIFromHeader(nsIURI* aBaseURI,
                                                nsIPrincipal* aPrincipal,
                                                uint64_t aInnerWindowID,
                                                const nsACString& aHeader) {
+  if (mIsBeingDestroyed) {
+    return NS_ERROR_FAILURE;
+  }
+
   // Refresh headers are parsed with the following format in mind
   // <META HTTP-EQUIV=REFRESH CONTENT="5; URL=http://uri">
   // By the time we are here, the following is true:
@@ -6398,6 +6432,11 @@ nsresult nsDocShell::CreateAboutBlankContentViewer(
     return NS_ERROR_FAILURE;
   }
 
+  if (!mBrowsingContext->AncestorsAreCurrent()) {
+    mBrowsingContext->RemoveRootFromBFCacheSync();
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+
   // mContentViewer->PermitUnload may release |this| docshell.
   nsCOMPtr<nsIDocShell> kungFuDeathGrip(this);
 
@@ -7516,6 +7555,11 @@ nsresult nsDocShell::CreateContentViewer(const nsACString& aContentType,
     // If we don't have a tree owner, then we're in the process of being
     // destroyed. Rather than continue trying to load something, just give up.
     return NS_ERROR_DOCSHELL_DYING;
+  }
+
+  if (!mBrowsingContext->AncestorsAreCurrent()) {
+    mBrowsingContext->RemoveRootFromBFCacheSync();
+    return NS_ERROR_NOT_AVAILABLE;
   }
 
   // Can we check the content type of the current content viewer
@@ -8914,8 +8958,7 @@ nsresult nsDocShell::InternalLoad(nsDocShellLoadState* aLoadState) {
   // Similar check will be performed by the ParentProcessDocumentChannel if in
   // use.
   if (XRE_IsE10sParentProcess() &&
-      !DocumentChannel::CanUseDocumentChannel(aLoadState->URI(),
-                                              aLoadState->LoadFlags()) &&
+      !DocumentChannel::CanUseDocumentChannel(aLoadState->URI()) &&
       !CanLoadInParentProcess(aLoadState->URI())) {
     return NS_ERROR_FAILURE;
   }
@@ -9670,9 +9713,6 @@ nsresult nsDocShell::DoURILoad(nsDocShellLoadState* aLoadState,
 
   if (nsCOMPtr<nsIChannel> channel =
           aLoadState->GetPendingRedirectedChannel()) {
-    MOZ_ASSERT(!aLoadState->HasLoadFlags(INTERNAL_LOAD_FLAGS_IS_SRCDOC),
-               "pending channel for srcdoc load?");
-
     // If we have a request outparameter, shove our channel into it.
     if (aRequest) {
       nsCOMPtr<nsIRequest> outRequest = channel;
@@ -9783,7 +9823,9 @@ nsresult nsDocShell::DoURILoad(nsDocShellLoadState* aLoadState,
   // Subdocuments must have a parent
   MOZ_ASSERT_IF(contentPolicyType == nsIContentPolicy::TYPE_SUBDOCUMENT,
                 mBrowsingContext->GetParent());
-
+  mBrowsingContext->SetTriggeringAndInheritPrincipals(
+      aLoadState->TriggeringPrincipal(), aLoadState->PrincipalToInherit(),
+      aLoadState->GetLoadIdentifier());
   RefPtr<LoadInfo> loadInfo =
       (contentPolicyType == nsIContentPolicy::TYPE_DOCUMENT)
           ? new LoadInfo(loadingWindow, aLoadState->TriggeringPrincipal(),
@@ -9847,8 +9889,7 @@ nsresult nsDocShell::DoURILoad(nsDocShellLoadState* aLoadState,
       mBrowsingContext, Some(uriModified), Some(isXFOError));
 
   nsCOMPtr<nsIChannel> channel;
-  if (DocumentChannel::CanUseDocumentChannel(aLoadState->URI(),
-                                             aLoadState->LoadFlags())) {
+  if (DocumentChannel::CanUseDocumentChannel(aLoadState->URI())) {
     channel = DocumentChannel::CreateForDocument(aLoadState, loadInfo,
                                                  loadFlags, this, cacheKey,
                                                  uriModified, isXFOError);
@@ -10385,7 +10426,9 @@ bool nsDocShell::OnNewURI(nsIURI* aURI, nsIChannel* aChannel,
    *  frameset pages is to add new methods to nsIDocShellTreeItem.
    * Hopefully I don't have to do that.
    */
-  if (equalUri && mOSHE &&
+  if (equalUri &&
+      (StaticPrefs::fission_sessionHistoryInParent() ? !!mActiveEntry
+                                                     : !!mOSHE) &&
       (mLoadType == LOAD_NORMAL || mLoadType == LOAD_LINK ||
        mLoadType == LOAD_STOP_CONTENT) &&
       !inputStream) {
@@ -10474,8 +10517,9 @@ bool nsDocShell::OnNewURI(nsIURI* aURI, nsIChannel* aChannel,
   // If this was a history load or a refresh, or it was a history load but
   // later changed to LOAD_NORMAL_REPLACE due to redirection, update the index
   // in session history.
-  if (rootSH && ((mLoadType & (LOAD_CMD_HISTORY | LOAD_CMD_RELOAD)) ||
-                 mLoadType == LOAD_NORMAL_REPLACE)) {
+  if (!StaticPrefs::fission_sessionHistoryInParent() && rootSH &&
+      ((mLoadType & (LOAD_CMD_HISTORY | LOAD_CMD_RELOAD)) ||
+       mLoadType == LOAD_NORMAL_REPLACE)) {
     mPreviousEntryIndex = rootSH->Index();
     rootSH->LegacySHistory()->UpdateIndex();
     mLoadedEntryIndex = rootSH->Index();
@@ -10710,7 +10754,7 @@ nsresult nsDocShell::UpdateURLAndHistory(Document* aDocument, nsIURI* aNewURI,
   // history. This will erase all SHEntries after the new entry and make this
   // entry the current one.  This operation may modify mOSHE, which we need
   // later, so we keep a reference here.
-  NS_ENSURE_TRUE(mOSHE || aReplace, NS_ERROR_FAILURE);
+  NS_ENSURE_TRUE(mOSHE || mActiveEntry || aReplace, NS_ERROR_FAILURE);
   nsCOMPtr<nsISHEntry> oldOSHE = mOSHE;
 
   // If this push/replaceState changed the document's current URI and the new
@@ -12974,5 +13018,7 @@ bool nsDocShell::GetIsAttemptingToNavigate() {
 
 void nsDocShell::SetLoadingSessionHistoryInfo(
     const mozilla::dom::LoadingSessionHistoryInfo& aLoadingInfo) {
+  // FIXME Would like to assert this, but can't yet.
+  // MOZ_ASSERT(!mLoadingEntry);
   mLoadingEntry = MakeUnique<LoadingSessionHistoryInfo>(aLoadingInfo);
 }

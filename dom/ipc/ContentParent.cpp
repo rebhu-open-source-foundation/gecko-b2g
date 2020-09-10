@@ -72,6 +72,7 @@
 #include "mozilla/HangDetails.h"
 #include "mozilla/LoginReputationIPC.h"
 #include "mozilla/LookAndFeel.h"
+#include "mozilla/NullPrincipal.h"
 #include "mozilla/PerformanceMetricsCollector.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/PresShell.h"
@@ -244,6 +245,7 @@
 #include "nsPluginTags.h"
 #include "nsQueryObject.h"
 #include "nsReadableUtils.h"
+#include "nsSHistory.h"
 #include "nsScriptError.h"
 #include "nsSerializationHelper.h"
 #include "nsServiceManagerUtils.h"
@@ -1790,11 +1792,6 @@ void ContentParent::AssertNotInPool() {
         !sBrowserContentParents->Contains(mRemoteType) ||
         !sBrowserContentParents->Get(mRemoteType)->Contains(this) ||
         !sCanLaunchSubprocesses);  // aka in shutdown - avoid timing issues
-
-    for (auto& group : mGroups) {
-      MOZ_RELEASE_ASSERT(group.GetKey()->GetHostProcess(mRemoteType) != this,
-                         "still a host process for one of our groups?");
-    }
   }
 }
 
@@ -2056,12 +2053,11 @@ void ContentParent::ActorDestroy(ActorDestroyReason why) {
   a11y::AccessibleWrap::ReleaseContentProcessIdFor(ChildID());
 #endif
 
-#ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
-  AssertNotInPool();
-#endif
+  // As this process is going away, ensure that every BrowsingContext hosted by
+  // it has been detached, and every BrowsingContextGroup has been fully
+  // unsubscribed.
+  BrowsingContext::DiscardFromContentParent(this);
 
-  // As this process is going away, ensure that every BrowsingContextGroup has
-  // been fully unsubscribed.
   nsTHashtable<nsRefPtrHashKey<BrowsingContextGroup>> groups;
   mGroups.SwapElements(groups);
   for (auto& group : groups) {
@@ -2621,9 +2617,6 @@ ContentParent::ContentParent(const nsACString& aRemoteType, int32_t aJSPluginID)
       mIsInputPriorityEventEnabled(false),
       mIsInPool(false),
       mHangMonitorActor(nullptr) {
-  MOZ_DIAGNOSTIC_ASSERT(!IsForJSPlugin(),
-                        "XXX(nika): How are we creating a JSPlugin?");
-
   // Insert ourselves into the global linked list of ContentParent objects.
   if (!sContentParents) {
     sContentParents = MakeUnique<LinkedList<ContentParent>>();
@@ -5749,7 +5742,7 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateWindow(
     }
   }
 
-  BrowserParent::AutoUseNewTab aunt(newTab, &cwi.urlToLoad());
+  BrowserParent::AutoUseNewTab aunt(newTab);
 
   nsCOMPtr<nsIRemoteTab> newRemoteTab;
   int32_t openLocation = nsIBrowserDOMWindow::OPEN_NEWWINDOW;
@@ -7478,15 +7471,8 @@ mozilla::ipc::IPCResult ContentParent::RecvHistoryGo(
     const MaybeDiscarded<BrowsingContext>& aContext, int32_t aIndex,
     HistoryGoResolver&& aResolveRequestedIndex) {
   if (!aContext.IsDiscarded()) {
-    nsSHistory* shistory =
-        static_cast<nsSHistory*>(aContext.get_canonical()->GetSessionHistory());
-    nsTArray<nsSHistory::LoadEntryResult> loadResults;
-    nsresult rv = shistory->GotoIndex(aIndex, loadResults);
-    if (NS_FAILED(rv)) {
-      return IPC_FAIL(this, "GotoIndex failed");
-    }
-    aResolveRequestedIndex(shistory->GetRequestedIndex());
-    shistory->LoadURIs(loadResults);
+    aContext.get_canonical()->HistoryGo(aIndex,
+                                        std::move(aResolveRequestedIndex));
   }
   return IPC_OK();
 }
@@ -7612,6 +7598,18 @@ mozilla::ipc::IPCResult ContentParent::RecvRemoveFromSessionHistory(
     const MaybeDiscarded<BrowsingContext>& aContext) {
   if (!aContext.IsDiscarded()) {
     aContext.get_canonical()->RemoveFromSessionHistory();
+  }
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentParent::RecvHistoryReload(
+    const MaybeDiscarded<BrowsingContext>& aContext,
+    const uint32_t aReloadFlags) {
+  if (!aContext.IsDiscarded()) {
+    nsISHistory* shistory = aContext.get_canonical()->GetSessionHistory();
+    if (shistory) {
+      shistory->Reload(aReloadFlags);
+    }
   }
   return IPC_OK();
 }

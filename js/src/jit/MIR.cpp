@@ -25,6 +25,7 @@
 #include "jit/MIRGraph.h"
 #include "jit/RangeAnalysis.h"
 #include "js/Conversions.h"
+#include "js/experimental/JitInfo.h"  // JSJitInfo, JSTypedMethodJitInfo
 #include "js/ScalarType.h"  // js::Scalar::Type
 #include "util/Text.h"
 #include "util/Unicode.h"
@@ -817,6 +818,9 @@ void MDefinition::justReplaceAllUsesWith(MDefinition* dom) {
   // with the graph.
   if (isUseRemoved()) {
     dom->setUseRemovedUnchecked();
+  }
+  if (isImplicitlyUsed()) {
+    dom->setImplicitlyUsedUnchecked();
   }
 
   for (MUseIterator i(usesBegin()), e(usesEnd()); i != e; ++i) {
@@ -6145,6 +6149,51 @@ MDefinition* MGuardIsNotProxy::foldsTo(TempAllocator& alloc) {
   MOZ_ASSERT(!GetObjectKnownJSClass(object())->isProxy());
   AssertKnownClass(alloc, this, object());
   return object();
+}
+
+MDefinition* MGuardStringToIndex::foldsTo(TempAllocator& alloc) {
+  if (!string()->isConstant()) {
+    return this;
+  }
+
+  JSAtom* atom = &string()->toConstant()->toString()->asAtom();
+
+  int32_t index = GetIndexFromString(atom);
+  if (index < 0) {
+    return this;
+  }
+
+  return MConstant::New(alloc, Int32Value(index));
+}
+
+MDefinition* MGuardStringToInt32::foldsTo(TempAllocator& alloc) {
+  if (!string()->isConstant()) {
+    return this;
+  }
+
+  JSAtom* atom = &string()->toConstant()->toString()->asAtom();
+  if (!atom->hasIndexValue()) {
+    return this;
+  }
+
+  uint32_t index = atom->getIndexValue();
+  MOZ_ASSERT(index <= INT32_MAX);
+  return MConstant::New(alloc, Int32Value(index));
+}
+
+MDefinition* MGuardStringToDouble::foldsTo(TempAllocator& alloc) {
+  if (!string()->isConstant()) {
+    return this;
+  }
+
+  JSAtom* atom = &string()->toConstant()->toString()->asAtom();
+  if (!atom->hasIndexValue()) {
+    return this;
+  }
+
+  uint32_t index = atom->getIndexValue();
+  MOZ_ASSERT(index <= INT32_MAX);
+  return MConstant::New(alloc, DoubleValue(index));
 }
 
 MDefinition* MGuardToClass::foldsTo(TempAllocator& alloc) {

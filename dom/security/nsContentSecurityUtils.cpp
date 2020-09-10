@@ -303,9 +303,9 @@ FilenameTypeAndDetails nsContentSecurityUtils::FilenameToFilenameType(
   if (widget::WinUtils::PreparePathForTelemetry(strSanitizedPath, flags)) {
     DWORD cchDecodedUrl = INTERNET_MAX_URL_LENGTH;
     WCHAR szOut[INTERNET_MAX_URL_LENGTH];
-    HRESULT hr =
-        ::CoInternetParseUrl(fileName.get(), PARSE_SCHEMA, 0, szOut,
-                             INTERNET_MAX_URL_LENGTH, &cchDecodedUrl, 0);
+    HRESULT hr;
+    SAFECALL_URLMON_FUNC(CoInternetParseUrl, fileName.get(), PARSE_SCHEMA, 0,
+                         szOut, INTERNET_MAX_URL_LENGTH, &cchDecodedUrl, 0);
     if (hr == S_OK && cchDecodedUrl) {
       nsAutoString sanitizedPathAndScheme;
       sanitizedPathAndScheme.Append(szOut);
@@ -385,11 +385,6 @@ class EvalUsageNotificationRunnable final : public Runnable {
   uint32_t mLineNumber;
   uint32_t mColumnNumber;
 };
-
-// The Web Extension process pref may be toggled during a session, at which
-// point stuff may be loaded in the parent process but we would send telemetry
-// for it. Avoid this by observing if the pref ever was disabled.
-static bool sWebExtensionsRemoteWasEverDisabled = false;
 
 /* static */
 bool nsContentSecurityUtils::IsEvalAllowed(JSContext* cx,
@@ -483,16 +478,9 @@ bool nsContentSecurityUtils::IsEvalAllowed(JSContext* cx,
 
   if (XRE_IsE10sParentProcess() &&
       !StaticPrefs::extensions_webextensions_remote()) {
-    sWebExtensionsRemoteWasEverDisabled = true;
     MOZ_LOG(sCSMLog, LogLevel::Debug,
             ("Allowing eval() in parent process because the web extension "
              "process is disabled"));
-    return true;
-  }
-  if (XRE_IsE10sParentProcess() && sWebExtensionsRemoteWasEverDisabled) {
-    MOZ_LOG(sCSMLog, LogLevel::Debug,
-            ("Allowing eval() in parent process because the web extension "
-             "process was disabled at some point"));
     return true;
   }
 
@@ -568,13 +556,7 @@ bool nsContentSecurityUtils::IsEvalAllowed(JSContext* cx,
       fileName.get(), trimmedScript.get());
 #endif
 
-#ifdef EARLY_BETA_OR_EARLIER
-  // Until we understand the events coming from release, we don't want to
-  // enforce eval restrictions on release. Limiting to Nightly and early beta.
   return false;
-#else
-  return true;
-#endif
 }
 
 /* static */
@@ -1010,17 +992,9 @@ bool nsContentSecurityUtils::ValidateScriptFilename(const char* aFilename,
 
   if (XRE_IsE10sParentProcess() &&
       !StaticPrefs::extensions_webextensions_remote()) {
-    sWebExtensionsRemoteWasEverDisabled = true;
     MOZ_LOG(sCSMLog, LogLevel::Debug,
             ("Allowing a javascript load of %s because the web extension "
              "process is disabled.",
-             aFilename));
-    return true;
-  }
-  if (XRE_IsE10sParentProcess() && sWebExtensionsRemoteWasEverDisabled) {
-    MOZ_LOG(sCSMLog, LogLevel::Debug,
-            ("Allowing a javascript load of %s because the web extension "
-             "process was disabled at some point.",
              aFilename));
     return true;
   }

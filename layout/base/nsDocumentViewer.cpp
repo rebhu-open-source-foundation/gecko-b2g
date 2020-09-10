@@ -10,6 +10,7 @@
 #include "mozilla/PresShell.h"
 #include "mozilla/RestyleManager.h"
 #include "mozilla/ServoStyleSet.h"
+#include "mozilla/StaticPrefs_print.h"
 #include "mozilla/Telemetry.h"
 #include "nsThreadUtils.h"
 #include "nscore.h"
@@ -131,8 +132,17 @@
 #include "mozilla/dom/ScriptLoader.h"
 #include "mozilla/dom/WindowGlobalChild.h"
 
+namespace mozilla {
+namespace dom {
+class PrintPreviewResultInfo;
+}  // namespace dom
+}  // namespace mozilla
+
 using namespace mozilla;
 using namespace mozilla::dom;
+
+using PrintPreviewResolver =
+    std::function<void(const mozilla::dom::PrintPreviewResultInfo&)>;
 
 //-----------------------------------------------------
 // LOGGING
@@ -699,7 +709,13 @@ nsresult nsDocumentViewer::InitPresentationStuff(bool aDoInitialReflow) {
              "InitPresentationStuff must only be called when scripts are "
              "blocked");
 
-  if (GetIsPrintPreview()) return NS_OK;
+#ifdef NS_PRINTING
+  // When getting printed, either for print or print preview, the print job
+  // takes care of setting up the presentation of the document.
+  if (mPrintJob) {
+    return NS_OK;
+  }
+#endif
 
   NS_ASSERTION(!mPresShell, "Someone should have destroyed the presshell!");
 
@@ -1598,10 +1614,8 @@ nsDocumentViewer::Destroy() {
   //
   // So we flip the bool to remember that the document is going away
   // and we can clean up and abort later after returning from the Print Dialog
-  if (mPrintJob) {
-    if (mPrintJob->CheckBeforeDestroy()) {
-      return NS_OK;
-    }
+  if (mPrintJob && mPrintJob->CheckBeforeDestroy()) {
+    return NS_OK;
   }
 #endif
 
@@ -1841,7 +1855,7 @@ nsDocumentViewer::SetDocumentInternal(Document* aDocument,
       aDocument->SetNavigationTiming(mDocument->GetNavigationTiming());
     }
 
-    if (mDocument->IsStaticDocument()) {
+    if (mDocument && mDocument->IsStaticDocument()) {
       mDocument->Destroy();
     }
 
@@ -3149,7 +3163,8 @@ nsDocumentViewer::Print(nsIPrintSettings* aPrintSettings,
 
 NS_IMETHODIMP
 nsDocumentViewer::PrintPreview(nsIPrintSettings* aPrintSettings,
-                               nsIWebProgressListener* aWebProgressListener) {
+                               nsIWebProgressListener* aWebProgressListener,
+                               PrintPreviewResolver&& aCallback) {
 #  ifdef NS_PRINT_PREVIEW
   RefPtr<Document> doc = mDocument.get();
   NS_ENSURE_STATE(doc);
@@ -3188,10 +3203,11 @@ nsDocumentViewer::PrintPreview(nsIPrintSettings* aPrintSettings,
   }
   mPrintJob = printJob;
 
-  if (!hadPrintJob) {
+  if (!hadPrintJob && !StaticPrefs::print_tab_modal_enabled()) {
     Telemetry::ScalarAdd(Telemetry::ScalarID::PRINTING_PREVIEW_OPENED, 1);
   }
-  rv = printJob->PrintPreview(doc, aPrintSettings, aWebProgressListener);
+  rv = printJob->PrintPreview(doc, aPrintSettings, aWebProgressListener,
+                              std::move(aCallback));
   if (NS_FAILED(rv)) {
     OnDonePrinting();
   }
@@ -3527,7 +3543,7 @@ nsDocumentViewer::ExitPrintPreview() {
     return NS_OK;
   }
 
-  if (!mPrintJob->HasEverPrinted()) {
+  if (!mPrintJob->HasEverPrinted() && !StaticPrefs::print_tab_modal_enabled()) {
     Telemetry::ScalarAdd(Telemetry::ScalarID::PRINTING_PREVIEW_CANCELLED, 1);
   }
 

@@ -67,18 +67,7 @@ static JSScript* CompileSourceBuffer(JSContext* cx,
   AssertHeapIsIdle();
   CHECK_THREAD(cx);
 
-  frontend::CompilationInfo compilationInfo(cx, options);
-  if (!compilationInfo.input.initForGlobal(cx)) {
-    return nullptr;
-  }
-
-  frontend::CompilationGCOutput gcOutput(cx);
-  if (!frontend::CompileGlobalScript(compilationInfo, srcBuf, scopeKind,
-                                     gcOutput)) {
-    return nullptr;
-  }
-
-  return gcOutput.script;
+  return frontend::CompileGlobalScript(cx, options, srcBuf, scopeKind);
 }
 
 JSScript* JS::Compile(JSContext* cx, const ReadOnlyCompileOptions& options,
@@ -159,14 +148,14 @@ JS_PUBLIC_API bool JS_Utf8BufferIsCompilableUnit(JSContext* cx,
   // our caller doesn't try to collect more buffered source.
   bool result = true;
 
-  using frontend::CompilationInfo;
   using frontend::FullParseHandler;
   using frontend::ParseGoal;
   using frontend::Parser;
 
   CompileOptions options(cx);
-  CompilationInfo compilationInfo(cx, options);
-  if (!compilationInfo.input.initForGlobal(cx)) {
+  Rooted<frontend::CompilationInfo> compilationInfo(
+      cx, frontend::CompilationInfo(cx, options));
+  if (!compilationInfo.get().input.initForGlobal(cx)) {
     return false;
   }
 
@@ -176,8 +165,8 @@ JS_PUBLIC_API bool JS_Utf8BufferIsCompilableUnit(JSContext* cx,
   JS::AutoSuppressWarningReporter suppressWarnings(cx);
   Parser<FullParseHandler, char16_t> parser(cx, options, chars.get(), length,
                                             /* foldConstants = */ true,
-                                            compilationInfo, compilationState,
-                                            nullptr, nullptr);
+                                            compilationInfo.get(),
+                                            compilationState, nullptr, nullptr);
   if (!parser.checkOptions() || !parser.parse()) {
     // We ran into an error. If it was because we ran out of source, we
     // return false so our caller knows to try to collect more buffered
@@ -480,19 +469,10 @@ static bool EvaluateSourceBuffer(JSContext* cx, ScopeKind scopeKind,
   options.setNonSyntacticScope(scopeKind == ScopeKind::NonSyntactic);
   options.setIsRunOnce(true);
 
-  RootedScript script(cx);
-  {
-    frontend::CompilationInfo compilationInfo(cx, options);
-    if (!compilationInfo.input.initForGlobal(cx)) {
-      return false;
-    }
-
-    frontend::CompilationGCOutput gcOutput(cx);
-    if (!frontend::CompileGlobalScript(compilationInfo, srcBuf, scopeKind,
-                                       gcOutput)) {
-      return false;
-    }
-    script = gcOutput.script;
+  RootedScript script(
+      cx, frontend::CompileGlobalScript(cx, options, srcBuf, scopeKind));
+  if (!script) {
+    return false;
   }
 
   return Execute(cx, script, env, rval);

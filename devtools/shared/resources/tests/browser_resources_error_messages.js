@@ -52,29 +52,31 @@ async function testErrorMessagesResources() {
 
   let done;
   const onAllErrorReceived = new Promise(resolve => (done = resolve));
-  const onAvailable = ({ resourceType, targetFront, resource }) => {
-    const { pageError } = resource;
+  const onAvailable = resources => {
+    for (const resource of resources) {
+      const { pageError } = resource;
 
-    is(
-      resource.targetFront,
-      targetList.targetFront,
-      "The targetFront property is the expected one"
-    );
+      is(
+        resource.targetFront,
+        targetList.targetFront,
+        "The targetFront property is the expected one"
+      );
 
-    if (!pageError.sourceName.includes("test_page_errors")) {
-      info(`Ignore error from unknown source: "${pageError.sourceName}"`);
-      return;
-    }
+      if (!pageError.sourceName.includes("test_page_errors")) {
+        info(`Ignore error from unknown source: "${pageError.sourceName}"`);
+        continue;
+      }
 
-    const index = receivedMessages.length;
-    receivedMessages.push(pageError);
+      const index = receivedMessages.length;
+      receivedMessages.push(pageError);
 
-    info(`checking received page error #${index}: ${pageError.errorMessage}`);
-    ok(pageError, "The resource has a pageError attribute");
-    checkPageErrorResource(pageError, expectedMessages[index]);
+      info(`checking received page error #${index}: ${pageError.errorMessage}`);
+      ok(pageError, "The resource has a pageError attribute");
+      checkPageErrorResource(pageError, expectedMessages[index]);
 
-    if (receivedMessages.length == expectedMessages.length) {
-      done();
+      if (receivedMessages.length == expectedMessages.length) {
+        done();
+      }
     }
   };
 
@@ -96,7 +98,7 @@ async function testErrorMessagesResources() {
   ok(true, "All the expected errors were received");
 
   Services.console.reset();
-  targetList.stopListening();
+  targetList.destroy();
   await client.close();
 }
 
@@ -117,7 +119,7 @@ async function testErrorMessagesResourcesWithIgnoreExistingResources() {
 
   const availableResources = [];
   await resourceWatcher.watchResources([ResourceWatcher.TYPES.ERROR_MESSAGE], {
-    onAvailable: ({ resource }) => availableResources.push(resource),
+    onAvailable: resources => availableResources.push(...resources),
     ignoreExistingResources: true,
   });
   is(
@@ -140,7 +142,7 @@ async function testErrorMessagesResourcesWithIgnoreExistingResources() {
   }
 
   Services.console.reset();
-  await targetList.stopListening();
+  await targetList.destroy();
   await client.close();
 }
 

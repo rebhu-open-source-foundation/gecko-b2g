@@ -139,8 +139,6 @@ void WindowGlobalParent::Init() {
     Unused << otherContent->SendCreateWindowContext(ipcinit);
   });
 
-  // If there is no current window global, assume we're about to become it
-  // optimistically.
   if (!BrowsingContext()->IsDiscarded()) {
     MOZ_ALWAYS_SUCCEEDS(
         BrowsingContext()->SetCurrentInnerWindowId(InnerWindowId()));
@@ -740,14 +738,6 @@ void WindowGlobalParent::ActorDestroy(ActorDestroyReason aWhy) {
     if (GetDocTreeHadAudibleMedia()) {
       ScalarAdd(Telemetry::ScalarID::MEDIA_PAGE_HAD_MEDIA_COUNT, 1);
     }
-  }
-
-  // If there are any non-discarded nested contexts when this WindowContext is
-  // destroyed, tear them down.
-  nsTArray<RefPtr<dom::BrowsingContext>> toDiscard;
-  toDiscard.AppendElements(Children());
-  for (auto& context : toDiscard) {
-    context->Detach(/* aFromIPC */ true);
   }
 
   // Note that our WindowContext has become discarded.

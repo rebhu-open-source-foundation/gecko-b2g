@@ -2127,7 +2127,8 @@ nsresult ScriptLoader::ProcessOffThreadRequest(ScriptLoadRequest* aRequest) {
   }
 
   // Async scripts and blocking scripts can be executed right away.
-  if (aRequest->IsAsyncScript() || aRequest->IsBlockingScript()) {
+  if ((aRequest->IsAsyncScript() || aRequest->IsBlockingScript()) &&
+      !aRequest->isInList()) {
     return ProcessRequest(aRequest);
   }
 
@@ -3034,6 +3035,7 @@ LoadedScript* ScriptLoader::GetActiveScript(JSContext* aCx) {
 void ScriptLoader::RegisterForBytecodeEncoding(ScriptLoadRequest* aRequest) {
   MOZ_ASSERT(aRequest->mCacheInfo);
   MOZ_ASSERT(aRequest->mScript);
+  MOZ_DIAGNOSTIC_ASSERT(!aRequest->isInList());
   mBytecodeEncodingQueue.AppendElement(aRequest);
 }
 

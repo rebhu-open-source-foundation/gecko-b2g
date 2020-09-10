@@ -38,14 +38,6 @@ MainProcessSingleton.prototype = {
           "chrome://global/content/process-content.js",
           true
         );
-
-        // This file is browser/ specific.
-        if (AppConstants.MOZ_APP_NAME != "b2g") {
-          Services.ppmm.loadProcessScript(
-            "resource:///modules/ContentObservers.js",
-            true
-          );
-        }
         break;
       }
 

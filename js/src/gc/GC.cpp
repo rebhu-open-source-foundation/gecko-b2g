@@ -229,6 +229,7 @@
 #include "jit/JitcodeMap.h"
 #include "jit/JitRealm.h"
 #include "jit/MacroAssembler.h"
+#include "js/Object.h"  // JS::GetClass
 #include "js/SliceBudget.h"
 #include "proxy/DeadObjectProxy.h"
 #include "util/Poison.h"
@@ -5321,7 +5322,7 @@ static void SweepAllWeakCachesOnMainThread(JSRuntime* rt) {
     if (cache->needsIncrementalBarrier()) {
       cache->setNeedsIncrementalBarrier(false);
     }
-    cache->sweep(nullptr);
+    cache->sweep(&rt->gc.storeBuffer());
     return true;
   });
 }
@@ -5418,19 +5419,23 @@ IncrementalProgress GCRuntime::beginSweepingSweepGroup(JSFreeOp* fop,
                                       PhaseKind::SWEEP_WEAKREFS, lock);
 
     WeakCacheTaskVector sweepCacheTasks;
-    if (PrepareWeakCacheTasks(rt, &sweepCacheTasks)) {
+    bool canSweepWeakCachesOffThread =
+        PrepareWeakCacheTasks(rt, &sweepCacheTasks);
+    if (canSweepWeakCachesOffThread) {
       weakCachesToSweep.ref().emplace(currentSweepGroup);
-    } else {
-      SweepAllWeakCachesOnMainThread(rt);
-    }
-
-    for (auto& task : sweepCacheTasks) {
-      startTask(task, PhaseKind::SWEEP_WEAK_CACHES, lock);
+      for (auto& task : sweepCacheTasks) {
+        startTask(task, PhaseKind::SWEEP_WEAK_CACHES, lock);
+      }
     }
 
     {
       AutoUnlockHelperThreadState unlock(lock);
       sweepJitDataOnMainThread(fop);
+
+      if (!canSweepWeakCachesOffThread) {
+        MOZ_ASSERT(sweepCacheTasks.empty());
+        SweepAllWeakCachesOnMainThread(rt);
+      }
     }
 
     for (auto& task : sweepCacheTasks) {
@@ -8965,7 +8970,7 @@ JS_PUBLIC_API void js::gc::FinalizeDeadNurseryObject(JSContext* cx,
   MOZ_ASSERT(IsAboutToBeFinalizedUnbarriered(&prior));
   MOZ_ASSERT(obj == prior);
 
-  const JSClass* jsClass = js::GetObjectClass(obj);
+  const JSClass* jsClass = JS::GetClass(obj);
   jsClass->doFinalize(cx->defaultFreeOp(), obj);
 }
 

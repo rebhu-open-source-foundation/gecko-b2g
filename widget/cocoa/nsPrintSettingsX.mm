@@ -143,10 +143,23 @@ NS_IMETHODIMP nsPrintSettingsX::InitAdjustedPaperSize() {
 }
 
 void nsPrintSettingsX::SetCocoaPrintInfo(NSPrintInfo* aPrintInfo) {
+  NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
+
   if (mPrintInfo != aPrintInfo) {
     [mPrintInfo release];
     mPrintInfo = [aPrintInfo retain];
   }
+
+  NSDictionary* dict = [mPrintInfo dictionary];
+  NSString* printerName = [dict objectForKey:NSPrintPrinterName];
+  if (printerName) {
+    // Ensure the name is also stored in the base nsPrintSettings.
+    nsAutoString name;
+    nsCocoaUtils::GetStringForNSString(printerName, name);
+    nsPrintSettings::SetPrinterName(name);
+  }
+
+  NS_OBJC_END_TRY_ABORT_BLOCK;
 }
 
 nsresult nsPrintSettingsX::ReadPageFormatFromPrefs() {
@@ -316,6 +329,28 @@ NS_IMETHODIMP nsPrintSettingsX::SetPrintRange(int16_t aPrintRange) {
   NS_OBJC_END_TRY_ABORT_BLOCK_NSRESULT;
 }
 
+NS_IMETHODIMP nsPrintSettingsX::SetPrinterName(const nsAString& aName) {
+  NS_OBJC_BEGIN_TRY_ABORT_BLOCK_NSRESULT;
+
+  // In this case (PrinterName) we store the state in the base class in both the
+  // parent and content process since the platform specific NSPrintInfo isn't
+  // capable of representing the printer name in the case of Save to PDF:
+  nsPrintSettings::SetPrinterName(aName);
+
+  // However, we do need to keep the NSPrinter in mPrintInfo in sync in the
+  // parent process so that the object returned by GetCocoaPrintInfo is valid:
+  if (XRE_IsParentProcess()) {
+    NSString* name = nsCocoaUtils::ToNSString(aName);
+    // If the name is our pseudo-printer "Save to PDF", this will silently fail
+    // as no such printer is known.
+    [mPrintInfo setPrinter:[NSPrinter printerWithName:name]];
+  }
+
+  return NS_OK;
+
+  NS_OBJC_END_TRY_ABORT_BLOCK_NSRESULT;
+}
+
 NS_IMETHODIMP nsPrintSettingsX::GetStartPageRange(int32_t* aStartPageRange) {
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK_NSRESULT;
   MOZ_ASSERT(aStartPageRange);
@@ -384,13 +419,24 @@ NS_IMETHODIMP
 nsPrintSettingsX::SetScaling(double aScaling) {
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK_NSRESULT;
 
-  // Only use NSPrintInfo data in the parent process. The
-  // child process' instance is not needed or used.
-  if (XRE_IsParentProcess()) {
-    [mPrintInfo setScalingFactor:CGFloat(aScaling)];
-  } else {
-    nsPrintSettings::SetScaling(aScaling);
-  }
+  // This code used to set the scaling to NSPrintInfo on the parent process
+  // and to nsPrintSettings::SetScaling() on content processes.
+  // This was causing a double-scaling effect, for example, setting scaling
+  // to 50% would cause the printed results to be 25% the size of the original.
+  // See bug 1662389.
+  //
+  // XXX(nordzilla) It's not clear to me why this fixes the scaling problem
+  // when other similar solutions are not as effective. I've tried simply
+  // deleting the overriden getters and setters, and also just setting the
+  // NSPrintInfo scaling to 1.0 in the constructor; but that does not yield
+  // the same results as setting it here, particularly when printing from
+  // the system dialog.
+  //
+  // It would be worth investigating the scaling issue further and
+  // seeing if there is a cleaner way to fix it compared to this.
+  // See bug 1662934.
+  [mPrintInfo setScalingFactor:CGFloat(1.0)];
+  nsPrintSettings::SetScaling(aScaling);
 
   return NS_OK;
 
@@ -401,14 +447,7 @@ NS_IMETHODIMP
 nsPrintSettingsX::GetScaling(double* aScaling) {
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK_NSRESULT;
 
-  // Only use NSPrintInfo data in the parent process. The
-  // child process' instance is not needed or used.
-  if (XRE_IsParentProcess()) {
-    // Limit scaling precision to whole number percent values
-    *aScaling = round(double([mPrintInfo scalingFactor]) * 100.0) / 100.0;
-  } else {
-    nsPrintSettings::GetScaling(aScaling);
-  }
+  nsPrintSettings::GetScaling(aScaling);
 
   return NS_OK;
 

@@ -623,6 +623,7 @@ class Element : public FragmentOrElement {
   already_AddRefed<ShadowRoot> AttachShadowInternal(ShadowRootMode,
                                                     ErrorResult& aError);
 
+ public:
   MOZ_CAN_RUN_SCRIPT
   nsIScrollableFrame* GetScrollFrame(nsIFrame** aStyledFrame = nullptr,
                                      FlushType aFlushType = FlushType::Layout);
@@ -1172,6 +1173,12 @@ class Element : public FragmentOrElement {
    */
   void GetElementsWithGrid(nsTArray<RefPtr<Element>>& aElements);
 
+  /**
+   * Provide a direct way to determine if this Element has visible
+   * scrollbars. Flushes layout.
+   */
+  MOZ_CAN_RUN_SCRIPT bool HasVisibleScrollbars();
+
  private:
   /**
    * Implement the algorithm specified at
@@ -1192,11 +1199,11 @@ class Element : public FragmentOrElement {
     bool activeState = false;
     if (nsContentUtils::ShouldResistFingerprinting(GetComposedDoc()) &&
         aPointerId != PointerEventHandler::GetSpoofedPointerIdForRFP()) {
-      aError.Throw(NS_ERROR_DOM_INVALID_POINTER_ERR);
+      aError.ThrowNotFoundError("Invalid pointer id");
       return;
     }
     if (!PointerEventHandler::GetPointerInfo(aPointerId, activeState)) {
-      aError.Throw(NS_ERROR_DOM_INVALID_POINTER_ERR);
+      aError.ThrowNotFoundError("Invalid pointer id");
       return;
     }
     if (!IsInComposedDoc()) {
@@ -1218,11 +1225,11 @@ class Element : public FragmentOrElement {
     bool activeState = false;
     if (nsContentUtils::ShouldResistFingerprinting(GetComposedDoc()) &&
         aPointerId != PointerEventHandler::GetSpoofedPointerIdForRFP()) {
-      aError.Throw(NS_ERROR_DOM_INVALID_POINTER_ERR);
+      aError.ThrowNotFoundError("Invalid pointer id");
       return;
     }
     if (!PointerEventHandler::GetPointerInfo(aPointerId, activeState)) {
-      aError.Throw(NS_ERROR_DOM_INVALID_POINTER_ERR);
+      aError.ThrowNotFoundError("Invalid pointer id");
       return;
     }
     if (HasPointerCapture(aPointerId)) {

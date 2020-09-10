@@ -25,6 +25,8 @@
 #include "jit/IonIC.h"
 #include "jit/SharedICHelpers.h"
 #include "jit/SharedICRegisters.h"
+#include "js/friend/DOMProxy.h"     // JS::ExpandoAndGeneration
+#include "js/friend/XrayJitInfo.h"  // js::jit::GetXrayJitInfo
 #include "js/ScalarType.h"  // js::Scalar::Type
 #include "proxy/Proxy.h"
 #include "vm/ArrayBufferObject.h"
@@ -45,6 +47,8 @@ using namespace js::jit;
 
 using mozilla::BitwiseCast;
 using mozilla::Maybe;
+
+using JS::ExpandoAndGeneration;
 
 ValueOperand CacheRegisterAllocator::useValueRegister(MacroAssembler& masm,
                                                       ValOperandId op) {
@@ -2117,8 +2121,8 @@ bool CacheIRCompiler::emitGuardNoDenseElements(ObjOperandId objId) {
   return true;
 }
 
-bool CacheIRCompiler::emitGuardAndGetInt32FromString(StringOperandId strId,
-                                                     Int32OperandId resultId) {
+bool CacheIRCompiler::emitGuardStringToInt32(StringOperandId strId,
+                                             Int32OperandId resultId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   Register str = allocator.useRegister(masm, strId);
   Register output = allocator.defineRegister(masm, resultId);
@@ -2129,58 +2133,14 @@ bool CacheIRCompiler::emitGuardAndGetInt32FromString(StringOperandId strId,
     return false;
   }
 
-  Label vmCall, done;
-  // Use indexed value as fast path if possible.
-  masm.loadStringIndexValue(str, output, &vmCall);
-  masm.jump(&done);
-  {
-    masm.bind(&vmCall);
-
-    // Reserve stack for holding the result value of the call.
-    masm.reserveStack(sizeof(int32_t));
-    masm.moveStackPtrTo(output);
-
-    // We cannot use callVM, as callVM expects to be able to clobber all
-    // operands, however, since this op is not the last in the generated IC, we
-    // want to be able to reference other live values.
-    LiveRegisterSet volatileRegs(GeneralRegisterSet::Volatile(),
-                                 liveVolatileFloatRegs());
-    masm.PushRegsInMask(volatileRegs);
-
-    masm.setupUnalignedABICall(scratch);
-    masm.loadJSContext(scratch);
-    masm.passABIArg(scratch);
-    masm.passABIArg(str);
-    masm.passABIArg(output);
-    masm.callWithABI(JS_FUNC_TO_DATA_PTR(void*, GetInt32FromStringPure));
-    masm.mov(ReturnReg, scratch);
-
-    LiveRegisterSet ignore;
-    ignore.add(scratch);
-    masm.PopRegsInMaskIgnore(volatileRegs, ignore);
-
-    Label ok;
-    masm.branchIfTrueBool(scratch, &ok);
-    {
-      // OOM path, recovered by GetInt32FromStringPure.
-      //
-      // Use addToStackPtr instead of freeStack as freeStack tracks stack height
-      // flow-insensitively, and using it twice would confuse the stack height
-      // tracking.
-      masm.addToStackPtr(Imm32(sizeof(int32_t)));
-      masm.jump(failure->label());
-    }
-    masm.bind(&ok);
-
-    masm.load32(Address(output, 0), output);
-    masm.freeStack(sizeof(int32_t));
-  }
-  masm.bind(&done);
+  LiveRegisterSet volatileRegs(GeneralRegisterSet::Volatile(),
+                               liveVolatileFloatRegs());
+  masm.guardStringToInt32(str, output, scratch, volatileRegs, failure->label());
   return true;
 }
 
-bool CacheIRCompiler::emitGuardAndGetNumberFromString(
-    StringOperandId strId, NumberOperandId resultId) {
+bool CacheIRCompiler::emitGuardStringToNumber(StringOperandId strId,
+                                              NumberOperandId resultId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   Register str = allocator.useRegister(masm, strId);
   ValueOperand output = allocator.defineValueRegister(masm, resultId);
@@ -2246,8 +2206,8 @@ bool CacheIRCompiler::emitGuardAndGetNumberFromString(
   return true;
 }
 
-bool CacheIRCompiler::emitGuardAndGetNumberFromBoolean(
-    BooleanOperandId booleanId, NumberOperandId resultId) {
+bool CacheIRCompiler::emitBooleanToNumber(BooleanOperandId booleanId,
+                                          NumberOperandId resultId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   Register boolean = allocator.useRegister(masm, booleanId);
   ValueOperand output = allocator.defineValueRegister(masm, resultId);
@@ -2255,8 +2215,8 @@ bool CacheIRCompiler::emitGuardAndGetNumberFromBoolean(
   return true;
 }
 
-bool CacheIRCompiler::emitGuardAndGetIndexFromString(StringOperandId strId,
-                                                     Int32OperandId resultId) {
+bool CacheIRCompiler::emitGuardStringToIndex(StringOperandId strId,
+                                             Int32OperandId resultId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   Register str = allocator.useRegister(masm, strId);
   Register output = allocator.defineRegister(masm, resultId);
@@ -2279,7 +2239,7 @@ bool CacheIRCompiler::emitGuardAndGetIndexFromString(StringOperandId strId,
     masm.setupUnalignedABICall(output);
     masm.passABIArg(str);
     masm.callWithABI(JS_FUNC_TO_DATA_PTR(void*, GetIndexFromString));
-    masm.mov(ReturnReg, output);
+    masm.storeCallInt32Result(output);
 
     LiveRegisterSet ignore;
     ignore.add(output);
@@ -3666,6 +3626,20 @@ bool CacheIRCompiler::emitGuardNotClassConstructor(ObjOperandId funId) {
   return true;
 }
 
+bool CacheIRCompiler::emitGuardArrayIsPacked(ObjOperandId arrayId) {
+  Register array = allocator.useRegister(masm, arrayId);
+  AutoScratchRegister scratch(allocator, masm);
+  AutoScratchRegister scratch2(allocator, masm);
+
+  FailurePath* failure;
+  if (!addFailurePath(&failure)) {
+    return false;
+  }
+
+  masm.branchArrayIsNotPacked(array, scratch, scratch2, failure->label());
+  return true;
+}
+
 bool CacheIRCompiler::emitLoadDenseElementHoleResult(ObjOperandId objId,
                                                      Int32OperandId indexId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
@@ -3797,53 +3771,6 @@ bool CacheIRCompiler::emitLoadDenseElementHoleExistsResult(
   EmitStoreBoolean(masm, false, output);
 
   masm.bind(&done);
-  return true;
-}
-
-bool CacheIRCompiler::emitArrayJoinResult(ObjOperandId objId) {
-  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
-
-  AutoOutputRegister output(*this);
-  Register obj = allocator.useRegister(masm, objId);
-  AutoScratchRegister scratch(allocator, masm);
-
-  FailurePath* failure;
-  if (!addFailurePath(&failure)) {
-    return false;
-  }
-
-  // Load obj->elements in scratch.
-  masm.loadPtr(Address(obj, NativeObject::offsetOfElements()), scratch);
-  Address lengthAddr(scratch, ObjectElements::offsetOfLength());
-
-  // If array length is 0, return empty string.
-  Label finished;
-
-  {
-    Label arrayNotEmpty;
-    masm.branch32(Assembler::NotEqual, lengthAddr, Imm32(0), &arrayNotEmpty);
-    masm.movePtr(ImmGCPtr(cx_->names().empty), scratch);
-    masm.tagValue(JSVAL_TYPE_STRING, scratch, output.valueReg());
-    masm.jump(&finished);
-    masm.bind(&arrayNotEmpty);
-  }
-
-  // Otherwise, handle array length 1 case.
-  masm.branch32(Assembler::NotEqual, lengthAddr, Imm32(1), failure->label());
-
-  // But only if initializedLength is also 1.
-  Address initLength(scratch, ObjectElements::offsetOfInitializedLength());
-  masm.branch32(Assembler::NotEqual, initLength, Imm32(1), failure->label());
-
-  // And only if elem0 is a string.
-  Address elementAddr(scratch, 0);
-  masm.branchTestString(Assembler::NotEqual, elementAddr, failure->label());
-
-  // Store the value.
-  masm.loadValue(elementAddr, output.valueReg());
-
-  masm.bind(&finished);
-
   return true;
 }
 
@@ -7135,6 +7062,15 @@ bool CacheIRCompiler::emitLoadUndefined(ValOperandId resultId) {
 
   ValueOperand reg = allocator.defineValueRegister(masm, resultId);
   masm.moveValue(UndefinedValue(), reg);
+  return true;
+}
+
+bool CacheIRCompiler::emitLoadConstantString(uint32_t strOffset,
+                                             StringOperandId resultId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+  Register reg = allocator.defineRegister(masm, resultId);
+  StubFieldOffset str(strOffset, StubField::Type::String);
+  emitLoadStubField(str, reg);
   return true;
 }
 

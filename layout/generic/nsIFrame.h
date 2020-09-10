@@ -616,8 +616,6 @@ class nsIFrame : public nsQueryFrame {
   using Result = mozilla::Result<T, E>;
   using Nothing = mozilla::Nothing;
   using OnNonvisible = mozilla::OnNonvisible;
-  template <typename T = void>
-  using PropertyDescriptor = const mozilla::FramePropertyDescriptor<T>*;
   using ReflowInput = mozilla::ReflowInput;
   using ReflowOutput = mozilla::ReflowOutput;
   using Visibility = mozilla::Visibility;
@@ -3791,8 +3789,10 @@ class nsIFrame : public nsQueryFrame {
      * indicates that we arrived at its end.
      */
     int32_t mOffset = 0;
-    /** whether this frame and the returned frame are on different lines */
+    /** whether the input frame and the returned frame are on different lines */
     bool mJumpedLine = false;
+    /** whether we met a hard break between the input and the returned frame */
+    bool mJumpedHardBreak = false;
     /** whether we jumped over a non-selectable frame during the search */
     bool mMovedOverNonSelectableText = false;
 
@@ -4048,7 +4048,14 @@ class nsIFrame : public nsQueryFrame {
   bool IsStackingContext(const nsStyleDisplay*, const nsStyleEffects*);
   bool IsStackingContext();
 
-  virtual bool HonorPrintBackgroundSettings() { return true; }
+  virtual bool HonorPrintBackgroundSettings() const { return true; }
+
+  // Whether we should paint backgrounds or not.
+  struct ShouldPaintBackground {
+    bool mColor = false;
+    bool mImage = false;
+  };
+  ShouldPaintBackground ComputeShouldPaintBackground() const;
 
   /**
    * Determine whether the frame is logically empty, which is roughly
@@ -4110,10 +4117,19 @@ class nsIFrame : public nsQueryFrame {
     return mProperties.Has(aProperty);
   }
 
-  // Add a property, or update an existing property for the given descriptor.
+  /**
+   * Add a property, or update an existing property for the given descriptor.
+   *
+   * Note: This function asserts if updating an existing nsFrameList property.
+   */
   template <typename T>
   void SetProperty(FrameProperties::Descriptor<T> aProperty,
                    FrameProperties::PropertyType<T> aValue) {
+    if constexpr (std::is_same_v<T, nsFrameList>) {
+      MOZ_ASSERT(aValue, "Shouldn't set nullptr to a nsFrameList property!");
+      MOZ_ASSERT(!HasProperty(aProperty),
+                 "Shouldn't update an existing nsFrameList property!");
+    }
     mProperties.Set(aProperty, aValue, this);
   }
 
@@ -4125,6 +4141,13 @@ class nsIFrame : public nsQueryFrame {
     mProperties.Add(aProperty, aValue);
   }
 
+  /**
+   * Remove a property and return its value without destroying it. May return
+   * nullptr.
+   *
+   * Note: The caller is responsible for handling the life cycle of the returned
+   * value.
+   */
   template <typename T>
   [[nodiscard]] FrameProperties::PropertyType<T> TakeProperty(
       FrameProperties::Descriptor<T> aProperty, bool* aFoundResult = nullptr) {
@@ -5185,6 +5208,8 @@ class nsIFrame : public nsQueryFrame {
     //    non-whitespace and whitespace), then mSawBeforeType==true means "we
     //    already saw some non-whitespace".
     bool mSawBeforeType;
+    // true when we've encountered at least one non-newline character
+    bool mSawInlineCharacter;
     // true when the last character encountered was punctuation
     bool mLastCharWasPunctuation;
     // true when the last character encountered was whitespace
@@ -5199,10 +5224,12 @@ class nsIFrame : public nsQueryFrame {
     PeekWordState()
         : mAtStart(true),
           mSawBeforeType(false),
+          mSawInlineCharacter(false),
           mLastCharWasPunctuation(false),
           mLastCharWasWhitespace(false),
           mSeenNonPunctuationSinceWhitespace(false) {}
     void SetSawBeforeType() { mSawBeforeType = true; }
+    void SetSawInlineCharacter() { mSawInlineCharacter = true; }
     void Update(bool aAfterPunctuation, bool aAfterWhitespace) {
       mLastCharWasPunctuation = aAfterPunctuation;
       mLastCharWasWhitespace = aAfterWhitespace;
@@ -5734,6 +5761,7 @@ template <bool IsLessThanOrEqual(nsIFrame*, nsIFrame*)>
 template <bool IsLessThanOrEqual(nsIFrame*, nsIFrame*)>
 /* static */ void nsIFrame::SortFrameList(nsFrameList& aFrameList) {
   nsIFrame* head = MergeSort<IsLessThanOrEqual>(aFrameList.FirstChild());
+  aFrameList.Clear();
   aFrameList = nsFrameList(head, nsLayoutUtils::GetLastSibling(head));
   MOZ_ASSERT(IsFrameListSorted<IsLessThanOrEqual>(aFrameList),
              "After we sort a frame list, it should be in sorted order...");

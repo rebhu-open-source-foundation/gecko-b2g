@@ -1657,6 +1657,7 @@ bool BytecodeEmitter::iteratorResultShape(GCThingIndex* shape) {
 
   ObjLiteralIndex objIndex(compilationInfo.stencil.objLiteralData.length());
   if (!compilationInfo.stencil.objLiteralData.emplaceBack(cx)) {
+    js::ReportOutOfMemory(cx);
     return false;
   }
   ObjLiteralStencil& data = compilationInfo.stencil.objLiteralData.back();
@@ -4622,6 +4623,7 @@ bool BytecodeEmitter::emitCallSiteObjectArray(ListNode* cookedOrRaw,
 
   ObjLiteralIndex objIndex(compilationInfo.stencil.objLiteralData.length());
   if (!compilationInfo.stencil.objLiteralData.emplaceBack(cx)) {
+    js::ReportOutOfMemory(cx);
     return false;
   }
   ObjLiteralStencil& data = compilationInfo.stencil.objLiteralData.back();
@@ -7184,7 +7186,7 @@ bool BytecodeEmitter::emitSelfHostedResumeGenerator(BinaryNode* callNode) {
   ParseNode* kindNode = valNode->pn_next;
   MOZ_ASSERT(kindNode->isKind(ParseNodeKind::StringExpr));
   GeneratorResumeKind kind =
-      ParserAtomToResumeKind(compilationInfo, kindNode->as<NameNode>().atom());
+      ParserAtomToResumeKind(cx, kindNode->as<NameNode>().atom());
   MOZ_ASSERT(!kindNode->pn_next);
 
   if (!emitPushResumeKind(kind)) {
@@ -8465,6 +8467,11 @@ void BytecodeEmitter::isPropertyListObjLiteralCompatible(ListNode* obj,
       keysOK = false;
       break;
     }
+
+    // BigIntExprs should have been lowered to computed names at parse
+    // time, and so should be excluded above.
+    MOZ_ASSERT(!key->isKind(ParseNodeKind::BigIntExpr));
+
     // Numeric keys OK as long as they are integers and in range.
     if (key->isKind(ParseNodeKind::NumberExpr)) {
       double numValue = key->as<NumericLiteral>().value();
@@ -8477,11 +8484,6 @@ void BytecodeEmitter::isPropertyListObjLiteralCompatible(ListNode* obj,
         keysOK = false;
         break;
       }
-    }
-    // BigInt keys aren't yet supported.
-    if (key->isKind(ParseNodeKind::BigIntExpr)) {
-      keysOK = false;
-      break;
     }
 
     MOZ_ASSERT(key->isKind(ParseNodeKind::ObjectPropertyName) ||
@@ -8651,7 +8653,7 @@ bool BytecodeEmitter::emitPropertyList(ListNode* obj, PropertyEmitter& pe,
           MOZ_ASSERT(accessorType == AccessorType::None);
 
           const ParserAtom* keyAtom =
-              key->as<NumericLiteral>().toAtom(compilationInfo);
+              key->as<NumericLiteral>().toAtom(cx, compilationInfo);
           if (!keyAtom) {
             return false;
           }
@@ -8834,6 +8836,7 @@ bool BytecodeEmitter::emitPropertyListObjLiteral(ListNode* obj,
                                                  ObjLiteralFlags flags) {
   ObjLiteralIndex objIndex(compilationInfo.stencil.objLiteralData.length());
   if (!compilationInfo.stencil.objLiteralData.emplaceBack(cx)) {
+    js::ReportOutOfMemory(cx);
     return false;
   }
   ObjLiteralStencil& data = compilationInfo.stencil.objLiteralData.back();
@@ -8902,6 +8905,7 @@ bool BytecodeEmitter::emitDestructuringRestExclusionSetObjLiteral(
 
   ObjLiteralIndex objIndex(compilationInfo.stencil.objLiteralData.length());
   if (!compilationInfo.stencil.objLiteralData.emplaceBack(cx)) {
+    js::ReportOutOfMemory(cx);
     return false;
   }
   ObjLiteralStencil& data = compilationInfo.stencil.objLiteralData.back();
@@ -8954,6 +8958,7 @@ bool BytecodeEmitter::emitDestructuringRestExclusionSetObjLiteral(
 bool BytecodeEmitter::emitObjLiteralArray(ParseNode* arrayHead, bool isCow) {
   ObjLiteralIndex objIndex(compilationInfo.stencil.objLiteralData.length());
   if (!compilationInfo.stencil.objLiteralData.emplaceBack(cx)) {
+    js::ReportOutOfMemory(cx);
     return false;
   }
   ObjLiteralStencil& data = compilationInfo.stencil.objLiteralData.back();
@@ -10473,8 +10478,8 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitInstrumentationSlow(
   }
   //            [stack] CALLBACK UNDEFINED
 
-  const ParserAtom* atom =
-      RealmInstrumentation::getInstrumentationKindName(compilationInfo, kind);
+  const ParserAtom* atom = RealmInstrumentation::getInstrumentationKindName(
+      cx, compilationInfo, kind);
   if (!atom) {
     return false;
   }

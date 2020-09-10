@@ -348,7 +348,7 @@ public class GeckoSession implements Parcelable {
                 "GeckoView:ContentKill",
                 "GeckoView:ContextMenu",
                 "GeckoView:DOMMetaViewportFit",
-                "GeckoView:DOMTitleChanged",
+                "GeckoView:PageTitleChanged",
                 "GeckoView:DOMWindowClose",
                 "GeckoView:ExternalResponse",
                 "GeckoView:FocusRequest",
@@ -388,7 +388,7 @@ public class GeckoSession implements Parcelable {
                 } else if ("GeckoView:DOMMetaViewportFit".equals(event)) {
                     delegate.onMetaViewportFitChange(GeckoSession.this,
                                                      message.getString("viewportfit"));
-                } else if ("GeckoView:DOMTitleChanged".equals(event)) {
+                } else if ("GeckoView:PageTitleChanged".equals(event)) {
                     delegate.onTitleChange(GeckoSession.this,
                                            message.getString("title"));
                 } else if ("GeckoView:FocusRequest".equals(event)) {
@@ -1210,6 +1210,18 @@ public class GeckoSession implements Parcelable {
 
             return res;
         }
+
+        @WrapForJNI(calledFrom = "ui")
+        private void passExternalWebResponse(final WebResponse response) {
+            GeckoSession session = mOwner.get();
+            if (session == null) {
+                return;
+            }
+            ContentDelegate delegate = session.getContentDelegate();
+            if (delegate != null) {
+                delegate.onExternalResponse(session, response);
+            }
+        }
     }
 
     private class Listener implements BundleEventListener {
@@ -1481,6 +1493,9 @@ public class GeckoSession implements Parcelable {
         }
 
         onWindowChanged(WINDOW_CLOSE, /* inProgress */ true);
+
+        // We need to ensure the compositor releases any Surface it currently holds.
+        onSurfaceDestroyed();
 
         mWindow.close();
         mWindow.disposeNative();
@@ -3290,15 +3305,24 @@ public class GeckoSession implements Parcelable {
                                    @NonNull ContextElement element) {}
 
         /**
-         * This is fired when there is a response that cannot be handled
-         * by Gecko (e.g., a download).
-         *
-         * @param session the GeckoSession that received the external response.
-         * @param response the WebResponseInfo for the external response
+         * @deprecated Use {@link ContentDelegate#onExternalResponse(GeckoSession, WebResponse)}
+         * instead. This method will be removed in GeckoView 85.
          */
+        @Deprecated // Bug 1530022
+        @SuppressWarnings("checkstyle:javadocmethod")
         @UiThread
         default void onExternalResponse(@NonNull GeckoSession session,
                                         @NonNull WebResponseInfo response) {}
+
+        /**
+         * This is fired when there is a response that cannot be handled
+         * by Gecko (e.g., a download).
+         *  @param session the GeckoSession that received the external response.
+         * @param response the external WebResponse.
+         */
+        @UiThread
+        default void onExternalResponse(@NonNull GeckoSession session,
+                                        @NonNull WebResponse response) {}
 
         /**
          * The content process hosting this GeckoSession has crashed. The

@@ -2091,8 +2091,35 @@ var gBrowserInit = {
       }
     }
 
-    if (!Services.policies.isAllowed("hideShowMenuBar")) {
-      document.getElementById("toolbar-menubar").removeAttribute("toolbarname");
+    if (Services.policies.status === Services.policies.ACTIVE) {
+      if (!Services.policies.isAllowed("hideShowMenuBar")) {
+        document
+          .getElementById("toolbar-menubar")
+          .removeAttribute("toolbarname");
+      }
+      let policies = Services.policies.getActivePolicies();
+      if ("ManagedBookmarks" in policies) {
+        let managedBookmarks = policies.ManagedBookmarks;
+        let children = managedBookmarks.filter(
+          child => !("toplevel_name" in child)
+        );
+        if (children.length) {
+          let managedBookmarksButton = document.getElementById(
+            "managed-bookmarks"
+          );
+          let toplevel = managedBookmarks.find(
+            element => "toplevel_name" in element
+          );
+          if (toplevel) {
+            managedBookmarksButton.setAttribute(
+              "label",
+              toplevel.toplevel_name
+            );
+            managedBookmarksButton.removeAttribute("data-l10n-id");
+          }
+          managedBookmarksButton.hidden = false;
+        }
+      }
     }
 
     CaptivePortalWatcher.delayedStartup();
@@ -3630,10 +3657,12 @@ var PrintPreviewListener = {
     let browser = this.getSourceBrowser();
     let preferredRemoteType = browser.remoteType;
     let initialBrowsingContextGroupId = browser.browsingContext.group.id;
+    let userContextId = browser.browsingContext.originAttributes.userContextId;
     return gBrowser.loadOneTab("about:printpreview", {
       inBackground: true,
       preferredRemoteType,
       initialBrowsingContextGroupId,
+      userContextId,
       triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
     });
   },
@@ -6625,6 +6654,7 @@ const nodeToTooltipMap = {
   "appMenu-zoomReset-button": "zoomReset-button.tooltip",
   "appMenu-zoomReduce-button": "zoomReduce-button.tooltip",
   "reader-mode-button": "reader-mode-button.tooltip",
+  "print-button": "printButton.tooltip",
 };
 const nodeToShortcutMap = {
   "bookmarks-menu-button": "manBookmarkKb",
@@ -6646,12 +6676,8 @@ const nodeToShortcutMap = {
   "appMenu-zoomReset-button": "key_fullZoomReset",
   "appMenu-zoomReduce-button": "key_fullZoomReduce",
   "reader-mode-button": "key_toggleReaderMode",
+  "print-button": "printKb",
 };
-
-if (AppConstants.platform == "macosx") {
-  nodeToTooltipMap["print-button"] = "printButton.tooltip";
-  nodeToShortcutMap["print-button"] = "printKb";
-}
 
 const gDynamicTooltipCache = new Map();
 function GetDynamicShortcutTooltipText(nodeId) {
@@ -6676,7 +6702,19 @@ function GetDynamicShortcutTooltipText(nodeId) {
 function UpdateDynamicShortcutTooltipText(aTooltip) {
   let nodeId =
     aTooltip.triggerNode.id || aTooltip.triggerNode.getAttribute("anonid");
-  aTooltip.setAttribute("label", GetDynamicShortcutTooltipText(nodeId));
+  if (
+    nodeId == "print-button" &&
+    !Services.prefs.getBoolPref("print.tab_modal.enabled") &&
+    AppConstants.platform !== "macosx"
+  ) {
+    // If the new print UI pref is turned off, we should display the old title that did not have the shortcut
+    aTooltip.setAttribute(
+      "label",
+      document.getElementById(nodeId).getAttribute("print-button-title")
+    );
+  } else {
+    aTooltip.setAttribute("label", GetDynamicShortcutTooltipText(nodeId));
+  }
 }
 
 /*
@@ -8876,32 +8914,59 @@ class TabDialogBox {
   /**
    * Open a dialog on tab level.
    * @param {String} aURL - URL of the dialog to load in the tab box.
-   * @param {String} [aFeatures] - Comma separated list of window features.
-   * @param {*} [aParams] - Parameters to pass to dialog window.
-   * @param {Object} [aOpenOptions] - Parameters to pass to dialog open method.
+   * @param {Object} [aOptions]
+   * @param {String} [aOptions.features] - Comma separated list of window
+   * features.
+   * @param {Boolean} [aOptions.allowDuplicateDialogs] - Whether to allow
+   * showing multiple dialogs with aURL at the same time. If false calls for
+   * duplicate dialogs will be dropped.
+   * @param {String} [aOptions.sizeTo] - Pass "available" to stretch dialog to
+   * roughly content size.
+   * @param {Boolean} [aOptions.keepOpenSameOriginNav] - By default dialogs are
+   * aborted on any navigation.
+   * Set to true to keep the dialog open for same origin navigation.
    * @returns {Promise} - Resolves once the dialog has been closed.
    */
-  open(aURL, aFeatures = null, aParams = null, aOpenOptions = {}) {
+  open(
+    aURL,
+    {
+      features = null,
+      allowDuplicateDialogs = true,
+      sizeTo,
+      keepOpenSameOriginNav,
+    } = {},
+    ...aParams
+  ) {
     return new Promise(resolve => {
       if (!this._dialogManager.hasDialogs) {
         this._onFirstDialogOpen();
       }
 
+      let closingCallback = () => {
+        if (!this._dialogManager.hasDialogs) {
+          this._onLastDialogClose();
+        }
+      };
+
       // Open dialog and resolve once it has been closed
-      this._dialogManager.open(
+      let dialog = this._dialogManager.open(
         aURL,
-        aFeatures,
-        aParams,
-        // Closing
-        () => {
-          if (!this._dialogManager.hasDialogs) {
-            this._onLastDialogClose();
-          }
+        {
+          features,
+          allowDuplicateDialogs,
+          sizeTo,
+          closingCallback,
+          closedCallback: resolve,
         },
-        // Resolve on closed callback
-        resolve,
-        aOpenOptions
+        ...aParams
       );
+
+      // Marking the dialog externally, instead of passing it as an option.
+      // The SubDialog(Manager) does not care about navigation.
+      // dialog can be null here if allowDuplicateDialogs = false.
+      if (dialog) {
+        dialog._keepOpenSameOriginNav = keepOpenSameOriginNav;
+      }
     });
   }
 
@@ -8909,8 +8974,11 @@ class TabDialogBox {
     // Hide PopupNotifications to prevent them from covering up dialogs.
     this.browser.setAttribute("tabDialogShowing", true);
     UpdatePopupNotificationsVisibility();
+
     // Register listeners
+    this._lastPrincipal = this.browser.contentPrincipal;
     this.browser.addProgressListener(this, Ci.nsIWebProgress.NOTIFY_LOCATION);
+
     this.tab?.addEventListener("TabClose", this);
   }
 
@@ -8918,8 +8986,11 @@ class TabDialogBox {
     // Show PopupNotifications again.
     this.browser.removeAttribute("tabDialogShowing");
     UpdatePopupNotificationsVisibility();
+
     // Clean up listeners
     this.browser.removeProgressListener(this);
+    this._lastPrincipal = null;
+
     this.tab?.removeEventListener("TabClose", this);
   }
 
@@ -8931,7 +9002,11 @@ class TabDialogBox {
   }
 
   abortAllDialogs() {
-    this._dialogManager.abortAll();
+    this._dialogManager.abortDialogs();
+  }
+
+  focus() {
+    this._dialogManager.focusTopDialog();
   }
 
   /**
@@ -8945,7 +9020,23 @@ class TabDialogBox {
     ) {
       return;
     }
-    this.abortAllDialogs();
+
+    // Dialogs can be exempt from closing on same origin location change.
+    let filterFn;
+
+    // Test for same origin location change
+    if (
+      this._lastPrincipal?.isSameOrigin(
+        aLocation,
+        this.browser.browsingContext.usePrivateBrowsing
+      )
+    ) {
+      filterFn = dialog => !dialog._keepOpenSameOriginNav;
+    }
+
+    this._lastPrincipal = this.browser.contentPrincipal;
+
+    this._dialogManager.abortDialogs(filterFn);
   }
 
   get tab() {

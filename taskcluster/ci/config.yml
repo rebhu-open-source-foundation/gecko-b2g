@@ -28,8 +28,10 @@ treeherder:
         'Btime-live-ChR': 'Browsertime performance tests on Firefox'
         'Btime-ChR': 'Browsertime performance tests on Google Chrome Release'
         'Btime-Cr': 'Browsertime performance tests on Google Chromium'
-        'Btime-P': 'Browsertime power tests on Firefox'
-        'Btime-P-1proc': 'Browsertime power tests on Firefox without e10s'
+        'Btime-P': 'Browsertime power tests on Firefox/Geckoview'
+        'Btime-P-fenix': 'Browsertime power tests on Fenix'
+        'Btime-P-1proc': 'Browsertime power tests on Fennec'
+        'Btime-P-refbrow': 'Browsertime power tests on reference browser'
         'Btime-fenix': 'Browsertime performance tests on Fenix'
         'Btime-fenix-wr': 'Browsertime performance tests on Fenix with webrender enabled'
         'Btime-fennec': 'Browsertime performance tests on Fennec'
@@ -41,6 +43,7 @@ treeherder:
         'Btime-Prof-fennec-1proc': 'Browsertime performance tests on Fennec without e10s with Gecko Profiling'
         'Btime-Prof-refbrow': 'Browsertime performance tests on the reference browser with Gecko Profiling'
         'Btime-wr': 'Browsertime performance tests on Android with webrender enabled'
+        'Btime-live-wr': 'Browsertime performance tests on Android with webrender enabled'
         'Fetch': 'Fetch and store content'
         'Fxfn-l': 'Firefox functional tests (local)'
         'Fxfn-l-1proc': 'Firefox functional tests (local) without e10s'
@@ -65,6 +68,7 @@ treeherder:
         'R-fis': 'Reftests with fission enabled'
         'R-swr': 'Reftests with software webrender enabled'
         'Rap': 'Raptor performance tests on Firefox'
+        'Rap-live': 'Raptor performance tests on Firefox with live sites'
         'Rap-1proc': 'Raptor performance tests on Firefox without e10s'
         'Rap-fis': 'Raptor performance tests on Firefox with fission enabled'
         'Rap-Prof': 'Raptor performance tests on Firefox with Gecko Profiling'
@@ -323,24 +327,6 @@ merge-automation:
             to-repo: 'https://hg.mozilla.org/releases/mozilla-release'
             to-branch: 'release'
         release-to-esr:
-            fetch-version-from: "browser/config/version.txt"
-            version-files:
-                - filename: "browser/config/version_display.txt"
-                  new-suffix: 'esr'
-            replacements:
-                - - "build/mozconfig.common"
-                  - "# Enable enforcing that add-ons are signed by the trusted root"
-                  - "# Disable enforcing that add-ons are signed by the trusted root"
-                - - build/mozconfig.common
-                  - 'MOZ_REQUIRE_SIGNING=${MOZ_REQUIRE_SIGNING-1}'
-                  - 'MOZ_REQUIRE_SIGNING=${MOZ_REQUIRE_SIGNING-0}'
-            merge-old-head: false
-            base-tag: "FIREFOX_ESR_{major_version}_BASE"
-            from-repo: 'https://hg.mozilla.org/releases/mozilla-release'
-            from-branch: 'release'
-            to-repo: 'https://hg.mozilla.org/releases/mozilla-esr68'
-            to-branch: 'esr68'
-        release-to-esr78:
             fetch-version-from: "browser/config/version.txt"
             version-files:
                 - filename: "browser/config/version_display.txt"

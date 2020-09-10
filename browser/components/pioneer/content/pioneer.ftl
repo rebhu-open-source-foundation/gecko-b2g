@@ -16,6 +16,7 @@ pioneer-leave-study = Leave Study
 pioneer-enrollment-button = Join { -pioneer-brand-short-name }
 pioneer-unenrollment-button = Leave { -pioneer-brand-short-name }
 pioneer-current-studies = Current Studies
+pioneer-no-current-studies = No current studies, please check back later.
 pioneer-end-study = End Study
 pioneer-ended-study = Study Ended
 pioneer-accept-participate = Accept and Participate
@@ -48,3 +49,5 @@ pioneer-your-data-bullet-know = You’ll know the information we plan to collect
 pioneer-your-data-bullet-lengths = We prioritize securing your data and protecting your privacy.
 pioneer-your-data-bullet-leave = You can leave the { -pioneer-brand-short-name } program at any time, and we’ll stop collecting data when you do.
 pioneer-your-data-learn-more = Learn more about <a data-l10n-name="privacy-policy">managing the data you share</a> with { -pioneer-brand-short-name }.
+
+pioneer-us-only = Sorry, { -pioneer-brand-short-name } is currently only open to participants in the US.

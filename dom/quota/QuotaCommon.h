@@ -7,14 +7,20 @@
 #ifndef mozilla_dom_quota_quotacommon_h__
 #define mozilla_dom_quota_quotacommon_h__
 
+#include "mozilla/ipc/ProtocolUtils.h"
 #include "nsCOMPtr.h"
 #include "nsDebug.h"
 #include "nsPrintfCString.h"
 #include "nsString.h"
 #include "nsTArray.h"
 
-#define MOZ_UNIQUE_VAR(base) MOZ_CONCAT(base, __LINE__)
+// Proper use of unique variable names can be tricky (especially if nesting of
+// the final macro is required).
+// See https://lifecs.likai.org/2016/07/c-preprocessor-hygienic-macros.html
+#define MOZ_UNIQUE_VAR(base) MOZ_CONCAT(base, __COUNTER__)
 
+// See
+// https://stackoverflow.com/questions/24481810/how-to-remove-the-enclosing-parentheses-with-macro
 #define MOZ_REMOVE_PAREN(X) MOZ_REMOVE_PAREN_HELPER2(MOZ_REMOVE_PAREN_HELPER X)
 #define MOZ_REMOVE_PAREN_HELPER(...) MOZ_REMOVE_PAREN_HELPER __VA_ARGS__
 #define MOZ_REMOVE_PAREN_HELPER2(...) MOZ_REMOVE_PAREN_HELPER3(__VA_ARGS__)
@@ -69,24 +75,18 @@
 
 /**
  * There are multiple ways to handle unrecoverable conditions (note that the
- * patterns are put in chronological order and only the last pattern
+ * patterns are put in reverse chronological order and only the first pattern
  * QM_TRY/QM_TRY_VAR/QM_FAIL should be used in new code):
  *
- * 1. Using NS_ENSURE_* macros
- *
- * Mainly:
- * - NS_ENSURE_SUCCESS
- * - NS_ENSURE_SUCCESS_VOID
- * - NS_ENSURE_TRUE
- * - NS_ENSURE_TRUE_VOID
+ * 1. Using QM_TRY/QM_TRY_VAR/QM_FAIL macros (Quota manager specific, defined
+ *    below)
  *
  * Typical use cases:
  *
  * nsresult MyFunc1(nsIFile& aFile) {
  *   bool exists;
- *   nsresult rv = aFile.Exists(&exists);
- *   NS_ENSURE_SUCCESS(rv, rv);
- *   NS_ENSURE_TRUE(exists, NS_ERROR_FAILURE);
+ *   QM_TRY(aFile.Exists(&exists));
+ *   QM_TRY(OkIf(exists), NS_ERROR_FAILURE);
  *
  *   // The file exists, and data could be read from it here.
  *
@@ -95,9 +95,8 @@
  *
  * nsresult MyFunc2(nsIFile& aFile) {
  *   bool exists;
- *   nsresult rv = aFile.Exists(&exists);
- *   NS_ENSURE_SUCCESS(rv, NS_ERROR_UNEXPECTED);
- *   NS_ENSURE_TRUE(exists, NS_ERROR_UNEXPECTED);
+ *   QM_TRY(aFile.Exists(&exists), NS_ERROR_UNEXPECTED);
+ *   QM_TRY(OkIf(exists), NS_ERROR_UNEXPECTED);
  *
  *   // The file exists, and data could be read from it here.
  *
@@ -106,40 +105,90 @@
  *
  * void MyFunc3(nsIFile& aFile) {
  *   bool exists;
- *   nsresult rv = aFile.Exists(&exists);
- *   NS_ENSURE_SUCCESS_VOID(rv);
- *   NS_ENSURE_TRUE_VOID(exists);
+ *   QM_TRY(aFile.Exists(&exists), QM_VOID);
+ *   QM_TRY(OkIf(exists), QM_VOID);
  *
  *   // The file exists, and data could be read from it here.
  * }
  *
  * nsresult MyFunc4(nsIFile& aFile) {
- *   // NS_ENSURE_SUCCESS/NS_ENSURE_TRUE can't run an additional cleanup
- *   // function
+ *   bool exists;
+ *   QM_TRY(storageFile->Exists(&exists), QM_PROPAGATE,
+ *          []() { NS_WARNING("The Exists call failed!"); });
+ *   QM_TRY(OkIf(exists), NS_ERROR_FAILURE,
+ *          []() { NS_WARNING("The file doesn't exist!"); });
+ *
+ *   // The file exists, and data could be read from it here.
  *
  *   return NS_OK;
  * }
  *
  * nsresult MyFunc5(nsIFile& aFile) {
  *   bool exists;
- *   nsresult rv = aFile.Exists(&exists);
- *   NS_ENSURE_SUCCESS(rv, rv);
+ *   QM_TRY(aFile.Exists(&exists));
  *   if (exists) {
  *     // The file exists, and data could be read from it here.
  *   } else {
- *     NS_ENSURE_TRUE(false, NS_ERROR_FAILURE);
+ *     QM_FAIL(NS_ERROR_FAILURE);
  *   }
  *
  *   return NS_OK;
  * }
  *
  * nsresult MyFunc6(nsIFile& aFile) {
- *   // NS_ENSURE_TRUE can't run an additional cleanup function
+ *   bool exists;
+ *   QM_TRY(aFile.Exists(&exists));
+ *   if (exists) {
+ *     // The file exists, and data could be read from it here.
+ *   } else {
+ *     QM_FAIL(NS_ERROR_FAILURE,
+ *             []() { NS_WARNING("The file doesn't exist!"); });
+ *   }
  *
  *   return NS_OK;
  * }
  *
- * 2. Using NS_WARN_IF and NS_WARNING macro with own control flow handling
+ * 2. Using MOZ_TRY/MOZ_TRY_VAR macros
+ *
+ * Typical use cases:
+ *
+ * nsresult MyFunc1(nsIFile& aFile) {
+ *   // MOZ_TRY can't return a custom return value
+ *
+ *   return NS_OK;
+ * }
+ *
+ * nsresult MyFunc2(nsIFile& aFile) {
+ *   // MOZ_TRY can't return a custom return value
+ *
+ *   return NS_OK;
+ * }
+ *
+ * void MyFunc3(nsIFile& aFile) {
+ *   // MOZ_TRY can't return a custom return value, "void" in this case
+ * }
+ *
+ * nsresult MyFunc4(nsIFile& aFile) {
+ *   // MOZ_TRY can't return a custom return value and run an additional
+ *   // cleanup function
+ *
+ *   return NS_OK;
+ * }
+ *
+ * nsresult MyFunc5(nsIFile& aFile) {
+ *   // There's no MOZ_FAIL, MOZ_TRY can't return a custom return value
+ *
+ *   return NS_OK;
+ * }
+ *
+ * nsresult MyFunc6(nsIFile& aFile) {
+ *   // There's no MOZ_FAIL, MOZ_TRY can't return a custom return value and run
+ *   // an additional cleanup function
+ *
+ *   return NS_OK;
+ * }
+ *
+ * 3. Using NS_WARN_IF and NS_WARNING macro with own control flow handling
  *
  * Typical use cases:
  *
@@ -234,54 +283,21 @@
  *   return NS_OK;
  * }
  *
- * 3. Using MOZ_TRY/MOZ_TRY_VAR macros
+ * 4. Using NS_ENSURE_* macros
  *
- * Typical use cases:
- *
- * nsresult MyFunc1(nsIFile& aFile) {
- *   // MOZ_TRY can't return a custom return value
- *
- *   return NS_OK;
- * }
- *
- * nsresult MyFunc2(nsIFile& aFile) {
- *   // MOZ_TRY can't return a custom return value
- *
- *   return NS_OK;
- * }
- *
- * void MyFunc3(nsIFile& aFile) {
- *   // MOZ_TRY can't return a custom return value, "void" in this case
- * }
- *
- * nsresult MyFunc4(nsIFile& aFile) {
- *   // MOZ_TRY can't return a custom return value and run an additional
- *   // cleanup function
- *
- *   return NS_OK;
- * }
- *
- * nsresult MyFunc5(nsIFile& aFile) {
- *   // There's no MOZ_FAIL, MOZ_TRY can't return a custom return value
- *
- *   return NS_OK;
- * }
- *
- * nsresult MyFunc6(nsIFile& aFile) {
- *   // There's no MOZ_FAIL, MOZ_TRY can't return a custom return value and run
- *   // an additional cleanup function
- *
- *   return NS_OK;
- * }
- *
- * 4. Using QM_TRY/QM_TRY_VAR macros (Quota manager specific, defined below)
+ * Mainly:
+ * - NS_ENSURE_SUCCESS
+ * - NS_ENSURE_SUCCESS_VOID
+ * - NS_ENSURE_TRUE
+ * - NS_ENSURE_TRUE_VOID
  *
  * Typical use cases:
  *
  * nsresult MyFunc1(nsIFile& aFile) {
  *   bool exists;
- *   QM_TRY(aFile.Exists(&exists));
- *   QM_TRY(OkIf(exists), NS_ERROR_FAILURE);
+ *   nsresult rv = aFile.Exists(&exists);
+ *   NS_ENSURE_SUCCESS(rv, rv);
+ *   NS_ENSURE_TRUE(exists, NS_ERROR_FAILURE);
  *
  *   // The file exists, and data could be read from it here.
  *
@@ -290,8 +306,9 @@
  *
  * nsresult MyFunc2(nsIFile& aFile) {
  *   bool exists;
- *   QM_TRY(aFile.Exists(&exists), NS_ERROR_UNEXPECTED);
- *   QM_TRY(OkIf(exists), NS_ERROR_UNEXPECTED);
+ *   nsresult rv = aFile.Exists(&exists);
+ *   NS_ENSURE_SUCCESS(rv, NS_ERROR_UNEXPECTED);
+ *   NS_ENSURE_TRUE(exists, NS_ERROR_UNEXPECTED);
  *
  *   // The file exists, and data could be read from it here.
  *
@@ -300,45 +317,35 @@
  *
  * void MyFunc3(nsIFile& aFile) {
  *   bool exists;
- *   QM_TRY(aFile.Exists(&exists), QM_VOID);
- *   QM_TRY(OkIf(exists), QM_VOID);
+ *   nsresult rv = aFile.Exists(&exists);
+ *   NS_ENSURE_SUCCESS_VOID(rv);
+ *   NS_ENSURE_TRUE_VOID(exists);
  *
  *   // The file exists, and data could be read from it here.
  * }
  *
  * nsresult MyFunc4(nsIFile& aFile) {
- *   bool exists;
- *   QM_TRY(storageFile->Exists(&exists), QM_PROPAGATE,
- *          []() { NS_WARNING("The Exists call failed!"); });
- *   QM_TRY(OkIf(exists), NS_ERROR_FAILURE,
- *          []() { NS_WARNING("The file doesn't exist!"); });
- *
- *   // The file exists, and data could be read from it here.
+ *   // NS_ENSURE_SUCCESS/NS_ENSURE_TRUE can't run an additional cleanup
+ *   // function
  *
  *   return NS_OK;
  * }
  *
  * nsresult MyFunc5(nsIFile& aFile) {
  *   bool exists;
- *   QM_TRY(aFile.Exists(&exists));
+ *   nsresult rv = aFile.Exists(&exists);
+ *   NS_ENSURE_SUCCESS(rv, rv);
  *   if (exists) {
  *     // The file exists, and data could be read from it here.
  *   } else {
- *     QM_FAIL(NS_ERROR_FAILURE);
+ *     NS_ENSURE_TRUE(false, NS_ERROR_FAILURE);
  *   }
  *
  *   return NS_OK;
  * }
  *
  * nsresult MyFunc6(nsIFile& aFile) {
- *   bool exists;
- *   QM_TRY(aFile.Exists(&exists));
- *   if (exists) {
- *     // The file exists, and data could be read from it here.
- *   } else {
- *     QM_FAIL(NS_ERROR_FAILURE,
- *             []() { NS_WARNING("The file doesn't exist!"); });
- *   }
+ *   // NS_ENSURE_TRUE can't run an additional cleanup function
  *
  *   return NS_OK;
  * }
@@ -380,54 +387,75 @@
 
 #define QM_VOID
 
-#define QM_PROPAGATE MOZ_UNIQUE_VAR(tryResult).propagateErr()
+#define QM_PROPAGATE tryTempResult.propagateErr()
+
+// QM_MISSING_ARGS and QM_HANDLE_ERROR macros are implementation details of
+// QM_TRY/QM_TRY_VAR/QM_FAIL and shouldn't be used directly.
 
 #define QM_MISSING_ARGS(...)                           \
   do {                                                 \
     static_assert(false, "Did you forget arguments?"); \
   } while (0)
 
-// QM_TRY_PROPAGATE_ERR, QM_TRY_CUSTOM_RET_VAL and
-// QM_TRY_CUSTOM_RET_VAL_WITH_CLEANUP macros are implementation details of
-// QM_TRY and shouldn't be used directly.
+#ifdef DEBUG
+#  define QM_HANDLE_ERROR(expr) HandleError(#  expr, __FILE__, __LINE__)
+#else
+#  define QM_HANDLE_ERROR(expr) HandleError("Unavailable", __FILE__, __LINE__)
+#endif
 
-// Handles the two arguments case when the eror is propagated.
-#define QM_TRY_PROPAGATE_ERR(ns, expr)                                   \
-  auto MOZ_UNIQUE_VAR(tryResult) = ::mozilla::ToResult(expr);            \
-  if (MOZ_UNLIKELY(MOZ_UNIQUE_VAR(tryResult).isErr())) {                 \
-    ns::HandleError(nsLiteralCString(#expr), nsLiteralCString(__FILE__), \
-                    __LINE__);                                           \
-    return QM_PROPAGATE;                                                 \
+// QM_TRY_PROPAGATE_ERR, QM_TRY_CUSTOM_RET_VAL,
+// QM_TRY_CUSTOM_RET_VAL_WITH_CLEANUP and QM_TRY_GLUE macros are implementation
+// details of QM_TRY and shouldn't be used directly.
+
+// Handles the three arguments case when the error is propagated.
+#define QM_TRY_PROPAGATE_ERR(ns, tryResult, expr) \
+  auto tryResult = ::mozilla::ToResult(expr);     \
+  if (MOZ_UNLIKELY(tryResult.isErr())) {          \
+    ns::QM_HANDLE_ERROR(expr);                    \
+    return tryResult.propagateErr();              \
   }
 
-// Handles the three arguments case when a custom return value needs to be
+// Handles the four arguments case when a custom return value needs to be
 // returned
-#define QM_TRY_CUSTOM_RET_VAL(ns, expr, customRetVal)                    \
-  auto MOZ_UNIQUE_VAR(tryResult) = ::mozilla::ToResult(expr);            \
-  if (MOZ_UNLIKELY(MOZ_UNIQUE_VAR(tryResult).isErr())) {                 \
-    ns::HandleError(nsLiteralCString(#expr), nsLiteralCString(__FILE__), \
-                    __LINE__);                                           \
-    return customRetVal;                                                 \
+#define QM_TRY_CUSTOM_RET_VAL(ns, tryResult, expr, customRetVal) \
+  auto tryResult = ::mozilla::ToResult(expr);                    \
+  if (MOZ_UNLIKELY(tryResult.isErr())) {                         \
+    auto tryTempResult MOZ_MAYBE_UNUSED = std::move(tryResult);  \
+    ns::QM_HANDLE_ERROR(expr);                                   \
+    return customRetVal;                                         \
   }
 
-// Handles the four arguments case when a cleanup function needs to be called
+// Handles the five arguments case when a cleanup function needs to be called
 // before a custom return value is returned
-#define QM_TRY_CUSTOM_RET_VAL_WITH_CLEANUP(ns, expr, customRetVal, cleanup) \
-  auto MOZ_UNIQUE_VAR(tryResult) = ::mozilla::ToResult(expr);               \
-  if (MOZ_UNLIKELY(MOZ_UNIQUE_VAR(tryResult).isErr())) {                    \
-    ns::HandleError(nsLiteralCString(#expr), nsLiteralCString(__FILE__),    \
-                    __LINE__);                                              \
-    cleanup();                                                              \
-    return customRetVal;                                                    \
+#define QM_TRY_CUSTOM_RET_VAL_WITH_CLEANUP(ns, tryResult, expr, customRetVal, \
+                                           cleanup)                           \
+  auto tryResult = ::mozilla::ToResult(expr);                                 \
+  if (MOZ_UNLIKELY(tryResult.isErr())) {                                      \
+    auto tryTempResult MOZ_MAYBE_UNUSED = std::move(tryResult);               \
+    ns::QM_HANDLE_ERROR(expr);                                                \
+    cleanup(tryTempResult);                                                   \
+    return customRetVal;                                                      \
   }
 
 // Chooses the final implementation macro for given argument count.
 // It can be used by other modules to define module specific error handling.
-#define QM_TRY_META(...)                                                      \
-  MOZ_ARG_6(, ##__VA_ARGS__, QM_TRY_CUSTOM_RET_VAL_WITH_CLEANUP(__VA_ARGS__), \
-            QM_TRY_CUSTOM_RET_VAL(__VA_ARGS__),                               \
-            QM_TRY_PROPAGATE_ERR(__VA_ARGS__), QM_MISSING_ARGS(__VA_ARGS__),  \
-            QM_MISSING_ARGS(__VA_ARGS__))
+// This could use MOZ_PASTE_PREFIX_AND_ARG_COUNT, but explicit named suffxes
+// read slightly better than plain numbers.
+// See also
+// https://stackoverflow.com/questions/3046889/optional-parameters-with-c-macros
+#define QM_TRY_META(...)                                                       \
+  {                                                                            \
+    MOZ_ARG_7(, ##__VA_ARGS__,                                                 \
+              QM_TRY_CUSTOM_RET_VAL_WITH_CLEANUP(__VA_ARGS__),                 \
+              QM_TRY_CUSTOM_RET_VAL(__VA_ARGS__),                              \
+              QM_TRY_PROPAGATE_ERR(__VA_ARGS__), QM_MISSING_ARGS(__VA_ARGS__), \
+              QM_MISSING_ARGS(__VA_ARGS__), QM_MISSING_ARGS(__VA_ARGS__))      \
+  }
+
+// Specifies the namespace and generates unique variable name. This extra
+// internal macro (along with __COUNTER__) allows nesting of the final macro.
+#define QM_TRY_GLUE(...) \
+  QM_TRY_META(mozilla::dom::quota, MOZ_UNIQUE_VAR(tryResult), ##__VA_ARGS__)
 
 /**
  * QM_TRY(expr[, customRetVal, cleanup]) is the C++ equivalent of Rust's
@@ -437,54 +465,70 @@
  * passed) and finally returns an error Result from the enclosing function or a
  * custom return value (if the second argument was passed).
  */
-#define QM_TRY(...) QM_TRY_META(mozilla::dom::quota, ##__VA_ARGS__)
+#define QM_TRY(...) QM_TRY_GLUE(__VA_ARGS__)
 
-// QM_TRY_VAR_PROPAGATE_ERR, QM_TRY_VAR_CUSTOM_RET_VAL and
-// QM_TRY_VAR_CUSTOM_RET_VAL_WITH_CLEANUP macros are implementation details of
-// QM_TRY_VAR and shouldn't be used directly.
+/**
+ * QM_DEBUG_TRY works like QM_TRY in debug builds, it has has no effect in
+ * non-debug builds.
+ */
+#ifdef DEBUG
+#  define QM_DEBUG_TRY(...) QM_TRY(__VA_ARGS__)
+#else
+#  define QM_DEBUG_TRY(...)
+#endif
 
-// Handles the three arguments case when the eror is propagated.
-#define QM_TRY_VAR_PROPAGATE_ERR(ns, target, expr)                       \
-  auto MOZ_UNIQUE_VAR(tryResult) = (expr);                               \
-  if (MOZ_UNLIKELY(MOZ_UNIQUE_VAR(tryResult).isErr())) {                 \
-    ns::HandleError(nsLiteralCString(#expr), nsLiteralCString(__FILE__), \
-                    __LINE__);                                           \
-    return QM_PROPAGATE;                                                 \
-  }                                                                      \
-  MOZ_REMOVE_PAREN(target) = MOZ_UNIQUE_VAR(tryResult).unwrap();
+// QM_TRY_VAR_PROPAGATE_ERR, QM_TRY_VAR_CUSTOM_RET_VAL,
+// QM_TRY_VAR_CUSTOM_RET_VAL_WITH_CLEANUP and QM_TRY_VAR_GLUE macros are
+// implementation details of QM_TRY_VAR and shouldn't be used directly.
 
-// Handles the four arguments case when a custom return value needs to be
+// Handles the four arguments case when the error is propagated.
+#define QM_TRY_VAR_PROPAGATE_ERR(ns, tryResult, target, expr) \
+  auto tryResult = (expr);                                    \
+  if (MOZ_UNLIKELY(tryResult.isErr())) {                      \
+    ns::QM_HANDLE_ERROR(expr);                                \
+    return tryResult.propagateErr();                          \
+  }                                                           \
+  MOZ_REMOVE_PAREN(target) = tryResult.unwrap();
+
+// Handles the five arguments case when a custom return value needs to be
 // returned
-#define QM_TRY_VAR_CUSTOM_RET_VAL(ns, target, expr, customRetVal)        \
-  auto MOZ_UNIQUE_VAR(tryResult) = (expr);                               \
-  if (MOZ_UNLIKELY(MOZ_UNIQUE_VAR(tryResult).isErr())) {                 \
-    ns::HandleError(nsLiteralCString(#expr), nsLiteralCString(__FILE__), \
-                    __LINE__);                                           \
-    return customRetVal;                                                 \
-  }                                                                      \
-  MOZ_REMOVE_PAREN(target) = MOZ_UNIQUE_VAR(tryResult).unwrap();
+#define QM_TRY_VAR_CUSTOM_RET_VAL(ns, tryResult, target, expr, customRetVal) \
+  auto tryResult = (expr);                                                   \
+  if (MOZ_UNLIKELY(tryResult.isErr())) {                                     \
+    auto tryTempResult MOZ_MAYBE_UNUSED = std::move(tryResult);              \
+    ns::QM_HANDLE_ERROR(expr);                                               \
+    return customRetVal;                                                     \
+  }                                                                          \
+  MOZ_REMOVE_PAREN(target) = tryResult.unwrap();
 
-// Handles the five arguments case when a cleanup function needs to be called
+// Handles the six arguments case when a cleanup function needs to be called
 // before a custom return value is returned
-#define QM_TRY_VAR_CUSTOM_RET_VAL_WITH_CLEANUP(ns, target, expr, customRetVal, \
-                                               cleanup)                        \
-  auto MOZ_UNIQUE_VAR(tryResult) = (expr);                                     \
-  if (MOZ_UNLIKELY(MOZ_UNIQUE_VAR(tryResult).isErr())) {                       \
-    ns::HandleError(nsLiteralCString(#expr), nsLiteralCString(__FILE__),       \
-                    __LINE__);                                                 \
-    cleanup();                                                                 \
-    return customRetVal;                                                       \
-  }                                                                            \
-  MOZ_REMOVE_PAREN(target) = MOZ_UNIQUE_VAR(tryResult).unwrap();
+#define QM_TRY_VAR_CUSTOM_RET_VAL_WITH_CLEANUP(ns, tryResult, target, expr, \
+                                               customRetVal, cleanup)       \
+  auto tryResult = (expr);                                                  \
+  if (MOZ_UNLIKELY(tryResult.isErr())) {                                    \
+    auto tryTempResult MOZ_MAYBE_UNUSED = std::move(tryResult);             \
+    ns::QM_HANDLE_ERROR(expr);                                              \
+    cleanup(tryTempResult);                                                 \
+    return customRetVal;                                                    \
+  }                                                                         \
+  MOZ_REMOVE_PAREN(target) = tryResult.unwrap();
 
 // Chooses the final implementation macro for given argument count.
 // It can be used by other modules to define module specific error handling.
-#define QM_TRY_VAR_META(...)                                                \
-  MOZ_ARG_7(                                                                \
-      , ##__VA_ARGS__, QM_TRY_VAR_CUSTOM_RET_VAL_WITH_CLEANUP(__VA_ARGS__), \
-      QM_TRY_VAR_CUSTOM_RET_VAL(__VA_ARGS__),                               \
-      QM_TRY_VAR_PROPAGATE_ERR(__VA_ARGS__), QM_MISSING_ARGS(__VA_ARGS__),  \
-      QM_MISSING_ARGS(__VA_ARGS__), QM_MISSING_ARGS(__VA_ARGS__))
+// See also the comment for QM_TRY_META.
+#define QM_TRY_VAR_META(...)                                            \
+  MOZ_ARG_8(, ##__VA_ARGS__,                                            \
+            QM_TRY_VAR_CUSTOM_RET_VAL_WITH_CLEANUP(__VA_ARGS__),        \
+            QM_TRY_VAR_CUSTOM_RET_VAL(__VA_ARGS__),                     \
+            QM_TRY_VAR_PROPAGATE_ERR(__VA_ARGS__),                      \
+            QM_MISSING_ARGS(__VA_ARGS__), QM_MISSING_ARGS(__VA_ARGS__), \
+            QM_MISSING_ARGS(__VA_ARGS__), QM_MISSING_ARGS(__VA_ARGS__))
+
+// Specifies the namespace and generates unique variable name. This extra
+// internal macro (along with __COUNTER__) allows nesting of the final macro.
+#define QM_TRY_VAR_GLUE(...) \
+  QM_TRY_VAR_META(mozilla::dom::quota, MOZ_UNIQUE_VAR(tryResult), ##__VA_ARGS__)
 
 /**
  * QM_TRY_VAR(target, expr[, customRetVal, cleanup]) is the C++ equivalent of
@@ -495,36 +539,59 @@
  * custom return value (if the third argument was passed). |target| must be an
  * lvalue.
  */
-#define QM_TRY_VAR(...) QM_TRY_VAR_META(mozilla::dom::quota, ##__VA_ARGS__)
+#define QM_TRY_VAR(...) QM_TRY_VAR_GLUE(__VA_ARGS__)
+
+/**
+ * QM_DEBUG_VAR_TRY works like QM_TRY_VAR in debug builds, it has has no effect
+ * in non-debug builds.
+ */
+#ifdef DEBUG
+#  define QM_DEBUG_TRY_VAR(...) QM_TRY_VAR(__VA_ARGS__)
+#else
+#  define QM_DEBUG_TRY_VAR(...)
+#endif
 
 // QM_FAIL_RET_VAL and QM_FAIL_RET_VAL_WITH_CLEANUP macros are implementation
 // details of QM_FAIL and shouldn't be used directly.
 
 // Handles the two arguments case when just an error is returned
-#define QM_FAIL_RET_VAL(ns, retVal)                                        \
-  ns::HandleError(nsLiteralCString("Failure"), nsLiteralCString(__FILE__), \
-                  __LINE__);                                               \
+#define QM_FAIL_RET_VAL(ns, retVal) \
+  ns::QM_HANDLE_ERROR(Failure);     \
   return retVal;
 
 // Handles the three arguments case when a cleanup function needs to be called
 // before a return value is returned
-#define QM_FAIL_RET_VAL_WITH_CLEANUP(ns, retVal, cleanup)                  \
-  ns::HandleError(nsLiteralCString("Failure"), nsLiteralCString(__FILE__), \
-                  __LINE__);                                               \
-  cleanup();                                                               \
+#define QM_FAIL_RET_VAL_WITH_CLEANUP(ns, retVal, cleanup) \
+  ns::QM_HANDLE_ERROR(Failure);                           \
+  cleanup();                                              \
   return retVal;
 
 // Chooses the final implementation macro for given argument count.
 // It can be used by other modules to define module specific error handling.
+// See also the comment for QM_TRY_META.
 #define QM_FAIL_META(...)                                               \
   MOZ_ARG_5(, ##__VA_ARGS__, QM_FAIL_RET_VAL_WITH_CLEANUP(__VA_ARGS__), \
             QM_FAIL_RET_VAL(__VA_ARGS__), QM_MISSING_ARGS(__VA_ARGS__))
+
+// Specifies the namespace. This extra internal macro allows nesting of the
+// final macro.
+#define QM_FAIL_GLUE(...) QM_FAIL_META(mozilla::dom::quota, ##__VA_ARGS__)
 
 /**
  * QM_FAIL(retVal[, cleanup]) calls HandleError and an additional cleanup
  * function (if the second argument was passed) and returns a return value.
  */
-#define QM_FAIL(...) QM_FAIL_META(mozilla::dom::quota, ##__VA_ARGS__)
+#define QM_FAIL(...) QM_FAIL_GLUE(__VA_ARGS__)
+
+/**
+ * QM_DEBUG_FAIL works like QM_FAIL in debug builds, it has has no effect in
+ * non-debug builds.
+ */
+#ifdef DEBUG
+#  define QM_DEBUG_FAIL(...) QM_FAIL(__VA_ARGS__)
+#else
+#  define QM_DEBUG_FAIL(...)
+#endif
 
 // Telemetry probes to collect number of failure during the initialization.
 #ifdef NIGHTLY_BUILD
@@ -599,6 +666,14 @@ auto ErrToOkOrErr(nsresult aValue) -> Result<V, nsresult> {
   return Err(aValue);
 }
 
+template <nsresult ErrorValue, typename V>
+auto ErrToDefaultOkOrErr(nsresult aValue) -> Result<V, nsresult> {
+  if (aValue == ErrorValue) {
+    return V{};
+  }
+  return Err(aValue);
+}
+
 // TODO: Maybe move this to mfbt/ResultExtensions.h
 template <typename R, typename Func, typename... Args>
 Result<R, nsresult> ToResultGet(const Func& aFunc, Args&&... aArgs) {
@@ -609,6 +684,70 @@ Result<R, nsresult> ToResultGet(const Func& aFunc, Args&&... aArgs) {
   }
   return res;
 }
+
+// Like Rust's collect with a step function, not a generic iterator/range.
+//
+// Cond must be a function type with a return type to Result<V, E>, where
+// V is convertible to bool
+// - success converts to true indicates that collection shall continue
+// - success converts to false indicates that collection is completed
+// - error indicates that collection shall stop, propagating the error
+//
+// Body must a function type accepting a V xvalue with a return type convertible
+// to Result<empty, E>.
+template <typename Step, typename Body>
+auto CollectEach(const Step& aStep, const Body& aBody)
+    -> Result<mozilla::Ok, typename std::result_of_t<Step()>::err_type> {
+  using StepResultType = typename std::result_of_t<Step()>::ok_type;
+
+  static_assert(std::is_empty_v<
+                typename std::result_of_t<Body(StepResultType &&)>::ok_type>);
+
+  while (true) {
+    StepResultType element;
+    MOZ_TRY_VAR(element, aStep());
+
+    if (!static_cast<bool>(element)) {
+      break;
+    }
+
+    MOZ_TRY(aBody(std::move(element)));
+  }
+
+  return mozilla::Ok{};
+}
+
+// Like Rust's collect with a while loop, not a generic iterator/range.
+//
+// Cond must be a function type accepting no parameters with a return type
+// convertible to Result<bool, E>, where
+// - success true indicates that collection shall continue
+// - success false indicates that collection is completed
+// - error indicates that collection shall stop, propagating the error
+//
+// Body must a function type accepting no parameters with a return type
+// convertible to Result<empty, E>.
+template <typename Cond, typename Body>
+auto CollectWhile(const Cond& aCond, const Body& aBody)
+    -> Result<mozilla::Ok, typename std::result_of_t<Cond()>::err_type> {
+  return CollectEach(aCond, [&aBody](bool) { return aBody(); });
+}
+
+template <>
+class MOZ_MUST_USE_TYPE GenericErrorResult<mozilla::ipc::IPCResult> {
+  mozilla::ipc::IPCResult mErrorValue;
+
+  template <typename V, typename E2>
+  friend class Result;
+
+ public:
+  explicit GenericErrorResult(mozilla::ipc::IPCResult aErrorValue)
+      : mErrorValue(aErrorValue) {
+    MOZ_ASSERT(!aErrorValue);
+  }
+
+  operator mozilla::ipc::IPCResult() const { return mErrorValue; }
+};
 
 namespace dom {
 namespace quota {
@@ -694,15 +833,26 @@ void CacheUseDOSDevicePathSyntaxPrefValue();
 
 Result<nsCOMPtr<nsIFile>, nsresult> QM_NewLocalFile(const nsAString& aPath);
 
+// IntString is deprecated, use GetIntString instead.
 class IntString : public nsAutoString {
  public:
   explicit IntString(int64_t aInteger) { AppendInt(aInteger); }
 };
 
+// IntCString is deprecated, use GetIntCString instead.
 class IntCString : public nsAutoCString {
  public:
   explicit IntCString(int64_t aInteger) { AppendInt(aInteger); }
 };
+
+nsAutoString GetIntString(const int64_t aInteger);
+
+nsAutoCString GetIntCString(const int64_t aInteger);
+
+nsDependentCSubstring GetLeafName(const nsACString& aPath);
+
+void LogError(const nsLiteralCString& aModule, const nsACString& aExpr,
+              const nsACString& aSourceFile, int32_t aSourceLine);
 
 #ifdef DEBUG
 Result<bool, nsresult> WarnIfFileIsUnknown(nsIFile& aFile,
@@ -710,8 +860,18 @@ Result<bool, nsresult> WarnIfFileIsUnknown(nsIFile& aFile,
                                            int32_t aSourceLine);
 #endif
 
-void HandleError(const nsLiteralCString& aExpr,
-                 const nsLiteralCString& aSourceFile, int32_t aSourceLine);
+// As this is a function that will only be called in error cases, this is marked
+// with MOZ_NEVER_INLINE to avoid bloating the code of calling functions.
+// For the same reason, the string-ish parameters are of type const char* rather
+// than any ns*String type, to minimize the code at each call site. This
+// deliberately de-optimizes runtime performance, which is uncritical during
+// error handling.
+//
+// The corresponding functions in the quota clients should have exactly the same
+// signature incl. attributes. These functions are not intended to be called
+// directly, they should only be called from the QM_* macros.
+MOZ_NEVER_INLINE void HandleError(const char* aExpr, const char* aSourceFile,
+                                  int32_t aSourceLine);
 
 }  // namespace quota
 }  // namespace dom

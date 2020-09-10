@@ -188,6 +188,7 @@
 #include "nsFrameLoaderOwner.h"
 #include "nsXPCOMCID.h"
 #include "mozilla/Logging.h"
+#include "mozilla/ProfilerMarkers.h"
 #include "prenv.h"
 
 #include "mozilla/dom/IDBFactory.h"
@@ -2076,6 +2077,10 @@ nsresult nsGlobalWindowOuter::SetNewDocument(Document* aDocument,
     return NS_ERROR_UNEXPECTED;
   }
 
+  if (!mBrowsingContext->AncestorsAreCurrent()) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+
   RefPtr<Document> oldDoc = mDoc;
   MOZ_RELEASE_ASSERT(oldDoc != aDocument);
 
@@ -2432,7 +2437,10 @@ nsresult nsGlobalWindowOuter::SetNewDocument(Document* aDocument,
 
   // Update the current window for our BrowsingContext.
   RefPtr<BrowsingContext> bc = GetBrowsingContext();
-  MOZ_ALWAYS_SUCCEEDS(bc->SetCurrentInnerWindowId(mInnerWindow->WindowID()));
+
+  if (bc->IsOwnedByProcess()) {
+    MOZ_ALWAYS_SUCCEEDS(bc->SetCurrentInnerWindowId(mInnerWindow->WindowID()));
+  }
 
   // We no longer need the old inner window.  Start its destruction if
   // its not being reused and clear our reference.
@@ -4412,12 +4420,12 @@ FullscreenTransitionTask::Run() {
     return NS_OK;
   }
   if (stage == eBeforeToggle) {
-    PROFILER_ADD_MARKER("Fullscreen transition start", DOM);
+    PROFILER_MARKER_UNTYPED("Fullscreen transition start", DOM);
     mWidget->PerformFullscreenTransition(nsIWidget::eBeforeFullscreenToggle,
                                          mDuration.mFadeIn, mTransitionData,
                                          this);
   } else if (stage == eToggleFullscreen) {
-    PROFILER_ADD_MARKER("Fullscreen toggle start", DOM);
+    PROFILER_MARKER_UNTYPED("Fullscreen toggle start", DOM);
     mFullscreenChangeStartTime = TimeStamp::Now();
     if (MOZ_UNLIKELY(mWindow->mFullscreen != mFullscreen)) {
       // This could happen in theory if several fullscreen requests in
@@ -4461,7 +4469,7 @@ FullscreenTransitionTask::Run() {
                                          mDuration.mFadeOut, mTransitionData,
                                          this);
   } else if (stage == eEnd) {
-    PROFILER_ADD_MARKER("Fullscreen transition end", DOM);
+    PROFILER_MARKER_UNTYPED("Fullscreen transition end", DOM);
     mWidget->CleanupFullscreenTransition();
   }
   return NS_OK;
@@ -4482,7 +4490,7 @@ FullscreenTransitionTask::Observer::Observe(nsISupports* aSubject,
       // The paint notification arrives first. Cancel the timer.
       mTask->mTimer->Cancel();
       shouldContinue = true;
-      PROFILER_ADD_MARKER("Fullscreen toggle end", DOM);
+      PROFILER_MARKER_UNTYPED("Fullscreen toggle end", DOM);
     }
   } else {
 #ifdef DEBUG
@@ -4493,7 +4501,7 @@ FullscreenTransitionTask::Observer::Observe(nsISupports* aSubject,
                "Should only trigger this with the timer the task created");
 #endif
     shouldContinue = true;
-    PROFILER_ADD_MARKER("Fullscreen toggle timeout", DOM);
+    PROFILER_MARKER_UNTYPED("Fullscreen toggle timeout", DOM);
   }
   if (shouldContinue) {
     nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
@@ -5208,8 +5216,8 @@ static CallState CollectDocuments(Document& aDoc,
   return CallState::Continue;
 }
 
-static void DispatchPrintEventToWindowTree(
-    Document& aDoc, const nsAString& aEvent) {
+static void DispatchPrintEventToWindowTree(Document& aDoc,
+                                           const nsAString& aEvent) {
   if (aDoc.IsStaticDocument()) {
     return;
   }
@@ -5246,7 +5254,7 @@ void nsGlobalWindowOuter::PrintOuter(ErrorResult& aError) {
     }
   }
 
-#if defined(NS_PRINTING)
+#ifdef NS_PRINTING
   nsCOMPtr<nsIPrintSettingsService> printSettingsService =
       do_GetService("@mozilla.org/gfx/printsettings-service;1");
   if (!printSettingsService) {
@@ -5270,13 +5278,46 @@ void nsGlobalWindowOuter::PrintOuter(ErrorResult& aError) {
     settings->SetShowPrintProgress(false);
   }
 
-  Print(settings, nullptr, nullptr, isPreview, aError);
+  Print(settings, nullptr, nullptr, IsPreview(isPreview),
+        BlockUntilDone(isPreview), nullptr, aError);
 #endif
+}
+
+// Returns whether there's any print callback.
+static bool BuildNestedClones(Document& aJustClonedDoc) {
+  bool hasPrintCallbacks = aJustClonedDoc.HasPrintCallbacks();
+  auto pendingFrameClones = aJustClonedDoc.TakePendingFrameStaticClones();
+  for (const auto& clone : pendingFrameClones) {
+    RefPtr<Element> element = do_QueryObject(clone.mElement);
+    RefPtr<nsFrameLoader> frameLoader =
+        nsFrameLoader::Create(element, /* aNetworkCreated */ false);
+
+    if (NS_WARN_IF(!frameLoader)) {
+      continue;
+    }
+
+    clone.mElement->SetFrameLoader(frameLoader);
+
+    nsCOMPtr<nsIDocShell> docshell;
+    RefPtr<Document> doc;
+    nsresult rv = frameLoader->FinishStaticClone(
+        clone.mStaticCloneOf, getter_AddRefs(docshell), getter_AddRefs(doc));
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      continue;
+    }
+
+    if (doc) {
+      hasPrintCallbacks |= BuildNestedClones(*doc);
+    }
+  }
+  return hasPrintCallbacks;
 }
 
 Nullable<WindowProxyHolder> nsGlobalWindowOuter::Print(
     nsIPrintSettings* aPrintSettings, nsIWebProgressListener* aListener,
-    nsIDocShell* aDocShellToCloneInto, bool aIsPreview, ErrorResult& aError) {
+    nsIDocShell* aDocShellToCloneInto, IsPreview aIsPreview,
+    BlockUntilDone aBlockUntilDone,
+    PrintPreviewResolver&& aPrintPreviewCallback, ErrorResult& aError) {
 #ifdef NS_PRINTING
   nsCOMPtr<nsIPrintSettingsService> printSettingsService =
       do_GetService("@mozilla.org/gfx/printsettings-service;1");
@@ -5287,11 +5328,7 @@ Nullable<WindowProxyHolder> nsGlobalWindowOuter::Print(
   }
 
   RefPtr<Document> docToPrint = mDoc;
-  MOZ_DIAGNOSTIC_ASSERT(docToPrint,
-                        "This gets forwarded from the inner when "
-                        "we have an active window, so there should "
-                        "be a document");
-  if (!docToPrint) {
+  if (NS_WARN_IF(!docToPrint)) {
     aError.ThrowNotSupportedError("Document is gone");
     return nullptr;
   }
@@ -5309,7 +5346,9 @@ Nullable<WindowProxyHolder> nsGlobalWindowOuter::Print(
 
   nsCOMPtr<nsIContentViewer> cv;
   RefPtr<BrowsingContext> bc;
-  if (docToPrint->IsStaticDocument() && aIsPreview) {
+  bool hasPrintCallbacks = false;
+  if (docToPrint->IsStaticDocument() && aIsPreview == IsPreview::Yes) {
+    MOZ_DIAGNOSTIC_ASSERT(aBlockUntilDone == BlockUntilDone::No);
     // We're already a print preview window, just reuse our browsing context /
     // content viewer.
     //
@@ -5336,7 +5375,8 @@ Nullable<WindowProxyHolder> nsGlobalWindowOuter::Print(
       bc = aDocShellToCloneInto->GetBrowsingContext();
     } else {
       AutoNoJSAPI nojsapi;
-      auto printKind = aIsPreview ? PrintKind::PrintPreview : PrintKind::Print;
+      auto printKind = aIsPreview == IsPreview::Yes ? PrintKind::PrintPreview
+                                                    : PrintKind::Print;
       aError = OpenInternal(EmptyString(), EmptyString(), EmptyString(),
                             false,             // aDialog
                             false,             // aContentModal
@@ -5406,27 +5446,7 @@ Nullable<WindowProxyHolder> nsGlobalWindowOuter::Print(
         return nullptr;
       }
 
-      auto pendingFrameClones = clone->TakePendingFrameStaticClones();
-      for (const auto& clone : pendingFrameClones) {
-        RefPtr<Element> element = do_QueryObject(clone.mElement);
-        RefPtr<nsFrameLoader> frameLoader =
-            nsFrameLoader::Create(element, /* aNetworkCreated */ false);
-
-        if (NS_WARN_IF(!frameLoader)) {
-          continue;
-        }
-
-        clone.mElement->SetFrameLoader(frameLoader);
-
-        nsCOMPtr<nsIDocShell> docshell;
-        RefPtr<Document> doc;
-        nsresult rv = frameLoader->FinishStaticClone(clone.mStaticCloneOf,
-                                                     getter_AddRefs(docshell),
-                                                     getter_AddRefs(doc));
-        if (NS_WARN_IF(NS_FAILED(rv))) {
-          continue;
-        }
-      }
+      hasPrintCallbacks |= BuildNestedClones(*clone);
     }
   }
 
@@ -5437,12 +5457,27 @@ Nullable<WindowProxyHolder> nsGlobalWindowOuter::Print(
     return nullptr;
   }
 
-  if (aIsPreview) {
-    aError = webBrowserPrint->PrintPreview(aPrintSettings, aListener);
+  if (aIsPreview == IsPreview::Yes) {
+    aError = webBrowserPrint->PrintPreview(aPrintSettings, aListener,
+                                           std::move(aPrintPreviewCallback));
+    if (aError.Failed()) {
+      return nullptr;
+    }
   } else {
     // Historically we've eaten this error.
     webBrowserPrint->Print(aPrintSettings, aListener);
   }
+
+  // When aBlockUntilDone is true, we usually want to block until the print
+  // dialog is hidden. But we can't really do that if we have print callbacks,
+  // because we are inside a sync operation, and we want to run microtasks / etc
+  // that the print callbacks may create.
+  //
+  // It is really awkward to have this subtle behavior difference...
+  if (aBlockUntilDone == BlockUntilDone::Yes && !hasPrintCallbacks) {
+    SpinEventLoopUntil([&] { return bc->IsDiscarded(); });
+  }
+
   return WindowProxyHolder(std::move(bc));
 #else
   return nullptr;
@@ -6000,7 +6035,7 @@ bool nsGlobalWindowOuter::GatherPostMessageData(
   if (!callerPrin->IsSystemPrincipal()) {
     nsAutoCString asciiOrigin;
     callerPrin->GetAsciiOrigin(asciiOrigin);
-    aOrigin = NS_ConvertUTF8toUTF16(asciiOrigin);
+    CopyUTF8toUTF16(asciiOrigin, aOrigin);
   } else if (callerInnerWin) {
     if (!*aCallerURI) {
       return false;

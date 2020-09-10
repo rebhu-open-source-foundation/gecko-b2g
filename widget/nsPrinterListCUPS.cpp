@@ -50,14 +50,10 @@ nsTArray<PrinterInfo> nsPrinterListCUPS::Printers() const {
         sCupsShim.cupsCopyDest(dest, 0, &ownedDest);
     MOZ_ASSERT(numCopied == 1);
 
-    cups_dinfo_t* ownedInfo =
-        sCupsShim.cupsCopyDestInfo(CUPS_HTTP_DEFAULT, ownedDest);
-
     nsString name;
     GetDisplayNameForPrinter(*dest, name);
 
-    printerInfoList.AppendElement(
-        PrinterInfo{std::move(name), {ownedDest, ownedInfo}});
+    printerInfoList.AppendElement(PrinterInfo{std::move(name), ownedDest});
   }
 
   sCupsShim.cupsFreeDests(numPrinters, printers);
@@ -67,8 +63,7 @@ nsTArray<PrinterInfo> nsPrinterListCUPS::Printers() const {
 RefPtr<nsIPrinter> nsPrinterListCUPS::CreatePrinter(PrinterInfo aInfo) const {
   return mozilla::MakeRefPtr<nsPrinterCUPS>(
       sCupsShim, std::move(aInfo.mName),
-      static_cast<cups_dest_t*>(aInfo.mCupsHandles[0]),
-      static_cast<cups_dinfo_t*>(aInfo.mCupsHandles[1]));
+      static_cast<cups_dest_t*>(aInfo.mCupsHandle));
 }
 
 Maybe<PrinterInfo> nsPrinterListCUPS::NamedPrinter(
@@ -114,12 +109,9 @@ Maybe<PrinterInfo> nsPrinterListCUPS::NamedPrinter(
 #endif
 
   if (printer) {
-    cups_dinfo_t* const info =
-        sCupsShim.cupsCopyDestInfo(CUPS_HTTP_DEFAULT, printer);
-    MOZ_ASSERT(info);
     // Since the printer name had to be passed by-value, we can move the
     // name from that.
-    rv.emplace(PrinterInfo{std::move(aPrinterName), {printer, info}});
+    rv.emplace(PrinterInfo{std::move(aPrinterName), printer});
   }
   return rv;
 }

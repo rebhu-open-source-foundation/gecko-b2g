@@ -188,7 +188,7 @@ void gfxAndroidPlatform::GetCommonFallbackFonts(
     static const char kFirefoxEmoji[] = "Firefox Emoji";
 #endif
 
-  if (aPresentation == eFontPresentation::Emoji) {
+  if (PrefersColor(aPresentation)) {
 #ifdef MOZ_WIDGET_GONK
     aFontList.AppendElement(kFirefoxEmoji);
 #endif

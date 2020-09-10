@@ -18,7 +18,10 @@
 #include "jit/InlinableNatives.h"
 #include "jit/Ion.h"  // IsIonEnabled
 #include "jit/JitContext.h"
+#include "js/experimental/JitInfo.h"  // JSJitInfo
+#include "js/friend/DOMProxy.h"       // JS::ExpandoAndGeneration
 #include "js/friend/WindowProxy.h"  // js::IsWindow, js::IsWindowProxy, js::ToWindowIfWindowProxy
+#include "js/friend/XrayJitInfo.h"  // js::jit::GetXrayJitInfo, JS::XrayJitInfo
 #include "js/ScalarType.h"  // js::Scalar::Type
 #include "js/Wrapper.h"
 #include "util/Unicode.h"
@@ -42,6 +45,9 @@ using namespace js::jit;
 
 using mozilla::DebugOnly;
 using mozilla::Maybe;
+
+using JS::DOMProxyShadowsResult;
+using JS::ExpandoAndGeneration;
 
 const char* const js::jit::CacheKindNames[] = {
 #define DEFINE_KIND(kind) #kind,
@@ -269,20 +275,21 @@ static ProxyStubType GetProxyStubType(JSContext* cx, HandleObject obj,
   }
 
   DOMProxyShadowsResult shadows = GetDOMProxyShadowsCheck()(cx, obj, id);
-  if (shadows == ShadowCheckFailed) {
+  if (shadows == DOMProxyShadowsResult::ShadowCheckFailed) {
     cx->clearPendingException();
     return ProxyStubType::None;
   }
 
   if (DOMProxyIsShadowing(shadows)) {
-    if (shadows == ShadowsViaDirectExpando ||
-        shadows == ShadowsViaIndirectExpando) {
+    if (shadows == DOMProxyShadowsResult::ShadowsViaDirectExpando ||
+        shadows == DOMProxyShadowsResult::ShadowsViaIndirectExpando) {
       return ProxyStubType::DOMExpando;
     }
     return ProxyStubType::DOMShadowed;
   }
 
-  MOZ_ASSERT(shadows == DoesntShadow || shadows == DoesntShadowUnique);
+  MOZ_ASSERT(shadows == DOMProxyShadowsResult::DoesntShadow ||
+             shadows == DOMProxyShadowsResult::DoesntShadowUnique);
   return ProxyStubType::DOMUnshadowed;
 }
 
@@ -1354,7 +1361,7 @@ AttachDecision GetPropIRGenerator::tryAttachXrayCrossCompartmentWrapper(
     return AttachDecision::NoAction;
   }
 
-  XrayJitInfo* info = GetXrayJitInfo();
+  JS::XrayJitInfo* info = GetXrayJitInfo();
   if (!info || !info->isCrossCompartmentXray(GetProxyHandler(obj))) {
     return AttachDecision::NoAction;
   }
@@ -3418,7 +3425,7 @@ bool IRGenerator::maybeGuardInt32Index(const Value& index, ValOperandId indexId,
 
     StringOperandId strId = writer.guardToString(indexId);
     *int32Index = uint32_t(indexSigned);
-    *int32IndexId = writer.guardAndGetIndexFromString(strId);
+    *int32IndexId = writer.guardStringToIndex(strId);
     return true;
   }
 
@@ -5126,38 +5133,17 @@ AttachDecision CallIRGenerator::tryAttachArrayJoin(HandleFunction callee) {
     return AttachDecision::NoAction;
   }
 
-  // Only optimize on obj.join(...);
-  if (!thisval_.isObject()) {
+  // Only optimize if |this| is an array.
+  if (!thisval_.isObject() || !thisval_.toObject().is<ArrayObject>()) {
     return AttachDecision::NoAction;
   }
 
-  // Where |obj| is a native array.
-  JSObject* thisobj = &thisval_.toObject();
-  if (!thisobj->is<ArrayObject>()) {
+  // The separator argument must be a string, if present.
+  if (argc_ > 0 && !args_[0].isString()) {
     return AttachDecision::NoAction;
   }
 
-  auto* thisarray = &thisobj->as<ArrayObject>();
-
-  // And the array is of length 0 or 1.
-  if (thisarray->length() > 1) {
-    return AttachDecision::NoAction;
-  }
-
-  // And the array is packed.
-  if (thisarray->getDenseInitializedLength() != thisarray->length()) {
-    return AttachDecision::NoAction;
-  }
-
-  // And the only element (if it exists) is a string
-  if (thisarray->length() == 1 && !thisarray->getDenseElement(0).isString()) {
-    return AttachDecision::NoAction;
-  }
-
-  // We don't need to worry about indexed properties because we can perform
-  // hole check manually.
-
-  // Generate code.
+  // IC stub code can handle non-packed array.
 
   // Initialize the input operand.
   Int32OperandId argcId(writer.setInputOperandId(0));
@@ -5165,21 +5151,24 @@ AttachDecision CallIRGenerator::tryAttachArrayJoin(HandleFunction callee) {
   // Guard callee is the 'join' native function.
   emitNativeCalleeGuard(callee);
 
-  if (argc_ == 1) {
-    // If argcount is 1, guard that the argument is a string.
-    ValOperandId argValId =
-        writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
-    writer.guardToString(argValId);
-  }
-
   // Guard this is an array object.
   ValOperandId thisValId =
       writer.loadArgumentFixedSlot(ArgumentKind::This, argc_);
   ObjOperandId thisObjId = writer.guardToObject(thisValId);
   writer.guardClass(thisObjId, GuardClassKind::Array);
 
+  StringOperandId sepId;
+  if (argc_ == 1) {
+    // If argcount is 1, guard that the argument is a string.
+    ValOperandId argValId =
+        writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
+    sepId = writer.guardToString(argValId);
+  } else {
+    sepId = writer.loadConstantString(cx_->names().comma);
+  }
+
   // Do the join.
-  writer.arrayJoinResult(thisObjId);
+  writer.arrayJoinResult(thisObjId, sepId);
 
   writer.returnFromIC();
 
@@ -6106,6 +6095,40 @@ AttachDecision CallIRGenerator::tryAttachString(HandleFunction callee) {
   return AttachDecision::Attach;
 }
 
+AttachDecision CallIRGenerator::tryAttachStringToStringValueOf(
+    HandleFunction callee) {
+  // Expecting no arguments.
+  if (argc_ != 0) {
+    return AttachDecision::NoAction;
+  }
+
+  // Ensure |this| is a primitive string value.
+  if (!thisval_.isString()) {
+    return AttachDecision::NoAction;
+  }
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Guard callee is the 'toString' OR 'valueOf' native function.
+  emitNativeCalleeGuard(callee);
+
+  // Guard |this| is a string.
+  ValOperandId thisValId =
+      writer.loadArgumentFixedSlot(ArgumentKind::This, argc_);
+  StringOperandId strId = writer.guardToString(thisValId);
+
+  // Return the string
+  writer.loadStringResult(strId);
+
+  // This stub doesn't need to be monitored, because it always returns a string.
+  writer.returnFromIC();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
+
+  trackAttached("StringToStringValueOf");
+  return AttachDecision::Attach;
+}
+
 AttachDecision CallIRGenerator::tryAttachStringReplaceString(
     HandleFunction callee) {
   // Self-hosted code calls this with (string, string, string) arguments.
@@ -6943,6 +6966,57 @@ AttachDecision CallIRGenerator::tryAttachMathFunction(HandleFunction callee,
   return AttachDecision::Attach;
 }
 
+StringOperandId EmitToStringGuard(CacheIRWriter& writer, ValOperandId id,
+                                  HandleValue v) {
+  if (v.isString()) {
+    return writer.guardToString(id);
+  }
+  if (v.isInt32()) {
+    Int32OperandId intId = writer.guardToInt32(id);
+    return writer.callInt32ToString(intId);
+  }
+  // At this point we are creating an IC that will handle
+  // both Int32 and Double cases.
+  MOZ_ASSERT(v.isNumber());
+  NumberOperandId numId = writer.guardIsNumber(id);
+  return writer.callNumberToString(numId);
+}
+
+AttachDecision CallIRGenerator::tryAttachNumberToString(HandleFunction callee) {
+  // Expecting no arguments, which means base 10.
+  if (argc_ != 0) {
+    return AttachDecision::NoAction;
+  }
+
+  // Ensure |this| is a primitive number value.
+  if (!thisval_.isNumber()) {
+    return AttachDecision::NoAction;
+  }
+
+  // Initialize the input operand.
+  Int32OperandId argcId(writer.setInputOperandId(0));
+
+  // Guard callee is the 'toString' native function.
+  emitNativeCalleeGuard(callee);
+
+  // Initialize the |this| operand.
+  ValOperandId thisValId =
+      writer.loadArgumentFixedSlot(ArgumentKind::This, argc_);
+
+  // Guard on number and convert to string.
+  StringOperandId strId = EmitToStringGuard(writer, thisValId, thisval_);
+
+  // Return the string.
+  writer.loadStringResult(strId);
+
+  // This stub doesn't need to be monitored, because it always returns a string.
+  writer.returnFromIC();
+  cacheIRStubKind_ = BaselineCacheIRStubKind::Regular;
+
+  trackAttached("NumberToString");
+  return AttachDecision::Attach;
+}
+
 AttachDecision CallIRGenerator::tryAttachReflectGetPrototypeOf(
     HandleFunction callee) {
   // Need one argument.
@@ -7632,8 +7706,7 @@ AttachDecision CallIRGenerator::tryAttachObjectIs(HandleFunction callee) {
 }
 
 AttachDecision CallIRGenerator::tryAttachFunCall(HandleFunction callee) {
-  MOZ_ASSERT(callee->isNativeWithoutJitEntry());
-  if (callee->native() != fun_call) {
+  if (!callee->isNativeWithoutJitEntry() || callee->native() != fun_call) {
     return AttachDecision::NoAction;
   }
 
@@ -8312,8 +8385,8 @@ AttachDecision CallIRGenerator::tryAttachTypedArrayConstructor(
 }
 
 AttachDecision CallIRGenerator::tryAttachFunApply(HandleFunction calleeFunc) {
-  MOZ_ASSERT(calleeFunc->isNativeWithoutJitEntry());
-  if (calleeFunc->native() != fun_apply) {
+  if (!calleeFunc->isNativeWithoutJitEntry() ||
+      calleeFunc->native() != fun_apply) {
     return AttachDecision::NoAction;
   }
 
@@ -8357,13 +8430,16 @@ AttachDecision CallIRGenerator::tryAttachFunApply(HandleFunction calleeFunc) {
       writer.loadArgumentDynamicSlot(ArgumentKind::This, argcId);
   ObjOperandId thisObjId = writer.guardToObject(thisValId);
 
+  ValOperandId argValId =
+      writer.loadArgumentFixedSlot(ArgumentKind::Arg1, argc_);
   if (format == CallFlags::FunApplyArgs) {
-    ValOperandId arg1 = writer.loadArgumentFixedSlot(ArgumentKind::Arg1, argc_);
-    writer.guardMagicValue(arg1, JS_OPTIMIZED_ARGUMENTS);
+    writer.guardMagicValue(argValId, JS_OPTIMIZED_ARGUMENTS);
     writer.guardFrameHasNoArgumentsObject();
   } else {
     MOZ_ASSERT(format == CallFlags::FunApplyArray);
-    writer.guardFunApplyArray();
+    ObjOperandId argObjId = writer.guardToObject(argValId);
+    writer.guardClass(argObjId, GuardClassKind::Array);
+    writer.guardArrayIsPacked(argObjId);
   }
 
   CallFlags targetFlags(format);
@@ -8591,6 +8667,9 @@ AttachDecision CallIRGenerator::tryAttachInlinableNative(
     // String natives.
     case InlinableNative::String:
       return tryAttachString(callee);
+    case InlinableNative::StringToString:
+    case InlinableNative::StringValueOf:
+      return tryAttachStringToStringValueOf(callee);
     case InlinableNative::StringCharCodeAt:
       return tryAttachStringCharCodeAt(callee);
     case InlinableNative::StringCharAt:
@@ -8685,6 +8764,10 @@ AttachDecision CallIRGenerator::tryAttachInlinableNative(
       return tryAttachGuardToClass(callee, native);
     case InlinableNative::IntrinsicGetNextMapEntryForIterator:
       return tryAttachGetNextMapSetEntryForIterator(callee, /* isMap = */ true);
+
+    // Number natives.
+    case InlinableNative::NumberToString:
+      return tryAttachNumberToString(callee);
 
     // Object natives.
     case InlinableNative::Object:
@@ -9126,7 +9209,7 @@ AttachDecision CallIRGenerator::tryAttachCallNative(HandleFunction calleeFunc) {
 }
 
 AttachDecision CallIRGenerator::tryAttachCallHook(HandleObject calleeObj) {
-  if (op_ == JSOp::FunApply) {
+  if (op_ == JSOp::FunCall || op_ == JSOp::FunApply) {
     return AttachDecision::NoAction;
   }
 
@@ -9205,6 +9288,13 @@ AttachDecision CallIRGenerator::tryAttachStub() {
 
   HandleFunction calleeFunc = calleeObj.as<JSFunction>();
 
+  if (op_ == JSOp::FunCall) {
+    return tryAttachFunCall(calleeFunc);
+  }
+  if (op_ == JSOp::FunApply) {
+    return tryAttachFunApply(calleeFunc);
+  }
+
   // Check for scripted optimizations.
   if (calleeFunc->hasJitEntry()) {
     return tryAttachCallScripted(calleeFunc);
@@ -9213,12 +9303,6 @@ AttachDecision CallIRGenerator::tryAttachStub() {
   // Check for native-function optimizations.
   MOZ_ASSERT(calleeFunc->isNativeWithoutJitEntry());
 
-  if (op_ == JSOp::FunCall) {
-    return tryAttachFunCall(calleeFunc);
-  }
-  if (op_ == JSOp::FunApply) {
-    return tryAttachFunApply(calleeFunc);
-  }
   return tryAttachCallNative(calleeFunc);
 }
 
@@ -9585,7 +9669,7 @@ AttachDecision CompareIRGenerator::tryAttachStringNumber(ValOperandId lhsId,
   auto createGuards = [&](HandleValue v, ValOperandId vId) {
     if (v.isString()) {
       StringOperandId strId = writer.guardToString(vId);
-      return writer.guardAndGetNumberFromString(strId);
+      return writer.guardStringToNumber(strId);
     }
     MOZ_ASSERT(v.isNumber());
     NumberOperandId numId = writer.guardIsNumber(vId);
@@ -9673,11 +9757,11 @@ AttachDecision CompareIRGenerator::tryAttachBoolStringOrNumber(
   auto createGuards = [&](HandleValue v, ValOperandId vId) {
     if (v.isBoolean()) {
       BooleanOperandId boolId = writer.guardToBoolean(vId);
-      return writer.guardAndGetNumberFromBoolean(boolId);
+      return writer.booleanToNumber(boolId);
     }
     if (v.isString()) {
       StringOperandId strId = writer.guardToString(vId);
-      return writer.guardAndGetNumberFromString(strId);
+      return writer.guardStringToNumber(strId);
     }
     MOZ_ASSERT(v.isNumber());
     return writer.guardIsNumber(vId);
@@ -10168,7 +10252,7 @@ AttachDecision UnaryArithIRGenerator::tryAttachStringInt32() {
 
   ValOperandId valId(writer.setInputOperandId(0));
   StringOperandId stringId = writer.guardToString(valId);
-  Int32OperandId intId = writer.guardAndGetInt32FromString(stringId);
+  Int32OperandId intId = writer.guardStringToInt32(stringId);
 
   switch (op_) {
     case JSOp::BitNot:
@@ -10211,7 +10295,7 @@ AttachDecision UnaryArithIRGenerator::tryAttachStringNumber() {
 
   ValOperandId valId(writer.setInputOperandId(0));
   StringOperandId stringId = writer.guardToString(valId);
-  NumberOperandId numId = writer.guardAndGetNumberFromString(stringId);
+  NumberOperandId numId = writer.guardStringToNumber(stringId);
 
   Int32OperandId truncatedId;
   switch (op_) {
@@ -10594,23 +10678,8 @@ AttachDecision BinaryArithIRGenerator::tryAttachStringNumberConcat() {
   ValOperandId lhsId(writer.setInputOperandId(0));
   ValOperandId rhsId(writer.setInputOperandId(1));
 
-  auto guardToString = [&](ValOperandId id, HandleValue v) {
-    if (v.isString()) {
-      return writer.guardToString(id);
-    }
-    if (v.isInt32()) {
-      Int32OperandId intId = writer.guardToInt32(id);
-      return writer.callInt32ToString(intId);
-    }
-    // At this point we are creating an IC that will handle
-    // both Int32 and Double cases.
-    MOZ_ASSERT(v.isNumber());
-    NumberOperandId numId = writer.guardIsNumber(id);
-    return writer.callNumberToString(numId);
-  };
-
-  StringOperandId lhsStrId = guardToString(lhsId, lhs_);
-  StringOperandId rhsStrId = guardToString(rhsId, rhs_);
+  StringOperandId lhsStrId = EmitToStringGuard(writer, lhsId, lhs_);
+  StringOperandId rhsStrId = EmitToStringGuard(writer, rhsId, rhs_);
 
   writer.callStringConcatResult(lhsStrId, rhsStrId);
 
@@ -10826,7 +10895,7 @@ AttachDecision BinaryArithIRGenerator::tryAttachStringInt32Arith() {
 
     MOZ_ASSERT(v.isString());
     StringOperandId strId = writer.guardToString(id);
-    return writer.guardAndGetInt32FromString(strId);
+    return writer.guardStringToInt32(strId);
   };
 
   Int32OperandId lhsIntId = guardToInt32(lhsId, lhs_);

@@ -106,7 +106,9 @@ class PerftestTests(MachCommandBase):
             return False
 
     @Command(
-        "perftest-test", category="testing", description="Run perftest tests",
+        "perftest-test",
+        category="testing",
+        description="Run perftest tests",
     )
     @CommandArgument(
         "tests", default=None, nargs="*", help="Tests to run. By default will run all"
@@ -119,7 +121,11 @@ class PerftestTests(MachCommandBase):
         help="Skip flake8 and black",
     )
     @CommandArgument(
-        "-v", "--verbose", action="store_true", default=False, help="Verbose mode",
+        "-v",
+        "--verbose",
+        action="store_true",
+        default=False,
+        help="Verbose mode",
     )
     def run_tests(self, **kwargs):
         MachCommandBase.activate_virtualenv(self)
@@ -156,7 +162,7 @@ class PerftestTests(MachCommandBase):
 
             # if we're not on try we want to install black
             if not ON_TRY and not skip_linters:
-                pypis.append("black")
+                pypis.append("black==19.10b0")
 
             # these are the deps we are getting from pypi
             for dep in pypis:

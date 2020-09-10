@@ -25,6 +25,7 @@ from .parameters import Parameters, get_version, get_app_version
 from .taskgraph import TaskGraph
 from taskgraph.util.python_path import find_object
 from .try_option_syntax import parse_message
+from .util.backstop import is_backstop
 from .util.bugbug import push_schedules
 from .util.chunking import resolver
 from .util.hg import get_hg_revision_branch, get_hg_commit_message
@@ -92,11 +93,6 @@ PER_PROJECT_PARAMETERS = {
         'release_type': 'release',
     },
 
-    'mozilla-esr68': {
-        'target_tasks_method': 'mozilla_esr68_tasks',
-        'release_type': 'esr68',
-    },
-
     'mozilla-esr78': {
         'target_tasks_method': 'mozilla_esr78_tasks',
         'release_type': 'esr78',
@@ -110,11 +106,6 @@ PER_PROJECT_PARAMETERS = {
     'comm-beta': {
         'target_tasks_method': 'mozilla_beta_tasks',
         'release_type': 'beta',
-    },
-
-    'comm-esr68': {
-        'target_tasks_method': 'mozilla_esr68_tasks',
-        'release_type': 'release',
     },
 
     'comm-esr78': {
@@ -406,6 +397,9 @@ def get_decision_parameters(graph_config, options):
     if 'decision-parameters' in graph_config['taskgraph']:
         find_object(graph_config['taskgraph']['decision-parameters'])(graph_config,
                                                                       parameters)
+
+    # Determine if this should be a backstop push.
+    parameters['backstop'] = is_backstop(parameters)
 
     result = Parameters(**parameters)
     result.check()

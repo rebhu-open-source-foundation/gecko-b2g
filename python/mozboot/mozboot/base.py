@@ -13,7 +13,10 @@ import sys
 
 from distutils.version import LooseVersion
 from mozboot import rust
-from mozboot.util import MINIMUM_RUST_VERSION
+from mozboot.util import (
+    get_mach_virtualenv_binary,
+    MINIMUM_RUST_VERSION,
+)
 
 # NOTE: This script is intended to be run with a vanilla Python install.  We
 # have to rely on the standard library instead of Python 2+3 helpers like
@@ -129,7 +132,9 @@ ac_add_options --enable-artifact-builds
 '''.strip()
 
 # Upgrade Mercurial older than this.
-MODERN_MERCURIAL_VERSION = LooseVersion('4.8')
+# This should match the OLDEST_NON_LEGACY_VERSION in
+# version-control-tools/hgext/configwizard/__init__.py.
+MODERN_MERCURIAL_VERSION = LooseVersion('4.9')
 
 MODERN_PYTHON2_VERSION = LooseVersion('2.7.3')
 MODERN_PYTHON3_VERSION = LooseVersion('3.6.0')
@@ -254,12 +259,11 @@ class BaseBootstrapper(object):
             % __name__)
 
     def ensure_mach_environment(self, checkout_root):
-        if checkout_root:
-            mach_binary = os.path.abspath(os.path.join(checkout_root, 'mach'))
-            if not os.path.exists(mach_binary):
-                raise ValueError('mach not found at %s' % mach_binary)
-            cmd = [sys.executable, mach_binary, 'create-mach-environment']
-            subprocess.check_call(cmd, cwd=checkout_root)
+        mach_binary = os.path.abspath(os.path.join(checkout_root, 'mach'))
+        if not os.path.exists(mach_binary):
+            raise ValueError('mach not found at %s' % mach_binary)
+        cmd = [sys.executable, mach_binary, 'create-mach-environment']
+        subprocess.check_call(cmd, cwd=checkout_root)
 
     def ensure_clang_static_analysis_package(self, state_dir, checkout_root):
         '''
@@ -341,13 +345,17 @@ class BaseBootstrapper(object):
         if not os.path.exists(mach_binary):
             raise ValueError("mach not found at %s" % mach_binary)
 
-        # If Python can't figure out what its own executable is, there's little
-        # chance we're going to be able to execute mach on its own, particularly
-        # on Windows.
-        if not sys.executable:
-            raise ValueError("cannot determine path to Python executable")
+        # NOTE: Use self.state_dir over the passed-in state_dir, which might be
+        # a subdirectory of the actual state directory.
+        if not self.state_dir:
+            raise ValueError(
+                'Need a state directory (e.g. ~/.mozbuild) to download '
+                'artifacts')
+        python_location = get_mach_virtualenv_binary(state_dir=self.state_dir)
+        if not os.path.exists(python_location):
+            raise ValueError('python not found at %s' % python_location)
 
-        cmd = [sys.executable, mach_binary, 'artifact', 'toolchain',
+        cmd = [python_location, mach_binary, 'artifact', 'toolchain',
                '--bootstrap', '--from-build', toolchain_job]
 
         if no_unpack:

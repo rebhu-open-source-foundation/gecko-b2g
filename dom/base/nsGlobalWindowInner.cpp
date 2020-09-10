@@ -3621,7 +3621,9 @@ Nullable<WindowProxyHolder> nsGlobalWindowInner::PrintPreview(
     nsIDocShell* aDocShellToCloneInto, ErrorResult& aError) {
   FORWARD_TO_OUTER_OR_THROW(Print,
                             (aSettings, aListener, aDocShellToCloneInto,
-                             /* aIsPreview = */ true, aError),
+                             nsGlobalWindowOuter::IsPreview::Yes,
+                             nsGlobalWindowOuter::BlockUntilDone::No,
+                             /* aPrintPreviewCallback = */ nullptr, aError),
                             aError, nullptr);
 }
 
@@ -7424,6 +7426,13 @@ nsIPrincipal* nsPIDOMWindowInner::GetDocumentContentBlockingAllowListPrincipal()
 
 mozilla::dom::WindowContext* nsPIDOMWindowInner::GetWindowContext() const {
   return mWindowGlobalChild ? mWindowGlobalChild->WindowContext() : nullptr;
+}
+
+bool nsPIDOMWindowInner::RemoveFromBFCacheSync() {
+  if (Document* doc = GetExtantDoc()) {
+    return doc->RemoveFromBFCacheSync();
+  }
+  return false;
 }
 
 void nsPIDOMWindowInner::MaybeCreateDoc() {

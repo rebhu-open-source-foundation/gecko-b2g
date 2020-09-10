@@ -20,8 +20,7 @@ PERFHERDER_SCHEMA = pathlib.Path(
 
 
 class Perfherder(Layer):
-    """Output data in the perfherder format.
-    """
+    """Output data in the perfherder format."""
 
     name = "perfherder"
     activated = False
@@ -86,9 +85,12 @@ class Perfherder(Layer):
             output,
             prefix,
             metrics=metrics,
+            transformer=self.get_arg("transformer"),
             settings=True,
             exclude=exclusions,
             split_by=self.get_arg("split-by"),
+            simplify_names=self.get_arg("simplify-names"),
+            simplify_exclude=self.get_arg("simplify-exclude"),
         )
 
         if not any([results[name] for name in results]):

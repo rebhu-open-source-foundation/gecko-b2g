@@ -29,6 +29,7 @@
 #include "jit/MOpcodesGenerated.h"
 #include "jit/TIOracle.h"
 #include "jit/TypePolicy.h"
+#include "js/experimental/JitInfo.h"  // JSJit{Getter,Setter}Op, JSJitInfo
 #include "js/HeapAPI.h"
 #include "js/ScalarType.h"  // js::Scalar::Type
 #include "vm/ArrayObject.h"
@@ -6002,18 +6003,31 @@ class MStringSplit : public MBinaryInstruction,
 // Returns the object to use as |this| value in a non-strict function. See also
 // BoxNonStrictThis in Interpreter.h.
 class MBoxNonStrictThis : public MUnaryInstruction, public BoxPolicy<0>::Data {
-  explicit MBoxNonStrictThis(MDefinition* def)
-      : MUnaryInstruction(classOpcode, def) {
+  CompilerObject globalThis_;
+
+  MBoxNonStrictThis(MDefinition* def, JSObject* globalThis)
+      : MUnaryInstruction(classOpcode, def), globalThis_(globalThis) {
     setResultType(MIRType::Object);
+    setMovable();
   }
 
  public:
   INSTRUCTION_HEADER(BoxNonStrictThis)
   TRIVIAL_NEW_WRAPPERS
 
+  JSObject* globalThis() const { return globalThis_; }
+
   bool possiblyCalls() const override { return true; }
 
-  // Note: don't override getAliasSet: the thisValue hook can be effectful.
+  AliasSet getAliasSet() const override {
+    // This instruction can allocate a new object for wrapped primitives, but
+    // has no effect on existing objects.
+    return AliasSet::None();
+  }
+
+  bool appendRoots(MRootList& roots) const override {
+    return roots.append(globalThis_);
+  }
 };
 
 class MImplicitThis : public MUnaryInstruction,
@@ -9346,6 +9360,24 @@ class MProxySetByValue
   bool possiblyCalls() const override { return true; }
 };
 
+class MCallSetArrayLength
+    : public MBinaryInstruction,
+      public MixPolicy<ObjectPolicy<0>, BoxPolicy<1>>::Data {
+  bool strict_;
+
+  MCallSetArrayLength(MDefinition* obj, MDefinition* rhs, bool strict)
+      : MBinaryInstruction(classOpcode, obj, rhs), strict_(strict) {}
+
+ public:
+  INSTRUCTION_HEADER(CallSetArrayLength)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, obj), (1, rhs))
+
+  bool strict() const { return strict_; }
+
+  bool possiblyCalls() const override { return true; }
+};
+
 class MMegamorphicLoadSlot : public MUnaryInstruction,
                              public SingleObjectPolicy::Data {
   CompilerPropertyName name_;
@@ -9645,7 +9677,9 @@ class MGuardFunctionFlags : public MUnaryInstruction,
     }
     return congruentIfOperandsEqual(ins);
   }
-  AliasSet getAliasSet() const override { return AliasSet::None(); }
+  AliasSet getAliasSet() const override {
+    return AliasSet::Load(AliasSet::ObjectFields);
+  }
 };
 
 // Guard on function kind
@@ -9686,7 +9720,9 @@ class MGuardFunctionKind : public MUnaryInstruction,
     }
     return congruentIfOperandsEqual(ins);
   }
-  AliasSet getAliasSet() const override { return AliasSet::None(); }
+  AliasSet getAliasSet() const override {
+    return AliasSet::Load(AliasSet::ObjectFields);
+  }
 };
 
 // Bail if the object's shape or unboxed group is not in the input list.
@@ -9926,6 +9962,79 @@ class MGuardSpecificSymbol : public MUnaryInstruction,
   bool appendRoots(MRootList& roots) const override {
     return roots.append(expected_);
   }
+};
+
+class MGuardStringToIndex : public MUnaryInstruction,
+                            public StringPolicy<0>::Data {
+  explicit MGuardStringToIndex(MDefinition* str)
+      : MUnaryInstruction(classOpcode, str) {
+    // Mark as guard because this instruction must not be eliminated. For
+    // example, if the string is not an index the operation could change from a
+    // typed array load to a getter call.
+    setGuard();
+    setMovable();
+    setResultType(MIRType::Int32);
+  }
+
+ public:
+  INSTRUCTION_HEADER(GuardStringToIndex)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, string))
+
+  bool congruentTo(const MDefinition* ins) const override {
+    return congruentIfOperandsEqual(ins);
+  }
+
+  MDefinition* foldsTo(TempAllocator& alloc) override;
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
+};
+
+class MGuardStringToInt32 : public MUnaryInstruction,
+                            public StringPolicy<0>::Data {
+  explicit MGuardStringToInt32(MDefinition* str)
+      : MUnaryInstruction(classOpcode, str) {
+    // Mark as guard to prevent the issue described in MGuardStringToIndex's
+    // constructor.
+    setGuard();
+    setMovable();
+    setResultType(MIRType::Int32);
+  }
+
+ public:
+  INSTRUCTION_HEADER(GuardStringToInt32)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, string))
+
+  bool congruentTo(const MDefinition* ins) const override {
+    return congruentIfOperandsEqual(ins);
+  }
+
+  MDefinition* foldsTo(TempAllocator& alloc) override;
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
+};
+
+class MGuardStringToDouble : public MUnaryInstruction,
+                             public StringPolicy<0>::Data {
+  explicit MGuardStringToDouble(MDefinition* str)
+      : MUnaryInstruction(classOpcode, str) {
+    // Mark as guard to prevent the issue described in MGuardStringToIndex's
+    // constructor.
+    setGuard();
+    setMovable();
+    setResultType(MIRType::Double);
+  }
+
+ public:
+  INSTRUCTION_HEADER(GuardStringToDouble)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, string))
+
+  bool congruentTo(const MDefinition* ins) const override {
+    return congruentIfOperandsEqual(ins);
+  }
+
+  MDefinition* foldsTo(TempAllocator& alloc) override;
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
 };
 
 class MGuardNoDenseElements : public MUnaryInstruction,
@@ -11012,23 +11121,17 @@ class MHasOwnCache : public MBinaryInstruction,
 };
 
 // Implementation for instanceof operator with specific rhs.
-class MInstanceOf : public MUnaryInstruction, public InstanceOfPolicy::Data {
-  CompilerObject protoObj_;
-
-  MInstanceOf(MDefinition* obj, JSObject* proto)
-      : MUnaryInstruction(classOpcode, obj), protoObj_(proto) {
+class MInstanceOf : public MBinaryInstruction,
+                    public MixPolicy<BoxExceptPolicy<0, MIRType::Object>,
+                                     ObjectPolicy<1>>::Data {
+  MInstanceOf(MDefinition* obj, MDefinition* proto)
+      : MBinaryInstruction(classOpcode, obj, proto) {
     setResultType(MIRType::Boolean);
   }
 
  public:
   INSTRUCTION_HEADER(InstanceOf)
   TRIVIAL_NEW_WRAPPERS
-
-  JSObject* prototypeObject() { return protoObj_; }
-
-  bool appendRoots(MRootList& roots) const override {
-    return roots.append(protoObj_);
-  }
 };
 
 // Implementation for instanceof operator with unknown rhs.
@@ -12115,6 +12218,29 @@ class MIsPackedArray : public MUnaryInstruction,
   }
 };
 
+class MGuardArrayIsPacked : public MUnaryInstruction,
+                            public SingleObjectPolicy::Data {
+  explicit MGuardArrayIsPacked(MDefinition* array)
+      : MUnaryInstruction(classOpcode, array) {
+    setGuard();
+    setMovable();
+    setResultType(MIRType::Object);
+    setResultTypeSet(array->resultTypeSet());
+  }
+
+ public:
+  INSTRUCTION_HEADER(GuardArrayIsPacked)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, array))
+
+  bool congruentTo(const MDefinition* ins) const override {
+    return congruentIfOperandsEqual(ins);
+  }
+  AliasSet getAliasSet() const override {
+    return AliasSet::Load(AliasSet::ObjectFields);
+  }
+};
+
 class MGetPrototypeOf : public MUnaryInstruction,
                         public SingleObjectPolicy::Data {
   explicit MGetPrototypeOf(MDefinition* target)
@@ -12999,10 +13125,12 @@ class MWasmParameter : public MNullaryInstruction {
   ABIArg abi() const { return abi_; }
 };
 
-class MWasmReturn : public MAryControlInstruction<1, 0>,
+class MWasmReturn : public MAryControlInstruction<2, 0>,
                     public NoTypePolicy::Data {
-  explicit MWasmReturn(MDefinition* ins) : MAryControlInstruction(classOpcode) {
+  MWasmReturn(MDefinition* ins, MDefinition* tls)
+      : MAryControlInstruction(classOpcode) {
     initOperand(0, ins);
+    initOperand(1, tls);
   }
 
  public:
@@ -13010,9 +13138,12 @@ class MWasmReturn : public MAryControlInstruction<1, 0>,
   TRIVIAL_NEW_WRAPPERS
 };
 
-class MWasmReturnVoid : public MAryControlInstruction<0, 0>,
+class MWasmReturnVoid : public MAryControlInstruction<1, 0>,
                         public NoTypePolicy::Data {
-  MWasmReturnVoid() : MAryControlInstruction(classOpcode) {}
+  explicit MWasmReturnVoid(MDefinition* tls)
+      : MAryControlInstruction(classOpcode) {
+    initOperand(0, tls);
+  }
 
  public:
   INSTRUCTION_HEADER(WasmReturnVoid)

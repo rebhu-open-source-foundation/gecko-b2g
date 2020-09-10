@@ -298,6 +298,7 @@ nsString gAbsoluteArgv0Path;
 #  include <gtk/gtk.h>
 #  ifdef MOZ_WAYLAND
 #    include <gdk/gdkwayland.h>
+#    include "mozilla/widget/nsWaylandDisplay.h"
 #  endif
 #  ifdef MOZ_X11
 #    include <gdk/gdkx.h>
@@ -334,6 +335,7 @@ bool RunningGTest() { return RunGTest; }
 }  // namespace mozilla
 
 using namespace mozilla;
+using namespace mozilla::widget;
 using namespace mozilla::startup;
 using mozilla::Unused;
 using mozilla::dom::ContentChild;
@@ -1282,7 +1284,7 @@ ScopedXPCOMStartup::~ScopedXPCOMStartup() {
     if (appStartup) appStartup->DestroyHiddenWindow();
 
     gDirServiceProvider->DoShutdown();
-    PROFILER_ADD_MARKER("Shutdown early", OTHER);
+    PROFILER_MARKER_UNTYPED("Shutdown early", OTHER);
 
     WriteConsoleLog();
 
@@ -3838,8 +3840,11 @@ int XREMain::XRE_mainStartup(bool* aExitFlag) {
   const char* useXI2env = PR_GetEnv("MOZ_USE_XINPUT2");
   const bool disableXI2ByPref = (useXI2env && (*useXI2env == '0'));
   const bool enabledXI2ByPref = (useXI2env && (*useXI2env == '1'));
-  if (!enabledXI2ByPref &&
-      (gtk_check_version(3, 24, 0) != nullptr || disableXI2ByPref)) {
+  const char* currentDesktop = getenv("XDG_CURRENT_DESKTOP");
+  const bool IsKDEDesktop =
+      (currentDesktop && strstr(currentDesktop, "KDE") != nullptr);
+  if (!enabledXI2ByPref && (gtk_check_version(3, 24, 0) != nullptr ||
+                            disableXI2ByPref || IsKDEDesktop)) {
     gdk_disable_multidevice();
   }
 #  endif
@@ -4034,7 +4039,7 @@ int XREMain::XRE_mainStartup(bool* aExitFlag) {
       nsString leafName;
       rv = mProfD->GetLeafName(leafName);
       if (NS_SUCCEEDED(rv)) {
-        profileName = NS_ConvertUTF16toUTF8(leafName);
+        CopyUTF16toUTF8(leafName, profileName);
       }
     }
 
@@ -4978,6 +4983,9 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
   // gdk_display_close also calls gdk_display_manager_set_default_display
   // appropriately when necessary.
   if (!gfxPlatform::IsHeadless()) {
+#  ifdef MOZ_WAYLAND
+    WaylandDisplayRelease();
+#  endif
     MOZ_gdk_display_close(mGdkDisplay);
   }
 #endif

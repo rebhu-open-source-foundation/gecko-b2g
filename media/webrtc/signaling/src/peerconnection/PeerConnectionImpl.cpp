@@ -1345,7 +1345,7 @@ PeerConnectionImpl::SetLocalDescription(int32_t aAction, const char* aSDP) {
       RecordIceRestartStatistics(sdpType);
     }
 
-    OnSetDescriptionSuccess(sdpType == mozilla::kJsepSdpRollback, false);
+    OnSetDescriptionSuccess(sdpType, false);
   }
 
   appendHistory();
@@ -1486,7 +1486,7 @@ PeerConnectionImpl::SetRemoteDescription(int32_t action, const char* aSDP) {
       RecordIceRestartStatistics(sdpType);
     }
 
-    OnSetDescriptionSuccess(sdpType == kJsepSdpRollback, true);
+    OnSetDescriptionSuccess(sdpType, true);
   }
 
   appendHistory();
@@ -2163,16 +2163,34 @@ DOMMediaStream* PeerConnectionImpl::CreateReceiveStream(
   return mReceiveStreams.LastElement();
 }
 
-void PeerConnectionImpl::OnSetDescriptionSuccess(bool rollback, bool remote) {
+void PeerConnectionImpl::OnSetDescriptionSuccess(JsepSdpType sdpType,
+                                                 bool remote) {
   // Spec says we queue a task for all the stuff that ends up back in JS
   auto newSignalingState = GetSignalingState();
 
   mThread->Dispatch(NS_NewRunnableFunction(
       __func__, [this, self = RefPtr<PeerConnectionImpl>(this),
-                 newSignalingState, remote] {
+                 newSignalingState, sdpType, remote] {
         if (IsClosed()) {
           return;
         }
+
+        if (HasMedia()) {
+          // Section 4.4.1.5 Set the RTCSessionDescription:
+          if (sdpType == mozilla::kJsepSdpRollback) {
+            // - step 4.5.10, type is rollback
+            mMedia->RollbackRTCDtlsTransports();
+          } else if (!(remote && sdpType == mozilla::kJsepSdpOffer)) {
+            // - step 4.5.9 type is not rollback
+            // - step 4.5.9.1 when remote is false
+            // - step 4.5.9.2.13 when remote is true, type answer or pranswer
+            // More simply: not rollback, and not for remote offers.
+            bool markAsStable = sdpType == kJsepSdpOffer &&
+                                mSignalingState == RTCSignalingState::Stable;
+            mMedia->UpdateRTCDtlsTransports(markAsStable);
+          }
+        }
+
         JSErrorResult jrv;
         mPCObserver->SyncTransceivers(jrv);
         if (NS_WARN_IF(jrv.Failed())) {
@@ -2291,7 +2309,7 @@ void PeerConnectionImpl::OnSetDescriptionSuccess(bool rollback, bool remote) {
     // restructuring
   }
 
-  if (!rollback) {
+  if (sdpType != kJsepSdpRollback) {
     InitializeDataChannel();
     mMedia->StartIceChecks(*mJsepSession);
   }

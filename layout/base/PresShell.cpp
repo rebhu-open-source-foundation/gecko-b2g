@@ -6646,8 +6646,12 @@ void PresShell::RecordMouseLocation(WidgetGUIEvent* aEvent) {
           mPresContext, aEvent->mWidget, aEvent->mRefPoint, rootView);
       mMouseEventTargetGuid = InputAPZContext::GetTargetLayerGuid();
     } else {
-      mMouseLocation = nsLayoutUtils::GetEventCoordinatesRelativeTo(
-          aEvent, RelativeTo{rootFrame, ViewportType::Visual});
+      RelativeTo relativeTo{rootFrame};
+      if (rootFrame->PresContext()->IsRootContentDocumentCrossProcess()) {
+        relativeTo.mViewportType = ViewportType::Visual;
+      }
+      mMouseLocation =
+          nsLayoutUtils::GetEventCoordinatesRelativeTo(aEvent, relativeTo);
       mMouseEventTargetGuid = InputAPZContext::GetTargetLayerGuid();
     }
     mMouseLocationWasSetBySynthesizedMouseEventForTests =
@@ -6982,7 +6986,9 @@ nsresult PresShell::EventHandler::HandleEventUsingCoordinates(
   WidgetMouseEvent* mouseEvent = aGUIEvent->AsMouseEvent();
   bool isWindowLevelMouseExit =
       (aGUIEvent->mMessage == eMouseExitFromWidget) &&
-      (mouseEvent && mouseEvent->mExitFrom == WidgetMouseEvent::eTopLevel);
+      (mouseEvent &&
+       (mouseEvent->mExitFrom.value() == WidgetMouseEvent::eTopLevel ||
+        mouseEvent->mExitFrom.value() == WidgetMouseEvent::ePuppet));
 
   // Get the frame at the event point. However, don't do this if we're
   // capturing and retargeting the event because the captured frame will
@@ -7604,7 +7610,8 @@ bool PresShell::EventHandler::MaybeDiscardOrDelayMouseEvent(
              (aGUIEvent->mMessage == eMouseUp ||
               // contextmenu is triggered after right mouseup on Windows and
               // right mousedown on other platforms.
-              aGUIEvent->mMessage == eContextMenu)) {
+              aGUIEvent->mMessage == eContextMenu ||
+              aGUIEvent->mMessage == eMouseExitFromWidget)) {
     UniquePtr<DelayedMouseEvent> delayedMouseEvent =
         MakeUnique<DelayedMouseEvent>(aGUIEvent->AsMouseEvent());
     PushDelayedEventIntoQueue(std::move(delayedMouseEvent));

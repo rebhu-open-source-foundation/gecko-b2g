@@ -453,6 +453,14 @@ class nsContentUtils {
                                                            nsINode* aNode2);
 
   /**
+   * Returns the common BrowserParent ancestor, if any, for two given
+   * BrowserParent.
+   */
+  static mozilla::dom::BrowserParent* GetCommonBrowserParentAncestor(
+      mozilla::dom::BrowserParent* aBrowserParent1,
+      mozilla::dom::BrowserParent* aBrowserParent2);
+
+  /**
    * Returns true if aNode1 is before aNode2 in the same connected
    * tree.
    * aNode1Index and aNode2Index are in/out arguments. If non-null, and value is
@@ -3171,7 +3179,11 @@ class nsContentUtils {
 
   // Alternate data MIME type used by the ScriptLoader to register and read
   // bytecode out of the nsCacheInfoChannel.
-  static nsCString& JSBytecodeMimeType() { return *sJSBytecodeMimeType; }
+  static MOZ_MUST_USE bool InitJSBytecodeMimeType();
+  static nsCString& JSBytecodeMimeType() {
+    MOZ_ASSERT(sJSBytecodeMimeType);
+    return *sJSBytecodeMimeType;
+  }
 
   /**
    * Checks if the passed-in name is one of the special names: "_blank", "_top",

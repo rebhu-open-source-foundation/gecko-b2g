@@ -267,6 +267,13 @@ LoadingSessionHistoryInfo::LoadingSessionHistoryInfo(
   SessionHistoryEntry::sLoadIdToEntry->Put(mLoadId, aEntry);
 }
 
+LoadingSessionHistoryInfo::LoadingSessionHistoryInfo(
+    SessionHistoryEntry* aEntry, uint64_t aLoadId)
+    : mInfo(aEntry->Info()), mLoadId(aLoadId) {
+  MOZ_ASSERT(SessionHistoryEntry::sLoadIdToEntry &&
+             SessionHistoryEntry::sLoadIdToEntry->Get(aLoadId) == aEntry);
+}
+
 already_AddRefed<nsDocShellLoadState>
 LoadingSessionHistoryInfo::CreateLoadInfo() const {
   RefPtr<nsDocShellLoadState> loadState(
@@ -315,6 +322,13 @@ SessionHistoryEntry::SessionHistoryEntry(const SessionHistoryEntry& aEntry)
       mID(aEntry.mID) {}
 
 SessionHistoryEntry::~SessionHistoryEntry() {
+  // Null out the mParent pointers on all our kids.
+  for (nsISHEntry* entry : mChildren) {
+    if (entry) {
+      entry->SetParent(nullptr);
+    }
+  }
+
   if (sLoadIdToEntry) {
     sLoadIdToEntry->RemoveIf(
         [this](auto& aIter) { return aIter.Data() == this; });
@@ -890,7 +904,7 @@ SessionHistoryEntry::IsDynamicallyAdded() {
 NS_IMETHODIMP
 SessionHistoryEntry::HasDynamicallyAddedChild(bool* aHasDynamicallyAddedChild) {
   for (const auto& child : mChildren) {
-    if (child->IsDynamicallyAdded()) {
+    if (child && child->IsDynamicallyAdded()) {
       *aHasDynamicallyAddedChild = true;
       return NS_OK;
     }
@@ -907,7 +921,7 @@ SessionHistoryEntry::HasBFCacheEntry(nsIBFCacheEntry* aEntry) {
 
 NS_IMETHODIMP
 SessionHistoryEntry::AdoptBFCacheEntry(nsISHEntry* aEntry) {
-  MOZ_CRASH("This lives in the child process");
+  NS_WARNING("This lives in the child process");
   return NS_ERROR_FAILURE;
 }
 
@@ -939,7 +953,7 @@ NS_IMETHODIMP
 SessionHistoryEntry::AddChild(nsISHEntry* aChild, int32_t aOffset,
                               bool aUseRemoteSubframes) {
   nsCOMPtr<SessionHistoryEntry> child = do_QueryInterface(aChild);
-  MOZ_ASSERT(child);
+  MOZ_ASSERT_IF(aChild, child);
   AddChild(child, aOffset, aUseRemoteSubframes);
 
   return NS_OK;
@@ -1142,7 +1156,28 @@ NS_IMETHODIMP_(void)
 SessionHistoryEntry::SyncTreesForSubframeNavigation(
     nsISHEntry* aEntry, mozilla::dom::BrowsingContext* aTopBC,
     mozilla::dom::BrowsingContext* aIgnoreBC) {
-  NS_WARNING("Need to implement this");
+  // XXX Keep this in sync with nsSHEntry::SyncTreesForSubframeNavigation.
+  //
+  // We need to sync up the browsing context and session history trees for
+  // subframe navigation.  If the load was in a subframe, we forward up to
+  // the top browsing context, which will then recursively sync up all browsing
+  // contexts to their corresponding entries in the new session history tree. If
+  // we don't do this, then we can cache a content viewer on the wrong cloned
+  // entry, and subsequently restore it at the wrong time.
+  nsCOMPtr<nsISHEntry> newRootEntry = nsSHistory::GetRootSHEntry(aEntry);
+  if (newRootEntry) {
+    // newRootEntry is now the new root entry.
+    // Find the old root entry as well.
+
+    // Need a strong ref. on |oldRootEntry| so it isn't destroyed when
+    // SetChildHistoryEntry() does SwapHistoryEntries() (bug 304639).
+    nsCOMPtr<nsISHEntry> oldRootEntry = nsSHistory::GetRootSHEntry(this);
+
+    if (oldRootEntry) {
+      nsSHistory::SwapEntriesData data = {aIgnoreBC, newRootEntry, nullptr};
+      nsSHistory::SetChildHistoryEntry(oldRootEntry, aTopBC, 0, &data);
+    }
+  }
 }
 
 SHEntrySharedParentState* SessionHistoryEntry::SharedInfo() const {

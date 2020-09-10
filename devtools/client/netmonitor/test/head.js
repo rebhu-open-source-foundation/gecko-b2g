@@ -314,13 +314,6 @@ function initNetMonitor(url, { requestCount, enableCache = false }) {
     const toolbox = await gDevTools.showToolbox(target, "netmonitor");
     info("Network monitor pane shown successfully.");
 
-    // There are tests of netmonitor that call source-map-url-service and load the source
-    // codes and stylesheets. However, the processing of the request may have not been
-    // finished when closing the windows and related toolboxes, it may cause test failure.
-    // Hence, we call it explicitly, then wait for finishing the pending requests.
-    toolbox.sourceMapURLService._ensureAllSourcesPopulated();
-    await toolbox.sourceMapURLService.waitForPendingSources();
-
     const monitor = toolbox.getCurrentPanel();
 
     startNetworkEventUpdateObserver(monitor.panelWin);
@@ -731,23 +724,6 @@ function verifyRequestItemTarget(
       ok(target.classList.contains("odd"), "Item should have 'odd' class.");
     }
   }
-}
-
-/**
- * Helper function for waiting for an event to fire before resolving a promise.
- * Example: waitFor(aMonitor.panelWin.api, EVENT_NAME);
- *
- * @param object subject
- *        The event emitter object that is being listened to.
- * @param string eventName
- *        The name of the event to listen to.
- * @return object
- *        Returns a promise that resolves upon firing of the event.
- */
-function waitFor(subject, eventName) {
-  return new Promise(resolve => {
-    subject.once(eventName, resolve);
-  });
 }
 
 /**

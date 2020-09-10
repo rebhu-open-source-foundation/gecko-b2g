@@ -224,6 +224,7 @@ windows10-64-ccov/opt:
         - windows-talos
         - marionette-gpu-tests
         - windows-tests
+        - windows-devtools
         - web-platform-tests
         - ccov-code-coverage-tests
         - mochitest-webgpu
@@ -234,6 +235,7 @@ windows10-64/debug:
         - marionette-gpu-tests
         - mochitest-webgpu
         - windows-tests
+        - windows-devtools
         - web-platform-tests
 
 windows10-64/opt:
@@ -244,6 +246,7 @@ windows10-64/opt:
         - windows-talos
         - marionette-gpu-tests
         - windows-tests
+        - windows-devtools
         - web-platform-tests
         - web-platform-tests-backlog
         - raptor-firefox
@@ -271,6 +274,7 @@ windows10-64-shippable/opt:
         - windows-talos
         - marionette-gpu-tests
         - windows-tests
+        - windows-devtools
         - web-platform-tests
         - web-platform-tests-backlog
         - web-platform-tests-wdspec-headless
@@ -288,6 +292,7 @@ windows10-64-devedition/opt:
         - desktop-screenshot-capture
         - marionette-gpu-tests
         - windows-tests
+        - windows-devtools
         - web-platform-tests
         - mochitest-webgpu
 
@@ -295,6 +300,7 @@ windows10-64-asan/opt:
     build-platform: win64-asan/opt
     test-sets:
         - windows-tests
+        - windows-devtools
         - mochitest-webgpu
 
 # QR builds just run a subset right now.
@@ -456,7 +462,6 @@ android-hw-g5-7-0-arm7-api-16/opt:
     test-sets:
         - android-hw-arm7-browsertime
         - android-hw-arm7-raptor
-        - android-hw-arm7-raptor-power
         - android-hw-arm7-raptor-cpu-memory
         - android-hw-arm7-raptor-cpu-memory-power
         - raptor-fetch-geckoview
@@ -466,7 +471,6 @@ android-hw-g5-7-0-arm7-api-16-shippable/opt:
     test-sets:
         - android-hw-arm7-browsertime
         - android-hw-arm7-raptor
-        - android-hw-arm7-raptor-power
         - android-hw-arm7-raptor-cpu-memory
         - android-hw-arm7-raptor-cpu-memory-power
         - raptor-fetch-geckoview
@@ -479,7 +483,6 @@ android-hw-p2-8-0-arm7-api-16/opt:
         - android-hw-arm7-browsertime
         - android-hw-arm7-pgo-unittests
         - android-hw-arm7-raptor
-        - android-hw-arm7-raptor-power
         - android-hw-arm7-raptor-cpu-memory
         - android-hw-arm7-raptor-cpu-memory-power
         - raptor-fetch-geckoview
@@ -490,7 +493,6 @@ android-hw-p2-8-0-arm7-api-16-shippable/opt:
         - android-hw-arm7-browsertime
         - android-hw-arm7-pgo-unittests
         - android-hw-arm7-raptor
-        - android-hw-arm7-raptor-power
         - android-hw-arm7-raptor-cpu-memory
         - android-hw-arm7-raptor-cpu-memory-power
         - raptor-fetch-geckoview
@@ -521,7 +523,6 @@ android-hw-p2-8-0-android-aarch64/opt:
         - android-hw-aarch64-browsertime
         - android-hw-aarch64-opt-unittests
         - android-hw-aarch64-raptor
-        - android-hw-aarch64-raptor-power
         - android-hw-aarch64-raptor-cpu-memory
         - android-hw-aarch64-raptor-cpu-memory-power
 
@@ -531,7 +532,6 @@ android-hw-p2-8-0-android-aarch64-shippable/opt:
         - android-hw-aarch64-browsertime
         - android-hw-aarch64-pgo-unittests
         - android-hw-aarch64-raptor
-        - android-hw-aarch64-raptor-power
         - android-hw-aarch64-raptor-cpu-memory
         - android-hw-aarch64-raptor-cpu-memory-power
 

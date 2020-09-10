@@ -16,7 +16,7 @@
     <script defer src="chrome://global/content/print.js"></script>
   </head>
 
-  <body loading>
+  <body loading rendering>
     <template id="page-range-template">
       <select id="range-picker" name="page-range-type" data-l10n-id="printui-page-range-picker">
         <option value="all" selected data-l10n-id="printui-page-range-all"></option>
@@ -65,9 +65,11 @@
       </div>
     </template>
 
-    <header class="header-container">
+    <header class="header-container" role="none">
       <h2 data-l10n-id="printui-title"></h2>
-      <p id="sheet-count" is="page-count" data-l10n-id="printui-sheets-count" data-l10n-args='{ "sheetCount": 0 }' loading></p>
+      <div aria-live="off">
+        <p id="sheet-count" is="page-count" data-l10n-id="printui-sheets-count" data-l10n-args='{ "sheetCount": 0 }' loading></p>
+      </div>
     </header>
 
     <form id="print" is="print-form" aria-labelledby="page-header">
@@ -106,6 +108,13 @@
             <summary class="block-label section-block" is="twisty-summary"
                      data-open-l10n-id="printui-less-settings"
                      data-closed-l10n-id="printui-more-settings"></summary>
+
+            <section id="paper-size" class="section-block">
+              <label for="paper-size-picker" class="block-label" data-l10n-id="printui-paper-size-label"></label>
+              <select is="paper-size-select" id="paper-size-picker" class="row" data-setting-name="paperName">
+              </select>
+            </section>
+
             <section id="scale" class="section-block">
               <label id="scale-label" class="block-label" data-l10n-id="printui-scale"></label>
               <scale-input></scale-input>
@@ -140,7 +149,7 @@
         </section>
       </section>
 
-      <footer class="footer-container" id="print-footer">
+      <footer class="footer-container" id="print-footer" role="none">
         <section id="button-container" class="section-block">
           <button class="primary" name="print" data-l10n-id="printui-primary-button" is="print-button"></button>
           <button name="cancel" data-l10n-id="printui-cancel-button"></button>

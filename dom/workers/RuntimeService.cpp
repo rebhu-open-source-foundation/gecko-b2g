@@ -290,7 +290,9 @@ void LoadContextOptions(const char* aPrefName, void* /* aClosure */) {
       .setPrivateClassFields(
           GetWorkerPref<bool>("experimental.private_fields"_ns))
       .setPrivateClassMethods(
-          GetWorkerPref<bool>("experimental.private_methods"_ns));
+          GetWorkerPref<bool>("experimental.private_methods"_ns))
+      .setUseOffThreadParseGlobal(
+          GetWorkerPref<bool>("off_thread_parse_global"_ns));
 
   nsCOMPtr<nsIXULRuntime> xr = do_GetService("@mozilla.org/xre/runtime;1");
   if (xr) {
@@ -545,7 +547,7 @@ bool ContentSecurityPolicyAllows(JSContext* aCx, JS::HandleString aCode) {
     JS::AutoFilename file;
     if (JS::DescribeScriptedCaller(aCx, &file, &lineNum, &columnNum) &&
         file.get()) {
-      fileName = NS_ConvertUTF8toUTF16(file.get());
+      CopyUTF8toUTF16(MakeStringSpan(file.get()), fileName);
     } else {
       MOZ_ASSERT(!JS_IsExceptionPending(aCx));
     }

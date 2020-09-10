@@ -10,6 +10,7 @@
 #include "mozilla/EndianUtils.h"
 #include "mozilla/MacroForEach.h"
 #include "mozilla/MathAlgorithms.h"
+#include "mozilla/Maybe.h"
 
 #include "vm/Realm.h"
 
@@ -624,6 +625,7 @@ class MacroAssembler : public MacroAssemblerSpecific {
                           MoveOp::Type result = MoveOp::GENERAL);
 
   CodeOffset callWithABI(wasm::BytecodeOffset offset, wasm::SymbolicAddress fun,
+                         mozilla::Maybe<int32_t> tlsOffset,
                          MoveOp::Type result = MoveOp::GENERAL);
   void callDebugWithABI(wasm::SymbolicAddress fun,
                         MoveOp::Type result = MoveOp::GENERAL);
@@ -3414,6 +3416,9 @@ class MacroAssembler : public MacroAssemblerSpecific {
   void guardSpecificAtom(Register str, JSAtom* atom, Register scratch,
                          const LiveRegisterSet& volatileRegs, Label* fail);
 
+  void guardStringToInt32(Register str, Register output, Register scratch,
+                          LiveRegisterSet volatileRegs, Label* fail);
+
   void loadWasmTlsRegFromFrame(Register dest = WasmTlsReg);
 
   template <typename T>
@@ -3868,6 +3873,8 @@ class MacroAssembler : public MacroAssemblerSpecific {
  public:
   void loadJitCodeRaw(Register func, Register dest);
   void loadJitCodeNoArgCheck(Register func, Register dest);
+  void loadBaselineJitCodeRaw(Register func, Register dest,
+                              Label* failure = nullptr);
 
   void loadBaselineFramePtr(Register framePtr, Register dest);
 

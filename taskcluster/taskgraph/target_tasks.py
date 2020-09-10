@@ -13,7 +13,6 @@ import six
 from taskgraph import try_option_syntax
 from taskgraph.parameters import Parameters
 from taskgraph.util.attributes import match_run_on_projects, match_run_on_hg_branches
-from taskgraph.util.backstop import is_backstop
 from taskgraph.util.platforms import platform_family
 
 _target_task_methods = {}
@@ -351,7 +350,7 @@ def target_tasks_autoland(full_task_graph, parameters, graph_config):
         if task.kind != "test":
             return True
 
-        if is_backstop(parameters):
+        if parameters["backstop"]:
             return True
 
         build_type = task.attributes.get('build_type')
@@ -451,32 +450,6 @@ def target_tasks_mozilla_release(full_task_graph, parameters, graph_config):
     return [l for l, t in six.iteritems(full_task_graph.tasks)
             if filter_release_tasks(t, parameters)
             and standard_filter(t, parameters)]
-
-
-@_target_task('mozilla_esr68_tasks')
-def target_tasks_mozilla_esr68(full_task_graph, parameters, graph_config):
-    """Select the set of tasks required for a promotable beta or release build
-    of desktop, plus android CI. The candidates build process involves a pipeline
-    of builds and signing, but does not include beetmover or balrog jobs."""
-
-    def filter(task):
-        if not filter_release_tasks(task, parameters):
-            return False
-
-        if not standard_filter(task, parameters):
-            return False
-
-        platform = task.attributes.get('test_platform')
-
-        # Don't run QuantumRender tests on esr68.
-        if platform and '-qr/' in platform:
-            return False
-
-        # Unlike esr60, we do want all kinds of fennec builds on esr68.
-
-        return True
-
-    return [l for l, t in six.iteritems(full_task_graph.tasks) if filter(t)]
 
 
 @_target_task('mozilla_esr78_tasks')
@@ -677,9 +650,7 @@ def target_tasks_fennec_v68(full_task_graph, parameters, graph_config):
             return False
 
         if '-fennec' in try_name:
-            if 'raptor-scn-power-idle' in try_name:
-                return True
-            if 'raptor-speedometer' in try_name and 'power' in try_name:
+            if '-power' in try_name:
                 return True
             if 'browsertime' in try_name:
                 if 'tp6m' in try_name:
@@ -793,9 +764,7 @@ def target_tasks_general_perf_testing(full_task_graph, parameters, graph_config)
                 return _run_live_site()
             # Select fenix resource usage tests
             if 'fenix' in try_name:
-                if 'raptor-scn-power-idle' in try_name:
-                    return True
-                if 'raptor-speedometer' in try_name and 'power' in try_name:
+                if '-power' in try_name:
                     return True
             # Select geckoview resource usage tests
             if 'geckoview' in try_name:
@@ -805,11 +774,13 @@ def target_tasks_general_perf_testing(full_task_graph, parameters, graph_config)
                 # Ignore cpu+memory+power tests
                 if power_task and cpu_n_memory_task:
                     return False
-                if power_task or cpu_n_memory_task:
+                if cpu_n_memory_task:
                     if '-speedometer-' in try_name:
                         return True
                     if '-scn' in try_name and '-idle' in try_name:
                         return True
+                if power_task:
+                    return 'browsertime' in try_name
             # Select browsertime-specific tests
             if 'browsertime' in try_name:
                 if 'speedometer' in try_name:
@@ -1054,7 +1025,7 @@ def target_tasks_release_simulation(full_task_graph, parameters, graph_config):
         'nightly': 'mozilla-central',
         'beta': 'mozilla-beta',
         'release': 'mozilla-release',
-        'esr68': 'mozilla-esr68',
+        'esr78': 'mozilla-esr78',
     }
     target_project = project_by_release.get(parameters['release_type'])
     if target_project is None:
@@ -1117,8 +1088,6 @@ def target_tasks_raptor_tp6m(full_task_graph, parameters, graph_config):
             return False
         try_name = attributes.get('raptor_try_name')
         if '-cold' in try_name and 'shippable' in platform:
-            if '-1-refbrow-' in try_name:
-                return True
             # Get browsertime amazon smoke tests
             if 'browsertime' in try_name and \
                'amazon' in try_name and 'search' not in try_name and \

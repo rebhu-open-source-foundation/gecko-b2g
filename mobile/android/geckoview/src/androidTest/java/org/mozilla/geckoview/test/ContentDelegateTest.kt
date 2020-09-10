@@ -78,6 +78,32 @@ class ContentDelegateTest : BaseSessionTest() {
         })
     }
 
+    @Test fun downloadOneRequest() {
+        // disable test on pgo for frequently failing Bug 1543355
+        assumeThat(sessionRule.env.isDebugBuild, equalTo(true))
+
+        sessionRule.session.loadTestPath(DOWNLOAD_HTML_PATH)
+
+        sessionRule.waitUntilCalled(object : Callbacks.NavigationDelegate, Callbacks.ContentDelegate {
+
+            @AssertCalled(count = 2)
+            override fun onLoadRequest(session: GeckoSession, request: LoadRequest): GeckoResult<AllowOrDeny>? {
+                return null
+            }
+
+            @AssertCalled(false)
+            override fun onNewSession(session: GeckoSession, uri: String): GeckoResult<GeckoSession>? {
+                return null
+            }
+
+            @AssertCalled(count = 1)
+            override fun onExternalResponse(session: GeckoSession, response: WebResponse) {
+                assertThat("Uri should start with data:", response.uri, startsWith("blob:"))
+                assertThat("We should download the thing", String(response.body?.readBytes()!!), equalTo("Downloaded Data"))
+            }
+        })
+    }
+
     @IgnoreCrash
     @Test fun crashContent() {
         // This test doesn't make sense without multiprocess
@@ -328,12 +354,56 @@ class ContentDelegateTest : BaseSessionTest() {
         })
     }
 
+    @Test fun closeRequest() {
+        if (!sessionRule.env.isAutomation) {
+            sessionRule.setPrefsUntilTestEnd(mapOf("dom.allow_scripts_to_close_windows" to true))
+        }
+
+        mainSession.loadTestPath(HELLO_HTML_PATH)
+        mainSession.waitForPageStop()
+
+        mainSession.evaluateJS("window.close()")
+        mainSession.waitUntilCalled(object : Callbacks.ContentDelegate {
+            @AssertCalled(count = 1)
+            override fun onCloseRequest(session: GeckoSession) {
+            }
+        })
+    }
+
+    @Test fun windowOpenClose() {
+        sessionRule.setPrefsUntilTestEnd(mapOf("dom.disable_open_during_load" to false))
+
+        mainSession.loadTestPath(HELLO_HTML_PATH)
+        mainSession.waitForPageStop()
+
+        val newSession = sessionRule.createClosedSession()
+        mainSession.delegateDuringNextWait(object : Callbacks.NavigationDelegate {
+            @AssertCalled(count = 1)
+            override fun onNewSession(session: GeckoSession, uri: String): GeckoResult<GeckoSession>? {
+                return GeckoResult.fromValue(newSession)
+            }
+        })
+
+        mainSession.evaluateJS("const w = window.open('about:blank'); w.close()")
+
+        newSession.waitUntilCalled(object : Callbacks.All {
+            @AssertCalled(count = 1)
+            override fun onCloseRequest(session: GeckoSession) {
+            }
+
+            @AssertCalled(count = 1)
+            override fun onPageStop(session: GeckoSession, success: Boolean) {
+            }
+        })
+    }
+
     /**
      * Preferences to induce wanted behaviour.
      */
     private fun setHangReportTestPrefs(timeout: Int = 20000) {
         sessionRule.setPrefsUntilTestEnd(mapOf(
                 "dom.max_script_run_time" to 1,
+                "dom.max_script_run_time_without_important_user_input" to 1,
                 "dom.max_chrome_script_run_time" to 1,
                 "dom.max_ext_content_script_run_time" to 1,
                 "dom.ipc.cpow.timeout" to 100,

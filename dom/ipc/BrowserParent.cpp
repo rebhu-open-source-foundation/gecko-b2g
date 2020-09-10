@@ -211,7 +211,6 @@ BrowserParent::BrowserParent(ContentParent* aManager, const TabId& aTabId,
       mClientOffset{},
       mChromeOffset{},
       mCreatingWindow(false),
-      mDelayedURL{},
       mDelayedFrameScripts{},
       mCursor(eCursorInvalid),
       mCustomCursor{},
@@ -869,25 +868,20 @@ bool BrowserParent::SendLoadRemoteScript(const nsString& aURL,
   return PBrowserParent::SendLoadRemoteScript(aURL, aRunInGlobalScope);
 }
 
-void BrowserParent::LoadURL(nsIURI* aURI, nsIPrincipal* aTriggeringPrincipal) {
-  MOZ_ASSERT(aURI);
-  MOZ_ASSERT(aTriggeringPrincipal);
-
+void BrowserParent::LoadURL(nsDocShellLoadState* aLoadState) {
+  MOZ_ASSERT(aLoadState);
+  MOZ_ASSERT(aLoadState->URI());
   if (mIsDestroyed) {
     return;
   }
-
   nsCString spec;
-  aURI->GetSpec(spec);
-
+  aLoadState->URI()->GetSpec(spec);
   if (mCreatingWindow) {
     // Don't send the message if the child wants to load its own URL.
-    MOZ_ASSERT(mDelayedURL.IsEmpty());
-    mDelayedURL = spec;
     return;
   }
 
-  Unused << SendLoadURL(spec, aTriggeringPrincipal, GetShowInfo());
+  Unused << SendLoadURL(aLoadState, GetShowInfo());
 }
 
 void BrowserParent::ResumeLoad(uint64_t aPendingSwitchID) {
@@ -1325,18 +1319,9 @@ IPCResult BrowserParent::RecvIndexedDBPermissionRequest(
 IPCResult BrowserParent::RecvNewWindowGlobal(
     ManagedEndpoint<PWindowGlobalParent>&& aEndpoint,
     const WindowGlobalInit& aInit) {
-  MOZ_DIAGNOSTIC_ASSERT(mBrowsingContext,
-                        "Should not receive messages after being unlinked");
   RefPtr<CanonicalBrowsingContext> browsingContext =
       CanonicalBrowsingContext::Get(aInit.context().mBrowsingContextId);
   if (!browsingContext) {
-    CrashReporter::AutoAnnotateCrashReport autoMissingBCId(
-        CrashReporter::Annotation::NewWindowMissingBCId,
-        static_cast<unsigned int>(aInit.context().mBrowsingContextId));
-    CrashReporter::AutoAnnotateCrashReport autoMissingBCIsTop(
-        CrashReporter::Annotation::NewWindowBCIsTop,
-        aInit.context().mBrowsingContextIsTop);
-
     return IPC_FAIL(this, "Cannot create for missing BrowsingContext");
   }
   if (!aInit.principal()) {

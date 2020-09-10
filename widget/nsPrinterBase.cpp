@@ -76,9 +76,15 @@ nsresult nsPrinterBase::AsyncPromiseAttributeGetter(
     JSContext* aCx, Promise** aResultPromise, AsyncAttribute aAttribute,
     BackgroundTask<T, Args...> aBackgroundTask, Args... aArgs) {
   MOZ_ASSERT(NS_IsMainThread());
+
+  static constexpr EnumeratedArray<AsyncAttribute, AsyncAttribute::Last,
+                                   nsLiteralCString>
+      attributeKeys{"SupportsDuplex"_ns, "SupportsColor"_ns,
+                    "SupportsMonochrome"_ns, "SupportsCollation"_ns,
+                    "PaperList"_ns};
   return mozilla::AsyncPromiseAttributeGetter(
       *this, mAsyncAttributePromises[aAttribute], aCx, aResultPromise,
-      aBackgroundTask, std::forward<Args>(aArgs)...);
+      attributeKeys[aAttribute], aBackgroundTask, std::forward<Args>(aArgs)...);
 }
 
 NS_IMETHODIMP nsPrinterBase::CreateDefaultSettings(JSContext* aCx,
@@ -105,6 +111,7 @@ NS_IMETHODIMP nsPrinterBase::CreateDefaultSettings(JSContext* aCx,
   }
 
   return PrintBackgroundTaskPromise(*this, aCx, aResultPromise,
+                                    "DefaultSettings"_ns,
                                     &nsPrinterBase::DefaultSettings);
 }
 
@@ -122,6 +129,13 @@ NS_IMETHODIMP nsPrinterBase::GetSupportsColor(JSContext* aCx,
                                      &nsPrinterBase::SupportsColor);
 }
 
+NS_IMETHODIMP nsPrinterBase::GetSupportsMonochrome(JSContext* aCx,
+                                                   Promise** aResultPromise) {
+  return AsyncPromiseAttributeGetter(aCx, aResultPromise,
+                                     AsyncAttribute::SupportsMonochrome,
+                                     &nsPrinterBase::SupportsMonochrome);
+}
+
 NS_IMETHODIMP nsPrinterBase::GetSupportsCollation(JSContext* aCx,
                                                   Promise** aResultPromise) {
   return AsyncPromiseAttributeGetter(aCx, aResultPromise,
@@ -137,7 +151,7 @@ NS_IMETHODIMP nsPrinterBase::GetPaperList(JSContext* aCx,
 }
 
 void nsPrinterBase::QueryMarginsForPaper(Promise& aPromise, uint64_t aPaperId) {
-  return SpawnPrintBackgroundTask(*this, aPromise,
+  return SpawnPrintBackgroundTask(*this, aPromise, "MarginsForPaper"_ns,
                                   &nsPrinterBase::GetMarginsForPaper, aPaperId);
 }
 

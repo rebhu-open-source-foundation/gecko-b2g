@@ -261,7 +261,12 @@ TEST_VARIANTS = {
         'description': "{description} with WebGL IPC process enabled",
         'suffix': 'gli',
         'replace': {
-            'run-on-projects': [],
+            'run-on-projects': {
+                'by-test-platform': {
+                    'mac.*': ['trunk'],
+                    'default': [],
+                }
+            }
         },
         'merge': {
             'mozharness': {
@@ -989,9 +994,11 @@ def set_tier(config, tasks):
                 'macosx1014-64-qr/debug',
                 'android-em-7.0-x86_64-shippable/opt',
                 'android-em-7.0-x86_64/debug',
+                'android-em-7.0-x86_64/opt',
                 'android-em-7.0-x86-shippable/opt',
                 'android-em-7.0-x86_64-shippable-qr/opt',
-                'android-em-7.0-x86_64-qr/debug'
+                'android-em-7.0-x86_64-qr/debug',
+                'android-em-7.0-x86_64-qr/opt',
             ]:
                 task['tier'] = 1
             else:

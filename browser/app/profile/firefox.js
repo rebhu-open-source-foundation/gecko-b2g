@@ -1,3 +1,5 @@
+#filter dumbComments emptyLines substitution
+
 // -*- indent-tabs-mode: nil; js-indent-level: 2 -*-
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -10,8 +12,6 @@
 // Please indent all prefs defined within #ifdef/#ifndef conditions. This
 // improves readability, particular for conditional blocks that exceed a single
 // screen.
-
-#filter substitution
 
 #ifdef XP_UNIX
   #ifndef XP_MACOSX
@@ -339,6 +339,9 @@ pref("browser.urlbar.richSuggestions.tail", true);
 // Whether the Urlbar can enter search mode. Also controls the other
 // urlbar.update2 prefs.
 pref("browser.urlbar.update2", true);
+// Whether horizontal key navigation with left/right is disabled for urlbar's
+// one-off buttons.
+pref("browser.urlbar.update2.disableOneOffsHorizontalKeyNavigation", true);
 // Whether the urlbar displays one-offs to filter searches to history,
 // bookmarks, or tabs.
 pref("browser.urlbar.update2.localOneOffs", true);
@@ -347,6 +350,7 @@ pref("browser.urlbar.update2.localOneOffs", true);
 pref("browser.urlbar.update2.oneOffsRefresh", true);
 #else
 pref("browser.urlbar.update2", false);
+pref("browser.urlbar.update2.disableOneOffsHorizontalKeyNavigation", false);
 pref("browser.urlbar.update2.localOneOffs", false);
 pref("browser.urlbar.update2.oneOffsRefresh", false);
 #endif
@@ -417,10 +421,6 @@ pref("browser.helperApps.showOpenOptionForViewableInternally", true);
 // search engines URL
 pref("browser.search.searchEnginesURL",      "https://addons.mozilla.org/%LOCALE%/firefox/search-engines/");
 
-// Market-specific search defaults
-pref("browser.search.geoSpecificDefaults", true);
-pref("browser.search.geoSpecificDefaults.url", "https://search.services.mozilla.com/1/%APP%/%VERSION%/%CHANNEL%/%LOCALE%/%REGION%/%DISTRIBUTION%/%DISTRIBUTION_VERSION%");
-
 // search bar results always open in a new tab
 pref("browser.search.openintab", false);
 
@@ -440,8 +440,6 @@ pref("browser.search.widget.inNavBar", false);
 #endif
 // The maximum amount of times the private default banner is shown.
 pref("browser.search.separatePrivateDefault.ui.banner.max", 0);
-
-pref("browser.search.modernConfig", true);
 
 pref("browser.sessionhistory.max_entries", 50);
 
@@ -1240,6 +1238,7 @@ pref("services.sync.prefs.sync.browser.urlbar.suggest.bookmark", true);
 pref("services.sync.prefs.sync.browser.urlbar.suggest.history", true);
 pref("services.sync.prefs.sync.browser.urlbar.suggest.openpage", true);
 pref("services.sync.prefs.sync.browser.urlbar.suggest.searches", true);
+pref("services.sync.prefs.sync.browser.urlbar.suggest.topsites", true);
 pref("services.sync.prefs.sync.dom.disable_open_during_load", true);
 pref("services.sync.prefs.sync.dom.disable_window_flip", true);
 pref("services.sync.prefs.sync.dom.disable_window_move_resize", true);
@@ -1342,7 +1341,7 @@ pref("browser.newtabpage.activity-stream.fxaccounts.endpoint", "https://accounts
 pref("browser.newtabpage.activity-stream.improvesearch.topSiteSearchShortcuts", true);
 
 // ASRouter provider configuration
-pref("browser.newtabpage.activity-stream.asrouter.providers.cfr", "{\"id\":\"cfr\",\"enabled\":true,\"type\":\"remote-settings\",\"bucket\":\"cfr\",\"frequency\":{\"custom\":[{\"period\":\"daily\",\"cap\":1}]},\"categories\":[\"cfrAddons\",\"cfrFeatures\"],\"updateCycleInMs\":3600000}");
+pref("browser.newtabpage.activity-stream.asrouter.providers.cfr", "{\"id\":\"cfr\",\"enabled\":true,\"type\":\"remote-settings\",\"bucket\":\"cfr\",\"updateCycleInMs\":3600000}");
 pref("browser.newtabpage.activity-stream.asrouter.providers.whats-new-panel", "{\"id\":\"whats-new-panel\",\"enabled\":true,\"type\":\"remote-settings\",\"bucket\":\"whats-new-panel\",\"updateCycleInMs\":3600000}");
 pref("browser.newtabpage.activity-stream.asrouter.providers.message-groups", "{\"id\":\"message-groups\",\"enabled\":true,\"type\":\"remote-settings\",\"bucket\":\"message-groups\",\"updateCycleInMs\":3600000}");
 // This url, if changed, MUST continue to point to an https url. Pulling arbitrary content to inject into
@@ -1362,14 +1361,14 @@ pref("browser.newtabpage.activity-stream.discoverystream.spocs-endpoint", "");
 // List of locales that get stories by default, regardless of region.
 pref("browser.newtabpage.activity-stream.discoverystream.locale-list-config", "");
 // List of regions that get stories by default.
-pref("browser.newtabpage.activity-stream.discoverystream.region-stories-config", "US,DE,CA,GB,IE");
+pref("browser.newtabpage.activity-stream.discoverystream.region-stories-config", "US,DE,CA,GB,IE,CH,AT,BE");
 // List of regions that get spocs by default.
 pref("browser.newtabpage.activity-stream.discoverystream.region-spocs-config", "US,CA");
 // List of regions that get the 7 row layout.
-pref("browser.newtabpage.activity-stream.discoverystream.region-layout-config", "US,CA,GB,DE,IE");
+pref("browser.newtabpage.activity-stream.discoverystream.region-layout-config", "US,CA,GB,DE,IE,CH,AT,BE");
 // Allows Pocket story collections to be dismissed.
 pref("browser.newtabpage.activity-stream.discoverystream.isCollectionDismissible", true);
-pref("browser.newtabpage.activity-stream.discoverystream.personalization.version", 2);
+pref("browser.newtabpage.activity-stream.discoverystream.personalization.version", 1);
 // Configurable keys used by personalization version 2.
 pref("browser.newtabpage.activity-stream.discoverystream.personalization.modelKeys", "nb_model_arts_and_entertainment, nb_model_autos_and_vehicles, nb_model_beauty_and_fitness, nb_model_blogging_resources_and_services, nb_model_books_and_literature, nb_model_business_and_industrial, nb_model_computers_and_electronics, nb_model_finance, nb_model_food_and_drink, nb_model_games, nb_model_health, nb_model_hobbies_and_leisure, nb_model_home_and_garden, nb_model_internet_and_telecom, nb_model_jobs_and_education, nb_model_law_and_government, nb_model_online_communities, nb_model_people_and_society, nb_model_pets_and_animals, nb_model_real_estate, nb_model_reference, nb_model_science, nb_model_shopping, nb_model_sports, nb_model_travel");
 // System pref to allow Pocket stories personalization to be turned on/off.
@@ -1681,7 +1680,7 @@ pref("browser.contentblocking.report.monitor.enabled", true);
 pref("browser.contentblocking.report.proxy.enabled", false);
 
 // Disable the mobile promotion by default.
-pref("browser.contentblocking.report.show_mobile_app", false);
+pref("browser.contentblocking.report.show_mobile_app", true);
 
 pref("browser.contentblocking.report.monitor.url", "https://monitor.firefox.com/?entrypoint=protection_report_monitor&utm_source=about-protections");
 pref("browser.contentblocking.report.monitor.how_it_works.url", "https://monitor.firefox.com/about");
@@ -1829,6 +1828,8 @@ pref("extensions.pocket.api", "api.getpocket.com");
 pref("extensions.pocket.enabled", true);
 pref("extensions.pocket.oAuthConsumerKey", "40249-e88c401e1b1f2242d9e441c4");
 pref("extensions.pocket.site", "getpocket.com");
+pref("extensions.pocket.onSaveRecs", false);
+pref("extensions.pocket.onSaveRecs.locales", "en-US,en-GB,en-CA");
 
 #ifdef NIGHTLY_BUILD
 pref("signon.management.page.fileImport.enabled", true);
@@ -1852,6 +1853,7 @@ pref("signon.management.page.showPasswordSyncNotification", true);
 pref("signon.passwordEditCapture.enabled", true);
 pref("signon.showAutoCompleteFooter", true);
 pref("signon.showAutoCompleteImport", "import");
+pref("signon.suggestImportCount", 3);
 
 // Enable the "Simplify Page" feature in Print Preview. This feature
 // is disabled by default in toolkit.

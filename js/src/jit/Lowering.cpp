@@ -16,6 +16,7 @@
 #include "jit/LIR.h"
 #include "jit/MIR.h"
 #include "jit/MIRGraph.h"
+#include "js/experimental/JitInfo.h"  // JSJitInfo
 #include "util/Memory.h"
 
 #include "jit/shared/Lowering-shared-inl.h"
@@ -4119,6 +4120,32 @@ void LIRGenerator::visitGuardSpecificSymbol(MGuardSpecificSymbol* ins) {
   redefine(ins, ins->symbol());
 }
 
+void LIRGenerator::visitGuardStringToIndex(MGuardStringToIndex* ins) {
+  MOZ_ASSERT(ins->string()->type() == MIRType::String);
+  auto* guard = new (alloc()) LGuardStringToIndex(useRegister(ins->string()));
+  assignSnapshot(guard, BailoutKind::StringToIndexGuard);
+  define(guard, ins);
+  assignSafepoint(guard, ins);
+}
+
+void LIRGenerator::visitGuardStringToInt32(MGuardStringToInt32* ins) {
+  MOZ_ASSERT(ins->string()->type() == MIRType::String);
+  auto* guard =
+      new (alloc()) LGuardStringToInt32(useRegister(ins->string()), temp());
+  assignSnapshot(guard, BailoutKind::StringToInt32Guard);
+  define(guard, ins);
+  assignSafepoint(guard, ins);
+}
+
+void LIRGenerator::visitGuardStringToDouble(MGuardStringToDouble* ins) {
+  MOZ_ASSERT(ins->string()->type() == MIRType::String);
+  auto* guard = new (alloc())
+      LGuardStringToDouble(useRegister(ins->string()), temp(), temp());
+  assignSnapshot(guard, BailoutKind::StringToDoubleGuard);
+  define(guard, ins);
+  assignSafepoint(guard, ins);
+}
+
 void LIRGenerator::visitGuardNoDenseElements(MGuardNoDenseElements* ins) {
   auto* guard =
       new (alloc()) LGuardNoDenseElements(useRegister(ins->object()), temp());
@@ -4236,6 +4263,15 @@ void LIRGenerator::visitProxySetByValue(MProxySetByValue* ins) {
   auto* lir = new (alloc())
       LProxySetByValue(useRegisterAtStart(ins->proxy()),
                        useBoxAtStart(ins->idVal()), useBoxAtStart(ins->rhs()));
+  add(lir, ins);
+  assignSafepoint(lir, ins);
+}
+
+void LIRGenerator::visitCallSetArrayLength(MCallSetArrayLength* ins) {
+  MOZ_ASSERT(ins->obj()->type() == MIRType::Object);
+  MOZ_ASSERT(ins->rhs()->type() == MIRType::Value);
+  auto* lir = new (alloc()) LCallSetArrayLength(useRegisterAtStart(ins->obj()),
+                                                useBoxAtStart(ins->rhs()));
   add(lir, ins);
   assignSafepoint(lir, ins);
 }
@@ -4644,16 +4680,20 @@ void LIRGenerator::visitCheckPrivateFieldCache(MCheckPrivateFieldCache* ins) {
 }
 
 void LIRGenerator::visitInstanceOf(MInstanceOf* ins) {
-  MDefinition* lhs = ins->getOperand(0);
+  MDefinition* lhs = ins->lhs();
+  MDefinition* rhs = ins->rhs();
 
   MOZ_ASSERT(lhs->type() == MIRType::Value || lhs->type() == MIRType::Object);
+  MOZ_ASSERT(rhs->type() == MIRType::Object);
 
   if (lhs->type() == MIRType::Object) {
-    LInstanceOfO* lir = new (alloc()) LInstanceOfO(useRegister(lhs));
+    auto* lir = new (alloc())
+        LInstanceOfO(useRegister(lhs), useRegisterOrConstant(rhs));
     define(lir, ins);
     assignSafepoint(lir, ins);
   } else {
-    LInstanceOfV* lir = new (alloc()) LInstanceOfV(useBox(lhs));
+    auto* lir =
+        new (alloc()) LInstanceOfV(useBox(lhs), useRegisterOrConstant(rhs));
     define(lir, ins);
     assignSafepoint(lir, ins);
   }
@@ -4986,9 +5026,11 @@ void LIRGenerator::visitWasmParameter(MWasmParameter* ins) {
 
 void LIRGenerator::visitWasmReturn(MWasmReturn* ins) {
   MDefinition* rval = ins->getOperand(0);
+  MDefinition* tlsParam = ins->getOperand(1);
 
   if (rval->type() == MIRType::Int64) {
-    add(new (alloc()) LWasmReturnI64(useInt64Fixed(rval, ReturnReg64)));
+    add(new (alloc()) LWasmReturnI64(useInt64Fixed(rval, ReturnReg64),
+                                     useFixed(tlsParam, WasmTlsReg)));
     return;
   }
 
@@ -5008,11 +5050,16 @@ void LIRGenerator::visitWasmReturn(MWasmReturn* ins) {
     MOZ_CRASH("Unexpected wasm return type");
   }
 
+  lir->setOperand(1, useFixed(tlsParam, WasmTlsReg));
+
   add(lir);
 }
 
 void LIRGenerator::visitWasmReturnVoid(MWasmReturnVoid* ins) {
-  add(new (alloc()) LWasmReturnVoid);
+  MDefinition* tlsParam = ins->getOperand(0);
+  LWasmReturnVoid* lir = new (alloc()) LWasmReturnVoid;
+  lir->setOperand(0, useFixed(tlsParam, WasmTlsReg));
+  add(lir);
 }
 
 void LIRGenerator::visitWasmStackArg(MWasmStackArg* ins) {
@@ -5337,6 +5384,16 @@ void LIRGenerator::visitIsPackedArray(MIsPackedArray* ins) {
 
   auto lir = new (alloc()) LIsPackedArray(useRegister(ins->object()), temp());
   define(lir, ins);
+}
+
+void LIRGenerator::visitGuardArrayIsPacked(MGuardArrayIsPacked* ins) {
+  MOZ_ASSERT(ins->array()->type() == MIRType::Object);
+
+  auto* lir = new (alloc())
+      LGuardArrayIsPacked(useRegister(ins->array()), temp(), temp());
+  assignSnapshot(lir, BailoutKind::PackedArrayGuard);
+  add(lir, ins);
+  redefine(ins, ins->array());
 }
 
 void LIRGenerator::visitGetPrototypeOf(MGetPrototypeOf* ins) {

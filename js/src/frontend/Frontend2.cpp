@@ -38,8 +38,6 @@
 #include "vm/ScopeKind.h"          // ScopeKind
 #include "vm/SharedStencil.h"  // ImmutableScriptData, ScopeNote, TryNote, GCThingIndex
 
-#include "vm/JSContext-inl.h"  // AutoKeepAtoms (used by BytecodeCompiler)
-
 using mozilla::Utf8Unit;
 
 using namespace js::gc;
@@ -298,6 +296,7 @@ bool ConvertRegExpData(JSContext* cx, const SmooshResult& result,
 
     RegExpIndex index(compilationInfo.stencil.regExpData.length());
     if (!compilationInfo.stencil.regExpData.emplaceBack()) {
+      js::ReportOutOfMemory(cx);
       return false;
     }
 
@@ -350,6 +349,7 @@ bool ConvertGCThings(JSContext* cx, const SmooshResult& result,
 
   size_t ngcthings = smooshScript.gcthings.len;
   if (!gcThings.reserve(ngcthings)) {
+    js::ReportOutOfMemory(cx);
     return false;
   }
 
@@ -501,7 +501,8 @@ void ReportSmooshCompileError(JSContext* cx, ErrorMetadata&& metadata,
 }
 
 /* static */
-bool Smoosh::compileGlobalScriptToStencil(CompilationInfo& compilationInfo,
+bool Smoosh::compileGlobalScriptToStencil(JSContext* cx,
+                                          CompilationInfo& compilationInfo,
                                           JS::SourceText<Utf8Unit>& srcBuf,
                                           bool* unimplemented) {
   // FIXME: check info members and return with *unimplemented = true
@@ -509,8 +510,6 @@ bool Smoosh::compileGlobalScriptToStencil(CompilationInfo& compilationInfo,
 
   auto bytes = reinterpret_cast<const uint8_t*>(srcBuf.get());
   size_t length = srcBuf.length();
-
-  JSContext* cx = compilationInfo.cx;
 
   const auto& options = compilationInfo.input.options;
   SmooshCompileOptions compileOptions;
@@ -555,10 +554,11 @@ bool Smoosh::compileGlobalScriptToStencil(CompilationInfo& compilationInfo,
   }
 
   if (!compilationInfo.stencil.scriptData.reserve(result.functions.len + 1)) {
+    js::ReportOutOfMemory(cx);
     return false;
   }
 
-  compilationInfo.stencil.scriptData.infallibleEmplaceBack(cx);
+  compilationInfo.stencil.scriptData.infallibleEmplaceBack();
 
   if (!ConvertScriptStencil(
           cx, result, result.top_level_script, allAtoms, compilationInfo,
@@ -567,7 +567,7 @@ bool Smoosh::compileGlobalScriptToStencil(CompilationInfo& compilationInfo,
   }
 
   for (size_t i = 0; i < result.functions.len; i++) {
-    compilationInfo.stencil.scriptData.infallibleEmplaceBack(cx);
+    compilationInfo.stencil.scriptData.infallibleEmplaceBack();
 
     if (!ConvertScriptStencil(cx, result, result.functions.data[i], allAtoms,
                               compilationInfo,
@@ -580,20 +580,44 @@ bool Smoosh::compileGlobalScriptToStencil(CompilationInfo& compilationInfo,
 }
 
 /* static */
-bool Smoosh::compileGlobalScript(CompilationInfo& compilationInfo,
+UniquePtr<CompilationInfo> Smoosh::compileGlobalScriptToStencil(
+    JSContext* cx, const JS::ReadOnlyCompileOptions& options,
+    JS::SourceText<Utf8Unit>& srcBuf, bool* unimplemented) {
+  Rooted<UniquePtr<frontend::CompilationInfo>> compilationInfo(
+      cx, js_new<frontend::CompilationInfo>(cx, options));
+  if (!compilationInfo) {
+    ReportOutOfMemory(cx);
+    return nullptr;
+  }
+
+  if (!compilationInfo.get()->input.initForGlobal(cx)) {
+    return nullptr;
+  }
+
+  if (!compileGlobalScriptToStencil(cx, *compilationInfo.get().get(), srcBuf,
+                                    unimplemented)) {
+    return nullptr;
+  }
+
+  return std::move(compilationInfo.get());
+}
+
+/* static */
+bool Smoosh::compileGlobalScript(JSContext* cx,
+                                 CompilationInfo& compilationInfo,
                                  JS::SourceText<Utf8Unit>& srcBuf,
                                  CompilationGCOutput& gcOutput,
                                  bool* unimplemented) {
-  if (!compileGlobalScriptToStencil(compilationInfo, srcBuf, unimplemented)) {
+  if (!compileGlobalScriptToStencil(cx, compilationInfo, srcBuf,
+                                    unimplemented)) {
     return false;
   }
 
-  if (!compilationInfo.instantiateStencils(gcOutput)) {
+  if (!compilationInfo.instantiateStencils(cx, gcOutput)) {
     return false;
   }
 
 #if defined(DEBUG) || defined(JS_JITSPEW)
-  JSContext* cx = compilationInfo.cx;
   Sprinter sprinter(cx);
   if (!sprinter.init()) {
     return false;

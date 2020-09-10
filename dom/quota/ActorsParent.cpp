@@ -89,6 +89,18 @@
 #  define ASSERT_UNLESS_FUZZING(...) MOZ_ASSERT(false, __VA_ARGS__)
 #endif
 
+// As part of bug 1536596 in order to identify the remaining sources of
+// principal info inconsistencies, we have added anonymized crash logging and
+// are temporarily making these checks occur on both debug and optimized
+// nightly, dev-edition, and early beta builds through use of
+// EARLY_BETA_OR_EARLIER during Firefox 82.  The plan is to return this
+// condition to MOZ_DIAGNOSTIC_ASSERT_ENABLED during Firefox 84 at the latest.
+// The analysis and disabling is tracked by bug 1536596.
+
+#ifdef EARLY_BETA_OR_EARLIER
+#  define QM_PRINCIPALINFO_VERIFICATION_ENABLED
+#endif
+
 #define QM_LOG_TEST() MOZ_LOG_TEST(GetQuotaManagerLogger(), LogLevel::Info)
 #define QM_LOG(_args) MOZ_LOG(GetQuotaManagerLogger(), LogLevel::Info, _args)
 
@@ -1771,7 +1783,7 @@ class RecordQuotaInfoLoadTimeHelper final : public Runnable {
  * Helper classes
  ******************************************************************************/
 
-#ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
+#ifdef QM_PRINCIPALINFO_VERIFICATION_ENABLED
 
 class PrincipalVerifier final : public Runnable {
   nsTArray<PrincipalInfo> mPrincipalInfos;
@@ -1789,7 +1801,8 @@ class PrincipalVerifier final : public Runnable {
 
   virtual ~PrincipalVerifier() = default;
 
-  bool IsPrincipalInfoValid(const PrincipalInfo& aPrincipalInfo);
+  Result<Ok, nsCString> CheckPrincipalInfoValidity(
+      const PrincipalInfo& aPrincipalInfo);
 
   NS_DECL_NSIRUNNABLE
 };
@@ -1889,7 +1902,7 @@ nsresult MaybeUpdateGroupForOrigin(const nsACString& aOrigin,
       aGroup = upToDateGroup;
       aUpdated = true;
 
-#ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
+#ifdef QM_PRINCIPALINFO_VERIFICATION_ENABLED
       ContentPrincipalInfo contentPrincipalInfo;
       contentPrincipalInfo.attrs() = originAttributes;
       contentPrincipalInfo.originNoSuffix() = originNoSuffix;
@@ -5147,6 +5160,23 @@ nsresult QuotaManager::InitializeRepository(PersistenceType aPersistenceType) {
   nsresult statusKeeper = NS_OK;
 #endif
 
+  struct RenameAndInitInfo {
+    RenameAndInitInfo(nsIFile* aOriginDirectory, const nsACString& aGroup,
+                      const nsACString& aOrigin, int64_t aTimestamp,
+                      bool aPersisted)
+        : mOriginDirectory(aOriginDirectory),
+          mGroup(aGroup),
+          mOrigin(aOrigin),
+          mTimestamp(aTimestamp),
+          mPersisted(aPersisted) {}
+    nsCOMPtr<nsIFile> mOriginDirectory;
+    nsCString mGroup;
+    nsCString mOrigin;
+    int64_t mTimestamp;
+    bool mPersisted;
+  };
+  nsTArray<RenameAndInitInfo> renameAndInitInfos;
+
   nsCOMPtr<nsIFile> childDirectory;
   while (NS_SUCCEEDED(
              (rv = entries->GetNextFile(getter_AddRefs(childDirectory)))) &&
@@ -5163,15 +5193,15 @@ nsresult QuotaManager::InitializeRepository(PersistenceType aPersistenceType) {
       CONTINUE_IN_NIGHTLY_RETURN_IN_OTHERS(rv);
     }
 
-    if (!isDirectory) {
-      nsString leafName;
-      rv = childDirectory->GetLeafName(leafName);
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, Rep_GetLeafName);
-        RECORD_IN_NIGHTLY(statusKeeper, rv);
-        CONTINUE_IN_NIGHTLY_RETURN_IN_OTHERS(rv);
-      }
+    nsAutoString leafName;
+    rv = childDirectory->GetLeafName(leafName);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, Rep_GetLeafName);
+      RECORD_IN_NIGHTLY(statusKeeper, rv);
+      CONTINUE_IN_NIGHTLY_RETURN_IN_OTHERS(rv);
+    }
 
+    if (!isDirectory) {
       if (IsOSMetadata(leafName) || IsDotFile(leafName)) {
         continue;
       }
@@ -5197,6 +5227,32 @@ nsresult QuotaManager::InitializeRepository(PersistenceType aPersistenceType) {
       CONTINUE_IN_NIGHTLY_RETURN_IN_OTHERS(rv);
     }
 
+    // FIXME(tt): The check for origin name consistency can be removed once we
+    // have an upgrade to traverse origin directories and check through the
+    // directory metadata files.
+    nsAutoCString originSanitized(origin);
+    SanitizeOriginString(originSanitized);
+
+    NS_ConvertUTF16toUTF8 utf8LeafName(leafName);
+    if (!originSanitized.Equals(utf8LeafName)) {
+      QM_WARNING(
+          "The name of the origin directory (%s) doesn't match the sanitized "
+          "origin string (%s) in the metadata file!",
+          utf8LeafName.get(), originSanitized.get());
+
+      // If it's the known case, we try to restore the origin directory name if
+      // it's possible.
+      if (originSanitized.Equals(utf8LeafName + "."_ns)) {
+        renameAndInitInfos.EmplaceBack(childDirectory, group, origin, timestamp,
+                                       persisted);
+        continue;
+      }
+
+      // XXXtt: Try to restore the unknown cases base on the content for their
+      // metadata files. Note that if the restore fails, QM should maintain a
+      // list and ensure they won't be accessed after initialization.
+    }
+
     rv = InitializeOrigin(aPersistenceType, group, origin, timestamp, persisted,
                           childDirectory);
     if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -5211,6 +5267,56 @@ nsresult QuotaManager::InitializeRepository(PersistenceType aPersistenceType) {
 #ifndef NIGHTLY_BUILD
     return rv;
 #endif
+  }
+
+  for (auto& info : renameAndInitInfos) {
+    // Check if targetDirectory exist.
+    nsCOMPtr<nsIFile> targetDirectory;
+    rv = directory->Clone(getter_AddRefs(targetDirectory));
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      RECORD_IN_NIGHTLY(statusKeeper, rv);
+      CONTINUE_IN_NIGHTLY_RETURN_IN_OTHERS(rv);
+    }
+
+    nsAutoCString originSanitized(info.mOrigin);
+    SanitizeOriginString(originSanitized);
+    NS_ConvertUTF8toUTF16 originDirName(originSanitized);
+
+    rv = targetDirectory->Append(originDirName);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      RECORD_IN_NIGHTLY(statusKeeper, rv);
+      CONTINUE_IN_NIGHTLY_RETURN_IN_OTHERS(rv);
+    }
+
+    bool exists;
+    rv = targetDirectory->Exists(&exists);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      RECORD_IN_NIGHTLY(statusKeeper, rv);
+      CONTINUE_IN_NIGHTLY_RETURN_IN_OTHERS(rv);
+    }
+
+    if (exists) {
+      rv = info.mOriginDirectory->Remove(true);
+      if (NS_WARN_IF(NS_FAILED(rv))) {
+        RECORD_IN_NIGHTLY(statusKeeper, rv);
+        CONTINUE_IN_NIGHTLY_RETURN_IN_OTHERS(rv);
+      }
+
+      continue;
+    }
+
+    rv = info.mOriginDirectory->RenameTo(nullptr, originDirName);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      RECORD_IN_NIGHTLY(statusKeeper, rv);
+      CONTINUE_IN_NIGHTLY_RETURN_IN_OTHERS(rv);
+    }
+
+    rv = InitializeOrigin(aPersistenceType, info.mGroup, info.mOrigin,
+                          info.mTimestamp, info.mPersisted, targetDirectory);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      RECORD_IN_NIGHTLY(statusKeeper, rv);
+      CONTINUE_IN_NIGHTLY_RETURN_IN_OTHERS(rv);
+    }
   }
 
 #ifdef NIGHTLY_BUILD
@@ -6399,13 +6505,13 @@ nsresult QuotaManager::EnsureStorageIsInitialized() {
   QM_TRY(storageFile->Append(mStorageName + kSQLiteSuffix));
 
   QM_TRY_VAR(const auto storageFileExists,
-             ToResultInvoke(storageFile, &nsIFile::Exists));
+             MOZ_TO_RESULT_INVOKE(storageFile, Exists));
 
   if (!storageFileExists) {
     QM_TRY_VAR(auto indexedDBDir, QM_NewLocalFile(mIndexedDBPath));
 
     QM_TRY_VAR(const auto indexedDBDirExists,
-               ToResultInvoke(indexedDBDir, &nsIFile::Exists));
+               MOZ_TO_RESULT_INVOKE(indexedDBDir, Exists));
 
     if (indexedDBDirExists) {
       QM_TRY(UpgradeFromIndexedDBDirectoryToPersistentStorageDirectory(
@@ -6418,7 +6524,7 @@ nsresult QuotaManager::EnsureStorageIsInitialized() {
         nsLiteralString(PERSISTENT_DIRECTORY_NAME)));
 
     QM_TRY_VAR(const auto persistentStorageDirExists,
-               ToResultInvoke(persistentStorageDir, &nsIFile::Exists));
+               MOZ_TO_RESULT_INVOKE(persistentStorageDir, Exists));
 
     if (persistentStorageDirExists) {
       QM_TRY(UpgradeFromPersistentStorageDirectoryToDefaultStorageDirectory(
@@ -6452,20 +6558,19 @@ nsresult QuotaManager::EnsureStorageIsInitialized() {
   QM_TRY(connection->ExecuteSimpleSQL("PRAGMA synchronous = EXTRA;"_ns));
 
   // Check to make sure that the storage version is correct.
-  QM_TRY_VAR(
-      auto storageVersion,
-      ToResultInvoke(connection, &mozIStorageConnection::GetSchemaVersion));
+  QM_TRY_VAR(auto storageVersion,
+             MOZ_TO_RESULT_INVOKE(connection, GetSchemaVersion));
 
   // Hacky downgrade logic!
   // If we see major.minor of 3.0, downgrade it to be 2.1.
   if (storageVersion == kHackyPreDowngradeStorageVersion) {
     storageVersion = kHackyPostDowngradeStorageVersion;
     QM_TRY(connection->SetSchemaVersion(storageVersion), QM_PROPAGATE,
-           []() { MOZ_ASSERT(false, "Downgrade didn't take."); });
+           [](const auto&) { MOZ_ASSERT(false, "Downgrade didn't take."); });
   }
 
   QM_TRY(OkIf(GetMajorStorageVersion(storageVersion) <= kMajorStorageVersion),
-         NS_ERROR_FAILURE, []() {
+         NS_ERROR_FAILURE, [](const auto&) {
            NS_WARNING("Unable to initialize storage, version is too high!");
          });
 
@@ -6475,7 +6580,7 @@ nsresult QuotaManager::EnsureStorageIsInitialized() {
     QM_TRY_VAR(auto storageDir, QM_NewLocalFile(mStoragePath));
 
     QM_TRY_VAR(const auto storageDirExists,
-               ToResultInvoke(storageDir, &nsIFile::Exists));
+               MOZ_TO_RESULT_INVOKE(storageDir, Exists));
 
     const bool newDirectory = !storageDirExists;
 
@@ -6496,8 +6601,11 @@ nsresult QuotaManager::EnsureStorageIsInitialized() {
     if (newDatabase && newDirectory) {
       QM_TRY(CreateTables(connection));
 
-      MOZ_ASSERT(NS_SUCCEEDED(connection->GetSchemaVersion(&storageVersion)));
-      MOZ_ASSERT(storageVersion == kStorageVersion);
+      {
+        QM_DEBUG_TRY_VAR(const auto storageVersion,
+                         MOZ_TO_RESULT_INVOKE(connection, GetSchemaVersion));
+        MOZ_ASSERT(storageVersion == kStorageVersion);
+      }
 
       QM_TRY(connection->ExecuteSimpleSQL(
           nsLiteralCString("INSERT INTO database (cache_version) "
@@ -6519,16 +6627,15 @@ nsresult QuotaManager::EnsureStorageIsInitialized() {
         } else if (storageVersion == MakeStorageVersion(2, 2)) {
           QM_TRY(UpgradeStorageFrom2_2To2_3(connection));
         } else {
-          // TODO: This should use QM_TRY too.
-          NS_WARNING(
-              "Unable to initialize storage, no upgrade path is "
-              "available!");
-          return NS_ERROR_FAILURE;
+          QM_FAIL(NS_ERROR_FAILURE, []() {
+            NS_WARNING(
+                "Unable to initialize storage, no upgrade path is "
+                "available!");
+          });
         }
 
         QM_TRY_VAR(storageVersion,
-                   ToResultInvoke(connection,
-                                  &mozIStorageConnection::GetSchemaVersion));
+                   MOZ_TO_RESULT_INVOKE(connection, GetSchemaVersion));
       }
 
       MOZ_ASSERT(storageVersion == kStorageVersion);
@@ -6576,11 +6683,11 @@ nsresult QuotaManager::EnsureStorageIsInitialized() {
             QM_TRY(UpgradeLocalStorageArchiveFrom4To5(connection));
           } */
           else {
-            // TODO: This should use QM_TRY too.
-            QM_WARNING(
-                "Unable to initialize LocalStorage archive, no upgrade path is "
-                "available!");
-            return NS_ERROR_FAILURE;
+            QM_FAIL(NS_ERROR_FAILURE, []() {
+              QM_WARNING(
+                  "Unable to initialize LocalStorage archive, no upgrade path "
+                  "is available!");
+            });
           }
 
           QM_TRY_VAR(version, LoadLocalStorageArchiveVersion(*connection));
@@ -6651,10 +6758,10 @@ nsresult QuotaManager::EnsureStorageIsInitialized() {
           QM_TRY(UpgradeCacheFrom1To2(connection));
         } else */
         {
-          // TODO: This should use QM_TRY too.
-          QM_WARNING(
-              "Unable to initialize cache, no upgrade path is available!");
-          return NS_ERROR_FAILURE;
+          QM_FAIL(NS_ERROR_FAILURE, []() {
+            QM_WARNING(
+                "Unable to initialize cache, no upgrade path is available!");
+          });
         }
 
         QM_TRY_VAR(cacheVersion, LoadCacheVersion(*connection));
@@ -10360,7 +10467,7 @@ void ListOriginsOp::GetResponse(RequestResponse& aResponse) {
   mOrigins.SwapElements(origins);
 }
 
-#ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
+#ifdef QM_PRINCIPALINFO_VERIFICATION_ENABLED
 
 // static
 already_AddRefed<PrincipalVerifier> PrincipalVerifier::CreateAndDispatch(
@@ -10375,14 +10482,14 @@ already_AddRefed<PrincipalVerifier> PrincipalVerifier::CreateAndDispatch(
   return verifier.forget();
 }
 
-bool PrincipalVerifier::IsPrincipalInfoValid(
+Result<Ok, nsCString> PrincipalVerifier::CheckPrincipalInfoValidity(
     const PrincipalInfo& aPrincipalInfo) {
   MOZ_ASSERT(NS_IsMainThread());
 
   switch (aPrincipalInfo.type()) {
     // A system principal is acceptable.
     case PrincipalInfo::TSystemPrincipalInfo: {
-      return true;
+      return Ok{};
     }
 
     case PrincipalInfo::TContentPrincipalInfo: {
@@ -10392,40 +10499,51 @@ bool PrincipalVerifier::IsPrincipalInfoValid(
       nsCOMPtr<nsIURI> uri;
       nsresult rv = NS_NewURI(getter_AddRefs(uri), info.spec());
       if (NS_WARN_IF(NS_FAILED(rv))) {
-        return false;
+        return Err("NS_NewURI failed"_ns);
       }
 
       nsCOMPtr<nsIPrincipal> principal =
           BasePrincipal::CreateContentPrincipal(uri, info.attrs());
       if (NS_WARN_IF(!principal)) {
-        return false;
+        return Err("CreateContentPrincipal failed"_ns);
       }
 
       nsCString originNoSuffix;
       rv = principal->GetOriginNoSuffix(originNoSuffix);
       if (NS_WARN_IF(NS_FAILED(rv))) {
-        return false;
+        return Err("GetOriginNoSuffix failed"_ns);
       }
 
       if (NS_WARN_IF(originNoSuffix != info.originNoSuffix())) {
-        QM_WARNING("originNoSuffix (%s) doesn't match passed one (%s)!",
-                   originNoSuffix.get(), info.originNoSuffix().get());
-        return false;
+        static const char messageTemplate[] =
+            "originNoSuffix (%s) doesn't match passed one (%s)!";
+
+        QM_WARNING(messageTemplate, originNoSuffix.get(),
+                   info.originNoSuffix().get());
+
+        return Err(nsPrintfCString(
+            messageTemplate, AnonymizedOriginString(originNoSuffix).get(),
+            AnonymizedOriginString(info.originNoSuffix()).get()));
       }
 
       nsCString baseDomain;
       rv = principal->GetBaseDomain(baseDomain);
       if (NS_WARN_IF(NS_FAILED(rv))) {
-        return false;
+        return Err("GetBaseDomain failed"_ns);
       }
 
       if (NS_WARN_IF(baseDomain != info.baseDomain())) {
-        QM_WARNING("baseDomain (%s) doesn't match passed one (%s)!",
-                   baseDomain.get(), info.baseDomain().get());
-        return false;
+        static const char messageTemplate[] =
+            "baseDomain (%s) doesn't match passed one (%s)!";
+
+        QM_WARNING(messageTemplate, baseDomain.get(), info.baseDomain().get());
+
+        return Err(nsPrintfCString(messageTemplate,
+                                   AnonymizedCString(baseDomain).get(),
+                                   AnonymizedCString(info.baseDomain()).get()));
       }
 
-      return true;
+      return Ok{};
     }
 
     default: {
@@ -10433,16 +10551,39 @@ bool PrincipalVerifier::IsPrincipalInfoValid(
     }
   }
 
-  // Null and expanded principals are not acceptable.
-  return false;
+  return Err("Null and expanded principals are not acceptable"_ns);
 }
 
 NS_IMETHODIMP
 PrincipalVerifier::Run() {
   MOZ_ASSERT(NS_IsMainThread());
 
+  nsAutoCString allDetails;
   for (auto& principalInfo : mPrincipalInfos) {
-    MOZ_DIAGNOSTIC_ASSERT(IsPrincipalInfoValid(principalInfo));
+    const auto res = CheckPrincipalInfoValidity(principalInfo);
+    if (res.isErr()) {
+      if (!allDetails.IsEmpty()) {
+        allDetails.AppendLiteral(", ");
+      }
+
+      allDetails.Append(res.inspectErr());
+    }
+  }
+
+  if (!allDetails.IsEmpty()) {
+    allDetails.Insert("Invalid principal infos found: ", 0);
+
+    // In case of invalid principal infos, this will produce a crash reason such
+    // as:
+    //   Invalid principal infos found: originNoSuffix (https://aaa.aaaaaaa.aaa)
+    //   doesn't match passed one (about:aaaa)!
+    //
+    // In case of errors while validating a principal, it will contain a
+    // different message describing that error, which does not contain any
+    // details of the actual principal info at the moment.
+    //
+    // This string will be leaked.
+    MOZ_CRASH_UNSAFE(strdup(allDetails.BeginReading()));
   }
 
   return NS_OK;
@@ -10591,7 +10732,7 @@ nsresult StorageOperationBase::ProcessOriginDirectories() {
 
   nsresult rv;
 
-#ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
+#ifdef QM_PRINCIPALINFO_VERIFICATION_ENABLED
   nsTArray<PrincipalInfo> principalInfos;
 #endif
 
@@ -10644,7 +10785,7 @@ nsresult StorageOperationBase::ProcessOriginDirectories() {
             principalInfo, &originProps.mSuffix, &originProps.mGroup,
             &originProps.mOrigin);
 
-#ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
+#ifdef QM_PRINCIPALINFO_VERIFICATION_ENABLED
         principalInfos.AppendElement(principalInfo);
 #endif
 
@@ -10661,7 +10802,7 @@ nsresult StorageOperationBase::ProcessOriginDirectories() {
     }
   }
 
-#ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
+#ifdef QM_PRINCIPALINFO_VERIFICATION_ENABLED
   if (!principalInfos.IsEmpty()) {
     RefPtr<PrincipalVerifier> principalVerifier =
         PrincipalVerifier::CreateAndDispatch(std::move(principalInfos));

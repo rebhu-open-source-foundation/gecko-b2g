@@ -5,76 +5,57 @@
 "use strict";
 /* global XPCNativeWrapper */
 
-const { OS } = ChromeUtils.import("resource://gre/modules/osfile.jsm");
+const EXPORTED_SYMBOLS = ["GeckoDriver"];
+
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
-const { accessibility } = ChromeUtils.import(
-  "chrome://marionette/content/accessibility.js"
-);
-const { Addon } = ChromeUtils.import("chrome://marionette/content/addon.js");
-const { assert } = ChromeUtils.import("chrome://marionette/content/assert.js");
-const { atom } = ChromeUtils.import("chrome://marionette/content/atom.js");
-const { browser, Context, WindowState } = ChromeUtils.import(
-  "chrome://marionette/content/browser.js"
-);
-const { Capabilities, Timeouts, UnhandledPromptBehavior } = ChromeUtils.import(
-  "chrome://marionette/content/capabilities.js"
-);
-const { capture } = ChromeUtils.import(
-  "chrome://marionette/content/capture.js"
-);
-const { allowAllCerts } = ChromeUtils.import(
-  "chrome://marionette/content/cert.js"
-);
-const { cookie } = ChromeUtils.import("chrome://marionette/content/cookie.js");
-const { WebElementEventTarget } = ChromeUtils.import(
-  "chrome://marionette/content/dom.js"
-);
-const { ChromeWebElement, element, WebElement } = ChromeUtils.import(
-  "chrome://marionette/content/element.js"
-);
-const { error } = ChromeUtils.import("chrome://marionette/content/error.js");
-const { Sandboxes, evaluate } = ChromeUtils.import(
-  "chrome://marionette/content/evaluate.js"
-);
-const { pprint } = ChromeUtils.import("chrome://marionette/content/format.js");
-const { interaction } = ChromeUtils.import(
-  "chrome://marionette/content/interaction.js"
-);
-const { l10n } = ChromeUtils.import("chrome://marionette/content/l10n.js");
-const { legacyaction } = ChromeUtils.import(
-  "chrome://marionette/content/legacyaction.js"
-);
-const { Log } = ChromeUtils.import("chrome://marionette/content/log.js");
-const { modal } = ChromeUtils.import("chrome://marionette/content/modal.js");
-const { navigate } = ChromeUtils.import(
-  "chrome://marionette/content/navigate.js"
-);
-const { MarionettePrefs } = ChromeUtils.import(
-  "chrome://marionette/content/prefs.js",
-  null
-);
-const { print } = ChromeUtils.import("chrome://marionette/content/print.js");
-const { proxy } = ChromeUtils.import("chrome://marionette/content/proxy.js");
-const { reftest } = ChromeUtils.import(
-  "chrome://marionette/content/reftest.js"
-);
-const {
-  DebounceCallback,
-  IdlePromise,
-  PollPromise,
-  TimedPromise,
-  waitForEvent,
-  waitForObserverTopic,
-} = ChromeUtils.import("chrome://marionette/content/sync.js");
+XPCOMUtils.defineLazyModuleGetters(this, {
+  OS: "resource://gre/modules/osfile.jsm",
+
+  accessibility: "chrome://marionette/content/accessibility.js",
+  Addon: "chrome://marionette/content/addon.js",
+  allowAllCerts: "chrome://marionette/content/cert.js",
+  assert: "chrome://marionette/content/assert.js",
+  atom: "chrome://marionette/content/atom.js",
+  browser: "chrome://marionette/content/browser.js",
+  Capabilities: "chrome://marionette/content/capabilities.js",
+  capture: "chrome://marionette/content/capture.js",
+  ChromeWebElement: "chrome://marionette/content/element.js",
+  Context: "chrome://marionette/content/browser.js",
+  cookie: "chrome://marionette/content/cookie.js",
+  DebounceCallback: "chrome://marionette/content/sync.js",
+  element: "chrome://marionette/content/element.js",
+  error: "chrome://marionette/content/error.js",
+  evaluate: "chrome://marionette/content/evaluate.js",
+  IdlePromise: "chrome://marionette/content/sync.js",
+  interaction: "chrome://marionette/content/interaction.js",
+  l10n: "chrome://marionette/content/l10n.js",
+  legacyaction: "chrome://marionette/content/legacyaction.js",
+  Log: "chrome://marionette/content/log.js",
+  MarionettePrefs: "chrome://marionette/content/prefs.js",
+  modal: "chrome://marionette/content/modal.js",
+  navigate: "chrome://marionette/content/navigate.js",
+  PollPromise: "chrome://marionette/content/sync.js",
+  pprint: "chrome://marionette/content/format.js",
+  print: "chrome://marionette/content/print.js",
+  proxy: "chrome://marionette/content/proxy.js",
+  reftest: "chrome://marionette/content/reftest.js",
+  Sandboxes: "chrome://marionette/content/evaluate.js",
+  TimedPromise: "chrome://marionette/content/sync.js",
+  Timeouts: "chrome://marionette/content/capabilities.js",
+  UnhandledPromptBehavior: "chrome://marionette/content/capabilities.js",
+  waitForEvent: "chrome://marionette/content/sync.js",
+  waitForObserverTopic: "chrome://marionette/content/sync.js",
+  WebElement: "chrome://marionette/content/element.js",
+  WebElementEventTarget: "chrome://marionette/content/dom.js",
+  WindowState: "chrome://marionette/content/browser.js",
+});
 
 XPCOMUtils.defineLazyGetter(this, "logger", Log.get);
 XPCOMUtils.defineLazyGlobalGetters(this, ["URL"]);
-
-this.EXPORTED_SYMBOLS = ["GeckoDriver"];
 
 const APP_ID_FIREFOX = "{ec8030f7-c20a-464f-9b0e-13a3a9e97384}";
 const APP_ID_THUNDERBIRD = "{3550f703-e582-4d05-9a08-453d09bdfdc6}";
@@ -397,6 +378,8 @@ GeckoDriver.prototype.getBrowsingContext = function(options = {}) {
     browsingContext = browsingContext.top;
   }
 
+  logger.trace(`Using browsing context ${browsingContext?.id}`);
+
   return browsingContext;
 };
 
@@ -497,8 +480,6 @@ GeckoDriver.prototype.addBrowser = function(win) {
  */
 GeckoDriver.prototype.startBrowser = function(window, isNewSession = false) {
   this.mainFrame = window;
-  this.chromeBrowsingContext = this.mainFrame.browsingContext;
-  this.contentBrowsingContext = null;
 
   this.addBrowser(window);
   this.whenBrowserStarted(window, isNewSession);
@@ -598,8 +579,7 @@ GeckoDriver.prototype.registerBrowser = function(id, be) {
     this.curBrowser.register(id, be);
   }
 
-  this.contentBrowsingContext = BrowsingContext.get(id);
-  this.wins.set(id, this.contentBrowsingContext.currentWindowGlobal);
+  this.wins.set(id, BrowsingContext.get(id).currentWindowGlobal);
 
   return id;
 };
@@ -873,10 +853,12 @@ GeckoDriver.prototype.newSession = async function(cmd) {
   }
 
   if (this.mainFrame) {
+    this.chromeBrowsingContext = this.mainFrame.browsingContext;
     this.mainFrame.focus();
   }
 
   if (this.curBrowser.tab) {
+    this.contentBrowsingContext = this.curBrowser.contentBrowser.browsingContext;
     this.curBrowser.contentBrowser.focus();
   }
 
@@ -1639,8 +1621,15 @@ GeckoDriver.prototype.switchToSystemWindow = async function() {
  *     Only for B2G, URL origin of the B2G app window to switch to.
  * @param {boolean=} focus
  *     A boolean value which determines whether to focus
+<<<<<<< HEAD
  *     the window. Defaults to true. B2G forces to be false to app window
  *     controlled by system app or user behaviors.
+=======
+ *     the window. Defaults to true.
+ *
+ * @throws {NoSuchWindowError}
+ *     Top-level browsing context has been discarded.
+>>>>>>> upstream/master
  */
 GeckoDriver.prototype.switchToWindow = async function(cmd) {
   let focus = true;
@@ -1676,13 +1665,21 @@ GeckoDriver.prototype.switchToWindow = async function(cmd) {
   }
 
   let filter = handle ? { id: parseInt(handle) } : { origin };
-
   const found = this.findWindow(this.windows, filter);
+
+  let selected = false;
   if (found) {
-    await this.setWindowHandle(found, focus);
-    return this.curBrowser.contentBrowser.browsingContext.id;
+    try {
+      await this.setWindowHandle(found, focus);
+      selected = true;
+    } catch (e) {
+      logger.error(e);
+    }
   }
-  throw new error.NoSuchWindowError(`Unable to locate window: ${handle}`);
+
+  if (!selected) {
+    throw new error.NoSuchWindowError(`Unable to locate window: ${handle}`);
+  }
 };
 
 /**
@@ -1768,17 +1765,19 @@ GeckoDriver.prototype.setWindowHandle = async function(
 
     this.startBrowser(winProperties.win, false /* isNewSession */);
 
+    this.chromeBrowsingContext = this.mainFrame.browsingContext;
+
     if (registerBrowsers && browserListening) {
       await registerBrowsers;
       const id = await browserListening;
       this.contentBrowsingContext = BrowsingContext.get(id);
+    } else {
+      this.contentBrowsingContext = null;
     }
   } else {
     // Otherwise switch to the known chrome window
     this.curBrowser = this.browsers[winProperties.id];
     this.mainFrame = this.curBrowser.window;
-
-    this.chromeBrowsingContext = this.mainFrame.browsingContext;
 
     // Activate the tab if it's a content window.
     let tab = null;
@@ -1790,6 +1789,7 @@ GeckoDriver.prototype.setWindowHandle = async function(
       );
     }
 
+    this.chromeBrowsingContext = this.mainFrame.browsingContext;
     this.contentBrowsingContext = tab?.linkedBrowser.browsingContext;
   }
 
@@ -3599,6 +3599,21 @@ GeckoDriver.prototype.receiveMessage = function(message) {
 
     case "Marionette:ListenersAttached":
       if (message.json.frameId === this.curBrowser.curFrameId) {
+        const browsingContext = BrowsingContext.get(message.json.frameId);
+
+        // If the framescript for the current content browsing context
+        // has been re-attached due to a remoteness change (the browserId is
+        // always persistent) then track the new browsing context.
+        if (
+          browsingContext.browserId == this.contentBrowsingContext?.browserId
+        ) {
+          logger.trace(
+            "Detected remoteness change. New browsing context: " +
+              browsingContext.id
+          );
+          this.contentBrowsingContext = browsingContext;
+        }
+
         this.curBrowser.flushPendingCommands();
       }
       break;

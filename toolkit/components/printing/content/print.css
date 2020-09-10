@@ -15,7 +15,7 @@ body {
   background: var(--in-content-box-background);
 }
 
-body[loading] {
+body[loading] #print {
   visibility: hidden;
 }
 
@@ -59,10 +59,6 @@ body[loading] {
   text-align: center;
 }
 
-.cols-2 > .col:nth-child(2) {
-  flex: 1 1 auto;
-}
-
 .header-container {
   display: flex;
   flex-direction: row;
@@ -84,7 +80,8 @@ body[loading] {
   margin: 0;
 }
 
-#sheet-count[loading] {
+body[rendering] #sheet-count,
+body[invalid] #sheet-count {
   visibility: hidden;
 }
 

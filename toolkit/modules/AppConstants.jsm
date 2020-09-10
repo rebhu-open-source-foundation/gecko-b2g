@@ -425,6 +425,13 @@ this.AppConstants = Object.freeze({
     false,
 #endif
 
+  REMOTE_SETTINGS_VERIFY_SIGNATURE:
+#ifdef MOZ_THUNDERBIRD
+    false,
+#else
+    true,
+#endif
+
   MOZ_B2G_OS_NAME: "@MOZ_B2G_OS_NAME@",
   MOZ_B2G_VERSION: "@MOZ_B2G_VERSION@",
 });

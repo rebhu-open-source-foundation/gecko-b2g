@@ -17,6 +17,7 @@
 #include "jit/Linker.h"
 #include "jit/SharedICHelpers.h"
 #include "jit/VMFunctions.h"
+#include "js/friend/DOMProxy.h"  // JS::ExpandoAndGeneration
 #include "proxy/DeadObjectProxy.h"
 #include "proxy/Proxy.h"
 #include "util/Memory.h"
@@ -32,6 +33,8 @@ using namespace js::jit;
 
 using mozilla::DebugOnly;
 using mozilla::Maybe;
+
+using JS::ExpandoAndGeneration;
 
 namespace js {
 namespace jit {
@@ -1610,7 +1613,7 @@ bool IonCacheIRCompiler::emitStoreTypedObjectReferenceProperty(
 
   emitStoreTypedObjectReferenceProp(val, type, dest, scratch2);
 
-  if (needsPostBarrier() && type != ReferenceType::TYPE_STRING) {
+  if (needsPostBarrier()) {
     emitPostBarrierSlot(obj, val, scratch1);
   }
   return true;
@@ -1687,19 +1690,29 @@ static void EmitAssertNoCopyOnWriteElements(MacroAssembler& masm,
 #endif
 }
 
-static void EmitAssertExtensibleAndWritableArrayLength(MacroAssembler& masm,
-                                                       Register elementsReg) {
+static void EmitAssertExtensibleElements(MacroAssembler& masm,
+                                         Register elementsReg) {
 #ifdef DEBUG
-  // Preceding shape guards ensure the object is extensible and the array length
-  // is writable.
+  // Preceding shape guards ensure the object elements are extensible.
   Address elementsFlags(elementsReg, ObjectElements::offsetOfFlags());
   Label ok;
   masm.branchTest32(Assembler::Zero, elementsFlags,
-                    Imm32(ObjectElements::Flags::NOT_EXTENSIBLE |
-                          ObjectElements::Flags::NONWRITABLE_ARRAY_LENGTH),
+                    Imm32(ObjectElements::Flags::NOT_EXTENSIBLE), &ok);
+  masm.assumeUnreachable("Unexpected non-extensible elements");
+  masm.bind(&ok);
+#endif
+}
+
+static void EmitAssertWritableArrayLengthElements(MacroAssembler& masm,
+                                                  Register elementsReg) {
+#ifdef DEBUG
+  // Preceding shape guards ensure the array length is writable.
+  Address elementsFlags(elementsReg, ObjectElements::offsetOfFlags());
+  Label ok;
+  masm.branchTest32(Assembler::Zero, elementsFlags,
+                    Imm32(ObjectElements::Flags::NONWRITABLE_ARRAY_LENGTH),
                     &ok);
-  masm.assumeUnreachable(
-      "Unexpected non-extensible object or non-writable array length");
+  masm.assumeUnreachable("Unexpected non-writable array length elements");
   masm.bind(&ok);
 #endif
 }
@@ -1774,7 +1787,10 @@ bool IonCacheIRCompiler::emitStoreDenseElementHole(ObjOperandId objId,
 
   EmitAssertNoCopyOnWriteElements(masm, scratch1);
 
-  EmitAssertExtensibleAndWritableArrayLength(masm, scratch1);
+  EmitAssertExtensibleElements(masm, scratch1);
+  if (handleAdd) {
+    EmitAssertWritableArrayLengthElements(masm, scratch1);
+  }
 
   Address initLength(scratch1, ObjectElements::offsetOfInitializedLength());
   BaseObjectElementIndex element(scratch1, index);
@@ -1793,7 +1809,15 @@ bool IonCacheIRCompiler::emitStoreDenseElementHole(ObjOperandId objId,
   masm.spectreBoundsCheck32(index, capacity, spectreScratch, &allocElement);
   masm.jump(&capacityOk);
 
+  // Check for non-writable array length. We only have to do this if
+  // index >= capacity and handleAdd is false.
   masm.bind(&allocElement);
+  if (!handleAdd) {
+    Address elementsFlags(scratch1, ObjectElements::offsetOfFlags());
+    masm.branchTest32(Assembler::NonZero, elementsFlags,
+                      Imm32(ObjectElements::NONWRITABLE_ARRAY_LENGTH),
+                      failure->label());
+  }
 
   LiveRegisterSet save(GeneralRegisterSet::Volatile(), liveVolatileFloatRegs());
   save.takeUnchecked(scratch1);
@@ -2467,11 +2491,12 @@ bool IonCacheIRCompiler::emitLoadArgumentDynamicSlot(ValOperandId resultId,
   MOZ_CRASH("Call ICs not used in ion");
 }
 
-bool IonCacheIRCompiler::emitGuardFunApplyArray() {
+bool IonCacheIRCompiler::emitArrayPush(ObjOperandId objId, ValOperandId rhsId) {
   MOZ_CRASH("Call ICs not used in ion");
 }
 
-bool IonCacheIRCompiler::emitArrayPush(ObjOperandId objId, ValOperandId rhsId) {
+bool IonCacheIRCompiler::emitArrayJoinResult(ObjOperandId objId,
+                                             StringOperandId sepId) {
   MOZ_CRASH("Call ICs not used in ion");
 }
 

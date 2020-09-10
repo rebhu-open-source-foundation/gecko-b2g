@@ -224,8 +224,6 @@ struct KeywordInfo;
 
 namespace js {
 
-class AutoKeepAtoms;
-
 namespace frontend {
 
 extern TokenKind ReservedWordTokenKind(const ParserName* name);
@@ -296,16 +294,8 @@ class TokenStreamSpecific;
 template <typename Unit>
 class MOZ_STACK_CLASS TokenStreamPosition final {
  public:
-  // The JS_HAZ_ROOTED is permissible below because: 1) the only field in
-  // TokenStreamPosition that can keep GC things alive is Token, 2) the only
-  // GC things Token can keep alive are atoms, and 3) the AutoKeepAtoms&
-  // passed to the constructor here represents that collection of atoms
-  // is disabled while atoms in Tokens in this Position are alive.  DON'T
-  // ADD NON-ATOM GC THING POINTERS HERE!  They would create a rooting
-  // hazard that JS_HAZ_ROOTED will cause to be ignored.
   template <class AnyCharsAccess>
-  inline TokenStreamPosition(
-      AutoKeepAtoms& keepAtoms,
+  inline explicit TokenStreamPosition(
       TokenStreamSpecific<Unit, AnyCharsAccess>& tokenStream);
 
  private:
@@ -326,7 +316,7 @@ class MOZ_STACK_CLASS TokenStreamPosition final {
   Token currentToken;
   unsigned lookahead;
   Token lookaheadTokens[TokenStreamShared::maxLookahead];
-} JS_HAZ_ROOTED;
+};
 
 template <typename Unit>
 class SourceUnits;
@@ -1509,6 +1499,8 @@ class TokenStreamCharsShared {
   using CharBuffer = Vector<char16_t, 32>;
 
  protected:
+  JSContext* cx;
+
   /**
    * Buffer transiently used to store sequences of identifier or string code
    * points when such can't be directly processed from the original source
@@ -1522,7 +1514,7 @@ class TokenStreamCharsShared {
  protected:
   explicit TokenStreamCharsShared(JSContext* cx,
                                   CompilationInfo* compilationInfo)
-      : charBuffer(cx), compilationInfo(compilationInfo) {}
+      : cx(cx), charBuffer(cx), compilationInfo(compilationInfo) {}
 
   MOZ_MUST_USE bool appendCodePointToCharBuffer(uint32_t codePoint);
 
@@ -1542,7 +1534,7 @@ class TokenStreamCharsShared {
   const ParserAtom* drainCharBufferIntoAtom() {
     // Add to parser atoms table.
     auto maybeId = this->compilationInfo->stencil.parserAtoms.internChar16(
-        this->compilationInfo->cx, charBuffer.begin(), charBuffer.length());
+        cx, charBuffer.begin(), charBuffer.length());
     if (maybeId.isErr()) {
       return nullptr;
     }
@@ -1700,7 +1692,7 @@ MOZ_ALWAYS_INLINE const ParserAtom*
 TokenStreamCharsBase<char16_t>::atomizeSourceChars(
     mozilla::Span<const char16_t> units) {
   return this->compilationInfo->stencil.parserAtoms
-      .internChar16(this->compilationInfo->cx, units.data(), units.size())
+      .internChar16(cx, units.data(), units.size())
       .unwrapOr(nullptr);
 }
 
@@ -1709,7 +1701,7 @@ template <>
 TokenStreamCharsBase<mozilla::Utf8Unit>::atomizeSourceChars(
     mozilla::Span<const mozilla::Utf8Unit> units) {
   return this->compilationInfo->stencil.parserAtoms
-      .internUtf8(this->compilationInfo->cx, units.data(), units.size())
+      .internUtf8(cx, units.data(), units.size())
       .unwrapOr(nullptr);
 }
 
@@ -2881,7 +2873,6 @@ class MOZ_STACK_CLASS TokenStreamSpecific
 template <typename Unit>
 template <class AnyCharsAccess>
 inline TokenStreamPosition<Unit>::TokenStreamPosition(
-    AutoKeepAtoms& keepAtoms,
     TokenStreamSpecific<Unit, AnyCharsAccess>& tokenStream)
     : currentToken(tokenStream.anyCharsAccess().currentToken()) {
   TokenStreamAnyChars& anyChars = tokenStream.anyCharsAccess();

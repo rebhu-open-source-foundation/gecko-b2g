@@ -96,7 +96,6 @@
   if (!AppConstants.MOZILLA_OFFICIAL) {
     Services.scriptloader.loadSubScript("chrome://browser/content/browser-development-helpers.js", this);
   }
-  Services.scriptloader.loadSubScript("chrome://browser/content/browser-media.js", this);
   Services.scriptloader.loadSubScript("chrome://browser/content/browser-pageActions.js", this);
   Services.scriptloader.loadSubScript("chrome://browser/content/browser-sidebar.js", this);
   Services.scriptloader.loadSubScript("chrome://browser/content/browser-tabsintitlebar.js", this);
@@ -914,8 +913,8 @@
         <toolbarbutton id="appMenu-print-button"
                        class="subviewbutton subviewbutton-iconic"
                        label="&printCmd.label;"
-#ifdef XP_MACOSX
                        key="printKb"
+#ifdef XP_MACOSX
                        command="cmd_print"
 #else
                        command="cmd_printPreview"
@@ -2051,6 +2050,23 @@
              collapsed="true"
              customizable="true">
       <toolbartabstop skipintoolbarset="true"/>
+
+      <toolbarbutton id="managed-bookmarks"
+                     class="bookmark-item"
+                     data-l10n-id="managed-bookmarks"
+                     context="placesContextManaged"
+                     container="true"
+                     removable="false"
+                     hidden="true"
+                     type="menu">
+        <menupopup id="managed-bookmarks-popup"
+                   oncommand="PlacesToolbarHelper.openManagedBookmark(event);"
+                   onclick="checkForMiddleClick(this, event);"
+                   ondragover="event.dataTransfer.effectAllowed='none';"
+                   ondragstart="PlacesToolbarHelper.onDragStartManaged(event);"
+                   onpopupshowing="PlacesToolbarHelper.populateManagedBookmarks(this);"/>
+      </toolbarbutton>
+
       <toolbaritem id="personal-bookmarks"
                    title="&bookmarksToolbarItem.label;"
                    cui-areatype="toolbar"
@@ -2102,11 +2118,11 @@
       <toolbarbutton id="print-button" class="toolbarbutton-1 chromeclass-toolbar-additional"
 #ifdef XP_MACOSX
                      command="cmd_print"
-                     tooltip="dynamic-shortcut-tooltip"
 #else
                      command="cmd_printPreview"
-                     tooltiptext="&printButton.tooltip;"
+                     print-button-title="&printButton.tooltip;"
 #endif
+                     tooltip="dynamic-shortcut-tooltip"
                      label="&printButton.label;"/>
 
 
