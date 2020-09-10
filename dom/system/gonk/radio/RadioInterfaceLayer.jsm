@@ -2342,6 +2342,16 @@ RadioInterface.prototype = {
     }
   },
 
+  getIccServiceState(options) {
+    if (options.service === RIL.GECKO_CARDSERVICE_FDN) {
+      let ICCUtilsHelper = this.simIOcontext.ICCUtilsHelper;
+      options.result = ICCUtilsHelper.isICCServiceAvailable("FDN");
+    } else {
+      options.errorMsg = RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
+    }
+    this.handleRilResponse(options);
+  },
+
   /**
    * Set the setting value of "time.clock.automatic-update.available".
    */
@@ -4381,6 +4391,9 @@ RadioInterface.prototype = {
         }
         break;
       case "updateSMSDeliveryStatus":
+        result = response;
+        break;
+      case "getIccServiceState":
         result = response;
         break;
       default:
@@ -6722,7 +6735,12 @@ RadioInterface.prototype = {
         // This is not a ril request.
         this.getMaxContactCount(message);
         break;
+      case "getIccServiceState":
+        // This is not a ril request.
+        this.getIccServiceState(message);
+        break;
       default:
+        break;
     }
   },
   /* eslint-enable complexity */
