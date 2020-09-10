@@ -858,8 +858,13 @@ GeckoDriver.prototype.newSession = async function(cmd) {
   }
 
   if (this.curBrowser.tab) {
-    this.contentBrowsingContext = this.curBrowser.contentBrowser.browsingContext;
-    this.curBrowser.contentBrowser.focus();
+    // B2G default focuses on system app when session is initialized.
+    if (this.appName == "b2g") {
+      this.switchToSystemWindow();
+    } else {
+      this.contentBrowsingContext = this.curBrowser.contentBrowser.browsingContext;
+      this.curBrowser.contentBrowser.focus();
+    }
   }
 
   // Setup observer for modal dialogs
