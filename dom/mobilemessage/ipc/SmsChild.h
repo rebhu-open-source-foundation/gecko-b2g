@@ -9,10 +9,9 @@
 
 #include "mozilla/dom/mobilemessage/PSmsChild.h"
 #include "mozilla/dom/mobilemessage/PSmsRequestChild.h"
-//#include "mozilla/dom/mobilemessage/PMobileMessageCursorChild.h"
-//#include "nsIDOMDOMCursor.h"
+#include "mozilla/dom/mobilemessage/PMobileMessageCursorChild.h"
 #include "nsIMobileMessageCallback.h"
-//#include "nsIMobileMessageCursorCallback.h"
+#include "nsIMobileMessageCursorCallback.h"
 
 namespace mozilla {
 namespace dom {
@@ -55,13 +54,11 @@ class SmsChild : public PSmsChild {
 
   bool DeallocPSmsRequestChild(PSmsRequestChild* aActor);
 
-  /*
   PMobileMessageCursorChild* AllocPMobileMessageCursorChild(
       const IPCMobileMessageCursor& aCursor);
 
   bool DeallocPMobileMessageCursorChild(
       PMobileMessageCursorChild* aActor);
-*/
 };
 
 class SmsRequestChild : public PSmsRequestChild {
@@ -81,10 +78,10 @@ class SmsRequestChild : public PSmsRequestChild {
   mozilla::ipc::IPCResult Recv__delete__(const MessageReply& aReply);
 };
 
-/*
 class MobileMessageCursorChild : public PMobileMessageCursorChild,
                                  public nsICursorContinueCallback {
   friend class SmsChild;
+  friend class PMobileMessageCursorChild;
 
   nsCOMPtr<nsIMobileMessageCursorCallback> mCursorCallback;
 
@@ -95,22 +92,20 @@ class MobileMessageCursorChild : public PMobileMessageCursorChild,
   explicit MobileMessageCursorChild(nsIMobileMessageCursorCallback* aCallback);
 
  protected:
-  virtual ~MobileMessageCursorChild() {
-    MOZ_COUNT_DTOR(MobileMessageCursorChild);
-  }
+  ~MobileMessageCursorChild() {}
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  virtual bool RecvNotifyResult(const MobileMessageCursorData& aData) override;
+  bool RecvNotifyResult(const MobileMessageCursorData& aData);
 
-  virtual bool Recv__delete__(const int32_t& aError) override;
+  mozilla::ipc::IPCResult Recv__delete__(const int32_t& aError);
 
  private:
   void DoNotifyResult(const nsTArray<MobileMessageData>& aData);
 
   void DoNotifyResult(const nsTArray<ThreadData>& aData);
 };
-*/
+
 }  // namespace mobilemessage
 }  // namespace dom
 }  // namespace mozilla

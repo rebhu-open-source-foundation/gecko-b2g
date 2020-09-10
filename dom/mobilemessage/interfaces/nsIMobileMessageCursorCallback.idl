@@ -12,3 +12,9 @@ interface nsIMobileMessageCursorCallback : nsISupports
                           in uint32_t size);
   void notifyCursorDone();
 };
+
+[scriptable, function, uuid(3a75d80a-9258-4ab8-95fd-ec0b5f634df1)]
+interface nsICursorContinueCallback : nsISupports
+{
+  void handleContinue();
+};

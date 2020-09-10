@@ -15,9 +15,10 @@
 #include "SmsMessageInternal.h"
 #include "MmsMessageInternal.h"
 #include "nsIMobileMessageDatabaseService.h"
-//#include "MobileMessageThreadInternal.h"
+#include "MobileMessageThreadInternal.h"
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/File.h"
+#include "mozilla/dom/IPCBlobUtils.h"
 #include "mozilla/dom/ToJSValue.h"
 #include "mozilla/dom/mobilemessage/Constants.h"  // For MessageType
 #include "mozilla/UniquePtr.h"
@@ -437,8 +438,8 @@ bool SmsParent::DeallocPSmsRequestParent(PSmsRequestParent* aActor) {
   static_cast<SmsRequestParent*>(aActor)->Release();
   return true;
 }
-/*
-bool SmsParent::RecvPMobileMessageCursorConstructor(
+
+mozilla::ipc::IPCResult SmsParent::RecvPMobileMessageCursorConstructor(
     PMobileMessageCursorParent* aActor,
     const IPCMobileMessageCursor& aRequest) {
   MobileMessageCursorParent* actor =
@@ -446,14 +447,18 @@ bool SmsParent::RecvPMobileMessageCursorConstructor(
 
   switch (aRequest.type()) {
     case IPCMobileMessageCursor::TCreateMessageCursorRequest:
-      return actor->DoRequest(aRequest.get_CreateMessageCursorRequest());
+      return actor->DoRequest(aRequest.get_CreateMessageCursorRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     case IPCMobileMessageCursor::TCreateThreadCursorRequest:
-      return actor->DoRequest(aRequest.get_CreateThreadCursorRequest());
+      return actor->DoRequest(aRequest.get_CreateThreadCursorRequest())
+                 ? IPC_OK()
+                 : IPC_FAIL_NO_REASON(this);
     default:
       MOZ_CRASH("Unknown type!");
   }
 
-  return false;
+  return IPC_OK();
 }
 
 PMobileMessageCursorParent* SmsParent::AllocPMobileMessageCursorParent(
@@ -472,7 +477,7 @@ bool SmsParent::DeallocPMobileMessageCursorParent(
   static_cast<MobileMessageCursorParent*>(aActor)->Release();
   return true;
 }
-*/
+
 /*******************************************************************************
  * SmsRequestParent
  ******************************************************************************/
@@ -763,7 +768,7 @@ SmsRequestParent::NotifySetSmscAddressFailed(int32_t aError) {
 /*******************************************************************************
  * MobileMessageCursorParent
  ******************************************************************************/
-/*
+
 NS_IMPL_ISUPPORTS(MobileMessageCursorParent, nsIMobileMessageCursorCallback)
 
 void MobileMessageCursorParent::ActorDestroy(ActorDestroyReason aWhy) {
@@ -916,7 +921,7 @@ NS_IMETHODIMP
 MobileMessageCursorParent::NotifyCursorDone() {
   return NotifyCursorError(nsIMobileMessageCallback::SUCCESS_NO_ERROR);
 }
-*/
+
 }  // namespace mobilemessage
 }  // namespace dom
 }  // namespace mozilla

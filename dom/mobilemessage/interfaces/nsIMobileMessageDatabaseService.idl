@@ -11,7 +11,7 @@
 #define MOBILE_MESSAGE_DATABASE_SERVICE_CONTRACTID "@mozilla.org/mobilemessage/mobilemessagedatabaseservice;1"
 %}
 
-//interface nsICursorContinueCallback;
+interface nsICursorContinueCallback;
 interface nsIMobileMessageCallback;
 interface nsIMobileMessageCursorCallback;
 
@@ -26,27 +26,26 @@ interface nsIMobileMessageDatabaseService : nsISupports
                      in uint32_t count,
                      in nsIMobileMessageCallback request);
 
-  // nsICursorContinueCallback createMessageCursor(in boolean hasStartDate,
-  //                                               in unsigned long long startDate,
-  //                                               in boolean hasEndDate,
-  //                                               in unsigned long long endDate,
-  //                                               [array, size_is(numbersCount)] in wstring numbers,
-  //                                               in uint32_t numbersCount,
-  //                                               //TODO Fix delivery workaround
-  //                                               [array, size_is(numbersCount)] in AString delivery,
-  //                                               in boolean hasRead,
-  //                                               in boolean read,
-  //                                               in boolean hasThreadId,
-  //                                               in unsigned long long threadId,
-  //                                               in boolean reverse,
-  //                                               in nsIMobileMessageCursorCallback callback);
+  nsICursorContinueCallback createMessageCursor(in boolean hasStartDate,
+                                                in unsigned long long startDate,
+                                                in boolean hasEndDate,
+                                                in unsigned long long endDate,
+                                                [array, size_is(numbersCount)] in wstring numbers,
+                                                in uint32_t numbersCount,
+                                                in AString delivery,
+                                                in boolean hasRead,
+                                                in boolean read,
+                                                in boolean hasThreadId,
+                                                in unsigned long long threadId,
+                                                in boolean reverse,
+                                                in nsIMobileMessageCursorCallback callback);
 
   void markMessageRead(in long messageId,
                        in boolean value,
                        in boolean sendReadReport,
                        in nsIMobileMessageCallback request);
 
-  // nsICursorContinueCallback createThreadCursor(in nsIMobileMessageCursorCallback callback);
+  nsICursorContinueCallback createThreadCursor(in nsIMobileMessageCursorCallback callback);
 };
 
 %{C++

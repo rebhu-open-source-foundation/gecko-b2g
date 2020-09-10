@@ -10,11 +10,10 @@
 #include "mozilla/Observer.h"
 #include "mozilla/dom/mobilemessage/PSmsParent.h"
 #include "mozilla/dom/mobilemessage/PSmsRequestParent.h"
-//#include "mozilla/dom/mobilemessage/PMobileMessageCursorParent.h"
-//#include "nsIDOMDOMCursor.h"
+#include "mozilla/dom/mobilemessage/PMobileMessageCursorParent.h"
 #include "nsIMobileMessageCallback.h"
-//#include "nsIMobileMessageCursorCallback.h"
-//#include "nsIObserver.h"
+#include "nsIMobileMessageCursorCallback.h"
+#include "nsIObserver.h"
 
 namespace mozilla {
 namespace dom {
@@ -47,17 +46,17 @@ class SmsParent : public PSmsParent, public nsIObserver {
   PSmsRequestParent* AllocPSmsRequestParent(const IPCSmsRequest& aRequest);
 
   virtual bool DeallocPSmsRequestParent(PSmsRequestParent* aActor);
-  /*
-  virtual bool RecvPMobileMessageCursorConstructor(
+
+  virtual mozilla::ipc::IPCResult RecvPMobileMessageCursorConstructor(
       PMobileMessageCursorParent* aActor,
-      const IPCMobileMessageCursor& aCursor) override;
+      const IPCMobileMessageCursor& aRequest) override;
 
   virtual PMobileMessageCursorParent* AllocPMobileMessageCursorParent(
-      const IPCMobileMessageCursor& aCursor) override;
+      const IPCMobileMessageCursor& aCursor);
 
   virtual bool DeallocPMobileMessageCursorParent(
-      PMobileMessageCursorParent* aActor) override;
-*/
+      PMobileMessageCursorParent* aActor);
+
  private:
   nsTArray<nsString> mSilentNumbers;
 };
@@ -98,11 +97,10 @@ class SmsRequestParent : public PSmsRequestParent,
   nsresult SendReply(const MessageReply& aReply);
 };
 
-/*
 class MobileMessageCursorParent : public PMobileMessageCursorParent,
                                   public nsIMobileMessageCursorCallback {
   friend class SmsParent;
-
+  friend class PMobileMessageCursorParent;
   nsCOMPtr<nsICursorContinueCallback> mContinueCallback;
 
  public:
@@ -110,21 +108,19 @@ class MobileMessageCursorParent : public PMobileMessageCursorParent,
   NS_DECL_NSIMOBILEMESSAGECURSORCALLBACK
 
  protected:
-  MobileMessageCursorParent() { MOZ_COUNT_CTOR(MobileMessageCursorParent); }
+  MobileMessageCursorParent() {}
 
-  virtual ~MobileMessageCursorParent() {
-    MOZ_COUNT_DTOR(MobileMessageCursorParent);
-  }
+  virtual ~MobileMessageCursorParent() {}
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  virtual bool RecvContinue() override;
+  bool RecvContinue();
 
   bool DoRequest(const CreateMessageCursorRequest& aRequest);
 
   bool DoRequest(const CreateThreadCursorRequest& aRequest);
 };
-*/
+
 }  // namespace mobilemessage
 }  // namespace dom
 }  // namespace mozilla

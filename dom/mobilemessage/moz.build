@@ -48,6 +48,7 @@ XPCOM_MANIFESTS += [
 EXPORTS.mozilla.dom += [
     'MmsMessage.h',
     'MobileMessageError.h',
+    'MobileMessageIterable.h',
     'MobileMessageManager.h',
     'MobileMessageThread.h',
     'SmsMessage.h',
@@ -63,8 +64,9 @@ UNIFIED_SOURCES += [
     'MmsMessage.cpp',
     'MmsMessageInternal.cpp',
     'MobileMessageCallback.cpp',
-#    'MobileMessageCursorCallback.cpp',
+    'MobileMessageCursorCallback.cpp',
     'MobileMessageError.cpp',
+    'MobileMessageIterable.cpp',
     'MobileMessageManager.cpp',
     'MobileMessageService.cpp',
     'MobileMessageThread.cpp',
@@ -74,7 +76,7 @@ UNIFIED_SOURCES += [
 ]
 
 IPDL_SOURCES += [
-#    'ipc/PMobileMessageCursor.ipdl',
+    'ipc/PMobileMessageCursor.ipdl',
     'ipc/PSms.ipdl',
     'ipc/PSmsRequest.ipdl',
     'ipc/SmsTypes.ipdlh',

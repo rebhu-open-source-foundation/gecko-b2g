@@ -176,9 +176,9 @@ interface MobileMessageManager : EventTarget
   DOMRequest delete(sequence<(long or SmsMessage or MmsMessage)> params);
 
   // Iterates through {Mms,Sms}Message.
-  //[Throws]
-  //DOMCursor getMessages(optional MobileMessageFilter filter={},
-  //                      optional boolean reverse = false);
+  [Throws]
+  MobileMessageIterable getMessages(optional MobileMessageFilter filter={},
+                        optional boolean reverse = false);
 
   [Throws]
   DOMRequest markMessageRead(long id,
@@ -186,8 +186,8 @@ interface MobileMessageManager : EventTarget
                              optional boolean sendReadReport = false);
 
   // Iterates through MobileMessageThread.
-  //[Throws]
-  //DOMCursor getThreads();
+  [Throws]
+  MobileMessageIterable getThreads();
 
   [Throws]
   DOMRequest retrieveMMS(long id);

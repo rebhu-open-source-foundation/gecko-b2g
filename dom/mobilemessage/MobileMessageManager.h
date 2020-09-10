@@ -18,11 +18,11 @@ namespace dom {
 
 class Promise;
 class DOMRequest;
-// class DOMCursor;
 class MmsMessage;
 struct MmsParameters;
 struct MmsSendParameters;
 struct MobileMessageFilter;
+class MobileMessageIterable;
 class OwningLongOrSmsMessageOrMmsMessage;
 class SmsMessage;
 struct SmsSendParameters;
@@ -74,15 +74,14 @@ class MobileMessageManager final : public DOMEventTargetHelper,
       const Sequence<OwningLongOrSmsMessageOrMmsMessage>& aParams,
       ErrorResult& aRv);
 
-  //  already_AddRefed<DOMCursor> GetMessages(const MobileMessageFilter&
-  //  aFilter,
-  //                                          bool aReverse, ErrorResult& aRv);
+  already_AddRefed<MobileMessageIterable> GetMessages(
+      const MobileMessageFilter& aFilter, bool aReverse, ErrorResult& aRv);
 
   already_AddRefed<DOMRequest> MarkMessageRead(int32_t aId, bool aRead,
                                                bool aSendReadReport,
                                                ErrorResult& aRv);
 
-  //  already_AddRefed<DOMCursor> GetThreads(ErrorResult& aRv);
+  already_AddRefed<MobileMessageIterable> GetThreads(ErrorResult& aRv);
 
   already_AddRefed<DOMRequest> RetrieveMMS(int32_t aId, ErrorResult& aRv);
 

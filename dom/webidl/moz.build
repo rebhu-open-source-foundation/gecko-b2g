@@ -1288,6 +1288,7 @@ if CONFIG['MOZ_B2G_RIL']:
         'MobileConnectionDeviceIds.webidl',
         'MobileConnectionInfo.webidl',
         'MobileMessageError.webidl',
+        'MobileMessageIterable.webidl',
         'MobileMessageManager.webidl',
         'MobileMessageThread.webidl',
         'MobileNetworkInfo.webidl',

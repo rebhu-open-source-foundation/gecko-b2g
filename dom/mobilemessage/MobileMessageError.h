@@ -8,6 +8,7 @@
 #define mozilla_dom_MobileMessageError_h
 
 #include "mozilla/Attributes.h"
+#include "mozilla/dom/UnionTypes.h"
 #include "nsCOMPtr.h"
 #include "nsString.h"
 #include "nsWrapperCache.h"
@@ -38,7 +39,7 @@ class MobileMessageError final : public nsISupports, public nsWrapperCache {
   void GetData(OwningSmsMessageOrMmsMessage& aRetVal) const;
 
  private:
-  ~MobileMessageError() {}
+  ~MobileMessageError();
 
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
   nsString mMessage;

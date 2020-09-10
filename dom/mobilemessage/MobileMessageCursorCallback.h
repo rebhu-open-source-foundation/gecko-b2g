@@ -8,49 +8,15 @@
 #define mozilla_dom_mobilemessage_MobileMessageCursorCallback_h
 
 #include "mozilla/Attributes.h"
-#include "mozilla/dom/DOMCursor.h"
 #include "nsIMobileMessageCursorCallback.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsCOMPtr.h"
 
-class nsICursorContinueCallback;
-
 namespace mozilla {
 namespace dom {
 
+class MobileMessageIterable;
 class MobileMessageManager;
-
-namespace mobilemessage {
-class MobileMessageCursorCallback;
-}  // namespace mobilemessage
-
-class MobileMessageCursor final : public DOMCursor {
-  friend class mobilemessage::MobileMessageCursorCallback;
-
- public:
-  NS_DECL_ISUPPORTS_INHERITED
-
-  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(MobileMessageCursor, DOMCursor)
-
-  MobileMessageCursor(nsPIDOMWindowInner* aWindow,
-                      nsICursorContinueCallback* aCallback);
-
-  // Override XPIDL continue function to suppress -Werror,-Woverloaded-virtual.
-  NS_IMETHOD
-  Continue(void) override;
-
-  virtual void Continue(ErrorResult& aRv) override;
-
- private:
-  // final suppresses -Werror,-Wdelete-non-virtual-dtor
-  ~MobileMessageCursor() {}
-
- private:
-  // List of read-ahead results in reversed order.
-  nsTArray<nsCOMPtr<nsISupports>> mPendingResults;
-
-  nsresult FireSuccessWithNextPendingResult();
-};
 
 namespace mobilemessage {
 
@@ -64,15 +30,13 @@ class MobileMessageCursorCallback final
 
   NS_DECL_CYCLE_COLLECTION_CLASS(MobileMessageCursorCallback)
 
-  MobileMessageCursorCallback() { MOZ_COUNT_CTOR(MobileMessageCursorCallback); }
+  MobileMessageCursorCallback() {}
 
  private:
   // final suppresses -Werror,-Wdelete-non-virtual-dtor
-  ~MobileMessageCursorCallback() {
-    MOZ_COUNT_DTOR(MobileMessageCursorCallback);
-  }
+  ~MobileMessageCursorCallback() {}
 
-  RefPtr<MobileMessageCursor> mDOMCursor;
+  RefPtr<MobileMessageIterable> mMessageIterable;
 };
 
 }  // namespace mobilemessage

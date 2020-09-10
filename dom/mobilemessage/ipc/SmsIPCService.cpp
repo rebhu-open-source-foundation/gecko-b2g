@@ -54,7 +54,7 @@ nsresult SendRequest(const IPCSmsRequest& aRequest,
 
   return NS_OK;
 }
-/*
+
 nsresult SendCursorRequest(const IPCMobileMessageCursor& aRequest,
                            nsIMobileMessageCursorCallback* aRequestReply,
                            nsICursorContinueCallback** aResult) {
@@ -74,7 +74,7 @@ nsresult SendCursorRequest(const IPCMobileMessageCursor& aRequest,
   actor.forget(aResult);
   return NS_OK;
 }
-*/
+
 uint32_t getDefaultServiceId(const char* aPrefKey) {
   static const char* kPrefRilNumRadioInterfaces = "ril.numRadioInterfaces";
   int32_t id = mozilla::Preferences::GetInt(aPrefKey, 0);
@@ -211,7 +211,7 @@ SmsIPCService::DeleteMessage(int32_t* aMessageIds, uint32_t aSize,
   data.messageIds().AppendElements(aMessageIds, aSize);
   return SendRequest(data, aRequest);
 }
-/*
+
 NS_IMETHODIMP
 SmsIPCService::CreateMessageCursor(
     bool aHasStartDate, uint64_t aStartDate, bool aHasEndDate,
@@ -245,7 +245,7 @@ SmsIPCService::CreateMessageCursor(
   return SendCursorRequest(CreateMessageCursorRequest(data, aReverse),
                            aCursorCallback, aResult);
 }
-*/
+
 NS_IMETHODIMP
 SmsIPCService::MarkMessageRead(int32_t aMessageId, bool aValue,
                                bool aSendReadReport,
@@ -253,7 +253,7 @@ SmsIPCService::MarkMessageRead(int32_t aMessageId, bool aValue,
   return SendRequest(
       MarkMessageReadRequest(aMessageId, aValue, aSendReadReport), aRequest);
 }
-/*
+
 NS_IMETHODIMP
 SmsIPCService::CreateThreadCursor(
     nsIMobileMessageCursorCallback* aCursorCallback,
@@ -261,7 +261,7 @@ SmsIPCService::CreateThreadCursor(
   return SendCursorRequest(CreateThreadCursorRequest(), aCursorCallback,
                            aResult);
 }
-*/
+
 bool GetSendMmsMessageRequestFromParams(uint32_t aServiceId,
                                         const JS::Value& aParam,
                                         SendMmsMessageRequest& request) {

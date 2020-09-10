@@ -7,12 +7,11 @@
 #include "MobileMessageManager.h"
 
 #include "DeletedMessageInfo.h"
-//#include "DOMCursor.h"
-//#include "DOMRequest.h"
+#include "DOMRequest.h"
 #include "MmsMessage.h"
 #include "MmsMessageInternal.h"
 #include "MobileMessageCallback.h"
-//#include "MobileMessageCursorCallback.h"
+#include "MobileMessageCursorCallback.h"
 #include "SmsMessage.h"
 #include "SmsMessageInternal.h"
 #include "mozilla/dom/mobilemessage/Constants.h"  // For kSms*ObserverTopic
@@ -369,8 +368,8 @@ already_AddRefed<DOMRequest> MobileMessageManager::Delete(
 
   return Delete(idArray.Elements(), size, aRv);
 }
-/*
-already_AddRefed<DOMCursor> MobileMessageManager::GetMessages(
+
+already_AddRefed<MobileMessageIterable> MobileMessageManager::GetMessages(
     const MobileMessageFilter& aFilter, bool aReverse, ErrorResult& aRv) {
   nsCOMPtr<nsIMobileMessageDatabaseService> dbService =
       do_GetService(MOBILE_MESSAGE_DATABASE_SERVICE_CONTRACTID);
@@ -442,13 +441,13 @@ already_AddRefed<DOMCursor> MobileMessageManager::GetMessages(
     return nullptr;
   }
 
-  cursorCallback->mDOMCursor =
-      new MobileMessageCursor(window, continueCallback);
+  RefPtr<MobileMessageIterable> messageIterable =
+      new MobileMessageIterable(window, continueCallback);
+  cursorCallback->mMessageIterable = messageIterable;
 
-  RefPtr<DOMCursor> cursor(cursorCallback->mDOMCursor);
-  return cursor.forget();
+  return messageIterable.forget();
 }
-*/
+
 already_AddRefed<DOMRequest> MobileMessageManager::MarkMessageRead(
     int32_t aId, bool aValue, bool aSendReadReport, ErrorResult& aRv) {
   nsCOMPtr<nsIMobileMessageDatabaseService> dbService =
@@ -476,8 +475,9 @@ already_AddRefed<DOMRequest> MobileMessageManager::MarkMessageRead(
 
   return request.forget();
 }
-/*
-already_AddRefed<DOMCursor> MobileMessageManager::GetThreads(ErrorResult& aRv) {
+
+already_AddRefed<MobileMessageIterable> MobileMessageManager::GetThreads(
+    ErrorResult& aRv) {
   nsCOMPtr<nsIMobileMessageDatabaseService> dbService =
       do_GetService(MOBILE_MESSAGE_DATABASE_SERVICE_CONTRACTID);
   if (!dbService) {
@@ -502,13 +502,13 @@ already_AddRefed<DOMCursor> MobileMessageManager::GetThreads(ErrorResult& aRv) {
     return nullptr;
   }
 
-  cursorCallback->mDOMCursor =
-      new MobileMessageCursor(window, continueCallback);
+  RefPtr<MobileMessageIterable> messageIterable =
+      new MobileMessageIterable(window, continueCallback);
+  cursorCallback->mMessageIterable = messageIterable;
 
-  RefPtr<DOMCursor> cursor(cursorCallback->mDOMCursor);
-  return cursor.forget();
+  return messageIterable.forget();
 }
-*/
+
 already_AddRefed<DOMRequest> MobileMessageManager::RetrieveMMS(
     int32_t aId, ErrorResult& aRv) {
   nsCOMPtr<nsIMmsService> mmsService = do_GetService(MMS_SERVICE_CONTRACTID);

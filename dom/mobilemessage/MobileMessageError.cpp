@@ -52,5 +52,7 @@ nsPIDOMWindowInner* MobileMessageError::GetParentObject() const {
   return mWindow;
 }
 
+MobileMessageError::~MobileMessageError() {};
+
 }  // namespace dom
 }  // namespace mozilla

@@ -45,8 +45,7 @@ MobileMessageService::CreateMmsMessage(
       aTimestamp, aSentTimestamp, aRead, aSubject, aSmil, aAttachments,
       aExpiryDate, aReadReportRequested, aIsGroup, aCx, aMessage);
 }
-// FIXME
-/*
+
 NS_IMETHODIMP
 MobileMessageService::CreateThread(
     uint64_t aId, JS::Handle<JS::Value> aParticipants, uint64_t aTimestamp,
@@ -57,7 +56,7 @@ MobileMessageService::CreateThread(
       aId, aParticipants, aTimestamp, aLastMessageSubject, aBody, aUnreadCount,
       aLastMessageType, aIsGroup, aCx, aThread);
 }
-*/
+
 NS_IMETHODIMP
 MobileMessageService::CreateDeletedMessageInfo(
     int32_t* aMessageIds, uint32_t aMsgCount, uint64_t* aThreadIds,

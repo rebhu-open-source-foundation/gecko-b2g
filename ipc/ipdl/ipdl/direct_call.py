@@ -125,12 +125,12 @@ DIRECT_CALL_OVERRIDES = {
     ("PSmsRequest", "parent"): (
         "SmsRequestParent", "mozilla/dom/mobilemessage/SmsParent.h"
     ),
-#    ("PMobileMessageCursor", "child"): (
-#        "PMobileMessageCursorChild", "mozilla/dom/mobilemessage/MobileMessageCursorChild.h"
-#    ),
-#    ("PMobileMessageCursor", "parent"): (
-#        "PMobileMessageCursorParent", "mozilla/dom/mobilemessage/MobileMessageCursorParent.h"
-#    ),
+    ("PMobileMessageCursor", "child"): (
+        "MobileMessageCursorChild", "mozilla/dom/mobilemessage/SmsChild.h"
+    ),
+    ("PMobileMessageCursor", "parent"): (
+        "MobileMessageCursorParent", "mozilla/dom/mobilemessage/SmsParent.h"
+    ),
 #    ("PVideoCallProvider", "child"): (
 #        "PVideoCallProviderChild", "mozilla/dom/videocallprovider/VideoCallProviderChild.h"
 #    ),

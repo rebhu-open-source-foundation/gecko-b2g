@@ -13,7 +13,7 @@
 #include "mozilla/Services.h"
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/dom/mobilemessage/Constants.h"  // For MessageType
-//#include "MobileMessageThreadInternal.h"
+#include "MobileMessageThreadInternal.h"
 #include "MainThreadUtils.h"
 
 using namespace mozilla;
@@ -133,7 +133,7 @@ bool SmsChild::DeallocPSmsRequestChild(PSmsRequestChild* aActor) {
   delete aActor;
   return true;
 }
-/*
+
 PMobileMessageCursorChild* SmsChild::AllocPMobileMessageCursorChild(
     const IPCMobileMessageCursor& aCursor) {
   MOZ_CRASH("Caller is supposed to manually construct a cursor!");
@@ -146,7 +146,7 @@ bool SmsChild::DeallocPMobileMessageCursorChild(
   static_cast<MobileMessageCursorChild*>(aActor)->Release();
   return true;
 }
-*/
+
 /*******************************************************************************
  * SmsRequestChild
  ******************************************************************************/
@@ -250,13 +250,12 @@ mozilla::ipc::IPCResult SmsRequestChild::Recv__delete__(
 /*******************************************************************************
  * MobileMessageCursorChild
  ******************************************************************************/
-/*
+
 NS_IMPL_ISUPPORTS(MobileMessageCursorChild, nsICursorContinueCallback)
 
 MobileMessageCursorChild::MobileMessageCursorChild(
     nsIMobileMessageCursorCallback* aCallback)
     : mCursorCallback(aCallback) {
-  MOZ_COUNT_CTOR(MobileMessageCursorChild);
   MOZ_ASSERT(aCallback);
 }
 
@@ -282,7 +281,8 @@ bool MobileMessageCursorChild::RecvNotifyResult(
   return true;
 }
 
-bool MobileMessageCursorChild::Recv__delete__(const int32_t& aError) {
+mozilla::ipc::IPCResult MobileMessageCursorChild::Recv__delete__(
+    const int32_t& aError) {
   MOZ_ASSERT(mCursorCallback);
 
   if (aError != nsIMobileMessageCallback::SUCCESS_NO_ERROR) {
@@ -292,7 +292,7 @@ bool MobileMessageCursorChild::Recv__delete__(const int32_t& aError) {
   }
   mCursorCallback = nullptr;
 
-  return true;
+  return IPC_OK();
 }
 
 // nsICursorContinueCallback
@@ -345,7 +345,7 @@ void MobileMessageCursorChild::DoNotifyResult(
 
   mCursorCallback->NotifyCursorResult(autoArray.Elements(), length);
 }
-*/
+
 }  // namespace mobilemessage
 }  // namespace dom
 }  // namespace mozilla

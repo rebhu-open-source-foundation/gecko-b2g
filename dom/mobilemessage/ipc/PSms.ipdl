@@ -6,7 +6,7 @@
 
 include protocol PContent;
 include protocol PSmsRequest;
-//include protocol PMobileMessageCursor;
+include protocol PMobileMessageCursor;
 //include IPCBlob;
 include SmsTypes;
 
@@ -53,11 +53,11 @@ struct DeleteMessageRequest
   int32_t[] messageIds;
 };
 
-//struct CreateMessageCursorRequest
-//{
-//  SmsFilterData filter;
-//  bool reverse;
-//};
+struct CreateMessageCursorRequest
+{
+  SmsFilterData filter;
+  bool reverse;
+};
 
 struct MarkMessageReadRequest
 {
@@ -71,9 +71,9 @@ struct GetSegmentInfoForTextRequest
   nsString text;
 };
 
-//struct CreateThreadCursorRequest
-//{
-//};
+struct CreateThreadCursorRequest
+{
+};
 
 struct GetSmscAddressRequest
 {
@@ -100,16 +100,16 @@ union IPCSmsRequest
   SetSmscAddressRequest;
 };
 
-//union IPCMobileMessageCursor
-//{
-//  CreateMessageCursorRequest;
-//  CreateThreadCursorRequest;
-//};
+union IPCMobileMessageCursor
+{
+  CreateMessageCursorRequest;
+  CreateThreadCursorRequest;
+};
 
 sync protocol PSms {
     manager PContent;
     manages PSmsRequest;
-//    manages PMobileMessageCursor;
+    manages PMobileMessageCursor;
 
 child:
   async NotifyReceivedMessage(MobileMessageData aMessageData);
@@ -148,7 +148,7 @@ parent:
   /**
    * Sent when the child makes an asynchronous cursor to the parent.
    */
-//  async PMobileMessageCursor(IPCMobileMessageCursor request);
+  async PMobileMessageCursor(IPCMobileMessageCursor request);
 
   async AddSilentNumber(nsString aNumber);
   async RemoveSilentNumber(nsString aNumber);
