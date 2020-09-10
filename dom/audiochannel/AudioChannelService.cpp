@@ -38,8 +38,6 @@ mozilla::LazyLogModule gAudioChannelLog("AudioChannel");
 
 namespace {
 
-// If true, any new AudioChannelAgent will be suspended when created.
-bool sAudioChannelSuspendedByDefault = false;
 bool sXPCOMShuttingDown = false;
 
 class NotifyChannelActiveRunnable final : public Runnable {
@@ -333,11 +331,6 @@ AudioChannelService::AudioChannelService()
       obs->AddObserver(this, "ipc:content-shutdown", false);
     }
   }
-
-  // dom.audiochannel.mutedByDefault actually means "suspended by default".
-  // We keep this pref name just for compatibility with gecko48.
-  Preferences::AddBoolVarCache(&sAudioChannelSuspendedByDefault,
-                               "dom.audiochannel.mutedByDefault");
 }
 
 AudioChannelService::~AudioChannelService() = default;
@@ -621,8 +614,7 @@ AudioChannelService::Observe(nsISupports* aSubject, const char* aTopic,
     }
 
     uint64_t childID = 0;
-    nsresult rv =
-        props->GetPropertyAsUint64(u"childID"_ns, &childID);
+    nsresult rv = props->GetPropertyAsUint64(u"childID"_ns, &childID);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
@@ -1047,8 +1039,9 @@ void AudioChannelService::NotifyMediaResumedFromBlock(
 /* static */
 nsSuspendedTypes AudioChannelService::InitialSuspendType() {
   CreateServiceIfNeeded();
-  return sAudioChannelSuspendedByDefault ? nsISuspendedTypes::SUSPENDED_PAUSE
-                                         : nsISuspendedTypes::NONE_SUSPENDED;
+  return StaticPrefs::dom_audiochannel_mutedByDefault()
+             ? nsISuspendedTypes::SUSPENDED_PAUSE
+             : nsISuspendedTypes::NONE_SUSPENDED;
 }
 
 void AudioChannelService::AudioChannelWindow::AppendAgent(

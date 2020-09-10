@@ -129,13 +129,11 @@ nsresult GonkVideoDecoderManager::Shutdown() {
 RefPtr<MediaDataDecoder::InitPromise> GonkVideoDecoderManager::Init() {
   mNeedsCopyBuffer = false;
 
-  uint32_t maxWidth, maxHeight;
-  char propValue[PROPERTY_VALUE_MAX];
   // Get maximum size preference from b2g.js
-  Preferences::AddUintVarCache(&maxWidth, "gonk.video.max_video_decode_width",
-                               -1);
-  Preferences::AddUintVarCache(&maxHeight, "gonk.video.max_video_decode_height",
-                               -1);
+  int32_t maxWidth =
+      Preferences::GetInt("gonk.video.max_video_decode_width", -1);
+  int32_t maxHeight =
+      Preferences::GetInt("gonk.video.max_video_decode_height", -1);
   maxWidth = -1 == maxWidth ? GONK_MAX_VIDEO_WIDTH : maxWidth;
   maxHeight = -1 == maxHeight ? GONK_MAX_VIDEO_HEIGHT : maxHeight;
   if (uint32_t(mConfig.mImage.width * mConfig.mImage.height) >
@@ -764,8 +762,7 @@ void GonkVideoDecoderManager::RecycleCallback(TextureClient* aClient,
   GrallocTextureData* client =
       static_cast<GrallocTextureData*>(aClient->GetInternalData());
   aClient->ClearRecycleCallback();
-  FenceHandle handle =
-      client->GetAndResetReleaseFenceHandle();
+  FenceHandle handle = client->GetAndResetReleaseFenceHandle();
   videoManager->PostReleaseVideoBuffer(client->GetMediaBuffer(), handle);
 }
 

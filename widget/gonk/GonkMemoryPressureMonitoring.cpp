@@ -221,20 +221,17 @@ class MemoryPressureWatcher final : public nsIRunnable, public nsIObserver {
     // notify_trigger_active to try and see when we're no longer under memory
     // pressure.  mPollMS indicates how many milliseconds we wait between those
     // read()s.
-    Preferences::AddUintVarCache(&mPollMS,
-                                 "gonk.systemMemoryPressureRecoveryPollMS",
-                                 /* default */ 5000);
+    mPollMS = Preferences::GetUint("gonk.systemMemoryPressureRecoveryPollMS",
+                                   /* default */ 5000);
 
     // We have two values for the notify trigger, a soft one which is triggered
     // before we start killing background applications and an hard one which is
     // after we've killed background applications but before we start killing
     // foreground ones.
-    Preferences::AddUintVarCache(&mSoftLowMemTriggerKB,
-                                 "gonk.notifySoftLowMemUnderKB",
-                                 /* default */ 43008);
-    Preferences::AddUintVarCache(&mHardLowMemTriggerKB,
-                                 "gonk.notifyHardLowMemUnderKB",
-                                 /* default */ 14336);
+    mSoftLowMemTriggerKB = Preferences::GetUint("gonk.notifySoftLowMemUnderKB",
+                                                /* default */ 43008);
+    mHardLowMemTriggerKB = Preferences::GetUint("gonk.notifyHardLowMemUnderKB",
+                                                /* default */ 14336);
   }
 
   nsresult OpenFiles() {

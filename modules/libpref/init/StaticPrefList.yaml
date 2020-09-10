@@ -1510,6 +1510,14 @@
   value: true
   mirror: always
 
+# dom.audiochannel.mutedByDefault actually means "suspended by default".
+# We keep this pref name just for compatibility with gecko48.
+# If true, any new AudioChannelAgent will be suspended when created.
+- name: dom.audiochannel.mutedByDefault
+  type: bool
+  value: false
+  mirror: always
+
 # Is support for Navigator.getBattery enabled?
 - name: dom.battery.enabled
   type: bool
