@@ -68,6 +68,9 @@ struct GonkCameraSourceListener : public GonkCameraListener {
   virtual bool postDataTimestamp(nsecs_t timestamp, int32_t msgType,
                                  const sp<IMemory>& dataPtr);
 
+  virtual bool postRecordingFrameHandleTimestamp(nsecs_t timestamp,
+                                                 native_handle_t* handle);
+
  protected:
   virtual ~GonkCameraSourceListener();
 
@@ -109,6 +112,17 @@ bool GonkCameraSourceListener::postDataTimestamp(nsecs_t timestamp,
   sp<GonkCameraSource> source = mSource.promote();
   if (source.get() != NULL) {
     source->dataCallbackTimestamp(timestamp / 1000, msgType, dataPtr);
+    return true;
+  }
+  return false;
+}
+
+bool GonkCameraSourceListener::postRecordingFrameHandleTimestamp(
+    nsecs_t timestamp,
+    native_handle_t* handle) {
+  sp<GonkCameraSource> source = mSource.promote();
+  if (source.get() != nullptr) {
+    source->recordingFrameHandleCallbackTimestamp(timestamp/1000, handle);
     return true;
   }
   return false;
@@ -626,7 +640,9 @@ int GonkCameraSource::startCameraRecording() {
       return err;
     }
   } else {
-    CS_LOGE("only VIDEO_BUFFER_MODE_BUFFER_QUEUE mode is support!");
+    // Create memory heap to store buffers as VideoNativeMetadata.
+    createVideoBufferMemoryHeap(sizeof(VideoNativeHandleMetadata),
+                                kDefaultVideoBufferCount);
   }
 
   err = OK;
@@ -751,7 +767,7 @@ status_t GonkCameraSource::reset() {
 
 void GonkCameraSource::releaseRecordingFrame(const sp<IMemory>& frame) {
   CS_LOGV("releaseRecordingFrame");
-  mCameraHw->ReleaseRecordingFrame(frame);
+
   if (mVideoBufferMode == hardware::ICamera::VIDEO_BUFFER_MODE_BUFFER_QUEUE) {
     // Return the buffer to buffer queue in VIDEO_BUFFER_MODE_BUFFER_QUEUE mode.
     ssize_t offset;
@@ -780,7 +796,38 @@ void GonkCameraSource::releaseRecordingFrame(const sp<IMemory>& frame) {
     mMemoryBases.push_back(frame);
     mMemoryBaseAvailableCond.signal();
   } else {
-    CS_LOGE("only VIDEO_BUFFER_MODE_BUFFER_QUEUE mode is support!");
+    native_handle_t* handle = nullptr;
+
+    // Check if frame contains a VideoNativeHandleMetadata.
+    if (frame->size() == sizeof(VideoNativeHandleMetadata)) {
+      VideoNativeHandleMetadata *metadata =
+          (VideoNativeHandleMetadata*)(frame->pointer());
+      if (metadata->eType == kMetadataBufferTypeNativeHandleSource) {
+        handle = metadata->pHandle;
+      }
+    }
+
+    if (handle != nullptr) {
+      ssize_t offset;
+      size_t size;
+      sp<IMemoryHeap> heap = frame->getMemory(&offset, &size);
+      if (heap->getHeapID() != mMemoryHeapBase->getHeapID()) {
+        ALOGE("%s: Mismatched heap ID, ignoring release (got %x, expected %x)",
+              __FUNCTION__, heap->getHeapID(), mMemoryHeapBase->getHeapID());
+        return;
+      }
+      // Frame contains a VideoNativeHandleMetadata. Send the handle
+      // back to camera.
+      releaseRecordingFrameHandle(handle);
+      mMemoryBases.push_back(frame);
+      mMemoryBaseAvailableCond.signal();
+    } else if (mCameraHw != nullptr) {
+      // mCameraHw is created by GonkCameraSource. Return the frame directly
+      // back to camera.
+      int64_t token = IPCThreadState::self()->clearCallingIdentity();
+      mCameraHw->ReleaseRecordingFrame(frame);
+      IPCThreadState::self()->restoreCallingIdentity(token);
+    }
   }
 }
 
@@ -976,6 +1023,58 @@ void GonkCameraSource::dataCallbackTimestamp(int64_t timestampUs,
       mediaBuffer->release();
     }
   }
+}
+
+void GonkCameraSource::releaseRecordingFrameHandle(native_handle_t* handle) {
+  if (mCameraHw != nullptr) {
+    int64_t token = IPCThreadState::self()->clearCallingIdentity();
+    mCameraHw->ReleaseRecordingFrameHandle(handle);
+    IPCThreadState::self()->restoreCallingIdentity(token);
+  } else {
+    native_handle_close(handle);
+    native_handle_delete(handle);
+  }
+}
+
+void GonkCameraSource::recordingFrameHandleCallbackTimestamp(
+    int64_t timestampUs,
+    native_handle_t* handle) {
+  ALOGV("%s: timestamp %lld us", __FUNCTION__, (long long)timestampUs);
+  Mutex::Autolock autoLock(mLock);
+  if (handle == nullptr) return;
+
+  if (shouldSkipFrameLocked(timestampUs)) {
+    releaseRecordingFrameHandle(handle);
+    return;
+  }
+
+  while (mMemoryBases.empty()) {
+    if (mMemoryBaseAvailableCond.waitRelative(mLock,
+        kMemoryBaseAvailableTimeoutNs) == TIMED_OUT) {
+      ALOGW("Waiting on an available memory base timed out. "
+        "Dropping a recording frame.");
+      releaseRecordingFrameHandle(handle);
+      return;
+    }
+  }
+
+  ++mNumFramesReceived;
+
+  sp<IMemory> data = *mMemoryBases.begin();
+  mMemoryBases.erase(mMemoryBases.begin());
+
+  // Wrap native handle in sp<IMemory> so it can be pushed to mFramesReceived.
+  VideoNativeHandleMetadata *metadata =
+      (VideoNativeHandleMetadata*)(data->pointer());
+  metadata->eType = kMetadataBufferTypeNativeHandleSource;
+  metadata->pHandle = handle;
+
+  mFramesReceived.push_back(data);
+  int64_t timeUs = mStartTimeUs + (timestampUs - mFirstFrameTimeUs);
+  mFrameTimes.push_back(timeUs);
+  ALOGV("initial delay: %" PRId64 ", current time stamp: %" PRId64,
+        mStartTimeUs, timeUs);
+  mFrameAvailableCondition.signal();
 }
 
 GonkCameraSource::BufferQueueListener::BufferQueueListener(

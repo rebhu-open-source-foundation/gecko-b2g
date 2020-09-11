@@ -30,6 +30,8 @@ class GonkCameraListener : virtual public RefBase {
                         camera_frame_metadata_t* metadata) = 0;
   virtual bool postDataTimestamp(nsecs_t timestamp, int32_t msgType,
                                  const sp<IMemory>& dataPtr) = 0;
+  virtual bool postRecordingFrameHandleTimestamp(int64_t timestampUs,
+                                                 native_handle_t* handle) = 0;
 };
 
 };  // namespace android

@@ -177,14 +177,30 @@ void GonkCameraHardware::postDataTimestamp(nsecs_t aTimestamp, int32_t aMsgType,
 }
 
 void GonkCameraHardware::postRecordingFrameHandleTimestamp(
-    nsecs_t timestamp, native_handle_t* handle) {
-  // TODO: implement this callback function
+    nsecs_t aTimestamp, native_handle_t* aHandle) {
+  DOM_CAMERA_LOGI("%s", __func__);
+  if (mClosing) {
+    return;
+  }
+
+  if (mListener.get()) {
+    DOM_CAMERA_LOGI("Listener registered, posting recording frame handle!");
+    if (!mListener->postRecordingFrameHandleTimestamp(aTimestamp, aHandle)) {
+      DOM_CAMERA_LOGW("Listener unable to process. Drop a recording frame handle.");
+      mCamera->releaseRecordingFrameHandle(aHandle);
+    }
+  } else {
+    DOM_CAMERA_LOGW("No listener was set. Drop a recording frame handle.");
+    mCamera->releaseRecordingFrameHandle(aHandle);
+  }
 }
 
 void GonkCameraHardware::postRecordingFrameHandleTimestampBatch(
     const std::vector<nsecs_t>& timestamps,
     const std::vector<native_handle_t*>& handles) {
-  // TODO: implement this callback function
+  // TODO: implement this callback function.
+  // Currently we don't need this during camera integration.
+  DOM_CAMERA_LOGW("postRecordingFrameHandleTimestampBatch is being called!");
 }
 #endif
 
@@ -526,6 +542,12 @@ int GonkCameraHardware::SetListener(const sp<GonkCameraListener>& aListener) {
 void GonkCameraHardware::ReleaseRecordingFrame(const sp<IMemory>& aFrame) {
   if (!NS_WARN_IF(mClosing)) {
     mCamera->releaseRecordingFrame(aFrame);
+  }
+}
+
+void GonkCameraHardware::ReleaseRecordingFrameHandle(native_handle_t *aHandle) {
+  if (!NS_WARN_IF(mClosing)) {
+    mCamera->releaseRecordingFrameHandle(aHandle);
   }
 }
 #endif

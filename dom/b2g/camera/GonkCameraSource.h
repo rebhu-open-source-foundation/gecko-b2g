@@ -159,6 +159,7 @@ class GonkCameraSource : public MediaSource, public MediaBufferObserver {
   virtual int startCameraRecording();
   virtual void stopCameraRecording();
   virtual void releaseRecordingFrame(const sp<IMemory>& frame);
+  virtual void releaseRecordingFrameHandle(native_handle_t* handle);
 
   // Returns true if need to skip the current frame.
   // Called from dataCallbackTimestamp.
@@ -170,6 +171,9 @@ class GonkCameraSource : public MediaSource, public MediaBufferObserver {
 
   virtual void dataCallbackTimestamp(int64_t timestampUs, int32_t msgType,
                                      const sp<IMemory>& data);
+
+  virtual void recordingFrameHandleCallbackTimestamp(int64_t timestampUs,
+                                                     native_handle_t* handle);
 
  private:
   Mutex mLock;
