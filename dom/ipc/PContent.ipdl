@@ -1434,13 +1434,6 @@ parent:
 
     sync SpeakerManagerGetSpeakerStatus() returns (bool value);
 
-    sync KeywordToURI(nsCString keyword, bool isPrivateContext)
-        returns (nsString providerName, nsIInputStream postData, nsIURI uri);
-    sync GetFixupURIInfo(nsString uriString, uint32_t fixupflags, bool aAllowThirdPartyFixup)
-        returns (nsString providerName, nsIInputStream postData, nsIURI preferredURI);
-
-    sync NotifyKeywordSearchLoading(nsString providerName, nsString keyword);
-
     async CopyFavicon(nsIURI oldURI, nsIURI newURI, Principal aLoadingPrincipal, bool isPrivate);
 
     /**
