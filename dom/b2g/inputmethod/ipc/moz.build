@@ -4,30 +4,18 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-DIRS += [
-    'interfaces',
-    'ipc',
-]
-
 EXPORTS.mozilla.dom += [
-    'IMELog.h',
-    'InputMethod.h',
-    'InputMethodListener.h',
-    'InputMethodService.h',
+    'InputMethodServiceChild.h',
+    'InputMethodServiceParent.h',
 ]
 
 UNIFIED_SOURCES += [
-    'InputMethod.cpp',
-    'InputMethodListener.cpp',
-    'InputMethodService.cpp',
+    'InputMethodServiceChild.cpp',
+    'InputMethodServiceParent.cpp',
 ]
 
-EXTRA_JS_MODULES += [
-
-]
-
-XPCOM_MANIFESTS += [
-
+IPDL_SOURCES += [
+    'PInputMethodService.ipdl',
 ]
 
 include('/ipc/chromium/chromium-config.mozbuild')

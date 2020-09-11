@@ -13,7 +13,7 @@
 #include "mozilla/TextEventDispatcher.h"
 #include "mozilla/TextEventDispatcherListener.h"
 #include "mozilla/UniquePtr.h"
-#include "nsIGeckoEditableSupportProxy.h"
+#include "nsIInputMethodListener.h"
 class nsWindow;
 class nsIGlobalObject;
 
@@ -28,9 +28,11 @@ class Promise;
 
 namespace widget {
 
-class GeckoEditableSupport final : public TextEventDispatcherListener {
+class GeckoEditableSupport final : public TextEventDispatcherListener,
+                                   public nsIEditableSupportListener {
  public:
   NS_DECL_ISUPPORTS
+  NS_DECL_NSIEDITABLESUPPORTLISTENER
 
   static void SetOnBrowserChild(dom::BrowserChild* aBrowserChild,
                                 nsIGlobalObject* aGlobal);
@@ -72,11 +74,6 @@ class GeckoEditableSupport final : public TextEventDispatcherListener {
   const bool mIsRemote;
   RefPtr<TextEventDispatcher> mDispatcher;
   nsCOMPtr<nsIGlobalObject> mGlobal;
-  RefPtr<nsIEditableSupportSetCompositionCallback> mSetCompositionCallback;
-  RefPtr<nsIEditableSupportEndCompositionCallback> mEndCompositionCallback;
-  RefPtr<nsIEditableSupportSendKeyCallback> mSendKeyCallback;
-  RefPtr<nsIEditableSupportKeydownCallback> mKeydownCallback;
-  RefPtr<nsIEditableSupportKeyupCallback> mKeyupCallback;
 };
 
 }  // namespace widget

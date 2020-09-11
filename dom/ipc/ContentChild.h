@@ -785,6 +785,10 @@ class ContentChild final : public PContentChild,
   bool DeallocPIccChild(PIccChild* aActor);
 #endif  // MOZ_B2G_RIL
 
+  PInputMethodServiceChild* AllocPInputMethodServiceChild();
+
+  bool DeallocPInputMethodServiceChild(PInputMethodServiceChild* aActor);
+
  private:
   static void ForceKillTimerCallback(nsITimer* aTimer, void* aClosure);
   void StartForceKillTimer();

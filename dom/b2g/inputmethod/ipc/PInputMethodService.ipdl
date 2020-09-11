@@ -1,0 +1,135 @@
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=8 sts=2 et sw=2 tw=80: */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+include protocol PContent;
+
+namespace mozilla {
+namespace dom {
+
+struct SetCompositionRequest
+{
+  nsString text;
+};
+
+struct EndCompositionRequest
+{
+  nsString text;
+};
+
+struct KeydownRequest
+{
+  nsString key;
+};
+
+struct KeyupRequest
+{
+  nsString key;
+};
+
+struct SendKeyRequest
+{
+  nsString key;
+};
+
+struct HandleFocusRequest
+{
+  uint64_t id;
+};
+
+struct HandleBlurRequest
+{
+  uint64_t id;
+};
+
+union InputMethodServiceRequest
+{
+  SetCompositionRequest;
+  EndCompositionRequest;
+  KeydownRequest;
+  KeyupRequest;
+  SendKeyRequest;
+  HandleFocusRequest;
+  HandleBlurRequest;
+};
+
+struct SetCompositionResponse
+{
+  nsresult status;
+};
+
+struct EndCompositionResponse
+{
+  nsresult status;
+};
+
+struct KeydownResponse
+{
+  nsresult status;
+};
+
+struct KeyupResponse
+{
+  nsresult status;
+};
+
+struct SendKeyResponse
+{
+  nsresult status;
+};
+
+struct DoSetCompositionResponse
+{
+  nsString text;
+};
+
+struct DoEndCompositionResponse
+{
+  nsString text;
+};
+
+struct DoKeydownResponse
+{
+  nsString key;
+};
+
+struct DoKeyupResponse
+{
+  nsString key;
+};
+
+struct DoSendKeyResponse
+{
+  nsString key;
+};
+
+union InputMethodServiceResponse
+{
+  SetCompositionResponse;
+  EndCompositionResponse;
+  KeydownResponse;
+  KeyupResponse;
+  SendKeyResponse;
+  DoSetCompositionResponse;
+  DoEndCompositionResponse;
+  DoKeydownResponse;
+  DoKeyupResponse;
+  DoSendKeyResponse;
+};
+
+async protocol PInputMethodService
+{
+  manager PContent;
+
+child:
+  async Response(InputMethodServiceResponse aResponse);
+
+parent:
+  async __delete__();
+  async Request(InputMethodServiceRequest aRequest);
+};
+
+} // namespace dom
+} // namespace mozilla

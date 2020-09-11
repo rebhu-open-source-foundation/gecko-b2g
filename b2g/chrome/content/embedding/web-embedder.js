@@ -282,9 +282,16 @@ XPCOMUtils.defineLazyGetter(this, "Screenshot", function() {
         );
       }, "activity-choice");
 
-      Services.obs.addObserver(wrappedDetail => {
-        _webembed_log("receive inputmethod-contextchange");
-        let detail = wrappedDetail.wrappedJSObject;
+      Services.obs.addObserver((subject, topic, data) => {
+        _webembed_log(`receive inputmethod-contextchange: ${data}`);
+        if (data == null) {
+          return;
+        }
+        let isFocus = data === "focus";
+        let detail = {
+          isFocus,
+        };
+        _webembed_log(`detail: ${JSON.stringify(detail)}`);
         this.dispatchEvent(
           new CustomEvent("inputmethod-contextchange", { detail })
         );

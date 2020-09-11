@@ -1,0 +1,25 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+[scriptable, uuid(0c046c04-f5cf-11ea-86f6-b355bbbba80f)]
+interface nsIInputMethodListener : nsISupports
+{
+  void onSetComposition(in nsresult aStatus);
+  void onEndComposition(in nsresult aStatus);
+  void onKeydown(in nsresult aStatus);
+  void onKeyup(in nsresult aStatus);
+  void onSendKey(in nsresult aStatus);
+};
+
+[scriptable, uuid(44bf6cea-f5db-11ea-b598-ff5a3d009e25)]
+interface nsIEditableSupportListener : nsISupports
+{
+  void DoSetComposition(in AString aText);
+  void DoEndComposition(in AString aText);
+  void DoKeydown(in AString aKey);
+  void DoKeyup(in AString aKey);
+  void DoSendKey(in AString aKey);
+};

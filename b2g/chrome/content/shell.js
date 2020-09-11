@@ -16,7 +16,6 @@ ChromeUtils.import("resource://gre/modules/AlarmService.jsm");
 ChromeUtils.import("resource://gre/modules/DownloadService.jsm");
 ChromeUtils.import("resource://gre/modules/NotificationDB.jsm");
 ChromeUtils.import("resource://gre/modules/ErrorPage.jsm");
-ChromeUtils.import("resource://gre/modules/InputMethodService.jsm");
 
 XPCOMUtils.defineLazyGetter(this, "MarionetteHelper", () => {
   const { MarionetteHelper } = ChromeUtils.import(

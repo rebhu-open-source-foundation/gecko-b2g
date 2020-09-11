@@ -66,6 +66,7 @@ include protocol PScriptCache;
 include protocol PSessionStorageObserver;
 include protocol PSystemMessageService;
 include protocol PBenchmarkStorage;
+include protocol PInputMethodService;
 include DOMTypes;
 include WindowGlobalTypes;
 include IPCBlob;
@@ -634,6 +635,7 @@ nested(upto inside_cpow) sync protocol PContent
     manages PSessionStorageObserver;
     manages PSystemMessageService;
     manages PBenchmarkStorage;
+    manages PInputMethodService;
 
     // Depending on exactly how the new browser is being created, it might be
     // created from either the child or parent process!
@@ -1292,6 +1294,8 @@ parent:
     async PBenchmarkStorage();
 
     async PSystemMessageService();
+
+    async PInputMethodService();
 
     // Services remoting
 

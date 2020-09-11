@@ -110,6 +110,7 @@
 #include "mozilla/dom/GeolocationBinding.h"
 #include "mozilla/dom/GeolocationPositionError.h"
 #include "mozilla/dom/GetFilesHelper.h"
+#include "mozilla/dom/InputMethodServiceParent.h"
 #include "mozilla/dom/IPCBlobUtils.h"
 #include "mozilla/dom/JSActorService.h"
 #include "mozilla/dom/JSProcessActorBinding.h"
@@ -4329,6 +4330,24 @@ mozilla::ipc::IPCResult ContentParent::RecvAddMixedContentSecurityState(
   }
 
   aContext.get()->AddMixedContentSecurityState(aStateFlags);
+  return IPC_OK();
+}
+
+PInputMethodServiceParent* ContentParent::AllocPInputMethodServiceParent() {
+  RefPtr<InputMethodServiceParent> actor = new InputMethodServiceParent();
+  return actor.forget().take();
+}
+
+bool ContentParent::DeallocPInputMethodServiceParent(
+    PInputMethodServiceParent* aActor) {
+  RefPtr<InputMethodServiceParent> actor =
+      dont_AddRef(static_cast<InputMethodServiceParent*>(aActor));
+  return true;
+}
+
+mozilla::ipc::IPCResult ContentParent::RecvPInputMethodServiceConstructor(
+    PInputMethodServiceParent* aActor) {
+  // TODO: Some init function here.
   return IPC_OK();
 }
 

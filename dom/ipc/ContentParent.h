@@ -102,6 +102,7 @@ class GetFilesHelper;
 class MemoryReportRequestHost;
 class RemoteWorkerManager;
 class SystemMessageServiceParent;
+class InputMethodServiceParent;
 struct CancelContentJSOptions;
 
 #define NS_CONTENTPARENT_IID                         \
@@ -959,6 +960,13 @@ class ContentParent final
 #endif
 
   bool DeallocPNeckoParent(PNeckoParent* necko);
+
+  PInputMethodServiceParent* AllocPInputMethodServiceParent();
+
+  bool DeallocPInputMethodServiceParent(PInputMethodServiceParent* aActor);
+
+  virtual mozilla::ipc::IPCResult RecvPInputMethodServiceConstructor(
+      PInputMethodServiceParent* aActor) override;
 
   already_AddRefed<PExternalHelperAppParent> AllocPExternalHelperAppParent(
       nsIURI* aUri, const Maybe<mozilla::net::LoadInfoArgs>& aLoadInfoArgs,

@@ -52,6 +52,7 @@
 #include "mozilla/dom/ExternalHelperAppChild.h"
 #include "mozilla/dom/GetFilesHelper.h"
 #include "mozilla/dom/InProcessChild.h"
+#include "mozilla/dom/InputMethodServiceChild.h"
 #include "mozilla/dom/IPCBlobUtils.h"
 #include "mozilla/dom/JSActorService.h"
 #include "mozilla/dom/JSProcessActorBinding.h"
@@ -2011,6 +2012,17 @@ bool ContentChild::DeallocPImsRegistrationChild(PImsRegistrationChild* aActor) {
   return true;
 }
 #endif  // MOZ_B2G_RIL
+
+PInputMethodServiceChild* ContentChild::AllocPInputMethodServiceChild() {
+  MOZ_CRASH("No one should be allocating PInputMethodServiceChild actors");
+  return nullptr;
+}
+
+bool ContentChild::DeallocPInputMethodServiceChild(
+    PInputMethodServiceChild* aActor) {
+  delete aActor;
+  return true;
+}
 
 PTestShellChild* ContentChild::AllocPTestShellChild() {
   return new TestShellChild();
