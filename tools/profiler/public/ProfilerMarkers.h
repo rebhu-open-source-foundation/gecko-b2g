@@ -43,6 +43,7 @@
 #  define PROFILER_MARKER_UNTYPED(markerName, options)
 #  define PROFILER_MARKER(markerName, options, MarkerType, ...)
 #  define PROFILER_MARKER_TEXT(markerName, options, text)
+#  define AUTO_PROFILER_MARKER_TEXT(markerName, options, text)
 
 #else  // ndef MOZ_GECKO_PROFILER
 
@@ -96,10 +97,43 @@ using Text = ::mozilla::baseprofiler::markers::Text;
 
 #  define PROFILER_MARKER_TEXT(markerName, options, text)        \
     do {                                                         \
-      AUTO_PROFILER_STATS(add_marker_v2_with_Text);              \
+      AUTO_PROFILER_STATS(PROFILER_MARKER_TEXT);                 \
       ::profiler_add_marker<::geckoprofiler::markers::Text>(     \
           markerName, ::geckoprofiler::category::options, text); \
     } while (false)
+
+// RAII object that adds a PROFILER_MARKER_TEXT when destroyed; the marker's
+// timing will be the interval from construction (unless an instant or start
+// time is already specified in the provided options) until destruction.
+class MOZ_RAII AutoProfilerTextMarker {
+ public:
+  AutoProfilerTextMarker(const char* aMarkerName,
+                         mozilla::MarkerOptions&& aOptions,
+                         const nsACString& aText)
+      : mMarkerName(aMarkerName), mOptions(std::move(aOptions)), mText(aText) {
+    MOZ_ASSERT(mOptions.Timing().EndTime().IsNull(),
+               "AutoProfilerTextMarker options shouldn't have an end time");
+    if (mOptions.Timing().StartTime().IsNull()) {
+      mOptions.Set(mozilla::MarkerTiming::InstantNow());
+    }
+  }
+
+  ~AutoProfilerTextMarker() {
+    mOptions.TimingRef().SetIntervalEnd();
+    PROFILER_MARKER_TEXT(
+        mozilla::ProfilerString8View::WrapNullTerminatedString(mMarkerName),
+        MarkerOptions(std::move(mOptions)), mText);
+  }
+
+ protected:
+  const char* mMarkerName;
+  mozilla::MarkerOptions mOptions;
+  nsCString mText;
+};
+
+#  define AUTO_PROFILER_MARKER_TEXT(markerName, options, text) \
+    AutoProfilerTextMarker PROFILER_RAII(                      \
+        markerName, ::mozilla::baseprofiler::category::options, text)
 
 #endif  // nfed MOZ_GECKO_PROFILER else
 

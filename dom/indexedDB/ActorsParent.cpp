@@ -2159,10 +2159,9 @@ class DatabaseOperationBase : public Runnable,
                                           mozIStorageStatement* aStatement,
                                           const nsCString& aLocale);
 
-  static nsresult IndexDataValuesFromUpdateInfos(
-      const nsTArray<IndexUpdateInfo>& aUpdateInfos,
-      const UniqueIndexTable& aUniqueIndexTable,
-      nsTArray<IndexDataValue>& aIndexValues);
+  static Result<IndexDataValuesAutoArray, nsresult>
+  IndexDataValuesFromUpdateInfos(const nsTArray<IndexUpdateInfo>& aUpdateInfos,
+                                 const UniqueIndexTable& aUniqueIndexTable);
 
   static nsresult InsertIndexTableRows(
       DatabaseConnection* aConnection, IndexOrObjectStoreId aObjectStoreId,
@@ -9965,12 +9964,10 @@ void WaitForTransactionsHelper::MaybeWaitForTransactions() {
 
   RefPtr<ConnectionPool> connectionPool = gConnectionPool.get();
   if (connectionPool) {
-    nsTArray<nsCString> ids(1);
-    ids.AppendElement(mDatabaseId);
-
     mState = State::WaitingForTransactions;
 
-    connectionPool->WaitForDatabasesToComplete(std::move(ids), this);
+    connectionPool->WaitForDatabasesToComplete(nsTArray<nsCString>{mDatabaseId},
+                                               this);
     return;
   }
 
@@ -9985,12 +9982,10 @@ void WaitForTransactionsHelper::MaybeWaitForFileHandles() {
   RefPtr<FileHandleThreadPool> fileHandleThreadPool =
       gFileHandleThreadPool.get();
   if (fileHandleThreadPool) {
-    nsTArray<nsCString> ids(1);
-    ids.AppendElement(mDatabaseId);
-
     mState = State::WaitingForFileHandles;
 
-    fileHandleThreadPool->WaitForDirectoriesToComplete(std::move(ids), this);
+    fileHandleThreadPool->WaitForDirectoriesToComplete(
+        nsTArray<nsCString>{mDatabaseId}, this);
     return;
   }
 
@@ -13901,16 +13896,13 @@ nsresult QuotaClient::GetDirectory(PersistenceType aPersistenceType,
   QuotaManager* const quotaManager = QuotaManager::Get();
   NS_ASSERTION(quotaManager, "This should never fail!");
 
-  nsCOMPtr<nsIFile> directory;
-  nsresult rv = quotaManager->GetDirectoryForOrigin(aPersistenceType, aOrigin,
-                                                    getter_AddRefs(directory));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  IDB_TRY_VAR(auto directory,
+              quotaManager->GetDirectoryForOrigin(aPersistenceType, aOrigin));
 
   MOZ_ASSERT(directory);
 
-  rv = directory->Append(NS_LITERAL_STRING_FROM_CSTRING(IDB_DIRECTORY_NAME));
+  nsresult rv =
+      directory->Append(NS_LITERAL_STRING_FROM_CSTRING(IDB_DIRECTORY_NAME));
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -15546,39 +15538,38 @@ void CommonOpenOpHelperBase::AppendConditionClause(
 }
 
 // static
-nsresult DatabaseOperationBase::IndexDataValuesFromUpdateInfos(
+Result<IndexDataValuesAutoArray, nsresult>
+DatabaseOperationBase::IndexDataValuesFromUpdateInfos(
     const nsTArray<IndexUpdateInfo>& aUpdateInfos,
-    const UniqueIndexTable& aUniqueIndexTable,
-    nsTArray<IndexDataValue>& aIndexValues) {
-  MOZ_ASSERT(aIndexValues.IsEmpty());
+    const UniqueIndexTable& aUniqueIndexTable) {
   MOZ_ASSERT_IF(!aUpdateInfos.IsEmpty(), aUniqueIndexTable.Count());
 
   AUTO_PROFILER_LABEL("DatabaseOperationBase::IndexDataValuesFromUpdateInfos",
                       DOM);
 
-  const uint32_t count = aUpdateInfos.Length();
+  // XXX We could use TransformIntoNewArray here if it allowed to specify that
+  // an AutoArray should be created.
+  IndexDataValuesAutoArray indexValues;
 
-  if (!count) {
-    return NS_OK;
-  }
-
-  if (NS_WARN_IF(!aIndexValues.SetCapacity(count, fallible))) {
+  if (NS_WARN_IF(!indexValues.SetCapacity(aUpdateInfos.Length(), fallible))) {
     IDB_REPORT_INTERNAL_ERR();
-    return NS_ERROR_OUT_OF_MEMORY;
+    return Err(NS_ERROR_OUT_OF_MEMORY);
   }
 
-  for (const IndexUpdateInfo& updateInfo : aUpdateInfos) {
-    const IndexOrObjectStoreId& indexId = updateInfo.indexId();
+  std::transform(aUpdateInfos.cbegin(), aUpdateInfos.cend(),
+                 MakeBackInserter(indexValues),
+                 [&aUniqueIndexTable](const IndexUpdateInfo& updateInfo) {
+                   const IndexOrObjectStoreId& indexId = updateInfo.indexId();
 
-    bool unique = false;
-    MOZ_ALWAYS_TRUE(aUniqueIndexTable.Get(indexId, &unique));
+                   bool unique = false;
+                   MOZ_ALWAYS_TRUE(aUniqueIndexTable.Get(indexId, &unique));
 
-    aIndexValues.EmplaceBack(indexId, unique, updateInfo.value(),
-                             updateInfo.localizedValue());
-  }
-  aIndexValues.Sort();
+                   return IndexDataValue{indexId, unique, updateInfo.value(),
+                                         updateInfo.localizedValue()};
+                 });
+  indexValues.Sort();
 
-  return NS_OK;
+  return indexValues;
 }
 
 // static
@@ -15913,23 +15904,19 @@ nsresult DatabaseOperationBase::UpdateIndexValues(
 
   AUTO_PROFILER_LABEL("DatabaseOperationBase::UpdateIndexValues", DOM);
 
-  UniqueFreePtr<uint8_t> indexDataValues;
-  uint32_t indexDataValuesLength;
-  nsresult rv = MakeCompressedIndexDataValues(aIndexValues, indexDataValues,
-                                              &indexDataValuesLength);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  IDB_TRY_VAR((auto [indexDataValues, indexDataValuesLength]),
+              MakeCompressedIndexDataValues(aIndexValues));
 
   MOZ_ASSERT(!indexDataValuesLength == !(indexDataValues.get()));
 
   DatabaseConnection::CachedStatement updateStmt;
-  rv = aConnection->ExecuteCachedStatement(
+  nsresult rv = aConnection->ExecuteCachedStatement(
       "UPDATE object_data SET index_data_values = :"_ns +
           kStmtParamNameIndexDataValues + " WHERE object_store_id = :"_ns +
           kStmtParamNameObjectStoreId + " AND key = :"_ns + kStmtParamNameKey +
           ";"_ns,
-      [&indexDataValues, indexDataValuesLength, aObjectStoreId,
+      [&indexDataValues = indexDataValues,
+       indexDataValuesLength = indexDataValuesLength, aObjectStoreId,
        &aObjectStoreKey](mozIStorageStatement& updateStmt) {
         nsresult rv =
             indexDataValues
@@ -16868,14 +16855,11 @@ nsresult FactoryOp::OpenDirectory() {
   QuotaManager* const quotaManager = QuotaManager::Get();
   MOZ_ASSERT(quotaManager);
 
-  nsCOMPtr<nsIFile> dbFile;
-  nsresult rv = quotaManager->GetDirectoryForOrigin(persistenceType, mOrigin,
-                                                    getter_AddRefs(dbFile));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  IDB_TRY_VAR(auto dbFile,
+              quotaManager->GetDirectoryForOrigin(persistenceType, mOrigin));
 
-  rv = dbFile->Append(NS_LITERAL_STRING_FROM_CSTRING(IDB_DIRECTORY_NAME));
+  nsresult rv =
+      dbFile->Append(NS_LITERAL_STRING_FROM_CSTRING(IDB_DIRECTORY_NAME));
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -18402,14 +18386,11 @@ nsresult DeleteDatabaseOp::DoDatabaseWork() {
   QuotaManager* const quotaManager = QuotaManager::Get();
   MOZ_ASSERT(quotaManager);
 
-  nsCOMPtr<nsIFile> directory;
-  nsresult rv = quotaManager->GetDirectoryForOrigin(persistenceType, mOrigin,
-                                                    getter_AddRefs(directory));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  IDB_TRY_VAR(auto directory,
+              quotaManager->GetDirectoryForOrigin(persistenceType, mOrigin));
 
-  rv = directory->Append(NS_LITERAL_STRING_FROM_CSTRING(IDB_DIRECTORY_NAME));
+  nsresult rv =
+      directory->Append(NS_LITERAL_STRING_FROM_CSTRING(IDB_DIRECTORY_NAME));
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -20199,13 +20180,8 @@ CreateIndexOp::UpdateIndexDataValuesFunction::OnFunctionCall(
         fallible));
   }
 
-  UniqueFreePtr<uint8_t> indexValuesBlob;
-  uint32_t indexValuesBlobLength;
-  rv = MakeCompressedIndexDataValues(indexValues, indexValuesBlob,
-                                     &indexValuesBlobLength);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  IDB_TRY_VAR((auto [indexValuesBlob, indexValuesBlobLength]),
+              MakeCompressedIndexDataValues(indexValues));
 
   MOZ_ASSERT(!indexValuesBlobLength == !(indexValuesBlob.get()));
 
@@ -20238,10 +20214,8 @@ CreateIndexOp::UpdateIndexDataValuesFunction::OnFunctionCall(
     return rv;
   }
 
-  std::pair<uint8_t*, int> copiedBlobDataPair(indexValuesBlob.release(),
-                                              indexValuesBlobLength);
-
-  value = new storage::AdoptedBlobVariant(copiedBlobDataPair);
+  value = new storage::AdoptedBlobVariant(
+      std::pair(indexValuesBlob.release(), indexValuesBlobLength));
 
   value.forget(_retval);
   return NS_OK;
@@ -21340,12 +21314,9 @@ nsresult ObjectStoreAddOrPutRequestOp::DoDatabaseWork(
     MOZ_ASSERT(mUniqueIndexTable.isSome());
 
     // Write the index_data_values column.
-    IndexDataValuesAutoArray indexValues;
-    rv = IndexDataValuesFromUpdateInfos(mParams.indexUpdateInfos(),
-                                        mUniqueIndexTable.ref(), indexValues);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
-    }
+    IDB_TRY_VAR(const auto indexValues,
+                IndexDataValuesFromUpdateInfos(mParams.indexUpdateInfos(),
+                                               mUniqueIndexTable.ref()));
 
     rv = UpdateIndexValues(aConnection, osid, key, indexValues);
     if (NS_WARN_IF(NS_FAILED(rv))) {
