@@ -15,6 +15,7 @@ const {
   AllPossiblePermissions,
   PermissionsTable,
   expandPermissions,
+  defaultPermissions,
 } = ChromeUtils.import("resource://gre/modules/PermissionsTable.jsm");
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
@@ -141,6 +142,11 @@ this.PermissionsInstaller = {
         // Core apps get special treatment for some permissions.
         isCore = aFeatures.core === true;
       }
+
+      // Add default permissions that are granted to all installed apps.
+      defaultPermissions.forEach(permission => {
+        PermissionsHelper.addPermission(permission, aManifestURL, ALLOW_ACTION);
+      });
 
       for (let permName in aFeatures.permissions) {
         if (!PermissionsTable[permName]) {

@@ -5,9 +5,10 @@
 "use strict";
 
 this.EXPORTED_SYMBOLS = [
-  "PermissionsTable",
-  "expandPermissions",
   "appendAccessToPermName",
+  "defaultPermissions",
+  "expandPermissions",
+  "PermissionsTable",
   "AllPossiblePermissions",
 ];
 
@@ -20,6 +21,9 @@ const READWRITE = "readwrite";
 const ALLOW_ACTION = Ci.nsIPermissionManager.ALLOW_ACTION;
 const DENY_ACTION = Ci.nsIPermissionManager.DENY_ACTION;
 const PROMPT_ACTION = Ci.nsIPermissionManager.PROMPT_ACTION;
+
+// Permissions that are granted to all installed apps.
+this.defaultPermissions = ["vibration"];
 
 this.PermissionsTable = {
   "desktop-notification": {
