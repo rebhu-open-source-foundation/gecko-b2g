@@ -56,6 +56,8 @@
     false
   );
 
+  XPCOMUtils.defineLazyGlobalGetters(this, ["AudioChannelHandler"]);
+
   const elementsToDestroyOnUnload = new Set();
 
   window.addEventListener(
