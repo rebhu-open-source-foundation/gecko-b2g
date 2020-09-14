@@ -23,9 +23,6 @@
 #include <dlfcn.h>
 
 using namespace mozilla::ipc;
-#ifdef MOZ_WIDGET_GONK
-using namespace android;
-#endif
 using std::map;
 
 namespace mozilla {
@@ -234,8 +231,8 @@ bool SharedBufferManagerParent::RecvAllocateGrallocBuffer(const IntSize& aSize, 
     return false;
   }
 
-  sp<GraphicBuffer> outgoingBuffer = new GraphicBuffer(aSize.width, aSize.height, aFormat, aUsage);
-  if (!outgoingBuffer.get() || outgoingBuffer->initCheck() != NO_ERROR) {
+  android::sp<android::GraphicBuffer> outgoingBuffer = new android::GraphicBuffer(aSize.width, aSize.height, aFormat, aUsage);
+  if (!outgoingBuffer.get() || outgoingBuffer->initCheck() != android::NO_ERROR) {
     printf_stderr("SharedBufferManagerParent::RecvAllocateGrallocBuffer -- gralloc buffer allocation failed");
     return true;
   }
@@ -264,7 +261,7 @@ bool SharedBufferManagerParent::RecvDropGrallocBuffer(const mozilla::layers::May
 #ifdef MOZ_HAVE_SURFACEDESCRIPTORGRALLOC
   NS_ASSERTION(handle.type() == MaybeMagicGrallocBufferHandle::TGrallocBufferRef, "We shouldn't interact with the real buffer!");
   int64_t bufferKey = handle.get_GrallocBufferRef().mKey;
-  sp<GraphicBuffer> buf = GetGraphicBuffer(bufferKey);
+  android::sp<android::GraphicBuffer> buf = GetGraphicBuffer(bufferKey);
   MOZ_ASSERT(buf.get());
   MutexAutoLock lock(mLock);
   NS_ASSERTION(mBuffers.count(bufferKey) == 1, "No such buffer");
