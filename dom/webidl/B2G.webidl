@@ -43,49 +43,49 @@ partial interface B2G {
 #ifdef MOZ_B2G_RIL
 [Exposed=Window]
 partial interface B2G {
-  [Throws, Pref="dom.mobileconnection.enabled"]
+  [Throws, Pref="dom.mobileconnection.enabled", Func="B2G::HasMobileConnectionAndNetworkSupport"]
   readonly attribute MobileConnectionArray mobileConnections;
 };
 
 [Exposed=Window]
 partial interface B2G {
-  [Throws, Pref="dom.telephony.enabled"]
+  [Throws, Pref="dom.telephony.enabled", Func="B2G::HasTelephonySupport"]
   readonly attribute Telephony telephony;
 };
 
 [Exposed=Window]
 partial interface B2G {
-  [Throws, Pref="dom.icc.enabled"]
+  [Throws, Pref="dom.icc.enabled", Func="B2G::HasMobileConnectionSupport"]
   readonly attribute IccManager? iccManager;
 };
 
 [Exposed=Window]
 partial interface B2G {
-  [Throws, Pref="dom.datacall.enabled"]
+  [Throws, Pref="dom.datacall.enabled", Func="B2G::HasDataCallSupport"]
   readonly attribute DataCallManager? dataCallManager;
 };
 
 [Exposed=Window]
 partial interface B2G {
-  [Throws, Pref="dom.subsidylock.enabled"]
+  [Throws, Pref="dom.subsidylock.enabled", Func="B2G::HasMobileConnectionSupport"]
   readonly attribute SubsidyLockManager? subsidyLockManager;
 };
 
 [Exposed=Window]
 partial interface B2G {
-  [Throws, Pref="dom.voicemail.enabled"]
+  [Throws, Pref="dom.voicemail.enabled", Func="B2G::HasVoiceMailSupport"]
   readonly attribute Voicemail voicemail;
 };
 
 [Exposed=Window]
 partial interface B2G {
-  [Throws, Pref="dom.cellbroadcast.enabled"]
+  [Throws, Pref="dom.cellbroadcast.enabled", Func="B2G::HasCellBroadcastSupport"]
   readonly attribute CellBroadcast cellBroadcast;
 };
 
 [Exposed=Window]
 partial interface B2G {
-  [Throws, Pref="dom.sms.enabled"]
+  [Throws, Pref="dom.sms.enabled", Func="B2G::HasMobileMessageSupport"]
   readonly attribute MobileMessageManager mobileMessageManager;
 };
 #endif //MOZ_B2G_RIL

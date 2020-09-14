@@ -5,9 +5,8 @@
  */
 
 [Pref="dom.sms.enabled",
+ Func="B2G::HasMobileMessageSupport",
  Exposed=Window]
- //CheckAnyPermissions="sms",
- //AvailableIn="CertifiedApps"]
 interface SmsMessage {
   /**
    * |type| is always "sms".

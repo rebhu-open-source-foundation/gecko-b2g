@@ -55,9 +55,8 @@ dictionary StkIconContainer
 };
 
 [Pref="dom.icc.enabled",
+ Func="B2G::HasMobileConnectionSupport",
  Exposed=Window]
- //CheckAnyPermissions="mobileconnection",
- // AvailableIn="CertifiedApps",
 interface StkCommandEvent : Event
 {
   constructor(DOMString type, optional StkCommandEventInit eventInitDict={});

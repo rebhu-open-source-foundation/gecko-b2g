@@ -5,10 +5,7 @@
  */
 
 
-[Exposed=Window, Pref="dom.telephony.enabled",
-// CheckAnyPermissions="telephony",
-// AvailableIn="CertifiedApps",
-]
+[Exposed=Window, Pref="dom.telephony.enabled", Func="B2G::HasTelephonySupport"]
 interface USSDReceivedEvent : Event
 {
   constructor(DOMString type, optional USSDReceivedEventInit eventInitDict = {});

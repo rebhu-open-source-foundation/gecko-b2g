@@ -16,9 +16,8 @@ dictionary MmsDeliveryInfo {
 };
 
 [Pref="dom.sms.enabled",
+ Func="B2G::HasMobileMessageSupport",
  Exposed=Window]
-// CheckAnyPermissions="sms",
-// AvailableIn="CertifiedApps"]
 interface MmsMessage {
   /**
    * |type| is always "mms".

@@ -8,10 +8,8 @@
  * unacknowledged general CBS messages to be broadcast to all receivers within
  * a particular region.
  */
-[Pref="dom.cellbroadcast.enabled",
+[Pref="dom.cellbroadcast.enabled", Func="B2G::HasCellBroadcastSupport",
  Exposed=Window]
-// CheckAnyPermissions="cellbroadcast",
-// AvailableIn="CertifiedApps"]
 interface CellBroadcast : EventTarget
 {
   /**

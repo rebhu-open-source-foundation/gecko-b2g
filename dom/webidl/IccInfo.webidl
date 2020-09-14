@@ -5,9 +5,8 @@
 enum IccType {"sim", "usim", "csim", "ruim"};
 
 [Pref="dom.icc.enabled",
+ Func="B2G::HasMobileConnectionSupport",
  Exposed=Window]
-// CheckAnyPermissions="mobileconnection",
-// AvailableIn="CertifiedApps"]
 interface IccInfo {
   /**
    * Integrated Circuit Card Type.
@@ -51,9 +50,8 @@ interface IccInfo {
 };
 
 [Pref="dom.icc.enabled",
+ Func="B2G::HasMobileConnectionSupport",
  Exposed=Window]
- //CheckAnyPermissions="mobileconnection",
- //AvailableIn="CertifiedApps"]
 interface GsmIccInfo : IccInfo {
   /**
    * Mobile Station ISDN Number (MSISDN) of the subscriber, aka
@@ -63,9 +61,8 @@ interface GsmIccInfo : IccInfo {
 };
 
 [Pref="dom.icc.enabled",
+ Func="B2G::HasMobileConnectionSupport",
  Exposed=Window]
- //CheckAnyPermissions="mobileconnection",
- //AvailableIn="CertifiedApps"]
 interface CdmaIccInfo : IccInfo {
   /**
    * Mobile Directory Number (MDN) of the subscriber, aka his phone number.

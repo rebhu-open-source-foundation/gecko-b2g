@@ -115,9 +115,8 @@ dictionary SmscAddress {
 };
 
 [Pref="dom.sms.enabled",
+ Func="B2G::HasMobileMessageSupport",
  Exposed=Window]
- //CheckAnyPermissions="sms",
- //AvailableIn="CertifiedApps"]
 interface MobileMessageManager : EventTarget
 {
   [Throws]

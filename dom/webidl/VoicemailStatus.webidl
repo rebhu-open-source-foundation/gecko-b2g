@@ -5,9 +5,8 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 [Pref="dom.voicemail.enabled",
+ Func="B2G::HasVoiceMailSupport",
  Exposed=Window]
-// CheckAnyPermissions="voicemail",
-// AvailableIn="CertifiedApps"]
 interface VoicemailStatus
 {
   readonly attribute unsigned long serviceId;

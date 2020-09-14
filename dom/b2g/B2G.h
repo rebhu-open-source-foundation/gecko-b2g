@@ -93,6 +93,19 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
   CellBroadcast* GetCellBroadcast(ErrorResult& aRv);
   SubsidyLockManager* GetSubsidyLockManager(ErrorResult& aRv);
   MobileMessageManager* GetMobileMessageManager(ErrorResult& aRv);
+  static bool HasVoiceMailSupport(JSContext* /* unused */, JSObject* aGlobal);
+  static bool HasMobileConnectionAndNetworkSupport(JSContext* /* unused */,
+                                                   JSObject* aGlobal);
+  static bool HasMobileNetworkSupport(JSContext* /* unused */,
+                                      JSObject* aGlobal);
+  static bool HasMobileConnectionSupport(JSContext* /* unused */,
+                                         JSObject* aGlobal);
+  static bool HasTelephonySupport(JSContext* /* unused */, JSObject* aGlobal);
+  static bool HasDataCallSupport(JSContext* /* unused */, JSObject* aGlobal);
+  static bool HasCellBroadcastSupport(JSContext* /* unused */,
+                                      JSObject* aGlobal);
+  static bool HasMobileMessageSupport(JSContext* /* unused */,
+                                      JSObject* aGlobal);
 #endif  // MOZ_B2G_RIL
 
   ExternalAPI* GetExternalapi(ErrorResult& aRv);

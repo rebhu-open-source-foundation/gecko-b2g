@@ -100,46 +100,46 @@ interface MobileConnection : EventTarget
    * These two fields can be accessed by privileged applications with the
    * 'mobilenetwork' permission.
    */
-  //[CheckAnyPermissions="mobilenetwork"]
+  [Func="B2G::HasMobileNetworkSupport"]
   readonly attribute DOMString lastKnownNetwork;
-  //[CheckAnyPermissions="mobilenetwork"]
+  [Func="B2G::HasMobileNetworkSupport"]
   readonly attribute DOMString lastKnownHomeNetwork;
 
   /**
    * Information about the voice connection.
    */
-  //[CheckAnyPermissions="mobileconnection"]
+  [Func="B2G::HasMobileConnectionSupport"]
   readonly attribute MobileConnectionInfo voice;
 
   /**
    * Information about the data connection.
    */
-  //[CheckAnyPermissions="mobileconnection"]
+  [Func="B2G::HasMobileConnectionSupport"]
   readonly attribute MobileConnectionInfo data;
 
   /**
    * Integrated Circuit Card Identifier of the SIM this mobile connection
    * corresponds to.
    */
-  //[CheckAnyPermissions="mobileconnection"]
+  [Func="B2G::HasMobileConnectionSupport"]
   readonly attribute DOMString? iccId;
 
   /**
    * The current state of emergency callback mode.
    */
-  [Throws]  //CheckAnyPermissions="mobileconnection"]
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
   readonly attribute boolean isInEmergencyCbMode;
 
   /**
    * The selection mode of the voice and data networks.
    */
-  //[CheckAnyPermissions="mobileconnection"]
+  [Func="B2G::HasMobileConnectionSupport"]
   readonly attribute MobileNetworkSelectionMode? networkSelectionMode;
 
   /**
    * The current radio state.
    */
-  //[CheckAnyPermissions="mobileconnection"]
+  [Func="B2G::HasMobileConnectionSupport"]
   readonly attribute MobileRadioState? radioState;
 
   /**
@@ -147,25 +147,24 @@ interface MobileConnection : EventTarget
    *
    * Plan to deprecated.
    */
-  //[Cached, Pure]  CheckAnyPermissions="mobileconnection"]
-  [Cached, Pure] readonly attribute sequence<MobileNetworkType> supportedNetworkTypes;
+  [Cached, Pure, Func="B2G::HasMobileConnectionSupport"] readonly attribute sequence<MobileNetworkType> supportedNetworkTypes;
 
   /**
    * Array of network types that are supported by this radio.
    */
-  [Throws]  //CheckAnyPermissions="mobileconnection"]
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
   Promise<sequence<MobileNetworkType>> getSupportedNetworkTypes();
 
   /**
    * The mobile device identities.
    */
-  //[CheckAnyPermissions="mobileconnection"]
+  [Func="B2G::HasMobileConnectionSupport"]
   DOMMobileConnectionDeviceIds getDeviceIdentities();
 
   /**
    * Signal strength information.
    */
-  //[CheckAnyPermissions="mobileconnection"]
+  [Func="B2G::HasMobileConnectionSupport"]
   readonly attribute MobileSignalStrength signalStrength;
 
   /**
@@ -173,7 +172,7 @@ interface MobileConnection : EventTarget
    *
    * Only available if supported.
    */
-  //[CheckAnyPermissions="mobileconnection"]
+  [Func="B2G::HasMobileConnectionSupport"]
   readonly attribute ImsRegHandler? imsHandler;
 
   /**
@@ -188,7 +187,7 @@ interface MobileConnection : EventTarget
    * will be either 'RadioNotAvailable', 'RequestNotSupported', or
    * 'GenericFailure'.
    */
-  [Throws]  //CheckAnyPermissions="mobileconnection"]
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
   DOMRequest getNetworks();
 
   /**
@@ -205,7 +204,7 @@ interface MobileConnection : EventTarget
    * will be either 'RadioNotAvailable', 'RequestNotSupported',
    * 'IllegalSIMorME', or 'GenericFailure'.
    */
-  [Throws] //CheckAnyPermissions="mobileconnection"]
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
   DOMRequest selectNetwork(DOMMobileNetworkInfo network);
 
   /**
@@ -221,7 +220,7 @@ interface MobileConnection : EventTarget
    * will be either 'RadioNotAvailable', 'RequestNotSupported',
    * 'IllegalSIMorME', or 'GenericFailure'.
    */
-  [Throws] //CheckAnyPermissions="mobileconnection"]
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
   DOMRequest selectNetworkAutomatically();
 
   /**
@@ -239,7 +238,7 @@ interface MobileConnection : EventTarget
    * 'InvalidParameter', 'ModeNotSupported', 'IllegalSIMorME', or
    * 'GenericFailure'.
    */
-  [Throws] //CheckAnyPermissions="mobileconnection"]
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
   DOMRequest setPreferredNetworkType(MobilePreferredNetworkType type);
 
   /**
@@ -257,7 +256,7 @@ interface MobileConnection : EventTarget
    * will be either 'RadioNotAvailable', 'RequestNotSupported',
    * 'IllegalSIMorME', or 'GenericFailure'.
    */
-  [Throws]  //CheckAnyPermissions="mobileconnection"]
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
   DOMRequest getPreferredNetworkType();
 
   /**
@@ -274,7 +273,7 @@ interface MobileConnection : EventTarget
    * will be either 'RadioNotAvailable', 'RequestNotSupported',
    * 'InvalidParameter', 'IllegalSIMorME', or 'GenericFailure'.
    */
-  [Throws]  //CheckAnyPermissions="mobileconnection"]
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
   DOMRequest setRoamingPreference(MobileRoamingMode mode);
 
   /**
@@ -290,7 +289,7 @@ interface MobileConnection : EventTarget
    * will be either 'RadioNotAvailable', 'RequestNotSupported',
    * 'IllegalSIMorME', or 'GenericFailure'.
    */
-  [Throws]  //CheckAnyPermissions="mobileconnection"]
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
   DOMRequest getRoamingPreference();
 
   /**
@@ -309,7 +308,7 @@ interface MobileConnection : EventTarget
    * will be either 'RadioNotAvailable', 'RequestNotSupported',
    * 'InvalidParameter', 'IllegalSIMorME', or 'GenericFailure'.
    */
-  [Throws]  //CheckAnyPermissions="mobileconnection"]
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
   DOMRequest setVoicePrivacyMode(boolean enabled);
 
   /**
@@ -324,7 +323,7 @@ interface MobileConnection : EventTarget
    * will be either 'RadioNotAvailable', 'RequestNotSupported',
    * 'IllegalSIMorME', or 'GenericFailure'.
    */
-  [Throws]  //CheckAnyPermissions="mobileconnection"]
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
   DOMRequest getVoicePrivacyMode();
 
   /**
@@ -342,7 +341,7 @@ interface MobileConnection : EventTarget
    * will be either 'RadioNotAvailable', 'RequestNotSupported',
    * 'InvalidParameter', 'IllegalSIMorME', or 'GenericFailure'.
    */
-  [Throws]  //CheckAnyPermissions="mobileconnection"]
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
   DOMRequest setCallForwardingOption(optional CallForwardingOptions options={});
 
   /**
@@ -366,7 +365,7 @@ interface MobileConnection : EventTarget
    * will be either 'RadioNotAvailable', 'RequestNotSupported',
    * 'InvalidParameter', 'IllegalSIMorME', or 'GenericFailure'.
    */
-  [Throws] //CheckAnyPermissions="mobileconnection"]
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
   DOMRequest getCallForwardingOption(unsigned short reason, unsigned short serviceClass);
 
   /**
@@ -385,7 +384,7 @@ interface MobileConnection : EventTarget
    * 'InvalidParameter', 'IllegalSIMorME', or 'GenericFailure',
    * 'IncorrectPassword'.
    */
-  [Throws] //CheckAnyPermissions="mobileconnection"]
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
   DOMRequest setCallBarringOption(optional CallBarringOptions options={});
 
   /**
@@ -407,7 +406,7 @@ interface MobileConnection : EventTarget
    * will be either 'RadioNotAvailable', 'RequestNotSupported',
    * 'InvalidParameter', 'IllegalSIMorME', or 'GenericFailure'.
    */
-  [Throws] //CheckAnyPermissions="mobileconnection"]
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
   DOMRequest getCallBarringOption(optional CallBarringOptions options={});
 
   /**
@@ -432,7 +431,7 @@ interface MobileConnection : EventTarget
    * will be either 'RadioNotAvailable', 'RequestNotSupported',
    * 'InvalidParameter', 'IllegalSIMorME', or 'GenericFailure'.
    */
-  [Throws] //CheckAnyPermissions="mobileconnection"]
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
   DOMRequest changeCallBarringPassword(optional CallBarringOptions options={});
 
   /**
@@ -449,7 +448,7 @@ interface MobileConnection : EventTarget
    * will be either 'RadioNotAvailable', 'RequestNotSupported',
    * 'IllegalSIMorME', or 'GenericFailure'.
    */
-  [Throws] //CheckAnyPermissions="mobileconnection"]
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
   DOMRequest setCallWaitingOption(boolean enabled);
 
   /**
@@ -464,7 +463,7 @@ interface MobileConnection : EventTarget
    * will be either 'RadioNotAvailable', 'RequestNotSupported',
    * 'IllegalSIMorME', or 'GenericFailure'.
    */
-  [Throws] //CheckAnyPermissions="mobileconnection"]
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
   DOMRequest getCallWaitingOption();
 
   /**
@@ -482,7 +481,7 @@ interface MobileConnection : EventTarget
    * will be either 'RadioNotAvailable', 'RequestNotSupported',
    * 'InvalidParameter', 'IllegalSIMorME', or 'GenericFailure'.
    */
-  [Throws] //CheckAnyPermissions="mobileconnection"]
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
   DOMRequest setCallingLineIdRestriction(unsigned short mode);
 
   /**
@@ -498,7 +497,7 @@ interface MobileConnection : EventTarget
    * will be either 'RadioNotAvailable', 'RequestNotSupported',
    * 'IllegalSIMorME', or 'GenericFailure'.
    */
-  [Throws] //CheckAnyPermissions="mobileconnection"]
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
   DOMRequest getCallingLineIdRestriction();
 
   /**
@@ -512,7 +511,7 @@ interface MobileConnection : EventTarget
    * will be either 'RadioNotAvailable', 'RequestNotSupported',
    * 'IllegalSIMorME', or 'GenericFailure'.
    */
-  [Throws] //CheckAnyPermissions="mobileconnection"]
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
   DOMRequest exitEmergencyCbMode();
 
   /**
@@ -533,7 +532,7 @@ interface MobileConnection : EventTarget
    * 'disabling'. Calling the function in above conditions will receive
    * 'InvalidStateError' error.
    */
-  [Throws] //CheckAnyPermissions="mobileconnection"]
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
   DOMRequest setRadioEnabled(boolean enabled);
 
   /**

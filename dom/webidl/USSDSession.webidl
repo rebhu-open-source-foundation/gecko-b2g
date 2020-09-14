@@ -4,10 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-[Exposed=Window, Pref="dom.telephony.enabled",
-// CheckAnyPermissions="telephony",
-// AvailableIn="CertifiedApps",
-]
+[Exposed=Window, Pref="dom.telephony.enabled", Func="B2G::HasTelephonySupport"]
 interface USSDSession {
   [Throws]
   constructor(unsigned long serviceId);

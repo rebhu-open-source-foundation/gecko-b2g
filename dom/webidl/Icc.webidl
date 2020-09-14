@@ -165,9 +165,8 @@ dictionary IccAuthResponse
 };
 
 [Pref="dom.icc.enabled",
+ Func="B2G::HasMobileConnectionSupport",
  Exposed=Window]
-// CheckAnyPermissions="mobileconnection",
-// AvailableIn="CertifiedApps"]
 interface Icc : EventTarget
 {
   // Integrated Circuit Card Information.

@@ -5,9 +5,8 @@
  */
 
 [Pref="dom.voicemail.enabled",
+ Func="B2G::HasVoiceMailSupport",
  Exposed=Window]
-// CheckAnyPermissions="voicemail",
-// AvailableIn="CertifiedApps"]
 interface VoicemailEvent : Event
 {
   constructor(DOMString type, optional VoicemailEventInit eventInitDict = {});

@@ -22,9 +22,8 @@ enum DataCallState {
 };
 
 [Pref="dom.datacall.enabled",
+ Func="B2G::HasDataCallSupport",
  Exposed=Window,
-// CheckAnyPermissions="datacall",
-// AvailableIn="PrivilegedApps",
  JSImplementation="@mozilla.org/datacallmanager;1"]
 interface DataCallManager {
   /**
@@ -58,9 +57,8 @@ interface DataCallManager {
 };
 
 [Pref="dom.datacall.enabled",
+ Func="B2G::HasDataCallSupport",
  Exposed=Window,
- //CheckAnyPermissions="datacall",
- //AvailableIn="CertifiedApps",
  JSImplementation="@mozilla.org/datacall;1"]
 interface DataCall : EventTarget {
   /**

@@ -4,10 +4,8 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-[Pref="dom.cellbroadcast.enabled",
+[Pref="dom.cellbroadcast.enabled", Func="B2G::HasCellBroadcastSupport",
  Exposed=Window]
-// CheckAnyPermissions="cellbroadcast",
-// AvailableIn="CertifiedApps"]
 interface CellBroadcastEvent : Event
 {
   constructor(DOMString type, optional CellBroadcastEventInit eventInitDict={});

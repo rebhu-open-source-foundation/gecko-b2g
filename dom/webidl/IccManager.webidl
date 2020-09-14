@@ -4,9 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 [Pref="dom.icc.enabled",
+ Func="B2G::HasMobileConnectionSupport",
  Exposed=Window]
-// CheckAnyPermissions="mobileconnection",
-// AvailableIn="CertifiedApps"]
 interface IccManager : EventTarget
 {
   /**

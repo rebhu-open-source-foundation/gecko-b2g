@@ -5,6 +5,7 @@
  */
 
 [Pref="dom.sms.enabled",
+ Func="B2G::HasMobileMessageSupport",
  Exposed=Window]
 interface MobileMessageError {
   readonly attribute (SmsMessage or MmsMessage) data;

@@ -5,6 +5,7 @@
  */
 
 [Pref="dom.sms.enabled",
+ Func="B2G::HasMobileMessageSupport",
  Exposed=Window]
 // Constructor(DOMString type, optional MmsEventInit eventInitDict)]
 interface MmsEvent : Event

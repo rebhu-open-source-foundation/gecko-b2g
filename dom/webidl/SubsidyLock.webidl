@@ -49,9 +49,9 @@ interface SubsidyLock
   const long SUBSIDY_LOCK_SIM_SIM_PUK              = 10;
 
 
-  [Throws]
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
   DOMRequest getSubsidyLockStatus();
 
-  [Throws]
+  [Throws, Func="B2G::HasMobileConnectionSupport"]
   DOMRequest unlockSubsidyLock(UnlockOptions info);
 };

@@ -5,9 +5,8 @@
  */
 
 [Pref="dom.telephony.enabled",
+ Func="B2G::HasTelephonySupport",
  Exposed=Window]
-// CheckAnyPermissions="telephony",
-// AvailableIn="CertifiedApps"]
 interface MMICall {
 //  [Throws]
 //  readonly attribute Promise<MozMMIResult> result;

@@ -72,14 +72,33 @@ this.PermissionsTable = {
     core: ALLOW_ACTION,
     access: ["read", "write", "create"],
   },
+  "process-manager": {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
+  "wifi-manage": {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
   bluetooth: {
     pwa: DENY_ACTION,
     signed: ALLOW_ACTION,
+  },
+  cellbroadcast: {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
   },
   camera: {
     pwa: PROMPT_ACTION,
     signed: PROMPT_ACTION,
     core: ALLOW_ACTION,
+  },
+  datacall: {
+    pwa: DENY_ACTION,
+    signed: ALLOW_ACTION,
   },
   flashlight: {
     pwa: DENY_ACTION,
@@ -95,7 +114,11 @@ this.PermissionsTable = {
     pwa: PROMPT_ACTION,
     signed: PROMPT_ACTION,
   },
-  "process-manager": {
+  mobilenetwork: {
+    pwa: DENY_ACTION,
+    signed: ALLOW_ACTION,
+  },
+  mobileconnection: {
     pwa: DENY_ACTION,
     signed: DENY_ACTION,
     core: ALLOW_ACTION,
@@ -111,9 +134,24 @@ this.PermissionsTable = {
     core: ALLOW_ACTION,
     access: ["read", "write"],
   },
+  sms: {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
   systemXHR: {
     pwa: DENY_ACTION,
     signed: ALLOW_ACTION,
+  },
+  telephony: {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
+  voicemail: {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
   },
 };
 

@@ -5,8 +5,7 @@
  */
 
 [Pref="dom.icc.enabled",
-//  CheckAnyPermissions="mobileconnection",
-//  AvailableIn="CertifiedApps",
+ Func="B2G::HasMobileConnectionSupport",
  Exposed=Window]
 interface IccChangeEvent : Event
 {

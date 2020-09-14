@@ -11,10 +11,8 @@ enum CellBroadcastMessageClass {"class-0", "class-1", "class-2",
 enum CellBroadcastEtwsWarningType {"earthquake", "tsunami",
                                    "earthquake-tsunami", "test", "other"};
 
-[Pref="dom.cellbroadcast.enabled",
+[Pref="dom.cellbroadcast.enabled", Func="B2G::HasCellBroadcastSupport",
  Exposed=Window]
-// CheckAnyPermissions="cellbroadcast",
-// AvailableIn="CertifiedApps"]
 interface CellBroadcastMessage
 {
   /**
@@ -75,10 +73,8 @@ interface CellBroadcastMessage
   readonly attribute unsigned short? cdmaServiceCategory;
 };
 
-[Pref="dom.cellbroadcast.enabled",
+[Pref="dom.cellbroadcast.enabled", Func="B2G::HasCellBroadcastSupport",
  Exposed=Window]
- //CheckAnyPermissions="cellbroadcast",
- //AvailableIn="CertifiedApps"]
 interface CellBroadcastEtwsInfo
 {
   /**

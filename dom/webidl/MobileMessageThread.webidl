@@ -5,9 +5,8 @@
  */
 enum MsgAttachmentStatus {"none-attachment", "not-download", "has-attachment"};
 [Pref="dom.sms.enabled",
+ Func="B2G::HasMobileMessageSupport",
  Exposed=Window]
- //CheckAnyPermissions="sms",
- //AvailableIn="CertifiedApps"]
 interface MobileMessageThread {
   /**
    * Unique identity of the thread.

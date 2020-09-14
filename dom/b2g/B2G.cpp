@@ -293,7 +293,6 @@ DataCallManager* B2G::GetDataCallManager(ErrorResult& aRv) {
       aRv.Throw(NS_ERROR_UNEXPECTED);
       return nullptr;
     }
-
     mDataCallManager = ConstructJSImplementation<DataCallManager>(
         "@mozilla.org/datacallmanager;1", GetParentObject(), aRv);
     if (aRv.Failed()) {
@@ -310,7 +309,6 @@ SubsidyLockManager* B2G::GetSubsidyLockManager(ErrorResult& aRv) {
       return nullptr;
     }
   }
-
   nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
   if (!innerWindow) {
     aRv.Throw(NS_ERROR_UNEXPECTED);
@@ -338,6 +336,59 @@ MobileMessageManager* B2G::GetMobileMessageManager(ErrorResult& aRv) {
   }
 
   return mMobileMessageManager;
+}
+
+/* static */
+bool B2G::HasVoiceMailSupport(JSContext* /* unused */, JSObject* aGlobal) {
+  nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);
+  return innerWindow ? CheckPermission("voicemail"_ns, innerWindow) : false;
+}
+
+/* static */
+bool B2G::HasMobileNetworkSupport(JSContext* /* unused */, JSObject* aGlobal) {
+  nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);
+  return innerWindow ? CheckPermission("mobilenetwork"_ns, innerWindow) : false;
+}
+
+/* static */
+bool B2G::HasMobileConnectionSupport(JSContext* /* unused */,
+                                     JSObject* aGlobal) {
+  nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);
+  return innerWindow ? CheckPermission("mobileconnection"_ns, innerWindow)
+                     : false;
+}
+
+/* static */
+bool B2G::HasMobileConnectionAndNetworkSupport(JSContext* /* unused */,
+                                               JSObject* aGlobal) {
+  nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);
+  return innerWindow ? (CheckPermission("mobilenetwork"_ns, innerWindow) ||
+                        CheckPermission("mobileconnection"_ns, innerWindow))
+                     : false;
+}
+
+/* static */
+bool B2G::HasTelephonySupport(JSContext* /* unused */, JSObject* aGlobal) {
+  nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);
+  return innerWindow ? CheckPermission("telephony"_ns, innerWindow) : false;
+}
+
+/* static */
+bool B2G::HasDataCallSupport(JSContext* /* unused */, JSObject* aGlobal) {
+  nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);
+  return innerWindow ? CheckPermission("datacall"_ns, innerWindow) : false;
+}
+
+/* static */
+bool B2G::HasCellBroadcastSupport(JSContext* /* unused */, JSObject* aGlobal) {
+  nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);
+  return innerWindow ? CheckPermission("cellbroadcast"_ns, innerWindow) : false;
+}
+
+/* static */
+bool B2G::HasMobileMessageSupport(JSContext* /* unused */, JSObject* aGlobal) {
+  nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);
+  return innerWindow ? CheckPermission("sms"_ns, innerWindow) : false;
 }
 #endif
 
@@ -417,25 +468,12 @@ bool B2G::HasCameraSupport(JSContext* /* unused */, JSObject* aGlobal) {
 
 /* static */
 bool B2G::HasWifiManagerSupport(JSContext* /* unused */, JSObject* aGlobal) {
-#if defined(MOZ_WIDGET_GONK) && !defined(DISABLE_WIFI)
-  return true;
+#if !defined(MOZ_WIDGET_GONK) || defined(DISABLE_WIFI)
+  return false;
 #endif
-  // On XBL scope, the global object is NOT |window|. So we have
-  // to use nsContentUtils::GetObjectPrincipal to get the principal
-  // and test directly with permission manager.
 
-  // TODO: permission check mechanism
-  // nsIPrincipal* principal = nsContentUtils::ObjectPrincipal(aGlobal);
-  //
-  // nsCOMPtr<nsIPermissionManager> permMgr =
-  //   services::GetPermissionManager();
-  // NS_ENSURE_TRUE(permMgr, false);
-  //
-  // uint32_t permission = nsIPermissionManager::DENY_ACTION;
-  // permMgr->TestPermissionFromPrincipal(principal,
-  // "wifi-manage"_ns, &permission); return
-  // nsIPermissionManager::ALLOW_ACTION == permission;
-  return true;
+  nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);
+  return innerWindow ? CheckPermission("wifi-manage"_ns, innerWindow) : false;
 }
 
 DownloadManager* B2G::GetDownloadManager(ErrorResult& aRv) {
