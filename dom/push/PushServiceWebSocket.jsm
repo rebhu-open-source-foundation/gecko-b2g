@@ -20,6 +20,11 @@ const { PushCrypto } = ChromeUtils.import(
 
 ChromeUtils.defineModuleGetter(
   this,
+  "PushCredential",
+  "resource://gre/modules/PushCredential.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
   "pushBroadcastService",
   "resource://gre/modules/PushBroadcastService.jsm"
 );
@@ -340,6 +345,10 @@ var PushServiceWebSocket = {
 
     this._requestTimeout = prefs.getIntPref("requestTimeout");
 
+    if (prefs.getBoolPref("authorization.enabled", false)) {
+      this.credential = new PushCredential();
+    }
+
     return Promise.resolve();
   },
 
@@ -362,10 +371,13 @@ var PushServiceWebSocket = {
     if (this._wsListener) {
       this._wsListener._pushService = null;
     }
-    try {
-      this._ws.close(0, null);
-    } catch (e) {}
-    this._ws = null;
+
+    if (this._ws) {
+      try {
+        this._ws.close(0, null);
+      } catch (e) {}
+      this._ws = null;
+    }
 
     this._lastPingTime = 0;
 
@@ -399,6 +411,9 @@ var PushServiceWebSocket = {
     this._mainPushService = null;
 
     this._dataEnabled = false;
+    if (this.credential) {
+      this.credential = null;
+    }
   },
 
   /**
@@ -513,7 +528,7 @@ var PushServiceWebSocket = {
         "_beginWSSetup: Not in shutdown state! Current state",
         this._currentState
       );
-      return;
+      return Promise.resolve();
     }
 
     // Stop any pending reconnects scheduled for the near future.
@@ -523,31 +538,61 @@ var PushServiceWebSocket = {
 
     let uri = this._serverURI;
     if (!uri) {
-      return;
+      return Promise.resolve();
     }
     let socket = this._makeWebSocket(uri);
     if (!socket) {
-      return;
+      return Promise.resolve();
     }
     this._ws = socket.QueryInterface(Ci.nsIWebSocketChannel);
 
-    console.debug("beginWSSetup: Connecting to", uri.spec);
     this._wsListener = new PushWebSocketListener(this);
     this._ws.protocol = "push-notification";
 
-    try {
-      // Grab a wakelock before we open the socket to ensure we don't go to
-      // sleep before connection the is opened.
-      this._ws.asyncOpen(uri, uri.spec, 0, this._wsListener, null);
-      this._currentState = STATE_WAITING_FOR_WS_START;
-    } catch (e) {
-      console.error(
-        "beginWSSetup: Error opening websocket.",
-        "asyncOpen failed",
-        e
-      );
-      this._reconnect();
+    function tryOpenWS() {
+      console.debug("beginWSSetup: Connecting to", uri.spec);
+      try {
+        // Grab a wakelock before we open the socket to ensure we don't go to
+        // sleep before connection the is opened.
+        this._ws.asyncOpen(uri, uri.spec, 0, this._wsListener, null);
+        this._currentState = STATE_WAITING_FOR_WS_START;
+      } catch (e) {
+        console.error(
+          "beginWSSetup: Error opening websocket.",
+          "asyncOpen failed",
+          e
+        );
+        this._reconnect();
+      }
+      return Promise.resolve();
     }
+
+    if (this.credential) {
+      return this.credential.requireAccessToken().then(
+        _ => {
+          return tryOpenWS.bind(this)();
+        },
+        errorStatus => {
+          if (errorStatus > 0) {
+            return this._mainPushService.getAllUnexpired().then(records => {
+              this._ws = null;
+              this._wsListener = null;
+              if (records.length > 0) {
+                this._reconnect();
+              } else {
+                this._shutdownWS();
+              }
+              return Promise.resolve();
+            });
+          }
+          this._ws = null;
+          this._wsListener = null;
+          this._shutdownWS();
+          return Promise.resolve();
+        }
+      );
+    }
+    return tryOpenWS.bind(this)();
   },
 
   connect(broadcastListeners) {
@@ -575,6 +620,20 @@ var PushServiceWebSocket = {
       return;
     }
 
+    if (reply.status == 401) {
+      console.error("handleHelloReply: Invalid Token");
+      this._shutdownWS();
+      if (this.credential) {
+        this._mainPushService.getAllUnexpired().then(records => {
+          if (records.length > 0) {
+            this.credential.refreshAccessToken();
+            this._reconnect();
+          }
+        });
+      }
+      return;
+    }
+
     if (typeof reply.uaid !== "string") {
       console.error("handleHelloReply: Received invalid UAID", reply.uaid);
       this._shutdownWS();
@@ -596,6 +655,8 @@ var PushServiceWebSocket = {
       this._shutdownWS();
       return;
     }
+
+    this._retryFailCount = 0;
 
     let sendRequests = () => {
       if (this._notifyRequestQueue) {
@@ -1000,13 +1061,14 @@ var PushServiceWebSocket = {
 
     if (!this._ws) {
       // This will end up calling notifyRequestQueue().
-      this._beginWSSetup();
-      // If beginWSSetup does not succeed to make ws, notifyRequestQueue will
-      // not be call.
-      if (!this._ws && this._notifyRequestQueue) {
-        this._notifyRequestQueue();
-        this._notifyRequestQueue = null;
-      }
+      this._beginWSSetup().then(_ => {
+        // If beginWSSetup does not succeed to make ws, notifyRequestQueue will
+        // not be call.
+        if (!this._ws && this._notifyRequestQueue) {
+          this._notifyRequestQueue();
+          this._notifyRequestQueue = null;
+        }
+      });
     }
   },
 
@@ -1101,6 +1163,10 @@ var PushServiceWebSocket = {
       data.uaid = this._UAID;
     }
 
+    if (this.credential && this.credential.token) {
+      data.token = this.credential.token;
+    }
+
     this._wsSendMessage(data);
     this._currentState = STATE_WAITING_FOR_HELLO;
   },
@@ -1140,7 +1206,9 @@ var PushServiceWebSocket = {
 
     // If we receive a message, we know the connection succeeded. Reset the
     // connection attempt and ping interval counters.
-    this._retryFailCount = 0;
+    if (this._currentState == STATE_READY) {
+      this._retryFailCount = 0;
+    }
 
     let doNotHandle = false;
     if (
