@@ -24,6 +24,7 @@
 #include "LayersLogging.h"
 #include "MMPrinter.h"
 #include "PermissionMessageUtils.h"
+#include "ProcessUtils.h"
 #include "PuppetWidget.h"
 #include "StructuredCloneData.h"
 #include "UnitTransforms.h"
@@ -1053,6 +1054,21 @@ mozilla::ipc::IPCResult BrowserChild::RecvLoadURL(
   }
   nsAutoCString spec;
   aLoadState->URI()->GetSpec(spec);
+
+#ifdef MOZ_B2G
+  nsAutoCString host;
+  nsresult rv = aLoadState->URI()->GetHost(host);
+  if (NS_FAILED(rv)) {
+    host.AssignLiteral("");
+  }
+
+  // Extract app name from installed apps and rename the process.
+  if (StringEndsWith(host, ".local"_ns)) {
+    nsAutoCString appName;
+    appName.Assign(Substring(host, 0, host.Length() - 6));
+    mozilla::ipc::SetThisProcessName(appName.get());
+  }
+#endif
 
   nsCOMPtr<nsIDocShell> docShell = do_GetInterface(WebNavigation());
   MOZ_ASSERT(docShell);
