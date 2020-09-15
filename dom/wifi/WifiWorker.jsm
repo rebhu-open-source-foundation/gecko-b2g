@@ -1032,9 +1032,9 @@ var WifiManager = (function() {
         function(network) {
           if (network && network.netId !== WifiConstants.INVALID_NETWORK_ID) {
             wifiInfo.setNetworkId(network.netId);
-            WifiConfigUtils.getSecurityByKeyMgmt(network, function(security) {
-              wifiInfo.setSecurity(security);
-            });
+            wifiInfo.setSecurity(
+              WifiConfigUtils.matchKeyMgmtToSecurity(network)
+            );
           }
         }
       );
@@ -2204,10 +2204,9 @@ function isWepHexKey(s) {
 }
 
 const wepKeyList = ["wepKey0", "wepKey1", "wepKey2", "wepKey3"];
-function isInWepKeyList(name) {
-  for (let i = 0; i < wepKeyList.length; i++) {
-    let wepField = wepKeyList[i];
-    if (wepField in name && name[wepField]) {
+function isInWepKeyList(obj) {
+  for (let item in wepKeyList) {
+    if (obj[item]) {
       return true;
     }
   }
@@ -2428,10 +2427,7 @@ function WifiWorker() {
     var ssid = net.ssid ? dequote(net.ssid) : null;
     var mode = net.mode;
     var frequency = net.frequency;
-    var useKeyMgmt =
-      net.keyMgmt && net.keyMgmt !== "NONE" ? net.keyMgmt.split(" ")[0] : "";
-    var security =
-      net.keyMgmt === "NONE" && isInWepKeyList(net) ? "WEP" : useKeyMgmt;
+    var security = WifiConfigUtils.matchKeyMgmtToSecurity(net);
     var password;
     if (
       ("psk" in net && net.psk) ||
@@ -2502,12 +2498,14 @@ function WifiWorker() {
     // NB: Modifies net in place: safe since we don't share objects between
     // the dom and the chrome code.
 
+    let keyMgmt = WifiConfigUtils.matchSecurityToKeyMgmt(net);
     // Things that are useful for the UI but not to us.
     delete net.bssid;
     delete net.signalStrength;
     delete net.relSignalStrength;
     delete net.security;
     delete net.capabilities;
+    delete net.dontConnect;
 
     if (!configured) {
       configured = {};
@@ -2516,20 +2514,13 @@ function WifiWorker() {
     net.ssid = quote(net.ssid);
 
     let wep = false;
-    if ("keyManagement" in net) {
-      if (net.keyManagement === "WEP") {
-        wep = true;
-        net.keyManagement = "NONE";
-      } else if (net.keyManagement === "WPA-EAP") {
-        net.keyManagement += " IEEE8021X";
-      } else if (net.keyManagement === "SAE") {
-        net.pmf = true;
-      }
-      configured.keyMgmt = net.keyMgmt = net.keyManagement; // WPA2-PSK, WPA-PSK, etc.
-      delete net.keyManagement;
-    } else {
-      configured.keyMgmt = net.keyMgmt = "NONE";
+    if (keyMgmt === "WEP") {
+      wep = true;
+      keyMgmt = "NONE";
+    } else if (keyMgmt === "SAE") {
+      net.pmf = true;
     }
+    configured.keyMgmt = net.keyMgmt = keyMgmt;
 
     if (net.hidden) {
       configured.scanSsid = net.scanSsid = true;
@@ -2980,7 +2971,7 @@ function WifiWorker() {
         network.passpoint = passpoint;
 
         // Check whether open network is found.
-        if (network.keyManagement.includes("NONE")) {
+        if (network.security.includes("OPEN")) {
           numOpenNetworks++;
         }
 
@@ -4147,7 +4138,6 @@ WifiWorker.prototype = {
 
     let privnet = network;
     let dontConnect = privnet.dontConnect;
-    delete privnet.dontConnect;
 
     if (!WifiManager.enabled) {
       this._sendMessage(message, false, "Wifi is disabled", msg);

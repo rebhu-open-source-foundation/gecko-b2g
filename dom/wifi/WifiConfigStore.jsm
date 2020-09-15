@@ -58,11 +58,10 @@ this.WifiConfigStore = (function() {
     } else {
       networks = null;
     }
-
     return networks;
   }
 
-  function write(aNetworks, aCallback) {
+  function write(networks, callback) {
     let wifiConfigFile = new FileUtils.File(WIFI_CONFIG_PATH);
     // Initialize the file output stream.
     let ostream = FileUtils.openSafeFileOutputStream(wifiConfigFile);
@@ -74,17 +73,17 @@ this.WifiConfigStore = (function() {
     converter.charset = "UTF-8";
 
     // Asynchronously copy the data to the file.
-    let istream = converter.convertToInputStream(JSON.stringify(aNetworks));
+    let istream = converter.convertToInputStream(JSON.stringify(networks));
     NetUtil.asyncCopy(istream, ostream, rc => {
-      if (!Components.isSuccessCode(rc)) {
+      let success = Components.isSuccessCode(rc);
+      if (!success) {
         debug("Failed to write wifi configurations");
       }
       FileUtils.closeSafeFileOutputStream(ostream);
-      if (aCallback) {
-        aCallback();
+      if (callback) {
+        callback(success);
       }
     });
   }
-
   return wifiConfigStore;
 })();

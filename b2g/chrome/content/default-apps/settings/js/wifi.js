@@ -99,9 +99,9 @@ function onNetworks(networks, manager) {
     }
     document.getElementById(`wifi-network-${index}-connect`).onclick = () => {
       console.log(`WIFI Trying to associate with ${network.ssid}`);
-      network.keyManagement = "NONE";
+      network.security = "OPEN";
       console.log(
-        `WIFI object is ${network} ${network.ssid} ${network.keyManagement}`
+        `WIFI object is ${network} ${network.ssid} ${network.security}`
       );
 
       manager.associate(network).then(

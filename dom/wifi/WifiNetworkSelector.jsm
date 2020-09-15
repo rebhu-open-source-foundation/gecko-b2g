@@ -93,12 +93,14 @@ this.WifiNetworkSelector = (function() {
 
     if (scanResults.length == 0) {
       debug("Empty connectivity scan result");
-      return callback(null);
+      callback(null);
+      return;
     }
 
     // Shall we start network selection at all?
     if (!isNetworkSelectionNeeded(isLinkDebouncing, wifiState, wifiInfo)) {
-      return callback(null);
+      callback(null);
+      return;
     }
 
     var candidate = null;
@@ -124,11 +126,12 @@ this.WifiNetworkSelector = (function() {
 
     if (candidate == null) {
       debug("Can not find any suitable candidates");
-      return callback(null);
+      callback(null);
+      return;
     }
 
     lastNetworkSelectionTimeStamp = Date.now();
-    return callback(candidate);
+    callback(candidate);
   }
 
   function isNetworkSelectionNeeded(isLinkDebouncing, wifiState, wifiInfo) {
