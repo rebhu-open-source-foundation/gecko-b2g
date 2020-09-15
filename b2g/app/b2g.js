@@ -971,6 +971,8 @@ pref("dom.serviceWorkers.enabled", true);
 pref("dom.webnotifications.serviceworker.enabled", true);
 pref("dom.webnotifications.serviceworker.maxActions", 2);
 pref("dom.push.enabled", true);
+// TODO: KaiOS Bug 74955.
+pref("dom.push.quota.disabled", true);
 
 // Retain at most 10 processes' layers buffers
 pref("layers.compositor-lru-size", 10);
