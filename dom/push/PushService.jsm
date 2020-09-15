@@ -275,6 +275,7 @@ var PushService = {
       this._service.disconnect();
     }
 
+    let records = await this.getAllUnexpired();
     let broadcastListeners = await pushBroadcastService.getListeners();
 
     // In principle, a listener could be added to the
@@ -287,7 +288,9 @@ var PushService = {
     // getListeners.
     this._setState(PUSH_SERVICE_RUNNING);
 
-    this._service.connect(broadcastListeners);
+    if (records.length > 0) {
+      this._service.connect(broadcastListeners);
+    }
   },
 
   _changeStateConnectionEnabledEvent(enabled) {
