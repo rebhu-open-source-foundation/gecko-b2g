@@ -77,10 +77,33 @@ self.onsystemmessage = e => {
     <dd>A <code>WebActivityOptions</code> object contains the information about the current activity. Set by the app who starts the activity.</dd>
     <dt>postResult()</dt>
     <dd>Send back response and resolve the promise of app that starts the activity.</dd>
-    <dt>postRError()</dt>
+    <dt>postError()</dt>
     <dd>Send back error message and reject the promise of app that starts the activity.</dd>
 </dl>
 
 ## Register an App as an activity handler
 
-App can register itself as an activity handler to handle one or more activities. Besides declaring activity related information in the app manifest, app has to set up the service worker script in its manifest as well (however, this part is left as TODO for now). For how to declare activity handler information, please reference  [Registering an App as an activity handler](https://developer.mozilla.org/en-US/docs/Archive/B2G_OS/API/Web_Activities#Registering_an_App_as_an_activity_handler)
+App can register itself as an activity handler to handle one or more activities. Besides declaring activity related information in the app manifest, app has to set up the service worker script in its manifest as well.
+
+Format of setting up registration info of service worker in manifest is as follows:
+
+```javascript
+"serviceworker": {
+  "script_url": "script_url",
+  "options": {
+    "scope": "scope_of_sw",
+    "update_via_cache": "value_of_update_via_cache"
+  }
+},
+```
+The `options` object is optional, as defined in [ServiceWorkerContainer.register()#Syntax](https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerContainer/register#Syntax), for example:
+
+```javascript
+"serviceworker": {
+  "script_url": "sw.js"
+},
+```
+
+In the most case the above example is good enough.
+
+For how to declare activity handler information, please reference  [Registering an App as an activity handler](https://developer.mozilla.org/en-US/docs/Archive/B2G_OS/API/Web_Activities#Registering_an_App_as_an_activity_handler)

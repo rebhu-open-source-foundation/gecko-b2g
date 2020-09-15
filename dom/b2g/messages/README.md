@@ -15,7 +15,36 @@ To subscribe and receive system messages, an app has to have an active service w
 
 ### Subscribe system messages from application manifest
 
-Not yet implemented.
+First, we need to specify the registration info of service worker in manifest, the format is as follows
+
+```javascript
+"serviceworker": {
+  "script_url": "script_url",
+  "options": {
+    "scope": "scope_of_sw",
+    "update_via_cache": "value_of_update_via_cache"
+  }
+},
+```
+The `options` object is optional, as defined in [ServiceWorkerContainer.register()#Syntax](https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerContainer/register#Syntax), for example:
+
+```javascript
+"serviceworker": {
+  "script_url": "sw.js"
+},
+```
+
+In the most case the above example is good enough.
+
+Second, subscribe the names of system messages in manifest, the format is the same as in gecko48.
+
+```javascript
+"messages": [
+  { "alarm": "/index.html" },
+  { "sms-received": "/index.html" },
+],
+```
+Since now that system messages are dispatched to service worker, the field of `target page` ("/index.html" in the above example) does not affect the receiving of system messages.
 
 ### Subscribe system messages from service worker
 
