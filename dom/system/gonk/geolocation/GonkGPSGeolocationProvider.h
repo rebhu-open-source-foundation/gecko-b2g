@@ -98,6 +98,7 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
   void RequestDataConnection();
   void ReleaseDataConnection();
   void ListenTelephonyService(bool aStart);
+  void UpdateNetworkState(nsISupports* aNetworkInfo);
   NS_IMETHOD CallStateChanged(uint32_t length,
                               nsITelephonyCallInfo** allInfo) override;
 
@@ -151,7 +152,6 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
   bool mSupportsTimeInjection;
   bool mSupportsMSB;
   bool mSupportsMSA;
-  bool mEnableHighAccuracy;
 
   nsCOMPtr<nsIGeolocationUpdate> mLocationCallback;
   nsCOMPtr<nsIThread> mInitThread;
@@ -164,9 +164,9 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
   // RadioInterfaceLayer.js takes responsibility to set up the corresponding
   // preference value.
   uint32_t mNumberOfRilServices;
-  bool mObservingNetworkConnStateChange;
   nsCOMPtr<nsIRadioInterface> mRadioInterface;
 #endif
+  bool mEnableHighAccuracy;
 
   struct GnssDeathRecipient
       : virtual public android::hardware::hidl_death_recipient {

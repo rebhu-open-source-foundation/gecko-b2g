@@ -36,6 +36,7 @@
 #  include "nsIMobileConnectionService.h"
 #  include "nsIMobileNetworkInfo.h"
 #  include "nsINetworkInterface.h"  // for nsINetworkInfo
+#  include "nsINetworkManager.h"
 #  include "nsIObserverService.h"
 #  include "nsIRadioInterfaceLayer.h"
 #  include "nsITelephonyCallInfo.h"
@@ -153,8 +154,7 @@ static const auto kSettingDebugGpsIgnored =
     u"geolocation.debugging.gps-locations-ignored"_ns;
 
 #ifdef MOZ_B2G_RIL
-static const char* kNetworkConnStateChangedTopic =
-    "network-connection-state-changed";
+static const char* kNetworkActiveChangedTopic = "network-active-changed";
 static const char* kPrefRilNumRadioInterfaces = "ril.numRadioInterfaces";
 static const auto kSettingRilDefaultServiceId = u"ril.data.defaultServiceId"_ns;
 static const auto kSettingRilSuplApn = u"ril.supl.apn"_ns;
@@ -295,6 +295,10 @@ GonkGPSGeolocationProvider::GonkGPSGeolocationProvider()
       mSupportsTimeInjection(false),
       mSupportsMSB(false),
       mSupportsMSA(false),
+#ifdef MOZ_B2G_RIL
+      mRilDataServiceId(0),
+      mNumberOfRilServices(1),
+#endif
       mEnableHighAccuracy(false) {
   MOZ_ASSERT(NS_IsMainThread());
 
@@ -308,6 +312,14 @@ GonkGPSGeolocationProvider::GonkGPSGeolocationProvider()
     settings->AddObserver(kSettingDebugEnabled, this, this);
     settings->AddObserver(kSettingDebugGpsIgnored, this, this);
   }
+
+#ifdef MOZ_B2G_RIL
+  nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
+  if (!obs ||
+      NS_FAILED(obs->AddObserver(this, kNetworkActiveChangedTopic, false))) {
+    ERR("Failed to add active network changed observer!");
+  }
+#endif  // MOZ_B2G_RIL
 
   // Listen TelephonyService for updating gIsInEmergencySession
   ListenTelephonyService(true);
@@ -331,6 +343,14 @@ GonkGPSGeolocationProvider::~GonkGPSGeolocationProvider() {
     settings->RemoveObserver(kSettingDebugEnabled, this, this);
     settings->RemoveObserver(kSettingDebugGpsIgnored, this, this);
   }
+
+#ifdef MOZ_B2G_RIL
+  nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
+  if (!obs ||
+      NS_FAILED(obs->RemoveObserver(this, kNetworkActiveChangedTopic))) {
+    ERR("Failed to remove active network changed observer!");
+  }
+#endif  // MOZ_B2G_RIL
 
   // Stop listen TelephonyService
   ListenTelephonyService(false);
@@ -484,6 +504,14 @@ void GonkGPSGeolocationProvider::Init() {
     DBG("mAGnssHal_V2_0->setCallback");
     Return<void> agnssStatus = mAGnssHal_V2_0->setCallback(agnssCbIface);
   }
+
+  // report network state to IAGnssRil during the initialization since the
+  // information may be needed by HAL for network positioning integration
+  RefPtr<GonkGPSGeolocationProvider> self = this;
+  nsCOMPtr<nsIRunnable> r =
+      NS_NewRunnableFunction("GonkGPSGeolocationProvider::UpdateNetworkState",
+                             [self]() { self->UpdateNetworkState(nullptr); });
+  NS_DispatchToMainThread(r);
 #endif
 
   if (mGnssVisibilityControlHal != nullptr) {
@@ -871,24 +899,6 @@ NS_IMETHODIMP GonkGPSGeolocationProvider::HandleSettings(
 
     mRilDataServiceId = serviceId;
     UpdateRadioInterface();
-
-    if (!isObserved) {
-      // Observer may have been addded if RequestDataConnection() called first
-      if (mObservingNetworkConnStateChange) {
-        return NS_OK;
-      }
-
-      // Now we know which service ID to deal with, observe necessary topic then
-      nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
-      NS_ENSURE_TRUE(obs, NS_OK);
-
-      if (NS_FAILED(
-              obs->AddObserver(this, kNetworkConnStateChangedTopic, false))) {
-        ERR("Failed to add network state changed observer!");
-      } else {
-        mObservingNetworkConnStateChange = true;
-      }
-    }
   }
 #endif  // MOZ_B2G_RIL
   return NS_OK;
@@ -978,69 +988,93 @@ bool IsMetered(int aNetworkInterfaceType) {
   }
 }
 
+void GonkGPSGeolocationProvider::UpdateNetworkState(nsISupports* aNetworkInfo) {
+  MOZ_ASSERT(NS_IsMainThread());
+  if (!mAGnssRilHal_V2_0) {
+    ERR("mAGnssRilHal_V2_0 isn't available for updating network state.");
+    return;
+  }
+
+  nsCOMPtr<nsINetworkInfo> info;
+  if (aNetworkInfo) {
+    info = do_QueryInterface(aNetworkInfo);
+  } else {
+    nsCOMPtr<nsINetworkManager> networkManager =
+        do_GetService("@mozilla.org/network/manager;1");
+    if (!networkManager) {
+      ERR("network manager isn't available");
+      return;
+    }
+    networkManager->GetActiveNetworkInfo(getter_AddRefs(info));
+  }
+
+  int32_t netId = 0;
+  bool connected = false;
+  uint16_t capabilities = 0;
+
+  if (info) {
+    int32_t state;
+    int32_t type;
+    info->GetState(&state);
+    info->GetType(&type);
+    connected = (state == nsINetworkInfo::NETWORK_STATE_CONNECTED);
+    info->GetNetId(&netId);
+
+    bool metered = IsMetered(type);
+    bool roaming = false;
+    nsCOMPtr<nsIRilNetworkInfo> rilInfo = do_QueryInterface(info);
+    if (rilInfo) {
+      do {
+        nsCOMPtr<nsIMobileConnectionService> service =
+            do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
+        if (!service) {
+          break;
+        }
+
+        nsCOMPtr<nsIMobileConnection> connection;
+        service->GetItemByServiceId(mRilDataServiceId,
+                                    getter_AddRefs(connection));
+        if (!connection) {
+          break;
+        }
+
+        nsCOMPtr<nsIMobileConnectionInfo> voice;
+        connection->GetVoice(getter_AddRefs(voice));
+        if (voice) {
+          voice->GetRoaming(&roaming);
+        }
+      } while (0);
+    }
+
+    if (metered) {
+      capabilities +=
+          static_cast<uint16_t>(IAGnssRil_V2_0::NetworkCapability::NOT_METERED);
+    }
+    if (roaming) {
+      capabilities +=
+          static_cast<uint16_t>(IAGnssRil_V2_0::NetworkCapability::NOT_ROAMING);
+    }
+  }
+
+  IAGnssRil_V2_0::NetworkAttributes networkAttributes = {
+      .networkHandle = static_cast<uint64_t>(netId),
+      .isConnected = static_cast<bool>(connected),
+      .capabilities = capabilities,
+      // .apn is optional, remain it as empty
+  };
+  DBG("updateNetworkState_2_0, netId: %d, connected: %d, capabilities: %u)",
+      netId, connected, capabilities);
+  mAGnssRilHal_V2_0->updateNetworkState_2_0(networkAttributes);
+}
+
 NS_IMETHODIMP
 GonkGPSGeolocationProvider::Observe(nsISupports* aSubject, const char* aTopic,
                                     const char16_t* aData) {
   MOZ_ASSERT(NS_IsMainThread());
 
-  if (!strcmp(aTopic, kNetworkConnStateChangedTopic)) {
-    nsCOMPtr<nsINetworkInfo> info = do_QueryInterface(aSubject);
-    if (!info) {
-      return NS_OK;
-    }
+  if (!strcmp(aTopic, kNetworkActiveChangedTopic)) {
+    UpdateNetworkState(aSubject);
     nsCOMPtr<nsIRilNetworkInfo> rilInfo = do_QueryInterface(aSubject);
-    if (mAGnssRilHal_V2_0) {
-      int32_t state;
-      int32_t type;
-      info->GetState(&state);
-      info->GetType(&type);
-      int32_t netId;
-      info->GetNetId(&netId);
-      bool connected = (state == nsINetworkInfo::NETWORK_STATE_CONNECTED);
-      bool metered = IsMetered(type);
-      bool roaming = false;
-      if (rilInfo) {
-        do {
-          nsCOMPtr<nsIMobileConnectionService> service =
-              do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
-          if (!service) {
-            break;
-          }
-
-          nsCOMPtr<nsIMobileConnection> connection;
-          service->GetItemByServiceId(mRilDataServiceId,
-                                      getter_AddRefs(connection));
-          if (!connection) {
-            break;
-          }
-
-          nsCOMPtr<nsIMobileConnectionInfo> voice;
-          connection->GetVoice(getter_AddRefs(voice));
-          if (voice) {
-            voice->GetRoaming(&roaming);
-          }
-        } while (0);
-      }
-
-      uint16_t capabilities = 0;
-      if (metered) {
-        capabilities += static_cast<uint16_t>(
-            IAGnssRil_V2_0::NetworkCapability::NOT_METERED);
-      }
-      if (roaming) {
-        capabilities += static_cast<uint16_t>(
-            IAGnssRil_V2_0::NetworkCapability::NOT_ROAMING);
-      }
-      IAGnssRil_V2_0::NetworkAttributes networkAttributes = {
-          .networkHandle = static_cast<uint64_t>(netId),
-          .isConnected = static_cast<bool>(connected),
-          .capabilities = capabilities,
-          // .apn is optional, remain it as empty
-      };
-      DBG("updateNetworkState_2_0, netId: %d, connected: %d, capabilities: %u)",
-          netId, connected, capabilities);
-      mAGnssRilHal_V2_0->updateNetworkState_2_0(networkAttributes);
-    }
     // No data connection
     if (!rilInfo) {
       return NS_OK;
@@ -1075,6 +1109,8 @@ void GonkGPSGeolocationProvider::SetupAGPS() {
     LOG("GPS HAL supports neither MSA nor MSB");
     return;
   }
+
+  mNumberOfRilServices = Preferences::GetUint(kPrefRilNumRadioInterfaces, 1);
 
   // Request RIL date service ID for correct RadioInterface object first due to
   // multi-SIM case needs it to handle AGPS related stuffs. For single SIM, 0
@@ -1153,19 +1189,6 @@ void GonkGPSGeolocationProvider::RequestDataConnection() {
       settings->Get(kSettingRilSuplApn, this);
     }
   } else {
-    if (!mObservingNetworkConnStateChange) {
-      LOG("Add network state changed observer before updating "
-          "mRilDataServiceId");
-
-      nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
-      if (!obs || NS_FAILED(obs->AddObserver(
-                      this, kNetworkConnStateChangedTopic, false))) {
-        ERR("Failed to add network state changed observer!");
-      } else {
-        mObservingNetworkConnStateChange = true;
-      }
-    }
-
     DBG("nsIRadioInterface->SetupDataCallByType()");
     mRadioInterface->SetupDataCallByType(
         nsINetworkInfo::NETWORK_TYPE_MOBILE_SUPL);
