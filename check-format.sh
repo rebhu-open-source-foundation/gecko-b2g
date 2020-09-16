@@ -2,11 +2,11 @@
 set -e
 
 info() {
-  printf "[check-format][INFO]\033[1;33m${1}\033[0m\n"
+  printf "[check-format]\033[1;33m[INFO]${1}\033[0m\n"
 }
 
 warn() {
-  printf "[check-format][WARN]\033[0;31m${1}\033[0m\n"
+  printf "[check-format]\033[0;31m[WARN]${1}\033[0m\n"
 }
 
 help() {
@@ -32,6 +32,21 @@ help() {
   echo "-h | --help"
   echo "  Show this message."
   echo
+}
+
+check_commit_msg() {
+  COMMIT_MESSAGE_PATTERN="^Bug [[:digit:]]+ \- (.+\.) r=(me, a=)?([a-z]+\.[a-z]+)$"
+  local msg="${1}"
+
+  [[ ${msg} =~ ${COMMIT_MESSAGE_PATTERN} ]] && {
+      if [[ -n ${BASH_REMATCH[2]} ]]; then
+        warn "Seems that you have urgency, please make sure this is approved by ${BASH_REMATCH[3]}"
+      fi
+  } || {
+    warn "Commit message format error:"
+    echo "${msg}"
+    exit -1
+  }
 }
 
 trap 'warn "$(basename $0) caught error on line : $LINENO command was: $BASH_COMMAND"; exit 1' ERR
@@ -78,7 +93,12 @@ all_files=()
 js_files=()
 other_files=()
 
-info "${against_ref}"
+# validate the title of MR when running in CI
+if ${GITLAB_CI}; then
+  info "Validate the title of MR..."
+  check_commit_msg "${CI_MERGE_REQUEST_TITLE}"
+fi
+info "Diff against ${against_ref}"
 if [[ ${against_ref} == HEAD ]]; then
   # assume that all changed files are unstaged
   IFS=$'\n' read -r -d '' -a all_files < <( ${GIT} diff ${against_ref} --diff-filter=ARM --name-only && printf '\0' )
@@ -88,6 +108,12 @@ if [[ ${against_ref} == HEAD ]]; then
     IFS=$'\n' read -r -d '' -a all_files < <( ${GIT} diff ${against_ref} --diff-filter=ARM --cached --name-only && printf '\0' )
   fi
 else
+  # check the commit message format for each commit from ${against_ref} to HEAD
+  for c in `${GIT} rev-list ${against_ref}.. --reverse --abbrev-commit --abbrev=7`; do
+    info "Validating the commit message format of ${c} ..."
+    check_commit_msg "$(${GIT} show ${c} -q --format=%s)"
+  done
+  echo
   # get the ADDED, RENAMED and MODIFIED files compared to ${against_ref}
   info "Get files added / renamed / modified since ${against_ref} (real ID: `${GIT} rev-parse ${against_ref}`)"
   IFS=$'\n' read -r -d '' -a all_files < <( ${GIT} diff ${against_ref} --diff-filter=ARM --name-only && printf '\0' )

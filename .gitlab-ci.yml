@@ -73,7 +73,6 @@ lint:all:
       ${GIT_CLONE_PATH}
     - 'check_format_opt="--against HEAD~${depth} -v"'
     - *koost_setup
-    - ./mach create-mach-environment
     - ./check-format.sh ${check_format_opt}
   only:
     - merge_requests
@@ -81,7 +80,7 @@ lint:all:
     refs:
       - pipelines
     variables:
-      - $CI_MERGE_REQUEST_TITLE =~ /skip-lint/
+      - $CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/
 
 build:desktop:
   variables:
