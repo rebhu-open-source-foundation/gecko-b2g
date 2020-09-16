@@ -24,9 +24,7 @@ function debug(aStr) {
 
 var remoteShell = {
   get startURL() {
-    let url = Services.prefs.getCharPref(
-      "b2g.multiscreen.system_remote_app_url"
-    );
+    let url = Services.prefs.getCharPref("b2g.multiscreen.system_remote_url");
     if (!url) {
       console.error(
         `Please set the b2g.system_startup_url preference properly`
