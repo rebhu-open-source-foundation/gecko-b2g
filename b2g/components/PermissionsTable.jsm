@@ -77,7 +77,12 @@ this.PermissionsTable = {
     signed: PROMPT_ACTION,
     core: ALLOW_ACTION,
   },
-  "flip-manager": {
+  flashlight: {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
+  flip: {
     pwa: DENY_ACTION,
     signed: DENY_ACTION,
     core: ALLOW_ACTION,

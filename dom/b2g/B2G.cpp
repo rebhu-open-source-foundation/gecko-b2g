@@ -157,6 +157,11 @@ already_AddRefed<Promise> B2G::GetFlashlightManager(ErrorResult& aRv) {
       aRv.Throw(NS_ERROR_UNEXPECTED);
       return nullptr;
     }
+
+    if (!CheckPermission("flashlight"_ns, innerWindow)) {
+      return nullptr;
+    }
+
     mFlashlightManager = new FlashlightManager(innerWindow);
     mFlashlightManager->Init();
   }
@@ -178,7 +183,7 @@ already_AddRefed<Promise> B2G::GetFlipManager(ErrorResult& aRv) {
       return nullptr;
     }
 
-    if (!CheckPermission("flip-manager"_ns, innerWindow)) {
+    if (!CheckPermission("flip"_ns, innerWindow)) {
       return nullptr;
     }
 
