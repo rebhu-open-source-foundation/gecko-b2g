@@ -935,20 +935,13 @@ pref("browser.autofocus", false);
 // Enable wakelock
 pref("dom.wakelock.enabled", true);
 
-// New implementation to unify touch-caret and selection-carets.
-pref("layout.accessiblecaret.enabled", false);
-
-// Show the selection bars at the two ends of the selection highlight. Required
-// by the spec in bug 921965.
-pref("layout.accessiblecaret.bar.enabled", true);
-
-// APZ on real devices supports long tap events.
-#ifdef MOZ_WIDGET_GONK
-pref("layout.accessiblecaret.use_long_tap_injector", false);
-#endif
-
-// Hide carets and text selection dialog during scrolling.
-pref("layout.accessiblecaret.always_show_when_scrolling", false);
+// Overwrite the size in all.js
+pref("layout.accessiblecaret.width", "14");
+pref("layout.accessiblecaret.height", "14");
+pref("layout.accessiblecaret.margin-left", "0");
+pref("layout.accessiblecaret.caret_shown_when_long_tapping_on_empty_content", true);
+pref("layout.accessiblecaret.always_tilt", true);
+pref("layout.accessiblecaret.transition-duration", "0");
 
 // Enable mapped array buffer.
 #ifndef XP_WIN

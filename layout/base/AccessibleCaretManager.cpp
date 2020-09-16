@@ -33,6 +33,10 @@
 #include "nsLayoutUtils.h"
 #include "nsServiceManagerUtils.h"
 
+#ifdef MOZ_WIDGET_GONK
+#  include "AccessibleCaretGonk.h"
+#endif
+
 namespace mozilla {
 
 #undef AC_LOG
@@ -81,8 +85,13 @@ AccessibleCaretManager::AccessibleCaretManager(PresShell* aPresShell)
     return;
   }
 
+#ifdef MOZ_WIDGET_GONK
+  mFirstCaret = MakeUnique<AccessibleCaretGonk>(mPresShell);
+  mSecondCaret = MakeUnique<AccessibleCaretGonk>(mPresShell);
+#else
   mFirstCaret = MakeUnique<AccessibleCaret>(mPresShell);
   mSecondCaret = MakeUnique<AccessibleCaret>(mPresShell);
+#endif
 }
 
 AccessibleCaretManager::~AccessibleCaretManager() {
