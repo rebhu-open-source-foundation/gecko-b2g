@@ -772,6 +772,16 @@ var PushServiceWebSocket = {
     request.resolve(success);
   },
 
+  _queueUpdateStart: Promise.resolve(),
+  _queueUpdate: null,
+  _enqueueUpdate(op) {
+    console.debug("enqueueUpdate()");
+    if (!this._queueUpdate) {
+      this._queueUpdate = this._queueUpdateStart;
+    }
+    this._queueUpdate = this._queueUpdate.then(op).catch(_ => {});
+  },
+
   _handleDataUpdate(update) {
     let promise;
     if (typeof update.channelID != "string") {
@@ -781,6 +791,7 @@ var PushServiceWebSocket = {
       );
       return;
     }
+
     function updateRecord(record) {
       // Ignore messages that we've already processed. This can happen if the
       // connection drops between notifying the service worker and acking the
@@ -850,7 +861,7 @@ var PushServiceWebSocket = {
   _handleNotificationReply(reply) {
     console.debug("handleNotificationReply()");
     if (this._dataEnabled) {
-      this._handleDataUpdate(reply);
+      this._enqueueUpdate(_ => this._handleDataUpdate(reply));
       return;
     }
 
