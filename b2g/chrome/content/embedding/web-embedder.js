@@ -292,9 +292,7 @@ XPCOMUtils.defineLazyGetter(this, "Screenshot", function() {
           isFocus,
         };
         _webembed_log(`detail: ${JSON.stringify(detail)}`);
-        this.dispatchEvent(
-          new CustomEvent("inputmethod-contextchange", { detail })
-        );
+        delegates.imeHandler.focusChanged(detail);
       }, "inputmethod-contextchange");
 
       Services.obs.addObserver((subject, topic, data) => {
