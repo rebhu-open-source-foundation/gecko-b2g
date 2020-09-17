@@ -17,7 +17,16 @@ const { PushRecord } = ChromeUtils.import(
 const { PushCrypto } = ChromeUtils.import(
   "resource://gre/modules/PushCrypto.jsm"
 );
+const { AppConstants } = ChromeUtils.import(
+  "resource://gre/modules/AppConstants.jsm"
+);
+const isGonk = AppConstants.platform === "gonk";
 
+ChromeUtils.defineModuleGetter(
+  this,
+  "AlarmService",
+  "resource://gre/modules/AlarmService.jsm"
+);
 ChromeUtils.defineModuleGetter(
   this,
   "PushCredential",
@@ -139,6 +148,7 @@ var PushServiceWebSocket = {
   _mainPushService: null,
   _serverURI: null,
   _currentlyRegistering: new Set(),
+  _alarmID: null,
 
   newPushDB() {
     return new PushDB(
@@ -171,7 +181,11 @@ var PushServiceWebSocket = {
     console.debug("onUAIDChanged()");
 
     this._shutdownWS();
-    this._startBackoffTimer();
+    if (this._alarmEnabled) {
+      this._startBackoffAlarm();
+    } else {
+      this._startBackoffTimer();
+    }
   },
 
   /** Handles a ping, backoff, or request timeout timer event. */
@@ -195,6 +209,66 @@ var PushServiceWebSocket = {
   },
 
   /**
+   * There is only one alarm active at any time. This alarm has 3 intervals
+   * corresponding to 3 tasks.
+   *
+   * 1) Reconnect on ping timeout.
+   *    If we haven't received any messages from the server by the time this
+   *    alarm fires, the connection is closed and PushService tries to
+   *    reconnect, repurposing the alarm for (3).
+   *
+   * 2) Send a ping.
+   *    The protocol sends a ping ({}) on the wire every pingInterval ms. Once
+   *    it sends the ping, the alarm goes to task (1) which is waiting for
+   *    a pong. If data is received after the ping is sent,
+   *    _wsOnMessageAvailable() will reset the ping alarm (which cancels
+   *    waiting for the pong). So as long as the connection is fine, pong alarm
+   *    never fires.
+   *
+   * 3) Reconnect after backoff.
+   *    The alarm is set by _reconnectAfterBackoff() and increases in duration
+   *    every time we try and fail to connect.  When it triggers, websocket
+   *    setup begins again. On successful socket setup, the socket starts
+   *    receiving messages. The alarm now goes to (2) where it monitors the
+   *    WebSocket by sending a ping.  Since incoming data is a sign of the
+   *    connection being up, the ping alarm is reset every time data is
+   *    received.
+   */
+  _onAlarmFired() {
+    // Conditions are arranged in decreasing specificity.
+    // i.e. when _lastPingTime is not 0, other conditions are also true.
+    if (this._lastPingTime > 0) {
+      console.debug("Did not receive pong in time. Reconnecting WebSocket.");
+      this._shutdownWS();
+      this._startBackoffAlarm();
+    } else if (this._currentState == STATE_READY) {
+      // Send a ping.
+      // Bypass the queue; we don't want this to be kept pending.
+      // Watch out for exception in case the socket has disconnected.
+      // When this happens, we pretend the ping was sent and don't specially
+      // handle the exception, as the lack of a pong will lead to the socket
+      // being reset.
+      this._sendPing();
+    } else if (this._alarmID !== null) {
+      console.debug("reconnect alarm fired.");
+      // Reconnect after back-off.
+      // The check for a non-null _alarmID prevents a situation where the alarm
+      // fires, but _shutdownWS() is called from another code-path (e.g.
+      // network state change) and we don't want to reconnect.
+      //
+      // It also handles the case where _beginWSSetup() is called from another
+      // code-path.
+      //
+      // alarmID will be non-null only when no shutdown/connect is
+      // called between _reconnectAfterBackoff() setting the alarm and the
+      // alarm firing.
+
+      // Websocket is shut down. Backoff interval expired, try to connect.
+      this._beginWSSetup();
+    }
+  },
+
+  /**
    * Sends a ping to the server. Bypasses the request queue, but starts the
    * request timeout timer. If the socket is already closed, or the server
    * does not respond within the timeout, the client will reconnect.
@@ -202,7 +276,11 @@ var PushServiceWebSocket = {
   _sendPing() {
     console.debug("sendPing()");
 
-    this._startRequestTimeoutTimer();
+    if (this._alarmEnabled) {
+      this._setAlarm(prefs.getIntPref("requestTimeout"));
+    } else {
+      this._startRequestTimeoutTimer();
+    }
     try {
       this._wsSendMessage({});
       this._lastPingTime = Date.now();
@@ -230,6 +308,7 @@ var PushServiceWebSocket = {
     let requestTimedOut = false;
 
     if (
+      !this._alarmEnabled &&
       this._lastPingTime > 0 &&
       now - this._lastPingTime > this._requestTimeout
     ) {
@@ -281,6 +360,14 @@ var PushServiceWebSocket = {
   _retryFailCount: 0,
 
   /**
+   * Holds if the adaptive ping is enabled. This is read on init().
+   * If adaptive ping is enabled, a new ping is calculed each time we receive
+   * a pong message, trying to maximize network resources while minimizing
+   * cellular signalling storms.
+   */
+  _adaptiveEnabled: false,
+
+  /**
    * According to the WS spec, servers should immediately close the underlying
    * TCP connection after they close a WebSocket. This causes wsOnStop to be
    * called with error NS_BASE_STREAM_CLOSED. Since the client has to keep the
@@ -303,6 +390,33 @@ var PushServiceWebSocket = {
   _lastPingTime: 0,
 
   /**
+   * This saves a flag about if we need to recalculate a new ping, based on:
+   *   1) the gap between the maximum working ping and the first ping that
+   *      gives an error (timeout) OR
+   *   2) we have reached the pref of the maximum value we allow for a ping
+   *      (dom.push.adaptive.upperLimit)
+   */
+  _recalculatePing: true,
+
+  /**
+   * This map holds a (pingInterval, triedTimes) of each pingInterval tried.
+   * It is used to check if the pingInterval has been tested enough to know that
+   * is incorrect and is above the limit the network allow us to keep the
+   * connection open.
+   */
+  _pingIntervalRetryTimes: {},
+
+  /**
+   * Holds the lastGoodPingInterval for our current connection.
+   */
+  _lastGoodPingInterval: 0,
+
+  /**
+   * Maximum ping interval that we can reach.
+   */
+  _upperLimit: 0,
+
+  /**
    * A one-shot timer used to ping the server, to avoid timing out idle
    * connections. Reset to the ping interval on each incoming message.
    */
@@ -310,6 +424,9 @@ var PushServiceWebSocket = {
 
   /** A one-shot timer fired after the reconnect backoff period. */
   _backoffTimer: null,
+
+  /* A flag indicated whether using alarm for ping and backoff instead*/
+  _alarmEnabled: isGonk,
 
   /**
    * Sends a message to the Push Server through an open websocket.
@@ -343,7 +460,14 @@ var PushServiceWebSocket = {
       this._makeWebSocket = options.makeWebSocket;
     }
 
+    this._networkInfo = options.networkInfo;
+    if (!this._networkInfo) {
+      this._networkInfo = PushNetworkInfo;
+    }
+
     this._requestTimeout = prefs.getIntPref("requestTimeout");
+    this._adaptiveEnabled = prefs.getBoolPref("adaptive.enabled");
+    this._upperLimit = prefs.getIntPref("adaptive.upperLimit");
 
     if (prefs.getBoolPref("authorization.enabled", false)) {
       this.credential = new PushCredential();
@@ -355,7 +479,11 @@ var PushServiceWebSocket = {
   _reconnect() {
     console.debug("reconnect()");
     this._shutdownWS(false);
-    this._startBackoffTimer();
+    if (this._alarmEnabled) {
+      this._startBackoffAlarm();
+    } else {
+      this._startBackoffTimer();
+    }
   },
 
   _shutdownWS(shouldCancelPending = true) {
@@ -392,6 +520,10 @@ var PushServiceWebSocket = {
     if (this._notifyRequestQueue) {
       this._notifyRequestQueue();
       this._notifyRequestQueue = null;
+    }
+
+    if (this._alarmEnabled) {
+      this._stopAlarm();
     }
   },
 
@@ -453,6 +585,42 @@ var PushServiceWebSocket = {
     this._backoffTimer.init(this, retryTimeout, Ci.nsITimer.TYPE_ONE_SHOT);
   },
 
+  /**
+   * How retries work:  The goal is to ensure websocket is always up on
+   * networks not supporting UDP. So the websocket should only be shutdown if
+   * onServerClose indicates UDP wakeup.  If WS is closed due to socket error,
+   * _startBackoffAlarm() is called. The retry timer is started and when
+   * it times out, beginWSSetup() is called again.
+   *
+   * If we are in the middle of a timeout (i.e. waiting), but
+   * a register/unregister is called, we don't want to wait around anymore.
+   * _sendRequest will automatically call beginWSSetup(), which will cancel the
+   * timer. In addition since the state will have changed, even if a pending
+   * timer event comes in (because the timer fired the event before it was
+   * cancelled), so the connection won't be reset.
+   */
+  _startBackoffAlarm() {
+    console.debug("startBackoffAlarm()");
+    //Calculate new ping interval
+    this._calculateAdaptivePing(true /* wsWentDown */);
+
+    // Calculate new timeout, but cap it to pingInterval.
+    let retryTimeout =
+      prefs.getIntPref("retryBaseInterval") * Math.pow(2, this._retryFailCount);
+    retryTimeout = Math.min(retryTimeout, prefs.getIntPref("pingInterval"));
+
+    this._retryFailCount++;
+
+    console.debug(
+      "startBackoffAlarm: Retry in",
+      retryTimeout,
+      "Try number",
+      this._retryFailCount
+    );
+
+    this._setAlarm(retryTimeout);
+  },
+
   /** Indicates whether we're waiting for pongs or requests. */
   _hasPendingRequests() {
     return this._lastPingTime > 0 || this._pendingRequests.size > 0;
@@ -488,6 +656,231 @@ var PushServiceWebSocket = {
       prefs.getIntPref("pingInterval"),
       Ci.nsITimer.TYPE_ONE_SHOT
     );
+  },
+
+  /** |delay| should be in milliseconds. */
+  _setAlarm(delay) {
+    // Bug 909270: Since calls to AlarmService.add() are async, calls must be
+    // 'queued' to ensure only one alarm is ever active.
+    if (this._settingAlarm) {
+      // onSuccess will handle the set. Overwriting the variable enforces the
+      // last-writer-wins semantics.
+      this._queuedAlarmDelay = delay;
+      this._waitingForAlarmSet = true;
+      return;
+    }
+    // Stop any existing alarm.
+    this._stopAlarm();
+    this._settingAlarm = true;
+    AlarmService.add(
+      {
+        date: new Date(Date.now() + delay),
+        ignoreTimezone: true,
+      },
+      this._onAlarmFired.bind(this),
+      function onSuccess(alarmID) {
+        this._alarmID = alarmID;
+        console.debug("Set alarm " + delay + " in the future " + this._alarmID);
+        this._settingAlarm = false;
+        if (this._waitingForAlarmSet) {
+          this._waitingForAlarmSet = false;
+          this._setAlarm(this._queuedAlarmDelay);
+        }
+      }.bind(this)
+    );
+  },
+
+  _stopAlarm() {
+    if (this._alarmID !== null) {
+      console.debug("Stopped existing alarm " + this._alarmID);
+      AlarmService.remove(this._alarmID);
+      this._alarmID = null;
+    }
+  },
+
+  /**
+   * We need to calculate a new ping based on:
+   *  1) Latest good ping
+   *  2) A safe gap between 1) and the calculated new ping (which is
+   *  by default, 1 minute)
+   *
+   * This is for 3G networks, whose connections keepalives differ broadly,
+   * for example:
+   *  1) Movistar Spain: 29 minutes
+   *  2) VIVO Brazil: 5 minutes
+   *  3) Movistar Colombia: XXX minutes
+   *
+   * So a fixed ping is not good for us for two reasons:
+   *  1) We might lose the connection, so we need to reconnect again (wasting
+   *  resources)
+   *  2) We use a lot of network signaling just for pinging.
+   *
+   * This algorithm tries to search the best value between a disconnection and a
+   * valid ping, to ensure better battery life and network resources usage.
+   *
+   * The value is saved in dom.push.pingInterval
+   * @param wsWentDown [Boolean] if the WebSocket was closed or it is still
+   * alive
+   *
+   */
+  _calculateAdaptivePing(wsWentDown) {
+    console.debug("_calculateAdaptivePing()");
+    if (!this._adaptiveEnabled) {
+      console.debug("calculateAdaptivePing: Adaptive ping is disabled");
+      return;
+    }
+
+    if (this._retryFailCount > 0) {
+      console.warn(
+        "calculateAdaptivePing: Push has failed to connect to the",
+        "Push Server",
+        this._retryFailCount,
+        "times. Do not calculate a new",
+        "pingInterval now"
+      );
+      return;
+    }
+
+    if (!this._recalculatePing && !wsWentDown) {
+      console.debug(
+        "calculateAdaptivePing: We do not need to recalculate the",
+        "ping now, based on previous data"
+      );
+      return;
+    }
+
+    // Save actual state of the network
+    let ns = this._networkInfo.getNetworkInformation();
+
+    if (ns.ip) {
+      // mobile
+      console.debug("calculateAdaptivePing: mobile");
+      let oldNetwork = prefs.getStringPref("adaptive.mobile", "");
+      let newNetwork = "mobile-" + ns.mcc + "-" + ns.mnc;
+
+      // Mobile networks differ, reset all intervals and pings
+      if (oldNetwork !== newNetwork) {
+        // Network differ, reset all values
+        console.debug(
+          "calculateAdaptivePing: Mobile networks differ. Old",
+          "network is",
+          oldNetwork,
+          "and new is",
+          newNetwork
+        );
+        prefs.setStringPref("adaptive.mobile", newNetwork);
+        //We reset the upper bound member
+        this._recalculatePing = true;
+        this._pingIntervalRetryTimes = {};
+
+        // Put default values
+        let defaultPing = prefs.getIntPref("pingInterval.default");
+        prefs.setIntPref("pingInterval", defaultPing);
+        this._lastGoodPingInterval = defaultPing;
+      } else {
+        // Mobile network is the same, let's just update things
+        prefs.setIntPref(
+          "pingInterval",
+          prefs.getIntPref("pingInterval.mobile")
+        );
+        this._lastGoodPingInterval = prefs.getIntPref(
+          "adaptive.lastGoodPingInterval.mobile"
+        );
+      }
+    } else {
+      // wifi
+      console.debug("calculateAdaptivePing: wifi");
+      prefs.setIntPref("pingInterval", prefs.getIntPref("pingInterval.wifi"));
+      this._lastGoodPingInterval = prefs.getIntPref(
+        "adaptive.lastGoodPingInterval.wifi"
+      );
+    }
+
+    let nextPingInterval;
+    let lastTriedPingInterval = prefs.getIntPref("pingInterval");
+
+    if (wsWentDown) {
+      console.debug(
+        "calculateAdaptivePing: The WebSocket was disconnected.",
+        "Calculating next ping"
+      );
+
+      // If we have not tried this pingInterval yet, initialize
+      this._pingIntervalRetryTimes[lastTriedPingInterval] =
+        (this._pingIntervalRetryTimes[lastTriedPingInterval] || 0) + 1;
+
+      // Try the pingInterval at least 3 times, just to be sure that the
+      // calculated interval is not valid.
+      if (this._pingIntervalRetryTimes[lastTriedPingInterval] < 2) {
+        console.debug(
+          "calculateAdaptivePing: pingInterval=",
+          lastTriedPingInterval,
+          "tried only",
+          this._pingIntervalRetryTimes[lastTriedPingInterval],
+          "times"
+        );
+        return;
+      }
+
+      // Latest ping was invalid, we need to lower the limit to limit / 2
+      nextPingInterval = Math.floor(lastTriedPingInterval / 2);
+
+      // If the new ping interval is close to the last good one, we are near
+      // optimum, so stop calculating.
+      if (
+        nextPingInterval - this._lastGoodPingInterval <
+        prefs.getIntPref("adaptive.gap")
+      ) {
+        console.debug(
+          "calculateAdaptivePing: We have reached the gap, we",
+          "have finished the calculation. nextPingInterval=",
+          nextPingInterval,
+          "lastGoodPing=",
+          this._lastGoodPingInterval
+        );
+        nextPingInterval = this._lastGoodPingInterval;
+        this._recalculatePing = false;
+      } else {
+        console.debug("calculateAdaptivePing: We need to calculate next time");
+        this._recalculatePing = true;
+      }
+    } else {
+      console.debug("calculateAdaptivePing: The WebSocket is still up");
+      this._lastGoodPingInterval = lastTriedPingInterval;
+      nextPingInterval = Math.floor(lastTriedPingInterval * 1.5);
+    }
+
+    // Check if we have reached the upper limit
+    if (this._upperLimit < nextPingInterval) {
+      console.debug(
+        "calculateAdaptivePing: Next ping will be bigger than the",
+        "configured upper limit, capping interval"
+      );
+      this._recalculatePing = false;
+      this._lastGoodPingInterval = lastTriedPingInterval;
+      nextPingInterval = lastTriedPingInterval;
+    }
+
+    console.debug(
+      "calculateAdaptivePing: Setting the pingInterval to",
+      nextPingInterval
+    );
+    prefs.setIntPref("pingInterval", nextPingInterval);
+
+    //Save values for our current network
+    if (ns.ip) {
+      prefs.setIntPref("pingInterval.mobile", nextPingInterval);
+      prefs.setIntPref(
+        "adaptive.lastGoodPingInterval.mobile",
+        this._lastGoodPingInterval
+      );
+    } else {
+      prefs.setIntPref("pingInterval.wifi", nextPingInterval);
+      prefs.setIntPref(
+        "adaptive.lastGoodPingInterval.wifi",
+        this._lastGoodPingInterval
+      );
+    }
   },
 
   _makeWebSocket(uri) {
@@ -1229,12 +1622,17 @@ var PushServiceWebSocket = {
       typeof reply.messageType != "string"
     ) {
       console.debug("wsOnMessageAvailable: Pong received");
+      this._calculateAdaptivePing(false);
       doNotHandle = true;
     }
 
     // Reset the ping timer.  Note: This path is executed at every step of the
     // handshake, so this timer does not need to be set explicitly at startup.
-    this._startPingTimer();
+    if (this._alarmEnabled) {
+      this._setAlarm(prefs.getIntPref("pingInterval"));
+    } else {
+      this._startPingTimer();
+    }
 
     // If it is a ping, do not handle the message.
     if (doNotHandle) {
@@ -1367,6 +1765,63 @@ var PushServiceWebSocket = {
     };
 
     this._queueRequest(data);
+  },
+};
+
+var PushNetworkInfo = {
+  /**
+   * Returns information about MCC-MNC and the IP of the current connection.
+   */
+  getNetworkInformation() {
+    console.debug("PushNetworkInfo: getNetworkInformation()");
+
+    try {
+      let nm = Cc["@mozilla.org/network/manager;1"].getService(
+        Ci.nsINetworkManager
+      );
+      if (
+        nm.activeNetworkInfo &&
+        nm.activeNetworkInfo.type == Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE
+      ) {
+        let iccService = Cc["@mozilla.org/icc/iccservice;1"].getService(
+          Ci.nsIIccService
+        );
+        // TODO: Bug 927721 - PushService for multi-sim
+        // In Multi-sim, there is more than one client in iccService. Each
+        // client represents a icc handle. To maintain backward compatibility
+        // with single sim, we always use client 0 for now. Adding support
+        // for multiple sim will be addressed in bug 927721, if needed.
+        let clientId = 0;
+        let icc = iccService.getIccByServiceId(clientId);
+        let iccInfo = icc && icc.iccInfo;
+        if (iccInfo) {
+          console.debug("getNetworkInformation: Running on mobile data");
+
+          let ips = {};
+          let prefixLengths = {};
+          nm.activeNetworkInfo.getAddresses(ips, prefixLengths);
+
+          return {
+            mcc: iccInfo.mcc,
+            mnc: iccInfo.mnc,
+            ip: ips.value[0],
+          };
+        }
+      }
+    } catch (e) {
+      console.error(
+        "getNetworkInformation: Error recovering mobile network",
+        "information",
+        e
+      );
+    }
+
+    console.debug("getNetworkInformation: Running on wifi");
+    return {
+      mcc: 0,
+      mnc: 0,
+      ip: undefined,
+    };
   },
 };
 
