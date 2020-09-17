@@ -1675,6 +1675,12 @@
   value: true
   mirror: always
 
+# Enable the PermissionsManager API
+- name: dom.permissions.manager.enabled
+  type: bool
+  value: true
+  mirror: always
+
 - name: dom.enable_window_print
   type: bool
   value: @IS_NOT_ANDROID@

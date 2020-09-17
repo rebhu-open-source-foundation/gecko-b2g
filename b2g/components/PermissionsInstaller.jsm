@@ -20,7 +20,7 @@ const {
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-this.EXPORTED_SYMBOLS = ["PermissionsInstaller"];
+this.EXPORTED_SYMBOLS = ["PermissionsInstaller", "PermissionsHelper"];
 
 const kPermManager = Ci.nsIPermissionManager;
 
@@ -75,6 +75,18 @@ const PermissionsHelper = {
     let perms = Services.perms.getAllForPrincipal(principal);
 
     perms.forEach(perm => Services.perms.removePermission(perm));
+  },
+
+  addCoreApp(aOrigin) {
+    debug(`add core app: ${aOrigin}`);
+    if (!this.coreApps) {
+      this.coreApps = {};
+    }
+    this.coreApps[aOrigin] = true;
+  },
+
+  isCoreApp(aOrigin) {
+    return this.coreApps ? !!this.coreApps[aOrigin] : false;
   },
 };
 
@@ -148,6 +160,10 @@ this.PermissionsInstaller = {
         PermissionsHelper.addPermission(permission, aManifestURL, ALLOW_ACTION);
       });
 
+      if (isCore) {
+        PermissionsHelper.addCoreApp(uri.host);
+      }
+
       for (let permName in aFeatures.permissions) {
         if (!PermissionsTable[permName]) {
           Cu.reportError(
@@ -213,3 +229,18 @@ this.PermissionsInstaller = {
     PermissionsHelper.removeAllForURI(aManifestURL);
   },
 };
+
+ChromeUtils.registerWindowActor("PermissionsManager", {
+  includeChrome: true,
+  allFrames: true,
+  parent: {
+    moduleURI: "resource://gre/modules/PermissionsManagerParent.jsm",
+    messages: [
+      "PermissionsManager:AddPermission",
+      "PermissionsManager:IsExplicit",
+    ],
+  },
+  child: {
+    moduleURI: "resource://gre/modules/PermissionsManagerChild.jsm",
+  },
+});

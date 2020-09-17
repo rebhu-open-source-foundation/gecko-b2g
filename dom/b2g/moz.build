@@ -23,6 +23,7 @@ DIRS += [
     'inputmethod',
     'keyboardeventgenerator',
     'messages',
+    'permissions',
     'tethering',
 ]
 

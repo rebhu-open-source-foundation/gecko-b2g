@@ -455,7 +455,7 @@ pref("dom.mozNetworkStats.enabled", true);
 pref("dom.resource_stats.enabled", true);
 #endif
 
-pref("dom.mozPermissionSettings.enabled", true);
+pref("dom.permissions.manager.enabled", true);
 
 // controls if we want camera support
 pref("device.camera.enabled", true);

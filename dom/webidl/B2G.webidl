@@ -227,3 +227,11 @@ partial interface B2G {
   [Throws, Pref="device.storage.enabled"]
   DeviceStorage? getDeviceStorageByNameAndType(DOMString name, DOMString type);
 };
+
+partial interface B2G {
+  [Throws,
+   Pref="dom.permissions.manager.enabled",
+   Func="B2G::HasPermissionsManagerSupport",
+   Exposed=Window]
+  readonly attribute PermissionsManager permissions;
+};

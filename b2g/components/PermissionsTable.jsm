@@ -10,6 +10,7 @@ this.EXPORTED_SYMBOLS = [
   "expandPermissions",
   "PermissionsTable",
   "AllPossiblePermissions",
+  "permissionsReverseTable",
 ];
 
 // Permission access flags
@@ -243,9 +244,18 @@ this.expandPermissions = (aPermName, aAccess) => {
   return expandedPermNames;
 };
 
+this.permissionsReverseTable = {};
 this.AllPossiblePermissions = [];
 
 (function() {
+  // PermissionsTable as it is works well for direct searches, but not
+  // so well for reverse ones (that is, if I get something like
+  // device-storage:music-read or indexedDB-chrome-settings-read how
+  // do I know which permission it really is? Hence this table is
+  // born. The idea is that
+  // reverseTable[device-storage:music-read] should return
+  // device-storage:music
+  //
   // We also need a list of all the possible permissions for things like the
   // settingsmanager, so construct that while we're at it.
   for (let permName in PermissionsTable) {
@@ -256,6 +266,7 @@ this.AllPossiblePermissions = [];
       permAliases = expandPermissions(permName);
     }
     for (let i = 0; i < permAliases.length; i++) {
+      permissionsReverseTable[permAliases[i]] = permName;
       AllPossiblePermissions.push(permAliases[i]);
     }
   }

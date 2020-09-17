@@ -44,6 +44,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(B2G)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFlashlightManager)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFlipManager)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mInputMethod)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPermissionsManager)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTetheringManager)
 #ifdef MOZ_B2G_RIL
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mIccManager)
@@ -489,6 +490,28 @@ DownloadManager* B2G::GetDownloadManager(ErrorResult& aRv) {
     }
   }
   return mDownloadManager;
+}
+
+/* static */
+bool B2G::HasPermissionsManagerSupport(JSContext* /* unused */,
+                                       JSObject* aGlobal) {
+  nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);
+  return B2G::CheckPermission("permissions"_ns, innerWindow);
+}
+
+PermissionsManager* B2G::GetPermissions(ErrorResult& aRv) {
+  if (!mPermissionsManager) {
+    if (!mOwner) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+    mPermissionsManager = ConstructJSImplementation<PermissionsManager>(
+        "@mozilla.org/permissions-manager;1", GetParentObject(), aRv);
+    if (aRv.Failed()) {
+      return nullptr;
+    }
+  }
+  return mPermissionsManager;
 }
 
 #ifdef MOZ_AUDIO_CHANNEL_MANAGER

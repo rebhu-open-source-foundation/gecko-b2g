@@ -1,0 +1,17 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+"use strict";
+
+this.EXPORTED_SYMBOLS = ["PermissionsManagerChild"];
+
+class PermissionsManagerChild extends JSWindowActorChild {
+  isExplicit(params) {
+    return this.sendQuery("PermissionsManager:IsExplicit", params);
+  }
+
+  addPermission(params) {
+    return this.sendQuery("PermissionsManager:AddPermission", params);
+  }
+}

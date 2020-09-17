@@ -51,6 +51,7 @@
 #include "DeviceStorage.h"
 #include "mozilla/dom/DeviceStorageAreaListener.h"
 #include "mozilla/dom/DownloadManagerBinding.h"
+#include "mozilla/dom/PermissionsManagerBinding.h"
 
 #include "mozilla/dom/WakeLock.h"
 #include "mozilla/dom/power/PowerManagerService.h"
@@ -124,6 +125,10 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
 
   DownloadManager* GetDownloadManager(ErrorResult& aRv);
 
+  static bool HasPermissionsManagerSupport(JSContext* /* unused */,
+                                           JSObject* aGlobal);
+  PermissionsManager* GetPermissions(ErrorResult& aRv);
+
 #ifdef MOZ_AUDIO_CHANNEL_MANAGER
   system::AudioChannelManager* GetAudioChannelManager(ErrorResult& aRv);
 #endif
@@ -195,6 +200,8 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
 #endif
 
   RefPtr<DownloadManager> mDownloadManager;
+
+  RefPtr<PermissionsManager> mPermissionsManager;
 #ifdef MOZ_AUDIO_CHANNEL_MANAGER
   RefPtr<system::AudioChannelManager> mAudioChannelManager;
 #endif
