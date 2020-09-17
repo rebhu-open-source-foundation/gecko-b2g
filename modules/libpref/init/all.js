@@ -425,7 +425,7 @@ pref("media.videocontrols.picture-in-picture.enabled", false);
 pref("media.videocontrols.picture-in-picture.video-toggle.enabled", false);
 pref("media.videocontrols.picture-in-picture.video-toggle.always-show", false);
 pref("media.videocontrols.picture-in-picture.video-toggle.min-video-secs", 45);
-pref("media.videocontrols.picture-in-picture.video-toggle.mode", -1);
+pref("media.videocontrols.picture-in-picture.video-toggle.mode", 2);
 pref("media.videocontrols.picture-in-picture.video-toggle.position", "right");
 pref("media.videocontrols.picture-in-picture.video-toggle.has-used", false);
 
@@ -4416,6 +4416,14 @@ pref("browser.sanitizer.loglevel", "Warn");
 // To disable blocking of auth prompts, set the limit to -1.
 pref("prompts.authentication_dialog_abuse_limit", 2);
 
+// The prompt type to use for http auth prompts
+// content: 1, tab: 2, window: 3
+#ifdef NIGHTLY_BUILD
+  pref("prompts.modalType.httpAuth", 2);
+#else
+  pref("prompts.modalType.httpAuth", 3);
+#endif
+
 // Payment Request API preferences
 pref("dom.payments.loglevel", "Warn");
 pref("dom.payments.defaults.saveCreditCard", false);
@@ -4440,6 +4448,9 @@ pref("dom.clients.openwindow_favors_same_process", true);
 #else
   pref("toolkit.aboutPerformance.showInternals", true);
 #endif
+
+// If `true`, about:processes shows thread information.
+pref("toolkit.aboutProcesses.showThreads", false);
 
 // When a crash happens, whether to include heap regions of the crash context
 // in the minidump. Enabled by default on nightly and aurora.

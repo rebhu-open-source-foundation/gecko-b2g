@@ -71,7 +71,6 @@ class PreallocatedProcessManagerImpl;
 class BenchmarkStorageParent;
 
 using mozilla::loader::PScriptCacheParent;
-using mozilla::scache::PStartupCacheParent;
 
 namespace embedding {
 class PrintingParent;
@@ -959,10 +958,6 @@ class ContentParent final
   bool DeallocPImsRegistrationParent(PImsRegistrationParent* aActor);
 #endif
 
-  PStartupCacheParent* AllocPStartupCacheParent();
-
-  bool DeallocPStartupCacheParent(PStartupCacheParent* shell);
-
   bool DeallocPNeckoParent(PNeckoParent* necko);
 
   already_AddRefed<PExternalHelperAppParent> AllocPExternalHelperAppParent(
@@ -1451,6 +1446,10 @@ class ContentParent final
       const MaybeDiscarded<BrowsingContext>& aContext,
       const uint32_t& aCacheKey);
 
+  mozilla::ipc::IPCResult
+  RecvSessionHistoryEntryStoreWindowNameInContiguousEntries(
+      const MaybeDiscarded<BrowsingContext>& aContext, const nsString& aName);
+
   mozilla::ipc::IPCResult RecvSetActiveSessionHistoryEntryForTop(
       const MaybeDiscarded<BrowsingContext>& aContext,
       const Maybe<nsPoint>& aPreviousScrollPos, SessionHistoryInfo&& aInfo,
@@ -1695,6 +1694,8 @@ const nsDependentCSubstring RemoteTypePrefix(
 bool IsWebRemoteType(const nsACString& aContentProcessType);
 
 bool IsWebCoopCoepRemoteType(const nsACString& aContentProcessType);
+
+bool IsPriviligedMozillaRemoteType(const nsACString& aContentProcessType);
 
 inline nsISupports* ToSupports(mozilla::dom::ContentParent* aContentParent) {
   return static_cast<nsIDOMProcessParent*>(aContentParent);

@@ -30,7 +30,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   truncate: "chrome://marionette/content/format.js",
 });
 
-XPCOMUtils.defineLazyGetter(this, "logger", Log.get);
+XPCOMUtils.defineLazyGetter(this, "logger", () => Log.get());
 
 const { TYPE_ONE_SHOT, TYPE_REPEATING_SLACK } = Ci.nsITimer;
 
@@ -49,20 +49,6 @@ function executeSoon(func) {
 
   Services.tm.dispatchToMainThread(func);
 }
-
-/**
- * @callback Condition
- *
- * @param {function(*)} resolve
- *     To be called when the condition has been met.  Will return the
- *     resolved value.
- * @param {function} reject
- *     To be called when the condition has not been met.  Will cause
- *     the condition to be revaluated or time out.
- *
- * @return {*}
- *     The value from calling ``resolve``.
- */
 
 /**
  * Runs a Promise-like function off the main thread until it is resolved

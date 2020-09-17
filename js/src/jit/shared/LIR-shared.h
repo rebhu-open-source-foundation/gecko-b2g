@@ -3124,6 +3124,27 @@ class LTruncateDToInt32 : public LInstructionHelper<1, 1, 1> {
   MTruncateToInt32* mir() const { return mir_->toTruncateToInt32(); }
 };
 
+// Convert a double to a truncated int32, carrying the tls value because we need
+// it for the slow ool path.
+class LWasmBuiltinTruncateDToInt32 : public LInstructionHelper<1, 2, 1> {
+ public:
+  LIR_HEADER(WasmBuiltinTruncateDToInt32)
+
+  LWasmBuiltinTruncateDToInt32(const LAllocation& in, const LAllocation& tls,
+                               const LDefinition& temp)
+      : LInstructionHelper(classOpcode) {
+    setOperand(0, in);
+    setOperand(1, tls);
+    setTemp(0, temp);
+  }
+
+  const LDefinition* tempFloat() { return getTemp(0); }
+
+  MWasmBuiltinTruncateToInt32* mir() const {
+    return mir_->toWasmBuiltinTruncateToInt32();
+  }
+};
+
 // Convert a float32 to a truncated int32.
 //   Input: floating-point register
 //   Output: 32-bit integer
@@ -3140,6 +3161,27 @@ class LTruncateFToInt32 : public LInstructionHelper<1, 1, 1> {
   const LDefinition* tempFloat() { return getTemp(0); }
 
   MTruncateToInt32* mir() const { return mir_->toTruncateToInt32(); }
+};
+
+// Convert a float32 to a truncated int32, carrying the tls value because we
+// need it for the slow ool path.
+class LWasmBuiltinTruncateFToInt32 : public LInstructionHelper<1, 2, 1> {
+ public:
+  LIR_HEADER(WasmBuiltinTruncateFToInt32)
+
+  LWasmBuiltinTruncateFToInt32(const LAllocation& in, const LAllocation& tls,
+                               const LDefinition& temp)
+      : LInstructionHelper(classOpcode) {
+    setOperand(0, in);
+    setOperand(1, tls);
+    setTemp(0, temp);
+  }
+
+  const LDefinition* tempFloat() { return getTemp(0); }
+
+  MWasmBuiltinTruncateToInt32* mir() const {
+    return mir_->toWasmBuiltinTruncateToInt32();
+  }
 };
 
 class LWasmTruncateToInt32 : public LInstructionHelper<1, 1, 0> {
@@ -5722,6 +5764,23 @@ class LGetIteratorCache : public LInstructionHelper<1, BOX_PIECES, 2> {
   const LDefinition* temp2() { return getTemp(1); }
 };
 
+class LOptimizeSpreadCallCache : public LInstructionHelper<1, BOX_PIECES, 1> {
+ public:
+  LIR_HEADER(OptimizeSpreadCallCache)
+
+  static const size_t Value = 0;
+
+  LOptimizeSpreadCallCache(const LBoxAllocation& value, const LDefinition& temp)
+      : LInstructionHelper(classOpcode) {
+    setBoxOperand(Value, value);
+    setTemp(0, temp);
+  }
+  const MOptimizeSpreadCallCache* mir() const {
+    return mir_->toOptimizeSpreadCallCache();
+  }
+  const LDefinition* temp() { return getTemp(0); }
+};
+
 class LIteratorMore : public LInstructionHelper<BOX_PIECES, 1, 1> {
  public:
   LIR_HEADER(IteratorMore)
@@ -6454,23 +6513,26 @@ class LMegamorphicLoadSlot : public LCallInstructionHelper<BOX_PIECES, 1, 3> {
 };
 
 class LMegamorphicLoadSlotByValue
-    : public LCallInstructionHelper<BOX_PIECES, 1 + BOX_PIECES, 1> {
+    : public LCallInstructionHelper<BOX_PIECES, 1 + BOX_PIECES, 2> {
  public:
   LIR_HEADER(MegamorphicLoadSlotByValue)
 
   LMegamorphicLoadSlotByValue(const LAllocation& obj,
                               const LBoxAllocation& idVal,
-                              const LDefinition& temp)
+                              const LDefinition& temp1,
+                              const LDefinition& temp2)
       : LCallInstructionHelper(classOpcode) {
     setOperand(0, obj);
     setBoxOperand(IdIndex, idVal);
-    setTemp(0, temp);
+    setTemp(0, temp1);
+    setTemp(1, temp2);
   }
 
   static const size_t IdIndex = 1;
 
   const LAllocation* object() { return getOperand(0); }
-  const LDefinition* temp() { return getTemp(0); }
+  const LDefinition* temp1() { return getTemp(0); }
+  const LDefinition* temp2() { return getTemp(1); }
 
   MMegamorphicLoadSlotByValue* mir() const {
     return mir_->toMegamorphicLoadSlotByValue();
@@ -6478,17 +6540,19 @@ class LMegamorphicLoadSlotByValue
 };
 
 class LMegamorphicStoreSlot
-    : public LCallInstructionHelper<BOX_PIECES, 1 + BOX_PIECES, 2> {
+    : public LCallInstructionHelper<BOX_PIECES, 1 + BOX_PIECES, 3> {
  public:
   LIR_HEADER(MegamorphicStoreSlot)
 
   LMegamorphicStoreSlot(const LAllocation& obj, const LBoxAllocation& rhs,
-                        const LDefinition& temp1, const LDefinition& temp2)
+                        const LDefinition& temp1, const LDefinition& temp2,
+                        const LDefinition& temp3)
       : LCallInstructionHelper(classOpcode) {
     setOperand(0, obj);
     setBoxOperand(RhsIndex, rhs);
     setTemp(0, temp1);
     setTemp(1, temp2);
+    setTemp(2, temp3);
   }
 
   static const size_t RhsIndex = 1;
@@ -6496,27 +6560,30 @@ class LMegamorphicStoreSlot
   const LAllocation* object() { return getOperand(0); }
   const LDefinition* temp1() { return getTemp(0); }
   const LDefinition* temp2() { return getTemp(1); }
+  const LDefinition* temp3() { return getTemp(2); }
 
   MMegamorphicStoreSlot* mir() const { return mir_->toMegamorphicStoreSlot(); }
 };
 
 class LMegamorphicHasProp
-    : public LCallInstructionHelper<1, 1 + BOX_PIECES, 1> {
+    : public LCallInstructionHelper<1, 1 + BOX_PIECES, 2> {
  public:
   LIR_HEADER(MegamorphicHasProp)
 
   LMegamorphicHasProp(const LAllocation& obj, const LBoxAllocation& idVal,
-                      const LDefinition& temp)
+                      const LDefinition& temp1, const LDefinition& temp2)
       : LCallInstructionHelper(classOpcode) {
     setOperand(0, obj);
     setBoxOperand(IdIndex, idVal);
-    setTemp(0, temp);
+    setTemp(0, temp1);
+    setTemp(1, temp2);
   }
 
   static const size_t IdIndex = 1;
 
   const LAllocation* object() { return getOperand(0); }
-  const LDefinition* temp() { return getTemp(0); }
+  const LDefinition* temp1() { return getTemp(0); }
+  const LDefinition* temp2() { return getTemp(1); }
 
   MMegamorphicHasProp* mir() const { return mir_->toMegamorphicHasProp(); }
 };

@@ -4709,11 +4709,13 @@ static bool SetJitCompilerOption(JSContext* cx, unsigned argc, Value* vp) {
 
   // Similarly, don't allow enabling or disabling Warp at runtime. Bytecode and
   // VM data structures depend on whether TI is enabled/disabled.
-  if (opt == JSJITCOMPILER_WARP_ENABLE &&
-      bool(number) != jit::JitOptions.warpBuilder) {
-    JS_ReportErrorASCII(
-        cx, "Enabling or disabling Warp at runtime is not supported.");
-    return false;
+  if (opt == JSJITCOMPILER_WARP_ENABLE) {
+    if (bool(number) != jit::JitOptions.warpBuilder) {
+      JS_ReportErrorASCII(
+          cx, "Enabling or disabling Warp at runtime is not supported.");
+      return false;
+    }
+    return true;
   }
 
   // Throw if disabling the JITs and there's JIT code on the stack, to avoid
@@ -4761,7 +4763,7 @@ static bool SetJitCompilerOption(JSContext* cx, unsigned argc, Value* vp) {
 
   // JIT compiler options are process-wide, so we have to stop off-thread
   // compilations for all runtimes to avoid races.
-  HelperThreadState().waitForAllThreads();
+  WaitForAllHelperThreads();
 
   // Only release JIT code for the current runtime because there's no good
   // way to discard code for other runtimes.
@@ -8177,6 +8179,7 @@ static bool WasmLoop(JSContext* cx, unsigned argc, Value* vp) {
 }
 
 static constexpr uint32_t DOM_OBJECT_SLOT = 0;
+static constexpr uint32_t DOM_OBJECT_SLOT2 = 1;
 
 static const JSClass* GetDomClass();
 
@@ -9588,6 +9591,17 @@ static bool dom_set_x(JSContext* cx, HandleObject obj, void* self,
   return true;
 }
 
+static bool dom_get_slot(JSContext* cx, HandleObject obj, void* self,
+                         JSJitGetterCallArgs args) {
+  MOZ_ASSERT(JS::GetClass(obj) == GetDomClass());
+  MOZ_ASSERT(self == DOM_PRIVATE_VALUE);
+
+  Value v = JS::GetReservedSlot(obj, DOM_OBJECT_SLOT2);
+  MOZ_ASSERT(v.toInt32() == 42);
+  args.rval().set(v);
+  return true;
+}
+
 static bool dom_get_global(JSContext* cx, HandleObject obj, void* self,
                            JSJitGetterCallArgs args) {
   MOZ_ASSERT(JS::GetClass(obj) == GetDomClass());
@@ -9659,6 +9673,22 @@ static const JSJitInfo dom_x_setterinfo = {
     0                           /* slotIndex */
 };
 
+static const JSJitInfo dom_slot_getterinfo = {
+    {(JSJitGetterOp)dom_get_slot},
+    {0}, /* protoID */
+    {0}, /* depth */
+    JSJitInfo::Getter,
+    JSJitInfo::AliasNone, /* aliasSet */
+    JSVAL_TYPE_INT32,     /* returnType */
+    false,                /* isInfallible. False in setters. */
+    true,                 /* isMovable */
+    true,                 /* isEliminatable */
+    true,                 /* isAlwaysInSlot */
+    false,                /* isLazilyCachedInSlot */
+    false,                /* isTypedMethod */
+    DOM_OBJECT_SLOT2      /* slotIndex */
+};
+
 // Note: this getter uses AliasEverything and is marked as fallible and
 // non-movable (1) to prevent Ion from getting too clever optimizing it and
 // (2) it's nice to have a few different kinds of getters in the shell.
@@ -9714,6 +9744,8 @@ static const JSPropertySpec dom_props[] = {
     JSPropertySpec::nativeAccessors("x", JSPROP_ENUMERATE, dom_genericGetter,
                                     &dom_x_getterinfo, dom_genericSetter,
                                     &dom_x_setterinfo),
+    JSPropertySpec::nativeAccessors("slot", JSPROP_ENUMERATE, dom_genericGetter,
+                                    &dom_slot_getterinfo),
     JSPropertySpec::nativeAccessors("global", JSPROP_ENUMERATE,
                                     dom_genericGetter, &dom_global_getterinfo,
                                     dom_genericSetter, &dom_global_setterinfo),
@@ -9802,6 +9834,7 @@ static bool dom_genericMethod(JSContext* cx, unsigned argc, JS::Value* vp) {
 static void InitDOMObject(HandleObject obj) {
   JS::SetReservedSlot(obj, DOM_OBJECT_SLOT,
                       PrivateValue(const_cast<void*>(DOM_PRIVATE_VALUE)));
+  JS::SetReservedSlot(obj, DOM_OBJECT_SLOT2, Int32Value(42));
 }
 
 static JSObject* GetDOMPrototype(JSContext* cx, JSObject* global) {
@@ -10290,6 +10323,20 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
 
   JS::SetUseOffThreadParseGlobal(useOffThreadParseGlobal);
 
+  // First check some options that set default warm-up thresholds, so these
+  // thresholds can be overridden below by --ion-eager and other flags.
+#ifdef NIGHTLY_BUILD
+  if (op.getBoolOption("no-warp")) {
+    MOZ_ASSERT(!jit::JitOptions.warpBuilder,
+               "WarpBuilder is disabled by default");
+  } else if (op.getBoolOption("warp")) {
+    jit::JitOptions.setWarpEnabled(true);
+  }
+#endif
+  if (op.getBoolOption("fast-warmup")) {
+    jit::JitOptions.setFastWarmUp();
+  }
+
   if (op.getBoolOption("no-ion-for-main-context")) {
     JS::ContextOptionsRef(cx).setDisableIon();
   }
@@ -10528,15 +10575,6 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
     jit::JitOptions.traceRegExpPeephole = true;
   }
 
-#ifdef NIGHTLY_BUILD
-  if (op.getBoolOption("no-warp")) {
-    MOZ_ASSERT(!jit::JitOptions.warpBuilder,
-               "WarpBuilder is disabled by default");
-  } else if (op.getBoolOption("warp")) {
-    jit::JitOptions.setWarpEnabled(true);
-  }
-#endif
-
   int32_t inliningEntryThreshold = op.getIntOption("inlining-entry-threshold");
   if (inliningEntryThreshold > 0) {
     jit::JitOptions.inliningEntryThreshold = inliningEntryThreshold;
@@ -10556,9 +10594,6 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
 
   if (op.getBoolOption("ion-eager")) {
     jit::JitOptions.setEagerIonCompilation();
-  }
-  if (op.getBoolOption("fast-warmup")) {
-    jit::JitOptions.setFastWarmUp();
   }
 
   offthreadCompilation = true;

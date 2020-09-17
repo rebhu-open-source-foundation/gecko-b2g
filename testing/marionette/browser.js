@@ -22,7 +22,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   WebElementEventTarget: "chrome://marionette/content/dom.js",
 });
 
-XPCOMUtils.defineLazyGetter(this, "logger", Log.get);
+XPCOMUtils.defineLazyGetter(this, "logger", () => Log.get());
 
 /** @namespace */
 this.browser = {};
@@ -179,14 +179,6 @@ browser.Context = class {
     // browser window, this.tab will still point to tab A, despite tab B
     // being the currently selected tab.
     this.tab = null;
-
-    // Commands which trigger a navigation can cause the frame script to be
-    // moved to a different process. To not loose the currently active
-    // command, or any other already pushed following command, store them as
-    // long as they haven't been fully processed. The commands get flushed
-    // after a new browser has been registered.
-    this.pendingCommands = [];
-    this._needsFlushPendingCommands = false;
 
     this.frameRegsPending = 0;
 
@@ -516,44 +508,11 @@ browser.Context = class {
 
       if (target === this.contentBrowser) {
         this.updateIdForBrowser(this.contentBrowser, uid);
-        this._needsFlushPendingCommands = true;
       }
     }
 
     // used to delete sessions
     this.knownFrames.push(uid);
-  }
-
-  /**
-   * Flush any queued pending commands.
-   *
-   * Needs to be run after a process change for the frame script.
-   */
-  flushPendingCommands() {
-    if (!this._needsFlushPendingCommands) {
-      return;
-    }
-
-    this.pendingCommands.forEach(cb => cb());
-    this._needsFlushPendingCommands = false;
-  }
-
-  /**
-   * This function intercepts commands interacting with content and queues
-   * or executes them as needed.
-   *
-   * No commands interacting with content are safe to process until
-   * the new listener script is loaded and registered itself.
-   * This occurs when a command whose effect is asynchronous (such
-   * as goBack) results in process change of the frame script and new
-   * commands are subsequently posted to the server.
-   */
-  executeWhenReady(cb) {
-    if (this._needsFlushPendingCommands) {
-      this.pendingCommands.push(cb);
-    } else {
-      cb();
-    }
   }
 };
 

@@ -20,12 +20,12 @@
 #include <algorithm>
 #include <initializer_list>
 
+#include "builtin/ModuleObject.h"
 #include "jit/AtomicOp.h"
 #include "jit/BaselineIC.h"
 #include "jit/FixedList.h"
 #include "jit/InlineList.h"
 #include "jit/JitAllocPolicy.h"
-#include "jit/MacroAssembler.h"
 #include "jit/MOpcodesGenerated.h"
 #include "jit/TIOracle.h"
 #include "jit/TypePolicy.h"
@@ -4366,6 +4366,41 @@ class MTruncateToInt32 : public MUnaryInstruction, public ToInt32Policy::Data {
   wasm::BytecodeOffset bytecodeOffset() const { return bytecodeOffset_; }
 
   ALLOW_CLONE(MTruncateToInt32)
+};
+
+// It is like MTruncateToInt32 but with tls dependency.
+class MWasmBuiltinTruncateToInt32 : public MAryInstruction<2>,
+                                    public ToInt32Policy::Data {
+  wasm::BytecodeOffset bytecodeOffset_;
+
+  MWasmBuiltinTruncateToInt32(
+      MDefinition* def, MDefinition* tls,
+      wasm::BytecodeOffset bytecodeOffset = wasm::BytecodeOffset())
+      : MAryInstruction(classOpcode), bytecodeOffset_(bytecodeOffset) {
+    initOperand(0, def);
+    initOperand(1, tls);
+    setResultType(MIRType::Int32);
+    setMovable();
+
+    // Guard unless the conversion is known to be non-effectful & non-throwing.
+    if (MTruncateToInt32::mightHaveSideEffects(def)) {
+      setGuard();
+    }
+  }
+
+ public:
+  INSTRUCTION_HEADER(WasmBuiltinTruncateToInt32)
+  NAMED_OPERANDS((0, input), (1, tls))
+  TRIVIAL_NEW_WRAPPERS
+
+  bool congruentTo(const MDefinition* ins) const override {
+    return congruentIfOperandsEqual(ins);
+  }
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
+
+  wasm::BytecodeOffset bytecodeOffset() const { return bytecodeOffset_; }
+
+  ALLOW_CLONE(MWasmBuiltinTruncateToInt32)
 };
 
 // Converts a primitive (either typed or untyped) to a BigInt. If the input is
@@ -11272,6 +11307,19 @@ class MGetIteratorCache : public MUnaryInstruction,
 
  public:
   INSTRUCTION_HEADER(GetIteratorCache)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, value))
+};
+
+class MOptimizeSpreadCallCache : public MUnaryInstruction,
+                                 public BoxInputsPolicy::Data {
+  explicit MOptimizeSpreadCallCache(MDefinition* val)
+      : MUnaryInstruction(classOpcode, val) {
+    setResultType(MIRType::Boolean);
+  }
+
+ public:
+  INSTRUCTION_HEADER(OptimizeSpreadCallCache)
   TRIVIAL_NEW_WRAPPERS
   NAMED_OPERANDS((0, value))
 };

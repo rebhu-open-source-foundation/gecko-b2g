@@ -2110,6 +2110,8 @@ nsresult nsGlobalWindowOuter::SetNewDocument(Document* aDocument,
     }
   }
 
+  MaybeResetWindowName(aDocument);
+
   /* No mDocShell means we're already been partially closed down.  When that
      happens, setting status isn't a big requirement, so don't. (Doesn't happen
      under normal circumstances, but bug 49615 describes a case.) */
@@ -2129,6 +2131,8 @@ nsresult nsGlobalWindowOuter::SetNewDocument(Document* aDocument,
   // having to *always* reach into the inner window to find the
   // document.
   mDoc = aDocument;
+
+  nsDocShell::Cast(mDocShell)->MaybeRestoreWindowName();
 
   // We drop the print request for the old document on the floor, it never made
   // it.
@@ -5231,6 +5235,46 @@ static void DispatchPrintEventToWindowTree(Document& aDoc,
   }
 }
 
+#ifdef NS_PRINTING
+static void SetIsPrintingInDocShellTree(nsIDocShellTreeItem* aParentNode,
+                                        bool aIsPrintingOrPP,
+                                        bool aStartAtTop = true) {
+  nsCOMPtr<nsIDocShellTreeItem> parentItem(aParentNode);
+
+  // find top of "same parent" tree
+  if (aStartAtTop) {
+    while (parentItem) {
+      nsCOMPtr<nsIDocShellTreeItem> parent;
+      parentItem->GetInProcessSameTypeParent(getter_AddRefs(parent));
+      if (!parent) {
+        break;
+      }
+      parentItem = parent;
+    }
+  }
+
+  if (nsCOMPtr<nsIDocShell> viewerContainer = do_QueryInterface(parentItem)) {
+    viewerContainer->SetIsPrinting(aIsPrintingOrPP);
+  }
+
+  if (!aParentNode) {
+    return;
+  }
+
+  // Traverse children to see if any of them are printing.
+  int32_t n;
+  aParentNode->GetInProcessChildCount(&n);
+  for (int32_t i = 0; i < n; i++) {
+    nsCOMPtr<nsIDocShellTreeItem> child;
+    aParentNode->GetInProcessChildAt(i, getter_AddRefs(child));
+    NS_ASSERTION(child, "child isn't nsIDocShell");
+    if (child) {
+      SetIsPrintingInDocShellTree(child, aIsPrintingOrPP, false);
+    }
+  }
+}
+#endif
+
 void nsGlobalWindowOuter::PrintOuter(ErrorResult& aError) {
   if (!AreDialogsEnabled()) {
     // We probably want to keep throwing here; silently doing nothing is a bit
@@ -5270,6 +5314,11 @@ void nsGlobalWindowOuter::PrintOuter(ErrorResult& aError) {
     return;
   }
 
+  nsCOMPtr<nsIDocShell> docShell = mDocShell;
+  SetIsPrintingInDocShellTree(docShell, true);
+  auto unset =
+      MakeScopeExit([&] { SetIsPrintingInDocShellTree(docShell, false); });
+
   const bool isPreview = StaticPrefs::print_tab_modal_enabled() &&
                          !StaticPrefs::print_always_print_silent();
   if (isPreview) {
@@ -5281,36 +5330,6 @@ void nsGlobalWindowOuter::PrintOuter(ErrorResult& aError) {
   Print(settings, nullptr, nullptr, IsPreview(isPreview),
         BlockUntilDone(isPreview), nullptr, aError);
 #endif
-}
-
-// Returns whether there's any print callback.
-static bool BuildNestedClones(Document& aJustClonedDoc) {
-  bool hasPrintCallbacks = aJustClonedDoc.HasPrintCallbacks();
-  auto pendingFrameClones = aJustClonedDoc.TakePendingFrameStaticClones();
-  for (const auto& clone : pendingFrameClones) {
-    RefPtr<Element> element = do_QueryObject(clone.mElement);
-    RefPtr<nsFrameLoader> frameLoader =
-        nsFrameLoader::Create(element, /* aNetworkCreated */ false);
-
-    if (NS_WARN_IF(!frameLoader)) {
-      continue;
-    }
-
-    clone.mElement->SetFrameLoader(frameLoader);
-
-    nsCOMPtr<nsIDocShell> docshell;
-    RefPtr<Document> doc;
-    nsresult rv = frameLoader->FinishStaticClone(
-        clone.mStaticCloneOf, getter_AddRefs(docshell), getter_AddRefs(doc));
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      continue;
-    }
-
-    if (doc) {
-      hasPrintCallbacks |= BuildNestedClones(*doc);
-    }
-  }
-  return hasPrintCallbacks;
 }
 
 Nullable<WindowProxyHolder> nsGlobalWindowOuter::Print(
@@ -5430,23 +5449,12 @@ Nullable<WindowProxyHolder> nsGlobalWindowOuter::Print(
     auto dispatchAfterPrint = MakeScopeExit(
         [&] { DispatchPrintEventToWindowTree(*docToPrint, u"afterprint"_ns); });
 
-    RefPtr<Document> clone;
-    {
-      nsAutoScriptBlocker blockScripts;
-      clone = docToPrint->CreateStaticClone(cloneDocShell);
-      if (!clone) {
-        aError.ThrowNotSupportedError("Clone operation for printing failed");
-        return nullptr;
-      }
-
-      // Do this now so that we get a script handling object, and thus can
-      // create our clones.
-      aError = cv->SetDocument(clone);
-      if (aError.Failed()) {
-        return nullptr;
-      }
-
-      hasPrintCallbacks |= BuildNestedClones(*clone);
+    nsAutoScriptBlocker blockScripts;
+    RefPtr<Document> clone =
+        docToPrint->CreateStaticClone(cloneDocShell, cv, &hasPrintCallbacks);
+    if (!clone) {
+      aError.ThrowNotSupportedError("Clone operation for printing failed");
+      return nullptr;
     }
   }
 
@@ -6369,10 +6377,11 @@ bool nsGlobalWindowOuter::IsOnlyTopLevelDocumentInSHistory() {
   // Disabled since IsFrame() is buggy in Fission
   // MOZ_ASSERT(mBrowsingContext->IsTop());
 
-  nsCOMPtr<nsIWebNavigation> webNav(do_QueryInterface(mDocShell));
-  NS_ENSURE_TRUE(webNav, false);
+  if (StaticPrefs::fission_sessionHistoryInParent()) {
+    return mBrowsingContext->GetIsSingleToplevelInHistory();
+  }
 
-  RefPtr<ChildSHistory> csh = webNav->GetSessionHistory();
+  RefPtr<ChildSHistory> csh = nsDocShell::Cast(mDocShell)->GetSessionHistory();
   if (csh && csh->LegacySHistory()) {
     return csh->LegacySHistory()->IsEmptyOrHasEntriesForSingleTopLevelPage();
   }
@@ -7749,6 +7758,63 @@ AbstractThread* nsGlobalWindowOuter::AbstractMainThreadFor(
     return GetDocGroup()->AbstractMainThreadFor(aCategory);
   }
   return DispatcherTrait::AbstractMainThreadFor(aCategory);
+}
+
+void nsGlobalWindowOuter::MaybeResetWindowName(Document* aNewDocument) {
+  MOZ_ASSERT(aNewDocument);
+
+  if (!StaticPrefs::privacy_window_name_update_enabled()) {
+    return;
+  }
+
+  // We only reset the window name for the top-level content as well as storing
+  // in session entries.
+  if (!GetBrowsingContext()->IsTopContent()) {
+    return;
+  }
+
+  // Following implements https://html.spec.whatwg.org/#history-traversal:
+  // Step 4.2. Check if the loading document has a different origin than the
+  // previous document.
+
+  // We don't need to do anything if we haven't loaded a non-initial document.
+  if (!GetBrowsingContext()->GetHasLoadedNonInitialDocument()) {
+    return;
+  }
+
+  // If we have an existing doucment, directly check the document prinicpals
+  // with the new document to know if it is cross-origin.
+  //
+  // When running wpt, we could have an existing about:blank documnet which has
+  // a principal that is the same as the principal of the new document. But the
+  // new document doesn't load an about:blank page. In this case, we should
+  // treat them as cross-origin despite both doucments have same-origin
+  // principals. This only happens when Fission is enabled.
+  if (mDoc && mDoc->NodePrincipal()->Equals(aNewDocument->NodePrincipal()) &&
+      (NS_IsAboutBlank(mDoc->GetDocumentURI()) ==
+       NS_IsAboutBlank(aNewDocument->GetDocumentURI()))) {
+    return;
+  }
+
+  // If we don't have an existing document, and if it's not the initial
+  // about:blank, we could be loading a document because of the
+  // process-switching. In this case, this should be a cross-origin navigation.
+
+  // Step 4.2.1 Store the window.name into all session history entries that have
+  // the same origin as the privious document.
+  nsDocShell::Cast(mDocShell)->StoreWindowNameToSHEntries();
+
+  // Step 4.2.2 Clear the window.name if the browsing context is the top-level
+  // content and doesn't have an opener.
+
+  // We need to reset the window name in case of a cross-origin navigation,
+  // without an opener.
+  RefPtr<BrowsingContext> opener = GetOpenerBrowsingContext();
+  if (opener) {
+    return;
+  }
+
+  Unused << mBrowsingContext->SetName(EmptyString());
 }
 
 nsGlobalWindowOuter::TemporarilyDisableDialogs::TemporarilyDisableDialogs(

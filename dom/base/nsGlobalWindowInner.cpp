@@ -2653,6 +2653,14 @@ bool nsPIDOMWindowInner::IsCurrentInnerWindow() const {
   return outer && outer->GetCurrentInnerWindow() == this;
 }
 
+bool nsPIDOMWindowInner::IsFullyActive() const {
+  WindowContext* wc = GetWindowContext();
+  if (!wc || wc->IsDiscarded() || wc->IsCached()) {
+    return false;
+  }
+  return GetBrowsingContext()->AncestorsAreCurrent();
+}
+
 void nsPIDOMWindowInner::SetAudioCapture(bool aCapture) {
   RefPtr<AudioChannelService> service = AudioChannelService::GetOrCreate();
   if (service) {

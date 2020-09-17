@@ -5609,8 +5609,9 @@ void nsWindow::UpdateTitlebarTransparencyBitmap() {
   NS_ASSERTION(mTransparencyBitmapForTitlebar,
                "Transparency bitmap is already used to draw window shape");
 
-  if (!mDrawInTitlebar || (mBounds.width == mTransparencyBitmapWidth &&
-                           mBounds.height == mTransparencyBitmapHeight)) {
+  if (!mGdkWindow || !mDrawInTitlebar ||
+      (mBounds.width == mTransparencyBitmapWidth &&
+       mBounds.height == mTransparencyBitmapHeight)) {
     return;
   }
 
@@ -7868,12 +7869,6 @@ bool nsWindow::HideTitlebarByDefault() {
   if ((strstr(currentDesktop, "GNOME-Flashback:GNOME") != nullptr ||
        strstr(currentDesktop, "GNOME") != nullptr ||
        strstr(currentDesktop, "Pantheon") != nullptr)) {
-    return hideTitlebar;
-  }
-
-  // We hide system titlebar on KDE on recent enough systems.
-  if (gtk_check_version(3, 24, 0) == nullptr &&
-      strstr(currentDesktop, "KDE") != nullptr) {
     return hideTitlebar;
   }
 

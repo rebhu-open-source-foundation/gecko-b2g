@@ -63,7 +63,6 @@ include protocol PVRManager;
 include protocol PRemoteDecoderManager;
 include protocol PProfiler;
 include protocol PScriptCache;
-include protocol PStartupCache;
 include protocol PSessionStorageObserver;
 include protocol PSystemMessageService;
 include protocol PBenchmarkStorage;
@@ -630,7 +629,6 @@ nested(upto inside_cpow) sync protocol PContent
     manages PURLClassifier;
     manages PURLClassifierLocal;
     manages PScriptCache;
-    manages PStartupCache;
     manages PLoginReputation;
     manages PSessionStorageObserver;
     manages PSystemMessageService;
@@ -768,8 +766,6 @@ child:
     async PTestShell();
 
     async PScriptCache(FileDescOrError cacheFile, bool wantCacheData);
-
-    async PStartupCache();
 
     async RegisterChrome(ChromePackage[] packages, SubstitutionMapping[] substitutions,
                          OverrideMapping[] overrides, nsCString locale, bool reset);
@@ -1186,6 +1182,9 @@ parent:
 
     async SessionHistoryEntryCacheKey(MaybeDiscardedBrowsingContext aContext,
                                       uint32_t aCacheKey);
+
+    async SessionHistoryEntryStoreWindowNameInContiguousEntries(MaybeDiscardedBrowsingContext aContext,
+                                                                nsString aName);
 
     async InitBackground(Endpoint<PBackgroundParent> aEndpoint);
 

@@ -419,6 +419,10 @@ nsresult nsDeviceContextSpecWin::GetDataFromPrinter(const nsAString& aName,
       return NS_ERROR_FAILURE;
     }
 
+    // Some drivers do not return the correct size for their DEVMODE, so we
+    // over-allocate to try and compensate.
+    // (See https://bugzilla.mozilla.org/show_bug.cgi?id=1664530#c5)
+    needed *= 2;
     pDevMode =
         (LPDEVMODEW)::HeapAlloc(::GetProcessHeap(), HEAP_ZERO_MEMORY, needed);
     if (!pDevMode) return NS_ERROR_FAILURE;
@@ -491,17 +495,17 @@ static unsigned GetPrinterInfo4(nsTArray<BYTE>& aBuffer) {
   DWORD needed = 0;
   DWORD count = 0;
   const DWORD kFlags = PRINTER_ENUM_LOCAL | PRINTER_ENUM_CONNECTIONS;
-  BOOL ok = EnumPrinters(kFlags,
-                         nullptr,  // Name
-                         kLevel,   // Level
-                         nullptr,  // pPrinterEnum
-                         0,        // cbBuf (buffer size)
-                         &needed,  // Bytes needed in buffer
-                         &count);
+  BOOL ok = ::EnumPrintersW(kFlags,
+                            nullptr,  // Name
+                            kLevel,   // Level
+                            nullptr,  // pPrinterEnum
+                            0,        // cbBuf (buffer size)
+                            &needed,  // Bytes needed in buffer
+                            &count);
   if (needed > 0) {
     aBuffer.SetLength(needed);
-    ok = EnumPrinters(kFlags, nullptr, kLevel, aBuffer.Elements(),
-                      aBuffer.Length(), &needed, &count);
+    ok = ::EnumPrintersW(kFlags, nullptr, kLevel, aBuffer.Elements(),
+                         aBuffer.Length(), &needed, &count);
   }
   if (!ok || !count) {
     return 0;
@@ -521,18 +525,27 @@ nsTArray<nsPrinterListBase::PrinterInfo> nsPrinterListWin::Printers() const {
   }
 
   const auto* printers =
-      reinterpret_cast<const PRINTER_INFO_4*>(buffer.Elements());
+      reinterpret_cast<const _PRINTER_INFO_4W*>(buffer.Elements());
   nsTArray<PrinterInfo> list;
   for (unsigned i = 0; i < count; i++) {
-    list.AppendElement(PrinterInfo{nsString(printers[i].pPrinterName)});
-    PR_PL(("Printer Name: %s\n",
-           NS_ConvertUTF16toUTF8(printers[i].pPrinterName).get()));
+    HANDLE handle;
+    if (::OpenPrinterW(printers[i].pPrinterName, &handle, nullptr)) {
+      list.AppendElement(PrinterInfo{nsString(printers[i].pPrinterName)});
+      PR_PL(("Printer Name: %s\n",
+             NS_ConvertUTF16toUTF8(printers[i].pPrinterName).get()));
+      ::ClosePrinter(handle);
+    }
+  }
+
+  if (!count) {
+    PR_PL(("[No usable printers found]\n"));
+    return {};
   }
 
   return list;
 }
 
-Maybe<nsPrinterListBase::PrinterInfo> nsPrinterListWin::NamedPrinter(
+Maybe<nsPrinterListBase::PrinterInfo> nsPrinterListWin::PrinterByName(
     nsString aName) const {
   Maybe<PrinterInfo> rv;
 
@@ -540,7 +553,7 @@ Maybe<nsPrinterListBase::PrinterInfo> nsPrinterListWin::NamedPrinter(
   unsigned count = GetPrinterInfo4(buffer);
 
   const auto* printers =
-      reinterpret_cast<const PRINTER_INFO_4*>(buffer.Elements());
+      reinterpret_cast<const _PRINTER_INFO_4W*>(buffer.Elements());
   for (unsigned i = 0; i < count; ++i) {
     if (aName.Equals(nsString(printers[i].pPrinterName))) {
       rv.emplace(PrinterInfo{aName});
@@ -549,6 +562,11 @@ Maybe<nsPrinterListBase::PrinterInfo> nsPrinterListWin::NamedPrinter(
   }
 
   return rv;
+}
+
+Maybe<nsPrinterListBase::PrinterInfo> nsPrinterListWin::PrinterBySystemName(
+    nsString aName) const {
+  return PrinterByName(std::move(aName));
 }
 
 RefPtr<nsIPrinter> nsPrinterListWin::CreatePrinter(PrinterInfo aInfo) const {

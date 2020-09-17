@@ -19,6 +19,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.jsm",
   ReaderMode: "resource://gre/modules/ReaderMode.jsm",
   PartnerLinkAttribution: "resource:///modules/PartnerLinkAttribution.jsm",
+  SearchUtils: "resource://gre/modules/SearchUtils.jsm",
   Services: "resource://gre/modules/Services.jsm",
   UrlbarController: "resource:///modules/UrlbarController.jsm",
   UrlbarEventBufferer: "resource:///modules/UrlbarEventBufferer.jsm",
@@ -109,7 +110,11 @@ class UrlbarInput {
     this._untrimmedValue = "";
     this._searchModesByBrowser = new WeakMap();
 
-    UrlbarPrefs.addObserver(this);
+    this.QueryInterface = ChromeUtils.generateQI([
+      "nsIObserver",
+      "nsISupportsWeakReference",
+    ]);
+    this._addObservers();
 
     // This exists only for tests.
     this._enableAutofillPlaceholder = true;
@@ -917,11 +922,15 @@ class UrlbarInput {
 
   /**
    * Called by the view when moving through results with the keyboard, and when
-   * picking a result.
+   * picking a result.  This sets the input value to the value of the result and
+   * invalidates the pageproxystate.  It also sets the result that is associated
+   * with the current input value.  If you need to set this result but don't
+   * want to also set the input value, then use setResultForCurrentValue.
    *
    * @param {UrlbarResult} [result]
    *   The result that was selected or picked, null if no result was selected.
-   * @param {Event} [event] The event that picked the result.
+   * @param {Event} [event]
+   *   The event that picked the result.
    * @returns {boolean}
    *   Whether the value has been canonized
    */
@@ -972,7 +981,7 @@ class UrlbarInput {
         this._setValue(this._getValueFromResult(result), allowTrim);
       }
     }
-    this._resultForCurrentValue = result;
+    this.setResultForCurrentValue(result);
 
     // The value setter clobbers the actiontype attribute, so update this after
     // that.
@@ -988,6 +997,21 @@ class UrlbarInput {
     }
 
     return !!canonizedUrl;
+  }
+
+  /**
+   * The input keeps track of the result associated with the current input
+   * value.  This result can be set by calling either setValueFromResult or this
+   * method.  Use this method when you need to set the result without also
+   * setting the input value.  This can be the case when either the selection is
+   * cleared and no other result becomes selected, or when the result is the
+   * heuristic and we don't want to modify the value the user is typing.
+   *
+   * @param {UrlbarResult} result
+   *   The result to associate with the current input value.
+   */
+  setResultForCurrentValue(result) {
+    this._resultForCurrentValue = result;
   }
 
   /**
@@ -1058,13 +1082,6 @@ class UrlbarInput {
       !this.value.endsWith(" ")
     ) {
       this._setValue(this.window.gBrowser.userTypedValue, false);
-    }
-
-    // Heuristic tip results do not set the Urlbar value.
-    if (firstResult.type == UrlbarUtils.RESULT_TYPE.TIP) {
-      this._resultForCurrentValue = null;
-    } else if (firstResult.heuristic) {
-      this._resultForCurrentValue = firstResult;
     }
 
     return false;
@@ -1260,8 +1277,13 @@ class UrlbarInput {
    *   the values in UrlbarUtils.SEARCH_MODE_ENTRY.
    */
   setSearchMode({ engineName, source, entry }) {
-    if (!UrlbarPrefs.get("update2")) {
-      // Exit search mode.
+    // Exit search mode if update2 is disabled or the passed-in engine is
+    // invalid or hidden.
+    let engine = Services.search.getEngineByName(engineName);
+    if (
+      !UrlbarPrefs.get("update2") ||
+      (engineName && (!engine || engine.hidden))
+    ) {
       engineName = null;
       source = null;
     }
@@ -1588,7 +1610,28 @@ class UrlbarInput {
     return true;
   }
 
+  observe(subject, topic, data) {
+    switch (topic) {
+      case SearchUtils.TOPIC_ENGINE_MODIFIED: {
+        switch (data) {
+          case SearchUtils.MODIFIED_TYPE.CHANGED:
+          case SearchUtils.MODIFIED_TYPE.REMOVED:
+            if (this.searchMode?.engineName == subject.name) {
+              // We exit search mode if the current search mode engine was removed.
+              this.setSearchMode(this.searchMode);
+            }
+            break;
+        }
+        break;
+      }
+    }
+  }
+
   // Private methods below.
+  _addObservers() {
+    UrlbarPrefs.addObserver(this);
+    Services.obs.addObserver(this, SearchUtils.TOPIC_ENGINE_MODIFIED, true);
+  }
 
   _getURIFixupInfo(searchString) {
     let flags =
@@ -2260,6 +2303,7 @@ class UrlbarInput {
 
       this.select();
       this.window.goDoCommand("cmd_paste");
+      this.setResultForCurrentValue(null);
       this.handleCommand();
 
       this._suppressStartQuery = false;
@@ -2627,7 +2671,6 @@ class UrlbarInput {
 
     let canShowTopSites =
       !this.isPrivate && UrlbarPrefs.get("suggest.topsites");
-
     if (!this.view.isOpen) {
       this.view.clear();
     } else if (!value && !canShowTopSites) {

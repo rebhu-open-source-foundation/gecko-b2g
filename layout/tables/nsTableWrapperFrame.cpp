@@ -374,8 +374,6 @@ nscoord nsTableWrapperFrame::ChildShrinkWrapISize(
                                aCBSize.ISize(aWM));
   LogicalSize marginSize =
       offsets.ComputedLogicalMargin().Size(childWM).ConvertTo(aWM, childWM);
-  LogicalSize paddingSize =
-      offsets.ComputedLogicalPadding().Size(childWM).ConvertTo(aWM, childWM);
   LogicalSize bpSize =
       offsets.ComputedLogicalBorderPadding().Size(childWM).ConvertTo(aWM,
                                                                      childWM);
@@ -394,9 +392,9 @@ nscoord nsTableWrapperFrame::ChildShrinkWrapISize(
     }
   }
 
-  auto size = aChildFrame->ComputeSize(
-      aRenderingContext, aWM, aCBSize, aAvailableISize, marginSize,
-      bpSize - paddingSize, paddingSize, flags);
+  auto size =
+      aChildFrame->ComputeSize(aRenderingContext, aWM, aCBSize, aAvailableISize,
+                               marginSize, bpSize, flags);
   if (aMarginResult) {
     *aMarginResult = offsets.ComputedLogicalMargin().IStartEnd(aWM);
   }
@@ -408,10 +406,9 @@ nscoord nsTableWrapperFrame::ChildShrinkWrapISize(
 LogicalSize nsTableWrapperFrame::ComputeAutoSize(
     gfxContext* aRenderingContext, WritingMode aWM, const LogicalSize& aCBSize,
     nscoord aAvailableISize, const LogicalSize& aMargin,
-    const LogicalSize& aBorder, const LogicalSize& aPadding,
-    ComputeSizeFlags aFlags) {
+    const LogicalSize& aBorderPadding, ComputeSizeFlags aFlags) {
   nscoord kidAvailableISize = aAvailableISize - aMargin.ISize(aWM);
-  NS_ASSERTION(aBorder.IsAllZero() && aPadding.IsAllZero(),
+  NS_ASSERTION(aBorderPadding.IsAllZero(),
                "Table wrapper frames cannot have borders or paddings");
 
   // When we're shrink-wrapping, our auto size needs to wrap around the

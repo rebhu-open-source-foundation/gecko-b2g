@@ -18,7 +18,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   Log: "chrome://marionette/content/log.js",
 });
 
-XPCOMUtils.defineLazyGetter(this, "logger", Log.get);
+XPCOMUtils.defineLazyGetter(this, "logger", () => Log.get());
 
 class MarionetteFrameParent extends JSWindowActorParent {
   constructor() {
@@ -71,6 +71,10 @@ class MarionetteFrameParent extends JSWindowActorParent {
     });
   }
 
+  async getCurrentUrl() {
+    return this.sendQuery("MarionetteFrameParent:getCurrentUrl");
+  }
+
   async getElementAttribute(webEl, name) {
     return this.sendQuery("MarionetteFrameParent:getElementAttribute", {
       name,
@@ -83,6 +87,28 @@ class MarionetteFrameParent extends JSWindowActorParent {
       name,
       webEl,
     });
+  }
+
+  async getElementTagName(webEl) {
+    return this.sendQuery("MarionetteFrameParent:getElementTagName", {
+      webEl,
+    });
+  }
+
+  async getElementText(webEl) {
+    return this.sendQuery("MarionetteFrameParent:getElementText", {
+      webEl,
+    });
+  }
+
+  async getElementValueOfCssProperty(webEl, name) {
+    return this.sendQuery(
+      "MarionetteFrameParent:getElementValueOfCssProperty",
+      {
+        name,
+        webEl,
+      }
+    );
   }
 
   async switchToFrame(id) {

@@ -2218,6 +2218,13 @@
   value: @IS_NIGHTLY_BUILD@
   mirror: always
 
+# Number of seconds of very quiet or silent audio before considering the audio
+# inaudible.
+- name: dom.media.silence_duration_for_audibility
+  type: AtomicFloat
+  value: 2.0f
+  mirror: always
+
 # Enable meta-viewport support in remote APZ-enabled frames.
 - name: dom.meta-viewport.enabled
   type: RelaxedAtomicBool
@@ -2620,7 +2627,7 @@
 # soon as they are fetched.
 - name: dom.script_loader.external_scripts.speculative_omt_parse.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # Speculatively compile non parser inserted scripts
@@ -6716,6 +6723,16 @@
   value: true
   mirror: always
 
+# Whether :is() and :where() ignore errors inside their selector lists
+# internally, rather than failing to parse altogether.
+#
+# See https://github.com/w3c/csswg-drafts/issues/3264
+- name: layout.css.is-and-where-better-error-recovery.enabled
+  type: RelaxedAtomicBool
+  value: @IS_EARLY_BETA_OR_EARLIER@
+  mirror: always
+  rust: true
+
 # Whether frame visibility tracking is enabled globally.
 - name: layout.framevisibility.enabled
   type: bool
@@ -7248,13 +7265,6 @@
 -   name: media.ffvpx.mp3.enabled
     type: RelaxedAtomicBool
     value: true
-    mirror: always
-#endif
-
-#if defined(MOZ_FFMPEG) || defined(MOZ_FFVPX)
--   name: media.ffmpeg.low-latency.enabled
-    type: RelaxedAtomicBool
-    value: false
     mirror: always
 #endif
 
@@ -9150,6 +9160,11 @@
   value: @IS_NIGHTLY_BUILD@
   mirror: always
 
+- name: privacy.window.name.update.enabled
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 # By default, the network state isolation is not active when there is a proxy
 # setting. This pref forces the network isolation even in these scenarios.
 - name: privacy.partition.network_state.connection_with_proxy
@@ -9205,6 +9220,14 @@
 - name: security.csp.reporting.script-sample.max-length
   type: int32_t
   value: 40
+  mirror: always
+
+# Allows loading ui resources in CheckLoadURIFlags
+# TODO Bug 1654488: Remove pref in CheckLoadURIFlags
+#      which allows all UI resources to load
+- name: security.caps.allow_uri_is_ui_resource_in_checkloaduriflags
+  type: bool
+  value: false
   mirror: always
 
 # TODO: Bug 1324406: Treat 'data:' documents as unique, opaque origins
@@ -10076,6 +10099,11 @@
 - name: webgl.out-of-process
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+- name: webgl.out-of-process.shmem-size
+  type: RelaxedAtomicUint32
+  value: 10000 # 10KB
   mirror: always
 
 - name: webgl.power-preference-override

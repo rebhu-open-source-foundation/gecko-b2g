@@ -80,7 +80,6 @@
 #include "mozilla/ProcessHangMonitorIPC.h"
 #include "mozilla/RDDProcessManager.h"
 #include "mozilla/ScopeExit.h"
-#include "mozilla/scache/StartupCache.h"
 #include "mozilla/ScriptPreloader.h"
 #include "mozilla/Services.h"
 #include "mozilla/Sprintf.h"
@@ -177,7 +176,6 @@
 #include "mozilla/plugins/PluginBridge.h"
 #include "mozilla/RemoteLazyInputStreamParent.h"
 #include "mozilla/widget/ScreenManager.h"
-#include "mozilla/scache/StartupCacheParent.h"
 #include "nsAnonymousTemporaryFile.h"
 #include "nsAppRunner.h"
 #include "nsCExternalHandlerService.h"
@@ -813,6 +811,10 @@ bool IsWebRemoteType(const nsACString& aContentProcessType) {
 bool IsWebCoopCoepRemoteType(const nsACString& aContentProcessType) {
   return StringBeginsWith(aContentProcessType,
                           WITH_COOP_COEP_REMOTE_TYPE_PREFIX);
+}
+
+bool IsPriviligedMozillaRemoteType(const nsACString& aContentProcessType) {
+  return aContentProcessType == PRIVILEGEDMOZILLA_REMOTE_TYPE;
 }
 
 /*static*/
@@ -2424,12 +2426,6 @@ bool ContentParent::BeginSubprocessLaunch(ProcessPriority aPriority) {
   }
   mPrefSerializer->AddSharedPrefCmdLineArgs(*mSubprocess, extraArgs);
 
-  auto startupCache = mozilla::scache::StartupCache::GetSingleton();
-  if (startupCache) {
-    startupCache->AddStartupCacheCmdLineArgs(*mSubprocess, GetRemoteType(),
-                                             extraArgs);
-  }
-
   // Register ContentParent as an observer for changes to any pref
   // whose prefix matches the empty string, i.e. all of them.  The
   // observation starts here in order to capture pref updates that
@@ -2864,7 +2860,6 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
   Unused << SendRemoteType(mRemoteType);
 
   ScriptPreloader::InitContentChild(*this);
-  scache::StartupCache::InitContentChild(*this);
 
   // Initialize the message manager (and load delayed scripts) now that we
   // have established communications with the child.
@@ -4235,15 +4230,6 @@ PScriptCacheParent* ContentParent::AllocPScriptCacheParent(
 
 bool ContentParent::DeallocPScriptCacheParent(PScriptCacheParent* cache) {
   delete static_cast<loader::ScriptCacheParent*>(cache);
-  return true;
-}
-
-PStartupCacheParent* ContentParent::AllocPStartupCacheParent() {
-  return new scache::StartupCacheParent();
-}
-
-bool ContentParent::DeallocPStartupCacheParent(PStartupCacheParent* cache) {
-  delete static_cast<scache::StartupCacheParent*>(cache);
   return true;
 }
 
@@ -6145,6 +6131,13 @@ void ContentParent::CancelContentJSExecutionIfRunning(
   if (!mHangMonitorActor) {
     return;
   }
+
+  if (!aBrowserParent->CanCancelContentJS(aNavigationType,
+                                          aCancelContentJSOptions.mIndex,
+                                          aCancelContentJSOptions.mUri)) {
+    return;
+  }
+
   ProcessHangMonitor::CancelContentJSExecutionIfRunning(
       mHangMonitorActor, aBrowserParent, aNavigationType,
       aCancelContentJSOptions);
@@ -7450,6 +7443,29 @@ ContentParent::RecvSessionHistoryEntryScrollRestorationIsManual(
   if (entry) {
     entry->SetScrollRestorationIsManual(aIsManual);
   }
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult
+ContentParent::RecvSessionHistoryEntryStoreWindowNameInContiguousEntries(
+    const MaybeDiscarded<BrowsingContext>& aContext, const nsString& aName) {
+  if (aContext.IsNullOrDiscarded()) {
+    return IPC_OK();
+  }
+
+  // Per https://html.spec.whatwg.org/#history-traversal 4.2.1, we need to set
+  // the name to all contiguous entries. This has to be called before
+  // CanonicalBrowsingContext::SessionHistoryCommit(), so the active entry is
+  // still the old entry that we want to set.
+
+  SessionHistoryEntry* entry =
+      aContext.get_canonical()->GetActiveSessionHistoryEntry();
+
+  if (entry) {
+    nsSHistory::WalkContiguousEntries(
+        entry, [&](nsISHEntry* aEntry) { aEntry->SetName(aName); });
+  }
+
   return IPC_OK();
 }
 

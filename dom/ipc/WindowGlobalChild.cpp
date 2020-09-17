@@ -627,6 +627,16 @@ void WindowGlobalChild::ActorDestroy(ActorDestroyReason aWhy) {
   JSActorDidDestroy();
 }
 
+bool WindowGlobalChild::SameOriginWithTop() {
+  nsGlobalWindowInner* topWindow =
+      WindowContext()->TopWindowContext()->GetInnerWindow();
+  if (!topWindow) {
+    return false;
+  }
+  return mWindowGlobal == topWindow ||
+         mDocumentPrincipal->Equals(topWindow->GetPrincipal());
+}
+
 WindowGlobalChild::~WindowGlobalChild() {
   MOZ_ASSERT(!gWindowGlobalChildById ||
              !gWindowGlobalChildById->Contains(InnerWindowId()));
@@ -639,6 +649,13 @@ JSObject* WindowGlobalChild::WrapObject(JSContext* aCx,
 
 nsISupports* WindowGlobalChild::GetParentObject() {
   return xpc::NativeGlobal(xpc::PrivilegedJunkScope());
+}
+
+void WindowGlobalChild::MaybeSendUpdateDocumentWouldPreloadResources() {
+  if (!mDocumentWouldPreloadResources) {
+    mDocumentWouldPreloadResources = true;
+    SendUpdateDocumentWouldPreloadResources();
+  }
 }
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(WindowGlobalChild, mWindowGlobal)

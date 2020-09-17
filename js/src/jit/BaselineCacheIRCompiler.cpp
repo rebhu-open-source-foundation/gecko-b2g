@@ -609,6 +609,34 @@ bool BaselineCacheIRCompiler::emitCallNativeGetterResult(
   return true;
 }
 
+bool BaselineCacheIRCompiler::emitCallDOMGetterResult(ObjOperandId objId,
+                                                      uint32_t jitInfoOffset) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  Register obj = allocator.useRegister(masm, objId);
+  Address jitInfoAddr(stubAddress(jitInfoOffset));
+
+  AutoScratchRegister scratch(allocator, masm);
+
+  allocator.discardStack(masm);
+
+  AutoStubFrame stubFrame(*this);
+  stubFrame.enter(masm, scratch);
+
+  // Load the JSJitInfo in the scratch register.
+  masm.loadPtr(jitInfoAddr, scratch);
+
+  masm.Push(obj);
+  masm.Push(scratch);
+
+  using Fn =
+      bool (*)(JSContext*, const JSJitInfo*, HandleObject, MutableHandleValue);
+  callVM<Fn, CallDOMGetter>(masm);
+
+  stubFrame.leave(masm);
+  return true;
+}
+
 bool BaselineCacheIRCompiler::emitProxyGetResult(ObjOperandId objId,
                                                  uint32_t idOffset) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
@@ -2323,6 +2351,7 @@ bool BaselineCacheIRCompiler::init(CacheKind kind) {
     case CacheKind::TypeOf:
     case CacheKind::ToPropertyKey:
     case CacheKind::GetIterator:
+    case CacheKind::OptimizeSpreadCall:
     case CacheKind::ToBool:
     case CacheKind::UnaryArith:
       MOZ_ASSERT(numInputs == 1);
@@ -3079,6 +3108,28 @@ void BaselineCacheIRCompiler::loadStackObject(ArgumentKind kind,
   }
 }
 
+template <typename T>
+void BaselineCacheIRCompiler::storeThis(const T& newThis, Register argcReg,
+                                        CallFlags flags) {
+  switch (flags.getArgFormat()) {
+    case CallFlags::Standard: {
+      BaseValueIndex thisAddress(masm.getStackPointer(),
+                                 argcReg,               // Arguments
+                                 1 * sizeof(Value) +    // NewTarget
+                                     STUB_FRAME_SIZE);  // Stub frame
+      masm.storeValue(newThis, thisAddress);
+    } break;
+    case CallFlags::Spread: {
+      Address thisAddress(masm.getStackPointer(),
+                          2 * sizeof(Value) +    // Arg array, NewTarget
+                              STUB_FRAME_SIZE);  // Stub frame
+      masm.storeValue(newThis, thisAddress);
+    } break;
+    default:
+      MOZ_CRASH("Invalid arg format for scripted constructor");
+  }
+}
+
 /*
  * Scripted constructors require a |this| object to be created prior to the
  * call. When this function is called, the stack looks like (bottom->top):
@@ -3093,6 +3144,11 @@ void BaselineCacheIRCompiler::loadStackObject(ArgumentKind kind,
 void BaselineCacheIRCompiler::createThis(Register argcReg, Register calleeReg,
                                          Register scratch, CallFlags flags) {
   MOZ_ASSERT(flags.isConstructing());
+
+  if (flags.needsUninitializedThis()) {
+    storeThis(MagicValue(JS_UNINITIALIZED_LEXICAL), argcReg, flags);
+    return;
+  }
 
   size_t depth = STUB_FRAME_SIZE;
 
@@ -3129,23 +3185,7 @@ void BaselineCacheIRCompiler::createThis(Register argcReg, Register calleeReg,
   masm.pop(argcReg);
 
   // Save |this| value back into pushed arguments on stack.
-  switch (flags.getArgFormat()) {
-    case CallFlags::Standard: {
-      BaseValueIndex thisAddress(masm.getStackPointer(),
-                                 argcReg,               // Arguments
-                                 1 * sizeof(Value) +    // NewTarget
-                                     STUB_FRAME_SIZE);  // Stub frame
-      masm.storeValue(JSReturnOperand, thisAddress);
-    } break;
-    case CallFlags::Spread: {
-      Address thisAddress(masm.getStackPointer(),
-                          2 * sizeof(Value) +    // Arg array, NewTarget
-                              STUB_FRAME_SIZE);  // Stub frame
-      masm.storeValue(JSReturnOperand, thisAddress);
-    } break;
-    default:
-      MOZ_CRASH("Invalid arg format for scripted constructor");
-  }
+  storeThis(JSReturnOperand, argcReg, flags);
 
   // Restore the stub register from the baseline stub frame.
   Address stubRegAddress(masm.getStackPointer(), STUB_FRAME_SAVED_STUB_OFFSET);

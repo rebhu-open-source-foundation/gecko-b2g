@@ -98,8 +98,8 @@ class WindowLMC : public profiler_screenshots::Window {
  public:
   explicit WindowLMC(Compositor* aCompositor) : mCompositor(aCompositor) {}
 
-  already_AddRefed<profiler_screenshots::RenderSource> GetWindowContents()
-      override;
+  already_AddRefed<profiler_screenshots::RenderSource> GetWindowContents(
+      const IntSize& aWindowSize) override;
   already_AddRefed<profiler_screenshots::DownscaleTarget> CreateDownscaleTarget(
       const IntSize& aSize) override;
   already_AddRefed<profiler_screenshots::AsyncReadbackBuffer>
@@ -1261,7 +1261,7 @@ bool LayerManagerComposite::Render(const nsIntRegion& aInvalidRegion,
   RootLayer()->Cleanup();
 
   WindowLMC window(mCompositor);
-  mProfilerScreenshotGrabber.MaybeGrabScreenshot(window);
+  mProfilerScreenshotGrabber.MaybeGrabScreenshot(window, bounds.Size());
 
   if (mCompositionRecorder) {
     bool hasContentPaint = std::any_of(
@@ -1780,7 +1780,7 @@ class AsyncReadbackBufferLMC
 };
 
 already_AddRefed<profiler_screenshots::RenderSource>
-WindowLMC::GetWindowContents() {
+WindowLMC::GetWindowContents(const IntSize& aWindowSize) {
   RefPtr<CompositingRenderTarget> rt = mCompositor->GetWindowRenderTarget();
   if (!rt) {
     return nullptr;

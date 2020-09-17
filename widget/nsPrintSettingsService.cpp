@@ -111,8 +111,9 @@ nsPrintSettingsService::SerializeToPrintData(nsIPrintSettings* aSettings,
 
   aSettings->GetScaling(&data->scaling());
 
-  aSettings->GetPrintBGColors(&data->printBGColors());
-  aSettings->GetPrintBGImages(&data->printBGImages());
+  data->printBGColors() = aSettings->GetPrintBGColors();
+  data->printBGImages() = aSettings->GetPrintBGImages();
+
   aSettings->GetPrintRange(&data->printRange());
 
   aSettings->GetTitle(data->title());
@@ -733,17 +734,15 @@ nsresult nsPrintSettingsService::WritePrefs(nsIPrintSettings* aPS,
   }
 
   if (aFlags & nsIPrintSettings::kInitSaveBGColors) {
-    if (NS_SUCCEEDED(aPS->GetPrintBGColors(&b))) {
-      DUMP_BOOL(kWriteStr, kPrintBGColors, b);
-      Preferences::SetBool(GetPrefName(kPrintBGColors, aPrinterName), b);
-    }
+    b = aPS->GetPrintBGColors();
+    DUMP_BOOL(kWriteStr, kPrintBGColors, b);
+    Preferences::SetBool(GetPrefName(kPrintBGColors, aPrinterName), b);
   }
 
   if (aFlags & nsIPrintSettings::kInitSaveBGImages) {
-    if (NS_SUCCEEDED(aPS->GetPrintBGImages(&b))) {
-      DUMP_BOOL(kWriteStr, kPrintBGImages, b);
-      Preferences::SetBool(GetPrefName(kPrintBGImages, aPrinterName), b);
-    }
+    b = aPS->GetPrintBGImages();
+    DUMP_BOOL(kWriteStr, kPrintBGImages, b);
+    Preferences::SetBool(GetPrefName(kPrintBGImages, aPrinterName), b);
   }
 
   if (aFlags & nsIPrintSettings::kInitSaveReversed) {
@@ -868,20 +867,7 @@ nsPrintSettingsService::GetDefaultPrintSettingsForPrinting(
 
   nsAutoString printerName;
   settings->GetPrinterName(printerName);
-
-  bool shouldGetLastUsedPrinterName = printerName.IsEmpty();
-#ifdef MOZ_X11
-  // In Linux, GTK backend does not support per printer settings.
-  // Calling GetLastUsedPrinterName causes a sandbox violation (see Bug
-  // 1329216). The printer name is not needed anywhere else on Linux
-  // before it gets to the parent. In the parent, we will then query the
-  // last-used printer name if no name is set. Unless we are in the parent,
-  // we will skip this part.
-  if (!XRE_IsParentProcess()) {
-    shouldGetLastUsedPrinterName = false;
-  }
-#endif
-  if (shouldGetLastUsedPrinterName) {
+  if (printerName.IsEmpty()) {
     GetLastUsedPrinterName(printerName);
     settings->SetPrinterName(printerName);
   }
@@ -946,7 +932,6 @@ nsPrintSettingsService::InitPrintSettingsFromPrinter(
   return rv;
 }
 
-#ifndef MOZ_X11
 /** ---------------------------------------------------
  *  Helper function - Returns either the name or sets the length to zero
  */
@@ -979,7 +964,6 @@ static nsresult GetAdjustedPrinterName(nsIPrintSettings* aPS, bool aUsePNP,
   }
   return NS_OK;
 }
-#endif
 
 NS_IMETHODIMP
 nsPrintSettingsService::InitPrintSettingsFromPrefs(nsIPrintSettings* aPS,
@@ -998,11 +982,8 @@ nsPrintSettingsService::InitPrintSettingsFromPrefs(nsIPrintSettings* aPS,
   nsresult rv = ReadPrefs(aPS, prtName, aFlags);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  // Do not use printer name in Linux because GTK backend does not support
-  // per printer settings.
-#ifndef MOZ_X11
-  // Get the Printer Name from the PrintSettings
-  // to use as a prefix for Pref Names
+  // Get the Printer Name from the PrintSettings to use as a prefix for Pref
+  // Names
   rv = GetAdjustedPrinterName(aPS, aUsePNP, prtName);
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -1014,7 +995,6 @@ nsPrintSettingsService::InitPrintSettingsFromPrefs(nsIPrintSettings* aPS,
   // Now read any printer specific prefs
   rv = ReadPrefs(aPS, prtName, aFlags);
   if (NS_SUCCEEDED(rv)) aPS->SetIsInitializedFromPrefs(true);
-#endif
 
   return NS_OK;
 }
@@ -1037,13 +1017,9 @@ nsresult nsPrintSettingsService::SavePrintSettingsToPrefs(
 
   nsAutoString prtName;
 
-  // Do not use printer name in Linux because GTK backend does not support
-  // per printer settings.
-#ifndef MOZ_X11
   // Get the printer name from the PrinterSettings for an optional prefix.
   nsresult rv = GetAdjustedPrinterName(aPS, aUsePrinterNamePrefix, prtName);
   NS_ENSURE_SUCCESS(rv, rv);
-#endif
 
   // Write the prefs, with or without a printer name prefix.
   return WritePrefs(aPS, prtName, aFlags);

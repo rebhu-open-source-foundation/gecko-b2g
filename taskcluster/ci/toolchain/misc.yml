@@ -134,6 +134,7 @@ browsertime:
         sparse-profile: null
         resources:
             - 'tools/browsertime/package.json'
+            - 'tools/browsertime/package-lock.json'
             - 'tools/browsertime/mach_commands.py'
         toolchain-artifact: public/build/browsertime.tar.bz2
     fetches:
@@ -190,6 +191,7 @@ wrench-deps:
         sparse-profile: null
         resources:
             - 'gfx/wr/Cargo.lock'
+            - 'gfx/wr/ci-scripts/install-meson.sh'
         toolchain-artifact: public/build/wrench-deps.tar.bz2
     fetches:
         fetch:

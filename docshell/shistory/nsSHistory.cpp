@@ -536,6 +536,58 @@ nsresult nsSHistory::CloneAndReplace(
   return rv;
 }
 
+// static
+void nsSHistory::WalkContiguousEntries(
+    nsISHEntry* aEntry, const std::function<void(nsISHEntry*)>& aCallback) {
+  MOZ_ASSERT(aEntry);
+
+  nsCOMPtr<nsISHistory> shistory = aEntry->GetShistory();
+  if (!shistory) {
+    // If there is no session history in the entry, it means this is not a root
+    // entry. So, we can return from here.
+    return;
+  }
+
+  int32_t index = shistory->GetIndexOfEntry(aEntry);
+  int32_t count = shistory->GetCount();
+
+  nsCOMPtr<nsIURI> targetURI = aEntry->GetURI();
+
+  // First, call the callback on the input entry.
+  aCallback(aEntry);
+
+  // Walk backward to find the entries that have the same origin as the
+  // input entry.
+  for (int32_t i = index - 1; i >= 0; i--) {
+    RefPtr<nsISHEntry> entry;
+    shistory->GetEntryAtIndex(i, getter_AddRefs(entry));
+    if (entry) {
+      nsCOMPtr<nsIURI> uri = entry->GetURI();
+      if (NS_FAILED(nsContentUtils::GetSecurityManager()->CheckSameOriginURI(
+              targetURI, uri, false, false))) {
+        break;
+      }
+
+      aCallback(entry);
+    }
+  }
+
+  // Then, Walk forward.
+  for (int32_t i = index + 1; i < count; i++) {
+    RefPtr<nsISHEntry> entry;
+    shistory->GetEntryAtIndex(i, getter_AddRefs(entry));
+    if (entry) {
+      nsCOMPtr<nsIURI> uri = entry->GetURI();
+      if (NS_FAILED(nsContentUtils::GetSecurityManager()->CheckSameOriginURI(
+              targetURI, uri, false, false))) {
+        break;
+      }
+
+      aCallback(entry);
+    }
+  }
+}
+
 NS_IMETHODIMP
 nsSHistory::AddChildSHEntryHelper(nsISHEntry* aCloneRef, nsISHEntry* aNewEntry,
                                   BrowsingContext* aRootBC,
@@ -646,6 +698,17 @@ void nsSHistory::HandleEntriesToSwapInDocShell(
   }
 }
 
+void nsSHistory::UpdateRootBrowsingContextState() {
+  if (mRootBC) {
+    bool sameDocument = IsEmptyOrHasEntriesForSingleTopLevelPage();
+    if (sameDocument != mRootBC->GetIsSingleToplevelInHistory()) {
+      // If the browsing context is discarded then its session history is
+      // invalid and will go away.
+      Unused << mRootBC->SetIsSingleToplevelInHistory(sameDocument);
+    }
+  }
+}
+
 NS_IMETHODIMP
 nsSHistory::AddToRootSessionHistory(bool aCloneChildren, nsISHEntry* aOSHE,
                                     BrowsingContext* aRootBC,
@@ -736,17 +799,17 @@ nsSHistory::AddEntry(nsISHEntry* aSHEntry, bool aPersist) {
       NOTIFY_LISTENERS(OnHistoryReplaceEntry, ());
       aSHEntry->SetPersist(aPersist);
       mEntries[mIndex] = aSHEntry;
+      UpdateRootBrowsingContextState();
       return NS_OK;
     }
   }
-
   SHistoryChangeNotifier change(this);
 
   nsCOMPtr<nsIURI> uri = aSHEntry->GetURI();
   NOTIFY_LISTENERS(OnHistoryNewEntry, (uri, mIndex));
 
-  // Remove all entries after the current one, add the new one, and set the new
-  // one as the current one.
+  // Remove all entries after the current one, add the new one, and set the
+  // new one as the current one.
   MOZ_ASSERT(mIndex >= -1);
   aSHEntry->SetPersist(aPersist);
   mEntries.TruncateLength(mIndex + 1);
@@ -757,6 +820,8 @@ nsSHistory::AddEntry(nsISHEntry* aSHEntry, bool aPersist) {
   if (gHistoryMaxSize >= 0 && Length() > gHistoryMaxSize) {
     PurgeHistory(Length() - gHistoryMaxSize);
   }
+
+  UpdateRootBrowsingContextState();
 
   return NS_OK;
 }
@@ -883,6 +948,8 @@ nsSHistory::PurgeHistory(int32_t aNumEntries) {
     mRootBC->GetDocShell()->HistoryPurged(aNumEntries);
   }
 
+  UpdateRootBrowsingContextState();
+
   return NS_OK;
 }
 
@@ -941,6 +1008,8 @@ nsSHistory::ReplaceEntry(int32_t aIndex, nsISHEntry* aReplaceEntry) {
 
   aReplaceEntry->SetPersist(true);
   mEntries[aIndex] = aReplaceEntry;
+
+  UpdateRootBrowsingContextState();
 
   return NS_OK;
 }
@@ -1462,6 +1531,7 @@ bool nsSHistory::RemoveDuplicate(int32_t aIndex, bool aKeepNext) {
     if (mRequestedIndex > aIndex || (mRequestedIndex == aIndex && !aKeepNext)) {
       mRequestedIndex = mRequestedIndex - 1;
     }
+
     return true;
   }
   return false;
@@ -1496,6 +1566,8 @@ void nsSHistory::RemoveEntries(nsTArray<nsID>& aIDs, int32_t aStartIndex,
     }
     --index;
   }
+
+  UpdateRootBrowsingContextState();
 }
 
 void nsSHistory::RemoveFrameEntries(nsISHEntry* aEntry) {

@@ -158,11 +158,6 @@ XPCOMUtils.defineLazyScriptGetter(
 );
 XPCOMUtils.defineLazyScriptGetter(
   this,
-  "DefaultBrowserNotificationOnNewTabPage",
-  "chrome://browser/content/browser-defaultBrowserNotificationOnNewTabPage.js"
-);
-XPCOMUtils.defineLazyScriptGetter(
-  this,
   ["PointerLock", "FullScreen"],
   "chrome://browser/content/browser-fullScreenAndPointerLock.js"
 );
@@ -9049,6 +9044,10 @@ class TabDialogBox {
       throw new Error("Stale dialog box! The associated browser is gone.");
     }
     return browser;
+  }
+
+  getManager() {
+    return this._dialogManager;
   }
 }
 

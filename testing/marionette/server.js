@@ -26,7 +26,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   WebElement: "chrome://marionette/content/element.js",
 });
 
-XPCOMUtils.defineLazyGetter(this, "logger", Log.get);
+XPCOMUtils.defineLazyGetter(this, "logger", () => Log.get());
 XPCOMUtils.defineLazyGetter(this, "ServerSocket", () => {
   return Components.Constructor(
     "@mozilla.org/network/server-socket;1",
@@ -372,7 +372,6 @@ class TCPConnection {
    *     The response to send back to the client.
    */
   sendToClient(resp) {
-    this.driver.responseCompleted();
     this.sendMessage(resp);
   }
 

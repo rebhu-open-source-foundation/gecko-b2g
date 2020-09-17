@@ -66,13 +66,12 @@ class nsImageLoadingContent : public nsIImageLoadingContent {
   // the Web IDL bindings.
 
   bool LoadingEnabled() const { return mLoadingEnabled; }
-  int16_t ImageBlockingStatus() const { return mImageBlockingStatus; }
   void AddObserver(imgINotificationObserver* aObserver);
   void RemoveObserver(imgINotificationObserver* aObserver);
   already_AddRefed<imgIRequest> GetRequest(int32_t aRequestType,
                                            mozilla::ErrorResult& aError);
   int32_t GetRequestType(imgIRequest* aRequest, mozilla::ErrorResult& aError);
-  already_AddRefed<nsIURI> GetCurrentURI(mozilla::ErrorResult& aError);
+  already_AddRefed<nsIURI> GetCurrentURI();
   already_AddRefed<nsIURI> GetCurrentRequestFinalURI();
   void ForceReload(bool aNotify, mozilla::ErrorResult& aError);
 
@@ -232,6 +231,11 @@ class nsImageLoadingContent : public nsIImageLoadingContent {
   // Hooks for subclasses to call to get the intrinsic width and height.
   uint32_t NaturalWidth();
   uint32_t NaturalHeight();
+  /**
+   * Get width and height of the current request, using given image request if
+   * attributes are unset.
+   */
+  MOZ_CAN_RUN_SCRIPT mozilla::CSSIntSize GetWidthHeightForImage();
 
   /**
    * Create a promise and queue a microtask which will ensure the current
@@ -561,7 +565,6 @@ class nsImageLoadingContent : public nsIImageLoadingContent {
    */
   uint32_t mRequestGeneration;
 
-  int16_t mImageBlockingStatus;
   bool mLoadingEnabled : 1;
 
   /**

@@ -65,6 +65,7 @@ path:.cron.yml
 
 # for the wrench-deps toolchain task
 path:gfx/wr/Cargo.lock
+path:gfx/wr/ci-scripts/
 
 # for the wgpu-deps toolchain task
 path:gfx/wgpu/Cargo.lock
@@ -86,6 +87,7 @@ path:build/moz.configure
 # for the browsertime toolchain task
 path:tools/browsertime/mach_commands.py
 path:tools/browsertime/package.json
+path:tools/browsertime/package-lock.json
 
 # for the geckodriver toolchain task
 path:testing/geckodriver

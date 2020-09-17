@@ -1091,6 +1091,14 @@
     templateObject: ObjectField
     array: ObjId
 
+- name: NewStringObjectResult
+  shared: true
+  transpile: true
+  cost_estimate: 5
+  args:
+    templateObject: ObjectField
+    str: StringId
+
 - name: StringFromCharCodeResult
   shared: false
   transpile: true
@@ -1851,6 +1859,14 @@
     getter: ObjectField
     sameRealm: BoolImm
     nargsAndFlags: RawWordField
+
+- name: CallDOMGetterResult
+  shared: false
+  transpile: true
+  cost_estimate: 4
+  args:
+    obj: ObjId
+    jitInfo: RawPointerField
 
 - name: ProxyGetResult
   shared: false

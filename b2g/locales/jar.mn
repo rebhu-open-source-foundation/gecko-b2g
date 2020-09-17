@@ -20,7 +20,7 @@ relativesrcdir toolkit/locales:
   locale/@AB_CD@/b2g-l10n/overrides/intl.properties                 (%chrome/global/intl.properties)
   locale/@AB_CD@/b2g-l10n/overrides/intl.css                        (%chrome/global/intl.css)
   locale/@AB_CD@/b2g-l10n/overrides/passwordmgr.properties          (%chrome/passwordmgr/passwordmgr.properties)
-  locale/@AB_CD@/b2g-l10n/overrides/search/search.properties        (%chrome/search/search.properties)
+#  locale/@AB_CD@/b2g-l10n/overrides/search/search.properties        (%chrome/search/search.properties)
   locale/@AB_CD@/b2g-l10n/overrides/update/updates.properties       (%chrome/mozapps/update/updates.properties)
 #about:crashes
 #  locale/@AB_CD@/b2g-l10n/overrides/crashreporter/crashes.dtd         (%crashreporter/crashes.dtd)

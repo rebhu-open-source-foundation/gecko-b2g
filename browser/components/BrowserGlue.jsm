@@ -175,10 +175,15 @@ let JSWINDOWACTORS = {
   },
 
   AboutNewTab: {
+    parent: {
+      moduleURI: "resource:///actors/AboutNewTabParent.jsm",
+    },
     child: {
       moduleURI: "resource:///actors/AboutNewTabChild.jsm",
       events: {
         DOMContentLoaded: {},
+        pageshow: {},
+        visibilitychange: {},
       },
     },
     // The wildcard on about:newtab is for the ?endpoint query parameter
@@ -780,6 +785,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   Normandy: "resource://normandy/Normandy.jsm",
   ObjectUtils: "resource://gre/modules/ObjectUtils.jsm",
   OS: "resource://gre/modules/osfile.jsm",
+  OsEnvironment: "resource://gre/modules/OsEnvironment.jsm",
   PageActions: "resource:///modules/PageActions.jsm",
   PageThumbs: "resource://gre/modules/PageThumbs.jsm",
   PdfJs: "resource://pdf.js/PdfJs.jsm",
@@ -2711,6 +2717,8 @@ BrowserGlue.prototype = {
       },
 
       () => BrowserUsageTelemetry.reportProfileCount(),
+
+      () => OsEnvironment.reportAllowedAppSources(),
     ];
 
     for (let task of idleTasks) {
@@ -3871,14 +3879,15 @@ BrowserGlue.prototype = {
   _maybeShowDefaultBrowserPrompt() {
     DefaultBrowserCheck.willCheckDefaultBrowser(/* isStartupCheck */ true).then(
       async willPrompt => {
-        let win = BrowserWindowTracker.getTopWindow();
-        if (!willPrompt) {
-          // If we're not showing the modal prompt, maybe we
-          // still want to show the passive notification bar.
-          await win.DefaultBrowserNotificationOnNewTabPage.init();
-          return;
+        let { DefaultBrowserNotification } = ChromeUtils.import(
+          "resource:///actors/AboutNewTabParent.jsm",
+          {}
+        );
+        if (willPrompt) {
+          // Prevent the related notification from appearing if we're
+          // showing the modal prompt.
+          DefaultBrowserNotification.notifyModalDisplayed();
         }
-        DefaultBrowserCheck.prompt(win);
       }
     );
   },

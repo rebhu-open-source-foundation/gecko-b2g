@@ -17,6 +17,7 @@ from mozboot.util import (
     get_mach_virtualenv_binary,
     MINIMUM_RUST_VERSION,
 )
+from mozfile import which
 
 # NOTE: This script is intended to be run with a vanilla Python install.  We
 # have to rely on the standard library instead of Python 2+3 helpers like
@@ -177,7 +178,7 @@ class BaseBootstrapper(object):
         raise NotImplementedError('%s must implement install_system_packages()' %
                                   __name__)
 
-    def install_browser_packages(self):
+    def install_browser_packages(self, mozconfig_builder):
         '''
         Install packages required to build Firefox for Desktop (application
         'browser').
@@ -196,7 +197,7 @@ class BaseBootstrapper(object):
         '''
         pass
 
-    def install_browser_artifact_mode_packages(self):
+    def install_browser_artifact_mode_packages(self, mozconfig_builder):
         '''
         Install packages required to build Firefox for Desktop (application
         'browser') in Artifact Mode.
@@ -216,7 +217,7 @@ class BaseBootstrapper(object):
         '''
         return BROWSER_ARTIFACT_MODE_MOZCONFIG
 
-    def install_mobile_android_packages(self):
+    def install_mobile_android_packages(self, mozconfig_builder):
         '''
         Install packages required to build Firefox for Android (application
         'mobile/android', also known as Fennec).
@@ -236,7 +237,7 @@ class BaseBootstrapper(object):
         raise NotImplementedError('%s does not yet implement generate_mobile_android_mozconfig()' %
                                   __name__)
 
-    def install_mobile_android_artifact_mode_packages(self):
+    def install_mobile_android_artifact_mode_packages(self, mozconfig_builder):
         '''
         Install packages required to build GeckoView/Firefox for Android (application
         'mobile/android', also known as Fennec) in Artifact Mode.
@@ -363,24 +364,9 @@ class BaseBootstrapper(object):
 
         subprocess.check_call(cmd, cwd=state_dir)
 
-    def which(self, name, *extra_search_dirs):
-        """Python implementation of which.
-
-        It returns the path of an executable or None if it couldn't be found.
-        """
-        search_dirs = os.environ['PATH'].split(os.pathsep)
-        search_dirs.extend(extra_search_dirs)
-
-        for path in search_dirs:
-            test = os.path.join(path, name)
-            if os.path.isfile(test) and os.access(test, os.X_OK):
-                return test
-
-        return None
-
     def run_as_root(self, command):
         if os.geteuid() != 0:
-            if self.which('sudo'):
+            if which('sudo'):
                 command.insert(0, 'sudo')
             else:
                 command = ['su', 'root', '-c', ' '.join(command)]
@@ -390,7 +376,7 @@ class BaseBootstrapper(object):
         subprocess.check_call(command, stdin=sys.stdin)
 
     def dnf_install(self, *packages):
-        if self.which('dnf'):
+        if which('dnf'):
             command = ['dnf', 'install']
         else:
             command = ['yum', 'install']
@@ -402,7 +388,7 @@ class BaseBootstrapper(object):
         self.run_as_root(command)
 
     def dnf_groupinstall(self, *packages):
-        if self.which('dnf'):
+        if which('dnf'):
             command = ['dnf', 'groupinstall']
         else:
             command = ['yum', 'groupinstall']
@@ -414,7 +400,7 @@ class BaseBootstrapper(object):
         self.run_as_root(command)
 
     def dnf_update(self, *packages):
-        if self.which('dnf'):
+        if which('dnf'):
             command = ['dnf', 'update']
         else:
             command = ['yum', 'update']
@@ -553,7 +539,7 @@ class BaseBootstrapper(object):
         return env
 
     def is_mercurial_modern(self):
-        hg = self.which('hg')
+        hg = which('hg')
         if not hg:
             print(NO_MERCURIAL)
             return False, False, None
@@ -613,7 +599,7 @@ class BaseBootstrapper(object):
             our = LooseVersion(platform.python_version())
         else:
             for test in ('python2.7', 'python'):
-                python = self.which(test)
+                python = which(test)
                 if python:
                     candidate_version = self._parse_version(python, 'Python')
                     if (candidate_version and
@@ -653,7 +639,7 @@ class BaseBootstrapper(object):
             print(self.INSTALL_PYTHON_GUIDANCE)
 
     def is_nasm_modern(self):
-        nasm = self.which('nasm')
+        nasm = which('nasm')
         if not nasm:
             return False
 
@@ -664,7 +650,7 @@ class BaseBootstrapper(object):
         return our >= MODERN_NASM_VERSION
 
     def is_rust_modern(self, cargo_bin):
-        rustc = self.which('rustc', cargo_bin)
+        rustc = which('rustc', extra_search_dirs=[cargo_bin])
         if not rustc:
             print('Could not find a Rust compiler.')
             return False, None
@@ -713,7 +699,7 @@ class BaseBootstrapper(object):
 
         if modern:
             print('Your version of Rust (%s) is new enough.' % version)
-            rustup = self.which('rustup', cargo_bin)
+            rustup = which('rustup', extra_search_dirs=[cargo_bin])
             if rustup:
                 self.ensure_rust_targets(rustup, version)
             return
@@ -721,7 +707,7 @@ class BaseBootstrapper(object):
         if version:
             print('Your version of Rust (%s) is too old.' % version)
 
-        rustup = self.which('rustup', cargo_bin)
+        rustup = which('rustup', extra_search_dirs=[cargo_bin])
         if rustup:
             rustup_version = self._parse_version(rustup)
             if not rustup_version:
@@ -831,7 +817,7 @@ class BaseBootstrapper(object):
             os.remove(dest)
             raise ValueError('Hash of downloaded file does not match expected hash')
 
-    def ensure_java(self, extra_search_dirs=()):
+    def ensure_java(self, mozconfig_builder):
         """Verify the presence of java.
 
         Note that we currently require a JDK (not just a JRE) because we
@@ -844,20 +830,48 @@ class BaseBootstrapper(object):
         Gradle.
         """
 
-        java = None
+        # We look up the realpath() of "jarsigner" instead of "java" because the
+        # structure of some JDKs places "java" in a different directory:
+        #
+        # $JDK/
+        #    bin/
+        #        jarsigner
+        #        java -> ../jre/bin/java
+        #        ...
+        #    jre/
+        #        bin/
+        #            java
+        #            ...
+        #    ...
+        #
+        # Realpath-ing "jarsigner" consistently gives us a JDK bin dir
+        # containing both "java" and "jarsigner".
+        jdk_bin_dir = None
         if 'JAVA_HOME' in os.environ:
             # Search JAVA_HOME if it is set as it's finer grained than looking at PATH.
-            possible_java_path = os.path.join(os.environ['JAVA_HOME'], 'bin', 'java')
-            if os.path.isfile(possible_java_path) and os.access(possible_java_path, os.X_OK):
-                java = possible_java_path
+            possible_jarsigner_path = os.path.join(os.environ['JAVA_HOME'], 'bin')
+            if which('jarsigner', path=possible_jarsigner_path):
+                jdk_bin_dir = os.path.realpath(possible_jarsigner_path)
         else:
             # Search the path if JAVA_HOME is not set.
-            java = self.which('java', *extra_search_dirs)
+            jarsigner = which('jarsigner')
+            java = which('java')
 
-        if not java:
+            if jarsigner and java:
+                jdk_bin_dir = os.path.dirname(os.path.realpath(jarsigner))
+                if (os.path.realpath(java) !=
+                    os.path.realpath(which('java', path=jdk_bin_dir))):
+                    # This can happen on Ubuntu if "update-alternatives" has been
+                    # manually overridden once for either "java" or "jarsigner".
+                    raise Exception('The "java" and "jarsigner" binaries on the PATH are '
+                                    'currently coming from two different JDKs. Please '
+                                    'resolve this, or explicitly set JAVA_HOME.')
+
+        if not jdk_bin_dir:
             raise Exception('You need to have Java Development Kit version 1.8 installed. '
                             'Please install it from https://adoptopenjdk.net/?variant=openjdk8')
 
+        java = which('java', path=jdk_bin_dir)
         try:
             output = subprocess.check_output([java,
                                               '-XshowSettings:properties',
@@ -886,6 +900,12 @@ class BaseBootstrapper(object):
             version = version[0].split(' = ')[-1]
             if version not in ['1.8', '8']:
                 raise unknown_version_exception
+
+            mozconfig_builder.append('''
+            # Use the same Java binary that was used in bootstrap in case the global
+            # system default version is changed.
+            ac_add_options --with-java-bin-path={}
+            '''.format(jdk_bin_dir))
         except subprocess.CalledProcessError as e:
             raise Exception('Failed to get java version from {}: {}'.format(java, e.output))
 

@@ -13,6 +13,7 @@ import sys
 import subprocess
 import time
 from distutils.version import LooseVersion
+from mozfile import which
 
 # NOTE: This script is intended to be run with a vanilla Python install.  We
 # have to rely on the standard library instead of Python 2+3 helpers like
@@ -44,7 +45,7 @@ from mozboot.solus import SolusBootstrapper
 from mozboot.void import VoidBootstrapper
 from mozboot.windows import WindowsBootstrapper
 from mozboot.mozillabuild import MozillaBuildBootstrapper
-from mozboot.mozconfig import find_mozconfig
+from mozboot.mozconfig import find_mozconfig, MozconfigBuilder
 from mozboot.util import get_state_dir
 
 # Use distro package to retrieve linux platform information
@@ -344,6 +345,7 @@ class Bootstrapper(object):
             raise Exception('Please pick a valid application choice: (%s)' %
                             '/'.join(APPLICATIONS.keys()))
 
+        mozconfig_builder = MozconfigBuilder()
         self.instance.application = application
         self.instance.artifact_mode = 'artifact_mode' in application
 
@@ -358,7 +360,7 @@ class Bootstrapper(object):
         # required to open the repo.
         (checkout_type, checkout_root) = current_firefox_checkout(
             env=self.instance._hg_cleanenv(load_hgrc=True),
-            hg=self.instance.which('hg'))
+            hg=which('hg'))
         self.instance.validate_environment(checkout_root)
         self.instance.ensure_mach_environment(checkout_root)
 
@@ -366,13 +368,13 @@ class Bootstrapper(object):
             self.check_telemetry_opt_in(state_dir)
             self.maybe_install_private_packages_or_exit(state_dir,
                                                         checkout_root)
-            self._output_mozconfig(application)
+            self._output_mozconfig(application, mozconfig_builder)
             sys.exit(0)
 
         self.instance.install_system_packages()
 
         # Like 'install_browser_packages' or 'install_mobile_android_packages'.
-        getattr(self.instance, 'install_%s_packages' % application)()
+        getattr(self.instance, 'install_%s_packages' % application)(mozconfig_builder)
 
         hg_installed, hg_modern = self.instance.ensure_mercurial_modern()
         if not self.instance.artifact_mode:
@@ -388,10 +390,10 @@ class Bootstrapper(object):
                 configure_hg = self.hg_configure
 
             if configure_hg:
-                configure_mercurial(self.instance.which('hg'), state_dir)
+                configure_mercurial(which('hg'), state_dir)
 
         # Offer to configure Git, if the current checkout or repo type is Git.
-        elif self.instance.which('git') and checkout_type == 'git':
+        elif which('git') and checkout_type == 'git':
             should_configure_git = False
             if not self.instance.no_interactive:
                 should_configure_git = self.instance.prompt_yesno(prompt=CONFIGURE_GIT)
@@ -400,38 +402,41 @@ class Bootstrapper(object):
                 should_configure_git = self.hg_configure
 
             if should_configure_git:
-                configure_git(self.instance.which('git'),
-                              self.instance.which('git-cinnabar'),
+                configure_git(which('git'), which('git-cinnabar'),
                               state_dir, checkout_root)
 
         self.check_telemetry_opt_in(state_dir)
         self.maybe_install_private_packages_or_exit(state_dir, checkout_root)
 
         print(FINISHED % name)
-        if not (self.instance.which('rustc') and self.instance._parse_version('rustc')
+        if not (which('rustc') and self.instance._parse_version('rustc')
                 >= MODERN_RUST_VERSION):
             print("To build %s, please restart the shell (Start a new terminal window)" % name)
 
-        if not self.instance.which("moz-phab"):
+        if not which('moz-phab'):
             print(MOZ_PHAB_ADVERTISE)
 
-        self._output_mozconfig(application)
+        self._output_mozconfig(application, mozconfig_builder)
 
-    def _output_mozconfig(self, application):
+    def _output_mozconfig(self, application, mozconfig_builder):
         # Like 'generate_browser_mozconfig' or 'generate_mobile_android_mozconfig'.
-        mozconfig = getattr(self.instance, 'generate_%s_mozconfig' % application)()
+        additional_mozconfig = getattr(self.instance, 'generate_%s_mozconfig' % application)()
+        if additional_mozconfig:
+            mozconfig_builder.append(additional_mozconfig)
+        raw_mozconfig = mozconfig_builder.generate()
 
-        if mozconfig:
+        if raw_mozconfig:
             mozconfig_path = find_mozconfig(self.mach_context.topdir)
             if not mozconfig_path:
                 # No mozconfig file exists yet
                 mozconfig_path = os.path.join(self.mach_context.topdir, 'mozconfig')
                 with open(mozconfig_path, 'w') as mozconfig_file:
-                    mozconfig_file.write(mozconfig)
+                    mozconfig_file.write(raw_mozconfig)
                 print('Your requested configuration has been written to "%s".'
                       % mozconfig_path)
             else:
-                suggestion = MOZCONFIG_SUGGESTION_TEMPLATE % (mozconfig_path, mozconfig)
+                suggestion = MOZCONFIG_SUGGESTION_TEMPLATE % (
+                    mozconfig_path, raw_mozconfig)
                 print(suggestion)
 
 
