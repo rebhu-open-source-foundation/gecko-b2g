@@ -1,0 +1,26 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+interface nsIDOMWindow;
+webidl FrameLoader;
+
+%{C++
+#define VIRTUAL_CURSOR_SERVICE_CID \
+  { 0xbfb41e26, 0x7dd9, 0x489f, \
+      { 0x87, 0xde, 0x5d, 0x7a, 0xdd, 0xf7, 0x2c, 0xb3 } }
+
+#define VIRTUAL_CURSOR_SERVICE_CONTRACTID \
+  "@mozilla.org/virtualcursor/service;1"
+%}
+
+[scriptable, uuid(3b21d34a-d870-11ea-87d0-0242ac130003)]
+interface nsIVirtualCursorService : nsISupports
+{
+  /**
+   * The Service runs on chrome process only.
+   */
+  void init(in nsIDOMWindow window);
+};

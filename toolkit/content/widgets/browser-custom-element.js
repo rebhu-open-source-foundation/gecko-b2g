@@ -1342,6 +1342,31 @@
       return !this.dispatchEvent(event);
     }
 
+    webViewSetCursorEnable(enable) {
+      console.log(`webViewSetCursorEnable ${enable}`);
+      let mm = this.messageManager;
+      mm.sendAsyncMessage("WebView::SetCursorEnable", { enable });
+    }
+
+    webViewGetCursorEnabled() {
+      console.log(`webViewGetCursorEnabled`);
+      let id = `WebView::GetCursorEnabled::${this.webViewRequestId}`;
+      this.webViewRequestId += 1;
+      return new Promise((resolve, reject) => {
+        let mm = this.messageManager;
+        mm.addMessageListener(id, function gotCursorEnabled(message) {
+          mm.removeMessageListener(id, gotCursorEnabled);
+          let data = message.data;
+          if (data.success) {
+            resolve(data.result);
+          } else {
+            reject();
+          }
+        });
+        mm.sendAsyncMessage("WebView::GetCursorEnabled", { id });
+      });
+    }
+
     webViewcreateEvent(evtName, detail, cancelable) {
       // This will have to change if we ever want to send a CustomEvent with null
       // detail.  For now, it's OK.

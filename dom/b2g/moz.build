@@ -25,6 +25,7 @@ DIRS += [
     'messages',
     'permissions',
     'tethering',
+    'virtualcursor',
 ]
 
 if CONFIG['MOZ_B2G_BT']:

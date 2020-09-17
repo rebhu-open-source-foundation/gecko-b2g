@@ -147,6 +147,9 @@
 #  include "nsIWebBrowserPrint.h"
 #endif
 
+#include "mozilla/dom/VirtualCursorService.h"
+#include "mozilla/dom/VirtualCursorProxy.h"
+
 static mozilla::LazyLogModule sApzChildLog("apz.child");
 
 using namespace mozilla;
@@ -1237,7 +1240,12 @@ mozilla::ipc::IPCResult BrowserChild::RecvUpdateDimensions(
                         screenSize.width, screenSize.height, true);
 
   RecvSafeAreaInsetsChanged(mPuppetWidget->GetSafeAreaInsets());
-
+  nsCOMPtr<nsPIDOMWindowOuter> window = do_GetInterface(WebNavigation());
+  nsCOMPtr<nsPIDOMWindowInner> inner = window->GetCurrentInnerWindow();
+  RefPtr<VirtualCursorProxy> cursor = VirtualCursorService::GetCursor(inner);
+  if (cursor) {
+    cursor->UpdateChromeOffset(GetChromeOffset());
+  }
   return IPC_OK();
 }
 

@@ -25,6 +25,13 @@ XPCOMUtils.defineLazyGetter(this, "MarionetteHelper", () => {
   return new MarionetteHelper(shell.contentBrowser);
 });
 
+XPCOMUtils.defineLazyServiceGetter(
+  Services,
+  "virtualcursor",
+  "@mozilla.org/virtualcursor/service;1",
+  "nsIVirtualCursorService"
+);
+
 const isGonk = AppConstants.platform === "gonk";
 
 if (isGonk) {
@@ -107,6 +114,8 @@ var shell = {
     window.addEventListener("MozAfterPaint", this);
     window.addEventListener("sizemodechange", this);
     window.addEventListener("unload", this);
+
+    Services.virtualcursor.init(window);
 
     let stopUrl = null;
 

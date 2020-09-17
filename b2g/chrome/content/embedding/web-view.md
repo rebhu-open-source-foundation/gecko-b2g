@@ -18,7 +18,11 @@ The <web-view> element supports the following attributes:
 - `goBack() : void` : navigates one step back in the history.
 - `reload(forced) : void` : reload the patch, bypassing the cache if `forced` is true.
 - `stop() : void` : stops the current page loading.
-
+- `enableCursor() : void` : enables the virtual cursor.
+- `disableCursor() : void` : disables the virtual cursor.
+- `getCursorEnabled() : Promise<boolean>` : query whether the virtual cursor is enabled.
+- `startVirtualCursorPanning() : void` : starts panning simulation of virtual cursor with keyboard events.
+- `stopVirtualCursorPanning() : void` : stops panning simulation of virtual cursor with keyboard events.
 
 ## Properties
 
@@ -29,6 +33,7 @@ The <web-view> element supports the following attributes:
 - `active : boolean` : control the active state of the browser's docShell.
 - `processid : int` : returns the process ID of its content process if there is, or -1 if there is not.
 - `visible : boolean`: currently similar to `active`.
+- `isVirtualCursorPanning : boolean` : query whether the panning simulation of virtual cursor is enabled.
 
 ## Events
 

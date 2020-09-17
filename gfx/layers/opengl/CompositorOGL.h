@@ -267,7 +267,7 @@ class CompositorOGL final : public Compositor {
   /**
    * GLCursor draws a cursor image if widget receives eMouseMove event. It
    * is
-   * usually enabled with SpatialNavigation.
+   * usually enabled with VirtualCursor.
    */
   void DrawGLCursor(LayoutDeviceIntRect aRect, LayoutDeviceIntPoint
       aCursorPos,

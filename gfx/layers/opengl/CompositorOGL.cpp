@@ -2333,7 +2333,7 @@ void CompositorOGL::DrawGLCursor(
     nsIntSize aImgSize,
     nsIntPoint aHotspot)
 {
-  if (!StaticPrefs::gfx_glcursor_enabled() ||
+  if (!StaticPrefs::dom_virtualcursor_enabled() ||
       !aRect.Contains(aCursorPos) ||
       !aSurface) {
     return;

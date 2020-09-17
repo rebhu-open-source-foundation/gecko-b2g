@@ -139,6 +139,8 @@
 #  include "GeckoViewHistory.h"
 #endif
 
+#include "mozilla/dom/VirtualCursorService.h"
+
 using namespace mozilla::dom;
 using namespace mozilla::ipc;
 using namespace mozilla::layers;
@@ -4162,6 +4164,49 @@ mozilla::ipc::IPCResult BrowserParent::RecvIsWindowSupportingWebVR(
   aResolve(true);
 #endif
 
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult BrowserParent::RecvUpdateCursorPos(
+    const LayoutDeviceIntPoint& aPoint) {
+  RefPtr<VirtualCursorService> service = VirtualCursorService::GetService();
+  service->UpdatePos(aPoint);
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult BrowserParent::RecvCursorClick() {
+  RefPtr<VirtualCursorService> service = VirtualCursorService::GetService();
+  service->CursorClick();
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult BrowserParent::RecvCursorDown() {
+  RefPtr<VirtualCursorService> service = VirtualCursorService::GetService();
+  service->CursorDown();
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult BrowserParent::RecvCursorUp() {
+  RefPtr<VirtualCursorService> service = VirtualCursorService::GetService();
+  service->CursorUp();
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult BrowserParent::RecvCursorMove() {
+  RefPtr<VirtualCursorService> service = VirtualCursorService::GetService();
+  service->CursorMove();
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult BrowserParent::RecvCursorOut() {
+  RefPtr<VirtualCursorService> service = VirtualCursorService::GetService();
+  service->CursorOut();
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult BrowserParent::RecvCursorShowContextMenu() {
+  RefPtr<VirtualCursorService> service = VirtualCursorService::GetService();
+  service->ShowContextMenu();
   return IPC_OK();
 }
 

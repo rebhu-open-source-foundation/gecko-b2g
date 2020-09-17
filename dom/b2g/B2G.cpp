@@ -55,6 +55,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(B2G)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMobileMessageManager)
 #endif
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mExternalAPI)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mVirtualCursor)
 #ifdef MOZ_B2G_BT
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBluetooth)
 #endif
@@ -399,6 +400,14 @@ ExternalAPI* B2G::GetExternalapi(ErrorResult& aRv) {
   }
 
   return mExternalAPI;
+}
+
+DOMVirtualCursor* B2G::GetVirtualCursor(ErrorResult& aRv) {
+  if (!mVirtualCursor) {
+    mVirtualCursor = DOMVirtualCursor::Create(mOwner);
+  }
+
+  return mVirtualCursor;
 }
 
 #ifdef MOZ_B2G_BT

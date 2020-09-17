@@ -453,6 +453,15 @@ class BrowserParent final : public PBrowserParent,
       const ScrollAxis& aHorizontal, const ScrollFlags& aScrollFlags,
       const int32_t& aAppUnitsPerDevPixel);
 
+  mozilla::ipc::IPCResult RecvUpdateCursorPos(
+      const LayoutDeviceIntPoint& aPoint);
+  mozilla::ipc::IPCResult RecvCursorClick();
+  mozilla::ipc::IPCResult RecvCursorDown();
+  mozilla::ipc::IPCResult RecvCursorUp();
+  mozilla::ipc::IPCResult RecvCursorMove();
+  mozilla::ipc::IPCResult RecvCursorOut();
+  mozilla::ipc::IPCResult RecvCursorShowContextMenu();
+
   PColorPickerParent* AllocPColorPickerParent(const nsString& aTitle,
                                               const nsString& aInitialColor);
 

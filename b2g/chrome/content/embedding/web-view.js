@@ -628,6 +628,38 @@
     get processid() {
       return this._pid;
     }
+
+    enableCursor() {
+      this.browser.webViewSetCursorEnable(true);
+    }
+
+    disableCursor() {
+      this.browser.webViewSetCursorEnable(false);
+    }
+
+    getCursorEnabled() {
+      return this.browser.webViewGetCursorEnabled();
+    }
+
+    startVirtualCursorPanning() {
+      this.log("App: [" + document.documentURI + "] startVirtualCursorPanning");
+      navigator.b2g.virtualCursor.startPanning();
+    }
+
+    stopVirtualCursorPanning() {
+      this.log("App: [" + document.documentURI + "] stopVirtualCursorPanning");
+      navigator.b2g.virtualCursor.stopPanning();
+    }
+
+    get isVirtualCursorPanning() {
+      this.log(
+        "App: [" +
+          document.documentURI +
+          "] isVirtualCursorPanning=" +
+          navigator.b2g.virtualCursor.IsPanning
+      );
+      return navigator.b2g.virtualCursor.IsPanning;
+    }
   }
 
   webViewLogEnabled && console.log(`Setting up <web-view> custom element`);

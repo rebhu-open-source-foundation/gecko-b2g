@@ -149,6 +149,11 @@ this.PermissionsTable = {
     signed: DENY_ACTION,
     core: ALLOW_ACTION,
   },
+  virtualcursor: {
+    pwa: DENY_ACTION,
+    signed: ALLOW_ACTION,
+    core: ALLOW_ACTION,
+  },
   voicemail: {
     pwa: DENY_ACTION,
     signed: DENY_ACTION,

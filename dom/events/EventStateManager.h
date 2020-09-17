@@ -45,7 +45,7 @@ class Element;
 class Selection;
 class BrowserParent;
 class RemoteDragStartData;
-
+class CursorSimulator;
 }  // namespace dom
 
 class OverOutElementsWrapper final : public nsISupports {
@@ -74,6 +74,7 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
   friend class mozilla::EnterLeaveDispatcher;
   friend class mozilla::ScrollbarsForWheel;
   friend class mozilla::WheelTransaction;
+  friend class mozilla::dom::CursorSimulator;
 
   virtual ~EventStateManager();
 

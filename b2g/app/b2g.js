@@ -1016,18 +1016,17 @@ pref("extensions.blocklist.detailsURL", "https://www.mozilla.com/%LOCALE%/blockl
 // format as https://maps.googleapis.com/maps/api/geocode/json?latlng=<lat>,<lon>&key=<key>
 pref("google.geocoding.URL", "https://maps.googleapis.com/maps/api/geocode/json?latlng=");
 
-// GLCursor draws a cursor image if widget receives eMouseMove event. It is
-// usually enabled with SpatialNavigation.
-pref("gfx.glcursor.enabled", true);
+// Enable the GLCursor and DOM virtual cursor on non-touch devices.
+// GLCursor draws a cursor image if widget receives eMouseMove event.
+// DOM virtual cursor simulate mouse events by keyboard events.
+pref("dom.virtualcursor.enabled", true);
 
-// Enable the spatial navigation service on non-touch devices.
-pref("dom.spatialnavigation.enabled", true);
-
-// Enable snap policy for cursor moving.
-pref("dom.spatialnavigation.snap.enabled", true);
+// Enable the pan simulation of the virtual cursor service on non-touch
+// devices.
+pref("dom.virtualcursor.pan_simulator.enabled", true);
 
 // A step offset in pixel when short click direction keys to move the cursor.
-pref("dom.spatialnavigation.move.short_click_offset", "10.0");
+pref("dom.virtualcursor.move.short_click_offset", "10.0");
 
 // Enable keyboardEventGenerator on touch devices.
 pref("dom.keyboardEventGenerator.enabled", false);

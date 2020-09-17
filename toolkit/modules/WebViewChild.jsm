@@ -151,6 +151,16 @@ var WebViewChild = {
       "WebView::GetBackgroundColor",
       this.getBackgroundColor.bind(this)
     );
+
+    // Installs a message listener for virtual cursor requests.
+    global.addMessageListener(
+      "WebView::GetCursorEnabled",
+      this.getCursorEnabled.bind(this)
+    );
+    global.addMessageListener(
+      "WebView::SetCursorEnable",
+      this.setCursorEnable.bind(this)
+    );
   },
 
   getBackgroundColor(message) {
@@ -204,6 +214,48 @@ var WebViewChild = {
     Cc["@mozilla.org/message-loop;1"]
       .getService(Ci.nsIMessageLoop)
       .postIdleTask(takeScreenshotClosure, maxDelayMs);
+  },
+
+  getCursorEnabled(message) {
+    let messageName = message.data.id;
+
+    let content = this.global.content;
+    if (
+      !content ||
+      !content.navigator ||
+      !content.navigator.b2g ||
+      !content.navigator.b2g.virtualCursor
+    ) {
+      this.global.sendAsyncMessage(messageName, {
+        success: false,
+      });
+      return;
+    }
+    this.global.sendAsyncMessage(messageName, {
+      success: true,
+      result: content.navigator.b2g.virtualCursor.enabled,
+    });
+  },
+
+  setCursorEnable(message) {
+    let enable = message.data.enable;
+    let content = this.global.content;
+    if (
+      !content ||
+      !content.navigator ||
+      !content.navigator.b2g ||
+      !content.navigator.b2g.virtualCursor
+    ) {
+      return;
+    }
+    if (content.navigator.b2g.virtualCursor.enabled == enable) {
+      return;
+    }
+    if (enable) {
+      content.navigator.b2g.virtualCursor.enable();
+    } else {
+      content.navigator.b2g.virtualCursor.disable();
+    }
   },
 
   // Actually take a screenshot and foward the result up to our parent, given

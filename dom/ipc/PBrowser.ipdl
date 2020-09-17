@@ -604,6 +604,15 @@ child:
     async UpdateSHistory(bool aImmediately);
 
 parent:
+    async UpdateCursorPos(LayoutDeviceIntPoint aPoint);
+    async CursorClick();
+    async CursorDown();
+    async CursorUp();
+    async CursorOut();
+    async CursorMove();
+    async CursorShowContextMenu();
+
+parent:
 
     /**
      * Child informs the parent that the graphics objects are ready for

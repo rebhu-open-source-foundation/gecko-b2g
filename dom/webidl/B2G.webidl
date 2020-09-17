@@ -235,3 +235,9 @@ partial interface B2G {
    Exposed=Window]
   readonly attribute PermissionsManager permissions;
 };
+
+[Exposed=Window]
+partial interface B2G {
+  [Throws, Func="DOMVirtualCursor::HasPermission", Pref="dom.virtualcursor.enabled"]
+  readonly attribute DOMVirtualCursor virtualCursor;
+};

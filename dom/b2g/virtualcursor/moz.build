@@ -1,0 +1,43 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+EXPORTS.mozilla.dom += [
+    'DOMVirtualCursor.h',
+]
+
+EXPORTS.mozilla.dom += [
+    "CursorSimulator.h",
+    "PanSimulator.h",
+    'VirtualCursorProxy.h',
+    'VirtualCursorService.h',
+]
+
+UNIFIED_SOURCES += [
+    'CursorRemote.cpp',
+    'CursorSimulator.cpp',
+    'DOMVirtualCursor.cpp',
+    'PanSimulator.cpp',
+    'VirtualCursorProxy.cpp',
+    'VirtualCursorService.cpp',
+]
+
+LOCAL_INCLUDES += [
+    '/dom/base',
+    '/dom/html',
+    '/gfx/layers/',
+]
+
+XPIDL_MODULE = 'dom_virtualcursor'
+
+XPCOM_MANIFESTS += [
+    'components.conf',
+]
+
+XPIDL_SOURCES += [
+    'nsIVirtualCursorService.idl',
+]
+
+include('/ipc/chromium/chromium-config.mozbuild')
+
+FINAL_LIBRARY = 'xul'

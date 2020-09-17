@@ -1,0 +1,205 @@
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=8 sts=2 et sw=2 tw=80: */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "mozilla/Preferences.h"
+#include "VirtualCursorService.h"
+#include "CursorSimulator.h"
+
+using namespace mozilla;
+using namespace mozilla::dom;
+using namespace mozilla::layers;
+
+extern mozilla::LazyLogModule gVirtualCursorLog;
+
+namespace mozilla {
+namespace dom {
+
+StaticRefPtr<VirtualCursorService> sSingleton;
+
+NS_IMPL_ISUPPORTS(VirtualCursorService, nsIVirtualCursorService)
+
+/* static */
+already_AddRefed<VirtualCursorService> VirtualCursorService::GetService() {
+  MOZ_ASSERT(NS_IsMainThread());
+  if (!sSingleton) {
+    sSingleton = new VirtualCursorService();
+  }
+  RefPtr<VirtualCursorService> service = sSingleton.get();
+  return service.forget();
+}
+
+VirtualCursorService::~VirtualCursorService() { mCursorMap.Clear(); }
+
+/* static */
+already_AddRefed<VirtualCursorProxy> VirtualCursorService::GetOrCreateCursor(
+    nsPIDOMWindowInner* aWindow) {
+  MOZ_ASSERT(NS_IsMainThread());
+  RefPtr<VirtualCursorService> service = GetService();
+  RefPtr<VirtualCursorProxy> cursor;
+  cursor = service->mCursorMap.LookupForAdd(aWindow).OrInsert([&]() {
+    nsPIDOMWindowOuter* outer = aWindow->GetOuterWindow();
+    MOZ_ASSERT(outer);
+    RefPtr<dom::BrowserChild> browser = BrowserChild::GetFrom(outer);
+    LayoutDeviceIntPoint offset(browser->GetChromeOffset());
+    if (XRE_GetProcessType() == GeckoProcessType_Content) {
+      return new VirtualCursorProxy(aWindow, new CursorRemote(outer), offset);
+    }
+    return new VirtualCursorProxy(aWindow, service, offset);
+  });
+  return cursor.forget();
+}
+
+/* static */
+already_AddRefed<VirtualCursorProxy> VirtualCursorService::GetCursor(
+    nsPIDOMWindowInner* aWindow) {
+  MOZ_ASSERT(NS_IsMainThread());
+  RefPtr<VirtualCursorService> service = GetService();
+  RefPtr<VirtualCursorProxy> cursor;
+  auto entry = service->mCursorMap.Lookup(aWindow);
+  if (!entry) {
+    return nullptr;
+  }
+  return entry.Data().forget();
+}
+
+/* static */
+void VirtualCursorService::RemoveCursor(nsPIDOMWindowInner* aWindow) {
+  MOZ_ASSERT(NS_IsMainThread());
+  RefPtr<VirtualCursorService> service = GetService();
+  service->mCursorMap.Remove(aWindow);
+  MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
+          ("VirtualCursorProxy RemoveCursor, remains %d",
+           service->mCursorMap.Count()));
+}
+
+NS_IMETHODIMP VirtualCursorService::Init(nsIDOMWindow* aWindow) {
+  NS_ENSURE_ARG_POINTER(aWindow);
+
+  if (!Preferences::GetBool("dom.virtualcursor.enabled", false) ||
+      XRE_GetProcessType() == GeckoProcessType_Content) {
+    return NS_OK;
+  }
+  nsCOMPtr<nsPIDOMWindowInner> inner = do_QueryInterface(aWindow);
+  NS_ENSURE_TRUE(inner, NS_ERROR_FAILURE);
+  mWindow = nsPIDOMWindowOuter::GetFromCurrentInner(inner);
+  RefPtr<nsGlobalWindowOuter> win = nsGlobalWindowOuter::Cast(mWindow);
+  mWindowUtils = win->WindowUtils();
+  NS_ENSURE_TRUE(mWindowUtils, NS_ERROR_FAILURE);
+
+  if (Preferences::GetBool("dom.virtualcursor.pan_simulator.enabled", false)) {
+    mPanSimulator = new PanSimulator(mWindow, mWindowUtils);
+  }
+  return NS_OK;
+}
+
+/* static */
+void VirtualCursorService::Shutdown() {
+  if (!sSingleton) {
+    return;
+  }
+  sSingleton = nullptr;
+  MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
+          ("VirtualCursorService::Shutdown"));
+}
+
+void VirtualCursorService::SendCursorEvent(const nsAString& aType) {
+  NS_ENSURE_TRUE_VOID(mWindowUtils);
+  bool preventDefault;
+  mWindowUtils->SendMouseEvent(aType, mCSSCursorPoint.x, mCSSCursorPoint.y, 0,
+                               1, 0, false, 0.0, 0, false, false, 0, 0, 6,
+                               &preventDefault);
+}
+
+void VirtualCursorService::UpdatePos(const LayoutDeviceIntPoint& aPoint) {
+  if (!mWindow) {
+    return;
+  }
+  MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
+          ("VirtualCursorService::UpdatePos"));
+  nsIDocShell* docShell = mWindow->GetDocShell();
+  NS_ENSURE_TRUE_VOID(docShell);
+  RefPtr<nsPresContext> presContext = docShell->GetPresContext();
+  NS_ENSURE_TRUE_VOID(presContext);
+  PresShell* presShell = docShell->GetPresShell();
+  NS_ENSURE_TRUE_VOID(presShell);
+
+  float resolution = presShell->GetResolution();
+  mCSSCursorPoint.x =
+      presContext->DevPixelsToFloatCSSPixels(aPoint.x) / resolution;
+  mCSSCursorPoint.y =
+      presContext->DevPixelsToFloatCSSPixels(aPoint.y) / resolution;
+  CursorMove();
+}
+
+void VirtualCursorService::CursorClick() {
+  MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
+          ("VirtualCursorService::CursorClick"));
+  CursorDown();
+  CursorUp();
+}
+
+void VirtualCursorService::CursorDown() {
+  MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
+          ("VirtualCursorService::CursorDown"));
+  SendCursorEvent(NS_LITERAL_STRING_FROM_CSTRING("mousedown"));
+}
+
+void VirtualCursorService::CursorUp() {
+  MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
+          ("VirtualCursorService::CursorUp"));
+  SendCursorEvent(NS_LITERAL_STRING_FROM_CSTRING("mouseup"));
+}
+
+void VirtualCursorService::CursorMove() {
+  MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
+          ("VirtualCursorService::CursorMove"));
+  SendCursorEvent(NS_LITERAL_STRING_FROM_CSTRING("mousemove"));
+}
+
+void VirtualCursorService::CursorOut(bool aCheckActive) {
+  MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
+          ("VirtualCursorService::CursorOut"));
+  SendCursorEvent(NS_LITERAL_STRING_FROM_CSTRING("mouseout"));
+}
+
+void VirtualCursorService::ShowContextMenu() {
+  NS_ENSURE_TRUE_VOID(mWindowUtils);
+  bool preventDefault;
+  mWindowUtils->SendMouseEvent(NS_LITERAL_STRING_FROM_CSTRING("contextmenu"),
+                               mCSSCursorPoint.x, mCSSCursorPoint.y, 2, 1, 0,
+                               false, 0.0, 0, false, false, 0, 0, 6,
+                               &preventDefault);
+}
+
+void VirtualCursorService::StartPanning() {
+  if (mPanSimulator) {
+    if (mPanSimulator->IsPanning()) {
+      MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
+              ("Try to start panning while already in panning state"));
+      mPanSimulator->Finish();
+    }
+    nsIntPoint point((int)mCSSCursorPoint.x, (int)mCSSCursorPoint.y);
+    mPanSimulator->Start(point);
+    CursorOut();
+  }
+}
+
+void VirtualCursorService::StopPanning() {
+  if (mPanSimulator && mPanSimulator->IsPanning()) {
+    mPanSimulator->Finish();
+    CursorMove();
+  }
+}
+
+bool VirtualCursorService::IsPanning() {
+  if (mPanSimulator) {
+    return mPanSimulator->IsPanning();
+  }
+  return false;
+}
+
+}  // namespace dom
+}  // namespace mozilla

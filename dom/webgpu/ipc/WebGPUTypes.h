@@ -10,6 +10,7 @@
 #include "nsTArray.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/webgpu/ffi/wgpu.h"
+#include "nsString.h"
 
 namespace mozilla {
 namespace webgpu {

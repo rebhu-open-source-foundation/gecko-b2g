@@ -12,6 +12,7 @@
 #include "nsPIDOMWindow.h"
 #include "nsWrapperCache.h"
 #include "mozilla/dom/AlarmManager.h"
+#include "mozilla/dom/DOMVirtualCursor.h"
 #include "mozilla/dom/ExternalAPI.h"
 #include "mozilla/dom/FlashlightManager.h"
 #include "mozilla/dom/FlipManager.h"
@@ -110,6 +111,7 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
 #endif  // MOZ_B2G_RIL
 
   ExternalAPI* GetExternalapi(ErrorResult& aRv);
+  DOMVirtualCursor* GetVirtualCursor(ErrorResult& aRv);
 
 #ifdef MOZ_B2G_BT
   bluetooth::BluetoothManager* GetBluetooth(ErrorResult& aRv);
@@ -188,6 +190,7 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
 #endif
 
   RefPtr<ExternalAPI> mExternalAPI;
+  RefPtr<DOMVirtualCursor> mVirtualCursor;
 
 #ifdef MOZ_B2G_BT
   RefPtr<bluetooth::BluetoothManager> mBluetooth;

@@ -635,7 +635,7 @@ nsWindow::DispatchEvent(WidgetGUIEvent* aEvent, nsEventStatus& aStatus) {
     EnsureGLCursorImageManager();
     mGLCursorImageManager->SetGLCursorPosition(position);
 
-    if (StaticPrefs::gfx_glcursor_enabled()) {
+    if (StaticPrefs::dom_virtualcursor_enabled()) {
       KickOffComposition();
     }
   } else if (aEvent->mMessage == eMouseExitFromWidget) {
@@ -643,7 +643,7 @@ nsWindow::DispatchEvent(WidgetGUIEvent* aEvent, nsEventStatus& aStatus) {
     mGLCursorImageManager->SetGLCursorPosition(
       GLCursorImageManager::kOffscreenCursorPosition);
 
-    if (StaticPrefs::gfx_glcursor_enabled()) {
+    if (StaticPrefs::dom_virtualcursor_enabled()) {
       KickOffComposition();
     }
   }
