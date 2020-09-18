@@ -385,7 +385,7 @@ interface nsIImsConferenceParticipant : nsISupports
    * The state of participant in conference.
    * Possible values: nsIImsConferenceParticipant#STATUS_*.
    */
-  readonly attribute long  status;
+  readonly attribute long status;
 
   /**
    * The conference participant's handle, ex: phone number.

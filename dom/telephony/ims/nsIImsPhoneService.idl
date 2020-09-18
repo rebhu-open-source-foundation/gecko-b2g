@@ -133,6 +133,15 @@ interface nsIImsPhone : nsISupports {
   void sendRttMessage(in unsigned long callIndex,
                       in AString message,
                       in nsIImsPhoneCallback callback);
+
+  /**
+   * To make a conference call.
+   * If there are 2 single call, always use active as host and held as peer.
+   * If there are 1 conference and 1 single call, always merge single into conference.
+   *
+   * To merge 2 conference is not allowed.
+   */
+  void conferenceCall(in nsIImsPhoneCallback callback);
 };
 
 [scriptable, uuid(cd47df53-ac11-40f2-8c7f-f4ea47499721)]

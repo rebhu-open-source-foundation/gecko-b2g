@@ -2673,6 +2673,29 @@ TelephonyService.prototype = {
   },
 
   _conferenceCallGsm(aClientId, aCallback) {
+    if (this._isImsClient(aClientId)) {
+      debug("ims conferenceCall with clientId: " + aClientId);
+      let self = this;
+      let callback = {
+        QueryInterface: ChromeUtils.generateQI([Ci.nsIImsPhoneCallback]),
+        notifySuccess() {
+          aCallback.notifySuccess();
+        },
+        notifyError(aError) {
+          aCallback.notifyError(RIL.GECKO_ERROR_GENERIC_FAILURE);
+          self._notifyAllListeners("notifyConferenceError", [
+            "addError",
+            aError,
+          ]);
+        },
+      };
+
+      let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+      imsPhone.conferenceCall(callback);
+
+      return;
+    }
+
     this._sendToRilWorker(aClientId, "conferenceCall", null, response => {
       if (response.errorMsg) {
         aCallback.notifyError(RIL.GECKO_ERROR_GENERIC_FAILURE);
@@ -2726,6 +2749,8 @@ TelephonyService.prototype = {
       aCallback.notifyError(RIL.GECKO_ERROR_GENERIC_FAILURE);
       return;
     }
+
+    debug("conferenceCall");
 
     if (this._isCdmaClient(aClientId)) {
       this._conferenceCallCdma(aClientId, aCallback);
@@ -2816,6 +2841,11 @@ TelephonyService.prototype = {
       return;
     }
 
+    if (this._isImsClient(aClientId)) {
+      this._hangupImsConference(aClientId, aCallback);
+      return;
+    }
+
     // Find a conference call, and send the corresponding request to RIL worker.
     for (let index in this._currentCalls[aClientId]) {
       let call = this._currentCalls[aClientId][index];
@@ -2834,6 +2864,33 @@ TelephonyService.prototype = {
         this._defaultCallbackHandler.bind(this, aCallback)
       );
       return;
+    }
+
+    // There is no conference call.
+    if (DEBUG) {
+      debug(
+        "hangUpConference: No conference call in modem[" + aClientId + "]."
+      );
+    }
+    aCallback.notifyError(RIL.GECKO_ERROR_GENERIC_FAILURE);
+  },
+
+  _hangupImsConference(aClientId, aCallback) {
+    for (let index in this._currentCalls[aClientId]) {
+      let call = this._currentCalls[aClientId][index];
+      if (!call.isConferenceParent) {
+        continue;
+      }
+
+      let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
+      if (imsPhone) {
+        imsPhone.hangupCall(
+          index,
+          nsITelephonyService.CALL_FAIL_NONE,
+          this._createSimpleImsCallback(aCallback)
+        );
+        return;
+      }
     }
 
     // There is no conference call.
@@ -3204,7 +3261,7 @@ TelephonyService.prototype = {
 
     // Detect conference and update isConference flag.
     /*eslint no-unused-vars: ["error", { "varsIgnorePattern": "newConferenceState" }]*/
-    let [newConferenceState, conferenceChangedCalls] = this._updateConference(
+    let [_newConferenceState, conferenceChangedCalls] = this._updateConference(
       aClientId
     );
     conferenceChangedCalls.forEach(call => changedCalls.add(call));
@@ -3232,7 +3289,7 @@ TelephonyService.prototype = {
   /**
    * Handle call state changes.
    */
-  _handleCallStateChanged(aClientId, aCalls) {
+  _handleCallStateChanged(_aClientId, aCalls) {
     if (DEBUG) {
       debug("handleCallStateChanged: " + JSON.stringify(aCalls));
     }
