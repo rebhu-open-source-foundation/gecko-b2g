@@ -78,9 +78,6 @@ class Icc final : public DOMEventTargetHelper {
   already_AddRefed<DOMRequest> SetCardLock(
       const IccSetCardLockOptions& aOptions, ErrorResult& aRv);
 
-  already_AddRefed<DOMRequest> GetCardLockRetryCount(IccLockType aLockType,
-                                                     ErrorResult& aRv);
-
   already_AddRefed<DOMRequest> ReadContacts(IccContactType aContactType,
                                             ErrorResult& aRv);
 

@@ -300,8 +300,8 @@ already_AddRefed<DOMRequest> Icc::GetCardLock(IccLockType aLockType,
   }
 
   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
-  // TODO: Bug 1125018 - Simplify The Result of GetCardLock and
-  // getCardLockRetryCount in Icc.webidl without a wrapper object.
+  // TODO: Bug 1125018 - Simplify The Result of GetCardLock
+  // in Icc.webidl without a wrapper object.
   RefPtr<IccCallback> requestCallback =
       new IccCallback(GetOwner(), request, true);
   nsresult rv = mHandler->GetCardLockEnabled(static_cast<uint32_t>(aLockType),
@@ -363,25 +363,6 @@ already_AddRefed<DOMRequest> Icc::SetCardLock(
         aOptions.mNewPin, requestCallback);
   }
 
-  if (NS_FAILED(rv)) {
-    aRv.Throw(rv);
-    return nullptr;
-  }
-
-  return request.forget();
-}
-
-already_AddRefed<DOMRequest> Icc::GetCardLockRetryCount(IccLockType aLockType,
-                                                        ErrorResult& aRv) {
-  if (!mHandler) {
-    aRv.Throw(NS_ERROR_FAILURE);
-    return nullptr;
-  }
-
-  RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
-  RefPtr<IccCallback> requestCallback = new IccCallback(GetOwner(), request);
-  nsresult rv = mHandler->GetCardLockRetryCount(
-      static_cast<uint32_t>(aLockType), requestCallback);
   if (NS_FAILED(rv)) {
     aRv.Throw(rv);
     return nullptr;

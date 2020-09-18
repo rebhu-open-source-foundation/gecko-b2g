@@ -370,8 +370,8 @@ interface nsIRilResponseResult : nsISupports
                          [array, size_is(count), retval] out nsICallForwardInfo callForwardInfos);
 
   // getCallWaiting
+  // getFacilityLockForApp
   readonly attribute boolean enable;
-
   readonly attribute long serviceClass;
 
   // Clip status;

@@ -4,46 +4,54 @@
 
 "use strict";
 
-const {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
-
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
-const { Services } = ChromeUtils.import(
-  "resource://gre/modules/Services.jsm"
-);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-XPCOMUtils.defineLazyGetter(this, "RIL", function () {
-  let obj = Cu.import("resource://gre/modules/ril_consts.js", null);
-  return obj;
+XPCOMUtils.defineLazyGetter(this, "RIL", function() {
+  return ChromeUtils.import("resource://gre/modules/ril_consts.js");
 });
 
-var RIL_DEBUG = Cu.import("resource://gre/modules/ril_consts_debug.js", null);
+var RIL_DEBUG = ChromeUtils.import(
+  "resource://gre/modules/ril_consts_debug.js"
+);
 
-const GONK_ICCSERVICE_CONTRACTID = "@mozilla.org/icc/gonkiccservice;1";
-const GONK_ICCSERVICE_CID = Components.ID("{df854256-9554-11e4-a16c-c39e8d106c26}");
+const GONK_ICCSERVICE_CID = Components.ID(
+  "{df854256-9554-11e4-a16c-c39e8d106c26}"
+);
 
-const NS_XPCOM_SHUTDOWN_OBSERVER_ID      = "xpcom-shutdown";
-const NS_PREFBRANCH_PREFCHANGE_TOPIC_ID  = "nsPref:changed";
+const NS_XPCOM_SHUTDOWN_OBSERVER_ID = "xpcom-shutdown";
+const NS_PREFBRANCH_PREFCHANGE_TOPIC_ID = "nsPref:changed";
 
-const kPrefRilNumRadioInterfaces = "ril.numRadioInterfaces";
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gRadioInterfaceLayer",
+  "@mozilla.org/ril;1",
+  "nsIRadioInterfaceLayer"
+);
 
-XPCOMUtils.defineLazyServiceGetter(this, "gRadioInterfaceLayer",
-                                   "@mozilla.org/ril;1",
-                                   "nsIRadioInterfaceLayer");
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gMobileConnectionService",
+  "@mozilla.org/mobileconnection/mobileconnectionservice;1",
+  "nsIGonkMobileConnectionService"
+);
 
-XPCOMUtils.defineLazyServiceGetter(this, "gMobileConnectionService",
-                                   "@mozilla.org/mobileconnection/mobileconnectionservice;1",
-                                   "nsIGonkMobileConnectionService");
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gIccMessenger",
+  "@mozilla.org/ril/system-messenger-helper;1",
+  "nsIIccMessenger"
+);
 
-XPCOMUtils.defineLazyServiceGetter(this, "gIccMessenger",
-                                   "@mozilla.org/ril/system-messenger-helper;1",
-                                   "nsIIccMessenger");
-
-XPCOMUtils.defineLazyServiceGetter(this, "gStkCmdFactory",
-                                   "@mozilla.org/icc/stkcmdfactory;1",
-                                   "nsIStkCmdFactory");
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gStkCmdFactory",
+  "@mozilla.org/icc/stkcmdfactory;1",
+  "nsIStkCmdFactory"
+);
 
 var DEBUG = RIL_DEBUG.DEBUG_RIL;
 function debug(s) {
@@ -63,30 +71,28 @@ IccInfo.prototype = {
   spn: null,
   imsi: null,
   isDisplayNetworkNameRequired: false,
-  isDisplaySpnRequired: false
+  isDisplaySpnRequired: false,
 };
 
 function GsmIccInfo() {}
 GsmIccInfo.prototype = {
   __proto__: IccInfo.prototype,
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIGsmIccInfo,
-                                         Ci.nsIIccInfo]),
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIGsmIccInfo, Ci.nsIIccInfo]),
 
   // nsIGsmIccInfo
 
-  msisdn: null
+  msisdn: null,
 };
 
 function CdmaIccInfo() {}
 CdmaIccInfo.prototype = {
   __proto__: IccInfo.prototype,
-  QueryInterface: ChromeUtils.generateQI([Ci.nsICdmaIccInfo,
-                                         Ci.nsIIccInfo]),
+  QueryInterface: ChromeUtils.generateQI([Ci.nsICdmaIccInfo, Ci.nsIIccInfo]),
 
   // nsICdmaIccInfo
 
   mdn: null,
-  prlVersion: 0
+  prlVersion: 0,
 };
 
 function IsimIccInfo() {}
@@ -128,7 +134,7 @@ IccContact.prototype = {
 
   id: null,
 
-  getNames: function() {
+  getNames() {
     if (!this._names) {
       return null;
     }
@@ -136,7 +142,7 @@ IccContact.prototype = {
     return this._names.slice();
   },
 
-  getNumbers: function() {
+  getNumbers() {
     if (!this._numbers) {
       return null;
     }
@@ -144,9 +150,8 @@ IccContact.prototype = {
     return this._numbers.slice();
   },
 
-  getEmails: function() {
+  getEmails() {
     if (!this._emails) {
-
       return null;
     }
 
@@ -164,40 +169,34 @@ function IccService() {
 
   this._updateDebugFlag();
 
-  Services.prefs.addObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this, false);
-  Services.obs.addObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID, false);
+  Services.prefs.addObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this);
+  Services.obs.addObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID);
 }
 IccService.prototype = {
   classID: GONK_ICCSERVICE_CID,
-
-  /*classInfo: XPCOMUtils.generateCI({classID: GONK_ICCSERVICE_CID,
-                                    contractID: GONK_ICCSERVICE_CONTRACTID,
-                                    classDescription: "IccService",
-                                    interfaces: [Ci.nsIIccService,
-                                                 Ci.nsIGonkIccService],
-                                    flags: Ci.nsIClassInfo.SINGLETON}),*/
-
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIIccService,
-                                         Ci.nsIGonkIccService,
-                                         Ci.nsIObserver]),
+  QueryInterface: ChromeUtils.generateQI([
+    Ci.nsIIccService,
+    Ci.nsIGonkIccService,
+    Ci.nsIObserver,
+  ]),
 
   // An array of Icc instances.
   _iccs: null,
 
-  _updateDebugFlag: function() {
+  _updateDebugFlag() {
     try {
-      DEBUG = DEBUG ||
-              Services.prefs.getBoolPref(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED);
+      DEBUG =
+        DEBUG || Services.prefs.getBoolPref(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED);
     } catch (e) {}
   },
 
   /**
    * nsIIccService interface.
    */
-  getIccByServiceId: function(aServiceId) {
+  getIccByServiceId(aServiceId) {
     let icc = this._iccs[aServiceId];
     if (!icc) {
-      throw Cr.NS_ERROR_UNEXPECTED;
+      throw Components.Exception("", Cr.NS_ERROR_UNEXPECTED);
     }
 
     return icc;
@@ -206,7 +205,7 @@ IccService.prototype = {
   /**
    * nsIGonkIccService interface.
    */
-  notifyStkCommand: function(aServiceId, aStkcommand) {
+  notifyStkCommand(aServiceId, aStkcommand) {
     if (DEBUG) {
       debug("notifyStkCommand for service Id: " + aServiceId);
     }
@@ -223,37 +222,47 @@ IccService.prototype = {
     icc._deliverListenerEvent("notifyStkCommand", [aStkcommand]);
   },
 
-  notifyStkSessionEnd: function(aServiceId) {
+  notifyStkSessionEnd(aServiceId) {
     if (DEBUG) {
       debug("notifyStkSessionEnd for service Id: " + aServiceId);
     }
 
-    this.getIccByServiceId(aServiceId)
-      ._deliverListenerEvent("notifyStkSessionEnd");
+    this.getIccByServiceId(aServiceId)._deliverListenerEvent(
+      "notifyStkSessionEnd"
+    );
   },
 
-  notifyCardStateChanged: function(aServiceId, aCardState) {
+  notifyCardStateChanged(aServiceId, aCardState) {
     if (DEBUG) {
-      debug("notifyCardStateChanged for service Id: " + aServiceId +
-            ", CardState: " + aCardState);
+      debug(
+        "notifyCardStateChanged for service Id: " +
+          aServiceId +
+          ", CardState: " +
+          aCardState
+      );
     }
 
     this.getIccByServiceId(aServiceId)._updateCardState(aCardState);
   },
 
-  notifyIccInfoChanged: function(aServiceId, aIccInfo) {
+  notifyIccInfoChanged(aServiceId, aIccInfo) {
     if (DEBUG) {
-      debug("notifyIccInfoChanged for service Id: " + aServiceId +
-            ", IccInfo: " + JSON.stringify(aIccInfo));
+      debug(
+        "notifyIccInfoChanged for service Id: " +
+          aServiceId +
+          ", IccInfo: " +
+          JSON.stringify(aIccInfo)
+      );
     }
 
     this.getIccByServiceId(aServiceId)._updateIccInfo(aIccInfo);
   },
 
-  notifyImsiChanged: function(aServiceId, aImsi) {
+  notifyImsiChanged(aServiceId, aImsi) {
     if (DEBUG) {
-      debug("notifyImsiChanged for service Id: " + aServiceId +
-            ", Imsi: " + aImsi);
+      debug(
+        "notifyImsiChanged for service Id: " + aServiceId + ", Imsi: " + aImsi
+      );
     }
 
     let icc = this.getIccByServiceId(aServiceId);
@@ -264,10 +273,14 @@ IccService.prototype = {
     icc._deliverListenerEvent("notifyIccInfoChanged");
   },
 
-  notifyIsimInfoChanged: function(aServiceId, aIsimInfo) {
+  notifyIsimInfoChanged(aServiceId, aIsimInfo) {
     if (DEBUG) {
-      debug("notifyIsimInfoChanged for service Id: " + aServiceId +
-            ", IsimInfo: " + JSON.stringify(aIsimInfo));
+      debug(
+        "notifyIsimInfoChanged for service Id: " +
+          aServiceId +
+          ", IsimInfo: " +
+          JSON.stringify(aIsimInfo)
+      );
     }
 
     this.getIccByServiceId(aServiceId)._updateIsimIccInfo(aIsimInfo);
@@ -276,7 +289,7 @@ IccService.prototype = {
   /**
    * nsIObserver interface.
    */
-  observe: function(aSubject, aTopic, aData) {
+  observe(aSubject, aTopic, aData) {
     switch (aTopic) {
       case NS_PREFBRANCH_PREFCHANGE_TOPIC_ID:
         if (aData === RIL_DEBUG.PREF_RIL_DEBUG_ENABLED) {
@@ -288,7 +301,7 @@ IccService.prototype = {
         Services.obs.removeObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID);
         break;
     }
-  }
+  },
 };
 
 function Icc(aClientId) {
@@ -303,7 +316,7 @@ Icc.prototype = {
   _radioInterface: null,
   _listeners: null,
 
-  _updateCardState: function(aCardState) {
+  _updateCardState(aCardState) {
     if (this.cardState != aCardState) {
       this.cardState = aCardState;
     }
@@ -312,7 +325,7 @@ Icc.prototype = {
   },
 
   // An utility function to copy objects.
-  _updateInfo: function(aSrcInfo, aDestInfo) {
+  _updateInfo(aSrcInfo, aDestInfo) {
     for (let key in aSrcInfo) {
       aDestInfo[key] = aSrcInfo[key];
     }
@@ -322,7 +335,7 @@ Icc.prototype = {
    * A utility function to compare objects. The srcInfo may contain
    * "rilMessageType", should ignore it.
    */
-  _isInfoChanged: function(srcInfo, destInfo) {
+  _isInfoChanged(srcInfo, destInfo) {
     if (!destInfo) {
       return true;
     }
@@ -344,7 +357,7 @@ Icc.prototype = {
    * 1. Should clear iccInfo to null if there is no card detected.
    * 2. Need to create corresponding object based on iccType.
    */
-  _updateIccInfo: function(aIccInfo) {
+  _updateIccInfo(aIccInfo) {
     let oldSpn = this.iccInfo ? this.iccInfo.spn : null;
 
     // Card is not detected, clear iccInfo to null.
@@ -365,8 +378,7 @@ Icc.prototype = {
     }
 
     // If iccInfo is null, new corresponding object based on iccType.
-    if (!this.iccInfo ||
-        this.iccInfo.iccType != aIccInfo.iccType) {
+    if (!this.iccInfo || this.iccInfo.iccType != aIccInfo.iccType) {
       if (aIccInfo.iccType === "ruim" || aIccInfo.iccType === "csim") {
         this.iccInfo = new CdmaIccInfo();
       } else if (aIccInfo.iccType === "sim" || aIccInfo.iccType === "usim") {
@@ -384,8 +396,10 @@ Icc.prototype = {
     // Update lastKnownSimMcc.
     if (aIccInfo.mcc) {
       try {
-        Services.prefs.setCharPref("ril.lastKnownSimMcc",
-                                   aIccInfo.mcc.toString());
+        Services.prefs.setCharPref(
+          "ril.lastKnownSimMcc",
+          aIccInfo.mcc.toString()
+        );
       } catch (e) {}
     }
 
@@ -397,8 +411,10 @@ Icc.prototype = {
         lastKnownHomeNetwork += "-" + aIccInfo.spn;
       }
 
-      gMobileConnectionService.notifyLastHomeNetworkChanged(this._clientId,
-                                                            lastKnownHomeNetwork);
+      gMobileConnectionService.notifyLastHomeNetworkChanged(
+        this._clientId,
+        lastKnownHomeNetwork
+      );
     }
 
     // If spn becomes available, we should check roaming again.
@@ -407,10 +423,10 @@ Icc.prototype = {
     }
   },
 
-  _deliverListenerEvent: function(aName, aArgs) {
+  _deliverListenerEvent(aName, aArgs) {
     let listeners = this._listeners.slice();
     for (let listener of listeners) {
-      if (this._listeners.indexOf(listener) === -1) {
+      if (!this._listeners.includes(listener)) {
         continue;
       }
       let handler = listener[aName];
@@ -427,13 +443,19 @@ Icc.prototype = {
     }
   },
 
-  _modifyCardLock: function(aOperation, aOptions, aCallback) {
-    this._radioInterface.sendWorkerMessage(aOperation,
-                                           aOptions,
-                                           (aResponse) => {
+  _modifyCardLock(aOperation, aOptions, aCallback) {
+    this._radioInterface.sendWorkerMessage(aOperation, aOptions, aResponse => {
       if (aResponse.errorMsg) {
         let retryCount =
-          (aResponse.retryCount !== undefined) ? aResponse.retryCount : -1;
+          aResponse.retryCount !== undefined ? aResponse.retryCount : -1;
+        debug(
+          "_modifyCardLock aOperation:" +
+            aOperation +
+            " errorMsg:" +
+            aResponse.errorMsg +
+            " , retryCount:" +
+            retryCount
+        );
         aCallback.notifyCardLockError(aResponse.errorMsg, retryCount);
         return;
       }
@@ -457,7 +479,7 @@ Icc.prototype = {
    *
    * @return true if matched.
    */
-  _isImsiMatches: function(aMvnoData, aImsi) {
+  _isImsiMatches(aMvnoData, aImsi) {
     // This should not be an error, but a mismatch.
     if (aMvnoData.length > aImsi.length) {
       return false;
@@ -465,7 +487,7 @@ Icc.prototype = {
 
     for (let i = 0; i < aMvnoData.length; i++) {
       let c = aMvnoData[i];
-      if ((c !== 'x') && (c !== 'X') && (c !== aImsi[i])) {
+      if (c !== "x" && c !== "X" && c !== aImsi[i]) {
         return false;
       }
     }
@@ -476,7 +498,7 @@ Icc.prototype = {
    * nsIIsimIccInfo interface.
    */
   isimInfo: null,
-  _updateIsimIccInfo: function(aIsimInfo) {
+  _updateIsimIccInfo(aIsimInfo) {
     if (!this.isimInfo) {
       this.isimInfo = new IsimIccInfo();
     }
@@ -494,72 +516,61 @@ Icc.prototype = {
   cardState: Ci.nsIIcc.CARD_STATE_UNKNOWN,
   imsi: null,
 
-  registerListener: function(aListener) {
-    if (this._listeners.indexOf(aListener) >= 0) {
-      throw Cr.NS_ERROR_UNEXPECTED;
+  registerListener(aListener) {
+    if (this._listeners.includes(aListener)) {
+      throw Components.Exception("", Cr.NS_ERROR_UNEXPECTED);
     }
 
     this._listeners.push(aListener);
   },
 
-  unregisterListener: function(aListener) {
+  unregisterListener(aListener) {
     let index = this._listeners.indexOf(aListener);
     if (index >= 0) {
       this._listeners.splice(index, 1);
     }
   },
 
-  getCardLockEnabled: function(aLockType, aCallback) {
-    this._radioInterface.sendWorkerMessage("iccGetCardLockEnabled",
-                                           { lockType: aLockType },
-                                           (aResponse) => {
-      if (aResponse.errorMsg) {
-        aCallback.notifyError(aResponse.errorMsg);
-        return;
+  getCardLockEnabled(aLockType, aCallback) {
+    this._radioInterface.sendWorkerMessage(
+      "iccGetCardLockEnabled",
+      { lockType: aLockType },
+      aResponse => {
+        if (aResponse.errorMsg) {
+          aCallback.notifyError(aResponse.errorMsg);
+          return;
+        }
+
+        aCallback.notifySuccessWithBoolean(aResponse.enabled);
       }
-
-      aCallback.notifySuccessWithBoolean(aResponse.enabled);
-    });
+    );
   },
 
-  unlockCardLock: function(aLockType, aPassword, aNewPin, aCallback) {
-    this._modifyCardLock("iccUnlockCardLock",
-                         { lockType: aLockType,
-                           password: aPassword,
-                           newPin: aNewPin },
-                         aCallback);
+  unlockCardLock(aLockType, aPassword, aNewPin, aCallback) {
+    this._modifyCardLock(
+      "iccUnlockCardLock",
+      { lockType: aLockType, password: aPassword, newPin: aNewPin },
+      aCallback
+    );
   },
 
-  setCardLockEnabled: function(aLockType, aPassword, aEnabled, aCallback) {
-    this._modifyCardLock("iccSetCardLockEnabled",
-                         { lockType: aLockType,
-                           password: aPassword,
-                           enabled: aEnabled },
-                         aCallback);
+  setCardLockEnabled(aLockType, aPassword, aEnabled, aCallback) {
+    this._modifyCardLock(
+      "iccSetCardLockEnabled",
+      { lockType: aLockType, password: aPassword, enabled: aEnabled },
+      aCallback
+    );
   },
 
-  changeCardLockPassword: function(aLockType, aPassword, aNewPassword, aCallback) {
-    this._modifyCardLock("iccChangeCardLockPassword",
-                         { lockType: aLockType,
-                           password: aPassword,
-                           newPassword: aNewPassword, },
-                         aCallback);
+  changeCardLockPassword(aLockType, aPassword, aNewPassword, aCallback) {
+    this._modifyCardLock(
+      "iccChangeCardLockPassword",
+      { lockType: aLockType, password: aPassword, newPassword: aNewPassword },
+      aCallback
+    );
   },
 
-  getCardLockRetryCount: function(aLockType, aCallback) {
-    this._radioInterface.sendWorkerMessage("iccGetCardLockRetryCount",
-                                           { lockType: aLockType },
-                                           (aResponse) => {
-      if (aResponse.errorMsg) {
-        aCallback.notifyError(aResponse.errorMsg);
-        return;
-      }
-
-      aCallback.notifyGetCardLockRetryCount(aResponse.retryCount);
-    });
-  },
-
-  matchMvno: function(aMvnoType, aMvnoData, aCallback) {
+  matchMvno(aMvnoType, aMvnoData, aCallback) {
     if (!aMvnoData) {
       aCallback.notifyError(RIL.GECKO_ERROR_INVALID_PARAMETER);
       return;
@@ -573,7 +584,8 @@ Icc.prototype = {
           break;
         }
         aCallback.notifySuccessWithBoolean(
-          this._isImsiMatches(aMvnoData, imsi));
+          this._isImsiMatches(aMvnoData, imsi)
+        );
         break;
       case Ci.nsIIcc.CARD_MVNO_TYPE_SPN:
         let spn = this.iccInfo && this.iccInfo.spn;
@@ -584,9 +596,7 @@ Icc.prototype = {
         aCallback.notifySuccessWithBoolean(spn == aMvnoData);
         break;
       case Ci.nsIIcc.CARD_MVNO_TYPE_GID:
-        this._radioInterface.sendWorkerMessage("getGID1",
-                                               null,
-                                               (aResponse) => {
+        this._radioInterface.sendWorkerMessage("getGID1", null, aResponse => {
           let gid = aResponse.gid1;
           let mvnoDataLength = aMvnoData.length;
 
@@ -608,35 +618,41 @@ Icc.prototype = {
     }
   },
 
-  getServiceStateEnabled: function(aService, aCallback) {
-    this._radioInterface.sendWorkerMessage("getIccServiceState",
-                                           { service: aService },
-                                           (aResponse) => {
-      if (aResponse.errorMsg) {
-        aCallback.notifyError(aResponse.errorMsg);
-        return;
-      }
+  getServiceStateEnabled(aService, aCallback) {
+    this._radioInterface.sendWorkerMessage(
+      "getIccServiceState",
+      { service: aService },
+      aResponse => {
+        if (aResponse.errorMsg) {
+          aCallback.notifyError(aResponse.errorMsg);
+          return;
+        }
 
-      aCallback.notifySuccessWithBoolean(aResponse.result);
-    });
+        aCallback.notifySuccessWithBoolean(aResponse.result);
+      }
+    );
   },
 
-  iccOpenChannel: function(aAid, aCallback) {
-    this._radioInterface.sendWorkerMessage("iccOpenChannel",
-                                           { aid: aAid },
-                                           (aResponse) => {
-      if (aResponse.errorMsg) {
-        aCallback.notifyError(aResponse.errorMsg);
-        return;
-      }
+  iccOpenChannel(aAid, aCallback) {
+    this._radioInterface.sendWorkerMessage(
+      "iccOpenChannel",
+      { aid: aAid },
+      aResponse => {
+        if (aResponse.errorMsg) {
+          aCallback.notifyError(aResponse.errorMsg);
+          return;
+        }
 
-      aCallback.notifyOpenChannelSuccess(aResponse.channel);
-    });
+        aCallback.notifyOpenChannelSuccess(aResponse.channel);
+      }
+    );
   },
 
-  iccExchangeAPDU: function(aChannel, aCla, aIns, aP1, aP2, aP3, aData, aCallback) {
+  iccExchangeAPDU(aChannel, aCla, aIns, aP1, aP2, aP3, aData, aCallback) {
     if (!aData) {
-      if (DEBUG) debug('data is not set , aP3 : ' + aP3);
+      if (DEBUG) {
+        debug("data is not set , aP3 : " + aP3);
+      }
     }
 
     let apdu = {
@@ -645,73 +661,78 @@ Icc.prototype = {
       p1: aP1,
       p2: aP2,
       p3: aP3,
-      data: aData
+      data: aData,
     };
 
-    this._radioInterface.sendWorkerMessage("iccExchangeAPDU",
-                                           { channel: aChannel, apdu: apdu },
-                                           (aResponse) => {
-      if (aResponse.errorMsg) {
-        aCallback.notifyError(aResponse.errorMsg);
-        return;
-      }
+    this._radioInterface.sendWorkerMessage(
+      "iccExchangeAPDU",
+      { channel: aChannel, apdu },
+      aResponse => {
+        if (aResponse.errorMsg) {
+          aCallback.notifyError(aResponse.errorMsg);
+          return;
+        }
 
-      aCallback.notifyExchangeAPDUResponse(aResponse.sw1,
-                                           aResponse.sw2,
-                                           aResponse.simResponse);
-    });
+        aCallback.notifyExchangeAPDUResponse(
+          aResponse.sw1,
+          aResponse.sw2,
+          aResponse.simResponse
+        );
+      }
+    );
   },
 
-  iccCloseChannel: function(aChannel, aCallback) {
-    this._radioInterface.sendWorkerMessage("iccCloseChannel",
-                                           { channel: aChannel },
-                                           (aResponse) => {
-      if (aResponse.errorMsg) {
-        aCallback.notifyError(aResponse.errorMsg);
-        return;
-      }
+  iccCloseChannel(aChannel, aCallback) {
+    this._radioInterface.sendWorkerMessage(
+      "iccCloseChannel",
+      { channel: aChannel },
+      aResponse => {
+        if (aResponse.errorMsg) {
+          aCallback.notifyError(aResponse.errorMsg);
+          return;
+        }
 
-      aCallback.notifyCloseChannelSuccess();
-    });
+        aCallback.notifyCloseChannelSuccess();
+      }
+    );
   },
 
-  sendStkResponse: function(aCommand, aResponse) {
+  sendStkResponse(aCommand, aResponse) {
     let response = gStkCmdFactory.createResponseMessage(aResponse);
     response.command = gStkCmdFactory.createCommandMessage(aCommand);
     this._radioInterface.sendWorkerMessage("sendStkTerminalResponse", response);
   },
 
-  sendStkMenuSelection: function(aItemIdentifier, aHelpRequested) {
-    this._radioInterface
-      .sendWorkerMessage("sendStkMenuSelection", {
-        itemIdentifier: aItemIdentifier,
-        helpRequested: aHelpRequested
-      });
+  sendStkMenuSelection(aItemIdentifier, aHelpRequested) {
+    this._radioInterface.sendWorkerMessage("sendStkMenuSelection", {
+      itemIdentifier: aItemIdentifier,
+      helpRequested: aHelpRequested,
+    });
   },
 
-  sendStkTimerExpiration: function(aTimerId, aTimerValue) {
-    this._radioInterface
-      .sendWorkerMessage("sendStkTimerExpiration",{
-        timer: {
-          timerId: aTimerId,
-          timerValue: aTimerValue
-        }
-      });
+  sendStkTimerExpiration(aTimerId, aTimerValue) {
+    this._radioInterface.sendWorkerMessage("sendStkTimerExpiration", {
+      timer: {
+        timerId: aTimerId,
+        timerValue: aTimerValue,
+      },
+    });
   },
 
-  sendStkEventDownload: function(aEvent) {
-    this._radioInterface
-      .sendWorkerMessage("sendStkEventDownload",
-                         { event: gStkCmdFactory.createEventMessage(aEvent) });
+  sendStkEventDownload(aEvent) {
+    this._radioInterface.sendWorkerMessage("sendStkEventDownload", {
+      event: gStkCmdFactory.createEventMessage(aEvent),
+    });
   },
 
-  getMaxContactCount: function(aContactType) {
-    this._radioInterface.sendWorkerMessage("getMaxContactCount",
-      {contactType : aContactType},
-      (aResponse) => {
+  getMaxContactCount(aContactType) {
+    this._radioInterface.sendWorkerMessage(
+      "getMaxContactCount",
+      { contactType: aContactType },
+      aResponse => {
         if (aResponse.errorMsg) {
           if (DEBUG) {
-            debug("getMaxContactCount failed " + errorMsg);
+            debug("getMaxContactCount failed " + aResponse.errorMsg);
           }
           return;
         }
@@ -719,27 +740,29 @@ Icc.prototype = {
         if (DEBUG) {
           debug("_totalRecords = " + this._totalRecords);
         }
-    })
-  },
-
-  readContacts: function(aContactType, aCallback) {
-    this._radioInterface
-      .sendWorkerMessage("readICCContacts",
-                         { contactType: aContactType },
-                         (aResponse) => {
-      if (aResponse.errorMsg) {
-        aCallback.notifyError(aResponse.errorMsg);
-        return;
       }
-
-      let iccContacts = [];
-
-      aResponse.contacts.forEach(c => iccContacts.push(new IccContact(c)));
-      aCallback.notifyRetrievedIccContacts(iccContacts, iccContacts.length);
-    });
+    );
   },
 
-  updateContact: function(aContactType, aContact, aPin2, aCallback) {
+  readContacts(aContactType, aCallback) {
+    this._radioInterface.sendWorkerMessage(
+      "readICCContacts",
+      { contactType: aContactType },
+      aResponse => {
+        if (aResponse.errorMsg) {
+          aCallback.notifyError(aResponse.errorMsg);
+          return;
+        }
+
+        let iccContacts = [];
+
+        aResponse.contacts.forEach(c => iccContacts.push(new IccContact(c)));
+        aCallback.notifyRetrievedIccContacts(iccContacts, iccContacts.length);
+      }
+    );
+  },
+
+  updateContact(aContactType, aContact, aPin2, aCallback) {
     let iccContact = { contactId: aContact.id };
 
     let names = aContact.getNames();
@@ -765,33 +788,32 @@ Icc.prototype = {
       iccContact.email = emails[0];
     }
 
-    this._radioInterface
-      .sendWorkerMessage("updateICCContact",
-                         { contactType: aContactType,
-                           contact: iccContact,
-                           pin2: aPin2 },
-                         (aResponse) => {
-      if (aResponse.errorMsg) {
-        aCallback.notifyError(aResponse.errorMsg);
-        return;
+    this._radioInterface.sendWorkerMessage(
+      "updateICCContact",
+      { contactType: aContactType, contact: iccContact, pin2: aPin2 },
+      aResponse => {
+        if (aResponse.errorMsg) {
+          aCallback.notifyError(aResponse.errorMsg);
+          return;
+        }
+        aCallback.notifyUpdatedIccContact(new IccContact(aResponse.contact));
       }
-      aCallback.notifyUpdatedIccContact(new IccContact(aResponse.contact));
-    });
+    );
   },
 
-  getIccAuthentication: function(aAppType, aAuthType, aData, aCallback) {
-    this._radioInterface.sendWorkerMessage("getIccAuthentication",
-                                           { appType: aAppType,
-                                             authType: aAuthType,
-                                             data: aData },
-                                           (aResponse) => {
-      if (aResponse.errorMsg) {
-        aCallback.notifyError(aResponse.errorMsg);
-        return;
-      }
+  getIccAuthentication(aAppType, aAuthType, aData, aCallback) {
+    this._radioInterface.sendWorkerMessage(
+      "getIccAuthentication",
+      { appType: aAppType, authType: aAuthType, data: aData },
+      aResponse => {
+        if (aResponse.errorMsg) {
+          aCallback.notifyError(aResponse.errorMsg);
+          return;
+        }
 
-      aCallback.notifyAuthResponse(aResponse.responseData);
-    });
+        aCallback.notifyAuthResponse(aResponse.responseData);
+      }
+    );
   },
 };
 

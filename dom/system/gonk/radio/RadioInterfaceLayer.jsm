@@ -2892,10 +2892,12 @@ RadioInterface.prototype = {
               "RILJ: [" +
                 response.rilMessageToken +
                 "] < RIL_REQUEST_QUERY_FACILITY_LOCK response = " +
-                JSON.stringify(response.remainingRetries)
+                JSON.stringify(response.serviceClass)
             );
           }
-          result = response;
+          //0 - Available & Disabled, 1-Available & Enabled, 2-Unavailable.
+          result.serviceClass = response.serviceClass;
+          result.enabled = result.serviceClass == 1;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -2911,19 +2913,20 @@ RadioInterface.prototype = {
             this.debug(
               "RILJ: [" +
                 response.rilMessageToken +
-                "] < RIL_REQUEST_SET_FACILITY_LOCK remainingRetries = " +
-                JSON.stringify(response.remainingRetries)
+                "] < RIL_REQUEST_SET_FACILITY_LOCK"
             );
           }
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_SET_FACILITY_LOCK error = " +
-              response.errorMsg
+              response.errorMsg +
+              "remainingRetries = " +
+              response.remainingRetries
           );
         }
+        result = response;
         break;
       case "enterICCPIN":
         if (response.errorMsg == 0) {
@@ -2931,19 +2934,20 @@ RadioInterface.prototype = {
             this.debug(
               "RILJ: [" +
                 response.rilMessageToken +
-                "] < RIL_REQUEST_ENTER_SIM_PIN remainingRetries = " +
-                JSON.stringify(response.remainingRetries)
+                "] < RIL_REQUEST_ENTER_SIM_PIN"
             );
           }
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_ENTER_SIM_PIN error = " +
-              response.errorMsg
+              response.errorMsg +
+              ", remainingRetries = " +
+              JSON.stringify(response.remainingRetries)
           );
         }
+        result = response;
         break;
       case "enterICCPUK":
         if (response.errorMsg == 0) {
@@ -2951,19 +2955,20 @@ RadioInterface.prototype = {
             this.debug(
               "RILJ: [" +
                 response.rilMessageToken +
-                "] < RIL_REQUEST_ENTER_SIM_PUK remainingRetries = " +
-                JSON.stringify(response.remainingRetries)
+                "] < RIL_REQUEST_ENTER_SIM_PUK"
             );
           }
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_ENTER_SIM_PUK error = " +
-              response.errorMsg
+              response.errorMsg +
+              ", remainingRetries = " +
+              JSON.stringify(response.remainingRetries)
           );
         }
+        result = response;
         break;
       case "enterICCPIN2":
         if (response.errorMsg == 0) {
@@ -2971,19 +2976,20 @@ RadioInterface.prototype = {
             this.debug(
               "RILJ: [" +
                 response.rilMessageToken +
-                "] < RIL_REQUEST_ENTER_SIM_PIN2 remainingRetries = " +
-                JSON.stringify(response.remainingRetries)
+                "] < RIL_REQUEST_ENTER_SIM_PIN2"
             );
           }
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_ENTER_SIM_PIN2 error = " +
-              response.errorMsg
+              response.errorMsg +
+              ", remainingRetries = " +
+              JSON.stringify(response.remainingRetries)
           );
         }
+        result = response;
         break;
       case "enterICCPUK2":
         if (response.errorMsg == 0) {
@@ -2991,19 +2997,20 @@ RadioInterface.prototype = {
             this.debug(
               "RILJ: [" +
                 response.rilMessageToken +
-                "] < RIL_REQUEST_ENTER_SIM_PUK2 remainingRetries = " +
-                JSON.stringify(response.remainingRetries)
+                "] < RIL_REQUEST_ENTER_SIM_PUK2"
             );
           }
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_ENTER_SIM_PUK2 error = " +
-              response.errorMsg
+              response.errorMsg +
+              ", remainingRetries = " +
+              JSON.stringify(response.remainingRetries)
           );
         }
+        result = response;
         break;
       case "changeICCPIN":
         if (response.errorMsg == 0) {
@@ -3011,19 +3018,20 @@ RadioInterface.prototype = {
             this.debug(
               "RILJ: [" +
                 response.rilMessageToken +
-                "] < RIL_REQUEST_CHANGE_SIM_PIN remainingRetries = " +
-                JSON.stringify(response.remainingRetries)
+                "] < RIL_REQUEST_CHANGE_SIM_PIN"
             );
           }
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_CHANGE_SIM_PIN error = " +
-              response.errorMsg
+              response.errorMsg +
+              ", remainingRetries = " +
+              JSON.stringify(response.remainingRetries)
           );
         }
+        result = response;
         break;
       case "changeICCPIN2":
         if (response.errorMsg == 0) {
@@ -3031,19 +3039,20 @@ RadioInterface.prototype = {
             this.debug(
               "RILJ: [" +
                 response.rilMessageToken +
-                "] < RIL_REQUEST_CHANGE_SIM_PIN2 remainingRetries = " +
-                JSON.stringify(response.remainingRetries)
+                "] < RIL_REQUEST_CHANGE_SIM_PIN2"
             );
           }
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_CHANGE_SIM_PIN2 error = " +
-              response.errorMsg
+              response.errorMsg +
+              ", remainingRetries = " +
+              JSON.stringify(response.remainingRetries)
           );
         }
+        result = response;
         break;
       case "enterDepersonalization":
         break;
@@ -4403,11 +4412,11 @@ RadioInterface.prototype = {
     }
 
     let token = response.rilMessageToken;
-
     let callback = this.tokenCallbackMap[token];
+
     if (!callback) {
       if (DEBUG) {
-        this.debug(this.clientId, "Ignore orphan token: " + token);
+        this.debug("Ignore orphan token: " + token);
       }
       return;
     }
@@ -4417,7 +4426,7 @@ RadioInterface.prototype = {
       keep = callback(result);
     } catch (e) {
       if (DEBUG) {
-        this.debug(this.clientId, "callback throws an exception: " + e);
+        this.debug("callback throws an exception: " + e);
       }
     }
 

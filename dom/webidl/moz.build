@@ -1275,7 +1275,6 @@ if CONFIG['MOZ_B2G_RIL']:
         'CellBroadcast.webidl',
         'CellBroadcastMessage.webidl',
         'Icc.webidl',
-        'IccCardLockError.webidl',
         'IccContact.webidl',
         'IccInfo.webidl',
         'IccManager.webidl',

@@ -224,7 +224,8 @@ void nsRilResponseResult::updateIccIoResult(nsIccIoResult* aIccIoResult) {
 }
 
 /**
- * For getClir */
+ * For getClir
+ */
 void nsRilResponseResult::updateClir(int32_t aN, int32_t aM) {
   __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult", "updateClir");
   mCLIR_N = aN;
@@ -234,7 +235,6 @@ void nsRilResponseResult::updateClir(int32_t aN, int32_t aM) {
 /**
  * For getCallForwardStatus
  */
-
 void nsRilResponseResult::updateCallForwardStatusList(
     nsTArray<RefPtr<nsCallForwardInfo>>& aCallForwardInfoLists) {
   __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
@@ -243,17 +243,28 @@ void nsRilResponseResult::updateCallForwardStatusList(
 }
 
 /**
- * For getCallWaiting */
+ * For getCallWaiting
+ */
 void nsRilResponseResult::updateCallWaiting(bool aEnable,
                                             int32_t aServiceClass) {
   __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
                       "updateCallWaiting");
   mCWEnable = aEnable;
-  mCWServiceClass = aServiceClass;
+  mServiceClass = aServiceClass;
 }
 
 /**
- * For getClip */
+ * For getFacilityLockForApp
+ */
+void nsRilResponseResult::updateServiceClass(int32_t aServiceClass) {
+  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
+                      "updateServiceClass");
+  mServiceClass = aServiceClass;
+}
+
+/**
+ * For getClip
+ */
 void nsRilResponseResult::updateClip(int32_t aProvisioned) {
   __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult", "updateClip");
   mProvisioned = aProvisioned;
@@ -262,7 +273,6 @@ void nsRilResponseResult::updateClip(int32_t aProvisioned) {
 /**
  * For getNeighboringCellIds
  */
-
 void nsRilResponseResult::updateNeighboringCells(
     nsTArray<RefPtr<nsNeighboringCell>>& aNeighboringCell) {
   __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
@@ -271,7 +281,8 @@ void nsRilResponseResult::updateNeighboringCells(
 }
 
 /**
- * For queryTtyMode */
+ * For queryTtyMode
+ */
 void nsRilResponseResult::updateTtyMode(int32_t aTtyMode) {
   __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
                       "updateTtyMode");
@@ -279,22 +290,25 @@ void nsRilResponseResult::updateTtyMode(int32_t aTtyMode) {
 }
 
 /**
- * For getMute */
+ * For getMute
+ */
 void nsRilResponseResult::updateMute(bool aMuteEnabled) {
   __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult", "updateMute");
   mMuteEnabled = aMuteEnabled;
 }
 
 /**
- * For Icc pin/pul */
+ * For Icc pin/pul
+ */
 void nsRilResponseResult::updateRemainRetries(int32_t aRemainingRetries) {
   __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
-                      "updateRemainRetries");
+                      "updateRemainRetries = %d", aRemainingRetries);
   mRemainingRetries = aRemainingRetries;
 }
 
 /**
- * For GetPreferredVoicePrivacy */
+ * For GetPreferredVoicePrivacy
+ */
 void nsRilResponseResult::updateVoicePrivacy(bool aEnhancedVoicePrivacy) {
   __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
                       "updateVoicePrivacy");
@@ -312,7 +326,8 @@ void nsRilResponseResult::updateRadioCapability(
 }
 
 /**
- * For sendSMS */
+ * For sendSMS
+ */
 void nsRilResponseResult::updateSendSmsResponse(
     nsSendSmsResult* aSendSmsResult) {
   __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
@@ -320,9 +335,6 @@ void nsRilResponseResult::updateSendSmsResponse(
   mSendSmsResult = aSendSmsResult;
 }
 
-/**
- *
- */
 nsRilResponseResult::~nsRilResponseResult() {}
 
 // nsRilRsponseResult
@@ -543,7 +555,7 @@ NS_IMETHODIMP nsRilResponseResult::GetEnable(bool* aEnable) {
 }
 
 NS_IMETHODIMP nsRilResponseResult::GetServiceClass(int32_t* aServiceClass) {
-  *aServiceClass = mCWServiceClass;
+  *aServiceClass = mServiceClass;
   return NS_OK;
 }
 

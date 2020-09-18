@@ -101,8 +101,6 @@ class IccRequestParent final : public PIccRequestParent, public nsIIccCallback {
 
   bool DoRequest(const ChangeCardLockPasswordRequest& aRequest);
 
-  bool DoRequest(const GetCardLockRetryCountRequest& aRequest);
-
   bool DoRequest(const MatchMvnoRequest& aRequest);
 
   bool DoRequest(const GetServiceStateEnabledRequest& aRequest);

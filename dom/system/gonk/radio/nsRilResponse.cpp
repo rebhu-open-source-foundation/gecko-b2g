@@ -90,10 +90,10 @@ Return<void> nsRilResponse::supplyIccPinForAppResponse(
   RefPtr<nsRilResponseResult> result =
       new nsRilResponseResult(u"enterICCPIN"_ns, rspInfo.serial,
                               convertRadioErrorToNum(rspInfo.error));
-  if (rspInfo.error == RadioError::NONE) {
+  if (rspInfo.error != RadioError::NONE) {
+    INFO("supplyIccPinForAppResponse error = %d , retries = %d", rspInfo.error,
+         remainingRetries);
     result->updateRemainRetries(remainingRetries);
-  } else {
-    INFO("supplyIccPinForAppResponse error.");
   }
   mRIL->sendRilResponseResult(result);
   return Void();
@@ -107,10 +107,10 @@ Return<void> nsRilResponse::supplyIccPukForAppResponse(
   RefPtr<nsRilResponseResult> result =
       new nsRilResponseResult(u"enterICCPUK"_ns, rspInfo.serial,
                               convertRadioErrorToNum(rspInfo.error));
-  if (rspInfo.error == RadioError::NONE) {
+  if (rspInfo.error != RadioError::NONE) {
+    INFO("supplyIccPukForAppResponse error = %d , retries = %d", rspInfo.error,
+         remainingRetries);
     result->updateRemainRetries(remainingRetries);
-  } else {
-    INFO("supplyIccPukForAppResponse error.");
   }
   mRIL->sendRilResponseResult(result);
   return Void();
@@ -124,10 +124,10 @@ Return<void> nsRilResponse::supplyIccPin2ForAppResponse(
   RefPtr<nsRilResponseResult> result =
       new nsRilResponseResult(u"enterICCPIN2"_ns, rspInfo.serial,
                               convertRadioErrorToNum(rspInfo.error));
-  if (rspInfo.error == RadioError::NONE) {
+  if (rspInfo.error != RadioError::NONE) {
+    INFO("supplyIccPin2ForAppResponse error = %d , retries = %d", rspInfo.error,
+         remainingRetries);
     result->updateRemainRetries(remainingRetries);
-  } else {
-    INFO("supplyIccPin2ForAppResponse error.");
   }
   mRIL->sendRilResponseResult(result);
   return Void();
@@ -141,10 +141,10 @@ Return<void> nsRilResponse::supplyIccPuk2ForAppResponse(
   RefPtr<nsRilResponseResult> result =
       new nsRilResponseResult(u"enterICCPUK2"_ns, rspInfo.serial,
                               convertRadioErrorToNum(rspInfo.error));
-  if (rspInfo.error == RadioError::NONE) {
+  if (rspInfo.error != RadioError::NONE) {
+    INFO("supplyIccPuk2ForAppResponse error = %d , retries = %d", rspInfo.error,
+         remainingRetries);
     result->updateRemainRetries(remainingRetries);
-  } else {
-    INFO("supplyIccPuk2ForAppResponse error.");
   }
   mRIL->sendRilResponseResult(result);
   return Void();
@@ -158,10 +158,10 @@ Return<void> nsRilResponse::changeIccPinForAppResponse(
   RefPtr<nsRilResponseResult> result =
       new nsRilResponseResult(u"changeICCPIN"_ns, rspInfo.serial,
                               convertRadioErrorToNum(rspInfo.error));
-  if (rspInfo.error == RadioError::NONE) {
+  if (rspInfo.error != RadioError::NONE) {
+    INFO("changeIccPinForAppResponse error = %d , retries = %d", rspInfo.error,
+         remainingRetries);
     result->updateRemainRetries(remainingRetries);
-  } else {
-    INFO("changeIccPinForAppResponse error.");
   }
   mRIL->sendRilResponseResult(result);
   return Void();
@@ -175,10 +175,10 @@ Return<void> nsRilResponse::changeIccPin2ForAppResponse(
   RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
       u"changeICCPIN2"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
-  if (rspInfo.error == RadioError::NONE) {
+  if (rspInfo.error != RadioError::NONE) {
+    INFO("changeIccPin2ForAppResponse error = %d , retries = %d", rspInfo.error,
+         remainingRetries);
     result->updateRemainRetries(remainingRetries);
-  } else {
-    INFO("changeIccPin2ForAppResponse error.");
   }
   mRIL->sendRilResponseResult(result);
   return Void();
@@ -671,7 +671,7 @@ Return<void> nsRilResponse::getFacilityLockForAppResponse(
       u"queryICCFacilityLock"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
-    result->updateRemainRetries(response);
+    result->updateServiceClass(response);
   } else {
     INFO("setFacilityLockForAppResponse error.");
   }
@@ -687,10 +687,10 @@ Return<void> nsRilResponse::setFacilityLockForAppResponse(
   RefPtr<nsRilResponseResult> result = new nsRilResponseResult(
       u"setICCFacilityLock"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
-  if (rspInfo.error == RadioError::NONE) {
+  if (rspInfo.error != RadioError::NONE) {
+    INFO("setFacilityLockForAppResponse error = %d , retries = %d",
+         rspInfo.error, retry);
     result->updateRemainRetries(retry);
-  } else {
-    INFO("setFacilityLockForAppResponse error.");
   }
   mRIL->sendRilResponseResult(result);
   return Void();

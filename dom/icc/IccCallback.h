@@ -33,8 +33,8 @@ class IccCallback final : public nsIIccCallback {
   NS_DECL_ISUPPORTS
   NS_DECL_NSIICCCALLBACK
 
-  // TODO: Bug 1125018 - Simplify The Result of GetCardLock and
-  // getCardLockRetryCount in Icc.webidl without a wrapper object.
+  // TODO: Bug 1125018 - Simplify The Result of GetCardLock
+  // in Icc.webidl without a wrapper object.
   IccCallback(nsPIDOMWindowInner* aWindow, DOMRequest* aRequest,
               bool aIsCardLockEnabled = false);
   IccCallback(nsPIDOMWindowInner* aWindow, Promise* aPromise);
@@ -44,15 +44,15 @@ class IccCallback final : public nsIIccCallback {
 
   nsresult NotifySuccess(JS::Handle<JS::Value> aResult);
 
-  // TODO: Bug 1125018 - Simplify The Result of GetCardLock and
-  // getCardLockRetryCount in Icc.webidl without a wrapper object.
+  // TODO: Bug 1125018 - Simplify The Result of GetCardLock
+  // in Icc.webidl without a wrapper object.
   nsresult NotifyGetCardLockEnabled(bool aResult);
 
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
   RefPtr<DOMRequest> mRequest;
   RefPtr<Promise> mPromise;
-  // TODO: Bug 1125018 - Simplify The Result of GetCardLock and
-  // getCardLockRetryCount in Icc.webidl without a wrapper object.
+  // TODO: Bug 1125018 - Simplify The Result of GetCardLock
+  // in Icc.webidl without a wrapper object.
   bool mIsCardLockEnabled;
 };
 

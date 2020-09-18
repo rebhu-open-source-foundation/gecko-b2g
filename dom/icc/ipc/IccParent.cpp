@@ -161,10 +161,6 @@ mozilla::ipc::IPCResult IccParent::RecvPIccRequestConstructor(
       return actor->DoRequest(aRequest.get_ChangeCardLockPasswordRequest())
                  ? IPC_OK()
                  : IPC_FAIL_NO_REASON(this);
-    case IccRequest::TGetCardLockRetryCountRequest:
-      return actor->DoRequest(aRequest.get_GetCardLockRetryCountRequest())
-                 ? IPC_OK()
-                 : IPC_FAIL_NO_REASON(this);
     case IccRequest::TMatchMvnoRequest:
       return actor->DoRequest(aRequest.get_MatchMvnoRequest())
                  ? IPC_OK()
@@ -292,10 +288,6 @@ bool IccRequestParent::DoRequest(
       aRequest.lockType(), aRequest.password(), aRequest.newPassword(), this));
 }
 
-bool IccRequestParent::DoRequest(const GetCardLockRetryCountRequest& aRequest) {
-  return NS_SUCCEEDED(mIcc->GetCardLockRetryCount(aRequest.lockType(), this));
-}
-
 bool IccRequestParent::DoRequest(const MatchMvnoRequest& aRequest) {
   return NS_SUCCEEDED(
       mIcc->MatchMvno(aRequest.mvnoType(), aRequest.mvnoData(), this));
@@ -362,11 +354,6 @@ IccRequestParent::NotifySuccess() { return SendReply(IccReplySuccess()); }
 NS_IMETHODIMP
 IccRequestParent::NotifySuccessWithBoolean(bool aResult) {
   return SendReply(IccReplySuccessWithBoolean(aResult));
-}
-
-NS_IMETHODIMP
-IccRequestParent::NotifyGetCardLockRetryCount(int32_t aCount) {
-  return SendReply(IccReplyCardLockRetryCount(aCount));
 }
 
 NS_IMETHODIMP

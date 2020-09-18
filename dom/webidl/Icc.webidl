@@ -152,8 +152,9 @@ dictionary IccCardLockStatus
 };
 
 [GenerateConversionToJS]
-dictionary IccCardLockRetryCount
+dictionary IccCardLockError
 {
+  DOMString? error = null;
   long retryCount = -1; // The number of remaining retries. -1 if unkown.
 };
 
@@ -317,21 +318,6 @@ interface Icc : EventTarget
    */
   [Throws]
   DOMRequest setCardLock(optional IccSetCardLockOptions info={});
-
-  // We do not support this api anymore.
-  /**
-   * Retrieve the number of remaining tries for unlocking the card.
-   *
-   * @param lockType
-   *        Identifies the lock type.
-   *
-   * @return a DOMRequest.
-   *         The request's result will be an object containing the number of
-   *         remaining retries. e.g. {retryCount: 3}.
-   *         @see IccCardLockRetryCount.
-   */
-  //[Throws]
-  //DOMRequest getCardLockRetryCount(IccLockType lockType);
 
   // Integrated Circuit Card Phonebook Interfaces.
 

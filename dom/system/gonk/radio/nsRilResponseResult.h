@@ -95,6 +95,9 @@ class nsRilResponseResult final : public nsRilResult,
   // For getCallWaiting
   void updateCallWaiting(bool aEnable, int32_t aServiceClass);
 
+  // For getFacilityLockForApp
+  void updateServiceClass(int32_t aServiceClass);
+
   // For GetClip
   void updateClip(int32_t aProvisioned);
 
@@ -146,7 +149,7 @@ class nsRilResponseResult final : public nsRilResult,
   int32_t mCLIR_M;
   nsTArray<RefPtr<nsCallForwardInfo>> mCallForwardInfoLists;
   bool mCWEnable;
-  int32_t mCWServiceClass;
+  int32_t mServiceClass;
   int32_t mProvisioned;
   nsTArray<RefPtr<nsNeighboringCell>> mNeighboringCell;
   int32_t mTtyMode;

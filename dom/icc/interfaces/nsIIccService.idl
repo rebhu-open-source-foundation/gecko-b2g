@@ -41,14 +41,6 @@ interface nsIIccCallback : nsISupports
   void notifySuccessWithBoolean(in boolean aResult);
 
   /**
-   * The success callback of |getCardLockRetryCount|.
-   *
-   * @param aCount
-   *        The number of remaining retries. -1 if unknown.
-   */
-  void notifyGetCardLockRetryCount(in long aCount);
-
-  /**
    * The success callback of |readContacts|.
    *
    * @param aContacts
@@ -68,7 +60,7 @@ interface nsIIccCallback : nsISupports
   void notifyUpdatedIccContact(in nsIIccContact aContact);
 
   /**
-   * The error callback of |getCardLockEnabled|, |getCardLockRetryCount|,
+   * The error callback of |getCardLockEnabled|,
    * |matchMvno|, |getServiceStateEnabled|, |readContacts| and |updateContact|.
    *
    * @param aErrorMsg
@@ -394,19 +386,6 @@ interface nsIIcc : nsISupports
                               in AString aPassword,
                               in AString aNewPassword,
                               in nsIIccCallback aCallback);
-
-  /**
-   * Get the number of remaining tries of a lock.
-   *
-   * @param aLockType
-   *        One of the CARD_LOCK_TYPE_* values.
-   * @param aCallback
-   *        An instance of nsIIccCallback:
-   *        nsIIccCallback::notifyGetCardLockRetryCount() if success.
-   *        nsIIccCallback::notifyError(), otherwise.
-   */
-  void getCardLockRetryCount(in unsigned long aLockType,
-                             in nsIIccCallback aCallback);
 
   /**
    * Verify whether the passed data (matchData) matches with some ICC's field

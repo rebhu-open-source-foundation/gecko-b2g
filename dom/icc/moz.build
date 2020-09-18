@@ -12,7 +12,6 @@ EXPORTS += [
 
 EXPORTS.mozilla.dom += [
     'Icc.h',
-    'IccCardLockError.h',
     'IccInfo.h',
     'IccManager.h',
 ]
@@ -28,7 +27,6 @@ UNIFIED_SOURCES += [
     'Assertions.cpp',
     'Icc.cpp',
     'IccCallback.cpp',
-    'IccCardLockError.cpp',
     'IccContact.cpp',
     "IccInfo.cpp",
     'IccListener.cpp',

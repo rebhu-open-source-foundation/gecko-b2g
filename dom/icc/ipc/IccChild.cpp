@@ -257,14 +257,6 @@ IccChild::ChangeCardLockPassword(uint32_t aLockType, const nsAString& aPassword,
 }
 
 NS_IMETHODIMP
-IccChild::GetCardLockRetryCount(uint32_t aLockType,
-                                nsIIccCallback* aRequestReply) {
-  return SendRequest(GetCardLockRetryCountRequest(aLockType), aRequestReply)
-             ? NS_OK
-             : NS_ERROR_FAILURE;
-}
-
-NS_IMETHODIMP
 IccChild::MatchMvno(uint32_t aMvnoType, const nsAString& aMvnoData,
                     nsIIccCallback* aRequestReply) {
   return SendRequest(MatchMvnoRequest(aMvnoType, nsAutoString(aMvnoData)),
@@ -421,14 +413,6 @@ mozilla::ipc::IPCResult IccRequestChild::Recv__delete__(
           aResponse.get_IccReplySuccessWithBoolean();
       return NS_SUCCEEDED(mRequestReply->NotifySuccessWithBoolean(
                  resultWithBoolean.result()))
-                 ? IPC_OK()
-                 : IPC_FAIL_NO_REASON(this);
-    }
-    case IccReply::TIccReplyCardLockRetryCount: {
-      const IccReplyCardLockRetryCount& retryCount =
-          aResponse.get_IccReplyCardLockRetryCount();
-      return NS_SUCCEEDED(
-                 mRequestReply->NotifyGetCardLockRetryCount(retryCount.count()))
                  ? IPC_OK()
                  : IPC_FAIL_NO_REASON(this);
     }

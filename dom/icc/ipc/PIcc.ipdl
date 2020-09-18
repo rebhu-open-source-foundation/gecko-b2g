@@ -44,11 +44,6 @@ struct ChangeCardLockPasswordRequest
   nsString newPassword;
 };
 
-struct GetCardLockRetryCountRequest
-{
-  uint32_t lockType;
-};
-
 struct MatchMvnoRequest
 {
   uint32_t mvnoType;
@@ -106,7 +101,6 @@ union IccRequest
   UnlockCardLockRequest;
   SetCardLockEnabledRequest;
   ChangeCardLockPasswordRequest;
-  GetCardLockRetryCountRequest;
   MatchMvnoRequest;
   GetServiceStateEnabledRequest;
   IccOpenChannelRequest;

@@ -7,7 +7,6 @@
 #include "IccCallback.h"
 
 // #include "mozilla/dom/ContactsBinding.h"
-#include "mozilla/dom/IccCardLockError.h"
 #include "mozilla/dom/IccBinding.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/ToJSValue.h"
@@ -74,28 +73,6 @@ IccCallback::NotifySuccessWithBoolean(bool aResult) {
 }
 
 NS_IMETHODIMP
-IccCallback::NotifyGetCardLockRetryCount(int32_t aCount) {
-  // TODO: Bug 1125018 - Simplify The Result of GetCardLock and
-  // getCardLockRetryCount in Icc.webidl without a wrapper object.
-  IccCardLockRetryCount result;
-  result.mRetryCount = aCount;
-
-  AutoJSAPI jsapi;
-  if (NS_WARN_IF(!jsapi.Init(mWindow))) {
-    return NS_ERROR_FAILURE;
-  }
-
-  JSContext* cx = jsapi.cx();
-  JS::Rooted<JS::Value> jsResult(cx);
-  if (!ToJSValue(cx, result, &jsResult)) {
-    jsapi.ClearException();
-    return NS_ERROR_DOM_TYPE_MISMATCH_ERR;
-  }
-
-  return NotifySuccess(jsResult);
-}
-
-NS_IMETHODIMP
 IccCallback::NotifyError(const nsAString& aErrorMsg) {
   if (mPromise) {
     mPromise->MaybeRejectBrokenly(aErrorMsg);
@@ -112,11 +89,23 @@ IccCallback::NotifyError(const nsAString& aErrorMsg) {
 NS_IMETHODIMP
 IccCallback::NotifyCardLockError(const nsAString& aErrorMsg,
                                  int32_t aRetryCount) {
-  RefPtr<IccCardLockError> error =
-      new IccCardLockError(mWindow, aErrorMsg, aRetryCount);
-  // mRequest->FireDetailedError(error);
-  // TODO: file IccCardLockError event
-  return NS_OK;
+  IccCardLockError result;
+  result.mError = aErrorMsg;
+  result.mRetryCount = aRetryCount;
+
+  AutoJSAPI jsapi;
+  if (NS_WARN_IF(!jsapi.Init(mWindow))) {
+    return NS_ERROR_FAILURE;
+  }
+
+  JSContext* cx = jsapi.cx();
+  JS::Rooted<JS::Value> jsResult(cx);
+  if (!ToJSValue(cx, result, &jsResult)) {
+    jsapi.ClearException();
+    return NS_ERROR_DOM_TYPE_MISMATCH_ERR;
+  }
+
+  return NotifySuccess(jsResult);
 }
 
 NS_IMETHODIMP
