@@ -21,8 +21,7 @@ dictionary HawkRestrictedToken
 };
 
 [
-Exposed=Window,
-JSImplementation="@mozilla.org/kaiauth/authorization-manager;1",
+Exposed=(Window,Worker),
 // TODO: to add permission control
 ]
 interface AuthorizationManager {

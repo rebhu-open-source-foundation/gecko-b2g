@@ -274,7 +274,6 @@
 
 #ifdef HAS_KOOST_MODULES
 @RESPATH@/components/AuthorizationService.js
-@RESPATH@/components/AuthorizationService.manifest
 #endif
 
 #ifdef MOZ_DEBUG

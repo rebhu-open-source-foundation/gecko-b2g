@@ -1,0 +1,19 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+[scriptable, uuid(df9e6b20-75b0-4b90-b0bc-355c81d9e826), function]
+interface nsIAuthorizationCallback : nsISupports
+{
+  [implicit_jscontext]
+  void onRestrictedToken(in nsresult status, in jsval result);
+};
+
+[scriptable, uuid(a7ce79b2-a1e0-4d1f-a95a-c62443dacdf3)]
+interface nsIAuthorizationManager : nsISupports
+{
+  void init();
+  void getRestrictedToken(in ACString type, in nsIAuthorizationCallback callback);
+};

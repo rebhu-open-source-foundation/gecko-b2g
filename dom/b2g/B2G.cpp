@@ -583,12 +583,7 @@ AuthorizationManager* B2G::GetAuthorizationManager(ErrorResult& aRv) {
       aRv.Throw(NS_ERROR_UNEXPECTED);
       return nullptr;
     }
-
-    mAuthorizationManager = ConstructJSImplementation<AuthorizationManager>(
-        "@mozilla.org/kaiauth/authorization-manager;1", GetParentObject(), aRv);
-    if (aRv.Failed()) {
-      return nullptr;
-    }
+    mAuthorizationManager = new AuthorizationManager(GetParentObject());
   }
   return mAuthorizationManager;
 }

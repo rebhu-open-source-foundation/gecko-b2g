@@ -44,6 +44,11 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         'speakermanager',
     ]
 
+if CONFIG['HAS_KOOST_MODULES']:
+    DIRS += [
+        'kaiauth',
+    ]
+
 include('/ipc/chromium/chromium-config.mozbuild')
 
 FINAL_LIBRARY = 'xul'

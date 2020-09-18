@@ -46,7 +46,7 @@
 #  include "mozilla/dom/FMRadio.h"
 #endif
 #ifdef HAS_KOOST_MODULES
-#  include "mozilla/dom/AuthorizationManagerBinding.h"
+#  include "mozilla/dom/AuthorizationManager.h"
 #endif
 
 #include "DeviceStorage.h"
