@@ -7,6 +7,7 @@
 #ifndef mozilla_dom_media_RemoteImageHolder_h
 #define mozilla_dom_media_RemoteImageHolder_h
 
+#include "GPUVideoImage.h"
 #include "MediaData.h"
 #include "ipc/IPCMessageUtils.h"
 #include "mozilla/RefPtr.h"
@@ -16,7 +17,6 @@
 namespace mozilla {
 namespace layers {
 class BufferRecycleBin;
-class IGPUVideoSurfaceManager;
 }
 class RemoteImageHolder final {
   friend struct ipc::IPDLParamTraits<RemoteImageHolder>;
