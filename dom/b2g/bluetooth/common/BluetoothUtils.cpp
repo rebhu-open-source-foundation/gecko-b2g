@@ -640,27 +640,31 @@ bool BroadcastSystemMessage(const nsAString& aType,
       do_GetService("@mozilla.org/systemmessage-service;1");
   NS_ENSURE_TRUE(systemMessenger, false);
 
-  JS::Rooted<JS::Value> value(cx);
+  JS::Rooted<JSObject*> obj(cx, JS_NewPlainObject(cx));
+  if (!obj) {
+    BT_WARNING("Failed to new JSObject for system message!");
+    return false;
+  }
+
   if (aData.type() == BluetoothValue::TnsString) {
     JSString* jsData = JS_NewUCStringCopyN(
         cx, aData.get_nsString().BeginReading(), aData.get_nsString().Length());
-    value.setString(jsData);
-  } else if (aData.type() == BluetoothValue::TArrayOfBluetoothNamedValue) {
-    JS::Rooted<JSObject*> obj(cx, JS_NewPlainObject(cx));
-    if (!obj) {
-      BT_WARNING("Failed to new JSObject for system message!");
+    JS::Rooted<JS::Value> msgVal(cx, JS::StringValue(jsData));
+    if (!JS_SetProperty(cx, obj, "message", msgVal)) {
+      BT_WARNING("Failed to set property");
       return false;
     }
-
+  } else if (aData.type() == BluetoothValue::TArrayOfBluetoothNamedValue) {
     if (!SetJsObject(cx, aData, obj)) {
       BT_WARNING("Failed to set properties of system message!");
       return false;
     }
-    value = JS::ObjectValue(*obj);
   } else {
     BT_WARNING("Not support the unknown BluetoothValue type");
     return false;
   }
+
+  JS::Rooted<JS::Value> value(cx, JS::ObjectValue(*obj));
 
   // TODO: use broadcastMessage() instead when it's ready
   systemMessenger->SendMessage(aType, value, "https://system.local"_ns, cx);
