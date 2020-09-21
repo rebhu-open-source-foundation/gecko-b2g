@@ -225,11 +225,6 @@ class TCPSocket final : public DOMEventTargetHelper,
   nsTArray<nsCOMPtr<nsIInputStream>> mPendingData;
 
   bool mObserversActive;
-
-#ifdef MOZ_B2G
-  static bool PermissionAllowed(const nsACString& aType,
-                                nsIPrincipal* aPrincipal);
-#endif
 };
 
 }  // namespace dom

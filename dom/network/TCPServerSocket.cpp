@@ -16,10 +16,6 @@
 
 using namespace mozilla::dom;
 
-#ifdef MOZ_B2G
-#  define DEFAULT_BACKLOG 5
-#endif
-
 NS_IMPL_CYCLE_COLLECTION_CLASS(TCPServerSocket)
 
 NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(TCPServerSocket,
@@ -47,22 +43,12 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(TCPServerSocket)
   NS_INTERFACE_MAP_ENTRY(nsIServerSocketListener)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
-#ifdef MOZ_B2G
-TCPServerSocket::TCPServerSocket(nsIGlobalObject* aGlobal, uint16_t aPort,
-                                 bool aUseArrayBuffers, uint16_t aBacklog)
-    : DOMEventTargetHelper(aGlobal),
-      mPort(aPort),
-      mUseArrayBuffers(aUseArrayBuffers) {
-  mBacklog = aBacklog > 0 ? aBacklog : DEFAULT_BACKLOG;
-}
-#else
 TCPServerSocket::TCPServerSocket(nsIGlobalObject* aGlobal, uint16_t aPort,
                                  bool aUseArrayBuffers, uint16_t aBacklog)
     : DOMEventTargetHelper(aGlobal),
       mPort(aPort),
       mBacklog(aBacklog),
       mUseArrayBuffers(aUseArrayBuffers) {}
-#endif
 
 TCPServerSocket::~TCPServerSocket() = default;
 

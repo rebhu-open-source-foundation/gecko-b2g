@@ -34,9 +34,6 @@
 #include "nsStringStream.h"
 #include "secerr.h"
 #include "sslerr.h"
-#ifdef MOZ_B2G
-#  include "nsIPermissionManager.h"
-#endif
 
 #define BUFFER_SIZE 65536
 #define NETWORK_STATS_THRESHOLD 65536
@@ -1045,31 +1042,5 @@ TCPSocket::Observe(nsISupports* aSubject, const char* aTopic,
 /* static */
 bool TCPSocket::ShouldTCPSocketExist(JSContext* aCx, JSObject* aGlobal) {
   JS::Rooted<JSObject*> global(aCx, aGlobal);
-#ifdef MOZ_B2G
-  nsIPrincipal* principal = nsContentUtils::ObjectPrincipal(global);
-  if (principal->IsSystemPrincipal()) {
-    return true;
-  }
-
-  return PermissionAllowed("tcp-socket"_ns, principal);
-#else
   return nsContentUtils::ObjectPrincipal(global)->IsSystemPrincipal();
-#endif
 }
-
-#ifdef MOZ_B2G
-/* static */
-bool TCPSocket::PermissionAllowed(const nsACString& aType,
-                                  nsIPrincipal* aPrincipal) {
-  if (aPrincipal == nullptr) {
-    return false;
-  }
-
-  uint32_t permission = nsIPermissionManager::DENY_ACTION;
-  nsCOMPtr<nsIPermissionManager> permMgr = services::GetPermissionManager();
-  permMgr->TestPermissionFromPrincipal(aPrincipal, aType, &permission);
-
-  return permission == nsIPermissionManager::ALLOW_ACTION ||
-         permission == nsIPermissionManager::PROMPT_ACTION;
-}
-#endif
