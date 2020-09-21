@@ -43,6 +43,11 @@ The `WebEmbedder` object exposes the following methods:
 - `isDaemonReady`: returns a boolean that is true if the api-daemon is running and is usable.
 - `isGonk`: returns true if this is a device build.
 - `takeScreenshot`: take a screenshot and return a `File` object with png file, if something failed it will return `null`.
+- `customAccessible`: this object exposes methods for invoking customAccessible features.
+  - `sendCustomAccessible(domNode)`: send the custom accessible to screen reader.
+    - `domNode`: the dom node for custom accessible.
+  - `startCustomAccessOutput()`: enable custom accessible output.
+  - `stopCustomAccessOutput()`: disable custom accessible output.
 
 ### Events
 

@@ -44,6 +44,18 @@ XPCOMUtils.defineLazyGetter(this, "Screenshot", function() {
     },
   };
 
+  const customAccessible = {
+    sendCustomAccessible: domNode => {
+      Services.obs.notifyObservers(domNode, "custom-accessible");
+    },
+    startCustomAccessOutput: () => {
+      Services.obs.notifyObservers({}, "start-custom-access-output");
+    },
+    stopCustomAccessOutput: () => {
+      Services.obs.notifyObservers({}, "stop-custom-access-output");
+    },
+  };
+
   // Enable logs when according to the pref value, and listen to changes.
   let webEmbedLogEnabled = Services.prefs.getBoolPref(
     "webembed.log.enabled",
@@ -238,6 +250,7 @@ XPCOMUtils.defineLazyGetter(this, "Screenshot", function() {
       this.browserDomWindow = delegates.windowProvider;
 
       this.systemAlerts = systemAlerts;
+      this.customAccessible = customAccessible;
 
       Services.obs.addObserver(shell_window => {
         this.shellWindow = shell_window;

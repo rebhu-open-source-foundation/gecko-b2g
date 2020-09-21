@@ -16,12 +16,6 @@ XPCOMUtils.defineLazyGetter(this, "Services", function() {
   );
   return Services;
 });
-XPCOMUtils.defineLazyGetter(this, "SystemAppProxy", function() {
-  const { SystemAppProxy } = ChromeUtils.import(
-    "resource://gre/modules/SystemAppProxy.jsm"
-  );
-  return SystemAppProxy;
-});
 XPCOMUtils.defineLazyGetter(this, "Utils", function() {
   const { Utils } = ChromeUtils.import(
     "resource://gre/modules/accessibility/Utils.jsm"
@@ -96,7 +90,23 @@ this.EventManager.prototype = {
         this.addEventListener("scroll", this, true);
         this.addEventListener("resize", this, true);
         this.addEventListener("visibilitychange", this);
-        SystemAppProxy.addEventListener("mozContentEvent", this);
+        Services.obs.addObserver(domNode => {
+          let acc = Utils.AccRetrieval.getAccessibleFor(domNode);
+          if (acc == null) {
+            // This event fires too early and the dom tree is still under
+            // constructed, postpone it.
+            this.queueEvent = domNode;
+          } else {
+            this.present(Presentation.selected(acc));
+          }
+        }, "custom-accessible");
+        Services.obs.addObserver(() => {
+          this.customAccessOutput = true;
+        }, "start-custom-access-output");
+        Services.obs.addObserver(() => {
+          this.customAccessOutput = false;
+        }, "stop-custom-access-output");
+
         this._preDialogPosition = new WeakMap();
       }
       this.present(Presentation.tabStateChanged(null, "newtab"));
@@ -120,7 +130,6 @@ this.EventManager.prototype = {
       this.removeEventListener("scroll", this, true);
       this.removeEventListener("resize", this, true);
       this.removeEventListener("visibilitychange", this);
-      SystemAppProxy.removeEventListener("mozContentEvent", this);
     } catch (x) {
       // contentScope is dead.
     } finally {
@@ -137,24 +146,6 @@ this.EventManager.prototype = {
 
     try {
       switch (aEvent.type) {
-        case "mozContentEvent": {
-          if (aEvent.detail.type === "custom-accessible") {
-            let domNode = aEvent.detail.node;
-            let acc = Utils.AccRetrieval.getAccessibleFor(domNode);
-            if (acc == null) {
-              // this event fires too early and the dom tree is still under
-              // constructed, postpone it.
-              this.queueEvent = aEvent.detail.node;
-            } else {
-              this.present(Presentation.selected(acc));
-            }
-          } else if (aEvent.detail.type === "start-custom-access-output") {
-            this.customAccessOutput = true;
-          } else if (aEvent.detail.type === "stop-custom-access-output") {
-            this.customAccessOutput = false;
-          }
-          break;
-        }
         case "wheel": {
           let delta = aEvent.deltaX || aEvent.deltaY;
           this.contentControl.autoMove(null, {
