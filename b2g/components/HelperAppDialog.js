@@ -31,7 +31,7 @@ HelperAppLauncherDialog.prototype = {
 
   show(aLauncher, aContext, aReason) {
     aLauncher.MIMEInfo.preferredAction = Ci.nsIMIMEInfo.saveToDisk;
-    aLauncher.saveToDisk(null, false);
+    aLauncher.promptForSaveDestination();
   },
 
   promptForSaveToFileAsync(
