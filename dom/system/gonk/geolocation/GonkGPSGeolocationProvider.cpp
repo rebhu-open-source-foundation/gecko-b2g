@@ -158,6 +158,8 @@ static const char* kNetworkActiveChangedTopic = "network-active-changed";
 static const char* kPrefRilNumRadioInterfaces = "ril.numRadioInterfaces";
 static const auto kSettingRilDefaultServiceId = u"ril.data.defaultServiceId"_ns;
 static const auto kSettingRilSuplApn = u"ril.supl.apn"_ns;
+static const auto kSettingRilDataApn = u"ril.data.apn"_ns;
+static nsAutoCString gRilDataApn;
 #endif
 
 NS_IMPL_ISUPPORTS(GonkGPSGeolocationProvider::NetworkLocationUpdate,
@@ -311,6 +313,10 @@ GonkGPSGeolocationProvider::GonkGPSGeolocationProvider()
     settings->AddObserver(kSettingGeolocationEnabled, this, this);
     settings->AddObserver(kSettingDebugEnabled, this, this);
     settings->AddObserver(kSettingDebugGpsIgnored, this, this);
+#ifdef MOZ_B2G_RIL
+    settings->Get(kSettingRilDataApn, this);
+    settings->AddObserver(kSettingRilDataApn, this, this);
+#endif  // MOZ_B2G_RIL
   }
 
 #ifdef MOZ_B2G_RIL
@@ -342,6 +348,9 @@ GonkGPSGeolocationProvider::~GonkGPSGeolocationProvider() {
     settings->RemoveObserver(kSettingGeolocationEnabled, this, this);
     settings->RemoveObserver(kSettingDebugEnabled, this, this);
     settings->RemoveObserver(kSettingDebugGpsIgnored, this, this);
+#ifdef MOZ_B2G_RIL
+    settings->RemoveObserver(kSettingRilDataApn, this, this);
+#endif  // MOZ_B2G_RIL
   }
 
 #ifdef MOZ_B2G_RIL
@@ -881,10 +890,15 @@ NS_IMETHODIMP GonkGPSGeolocationProvider::HandleSettings(
   }
 #ifdef MOZ_B2G_RIL
   else if (name.Equals(kSettingRilSuplApn)) {
+    DBG("ObserveSetting: supl APN: %s", NS_ConvertUTF16toUTF8(value).get());
     // When we get the APN, we attempt to call data_call_open of AGPS.
     if (!value.IsEmpty()) {
       SetAGpsDataConn(value);
     }
+
+  } else if (name.Equals(kSettingRilDataApn)) {
+    gRilDataApn = NS_ConvertUTF16toUTF8(value);
+    DBG("ObserveSetting: data APN: %s", gRilDataApn.get());
   } else if (name.Equals(kSettingRilDefaultServiceId)) {
     int32_t serviceId = 0;
     if (SVGContentUtils::ParseInteger(value, serviceId) == false) {
@@ -1060,10 +1074,11 @@ void GonkGPSGeolocationProvider::UpdateNetworkState(nsISupports* aNetworkInfo) {
       .networkHandle = static_cast<uint64_t>(netId),
       .isConnected = static_cast<bool>(connected),
       .capabilities = capabilities,
-      // .apn is optional, remain it as empty
+      .apn = gRilDataApn.get(),
   };
-  DBG("updateNetworkState_2_0, netId: %d, connected: %d, capabilities: %u)",
-      netId, connected, capabilities);
+  DBG("updateNetworkState_2_0, netId: %d, connected: %d, capabilities: %u, "
+      "apn: %s)",
+      netId, connected, capabilities, gRilDataApn.get());
   mAGnssRilHal_V2_0->updateNetworkState_2_0(networkAttributes);
 }
 
