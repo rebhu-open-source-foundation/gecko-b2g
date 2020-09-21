@@ -338,16 +338,19 @@ var PushService = {
       case "quit-application":
         this.uninit();
         break;
-      case "network-active-changed":         /* On B2G */
+      case "network-active-changed" /* On B2G */:
         this._stateChangeProcessEnqueue(_ => {
           let activeNetworkInfo = aSubject;
           let offline = false;
           if (!activeNetworkInfo) {
             offline = true;
           } else {
-            activeNetworkInfo = activeNetworkInfo.QueryInterface(Ci.nsINetworkInfo);
+            activeNetworkInfo = activeNetworkInfo.QueryInterface(
+              Ci.nsINetworkInfo
+            );
             offline =
-              activeNetworkInfo.state != Ci.nsINetworkInfo.NETWORK_STATE_CONNECTED;
+              activeNetworkInfo.state !=
+              Ci.nsINetworkInfo.NETWORK_STATE_CONNECTED;
           }
           this._changeStateOfflineEvent(offline, false);
         });
@@ -446,7 +449,7 @@ var PushService = {
 
   // utility function used to add/remove observers in startObservers() and
   // stopObservers()
-  getNetworkStateChangeEventName: function() {
+  getNetworkStateChangeEventName() {
     try {
       let networkManager = Cc["@mozilla.org/network/manager;1"];
       if (networkManager) {
@@ -614,7 +617,7 @@ var PushService = {
     // online, so we explicitly check for the presence of NetworkManager and
     // don't add an observer for offline-status-changed on B2G.
     this._networkStateChangeEventName = this.getNetworkStateChangeEventName();
-    Services.obs.addObserver(this, this._networkStateChangeEventName, false);
+    Services.obs.addObserver(this, this._networkStateChangeEventName);
 
     // Used to monitor if the user wishes to disable Push.
     prefs.addObserver("connection.enabled", this);
