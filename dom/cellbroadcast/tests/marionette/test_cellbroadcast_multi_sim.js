@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 function testReceiving_MultiSIM() {
   log("Test receiving GSM Cell Broadcast - Multi-SIM");
@@ -17,10 +17,10 @@ function testReceiving_MultiSIM() {
 
   return selectModem(1)
     .then(() => sendMultipleRawCbsToEmulatorAndWait([pdu]))
-    .then((aMessage) => verifyCBMessage(aMessage, 1))
+    .then(aMessage => verifyCBMessage(aMessage, 1))
     .then(() => selectModem(0))
     .then(() => sendMultipleRawCbsToEmulatorAndWait([pdu]))
-    .then((aMessage) => verifyCBMessage(aMessage, 0));
+    .then(aMessage => verifyCBMessage(aMessage, 0));
 }
 
 startTestCommon(function testCaseMain() {

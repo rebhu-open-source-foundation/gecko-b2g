@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 90000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 function testReceiving_UMTS_Language_and_Body() {
   log("Test receiving UMTS Cell Broadcast - Language & Body");
@@ -11,11 +11,15 @@ function testReceiving_UMTS_Language_and_Body() {
 
   let testDcs = [];
   let dcs = 0;
-  while (dcs <= 0xFF) {
+  while (dcs <= 0xff) {
     try {
-      let dcsInfo = { dcs: dcs };
-      [ dcsInfo.encoding, dcsInfo.language,
-        dcsInfo.indicator, dcsInfo.messageClass ] = decodeGsmDataCodingScheme(dcs);
+      let dcsInfo = { dcs };
+      [
+        dcsInfo.encoding,
+        dcsInfo.language,
+        dcsInfo.indicator,
+        dcsInfo.messageClass,
+      ] = decodeGsmDataCodingScheme(dcs);
       testDcs.push(dcsInfo);
     } catch (e) {
       // Unsupported coding group, skip.
@@ -35,17 +39,21 @@ function testReceiving_UMTS_Language_and_Body() {
 
     switch (aDcsInfo.encoding) {
       case PDU_DCS_MSG_CODING_7BITS_ALPHABET:
-        is(aMessage.body,
-           aDcsInfo.indicator ? DUMMY_BODY_7BITS_IND : DUMMY_BODY_7BITS,
-           "aMessage.body");
+        is(
+          aMessage.body,
+          aDcsInfo.indicator ? DUMMY_BODY_7BITS_IND : DUMMY_BODY_7BITS,
+          "aMessage.body"
+        );
         break;
       case PDU_DCS_MSG_CODING_8BITS_ALPHABET:
         ok(aMessage.body == null, "aMessage.body");
         break;
       case PDU_DCS_MSG_CODING_16BITS_ALPHABET:
-        is(aMessage.body,
-           aDcsInfo.indicator ? DUMMY_BODY_UCS2_IND : DUMMY_BODY_UCS2,
-           "aMessage.body");
+        is(
+          aMessage.body,
+          aDcsInfo.indicator ? DUMMY_BODY_UCS2_IND : DUMMY_BODY_UCS2,
+          "aMessage.body"
+        );
         break;
     }
 
@@ -53,16 +61,17 @@ function testReceiving_UMTS_Language_and_Body() {
   };
 
   testDcs.forEach(function(aDcsInfo) {
-    let pdu = buildHexStr(CB_UMTS_MESSAGE_TYPE_CBS, 2) // msg_type
-            + buildHexStr(0, 4) // skip msg_id
-            + buildHexStr(0, 4) // skip SN
-            + buildHexStr(aDcsInfo.dcs, 2) // set dcs
-            + buildHexStr(1, 2) // set num_of_pages to 1
-            + buildHexStr(0, CB_UMTS_MESSAGE_PAGE_SIZE * 2)
-            + buildHexStr(CB_UMTS_MESSAGE_PAGE_SIZE, 2);  // msg_info_length
+    let pdu =
+      buildHexStr(CB_UMTS_MESSAGE_TYPE_CBS, 2) + // msg_type
+      buildHexStr(0, 4) + // skip msg_id
+      buildHexStr(0, 4) + // skip SN
+      buildHexStr(aDcsInfo.dcs, 2) + // set dcs
+      buildHexStr(1, 2) + // set num_of_pages to 1
+      buildHexStr(0, CB_UMTS_MESSAGE_PAGE_SIZE * 2) +
+      buildHexStr(CB_UMTS_MESSAGE_PAGE_SIZE, 2); // msg_info_length
     promise = promise
       .then(() => sendMultipleRawCbsToEmulatorAndWait([pdu]))
-      .then((aMessage) => verifyCBMessage(aMessage, aDcsInfo));
+      .then(aMessage => verifyCBMessage(aMessage, aDcsInfo));
   });
 
   return promise;

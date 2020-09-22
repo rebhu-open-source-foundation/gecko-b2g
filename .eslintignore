@@ -23,8 +23,12 @@
 obj*/
 
 # Exclude some files for b2g.
+# Pre-processed files:
 b2g/app/b2g.js
 koost/koost.js
+dom/cellbroadcast/gonk/GonkCellBroadcastConfigService.jsm
+# Tests to fix:
+dom/cellbroadcast/tests/
 
 # build/ third-party code
 build/pgo/js-input/

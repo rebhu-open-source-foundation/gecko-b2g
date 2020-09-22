@@ -1,55 +1,59 @@
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
-const {Cc: Cc, Ci: Ci, Cr: Cr, Cu: Cu} = SpecialPowers;
+const { Cc: Cc, Ci: Ci, Cr: Cr, Cu: Cu } = SpecialPowers;
 
 // Emulate Promise.jsm semantics.
-Promise.defer = function() { return new Deferred(); }
-function Deferred()  {
-  this.promise = new Promise(function(resolve, reject) {
-    this.resolve = resolve;
-    this.reject = reject;
-  }.bind(this));
+Promise.defer = function() {
+  return new Deferred();
+};
+function Deferred() {
+  this.promise = new Promise(
+    function(resolve, reject) {
+      this.resolve = resolve;
+      this.reject = reject;
+    }.bind(this)
+  );
   Object.freeze(this);
 }
 
-const PDU_DCS_CODING_GROUP_BITS          = 0xF0;
-const PDU_DCS_MSG_CODING_7BITS_ALPHABET  = 0x00;
-const PDU_DCS_MSG_CODING_8BITS_ALPHABET  = 0x04;
+const PDU_DCS_CODING_GROUP_BITS = 0xf0;
+const PDU_DCS_MSG_CODING_7BITS_ALPHABET = 0x00;
+const PDU_DCS_MSG_CODING_8BITS_ALPHABET = 0x04;
 const PDU_DCS_MSG_CODING_16BITS_ALPHABET = 0x08;
 
-const PDU_DCS_MSG_CLASS_BITS             = 0x03;
-const PDU_DCS_MSG_CLASS_NORMAL           = 0xFF;
-const PDU_DCS_MSG_CLASS_0                = 0x00;
-const PDU_DCS_MSG_CLASS_ME_SPECIFIC      = 0x01;
-const PDU_DCS_MSG_CLASS_SIM_SPECIFIC     = 0x02;
-const PDU_DCS_MSG_CLASS_TE_SPECIFIC      = 0x03;
-const PDU_DCS_MSG_CLASS_USER_1           = 0x04;
-const PDU_DCS_MSG_CLASS_USER_2           = 0x05;
+const PDU_DCS_MSG_CLASS_BITS = 0x03;
+const PDU_DCS_MSG_CLASS_NORMAL = 0xff;
+const PDU_DCS_MSG_CLASS_0 = 0x00;
+const PDU_DCS_MSG_CLASS_ME_SPECIFIC = 0x01;
+const PDU_DCS_MSG_CLASS_SIM_SPECIFIC = 0x02;
+const PDU_DCS_MSG_CLASS_TE_SPECIFIC = 0x03;
+const PDU_DCS_MSG_CLASS_USER_1 = 0x04;
+const PDU_DCS_MSG_CLASS_USER_2 = 0x05;
 
 const GECKO_SMS_MESSAGE_CLASSES = {};
-GECKO_SMS_MESSAGE_CLASSES[PDU_DCS_MSG_CLASS_NORMAL]       = "normal";
-GECKO_SMS_MESSAGE_CLASSES[PDU_DCS_MSG_CLASS_0]            = "class-0";
-GECKO_SMS_MESSAGE_CLASSES[PDU_DCS_MSG_CLASS_ME_SPECIFIC]  = "class-1";
+GECKO_SMS_MESSAGE_CLASSES[PDU_DCS_MSG_CLASS_NORMAL] = "normal";
+GECKO_SMS_MESSAGE_CLASSES[PDU_DCS_MSG_CLASS_0] = "class-0";
+GECKO_SMS_MESSAGE_CLASSES[PDU_DCS_MSG_CLASS_ME_SPECIFIC] = "class-1";
 GECKO_SMS_MESSAGE_CLASSES[PDU_DCS_MSG_CLASS_SIM_SPECIFIC] = "class-2";
-GECKO_SMS_MESSAGE_CLASSES[PDU_DCS_MSG_CLASS_TE_SPECIFIC]  = "class-3";
-GECKO_SMS_MESSAGE_CLASSES[PDU_DCS_MSG_CLASS_USER_1]       = "user-1";
-GECKO_SMS_MESSAGE_CLASSES[PDU_DCS_MSG_CLASS_USER_2]       = "user-2";
+GECKO_SMS_MESSAGE_CLASSES[PDU_DCS_MSG_CLASS_TE_SPECIFIC] = "class-3";
+GECKO_SMS_MESSAGE_CLASSES[PDU_DCS_MSG_CLASS_USER_1] = "user-1";
+GECKO_SMS_MESSAGE_CLASSES[PDU_DCS_MSG_CLASS_USER_2] = "user-2";
 
-const CB_MESSAGE_SIZE_GSM  = 88;
+const CB_MESSAGE_SIZE_GSM = 88;
 const CB_MESSAGE_SIZE_ETWS = 56;
 
 const CB_UMTS_MESSAGE_TYPE_CBS = 1;
 const CB_UMTS_MESSAGE_PAGE_SIZE = 82;
 
 const CB_GSM_MESSAGEID_ETWS_BEGIN = 0x1100;
-const CB_GSM_MESSAGEID_ETWS_END   = 0x1107;
+const CB_GSM_MESSAGEID_ETWS_END = 0x1107;
 
 const CB_GSM_GEOGRAPHICAL_SCOPE_NAMES = [
   "cell-immediate",
   "plmn",
   "location-area",
-  "cell"
+  "cell",
 ];
 
 const CB_ETWS_WARNING_TYPE_NAMES = [
@@ -57,37 +61,85 @@ const CB_ETWS_WARNING_TYPE_NAMES = [
   "tsunami",
   "earthquake-tsunami",
   "test",
-  "other"
+  "other",
 ];
 
 const CB_DCS_LANG_GROUP_1 = [
-  "de", "en", "it", "fr", "es", "nl", "sv", "da", "pt", "fi",
-  "no", "el", "tr", "hu", "pl", null
+  "de",
+  "en",
+  "it",
+  "fr",
+  "es",
+  "nl",
+  "sv",
+  "da",
+  "pt",
+  "fi",
+  "no",
+  "el",
+  "tr",
+  "hu",
+  "pl",
+  null,
 ];
 const CB_DCS_LANG_GROUP_2 = [
-  "cs", "he", "ar", "ru", "is", null, null, null, null, null,
-  null, null, null, null, null, null
+  "cs",
+  "he",
+  "ar",
+  "ru",
+  "is",
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
 ];
 
-const CB_MAX_CONTENT_PER_PAGE_7BIT = Math.floor((CB_MESSAGE_SIZE_GSM - 6) * 8 / 7);
+const CB_MAX_CONTENT_PER_PAGE_7BIT = Math.floor(
+  ((CB_MESSAGE_SIZE_GSM - 6) * 8) / 7
+);
 const CB_MAX_CONTENT_PER_PAGE_UCS2 = Math.floor((CB_MESSAGE_SIZE_GSM - 6) / 2);
 
-const DUMMY_BODY_7BITS = "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-                       + "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-                       + "@@@@@@@@@@@@@"; // 93 ascii chars.
+const DUMMY_BODY_7BITS =
+  "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@" +
+  "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@" +
+  "@@@@@@@@@@@@@"; // 93 ascii chars.
 const DUMMY_BODY_7BITS_IND = DUMMY_BODY_7BITS.substr(3);
-const DUMMY_BODY_UCS2 = "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
-                      + "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
-                      + "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
-                      + "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
-                      + "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
-                      + "\u0000"; // 41 unicode chars.
+const DUMMY_BODY_UCS2 =
+  "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000" +
+  "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000" +
+  "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000" +
+  "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000" +
+  "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000" +
+  "\u0000"; // 41 unicode chars.
 const DUMMY_BODY_UCS2_IND = DUMMY_BODY_UCS2.substr(1);
 
-is(DUMMY_BODY_7BITS.length,     CB_MAX_CONTENT_PER_PAGE_7BIT,     "DUMMY_BODY_7BITS.length");
-is(DUMMY_BODY_7BITS_IND.length, CB_MAX_CONTENT_PER_PAGE_7BIT - 3, "DUMMY_BODY_7BITS_IND.length");
-is(DUMMY_BODY_UCS2.length,      CB_MAX_CONTENT_PER_PAGE_UCS2,     "DUMMY_BODY_UCS2.length");
-is(DUMMY_BODY_UCS2_IND.length,  CB_MAX_CONTENT_PER_PAGE_UCS2 - 1, "DUMMY_BODY_UCS2_IND.length");
+is(
+  DUMMY_BODY_7BITS.length,
+  CB_MAX_CONTENT_PER_PAGE_7BIT,
+  "DUMMY_BODY_7BITS.length"
+);
+is(
+  DUMMY_BODY_7BITS_IND.length,
+  CB_MAX_CONTENT_PER_PAGE_7BIT - 3,
+  "DUMMY_BODY_7BITS_IND.length"
+);
+is(
+  DUMMY_BODY_UCS2.length,
+  CB_MAX_CONTENT_PER_PAGE_UCS2,
+  "DUMMY_BODY_UCS2.length"
+);
+is(
+  DUMMY_BODY_UCS2_IND.length,
+  CB_MAX_CONTENT_PER_PAGE_UCS2 - 1,
+  "DUMMY_BODY_UCS2_IND.length"
+);
 
 /**
  * Compose input number into specified number of semi-octets.
@@ -126,11 +178,11 @@ function decodeGsmDataCodingScheme(aDcs) {
 
   switch (aDcs & PDU_DCS_CODING_GROUP_BITS) {
     case 0x00: // 0000
-      language = CB_DCS_LANG_GROUP_1[aDcs & 0x0F];
+      language = CB_DCS_LANG_GROUP_1[aDcs & 0x0f];
       break;
 
     case 0x10: // 0001
-      switch (aDcs & 0x0F) {
+      switch (aDcs & 0x0f) {
         case 0x00:
           hasLanguageIndicator = true;
           break;
@@ -142,7 +194,7 @@ function decodeGsmDataCodingScheme(aDcs) {
       break;
 
     case 0x20: // 0010
-      language = CB_DCS_LANG_GROUP_2[aDcs & 0x0F];
+      language = CB_DCS_LANG_GROUP_2[aDcs & 0x0f];
       break;
 
     case 0x40: // 01xx
@@ -150,35 +202,47 @@ function decodeGsmDataCodingScheme(aDcs) {
     //case 0x60:
     //case 0x70:
     case 0x90: // 1001
-      encoding = (aDcs & 0x0C);
-      if (encoding == 0x0C) {
+      encoding = aDcs & 0x0c;
+      if (encoding == 0x0c) {
         encoding = PDU_DCS_MSG_CODING_7BITS_ALPHABET;
       }
-      messageClass = (aDcs & PDU_DCS_MSG_CLASS_BITS);
+      messageClass = aDcs & PDU_DCS_MSG_CLASS_BITS;
       break;
 
-    case 0xF0:
-      encoding = (aDcs & 0x04) ? PDU_DCS_MSG_CODING_8BITS_ALPHABET
-                              : PDU_DCS_MSG_CODING_7BITS_ALPHABET;
-      switch(aDcs & PDU_DCS_MSG_CLASS_BITS) {
-        case 0x01: messageClass = PDU_DCS_MSG_CLASS_USER_1; break;
-        case 0x02: messageClass = PDU_DCS_MSG_CLASS_USER_2; break;
-        case 0x03: messageClass = PDU_DCS_MSG_CLASS_TE_SPECIFIC; break;
+    case 0xf0:
+      encoding =
+        aDcs & 0x04
+          ? PDU_DCS_MSG_CODING_8BITS_ALPHABET
+          : PDU_DCS_MSG_CODING_7BITS_ALPHABET;
+      switch (aDcs & PDU_DCS_MSG_CLASS_BITS) {
+        case 0x01:
+          messageClass = PDU_DCS_MSG_CLASS_USER_1;
+          break;
+        case 0x02:
+          messageClass = PDU_DCS_MSG_CLASS_USER_2;
+          break;
+        case 0x03:
+          messageClass = PDU_DCS_MSG_CLASS_TE_SPECIFIC;
+          break;
       }
       break;
 
     case 0x30: // 0011 (Reserved)
     case 0x80: // 1000 (Reserved)
-    case 0xA0: // 1010..1100 (Reserved)
-    case 0xB0:
-    case 0xC0:
+    case 0xa0: // 1010..1100 (Reserved)
+    case 0xb0:
+    case 0xc0:
       break;
     default:
       throw new Error("Unsupported CBS data coding scheme: " + aDcs);
   }
 
-  return [encoding, language, hasLanguageIndicator,
-          GECKO_SMS_MESSAGE_CLASSES[messageClass]];
+  return [
+    encoding,
+    language,
+    hasLanguageIndicator,
+    GECKO_SMS_MESSAGE_CLASSES[messageClass],
+  ];
 }
 
 /**
@@ -196,11 +260,13 @@ var cbManager;
 function ensureCellBroadcast() {
   let deferred = Promise.defer();
 
-  let permissions = [{
-    "type": "cellbroadcast",
-    "allow": 1,
-    "context": document,
-  }];
+  let permissions = [
+    {
+      type: "cellbroadcast",
+      allow: 1,
+      context: document,
+    },
+  ];
   SpecialPowers.pushPermissions(permissions, function() {
     ok(true, "permissions pushed: " + JSON.stringify(permissions));
 
@@ -213,7 +279,9 @@ function ensureCellBroadcast() {
       cbManager = workingFrame.contentWindow.navigator.b2g.cellBroadcast;
 
       if (cbManager) {
-        log("navigator.b2g.cellBroadcast is instance of " + cbManager.constructor);
+        log(
+          "navigator.b2g.cellBroadcast is instance of " + cbManager.constructor
+        );
       } else {
         log("navigator.b2g.cellBroadcast is undefined.");
       }
@@ -380,15 +448,14 @@ function runIfMultiSIM(aTest) {
   try {
     numRIL = SpecialPowers.getIntPref("ril.numRadioInterfaces");
   } catch (ex) {
-    numRIL = 1;  // Pref not set.
+    numRIL = 1; // Pref not set.
   }
 
   if (numRIL > 1) {
     return aTest();
-  } else {
-    log("Not a Multi-SIM environment. Test is skipped.");
-    return Promise.resolve();
   }
+  log("Not a Multi-SIM environment. Test is skipped.");
+  return Promise.resolve();
 }
 
 /**
@@ -402,10 +469,10 @@ function runIfMultiSIM(aTest) {
  */
 function startTestCommon(aTestCaseMain) {
   Promise.resolve()
-         .then(ensureCellBroadcast)
-         .then(aTestCaseMain)
-         .then(cleanUp, function() {
-           ok(false, 'promise rejects during test.');
-           cleanUp();
-         });
+    .then(ensureCellBroadcast)
+    .then(aTestCaseMain)
+    .then(cleanUp, function() {
+      ok(false, "promise rejects during test.");
+      cleanUp();
+    });
 }

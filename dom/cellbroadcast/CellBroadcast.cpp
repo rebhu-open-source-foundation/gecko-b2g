@@ -129,8 +129,8 @@ CellBroadcast::NotifyMessageReceived(
       aLanguage, aBody, aMessageClass, aTimestamp, aCdmaServiceCategory,
       aHasEtwsInfo, aEtwsWarningType, aEtwsEmergencyUserAlert, aEtwsPopup);
 
-  RefPtr<CellBroadcastEvent> event = CellBroadcastEvent::Constructor(
-      this, u"received"_ns, init);
+  RefPtr<CellBroadcastEvent> event =
+      CellBroadcastEvent::Constructor(this, u"received"_ns, init);
   return DispatchTrustedEvent(event);
 }
 

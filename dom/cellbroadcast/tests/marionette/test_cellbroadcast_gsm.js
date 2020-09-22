@@ -2,12 +2,12 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 90000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 function testReceiving_GSM_MessageAttributes() {
   log("Test receiving GSM Cell Broadcast - Message Attributes");
 
-  let verifyCBMessage = (aMessage) => {
+  let verifyCBMessage = aMessage => {
     // Attributes other than `language` and `body` should always be assigned.
     ok(aMessage.gsmGeographicalScope != null, "aMessage.gsmGeographicalScope");
     ok(aMessage.messageCode != null, "aMessage.messageCode");
@@ -16,10 +16,13 @@ function testReceiving_GSM_MessageAttributes() {
     ok(aMessage.body != null, "aMessage.body");
     ok(aMessage.messageClass != null, "aMessage.messageClass");
     ok(aMessage.timestamp != null, "aMessage.timestamp");
-    ok('etws' in aMessage, "aMessage.etws");
+    ok("etws" in aMessage, "aMessage.etws");
     if (aMessage.etws) {
-      ok('warningType' in aMessage.etws, "aMessage.etws.warningType");
-      ok(aMessage.etws.emergencyUserAlert != null, "aMessage.etws.emergencyUserAlert");
+      ok("warningType" in aMessage.etws, "aMessage.etws.warningType");
+      ok(
+        aMessage.etws.emergencyUserAlert != null,
+        "aMessage.etws.emergencyUserAlert"
+      );
       ok(aMessage.etws.popup != null, "aMessage.etws.popup");
     }
 
@@ -30,8 +33,9 @@ function testReceiving_GSM_MessageAttributes() {
   // Here we use a simple GSM message for test.
   let pdu = buildHexStr(0, CB_MESSAGE_SIZE_GSM * 2);
 
-  return sendMultipleRawCbsToEmulatorAndWait([pdu])
-    .then((aMessage) => verifyCBMessage(aMessage));
+  return sendMultipleRawCbsToEmulatorAndWait([pdu]).then(aMessage =>
+    verifyCBMessage(aMessage)
+  );
 }
 
 function testReceiving_GSM_GeographicalScope() {
@@ -40,16 +44,16 @@ function testReceiving_GSM_GeographicalScope() {
   let promise = Promise.resolve();
 
   let verifyCBMessage = (aMessage, aGsName) => {
-    is(aMessage.gsmGeographicalScope, aGsName,
-       "aMessage.gsmGeographicalScope");
+    is(aMessage.gsmGeographicalScope, aGsName, "aMessage.gsmGeographicalScope");
   };
 
   CB_GSM_GEOGRAPHICAL_SCOPE_NAMES.forEach(function(aGsName, aIndex) {
-    let pdu = buildHexStr(((aIndex & 0x03) << 14), 4)
-            + buildHexStr(0, (CB_MESSAGE_SIZE_GSM - 2) * 2);
+    let pdu =
+      buildHexStr((aIndex & 0x03) << 14, 4) +
+      buildHexStr(0, (CB_MESSAGE_SIZE_GSM - 2) * 2);
     promise = promise
       .then(() => sendMultipleRawCbsToEmulatorAndWait([pdu]))
-      .then((aMessage) => verifyCBMessage(aMessage, aGsName));
+      .then(aMessage => verifyCBMessage(aMessage, aGsName));
   });
 
   return promise;
@@ -63,8 +67,18 @@ function testReceiving_GSM_MessageCode() {
   // Message Code has 10 bits, and is ORed into a 16 bits 'serial' number. Here
   // we test every single bit to verify the operation doesn't go wrong.
   let messageCodes = [
-    0x000, 0x001, 0x002, 0x004, 0x008, 0x010, 0x020, 0x040,
-    0x080, 0x100, 0x200, 0x251
+    0x000,
+    0x001,
+    0x002,
+    0x004,
+    0x008,
+    0x010,
+    0x020,
+    0x040,
+    0x080,
+    0x100,
+    0x200,
+    0x251,
   ];
 
   let verifyCBMessage = (aMessage, aMsgCode) => {
@@ -72,11 +86,12 @@ function testReceiving_GSM_MessageCode() {
   };
 
   messageCodes.forEach(function(aMsgCode) {
-    let pdu = buildHexStr(((aMsgCode & 0x3FF) << 4), 4)
-            + buildHexStr(0, (CB_MESSAGE_SIZE_GSM - 2) * 2);
+    let pdu =
+      buildHexStr((aMsgCode & 0x3ff) << 4, 4) +
+      buildHexStr(0, (CB_MESSAGE_SIZE_GSM - 2) * 2);
     promise = promise
       .then(() => sendMultipleRawCbsToEmulatorAndWait([pdu]))
-      .then((aMessage) => verifyCBMessage(aMessage, aMsgCode));
+      .then(aMessage => verifyCBMessage(aMessage, aMsgCode));
   });
 
   return promise;
@@ -89,9 +104,7 @@ function testReceiving_GSM_MessageId() {
 
   // Message Identifier has 16 bits, but no bitwise operation is needed.
   // Test some selected values only.
-  let messageIds = [
-    0x0000, 0x0001, 0x0010, 0x0100, 0x1111, 0x8888, 0x8811,
-  ];
+  let messageIds = [0x0000, 0x0001, 0x0010, 0x0100, 0x1111, 0x8888, 0x8811];
 
   let verifyCBMessage = (aMessage, aMessageId) => {
     is(aMessage.messageId, aMessageId, "aMessage.messageId");
@@ -99,12 +112,13 @@ function testReceiving_GSM_MessageId() {
   };
 
   messageIds.forEach(function(aMessageId) {
-    let pdu = buildHexStr(0, 4)
-            + buildHexStr((aMessageId & 0xFFFF), 4)
-            + buildHexStr(0, (CB_MESSAGE_SIZE_GSM - 4) * 2);
+    let pdu =
+      buildHexStr(0, 4) +
+      buildHexStr(aMessageId & 0xffff, 4) +
+      buildHexStr(0, (CB_MESSAGE_SIZE_GSM - 4) * 2);
     promise = promise
       .then(() => sendMultipleRawCbsToEmulatorAndWait([pdu]))
-      .then((aMessage) => verifyCBMessage(aMessage, aMessageId));
+      .then(aMessage => verifyCBMessage(aMessage, aMessageId));
   });
 
   return promise;
@@ -113,18 +127,19 @@ function testReceiving_GSM_MessageId() {
 function testReceiving_GSM_Timestamp() {
   log("Test receiving GSM Cell Broadcast - Timestamp");
 
-  let verifyCBMessage = (aMessage) => {
+  let verifyCBMessage = aMessage => {
     // Cell Broadcast messages do not contain a timestamp field (however, ETWS
     // does). We only check the timestamp doesn't go too far (60 seconds) here.
     let msMessage = aMessage.timestamp;
     let msNow = Date.now();
-    ok(Math.abs(msMessage - msNow) < (1000 * 60), "aMessage.timestamp");
+    ok(Math.abs(msMessage - msNow) < 1000 * 60, "aMessage.timestamp");
   };
 
   let pdu = buildHexStr(0, CB_MESSAGE_SIZE_GSM * 2);
 
-  return sendMultipleRawCbsToEmulatorAndWait([pdu])
-    .then((aMessage) => verifyCBMessage(aMessage));
+  return sendMultipleRawCbsToEmulatorAndWait([pdu]).then(aMessage =>
+    verifyCBMessage(aMessage)
+  );
 }
 
 function testReceiving_GSM_WarningType() {
@@ -133,7 +148,11 @@ function testReceiving_GSM_WarningType() {
   let promise = Promise.resolve();
 
   let messageIds = [];
-  for (let i = CB_GSM_MESSAGEID_ETWS_BEGIN; i <= CB_GSM_MESSAGEID_ETWS_END; i++) {
+  for (
+    let i = CB_GSM_MESSAGEID_ETWS_BEGIN;
+    i <= CB_GSM_MESSAGEID_ETWS_END;
+    i++
+  ) {
     messageIds.push(i);
   }
 
@@ -143,20 +162,24 @@ function testReceiving_GSM_WarningType() {
 
     let offset = aMessageId - CB_GSM_MESSAGEID_ETWS_BEGIN;
     if (offset < CB_ETWS_WARNING_TYPE_NAMES.length) {
-      is(aMessage.etws.warningType, CB_ETWS_WARNING_TYPE_NAMES[offset],
-         "aMessage.etws.warningType");
+      is(
+        aMessage.etws.warningType,
+        CB_ETWS_WARNING_TYPE_NAMES[offset],
+        "aMessage.etws.warningType"
+      );
     } else {
       ok(aMessage.etws.warningType == null, "aMessage.etws.warningType");
     }
   };
 
   messageIds.forEach(function(aMessageId) {
-    let pdu = buildHexStr(0, 4)
-            + buildHexStr((aMessageId & 0xFFFF), 4)
-            + buildHexStr(0, (CB_MESSAGE_SIZE_GSM - 4) * 2);
+    let pdu =
+      buildHexStr(0, 4) +
+      buildHexStr(aMessageId & 0xffff, 4) +
+      buildHexStr(0, (CB_MESSAGE_SIZE_GSM - 4) * 2);
     promise = promise
       .then(() => sendMultipleRawCbsToEmulatorAndWait([pdu]))
-      .then((aMessage) => verifyCBMessage(aMessage, aMessageId));
+      .then(aMessage => verifyCBMessage(aMessage, aMessageId));
   });
 
   return promise;
@@ -172,16 +195,21 @@ function testReceiving_GSM_EmergencyUserAlert() {
   let verifyCBMessage = (aMessage, aMask) => {
     is(aMessage.messageId, CB_GSM_MESSAGEID_ETWS_BEGIN, "aMessage.messageId");
     ok(aMessage.etws != null, "aMessage.etws");
-    is(aMessage.etws.emergencyUserAlert, aMask != 0, "aMessage.etws.emergencyUserAlert");
+    is(
+      aMessage.etws.emergencyUserAlert,
+      aMask != 0,
+      "aMessage.etws.emergencyUserAlert"
+    );
   };
 
   emergencyUserAlertMasks.forEach(function(aMask) {
-    let pdu = buildHexStr(aMask, 4)
-            + buildHexStr(CB_GSM_MESSAGEID_ETWS_BEGIN, 4)
-            + buildHexStr(0, (CB_MESSAGE_SIZE_GSM - 4) * 2);
+    let pdu =
+      buildHexStr(aMask, 4) +
+      buildHexStr(CB_GSM_MESSAGEID_ETWS_BEGIN, 4) +
+      buildHexStr(0, (CB_MESSAGE_SIZE_GSM - 4) * 2);
     promise = promise
       .then(() => sendMultipleRawCbsToEmulatorAndWait([pdu]))
-      .then((aMessage) => verifyCBMessage(aMessage, aMask));
+      .then(aMessage => verifyCBMessage(aMessage, aMask));
   });
 
   return promise;
@@ -201,12 +229,13 @@ function testReceiving_GSM_Popup() {
   };
 
   popupMasks.forEach(function(aMask) {
-    let pdu = buildHexStr(aMask, 4)
-            + buildHexStr(CB_GSM_MESSAGEID_ETWS_BEGIN, 4)
-            + buildHexStr(0, (CB_MESSAGE_SIZE_GSM - 4) * 2);
+    let pdu =
+      buildHexStr(aMask, 4) +
+      buildHexStr(CB_GSM_MESSAGEID_ETWS_BEGIN, 4) +
+      buildHexStr(0, (CB_MESSAGE_SIZE_GSM - 4) * 2);
     promise = promise
       .then(() => sendMultipleRawCbsToEmulatorAndWait([pdu]))
-      .then((aMessage) => verifyCBMessage(aMessage, aMask));
+      .then(aMessage => verifyCBMessage(aMessage, aMask));
   });
 
   return promise;
@@ -222,21 +251,25 @@ function testReceiving_GSM_Multipart() {
   let numParts = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
 
   let verifyCBMessage = (aMessage, aNumParts) => {
-      is(aMessage.body.length, (aNumParts * CB_MAX_CONTENT_PER_PAGE_7BIT),
-         "aMessage.body");
+    is(
+      aMessage.body.length,
+      aNumParts * CB_MAX_CONTENT_PER_PAGE_7BIT,
+      "aMessage.body"
+    );
   };
 
   numParts.forEach(function(aNumParts) {
     let pdus = [];
     for (let i = 1; i <= aNumParts; i++) {
-      let pdu = buildHexStr(0, 10)
-              + buildHexStr((i << 4) + aNumParts, 2)
-              + buildHexStr(0, (CB_MESSAGE_SIZE_GSM - 6) * 2);
+      let pdu =
+        buildHexStr(0, 10) +
+        buildHexStr((i << 4) + aNumParts, 2) +
+        buildHexStr(0, (CB_MESSAGE_SIZE_GSM - 6) * 2);
       pdus.push(pdu);
     }
     promise = promise
       .then(() => sendMultipleRawCbsToEmulatorAndWait(pdus))
-      .then((aMessage) => verifyCBMessage(aMessage, aNumParts));
+      .then(aMessage => verifyCBMessage(aMessage, aNumParts));
   });
 
   return promise;
@@ -248,7 +281,8 @@ function testReceiving_GSM_PaddingCharacters() {
   let promise = Promise.resolve();
 
   let testContents = [
-    { pdu:
+    {
+      pdu:
         // CB PDU with GSM 7bit encoded text of
         // "The quick brown fox jumps over the lazy dog
         //  \r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r
@@ -260,10 +294,10 @@ function testReceiving_GSM_PaddingCharacters() {
         "8D46A3D168341A8D46A3D168341A8D46" +
         "A3D168341A8D46A3D168341A8D46A3D1" +
         "68341A8D46A3D100",
-      text:
-        "The quick brown fox jumps over the lazy dog"
+      text: "The quick brown fox jumps over the lazy dog",
     },
-    { pdu:
+    {
+      pdu:
         // CB PDU with UCS2 encoded text of
         // "The quick brown fox jumps over\r\r\r\r\r\r\r\r\r\r\r"
         "C0020001481100540068006500200071" +
@@ -272,9 +306,8 @@ function testReceiving_GSM_PaddingCharacters() {
         "0075006d007000730020006f00760065" +
         "0072000D000D000D000D000D000D000D" +
         "000D000D000D000D",
-      text:
-        "The quick brown fox jumps over"
-    }
+      text: "The quick brown fox jumps over",
+    },
   ];
 
   let verifyCBMessage = (aMessage, aText) => {
@@ -284,7 +317,7 @@ function testReceiving_GSM_PaddingCharacters() {
   testContents.forEach(function(aTestContent) {
     promise = promise
       .then(() => sendMultipleRawCbsToEmulatorAndWait([aTestContent.pdu]))
-      .then((aMessage) => verifyCBMessage(aMessage, aTestContent.text));
+      .then(aMessage => verifyCBMessage(aMessage, aTestContent.text));
   });
 
   return promise;

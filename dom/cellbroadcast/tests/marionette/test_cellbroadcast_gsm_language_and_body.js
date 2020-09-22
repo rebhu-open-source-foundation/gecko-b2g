@@ -2,7 +2,7 @@
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 MARIONETTE_TIMEOUT = 90000;
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
 function testReceiving_GSM_Language_and_Body() {
   log("Test receiving GSM Cell Broadcast - Language & Body");
@@ -11,11 +11,15 @@ function testReceiving_GSM_Language_and_Body() {
 
   let testDcs = [];
   let dcs = 0;
-  while (dcs <= 0xFF) {
+  while (dcs <= 0xff) {
     try {
-      let dcsInfo = { dcs: dcs };
-      [ dcsInfo.encoding, dcsInfo.language,
-        dcsInfo.indicator, dcsInfo.messageClass ] = decodeGsmDataCodingScheme(dcs);
+      let dcsInfo = { dcs };
+      [
+        dcsInfo.encoding,
+        dcsInfo.language,
+        dcsInfo.indicator,
+        dcsInfo.messageClass,
+      ] = decodeGsmDataCodingScheme(dcs);
       testDcs.push(dcsInfo);
     } catch (e) {
       // Unsupported coding group, skip.
@@ -35,13 +39,21 @@ function testReceiving_GSM_Language_and_Body() {
 
     switch (aDcsInfo.encoding) {
       case PDU_DCS_MSG_CODING_7BITS_ALPHABET:
-        is(aMessage.body, aDcsInfo.indicator ? DUMMY_BODY_7BITS_IND : DUMMY_BODY_7BITS, "aMessage.body");
+        is(
+          aMessage.body,
+          aDcsInfo.indicator ? DUMMY_BODY_7BITS_IND : DUMMY_BODY_7BITS,
+          "aMessage.body"
+        );
         break;
       case PDU_DCS_MSG_CODING_8BITS_ALPHABET:
         ok(aMessage.body == null, "aMessage.body");
         break;
       case PDU_DCS_MSG_CODING_16BITS_ALPHABET:
-        is(aMessage.body, aDcsInfo.indicator ? DUMMY_BODY_UCS2_IND : DUMMY_BODY_UCS2, "aMessage.body");
+        is(
+          aMessage.body,
+          aDcsInfo.indicator ? DUMMY_BODY_UCS2_IND : DUMMY_BODY_UCS2,
+          "aMessage.body"
+        );
         break;
     }
 
@@ -50,12 +62,13 @@ function testReceiving_GSM_Language_and_Body() {
 
   ok(testDcs.length, "testDcs.length");
   testDcs.forEach(function(aDcsInfo) {
-    let pdu = buildHexStr(0, 8)
-            + buildHexStr(aDcsInfo.dcs, 2)
-            + buildHexStr(0, (CB_MESSAGE_SIZE_GSM - 5) * 2);
+    let pdu =
+      buildHexStr(0, 8) +
+      buildHexStr(aDcsInfo.dcs, 2) +
+      buildHexStr(0, (CB_MESSAGE_SIZE_GSM - 5) * 2);
     promise = promise
       .then(() => sendMultipleRawCbsToEmulatorAndWait([pdu]))
-      .then((aMessage) => verifyCBMessage(aMessage, aDcsInfo));
+      .then(aMessage => verifyCBMessage(aMessage, aDcsInfo));
   });
 
   return promise;
