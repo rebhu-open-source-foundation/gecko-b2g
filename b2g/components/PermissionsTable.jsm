@@ -173,6 +173,10 @@ this.PermissionsTable = {
     pwa: DENY_ACTION,
     signed: ALLOW_ACTION,
   },
+  fmradio: {
+    pwa: DENY_ACTION,
+    signed: ALLOW_ACTION,
+  },
 };
 
 /**

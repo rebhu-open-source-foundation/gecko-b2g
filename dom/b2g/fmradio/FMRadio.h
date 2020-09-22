@@ -23,6 +23,8 @@ class FMRadio final : public DOMEventTargetHelper,
   friend class FMRadioRequest;
 
  public:
+  static bool HasPermission(JSContext* /* unused */, JSObject* aGlobal);
+
   FMRadio();
 
   NS_DECL_ISUPPORTS_INHERITED
