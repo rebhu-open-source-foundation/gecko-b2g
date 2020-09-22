@@ -15,6 +15,7 @@
 #include "SandboxOpenedFiles.h"
 #include "SandboxReporterClient.h"
 
+#include <cutils/properties.h>
 #include <dirent.h>
 #ifdef NIGHTLY_BUILD
 #  include "dlfcn.h"
@@ -626,6 +627,17 @@ bool SetContentProcessSandbox(ContentProcessSandboxParams&& aParams) {
   // Live as long as this process.
   aParams.mFiles = new SandboxOpenedFiles();
   aParams.mFiles->Add("/dev/binder", true, O_RDWR);
+  {
+    char value[PROP_VALUE_MAX];
+    if (property_get("media.settings.xml", value, NULL) <= 0) {
+      // Property "media.settings.xml" is used to indicate the media profile
+      // to load for camera recording requirement. If the property is empty,
+      // we need to raise error log here.
+      SANDBOX_LOG_ERROR("No media profile is pre-opened for camera");
+    } else {
+      aParams.mFiles->Add(value, false, O_RDONLY);
+    }
+  }
 #endif
 
   SetCurrentProcessSandbox(
