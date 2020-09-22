@@ -26,7 +26,66 @@ const PROMPT_ACTION = Ci.nsIPermissionManager.PROMPT_ACTION;
 // Permissions that are granted to all installed apps.
 this.defaultPermissions = ["vibration"];
 
+/**
+ * For efficient lookup and systematic indexing, please help to arrange the
+ * permission names in alphabetical order. The double quotes are only needed
+ * by the names with non-alphanumeric character, such as "-", and could be
+ * revised by the lint tools automatically.
+ **/
 this.PermissionsTable = {
+  "audio-channel-alarm": {
+    pwa: DENY_ACTION,
+    signed: ALLOW_ACTION,
+  },
+  "audio-channel-content": {
+    pwa: ALLOW_ACTION,
+    signed: ALLOW_ACTION,
+  },
+  "audio-channel-normal": {
+    pwa: ALLOW_ACTION,
+    signed: ALLOW_ACTION,
+  },
+  "audio-channel-notification": {
+    pwa: DENY_ACTION,
+    signed: ALLOW_ACTION,
+  },
+  "audio-channel-publicnotification": {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
+  "audio-channel-ringer": {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
+  "audio-channel-system": {
+    pwa: DENY_ACTION,
+    signed: ALLOW_ACTION,
+  },
+  "audio-channel-telephony": {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
+  bluetooth: {
+    pwa: DENY_ACTION,
+    signed: ALLOW_ACTION,
+  },
+  camera: {
+    pwa: PROMPT_ACTION,
+    signed: PROMPT_ACTION,
+    core: ALLOW_ACTION,
+  },
+  cellbroadcast: {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
+  datacall: {
+    pwa: DENY_ACTION,
+    signed: ALLOW_ACTION,
+  },
   "desktop-notification": {
     pwa: PROMPT_ACTION,
     signed: PROMPT_ACTION,
@@ -73,31 +132,7 @@ this.PermissionsTable = {
     core: ALLOW_ACTION,
     access: ["read", "write", "create"],
   },
-  "process-manager": {
-    pwa: DENY_ACTION,
-    signed: DENY_ACTION,
-    core: ALLOW_ACTION,
-  },
-  "wifi-manage": {
-    pwa: DENY_ACTION,
-    signed: DENY_ACTION,
-    core: ALLOW_ACTION,
-  },
-  bluetooth: {
-    pwa: DENY_ACTION,
-    signed: ALLOW_ACTION,
-  },
-  cellbroadcast: {
-    pwa: DENY_ACTION,
-    signed: DENY_ACTION,
-    core: ALLOW_ACTION,
-  },
-  camera: {
-    pwa: PROMPT_ACTION,
-    signed: PROMPT_ACTION,
-    core: ALLOW_ACTION,
-  },
-  datacall: {
+  "feature-detection": {
     pwa: DENY_ACTION,
     signed: ALLOW_ACTION,
   },
@@ -110,6 +145,10 @@ this.PermissionsTable = {
     pwa: DENY_ACTION,
     signed: DENY_ACTION,
     core: ALLOW_ACTION,
+  },
+  fmradio: {
+    pwa: DENY_ACTION,
+    signed: ALLOW_ACTION,
   },
   geolocation: {
     pwa: PROMPT_ACTION,
@@ -134,6 +173,11 @@ this.PermissionsTable = {
     signed: DENY_ACTION,
     core: ALLOW_ACTION,
   },
+  "process-manager": {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
   settings: {
     pwa: DENY_ACTION,
     signed: DENY_ACTION,
@@ -145,11 +189,24 @@ this.PermissionsTable = {
     signed: DENY_ACTION,
     core: ALLOW_ACTION,
   },
+  "speaker-control": {
+    pwa: DENY_ACTION,
+    signed: ALLOW_ACTION,
+  },
   systemXHR: {
     pwa: DENY_ACTION,
     signed: ALLOW_ACTION,
   },
+  "tcp-socket": {
+    pwa: DENY_ACTION,
+    signed: ALLOW_ACTION,
+  },
   telephony: {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
+  tethering: {
     pwa: DENY_ACTION,
     signed: DENY_ACTION,
     core: ALLOW_ACTION,
@@ -164,58 +221,15 @@ this.PermissionsTable = {
     signed: DENY_ACTION,
     core: ALLOW_ACTION,
   },
-  tethering: {
+  "wifi-manage": {
     pwa: DENY_ACTION,
     signed: DENY_ACTION,
     core: ALLOW_ACTION,
   },
-  "tcp-socket": {
-    pwa: DENY_ACTION,
-    signed: ALLOW_ACTION,
-  },
-  fmradio: {
-    pwa: DENY_ACTION,
-    signed: ALLOW_ACTION,
-  },
-  "speaker-control": {
-    pwa: DENY_ACTION,
-    signed: ALLOW_ACTION,
-  },
-  "audio-channel-normal": {
-    pwa: ALLOW_ACTION,
-    signed: ALLOW_ACTION,
-  },
-  "audio-channel-content": {
-    pwa: ALLOW_ACTION,
-    signed: ALLOW_ACTION,
-  },
-  "audio-channel-notification": {
-    pwa: DENY_ACTION,
-    signed: ALLOW_ACTION,
-  },
-  "audio-channel-alarm": {
-    pwa: DENY_ACTION,
-    signed: ALLOW_ACTION,
-  },
-  "audio-channel-system": {
-    pwa: DENY_ACTION,
-    signed: ALLOW_ACTION,
-  },
-  "audio-channel-telephony": {
-    pwa: DENY_ACTION,
-    signed: DENY_ACTION,
-    core: ALLOW_ACTION,
-  },
-  "audio-channel-ringer": {
-    pwa: DENY_ACTION,
-    signed: DENY_ACTION,
-    core: ALLOW_ACTION,
-  },
-  "audio-channel-publicnotification": {
-    pwa: DENY_ACTION,
-    signed: DENY_ACTION,
-    core: ALLOW_ACTION,
-  },
+  /**
+   * Note: Please do NOT directly add new permission names at the bottom of
+   * this table, try to insert them alphabetically.
+   **/
 };
 
 /**
