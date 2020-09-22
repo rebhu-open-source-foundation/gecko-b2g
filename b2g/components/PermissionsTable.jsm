@@ -177,6 +177,10 @@ this.PermissionsTable = {
     pwa: DENY_ACTION,
     signed: ALLOW_ACTION,
   },
+  "speaker-control": {
+    pwa: DENY_ACTION,
+    signed: ALLOW_ACTION,
+  },
 };
 
 /**

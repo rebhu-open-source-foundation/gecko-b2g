@@ -11,6 +11,7 @@
 #include "nsIDocShell.h"
 #include "nsIDOMEventListener.h"
 #include "nsIInterfaceRequestorUtils.h"
+#include "nsIPermissionManager.h"
 #include "SpeakerManagerService.h"
 
 namespace mozilla {
@@ -136,20 +137,10 @@ already_AddRefed<SpeakerManager> SpeakerManager::Constructor(
     return nullptr;
   }
 
-  /* FIXME
-  nsCOMPtr<nsIPermissionManager> permMgr = services::GetPermissionManager();
-  NS_ENSURE_TRUE(permMgr, nullptr);
-
-  uint32_t permission = nsIPermissionManager::DENY_ACTION;
-  nsresult rv = permMgr->TestPermissionFromWindow(
-      ownerWindow, "speaker-control", &permission);
-  NS_ENSURE_SUCCESS(rv, nullptr);
-
-  if (permission != nsIPermissionManager::ALLOW_ACTION) {
+  if (!HasPermission(ownerWindow.get())) {
     aRv.Throw(NS_ERROR_DOM_SECURITY_ERR);
     return nullptr;
   }
-  */
 
   // If APP did not specify a policy, set default value as
   // Foreground_or_playing.
@@ -224,6 +215,25 @@ void SpeakerManager::UpdateStatus() {
   MOZ_ASSERT(service);
   service->ForceSpeaker(mForcespeaker, visible, mAudioChannelActive,
                         WindowID());
+}
+
+/* static */
+bool SpeakerManager::HasPermission(nsPIDOMWindowInner* aWindow) {
+  RefPtr<Document> doc = aWindow->GetExtantDoc();
+  NS_ENSURE_TRUE(doc, false);
+
+  nsCOMPtr<nsIPrincipal> principal = doc->NodePrincipal();
+  NS_ENSURE_TRUE(principal, false);
+
+  nsCOMPtr<nsIPermissionManager> permissionManager =
+      services::GetPermissionManager();
+  NS_ENSURE_TRUE(permissionManager, false);
+
+  uint32_t permission = nsIPermissionManager::UNKNOWN_ACTION;
+  permissionManager->TestExactPermissionFromPrincipal(
+      principal, "speaker-control"_ns, &permission);
+
+  return permission == nsIPermissionManager::ALLOW_ACTION;
 }
 
 }  // namespace dom

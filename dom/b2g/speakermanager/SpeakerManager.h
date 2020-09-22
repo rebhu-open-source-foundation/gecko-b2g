@@ -60,6 +60,7 @@ class SpeakerManager final : public DOMEventTargetHelper,
   ~SpeakerManager();
   void DispatchSimpleEvent(const nsAString& aStr);
   void UpdateStatus();
+  static bool HasPermission(nsPIDOMWindowInner* aWindow);
 
   nsCOMPtr<nsPIDOMWindowOuter> mWindow;
   // This api's force speaker setting
