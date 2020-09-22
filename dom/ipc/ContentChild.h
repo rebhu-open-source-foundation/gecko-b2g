@@ -510,11 +510,6 @@ class ContentChild final : public PContentChild,
   mozilla::ipc::IPCResult RecvNotifyPushSubscriptionModifiedObservers(
       const nsCString& aScope, const IPC::Principal& aPrincipal);
 
-  mozilla::ipc::IPCResult RecvSystemMessage(const nsCString& aScope,
-                                            const nsCString& aOriginSuffix,
-                                            const nsString& aMessageName,
-                                            const nsString& aMessageData);
-
   mozilla::ipc::IPCResult RecvRefreshScreens(
       nsTArray<ScreenDetails>&& aScreens);
 

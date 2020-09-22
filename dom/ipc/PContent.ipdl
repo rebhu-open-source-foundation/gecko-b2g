@@ -998,9 +998,6 @@ child:
      */
     async PushSubscriptionChange(nsCString scope, Principal principal);
 
-    async SystemMessage(nsCString scope, nsCString originSuffix,
-                        nsString messageName, nsString messageData);
-
     async GetFilesResponse(nsID aID, GetFilesResponseResult aResult);
 
     async BlobURLRegistration(nsCString aURI, IPCBlob aBlob,

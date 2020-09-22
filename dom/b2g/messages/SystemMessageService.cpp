@@ -22,8 +22,6 @@ namespace dom {
 
 static StaticRefPtr<SystemMessageService> sSystemMessageService;
 
-static const uint64_t sDummyChildID = UINT64_MAX;
-
 namespace {
 
 nsresult SerializeFromJSVal(JSContext* aCx, JS::HandleValue aValue,
@@ -92,8 +90,7 @@ SystemMessageService::Subscribe(nsIPrincipal* aPrincipal,
     return rv;
   }
 
-  DoSubscribe(origin.Compare("https://system.local") >= 1 ? 0 : sDummyChildID,
-              aMessageName, origin, aScope, originSuffix, nullptr);
+  DoSubscribe(aMessageName, origin, aScope, originSuffix, nullptr);
 
   return NS_OK;
 }
@@ -149,51 +146,32 @@ SystemMessageService::SendMessage(const nsAString& aMessageName,
     return NS_OK;
   }
 
-  nsresult rv;
-  SystemMessageDispatcher dispatcher(info->mScope, info->mOriginSuffix,
-                                     aMessageName, messageData);
-  // If info->mID is 0, the subscriber is called from parent process.
-  if (!ServiceWorkerParentInterceptEnabled() && info->mID) {
-    nsTArray<ContentParent*> contentActors;
-    ContentParent::GetAll(contentActors);
-    for (uint32_t i = 0; i < contentActors.Length(); ++i) {
-      if (contentActors[i]->GetRemoteType() != DEFAULT_REMOTE_TYPE) {
-        continue;
-      }
-      // TODO: PushNotifier transmit the permission to content scope here, not
-      // sure whether we should do that too, since our permission model is TBD,
-      // leave it as TODO.
-
-      // TODO: Ideally, we should dispatch events to the content process where
-      // this subscriber belongs, however, childID will be re-generated once the
-      // content process is killed and relaunched, and there is no way to find
-      // the mapping from ContentParent currently. We follow the fix from
-      // upstream (bug 1300112), where we always dispatch events to the first
-      // available content process. File Bug 80246 to follow up.
-
-      if (dispatcher.SendToChild(contentActors[i])) {
-        break;
-      }
-    }
-  } else {
-    rv = dispatcher.NotifyWorkers();
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
-    }
+  // ServiceWorkerParentInterceptEnabled() is default to true in 73.0b2., which
+  // whether the ServiceWorker is registered on parent processes or content
+  // processes, its ServiceWorker will be spawned and executed on a content
+  // process (This behavior is more secured as well).
+  // As a result, we don't need to consider whether the SystemMessage.subscribe
+  // is called on a content process or a parent process, and since this
+  // SystemMessageService::SendMessage() is for used on chrome process only,
+  // we can use ServiceWorkerManager to send SystemMessageEvent directly.
+  RefPtr<ServiceWorkerManager> swm = ServiceWorkerManager::GetInstance();
+  if (!swm) {
+    return NS_ERROR_FAILURE;
   }
 
-  return NS_OK;
+  LOG("Sending message %s to %s",
+      NS_LossyConvertUTF16toASCII(aMessageName).get(), (info->mScope).get());
+  return swm->SendSystemMessageEvent(info->mOriginSuffix, info->mScope,
+                                     aMessageName, messageData);
 }
 
-void SystemMessageService::DoSubscribe(uint64_t aID,
-                                       const nsAString& aMessageName,
+void SystemMessageService::DoSubscribe(const nsAString& aMessageName,
                                        const nsACString& aOrigin,
                                        const nsACString& aScope,
                                        const nsACString& aOriginSuffix,
                                        nsISystemMessageListener* aListener) {
   SubscriberTable* table = mSubscribers.LookupOrAdd(aMessageName);
-  UniquePtr<SubscriberInfo> info(
-      new SubscriberInfo(aID, aScope, aOriginSuffix));
+  UniquePtr<SubscriberInfo> info(new SubscriberInfo(aScope, aOriginSuffix));
   table->Put(aOrigin, std::move(info));
 
   if (aListener) {
@@ -221,33 +199,6 @@ void SystemMessageService::DebugPrintSubscribersTable() {
       LOG("                  originSuffix: %s\n", (entry->mOriginSuffix).get());
     }
   }
-}
-
-SystemMessageDispatcher::SystemMessageDispatcher(
-    const nsACString& aScope, const nsACString& aOriginSuffix,
-    const nsAString& aMessageName, const nsAString& aMessageData)
-    : mScope(aScope),
-      mOriginSuffix(aOriginSuffix),
-      mMessageName(aMessageName),
-      mMessageData(aMessageData) {}
-
-SystemMessageDispatcher::~SystemMessageDispatcher() {}
-
-nsresult SystemMessageDispatcher::NotifyWorkers() {
-  RefPtr<ServiceWorkerManager> swm = ServiceWorkerManager::GetInstance();
-  if (!swm) {
-    return NS_ERROR_FAILURE;
-  }
-
-  LOG("NotifyWorkers: send message %s to %s",
-      NS_LossyConvertUTF16toASCII(mMessageName).get(), mScope.get());
-  return swm->SendSystemMessageEvent(mOriginSuffix, mScope, mMessageName,
-                                     mMessageData);
-}
-
-bool SystemMessageDispatcher::SendToChild(ContentParent* aActor) {
-  return aActor->SendSystemMessage(mScope, mOriginSuffix, mMessageName,
-                                   mMessageData);
 }
 
 }  // namespace dom
