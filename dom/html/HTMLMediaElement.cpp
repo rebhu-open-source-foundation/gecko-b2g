@@ -4797,7 +4797,6 @@ bool HTMLMediaElement::CheckAudioChannelPermissions(AudioChannel aValue) {
     return true;
   }
 
-  /* FIXME
   nsCOMPtr<nsIPermissionManager> permissionManager =
       services::GetPermissionManager();
   if (!permissionManager) {
@@ -4805,17 +4804,13 @@ bool HTMLMediaElement::CheckAudioChannelPermissions(AudioChannel aValue) {
   }
 
   uint32_t perm = nsIPermissionManager::UNKNOWN_ACTION;
-  nsCString channel("audio-channel-");
+  nsAutoCString channel("audio-channel-");
   channel.AppendASCII(AudioChannelValues::strings[uint32_t(aValue)].value,
                       AudioChannelValues::strings[uint32_t(aValue)].length);
-  permissionManager->TestExactPermissionFromPrincipal(
-      NodePrincipal(), channel, &perm);
-  if (perm != nsIPermissionManager::ALLOW_ACTION) {
-    return false;
-  }
-  */
+  permissionManager->TestExactPermissionFromPrincipal(NodePrincipal(), channel,
+                                                      &perm);
 
-  return true;
+  return perm == nsIPermissionManager::ALLOW_ACTION;
 }
 
 void HTMLMediaElement::DoneCreatingElement() {

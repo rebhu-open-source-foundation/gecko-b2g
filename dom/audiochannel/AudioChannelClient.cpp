@@ -69,7 +69,6 @@ bool AudioChannelClient::CheckAudioChannelPermissions(
     return true;
   }
 
-  /* FIXME
   nsCOMPtr<nsIPermissionManager> permissionManager =
       services::GetPermissionManager();
   if (!permissionManager) {
@@ -82,17 +81,13 @@ bool AudioChannelClient::CheckAudioChannelPermissions(
 
   uint32_t perm = nsIPermissionManager::UNKNOWN_ACTION;
 
-  nsCString channel;
-  channel.AssignASCII(AudioChannelValues::strings[uint32_t(aChannel)].value,
+  nsAutoCString channel("audio-channel-");
+  channel.AppendASCII(AudioChannelValues::strings[uint32_t(aChannel)].value,
                       AudioChannelValues::strings[uint32_t(aChannel)].length);
-  permissionManager->TestExactPermissionFromPrincipal(
-      principal,
-      nsCString("audio-channel-"_ns + channel).get(),
-      &perm);
+  permissionManager->TestExactPermissionFromPrincipal(principal, channel,
+                                                      &perm);
 
   return perm == nsIPermissionManager::ALLOW_ACTION;
-  */
-  return true;
 }
 
 JSObject* AudioChannelClient::WrapObject(JSContext* aCx,

@@ -66,24 +66,27 @@ void AudioChannelManager::SetVolumeControlChannel(const nsAString& aChannel) {
 
   AudioChannel newChannel = AudioChannelService::GetAudioChannel(aChannel);
 
-  /* FIXME
   // Only normal channel doesn't need permission.
   if (newChannel != AudioChannel::Normal) {
+    RefPtr<Document> doc = GetOwner()->GetExtantDoc();
+    NS_ENSURE_TRUE_VOID(doc);
+
+    nsCOMPtr<nsIPrincipal> principal = doc->NodePrincipal();
+    NS_ENSURE_TRUE_VOID(principal);
+
     nsCOMPtr<nsIPermissionManager> permissionManager =
         services::GetPermissionManager();
-    if (!permissionManager) {
-      return;
-    }
+    NS_ENSURE_TRUE_VOID(permissionManager);
+
     uint32_t perm = nsIPermissionManager::UNKNOWN_ACTION;
-    nsAutoCString channel;
-    channel.Assign("audio-channel-");
+    nsAutoCString channel("audio-channel-");
     channel.Append(NS_ConvertUTF16toUTF8(aChannel));
-    permissionManager->TestPermissionFromWindow(GetOwner(), channel, &perm);
+    permissionManager->TestExactPermissionFromPrincipal(principal, channel,
+                                                        &perm);
     if (perm != nsIPermissionManager::ALLOW_ACTION) {
       return;
     }
   }
-  */
 
   if (mVolumeChannel == (int32_t)newChannel) {
     return;

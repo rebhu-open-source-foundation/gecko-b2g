@@ -25,6 +25,7 @@
 #include "mozilla/dom/power/PowerManagerService.h"
 #include "nsContentUtils.h"
 #include "nsIInterfaceRequestorUtils.h"
+#include "nsIPermissionManager.h"
 #include "nsIScriptObjectPrincipal.h"
 #include "nsServiceManagerUtils.h"
 
@@ -529,9 +530,8 @@ AudioDestinationNode::WindowSuspendChanged(nsSuspendedTypes aSuspend) {
       this, SuspendTypeToStr(aSuspend));
 
   mAudioChannelSuspended = suspended;
-  Context()->DispatchTrustedEvent(!suspended
-                                      ? u"mozinterruptend"_ns
-                                      : u"mozinterruptbegin"_ns);
+  Context()->DispatchTrustedEvent(!suspended ? u"mozinterruptend"_ns
+                                             : u"mozinterruptbegin"_ns);
 
   DisabledTrackMode disabledMode =
       suspended ? DisabledTrackMode::SILENCE_BLACK : DisabledTrackMode::ENABLED;
@@ -615,7 +615,6 @@ bool AudioDestinationNode::CheckAudioChannelPermissions(AudioChannel aValue) {
     return true;
   }
 
-  /* FIXME
   nsCOMPtr<nsIPermissionManager> permissionManager =
       services::GetPermissionManager();
   if (!permissionManager) {
@@ -628,15 +627,13 @@ bool AudioDestinationNode::CheckAudioChannelPermissions(AudioChannel aValue) {
 
   uint32_t perm = nsIPermissionManager::UNKNOWN_ACTION;
 
-  nsCString channel("audio-channel-");
+  nsAutoCString channel("audio-channel-");
   channel.AppendASCII(AudioChannelValues::strings[uint32_t(aValue)].value,
                       AudioChannelValues::strings[uint32_t(aValue)].length);
-  permissionManager->TestExactPermissionFromPrincipal(
-      principal, channel, &perm);
+  permissionManager->TestExactPermissionFromPrincipal(principal, channel,
+                                                      &perm);
 
   return perm == nsIPermissionManager::ALLOW_ACTION;
-  */
-  return true;
 }
 
 void AudioDestinationNode::StartAudioCapturingTrack() {

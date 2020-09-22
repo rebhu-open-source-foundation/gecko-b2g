@@ -181,6 +181,41 @@ this.PermissionsTable = {
     pwa: DENY_ACTION,
     signed: ALLOW_ACTION,
   },
+  "audio-channel-normal": {
+    pwa: ALLOW_ACTION,
+    signed: ALLOW_ACTION,
+  },
+  "audio-channel-content": {
+    pwa: ALLOW_ACTION,
+    signed: ALLOW_ACTION,
+  },
+  "audio-channel-notification": {
+    pwa: DENY_ACTION,
+    signed: ALLOW_ACTION,
+  },
+  "audio-channel-alarm": {
+    pwa: DENY_ACTION,
+    signed: ALLOW_ACTION,
+  },
+  "audio-channel-system": {
+    pwa: DENY_ACTION,
+    signed: ALLOW_ACTION,
+  },
+  "audio-channel-telephony": {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
+  "audio-channel-ringer": {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
+  "audio-channel-publicnotification": {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
 };
 
 /**
