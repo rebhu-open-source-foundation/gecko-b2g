@@ -82,7 +82,12 @@ function onNetworks(networks, manager) {
 
     let item = elem("li", `${network.ssid} `);
 
-    if (!network.security.trim().length) {
+    if (
+      network.security
+        .trim()
+        .toUpperCase()
+        .includes("OPEN")
+    ) {
       let button = elem("button", "Connect");
       button.setAttribute("id", `wifi-network-${index}-connect`);
       item.appendChild(button);
@@ -94,12 +99,17 @@ function onNetworks(networks, manager) {
 
   networks.forEach((network, index) => {
     // Only try to associate to open networks.
-    if (!network.ssid.trim().length || network.security.trim().length) {
+    if (
+      !network.ssid.trim().length ||
+      !network.security
+        .trim()
+        .toUpperCase()
+        .includes("OPEN")
+    ) {
       return;
     }
     document.getElementById(`wifi-network-${index}-connect`).onclick = () => {
       console.log(`WIFI Trying to associate with ${network.ssid}`);
-      network.security = "OPEN";
       console.log(
         `WIFI object is ${network} ${network.ssid} ${network.security}`
       );
