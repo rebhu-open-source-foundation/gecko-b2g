@@ -259,8 +259,10 @@ this.SettingsPrefsSync = {
       let dntEnabled = Services.prefs.getBoolPref(
         "privacy.donottrackheader.enabled"
       );
+
       let dntValue = Services.prefs.getIntPref(
-        "privacy.donottrackheader.value"
+        "privacy.donottrackheader.value",
+        0
       );
       // If the user specifically decides to disallow tracking (1), we just bail out.
       if (dntEnabled && dntValue == 1) {
@@ -282,7 +284,7 @@ this.SettingsPrefsSync = {
           .replace(/[{}]/g, "");
         Services.prefs.setCharPref("app.update.custom", trackingId);
         gSettingsManager.set(
-          [{ "app.update.custom": JSON.stringify(trackingId) }],
+          [{ name: "app.update.custom", value: JSON.stringify(trackingId) }],
           settingCallback("Failure saving app.update.custom setting.")
         );
       }
