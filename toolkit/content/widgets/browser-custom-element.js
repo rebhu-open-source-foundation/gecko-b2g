@@ -26,12 +26,6 @@
 
   ChromeUtils.defineModuleGetter(
     LazyModules,
-    "PermitUnloader",
-    "resource://gre/actors/BrowserElementParent.jsm"
-  );
-
-  ChromeUtils.defineModuleGetter(
-    LazyModules,
     "E10SUtils",
     "resource://gre/modules/E10SUtils.jsm"
   );
@@ -54,6 +48,11 @@
     "sessionHistoryInParent",
     "fission.sessionHistoryInParent",
     false
+  );
+  XPCOMUtils.defineLazyPreferenceGetter(
+    lazyPrefs,
+    "unloadTimeoutMs",
+    "dom.beforeunload_timeout_ms"
   );
 
   XPCOMUtils.defineLazyGlobalGetters(this, ["AudioChannelHandler"]);
@@ -86,6 +85,8 @@
       this._documentURI = null;
       this._characterSet = null;
       this._documentContentType = null;
+
+      this._inPermitUnload = new WeakSet();
 
       /**
        * These are managed by the tabbrowser:
@@ -1924,7 +1925,10 @@
           aCallback(false);
           return;
         }
-        aCallback(LazyModules.PermitUnloader.inPermitUnload(this.frameLoader));
+
+        aCallback(
+          this._inPermitUnload.has(this.browsingContext.currentWindowGlobal)
+        );
         return;
       }
 
@@ -1935,25 +1939,75 @@
       aCallback(this.docShell.contentViewer.inPermitUnload);
     }
 
-    permitUnload(aPermitUnloadFlags) {
+    async asyncPermitUnload(action) {
+      let wgp = this.browsingContext.currentWindowGlobal;
+      if (this._inPermitUnload.has(wgp)) {
+        throw new Error("permitUnload is already running for this tab.");
+      }
+
+      this._inPermitUnload.add(wgp);
+      let timeout;
+      try {
+        let result = await Promise.race([
+          new Promise(resolve => {
+            timeout = setTimeout(() => {
+              resolve({ permitUnload: true, timedOut: true });
+            }, lazyPrefs.unloadTimeoutMs);
+          }),
+          wgp
+            .permitUnload(action)
+            .then(permitUnload => ({ permitUnload, timedOut: false })),
+        ]);
+
+        return result;
+      } finally {
+        this._inPermitUnload.delete(wgp);
+        clearTimeout(timeout);
+      }
+    }
+
+    get hasBeforeUnload() {
+      function hasBeforeUnload(bc) {
+        if (bc.currentWindowContext?.hasBeforeUnload) {
+          return true;
+        }
+        return bc.children.some(hasBeforeUnload);
+      }
+      return hasBeforeUnload(this.browsingContext);
+    }
+
+    permitUnload(action) {
       if (this.isRemoteBrowser) {
-        if (!LazyModules.PermitUnloader.hasBeforeUnload(this.frameLoader)) {
+        if (!this.hasBeforeUnload) {
           return { permitUnload: true, timedOut: false };
         }
 
-        return LazyModules.PermitUnloader.permitUnload(
-          this.frameLoader,
-          aPermitUnloadFlags
+        let result;
+        let success;
+
+        this.asyncPermitUnload(action).then(
+          val => {
+            result = val;
+            success = true;
+          },
+          err => {
+            result = err;
+            success = false;
+          }
         );
+
+        Services.tm.spinEventLoopUntilOrShutdown(() => success !== undefined);
+        if (success) {
+          return result;
+        }
+        throw result;
       }
 
       if (!this.docShell || !this.docShell.contentViewer) {
         return { permitUnload: true, timedOut: false };
       }
       return {
-        permitUnload: this.docShell.contentViewer.permitUnload(
-          aPermitUnloadFlags
-        ),
+        permitUnload: this.docShell.contentViewer.permitUnload(),
         timedOut: false,
       };
     }

@@ -1715,7 +1715,7 @@
 
 - name: LoadArgumentsObjectArgResult
   shared: true
-  transpile: false
+  transpile: true
   cost_estimate: 2
   args:
     obj: ObjId
@@ -1723,14 +1723,14 @@
 
 - name: LoadArgumentsObjectLengthResult
   shared: true
-  transpile: false
+  transpile: true
   cost_estimate: 1
   args:
     obj: ObjId
 
 - name: LoadFunctionLengthResult
   shared: true
-  transpile: false
+  transpile: true
   cost_estimate: 2
   args:
     obj: ObjId

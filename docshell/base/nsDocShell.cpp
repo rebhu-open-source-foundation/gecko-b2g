@@ -3165,6 +3165,11 @@ NS_IMETHODIMP nsDocShell::SynchronizeLayoutHistoryState() {
         entry->SetLayoutHistoryState(mActiveEntry->GetLayoutHistoryState());
       }
     }
+    if (mLoadingEntry &&
+        mLoadingEntry->mInfo.SharedId() == mActiveEntry->SharedId()) {
+      mLoadingEntry->mInfo.SetLayoutHistoryState(
+          mActiveEntry->GetLayoutHistoryState());
+    }
   }
 
   return NS_OK;
@@ -3991,6 +3996,13 @@ nsresult nsDocShell::LoadErrorPage(nsIURI* aErrorURI, nsIURI* aFailedURI,
     // identifier, the error page won't persist.
     mLSHE->AbandonBFCacheEntry();
   }
+  if (StaticPrefs::fission_sessionHistoryInParent()) {
+    // Commit the loading entry for the real load here, Embed will not commit
+    // the loading entry for the error page. History will then contain an entry
+    // for the real load, and the error page won't persist if we try loading
+    // that entry again.
+    MoveLoadingToActiveEntry(true);
+  }
 
   RefPtr<nsDocShellLoadState> loadState = new nsDocShellLoadState(aErrorURI);
   loadState->SetTriggeringPrincipal(nsContentUtils::GetSystemPrincipal());
@@ -4080,6 +4092,7 @@ nsDocShell::Reload(uint32_t aReloadFlags) {
         }
       }
     }
+    return NS_OK;
   }
 
   bool canReload = true;
@@ -5700,37 +5713,7 @@ nsresult nsDocShell::Embed(nsIContentViewer* aContentViewer,
 
   if (StaticPrefs::fission_sessionHistoryInParent()) {
     MOZ_LOG(gSHLog, LogLevel::Debug, ("document %p Embed", this));
-    mActiveEntry = nullptr;
-    mozilla::UniquePtr<mozilla::dom::LoadingSessionHistoryInfo> loadingEntry;
-    mActiveEntryIsLoadingFromSessionHistory = !!mLoadingEntry;
-    if (mLoadingEntry) {
-      mActiveEntry = MakeUnique<SessionHistoryInfo>(mLoadingEntry->mInfo);
-      mLoadingEntry.swap(loadingEntry);
-    }
-    if (mActiveEntry) {
-      MOZ_ASSERT(loadingEntry);
-      nsID changeID = {};
-      if (XRE_IsParentProcess()) {
-        mBrowsingContext->Canonical()->SessionHistoryCommit(
-            loadingEntry->mLoadId, changeID);
-      } else {
-        RefPtr<ChildSHistory> rootSH = GetRootSessionHistory();
-        if (rootSH) {
-          if (!loadingEntry->mLoadIsFromSessionHistory) {
-            changeID = rootSH->AddPendingHistoryChange();
-          } else {
-            // This is a load from session history, so we can update
-            // index and length immediately.
-            rootSH->SetIndexAndLength(loadingEntry->mRequestedIndex,
-                                      loadingEntry->mSessionHistoryLength,
-                                      changeID);
-          }
-        }
-        ContentChild* cc = ContentChild::GetSingleton();
-        mozilla::Unused << cc->SendHistoryCommit(
-            mBrowsingContext, loadingEntry->mLoadId, changeID);
-      }
-    }
+    MoveLoadingToActiveEntry(mLoadType != LOAD_ERROR_PAGE);
   }
 
   bool updateHistory = true;
@@ -8584,6 +8567,12 @@ nsresult nsDocShell::PerformRetargeting(nsDocShellLoadState* aLoadState) {
   NS_ENSURE_SUCCESS(rv, rv);
   NS_ENSURE_TRUE(targetContext, rv);
 
+  // If our target BrowsingContext is still pending initialization, ignore the
+  // navigation request targeting it.
+  if (NS_WARN_IF(targetContext->GetPendingInitialization())) {
+    return NS_OK;
+  }
+
   aLoadState->SetTargetBrowsingContext(targetContext);
   //
   // Transfer the load to the target BrowsingContext... Clear the window target
@@ -8884,11 +8873,15 @@ nsresult nsDocShell::HandleSameDocumentNavigation(
     }
   }
   if (StaticPrefs::fission_sessionHistoryInParent() && mLoadingEntry) {
+    MOZ_LOG(
+        gSHLog, LogLevel::Debug,
+        ("Moving the loading entry to the active entry on nsDocShell %p to %s",
+         this, mLoadingEntry->mInfo.GetURI()->GetSpecOrDefault().get()));
     mActiveEntry = MakeUnique<SessionHistoryInfo>(mLoadingEntry->mInfo);
     nsID changeID = {};
     if (XRE_IsParentProcess()) {
       mBrowsingContext->Canonical()->SessionHistoryCommit(
-          mLoadingEntry->mLoadId, changeID);
+          mLoadingEntry->mLoadId, changeID, mLoadType);
     } else {
       RefPtr<ChildSHistory> rootSH = GetRootSessionHistory();
       if (rootSH) {
@@ -8900,7 +8893,7 @@ nsresult nsDocShell::HandleSameDocumentNavigation(
       }
       ContentChild* cc = ContentChild::GetSingleton();
       mozilla::Unused << cc->SendHistoryCommit(
-          mBrowsingContext, mLoadingEntry->mLoadId, changeID);
+          mBrowsingContext, mLoadingEntry->mLoadId, changeID, mLoadType);
     }
   }
 
@@ -9001,7 +8994,7 @@ nsresult nsDocShell::InternalLoad(nsDocShellLoadState* aLoadState,
     MOZ_ASSERT(false, "InternalLoad needs a valid triggeringPrincipal");
     return NS_ERROR_FAILURE;
   }
-  if (mBrowsingContext->PendingInitialization()) {
+  if (NS_WARN_IF(mBrowsingContext->GetPendingInitialization())) {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
@@ -9964,8 +9957,7 @@ nsresult nsDocShell::DoURILoad(nsDocShellLoadState* aLoadState,
   //       DocumentLoadListener, so probably need to create session history info
   //       in more places.
   if (aLoadState->GetLoadingSessionHistoryInfo()) {
-    mLoadingEntry = MakeUnique<LoadingSessionHistoryInfo>(
-        *aLoadState->GetLoadingSessionHistoryInfo());
+    SetLoadingSessionHistoryInfo(*aLoadState->GetLoadingSessionHistoryInfo());
   }
 
   // open a channel for the url
@@ -10132,8 +10124,8 @@ nsresult nsDocShell::DoURILoad(nsDocShellLoadState* aLoadState,
   }
 
   bool uriModified;
-  if (mLSHE) {
-    if (StaticPrefs::fission_sessionHistoryInParent()) {
+  if (mLSHE || mLoadingEntry) {
+    if (mLoadingEntry) {
       uriModified = mLoadingEntry->mInfo.GetURIWasModified();
     } else {
       uriModified = mLSHE->GetURIWasModified();
@@ -10638,9 +10630,7 @@ bool nsDocShell::OnNewURI(nsIURI* aURI, nsIChannel* aChannel,
 
   // We don't update session history on reload unless we're loading
   // an iframe in shift-reload case.
-  bool updateSHistory =
-      updateGHistory && (!(aLoadType & LOAD_CMD_RELOAD) ||
-                         (IsForceReloadType(aLoadType) && IsFrame()));
+  bool updateSHistory = mBrowsingContext->ShouldUpdateSessionHistory(aLoadType);
 
   // Create SH Entry (mLSHE) only if there is a SessionHistory object in the
   // root browsing context.
@@ -11542,6 +11532,9 @@ void nsDocShell::UpdateActiveEntry(
   MOZ_ASSERT_IF(aPreviousScrollPos.isSome(), !aReplace);
 
   if (!aReplace || !mActiveEntry) {
+    MOZ_LOG(gSHLog, LogLevel::Debug,
+            ("Creating an active entry on nsDocShell %p to %s", this,
+             aURI->GetSpecOrDefault().get()));
     if (mActiveEntry) {
       // Link this entry to the previous active entry.
       mActiveEntry =
@@ -13222,5 +13215,53 @@ void nsDocShell::SetLoadingSessionHistoryInfo(
     const mozilla::dom::LoadingSessionHistoryInfo& aLoadingInfo) {
   // FIXME Would like to assert this, but can't yet.
   // MOZ_ASSERT(!mLoadingEntry);
+  MOZ_LOG(gSHLog, LogLevel::Debug,
+          ("Setting the loading entry on nsDocShell %p to %s", this,
+           aLoadingInfo.mInfo.GetURI()->GetSpecOrDefault().get()));
   mLoadingEntry = MakeUnique<LoadingSessionHistoryInfo>(aLoadingInfo);
+}
+
+void nsDocShell::MoveLoadingToActiveEntry(bool aCommit) {
+  MOZ_ASSERT(StaticPrefs::fission_sessionHistoryInParent());
+
+  MOZ_LOG(gSHLog, LogLevel::Debug,
+          ("nsDocShell %p MoveLoadingToActiveEntry", this));
+
+  mActiveEntry = nullptr;
+  mozilla::UniquePtr<mozilla::dom::LoadingSessionHistoryInfo> loadingEntry;
+  mActiveEntryIsLoadingFromSessionHistory =
+      mLoadingEntry && mLoadingEntry->mLoadIsFromSessionHistory;
+  if (mLoadingEntry) {
+    MOZ_LOG(gSHLog, LogLevel::Debug,
+            ("Moving the loading entry to the active entry on nsDocShell %p "
+             "to %s",
+             this, mLoadingEntry->mInfo.GetURI()->GetSpecOrDefault().get()));
+    mActiveEntry = MakeUnique<SessionHistoryInfo>(mLoadingEntry->mInfo);
+    mLoadingEntry.swap(loadingEntry);
+  }
+
+  if (mActiveEntry && aCommit) {
+    MOZ_ASSERT(loadingEntry);
+    nsID changeID = {};
+    if (XRE_IsParentProcess()) {
+      mBrowsingContext->Canonical()->SessionHistoryCommit(loadingEntry->mLoadId,
+                                                          changeID, mLoadType);
+    } else {
+      RefPtr<ChildSHistory> rootSH = GetRootSessionHistory();
+      if (rootSH) {
+        if (!loadingEntry->mLoadIsFromSessionHistory) {
+          changeID = rootSH->AddPendingHistoryChange();
+        } else {
+          // This is a load from session history, so we can update
+          // index and length immediately.
+          rootSH->SetIndexAndLength(loadingEntry->mRequestedIndex,
+                                    loadingEntry->mSessionHistoryLength,
+                                    changeID);
+        }
+      }
+      ContentChild* cc = ContentChild::GetSingleton();
+      mozilla::Unused << cc->SendHistoryCommit(
+          mBrowsingContext, loadingEntry->mLoadId, changeID, mLoadType);
+    }
+  }
 }

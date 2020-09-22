@@ -6151,12 +6151,6 @@ void ContentParent::CancelContentJSExecutionIfRunning(
     return;
   }
 
-  if (!aBrowserParent->CanCancelContentJS(aNavigationType,
-                                          aCancelContentJSOptions.mIndex,
-                                          aCancelContentJSOptions.mUri)) {
-    return;
-  }
-
   ProcessHangMonitor::CancelContentJSExecutionIfRunning(
       mHangMonitorActor, aBrowserParent, aNavigationType,
       aCancelContentJSOptions);
@@ -7385,9 +7379,10 @@ mozilla::ipc::IPCResult ContentParent::RecvNotifyOnHistoryReload(
 
 mozilla::ipc::IPCResult ContentParent::RecvHistoryCommit(
     const MaybeDiscarded<BrowsingContext>& aContext, const uint64_t& aLoadID,
-    const nsID& aChangeID) {
+    const nsID& aChangeID, const uint32_t& aLoadType) {
   if (!aContext.IsDiscarded()) {
-    aContext.get_canonical()->SessionHistoryCommit(aLoadID, aChangeID);
+    aContext.get_canonical()->SessionHistoryCommit(aLoadID, aChangeID,
+                                                   aLoadType);
   }
 
   return IPC_OK();

@@ -333,6 +333,28 @@ void LIRGenerator::visitSetArgumentsObjectArg(MSetArgumentsObjectArg* ins) {
   add(lir, ins);
 }
 
+void LIRGenerator::visitLoadArgumentsObjectArg(MLoadArgumentsObjectArg* ins) {
+  MDefinition* argsObj = ins->getArgsObject();
+  MOZ_ASSERT(argsObj->type() == MIRType::Object);
+
+  MDefinition* index = ins->index();
+  MOZ_ASSERT(index->type() == MIRType::Int32);
+
+  auto* lir = new (alloc())
+      LLoadArgumentsObjectArg(useRegister(argsObj), useRegister(index), temp());
+  assignSnapshot(lir, BailoutKind::ArgumentsObjectAccess);
+  defineBox(lir, ins);
+}
+
+void LIRGenerator::visitArgumentsObjectLength(MArgumentsObjectLength* ins) {
+  MDefinition* argsObj = ins->getArgsObject();
+  MOZ_ASSERT(argsObj->type() == MIRType::Object);
+
+  auto* lir = new (alloc()) LArgumentsObjectLength(useRegister(argsObj));
+  assignSnapshot(lir, BailoutKind::ArgumentsObjectAccess);
+  define(lir, ins);
+}
+
 void LIRGenerator::visitReturnFromCtor(MReturnFromCtor* ins) {
   LReturnFromCtor* lir = new (alloc())
       LReturnFromCtor(useBox(ins->getValue()), useRegister(ins->getObject()));
@@ -3061,6 +3083,14 @@ void LIRGenerator::visitSetArrayLength(MSetArrayLength* ins) {
   add(new (alloc()) LSetArrayLength(useRegister(ins->elements()),
                                     useRegisterOrConstant(ins->index())),
       ins);
+}
+
+void LIRGenerator::visitFunctionLength(MFunctionLength* ins) {
+  MOZ_ASSERT(ins->function()->type() == MIRType::Object);
+
+  auto* lir = new (alloc()) LFunctionLength(useRegister(ins->function()));
+  assignSnapshot(lir, BailoutKind::FunctionLength);
+  define(lir, ins);
 }
 
 void LIRGenerator::visitGetNextEntryForIterator(MGetNextEntryForIterator* ins) {

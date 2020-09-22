@@ -80,6 +80,7 @@
 #include "DriverCrashGuard.h"
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/gfx/DeviceManagerDx.h"
+#include "mozilla/gfx/DisplayConfigWindows.h"
 #include "mozilla/layers/DeviceAttachmentsD3D11.h"
 #include "D3D11Checks.h"
 
@@ -309,7 +310,8 @@ gfxWindowsPlatform::~gfxWindowsPlatform() {
 static void UpdateANGLEConfig() {
   if (!gfxConfig::IsEnabled(Feature::D3D11_COMPOSITING)) {
     gfxConfig::Disable(Feature::D3D11_HW_ANGLE, FeatureStatus::Disabled,
-                       "D3D11 compositing is disabled");
+                       "D3D11 compositing is disabled",
+                       "FEATURE_FAILURE_HW_ANGLE_D3D11_DISABLED"_ns);
   }
 }
 
@@ -1255,7 +1257,7 @@ static void InitializeANGLEConfig() {
   if (!gfxConfig::IsEnabled(Feature::D3D11_COMPOSITING)) {
     d3d11ANGLE.DisableByDefault(FeatureStatus::Unavailable,
                                 "D3D11 compositing is disabled",
-                                "FEATURE_FAILURE_D3D11_DISABLED"_ns);
+                                "FEATURE_FAILURE_HW_ANGLE_D3D11_DISABLED"_ns);
     return;
   }
 
@@ -2035,4 +2037,25 @@ void gfxWindowsPlatform::BuildContentDeviceData(ContentDeviceData* aOut) {
 bool gfxWindowsPlatform::CheckVariationFontSupport() {
   // Variation font support is only available on Fall Creators Update or later.
   return IsWin10FallCreatorsUpdateOrLater();
+}
+
+void gfxWindowsPlatform::GetPlatformDisplayInfo(
+    mozilla::widget::InfoObject& aObj) {
+  aObj.DefineProperty("HardwareStretching",
+                      DeviceManagerDx::Get()->CheckHardwareStretchingSupport());
+
+  ScaledResolutionSet scaled;
+  GetScaledResolutions(scaled);
+  if (scaled.IsEmpty()) {
+    return;
+  }
+
+  aObj.DefineProperty("ScaledResolutionCount", scaled.Length());
+  for (size_t i = 0; i < scaled.Length(); ++i) {
+    auto& s = scaled[i];
+    nsPrintfCString name("ScaledResolution%zu", i);
+    nsPrintfCString value("source %dx%d, target %dx%d", s.first.width,
+                          s.first.height, s.second.width, s.second.height);
+    aObj.DefineProperty(name.get(), value.get());
+  }
 }

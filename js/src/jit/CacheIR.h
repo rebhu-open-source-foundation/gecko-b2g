@@ -1312,7 +1312,7 @@ class MOZ_RAII GetPropIRGenerator : public IRGenerator {
   AttachDecision tryAttachMagicArgument(ValOperandId valId,
                                         ValOperandId indexId);
   AttachDecision tryAttachArgumentsObjectArg(HandleObject obj,
-                                             ObjOperandId objId,
+                                             ObjOperandId objId, uint32_t index,
                                              Int32OperandId indexId);
 
   AttachDecision tryAttachDenseElement(HandleObject obj, ObjOperandId objId,
@@ -1948,6 +1948,7 @@ class MOZ_RAII UnaryArithIRGenerator : public IRGenerator {
 
   AttachDecision tryAttachInt32();
   AttachDecision tryAttachNumber();
+  AttachDecision tryAttachBitwise();
   AttachDecision tryAttachBigInt();
   AttachDecision tryAttachStringInt32();
   AttachDecision tryAttachStringNumber();

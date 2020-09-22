@@ -130,6 +130,7 @@ using mozilla::CrossProcessMutexHandle from "mozilla/ipc/CrossProcessMutex.h";
 using mozilla::dom::MaybeDiscardedBrowsingContext from "mozilla/dom/BrowsingContext.h";
 using mozilla::dom::BrowsingContextTransaction from "mozilla/dom/BrowsingContext.h";
 using mozilla::dom::BrowsingContextInitializer from "mozilla/dom/BrowsingContext.h";
+using mozilla::dom::PermitUnloadResult from "mozilla/dom/DocShellMessageUtils.h";
 using mozilla::dom::MaybeDiscardedWindowContext from "mozilla/dom/WindowContext.h";
 using mozilla::dom::WindowContextTransaction from "mozilla/dom/WindowContext.h";
 using base::SharedMemoryHandle from "base/shared_memory.h";
@@ -1166,6 +1167,12 @@ child:
 
    async DispatchLocationChangeEvent(MaybeDiscardedBrowsingContext aContext);
 
+  // Dispatches a "beforeunload" event to each in-process content window in the
+  // subtree beginning at `aStartingAt`, and returns the result as documented in
+  // the `PermitUnloadResult` enum.
+  async DispatchBeforeUnloadToSubtree(MaybeDiscardedBrowsingContext aStartingAt)
+      returns (PermitUnloadResult result);
+
 parent:
     /**
      * This is a temporary way to pass index and length through parent process.
@@ -1976,7 +1983,7 @@ parent:
                      bool? reloadActiveEntry);
 
     async HistoryCommit(MaybeDiscardedBrowsingContext aContext,
-                        uint64_t aLoadID, nsID aChangeID);
+                        uint64_t aLoadID, nsID aChangeID, uint32_t aLoadType);
 
     async HistoryGo(MaybeDiscardedBrowsingContext aContext,
                     int32_t aOffset) returns(int32_t requestedIndex);

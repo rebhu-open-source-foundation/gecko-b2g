@@ -3203,6 +3203,8 @@ void gfxPlatform::GetDisplayInfo(mozilla::widget::InfoObject& aObj) {
       aObj.DefineProperty(name.get(), displayInfo[i]);
     }
   }
+
+  GetPlatformDisplayInfo(aObj);
 }
 
 class FrameStatsComparator {

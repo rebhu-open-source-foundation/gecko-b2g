@@ -1001,12 +1001,13 @@ nsresult ContentChild::ProvideWindowCommon(
   MOZ_ALWAYS_SUCCEEDS(browsingContext->SetRemoteSubframes(useRemoteSubframes));
   MOZ_ALWAYS_SUCCEEDS(browsingContext->SetOriginAttributes(
       aOpenWindowInfo->GetOriginAttributes()));
-  browsingContext->EnsureAttached();
 
-  browsingContext->SetPendingInitialization(true);
+  browsingContext->InitPendingInitialization(true);
   auto unsetPending = MakeScopeExit([browsingContext]() {
-    browsingContext->SetPendingInitialization(false);
+    Unused << browsingContext->SetPendingInitialization(false);
   });
+
+  browsingContext->EnsureAttached();
 
   // The initial about:blank document we generate within the nsDocShell will
   // almost certainly be replaced at some point. Unfortunately, getting the
@@ -1124,6 +1125,7 @@ nsresult ContentChild::ProvideWindowCommon(
       MOZ_DIAGNOSTIC_ASSERT(browsingContext->GetOpenerId() == 0);
     } else {
       MOZ_DIAGNOSTIC_ASSERT(browsingContext->HadOriginalOpener());
+      MOZ_DIAGNOSTIC_ASSERT(browsingContext->GetOpenerId() == parent->Id());
     }
 
     // Unfortunately we don't get a window unless we've shown the frame.  That's
@@ -4606,6 +4608,44 @@ mozilla::ipc::IPCResult ContentChild::RecvDispatchLocationChangeEvent(
     aContext.get()->GetDocShell()->DispatchLocationChangeEvent();
   }
   return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentChild::RecvDispatchBeforeUnloadToSubtree(
+    const MaybeDiscarded<BrowsingContext>& aStartingAt,
+    DispatchBeforeUnloadToSubtreeResolver&& aResolver) {
+  if (aStartingAt.IsNullOrDiscarded()) {
+    aResolver(nsIContentViewer::eAllowNavigation);
+  } else {
+    DispatchBeforeUnloadToSubtree(aStartingAt.get(), std::move(aResolver));
+  }
+  return IPC_OK();
+}
+
+/* static */ void ContentChild::DispatchBeforeUnloadToSubtree(
+    BrowsingContext* aStartingAt,
+    const DispatchBeforeUnloadToSubtreeResolver& aResolver) {
+  bool resolved = false;
+
+  aStartingAt->PreOrderWalk([&](dom::BrowsingContext* aBC) {
+    if (aBC->IsInProcess()) {
+      nsCOMPtr<nsIContentViewer> contentViewer;
+      aBC->GetDocShell()->GetContentViewer(getter_AddRefs(contentViewer));
+      if (contentViewer &&
+          contentViewer->DispatchBeforeUnload() ==
+              nsIContentViewer::eRequestBlockNavigation &&
+          !resolved) {
+        // Send our response as soon as we find any blocker, so that we can show
+        // the permit unload prompt as soon as possible, without giving
+        // subsequent handlers a chance to delay it.
+        aResolver(nsIContentViewer::eRequestBlockNavigation);
+        resolved = true;
+      }
+    }
+  });
+
+  if (!resolved) {
+    aResolver(nsIContentViewer::eAllowNavigation);
+  }
 }
 
 mozilla::ipc::IPCResult ContentChild::RecvGoBack(

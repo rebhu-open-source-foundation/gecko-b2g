@@ -412,21 +412,23 @@
 // details of QM_TRY and shouldn't be used directly.
 
 // Handles the three arguments case when the error is propagated.
-#define QM_TRY_PROPAGATE_ERR(ns, tryResult, expr) \
-  auto tryResult = ::mozilla::ToResult(expr);     \
-  if (MOZ_UNLIKELY(tryResult.isErr())) {          \
-    ns::QM_HANDLE_ERROR(expr);                    \
-    return tryResult.propagateErr();              \
+#define QM_TRY_PROPAGATE_ERR(ns, tryResult, expr)                        \
+  auto tryResult = ::mozilla::ToResult(expr);                            \
+  static_assert(std::is_empty_v<typename decltype(tryResult)::ok_type>); \
+  if (MOZ_UNLIKELY(tryResult.isErr())) {                                 \
+    ns::QM_HANDLE_ERROR(expr);                                           \
+    return tryResult.propagateErr();                                     \
   }
 
 // Handles the four arguments case when a custom return value needs to be
 // returned
-#define QM_TRY_CUSTOM_RET_VAL(ns, tryResult, expr, customRetVal) \
-  auto tryResult = ::mozilla::ToResult(expr);                    \
-  if (MOZ_UNLIKELY(tryResult.isErr())) {                         \
-    auto tryTempResult MOZ_MAYBE_UNUSED = std::move(tryResult);  \
-    ns::QM_HANDLE_ERROR(expr);                                   \
-    return customRetVal;                                         \
+#define QM_TRY_CUSTOM_RET_VAL(ns, tryResult, expr, customRetVal)         \
+  auto tryResult = ::mozilla::ToResult(expr);                            \
+  static_assert(std::is_empty_v<typename decltype(tryResult)::ok_type>); \
+  if (MOZ_UNLIKELY(tryResult.isErr())) {                                 \
+    auto tryTempResult MOZ_MAYBE_UNUSED = std::move(tryResult);          \
+    ns::QM_HANDLE_ERROR(expr);                                           \
+    return customRetVal;                                                 \
   }
 
 // Handles the five arguments case when a cleanup function needs to be called
@@ -434,6 +436,7 @@
 #define QM_TRY_CUSTOM_RET_VAL_WITH_CLEANUP(ns, tryResult, expr, customRetVal, \
                                            cleanup)                           \
   auto tryResult = ::mozilla::ToResult(expr);                                 \
+  static_assert(std::is_empty_v<typename decltype(tryResult)::ok_type>);      \
   if (MOZ_UNLIKELY(tryResult.isErr())) {                                      \
     auto tryTempResult MOZ_MAYBE_UNUSED = std::move(tryResult);               \
     ns::QM_HANDLE_ERROR(expr);                                                \
@@ -939,6 +942,72 @@ Result<bool, nsresult> WarnIfFileIsUnknown(nsIFile& aFile,
                                            const char* aSourceFile,
                                            int32_t aSourceLine);
 #endif
+
+// XXX Since this uses thread_local, we currently disable it on android, see Bug
+// 1324316
+//#if (defined(EARLY_BETA_OR_EARLIER) || defined(DEBUG)) &&
+//! defined(MOZ_WIDGET_ANDROID)
+//#  define QM_ENABLE_SCOPED_LOG_EXTRA_INFO
+//#endif
+
+struct MOZ_STACK_CLASS ScopedLogExtraInfo {
+  static constexpr const char kTagQuery[] = "query";
+
+#ifdef QM_ENABLE_SCOPED_LOG_EXTRA_INFO
+  using ScopedLogExtraInfoMap = std::map<const char*, nsCString>;
+
+  template <size_t N>
+  ScopedLogExtraInfo(const char (&aTag)[N], const nsACString& aExtraInfo)
+      : mTag{aTag} {
+    AddInfo(aTag, aExtraInfo);
+  }
+
+  ~ScopedLogExtraInfo() {
+    if (mTag) {
+      if (mPreviousValue.IsEmpty()) {
+        sInfos.erase(mTag);
+      } else {
+        sInfos.find(mTag)->second = mPreviousValue;
+      }
+    }
+  }
+
+  ScopedLogExtraInfo(ScopedLogExtraInfo&& aOther)
+      : mTag(aOther.mTag), mPreviousValue(std::move(aOther.mPreviousValue)) {
+    aOther.mTag = nullptr;
+  }
+  ScopedLogExtraInfo& operator=(ScopedLogExtraInfo&& aOther) = delete;
+
+  ScopedLogExtraInfo(const ScopedLogExtraInfo&) = delete;
+  ScopedLogExtraInfo& operator=(const ScopedLogExtraInfo&) = delete;
+
+  static const ScopedLogExtraInfoMap* GetExtraInfoMap() { return &sInfos; }
+
+ private:
+  const char* mTag;
+  nsCString mPreviousValue;
+
+  inline static thread_local ScopedLogExtraInfoMap sInfos;
+
+  void AddInfo(const char* aTag, const nsACString& aExtraInfo) {
+    auto foundIt = sInfos.find(aTag);
+
+    if (foundIt != sInfos.end()) {
+      mPreviousValue = std::move(foundIt->second);
+      foundIt->second = aExtraInfo;
+    } else {
+      sInfos.emplace(aTag, aExtraInfo);
+    }
+  }
+
+#else
+  template <size_t N>
+  ScopedLogExtraInfo(const char (&aTag)[N], const nsACString& aExtraInfo) {}
+
+  // user-defined to silence unused variable warnings
+  ~ScopedLogExtraInfo() {}
+#endif
+};
 
 #if defined(EARLY_BETA_OR_EARLIER) || defined(DEBUG)
 #  define QM_META_HANDLE_ERROR(module)                                     \

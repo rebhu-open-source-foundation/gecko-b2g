@@ -67,6 +67,7 @@ fluent-ffi = { path = "../../../../intl/l10n/rust/fluent-ffi" }
 firefox-accounts-bridge = { path = "../../../../services/fxaccounts/rust-bridge/firefox-accounts-bridge", optional=true }
 
 processtools = { path = "../../../components/processtools" }
+qcms = { path = "../../../../gfx/qcms" }
 
 # Build it on Gonk for now.
 # [target.'cfg(not(target_os = "android"))'.dependencies]

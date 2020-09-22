@@ -445,7 +445,6 @@ BrowsingContext::BrowsingContext(WindowContext* aParentWindow,
       mIsDiscarded(false),
       mWindowless(false),
       mDanglingRemoteOuterProxies(false),
-      mPendingInitialization(false),
       mEmbeddedByThisProcess(false),
       mUseRemoteTabs(false),
       mUseRemoteSubframes(false) {
@@ -843,14 +842,21 @@ void BrowsingContext::UnregisterWindowContext(WindowContext* aWindow) {
 void BrowsingContext::PreOrderWalk(
     const std::function<void(BrowsingContext*)>& aCallback) {
   aCallback(this);
-  for (auto& child : Children()) {
+
+  AutoTArray<RefPtr<BrowsingContext>, 8> children;
+  children.AppendElements(Children());
+
+  for (auto& child : children) {
     child->PreOrderWalk(aCallback);
   }
 }
 
 void BrowsingContext::PostOrderWalk(
     const std::function<void(BrowsingContext*)>& aCallback) {
-  for (auto& child : Children()) {
+  AutoTArray<RefPtr<BrowsingContext>, 8> children;
+  children.AppendElements(Children());
+
+  for (auto& child : children) {
     child->PostOrderWalk(aCallback);
   }
 
@@ -2620,6 +2626,13 @@ bool BrowsingContext::CanSet(FieldIndex<IDX_BrowserId>, const uint32_t& aValue,
   return GetBrowserId() == 0 && IsTop() && Children().IsEmpty();
 }
 
+bool BrowsingContext::CanSet(FieldIndex<IDX_PendingInitialization>,
+                             bool aNewValue, ContentParent* aSource) {
+  // Can only be cleared from `true` to `false`, and should only ever be set on
+  // the toplevel BrowsingContext.
+  return IsTop() && GetPendingInitialization() && !aNewValue;
+}
+
 void BrowsingContext::SessionHistoryChanged(int32_t aIndexDelta,
                                             int32_t aLengthDelta) {
   if (XRE_IsParentProcess() || StaticPrefs::fission_sessionHistoryInParent()) {
@@ -2737,6 +2750,64 @@ void BrowsingContext::SetChildSHistory(ChildSHistory* aChildSHistory) {
   mChildSessionHistory = aChildSHistory;
   mChildSessionHistory->SetBrowsingContext(this);
   mFields.SetWithoutSyncing<IDX_HasSessionHistory>(true);
+}
+
+bool BrowsingContext::ShouldUpdateSessionHistory(uint32_t aLoadType) {
+  // We don't update session history on reload unless we're loading
+  // an iframe in shift-reload case.
+  return nsDocShell::ShouldUpdateGlobalHistory(aLoadType) &&
+         (!(aLoadType & nsIDocShell::LOAD_CMD_RELOAD) ||
+          (IsForceReloadType(aLoadType) && IsFrame()));
+}
+
+nsresult BrowsingContext::CheckLocationChangeRateLimit(CallerType aCallerType) {
+  // We only rate limit non system callers
+  if (aCallerType == CallerType::System) {
+    return NS_OK;
+  }
+
+  // Fetch rate limiting preferences
+  uint32_t limitCount =
+      StaticPrefs::dom_navigation_locationChangeRateLimit_count();
+  uint32_t timeSpanSeconds =
+      StaticPrefs::dom_navigation_locationChangeRateLimit_timespan();
+
+  // Disable throttling if either of the preferences is set to 0.
+  if (limitCount == 0 || timeSpanSeconds == 0) {
+    return NS_OK;
+  }
+
+  TimeDuration throttleSpan = TimeDuration::FromSeconds(timeSpanSeconds);
+
+  if (mLocationChangeRateLimitSpanStart.IsNull() ||
+      ((TimeStamp::Now() - mLocationChangeRateLimitSpanStart) > throttleSpan)) {
+    // Initial call or timespan exceeded, reset counter and timespan.
+    mLocationChangeRateLimitSpanStart = TimeStamp::Now();
+    mLocationChangeRateLimitCount = 1;
+    return NS_OK;
+  }
+
+  if (mLocationChangeRateLimitCount >= limitCount) {
+    // Rate limit reached
+
+    Document* doc = GetDocument();
+    if (doc) {
+      nsContentUtils::ReportToConsole(nsIScriptError::errorFlag, "DOM"_ns, doc,
+                                      nsContentUtils::eDOM_PROPERTIES,
+                                      "LocChangeFloodingPrevented");
+    }
+
+    return NS_ERROR_DOM_SECURITY_ERR;
+  }
+
+  mLocationChangeRateLimitCount++;
+  return NS_OK;
+}
+
+void BrowsingContext::ResetLocationChangeRateLimit() {
+  // Resetting the timestamp object will cause the check function to
+  // init again and reset the rate limit.
+  mLocationChangeRateLimitSpanStart = TimeStamp();
 }
 
 }  // namespace dom

@@ -688,7 +688,7 @@ var interfaceNamesInGlobalScope = [
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "MediaList", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
-  { name: "MediaMetadata", insecureContext: true, nightly: true },
+  { name: "MediaMetadata", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "MediaQueryList", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
@@ -698,7 +698,7 @@ var interfaceNamesInGlobalScope = [
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "MediaRecorderErrorEvent", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
-  { name: "MediaSession", insecureContext: true, nightly: true },
+  { name: "MediaSession", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   { name: "MediaSource", insecureContext: true },
   // IMPORTANT: Do not change this list without review from a DOM peer!
