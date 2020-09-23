@@ -26,6 +26,7 @@
 #include "mozilla/MozPromiseInlines.h"
 #include "nsDocShell.h"
 #include "nsFrameLoader.h"
+#include "nsFrameLoaderOwner.h"
 #include "nsGlobalWindowOuter.h"
 #include "nsIWebBrowserChrome.h"
 #include "nsNetUtil.h"
@@ -38,6 +39,7 @@
 using namespace mozilla::ipc;
 
 extern mozilla::LazyLogModule gAutoplayPermissionLog;
+extern mozilla::LazyLogModule gSHLog;
 
 #define AUTOPLAY_LOG(msg, ...) \
   MOZ_LOG(gAutoplayPermissionLog, LogLevel::Debug, (msg, ##__VA_ARGS__))
@@ -353,8 +355,16 @@ CanonicalBrowsingContext::CreateLoadingSessionHistoryEntryForLoad(
       aLoadState->GetLoadingSessionHistoryInfo();
   if (existingLoadingInfo) {
     entry = SessionHistoryEntry::GetByLoadId(existingLoadingInfo->mLoadId);
+    MOZ_LOG(gSHLog, LogLevel::Verbose,
+            ("SHEntry::GetByLoadId(%" PRIu64 ") -> %p",
+             existingLoadingInfo->mLoadId, entry.get()));
   } else {
     entry = new SessionHistoryEntry(aLoadState, aChannel);
+    if (IsTop()) {
+      // Only top level pages care about Get/SetPersist.
+      entry->SetPersist(
+          nsDocShell::ShouldAddToSessionHistory(aLoadState->URI(), aChannel));
+    }
     entry->SetDocshellID(GetHistoryID());
     entry->SetIsDynamicallyAdded(GetCreatedDynamically());
     entry->SetForInitialLoad(true);
@@ -426,8 +436,7 @@ void CanonicalBrowsingContext::SessionHistoryCommit(uint64_t aLoadId,
           }
 
           if (addEntry) {
-            shistory->AddEntry(mActiveEntry,
-                               /* FIXME aPersist = */ true);
+            shistory->AddEntry(mActiveEntry, mActiveEntry->GetPersist());
           }
         }
       } else {
@@ -1078,7 +1087,9 @@ void CanonicalBrowsingContext::PendingRemotenessChange::Finish() {
   }
 
   // Resume the pending load in our new process.
-  newBrowser->ResumeLoad(mPendingSwitchId);
+  if (mPendingSwitchId) {
+    newBrowser->ResumeLoad(mPendingSwitchId);
+  }
 
   // We did it! The process switch is complete.
   mPromise->Resolve(newBrowser, __func__);
@@ -1148,6 +1159,9 @@ CanonicalBrowsingContext::ChangeRemoteness(const nsACString& aRemoteType,
                         "Cannot replace BrowsingContext for subframes");
   MOZ_DIAGNOSTIC_ASSERT(aSpecificGroupId == 0 || aReplaceBrowsingContext,
                         "Cannot specify group ID unless replacing BC");
+  MOZ_DIAGNOSTIC_ASSERT(aPendingSwitchId || !IsTop(),
+                        "Should always have aPendingSwitchId for top-level "
+                        "frames");
 
   if (!AncestorsAreCurrent()) {
     NS_WARNING("An ancestor context is no longer current");
@@ -1182,6 +1196,11 @@ CanonicalBrowsingContext::ChangeRemoteness(const nsACString& aRemoteType,
   // Switching to local. No new process, so perform switch sync.
   if (embedderBrowser &&
       aRemoteType.Equals(embedderBrowser->Manager()->GetRemoteType())) {
+    MOZ_DIAGNOSTIC_ASSERT(
+        aPendingSwitchId,
+        "We always have a PendingSwitchId, except for print-preview loads, "
+        "which will never perform a process-switch to being in-process with "
+        "their embedder");
     if (GetCurrentWindowGlobal()) {
       MOZ_DIAGNOSTIC_ASSERT(GetCurrentWindowGlobal()->IsProcessRoot());
       RefPtr<BrowserParent> oldBrowser =

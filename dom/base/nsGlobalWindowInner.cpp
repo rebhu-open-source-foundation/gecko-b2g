@@ -1382,8 +1382,6 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(nsGlobalWindowInner)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mChromeFields.mMessageManager)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mChromeFields.mGroupMessageManagers)
 
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPendingPromises)
-
   for (size_t i = 0; i < tmp->mDocumentFlushedResolvers.Length(); i++) {
     NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDocumentFlushedResolvers[i]->mPromise);
     NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDocumentFlushedResolvers[i]->mCallback);
@@ -1499,7 +1497,6 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsGlobalWindowInner)
     NS_IMPL_CYCLE_COLLECTION_UNLINK(mChromeFields.mGroupMessageManagers)
   }
 
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mPendingPromises)
   for (size_t i = 0; i < tmp->mDocumentFlushedResolvers.Length(); i++) {
     NS_IMPL_CYCLE_COLLECTION_UNLINK(mDocumentFlushedResolvers[i]->mPromise);
     NS_IMPL_CYCLE_COLLECTION_UNLINK(mDocumentFlushedResolvers[i]->mCallback);
@@ -6445,9 +6442,6 @@ void nsGlobalWindowInner::AddSizeOfIncludingThis(
     aWindowSizes.mDOMPerformanceResourceEntries =
         mPerformance->SizeOfResourceEntries(aWindowSizes.mState.mMallocSizeOf);
   }
-
-  aWindowSizes.mDOMOtherSize += mPendingPromises.ShallowSizeOfExcludingThis(
-      aWindowSizes.mState.mMallocSizeOf);
 }
 
 void nsGlobalWindowInner::AddGamepad(uint32_t aIndex, Gamepad* aGamepad) {

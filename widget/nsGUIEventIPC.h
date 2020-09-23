@@ -951,6 +951,7 @@ struct ParamTraits<mozilla::widget::InputContext> {
     WriteParam(aMsg, aParam.mHTMLInputType);
     WriteParam(aMsg, aParam.mHTMLInputInputmode);
     WriteParam(aMsg, aParam.mActionHint);
+    WriteParam(aMsg, aParam.mAutocapitalize);
     WriteParam(aMsg, aParam.mOrigin);
     WriteParam(aMsg, aParam.mMayBeIMEUnaware);
     WriteParam(aMsg, aParam.mHasHandledUserInput);
@@ -963,6 +964,7 @@ struct ParamTraits<mozilla::widget::InputContext> {
            ReadParam(aMsg, aIter, &aResult->mHTMLInputType) &&
            ReadParam(aMsg, aIter, &aResult->mHTMLInputInputmode) &&
            ReadParam(aMsg, aIter, &aResult->mActionHint) &&
+           ReadParam(aMsg, aIter, &aResult->mAutocapitalize) &&
            ReadParam(aMsg, aIter, &aResult->mOrigin) &&
            ReadParam(aMsg, aIter, &aResult->mMayBeIMEUnaware) &&
            ReadParam(aMsg, aIter, &aResult->mHasHandledUserInput) &&

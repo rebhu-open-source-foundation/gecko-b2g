@@ -2656,6 +2656,7 @@ RefPtr<ShutdownPromise> MediaDecoderStateMachine::ShutdownState::Enter() {
   master->mVideoQueueListener.Disconnect();
   master->mMetadataManager.Disconnect();
   master->mOnMediaNotSeekable.Disconnect();
+  master->mAudibleListener.DisconnectIfExists();
 
   // Disconnect canonicals and mirrors before shutting down our task queue.
   master->mBuffered.DisconnectIfConnected();
@@ -2798,6 +2799,7 @@ MediaSink* MediaDecoderStateMachine::CreateAudioSink() {
     DecodedStream* stream =
         new DecodedStream(this, mOutputTracks, mVolume, mPlaybackRate,
                           mPreservesPitch, mAudioQueue, mVideoQueue);
+    mAudibleListener.DisconnectIfExists();
     mAudibleListener = stream->AudibleEvent().Connect(
         OwnerThread(), this, &MediaDecoderStateMachine::AudioAudibleChanged);
     return stream;
@@ -2809,7 +2811,7 @@ MediaSink* MediaDecoderStateMachine::CreateAudioSink() {
     AudioSink* audioSink = new AudioSink(
         self->mTaskQueue, self->mAudioQueue, self->GetMediaTime(),
         self->Info().mAudio, self->mSinkDevice.Ref(), self->mAudioChannel);
-
+    self->mAudibleListener.DisconnectIfExists();
     self->mAudibleListener = audioSink->AudibleEvent().Connect(
         self->mTaskQueue, self.get(),
         &MediaDecoderStateMachine::AudioAudibleChanged);
@@ -3194,7 +3196,6 @@ void MediaDecoderStateMachine::StopMediaSink() {
     mMediaSinkAudioEndedPromise.DisconnectIfExists();
     mMediaSinkVideoEndedPromise.DisconnectIfExists();
   }
-  mAudibleListener.DisconnectIfExists();
 }
 
 void MediaDecoderStateMachine::RequestAudioData() {

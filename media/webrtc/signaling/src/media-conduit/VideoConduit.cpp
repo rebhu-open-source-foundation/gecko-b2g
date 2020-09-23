@@ -26,9 +26,10 @@
 #include "pk11pub.h"
 
 #include "api/video_codecs/sdp_video_format.h"
-#include "media/engine/vp8_encoder_simulcast_proxy.h"
+#include "media/engine/encoder_simulcast_proxy.h"
 #include "webrtc/common_types.h"
 #include "webrtc/common_video/libyuv/include/webrtc_libyuv.h"
+#include "webrtc/media/base/mediaconstants.h"
 #include "webrtc/modules/rtp_rtcp/include/rtp_rtcp_defines.h"
 #include "webrtc/modules/video_coding/codecs/vp8/include/vp8.h"
 #include "webrtc/modules/video_coding/codecs/vp9/include/vp9.h"
@@ -853,6 +854,14 @@ MediaConduitErrorCode WebrtcVideoConduit::ConfigureSendMediaCodec(
 
   size_t streamCount = std::min(codecConfig->mEncodings.size(),
                                 (size_t)webrtc::kMaxSimulcastStreams);
+  size_t highestResolutionIndex = 0;
+  for (size_t i = 1; i < streamCount; ++i) {
+    if (codecConfig->mEncodings[i].constraints.scaleDownBy <
+        codecConfig->mEncodings[highestResolutionIndex]
+            .constraints.scaleDownBy) {
+      highestResolutionIndex = i;
+    }
+  }
 
   MOZ_RELEASE_ASSERT(streamCount >= 1, "streamCount should be at least one");
 
@@ -899,9 +908,10 @@ MediaConduitErrorCode WebrtcVideoConduit::ConfigureSendMediaCodec(
   mVideoAdapter = MakeUnique<cricket::VideoAdapter>(
       streamCount > 1 ? SIMULCAST_RESOLUTION_ALIGNMENT : 1);
   mVideoAdapter->OnScaleResolutionBy(
-      codecConfig->mEncodings[0].constraints.scaleDownBy > 1.0
-          ? rtc::Optional<float>(
-                codecConfig->mEncodings[0].constraints.scaleDownBy)
+      codecConfig->mEncodings[highestResolutionIndex].constraints.scaleDownBy >
+              1.0
+          ? rtc::Optional<float>(codecConfig->mEncodings[highestResolutionIndex]
+                                     .constraints.scaleDownBy)
           : rtc::Optional<float>());
 
   // XXX parse the encoded SPS/PPS data and set spsData/spsLen/ppsData/ppsLen
@@ -1752,7 +1762,8 @@ std::unique_ptr<webrtc::VideoEncoder> WebrtcVideoConduit::CreateEncoder(
       break;
 
     case webrtc::VideoCodecType::kVideoCodecVP8:
-      encoder.reset(new webrtc::VP8EncoderSimulcastProxy(this));
+      encoder.reset(new webrtc::EncoderSimulcastProxy(
+          this, webrtc::SdpVideoFormat(cricket::kVp8CodecName)));
       break;
 
     case webrtc::VideoCodecType::kVideoCodecVP9:

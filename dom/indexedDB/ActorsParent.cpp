@@ -697,8 +697,7 @@ mozilla::Result<mozilla::Ok, nsresult> CollectWhileHasResult(
     mozIStorageStatement& aStmt, StepFunc&& aStepFunc) {
   return CollectWhile(
       [&aStmt]() -> Result<bool, nsresult> {
-        IDB_TRY_VAR(auto hasResult, MOZ_TO_RESULT_INVOKE(aStmt, ExecuteStep));
-        return hasResult;
+        IDB_TRY_RETURN(MOZ_TO_RESULT_INVOKE(aStmt, ExecuteStep));
       },
       [&aStmt, &aStepFunc] { return aStepFunc(aStmt); });
 }
@@ -7714,16 +7713,13 @@ void DatabaseConnection::CachedStatement::Reset() {
 
 DatabaseConnection::CachedStatement::CachedStatement(
     DatabaseConnection* aConnection, nsCOMPtr<mozIStorageStatement> aStatement)
-    : mStatement(std::move(aStatement))
-#if defined(EARLY_BETA_OR_EARLIER) || defined(DEBUG)
-      ,
+    : mStatement(std::move(aStatement)),
       mScoper(mStatement
                   ? Maybe<mozStorageStatementScoper>{std::in_place, mStatement}
                   : Nothing{})
-#  ifdef DEBUG
+#ifdef DEBUG
       ,
       mDEBUGConnection(aConnection)
-#  endif
 #endif
 {
 #ifdef DEBUG
@@ -12853,11 +12849,8 @@ nsresult FileManager::InitDirectory(nsIFile& aDirectory, nsIFile& aDatabaseFile,
 
     IDB_TRY(CollectEach(
         [&entries]() -> Result<nsCOMPtr<nsIFile>, nsresult> {
-          IDB_TRY_VAR(
-              auto file,
-              ToResultInvoke<nsCOMPtr<nsIFile>>(
-                  std::mem_fn(&nsIDirectoryEnumerator::GetNextFile), entries));
-          return file;
+          IDB_TRY_RETURN(ToResultInvoke<nsCOMPtr<nsIFile>>(
+              std::mem_fn(&nsIDirectoryEnumerator::GetNextFile), entries));
         },
         [&hasJournals](
             const nsCOMPtr<nsIFile>& file) -> Result<mozilla::Ok, nsresult> {
@@ -12968,11 +12961,8 @@ Result<FileUsageType, nsresult> FileManager::GetUsage(nsIFile* aDirectory) {
 
   IDB_TRY(CollectEach(
       [&entries]() -> Result<nsCOMPtr<nsIFile>, nsresult> {
-        IDB_TRY_VAR(
-            auto file,
-            ToResultInvoke<nsCOMPtr<nsIFile>>(
-                std::mem_fn(&nsIDirectoryEnumerator::GetNextFile), entries));
-        return file;
+        IDB_TRY_RETURN(ToResultInvoke<nsCOMPtr<nsIFile>>(
+            std::mem_fn(&nsIDirectoryEnumerator::GetNextFile), entries));
       },
       [&usage](const nsCOMPtr<nsIFile>& file) -> Result<mozilla::Ok, nsresult> {
         IDB_TRY_VAR(

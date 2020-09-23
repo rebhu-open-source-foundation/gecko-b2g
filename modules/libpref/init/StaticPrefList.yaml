@@ -1619,14 +1619,6 @@
   value: false
   mirror: always
 
-# Disable moz* APIs in DataTransfer.
-# Should be accessed via DataTransfer::MozAtAPIsEnabled.
-- name: dom.datatransfer.mozAtAPIs
-  type: bool
-  value: false
-  mirror: always
-  do_not_use_directly: true
-
 # Any how many seconds we allow external protocol URLs in iframe when not in
 # single events
 - name: dom.delay.block_external_protocol_in_iframes
@@ -2088,6 +2080,12 @@
 - name: dom.ipc.processPriorityManager.backgroundGracePeriodMS
   type: uint32_t
   value: 0
+  mirror: always
+
+# Is support for HTMLElement.autocapitalize enabled?
+- name: dom.forms.autocapitalize
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Support for input type=month, type=week and type=datetime-local. By default,
@@ -8675,6 +8673,11 @@
   value: 1048576
   mirror: always
 
+- name: network.http.http3.enable_qlog
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # When true, a http request will be upgraded to https when HTTPS RR is
 # available.
 - name: network.dns.upgrade_with_https_rr
@@ -8686,6 +8689,12 @@
 - name: network.dns.use_https_rr_as_altsvc
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+# Whether to check for NAT64 using the system resolver
+- name: network.connectivity-service.nat64-check
+  type: bool
+  value: true
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -9797,7 +9806,7 @@
 
 - name: ui.touch.radius.enabled
   type: bool
-  value: false
+  value: @IS_ANDROID@
   mirror: always
 
 - name: ui.touch.radius.topmm

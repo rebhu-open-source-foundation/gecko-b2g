@@ -909,6 +909,10 @@ class ContentParent final
 
   bool DeallocPDeviceStorageRequestParent(PDeviceStorageRequestParent*);
 
+  mozilla::ipc::IPCResult RecvCloneDocumentTreeInto(
+      const MaybeDiscarded<BrowsingContext>& aSource,
+      const MaybeDiscarded<BrowsingContext>& aTarget);
+
   mozilla::ipc::IPCResult RecvConstructPopupBrowser(
       ManagedEndpoint<PBrowserParent>&& actor,
       ManagedEndpoint<PWindowGlobalParent>&& windowEp, const TabId& tabId,
