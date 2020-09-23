@@ -18,7 +18,32 @@ namespace mozilla {
 namespace dom {
 
 class Promise;
-class PromiseWorkerProxy;
+class SystemMessageManager;
+
+class SystemMessageManagerImpl {
+ public:
+  virtual already_AddRefed<Promise> Subscribe(const nsAString& aMessageName,
+                                              ErrorResult& aRv) = 0;
+  virtual void AddOuter(SystemMessageManager* aOuter) = 0;
+  virtual void RemoveOuter(SystemMessageManager* aOuter) = 0;
+
+  NS_INLINE_DECL_PURE_VIRTUAL_REFCOUNTING
+};
+
+class SystemMessageManagerMain final : public SystemMessageManagerImpl {
+ public:
+  NS_INLINE_DECL_REFCOUNTING(SystemMessageManagerMain, override)
+
+  explicit SystemMessageManagerMain();
+  virtual already_AddRefed<Promise> Subscribe(const nsAString& aMessageName,
+                                              ErrorResult& aRv) override;
+  virtual void AddOuter(SystemMessageManager* aOuter) override;
+  virtual void RemoveOuter(SystemMessageManager* aOuter) override;
+
+ private:
+  ~SystemMessageManagerMain();
+  SystemMessageManager* mOuter;
+};
 
 class SystemMessageManager final : public nsISupports,
                                    public nsWrapperCache
@@ -40,17 +65,17 @@ class SystemMessageManager final : public nsISupports,
   already_AddRefed<Promise> Subscribe(const nsAString& aMessageName,
                                       ErrorResult& aRv);
 
-  nsresult CreateSubscription(Promise* aPromise, PromiseWorkerProxy* aProxy,
-                              const nsAString& aMessageName);
-
- private:
-  explicit SystemMessageManager(nsIGlobalObject* aGlobal,
-                                const nsACString& aScope);
-  explicit SystemMessageManager(const nsACString& aScope);
+ protected:
+  friend class SystemMessageManagerMain;
+  friend class SystemMessageManagerWorker;
+  explicit SystemMessageManager(
+      nsIGlobalObject* aGlobal, const nsACString& aScope,
+      already_AddRefed<SystemMessageManagerImpl> aImpl);
   ~SystemMessageManager();
 
   nsCOMPtr<nsIGlobalObject> mGlobal;
   nsCString mScope;
+  RefPtr<SystemMessageManagerImpl> mImpl;
 };
 }  // namespace dom
 }  // namespace mozilla

@@ -14,14 +14,20 @@ DIRS += [
 
 UNIFIED_SOURCES += [
     'SystemMessageManager.cpp',
+    'SystemMessageManagerWorker.cpp',
     'SystemMessageService.cpp',
     'SystemMessageSubscription.cpp',
 ]
 
 EXPORTS.mozilla.dom += [
     'SystemMessageManager.h',
+    'SystemMessageManagerWorker.h',
     'SystemMessageService.h',
     'SystemMessageSubscription.h',
+]
+
+XPCOM_MANIFESTS += [
+    'components.conf',
 ]
 
 include('/ipc/chromium/chromium-config.mozbuild')

@@ -7,68 +7,22 @@
 #include "mozilla/dom/SystemMessageManager.h"
 
 #include "mozilla/dom/SystemMessageManagerBinding.h"
+#include "mozilla/dom/SystemMessageManagerWorker.h"
 #include "mozilla/dom/SystemMessageSubscription.h"
 #include "mozilla/dom/Promise.h"
-#include "mozilla/dom/PromiseWorkerProxy.h"
-#include "mozilla/dom/WorkerRunnable.h"
-#include "mozilla/dom/WorkerPrivate.h"
-#include "mozilla/dom/WorkerScope.h"
 #include "nsIGlobalObject.h"
 
 namespace mozilla {
 namespace dom {
 
-namespace {
-
-class CreateSubscriptionRunnable final : public WorkerMainThreadRunnable {
- public:
-  explicit CreateSubscriptionRunnable(WorkerPrivate* aWorkerPrivate,
-                                      SystemMessageManager* aManager,
-                                      PromiseWorkerProxy* aProxy,
-                                      const nsAString& aMessageName)
-      : WorkerMainThreadRunnable(aWorkerPrivate,
-                                 "SystemMessage :: CreateSubscription"_ns),
-        mManager(aManager),
-        mProxy(aProxy),
-        mMessageName(aMessageName) {}
-
-  bool MainThreadRun() override {
-    AssertIsOnMainThread();
-
-    mError = mManager->CreateSubscription(nullptr, mProxy, mMessageName);
-    return true;
-  }
-
-  nsresult mError;
-
- private:
-  ~CreateSubscriptionRunnable() {}
-
-  RefPtr<SystemMessageManager> mManager;
-  RefPtr<PromiseWorkerProxy> mProxy;
-  nsString mMessageName;
-};
-
-}  // anonymous namespace
-
-SystemMessageManager::SystemMessageManager(nsIGlobalObject* aGlobal,
-                                           const nsACString& aScope)
-    : mGlobal(aGlobal), mScope(aScope) {
-  AssertIsOnMainThread();
+SystemMessageManager::SystemMessageManager(
+    nsIGlobalObject* aGlobal, const nsACString& aScope,
+    already_AddRefed<SystemMessageManagerImpl> aImpl)
+    : mGlobal(aGlobal), mScope(aScope), mImpl(aImpl) {
+  mImpl->AddOuter(this);
 }
 
-SystemMessageManager::SystemMessageManager(const nsACString& aScope)
-    : mScope(aScope) {
-#ifdef DEBUG
-  // There's only one global on a worker, so we don't need to pass a global
-  // object to the constructor.
-  WorkerPrivate* worker = GetCurrentThreadWorkerPrivate();
-  MOZ_ASSERT(worker);
-  worker->AssertIsOnWorkerThread();
-#endif
-}
-
-SystemMessageManager::~SystemMessageManager() {}
+SystemMessageManager::~SystemMessageManager() { mImpl->RemoveOuter(this); }
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(SystemMessageManager, mGlobal)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(SystemMessageManager)
@@ -86,94 +40,66 @@ JSObject* SystemMessageManager::WrapObject(JSContext* aCx,
 // static
 already_AddRefed<SystemMessageManager> SystemMessageManager::Create(
     nsIGlobalObject* aGlobal, const nsACString& aScope, ErrorResult& aRv) {
-  if (!NS_IsMainThread()) {
-    RefPtr<SystemMessageManager> ret = new SystemMessageManager(aScope);
-    return ret.forget();
+  RefPtr<SystemMessageManagerImpl> impl;
+  if (NS_IsMainThread()) {
+    impl = new SystemMessageManagerMain();
+  } else {
+    impl = new SystemMessageManagerWorker();
   }
 
-  RefPtr<SystemMessageManager> ret = new SystemMessageManager(aGlobal, aScope);
-
+  RefPtr<SystemMessageManager> ret =
+      new SystemMessageManager(aGlobal, aScope, impl.forget());
   return ret.forget();
 }
 
 already_AddRefed<Promise> SystemMessageManager::Subscribe(
     const nsAString& aMessageName, ErrorResult& aRv) {
-  if (NS_IsMainThread()) {
-    RefPtr<Promise> promise = Promise::Create(mGlobal, aRv);
-    if (NS_WARN_IF(aRv.Failed())) {
-      return nullptr;
-    }
-
-    nsresult rv = CreateSubscription(promise, nullptr, aMessageName);
-    if (NS_FAILED(rv)) {
-      promise->MaybeReject(rv);
-      return promise.forget();
-    }
-
-    return promise.forget();
-  } else {
-    WorkerPrivate* worker = GetCurrentThreadWorkerPrivate();
-    MOZ_ASSERT(worker);
-    worker->AssertIsOnWorkerThread();
-
-    nsCOMPtr<nsIGlobalObject> global = worker->GlobalScope();
-    RefPtr<Promise> promise = Promise::Create(global, aRv);
-    if (NS_WARN_IF(aRv.Failed())) {
-      return nullptr;
-    }
-
-    RefPtr<PromiseWorkerProxy> proxy =
-        PromiseWorkerProxy::Create(worker, promise);
-    if (!proxy) {
-      promise->MaybeReject(NS_ERROR_DOM_ABORT_ERR);
-      return promise.forget();
-    }
-
-    RefPtr<CreateSubscriptionRunnable> r =
-        new CreateSubscriptionRunnable(worker, this, proxy, aMessageName);
-    ErrorResult rv;
-    r->Dispatch(Canceling, rv);
-    if (rv.Failed()) {
-      promise->MaybeReject(NS_ERROR_DOM_ABORT_ERR);
-      return promise.forget();
-    }
-
-    if (NS_FAILED(r->mError)) {
-      promise->MaybeReject(r->mError);
-      return promise.forget();
-    }
-
-    return promise.forget();
-  }
-
-  return nullptr;
+  return mImpl->Subscribe(aMessageName, aRv);
 }
 
-nsresult SystemMessageManager::CreateSubscription(
-    Promise* aPromise, PromiseWorkerProxy* aProxy,
-    const nsAString& aMessageName) {
-  AssertIsOnMainThread();
+SystemMessageManagerMain::SystemMessageManagerMain() : mOuter(nullptr) {}
 
-  // TODO: Maybe we can check for permissions from principal here.
-  nsCOMPtr<nsIPrincipal> principal;
-  if (mGlobal) {
-    principal = mGlobal->PrincipalOrNull();
-  } else if (aProxy) {
-    MutexAutoLock lock(aProxy->Lock());
-    if (aProxy->CleanedUp()) {
-      return NS_ERROR_DOM_ABORT_ERR;
-    }
-    principal = aProxy->GetWorkerPrivate()->GetPrincipal();
+SystemMessageManagerMain::~SystemMessageManagerMain() {
+  MOZ_DIAGNOSTIC_ASSERT(!mOuter);
+}
+
+already_AddRefed<Promise> SystemMessageManagerMain::Subscribe(
+    const nsAString& aMessageName, ErrorResult& aRv) {
+  MOZ_DIAGNOSTIC_ASSERT(mOuter);
+  RefPtr<Promise> promise = Promise::Create(mOuter->GetParentObject(), aRv);
+  if (NS_WARN_IF(aRv.Failed())) {
+    return nullptr;
   }
 
+  nsCOMPtr<nsIPrincipal> principal =
+      mOuter->GetParentObject()->PrincipalOrNull();
   if (!principal) {
-    return NS_ERROR_DOM_ABORT_ERR;
+    promise->MaybeReject(NS_ERROR_DOM_ABORT_ERR);
+    return promise.forget();
   }
 
   RefPtr<SystemMessageSubscription> subscription =
-      SystemMessageSubscription::Create(principal, aPromise, aProxy, mScope,
-                                        aMessageName);
-  return subscription->Subscribe();
+      SystemMessageSubscription::Create(principal, promise, nullptr,
+                                        mOuter->mScope, aMessageName);
+  nsresult rv = subscription->Subscribe();
+  if (NS_FAILED(rv)) {
+    promise->MaybeReject(rv);
+    return promise.forget();
+  }
+
+  return promise.forget();
+}
+
+void SystemMessageManagerMain::AddOuter(SystemMessageManager* aOuter) {
+  MOZ_DIAGNOSTIC_ASSERT(aOuter);
+  MOZ_DIAGNOSTIC_ASSERT(!mOuter);
+  mOuter = aOuter;
+}
+
+void SystemMessageManagerMain::RemoveOuter(SystemMessageManager* aOuter) {
+  MOZ_DIAGNOSTIC_ASSERT(aOuter);
+  MOZ_DIAGNOSTIC_ASSERT(mOuter == aOuter);
+  mOuter = nullptr;
 }
 
 }  // namespace dom
