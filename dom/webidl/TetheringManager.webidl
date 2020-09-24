@@ -29,6 +29,7 @@ dictionary TetheringConfiguration {
 };
 
 [JSImplementation="@mozilla.org/tetheringconfiginfo;1",
+ Func="B2G::HasTetheringManagerSupport",
  Exposed=Window]
 interface TetheringConfigInfo {
   constructor(optional TetheringConfiguration tetheringConfigurationDict = {});
@@ -46,6 +47,7 @@ interface TetheringConfigInfo {
 
 
 [JSImplementation="@mozilla.org/tetheringmanager;1",
+ Func="B2G::HasTetheringManagerSupport",
  Exposed=Window]
 interface TetheringManager : EventTarget {
 

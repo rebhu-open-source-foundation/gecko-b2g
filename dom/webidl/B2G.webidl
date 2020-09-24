@@ -35,8 +35,9 @@ partial interface B2G {
   readonly attribute InputMethod inputMethod;
 };
 
+[Exposed=Window]
 partial interface B2G {
-  [Throws, Exposed=Window]
+  [Throws,  Func="B2G::HasTetheringManagerSupport"]
   readonly attribute TetheringManager tetheringManager;
 };
 

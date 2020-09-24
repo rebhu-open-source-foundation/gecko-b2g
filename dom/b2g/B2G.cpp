@@ -486,6 +486,16 @@ bool B2G::HasWifiManagerSupport(JSContext* /* unused */, JSObject* aGlobal) {
   return innerWindow ? CheckPermission("wifi-manage"_ns, innerWindow) : false;
 }
 
+/* static */
+bool B2G::HasTetheringManagerSupport(JSContext* /* unused */, JSObject* aGlobal) {
+#if !defined(MOZ_WIDGET_GONK)
+  return false;
+#endif
+
+  nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);
+  return innerWindow ? CheckPermission("tethering"_ns, innerWindow) : false;
+}
+
 DownloadManager* B2G::GetDownloadManager(ErrorResult& aRv) {
   if (!mDownloadManager) {
     if (!mOwner) {

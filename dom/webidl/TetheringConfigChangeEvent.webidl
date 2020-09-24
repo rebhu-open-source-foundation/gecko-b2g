@@ -3,7 +3,8 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-[Exposed=(Window)]
+[Func="B2G::HasTetheringManagerSupport",
+ Exposed=(Window)]
 interface TetheringConfigChangeEvent : Event
 {
   constructor(DOMString type, optional TetheringConfigChangeEventInit eventInitDict = {});
