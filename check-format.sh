@@ -35,18 +35,14 @@ help() {
 }
 
 check_commit_msg() {
-  COMMIT_MESSAGE_PATTERN="^Bug [[:digit:]]+ \- (.+\.) r=(me, a=)?([a-z]+\.[a-z]+)$"
+  COMMIT_MESSAGE_PATTERN="^Bug [[:digit:]]+ \- "
   local msg="${1}"
 
-  [[ ${msg} =~ ${COMMIT_MESSAGE_PATTERN} ]] && {
-      if [[ -n ${BASH_REMATCH[2]} ]]; then
-        warn "Seems that you have urgency, please make sure this is approved by ${BASH_REMATCH[3]}"
-      fi
-  } || {
-    warn "Commit message format error:"
-    echo "${msg}"
+  if ! [[ ${msg} =~ ${COMMIT_MESSAGE_PATTERN} ]]; then
+    warn "Commit message format error. Please correct it by following the format as below:"
+    echo "Bug xxxxxxx - [A brief decription] r=frist_name.last_name[, r=r2, r=r3 ...]"
     exit -1
-  }
+  fi
 }
 
 trap 'warn "$(basename $0) caught error on line : $LINENO command was: $BASH_COMMAND"; exit 1' ERR
@@ -93,11 +89,6 @@ all_files=()
 js_files=()
 other_files=()
 
-# validate the title of MR when running in CI
-if ${GITLAB_CI}; then
-  info "Validate the title of MR..."
-  check_commit_msg "${CI_MERGE_REQUEST_TITLE}"
-fi
 info "Diff against ${against_ref}"
 if [[ ${against_ref} == HEAD ]]; then
   # assume that all changed files are unstaged
