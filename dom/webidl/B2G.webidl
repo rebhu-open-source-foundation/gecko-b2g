@@ -19,6 +19,12 @@ partial interface B2G {
 
 [Exposed=Window]
 partial interface B2G {
+  [Throws, Func="B2G::HasDownloadsPermission", Pref="dom.downloads.enabled"]
+  readonly attribute DownloadManager downloadManager;
+};
+
+[Exposed=Window]
+partial interface B2G {
   [Throws, Pref="dom.flashlight.enabled"]
   Promise<FlashlightManager> getFlashlightManager();
 };
@@ -120,11 +126,6 @@ partial interface B2G {
   readonly attribute WifiManager wifiManager;
 };
 #endif // MOZ_WIDGET_GONK && !DISABLE_WIFI
-
-partial interface B2G {
-  [Throws, Pref="dom.downloads.enabled", Exposed=Window]
-  readonly attribute DownloadManager downloadManager;
-};
 
 #ifdef MOZ_AUDIO_CHANNEL_MANAGER
 [Exposed=Window]

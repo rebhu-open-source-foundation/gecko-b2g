@@ -4,7 +4,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-[Exposed=Window, Pref="dom.downloads.enabled", ChromeOnly]
+[Exposed=Window, Pref="dom.downloads.enabled"]
 interface DownloadEvent : Event
 {
   constructor(DOMString type, optional DownloadEventInit eventInitDict = {});

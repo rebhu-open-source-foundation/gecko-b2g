@@ -157,6 +157,11 @@ this.PermissionsTable = {
     core: ALLOW_ACTION,
     access: ["read", "write", "create"],
   },
+  downloads: {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
   engmode: {
     pwa: DENY_ACTION,
     signed: DENY_ACTION,

@@ -19,8 +19,7 @@ enum DownloadState {
 
 [JSImplementation="@mozilla.org/downloads/manager;1",
  Pref="dom.downloads.enabled",
- Exposed=Window,
- ChromeOnly]
+ Exposed=Window]
 interface DownloadManager : EventTarget {
   // This promise returns an array of downloads with all the current
   // download objects.
@@ -61,8 +60,7 @@ interface DownloadManager : EventTarget {
 
 [JSImplementation="@mozilla.org/downloads/object;1",
  Pref="dom.downloads.enabled",
- Exposed=Window,
- ChromeOnly]
+ Exposed=Window]
 interface DownloadObject : EventTarget {
   // The full size of the resource.
   readonly attribute long long totalBytes;

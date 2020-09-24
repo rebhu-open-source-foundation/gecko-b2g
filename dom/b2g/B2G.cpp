@@ -599,6 +599,12 @@ DownloadManager* B2G::GetDownloadManager(ErrorResult& aRv) {
 }
 
 /* static */
+bool B2G::HasDownloadsPermission(JSContext* /* unused */, JSObject* aGlobal) {
+  nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);
+  return B2G::CheckPermission("downloads"_ns, innerWindow);
+}
+
+/* static */
 bool B2G::HasPermissionsManagerSupport(JSContext* /* unused */,
                                        JSObject* aGlobal) {
   nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);

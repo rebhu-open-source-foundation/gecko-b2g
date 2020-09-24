@@ -136,6 +136,8 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
                                            JSObject* aGlobal);
 
   DownloadManager* GetDownloadManager(ErrorResult& aRv);
+  static bool HasDownloadsPermission(JSContext* /* unused */,
+                                     JSObject* aGlobal);
 
   static bool HasPermissionsManagerSupport(JSContext* /* unused */,
                                            JSObject* aGlobal);
