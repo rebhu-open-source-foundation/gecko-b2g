@@ -765,8 +765,7 @@ class ContentParent final
       bool aLoadUri, nsIContentSecurityPolicy* aCsp,
       const OriginAttributes& aOriginAttributes);
 
-  explicit ContentParent(int32_t aPluginID)
-      : ContentParent(EmptyCString(), aPluginID) {}
+  explicit ContentParent(int32_t aPluginID) : ContentParent(""_ns, aPluginID) {}
   explicit ContentParent(const nsACString& aRemoteType)
       : ContentParent(aRemoteType, nsFakePluginTag::NOT_JSPLUGIN) {}
 
@@ -1429,7 +1428,7 @@ class ContentParent final
       const MaybeDiscarded<BrowsingContext>& aContext);
 
   mozilla::ipc::IPCResult RecvNotifyOnHistoryReload(
-      const MaybeDiscarded<BrowsingContext>& aContext,
+      const MaybeDiscarded<BrowsingContext>& aContext, const bool& aForceReload,
       NotifyOnHistoryReloadResolver&& aResolver);
 
   mozilla::ipc::IPCResult RecvHistoryCommit(

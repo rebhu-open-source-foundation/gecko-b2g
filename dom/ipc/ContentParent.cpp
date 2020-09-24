@@ -269,7 +269,7 @@
 #endif  // MOZ_B2G_RIL
 
 #ifdef MOZ_WEBRTC
-#  include "signaling/src/peerconnection/WebrtcGlobalParent.h"
+#  include "jsapi/WebrtcGlobalParent.h"
 #endif
 
 #if defined(XP_MACOSX)
@@ -544,8 +544,8 @@ ContentParentsMemoryReporter::CollectReports(
         "messages.  Similarly, a ContentParent object for a process that's no "
         "longer running could indicate that we're leaking ContentParents."_ns;
 
-    aHandleReport->Callback(/* process */ EmptyCString(), path, KIND_OTHER,
-                            UNITS_COUNT, numQueuedMessages, desc, aData);
+    aHandleReport->Callback(/* process */ ""_ns, path, KIND_OTHER, UNITS_COUNT,
+                            numQueuedMessages, desc, aData);
   }
 
   return NS_OK;
@@ -1637,7 +1637,7 @@ void ContentParent::Init() {
 
   // Ensure that the default set of permissions are avaliable in the content
   // process before we try to load any URIs in it.
-  EnsurePermissionsByKey(EmptyCString(), EmptyCString());
+  EnsurePermissionsByKey(""_ns, ""_ns);
 
   RefPtr<GeckoMediaPluginServiceParent> gmps(
       GeckoMediaPluginServiceParent::GetSingleton());
@@ -3442,9 +3442,9 @@ void ContentParent::AddShutdownBlockers() {
   InitClients();
 
   sXPCOMShutdownClient->AddBlocker(
-      this, NS_LITERAL_STRING_FROM_CSTRING(__FILE__), __LINE__, EmptyString());
+      this, NS_LITERAL_STRING_FROM_CSTRING(__FILE__), __LINE__, u""_ns);
   sProfileBeforeChangeClient->AddBlocker(
-      this, NS_LITERAL_STRING_FROM_CSTRING(__FILE__), __LINE__, EmptyString());
+      this, NS_LITERAL_STRING_FROM_CSTRING(__FILE__), __LINE__, u""_ns);
 }
 
 void ContentParent::RemoveShutdownBlockers() {
@@ -6293,10 +6293,7 @@ nsresult ContentParent::AboutToLoadHttpFtpDocumentForChild(
     UpdateCookieStatus(aChannel);
   }
 
-  RefPtr<nsILoadInfo> loadInfo;
-  rv = aChannel->GetLoadInfo(getter_AddRefs(loadInfo));
-  NS_ENSURE_SUCCESS(rv, rv);
-
+  RefPtr<nsILoadInfo> loadInfo = aChannel->LoadInfo();
   RefPtr<BrowsingContext> browsingContext;
   rv = loadInfo->GetTargetBrowsingContext(getter_AddRefs(browsingContext));
   NS_ENSURE_SUCCESS(rv, rv);
@@ -7439,14 +7436,14 @@ mozilla::ipc::IPCResult ContentParent::RecvReportServiceWorkerShutdownProgress(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvNotifyOnHistoryReload(
-    const MaybeDiscarded<BrowsingContext>& aContext,
+    const MaybeDiscarded<BrowsingContext>& aContext, const bool& aForceReload,
     NotifyOnHistoryReloadResolver&& aResolver) {
   bool canReload = false;
   Maybe<RefPtr<nsDocShellLoadState>> loadState;
   Maybe<bool> reloadActiveEntry;
   if (!aContext.IsDiscarded()) {
-    aContext.get_canonical()->NotifyOnHistoryReload(canReload, loadState,
-                                                    reloadActiveEntry);
+    aContext.get_canonical()->NotifyOnHistoryReload(
+        aForceReload, canReload, loadState, reloadActiveEntry);
   }
   aResolver(Tuple<const bool&, const Maybe<RefPtr<nsDocShellLoadState>>&,
                   const Maybe<bool>&>(canReload, loadState, reloadActiveEntry));

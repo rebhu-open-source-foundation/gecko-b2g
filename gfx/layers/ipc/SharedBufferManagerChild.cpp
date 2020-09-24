@@ -12,7 +12,7 @@
 #include "mozilla/layers/SharedBufferManagerParent.h"
 #include "mozilla/StaticPtr.h"          // for StaticRefPtr
 #include "mozilla/ReentrantMonitor.h"   // for ReentrantMonitor, etc
-#include "mtransport/runnable_utils.h"
+#include "transport/runnable_utils.h"
 #include "nsThreadUtils.h"              // fo NS_IsMainThread
 
 #ifdef MOZ_WIDGET_GONK

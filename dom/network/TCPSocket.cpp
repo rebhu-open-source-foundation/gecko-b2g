@@ -834,7 +834,7 @@ already_AddRefed<TCPSocket> TCPSocket::CreateAcceptedSocket(
     nsIGlobalObject* aGlobal, nsISocketTransport* aTransport,
     bool aUseArrayBuffers) {
   RefPtr<TCPSocket> socket =
-      new TCPSocket(aGlobal, EmptyString(), 0, false, aUseArrayBuffers);
+      new TCPSocket(aGlobal, u""_ns, 0, false, aUseArrayBuffers);
   nsresult rv = socket->InitWithTransport(aTransport);
   NS_ENSURE_SUCCESS(rv, nullptr);
   return socket.forget();
@@ -843,7 +843,7 @@ already_AddRefed<TCPSocket> TCPSocket::CreateAcceptedSocket(
 already_AddRefed<TCPSocket> TCPSocket::CreateAcceptedSocket(
     nsIGlobalObject* aGlobal, TCPSocketChild* aBridge, bool aUseArrayBuffers) {
   RefPtr<TCPSocket> socket =
-      new TCPSocket(aGlobal, EmptyString(), 0, false, aUseArrayBuffers);
+      new TCPSocket(aGlobal, u""_ns, 0, false, aUseArrayBuffers);
   socket->InitWithSocketChild(aBridge);
   return socket.forget();
 }

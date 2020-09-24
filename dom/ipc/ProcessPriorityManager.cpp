@@ -131,8 +131,8 @@ class ProcessPriorityManagerImpl final : public nsIObserver,
    * If a magic testing-only pref is set, notify the observer service on the
    * given topic with the given data.  This is used for testing
    */
-  void FireTestOnlyObserverNotification(
-      const char* aTopic, const nsACString& aData = EmptyCString());
+  void FireTestOnlyObserverNotification(const char* aTopic,
+                                        const nsACString& aData = ""_ns);
 
   /**
    * This must be called by a ParticularProcessPriorityManager when it changes
@@ -263,8 +263,8 @@ class ParticularProcessPriorityManager final : public WakeLockObserver,
   }
 
  private:
-  void FireTestOnlyObserverNotification(
-      const char* aTopic, const nsACString& aData = EmptyCString());
+  void FireTestOnlyObserverNotification(const char* aTopic,
+                                        const nsACString& aData = ""_ns);
 
   void FireTestOnlyObserverNotification(const char* aTopic,
                                         const char* aData = nullptr);
@@ -830,7 +830,7 @@ void ParticularProcessPriorityManager::ShutDown() {
 }
 
 void ProcessPriorityManagerImpl::FireTestOnlyObserverNotification(
-    const char* aTopic, const nsACString& aData /* = EmptyCString() */) {
+    const char* aTopic, const nsACString& aData /* = ""_ns */) {
   if (!TestMode()) {
     return;
   }
@@ -860,7 +860,7 @@ void ParticularProcessPriorityManager::FireTestOnlyObserverNotification(
 }
 
 void ParticularProcessPriorityManager::FireTestOnlyObserverNotification(
-    const char* aTopic, const nsACString& aData /* = EmptyCString() */) {
+    const char* aTopic, const nsACString& aData /* = ""_ns */) {
   if (!ProcessPriorityManagerImpl::TestMode()) {
     return;
   }

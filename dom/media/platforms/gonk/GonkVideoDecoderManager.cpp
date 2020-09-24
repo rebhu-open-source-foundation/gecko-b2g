@@ -136,8 +136,7 @@ RefPtr<MediaDataDecoder::InitPromise> GonkVideoDecoderManager::Init() {
       Preferences::GetInt("gonk.video.max_video_decode_height", -1);
   maxWidth = -1 == maxWidth ? GONK_MAX_VIDEO_WIDTH : maxWidth;
   maxHeight = -1 == maxHeight ? GONK_MAX_VIDEO_HEIGHT : maxHeight;
-  if (uint32_t(mConfig.mImage.width * mConfig.mImage.height) >
-      maxWidth * maxHeight) {
+  if (mConfig.mImage.width * mConfig.mImage.height > maxWidth * maxHeight) {
     LOGE("Video resolution exceeds hw codec capability");
     return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR, __func__);
   }

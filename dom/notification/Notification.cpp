@@ -804,8 +804,8 @@ already_AddRefed<Notification> Notification::Constructor(
   }
 
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
-  RefPtr<Notification> notification = CreateAndShow(
-      aGlobal.Context(), global, aTitle, aOptions, EmptyString(), aRv);
+  RefPtr<Notification> notification =
+      CreateAndShow(aGlobal.Context(), global, aTitle, aOptions, u""_ns, aRv);
   if (NS_WARN_IF(aRv.Failed())) {
     return nullptr;
   }
@@ -1847,7 +1847,7 @@ already_AddRefed<Promise> Notification::Get(
   MOZ_ASSERT(global);
   nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(global);
 
-  return Get(window, aFilter, EmptyString(), aRv);
+  return Get(window, aFilter, u""_ns, aRv);
 }
 
 class WorkerGetResultRunnable final : public NotificationWorkerRunnable {
@@ -2404,7 +2404,7 @@ already_AddRefed<Notification> Notification::CreateAndShow(
   MOZ_ASSERT(aGlobal);
 
   RefPtr<Notification> notification =
-      CreateInternal(aGlobal, EmptyString(), aTitle, aOptions);
+      CreateInternal(aGlobal, u""_ns, aTitle, aOptions);
 
   // Make a structured clone of the aOptions.mData object
   JS::Rooted<JS::Value> data(aCx, aOptions.mData);
