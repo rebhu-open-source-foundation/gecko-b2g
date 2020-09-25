@@ -85,7 +85,7 @@
   const processSelector = {
     NEW_PROCESS: -1,
 
-    provideProcess(aType, aOpener, aProcesses, aMaxCount) {
+    provideProcess(aType, aProcesses, aMaxCount) {
       log(
         `provideProcess ${aType} ${JSON.stringify(
           aProcesses

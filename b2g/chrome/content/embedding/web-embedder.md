@@ -80,7 +80,7 @@ This delegate allows the embedder to control how content processes are reused or
 
 ## Methods
 
-- `provideProcess(aType, aOpener, aProcesses, aMaxCount)` returns the index of the process to reuse or -1 to create a new process.
+- `provideProcess(aType, aProcesses, aMaxCount)` returns the index of the process to reuse or -1 to create a new process.
 
 ## Notifications delegate
 
