@@ -457,14 +457,18 @@ nsresult AdvertisingDataToGattAdvertisingData(
   }
 
   if (!aAdvData.mManufacturerData.IsNull()) {
-    // First two bytes are manufacturer ID in little-endian.
-    aGattAdvData.mManufacturerData.SetLength(2);
+    const ArrayBuffer& manufacturerData = aAdvData.mManufacturerData.Value();
+    manufacturerData.ComputeState();
+
+    // Manufacturer Specific Data, 0xff
+    aGattAdvData.mManufacturerData.SetLength(4);
+    aGattAdvData.mServiceData[0] = 3 + manufacturerData.Length();
+    aGattAdvData.mServiceData[1] = 0xff;
+    // 3rd and 4th bytes are manufacturer ID in little-endian.
     LittleEndian::writeUint16(aGattAdvData.mManufacturerData.Elements(),
                               aAdvData.mManufacturerId);
 
     // Concatenate custom manufacturer data.
-    const ArrayBuffer& manufacturerData = aAdvData.mManufacturerData.Value();
-    manufacturerData.ComputeState();
     aGattAdvData.mManufacturerData.AppendElements(manufacturerData.Data(),
                                                   manufacturerData.Length());
   }
@@ -475,38 +479,191 @@ nsresult AdvertisingDataToGattAdvertisingData(
       return NS_ERROR_ILLEGAL_VALUE;
     }
 
-    // Some BSPs can only accept 16-bit UUID since Android only takes 16-bit
-    // UUID for serviceData of advertising data
-    // Let's convert 128-bit UUID into 16-bit if it's posible.
-    BluetoothUuid tmpUuid;
-    tmpUuid.SetUuid16(uuid.GetUuid16());
-    // Whether the uuid can be converted to 16 bit UUID
-    if (tmpUuid == uuid) {
-      // First 2 bytes are 16-bit service UUID in little-endian.
+    const ArrayBuffer& serviceData = aAdvData.mServiceData.Value();
+    serviceData.ComputeState();
+
+    // Convert 128-bit UUID into 16-bit/32-bit if it's posible.
+    if (uuid.IsUuid16Convertible()) {
+      BT_LOGR("Sending serviceData with 16-bit UUID");
+      // Service Data - 16-bit UUID,  0x16
+      aGattAdvData.mServiceData.SetLength(4);
+      aGattAdvData.mServiceData[0] = 3 + serviceData.Length();
+      aGattAdvData.mServiceData[1] = 0x16;
+
+      // 3rd and 4th bytes are 16-bit service UUID in little-endian.
       // Extract 16-bit UUID from a 128-bit UUID.
       // BASE_UUID: 00000000-0000-1000-8000-00805F9B34FB
       //                ^^^^
       //                16-bit UUID is composed by mUuid[2] and mUuid[3]
-      aGattAdvData.mServiceData.SetLength(2);
-      aGattAdvData.mServiceData[0] = uuid.mUuid[3];
-      aGattAdvData.mServiceData[1] = uuid.mUuid[2];
+      aGattAdvData.mServiceData[3] = uuid.mUuid[3];
+      aGattAdvData.mServiceData[4] = uuid.mUuid[2];
+    } else if (uuid.IsUuid32Convertible()) {
+      BT_LOGR("Sending serviceData with 32-bit UUID");
+      // Service Data - 32-bit UUID,  0x20
+      aGattAdvData.mServiceData.SetLength(6);
+      aGattAdvData.mServiceData[0] = 5 + serviceData.Length();
+      aGattAdvData.mServiceData[1] = 0x16;
+
+      // 3rd - 6th bytes are 32-bit service UUID in little-endian.
+      // Extract 32-bit UUID from a 128-bit UUID.
+      // BASE_UUID: 00000000-0000-1000-8000-00805F9B34FB
+      //            ^^^^^^^^
+      //                32-bit UUID is composed by mUuid[0] ~ mUuid[3]
+      aGattAdvData.mServiceData[3] = uuid.mUuid[3];
+      aGattAdvData.mServiceData[4] = uuid.mUuid[2];
+      aGattAdvData.mServiceData[5] = uuid.mUuid[1];
+      aGattAdvData.mServiceData[6] = uuid.mUuid[0];
     } else {
       BT_LOGR("Sending serviceData with 128-bit UUID");
-      // First 16 bytes are service UUID in little-endian.
-      aGattAdvData.mServiceData.SetLength(16);
+      // Service Data - 128-bit UUID, 0x21
+      aGattAdvData.mServiceData.SetLength(18);
+      aGattAdvData.mServiceData[0] = 17 + serviceData.Length();
+      aGattAdvData.mServiceData[1] = 0x21;
+      // 2nd - 18th bytes are service UUID in little-endian.
       for (size_t i = 0; i < sizeof(uuid.mUuid); i++) {
-        aGattAdvData.mServiceData[i] = uuid.mUuid[sizeof(uuid.mUuid) - i - 1];
+        aGattAdvData.mServiceData[i + 2] =
+            uuid.mUuid[sizeof(uuid.mUuid) - i - 1];
       }
     }
 
     // Concatenate custom service data.
-    const ArrayBuffer& serviceData = aAdvData.mServiceData.Value();
-    serviceData.ComputeState();
     aGattAdvData.mServiceData.AppendElements(serviceData.Data(),
                                              serviceData.Length());
   }
 
   return NS_OK;
+}
+
+void GattAdvertisingDataToBytes(const BluetoothGattAdvertisingData& aData,
+                                nsTArray<uint8_t>& aArray) {
+  aArray.Clear();
+
+  // Service UUIDs
+  if (!aData.mServiceUuids.IsEmpty()) {
+    nsTArray<BluetoothUuid> uuid16s, uuid32s, uuid128s;
+    for (size_t i = 0; i < aData.mServiceUuids.Length(); i++) {
+      if (aData.mServiceUuids[i].IsUuid16Convertible()) {
+        uuid16s.AppendElement(aData.mServiceUuids[i]);
+      } else if (aData.mServiceUuids[i].IsUuid32Convertible()) {
+        uuid32s.AppendElement(aData.mServiceUuids[i]);
+      } else {
+        uuid128s.AppendElement(aData.mServiceUuids[i]);
+      }
+    }
+
+    // Incomplete List of 16-bit Service Class UUIDs,  0x02
+    // Complete List of 16-bit Service Class UUIDs,    0x03
+    if (!uuid16s.IsEmpty()) {
+      size_t len = uuid16s.Length();
+      uint8_t adType;
+      if (len > 4) {
+        len = 4;
+        adType = 0x02;  // Incomplete List of 16-bit UUIDs
+      } else {
+        adType = 0x03;  // Complete List of 16-bit UUIDs
+      }
+      aArray.AppendElement(1 + len * 2);
+      aArray.AppendElement(adType);
+      for (size_t i = 0; i < len; i++) {
+        uint16_t uuid16 = uuid16s[i].GetUuid16();
+        aArray.AppendElement(uuid16 & 0xFF);
+        aArray.AppendElement((uuid16 >> 8) & 0xFF);
+      }
+    }
+
+    // Incomplete List of 32-bit Service Class UUIDs,  0x04
+    // Complete List of 32-bit Service Class UUIDs,    0x05
+    if (!uuid32s.IsEmpty()) {
+      size_t len = uuid32s.Length();
+      uint8_t adType;
+      if (len > 2) {
+        len = 2;
+        adType = 0x04;  // Incomplete List of 32-bit UUIDs
+      } else {
+        adType = 0x05;  // Complete List of 32-bit UUIDs
+      }
+      aArray.AppendElement(1 + len * 4);
+      aArray.AppendElement(adType);
+      for (size_t i = 0; i < len; i++) {
+        uint32_t uuid32 = uuid32s[i].GetUuid32();
+        aArray.AppendElement(uuid32 & 0xFF);
+        aArray.AppendElement((uuid32 >> 8) & 0xFF);
+        aArray.AppendElement((uuid32 >> 16) & 0xFF);
+        aArray.AppendElement((uuid32 >> 24) & 0xFF);
+      }
+    }
+
+    // Incomplete List of 128-bit Service Class UUIDs, 0x06
+    // Complete List of 128-bit Service Class UUIDs,   0x07
+    if (!uuid128s.IsEmpty()) {
+      size_t len = uuid128s.Length();
+      uint8_t adType;
+      if (len > 1) {
+        len = 1;
+        adType = 0x06;  // Incomplete List of 128-bit UUIDs
+      } else {
+        adType = 0x07;  // Complete List of 128-bit UUIDs
+      }
+      aArray.AppendElement(1 + len * 16);
+      aArray.AppendElement(adType);
+      for (size_t i = 0; i < len; i++) {
+        for (size_t j = 0; j < sizeof(uuid128s[i].mUuid); j++) {
+          // little-endian
+          aArray.AppendElement(
+              uuid128s[i].mUuid[sizeof(uuid128s[i].mUuid) - j - 1]);
+        }
+      }
+    }
+  }
+
+  // Shortened Local Name, 0x08
+  // Complete Local Name,  0x09
+  if (aData.mIncludeDevName && aData.mDeviceName.mLength > 0) {
+    uint8_t len = aData.mDeviceName.mLength;
+    uint8_t adType;
+    if (len > 10) {
+      len = 10;
+      adType = 0x08;  // Shortened Local Name
+    } else {
+      adType = 0x09;  // Complete Local Name
+    }
+
+    aArray.AppendElement(1 + len);
+    aArray.AppendElement(adType);
+    for (size_t i = 0; i < len; i++) {
+      aArray.AppendElement(aData.mDeviceName.mName[i]);
+    }
+  }
+
+  // Service Data - 16-bit UUID,  0x16
+  // Service Data - 32-bit UUID,  0x20
+  // Service Data - 128-bit UUID, 0x21
+  if (!aData.mServiceData.IsEmpty()) {
+    aArray.AppendElements(&aData.mServiceData[0], aData.mServiceData.Length());
+  }
+
+  // Appearance, 0x19
+  if (aData.mAppearance) {
+    aArray.AppendElement(3);
+    aArray.AppendElement(0x19);
+
+    // little endian, 2 bytes
+    aArray.AppendElement(aData.mAppearance & 0xFF);
+    aArray.AppendElement((aData.mAppearance >> 8) & 0xFF);
+  }
+
+  // TX Power Level, 0x0A
+  if (aData.mIncludeTxPower) {
+    aArray.AppendElement(2);
+    aArray.AppendElement(0x0A);
+    aArray.AppendElement(kDefaultTxPower);
+  }
+
+  // Manufacturer Specific Data, 0xff
+  if (!aData.mManufacturerData.IsEmpty()) {
+    aArray.AppendElements(&aData.mManufacturerData[0],
+                          aData.mManufacturerData.Length());
+  }
 }
 
 void GeneratePathFromHandle(const BluetoothAttributeHandle& aHandle,

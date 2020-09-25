@@ -58,4 +58,16 @@ const BluetoothUuid& BluetoothUuid::BASE() {
   return sUuid;
 }
 
+bool BluetoothUuid::IsUuid16Convertible() const {
+  BluetoothUuid uuid;
+  uuid.SetUuid16(GetUuid16());
+  return uuid == *this;
+}
+
+bool BluetoothUuid::IsUuid32Convertible() const {
+  BluetoothUuid uuid;
+  uuid.SetUuid32(GetUuid32());
+  return uuid == *this;
+}
+
 END_BLUETOOTH_NAMESPACE

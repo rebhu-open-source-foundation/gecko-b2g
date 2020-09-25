@@ -725,6 +725,10 @@ class BluetoothGattNotificationHandler {
                                            uint8_t aScannerId,
                                            const BluetoothUuid& aScanUuid);
 
+  virtual void RegisterAdvertiserNotification(
+      BluetoothGattStatus aStatus, uint8_t aAdvertiserId,
+      const BluetoothUuid& aAdvertiseUuid);
+
   virtual void ScanResultNotification(const BluetoothAddress& aBdAddr,
                                       int aRssi,
                                       const BluetoothGattAdvData& aAdvData);
@@ -771,7 +775,8 @@ class BluetoothGattNotificationHandler {
                                           int aRssi,
                                           BluetoothGattStatus aStatus);
 
-  virtual void ListenNotification(BluetoothGattStatus aStatus, int aServerIf);
+  virtual void AdvertiseNotification(BluetoothGattStatus aStatus,
+                                     uint8_t aAdvertiserId);
 
   virtual void GetGattDbNotification(
       int aConnId, const nsTArray<BluetoothGattDbElement>& aDb);
@@ -857,12 +862,16 @@ class BluetoothGattResultHandler
 
   virtual void RegisterScanner();
   virtual void UnregisterScanner();
+
+  virtual void RegisterAdvertiser();
+  virtual void UnregisterAdvertiser();
+
   virtual void Scan();
 
   virtual void Connect();
   virtual void Disconnect();
 
-  virtual void Listen();
+  virtual void Advertise();
   virtual void Refresh();
 
   virtual void SearchService();
@@ -879,7 +888,6 @@ class BluetoothGattResultHandler
 
   virtual void ReadRemoteRssi();
   virtual void GetDeviceType(BluetoothTypeOfDevice aType);
-  virtual void SetAdvData();
   virtual void TestCommand();
   virtual void GetGattDb();
 
@@ -922,6 +930,11 @@ class BluetoothGattInterface {
   virtual void UnregisterScanner(int aScannerId,
                                  BluetoothGattResultHandler* aRes) = 0;
 
+  virtual void RegisterAdvertiser(const BluetoothUuid& aUuid,
+                                  BluetoothGattResultHandler* aRes) = 0;
+  virtual void UnregisterAdvertiser(uint8_t aAdvertiserId,
+                                    BluetoothGattResultHandler* aRes) = 0;
+
   /* Start / Stop LE Scan */
   virtual void Scan(int aScannerId, bool aStart,
                     BluetoothGattResultHandler* aRes) = 0;
@@ -934,9 +947,10 @@ class BluetoothGattInterface {
   virtual void Disconnect(int aClientIf, const BluetoothAddress& aBdAddr,
                           int aConnId, BluetoothGattResultHandler* aRes) = 0;
 
-  /* Start / Stop advertisements to listen for incoming connections */
-  virtual void Listen(int aClientIf, bool aIsStart,
-                      BluetoothGattResultHandler* aRes) = 0;
+  /* Start LE advertising */
+  virtual void Advertise(uint8_t aAdvertiserId,
+                         const BluetoothGattAdvertisingData& aData,
+                         BluetoothGattResultHandler* aRes) = 0;
 
   /* Clear the attribute cache for a given device*/
   virtual void Refresh(int aClientIf, const BluetoothAddress& aBdAddr,
@@ -988,15 +1002,6 @@ class BluetoothGattInterface {
 
   virtual void GetDeviceType(const BluetoothAddress& aBdAddr,
                              BluetoothGattResultHandler* aRes) = 0;
-
-  /* Set advertising data or scan response data */
-  virtual void SetAdvData(int aServerIf, bool aIsScanRsp, bool aIsNameIncluded,
-                          bool aIsTxPowerIncluded, int aMinInterval,
-                          int aMaxInterval, int aApperance,
-                          const nsTArray<uint8_t>& aManufacturerData,
-                          const nsTArray<uint8_t>& aServiceData,
-                          const nsTArray<BluetoothUuid>& aServiceUuids,
-                          BluetoothGattResultHandler* aRes) = 0;
 
   virtual void TestCommand(int aCommand,
                            const BluetoothGattTestParam& aTestParam,

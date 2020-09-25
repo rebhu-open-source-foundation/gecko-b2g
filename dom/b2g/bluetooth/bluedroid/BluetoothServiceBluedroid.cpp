@@ -348,6 +348,11 @@ void BluetoothServiceBluedroid::StartAdvertisingInternal(
   BluetoothGattManager* gatt = BluetoothGattManager::Get();
   ENSURE_GATT_MGR_IS_READY_VOID(gatt, aRunnable);
 
+  if (aAdvData.mIncludeDevName) {
+    auto& advData = const_cast<BluetoothGattAdvertisingData&>(aAdvData);
+    advData.mDeviceName = mBdName;
+  }
+
   gatt->StartAdvertising(aAppUuid, aAdvData, aRunnable);
 }
 

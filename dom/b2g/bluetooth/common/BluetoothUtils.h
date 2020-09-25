@@ -221,6 +221,14 @@ nsresult AdvertisingDataToGattAdvertisingData(
     const BluetoothAdvertisingData& aAdvData,
     BluetoothGattAdvertisingData& aGattAdvData);
 
+/**
+ * Convert BluetoothGattAdvertisingData object to nsTArray with continuous bytes
+ * @param aData [in] The BluetoothGattAdvertisingData object.
+ * @param aArray [out] The byte array.
+ */
+void GattAdvertisingDataToBytes(const BluetoothGattAdvertisingData& aData,
+                                nsTArray<uint8_t>& aArray);
+
 //
 // Register/Unregister bluetooth signal handlers
 //

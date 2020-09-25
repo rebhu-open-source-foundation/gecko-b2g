@@ -652,6 +652,9 @@ struct BluetoothUuid {
   }
 
   uint16_t GetUuid16() const { return BigEndian::readUint16(&mUuid[2]); }
+
+  bool IsUuid16Convertible() const;
+  bool IsUuid32Convertible() const;
 };
 
 struct BluetoothPinCode {
@@ -1312,6 +1315,11 @@ struct BluetoothGattAdvertisingData {
   bool mIncludeDevName;
 
   /**
+   * Bluetooth device name
+   */
+  BluetoothRemoteName mDeviceName;
+
+  /**
    * Whether to broadcast with TX power or not.
    */
   bool mIncludeTxPower;
@@ -1427,6 +1435,10 @@ struct BluetoothMasRecord : public BluetoothSdpRecord {
                            MAP_PROFILE_VERSION, MAP_SUPPORTED_FEATURES,
                            MAP_SUPPORTED_MSG_TYPES, aInstanceId) {}
 };
+
+// Default TX power of LE advertising
+static const int16_t kDefaultTxPower = -7;
+
 END_BLUETOOTH_NAMESPACE
 
 #endif  // mozilla_dom_bluetooth_BluetoothCommon_h

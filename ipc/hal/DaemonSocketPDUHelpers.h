@@ -142,6 +142,10 @@ inline nsresult PackPDU(uint8_t aIn, DaemonSocketPDU& aPDU) {
   return aPDU.Write(aIn);
 }
 
+inline nsresult PackPDU(int8_t aIn, DaemonSocketPDU& aPDU) {
+  return aPDU.Write(aIn);
+}
+
 inline nsresult PackPDU(uint16_t aIn, DaemonSocketPDU& aPDU) {
   return aPDU.Write(aIn);
 }
@@ -533,6 +537,70 @@ inline nsresult PackPDU(const T1& aIn1, const T2& aIn2, const T3& aIn3,
     return rv;
   }
   return PackPDU(aIn13, aPDU);
+}
+
+template <typename T1, typename T2, typename T3, typename T4, typename T5,
+          typename T6, typename T7, typename T8, typename T9, typename T10,
+          typename T11, typename T12, typename T13, typename T14>
+inline nsresult PackPDU(const T1& aIn1, const T2& aIn2, const T3& aIn3,
+                        const T4& aIn4, const T5& aIn5, const T6& aIn6,
+                        const T7& aIn7, const T8& aIn8, const T9& aIn9,
+                        const T10& aIn10, const T11& aIn11, const T12& aIn12,
+                        const T13& aIn13, const T14& aIn14,
+                        DaemonSocketPDU& aPDU) {
+  nsresult rv = PackPDU(aIn1, aPDU);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  rv = PackPDU(aIn2, aPDU);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  rv = PackPDU(aIn3, aPDU);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  rv = PackPDU(aIn4, aPDU);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  rv = PackPDU(aIn5, aPDU);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  rv = PackPDU(aIn6, aPDU);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  rv = PackPDU(aIn7, aPDU);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  rv = PackPDU(aIn8, aPDU);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  rv = PackPDU(aIn9, aPDU);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  rv = PackPDU(aIn10, aPDU);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  rv = PackPDU(aIn11, aPDU);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  rv = PackPDU(aIn12, aPDU);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  rv = PackPDU(aIn13, aPDU);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  return PackPDU(aIn14, aPDU);
 }
 
 //

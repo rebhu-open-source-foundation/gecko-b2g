@@ -488,6 +488,10 @@ void BluetoothGattNotificationHandler::RegisterScannerNotification(
     BluetoothGattStatus aStatus, uint8_t aScannerId,
     const BluetoothUuid& aScanUuid) {}
 
+void BluetoothGattNotificationHandler::RegisterAdvertiserNotification(
+    BluetoothGattStatus aStatus, uint8_t aAdvertiserId,
+    const BluetoothUuid& aAdvertiseUuid) {}
+
 void BluetoothGattNotificationHandler::ScanResultNotification(
     const BluetoothAddress& aBdAddr, int aRssi,
     const BluetoothGattAdvData& aAdvData) {}
@@ -531,8 +535,8 @@ void BluetoothGattNotificationHandler::ReadRemoteRssiNotification(
     int aClientIf, const BluetoothAddress& aBdAddr, int aRssi,
     BluetoothGattStatus aStatus) {}
 
-void BluetoothGattNotificationHandler::ListenNotification(
-    BluetoothGattStatus aStatus, int aServerIf) {}
+void BluetoothGattNotificationHandler::AdvertiseNotification(
+    BluetoothGattStatus aStatus, uint8_t aAdvertiserId) {}
 
 void BluetoothGattNotificationHandler::GetGattDbNotification(
     int aConnId, const nsTArray<BluetoothGattDbElement>& aDb) {}
@@ -619,13 +623,17 @@ void BluetoothGattResultHandler::RegisterScanner() {}
 
 void BluetoothGattResultHandler::UnregisterScanner() {}
 
+void BluetoothGattResultHandler::RegisterAdvertiser() {}
+
+void BluetoothGattResultHandler::UnregisterAdvertiser() {}
+
 void BluetoothGattResultHandler::Scan() {}
 
 void BluetoothGattResultHandler::Connect() {}
 
 void BluetoothGattResultHandler::Disconnect() {}
 
-void BluetoothGattResultHandler::Listen() {}
+void BluetoothGattResultHandler::Advertise() {}
 
 void BluetoothGattResultHandler::Refresh() {}
 
@@ -648,8 +656,6 @@ void BluetoothGattResultHandler::DeregisterNotification() {}
 void BluetoothGattResultHandler::ReadRemoteRssi() {}
 
 void BluetoothGattResultHandler::GetDeviceType(BluetoothTypeOfDevice aType) {}
-
-void BluetoothGattResultHandler::SetAdvData() {}
 
 void BluetoothGattResultHandler::TestCommand() {}
 

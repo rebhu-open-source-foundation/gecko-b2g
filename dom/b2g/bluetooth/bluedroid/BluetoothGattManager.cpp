@@ -53,6 +53,7 @@ bool BluetoothGattManager::mInShutdown = false;
 static StaticAutoPtr<nsTArray<RefPtr<BluetoothGattClient> > > sClients;
 static StaticAutoPtr<nsTArray<RefPtr<BluetoothGattServer> > > sServers;
 static StaticAutoPtr<nsTArray<RefPtr<BluetoothGattScanner> > > sScanners;
+static StaticAutoPtr<nsTArray<RefPtr<BluetoothGattAdvertiser> > > sAdvertisers;
 
 struct BluetoothGattClientReadCharState {
   bool mAuthRetry;
@@ -165,8 +166,6 @@ class mozilla::dom::bluetooth::BluetoothGattClient final : public nsISupports {
   BluetoothAddress mDeviceAddr;
   int mClientIf;
   int mConnId;
-  RefPtr<BluetoothReplyRunnable> mStartAdvertisingRunnable;
-  RefPtr<BluetoothReplyRunnable> mStopAdvertisingRunnable;
   RefPtr<BluetoothReplyRunnable> mConnectRunnable;
   RefPtr<BluetoothReplyRunnable> mDisconnectRunnable;
   RefPtr<BluetoothReplyRunnable> mDiscoverRunnable;
@@ -179,8 +178,6 @@ class mozilla::dom::bluetooth::BluetoothGattClient final : public nsISupports {
   BluetoothGattClientWriteCharState mWriteCharacteristicState;
   BluetoothGattClientReadDescState mReadDescriptorState;
   BluetoothGattClientWriteDescState mWriteDescriptorState;
-
-  BluetoothGattAdvertisingData mAdvertisingData;
 
   // A temporary array used only during discover operations.
   // It would be empty if there are no ongoing discover operations.
@@ -209,6 +206,26 @@ class mozilla::dom::bluetooth::BluetoothGattScanner final : public nsISupports {
 };
 
 NS_IMPL_ISUPPORTS0(BluetoothGattScanner)
+
+class mozilla::dom::bluetooth::BluetoothGattAdvertiser final
+    : public nsISupports {
+ public:
+  NS_DECL_ISUPPORTS
+
+  BluetoothGattAdvertiser(const BluetoothUuid& aAdvertiseUuid)
+      : mAdvertiseUuid(aAdvertiseUuid), mAdvertiserId(0) {}
+
+  BluetoothUuid mAdvertiseUuid;
+  int mAdvertiserId;
+  RefPtr<BluetoothReplyRunnable> mStartAdvertisingRunnable;
+  RefPtr<BluetoothReplyRunnable> mUnregisterAdvertiserRunnable;
+  BluetoothGattAdvertisingData mAdvertisingData;
+
+ private:
+  ~BluetoothGattAdvertiser() {}
+};
+
+NS_IMPL_ISUPPORTS0(BluetoothGattAdvertiser)
 
 struct BluetoothGattServerAddServiceState {
   BluetoothGattServiceId mServiceId;
@@ -313,6 +330,11 @@ class UuidComparator {
               const BluetoothUuid& aScanUuid) const {
     return aScanner->mScanUuid == aScanUuid;
   }
+
+  bool Equals(const RefPtr<BluetoothGattAdvertiser>& aAdvertiser,
+              const BluetoothUuid& aAdvertiseUuid) const {
+    return aAdvertiser->mAdvertiseUuid == aAdvertiseUuid;
+  }
 };
 
 class InterfaceIdComparator {
@@ -328,6 +350,11 @@ class InterfaceIdComparator {
   bool Equals(const RefPtr<BluetoothGattScanner>& aScanner,
               int aScannerId) const {
     return aScanner->mScannerId == aScannerId;
+  }
+
+  bool Equals(const RefPtr<BluetoothGattAdvertiser>& aAdvertiser,
+              int aAdvertiserId) const {
+    return aAdvertiser->mAdvertiserId == aAdvertiserId;
   }
 };
 
@@ -516,6 +543,10 @@ void BluetoothGattManager::InitGattInterface(
     sScanners = new nsTArray<RefPtr<BluetoothGattScanner> >;
   }
 
+  if (!sAdvertisers) {
+    sAdvertisers = new nsTArray<RefPtr<BluetoothGattAdvertiser> >;
+  }
+
   // Set notification handler _before_ registering the module. It could
   // happen that we receive notifications, before the result handler runs.
   gattInterface->SetNotificationHandler(BluetoothGattManager::Get());
@@ -542,6 +573,7 @@ class BluetoothGattManager::UnregisterModuleResultHandler final
     sClients = nullptr;
     sServers = nullptr;
     sScanners = nullptr;
+    sAdvertisers = nullptr;
 
     sBluetoothGattManager->Uninit();
     sBluetoothGattManager = nullptr;
@@ -559,6 +591,7 @@ class BluetoothGattManager::UnregisterModuleResultHandler final
     sClients = nullptr;
     sServers = nullptr;
     sScanners = nullptr;
+    sAdvertisers = nullptr;
 
     sBluetoothGattManager->Uninit();
     sBluetoothGattManager = nullptr;
@@ -696,6 +729,28 @@ class BluetoothGattManager::RegisterScannerResultHandler final
   RefPtr<BluetoothGattScanner> mScanner;
 };
 
+class BluetoothGattManager::RegisterAdvertiserResultHandler final
+    : public BluetoothGattResultHandler {
+ public:
+  explicit RegisterAdvertiserResultHandler(BluetoothGattAdvertiser* aAdvertiser)
+      : mAdvertiser(aAdvertiser) {
+    MOZ_ASSERT(mAdvertiser);
+  }
+
+  void OnError(BluetoothStatus aStatus) override {
+    BT_WARNING("BluetoothGattInterface::RegisterAdvertiser failed: %d",
+               (int)aStatus);
+
+    BluetoothService* bs = BluetoothService::Get();
+    NS_ENSURE_TRUE_VOID(bs);
+
+    sAdvertisers->RemoveElement(mAdvertiser);
+  }
+
+ private:
+  RefPtr<BluetoothGattAdvertiser> mAdvertiser;
+};
+
 class BluetoothGattManager::UnregisterClientResultHandler final
     : public BluetoothGattResultHandler {
  public:
@@ -769,6 +824,42 @@ class BluetoothGattManager::UnregisterScannerResultHandler final
   RefPtr<BluetoothGattScanner> mScanner;
 };
 
+class BluetoothGattManager::UnregisterAdvertiserResultHandler final
+    : public BluetoothGattResultHandler {
+ public:
+  explicit UnregisterAdvertiserResultHandler(
+      BluetoothGattAdvertiser* aAdvertiser)
+      : mAdvertiser(aAdvertiser) {
+    MOZ_ASSERT(mAdvertiser);
+  }
+
+  void UnregisterAdvertiser() override {
+    MOZ_ASSERT(mAdvertiser->mUnregisterAdvertiserRunnable);
+    BluetoothService* bs = BluetoothService::Get();
+    NS_ENSURE_TRUE_VOID(bs);
+
+    // Resolve the unregister request
+    DispatchReplySuccess(mAdvertiser->mUnregisterAdvertiserRunnable);
+    mAdvertiser->mUnregisterAdvertiserRunnable = nullptr;
+
+    sAdvertisers->RemoveElement(mAdvertiser);
+  }
+
+  void OnError(BluetoothStatus aStatus) override {
+    BT_WARNING("BluetoothGattInterface::UnregisterAdvertiser failed: %d",
+               (int)aStatus);
+    MOZ_ASSERT(mAdvertiser->mUnregisterAdvertiserRunnable);
+
+    // Reject the unregister request
+    DispatchReplyError(mAdvertiser->mUnregisterAdvertiserRunnable,
+                       u"Unregister GATT advertiser failed"_ns);
+    mAdvertiser->mUnregisterAdvertiserRunnable = nullptr;
+  }
+
+ private:
+  RefPtr<BluetoothGattAdvertiser> mAdvertiser;
+};
+
 void BluetoothGattManager::UnregisterClient(int aClientIf,
                                             BluetoothReplyRunnable* aRunnable) {
   MOZ_ASSERT(NS_IsMainThread());
@@ -809,6 +900,27 @@ void BluetoothGattManager::UnregisterScanner(
 
   sBluetoothGattInterface->UnregisterScanner(
       aScannerId, new UnregisterScannerResultHandler(scanner));
+}
+
+void BluetoothGattManager::UnregisterAdvertiser(
+    uint8_t aAdvertiserId, BluetoothReplyRunnable* aRunnable) {
+  MOZ_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(aRunnable);
+
+  ENSURE_GATT_INTF_IS_READY_VOID(aRunnable);
+
+  size_t index = sAdvertisers->IndexOf(aAdvertiserId, 0 /* Start */,
+                                       InterfaceIdComparator());
+  if (NS_WARN_IF(index == sAdvertisers->NoIndex)) {
+    DispatchReplyError(aRunnable, STATUS_PARM_INVALID);
+    return;
+  }
+
+  RefPtr<BluetoothGattAdvertiser> advertiser = sAdvertisers->ElementAt(index);
+  advertiser->mUnregisterAdvertiserRunnable = aRunnable;
+
+  sBluetoothGattInterface->UnregisterAdvertiser(
+      aAdvertiserId, new UnregisterAdvertiserResultHandler(advertiser));
 }
 
 class BluetoothGattManager::StartLeScanResultHandler final
@@ -932,75 +1044,39 @@ void BluetoothGattManager::StopLeScan(const BluetoothUuid& aScanUuid,
 class BluetoothGattManager::StartAdvertisingResultHandler final
     : public BluetoothGattResultHandler {
  public:
-  explicit StartAdvertisingResultHandler(BluetoothGattClient* aClient)
-      : mClient(aClient) {
-    MOZ_ASSERT(mClient);
+  explicit StartAdvertisingResultHandler(BluetoothGattAdvertiser* aAdvertiser)
+      : mAdvertiser(aAdvertiser) {
+    MOZ_ASSERT(mAdvertiser);
   }
 
-  void Listen() override {
-    MOZ_ASSERT(mClient->mStartAdvertisingRunnable);
+  void Advertise() override {
+    MOZ_ASSERT(mAdvertiser->mStartAdvertisingRunnable);
 
-    DispatchReplySuccess(mClient->mStartAdvertisingRunnable);
-    mClient->mStartAdvertisingRunnable = nullptr;
-  }
-
-  void OnError(BluetoothStatus aStatus) override {
-    BT_WARNING("BluetoothGattInterface::StartLeAdvertising failed: %d",
-               (int)aStatus);
-    MOZ_ASSERT(mClient->mStartAdvertisingRunnable);
-
-    // Unregister client if startAdvertising failed
-    if (mClient->mClientIf > 0) {
-      BluetoothGattManager* gattManager = BluetoothGattManager::Get();
-      NS_ENSURE_TRUE_VOID(gattManager);
-
-      RefPtr<BluetoothVoidReplyRunnable> result =
-          new BluetoothVoidReplyRunnable(nullptr);
-      gattManager->UnregisterClient(mClient->mClientIf, result);
-    }
-
-    DispatchReplyError(mClient->mStartAdvertisingRunnable, aStatus);
-    mClient->mStartAdvertisingRunnable = nullptr;
-  }
-
- private:
-  RefPtr<BluetoothGattClient> mClient;
-};
-
-class BluetoothGattManager::SetAdvDataResultHandler final
-    : public BluetoothGattResultHandler {
- public:
-  explicit SetAdvDataResultHandler(BluetoothGattClient* aClient)
-      : mClient(aClient) {
-    MOZ_ASSERT(mClient);
-  }
-
-  void SetAdvData() override {
-    sBluetoothGattInterface->Listen(mClient->mClientIf, true /* Start */,
-                                    new StartAdvertisingResultHandler(mClient));
+    DispatchReplySuccess(mAdvertiser->mStartAdvertisingRunnable);
+    mAdvertiser->mStartAdvertisingRunnable = nullptr;
   }
 
   void OnError(BluetoothStatus aStatus) override {
     BT_WARNING("BluetoothGattInterface::StartLeAdvertising failed: %d",
                (int)aStatus);
-    MOZ_ASSERT(mClient->mStartAdvertisingRunnable);
+    MOZ_ASSERT(mAdvertiser->mStartAdvertisingRunnable);
 
-    // Unregister client if startAdvertising failed
-    if (mClient->mClientIf > 0) {
+    // Unregister advertiser if startAdvertising failed
+    if (mAdvertiser->mAdvertiserId > 0) {
       BluetoothGattManager* gattManager = BluetoothGattManager::Get();
       NS_ENSURE_TRUE_VOID(gattManager);
 
       RefPtr<BluetoothVoidReplyRunnable> result =
           new BluetoothVoidReplyRunnable(nullptr);
-      gattManager->UnregisterClient(mClient->mClientIf, result);
+      gattManager->UnregisterAdvertiser(mAdvertiser->mAdvertiserId, result);
     }
 
-    DispatchReplyError(mClient->mStartAdvertisingRunnable, aStatus);
-    mClient->mStartAdvertisingRunnable = nullptr;
+    DispatchReplyError(mAdvertiser->mStartAdvertisingRunnable, aStatus);
+    mAdvertiser->mStartAdvertisingRunnable = nullptr;
   }
 
  private:
-  RefPtr<BluetoothGattClient> mClient;
+  RefPtr<BluetoothGattAdvertiser> mAdvertiser;
 };
 
 void BluetoothGattManager::StartAdvertising(
@@ -1011,63 +1087,25 @@ void BluetoothGattManager::StartAdvertising(
 
   ENSURE_GATT_INTF_IS_READY_VOID(aRunnable);
 
-  size_t index = sClients->IndexOf(aAppUuid, 0 /* Start */, UuidComparator());
+  size_t index =
+      sAdvertisers->IndexOf(aAppUuid, 0 /* Start */, UuidComparator());
 
-  // Reject the startAdvertising request if the clientIf is being used.
-  if (NS_WARN_IF(index != sClients->NoIndex)) {
+  // Reject the startAdvertising request if the advertiser is being used.
+  if (NS_WARN_IF(index != sAdvertisers->NoIndex)) {
     DispatchReplyError(aRunnable, u"start advertising failed"_ns);
     return;
   }
 
-  index = sClients->Length();
-  sClients->AppendElement(
-      new BluetoothGattClient(aAppUuid, BluetoothAddress::ANY()));
-  RefPtr<BluetoothGattClient> client = sClients->ElementAt(index);
-  client->mStartAdvertisingRunnable = aRunnable;
-  client->mAdvertisingData = aData;
+  index = sAdvertisers->Length();
+  sAdvertisers->AppendElement(new BluetoothGattAdvertiser(aAppUuid));
+  RefPtr<BluetoothGattAdvertiser> advertiser = sAdvertisers->ElementAt(index);
+  advertiser->mStartAdvertisingRunnable = aRunnable;
+  advertiser->mAdvertisingData = aData;
 
-  // 'startAdvertising' will be proceeded after client registered
-  sBluetoothGattInterface->RegisterClient(
-      aAppUuid, new RegisterClientResultHandler(client));
+  // 'startAdvertising' will be proceeded after advertiser registered
+  sBluetoothGattInterface->RegisterAdvertiser(
+      aAppUuid, new RegisterAdvertiserResultHandler(advertiser));
 }
-
-class BluetoothGattManager::StopAdvertisingResultHandler final
-    : public BluetoothGattResultHandler {
- public:
-  explicit StopAdvertisingResultHandler(BluetoothGattClient* aClient)
-      : mClient(aClient) {
-    MOZ_ASSERT(mClient);
-  }
-
-  void Listen() override {
-    MOZ_ASSERT(mClient->mStopAdvertisingRunnable);
-
-    // Unregister client when stopLeScan succeeded
-    if (mClient->mClientIf > 0) {
-      BluetoothGattManager* gattManager = BluetoothGattManager::Get();
-      NS_ENSURE_TRUE_VOID(gattManager);
-
-      RefPtr<BluetoothVoidReplyRunnable> result =
-          new BluetoothVoidReplyRunnable(nullptr);
-      gattManager->UnregisterClient(mClient->mClientIf, result);
-    }
-
-    DispatchReplySuccess(mClient->mStopAdvertisingRunnable);
-    mClient->mStopAdvertisingRunnable = nullptr;
-  }
-
-  void OnError(BluetoothStatus aStatus) override {
-    BT_WARNING("BluetoothGattInterface::StopAdvertising failed: %d",
-               (int)aStatus);
-    MOZ_ASSERT(mClient->mStopAdvertisingRunnable);
-
-    DispatchReplyError(mClient->mStopAdvertisingRunnable, aStatus);
-    mClient->mStopAdvertisingRunnable = nullptr;
-  }
-
- private:
-  RefPtr<BluetoothGattClient> mClient;
-};
 
 void BluetoothGattManager::StopAdvertising(const BluetoothUuid& aAppUuid,
                                            BluetoothReplyRunnable* aRunnable) {
@@ -1076,24 +1114,26 @@ void BluetoothGattManager::StopAdvertising(const BluetoothUuid& aAppUuid,
 
   ENSURE_GATT_INTF_IS_READY_VOID(aRunnable);
 
-  size_t index = sClients->IndexOf(aAppUuid, 0 /* Start */, UuidComparator());
-  if (NS_WARN_IF(index == sClients->NoIndex)) {
+  size_t index =
+      sAdvertisers->IndexOf(aAppUuid, 0 /* Start */, UuidComparator());
+  if (NS_WARN_IF(index == sAdvertisers->NoIndex)) {
     // Reject the stop advertising request
     DispatchReplyError(aRunnable, u"StopAdvertising failed"_ns);
     return;
   }
 
-  RefPtr<BluetoothGattClient> client = sClients->ElementAt(index);
+  RefPtr<BluetoothGattAdvertiser> advertiser = sAdvertisers->ElementAt(index);
 
   // Reject the stop advertising request if there is an ongoing one.
-  if (client->mStopAdvertisingRunnable) {
+  if (advertiser->mUnregisterAdvertiserRunnable) {
     DispatchReplyError(aRunnable, STATUS_BUSY);
     return;
   }
 
-  client->mStopAdvertisingRunnable = aRunnable;
-  sBluetoothGattInterface->Listen(client->mClientIf, false /* Stop */,
-                                  new StopAdvertisingResultHandler(client));
+  advertiser->mUnregisterAdvertiserRunnable = aRunnable;
+  sBluetoothGattInterface->UnregisterAdvertiser(
+      advertiser->mAdvertiserId,
+      new UnregisterAdvertiserResultHandler(advertiser));
 }
 
 class BluetoothGattManager::ConnectResultHandler final
@@ -2593,14 +2633,6 @@ void BluetoothGattManager::RegisterClientNotification(
       client->mConnectRunnable = nullptr;
     }
 
-    if (client->mStartAdvertisingRunnable) {
-      // Reject the start advertising request
-      DispatchReplyError(
-          client->mStartAdvertisingRunnable,
-          u"StartAdvertising failed due to registration failed"_ns);
-      client->mStartAdvertisingRunnable = nullptr;
-    }
-
     sClients->RemoveElement(client);
     return;
   }
@@ -2617,17 +2649,6 @@ void BluetoothGattManager::RegisterClientNotification(
     sBluetoothGattInterface->Connect(aClientIf, client->mDeviceAddr,
                                      true /* direct connect */, TRANSPORT_AUTO,
                                      new ConnectResultHandler(client));
-  }
-
-  if (client->mStartAdvertisingRunnable) {
-    // StartAdvertising request will be proceed after SetAdvData succeeded.
-    ENSURE_GATT_INTF_IS_READY_VOID(client->mStartAdvertisingRunnable);
-    BluetoothGattAdvertisingData* data = &(client->mAdvertisingData);
-    sBluetoothGattInterface->SetAdvData(
-        aClientIf, false /* isScanRsp */, data->mIncludeDevName,
-        data->mIncludeTxPower, 0 /* min interval */, 0 /* max interval */,
-        data->mAppearance, data->mManufacturerData, data->mServiceData,
-        data->mServiceUuids, new SetAdvDataResultHandler(client));
   }
 }
 
@@ -2673,6 +2694,55 @@ void BluetoothGattManager::RegisterScannerNotification(
     ENSURE_GATT_INTF_IS_READY_VOID(scanner->mStartLeScanRunnable);
     sBluetoothGattInterface->Scan(aScannerId, true /* start */,
                                   new StartLeScanResultHandler(scanner));
+  }
+}
+
+void BluetoothGattManager::RegisterAdvertiserNotification(
+    BluetoothGattStatus aStatus, uint8_t aAdvertiserId,
+    const BluetoothUuid& aAdvertiseUuid) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  size_t index =
+      sAdvertisers->IndexOf(aAdvertiseUuid, 0 /* Start */, UuidComparator());
+  NS_ENSURE_TRUE_VOID(index != sAdvertisers->NoIndex);
+
+  RefPtr<BluetoothGattAdvertiser> advertiser = sAdvertisers->ElementAt(index);
+
+  BluetoothService* bs = BluetoothService::Get();
+  NS_ENSURE_TRUE_VOID(bs);
+
+  if (aStatus != GATT_STATUS_SUCCESS) {
+    nsAutoString advertiseUuidStr;
+    UuidToString(aAdvertiseUuid, advertiseUuidStr);
+
+    BT_LOGD(
+        "RegisterAdvertiser failed: advertiserId = %d, status = %d, appUuid = "
+        "%s",
+        aAdvertiserId, aStatus, NS_ConvertUTF16toUTF8(advertiseUuidStr).get());
+
+    if (advertiser->mStartAdvertisingRunnable) {
+      // Reject the advertise request
+      DispatchReplyError(advertiser->mStartAdvertisingRunnable,
+                         u"Advertise failed due to registration failed"_ns);
+      advertiser->mStartAdvertisingRunnable = nullptr;
+    }
+
+    sAdvertisers->RemoveElement(advertiser);
+    return;
+  }
+
+  advertiser->mAdvertiserId = aAdvertiserId;
+
+  // Notify BluetoothGatt to update the advertiserId
+  bs->DistributeSignal(u"AdvertiserRegistered"_ns, aAdvertiseUuid,
+                       BluetoothValue(aAdvertiserId));
+
+  if (advertiser->mStartAdvertisingRunnable) {
+    // Advertiser just registered, proceed remaining advertise request.
+    ENSURE_GATT_INTF_IS_READY_VOID(advertiser->mStartAdvertisingRunnable);
+    sBluetoothGattInterface->Advertise(
+        aAdvertiserId, advertiser->mAdvertisingData,
+        new StartAdvertisingResultHandler(advertiser));
   }
 }
 
@@ -3123,9 +3193,6 @@ void BluetoothGattManager::ReadRemoteRssiNotification(
     client->mReadRemoteRssiRunnable = nullptr;
   }
 }
-
-void BluetoothGattManager::ListenNotification(BluetoothGattStatus aStatus,
-                                              int aServerIf) {}
 
 /*
  * Some actions will trigger the registration procedure. These actions will
@@ -3599,6 +3666,7 @@ void BluetoothGattManager::HandleShutdown() {
   sClients = nullptr;
   sServers = nullptr;
   sScanners = nullptr;
+  sAdvertisers = nullptr;
 }
 
 NS_IMPL_ISUPPORTS(BluetoothGattManager, nsIObserver)

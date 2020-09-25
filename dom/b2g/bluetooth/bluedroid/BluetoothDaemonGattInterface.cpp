@@ -126,6 +126,46 @@ nsresult BluetoothDaemonGattModule::ScannerUnregisterScannerCmd(
   return NS_OK;
 }
 
+nsresult BluetoothDaemonGattModule::AdvertiserRegisterAdvertiserCmd(
+    const BluetoothUuid& aUuid, BluetoothGattResultHandler* aRes) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  UniquePtr<DaemonSocketPDU> pdu = MakeUnique<DaemonSocketPDU>(
+      SERVICE_ID, OPCODE_ADVERTISER_REGISTER_ADVERTISER,
+      16);  // advertise UUID
+
+  nsresult rv = PackPDU(aUuid, *pdu);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  rv = Send(pdu.get(), aRes);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  Unused << pdu.release();
+  return NS_OK;
+}
+
+nsresult BluetoothDaemonGattModule::AdvertiserUnregisterCmd(
+    uint8_t aAdvertiserId, BluetoothGattResultHandler* aRes) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  UniquePtr<DaemonSocketPDU> pdu =
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_ADVERTISER_UNREGISTER,
+                                  1);  // advertiser ID
+
+  nsresult rv = PackPDU(aAdvertiserId, *pdu);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  rv = Send(pdu.get(), aRes);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  Unused << pdu.release();
+  return NS_OK;
+}
+
 nsresult BluetoothDaemonGattModule::ScannerScanCmd(
     bool aStart, BluetoothGattResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
@@ -198,18 +238,46 @@ nsresult BluetoothDaemonGattModule::ClientDisconnectCmd(
   return NS_OK;
 }
 
-nsresult BluetoothDaemonGattModule::ClientListenCmd(
-    int aClientIf, bool aIsStart, BluetoothGattResultHandler* aRes) {
+nsresult BluetoothDaemonGattModule::AdvertiserStartAdvertisingCmd(
+    uint8_t aAdvertiserId, const nsTArray<uint8_t>& aAdvData,
+    const nsTArray<uint8_t>& aScanResponse, int aTimeout,
+    BluetoothGattResultHandler* aRes) {
   MOZ_ASSERT(NS_IsMainThread());
 
-  UniquePtr<DaemonSocketPDU> pdu =
-      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_CLIENT_LISTEN,
-                                  4 +      // Client Interface
-                                      1);  // Start
+  UniquePtr<DaemonSocketPDU> pdu = MakeUnique<DaemonSocketPDU>(
+      SERVICE_ID, OPCODE_ADVERTISER_START_ADVERTISING, 0);
 
-  nsresult rv;
-  rv = PackPDU(PackConversion<int, int32_t>(aClientIf),
-               PackConversion<bool, uint8_t>(aIsStart), *pdu);
+  const int kAdvertisingChannel37 = (1 << 0);
+  const int kAdvertisingChannel38 = (1 << 1);
+  const int kAdvertisingChannel39 = (1 << 2);
+  const int kAdvertisingChannelAll =
+      (kAdvertisingChannel37 | kAdvertisingChannel38 | kAdvertisingChannel39);
+
+  uint16_t advertisingEventProperties = aScanResponse.IsEmpty()
+                                            ? 0x0013   // ADV_IND
+                                            : 0x0012;  // ADV_SCAN_IND
+  uint32_t minInterval = 1600;
+  uint32_t maxInterval = 1700;
+  uint8_t channelMap = kAdvertisingChannelAll;
+  int8_t txPower = kDefaultTxPower;
+  uint8_t primaryAdvertisingPhy = 0x01;
+  uint8_t secondaryAdvertisingPhy = 0x01;
+  uint8_t scanRequestNotificationEnable = 0;
+
+  uint16_t advDataLen = aAdvData.Length() * sizeof(uint8_t);
+  uint8_t* advData = const_cast<uint8_t*>(aAdvData.Elements());
+
+  uint16_t scanResponseLen = aScanResponse.Length() * sizeof(uint8_t);
+  uint8_t* scanResponse = const_cast<uint8_t*>(aScanResponse.Elements());
+
+  // TODO: support AdvertiseParameters and scanResponse
+  nsresult rv = PackPDU(
+      aAdvertiserId, advertisingEventProperties, minInterval, maxInterval,
+      channelMap, txPower, primaryAdvertisingPhy, secondaryAdvertisingPhy,
+      scanRequestNotificationEnable, advDataLen, scanResponseLen,
+      PackArray<uint8_t>(advData, aAdvData.Length()),
+      PackArray<uint8_t>(scanResponse, aScanResponse.Length()), aTimeout, *pdu);
+
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -465,54 +533,6 @@ nsresult BluetoothDaemonGattModule::ClientGetDeviceTypeCmd(
                                   6);  // Remote Address
 
   nsresult rv = PackPDU(aBdAddr, *pdu);
-  if (NS_FAILED(rv)) {
-    return rv;
-  }
-  rv = Send(pdu.get(), aRes);
-  if (NS_FAILED(rv)) {
-    return rv;
-  }
-  Unused << pdu.release();
-  return NS_OK;
-}
-
-nsresult BluetoothDaemonGattModule::ClientSetAdvDataCmd(
-    int aServerIf, bool aIsScanRsp, bool aIsNameIncluded,
-    bool aIsTxPowerIncluded, int aMinInterval, int aMaxInterval, int aApperance,
-    const nsTArray<uint8_t>& aManufacturerData,
-    const nsTArray<uint8_t>& aServiceData,
-    const nsTArray<BluetoothUuid>& aServiceUuids,
-    BluetoothGattResultHandler* aRes) {
-  MOZ_ASSERT(NS_IsMainThread());
-
-  UniquePtr<DaemonSocketPDU> pdu =
-      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_CLIENT_SET_ADV_DATA, 0);
-
-  uint16_t manufacturerDataByteLen =
-      aManufacturerData.Length() * sizeof(uint8_t);
-  uint16_t serviceDataByteLen = aServiceData.Length() * sizeof(uint8_t);
-  uint16_t serviceUuidsByteLen =
-      aServiceUuids.Length() * sizeof(BluetoothUuid::mUuid);
-  uint8_t* manufacturerData =
-      const_cast<uint8_t*>(aManufacturerData.Elements());
-  uint8_t* serviceData = const_cast<uint8_t*>(aServiceData.Elements());
-  BluetoothUuid* serviceUuids =
-      const_cast<BluetoothUuid*>(aServiceUuids.Elements());
-
-  nsresult rv =
-      PackPDU(PackConversion<int, int32_t>(aServerIf),
-              PackConversion<bool, uint8_t>(aIsScanRsp),
-              PackConversion<bool, uint8_t>(aIsNameIncluded),
-              PackConversion<bool, uint8_t>(aIsTxPowerIncluded),
-              PackConversion<int, int32_t>(aMinInterval),
-              PackConversion<int, int32_t>(aMaxInterval),
-              PackConversion<int, int32_t>(aApperance), manufacturerDataByteLen,
-              serviceDataByteLen, serviceUuidsByteLen,
-              PackArray<uint8_t>(manufacturerData, aManufacturerData.Length()),
-              PackArray<uint8_t>(serviceData, aServiceData.Length()),
-              PackArray<PackReversed<BluetoothUuid>>(serviceUuids,
-                                                     aServiceUuids.Length()),
-              *pdu);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -936,6 +956,22 @@ void BluetoothDaemonGattModule::ScannerUnregisterScannerRsp(
                            UnpackPDUInitOp(aPDU));
 }
 
+void BluetoothDaemonGattModule::AdvertiserRegisterAdvertiserRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothGattResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes,
+                           &BluetoothGattResultHandler::RegisterAdvertiser,
+                           UnpackPDUInitOp(aPDU));
+}
+
+void BluetoothDaemonGattModule::AdvertiserUnregisterRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothGattResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes,
+                           &BluetoothGattResultHandler::UnregisterAdvertiser,
+                           UnpackPDUInitOp(aPDU));
+}
+
 void BluetoothDaemonGattModule::ScannerScanRsp(
     const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
     BluetoothGattResultHandler* aRes) {
@@ -957,10 +993,10 @@ void BluetoothDaemonGattModule::ClientDisconnectRsp(
                            UnpackPDUInitOp(aPDU));
 }
 
-void BluetoothDaemonGattModule::ClientListenRsp(
+void BluetoothDaemonGattModule::AdvertiserStartAdvertisingRsp(
     const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
     BluetoothGattResultHandler* aRes) {
-  ResultRunnable::Dispatch(aRes, &BluetoothGattResultHandler::Listen,
+  ResultRunnable::Dispatch(aRes, &BluetoothGattResultHandler::Advertise,
                            UnpackPDUInitOp(aPDU));
 }
 
@@ -1062,13 +1098,6 @@ void BluetoothDaemonGattModule::ClientGetDeviceTypeRsp(
   ClientGetDeviceTypeResultRunnable::Dispatch(
       aRes, &BluetoothGattResultHandler::GetDeviceType,
       ClientGetDeviceTypeInitOp(aPDU));
-}
-
-void BluetoothDaemonGattModule::ClientSetAdvDataRsp(
-    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
-    BluetoothGattResultHandler* aRes) {
-  ResultRunnable::Dispatch(aRes, &BluetoothGattResultHandler::SetAdvData,
-                           UnpackPDUInitOp(aPDU));
 }
 
 void BluetoothDaemonGattModule::ClientTestCommandRsp(
@@ -1194,8 +1223,6 @@ void BluetoothDaemonGattModule::HandleRsp(const DaemonSocketPDUHeader& aHeader,
       [OPCODE_CLIENT_CONNECT] = &BluetoothDaemonGattModule::ClientConnectRsp,
       [OPCODE_CLIENT_DISCONNECT] =
           &BluetoothDaemonGattModule::ClientDisconnectRsp,
-      //  OPCODE_CLIENT_LISTEN will be removed
-      // [OPCODE_CLIENT_LISTEN] = &BluetoothDaemonGattModule::ClientListenRsp,
       [OPCODE_CLIENT_REFRESH] = &BluetoothDaemonGattModule::ClientRefreshRsp,
       [OPCODE_CLIENT_SEARCH_SERVICE] =
           &BluetoothDaemonGattModule::ClientSearchServiceRsp,
@@ -1226,9 +1253,6 @@ void BluetoothDaemonGattModule::HandleRsp(const DaemonSocketPDUHeader& aHeader,
           &BluetoothDaemonGattModule::ClientReadRemoteRssiRsp,
       [OPCODE_CLIENT_GET_DEVICE_TYPE] =
           &BluetoothDaemonGattModule::ClientGetDeviceTypeRsp,
-      //  OPCODE_CLIENT_SET_ADV_DATA will be removed
-      // [OPCODE_CLIENT_SET_ADV_DATA] =
-      //     &BluetoothDaemonGattModule::ClientSetAdvDataRsp,
       [OPCODE_CLIENT_TEST_COMMAND] =
           &BluetoothDaemonGattModule::ClientTestCommandRsp,
       [OPCODE_CLIENT_GET_GATT_DB] =
@@ -1267,6 +1291,13 @@ void BluetoothDaemonGattModule::HandleRsp(const DaemonSocketPDUHeader& aHeader,
       [OPCODE_SCANNER_UNREGISTER] =
           &BluetoothDaemonGattModule::ScannerUnregisterScannerRsp,
       [OPCODE_SCANNER_SCAN] = &BluetoothDaemonGattModule::ScannerScanRsp,
+
+      [OPCODE_ADVERTISER_REGISTER_ADVERTISER] =
+          &BluetoothDaemonGattModule::AdvertiserRegisterAdvertiserRsp,
+      [OPCODE_ADVERTISER_UNREGISTER] =
+          &BluetoothDaemonGattModule::AdvertiserUnregisterRsp,
+      [OPCODE_ADVERTISER_START_ADVERTISING] =
+          &BluetoothDaemonGattModule::AdvertiserStartAdvertisingRsp,
   };
 
   MOZ_ASSERT(!NS_IsMainThread());  // I/O thread
@@ -1312,6 +1343,13 @@ void BluetoothDaemonGattModule::ScannerRegisterScannerNtf(
     const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
   ScannerRegisterNotification::Dispatch(
       &BluetoothGattNotificationHandler::RegisterScannerNotification,
+      UnpackPDUInitOp(aPDU));
+}
+
+void BluetoothDaemonGattModule::AdvertiserRegisterAdvertiserNtf(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
+  ScannerRegisterNotification::Dispatch(
+      &BluetoothGattNotificationHandler::RegisterAdvertiserNotification,
       UnpackPDUInitOp(aPDU));
 }
 
@@ -1436,10 +1474,10 @@ void BluetoothDaemonGattModule::ClientReadRemoteRssiNtf(
       UnpackPDUInitOp(aPDU));
 }
 
-void BluetoothDaemonGattModule::ClientListenNtf(
+void BluetoothDaemonGattModule::AdvertiserStartAdvertisingNtf(
     const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
-  ClientListenNotification::Dispatch(
-      &BluetoothGattNotificationHandler::ListenNotification,
+  AdvertiseNotification::Dispatch(
+      &BluetoothGattNotificationHandler::AdvertiseNotification,
       UnpackPDUInitOp(aPDU));
 }
 
@@ -1757,9 +1795,6 @@ void BluetoothDaemonGattModule::HandleNtf(const DaemonSocketPDUHeader& aHeader,
       // [7] = &BluetoothDaemonGattModule::ClientGetDescriptorNtf,
       // [8] = &BluetoothDaemonGattModule::ClientGetIncludedServiceNtf,
 
-      // TODO: Replace ClientListenNtf by LE advertiser
-      // [17] = &BluetoothDaemonGattModule::ClientListenNtf,
-
       // TODO: Support the following NTF as new feature
       //   [12] OPCODE_CLIENT_CONFIGURE_MTU_NTF    (0x8d)
       //   [13] OPCODE_CLIENT_CONGESTION_NTF       (0x8e)
@@ -1822,14 +1857,15 @@ void BluetoothDaemonGattModule::HandleNtf(const DaemonSocketPDUHeader& aHeader,
       //   [79] OPCODE_SCANNER_TRACK_ADV_EVENT_NTF          (0xd0)
 
       // ----- LE advertiser, [96] - [127] -----
+      [96] = &BluetoothDaemonGattModule::AdvertiserRegisterAdvertiserNtf,
+      [102] = &BluetoothDaemonGattModule::AdvertiserStartAdvertisingNtf,
+
       // TODO: Support the following NTF as new feature
-      //   [96]  OPCODE_ADVERTISER_REGISTER_ADVERTISER_NTF                (0xe1)
       //   [97]  OPCODE_ADVERTISER_GET_OWN_ADDRESS_NTF                    (0xe2)
       //   [98]  OPCODE_ADVERTISER_SET_PARAMETERS_NTF                     (0xe3)
       //   [99]  OPCODE_ADVERTISER_SET_DATA_NTF                           (0xe4)
       //   [100] OPCODE_ADVERTISER_ENABLE_NTF                             (0xe5)
       //   [101] OPCODE_ADVERTISER_ENABLE_TIMEOUT_NTF                     (0xe6)
-      //   [102] OPCODE_ADVERTISER_START_ADVERTISING_NTF                  (0xe7)
       //   [103] OPCODE_ADVERTISER_START_ADVERTISING_TIMEOUT_NTF          (0xe8)
       //   [104] OPCODE_ADVERTISER_START_ADVERTISING_SET_NTF              (0xe9)
       //   [105] OPCODE_ADVERTISER_START_ADVERTISING_SET_TIMEOUT_NTF      (0xea)
@@ -1909,6 +1945,26 @@ void BluetoothDaemonGattInterface::UnregisterScanner(
   }
 }
 
+void BluetoothDaemonGattInterface::RegisterAdvertiser(
+    const BluetoothUuid& aUuid, BluetoothGattResultHandler* aRes) {
+  MOZ_ASSERT(mModule);
+
+  nsresult rv = mModule->AdvertiserRegisterAdvertiserCmd(aUuid, aRes);
+  if (NS_FAILED(rv)) {
+    DispatchError(aRes, rv);
+  }
+}
+
+void BluetoothDaemonGattInterface::UnregisterAdvertiser(
+    uint8_t aAdvertiserId, BluetoothGattResultHandler* aRes) {
+  MOZ_ASSERT(mModule);
+
+  nsresult rv = mModule->AdvertiserUnregisterCmd(aAdvertiserId, aRes);
+  if (NS_FAILED(rv)) {
+    DispatchError(aRes, rv);
+  }
+}
+
 /* Start / Stop LE Scan */
 void BluetoothDaemonGattInterface::Scan([[maybe_unused]] int aScannerId,
                                         bool aStart,
@@ -1948,12 +2004,22 @@ void BluetoothDaemonGattInterface::Disconnect(
   }
 }
 
-/* Start / Stop advertisements to listen for incoming connections */
-void BluetoothDaemonGattInterface::Listen(int aClientIf, bool aIsStart,
-                                          BluetoothGattResultHandler* aRes) {
+/* Start LE advertising */
+void BluetoothDaemonGattInterface::Advertise(
+    uint8_t aAdvertiserId, const BluetoothGattAdvertisingData& aData,
+    BluetoothGattResultHandler* aRes) {
   MOZ_ASSERT(mModule);
 
-  nsresult rv = mModule->ClientListenCmd(aClientIf, aIsStart, aRes);
+  nsTArray<uint8_t> advData, scanResponse;
+  GattAdvertisingDataToBytes(aData, advData);
+
+  // TODO: support scanResponse and timeout adjustment
+  nsresult rv = mModule->AdvertiserStartAdvertisingCmd(
+      aAdvertiserId, advData,
+      scanResponse,  // scanResponse is empty
+      0,             // timeout
+      aRes);
+
   if (NS_FAILED(rv)) {
     DispatchError(aRes, rv);
   }
@@ -2091,25 +2157,6 @@ void BluetoothDaemonGattInterface::GetDeviceType(
   MOZ_ASSERT(mModule);
 
   nsresult rv = mModule->ClientGetDeviceTypeCmd(aBdAddr, aRes);
-  if (NS_FAILED(rv)) {
-    DispatchError(aRes, rv);
-  }
-}
-
-void BluetoothDaemonGattInterface::SetAdvData(
-    int aServerIf, bool aIsScanRsp, bool aIsNameIncluded,
-    bool aIsTxPowerIncluded, int aMinInterval, int aMaxInterval, int aApperance,
-    const nsTArray<uint8_t>& aManufacturerData,
-    const nsTArray<uint8_t>& aServiceData,
-    const nsTArray<BluetoothUuid>& aServiceUuids,
-    BluetoothGattResultHandler* aRes) {
-  MOZ_ASSERT(mModule);
-
-  nsresult rv = mModule->ClientSetAdvDataCmd(
-      aServerIf, aIsScanRsp, aIsNameIncluded, aIsTxPowerIncluded, aMinInterval,
-      aMaxInterval, aApperance, aManufacturerData, aServiceData, aServiceUuids,
-      aRes);
-
   if (NS_FAILED(rv)) {
     DispatchError(aRes, rv);
   }

@@ -24,10 +24,6 @@ class BluetoothDaemonGattModule {
   enum {
     OPCODE_ERROR = 0x00,
 
-    // TODO: Relace the following withdrawal opcodes with new opcodes
-    // replaced by OPCODE_ADVERTISER_ENABLE
-    OPCODE_CLIENT_LISTEN = OPCODE_ERROR,
-
     // replaced by OPCODE_CLIENT_GET_GATT_DB
     // (int conn_id, btgatt_srvc_id_t *srvc_id, btgatt_srvc_id_t
     // *start_incl_srvc_id);
@@ -38,14 +34,6 @@ class BluetoothDaemonGattModule {
     // (int conn_id, btgatt_srvc_id_t *srvc_id, btgatt_gatt_id_t *char_id,
     // btgatt_gatt_id_t *start_descr_id);
     OPCODE_CLIENT_GET_DESCRIPTOR = OPCODE_ERROR,
-
-    // replaced by OPCODE_ADVERTISER_SET_DATA
-    // (int client_if, bool set_scan_rsp, bool include_name,
-    //  bool include_txpower, int min_interval, int max_interval,
-    //  int appearance, uint16_t manufacturer_len, char *manufacturer_data,
-    //  uint16_t service_data_len, char *service_data,
-    //  uint16_t service_uuid_len, char *service_uuid);
-    OPCODE_CLIENT_SET_ADV_DATA = OPCODE_ERROR,
 
     // replaced by OPCODE_SERVER_ADD_SERVICE
     // (int server_if, int service_handle, int included_handle);
@@ -157,16 +145,15 @@ class BluetoothDaemonGattModule {
     // OPCODE_SCANNER_STOP_SYNC = 0x4e,
 
     // ----- LE advertiser, 0x61 - 0x80 -----
-    // TODO: Support LE advertiser
     OPCODE_ADVERTISER_REGISTER_ADVERTISER = 0x61,
     OPCODE_ADVERTISER_UNREGISTER = 0x62,
-    OPCODE_ADVERTISER_SET_DATA = 0x65,
-    OPCODE_ADVERTISER_ENABLE = 0x66,  // similar with OPCODE_CLIENT_LISTEN
+    OPCODE_ADVERTISER_START_ADVERTISING = 0x67,
 
     // TODO: Support the following commands as new feature
     // OPCODE_ADVERTISER_GET_OWN_ADDRESS = 0x63,
     // OPCODE_ADVERTISER_SET_PARAMETERS = 0x64,
-    // OPCODE_ADVERTISER_START_ADVERTISING = 0x67,
+    // OPCODE_ADVERTISER_SET_DATA = 0x65,
+    // OPCODE_ADVERTISER_ENABLE = 0x66,
     // OPCODE_ADVERTISER_START_ADVERTISING_SET = 0x68,
     // OPCODE_ADVERTISER_SET_PERIODIC_ADVERTISING_PARAMETERS = 0x69,
     // OPCODE_ADVERTISER_SET_PERIODIC_ADVERTISING_DATA = 0x6a,
@@ -197,6 +184,12 @@ class BluetoothDaemonGattModule {
   nsresult ScannerUnregisterScannerCmd(int aScannerId,
                                        BluetoothGattResultHandler* aRes);
 
+  nsresult AdvertiserRegisterAdvertiserCmd(const BluetoothUuid& aUuid,
+                                           BluetoothGattResultHandler* aRes);
+
+  nsresult AdvertiserUnregisterCmd(uint8_t aAdvertiserId,
+                                   BluetoothGattResultHandler* aRes);
+
   /* Start / Stop LE Scan */
   nsresult ScannerScanCmd(bool aStart, BluetoothGattResultHandler* aRes);
 
@@ -209,9 +202,12 @@ class BluetoothDaemonGattModule {
   nsresult ClientDisconnectCmd(int aClientIf, const BluetoothAddress& aBdAddr,
                                int aConnId, BluetoothGattResultHandler* aRes);
 
-  /* Start / Stop advertisements to listen for incoming connections */
-  nsresult ClientListenCmd(int aClientIf, bool aIsStart,
-                           BluetoothGattResultHandler* aRes);
+  /* Start LE advertising  */
+  nsresult AdvertiserStartAdvertisingCmd(uint8_t aAdvertiserId,
+                                         const nsTArray<uint8_t>& aAdvData,
+                                         const nsTArray<uint8_t>& aScanResponse,
+                                         int aTimeout,
+                                         BluetoothGattResultHandler* aRes);
 
   /* Clear the attribute cache for a given device*/
   nsresult ClientRefreshCmd(int aClientIf, const BluetoothAddress& aBdAddr,
@@ -269,16 +265,6 @@ class BluetoothDaemonGattModule {
 
   nsresult ClientGetDeviceTypeCmd(const BluetoothAddress& aBdAddr,
                                   BluetoothGattResultHandler* aRes);
-
-  /* Set advertising data or scan response data */
-  nsresult ClientSetAdvDataCmd(int aServerIf, bool aIsScanRsp,
-                               bool aIsNameIncluded, bool aIsTxPowerIncluded,
-                               int aMinInterval, int aMaxInterval,
-                               int aApperance,
-                               const nsTArray<uint8_t>& aManufacturerData,
-                               const nsTArray<uint8_t>& aServiceData,
-                               const nsTArray<BluetoothUuid>& aServiceUuids,
-                               BluetoothGattResultHandler* aRes);
 
   nsresult ClientTestCommandCmd(int aCommand,
                                 const BluetoothGattTestParam& aTestParam,
@@ -388,6 +374,14 @@ class BluetoothDaemonGattModule {
                                    DaemonSocketPDU& aPDU,
                                    BluetoothGattResultHandler* aRes);
 
+  void AdvertiserRegisterAdvertiserRsp(const DaemonSocketPDUHeader& aHeader,
+                                       DaemonSocketPDU& aPDU,
+                                       BluetoothGattResultHandler* aRes);
+
+  void AdvertiserUnregisterRsp(const DaemonSocketPDUHeader& aHeader,
+                               DaemonSocketPDU& aPDU,
+                               BluetoothGattResultHandler* aRes);
+
   void ScannerScanRsp(const DaemonSocketPDUHeader& aHeader,
                       DaemonSocketPDU& aPDU, BluetoothGattResultHandler* aRes);
 
@@ -399,8 +393,9 @@ class BluetoothDaemonGattModule {
                            DaemonSocketPDU& aPDU,
                            BluetoothGattResultHandler* aRes);
 
-  void ClientListenRsp(const DaemonSocketPDUHeader& aHeader,
-                       DaemonSocketPDU& aPDU, BluetoothGattResultHandler* aRes);
+  void AdvertiserStartAdvertisingRsp(const DaemonSocketPDUHeader& aHeader,
+                                     DaemonSocketPDU& aPDU,
+                                     BluetoothGattResultHandler* aRes);
 
   void ClientRefreshRsp(const DaemonSocketPDUHeader& aHeader,
                         DaemonSocketPDU& aPDU,
@@ -445,10 +440,6 @@ class BluetoothDaemonGattModule {
   void ClientGetDeviceTypeRsp(const DaemonSocketPDUHeader& aHeader,
                               DaemonSocketPDU& aPDU,
                               BluetoothGattResultHandler* aRes);
-
-  void ClientSetAdvDataRsp(const DaemonSocketPDUHeader& aHeader,
-                           DaemonSocketPDU& aPDU,
-                           BluetoothGattResultHandler* aRes);
 
   void ClientTestCommandRsp(const DaemonSocketPDUHeader& aHeader,
                             DaemonSocketPDU& aPDU,
@@ -532,6 +523,11 @@ class BluetoothDaemonGattModule {
       ScannerRegisterNotification;
 
   typedef mozilla::ipc::DaemonNotificationRunnable3<
+      NotificationHandlerWrapper, void, BluetoothGattStatus, uint8_t,
+      BluetoothUuid, BluetoothGattStatus, uint8_t, const BluetoothUuid&>
+      AdvertiserRegisterNotification;
+
+  typedef mozilla::ipc::DaemonNotificationRunnable3<
       NotificationHandlerWrapper, void, BluetoothAddress, int,
       BluetoothGattAdvData, const BluetoothAddress&, int,
       const BluetoothGattAdvData&>
@@ -595,8 +591,9 @@ class BluetoothDaemonGattModule {
       ClientReadRemoteRssiNotification;
 
   typedef mozilla::ipc::DaemonNotificationRunnable2<
-      NotificationHandlerWrapper, void, BluetoothGattStatus, int>
-      ClientListenNotification;
+      NotificationHandlerWrapper, void, BluetoothGattStatus, uint8_t,
+      BluetoothGattStatus, uint8_t>
+      AdvertiseNotification;
 
   typedef mozilla::ipc::DaemonNotificationRunnable2<
       NotificationHandlerWrapper, void, int, nsTArray<BluetoothGattDbElement>,
@@ -692,6 +689,9 @@ class BluetoothDaemonGattModule {
   void ScannerRegisterScannerNtf(const DaemonSocketPDUHeader& aHeader,
                                  DaemonSocketPDU& aPDU);
 
+  void AdvertiserRegisterAdvertiserNtf(const DaemonSocketPDUHeader& aHeader,
+                                       DaemonSocketPDU& aPDU);
+
   void ScannerScanResultNtf(const DaemonSocketPDUHeader& aHeader,
                             DaemonSocketPDU& aPDU);
 
@@ -728,8 +728,8 @@ class BluetoothDaemonGattModule {
   void ClientReadRemoteRssiNtf(const DaemonSocketPDUHeader& aHeader,
                                DaemonSocketPDU& aPDU);
 
-  void ClientListenNtf(const DaemonSocketPDUHeader& aHeader,
-                       DaemonSocketPDU& aPDU);
+  void AdvertiserStartAdvertisingNtf(const DaemonSocketPDUHeader& aHeader,
+                                     DaemonSocketPDU& aPDU);
 
   void ClientGetGattDbNtf(const DaemonSocketPDUHeader& aHeader,
                           DaemonSocketPDU& aPDU);
@@ -803,6 +803,11 @@ class BluetoothDaemonGattInterface final : public BluetoothGattInterface {
   void UnregisterScanner(int aScannerId,
                          BluetoothGattResultHandler* aRes) override;
 
+  void RegisterAdvertiser(const BluetoothUuid& aUuid,
+                          BluetoothGattResultHandler* aRes) override;
+  void UnregisterAdvertiser(uint8_t aAdvertiserId,
+                            BluetoothGattResultHandler* aRes) override;
+
   /* Start / Stop LE Scan */
   void Scan(int aScannerId, bool aStart,
             BluetoothGattResultHandler* aRes) override;
@@ -815,9 +820,10 @@ class BluetoothDaemonGattInterface final : public BluetoothGattInterface {
   void Disconnect(int aClientIf, const BluetoothAddress& aBdAddr, int aConnId,
                   BluetoothGattResultHandler* aRes) override;
 
-  /* Start / Stop advertisements to listen for incoming connections */
-  void Listen(int aClientIf, bool aIsStart,
-              BluetoothGattResultHandler* aRes) override;
+  /* Start LE advertising  */
+  void Advertise(uint8_t aAdvertiserId,
+                 const BluetoothGattAdvertisingData& aData,
+                 BluetoothGattResultHandler* aRes) override;
 
   /* Clear the attribute cache for a given device*/
   void Refresh(int aClientIf, const BluetoothAddress& aBdAddr,
@@ -865,14 +871,6 @@ class BluetoothDaemonGattInterface final : public BluetoothGattInterface {
 
   void GetDeviceType(const BluetoothAddress& aBdAddr,
                      BluetoothGattResultHandler* aRes) override;
-
-  /* Set advertising data or scan response data */
-  void SetAdvData(int aServerIf, bool aIsScanRsp, bool aIsNameIncluded,
-                  bool aIsTxPowerIncluded, int aMinInterval, int aMaxInterval,
-                  int aApperance, const nsTArray<uint8_t>& aManufacturerData,
-                  const nsTArray<uint8_t>& aServiceData,
-                  const nsTArray<BluetoothUuid>& aServiceUuids,
-                  BluetoothGattResultHandler* aRes) override;
 
   void TestCommand(int aCommand, const BluetoothGattTestParam& aTestParam,
                    BluetoothGattResultHandler* aRes) override;

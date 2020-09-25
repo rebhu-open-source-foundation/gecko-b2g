@@ -16,6 +16,7 @@ BEGIN_BLUETOOTH_NAMESPACE
 class BluetoothGattClient;
 class BluetoothReplyRunnable;
 class BluetoothGattScanner;
+class BluetoothGattAdvertiser;
 
 class BluetoothGattManager final : public nsIObserver,
                                    public BluetoothGattNotificationHandler {
@@ -56,6 +57,9 @@ class BluetoothGattManager final : public nsIObserver,
   void UnregisterClient(int aClientIf, BluetoothReplyRunnable* aRunnable);
 
   void UnregisterScanner(int aScannerId, BluetoothReplyRunnable* aRunnable);
+
+  void UnregisterAdvertiser(uint8_t aAdvertiserId,
+                            BluetoothReplyRunnable* aRunnable);
 
   void ReadRemoteRssi(int aClientIf, const BluetoothAddress& aDeviceAddr,
                       BluetoothReplyRunnable* aRunnable);
@@ -159,11 +163,11 @@ class BluetoothGattManager final : public nsIObserver,
   class UnregisterClientResultHandler;
   class RegisterScannerResultHandler;
   class UnregisterScannerResultHandler;
+  class RegisterAdvertiserResultHandler;
+  class UnregisterAdvertiserResultHandler;
   class StartLeScanResultHandler;
   class StopLeScanResultHandler;
   class StartAdvertisingResultHandler;
-  class SetAdvDataResultHandler;
-  class StopAdvertisingResultHandler;
   class ConnectResultHandler;
   class DisconnectResultHandler;
   class DiscoverResultHandler;
@@ -202,6 +206,10 @@ class BluetoothGattManager final : public nsIObserver,
   void RegisterScannerNotification(BluetoothGattStatus aStatus,
                                    uint8_t aScannerId,
                                    const BluetoothUuid& aScanUuid) override;
+
+  void RegisterAdvertiserNotification(
+      BluetoothGattStatus aStatus, uint8_t aAdvertiserId,
+      const BluetoothUuid& aAdvertiseUuid) override;
 
   void ScanResultNotification(const BluetoothAddress& aBdAddr, int aRssi,
                               const BluetoothGattAdvData& aAdvData) override;
@@ -245,7 +253,8 @@ class BluetoothGattManager final : public nsIObserver,
                                   const BluetoothAddress& aBdAddr, int aRssi,
                                   BluetoothGattStatus aStatus) override;
 
-  void ListenNotification(BluetoothGattStatus aStatus, int aServerIf) override;
+  void AdvertiseNotification(BluetoothGattStatus aStatus,
+                             uint8_t aAdvertiserId) override{};
 
   void GetGattDbNotification(
       int aConnId, const nsTArray<BluetoothGattDbElement>& aDb) override;
