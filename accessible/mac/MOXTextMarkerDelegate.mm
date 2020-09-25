@@ -166,7 +166,8 @@ static nsDataHashtable<nsUint64HashKey, MOXTextMarkerDelegate*> sDelegates;
     return nil;
   }
 
-  return geckoTextMarker.LeftWordRange().CreateAXTextMarkerRange();
+  return geckoTextMarker.Range(EWhichRange::eLeftWord)
+      .CreateAXTextMarkerRange();
 }
 
 - (id)moxRightWordTextMarkerRangeForTextMarker:(id)textMarker {
@@ -175,7 +176,37 @@ static nsDataHashtable<nsUint64HashKey, MOXTextMarkerDelegate*> sDelegates;
     return nil;
   }
 
-  return geckoTextMarker.RightWordRange().CreateAXTextMarkerRange();
+  return geckoTextMarker.Range(EWhichRange::eRightWord)
+      .CreateAXTextMarkerRange();
+}
+
+- (id)moxLineTextMarkerRangeForTextMarker:(id)textMarker {
+  GeckoTextMarker geckoTextMarker(mGeckoDocAccessible, textMarker);
+  if (!geckoTextMarker.IsValid()) {
+    return nil;
+  }
+
+  return geckoTextMarker.Range(EWhichRange::eLine).CreateAXTextMarkerRange();
+}
+
+- (id)moxLeftLineTextMarkerRangeForTextMarker:(id)textMarker {
+  GeckoTextMarker geckoTextMarker(mGeckoDocAccessible, textMarker);
+  if (!geckoTextMarker.IsValid()) {
+    return nil;
+  }
+
+  return geckoTextMarker.Range(EWhichRange::eLeftLine)
+      .CreateAXTextMarkerRange();
+}
+
+- (id)moxRightLineTextMarkerRangeForTextMarker:(id)textMarker {
+  GeckoTextMarker geckoTextMarker(mGeckoDocAccessible, textMarker);
+  if (!geckoTextMarker.IsValid()) {
+    return nil;
+  }
+
+  return geckoTextMarker.Range(EWhichRange::eRightLine)
+      .CreateAXTextMarkerRange();
 }
 
 - (id)moxNextTextMarkerForTextMarker:(id)textMarker {

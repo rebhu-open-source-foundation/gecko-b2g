@@ -452,6 +452,8 @@ class ParserAtomsTable {
       InflatedChar16Sequence<SeqCharT> seq, uint32_t length);
 
  public:
+  bool empty() const { return entrySet_.empty(); }
+
   JS::Result<const ParserAtom*, OOM> internAscii(JSContext* cx,
                                                  const char* asciiPtr,
                                                  uint32_t length);
@@ -465,6 +467,11 @@ class ParserAtomsTable {
   JS::Result<const ParserAtom*, OOM> internChar16(JSContext* cx,
                                                   const char16_t* char16Ptr,
                                                   uint32_t length);
+
+  // This only exists for XDR support.
+  JS::Result<const ParserAtom*, OOM> internChar16LE(JSContext* cx,
+                                                    LittleEndianChars twoByteLE,
+                                                    uint32_t length);
 
   JS::Result<const ParserAtom*, OOM> internJSAtom(
       JSContext* cx, CompilationInfo& compilationInfo, JSAtom* atom);

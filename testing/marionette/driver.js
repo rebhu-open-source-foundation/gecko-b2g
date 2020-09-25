@@ -2227,6 +2227,23 @@ GeckoDriver.prototype.clickElement = async function(cmd) {
   let id = assert.string(cmd.parameters.id);
   let webEl = WebElement.fromUUID(id, this.context);
 
+  if (MarionettePrefs.useActors) {
+    const actor = this.getActor();
+
+    const target = await actor.getElementAttribute(webEl, "target");
+    await navigate.waitForNavigationCompleted(
+      this,
+      () => actor.clickElement(webEl, this.capabilities),
+      {
+        browsingContext: this.getBrowsingContext(),
+        // The click might trigger a navigation, so don't count on it.
+        requireBeforeUnload: false,
+        loadEventExpected: target !== "_blank",
+      }
+    );
+    return;
+  }
+
   switch (this.context) {
     case Context.Chrome:
       let el = this.curBrowser.seenEls.get(webEl);
@@ -2238,11 +2255,10 @@ GeckoDriver.prototype.clickElement = async function(cmd) {
 
       await navigate.waitForNavigationCompleted(
         this,
-        async () => {
-          await this.listener.clickElement(webEl, this.capabilities);
-        },
+        () => this.listener.clickElement(webEl, this.capabilities),
         {
           browsingContext: this.getBrowsingContext(),
+          // The click might trigger a navigation, so don't count on it.
           requireBeforeUnload: false,
           loadEventExpected: target !== "_blank",
         }
@@ -2696,6 +2712,11 @@ GeckoDriver.prototype.clearElement = async function(cmd) {
   let id = assert.string(cmd.parameters.id);
   let webEl = WebElement.fromUUID(id, this.context);
 
+  if (MarionettePrefs.useActors) {
+    await this.getActor().clearElement(webEl);
+    return;
+  }
+
   switch (this.context) {
     case Context.Chrome:
       // the selenium atom doesn't work here
@@ -3000,6 +3021,9 @@ GeckoDriver.prototype.closeChromeWindow = async function() {
   }
 
   await this.curBrowser.closeWindow();
+  this.chromeBrowsingContext = null;
+  this.contentBrowsingContext = null;
+
   return this.chromeWindowHandles.map(String);
 };
 
@@ -3024,6 +3048,16 @@ GeckoDriver.prototype.deleteSession = function() {
   }
 
   if (MarionettePrefs.useActors) {
+    if (this.getBrowsingContext()) {
+      try {
+        // reset any global state used by parent actor
+        this.getActor().cleanUp();
+      } catch (e) {
+        if (e.result != Cr.NS_ERROR_DOM_NOT_FOUND_ERR) {
+          throw e;
+        }
+      }
+    }
     ChromeUtils.unregisterWindowActor("MarionetteFrame");
   }
 

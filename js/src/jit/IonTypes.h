@@ -155,6 +155,9 @@ enum class BailoutKind : uint8_t {
   // Function name not available ("name" property was redefined)
   FunctionName,
 
+  // Bailout triggered by MFromCodePoint
+  InvalidCodePoint,
+
   // END Normal bailouts
 
   // Bailouts caused by invalid assumptions based on Baseline code.
@@ -197,6 +200,9 @@ enum class BailoutKind : uint8_t {
 
   // Bailout triggered by MGuardIsNotArrayBufferMaybeShared.
   NotArrayBufferMaybeSharedGuard,
+
+  // Bailout triggered by MGuardIsTypedArray.
+  TypedArrayGuard,
 
   // Bailout triggered by a megamorphic load or store.
   MegamorphicAccess,
@@ -308,6 +314,8 @@ inline const char* BailoutKindString(BailoutKind kind) {
       return "BailoutKind::FunctionLength";
     case BailoutKind::FunctionName:
       return "BailoutKind::FunctionName";
+    case BailoutKind::InvalidCodePoint:
+      return "BailoutKind::InvalidCodePoint";
 
     // Bailouts caused by invalid assumptions.
     case BailoutKind::OverflowInvalidate:
@@ -332,6 +340,8 @@ inline const char* BailoutKindString(BailoutKind kind) {
       return "BailoutKind::NotDOMProxyGuard";
     case BailoutKind::NotArrayBufferMaybeSharedGuard:
       return "BailoutKind::NotArrayBufferMaybeSharedGuard";
+    case BailoutKind::TypedArrayGuard:
+      return "BailoutKind::TypedArrayGuard";
     case BailoutKind::MegamorphicAccess:
       return "BailoutKind::MegamorphicAccess";
     case BailoutKind::ArgumentsObjectAccess:

@@ -4758,6 +4758,16 @@ void CodeGenerator::visitGuardIsNotArrayBufferMaybeShared(
   bailoutFrom(&bail, guard->snapshot());
 }
 
+void CodeGenerator::visitGuardIsTypedArray(LGuardIsTypedArray* guard) {
+  Register obj = ToRegister(guard->input());
+  Register temp = ToRegister(guard->temp());
+
+  Label bail;
+  masm.loadObjClassUnsafe(obj, temp);
+  masm.branchIfClassIsNotTypedArray(temp, &bail);
+  bailoutFrom(&bail, guard->snapshot());
+}
+
 void CodeGenerator::visitGuardObjectGroup(LGuardObjectGroup* guard) {
   Register obj = ToRegister(guard->input());
   Register temp = ToTempRegisterOrInvalid(guard->temp());
@@ -5179,11 +5189,13 @@ void CodeGenerator::visitGuardNullOrUndefined(LGuardNullOrUndefined* lir) {
 void CodeGenerator::visitGuardFunctionFlags(LGuardFunctionFlags* lir) {
   Register function = ToRegister(lir->function());
 
-  Assembler::Condition cond =
-      lir->mir()->bailWhenSet() ? Assembler::NonZero : Assembler::Zero;
-
   Label bail;
-  masm.branchTestFunctionFlags(function, lir->mir()->flags(), cond, &bail);
+  if (uint16_t flags = lir->mir()->expectedFlags()) {
+    masm.branchTestFunctionFlags(function, flags, Assembler::Zero, &bail);
+  }
+  if (uint16_t flags = lir->mir()->unexpectedFlags()) {
+    masm.branchTestFunctionFlags(function, flags, Assembler::NonZero, &bail);
+  }
   bailoutFrom(&bail, lir->snapshot());
 }
 

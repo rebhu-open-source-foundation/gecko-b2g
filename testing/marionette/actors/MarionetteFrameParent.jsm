@@ -11,14 +11,17 @@ const { XPCOMUtils } = ChromeUtils.import(
 );
 
 XPCOMUtils.defineLazyModuleGetters(this, {
-  EventEmitter: "resource://gre/modules/EventEmitter.jsm",
-
+  element: "chrome://marionette/content/element.js",
   error: "chrome://marionette/content/error.js",
   evaluate: "chrome://marionette/content/evaluate.js",
+  EventEmitter: "resource://gre/modules/EventEmitter.jsm",
   Log: "chrome://marionette/content/log.js",
 });
 
 XPCOMUtils.defineLazyGetter(this, "logger", () => Log.get());
+XPCOMUtils.defineLazyGetter(this, "elementIdCache", () => {
+  return new element.ReferenceStore();
+});
 
 class MarionetteFrameParent extends JSWindowActorParent {
   constructor() {
@@ -31,29 +34,52 @@ class MarionetteFrameParent extends JSWindowActorParent {
     logger.trace(`[${this.browsingContext.id}] Parent actor created`);
   }
 
-  receiveMessage(msg) {
+  async receiveMessage(msg) {
     const { name, data } = msg;
+
+    let rv;
 
     switch (name) {
       case "MarionetteFrameChild:PageLoadEvent":
         this.emit("page-load-event", data);
         break;
+      case "MarionetteFrameChild:ElementIdCacheAdd":
+        rv = elementIdCache.add(data).toJSON();
     }
+
+    return rv;
   }
 
   async sendQuery(name, data) {
-    const serializedData = evaluate.toJSON(data);
+    const serializedData = evaluate.toJSON(data, elementIdCache);
     const result = await super.sendQuery(name, serializedData);
 
     if ("error" in result) {
       throw error.WebDriverError.fromJSON(result.error);
     } else {
-      return evaluate.fromJSON(result.data);
+      return evaluate.fromJSON(result.data, elementIdCache);
     }
+  }
+
+  cleanUp() {
+    elementIdCache.clear();
   }
 
   // Proxying methods for WebDriver commands
   // TODO: Maybe using a proxy class instead similar to proxy.js
+
+  clearElement(webEl) {
+    return this.sendQuery("MarionetteFrameParent:clearElement", {
+      webEl,
+    });
+  }
+
+  clickElement(webEl, capabilities) {
+    return this.sendQuery("MarionetteFrameParent:clickElement", {
+      webEl,
+      capabilities,
+    });
+  }
 
   findElement(strategy, selector, opts) {
     return this.sendQuery("MarionetteFrameParent:findElement", {

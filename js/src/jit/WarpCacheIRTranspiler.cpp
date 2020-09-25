@@ -582,6 +582,16 @@ bool WarpCacheIRTranspiler::emitGuardIsNotArrayBufferMaybeShared(
   return true;
 }
 
+bool WarpCacheIRTranspiler::emitGuardIsTypedArray(ObjOperandId objId) {
+  MDefinition* obj = getOperand(objId);
+
+  auto* ins = MGuardIsTypedArray::New(alloc(), obj);
+  add(ins);
+
+  setOperand(objId, ins);
+  return true;
+}
+
 bool WarpCacheIRTranspiler::emitGuardProto(ObjOperandId objId,
                                            uint32_t protoOffset) {
   MDefinition* def = getOperand(objId);
@@ -745,10 +755,11 @@ bool WarpCacheIRTranspiler::emitGuardFrameHasNoArgumentsObject() {
 bool WarpCacheIRTranspiler::emitGuardFunctionHasJitEntry(ObjOperandId funId,
                                                          bool constructing) {
   MDefinition* fun = getOperand(funId);
-  uint16_t flags = FunctionFlags::HasJitEntryFlags(constructing);
+  uint16_t expectedFlags = FunctionFlags::HasJitEntryFlags(constructing);
+  uint16_t unexpectedFlags = 0;
 
-  auto* ins = MGuardFunctionFlags::New(alloc(), fun, flags,
-                                       /*bailWhenSet=*/false);
+  auto* ins =
+      MGuardFunctionFlags::New(alloc(), fun, expectedFlags, unexpectedFlags);
   add(ins);
 
   setOperand(funId, ins);
@@ -757,10 +768,31 @@ bool WarpCacheIRTranspiler::emitGuardFunctionHasJitEntry(ObjOperandId funId,
 
 bool WarpCacheIRTranspiler::emitGuardFunctionHasNoJitEntry(ObjOperandId funId) {
   MDefinition* fun = getOperand(funId);
-  uint16_t flags = FunctionFlags::HasJitEntryFlags(/*isConstructing=*/false);
+  uint16_t expectedFlags = 0;
+  uint16_t unexpectedFlags =
+      FunctionFlags::HasJitEntryFlags(/*isConstructing=*/false);
 
-  auto* ins = MGuardFunctionFlags::New(alloc(), fun, flags,
-                                       /*bailWhenSet=*/true);
+  auto* ins =
+      MGuardFunctionFlags::New(alloc(), fun, expectedFlags, unexpectedFlags);
+  add(ins);
+
+  setOperand(funId, ins);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitGuardFunctionIsNonBuiltinCtor(
+    ObjOperandId funId) {
+  MDefinition* fun = getOperand(funId);
+
+  // Guard the function has the BASESCRIPT and CONSTRUCTOR flags and does NOT
+  // have the SELF_HOSTED flag.
+  // This is equivalent to JSFunction::isNonBuiltinConstructor.
+  uint16_t expectedFlags =
+      FunctionFlags::BASESCRIPT | FunctionFlags::CONSTRUCTOR;
+  uint16_t unexpectedFlags = FunctionFlags::SELF_HOSTED;
+
+  auto* ins =
+      MGuardFunctionFlags::New(alloc(), fun, expectedFlags, unexpectedFlags);
   add(ins);
 
   setOperand(funId, ins);
@@ -769,9 +801,11 @@ bool WarpCacheIRTranspiler::emitGuardFunctionHasNoJitEntry(ObjOperandId funId) {
 
 bool WarpCacheIRTranspiler::emitGuardFunctionIsConstructor(ObjOperandId funId) {
   MDefinition* fun = getOperand(funId);
+  uint16_t expectedFlags = FunctionFlags::CONSTRUCTOR;
+  uint16_t unexpectedFlags = 0;
 
-  auto* ins = MGuardFunctionFlags::New(alloc(), fun, FunctionFlags::CONSTRUCTOR,
-                                       /*bailWhenSet=*/false);
+  auto* ins =
+      MGuardFunctionFlags::New(alloc(), fun, expectedFlags, unexpectedFlags);
   add(ins);
 
   setOperand(funId, ins);
@@ -1470,6 +1504,23 @@ bool WarpCacheIRTranspiler::emitLoadDenseElementExistsResult(
   add(guard);
 
   pushResult(constant(BooleanValue(true)));
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitLoadTypedArrayElementExistsResult(
+    ObjOperandId objId, Int32OperandId indexId) {
+  MDefinition* obj = getOperand(objId);
+  MDefinition* index = getOperand(indexId);
+
+  auto* length = MArrayBufferViewLength::New(alloc(), obj);
+  add(length);
+
+  // Unsigned comparison to catch negative indices.
+  auto* ins = MCompare::New(alloc(), index, length, JSOp::Lt);
+  ins->setCompareType(MCompare::Compare_UInt32);
+  add(ins);
+
+  pushResult(ins);
   return true;
 }
 

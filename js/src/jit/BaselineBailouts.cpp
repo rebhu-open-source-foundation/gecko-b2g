@@ -2144,11 +2144,13 @@ bool jit::FinishBailoutToBaseline(BaselineBailoutInfo* bailoutInfoArg) {
     case BailoutKind::NonInt32ArrayLength:
     case BailoutKind::FunctionLength:
     case BailoutKind::FunctionName:
+    case BailoutKind::InvalidCodePoint:
     case BailoutKind::ProtoGuard:
     case BailoutKind::ProxyGuard:
     case BailoutKind::NotProxyGuard:
     case BailoutKind::NotDOMProxyGuard:
     case BailoutKind::NotArrayBufferMaybeSharedGuard:
+    case BailoutKind::TypedArrayGuard:
     case BailoutKind::MegamorphicAccess:
     case BailoutKind::ArgumentsObjectAccess:
     case BailoutKind::ArrayPopShift:

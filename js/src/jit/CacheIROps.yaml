@@ -399,6 +399,13 @@
   args:
     obj: ObjId
 
+- name: GuardIsTypedArray
+  shared: true
+  transpile: true
+  cost_estimate: 1
+  args:
+    obj: ObjId
+
 - name: GuardHasProxyHandler
   shared: false
   transpile: false
@@ -630,7 +637,7 @@
 
 - name: GuardFunctionIsNonBuiltinCtor
   shared: true
-  transpile: false
+  transpile: true
   cost_estimate: 1
   args:
     fun: ObjId
@@ -1659,7 +1666,15 @@
     obj: ObjId
     index: Int32Id
 
-- name: LoadTypedElementExistsResult
+- name: LoadTypedArrayElementExistsResult
+  shared: true
+  transpile: true
+  cost_estimate: 2
+  args:
+    obj: ObjId
+    index: Int32Id
+
+- name: LoadTypedObjectElementExistsResult
   shared: true
   transpile: false
   cost_estimate: 2

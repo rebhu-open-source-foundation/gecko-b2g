@@ -462,6 +462,7 @@ class Alias(CompositeStrategy):
     This can be useful to swap strategies in and out without needing to modify
     the task transforms.
     """
+
     def __init__(self, strategy):
         super(Alias, self).__init__(strategy)
 
@@ -475,6 +476,7 @@ class Alias(CompositeStrategy):
 
 class Not(CompositeStrategy):
     """Given a strategy, returns the opposite."""
+
     def __init__(self, strategy):
         super(Not, self).__init__(strategy)
 
@@ -491,10 +493,15 @@ def split_bugbug_arg(arg, substrategies):
 
     Many bugbug based optimizations require passing an empty dict by reference
     to communicate to downstream strategies. This function passes the provided
-    arg to the first strategies and an empty dict to last (bugbug based)
-    strategy.
+    arg to the first (non bugbug) strategies and a shared empty dict to the
+    bugbug strategy and all substrategies after it.
     """
-    return [arg] * (len(substrategies) - 1) + [{}]
+    from taskgraph.optimize.bugbug import BugBugPushSchedules
+
+    index = [i for i, strategy in enumerate(substrategies)
+             if isinstance(strategy, BugBugPushSchedules)][0]
+
+    return [arg] * index + [{}] * (len(substrategies) - index)
 
 
 # Trigger registration in sibling modules.
@@ -539,10 +546,8 @@ class project(object):
                 # The actual test strategy applied to "expanded" pushes.
                 Any(
                     'skip-unless-schedules',
-                    Any(
-                        'bugbug-reduced-manifests-fallback-last-10-pushes',
-                        'platform-disperse',
-                    ),
+                    'bugbug-reduced-manifests-fallback-last-10-pushes',
+                    'platform-disperse',
                     split_args=split_bugbug_arg,
                 ),
             ),
@@ -565,6 +570,7 @@ class project(object):
                 Any(
                     'skip-unless-schedules',
                     'bugbug-reduced-fallback',
+                    split_args=split_bugbug_arg,
                 ),
             ),
         ),
@@ -602,7 +608,9 @@ class experimental(object):
     bugbug_debug_disperse = {
         'test': Any(
             'skip-unless-schedules',
-            Any('bugbug-low', 'platform-debug', 'platform-disperse'),
+            'bugbug-low',
+            'platform-debug',
+            'platform-disperse',
             split_args=split_bugbug_arg
         ),
     }
@@ -611,7 +619,8 @@ class experimental(object):
     bugbug_disperse_low = {
         'test': Any(
             'skip-unless-schedules',
-            Any('bugbug-low', 'platform-disperse'),
+            'bugbug-low',
+            'platform-disperse',
             split_args=split_bugbug_arg
         ),
     }
@@ -620,7 +629,8 @@ class experimental(object):
     bugbug_disperse_medium = {
         'test': Any(
             'skip-unless-schedules',
-            Any('bugbug-medium', 'platform-disperse'),
+            'bugbug-medium',
+            'platform-disperse',
             split_args=split_bugbug_arg
         ),
     }
@@ -629,7 +639,8 @@ class experimental(object):
     bugbug_disperse_reduced_medium = {
         'test': Any(
             'skip-unless-schedules',
-            Any('bugbug-reduced-manifests', 'platform-disperse'),
+            'bugbug-reduced-manifests',
+            'platform-disperse',
             split_args=split_bugbug_arg
         ),
     }
@@ -638,7 +649,8 @@ class experimental(object):
     bugbug_disperse_medium_no_unseen = {
         'test': Any(
             'skip-unless-schedules',
-            Any('bugbug-medium', 'platform-disperse-no-unseen'),
+            'bugbug-medium',
+            'platform-disperse-no-unseen',
             split_args=split_bugbug_arg
         ),
     }
@@ -648,7 +660,8 @@ class experimental(object):
     bugbug_disperse_medium_only_one = {
         'test': Any(
             'skip-unless-schedules',
-            Any('bugbug-medium', 'platform-disperse-only-one'),
+            'bugbug-medium',
+            'platform-disperse-only-one',
             split_args=split_bugbug_arg
         ),
     }
@@ -657,7 +670,8 @@ class experimental(object):
     bugbug_disperse_high = {
         'test': Any(
             'skip-unless-schedules',
-            Any('bugbug-high', 'platform-disperse'),
+            'bugbug-high',
+            'platform-disperse',
             split_args=split_bugbug_arg
         ),
     }
@@ -691,6 +705,7 @@ class ExperimentalOverride(object):
         base (object): A container class supporting attribute access.
         overrides (dict): Values to update any accessed dictionaries with.
     """
+
     def __init__(self, base, overrides):
         self.base = base
         self.overrides = overrides

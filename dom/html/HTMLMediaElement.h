@@ -1831,8 +1831,6 @@ class HTMLMediaElement : public nsGenericHTMLElement,
  private:
   already_AddRefed<PlayPromise> CreatePlayPromise(ErrorResult& aRv) const;
 
-  void UpdateHadAudibleAutoplayState();
-
   virtual void MaybeBeginCloningVisually(){};
 
   uint32_t GetPreloadDefault() const;
@@ -1861,13 +1859,6 @@ class HTMLMediaElement : public nsGenericHTMLElement,
   // when media aborts the current load; be paused when the docuemt enters the
   // bf-cache and be resumed when the docuemt leaves the bf-cache.
   TimeDurationAccumulator mCurrentLoadPlayTime;
-
-  // True if media has ever been blocked by autoplay policy before.
-  bool mHasPlayEverBeenBlocked = false;
-
-  // Report the Telemetry about whether media played over the specific time
-  // threshold.
-  void ReportPlayedTimeAfterBlockedTelemetry();
 
   // True if Init() has been called after construction
   bool mInitialized = false;

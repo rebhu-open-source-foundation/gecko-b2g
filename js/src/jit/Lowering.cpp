@@ -1950,7 +1950,7 @@ void LIRGenerator::visitFromCodePoint(MFromCodePoint* ins) {
 
   LFromCodePoint* lir =
       new (alloc()) LFromCodePoint(useRegister(codePoint), temp(), temp());
-  assignSnapshot(lir, BailoutKind::BoundsCheck);
+  assignSnapshot(lir, BailoutKind::InvalidCodePoint);
   define(lir, ins);
   assignSafepoint(lir, ins);
 }
@@ -4362,6 +4362,16 @@ void LIRGenerator::visitGuardIsNotArrayBufferMaybeShared(
   auto* lir = new (alloc())
       LGuardIsNotArrayBufferMaybeShared(useRegister(ins->object()), temp());
   assignSnapshot(lir, BailoutKind::NotArrayBufferMaybeSharedGuard);
+  add(lir, ins);
+  redefine(ins, ins->object());
+}
+
+void LIRGenerator::visitGuardIsTypedArray(MGuardIsTypedArray* ins) {
+  MOZ_ASSERT(ins->object()->type() == MIRType::Object);
+
+  auto* lir =
+      new (alloc()) LGuardIsTypedArray(useRegister(ins->object()), temp());
+  assignSnapshot(lir, BailoutKind::TypedArrayGuard);
   add(lir, ins);
   redefine(ins, ins->object());
 }

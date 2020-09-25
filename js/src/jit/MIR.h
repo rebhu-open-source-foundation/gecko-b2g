@@ -9652,6 +9652,28 @@ class MGuardIsNotArrayBufferMaybeShared : public MUnaryInstruction,
   AliasSet getAliasSet() const override { return AliasSet::None(); }
 };
 
+// Guard the object is a TypedArray object.
+class MGuardIsTypedArray : public MUnaryInstruction,
+                           public SingleObjectPolicy::Data {
+  explicit MGuardIsTypedArray(MDefinition* obj)
+      : MUnaryInstruction(classOpcode, obj) {
+    setGuard();
+    setMovable();
+    setResultType(MIRType::Object);
+    setResultTypeSet(obj->resultTypeSet());
+  }
+
+ public:
+  INSTRUCTION_HEADER(GuardIsTypedArray)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, object))
+
+  bool congruentTo(const MDefinition* ins) const override {
+    return congruentIfOperandsEqual(ins);
+  }
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
+};
+
 // Loads a specific JSObject* that was originally nursery-allocated.
 // See also WarpObjectField.
 class MNurseryObject : public MNullaryInstruction {
@@ -9763,14 +9785,18 @@ class MGuardNullOrUndefined : public MUnaryInstruction,
 // Guard on function flags
 class MGuardFunctionFlags : public MUnaryInstruction,
                             public SingleObjectPolicy::Data {
-  uint16_t flags_;
-  bool bailWhenSet_;
+  uint16_t expectedFlags_;
+  uint16_t unexpectedFlags_;
 
-  explicit MGuardFunctionFlags(MDefinition* fun, uint16_t flags,
-                               bool bailWhenSet)
+  explicit MGuardFunctionFlags(MDefinition* fun, uint16_t expectedFlags,
+                               uint16_t unexpectedFlags)
       : MUnaryInstruction(classOpcode, fun),
-        flags_(flags),
-        bailWhenSet_(bailWhenSet) {
+        expectedFlags_(expectedFlags),
+        unexpectedFlags_(unexpectedFlags) {
+    MOZ_ASSERT((expectedFlags & unexpectedFlags) == 0,
+               "Can't guard inconsistent flags");
+    MOZ_ASSERT((expectedFlags | unexpectedFlags) != 0,
+               "Can't guard zero flags");
     setGuard();
     setMovable();
     setResultType(MIRType::Object);
@@ -9782,17 +9808,17 @@ class MGuardFunctionFlags : public MUnaryInstruction,
   TRIVIAL_NEW_WRAPPERS
   NAMED_OPERANDS((0, function))
 
-  uint16_t flags() const { return flags_; };
-  bool bailWhenSet() const { return bailWhenSet_; }
+  uint16_t expectedFlags() const { return expectedFlags_; };
+  uint16_t unexpectedFlags() const { return unexpectedFlags_; };
 
   bool congruentTo(const MDefinition* ins) const override {
     if (!ins->isGuardFunctionFlags()) {
       return false;
     }
-    if (flags() != ins->toGuardFunctionFlags()->flags()) {
+    if (expectedFlags() != ins->toGuardFunctionFlags()->expectedFlags()) {
       return false;
     }
-    if (bailWhenSet() != ins->toGuardFunctionFlags()->bailWhenSet()) {
+    if (unexpectedFlags() != ins->toGuardFunctionFlags()->unexpectedFlags()) {
       return false;
     }
     return congruentIfOperandsEqual(ins);
