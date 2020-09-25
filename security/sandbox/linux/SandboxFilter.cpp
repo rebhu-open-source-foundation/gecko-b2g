@@ -166,23 +166,6 @@ class SandboxPolicyCommon : public SandboxPolicyBase {
     return broker->Open(path, flags);
   }
 
-  static intptr_t TKillCompatTrap(ArgsRef aArgs, void* aux) {
-    auto tid = static_cast<pid_t>(aArgs.args[0]);
-    auto sig = static_cast<int>(aArgs.args[1]);
-    return DoSyscall(__NR_tgkill, getpid(), tid, sig);
-  }
-
-  static intptr_t SetNoNewPrivsTrap(ArgsRef& aArgs, void* aux) {
-    if (gSetSandboxFilter == nullptr) {
-      // Called after BroadcastSetThreadSandbox finished, therefore
-      // not our doing and not expected.
-      return BlockedSyscallTrap(aArgs, nullptr);
-    }
-    // Signal that the filter is already in place.
-    return -ETXTBSY;
-  }
-
-
   static intptr_t AccessTrap(ArgsRef aArgs, void* aux) {
     auto broker = static_cast<SandboxBrokerClient*>(aux);
     auto path = reinterpret_cast<const char*>(aArgs.args[0]);
@@ -259,6 +242,22 @@ class SandboxPolicyCommon : public SandboxPolicyBase {
     return broker->Readlink(path, buf, size);
   }
 #endif  // __NR_open
+
+  static intptr_t TKillCompatTrap(ArgsRef aArgs, void* aux) {
+    auto tid = static_cast<pid_t>(aArgs.args[0]);
+    auto sig = static_cast<int>(aArgs.args[1]);
+    return DoSyscall(__NR_tgkill, getpid(), tid, sig);
+  }
+
+  static intptr_t SetNoNewPrivsTrap(ArgsRef& aArgs, void* aux) {
+    if (gSetSandboxFilter == nullptr) {
+      // Called after BroadcastSetThreadSandbox finished, therefore
+      // not our doing and not expected.
+      return BlockedSyscallTrap(aArgs, nullptr);
+    }
+    // Signal that the filter is already in place.
+    return -ETXTBSY;
+  }
 
   static intptr_t OpenAtTrap(ArgsRef aArgs, void* aux) {
     auto broker = static_cast<SandboxBrokerClient*>(aux);
