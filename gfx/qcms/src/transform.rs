@@ -269,7 +269,7 @@ fn clamp_u8(mut v: f32) -> u8 {
 //            - Then I eval the source white point across this matrix
 //              obtaining the coeficients of the transformation
 //            - Then, I apply these coeficients to the original matrix
-unsafe extern "C" fn build_RGB_to_XYZ_transfer_matrix(
+fn build_RGB_to_XYZ_transfer_matrix(
     mut white: qcms_CIE_xyY,
     mut primrs: qcms_CIE_xyYTRIPLE,
 ) -> matrix {
@@ -327,17 +327,14 @@ unsafe extern "C" fn build_RGB_to_XYZ_transfer_matrix(
     return result;
 }
 /* CIE Illuminant D50 */
-static mut D50_XYZ: CIE_XYZ = {
-    let mut init = CIE_XYZ {
-        X: 0.9642f64,
-        Y: 1.0000f64,
-        Z: 0.8249f64,
-    };
-    init
+const D50_XYZ: CIE_XYZ = CIE_XYZ {
+    X: 0.9642f64,
+    Y: 1.0000f64,
+    Z: 0.8249f64,
 };
 /* from lcms: xyY2XYZ()
  * corresponds to argyll: icmYxy2XYZ() */
-unsafe extern "C" fn xyY2XYZ(mut source: qcms_CIE_xyY) -> CIE_XYZ {
+fn xyY2XYZ(mut source: qcms_CIE_xyY) -> CIE_XYZ {
     let mut dest: CIE_XYZ = CIE_XYZ {
         X: 0.,
         Y: 0.,
@@ -350,7 +347,7 @@ unsafe extern "C" fn xyY2XYZ(mut source: qcms_CIE_xyY) -> CIE_XYZ {
 }
 /* from lcms: ComputeChromaticAdaption */
 // Compute chromatic adaption matrix using chad as cone matrix
-unsafe extern "C" fn compute_chromatic_adaption(
+fn compute_chromatic_adaption(
     mut source_white_point: CIE_XYZ,
     mut dest_white_point: CIE_XYZ,
     mut chad: matrix,
@@ -394,10 +391,7 @@ unsafe extern "C" fn compute_chromatic_adaption(
 /* from lcms: cmsAdaptionMatrix */
 // Returns the final chrmatic adaptation from illuminant FromIll to Illuminant ToIll
 // Bradford is assumed
-unsafe extern "C" fn adaption_matrix(
-    mut source_illumination: CIE_XYZ,
-    mut target_illumination: CIE_XYZ,
-) -> matrix {
+fn adaption_matrix(mut source_illumination: CIE_XYZ, mut target_illumination: CIE_XYZ) -> matrix {
     let mut lam_rigg: matrix = {
         let mut init = matrix {
             m: [
@@ -412,10 +406,7 @@ unsafe extern "C" fn adaption_matrix(
     return compute_chromatic_adaption(source_illumination, target_illumination, lam_rigg);
 }
 /* from lcms: cmsAdaptMatrixToD50 */
-unsafe extern "C" fn adapt_matrix_to_D50(
-    mut r: matrix,
-    mut source_white_pt: qcms_CIE_xyY,
-) -> matrix {
+fn adapt_matrix_to_D50(mut r: matrix, mut source_white_pt: qcms_CIE_xyY) -> matrix {
     if source_white_pt.y == 0.0f64 {
         return matrix_invalid();
     }
@@ -427,8 +418,7 @@ unsafe extern "C" fn adapt_matrix_to_D50(
     }
     return matrix_multiply(Bradford, r);
 }
-#[no_mangle]
-pub unsafe extern "C" fn set_rgb_colorants(
+pub fn set_rgb_colorants(
     mut profile: &mut qcms_profile,
     mut white_point: qcms_CIE_xyY,
     mut primaries: qcms_CIE_xyYTRIPLE,
@@ -1177,7 +1167,7 @@ pub unsafe extern "C" fn qcms_profile_precache_output_transform(mut profile: *mu
     }
     if qcms_supports_iccv4.load(Ordering::Relaxed) {
         /* don't precache since we will use the B2A LUT */
-        if !(*profile).B2A0.is_null() {
+        if !(*profile).B2A0.is_none() {
             return;
         }
         /* don't precache since we will use the mBA LUT */
@@ -1186,7 +1176,7 @@ pub unsafe extern "C" fn qcms_profile_precache_output_transform(mut profile: *mu
         }
     }
     /* don't precache if we do not have the TRC curves */
-    if (*profile).redTRC.is_null() || (*profile).greenTRC.is_null() || (*profile).blueTRC.is_null()
+    if (*profile).redTRC.is_none() || (*profile).greenTRC.is_none() || (*profile).blueTRC.is_none()
     {
         return;
     }
@@ -1194,7 +1184,7 @@ pub unsafe extern "C" fn qcms_profile_precache_output_transform(mut profile: *mu
         (*profile).output_table_r = precache_create();
         if !(*profile).output_table_r.is_null()
             && !compute_precache(
-                (*profile).redTRC,
+                (*profile).redTRC.as_deref().unwrap(),
                 (*(*profile).output_table_r).data.as_mut_ptr(),
             )
         {
@@ -1206,7 +1196,7 @@ pub unsafe extern "C" fn qcms_profile_precache_output_transform(mut profile: *mu
         (*profile).output_table_g = precache_create();
         if !(*profile).output_table_g.is_null()
             && !compute_precache(
-                (*profile).greenTRC,
+                (*profile).greenTRC.as_deref().unwrap(),
                 (*(*profile).output_table_g).data.as_mut_ptr(),
             )
         {
@@ -1218,7 +1208,7 @@ pub unsafe extern "C" fn qcms_profile_precache_output_transform(mut profile: *mu
         (*profile).output_table_b = precache_create();
         if !(*profile).output_table_b.is_null()
             && !compute_precache(
-                (*profile).blueTRC,
+                (*profile).blueTRC.as_deref().unwrap(),
                 (*(*profile).output_table_b).data.as_mut_ptr(),
             )
         {
@@ -1343,8 +1333,8 @@ pub unsafe extern "C" fn qcms_transform_create(
         && (in_type == QCMS_DATA_RGB_8
             || in_type == QCMS_DATA_RGBA_8
             || in_type == QCMS_DATA_BGRA_8)
-        && (!(*in_0).A2B0.is_null()
-            || !(*out).B2A0.is_null()
+        && (!(*in_0).A2B0.is_none()
+            || !(*out).B2A0.is_none()
             || !(*in_0).mAB.is_null()
             || !(*out).mAB.is_null())
     {
@@ -1367,22 +1357,22 @@ pub unsafe extern "C" fn qcms_transform_create(
         (*transform).output_table_g = precache_reference((*out).output_table_g);
         (*transform).output_table_b = precache_reference((*out).output_table_b)
     } else {
-        if (*out).redTRC.is_null() || (*out).greenTRC.is_null() || (*out).blueTRC.is_null() {
+        if (*out).redTRC.is_none() || (*out).greenTRC.is_none() || (*out).blueTRC.is_none() {
             qcms_transform_release(transform);
             return 0 as *mut qcms_transform;
         }
         build_output_lut(
-            (*out).redTRC,
+            (*out).redTRC.as_deref().unwrap(),
             &mut (*transform).output_gamma_lut_r,
             &mut (*transform).output_gamma_lut_r_length,
         );
         build_output_lut(
-            (*out).greenTRC,
+            (*out).greenTRC.as_deref().unwrap(),
             &mut (*transform).output_gamma_lut_g,
             &mut (*transform).output_gamma_lut_g_length,
         );
         build_output_lut(
-            (*out).blueTRC,
+            (*out).blueTRC.as_deref().unwrap(),
             &mut (*transform).output_gamma_lut_b,
             &mut (*transform).output_gamma_lut_b_length,
         );
@@ -1449,9 +1439,9 @@ pub unsafe extern "C" fn qcms_transform_create(
             (*transform).transform_fn = Some(qcms_transform_data_bgra_out_lut)
         }
         //XXX: avoid duplicating tables if we can
-        (*transform).input_gamma_table_r = build_input_gamma_table((*in_0).redTRC);
-        (*transform).input_gamma_table_g = build_input_gamma_table((*in_0).greenTRC);
-        (*transform).input_gamma_table_b = build_input_gamma_table((*in_0).blueTRC);
+        (*transform).input_gamma_table_r = build_input_gamma_table((*in_0).redTRC.as_deref());
+        (*transform).input_gamma_table_g = build_input_gamma_table((*in_0).greenTRC.as_deref());
+        (*transform).input_gamma_table_b = build_input_gamma_table((*in_0).blueTRC.as_deref());
         if (*transform).input_gamma_table_r.is_null()
             || (*transform).input_gamma_table_g.is_null()
             || (*transform).input_gamma_table_b.is_null()
@@ -1494,7 +1484,7 @@ pub unsafe extern "C" fn qcms_transform_create(
         (*transform).matrix[1][2] = result_0.m[2][1];
         (*transform).matrix[2][2] = result_0.m[2][2]
     } else if (*in_0).color_space == 0x47524159 {
-        (*transform).input_gamma_table_gray = build_input_gamma_table((*in_0).grayTRC);
+        (*transform).input_gamma_table_gray = build_input_gamma_table((*in_0).grayTRC.as_deref());
         if (*transform).input_gamma_table_gray.is_null() {
             qcms_transform_release(transform);
             return 0 as *mut qcms_transform;

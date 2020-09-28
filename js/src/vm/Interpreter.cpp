@@ -3544,11 +3544,8 @@ static MOZ_NEVER_INLINE JS_HAZ_JSNATIVE_CALLER bool Interpret(JSContext* cx,
     END_CASE(Symbol)
 
     CASE(Object) {
-      JSObject* obj = SingletonObjectLiteralOperation(cx, script, REGS.pc);
-      if (!obj) {
-        goto error;
-      }
-      PUSH_OBJECT(*obj);
+      MOZ_ASSERT(script->treatAsRunOnce());
+      PUSH_OBJECT(*script->getObject(REGS.pc));
     }
     END_CASE(Object)
 
@@ -4942,20 +4939,6 @@ bool js::DefFunOperation(JSContext* cx, HandleScript script,
   /* Step 5f. */
   RootedId id(cx, NameToId(name));
   return PutProperty(cx, parent, id, rval, script->strict());
-}
-
-JSObject* js::SingletonObjectLiteralOperation(JSContext* cx,
-                                              HandleScript script,
-                                              jsbytecode* pc) {
-  MOZ_ASSERT(JSOp(*pc) == JSOp::Object);
-
-  RootedObject obj(cx, script->getObject(pc));
-  if (cx->realm()->creationOptions().cloneSingletons()) {
-    return DeepCloneObjectLiteral(cx, obj);
-  }
-
-  cx->realm()->behaviors().setSingletonsAsValues();
-  return obj;
 }
 
 JSObject* js::ImportMetaOperation(JSContext* cx, HandleScript script) {

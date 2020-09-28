@@ -5,6 +5,7 @@
 
 #include "base/process.h"
 #include "GLContext.h"
+#include "GLContextEGL.h"
 #include "gfx2DGlue.h"
 #include <ui/GraphicBuffer.h>
 #include "GrallocImages.h"  // for GrallocImage

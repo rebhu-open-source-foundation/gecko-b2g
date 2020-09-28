@@ -18,9 +18,17 @@ const TEST_QUERY = "test";
 const SUGGEST_PREF = "browser.search.suggest.enabled";
 
 XPCOMUtils.defineLazyModuleGetters(this, {
+  AppConstants: "resource://gre/modules/AppConstants.jsm",
   SearchTelemetry: "resource:///modules/SearchTelemetry.jsm",
   UrlbarTestUtils: "resource://testing-common/UrlbarTestUtils.jsm",
 });
+
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "TouchBarHelper",
+  "@mozilla.org/widget/touchbarhelper;1",
+  "nsITouchBarHelper"
+);
 
 /**
  * Asserts that search mode telemetry was recorded correctly.
@@ -46,6 +54,9 @@ function assertSearchModeScalar(entry, key) {
       );
     }
   }
+
+  Services.telemetry.clearScalars();
+  Services.telemetry.clearEvents();
 }
 
 add_task(async function setup() {
@@ -65,7 +76,7 @@ add_task(async function setup() {
   });
 
   // Make it the default search engine.
-  let engine = Services.search.getEngineByName("MozSearch");
+  let engine = Services.search.getEngineByName(ENGINE_NAME);
   let originalEngine = await Services.search.getDefault();
   await Services.search.setDefault(engine);
 
@@ -102,9 +113,6 @@ add_task(async function setup() {
 
 // Clicks the first one off.
 add_task(async function test_oneoff_remote() {
-  Services.telemetry.clearScalars();
-  Services.telemetry.clearEvents();
-
   let tab = await BrowserTestUtils.openNewForegroundTab(
     gBrowser,
     "about:blank"
@@ -117,16 +125,13 @@ add_task(async function test_oneoff_remote() {
   // Enters search mode by clicking a one-off.
   await UrlbarTestUtils.enterSearchMode(window);
   assertSearchModeScalar("oneoff", "other");
-  await UrlbarTestUtils.exitSearchMode(window, { backspace: true });
+  await UrlbarTestUtils.exitSearchMode(window);
 
   BrowserTestUtils.removeTab(tab);
 });
 
 // Clicks the history one off.
 add_task(async function test_oneoff_local() {
-  Services.telemetry.clearScalars();
-  Services.telemetry.clearEvents();
-
   let tab = await BrowserTestUtils.openNewForegroundTab(
     gBrowser,
     "about:blank"
@@ -141,7 +146,7 @@ add_task(async function test_oneoff_local() {
     source: UrlbarUtils.RESULT_SOURCE.HISTORY,
   });
   assertSearchModeScalar("oneoff", "history");
-  await UrlbarTestUtils.exitSearchMode(window, { backspace: true });
+  await UrlbarTestUtils.exitSearchMode(window);
 
   BrowserTestUtils.removeTab(tab);
 });
@@ -152,9 +157,6 @@ add_task(async function test_oneoff_amazon() {
   await SpecialPowers.pushPrefEnv({
     set: [[SUGGEST_PREF, false]],
   });
-
-  Services.telemetry.clearScalars();
-  Services.telemetry.clearEvents();
 
   let tab = await BrowserTestUtils.openNewForegroundTab(
     gBrowser,
@@ -170,7 +172,7 @@ add_task(async function test_oneoff_amazon() {
     engineName: "Amazon.com",
   });
   assertSearchModeScalar("oneoff", "Amazon");
-  await UrlbarTestUtils.exitSearchMode(window, { backspace: true });
+  await UrlbarTestUtils.exitSearchMode(window);
 
   BrowserTestUtils.removeTab(tab);
   await SpecialPowers.popPrefEnv();
@@ -182,9 +184,6 @@ add_task(async function test_oneoff_wikipedia() {
   await SpecialPowers.pushPrefEnv({
     set: [[SUGGEST_PREF, false]],
   });
-
-  Services.telemetry.clearScalars();
-  Services.telemetry.clearEvents();
 
   let tab = await BrowserTestUtils.openNewForegroundTab(
     gBrowser,
@@ -200,7 +199,7 @@ add_task(async function test_oneoff_wikipedia() {
     engineName: "Wikipedia (en)",
   });
   assertSearchModeScalar("oneoff", "Wikipedia");
-  await UrlbarTestUtils.exitSearchMode(window, { backspace: true });
+  await UrlbarTestUtils.exitSearchMode(window);
 
   BrowserTestUtils.removeTab(tab);
   await SpecialPowers.popPrefEnv();
@@ -208,9 +207,6 @@ add_task(async function test_oneoff_wikipedia() {
 
 // Enters search mode by pressing the keyboard shortcut.
 add_task(async function test_shortcut() {
-  Services.telemetry.clearScalars();
-  Services.telemetry.clearEvents();
-
   let tab = await BrowserTestUtils.openNewForegroundTab(
     gBrowser,
     "about:blank"
@@ -231,7 +227,7 @@ add_task(async function test_shortcut() {
     entry: "shortcut",
   });
   assertSearchModeScalar("shortcut", "other");
-  await UrlbarTestUtils.exitSearchMode(window, { backspace: true });
+  await UrlbarTestUtils.exitSearchMode(window);
 
   BrowserTestUtils.removeTab(tab);
 });
@@ -242,9 +238,6 @@ add_task(async function test_topsites_urlbar() {
   await SpecialPowers.pushPrefEnv({
     set: [[SUGGEST_PREF, false]],
   });
-
-  Services.telemetry.clearScalars();
-  Services.telemetry.clearEvents();
 
   let tab = await BrowserTestUtils.openNewForegroundTab(
     gBrowser,
@@ -278,7 +271,7 @@ add_task(async function test_topsites_urlbar() {
     entry: "topsites_urlbar",
   });
   assertSearchModeScalar("topsites_urlbar", "Amazon");
-  await UrlbarTestUtils.exitSearchMode(window, { backspace: true });
+  await UrlbarTestUtils.exitSearchMode(window);
 
   BrowserTestUtils.removeTab(tab);
   await SpecialPowers.popPrefEnv();
@@ -286,9 +279,6 @@ add_task(async function test_topsites_urlbar() {
 
 // Enters search mode by selecting a keyword offer result.
 add_task(async function test_keywordoffer() {
-  Services.telemetry.clearScalars();
-  Services.telemetry.clearEvents();
-
   let tab = await BrowserTestUtils.openNewForegroundTab(
     gBrowser,
     "about:blank"
@@ -322,16 +312,13 @@ add_task(async function test_keywordoffer() {
     entry: "keywordoffer",
   });
   assertSearchModeScalar("keywordoffer", "other");
-  await UrlbarTestUtils.exitSearchMode(window, { backspace: true });
+  await UrlbarTestUtils.exitSearchMode(window);
 
   BrowserTestUtils.removeTab(tab);
 });
 
 // Enters search mode by typing an alias.
 add_task(async function test_typed() {
-  Services.telemetry.clearScalars();
-  Services.telemetry.clearEvents();
-
   let tab = await BrowserTestUtils.openNewForegroundTab(
     gBrowser,
     "about:blank"
@@ -344,8 +331,7 @@ add_task(async function test_typed() {
   });
 
   let searchPromise = UrlbarTestUtils.promiseSearchComplete(window);
-  // Fire an input event simulating typing a space after the ALIAS.
-  UrlbarTestUtils.fireInputEvent(window);
+  EventUtils.synthesizeKey(" ");
   await searchPromise;
 
   await UrlbarTestUtils.assertSearchMode(window, {
@@ -353,7 +339,91 @@ add_task(async function test_typed() {
     entry: "typed",
   });
   assertSearchModeScalar("typed", "other");
-  await UrlbarTestUtils.exitSearchMode(window, { backspace: true });
+  await UrlbarTestUtils.exitSearchMode(window);
 
   BrowserTestUtils.removeTab(tab);
+});
+
+// Enters search mode by calling the same function called by the Search
+// Bookmarks menu item in Library > Bookmarks.
+add_task(async function test_bookmarkmenu() {
+  let searchPromise = UrlbarTestUtils.promiseSearchComplete(window);
+  PlacesCommandHook.searchBookmarks();
+  await searchPromise;
+
+  await UrlbarTestUtils.assertSearchMode(window, {
+    source: UrlbarUtils.RESULT_SOURCE.BOOKMARKS,
+    entry: "bookmarkmenu",
+  });
+  assertSearchModeScalar("bookmarkmenu", "bookmarks");
+  await UrlbarTestUtils.exitSearchMode(window);
+});
+
+// Enters search mode by calling the same function called by the Search Tabs
+// menu item in the tab overflow menu.
+add_task(async function test_tabmenu() {
+  let searchPromise = UrlbarTestUtils.promiseSearchComplete(window);
+  gTabsPanel.searchTabs();
+  await searchPromise;
+
+  await UrlbarTestUtils.assertSearchMode(window, {
+    source: UrlbarUtils.RESULT_SOURCE.TABS,
+    entry: "tabmenu",
+  });
+  assertSearchModeScalar("tabmenu", "tabs");
+  await UrlbarTestUtils.exitSearchMode(window);
+});
+
+// Enters search mode by performing a search handoff on about:privatebrowsing.
+// NOTE: We don't test handoff on about:home. Running mochitests on about:home
+// is quite difficult. This subtest verifies that `handoff` is a valid scalar
+// suffix and that a call to
+// UrlbarInput.search(value, { searchModeEntry: "handoff" }) records values in
+// the urlbar.searchmode.handoff scalar. PlacesFeed.test.js verfies that
+// about:home handoff makes that exact call.
+add_task(async function test_handoff_pbm() {
+  let win = await BrowserTestUtils.openNewBrowserWindow({
+    private: true,
+    waitForTabURL: "about:privatebrowsing",
+  });
+  let tab = win.gBrowser.selectedBrowser;
+
+  await SpecialPowers.spawn(tab, [], async function() {
+    let btn = content.document.getElementById("search-handoff-button");
+    btn.click();
+  });
+
+  let searchPromise = UrlbarTestUtils.promiseSearchComplete(win);
+  await new Promise(r => EventUtils.synthesizeKey("f", {}, win, r));
+  await searchPromise;
+  await UrlbarTestUtils.assertSearchMode(win, {
+    engineName: ENGINE_NAME,
+    entry: "handoff",
+  });
+  assertSearchModeScalar("handoff", "other");
+
+  await UrlbarTestUtils.exitSearchMode(win);
+  await UrlbarTestUtils.promisePopupClose(win);
+  await BrowserTestUtils.closeWindow(win);
+});
+
+// Enters search mode by tapping a search shortcut on the Touch Bar.
+add_task(async function test_touchbar() {
+  if (AppConstants.platform != "macosx") {
+    return;
+  }
+
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({
+    window,
+    value: TEST_QUERY,
+  });
+  // We have to fake the tap on the Touch Bar since mochitests have no way of
+  // interacting with the Touch Bar.
+  TouchBarHelper.insertRestrictionInUrlbar(UrlbarTokenizer.RESTRICT.HISTORY);
+  await UrlbarTestUtils.assertSearchMode(window, {
+    source: UrlbarUtils.RESULT_SOURCE.HISTORY,
+    entry: "touchbar",
+  });
+  assertSearchModeScalar("touchbar", "history");
+  await UrlbarTestUtils.exitSearchMode(window);
 });

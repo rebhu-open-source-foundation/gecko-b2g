@@ -90,6 +90,7 @@
 #include "mozilla/SVGTextFrame.h"
 #include "mozilla/SVGUtils.h"
 #include "mozilla/Telemetry.h"
+#include "mozilla/ToString.h"
 #include "mozilla/Unused.h"
 #include "mozilla/ViewportFrame.h"
 #include "mozilla/ViewportUtils.h"
@@ -1346,14 +1347,14 @@ bool nsLayoutUtils::SetDisplayPortMargins(nsIContent* aContent,
       MOZ_LOG(sDisplayportLog, LogLevel::Debug,
               ("SetDisplayPortMargins %s on scrollId=%" PRIu64 ", newDp=%s\n",
                Stringify(aMargins).c_str(), viewID,
-               Stringify(newDisplayPort).c_str()));
+               ToString(newDisplayPort).c_str()));
     } else {
       // Use verbose level logging for when an existing displayport got its
       // margins updated.
       MOZ_LOG(sDisplayportLog, LogLevel::Verbose,
               ("SetDisplayPortMargins %s on scrollId=%" PRIu64 ", newDp=%s\n",
                Stringify(aMargins).c_str(), viewID,
-               Stringify(newDisplayPort).c_str()));
+               ToString(newDisplayPort).c_str()));
     }
   }
 
@@ -1406,7 +1407,7 @@ void nsLayoutUtils::SetDisplayPortBase(nsIContent* aContent,
     ViewID viewId = FindOrCreateIDFor(aContent);
     MOZ_LOG(sDisplayportLog, LogLevel::Verbose,
             ("Setting base rect %s for scrollId=%" PRIu64 "\n",
-             Stringify(aBase).c_str(), viewId));
+             ToString(aBase).c_str(), viewId));
   }
   aContent->SetProperty(nsGkAtoms::DisplayPortBase, new nsRect(aBase),
                         nsINode::DeleteProperty<nsRect>);
@@ -2093,17 +2094,19 @@ nsIScrollableFrame* nsLayoutUtils::GetNearestScrollableFrameForDirection(
   for (nsIFrame* f = aFrame; f; f = nsLayoutUtils::GetCrossDocParentFrame(f)) {
     nsIScrollableFrame* scrollableFrame = do_QueryFrame(f);
     if (scrollableFrame) {
-      uint32_t directions =
-          scrollableFrame->GetAvailableScrollingDirectionsForUserInputEvents();
+      ScrollStyles ss = scrollableFrame->GetScrollStyles();
+      uint32_t directions = scrollableFrame->GetAvailableScrollingDirections();
       if (aDirection == ScrollableDirection::Vertical ||
           aDirection == ScrollableDirection::Either) {
-        if (directions & nsIScrollableFrame::VERTICAL) {
+        if (ss.mVertical != StyleOverflow::Hidden &&
+            (directions & nsIScrollableFrame::VERTICAL)) {
           return scrollableFrame;
         }
       }
       if (aDirection == ScrollableDirection::Horizontal ||
           aDirection == ScrollableDirection::Either) {
-        if (directions & nsIScrollableFrame::HORIZONTAL) {
+        if (ss.mHorizontal != StyleOverflow::Hidden &&
+            (directions & nsIScrollableFrame::HORIZONTAL)) {
           return scrollableFrame;
         }
       }
@@ -4028,13 +4031,10 @@ nsresult nsLayoutUtils::PaintFrame(gfxContext* aRenderingContext,
 
   // If we are in a remote browser, then apply clipping from ancestor browsers
   if (BrowserChild* browserChild = BrowserChild::GetFrom(presShell)) {
-    Maybe<LayoutDeviceIntRect> unscaledVisibleRect =
-        browserChild->GetVisibleRect();
+    Maybe<nsRect> unscaledVisibleRect = browserChild->GetVisibleRect();
+
     if (unscaledVisibleRect) {
-      CSSRect visibleRect =
-          *unscaledVisibleRect / presContext->CSSToDevPixelScale();
-      rootInkOverflow.IntersectRect(rootInkOverflow,
-                                    CSSPixel::ToAppUnits(visibleRect));
+      rootInkOverflow.IntersectRect(rootInkOverflow, *unscaledVisibleRect);
     }
   }
 
@@ -5511,12 +5511,11 @@ static bool IsReplacedBoxResolvedAgainstZero(
  */
 static nscoord AddIntrinsicSizeOffset(
     gfxContext* aRenderingContext, nsIFrame* aFrame,
-    const nsIFrame::IntrinsicSizeOffsetData& aOffsets,
-    nsLayoutUtils::IntrinsicISizeType aType, StyleBoxSizing aBoxSizing,
-    nscoord aContentSize, nscoord aContentMinSize, const StyleSize& aStyleSize,
-    const nscoord* aFixedMinSize, const StyleSize& aStyleMinSize,
-    const nscoord* aFixedMaxSize, const StyleMaxSize& aStyleMaxSize,
-    uint32_t aFlags, PhysicalAxis aAxis) {
+    const nsIFrame::IntrinsicSizeOffsetData& aOffsets, IntrinsicISizeType aType,
+    StyleBoxSizing aBoxSizing, nscoord aContentSize, nscoord aContentMinSize,
+    const StyleSize& aStyleSize, const nscoord* aFixedMinSize,
+    const StyleSize& aStyleMinSize, const nscoord* aFixedMaxSize,
+    const StyleMaxSize& aStyleMaxSize, uint32_t aFlags, PhysicalAxis aAxis) {
   nscoord result = aContentSize;
   nscoord min = aContentMinSize;
   nscoord coordOutsideSize = 0;
@@ -9245,13 +9244,6 @@ ScrollMetadata nsLayoutUtils::ComputeScrollMetadata(
                           StaticPrefs::layers_low_precision_buffer()
                               ? metrics.GetCriticalDisplayPort()
                               : metrics.GetDisplayPort());
-    }
-
-    DisplayPortMarginsPropertyData* marginsData =
-        static_cast<DisplayPortMarginsPropertyData*>(
-            aContent->GetProperty(nsGkAtoms::DisplayPortMargins));
-    if (marginsData) {
-      metrics.SetDisplayPortMargins(marginsData->mMargins);
     }
   }
 

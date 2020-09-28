@@ -29,10 +29,6 @@ class MarionetteFrameChild extends JSWindowActorChild {
     super();
   }
 
-  get content() {
-    return this.docShell.domWindow;
-  }
-
   get innerWindowId() {
     return this.manager.innerWindowId;
   }
@@ -81,11 +77,17 @@ class MarionetteFrameChild extends JSWindowActorChild {
         case "MarionetteFrameParent:getCurrentUrl":
           result = await this.getCurrentUrl();
           break;
+        case "MarionetteFrameParent:getActiveElement":
+          result = await this.getActiveElement();
+          break;
         case "MarionetteFrameParent:getElementAttribute":
           result = await this.getElementAttribute(data);
           break;
         case "MarionetteFrameParent:getElementProperty":
           result = await this.getElementProperty(data);
+          break;
+        case "MarionetteFrameParent:getElementRect":
+          result = await this.getElementRect(data);
           break;
         case "MarionetteFrameParent:getElementTagName":
           result = await this.getElementTagName(data);
@@ -95,6 +97,9 @@ class MarionetteFrameChild extends JSWindowActorChild {
           break;
         case "MarionetteFrameParent:getElementValueOfCssProperty":
           result = await this.getElementValueOfCssProperty(data);
+          break;
+        case "MarionetteFrameParent:getPageSource":
+          result = await this.getPageSource();
           break;
         case "MarionetteFrameParent:switchToFrame":
           result = await this.switchToFrame(data);
@@ -155,7 +160,7 @@ class MarionetteFrameChild extends JSWindowActorChild {
       webEl = WebElement.fromJSON(id.webElRef);
     }
     const el = ContentDOMReference.resolve(id);
-    if (element.isStale(el, this.content)) {
+    if (element.isStale(el, this.contentWindow)) {
       throw new error.StaleElementReferenceError(
         pprint`The element reference of ${el || webEl?.uuid} is stale; ` +
           "either the element is no longer attached to the DOM, " +
@@ -213,7 +218,7 @@ class MarionetteFrameChild extends JSWindowActorChild {
       opts.startNode = this.resolveElement(opts.startNode);
     }
 
-    const container = { frame: this.content };
+    const container = { frame: this.contentWindow };
     const el = await element.find(container, strategy, selector, opts);
     return this.getElementId(el);
   }
@@ -238,16 +243,28 @@ class MarionetteFrameChild extends JSWindowActorChild {
       opts.startNode = this.resolveElement(opts.startNode);
     }
 
-    const container = { frame: this.content };
+    const container = { frame: this.contentWindow };
     const els = await element.find(container, strategy, selector, opts);
     return Promise.all(els.map(el => this.getElementId(el)));
+  }
+
+  /**
+   * Return the active element in the document.
+   */
+  async getActiveElement() {
+    let el = this.document.activeElement;
+    if (!el) {
+      throw new error.NoSuchElementError();
+    }
+
+    return this.getElementId(el);
   }
 
   /**
    * Get the current URL.
    */
   async getCurrentUrl() {
-    return this.content.location.href;
+    return this.contentWindow.location.href;
   }
 
   /**
@@ -277,6 +294,22 @@ class MarionetteFrameChild extends JSWindowActorChild {
   }
 
   /**
+   * Get the position and dimensions of the element.
+   */
+  async getElementRect(options = {}) {
+    const { webEl } = options;
+    const el = this.resolveElement(webEl);
+
+    const rect = el.getBoundingClientRect();
+    return {
+      x: rect.x + this.content.pageXOffset,
+      y: rect.y + this.content.pageYOffset,
+      width: rect.width,
+      height: rect.height,
+    };
+  }
+
+  /**
    * Get the tagName for the given element.
    */
   async getElementTagName(options = {}) {
@@ -291,7 +324,7 @@ class MarionetteFrameChild extends JSWindowActorChild {
   async getElementText(options = {}) {
     const { webEl } = options;
     const el = this.resolveElement(webEl);
-    return atom.getElementText(el, this.content);
+    return atom.getElementText(el, this.contentWindow);
   }
 
   /**
@@ -301,8 +334,15 @@ class MarionetteFrameChild extends JSWindowActorChild {
     const { name, webEl } = options;
     const el = this.resolveElement(webEl);
 
-    const style = this.content.getComputedStyle(el);
+    const style = this.contentWindow.getComputedStyle(el);
     return style.getPropertyValue(name);
+  }
+
+  /**
+   * Get the source of the current browsing context's document.
+   */
+  async getPageSource() {
+    return this.document.documentElement.outerHTML;
   }
 
   /**

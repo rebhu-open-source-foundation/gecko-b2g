@@ -43,16 +43,6 @@ LBoxAllocation LIRGenerator::useBoxAtStart(MDefinition* mir,
   return useBox(mir, policy, /* useAtStart = */ true);
 }
 
-void LIRGenerator::visitCloneLiteral(MCloneLiteral* ins) {
-  MOZ_ASSERT(ins->type() == MIRType::Object);
-  MOZ_ASSERT(ins->input()->type() == MIRType::Object);
-
-  LCloneLiteral* lir =
-      new (alloc()) LCloneLiteral(useRegisterAtStart(ins->input()));
-  defineReturn(lir, ins);
-  assignSafepoint(lir, ins);
-}
-
 void LIRGenerator::visitParameter(MParameter* param) {
   ptrdiff_t offset;
   if (param->index() == MParameter::THIS_SLOT) {
@@ -353,6 +343,18 @@ void LIRGenerator::visitArgumentsObjectLength(MArgumentsObjectLength* ins) {
   auto* lir = new (alloc()) LArgumentsObjectLength(useRegister(argsObj));
   assignSnapshot(lir, BailoutKind::ArgumentsObjectAccess);
   define(lir, ins);
+}
+
+void LIRGenerator::visitGuardArgumentsObjectNotOverriddenIterator(
+    MGuardArgumentsObjectNotOverriddenIterator* ins) {
+  MDefinition* argsObj = ins->getArgsObject();
+  MOZ_ASSERT(argsObj->type() == MIRType::Object);
+
+  auto* lir = new (alloc())
+      LGuardArgumentsObjectNotOverriddenIterator(useRegister(argsObj), temp());
+  assignSnapshot(lir, BailoutKind::ArgumentsObjectAccess);
+  add(lir, ins);
+  redefine(ins, argsObj);
 }
 
 void LIRGenerator::visitReturnFromCtor(MReturnFromCtor* ins) {

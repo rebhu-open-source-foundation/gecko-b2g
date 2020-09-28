@@ -97,6 +97,10 @@ class MarionetteFrameParent extends JSWindowActorParent {
     });
   }
 
+  async getActiveElement() {
+    return this.sendQuery("MarionetteFrameParent:getActiveElement");
+  }
+
   async getCurrentUrl() {
     return this.sendQuery("MarionetteFrameParent:getCurrentUrl");
   }
@@ -111,6 +115,12 @@ class MarionetteFrameParent extends JSWindowActorParent {
   async getElementProperty(webEl, name) {
     return this.sendQuery("MarionetteFrameParent:getElementProperty", {
       name,
+      webEl,
+    });
+  }
+
+  async getElementRect(webEl) {
+    return this.sendQuery("MarionetteFrameParent:getElementRect", {
       webEl,
     });
   }
@@ -135,6 +145,10 @@ class MarionetteFrameParent extends JSWindowActorParent {
         webEl,
       }
     );
+  }
+
+  async getPageSource() {
+    return this.sendQuery("MarionetteFrameParent:getPageSource");
   }
 
   async switchToFrame(id) {

@@ -3865,13 +3865,6 @@ void CodeGenerator::visitTableSwitchV(LTableSwitchV* ins) {
   emitTableSwitchDispatch(mir, index, ToRegisterOrInvalid(ins->tempPointer()));
 }
 
-void CodeGenerator::visitCloneLiteral(LCloneLiteral* lir) {
-  pushArg(ToRegister(lir->getObjectLiteral()));
-
-  using Fn = JSObject* (*)(JSContext*, HandleObject);
-  callVM<Fn, DeepCloneObjectLiteral>(lir);
-}
-
 void CodeGenerator::visitParameter(LParameter* lir) {}
 
 void CodeGenerator::visitCallee(LCallee* lir) {
@@ -8096,6 +8089,16 @@ void CodeGenerator::visitArgumentsObjectLength(LArgumentsObjectLength* lir) {
 
   Label bail;
   masm.loadArgumentsObjectLength(argsObj, out, &bail);
+  bailoutFrom(&bail, lir->snapshot());
+}
+
+void CodeGenerator::visitGuardArgumentsObjectNotOverriddenIterator(
+    LGuardArgumentsObjectNotOverriddenIterator* lir) {
+  Register argsObj = ToRegister(lir->getArgsObject());
+  Register temp = ToRegister(lir->temp());
+
+  Label bail;
+  masm.branchArgumentsObjectHasOverridenIterator(argsObj, temp, &bail);
   bailoutFrom(&bail, lir->snapshot());
 }
 

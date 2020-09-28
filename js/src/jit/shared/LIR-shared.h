@@ -222,22 +222,6 @@ class LNurseryObject : public LInstructionHelper<1, 0, 0> {
   MNurseryObject* mir() const { return mir_->toNurseryObject(); }
 };
 
-// Clone an object literal such as we are not modifying the object contained in
-// the sources.
-class LCloneLiteral : public LCallInstructionHelper<1, 1, 0> {
- public:
-  LIR_HEADER(CloneLiteral)
-
-  explicit LCloneLiteral(const LAllocation& obj)
-      : LCallInstructionHelper(classOpcode) {
-    setOperand(0, obj);
-  }
-
-  const LAllocation* getObjectLiteral() { return getOperand(0); }
-
-  MCloneLiteral* mir() const { return mir_->toCloneLiteral(); }
-};
-
 // Formal argument for a function, returning a box. Formal arguments are
 // initially read from the stack.
 class LParameter : public LInstructionHelper<BOX_PIECES, 0, 0> {
@@ -941,6 +925,23 @@ class LArgumentsObjectLength : public LInstructionHelper<1, 1, 0> {
   }
 
   const LAllocation* getArgsObject() { return getOperand(0); }
+};
+
+// Guard that the arguments object has no overridden iterator.
+class LGuardArgumentsObjectNotOverriddenIterator
+    : public LInstructionHelper<0, 1, 1> {
+ public:
+  LIR_HEADER(GuardArgumentsObjectNotOverriddenIterator)
+
+  explicit LGuardArgumentsObjectNotOverriddenIterator(
+      const LAllocation& argsObj, const LDefinition& temp)
+      : LInstructionHelper(classOpcode) {
+    setOperand(0, argsObj);
+    setTemp(0, temp);
+  }
+
+  const LAllocation* getArgsObject() { return getOperand(0); }
+  const LDefinition* temp() { return this->getTemp(0); }
 };
 
 // If the Value is an Object, return unbox(Value).

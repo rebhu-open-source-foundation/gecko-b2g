@@ -1677,17 +1677,6 @@
     "description": "Time between receiving a scroll event on the event loop and compositing its result onto the screen (ms)",
     "bug_numbers": [1500465, 1604818]
   },
-  "PENDING_CRITICAL_INPUT_WHEN_TIMEOUT": {
-    "record_in_processes": ["content"],
-    "products": ["firefox"],
-    "alert_emails": ["perfteam@mozilla.com", "seanfeng@mozilla.com"],
-    "expires_in_version": "84",
-    "kind": "enumerated",
-    "n_values": 80,
-    "releaseChannelCollection": "opt-out",
-    "description": "Measures the number of pending critical input events in the IPC channel when the timeout handler is about to run",
-    "bug_numbers": [1648284]
-  },
   "CANVAS_2D_USED": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec"],
@@ -2521,34 +2510,34 @@
   "TLS_EARLY_DATA_NEGOTIATED": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec"],
-    "expires_in_version": "71",
+    "expires_in_version": "99",
     "kind": "enumerated",
     "n_values": 3,
     "description": "Sending TLS early data was possible: 0 - not possible, 1 - possible but not used, 2 - possible and used.",
     "alert_emails": ["necko@mozilla.com", "ddamjanovic@mozilla.com"],
-    "bug_numbers": [1296288],
+    "bug_numbers": [1296288, 1654309],
     "releaseChannelCollection": "opt-out"
   },
   "TLS_EARLY_DATA_ACCEPTED": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec"],
-    "expires_in_version": "71",
+    "expires_in_version": "99",
     "kind": "boolean",
     "description": "TLS early data was used and it was accepted (true) or rejected (false) by the remote host.",
     "alert_emails": ["necko@mozilla.com", "ddamjanovic@mozilla.com"],
-    "bug_numbers": [1296288],
+    "bug_numbers": [1296288, 1654309],
     "releaseChannelCollection": "opt-out"
   },
   "TLS_EARLY_DATA_BYTES_WRITTEN": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec"],
-    "expires_in_version": "71",
+    "expires_in_version": "99",
     "kind": "exponential",
     "high": 60000,
     "n_buckets": 100,
     "description": "Amount of bytes sent using TLS early data at the start of a TLS connection for a given channel.",
     "alert_emails": ["necko@mozilla.com", "ddamjanovic@mozilla.com"],
-    "bug_numbers": [1296288],
+    "bug_numbers": [1296288, 1654309],
     "releaseChannelCollection": "opt-out"
   },
   "ESNI_KEYS_RECORD_FETCH_DELAYS": {
@@ -9266,11 +9255,11 @@
   "REGION_LOCATION_SERVICES_DIFFERENCE": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox"],
-    "expires_in_version": "84",
+    "expires_in_version": "88",
     "kind": "exponential",
     "n_buckets": 20,
     "high": 12742000,
-    "bug_numbers": [1637402, 1664723],
+    "bug_numbers": [1637402, 1664723, 1666977],
     "alert_emails": ["dharvey@mozilla.com"],
     "releaseChannelCollection": "opt-out",
     "description": "The distance(m) between the the result of 2 services that detect the users location"

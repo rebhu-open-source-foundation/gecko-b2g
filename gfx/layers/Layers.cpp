@@ -1592,8 +1592,10 @@ static void DumpGeometry(std::stringstream& aStream,
   const nsTArray<gfx::Point4D>& points = aGeometry->GetPoints();
   for (size_t i = 0; i < points.Length(); ++i) {
     const gfx::IntPoint point = TruncatedToInt(points[i].As2DPoint());
-    const char* sfx = (i != points.Length() - 1) ? "," : "";
-    AppendToString(aStream, point, "", sfx);
+    aStream << point;
+    if (i != points.Length() - 1) {
+      aStream << ",";
+    }
   }
 
   aStream << "]]";
@@ -1683,14 +1685,14 @@ void Layer::PrintInfo(std::stringstream& aStream, const char* aPrefix) {
   layers::PrintInfo(aStream, AsHostLayer());
 
   if (mClipRect) {
-    AppendToString(aStream, *mClipRect, " [clip=", "]");
+    aStream << " [clip=" << *mClipRect << "]";
   }
   if (mSimpleAttrs.GetScrolledClip()) {
-    AppendToString(aStream, mSimpleAttrs.GetScrolledClip()->GetClipRect(),
-                   " [scrolled-clip=", "]");
+    aStream << " [scrolled-clip="
+            << mSimpleAttrs.GetScrolledClip()->GetClipRect() << "]";
     if (const Maybe<size_t>& ix =
             mSimpleAttrs.GetScrolledClip()->GetMaskLayerIndex()) {
-      AppendToString(aStream, ix.value(), " [scrolled-mask=", "]");
+      aStream << " [scrolled-mask=" << ix.value() << "]";
     }
   }
   if (1.0 != mSimpleAttrs.GetPostXScale() ||
@@ -1711,8 +1713,7 @@ void Layer::PrintInfo(std::stringstream& aStream, const char* aPrefix) {
     aStream << " [perspective]";
   }
   if (!mVisibleRegion.IsEmpty()) {
-    AppendToString(aStream, mVisibleRegion.ToUnknownRegion(),
-                   " [visible=", "]");
+    aStream << " [visible=" << mVisibleRegion << "]";
   } else {
     aStream << " [not visible]";
   }
@@ -1984,7 +1985,7 @@ void PaintedLayer::PrintInfo(std::stringstream& aStream, const char* aPrefix) {
   Layer::PrintInfo(aStream, aPrefix);
   nsIntRegion validRegion = GetValidRegion();
   if (!validRegion.IsEmpty()) {
-    AppendToString(aStream, validRegion, " [valid=", "]");
+    aStream << " [valid=" << validRegion << "]";
   }
 }
 
@@ -2028,8 +2029,7 @@ void ContainerLayer::DumpPacket(layerscope::LayersPacket* aPacket,
 
 void ColorLayer::PrintInfo(std::stringstream& aStream, const char* aPrefix) {
   Layer::PrintInfo(aStream, aPrefix);
-  AppendToString(aStream, mColor, " [color=", "]");
-  AppendToString(aStream, mBounds, " [bounds=", "]");
+  aStream << " [color=" << mColor << "] [bounds=" << mBounds << "]";
 }
 
 void ColorLayer::DumpPacket(layerscope::LayersPacket* aPacket,
@@ -2116,7 +2116,7 @@ void ImageLayer::DumpPacket(layerscope::LayersPacket* aPacket,
 void RefLayer::PrintInfo(std::stringstream& aStream, const char* aPrefix) {
   ContainerLayer::PrintInfo(aStream, aPrefix);
   if (mId.IsValid()) {
-    AppendToString(aStream, uint64_t(mId), " [id=", "]");
+    aStream << " [id=" << uint64_t(mId) << "]";
   }
   if (mEventRegionsOverride & EventRegionsOverride::ForceDispatchToContent) {
     aStream << " [force-dtc]";
@@ -2141,10 +2141,11 @@ void ReadbackLayer::PrintInfo(std::stringstream& aStream, const char* aPrefix) {
   Layer::PrintInfo(aStream, aPrefix);
   AppendToString(aStream, mSize, " [size=", "]");
   if (mBackgroundLayer) {
-    AppendToString(aStream, mBackgroundLayer, " [backgroundLayer=", "]");
-    AppendToString(aStream, mBackgroundLayerOffset, " [backgroundOffset=", "]");
+    aStream << " [backgroundLayer="
+            << nsPrintfCString("%p", mBackgroundLayer).get() << "]";
+    aStream << " [backgroundOffset=" << mBackgroundLayerOffset << "]";
   } else if (mBackgroundColor.a == 1.f) {
-    AppendToString(aStream, mBackgroundColor, " [backgroundColor=", "]");
+    aStream << " [backgroundColor=" << mBackgroundColor << "]";
   } else {
     aStream << " [nobackground]";
   }
@@ -2299,7 +2300,7 @@ void PrintInfo(std::stringstream& aStream, HostLayer* aLayerComposite) {
   }
   if (const Maybe<ParentLayerIntRect>& clipRect =
           aLayerComposite->GetShadowClipRect()) {
-    AppendToString(aStream, *clipRect, " [shadow-clip=", "]");
+    aStream << " [shadow-clip=" << *clipRect << "]";
   }
   if (!aLayerComposite->GetShadowBaseTransform().IsIdentity()) {
     AppendToString(aStream, aLayerComposite->GetShadowBaseTransform(),
@@ -2307,9 +2308,8 @@ void PrintInfo(std::stringstream& aStream, HostLayer* aLayerComposite) {
   }
   if (!aLayerComposite->GetLayer()->Extend3DContext() &&
       !aLayerComposite->GetShadowVisibleRegion().IsEmpty()) {
-    AppendToString(aStream,
-                   aLayerComposite->GetShadowVisibleRegion().ToUnknownRegion(),
-                   " [shadow-visible=", "]");
+    aStream << " [shadow-visible=" << aLayerComposite->GetShadowVisibleRegion()
+            << "]";
   }
 }
 

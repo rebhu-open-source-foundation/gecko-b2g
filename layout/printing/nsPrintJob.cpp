@@ -110,7 +110,6 @@ static const char kPrintingPromptService[] =
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/HTMLFrameElement.h"
 #include "nsContentList.h"
-#include "PrintPreviewUserEventSuppressor.h"
 #include "xpcpublic.h"
 #include "nsVariant.h"
 #include "mozilla/ServoStyleSet.h"
@@ -426,25 +425,6 @@ nsresult nsPrintJob::Cancel() {
     return mPrt->mPrintSettings->SetIsCancelled(true);
   }
   return NS_ERROR_FAILURE;
-}
-
-//-------------------------------------------------------
-// Install our event listeners on the document to prevent
-// some events from being processed while in PrintPreview
-//
-// No return code - if this fails, there isn't much we can do
-void nsPrintJob::SuppressPrintPreviewUserEvents() {
-  if (!mPrt->mPPEventSuppressor) {
-    nsCOMPtr<nsIDocShell> docShell = do_QueryReferent(mDocShell);
-    if (!docShell) {
-      return;
-    }
-
-    if (nsPIDOMWindowOuter* win = docShell->GetWindow()) {
-      nsCOMPtr<EventTarget> target = win->GetFrameElementInternal();
-      mPrt->mPPEventSuppressor = new PrintPreviewUserEventSuppressor(target);
-    }
-  }
 }
 
 //-----------------------------------------------------------------
@@ -807,7 +787,6 @@ nsresult nsPrintJob::DoCommonPrint(bool aIsPrintPreview,
     ShowPrintProgress(false, notifyOnInit, aDoc);
 
     if (!notifyOnInit) {
-      SuppressPrintPreviewUserEvents();
       rv = InitPrintDocConstruction(false);
     } else {
       rv = NS_OK;
@@ -2113,9 +2092,39 @@ nsresult nsPrintJob::DoPrint(const UniquePtr<nsPrintObject>& aPO) {
       return NS_ERROR_FAILURE;
     }
 
+    // For telemetry, get paper size being used; convert the dimensions to
+    // points and ensure they reflect portrait orientation.
+    nsIPrintSettings* settings = printData->mPrintSettings;
+    double paperWidth, paperHeight;
+    settings->GetPaperWidth(&paperWidth);
+    settings->GetPaperHeight(&paperHeight);
+    int16_t sizeUnit;
+    settings->GetPaperSizeUnit(&sizeUnit);
+    switch (sizeUnit) {
+      case nsIPrintSettings::kPaperSizeInches:
+        paperWidth *= 72.0;
+        paperHeight *= 72.0;
+        break;
+      case nsIPrintSettings::kPaperSizeMillimeters:
+        paperWidth *= 72.0 / 25.4;
+        paperHeight *= 72.0 / 25.4;
+        break;
+      default:
+        MOZ_ASSERT_UNREACHABLE("unknown paper size unit");
+        break;
+    }
+    if (paperWidth > paperHeight) {
+      std::swap(paperWidth, paperHeight);
+    }
+    // Use the paper size to build a Telemetry Scalar key.
+    nsString key;
+    key.AppendInt(int32_t(NS_round(paperWidth)));
+    key.Append(u"x");
+    key.AppendInt(int32_t(NS_round(paperHeight)));
+    Telemetry::ScalarAdd(Telemetry::ScalarID::PRINTING_PAPER_SIZE, key, 1);
+
     mPageSeqFrame = seqFrame;
-    seqFrame->StartPrint(poPresContext, printData->mPrintSettings, docTitleStr,
-                         docURLStr);
+    seqFrame->StartPrint(poPresContext, settings, docTitleStr, docURLStr);
 
     // Schedule Page to Print
     PR_PL(("Scheduling Print of PO: %p (%s) \n", aPO.get(),

@@ -732,6 +732,7 @@ MISSING DEPENDENCY: webxr/resources/webxr_util.js
 AHEM SYSTEM FONT: acid/acid3/test.html
 AHEM SYSTEM FONT: resource-timing/resources/all_resource_types.htm
 AHEM SYSTEM FONT: resource-timing/resources/iframe-reload-TAO.sub.html
+AHEM SYSTEM FONT: html/canvas/element/drawing-text-to-the-canvas/2d.text.measure.fontBoundingBox.ahem.html
 
 # TODO: The following should be deleted along with the Ahem web font cleanup
 # PR (https://github.com/web-platform-tests/wpt/pull/18702)
@@ -781,3 +782,11 @@ TESTHARNESS-IN-OTHER-TYPE: svg/svg-in-svg/svg-in-svg-circular-filter-reference-c
 
 PRINT STATEMENT: webdriver/tests/print/printcmd.py
 PRINT STATEMENT: webdriver/tests/print/user_prompts.py
+
+DUPLICATE-BASENAME-PATH: acid/acid3/empty.html
+DUPLICATE-BASENAME-PATH: acid/acid3/empty.xml
+DUPLICATE-BASENAME-PATH: dom/nodes/Document-createElement-namespace-tests/*
+DUPLICATE-BASENAME-PATH: dom/nodes/ParentNode-querySelector-All-content.html
+DUPLICATE-BASENAME-PATH: dom/nodes/ParentNode-querySelector-All-content.xht
+DUPLICATE-BASENAME-PATH: svg/struct/reftests/reference/green-100x100.html
+DUPLICATE-BASENAME-PATH: svg/struct/reftests/reference/green-100x100.svg

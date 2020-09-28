@@ -68,6 +68,7 @@
 #include "mozilla/StaticPrefs_layers.h"
 #include "mozilla/StaticPrefs_layout.h"
 #include "mozilla/StaticPrefs_mousewheel.h"
+#include "mozilla/ToString.h"
 #include "ScrollAnimationPhysics.h"
 #include "ScrollAnimationBezierPhysics.h"
 #include "ScrollAnimationMSDPhysics.h"
@@ -86,7 +87,6 @@
 #include "mozilla/Unused.h"
 #include "MobileViewportManager.h"
 #include "VisualViewport.h"
-#include "LayersLogging.h"  // for Stringify
 #include <algorithm>
 #include <cstdlib>  // for std::abs(int/long)
 #include <cmath>    // for std::abs(float/double)
@@ -493,7 +493,7 @@ bool nsHTMLScrollFrame::TryLayout(ScrollReflowInput* aState,
 
   nsSize visualViewportSize = scrollPortSize;
   ROOT_SCROLLBAR_LOG("TryLayout with VV %s\n",
-                     Stringify(visualViewportSize).c_str());
+                     ToString(visualViewportSize).c_str());
   mozilla::PresShell* presShell = PresShell();
   // Note: we check for a non-null MobileViepwortManager here, but ideally we
   // should be able to drop that clause as well. It's just that in some cases
@@ -513,7 +513,7 @@ bool nsHTMLScrollFrame::TryLayout(ScrollReflowInput* aState,
     visualViewportSize.width /= resolution;
     visualViewportSize.height /= resolution;
     ROOT_SCROLLBAR_LOG("TryLayout now with VV %s\n",
-                       Stringify(visualViewportSize).c_str());
+                       ToString(visualViewportSize).c_str());
   }
 
   nsRect overflowRect = aState->mContentsOverflowAreas.ScrollableOverflow();
@@ -535,8 +535,8 @@ bool nsHTMLScrollFrame::TryLayout(ScrollReflowInput* aState,
       mHelper.GetUnsnappedScrolledRectInternal(overflowRect, scrollPortSize);
   ROOT_SCROLLBAR_LOG(
       "TryLayout scrolledRect:%s overflowRect:%s scrollportSize:%s\n",
-      Stringify(scrolledRect).c_str(), Stringify(overflowRect).c_str(),
-      Stringify(scrollPortSize).c_str());
+      ToString(scrolledRect).c_str(), ToString(overflowRect).c_str(),
+      ToString(scrollPortSize).c_str());
   nscoord oneDevPixel = aState->mBoxState.PresContext()->DevPixelsToAppUnits(1);
 
   if (!aForce) {
@@ -613,7 +613,7 @@ bool nsHTMLScrollFrame::TryLayout(ScrollReflowInput* aState,
           aState->mShowHScrollbar = true;
           aState->mOnlyNeedHScrollbarToScrollVVInsideLV = true;
           ROOT_SCROLLBAR_LOG("TryLayout added H scrollbar for VV, VV now %s\n",
-                             Stringify(visualViewportSize).c_str());
+                             ToString(visualViewportSize).c_str());
         }
       }
 
@@ -627,7 +627,7 @@ bool nsHTMLScrollFrame::TryLayout(ScrollReflowInput* aState,
           aState->mShowVScrollbar = true;
           aState->mOnlyNeedVScrollbarToScrollVVInsideLV = true;
           ROOT_SCROLLBAR_LOG("TryLayout added V scrollbar for VV, VV now %s\n",
-                             Stringify(visualViewportSize).c_str());
+                             ToString(visualViewportSize).c_str());
         }
       }
     }
@@ -1956,7 +1956,8 @@ class ScrollFrameHelper::AsyncSmoothMSDScroll final
     NS_ASSERTION(aCallee && !mCallee,
                  "AsyncSmoothMSDScroll::SetRefreshObserver - Invalid usage.");
 
-    RefreshDriver(aCallee)->AddRefreshObserver(this, FlushType::Style);
+    RefreshDriver(aCallee)->AddRefreshObserver(this, FlushType::Style,
+                                               "Smooth scroll (MSD) animation");
     mCallee = aCallee;
   }
 
@@ -2062,7 +2063,8 @@ class ScrollFrameHelper::AsyncScroll final : public nsARefreshObserver {
     NS_ASSERTION(aCallee && !mCallee,
                  "AsyncScroll::SetRefreshObserver - Invalid usage.");
 
-    RefreshDriver(aCallee)->AddRefreshObserver(this, FlushType::Style);
+    RefreshDriver(aCallee)->AddRefreshObserver(this, FlushType::Style,
+                                               "Smooth scroll animation");
     mCallee = aCallee;
     PresShell* presShell = mCallee->mOuter->PresShell();
     MOZ_ASSERT(presShell);
@@ -3049,7 +3051,7 @@ void ScrollFrameHelper::ScrollToImpl(nsPoint aPt, const nsRect& aRange,
     PAINT_SKIP_LOG(
         "New scrollpos %s usingDP %d dpEqual %d scrollableByApz %d plugins"
         "%d perspective %d bglocal %d filter %d\n",
-        Stringify(CSSPoint::FromAppUnits(GetScrollPosition())).c_str(),
+        ToString(CSSPoint::FromAppUnits(GetScrollPosition())).c_str(),
         usingDisplayPort, displayPort.IsEqualEdges(oldDisplayPort),
         mScrollableByAPZ, HasPluginFrames(), HasPerspective(),
         HasBgAttachmentLocal(), mHasOutOfFlowContentInsideFilter);
@@ -4114,7 +4116,7 @@ nsRect ScrollFrameHelper::RestrictToRootDisplayPort(
     // call below will add it back.
     MOZ_LOG(sDisplayportLog, LogLevel::Verbose,
             ("RestrictToRootDisplayPort: Existing root displayport is %s\n",
-             Stringify(rootDisplayPort).c_str()));
+             ToString(rootDisplayPort).c_str()));
     if (nsIContent* content = rootFrame->GetContent()) {
       if (void* property =
               content->GetProperty(nsGkAtoms::apzCallbackTransform)) {
@@ -4138,7 +4140,7 @@ nsRect ScrollFrameHelper::RestrictToRootDisplayPort(
           sDisplayportLog, LogLevel::Verbose,
           ("RestrictToRootDisplayPort: Removing resolution %f from root "
            "composition bounds %s\n",
-           rootPresShell->GetResolution(), Stringify(rootCompBounds).c_str()));
+           rootPresShell->GetResolution(), ToString(rootCompBounds).c_str()));
       rootCompBounds =
           rootCompBounds.RemoveResolution(rootPresShell->GetResolution());
     }
@@ -4147,7 +4149,7 @@ nsRect ScrollFrameHelper::RestrictToRootDisplayPort(
   }
   MOZ_LOG(sDisplayportLog, LogLevel::Verbose,
           ("RestrictToRootDisplayPort: Intermediate root displayport %s\n",
-           Stringify(rootDisplayPort).c_str()));
+           ToString(rootDisplayPort).c_str()));
 
   // We want to convert the root display port from the
   // coordinate space of |rootFrame| to the coordinate space of
@@ -4164,12 +4166,12 @@ nsRect ScrollFrameHelper::RestrictToRootDisplayPort(
   nsLayoutUtils::TransformRect(rootFrame, mOuter, rootDisplayPort);
   MOZ_LOG(sDisplayportLog, LogLevel::Verbose,
           ("RestrictToRootDisplayPort: Transformed root displayport %s\n",
-           Stringify(rootDisplayPort).c_str()));
+           ToString(rootDisplayPort).c_str()));
   rootDisplayPort += CSSPoint::ToAppUnits(
       nsLayoutUtils::GetCumulativeApzCallbackTransform(mOuter));
   MOZ_LOG(sDisplayportLog, LogLevel::Verbose,
           ("RestrictToRootDisplayPort: Final root displayport %s\n",
-           Stringify(rootDisplayPort).c_str()));
+           ToString(rootDisplayPort).c_str()));
 
   // We want to limit aDisplayportBase to be no larger than
   // rootDisplayPort on either axis, but we don't want to just
@@ -4202,11 +4204,11 @@ nsRect ScrollFrameHelper::RestrictToRootDisplayPort(
              rootDisplayPort.YMost() < aDisplayportBase.YMost()) {
     rootDisplayPort.y = aDisplayportBase.y;
   }
-  MOZ_LOG(sDisplayportLog, LogLevel::Verbose,
-          ("RestrictToRootDisplayPort: Root displayport translated to %s to "
-           "better enclose %s\n",
-           Stringify(rootDisplayPort).c_str(),
-           Stringify(aDisplayportBase).c_str()));
+  MOZ_LOG(
+      sDisplayportLog, LogLevel::Verbose,
+      ("RestrictToRootDisplayPort: Root displayport translated to %s to "
+       "better enclose %s\n",
+       ToString(rootDisplayPort).c_str(), ToString(aDisplayportBase).c_str()));
 
   // Now we can do the intersection
   return aDisplayportBase.Intersect(rootDisplayPort);
@@ -4246,8 +4248,8 @@ bool ScrollFrameHelper::DecideScrollableLayer(
           MOZ_LOG(
               sDisplayportLog, LogLevel::Verbose,
               ("Scroll id %" PRIu64 " has visible rect %s, scroll port %s\n",
-               viewID, Stringify(aVisibleRect).c_str(),
-               Stringify(mScrollPort).c_str()));
+               viewID, ToString(*aVisibleRect).c_str(),
+               ToString(mScrollPort).c_str()));
         }
 
         // Only restrict to the root displayport bounds if necessary,
@@ -4256,7 +4258,7 @@ bool ScrollFrameHelper::DecideScrollableLayer(
           displayportBase = RestrictToRootDisplayPort(displayportBase);
           MOZ_LOG(sDisplayportLog, LogLevel::Verbose,
                   ("Scroll id %" PRIu64 " has restricted base %s\n", viewID,
-                   Stringify(displayportBase).c_str()));
+                   ToString(displayportBase).c_str()));
         }
         displayportBase -= mScrollPort.TopLeft();
       }
@@ -6309,7 +6311,7 @@ bool ScrollFrameHelper::ReflowFinished() {
                  mScrollGeneration);
       MOZ_ASSERT(mScrollUpdates.LastElement().GetDestination() == CSSPoint());
       SCROLLRESTORE_LOG("%p: updating initial SPU to pos %s\n", this,
-                        Stringify(currentScrollPos).c_str());
+                        ToString(currentScrollPos).c_str());
       mScrollUpdates.Clear();
       // Scroll generation bump not strictly necessary, but good for
       // consistency.

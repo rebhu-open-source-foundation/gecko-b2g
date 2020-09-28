@@ -1295,6 +1295,10 @@ GeckoDriver.prototype.getPageSource = async function() {
   assert.open(this.getBrowsingContext());
   await this._handleUserPrompts();
 
+  if (MarionettePrefs.useActors) {
+    return this.getActor().getPageSource();
+  }
+
   switch (this.context) {
     case Context.Chrome:
       const win = this.getCurrentWindow();
@@ -2202,6 +2206,9 @@ GeckoDriver.prototype.getActiveElement = async function() {
   assert.open(this.getBrowsingContext());
   await this._handleUserPrompts();
 
+  if (MarionettePrefs.useActors) {
+    return this.getActor().getActiveElement();
+  }
   return this.listener.getActiveElement();
 };
 
@@ -2627,6 +2634,10 @@ GeckoDriver.prototype.getElementRect = async function(cmd) {
 
   let id = assert.string(cmd.parameters.id);
   let webEl = WebElement.fromUUID(id, this.context);
+
+  if (MarionettePrefs.useActors) {
+    return this.getActor().getElementRect(webEl);
+  }
 
   switch (this.context) {
     case Context.Chrome:

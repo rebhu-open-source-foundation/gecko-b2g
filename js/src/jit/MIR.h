@@ -1679,19 +1679,6 @@ class MWasmFloatConstant : public MNullaryInstruction {
 #endif
 };
 
-// Deep clone a constant JSObject.
-class MCloneLiteral : public MUnaryInstruction, public ObjectPolicy<0>::Data {
- protected:
-  explicit MCloneLiteral(MDefinition* obj)
-      : MUnaryInstruction(classOpcode, obj) {
-    setResultType(MIRType::Object);
-  }
-
- public:
-  INSTRUCTION_HEADER(CloneLiteral)
-  TRIVIAL_NEW_WRAPPERS
-};
-
 class MParameter : public MNullaryInstruction {
   int32_t index_;
 
@@ -3794,6 +3781,36 @@ class MArgumentsObjectLength : public MUnaryInstruction,
   AliasSet getAliasSet() const override {
     // Even though the "length" property is lazily resolved, it acts similar to
     // a normal property load, so we can treat this operation like any other
+    // property read.
+    return AliasSet::Load(AliasSet::ObjectFields | AliasSet::FixedSlot |
+                          AliasSet::DynamicSlot);
+  }
+};
+
+// Guard that the |ArgumentsObject::ITERATOR_OVERRIDDEN_BIT| flag isn't set.
+class MGuardArgumentsObjectNotOverriddenIterator
+    : public MUnaryInstruction,
+      public SingleObjectPolicy::Data {
+  explicit MGuardArgumentsObjectNotOverriddenIterator(MDefinition* argsObj)
+      : MUnaryInstruction(classOpcode, argsObj) {
+    setResultType(MIRType::Object);
+    setResultTypeSet(argsObj->resultTypeSet());
+    setMovable();
+    setGuard();
+  }
+
+ public:
+  INSTRUCTION_HEADER(GuardArgumentsObjectNotOverriddenIterator)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, getArgsObject))
+
+  bool congruentTo(const MDefinition* ins) const override {
+    return congruentIfOperandsEqual(ins);
+  }
+
+  AliasSet getAliasSet() const override {
+    // Even though the "iterator" property is lazily resolved, it acts similar
+    // to a normal property load, so we can treat this operation like any other
     // property read.
     return AliasSet::Load(AliasSet::ObjectFields | AliasSet::FixedSlot |
                           AliasSet::DynamicSlot);

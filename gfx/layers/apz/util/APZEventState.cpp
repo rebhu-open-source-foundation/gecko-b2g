@@ -19,6 +19,7 @@
 #include "mozilla/PresShell.h"
 #include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/StaticPrefs_ui.h"
+#include "mozilla/ToString.h"
 #include "mozilla/TouchEvents.h"
 #include "mozilla/ViewportUtils.h"
 #include "mozilla/dom/BrowserChild.h"
@@ -166,7 +167,7 @@ void APZEventState::ProcessSingleTap(const CSSPoint& aPoint,
                                      const CSSToLayoutDeviceScale& aScale,
                                      Modifiers aModifiers,
                                      int32_t aClickCount) {
-  APZES_LOG("Handling single tap at %s with %d\n", Stringify(aPoint).c_str(),
+  APZES_LOG("Handling single tap at %s with %d\n", ToString(aPoint).c_str(),
             mTouchEndCancelled);
 
   RefPtr<nsIContent> touchRollup = GetTouchRollup();
@@ -252,7 +253,7 @@ void APZEventState::ProcessLongTap(PresShell* aPresShell,
                                    const CSSToLayoutDeviceScale& aScale,
                                    Modifiers aModifiers,
                                    uint64_t aInputBlockId) {
-  APZES_LOG("Handling long tap at %s\n", Stringify(aPoint).c_str());
+  APZES_LOG("Handling long tap at %s\n", ToString(aPoint).c_str());
 
   nsCOMPtr<nsIWidget> widget = GetWidget();
   if (!widget) {
@@ -355,7 +356,7 @@ void APZEventState::ProcessTouchEvent(
         sentContentResponse = true;
       } else {
         APZES_LOG("Event not prevented; pending response for %" PRIu64 " %s\n",
-                  aInputBlockId, Stringify(aGuid).c_str());
+                  aInputBlockId, ToString(aGuid).c_str());
         mPendingTouchPreventedResponse = true;
         mPendingTouchPreventedGuid = aGuid;
         mPendingTouchPreventedBlockId = aInputBlockId;
@@ -524,7 +525,7 @@ void APZEventState::ProcessAPZStateChange(ViewID aViewId,
 bool APZEventState::SendPendingTouchPreventedResponse(bool aPreventDefault) {
   if (mPendingTouchPreventedResponse) {
     APZES_LOG("Sending response %d for pending guid: %s\n", aPreventDefault,
-              Stringify(mPendingTouchPreventedGuid).c_str());
+              ToString(mPendingTouchPreventedGuid).c_str());
     mContentReceivedInputBlockCallback(mPendingTouchPreventedBlockId,
                                        aPreventDefault);
     mPendingTouchPreventedResponse = false;

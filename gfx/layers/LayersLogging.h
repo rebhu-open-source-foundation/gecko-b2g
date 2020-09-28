@@ -34,92 +34,6 @@ enum class ImageFormat;
 namespace layers {
 struct ZoomConstraints;
 
-void AppendToString(std::stringstream& aStream, const void* p,
-                    const char* pfx = "", const char* sfx = "");
-
-void AppendToString(std::stringstream& aStream, ScrollableLayerGuid::ViewID n,
-                    const char* pfx = "", const char* sfx = "");
-
-void AppendToString(std::stringstream& aStream, const gfx::sRGBColor& c,
-                    const char* pfx = "", const char* sfx = "");
-
-void AppendToString(std::stringstream& aStream, const gfx::DeviceColor& c,
-                    const char* pfx = "", const char* sfx = "");
-
-void AppendToString(std::stringstream& aStream, const nsPoint& p,
-                    const char* pfx = "", const char* sfx = "");
-
-void AppendToString(std::stringstream& aStream, const nsRect& r,
-                    const char* pfx = "", const char* sfx = "");
-
-void AppendToString(std::stringstream& aStream, const nsRectAbsolute& r,
-                    const char* pfx = "", const char* sfx = "");
-
-template <class T>
-void AppendToString(std::stringstream& aStream,
-                    const mozilla::gfx::PointTyped<T>& p, const char* pfx = "",
-                    const char* sfx = "") {
-  aStream << pfx << p << sfx;
-}
-
-template <class T>
-void AppendToString(std::stringstream& aStream,
-                    const mozilla::gfx::Point3DTyped<T>& p,
-                    const char* pfx = "", const char* sfx = "") {
-  aStream << pfx << p << sfx;
-}
-
-template <class T>
-void AppendToString(std::stringstream& aStream,
-                    const mozilla::gfx::IntPointTyped<T>& p,
-                    const char* pfx = "", const char* sfx = "") {
-  aStream << pfx << p << sfx;
-}
-
-template <class T>
-void AppendToString(std::stringstream& aStream,
-                    const mozilla::gfx::RectTyped<T>& r, const char* pfx = "",
-                    const char* sfx = "") {
-  aStream << pfx;
-  aStream << nsPrintfCString("(x=%f, y=%f, w=%f, h=%f)", r.X(), r.Y(),
-                             r.Width(), r.Height())
-                 .get();
-  aStream << sfx;
-}
-
-template <class T>
-void AppendToString(std::stringstream& aStream,
-                    const mozilla::gfx::IntRectTyped<T>& r,
-                    const char* pfx = "", const char* sfx = "") {
-  aStream << pfx;
-  aStream << nsPrintfCString("(x=%d, y=%d, w=%d, h=%d)", r.X(), r.Y(),
-                             r.Width(), r.Height())
-                 .get();
-  aStream << sfx;
-}
-
-template <class T>
-void AppendToString(std::stringstream& aStream,
-                    const mozilla::gfx::RectAbsoluteTyped<T>& r,
-                    const char* pfx = "", const char* sfx = "") {
-  aStream << pfx;
-  aStream << nsPrintfCString("(l=%f, t=%f, r=%f, b=%f)", r.Left(), r.Top(),
-                             r.Right(), r.Bottom())
-                 .get();
-  aStream << sfx;
-}
-
-template <class T>
-void AppendToString(std::stringstream& aStream,
-                    const mozilla::gfx::IntRectAbsoluteTyped<T>& r,
-                    const char* pfx = "", const char* sfx = "") {
-  aStream << pfx;
-  aStream << nsPrintfCString("(l=%d, t=%d, r=%d, b=%d)", r.Left(), r.Top(),
-                             r.Right(), r.Bottom())
-                 .get();
-  aStream << sfx;
-}
-
 void AppendToString(std::stringstream& aStream, const wr::ColorF& c,
                     const char* pfx = "", const char* sfx = "");
 
@@ -129,16 +43,7 @@ void AppendToString(std::stringstream& aStream, const wr::LayoutRect& r,
 void AppendToString(std::stringstream& aStream, const wr::LayoutSize& s,
                     const char* pfx = "", const char* sfx = "");
 
-void AppendToString(std::stringstream& aStream, const nsSize& sz,
-                    const char* pfx = "", const char* sfx = "");
-
 void AppendToString(std::stringstream& aStream, const wr::StickyOffsetBounds& s,
-                    const char* pfx = "", const char* sfx = "");
-
-void AppendToString(std::stringstream& aStream, const nsRegion& r,
-                    const char* pfx = "", const char* sfx = "");
-
-void AppendToString(std::stringstream& aStream, const nsIntRegion& r,
                     const char* pfx = "", const char* sfx = "");
 
 template <typename units>
@@ -180,9 +85,6 @@ void AppendToString(std::stringstream& aStream, const ScrollMetadata& m,
 void AppendToString(std::stringstream& aStream, const FrameMetrics& m,
                     const char* pfx = "", const char* sfx = "",
                     bool detailed = false);
-
-void AppendToString(std::stringstream& aStream, const ScrollableLayerGuid& s,
-                    const char* pfx = "", const char* sfx = "");
 
 void AppendToString(std::stringstream& aStream, const ZoomConstraints& z,
                     const char* pfx = "", const char* sfx = "");

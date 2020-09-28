@@ -20,6 +20,7 @@
 #endif
 #include "nsPrintfCString.h"
 #include "nsThreadUtils.h"
+#include "transport/runnable_utils.h"
 #include <dlfcn.h>
 
 using namespace mozilla::ipc;

@@ -4283,6 +4283,17 @@ void MacroAssembler::loadArgumentsObjectLength(Register obj, Register output,
   rshift32(Imm32(ArgumentsObject::PACKED_BITS_COUNT), output);
 }
 
+void MacroAssembler::branchArgumentsObjectHasOverridenIterator(Register obj,
+                                                               Register temp,
+                                                               Label* label) {
+  // Get initial length value.
+  unboxInt32(Address(obj, ArgumentsObject::getInitialLengthSlotOffset()), temp);
+
+  // Ensure no overridden iterator.
+  branchTest32(Assembler::NonZero, temp,
+               Imm32(ArgumentsObject::ITERATOR_OVERRIDDEN_BIT), label);
+}
+
 static constexpr bool ValidateShiftRange(Scalar::Type from, Scalar::Type to) {
   for (Scalar::Type type = from; type < to; type = Scalar::Type(type + 1)) {
     if (TypedArrayShift(type) != TypedArrayShift(from)) {
@@ -4505,10 +4516,10 @@ ObjectGroup* MacroAssembler::getGroupAndDelayBarrier(const TypeSet* types,
 
 void MacroAssembler::performPendingReadBarriers() {
   for (JSObject* object : pendingObjectReadBarriers_) {
-    JSObject::readBarrier(object);
+    gc::ReadBarrier(object);
   }
   for (ObjectGroup* group : pendingObjectGroupReadBarriers_) {
-    ObjectGroup::readBarrier(group);
+    gc::ReadBarrier(group);
   }
 }
 

@@ -21,63 +21,6 @@ using namespace mozilla::gfx;
 namespace mozilla {
 namespace layers {
 
-void AppendToString(std::stringstream& aStream, const void* p, const char* pfx,
-                    const char* sfx) {
-  aStream << pfx;
-  aStream << nsPrintfCString("%p", p).get();
-  aStream << sfx;
-}
-
-void AppendToString(std::stringstream& aStream, ScrollableLayerGuid::ViewID n,
-                    const char* pfx, const char* sfx) {
-  aStream << pfx;
-  aStream << n;
-  aStream << sfx;
-}
-
-void AppendToString(std::stringstream& aStream, const sRGBColor& c,
-                    const char* pfx, const char* sfx) {
-  aStream << pfx;
-  aStream << nsPrintfCString("rgba(%d, %d, %d, %f)", uint8_t(c.r * 255.f),
-                             uint8_t(c.g * 255.f), uint8_t(c.b * 255.f), c.a)
-                 .get();
-  aStream << sfx;
-}
-
-void AppendToString(std::stringstream& aStream, const DeviceColor& c,
-                    const char* pfx, const char* sfx) {
-  aStream << pfx;
-  aStream << nsPrintfCString("dev_rgba(%d, %d, %d, %f)", uint8_t(c.r * 255.f),
-                             uint8_t(c.g * 255.f), uint8_t(c.b * 255.f), c.a)
-                 .get();
-  aStream << sfx;
-}
-
-void AppendToString(std::stringstream& aStream, const nsPoint& p,
-                    const char* pfx, const char* sfx) {
-  aStream << pfx;
-  aStream << nsPrintfCString("(x=%d, y=%d)", p.x, p.y).get();
-  aStream << sfx;
-}
-
-void AppendToString(std::stringstream& aStream, const nsRect& r,
-                    const char* pfx, const char* sfx) {
-  aStream << pfx;
-  aStream << nsPrintfCString("(x=%d, y=%d, w=%d, h=%d)", r.X(), r.Y(),
-                             r.Width(), r.Height())
-                 .get();
-  aStream << sfx;
-}
-
-void AppendToString(std::stringstream& aStream, const nsRectAbsolute& r,
-                    const char* pfx, const char* sfx) {
-  aStream << pfx;
-  aStream << nsPrintfCString("(l=%d, t=%d, r=%d, b=%d)", r.Left(), r.Top(),
-                             r.Right(), r.Bottom())
-                 .get();
-  aStream << sfx;
-}
-
 void AppendToString(std::stringstream& aStream, const wr::ColorF& c,
                     const char* pfx, const char* sfx) {
   aStream << pfx;
@@ -103,13 +46,6 @@ void AppendToString(std::stringstream& aStream, const wr::LayoutSize& s,
   aStream << sfx;
 }
 
-void AppendToString(std::stringstream& aStream, const nsSize& sz,
-                    const char* pfx, const char* sfx) {
-  aStream << pfx;
-  aStream << nsPrintfCString("(w=%d, h=%d)", sz.width, sz.height).get();
-  aStream << sfx;
-}
-
 void AppendToString(std::stringstream& aStream, const wr::StickyOffsetBounds& s,
                     const char* pfx, const char* sfx) {
   aStream << pfx;
@@ -117,53 +53,24 @@ void AppendToString(std::stringstream& aStream, const wr::StickyOffsetBounds& s,
   aStream << sfx;
 }
 
-void AppendToString(std::stringstream& aStream, const nsRegion& r,
-                    const char* pfx, const char* sfx) {
-  aStream << pfx;
-
-  aStream << "< ";
-  for (auto iter = r.RectIter(); !iter.Done(); iter.Next()) {
-    AppendToString(aStream, iter.Get());
-    aStream << "; ";
-  }
-  aStream << ">";
-
-  aStream << sfx;
-}
-
-void AppendToString(std::stringstream& aStream, const nsIntRegion& r,
-                    const char* pfx, const char* sfx) {
-  aStream << pfx;
-
-  aStream << "< ";
-  for (auto iter = r.RectIter(); !iter.Done(); iter.Next()) {
-    AppendToString(aStream, iter.Get());
-    aStream << "; ";
-  }
-  aStream << ">";
-
-  aStream << sfx;
-}
-
 void AppendToString(std::stringstream& aStream, const EventRegions& e,
                     const char* pfx, const char* sfx) {
   aStream << pfx << "{";
   if (!e.mHitRegion.IsEmpty()) {
-    AppendToString(aStream, e.mHitRegion, " hitregion=", "");
+    aStream << " hitregion=" << e.mHitRegion << "";
   }
   if (!e.mDispatchToContentHitRegion.IsEmpty()) {
-    AppendToString(aStream, e.mDispatchToContentHitRegion,
-                   " dispatchtocontentregion=", "");
+    aStream << " dispatchtocontentregion=" << e.mDispatchToContentHitRegion
+            << "";
   }
   if (!e.mNoActionRegion.IsEmpty()) {
-    AppendToString(aStream, e.mNoActionRegion, " NoActionRegion=", "");
+    aStream << " NoActionRegion=" << e.mNoActionRegion << "";
   }
   if (!e.mHorizontalPanRegion.IsEmpty()) {
-    AppendToString(aStream, e.mHorizontalPanRegion,
-                   " HorizontalPanRegion=", "");
+    aStream << " HorizontalPanRegion=" << e.mHorizontalPanRegion << "";
   }
   if (!e.mVerticalPanRegion.IsEmpty()) {
-    AppendToString(aStream, e.mVerticalPanRegion, " VerticalPanRegion=", "");
+    aStream << " VerticalPanRegion=" << e.mVerticalPanRegion << "";
   }
   aStream << "}" << sfx;
 }
@@ -192,16 +99,15 @@ void AppendToString(std::stringstream& aStream, const ScrollMetadata& m,
                     const char* pfx, const char* sfx) {
   aStream << pfx;
   AppendToString(aStream, m.GetMetrics(), "{ [metrics=");
-  AppendToString(aStream, m.GetBackgroundColor(), "] [color=");
+  aStream << "] [color=" << m.GetBackgroundColor();
   if (m.GetScrollParentId() != ScrollableLayerGuid::NULL_SCROLL_ID) {
-    AppendToString(aStream, m.GetScrollParentId(), "] [scrollParent=");
+    aStream << "] [scrollParent=" << m.GetScrollParentId();
   }
   if (m.HasScrollClip()) {
-    AppendToString(aStream, m.ScrollClip().GetClipRect(), "] [clip=");
+    aStream << "] [clip=" << m.ScrollClip().GetClipRect();
   }
   if (m.HasMaskLayer()) {
-    AppendToString(aStream, m.ScrollClip().GetMaskLayerIndex().value(),
-                   "] [mask=");
+    aStream << "] [mask=" << m.ScrollClip().GetMaskLayerIndex().value();
   }
   OverscrollBehavior overscrollX = m.GetOverscrollBehavior().mBehaviorX;
   OverscrollBehavior overscrollY = m.GetOverscrollBehavior().mBehaviorY;
@@ -222,25 +128,24 @@ void AppendToString(std::stringstream& aStream, const ScrollMetadata& m,
 void AppendToString(std::stringstream& aStream, const FrameMetrics& m,
                     const char* pfx, const char* sfx, bool detailed) {
   aStream << pfx;
-  AppendToString(aStream, m.GetCompositionBounds(), "{ [cb=");
-  AppendToString(aStream, m.GetScrollableRect(), "] [sr=");
-  AppendToString(aStream, m.GetVisualScrollOffset(), "] [s=");
+  aStream << "{ [cb=" << m.GetCompositionBounds()
+          << "] [sr=" << m.GetScrollableRect()
+          << "] [s=" << m.GetVisualScrollOffset();
   if (m.GetVisualScrollUpdateType() != FrameMetrics::eNone) {
-    AppendToString(aStream, m.GetVisualDestination(), "] [vd=");
+    aStream << "] [vd=" << m.GetVisualDestination();
   }
-  AppendToString(aStream, m.GetDisplayPort(), "] [dp=");
-  AppendToString(aStream, m.GetCriticalDisplayPort(), "] [cdp=");
+  aStream << "] [dp=" << m.GetDisplayPort()
+          << "] [cdp=" << m.GetCriticalDisplayPort();
   if (!detailed) {
-    AppendToString(aStream, m.GetScrollId(), "] [scrollId=");
+    aStream << "] [scrollId=" << m.GetScrollId();
     if (m.IsRootContent()) {
       aStream << "] [rcd";
     }
     AppendToString(aStream, m.GetZoom(), "] [z=", "] }");
   } else {
-    AppendToString(aStream, m.GetDisplayPortMargins(), " [dpm=");
     AppendToString(aStream, m.GetRootCompositionSize(), "] [rcs=");
-    AppendToString(aStream, m.GetLayoutViewport(), "] [v=");
-    aStream << nsPrintfCString("] [z=(ld=%.3f r=%.3f",
+    aStream << "] [v=" << m.GetLayoutViewport()
+            << nsPrintfCString("] [z=(ld=%.3f r=%.3f",
                                m.GetDevPixelsPerCSSPixel().scale,
                                m.GetPresShellResolution())
                    .get();
@@ -257,15 +162,6 @@ void AppendToString(std::stringstream& aStream, const FrameMetrics& m,
                    .get();
   }
   aStream << sfx;
-}
-
-void AppendToString(std::stringstream& aStream, const ScrollableLayerGuid& s,
-                    const char* pfx, const char* sfx) {
-  aStream << pfx
-          << nsPrintfCString("{ l=0x%" PRIx64 ", p=%u, v=%" PRIu64 " }",
-                             uint64_t(s.mLayersId), s.mPresShellId, s.mScrollId)
-                 .get()
-          << sfx;
 }
 
 void AppendToString(std::stringstream& aStream, const ZoomConstraints& z,

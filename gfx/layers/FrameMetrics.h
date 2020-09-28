@@ -89,7 +89,6 @@ struct FrameMetrics {
         mZoom(),
         mScrollGeneration(0),
         mRootCompositionSize(0, 0),
-        mDisplayPortMargins(0, 0, 0, 0),
         mPresShellId(-1),
         mLayoutViewport(0, 0, 0, 0),
         mExtraResolution(),
@@ -115,7 +114,6 @@ struct FrameMetrics {
            // don't compare mZoom
            mScrollGeneration == aOther.mScrollGeneration &&
            mRootCompositionSize == aOther.mRootCompositionSize &&
-           mDisplayPortMargins == aOther.mDisplayPortMargins &&
            mPresShellId == aOther.mPresShellId &&
            mLayoutViewport.IsEqualEdges(aOther.mLayoutViewport) &&
            mExtraResolution == aOther.mExtraResolution &&
@@ -353,14 +351,6 @@ struct FrameMetrics {
 
   const CSSSize& GetRootCompositionSize() const { return mRootCompositionSize; }
 
-  void SetDisplayPortMargins(const ScreenMargin& aDisplayPortMargins) {
-    mDisplayPortMargins = aDisplayPortMargins;
-  }
-
-  const ScreenMargin& GetDisplayPortMargins() const {
-    return mDisplayPortMargins;
-  }
-
   uint32_t GetPresShellId() const { return mPresShellId; }
 
   void SetPresShellId(uint32_t aPresShellId) { mPresShellId = aPresShellId; }
@@ -478,7 +468,7 @@ struct FrameMetrics {
   ParentLayerRect mCompositionBounds;
 
   // The area of a scroll frame's contents that has been painted, relative to
-  // mScrollOffset.
+  // GetLayoutScrollOffset().
   //
   // Should not be larger than GetExpandedScrollableRect().
   //

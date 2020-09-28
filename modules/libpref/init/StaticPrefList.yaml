@@ -3755,7 +3755,7 @@
 - name: fission.sessionHistoryInParent
   type: bool
   value: false
-  mirror: always
+  mirror: once
 
 # Allow renaming of process names to the origin on nightly
 # Setting this pref creates a privacy leak, but helps greatly with
@@ -6214,13 +6214,6 @@
   mirror: always
   rust: true
 
-# Expose the media query -moz-touch-enabled to web content.
-- name: layout.css.moz-touch-enabled.enabled
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-  rust: true
-
 # Pref to control whether the ::marker property restrictions defined in [1]
 # apply.
 #
@@ -6235,6 +6228,14 @@
 - name: layout.css.math-style.enabled
   type: RelaxedAtomicBool
   value: @IS_NIGHTLY_BUILD@
+  mirror: always
+  rust: true
+
+# Is support for math-depth enabled?
+# This must not be enabled until implementation is complete (see bug 1667090).
+- name: layout.css.math-depth.enabled
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
   rust: true
 
@@ -8693,7 +8694,7 @@
   value: false
   mirror: always
 
-  # Whether to use HTTPS RR as AltSvc
+# Whether to use HTTPS RR as AltSvc
 - name: network.dns.use_https_rr_as_altsvc
   type: RelaxedAtomicBool
   value: false
@@ -8703,6 +8704,12 @@
 - name: network.connectivity-service.nat64-check
   type: bool
   value: true
+  mirror: always
+
+# Whether to enable echconfig.
+- name: network.dns.echconfig.enabled
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -9445,18 +9452,6 @@
 - name: security.webauth.u2f
   type: bool
   value: @IS_NOT_ANDROID@
-  mirror: always
-
-# Block scripts with _some_ wrong MIME types such as image/, video/ or text/csv
-- name: security.block_script_with_wrong_mime
-  type: bool
-  value: true
-  mirror: always
-
-# Block scripts with wrong MIME type when loading via importScripts().
-- name: security.block_importScripts_with_wrong_mime
-  type: bool
-  value: true
   mirror: always
 
 # Block Worker/SharedWorker scripts with wrong MIME type.
