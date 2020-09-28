@@ -425,6 +425,14 @@ this.AppConstants = Object.freeze({
     true,
 #endif
 
+// MOZ_B2G covers both device and desktop b2g
+  MOZ_B2G:
+#ifdef MOZ_B2G
+  true,
+#else
+  false,
+#endif
+
   MOZ_B2G_OS_NAME: "@MOZ_B2G_OS_NAME@",
   MOZ_B2G_VERSION: "@MOZ_B2G_VERSION@",
 });
