@@ -49,6 +49,7 @@
 #include "WheelHandlingHelper.h"
 #include "RemoteDragStartData.h"
 
+#include "nsCharSeparatedTokenizer.h"
 #include "nsCommandParams.h"
 #include "nsCOMPtr.h"
 #include "nsCopySupport.h"
@@ -141,6 +142,33 @@ static inline int32_t RoundDown(double aDouble) {
 static UniquePtr<WidgetMouseEvent> CreateMouseOrPointerWidgetEvent(
     WidgetMouseEvent* aMouseEvent, EventMessage aMessage,
     EventTarget* aRelatedTarget);
+
+static bool DispatchKeyToContentFirst(uint32_t aKeyCode) {
+  if (!StaticPrefs::
+          dom_keyboardevent_dispatch_function_keys_to_content_first()) {
+    return false;
+  }
+  static UniquePtr<std::unordered_set<std::string>> functionalKeyCodes;
+  if (!functionalKeyCodes) {
+    functionalKeyCodes = MakeUnique<std::unordered_set<std::string>>();
+    nsAutoCString keys;
+    nsresult rv =
+        Preferences::GetCString("dom.keyboardevent.function_keys", keys);
+    if (NS_FAILED(rv)) {
+      return false;
+    }
+    nsCCharSeparatedTokenizer tokenizer(keys, ',');
+    while (tokenizer.hasMoreTokens()) {
+      nsAutoCString token(tokenizer.nextToken());
+      if (token.IsEmpty()) {
+        continue;
+      }
+      functionalKeyCodes->insert(token.get());
+    }
+  }
+  return functionalKeyCodes->find(GetDOMKeyCodeName(aKeyCode).get()) !=
+         functionalKeyCodes->end();
+}
 
 /******************************************************************/
 /* mozilla::UITimerCallback                                       */
@@ -775,6 +803,14 @@ nsresult EventStateManager::PreHandleEvent(nsPresContext* aPresContext,
     case eKeyUp: {
       nsIContent* content = GetFocusedContent();
       if (content) mCurrentTargetContent = content;
+
+      if (IsTopLevelRemoteTarget(content)) {
+        WidgetKeyboardEvent* keyEvent = aEvent->AsKeyboardEvent();
+        if (DispatchKeyToContentFirst(keyEvent->mKeyCode)) {
+          keyEvent->StopPropagation();
+          keyEvent->MarkAsWaitingReplyFromRemoteProcess();
+        }
+      }
 
       // NOTE: Don't refer TextComposition::IsComposing() since UI Events
       //       defines that KeyboardEvent.isComposing is true when it's

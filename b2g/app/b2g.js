@@ -1031,6 +1031,10 @@ pref("dom.virtualcursor.pan_simulator.enabled", true);
 // A step offset in pixel when short click direction keys to move the cursor.
 pref("dom.virtualcursor.move.short_click_offset", "10.0");
 
+// Dispatch the function key events to the content first.
+pref("dom.keyboardevent.dispatch_function_keys_to_content_first", true);
+pref("dom.keyboardevent.function_keys", "VK_BACK");
+
 // Enable keyboardEventGenerator on touch devices.
 pref("dom.keyboardEventGenerator.enabled", false);
 

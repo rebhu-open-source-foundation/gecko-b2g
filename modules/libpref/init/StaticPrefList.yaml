@@ -2164,6 +2164,19 @@
   value: true
   mirror: always
 
+# If this is true, the key events defined in the preference
+# dom.keyboardevent.function_keys are dispatched to the content process first.
+- name: dom.keyboardevent.dispatch_function_keys_to_content_first
+  type: bool
+  value: false
+  mirror: always
+
+# The keys we want to dispatch to the content process first. Seperate with ,
+- name: dom.keyboardevent.function_keys
+  type: String
+  value: ""
+  mirror: never
+
 # If this is true, keypress events for non-printable keys are dispatched only
 # for event listeners of the system event group in web content.
 - name: dom.keyboardevent.keypress.dispatch_non_printable_keys_only_system_group_in_content
