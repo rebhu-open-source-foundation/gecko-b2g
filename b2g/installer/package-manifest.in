@@ -37,6 +37,11 @@
 @BINPATH@/uninstall/helper.exe
 #endif
 
+#ifdef PACKAGE_GAIA
+[gaia]
+@BINPATH@/gaia/*
+#endif
+
 [xpcom]
 @RESPATH@/dependentlibs.list
 #ifndef MOZ_STATIC_JS

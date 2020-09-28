@@ -17,6 +17,10 @@ ID
 # Filesystem temporaries
 .fuse_hidden*
 
+# Dirs that should be ignored wherever they appear
+koost
+kaios-sdk
+
 # Vim swap files.
 .*.sw[a-z]
 .sw[a-z]

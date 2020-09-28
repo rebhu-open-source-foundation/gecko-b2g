@@ -3010,6 +3010,30 @@ if test "$PRODUCT_MANUFACTURER" = "alps" ; then
   PRODUCT_MANUFACTURER_MTK=1
   AC_DEFINE(PRODUCT_MANUFACTURER_MTK)
 fi
+
+dnl =========================================
+dnl = Enable packaging Gaia with B2G desktop
+dnl =========================================
+if test x"$MOZ_WIDGET_TOOLKIT" != x"gonk"; then
+    if test -n "$GAIADIR" -a ! -d "$GAIADIR"; then
+        AC_MSG_ERROR([GAIADIR '$GAIADIR' isn't a valid directory])
+    fi
+
+    AC_SUBST(GAIADIR)
+    if test -n "$GAIADIR"; then
+        AC_DEFINE(PACKAGE_GAIA)
+    fi
+
+    if test -n "$SIMULATOR" -a -z "$GAIADIR"; then
+        AC_MSG_ERROR([SIMULATOR=1 requires GAIADIR to be defined])
+    fi
+
+    if test -n "$SIMULATOR"; then
+        AC_DEFINE(SIMULATOR)
+        AC_SUBST(SIMULATOR)
+    fi
+fi
+
 AC_SUBST(PRODUCT_MANUFACTURER_MTK)
 
 MOZ_CREATE_CONFIG_STATUS()
