@@ -75,7 +75,8 @@ class ServiceWorkerPrivateImpl final : public ServiceWorkerPrivate::Inner,
 
   nsresult SendSystemMessageEvent(
       RefPtr<ServiceWorkerRegistrationInfo> aRegistration,
-      const nsAString& aMessageName, const nsAString& aMessage) override;
+      const nsAString& aMessageName, const nsAString& aMessage,
+      uint32_t aDisableOpenClickDelay) override;
 
   nsresult SendNotificationEvent(
       const nsAString& aEventName, const nsAString& aID,

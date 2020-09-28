@@ -526,7 +526,8 @@ nsresult ServiceWorkerPrivateImpl::SendPushSubscriptionChangeEvent() {
 
 nsresult ServiceWorkerPrivateImpl::SendSystemMessageEvent(
     RefPtr<ServiceWorkerRegistrationInfo> aRegistration,
-    const nsAString& aMessageName, const nsAString& aMessage) {
+    const nsAString& aMessageName, const nsAString& aMessage,
+    uint32_t aDisableOpenClickDelay) {
   AssertIsOnMainThread();
   MOZ_ASSERT(mOuter);
   MOZ_ASSERT(aRegistration);
@@ -534,6 +535,7 @@ nsresult ServiceWorkerPrivateImpl::SendSystemMessageEvent(
   ServiceWorkerSystemMessageEventOpArgs args;
   args.messageName() = nsString(aMessageName);
   args.message() = nsString(aMessage);
+  args.disableOpenClickDelay() = aDisableOpenClickDelay;
 
   if (mOuter->mInfo->State() == ServiceWorkerState::Activating) {
     UniquePtr<PendingFunctionalEvent> pendingEvent =

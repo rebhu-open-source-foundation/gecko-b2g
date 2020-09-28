@@ -78,6 +78,7 @@ struct ServiceWorkerFetchEventOpArgs {
 struct ServiceWorkerSystemMessageEventOpArgs {
   nsString messageName;
   nsString message;
+  uint32_t disableOpenClickDelay;
 };
 
 union ServiceWorkerOpArgs {

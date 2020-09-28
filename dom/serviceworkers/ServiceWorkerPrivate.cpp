@@ -953,98 +953,6 @@ nsresult ServiceWorkerPrivate::SendPushSubscriptionChangeEvent() {
 
 namespace {
 
-class SendSystemMessageEventRunnable final
-    : public ExtendableFunctionalEventWorkerRunnable {
-  nsString mMessageName;
-  nsString mMessage;
-
- public:
-  SendSystemMessageEventRunnable(
-      WorkerPrivate* aWorkerPrivate, KeepAliveToken* aKeepAliveToken,
-      const nsAString& aMessageName, const nsAString& aMessage,
-      nsMainThreadPtrHandle<ServiceWorkerRegistrationInfo> aRegistration)
-      : ExtendableFunctionalEventWorkerRunnable(aWorkerPrivate, aKeepAliveToken,
-                                                aRegistration),
-        mMessageName(aMessageName),
-        mMessage(aMessage) {
-    MOZ_ASSERT(NS_IsMainThread());
-    MOZ_ASSERT(aWorkerPrivate);
-    MOZ_ASSERT(aWorkerPrivate->IsServiceWorker());
-  }
-
-  bool WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override {
-    MOZ_ASSERT(aWorkerPrivate);
-
-    SystemMessageEventInit smei;
-
-    JS::RootedValue json(aCx);
-    if (!JS_ParseJSON(aCx, mMessage.get(), mMessage.Length(), &json) ||
-        !json.isObject()) {
-      return false;
-    }
-
-    smei.mData.Construct(&json.toObject());
-    smei.mBubbles = false;
-    smei.mCancelable = false;
-
-    ErrorResult result;
-    GlobalObject globalObj(aCx, aWorkerPrivate->GlobalScope()->GetWrapper());
-    RefPtr<SystemMessageEvent> event = SystemMessageEvent::Constructor(
-        globalObj, u"systemmessage"_ns, mMessageName, smei,
-        result);
-    if (NS_WARN_IF(result.Failed())) {
-      result.SuppressException();
-      return false;
-    }
-    event->SetTrusted(true);
-
-    DispatchExtendableEventOnWorkerScope(aCx, aWorkerPrivate->GlobalScope(),
-                                         event, nullptr);
-
-    return true;
-  }
-};
-
-}  // anonymous namespace
-
-nsresult ServiceWorkerPrivate::SendSystemMessageEvent(
-    const nsAString& aMessageName, const nsAString& aMessage,
-    ServiceWorkerRegistrationInfo* aRegistration) {
-  MOZ_ASSERT(NS_IsMainThread());
-
-  if (mInner) {
-    return mInner->SendSystemMessageEvent(aRegistration, aMessageName,
-                                          aMessage);
-  }
-
-  nsresult rv = SpawnWorkerIfNeeded(SystemMessageEvent);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  RefPtr<KeepAliveToken> token = CreateEventKeepAliveToken();
-
-  nsMainThreadPtrHandle<ServiceWorkerRegistrationInfo> regInfo(
-      new nsMainThreadPtrHolder<ServiceWorkerRegistrationInfo>(
-          "ServiceWorkerRegistrationInfoProxy", aRegistration, false));
-
-  RefPtr<WorkerRunnable> r = new SendSystemMessageEventRunnable(
-      mWorkerPrivate, token, aMessageName, aMessage, regInfo);
-
-  if (mInfo->State() == ServiceWorkerState::Activating) {
-    mPendingFunctionalEvents.AppendElement(r.forget());
-    return NS_OK;
-  }
-
-  MOZ_ASSERT(mInfo->State() == ServiceWorkerState::Activated);
-
-  if (NS_WARN_IF(!r->Dispatch())) {
-    return NS_ERROR_FAILURE;
-  }
-
-  return NS_OK;
-}
-
-namespace {
-
 class AllowWindowInteractionHandler final : public ExtendableEventCallback,
                                             public nsITimerCallback,
                                             public nsINamed {
@@ -1285,6 +1193,109 @@ nsresult ServiceWorkerPrivate::SendNotificationEvent(
       mWorkerPrivate, token, aEventName, aID, aTitle, aDir, aLang, aBody, aTag,
       aIcon, aImage, aData, aRequireInteraction, aActions, aUserAction, aSilent,
       aBehavior, aScope);
+  if (NS_WARN_IF(!r->Dispatch())) {
+    return NS_ERROR_FAILURE;
+  }
+
+  return NS_OK;
+}
+
+namespace {
+
+class SendSystemMessageEventRunnable final
+    : public ExtendableFunctionalEventWorkerRunnable {
+  nsString mMessageName;
+  nsString mMessage;
+
+ public:
+  SendSystemMessageEventRunnable(
+      WorkerPrivate* aWorkerPrivate, KeepAliveToken* aKeepAliveToken,
+      const nsAString& aMessageName, const nsAString& aMessage,
+      nsMainThreadPtrHandle<ServiceWorkerRegistrationInfo> aRegistration)
+      : ExtendableFunctionalEventWorkerRunnable(aWorkerPrivate, aKeepAliveToken,
+                                                aRegistration),
+        mMessageName(aMessageName),
+        mMessage(aMessage) {
+    MOZ_ASSERT(NS_IsMainThread());
+    MOZ_ASSERT(aWorkerPrivate);
+    MOZ_ASSERT(aWorkerPrivate->IsServiceWorker());
+  }
+
+  bool WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override {
+    MOZ_ASSERT(aWorkerPrivate);
+
+    SystemMessageEventInit smei;
+
+    JS::RootedValue json(aCx);
+    if (!JS_ParseJSON(aCx, mMessage.get(), mMessage.Length(), &json) ||
+        !json.isObject()) {
+      return false;
+    }
+
+    smei.mData.Construct(&json.toObject());
+    smei.mBubbles = false;
+    smei.mCancelable = false;
+
+    ErrorResult result;
+    GlobalObject globalObj(aCx, aWorkerPrivate->GlobalScope()->GetWrapper());
+    RefPtr<SystemMessageEvent> event = SystemMessageEvent::Constructor(
+        globalObj, u"systemmessage"_ns, mMessageName, smei, result);
+    if (NS_WARN_IF(result.Failed())) {
+      result.SuppressException();
+      return false;
+    }
+    event->SetTrusted(true);
+
+    RefPtr<AllowWindowInteractionHandler> allowWindowInteraction;
+    if (mMessageName.EqualsLiteral("activity")) {
+      allowWindowInteraction =
+          new AllowWindowInteractionHandler(aWorkerPrivate);
+    }
+
+    nsresult rv = DispatchExtendableEventOnWorkerScope(
+        aCx, aWorkerPrivate->GlobalScope(), event, allowWindowInteraction);
+    // Don't reject when catching an exception
+    if (NS_FAILED(rv) && rv != NS_ERROR_XPC_JS_THREW_EXCEPTION &&
+        allowWindowInteraction) {
+      allowWindowInteraction->FinishedWithResult(Rejected);
+    }
+    return true;
+  }
+};
+
+}  // anonymous namespace
+
+nsresult ServiceWorkerPrivate::SendSystemMessageEvent(
+    const nsAString& aMessageName, const nsAString& aMessage,
+    ServiceWorkerRegistrationInfo* aRegistration) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  gDOMDisableOpenClickDelay =
+      Preferences::GetInt("dom.serviceWorkers.disable_open_click_delay");
+  if (mInner) {
+    return mInner->SendSystemMessageEvent(aRegistration, aMessageName, aMessage,
+                                          gDOMDisableOpenClickDelay);
+  }
+
+  nsresult rv = SpawnWorkerIfNeeded(SystemMessageEvent);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  RefPtr<KeepAliveToken> token = CreateEventKeepAliveToken();
+
+  nsMainThreadPtrHandle<ServiceWorkerRegistrationInfo> regInfo(
+      new nsMainThreadPtrHolder<ServiceWorkerRegistrationInfo>(
+          "ServiceWorkerRegistrationInfoProxy", aRegistration, false));
+
+  RefPtr<WorkerRunnable> r = new SendSystemMessageEventRunnable(
+      mWorkerPrivate, token, aMessageName, aMessage, regInfo);
+
+  if (mInfo->State() == ServiceWorkerState::Activating) {
+    mPendingFunctionalEvents.AppendElement(r.forget());
+    return NS_OK;
+  }
+
+  MOZ_ASSERT(mInfo->State() == ServiceWorkerState::Activated);
+
   if (NS_WARN_IF(!r->Dispatch())) {
     return NS_ERROR_FAILURE;
   }

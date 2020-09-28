@@ -130,7 +130,8 @@ class ServiceWorkerPrivate final {
 
     virtual nsresult SendSystemMessageEvent(
         RefPtr<ServiceWorkerRegistrationInfo> aRegistration,
-        const nsAString& aMessageName, const nsAString& aMessage) = 0;
+        const nsAString& aMessageName, const nsAString& aMessage,
+        uint32_t aDisableOpenClickDelay) = 0;
 
     virtual nsresult SendNotificationEvent(
         const nsAString& aEventName, const nsAString& aID,

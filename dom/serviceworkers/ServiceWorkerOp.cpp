@@ -773,14 +773,77 @@ class PushSubscriptionChangeEventOp final : public ExtendableEventOp {
 /**
  * SystemMessageEventOp
  */
-class SystemMessageEventOp final : public ExtendableEventOp {
+class SystemMessageEventOp final : public ExtendableEventOp,
+                                   public nsITimerCallback {
   using ExtendableEventOp::ExtendableEventOp;
 
  public:
-  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(SystemMessageEventOp, override)
+  NS_DECL_THREADSAFE_ISUPPORTS
 
  private:
-  ~SystemMessageEventOp() = default;
+  ~SystemMessageEventOp() {
+    MOZ_DIAGNOSTIC_ASSERT(!mTimer);
+    MOZ_DIAGNOSTIC_ASSERT(!mWorkerRef);
+  }
+
+  // NOTE: The Window interaction related implementation should align with
+  // NotificationEventOp.
+  void ClearWindowAllowed(WorkerPrivate* aWorkerPrivate) {
+    MOZ_ASSERT(aWorkerPrivate);
+    aWorkerPrivate->AssertIsOnWorkerThread();
+    MOZ_ASSERT(aWorkerPrivate->IsServiceWorker());
+
+    if (!mTimer) {
+      return;
+    }
+
+    WorkerGlobalScope* globalScope = aWorkerPrivate->GlobalScope();
+    if (!globalScope) {
+      return;
+    }
+
+    globalScope->ConsumeWindowInteraction();
+    mTimer->Cancel();
+    mTimer = nullptr;
+
+    mWorkerRef = nullptr;
+  }
+
+  void StartClearWindowTimer(WorkerPrivate* aWorkerPrivate) {
+    MOZ_ASSERT(aWorkerPrivate);
+    aWorkerPrivate->AssertIsOnWorkerThread();
+    MOZ_ASSERT(!mTimer);
+
+    nsresult rv;
+    nsCOMPtr<nsITimer> timer =
+        NS_NewTimer(aWorkerPrivate->ControlEventTarget());
+    if (NS_WARN_IF(!timer)) {
+      return;
+    }
+
+    MOZ_ASSERT(!mWorkerRef);
+    RefPtr<SystemMessageEventOp> self = this;
+    mWorkerRef = StrongWorkerRef::Create(
+        aWorkerPrivate, "SystemMessageEventOp", [self = std::move(self)] {
+          self->ClearWindowAllowed(self->mWorkerRef->Private());
+        });
+
+    if (!mWorkerRef) {
+      return;
+    }
+
+    aWorkerPrivate->GlobalScope()->AllowWindowInteraction();
+    timer.swap(mTimer);
+
+    uint32_t delay = mArgs.get_ServiceWorkerSystemMessageEventOpArgs()
+                         .disableOpenClickDelay();
+    rv = mTimer->InitWithCallback(this, delay, nsITimer::TYPE_ONE_SHOT);
+
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      ClearWindowAllowed(aWorkerPrivate);
+      return;
+    }
+  }
 
   bool Exec(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override {
     MOZ_ASSERT(aWorkerPrivate);
@@ -816,18 +879,44 @@ class SystemMessageEventOp final : public ExtendableEventOp {
     }
     event->SetTrusted(true);
 
+    if (args.messageName().EqualsLiteral("activity")) {
+      StartClearWindowTimer(aWorkerPrivate);
+    }
+
     nsresult rv = DispatchExtendableEventOnWorkerScope(
         aCx, aWorkerPrivate->GlobalScope(), event, this);
 
-    if (NS_FAILED(rv)) {
-      if (NS_WARN_IF(DispatchFailed(rv))) {
-        RejectAll(rv);
-      }
+    if (NS_WARN_IF(DispatchFailed(rv))) {
+      FinishedWithResult(Rejected);
     }
 
-    return DispatchFailed(rv);
+    return !DispatchFailed(rv);
   }
+
+  void FinishedWithResult(ExtendableEventResult aResult) override {
+    MOZ_ASSERT(IsCurrentThreadRunningWorker());
+
+    WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
+    MOZ_ASSERT(workerPrivate);
+
+    ClearWindowAllowed(workerPrivate);
+
+    ExtendableEventOp::FinishedWithResult(aResult);
+  }
+
+  // nsITimerCallback interface
+  NS_IMETHOD Notify(nsITimer* aTimer) override {
+    MOZ_DIAGNOSTIC_ASSERT(mTimer == aTimer);
+    WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
+    ClearWindowAllowed(workerPrivate);
+    return NS_OK;
+  }
+
+  nsCOMPtr<nsITimer> mTimer;
+  RefPtr<StrongWorkerRef> mWorkerRef;
 };
+
+NS_IMPL_ISUPPORTS(SystemMessageEventOp, nsITimerCallback)
 
 class NotificationEventOp : public ExtendableEventOp,
                             public nsITimerCallback,

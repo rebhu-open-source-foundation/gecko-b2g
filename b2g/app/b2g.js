@@ -1193,3 +1193,7 @@ pref("captivedetect.canonicalContent", "success");
 
 pref("externalAPI.websocket.protocols", "kaios-services");
 pref("externalAPI.websocket.url", "ws://localhost/");
+
+// Allow service workers to open windows for a longer period after a notification
+// click on mobile.  This is to account for some devices being quite slow.
+pref("dom.serviceWorkers.disable_open_click_delay", 5000);
