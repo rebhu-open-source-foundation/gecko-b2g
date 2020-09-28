@@ -142,7 +142,7 @@ SavedNetworkSelector.prototype = {
     }
 
     debug(
-      " Score for scanResult: " + uneval(scanResult) + " final score:" + score
+      " Score for scanResult: " + scanResult.ssid + " final score:" + score
     );
     return score;
   },

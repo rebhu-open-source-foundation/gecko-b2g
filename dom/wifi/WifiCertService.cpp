@@ -64,6 +64,7 @@ class ImportCertTask final : public CryptoTask {
     // Try import as DER format first.
     rv = ImportDERBlob(buf, size);
     if (NS_SUCCEEDED(rv)) {
+      mResult->mStatus = nsIWifiResult::SUCCESS;
       return rv;
     }
 
@@ -213,9 +214,13 @@ class ImportCertTask final : public CryptoTask {
     }
 
     // User certificate must be imported from PKCS#12.
-    return (mResult->mUsageFlag & nsIWifiCertService::WIFI_CERT_USAGE_FLAG_USER)
-               ? NS_OK
-               : NS_ERROR_FAILURE;
+    if (!(mResult->mUsageFlag &
+          nsIWifiCertService::WIFI_CERT_USAGE_FLAG_USER)) {
+      return NS_ERROR_FAILURE;
+    }
+
+    mResult->mStatus = nsIWifiResult::SUCCESS;
+    return NS_OK;
   }
 
   nsresult ReadBlob(nsCString& aBuf) {
@@ -279,6 +284,7 @@ class ImportCertTask final : public CryptoTask {
     srv =
         PK11_ImportCert(slot.get(), aCert, CK_INVALID_HANDLE, nickname, false);
     if (srv != SECSuccess) {
+      mResult->mDuplicated = true;
       return MapSECStatus(srv);
     }
 
@@ -290,7 +296,6 @@ class ImportCertTask final : public CryptoTask {
     // NSS ignores the first argument to CERT_ChangeCertTrust
     srv = CERT_ChangeCertTrust(nullptr, aCert, &trust);
     if (srv != SECSuccess) {
-      mResult->mDuplicated = true;
       return MapSECStatus(srv);
     }
 
@@ -336,6 +341,7 @@ class DeleteCertTask final : public CryptoTask {
       return rv;
     }
 
+    mResult->mStatus = nsIWifiResult::SUCCESS;
     return NS_OK;
   }
 
@@ -440,6 +446,36 @@ NS_IMETHODIMP
 WifiCertService::DeleteCert(int32_t aId, const nsAString& aCertNickname) {
   RefPtr<CryptoTask> task = new DeleteCertTask(aId, aCertNickname);
   return task->Dispatch();
+}
+
+NS_IMETHODIMP
+WifiCertService::FilterCert(const nsTArray<nsString>& aCertList,
+                            nsTArray<nsString>& aFilteredList) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  nsCString certNickname, fullNickname, serverCertName, userCertName;
+  serverCertName.AssignLiteral("WIFI_SERVERCERT_");
+  userCertName.AssignLiteral("WIFI_USERCERT_");
+  UniqueCERTCertificate cert;
+
+  for (auto& nickname : aCertList) {
+    CopyUTF16toUTF8(nickname, certNickname);
+
+    fullNickname = serverCertName + certNickname;
+    cert = (UniqueCERTCertificate)CERT_FindCertByNickname(
+        CERT_GetDefaultCertDB(), fullNickname.get());
+    if (cert) {
+      aFilteredList.AppendElement(NS_ConvertUTF8toUTF16(fullNickname.get()));
+    }
+
+    fullNickname = userCertName + certNickname;
+    cert = (UniqueCERTCertificate)CERT_FindCertByNickname(
+        CERT_GetDefaultCertDB(), fullNickname.get());
+    if (cert) {
+      aFilteredList.AppendElement(NS_ConvertUTF8toUTF16(fullNickname.get()));
+    }
+  }
+  return NS_OK;
 }
 
 NS_IMETHODIMP

@@ -150,6 +150,9 @@ const SETTINGS_WIFI_DEBUG_ENABLED = "wifi.debugging.enabled";
 const SETTINGS_AIRPLANE_MODE = "airplaneMode.enabled";
 const SETTINGS_AIRPLANE_MODE_STATUS = "airplaneMode.status";
 
+// Settings DB for the list of imported wifi certificate nickname
+const SETTINGS_WIFI_CERT_NICKNAME = "wifi.certificate.nickname";
+
 // Preference for wifi persist state
 const PREFERENCE_WIFI_ENABLED = "persist.wifi.enabled";
 // Preference for open network notification persist state
@@ -2066,6 +2069,10 @@ var WifiManager = (function() {
     wifiCertService.deleteCert(id, caInfo.certNickname);
   };
 
+  manager.filterCert = function(certList) {
+    return wifiCertService.filterCert(certList);
+  };
+
   manager.sdkVersion = function() {
     return sdkVersion;
   };
@@ -2314,6 +2321,9 @@ function WifiWorker() {
 
   // A list of requests to turn wifi on or off.
   this._stateRequests = [];
+
+  // A list of imported wifi certificate nicknames.
+  this._certNicknames = [];
 
   // Given a connection status network, takes a network and
   // prepares it for the DOM.
@@ -3005,6 +3015,7 @@ function WifiWorker() {
   // Get settings value and initialize.
   this.getSettings(SETTINGS_WIFI_DEBUG_ENABLED);
   this.getSettings(SETTINGS_AIRPLANE_MODE);
+  this.getSettings(SETTINGS_WIFI_CERT_NICKNAME);
 
   // Add settings observers.
   this.addSettingsObserver(SETTINGS_WIFI_DEBUG_ENABLED);
@@ -4300,6 +4311,11 @@ WifiWorker.prototype = {
 
     WifiManager.importCert(msg.data, function(result) {
       if (result.status == SUCCESS) {
+        if (!self._certNicknames.includes(result.nickname)) {
+          self._certNicknames.push(result.nickname);
+          self.setSettings(SETTINGS_WIFI_CERT_NICKNAME, self._certNicknames);
+        }
+
         let usageString = ["ServerCert", "UserCert"];
         let usageArray = [];
         for (let i = 0; i < usageString.length; i++) {
@@ -4334,27 +4350,9 @@ WifiWorker.prototype = {
       return;
     }
 
-    let certDB = Cc["@mozilla.org/security/x509certdb;1"].getService(
-      Ci.nsIX509CertDB
-    );
-
-    if (!certDB) {
-      self._sendMessage(message, false, "Failed to query NSS DB service", msg);
-    }
-
-    let certList = certDB.getCerts();
-    if (!certList) {
-      self._sendMessage(message, false, "Failed to get certificate List", msg);
-    }
-
-    let certListEnum = certList.getEnumerator();
-    if (!certListEnum) {
-      self._sendMessage(
-        message,
-        false,
-        "Failed to get certificate List enumerator",
-        msg
-      );
+    if (this._certNicknames.length == 0) {
+      this._sendMessage(message, true, "No wifi certificate imported", msg);
+      return;
     }
 
     let importedCerts = {
@@ -4367,15 +4365,18 @@ WifiWorker.prototype = {
       USERCERT: "UserCert",
     };
 
-    while (certListEnum.hasMoreElements()) {
-      let certInfo = certListEnum.getNext().QueryInterface(Ci.nsIX509Cert);
-      let certNicknameInfo = /WIFI\_([A-Z]*)\_(.*)/.exec(certInfo.nickname);
-      if (!certNicknameInfo) {
+    let filteredCerts = WifiManager.filterCert(this._certNicknames);
+    if (filteredCerts.length == 0) {
+      this._sendMessage(message, false, "Failed to get certificates", msg);
+      return;
+    }
+
+    for (let nickname of filteredCerts) {
+      let certNickname = /WIFI\_([A-Z]*)\_(.*)/.exec(nickname);
+      if (!certNickname) {
         continue;
       }
-      importedCerts[UsageMapping[certNicknameInfo[1]]].push(
-        certNicknameInfo[2]
-      );
+      importedCerts[UsageMapping[certNickname[1]]].push(certNickname[2]);
     }
 
     self._sendMessage(message, true, importedCerts, msg);
@@ -4391,10 +4392,18 @@ WifiWorker.prototype = {
     }
 
     WifiManager.deleteCert(msg.data, function(result) {
+      if (result.status == SUCCESS) {
+        let found = self._certNicknames.indexOf(result.nickname);
+        if (found !== -1) {
+          self._certNicknames.splice(found, 1);
+          self.setSettings(SETTINGS_WIFI_CERT_NICKNAME, self._certNicknames);
+        }
+      }
+
       self._sendMessage(
         message,
         result.status == SUCCESS,
-        "Delete Cert failed",
+        result.status == SUCCESS ? "Success" : "Delete Cert failed",
         msg
       );
     });
@@ -4801,6 +4810,9 @@ WifiWorker.prototype = {
       case SETTINGS_AIRPLANE_MODE_STATUS:
         debug("'" + SETTINGS_AIRPLANE_MODE_STATUS + "' is now " + aValue);
         this._airplaneMode_status = aValue === null ? "" : aValue;
+        break;
+      case SETTINGS_WIFI_CERT_NICKNAME:
+        this._certNicknames = aValue;
         break;
     }
   },

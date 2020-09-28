@@ -45,6 +45,16 @@ interface nsIWifiCertService : nsISupports
                   in AString certNickname);
 
   /**
+   * Filter out the nicknames in given list that are not imported in database.
+   *
+   * @param certList
+   *        List of certificate nickname to filter.
+   * @return
+   *        List of filtered nicknames contained in database.
+   */
+  Array<AString> filterCert(in Array<AString> certList);
+
+  /**
    * Check if certificate has private key.
    *
    * @param certNickname

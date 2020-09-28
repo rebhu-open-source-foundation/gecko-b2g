@@ -668,7 +668,8 @@ SupplicantStatusCode SupplicantStaNetwork::SetEapConfiguration(
 
   // eap method
   if (!aConfig.mEap.empty()) {
-    stateCode = SetEapMethod(aConfig.mEap);
+    std::string eap(aConfig.mEap);
+    stateCode = SetEapMethod(Dequote(eap));
     if (stateCode != SupplicantStatusCode::SUCCESS) {
       return stateCode;
     }
@@ -676,7 +677,8 @@ SupplicantStatusCode SupplicantStaNetwork::SetEapConfiguration(
 
   // eap phase2
   if (!aConfig.mPhase2.empty()) {
-    stateCode = SetEapPhase2Method(aConfig.mPhase2);
+    std::string phase2(aConfig.mPhase2);
+    stateCode = SetEapPhase2Method(Dequote(phase2));
     if (stateCode != SupplicantStatusCode::SUCCESS) {
       return stateCode;
     }
@@ -684,7 +686,8 @@ SupplicantStatusCode SupplicantStaNetwork::SetEapConfiguration(
 
   // identity
   if (!aConfig.mIdentity.empty()) {
-    stateCode = SetEapIdentity(aConfig.mIdentity);
+    std::string identity(aConfig.mIdentity);
+    stateCode = SetEapIdentity(Dequote(identity));
     if (stateCode != SupplicantStatusCode::SUCCESS) {
       return stateCode;
     }
@@ -692,7 +695,8 @@ SupplicantStatusCode SupplicantStaNetwork::SetEapConfiguration(
 
   // anonymous identity
   if (!aConfig.mAnonymousId.empty()) {
-    stateCode = SetEapAnonymousId(aConfig.mAnonymousId);
+    std::string anonymousId(aConfig.mAnonymousId);
+    stateCode = SetEapAnonymousId(Dequote(anonymousId));
     if (stateCode != SupplicantStatusCode::SUCCESS) {
       return stateCode;
     }
@@ -700,7 +704,8 @@ SupplicantStatusCode SupplicantStaNetwork::SetEapConfiguration(
 
   // password
   if (!aConfig.mPassword.empty()) {
-    stateCode = SetEapPassword(aConfig.mPassword);
+    std::string password(aConfig.mPassword);
+    stateCode = SetEapPassword(Dequote(password));
     if (stateCode != SupplicantStatusCode::SUCCESS) {
       return stateCode;
     }
@@ -708,7 +713,8 @@ SupplicantStatusCode SupplicantStaNetwork::SetEapConfiguration(
 
   // client certificate
   if (!aConfig.mClientCert.empty()) {
-    stateCode = SetEapClientCert(aConfig.mClientCert);
+    std::string clientCert(aConfig.mClientCert);
+    stateCode = SetEapClientCert(Dequote(clientCert));
     if (stateCode != SupplicantStatusCode::SUCCESS) {
       return stateCode;
     }
@@ -716,7 +722,8 @@ SupplicantStatusCode SupplicantStaNetwork::SetEapConfiguration(
 
   // CA certificate
   if (!aConfig.mCaCert.empty()) {
-    stateCode = SetEapCaCert(aConfig.mCaCert);
+    std::string caCert(aConfig.mCaCert);
+    stateCode = SetEapCaCert(Dequote(caCert));
     if (stateCode != SupplicantStatusCode::SUCCESS) {
       return stateCode;
     }
@@ -724,7 +731,8 @@ SupplicantStatusCode SupplicantStaNetwork::SetEapConfiguration(
 
   // CA path
   if (!aConfig.mCaPath.empty()) {
-    stateCode = SetEapCaPath(aConfig.mCaPath);
+    std::string caPath(aConfig.mCaPath);
+    stateCode = SetEapCaPath(Dequote(caPath));
     if (stateCode != SupplicantStatusCode::SUCCESS) {
       return stateCode;
     }
@@ -732,7 +740,8 @@ SupplicantStatusCode SupplicantStaNetwork::SetEapConfiguration(
 
   // subject match
   if (!aConfig.mSubjectMatch.empty()) {
-    stateCode = SetEapSubjectMatch(aConfig.mSubjectMatch);
+    std::string subjectMatch(aConfig.mSubjectMatch);
+    stateCode = SetEapSubjectMatch(Dequote(subjectMatch));
     if (stateCode != SupplicantStatusCode::SUCCESS) {
       return stateCode;
     }
@@ -740,7 +749,8 @@ SupplicantStatusCode SupplicantStaNetwork::SetEapConfiguration(
 
   // engine Id
   if (!aConfig.mEngineId.empty()) {
-    stateCode = SetEapEngineId(aConfig.mEngineId);
+    std::string engineId(aConfig.mEngineId);
+    stateCode = SetEapEngineId(Dequote(engineId));
     if (stateCode != SupplicantStatusCode::SUCCESS) {
       return stateCode;
     }
@@ -754,7 +764,8 @@ SupplicantStatusCode SupplicantStaNetwork::SetEapConfiguration(
 
   // private key Id
   if (!aConfig.mPrivateKeyId.empty()) {
-    stateCode = SetEapPrivateKeyId(aConfig.mPrivateKeyId);
+    std::string privateKeyId(aConfig.mPrivateKeyId);
+    stateCode = SetEapPrivateKeyId(Dequote(privateKeyId));
     if (stateCode != SupplicantStatusCode::SUCCESS) {
       return stateCode;
     }
@@ -762,7 +773,8 @@ SupplicantStatusCode SupplicantStaNetwork::SetEapConfiguration(
 
   // Alt subject match
   if (!aConfig.mAltSubjectMatch.empty()) {
-    stateCode = SetEapAltSubjectMatch(aConfig.mAltSubjectMatch);
+    std::string altSubjectMatch(aConfig.mAltSubjectMatch);
+    stateCode = SetEapAltSubjectMatch(Dequote(altSubjectMatch));
     if (stateCode != SupplicantStatusCode::SUCCESS) {
       return stateCode;
     }
@@ -770,7 +782,8 @@ SupplicantStatusCode SupplicantStaNetwork::SetEapConfiguration(
 
   // domain suffix match
   if (!aConfig.mDomainSuffixMatch.empty()) {
-    stateCode = SetEapDomainSuffixMatch(aConfig.mDomainSuffixMatch);
+    std::string domainSuffixMatch(aConfig.mDomainSuffixMatch);
+    stateCode = SetEapDomainSuffixMatch(Dequote(domainSuffixMatch));
     if (stateCode != SupplicantStatusCode::SUCCESS) {
       return stateCode;
     }
@@ -791,21 +804,21 @@ SupplicantStatusCode SupplicantStaNetwork::SetEapMethod(
   WIFI_LOGD(LOG_TAG, "eap => %s", aEapMethod.c_str());
 
   ISupplicantStaNetwork::EapMethod eapMethod;
-  if (aEapMethod.find("PEAP") != std::string::npos) {
+  if (aEapMethod == std::string("PEAP")) {
     eapMethod = ISupplicantStaNetwork::EapMethod::PEAP;
-  } else if (aEapMethod.find("TLS") != std::string::npos) {
+  } else if (aEapMethod == std::string("TLS")) {
     eapMethod = ISupplicantStaNetwork::EapMethod::TLS;
-  } else if (aEapMethod.find("TTLS") != std::string::npos) {
+  } else if (aEapMethod == std::string("TTLS")) {
     eapMethod = ISupplicantStaNetwork::EapMethod::TTLS;
-  } else if (aEapMethod.find("PWD") != std::string::npos) {
+  } else if (aEapMethod == std::string("PWD")) {
     eapMethod = ISupplicantStaNetwork::EapMethod::PWD;
-  } else if (aEapMethod.find("SIM") != std::string::npos) {
+  } else if (aEapMethod == std::string("SIM")) {
     eapMethod = ISupplicantStaNetwork::EapMethod::SIM;
-  } else if (aEapMethod.find("AKA") != std::string::npos) {
+  } else if (aEapMethod == std::string("AKA")) {
     eapMethod = ISupplicantStaNetwork::EapMethod::AKA;
-  } else if (aEapMethod.find("AKA_PRIME") != std::string::npos) {
+  } else if (aEapMethod == std::string("AKA_PRIME")) {
     eapMethod = ISupplicantStaNetwork::EapMethod::AKA_PRIME;
-  } else if (aEapMethod.find("WFA_UNAUTH_TLS") != std::string::npos) {
+  } else if (aEapMethod == std::string("WFA_UNAUTH_TLS")) {
     eapMethod = ISupplicantStaNetwork::EapMethod::WFA_UNAUTH_TLS;
   } else {
     return SupplicantStatusCode::FAILURE_ARGS_INVALID;
@@ -824,21 +837,21 @@ SupplicantStatusCode SupplicantStaNetwork::SetEapPhase2Method(
   WIFI_LOGD(LOG_TAG, "eap phase2 => %s", aPhase2.c_str());
 
   ISupplicantStaNetwork::EapPhase2Method eapPhase2;
-  if (aPhase2.find("NONE") != std::string::npos) {
+  if (aPhase2 == std::string("NONE")) {
     eapPhase2 = ISupplicantStaNetwork::EapPhase2Method::NONE;
-  } else if (aPhase2.find("PAP") != std::string::npos) {
+  } else if (aPhase2 == std::string("PAP")) {
     eapPhase2 = ISupplicantStaNetwork::EapPhase2Method::PAP;
-  } else if (aPhase2.find("MSCHAP") != std::string::npos) {
+  } else if (aPhase2 == std::string("MSCHAP")) {
     eapPhase2 = ISupplicantStaNetwork::EapPhase2Method::MSPAP;
-  } else if (aPhase2.find("MSCHAPV2") != std::string::npos) {
+  } else if (aPhase2 == std::string("MSCHAPV2")) {
     eapPhase2 = ISupplicantStaNetwork::EapPhase2Method::MSPAPV2;
-  } else if (aPhase2.find("GTC") != std::string::npos) {
+  } else if (aPhase2 == std::string("GTC")) {
     eapPhase2 = ISupplicantStaNetwork::EapPhase2Method::GTC;
-  } else if (aPhase2.find("SIM") != std::string::npos) {
+  } else if (aPhase2 == std::string("SIM")) {
     eapPhase2 = ISupplicantStaNetwork::EapPhase2Method::SIM;
-  } else if (aPhase2.find("AKA") != std::string::npos) {
+  } else if (aPhase2 == std::string("AKA")) {
     eapPhase2 = ISupplicantStaNetwork::EapPhase2Method::AKA;
-  } else if (aPhase2.find("AKA_PRIME") != std::string::npos) {
+  } else if (aPhase2 == std::string("AKA_PRIME")) {
     eapPhase2 = ISupplicantStaNetwork::EapPhase2Method::AKA_PRIME;
   } else {
     return SupplicantStatusCode::FAILURE_ARGS_INVALID;
@@ -854,11 +867,9 @@ SupplicantStatusCode SupplicantStaNetwork::SetEapPhase2Method(
 SupplicantStatusCode SupplicantStaNetwork::SetEapIdentity(
     const std::string& aIdentity) {
   MOZ_ASSERT(mNetwork);
-  std::string identityStr(aIdentity);
-  Dequote(identityStr);
-  WIFI_LOGD(LOG_TAG, "eap identity => %s", identityStr.c_str());
+  WIFI_LOGD(LOG_TAG, "eap identity => %s", aIdentity.c_str());
 
-  std::vector<uint8_t> identity(identityStr.begin(), identityStr.end());
+  std::vector<uint8_t> identity(aIdentity.begin(), aIdentity.end());
 
   SupplicantStatus response;
   HIDL_SET(mNetwork, setEapIdentity, SupplicantStatus, response, identity);
@@ -885,11 +896,9 @@ SupplicantStatusCode SupplicantStaNetwork::SetEapAnonymousId(
 SupplicantStatusCode SupplicantStaNetwork::SetEapPassword(
     const std::string& aPassword) {
   MOZ_ASSERT(mNetwork);
-  std::string passwordStr(aPassword);
-  Dequote(passwordStr);
-  WIFI_LOGD(LOG_TAG, "eap password => %s", passwordStr.c_str());
+  WIFI_LOGD(LOG_TAG, "eap password => %s", aPassword.c_str());
 
-  std::vector<uint8_t> password(passwordStr.begin(), passwordStr.end());
+  std::vector<uint8_t> password(aPassword.begin(), aPassword.end());
 
   SupplicantStatus response;
   HIDL_SET(mNetwork, setEapPassword, SupplicantStatus, response, password);
