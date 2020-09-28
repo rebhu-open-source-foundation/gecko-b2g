@@ -90,6 +90,12 @@ void B2G::Shutdown() {
     mFlipManager = nullptr;
   }
 
+#ifdef MOZ_B2G_RIL
+  if(mMobileMessageManager) {
+    mMobileMessageManager->Shutdown();
+    mMobileMessageManager = nullptr;
+  }
+#endif
 #ifdef MOZ_B2G_CAMERA
   mCameraManager = nullptr;
 #endif
@@ -335,6 +341,9 @@ MobileMessageManager* B2G::GetMobileMessageManager(ErrorResult& aRv) {
     }
 
     mMobileMessageManager = new MobileMessageManager(innerWindow);
+    if(mMobileMessageManager) {
+      mMobileMessageManager->Init();
+    }
   }
 
   return mMobileMessageManager;
