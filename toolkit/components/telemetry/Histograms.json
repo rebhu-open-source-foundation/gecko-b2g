@@ -3284,6 +3284,29 @@
     "keyed": true,
     "description": "Error code when http3 connection is closed. Look at Http3Session for more details."
   },
+  "HTTP3_TIME_TO_REUSE_IDLE_CONNECTTION_MS": {
+    "record_in_processes": ["main", "content"],
+    "products": ["firefox", "fennec"],
+    "expires_in_version": "never",
+    "alert_emails": ["necko@mozilla.com", "ddamjanovic@mozilla.com"],
+    "kind": "exponential",
+    "high": 60000,
+    "n_buckets": 50,
+    "keyed": true,
+    "description": "Time to reuse an idle connection in HTTP3(ms); keyed by the transaction reusing an idle connection has succeeded or failed",
+    "bug_numbers": [1655566]
+  },
+  "HTTP3_TIMER_DELAYED": {
+    "record_in_processes": ["main", "content"],
+    "products": ["firefox", "fennec"],
+    "expires_in_version": "never",
+    "alert_emails": ["necko@mozilla.com", "ddamjanovic@mozilla.com"],
+    "kind": "exponential",
+    "high": 60000,
+    "n_buckets": 50,
+    "description": "Time difference between setting timer value and actually firing the timer for calling neqo",
+    "bug_numbers": [1655566]
+  },
   "HTTP3_REQUEST_PER_CONN": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox"],
@@ -3294,6 +3317,50 @@
     "n_buckets": 50,
     "bug_numbers": [1652104],
     "description": "HTTP3: Streams created per connection"
+  },
+  "HTTP3_BLOCKED_BY_STREAM_LIMIT_PER_CONN": {
+    "record_in_processes": ["main", "content"],
+    "products": ["firefox"],
+    "alert_emails": ["necko@mozilla.com", "ddamjanovic@mozilla.com"],
+    "expires_in_version": "never",
+    "kind": "exponential",
+    "high": 1000,
+    "n_buckets": 50,
+    "bug_numbers": [1655566],
+    "description": "HTTP3: number of times a connection is blocked by maximum allowed number of parallel streams per connection"
+  },
+  "HTTP3_TRANS_BLOCKED_BY_STREAM_LIMIT_PER_CONN": {
+    "record_in_processes": ["main", "content"],
+    "products": ["firefox"],
+    "alert_emails": ["necko@mozilla.com", "ddamjanovic@mozilla.com"],
+    "expires_in_version": "never",
+    "kind": "exponential",
+    "high": 1000,
+    "n_buckets": 50,
+    "bug_numbers": [1655566],
+    "description": "HTTP3: number of transactions that are blocked by maximum allowed number of parallel streams per connection"
+  },
+  "HTTP3_TRANS_SENDING_BLOCKED_BY_FLOW_CONTROL_PER_CONN": {
+    "record_in_processes": ["main", "content"],
+    "products": ["firefox"],
+    "alert_emails": ["necko@mozilla.com", "ddamjanovic@mozilla.com"],
+    "expires_in_version": "never",
+    "kind": "exponential",
+    "high": 1000,
+    "n_buckets": 50,
+    "bug_numbers": [1655566],
+    "description": "HTTP3: number of times streams are blocked by the flow control while sending data per connection"
+  },
+  "HTTP3_SENDING_BLOCKED_BY_FLOW_CONTROL_PER_TRANS": {
+    "record_in_processes": ["main", "content"],
+    "products": ["firefox"],
+    "alert_emails": ["necko@mozilla.com", "ddamjanovic@mozilla.com"],
+    "expires_in_version": "never",
+    "kind": "exponential",
+    "high": 1000,
+    "n_buckets": 50,
+    "bug_numbers": [1655566],
+    "description": "HTTP3: number of times when a stream is blocked by the flow control while sendnig data."
   },
   "HTTP_CONTENT_ENCODING": {
     "record_in_processes": ["main", "content"],
@@ -5233,24 +5300,6 @@
     "high": 32768,
     "n_buckets": 3,
     "description": "SQLite write (bytes)"
-  },
-  "MOZ_STORAGE_ASYNC_REQUESTS_MS": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["perf-telemetry-alerts@mozilla.com"],
-    "expires_in_version": "40",
-    "kind": "exponential",
-    "high": 32768,
-    "n_buckets": 20,
-    "description": "mozStorage async requests completion (ms) *** No longer needed (bug 1156565). Delete histogram and accumulation code! ***"
-  },
-  "MOZ_STORAGE_ASYNC_REQUESTS_SUCCESS": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["perf-telemetry-alerts@mozilla.com"],
-    "expires_in_version": "40",
-    "kind": "boolean",
-    "description": "mozStorage async requests success *** No longer needed (bug 1156565). Delete histogram and accumulation code! ***"
   },
   "STARTUP_CACHE_REQUESTS": {
     "record_in_processes": ["main"],

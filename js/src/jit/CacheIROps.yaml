@@ -529,8 +529,8 @@
     result: ObjId
 
 - name: GuardHasGetterSetter
-  shared: false
-  transpile: false
+  shared: true
+  transpile: true
   cost_estimate: 4
   args:
     obj: ObjId
@@ -1475,6 +1475,19 @@
     sameRealm: BoolImm
     nargsAndFlags: RawWordField
 
+- name: CallInlinedSetter
+  shared: false
+  transpile: true
+  cost_estimate: 3
+  custom_writer: true
+  args:
+    receiver: ObjId
+    setter: ObjectField
+    rhs: ValId
+    icScript: RawPointerField
+    sameRealm: BoolImm
+    nargsAndFlags: RawWordField
+
 - name: CallDOMSetter
   shared: false
   transpile: true
@@ -1907,6 +1920,18 @@
   args:
     receiver: ValId
     getter: ObjectField
+    sameRealm: BoolImm
+    nargsAndFlags: RawWordField
+
+- name: CallInlinedGetterResult
+  shared: false
+  transpile: true
+  cost_estimate: 5
+  custom_writer: true
+  args:
+    receiver: ValId
+    getter: ObjectField
+    icScript: RawPointerField
     sameRealm: BoolImm
     nargsAndFlags: RawWordField
 
@@ -2544,13 +2569,14 @@
     lhs: StringId
     rhs: BigIntId
 
-- name: CompareObjectUndefinedNullResult
+- name: CompareNullUndefinedResult
   shared: true
-  transpile: false
+  transpile: true
   cost_estimate: 2
   args:
     op: JSOpImm
-    obj: ObjId
+    isUndefined: BoolImm
+    input: ValId
 
 - name: CompareDoubleSameValueResult
   shared: true

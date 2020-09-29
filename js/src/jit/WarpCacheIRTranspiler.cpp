@@ -379,6 +379,18 @@ bool WarpCacheIRTranspiler::emitGuardIsNotDOMProxy(ObjOperandId objId) {
   return true;
 }
 
+bool WarpCacheIRTranspiler::emitGuardHasGetterSetter(ObjOperandId objId,
+                                                     uint32_t shapeOffset) {
+  MDefinition* obj = getOperand(objId);
+  Shape* shape = shapeStubField(shapeOffset);
+
+  auto* ins = MGuardHasGetterSetter::New(alloc(), obj, shape);
+  add(ins);
+
+  setOperand(objId, ins);
+  return true;
+}
+
 bool WarpCacheIRTranspiler::emitProxyGetResult(ObjOperandId objId,
                                                uint32_t idOffset) {
   MDefinition* obj = getOperand(objId);
@@ -2238,6 +2250,25 @@ bool WarpCacheIRTranspiler::emitCompareSymbolResult(JSOp op,
   return emitCompareResult(op, lhsId, rhsId, MCompare::Compare_Symbol);
 }
 
+bool WarpCacheIRTranspiler::emitCompareNullUndefinedResult(
+    JSOp op, bool isUndefined, ValOperandId inputId) {
+  MDefinition* input = getOperand(inputId);
+
+  MOZ_ASSERT(IsEqualityOp(op));
+
+  // A previously emitted guard ensures that one side of the comparison
+  // is null or undefined.
+  MDefinition* cst =
+      isUndefined ? constant(UndefinedValue()) : constant(NullValue());
+  auto* ins = MCompare::New(alloc(), input, cst, op);
+  ins->setCompareType(isUndefined ? MCompare::Compare_Undefined
+                                  : MCompare::Compare_Null);
+  add(ins);
+
+  pushResult(ins);
+  return true;
+}
+
 bool WarpCacheIRTranspiler::emitCompareDoubleSameValueResult(
     NumberOperandId lhsId, NumberOperandId rhsId) {
   MDefinition* lhs = getOperand(lhsId);
@@ -3700,6 +3731,30 @@ bool WarpCacheIRTranspiler::emitCallScriptedGetterResult(
                               sameRealm, nargsAndFlagsOffset);
 }
 
+bool WarpCacheIRTranspiler::emitCallInlinedGetterResult(
+    ValOperandId receiverId, uint32_t getterOffset, uint32_t icScriptOffset,
+    bool sameRealm, uint32_t nargsAndFlagsOffset) {
+  if (callInfo_) {
+    MOZ_ASSERT(callInfo_->isInlined());
+    // We are transpiling to generate the correct guards. We also update the
+    // CallInfo to use the correct arguments. Code for the inlined getter
+    // itself will be generated in WarpBuilder::buildInlinedCall.
+    MDefinition* receiver = getOperand(receiverId);
+    MDefinition* getter = objectStubField(getterOffset);
+    callInfo_->initForGetterCall(getter, receiver);
+
+    // Make sure there's enough room to push the arguments on the stack.
+    if (!current->ensureHasSlots(2)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  return emitCallGetterResult(CallKind::Scripted, receiverId, getterOffset,
+                              sameRealm, nargsAndFlagsOffset);
+}
+
 bool WarpCacheIRTranspiler::emitCallNativeGetterResult(
     ValOperandId receiverId, uint32_t getterOffset, bool sameRealm,
     uint32_t nargsAndFlagsOffset) {
@@ -3743,6 +3798,31 @@ bool WarpCacheIRTranspiler::emitCallSetter(CallKind kind,
 bool WarpCacheIRTranspiler::emitCallScriptedSetter(
     ObjOperandId receiverId, uint32_t setterOffset, ValOperandId rhsId,
     bool sameRealm, uint32_t nargsAndFlagsOffset) {
+  return emitCallSetter(CallKind::Scripted, receiverId, setterOffset, rhsId,
+                        sameRealm, nargsAndFlagsOffset);
+}
+
+bool WarpCacheIRTranspiler::emitCallInlinedSetter(
+    ObjOperandId receiverId, uint32_t setterOffset, ValOperandId rhsId,
+    uint32_t icScriptOffset, bool sameRealm, uint32_t nargsAndFlagsOffset) {
+  if (callInfo_) {
+    MOZ_ASSERT(callInfo_->isInlined());
+    // We are transpiling to generate the correct guards. We also update the
+    // CallInfo to use the correct arguments. Code for the inlined setter
+    // itself will be generated in WarpBuilder::buildInlinedCall.
+    MDefinition* receiver = getOperand(receiverId);
+    MDefinition* setter = objectStubField(setterOffset);
+    MDefinition* rhs = getOperand(rhsId);
+    callInfo_->initForSetterCall(setter, receiver, rhs);
+
+    // Make sure there's enough room to push the arguments on the stack.
+    if (!current->ensureHasSlots(3)) {
+      return false;
+    }
+
+    return true;
+  }
+
   return emitCallSetter(CallKind::Scripted, receiverId, setterOffset, rhsId,
                         sameRealm, nargsAndFlagsOffset);
 }
@@ -3871,11 +3951,13 @@ static void MaybeSetImplicitlyUsed(uint32_t numInstructionIdsBefore,
 
 bool jit::TranspileCacheIRToMIR(WarpBuilder* builder, BytecodeLocation loc,
                                 const WarpCacheIR* cacheIRSnapshot,
-                                const MDefinitionStackVector& inputs) {
+                                const MDefinitionStackVector& inputs,
+                                CallInfo* maybeCallInfo) {
   uint32_t numInstructionIdsBefore =
       builder->mirGen().graph().getNumInstructionIds();
 
-  WarpCacheIRTranspiler transpiler(builder, loc, nullptr, cacheIRSnapshot);
+  WarpCacheIRTranspiler transpiler(builder, loc, maybeCallInfo,
+                                   cacheIRSnapshot);
   if (!transpiler.transpile(inputs)) {
     return false;
   }
@@ -3884,32 +3966,12 @@ bool jit::TranspileCacheIRToMIR(WarpBuilder* builder, BytecodeLocation loc,
     MaybeSetImplicitlyUsed(numInstructionIdsBefore, input);
   }
 
-  return true;
-}
-
-bool jit::TranspileCacheIRToMIR(WarpBuilder* builder, BytecodeLocation loc,
-                                const WarpCacheIR* cacheIRSnapshot,
-                                CallInfo& callInfo) {
-  uint32_t numInstructionIdsBefore =
-      builder->mirGen().graph().getNumInstructionIds();
-
-  // Synthesize the constant number of arguments for this call op.
-  auto* argc = MConstant::New(builder->alloc(), Int32Value(callInfo.argc()));
-  builder->currentBlock()->add(argc);
-
-  MDefinitionStackVector inputs;
-  if (!inputs.append(argc)) {
-    return false;
+  if (maybeCallInfo) {
+    auto maybeSetFlag = [numInstructionIdsBefore](MDefinition* def) {
+      MaybeSetImplicitlyUsed(numInstructionIdsBefore, def);
+    };
+    maybeCallInfo->forEachCallOperand(maybeSetFlag);
   }
 
-  WarpCacheIRTranspiler transpiler(builder, loc, &callInfo, cacheIRSnapshot);
-  if (!transpiler.transpile(inputs)) {
-    return false;
-  }
-
-  auto maybeSetFlag = [numInstructionIdsBefore](MDefinition* def) {
-    MaybeSetImplicitlyUsed(numInstructionIdsBefore, def);
-  };
-  callInfo.forEachCallOperand(maybeSetFlag);
   return true;
 }

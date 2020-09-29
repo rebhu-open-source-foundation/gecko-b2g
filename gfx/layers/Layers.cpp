@@ -227,6 +227,16 @@ Layer::Layer(LayerManager* aManager, void* aImplData)
 
 Layer::~Layer() = default;
 
+void Layer::SetEventRegions(const EventRegions& aRegions) {
+  if (mEventRegions != aRegions) {
+    MOZ_LAYERS_LOG_IF_SHADOWABLE(
+        this, ("Layer::Mutated(%p) eventregions were %s, now %s", this,
+               ToString(mEventRegions).c_str(), ToString(aRegions).c_str()));
+    mEventRegions = aRegions;
+    Mutated();
+  }
+}
+
 void Layer::SetCompositorAnimations(
     const LayersId& aLayersId,
     const CompositorAnimations& aCompositorAnimations) {
@@ -1703,11 +1713,10 @@ void Layer::PrintInfo(std::stringstream& aStream, const char* aPrefix) {
                    .get();
   }
   if (!GetBaseTransform().IsIdentity()) {
-    AppendToString(aStream, GetBaseTransform(), " [transform=", "]");
+    aStream << " [transform=" << GetBaseTransform() << "]";
   }
   if (!GetEffectiveTransform().IsIdentity()) {
-    AppendToString(aStream, GetEffectiveTransform(),
-                   " [effective-transform=", "]");
+    aStream << " [effective-transform=" << GetEffectiveTransform() << "]";
   }
   if (GetTransformIsPerspective()) {
     aStream << " [perspective]";
@@ -1718,7 +1727,7 @@ void Layer::PrintInfo(std::stringstream& aStream, const char* aPrefix) {
     aStream << " [not visible]";
   }
   if (!mEventRegions.IsEmpty()) {
-    AppendToString(aStream, mEventRegions, " ", "");
+    aStream << " " << mEventRegions;
   }
   if (1.0 != GetOpacity()) {
     aStream << nsPrintfCString(" [opacity=%g]", GetOpacity()).get();
@@ -2139,7 +2148,7 @@ void RefLayer::DumpPacket(layerscope::LayersPacket* aPacket,
 
 void ReadbackLayer::PrintInfo(std::stringstream& aStream, const char* aPrefix) {
   Layer::PrintInfo(aStream, aPrefix);
-  AppendToString(aStream, mSize, " [size=", "]");
+  aStream << " [size=" << mSize << "]";
   if (mBackgroundLayer) {
     aStream << " [backgroundLayer="
             << nsPrintfCString("%p", mBackgroundLayer).get() << "]";
@@ -2303,8 +2312,8 @@ void PrintInfo(std::stringstream& aStream, HostLayer* aLayerComposite) {
     aStream << " [shadow-clip=" << *clipRect << "]";
   }
   if (!aLayerComposite->GetShadowBaseTransform().IsIdentity()) {
-    AppendToString(aStream, aLayerComposite->GetShadowBaseTransform(),
-                   " [shadow-transform=", "]");
+    aStream << " [shadow-transform="
+            << aLayerComposite->GetShadowBaseTransform() << "]";
   }
   if (!aLayerComposite->GetLayer()->Extend3DContext() &&
       !aLayerComposite->GetShadowVisibleRegion().IsEmpty()) {

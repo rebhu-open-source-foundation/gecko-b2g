@@ -2683,11 +2683,6 @@
   value: false
   mirror: always
 
-- name: dom.security.respect_document_nosniff
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 - name: dom.security.featurePolicy.experimental.enabled
   type: bool
   value: false
@@ -3756,6 +3751,7 @@
   type: bool
   value: false
   mirror: once
+  do_not_use_directly: true
 
 # Allow renaming of process names to the origin on nightly
 # Setting this pref creates a privacy leak, but helps greatly with
@@ -3771,7 +3767,7 @@
 # `useRemoteSubframes` flag set.
 - name: fission.remoteObjectEmbed
   type: bool
-  value: false
+  value: true
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -6884,6 +6880,20 @@
   value: true
   mirror: always
 
+# Whether to disable the scriptminsize attribute.
+# Note that this only disables parsing, not the default effect when no attribute
+# is unspecified.
+- name: mathml.scriptminsize_attribute.disabled
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
+# Whether to disable the scriptsizemultiplier attribute.
+- name: mathml.scriptsizemultiplier_attribute.disabled
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 # Whether to disable support for XLink on MathML elements.
 - name: mathml.xlink.disabled
   type: bool
@@ -8473,12 +8483,6 @@
   value: true
   mirror: always
 
-# Whether to use sni encryption.
-- name: network.security.esni.enabled
-  type: bool
-  value: false
-  mirror: always
-
 # Whether to cache SSL resumption tokens in necko.
 - name: network.ssl_tokens_cache_enabled
   type: RelaxedAtomicBool
@@ -9257,11 +9261,6 @@
   mirror: always
 
 - name: security.csp.enable
-  type: bool
-  value: true
-  mirror: always
-
-- name: security.csp.enableStrictDynamic
   type: bool
   value: true
   mirror: always

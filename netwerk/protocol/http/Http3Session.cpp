@@ -214,6 +214,14 @@ Http3Session::~Http3Session() {
   LOG3(("Http3Session::~Http3Session %p", this));
 
   Telemetry::Accumulate(Telemetry::HTTP3_REQUEST_PER_CONN, mTransactionCount);
+  Telemetry::Accumulate(Telemetry::HTTP3_BLOCKED_BY_STREAM_LIMIT_PER_CONN,
+                        mBlockedByStreamLimitCount);
+  Telemetry::Accumulate(Telemetry::HTTP3_TRANS_BLOCKED_BY_STREAM_LIMIT_PER_CONN,
+                        mTransactionsBlockedByStreamLimitCount);
+
+  Telemetry::Accumulate(
+      Telemetry::HTTP3_TRANS_SENDING_BLOCKED_BY_FLOW_CONTROL_PER_CONN,
+      mTransactionsSenderBlockedByFlowControlCount);
 
   Shutdown();
 }
@@ -465,6 +473,10 @@ nsresult Http3Session::ProcessEvents(uint32_t count) {
           }
         }
 
+        OnTransportStatus(mSocketTransport, NS_NET_STATUS_CONNECTED_TO, 0);
+        // Also send the NS_NET_STATUS_TLS_HANDSHAKE_ENDED event.
+        OnTransportStatus(mSocketTransport, NS_NET_STATUS_TLS_HANDSHAKE_ENDED, 0);
+
         ReportHttp3Connection();
       } break;
       case Http3Event::Tag::GoawayReceived:
@@ -570,6 +582,13 @@ nsresult Http3Session::ProcessOutputAndEvents() {
   // ProcessOutput could fire another timer. Need to unset the flag before that.
   mTimerActive = false;
 
+  MOZ_ASSERT(mTimerShouldTrigger);
+
+  Telemetry::AccumulateTimeDelta(Telemetry::HTTP3_TIMER_DELAYED,
+                                 mTimerShouldTrigger, TimeStamp::Now());
+
+  mTimerShouldTrigger = TimeStamp();
+
   nsresult rv = ProcessOutput();
   if (NS_FAILED(rv)) {
     return rv;
@@ -586,6 +605,9 @@ void Http3Session::SetupTimer(uint64_t aTimeout) {
   }
 
   LOG(("Http3Session::SetupTimer to %" PRIu64 "ms [this=%p].", aTimeout, this));
+
+  // Remember the time when the timer should trigger.
+  mTimerShouldTrigger = TimeStamp::Now() + TimeDuration::FromMilliseconds(aTimeout);
 
   if (mTimerActive && mTimer) {
     LOG(
@@ -658,6 +680,14 @@ bool Http3Session::AddStream(nsAHttpTransaction* aHttpTransaction,
       m0RTTStreams.AppendElement(stream);
     }
   }
+
+  if (!mFirstHttpTransaction && !IsConnected()) {
+    mFirstHttpTransaction = aHttpTransaction->QueryHttpTransaction();
+    LOG3(("Http3Session::AddStream first session=%p trans=%p ", this,
+          mFirstHttpTransaction.get()));
+
+  }
+
   StreamReadyToWrite(stream);
 
   return true;
@@ -753,6 +783,10 @@ nsresult Http3Session::TryActivating(
           ("Http3Session::TryActivating %p stream=%p no room for more "
            "concurrent streams\n",
            this, aStream));
+      mTransactionsBlockedByStreamLimitCount++;
+      if (mQueuedStreams.GetSize() == 0) {
+          mBlockedByStreamLimitCount++;
+      }
       QueueStream(aStream);
     }
     return rv;
@@ -763,8 +797,17 @@ nsresult Http3Session::TryActivating(
        *aStreamId, aStream, this));
 
   MOZ_ASSERT(*aStreamId != UINT64_MAX);
+
+  if (mTransactionCount > 0 && mStreamIdHash.IsEmpty()) {
+    MOZ_ASSERT(mConnectionIdleStart);
+    MOZ_ASSERT(mFirstStreamIdReuseIdleConnection.isNothing());
+
+    mConnectionIdleEnd = TimeStamp::Now();
+    mFirstStreamIdReuseIdleConnection = Some(*aStreamId);
+  }
   mStreamIdHash.Put(*aStreamId, RefPtr{aStream});
   mTransactionCount++;
+
   return NS_OK;
 }
 
@@ -782,8 +825,13 @@ void Http3Session::CloseSendingSide(uint64_t aStreamId) {
 nsresult Http3Session::SendRequestBody(uint64_t aStreamId, const char* buf,
                                        uint32_t count, uint32_t* countRead) {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
-  return mHttp3Connection->SendRequestBody(aStreamId, (const uint8_t*)buf,
-                                           count, countRead);
+  nsresult rv = mHttp3Connection->SendRequestBody(
+      aStreamId, (const uint8_t*)buf, count, countRead);
+  if (rv == NS_BASE_STREAM_WOULD_BLOCK) {
+    mTransactionsSenderBlockedByFlowControlCount++;
+  }
+
+  return rv;
 }
 
 void Http3Session::ResetRecvd(uint64_t aStreamId, uint64_t aError) {
@@ -831,6 +879,68 @@ void Http3Session::GetSecurityCallbacks(nsIInterfaceRequestor** aOut) {
 void Http3Session::OnTransportStatus(nsITransport* aTransport, nsresult aStatus,
                                      int64_t aProgress) {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
+
+  if ((aStatus == NS_NET_STATUS_CONNECTED_TO) && !IsConnected()) {
+    // We should ignore the event. This is sent by the nsSocketTranpsort
+    // and it does not mean that HTTP3 session is connected.
+    // We will use this event to mark start of TLS handshake
+    aStatus = NS_NET_STATUS_TLS_HANDSHAKE_STARTING;
+  }
+
+  switch (aStatus) {
+      // These should appear only once, deliver to the first
+      // transaction on the session.
+    case NS_NET_STATUS_RESOLVING_HOST:
+    case NS_NET_STATUS_RESOLVED_HOST:
+    case NS_NET_STATUS_CONNECTING_TO:
+    case NS_NET_STATUS_CONNECTED_TO:
+    case NS_NET_STATUS_TLS_HANDSHAKE_STARTING:
+    case NS_NET_STATUS_TLS_HANDSHAKE_ENDED: {
+      if (!mFirstHttpTransaction) {
+        // if we still do not have a HttpTransaction store timings info in
+        // a HttpConnection.
+        // If some error occur it can happen that we do not have a connection.
+        if (mConnection) {
+          RefPtr<HttpConnectionBase> conn = mConnection->HttpConnection();
+          conn->SetEvent(aStatus);
+        }
+      } else {
+        mFirstHttpTransaction->OnTransportStatus(aTransport, aStatus,
+                                                 aProgress);
+      }
+
+      if (aStatus == NS_NET_STATUS_CONNECTED_TO) {
+        mFirstHttpTransaction = nullptr;
+      }
+      break;
+    }
+
+    default:
+      // The other transport events are ignored here because there is no good
+      // way to map them to the right transaction in HTTP3. Instead, the events
+      // are generated again from the HTTP3 code and passed directly to the
+      // correct transaction.
+
+      // NS_NET_STATUS_SENDING_TO:
+      // This is generated by the socket transport when (part) of
+      // a transaction is written out
+      //
+      // There is no good way to map it to the right transaction in HTTP3,
+      // so it is ignored here and generated separately when the request
+      // is sent from Http3Stream.
+
+      // NS_NET_STATUS_WAITING_FOR:
+      // Created by nsHttpConnection when the request has been totally sent.
+      // There is no good way to map it to the right transaction in HTTP3,
+      // so it is ignored here and generated separately when the same
+      // condition is complete in Http3Stream when there is no more
+      // request body left to be transmitted.
+
+      // NS_NET_STATUS_RECEIVING_FROM
+      // Generated in Http3Stream whenever the stream reads data.
+
+      break;
+  }
 }
 
 bool Http3Session::IsDone() { return mState == CLOSED; }
@@ -1187,7 +1297,29 @@ void Http3Session::CloseStream(Http3Stream* aStream, nsresult aResult) {
   }
   aStream->Close(aResult);
   if (aStream->HasStreamId()) {
+    // We know the transaction reusing an idle connection has succeeded or
+    // failed.
+    if (mFirstStreamIdReuseIdleConnection.isSome() &&
+        aStream->StreamId() == *mFirstStreamIdReuseIdleConnection) {
+      MOZ_ASSERT(mConnectionIdleStart);
+      MOZ_ASSERT(mConnectionIdleEnd);
+
+      Telemetry::AccumulateTimeDelta(
+          Telemetry::HTTP3_TIME_TO_REUSE_IDLE_CONNECTTION_MS,
+          NS_SUCCEEDED(aResult) ? "succeeded"_ns : "failed"_ns,
+          mConnectionIdleStart, mConnectionIdleEnd);
+
+      mConnectionIdleStart = TimeStamp();
+      mConnectionIdleEnd = TimeStamp();
+      mFirstStreamIdReuseIdleConnection.reset();
+    }
+
     mStreamIdHash.Remove(aStream->StreamId());
+
+    // Start to idle when we remove the last stream.
+    if (mStreamIdHash.IsEmpty()) {
+      mConnectionIdleStart = TimeStamp::Now();
+    }
   }
   RemoveStreamFromQueues(aStream);
   mStreamTransactionHash.Remove(aStream->Transaction());

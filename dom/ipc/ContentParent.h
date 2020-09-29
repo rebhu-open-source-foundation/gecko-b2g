@@ -1465,15 +1465,11 @@ class ContentParent final
       const MaybeDiscarded<BrowsingContext>& aContext,
       GetLoadingSessionHistoryInfoFromParentResolver&& aResolver);
 
-  mozilla::ipc::IPCResult RecvSetActiveSessionHistoryEntryForTop(
+  mozilla::ipc::IPCResult RecvSetActiveSessionHistoryEntry(
       const MaybeDiscarded<BrowsingContext>& aContext,
       const Maybe<nsPoint>& aPreviousScrollPos, SessionHistoryInfo&& aInfo,
-      uint32_t aLoadType, const nsID& aChangeID);
-
-  mozilla::ipc::IPCResult RecvSetActiveSessionHistoryEntryForFrame(
-      const MaybeDiscarded<BrowsingContext>& aContext,
-      const Maybe<nsPoint>& aPreviousScrollPos, SessionHistoryInfo&& aInfo,
-      int32_t aChildOffset, const nsID& aChangeID);
+      uint32_t aLoadType, int32_t aChildOffset, uint32_t aUpdatedCacheKey,
+      const nsID& aChangeID);
 
   mozilla::ipc::IPCResult RecvReplaceActiveSessionHistoryEntry(
       const MaybeDiscarded<BrowsingContext>& aContext,

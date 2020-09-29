@@ -165,7 +165,7 @@
 #include "mozilla/dom/CustomEvent.h"
 #include "nsIScreenManager.h"
 #include "nsIClassifiedChannel.h"
-
+#include "nsIXULRuntime.h"
 #include "xpcprivate.h"
 
 #ifdef NS_PRINTING
@@ -5194,7 +5194,7 @@ void nsGlobalWindowOuter::BlurOuter() {
     siteWindow->Blur();
 
     // if the root is focused, clear the focus
-    nsIFocusManager* fm = nsFocusManager::GetFocusManager();
+    nsFocusManager* fm = nsFocusManager::GetFocusManager();
     if (fm && mDoc) {
       RefPtr<Element> element;
       fm->GetFocusedElementForWindow(this, false, nullptr,
@@ -5212,46 +5212,6 @@ void nsGlobalWindowOuter::StopOuter(ErrorResult& aError) {
     aError = webNav->Stop(nsIWebNavigation::STOP_ALL);
   }
 }
-
-#ifdef NS_PRINTING
-static void SetIsPrintingInDocShellTree(nsIDocShellTreeItem* aParentNode,
-                                        bool aIsPrintingOrPP,
-                                        bool aStartAtTop = true) {
-  nsCOMPtr<nsIDocShellTreeItem> parentItem(aParentNode);
-
-  // find top of "same parent" tree
-  if (aStartAtTop) {
-    while (parentItem) {
-      nsCOMPtr<nsIDocShellTreeItem> parent;
-      parentItem->GetInProcessSameTypeParent(getter_AddRefs(parent));
-      if (!parent) {
-        break;
-      }
-      parentItem = parent;
-    }
-  }
-
-  if (nsCOMPtr<nsIDocShell> viewerContainer = do_QueryInterface(parentItem)) {
-    viewerContainer->SetIsPrinting(aIsPrintingOrPP);
-  }
-
-  if (!aParentNode) {
-    return;
-  }
-
-  // Traverse children to see if any of them are printing.
-  int32_t n;
-  aParentNode->GetInProcessChildCount(&n);
-  for (int32_t i = 0; i < n; i++) {
-    nsCOMPtr<nsIDocShellTreeItem> child;
-    aParentNode->GetInProcessChildAt(i, getter_AddRefs(child));
-    NS_ASSERTION(child, "child isn't nsIDocShell");
-    if (child) {
-      SetIsPrintingInDocShellTree(child, aIsPrintingOrPP, false);
-    }
-  }
-}
-#endif
 
 void nsGlobalWindowOuter::PrintOuter(ErrorResult& aError) {
   if (!AreDialogsEnabled()) {
@@ -5292,10 +5252,18 @@ void nsGlobalWindowOuter::PrintOuter(ErrorResult& aError) {
     return;
   }
 
-  nsCOMPtr<nsIDocShell> docShell = mDocShell;
-  SetIsPrintingInDocShellTree(docShell, true);
-  auto unset =
-      MakeScopeExit([&] { SetIsPrintingInDocShellTree(docShell, false); });
+  RefPtr<BrowsingContext> top =
+      mBrowsingContext ? mBrowsingContext->Top() : nullptr;
+  bool oldIsPrinting = top && top->GetIsPrinting();
+  if (top) {
+    Unused << top->SetIsPrinting(true);
+  }
+
+  auto unset = MakeScopeExit([&] {
+    if (top) {
+      Unused << top->SetIsPrinting(oldIsPrinting);
+    }
+  });
 
   const bool isPreview = StaticPrefs::print_tab_modal_enabled() &&
                          !StaticPrefs::print_always_print_silent();
@@ -5392,6 +5360,8 @@ Nullable<WindowProxyHolder> nsGlobalWindowOuter::Print(
       aError.ThrowNotAllowedError("No browsing context");
       return nullptr;
     }
+
+    Unused << bc->Top()->SetIsPrinting(true);
     nsCOMPtr<nsIDocShell> cloneDocShell = bc->GetDocShell();
     MOZ_DIAGNOSTIC_ASSERT(cloneDocShell);
     cloneDocShell->GetContentViewer(getter_AddRefs(cv));
@@ -6349,7 +6319,7 @@ bool nsGlobalWindowOuter::IsOnlyTopLevelDocumentInSHistory() {
   // Disabled since IsFrame() is buggy in Fission
   // MOZ_ASSERT(mBrowsingContext->IsTop());
 
-  if (StaticPrefs::fission_sessionHistoryInParent_AtStartup()) {
+  if (mozilla::SessionHistoryInParent()) {
     return mBrowsingContext->GetIsSingleToplevelInHistory();
   }
 
@@ -7545,7 +7515,7 @@ nsresult nsGlobalWindowOuter::RestoreWindowState(nsISupports* aState) {
   // it easy to tell which link was last clicked when going back a page.
   Element* focusedElement = inner->GetFocusedElement();
   if (nsContentUtils::ContentIsLink(focusedElement)) {
-    nsIFocusManager* fm = nsFocusManager::GetFocusManager();
+    nsFocusManager* fm = nsFocusManager::GetFocusManager();
     if (fm) {
       // XXXbz Do we need the stack strong ref here?
       RefPtr<Element> kungFuDeathGrip(focusedElement);

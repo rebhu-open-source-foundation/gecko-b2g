@@ -175,6 +175,29 @@ void ScrollSnapInfo::InitializeScrollSnapStrictness(
   }
 }
 
+std::ostream& operator<<(std::ostream& aStream,
+                         const OverscrollBehavior& aBehavior) {
+  switch (aBehavior) {
+    case OverscrollBehavior::Auto: {
+      aStream << "auto";
+      break;
+    }
+    case OverscrollBehavior::Contain: {
+      aStream << "contain";
+      break;
+    }
+    case OverscrollBehavior::None: {
+      aStream << "none";
+      break;
+    }
+  }
+  return aStream;
+}
+
+OverscrollBehaviorInfo::OverscrollBehaviorInfo()
+    : mBehaviorX(OverscrollBehavior::Auto),
+      mBehaviorY(OverscrollBehavior::Auto) {}
+
 static OverscrollBehavior ToOverscrollBehavior(
     StyleOverscrollBehavior aBehavior) {
   switch (aBehavior) {
@@ -195,6 +218,21 @@ OverscrollBehaviorInfo OverscrollBehaviorInfo::FromStyleConstants(
   result.mBehaviorX = ToOverscrollBehavior(aBehaviorX);
   result.mBehaviorY = ToOverscrollBehavior(aBehaviorY);
   return result;
+}
+
+bool OverscrollBehaviorInfo::operator==(
+    const OverscrollBehaviorInfo& aOther) const {
+  return mBehaviorX == aOther.mBehaviorX && mBehaviorY == aOther.mBehaviorY;
+}
+
+std::ostream& operator<<(std::ostream& aStream,
+                         const OverscrollBehaviorInfo& aInfo) {
+  if (aInfo.mBehaviorX == aInfo.mBehaviorY) {
+    aStream << aInfo.mBehaviorX;
+  } else {
+    aStream << "{ x=" << aInfo.mBehaviorX << ", y=" << aInfo.mBehaviorY << " }";
+  }
+  return aStream;
 }
 
 void ScrollMetadata::SetBackgroundColor(

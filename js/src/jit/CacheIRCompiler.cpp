@@ -6539,33 +6539,63 @@ bool CacheIRCompiler::emitCompareStringBigIntResult(JSOp op,
   return true;
 }
 
-bool CacheIRCompiler::emitCompareObjectUndefinedNullResult(JSOp op,
-                                                           ObjOperandId objId) {
+bool CacheIRCompiler::emitCompareNullUndefinedResult(JSOp op, bool isUndefined,
+                                                     ValOperandId inputId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
-  AutoOutputRegister output(*this);
 
-  Register obj = allocator.useRegister(masm, objId);
+  AutoOutputRegister output(*this);
+  ValueOperand input = allocator.useValueRegister(masm, inputId);
+  AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
+
+  if (IsStrictEqualityOp(op)) {
+    if (isUndefined) {
+      masm.testUndefinedSet(JSOpToCondition(op, false), input, scratch);
+    } else {
+      masm.testNullSet(JSOpToCondition(op, false), input, scratch);
+    }
+    EmitStoreResult(masm, scratch, JSVAL_TYPE_BOOLEAN, output);
+    return true;
+  }
 
   FailurePath* failure;
   if (!addFailurePath(&failure)) {
     return false;
   }
 
-  if (op == JSOp::StrictEq || op == JSOp::StrictNe) {
-    // obj !== undefined/null for all objects.
-    EmitStoreBoolean(masm, op == JSOp::StrictNe, output);
-  } else {
-    MOZ_ASSERT(op == JSOp::Eq || op == JSOp::Ne);
-    AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
-    Label done, emulatesUndefined;
-    masm.branchIfObjectEmulatesUndefined(obj, scratch, failure->label(),
-                                         &emulatesUndefined);
-    EmitStoreBoolean(masm, op == JSOp::Ne, output);
-    masm.jump(&done);
-    masm.bind(&emulatesUndefined);
-    EmitStoreBoolean(masm, op == JSOp::Eq, output);
-    masm.bind(&done);
+  MOZ_ASSERT(IsLooseEqualityOp(op));
+
+  Label nullOrLikeUndefined, notNullOrLikeUndefined, done;
+  {
+    ScratchTagScope tag(masm, input);
+    masm.splitTagForTest(input, tag);
+
+    if (isUndefined) {
+      masm.branchTestUndefined(Assembler::Equal, tag, &nullOrLikeUndefined);
+      masm.branchTestNull(Assembler::Equal, tag, &nullOrLikeUndefined);
+    } else {
+      masm.branchTestNull(Assembler::Equal, tag, &nullOrLikeUndefined);
+      masm.branchTestUndefined(Assembler::Equal, tag, &nullOrLikeUndefined);
+    }
+    masm.branchTestObject(Assembler::NotEqual, tag, &notNullOrLikeUndefined);
+
+    {
+      ScratchTagScopeRelease _(&tag);
+
+      masm.unboxObject(input, scratch);
+      masm.branchIfObjectEmulatesUndefined(scratch, scratch, failure->label(),
+                                           &nullOrLikeUndefined);
+      masm.jump(&notNullOrLikeUndefined);
+    }
   }
+
+  masm.bind(&nullOrLikeUndefined);
+  EmitStoreBoolean(masm, op == JSOp::Eq, output);
+  masm.jump(&done);
+
+  masm.bind(&notNullOrLikeUndefined);
+  EmitStoreBoolean(masm, op == JSOp::Ne, output);
+
+  masm.bind(&done);
   return true;
 }
 
@@ -6954,7 +6984,22 @@ void CacheIRCompiler::emitLoadStubField(StubFieldOffset val, Register dest) {
     emitLoadStubFieldConstant(val, dest);
   } else {
     Address load(ICStubReg, stubDataOffset_ + val.getOffset());
-    masm.loadPtr(load, dest);
+
+    switch (val.getStubFieldType()) {
+      case StubField::Type::Shape:
+      case StubField::Type::ObjectGroup:
+      case StubField::Type::JSObject:
+      case StubField::Type::Symbol:
+      case StubField::Type::String:
+      case StubField::Type::Id:
+        masm.loadPtr(load, dest);
+        break;
+      case StubField::Type::RawWord:
+        masm.load32(load, dest);
+        break;
+      default:
+        MOZ_CRASH("Unhandled stub field constant type");
+    }
   }
 }
 
@@ -7124,6 +7169,40 @@ bool CacheIRCompiler::emitMegamorphicStoreSlot(ObjOperandId objId,
 
   masm.loadValue(Address(masm.getStackPointer(), 0), val);
   masm.adjustStack(sizeof(Value));
+
+  masm.branchIfFalseBool(scratch1, failure->label());
+  return true;
+}
+
+bool CacheIRCompiler::emitGuardHasGetterSetter(ObjOperandId objId,
+                                               uint32_t shapeOffset) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+  Register obj = allocator.useRegister(masm, objId);
+  StubFieldOffset shape(shapeOffset, StubField::Type::Shape);
+
+  AutoScratchRegister scratch1(allocator, masm);
+  AutoScratchRegister scratch2(allocator, masm);
+
+  FailurePath* failure;
+  if (!addFailurePath(&failure)) {
+    return false;
+  }
+
+  LiveRegisterSet volatileRegs(GeneralRegisterSet::Volatile(),
+                               liveVolatileFloatRegs());
+  volatileRegs.takeUnchecked(scratch1);
+  volatileRegs.takeUnchecked(scratch2);
+  masm.PushRegsInMask(volatileRegs);
+
+  masm.setupUnalignedABICall(scratch1);
+  masm.loadJSContext(scratch1);
+  masm.passABIArg(scratch1);
+  masm.passABIArg(obj);
+  emitLoadStubField(shape, scratch2);
+  masm.passABIArg(scratch2);
+  masm.callWithABI(JS_FUNC_TO_DATA_PTR(void*, ObjectHasGetterSetterPure));
+  masm.mov(ReturnReg, scratch1);
+  masm.PopRegsInMask(volatileRegs);
 
   masm.branchIfFalseBool(scratch1, failure->label());
   return true;

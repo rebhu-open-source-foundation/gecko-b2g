@@ -40,6 +40,35 @@ struct ScriptedCaller {
   ScriptedCaller() : filenameIsURL(false), line(0) {}
 };
 
+// Describes the features that control wasm compilation.
+
+struct FeatureArgs {
+  FeatureArgs()
+      : sharedMemory(Shareable::False),
+        refTypes(false),
+        functionReferences(false),
+        gcTypes(false),
+        multiValue(false),
+        v128(false),
+        hugeMemory(false) {}
+
+  static FeatureArgs build(JSContext* cx);
+
+  FeatureArgs withRefTypes(bool refTypes) const {
+    FeatureArgs features = *this;
+    features.refTypes = refTypes;
+    return features;
+  }
+
+  Shareable sharedMemory;
+  bool refTypes;
+  bool functionReferences;
+  bool gcTypes;
+  bool multiValue;
+  bool v128;
+  bool hugeMemory;
+};
+
 // Describes all the parameters that control wasm compilation.
 
 struct CompileArgs;
@@ -54,13 +83,9 @@ struct CompileArgs : ShareableBase<CompileArgs> {
   bool ionEnabled;
   bool craneliftEnabled;
   bool debugEnabled;
-  bool sharedMemoryEnabled;
   bool forceTiering;
-  bool reftypesEnabled;
-  bool gcEnabled;
-  bool hugeMemory;
-  bool multiValuesEnabled;
-  bool v128Enabled;
+
+  FeatureArgs features;
 
   // CompileArgs has two constructors:
   //
@@ -80,13 +105,7 @@ struct CompileArgs : ShareableBase<CompileArgs> {
         ionEnabled(false),
         craneliftEnabled(false),
         debugEnabled(false),
-        sharedMemoryEnabled(false),
-        forceTiering(false),
-        reftypesEnabled(false),
-        gcEnabled(false),
-        hugeMemory(false),
-        multiValuesEnabled(false),
-        v128Enabled(false) {}
+        forceTiering(false) {}
 };
 
 // Return the estimated compiled (machine) code size for the given bytecode size

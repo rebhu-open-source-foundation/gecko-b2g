@@ -46,6 +46,7 @@
 #include "mozilla/StaticPrefs_page_load.h"
 #include "mozilla/StaticPtr.h"
 #include "nsIURIFixup.h"
+#include "nsIXULRuntime.h"
 
 #include "nsDocShell.h"
 #include "nsFocusManager.h"
@@ -414,7 +415,7 @@ void BrowsingContext::CreateFromIPC(BrowsingContext::IPCInitializer&& aInit,
   context->mCreatedDynamically = aInit.mCreatedDynamically;
   if (context->GetHasSessionHistory()) {
     context->CreateChildSHistory();
-    if (StaticPrefs::fission_sessionHistoryInParent_AtStartup()) {
+    if (mozilla::SessionHistoryInParent()) {
       context->GetChildSessionHistory()->SetIndexAndLength(
           aInit.mSessionHistoryIndex, aInit.mSessionHistoryCount, nsID());
     }
@@ -2084,8 +2085,7 @@ BrowsingContext::IPCInitializer BrowsingContext::GetIPCInitializer() {
   init.mUseRemoteSubframes = mUseRemoteSubframes;
   init.mCreatedDynamically = mCreatedDynamically;
   init.mOriginAttributes = mOriginAttributes;
-  if (mChildSessionHistory &&
-      StaticPrefs::fission_sessionHistoryInParent_AtStartup()) {
+  if (mChildSessionHistory && mozilla::SessionHistoryInParent()) {
     init.mSessionHistoryIndex = mChildSessionHistory->Index();
     init.mSessionHistoryCount = mChildSessionHistory->Count();
   }
@@ -2583,7 +2583,7 @@ void BrowsingContext::InitSessionHistory() {
 }
 
 ChildSHistory* BrowsingContext::GetChildSessionHistory() {
-  if (!StaticPrefs::fission_sessionHistoryInParent_AtStartup()) {
+  if (!mozilla::SessionHistoryInParent()) {
     // For now we're checking that the session history object for the child
     // process is available before returning the ChildSHistory object, because
     // it is the actual implementation that ChildSHistory forwards to. This can
@@ -2641,8 +2641,7 @@ bool BrowsingContext::CanSet(FieldIndex<IDX_PendingInitialization>,
 
 void BrowsingContext::SessionHistoryChanged(int32_t aIndexDelta,
                                             int32_t aLengthDelta) {
-  if (XRE_IsParentProcess() ||
-      StaticPrefs::fission_sessionHistoryInParent_AtStartup()) {
+  if (XRE_IsParentProcess() || mozilla::SessionHistoryInParent()) {
     // This method is used to test index and length for the session history
     // in child process only.
     return;
@@ -2680,37 +2679,26 @@ bool BrowsingContext::IsPopupAllowed() {
   return false;
 }
 
-void BrowsingContext::SetActiveSessionHistoryEntryForTop(
+void BrowsingContext::SetActiveSessionHistoryEntry(
     const Maybe<nsPoint>& aPreviousScrollPos, SessionHistoryInfo* aInfo,
-    uint32_t aLoadType) {
+    uint32_t aLoadType, int32_t aChildOffset, uint32_t aUpdatedCacheKey) {
   if (XRE_IsContentProcess()) {
-    nsID changeID = {};
-    RefPtr<ChildSHistory> shistory = GetChildSessionHistory();
-    if (shistory) {
-      changeID = shistory->AddPendingHistoryChange(1, 1);
+    if (aUpdatedCacheKey != 0) {
+      aInfo->SetCacheKey(aUpdatedCacheKey);
     }
-    ContentChild::GetSingleton()->SendSetActiveSessionHistoryEntryForTop(
-        this, aPreviousScrollPos, *aInfo, aLoadType, changeID);
-  } else {
-    Canonical()->SetActiveSessionHistoryEntryForTop(aPreviousScrollPos, aInfo,
-                                                    aLoadType, nsID());
-  }
-}
 
-void BrowsingContext::SetActiveSessionHistoryEntryForFrame(
-    const Maybe<nsPoint>& aPreviousScrollPos, SessionHistoryInfo* aInfo,
-    int32_t aChildOffset) {
-  if (XRE_IsContentProcess()) {
     nsID changeID = {};
     RefPtr<ChildSHistory> shistory = GetChildSessionHistory();
     if (shistory) {
       changeID = shistory->AddPendingHistoryChange(1, 1);
     }
-    ContentChild::GetSingleton()->SendSetActiveSessionHistoryEntryForFrame(
-        this, aPreviousScrollPos, *aInfo, aChildOffset, changeID);
+    ContentChild::GetSingleton()->SendSetActiveSessionHistoryEntry(
+        this, aPreviousScrollPos, *aInfo, aLoadType, aChildOffset,
+        aUpdatedCacheKey, changeID);
   } else {
-    Canonical()->SetActiveSessionHistoryEntryForFrame(aPreviousScrollPos, aInfo,
-                                                      aChildOffset, nsID());
+    Canonical()->SetActiveSessionHistoryEntry(aPreviousScrollPos, aInfo,
+                                              aLoadType, aChildOffset,
+                                              aUpdatedCacheKey, nsID());
   }
 }
 

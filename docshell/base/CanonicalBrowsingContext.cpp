@@ -162,6 +162,7 @@ void CanonicalBrowsingContext::ReplacedBy(
   }
   aNewContext->mWebProgress = std::move(mWebProgress);
   aNewContext->mFields.SetWithoutSyncing<IDX_BrowserId>(GetBrowserId());
+  aNewContext->mFields.SetWithoutSyncing<IDX_HistoryID>(GetHistoryID());
 
   if (mSessionHistory) {
     mSessionHistory->SetBrowsingContext(aNewContext);
@@ -563,48 +564,40 @@ void CanonicalBrowsingContext::NotifyOnHistoryReload(
   // the nsDocShell will create a load state based on its document.
 }
 
-void CanonicalBrowsingContext::SetActiveSessionHistoryEntryForTop(
+void CanonicalBrowsingContext::SetActiveSessionHistoryEntry(
     const Maybe<nsPoint>& aPreviousScrollPos, SessionHistoryInfo* aInfo,
-    uint32_t aLoadType, const nsID& aChangeID) {
+    uint32_t aLoadType, int32_t aChildOffset, uint32_t aUpdatedCacheKey,
+    const nsID& aChangeID) {
   RefPtr<SessionHistoryEntry> oldActiveEntry = mActiveEntry;
   if (aPreviousScrollPos.isSome() && oldActiveEntry) {
     oldActiveEntry->SetScrollPosition(aPreviousScrollPos.ref().x,
                                       aPreviousScrollPos.ref().y);
   }
-  RefPtr<SessionHistoryEntry> newEntry = new SessionHistoryEntry(aInfo);
-  newEntry->SetDocshellID(GetHistoryID());
-  mActiveEntry = newEntry;
-  Maybe<int32_t> previousEntryIndex, loadedEntryIndex;
-  nsISHistory* shistory = GetSessionHistory();
-  if (shistory) {
-    shistory->AddToRootSessionHistory(
-        true, oldActiveEntry, this, newEntry, aLoadType,
-        nsDocShell::ShouldAddToSessionHistory(aInfo->GetURI(), nullptr),
-        &previousEntryIndex, &loadedEntryIndex);
-    // FIXME Need to do the equivalent of EvictContentViewersOrReplaceEntry.
-    HistoryCommitIndexAndLength(aChangeID);
+  mActiveEntry = new SessionHistoryEntry(aInfo);
+  mActiveEntry->SetDocshellID(GetHistoryID());
+  mActiveEntry->AdoptBFCacheEntry(oldActiveEntry);
+  if (aUpdatedCacheKey != 0) {
+    mActiveEntry->SharedInfo()->mCacheKey = aUpdatedCacheKey;
   }
-}
-
-void CanonicalBrowsingContext::SetActiveSessionHistoryEntryForFrame(
-    const Maybe<nsPoint>& aPreviousScrollPos, SessionHistoryInfo* aInfo,
-    int32_t aChildOffset, const nsID& aChangeID) {
-  RefPtr<SessionHistoryEntry> oldActiveEntry = mActiveEntry;
-  if (aPreviousScrollPos.isSome() && oldActiveEntry) {
-    oldActiveEntry->SetScrollPosition(aPreviousScrollPos.ref().x,
-                                      aPreviousScrollPos.ref().y);
-  }
-  RefPtr<SessionHistoryEntry> newEntry = new SessionHistoryEntry(aInfo);
-  newEntry->SetDocshellID(GetHistoryID());
-  mActiveEntry = newEntry;
   nsISHistory* shistory = GetSessionHistory();
-  if (oldActiveEntry) {
+  if (IsTop()) {
     if (shistory) {
-      shistory->AddChildSHEntryHelper(oldActiveEntry, newEntry, Top(), true);
+      Maybe<int32_t> previousEntryIndex, loadedEntryIndex;
+      shistory->AddToRootSessionHistory(
+          true, oldActiveEntry, this, mActiveEntry, aLoadType,
+          nsDocShell::ShouldAddToSessionHistory(aInfo->GetURI(), nullptr),
+          &previousEntryIndex, &loadedEntryIndex);
     }
-  } else if (GetParent() && GetParent()->mActiveEntry) {
-    GetParent()->mActiveEntry->AddChild(newEntry, aChildOffset,
-                                        UseRemoteSubframes());
+  } else {
+    if (oldActiveEntry) {
+      if (shistory) {
+        shistory->AddChildSHEntryHelper(oldActiveEntry, mActiveEntry, Top(),
+                                        true);
+      }
+    } else if (GetParent() && GetParent()->mActiveEntry) {
+      GetParent()->mActiveEntry->AddChild(mActiveEntry, aChildOffset,
+                                          UseRemoteSubframes());
+    }
   }
   // FIXME Need to do the equivalent of EvictContentViewersOrReplaceEntry.
   HistoryCommitIndexAndLength(aChangeID);
@@ -612,12 +605,19 @@ void CanonicalBrowsingContext::SetActiveSessionHistoryEntryForFrame(
 
 void CanonicalBrowsingContext::ReplaceActiveSessionHistoryEntry(
     SessionHistoryInfo* aInfo) {
+  nsSHistory* shistory = static_cast<nsSHistory*>(GetSessionHistory());
   mActiveEntry->SetInfo(aInfo);
+  // Notify children of the update
+  shistory->NotifyOnHistoryReplaceEntry();
+  shistory->UpdateRootBrowsingContextState();
   // FIXME Need to do the equivalent of EvictContentViewersOrReplaceEntry.
 }
 
 void CanonicalBrowsingContext::RemoveDynEntriesFromActiveSessionHistoryEntry() {
   nsISHistory* shistory = GetSessionHistory();
+  // In theory shistory can be null here if the method is called right after
+  // CanonicalBrowsingContext::ReplacedBy call.
+  NS_ENSURE_TRUE_VOID(shistory);
   nsCOMPtr<nsISHEntry> root = nsSHistory::GetRootSHEntry(mActiveEntry);
   shistory->RemoveDynEntries(shistory->GetIndexOfEntry(root), mActiveEntry);
 }

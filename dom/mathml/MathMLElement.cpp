@@ -132,10 +132,6 @@ static Element::MappedAttributeEntry sGlobalAttributes[] = {
     {nsGkAtoms::mathvariant_},  {nsGkAtoms::scriptlevel_},
     {nsGkAtoms::displaystyle_}, {nullptr}};
 
-// XXXfredw(bug 1548471): Add a runtime flag to disable these attributes.
-static Element::MappedAttributeEntry sDeprecatedScriptAttributes[] = {
-    {nsGkAtoms::scriptminsize_}, {nsGkAtoms::scriptsizemultiplier_}, {nullptr}};
-
 static Element::MappedAttributeEntry sDeprecatedStyleAttributes[] = {
     {nsGkAtoms::background},
     {nsGkAtoms::color},
@@ -148,14 +144,17 @@ static Element::MappedAttributeEntry sDeprecatedStyleAttributes[] = {
 bool MathMLElement::IsAttributeMapped(const nsAtom* aAttribute) const {
   MOZ_ASSERT(IsMathMLElement());
 
-  static const MappedAttributeEntry* const globalMap[] = {
-      sGlobalAttributes, sDeprecatedScriptAttributes};
+  static const MappedAttributeEntry* const globalMap[] = {sGlobalAttributes};
   static const MappedAttributeEntry* const styleMap[] = {
       sDeprecatedStyleAttributes};
 
   return FindAttributeDependence(aAttribute, globalMap) ||
          (!StaticPrefs::mathml_deprecated_style_attributes_disabled() &&
           FindAttributeDependence(aAttribute, styleMap)) ||
+         (!StaticPrefs::mathml_scriptminsize_attribute_disabled() &&
+          aAttribute == nsGkAtoms::scriptminsize_) ||
+         (!StaticPrefs::mathml_scriptsizemultiplier_attribute_disabled() &&
+          aAttribute == nsGkAtoms::scriptsizemultiplier_) ||
          (mNodeInfo->Equals(nsGkAtoms::mtable_) &&
           aAttribute == nsGkAtoms::width);
 }
@@ -383,6 +382,8 @@ void MathMLElement::MapMathMLAttributesInto(
       aAttributes->GetAttr(nsGkAtoms::scriptsizemultiplier_);
   if (value && value->Type() == nsAttrValue::eString &&
       !aDecls.PropertyIsSet(eCSSProperty__moz_script_size_multiplier)) {
+    aDecls.Document()->WarnOnceAbout(
+        dom::Document::eMathML_DeprecatedScriptsizemultiplierAttribute);
     auto str = value->GetStringValue();
     str.CompressWhitespace();
     // MathML numbers can't have leading '+'
@@ -414,6 +415,8 @@ void MathMLElement::MapMathMLAttributesInto(
   value = aAttributes->GetAttr(nsGkAtoms::scriptminsize_);
   if (value && value->Type() == nsAttrValue::eString &&
       !aDecls.PropertyIsSet(eCSSProperty__moz_script_min_size)) {
+    aDecls.Document()->WarnOnceAbout(
+        dom::Document::eMathML_DeprecatedScriptminsizeAttribute);
     nsCSSValue scriptMinSize;
     ParseNumericValue(value->GetStringValue(), scriptMinSize,
                       PARSE_ALLOW_UNITLESS | CONVERT_UNITLESS_TO_PERCENT,
@@ -448,18 +451,9 @@ void MathMLElement::MapMathMLAttributesInto(
       nsresult errorCode;
       int32_t intValue = str.ToInteger(&errorCode);
       if (NS_SUCCEEDED(errorCode)) {
-        // This is kind of cheesy ... if the scriptlevel has a sign,
-        // then it's a relative value and we store the nsCSSValue as an
-        // Integer to indicate that. Otherwise we store it as a Number
-        // to indicate that the scriptlevel is absolute.
-        // XXX Bug 1667090: Use math-depth: add(<integer>) for relative values
-        // and and math-depth: <integer> for absolute values.
         char16_t ch = str.CharAt(0);
-        if (ch == '+' || ch == '-') {
-          aDecls.SetIntValue(eCSSProperty_math_depth, intValue);
-        } else {
-          aDecls.SetNumberValue(eCSSProperty_math_depth, intValue);
-        }
+        bool isRelativeScriptLevel = (ch == '+' || ch == '-');
+        aDecls.SetMathDepthValue(intValue, isRelativeScriptLevel);
       } else {
         ReportParseErrorNoTag(str, nsGkAtoms::scriptlevel_, aDecls.Document());
       }

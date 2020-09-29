@@ -17,11 +17,6 @@
 #define TLS_EARLY_DATA_AVAILABLE_BUT_NOT_USED 1
 #define TLS_EARLY_DATA_AVAILABLE_AND_USED 2
 
-#define ESNI_SUCCESSFUL 0
-#define ESNI_FAILED 1
-#define NO_ESNI_SUCCESSFUL 2
-#define NO_ESNI_FAILED 3
-
 #include "ASpdySession.h"
 #include "mozilla/ChaosMode.h"
 #include "mozilla/Telemetry.h"
@@ -748,15 +743,9 @@ void HttpConnectionUDP::SetEvent(nsresult aStatus) {
     case NS_NET_STATUS_CONNECTING_TO:
       mBootstrappedTimings.connectStart = TimeStamp::Now();
       break;
-    case NS_NET_STATUS_CONNECTED_TO: {
-      TimeStamp tnow = TimeStamp::Now();
-      mBootstrappedTimings.tcpConnectEnd = tnow;
-      mBootstrappedTimings.connectEnd = tnow;
-      if (!mBootstrappedTimings.secureConnectionStart.IsNull()) {
-        mBootstrappedTimings.secureConnectionStart = tnow;
-      }
+    case NS_NET_STATUS_CONNECTED_TO:
+      mBootstrappedTimings.connectEnd = TimeStamp::Now();
       break;
-    }
     case NS_NET_STATUS_TLS_HANDSHAKE_STARTING:
       mBootstrappedTimings.secureConnectionStart = TimeStamp::Now();
       break;

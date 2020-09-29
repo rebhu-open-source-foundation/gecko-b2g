@@ -5013,7 +5013,7 @@ static bool EmitBodyExprs(FunctionCompiler& f) {
 
       // Thread operations
       case uint16_t(Op::ThreadPrefix): {
-        if (f.env().sharedMemoryEnabled == Shareable::False) {
+        if (f.env().sharedMemoryEnabled() == Shareable::False) {
           return f.iter().unrecognizedOpcode(&op);
         }
         switch (op.b1) {
@@ -5326,8 +5326,7 @@ bool wasm::IonCompileFunctions(const ModuleEnvironment& env, LifoAlloc& lifo,
     if (!locals.appendAll(funcType.args())) {
       return false;
     }
-    if (!DecodeLocalEntries(d, env.types, env.refTypesEnabled(),
-                            env.gcTypesEnabled(), env.v128Enabled(), &locals)) {
+    if (!DecodeLocalEntries(d, env.types, env.features, &locals)) {
       return false;
     }
 

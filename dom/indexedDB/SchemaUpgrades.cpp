@@ -107,11 +107,8 @@ nsresult UpgradeSchemaFrom4To5(mozIStorageConnection& aConnection) {
   {
     mozStorageStatementScoper scoper(stmt);
 
-    bool hasResults;
-    rv = stmt->ExecuteStep(&hasResults);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
-    }
+    IDB_TRY_VAR(const bool hasResults, MOZ_TO_RESULT_INVOKE(stmt, ExecuteStep));
+
     if (NS_WARN_IF(!hasResults)) {
       return NS_ERROR_FAILURE;
     }
@@ -2303,11 +2300,7 @@ nsresult UpgradeSchemaFrom19_0To20_0(nsIFile* aFMDirectory,
   {
     mozStorageStatementScoper scoper(stmt);
 
-    bool hasResult;
-    rv = stmt->ExecuteStep(&hasResult);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
-    }
+    IDB_TRY_VAR(const bool hasResult, MOZ_TO_RESULT_INVOKE(stmt, ExecuteStep));
 
     if (NS_WARN_IF(!hasResult)) {
       MOZ_ASSERT(false, "This should never be possible!");
@@ -2430,8 +2423,9 @@ UpgradeIndexDataValuesFunction::ReadOldCompressedIDVFromBlob(
     }
 
     // Read key buffer length.
-    IDB_TRY_VAR((const auto [keyBufferLength, remainderAfterKeyBufferLength]),
-                ReadCompressedNumber(remainder));
+    IDB_TRY_INSPECT(
+        (const auto& [keyBufferLength, remainderAfterKeyBufferLength]),
+        ReadCompressedNumber(remainder));
 
     if (NS_WARN_IF(remainderAfterKeyBufferLength.IsEmpty()) ||
         NS_WARN_IF(keyBufferLength > uint64_t(UINT32_MAX)) ||
@@ -2451,8 +2445,8 @@ UpgradeIndexDataValuesFunction::ReadOldCompressedIDVFromBlob(
     remainder = remainderAfterKeyBuffer;
     if (!remainder.IsEmpty()) {
       // Read either a sort key buffer length or an index id.
-      IDB_TRY_VAR((const auto [maybeIndexId, remainderAfterIndexId]),
-                  ReadCompressedNumber(remainder));
+      IDB_TRY_INSPECT((const auto& [maybeIndexId, remainderAfterIndexId]),
+                      ReadCompressedNumber(remainder));
 
       // Locale-aware indexes haven't been around long enough to have any users,
       // we can safely assume all sort key buffer lengths will be zero.
@@ -2508,8 +2502,8 @@ UpgradeIndexDataValuesFunction::OnFunctionCall(
     return rv;
   }
 
-  IDB_TRY_VAR(const auto oldIdv,
-              ReadOldCompressedIDVFromBlob(Span(oldBlob, oldBlobLength)));
+  IDB_TRY_INSPECT(const auto& oldIdv,
+                  ReadOldCompressedIDVFromBlob(Span(oldBlob, oldBlobLength)));
 
   IDB_TRY_VAR((auto [newIdv, newIdvLength]),
               MakeCompressedIndexDataValues(oldIdv));
