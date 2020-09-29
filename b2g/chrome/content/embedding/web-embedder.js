@@ -45,13 +45,13 @@ XPCOMUtils.defineLazyGetter(this, "Screenshot", function() {
   };
 
   const customAccessible = {
-    sendCustomAccessible: domNode => {
+    send: domNode => {
       Services.obs.notifyObservers(domNode, "custom-accessible");
     },
-    startCustomAccessOutput: () => {
+    startOutput: () => {
       Services.obs.notifyObservers({}, "start-custom-access-output");
     },
-    stopCustomAccessOutput: () => {
+    stopOutput: () => {
       Services.obs.notifyObservers({}, "stop-custom-access-output");
     },
   };
