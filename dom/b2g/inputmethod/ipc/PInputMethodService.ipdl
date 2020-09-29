@@ -36,7 +36,17 @@ struct SendKeyRequest
 
 struct HandleFocusRequest
 {
-  uint64_t id;
+  nsString type;
+  nsString inputType;
+  nsString value;
+  nsString max;
+  nsString min;
+  nsString lang;
+  nsString inputMode;
+  bool voiceInputSupported;
+  nsString name;
+  uint32_t selectionStart;
+  uint32_t selectionEnd;
 };
 
 struct HandleBlurRequest

@@ -91,14 +91,13 @@ void InputMethodService::SendKey(const nsAString& aKey,
   return;
 }
 
-void InputMethodService::HandleFocus(nsIEditableSupportListener* aListener) {
+void InputMethodService::HandleFocus(nsIEditableSupportListener* aListener,
+                                     nsIPropertyBag2* aPropBag) {
   IME_LOGD("InputMethodService::HandleFocus");
   RegisterEditableSupport(aListener);
   nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
   if (obs) {
-    // TODO modified nullptr to carry nsICarryBag which has all attribute such
-    // as inputType and inputMode
-    obs->NotifyObservers(nullptr, "inputmethod-contextchange", u"focus");
+    obs->NotifyObservers(aPropBag, "inputmethod-contextchange", u"focus");
   }
   return;
 }
@@ -108,8 +107,7 @@ void InputMethodService::HandleBlur(nsIEditableSupportListener* aListener) {
   UnregisterEditableSupport(aListener);
   nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
   if (obs) {
-    // TODO modified nullptr to carry nsICarryBag which has all attribute such
-    // as inputType and inputMode
+    // Blur does not need input field information.
     obs->NotifyObservers(nullptr, "inputmethod-contextchange", u"blur");
   }
   return;

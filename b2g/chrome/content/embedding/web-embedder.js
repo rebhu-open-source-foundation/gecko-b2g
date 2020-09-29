@@ -304,8 +304,17 @@ XPCOMUtils.defineLazyGetter(this, "Screenshot", function() {
         let detail = {
           isFocus,
         };
+        if (subject instanceof Ci.nsIPropertyBag2) {
+          subject.QueryInterface(Ci.nsIPropertyBag2);
+          for (let prop of subject.enumerator) {
+            detail[prop.name] = prop.value;
+            _webembed_log(`${prop.name} : ${prop.value}`);
+          }
+        }
         _webembed_log(`detail: ${JSON.stringify(detail)}`);
-        delegates.imeHandler.focusChanged(detail);
+        if (delegates.imeHandler) {
+          delegates.imeHandler.focusChanged(detail);
+        }
       }, "inputmethod-contextchange");
 
       Services.obs.addObserver((subject, topic, data) => {

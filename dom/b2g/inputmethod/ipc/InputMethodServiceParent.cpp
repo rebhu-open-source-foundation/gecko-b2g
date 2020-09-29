@@ -7,8 +7,47 @@
 #include "InputMethodServiceParent.h"
 #include "mozilla/dom/InputMethodService.h"
 #include "mozilla/dom/IMELog.h"
+#include "nsHashPropertyBag.h"
 namespace mozilla {
 namespace dom {
+
+void CarryIntoBag(const HandleFocusRequest& aRequest,
+                  nsHashPropertyBag* aProp) {
+  aProp->SetPropertyAsAString(u"type"_ns, aRequest.type());
+  aProp->SetPropertyAsAString(u"inputType"_ns, aRequest.inputType());
+  aProp->SetPropertyAsAString(u"value"_ns, aRequest.value());
+  aProp->SetPropertyAsAString(u"max"_ns, aRequest.max());
+  aProp->SetPropertyAsAString(u"min"_ns, aRequest.min());
+  aProp->SetPropertyAsAString(u"lang"_ns, aRequest.lang());
+  aProp->SetPropertyAsAString(u"inputMode"_ns, aRequest.inputMode());
+  aProp->SetPropertyAsBool(u"voiceInputSupported"_ns,
+                           aRequest.voiceInputSupported());
+  aProp->SetPropertyAsAString(u"name"_ns, aRequest.name());
+  aProp->SetPropertyAsUint32(u"selectionStart"_ns, aRequest.selectionStart());
+  aProp->SetPropertyAsUint32(u"selectionEnd"_ns, aRequest.selectionEnd());
+
+  IME_LOGD("HandleFocusRequest: type:[%s]",
+           NS_ConvertUTF16toUTF8(aRequest.type()).get());
+  IME_LOGD("HandleFocusRequest: inputType:[%s]",
+           NS_ConvertUTF16toUTF8(aRequest.inputType()).get());
+  IME_LOGD("HandleFocusRequest: value:[%s]",
+           NS_ConvertUTF16toUTF8(aRequest.value()).get());
+  IME_LOGD("HandleFocusRequest: max:[%s]",
+           NS_ConvertUTF16toUTF8(aRequest.max()).get());
+  IME_LOGD("HandleFocusRequest: min:[%s]",
+           NS_ConvertUTF16toUTF8(aRequest.min()).get());
+  IME_LOGD("HandleFocusRequest: lang:[%s]",
+           NS_ConvertUTF16toUTF8(aRequest.lang()).get());
+  IME_LOGD("HandleFocusRequest: inputMode:[%s]",
+           NS_ConvertUTF16toUTF8(aRequest.inputMode()).get());
+  IME_LOGD("HandleFocusRequest: voiceInputSupported:[%d]",
+           aRequest.voiceInputSupported());
+  IME_LOGD("HandleFocusRequest: name:[%s]",
+           NS_ConvertUTF16toUTF8(aRequest.name()).get());
+  IME_LOGD("HandleFocusRequest: selectionStart:[%lu]",
+           aRequest.selectionStart());
+  IME_LOGD("HandleFocusRequest: selectionEnd:[%lu]", aRequest.selectionEnd());
+}
 
 NS_IMPL_ISUPPORTS(InputMethodServiceParent, nsIInputMethodListener,
                   nsIEditableSupportListener)
@@ -57,12 +96,13 @@ mozilla::ipc::IPCResult InputMethodServiceParent::RecvRequest(
     case InputMethodServiceRequest::THandleFocusRequest: {
       IME_LOGD("InputMethodServiceParent::RecvRequest:HandleFocusRequest");
       const HandleFocusRequest& request = aRequest;
-      service->HandleFocus(this);
+      RefPtr<nsHashPropertyBag> props = new nsHashPropertyBag();
+      CarryIntoBag(request, props);
+      service->HandleFocus(this, static_cast<nsIPropertyBag2*>(props));
       break;
     }
     case InputMethodServiceRequest::THandleBlurRequest: {
       IME_LOGD("InputMethodServiceParent::RecvRequest:HandleBlurRequest");
-      const HandleBlurRequest& request = aRequest;
       service->HandleBlur(this);
       break;
     }

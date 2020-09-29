@@ -29,7 +29,8 @@ class InputMethodService final : public nsISupports {
   void Keydown(const nsAString& aKey, nsIInputMethodListener* aListener);
   void Keyup(const nsAString& aKey, nsIInputMethodListener* aListener);
   void SendKey(const nsAString& aKey, nsIInputMethodListener* aListener);
-  void HandleFocus(nsIEditableSupportListener* aListener);
+  void HandleFocus(nsIEditableSupportListener* aListener,
+                   nsIPropertyBag2* aPropBag);
   void HandleBlur(nsIEditableSupportListener* aListener);
   void RegisterEditableSupport(nsIEditableSupportListener* aSupport) {
     mEditableSupportListener = aSupport;

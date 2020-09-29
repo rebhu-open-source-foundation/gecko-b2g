@@ -24,6 +24,7 @@ const embedder = new WebEmbedder({
   processSelector: <ProcessSelector implementation>,
   notifications: <Notifications implementation>,
   activityChooser: <ActivityChooser implementation>,
+  imeHandler: <imeHandler implementation>,
 });
 ```
 All delegates are optional.
@@ -133,4 +134,23 @@ This delegate is responsible for screen reader.
 - `showScreenReader(data)`. The `data` parameter is an object with the following properties:
  - `type`: the event type. Valid value: `accessibility-output`.
  - `details`: the PresentationData of accessible.
- 
+
+## imeHandler delegate
+
+This delegate handle focus/blur from IME to inform system useful information.
+
+## Methods
+
+- `focusChanged(detail)` The `detail` parameter is an object with following properties:
+  - `isFocus`: an boolean to identify focus or blur event it got.
+  - `type`: tagName of element.
+  - `inputType`: the element's type attribute. Types for <input> and <textarea>.
+  - `value`: the current value of the control.
+  - `max`: the element's max attribute, containing the maximum (numeric or date-time) value for this item.
+  - `min`: the element's min attribute, containing the minimum (numeric or date-time) value for this item.
+  - `lang`: the element's lang attribute.
+  - `inputMode`: the element's `x-inputmode` attribute.
+  - `voiceInputSupported`: an boolean to identify voiceInputSupport or not.
+  - `name`: the element's name attribute.
+  - `selectionStart`: unsigned long. The element's selectionStart attribute.
+  - `selectionEnd`: unsigned long. The element's selectionEnd attribute.
