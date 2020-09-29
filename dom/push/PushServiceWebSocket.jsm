@@ -42,6 +42,12 @@ ChromeUtils.defineModuleGetter(
   "ObjectUtils",
   "resource://gre/modules/ObjectUtils.jsm"
 );
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gPowerManagerService",
+  "@mozilla.org/power/powermanagerservice;1",
+  "nsIPowerManagerService"
+);
 
 const kPUSHWSDB_DB_NAME = "pushapi";
 const kPUSHWSDB_DB_VERSION = 5; // Change this if the IndexedDB format changes
@@ -382,6 +388,8 @@ var PushServiceWebSocket = {
   /** Indicates whether the server supports Web Push-style message delivery. */
   _dataEnabled: false,
 
+  _socketWakeLock: {},
+
   /**
    * The last time the client sent a ping to the server. If non-zero, keeps the
    * request timeout timer active. Reset to zero when the server responds with
@@ -532,6 +540,10 @@ var PushServiceWebSocket = {
     // shouldn't have any applications performing registration/unregistration
     // or receiving notifications.
     this._shutdownWS();
+    // Release all wakeLocks.
+    for (var index in this._socketWakeLock) {
+      this._releaseWakeLock(index);
+    }
 
     if (this._backoffTimer) {
       this._backoffTimer.cancel();
@@ -948,6 +960,7 @@ var PushServiceWebSocket = {
         // Grab a wakelock before we open the socket to ensure we don't go to
         // sleep before connection the is opened.
         this._ws.asyncOpen(uri, uri.spec, 0, this._wsListener, null);
+        this._acquireWakeLock("WebSocketSetup");
         this._currentState = STATE_WAITING_FOR_WS_START;
       } catch (e) {
         console.error(
@@ -996,6 +1009,75 @@ var PushServiceWebSocket = {
 
   isConnected() {
     return !!this._ws;
+  },
+
+  _acquireWakeLock(reason) {
+    if (!AppConstants.MOZ_B2G) {
+      return;
+    }
+
+    if (!this._socketWakeLock[reason]) {
+      this._socketWakeLock[reason] = {
+        wakeLock: null,
+        timer: null,
+      };
+      console.debug(
+        "acquireWakeLock: Acquiring " + reason + " Wakelock and Creating Timer"
+      );
+      this._socketWakeLock[reason].wakeLock = gPowerManagerService.newWakeLock(
+        "cpu"
+      );
+      this._socketWakeLock[reason].timer = Cc[
+        "@mozilla.org/timer;1"
+      ].createInstance(Ci.nsITimer);
+    } else {
+      if (!this._socketWakeLock[reason].wakeLock) {
+        console.debug("acquireWakeLock: Acquiring " + reason + " Wakelock");
+        this._socketWakeLock[
+          reason
+        ].wakeLock = gPowerManagerService.newWakeLock("cpu");
+      }
+      if (!this._socketWakeLock[reason].timer) {
+        console.debug(
+          "acquireWakeLock: Creating " + reason + " WakeLock Timer"
+        );
+        this._socketWakeLock[reason].timer = Cc[
+          "@mozilla.org/timer;1"
+        ].createInstance(Ci.nsITimer);
+      }
+    }
+
+    console.debug("acquireWakeLock: Setting  " + reason + "  WakeLock Timer");
+    this._socketWakeLock[reason].timer.initWithCallback(
+      this._releaseWakeLock.bind(this, reason),
+      // Allow the same time for socket setup as we do for
+      // requests after the setup. Fudge it a bit since
+      // timers can be a little off and we don't want to go
+      // to sleep just as the socket connected.
+      this._requestTimeout + 1000,
+      Ci.nsITimer.TYPE_ONE_SHOT
+    );
+  },
+
+  _releaseWakeLock(reason) {
+    if (!AppConstants.MOZ_B2G) {
+      return;
+    }
+    if (!this._socketWakeLock[reason]) {
+      console.warn(
+        "Drop releasing " + reason + " wakeLock due to nonexistent!"
+      );
+      return;
+    }
+
+    console.debug("releaseWakeLock: Releasing " + reason + " WakeLock");
+    if (this._socketWakeLock[reason].timer) {
+      this._socketWakeLock[reason].timer.cancel();
+    }
+    if (this._socketWakeLock[reason].wakeLock) {
+      this._socketWakeLock[reason].wakeLock.unlock();
+      this._socketWakeLock[reason].wakeLock = null;
+    }
   },
 
   /**
@@ -1167,15 +1249,27 @@ var PushServiceWebSocket = {
 
   _queueUpdateStart: Promise.resolve(),
   _queueUpdate: null,
+  _enqueueUpdateCount: 0,
   _enqueueUpdate(op) {
     console.debug("enqueueUpdate()");
     if (!this._queueUpdate) {
       this._queueUpdate = this._queueUpdateStart;
+      this._enqueueUpdateCount = 0;
     }
-    this._queueUpdate = this._queueUpdate.then(op).catch(_ => {});
+    this._enqueueUpdateCount++;
+    this._queueUpdate = this._queueUpdate
+      .then(op)
+      .catch(_ => {})
+      .then(_ => {
+        this._enqueueUpdateCount--;
+        if (this._enqueueUpdateCount == 0) {
+          this._releaseWakeLock("DataUpdate");
+        }
+      });
   },
 
   _handleDataUpdate(update) {
+    this._acquireWakeLock("DataUpdate");
     let promise;
     if (typeof update.channelID != "string") {
       console.warn(
@@ -1513,6 +1607,7 @@ var PushServiceWebSocket = {
   // begin Push protocol handshake
   _wsOnStart(context) {
     console.debug("wsOnStart()");
+    this._releaseWakeLock("WebSocketSetup");
 
     if (this._currentState != STATE_WAITING_FOR_WS_START) {
       console.error(
@@ -1584,6 +1679,7 @@ var PushServiceWebSocket = {
    */
   _wsOnStop(context, statusCode) {
     console.debug("wsOnStop()");
+    this._releaseWakeLock("WebSocketSetup");
 
     if (statusCode != Cr.NS_OK && !this._skipReconnect) {
       console.debug("wsOnStop: Reconnecting after socket error", statusCode);

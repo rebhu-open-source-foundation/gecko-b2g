@@ -29,6 +29,12 @@ XPCOMUtils.defineLazyServiceGetter(
   "@mozilla.org/network/effective-tld-service;1",
   "nsIEffectiveTLDService"
 );
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gPowerManagerService",
+  "@mozilla.org/power/powermanagerservice;1",
+  "nsIPowerManagerService"
+);
 ChromeUtils.defineModuleGetter(
   this,
   "pushBroadcastService",
@@ -98,6 +104,8 @@ const STARTING_SERVICE_EVENT = 0;
 const CHANGING_SERVICE_EVENT = 1;
 const STOPPING_SERVICE_EVENT = 2;
 const UNINIT_EVENT = 3;
+
+const kWAKE_LOCK_TIMEOUT_PUSH_EVENT_DISPATCH = 6000;
 
 // Returns the backend for the given server URI.
 function getServiceForServerURI(uri) {
@@ -196,6 +204,46 @@ var PushService = {
       });
     }
     return this._activated;
+  },
+
+  _acquireWakeLock(timeOut = 0) {
+    if (!AppConstants.MOZ_B2G || timeOut <= 0) {
+      return;
+    }
+
+    // Disable the wake lock on non-B2G platforms to work around bug 1154492.
+    if (!this._serviceWakeLock) {
+      console.debug("acquireWakeLock: Acquiring PushService Wakelock");
+      this._serviceWakeLock = gPowerManagerService.newWakeLock("cpu");
+    }
+    if (!this._serviceWakeLockTimer) {
+      console.debug("acquireWakeLock: Creating PushService WakeLock Timer");
+      this._serviceWakeLockTimer = Cc["@mozilla.org/timer;1"].createInstance(
+        Ci.nsITimer
+      );
+    }
+
+    console.debug("acquireWakeLock: Setting PushService WakeLock Timer");
+    this._serviceWakeLockTimer.initWithCallback(
+      this._releaseWakeLock.bind(this),
+      timeOut,
+      Ci.nsITimer.TYPE_ONE_SHOT
+    );
+  },
+
+  _releaseWakeLock() {
+    if (!AppConstants.MOZ_B2G) {
+      return;
+    }
+
+    console.debug("releaseWakeLock: Releasing PushService WakeLock");
+    if (this._serviceWakeLockTimer) {
+      this._serviceWakeLockTimer.cancel();
+    }
+    if (this._serviceWakeLock) {
+      this._serviceWakeLock.unlock();
+      this._serviceWakeLock = null;
+    }
   },
 
   _makePendingKey(aPageRecord) {
@@ -1094,6 +1142,10 @@ var PushService = {
     if (aPushRecord.quotaApplies()) {
       // Don't record telemetry for chrome push messages.
       Services.telemetry.getHistogramById("PUSH_API_NOTIFY").add();
+    }
+
+    if (!aPushRecord.systemRecord) {
+      this._acquireWakeLock(kWAKE_LOCK_TIMEOUT_PUSH_EVENT_DISPATCH);
     }
 
     if (payload) {
