@@ -18,7 +18,7 @@ ChromeUtils.defineModuleGetter(
 this.EXPORTED_SYMBOLS = [];
 
 function debug(aMsg) {
-  //dump("-- ActivitiesService.jsm: " + aMsg + "\n");
+  dump(`ActivitiesService: ${aMsg}\n`);
 }
 
 const DB_NAME = "activities";

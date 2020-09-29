@@ -23,21 +23,50 @@ class ActivityInitRunnable;
 }  // namespace
 
 class Promise;
-class PromiseWorkerProxy;
+class WebActivity;
+
+class WebActivityImpl {
+ public:
+  virtual void Start(Promise* aPromise) = 0;
+  virtual void Cancel() = 0;
+  virtual nsresult PermissionCheck() = 0;
+  virtual nsresult Initialize(const GlobalObject& aOwner,
+                              const WebActivityOptions& aOptions) = 0;
+  virtual void AddOuter(WebActivity* aOuter) = 0;
+  virtual void RemoveOuter(WebActivity* aOuter) = 0;
+
+  NS_INLINE_DECL_PURE_VIRTUAL_REFCOUNTING
+};
+
+class WebActivityMain final : public WebActivityImpl {
+ public:
+  NS_INLINE_DECL_REFCOUNTING(WebActivityMain, override)
+
+  explicit WebActivityMain();
+  virtual void Start(Promise* aPromise) override;
+  virtual void Cancel() override;
+  virtual nsresult PermissionCheck() override;
+  virtual nsresult Initialize(const GlobalObject& aOwner,
+                              const WebActivityOptions& aOptions) override;
+  virtual void AddOuter(WebActivity* aOuter) override;
+  virtual void RemoveOuter(WebActivity* aOuter) override;
+
+ private:
+  ~WebActivityMain();
+  WebActivity* mOuter;
+};
 
 class ActivityStartCallback final : public nsIActivityStartCallback {
  public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIACTIVITYSTARTCALLBACK
   explicit ActivityStartCallback(Promise* aPromise);
-  explicit ActivityStartCallback(PromiseWorkerProxy* aPromiseWorkerProxy);
 
  protected:
   ~ActivityStartCallback();
 
  private:
   RefPtr<Promise> mPromise;
-  RefPtr<PromiseWorkerProxy> mPromiseWorkerProxy;
 };
 
 class WebActivity final : public nsISupports,
@@ -53,7 +82,10 @@ class WebActivity final : public nsISupports,
   JSObject* WrapObject(JSContext* aCx,
                        JS::Handle<JSObject*> aGivenProto) override;
 
-  explicit WebActivity(nsIGlobalObject* aGlobal);
+  explicit WebActivity(nsIGlobalObject* aGlobal,
+                       already_AddRefed<WebActivityImpl> aImpl);
+
+  static already_AddRefed<nsIActivityProxy> GetOrCreateActivityProxy();
 
   // WebIDL methods
   static already_AddRefed<WebActivity> Constructor(
@@ -64,9 +96,11 @@ class WebActivity final : public nsISupports,
 
   void Cancel();
 
-  friend class ActivityInitRunnable;
-
  protected:
+  friend class ActivityInitRunnable;
+  friend class WebActivityMain;
+  friend class WebActivityWorker;
+
   ~WebActivity();
 
   nsresult PermissionCheck();
@@ -74,10 +108,8 @@ class WebActivity final : public nsISupports,
   nsresult Initialize(const GlobalObject& aOwner,
                       const WebActivityOptions& aOptions);
 
-  void ActivityProxyInit(nsISupports* aSupports, JS::HandleValue aOptions,
-                         const nsACString& aURL);
-
   nsCOMPtr<nsIGlobalObject> mGlobal;
+  RefPtr<WebActivityImpl> mImpl;
   bool mIsStarted;
   nsString mId;
 };

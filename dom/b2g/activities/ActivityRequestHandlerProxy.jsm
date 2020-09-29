@@ -7,7 +7,7 @@
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 function debug(aMsg) {
-  //dump("-- ActivityRequestHandlerProxy: " + aMsg + "\n");
+  dump(`ActivityRequestHandlerProxy: ${aMsg}\n`);
 }
 
 /*
@@ -30,12 +30,12 @@ function ActivityRequestHandlerProxy() {
 
 ActivityRequestHandlerProxy.prototype = {
   notifyActivityReady(id) {
-    debug("notifyActivityReady");
+    debug(`${id} notifyActivityReady`);
     Services.cpmm.sendAsyncMessage("Activity:Ready", { id });
   },
 
   postActivityResult(id, result) {
-    debug("postActivityResult");
+    debug(`${id} postActivityResult`);
     Services.cpmm.sendAsyncMessage("Activity:PostResult", {
       id,
       result,
@@ -47,7 +47,7 @@ ActivityRequestHandlerProxy.prototype = {
   },
 
   postActivityError(id, error) {
-    debug("postActivityError");
+    debug(`${id} postActivityError`);
     Services.cpmm.sendAsyncMessage("Activity:PostError", {
       id,
       error,

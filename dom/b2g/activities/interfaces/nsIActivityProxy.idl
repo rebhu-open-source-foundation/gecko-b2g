@@ -16,10 +16,10 @@ interface nsIActivityStartCallback : nsISupports
  * ActivitiesService.jsm, receiving results from ActivitiesService and send it
  * back to WebActivity.
  */
-[scriptable, uuid(1d069f6a-bb82-4648-8bcd-b8671b4a963d)]
+[scriptable, uuid(3cd334b4-01f5-11eb-a4f3-d70a879aa1d9)]
 interface nsIActivityProxy : nsISupports
 {
-  AString init(in nsISupports owner, in jsval options, in ACString url);
+  AString create(in nsISupports owner, in jsval options, in ACString url);
 
   void start(in AString id, in nsIActivityStartCallback callback);
 

@@ -22,11 +22,13 @@ XPCOM_MANIFESTS += [
 UNIFIED_SOURCES += [
     'WebActivity.cpp',
     'WebActivityRequestHandler.cpp',
+    'WebActivityWorker.cpp',
 ]
 
 EXPORTS.mozilla.dom += [
     'WebActivity.h',
     'WebActivityRequestHandler.h',
+    'WebActivityWorker.h',
 ]
 
 include('/ipc/chromium/chromium-config.mozbuild')

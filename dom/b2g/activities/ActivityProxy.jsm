@@ -7,7 +7,7 @@
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 function debug(aMsg) {
-  //dump("-- ActivityProxy: " + aMsg + "\n");
+  dump(`ActivityProxy: ${aMsg}\n`);
 }
 
 /*
@@ -28,7 +28,7 @@ function ActivityProxy() {
 ActivityProxy.prototype = {
   activities: new Map(),
 
-  init(owner, options, url) {
+  create(owner, options, url) {
     let id = Cc["@mozilla.org/uuid-generator;1"]
       .getService(Ci.nsIUUIDGenerator)
       .generateUUID()
@@ -40,8 +40,6 @@ ActivityProxy.prototype = {
       pageURL: url,
       childID: Services.appinfo.uniqueProcessID,
     });
-
-    debug("Create Activity with id: " + id);
 
     // TODO: nsIPrincipal does not provide App related attributes such as appId
     // anymore, and there's no way to retrieve app's manifestURL now, so
@@ -55,11 +53,17 @@ ActivityProxy.prototype = {
     // TODO: We used to use _getHashForApp to validate app identity, but there's
     // no way to retrieve app's manifestURL currently. (Bug 80948)
 
+    debug(`${id} create activity`);
     return id;
   },
 
   start(id, callback) {
+    debug(`${id} start activity`);
     let activity = this.activities.get(id);
+    if (!activity) {
+      debug(`${id} Cannot find activity.`);
+      return;
+    }
     activity.callback = callback;
 
     Services.cpmm.sendAsyncMessage("Activity:Start", {
@@ -71,6 +75,7 @@ ActivityProxy.prototype = {
   },
 
   cancel(id) {
+    debug(`${id} cancel activity`);
     Services.cpmm.sendAsyncMessage("Activity:Cancel", {
       id,
       error: "ACTIVITY_CANCELED",
@@ -79,12 +84,12 @@ ActivityProxy.prototype = {
 
   receiveMessage(message) {
     let msg = message.json;
-
+    debug(`${msg.id} receiveMessage: ${message.name}`);
     let activity = this.activities.get(msg.id);
     if (!activity) {
+      debug(`${msg.id} Cannot find activity.`);
       return;
     }
-    debug("Activity id: " + msg.id + ", handles message: " + message.name);
 
     switch (message.name) {
       case "Activity:FireSuccess":
