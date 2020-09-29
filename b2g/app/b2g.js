@@ -1186,3 +1186,6 @@ pref("dom.filesystem.pathcheck.disabled", true);
 // KaiOS Captive Portal URL
 pref("captivedetect.canonicalURL", "http://detectportal.kaiostech.com/success.txt");
 pref("captivedetect.canonicalContent", "success");
+
+pref("externalAPI.websocket.protocols", "kaios-services");
+pref("externalAPI.websocket.url", "ws://localhost/");
