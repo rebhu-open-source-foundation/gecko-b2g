@@ -13,9 +13,7 @@
 #include "mozilla/dom/TypedArray.h"
 #include "mozilla/HalTypes.h"
 #include "mozilla/Preferences.h"
-#include "nsContentUtils.h"
 #include "nsCycleCollectionParticipant.h"
-#include "nsIPermissionManager.h"
 
 #undef LOG
 #define LOG(args...) FM_LOG("FMRadio", args)
@@ -108,22 +106,6 @@ class FMRadioRequest final : public FMRadioReplyRunnable {
 };
 
 NS_IMPL_ISUPPORTS_INHERITED0(FMRadioRequest, FMRadioReplyRunnable)
-
-/* static */
-bool FMRadio::HasPermission(JSContext* /* unused */, JSObject* aGlobal) {
-  nsCOMPtr<nsIPrincipal> principal = nsContentUtils::ObjectPrincipal(aGlobal);
-  NS_ENSURE_TRUE(principal, false);
-
-  nsCOMPtr<nsIPermissionManager> permissionManager =
-      services::GetPermissionManager();
-  NS_ENSURE_TRUE(permissionManager, false);
-
-  uint32_t permission = nsIPermissionManager::UNKNOWN_ACTION;
-  permissionManager->TestExactPermissionFromPrincipal(principal, "fmradio"_ns,
-                                                      &permission);
-
-  return permission == nsIPermissionManager::ALLOW_ACTION;
-}
 
 FMRadio::FMRadio()
     : mRdsGroupMask(0),

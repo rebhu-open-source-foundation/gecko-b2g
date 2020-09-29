@@ -568,6 +568,12 @@ FMRadio* B2G::GetFmRadio(ErrorResult& aRv) {
   }
   return mFMRadio;
 }
+
+/* static */
+bool B2G::HasFMRadioSupport(JSContext* /* unused */, JSObject* aGlobal) {
+  nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);
+  return innerWindow ? CheckPermission("fmradio"_ns, innerWindow) : false;
+}
 #endif
 
 #ifdef HAS_KOOST_MODULES

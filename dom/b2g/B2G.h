@@ -137,6 +137,7 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
 #endif
 #ifdef MOZ_B2G_FM
   FMRadio* GetFmRadio(ErrorResult& aRv);
+  static bool HasFMRadioSupport(JSContext* /* unused */, JSObject* aGlobal);
 #endif
 #ifdef HAS_KOOST_MODULES
   AuthorizationManager* GetAuthorizationManager(ErrorResult& aRv);

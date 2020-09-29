@@ -137,8 +137,7 @@ partial interface B2G {
 #ifdef MOZ_B2G_FM
 [Exposed=Window]
 partial interface B2G {
-  // This interface requires 'fmradio' permission
-  [Throws, Func="FMRadio::HasPermission"]
+  [Throws, Func="B2G::HasFMRadioSupport"]
   readonly attribute FMRadio fmRadio;
 };
 #endif // MOZ_B2G_FM
