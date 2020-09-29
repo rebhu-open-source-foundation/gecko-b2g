@@ -45,4 +45,7 @@ interface nsIGeckoBridge : nsISupports {
     void charPrefChanged(in ACString aPrefName, in ACString aValue, in nsISidlDefaultResponse callback);
     void intPrefChanged(in ACString aPrefName, in long aValue, in nsISidlDefaultResponse callback);
     void boolPrefChanged(in ACString aPrefName, in boolean aValue, in nsISidlDefaultResponse callback);
+
+    // Register a token bound to a (url, permissions) context.
+    void registerToken(in AString token, in AString url, in Array<AString> settings, in nsISidlDefaultResponse callback);
 };

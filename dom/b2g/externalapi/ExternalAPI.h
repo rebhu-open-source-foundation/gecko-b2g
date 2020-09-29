@@ -6,12 +6,11 @@
 #define mozilla_dom_ExternalAPI_h
 
 #include "nsCOMPtr.h"
-#include "nsIDOMEventListener.h"
-#include "nsISupportsImpl.h"
 #include "nsString.h"
 #include "nsWrapperCache.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/ExternalAPIBinding.h"
+#include "nsIGeckoBridge.h"
 
 class nsIGlobalObject;
 
@@ -24,13 +23,12 @@ class MessageEvent;
 class PrepareMessageRunnable;
 class GetWebSocketServerInfoRunnable;
 
-class ExternalAPI final : public nsIDOMEventListener,
+class ExternalAPI final : public nsISidlDefaultResponse,
                           public nsWrapperCache
-
 {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_NSIDOMEVENTLISTENER
+  NS_DECL_NSISIDLDEFAULTRESPONSE
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(ExternalAPI)
 
   static already_AddRefed<ExternalAPI> Create(nsIGlobalObject* aGlobal);
@@ -54,13 +52,11 @@ class ExternalAPI final : public nsIDOMEventListener,
   static void GetOrigin(nsIPrincipal* aPrincipal, nsACString& aOrigin);
   static void GetPermissions(nsIPrincipal* aPrincipal,
                              Sequence<nsString>& aPermissions);
-  static void GetWebSocketServerInfo(nsAString& aURL, nsAString& aProtocols);
-  nsresult SendMessage(WebSocket* aWebSocket);
-  nsresult ReceiveMessage(MessageEvent* aEvent);
+  nsresult SendMessage();
   void PopAndRejectPromise();
-  void CloseWebSocket(WebSocket* aWebSocket);
 
   nsCOMPtr<nsIGlobalObject> mGlobal;
+  nsCOMPtr<nsIGeckoBridge> mBridge;
   nsTArray<RefPtr<Promise>> mPromises;
   nsTArray<nsCString> mTokens;
 };

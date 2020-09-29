@@ -23,6 +23,7 @@ use nsstring::*;
 use parking_lot::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use thin_vec::ThinVec;
 use xpcom::{
     interfaces::{
         nsIAppsServiceDelegate, nsIGeckoBridge, nsIMobileManagerDelegate,
@@ -61,6 +62,11 @@ type OnIntPrefChangedTask = (SidlCallTask<(), (), nsISidlDefaultResponse>, (Stri
 
 type OnBoolPrefChangedTask = (SidlCallTask<(), (), nsISidlDefaultResponse>, (String, bool));
 
+type OnRegisterTokenTask = (
+    SidlCallTask<(), (), nsISidlDefaultResponse>,
+    (String, String, Vec<String>),
+);
+
 // The tasks that can be dispatched to the calling thread.
 enum GeckoBridgeTask {
     SetAppsServiceDelegate(SetAppsServiceDelegateTask),
@@ -70,6 +76,7 @@ enum GeckoBridgeTask {
     CharPrefChanged(OnCharPrefChangedTask),
     IntPrefChanged(OnIntPrefChangedTask),
     BoolPrefChanged(OnBoolPrefChangedTask),
+    RegisterToken(OnRegisterTokenTask),
 }
 
 struct GeckoBridgeImpl {
@@ -154,6 +161,9 @@ impl ServiceClientImpl<GeckoBridgeTask> for GeckoBridgeImpl {
                 }
                 GeckoBridgeTask::BoolPrefChanged(task) => {
                     let _ = self.bool_pref_changed(task);
+                }
+                GeckoBridgeTask::RegisterToken(task) => {
+                    let _ = self.register_token(task);
                 }
             }
         }
@@ -329,6 +339,17 @@ impl GeckoBridgeImpl {
         Ok(())
     }
 
+    fn register_token(&mut self, task: OnRegisterTokenTask) -> Result<(), nsresult> {
+        debug!("GeckoBridge::register_token");
+
+        let (task, (token, url, permissions)) = task;
+        let request =
+            GeckoBridgeFromClient::GeckoFeaturesRegisterToken(token, url, Some(permissions));
+        self.sender
+            .send_task(&request, OnRegisterTokenTaskReceiver { task });
+        Ok(())
+    }
+
     fn next_object_id(&mut self) -> TrackerId {
         let res = self.current_object_id;
         self.current_object_id += 1;
@@ -390,6 +411,14 @@ task_receiver!(
     GeckoBridgeToClient,
     GeckoFeaturesBoolPrefChangedSuccess,
     GeckoFeaturesBoolPrefChangedError
+);
+
+task_receiver!(
+    OnRegisterTokenTaskReceiver,
+    nsISidlDefaultResponse,
+    GeckoBridgeToClient,
+    GeckoFeaturesRegisterTokenSuccess,
+    GeckoFeaturesRegisterTokenError
 );
 
 #[derive(xpcom)]
@@ -635,6 +664,39 @@ impl GeckoBridgeXpcom {
 
         if let Some(inner) = self.inner.lock().as_ref() {
             return inner.lock().bool_pref_changed(task);
+        } else {
+            error!("Unable to get GeckoBridgeImpl");
+        }
+
+        Ok(())
+    }
+
+    xpcom_method!(register_token => RegisterToken(token: *const nsAString, url: *const nsAString, settings: *const ThinVec<nsString>, callback: *const nsISidlDefaultResponse));
+    fn register_token(
+        &self,
+        token: &nsAString,
+        url: &nsAString,
+        xpermissions: &ThinVec<nsString>,
+        callback: &nsISidlDefaultResponse,
+    ) -> Result<(), nsresult> {
+        let permissions = xpermissions
+            .into_iter()
+            .map(|item| item.to_string())
+            .collect();
+        let callback =
+            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback)).unwrap();
+        let task = (
+            SidlCallTask::new(callback),
+            (token.to_string(), url.to_string(), permissions),
+        );
+
+        if !self.ensure_service() {
+            self.queue_task(GeckoBridgeTask::RegisterToken(task));
+            return Ok(());
+        }
+
+        if let Some(inner) = self.inner.lock().as_ref() {
+            return inner.lock().register_token(task);
         } else {
             error!("Unable to get GeckoBridgeImpl");
         }
