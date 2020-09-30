@@ -2114,38 +2114,38 @@ RadioInterface.prototype = {
       header && header.destinationPort !== undefined
         ? header.destinationPort
         : Ci.nsIGonkSmsService.SMS_APPLICATION_PORT_INVALID;
-    // MWI info:
-    let mwiPresent = !!aMessage.mwi;
-    let mwiDiscard = mwiPresent ? aMessage.mwi.discard : false;
-    let mwiMsgCount = mwiPresent ? aMessage.mwi.msgCount : 0;
-    let mwiActive = mwiPresent ? aMessage.mwi.active : false;
-    // CDMA related attributes:
-    let cdmaMessageType = aMessage.messageType || 0;
-    let cdmaTeleservice = aMessage.teleservice || 0;
-    let cdmaServiceCategory = aMessage.serviceCategory || 0;
 
-    gSmsService.notifyMessageReceived(
-      this.clientId,
-      aMessage.SMSC || null,
-      aMessage.sentTimestamp,
-      aMessage.sender,
-      aMessage.pid,
-      aMessage.encoding,
-      RIL.GECKO_SMS_MESSAGE_CLASSES.indexOf(aMessage.messageClass),
-      aMessage.language || null,
+    let gonkSms = {
+      QueryInterface: ChromeUtils.generateQI([Ci.nsIGonkSmsMessage]),
+      smsc: aMessage.SMSC || null,
+      sentTimestamp: aMessage.sentTimestamp,
+      sender: aMessage.sender,
+      pid: aMessage.pid,
+      encoding: aMessage.encoding,
+      messageClass: RIL.GECKO_SMS_MESSAGE_CLASSES.indexOf(
+        aMessage.messageClass
+      ),
+      language: aMessage.language || null,
       segmentRef,
       segmentSeq,
       segmentMaxSeq,
       originatorPort,
       destinationPort,
-      mwiPresent,
-      mwiDiscard,
-      mwiMsgCount,
-      mwiActive,
-      cdmaMessageType,
-      cdmaTeleservice,
-      cdmaServiceCategory,
-      aMessage.body || null,
+      // MWI info:
+      mwiPresent: !!aMessage.mwi,
+      mwiDiscard: aMessage.mwi ? aMessage.mwi.discard : false,
+      mwiMsgCount: aMessage.mwi ? aMessage.mwi.msgCount : 0,
+      mwiActive: aMessage.mwi ? aMessage.mwi.active : false,
+      // CDMA related attributes:
+      cdmaMessageType: aMessage.messageType || 0,
+      cdmaTeleservice: aMessage.teleservice || 0,
+      cdmaServiceCategory: aMessage.serviceCategory || 0,
+      body: aMessage.body || null,
+    };
+
+    gSmsService.notifyMessageReceived(
+      this.clientId,
+      gonkSms,
       aMessage.data || [],
       aMessage.data ? aMessage.data.length : 0
     );

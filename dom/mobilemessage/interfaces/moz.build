@@ -20,6 +20,7 @@ XPIDL_SOURCES += [
 
 XPIDL_SOURCES += [
     'nsIGonkMobileMessageDatabaseService.idl',
+    'nsIGonkSmsMessage.idl',
     'nsIGonkSmsService.idl',
     'nsISmsMessenger.idl',
 ]

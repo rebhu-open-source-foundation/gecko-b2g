@@ -4,6 +4,7 @@
 
 #include "domstubs.idl"
 #include "nsISmsService.idl"
+#include "nsIGonkSmsMessage.idl"
 
 %{C++
 #define GONK_SMSSERVICE_CONTRACTID \
@@ -70,26 +71,7 @@ interface nsIGonkSmsService : nsISmsService
    *        Binary message body.
    */
   void notifyMessageReceived(in unsigned long aServiceId,
-                             in AString aSMSC,
-                             in DOMTimeStamp aSentTimestamp,
-                             in AString aSender,
-                             in unsigned short aPid,
-                             in unsigned short aEncoding,
-                             in unsigned long aMessageClass,
-                             in AString aLanguage,
-                             in unsigned short aSegmentRef,
-                             in unsigned short aSegmentSeq,
-                             in unsigned short aSegmentMaxSeq,
-                             in unsigned long aOriginatorPort,
-                             in unsigned long aDestinationPort,
-                             in boolean aMwiPresent,
-                             in boolean aMwiDiscard,
-                             in short aMwiMsgCount,
-                             in boolean aMwiActive,
-                             in unsigned short aCdmaMessageType,
-                             in unsigned long aCdmaTeleservice,
-                             in unsigned long aCdmaServiceCategory,
-                             in AString aBody,
+                             in nsIGonkSmsMessage aSmsMessage,
                              [array, size_is(aDataLength)] in octet aData,
                              in uint32_t aDataLength);
 };

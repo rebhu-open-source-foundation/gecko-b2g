@@ -1,0 +1,120 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "domstubs.idl"
+#include "nsISupports.idl"
+
+[scriptable, uuid(7ee1ba0d-fd6e-492f-bdf4-f395732d25fe)]
+interface nsIGonkSmsMessage: nsISupports
+{
+  /**
+   * SMS Center address.
+   */
+  readonly attribute AString smsc;
+
+  /**
+   * The time stamp when message is arrived to SMSC.
+   */
+  readonly attribute DOMTimeStamp SentTimestamp;
+
+  /**
+   * The sender's address of this message.
+   */
+  readonly attribute AString sender;
+
+  /**
+   * Protocol Identifier, See TS 23.040, subcluase 9.2.3.9.
+   * Set to 0 if invalid.
+   */
+  readonly attribute unsigned short pid;
+
+  /**
+   * The encoding of message body.
+   * SMS_MESSAGE_ENCODING_*.
+   */
+  readonly attribute unsigned short encoding;
+
+  /**
+   * A predefined constant of nsISmsService.
+   * MESSAGE_CLASS_TYPE_*.
+   */
+  readonly attribute unsigned long messageClass;
+
+  /**
+   * ISO-639-1 language code for this message. Null if unspecified.
+   */
+  readonly attribute AString language;
+
+  /**
+   * Concatenation info. See TS 23.040, subclause 9.2.3.24.1.
+   * Set to 1 if no need for concatenatenation.
+   */
+  readonly attribute unsigned short segmentRef;
+
+  /**
+   * Concatenation info. See TS 23.040, subclause 9.2.3.24.1.
+   * Set to 1 if no need for concatenatenation.
+   */
+  readonly attribute unsigned short segmentSeq;
+
+  /**
+   * Concatenation info. See TS 23.040, subclause 9.2.3.24.1.
+   * Set to 1 if no need for concatenatenation.
+   */
+  readonly attribute unsigned short segmentMaxSeq;
+
+  /**
+   * Application Port Addressing. See TS 23.040 subclause 9.2.3.24.3~4.
+   * Set to 1 if no need for concatenatenation.
+   */
+  readonly attribute unsigned long originatorPort;
+
+  /**
+   * Application Port Addressing. See TS 23.040 subclause 9.2.3.24.3~4.
+   * Set to 1 if no need for concatenatenation.
+   */
+  readonly attribute unsigned long destinationPort;
+
+  /**
+   * True if MWI is presented in this message.
+   */
+  readonly attribute boolean mwiPresent;
+
+  /**
+   * True if MWI has to be discarded after received.
+   */
+  readonly attribute boolean mwiDiscard;
+
+  /**
+   * The number of messages waiting in the voicemail server.
+   * -1 if number is unknown from the decoded MWI.
+   */
+  readonly attribute short mwiMsgCount;
+
+  /**
+   * True if there are messages waiting in the voicemail server.
+   */
+  readonly attribute boolean mwiActive;
+
+  /**
+   * True if there are messages waiting in the voicemail server.
+   */
+  readonly attribute unsigned short cdmaMessageType;
+
+  /**
+   * True if there are messages waiting in the voicemail server.
+   */
+  readonly attribute unsigned long cdmaTeleservice;
+
+  /**
+   * True if there are messages waiting in the voicemail server.
+   */
+  readonly attribute unsigned long cdmaServiceCategory;
+
+  /**
+   * Text message body
+   */
+  readonly attribute AString body;
+
+};
