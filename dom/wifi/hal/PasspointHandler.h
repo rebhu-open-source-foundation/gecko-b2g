@@ -42,7 +42,7 @@ class PasspointHandler final : public nsISupports,
                                       const nsAString& aBssid) override;
 
   bool ReadyToRequest(const nsAString& aBssid);
-  bool UpdateTimeStame(const nsAString& aBssid);
+  bool UpdateTimeStamp(const nsAString& aBssid);
 
   Result_t StartAnqpQuery(const nsAString& aBssid, bool aRoamingConsortiumOIs,
                           bool aSupportRelease2);
@@ -58,17 +58,6 @@ class PasspointHandler final : public nsISupports,
     mozilla::TimeStamp mTimeStamp;
   };
 
-  class AnqpIdentity {
-   public:
-    explicit AnqpIdentity(const nsAString& aAnqpKey, const nsAString& aBssid)
-        : mAnqpKey(aAnqpKey), mBssid(aBssid) {}
-
-    bool Compare(AnqpIdentity* aIdentity);
-
-    nsString mAnqpKey;
-    nsString mBssid;
-  };
-
   static StaticRefPtr<PasspointHandler> sPasspointHandler;
   static StaticMutex sMutex;
 
@@ -77,8 +66,8 @@ class PasspointHandler final : public nsISupports,
 
   // The map holds the ANQP time information per bssid
   nsClassHashtable<nsStringHashKey, AnqpRequestTime> mAnqpRequestTime;
-  // The map holds the ANQP identity data per bssid
-  nsClassHashtable<nsStringHashKey, AnqpIdentity> mAnqpPendingRequest;
+  // The map holds the ANQP network key per bssid
+  nsDataHashtable<nsStringHashKey, nsString> mAnqpPendingRequest;
 
   DISALLOW_COPY_AND_ASSIGN(PasspointHandler);
 };

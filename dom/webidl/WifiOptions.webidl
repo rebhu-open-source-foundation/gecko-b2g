@@ -30,7 +30,7 @@ dictionary WifiCommandOptions
   ScanSettings         scanSettings = {};
   PnoScanSettings      pnoScanSettings = {};
   RoamingConfiguration roamingConfig = {};
-  AnqpRequestSettings  requestSettings = {};
+  AnqpRequestSettings  anqpSettings = {};
   WpsConfiguration     wpsConfig = {};
 };
 

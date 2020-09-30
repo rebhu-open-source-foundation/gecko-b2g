@@ -1110,6 +1110,8 @@ pref("hangmonitor.log.level", 1);
 // Disable Gecko wifi
 pref("device.capability.wifi", false);
 #endif
+// Support wifi passpoint
+pref("dom.passpoint.supported", false);
 
 // Enable IPv6 tethering router mode in Gecko
 pref("dom.b2g_ipv6_router_mode", true);

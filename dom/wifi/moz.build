@@ -22,6 +22,7 @@ if not CONFIG["DISABLE_WIFI"]:
     EXTRA_JS_MODULES += [
         "DOMWifiManager.jsm",
         "hotspot2/AnqpUtils.jsm",
+        "hotspot2/PasspointConfigManager.jsm",
         "hotspot2/PasspointConfiguration.jsm",
         "hotspot2/PasspointManager.jsm",
         "hotspot2/PasspointNetworkSelector.jsm",

@@ -55,8 +55,7 @@ this.WifiNetworkSelector = (function() {
 
   // Network selector would go through each of the selectors.
   // Once a candidate is found, the iterator will stop.
-  // TODO: Include passpointNetworkSelector once passpoint ready.
-  var networkSelectors = [savedNetworkSelector];
+  var networkSelectors = [savedNetworkSelector, passpointNetworkSelector];
 
   // WifiNetworkSelector functions
   wifiNetworkSelector.bssidBlacklist = bssidBlacklist;
@@ -108,6 +107,11 @@ this.WifiNetworkSelector = (function() {
       wifiInfo.bssid
     );
 
+    if (filteredResults.length === 0) {
+      callback(null);
+      return;
+    }
+
     const selectorCallback = element => {
       candidate = element.chooseNetwork(filteredResults, wifiInfo);
 
@@ -115,7 +119,7 @@ this.WifiNetworkSelector = (function() {
       return candidate != null;
     };
 
-    // Iterate the selectors in networkSelectors.
+    // Iterate each selector in networkSelectors.
     networkSelectors.some(selectorCallback);
 
     if (candidate == null) {
@@ -184,9 +188,9 @@ this.WifiNetworkSelector = (function() {
         wifiInfo.networkId
     );
 
-    // Open network is not qualified.
-    if (wifiInfo.security == "OPEN") {
-      debug("Current network is a open one");
+    let network = WifiConfigManager.getNetworkConfiguration(wifiInfo.networkId);
+    if (!network) {
+      debug("Current network is removed");
       return false;
     }
 
@@ -199,6 +203,11 @@ this.WifiNetworkSelector = (function() {
     ) {
       return true;
     }
+
+    // TODO: OSU network for Passpoint Release 2 is sufficient network.
+    // if (network.osu) {
+    //   return true;
+    // }
 
     // TODO: 1. 2.4GHz networks is not qualified whenever 5GHz is available.
     //       2. Tx/Rx Success rate shall be considered.
@@ -215,6 +224,13 @@ this.WifiNetworkSelector = (function() {
       );
       return false;
     }
+
+    // Open network is not qualified.
+    if (wifiInfo.security == "OPEN") {
+      debug("Current network is a open one");
+      return false;
+    }
+
     return true;
   }
 
@@ -222,52 +238,47 @@ this.WifiNetworkSelector = (function() {
     let filteredResults = [];
     let resultsContainCurrentBssid = false;
 
-    for (let i in scanResults) {
-      // skip not saved network
-      if (!scanResults[i].known) {
-        continue;
-      }
-
+    for (let scanResult of scanResults) {
       // skip bad scan result
-      if (scanResults[i].ssid === null || scanResults[i].ssid == "") {
+      if (!scanResult.ssid || scanResult.ssid === "") {
         debug("skip bad scan result");
         continue;
       }
 
-      if (scanResults[i].bssid.includes(currentBssid)) {
+      if (scanResult.bssid.includes(currentBssid)) {
         resultsContainCurrentBssid = true;
       }
 
-      var scanId = scanResults[i].ssid + ":" + scanResults[i].bssid;
+      var scanId = scanResult.ssid + ":" + scanResult.bssid;
       debug("scanId = " + scanId);
 
       // check whether this BSSID is blocked or not
-      let status = bssidBlacklist.get(scanResults[i].bssid);
+      let status = bssidBlacklist.get(scanResult.bssid);
       if (typeof status !== "undefined" && status.isBlacklisted) {
         debug(scanId + " is in blacklist.");
         continue;
       }
 
       let isWeak24G =
-        scanResults[i].is24G &&
-        scanResults[i].signalStrength < WifiConstants.RSSI_THRESHOLD_BAD_24G;
+        scanResult.is24G &&
+        scanResult.signalStrength < WifiConstants.RSSI_THRESHOLD_BAD_24G;
       let isWeak5G =
-        scanResults[i].is5G &&
-        scanResults[i].signalStrength < WifiConstants.RSSI_THRESHOLD_BAD_5G;
+        scanResult.is5G &&
+        scanResult.signalStrength < WifiConstants.RSSI_THRESHOLD_BAD_5G;
       // skip scan result with too weak signals
       if (isWeak24G || isWeak5G) {
         debug(
           scanId +
             "(" +
-            (scanResults[i].is24G ? "2.4GHz" : "5GHz") +
+            (scanResult.is24G ? "2.4GHz" : "5GHz") +
             ")" +
-            scanResults[i].signalStrength +
+            scanResult.signalStrength +
             " / "
         );
         continue;
       }
       // save the result for ongoing network selection
-      filteredResults.push(scanResults[i]);
+      filteredResults.push(scanResult);
     }
 
     let isConnected = wifiState == "connected" || wifiState == "associated";

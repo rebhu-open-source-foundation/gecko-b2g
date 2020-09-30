@@ -638,14 +638,14 @@ nsAnqpResponse::GetIpAvailability(nsIIpAvailability** aIpAvailability) {
 }
 
 NS_IMETHODIMP
-nsAnqpResponse::GetWanMetrics(nsIWanMetrics** aWanMetrics) {
+nsAnqpResponse::GetHsWanMetrics(nsIWanMetrics** aWanMetrics) {
   RefPtr<nsIWanMetrics> wanMetrics(mWanMetrics);
   wanMetrics.forget(aWanMetrics);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsAnqpResponse::GetOsuProviders(nsIOsuProviders** aOsuProviders) {
+nsAnqpResponse::GetHsOsuProviders(nsIOsuProviders** aOsuProviders) {
   RefPtr<nsIOsuProviders> providers(mOsuProviders);
   providers.forget(aOsuProviders);
   return NS_OK;

@@ -219,7 +219,7 @@ bool WifiNative::ExecuteCommand(CommandOptions& aOptions, nsWifiResult* aResult,
   } else if (aOptions.mCmd == nsIWifiCommand::SEND_UMTS_AUTH_FAILURE) {
     aResult->mStatus = SendEapSimUmtsAuthFailure();
   } else if (aOptions.mCmd == nsIWifiCommand::REQUEST_ANQP) {
-    aResult->mStatus = RequestAnqp(&aOptions.mRequestSettings);
+    aResult->mStatus = RequestAnqp(&aOptions.mAnqpSettings);
   } else if (aOptions.mCmd == nsIWifiCommand::SET_WPS_DETAIL) {
     aResult->mStatus = InitWpsDetail();
   } else if (aOptions.mCmd == nsIWifiCommand::WPS_REGISTRAR) {

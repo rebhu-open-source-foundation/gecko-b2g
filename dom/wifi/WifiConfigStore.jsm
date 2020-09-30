@@ -19,8 +19,11 @@ this.WifiConfigStore = (function() {
   var wifiConfigStore = {};
 
   const WIFI_CONFIG_PATH = "/data/misc/wifi/wifi_config.json";
+  const PASSPOINT_CONFIG_PATH = "/data/misc/wifi/passpoint_config.json";
 
   // WifiConfigStore functions
+  wifiConfigStore.WIFI_CONFIG_PATH = WIFI_CONFIG_PATH;
+  wifiConfigStore.PASSPOINT_CONFIG_PATH = PASSPOINT_CONFIG_PATH;
   wifiConfigStore.read = read;
   wifiConfigStore.write = write;
   wifiConfigStore.setDebug = setDebug;
@@ -35,10 +38,10 @@ this.WifiConfigStore = (function() {
     }
   }
 
-  function read() {
-    let wifiConfigFile = new FileUtils.File(WIFI_CONFIG_PATH);
-    let networks;
-    if (wifiConfigFile.exists()) {
+  function read(path) {
+    let configFile = new FileUtils.File(path);
+    let configuration;
+    if (configFile.exists()) {
       let fstream = Cc[
         "@mozilla.org/network/file-input-stream;1"
       ].createInstance(Ci.nsIFileInputStream);
@@ -49,22 +52,22 @@ this.WifiConfigStore = (function() {
       const RO = 0x01;
       const READ_OTHERS = 4;
 
-      fstream.init(wifiConfigFile, RO, READ_OTHERS, 0);
+      fstream.init(configFile, RO, READ_OTHERS, 0);
       sstream.init(fstream);
       let data = sstream.read(sstream.available());
       sstream.close();
       fstream.close();
-      networks = JSON.parse(data);
+      configuration = JSON.parse(data);
     } else {
-      networks = null;
+      configuration = null;
     }
-    return networks;
+    return configuration;
   }
 
-  function write(networks, callback) {
-    let wifiConfigFile = new FileUtils.File(WIFI_CONFIG_PATH);
+  function write(path, data, callback) {
+    let configFile = new FileUtils.File(path);
     // Initialize the file output stream.
-    let ostream = FileUtils.openSafeFileOutputStream(wifiConfigFile);
+    let ostream = FileUtils.openSafeFileOutputStream(configFile);
 
     // Obtain a converter to convert our data to a UTF-8 encoded input stream.
     let converter = Cc[
@@ -73,11 +76,11 @@ this.WifiConfigStore = (function() {
     converter.charset = "UTF-8";
 
     // Asynchronously copy the data to the file.
-    let istream = converter.convertToInputStream(JSON.stringify(networks));
+    let istream = converter.convertToInputStream(JSON.stringify(data));
     NetUtil.asyncCopy(istream, ostream, rc => {
       let success = Components.isSuccessCode(rc);
       if (!success) {
-        debug("Failed to write wifi configurations");
+        debug("Failed to write configuration into " + path);
       }
       FileUtils.closeSafeFileOutputStream(ostream);
       if (callback) {
@@ -85,5 +88,6 @@ this.WifiConfigStore = (function() {
       }
     });
   }
+
   return wifiConfigStore;
 })();

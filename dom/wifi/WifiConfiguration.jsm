@@ -119,9 +119,11 @@ this.WifiConfigUtils = (function() {
   wifiConfigUtils.calculateSignal = calculateSignal;
   wifiConfigUtils.getNetworkKey = getNetworkKey;
   wifiConfigUtils.getAnqpNetworkKey = getAnqpNetworkKey;
+  wifiConfigUtils.getRealmForMccMnc = getRealmForMccMnc;
   wifiConfigUtils.parseInformationElements = parseInformationElements;
   wifiConfigUtils.parseCapabilities = parseCapabilities;
   wifiConfigUtils.parsePasspointElements = parsePasspointElements;
+  wifiConfigUtils.isCarrierEapMethod = isCarrierEapMethod;
   wifiConfigUtils.setDebug = setDebug;
 
   function debug(aMsg) {
@@ -191,12 +193,12 @@ this.WifiConfigUtils = (function() {
     flags.ibss = beaconCap & CAP_IBSS_OFFSET;
     let privacy = beaconCap & CAP_PRIVACY_OFFSET;
 
-    for (let i = 0; i < ies.length; i++) {
-      if (ies[i].id == EID_RSN) {
-        parseRsnElement(ies[i].bytes, flags);
+    for (let ie of ies) {
+      if (ie.id == EID_RSN) {
+        parseRsnElement(ie.bytes, flags);
       }
-      if (ies[i].id == EID_VSA) {
-        parseVendorOuiElement(ies[i].bytes, flags);
+      if (ie.id == EID_VSA) {
+        parseVendorOuiElement(ie.bytes, flags);
       }
     }
     flags.isWEP = flags.protocol.length == 0 && privacy;
@@ -365,6 +367,7 @@ this.WifiConfigUtils = (function() {
 
     element.ant = Object.values(WifiConstants.Ant)[anOptions & 0x0f];
     element.internet = (anOptions & 0x10) != 0;
+    element.isInterworking = !!element.ant;
 
     if (
       buf.length != 1 &&
@@ -441,6 +444,7 @@ this.WifiConfigUtils = (function() {
     }
     let element = {
       ant: null,
+      isInterworking: false,
       internet: false,
       hessid: 0,
       anqpOICount: 0,
@@ -449,7 +453,7 @@ this.WifiConfigUtils = (function() {
       anqpDomainID: 0,
     };
 
-    for (let ie in ies) {
+    for (let ie of ies) {
       if (ie.id == EID_INTERWORKING) {
         parseInterworking(ie.bytes, element);
       }
@@ -698,15 +702,14 @@ this.WifiConfigUtils = (function() {
     return escape(ssid) + encryption;
   }
 
-  /* eslint-disable no-unused-vars */
-  // Get unique key for anqp key, anqp key is created by
+  // Get unique key for identifying APs, anqp key is created by
   // escape(SSID)+Security+bssid+hessid+anqpDomainID.
   // So we may distinguish these passpoint AP.
   function getAnqpNetworkKey(network) {
-    var ssid = network.ssid,
+    var ssid = network.ssid.replace(/\s/g, ""),
       bssid = network.bssid,
-      hessid = network.hessid,
-      anqpDomainID = network.anqpDomainID;
+      hessid = network.passpoint.hessid,
+      anqpDomainID = network.passpoint.anqpDomainID;
 
     if (anqpDomainID == 0) {
       return `${escape(ssid)}${bssid}00`;
@@ -734,7 +737,6 @@ this.WifiConfigUtils = (function() {
       eapMethod == EAPConstants.EAP_AKA_PRIME
     );
   }
-  /* eslint-enable no-unused-vars */
 
   return wifiConfigUtils;
 })();

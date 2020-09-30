@@ -88,6 +88,11 @@ interface nsIWifiEvent : nsISupports
   readonly attribute AString autn;
 
   /**
+   * ANQP network key to identify the AP that contain the same ANQP information.
+   */
+  readonly attribute AString anqpNetworkKey;
+
+  /**
    * Contains ANQP data received from access point.
    */
   readonly attribute nsIAnqpResponse anqpResponse;

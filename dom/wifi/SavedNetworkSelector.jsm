@@ -18,6 +18,7 @@ const LAST_SELECTION_AWARD = 480;
 const CURRENT_NETWORK_BOOST = 16;
 const SAME_BSSID_AWARD = 24;
 const SECURITY_AWARD = 80;
+const NO_INTERNET_PENALTY = 250;
 
 var gDebug = false;
 
@@ -30,9 +31,6 @@ function debug(aMsg) {
 this.SavedNetworkSelector = function SavedNetworkSelector() {};
 
 SavedNetworkSelector.prototype = {
-  lastUserSelectedNetwork: WifiConfigManager.getLastSelectedNetwork(),
-  lastUserSelectedNetworkTimeStamp: WifiConfigManager.getLastSelectedTimeStamp(),
-
   setDebug(aDebug) {
     gDebug = aDebug;
   },
@@ -43,8 +41,11 @@ SavedNetworkSelector.prototype = {
     var highestScore = 0;
 
     // Iterate all scan results and find the best candidate with the highest score
-    for (let i in results) {
-      let result = results[i];
+    for (let result of results) {
+      // skip not saved network
+      if (!result.known) {
+        continue;
+      }
 
       // If network disabled, it didn't need to calculate bssid score.
       if (configuredNetworks[result.networkKey].networkSelectionStatus) {
@@ -53,12 +54,10 @@ SavedNetworkSelector.prototype = {
 
       let score = this.calculateBssidScore(
         result,
-        this.lastUserSelectedNetwork == null
-          ? false
-          : this.lastUserSelectedNetwork == result.netId,
+        WifiConfigManager.isLastSelectedNetwork(result.netId),
         wifiInfo.networkId == result.netId,
-        wifiInfo.bssid == null ? false : wifiInfo.bssid == result.bssid,
-        this.lastUserSelectedNetworkTimeStamp
+        wifiInfo.bssid ? wifiInfo.bssid == result.bssid : false,
+        WifiConfigManager.getLastSelectedTimeStamp()
       );
 
       if (score > highestScore) {
@@ -67,7 +66,8 @@ SavedNetworkSelector.prototype = {
         candidate = result;
       }
     }
-    return candidate;
+
+    return this.convertScanResultToConfiguration(candidate);
   },
 
   calculateBssidScore(
@@ -75,7 +75,7 @@ SavedNetworkSelector.prototype = {
     sameSelect,
     sameNetworkId,
     sameBssid,
-    lastUserSelectedNetworkTimeStamp
+    timeStamp
   ) {
     var score = 0;
     // calculate the RSSI score
@@ -87,15 +87,16 @@ SavedNetworkSelector.prototype = {
       (parseInt(rssi, 10) + WifiConstants.RSSI_SCORE_OFFSET) *
       WifiConstants.RSSI_SCORE_SLOPE;
     debug("RSSI score: " + score);
+
     if (scanResult.is5G) {
-      // 5GHz band
+      // 5GHz band bonus
       score += BAND_AWARD_5GHZ;
       debug("5GHz bonus: " + BAND_AWARD_5GHZ);
     }
 
     // last user selection award
     if (sameSelect) {
-      var timeDifference = Date.now() - lastUserSelectedNetworkTimeStamp;
+      var timeDifference = Date.now() - timeStamp;
 
       if (timeDifference > 0) {
         var bonus = LAST_SELECTION_AWARD - timeDifference / 1000 / 60;
@@ -124,7 +125,7 @@ SavedNetworkSelector.prototype = {
     }
 
     // security award
-    if (scanResult.security !== "") {
+    if (scanResult.security && scanResult.security !== "OPEN") {
       score += SECURITY_AWARD;
       debug("Secure network Bonus: " + SECURITY_AWARD);
     }
@@ -132,26 +133,30 @@ SavedNetworkSelector.prototype = {
     // Penalty for no internet network. Make sure if there is any network with
     // Internet.However, if there is no any other network with internet, this
     // network can be chosen.
-    // FIXME: network validation is not ready
-    // const NO_INTERNET_PENALTY =
-    //   (WifiConstants.RSSI_THRESHOLD_GOOD_24G + WifiConstants.RSSI_SCORE_OFFSET) *
-    //     WifiConstants.RSSI_SCORE_SLOPE +
-    //   BAND_AWARD_5GHZ +
-    //   CURRENT_NETWORK_BOOST +
-    //   SAME_BSSID_AWARD +
-    //   SECURITY_AWARD;
-    //
-    // if (
-    //   typeof scanResult.hasInternet !== "undefined" &&
-    //   !scanResult.hasInternet
-    // ) {
-    //   score -= NO_INTERNET_PENALTY;
-    //   debug(" No internet Penalty:-" + NO_INTERNET_PENALTY);
-    // }
+    if (
+      typeof scanResult.hasInternet !== "undefined" &&
+      !scanResult.hasInternet
+    ) {
+      score -= NO_INTERNET_PENALTY;
+      debug(" No internet Penalty: -" + NO_INTERNET_PENALTY);
+    }
 
     debug(
       " Score for scanResult: " + uneval(scanResult) + " final score:" + score
     );
     return score;
+  },
+
+  convertScanResultToConfiguration(candidate) {
+    if (!candidate) {
+      return null;
+    }
+
+    if (candidate.netId === WifiConstants.INVALID_NETWORK_ID) {
+      return null;
+    }
+
+    // Return existing configured network.
+    return WifiConfigManager.getNetworkConfiguration(candidate.netId);
   },
 };

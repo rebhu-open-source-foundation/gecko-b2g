@@ -71,8 +71,10 @@ Result_t PasspointHandler::RequestAnqp(const nsAString& aAnqpKey,
     return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
 
-  UpdateTimeStame(aBssid);
-  mAnqpPendingRequest.Put(aBssid, new AnqpIdentity(aAnqpKey, aBssid));
+  UpdateTimeStamp(aBssid);
+
+  nsAutoString anqpKey(aAnqpKey);
+  mAnqpPendingRequest.Put(aBssid, anqpKey);
 
   return nsIWifiResult::SUCCESS;
 }
@@ -123,30 +125,14 @@ bool PasspointHandler::ReadyToRequest(const nsAString& aBssid) {
   return true;
 }
 
-bool PasspointHandler::UpdateTimeStame(const nsAString& aBssid) {
+bool PasspointHandler::UpdateTimeStamp(const nsAString& aBssid) {
   AnqpRequestTime* requestTime = mAnqpRequestTime.Get(aBssid);
   if (requestTime) {
     if (requestTime->mTimeIncrement < maxAnqpTimeIncrement) {
-      requestTime->mTimeIncrement += 1;
+      requestTime->mTimeIncrement++;
     }
     // Update timestamp for current bssid.
     requestTime->mTimeStamp = TimeStamp::Now();
-  }
-  return true;
-}
-
-bool PasspointHandler::AnqpIdentity::Compare(AnqpIdentity* aIdentity) {
-  if (!aIdentity) {
-    return false;
-  }
-  if (aIdentity->mAnqpKey.IsEmpty() || aIdentity->mBssid.IsEmpty()) {
-    return false;
-  }
-  if (!mAnqpKey.Equals(aIdentity->mAnqpKey)) {
-    return false;
-  }
-  if (!mBssid.Equals(aIdentity->mBssid)) {
-    return false;
   }
   return true;
 }
@@ -158,16 +144,24 @@ void PasspointHandler::NotifyAnqpResponse(const nsACString& aIface,
                                           const nsAString& aBssid,
                                           AnqpResponseMap& aAnqpData) {
   RefPtr<nsWifiEvent> event = new nsWifiEvent(EVENT_ANQP_QUERY_DONE);
-  RefPtr<nsAnqpResponse> anqpResponse = new nsAnqpResponse(aBssid);
 
+  nsAutoString anqpNetworkKey;
+  if (aBssid.IsEmpty() || !mAnqpPendingRequest.Get(aBssid, &anqpNetworkKey)) {
+    // Not a valid request in the list, ignore this response.
+    WIFI_LOGD(LOG_TAG, "Ignore the ANQP response");
+    return;
+  }
+
+  RefPtr<nsAnqpResponse> anqpResponse = new nsAnqpResponse(aBssid);
   for (auto iter = aAnqpData.Iter(); !iter.Done(); iter.Next()) {
     const uint32_t& key = iter.Key();
 
-    if (gAnqpParserTable.at(key)) {
-      (gAnqpParserTable.at(key))(iter.Data(), anqpResponse);
+    if (ANQP_PARSER_TABLE.at(key)) {
+      (ANQP_PARSER_TABLE.at(key))(iter.Data(), anqpResponse);
     }
   }
 
+  event->mAnqpNetworkKey = anqpNetworkKey;
   event->updateAnqpResponse(anqpResponse);
   INVOKE_CALLBACK(mCallback, event, aIface);
 }

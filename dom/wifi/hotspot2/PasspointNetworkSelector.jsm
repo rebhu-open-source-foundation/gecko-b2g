@@ -4,28 +4,21 @@
 
 "use strict";
 
-/* eslint-disable no-unused-vars */
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 const { WifiConfigManager } = ChromeUtils.import(
   "resource://gre/modules/WifiConfigManager.jsm"
 );
-const { WifiConstants, EAPConstans, PasspointMatch } = ChromeUtils.import(
+const { WifiConstants, EAPConstants } = ChromeUtils.import(
   "resource://gre/modules/WifiConstants.jsm"
 );
 const { PasspointManager } = ChromeUtils.import(
   "resource://gre/modules/PasspointManager.jsm"
 );
-const { ScanResult, WifiNetwork, WifiConfigUtils } = ChromeUtils.import(
+const { WifiConfigUtils } = ChromeUtils.import(
   "resource://gre/modules/WifiConfiguration.jsm"
 );
-const {
-  PasspointProvider,
-  PasspointConfig,
-  HomeSp,
-  Credential,
-} = ChromeUtils.import("resource://gre/modules/PasspointConfiguration.jsm");
 
 const HOME_PROVIDER_AWARD = 100;
 const INTERNET_ACCESS_AWARD = 50;
@@ -38,6 +31,39 @@ const RSSI_SCORE_START = -80;
 const RSSI_BUCKETWIDTH = 20;
 const RSSI_LEVEL_BUCKETS = [-10, 0, 10, 20, 30, 40];
 const ACTIVE_NETWORK_RSSI_BOOST = 20;
+const NETWORK_TYPE_SCORES = [
+  PUBLIC_OR_PRIVATE_NETWORK_AWARDS, // For Ant.Private
+  PUBLIC_OR_PRIVATE_NETWORK_AWARDS, // For Ant.PrivateWithGuest
+  PUBLIC_OR_PRIVATE_NETWORK_AWARDS, // For Ant.ChargeablePublic
+  PUBLIC_OR_PRIVATE_NETWORK_AWARDS, // For Ant.FreePublic
+  PERSONAL_OR_EMERGENCY_NETWORK_AWARDS, // For Ant.Personal
+  PERSONAL_OR_EMERGENCY_NETWORK_AWARDS, // For Ant.EmergencyOnly
+  0, // For Ant.Resvd6
+  0, // For Ant.Resvd7
+  0, // For Ant.Resvd8
+  0, // For Ant.Resvd9
+  0, // For Ant.Resvd10
+  0, // For Ant.Resvd11
+  0, // For Ant.Resvd12
+  0, // For Ant.Resvd13
+  0, // For Ant.TestOrExperimental
+  0, // For Ant.Wildcard
+];
+const IPV4_SCORES = [
+  0, // IPV4_NOT_AVAILABLE
+  UNRESTRICTED_IP_AWARDS, // IPV4_PUBLIC
+  RESTRICTED_OR_UNKNOWN_IP_AWARDS, // IPV4_PORT_RESTRICTED
+  UNRESTRICTED_IP_AWARDS, // IPV4_SINGLE_NAT
+  UNRESTRICTED_IP_AWARDS, // IPV4_DOUBLE_NAT
+  RESTRICTED_OR_UNKNOWN_IP_AWARDS, // IPV4_PORT_RESTRICTED_AND_SINGLE_NAT
+  RESTRICTED_OR_UNKNOWN_IP_AWARDS, // IPV4_PORT_RESTRICTED_AND_DOUBLE_NAT
+  RESTRICTED_OR_UNKNOWN_IP_AWARDS, // IPV4_UNKNOWN
+];
+const IPV6_SCORES = [
+  0, // IPV6_NOT_AVAILABLE
+  UNRESTRICTED_IP_AWARDS, // IPV6_AVAILABLE
+  RESTRICTED_OR_UNKNOWN_IP_AWARDS, // IPV6_UNKNOWN
+];
 
 XPCOMUtils.defineLazyServiceGetter(
   this,
@@ -71,31 +97,42 @@ PasspointNetworkSelector.prototype = {
 
   setDebug(aDebug) {
     gDebug = aDebug;
-
-    if (PasspointManager) {
-      PasspointManager.setDebug(gDebug);
-    }
   },
 
   chooseNetwork(results, wifiInfo) {
-    var configuredNetworks = WifiConfigManager.configuredNetworks;
-    var bestNetwork = null;
+    var bestCandidate = null;
     var candidateList = [];
     var highestScore = Number.MIN_VALUE;
+
+    if (!PasspointManager.isPasspointSupported()) {
+      debug("passpoint not supported");
+      return null;
+    }
+
+    if (PasspointManager.isProviderEmpty()) {
+      debug("no saved providers");
+      return null;
+    }
 
     debug("chooseNetwork ...");
     // Renew the ANQP cache.
     PasspointManager.sweepCache();
 
+    // Filter scan results by interworking.
     let passpointScanResults = this.filterPasspointResult(results);
-
-    this.createEphemeralProfileForMatchingAp(passpointScanResults);
 
     // Go through each Passpoint scan result for best provider.
     for (let result of passpointScanResults) {
       let bestProvider = PasspointManager.matchProvider(result);
+
       if (bestProvider != null) {
-        //TODO: Skip providers backed when SIM is not present.
+        let simSlot = gDataCallManager.dataDefaultServiceId;
+        let icc = gIccService.getIccByServiceId(simSlot);
+
+        if (!icc || icc.cardState != Ci.nsIIcc.CARD_STATE_READY) {
+          debug("Ignore provider since sim not ready");
+          continue;
+        }
 
         candidateList.push({
           scanResult: result,
@@ -114,88 +151,64 @@ PasspointNetworkSelector.prototype = {
       let isActiveNetwork = candidate.scanResult.ssid == wifiInfo.ssid;
       let scanResult = candidate.scanResult;
       let score = this.calculateScore(
-        candidate.matchStatus == PasspointMatch.HomeProvider,
-        PasspointManager.getANQPElements(scanResult),
+        candidate.matchStatus == WifiConstants.PasspointMatch.HomeProvider,
+        PasspointManager.getAnqpElements(scanResult),
         scanResult,
         isActiveNetwork
       );
 
       if (score > highestScore) {
-        bestNetwork = candidate.scanResult;
+        bestCandidate = candidate;
         highestScore = score;
       }
     }
 
-    return bestNetwork;
+    return this.convertProviderToConfiguration(bestCandidate);
   },
 
   filterPasspointResult(scanResults) {
     let filteredScanResults = [];
     for (let result of scanResults) {
-      //TODO: need to figure out isInterwork is bool or int.
       // We only care about passpoint AP.
-      if (!result.isInterworking) {
-        continue;
+      if (result.passpoint.isInterworking) {
+        filteredScanResults.push(result);
       }
-      filteredScanResults.push(result);
     }
     return filteredScanResults;
   },
 
-  // Create an ephemeral passpoint profule which matching Passpoint AP's MccMnc.
-  createEphemeralProfileForMatchingAp(filteredScanResults) {
-    let simSlot = gDataCallManager.dataDefaultServiceId;
-    let icc = gIccService.getIccByServiceId(simSlot);
-
-    if (!icc || !icc.iccInfo || !icc.iccInfo.mcc || !icc.iccInfo.mnc) {
-      debug("SIM is not ready.");
-      return;
-    }
-
-    let mccMnc = icc.iccInfo.mcc + icc.iccInfo.mnc;
-    let mccMncRealm = WifiConfigUtils.getRealmForMccMnc(
-      icc.iccInfo.mcc,
-      icc.iccInfo.mnc
-    );
-    if (PasspointManager.hasCarrierProvider(mccMnc, mccMncRealm)) {
-      return;
-    }
-
-    let eapMethod = PasspointManager.findEapMethodFromCarrier(
-      mccMncRealm,
-      filteredScanResults
-    );
-
-    if (!WifiConfigUtils.isCarrierEapMethod(eapMethod)) {
-      return;
-    }
-
-    let passpointConfig = PasspointManager.createEphemeralPasspointConfig(
-      icc.iccInfo.spn,
-      mccMnc,
-      mccMncRealm,
-      eapMethod
-    );
-    if (passpointConfig == null) {
-      return;
-    }
-
-    PasspointManager.installEphemeralPasspointConfig(passpointConfig);
-  },
-
-  calculateScore(isHomeProvider, scanResult, anqpElements, isActiveNetwork) {
+  calculateScore(isHomeProvider, anqpElements, scanResult, isActiveNetwork) {
     let score = 0;
+
+    if (!anqpElements || !scanResult) {
+      return score;
+    }
 
     // Evaluate match status score.
     if (isHomeProvider) {
       score += HOME_PROVIDER_AWARD;
     }
 
-    //TODO: complete ANT & internet access score evaluate.
-    /*
-    score += (scanResult.isInternet ? 1 : -1 ) * INTERNET_ACCESS_AWARD;
-    score += ant type switch?
-    */
+    score += (scanResult.hasInternet ? 1 : -1) * INTERNET_ACCESS_AWARD;
+    score += NETWORK_TYPE_SCORES[scanResult.passpoint.ant];
+
+    if (anqpElements) {
+      let wm = anqpElements.hsWanMetrics;
+      if (
+        wm &&
+        (wm.status != WifiConstants.HSWanMetrics.LINK_STATUS_UP || wm.capped)
+      ) {
+        score -= WAN_PORT_DOWN_OR_CAPPED_PENALTY;
+      }
+
+      let ipa = anqpElements.ipAvailability;
+      if (ipa) {
+        score +=
+          ipa.ipv4Availability != null ? IPV4_SCORES[ipa.ipv4Availability] : 0;
+        score +=
+          ipa.ipv6Availability != null ? IPV6_SCORES[ipa.ipv6Availability] : 0;
+      }
+    }
 
     // Evaluate rssi score.
     let rssi = scanResult.signalStrength;
@@ -203,7 +216,7 @@ PasspointNetworkSelector.prototype = {
       rssi += ACTIVE_NETWORK_RSSI_BOOST;
     }
 
-    let index = (rssi - RSSI_SCORE_START) / RSSI_BUCKETWIDTH;
+    let index = Math.floor((rssi - RSSI_SCORE_START) / RSSI_BUCKETWIDTH);
 
     if (index < 0) {
       index = 0;
@@ -212,7 +225,58 @@ PasspointNetworkSelector.prototype = {
     }
     score += RSSI_LEVEL_BUCKETS[index];
 
+    debug("Network " + scanResult.ssid + " get score: " + score);
     return score;
   },
+
+  convertProviderToConfiguration(candidate) {
+    let config = {};
+    config.keyMgmt = "WPA-EAP IEEE8021X";
+    config.proto = "RSN";
+
+    let passpointConfig = candidate.provider.passpointConfig;
+    config.realm = passpointConfig.credential.realm;
+    config.domainSuffixMatch = passpointConfig.homeSp.fqdn;
+
+    // TODO: Should also support TTLS/TLS for passpoint.
+    {
+      let methods = new Map([
+        [EAPConstants.EAP_SIM, "SIM"],
+        [EAPConstants.EAP_AKA, "AKA"],
+        [EAPConstants.EAP_AKA_PRIME, "AKA_PRIME"],
+      ]);
+
+      if (methods.has(passpointConfig.credential.eapType)) {
+        config.eap = methods.get(passpointConfig.credential.eapType);
+      } else {
+        debug("Unknown EAP method: " + passpointConfig.credential.eapType);
+      }
+      config.plmn = passpointConfig.credential.imsi;
+    }
+
+    function quote(s) {
+      return '"' + s + '"';
+    }
+
+    let scanResult = candidate.scanResult;
+    config.ssid = quote(scanResult.ssid);
+    config.isHomeProvider =
+      candidate.matchStatus == WifiConstants.PasspointMatch.HomeProvider;
+
+    let networkKey = WifiConfigUtils.getNetworkKey(config);
+    let configured = WifiConfigManager.configuredNetworks;
+    if (networkKey in configured) {
+      WifiConfigManager.tryEnableQualifiedNetwork(configured);
+      debug("Passpoint network " + config.ssid + " is already configured");
+      return null;
+    }
+
+    // Save passpoint to wifi config store.
+    WifiConfigManager.addOrUpdateNetwork(config, function(success) {
+      if (!success) {
+        debug("Failed to add passpoint network");
+      }
+    });
+    return configured[networkKey];
+  },
 };
-/* eslint-enable no-unused-vars */

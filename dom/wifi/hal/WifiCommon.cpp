@@ -98,7 +98,7 @@ int32_t ConvertHexStringToByteArray(const std::string& in, T& out) {
 }
 
 int32_t ByteToInteger(std::vector<uint8_t>::const_iterator& iter,
-                      uint32_t length, bool endian) {
+                      uint32_t length, int32_t endian) {
   std::vector<uint8_t>::const_iterator& it = iter;
   const std::vector<uint8_t>::const_iterator& end = iter + length;
 

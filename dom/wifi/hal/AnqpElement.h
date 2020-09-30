@@ -140,7 +140,8 @@ struct EapMethodParser {
       VecByte::const_iterator& aIter, int32_t aLength);
   static already_AddRefed<nsVendorSpecificAuth> ParseVendorSpecificAuth(
       VecByte::const_iterator& aIter, int32_t aLength);
-  static void ParseEapMethod(const VecByte& aPayload, nsEapMethod* aMethod);
+  static void ParseEapMethod(VecByte::const_iterator& aIter,
+                             nsEapMethod* aEapMethod);
 };
 
 END_WIFI_NAMESPACE

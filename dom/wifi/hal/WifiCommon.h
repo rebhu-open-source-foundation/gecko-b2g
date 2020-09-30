@@ -433,7 +433,7 @@ struct CommandOptions {
     mScanSettings = ScanSettingsOptions(aOther.mScanSettings);
     mPnoScanSettings = PnoScanSettingsOptions(aOther.mPnoScanSettings);
     mRoamingConfig = RoamingConfigurationOptions(aOther.mRoamingConfig);
-    mRequestSettings = AnqpRequestSettingsOptions(aOther.mRequestSettings);
+    mAnqpSettings = AnqpRequestSettingsOptions(aOther.mAnqpSettings);
     mWpsConfig = WpsConfigurationOptions(aOther.mWpsConfig);
   }
 
@@ -458,7 +458,7 @@ struct CommandOptions {
     mScanSettings = aOther.mScanSettings.Clone();
     mPnoScanSettings = aOther.mPnoScanSettings.Clone();
     mRoamingConfig = aOther.mRoamingConfig.Clone();
-    mRequestSettings = AnqpRequestSettingsOptions(aOther.mRequestSettings);
+    mAnqpSettings = AnqpRequestSettingsOptions(aOther.mAnqpSettings);
     mWpsConfig = WpsConfigurationOptions(aOther.mWpsConfig);
   }
 
@@ -484,7 +484,7 @@ struct CommandOptions {
   ScanSettingsOptions mScanSettings;
   PnoScanSettingsOptions mPnoScanSettings;
   RoamingConfigurationOptions mRoamingConfig;
-  AnqpRequestSettingsOptions mRequestSettings;
+  AnqpRequestSettingsOptions mAnqpSettings;
   WpsConfigurationOptions mWpsConfig;
 };
 
@@ -508,7 +508,7 @@ template <typename T>
 int32_t ConvertHexStringToByteArray(const std::string& in, T& out);
 
 int32_t ByteToInteger(std::vector<uint8_t>::const_iterator& iter,
-                      uint32_t length, bool endian);
+                      uint32_t length, int32_t endian);
 std::string ByteToString(std::vector<uint8_t>::const_iterator& iter,
                          uint32_t length);
 std::string Quote(std::string& s);

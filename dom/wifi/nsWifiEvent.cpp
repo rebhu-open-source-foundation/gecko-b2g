@@ -120,6 +120,12 @@ nsWifiEvent::GetGsmRands(nsTArray<nsString>& aGsmRands) {
 }
 
 NS_IMETHODIMP
+nsWifiEvent::GetAnqpNetworkKey(nsAString& aAnqpNetworkKey) {
+  aAnqpNetworkKey = mAnqpNetworkKey;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 nsWifiEvent::GetAnqpResponse(nsIAnqpResponse** aAnqpResponse) {
   RefPtr<nsIAnqpResponse> response(mAnqpResponse);
   response.forget(aAnqpResponse);

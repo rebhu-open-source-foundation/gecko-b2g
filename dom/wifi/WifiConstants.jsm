@@ -68,6 +68,13 @@ const WifiConstants = {
   ANQP_DOMID_BIT: 4,
   VENUE_INFO_LENGTH: 2,
 
+  HSWanMetrics: {
+    LINK_STATUS_RESERVED: 0,
+    LINK_STATUS_UP: 1,
+    LINK_STATUS_DOWN: 2,
+    LINK_STATUS_TEST: 3,
+  },
+
   Ant: {
     Private: 0,
     PrivateWithGuest: 1,
@@ -85,6 +92,14 @@ const WifiConstants = {
     Resvd13: 13,
     TestOrExperimental: 14,
     Wildcard: 15,
+  },
+
+  PasspointMatch: {
+    None: 0,
+    Decliened: 1,
+    Incomplete: 2,
+    RoamingProvider: 3,
+    HomeProvider: 4,
   },
 };
 
@@ -121,13 +136,3 @@ const EAPConstants = {
   EAP_EKE: 53,
   EAP_TEAP: 55,
 };
-
-/* eslint-disable no-unused-vars */
-const PasspointMatch = {
-  None: 0,
-  Decliened: 1,
-  Incomplete: 2,
-  RoamingProvider: 3,
-  HomeProvider: 4,
-};
-/* eslint-enable no-unused-vars */

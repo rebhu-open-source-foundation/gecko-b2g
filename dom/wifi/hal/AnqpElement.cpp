@@ -37,10 +37,14 @@
 #define SYMMETRIC_LINK_MASK (1 << 2)
 #define AT_CAPACITY_MASK (1 << 3)
 
+#define VERBOSE_ANQP_DUMP 0
+
 using namespace mozilla;
 using namespace mozilla::dom::wifi;
 
-const static std::set<int32_t> gIpv4AvailabilitySet = {
+bool gVerboseDump = false;
+
+const static std::set<int32_t> IPV4_AVAILABILITY_SET = {
     (int32_t)V4::NOT_AVAILABLE,
     (int32_t)V4::PUBLIC,
     (int32_t)V4::PORT_RESTRICTED,
@@ -51,13 +55,13 @@ const static std::set<int32_t> gIpv4AvailabilitySet = {
     (int32_t)V4::UNKNOWN,
 };
 
-const static std::set<int32_t> gIpv6AvailabilitySet = {
+const static std::set<int32_t> IPV6_AVAILABILITY_SET = {
     (int32_t)V6::NOT_AVAILABLE,
     (int32_t)V6::AVAILABLE,
     (int32_t)V6::UNKNOWN,
 };
 
-const static std::map<uint32_t, AnqpParserFn> gAnqpParserTable = {
+const static std::map<uint32_t, AnqpParserFn> ANQP_PARSER_TABLE = {
     {(uint32_t)AnqpElementType::ANQPVenueName, AnqpParser::ParseVenueName},
     {(uint32_t)AnqpElementType::ANQPRoamingConsortium,
      AnqpParser::ParseRoamingConsortium},
@@ -74,12 +78,24 @@ const static std::map<uint32_t, AnqpParserFn> gAnqpParserTable = {
     {(uint32_t)AnqpElementType::HSOSUProviders,
      AnqpParser::ParseHSOsuProviders}};
 
+const static std::map<int32_t, nsString> AUTH_TYPE_MAP = {
+    {(int32_t)AuthType::UNKNOWN, u"UNKNOWN"_ns},
+    {(int32_t)AuthType::PAP, u"PAP"_ns},
+    {(int32_t)AuthType::CHAP, u"CHAP"_ns},
+    {(int32_t)AuthType::MSCHAP, u"MS-CHAP"_ns},
+    {(int32_t)AuthType::MSCHAPV2, u"MS-CHAP-V2"_ns}};
+
 /**
  * AnqpParser implementation
  */
-void AnqpParser::printBuffer(uint32_t key, const VecByte& buf) {
-  for (auto& item : buf) {
-    WIFI_LOGE(LOG_TAG, "[%d]: %x", key, item);
+void AnqpParser::printBuffer(uint32_t key, const VecByte& data) {
+  if (gVerboseDump) {
+    int32_t i = 0;
+    while (i < data.size()) {
+      WIFI_LOGE(LOG_TAG, "[%d]: %02x %02x %02x %02x %02x", key, data[i],
+                data[i + 1], data[i + 2], data[i + 3], data[i + 4]);
+      i += 5;
+    }
   }
 }
 
@@ -151,14 +167,14 @@ void AnqpParser::ParseIpAddrAvailability(const VecByte& aPayload,
   int32_t field = ByteToInteger(pos, 1, LITTLE_ENDIAN) & 0xFF;
 
   int32_t v6Availability = field & IPV6_AVAILABILITY_MASK;
-  it = gIpv6AvailabilitySet.find(v6Availability);
-  if (it == gIpv6AvailabilitySet.end()) {
+  it = IPV6_AVAILABILITY_SET.find(v6Availability);
+  if (it == IPV6_AVAILABILITY_SET.end()) {
     v6Availability = (int32_t)V6::UNKNOWN;
   }
 
   int32_t v4Availability = field & IPV4_AVAILABILITY_MASK;
-  it = gIpv4AvailabilitySet.find(v4Availability);
-  if (it == gIpv4AvailabilitySet.end()) {
+  it = IPV4_AVAILABILITY_SET.find(v4Availability);
+  if (it == IPV4_AVAILABILITY_SET.end()) {
     v4Availability = (int32_t)V4::UNKNOWN;
   }
 
@@ -196,14 +212,12 @@ void AnqpParser::ParseNaiRealm(const VecByte& aPayload,
     // encoding field
     bool utf8 =
         (ByteToInteger(pos, 1, LITTLE_ENDIAN) & NAI_ENCODING_UTF8_MASK) != 0;
-
     // parse realm string
     int32_t realmLen = ByteToInteger(pos, 1, LITTLE_ENDIAN) & 0xFF;
-
     // TODO: should support UTF-8 or ASCII
     std::string realmList = ByteToString(pos, realmLen);
-    std::stringstream stream(realmList);
 
+    std::stringstream stream(realmList);
     std::string realm;
     while (getline(stream, realm, ';')) {
       realms.AppendElement(NS_ConvertUTF8toUTF16(realm.c_str()));
@@ -222,9 +236,8 @@ void AnqpParser::ParseNaiRealm(const VecByte& aPayload,
 
       int32_t methodID = ByteToInteger(pos, 1, LITTLE_ENDIAN) & 0xFF;
       RefPtr<nsEapMethod> eapMethod = new nsEapMethod(methodID);
-      VecByte eapPayload(pos, aPayload.cend());
       // parse each authentication parameter
-      EapMethodParser::ParseEapMethod(eapPayload, eapMethod);
+      EapMethodParser::ParseEapMethod(pos, eapMethod);
 
       eapMethods.AppendElement(eapMethod);
       methodCount--;
@@ -234,6 +247,7 @@ void AnqpParser::ParseNaiRealm(const VecByte& aPayload,
     naiRealms.AppendElement(naiRealm);
     count--;
   }
+
   aResponse->updateNaiRealmList(naiRealms);
 }
 
@@ -616,17 +630,9 @@ already_AddRefed<nsNonEapInnerAuth> EapMethodParser::ParseNonEapInnerAuth(
   int32_t type = ByteToInteger(pos, 1, LITTLE_ENDIAN) & 0xFF;
 
   nsString authType;
-  if (type == (int32_t)AuthType::PAP) {
-    authType = u"PAP"_ns;
-  } else if (type == (int32_t)AuthType::CHAP) {
-    authType = u"CHAP"_ns;
-  } else if (type == (int32_t)AuthType::MSCHAP) {
-    authType = u"MS-CHAP"_ns;
-  } else if (type == (int32_t)AuthType::MSCHAPV2) {
-    authType = u"MS-CHAP-V2"_ns;
-  } else {
-    authType = u"UNKNOWN"_ns;
-  }
+  authType = (AUTH_TYPE_MAP.find(type) != AUTH_TYPE_MAP.end())
+                 ? AUTH_TYPE_MAP.at(type)
+                 : AUTH_TYPE_MAP.at(0);
 
   RefPtr<nsNonEapInnerAuth> out = new nsNonEapInnerAuth(authType);
   return out.forget();
@@ -641,6 +647,7 @@ already_AddRefed<nsInnerAuth> EapMethodParser::ParseInnerAuthEap(
 
   VecByte::const_iterator& pos = aIter;
   int32_t methodId = ByteToInteger(pos, 1, LITTLE_ENDIAN) & 0xFF;
+
   RefPtr<nsInnerAuth> out = new nsInnerAuth(methodId);
   return out.forget();
 }
@@ -672,15 +679,15 @@ already_AddRefed<nsVendorSpecificAuth> EapMethodParser::ParseVendorSpecificAuth(
     VecByte::const_iterator& aIter, int32_t aLength) {
   VecByte::const_iterator& pos = aIter;
   std::string data = ByteToString(pos, aLength);
+
   RefPtr<nsVendorSpecificAuth> vendor =
       new nsVendorSpecificAuth(NS_ConvertUTF8toUTF16(data.c_str()));
   return vendor.forget();
 }
 
-void EapMethodParser::ParseEapMethod(const VecByte& aPayload,
-                                     nsEapMethod* aMethod) {
-  VecByte::const_iterator pos = aPayload.cbegin();
-
+void EapMethodParser::ParseEapMethod(VecByte::const_iterator& aIter,
+                                     nsEapMethod* aEapMethod) {
+  VecByte::const_iterator& pos = aIter;
   int32_t authCount = ByteToInteger(pos, 1, LITTLE_ENDIAN) & 0xFF;
 
   RefPtr<nsAuthParams> authParams = new nsAuthParams();
@@ -759,5 +766,5 @@ void EapMethodParser::ParseEapMethod(const VecByte& aPayload,
   authParams->updateCredential(credential);
   authParams->updateTunneledCredential(tunneledCredential);
   authParams->updateVendorSpecificAuth(vendorSpecificAuth);
-  aMethod->updateAuthParams(authParams);
+  aEapMethod->updateAuthParams(authParams);
 }

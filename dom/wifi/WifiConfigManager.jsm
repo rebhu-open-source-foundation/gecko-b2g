@@ -111,52 +111,43 @@ this.WifiConfigManager = (function() {
   }
 
   function updateNetworkSelectionStatus(netId, reason, callback) {
-    var found = false;
-    for (var networkKey in configuredNetworks) {
-      if (configuredNetworks[networkKey].netId == netId) {
-        found = true;
-        break;
-      }
-    }
-    if (!found) {
+    let network = getNetworkConfiguration(netId);
+
+    if (!network) {
       debug("netId:" + netId + " not found in configuredNetworks");
       callback(false);
       return;
     }
 
-    if (!configuredNetworks[networkKey].networkSeclectionDisableCounter) {
-      configuredNetworks[networkKey].networkSeclectionDisableCounter = Array(
+    if (!network.networkSeclectionDisableCounter) {
+      network.networkSeclectionDisableCounter = Array(
         WifiConstants.NETWORK_SELECTION_DISABLED_MAX
       ).fill(0);
     }
 
     if (reason == WifiConstants.NETWORK_SELECTION_ENABLE) {
-      updateNetworkStatus(configuredNetworks[networkKey], reason, function(
-        doDisable
-      ) {
-        debug("Enable network:" + uneval(configuredNetworks[networkKey]));
+      updateNetworkStatus(network, reason, function(doDisable) {
+        debug("Enable network:" + uneval(network));
         callback(doDisable);
       });
       return;
     }
-    incrementDisableReasonCounter(configuredNetworks[networkKey], reason);
+    incrementDisableReasonCounter(network, reason);
     debug(
       "Network:" +
-        configuredNetworks[networkKey].ssid +
+        network.ssid +
         "disable counter of " +
         QUALITY_NETWORK_SELECTION_DISABLE_REASON[reason] +
         " is: " +
-        configuredNetworks[networkKey].networkSeclectionDisableCounter[reason] +
+        network.networkSeclectionDisableCounter[reason] +
         " and threshold is: " +
         NETWORK_SELECTION_DISABLE_THRESHOLD[reason]
     );
     if (
-      configuredNetworks[networkKey].networkSeclectionDisableCounter[reason] >=
+      network.networkSeclectionDisableCounter[reason] >=
       NETWORK_SELECTION_DISABLE_THRESHOLD[reason]
     ) {
-      updateNetworkStatus(configuredNetworks[networkKey], reason, function(
-        doDisable
-      ) {
+      updateNetworkStatus(network, reason, function(doDisable) {
         callback(doDisable);
       });
       return;
@@ -277,7 +268,7 @@ this.WifiConfigManager = (function() {
   }
 
   function isLastSelectedNetwork(netId) {
-    return lastUserSelectedNetworkId == netId;
+    return lastUserSelectedNetworkId === netId;
   }
 
   function tryEnableQualifiedNetwork(configuredNetworks) {
@@ -309,38 +300,35 @@ this.WifiConfigManager = (function() {
     }
   }
 
-  function getNetworkConfiguration(netId, callback) {
+  function getNetworkConfiguration(netId) {
     if (netId === WifiConstants.INVALID_NETWORK_ID) {
-      callback(null);
-      return;
+      return null;
     }
-    // incoming config may not have entire security field
-    // also check id in configured networks
+    // Incoming config may not have entire security field
+    // also check id in configured networks.
     for (let net in configuredNetworks) {
       if (netId == configuredNetworks[net].netId) {
-        callback(configuredNetworks[net]);
-        return;
+        return configuredNetworks[net];
       }
     }
-    callback(null);
+    return null;
   }
 
   function fetchNetworkConfiguration(config, callback) {
-    getNetworkConfiguration(config.netId, function(network) {
-      // must make sure the netId is in configuredNetworks.
-      if (network == null) {
-        callback(null);
-        return;
-      }
+    let network = getNetworkConfiguration(config.netId);
+    // must make sure the netId is in configuredNetworks.
+    if (network == null) {
+      callback(null);
+      return;
+    }
 
-      for (let field in network) {
-        if (config[field]) {
-          continue;
-        }
-        config[field] = network[field];
+    for (let field in network) {
+      if (config[field]) {
+        continue;
       }
-      callback(config);
-    });
+      config[field] = network[field];
+    }
+    callback(config);
   }
 
   function getHiddenNetworks() {
@@ -380,9 +368,7 @@ this.WifiConfigManager = (function() {
       configuredNetworks[networkKey] = config;
     }
 
-    saveToStore(configuredNetworks, success => {
-      callback(success);
-    });
+    saveToStore(callback);
   }
 
   function removeNetwork(networkId, callback) {
@@ -395,9 +381,7 @@ this.WifiConfigManager = (function() {
     for (let networkKey in configuredNetworks) {
       if (configuredNetworks[networkKey].netId === networkId) {
         delete configuredNetworks[networkKey];
-        saveToStore(configuredNetworks, success => {
-          callback(success);
-        });
+        saveToStore(callback);
         return;
       }
     }
@@ -406,27 +390,23 @@ this.WifiConfigManager = (function() {
   }
 
   function clearCurrentConfigBssid(netId, callback) {
-    getNetworkConfiguration(netId, function(network) {
-      if (network == null) {
-        callback(false);
-        return;
-      }
-      let networkKey = WifiConfigUtils.getNetworkKey(network);
-
-      if (networkKey in configuredNetworks) {
-        configuredNetworks[networkKey].bssid =
-          WifiConstants.SUPPLICANT_BSSID_ANY;
-        saveToStore(configuredNetworks, success => {
-          callback(success);
-        });
-        return;
-      }
+    let network = getNetworkConfiguration(netId);
+    if (network == null) {
       callback(false);
-    });
+      return;
+    }
+    let networkKey = WifiConfigUtils.getNetworkKey(network);
+
+    if (networkKey in configuredNetworks) {
+      configuredNetworks[networkKey].bssid = WifiConstants.SUPPLICANT_BSSID_ANY;
+      saveToStore(callback);
+      return;
+    }
+    callback(false);
   }
 
   function loadFromStore() {
-    let wifiConfig = WifiConfigStore.read();
+    let wifiConfig = WifiConfigStore.read(WifiConfigStore.WIFI_CONFIG_PATH);
     if (wifiConfig) {
       for (let i in wifiConfig) {
         let config = wifiConfig[i];
@@ -437,8 +417,12 @@ this.WifiConfigManager = (function() {
     }
   }
 
-  function saveToStore(networks, callback) {
-    WifiConfigStore.write(networks, callback);
+  function saveToStore(callback) {
+    WifiConfigStore.write(
+      WifiConfigStore.WIFI_CONFIG_PATH,
+      configuredNetworks,
+      callback
+    );
   }
 
   return configManager;

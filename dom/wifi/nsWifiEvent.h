@@ -39,6 +39,7 @@ class nsWifiEvent final : public nsIWifiEvent {
   nsString mRand;
   nsString mAutn;
   nsTArray<nsString> mGsmRands;
+  nsString mAnqpNetworkKey;
   RefPtr<nsAnqpResponse> mAnqpResponse;
   uint16_t mWpsConfigError;
   uint16_t mWpsErrorIndication;

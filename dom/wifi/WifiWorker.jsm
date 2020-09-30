@@ -348,6 +348,11 @@ var WifiManager = (function() {
   if (ibssSupported) {
     capabilities.mode.push(WifiConstants.MODE_IBSS);
   }
+  if (PasspointManager) {
+    PasspointManager.setWifiManager(manager);
+    PasspointManager.loadFromStore();
+  }
+
   // Features supported by vendor module.
   let supportedFeatures = 0;
 
@@ -1014,17 +1019,13 @@ var WifiManager = (function() {
         wifiInfo.setBSSID(fields.bssid);
       }
 
-      WifiConfigManager.getNetworkConfiguration(
-        manager.targetNetworkId,
-        function(network) {
-          if (network && network.netId !== WifiConstants.INVALID_NETWORK_ID) {
-            wifiInfo.setNetworkId(network.netId);
-            wifiInfo.setSecurity(
-              WifiConfigUtils.matchKeyMgmtToSecurity(network)
-            );
-          }
-        }
+      let network = WifiConfigManager.getNetworkConfiguration(
+        manager.targetNetworkId
       );
+      if (network && network.netId !== WifiConstants.INVALID_NETWORK_ID) {
+        wifiInfo.setNetworkId(network.netId);
+        wifiInfo.setSecurity(WifiConfigUtils.matchKeyMgmtToSecurity(network));
+      }
     } else if (manager.isConnectState(manager.state)) {
       manager.lastDriverRoamAttempt = 0;
       wifiInfo.reset();
@@ -1156,33 +1157,32 @@ var WifiManager = (function() {
   function supplicantAuthenticationFailure(event) {
     let reasonCode = event.reason;
     let disableReason = WifiConstants.DISABLED_AUTHENTICATION_FAILURE;
-    WifiConfigManager.getNetworkConfiguration(manager.targetNetworkId, function(
-      network
-    ) {
-      if (reasonCode == AUTH_FAILURE_WRONG_KEY) {
-        if (network && network.hasEverConnected) {
-          debug("Network " + manager.targetNetworkId + " is ever connected");
-        } else {
-          disableReason = WifiConstants.DISABLED_BY_WRONG_PASSWORD;
-        }
-      } else if (reasonCode == AUTH_FAILURE_EAP_FAILURE) {
-        let errorCode = event.errorCode;
-        if (errorCode == ERROR_EAP_SIM_NOT_SUBSCRIBED) {
-          disableReason = WifiConstants.DISABLED_AUTHENTICATION_NO_SUBSCRIBED;
+    let network = WifiConfigManager.getNetworkConfiguration(
+      manager.targetNetworkId
+    );
+    if (reasonCode == AUTH_FAILURE_WRONG_KEY) {
+      if (network && network.hasEverConnected) {
+        debug("Network " + manager.targetNetworkId + " is ever connected");
+      } else {
+        disableReason = WifiConstants.DISABLED_BY_WRONG_PASSWORD;
+      }
+    } else if (reasonCode == AUTH_FAILURE_EAP_FAILURE) {
+      let errorCode = event.errorCode;
+      if (errorCode == ERROR_EAP_SIM_NOT_SUBSCRIBED) {
+        disableReason = WifiConstants.DISABLED_AUTHENTICATION_NO_SUBSCRIBED;
+      }
+    }
+    WifiConfigManager.updateNetworkSelectionStatus(
+      manager.targetNetworkId,
+      disableReason,
+      function(doDisable) {
+        if (doDisable) {
+          notify("networkdisable", {
+            reason: WifiConstants.DISABLED_AUTHENTICATION_FAILURE,
+          });
         }
       }
-      WifiConfigManager.updateNetworkSelectionStatus(
-        manager.targetNetworkId,
-        disableReason,
-        function(doDisable) {
-          if (doDisable) {
-            notify("networkdisable", {
-              reason: WifiConstants.DISABLED_AUTHENTICATION_FAILURE,
-            });
-          }
-        }
-      );
-    });
+    );
   }
 
   function supplicantAssociationReject(event) {
@@ -1212,34 +1212,31 @@ var WifiManager = (function() {
 
   function eapSimGsmAuthRequest(event) {
     let rands = event.getGsmRands();
-    WifiConfigManager.getNetworkConfiguration(manager.targetNetworkId, function(
-      network
-    ) {
-      let simIndex = network.simIndex || 1;
-      simGsmAuthRequest(simIndex, rands);
-    });
+    let network = WifiConfigManager.getNetworkConfiguration(
+      manager.targetNetworkId
+    );
+    let simIndex = network.simIndex || 1;
+    simGsmAuthRequest(simIndex, rands);
   }
 
   function eapSimUmtsAuthRequest(event) {
-    WifiConfigManager.getNetworkConfiguration(manager.targetNetworkId, function(
-      network
-    ) {
-      let simIndex = network.simIndex || 1;
-      simUmtsAuthRequest(simIndex, event.rand, event.autn);
-    });
+    let network = WifiConfigManager.getNetworkConfiguration(
+      manager.targetNetworkId
+    );
+    let simIndex = network.simIndex || 1;
+    simUmtsAuthRequest(simIndex, event.rand, event.autn);
   }
 
   function eapSimIdentityRequest() {
-    WifiConfigManager.getNetworkConfiguration(manager.targetNetworkId, function(
-      network
-    ) {
-      let simIndex = network.simIndex || 1;
-      simIdentityRequest(
-        manager.targetNetworkId,
-        simIndex,
-        getIdentityPrefix(network.eap)
-      );
-    });
+    let network = WifiConfigManager.getNetworkConfiguration(
+      manager.targetNetworkId
+    );
+    let simIndex = network.simIndex || 1;
+    simIdentityRequest(
+      manager.targetNetworkId,
+      simIndex,
+      getIdentityPrefix(network.eap)
+    );
   }
 
   function scanResultReady() {
@@ -1270,17 +1267,7 @@ var WifiManager = (function() {
   }
 
   function anqpResponse(event) {
-    // TODO: handle anqp response
-    // let response = event.anqpResponse;
-    // let bssid = response.bssid;
-    // let ipAvail = response.ipAvailability;
-    // let venueName = response.getVenueName();
-    // let roaming = response.getRoamingConsortiumOIs();
-    // let naiRealm = response.getNaiRealmList();
-    // let cellular = response.getCellularNetwork();
-    // let domain = response.getDomainName();
-    // let connectionCaps = response.getConnectionCapability();
-    // let wanMetrics = response.wanMetrics;
+    PasspointManager.onANQPResponse(event.anqpNetworkKey, event.anqpResponse);
   }
 
   function iconResponse() {
@@ -1643,6 +1630,7 @@ var WifiManager = (function() {
   manager.reassociate = wifiCommand.reassociate;
   manager.disableNetwork = wifiCommand.disableNetwork;
   manager.getSupplicantNetwork = wifiCommand.getSupplicantNetwork;
+  manager.requestAnqp = wifiCommand.requestAnqp;
   manager.syncDebug = syncDebug;
 
   // Public interface of the wifi service.
@@ -1856,6 +1844,12 @@ var WifiManager = (function() {
     manager.setPowerSave(true, function() {});
     manager.setWpsDetail(function() {});
 
+    // TODO: add here before we find other better place to hook.
+    if (PasspointManager) {
+      debug("Try to add provider from customization");
+      PasspointManager.addProviderFromCustomization();
+    }
+
     // FIXME: window.navigator.mozPower is undefined
     // let window = Services.wm.getMostRecentWindow("navigator:browser");
     // if (window !== null) {
@@ -1864,38 +1858,26 @@ var WifiManager = (function() {
     // }
   };
 
-  manager.setAutoRoam = function(candidate, callback) {
-    if (
-      candidate == null ||
-      candidate.netId === WifiConstants.INVALID_NETWORK_ID
-    ) {
-      debug("Roam to invalid candidate");
+  manager.setAutoRoam = function(config, callback) {
+    if (config == null || config.netId === WifiConstants.INVALID_NETWORK_ID) {
+      debug("Roam to invalid network");
       callback(false);
       return;
     }
-    WifiConfigManager.getNetworkConfiguration(candidate.netId, function(
-      network
-    ) {
-      network.bssid = candidate.bssid;
-      manager.startToRoam(network, callback);
-    });
+    let network = WifiConfigManager.getNetworkConfiguration(config.netId);
+    network.bssid = config.bssid;
+    manager.startToRoam(network, callback);
   };
 
-  manager.setAutoConnect = function(candidate, callback) {
-    if (
-      candidate == null ||
-      candidate.netId === WifiConstants.INVALID_NETWORK_ID
-    ) {
-      debug("Connect to invalid candidate");
+  manager.setAutoConnect = function(config, callback) {
+    if (config == null || config.netId === WifiConstants.INVALID_NETWORK_ID) {
+      debug("Connect to invalid network");
       callback(false);
       return;
     }
-    WifiConfigManager.getNetworkConfiguration(candidate.netId, function(
-      network
-    ) {
-      network.bssid = candidate.bssid;
-      manager.connect(network, callback);
-    });
+    let network = WifiConfigManager.getNetworkConfiguration(config.netId);
+    network.bssid = config.bssid;
+    manager.connect(network, callback);
   };
 
   manager.setFirmwareRoamingConfiguration = function() {
@@ -2864,6 +2846,12 @@ function WifiWorker() {
         );
         let passpoint = WifiConfigUtils.parsePasspointElements(infoElement);
 
+        if (passpoint.isInterworking) {
+          debug(
+            "[" + result.ssid + "] passpoint info: " + JSON.stringify(passpoint)
+          );
+        }
+
         /* Skip networks with unknown or unsupported modes. */
         if (!capabilities.mode.includes(WifiConfigUtils.getMode(flags))) {
           continue;
@@ -3193,25 +3181,23 @@ WifiWorker.prototype = {
         scanResults,
         translateState(WifiManager.state),
         wifiInfo,
-        function(candidate) {
-          if (candidate == null) {
-            debug("Can not find any suitable candidates");
+        function(config) {
+          if (config == null) {
             return;
           }
-          debug("candidate = " + uneval(candidate));
+          debug("candidate configuration = " + uneval(config));
           var currentAssociationId =
             wifiInfo.wifiSsid + ":" + wifiInfo.networkId;
-          var targetAssociationId = candidate.ssid + ":" + candidate.netId;
+          var targetAssociationId = config.ssid + ":" + config.netId;
 
           if (
-            candidate.bssid == wifiInfo.bssid &&
+            config.bssid == wifiInfo.bssid &&
             WifiManager.isConnectState(WifiManager.state)
           ) {
             debug(currentAssociationId + " is already the best choice!");
           } else if (
-            candidate.netId == wifiInfo.networkId ||
-            candidate.networkKey ==
-              escape(wifiInfo.wifiSsid) + wifiInfo.security
+            config.netId == wifiInfo.networkId ||
+            config.networkKey == escape(wifiInfo.wifiSsid) + wifiInfo.security
           ) {
             // Framework initiates roaming only if firmware doesn't support.
             if (!WifiManager.isFeatureSupported(FEATURE_CONTROL_ROAMING)) {
@@ -3222,7 +3208,7 @@ WifiWorker.prototype = {
                   targetAssociationId
               );
               WifiManager.lastDriverRoamAttempt = 0;
-              WifiManager.setAutoRoam(candidate, function() {});
+              WifiManager.setAutoRoam(config, function() {});
             }
           } else {
             debug(
@@ -3231,7 +3217,7 @@ WifiWorker.prototype = {
                 " to " +
                 targetAssociationId
             );
-            WifiManager.setAutoConnect(candidate, function() {});
+            WifiManager.setAutoConnect(config, function() {});
           }
         }
       );

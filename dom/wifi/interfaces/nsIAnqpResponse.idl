@@ -323,12 +323,12 @@ interface nsIAnqpResponse : nsISupports
   /**
    * Refers to nsIWanMetrics for WAN Metrics.
    */
-  readonly attribute nsIWanMetrics wanMetrics;
+  readonly attribute nsIWanMetrics hsWanMetrics;
 
   /**
    * Refers to nsIOsuProviders for the OSU Providers List.
    */
-  readonly attribute nsIOsuProviders osuProviders;
+  readonly attribute nsIOsuProviders hsOsuProviders;
 
   /**
    * The Venue Name ANQP Element, IEEE802.11-2012 section 8.4.4.4.

@@ -6,23 +6,22 @@
 
 "use strict";
 
-/* eslint-disable no-unused-vars */
-const { AnqpCache, AnqpData } = ChromeUtils.import(
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { AnqpCache } = ChromeUtils.import(
   "resource://gre/modules/AnqpUtils.jsm"
 );
-
-const { ScanResult, WifiNetwork, WifiConfigUtils } = ChromeUtils.import(
+const { WifiConfigUtils } = ChromeUtils.import(
   "resource://gre/modules/WifiConfiguration.jsm"
 );
-const { WifiConstants, EAPConstans, PasspointMatch } = ChromeUtils.import(
+const { WifiConstants } = ChromeUtils.import(
   "resource://gre/modules/WifiConstants.jsm"
 );
-const {
-  PasspointProvider,
-  PasspointConfig,
-  HomeSp,
-  Credential,
-} = ChromeUtils.import("resource://gre/modules/PasspointConfiguration.jsm");
+const { PasspointConfigManager } = ChromeUtils.import(
+  "resource://gre/modules/PasspointConfigManager.jsm"
+);
+const { PasspointProvider, PasspointConfig } = ChromeUtils.import(
+  "resource://gre/modules/PasspointConfiguration.jsm"
+);
 
 this.EXPORTED_SYMBOLS = ["PasspointManager"];
 
@@ -31,55 +30,88 @@ var gDebug = false;
 this.PasspointManager = (function() {
   var passpointManager = {};
   var mAnqpCache = new AnqpCache();
-  var mProvidersMap = new Map();
+  var mWifiManager = null;
 
   passpointManager.setDebug = setDebug;
+  passpointManager.setWifiManager = setWifiManager;
+  passpointManager.isPasspointSupported = isPasspointSupported;
+  passpointManager.isProviderEmpty = isProviderEmpty;
   passpointManager.onANQPResponse = onANQPResponse;
   passpointManager.sweepCache = sweepCache;
+  passpointManager.matchProvider = matchProvider;
   passpointManager.hasCarrierProvider = hasCarrierProvider;
-  passpointManager.findEapMethodFromCarrier = findEapMethodFromCarrier;
-  passpointManager.getANQPElements = getANQPElements;
+  passpointManager.getAnqpElements = getAnqpElements;
+  passpointManager.addProviderFromCustomization = addProviderFromCustomization;
+  passpointManager.loadFromStore = loadFromStore;
 
   function debug(aMsg) {
     if (gDebug) {
-      console.log("-*- PasspointManager: ", aMsg);
+      dump("-*- PasspointManager: " + aMsg);
     }
   }
 
   function setDebug(aDebug) {
     gDebug = aDebug;
+
+    if (PasspointConfigManager) {
+      PasspointConfigManager.setDebug(aDebug);
+    }
   }
 
-  function onANQPResponse(anqpNetworkKey, anqpElements) {
-    if (!anqpElements || !anqpNetworkKey) {
+  function setWifiManager(manager) {
+    mWifiManager = manager;
+  }
+
+  // TODO: should consider a boolean saved in storage to turn on/off passpoint feature dynamically.
+  function isPasspointSupported() {
+    return Services.prefs.getBoolPref("dom.passpoint.supported", false);
+  }
+
+  function isProviderEmpty() {
+    return !PasspointConfigManager.providers;
+  }
+
+  function onANQPResponse(anqpNetworkKey, response) {
+    if (!anqpNetworkKey || !response) {
       // Failed to acquire result.
       return;
     }
 
-    // Add new entry to the cache.
-    mAnqpCache.addEntry(anqpNetworkKey, anqpElements);
+    // Add new entry to the cache, value is a nsIAnqpResponse object.
+    mAnqpCache.addEntry(anqpNetworkKey, response);
+
+    if (gDebug) {
+      mAnqpCache.getEntry(anqpNetworkKey).dumpAnqpElements();
+    }
   }
 
   function sweepCache() {
     mAnqpCache.sweep();
   }
 
+  /**
+   * Find all providers that contain credential to authenticate with the given AP.
+   *
+   * @param scanResult
+   *        The networks from scan result to be matched
+   * @return
+   *        Return a list of matched providers pair with status
+   */
   function matchProvider(scanResult) {
     let bestMatch = null;
     let allMatches = getAllMatchedProviders(scanResult);
 
-    if (allMatches.length() == 0) {
+    if (allMatches.length == 0) {
       return null;
     }
 
     for (let match of allMatches) {
-      if (match.matchStatus == PasspointMatch.HomeProvider) {
-        //TODO: shall we return scanresult ?
+      if (match.matchStatus == WifiConstants.PasspointMatch.HomeProvider) {
         bestMatch = match;
         break;
       }
       if (
-        match.matchStatus == PasspointMatch.RoamingProvider &&
+        match.matchStatus == WifiConstants.PasspointMatch.RoamingProvider &&
         bestMatch == null
       ) {
         bestMatch = match;
@@ -89,32 +121,58 @@ this.PasspointManager = (function() {
     if (bestMatch != null) {
       debug("Matched " + scanResult.ssid + " by " + JSON.stringify(bestMatch));
     } else {
-      debug("No servier provider found for " + scanResult.ssid);
+      debug("No service provider found for " + scanResult.ssid);
     }
-
     return bestMatch;
   }
 
+  /**
+   * Get a list of providers that can provide service through the given AP.
+   *
+   * @param scanResult
+   *        The networks from scan result to be matched
+   * @return
+   *        Return a list of matched providers pair with status
+   */
   function getAllMatchedProviders(scanResult) {
     let allMatches = [];
     let anqpNetworkKey = WifiConfigUtils.getAnqpNetworkKey(scanResult);
     let anqpData = mAnqpCache.getEntry(anqpNetworkKey);
-    if (anqpData == null) {
-      //TODO: trigger AnqpRequestManager.request.
+    if (!anqpData) {
+      let request = {
+        anqpKey: anqpNetworkKey,
+        bssid: scanResult.bssid,
+        roamingConsortiumOIs: scanResult.passpoint.anqpOICount > 0,
+        supportRelease2:
+          scanResult.passpoint.anqpDomainID > WifiConstants.PasspointVersion.R1,
+      };
+
+      if (mWifiManager) {
+        mWifiManager.requestAnqp(request, success => {
+          debug(
+            "getAllMatchedProviders, request ANQP " +
+              (success ? "success" : "failed")
+          );
+        });
+      }
       return allMatches;
     }
 
-    for (let provider of mProvidersMap.values()) {
-      //TODO: roamingConsortium needed.
-      let matchStatus = provider.match(anqpData.getElements());
+    let providers = PasspointConfigManager.providers;
+    for (let key in providers) {
+      let provider = providers[key];
+      let matchStatus = provider.match(
+        anqpData.getElements(),
+        scanResult.passpoint.roamingConsortiums
+      );
+
       if (
-        matchStatus == PasspointMatch.HomeProvider ||
-        matchStatus == PasspointMatch.RoamingProvider
+        matchStatus == WifiConstants.PasspointMatch.HomeProvider ||
+        matchStatus == WifiConstants.PasspointMatch.RoamingProvider
       ) {
         allMatches.push({ provider, matchStatus });
       }
     }
-
     return allMatches;
   }
 
@@ -123,9 +181,10 @@ this.PasspointManager = (function() {
       return false;
     }
 
-    for (let [key, provider] of mProvidersMap) {
-      let config = provider.getConfig();
-      if (config.getCredential() == null) {
+    let providers = PasspointConfigManager.providers;
+    for (let key in providers) {
+      let provider = providers[key];
+      if (!provider.passpointConfig.credential) {
         continue;
       }
       if (mccMncRealm == key) {
@@ -133,107 +192,81 @@ this.PasspointManager = (function() {
         return true;
       }
 
-      let imsiMccMnc = provider.getImsi();
-      if (imsiMccMnc) {
-        imsiMccMnc.replace("*", "");
+      let imsiMccMnc = provider.imsi;
+      if (!imsiMccMnc) {
+        continue;
       }
 
+      imsiMccMnc.replace("*", "");
       if (mccMnc == imsiMccMnc) {
         // We already got same IMSI in providers.
         return true;
       }
     }
-
     return false;
   }
 
-  function findEapMethodFromCarrier(mccMncRealm, filteredScanResults) {
-    if (filteredScanResults.length == 0) {
-      return -1;
-    }
-
-    if (!mccMncRealm) {
-      return -1;
-    }
-
-    for (let result of filteredScanResults) {
-      let anqpNetworkKey = WifiConfigUtils.getAnqpNetworkKey(result);
-      let anqpData = mAnqpCache.getEntry(anqpNetworkKey);
-
-      if (anqpData == null) {
-        //TODO: trigger AnqpRequestManager.request.
-        continue;
-      }
-
-      //TODO: anqpData.getElements().get(Constants.ANQPElementType.ANQPNAIRealm)
-      let naiRealmElement = anqpData.getElements();
-      /*
-      let eapMethod =
-        ANQPMatcher.getCarrierEapMethodFromMatchingNAIRealm(mccMncRealm, naiRealmElement);
-      if (eapMethod != -1) {
-        return eapMethod;
-      }
-      */
-    }
-    return -1;
-  }
-
-  function createEphemeralPasspointConfig(
-    friendlyName,
-    mccMnc,
-    mccMncRealm,
-    eapMethod
-  ) {
-    if (mccMncRealm == null) {
-      debug("invalid mccMncRealm");
-      return null;
-    }
-
-    if (friendlyName == null) {
-      debug("invalid friendlyName");
-      return null;
-    }
-
-    if (!WifiConfigUtils.isCarrierEapMethod(eapMethod)) {
-      debug("invalid eapMethod type");
-      return null;
-    }
-
-    let config = new PasspointConfig();
-    let homeSp = new HomeSp();
-    homeSp.setFqdn(mccMncRealm);
-    homeSp.setFriendlyName(friendlyName);
-    config.setHomeSp(homeSp);
-
-    let credential = new Credential();
-    credential.setRealm(mccMncRealm);
-    credential.setImsi(mccMnc + "*");
-    credential.setEapType(eapMethod);
-    config.setCredential(credential);
-
-    return config;
-  }
-
-  function installEphemeralPasspointConfig(config) {
-    if (config == null) {
-      debug("PasspointConfig is null");
-      return false;
-    }
-
-    let newProvider = new PasspointProvider(config);
-    mProvidersMap.set(config.getHomeSp().getFqdn(), newProvider);
-    return true;
-  }
-
-  function getANQPElements(scanResult) {
+  function getAnqpElements(scanResult) {
     let anqpNetworkKey = WifiConfigUtils.getAnqpNetworkKey(scanResult);
     let anqpData = mAnqpCache.getEntry(anqpNetworkKey);
-    if (anqpData) {
-      return anqpData.getElements();
+
+    return anqpData ? anqpData.getElements() : null;
+  }
+
+  function addProviderFromCustomization() {
+    // Store customized configuration if exists.
+    let custom = Cc["@kaiostech.com/customizationinfo;1"].getService(
+      Ci.nsICustomizationInfo
+    );
+    if (!custom) {
+      return;
     }
-    return null;
+
+    let customizedConfig = custom.getCustomizedValue(
+      0,
+      "passpointConfig",
+      null
+    );
+    if (
+      !customizedConfig ||
+      !customizedConfig.homeSp ||
+      !customizedConfig.credential
+    ) {
+      // Demo passpoint configuration
+      // customizedConfig = {
+      //   homeSp: {
+      //     fqdn : "wlan.mnc097.mcc466.3gppnetwork.org",
+      //     friendlyName : "Demo Network",
+      //     roamingConsortiumOis : []
+      //   },
+      //   credential : {
+      //     realm : "wlan.mnc097.mcc466.3gppnetwork.org",
+      //     imsi : "46697*",
+      //     eapType : 18
+      //   }
+      // };
+      debug("No valid passpoint configuration in customization resources");
+      return;
+    }
+
+    let config = new PasspointConfig(customizedConfig);
+    if (config.homeSp.fqdn) {
+      let costomizedProvider = new PasspointProvider(config);
+      PasspointConfigManager.addOrUpdateProvider(costomizedProvider, function(
+        success
+      ) {
+        if (!success) {
+          debug("Failed to write passpoint providers into store");
+        }
+      });
+    } else {
+      debug("Invalid customized passpoint configuration");
+    }
+  }
+
+  function loadFromStore() {
+    PasspointConfigManager.loadFromStore();
   }
 
   return passpointManager;
 })();
-/* eslint-enable no-unused-vars */
