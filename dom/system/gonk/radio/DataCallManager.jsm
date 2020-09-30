@@ -118,6 +118,7 @@ const NETWORK_STATE_DISCONNECTED = Ci.nsINetworkInfo.NETWORK_STATE_DISCONNECTED;
 
 const INT32_MAX = 2147483647;
 //const kPcoValueChangeObserverTopic = "pco-value-change";
+const kApnSettingKey = "ril.data.apnSettings.sim";
 
 //ref RIL.GECKO_RADIO_TECH
 const TCP_BUFFER_SIZES = [
@@ -161,27 +162,24 @@ updateDebugFlag();
 
 function DataCallManager() {
   this._connectionHandlers = [];
-  this.hasUpdateApn = false;
   let numRadioInterfaces = gMobileConnectionService.numItems;
   //let numRadioInterfaces = 1;
   for (let clientId = 0; clientId < numRadioInterfaces; clientId++) {
     this._connectionHandlers.push(new DataCallHandler(clientId));
-
-    let icc = gIccService.getIccByServiceId(clientId);
-    icc.registerListener(this);
+    // Add apn setting observer.
+    let apnSetting = kApnSettingKey + (clientId + 1);
+    this.addSettingObserver(apnSetting);
   }
 
   // Get the setting value.
   this.getSettingValue("ril.data.enabled");
   this.getSettingValue("ril.data.roaming_enabled");
   this.getSettingValue("ril.data.defaultServiceId");
-  this.getSettingValue("operatorvariant.iccId");
 
   // Add the setting observer.
   this.addSettingObserver("ril.data.enabled");
   this.addSettingObserver("ril.data.roaming_enabled");
   this.addSettingObserver("ril.data.defaultServiceId");
-  this.addSettingObserver("operatorvariant.iccId");
 
   Services.obs.addObserver(this, TOPIC_XPCOM_SHUTDOWN);
   Services.prefs.addObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this);
@@ -191,7 +189,6 @@ DataCallManager.prototype = {
   QueryInterface: ChromeUtils.generateQI([
     Ci.nsIDataCallManager,
     Ci.nsIObserver,
-    Ci.nsIIccListener,
     Ci.nsISettingsObserver,
   ]),
 
@@ -252,8 +249,6 @@ DataCallManager.prototype = {
       return;
     }
     this._dataDefaultClientId = aNewClientId;
-    //Reset the hasUpdateApn due to _dataDefaultClientId change.
-    this.hasUpdateApn = false;
 
     // This is to handle boot up stage.
     if (this._currentDataClientId == -1) {
@@ -335,118 +330,70 @@ DataCallManager.prototype = {
     }
     this._connectionHandlers = null;
     // remove the setting observer.
+
+    let numRadioInterfaces = gMobileConnectionService.numItems;
+    for (let clientId = 0; clientId < numRadioInterfaces; clientId++) {
+      let apnSetting = kApnSettingKey + (clientId + 1);
+      this.removeSettingObserver(apnSetting);
+    }
     this.removeSettingObserver("ril.data.enabled");
     this.removeSettingObserver("ril.data.roaming_enabled");
     this.removeSettingObserver("ril.data.defaultServiceId");
-    this.removeSettingObserver("operatorvariant.iccId");
     Services.prefs.removeObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this);
     Services.obs.removeObserver(this, TOPIC_XPCOM_SHUTDOWN);
   },
 
-  /**
-   * nsIIccListener interface methods.
-   */
-  notifyStkCommand() {},
-
-  notifyStkSessionEnd() {},
-
-  notifyIsimInfoChanged() {},
-
-  notifyCardStateChanged() {},
-
-  notifyIccInfoChanged() {
-    // Updated the latest icc id report by ril for each handler.
-    for (let clientId in this._connectionHandlers) {
-      let handler = this._connectionHandlers[clientId];
-      let icc = gIccService.getIccByServiceId(clientId);
-      let iccInfo = icc && icc.iccInfo;
-      handler.newIccid = iccInfo && iccInfo.iccid;
+  handleApnSettingChanged(aClientId, aApnList) {
+    let handler = this._connectionHandlers[aClientId];
+    if (handler && aApnList) {
+      // Mark it first.
+      /*if (gCustomizationInfo.getCustomizedValue(clientId, "xcap", null) != null) {
+        apnSetting.push(gCustomizationInfo.getCustomizedValue(clientId, "xcap"));
+      }*/
+      handler.updateApnSettings(aApnList);
     }
 
-    if (this._dataDefaultClientId == -1) {
-      this.debug("this._dataDefaultClientId not initial yet");
-      return;
-    }
-
-    if (this.hasUpdateApn === true) {
-      return;
-    }
-
-    let ddsHandler = this._connectionHandlers[this._dataDefaultClientId];
-
-    if (DEBUG) {
-      this.debug(
-        "newIccid=" + ddsHandler.newIccid + ", oldIccid=" + ddsHandler.oldIccid
-      );
-    }
-    if (
-      ddsHandler.newIccid &&
-      ddsHandler.oldIccid &&
-      ddsHandler.newIccid === ddsHandler.oldIccid
-    ) {
-      this.getSettingValue("ril.data.apnSettings");
-      this.hasUpdateApn = true;
+    // Once got the apn, loading the white list config if any.
+    if (aApnList && aApnList.length > 0) {
+      let whiteList = null;
+      if (gCustomizationInfo) {
+        whiteList = gCustomizationInfo.getCustomizedValue(
+          aClientId,
+          "mobileSettingWhiteList",
+          []
+        );
+      }
+      if (whiteList.length > 0) {
+        handler.mobileWhiteList = whiteList;
+        if (DEBUG) {
+          this.debug(
+            "mobileWhiteList[" +
+              aClientId +
+              "]:" +
+              JSON.stringify(handler.mobileWhiteList)
+          );
+        }
+      }
+      // Config the setting whitelist value.
+      this.setSettingValue("ril.data.mobileWhiteList", handler.mobileWhiteList);
     }
   },
 
   /* eslint-disable complexity */
   handleSettingChanged(aName, aResult) {
+    // Handle the apn setting value.
+    if (aName && aName.includes(kApnSettingKey)) {
+      if (DEBUG) {
+        this.debug(aName + "is now " + aResult);
+      }
+      // Must -1 for client id.
+      let clientId = aName.split(kApnSettingKey)[1] - 1;
+      let resultApnObj = JSON.parse(aResult);
+      this.handleApnSettingChanged(clientId, resultApnObj);
+      return;
+    }
+    // Handle other setting value.
     switch (aName) {
-      case "ril.data.apnSettings":
-        if (DEBUG) {
-          this.debug("'ril.data.apnSettings' is now " + aResult);
-        }
-        if (!aResult) {
-          break;
-        }
-        // Change the result to json format.
-        let resultApnObj = JSON.parse(aResult);
-
-        if (Array.isArray(resultApnObj)) {
-          for (let clientId in this._connectionHandlers) {
-            let handler = this._connectionHandlers[clientId];
-
-            // Loading the apn value.
-            let apnSetting = resultApnObj[clientId];
-            if (handler && apnSetting) {
-              // Mark it first.
-              /*if (gCustomizationInfo.getCustomizedValue(clientId, "xcap", null) != null) {
-                apnSetting.push(gCustomizationInfo.getCustomizedValue(clientId, "xcap"));
-              }*/
-              handler.updateApnSettings(apnSetting);
-            }
-
-            // Once got the apn, loading the white list config if any.
-            if (apnSetting && apnSetting.length > 0) {
-              let whiteList = null;
-              if (gCustomizationInfo) {
-                whiteList = gCustomizationInfo.getCustomizedValue(
-                  clientId,
-                  "mobileSettingWhiteList",
-                  []
-                );
-              }
-              if (whiteList.length > 0) {
-                handler.mobileWhiteList = whiteList;
-                if (DEBUG) {
-                  this.debug(
-                    "mobileWhiteList[" +
-                      clientId +
-                      "]:" +
-                      JSON.stringify(handler.mobileWhiteList)
-                  );
-                }
-              }
-
-              // Config the setting whitelist value.
-              this.setSettingValue(
-                "ril.data.mobileWhiteList",
-                handler.mobileWhiteList
-              );
-            }
-          }
-        }
-        break;
       case "ril.data.enabled":
         if (DEBUG) {
           this.debug("'ril.data.enabled' is now " + aResult);
@@ -503,44 +450,6 @@ DataCallManager.prototype = {
           this.debug("'ril.data.defaultServiceId' is now " + aResult);
         }
         this._handleDataClientIdChange(aResult);
-        break;
-      // We only get operatorvariant.iccId once when the device starts up now.
-      // After modem gives us the hot swap event, we will get operatorvariant.iccId
-      // as old iccid and decide whether to get apn or not.
-      case "operatorvariant.iccId":
-        aResult = aResult || 0;
-
-        // Change the result to json format.
-        let resultIccObj = JSON.parse(aResult);
-        // Updated the previous icc id store in the setting for each handler.
-        for (let clientId in this._connectionHandlers) {
-          let handler = this._connectionHandlers[clientId];
-          handler.oldIccid = Array.isArray(resultIccObj)
-            ? resultIccObj[clientId]
-            : resultIccObj;
-        }
-
-        if (this._dataDefaultClientId == -1) {
-          this.debug("this._dataDefaultClientId not initial yet");
-          break;
-        }
-
-        if (this.hasUpdateApn === true) {
-          break;
-        }
-
-        let ddsHandler = this._connectionHandlers[this._dataDefaultClientId];
-
-        let newIccid = ddsHandler.newIccid;
-        let oldIccid = ddsHandler.oldIccid;
-
-        if (DEBUG) {
-          this.debug("oldIccid=" + oldIccid + ", newIccid=" + newIccid);
-        }
-        if (oldIccid && newIccid && oldIccid === newIccid) {
-          this.getSettingValue("ril.data.apnSettings");
-          this.hasUpdateApn = true;
-        }
         break;
     }
   },
@@ -752,8 +661,6 @@ function DataCallHandler(aClientId) {
     roaming: mobileConnection.data.roaming,
   };
 
-  this.newIccid = null;
-  this.oldIccid = null;
   this.needRecoverAfterReset = false;
   this.mobileWhiteList = [];
 }
