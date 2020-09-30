@@ -41,13 +41,9 @@ XPCOM_MANIFESTS += [
     'components.conf',
 ]
 
-
-EXTRA_PP_JS_MODULES += [
-    'DataCallManager.jsm',
-]
-
 EXTRA_JS_MODULES += [
     'DataCallInterfaceService.jsm',
+    'DataCallManager.jsm',
     'RadioInterfaceLayer.jsm',
     'ril_consts.js',
     'ril_consts_debug.js',
