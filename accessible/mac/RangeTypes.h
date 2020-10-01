@@ -14,7 +14,9 @@ enum class EWhichRange {
   eRightWord,
   eLine,
   eLeftLine,
-  eRightLine
+  eRightLine,
+  eParagraph,
+  eStyle
 };
 
 }  // namespace a11y

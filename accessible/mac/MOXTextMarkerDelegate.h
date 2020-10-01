@@ -71,6 +71,12 @@
 - (id)moxRightLineTextMarkerRangeForTextMarker:(id)textMarker;
 
 // override
+- (id)moxParagraphTextMarkerRangeForTextMarker:(id)textMarker;
+
+// override
+- (id)moxStyleTextMarkerRangeForTextMarker:(id)textMarker;
+
+// override
 - (id)moxNextTextMarkerForTextMarker:(id)textMarker;
 
 // override

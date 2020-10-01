@@ -20,6 +20,7 @@
 #include "nsIFrame.h"
 
 #include "nsFocusManager.h"
+#include "nsLayoutUtils.h"
 #include "VirtualCursorService.h"
 
 using namespace mozilla::dom;

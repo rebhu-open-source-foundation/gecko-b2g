@@ -1802,17 +1802,22 @@ void MUnbox::printOpcode(GenericPrinter& out) const {
 
 MDefinition* MUnbox::foldsTo(TempAllocator& alloc) {
   if (input()->isBox()) {
-    MBox* box = input()->toBox();
+    MDefinition* unboxed = input()->toBox()->input();
 
     // Fold MUnbox(MBox(x)) => x if types match.
-    if (box->input()->type() == type()) {
-      return box->input();
+    if (unboxed->type() == type()) {
+      return unboxed;
     }
 
     // Fold MUnbox(MBox(x)) => MToDouble(x) if possible.
     if (type() == MIRType::Double &&
-        IsTypeRepresentableAsDouble(box->input()->type())) {
-      return MToDouble::New(alloc, box->input());
+        IsTypeRepresentableAsDouble(unboxed->type())) {
+      if (unboxed->isConstant()) {
+        return MConstant::New(
+            alloc, DoubleValue(unboxed->toConstant()->numberToDouble()));
+      }
+
+      return MToDouble::New(alloc, unboxed);
     }
   }
 
@@ -3585,6 +3590,36 @@ static void AssertKnownClass(TempAllocator& alloc, MInstruction* ins,
   auto* assert = MAssertClass::New(alloc, obj, clasp);
   ins->block()->insertBefore(ins, assert);
 #endif
+}
+
+MDefinition* MBoxNonStrictThis::foldsTo(TempAllocator& alloc) {
+  MDefinition* in = input();
+  if (in->isBox()) {
+    in = in->toBox()->input();
+  }
+
+  if (in->type() == MIRType::Object) {
+    return in;
+  }
+
+  return this;
+}
+
+MDefinition* MReturnFromCtor::foldsTo(TempAllocator& alloc) {
+  MDefinition* rval = getValue();
+  if (rval->isBox()) {
+    rval = rval->toBox()->input();
+  }
+
+  if (rval->type() == MIRType::Object) {
+    return rval;
+  }
+
+  if (rval->type() != MIRType::Value) {
+    return getObject();
+  }
+
+  return this;
 }
 
 MDefinition* MTypeOf::foldsTo(TempAllocator& alloc) {

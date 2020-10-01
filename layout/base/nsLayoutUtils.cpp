@@ -3197,6 +3197,12 @@ nsRect nsLayoutUtils::TransformFrameRectToAncestor(
     Maybe<Matrix4x4Flagged>* aMatrixCache /* = nullptr */,
     bool aStopAtStackingContextAndDisplayPortAndOOFFrame /* = false */,
     nsIFrame** aOutAncestor /* = nullptr */) {
+  // FIXME(emilio, bug 1668156): The pres context check shouldn't be needed, it
+  // should hold regardless, but there are some existing bogus callers...
+  MOZ_ASSERT(aAncestor.mFrame->PresContext() != aFrame->PresContext() ||
+                 IsAncestorFrameCrossDoc(aAncestor.mFrame, aFrame),
+             "Fix the caller");
+
   SVGTextFrame* text = GetContainingSVGTextFrame(aFrame);
 
   float srcAppUnitsPerDevPixel = aFrame->PresContext()->AppUnitsPerDevPixel();
@@ -4563,12 +4569,16 @@ nsIFrame* nsLayoutUtils::GetFirstNonAnonymousFrame(nsIFrame* aFrame) {
 
 struct BoxToRect : public nsLayoutUtils::BoxCallback {
   const nsIFrame* mRelativeTo;
-  nsLayoutUtils::RectCallback* mCallback;
+  RectCallback* mCallback;
   uint32_t mFlags;
+  bool mRelativeToIsRoot;
 
-  BoxToRect(const nsIFrame* aRelativeTo, nsLayoutUtils::RectCallback* aCallback,
+  BoxToRect(const nsIFrame* aRelativeTo, RectCallback* aCallback,
             uint32_t aFlags)
-      : mRelativeTo(aRelativeTo), mCallback(aCallback), mFlags(aFlags) {}
+      : mRelativeTo(aRelativeTo),
+        mCallback(aCallback),
+        mFlags(aFlags),
+        mRelativeToIsRoot(!aRelativeTo->GetParent()) {}
 
   virtual void AddBox(nsIFrame* aFrame) override {
     nsRect r;
@@ -4590,7 +4600,11 @@ struct BoxToRect : public nsLayoutUtils::BoxCallback {
       }
     }
     if (mFlags & nsLayoutUtils::RECTS_ACCOUNT_FOR_TRANSFORMS) {
-      r = nsLayoutUtils::TransformFrameRectToAncestor(outer, r, mRelativeTo);
+      if (mRelativeToIsRoot) {
+        r = nsLayoutUtils::TransformFrameRectToAncestor(outer, r, mRelativeTo);
+      } else {
+        nsLayoutUtils::TransformRect(outer, mRelativeTo, r);
+      }
     } else {
       r += outer->GetOffsetTo(mRelativeTo);
     }
@@ -4601,8 +4615,7 @@ struct BoxToRect : public nsLayoutUtils::BoxCallback {
 struct MOZ_RAII BoxToRectAndText : public BoxToRect {
   Sequence<nsString>* mTextList;
 
-  BoxToRectAndText(const nsIFrame* aRelativeTo,
-                   nsLayoutUtils::RectCallback* aCallback,
+  BoxToRectAndText(const nsIFrame* aRelativeTo, RectCallback* aCallback,
                    Sequence<nsString>* aTextList, uint32_t aFlags)
       : BoxToRect(aRelativeTo, aCallback, aFlags), mTextList(aTextList) {}
 
@@ -5776,7 +5789,7 @@ nscoord nsLayoutUtils::IntrinsicForAxis(
         !(styleMinBSize.IsAuto() || (styleMinBSize.ConvertsToLength() &&
                                      styleMinBSize.ToLength() == 0)) ||
         !styleMaxBSize.IsNone()) {
-      if (AspectRatio ratio = aFrame->GetIntrinsicRatio()) {
+      if (AspectRatio ratio = aFrame->GetAspectRatio()) {
         // Convert 'ratio' if necessary, so that it's storing ISize/BSize:
         if (!horizontalAxis) {
           ratio = ratio.Inverted();
@@ -7743,10 +7756,9 @@ bool nsLayoutUtils::IsInPositionFixedSubtree(const nsIFrame* aFrame) {
   return false;
 }
 
-nsLayoutUtils::SurfaceFromElementResult
-nsLayoutUtils::SurfaceFromOffscreenCanvas(OffscreenCanvas* aOffscreenCanvas,
-                                          uint32_t aSurfaceFlags,
-                                          RefPtr<DrawTarget>& aTarget) {
+SurfaceFromElementResult nsLayoutUtils::SurfaceFromOffscreenCanvas(
+    OffscreenCanvas* aOffscreenCanvas, uint32_t aSurfaceFlags,
+    RefPtr<DrawTarget>& aTarget) {
   SurfaceFromElementResult result;
 
   IntSize size = aOffscreenCanvas->GetWidthHeight();
@@ -7784,7 +7796,7 @@ nsLayoutUtils::SurfaceFromOffscreenCanvas(OffscreenCanvas* aOffscreenCanvas,
   return result;
 }
 
-nsLayoutUtils::SurfaceFromElementResult nsLayoutUtils::SurfaceFromElement(
+SurfaceFromElementResult nsLayoutUtils::SurfaceFromElement(
     nsIImageLoadingContent* aElement, uint32_t aSurfaceFlags,
     RefPtr<DrawTarget>& aTarget) {
   SurfaceFromElementResult result;
@@ -7923,14 +7935,14 @@ nsLayoutUtils::SurfaceFromElementResult nsLayoutUtils::SurfaceFromElement(
   return result;
 }
 
-nsLayoutUtils::SurfaceFromElementResult nsLayoutUtils::SurfaceFromElement(
+SurfaceFromElementResult nsLayoutUtils::SurfaceFromElement(
     HTMLImageElement* aElement, uint32_t aSurfaceFlags,
     RefPtr<DrawTarget>& aTarget) {
   return SurfaceFromElement(static_cast<nsIImageLoadingContent*>(aElement),
                             aSurfaceFlags, aTarget);
 }
 
-nsLayoutUtils::SurfaceFromElementResult nsLayoutUtils::SurfaceFromElement(
+SurfaceFromElementResult nsLayoutUtils::SurfaceFromElement(
     HTMLCanvasElement* aElement, uint32_t aSurfaceFlags,
     RefPtr<DrawTarget>& aTarget) {
   SurfaceFromElementResult result;
@@ -7980,7 +7992,7 @@ nsLayoutUtils::SurfaceFromElementResult nsLayoutUtils::SurfaceFromElement(
   return result;
 }
 
-nsLayoutUtils::SurfaceFromElementResult nsLayoutUtils::SurfaceFromElement(
+SurfaceFromElementResult nsLayoutUtils::SurfaceFromElement(
     HTMLVideoElement* aElement, uint32_t aSurfaceFlags,
     RefPtr<DrawTarget>& aTarget) {
   SurfaceFromElementResult result;
@@ -8030,7 +8042,7 @@ nsLayoutUtils::SurfaceFromElementResult nsLayoutUtils::SurfaceFromElement(
   return result;
 }
 
-nsLayoutUtils::SurfaceFromElementResult nsLayoutUtils::SurfaceFromElement(
+SurfaceFromElementResult nsLayoutUtils::SurfaceFromElement(
     dom::Element* aElement, uint32_t aSurfaceFlags,
     RefPtr<DrawTarget>& aTarget) {
   // If it's a <canvas>, we may be able to just grab its internal surface
@@ -9013,7 +9025,7 @@ bool nsLayoutUtils::IsAPZTestLoggingEnabled() {
 ////////////////////////////////////////
 // SurfaceFromElementResult
 
-nsLayoutUtils::SurfaceFromElementResult::SurfaceFromElementResult()
+SurfaceFromElementResult::SurfaceFromElementResult()
     // Use safe default values here
     : mHadCrossOriginRedirects(false),
       mIsWriteOnly(true),
@@ -9023,7 +9035,7 @@ nsLayoutUtils::SurfaceFromElementResult::SurfaceFromElementResult()
       mAlphaType(gfxAlphaType::Opaque) {}
 
 const RefPtr<mozilla::gfx::SourceSurface>&
-nsLayoutUtils::SurfaceFromElementResult::GetSourceSurface() {
+SurfaceFromElementResult::GetSourceSurface() {
   if (!mSourceSurface && mLayersImage) {
     mSourceSurface = mLayersImage->GetAsSourceSurface();
   }

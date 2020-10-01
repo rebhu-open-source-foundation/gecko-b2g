@@ -88,6 +88,8 @@ Check out the :ref:`linting` and :ref:`Static analysis` tools:
    $ ./mach lint
    $ ./mach static-analysis
 
+.. _mach_and_mozconfigs:
+
 mach and mozconfigs
 ~~~~~~~~~~~~~~~~~~~
 
@@ -119,6 +121,7 @@ Here are some examples:
    $ cd objdir-firefox
    $ mach build
 
+.. _Adding_mach_to_your_shell:
 
 Adding mach to your shell's search path
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -378,7 +381,7 @@ are loaded, mach looks for specific signatures to detect mach commands.
 Currently, this is implemented through Python decorators. Here is a
 minimal mach command module:
 
-.. code:: brush:
+.. code:: python
 
    from __future__ import print_function, unicode_literals
 

@@ -4511,24 +4511,6 @@ update:
     operating_systems:
       - windows
 
-  fix_permissions_attempted:
-    bug_numbers:
-      - 1577317
-      - 1615065
-    description: Set when we attempt to fix update directory permissions.
-    expires: "84"
-    kind: boolean
-    notification_emails:
-      - application-update-telemetry-alerts@mozilla.com
-      - agashlin@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-    record_in_processes:
-      - main
-    operating_systems:
-      - windows
-
 # The following section contains search counters.
 browser.search:
   with_ads:
@@ -5446,6 +5428,23 @@ urlbar.searchmode:
     description: >
       A keyed uint recording how many times the user entered a particular search
       mode after selecing the Search Tabs menu item in the Tab Overflow menu.
+    expires: never
+    kind: uint
+    keyed: true
+    notification_emails:
+      - fx-search@mozilla.com
+      - tbrooks@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+  tabtosearch:
+    bug_numbers:
+      - 1647923
+    description: >
+      A keyed uint recording how many times the user entered a particular search
+      mode after selecting a tab-to-search result.
     expires: never
     kind: uint
     keyed: true

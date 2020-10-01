@@ -8483,6 +8483,12 @@
   value: true
   mirror: always
 
+# Whether to use sni encryption.
+- name: network.security.esni.enabled
+  type: bool
+  value: false
+  mirror: always
+
 # Whether to cache SSL resumption tokens in necko.
 - name: network.ssl_tokens_cache_enabled
   type: RelaxedAtomicBool
@@ -8698,7 +8704,7 @@
   value: false
   mirror: always
 
-# Whether to use HTTPS RR as AltSvc
+  # Whether to use HTTPS RR as AltSvc
 - name: network.dns.use_https_rr_as_altsvc
   type: RelaxedAtomicBool
   value: false
@@ -8708,12 +8714,6 @@
 - name: network.connectivity-service.nat64-check
   type: bool
   value: true
-  mirror: always
-
-# Whether to enable echconfig.
-- name: network.dns.echconfig.enabled
-  type: RelaxedAtomicBool
-  value: false
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -9808,7 +9808,7 @@
 
 - name: ui.touch.radius.enabled
   type: bool
-  value: @IS_ANDROID@
+  value: false
   mirror: always
 
 - name: ui.touch.radius.topmm
@@ -10069,7 +10069,7 @@
 
 - name: webgl.enable-surface-texture
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 - name: webgl.enable-ahardwarebuffer

@@ -31,6 +31,26 @@ class PrintHelper {
     return testPath + "simplifyArticleSample.html";
   }
 
+  static createMockPaper(paperProperties = {}) {
+    return Object.assign(
+      {
+        id: "regular",
+        name: "Regular Size",
+        width: 612,
+        height: 792,
+        unwriteableMargin: {
+          marginTop: 0.1,
+          marginBottom: 0.1,
+          marginLeft: 0.1,
+          marginRight: 0.1,
+          QueryInterface: ChromeUtils.generateQI([Ci.nsIPaperMargin]),
+        },
+        QueryInterface: ChromeUtils.generateQI([Ci.nsIPaper]),
+      },
+      paperProperties
+    );
+  }
+
   constructor(sourceBrowser) {
     this.sourceBrowser = sourceBrowser;
   }
@@ -45,6 +65,22 @@ class PrintHelper {
     await this.win._initialized;
   }
 
+  beforeInit(initFn) {
+    // Run a function when the print.html document is created,
+    // but before its init is called from the domcontentloaded handler
+    TestUtils.topicObserved("document-element-inserted", doc => {
+      return (
+        doc.nodePrincipal.isSystemPrincipal &&
+        doc.contentType == "text/html" &&
+        doc.URL.startsWith("chrome://global/content/print.html")
+      );
+    }).then(([doc]) => {
+      doc.addEventListener("DOMContentLoaded", () => {
+        initFn(doc.ownerGlobal);
+      });
+    });
+  }
+
   async withClosingFn(closeFn) {
     let { dialog } = this;
     await closeFn();
@@ -57,7 +93,15 @@ class PrintHelper {
     await dialog._closingPromise;
   }
 
+  resetSettings() {
+    this.win.PrintEventHandler.settings = this.win.PrintEventHandler.defaultSettings;
+    this.win.PrintEventHandler.saveSettingsToPrefs(
+      this.win.PrintEventHandler.kInitSaveAll
+    );
+  }
+
   async closeDialog() {
+    this.resetSettings();
     await this.withClosingFn(() => this.dialog.close());
   }
 
@@ -95,6 +139,40 @@ class PrintHelper {
     // Mock PrintEventHandler with our Promises.
     this.win.PrintEventHandler._showPrintDialog = () => showSystemDialogPromise;
     this.win.PrintEventHandler._doPrint = () => printPromise;
+  }
+
+  addMockPrinter(name = "Mock Printer") {
+    let PSSVC = Cc["@mozilla.org/gfx/printsettings-service;1"].getService(
+      Ci.nsIPrintSettingsService
+    );
+    let defaultSettings = {
+      printerName: name,
+      toFileName: "",
+      outputFormat: Ci.nsIPrintSettings.kOutputFormatNative,
+      printToFile: false,
+    };
+    let printer = {
+      name,
+      supportsColor: Promise.resolve(true),
+      supportsMonochrome: Promise.resolve(true),
+      paperList: Promise.resolve([]),
+      createDefaultSettings: name => {
+        let settings = PSSVC.newPrintSettings;
+        for (let [key, value] of Object.entries(defaultSettings)) {
+          settings[key] = value;
+        }
+        return settings;
+      },
+      QueryInterface: ChromeUtils.generateQI([Ci.nsIPrinter]),
+    };
+
+    if (!this._mockPrinters) {
+      this._mockPrinters = [printer];
+      this.beforeInit(win => (win._mockPrinters = this._mockPrinters));
+    } else {
+      this._mockPrinters.push(printer);
+    }
+    return printer;
   }
 
   get _tabDialogBox() {
@@ -142,7 +220,15 @@ class PrintHelper {
     await BrowserTestUtils.waitForEvent(this.doc, "preview-updated");
   }
 
-  click(el) {
+  async waitForSettingsEvent() {
+    await BrowserTestUtils.waitForEvent(this.doc, "print-settings");
+  }
+
+  click(el, { scroll = true } = {}) {
+    if (scroll) {
+      el.scrollIntoView();
+    }
+    ok(BrowserTestUtils.is_visible(el), "Element must be visible to click");
     EventUtils.synthesizeMouseAtCenter(el, {}, this.win);
   }
 
@@ -171,6 +257,32 @@ class PrintHelper {
 
   get viewSettings() {
     return this.win.PrintEventHandler.viewSettings;
+  }
+
+  assertSettingsMatch(expected) {
+    let { settings } = this;
+    for (let [setting, value] of Object.entries(expected)) {
+      is(settings[setting], value, `${setting} matches`);
+    }
+  }
+
+  async assertSettingsChanged(from, to, changeFn) {
+    is(
+      Object.keys(from).length,
+      Object.keys(to).length,
+      "Got the same number of settings to check"
+    );
+    ok(
+      Object.keys(from).every(s => s in to),
+      "Checking the same setting names"
+    );
+    this.assertSettingsMatch(from);
+    await changeFn();
+    this.assertSettingsMatch(to);
+  }
+
+  async assertSettingsNotChanged(settings, changeFn) {
+    await this.assertSettingsChanged(settings, settings, changeFn);
   }
 
   awaitAnimationFrame() {
