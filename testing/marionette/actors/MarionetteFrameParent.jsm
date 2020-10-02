@@ -68,16 +68,22 @@ class MarionetteFrameParent extends JSWindowActorParent {
   // Proxying methods for WebDriver commands
   // TODO: Maybe using a proxy class instead similar to proxy.js
 
-  clearElement(webEl) {
-    return this.sendQuery("MarionetteFrameParent:clearElement", {
-      webEl,
+  clearElement(elem) {
+    return this.sendQuery("MarionetteFrameParent:clearElement", { elem });
+  }
+
+  clickElement(elem, capabilities) {
+    return this.sendQuery("MarionetteFrameParent:clickElement", {
+      elem,
+      capabilities,
     });
   }
 
-  clickElement(webEl, capabilities) {
-    return this.sendQuery("MarionetteFrameParent:clickElement", {
-      webEl,
-      capabilities,
+  async executeScript(script, args, opts) {
+    return this.sendQuery("MarionetteFrameParent:executeScript", {
+      script,
+      args,
+      opts,
     });
   }
 
@@ -105,44 +111,38 @@ class MarionetteFrameParent extends JSWindowActorParent {
     return this.sendQuery("MarionetteFrameParent:getCurrentUrl");
   }
 
-  async getElementAttribute(webEl, name) {
+  async getElementAttribute(elem, name) {
     return this.sendQuery("MarionetteFrameParent:getElementAttribute", {
+      elem,
       name,
-      webEl,
     });
   }
 
-  async getElementProperty(webEl, name) {
+  async getElementProperty(elem, name) {
     return this.sendQuery("MarionetteFrameParent:getElementProperty", {
+      elem,
       name,
-      webEl,
     });
   }
 
-  async getElementRect(webEl) {
-    return this.sendQuery("MarionetteFrameParent:getElementRect", {
-      webEl,
-    });
+  async getElementRect(elem) {
+    return this.sendQuery("MarionetteFrameParent:getElementRect", { elem });
   }
 
-  async getElementTagName(webEl) {
-    return this.sendQuery("MarionetteFrameParent:getElementTagName", {
-      webEl,
-    });
+  async getElementTagName(elem) {
+    return this.sendQuery("MarionetteFrameParent:getElementTagName", { elem });
   }
 
-  async getElementText(webEl) {
-    return this.sendQuery("MarionetteFrameParent:getElementText", {
-      webEl,
-    });
+  async getElementText(elem) {
+    return this.sendQuery("MarionetteFrameParent:getElementText", { elem });
   }
 
-  async getElementValueOfCssProperty(webEl, name) {
+  async getElementValueOfCssProperty(elem, name) {
     return this.sendQuery(
       "MarionetteFrameParent:getElementValueOfCssProperty",
       {
+        elem,
         name,
-        webEl,
       }
     );
   }
@@ -151,32 +151,32 @@ class MarionetteFrameParent extends JSWindowActorParent {
     return this.sendQuery("MarionetteFrameParent:getPageSource");
   }
 
-  async isElementDisplayed(webEl, capabilities) {
+  async isElementDisplayed(elem, capabilities) {
     return this.sendQuery("MarionetteFrameParent:isElementDisplayed", {
-      webEl,
       capabilities,
+      elem,
     });
   }
 
-  async isElementEnabled(webEl, capabilities) {
+  async isElementEnabled(elem, capabilities) {
     return this.sendQuery("MarionetteFrameParent:isElementEnabled", {
-      webEl,
       capabilities,
+      elem,
     });
   }
 
-  async isElementSelected(webEl, capabilities) {
+  async isElementSelected(elem, capabilities) {
     return this.sendQuery("MarionetteFrameParent:isElementSelected", {
-      webEl,
       capabilities,
+      elem,
     });
   }
 
-  async sendKeysToElement(webEl, text, capabilities) {
+  async sendKeysToElement(elem, text, capabilities) {
     return this.sendQuery("MarionetteFrameParent:sendKeysToElement", {
-      webEl,
-      text,
       capabilities,
+      elem,
+      text,
     });
   }
 

@@ -25,6 +25,7 @@ use std::{
     ptr::null_mut,
     slice,
     sync::atomic::{AtomicBool, Ordering},
+    sync::Arc,
 };
 
 use ::libc;
@@ -32,7 +33,7 @@ use libc::{fclose, fopen, fread, free, malloc, memset, FILE};
 
 use crate::{
     double_to_s15Fixed16Number,
-    transform::{get_rgb_colorants, precache_output, precache_release, set_rgb_colorants},
+    transform::{get_rgb_colorants, precache_output, set_rgb_colorants},
 };
 use crate::{
     matrix::matrix, qcms_intent, s15Fixed16Number, s15Fixed16Number_to_float,
@@ -75,7 +76,7 @@ pub const XYZ_SIGNATURE: u32 = 0x58595A20;
 pub const LAB_SIGNATURE: u32 = 0x4C616220;
 
 #[repr(C)]
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct qcms_profile {
     pub class_type: u32,
     pub color_space: u32,
@@ -93,25 +94,9 @@ pub struct qcms_profile {
     pub mAB: Option<Box<lutmABType>>,
     pub mBA: Option<Box<lutmABType>>,
     pub chromaticAdaption: matrix,
-    pub output_table_r: *mut precache_output,
-    pub output_table_g: *mut precache_output,
-    pub output_table_b: *mut precache_output,
-}
-
-impl Drop for qcms_profile {
-    fn drop(&mut self) {
-        unsafe {
-            if !self.output_table_r.is_null() {
-                precache_release(self.output_table_r);
-            }
-            if !self.output_table_g.is_null() {
-                precache_release(self.output_table_g);
-            }
-            if !self.output_table_b.is_null() {
-                precache_release(self.output_table_b);
-            }
-        }
-    }
+    pub output_table_r: Option<Arc<precache_output>>,
+    pub output_table_g: Option<Arc<precache_output>>,
+    pub output_table_b: Option<Arc<precache_output>>,
 }
 
 #[repr(C)]
@@ -170,7 +155,7 @@ pub struct lutType {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct XYZNumber {
     pub X: s15Fixed16Number,
     pub Y: s15Fixed16Number,
@@ -1021,8 +1006,8 @@ fn read_rendering_intent(mut profile: &mut qcms_profile, mut src: &mut mem_sourc
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn qcms_profile_create() -> Box<qcms_profile> {
-    Box::new(std::mem::zeroed())
+pub extern "C" fn qcms_profile_create() -> Box<qcms_profile> {
+    Box::new(qcms_profile::default())
 }
 /* build sRGB gamma table */
 /* based on cmsBuildParametricGamma() */
@@ -1271,29 +1256,37 @@ pub unsafe extern "C" fn qcms_profile_from_memory(
     mut mem: *const libc::c_void,
     mut size: usize,
 ) -> *mut qcms_profile {
+    let mem = slice::from_raw_parts(mem as *const libc::c_uchar, size);
+    let profile = profile_from_slice(mem);
+    match profile {
+        Some(profile) => Box::into_raw(profile),
+        None => null_mut(),
+    }
+}
+
+pub fn profile_from_slice(mem: &[u8]) -> Option<Box<qcms_profile>> {
     let mut length: u32;
     let mut source: mem_source = mem_source {
-        buf: &[],
+        buf: mem,
         valid: false,
         invalid_reason: None,
     };
     let mut index;
-    source.buf = slice::from_raw_parts(mem as *const libc::c_uchar, size);
     source.valid = true;
     let mut src: &mut mem_source = &mut source;
-    if size < 4 {
-        return null_mut();
+    if mem.len() < 4 {
+        return None;
     }
     length = read_u32(src, 0);
-    if length as usize <= size {
+    if length as usize <= mem.len() {
         // shrink the area that we can read if appropriate
         (*src).buf = &(*src).buf[0..length as usize];
     } else {
-        return null_mut();
+        return None;
     }
     /* ensure that the profile size is sane so it's easier to reason about */
     if src.buf.len() <= 64 || src.buf.len() >= MAX_PROFILE_SIZE {
-        return null_mut();
+        return None;
     }
     let mut profile = qcms_profile_create();
 
@@ -1305,12 +1298,12 @@ pub unsafe extern "C" fn qcms_profile_from_memory(
     read_pcs(&mut profile, src);
     //TODO read rest of profile stuff
     if !(*src).valid {
-        return null_mut();
+        return None;
     }
 
     index = read_tag_table(&mut profile, src);
     if !(*src).valid || index.is_empty() {
-        return null_mut();
+        return None;
     }
 
     if find_tag(&index, TAG_CHAD).is_some() {
@@ -1348,7 +1341,7 @@ pub unsafe extern "C" fn qcms_profile_from_memory(
                 (*profile).blueColorant = read_tag_XYZType(src, &index, TAG_bXYZ)
             }
             if !(*src).valid {
-                return null_mut();
+                return None;
             }
 
             if find_tag(&index, TAG_rTRC).is_some() || !qcms_supports_iccv4.load(Ordering::Relaxed)
@@ -1360,27 +1353,26 @@ pub unsafe extern "C" fn qcms_profile_from_memory(
                     || (*profile).blueTRC.is_none()
                     || (*profile).greenTRC.is_none()
                 {
-                    return null_mut();
+                    return None;
                 }
             }
         } else if (*profile).color_space == GRAY_SIGNATURE {
             (*profile).grayTRC = read_tag_curveType(src, &index, TAG_kTRC);
             if (*profile).grayTRC.is_none() {
-                return null_mut();
+                return None;
             }
         } else {
             debug_assert!(false, "read_color_space protects against entering here");
-            return null_mut();
+            return None;
         }
     } else {
-        return null_mut();
+        return None;
     }
 
     if !(*src).valid {
-        return null_mut();
+        return None;
     }
-
-    Box::into_raw(profile)
+    Some(profile)
 }
 #[no_mangle]
 pub unsafe extern "C" fn qcms_profile_get_rendering_intent(

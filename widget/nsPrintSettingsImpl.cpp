@@ -11,6 +11,8 @@
 #include "nsIPrintSession.h"
 #include "mozilla/RefPtr.h"
 
+#include "prenv.h"
+
 #define DEFAULT_MARGIN_WIDTH 0.5
 
 NS_IMPL_ISUPPORTS(nsPrintSettings, nsIPrintSettings)
@@ -29,6 +31,7 @@ nsPrintSettings::nsPrintSettings()
       mShrinkToFit(true),
       mShowPrintProgress(true),
       mShowMarginGuides(false),
+      mHonorPageRuleMargins(true),
       mPrintPageDelay(50),
       mPaperWidth(8.5),
       mPaperHeight(11.0),
@@ -596,12 +599,22 @@ NS_IMETHODIMP nsPrintSettings::SetShowPrintProgress(bool aShowPrintProgress) {
 }
 
 NS_IMETHODIMP nsPrintSettings::GetShowMarginGuides(bool* aShowMarginGuides) {
-  NS_ENSURE_ARG_POINTER(aShowMarginGuides);
   *aShowMarginGuides = mShowMarginGuides;
   return NS_OK;
 }
+
 NS_IMETHODIMP nsPrintSettings::SetShowMarginGuides(bool aShowMarginGuides) {
   mShowMarginGuides = aShowMarginGuides;
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsPrintSettings::GetHonorPageRuleMargins(bool* aResult) {
+  *aResult = mHonorPageRuleMargins;
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsPrintSettings::SetHonorPageRuleMargins(bool aHonor) {
+  mHonorPageRuleMargins = aHonor;
   return NS_OK;
 }
 

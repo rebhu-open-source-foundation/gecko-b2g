@@ -4359,7 +4359,7 @@ static bool EvalInWorker(JSContext* cx, unsigned argc, Value* vp) {
   {
     AutoEnterOOMUnsafeRegion oomUnsafe;
     thread = js_new<Thread>(
-        Thread::Options().setStackSize(gMaxStackSize + 256 * 1024));
+        Thread::Options().setStackSize(gMaxStackSize + 512 * 1024));
     if (!thread || !thread->init(WorkerMain, input)) {
       oomUnsafe.crash("EvalInWorker");
     }
@@ -4777,7 +4777,12 @@ static bool SetJitCompilerOption(JSContext* cx, unsigned argc, Value* vp) {
   // Similarly, don't allow enabling or disabling Warp at runtime. Bytecode and
   // VM data structures depend on whether TI is enabled/disabled.
   if (opt == JSJITCOMPILER_WARP_ENABLE) {
-    if (bool(number) != jit::JitOptions.warpBuilder) {
+    uint32_t warpEnabled;
+    if (!JS_GetGlobalJitCompilerOption(cx, JSJITCOMPILER_WARP_ENABLE,
+                                       &warpEnabled)) {
+      return false;
+    }
+    if (bool(number) != warpEnabled) {
       JS_ReportErrorASCII(
           cx, "Enabling or disabling Warp at runtime is not supported.");
       return false;
@@ -4809,13 +4814,18 @@ static bool SetJitCompilerOption(JSContext* cx, unsigned argc, Value* vp) {
        opt == JSJITCOMPILER_WASM_JIT_ION ||
        opt == JSJITCOMPILER_WASM_JIT_CRANELIFT) &&
       number == 0) {
-    uint32_t baseline, ion, cranelift;
+    uint32_t baseline, ion;
     MOZ_ALWAYS_TRUE(JS_GetGlobalJitCompilerOption(
         cx, JSJITCOMPILER_WASM_JIT_BASELINE, &baseline));
     MOZ_ALWAYS_TRUE(
         JS_GetGlobalJitCompilerOption(cx, JSJITCOMPILER_WASM_JIT_ION, &ion));
+#ifdef ENABLE_WASM_CRANELIFT
+    uint32_t cranelift;
     MOZ_ALWAYS_TRUE(JS_GetGlobalJitCompilerOption(
         cx, JSJITCOMPILER_WASM_JIT_CRANELIFT, &cranelift));
+#else
+    uint32_t cranelift = 0;
+#endif
     if (baseline + ion + cranelift == 1) {
       if ((opt == JSJITCOMPILER_WASM_JIT_BASELINE && baseline) ||
           (opt == JSJITCOMPILER_WASM_JIT_ION && ion) ||
@@ -10412,10 +10422,7 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
   // First check some options that set default warm-up thresholds, so these
   // thresholds can be overridden below by --ion-eager and other flags.
   if (op.getBoolOption("no-warp")) {
-    MOZ_ASSERT(!jit::JitOptions.warpBuilder,
-               "WarpBuilder is disabled by default");
-  } else if (op.getBoolOption("warp")) {
-    jit::JitOptions.setWarpEnabled(true);
+    jit::JitOptions.setWarpEnabled(false);
   }
   if (op.getBoolOption("fast-warmup")) {
     jit::JitOptions.setFastWarmUp();
@@ -11182,8 +11189,8 @@ int main(int argc, char** argv, char** envp) {
       !op.addBoolOption('\0', "no-ion", "Disable IonMonkey") ||
       !op.addBoolOption('\0', "no-ion-for-main-context",
                         "Disable IonMonkey for the main context only") ||
-      !op.addBoolOption('\0', "warp", "Use WarpBuilder as MIR builder") ||
-      !op.addBoolOption('\0', "no-warp", "Disable WarpBuilder (default)") ||
+      !op.addBoolOption('\0', "warp", "Enable WarpBuilder (default)") ||
+      !op.addBoolOption('\0', "no-warp", "Disable WarpBuilder") ||
       !op.addIntOption('\0', "inlining-entry-threshold", "COUNT",
                        "The minimum stub entry count before trial-inlining a"
                        " call",

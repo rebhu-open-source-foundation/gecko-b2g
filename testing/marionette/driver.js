@@ -1132,28 +1132,25 @@ GeckoDriver.prototype.execute_ = async function(
     async,
   };
 
+  if (MarionettePrefs.useActors) {
+    return this.getActor().executeScript(script, args, opts);
+  }
+
   let res, els;
 
   switch (this.context) {
-    case Context.Content:
-      script = this.importedScripts.concat(script);
-      // evaluate in content with lasting side-effects
-      if (!sandboxName) {
-        res = await this.listener.execute(script, args, opts);
-
-        // evaluate in content with sandbox
-      } else {
-        res = await this.listener.executeInSandbox(script, args, opts);
-      }
-
-      break;
-
     case Context.Chrome:
       let sb = this.sandboxes.get(sandboxName, newSandbox);
       script = this.importedScripts.concat(script);
       let wargs = evaluate.fromJSON(args, this.curBrowser.seenEls, sb.window);
       res = await evaluate.sandbox(sb, script, wargs, opts);
       els = this.curBrowser.seenEls;
+      break;
+
+    case Context.Content:
+      // evaluate in content with lasting side-effects
+      opts.useSandbox = !!sandboxName;
+      res = await this.listener.executeScript(script, args, opts);
       break;
 
     default:
@@ -1623,15 +1620,11 @@ GeckoDriver.prototype.switchToSystemWindow = async function() {
  *     Only for B2G, URL origin of the B2G app window to switch to.
  * @param {boolean=} focus
  *     A boolean value which determines whether to focus
-<<<<<<< HEAD
  *     the window. Defaults to true. B2G forces to be false to app window
  *     controlled by system app or user behaviors.
-=======
- *     the window. Defaults to true.
  *
  * @throws {NoSuchWindowError}
  *     Top-level browsing context has been discarded.
->>>>>>> upstream/master
  */
 GeckoDriver.prototype.switchToWindow = async function(cmd) {
   let focus = true;
