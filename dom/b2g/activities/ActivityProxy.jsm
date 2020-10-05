@@ -16,7 +16,14 @@ function debug(aMsg) {
  * back to WebActivity.
  */
 
-function ActivityProxy() {}
+function ActivityProxy() {
+  debug(`consturctor`);
+  // NOTE: I think it's okay not to remove MessageListeners because this
+  // ActivityProxy runs as a singleton service per process.
+  Services.cpmm.addMessageListener("Activity:FireSuccess", this);
+  Services.cpmm.addMessageListener("Activity:FireError", this);
+  Services.cpmm.addMessageListener("Activity:FireCancel", this);
+}
 
 ActivityProxy.prototype = {
   activities: new Map(),
@@ -55,9 +62,6 @@ ActivityProxy.prototype = {
     let activity = this.activities.get(id);
     activity.callback = callback;
 
-    Services.cpmm.addMessageListener("Activity:FireSuccess", this);
-    Services.cpmm.addMessageListener("Activity:FireError", this);
-    Services.cpmm.addMessageListener("Activity:FireCancel", this);
     Services.cpmm.sendAsyncMessage("Activity:Start", {
       id,
       options: activity.options,
@@ -97,9 +101,7 @@ ActivityProxy.prototype = {
         );
         break;
     }
-    Services.cpmm.removeMessageListener("Activity:FireSuccess", this);
-    Services.cpmm.removeMessageListener("Activity:FireError", this);
-    Services.cpmm.removeMessageListener("Activity:FireCancel", this);
+
     this.activities.delete(msg.id);
   },
 
