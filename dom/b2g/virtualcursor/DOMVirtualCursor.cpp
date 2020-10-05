@@ -114,6 +114,19 @@ bool DOMVirtualCursor::HasPermission(nsPIDOMWindowInner* aWindow) const {
   nsCOMPtr<nsIPrincipal> principal = document->NodePrincipal();
   nsAutoCString origin;
   Unused << principal->GetOrigin(origin);
+  if (nsContentUtils::IsCallerChrome()) {
+    MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
+            ("DOMVirtualCursor::HasPermission grant chrome caller, origin=%s",
+             origin.get()));
+    return true;
+  }
+  if (principal->IsSystemPrincipal()) {
+    MOZ_LOG(
+        gVirtualCursorLog, LogLevel::Debug,
+        ("DOMVirtualCursor::HasPermission grant system principal, origin=%s",
+         origin.get()));
+    return true;
+  }
   MOZ_LOG(
       gVirtualCursorLog, LogLevel::Debug,
       ("DOMVirtualCursor::HasPermission check with origin %s", origin.get()));
@@ -127,8 +140,11 @@ bool DOMVirtualCursor::HasPermission(nsPIDOMWindowInner* aWindow) const {
 }
 
 // static
-bool DOMVirtualCursor::HasPermission(JSContext* /* unused */,
-                                     JSObject* aGlobal) {
+bool DOMVirtualCursor::HasPermission(JSContext* aContext, JSObject* aGlobal) {
+  if (nsContentUtils::IsSystemCaller(aContext)) {
+    return true;
+  }
+
   nsIPrincipal* principal = nsContentUtils::ObjectPrincipal(aGlobal);
   NS_ENSURE_TRUE(principal, false);
 
