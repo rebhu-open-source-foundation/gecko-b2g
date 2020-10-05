@@ -115,8 +115,8 @@ const REGION_STORIES_BLOCK =
   "browser.newtabpage.activity-stream.discoverystream.region-stories-block";
 const REGION_SPOCS_CONFIG =
   "browser.newtabpage.activity-stream.discoverystream.region-spocs-config";
-const REGION_LAYOUT_CONFIG =
-  "browser.newtabpage.activity-stream.discoverystream.region-layout-config";
+const REGION_BASIC_CONFIG =
+  "browser.newtabpage.activity-stream.discoverystream.region-basic-config";
 const LOCALE_LIST_CONFIG =
   "browser.newtabpage.activity-stream.discoverystream.locale-list-config";
 
@@ -237,6 +237,13 @@ const PREFS_CONFIG = new Map([
     {
       title:
         "Show sponsored cards in spoc experiment (show_spocs in topstories.options has to be set to true as well)",
+      value: true,
+    },
+  ],
+  [
+    "showSponsoredTopSites",
+    {
+      title: "Show sponsored top sites",
       value: true,
     },
   ],
@@ -501,12 +508,12 @@ const PREFS_CONFIG = new Map([
       title: "Decision to use basic layout based on region.",
       getValue: ({ geo }) => {
         const preffedRegionsString =
-          Services.prefs.getStringPref(REGION_LAYOUT_CONFIG) || "";
+          Services.prefs.getStringPref(REGION_BASIC_CONFIG) || "";
         const preffedRegions = preffedRegionsString
           .split(",")
           .map(s => s.trim());
 
-        return !preffedRegions.includes(geo);
+        return preffedRegions.includes(geo);
       },
     },
   ],

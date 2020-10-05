@@ -1873,16 +1873,16 @@ class HasChildTracer final : public JS::CallbackTracer {
   RootedValue child_;
   bool found_;
 
-  bool onChild(const JS::GCCellPtr& thing) override {
+  void onChild(const JS::GCCellPtr& thing) override {
     if (thing.asCell() == child_.toGCThing()) {
       found_ = true;
     }
-    return true;
   }
 
  public:
   HasChildTracer(JSContext* cx, HandleValue child)
-      : JS::CallbackTracer(cx, TraceWeakMapKeysValues),
+      : JS::CallbackTracer(cx, JS::TracerKind::Callback,
+                           JS::WeakMapTraceAction::TraceKeysAndValues),
         child_(cx, child),
         found_(false) {}
 
@@ -1900,7 +1900,7 @@ static bool HasChild(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   HasChildTracer trc(cx, child);
-  TraceChildren(&trc, parent.toGCThing(), parent.traceKind());
+  TraceChildren(&trc, JS::GCCellPtr(parent.toGCThing(), parent.traceKind()));
   args.rval().setBoolean(trc.found());
   return true;
 }

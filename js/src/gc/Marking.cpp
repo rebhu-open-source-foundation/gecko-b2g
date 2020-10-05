@@ -163,11 +163,6 @@ static inline bool IsThingPoisoned(T* thing) {
   }
   return false;
 }
-
-bool js::IsTracerKind(JSTracer* trc, JS::CallbackTracer::TracerKind kind) {
-  return trc->isCallbackTracer() &&
-         trc->asCallbackTracer()->getTracerKind() == kind;
-}
 #endif
 
 template <typename T>
@@ -189,7 +184,7 @@ void js::CheckTracedThing(JSTracer* trc, T* thing) {
   }
 
   if (IsForwarded(thing)) {
-    MOZ_ASSERT(IsTracerKind(trc, JS::CallbackTracer::TracerKind::Moving) ||
+    MOZ_ASSERT(IsTracerKind(trc, JS::TracerKind::Moving) ||
                trc->isTenuringTracer());
     thing = Forwarded(thing);
   }
@@ -212,21 +207,18 @@ void js::CheckTracedThing(JSTracer* trc, T* thing) {
   MOZ_ASSERT(zone->runtimeFromAnyThread() == rt);
 
   bool isGcMarkingTracer = trc->isMarkingTracer();
-  bool isUnmarkGrayTracer =
-      IsTracerKind(trc, JS::CallbackTracer::TracerKind::UnmarkGray);
-  bool isClearEdgesTracer =
-      IsTracerKind(trc, JS::CallbackTracer::TracerKind::ClearEdges);
+  bool isUnmarkGrayTracer = IsTracerKind(trc, JS::TracerKind::UnmarkGray);
+  bool isClearEdgesTracer = IsTracerKind(trc, JS::TracerKind::ClearEdges);
 
   if (TlsContext.get()->isMainThreadContext()) {
     // If we're on the main thread we must have access to the runtime and zone.
     MOZ_ASSERT(CurrentThreadCanAccessRuntime(rt));
     MOZ_ASSERT(CurrentThreadCanAccessZone(zone));
   } else {
-    MOZ_ASSERT(
-        isGcMarkingTracer || isUnmarkGrayTracer || isClearEdgesTracer ||
-        IsTracerKind(trc, JS::CallbackTracer::TracerKind::Moving) ||
-        IsTracerKind(trc, JS::CallbackTracer::TracerKind::GrayBuffering) ||
-        IsTracerKind(trc, JS::CallbackTracer::TracerKind::Sweeping));
+    MOZ_ASSERT(isGcMarkingTracer || isUnmarkGrayTracer || isClearEdgesTracer ||
+               IsTracerKind(trc, JS::TracerKind::Moving) ||
+               IsTracerKind(trc, JS::TracerKind::GrayBuffering) ||
+               IsTracerKind(trc, JS::TracerKind::Sweeping));
     MOZ_ASSERT_IF(!isClearEdgesTracer, CurrentThreadIsPerformingGC());
   }
 
@@ -401,9 +393,9 @@ void js::gc::AssertRootMarkingPhase(JSTracer* trc) {
 /*** Tracing Interface ******************************************************/
 
 template <typename T>
-bool DoCallback(JS::CallbackTracer* trc, T** thingp, const char* name);
+bool DoCallback(GenericTracer* trc, T** thingp, const char* name);
 template <typename T>
-bool DoCallback(JS::CallbackTracer* trc, T* thingp, const char* name);
+bool DoCallback(GenericTracer* trc, T* thingp, const char* name);
 template <typename T>
 void DoMarking(GCMarker* gcmarker, T* thing);
 template <typename T>
@@ -686,16 +678,19 @@ bool js::gc::TraceEdgeInternal(JSTracer* trc, T* thingp, const char* name) {
                 "Only the base cell layout types are allowed into "
                 "marking/tracing internals");
 #undef IS_SAME_TYPE_OR
+
   if (trc->isMarkingTracer()) {
     DoMarking(GCMarker::fromTracer(trc), *thingp);
     return true;
   }
+
   if (trc->isTenuringTracer()) {
     static_cast<TenuringTracer*>(trc)->traverse(thingp);
     return true;
   }
-  MOZ_ASSERT(trc->isCallbackTracer());
-  return DoCallback(trc->asCallbackTracer(), thingp, name);
+
+  MOZ_ASSERT(trc->isGenericTracer());
+  return DoCallback(trc->asGenericTracer(), thingp, name);
 }
 
 template <typename T>
@@ -2454,13 +2449,13 @@ inline void MarkStackIter::nextArray() {
 /*** GCMarker ***************************************************************/
 
 /*
- * ExpandWeakMaps: the GC is recomputing the liveness of WeakMap entries by
- * expanding each live WeakMap into its constituent key->value edges, a table
- * of which will be consulted in a later phase whenever marking a potential
- * key.
+ * WeakMapTraceAction::Expand: the GC is recomputing the liveness of WeakMap
+ * entries by expanding each live WeakMap into its constituent key->value edges,
+ * a table of which will be consulted in a later phase whenever marking a
+ * potential key.
  */
 GCMarker::GCMarker(JSRuntime* rt)
-    : JSTracer(rt, JSTracer::TracerKindTag::Marking, ExpandWeakMaps),
+    : JSTracer(rt, JS::TracerKind::Marking, JS::WeakMapTraceAction::Expand),
       stack(),
       auxStack(),
       mainStackColor(MarkColor::Black),
@@ -2611,7 +2606,7 @@ void GCMarker::repush(JSObject* obj) {
 }
 
 bool GCMarker::enterWeakMarkingMode() {
-  MOZ_ASSERT(weakMapAction() == ExpandWeakMaps);
+  MOZ_ASSERT(weakMapAction() == JS::WeakMapTraceAction::Expand);
   MOZ_ASSERT(state != MarkingState::WeakMarking);
   if (state == MarkingState::IterativeMarking) {
     return false;
@@ -2760,7 +2755,7 @@ void GCMarker::markDelayedChildren(Arena* arena, MarkColor color) {
   AutoSetMarkColor setColor(*this, color);
   for (ArenaCellIterUnderGC cell(arena); !cell.done(); cell.next()) {
     if (cell->isMarked(color)) {
-      js::TraceChildren(this, cell, kind);
+      JS::TraceChildren(this, JS::GCCellPtr(cell, kind));
     }
   }
 }
@@ -3961,6 +3956,7 @@ bool SweepingTracer::onObjectGroupEdge(ObjectGroup** groupp) {
   return sweepEdge(groupp);
 }
 bool SweepingTracer::onBigIntEdge(BigInt** bip) { return sweepEdge(bip); }
+bool SweepingTracer::onSymbolEdge(JS::Symbol** symp) { return sweepEdge(symp); }
 
 namespace js {
 namespace gc {
@@ -4041,24 +4037,24 @@ JS_FOR_EACH_PUBLIC_TAGGED_GC_POINTER_TYPE(INSTANTIATE_INTERNAL_IATBF_FUNCTION)
 
 #ifdef DEBUG
 struct AssertNonGrayTracer final : public JS::CallbackTracer {
-  explicit AssertNonGrayTracer(JSRuntime* rt) : JS::CallbackTracer(rt) {}
-  bool onChild(const JS::GCCellPtr& thing) override {
-    MOZ_ASSERT(!thing.asCell()->isMarkedGray());
-    return true;
-  }
-  // This is used by the UnmarkGray tracer only, and needs to report itself
-  // as the non-gray tracer to not trigger assertions.  Do not use it in another
+  // This is used by the UnmarkGray tracer only, and needs to report itself as
+  // the non-gray tracer to not trigger assertions.  Do not use it in another
   // context without making this more generic.
-  TracerKind getTracerKind() const override { return TracerKind::UnmarkGray; }
+  explicit AssertNonGrayTracer(JSRuntime* rt)
+      : JS::CallbackTracer(rt, JS::TracerKind::UnmarkGray) {}
+  void onChild(const JS::GCCellPtr& thing) override {
+    MOZ_ASSERT(!thing.asCell()->isMarkedGray());
+  }
 };
 #endif
 
 class UnmarkGrayTracer final : public JS::CallbackTracer {
  public:
-  // We set weakMapAction to DoNotTraceWeakMaps because the cycle collector
-  // will fix up any color mismatches involving weakmaps when it runs.
+  // We set weakMapAction to WeakMapTraceAction::Skip because the cycle
+  // collector will fix up any color mismatches involving weakmaps when it runs.
   explicit UnmarkGrayTracer(JSRuntime* rt)
-      : JS::CallbackTracer(rt, DoNotTraceWeakMaps),
+      : JS::CallbackTracer(rt, JS::TracerKind::UnmarkGray,
+                           JS::WeakMapTraceAction::Skip),
         unmarkedAny(false),
         oom(false),
         stack(rt->gc.unmarkGrayStack) {}
@@ -4075,14 +4071,10 @@ class UnmarkGrayTracer final : public JS::CallbackTracer {
   // Stack of cells to traverse.
   Vector<JS::GCCellPtr, 0, SystemAllocPolicy>& stack;
 
-  bool onChild(const JS::GCCellPtr& thing) override;
-
-#ifdef DEBUG
-  TracerKind getTracerKind() const override { return TracerKind::UnmarkGray; }
-#endif
+  void onChild(const JS::GCCellPtr& thing) override;
 };
 
-bool UnmarkGrayTracer::onChild(const JS::GCCellPtr& thing) {
+void UnmarkGrayTracer::onChild(const JS::GCCellPtr& thing) {
   Cell* cell = thing.asCell();
 
   // Cells in the nursery cannot be gray, and nor can certain kinds of tenured
@@ -4092,9 +4084,9 @@ bool UnmarkGrayTracer::onChild(const JS::GCCellPtr& thing) {
 #ifdef DEBUG
     MOZ_ASSERT(!cell->isMarkedGray());
     AssertNonGrayTracer nongray(runtime());
-    TraceChildren(&nongray, cell, thing.kind());
+    JS::TraceChildren(&nongray, thing);
 #endif
-    return true;
+    return;
   }
 
   TenuredCell& tenured = cell->asTenured();
@@ -4112,11 +4104,11 @@ bool UnmarkGrayTracer::onChild(const JS::GCCellPtr& thing) {
       MOZ_ASSERT(tmp == cell);
       unmarkedAny = true;
     }
-    return true;
+    return;
   }
 
   if (!tenured.isMarkedGray()) {
-    return true;
+    return;
   }
 
   tenured.markBlack();
@@ -4125,7 +4117,6 @@ bool UnmarkGrayTracer::onChild(const JS::GCCellPtr& thing) {
   if (!stack.append(thing)) {
     oom = true;
   }
-  return true;
 }
 
 void UnmarkGrayTracer::unmark(JS::GCCellPtr cell) {

@@ -2502,6 +2502,19 @@ void BrowsingContext::DidSet(FieldIndex<IDX_AncestorLoading>) {
   }
 }
 
+void BrowsingContext::DidSet(FieldIndex<IDX_AuthorStyleDisabledDefault>) {
+  MOZ_ASSERT(IsTop(),
+             "Should only set AuthorStyleDisabledDefault in the top "
+             "browsing context");
+
+  // We don't need to handle changes to this field, since PageStyleChild.jsm
+  // will respond to the PageStyle:Disable message in all content processes.
+  //
+  // But we store the state here on the top BrowsingContext so that the
+  // docshell has somewhere to look for the current author style disabling
+  // state when new iframes are inserted.
+}
+
 void BrowsingContext::DidSet(FieldIndex<IDX_TextZoom>, float aOldValue) {
   if (GetTextZoom() == aOldValue) {
     return;
@@ -2729,15 +2742,15 @@ void BrowsingContext::RemoveFromSessionHistory() {
   }
 }
 
-void BrowsingContext::HistoryGo(int32_t aIndex,
+void BrowsingContext::HistoryGo(int32_t aOffset,
                                 std::function<void(int32_t&&)>&& aResolver) {
   if (XRE_IsContentProcess()) {
     ContentChild::GetSingleton()->SendHistoryGo(
-        this, aIndex, std::move(aResolver),
+        this, aOffset, std::move(aResolver),
         [](mozilla::ipc::
                ResponseRejectReason) { /* FIXME Is ignoring this fine? */ });
   } else {
-    Canonical()->HistoryGo(aIndex, std::move(aResolver));
+    Canonical()->HistoryGo(aOffset, std::move(aResolver));
   }
 }
 
