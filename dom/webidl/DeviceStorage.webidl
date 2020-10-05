@@ -13,8 +13,6 @@ interface DeviceStorage : EventTarget {
   attribute EventHandler onchange;
 
   [Throws]
-  DOMRequest? add(Blob? aBlob);
-  [Throws]
   DOMRequest? addNamed(Blob? aBlob, DOMString aName);
 
   /**

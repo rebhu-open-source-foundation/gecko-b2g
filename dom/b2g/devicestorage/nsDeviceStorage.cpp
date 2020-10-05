@@ -2716,12 +2716,6 @@ bool nsDOMDeviceStorage::IsAvailable() {
   return dsf->IsAvailable();
 }
 
-already_AddRefed<DOMRequest> nsDOMDeviceStorage::Add(Blob* aBlob,
-                                                     ErrorResult& aRv) {
-  nsString path;
-  return AddOrAppendNamed(aBlob, path, true, aRv);
-}
-
 already_AddRefed<DOMRequest> nsDOMDeviceStorage::AddNamed(
     Blob* aBlob, const nsAString& aPath, ErrorResult& aRv) {
   if (aPath.IsEmpty()) {

@@ -189,7 +189,6 @@ class nsDOMDeviceStorage final : public mozilla::DOMEventTargetHelper,
 
   IMPL_EVENT_HANDLER(change)
 
-  already_AddRefed<DOMRequest> Add(mozilla::dom::Blob* aBlob, ErrorResult& aRv);
   already_AddRefed<DOMRequest> AddNamed(mozilla::dom::Blob* aBlob,
                                         const nsAString& aPath,
                                         ErrorResult& aRv);
