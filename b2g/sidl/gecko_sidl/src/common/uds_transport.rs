@@ -237,13 +237,16 @@ impl UdsTransport {
                     Some(reader),
                 )
             }
-            Err(_) => (
-                Self {
-                    session_data: Shared::adopt(SessionData::new(None)),
-                    connection_observers: Shared::default(),
-                },
-                None,
-            ),
+            Err(err) => {
+                error!("Failed to connect to {} : {}", path, err);
+                (
+                    Self {
+                        session_data: Shared::adopt(SessionData::new(None)),
+                        connection_observers: Shared::default(),
+                    },
+                    None,
+                )
+            }
         };
 
         let mut transport_inner = transport.clone();

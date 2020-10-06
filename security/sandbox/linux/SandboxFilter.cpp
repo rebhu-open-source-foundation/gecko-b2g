@@ -1144,7 +1144,7 @@ class ContentSandboxPolicy : public SandboxPolicyCommon {
 
 #ifdef ANDROID
       case SYS_SOCKET:
-        return Some(Error(EACCES));
+        return Some(Allow());
 #else  // #ifdef DESKTOP
       case SYS_SOCKET: {
         const auto trapFn = aHasArgs ? FakeSocketTrap : FakeSocketTrapLegacy;

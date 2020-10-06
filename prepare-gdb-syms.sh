@@ -14,7 +14,14 @@ if [ -z "$GONK_PATH" -o ! -e "$GONK_PATH/prebuilts/gcc" ]; then
     exit 255
 fi
 
-TOOLS_PREFIX=$GONK_PATH/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9/bin/arm-linux-androideabi-
+case "$TARGET_ARCH" in
+    arm)
+        TOOLS_PREFIX=$GONK_PATH/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9/bin/arm-linux-androideabi-
+        ;;
+    arm64)
+        TOOLS_PREFIX=$GONK_PATH/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/aarch64-linux-android-
+        ;;
+esac
 
 OBJCOPY=${TOOLS_PREFIX}objcopy
 STRIP=${TOOLS_PREFIX}strip

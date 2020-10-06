@@ -3,7 +3,15 @@
 GECKO_OBJDIR=${GECKO_OBJDIR:-objdir-gecko}
 SYSROOT=$GECKO_OBJDIR/dist/sysroot/
 GONK_PATH=${GONK_PATH:-.}
-GDB=$GONK_PATH/gonk-misc/arm-unknown-linux-androideabi-gdb
+
+case "$TARGET_ARCH" in
+    arm)
+        GDB=$GONK_PATH/gonk-misc/arm-unknown-linux-androideabi-gdb
+        ;;
+    arm64)
+        GDB=$GONK_PATH/gonk-misc/aarch64-unknown-linux-androideabi-gdb
+        ;;
+esac
 
 if [ -z "$GECKO_OBJDIR" -o ! -e "$GECKO_OBJDIR/config.log" ]; then
     echo "GECKO_OBJDIR is invalid!" >&2

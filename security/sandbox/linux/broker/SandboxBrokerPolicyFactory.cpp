@@ -549,6 +549,9 @@ void SandboxBrokerPolicyFactory::InitContentPolicy() {
   policy->AddPath(rdwr, "/proc/ged");
 #  endif
 
+  // To connect to the api-daemon
+  policy->AddPath(SandboxBroker::MAY_CONNECT, "/dev/socket/api-daemon");
+
 #endif // MOZ_WIDGET_GONK
 
   // Read any extra paths that will get write permissions,
