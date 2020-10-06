@@ -636,10 +636,6 @@ bool BroadcastSystemMessage(const nsAString& aType,
   MOZ_ASSERT(!::JS_IsExceptionPending(cx),
              "Shouldn't get here when an exception is pending!");
 
-  nsCOMPtr<nsISystemMessageService> systemMessenger =
-      do_GetService("@mozilla.org/systemmessage-service;1");
-  NS_ENSURE_TRUE(systemMessenger, false);
-
   JS::Rooted<JSObject*> obj(cx, JS_NewPlainObject(cx));
   if (!obj) {
     BT_WARNING("Failed to new JSObject for system message!");
@@ -666,43 +662,65 @@ bool BroadcastSystemMessage(const nsAString& aType,
 
   JS::Rooted<JS::Value> value(cx, JS::ObjectValue(*obj));
 
-  // TODO: use broadcastMessage() instead when it's ready
-  systemMessenger->SendMessage(aType, value, "https://system.local"_ns, cx);
-  systemMessenger->SendMessage(aType, value, "https://bluetooth.local"_ns, cx);
-  systemMessenger->SendMessage(aType, value, "https://settings.local"_ns, cx);
-
-  return true;
+  // TODO: use BroadcastMessage() instead when it's ready
+  return DispatchSystemMessage(aType, value, cx);
 }
 
 bool BroadcastSystemMessage(const nsAString& aType,
                             const nsTArray<BluetoothNamedValue>& aData) {
-  // TODO: replace system message on KaiNext
+  mozilla::AutoSafeJSContext cx;
+  MOZ_ASSERT(!::JS_IsExceptionPending(cx),
+             "Shouldn't get here when an exception is pending!");
 
-  // mozilla::AutoSafeJSContext cx;
-  // MOZ_ASSERT(!::JS_IsExceptionPending(cx),
-  //     "Shouldn't get here when an exception is pending!");
+  JS::Rooted<JSObject*> obj(cx, JS_NewPlainObject(cx));
+  if (!obj) {
+    BT_WARNING("Failed to new JSObject for system message!");
+    return false;
+  }
 
-  // JS::Rooted<JSObject*> obj(cx, JS_NewPlainObject(cx));
-  // if (!obj) {
-  //   BT_WARNING("Failed to new JSObject for system message!");
-  //   return false;
-  // }
+  if (!SetJsObject(cx, aData, obj)) {
+    BT_WARNING("Failed to set properties of system message!");
+    return false;
+  }
 
-  // if (!SetJsObject(cx, aData, obj)) {
-  //   BT_WARNING("Failed to set properties of system message!");
-  //   return false;
-  // }
+  JS::Rooted<JS::Value> value(cx, JS::ObjectValue(*obj));
 
-  // nsCOMPtr<nsISystemMessagesInternal> systemMessenger =
-  //   do_GetService("@mozilla.org/system-message-internal;1");
-  // NS_ENSURE_TRUE(systemMessenger, false);
+  // TODO: use BroadcastMessage() instead when it's ready
+  return DispatchSystemMessage(aType, value, cx);
+}
 
-  // JS::Rooted<JS::Value> value(cx, JS::ObjectValue(*obj));
-  // nsCOMPtr<nsISupports> promise;
-  // systemMessenger->BroadcastMessage(aType, value,
-  //                                   JS::UndefinedHandleValue,
-  //                                   getter_AddRefs(promise));
+bool DispatchSystemMessage(const nsAString& aType, JS::HandleValue aValue,
+                           JSContext* aCx) {
+  nsCOMPtr<nsISystemMessageService> systemMessenger =
+      do_GetService("@mozilla.org/systemmessage-service;1");
+  NS_ENSURE_TRUE(systemMessenger, false);
 
+  // Dispatch system message to the pre-defined target since BroadcastMessage()
+  // isn't supported.
+  if (aType.Equals(SYS_MSG_BT_PAIRING_REQ)) {
+    systemMessenger->SendMessage(aType, aValue, "https://bluetooth.local"_ns,
+                                 aCx);
+    systemMessenger->SendMessage(aType, aValue, "https://settings.local"_ns,
+                                 aCx);
+  } else if (aType.EqualsLiteral("bluetooth-dialer-command")) {
+    systemMessenger->SendMessage(aType, aValue, "https://callscreen.local"_ns,
+                                 aCx);
+  } else if (aType.EqualsLiteral("media-button")) {
+    systemMessenger->SendMessage(aType, aValue, "https://music.local"_ns, aCx);
+  } else if (aType.EqualsLiteral("bluetooth-opp-transfer-complete") ||
+             aType.EqualsLiteral("bluetooth-opp-update-progress") ||
+             aType.EqualsLiteral("bluetooth-opp-receiving-file-confirmation") ||
+             aType.EqualsLiteral("bluetooth-opp-transfer-start")) {
+    systemMessenger->SendMessage(aType, aValue, "https://system.local"_ns, aCx);
+  } else {
+    // Few system messages aren't needed by current gaia implementation
+    //   - "bluetooth-pbap-request"
+    //   - "bluetooth-map-request"
+    //   - "bluetooth-cancel"
+    //   - "bluetooth-hid-status-changed"
+    BT_LOGD("system message '%s' isn't needed by gaia",
+            NS_ConvertUTF16toUTF8(aType).get());
+  }
   return true;
 }
 
