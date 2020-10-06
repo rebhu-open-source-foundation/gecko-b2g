@@ -1211,9 +1211,11 @@ var PrintSettingsViewProxy = {
         break;
 
       case "customMargins":
-        for (let [settingName, newVal] of Object.entries(value)) {
-          target[settingName] = newVal;
-          this._lastCustomMarginValues[settingName] = newVal;
+        if (value != null) {
+          for (let [settingName, newVal] of Object.entries(value)) {
+            target[settingName] = newVal;
+            this._lastCustomMarginValues[settingName] = newVal;
+          }
         }
         break;
 
@@ -1784,8 +1786,8 @@ class MarginsPicker extends PrintUIControlMixin(HTMLElement) {
     this._customRightMargin = this.querySelector("#custom-margin-right");
     this._marginError = this.querySelector("#error-invalid-margin");
 
-    this._updateMarginTask = createDeferredTask(
-      () => this.updateMargins(),
+    this._updateCustomMarginsTask = createDeferredTask(
+      () => this.updateCustomMargins(),
       INPUT_DELAY_MS
     );
 
@@ -1798,7 +1800,7 @@ class MarginsPicker extends PrintUIControlMixin(HTMLElement) {
     return "margins-template";
   }
 
-  updateMargins() {
+  updateCustomMargins() {
     let newMargins = {
       marginTop: this._customTopMargin.value,
       marginBottom: this._customBottomMargin.value,
@@ -1807,6 +1809,7 @@ class MarginsPicker extends PrintUIControlMixin(HTMLElement) {
     };
 
     this.dispatchSettingsChange({
+      margins: "custom",
       customMargins: newMargins,
     });
   }
@@ -1893,6 +1896,12 @@ class MarginsPicker extends PrintUIControlMixin(HTMLElement) {
   }
 
   handleEvent(e) {
+    if (e.type == "change") {
+      // We handle input events rather than change events, make sure we only
+      // dispatch one settings change per user change.
+      return;
+    }
+
     if (e.type == "keypress") {
       this.handleKeypress(e);
       return;
@@ -1902,18 +1911,20 @@ class MarginsPicker extends PrintUIControlMixin(HTMLElement) {
       this.handlePaste(e);
     }
 
-    this._updateMarginTask.disarm();
+    this._updateCustomMarginsTask.disarm();
 
     if (e.target == this._marginPicker) {
       let customMargin = e.target.value == "custom";
       this.querySelector(".margin-group").hidden = !customMargin;
       if (customMargin) {
         // Update the custom margin values to ensure consistency
-        this.updateMargins();
+        this.updateCustomMargins();
+        return;
       }
 
       this.dispatchSettingsChange({
         margins: e.target.value,
+        customMargins: null,
       });
     }
 
@@ -1925,7 +1936,7 @@ class MarginsPicker extends PrintUIControlMixin(HTMLElement) {
     ) {
       if (e.target.checkValidity()) {
         this.formatMargin(e.target);
-        this._updateMarginTask.arm();
+        this._updateCustomMarginsTask.arm();
       } else if (e.target.validity.stepMismatch) {
         // If this is the third digit after the decimal point, we should
         // truncate the string.

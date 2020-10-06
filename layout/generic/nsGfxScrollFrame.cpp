@@ -3081,7 +3081,7 @@ void ScrollFrameHelper::ScrollToImpl(nsPoint aPt, const nsRect& aRange,
             // might still get squashed into a full transaction if something
             // happens to trigger one.
             MOZ_ASSERT(!mScrollUpdates.IsEmpty());
-            success = manager->SetPendingScrollUpdateForNextTransaction(
+            success = manager->AddPendingScrollUpdateForNextTransaction(
                 id, mScrollUpdates.LastElement());
             if (success) {
               schedulePaint = false;
@@ -5371,6 +5371,12 @@ nsresult ScrollFrameHelper::CreateAnonymousContent(
       mScrollCornerContent->SetProperty(
           nsGkAtoms::docLevelNativeAnonymousContent,
           reinterpret_cast<void*>(true));
+      mScrollCornerContent->SetAttr(kNameSpaceID_None, nsGkAtoms::root_,
+                                    u"true"_ns, false);
+
+      // Don't bother making style caching take [root="true"] styles into
+      // account.
+      key = AnonymousContentKey::None;
     }
     aElements.AppendElement(ContentInfo(mScrollCornerContent, key));
   }

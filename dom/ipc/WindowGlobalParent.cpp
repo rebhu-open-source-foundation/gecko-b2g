@@ -778,16 +778,11 @@ class CheckPermitUnloadRequest final : public PromiseNativeHandler,
 
     if (nsCOMPtr<nsIPromptCollection> prompt =
             do_GetService("@mozilla.org/embedcomp/prompt-collection;1")) {
-      mozilla::Telemetry::Accumulate(
-          mozilla::Telemetry::ONBEFOREUNLOAD_PROMPT_COUNT, 1);
-
       RefPtr<Promise> promise;
       prompt->AsyncBeforeUnloadCheck(mWGP->GetBrowsingContext(),
                                      getter_AddRefs(promise));
 
       if (!promise) {
-        mozilla::Telemetry::Accumulate(
-            mozilla::Telemetry::ONBEFOREUNLOAD_PROMPT_ACTION, 2);
         return;
       }
 
@@ -805,19 +800,11 @@ class CheckPermitUnloadRequest final : public PromiseNativeHandler,
   void ResolvedCallback(JSContext* aCx, JS::Handle<JS::Value> aValue) override {
     MOZ_ASSERT(mState == State::PROMPTING);
 
-    bool allow = JS::ToBoolean(aValue);
-
-    mozilla::Telemetry::Accumulate(
-        mozilla::Telemetry::ONBEFOREUNLOAD_PROMPT_ACTION, (allow ? 1 : 0));
-
-    SendReply(allow);
+    SendReply(JS::ToBoolean(aValue));
   }
 
   void RejectedCallback(JSContext* aCx, JS::Handle<JS::Value> aValue) override {
     MOZ_ASSERT(mState == State::PROMPTING);
-
-    mozilla::Telemetry::Accumulate(
-        mozilla::Telemetry::ONBEFOREUNLOAD_PROMPT_ACTION, 2);
 
     SendReply(false);
   }
@@ -999,11 +986,11 @@ void WindowGlobalParent::ActorDestroy(ActorDestroyReason aWhy) {
     };
 
     bool hasMixedDisplay =
-        mMixedContentSecurityState &
+        mSecurityState &
         (nsIWebProgressListener::STATE_LOADED_MIXED_DISPLAY_CONTENT |
          nsIWebProgressListener::STATE_BLOCKED_MIXED_DISPLAY_CONTENT);
     bool hasMixedActive =
-        mMixedContentSecurityState &
+        mSecurityState &
         (nsIWebProgressListener::STATE_LOADED_MIXED_ACTIVE_CONTENT |
          nsIWebProgressListener::STATE_BLOCKED_MIXED_ACTIVE_CONTENT);
 
@@ -1115,24 +1102,26 @@ bool WindowGlobalParent::ShouldTrackSiteOriginTelemetry() {
   return DocumentPrincipal()->GetIsContentPrincipal();
 }
 
-void WindowGlobalParent::AddMixedContentSecurityState(uint32_t aStateFlags) {
+void WindowGlobalParent::AddSecurityState(uint32_t aStateFlags) {
   MOZ_ASSERT(TopWindowContext() == this);
   MOZ_ASSERT((aStateFlags &
               (nsIWebProgressListener::STATE_LOADED_MIXED_DISPLAY_CONTENT |
                nsIWebProgressListener::STATE_LOADED_MIXED_ACTIVE_CONTENT |
                nsIWebProgressListener::STATE_BLOCKED_MIXED_DISPLAY_CONTENT |
-               nsIWebProgressListener::STATE_BLOCKED_MIXED_ACTIVE_CONTENT)) ==
+               nsIWebProgressListener::STATE_BLOCKED_MIXED_ACTIVE_CONTENT |
+               nsIWebProgressListener::STATE_HTTPS_ONLY_MODE_UPGRADED |
+               nsIWebProgressListener::STATE_HTTPS_ONLY_MODE_UPGRADE_FAILED)) ==
                  aStateFlags,
              "Invalid flags specified!");
 
-  if ((mMixedContentSecurityState & aStateFlags) == aStateFlags) {
+  if ((mSecurityState & aStateFlags) == aStateFlags) {
     return;
   }
 
-  mMixedContentSecurityState |= aStateFlags;
+  mSecurityState |= aStateFlags;
 
   if (GetBrowsingContext()->GetCurrentWindowGlobal() == this) {
-    GetBrowsingContext()->UpdateSecurityStateForLocationOrMixedContentChange();
+    GetBrowsingContext()->UpdateSecurityState();
   }
 }
 

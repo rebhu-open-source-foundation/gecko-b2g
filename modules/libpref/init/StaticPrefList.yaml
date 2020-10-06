@@ -1591,13 +1591,6 @@
   value: false
   mirror: always
 
-# Whether Mozilla specific "text" event should be dispatched only in the
-# system group or not in content.
-- name: dom.compositionevent.text.dispatch_only_system_group_in_content
-  type: bool
-  value: true
-  mirror: always
-
 # B2G_RIL
 - name: dom.datacall.enabled
   type: bool
@@ -8735,7 +8728,7 @@
   value: false
   mirror: always
 
-  # Whether to use HTTPS RR as AltSvc
+# Whether to use HTTPS RR as AltSvc
 - name: network.dns.use_https_rr_as_altsvc
   type: RelaxedAtomicBool
   value: false
@@ -8745,6 +8738,12 @@
 - name: network.connectivity-service.nat64-check
   type: bool
   value: true
+  mirror: always
+
+# Whether to enable echconfig.
+- name: network.dns.echconfig.enabled
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 #---------------------------------------------------------------------------

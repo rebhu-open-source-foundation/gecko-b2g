@@ -1315,14 +1315,14 @@ IPCResult BrowserParent::RecvIndexedDBPermissionRequest(
       new indexedDB::PermissionRequestHelper(mFrameElement, principal,
                                              aResolve);
 
-  indexedDB::PermissionRequestBase::PermissionValue permission;
-  nsresult rv = actor->PromptIfNeeded(&permission);
-  if (NS_FAILED(rv)) {
+  mozilla::Result permissionOrErr = actor->PromptIfNeeded();
+  if (permissionOrErr.isErr()) {
     return IPC_FAIL_NO_REASON(this);
   }
 
-  if (permission != indexedDB::PermissionRequestBase::kPermissionPrompt) {
-    aResolve(permission);
+  if (permissionOrErr.inspect() !=
+      indexedDB::PermissionRequestBase::kPermissionPrompt) {
+    aResolve(permissionOrErr.inspect());
   }
 
   return IPC_OK();
@@ -2696,7 +2696,7 @@ mozilla::ipc::IPCResult BrowserParent::RecvOnLocationChange(
   // the current window global, but that happens before this and we have a lot
   // of tests that depend on the specific ordering of messages.
   if (!(aFlags & nsIWebProgressListener::LOCATION_CHANGE_SAME_DOCUMENT)) {
-    GetBrowsingContext()->UpdateSecurityStateForLocationOrMixedContentChange();
+    GetBrowsingContext()->UpdateSecurityState();
   }
   return IPC_OK();
 }

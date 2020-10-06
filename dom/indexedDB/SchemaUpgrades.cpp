@@ -1035,24 +1035,32 @@ class EncodeKeysFunction final : public mozIStorageFunction {
       return rv;
     }
 
-    Key key;
-    if (type == mozIStorageStatement::VALUE_TYPE_INTEGER) {
-      int64_t intKey;
-      aArguments->GetInt64(0, &intKey);
-      key.SetFromInteger(intKey);
-    } else if (type == mozIStorageStatement::VALUE_TYPE_TEXT) {
-      nsString stringKey;
-      aArguments->GetString(0, stringKey);
-      auto result = key.SetFromString(stringKey);
-      if (!result.Is(Ok)) {
-        return result.Is(SpecialValues::Invalid)
-                   ? NS_ERROR_DOM_INDEXEDDB_DATA_ERR
-                   : result.AsException().StealNSResult();
-      }
-    } else {
-      NS_WARNING("Don't call me with the wrong type of arguments!");
-      return NS_ERROR_UNEXPECTED;
-    }
+    IDB_TRY_INSPECT(
+        const auto& key, ([type, aArguments]() -> Result<Key, nsresult> {
+          switch (type) {
+            case mozIStorageStatement::VALUE_TYPE_INTEGER: {
+              int64_t intKey;
+              aArguments->GetInt64(0, &intKey);
+
+              Key key;
+              key.SetFromInteger(intKey);
+
+              return key;
+            }
+            case mozIStorageStatement::VALUE_TYPE_TEXT: {
+              nsString stringKey;
+              aArguments->GetString(0, stringKey);
+
+              Key key;
+              IDB_TRY(key.SetFromString(stringKey));
+
+              return key;
+            }
+            default:
+              NS_WARNING("Don't call me with the wrong type of arguments!");
+              return Err(NS_ERROR_UNEXPECTED);
+          }
+        }()));
 
     const nsCString& buffer = key.GetBuffer();
 

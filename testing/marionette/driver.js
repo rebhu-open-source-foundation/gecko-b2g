@@ -1812,6 +1812,12 @@ GeckoDriver.prototype.switchToParentFrame = async function() {
 
   if (MarionettePrefs.useActors) {
     this.contentBrowsingContext = browsingContext;
+
+    // Temporarily inform the framescript of the current browsing context to
+    // allow sending the correct page load events. This has to be done until
+    // the web progress listener is used (bug 1664165).
+    await this.listener.setBrowsingContextId(browsingContext.id);
+
     return;
   }
 
@@ -1858,6 +1864,12 @@ GeckoDriver.prototype.switchToFrame = async function(cmd) {
     );
 
     this.contentBrowsingContext = browsingContext;
+
+    // Temporarily inform the framescript of the current browsing context to
+    // allow sending the correct page load events. This has to be done until
+    // the web progress listener is used (bug 1664165).
+    await this.listener.setBrowsingContextId(browsingContext.id);
+
     return;
   }
 
@@ -1979,7 +1991,13 @@ GeckoDriver.prototype.performActions = async function(cmd) {
   assert.open(this.getBrowsingContext());
   await this._handleUserPrompts();
 
-  let actions = cmd.parameters.actions;
+  const actions = cmd.parameters.actions;
+
+  if (MarionettePrefs.useActors) {
+    await this.getActor().performActions(actions, this.capabilities);
+    return;
+  }
+
   await this.listener.performActions({ actions }, this.capabilities);
 };
 
@@ -1997,6 +2015,11 @@ GeckoDriver.prototype.releaseActions = async function() {
   assert.content(this.context);
   assert.open(this.getBrowsingContext({ top: true }));
   await this._handleUserPrompts();
+
+  if (MarionettePrefs.useActors) {
+    await this.getActor().releaseActions();
+    return;
+  }
 
   await this.listener.releaseActions();
 };

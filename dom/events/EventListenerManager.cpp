@@ -382,14 +382,6 @@ void EventListenerManager::AddEventListenerInternal(
         doc->SetUseCounter(eUseCounter_custom_onfinish);
       }
     }
-  } else if (aTypeAtom == nsGkAtoms::ontext) {
-    // Ignore event listeners in the system group since editor needs to
-    // listen "text" events in the system group.
-    if (!aFlags.mInSystemGroup) {
-      if (nsPIDOMWindowInner* window = GetInnerWindowForTarget()) {
-        window->SetHasTextEventListenerInDefaultGroup();
-      }
-    }
   }
 
   if (IsApzAwareListener(listener)) {
@@ -923,14 +915,8 @@ nsresult EventListenerManager::CompileEventHandlerInternal(
   if (!aBody) {
     if (aListener->mTypeAtom == nsGkAtoms::onSVGLoad) {
       attrName = nsGkAtoms::onload;
-    } else if (aListener->mTypeAtom == nsGkAtoms::onSVGUnload) {
-      attrName = nsGkAtoms::onunload;
-    } else if (aListener->mTypeAtom == nsGkAtoms::onSVGResize) {
-      attrName = nsGkAtoms::onresize;
     } else if (aListener->mTypeAtom == nsGkAtoms::onSVGScroll) {
       attrName = nsGkAtoms::onscroll;
-    } else if (aListener->mTypeAtom == nsGkAtoms::onSVGZoom) {
-      attrName = nsGkAtoms::onzoom;
     } else if (aListener->mTypeAtom == nsGkAtoms::onbeginEvent) {
       attrName = nsGkAtoms::onbegin;
     } else if (aListener->mTypeAtom == nsGkAtoms::onrepeatEvent) {
