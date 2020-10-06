@@ -21,6 +21,7 @@ class InputMethodListener final : public nsIInputMethodListener {
   NS_DECL_NSIINPUTMETHODLISTENER
 
   static already_AddRefed<InputMethodListener> Create(Promise* aPromise);
+  static already_AddRefed<InputMethodListener> Create();
 
   nsresult SetComposition(const nsAString& aText);
   nsresult EndComposition(const nsAString& aText);
@@ -28,9 +29,13 @@ class InputMethodListener final : public nsIInputMethodListener {
   nsresult Keyup(const nsAString& aKey);
   nsresult SendKey(const nsAString& aKey);
 
+  void SetSelectedOption(int32_t optionIndex);
+  void SetSelectedOptions(const nsTArray<int32_t>& optionIndexes);
+
  private:
   explicit InputMethodListener(Promise* aPromise);
-  ~InputMethodListener();
+  explicit InputMethodListener() = default;
+  ~InputMethodListener() = default;
 
   void Initialize();
 

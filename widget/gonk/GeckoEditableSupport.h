@@ -15,9 +15,12 @@
 #include "mozilla/TextEventDispatcherListener.h"
 #include "mozilla/UniquePtr.h"
 #include "nsIInputMethodListener.h"
+#include "nsIDOMEventListener.h"
+#include "nsIObserver.h"
 class nsWindow;
 class nsIGlobalObject;
-class nsHashPropertyBag;
+class nsPIDOMWindowOuter;
+
 namespace mozilla {
 
 class TextComposition;
@@ -25,25 +28,31 @@ class TextComposition;
 namespace dom {
 class BrowserChild;
 class Promise;
+class nsInputContext;
+class EventTarget;
 }  // namespace dom
 
 namespace widget {
 
 class GeckoEditableSupport final : public TextEventDispatcherListener,
-                                   public nsIEditableSupportListener {
+                                   public nsIEditableSupportListener,
+                                   public nsIDOMEventListener,
+                                   public nsIObserver {
  public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIEDITABLESUPPORTLISTENER
+  NS_DECL_NSIDOMEVENTLISTENER
+  NS_DECL_NSIOBSERVER
 
   static void SetOnBrowserChild(dom::BrowserChild* aBrowserChild,
-                                nsIGlobalObject* aGlobal);
+                                nsPIDOMWindowOuter* aDOMWindow);
 
   // Constructor for main process
-  GeckoEditableSupport(nsIGlobalObject* aGlobal, nsWindow* aWindow);
+  GeckoEditableSupport(nsPIDOMWindowOuter* aDOMWindow, nsWindow* aWindow);
 
   // Constructor for content process GeckoEditableSupport.
-  explicit GeckoEditableSupport(nsIGlobalObject* aGlobal)
-      : GeckoEditableSupport(aGlobal, nullptr) {}
+  explicit GeckoEditableSupport(nsPIDOMWindowOuter* aDOMWindow)
+      : GeckoEditableSupport(aDOMWindow, nullptr) {}
 
   // TextEventDispatcherListener methods
   NS_IMETHOD NotifyIME(TextEventDispatcher* aTextEventDispatcher,
@@ -67,16 +76,19 @@ class GeckoEditableSupport final : public TextEventDispatcherListener,
     }
   }
 
-  nsresult GetInputContextBag(nsHashPropertyBag* aBagOut);
+  nsresult GetInputContextBag(dom::nsInputContext* aInputContext);
+
+  void HandleFocus();
+  void HandleBlur();
 
  protected:
-  virtual ~GeckoEditableSupport() {}
+  virtual ~GeckoEditableSupport();
 
  private:
   nsWindow* mWindow;
   const bool mIsRemote;
   RefPtr<TextEventDispatcher> mDispatcher;
-  nsCOMPtr<nsIGlobalObject> mGlobal;
+  nsCOMPtr<dom::EventTarget> mChromeEventHandler;
 };
 
 }  // namespace widget

@@ -25,10 +25,16 @@ already_AddRefed<InputMethodListener> InputMethodListener::Create(
   return listener.forget();
 }
 
+/*static*/
+already_AddRefed<InputMethodListener> InputMethodListener::Create() {
+  IME_LOGD("--InputMethodListener::Create without promise");
+  RefPtr<InputMethodListener> listener = new InputMethodListener();
+
+  return listener.forget();
+}
+
 InputMethodListener::InputMethodListener(Promise* aPromise)
     : mPromise(aPromise) {}
-
-InputMethodListener::~InputMethodListener() {}
 
 // nsIInputMethodListener methods.
 NS_IMETHODIMP
@@ -216,6 +222,44 @@ nsresult InputMethodListener::SendKey(const nsAString& aKey) {
     service->SendKey(aKey, this);
   }
   return NS_OK;
+}
+
+void InputMethodListener::SetSelectedOption(int32_t aOptionIndex) {
+  ContentChild* contentChild = ContentChild::GetSingleton();
+  if (contentChild) {
+    IME_LOGD("--InputMethodListener::SetSelectedOption content process");
+    // Call from content process.
+    RefPtr<InputMethodServiceChild> child = new InputMethodServiceChild();
+    child->SetInputMethodListener(this);
+    contentChild->SendPInputMethodServiceConstructor(child);
+    SetSelectedOptionRequest request(aOptionIndex);
+    child->SendRequest(request);
+  } else {
+    IME_LOGD("--InputMethodListener::SetSelectedOption in-process");
+    // Call from parent process (or in-proces app).
+    RefPtr<InputMethodService> service = InputMethodService::GetInstance();
+    MOZ_ASSERT(service);
+    service->SetSelectedOption(aOptionIndex);
+  }
+}
+void InputMethodListener::SetSelectedOptions(
+    const nsTArray<int32_t>& aOptionIndexes) {
+  ContentChild* contentChild = ContentChild::GetSingleton();
+  if (contentChild) {
+    IME_LOGD("--InputMethodListener::SetSelectedOptions content process");
+    // Call from content process.
+    RefPtr<InputMethodServiceChild> child = new InputMethodServiceChild();
+    child->SetInputMethodListener(this);
+    contentChild->SendPInputMethodServiceConstructor(child);
+    SetSelectedOptionsRequest request(aOptionIndexes);
+    child->SendRequest(request);
+  } else {
+    IME_LOGD("--InputMethodListener::SetSelectedOptions in-process");
+    // Call from parent process (or in-proces app).
+    RefPtr<InputMethodService> service = InputMethodService::GetInstance();
+    MOZ_ASSERT(service);
+    service->SetSelectedOptions(aOptionIndexes);
+  }
 }
 
 }  // namespace dom

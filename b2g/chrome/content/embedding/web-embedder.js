@@ -304,12 +304,22 @@ XPCOMUtils.defineLazyGetter(this, "Screenshot", function() {
         let detail = {
           isFocus,
         };
-        if (subject instanceof Ci.nsIPropertyBag2) {
-          subject.QueryInterface(Ci.nsIPropertyBag2);
-          for (let prop of subject.enumerator) {
-            detail[prop.name] = prop.value;
-            _webembed_log(`${prop.name} : ${prop.value}`);
-          }
+        if (subject instanceof Ci.nsIInputContext) {
+          detail = {
+            ...detail,
+            type: subject.type,
+            inputType: subject.inputType,
+            inputMode: subject.inputMode,
+            value: subject.value,
+            selectionStart: subject.selectionStart,
+            selectionEnd: subject.selectionEnd,
+            max: subject.max,
+            min: subject.min,
+            lang: subject.lang,
+            voiceInputSupported: subject.voiceInputSupported,
+            name: subject.name,
+            choices: subject.choices,
+          };
         }
         _webembed_log(`detail: ${JSON.stringify(detail)}`);
         if (delegates.imeHandler) {

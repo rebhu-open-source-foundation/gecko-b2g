@@ -34,6 +34,46 @@ struct SendKeyRequest
   nsString key;
 };
 
+struct SetSelectedOptionRequest
+{
+  int32_t optionIndex;
+};
+
+struct SetSelectedOptionsRequest
+{
+  int32_t[] optionIndexes;
+};
+
+struct OptionDetail
+{
+  bool group;
+  bool inGroup;
+  nsString text;
+  bool disabled;
+  bool selected;
+  bool defaultSelected;
+  int32_t optionIndex;
+};
+
+struct OptionGroupDetail
+{
+  bool group;
+  nsString label;
+  bool disabled;
+};
+
+union OptionDetailCollection
+{
+  OptionDetail;
+  OptionGroupDetail;
+};
+
+struct SelectionChoices
+{
+  bool multiple;
+  OptionDetailCollection[] choices;
+};
+
 struct HandleFocusRequest
 {
   nsString type;
@@ -47,6 +87,7 @@ struct HandleFocusRequest
   nsString name;
   uint32_t selectionStart;
   uint32_t selectionEnd;
+  SelectionChoices choices;
 };
 
 struct HandleBlurRequest
@@ -63,6 +104,8 @@ union InputMethodServiceRequest
   SendKeyRequest;
   HandleFocusRequest;
   HandleBlurRequest;
+  SetSelectedOptionRequest;
+  SetSelectedOptionsRequest;
 };
 
 struct SetCompositionResponse
@@ -115,6 +158,15 @@ struct DoSendKeyResponse
   nsString key;
 };
 
+struct DoSetSelectedOptionResponse
+{
+  int32_t optionIndex;
+};
+
+struct DoSetSelectedOptionsResponse
+{
+  int32_t[] optionIndexes;
+};
 union InputMethodServiceResponse
 {
   SetCompositionResponse;
@@ -127,6 +179,8 @@ union InputMethodServiceResponse
   DoKeydownResponse;
   DoKeyupResponse;
   DoSendKeyResponse;
+  DoSetSelectedOptionResponse;
+  DoSetSelectedOptionsResponse;
 };
 
 async protocol PInputMethodService

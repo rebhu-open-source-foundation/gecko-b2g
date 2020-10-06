@@ -12,9 +12,13 @@
 namespace mozilla {
 namespace dom {
 
-InputMethodServiceChild::InputMethodServiceChild() {}
+InputMethodServiceChild::InputMethodServiceChild() {
+  IME_LOGD("InputMethodServiceChild::Constructor[%p]", this);
+}
 
-InputMethodServiceChild::~InputMethodServiceChild() {}
+InputMethodServiceChild::~InputMethodServiceChild() {
+  IME_LOGD("InputMethodServiceChild::Destructor[%p]", this);
+}
 
 mozilla::ipc::IPCResult InputMethodServiceChild::RecvResponse(
     const InputMethodServiceResponse& aResponse) {
@@ -23,26 +27,31 @@ mozilla::ipc::IPCResult InputMethodServiceChild::RecvResponse(
     case InputMethodServiceResponse::TSetCompositionResponse: {
       const SetCompositionResponse& response = aResponse;
       mInputMethodListener->OnSetComposition(response.status());
+      Unused << Send__delete__(this);
       break;
     }
     case InputMethodServiceResponse::TEndCompositionResponse: {
       const EndCompositionResponse& response = aResponse;
       mInputMethodListener->OnEndComposition(response.status());
+      Unused << Send__delete__(this);
       break;
     }
     case InputMethodServiceResponse::TKeydownResponse: {
       const KeydownResponse& response = aResponse;
       mInputMethodListener->OnKeydown(response.status());
+      Unused << Send__delete__(this);
       break;
     }
     case InputMethodServiceResponse::TKeyupResponse: {
       const KeyupResponse& response = aResponse;
       mInputMethodListener->OnKeyup(response.status());
+      Unused << Send__delete__(this);
       break;
     }
     case InputMethodServiceResponse::TSendKeyResponse: {
       const SendKeyResponse& response = aResponse;
       mInputMethodListener->OnSendKey(response.status());
+      Unused << Send__delete__(this);
       break;
     }
     case InputMethodServiceResponse::TDoSetCompositionResponse: {
@@ -68,6 +77,18 @@ mozilla::ipc::IPCResult InputMethodServiceChild::RecvResponse(
     case InputMethodServiceResponse::TDoSendKeyResponse: {
       const DoSendKeyResponse& response = aResponse;
       mEditableSupportListener->DoSendKey(response.key());
+      break;
+    }
+    case InputMethodServiceResponse::TDoSetSelectedOptionResponse: {
+      const DoSetSelectedOptionResponse& response = aResponse;
+      mEditableSupportListener->DoSetSelectedOption(response.optionIndex());
+      Unused << Send__delete__(this);
+      break;
+    }
+    case InputMethodServiceResponse::TDoSetSelectedOptionsResponse: {
+      const DoSetSelectedOptionsResponse& response = aResponse;
+      mEditableSupportListener->DoSetSelectedOptions(response.optionIndexes());
+      Unused << Send__delete__(this);
       break;
     }
     default: {

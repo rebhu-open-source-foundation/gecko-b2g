@@ -7,6 +7,7 @@
 #include "mozilla/dom/InputMethodService.h"
 #include "mozilla/dom/InputMethodServiceChild.h"
 #include "nsIInputMethodListener.h"
+#include "nsIInputContext.h"
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/StaticPtr.h"
 #include "js/JSON.h"
@@ -24,10 +25,6 @@ LogModule* GetIMELog() {
 static StaticRefPtr<InputMethodService> sInputMethodService;
 
 NS_IMPL_ISUPPORTS(InputMethodService, nsISupports)
-
-InputMethodService::InputMethodService() {}
-
-InputMethodService::~InputMethodService() {}
 
 /*static*/
 already_AddRefed<InputMethodService> InputMethodService::GetInstance() {
@@ -91,15 +88,26 @@ void InputMethodService::SendKey(const nsAString& aKey,
   return;
 }
 
+void InputMethodService::SetSelectedOption(int32_t aOptionIndex) {
+  IME_LOGD("InputMethodService::SetSelectedOption:[%ld]", aOptionIndex);
+  mEditableSupportListener->DoSetSelectedOption(aOptionIndex);
+}
+
+void InputMethodService::SetSelectedOptions(
+    const nsTArray<int32_t>& aOptionIndexes) {
+  IME_LOGD("InputMethodService::SetSelectedOptions, length:[%d]",
+           aOptionIndexes.Length());
+  mEditableSupportListener->DoSetSelectedOptions(aOptionIndexes);
+}
+
 void InputMethodService::HandleFocus(nsIEditableSupportListener* aListener,
-                                     nsIPropertyBag2* aPropBag) {
+                                     nsIInputContext* aPropBag) {
   IME_LOGD("InputMethodService::HandleFocus");
   RegisterEditableSupport(aListener);
   nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
   if (obs) {
     obs->NotifyObservers(aPropBag, "inputmethod-contextchange", u"focus");
   }
-  return;
 }
 
 void InputMethodService::HandleBlur(nsIEditableSupportListener* aListener) {
@@ -110,7 +118,6 @@ void InputMethodService::HandleBlur(nsIEditableSupportListener* aListener) {
     // Blur does not need input field information.
     obs->NotifyObservers(nullptr, "inputmethod-contextchange", u"blur");
   }
-  return;
 }
 
 }  // namespace dom

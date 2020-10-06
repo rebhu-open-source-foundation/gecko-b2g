@@ -75,7 +75,7 @@
 // Replacement of AOSP Java ActivityManagerService
 #include "GonkActivityManagerService.h"
 #include "GeckoEditableSupport.h"
-
+#include "mozilla/dom/IMELog.h"
 #undef LOG
 #define LOG(args...) __android_log_print(ANDROID_LOG_INFO, "Gonk", ##args)
 #ifdef VERBOSE_LOG_ENABLED
@@ -1186,10 +1186,9 @@ nsAppShell::Observe(nsISupports* aSubject, const char* aTopic,
     nsCOMPtr<nsIWidget> domWidget =
         WidgetUtils::DOMWindowToWidget(nsPIDOMWindowOuter::From(domWindow));
     NS_ENSURE_TRUE(domWidget, NS_OK);
-    auto* outerWindow = nsPIDOMWindowOuter::From(domWindow);
-    nsCOMPtr<nsPIDOMWindowInner> win = outerWindow->GetCurrentInnerWindow();
-    GeckoEditableSupport::SetOnBrowserChild(domWidget->GetOwningBrowserChild(),
-                                            win->AsGlobal());
+    GeckoEditableSupport::SetOnBrowserChild(
+        domWidget->GetOwningBrowserChild(),
+        nsPIDOMWindowOuter::From(domWindow));
     return NS_OK;
   }
 

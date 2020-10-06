@@ -7,24 +7,23 @@
 #include "InputMethodServiceParent.h"
 #include "mozilla/dom/InputMethodService.h"
 #include "mozilla/dom/IMELog.h"
-#include "nsHashPropertyBag.h"
+#include "mozilla/dom/nsInputContext.h"
 namespace mozilla {
 namespace dom {
 
-void CarryIntoBag(const HandleFocusRequest& aRequest,
-                  nsHashPropertyBag* aProp) {
-  aProp->SetPropertyAsAString(u"type"_ns, aRequest.type());
-  aProp->SetPropertyAsAString(u"inputType"_ns, aRequest.inputType());
-  aProp->SetPropertyAsAString(u"value"_ns, aRequest.value());
-  aProp->SetPropertyAsAString(u"max"_ns, aRequest.max());
-  aProp->SetPropertyAsAString(u"min"_ns, aRequest.min());
-  aProp->SetPropertyAsAString(u"lang"_ns, aRequest.lang());
-  aProp->SetPropertyAsAString(u"inputMode"_ns, aRequest.inputMode());
-  aProp->SetPropertyAsBool(u"voiceInputSupported"_ns,
-                           aRequest.voiceInputSupported());
-  aProp->SetPropertyAsAString(u"name"_ns, aRequest.name());
-  aProp->SetPropertyAsUint32(u"selectionStart"_ns, aRequest.selectionStart());
-  aProp->SetPropertyAsUint32(u"selectionEnd"_ns, aRequest.selectionEnd());
+void CarryIntoInputContext(const HandleFocusRequest& aRequest,
+                           nsInputContext* aInputContext) {
+  aInputContext->SetType(aRequest.type());
+  aInputContext->SetInputType(aRequest.inputType());
+  aInputContext->SetValue(aRequest.value());
+  aInputContext->SetMax(aRequest.max());
+  aInputContext->SetMin(aRequest.min());
+  aInputContext->SetLang(aRequest.lang());
+  aInputContext->SetInputMode(aRequest.inputMode());
+  aInputContext->SetVoiceInputSupported(aRequest.voiceInputSupported());
+  aInputContext->SetName(aRequest.name());
+  aInputContext->SetSelectionStart(aRequest.selectionStart());
+  aInputContext->SetSelectionEnd(aRequest.selectionEnd());
 
   IME_LOGD("HandleFocusRequest: type:[%s]",
            NS_ConvertUTF16toUTF8(aRequest.type()).get());
@@ -47,14 +46,57 @@ void CarryIntoBag(const HandleFocusRequest& aRequest,
   IME_LOGD("HandleFocusRequest: selectionStart:[%lu]",
            aRequest.selectionStart());
   IME_LOGD("HandleFocusRequest: selectionEnd:[%lu]", aRequest.selectionEnd());
+
+  RefPtr<nsInputContextChoices> inputContextChoices =
+      new nsInputContextChoices();
+  nsTArray<RefPtr<nsIInputContextChoicesInfo>> choices;
+  choices.Clear();
+  inputContextChoices->SetMultiple(aRequest.choices().multiple());
+
+  for (uint32_t i = 0; i < aRequest.choices().choices().Length(); ++i) {
+    const OptionDetailCollection& choice = aRequest.choices().choices()[i];
+    if (choice.type() == OptionDetailCollection::TOptionDetail) {
+      const OptionDetail& optionDetail = choice.get_OptionDetail();
+      RefPtr<nsInputContextChoicesInfo> optInfo =
+          new nsInputContextChoicesInfo();
+      optInfo->SetGroup(optionDetail.group());
+      optInfo->SetInGroup(optionDetail.inGroup());
+      optInfo->SetValue(optionDetail.text());
+      optInfo->SetText(optionDetail.text());
+      optInfo->SetDisabled(optionDetail.disabled());
+      optInfo->SetSelected(optionDetail.selected());
+      optInfo->SetDefaultSelected(optionDetail.defaultSelected());
+      optInfo->SetOptionIndex(optionDetail.optionIndex());
+      choices.AppendElement(optInfo);
+      IME_LOGD("HandleFocusRequest: OptionDetail:[%s]",
+               NS_ConvertUTF16toUTF8(optionDetail.text()).get());
+    } else {  // OptionGroupDetail
+      const OptionGroupDetail& optionGroupDetail =
+          choice.get_OptionGroupDetail();
+      RefPtr<nsInputContextChoicesInfo> groupInfo =
+          new nsInputContextChoicesInfo();
+      groupInfo->SetGroup(optionGroupDetail.group());
+      groupInfo->SetLabel(optionGroupDetail.label());
+      groupInfo->SetDisabled(optionGroupDetail.disabled());
+      choices.AppendElement(groupInfo);
+      IME_LOGD("HandleFocusRequest: OptionGroupDetail:[%s]",
+               NS_ConvertUTF16toUTF8(optionGroupDetail.label()).get());
+    }
+  }
+  inputContextChoices->SetChoices(choices);
+  aInputContext->SetInputContextChoices(inputContextChoices);
 }
 
 NS_IMPL_ISUPPORTS(InputMethodServiceParent, nsIInputMethodListener,
                   nsIEditableSupportListener)
 
-InputMethodServiceParent::InputMethodServiceParent() {}
+InputMethodServiceParent::InputMethodServiceParent() {
+  IME_LOGD("InputMethodServiceParent::Constructor[%p]", this);
+}
 
-InputMethodServiceParent::~InputMethodServiceParent() {}
+InputMethodServiceParent::~InputMethodServiceParent() {
+  IME_LOGD("InputMethodServiceParent::Destructor[%p]", this);
+}
 
 mozilla::ipc::IPCResult InputMethodServiceParent::RecvRequest(
     const InputMethodServiceRequest& aRequest) {
@@ -96,14 +138,28 @@ mozilla::ipc::IPCResult InputMethodServiceParent::RecvRequest(
     case InputMethodServiceRequest::THandleFocusRequest: {
       IME_LOGD("InputMethodServiceParent::RecvRequest:HandleFocusRequest");
       const HandleFocusRequest& request = aRequest;
-      RefPtr<nsHashPropertyBag> props = new nsHashPropertyBag();
-      CarryIntoBag(request, props);
-      service->HandleFocus(this, static_cast<nsIPropertyBag2*>(props));
+      RefPtr<nsInputContext> inputContext = new nsInputContext();
+      CarryIntoInputContext(request, inputContext);
+      service->HandleFocus(this, static_cast<nsIInputContext*>(inputContext));
       break;
     }
     case InputMethodServiceRequest::THandleBlurRequest: {
       IME_LOGD("InputMethodServiceParent::RecvRequest:HandleBlurRequest");
       service->HandleBlur(this);
+      break;
+    }
+    case InputMethodServiceRequest::TSetSelectedOptionRequest: {
+      IME_LOGD(
+          "InputMethodServiceParent::RecvRequest:SetSelectedOptionRequest");
+      const SetSelectedOptionRequest& request = aRequest;
+      service->SetSelectedOption(request.optionIndex());
+      break;
+    }
+    case InputMethodServiceRequest::TSetSelectedOptionsRequest: {
+      IME_LOGD(
+          "InputMethodServiceParent::RecvRequest:SetSelectedOptionsRequest");
+      const SetSelectedOptionsRequest& request = aRequest;
+      service->SetSelectedOptions(request.optionIndexes());
       break;
     }
     default: {
@@ -197,6 +253,23 @@ InputMethodServiceParent::DoSendKey(const nsAString& aKey) {
   IME_LOGD("InputMethodServiceParent::DoSendKey");
   nsString key(aKey);
   DoSendKeyResponse response(key);
+  Unused << SendResponse(response);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+InputMethodServiceParent::DoSetSelectedOption(int32_t aOptionIndex) {
+  IME_LOGD("InputMethodServiceParent::DoSetSelectedOption");
+  DoSetSelectedOptionResponse response(aOptionIndex);
+  Unused << SendResponse(response);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+InputMethodServiceParent::DoSetSelectedOptions(
+    const nsTArray<int32_t>& aOptionIndexes) {
+  IME_LOGD("InputMethodServiceParent::DoSetSelectedOptions");
+  DoSetSelectedOptionsResponse response(aOptionIndexes);
   Unused << SendResponse(response);
   return NS_OK;
 }

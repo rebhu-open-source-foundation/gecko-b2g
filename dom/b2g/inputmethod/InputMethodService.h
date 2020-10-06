@@ -11,6 +11,7 @@
 
 class nsIInputMethodListener;
 class nsIEditableSupportListener;
+class nsIInputContext;
 namespace mozilla {
 
 namespace dom {
@@ -29,8 +30,10 @@ class InputMethodService final : public nsISupports {
   void Keydown(const nsAString& aKey, nsIInputMethodListener* aListener);
   void Keyup(const nsAString& aKey, nsIInputMethodListener* aListener);
   void SendKey(const nsAString& aKey, nsIInputMethodListener* aListener);
+  void SetSelectedOption(int32_t optionIndex);
+  void SetSelectedOptions(const nsTArray<int32_t>& optionIndexes);
   void HandleFocus(nsIEditableSupportListener* aListener,
-                   nsIPropertyBag2* aPropBag);
+                   nsIInputContext* aPropBag);
   void HandleBlur(nsIEditableSupportListener* aListener);
   void RegisterEditableSupport(nsIEditableSupportListener* aSupport) {
     mEditableSupportListener = aSupport;
@@ -41,8 +44,8 @@ class InputMethodService final : public nsISupports {
   }
 
  private:
-  InputMethodService();
-  ~InputMethodService();
+  InputMethodService() = default;
+  ~InputMethodService() = default;
   nsCOMPtr<nsIEditableSupportListener> mEditableSupportListener;
 };
 

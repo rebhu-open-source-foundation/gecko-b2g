@@ -22,4 +22,6 @@ interface nsIEditableSupportListener : nsISupports
   void DoKeydown(in AString aKey);
   void DoKeyup(in AString aKey);
   void DoSendKey(in AString aKey);
+  void DoSetSelectedOption(in int32_t aOptionindex);
+  void DoSetSelectedOptions(in Array<int32_t> aOptionindexes) ;
 };

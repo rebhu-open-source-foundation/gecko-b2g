@@ -1,0 +1,45 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+#include "nsIArray.idl"
+interface nsIMutableArray;
+
+[scriptable, uuid(f3e800bc-084e-11eb-9d30-87a883b04d68)]
+interface nsIInputContextChoicesInfo : nsISupports
+{
+  readonly attribute boolean group;
+  readonly attribute boolean inGroup;
+  readonly attribute boolean disabled;
+  readonly attribute boolean selected;
+  readonly attribute boolean defaultSelected;
+  readonly attribute AString text;
+  readonly attribute AString label;
+  readonly attribute AString value;
+  readonly attribute int32_t optionIndex;
+};
+
+[scriptable, uuid(b45c82d6-084b-11eb-9853-f7442d845ca6)]
+interface nsIInputContextChoices : nsISupports
+{
+  readonly attribute boolean multiple;
+  readonly attribute Array<nsIInputContextChoicesInfo> choices;
+};
+
+[scriptable, uuid(c89fb778-084a-11eb-a3b0-4be9b10aec9b)]
+interface nsIInputContext : nsISupports
+{
+  readonly attribute AString type;
+  readonly attribute AString inputType;
+  readonly attribute AString value;
+  readonly attribute AString max;
+  readonly attribute AString min;
+  readonly attribute AString lang;
+  readonly attribute AString inputMode;
+  readonly attribute AString name;
+  readonly attribute boolean voiceInputSupported;
+  readonly attribute uint32_t selectionStart;
+  readonly attribute uint32_t selectionEnd;
+  readonly attribute nsIInputContextChoices choices;
+};

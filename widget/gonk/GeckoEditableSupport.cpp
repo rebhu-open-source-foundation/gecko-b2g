@@ -19,21 +19,23 @@
 #include "mozilla/ToString.h"
 #include "mozilla/dom/BrowserChild.h"
 #include "nsIDocShell.h"
-#include "nsIGlobalObject.h"
-#include "mozilla/dom/Promise.h"
 #include "mozilla/dom/IMELog.h"
 #include "mozilla/dom/InputMethodService.h"
 #include "mozilla/dom/InputMethodServiceChild.h"
 #include "nsFocusManager.h"
 #include "mozilla/dom/HTMLInputElement.h"
 #include "mozilla/dom/HTMLTextAreaElement.h"
-#include "nsReadableUtils.h"
+#include "mozilla/dom/HTMLSelectElement.h"
+#include "mozilla/dom/HTMLOptGroupElement.h"
+#include "mozilla/dom/HTMLOptionElement.h"
 #include "mozilla/dom/Document.h"
 #include "nsGenericHTMLElement.h"
 #include "mozilla/dom/Element.h"
-#include "nsHashPropertyBag.h"
 #include "nsIDocumentEncoder.h"
 #include "nsRange.h"
+#include "mozilla/dom/EventTarget.h"
+#include "mozilla/dom/Event.h"
+#include "mozilla/dom/nsInputContext.h"
 
 using namespace mozilla::dom;
 
@@ -66,6 +68,57 @@ bool isContentEditable(Element* aElement) {
   }
 
   return document->IsEditingOn();
+}
+
+bool isIgnoredInputTypes(nsAString& inputType) {
+  // nsAutoString inputType(aType);
+  return inputType.EqualsIgnoreCase("button") ||
+         inputType.EqualsIgnoreCase("file") ||
+         inputType.EqualsIgnoreCase("checkbox") ||
+         inputType.EqualsIgnoreCase("radio") ||
+         inputType.EqualsIgnoreCase("reset") ||
+         inputType.EqualsIgnoreCase("submit") ||
+         inputType.EqualsIgnoreCase("image") ||
+         inputType.EqualsIgnoreCase("range");
+}
+
+bool isFocusableElement(Element* aElement) {
+  if (!aElement) {
+    return false;
+  }
+  RefPtr<HTMLSelectElement> selectElement =
+      HTMLSelectElement::FromNodeOrNull(aElement);
+  if (selectElement) {
+    return true;
+  }
+  RefPtr<HTMLTextAreaElement> textAreaElement =
+      HTMLTextAreaElement::FromNodeOrNull(aElement);
+  if (textAreaElement) {
+    return true;
+  }
+  RefPtr<HTMLOptionElement> optionElement =
+      HTMLOptionElement::FromNodeOrNull(aElement);
+  if (optionElement) {
+    RefPtr<HTMLSelectElement> optionParent =
+        HTMLSelectElement::FromNodeOrNull(optionElement->GetParentNode());
+    if (optionParent) {
+      return true;
+    }
+  }
+  nsAutoString inputType;
+  RefPtr<HTMLInputElement> inputElement =
+      HTMLInputElement::FromNodeOrNull(aElement);
+  if (inputElement) {
+    if (inputElement->ReadOnly()) {
+      return false;
+    }
+    inputElement->GetType(inputType);
+    if (isIgnoredInputTypes(inputType)) {
+      return false;
+    }
+    return true;
+  }
+  return false;
 }
 
 bool isPlainTextField(Element* aElement) {
@@ -202,38 +255,134 @@ uint32_t getSelectionEnd(Element* aElement) {
   return end;
 }
 
-HandleFocusRequest CreateFocusRequestFromPropBag(nsIPropertyBag2* aPropBag) {
+HandleFocusRequest CreateFocusRequestFromInputContext(
+    nsIInputContext* aInputContext) {
   nsAutoString typeValue, inputTypeValue, valueValue, maxValue, minValue,
       langValue, inputModeValue, nameValue;
   uint32_t selectionStartValue, selectionEndValue;
   bool voiceInputSupportedValue;
-  aPropBag->GetPropertyAsAString(u"type"_ns, typeValue);
-  aPropBag->GetPropertyAsAString(u"inputType"_ns, inputTypeValue);
-  aPropBag->GetPropertyAsAString(u"value"_ns, valueValue);
-  aPropBag->GetPropertyAsAString(u"max"_ns, maxValue);
-  aPropBag->GetPropertyAsAString(u"min"_ns, minValue);
-  aPropBag->GetPropertyAsAString(u"lang"_ns, langValue);
-  aPropBag->GetPropertyAsAString(u"inputMode"_ns, inputModeValue);
-  aPropBag->GetPropertyAsBool(u"voiceInputSupported"_ns,
-                              &voiceInputSupportedValue);
-  aPropBag->GetPropertyAsAString(u"name"_ns, nameValue);
-  aPropBag->GetPropertyAsUint32(u"selectionStart"_ns, &selectionStartValue);
-  aPropBag->GetPropertyAsUint32(u"selectionEnd"_ns, &selectionEndValue);
+
+  aInputContext->GetType(typeValue);
+  aInputContext->GetInputType(inputTypeValue);
+  aInputContext->GetValue(valueValue);
+  aInputContext->GetMax(maxValue);
+  aInputContext->GetMin(minValue);
+  aInputContext->GetLang(langValue);
+  aInputContext->GetInputMode(inputModeValue);
+  aInputContext->GetVoiceInputSupported(&voiceInputSupportedValue);
+  aInputContext->GetName(nameValue);
+  aInputContext->GetSelectionStart(&selectionStartValue);
+  aInputContext->GetSelectionEnd(&selectionEndValue);
+  nsCOMPtr<nsIInputContextChoices> choices;
+  aInputContext->GetChoices(getter_AddRefs(choices));
+  SelectionChoices selectionChoices;
+  nsTArray<OptionDetailCollection> optionDetailArray;
+  if (choices) {
+    bool isMultiple;
+    choices->GetMultiple(&isMultiple);
+    nsTArray<RefPtr<nsIInputContextChoicesInfo>> infos;
+    choices->GetChoices(infos);
+
+    for (const auto& info : infos) {
+      bool isGroup;
+      info->GetGroup(&isGroup);
+      if (isGroup) {  // OptionGroupDetail
+        OptionGroupDetail groupDetail;
+        bool isGroupDisabled;
+        info->GetDisabled(&isGroupDisabled);
+        nsAutoString label;
+        info->GetLabel(label);
+        groupDetail.group() = isGroup;
+        groupDetail.label() = nsString(label);
+        groupDetail.disabled() = isGroupDisabled;
+        IME_LOGD("groupDetail.group:[%s]", isGroup ? "true" : "false");
+        IME_LOGD("groupDetail.disabled:[%s]",
+                 isGroupDisabled ? "true" : "false");
+        IME_LOGD("groupDetail.label:[%s]", NS_ConvertUTF16toUTF8(label).get());
+        optionDetailArray.AppendElement(groupDetail);
+      } else {  // OptionDetail
+        OptionDetail optionDetail;
+        bool isInGroup, isDisabled, isSelected, isDefaultSelected;
+        nsAutoString text;
+        int32_t optionIndex;
+        info->GetInGroup(&isInGroup);
+        info->GetDisabled(&isDisabled);
+        info->GetSelected(&isSelected);
+        info->GetDefaultSelected(&isDefaultSelected);
+        info->GetText(text);
+        info->GetOptionIndex(&optionIndex);
+        optionDetail.group() = isGroup;
+        optionDetail.inGroup() = isInGroup;
+        optionDetail.disabled() = isDisabled;
+        optionDetail.selected() = isSelected;
+        optionDetail.defaultSelected() = isDefaultSelected;
+        optionDetail.text() = nsString(text);
+        optionDetail.optionIndex() = optionIndex;
+        optionDetailArray.AppendElement(optionDetail);
+        IME_LOGD("optionDetail.group:[%s]", isGroup ? "true" : "false");
+        IME_LOGD("optionDetail.inGroup:[%s]", isInGroup ? "true" : "false");
+        IME_LOGD("optionDetail.disabled:[%s]", isDisabled ? "true" : "false");
+        IME_LOGD("optionDetail.selected:[%s]", isSelected ? "true" : "false");
+        IME_LOGD("optionDetail.defaultSelected:[%s]",
+                 isDefaultSelected ? "true" : "false");
+        IME_LOGD("optionDetail.text:[%s]", NS_ConvertUTF16toUTF8(text).get());
+        IME_LOGD("optionDetail.optionIndex:[%ld]", optionIndex);
+      }
+    }
+    selectionChoices.multiple() = isMultiple;
+    selectionChoices.choices() = optionDetailArray.Clone();
+  }
 
   HandleFocusRequest request(
       nsString(typeValue), nsString(inputTypeValue), nsString(valueValue),
       nsString(maxValue), nsString(minValue), nsString(langValue),
       nsString(inputModeValue), voiceInputSupportedValue, nsString(nameValue),
-      selectionStartValue, selectionEndValue);
+      selectionStartValue, selectionEndValue, selectionChoices);
   return request;
 }
 
 NS_IMPL_ISUPPORTS(GeckoEditableSupport, TextEventDispatcherListener,
-                  nsIEditableSupportListener, nsISupportsWeakReference)
+                  nsIEditableSupportListener, nsIDOMEventListener, nsIObserver,
+                  nsISupportsWeakReference)
 
-GeckoEditableSupport::GeckoEditableSupport(nsIGlobalObject* aGlobal,
+GeckoEditableSupport::GeckoEditableSupport(nsPIDOMWindowOuter* aDOMWindow,
                                            nsWindow* aWindow)
-    : mWindow(aWindow), mIsRemote(!aWindow), mGlobal(aGlobal) {}
+    : mWindow(aWindow), mIsRemote(!aWindow) {
+  IME_LOGD("GeckoEditableSupport::Constructor[%p]", this);
+  nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
+  if (obs) {
+    obs->AddObserver(this, "outer-window-destroyed", false);
+  }
+  nsCOMPtr<EventTarget> mChromeEventHandler =
+      aDOMWindow->GetChromeEventHandler();
+  if (mChromeEventHandler) {
+    IME_LOGD("IME: AddEventListener: focus & blur");
+    mChromeEventHandler->AddEventListener(u"focus"_ns, this,
+                                          /* useCapture = */ true);
+    mChromeEventHandler->AddEventListener(u"blur"_ns, this,
+                                          /* useCapture = */ true);
+  }
+}
+
+GeckoEditableSupport::~GeckoEditableSupport() {
+  IME_LOGD("GeckoEditableSupport::Destructor[%p]", this);
+  nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
+  if (obs) {
+    obs->RemoveObserver(this, "outer-window-destroyed");
+  }
+}
+
+NS_IMETHODIMP
+GeckoEditableSupport::Observe(nsISupports* aSubject, const char* aTopic,
+                              const char16_t* aData) {
+  IME_LOGD("GeckoEditableSupport[%p], Observe[%s]", this, aTopic);
+  if (!strcmp(aTopic, "outer-window-destroyed")) {
+    mChromeEventHandler->RemoveEventListener(u"focus"_ns, this,
+                                             /* useCapture = */ true);
+    mChromeEventHandler->RemoveEventListener(u"blur"_ns, this,
+                                             /* useCapture = */ true);
+  }
+}
 
 nsresult GeckoEditableSupport::NotifyIME(
     TextEventDispatcher* aTextEventDispatcher,
@@ -257,23 +406,6 @@ nsresult GeckoEditableSupport::NotifyIME(
       IME_LOGD("NotifyIME, mDispatcher:[%p]", mDispatcher.get());
       result = BeginInputTransaction(mDispatcher);
       NS_ENSURE_SUCCESS(result, result);
-      RefPtr<nsHashPropertyBag> propBag = new nsHashPropertyBag();
-      GetInputContextBag(propBag);
-      {
-        // oop
-        ContentChild* contentChild = ContentChild::GetSingleton();
-        if (contentChild) {
-          InputMethodServiceChild* child = new InputMethodServiceChild();
-          child->SetEditableSupportListener(this);
-          contentChild->SendPInputMethodServiceConstructor(child);
-          child->SendRequest(CreateFocusRequestFromPropBag(propBag));
-        } else {
-          // Call from parent process (or in-proces app).
-          RefPtr<InputMethodService> service =
-              dom::InputMethodService::GetInstance();
-          service->HandleFocus(this, static_cast<nsIPropertyBag2*>(propBag));
-        }
-      }
       break;
     }
 
@@ -281,22 +413,6 @@ nsresult GeckoEditableSupport::NotifyIME(
       IME_LOGD("IME: NOTIFY_IME_OF_BLUR");
       mDispatcher->EndInputTransaction(this);
       OnRemovedFrom(mDispatcher);
-      {
-        // oop
-        ContentChild* contentChild = ContentChild::GetSingleton();
-        if (contentChild) {
-          InputMethodServiceChild* child = new InputMethodServiceChild();
-          child->SetEditableSupportListener(this);
-          contentChild->SendPInputMethodServiceConstructor(child);
-          HandleBlurRequest request(contentChild->GetID());
-          child->SendRequest(request);
-        } else {
-          // Call from parent process (or in-proces app).
-          RefPtr<InputMethodService> service =
-              dom::InputMethodService::GetInstance();
-          service->HandleBlur(this);
-        }
-      }
       break;
     }
 
@@ -344,10 +460,10 @@ void GeckoEditableSupport::WillDispatchKeyboardEvent(
 
 /* static */
 void GeckoEditableSupport::SetOnBrowserChild(dom::BrowserChild* aBrowserChild,
-                                             nsIGlobalObject* aGlobal) {
+                                             nsPIDOMWindowOuter* aDOMWindow) {
   MOZ_ASSERT(!XRE_IsParentProcess());
   NS_ENSURE_TRUE_VOID(aBrowserChild);
-  IME_LOGD("IME: SetOnBrowserChild");
+
   RefPtr<widget::PuppetWidget> widget(aBrowserChild->WebWidget());
   RefPtr<widget::TextEventDispatcherListener> listener =
       widget->GetNativeTextEventDispatcherListener();
@@ -357,12 +473,80 @@ void GeckoEditableSupport::SetOnBrowserChild(dom::BrowserChild* aBrowserChild,
           static_cast<widget::TextEventDispatcherListener*>(widget)) {
     // We need to set a new listener.
     RefPtr<widget::GeckoEditableSupport> editableSupport =
-        new widget::GeckoEditableSupport(aGlobal, nullptr);
+        new widget::GeckoEditableSupport(aDOMWindow);
 
     // Tell PuppetWidget to use our listener for IME operations.
     widget->SetNativeTextEventDispatcherListener(editableSupport);
+  }
+}
 
+NS_IMETHODIMP
+GeckoEditableSupport::HandleEvent(Event* aEvent) {
+  if (!aEvent) {
+    return NS_OK;
+  }
+  nsCOMPtr<EventTarget> target = aEvent->GetComposedTarget();
+  nsCOMPtr<nsINode> node(do_QueryInterface(target));
+  if (!node || !node->IsHTMLElement()) {
+    return NS_OK;
+  }
+  nsCOMPtr<Element> ele = node->AsElement();
+  if (!ele) {
+    return NS_OK;
+  }
+  if (!isContentEditable(ele) && !isFocusableElement(ele)) {
+    return NS_OK;
+  }
+  nsAutoString eventType;
+  aEvent->GetType(eventType);
+
+  if (eventType.EqualsLiteral("focus")) {
+    IME_LOGD("-- GeckoEditableSupport::HandleEvent : focus");
+    HandleFocus();
+  }
+
+  if (eventType.EqualsLiteral("blur")) {
+    IME_LOGD("-- GeckoEditableSupport::HandleEvent : blur");
+    HandleBlur();
+  }
+  return NS_OK;
+}
+
+void GeckoEditableSupport::HandleFocus() {
+  RefPtr<nsInputContext> inputContext = new nsInputContext();
+  nsresult rv = GetInputContextBag(inputContext);
+  if (NS_FAILED(rv)) {
     return;
+  }
+  // oop
+  ContentChild* contentChild = ContentChild::GetSingleton();
+  if (contentChild) {
+    InputMethodServiceChild* child = new InputMethodServiceChild();
+    child->SetEditableSupportListener(this);
+    contentChild->SendPInputMethodServiceConstructor(child);
+    child->SendRequest(CreateFocusRequestFromInputContext(inputContext));
+    // TODO Unable to delete here, find somewhere else to do so.
+  } else {
+    // Call from parent process (or in-proces app).
+    RefPtr<InputMethodService> service = dom::InputMethodService::GetInstance();
+    service->HandleFocus(this, static_cast<nsIInputContext*>(inputContext));
+  }
+}
+
+void GeckoEditableSupport::HandleBlur() {
+  // oop
+  ContentChild* contentChild = ContentChild::GetSingleton();
+  if (contentChild) {
+    InputMethodServiceChild* child = new InputMethodServiceChild();
+    child->SetEditableSupportListener(this);
+    contentChild->SendPInputMethodServiceConstructor(child);
+    HandleBlurRequest request(contentChild->GetID());
+    child->SendRequest(request);
+    Unused << child->Send__delete__(child);
+  } else {
+    // Call from parent process (or in-proces app).
+    RefPtr<InputMethodService> service = dom::InputMethodService::GetInstance();
+    service->HandleBlur(this);
   }
 }
 
@@ -492,7 +676,103 @@ GeckoEditableSupport::DoSendKey(const nsAString& aKey) {
   return NS_OK;
 }
 
-nsresult GeckoEditableSupport::GetInputContextBag(nsHashPropertyBag* aBagOut) {
+NS_IMETHODIMP
+GeckoEditableSupport::DoSetSelectedOption(int32_t aOptionIndex) {
+  IME_LOGD("-- EditableSupport DoSetSelectedOption");
+  IME_LOGD("-- EditableSupport aOptionIndex:[%ld]", aOptionIndex);
+  if (aOptionIndex < 0) {
+    return NS_ERROR_ABORT;
+  }
+  nsFocusManager* focusManager = nsFocusManager::GetFocusManager();
+  if (!focusManager) return NS_ERROR_ABORT;
+  Element* focusedElement = focusManager->GetFocusedElement();
+  if (!focusedElement) return NS_ERROR_ABORT;
+
+  RefPtr<HTMLSelectElement> selectElement =
+      HTMLSelectElement::FromNodeOrNull(focusedElement);
+  if (!selectElement) {
+    return NS_ERROR_ABORT;
+  }
+  // Safe to convert to unit since index is not negative
+  if ((uint32_t)aOptionIndex > selectElement->Length()) {
+    return NS_ERROR_ABORT;
+  }
+  if (selectElement->SelectedIndex() == aOptionIndex) {
+    return NS_OK;
+  }
+
+  selectElement->SetSelectedIndex(aOptionIndex);
+
+  nsCOMPtr<Document> document = selectElement->OwnerDoc();
+  RefPtr<Event> event = NS_NewDOMEvent(document, nullptr, nullptr);
+  event->InitEvent(u"change"_ns, true, true);
+  event->SetTrusted(true);
+
+  ErrorResult rv;
+  document->DispatchEvent(*event);
+  if (rv.Failed()) {
+    IME_LOGD("Failed to dispatch change event!!!");
+    return NS_ERROR_ABORT;
+  }
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+GeckoEditableSupport::DoSetSelectedOptions(
+    const nsTArray<int32_t>& aOptionIndexes) {
+  IME_LOGD("-- EditableSupport DoSetSelectedOption");
+  IME_LOGD("-- EditableSupport aOptionIndexes.Length():[%ld]",
+           aOptionIndexes.Length());
+  nsFocusManager* focusManager = nsFocusManager::GetFocusManager();
+  if (!focusManager) return NS_ERROR_ABORT;
+
+  Element* focusedElement = focusManager->GetFocusedElement();
+  if (!focusedElement) return NS_ERROR_ABORT;
+
+  if (aOptionIndexes.Length() == 0) {
+    return NS_ERROR_ABORT;
+  }
+
+  RefPtr<HTMLSelectElement> selectElement =
+      HTMLSelectElement::FromNodeOrNull(focusedElement);
+  if (!selectElement) {
+    return NS_ERROR_ABORT;
+  }
+
+  // only fire onchange event if any selected option is changed
+  bool changed = false;
+  for (const auto& index : aOptionIndexes) {
+    if (index < 0) {
+      continue;
+    }
+    if (!selectElement->Item(index)) {
+      continue;
+    }
+    if (!selectElement->Item(index)->Selected()) {
+      changed = true;
+      selectElement->Item(index)->SetSelected(true);
+    }
+  }
+  if (!changed) {
+    return NS_OK;
+  }
+  nsCOMPtr<Document> document = selectElement->OwnerDoc();
+  RefPtr<Event> event = NS_NewDOMEvent(document, nullptr, nullptr);
+  event->InitEvent(u"change"_ns, true, true);
+  event->SetTrusted(true);
+
+  ErrorResult rv;
+  document->DispatchEvent(*event);
+  if (rv.Failed()) {
+    IME_LOGD("Failed to dispatch change event!!!");
+    return NS_ERROR_ABORT;
+  }
+
+  return NS_OK;
+}
+
+nsresult GeckoEditableSupport::GetInputContextBag(
+    nsInputContext* aInputContext) {
   nsFocusManager* focusManager = nsFocusManager::GetFocusManager();
   if (!focusManager) return NS_ERROR_ABORT;
   Element* focusedElement = focusManager->GetFocusedElement();
@@ -502,99 +782,195 @@ nsresult GeckoEditableSupport::GetInputContextBag(nsHashPropertyBag* aBagOut) {
 
   // type
   focusedElement->GetTagName(attributeValue);
-  ToLowerCase(attributeValue);
-  if (attributeValue.IsEmpty()) {
-    attributeValue.SetIsVoid(true);
-  }
-  aBagOut->SetPropertyAsAString(u"type"_ns, attributeValue);
-  IME_LOGD("InputContextBag: type:[%s]",
+  aInputContext->SetType(attributeValue);
+  IME_LOGD("InputContext: type:[%s]",
            NS_ConvertUTF16toUTF8(attributeValue).get());
 
   // inputType
   focusedElement->GetAttribute(u"type"_ns, attributeValue);
-  ToLowerCase(attributeValue);
-  if (attributeValue.IsEmpty()) {
-    attributeValue.SetIsVoid(true);
-  }
-  aBagOut->SetPropertyAsAString(u"inputType"_ns, attributeValue);
-  IME_LOGD("InputContextBag: inputType:[%s]",
+  aInputContext->SetInputType(attributeValue);
+  IME_LOGD("InputContext: inputType:[%s]",
            NS_ConvertUTF16toUTF8(attributeValue).get());
 
   // value
   focusedElement->GetAttribute(u"value"_ns, attributeValue);
-  aBagOut->SetPropertyAsAString(u"value"_ns, attributeValue);
-  IME_LOGD("InputContextBag: value:[%s]",
+  aInputContext->SetValue(attributeValue);
+  IME_LOGD("InputContext: value:[%s]",
            NS_ConvertUTF16toUTF8(attributeValue).get());
 
   // max Using string since if inputType is date then max could be string.
   focusedElement->GetAttribute(u"max"_ns, attributeValue);
-  aBagOut->SetPropertyAsAString(u"max"_ns, attributeValue);
-  IME_LOGD("InputContextBag: max:[%s]",
+  aInputContext->SetMax(attributeValue);
+  IME_LOGD("InputContext: max:[%s]",
            NS_ConvertUTF16toUTF8(attributeValue).get());
 
   // min Same as max
   focusedElement->GetAttribute(u"min"_ns, attributeValue);
-  aBagOut->SetPropertyAsAString(u"min"_ns, attributeValue);
-  IME_LOGD("InputContextBag: min:[%s]",
+  aInputContext->SetMin(attributeValue);
+  IME_LOGD("InputContext: min:[%s]",
            NS_ConvertUTF16toUTF8(attributeValue).get());
 
   // lang
   focusedElement->GetAttribute(u"lang"_ns, attributeValue);
-  aBagOut->SetPropertyAsAString(u"lang"_ns, attributeValue);
-  IME_LOGD("InputContextBag: lang:[%s]",
+  aInputContext->SetLang(attributeValue);
+  IME_LOGD("InputContext: lang:[%s]",
            NS_ConvertUTF16toUTF8(attributeValue).get());
 
   // inputMode
   focusedElement->GetAttribute(u"x-inputmode"_ns, attributeValue);
-  ToLowerCase(attributeValue);
-  if (attributeValue.IsEmpty()) {
-    attributeValue.SetIsVoid(true);
-  }
-  aBagOut->SetPropertyAsAString(u"inputMode"_ns, attributeValue);
-  IME_LOGD("InputContextBag: inputMode:[%s]",
+  aInputContext->SetInputMode(attributeValue);
+  IME_LOGD("InputContext: inputMode:[%s]",
            NS_ConvertUTF16toUTF8(attributeValue).get());
 
   // voiceInputSupported
   focusedElement->GetAttribute(u"voiceInputSupported"_ns, attributeValue);
-  aBagOut->SetPropertyAsBool(u"voiceInputSupported"_ns,
-                             attributeValue.EqualsIgnoreCase("true"));
-  IME_LOGD("InputContextBag: voiceInputSupported:[%s]",
+  aInputContext->SetVoiceInputSupported(
+      attributeValue.EqualsIgnoreCase("true"));
+  IME_LOGD("InputContext: voiceInputSupported:[%s]",
            NS_ConvertUTF16toUTF8(attributeValue).get());
 
   // name
   focusedElement->GetAttribute(u"name"_ns, attributeValue);
-  ToLowerCase(attributeValue);
-  if (attributeValue.IsEmpty()) {
-    attributeValue.SetIsVoid(true);
-  }
-  aBagOut->SetPropertyAsAString(u"name"_ns, attributeValue);
-  IME_LOGD("InputContextBag: name:[%s]",
+  aInputContext->SetName(attributeValue);
+  IME_LOGD("InputContext: name:[%s]",
            NS_ConvertUTF16toUTF8(attributeValue).get());
 
   // selectionStart
   uint32_t start = getSelectionStart(focusedElement);
-  aBagOut->SetPropertyAsUint32(u"selectionStart"_ns, start);
-  IME_LOGD("InputContextBag: selectionStart:[%lu]", start);
+  aInputContext->SetSelectionStart(start);
+  IME_LOGD("InputContext: selectionStart:[%lu]", start);
 
   // selectionEnd
   uint32_t end = getSelectionEnd(focusedElement);
-  aBagOut->SetPropertyAsUint32(u"selectionEnd"_ns, end);
-  IME_LOGD("InputContextBag: selectionEnd:[%lu]", end);
+  aInputContext->SetSelectionEnd(end);
+  IME_LOGD("InputContext: selectionEnd:[%lu]", end);
 
   // Treat contenteditable element as a special text area field
   if (isContentEditable(focusedElement)) {
-    aBagOut->SetPropertyAsAString(u"type"_ns, u"contenteditable"_ns);
-    aBagOut->SetPropertyAsAString(u"inputType"_ns, u"textarea"_ns);
+    aInputContext->SetType(u"contenteditable"_ns);
+    aInputContext->SetInputType(u"textarea"_ns);
     nsresult rv = getContentEditableText(focusedElement, attributeValue);
     if (rv != NS_OK) {
       return rv;
     }
-    aBagOut->SetPropertyAsAString(u"value"_ns, attributeValue);
-    IME_LOGD("InputContextBag: value:[%s]",
+    aInputContext->SetValue(attributeValue);
+    IME_LOGD("InputContext: value:[%s]",
              NS_ConvertUTF16toUTF8(attributeValue).get());
   }
 
-  // TODO Should carry `choices` for HTMLSelectElement
+  // Choices
+  RefPtr<HTMLSelectElement> selectElement =
+      HTMLSelectElement::FromNodeOrNull(focusedElement);
+  if (!selectElement) {
+    return NS_OK;
+  }
+
+  RefPtr<nsInputContextChoices> inputContextChoices =
+      new nsInputContextChoices();
+  nsTArray<RefPtr<nsIInputContextChoicesInfo>> choices;
+  choices.Clear();
+
+  bool isMultiple = selectElement->Multiple();
+  inputContextChoices->SetMultiple(isMultiple);
+  IME_LOGD("HTMLSelectElement: multiple:[%s]", isMultiple ? "true" : "false");
+  nsCOMPtr<nsINodeList> children;
+  children = focusedElement->ChildNodes();
+  for (uint32_t i = 0; i < children->Length(); i++) {
+    nsCOMPtr<nsINode> child = children->Item(i);
+    RefPtr<HTMLOptGroupElement> optGroupElement =
+        HTMLOptGroupElement::FromNodeOrNull(child);
+    RefPtr<HTMLOptionElement> optElement =
+        HTMLOptionElement::FromNodeOrNull(child);
+    if (optGroupElement) {
+      RefPtr<nsInputContextChoicesInfo> groupInfo =
+          new nsInputContextChoicesInfo();
+      groupInfo->SetGroup(true);
+      IME_LOGD("groupInfo: group:[true]");
+      optGroupElement->GetAttribute(u"label"_ns, attributeValue);
+      groupInfo->SetLabel(attributeValue);
+      IME_LOGD("groupInfo: label:[%s]",
+               NS_ConvertUTF16toUTF8(attributeValue).get());
+      groupInfo->SetDisabled(optGroupElement->Disabled());
+      IME_LOGD("groupInfo: disabled:[%s]",
+               optGroupElement->Disabled() ? "true" : "false");
+      choices.AppendElement(groupInfo);
+      nsCOMPtr<nsINodeList> subChildren;
+      subChildren = optGroupElement->ChildNodes();
+      for (uint32_t j = 0; j < subChildren->Length(); j++) {
+        nsCOMPtr<nsINode> subChild = subChildren->Item(j);
+        RefPtr<HTMLOptionElement> subOptElement =
+            HTMLOptionElement::FromNodeOrNull(subChild);
+        if (!subOptElement) {
+          continue;
+        }
+        RefPtr<nsInputContextChoicesInfo> subOptInfo =
+            new nsInputContextChoicesInfo();
+        subOptInfo->SetGroup(false);
+        IME_LOGD("subOptInfo: group:[false]");
+        subOptInfo->SetInGroup(true);
+        IME_LOGD("subOptInfo: inGroup:[true]");
+        subOptElement->GetAttribute(u"label"_ns, attributeValue);
+        subOptInfo->SetLabel(attributeValue);
+        IME_LOGD("subOptInfo: label:[%s]",
+                 NS_ConvertUTF16toUTF8(attributeValue).get());
+        subOptElement->GetAttribute(u"value"_ns, attributeValue);
+        subOptInfo->SetValue(attributeValue);
+        IME_LOGD("subOptInfo: value:[%s]",
+                 NS_ConvertUTF16toUTF8(attributeValue).get());
+        subOptElement->GetText(attributeValue);
+        subOptInfo->SetText(attributeValue);
+        IME_LOGD("subOptInfo: text:[%s]",
+                 NS_ConvertUTF16toUTF8(attributeValue).get());
+        subOptInfo->SetDisabled(subOptElement->Disabled());
+        IME_LOGD("subOptInfo: Disabled:[%s]",
+                 subOptElement->Disabled() ? "true" : "false");
+        subOptInfo->SetSelected(subOptElement->Selected());
+        IME_LOGD("subOptInfo: Selected:[%s]",
+                 subOptElement->Selected() ? "true" : "false");
+        subOptInfo->SetDefaultSelected(subOptElement->DefaultSelected());
+        IME_LOGD("subOptInfo: DefaultSelected:[%s]",
+                 subOptElement->DefaultSelected() ? "true" : "false");
+        int32_t subIndex = subOptElement->Index();
+        subOptInfo->SetOptionIndex(subIndex);
+        IME_LOGD("subOptInfo: optionIndex:[%ld]", subIndex);
+        choices.AppendElement(subOptInfo);
+      }
+    } else if (optElement) {
+      RefPtr<nsInputContextChoicesInfo> optInfo =
+          new nsInputContextChoicesInfo();
+      optInfo->SetGroup(false);
+      IME_LOGD("optInfo: group:[false]");
+      optInfo->SetInGroup(false);
+      IME_LOGD("optInfo: inGroup:[false]");
+      optElement->GetAttribute(u"label"_ns, attributeValue);
+      optInfo->SetLabel(attributeValue);
+      IME_LOGD("optInfo: label:[%s]",
+               NS_ConvertUTF16toUTF8(attributeValue).get());
+      optElement->GetAttribute(u"value"_ns, attributeValue);
+      optInfo->SetValue(attributeValue);
+      IME_LOGD("optInfo: value:[%s]",
+               NS_ConvertUTF16toUTF8(attributeValue).get());
+      optElement->GetText(attributeValue);
+      optInfo->SetText(attributeValue);
+      IME_LOGD("optInfo: text:[%s]",
+               NS_ConvertUTF16toUTF8(attributeValue).get());
+      optInfo->SetDisabled(optElement->Disabled());
+      IME_LOGD("optInfo: Disabled:[%s]",
+               optElement->Disabled() ? "true" : "false");
+      optInfo->SetSelected(optElement->Selected());
+      IME_LOGD("optInfo: Selected:[%s]",
+               optElement->Selected() ? "true" : "false");
+      optInfo->SetDefaultSelected(optElement->DefaultSelected());
+      IME_LOGD("optInfo: DefaultSelected:[%s]",
+               optElement->DefaultSelected() ? "true" : "false");
+      int32_t optionIndex = optElement->Index();
+      optInfo->SetOptionIndex(optionIndex);
+      IME_LOGD("optInfo: optionIndex:[%ld]", optionIndex);
+      choices.AppendElement(optInfo);
+    }
+  }
+  inputContextChoices->SetChoices(choices);
+  aInputContext->SetInputContextChoices(inputContextChoices);
 
   return NS_OK;
 }

@@ -21,8 +21,6 @@ InputMethod::InputMethod(nsIGlobalObject* aGlobal) : mGlobal(aGlobal) {
   MOZ_ASSERT(aGlobal);
 }
 
-InputMethod::~InputMethod() {}
-
 nsresult InputMethod::PermissionCheck() {
   // TODO file bug 103458 to track
   return NS_OK;
@@ -112,6 +110,21 @@ already_AddRefed<Promise> InputMethod::SendKey(const nsAString& aKey) {
   }
 
   return promise.forget();
+}
+
+void InputMethod::SetSelectedOption(int32_t aOptionIndex) {
+  IME_LOGD("-- InputMethod::SetSelectedOption [%ld]", aOptionIndex);
+
+  RefPtr<InputMethodListener> listener = InputMethodListener::Create();
+  listener->SetSelectedOption(aOptionIndex);
+}
+
+void InputMethod::SetSelectedOptions(const nsTArray<int32_t>& aOptionIndexes) {
+  IME_LOGD("-- InputMethod::SetSelectedOptions length:[%d]",
+           aOptionIndexes.Length());
+
+  RefPtr<InputMethodListener> listener = InputMethodListener::Create();
+  listener->SetSelectedOptions(aOptionIndexes);
 }
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(InputMethod, mGlobal)
