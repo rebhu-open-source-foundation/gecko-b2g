@@ -1132,6 +1132,8 @@ GeckoDriver.prototype.execute_ = async function(
     async,
   };
 
+  script = this.importedScripts.concat(script);
+
   if (MarionettePrefs.useActors) {
     return this.getActor().executeScript(script, args, opts);
   }
@@ -1141,7 +1143,6 @@ GeckoDriver.prototype.execute_ = async function(
   switch (this.context) {
     case Context.Chrome:
       let sb = this.sandboxes.get(sandboxName, newSandbox);
-      script = this.importedScripts.concat(script);
       let wargs = evaluate.fromJSON(args, this.curBrowser.seenEls, sb.window);
       res = await evaluate.sandbox(sb, script, wargs, opts);
       els = this.curBrowser.seenEls;
