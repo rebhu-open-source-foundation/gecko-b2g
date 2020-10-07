@@ -7,9 +7,13 @@
 
 #include "base/task.h"                  // for NewRunnableFunction, etc
 #include "base/thread.h"                // for Thread
+#if defined(ANDROID)
+#include "gfxAndroidPlatform.h"
+#endif
 #include "mozilla/gfx/Logging.h"        // for gfxDebug
 #include "mozilla/layers/SharedBufferManagerChild.h"
 #include "mozilla/layers/SharedBufferManagerParent.h"
+#include "mozilla/layers/SynchronousTask.h"
 #include "mozilla/StaticPtr.h"          // for StaticRefPtr
 #include "mozilla/ReentrantMonitor.h"   // for ReentrantMonitor, etc
 #include "transport/runnable_utils.h"
