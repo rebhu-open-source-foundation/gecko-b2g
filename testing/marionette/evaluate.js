@@ -646,7 +646,6 @@ this.Sandboxes = class {
  *     // firstScript and secondScript are prepended to script
  */
 evaluate.ScriptStorage = class extends Set {
-
   /**
    * Produce a string of all stored scripts.
    *
@@ -668,13 +667,11 @@ evaluate.ScriptStorage = class extends Set {
     for (let s of additional) {
       rv = rv + ";" + s;
     }
-    log.info(rv);
+    logger.info(rv);
     return rv;
   }
 
   toJson() {
     return Array.from(this);
   }
-
 };
-
