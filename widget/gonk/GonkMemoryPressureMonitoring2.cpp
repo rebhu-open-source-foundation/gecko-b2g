@@ -37,6 +37,9 @@ class MemoryPressureWatcher final : public nsIRunnable {
 
  public:
   MemoryPressureWatcher() {
+    // Remove the socket if there is, or the address can't be reused.
+    unlink(kKickSocketPath);
+
     struct sockaddr_un addr;
     addr.sun_family = AF_UNIX;
     strncpy(addr.sun_path, kKickSocketPath, sizeof(kKickSocketPath));
