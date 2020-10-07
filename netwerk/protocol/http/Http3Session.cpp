@@ -509,6 +509,8 @@ nsresult Http3Session::ProcessEvents(uint32_t count) {
       default:
         break;
     }
+    // Delete previous content of data
+    data.TruncateLength(0);
     rv = mHttp3Connection->GetEvent(&event, data);
     if (NS_FAILED(rv)) {
       LOG(("Http3Session::ProcessEvents [this=%p] rv=%" PRIx32, this,
@@ -609,7 +611,8 @@ void Http3Session::SetupTimer(uint64_t aTimeout) {
   LOG(("Http3Session::SetupTimer to %" PRIu64 "ms [this=%p].", aTimeout, this));
 
   // Remember the time when the timer should trigger.
-  mTimerShouldTrigger = TimeStamp::Now() + TimeDuration::FromMilliseconds(aTimeout);
+  mTimerShouldTrigger =
+      TimeStamp::Now() + TimeDuration::FromMilliseconds(aTimeout);
 
   if (mTimerActive && mTimer) {
     LOG(
@@ -687,7 +690,6 @@ bool Http3Session::AddStream(nsAHttpTransaction* aHttpTransaction,
     mFirstHttpTransaction = aHttpTransaction->QueryHttpTransaction();
     LOG3(("Http3Session::AddStream first session=%p trans=%p ", this,
           mFirstHttpTransaction.get()));
-
   }
 
   StreamReadyToWrite(stream);
@@ -787,7 +789,7 @@ nsresult Http3Session::TryActivating(
            this, aStream));
       mTransactionsBlockedByStreamLimitCount++;
       if (mQueuedStreams.GetSize() == 0) {
-          mBlockedByStreamLimitCount++;
+        mBlockedByStreamLimitCount++;
       }
       QueueStream(aStream);
     }
@@ -1576,10 +1578,13 @@ void Http3Session::Authenticated(int32_t aError) {
            static_cast<uint32_t>(mError), this));
     }
     mHttp3Connection->PeerAuthenticated(aError);
-  }
 
-  if (mConnection) {
-    Unused << mConnection->ResumeSend();
+    // Call OnQuicTimeoutExpired to properly process neqo events and outputs.
+    // We call OnQuicTimeoutExpired instead of ProcessOutputAndEvents, because
+    // HttpConnectionUDP must close this session in case of an error.
+    NS_DispatchToCurrentThread(NewRunnableMethod(
+        "net::HttpConnectionUDP::OnQuicTimeoutExpired", mSegmentReaderWriter,
+        &HttpConnectionUDP::OnQuicTimeoutExpired));
   }
 }
 

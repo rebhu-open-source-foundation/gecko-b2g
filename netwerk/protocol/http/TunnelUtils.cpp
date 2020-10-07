@@ -1170,8 +1170,6 @@ bool SpdyConnectTransaction::MapStreamToHttpConnection(
     return false;
   }
 
-  mConnInfo = aConnInfo;
-
   mTunnelTransport = new SocketTransportShim(this, aTransport, mIsWebsocket);
   mTunnelStreamIn = new InputStreamShim(this, mIsWebsocket);
   mTunnelStreamOut = new OutputStreamShim(this, mIsWebsocket);
@@ -1220,14 +1218,15 @@ bool SpdyConnectTransaction::MapStreamToHttpConnection(
       gHttpHandler->ConnMgr()->MakeConnectionHandle(mTunneledConn);
   mDrivingTransaction->SetConnection(wrappedConn);
   mDrivingTransaction->MakeSticky();
-  mDrivingTransaction->OnProxyConnectComplete(aHttpResponseCode);
-
-  if (aHttpResponseCode == 407) {
-    mDrivingTransaction->SetFlat407Headers(aFlat407Headers);
-    mDrivingTransaction->SetProxyConnectFailed();
-  }
 
   if (!mIsWebsocket) {
+    mDrivingTransaction->OnProxyConnectComplete(aHttpResponseCode);
+
+    if (aHttpResponseCode == 407) {
+      mDrivingTransaction->SetFlat407Headers(aFlat407Headers);
+      mDrivingTransaction->SetProxyConnectFailed();
+    }
+
     // jump the priority and start the dispatcher
     Unused << gHttpHandler->InitiateTransaction(
         mDrivingTransaction, nsISupportsPriority::PRIORITY_HIGHEST - 60);

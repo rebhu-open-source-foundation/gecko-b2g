@@ -1351,11 +1351,12 @@ class DatabaseConnection final {
   Result<uint32_t, nsresult> GetFreelistCount(
       CachedStatement& aCachedStatement);
 
-  nsresult ReclaimFreePagesWhileIdle(CachedStatement& aFreelistStatement,
-                                     CachedStatement& aRollbackStatement,
-                                     uint32_t aFreelistCount,
-                                     bool aNeedsCheckpoint,
-                                     bool* aFreedSomePages);
+  /**
+   * On success, returns whether some pages were freed.
+   */
+  Result<bool, nsresult> ReclaimFreePagesWhileIdle(
+      CachedStatement& aFreelistStatement, CachedStatement& aRollbackStatement,
+      uint32_t aFreelistCount, bool aNeedsCheckpoint);
 
   Result<int64_t, nsresult> GetFileSize(const nsAString& aPath);
 };
@@ -3724,7 +3725,7 @@ class CreateFileOp final : public DatabaseOp {
  private:
   ~CreateFileOp() override = default;
 
-  nsresult CreateMutableFile(RefPtr<MutableFile>* aMutableFile);
+  mozilla::Result<RefPtr<MutableFile>, nsresult> CreateMutableFile();
 
   nsresult DoDatabaseWork() override;
 
@@ -5206,8 +5207,8 @@ class QuotaClient final : public mozilla::dom::quota::Client {
 
   static void DeleteTimerCallback(nsITimer* aTimer, void* aClosure);
 
-  nsresult GetDirectory(PersistenceType aPersistenceType,
-                        const nsACString& aOrigin, nsIFile** aDirectory);
+  Result<nsCOMPtr<nsIFile>, nsresult> GetDirectory(
+      PersistenceType aPersistenceType, const nsACString& aOrigin);
 
   // The aObsoleteFiles will collect files based on the marker files. For now,
   // InitOrigin() is the only consumer of this argument because it checks those
@@ -7417,20 +7418,22 @@ void DatabaseConnection::DoIdleProcessing(bool aNeedsCheckpoint) {
     mInReadTransaction = false;
   }
 
-  bool freedSomePages = false;
-
-  if (freelistCount) {
-    nsresult rv =
-        ReclaimFreePagesWhileIdle(freelistStmt, rollbackStmt, freelistCount,
-                                  aNeedsCheckpoint, &freedSomePages);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      MOZ_ASSERT(!freedSomePages);
-    }
+  const bool freedSomePages = freelistCount && [this, &freelistStmt,
+                                                &rollbackStmt, freelistCount,
+                                                aNeedsCheckpoint] {
+    // Warn in case of an error, but do not propagate it. Just indicate we
+    // didn't free any pages.
+    IDB_TRY_INSPECT(const bool& res,
+                    ReclaimFreePagesWhileIdle(freelistStmt, rollbackStmt,
+                                              freelistCount, aNeedsCheckpoint),
+                    false);
 
     // Make sure we didn't leave a transaction running.
     MOZ_ASSERT(!mInReadTransaction);
     MOZ_ASSERT(!mInWriteTransaction);
-  }
+
+    return res;
+  }();
 
   // Truncate the WAL if we were asked to or if we managed to free some space.
   if (aNeedsCheckpoint || freedSomePages) {
@@ -7449,14 +7452,13 @@ void DatabaseConnection::DoIdleProcessing(bool aNeedsCheckpoint) {
   }
 }
 
-nsresult DatabaseConnection::ReclaimFreePagesWhileIdle(
+Result<bool, nsresult> DatabaseConnection::ReclaimFreePagesWhileIdle(
     CachedStatement& aFreelistStatement, CachedStatement& aRollbackStatement,
-    uint32_t aFreelistCount, bool aNeedsCheckpoint, bool* aFreedSomePages) {
+    uint32_t aFreelistCount, bool aNeedsCheckpoint) {
   AssertIsOnConnectionThread();
   MOZ_ASSERT(aFreelistStatement);
   MOZ_ASSERT(aRollbackStatement);
   MOZ_ASSERT(aFreelistCount);
-  MOZ_ASSERT(aFreedSomePages);
   MOZ_ASSERT(!mInReadTransaction);
   MOZ_ASSERT(!mInWriteTransaction);
 
@@ -7467,8 +7469,7 @@ nsresult DatabaseConnection::ReclaimFreePagesWhileIdle(
   MOZ_ASSERT(currentThread);
 
   if (NS_HasPendingEvents(currentThread)) {
-    *aFreedSomePages = false;
-    return NS_OK;
+    return false;
   }
 
   // Make all the statements we'll need up front.
@@ -7545,8 +7546,7 @@ nsresult DatabaseConnection::ReclaimFreePagesWhileIdle(
             mInWriteTransaction = false;
           }));
 
-  *aFreedSomePages = freedSomePages;
-  return NS_OK;
+  return freedSomePages;
 }
 
 Result<uint32_t, nsresult> DatabaseConnection::GetFreelistCount(
@@ -13340,13 +13340,11 @@ nsresult QuotaClient::GetUsageForOriginInternal(
     const bool aInitializing, UsageInfo* aUsageInfo) {
   AssertIsOnIOThread();
 
-  nsCOMPtr<nsIFile> directory;
-  nsresult rv =
-      GetDirectory(aPersistenceType, aOrigin, getter_AddRefs(directory));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, IDB_GetDirectory);
-    return rv;
-  }
+  IDB_TRY_INSPECT(
+      const nsCOMPtr<nsIFile>& directory,
+      GetDirectory(aPersistenceType, aOrigin), QM_PROPAGATE, [](const auto&) {
+        REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, IDB_GetDirectory);
+      });
 
   // We need to see if there are any files in the directory already. If they
   // are database files then we need to cleanup stored files (if it's needed)
@@ -13355,8 +13353,8 @@ nsresult QuotaClient::GetUsageForOriginInternal(
   AutoTArray<nsString, 20> subdirsToProcess;
   nsTHashtable<nsStringHashKey> databaseFilenames(20);
   nsTHashtable<nsStringHashKey> obsoleteFilenames;
-  rv = GetDatabaseFilenames(directory, aCanceled, subdirsToProcess,
-                            databaseFilenames, &obsoleteFilenames);
+  nsresult rv = GetDatabaseFilenames(directory, aCanceled, subdirsToProcess,
+                                     databaseFilenames, &obsoleteFilenames);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, IDB_GetDBFilenames);
     return rv;
@@ -13732,25 +13730,20 @@ void QuotaClient::DeleteTimerCallback(nsITimer* aTimer, void* aClosure) {
   self->mPendingDeleteInfos.Clear();
 }
 
-nsresult QuotaClient::GetDirectory(PersistenceType aPersistenceType,
-                                   const nsACString& aOrigin,
-                                   nsIFile** aDirectory) {
+Result<nsCOMPtr<nsIFile>, nsresult> QuotaClient::GetDirectory(
+    PersistenceType aPersistenceType, const nsACString& aOrigin) {
   QuotaManager* const quotaManager = QuotaManager::Get();
   NS_ASSERTION(quotaManager, "This should never fail!");
 
-  IDB_TRY_UNWRAP(auto directory, quotaManager->GetDirectoryForOrigin(
-                                     aPersistenceType, aOrigin));
+  IDB_TRY_INSPECT(const auto& directory, quotaManager->GetDirectoryForOrigin(
+                                             aPersistenceType, aOrigin));
 
   MOZ_ASSERT(directory);
 
-  nsresult rv =
-      directory->Append(NS_LITERAL_STRING_FROM_CSTRING(IDB_DIRECTORY_NAME));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  IDB_TRY(
+      directory->Append(NS_LITERAL_STRING_FROM_CSTRING(IDB_DIRECTORY_NAME)));
 
-  directory.forget(aDirectory);
-  return NS_OK;
+  return directory;
 }
 
 nsresult QuotaClient::GetDatabaseFilenames(
@@ -18932,31 +18925,25 @@ CreateFileOp::CreateFileOp(SafeRefPtr<Database> aDatabase,
   MOZ_ASSERT(aParams.type() == DatabaseRequestParams::TCreateFileParams);
 }
 
-nsresult CreateFileOp::CreateMutableFile(RefPtr<MutableFile>* aMutableFile) {
-  nsCOMPtr<nsIFile> file = (*mFileInfo)->GetFileForFileInfo();
-  if (NS_WARN_IF(!file)) {
-    IDB_REPORT_INTERNAL_ERR();
-    return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
-  }
+Result<RefPtr<MutableFile>, nsresult> CreateFileOp::CreateMutableFile() {
+  const nsCOMPtr<nsIFile> file = (*mFileInfo)->GetFileForFileInfo();
+  IDB_TRY(OkIf(file), Err(NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR),
+          IDB_REPORT_INTERNAL_ERR_LAMBDA);
 
-  RefPtr<MutableFile> mutableFile =
+  const RefPtr<MutableFile> mutableFile =
       MutableFile::Create(file, mDatabase.clonePtr(), mFileInfo->clonePtr());
-  if (NS_WARN_IF(!mutableFile)) {
-    IDB_REPORT_INTERNAL_ERR();
-    return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
-  }
+  IDB_TRY(OkIf(mutableFile), Err(NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR),
+          IDB_REPORT_INTERNAL_ERR_LAMBDA);
 
   // Transfer ownership to IPDL.
   mutableFile->SetActorAlive();
 
-  if (!mDatabase->SendPBackgroundMutableFileConstructor(
-          mutableFile, mParams.name(), mParams.type())) {
-    IDB_REPORT_INTERNAL_ERR();
-    return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
-  }
+  IDB_TRY(OkIf(mDatabase->SendPBackgroundMutableFileConstructor(
+              mutableFile, mParams.name(), mParams.type())),
+          Err(NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR),
+          IDB_REPORT_INTERNAL_ERR_LAMBDA);
 
-  *aMutableFile = std::move(mutableFile);
-  return NS_OK;
+  return mutableFile;
 }
 
 nsresult CreateFileOp::DoDatabaseWork() {
@@ -19036,26 +19023,29 @@ void CreateFileOp::SendResults() {
   MOZ_ASSERT(mState == State::SendingResults);
 
   if (!IsActorDestroyed() && !mDatabase->IsInvalidated()) {
-    DatabaseRequestResponse response;
-
-    if (!HasFailed()) {
-      RefPtr<MutableFile> mutableFile;
-      nsresult rv = CreateMutableFile(&mutableFile);
-      if (NS_SUCCEEDED(rv)) {
-        // We successfully created a mutable file so use its actor as the
-        // success result for this request.
-        CreateFileRequestResponse createResponse;
-        createResponse.mutableFileParent() = mutableFile;
-        response = createResponse;
-      } else {
-        response = ClampResultCode(rv);
-#ifdef DEBUG
-        SetFailureCode(response.get_nsresult());
-#endif
+    const auto response = [this]() -> DatabaseRequestResponse {
+      if (HasFailed()) {
+        return ClampResultCode(ResultCode());
       }
-    } else {
-      response = ClampResultCode(ResultCode());
-    }
+
+      auto res = [this]() -> DatabaseRequestResponse {
+        IDB_TRY_RETURN(
+            CreateMutableFile().andThen(
+                [](const auto& mutableFile)
+                    -> mozilla::Result<CreateFileRequestResponse, nsresult> {
+                  // We successfully created a mutable file so use its actor
+                  // as the success result for this request.
+                  return CreateFileRequestResponse{mutableFile, nullptr};
+                }),
+            ClampResultCode(tryTempError));
+      }();
+#ifdef DEBUG
+      if (res.type() == DatabaseRequestResponse::Tnsresult) {
+        SetFailureCode(res.get_nsresult());
+      }
+#endif
+      return res;
+    }();
 
     Unused << PBackgroundIDBDatabaseRequestParent::Send__delete__(this,
                                                                   response);
