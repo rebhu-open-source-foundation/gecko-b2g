@@ -5,6 +5,7 @@
 
 #ifdef MOZ_WIDGET_GONK
 
+#include "gfxAndroidPlatform.h"
 #include "libyuv.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/gfx/gfxVars.h"
