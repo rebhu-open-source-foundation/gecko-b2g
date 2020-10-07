@@ -4850,7 +4850,7 @@ WifiWorker.prototype = {
   /* eslint-enable complexity */
 
   // nsISettingsObserver
-  observeSettings(aInfo) {
+  observeSetting(aInfo) {
     if (aInfo) {
       let obj = JSON.parse(aInfo.value);
       this.handleSettingsChanged(aInfo.name, obj);
@@ -4865,7 +4865,7 @@ WifiWorker.prototype = {
 
     gSettingsManager.get(aKey, {
       resolve: info => {
-        this.observeSettings(info);
+        this.observeSetting(info);
       },
       reject: () => {
         debug("Get " + aKey + " failed");
@@ -4878,7 +4878,7 @@ WifiWorker.prototype = {
       return;
     }
     if (aValue === null) {
-      aValue = true;
+      return;
     }
 
     debug("Set " + aKey + " settings with value: " + JSON.stringify(aValue));
