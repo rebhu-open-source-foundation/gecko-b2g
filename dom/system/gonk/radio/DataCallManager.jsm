@@ -1678,11 +1678,13 @@ DataCallHandler.prototype = {
       this.debug("updateAllRILNetworkInterface");
     }
 
-    this.dataNetworkInterfaces.forEach(function(networkInterface) {
-      if (networkInterface.enabled) {
-        this.onUpdateRILNetworkInterface(networkInterface);
-      }
-    });
+    this.dataNetworkInterfaces.forEach(
+      function(networkInterface) {
+        if (networkInterface.enabled) {
+          this.onUpdateRILNetworkInterface(networkInterface);
+        }
+      }.bind(this)
+    );
   },
 
   // nsIMobileConnectionListener
