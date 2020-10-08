@@ -807,6 +807,13 @@
     );
   });
 
+  customElements.setElementCreationCallback("web-view", () => {
+    Services.scriptloader.loadSubScript(
+      "chrome://b2g/content/embedding/web-view.js",
+      window
+    );
+  });
+
   // Skip loading any extra custom elements in the extension dummy document
   // and GeckoView windows.
   const loadExtraCustomElements = !(
