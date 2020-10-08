@@ -3235,37 +3235,7 @@ RadioInterface.prototype = {
         }
         break;
       case "getFailCause":
-        if (response.errorMsg == 0) {
-          if (DEBUG) {
-            this.debug(
-              "RILJ: [" +
-                response.rilMessageToken +
-                "] < RIL_REQUEST_LAST_CALL_FAIL_CAUSE Cause = " +
-                response.causeCode
-            );
-          }
-          //this.handleLastCallFailCause(response);
-          // Treat it as CALL_FAIL_ERROR_UNSPECIFIED if the request failed.
-          let failCause =
-            RIL.RIL_CALL_FAILCAUSE_TO_GECKO_CALL_ERROR[
-              RIL.CALL_FAIL_ERROR_UNSPECIFIED
-            ];
-          failCause =
-            RIL.RIL_CALL_FAILCAUSE_TO_GECKO_CALL_ERROR[response.causeCode] ||
-            failCause;
-          if (DEBUG) {
-            this.debug("Last call fail cause: " + failCause);
-          }
-          result.failCause = failCause;
-          result.vendorCause = response.vendorCause;
-        } else if (DEBUG) {
-          this.debug(
-            "RILJ: [" +
-              response.rilMessageToken +
-              "] < RIL_REQUEST_LAST_CALL_FAIL_CAUSE error = " +
-              response.errorMsg
-          );
-        }
+        this._handleLastCallFailCause(response, result);
         break;
       case "explicitCallTransfer":
         if (response.errorMsg == 0) {
@@ -4435,6 +4405,49 @@ RadioInterface.prototype = {
     }
   },
   /* eslint-enable complexity */
+
+  _handleLastCallFailCause(aResponse, aResult) {
+    if (aResponse.errorMsg == 0) {
+      if (DEBUG) {
+        this.debug(
+          "RILJ: [" +
+            aResponse.rilMessageToken +
+            "] < RIL_REQUEST_LAST_CALL_FAIL_CAUSE Cause = " +
+            aResponse.causeCode
+        );
+      }
+      aResult.failCause = this._disconnectCauseFromCode(aResponse.causeCode);
+      aResult.vendorCause = aResponse.vendorCause;
+    } else if (DEBUG) {
+      this.debug(
+        "RILJ: [" +
+          aResponse.rilMessageToken +
+          "] < RIL_REQUEST_LAST_CALL_FAIL_CAUSE error = " +
+          aResponse.errorMsg
+      );
+    }
+  },
+
+  _disconnectCauseFromCode(aCauseCode) {
+    // Treat it as CALL_FAIL_ERROR_UNSPECIFIED if the request failed.
+    let failCause = RIL.GECKO_CALL_ERROR_UNSPECIFIED;
+    failCause =
+      RIL.RIL_CALL_FAILCAUSE_TO_GECKO_CALL_ERROR[aCauseCode] || failCause;
+
+    // Out Of Service case.
+    if (
+      !this.voiceRegistrationState.connected &&
+      (failCause === RIL.GECKO_CALL_ERROR_NORMAL_CALL_CLEARING ||
+        failCause === RIL.GECKO_CALL_ERROR_UNSPECIFIED)
+    ) {
+      failCause = RIL.GECKO_CALL_ERROR_SERVICE_NOT_AVAILABLE;
+    }
+    if (DEBUG) {
+      this.debug("Last call fail cause: " + failCause);
+    }
+
+    return failCause;
+  },
 
   // We combine all of the NETWORK_INFO_MESSAGE_TYPES into one "networkinfochange"
   // message to the RadioInterfaceLayer, so we can avoid sending multiple
