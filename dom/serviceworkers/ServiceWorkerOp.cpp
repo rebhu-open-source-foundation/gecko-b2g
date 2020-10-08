@@ -879,9 +879,7 @@ class SystemMessageEventOp final : public ExtendableEventOp,
     }
     event->SetTrusted(true);
 
-    if (args.messageName().EqualsLiteral("activity")) {
-      StartClearWindowTimer(aWorkerPrivate);
-    }
+    StartClearWindowTimer(aWorkerPrivate);
 
     nsresult rv = DispatchExtendableEventOnWorkerScope(
         aCx, aWorkerPrivate->GlobalScope(), event, this);

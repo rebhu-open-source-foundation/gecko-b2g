@@ -1246,11 +1246,8 @@ class SendSystemMessageEventRunnable final
     }
     event->SetTrusted(true);
 
-    RefPtr<AllowWindowInteractionHandler> allowWindowInteraction;
-    if (mMessageName.EqualsLiteral("activity")) {
-      allowWindowInteraction =
-          new AllowWindowInteractionHandler(aWorkerPrivate);
-    }
+    RefPtr<AllowWindowInteractionHandler> allowWindowInteraction =
+        new AllowWindowInteractionHandler(aWorkerPrivate);
 
     nsresult rv = DispatchExtendableEventOnWorkerScope(
         aCx, aWorkerPrivate->GlobalScope(), event, allowWindowInteraction);
